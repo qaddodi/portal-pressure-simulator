@@ -1,0 +1,1518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Physiologic Portal Hypertension Model (Improved Animation)</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root{
+      --bg-color:#f8f9fa;
+      --card-bg:#ffffff;
+      --text-main:#2d3436;
+      --text-muted:#636e72;
+      --accent-blue:#0984e3;
+      --accent-purple:#6c5ce7;
+      --pipe-wall:#cfd8dc;
+      --pipe-wall-dark:#b0bec5;
+    }
+
+    body{
+      font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color:var(--bg-color);
+      color:var(--text-main);
+      margin:0;
+      padding:20px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+    }
+
+    header{
+      max-width:1100px;
+      width:100%;
+      margin-bottom:16px;
+      border-bottom:2px solid #dfe6e9;
+      padding-bottom:10px;
+    }
+    h1{ margin:0; font-size:1.5rem; }
+    p.subtitle{ margin:6px 0 0; color:var(--text-muted); font-size:0.92rem; }
+
+    .container{
+      display:grid;
+      grid-template-columns:2fr 1fr;
+      gap:20px;
+      max-width:1300px;
+      width:100%;
+      align-items:start;
+    }
+    @media (max-width:900px){
+      .container{ grid-template-columns:1fr; }
+    }
+
+    .left-stack{
+      display:flex;
+      flex-direction:column;
+      gap:18px;
+    }
+
+    .card{
+      background:var(--card-bg);
+      border-radius:14px;
+      box-shadow:0 4px 10px rgba(0,0,0,0.08);
+      padding:18px;
+      position:relative;
+    }
+
+    .chart-card{
+      height:520px;
+      padding:18px 18px 10px 18px;
+    }
+
+    .diagram-card{
+      padding:16px 16px 12px 16px;
+    }
+
+    .diagram-header{
+      display:flex;
+      justify-content:space-between;
+      align-items:baseline;
+      gap:10px;
+      margin-bottom:10px;
+    }
+
+    .diagram-title{
+      font-weight:800;
+      letter-spacing:0.02em;
+      text-transform:uppercase;
+      color:var(--text-muted);
+      font-size:0.82rem;
+    }
+
+    .diagram-legend{
+      font-size:0.84rem;
+      color:var(--text-muted);
+    }
+
+    .controls-card{
+      background:var(--card-bg);
+      border-radius:14px;
+      box-shadow:0 4px 10px rgba(0,0,0,0.08);
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+    }
+
+    .math-concept{
+      background-color:#fff3cd;
+      padding:10px;
+      border-radius:10px;
+      font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size:0.85rem;
+      text-align:center;
+      border:1px solid #ffeeba;
+    }
+
+    .divider{
+      height:1px;
+      background:#eef1f3;
+      margin:2px 0;
+    }
+
+    details{
+      border:1px solid #eef1f3;
+      border-radius:12px;
+      padding:10px 10px 12px 10px;
+      background:#fbfbfd;
+    }
+    details summary{
+      cursor:pointer;
+      font-weight:700;
+      color:var(--text-muted);
+      list-style:none;
+    }
+    details summary::-webkit-details-marker{ display:none; }
+
+    .slider-row{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      margin-top:10px;
+    }
+
+    .slider-top{
+      display:flex;
+      align-items:baseline;
+      justify-content:space-between;
+      gap:10px;
+    }
+
+    .label{
+      font-weight:700;
+      font-size:0.9rem;
+      color:var(--text-main);
+    }
+    .value{
+      font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      color:var(--text-muted);
+      font-size:0.88rem;
+    }
+
+    input[type="range"]{ width:100%; }
+    input[type="checkbox"]{
+      accent-color:var(--accent-blue);
+      margin-right:6px;
+      transform:translateY(1px);
+    }
+
+    .grid-2{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:10px;
+    }
+    @media (max-width:900px){
+      .grid-2{ grid-template-columns:1fr; }
+    }
+
+    .mini-card{
+      border:1px solid #eef1f3;
+      border-radius:12px;
+      padding:10px;
+      background:#fff;
+    }
+    .mini-title{
+      font-size:0.82rem;
+      color:var(--text-muted);
+      font-weight:800;
+      letter-spacing:0.02em;
+      text-transform:uppercase;
+      margin-bottom:6px;
+    }
+    .mini-value{
+      font-size:1.15rem;
+      font-weight:800;
+    }
+    .mini-note{
+      margin-top:6px;
+      font-size:0.85rem;
+      color:var(--text-muted);
+      line-height:1.35;
+    }
+
+    .info-box{
+      background:#fff;
+      border-top:1px solid #eee;
+      margin-top:6px;
+      padding-top:10px;
+      font-size:0.95rem;
+      line-height:1.55;
+    }
+    .info-box h3{ margin:0 0 6px 0; color:var(--accent-blue); font-size:1.05rem; }
+    .muted{ color:var(--text-muted); }
+
+    .pill{
+      display:inline-block;
+      padding:2px 8px;
+      border-radius:999px;
+      background:#eef6ff;
+      color:var(--accent-blue);
+      font-weight:800;
+      font-size:0.8rem;
+      margin-left:6px;
+      vertical-align:baseline;
+    }
+    .pill-red{
+      background:#ffebee;
+      color:#d63031;
+    }
+
+    .kpi-row{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:10px;
+    }
+
+    .small-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+    .small-actions button{
+      flex:1;
+      min-width:160px;
+      text-align:center;
+    }
+
+    button{
+      padding:11px 12px;
+      border:2px solid transparent;
+      border-radius:10px;
+      background-color:#f1f2f6;
+      cursor:pointer;
+      font-weight:700;
+      transition:all 0.2s;
+      user-select:none;
+    }
+    button:hover{ background-color:#dfe6e9; }
+
+    button.subtle{
+      background:#fbfbfd;
+      border:1px dashed #dfe6e9;
+      font-weight:700;
+    }
+    button.subtle.active{
+      border-color:var(--accent-purple);
+      color:var(--accent-purple);
+      background:#f0efff;
+    }
+
+    .footnote{
+      font-size:0.82rem;
+      color:var(--text-muted);
+      line-height:1.35;
+    }
+
+    /* SVG diagram styling */
+    #vesselSvg{
+      width:100%;
+      height:320px;
+      display:block;
+      border-radius:12px;
+      background:#ffffff;
+    }
+
+    .node-label{
+      font-size:12px;
+      font-weight:800;
+      fill:#4b5563;
+    }
+
+    .chip-rect{
+      fill:#ffffff;
+      stroke:#e5e7eb;
+      stroke-width:1;
+    }
+
+    .chip-text{
+      font-size:12px;
+      font-weight:800;
+      fill:#111827;
+      font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    .pipe-outer{
+      fill:none;
+      stroke:var(--pipe-wall);
+      stroke-linecap:round;
+      stroke-linejoin:round;
+      opacity:1;
+    }
+
+    .pipe-inner{
+      fill:none;
+      stroke-linecap:round;
+      stroke-linejoin:round;
+      opacity:0.70;
+    }
+
+    .pipe-flow{
+      fill:none;
+      stroke:rgba(255,255,255,0.92);
+      stroke-linecap:round;
+      stroke-linejoin:round;
+      stroke-dasharray:12 16; /* 12px dash, 16px gap = 28px period */
+      opacity:0.95;
+    }
+    .pipe-inner-static{
+      fill:none;
+      stroke:var(--pipe-wall-dark);
+      stroke-linecap:round;
+      stroke-linejoin:round;
+      opacity:0.70;
+    }
+
+    .liver-box{
+      fill:rgba(148,163,184,0.10);
+      stroke:rgba(148,163,184,0.35);
+      stroke-width:1;
+    }
+
+    .liver-text{
+      font-size:12px;
+      font-weight:900;
+      fill:rgba(100,116,139,0.9);
+      letter-spacing:0.08em;
+    }
+    #sinus-node{
+      display:none;
+    }
+
+    .shunt-label-rect{
+      fill:#ffffff;
+      stroke:#e5e7eb;
+      stroke-width:1;
+      opacity:0.95;
+    }
+
+    .shunt-label-text{
+      font-size:12px;
+      font-weight:900;
+      fill:#111827;
+      font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Physiologic Portal Hypertension Model</h1>
+    <p class="subtitle">Dynamic lumped-parameter network (LPN) with accurate flow physics and compliance.</p>
+  </header>
+
+  <div class="container">
+    <div class="left-stack">
+      <div class="card chart-card">
+        <canvas id="pressureChart"></canvas>
+      </div>
+
+      <div class="card diagram-card">
+        <div class="diagram-header">
+          <div class="diagram-title">Hemodynamic Diagram</div>
+          <div class="diagram-legend">Color = Pressure | Speed = Flow Rate</div>
+        </div>
+
+        <svg id="vesselSvg" viewBox="0 0 1070 320" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <path id="shape-gut-smv" d="M 80 170 C 120 150 140 130 180 120" />
+            <path id="shape-gut-sv" d="M 80 170 C 120 195 140 220 180 240" />
+            <path id="shape-smv-pv"  d="M 220 120 C 260 120 300 140 340 170" />
+            <path id="shape-sv-pv"  d="M 220 240 C 260 240 300 200 340 170" />
+            <path id="shape-rpv-sinus" d="M 420 130 C 445 150 465 180 480 210" />
+            <path id="shape-lpv-sinus" d="M 420 210 C 445 210 460 210 480 210" />
+            <path id="shape-sinus-rhv" d="M 480 210 C 595 190 620 160 650 130" />
+            <path id="shape-sinus-lhv" d="M 480 210 C 595 215 620 215 650 210" />
+            <path id="shape-hv-ivc" d="M 750 170 C 790 170 810 170 850 170" />
+            <path id="shape-ivc-ra" d="M 890 170 C 930 170 950 170 990 170" />
+            <path id="shape-rrv-ivc" d="M 870 250 C 870 230 870 210 870 170" />
+
+            <path id="shape-pv-rpv" d="M 360 170 C 380 150 395 140 420 130" />
+            <path id="shape-pv-lpv" d="M 360 170 C 380 190 395 205 420 210" />
+            <path id="shape-rhv-hv" d="M 650 130 C 680 140 705 155 730 170" />
+            <path id="shape-lhv-hv" d="M 650 210 C 680 200 705 185 730 170" />
+
+            <path id="shape-shunt" d="M 420 130 C 460 60 610 60 650 130" />
+            <path id="shape-shunt-sv-rrv" d="M 200 240 C 360 300 700 300 870 250" />
+          </defs>
+
+          <rect class="liver-box" x="410" y="70" width="240" height="180" rx="18" />
+          <text class="liver-text" x="530" y="160" text-anchor="middle">LIVER</text>
+
+          <g id="pipes">
+            <g>
+              <use href="#shape-gut-smv" class="pipe-outer" id="seg-gut-smv-outer" stroke-width="24" />
+              <use href="#shape-gut-smv" class="pipe-inner" id="seg-gut-smv-inner" stroke-width="18" />
+              <use href="#shape-gut-smv" class="pipe-flow"  id="seg-gut-smv-flow"  stroke-width="4" />
+            </g>
+
+            <g>
+              <use href="#shape-gut-sv" class="pipe-outer" id="seg-gut-sv-outer" stroke-width="24" />
+              <use href="#shape-gut-sv" class="pipe-inner" id="seg-gut-sv-inner" stroke-width="18" />
+              <use href="#shape-gut-sv" class="pipe-flow"  id="seg-gut-sv-flow"  stroke-width="4" />
+            </g>
+
+
+            <g>
+              <use href="#shape-smv-pv" class="pipe-outer" id="seg-smv-pv-outer" stroke-width="24" />
+              <use href="#shape-smv-pv" class="pipe-inner" id="seg-smv-pv-inner" stroke-width="18" />
+              <use href="#shape-smv-pv" class="pipe-flow"  id="seg-smv-pv-flow"  stroke-width="4" />
+            </g>
+
+            <g>
+              <use href="#shape-sv-pv" class="pipe-outer" id="seg-sv-pv-outer" stroke-width="24" />
+              <use href="#shape-sv-pv" class="pipe-inner" id="seg-sv-pv-inner" stroke-width="18" />
+              <use href="#shape-sv-pv" class="pipe-flow"  id="seg-sv-pv-flow"  stroke-width="4" />
+            </g>
+
+
+            <g>
+              <use href="#shape-pv-rpv" class="pipe-outer" id="seg-pv-rpv-outer" stroke-width="18" />
+              <use href="#shape-pv-rpv" class="pipe-inner" id="seg-pv-rpv-inner" stroke-width="12" />
+              <use href="#shape-pv-rpv" class="pipe-flow"  id="seg-pv-rpv-flow"  stroke-width="3" />
+            </g>
+
+            <g>
+              <use href="#shape-pv-lpv" class="pipe-outer" id="seg-pv-lpv-outer" stroke-width="18" />
+              <use href="#shape-pv-lpv" class="pipe-inner" id="seg-pv-lpv-inner" stroke-width="12" />
+              <use href="#shape-pv-lpv" class="pipe-flow"  id="seg-pv-lpv-flow"  stroke-width="3" />
+            </g>
+
+            <g id="sinus-connections">
+              <g>
+                <use href="#shape-rpv-sinus" class="pipe-outer" id="seg-rpv-sinus-outer" stroke-width="20" />
+                <use href="#shape-rpv-sinus" class="pipe-inner" id="seg-rpv-sinus-inner" stroke-width="14" />
+                <use href="#shape-rpv-sinus" class="pipe-flow"  id="seg-rpv-sinus-flow"  stroke-width="3" />
+              </g>
+
+              <g>
+                <use href="#shape-lpv-sinus" class="pipe-outer" id="seg-lpv-sinus-outer" stroke-width="20" />
+                <use href="#shape-lpv-sinus" class="pipe-inner" id="seg-lpv-sinus-inner" stroke-width="14" />
+                <use href="#shape-lpv-sinus" class="pipe-flow"  id="seg-lpv-sinus-flow"  stroke-width="3" />
+              </g>
+
+              <g>
+                <use href="#shape-sinus-rhv" class="pipe-outer" id="seg-sinus-rhv-outer" stroke-width="20" />
+                <use href="#shape-sinus-rhv" class="pipe-inner" id="seg-sinus-rhv-inner" stroke-width="14" />
+                <use href="#shape-sinus-rhv" class="pipe-flow"  id="seg-sinus-rhv-flow"  stroke-width="3" />
+              </g>
+
+              <g>
+                <use href="#shape-sinus-lhv" class="pipe-outer" id="seg-sinus-lhv-outer" stroke-width="20" />
+                <use href="#shape-sinus-lhv" class="pipe-inner" id="seg-sinus-lhv-inner" stroke-width="14" />
+                <use href="#shape-sinus-lhv" class="pipe-flow"  id="seg-sinus-lhv-flow"  stroke-width="3" />
+              </g>
+            </g>
+
+            <g>
+              <use href="#shape-rhv-hv" class="pipe-outer" id="seg-rhv-hv-outer" stroke-width="18" />
+              <use href="#shape-rhv-hv" class="pipe-inner" id="seg-rhv-hv-inner" stroke-width="12" />
+              <use href="#shape-rhv-hv" class="pipe-flow"  id="seg-rhv-hv-flow"  stroke-width="3" />
+            </g>
+
+            <g>
+              <use href="#shape-lhv-hv" class="pipe-outer" id="seg-lhv-hv-outer" stroke-width="18" />
+              <use href="#shape-lhv-hv" class="pipe-inner" id="seg-lhv-hv-inner" stroke-width="12" />
+              <use href="#shape-lhv-hv" class="pipe-flow"  id="seg-lhv-hv-flow"  stroke-width="3" />
+            </g>
+
+            <g>
+              <use href="#shape-hv-ivc" class="pipe-outer" id="seg-hv-ivc-outer" stroke-width="24" />
+              <use href="#shape-hv-ivc" class="pipe-inner" id="seg-hv-ivc-inner" stroke-width="18" />
+              <use href="#shape-hv-ivc" class="pipe-flow"  id="seg-hv-ivc-flow"  stroke-width="4" />
+            </g>
+
+            <g>
+              <use href="#shape-ivc-ra" class="pipe-outer" id="seg-ivc-ra-outer" stroke-width="24" />
+              <use href="#shape-ivc-ra" class="pipe-inner" id="seg-ivc-ra-inner" stroke-width="18" />
+              <use href="#shape-ivc-ra" class="pipe-flow"  id="seg-ivc-ra-flow"  stroke-width="4" />
+            </g>
+
+            <g id="shunt-group" style="display:none;">
+              <use href="#shape-shunt" class="pipe-outer" id="seg-shunt-outer" stroke-width="24" />
+              <use href="#shape-shunt" class="pipe-inner" id="seg-shunt-inner" stroke-width="18" />
+              <use href="#shape-shunt" class="pipe-flow"  id="seg-shunt-flow"  stroke-width="4" />
+            </g>
+
+            <g id="shunt-sv-rrv-group" style="display:none;">
+              <use href="#shape-shunt-sv-rrv" class="pipe-outer" id="seg-shunt-sv-rrv-outer" stroke-width="24" />
+              <use href="#shape-shunt-sv-rrv" class="pipe-inner" id="seg-shunt-sv-rrv-inner" stroke-width="18" />
+              <use href="#shape-shunt-sv-rrv" class="pipe-flow"  id="seg-shunt-sv-rrv-flow"  stroke-width="4" />
+            </g>
+
+            <g id="shunt-rrv-ivc-group">
+              <use href="#shape-rrv-ivc" class="pipe-outer" id="seg-rrv-ivc-outer" stroke-width="24" />
+              <use href="#shape-rrv-ivc" class="pipe-inner" id="seg-rrv-ivc-inner" stroke-width="18" />
+              <use href="#shape-rrv-ivc" class="pipe-flow"  id="seg-rrv-ivc-flow"  stroke-width="4" />
+            </g>
+          </g>
+
+          <g id="nodes">
+            <circle cx="60" cy="170" r="12" fill="#ffffff" stroke="#d1d5db" stroke-width="2" />
+            <text class="node-label" x="60" y="145" text-anchor="middle">Gut/Spleen</text>
+            <g id="chip-gut">
+              <rect class="chip-rect" x="34" y="186" rx="8" ry="8" width="52" height="22"></rect>
+              <text class="chip-text" id="p-gut" x="60" y="202" text-anchor="middle">–</text>
+            </g>
+
+            <circle cx="200" cy="120" r="12" fill="#ffffff" stroke="#d1d5db" stroke-width="2" />
+            <text class="node-label" x="200" y="95" text-anchor="middle">SMV</text>
+            <g id="chip-smv">
+              <rect class="chip-rect" x="174" y="136" rx="8" ry="8" width="52" height="22"></rect>
+              <text class="chip-text" id="p-smv" x="200" y="152" text-anchor="middle">–</text>
+            </g>
+
+            <circle cx="200" cy="240" r="12" fill="#ffffff" stroke="#d1d5db" stroke-width="2" />
+            <text class="node-label" x="200" y="215" text-anchor="middle">SV</text>
+            <g id="chip-sv">
+              <rect class="chip-rect" x="174" y="256" rx="8" ry="8" width="52" height="22"></rect>
+              <text class="chip-text" id="p-sv" x="200" y="272" text-anchor="middle">–</text>
+            </g>
+
+
+            <circle cx="360" cy="170" r="12" fill="#ffffff" stroke="#d1d5db" stroke-width="2" />
+            <text class="node-label" x="360" y="145" text-anchor="middle">PV</text>
+            <g id="chip-pv">
+              <rect class="chip-rect" x="334" y="186" rx="8" ry="8" width="52" height="22"></rect>
+              <text class="chip-text" id="p-pv" x="360" y="202" text-anchor="middle">–</text>
+            </g>
+
+            <circle cx="420" cy="130" r="9" fill="#ffffff" stroke="#d1d5db" stroke-width="2" />
+            <text class="node-label" x="420" y="106" text-anchor="middle">RPV</text>
+            <g id="chip-rpv">
+              <rect class="chip-rect" x="394" y="146" rx="8" ry="8" width="52" height="22"></rect>
+              <text class="chip-text" id="p-rpv" x="420" y="162" text-anchor="middle">–</text>
+            </g>
+
+            <circle cx="420" cy="210" r="9" fill="#ffffff" stroke="#d1d5db" stroke-width="2" />
+            <text class="node-label" x="420" y="238" text-anchor="middle">LPV</text>
+            <g id="chip-lpv">
+              <rect class="chip-rect" x="394" y="226" rx="8" ry="8" width="52" height="22"></rect>
+              <text class="chip-text" id="p-lpv" x="420" y="242" text-anchor="middle">–</text>
+            </g>
+            <text class="node-label" x="420" y="262" text-anchor="middle">LPV</text>
+
+            <g id="sinus-node">
+              <circle cx="480" cy="210" r="12" fill="#ffffff" stroke="#d1d5db" stroke-width="2" />
+              <text class="node-label" x="480" y="238" text-anchor="middle">Sinus</text>
+              <g id="chip-sinus">
+                <rect class="chip-rect" x="454" y="246" rx="8" ry="8" width="52" height="22"></rect>
+                <text class="chip-text" id="p-sinus" x="480" y="262" text-anchor="middle">–</text>
+              </g>
+            </g>
+
+            <circle cx="650" cy="130" r="9" fill="#ffffff" stroke="#d1d5db" stroke-width="2" />
+            <text class="node-label" x="650" y="106" text-anchor="middle">RHV</text>
+            <g id="chip-rhv">
+              <rect class="chip-rect" x="624" y="146" rx="8" ry="8" width="52" height="22"></rect>
+              <text class="chip-text" id="p-rhv" x="650" y="162" text-anchor="middle">–</text>
+            </g>
+
+            <circle cx="650" cy="210" r="9" fill="#ffffff" stroke="#d1d5db" stroke-width="2" />
+            <text class="node-label" x="650" y="238" text-anchor="middle">LHV</text>
+            <g id="chip-lhv">
+              <rect class="chip-rect" x="624" y="226" rx="8" ry="8" width="52" height="22"></rect>
+              <text class="chip-text" id="p-lhv" x="650" y="242" text-anchor="middle">–</text>
+            </g>
+            <text class="node-label" x="650" y="262" text-anchor="middle">LHV</text>
+
+            <circle cx="730" cy="170" r="12" fill="#ffffff" stroke="#d1d5db" stroke-width="2" />
+            <text class="node-label" x="730" y="145" text-anchor="middle">HV</text>
+            <g id="chip-hv">
+              <rect class="chip-rect" x="704" y="186" rx="8" ry="8" width="52" height="22"></rect>
+              <text class="chip-text" id="p-hv" x="730" y="202" text-anchor="middle">–</text>
+            </g>
+
+            <circle cx="870" cy="170" r="12" fill="#ffffff" stroke="#d1d5db" stroke-width="2" />
+            <text class="node-label" x="870" y="145" text-anchor="middle">IVC</text>
+            <g id="chip-ivc">
+              <rect class="chip-rect" x="844" y="186" rx="8" ry="8" width="52" height="22"></rect>
+              <text class="chip-text" id="p-ivc" x="870" y="202" text-anchor="middle">–</text>
+            </g>
+
+            <circle cx="870" cy="250" r="12" fill="#ffffff" stroke="#d1d5db" stroke-width="2" />
+            <text class="node-label" x="895" y="255" text-anchor="start">RRV</text>
+            <g id="chip-rrv">
+              <rect class="chip-rect" x="844" y="266" rx="8" ry="8" width="52" height="22"></rect>
+              <text class="chip-text" id="p-rrv" x="870" y="282" text-anchor="middle">–</text>
+            </g>
+
+            <circle cx="1010" cy="170" r="12" fill="#ffffff" stroke="#d1d5db" stroke-width="2" />
+            <text class="node-label" x="1010" y="145" text-anchor="middle">RA</text>
+            <g id="chip-ra">
+              <rect class="chip-rect" x="984" y="186" rx="8" ry="8" width="52" height="22"></rect>
+              <text class="chip-text" id="p-ra" x="1010" y="202" text-anchor="middle">–</text>
+            </g>
+          </g>
+
+          <g id="shuntLabel" style="display:none;">
+            <rect class="shunt-label-rect" id="shuntLabelRect" x="0" y="0" rx="10" ry="10" width="132" height="26"></rect>
+            <text class="shunt-label-text" id="shuntLabelText" x="0" y="0" text-anchor="middle">TIPS: 0%</text>
+          </g>
+
+          <g id="shuntSvIvcLabel" style="display:none;">
+            <rect class="shunt-label-rect" id="shuntSvIvcLabelRect" x="0" y="0" rx="10" ry="10" width="150" height="26"></rect>
+            <text class="shunt-label-text" id="shuntSvIvcLabelText" x="0" y="0" text-anchor="middle">SV→RRV: 0%</text>
+          </g>
+        </svg>
+
+        <div class="footnote" style="margin-top:10px">
+          <span style="font-weight:700">Physics Engine:</span> Nodes update via C·dP/dt = ΣQin - ΣQout. <br/>
+          Shunt % represents the fraction of blood at the junction diverted from the liver.
+        </div>
+      </div>
+    </div>
+
+    <div class="controls-card">
+      <div class="math-concept">Equation: C<sub>i</sub> · dP<sub>i</sub>/dt = Q<sub>in</sub> - Q<sub>out</sub></div>
+
+      <button onclick="toggleShunt()" id="btn-shunt" class="subtle">Toggle TIPS (RPV→RHV)</button>
+      <button onclick="toggleShuntSvIvc()" id="btn-shunt-sv-ivc" class="subtle">Toggle Spleno-Renal (SV→RRV)</button>
+
+      <details open>
+        <summary>Simulation Parameters</summary>
+
+        <div class="grid-2">
+          <div>
+            <div class="slider-row">
+              <div class="slider-top">
+                <div class="label">Arterial/Gut Driving Pressure</div>
+                <div class="value"><span id="val-q"></span> mmHg</div>
+              </div>
+              <input id="q" type="range" min="2" max="45" step="1" value="30" oninput="syncParams()" />
+            </div>
+
+            <div class="slider-row">
+              <div class="slider-top">
+                <div class="label">R: Gut Inflow (Arteriole/Cap)</div>
+                <div class="value"><span id="val-gut"></span></div>
+              </div>
+              <input id="rGut" type="range" min="0.1" max="2.0" step="0.1" value="0.7" oninput="syncParams()" />
+            </div>
+
+            <div class="slider-row">
+              <div class="slider-top">
+                <div class="label">R: Prehepatic (PV flow)</div>
+                <div class="value"><span id="val-pre"></span></div>
+              </div>
+              <input id="rPre" type="range" min="0.01" max="5" step="0.01" value="0.01" oninput="syncParams()" />
+            </div>
+
+            <div class="slider-row">
+              <div class="slider-top">
+                <div class="label">R: Liver (Total)</div>
+                <div class="value"><span id="val-intra"></span></div>
+              </div>
+              <input id="rIntra" type="range" min="0.1" max="60" step="0.1" value="0.1" oninput="syncParams()" />
+            </div>
+
+            <div class="slider-row">
+              <div class="slider-top">
+                <div class="label">Liver Resistance Site (Pre vs Post)</div>
+                <div class="value"><span id="val-site"></span></div>
+              </div>
+              <input id="site" type="range" min="0" max="1" step="0.05" value="0" oninput="syncParams()" />
+              <div class="footnote" style="margin-top:2px; font-size:0.75rem;">0 = All Sinusoidal/Post, 1 = All Presinusoidal</div>
+            </div>
+          </div>
+          <div>
+            <div class="slider-row">
+              <div class="slider-top">
+                <div class="label">R: Posthepatic (HV outflow)</div>
+                <div class="value"><span id="val-post"></span></div>
+              </div>
+              <input id="rPost" type="range" min="0.01" max="5" step="0.01" value="0.01" oninput="syncParams()" />
+            </div>
+
+             <div class="slider-row">
+              <div class="slider-top">
+                <div class="label">R: IVC Flow</div>
+                <div class="value"><span id="val-ivc"></span></div>
+              </div>
+              <input id="rIVC" type="range" min="0.01" max="5" step="0.01" value="0.01" oninput="syncParams()" />
+            </div>
+
+            <div class="slider-row">
+              <div class="slider-top">
+                <div class="label">Cardiac Capability (1/Function)</div>
+                <div class="value"><span id="val-heart"></span></div>
+              </div>
+              <input id="rHeart" type="range" min="0.1" max="10" step="0.1" value="1" oninput="syncParams()" />
+              <div class="footnote" style="margin-top:2px; font-size:0.75rem;">Higher = Heart Failure (RA rises)</div>
+            </div>
+
+            <div id="shuntControls" style="display:none;">
+              <div class="divider"></div>
+              <div class="slider-row">
+                <div class="slider-top">
+                  <div class="label">TIPS Diameter</div>
+                  <div class="value"><span id="val-shunt"></span> mm</div>
+                </div>
+                <input id="shunt" type="range" min="2" max="12" step="0.5" value="8" oninput="syncParams()" />
+              </div>
+            </div>
+
+            <div id="shuntSvIvcControls" style="display:none;">
+              <div class="divider"></div>
+              <div class="slider-row">
+                <div class="slider-top">
+                  <div class="label">Spleno-Renal Shunt Size</div>
+                  <div class="value"><span id="val-shunt-sv-ivc"></span> arb</div>
+                </div>
+                <input id="shuntSvIvc" type="range" min="1" max="10" step="0.5" value="5" oninput="syncParams()" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="small-actions">
+          <button onclick="resetToBaseline()">Reset Healthy</button>
+          <button onclick="setCirrhosis()">Load Cirrhosis</button>
+        </div>
+
+        <div class="kpi-row">
+          <div class="mini-card">
+            <div class="mini-title">HVPG (Wedged - Free)</div>
+            <div class="mini-value" id="kpi-hvpg">–</div>
+            <div class="mini-note" id="kpi-hvpg-note"></div>
+          </div>
+          <div class="mini-card">
+            <div class="mini-title">Portal Vein Pressure</div>
+            <div class="mini-value" id="kpi-pv">–</div>
+            <div class="mini-note" id="kpi-pv-note"></div>
+          </div>
+        </div>
+      </details>
+
+      <div class="info-box" id="info-content"></div>
+    </div>
+  </div>
+
+  <script>
+    // --- Constants & Config ---
+    const NODE_GUT = 0;
+    const NODE_SMV = 1;
+    const NODE_SV = 2;
+    const NODE_PV = 3;
+    const NODE_RPV = 4;
+    const NODE_LPV = 5;
+    const NODE_SINUS = 6;
+    const NODE_RHV = 7;
+    const NODE_LHV = 8;
+    const NODE_HV = 9;
+    const NODE_IVC = 10;
+    const NODE_RRV = 11;
+    const NODE_RA = 12;
+    const NUM_NODES = 13;
+
+    const NODE_NAMES = [
+      "Gut (Source)",
+      "SMV",
+      "SV",
+      "Portal Vein",
+      "RPV",
+      "LPV",
+      "Sinusoids",
+      "RHV",
+      "LHV",
+      "Hepatic Vein",
+      "IVC",
+      "RRV",
+      "Right Atrium"
+    ];
+    const NODE_X = [
+      0, // Gut
+      1, // SMV
+      1, // SV
+      2, // PV
+      3, // RPV
+      3, // LPV
+      4, // Sinus
+      5, // RHV
+      5, // LHV
+      6, // HV
+      7, // IVC
+      6, // RRV
+      8  // RA
+    ];
+    const X_LABELS = {
+      0: "Gut",
+      1: "SMV/SV",
+      2: "PV",
+      3: "RPV/LPV",
+      4: "Sinus",
+      5: "RHV/LHV",
+      6: "HV/RRV",
+      7: "IVC",
+      8: "RA"
+    };
+
+    // --- Config ---
+    const CONFIG = {
+      initialPreset: 'healthy',
+      presets: {
+        healthy: {
+          pGutSource: 15,
+          rGut: 0.1,
+          rPre: 0.1,
+          rIntra: 0.1,
+          site: 0,
+          rPost: 0.1,
+          rIVC: 0.05,
+          rHeart: 0.5
+        },
+        cirrhosis: {
+          pGutSource: 30,
+          rGut: 0.1,
+          rPre: 0.1,
+          rIntra: 35.0,
+          site: 0,
+          rPost: 0.1,
+          rIVC: 0.1,
+          rHeart: 1
+        }
+      },
+      shunts: {
+        tipsActive: false,
+        tipsDiameter: 8,
+        splenoActive: false,
+        splenoSize: 5
+      }
+    };
+
+    // Simulation State
+    let state = {
+      pressures: [8, 7, 7, 6, 6, 6, 5, 4, 4, 4, 3, 3, 2], // Initial guess
+      t: 0
+    };
+    
+    // Config for Compliance (C) - how "stiff" the nodes are
+    const C = [
+      1.0,  // Gut (Source)
+      2.0,  // SMV
+      2.0,  // SV
+      3.0,  // PV
+      1.0,  // RPV
+      1.0,  // LPV
+      5.0,  // Sinus (Large bed)
+      1.0,  // RHV
+      1.0,  // LHV
+      3.0,  // HV
+      5.0,  // IVC
+      2.0,  // RRV
+      15.0  // RA (Highly compliant)
+    ];
+
+    let animationFrameId = null;
+    let chart = null;
+
+    // --- Inputs & Parameters ---
+    let params = {
+      pGutSource: CONFIG.presets.healthy.pGutSource,
+      pRenalSource: 5,
+      rGut: CONFIG.presets.healthy.rGut,
+      rPre: CONFIG.presets.healthy.rPre,
+      rIntra: CONFIG.presets.healthy.rIntra,
+      site: CONFIG.presets.healthy.site,
+      rPost: CONFIG.presets.healthy.rPost,
+      rIVC: CONFIG.presets.healthy.rIVC,
+      rHeart: CONFIG.presets.healthy.rHeart,
+      
+      shuntTipsActive: CONFIG.shunts.tipsActive,
+      shuntTipsDiameter: CONFIG.shunts.tipsDiameter, // mm
+      
+      shuntSplenoActive: CONFIG.shunts.splenoActive,
+      shuntSplenoSize: CONFIG.shunts.splenoSize
+    };
+
+    function readParams() {
+      params.pGutSource = parseFloat(document.getElementById('q').value);
+      params.rGut = parseFloat(document.getElementById('rGut').value);
+      params.rPre = parseFloat(document.getElementById('rPre').value);
+      params.rIntra = parseFloat(document.getElementById('rIntra').value);
+      params.site = parseFloat(document.getElementById('site').value);
+      params.rPost = parseFloat(document.getElementById('rPost').value);
+      params.rIVC = parseFloat(document.getElementById('rIVC').value);
+      params.rHeart = parseFloat(document.getElementById('rHeart').value);
+      
+      params.shuntTipsDiameter = parseFloat(document.getElementById('shunt').value);
+      params.shuntSplenoSize = parseFloat(document.getElementById('shuntSvIvc').value);
+
+      // UI Update
+      document.getElementById('val-q').textContent = params.pGutSource;
+      document.getElementById('val-gut').textContent = params.rGut.toFixed(1);
+      document.getElementById('val-pre').textContent = params.rPre.toFixed(2);
+      document.getElementById('val-intra').textContent = params.rIntra.toFixed(1);
+      document.getElementById('val-site').textContent = params.site.toFixed(2);
+      document.getElementById('val-post').textContent = params.rPost.toFixed(2);
+      document.getElementById('val-ivc').textContent = params.rIVC.toFixed(2);
+      document.getElementById('val-heart').textContent = params.rHeart.toFixed(1);
+      document.getElementById('val-shunt').textContent = params.shuntTipsDiameter;
+      document.getElementById('val-shunt-sv-ivc').textContent = params.shuntSplenoSize;
+    }
+
+    // --- Physics Engine (The ODE Solver) ---
+    
+    function getTipsResistance(diameter) {
+      if (diameter <= 0) return 10000;
+      const d_base = 8.0; 
+      const r_base = 0.15; 
+      return r_base * Math.pow(d_base / diameter, 4);
+    }
+
+    function stepSimulation(dt) {
+      const R_gut_branch = params.rGut * 2;
+      const R_pre_branch = params.rPre * 2;
+      
+      const R_pv_sinus = Math.max(0.01, params.rIntra * params.site);
+      const R_sinus_hv = Math.max(0.01, params.rIntra * (1 - params.site));
+      const R_pv_branch = R_hv_branch = 0.01;
+      const R_pv_rpv = R_pv_branch;
+      const R_pv_lpv = R_pv_branch;
+      const R_rpv_sinus = Math.max(0.01, R_pv_sinus);
+      const R_lpv_sinus = Math.max(0.01, R_pv_sinus);
+      const R_sinus_rhv = Math.max(0.01, R_sinus_hv);
+      const R_sinus_lhv = Math.max(0.01, R_sinus_hv);
+      const R_rhv_hv = R_hv_branch;
+      const R_lhv_hv = R_hv_branch;
+      
+      const R_hv_ivc = params.rPost;
+      const R_ivc_ra = params.rIVC;
+      const R_heart = params.rHeart;
+      
+      const R_tips = params.shuntTipsActive ? getTipsResistance(params.shuntTipsDiameter) : 100000;
+      const R_spleno = params.shuntSplenoActive ? (2.0 / params.shuntSplenoSize) : 100000;
+      const R_rrv_ivc = 0.01;
+      const R_renal = 1.0;
+
+      const P = state.pressures;
+      const Q = {};
+      
+      // Fix Gut Source
+      P[NODE_GUT] = params.pGutSource; 
+      Q.gut_smv = (P[NODE_GUT] - P[NODE_SMV]) / R_gut_branch;
+      Q.gut_sv = (P[NODE_GUT] - P[NODE_SV]) / R_gut_branch;
+      
+      Q.smv_pv = (P[NODE_SMV] - P[NODE_PV]) / R_pre_branch;
+      Q.sv_pv = (P[NODE_SV] - P[NODE_PV]) / R_pre_branch;
+      Q.sv_rrv = (P[NODE_SV] - P[NODE_RRV]) / R_spleno; // Shunt SV->RRV
+      
+      Q.pv_rpv = (P[NODE_PV] - P[NODE_RPV]) / R_pv_rpv;
+      Q.pv_lpv = (P[NODE_PV] - P[NODE_LPV]) / R_pv_lpv;
+      
+      Q.rpv_sinus = (P[NODE_RPV] - P[NODE_SINUS]) / R_rpv_sinus;
+      Q.lpv_sinus = (P[NODE_LPV] - P[NODE_SINUS]) / R_lpv_sinus;
+      
+      Q.tips = (P[NODE_RPV] - P[NODE_RHV]) / R_tips; // TIPS RPV->RHV
+      
+      Q.sinus_rhv = (P[NODE_SINUS] - P[NODE_RHV]) / R_sinus_rhv;
+      Q.sinus_lhv = (P[NODE_SINUS] - P[NODE_LHV]) / R_sinus_lhv;
+      
+      Q.rhv_hv = (P[NODE_RHV] - P[NODE_HV]) / R_rhv_hv;
+      Q.lhv_hv = (P[NODE_LHV] - P[NODE_HV]) / R_lhv_hv;
+      
+      Q.hv_ivc = (P[NODE_HV] - P[NODE_IVC]) / R_hv_ivc;
+      Q.renal = (params.pRenalSource - P[NODE_RRV]) / R_renal;
+      // Check valve: allow RRV -> IVC only.
+      Q.rrv_ivc = Math.max(0, (P[NODE_RRV] - P[NODE_IVC]) / R_rrv_ivc);
+      
+      Q.ivc_ra = (P[NODE_IVC] - P[NODE_RA]) / R_ivc_ra;
+      
+      Q.heart = Math.max(0, (P[NODE_RA] - 0) / R_heart);
+
+      const dP = new Array(NUM_NODES).fill(0);
+
+      dP[NODE_SMV] = (Q.gut_smv - Q.smv_pv) / C[NODE_SMV];
+      dP[NODE_SV] = (Q.gut_sv - Q.sv_pv - Q.sv_rrv) / C[NODE_SV];
+      dP[NODE_PV] = (Q.smv_pv + Q.sv_pv - Q.pv_rpv - Q.pv_lpv) / C[NODE_PV];
+      dP[NODE_RPV] = (Q.pv_rpv - Q.rpv_sinus - Q.tips) / C[NODE_RPV];
+      dP[NODE_LPV] = (Q.pv_lpv - Q.lpv_sinus) / C[NODE_LPV];
+      dP[NODE_SINUS] = (Q.rpv_sinus + Q.lpv_sinus - Q.sinus_rhv - Q.sinus_lhv) / C[NODE_SINUS];
+      dP[NODE_RHV] = (Q.sinus_rhv + Q.tips - Q.rhv_hv) / C[NODE_RHV];
+      dP[NODE_LHV] = (Q.sinus_lhv - Q.lhv_hv) / C[NODE_LHV];
+      dP[NODE_HV] = (Q.rhv_hv + Q.lhv_hv - Q.hv_ivc) / C[NODE_HV];
+      dP[NODE_IVC] = (Q.hv_ivc + Q.rrv_ivc - Q.ivc_ra) / C[NODE_IVC];
+      dP[NODE_RRV] = (Q.sv_rrv + Q.renal - Q.rrv_ivc) / C[NODE_RRV];
+      dP[NODE_RA] = (Q.ivc_ra - Q.heart) / C[NODE_RA];
+
+      for (let i = 1; i < NUM_NODES; i++) {
+        state.pressures[i] += dP[i] * dt;
+      }
+
+      return Q;
+    }
+
+    // --- Visualization Loop ---
+    let lastTime = 0;
+    
+    function loop(timestamp) {
+      if (!lastTime) lastTime = timestamp;
+      const dt = Math.min((timestamp - lastTime) / 1000, 0.05); 
+      lastTime = timestamp;
+
+      const subSteps = 5;
+      let lastFlows = {};
+      for(let i=0; i<subSteps; i++) {
+         lastFlows = stepSimulation(dt / subSteps);
+      }
+
+      updateUI(state.pressures, lastFlows);
+      
+      animationFrameId = requestAnimationFrame(loop);
+    }
+
+    // --- Rendering ---
+    
+    function pressureToColor(p) {
+      const minP = 0; 
+      const maxP = 25;
+      const t = Math.max(0, Math.min(1, (p - minP) / (maxP - minP)));
+      const hue = 220 - (t * 220); 
+      return `hsl(${hue}, 80%, 50%)`;
+    }
+
+    function syncSinusVisibility() {
+      const sinusNode = document.getElementById('sinus-node');
+      const sinusConnections = document.getElementById('sinus-connections');
+      if (!sinusNode || !sinusConnections) return;
+
+      const style = window.getComputedStyle(sinusNode);
+      const isHidden = style.display === 'none' || style.visibility === 'hidden' || parseFloat(style.opacity) === 0;
+      sinusConnections.style.display = isHidden ? 'none' : '';
+    }
+
+    function updateUI(P, Q) {
+      // 1. Chart
+      chart.data.datasets[0].data = P.map((value, index) => ({
+        x: NODE_X[index],
+        y: value
+      }));
+      chart.options.plugins.connectors.shunts = {
+        tips: params.shuntTipsActive,
+        spleno: params.shuntSplenoActive
+      };
+      const maxP = Math.max(...P);
+      if(maxP > chart.options.scales.y.max || maxP < 15) {
+          chart.options.scales.y.max = Math.max(25, maxP + 5);
+      }
+      chart.update('none');
+
+      // 2. Chip Values
+      document.getElementById('p-gut').textContent = P[NODE_GUT].toFixed(1);
+      document.getElementById('p-smv').textContent = P[NODE_SMV].toFixed(1);
+      document.getElementById('p-sv').textContent = P[NODE_SV].toFixed(1);
+      document.getElementById('p-pv').textContent = P[NODE_PV].toFixed(1);
+      document.getElementById('p-rpv').textContent = P[NODE_RPV].toFixed(1);
+      document.getElementById('p-lpv').textContent = P[NODE_LPV].toFixed(1);
+      document.getElementById('p-sinus').textContent = P[NODE_SINUS].toFixed(1);
+      document.getElementById('p-rhv').textContent = P[NODE_RHV].toFixed(1);
+      document.getElementById('p-lhv').textContent = P[NODE_LHV].toFixed(1);
+      document.getElementById('p-hv').textContent = P[NODE_HV].toFixed(1);
+      document.getElementById('p-ivc').textContent = P[NODE_IVC].toFixed(1);
+      document.getElementById('p-rrv').textContent = P[NODE_RRV].toFixed(1);
+      document.getElementById('p-ra').textContent = P[NODE_RA].toFixed(1);
+
+      // 3. Diagram Pipes
+      updatePipe("gut-smv", P[NODE_GUT], P[NODE_SMV], Q.gut_smv);
+      updatePipe("gut-sv", P[NODE_GUT], P[NODE_SV], Q.gut_sv);
+      updatePipe("smv-pv", P[NODE_SMV], P[NODE_PV], Q.smv_pv);
+      updatePipe("sv-pv", P[NODE_SV], P[NODE_PV], Q.sv_pv);
+      updatePipe("pv-rpv", P[NODE_PV], P[NODE_RPV], Q.pv_rpv);
+      updatePipe("pv-lpv", P[NODE_PV], P[NODE_LPV], Q.pv_lpv);
+      updatePipe("rpv-sinus", P[NODE_RPV], P[NODE_SINUS], Q.rpv_sinus);
+      updatePipe("lpv-sinus", P[NODE_LPV], P[NODE_SINUS], Q.lpv_sinus);
+      updatePipe("sinus-rhv", P[NODE_SINUS], P[NODE_RHV], Q.sinus_rhv);
+      updatePipe("sinus-lhv", P[NODE_SINUS], P[NODE_LHV], Q.sinus_lhv);
+      updatePipe("rhv-hv", P[NODE_RHV], P[NODE_HV], Q.rhv_hv);
+      updatePipe("lhv-hv", P[NODE_LHV], P[NODE_HV], Q.lhv_hv);
+      updatePipe("hv-ivc", P[NODE_HV], P[NODE_IVC], Q.hv_ivc);
+      updatePipe("ivc-ra", P[NODE_IVC], P[NODE_RA], Q.ivc_ra);
+      syncSinusVisibility();
+      
+      // Shunts with percentages
+      
+      // TIPS Percentage (Diversion Fraction): Q_tips / (Q_tips + Q_liver_path)
+      // This represents the fraction of flow at the PV split that chooses the TIPS path.
+      // We use Abs to handle flow reversal visualization correctly.
+      const tipsDiversion = Math.abs(Q.tips) / (Math.abs(Q.tips) + Math.abs(Q.rpv_sinus + Q.lpv_sinus));
+      updateShuntPipe("shunt", P[NODE_RPV], P[NODE_RHV], Q.tips, params.shuntTipsActive, "TIPS", "shuntLabel", tipsDiversion);
+
+      // Spleno-Renal Percentage: Q_shunt / Total_Gut_Inflow
+      const totalGutIn = Q.gut_smv + Q.gut_sv;
+      const splenoFrac = Math.abs(Q.sv_rrv) / (Math.max(0.1, Math.abs(totalGutIn)));
+      updateShuntPipe("shunt-sv-rrv", P[NODE_SV], P[NODE_RRV], Q.sv_rrv, params.shuntSplenoActive, "SV→RRV", "shuntSvIvcLabel", splenoFrac);
+      updatePipe("rrv-ivc", P[NODE_RRV], P[NODE_IVC], Q.rrv_ivc);
+
+      // 4. KPIs
+      const hvpg = P[NODE_SINUS] - P[NODE_HV];
+      const pPV = P[NODE_PV];
+      
+      document.getElementById('kpi-hvpg').textContent = hvpg.toFixed(1) + " mmHg";
+      document.getElementById('kpi-pv').textContent = pPV.toFixed(1) + " mmHg";
+      
+      const kpiHvpgNote = document.getElementById('kpi-hvpg-note');
+      if (hvpg < 5) { kpiHvpgNote.textContent = "Normal"; kpiHvpgNote.style.color = "var(--text-muted)"; }
+      else if (hvpg < 10) { kpiHvpgNote.textContent = "Portal Hypertension"; kpiHvpgNote.style.color = "orange"; }
+      else { kpiHvpgNote.textContent = "Clinically Significant (CSPH)"; kpiHvpgNote.style.color = "#d63031"; }
+
+      const kpiPvNote = document.getElementById('kpi-pv-note');
+      const netPvIn = Q.smv_pv + Q.sv_pv;
+      if (netPvIn < -0.1) { kpiPvNote.innerHTML = "<span class='pill pill-red'>FLOW REVERSAL</span>"; }
+      else { kpiPvNote.textContent = ""; }
+
+      updateInfoBox(P, Q, hvpg);
+    }
+    
+    // Diagram State
+    const pipeState = {}; 
+
+    function updatePipe(key, p1, p2, flow) {
+      if(pipeState[key] === undefined) pipeState[key] = 0;
+      
+      const elOuter = document.getElementById(`seg-${key}-outer`);
+      const elInner = document.getElementById(`seg-${key}-inner`);
+      const elFlow = document.getElementById(`seg-${key}-flow`);
+      
+      if(!elOuter) return;
+
+      const pMean = (p1+p2)/2;
+      const color = pressureToColor(pMean);
+      elInner.setAttribute('stroke', color);
+      
+      // --- ANIMATION CAP FIX ---
+      // We use a base visual speed. 
+      // We CLAMP (Math.min) the visual flow to prevent the "wagon wheel" aliasing effect.
+      // Even if flow is 100, visual speed stops at a value safe for the dasharray/framerate.
+      const MAX_VISUAL_SPEED = 180; // px/sec cap
+      const VISUAL_MULTIPLIER = 25; // Base speed per unit flow
+      
+      const visualFlow = Math.abs(flow);
+      // Logarithmic-like dampening or simple clamp
+      const speed = Math.min(MAX_VISUAL_SPEED, visualFlow * VISUAL_MULTIPLIER); 
+      const direction = Math.sign(flow); 
+      
+      // Update offset
+      // Assuming approx 60fps, dt ~ 0.016
+      pipeState[key] -= speed * 0.016 * direction; 
+      
+      // Keep offset within bounds to prevent float overflow over long run
+      // Dash array is 12+16 = 28.
+      if (pipeState[key] > 2800) pipeState[key] -= 2800;
+      if (pipeState[key] < -2800) pipeState[key] += 2800;
+
+      elFlow.style.strokeDashoffset = pipeState[key];
+      
+      if(Math.abs(flow) < 0.05) {
+        elFlow.style.opacity = 0.2;
+      } else {
+        elFlow.style.opacity = 0.9;
+      }
+    }
+
+    function updateShuntPipe(key, p1, p2, flow, active, labelPrefix, labelId, fraction) {
+      const group = document.getElementById(`${key}-group`);
+      const labelGroup = document.getElementById(labelId);
+      const labelRect = document.getElementById(`${labelId}Rect`);
+      const labelText = document.getElementById(`${labelId}Text`);
+      
+      if(!active) {
+        group.style.display = 'none';
+        labelGroup.style.display = 'none';
+        return;
+      }
+      
+      group.style.display = 'block';
+      labelGroup.style.display = 'block';
+      
+      updatePipe(key, p1, p2, flow);
+
+      let labelX = 0;
+      let labelY = 0;
+      if (key === "shunt") {
+        labelX = 480;
+        labelY = 45;
+      } else if (key === "shunt-sv-rrv") {
+        labelX = 520;
+        labelY = 325;
+      }
+      if (labelRect && labelText) {
+        const rectWidth = parseFloat(labelRect.getAttribute('width')) || 140;
+        const rectHeight = parseFloat(labelRect.getAttribute('height')) || 26;
+        labelRect.setAttribute('x', (labelX - rectWidth / 2).toFixed(1));
+        labelRect.setAttribute('y', (labelY - rectHeight / 2).toFixed(1));
+        labelText.setAttribute('x', labelX.toFixed(1));
+        labelText.setAttribute('y', labelY.toFixed(1));
+        labelText.setAttribute('dominant-baseline', 'middle');
+      }
+      
+      // Update label text with PERCENTAGE
+      const pct = Math.min(100, Math.max(0, fraction * 100)).toFixed(0);
+      labelText.textContent = `${labelPrefix}: ${pct}%`;
+    }
+
+    function updateInfoBox(P, Q, hvpg) {
+      let msg = "";
+      
+      const meanSplanchnic = (P[NODE_SMV] + P[NODE_SV]) / 2;
+      const dP_pre = meanSplanchnic - P[NODE_PV];
+      
+      if (P[NODE_RA] > 10) {
+        msg += "<div><strong>Cardiac/Outflow Dominant:</strong> High RA pressure is backing up the system.</div>";
+      } else if (hvpg > 6 && (hvpg / (P[NODE_PV]-P[NODE_RA]) > 0.5)) {
+        msg += "<div><strong>Intrahepatic Dominant:</strong> Liver sinusoids are the main bottleneck.</div>";
+      } else if (dP_pre > 5) {
+        msg += "<div><strong>Pre-hepatic Dominant:</strong> Blockage between splanchnic veins and PV.</div>";
+      }
+
+      const netSplanchnicToPV = Q.smv_pv + Q.sv_pv;
+      if (netSplanchnicToPV < -0.1) {
+         msg += "<div style='margin-top:8px; color:#d63031; font-weight:700'>⚠️ Hepatofugal Flow Detected</div><div class='muted'>Blood flowing away from liver (PV→splanchnic).</div>";
+      }
+      
+      if (params.shuntTipsActive) {
+         const sinusOut = Math.abs(Q.rhv_hv) + Math.abs(Q.lhv_hv);
+         const stealFrac = Math.abs(Q.tips) / (Math.abs(Q.tips) + Math.max(0.001, sinusOut));
+         if (stealFrac > 0.8) msg += "<div style='margin-top:8px;'><strong>High TIPS Shunt Fraction:</strong> Risk of encephalopathy.</div>";
+      }
+
+      document.getElementById('info-content').innerHTML = msg;
+    }
+
+    // --- Controls ---
+
+    function syncParams() {
+      readParams();
+    }
+
+    function setShuntUI(isActive, btnId, panelId) {
+      const btn = document.getElementById(btnId);
+      const panel = document.getElementById(panelId);
+      if (isActive) {
+        btn.classList.add('active');
+        panel.style.display = 'block';
+      } else {
+        btn.classList.remove('active');
+        panel.style.display = 'none';
+      }
+    }
+
+    function setSliderValue(id, value) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.value = value;
+    }
+
+    function applyPreset(presetKey) {
+      const preset = CONFIG.presets[presetKey];
+      if (!preset) return;
+      setSliderValue('q', preset.pGutSource);
+      setSliderValue('rGut', preset.rGut);
+      setSliderValue('rPre', preset.rPre);
+      setSliderValue('rIntra', preset.rIntra);
+      setSliderValue('site', preset.site);
+      setSliderValue('rPost', preset.rPost);
+      setSliderValue('rIVC', preset.rIVC);
+      setSliderValue('rHeart', preset.rHeart);
+      setSliderValue('shunt', CONFIG.shunts.tipsDiameter);
+      setSliderValue('shuntSvIvc', CONFIG.shunts.splenoSize);
+
+      params.shuntTipsActive = CONFIG.shunts.tipsActive;
+      params.shuntSplenoActive = CONFIG.shunts.splenoActive;
+      setShuntUI(params.shuntTipsActive, 'btn-shunt', 'shuntControls');
+      setShuntUI(params.shuntSplenoActive, 'btn-shunt-sv-ivc', 'shuntSvIvcControls');
+
+      syncParams();
+    }
+
+    function toggleShunt() {
+      params.shuntTipsActive = !params.shuntTipsActive;
+      setShuntUI(params.shuntTipsActive, 'btn-shunt', 'shuntControls');
+      syncParams();
+    }
+
+    function toggleShuntSvIvc() {
+      params.shuntSplenoActive = !params.shuntSplenoActive;
+      setShuntUI(params.shuntSplenoActive, 'btn-shunt-sv-ivc', 'shuntSvIvcControls');
+      syncParams();
+    }
+
+    function setCirrhosis() {
+      applyPreset('cirrhosis');
+    }
+
+    function resetToBaseline() {
+      applyPreset('healthy');
+    }
+
+    // --- Init ---
+    window.addEventListener('load', () => {
+      applyPreset(CONFIG.initialPreset);
+      
+      const ctx = document.getElementById('pressureChart').getContext('2d');
+      const connectorPlugin = {
+        id: 'connectors',
+        afterDatasetsDraw(chart, args, opts) {
+          const dataset = chart.data.datasets[0];
+          if (!dataset || !dataset.data) return;
+
+          const xScale = chart.scales.x;
+          const yScale = chart.scales.y;
+          const ctx = chart.ctx;
+
+          const getPoint = (nodeIndex) => {
+            const point = dataset.data[nodeIndex];
+            if (!point) return null;
+            return {
+              x: xScale.getPixelForValue(point.x),
+              y: yScale.getPixelForValue(point.y)
+            };
+          };
+
+          const drawConnector = (aIndex, bIndex, color) => {
+            const a = getPoint(aIndex);
+            const b = getPoint(bIndex);
+            if (!a || !b) return;
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.stroke();
+            ctx.restore();
+          };
+
+          const drawCurvedConnector = (aIndex, bIndex, color, bendPx) => {
+            const a = getPoint(aIndex);
+            const b = getPoint(bIndex);
+            if (!a || !b) return;
+            const midX = (a.x + b.x) / 2;
+            const midY = (a.y + b.y) / 2 + bendPx;
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.quadraticCurveTo(midX, midY, b.x, b.y);
+            ctx.stroke();
+            ctx.restore();
+          };
+
+          const pairColor = '#b0bec5';
+          const edges = [
+            [NODE_GUT, NODE_SMV],
+            [NODE_GUT, NODE_SV],
+            [NODE_SMV, NODE_PV],
+            [NODE_SV, NODE_PV],
+            [NODE_PV, NODE_RPV],
+            [NODE_PV, NODE_LPV],
+            [NODE_RPV, NODE_SINUS],
+            [NODE_LPV, NODE_SINUS],
+            [NODE_SINUS, NODE_RHV],
+            [NODE_SINUS, NODE_LHV],
+            [NODE_RHV, NODE_HV],
+            [NODE_LHV, NODE_HV],
+            [NODE_HV, NODE_IVC],
+            [NODE_RRV, NODE_IVC],
+            [NODE_IVC, NODE_RA]
+          ];
+          edges.forEach(([from, to]) => drawConnector(from, to, pairColor));
+
+          if (opts && opts.shunts) {
+            if (opts.shunts.tips) {
+              drawCurvedConnector(NODE_RPV, NODE_RHV, '#6c5ce7', 40);
+            }
+            if (opts.shunts.spleno) {
+              drawCurvedConnector(NODE_SV, NODE_RRV, '#6c5ce7', 55);
+            }
+          }
+
+          ctx.save();
+          ctx.fillStyle = '#4b5563';
+          const fontSize = 11;
+          const labelPad = 2;
+          ctx.font = `${fontSize}px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace`;
+          ctx.textBaseline = 'middle';
+          const placedLabels = [];
+
+          const overlaps = (a, b) => (
+            a.x < b.x + b.w &&
+            a.x + a.w > b.x &&
+            a.y < b.y + b.h &&
+            a.y + a.h > b.y
+          );
+
+          const placeLabel = (x, y, text) => {
+            const metrics = ctx.measureText(text);
+            const textW = metrics.width;
+            const candidates = [
+              { dx: 6, dy: -6, align: 'left', line: false },
+              { dx: 12, dy: -18, align: 'left', line: true },
+              { dx: 12, dy: 18, align: 'left', line: true },
+              { dx: -12, dy: -18, align: 'right', line: true },
+              { dx: -12, dy: 18, align: 'right', line: true }
+            ];
+
+            for (let i = 0; i < candidates.length; i += 1) {
+              const c = candidates[i];
+              const labelX = x + c.dx;
+              const labelY = y + c.dy;
+              const rect = {
+                x: c.align === 'right' ? labelX - textW - labelPad : labelX - labelPad,
+                y: labelY - fontSize / 2 - labelPad,
+                w: textW + labelPad * 2,
+                h: fontSize + labelPad * 2
+              };
+              const hit = placedLabels.some((p) => overlaps(rect, p));
+              if (hit) continue;
+
+              if (c.line) {
+                ctx.save();
+                ctx.strokeStyle = '#cbd5f5';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(labelX, labelY);
+                ctx.stroke();
+                ctx.restore();
+              }
+
+              ctx.textAlign = c.align;
+              ctx.fillText(text, labelX, labelY);
+              placedLabels.push(rect);
+              return;
+            }
+
+            ctx.textAlign = 'left';
+            ctx.fillText(text, x + 6, y - 6);
+          };
+
+          dataset.data.forEach((point, index) => {
+            const x = xScale.getPixelForValue(point.x);
+            const y = yScale.getPixelForValue(point.y);
+            placeLabel(x, y, NODE_NAMES[index]);
+          });
+          ctx.restore();
+        }
+      };
+      chart = new Chart(ctx, {
+        type: 'scatter',
+        data: {
+          datasets: [{
+            label: 'Pressure (mmHg)',
+            data: state.pressures.map((value, index) => ({
+              x: NODE_X[index],
+              y: value
+            })),
+            borderColor: '#0984e3',
+            backgroundColor: '#0984e3',
+            borderWidth: 3,
+            parsing: false,
+            tension: 0.3,
+            pointRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false, // controlled by loop
+          plugins: {
+            connectors: {
+              shunts: {
+                tips: false,
+                spleno: false
+              }
+            }
+          },
+          scales: {
+            x: {
+              type: 'linear',
+              min: 0,
+              max: 8,
+              ticks: {
+                stepSize: 1,
+                callback: (value) => X_LABELS[value] || ''
+              }
+            },
+            y: { beginAtZero: true, max: 35, title: {display:true, text:'Pressure (mmHg)'} }
+          }
+        },
+        plugins: [connectorPlugin]
+      });
+
+      animationFrameId = requestAnimationFrame(loop);
+    });
+  </script>
+</body>
+</html>
