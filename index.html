@@ -712,6 +712,14 @@
               <div class="footnote" style="margin-top:2px; font-size:0.75rem;">Lower output elevates RA pressure</div>
             </div>
 
+            <div class="slider-row">
+              <div class="slider-top">
+                <div class="label">Simulation Speed</div>
+                <div class="value"><span id="val-sim-speed"></span>x</div>
+              </div>
+              <input id="simSpeed" type="range" min="0.25" max="10" step="0.25" value="1" oninput="syncParams()" />
+            </div>
+
             <div id="shuntControls" style="display:none;">
               <div class="divider"></div>
               <div class="slider-row">
@@ -877,10 +885,10 @@
           qHeartOut: 5.0
         },
         cirrhosis: {
-          qGutIn: 3.0,
+          qGutIn: 2,
           rGut: 0.1,
           rPre: 0.1,
-          rIntra: 35.0,
+          rIntra: 4.5,
           site: 0,
           rPost: 0.1,
           rIVC: 0.1,
@@ -934,6 +942,7 @@
       rPost: CONFIG.presets.healthy.rPost,
       rIVC: CONFIG.presets.healthy.rIVC,
       qHeartOut: CONFIG.presets.healthy.qHeartOut,
+      simSpeed: 1.0,
       
       shuntTipsActive: CONFIG.shunts.tipsActive,
       shuntTipsDiameter: CONFIG.shunts.tipsDiameter, // mm
@@ -951,6 +960,7 @@
       params.rPost = parseFloat(document.getElementById('rPost').value);
       params.rIVC = parseFloat(document.getElementById('rIVC').value);
       params.qHeartOut = parseFloat(document.getElementById('qHeartOut').value);
+      params.simSpeed = parseFloat(document.getElementById('simSpeed').value);
       
       params.shuntTipsDiameter = parseFloat(document.getElementById('shunt').value);
       params.shuntSplenoSize = parseFloat(document.getElementById('shuntSvIvc').value);
@@ -964,6 +974,7 @@
       document.getElementById('val-post').textContent = params.rPost.toFixed(2);
       document.getElementById('val-ivc').textContent = params.rIVC.toFixed(2);
       document.getElementById('val-heart').textContent = params.qHeartOut.toFixed(1);
+      document.getElementById('val-sim-speed').textContent = params.simSpeed.toFixed(2);
       document.getElementById('val-shunt').textContent = params.shuntTipsDiameter;
       document.getElementById('val-shunt-sv-ivc').textContent = params.shuntSplenoSize;
     }
@@ -1064,13 +1075,15 @@
     
     function loop(timestamp) {
       if (!lastTime) lastTime = timestamp;
-      const dt = Math.min((timestamp - lastTime) / 1000, 0.05); 
+      const baseDt = Math.min((timestamp - lastTime) / 1000, 0.05);
+      const simDt = baseDt * params.simSpeed;
       lastTime = timestamp;
 
-      const subSteps = 5;
+      const subSteps = Math.max(5, Math.ceil(5 * params.simSpeed));
       let lastFlows = {};
+      const stepDt = Math.min(simDt / subSteps, 0.02);
       for(let i=0; i<subSteps; i++) {
-         lastFlows = stepSimulation(dt / subSteps);
+         lastFlows = stepSimulation(stepDt);
       }
 
       updateUI(state.pressures, lastFlows);
