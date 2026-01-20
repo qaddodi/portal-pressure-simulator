@@ -1131,10 +1131,8 @@
       };
       const minP = Math.min(...P);
       const maxP = Math.max(...P);
-      const range = Math.max(5, maxP - minP);
-      const pad = Math.max(2, range * 0.15);
-      chart.options.scales.y.min = Math.floor(minP - pad);
-      chart.options.scales.y.max = Math.ceil(maxP + pad);
+      chart.options.scales.y.min = Math.floor(minP - 1);
+      chart.options.scales.y.max = Math.ceil(maxP + 1);
       chart.update('none');
 
       // 2. Chip Values
@@ -1684,14 +1682,30 @@
           scales: {
             x: {
               type: 'linear',
-              min: 0,
-              max: 8,
+              min: -1,
+              max: 9,
               ticks: {
-                stepSize: 1,
-                callback: (value) => X_LABELS[value] || ''
+                display: false
+              },
+              grid: {
+                drawOnChartArea: false,
+                drawTicks: false
               }
             },
-            y: { title: {display:true, text:'Pressure (mmHg)'} }
+            y: {
+              title: {display:true, text:'Pressure (mmHg)'},
+              ticks: {
+                color: '#111827',
+                font: { weight: '700' }
+              },
+              grid: {
+                display: false
+              },
+              border: {
+                color: '#111827',
+                width: 2
+              }
+            }
           }
         },
         plugins: [connectorPlugin]
