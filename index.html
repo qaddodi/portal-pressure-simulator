@@ -647,10 +647,10 @@
           <div>
             <div class="slider-row">
               <div class="slider-top">
-                <div class="label">Arterial/Gut Driving Pressure</div>
-                <div class="value"><span id="val-q"></span> mmHg</div>
+              <div class="label">Gut Inflow</div>
+                <div class="value"><span id="val-q"></span> L/min</div>
               </div>
-              <input id="q" type="range" min="2" max="45" step="1" value="30" oninput="syncParams()" />
+              <input id="q" type="range" min="0.5" max="6" step="0.1" value="1.6" oninput="syncParams()" />
             </div>
 
             <div class="slider-row">
@@ -705,11 +705,11 @@
 
             <div class="slider-row">
               <div class="slider-top">
-                <div class="label">Cardiac Capability (1/Function)</div>
-                <div class="value"><span id="val-heart"></span></div>
+                <div class="label">Cardiac Output</div>
+                <div class="value"><span id="val-heart"></span> L/min</div>
               </div>
-              <input id="rHeart" type="range" min="0.1" max="10" step="0.1" value="1" oninput="syncParams()" />
-              <div class="footnote" style="margin-top:2px; font-size:0.75rem;">Higher = Heart Failure (RA rises)</div>
+              <input id="qHeartOut" type="range" min="2" max="12" step="0.1" value="5" oninput="syncParams()" />
+              <div class="footnote" style="margin-top:2px; font-size:0.75rem;">Lower output elevates RA pressure</div>
             </div>
 
             <div id="shuntControls" style="display:none;">
@@ -817,30 +817,74 @@
       7: "IVC",
       8: "RA"
     };
+    const LINE_SMV_RPV_RHV = [
+      NODE_GUT,
+      NODE_SMV,
+      NODE_PV,
+      NODE_RPV,
+      NODE_SINUS,
+      NODE_RHV,
+      NODE_HV,
+      NODE_IVC,
+      NODE_RA
+    ];
+    const LINE_SMV_LPV_LHV = [
+      NODE_GUT,
+      NODE_SMV,
+      NODE_PV,
+      NODE_LPV,
+      NODE_SINUS,
+      NODE_LHV,
+      NODE_HV,
+      NODE_IVC,
+      NODE_RA
+    ];
+    const LINE_SV_RPV_RHV = [
+      NODE_GUT,
+      NODE_SV,
+      NODE_PV,
+      NODE_RPV,
+      NODE_SINUS,
+      NODE_RHV,
+      NODE_HV,
+      NODE_IVC,
+      NODE_RA
+    ];
+    const LINE_SV_LPV_LHV = [
+      NODE_GUT,
+      NODE_SV,
+      NODE_PV,
+      NODE_LPV,
+      NODE_SINUS,
+      NODE_LHV,
+      NODE_HV,
+      NODE_IVC,
+      NODE_RA
+    ];
 
     // --- Config ---
     const CONFIG = {
       initialPreset: 'healthy',
       presets: {
         healthy: {
-          pGutSource: 15,
+          qGutIn: 1.6,
           rGut: 0.1,
           rPre: 0.1,
           rIntra: 0.1,
           site: 0,
           rPost: 0.1,
           rIVC: 0.05,
-          rHeart: 0.5
+          qHeartOut: 5.0
         },
         cirrhosis: {
-          pGutSource: 30,
+          qGutIn: 3.0,
           rGut: 0.1,
           rPre: 0.1,
           rIntra: 35.0,
           site: 0,
           rPost: 0.1,
           rIVC: 0.1,
-          rHeart: 1
+          qHeartOut: 7.0
         }
       },
       shunts: {
@@ -878,16 +922,18 @@
     let chart = null;
 
     // --- Inputs & Parameters ---
+    const FLOW_SCALE = 5; // Model flow units per L/min (keeps pressures near prior ranges).
+    const RA_REF = 5; // mmHg reference for mapping CO to heart resistance.
     let params = {
-      pGutSource: CONFIG.presets.healthy.pGutSource,
-      pRenalSource: 5,
+      qGutIn: CONFIG.presets.healthy.qGutIn,
+      pRenalSource: 10,
       rGut: CONFIG.presets.healthy.rGut,
       rPre: CONFIG.presets.healthy.rPre,
       rIntra: CONFIG.presets.healthy.rIntra,
       site: CONFIG.presets.healthy.site,
       rPost: CONFIG.presets.healthy.rPost,
       rIVC: CONFIG.presets.healthy.rIVC,
-      rHeart: CONFIG.presets.healthy.rHeart,
+      qHeartOut: CONFIG.presets.healthy.qHeartOut,
       
       shuntTipsActive: CONFIG.shunts.tipsActive,
       shuntTipsDiameter: CONFIG.shunts.tipsDiameter, // mm
@@ -897,27 +943,27 @@
     };
 
     function readParams() {
-      params.pGutSource = parseFloat(document.getElementById('q').value);
+      params.qGutIn = parseFloat(document.getElementById('q').value);
       params.rGut = parseFloat(document.getElementById('rGut').value);
       params.rPre = parseFloat(document.getElementById('rPre').value);
       params.rIntra = parseFloat(document.getElementById('rIntra').value);
       params.site = parseFloat(document.getElementById('site').value);
       params.rPost = parseFloat(document.getElementById('rPost').value);
       params.rIVC = parseFloat(document.getElementById('rIVC').value);
-      params.rHeart = parseFloat(document.getElementById('rHeart').value);
+      params.qHeartOut = parseFloat(document.getElementById('qHeartOut').value);
       
       params.shuntTipsDiameter = parseFloat(document.getElementById('shunt').value);
       params.shuntSplenoSize = parseFloat(document.getElementById('shuntSvIvc').value);
 
       // UI Update
-      document.getElementById('val-q').textContent = params.pGutSource;
+      document.getElementById('val-q').textContent = params.qGutIn.toFixed(1);
       document.getElementById('val-gut').textContent = params.rGut.toFixed(1);
       document.getElementById('val-pre').textContent = params.rPre.toFixed(2);
       document.getElementById('val-intra').textContent = params.rIntra.toFixed(1);
       document.getElementById('val-site').textContent = params.site.toFixed(2);
       document.getElementById('val-post').textContent = params.rPost.toFixed(2);
       document.getElementById('val-ivc').textContent = params.rIVC.toFixed(2);
-      document.getElementById('val-heart').textContent = params.rHeart.toFixed(1);
+      document.getElementById('val-heart').textContent = params.qHeartOut.toFixed(1);
       document.getElementById('val-shunt').textContent = params.shuntTipsDiameter;
       document.getElementById('val-shunt-sv-ivc').textContent = params.shuntSplenoSize;
     }
@@ -949,7 +995,7 @@
       
       const R_hv_ivc = params.rPost;
       const R_ivc_ra = params.rIVC;
-      const R_heart = params.rHeart;
+      const R_heart = Math.max(0.01, RA_REF / (params.qHeartOut * FLOW_SCALE));
       
       const R_tips = params.shuntTipsActive ? getTipsResistance(params.shuntTipsDiameter) : 100000;
       const R_spleno = params.shuntSplenoActive ? (2.0 / params.shuntSplenoSize) : 100000;
@@ -958,9 +1004,8 @@
 
       const P = state.pressures;
       const Q = {};
-      
-      // Fix Gut Source
-      P[NODE_GUT] = params.pGutSource; 
+      const gutInflow = params.qGutIn * FLOW_SCALE;
+
       Q.gut_smv = (P[NODE_GUT] - P[NODE_SMV]) / R_gut_branch;
       Q.gut_sv = (P[NODE_GUT] - P[NODE_SV]) / R_gut_branch;
       
@@ -993,6 +1038,7 @@
 
       const dP = new Array(NUM_NODES).fill(0);
 
+      dP[NODE_GUT] = (gutInflow - Q.gut_smv - Q.gut_sv) / C[NODE_GUT];
       dP[NODE_SMV] = (Q.gut_smv - Q.smv_pv) / C[NODE_SMV];
       dP[NODE_SV] = (Q.gut_sv - Q.sv_pv - Q.sv_rrv) / C[NODE_SV];
       dP[NODE_PV] = (Q.smv_pv + Q.sv_pv - Q.pv_rpv - Q.pv_lpv) / C[NODE_PV];
@@ -1006,7 +1052,7 @@
       dP[NODE_RRV] = (Q.sv_rrv + Q.renal - Q.rrv_ivc) / C[NODE_RRV];
       dP[NODE_RA] = (Q.ivc_ra - Q.heart) / C[NODE_RA];
 
-      for (let i = 1; i < NUM_NODES; i++) {
+      for (let i = 0; i < NUM_NODES; i++) {
         state.pressures[i] += dP[i] * dt;
       }
 
@@ -1054,18 +1100,41 @@
 
     function updateUI(P, Q) {
       // 1. Chart
-      chart.data.datasets[0].data = P.map((value, index) => ({
+      const allPoints = P.map((value, index) => ({
         x: NODE_X[index],
         y: value
       }));
+      const lineSmvRpvRhvPoints = LINE_SMV_RPV_RHV.map((nodeIndex) => ({
+        x: NODE_X[nodeIndex],
+        y: P[nodeIndex]
+      }));
+      const lineSmvLpvLhvPoints = LINE_SMV_LPV_LHV.map((nodeIndex) => ({
+        x: NODE_X[nodeIndex],
+        y: P[nodeIndex]
+      }));
+      const lineSvRpvRhvPoints = LINE_SV_RPV_RHV.map((nodeIndex) => ({
+        x: NODE_X[nodeIndex],
+        y: P[nodeIndex]
+      }));
+      const lineSvLpvLhvPoints = LINE_SV_LPV_LHV.map((nodeIndex) => ({
+        x: NODE_X[nodeIndex],
+        y: P[nodeIndex]
+      }));
+      chart.data.datasets[0].data = allPoints;
+      chart.data.datasets[1].data = lineSmvRpvRhvPoints;
+      chart.data.datasets[2].data = lineSmvLpvLhvPoints;
+      chart.data.datasets[3].data = lineSvRpvRhvPoints;
+      chart.data.datasets[4].data = lineSvLpvLhvPoints;
       chart.options.plugins.connectors.shunts = {
         tips: params.shuntTipsActive,
         spleno: params.shuntSplenoActive
       };
+      const minP = Math.min(...P);
       const maxP = Math.max(...P);
-      if(maxP > chart.options.scales.y.max || maxP < 15) {
-          chart.options.scales.y.max = Math.max(25, maxP + 5);
-      }
+      const range = Math.max(5, maxP - minP);
+      const pad = Math.max(2, range * 0.15);
+      chart.options.scales.y.min = Math.floor(minP - pad);
+      chart.options.scales.y.max = Math.ceil(maxP + pad);
       chart.update('none');
 
       // 2. Chip Values
@@ -1276,14 +1345,14 @@
     function applyPreset(presetKey) {
       const preset = CONFIG.presets[presetKey];
       if (!preset) return;
-      setSliderValue('q', preset.pGutSource);
+      setSliderValue('q', preset.qGutIn);
       setSliderValue('rGut', preset.rGut);
       setSliderValue('rPre', preset.rPre);
       setSliderValue('rIntra', preset.rIntra);
       setSliderValue('site', preset.site);
       setSliderValue('rPost', preset.rPost);
       setSliderValue('rIVC', preset.rIVC);
-      setSliderValue('rHeart', preset.rHeart);
+      setSliderValue('qHeartOut', preset.qHeartOut);
       setSliderValue('shunt', CONFIG.shunts.tipsDiameter);
       setSliderValue('shuntSvIvc', CONFIG.shunts.splenoSize);
 
@@ -1322,8 +1391,8 @@
       const ctx = document.getElementById('pressureChart').getContext('2d');
       const connectorPlugin = {
         id: 'connectors',
-        afterDatasetsDraw(chart, args, opts) {
-          const dataset = chart.data.datasets[0];
+        beforeDatasetsDraw(chart, args, opts) {
+          const dataset = chart.data.datasets.find((ds) => ds.labelSource);
           if (!dataset || !dataset.data) return;
 
           const xScale = chart.scales.x;
@@ -1345,7 +1414,8 @@
             if (!a || !b) return;
             ctx.save();
             ctx.strokeStyle = color;
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
             ctx.beginPath();
             ctx.moveTo(a.x, a.y);
             ctx.lineTo(b.x, b.y);
@@ -1353,7 +1423,7 @@
             ctx.restore();
           };
 
-          const drawCurvedConnector = (aIndex, bIndex, color, bendPx) => {
+          const drawCurvedConnector = (aIndex, bIndex, color, bendPx, options = {}) => {
             const a = getPoint(aIndex);
             const b = getPoint(bIndex);
             if (!a || !b) return;
@@ -1361,7 +1431,9 @@
             const midY = (a.y + b.y) / 2 + bendPx;
             ctx.save();
             ctx.strokeStyle = color;
-            ctx.lineWidth = 2;
+            ctx.lineWidth = options.lineWidth || 2;
+            ctx.lineCap = 'round';
+            if (options.dash) ctx.setLineDash(options.dash);
             ctx.beginPath();
             ctx.moveTo(a.x, a.y);
             ctx.quadraticCurveTo(midX, midY, b.x, b.y);
@@ -1369,40 +1441,84 @@
             ctx.restore();
           };
 
-          const pairColor = '#b0bec5';
+          const edgeColor = '#00b894';
           const edges = [
-            [NODE_GUT, NODE_SMV],
-            [NODE_GUT, NODE_SV],
-            [NODE_SMV, NODE_PV],
-            [NODE_SV, NODE_PV],
-            [NODE_PV, NODE_RPV],
-            [NODE_PV, NODE_LPV],
-            [NODE_RPV, NODE_SINUS],
-            [NODE_LPV, NODE_SINUS],
-            [NODE_SINUS, NODE_RHV],
-            [NODE_SINUS, NODE_LHV],
-            [NODE_RHV, NODE_HV],
-            [NODE_LHV, NODE_HV],
-            [NODE_HV, NODE_IVC],
             [NODE_RRV, NODE_IVC],
             [NODE_IVC, NODE_RA]
           ];
-          edges.forEach(([from, to]) => drawConnector(from, to, pairColor));
+          edges.forEach(([from, to]) => drawConnector(from, to, edgeColor));
 
           if (opts && opts.shunts) {
             if (opts.shunts.tips) {
-              drawCurvedConnector(NODE_RPV, NODE_RHV, '#6c5ce7', 40);
+              drawCurvedConnector(NODE_RPV, NODE_RHV, '#6c5ce7', 40, { lineWidth: 4, dash: [6, 6] });
             }
             if (opts.shunts.spleno) {
-              drawCurvedConnector(NODE_SV, NODE_RRV, '#6c5ce7', 55);
+              drawCurvedConnector(NODE_SV, NODE_RRV, '#6c5ce7', 55, { lineWidth: 4, dash: [6, 6] });
+            }
+          }
+        },
+        afterDatasetsDraw(chart, args, opts) {
+          const dataset = chart.data.datasets.find((ds) => ds.labelSource);
+          if (!dataset || !dataset.data) return;
+
+          const xScale = chart.scales.x;
+          const yScale = chart.scales.y;
+          const ctx = chart.ctx;
+
+          const getPoint = (nodeIndex) => {
+            const point = dataset.data[nodeIndex];
+            if (!point) return null;
+            return {
+              x: xScale.getPixelForValue(point.x),
+              y: yScale.getPixelForValue(point.y)
+            };
+          };
+
+          const drawShuntLabel = (aIndex, bIndex, bendPx, label, options = {}) => {
+            const a = getPoint(aIndex);
+            const b = getPoint(bIndex);
+            if (!a || !b) return;
+            const midX = (a.x + b.x) / 2;
+            const midY = (a.y + b.y) / 2 + bendPx;
+            const labelOffset = options.labelOffset || { x: 0, y: -6 };
+            const labelX = midX + labelOffset.x;
+            const labelY = midY + labelOffset.y;
+
+            ctx.save();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = '800 12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+            const textMetrics = ctx.measureText(label);
+            const padX = 6;
+            const padY = 3;
+            const boxW = textMetrics.width + padX * 2;
+            const boxH = 12 + padY * 2;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(labelX - boxW / 2, labelY - boxH / 2, boxW, boxH);
+            ctx.fillStyle = '#2d3436';
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+            ctx.strokeText(label, labelX, labelY);
+            ctx.fillText(label, labelX, labelY);
+            ctx.restore();
+          };
+
+          if (opts && opts.shunts) {
+            if (opts.shunts.tips) {
+              drawShuntLabel(NODE_RPV, NODE_RHV, 40, 'TIPS');
+            }
+            if (opts.shunts.spleno) {
+              drawShuntLabel(NODE_SV, NODE_RRV, 55, 'SRS');
             }
           }
 
           ctx.save();
-          ctx.fillStyle = '#4b5563';
-          const fontSize = 11;
+          ctx.fillStyle = '#1f2937';
+          const fontSize = 12;
           const labelPad = 2;
-          ctx.font = `${fontSize}px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace`;
+          ctx.font = `800 ${fontSize}px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace`;
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = 'rgba(255,255,255,0.9)';
           ctx.textBaseline = 'middle';
           const placedLabels = [];
 
@@ -1439,8 +1555,8 @@
 
               if (c.line) {
                 ctx.save();
-                ctx.strokeStyle = '#cbd5f5';
-                ctx.lineWidth = 1;
+                ctx.strokeStyle = '#94a3b8';
+                ctx.lineWidth = 1.5;
                 ctx.beginPath();
                 ctx.moveTo(x, y);
                 ctx.lineTo(labelX, labelY);
@@ -1449,13 +1565,23 @@
               }
 
               ctx.textAlign = c.align;
-              ctx.fillText(text, labelX, labelY);
+              ctx.save();
+              ctx.translate(labelX, labelY);
+              ctx.rotate(-Math.PI / 4);
+              ctx.strokeText(text, 0, 0);
+              ctx.fillText(text, 0, 0);
+              ctx.restore();
               placedLabels.push(rect);
               return;
             }
 
             ctx.textAlign = 'left';
-            ctx.fillText(text, x + 6, y - 6);
+            ctx.save();
+            ctx.translate(x + 6, y - 6);
+            ctx.rotate(-Math.PI / 4);
+            ctx.strokeText(text, 0, 0);
+            ctx.fillText(text, 0, 0);
+            ctx.restore();
           };
 
           dataset.data.forEach((point, index) => {
@@ -1470,17 +1596,74 @@
         type: 'scatter',
         data: {
           datasets: [{
-            label: 'Pressure (mmHg)',
+            label: 'Nodes',
             data: state.pressures.map((value, index) => ({
               x: NODE_X[index],
               y: value
             })),
-            borderColor: '#0984e3',
-            backgroundColor: '#0984e3',
-            borderWidth: 3,
+            labelSource: true,
+            borderColor: '#00b894',
+            backgroundColor: '#ffffff',
+            borderWidth: 2,
+            showLine: false,
             parsing: false,
-            tension: 0.3,
-            pointRadius: 4
+            pointRadius: 5
+          }, {
+            label: 'Pressure (mmHg)',
+            data: LINE_SMV_RPV_RHV.map((nodeIndex) => ({
+              x: NODE_X[nodeIndex],
+              y: state.pressures[nodeIndex]
+            })),
+            showLine: true,
+            cubicInterpolationMode: 'monotone',
+            borderColor: '#00b894',
+            backgroundColor: '#00b894',
+            borderWidth: 4,
+            parsing: false,
+            tension: 0.5,
+            pointRadius: 0
+          }, {
+            label: 'Pressure (mmHg)',
+            data: LINE_SMV_LPV_LHV.map((nodeIndex) => ({
+              x: NODE_X[nodeIndex],
+              y: state.pressures[nodeIndex]
+            })),
+            showLine: true,
+            cubicInterpolationMode: 'monotone',
+            borderColor: '#00b894',
+            backgroundColor: '#00b894',
+            borderWidth: 4,
+            parsing: false,
+            tension: 0.5,
+            pointRadius: 0
+          }, {
+            label: 'Pressure (mmHg)',
+            data: LINE_SV_RPV_RHV.map((nodeIndex) => ({
+              x: NODE_X[nodeIndex],
+              y: state.pressures[nodeIndex]
+            })),
+            showLine: true,
+            cubicInterpolationMode: 'monotone',
+            borderColor: '#00b894',
+            backgroundColor: '#00b894',
+            borderWidth: 4,
+            parsing: false,
+            tension: 0.5,
+            pointRadius: 0
+          }, {
+            label: 'Pressure (mmHg)',
+            data: LINE_SV_LPV_LHV.map((nodeIndex) => ({
+              x: NODE_X[nodeIndex],
+              y: state.pressures[nodeIndex]
+            })),
+            showLine: true,
+            cubicInterpolationMode: 'monotone',
+            borderColor: '#00b894',
+            backgroundColor: '#00b894',
+            borderWidth: 4,
+            parsing: false,
+            tension: 0.5,
+            pointRadius: 0
           }]
         },
         options: {
@@ -1488,6 +1671,9 @@
           maintainAspectRatio: false,
           animation: false, // controlled by loop
           plugins: {
+            legend: {
+              display: false
+            },
             connectors: {
               shunts: {
                 tips: false,
@@ -1505,7 +1691,7 @@
                 callback: (value) => X_LABELS[value] || ''
               }
             },
-            y: { beginAtZero: true, max: 35, title: {display:true, text:'Pressure (mmHg)'} }
+            y: { title: {display:true, text:'Pressure (mmHg)'} }
           }
         },
         plugins: [connectorPlugin]
