@@ -45,9 +45,9 @@ export function pressureColor(p) {
   return LUT[i];
 }
 
-export function gradientCss(dir = 'to top') {
+export function gradientCss(dir = 'to top', max = LUT_MAX) {
   const parts = [];
-  for (let p = 0; p <= LUT_MAX; p += 2.5) parts.push(`${pressureColor(p)} ${(p / LUT_MAX) * 100}%`);
+  for (let p = 0; p <= max; p += 2.5) parts.push(`${pressureColor(p)} ${(p / max) * 100}%`);
   return `linear-gradient(${dir}, ${parts.join(', ')})`;
 }
 

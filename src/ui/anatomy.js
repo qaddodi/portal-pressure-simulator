@@ -156,27 +156,51 @@ export const CIRCUIT_PATH = {
   A_HEP: 'M90 480 C 200 360 500 300 640 300',
 };
 
-// Organ artwork (anatomic view only). Colors come from CSS tokens.
+// Organ artwork (anatomic view only). Colors come from CSS tokens; `deco` shapes are texture only.
 export const ORGANS = [
-  { id: 'torso', cls: 'org-body', d: 'M430 12 C 380 55 336 130 330 260 C 322 420 330 540 342 650 C 356 780 372 900 410 995 L 990 995 C 1030 900 1048 780 1060 650 C 1072 540 1080 420 1072 260 C 1064 130 1020 55 970 12 Z' },
-  { id: 'lung-r', cls: 'org-lung', d: 'M350 250 C 352 150 400 70 520 58 C 580 55 605 90 612 140 L 620 245 C 540 215 440 215 350 250 Z' },
-  { id: 'lung-l', cls: 'org-lung', d: 'M1052 250 C 1050 150 1002 70 882 58 C 830 55 800 88 795 130 L 790 245 C 870 215 960 215 1052 250 Z' },
-  { id: 'heart', cls: 'org-heart', d: 'M612 150 C 620 112 692 100 735 128 C 786 160 796 222 745 252 C 705 276 642 262 620 232 C 600 205 602 175 612 150 Z' },
-  { id: 'diaphragm', cls: 'org-diaphragm', d: 'M338 262 C 450 205 585 232 660 256 C 740 232 900 205 1062 262', stroke: true },
-  { id: 'esophagus', cls: 'org-eso', d: 'M698 18 L 712 18 L 718 250 C 730 280 760 298 780 305 L 772 318 C 745 310 712 290 704 256 Z' },
-  { id: 'liver', cls: 'org-liver', d: 'M345 305 C 360 255 470 244 600 258 C 700 266 805 272 852 300 C 874 318 850 342 804 356 C 762 380 702 420 642 470 C 580 520 470 544 400 522 C 350 504 330 420 345 305 Z' },
+  { id: 'torso', cls: 'org-body', d: 'M612 6 C 612 40 604 62 580 74 C 520 96 420 104 372 136 C 342 158 334 200 334 260 C 330 400 336 520 350 640 C 362 760 368 880 392 998 L 1008 998 C 1032 880 1038 760 1050 640 C 1064 520 1070 400 1066 260 C 1066 200 1058 158 1028 136 C 980 104 880 96 820 74 C 796 62 788 40 788 6 Z' },
+  { id: 'lung-r', cls: 'org org-lung', d: 'M352 262 C 350 190 372 130 440 112 C 500 98 560 104 586 130 C 606 152 612 190 616 248 C 540 222 440 224 352 262 Z' },
+  { id: 'lung-l', cls: 'org org-lung', d: 'M1048 262 C 1050 190 1028 130 960 112 C 900 98 840 104 814 130 C 794 152 788 190 784 248 C 860 222 960 224 1048 262 Z' },
+  { id: 'heart', cls: 'org org-heart', d: 'M612 150 C 620 112 692 100 735 128 C 786 160 796 222 745 252 C 705 276 642 262 620 232 C 600 205 602 175 612 150 Z' },
+  { id: 'diaphragm', cls: 'org-diaphragm', d: 'M340 262 C 450 205 585 232 660 256 C 740 232 900 205 1060 262', stroke: true },
+  { id: 'esophagus', cls: 'org org-eso', d: 'M698 18 L 712 18 L 718 250 C 730 280 760 298 780 305 L 772 318 C 745 310 712 290 704 256 Z' },
+  { id: 'liver', cls: 'org org-liver', d: 'M345 305 C 360 255 470 244 600 258 C 700 266 805 272 852 300 C 874 318 850 342 804 356 C 762 380 702 420 642 470 C 580 520 470 544 400 522 C 350 504 330 420 345 305 Z' },
+  { id: 'falciform', cls: 'org-lobe-line', deco: true, d: 'M648 262 C 642 320 636 400 640 470' },
   { id: 'caudate', cls: 'org-caudate', d: 'M618 392 C 632 378 652 380 656 398 C 660 420 646 440 628 436 C 612 432 608 404 618 392 Z' },
-  { id: 'gallbladder', cls: 'org-gb', d: 'M548 496 C 556 480 578 482 582 498 C 586 516 572 534 560 530 C 548 526 542 508 548 496 Z' },
-  { id: 'stomach', cls: 'org-stomach', d: 'M772 318 C 800 268 900 250 935 300 C 968 350 966 425 935 465 C 902 505 828 505 780 478 C 762 468 752 460 746 452 C 772 440 822 452 860 432 C 892 412 890 356 852 334 C 822 318 792 322 772 318 Z' },
-  { id: 'spleen', cls: 'org-spleen', ellipse: [1010, 345, 42, 78, 18] },
-  { id: 'pancreas', cls: 'org-pancreas', d: 'M690 556 C 760 530 850 520 930 500 C 982 488 1012 470 1032 458 C 1040 478 1012 502 962 522 C 880 550 780 578 700 584 Z' },
-  { id: 'kidney-r', cls: 'org-kidney', d: 'M492 600 C 520 590 548 610 548 648 C 548 690 520 710 494 700 C 478 694 485 670 500 662 C 486 650 478 612 492 600 Z' },
-  { id: 'kidney-l', cls: 'org-kidney', d: 'M928 600 C 900 590 872 610 872 648 C 872 690 900 710 926 700 C 942 694 935 670 920 662 C 934 650 942 612 928 600 Z' },
+  { id: 'gallbladder', cls: 'org org-gb', d: 'M548 496 C 556 480 578 482 582 498 C 586 516 572 534 560 530 C 548 526 542 508 548 496 Z' },
+  { id: 'stomach', cls: 'org org-stomach', d: 'M772 318 C 800 268 900 250 935 300 C 968 350 966 425 935 465 C 902 505 828 505 780 478 C 762 468 752 460 746 452 C 772 440 822 452 860 432 C 892 412 890 356 852 334 C 822 318 792 322 772 318 Z' },
+  { id: 'spleen', cls: 'org org-spleen', d: 'M1000 268 C 1040 262 1062 300 1058 350 C 1054 400 1036 428 1004 424 C 984 421 990 398 996 380 C 1002 360 984 350 978 330 C 970 300 972 272 1000 268 Z' },
+  { id: 'pancreas', cls: 'org org-pancreas', d: 'M690 556 C 760 530 850 520 930 500 C 982 488 1012 470 1032 458 C 1040 478 1012 502 962 522 C 880 550 780 578 700 584 Z' },
+  { id: 'kidney-r', cls: 'org org-kidney', d: 'M492 600 C 520 590 548 610 548 648 C 548 690 520 710 494 700 C 478 694 485 670 500 662 C 486 650 478 612 492 600 Z' },
+  { id: 'kidney-l', cls: 'org org-kidney', d: 'M928 600 C 900 590 872 610 872 648 C 872 690 900 710 926 700 C 942 694 935 670 920 662 C 934 650 942 612 928 600 Z' },
   { id: 'colon', cls: 'org-colon', d: 'M470 890 L 458 640 C 466 600 520 592 560 602 L 900 592 C 950 590 972 620 966 662 L 960 860 C 955 900 900 930 820 930 C 760 930 725 942 705 965', stroke: true },
-  { id: 'bowel', cls: 'org-bowel', d: 'M575 700 C 600 675 700 668 800 672 C 870 676 890 720 880 780 C 875 850 850 895 760 905 C 660 912 590 895 572 840 C 560 790 555 725 575 700 Z' },
-  { id: 'rectum', cls: 'org-rectum', d: 'M690 930 C 700 915 725 915 732 932 L 728 990 L 694 990 Z' },
+  { id: 'colon-h', cls: 'org-colon-haustra', deco: true, d: 'M470 890 L 458 640 C 466 600 520 592 560 602 L 900 592 C 950 590 972 620 966 662 L 960 860 C 955 900 900 930 820 930 C 760 930 725 942 705 965' },
+  { id: 'bowel', cls: 'org org-bowel', d: 'M575 700 C 600 675 700 668 800 672 C 870 676 890 720 880 780 C 875 850 850 895 760 905 C 660 912 590 895 572 840 C 560 790 555 725 575 700 Z' },
+  { id: 'bowel-loops', cls: 'org-bowel-loops', deco: true, d: 'M596 722 C 632 700 668 742 708 718 C 748 694 792 736 846 708 M588 782 C 628 760 668 802 716 778 C 764 754 812 796 866 770 M600 842 C 642 820 690 862 738 838 C 786 814 822 852 856 832' },
+  { id: 'rectum', cls: 'org org-rectum', d: 'M690 930 C 700 915 725 915 732 932 L 728 990 L 694 990 Z' },
   { id: 'umbilicus', cls: 'org-umbilicus', circle: [600, 748, 7] },
 ];
+
+// Organ captions: [text, x, y, anchor]
+export const ORGAN_LABELS = [
+  ['Liver', 392, 492, 'start'], ['Stomach', 902, 446, 'middle'], ['Spleen', 1016, 452, 'middle'], ['Heart', 760, 240, 'middle'],
+  ['Small bowel', 728, 888, 'middle'], ['Kidney', 520, 734, 'middle'], ['Kidney', 900, 734, 'middle'], ['Pancreas', 902, 580, 'middle'],
+  ['Esophagus', 724, 44, 'start'], ['Colon', 986, 770, 'start'],
+];
+
+// Atlas labels: node → caption and which margin column it hangs from.
+export const ATLAS_LABELS = {
+  RA: { name: 'Right atrium', side: 'L' },
+  IVCS: { name: 'Inferior vena cava', side: 'L' },
+  RHV: { name: 'Hepatic vein (FHVP)', side: 'L' },
+  SIN_R: { name: 'Sinusoids', side: 'L' },
+  W_R: { name: 'Wedged catheter (R)', side: 'L' }, W_M: { name: 'Wedged catheter (M)', side: 'L' }, W_L: { name: 'Wedged catheter (L)', side: 'L' },
+  VAR: { name: 'Esophageal varices', side: 'R' },
+  GV: { name: 'Fundal varices', side: 'R' },
+  CONF: { name: 'Portal vein', side: 'R' },
+  SV: { name: 'Splenic vein', side: 'R' },
+  SMV: { name: 'Sup. mesenteric vein', side: 'R' },
+};
 
 export const LOBULE_ZONES = { R: [345, 250, 640, 540], L: [640, 250, 860, 480] };
 export const LIVER_SPLIT_X = 640;

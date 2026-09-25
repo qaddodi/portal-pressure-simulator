@@ -4,7 +4,8 @@
 import { NODES, EDGES } from '../engine/topology.js';
 import { pressureColor } from './colormap.js';
 import { store, updateParams } from './store.js';
-import { h, fmt, fitCanvas, cssVar, clamp, toast } from './util.js';
+import { h, fmt, fitCanvas, cssVar, clamp, toast, icon } from './util.js';
+import { FONT } from './charts.js';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -15,19 +16,19 @@ export function createHVPG() {
   const box = h('div', { class: 'chart-box' });
   const cv = h('canvas', { role: 'img', 'aria-label': 'Catheter pressure trace' });
   box.append(cv);
-  const status = h('div', { class: 'note' });
+  const status = h('div', { class: 'callout-note' });
   const readout = h('dl', { class: 'kv' });
   const table = h('div', { class: 'event-log' });
-  const veinBtns = h('div', { class: 'btn-row' }, ['R', 'M', 'L'].map((v) => h('button', { class: 'btn', 'data-v': v, onclick: () => updateParams({ catheter: { vein: v, wedged: false } }, { label: 'Catheter placed' }) }, `${v}HV`)));
-  const wedgeBtn = h('button', { class: 'btn primary' }, 'Inflate balloon (wedge)');
-  const removeBtn = h('button', { class: 'btn' }, 'Remove catheter');
+  const veinBtns = h('div', {}, ['R', 'M', 'L'].map((v) => h('button', { 'data-v': v, onclick: () => updateParams({ catheter: { vein: v, wedged: false } }, { label: 'Catheter placed' }) }, `${v}HV`)));
+  const wedgeBtn = h('button', { class: 'btn primary' }, 'Inflate balloon');
+  const removeBtn = h('button', { class: 'btn ghost' }, 'Remove');
   wedgeBtn.addEventListener('click', () => {
     const c = store.get().params.catheter;
     if (!c.vein) return toast('Place the catheter in a hepatic vein first.');
     updateParams({ catheter: { vein: c.vein, wedged: !c.wedged } }, { label: c.wedged ? 'Deflate balloon' : 'Wedge catheter' });
   });
   removeBtn.addEventListener('click', () => updateParams({ catheter: { vein: null, wedged: false } }, { label: 'Remove catheter' }));
-  const side = h('div', { class: 'chart-side', style: { width: '270px' } }, h('label', {}, 'Transjugular HVPG'), status, veinBtns, h('div', { class: 'btn-row' }, wedgeBtn, removeBtn), readout, h('label', {}, 'Measurements'), table);
+  const side = h('div', { class: 'chart-side', style: { width: '284px' } }, h('div', { class: 'side-title' }, 'Transjugular HVPG'), status, h('div', { class: 'seg full' }, [...veinBtns.children]), h('div', { class: 'btn-row' }, wedgeBtn, removeBtn), readout, h('div', { class: 'side-label' }, 'Measurements'), table);
   el.append(box, side);
   const trace = [];
   let fhvp = null, whvp = null, wedgeStart = null;
@@ -39,9 +40,10 @@ export function createHVPG() {
     const now = f.t;
     if (c.vein) {
       const v = c.wedged ? m.measured?.whvp : m.measured?.fhvp;
-      trace.push([now, v, c.wedged]);
+      if (Number.isFinite(v)) trace.push([now, v, c.wedged]);
       while (trace.length && trace[0][0] < now - 60) trace.shift();
-      if (!c.wedged) { fhvp = m.measured.fhvp; wedgeStart = null; }
+      if (!m.measured) { /* engine hasn't seen the catheter yet */ }
+      else if (!c.wedged) { fhvp = m.measured.fhvp; wedgeStart = null; }
       else {
         if (wedgeStart == null) wedgeStart = now;
         const recent = trace.filter((p) => p[2] && p[0] > now - 6).map((p) => p[1]);
@@ -56,8 +58,8 @@ export function createHVPG() {
     status.textContent = !c.vein ? 'Choose a hepatic vein. Or use the Catheter tool on the anatomy.'
       : !c.wedged ? `Catheter free in the ${c.vein}HV: reading free hepatic venous pressure (FHVP). Now inflate the balloon.`
         : wedgeStart != null && now - wedgeStart < 12 ? 'Balloon inflated: the column is stagnant and pressure is equilibrating with the sinusoids…' : 'Wedged pressure plateau reached.';
-    wedgeBtn.textContent = c.wedged ? 'Deflate balloon' : 'Inflate balloon (wedge)';
-    veinBtns.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === c.vein)));
+    wedgeBtn.textContent = c.wedged ? 'Deflate balloon' : 'Inflate balloon';
+    side.querySelectorAll('button[data-v]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === c.vein)));
     const hidden = store.get().hiddenReadouts?.has('trueHVPG');
     readout.replaceChildren(
       h('dt', {}, 'FHVP'), h('dd', {}, fhvp != null && c.vein ? `${fmt(fhvp, 1)} mmHg` : '—'),
@@ -72,22 +74,25 @@ export function createHVPG() {
   function draw() {
     const { ctx, w, h: hh } = fitCanvas(cv);
     ctx.clearRect(0, 0, w, hh);
-    const L = 40, B = 22, T = 10, R = 10;
-    ctx.font = '11px Inter, sans-serif';
-    if (trace.length < 2) { ctx.fillStyle = cssVar('--text-muted'); ctx.fillText('No catheter trace yet.', L, 30); return; }
+    const L = 36, B = 22, T = 10, R = 12;
+    ctx.font = FONT(500, 11);
+    if (trace.length < 2) { ctx.fillStyle = cssVar('--text-3'); ctx.fillText('No catheter in place. Choose a hepatic vein to start the pressure trace.', L, 30); return; }
     const t1 = trace[trace.length - 1][0], t0 = t1 - 60;
     const vals = trace.map((p) => p[1]).filter(Number.isFinite);
     const pMax = Math.max(15, Math.ceil(Math.max(...vals) + 3));
     const X = (t) => L + ((t - t0) / 60) * (w - L - R), Y = (p) => T + (1 - p / pMax) * (hh - T - B);
-    ctx.strokeStyle = cssVar('--border'); ctx.fillStyle = cssVar('--text-muted');
-    for (let p = 0; p <= pMax; p += 5) { ctx.beginPath(); ctx.moveTo(L, Y(p)); ctx.lineTo(w - R, Y(p)); ctx.stroke(); ctx.textAlign = 'right'; ctx.fillText(String(p), L - 5, Y(p) + 4); }
-    ctx.lineWidth = 2;
+    const cFree = cssVar('--s1'), cWedge = cssVar('--s5');
+    ctx.lineWidth = 1; ctx.strokeStyle = cssVar('--grid'); ctx.fillStyle = cssVar('--text-3');
+    for (let p = 0; p <= pMax; p += 5) { const yy = Math.round(Y(p)) + 0.5; ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(w - R, yy); ctx.stroke(); ctx.textAlign = 'right'; ctx.fillText(String(p), L - 7, yy + 4); }
+    ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     for (let i = 1; i < trace.length; i++) {
       const [ta, va, wa] = trace[i - 1], [tb, vb] = trace[i];
-      ctx.strokeStyle = wa ? '#C0307A' : '#2D6CDF';
+      ctx.strokeStyle = wa ? cWedge : cFree;
       ctx.beginPath(); ctx.moveTo(X(ta), Y(va)); ctx.lineTo(X(tb), Y(vb)); ctx.stroke();
     }
-    ctx.textAlign = 'left'; ctx.fillStyle = '#2D6CDF'; ctx.fillText('free', L + 6, T + 12); ctx.fillStyle = '#C0307A'; ctx.fillText('wedged', L + 40, T + 12);
+    ctx.textAlign = 'left'; ctx.font = FONT(500, 11.5);
+    ctx.fillStyle = cFree; ctx.beginPath(); ctx.arc(L + 10, T + 9, 3.5, 0, 7); ctx.fill(); ctx.fillStyle = cssVar('--text-2'); ctx.fillText('Free (FHVP)', L + 18, T + 13);
+    ctx.fillStyle = cWedge; ctx.beginPath(); ctx.arc(L + 110, T + 9, 3.5, 0, 7); ctx.fill(); ctx.fillStyle = cssVar('--text-2'); ctx.fillText('Wedged (WHVP)', L + 118, T + 13);
   }
   return { id: 'hvpg', label: 'HVPG', el, update };
 }
@@ -95,18 +100,18 @@ export function createHVPG() {
 // ── Doppler ─────────────────────────────────────────
 export function createDoppler({ onProbe }) {
   const el = h('div', { class: 'dock-pane', 'data-pane': 'doppler' });
-  const box = h('div', { class: 'chart-box', style: { background: '#05070d', borderRadius: '10px' } });
+  const box = h('div', { class: 'chart-box dark' });
   const cv = h('canvas', { role: 'img', 'aria-label': 'Spectral Doppler' });
   box.append(cv);
   const probeSel = h('select', { class: 'select', 'aria-label': 'Vessel' },
     ['PV_TRUNK', 'PVH_R', 'PVH_L', 'SV_CONF', 'SMV_CONF', 'RHV_IVC', 'MHV_IVC', 'IVCS_RA', 'TIPS', 'C3', 'C1b', 'A_HEP'].map((id) => h('option', { value: id }, EDGES[EI[id]].label)));
   probeSel.addEventListener('change', () => onProbe(probeSel.value));
   let bart = true;
-  const bartBtn = h('button', { class: 'btn', 'aria-pressed': 'true' }, 'BART colors');
+  const bartBtn = h('button', { class: 'btn sm', 'aria-pressed': 'true' }, 'BART color map');
   bartBtn.addEventListener('click', () => { bart = !bart; bartBtn.setAttribute('aria-pressed', String(bart)); });
   const stats = h('dl', { class: 'kv' });
-  const side = h('div', { class: 'chart-side', style: { width: '250px' } }, h('label', {}, 'Probe'), probeSel, bartBtn, stats,
-    h('div', { class: 'ctl-sub' }, 'Above baseline = toward the transducer (physiological direction for the chosen vessel). BART: Blue Away, Red Toward. Colour means direction relative to the probe, not artery vs vein.'),
+  const side = h('div', { class: 'chart-side', style: { width: '268px' } }, h('div', { class: 'side-title' }, 'Spectral Doppler'), probeSel, bartBtn, stats,
+    h('div', { class: 'ctl-sub' }, 'Above the baseline means toward the transducer (the physiological direction for this vessel). BART: Blue Away, Red Toward. Color shows direction relative to the probe, not artery versus vein.'),
     h('div', { class: 'ctl-sub', id: 'dopHint' }));
   el.append(box, side);
   const buf = [];
@@ -160,7 +165,7 @@ export function createDoppler({ onProbe }) {
     }
     ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(30, base); ctx.lineTo(w, base); ctx.stroke();
-    ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.font = '11px JetBrains Mono, monospace'; ctx.textAlign = 'right';
+    ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = FONT(500, 11); ctx.textAlign = 'right';
     for (const v of [-vAbs * 0.8, -vAbs * 0.4, vAbs * 0.4, vAbs * 0.8]) ctx.fillText(Math.round(v), 30, Y(v) + 4);
     ctx.textAlign = 'left'; ctx.fillText('cm/s', 4, 12);
   }
@@ -174,15 +179,15 @@ export function createEndoscopy({ onAction }) {
   const cv = h('canvas', { role: 'img', 'aria-label': 'Stylized endoscopic view' });
   box.append(cv);
   let view = 'eso';
-  const seg = h('div', { class: 'seg' }, [['eso', 'Lower esophagus'], ['fundus', 'Fundus (retroflexed)']].map(([v, l]) => {
+  const seg = h('div', { class: 'seg full' }, [['eso', 'Esophagus'], ['fundus', 'Fundus (retroflexed)']].map(([v, l]) => {
     const b = h('button', { 'aria-pressed': String(v === view) }, l);
     b.addEventListener('click', () => { view = v; seg.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); });
     return b;
   }));
   const stats = h('dl', { class: 'kv' });
-  const side = h('div', { class: 'chart-side', style: { width: '300px' } }, h('label', {}, 'View'), seg, stats,
-    h('div', { class: 'btn-row' }, h('button', { class: 'btn primary', onclick: () => onAction({ kind: 'band' }) }, 'Band a column (EVL)')),
-    h('div', { class: 'ctl-sub' }, 'Stylized illustration: F1 small straight, F2 enlarged tortuous, F3 large coil-shaped. Red wale marks mean high wall tension.'));
+  const side = h('div', { class: 'chart-side', style: { width: '300px' } }, h('div', { class: 'side-title' }, 'Endoscopy'), seg, stats,
+    h('button', { class: 'btn primary', onclick: () => onAction({ kind: 'band' }) }, icon('band'), 'Band a column (EVL)'),
+    h('div', { class: 'ctl-sub' }, 'Stylized view. F1 small and straight, F2 enlarged and tortuous, F3 large and coil-shaped. Red wale marks mean high wall tension.'));
   el.append(box, side);
   let seed = 0;
   function update(f) {
@@ -199,7 +204,7 @@ export function createEndoscopy({ onAction }) {
   }
   function draw(f, vx) {
     const { ctx, w, h: hh } = fitCanvas(cv);
-    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, hh);
+    ctx.clearRect(0, 0, w, hh);
     const cx = w / 2, cy = hh / 2, R = Math.min(w, hh) / 2 - 6;
     ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
     const g = ctx.createRadialGradient(cx, cy, R * 0.05, cx, cy, R);
@@ -249,7 +254,7 @@ export function createEndoscopy({ onAction }) {
       for (let i = 0; i < 60; i++) { const a = -Math.PI / 2 + (Math.random() - 0.5) * 0.8, rr = Math.random() * R * 0.7; ctx.beginPath(); ctx.arc(cx + R * 0.35 + Math.cos(a) * rr * 0.3, cy + Math.sin(a) * rr * 0.6, 1.8, 0, 7); ctx.fill(); }
     }
     ctx.restore();
-    ctx.strokeStyle = '#333'; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.stroke();
+    ctx.strokeStyle = '#1B1D22'; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.stroke();
   }
   return { id: 'endoscopy', label: 'Endoscopy', el, update };
 }
@@ -261,15 +266,15 @@ export function createLobule() {
   const cv = h('canvas', { role: 'img', 'aria-label': 'Liver lobule microcirculation' });
   box.append(cv);
   let lobe = 'R';
-  const seg = h('div', { class: 'seg' }, [['R', 'Right lobe'], ['L', 'Left lobe']].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(v === lobe) }, l); b.addEventListener('click', () => { lobe = v; seg.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; }));
+  const seg = h('div', { class: 'seg full' }, [['R', 'Right lobe'], ['L', 'Left lobe']].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(v === lobe) }, l); b.addEventListener('click', () => { lobe = v; seg.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; }));
   const zoneBtns = h('div', { class: 'btn-row' }, [['pre', 'Portal tract'], ['sin', 'Sinusoids'], ['post', 'Central vein']].map(([z, l]) => {
-    const b = h('button', { class: 'btn' }, `+ ${l}`);
+    const b = h('button', { class: 'btn sm' }, `+ ${l}`);
     b.addEventListener('click', () => updateParams((p) => { p.fibrosis[lobe][z] = +(Math.min(80, p.fibrosis[lobe][z] * 1.5)).toFixed(2); return p; }, { label: 'Fibrosis' }));
     return b;
   }));
-  const clear = h('button', { class: 'btn', onclick: () => updateParams((p) => { p.fibrosis[lobe] = { pre: 1, sin: 1, post: 1 }; return p; }, { label: 'Clear fibrosis' }) }, 'Clear this lobe');
+  const clear = h('button', { class: 'btn sm ghost', onclick: () => updateParams((p) => { p.fibrosis[lobe] = { pre: 1, sin: 1, post: 1 }; return p; }, { label: 'Clear fibrosis' }) }, 'Clear this lobe');
   const stats = h('dl', { class: 'kv' });
-  const side = h('div', { class: 'chart-side', style: { width: '290px' } }, h('label', {}, 'Lobe'), seg, h('label', {}, 'Add fibrosis'), zoneBtns, clear, stats,
+  const side = h('div', { class: 'chart-side', style: { width: '290px' } }, h('div', { class: 'side-title' }, 'Liver lobule'), seg, h('div', { class: 'side-label' }, 'Add fibrosis'), zoneBtns, clear, stats,
     h('div', { class: 'ctl-sub' }, 'Portal venule + hepatic arteriole (red) enter at the triads, mix in the sinusoids, and drain to the central vein. Lymph forms in the space of Disse.'));
   el.append(box, side);
   let phase = 0;
@@ -322,10 +327,10 @@ export function createLobule() {
     // central vein
     if (zone.post > 1.5) { ctx.fillStyle = `rgba(230, 210, 150, ${clamp(Math.log(zone.post) / 3, 0.2, 0.85)})`; ctx.beginPath(); ctx.arc(cx, cy, 16 + Math.log(zone.post) * 6, 0, 7); ctx.fill(); }
     ctx.fillStyle = pressureColor(P3); ctx.beginPath(); ctx.arc(cx, cy, 11, 0, 7); ctx.fill();
-    ctx.strokeStyle = cssVar('--text-muted'); ctx.lineWidth = 1; ctx.stroke();
-    ctx.fillStyle = cssVar('--text-muted'); ctx.font = '600 11px Inter, sans-serif'; ctx.textAlign = 'center';
+    ctx.strokeStyle = cssVar('--text-2'); ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = cssVar('--text-2'); ctx.font = FONT(500, 11); ctx.textAlign = 'center';
     ctx.fillText('central vein', cx, cy + 26);
-    ctx.fillText('portal triad', corners[0][0] - 10, corners[0][1] + 24);
+    ctx.fillText('portal triad', corners[5][0], corners[5][1] - 20);
     if (s > 0.2) { ctx.fillText(`capillarization: fenestrae closing (σ ${fmt(0.1 + 0.5 * s, 2)})`, cx, hh - 6); }
   }
   return { id: 'lobule', label: 'Lobule', el, update };
@@ -338,7 +343,7 @@ export function createVarixWall() {
   const cv = h('canvas', { role: 'img', 'aria-label': 'Varix cross-section and Laplace wall tension' });
   box.append(cv);
   const stats = h('dl', { class: 'kv' });
-  const side = h('div', { class: 'chart-side', style: { width: '260px' } }, h('label', {}, 'Laplace law'), h('div', { class: 'note num' }, 'T = ΔP · r / w'), stats,
+  const side = h('div', { class: 'chart-side', style: { width: '270px' } }, h('div', { class: 'side-title' }, 'Laplace’s law'), h('div', { class: 'formula' }, 'T = ΔP · r / w'), stats,
     h('div', { class: 'ctl-sub' }, 'Big radius, high transmural pressure and a thin wall all raise tension. Remodeling enlarges the varix and thins its wall over months. A balloon raises the luminal (outside) pressure.'));
   el.append(box, side);
   function update(f) {
@@ -354,7 +359,7 @@ export function createVarixWall() {
     // esophageal wall ring
     ctx.fillStyle = cssVar('--organ-stomach'); ctx.globalAlpha = 0.35; ctx.beginPath(); ctx.arc(cx, cy, Rw, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
     ctx.fillStyle = cssVar('--surface'); ctx.beginPath(); ctx.arc(cx, cy, Rw * 0.45, 0, 7); ctx.fill();
-    ctx.fillStyle = cssVar('--text-muted'); ctx.font = '600 11px Inter, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('lumen', cx, cy + 4);
+    ctx.fillStyle = cssVar('--text-2'); ctx.font = FONT(500, 11); ctx.textAlign = 'center'; ctx.fillText('lumen', cx, cy + 4);
     // varix at submucosa (top)
     const scale = Rw * 0.08;
     const rr = clamp(v.r * scale, 3, Rw * 0.5);
@@ -369,12 +374,12 @@ export function createVarixWall() {
     }
     // tension gauge
     const gx = cx + Rw + 40, gw = Math.max(40, w - gx - 30), gy = cy - 12;
-    ctx.fillStyle = cssVar('--surface-2'); ctx.fillRect(gx, gy, gw, 24);
+    ctx.fillStyle = cssVar('--surface-3'); ctx.beginPath(); ctx.roundRect ? ctx.roundRect(gx, gy, gw, 14, 7) : ctx.rect(gx, gy, gw, 14); ctx.fill();
     ctx.fillStyle = v.ratio > 1 ? cssVar('--critical') : v.ratio > 0.7 ? cssVar('--danger') : v.ratio > 0.4 ? cssVar('--caution') : cssVar('--ok');
-    ctx.fillRect(gx, gy, gw * clamp(v.ratio / 1.5, 0, 1), 24);
-    ctx.strokeStyle = cssVar('--critical'); ctx.lineWidth = 2; const rx = gx + gw / 1.5; ctx.beginPath(); ctx.moveTo(rx, gy - 8); ctx.lineTo(rx, gy + 32); ctx.stroke();
-    ctx.fillStyle = cssVar('--text'); ctx.textAlign = 'left'; ctx.font = '600 12px Inter, sans-serif';
-    ctx.fillText('Wall tension', gx, gy - 12); ctx.textAlign = 'center'; ctx.fillText('rupture', rx, gy + 46);
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(gx, gy, Math.max(14, gw * clamp(v.ratio / 1.5, 0, 1)), 14, 7) : ctx.rect(gx, gy, gw * clamp(v.ratio / 1.5, 0, 1), 14); ctx.fill();
+    ctx.strokeStyle = cssVar('--critical'); ctx.lineWidth = 2; const rx = gx + gw / 1.5; ctx.beginPath(); ctx.moveTo(rx, gy - 6); ctx.lineTo(rx, gy + 20); ctx.stroke();
+    ctx.fillStyle = cssVar('--text'); ctx.textAlign = 'left'; ctx.font = FONT(600, 12);
+    ctx.fillText(`Wall tension ${Math.round(v.ratio * 100)} % of critical`, gx, gy - 12); ctx.textAlign = 'center'; ctx.font = FONT(500, 11); ctx.fillStyle = cssVar('--text-2'); ctx.fillText('rupture', rx, gy + 34);
   }
   return { id: 'varixwall', label: 'Varix wall', el, update };
 }
@@ -387,13 +392,14 @@ export function createAbdomen({ onAction }) {
   box.append(cv);
   const vol = h('input', { type: 'range', min: 1, max: 10, step: 0.5, value: 5, 'aria-label': 'Volume to drain (L)' });
   const volLbl = h('span', { class: 'ctl-val' }, '5.0 L');
-  vol.addEventListener('input', () => { volLbl.textContent = `${(+vol.value).toFixed(1)} L`; });
+  const paintVol = () => { volLbl.textContent = `${(+vol.value).toFixed(1)} L`; vol.style.setProperty('--pct', `${((+vol.value - 1) / 9) * 100}%`); };
+  vol.addEventListener('input', paintVol); paintVol();
   const alb = h('input', { type: 'checkbox', checked: true });
-  const drain = h('button', { class: 'btn primary', onclick: () => onAction({ kind: 'paracentesis', mL: +vol.value * 1000, albumin: alb.checked }) }, 'Drain');
+  const drain = h('button', { class: 'btn primary block', onclick: () => onAction({ kind: 'paracentesis', mL: +vol.value * 1000, albumin: alb.checked }) }, 'Drain');
   const stats = h('dl', { class: 'kv' });
-  const side = h('div', { class: 'chart-side', style: { width: '290px' } }, h('label', {}, 'Paracentesis'),
+  const side = h('div', { class: 'chart-side', style: { width: '290px' } }, h('div', { class: 'side-title' }, 'Paracentesis'),
     h('div', { class: 'ctl' }, h('div', { class: 'ctl-top' }, h('span', { class: 'ctl-label' }, 'Volume'), volLbl), vol),
-    h('label', { style: { display: 'flex', gap: '6px', alignItems: 'center', textTransform: 'none', letterSpacing: 0, fontWeight: 500, color: 'var(--text)' } }, alb, 'Give albumin (8 g per L removed)'),
+    h('label', { class: 'check-row', style: { padding: '2px 0' } }, alb, 'Give albumin (8 g per L removed)'),
     drain, stats);
   el.append(box, side);
   function update(f) {
@@ -419,14 +425,14 @@ export function createAbdomen({ onAction }) {
     // spleen
     const sl = sp.length / 11;
     ctx.fillStyle = cssVar('--organ-spleen'); ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.ellipse(cx + 70, top + 50, 22 * sl, 36 * sl, 0.4, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
-    ctx.fillStyle = cssVar('--text-muted'); ctx.font = '600 11px Inter, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillStyle = cssVar('--text-2'); ctx.font = FONT(500, 11); ctx.textAlign = 'center';
     ctx.fillText(`spleen ${fmt(sp.length, 1)} cm`, cx + 70, top + 50 + 44 * sl);
     // IAP gauge
     const gx = 16, gy = top, gh = bot - top;
     ctx.fillStyle = cssVar('--surface-2'); ctx.fillRect(gx, gy, 12, gh);
     const iapH = clamp(a.iap / 30, 0, 1) * gh;
     ctx.fillStyle = a.iap >= 12 ? cssVar('--danger') : cssVar('--info'); ctx.fillRect(gx, gy + gh - iapH, 12, iapH);
-    ctx.fillStyle = cssVar('--text-muted'); ctx.textAlign = 'left'; ctx.fillText(`IAP ${fmt(a.iap, 0)}`, gx + 16, gy + gh - iapH + 4);
+    ctx.fillStyle = cssVar('--text-2'); ctx.textAlign = 'left'; ctx.fillText(`IAP ${fmt(a.iap, 0)}`, gx + 16, gy + gh - iapH + 4);
   }
   return { id: 'abdomen', label: 'Abdomen', el, update };
 }

@@ -1,15 +1,17 @@
 // Anatomical stage (blueprint §6): SVG anatomy + canvas particle layer + HTML overlay.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO } from '../engine/topology.js';
-import { VIEW, NODE_POS, EDGE_PATH, CIRCUIT_PATH, ORGANS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X } from './anatomy.js';
+import { VIEW, NODE_POS, EDGE_PATH, CIRCUIT_PATH, ORGANS, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X } from './anatomy.js';
 import { pressureColor, deltaColor, dropColor } from './colormap.js';
 import { store, updateParams } from './store.js';
 import { s, h, fmt, clamp, lerp, toast } from './util.js';
 
-const N_SAMPLES = 48;
+const N_SAMPLES = 64;
 const VB_ANAT = [300, 8, 820, 990];
-const CHIP_OFFSET = { VAR: [-78, 12], RA: [-40, 0], IVCS: [48, 18], RHV: [-30, 0], SIN_R: [-10, 0] };
-const VB_CIRC = [20, 70, 1360, 920];
+const VB_CIRC = [-30, 30, 1420, 1010];
+// Displayed width grows sub-linearly with diameter so the cavae don't swamp the portal tree,
+// while distension of small veins and collaterals stays visible.
+const vesselPx = (D) => Math.max(1.8, 1.3 * Math.pow(Math.max(0.1, D), 0.78));
 const RENDER_ONLY = [
   { id: 'PUMP', from: 'RA', to: 'AO', kind: 'pump', label: 'Heart → aorta' },
   { id: 'AORTA', from: 'AO', to: 'AO', kind: 'aorta', label: 'Descending aorta' },
@@ -75,15 +77,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
     const a = pts[i], b = pts[i + 1];
     return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, b[0] - a[0], b[1] - a[1]];
   }
+  // Tortuous collateral: a smooth serpentine (wavelength ≈ 64 units) along the centerline,
+  // tapered to zero at both ends so the vessel still meets its nodes.
   function wiggle(pts, amp, seed) {
     if (amp < 0.3) return pts;
+    const cum = [0];
+    for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+    const L = cum[cum.length - 1] || 1;
+    const k = Math.max(1.5, Math.round(L / 64)) * Math.PI * 2 / L;
     return pts.map((p, i) => {
       if (i === 0 || i === pts.length - 1) return p;
-      const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+      const a = pts[i - 1], b = pts[i + 1];
       let nx = -(b[1] - a[1]), ny = b[0] - a[0];
       const n = Math.hypot(nx, ny) || 1; nx /= n; ny /= n;
-      const env = Math.sin((Math.PI * i) / (pts.length - 1));
-      const w = amp * env * Math.sin(i * 1.3 + seed);
+      const u = cum[i] / L;
+      const env = Math.min(1, u * 6, (1 - u) * 6);
+      const w = amp * env * Math.sin(cum[i] * k + seed);
       return [p[0] + nx * w, p[1] + ny * w];
     });
   }
@@ -91,13 +100,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
 
   // ── SVG scaffolding ───────────────────────────────
   const defs = s('defs');
+  const grad = (id, varName, a0, a1) => `<linearGradient id="${id}" x1="0" y1="0" x2=".55" y2="1"><stop offset="0" style="stop-color:var(${varName});stop-opacity:calc(var(--organ-a) * ${a0})"/><stop offset="1" style="stop-color:var(${varName});stop-opacity:calc(var(--organ-a) * ${a1})"/></linearGradient>`;
   defs.innerHTML = `
-    <pattern id="nodules" width="16" height="16" patternUnits="userSpaceOnUse">
-      <circle cx="4" cy="4" r="3.2" class="nodule" fill-opacity=".9"/><circle cx="12" cy="11" r="3.8" class="nodule" fill-opacity=".9"/><circle cx="13" cy="3" r="1.8" class="nodule"/>
+    ${grad('gLiver', '--organ-liver', 0.55, 1.15)}${grad('gStomach', '--organ-stomach', 0.5, 1.05)}${grad('gSpleen', '--organ-spleen', 0.6, 1.2)}
+    ${grad('gKidney', '--organ-kidney', 0.5, 1.1)}${grad('gGut', '--organ-gut', 0.4, 0.9)}${grad('gHeart', '--organ-heart', 0.5, 1.1)}${grad('gLung', '--organ-lung', 0.35, 0.75)}
+    <pattern id="nodules" width="14" height="14" patternUnits="userSpaceOnUse">
+      <circle cx="3.5" cy="3.5" r="2.6" class="nodule" fill-opacity=".55"/><circle cx="10.5" cy="10" r="3.1" class="nodule" fill-opacity=".55"/><circle cx="11" cy="2.6" r="1.4" class="nodule" fill-opacity=".45"/>
     </pattern>
-    <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="currentColor" stroke-width="2"/></pattern>
-    <clipPath id="torsoClip"><path d="${ORGANS.find((o) => o.id === 'torso').d}"/></clipPath>
-    <radialGradient id="bleedPool"><stop offset="0" stop-color="#8B0A1A" stop-opacity=".85"/><stop offset="1" stop-color="#8B0A1A" stop-opacity="0"/></radialGradient>`;
+    <clipPath id="torsoClip"><path d="${ORGANS.find((o) => o.id === 'torso').d}"/></clipPath>`;
   svg.append(defs);
   const world = s('g', { id: 'world' });
   svg.append(world);
@@ -111,9 +121,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
   const gGuides = s('g', { id: 'guides' });
   world.append(gGrid, gOrgans, gAscites, gOrganLabels, gEdges, gOver, gNodes, gGuides);
 
-  for (let x = 0; x <= VIEW.w; x += 50) gGrid.append(s('line', { x1: x, y1: 0, x2: x, y2: VIEW.h, stroke: 'var(--grid-line)' }));
-  for (let y = 0; y <= VIEW.h; y += 50) gGrid.append(s('line', { x1: 0, y1: y, x2: VIEW.w, y2: y, stroke: 'var(--grid-line)' }));
-  gGrid.append(s('text', { x: 90, y: 40, class: 'organ-label' }, document.createTextNode('Circuit view · pressure falls left → right')));
+  for (let x = 0; x <= VIEW.w; x += 50) gGrid.append(s('line', { x1: x, y1: 0, x2: x, y2: VIEW.h, stroke: 'var(--stage-grid)' }));
+  for (let y = 0; y <= VIEW.h; y += 50) gGrid.append(s('line', { x1: 0, y1: y, x2: VIEW.w, y2: y, stroke: 'var(--stage-grid)' }));
+  gGrid.append(s('text', { x: 40, y: 100, class: 'circuit-title' }, document.createTextNode('Circuit view · pressure falls from left to right')));
+  [['Inflow', 90], ['Splanchnic beds', 260], ['Portal veins', 480], ['Liver', 900], ['Hepatic veins & IVC', 1100], ['Heart', 1300]].forEach(([t, x]) =>
+    gGrid.append(s('text', { x, y: 975, class: 'circuit-title', 'text-anchor': 'middle', opacity: 0.8 }, document.createTextNode(t))));
 
   const organEls = {};
   for (const o of ORGANS) {
@@ -125,11 +137,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
     gOrgans.append(el);
   }
   const liverNodules = s('path', { d: ORGANS.find((o) => o.id === 'liver').d, fill: 'url(#nodules)', opacity: 0 });
-  gOrgans.append(liverNodules);
+  gOrgans.insertBefore(liverNodules, organEls.falciform);
   const ascitesPath = s('path', { class: 'ascites-fill', d: '' });
-  gAscites.append(ascitesPath);
-  for (const [txt, x, y] of [['Liver', 395, 290], ['Stomach', 880, 430], ['Spleen', 985, 240], ['Heart', 700, 145], ['Small bowel', 670, 870], ['Kidney', 470, 720], ['Kidney', 885, 720], ['Pancreas', 890, 560], ['Esophagus', 730, 60]]) {
-    gOrganLabels.append(s('text', { x, y, class: 'organ-label' }, document.createTextNode(txt)));
+  const ascitesLine = s('path', { class: 'ascites-line', d: '' });
+  gAscites.append(ascitesPath, ascitesLine);
+  for (const [txt, x, y, anchor] of ORGAN_LABELS) {
+    gOrganLabels.append(s('text', { x, y, class: 'organ-label', 'text-anchor': anchor }, document.createTextNode(txt)));
   }
 
   // Edge groups
@@ -153,15 +166,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
     if (e.kind === 'collateral') g.classList.add('coll');
     E[e.id] = { e, g, grad, st0, st1, halo, sel, wall, lumen, hit, isArt, vis: true, dv: 0, parts: [], width: 4 };
   }
-  // draw order: arteries first
+  // draw order: arteries at the back, the portal tree in front (it lies anterior to the IVC)
   for (const x of Object.values(E)) if (x.isArt) gEdges.prepend(x.g);
+  for (const x of Object.values(E)) if (x.e.kind === 'vein' && PORTAL_TERRITORY.has(x.e.to) && PORTAL_TERRITORY.has(x.e.from || '') || ['PV_TRUNK', 'PVH_R', 'PVH_L', 'SMV_CONF', 'SV_CONF'].includes(x.e.id)) gEdges.append(x.g);
 
   // Nodes (circuit view)
   const nodeEls = {};
   for (const n of NODES) {
     if (n.kind === 'wedge') continue;
-    const c = s('circle', { r: n.kind === 'heart' ? 9 : 5, class: 'node-dot' });
-    const t = s('text', { class: 'resistor-label', 'text-anchor': 'middle' }, document.createTextNode(SHORT[n.id] || n.id));
+    const c = s('circle', { r: n.kind === 'heart' ? 8 : 4.5, class: 'node-dot circuit-only' });
+    const t = s('text', { class: 'node-label circuit-only', 'text-anchor': 'middle' }, document.createTextNode(SHORT[n.id] || n.id));
     gNodes.append(c, t);
     nodeEls[n.id] = { c, t };
   }
@@ -224,6 +238,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
     dpr = Math.min(2, devicePixelRatio || 1);
     canvas.width = Math.max(1, Math.round(r.width * dpr));
     canvas.height = Math.max(1, Math.round(r.height * dpr));
+    wrap.classList.toggle('compact', r.height < 600);
     CTM = null;
   }
   new ResizeObserver(resizeCanvas).observe(wrap);
@@ -279,8 +294,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
     }
     for (const [id, r] of Object.entries(resistorEls)) {
       const [x, y] = pointAt(geo[id].cur, 0.5);
-      r.r.setAttribute('x', x - 13); r.r.setAttribute('y', y - 6); r.r.setAttribute('width', 26); r.r.setAttribute('height', 12);
-      r.t.setAttribute('x', x); r.t.setAttribute('y', y + 20);
+      r.r.setAttribute('x', x - 12); r.r.setAttribute('y', y - 5); r.r.setAttribute('width', 24); r.r.setAttribute('height', 10);
+      r.t.setAttribute('x', x); r.t.setAttribute('y', y + 19);
     }
     const vb = VB_ANAT.map((a, i) => lerp(a, VB_CIRC[i], t));
     svg.setAttribute('viewBox', vb.map((v) => v.toFixed(1)).join(' '));
@@ -300,7 +315,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
     const st = store.get();
     const p = st.params;
     const t = easeInOut(morph);
-    const gain = lerp(1.05, 0.75, t);
+    const gain = lerp(1, 0.8, t);
     const healthy = st.healthy;
     const mode = st.colorMode;
 
@@ -308,7 +323,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
     let geomDirty = false;
     for (const x of Object.values(E)) {
       if (x.e.kind !== 'collateral') continue;
-      const w = recruitFrac(x.e.id, f) > 0.25 ? 3 + 9 * recruitFrac(x.e.id, f) : 0;
+      const w = recruitFrac(x.e.id, f) > 0.25 ? 2.5 + 6.5 * recruitFrac(x.e.id, f) : 0;
       if (Math.abs(w - geo[x.e.id].wig) > 0.6) { geo[x.e.id].wig = w; geomDirty = true; }
     }
     updateGeometry(geomDirty);
@@ -319,19 +334,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
       if (vis !== x.vis) { x.g.style.display = vis ? '' : 'none'; x.vis = vis; }
       if (!vis) continue;
       if (e.kind === 'pump' || e.kind === 'aorta') {
-        x.wall.setAttribute('stroke-width', e.kind === 'pump' ? 16 * gain : 18 * gain);
-        x.width = 16 * gain;
+        x.width = (e.kind === 'pump' ? 8 : 9) * gain;
+        x.wall.setAttribute('stroke-width', x.width.toFixed(1));
         continue;
       }
       const k = EI[e.id];
       const D = f.D[k];
       const P1 = f.P[NI[e.from]], P2 = f.P[NI[e.to]];
-      let w = Math.max(e.kind === 'liver' ? 5 : 2.2, D * gain);
-      if (x.isArt) w = Math.max(1.8, D * gain * 0.85);
+      let w = Math.max(e.kind === 'liver' ? 3.2 : 1.8, vesselPx(D) * gain);
+      if (x.isArt) w = Math.max(1.4, vesselPx(D) * gain * 0.62);
       x.width = w;
       if (x.isArt) { x.wall.setAttribute('stroke-width', w.toFixed(1)); continue; }
+      x.pmid = (P1 + P2) / 2;
       const baseD = e.d || (e.dMax ? e.dMax * COLLATERAL_DMIN_RATIO : 3);
-      const wallPx = e.kind === 'liver' ? 1.5 : clamp(2.6 * Math.sqrt(baseD / Math.max(0.3, D)), 0.8, 3.2);
+      const wallPx = e.kind === 'liver' ? 0.6 : clamp(1.3 * Math.sqrt(baseD / Math.max(0.3, D)), 0.55, 2.2);
       x.wall.setAttribute('stroke-width', (w + 2 * wallPx).toFixed(1));
       x.lumen.setAttribute('stroke-width', w.toFixed(1));
       let c1, c2;
@@ -343,19 +359,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
       if (e.kind === 'collateral') {
         const fr = recruitFrac(e.id, f);
         x.g.classList.toggle('coll-ghost', fr < 0.12);
-        x.g.style.opacity = p.occluded[e.id] ? '0.45' : String(0.25 + 0.75 * Math.min(1, fr * 2.5));
+        x.g.style.opacity = p.occluded[e.id] ? '0.45' : String(0.3 + 0.7 * Math.min(1, fr * 2.5));
       }
       const rev = REVERSAL_WATCH.has(e.id) && isReversed(e, f);
       x.halo.classList.toggle('on', rev);
-      if (rev) x.halo.setAttribute('stroke-width', (w + 10).toFixed(1));
+      if (rev) x.halo.setAttribute('stroke-width', (w + 7).toFixed(1));
       x.rev = rev;
       const selOn = st.selection?.type === 'edge' && st.selection.id === e.id;
       x.sel.classList.toggle('on', selOn);
-      if (selOn) x.sel.setAttribute('stroke-width', (w + 14).toFixed(1));
+      if (selOn) x.sel.setAttribute('stroke-width', (w + 12).toFixed(1));
     }
     updateNodesCircuit(f);
     updateOverlays(f, p, gain, t);
-    updateChips(f);
+    updateLabels(f);
     updateOrgans(f, p, t);
   }
 
@@ -383,20 +399,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
   }
 
   function updateOrgans(f, p, t) {
-    liverNodules.setAttribute('opacity', (p.cirrhosis * 0.55 * (1 - t)).toFixed(2));
-    const L = f.slow.spleen;
-    const sc = L / 11;
-    organEls.spleen.setAttribute('transform', `rotate(18 1010 345) translate(1010 345) scale(${sc.toFixed(3)}) translate(-1010 -345)`);
+    liverNodules.setAttribute('opacity', (p.cirrhosis * 0.42 * (1 - t)).toFixed(2));
+    const sc = f.slow.spleen / 11;
+    organEls.spleen.setAttribute('transform', `translate(1012 346) scale(${sc.toFixed(3)}) translate(-1012 -346)`);
     // ascites
     const V = f.slow.ascites;
     const hgt = clamp(V / 11000, 0, 1) * 330;
-    if (hgt < 2) ascitesPath.setAttribute('d', '');
+    if (hgt < 2) { ascitesPath.setAttribute('d', ''); ascitesLine.setAttribute('d', ''); }
     else {
       const y = 995 - hgt, ph = (performance.now() / 900) % (Math.PI * 2);
-      let d = `M300 1000 L 300 ${y}`;
-      for (let x = 300; x <= 1100; x += 25) d += ` L ${x} ${(y + Math.sin(x / 40 + ph) * 3).toFixed(1)}`;
-      d += ' L 1100 1000 Z';
-      ascitesPath.setAttribute('d', d);
+      let line = '';
+      for (let x = 300; x <= 1100; x += 20) line += `${x === 300 ? 'M' : ' L'}${x} ${(y + Math.sin(x / 46 + ph) * 2.5).toFixed(1)}`;
+      ascitesLine.setAttribute('d', line);
+      ascitesPath.setAttribute('d', `${line} L 1100 1000 L 300 1000 Z`);
     }
   }
 
@@ -411,12 +426,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
       const n = Math.hypot(dx, dy) || 1, nx = -dy / n, ny = dx / n;
       const off = (E[id].width / 2) * (1 - v) + 3;
       for (const sgn of [1, -1]) {
-        const bx = x + nx * sgn * (off + 7), by = y + ny * sgn * (off + 7);
+        const bx = x + nx * sgn * (off + 8), by = y + ny * sgn * (off + 8);
         const tx = x + nx * sgn * off, ty = y + ny * sgn * off;
-        const ux = dx / n * 5, uy = dy / n * 5;
+        const ux = dx / n * 4.5, uy = dy / n * 4.5;
         ov.clamps.append(s('path', { class: 'clamp', d: `M${tx} ${ty} L ${bx + ux} ${by + uy} L ${bx - ux} ${by - uy} Z` }));
       }
-      ov.clamps.append(s('text', { x: x + nx * (off + 14) + 4, y: y + ny * (off + 14), class: 'clamp-label' }, document.createTextNode(`${Math.round(v * 100)}%`)));
+      ov.clamps.append(s('text', { x: x + nx * (off + 16) + 4, y: y + ny * (off + 16) + 4, class: 'clamp-label' }, document.createTextNode(`${Math.round(v * 100)} %`)));
     }
     for (const [id, v] of Object.entries(p.thrombus)) {
       if (!(v > 0) || !E[id] || !E[id].vis) continue;
@@ -425,7 +440,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
     }
     for (const id of ['TIPS', 'S_PC', 'S_DSR', 'S_MC']) {
       if (!E[id].vis) continue;
-      ov.stents.append(s('path', { class: 'stent', d: polyD(geo[id].cur), 'stroke-width': (E[id].width + 4).toFixed(1) }));
+      ov.stents.append(s('path', { class: 'stent', d: polyD(geo[id].cur), 'stroke-width': (E[id].width + 5).toFixed(1) }));
     }
     for (const id of Object.keys(p.occluded)) {
       if (!p.occluded[id] || !E[id] || !E[id].vis) continue;
@@ -436,7 +451,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
     // PV stasis hatch
     const m = f.metrics;
     if (Math.abs(m.pvVel) < 5 && (p.thrombus.PV_TRUNK || 0) < 0.99) {
-      ov.stasis.append(s('path', { d: polyD(geo.PV_TRUNK.cur), stroke: 'var(--caution)', 'stroke-width': E.PV_TRUNK.width + 6, 'stroke-dasharray': '2 4', fill: 'none', opacity: 0.8 }));
+      ov.stasis.append(s('path', { d: polyD(geo.PV_TRUNK.cur), stroke: 'var(--caution)', 'stroke-width': E.PV_TRUNK.width + 7, 'stroke-dasharray': '1.5 4', 'stroke-linecap': 'round', fill: 'none', opacity: 0.75 }));
     }
 
     // Esophageal varices (beads)
@@ -472,13 +487,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
       if (c3 > 0.25 && E.C3.vis) {
         const col = pressureColor(f.P[NI.EPI]);
         for (let i = 0; i < 9; i++) {
-          const a = (i / 9) * Math.PI * 2 + 0.3, L = 18 + 30 * c3;
-          let d = `M${600 + Math.cos(a) * 9} ${748 + Math.sin(a) * 9}`;
-          for (let j = 1; j <= 6; j++) {
-            const rr = 9 + (L * j) / 6, wob = Math.sin(j * 1.9 + i) * 4;
-            d += ` L ${(600 + Math.cos(a) * rr - Math.sin(a) * wob).toFixed(1)} ${(748 + Math.sin(a) * rr + Math.cos(a) * wob).toFixed(1)}`;
+          const a = (i / 9) * Math.PI * 2 + 0.3, L = 16 + 30 * c3;
+          const pts = [];
+          for (let j = 0; j <= 6; j++) {
+            const rr = 8 + (L * j) / 6, wob = j === 0 ? 0 : Math.sin(j * 1.6 + i) * 3.5 * c3;
+            pts.push([600 + Math.cos(a) * rr - Math.sin(a) * wob, 748 + Math.sin(a) * rr + Math.cos(a) * wob]);
           }
-          ov.caput.append(s('path', { d, fill: 'none', stroke: col, 'stroke-width': 1.5 + 2 * c3, 'stroke-linecap': 'round', opacity: 0.85 }));
+          ov.caput.append(s('path', { d: polyD(pts), fill: 'none', stroke: col, 'stroke-width': (1.2 + 1.8 * c3).toFixed(2), 'stroke-linecap': 'round', opacity: 0.9 }));
         }
       }
     }
@@ -501,60 +516,109 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
     }
   }
 
-  // ── Chips (HTML) ──────────────────────────────────
-  const chipEls = {};
-  function updateChips(f) {
+  // ── Atlas labels (HTML) + leader lines (screen-space SVG) ──
+  // Wide stages: labels hang in the margins beside the body, like an atlas plate, with thin
+  // leaders to their structure. Narrow stages / circuit view: compact inline labels.
+  const leaderSvg = wrap.querySelector('#leaders');
+  const labelEls = {};
+  const badgeEls = {};
+  function makeLabel(id) {
+    const sw = h('span', { class: 'sw' }), nm = h('span', { class: 'nm' }), vl = h('span', { class: 'vl' }), dl = h('span', { class: 'dl' });
+    const el = h('div', { class: 'lbl', role: 'button', tabindex: 0, 'aria-label': NODES[NI[id]].label }, sw, h('span', { class: 'tx' }, nm, h('span', {}, vl, dl)));
+    el.addEventListener('click', () => onSelect({ type: 'node', id }));
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect({ type: 'node', id }); } });
+    overlay.append(el);
+    return (labelEls[id] = { el, sw, nm, vl, dl, side: null, mode: null });
+  }
+  function updateLabels(f) {
     refreshCTM();
     const st = store.get();
     const t = easeInOut(morph);
+    const W = wrap.clientWidth, H = wrap.clientHeight;
     const show = new Set(st.layers.chips ? CHIP_NODES : []);
+    if (st.layers.chips && f.metrics.gastricVarix.d >= 2.4) show.add('GV');
     if (st.selection?.type === 'node') show.add(st.selection.id);
-    if (t > 0.5 && st.layers.chips && wrap.clientWidth > 900) for (const n of NODES) if (n.kind !== 'wedge' && ['portal', 'liver', 'hepvein', 'heart', 'varix'].includes(n.kind)) show.add(n.id);
-    if (f.params?.catheter?.vein || st.params.catheter.vein) show.add('W_' + st.params.catheter.vein);
-    for (const id of Object.keys(chipEls)) if (!id.startsWith('rev-') && !show.has(id)) { chipEls[id].remove(); delete chipEls[id]; }
-    const placed = [];
-    const order = [...show].sort((a, b) => (NODE_POS[a]?.[0][1] ?? 0) - (NODE_POS[b]?.[0][1] ?? 0));
-    for (const id of order) {
+    const cath = st.params.catheter;
+    if (cath.vein && cath.wedged) show.add('W_' + cath.vein);
+    for (const id of Object.keys(labelEls)) if (!show.has(id)) { labelEls[id].el.remove(); delete labelEls[id]; }
+
+    const [lx] = worldToLocal(322, 500), [rx] = worldToLocal(1078, 500);
+    const atlas = t < 0.5 && lx > 158 && W - rx > 158;
+    const items = [];
+    for (const id of show) {
       if (!NODE_POS[id]) continue;
-      let el = chipEls[id];
-      if (!el) {
-        el = h('div', { class: 'chip', role: 'button', tabindex: 0, 'aria-label': NODES[NI[id]].label },
-          h('span', { class: 'sw' }), h('span', { class: 'lbl' }, SHORT[id] || id), h('span', { class: 'val' }), h('span', { class: 'delta' }));
-        el.addEventListener('click', () => onSelect({ type: 'node', id }));
-        overlay.append(el);
-        chipEls[id] = el;
-      }
-      let [x, y] = worldToLocal(...nodePos(id, t));
-      if (t < 0.5 && CHIP_OFFSET[id]) { x += CHIP_OFFSET[id][0]; y += CHIP_OFFSET[id][1]; }
-      // greedy de-overlap against chips already placed this frame
-      const cw = el.offsetWidth || 90, ch = 22;
-      for (let k = 0; k < 6; k++) {
-        const hit = placed.find((r) => Math.abs(r.x - x) < (r.w + cw) / 2 + 2 && Math.abs(r.y - y) < ch);
-        if (!hit) break;
-        y = hit.y + (y >= hit.y ? ch : -ch);
-      }
-      placed.push({ x, y, w: cw });
-      el.style.left = x + 'px'; el.style.top = y + 'px';
+      const [ax, ay] = worldToLocal(...nodePos(id, t));
+      const L = labelEls[id] || makeLabel(id);
+      const off = ax < -20 || ax > W + 20 || ay < -20 || ay > H + 20;
+      L.el.style.display = off ? 'none' : '';
+      if (off) continue;
+      const meta = ATLAS_LABELS[id];
+      const side = meta?.side || (NODE_POS[id][0][0] < 700 ? 'L' : 'R');
+      const mode = atlas ? 'atlas' : 'inline';
+      if (L.mode !== mode || L.side !== side) { L.el.className = `lbl ${mode === 'atlas' ? 'side-' + side : 'inline'}`; L.mode = mode; L.side = side; }
+      L.el.classList.toggle('sel', st.selection?.type === 'node' && st.selection.id === id);
+      L.nm.textContent = mode === 'atlas' ? (meta?.name || NODES[NI[id]].label) : (SHORT[id] || id);
       const P = (f.Pf || f.P)[NI[id]];
-      el.children[0].style.background = pressureColor(P);
-      el.children[2].textContent = fmt(P, 1);
+      L.sw.style.background = pressureColor(P);
+      L.vl.replaceChildren(fmt(P, 1), h('span', { class: 'unit' }, 'mmHg'));
       const h0 = st.healthy?.P?.[NI[id]];
-      if (h0 != null && Math.abs(P - h0) >= 1) {
-        el.children[3].textContent = (P > h0 ? '▲' : '▼') + fmt(Math.abs(P - h0), 0);
-        el.children[3].className = 'delta ' + (P > h0 ? 'up' : 'down');
-      } else el.children[3].textContent = '';
+      if (h0 != null && Math.abs(P - h0) >= 1) { L.dl.textContent = (P > h0 ? '▲ ' : '▼ ') + fmt(Math.abs(P - h0), 0); L.dl.className = 'dl ' + (P > h0 ? 'up' : 'down'); L.dl.style.display = ''; }
+      else L.dl.style.display = 'none';
+      items.push({ id, L, ax, ay, side, y: ay, hgt: mode === 'atlas' ? 38 : 22 });
     }
+    let lines = '';
+    if (atlas) {
+      // Keep clear of floating HUD panels (notifications, legend) that sit over a column.
+      const wr = wrap.getBoundingClientRect();
+      const blockers = [...wrap.querySelectorAll('.hud-tr .note:not(.leaving), .hud-bl .legend, .hud-tc .bleed-banner:not([hidden])')].map((el) => { const r = el.getBoundingClientRect(); return { x0: r.left - wr.left, x1: r.right - wr.left, y0: r.top - wr.top, y1: r.bottom - wr.top }; });
+      for (const side of ['L', 'R']) {
+        const col = items.filter((it) => it.side === side).sort((a, b) => a.ay - b.ay);
+        const cx0 = side === 'L' ? lx - 170 : rx, cx1 = side === 'L' ? lx : rx + 170;
+        let top = 64, bottom = H - 76;
+        for (const b of blockers) {
+          if (b.x1 < cx0 || b.x0 > cx1) continue;
+          if (b.y0 < H / 2) top = Math.max(top, b.y1 + 22); else bottom = Math.min(bottom, b.y0 - 22);
+        }
+        const need = col.reduce((sum, it) => sum + it.hgt, 0);
+        if (bottom - top < need) { top = 64; bottom = Math.max(top + need, H - 76); }
+        for (let i = 0; i < col.length; i++) col[i].y = Math.max(col[i].ay, i ? col[i - 1].y + col[i - 1].hgt : top);
+        for (let i = col.length - 1; i >= 0; i--) col[i].y = Math.min(col[i].y, i < col.length - 1 ? col[i + 1].y - col[i].hgt : bottom);
+        const x = side === 'L' ? lx - 6 : rx + 6;
+        const elbow = side === 'L' ? lx + 14 : rx - 14;
+        for (const it of col) {
+          it.L.el.style.left = x + 'px'; it.L.el.style.top = it.y + 'px';
+          const x0 = side === 'L' ? x + 2 : x - 2;
+          lines += `<path class="leader${it.L.el.classList.contains('sel') ? ' hl' : ''}" d="M${x0.toFixed(1)} ${it.y.toFixed(1)} L${elbow.toFixed(1)} ${it.y.toFixed(1)} L${it.ax.toFixed(1)} ${it.ay.toFixed(1)}"/><circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.6"/>`;
+        }
+      }
+    } else {
+      const placed = [];
+      for (const it of items.sort((a, b) => a.ay - b.ay)) {
+        let { ax: x, ay: y } = it;
+        const cw = it.L.el.offsetWidth || 90, ch = 22;
+        for (let k = 0; k < 6; k++) {
+          const hit = placed.find((r) => Math.abs(r.x - x) < (r.w + cw) / 2 + 2 && Math.abs(r.y - y) < ch);
+          if (!hit) break;
+          y = hit.y + (y >= hit.y ? ch : -ch);
+        }
+        placed.push({ x, y, w: cw });
+        it.L.el.style.left = x + 'px'; it.L.el.style.top = y + 'px';
+      }
+    }
+    // In the circuit view a node that carries a label doesn't also need its small caption.
+    for (const n of NODES) if (nodeEls[n.id]) nodeEls[n.id].t.style.visibility = !atlas && show.has(n.id) ? 'hidden' : '';
+    if (leaderSvg._last !== lines) { leaderSvg.innerHTML = lines; leaderSvg._last = lines; }
+
     // reversal badges
     for (const id of BADGE_EDGES) {
       const x = E[id];
-      const key = 'rev-' + id;
       if (x.rev && x.vis) {
-        let b = chipEls[key];
-        if (!b) { b = h('div', { class: 'badge-rev' }, '⟲ reversed'); overlay.append(b); chipEls[key] = b; }
+        let b = badgeEls[id];
+        if (!b) { b = h('div', { class: 'badge-rev' }, '⟲ reversed'); overlay.append(b); badgeEls[id] = b; }
         const [px, py] = pointAt(geo[id].cur, 0.5);
-        const [lx, ly] = worldToLocal(px, py);
-        b.style.left = (lx + 36) + 'px'; b.style.top = (ly + 14) + 'px';
-      } else if (chipEls[key]) { chipEls[key].remove(); delete chipEls[key]; }
+        const [bx, by] = worldToLocal(px, py);
+        b.style.left = (bx + 30) + 'px'; b.style.top = (by + 12) + 'px';
+      } else if (badgeEls[id]) { badgeEls[id].remove(); delete badgeEls[id]; }
     }
   }
 
@@ -580,6 +644,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
     if (!F || !st.layers.particles) return;
     const m = CTM;
     ctx.setTransform(dpr * m.a, dpr * m.b, dpr * m.c, dpr * m.d, dpr * (m.e - wrapRect.left), dpr * (m.f - wrapRect.top));
+    ctx.lineCap = 'round';
     const running = st.running;
     const simSpeed = st.clock === 'hemo' ? clamp(Math.sqrt(st.speed), 0.4, 2) : 0.8;
     const still = reduceMotion.matches;
@@ -603,18 +668,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
       velDisp[e.id] = nv;
       const aq = Math.abs(q);
       const isArt = x.isArt;
-      let n = Math.round((g.len / (isArt ? 46 : 26)) * Math.sqrt(aq / 10));
+      let n = Math.round((g.len / (isArt ? 34 : 16)) * Math.sqrt(aq / 10));
       if (aq < 0.05) n = 0;
-      n = clamp(n, 0, isArt ? 22 : 60);
+      n = clamp(n, 0, isArt ? 30 : 90);
       const parts = x.parts;
-      while (parts.length < n) parts.push({ u: Math.random(), o: (Math.random() - 0.5) * 0.7, s: 0.7 + Math.random() * 0.5 });
+      while (parts.length < n) parts.push({ u: Math.random(), o: (Math.random() - 0.5) * 1.1, s: 0.75 + Math.random() * 0.5 });
       if (parts.length > n) parts.length = n;
       if (!parts.length) continue;
       const w = x.width;
       const du = (nv * dt) / Math.max(10, g.len);
+      // Streak ink adapts to the lumen: dark cells on pale (low-pressure) lumens, light cells on dark ones.
+      const ink = isArt ? 'rgba(255, 236, 240, .75)' : x.rev ? 'rgba(236, 116, 36, .95)' : (x.pmid ?? 0) < 8.5 ? 'rgba(88, 12, 36, .5)' : 'rgba(255, 244, 248, .62)';
       if (still) {
         // reduced motion: static chevrons in the flow direction
-        ctx.strokeStyle = x.rev ? '#F0782B' : 'rgba(255,255,255,.85)';
+        ctx.strokeStyle = ink;
         ctx.lineWidth = Math.max(1, w * 0.18);
         const count = Math.min(6, Math.max(1, Math.round(g.len / 60)));
         for (let i = 0; i < count; i++) {
@@ -625,20 +692,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
         }
         continue;
       }
-      ctx.fillStyle = isArt ? 'rgba(232, 72, 82, .95)' : x.rev ? 'rgba(255, 150, 70, .95)' : 'rgba(150, 18, 40, .88)';
-      const r = isArt ? Math.max(1, w * 0.28) : clamp(w * 0.2, 1.1, 3.6);
+      ctx.strokeStyle = ink;
+      ctx.lineWidth = isArt ? clamp(w * 0.34, 0.8, 1.8) : clamp(w * 0.2, 0.9, 2.2);
+      const len = clamp(Math.abs(nv) * 0.035, 0.6, 3.2) + ctx.lineWidth * 0.5;
+      const sg = nv >= 0 ? 1 : -1;
       ctx.beginPath();
       for (const pt of parts) {
         pt.u += du * pt.s;
         if (pt.u > 1) pt.u -= 1; else if (pt.u < 0) pt.u += 1;
         const [px, py, dx, dy] = pointAt(g.cur, pt.u);
         const nn = Math.hypot(dx, dy) || 1;
-        const ox = (-dy / nn) * pt.o * w * 0.5, oy = (dx / nn) * pt.o * w * 0.5;
+        const tx = dx / nn, ty = dy / nn;
+        const ox = -ty * pt.o * (w - ctx.lineWidth) * 0.5, oy = tx * pt.o * (w - ctx.lineWidth) * 0.5;
         const jitter = Math.abs(nv) < 2 && aq > 0.05 ? (Math.random() - 0.5) * 1.2 : 0;
-        ctx.moveTo(px + ox + jitter + r, py + oy);
-        ctx.arc(px + ox + jitter, py + oy, r * pt.s, 0, Math.PI * 2);
+        const cx = px + ox + jitter, cy = py + oy;
+        const l = len * pt.s;
+        ctx.moveTo(cx - tx * l * sg, cy - ty * l * sg);
+        ctx.lineTo(cx, cy);
       }
-      ctx.fill();
+      ctx.stroke();
     }
     // bleeding jet
     if (F.bleed?.active) {
@@ -662,7 +734,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
   let drag = null;
 
   function edgeFromEvent(ev) {
-    const el = ev.target.closest?.('.v-hit');
+    // While the pointer is captured, events retarget to the <svg>: hit-test the real point instead.
+    const t = ev.target === svg && ev.clientX != null ? document.elementFromPoint(ev.clientX, ev.clientY) : ev.target;
+    const el = t?.closest?.('.v-hit');
     return el ? el.getAttribute('data-id') : null;
   }
   function nearestT(id, wx, wy) {

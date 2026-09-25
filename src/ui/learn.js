@@ -1,8 +1,8 @@
 // Learn mode (blueprint §11): lessons as step sequences with Predict → Observe → Explain.
 
-import { store, updateParams, replaceParams, clearHistory } from './store.js';
+import { store, updateParams } from './store.js';
 import { host } from './host.js';
-import { h, fmt, openModal, closeModal, toast } from './util.js';
+import { h, fmt, toast, svgIcon } from './util.js';
 
 const saved = (() => { try { return JSON.parse(localStorage.getItem('pps.lessons') || '{}'); } catch { return {}; } })();
 const save = () => { try { localStorage.setItem('pps.lessons', JSON.stringify(saved)); } catch { /* storage unavailable */ } };
@@ -35,8 +35,8 @@ export const LESSONS = [
         text: 'Inside the liver, blood crosses three resistances in series: **portal venules** (presinusoidal), **sinusoids**, and **central veins** (postsinusoidal). The Lobule panel shows them.' },
       { type: 'predict', mode: 'draw', path: 'main', tab: 'profile',
         text: 'Predict: with **severe cirrhosis** (sinusoidal fibrosis), draw the pressures along gut → liver → heart. Drag across the chart.' },
-      { type: 'do', text: 'Set **Cirrhosis severity** to at least 70 % (inspector → Liver).', goal: (f, p) => p.cirrhosis >= 0.7, controls: ['cirrhosis'] },
-      { type: 'observe', seconds: 5, reveal: true, text: 'The big drop is now across the sinusoids. Everything upstream (portal, splenic, mesenteric veins) rises together. Your prediction is overlaid in blue.' },
+      { type: 'do', text: 'Set **Cirrhosis severity** to at least 70 % (below).', goal: (f, p) => p.cirrhosis >= 0.7, controls: ['cirrhosis'] },
+      { type: 'observe', seconds: 5, reveal: true, text: 'The big drop is now across the sinusoids. Everything upstream (portal, splenic, mesenteric veins) rises together. Your prediction is overlaid as a dashed line.' },
       { type: 'explain', metric: 'hvpg' },
       { type: 'check', quiz: [
         { q: 'In sinusoidal cirrhosis the largest pressure drop is between…', options: ['Aorta and gut', 'Portal vein and hepatic vein', 'Hepatic vein and right atrium'], answer: 1 },
@@ -68,9 +68,9 @@ export const LESSONS = [
       { type: 'frame', preset: 'csph', tools: ['select'], tab: 'perfusion',
         text: 'Portal hypertension is not only “backward” resistance. Nitric-oxide–mediated **splanchnic vasodilation** increases portal inflow (the forward-flow theory).' },
       { type: 'predict', q: 'Dilating the splanchnic arterioles (tone ×0.6) will make portal pressure…', options: ['Rise', 'Fall', 'Not change: resistance is in the liver'], answer: 0 },
-      { type: 'do', text: 'Set **Splanchnic arteriolar tone** to ≤ 0.6 (inspector → Inflow).', goal: (f, p) => p.splanchnicTone <= 0.6, controls: ['splanchnicTone'] },
+      { type: 'do', text: 'Set **Splanchnic arteriolar tone** to ≤ 0.6 (below).', goal: (f, p) => p.splanchnicTone <= 0.6, controls: ['splanchnicTone'] },
       { type: 'observe', seconds: 5, text: 'More inflow through the same stiff liver: pressure rises. Now reverse it with a drug.' },
-      { type: 'do', text: 'Reset the tone, then start **propranolol** (inspector → Drugs).', goal: (f, p) => p.drugs.propranolol && Math.abs(p.splanchnicTone - 1) < 0.05, controls: ['splanchnicTone', 'drug:propranolol', 'drugs'] },
+      { type: 'do', text: 'Reset the tone, then start **propranolol** (below).', goal: (f, p) => p.drugs.propranolol && Math.abs(p.splanchnicTone - 1) < 0.05, controls: ['splanchnicTone', 'drug:propranolol', 'drugs'] },
       { type: 'explain', metric: 'hvpg', text: 'Propranolol lowers cardiac output (β1) and leaves α-constriction unopposed in splanchnic arterioles (β2 blockade). A ≥ 10 % HVPG fall predicts protection from bleeding.' },
       { type: 'check', quiz: [{ q: 'Carvedilol lowers HVPG more than propranolol because it also…', options: ['Blocks α1 receptors, lowering intrahepatic tone', 'Raises cardiac output', 'Dissolves fibrosis'], answer: 0 }] },
     ],
@@ -95,7 +95,7 @@ export const LESSONS = [
       { type: 'frame', preset: 'cirr-decomp', tools: ['select', 'band', 'balloon'], tab: 'varixwall',
         text: 'Varix wall tension follows Laplace: **T = ΔP · r / w**. Large varices are thin-walled, and their transmural pressure is high. Tension, not pressure alone, predicts rupture.' },
       { type: 'predict', q: 'Which acutely lowers wall tension the most?', options: ['Terlipressin (splanchnic vasoconstriction)', 'Crystalloid 2 L', 'Valsalva'], answer: 0 },
-      { type: 'do', text: 'Start **terlipressin** (inspector → Drugs).', goal: (f, p) => p.drugs.terlipressin, controls: ['drugs', 'drug:terlipressin'] },
+      { type: 'do', text: 'Start **terlipressin** (below).', goal: (f, p) => p.drugs.terlipressin, controls: ['drugs', 'drug:terlipressin'] },
       { type: 'observe', seconds: 8, text: 'Portal inflow falls, variceal pressure falls, the varix shrinks slightly: tension drops on three counts.' },
       { type: 'explain', metric: 'varix' },
       { type: 'check', quiz: [{ q: 'Band ligation (EVL) of esophageal varices…', options: ['Lowers portal pressure', 'Removes the bleeding source but leaves portal pressure unchanged', 'Raises cardiac output'], answer: 1 }] },
@@ -108,7 +108,7 @@ export const LESSONS = [
       { type: 'frame', preset: 'cirr-decomp', tools: ['select', 'doppler'], tab: 'doppler', probe: 'PV_TRUNK',
         text: 'Portal flow is normally **hepatopetal** (toward the liver). When liver resistance is extreme, flow can reverse and the portal vein **drains** the liver.' },
       { type: 'predict', q: 'Which combination can drive the portal vein backwards?', options: ['High sinusoidal resistance + arterioportal shunting + a large collateral', 'Low albumin', 'High heart rate'], answer: 0 },
-      { type: 'do', text: 'Set **Arterioportal shunting** to 100 % and **Cirrhosis** ≥ 95 %; make a **splenorenal shunt** present (Anatomical variants).', goal: (f, p) => p.apShunt >= 0.99 && p.cirrhosis >= 0.95 && p.spontaneous.C6, controls: ['apShunt', 'cirrhosis', 'spontaneous'] },
+      { type: 'do', text: 'Set **Arterioportal shunting** to 100 % and **Cirrhosis** ≥ 95 %; and make a **splenorenal shunt** present.', goal: (f, p) => p.apShunt >= 0.99 && p.cirrhosis >= 0.95 && p.spontaneous.C6, controls: ['apShunt', 'cirrhosis', 'spontaneous'] },
       { type: 'observe', days: 60, text: 'The Doppler trace drops below the baseline: hepatofugal flow. The ⟲ badge marks reversed vessels.' },
       { type: 'explain', metric: 'pvFlow' },
       { type: 'check', quiz: [{ q: 'Hepatofugal portal flow means blood in the portal vein flows…', options: ['Toward the liver', 'Away from the liver', 'Not at all'], answer: 1 }] },
@@ -122,7 +122,7 @@ export const LESSONS = [
         text: 'Ascites forms when capillary filtration exceeds lymph drainage. Sinusoids are leaky (low reflection coefficient), so **sinusoidal pressure** drives hepatic lymph.' },
       { type: 'predict', q: 'This patient has presinusoidal portal hypertension (portal pressure ~19). Over 6 months, ascites will be…', options: ['Massive', 'Absent or minimal', 'Chylous'], answer: 1 },
       { type: 'observe', days: 90, text: 'The sinusoids are protected behind the block: little ascites despite varices.' },
-      { type: 'do', text: 'Now load **Decompensated cirrhosis** and turn **Diuretics off** to see the difference.', goal: (f, p) => store.get().presetId === 'cirr-decomp' && !p.diuretics, preset: null, controls: ['diuretics'], allowPreset: true },
+      { type: 'do', text: 'Now load **Decompensated cirrhosis** and turn **Diuretics off** to see the difference.', goal: (f, p) => store.get().presetId === 'cirr-decomp' && !p.diuretics, preset: null, controls: ['diuretics'], presetButton: 'cirr-decomp' },
       { type: 'observe', days: 120, text: 'High sinusoidal pressure + low albumin overwhelm the lymphatics. Intra-abdominal pressure rises.' },
       { type: 'explain', metric: 'ascites' },
       { type: 'check', quiz: [{ q: 'Ascitic protein > 2.5 g/dL with SAAG ≥ 1.1 suggests…', options: ['Cirrhosis', 'Cardiac (post-sinusoidal) congestion', 'Peritoneal carcinomatosis'], answer: 1 }] },
@@ -151,7 +151,7 @@ export const LESSONS = [
       { type: 'observe', seconds: 8, text: 'Portosystemic gradient falls below 12, varices decompress, but the shunt fraction rises, liver perfusion falls, and the intrahepatic portal branches reverse toward the stent.' },
       { type: 'explain', metric: 'shunt' },
       { type: 'predict', preset: 'gastric-varix', q: 'New patient with fundal varices draining via a gastrorenal shunt. After BRTO (occluding that shunt), portal pressure will…', options: ['Rise', 'Fall', 'Not change'], answer: 0 },
-      { type: 'do', text: 'Occlude the **gastrorenal shunt** (Occlude tool on it, or inspector → BRTO).', goal: (f, p) => !!p.occluded.C5 },
+      { type: 'do', text: 'Occlude the **gastrorenal shunt**: use the Occlude tool on it, or the switch below.', goal: (f, p) => !!p.occluded.C5, inline: ['brto'] },
       { type: 'explain', metric: 'pv', text: 'Closing an exit raises upstream pressure: esophageal varices and ascites can worsen after BRTO.' },
       { type: 'check', quiz: [{ q: 'The main neurological risk after TIPS is…', options: ['Stroke', 'Hepatic encephalopathy from shunted gut blood', 'Seizures from hyponatremia'], answer: 1 }] },
     ],
@@ -170,20 +170,23 @@ export const LESSONS = [
   },
 ];
 
-export function createLearn({ cardHost, mobileHost, dock, loadPreset, setTool, setAllowedTools, onWhy, showPane, setProbe }) {
-  let lesson = null, idx = 0, state = {};
-  let pollTimer = null;
+const STEP = {
+  frame: ['book', 'Context'], predict: ['bulb', 'Predict'], do: ['tools', 'Your turn'], observe: ['explore', 'Observe'], explain: ['bulb', 'Explain'], check: ['check', 'Check'],
+};
+// Lesson steps name locked-control keys; these are the matching controls to embed in the card.
+const INLINE = { cirrhosis: 'cirrhosis', splanchnicTone: 'splanchnicTone', 'drug:propranolol': 'drug:propranolol', 'drug:terlipressin': 'drug:terlipressin', apShunt: 'apShunt', spontaneous: 'srShunt', diuretics: 'diuretics', brto: 'brto' };
 
-  function openList() {
-    const grid = h('div', { class: 'card-grid' }, LESSONS.map((l, i) => h('button', { class: 'card' + (saved[l.id] ? ' done' : ''), onclick: () => { closeModal(); start(l.id); } },
-      h('span', { class: 'meta' }, `Lesson ${i + 1} · ${l.minutes} min${saved[l.id] ? ' · ✓ done' : ''}`), h('span', { class: 't' }, l.title), h('span', { class: 'd' }, l.summary))));
-    openModal('Lessons', h('div', {}, h('p', { class: 'ctl-sub' }, 'Each lesson asks you to predict before the model runs, then explains what happened.'), grid), { wide: true });
-  }
+export function createLearn({ host: hostEl, panel, dock, inspector, loadPreset, setTool, setAllowedTools, showPane, setProbe, openPanel }) {
+  let lesson = null, idx = 0, state = {};
+  let pollTimer = null, inline = null, showAll = false;
+
+  function openList() { lesson = null; render(); openPanel?.(); panel.scrollTop = 0; }
 
   async function start(id) {
     lesson = LESSONS.find((l) => l.id === id);
-    idx = 0; state = {};
+    idx = 0; state = {}; showAll = false;
     await enter();
+    panel.scrollTop = 0;
   }
   function stop() {
     lesson = null;
@@ -202,7 +205,7 @@ export function createLearn({ cardHost, mobileHost, dock, loadPreset, setTool, s
     if (st.params) updateParams(st.params, { history: false });
     if (st.tools) setAllowedTools(st.tools);
     if (st.hide) store.set({ hiddenReadouts: new Set(st.hide) });
-    store.set({ locked: new Set(st.controls || (st.type === 'do' ? ['*'] : ['*'])) });
+    store.set({ locked: new Set(st.controls || ['*']) });
     if (st.layers) store.set({ layers: { ...store.get().layers, ...st.layers } });
     if (st.tab) showPane(st.tab);
     if (st.path) dock.profile.setPath(st.path);
@@ -214,17 +217,18 @@ export function createLearn({ cardHost, mobileHost, dock, loadPreset, setTool, s
       if (st.tools?.[1]) setTool(st.tools[1]);
       pollTimer = setInterval(() => {
         const f = store.get().frame;
-        if (f && st.goal(f, store.get().params)) { state.met = true; clearInterval(pollTimer); render(); setTimeout(() => { if (lesson && lesson.steps[idx] === st) next(); }, 900); }
+        if (f && st.goal(f, store.get().params)) { state.met = true; clearInterval(pollTimer); render(); setTimeout(() => { if (lesson && lesson.steps[idx] === st) next(); }, 1100); }
       }, 300);
     }
     if (st.type === 'observe') {
       host.send({ type: 'run', running: true, clock: 'hemo' });
       if (st.reveal) dock.profile.endPredict(true);
       if (st.days) { host.send({ type: 'advance', days: st.days }); state.observed = true; }
-      else setTimeout(() => { state.observed = true; render(); }, st.seconds * 1000);
+      else setTimeout(() => { if (lesson?.steps[idx] === st) { state.observed = true; render(); } }, st.seconds * 1000);
     }
     if (st.type === 'explain') {
       state.loading = true;
+      render();
       const { result } = await host.request('explain', { metric: st.metric });
       state.loading = false; state.explain = result;
     }
@@ -232,62 +236,79 @@ export function createLearn({ cardHost, mobileHost, dock, loadPreset, setTool, s
   }
   function next() {
     if (!lesson) return;
-    if (idx < lesson.steps.length - 1) { idx++; enter(); }
+    if (idx < lesson.steps.length - 1) { idx++; enter(); panel.scrollTop = 0; }
     else { saved[lesson.id] = true; save(); toast(`Lesson complete: ${lesson.title}`); stop(); }
   }
   function back() { if (lesson && idx > 0) { idx--; enter(); } }
 
   const md = (t) => { const span = h('span'); span.innerHTML = String(t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\*(.+?)\*/g, '<i>$1</i>'); return span; };
+  const letter = (i) => h('span', { class: 'letter' }, 'ABCDE'[i]);
+
+  function catalog() {
+    const doneN = LESSONS.filter((l) => saved[l.id]).length;
+    return h('div', { class: 'p-body', style: { paddingTop: '16px' } },
+      h('div', { class: 'p-title', style: { marginBottom: '6px' } }, h('span', { class: 'kicker' }, `Learn · ${doneN} of ${LESSONS.length} complete`), h('h2', {}, 'Guided lessons')),
+      h('p', { class: 'sub', style: { margin: '0 0 14px' } }, 'Each lesson asks you to predict before the model runs, lets you do it on the anatomy, then explains what happened.'),
+      h('div', { class: 'case-list' }, LESSONS.map((l, i) => h('button', { class: 'card' + (saved[l.id] ? ' done' : ''), onclick: () => start(l.id) },
+        h('span', { class: 'meta' }, h('span', { class: 'num-badge' }, saved[l.id] ? svgIcon('check') : i + 1), `${l.minutes} min`, saved[l.id] ? h('span', { class: 'done' }, 'Done') : null),
+        h('span', { class: 't' }, l.title), h('span', { class: 'd' }, l.summary)))));
+  }
 
   function render() {
-    const hostEl = cardHost;
-    hostEl.querySelector('.lesson-card')?.remove();
-    mobileHost.replaceChildren();
-    if (!lesson) {
-      if (store.get().mode === 'learn') {
-        const c = h('div', { class: 'panel-float lesson-card' }, h('div', { class: 'kick' }, 'Learn'), h('h3', {}, 'Guided lessons'), h('p', {}, 'Predict, observe, explain: 11 short lessons.'), h('button', { class: 'btn primary', onclick: openList }, 'Choose a lesson'));
-        hostEl.prepend(c); mobileHost.append(c.cloneNode(true)); mobileHost.querySelector('button').onclick = openList;
-      }
-      return;
-    }
+    inline?.dispose?.(); inline = null;
+    const inLearn = store.get().mode === 'learn';
+    panel.classList.toggle('lesson-focus', inLearn);
+    panel.classList.toggle('show-all', inLearn && showAll);
+    if (!inLearn) { hostEl.replaceChildren(); return; }
+    if (!lesson) { hostEl.replaceChildren(catalog()); return; }
     const st = lesson.steps[idx];
     const body = [];
-    const typeLabel = { frame: 'Context', predict: 'Predict', do: 'Do', observe: 'Observe', explain: 'Explain', check: 'Check' }[st.type];
     if (st.text) body.push(h('p', {}, md(st.text)));
     let canNext = true;
     if (st.type === 'predict' && st.mode !== 'draw') {
-      body.push(h('p', {}, h('b', {}, st.q)));
+      body.push(h('p', { class: 'q' }, st.q));
       canNext = state.answered != null;
       body.push(h('div', { class: 'opts' }, st.options.map((o, i) => h('button', { class: 'opt' + (state.answered != null ? (i === st.answer ? ' right' : i === state.answered ? ' wrong' : '') : ''), disabled: state.answered != null,
-        onclick: () => { state.answered = i; render(); } }, o))));
-      if (state.answered != null) body.push(h('p', { class: 'ctl-sub' }, state.answered === st.answer ? 'Correct. ' : 'Not quite. ', st.why || 'Let’s see what the model does.'));
+        onclick: () => { state.answered = i; render(); } }, letter(i), h('span', {}, o)))));
+      if (state.answered != null) body.push(h('div', { class: 'feedback' }, h('b', {}, state.answered === st.answer ? 'Correct. ' : 'Not quite. '), st.why || 'Now let’s see what the model does.'));
     }
-    if (st.type === 'predict' && st.mode === 'draw') {
-      canNext = (dock.profile.endPredict ? true : true);
-      body.push(h('p', { class: 'ctl-sub' }, 'When you have drawn at least 4 points, continue.'));
+    if (st.type === 'predict' && st.mode === 'draw') body.push(h('div', { class: 'feedback' }, 'Draw on the pressure profile below the anatomy. When you have at least four points, continue.'));
+    if (st.type === 'do') {
+      canNext = state.met;
+      const ids = [...(st.inline || []), ...(st.controls || []).map((k) => INLINE[k]).filter(Boolean)];
+      if (ids.length) {
+        inline = inspector.buildControls([...new Set(ids)]);
+        body.push(h('div', { class: 'inline-controls' }, inline.els));
+      }
+      if (st.presetButton) body.push(h('button', { class: 'btn block', style: { marginBottom: '12px' }, onclick: () => loadPreset(st.presetButton) }, `Load: ${store.get().presetList?.find((p) => p.id === st.presetButton)?.label || st.presetButton}`));
+      body.push(h('div', { class: 'goal ' + (state.met ? 'met' : 'waiting') }, h('span', { class: 'chk' }, svgIcon('check')), state.met ? 'Done. Moving on…' : 'Waiting for you…'));
+      if (st.hint) body.push(h('p', { class: 'ctl-sub' }, st.hint));
     }
-    if (st.type === 'do') { canNext = state.met; body.push(h('div', { class: 'goal' + (state.met ? ' met' : '') }, h('span', { class: 'chk' }), state.met ? 'Done!' : 'Waiting for you…')); if (st.hint) body.push(h('p', { class: 'ctl-sub' }, st.hint)); }
-    if (st.type === 'observe') { canNext = state.observed; if (!state.observed) body.push(h('div', { class: 'goal' }, h('span', { class: 'chk' }), st.days ? `Running ${st.days} days…` : 'Watching…')); else if (st.reveal) { const err = dock.profile.predictionError(); if (err != null) body.push(h('p', { class: 'ctl-sub' }, `Your prediction was off by ${fmt(err, 1)} mmHg on average.`)); } }
+    if (st.type === 'observe') {
+      canNext = state.observed;
+      if (!state.observed) body.push(h('div', { class: 'goal waiting' }, h('span', { class: 'chk' }, svgIcon('check')), st.days ? `Running ${st.days} simulated days…` : 'Watching the model…'));
+      else if (st.reveal) { const err = dock.profile.predictionError(); if (err != null) body.push(h('div', { class: 'feedback' }, `Your prediction was off by `, h('b', {}, `${fmt(err, 1)} mmHg`), ' on average.')); }
+    }
     if (st.type === 'explain') {
-      if (state.loading) body.push(h('p', { class: 'ctl-sub' }, 'Tracing causes…'));
-      else if (state.explain) body.push(h('p', {}, state.explain.sentence), state.explain.formula ? h('div', { class: 'note num' }, state.explain.formula) : null);
+      if (state.loading) body.push(h('div', { class: 'skeleton', style: { width: '95%' } }), h('div', { class: 'skeleton', style: { width: '75%' } }));
+      else if (state.explain) body.push(h('div', { class: 'feedback', style: { color: 'var(--text)', fontSize: '13.5px' } }, state.explain.sentence), state.explain.formula ? h('div', { class: 'formula', style: { marginBottom: '12px' } }, state.explain.formula) : null);
     }
     if (st.type === 'check') {
       canNext = st.quiz.every((_, qi) => state.quizAns[qi] != null);
       st.quiz.forEach((qq, qi) => {
-        body.push(h('p', {}, h('b', {}, qq.q)));
-        body.push(h('div', { class: 'opts' }, qq.options.map((o, i) => h('button', { class: 'opt' + (state.quizAns[qi] != null ? (i === qq.answer ? ' right' : i === state.quizAns[qi] ? ' wrong' : '') : ''), disabled: state.quizAns[qi] != null, onclick: () => { state.quizAns[qi] = i; render(); } }, o))));
+        body.push(h('p', { class: 'q' }, qq.q));
+        body.push(h('div', { class: 'opts' }, qq.options.map((o, i) => h('button', { class: 'opt' + (state.quizAns[qi] != null ? (i === qq.answer ? ' right' : i === state.quizAns[qi] ? ' wrong' : '') : ''), disabled: state.quizAns[qi] != null, onclick: () => { state.quizAns[qi] = i; render(); } }, letter(i), h('span', {}, o)))));
       });
     }
-    const dots = h('span', { class: 'progress-dots' }, lesson.steps.map((_, i) => h('i', { class: i <= idx ? 'on' : '' })));
-    const card = h('div', { class: 'panel-float lesson-card', role: 'region', 'aria-label': 'Lesson' },
-      h('div', { class: 'kick' }, h('span', {}, `${typeLabel} · ${idx + 1}/${lesson.steps.length}`), h('a', { style: { cursor: 'pointer' }, onclick: stop }, 'Exit')),
+    const [ic, typeLabel] = STEP[st.type];
+    const card = h('section', { class: 'lesson', 'aria-label': `Lesson: ${lesson.title}` },
+      h('div', { class: 'lesson-top' }, h('span', { class: 'step-type' }, svgIcon(ic, 'sec-ic'), typeLabel, h('span', { class: 'n' }, `· Step ${idx + 1} of ${lesson.steps.length}`)), h('button', { class: 'link', onclick: stop }, 'Exit lesson')),
+      h('div', { class: 'progress', 'aria-hidden': 'true' }, lesson.steps.map((_, i) => h('i', { class: i < idx ? 'on' : i === idx ? 'cur' : '' }))),
       h('h3', {}, lesson.title), ...body,
-      h('div', { class: 'foot' }, dots, h('div', { class: 'btn-row' }, idx > 0 ? h('button', { class: 'btn', onclick: back }, 'Back') : null,
-        h('button', { class: 'btn primary', disabled: !canNext, onclick: () => { if (st.type === 'predict' && st.mode === 'draw') dock.profile.endPredict(false); next(); } }, idx === lesson.steps.length - 1 ? 'Finish' : 'Next'))));
-    hostEl.prepend(card);
-    mobileHost.append(card.cloneNode(true));
-    mobileHost.querySelectorAll('button').forEach((b, i) => { const orig = card.querySelectorAll('button')[i]; b.onclick = () => orig.click(); });
+      h('div', { class: 'lesson-foot' }, idx > 0 ? h('button', { class: 'btn ghost', onclick: back }, 'Back') : h('span'),
+        h('button', { class: 'btn primary', disabled: !canNext, onclick: () => { if (st.type === 'predict' && st.mode === 'draw') dock.profile.endPredict(false); next(); } }, idx === lesson.steps.length - 1 ? 'Finish lesson' : 'Continue', svgIcon('chev-right'))));
+    const toggleAll = h('button', { class: 'btn all-controls-toggle', 'aria-expanded': String(showAll), onclick: () => { showAll = !showAll; render(); } }, showAll ? 'Hide all controls' : 'Show all controls', svgIcon(showAll ? 'chev-down' : 'chev-right'));
+    hostEl.replaceChildren(card, toggleAll);
   }
 
   store.on('mode', (m) => { if (m !== 'learn' && lesson) stop(); render(); });

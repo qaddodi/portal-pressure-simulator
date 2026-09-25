@@ -9,11 +9,13 @@ import { h, fmt, fitCanvas, cssVar, clamp } from './util.js';
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const ARTERIAL = new Set(['AO', 'HA']);
-const theme = () => ({
-  text: cssVar('--text'), muted: cssVar('--text-muted'), faint: cssVar('--text-faint'), border: cssVar('--border'),
+export const theme = () => ({
+  text: cssVar('--text'), muted: cssVar('--text-2'), faint: cssVar('--text-3'), border: cssVar('--grid'), axis: cssVar('--axis'),
   surface: cssVar('--surface'), surface2: cssVar('--surface-2'), accent: cssVar('--accent'), danger: cssVar('--danger'),
   rev: cssVar('--flow-reversed'), ok: cssVar('--flow-normal'), artery: cssVar('--artery'), caution: cssVar('--caution'),
+  series: [1, 2, 3, 4, 5, 6, 7, 8].map((i) => cssVar('--s' + i)),
 });
+export const FONT = (w = 500, px = 11) => `${w} ${px}px Inter, system-ui, -apple-system, 'Segoe UI', sans-serif`;
 
 // ── Pressure profile ("hydraulic grade line") ────────
 export function createProfile() {
@@ -23,12 +25,12 @@ export function createProfile() {
   box.append(cv);
   const sel = h('select', { class: 'select', 'aria-label': 'Path' }, PROFILE_PATHS.map((p) => h('option', { value: p.id }, p.label)));
   const legend = h('div', { class: 'legend-inline' },
-    h('span', {}, h('i', { style: { background: 'var(--text)' } }), 'Now'),
-    h('span', {}, h('i', { style: { background: 'var(--text-faint)' } }), 'Healthy'),
-    h('span', { class: 'lg-compare', style: { display: 'none' } }, h('i', { style: { background: 'var(--info)' } }), 'Snapshot A'),
-    h('span', { class: 'lg-pred', style: { display: 'none' } }, h('i', { style: { background: 'var(--accent)' } }), 'Your prediction'));
-  const note = h('div', { class: 'ctl-sub' }, 'Each step down is a resistance: ΔP = Q × R. Plateaus are compartments.');
-  const side = h('div', { class: 'chart-side' }, h('label', {}, 'Path'), sel, legend, note, h('div', { class: 'ctl-sub', id: 'profileOffscale' }));
+    h('span', {}, h('i', { style: { borderColor: 'var(--text)' } }), 'Now'),
+    h('span', {}, h('i', { style: { borderColor: 'var(--text-3)', borderTopStyle: 'dashed' } }), 'Healthy'),
+    h('span', { class: 'lg-compare', style: { display: 'none' } }, h('i', { style: { borderColor: 'var(--s1)', borderTopStyle: 'dotted' } }), 'Snapshot A'),
+    h('span', { class: 'lg-pred', style: { display: 'none' } }, h('i', { style: { borderColor: 'var(--accent)', borderTopStyle: 'dashed' } }), 'Your prediction'));
+  const note = h('div', { class: 'sub' }, 'Pressure at each station along the path. Every step down is a resistance (ΔP = Q × R); plateaus are compartments. Bar color is the pressure scale.');
+  const side = h('div', { class: 'chart-side' }, h('div', { class: 'side-title' }, 'Pressure profile'), sel, legend, note, h('div', { class: 'ctl-sub', id: 'profileOffscale' }));
   el.append(box, side);
   let pathId = 'main';
   sel.addEventListener('change', () => { pathId = sel.value; draw(); });
@@ -40,7 +42,7 @@ export function createProfile() {
     const { w, h: hh } = fitCanvas(cv);
     const path = PROFILE_PATHS.find((p) => p.id === pathId);
     const stations = path.nodes;
-    const L = 44, R = 12, T = 14, B = 40;
+    const L = 40, R = 16, T = 22, B = 34;
     const slot = (w - L - R) / stations.length;
     const vals = F ? stations.map((n) => F.P[NI[n]]) : [];
     const venous = vals.filter((_, i) => !ARTERIAL.has(stations[i]));
@@ -55,27 +57,31 @@ export function createProfile() {
     const c = theme();
     const { ctx } = fitCanvas(cv);
     const g = geometry();
-    const { w, hh, stations, L, B, slot, maxP, x, y } = g;
+    const { w, hh, stations, L, R, T, B, slot, maxP, x, y } = g;
     ctx.clearRect(0, 0, w, hh);
-    ctx.font = '11px Inter, system-ui, sans-serif';
-    // grid & thresholds
-    ctx.strokeStyle = c.border; ctx.fillStyle = c.muted; ctx.lineWidth = 1;
-    for (let p = 0; p <= maxP; p += 5) {
-      ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.moveTo(L, y(p)); ctx.lineTo(w - 12, y(p)); ctx.stroke(); ctx.globalAlpha = 1;
-      ctx.textAlign = 'right'; ctx.fillText(String(p), L - 6, y(p) + 4);
+    ctx.font = FONT(500, 11);
+    // grid (solid hairlines) & clinical thresholds (dashed reference lines)
+    ctx.strokeStyle = c.border; ctx.fillStyle = c.faint; ctx.lineWidth = 1;
+    const step = maxP > 40 ? 10 : 5;
+    for (let p = 0; p <= maxP; p += step) {
+      ctx.beginPath(); ctx.moveTo(L, Math.round(y(p)) + 0.5); ctx.lineTo(w - R, Math.round(y(p)) + 0.5); ctx.stroke();
+      ctx.textAlign = 'right'; ctx.fillText(String(p), L - 8, y(p) + 4);
     }
-    ctx.save(); ctx.translate(12, (hh - B) / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = 'center'; ctx.fillText('mmHg', 0, 0); ctx.restore();
-    for (const [p, lab, dy] of [[10, 'CSPH 10', 11], [12, 'bleeding 12', -3], [20, '20', -3]]) {
-      ctx.setLineDash([4, 4]); ctx.strokeStyle = p === 12 ? c.danger : c.faint; ctx.globalAlpha = 0.7;
-      ctx.beginPath(); ctx.moveTo(L, y(p)); ctx.lineTo(w - 12, y(p)); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
-      ctx.fillStyle = p === 12 ? c.danger : c.faint; ctx.textAlign = 'right'; ctx.fillText(lab, w - 14, y(p) + dy);
+    ctx.strokeStyle = c.axis; ctx.beginPath(); ctx.moveTo(L, Math.round(y(0)) + 0.5); ctx.lineTo(w - R, Math.round(y(0)) + 0.5); ctx.stroke();
+    ctx.textAlign = 'left'; ctx.fillText('mmHg', 6, 12);
+    for (const p of [10, 12, 20]) {
+      if (p > maxP) continue;
+      ctx.setLineDash([3, 4]); ctx.strokeStyle = p === 12 ? c.danger : c.axis; ctx.globalAlpha = p === 12 ? 0.6 : 1;
+      ctx.beginPath(); ctx.moveTo(L, y(p)); ctx.lineTo(w - R, y(p)); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
     }
+    ctx.textAlign = 'right'; ctx.fillStyle = c.faint;
+    ctx.fillText('CSPH 10 · bleeding 12', w - R, y(12) - 5);
     // station labels
-    ctx.fillStyle = c.muted; ctx.textAlign = 'center';
+    ctx.fillStyle = c.muted; ctx.textAlign = 'center'; ctx.font = FONT(500, 11);
     stations.forEach((n, i) => {
       const lbl = SHORT[n] || n;
-      ctx.save(); ctx.translate(x(i), hh - B + 14);
-      if (slot < 70) { ctx.rotate(-0.35); ctx.textAlign = 'right'; ctx.translate(12, 0); }
+      ctx.save(); ctx.translate(x(i), hh - B + 16);
+      if (slot < 74) { ctx.rotate(-0.4); ctx.textAlign = 'right'; ctx.translate(10, 0); }
       ctx.fillText(lbl, 0, 0); ctx.restore();
     });
     const series = (vals, color, width, dash, markers) => {
@@ -87,45 +93,50 @@ export function createProfile() {
         ctx.lineTo(x1, y(v));
       });
       ctx.stroke(); ctx.setLineDash([]);
-      if (markers) vals.forEach((v, i) => { ctx.fillStyle = pressureColor(v); ctx.fillRect(x(i) - slot * 0.32, y(v) - 3, slot * 0.64, 6); });
+      if (markers) vals.forEach((v, i) => {
+        ctx.fillStyle = ARTERIAL.has(stations[i]) ? c.artery : pressureColor(v);
+        const bx = x(i) - slot * 0.32, bw = slot * 0.64;
+        ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, y(v) - 3.5, bw, 7, 3.5) : ctx.rect(bx, y(v) - 3.5, bw, 7); ctx.fill();
+      });
     };
     const st = store.get();
     const healthy = st.healthy;
-    if (healthy) series(stations.map((n) => healthy.P[NI[n]]), c.faint, 1.5, [5, 4]);
-    if (st.compareSnap?.P) { series(stations.map((n) => st.compareSnap.P[NI[n]]), cssVar('--info'), 1.8, [2, 3]); el.querySelector('.lg-compare').style.display = ''; }
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    if (healthy) series(stations.map((n) => healthy.P[NI[n]]), c.faint, 1.5, [4, 4]);
+    if (st.compareSnap?.P) { series(stations.map((n) => st.compareSnap.P[NI[n]]), c.series[0], 2, [1.5, 4]); el.querySelector('.lg-compare').style.display = ''; }
     else el.querySelector('.lg-compare').style.display = 'none';
     const now = stations.map((n) => F.P[NI[n]]);
-    series(now, c.text, 2.2, null, true);
-    // ΔP labels on risers
-    ctx.font = '600 10.5px JetBrains Mono, monospace'; ctx.textAlign = 'left';
+    series(now, c.text, 2, null, true);
+    // ΔP labels on the risers that matter (≥ 1 mmHg), in ink
+    ctx.font = FONT(600, 10.5); ctx.textAlign = 'left';
     for (let i = 0; i < now.length - 1; i++) {
       const dp = now[i] - now[i + 1];
-      if (Math.abs(dp) < 0.5) continue;
+      if (Math.abs(dp) < 1 || ARTERIAL.has(stations[i])) continue;
       const xm = (x(i) + x(i + 1)) / 2;
-      const ym = (y(now[i]) + y(now[i + 1])) / 2;
+      const ym = Math.max(T + 10, Math.min(hh - B - 4, (y(now[i]) + y(now[i + 1])) / 2));
       ctx.fillStyle = dp < 0 ? c.rev : c.muted;
-      ctx.fillText((dp > 0 ? '−' : '+') + Math.abs(dp).toFixed(1), xm + 3, ym + 4);
+      ctx.fillText((dp > 0 ? 'Δ ' : 'Δ +') + Math.abs(dp).toFixed(1), xm + 4, ym + 4);
     }
     // off-scale arterial
     const off = stations.filter((n) => ARTERIAL.has(n)).map((n) => `${SHORT[n]} ${fmt(F.P[NI[n]], 0)} mmHg`);
-    el.querySelector('#profileOffscale').textContent = off.length ? `Off scale: ${off.join(', ')}` : '';
+    el.querySelector('#profileOffscale').textContent = off.length ? `Off the scale (red): ${off.join(', ')}.` : '';
     // prediction
     const lp = el.querySelector('.lg-pred');
     if (predict?.values?.size) {
       lp.style.display = '';
-      ctx.strokeStyle = c.accent; ctx.lineWidth = 2.5; ctx.setLineDash([7, 4]);
+      ctx.strokeStyle = c.accent; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
       ctx.beginPath();
       let first = true;
       stations.forEach((n, i) => { const v = predict.values.get(n); if (v == null) return; if (first) { ctx.moveTo(x(i), y(v)); first = false; } else ctx.lineTo(x(i), y(v)); });
       ctx.stroke(); ctx.setLineDash([]);
       if (predict.reveal) {
-        ctx.fillStyle = 'rgba(210,59,59,.18)';
+        ctx.fillStyle = 'rgba(210,69,47,.14)';
         stations.forEach((n, i) => { const v = predict.values.get(n); if (v == null) return; ctx.fillRect(x(i) - 6, Math.min(y(v), y(now[i])), 12, Math.abs(y(v) - y(now[i]))); });
       }
     } else lp.style.display = 'none';
     if (predict?.on) {
-      ctx.fillStyle = c.accent; ctx.font = '600 12px Inter, sans-serif'; ctx.textAlign = 'left';
-      ctx.fillText('Drag across the chart to draw your predicted pressures', L + 8, 26);
+      ctx.fillStyle = c.accent; ctx.font = FONT(600, 12.5); ctx.textAlign = 'right';
+      ctx.fillText('Drag across the chart to draw your prediction', w - R - 6, T + 14);
     }
   }
 
@@ -160,27 +171,30 @@ export function createProfile() {
 }
 
 // ── Scope (time series) ─────────────────────────────
+// Series colors come from the validated categorical order (--s1…--s8), fixed per trace so a
+// trace keeps its color whatever else is switched on. One y-axis per panel: traces with
+// different units are drawn as stacked small multiples instead of a dual axis.
 const TRACES = {
-  CONF: { label: 'Portal vein', unit: 'mmHg', color: '#8E4FC4' },
-  SIN_R: { label: 'Sinusoids (WHVP≈)', unit: 'mmHg', color: '#C0307A' },
-  RHV: { label: 'Hepatic vein (FHVP)', unit: 'mmHg', color: '#2D6CDF' },
-  RA: { label: 'Right atrium', unit: 'mmHg', color: '#1F9D74' },
-  IVCS: { label: 'IVC', unit: 'mmHg', color: '#6A7FD8' },
-  VAR: { label: 'Esophageal varix', unit: 'mmHg', color: '#D23B3B' },
-  SV: { label: 'Splenic vein', unit: 'mmHg', color: '#9C6B8E' },
-  SMV: { label: 'SMV', unit: 'mmHg', color: '#D99A1E' },
-  AO: { label: 'Aorta', unit: 'mmHg', color: '#C2414B', scale: 'art' },
-  pvVel: { label: 'PV velocity', unit: 'cm/s', color: '#19A7A0', scale: 'vel' },
-  hvVel: { label: 'RHV velocity', unit: 'cm/s', color: '#F0782B', scale: 'vel' },
+  CONF: { label: 'Portal vein', unit: 'mmHg', s: 0 },
+  SIN_R: { label: 'Sinusoids (≈ WHVP)', short: 'Sinusoids', unit: 'mmHg', s: 4 },
+  RHV: { label: 'Hepatic vein (FHVP)', short: 'Hepatic v.', unit: 'mmHg', s: 2 },
+  RA: { label: 'Right atrium', unit: 'mmHg', s: 1 },
+  IVCS: { label: 'IVC', unit: 'mmHg', s: 6 },
+  VAR: { label: 'Esophageal varix', short: 'Varix', unit: 'mmHg', s: 7 },
+  SV: { label: 'Splenic vein', unit: 'mmHg', s: 3 },
+  SMV: { label: 'SMV', unit: 'mmHg', s: 5 },
+  AO: { label: 'Aorta', unit: 'mmHg (arterial)', s: 7 },
+  pvVel: { label: 'Portal velocity', unit: 'cm/s', s: 0 },
+  hvVel: { label: 'Hepatic vein velocity', short: 'Hepatic v.', unit: 'cm/s', s: 1 },
 };
 const TRENDS = {
-  hvpg: { label: 'HVPG', unit: 'mmHg', color: '#C0307A', get: (m) => m.hvpg },
-  pv: { label: 'Portal pressure', unit: 'mmHg', color: '#8E4FC4', get: (m) => m.pv },
-  varix: { label: 'Varix diameter', unit: 'mm', color: '#D23B3B', get: (m) => m.varix.d },
-  shunt: { label: 'Shunt fraction', unit: '%', color: '#F0782B', get: (m) => m.shuntFraction * 100 },
-  ascites: { label: 'Ascites', unit: 'L', color: '#3E8FC0', get: (m) => m.ascites.volume / 1000 },
-  spleen: { label: 'Spleen', unit: 'cm', color: '#9C6B8E', get: (m) => m.spleen.length },
-  co: { label: 'Cardiac output', unit: 'L/min', color: '#1F9D74', get: (m) => m.co },
+  hvpg: { label: 'HVPG', unit: 'mmHg', s: 4, get: (m) => m.hvpg },
+  pv: { label: 'Portal pressure', unit: 'mmHg', s: 0, get: (m) => m.pv },
+  varix: { label: 'Varix diameter', unit: 'mm', s: 7, get: (m) => m.varix.d },
+  shunt: { label: 'Shunt fraction', unit: '%', s: 1, get: (m) => m.shuntFraction * 100 },
+  ascites: { label: 'Ascites', unit: 'L', s: 2, get: (m) => m.ascites.volume / 1000 },
+  spleen: { label: 'Spleen length', unit: 'cm', s: 6, get: (m) => m.spleen.length },
+  co: { label: 'Cardiac output', unit: 'L/min', s: 3, get: (m) => m.co },
 };
 
 export function createScope() {
@@ -189,12 +203,17 @@ export function createScope() {
   const cv = h('canvas', { role: 'img', 'aria-label': 'Time-series scope' });
   box.append(cv);
   const chosen = new Set(['CONF', 'SIN_R', 'RHV', 'RA']);
-  const chosenTrend = new Set(['hvpg', 'varix', 'shunt', 'ascites']);
+  const chosenTrend = new Set(['hvpg', 'varix', 'ascites']);
   let windowS = 20;
-  const winSel = h('select', { class: 'select', 'aria-label': 'Window' }, [6, 20, 60].map((s) => h('option', { value: s, selected: s === 20 }, `${s} s window`)));
-  winSel.addEventListener('change', () => { windowS = +winSel.value; });
-  const boxes = h('div', { style: { display: 'flex', flexDirection: 'column', gap: '4px' } });
-  const side = h('div', { class: 'chart-side' }, h('label', {}, 'Traces'), winSel, boxes, h('div', { class: 'ctl-sub', id: 'scopeHint' }));
+  const winSeg = h('div', { class: 'seg full' }, [6, 20, 60].map((sec) => {
+    const b = h('button', { 'aria-pressed': String(sec === windowS) }, `${sec} s`);
+    b.addEventListener('click', () => { windowS = sec; winSeg.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); draw(); });
+    return b;
+  }));
+  const boxes = h('div', { class: 'check-list' });
+  const title = h('div', { class: 'side-title' });
+  const hint = h('div', { class: 'ctl-sub' });
+  const side = h('div', { class: 'chart-side' }, title, winSeg, boxes, hint);
   el.append(box, side);
   const buf = { t: [] };
   const trend = { day: [] };
@@ -203,13 +222,15 @@ export function createScope() {
   function renderBoxes() {
     const src = mode === 'hemo' ? TRACES : TRENDS;
     const set = mode === 'hemo' ? chosen : chosenTrend;
+    const series = theme().series;
+    title.textContent = mode === 'hemo' ? 'Scope · seconds' : 'Trends · days';
     boxes.replaceChildren(...Object.entries(src).map(([k, t]) => {
       const cb = h('input', { type: 'checkbox', checked: set.has(k) });
-      cb.addEventListener('change', () => { if (cb.checked) set.add(k); else set.delete(k); });
-      return h('label', { style: { display: 'flex', gap: '6px', alignItems: 'center', textTransform: 'none', letterSpacing: 0, fontWeight: 500, fontSize: '12.5px', color: 'var(--text)' } }, cb, h('i', { style: { width: '10px', height: '3px', background: t.color, display: 'inline-block' } }), `${t.label}`);
+      cb.addEventListener('change', () => { if (cb.checked) set.add(k); else set.delete(k); draw(); });
+      return h('label', { class: 'check-row' }, cb, h('i', { style: { borderColor: series[t.s] } }), t.label, h('span', { class: 'unit', style: { marginLeft: 'auto' } }, t.unit));
     }));
-    winSel.style.display = mode === 'hemo' ? '' : 'none';
-    el.querySelector('#scopeHint').textContent = mode === 'hemo' ? 'Enable Pulsatile mode (inspector) to see a, v waves and PV pulsatility.' : 'Disease clock: one point per simulated day.';
+    winSeg.hidden = mode !== 'hemo';
+    hint.textContent = mode === 'hemo' ? 'Turn on Pulsatile mode (Physiology tab) to see a- and v-waves and portal pulsatility.' : 'Disease clock: one point per simulated day.';
   }
   renderBoxes();
 
@@ -217,10 +238,12 @@ export function createScope() {
     const m = f.clock === 'disease' ? 'disease' : 'hemo';
     if (m !== mode) { mode = m; renderBoxes(); }
     if (f.samples) {
-      const s = f.samples;
-      for (let i = 0; i < s.t.length; i++) {
-        buf.t.push(s.t[i]);
-        for (const k of Object.keys(TRACES)) (buf[k] ||= []).push(s[k][i]);
+      const smp = f.samples;
+      // A new scenario restarts the engine clock: start a fresh trace instead of plotting across the jump.
+      if (smp.t.length && buf.t.length && smp.t[0] < buf.t[buf.t.length - 1]) for (const k of Object.keys(buf)) buf[k].length = 0;
+      for (let i = 0; i < smp.t.length; i++) {
+        buf.t.push(smp.t[i]);
+        for (const k of Object.keys(TRACES)) (buf[k] ||= []).push(smp[k][i]);
       }
       const tMin = (buf.t[buf.t.length - 1] ?? 0) - 65;
       let cut = 0; while (cut < buf.t.length && buf.t[cut] < tMin) cut++;
@@ -234,60 +257,86 @@ export function createScope() {
     }
   }
 
+  const nice = (span) => { const raw = span / 4; const p = Math.pow(10, Math.floor(Math.log10(raw))); const n = raw / p; return (n < 1.5 ? 1 : n < 3.5 ? 2 : n < 7.5 ? 5 : 10) * p; };
+
   function draw() {
     const c = theme();
     const { ctx, w, h: hh } = fitCanvas(cv);
     ctx.clearRect(0, 0, w, hh);
-    const L = 44, R = 44, T = 10, B = 24;
-    ctx.font = '11px Inter, system-ui, sans-serif';
+    const L = 40, R = 118, T = 8, B = 24, GAP = 16;
+    ctx.font = FONT(500, 11);
     const isH = mode === 'hemo';
     const xs = isH ? buf.t : trend.day;
-    if (xs.length < 2) { ctx.fillStyle = c.muted; ctx.fillText('Collecting…', L, 30); return; }
-    const x1 = xs[xs.length - 1], x0 = isH ? x1 - windowS : Math.max(xs[0], x1 - 730);
-    const keys = [...(isH ? chosen : chosenTrend)];
+    if (xs.length < 2) { ctx.fillStyle = c.faint; ctx.fillText(isH ? 'Collecting samples…' : 'Advance the disease clock to build a trend.', L, 30); return; }
+    const x1 = xs[xs.length - 1], x0 = isH ? Math.max(xs[0], x1 - windowS) : Math.max(xs[0], x1 - 730);
     const src = isH ? TRACES : TRENDS;
-    const groups = {};
+    const keys = [...(isH ? chosen : chosenTrend)].filter((k) => (isH ? buf[k] : trend[k]));
+    if (!keys.length) { ctx.fillStyle = c.faint; ctx.fillText('Choose at least one trace.', L, 30); return; }
+    const groups = [];
     for (const k of keys) {
-      const g = src[k].scale || src[k].unit;
+      const u = src[k].unit;
+      let g = groups.find((x) => x.unit === u);
+      if (!g) groups.push(g = { unit: u, keys: [], mn: Infinity, mx: -Infinity });
+      g.keys.push(k);
       const arr = isH ? buf[k] : trend[k];
-      if (!arr) continue;
-      let mn = Infinity, mx = -Infinity;
-      for (let i = 0; i < xs.length; i++) if (xs[i] >= x0) { mn = Math.min(mn, arr[i]); mx = Math.max(mx, arr[i]); }
-      const G = (groups[g] ||= { mn: Infinity, mx: -Infinity, unit: src[k].unit });
-      G.mn = Math.min(G.mn, mn); G.mx = Math.max(G.mx, mx);
+      for (let i = 0; i < xs.length; i++) if (xs[i] >= x0) { g.mn = Math.min(g.mn, arr[i]); g.mx = Math.max(g.mx, arr[i]); }
     }
-    const gKeys = Object.keys(groups);
-    for (const g of gKeys) { const G = groups[g]; const pad = Math.max(1, (G.mx - G.mn) * 0.12); G.mn = Math.floor(G.mn - pad); G.mx = Math.ceil(G.mx + pad); if (G.unit === 'mmHg' && G.mn > 0 && g !== 'art') G.mn = 0; }
+    const ph = (hh - T - B - GAP * (groups.length - 1)) / groups.length;
     const X = (t) => L + ((t - x0) / Math.max(1e-6, x1 - x0)) * (w - L - R);
-    const Y = (v, G) => T + (hh - T - B) * (1 - (v - G.mn) / Math.max(1e-6, G.mx - G.mn));
-    // axes
-    ctx.strokeStyle = c.border; ctx.fillStyle = c.muted;
-    const G0 = groups[gKeys[0]], G1 = groups[gKeys[1]];
-    if (G0) for (let i = 0; i <= 4; i++) {
-      const v = G0.mn + ((G0.mx - G0.mn) * i) / 4, yy = Y(v, G0);
-      ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(w - R, yy); ctx.stroke(); ctx.globalAlpha = 1;
-      ctx.textAlign = 'right'; ctx.fillText(fmt(v, 0), L - 6, yy + 4);
-      if (G1) { const v1 = G1.mn + ((G1.mx - G1.mn) * i) / 4; ctx.textAlign = 'left'; ctx.fillText(fmt(v1, 0), w - R + 6, yy + 4); }
-    }
-    ctx.textAlign = 'left'; ctx.fillText(G0 ? G0.unit : '', 4, 12); if (G1) { ctx.textAlign = 'right'; ctx.fillText(G1.unit, w - 4, 12); }
-    ctx.textAlign = 'center';
+    groups.forEach((g, gi) => {
+      const top = T + gi * (ph + GAP), bot = top + ph;
+      const pad = Math.max(1, (g.mx - g.mn) * 0.12);
+      let mn = g.mn - pad, mx = g.mx + pad;
+      if (g.unit === 'mmHg' && mn > 0) mn = 0;
+      const tick = nice(mx - mn);
+      mn = Math.floor(mn / tick) * tick; mx = Math.ceil(mx / tick) * tick;
+      if (g.mn >= 0 && mn < 0) mn = 0;
+      const Y = (v) => bot - ((v - mn) / Math.max(1e-6, mx - mn)) * (bot - top);
+      ctx.lineWidth = 1; ctx.strokeStyle = c.border; ctx.fillStyle = c.faint; ctx.textAlign = 'right';
+      for (let v = mn; v <= mx + 1e-9; v += tick) {
+        const yy = Math.round(Y(v)) + 0.5;
+        ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(w - R, yy); ctx.stroke();
+        if (ph > 40 || v === mn || v >= mx - 1e-9) ctx.fillText(fmt(v, tick < 1 ? 1 : 0), L - 7, yy + 4);
+      }
+      ctx.textAlign = 'left'; ctx.fillStyle = c.muted; ctx.font = FONT(600, 10.5);
+      ctx.fillText(g.unit, L + 4, top + 11); ctx.font = FONT(500, 11);
+      // traces + direct end labels (ink text beside a colored key), nudged apart only when they collide
+      const ends = [];
+      ctx.save(); ctx.beginPath(); ctx.rect(L, top - 2, w - L - R, bot - top + 4); ctx.clip();
+      for (const k of g.keys) {
+        const arr = isH ? buf[k] : trend[k];
+        ctx.strokeStyle = c.series[src[k].s]; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+        ctx.beginPath();
+        let started = false, last = null;
+        for (let i = 0; i < xs.length; i++) {
+          if (xs[i] < x0) continue;
+          const px = X(xs[i]), py = Y(arr[i]);
+          if (!started) { ctx.moveTo(px, py); started = true; } else ctx.lineTo(px, py);
+          last = arr[i];
+        }
+        ctx.stroke();
+        if (last != null) ends.push({ k, y: Y(last), v: last });
+      }
+      ctx.restore();
+      ends.sort((a, b) => a.y - b.y);
+      for (let i = 1; i < ends.length; i++) ends[i].y = Math.max(ends[i].y, ends[i - 1].y + 13);
+      for (const e of ends) {
+        const yy = Math.min(bot, Math.max(top + 4, e.y));
+        ctx.fillStyle = c.series[src[e.k].s]; ctx.beginPath(); ctx.arc(w - R + 8, yy, 3, 0, 7); ctx.fill();
+        ctx.fillStyle = c.text; ctx.textAlign = 'left'; ctx.font = FONT(600, 11);
+        ctx.fillText(fmt(e.v, 1), w - R + 15, yy + 4);
+        const vw = ctx.measureText(fmt(e.v, 1)).width;
+        ctx.fillStyle = c.muted; ctx.font = FONT(500, 11);
+        const full = src[e.k].short || src[e.k].label;
+        const lab = full.length > 14 ? full.slice(0, 13) + '…' : full;
+        ctx.fillText(lab, w - R + 19 + vw, yy + 4);
+      }
+      ctx.strokeStyle = c.axis; ctx.beginPath(); ctx.moveTo(L, Math.round(bot) + 0.5); ctx.lineTo(w - R, Math.round(bot) + 0.5); ctx.stroke();
+    });
+    ctx.fillStyle = c.faint; ctx.textAlign = 'center'; ctx.font = FONT(500, 11);
     const span = x1 - x0;
     const step = isH ? (span > 30 ? 10 : span > 10 ? 2 : 1) : span > 360 ? 90 : span > 120 ? 30 : 7;
-    for (let t = Math.ceil(x0 / step) * step; t <= x1; t += step) { ctx.fillText(isH ? `${Math.round(t)} s` : `d${Math.round(t)}`, X(t), hh - 6); }
-    for (const k of keys) {
-      const arr = isH ? buf[k] : trend[k];
-      if (!arr) continue;
-      const G = groups[src[k].scale || src[k].unit];
-      ctx.strokeStyle = src[k].color; ctx.lineWidth = 1.8;
-      ctx.beginPath();
-      let started = false;
-      for (let i = 0; i < xs.length; i++) {
-        if (xs[i] < x0) continue;
-        const px = X(xs[i]), py = Y(arr[i], G);
-        if (!started) { ctx.moveTo(px, py); started = true; } else ctx.lineTo(px, py);
-      }
-      ctx.stroke();
-    }
+    for (let t = Math.ceil(x0 / step) * step; t <= x1; t += step) ctx.fillText(isH ? `${Math.round(t)} s` : `day ${Math.round(t)}`, X(t), hh - 6);
   }
   return { id: 'scope', label: 'Scope', el, update(f) { ingest(f); draw(); }, ingest, redraw: draw };
 }
@@ -298,9 +347,9 @@ export function createSankey() {
   const box = h('div', { class: 'chart-box' });
   const cv = h('canvas', { role: 'img', 'aria-label': 'Flow distribution' });
   box.append(cv);
-  const side = h('div', { class: 'chart-side' }, h('label', {}, 'Where does gut blood go?'),
-    h('div', { class: 'ctl-sub' }, 'Ribbon width ∝ flow. Orange = reversed (hepatofugal) flow. Portosystemic routes bypass the liver: that fraction is the shunt fraction.'),
-    h('div', { id: 'sankeyStats', class: 'kv' }));
+  const side = h('div', { class: 'chart-side' }, h('div', { class: 'side-title' }, 'Where does gut blood go?'),
+    h('div', { class: 'sub' }, 'Ribbon width is proportional to flow (L/min). Teal passes through the liver; orange bypasses it through portosystemic routes. That bypassed share is the shunt fraction.'),
+    h('dl', { id: 'sankeyStats', class: 'kv' }));
   el.append(box, side);
   function draw(f) {
     const c = theme();
@@ -325,9 +374,17 @@ export function createSankey() {
     const blocks = [];
     const drawBlock = (x, y, v, label, color) => {
       const hb = Math.max(2, v * scale);
-      ctx.fillStyle = color; ctx.fillRect(x - 6, y, 12, hb);
-      ctx.fillStyle = c.text; ctx.font = '600 11.5px Inter, sans-serif'; ctx.textAlign = x > w / 2 ? 'right' : 'left';
-      ctx.fillText(`${label}  ${fmt(v, 2)}`, x + (x > w / 2 ? -10 : 10), y + Math.min(hb / 2 + 4, hb + 12));
+      ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - 5, y, 10, hb, 2) : ctx.rect(x - 5, y, 10, hb); ctx.fill();
+      const right = x > w / 2, tx = x + (right ? -12 : 12), ty = y + Math.min(hb / 2 + 4, hb + 12);
+      ctx.textAlign = right ? 'right' : 'left';
+      ctx.font = FONT(500, 11.5); ctx.fillStyle = c.muted;
+      const lw = ctx.measureText(label + '  ').width;
+      ctx.lineWidth = 4; ctx.lineJoin = 'round'; ctx.strokeStyle = c.surface;
+      const lx = tx - (right ? (ctx.font = FONT(600, 11.5), ctx.measureText(fmt(v, 2)).width) + 2 : 0);
+      ctx.font = FONT(500, 11.5);
+      ctx.strokeText(label + '  ', lx, ty); ctx.fillText(label + '  ', lx, ty);
+      ctx.font = FONT(600, 11.5); ctx.fillStyle = c.text;
+      ctx.strokeText(fmt(v, 2), right ? tx : tx + lw, ty); ctx.fillText(fmt(v, 2), right ? tx : tx + lw, ty);
       blocks.push({ x, y, hb });
       return { x, y, hb, used: 0, usedIn: 0 };
     };
@@ -336,7 +393,7 @@ export function createSankey() {
       const t = v * scale;
       const y0 = a.y + a.used, y1 = b.y + b.usedIn;
       a.used += t; b.usedIn += t;
-      ctx.fillStyle = color; ctx.globalAlpha = 0.38;
+      ctx.fillStyle = color; ctx.globalAlpha = 0.3;
       ctx.beginPath();
       const xm = (a.x + b.x) / 2;
       ctx.moveTo(a.x + 6, y0); ctx.bezierCurveTo(xm, y0, xm, y1, b.x - 6, y1);
@@ -376,7 +433,7 @@ export function createPerfusion() {
   const el = h('div', { class: 'dock-pane', 'data-pane': 'perfusion' });
   const b1 = h('div', { class: 'chart-box', style: { maxWidth: '300px' } }), c1 = h('canvas', { role: 'img', 'aria-label': 'Liver perfusion composition' }); b1.append(c1);
   const b2 = h('div', { class: 'chart-box' }), c2 = h('canvas', { role: 'img', 'aria-label': 'Pressure–flow operating point' }); b2.append(c2);
-  const side = h('div', { class: 'chart-side' }, h('label', {}, 'Hepatic arterial buffer'), h('div', { class: 'ctl-sub' }, 'When portal inflow falls, adenosine accumulates and the hepatic artery dilates: liver perfusion falls less than portal flow.'), h('dl', { class: 'kv', id: 'perfStats' }));
+  const side = h('div', { class: 'chart-side' }, h('div', { class: 'side-title' }, 'Hepatic arterial buffer'), h('div', { class: 'sub' }, 'When portal inflow falls, adenosine accumulates and the hepatic artery dilates, so liver perfusion falls less than portal flow. Right: the liver’s pressure–flow operating point; the slope is its resistance.'), h('dl', { class: 'kv', id: 'perfStats' }));
   el.append(b1, b2, side);
   function draw(f) {
     const c = theme();
@@ -385,20 +442,21 @@ export function createPerfusion() {
     {
       const { ctx, w, h: hh } = fitCanvas(c1);
       ctx.clearRect(0, 0, w, hh);
-      const cx = w / 2, cy = hh / 2, R = Math.min(w, hh) / 2 - 16, r = R * 0.62;
+      const top = 58, R = Math.max(20, Math.min(w / 2, (hh - top) / 2) - 8), cx = w / 2, cy = top + (hh - top) / 2, r = R * 0.72;
       const portal = m.portalIn, art = m.arterialIn, lost = Math.max(0, m.splanchnicIn - portal);
       const total = portal + art + lost || 1;
       let a = -Math.PI / 2;
       for (const [v, col] of [[portal, c.ok], [art, c.artery], [lost, c.rev]]) {
         const da = (v / total) * Math.PI * 2;
-        ctx.fillStyle = col; ctx.beginPath(); ctx.arc(cx, cy, R, a, a + da); ctx.arc(cx, cy, r, a + da, a, true); ctx.closePath(); ctx.fill();
+        const gap = da > 0.05 ? 0.02 : 0;
+        ctx.fillStyle = col; ctx.beginPath(); ctx.arc(cx, cy, R, a + gap, a + da - gap); ctx.arc(cx, cy, r, a + da - gap, a + gap, true); ctx.closePath(); ctx.fill();
         a += da;
       }
-      ctx.fillStyle = c.text; ctx.textAlign = 'center'; ctx.font = '800 24px JetBrains Mono, monospace';
-      ctx.fillText(`${Math.round(m.liverPerfPct)}%`, cx, cy + 6);
-      ctx.font = '600 11px Inter, sans-serif'; ctx.fillStyle = c.muted; ctx.fillText('liver perfusion', cx, cy + 22);
-      ctx.textAlign = 'left'; ctx.font = '11px Inter, sans-serif';
-      [['Portal', c.ok], ['Hepatic artery', c.artery], ['Diverted to collaterals', c.rev]].forEach(([t, col], i) => { ctx.fillStyle = col; ctx.fillRect(8, 8 + i * 15, 9, 9); ctx.fillStyle = c.muted; ctx.fillText(t, 22, 16 + i * 15); });
+      ctx.fillStyle = c.text; ctx.textAlign = 'center'; ctx.font = FONT(600, Math.max(14, Math.min(24, r * 0.5)));
+      ctx.fillText(`${Math.round(m.liverPerfPct)}%`, cx, cy + 4);
+      ctx.font = FONT(500, 10.5); ctx.fillStyle = c.muted; ctx.fillText('perfused', cx, cy + 19);
+      ctx.textAlign = 'left'; ctx.font = FONT(500, 11);
+      [['Portal', c.ok], ['Hepatic artery', c.artery], ['Bypassing the liver', c.rev]].forEach(([t, col], i) => { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(10, 12 + i * 16, 4, 0, 7); ctx.fill(); ctx.fillStyle = c.muted; ctx.fillText(t, 20, 16 + i * 16); });
     }
     // operating point
     {
@@ -410,8 +468,10 @@ export function createPerfusion() {
       const q0 = healthy ? healthy.metrics.hepaticFlow : 1.5, dp0 = healthy ? healthy.P[NI.CONF] - healthy.P[NI.RHV] : 3.7;
       const qMax = Math.max(2.2, qL * 1.3), pMax = Math.max(30, dpL * 1.3);
       const X = (q) => L + (q / qMax) * (w - L - R), Y = (p) => T + (1 - p / pMax) * (hh - T - B);
-      ctx.strokeStyle = c.border; ctx.fillStyle = c.muted; ctx.font = '11px Inter, sans-serif';
-      ctx.beginPath(); ctx.moveTo(L, T); ctx.lineTo(L, hh - B); ctx.lineTo(w - R, hh - B); ctx.stroke();
+      ctx.fillStyle = c.faint; ctx.font = FONT(500, 11); ctx.lineWidth = 1;
+      ctx.strokeStyle = c.border;
+      for (let p = 10; p <= pMax; p += 10) { ctx.beginPath(); ctx.moveTo(L, Math.round(Y(p)) + 0.5); ctx.lineTo(w - R, Math.round(Y(p)) + 0.5); ctx.stroke(); }
+      ctx.strokeStyle = c.axis; ctx.beginPath(); ctx.moveTo(L, Math.round(hh - B) + 0.5); ctx.lineTo(w - R, Math.round(hh - B) + 0.5); ctx.stroke();
       ctx.textAlign = 'center'; ctx.fillText('Liver blood flow (L/min)', (L + w) / 2, hh - 6);
       ctx.save(); ctx.translate(12, (hh - B) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText('ΔP portal → hepatic vein (mmHg)', 0, 0); ctx.restore();
       for (let p = 0; p <= pMax; p += 10) { ctx.textAlign = 'right'; ctx.fillText(String(p), L - 5, Y(p) + 4); }
@@ -421,8 +481,9 @@ export function createPerfusion() {
       if (qL > 0.01) line(dpL / qL, c.accent);
       ctx.fillStyle = c.faint; ctx.beginPath(); ctx.arc(X(q0), Y(dp0), 5, 0, 7); ctx.fill();
       ctx.fillStyle = c.accent; ctx.beginPath(); ctx.arc(X(qL), Y(dpL), 6, 0, 7); ctx.fill();
-      ctx.fillStyle = c.text; ctx.textAlign = 'left'; ctx.font = '600 11.5px Inter, sans-serif';
-      ctx.fillText(`R liver = ${fmt(dpL / Math.max(0.01, qL), 1)} WU (healthy ${fmt(dp0 / q0, 1)})`, L + 10, T + 14);
+      ctx.fillStyle = c.text; ctx.textAlign = 'left'; ctx.font = FONT(600, 12);
+      ctx.fillText(`Liver resistance ${fmt(dpL / Math.max(0.01, qL), 1)} WU`, L + 10, T + 14);
+      ctx.fillStyle = c.muted; ctx.font = FONT(500, 11.5); ctx.fillText(`healthy ${fmt(dp0 / q0, 1)} WU (dashed)`, L + 10, T + 30);
     }
     el.querySelector('#perfStats').replaceChildren(
       h('dt', {}, 'Portal inflow'), h('dd', {}, `${fmt(m.portalIn, 2)} L/min`),

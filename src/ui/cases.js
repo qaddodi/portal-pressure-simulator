@@ -2,7 +2,7 @@
 
 import { store, updateParams } from './store.js';
 import { host } from './host.js';
-import { h, fmt, openModal, closeModal, toast } from './util.js';
+import { h, fmt, openModal, closeModal, toast, svgIcon } from './util.js';
 
 const ACTIONS = {
   crystalloid: { label: '1 L crystalloid', run: (a) => a.action({ kind: 'infuse', fluid: 'crystalloid' }) },
@@ -100,8 +100,11 @@ export function createCases({ root, api }) {
   const log = [];
 
   function list() {
-    root.replaceChildren(h('div', { class: 'insp-head' }, h('div', { style: { flex: 1 } }, h('span', { class: 'kicker' }, 'Cases'), h('h2', {}, 'Clinical scenarios'))),
-      h('div', { class: 'section-body', style: { paddingTop: '12px' } }, CASES.map((c) => h('button', { class: 'card', onclick: () => start(c.id) }, h('span', { class: 'meta' }, c.level), h('span', { class: 't' }, c.title), h('span', { class: 'd' }, c.summary)))));
+    root.replaceChildren(h('div', { class: 'p-body', style: { paddingTop: '16px' } },
+      h('div', { class: 'p-title', style: { marginBottom: '6px' } }, h('span', { class: 'kicker' }, 'Cases'), h('h2', {}, 'Clinical scenarios')),
+      h('p', { class: 'sub', style: { margin: '0 0 14px' } }, 'Manage a patient with clinical actions only: raw resistances are hidden, as in real life. Each case ends with a scored debrief.'),
+      h('div', { class: 'case-list' }, CASES.map((c) => h('button', { class: 'card', onclick: () => start(c.id) },
+        h('span', { class: 'meta' }, c.level), h('span', { class: 't' }, c.title), h('span', { class: 'd' }, c.summary))))));
   }
 
   async function start(id) {
@@ -157,14 +160,22 @@ export function createCases({ root, api }) {
     const met = cs.objectives.filter((o) => c.obj[o.id] === 'met').length;
     const score = Math.round((met / cs.objectives.length) * 100 * (outcome === 'death' ? 0.4 : outcome === 'timeout' ? 0.8 : 1));
     const title = { success: 'Case complete', death: 'The patient died', timeout: 'Time is up' }[outcome];
-    openModal(`${title}: ${cs.title}`, h('div', {},
-      h('p', {}, h('b', {}, `Score ${score} / 100`), ` · ${met}/${cs.objectives.length} objectives met · clinical time ${fmtClock(c.t)}`),
-      h('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } }, cs.objectives.map((o) => h('div', { class: 'goal' + (c.obj[o.id] === 'met' ? ' met' : '') }, h('span', { class: 'chk' }), o.text, c.obj[o.id] === 'failed' ? ' ✗' : ''))),
+    const ring = (() => {
+      const r = 32, c = 2 * Math.PI * r, col = score >= 80 ? 'var(--ok)' : score >= 50 ? 'var(--caution)' : 'var(--danger)';
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', '0 0 76 76'); svg.setAttribute('class', 'score-ring');
+      svg.innerHTML = `<circle cx="38" cy="38" r="${r}" fill="none" stroke="var(--surface-3)" stroke-width="6"/><circle cx="38" cy="38" r="${r}" fill="none" stroke="${col}" stroke-width="6" stroke-linecap="round" stroke-dasharray="${(c * score) / 100} ${c}" transform="rotate(-90 38 38)"/><text x="38" y="44" text-anchor="middle" font-size="19" font-weight="600" fill="var(--text)" font-family="Inter, system-ui">${score}</text>`;
+      return svg;
+    })();
+    openModal(title, h('div', {},
+      h('div', { class: 'score' }, ring, h('div', {}, h('b', {}, cs.title), h('div', { class: 'sub' }, `${met} of ${cs.objectives.length} objectives met · clinical time ${fmtClock(c.t)}`))),
+      h('h3', {}, 'Objectives'),
+      h('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } }, cs.objectives.map((o) => h('div', { class: 'goal' + (c.obj[o.id] === 'met' ? ' met' : c.obj[o.id] === 'failed' ? ' failed' : ''), style: { marginBottom: 0 } }, h('span', { class: 'chk' }, svgIcon(c.obj[o.id] === 'failed' ? 'close' : 'check')), o.text))),
       h('h3', {}, 'Your actions'),
-      h('div', { class: 'event-log' }, log.map((l) => h('div', { class: 'event-row', style: { gridTemplateColumns: '90px 1fr' } }, h('span', { class: 'when' }, fmtClock(l.t)), h('span', {}, ACTIONS[l.id]?.label || l.id)))),
+      log.length ? h('div', { class: 'event-log' }, log.map((l) => h('div', { class: 'event-row', style: { gridTemplateColumns: '96px 1fr' } }, h('span', { class: 'when' }, fmtClock(l.t)), h('span', {}, ACTIONS[l.id]?.label || l.id)))) : h('p', { class: 'sub' }, 'No actions taken.'),
       h('h3', {}, 'Debrief'),
       ...cs.debrief(c).split('\n\n').map((p) => h('p', {}, p)),
-      h('div', { class: 'btn-row' }, h('button', { class: 'btn primary', onclick: () => { closeModal(); start(cs.id); } }, 'Retry'), h('button', { class: 'btn', onclick: () => { closeModal(); exit(); } }, 'All cases'))), { wide: true });
+      h('div', { class: 'btn-row', style: { marginTop: '18px' } }, h('button', { class: 'btn primary', onclick: () => { closeModal(); start(cs.id); } }, 'Try again'), h('button', { class: 'btn', onclick: () => { closeModal(); exit(); } }, 'All cases'))), { wide: true, sub: `Case debrief · ${cs.level}` });
   }
 
   function exit() {
@@ -179,10 +190,10 @@ export function createCases({ root, api }) {
 
   let liveEls = null;
   function render() {
-    const vit = h('div', { class: 'vitals panel-float' });
+    const vit = h('div', { class: 'vitals' });
     const objs = h('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } });
-    const clock = h('div', { class: 'num', style: { fontSize: '20px', fontWeight: 800 } }, '0 min');
-    const acts = h('div', { class: 'case-bar' }, cs.actions.map((id) => {
+    const clock = h('b', {}, '0 min');
+    const acts = h('div', { class: 'case-actions' }, cs.actions.map((id) => {
       const a = ACTIONS[id];
       const b = h('button', { class: 'btn', 'data-act': id }, a.label);
       b.addEventListener('click', () => {
@@ -194,22 +205,22 @@ export function createCases({ root, api }) {
       });
       return b;
     }));
-    const quiz = cs.quiz ? h('div', {}, cs.quiz.map((qq, qi) => h('div', { style: { marginTop: '8px' } }, h('p', { style: { margin: '0 0 6px' } }, h('b', {}, qq.q)),
-      h('div', { class: 'lesson-card', style: { width: 'auto', padding: 0 } }, h('div', { class: 'opts' }, qq.options.map((o, i) => {
-        const b = h('button', { class: 'opt' }, o);
-        b.addEventListener('click', () => { if (ctx.quiz[qi] != null) return; ctx.quiz[qi] = i; b.classList.add(i === qq.answer ? 'right' : 'wrong'); if (i !== qq.answer) b.parentElement.children[qq.answer].classList.add('right'); log.push({ id: `answer ${qi + 1}: ${o}`, t: ctx.t }); });
+    const quiz = cs.quiz ? h('div', {}, cs.quiz.map((qq, qi) => h('div', { style: { marginTop: '4px' } }, h('p', { class: 'q', style: { margin: '0 0 8px', fontWeight: 600, fontSize: '13.5px' } }, qq.q),
+      h('div', { class: 'opts', style: { margin: '0 0 12px' } }, qq.options.map((o, i) => {
+        const b = h('button', { class: 'opt' }, h('span', { class: 'letter' }, 'ABCDE'[i]), h('span', {}, o));
+        b.addEventListener('click', () => { if (ctx.quiz[qi] != null) return; ctx.quiz[qi] = i; b.classList.add(i === qq.answer ? 'right' : 'wrong'); if (i !== qq.answer) b.parentElement.children[qq.answer].classList.add('right'); [...b.parentElement.children].forEach((x) => { x.disabled = true; }); log.push({ id: `Answer ${qi + 1}: ${o}`, t: ctx.t }); });
         return b;
-      })))))) : null;
+      }))))) : null;
     root.replaceChildren(
-      h('div', { class: 'insp-head' }, h('div', { style: { flex: 1, minWidth: 0 } }, h('span', { class: 'kicker' }, `Case · ${cs.level}`), h('h2', {}, cs.title)), h('button', { class: 'btn', onclick: exit }, 'Exit')),
-      h('div', { class: 'section-body', style: { paddingTop: '12px' } },
-        h('p', { style: { margin: 0 } }, cs.summary),
-        h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' } }, h('span', { class: 'ctl-sub' }, 'Clinical time'), clock),
+      h('div', { class: 'p-head' }, h('div', { class: 'p-head-row' }, h('div', { class: 'p-title' }, h('span', { class: 'kicker' }, `Case · ${cs.level}`), h('h2', {}, cs.title)), h('button', { class: 'btn sm ghost', onclick: exit }, 'Exit'))),
+      h('div', { class: 'p-body', style: { display: 'flex', flexDirection: 'column', gap: '14px', paddingTop: '14px' } },
+        h('p', { class: 'sub', style: { margin: 0, fontSize: '13.5px', color: 'var(--text)' } }, cs.summary),
+        h('div', { class: 'case-clock' }, h('span', { class: 'overline' }, 'Clinical time'), clock),
         vit,
-        h('label', { class: 'ctl-sub', style: { fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em' } }, 'Actions'), acts,
+        h('div', { class: 'subhead', style: { marginBottom: '-6px' } }, 'Actions'), acts,
         quiz,
-        h('label', { class: 'ctl-sub', style: { fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em' } }, 'Objectives'), objs,
-        h('button', { class: 'btn', onclick: () => finish(ctx.outcome || 'timeout') }, 'End case & debrief')));
+        h('div', { class: 'subhead', style: { marginBottom: '-6px' } }, 'Objectives'), objs,
+        h('button', { class: 'btn block', onclick: () => finish(ctx.outcome || 'timeout') }, 'End case and debrief')));
     liveEls = { vit, objs, clock, acts };
     renderLive();
   }
@@ -222,10 +233,9 @@ export function createCases({ root, api }) {
     liveEls.clock.textContent = fmtClock(ctx.t);
     const v = (lbl, val, bad) => h('div', { class: bad ? 'bad' : '' }, h('span', { class: 'lbl' }, lbl), h('b', {}, val));
     liveEls.vit.replaceChildren(
-      v('HR', Math.round(m.hr), m.hr > 110), v('MAP', Math.round(m.map), m.map < 65), v('Hb', fmt(m.blood.hb, 1), m.blood.hb < 7),
-      v('CVP', hidden?.has('ra') ? '?' : fmt(m.ra, 0), false), v('Bleeding', m.bleeding ? `${Math.round(m.bleeding.rate)} mL/min` : '—', !!m.bleeding),
-      v('Blood loss', `${Math.round(m.blood.lost)} mL`, m.blood.shock >= 2), v('Shock class', m.blood.shock ? ['', 'I', 'II', 'III', 'IV'][m.blood.shock] : '—', m.blood.shock >= 3), v('IAP', fmt(m.ascites.iap, 0), m.ascites.iap >= 12));
-    liveEls.objs.replaceChildren(...cs.objectives.map((o) => h('div', { class: 'goal' + (ctx.obj[o.id] === 'met' ? ' met' : '') }, h('span', { class: 'chk', style: ctx.obj[o.id] === 'failed' ? { borderColor: 'var(--danger)', background: 'var(--danger)' } : {} }), o.text)));
+      v('HR', Math.round(m.hr), m.hr > 110), v('MAP', Math.round(m.map), m.map < 65), v('Hb', fmt(m.blood.hb, 1), m.blood.hb < 7), v('CVP', hidden?.has('ra') ? '?' : fmt(m.ra, 0), false),
+      v('Bleeding', m.bleeding ? `${Math.round(m.bleeding.rate)}` : '—', !!m.bleeding), v('Blood loss', `${Math.round(m.blood.lost)}`, m.blood.shock >= 2), v('Shock', m.blood.shock ? ['', 'I', 'II', 'III', 'IV'][m.blood.shock] : '—', m.blood.shock >= 3), v('IAP', fmt(m.ascites.iap, 0), m.ascites.iap >= 12));
+    liveEls.objs.replaceChildren(...cs.objectives.map((o) => h('div', { class: 'goal' + (ctx.obj[o.id] === 'met' ? ' met' : ctx.obj[o.id] === 'failed' ? ' failed' : ''), style: { marginBottom: 0 } }, h('span', { class: 'chk' }, svgIcon(ctx.obj[o.id] === 'failed' ? 'close' : 'check')), o.text)));
     const p = store.get().params;
     liveEls.acts.querySelectorAll('button').forEach((b) => { const a = ACTIONS[b.dataset.act]; if (a?.toggle) b.setAttribute('aria-pressed', String(!!a.toggle(p))); });
   }

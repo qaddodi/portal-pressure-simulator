@@ -20,6 +20,14 @@
 > - **T15.** Paracentesis is tested on cirrhosis with tense ascites. Budd–Chiari was a poor test case: IVC decompression there raises cardiac output.
 >
 > All §12 acceptance tests are automated in `tests/acceptance.test.js`.
+>
+> **Interface revision (v1.1).** The UI was redesigned after the first build. It departs from §4 and §5 in these ways:
+> - **Layout.** The tool rail is a horizontal toolbar at the bottom of the stage, and the transport (play, speed, clock, fast-forward) is a floating bar at the top of the stage. The inspector is a full-height right panel with Pathology · Therapy · Physiology tabs. The clinical strip shows eight portal readouts plus a compact systemic-vitals block.
+> - **Labels.** Pressure labels hang in the stage margins with leader lines (atlas style) instead of chips on the vessels, and fall back to inline chips on narrow stages and in the circuit view.
+> - **Events.** Callouts are compact notifications in the stage corner with a pulse ring at the anatomical anchor, instead of cards with leader lines.
+> - **Typography and charts.** Inter throughout, with tabular figures only where numbers align in columns. The Scope uses stacked small multiples with one axis per unit instead of a second y-axis. Series colors come from a CVD-validated categorical order.
+> - **Vessel width.** Displayed width follows diameter on a compressed scale (∝ d^0.78) so the cavae don't drown out the portal tree. Distension is still visible.
+> - **Learn.** Lessons live in the side panel and embed the controls each step needs.
 
 ---
 

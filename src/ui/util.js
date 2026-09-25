@@ -19,7 +19,7 @@ export function h(tag, attrs = {}, ...children) {
     else if (k === 'html') el.innerHTML = v;
     else el.setAttribute(k, v === true ? '' : v);
   }
-  for (const c of children.flat()) if (c != null && c !== false) el.append(c.nodeType ? c : document.createTextNode(String(c)));
+  for (const c of children.flat(Infinity)) if (c != null && c !== false) el.append(c.nodeType ? c : document.createTextNode(String(c)));
   return el;
 }
 
@@ -60,9 +60,11 @@ export function ff(v) { const c = unitConv.flow[units.flow]; return [fmt(c.f(v),
 
 export function toast(msg, kind = '') {
   const wrap = document.getElementById('toasts');
+  // One message at a time reads calmer than a growing stack.
+  while (wrap.children.length >= 2) wrap.firstChild.remove();
   const t = h('div', { class: 'toast ' + kind, role: 'status' }, msg);
   wrap.append(t);
-  setTimeout(() => t.remove(), 4200);
+  setTimeout(() => { t.classList.add('leaving'); setTimeout(() => t.remove(), 220); }, 3600);
 }
 
 let liveLast = 0;
@@ -73,33 +75,87 @@ export function announce(msg) {
   document.getElementById('live').textContent = msg;
 }
 
-export function tooltipFor(el, text) {
+/** Hover/focus tooltip. `text` may be a string, a function, or { text, key }. `side`: 'right' | 'bottom'. */
+export function tooltipFor(el, text, side = 'right') {
   const tip = document.getElementById('tooltip');
-  el.addEventListener('pointerenter', () => {
+  const show = () => {
     const r = el.getBoundingClientRect();
-    tip.textContent = typeof text === 'function' ? text() : text;
+    const v = typeof text === 'function' ? text() : text;
+    tip.replaceChildren(typeof v === 'object' ? [v.text, v.key ? h('kbd', {}, v.key) : null] : v);
     tip.classList.add('show');
     const tr = tip.getBoundingClientRect();
-    let x = r.right + 8, y = r.top + r.height / 2 - tr.height / 2;
-    if (x + tr.width > innerWidth - 8) x = r.left - tr.width - 8;
-    if (x < 8) { x = r.left + r.width / 2 - tr.width / 2; y = r.bottom + 6; }
-    tip.style.left = Math.max(8, x) + 'px'; tip.style.top = Math.max(8, y) + 'px';
-  });
-  el.addEventListener('pointerleave', () => tip.classList.remove('show'));
+    let x, y;
+    if (side === 'bottom') { x = r.left + r.width / 2 - tr.width / 2; y = r.bottom + 8; }
+    else if (side === 'top') { x = r.left + r.width / 2 - tr.width / 2; y = r.top - tr.height - 8; }
+    else {
+      x = r.right + 10; y = r.top + r.height / 2 - tr.height / 2;
+      if (x + tr.width > innerWidth - 8) x = r.left - tr.width - 10;
+    }
+    tip.style.left = clamp(x, 8, innerWidth - tr.width - 8) + 'px'; tip.style.top = clamp(y, 8, innerHeight - tr.height - 8) + 'px';
+  };
+  const hide = () => tip.classList.remove('show');
+  el.addEventListener('pointerenter', (e) => { if (e.pointerType !== 'touch') show(); });
+  el.addEventListener('pointerleave', hide);
+  el.addEventListener('focus', () => { if (el.matches(':focus-visible')) show(); });
+  el.addEventListener('blur', hide);
+  el.addEventListener('click', hide);
 }
 
-export function openModal(title, body, { wide = false } = {}) {
+/** Floating menu/popover anchored to an element. Closes on outside click, Escape or re-open. */
+let openMenu = null;
+export function popover(anchor, content, { cls = '', align = 'start', place = 'below', onClose } = {}) {
+  if (openMenu) { const same = openMenu.anchor === anchor; closePopover(); if (same) return null; }
+  const el = h('div', { class: 'menu ' + cls, role: 'dialog' }, content);
+  document.body.append(el);
+  const r = anchor.getBoundingClientRect(), mr = el.getBoundingClientRect();
+  let x = align === 'end' ? r.right - mr.width : align === 'center' ? r.left + r.width / 2 - mr.width / 2 : r.left;
+  let y = place === 'above' ? r.top - mr.height - 8 : r.bottom + 8;
+  if (y + mr.height > innerHeight - 8) y = Math.max(8, r.top - mr.height - 8);
+  el.style.left = clamp(x, 8, innerWidth - mr.width - 8) + 'px';
+  el.style.top = clamp(y, 8, innerHeight - mr.height - 8) + 'px';
+  const off = (e) => { if (!el.contains(e.target) && !anchor.contains(e.target)) closePopover(); };
+  const esc = (e) => { if (e.key === 'Escape') closePopover(); };
+  setTimeout(() => { addEventListener('pointerdown', off, true); addEventListener('keydown', esc); }, 0);
+  openMenu = { el, anchor, cleanup: () => { removeEventListener('pointerdown', off, true); removeEventListener('keydown', esc); onClose?.(); } };
+  anchor.setAttribute('aria-expanded', 'true');
+  return el;
+}
+export function closePopover() {
+  if (!openMenu) return;
+  openMenu.el.remove(); openMenu.anchor.setAttribute('aria-expanded', 'false'); openMenu.cleanup();
+  openMenu = null;
+}
+export function menuItem(label, { checked, onClick, kb, icon: ic } = {}) {
+  const b = h('button', { class: 'menu-item', role: checked != null ? 'menuitemradio' : 'menuitem', 'aria-checked': checked != null ? String(!!checked) : null },
+    checked != null ? svgIcon('check', 'mi-check') : ic ? svgIcon(ic, 'mi-ic') : null, h('span', {}, label), kb ? h('span', { class: 'kb' }, kb) : null);
+  b.addEventListener('click', () => { onClick?.(); });
+  return b;
+}
+export function svgIcon(id, cls = '') {
+  const el = icon(id); if (cls) el.setAttribute('class', cls); return el;
+}
+
+let modalReturn = null;
+export function openModal(title, body, { wide = false, sub = null, bare = false } = {}) {
   const back = document.getElementById('modalBack');
   const modal = document.getElementById('modal');
+  modalReturn = document.activeElement;
   modal.innerHTML = '';
-  modal.style.width = wide ? 'min(980px, 100%)' : '';
-  const close = h('button', { class: 'btn icon', 'aria-label': 'Close', onclick: closeModal }, icon('close'));
-  modal.append(h('header', {}, h('h2', {}, title), close), h('div', { class: 'body' }, body));
+  modal.style.width = wide ? 'min(960px, 100%)' : '';
+  modal.setAttribute('aria-label', title || 'Dialog');
+  const close = h('button', { class: 'ib', 'aria-label': 'Close', onclick: closeModal }, icon('close'));
+  modal.append(h('header', {}, h('div', { style: { flex: 1, minWidth: 0 } }, bare ? null : h('h2', {}, title), sub ? h('div', { class: 'sub' }, sub) : null), close), h('div', { class: 'body' }, body));
   back.classList.add('show');
   back.onclick = (e) => { if (e.target === back) closeModal(); };
-  close.focus();
+  (modal.querySelector('.body button, .body [tabindex]') || close).focus({ preventScroll: true });
 }
-export function closeModal() { document.getElementById('modalBack').classList.remove('show'); }
+export function closeModal() {
+  const back = document.getElementById('modalBack');
+  if (!back.classList.contains('show')) return;
+  back.classList.remove('show');
+  modalReturn?.focus?.({ preventScroll: true });
+}
+export const isModalOpen = () => document.getElementById('modalBack').classList.contains('show');
 
 export const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 export const lerp = (a, b, t) => a + (b - a) * t;
