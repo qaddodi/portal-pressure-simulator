@@ -400,7 +400,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const applyVT = () => { world.setAttribute('transform', `translate(${vt.x} ${vt.y}) scale(${vt.k})`); syncSemantic(); };
   applyVT();
   let CTM = null, wrapRect = null;
-  function refreshCTM() { CTM = world.getScreenCTM(); wrapRect = wrap.getBoundingClientRect(); }
+  // The figure's screen transform, computed from the viewBox, the zoom state and the stage box.
+  // Asking the browser (getScreenCTM / getBoundingClientRect) right after the SVG has been
+  // updated forces a synchronous style + layout pass over thousands of elements, every frame;
+  // the arithmetic is exact and free. The stage box is cached and kept current by observers.
+  let box = null;
+  const measureBox = () => { const r = wrap.getBoundingClientRect(), q = svg.getBoundingClientRect(); box = { left: r.left, top: r.top, width: r.width, height: r.height, right: r.right, bottom: r.bottom, sx: q.left - r.left, sy: q.top - r.top, sw: q.width, sh: q.height }; };
+  const stageBox = () => { if (!box) measureBox(); return box; };
+  new ResizeObserver(() => { box = null; CTM = null; }).observe(wrap);
+  addEventListener('resize', () => { box = null; CTM = null; });
+  addEventListener('scroll', () => { box = null; CTM = null; }, true);
+  function refreshCTM() {
+    const b = stageBox(), vb = svg.viewBox.baseVal;
+    const s = Math.min(b.sw / vb.width, b.sh / vb.height);
+    const ox = b.left + b.sx + (b.sw - vb.width * s) / 2 - vb.x * s, oy = b.top + b.sy + (b.sh - vb.height * s) / 2 - vb.y * s;
+    CTM = { a: s * vt.k, b: 0, c: 0, d: s * vt.k, e: ox + s * vt.x, f: oy + s * vt.y };
+    wrapRect = b;
+  }
   function worldToLocal(x, y) {
     if (!CTM) refreshCTM();
     return [CTM.a * x + CTM.c * y + CTM.e - wrapRect.left, CTM.b * x + CTM.d * y + CTM.f - wrapRect.top];
@@ -606,6 +622,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     try { updateInner(f); } finally { inUpdate = false; }
   }
   function updateInner(f) {
+    blockerBoxes = readBlockers();
     F = f;
     lz?.update(f);
     if (lz?.isOpen()) return;   // the plate is hidden under the lobule; it catches up on the way out
@@ -1317,21 +1334,27 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   const ANAT_PRI = { CONF: 10, VAR: 9, SIN_R: 9, RHV: 8, RA: 8, SV: 7, SMV: 7, GV: 7, IVCS: 6, W_R: 12, W_M: 12, W_L: 12 };
 
+  let blockerBoxes = null;
+  function readBlockers() {
+    const wr = stageBox();
+    return [...document.querySelectorAll('.stage-blocker:not([hidden])')].map((el) => {
+      const r = el.getBoundingClientRect();
+      return r.width ? { x0: r.left - wr.left - 4, y0: r.top - wr.top - 4, x1: r.right - wr.left + 4, y1: r.bottom - wr.top + 4 } : null;
+    }).filter(Boolean);
+  }
   function updateLabels(f) {
     refreshCTM();
     frameNo++;
     const st = store.get();
     const t = easeInOut(morph);
     const circuit = t >= 0.5;
-    const W = wrap.clientWidth, H = wrap.clientHeight;
+    const wr = stageBox();
+    const W = wr.width, H = wr.height;
     const B = { x0: 6, y0: 6, x1: W - 6, y1: H - 6 };
     const compact = W < 700;
-    const wr = wrap.getBoundingClientRect();
-    // Floating panels over the figure (notifications, hint cards, banners) are obstacles.
-    const blockers = [...document.querySelectorAll('.stage-blocker:not([hidden])')].map((el) => {
-      const r = el.getBoundingClientRect();
-      return r.width ? { x0: r.left - wr.left - 4, y0: r.top - wr.top - 4, x1: r.right - wr.left + 4, y1: r.bottom - wr.top + 4 } : null;
-    }).filter(Boolean);
+    // Floating panels over the figure (notifications, hint cards, banners) are obstacles. Their
+    // boxes are read before this frame's SVG changes (see updateInner), while layout is clean.
+    const blockers = blockerBoxes || readBlockers();
     const placed = [...blockers];
     // Stenosis clamps and their percentages are drawn on the figure; keep labels off them.
     if (!isImaging()) for (const [id, v] of Object.entries((f.viewParams || st.params).stenosis)) {
