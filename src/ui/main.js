@@ -2,7 +2,7 @@
 
 import { startHost, host } from './host.js?v=f1fa2b60df';
 import { store, updateParams, replaceParams, bindParamSender, undo, redo, canUndo, canRedo, clearHistory } from './store.js?v=384ec84b1e';
-import { createStage } from './stage.js?v=031fd56c8e';
+import { createStage } from './stage.js?v=aa9e8e8ff7';
 import { createInspector, activeInterventions } from './inspector.js?v=47209acbd6';
 import { createDock } from './dock.js?v=67a8eb2318';
 import { createWhy } from './why.js?v=0fb45a787b';

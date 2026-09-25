@@ -347,7 +347,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (x.isArt) gBackL.append(x.g); else { gBackS.append(x.gs); gBackC.append(x.gc); gBackL.append(x.g); }
     x.back = true;
     x.g.id = 'vg-' + id;
-    const u = s('use', { href: '#vg-' + id, class: 'ghost' });
+    // The ghost is also how the hidden stretch is picked: it carries the vessel's id.
+    const u = s('use', { href: '#vg-' + id, class: 'ghost ghost-hit', 'data-id': id });
     gGhost.append(u);
   }
 
@@ -1614,7 +1615,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function edgeFromEvent(ev) {
     // While the pointer is captured, events retarget to the <svg>: hit-test the real point instead.
     const t = ev.target === svg && ev.clientX != null ? document.elementFromPoint(ev.clientX, ev.clientY) : ev.target;
-    const el = t?.closest?.('.v-hit');
+    const el = t?.closest?.('.v-hit, .ghost-hit');
     return el ? el.getAttribute('data-id') : null;
   }
   function nearestT(id, wx, wy) {
