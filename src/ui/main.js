@@ -3,19 +3,19 @@
 
 import { startHost, host } from './host.js?v=878b8f0b20';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=609dde7847';
-import { createStage } from './stage.js?v=e37d0f47fc';
+import { createStage } from './stage.js?v=cd85c3a76e';
 import { createInspector, activeInterventions } from './inspector.js?v=ef36f22648';
-import { createDock } from './dock.js?v=53411fa44d';
+import { createDock } from './dock.js?v=e96ad88daf';
 import { createWhy } from './why.js?v=9aaf3b4a56';
 import { createTimeline } from './timeline.js?v=551456b34d';
-import { createLearn } from './learn.js?v=5daa30d938';
+import { createLearn } from './learn.js?v=64140e2389';
 import { createCases } from './cases.js?v=f5f5cb7bcb';
 import { createCompare } from './compare.js?v=b976bdfeab';
 import { createFigure } from './figure.js?v=7db0e202ba';
 import { createCard } from './card.js?v=f46b09ec99';
-import { createChart } from './chart.js?v=c0ef777ce7';
-import { createHome } from './home.js?v=a222ed6130';
-import { createPalette } from './palette.js?v=f93e4e990e';
+import { createChart } from './chart.js?v=c88bc8a5b8';
+import { createHome } from './home.js?v=8ed4f0993e';
+import { createPalette } from './palette.js?v=c2dba25c5f';
 import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=3737b309ec';
 import { gradientCss, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=fa78a29bc0';
 import { EDGES, NODES } from '../engine/topology.js?v=44e0aca402';
@@ -88,7 +88,7 @@ async function main() {
     onWhy: (m, el) => why.open(m, el), onAction: doAction, onOpenTab: (id) => dock.show(id, { reveal: true }), onClose: closePanel,
     onScenarios: () => openScenarios($('#scenarioBtn')), onMode: (m) => store.set({ mode: m }), chart,
   });
-  dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => host.send({ type: 'probe', id }), onReveal: revealDock });
+  dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => host.send({ type: 'probe', id }), onReveal: revealDock, onLobule: () => zoomLobule('R') });
   const api = { beginSession, endSession, onEnd: () => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); }, muteEvents: () => {}, loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), openPanel, setBanner, select: (sel) => store.set({ selection: sel }) };
   // A lesson keeps its card in view on a phone: instruments it opens are flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), panel: $('#panel'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
@@ -332,8 +332,8 @@ function renderPaintHint() {
   }
   redraw();
 }
-// The lobule, reached from the liver (semantic zoom arrives with the signature visuals).
-function zoomLobule() { dock.show('lobule', { reveal: true }); }
+// The lobule is the deepest level of the figure's semantic zoom (abdomen → liver → lobule).
+function zoomLobule(lobe = 'R') { if (app.classList.contains('figure-mode')) toggleFigure(false); stage.zoomLobule(lobe); }
 
 // ── Figure header: view, color, legend; banners ─────
 let bleedEl, tipEl, stageClock;

@@ -1,10 +1,11 @@
 // Anatomical stage (blueprint §6): SVG anatomy + canvas flow layer + screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=44e0aca402';
-import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS } from './anatomy.js?v=399161e64e';
+import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS } from './anatomy.js?v=2aa57b853f';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=fa78a29bc0';
 import { store, updateParams } from './store.js?v=609dde7847';
-import { s, fmt, fp, clamp, lerp, toast, cssVar } from './util.js?v=61d6f9c200';
+import { s, h, fmt, fp, clamp, lerp, toast, cssVar } from './util.js?v=61d6f9c200';
+import { createLobuleZoom } from './lobule-zoom.js?v=cfe0a735fc';
 
 const N_SAMPLES = 64;
 // Displayed width grows sub-linearly with diameter so the cavae don't swamp the portal tree,
@@ -395,7 +396,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // ── View transform (pan / zoom) ───────────────────
   let vt = { k: 1, x: 0, y: 0 };
   let morph = store.get().view === 'circuit' ? 1 : 0, morphTarget = morph, lastMorph = -1;
-  const applyVT = () => world.setAttribute('transform', `translate(${vt.x} ${vt.y}) scale(${vt.k})`);
+  let lz = null, crumbsEl = null;   // semantic zoom: lobule layer and the Abdomen › Liver › Lobule trail
+  const applyVT = () => { world.setAttribute('transform', `translate(${vt.x} ${vt.y}) scale(${vt.k})`); syncSemantic(); };
   applyVT();
   let CTM = null, wrapRect = null;
   function refreshCTM() { CTM = world.getScreenCTM(); wrapRect = wrap.getBoundingClientRect(); }
@@ -439,6 +441,71 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return { k, x: cx - k * fx, y: cy - k * fy };
   }
   const fit = () => { vt = defaultVT(morphTarget === 1); applyVT(); CTM = null; };
+
+  // ── Semantic zoom: abdomen → liver → lobule ───────
+  // One continuous zoom. Past ×1.9 over the liver its inner trees open (see liverExpanded);
+  // past ×3.4 the plate cross-fades into the lobule, fully in by ×4.6. A trail in the corner
+  // names the level and steps back out.
+  let liverBB = null;
+  function liverBox() {
+    if (!liverBB && organEls.liver) { try { const b = organEls.liver.getBBox(); if (b.width) liverBB = { x: b.x, y: b.y, w: b.width, h: b.height }; } catch { /* not rendered yet */ } }
+    return liverBB;
+  }
+  function vbCenter() { const b = svg.viewBox.baseVal; return [b.x + b.width / 2, b.y + b.height / 2]; }
+  function semanticLevel() {
+    const lb = liverBox();
+    if (morphTarget !== 0 || !lb) return { lvl: 0, u: 0 };
+    const [cx, cy] = vbCenter(), wx = (cx - vt.x) / vt.k, wy = (cy - vt.y) / vt.k;
+    const inside = wx > lb.x && wx < lb.x + lb.w && wy > lb.y && wy < lb.y + lb.h;
+    if (!inside || vt.k < 1.9) return { lvl: 0, u: 0 };
+    const u = clamp((vt.k - 3.4) / 1.2, 0, 1);
+    return { lvl: u > 0.98 ? 2 : 1, u };
+  }
+  function syncSemantic() {
+    if (!lz) return;
+    const { lvl, u } = semanticLevel();
+    const wasOpen = lz.isOpen();
+    lz.setFade(u);
+    if (wasOpen && !lz.isOpen() && F && !inUpdate) update(F);
+    wrap.classList.toggle('in-lobule', u > 0.98);
+    if (crumbsEl && crumbsEl._lvl !== lvl) {
+      crumbsEl._lvl = lvl;
+      crumbsEl.hidden = lvl === 0;
+      crumbsEl.querySelectorAll('button').forEach((b, i) => { b.classList.toggle('cur', i === lvl); b.setAttribute('aria-current', i === lvl ? 'true' : 'false'); });
+    }
+  }
+  let vtAnim = 0;
+  function animateVT(to, ms = 700) {
+    cancelAnimationFrame(vtAnim);
+    const from = { ...vt }, t0 = performance.now();
+    if (reduceMotion.matches) { vt = to; applyVT(); CTM = null; return; }
+    const step = (now) => {
+      const u = easeInOut(clamp((now - t0) / ms, 0, 1));
+      // Interpolate the zoom geometrically so the approach feels even at every scale.
+      const k = from.k * Math.pow(to.k / from.k, u);
+      const a = (k - from.k) / ((to.k - from.k) || 1);
+      vt = { k, x: from.x + (to.x - from.x) * (to.k === from.k ? u : a), y: from.y + (to.y - from.y) * (to.k === from.k ? u : a) };
+      applyVT(); CTM = null;
+      if (u < 1) vtAnim = requestAnimationFrame(step);
+    };
+    vtAnim = requestAnimationFrame(step);
+  }
+  function vtFor(wx, wy, k) { const [cx, cy] = vbCenter(); return { k, x: cx - wx * k, y: cy - wy * k }; }
+  function zoomLiver() {
+    const lb = liverBox(); if (!lb) return;
+    const b = svg.viewBox.baseVal;
+    animateVT(vtFor(lb.x + lb.w / 2, lb.y + lb.h / 2, clamp(Math.min(b.width / lb.w, b.height / lb.h) * 0.92, 2, 3)));
+  }
+  function zoomLobule(lobe = 'R') {
+    if (morphTarget !== 0) { store.set({ view: 'anatomy' }); setTimeout(() => zoomLobule(lobe), 650); return; }
+    const lb = liverBox(); if (!lb) return;
+    lz.setLobe(lobe);
+    animateVT(vtFor(lb.x + lb.w * (lobe === 'L' ? 0.74 : 0.34), lb.y + lb.h * (lobe === 'L' ? 0.36 : 0.5), 4.8), 900);
+  }
+  lz = createLobuleZoom({ host: wrap, onWheel: (ev) => zoomAt(ev.clientX, ev.clientY, Math.exp(-ev.deltaY * 0.0015)), onBack: zoomLiver });
+  crumbsEl = h('nav', { class: 'zoom-crumbs', 'aria-label': 'Zoom level', hidden: true },
+    [['Abdomen', () => animateVT(defaultVT(false))], ['Liver', zoomLiver], ['Lobule', () => zoomLobule()]].map(([t, fn], i) => h('button', { onclick: fn, 'data-i': i }, t)));
+  wrap.append(crumbsEl);
 
   // ── Particles ─────────────────────────────────────
   const ctx = canvas.getContext('2d');
@@ -540,6 +607,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function updateInner(f) {
     F = f;
+    lz?.update(f);
+    if (lz?.isOpen()) return;   // the plate is hidden under the lobule; it catches up on the way out
     const st = store.get();
     const p = f.viewParams || st.params;
     const t = easeInOut(morph);
@@ -632,6 +701,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     updateNodesCircuit(f);
     updateOverlays(f, p, gain, t);
     updateFocus();
+    updateBridges(t);
     updateLabels(f);
     updateOrgans(f, p, t);
   }
@@ -771,6 +841,52 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (byOrgan) { for (const id of byOrgan) organG[id]?.classList.add('org-sel'); const d = ORGANS.find((x) => x.id === byOrgan[0])?.d; if (d) gSelO.append(s('path', { d, class: 'org-sel-line' })); return; }
     const at = { varices: [SITES.varix[0], SITES.varix[1] + 20, 26, 62], gastric: [SITES.fundus[0], SITES.fundus[1], 34, 30], abdomen: [720, 790, 230, 110] }[o];
     if (at) gSelO.append(s('ellipse', { cx: at[0], cy: at[1], rx: at[2], ry: at[3], class: 'org-sel-ring' }));
+  }
+
+  // Circuit bridges: where two lines cross without meeting, the one drawn later hops over the
+  // other, as on a transit map, so a crossing never reads as a junction.
+  const gBridges = s('g', { id: 'bridges', 'aria-hidden': 'true' });
+  gEdges.after(gBridges);
+  let bridgeKey = '';
+  function segX(a, b, c, d) {
+    const r = [b[0] - a[0], b[1] - a[1]], q = [d[0] - c[0], d[1] - c[1]];
+    const den = r[0] * q[1] - r[1] * q[0];
+    if (Math.abs(den) < 1e-9) return null;
+    const u = ((c[0] - a[0]) * q[1] - (c[1] - a[1]) * q[0]) / den, v = ((c[0] - a[0]) * r[1] - (c[1] - a[1]) * r[0]) / den;
+    // Half-open, so a crossing that falls exactly on a sample vertex is counted once, not missed.
+    return u >= 0 && u < 1 && v >= 0 && v < 1 ? [a[0] + r[0] * u, a[1] + r[1] * u, r[0], r[1]] : null;
+  }
+  function updateBridges(t) {
+    const vis = t === 1 ? Object.values(E).filter((x) => x.vis && !x.isArt && !x.g.classList.contains('coll-ghost') && x.g.style.display !== 'none') : [];
+    const key = vis.map((x) => x.e.id + ':' + x.width.toFixed(0)).join(',');
+    if (key === bridgeKey) return;
+    bridgeKey = key;
+    gBridges.replaceChildren();
+    if (!vis.length) return;
+    const order = new Map([...gEdges.children].map((g, i) => [g, i]));
+    const box = (pts) => pts.reduce((b, p) => [Math.min(b[0], p[0]), Math.min(b[1], p[1]), Math.max(b[2], p[0]), Math.max(b[3], p[1])], [Infinity, Infinity, -Infinity, -Infinity]);
+    const boxes = vis.map((x) => box(geo[x.e.id].cur));
+    const out = [];
+    for (let i = 0; i < vis.length; i++) for (let j = i + 1; j < vis.length; j++) {
+      const A = vis[i], B = vis[j], a = boxes[i], b = boxes[j];
+      if (a[0] > b[2] || b[0] > a[2] || a[1] > b[3] || b[1] > a[3]) continue;
+      const pa = geo[A.e.id].cur, pb = geo[B.e.id].cur;
+      const ends = [pa[0], pa[pa.length - 1], pb[0], pb[pb.length - 1]];
+      for (let m = 1; m < pa.length; m++) for (let n = 1; n < pb.length; n++) {
+        const hit = segX(pa[m - 1], pa[m], pb[n - 1], pb[n]);
+        if (!hit || ends.some((q) => Math.hypot(q[0] - hit[0], q[1] - hit[1]) < 10)) continue;
+        const [up, lo] = (order.get(A.g) ?? 0) > (order.get(B.g) ?? 0) ? [A, B] : [B, A];
+        const dir = up === A ? [hit[2], hit[3]] : [pb[n][0] - pb[n - 1][0], pb[n][1] - pb[n - 1][1]];
+        const L = Math.hypot(dir[0], dir[1]) || 1, half = (lo.width + 2 * lo.wallPx) / 2 + 10;
+        const ux = (dir[0] / L) * half, uy = (dir[1] / L) * half;
+        const d = `M${(hit[0] - ux).toFixed(1)} ${(hit[1] - uy).toFixed(1)} L${(hit[0] + ux).toFixed(1)} ${(hit[1] + uy).toFixed(1)}`;
+        const W = up.width + 2 * up.wallPx;
+        out.push(s('path', { class: 'bridge-gap', d, 'stroke-width': (W + 10).toFixed(1) }),
+          s('path', { class: 'v-wall bridge-wall', d, 'stroke-width': W.toFixed(1) }),
+          s('path', { class: 'v-lumen bridge-lumen', d, stroke: `url(#gr-${up.e.id})`, 'stroke-width': up.width.toFixed(1) }));
+      }
+    }
+    gBridges.append(...out);
   }
 
   // Where a lesson step or case asks the learner to act.
@@ -1237,11 +1353,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       useLines = true;
       for (const x of Object.values(E)) {
         if (!x.vis) continue;
-        const pts = geo[x.e.id].cur;
-        for (let i = 0; i < pts.length; i += 2) {
-          const [sx, sy] = worldToLocal(pts[i][0], pts[i][1]);
-          const k = Math.floor(sx / CELL) * 4096 + Math.floor(sy / CELL);
-          lines.set(k, (lines.get(k) || 0) + 1);
+        // Walk every segment in half-cell steps: straight circuit runs have few vertices, and
+        // a label must see the whole line, not just its corners.
+        const pts = geo[x.e.id].cur, seen = new Set();
+        let prev = worldToLocal(pts[0][0], pts[0][1]);
+        for (let i = 1; i < pts.length; i++) {
+          const cur = worldToLocal(pts[i][0], pts[i][1]);
+          const n = Math.max(1, Math.ceil(Math.hypot(cur[0] - prev[0], cur[1] - prev[1]) / (CELL / 2)));
+          for (let j = 0; j <= n; j++) {
+            const sx = prev[0] + ((cur[0] - prev[0]) * j) / n, sy = prev[1] + ((cur[1] - prev[1]) * j) / n;
+            const k = Math.floor(sx / CELL) * 4096 + Math.floor(sy / CELL);
+            if (seen.has(k)) continue;
+            seen.add(k);
+            lines.set(k, (lines.get(k) || 0) + 1);
+          }
+          prev = cur;
         }
       }
     };
@@ -1587,6 +1713,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function animate(now) {
     const dt = Math.min(0.1, (now - lastT) / 1000);
     lastT = now;
+    // Fully inside the lobule, the plate is covered: skip its flow marks.
+    if (lz?.isOpen()) { requestAnimationFrame(animate); return; }
     const st = store.get();
     const still = !st.running || reduceMotion.matches;
     const key = still ? `${morph}|${wrap.className}|${st.layers.flow}|${dpr}|${canvas.width}x${canvas.height}` : null;
@@ -1677,6 +1805,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (dpt > 0 && layers.slice(0, dpt).some((l) => l.length)) eraseCovers(dpt);
       for (const [x, ink, marks, fade] of layers[dpt]) {
         ctx.globalAlpha = fade * (hovering && !x.g.classList.contains('hl') ? 0.2 : receding && !x.g.classList.contains('is-sel') ? 0.4 * Number(x.g.style.opacity || 1) : Number(x.g.style.opacity || 1));
+        // Fast flow (a TIPS, a jet through a narrowing, a big shunt) leaves a soft trail behind
+        // each mark, so speed reads even in a still frame.
+        const fast = moving && marks.length ? clamp((Math.abs(flowState(x).vel) - 25) / 45, 0, 1) : 0;
+        if (fast > 0) {
+          const a0 = ctx.globalAlpha;
+          ctx.strokeStyle = INK[ink]; ctx.lineWidth = marks[0].s * 0.3;
+          for (const [from, to, al] of [[0.25, 0.9, 0.45], [0.9, 1.9, 0.2]]) {
+            ctx.globalAlpha = a0 * al * fast;
+            ctx.beginPath();
+            for (const k of marks) { const L = 1 + fast; ctx.moveTo(k.cx - k.ux * k.s * from * L, k.cy - k.uy * k.s * from * L); ctx.lineTo(k.cx - k.ux * k.s * to * L, k.cy - k.uy * k.s * to * L); }
+            ctx.stroke();
+          }
+          ctx.globalAlpha = a0;
+        }
         ctx.beginPath();
         for (const k of marks) {
           const pts = markPath(k);
@@ -2052,6 +2194,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const target = v === 'circuit' ? 1 : 0;
       if (target === morphTarget) return;
       morphTarget = target;
+      syncSemantic();
       const d = defaultVT(target === 1);
       if (d.k !== vt.k || d.x !== vt.x || d.y !== vt.y) { world.style.transition = 'transform .6s var(--ease)'; vt = d; applyVT(); CTM = null; setTimeout(() => { world.style.transition = ''; CTM = null; }, 620); }
     },
@@ -2076,6 +2219,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     zoomOut: () => { const r = wrap.getBoundingClientRect(); zoomAt(r.left + r.width / 2, r.top + r.height / 2, 0.8); },
     fit,
     zoomToBox,
+    zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(),
     focusEdge(id) { E[id]?.hit.focus(); },
     startShunt, cancelShunt, isShunting: () => !!shunt, anchorFor, organAt,
     /** Briefly glow the given vessels (where a readout is measured). */

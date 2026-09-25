@@ -1,11 +1,11 @@
 // Instruments (blueprint §8.3, §9.4, §9.5, §6.4): HVPG catheter, Doppler, endoscopy,
-// liver lobule, varix cross-section, abdomen.
+// varix cross-section, abdomen.
 
 import { NODES, EDGES } from '../engine/topology.js?v=44e0aca402';
 import { pressureColor } from './colormap.js?v=fa78a29bc0';
 import { store, updateParams } from './store.js?v=609dde7847';
 import { h, fmt, fitCanvas, cssVar, clamp, toast, icon } from './util.js?v=61d6f9c200';
-import { FONT } from './charts.js?v=bbf0c9c446';
+import { FONT } from './charts.js?v=4692c77947';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -106,12 +106,13 @@ export function createDoppler({ onProbe }) {
   const probeSel = h('select', { class: 'select', 'aria-label': 'Vessel' },
     ['PV_TRUNK', 'PVH_R', 'PVH_L', 'SV_CONF', 'SMV_CONF', 'RHV_IVC', 'MHV_IVC', 'IVCS_RA', 'TIPS', 'C3', 'C1b', 'A_HEP'].map((id) => h('option', { value: id }, EDGES[EI[id]].label)));
   probeSel.addEventListener('change', () => onProbe(probeSel.value));
-  let bart = true;
-  const bartBtn = h('button', { class: 'btn sm', 'aria-pressed': 'true' }, 'BART color map');
-  bartBtn.addEventListener('click', () => { bart = !bart; bartBtn.setAttribute('aria-pressed', String(bart)); });
+  // A spectral display is grey-scale on black, as on the machine; the tint is a teaching aid.
+  let tint = false;
+  const bartBtn = h('button', { class: 'btn sm', 'aria-pressed': 'false' }, 'Tint by direction');
+  bartBtn.addEventListener('click', () => { tint = !tint; bartBtn.setAttribute('aria-pressed', String(tint)); });
   const stats = h('dl', { class: 'kv' });
   const side = h('div', { class: 'chart-side', style: { width: '268px' } }, h('div', { class: 'side-title' }, 'Spectral Doppler'), probeSel, bartBtn, stats,
-    h('div', { class: 'ctl-sub' }, 'Above the baseline means toward the transducer (the physiological direction for this vessel). BART: Blue Away, Red Toward. Color shows direction relative to the probe, not artery versus vein.'),
+    h('div', { class: 'ctl-sub' }, 'Above the baseline means toward the transducer (the physiological direction for this vessel). The yellow trace is the peak velocity envelope. With the tint on, red is toward and blue away (BART), direction relative to the probe, not artery versus vein.'),
     h('div', { class: 'ctl-sub', id: 'dopHint' }));
   el.append(box, side);
   const buf = [];
@@ -140,34 +141,90 @@ export function createDoppler({ onProbe }) {
     el.querySelector('#dopHint').textContent = f.params?.pulsatile ?? store.get().params.pulsatile ? '' : 'Tip: turn on Pulsatile mode to see cardiac and respiratory phasicity.';
     draw(f, vmax, vmin);
   }
+  // Spectral display: each screen column is one moment; brightness along it is how many red
+  // cells move at that velocity. Venous flow is a narrow band under a clear window; the band
+  // broadens as flow slows, and speckle is keyed to time so it scrolls with the trace instead
+  // of shimmering.
+  const hash = (a, b) => { let x = (a * 374761393 + b * 668265263) | 0; x = (x ^ (x >>> 13)) * 1274126177; return ((x ^ (x >>> 16)) >>> 0) / 4294967296; };
+  let img = null;
   function draw() {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
     const { ctx, w, h: hh } = fitCanvas(cv);
-    ctx.fillStyle = '#05070d'; ctx.fillRect(0, 0, w, hh);
-    if (buf.length < 2) return;
-    const vs = buf.map((b) => b[1]);
-    const vAbs = Math.max(20, ...vs.map(Math.abs)) * 1.25;
-    const base = hh / 2;
-    const Y = (v) => base - (v / vAbs) * (hh / 2 - 12);
-    const t1 = buf[buf.length - 1][0], t0 = t1 - 6;
-    const X = (t) => 36 + ((t - t0) / 6) * (w - 44);
-    // spectral columns
-    for (let i = 1; i < buf.length; i++) {
-      const [t, v] = buf[i];
-      const x0 = X(buf[i - 1][0]), x1 = X(t);
-      const spread = Math.max(2, Math.abs(v) * 0.25);
-      for (let s = -1; s <= 1; s += 0.25) {
-        const vv = v + s * spread;
-        const inten = 1 - Math.abs(s) * 0.8;
-        const toward = vv >= 0;
-        ctx.fillStyle = bart ? (toward ? `rgba(255,${Math.round(90 + 120 * inten)},${Math.round(90 * inten)},${0.25 + 0.6 * inten})` : `rgba(${Math.round(80 * inten)},${Math.round(150 + 80 * inten)},255,${0.25 + 0.6 * inten})`) : `rgba(255,255,255,${0.2 + 0.7 * inten})`;
-        ctx.fillRect(x0, Math.min(base, Y(vv)), Math.max(1, x1 - x0 + 0.5), Math.abs(Y(vv) - base));
+    const W = cv.width, H = cv.height;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const padL = 10, padR = 44, padT = 16, padB = 16;
+    const x0 = Math.round(padL * dpr), x1 = Math.round((w - padR) * dpr);
+    const yT = Math.round(padT * dpr), yB = Math.round((hh - padB) * dpr);
+    if (buf.length > 1 && x1 > x0 && yB > yT) {
+      const vs = buf.map((b) => b[1]);
+      const vPk = Math.max(...vs.map(Math.abs));
+      const vAbs = Math.max(20, Math.ceil((vPk * 1.35) / 10) * 10);
+      const mean = vs.reduce((a, b) => a + b, 0) / vs.length;
+      // Baseline shifted toward the side with less signal, as a sonographer would.
+      const baseFrac = Math.abs(mean) < 1 ? 0.5 : mean > 0 ? 0.72 : 0.28;
+      const base = yT + (yB - yT) * baseFrac;
+      const pxPerV = Math.min(base - yT, yB - base) / vAbs * 0.92;
+      const t1 = buf[buf.length - 1][0], t0 = t1 - 6;
+      if (!img || img.width !== x1 - x0 || img.height !== yB - yT) img = ctx.createImageData(x1 - x0, yB - yT);
+      const D = img.data; D.fill(0);
+      let j = 0;
+      const env = [];
+      for (let px = 0; px < img.width; px++) {
+        const t = t0 + (px / img.width) * 6;
+        while (j < buf.length - 2 && buf[j + 1][0] < t) j++;
+        if (t < buf[0][0]) { env.push(null); continue; }
+        const [ta, va] = buf[j], [tb, vb] = buf[Math.min(buf.length - 1, j + 1)];
+        const v = tb > ta ? va + (vb - va) * clamp((t - ta) / (tb - ta), 0, 1) : va;
+        // Peak ≈ 1.35 × mean for the venous profile; the band spans from a floor near the wall
+        // filter up to the peak, brightest just under the envelope.
+        const pk = v * 1.35, lo = v * 0.25;
+        const broad = 1 + clamp(6 / (Math.abs(v) + 1), 0, 3) * 0.25;
+        const tick = Math.round(t * 400);
+        const yPk = base - pk * pxPerV - yT, yLo = base - lo * pxPerV - yT;
+        const ya = Math.max(0, Math.floor(Math.min(yPk, yLo) - 3 * dpr * broad)), yb = Math.min(img.height - 1, Math.ceil(Math.max(yPk, yLo, base - yT) + 2 * dpr));
+        for (let py = ya; py <= yb; py++) {
+          const vel = (base - yT - py) / pxPerV;
+          const u = pk !== lo ? (vel - lo) / (pk - lo) : 0;
+          let I = 0;
+          if (u >= -0.05 * broad && u <= 1 + 0.06 * broad) I = 0.35 + 0.65 * Math.pow(clamp(u, 0, 1), 1.6);
+          if (u > 1) I *= Math.max(0, 1 - (u - 1) / (0.06 * broad));
+          if (Math.abs(py - (base - yT)) < 2 * dpr) I = Math.max(I, 0.25); // wall-filter clutter at the baseline
+          if (I <= 0) continue;
+          I *= 0.55 + 0.75 * hash(tick, py);
+          I = clamp(I, 0, 1);
+          const k = (py * img.width + px) * 4;
+          let r = 255 * I, g = 255 * I, b = 255 * I;
+          if (tint) { if (vel >= 0) { g *= 0.55; b *= 0.4; } else { r *= 0.4; g *= 0.65; } }
+          D[k] = r; D[k + 1] = g; D[k + 2] = b; D[k + 3] = 255;
+        }
+        env.push(yPk + yT);
       }
+      ctx.putImageData(img, x0, yT);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      // Peak envelope (auto-trace).
+      ctx.strokeStyle = 'rgba(232, 214, 74, .9)'; ctx.lineWidth = 1.2 * dpr; ctx.beginPath();
+      let started = false;
+      env.forEach((y, i) => { if (y == null) return; const x = x0 + i; if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y); });
+      ctx.stroke();
+      // Baseline and velocity scale on the right, as on the scanner.
+      ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = dpr; ctx.beginPath(); ctx.moveTo(x0, Math.round(base) + 0.5); ctx.lineTo(x1, Math.round(base) + 0.5); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = FONT(500, 10 * dpr); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      const step = vAbs > 60 ? 20 : vAbs > 30 ? 10 : 5;
+      for (let v = -vAbs; v <= vAbs; v += step) {
+        const y = base - v * pxPerV;
+        if (y < yT - 1 || y > yB + 1) continue;
+        ctx.fillRect(x1 + 2 * dpr, y, 4 * dpr, dpr);
+        if (v % (step * 2) === 0) ctx.fillText(String(v), x1 + 8 * dpr, y);
+      }
+      ctx.fillText('cm/s', x1 + 6 * dpr, yT - 8 * dpr);
+      // Time ticks: one per second along the bottom.
+      for (let s0 = Math.ceil(t0); s0 <= t1; s0++) { const x = x0 + ((s0 - t0) / 6) * (x1 - x0); ctx.fillRect(x, yB + 3 * dpr, dpr, 4 * dpr); }
+      ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(255,255,255,.7)';
+      ctx.fillText(`${EDGES[EI[lastProbe]]?.label || ''}  ·  θ 60°  ·  SV 3 mm`, x0 + 4 * dpr, yT - 8 * dpr);
     }
-    ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(30, base); ctx.lineTo(w, base); ctx.stroke();
-    ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.font = FONT(500, 11); ctx.textAlign = 'right';
-    for (const v of [-vAbs * 0.8, -vAbs * 0.4, vAbs * 0.4, vAbs * 0.8]) ctx.fillText(Math.round(v), 30, Y(v) + 4);
-    ctx.textAlign = 'left'; ctx.fillText('cm/s', 4, 12);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
   return { id: 'doppler', label: 'Doppler', el, update };
 }
@@ -176,7 +233,7 @@ export function createDoppler({ onProbe }) {
 export function createEndoscopy({ onAction }) {
   const el = h('div', { class: 'dock-pane', 'data-pane': 'endoscopy' });
   const box = h('div', { class: 'chart-box', style: { maxWidth: '420px' } });
-  const cv = h('canvas', { role: 'img', 'aria-label': 'Stylized endoscopic view' });
+  const cv = h('canvas', { role: 'img', 'aria-label': 'Endoscopic view' });
   box.append(cv);
   let view = 'eso';
   const seg = h('div', { class: 'seg full' }, [['eso', 'Esophagus'], ['fundus', 'Fundus (retroflexed)']].map(([v, l]) => {
@@ -187,7 +244,7 @@ export function createEndoscopy({ onAction }) {
   const stats = h('dl', { class: 'kv' });
   const side = h('div', { class: 'chart-side', style: { width: '300px' } }, h('div', { class: 'side-title' }, 'Endoscopy'), seg, stats,
     h('button', { class: 'btn primary', onclick: () => onAction({ kind: 'band' }) }, icon('band'), 'Band a column (EVL)'),
-    h('div', { class: 'ctl-sub' }, 'Stylized view. F1 small and straight, F2 enlarged and tortuous, F3 large and coil-shaped. Red wale marks mean high wall tension.'));
+    h('div', { class: 'ctl-sub' }, 'Rendered from the model. F1 small and straight, F2 enlarged and tortuous, F3 large and beaded. Red wale marks and cherry-red spots mean high wall tension.'));
   el.append(box, side);
   let seed = 0;
   function update(f) {
@@ -202,138 +259,157 @@ export function createEndoscopy({ onAction }) {
       h('dt', {}, 'Bands placed'), h('dd', {}, String(Math.round(f.bands || 0))));
     draw(f, vx);
   }
+  // Rendered endoscopic view: wet salmon mucosa lit from the scope tip (bright near, dark far),
+  // a dark lumen, fine capillaries, then the varices as bluish, shaded columns that grow in
+  // number, caliber and tortuosity with grade, beaded when large. Red wale marks and cherry-red
+  // spots ride on the surface; bands, balloon and bleeding are drawn on top. Everything random
+  // is seeded, so the view is stable between frames.
+  const rnd = (seed) => { let x = seed >>> 0; return () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; }; };
+  let bleedT = 0;
+  function mucosa(ctx, cx, cy, R, lx, ly, r) {
+    const g = ctx.createRadialGradient(lx, ly, R * 0.04, cx, cy, R * 1.02);
+    g.addColorStop(0, '#120304'); g.addColorStop(0.16, '#3b0f10'); g.addColorStop(0.42, '#9b4a3f'); g.addColorStop(0.72, '#dc9a86'); g.addColorStop(1, '#f6cdb9');
+    ctx.fillStyle = g; ctx.fillRect(cx - R, cy - R, 2 * R, 2 * R);
+    // Capillary lace near the wall.
+    ctx.strokeStyle = 'rgba(160, 40, 40, .22)'; ctx.lineWidth = 0.8;
+    for (let i = 0; i < 90; i++) {
+      const a = r() * Math.PI * 2, rr = R * (0.55 + 0.45 * r());
+      let x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr;
+      ctx.beginPath(); ctx.moveTo(x, y);
+      for (let k = 0; k < 4; k++) { x += (r() - 0.5) * R * 0.09; y += (r() - 0.5) * R * 0.09; ctx.lineTo(x, y); }
+      ctx.stroke();
+    }
+  }
+  function glints(ctx, cx, cy, R, r, n) {
+    for (let i = 0; i < n; i++) {
+      const a = r() * Math.PI * 2, rr = R * (0.45 + 0.5 * r()), x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr;
+      const gg = ctx.createRadialGradient(x, y, 0, x, y, R * 0.05);
+      gg.addColorStop(0, 'rgba(255,255,255,.85)'); gg.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = gg; ctx.beginPath(); ctx.ellipse(x, y, R * 0.05, R * 0.02, a + Math.PI / 2, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  // A varix column from the wall toward the lumen: a shaded tube (dark blue core, pale crest,
+  // shadow on the far side); beaded when large.
+  function column(ctx, pts, width, beaded, r) {
+    const seg = (fn) => { ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); fn(); };
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(60, 10, 20, .35)'; ctx.lineWidth = width * 1.25; ctx.save(); ctx.translate(width * 0.18, width * 0.12); seg(() => ctx.stroke()); ctx.restore();
+    ctx.strokeStyle = '#9594ba'; ctx.lineWidth = width; seg(() => ctx.stroke());
+    ctx.strokeStyle = 'rgba(72, 72, 132, .6)'; ctx.lineWidth = width * 0.5; seg(() => ctx.stroke());
+    ctx.strokeStyle = 'rgba(214, 220, 245, .55)'; ctx.lineWidth = Math.max(1, width * 0.16); ctx.save(); ctx.translate(-width * 0.2, -width * 0.14); seg(() => ctx.stroke()); ctx.restore();
+    if (beaded) for (let i = 2; i < pts.length - 1; i += 3) {
+      const [x, y] = pts[i], rb = width * (0.62 + 0.18 * r());
+      const g = ctx.createRadialGradient(x - rb * 0.35, y - rb * 0.35, rb * 0.1, x, y, rb);
+      g.addColorStop(0, '#c9cfe9'); g.addColorStop(0.5, '#7b82b2'); g.addColorStop(1, '#474d86');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, rb, 0, Math.PI * 2); ctx.fill();
+    }
+  }
   function draw(f, vx) {
     const { ctx, w, h: hh } = fitCanvas(cv);
     ctx.clearRect(0, 0, w, hh);
     const cx = w / 2, cy = hh / 2, R = Math.min(w, hh) / 2 - 6;
+    const r = rnd(view === 'eso' ? 11 : 23);
     ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
-    const g = ctx.createRadialGradient(cx, cy, R * 0.05, cx, cy, R);
-    g.addColorStop(0, '#1a0506'); g.addColorStop(0.25, '#7a2a2a'); g.addColorStop(0.7, '#d98a7c'); g.addColorStop(1, '#f2c1b0');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, w, hh);
-    const d = vx.d, grow = clamp((d - 2) / 10, 0, 1);
+    const d = vx.d, grow = clamp((d - 2) / 10, 0, 1), present = d >= 2.4;
+    const bands = Math.round(f.bands || 0);
     if (view === 'eso') {
-      for (let c = 0; c < 4; c++) {
-        const a0 = (c / 4) * Math.PI * 2 + 0.4;
-        const width = 3 + grow * R * 0.22;
-        if (d < 2.4) continue;
-        ctx.strokeStyle = `rgba(70, 95, 170, ${0.35 + 0.5 * grow})`; ctx.lineWidth = width; ctx.lineCap = 'round';
-        ctx.beginPath();
-        for (let s = 0; s <= 1.0001; s += 0.05) {
-          const rr = R * (0.18 + 0.8 * s);
-          const tort = grow > 0.3 ? Math.sin(s * 14 + c) * 0.12 * grow : 0;
-          const a = a0 + tort;
-          const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr;
-          if (s === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        }
-        ctx.stroke();
-        if (vx.redWale) {
-          ctx.strokeStyle = 'rgba(210, 20, 35, .9)'; ctx.lineWidth = 1.5;
-          for (let s = 0.3; s < 0.95; s += 0.12) { const rr = R * (0.18 + 0.8 * s), a = a0 + (grow > 0.3 ? Math.sin(s * 14 + c) * 0.12 * grow : 0); const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr; ctx.beginPath(); ctx.moveTo(x - 3, y - 2); ctx.lineTo(x + 3, y + 2); ctx.stroke(); }
-        }
-        if (c < Math.round(f.bands || 0)) {
-          const rr = R * 0.6, x = cx + Math.cos(a0) * rr, y = cy + Math.sin(a0) * rr;
-          ctx.fillStyle = '#f0d9d2'; ctx.beginPath(); ctx.arc(x, y, width * 0.7, 0, 7); ctx.fill();
-          ctx.strokeStyle = '#111'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, width * 0.75, 0, 7); ctx.stroke();
+      const lx = cx + R * 0.06, ly = cy - R * 0.04;
+      mucosa(ctx, cx, cy, R, lx, ly, r);
+      // Circular folds of the distal esophagus, faint rings toward the lumen.
+      ctx.strokeStyle = 'rgba(120, 40, 40, .18)'; ctx.lineWidth = 2;
+      for (const k of [0.3, 0.45, 0.62]) { ctx.beginPath(); ctx.ellipse(lx, ly, R * k, R * k * 0.92, 0, 0, Math.PI * 2); ctx.stroke(); }
+      if (present) {
+        const n = grow < 0.25 ? 3 : 4;
+        for (let c = 0; c < n; c++) {
+          const a0 = (c / n) * Math.PI * 2 + 0.5 + (r() - 0.5) * 0.3;
+          const width = R * (0.05 + 0.2 * grow);
+          const pts = [];
+          for (let s0 = 0; s0 <= 1.0001; s0 += 0.06) {
+            const rr = R * (0.2 + 0.85 * s0);
+            const tort = Math.sin(s0 * (8 + 8 * grow) + c * 1.7) * (0.02 + 0.13 * grow) * (0.4 + s0);
+            pts.push([lx + Math.cos(a0 + tort) * rr, ly + Math.sin(a0 + tort) * rr]);
+          }
+          if (c < bands) {
+            // A banded varix: a purple knuckle strangled by a black rubber band.
+            const [x, y] = pts[Math.floor(pts.length * 0.62)], rb = Math.max(width * 1.1, R * 0.09);
+            column(ctx, pts.slice(0, Math.floor(pts.length * 0.5)), width * 0.6, false, r);
+            const g = ctx.createRadialGradient(x - rb * 0.3, y - rb * 0.3, rb * 0.1, x, y, rb);
+            g.addColorStop(0, '#b886a8'); g.addColorStop(1, '#5a2750');
+            ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, rb, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#111'; ctx.lineWidth = rb * 0.32; ctx.beginPath(); ctx.arc(x, y, rb * 0.72, 0, Math.PI * 2); ctx.stroke();
+            continue;
+          }
+          column(ctx, pts, width, grow > 0.45, r);
+          if (vx.redWale) {
+            ctx.strokeStyle = 'rgba(205, 25, 40, .9)'; ctx.lineWidth = Math.max(1.2, width * 0.12); ctx.lineCap = 'round';
+            for (let i = 4; i < pts.length - 2; i += 3) { const [x, y] = pts[i], [x2, y2] = pts[i + 1]; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + (x2 - x) * 0.7, y + (y2 - y) * 0.7); ctx.stroke(); }
+            ctx.fillStyle = 'rgba(215, 20, 45, .95)';
+            for (let i = 6; i < pts.length; i += 5) { const [x, y] = pts[i]; ctx.beginPath(); ctx.arc(x + width * 0.15, y, Math.max(1.4, width * 0.1), 0, Math.PI * 2); ctx.fill(); }
+          }
         }
       }
+      glints(ctx, cx, cy, R, r, 9);
     } else {
-      ctx.fillStyle = '#e8b2a0'; ctx.beginPath(); ctx.arc(cx, cy, R * 0.9, 0, 7); ctx.fill();
-      ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(cx + R * 0.1, cy + R * 0.35, R * 0.12, 0, 7); ctx.fill();
-      if (d >= 2.4) {
-        ctx.fillStyle = `rgba(70, 95, 170, ${0.4 + 0.5 * grow})`;
-        for (let i = 0; i < 7; i++) { const a = i * 0.9, rr = R * (0.3 + 0.08 * i); ctx.beginPath(); ctx.arc(cx + Math.cos(a) * rr * 0.6 - R * 0.1, cy + Math.sin(a) * rr * 0.5 - R * 0.15, 4 + grow * R * 0.13, 0, 7); ctx.fill(); }
+      // Retroflexed view of the fundus: rugal folds, the scope shaft entering the cardia.
+      const lx = cx - R * 0.05, ly = cy - R * 0.05;
+      const g = ctx.createRadialGradient(cx, cy, R * 0.1, cx, cy, R);
+      g.addColorStop(0, '#e2a291'); g.addColorStop(0.7, '#c9796a'); g.addColorStop(1, '#6d2a26');
+      ctx.fillStyle = g; ctx.fillRect(cx - R, cy - R, 2 * R, 2 * R);
+      ctx.lineCap = 'round';
+      for (let i = 0; i < 9; i++) {
+        const a = -0.6 + i * 0.42, rr = R * (0.55 + 0.35 * r());
+        ctx.strokeStyle = 'rgba(150, 60, 55, .35)'; ctx.lineWidth = R * 0.05;
+        ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * R * 0.3, cy + Math.sin(a) * R * 0.3);
+        ctx.quadraticCurveTo(cx + Math.cos(a + 0.3) * rr * 0.8, cy + Math.sin(a + 0.3) * rr * 0.8, cx + Math.cos(a + 0.15) * R * 1.05, cy + Math.sin(a + 0.15) * R * 1.05); ctx.stroke();
+        ctx.strokeStyle = 'rgba(255, 220, 205, .25)'; ctx.lineWidth = R * 0.012; ctx.stroke();
       }
+      if (present) {
+        const n = 6 + Math.round(10 * grow), base = R * (0.05 + 0.1 * grow);
+        for (let i = 0; i < n; i++) {
+          const a = -2.3 + (i / n) * 1.9 + (r() - 0.5) * 0.25, rr = R * (0.26 + 0.2 * r());
+          const x = lx + Math.cos(a) * rr, y = ly + Math.sin(a) * rr, rb = base * (0.7 + 0.5 * r());
+          const gg = ctx.createRadialGradient(x - rb * 0.35, y - rb * 0.35, rb * 0.1, x, y, rb);
+          gg.addColorStop(0, '#cfd3ea'); gg.addColorStop(0.5, '#7b82b2'); gg.addColorStop(1, '#434883');
+          ctx.fillStyle = 'rgba(60, 10, 20, .3)'; ctx.beginPath(); ctx.arc(x + rb * 0.2, y + rb * 0.2, rb, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(x, y, rb, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      // The endoscope itself, coming back through the cardia toward the viewer.
+      const sx = lx + R * 0.08, sy = ly + R * 0.06, sr = R * 0.2;
+      const sg = ctx.createLinearGradient(sx - sr, sy, sx + sr, sy);
+      sg.addColorStop(0, '#1a1b1f'); sg.addColorStop(0.45, '#5c5f68'); sg.addColorStop(1, '#141518');
+      ctx.fillStyle = sg; ctx.beginPath(); ctx.ellipse(sx, sy + R * 0.25, sr, R * 0.62, 0.25, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.lineWidth = 1.2;
+      for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.ellipse(sx + k * 3, sy + R * (0.02 + k * 0.1), sr * 0.9, sr * 0.3, 0.25, Math.PI, Math.PI * 2); ctx.stroke(); }
+      glints(ctx, cx, cy, R, r, 7);
     }
-    if (f.params?.balloonEso && view === 'eso' || f.params?.balloonGas && view === 'fundus') {
-      ctx.fillStyle = 'rgba(245, 232, 176, .55)'; ctx.beginPath(); ctx.arc(cx, cy, R * 0.8, 0, 7); ctx.fill();
+    if ((f.params?.balloonEso && view === 'eso') || (f.params?.balloonGas && view === 'fundus')) {
+      const g = ctx.createRadialGradient(cx - R * 0.2, cy - R * 0.2, R * 0.1, cx, cy, R * 0.85);
+      g.addColorStop(0, 'rgba(255, 250, 225, .55)'); g.addColorStop(1, 'rgba(235, 215, 160, .35)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R * 0.82, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 2; ctx.stroke();
     }
     if (f.bleed?.active && ((f.bleed.site === 'VAR') === (view === 'eso'))) {
-      seed += 1;
-      ctx.fillStyle = 'rgba(150, 0, 20, .8)';
-      ctx.beginPath(); ctx.ellipse(cx, cy + R * 0.55, R * 0.5, R * 0.25, 0, 0, 7); ctx.fill();
-      for (let i = 0; i < 60; i++) { const a = -Math.PI / 2 + (Math.random() - 0.5) * 0.8, rr = Math.random() * R * 0.7; ctx.beginPath(); ctx.arc(cx + R * 0.35 + Math.cos(a) * rr * 0.3, cy + Math.sin(a) * rr * 0.6, 1.8, 0, 7); ctx.fill(); }
+      // Active bleeding: a jet from the ruptured column and blood pooling dependently.
+      bleedT = (bleedT + 1) % 1000;
+      const jx = cx + R * 0.28, jy = cy + R * 0.05;
+      const pool = ctx.createRadialGradient(cx, cy + R * 0.8, R * 0.1, cx, cy + R * 0.8, R * 0.75);
+      pool.addColorStop(0, 'rgba(95, 0, 12, .95)'); pool.addColorStop(1, 'rgba(120, 0, 20, 0)');
+      ctx.fillStyle = pool; ctx.fillRect(cx - R, cy, 2 * R, R);
+      const jr = rnd(bleedT);
+      ctx.fillStyle = 'rgba(165, 8, 28, .85)';
+      for (let i = 0; i < 70; i++) { const u = jr(), a = -1.9 + (jr() - 0.5) * 0.5; ctx.beginPath(); ctx.arc(jx + Math.cos(a) * u * R * 0.5, jy + Math.sin(a) * u * R * 0.5 + u * u * R * 0.4, 1.2 + 2.2 * (1 - u), 0, Math.PI * 2); ctx.fill(); }
     }
+    // Scope vignette and a mask like the processor's.
+    const vg = ctx.createRadialGradient(cx, cy, R * 0.7, cx, cy, R);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.55)');
+    ctx.fillStyle = vg; ctx.fillRect(cx - R, cy - R, 2 * R, 2 * R);
     ctx.restore();
-    ctx.strokeStyle = '#1B1D22'; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.stroke();
+    ctx.strokeStyle = '#0c0d10'; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = cssVar('--text-3') || '#888'; ctx.font = FONT(500, 10); ctx.textAlign = 'left';
+    ctx.fillText(view === 'eso' ? 'Distal esophagus · 36 cm' : 'Fundus · retroflexed', 6, hh - 6);
   }
   return { id: 'endoscopy', label: 'Endoscopy', el, update, setView(v) { view = v; seg.querySelectorAll('button').forEach((x, i) => x.setAttribute('aria-pressed', String((i === 0) === (v === 'eso')))); } };
-}
-
-// ── Liver lobule (L2) ───────────────────────────────
-export function createLobule() {
-  const el = h('div', { class: 'dock-pane', 'data-pane': 'lobule' });
-  const box = h('div', { class: 'chart-box', style: { maxWidth: '460px' } });
-  const cv = h('canvas', { role: 'img', 'aria-label': 'Liver lobule microcirculation' });
-  box.append(cv);
-  let lobe = 'R';
-  const seg = h('div', { class: 'seg full' }, [['R', 'Right lobe'], ['L', 'Left lobe']].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(v === lobe) }, l); b.addEventListener('click', () => { lobe = v; seg.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; }));
-  const zoneBtns = h('div', { class: 'btn-row' }, [['pre', 'Portal tract'], ['sin', 'Sinusoids'], ['post', 'Central vein']].map(([z, l]) => {
-    const b = h('button', { class: 'btn sm' }, `+ ${l}`);
-    b.addEventListener('click', () => updateParams((p) => { p.fibrosis[lobe][z] = +(Math.min(80, p.fibrosis[lobe][z] * 1.5)).toFixed(2); return p; }, { label: 'Fibrosis' }));
-    return b;
-  }));
-  const clear = h('button', { class: 'btn sm ghost', onclick: () => updateParams((p) => { p.fibrosis[lobe] = { pre: 1, sin: 1, post: 1 }; return p; }, { label: 'Clear fibrosis' }) }, 'Clear this lobe');
-  const stats = h('dl', { class: 'kv' });
-  const side = h('div', { class: 'chart-side', style: { width: '290px' } }, h('div', { class: 'side-title' }, 'Liver lobule'), seg, h('div', { class: 'side-label' }, 'Add fibrosis'), zoneBtns, clear, stats,
-    h('div', { class: 'ctl-sub' }, 'Portal venule + hepatic arteriole (red) enter at the triads, mix in the sinusoids, and drain to the central vein. Lymph forms in the space of Disse.'));
-  el.append(box, side);
-  let phase = 0;
-  function update(f) {
-    const p = f.params || store.get().params;
-    const S = lobe === 'R' ? { pv: 'RPV', sin: 'SIN_R', cv: 'CV_R' } : { pv: 'LPV', sin: 'SIN_L', cv: 'CV_L' };
-    const P1 = f.P[NI[S.pv]], P2 = f.P[NI[S.sin]], P3 = f.P[NI[S.cv]];
-    const fib = p.fibrosis[lobe], s = p.cirrhosis;
-    const zone = { pre: (1 + 2 * s) * fib.pre, sin: (1 + 20 * s ** 2.5) * fib.sin, post: (1 + 2 * s) * fib.post };
-    stats.replaceChildren(
-      h('dt', {}, 'Portal venule'), h('dd', {}, `${fmt(P1, 1)} mmHg`),
-      h('dt', {}, 'Sinusoid inlet'), h('dd', {}, `${fmt(P2, 1)} mmHg`),
-      h('dt', {}, 'Central venule'), h('dd', {}, `${fmt(P3, 1)} mmHg`),
-      h('dt', {}, 'R pre / sin / post'), h('dd', {}, `×${fmt(zone.pre, 1)} / ×${fmt(zone.sin, 1)} / ×${fmt(zone.post, 1)}`),
-      h('dt', {}, 'Hepatic lymph'), h('dd', {}, `${fmt(f.metrics.ascites.hepLymph, 1)} mL/min`));
-    draw(P1, P2, P3, zone, s);
-  }
-  function draw(P1, P2, P3, zone, s) {
-    const { ctx, w, h: hh } = fitCanvas(cv);
-    ctx.clearRect(0, 0, w, hh);
-    const cx = w / 2, cy = hh / 2, R = Math.min(w, hh) / 2 - 20;
-    phase = (phase + 0.02) % 1;
-    const corners = Array.from({ length: 6 }, (_, i) => [cx + Math.cos((i * Math.PI) / 3) * R, cy + Math.sin((i * Math.PI) / 3) * R]);
-    ctx.fillStyle = cssVar('--organ-liver'); ctx.globalAlpha = 0.18;
-    ctx.beginPath(); corners.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
-    // sinusoids: radial lines from each edge point to centre
-    for (let i = 0; i < 6; i++) {
-      const [ax, ay] = corners[i], [bx, by] = corners[(i + 1) % 6];
-      for (let k = 0; k <= 6; k++) {
-        const t = k / 6, sx = ax + (bx - ax) * t, sy = ay + (by - ay) * t;
-        const grad = ctx.createLinearGradient(sx, sy, cx, cy);
-        grad.addColorStop(0, pressureColor(P2)); grad.addColorStop(1, pressureColor(P3));
-        ctx.strokeStyle = grad; ctx.lineWidth = Math.max(1.5, 5 / Math.sqrt(zone.sin));
-        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(cx, cy); ctx.stroke();
-        // flowing cells
-        ctx.fillStyle = 'rgba(150,18,40,.8)';
-        const u = (phase + k * 0.13 + i * 0.07) % 1;
-        ctx.beginPath(); ctx.arc(sx + (cx - sx) * u, sy + (cy - sy) * u, 1.6, 0, 7); ctx.fill();
-        // sinusoidal collagen
-        if (zone.sin > 1.5) { ctx.strokeStyle = `rgba(230, 210, 150, ${clamp(Math.log(zone.sin) / 3.5, 0, 0.8)})`; ctx.lineWidth = 1; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(sx + (cx - sx) * 0.15 + 3, sy + (cy - sy) * 0.15); ctx.lineTo(sx + (cx - sx) * 0.85 + 3, sy + (cy - sy) * 0.85); ctx.stroke(); ctx.setLineDash([]); }
-      }
-    }
-    // portal triads
-    for (const [x, y] of corners) {
-      if (zone.pre > 1.5) { ctx.fillStyle = `rgba(230, 210, 150, ${clamp(Math.log(zone.pre) / 3, 0.2, 0.85)})`; ctx.beginPath(); ctx.arc(x, y, 14 + Math.log(zone.pre) * 5, 0, 7); ctx.fill(); }
-      ctx.fillStyle = pressureColor(P1); ctx.beginPath(); ctx.arc(x - 4, y, 6, 0, 7); ctx.fill();
-      ctx.fillStyle = cssVar('--artery'); ctx.beginPath(); ctx.arc(x + 5, y - 3, 3, 0, 7); ctx.fill();
-      ctx.fillStyle = '#7FA35B'; ctx.beginPath(); ctx.arc(x + 4, y + 5, 2.5, 0, 7); ctx.fill();
-    }
-    // central vein
-    if (zone.post > 1.5) { ctx.fillStyle = `rgba(230, 210, 150, ${clamp(Math.log(zone.post) / 3, 0.2, 0.85)})`; ctx.beginPath(); ctx.arc(cx, cy, 16 + Math.log(zone.post) * 6, 0, 7); ctx.fill(); }
-    ctx.fillStyle = pressureColor(P3); ctx.beginPath(); ctx.arc(cx, cy, 11, 0, 7); ctx.fill();
-    ctx.strokeStyle = cssVar('--text-2'); ctx.lineWidth = 1; ctx.stroke();
-    ctx.fillStyle = cssVar('--text-2'); ctx.font = FONT(500, 11); ctx.textAlign = 'center';
-    ctx.fillText('central vein', cx, cy + 26);
-    ctx.fillText('portal triad', corners[5][0], corners[5][1] - 20);
-    if (s > 0.2) { ctx.fillText(`capillarization: fenestrae closing (σ ${fmt(0.1 + 0.5 * s, 2)})`, cx, hh - 6); }
-  }
-  return { id: 'lobule', label: 'Lobule', el, update };
 }
 
 // ── Varix wall cross-section (L3) ───────────────────

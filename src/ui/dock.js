@@ -3,8 +3,8 @@
 import { store } from './store.js?v=609dde7847';
 import { h, fmt, icon, svgIcon, popover, closePopover, clamp } from './util.js?v=61d6f9c200';
 import { NODES, EDGES } from '../engine/topology.js?v=44e0aca402';
-import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=bbf0c9c446';
-import { createHVPG, createDoppler, createEndoscopy, createLobule, createVarixWall, createAbdomen } from './instruments.js?v=8bc815b018';
+import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=4692c77947';
+import { createHVPG, createDoppler, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=7911ea4875';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -41,7 +41,7 @@ export const VITALS = [
 // Key readouts always shown; the rest join the row when abnormal (or when the learner asks).
 export const PRIMARY = new Set(['hvpg', 'pv', 'pvflow', 'varix']);
 
-export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal }) {
+export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onLobule }) {
   const app = document.getElementById('app');
   // ── Readout strip ─────────────────────────────────
   const tileEls = {};
@@ -123,7 +123,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // pop out as a floating, resizable window, and on a wide screen a second one can sit beside it.
   const panes = [
     createProfile(), createScope(), createSankey(), createPerfusion(), createHVPG(),
-    createDoppler({ onProbe }), createEndoscopy({ onAction }), createLobule(), createVarixWall(), createAbdomen({ onAction }),
+    createDoppler({ onProbe }), createEndoscopy({ onAction }), createVarixWall(), createAbdomen({ onAction }),
   ];
   const byId = Object.fromEntries(panes.map((p) => [p.id, p]));
   const hiddenCase = () => store.get().imaging;
@@ -148,7 +148,6 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     hvpg: ['catheter', 'Wedged hepatic venous pressure', () => { const m = store.get().lastHVPG; return m ? `Measured ${fmt(m.hvpg, 1)} mmHg` : 'No measurement yet'; }],
     doppler: ['doppler', 'Spectral Doppler of a vessel', (f) => { const k = EI[f.probe]; const D = Math.max(0.5, f.D[k]) / 10; const v = (f.Qf ? f.Qf[k] : f.Q[k]) / (Math.PI * D * D / 4); return `${fmt(Math.abs(v), 0)} cm/s ${v < -1 ? 'reversed' : ''}`; }],
     endoscopy: ['endoscope', 'The varices from inside', (f) => (f.metrics.varix.d < 2.4 ? 'No varices' : `Esophageal ${f.metrics.varix.grade.code}`)],
-    lobule: ['liver', 'Microcirculation of a lobule', (f) => `Sinusoids ${fmt(f.P[NI.SIN_R], 1)} mmHg`],
     varixwall: ['band', 'Laplace wall tension', (f) => `${Math.round(f.metrics.varix.ratio * 100)} % of rupture`],
     abdomen: ['needle', 'Ascites & paracentesis', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],
   };
@@ -163,6 +162,13 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       b.addEventListener('click', () => { closePopover(); show(p.id, { open: true, alongside }); });
       return b;
     });
+    // The lobule is a zoom level of the figure, not a panel: its card zooms in.
+    if (!alongside && onLobule) {
+      const b = h('button', { class: 'instr-card' }, h('span', { class: 'ic-ic' }, svgIcon('liver')), h('span', { class: 'ic-t' }, 'Lobule'), h('span', { class: 'ic-d' }, 'Zoom the figure into a liver lobule'),
+        h('span', { class: 'ic-live' }, f && !hiddenCase() ? `Sinusoids ${fmt(f.P[NI.SIN_R], 1)} mmHg` : '—'));
+      b.addEventListener('click', () => { closePopover(); onLobule(); });
+      cards.push(b);
+    }
     popover(anchor, [h('div', { class: 'menu-title' }, alongside ? 'Add an instrument alongside' : 'Instruments'), h('div', { class: 'instr-grid' }, cards)], { cls: 'instr-pop', align: 'start', place: anchor.closest('.dock') ? 'above' : 'below' });
   }
   const wide = matchMedia('(min-width: 1600px)');
@@ -178,6 +184,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   }
   wide.addEventListener('change', () => { if (!wide.matches && open.length > 1) open = open.slice(0, 1); layout(); });
   function show(id, { open: doOpen = true, reveal = false, alongside = false } = {}) {
+    if (id === 'lobule') { onLobule?.(); return; }
     if (!byId[id]) return;
     if (floats.has(id)) { floats.get(id).classList.add('flash'); setTimeout(() => floats.get(id)?.classList.remove('flash'), 600); return; }
     if (alongside && open.length === 1 && open[0] !== id) open = [open[0], id];

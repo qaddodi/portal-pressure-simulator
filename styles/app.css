@@ -1394,3 +1394,38 @@ div.vt-vital { cursor: default; }
 /* Selection lift: the chosen vessel rises off the page */
 .vg.is-sel .v-shadow { transform: translate(0, 3px); opacity: .9; filter: blur(2.5px); transition: transform .18s var(--ease); }
 @media (prefers-reduced-motion: reduce) { .halo circle, .halo text { animation: none; } }
+
+/* Semantic zoom: the lobule layer and the zoom trail */
+.lz { position: absolute; inset: 0; opacity: 0; pointer-events: none; z-index: 4; transition: none; }
+.lz.on { pointer-events: auto; }
+.lz-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.lz-top { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; }
+.lz-side { position: absolute; right: 16px; top: 64px; width: 250px; padding: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-2); display: grid; gap: 10px; }
+.lz-title { font: 600 17px/1.2 var(--font-display); }
+.lz-stats { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin: 0; font-size: 12px; }
+.lz-stats dt { color: var(--text-2); } .lz-stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.lz-fib { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.lz-k { width: 100%; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-3); font-weight: 600; }
+.lz-legend { display: flex; flex-wrap: wrap; gap: 5px 12px; font-size: 11.5px; color: var(--text-2); border-top: 1px solid var(--line); padding-top: 10px; }
+.lz-legend span { display: inline-flex; gap: 6px; align-items: center; }
+.lz-legend i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+.lz-legend .lg-pv { background: var(--s3, #6A7FD8); } .lz-legend .lg-ha { background: var(--artery, #C0392B); } .lz-legend .lg-bd { border: 2px solid #6E9B4E; }
+.lz-legend .lg-hsc { background: rgb(176, 104, 48); } .lz-legend .lg-col { background: rgb(236, 222, 186); border: 1px solid var(--line); }
+.zoom-crumbs { position: absolute; top: 12px; left: 12px; z-index: 5; display: flex; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px; box-shadow: var(--shadow-1); }
+.zoom-crumbs[hidden] { display: none; }
+.zoom-crumbs button { border: 0; background: none; font: 500 12px var(--font-ui); color: var(--text-2); padding: 5px 10px; border-radius: 999px; cursor: pointer; }
+.zoom-crumbs button + button::before { content: '›'; margin-right: 10px; color: var(--text-3); }
+.zoom-crumbs button.cur { color: var(--text); font-weight: 650; background: var(--surface-2, rgba(0,0,0,.05)); }
+.stage-view.in-lobule #labels, .stage-view.in-lobule #particles, .stage-view.in-lobule #overlay { visibility: hidden; }
+@media (max-width: 720px) { .lz-side { left: 12px; right: 12px; top: auto; bottom: 12px; width: auto; } .lz-legend { display: none; } }
+@media (max-width: 720px) {
+  .lz-top { top: 50px; left: 12px; transform: none; }
+  .lz-side { padding: 8px 10px; gap: 6px; }
+  .lz-title, .lz-fib { display: none; }
+  .lz-stats { grid-template-columns: repeat(3, auto 1fr); font-size: 11px; }
+  .lz-stats dt:nth-of-type(n+4), .lz-stats dd:nth-of-type(n+4) { display: none; }
+  .lz-stats dt:nth-of-type(1)::after { content: ''; }
+}
+/* Circuit bridges: a line that crosses another hops over it */
+#bridges path { fill: none; stroke-linecap: butt; pointer-events: none; }
+#bridges .bridge-gap { stroke: var(--stage-bg, var(--bg)); }

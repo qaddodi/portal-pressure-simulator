@@ -32,7 +32,7 @@ export const LESSONS = [
     summary: 'Pre-, sinusoidal and post-sinusoidal resistance, and why the site matters.',
     steps: [
       { type: 'frame', preset: 'healthy', tools: ['select'], tab: 'lobule',
-        text: 'Inside the liver, blood crosses three resistances in series: **portal venules** (presinusoidal), **sinusoids**, and **central veins** (postsinusoidal). The Lobule panel shows them.' },
+        text: 'Inside the liver, blood crosses three resistances in series: **portal venules** (presinusoidal), **sinusoids**, and **central veins** (postsinusoidal). Zoom into the liver to see them in a lobule; zoom back out when you are ready.' },
       { type: 'predict', mode: 'draw', path: 'main', tab: 'profile',
         text: 'Predict: with **severe cirrhosis** (sinusoidal fibrosis), draw the pressures along gut → liver → heart. Drag across the chart.' },
       { type: 'do', text: 'Set **Cirrhosis severity** to at least 70 % (below).', goal: (f, p) => p.cirrhosis >= 0.7, controls: ['cirrhosis'] },

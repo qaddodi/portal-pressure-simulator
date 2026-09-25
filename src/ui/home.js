@@ -4,7 +4,7 @@
 
 import { store } from './store.js?v=609dde7847';
 import { h, svgIcon, icon } from './util.js?v=61d6f9c200';
-import { LESSONS } from './learn.js?v=5daa30d938';
+import { LESSONS } from './learn.js?v=64140e2389';
 import { CASES } from './cases.js?v=f5f5cb7bcb';
 
 const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };
