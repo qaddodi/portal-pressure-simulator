@@ -245,9 +245,6 @@ svg { flex: none; }
 .tool-card .tc-title .ib svg { width: 14px; height: 14px; }
 .tool-card kbd { font: 500 10.5px var(--font-mono); color: var(--text-3); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; background: var(--surface); }
 .tool-card .seg { margin-top: 8px; }
-.coach { position: absolute; left: 14px; bottom: 12px; z-index: 5; max-width: min(268px, calc(100% - 28px)); padding: 10px 12px; border-radius: var(--r); background: var(--surface); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); font-size: 12.5px; line-height: 1.5; color: var(--text-2); animation: lift .25s var(--ease); }
-.coach b { color: var(--text); font-weight: 600; }
-.coach .c-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 .imaging-note { position: absolute; left: 14px; top: 10px; z-index: 5; display: inline-flex; gap: 6px; align-items: center; padding: 4px 10px; border-radius: 8px; font-size: 11.5px; font-weight: 500; color: var(--text-2); background: var(--surface-2); pointer-events: none; }
 @keyframes rise { from { opacity: 0; transform: translate(-50%, 4px); } }
 @keyframes lift { from { opacity: 0; transform: translateY(4px); } }
@@ -267,7 +264,7 @@ svg { flex: none; }
 .fig-head, .fig-foot { display: none; }
 .app.figure-mode { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); grid-template-areas: "stage"; }
 .app.figure-mode .topbar, .app.figure-mode .panel, .app.figure-mode .dock, .app.figure-mode .readouts, .app.figure-mode .mobile-tabs,
-.app.figure-mode .stage-bar, .app.figure-mode .tool-card, .app.figure-mode .coach, .app.figure-mode .hud, .app.figure-mode .hover-tip { display: none !important; }
+.app.figure-mode .stage-bar, .app.figure-mode .tool-card, .app.figure-mode .hud, .app.figure-mode .hover-tip { display: none !important; }
 .app.figure-mode .fig-head { display: flex; }
 .app.figure-mode .fig-foot { display: grid; }
 .fig-head { flex: none; align-items: flex-start; gap: 16px; padding: 22px 28px 6px; background: var(--stage-bg); }
@@ -883,7 +880,6 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   .tb-btn .tb-l { display: none; }
   .tb-btn { padding: 0 9px; }
 }
-.c-short { display: none; }
 @media (max-width: 900px) {
   .legend .lg-title { display: none; }
   .lg-scale { width: 132px; }
@@ -934,13 +930,9 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   .tb-btn { height: 40px; min-width: 42px; padding: 0 10px; justify-content: center; }
   .tb-btn.tb-tools .tb-l { display: inline; }
   .tb-btn .chev { display: none; }
-  .c-long { display: none; }
-  .c-short { display: block; }
-  .coach .c-row { margin-top: 6px; }
   .tb-sep { display: none; }
   .tool-card { left: 8px; bottom: 8px; width: calc(100% - 16px); }
   .lg-note { display: none !important; }
-  .coach { left: 8px; right: 8px; bottom: 8px; max-width: none; }
   .toolbar.few .tb-btn:not(:first-child) .tb-l { display: inline; max-width: 92px; overflow: hidden; text-overflow: ellipsis; }
   .dock-head { flex-wrap: wrap; height: auto; padding: 8px 8px 0; gap: 4px 8px; }
   .dock-groups { width: 100%; display: flex !important; }
@@ -1058,7 +1050,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 
 @media print {
   .app { display: block; height: auto; }
-  .topbar, .panel, .dock, .readouts, .mobile-tabs, .stage-bar, .hud, .tool-card, .coach, .fig-head .fh-actions { display: none !important; }
+  .topbar, .panel, .dock, .readouts, .mobile-tabs, .stage-bar, .hud, .tool-card, .fig-head .fh-actions { display: none !important; }
   .stage-wrap { position: fixed; inset: 0; }
   .fig-head { display: flex !important; }
   .fig-foot { display: grid !important; }

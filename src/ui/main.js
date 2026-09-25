@@ -64,7 +64,7 @@ async function main() {
   why = createWhy($('#whyPop'));
   stage = createStage({
     wrap: view,
-    onSelect: (sel, opts) => { store.set({ selection: sel }); dismissCoach(); if (sel && !opts?.quiet) openPanel(); },
+    onSelect: (sel, opts) => { store.set({ selection: sel }); if (sel && !opts?.quiet) openPanel(); },
     onAction: doAction,
     onOpenTab: (id) => dock.show(id, { reveal: 'soft' }),
     onHoverInfo: hoverInfo,
@@ -99,13 +99,11 @@ async function main() {
     for (const c of [...view.classList]) if (c.startsWith('tool-')) view.classList.remove(c);
     view.classList.add('tool-' + t);
     renderToolbar(); renderToolCard();
-    if (t !== 'select') dismissCoach();
   });
   store.on('mode', onMode);
   store.on('historyTick', () => { $('#btnUndo').disabled = !canUndo(); $('#btnRedo').disabled = !canRedo(); });
   store.on('layers', () => { app.classList.toggle('chips-off', !store.get().layers.chips); redraw(); });
   store.on('presetId', (id) => { $('#scenarioName').textContent = presets.find((p) => p.id === id)?.label || 'Custom'; });
-  store.on('params', () => { if (store.get().mode === 'explore') renderCoach(); });
   for (const k of ['compareSnap', 'compareView', 'colorMode', 'imaging']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
   store.on('focus', redraw);
   store.on('selection', redraw);
@@ -114,7 +112,6 @@ async function main() {
   window.pps = { loadPreset, store, updateParams, setTool, dock, stage, host, toggleFigure, figure };
   const shared = readShare();
   if (shared) await loadShared(shared);
-  renderCoach();
   firstRun();
 }
 const redraw = () => { const f = store.get().frame; if (f) stage.update(viewFrame(f)); };
@@ -184,7 +181,6 @@ async function loadPreset(id, opts = {}) {
   clearHistory();
   store.set({ presetId: id, lastHVPG: null, selection: store.get().mode === 'cases' ? null : store.get().selection, historyTick: (store.get().historyTick || 0) + 1 });
   eventsUI?.clear();
-  dismissCoach();
 }
 
 function encodeShare() {
@@ -307,26 +303,6 @@ function renderToolCard() {
       return b;
     })));
   }
-  redraw();
-}
-
-// ── Coach: the first thing a new learner sees in Explore ─
-let coachDismissed = false;
-function dismissCoach() { if (!coachDismissed) { coachDismissed = true; renderCoach(); } }
-function renderCoach() {
-  const el = $('#coach');
-  const st = store.get();
-  const show = !coachDismissed && st.mode === 'explore' && st.presetId === 'healthy' && !isModalOpen() && !activeInterventions(st.params).length;
-  el.hidden = !show;
-  if (!show) { redraw(); return; }
-  if (el.childElementCount) return;
-  const ok = h('button', { class: 'btn sm primary' }, 'Stiffen the liver');
-  ok.addEventListener('click', () => { updateParams({ cirrhosis: 0.6 }, { label: 'Cirrhosis 60 %' }); toast('Cirrhosis 60 %: watch the sinusoid and portal vein labels climb, and the ▲ change from healthy.'); dismissCoach(); });
-  const later = h('button', { class: 'btn sm ghost' }, 'Got it');
-  later.addEventListener('click', dismissCoach);
-  el.replaceChildren(h('div', { class: 'c-long' }, h('b', {}, 'This is a healthy liver. '), 'Labels give live venous pressures in mmHg. The chevrons inside each vessel are the blood: they move the way it flows, faster where it flows faster. Click any vessel to inspect it, or stiffen the liver and watch pressure back up.'),
-    h('div', { class: 'c-short' }, h('b', {}, 'A healthy liver. '), 'Labels are pressures in mmHg; tap a vessel to inspect it.'),
-    h('div', { class: 'c-row' }, ok, later));
   redraw();
 }
 
@@ -589,7 +565,7 @@ function onMode(mode) {
   if (mode === 'explore') { store.set({ locked: null, hiddenReadouts: null, imaging: false }); setAllowedTools(null); }
   $('#mobilePanelLabel').textContent = PANEL_LABEL[mode];
   $('#panelToggleLabel').textContent = PANEL_LABEL[mode];
-  renderToolCard(); renderCoach(); renderBanner(); renderLegend();
+  renderToolCard(); renderBanner(); renderLegend();
   if (isPhone()) setSheet('panel');
 }
 
@@ -736,7 +712,7 @@ function firstRun() {
   let seen = false;
   try { seen = localStorage.getItem('pps.seen') === '1'; } catch { /* storage unavailable */ }
   if (seen) return;
-  const done = () => { try { localStorage.setItem('pps.seen', '1'); } catch { /* storage unavailable */ } closeModal(); renderCoach(); };
+  const done = () => { try { localStorage.setItem('pps.seen', '1'); } catch { /* storage unavailable */ } closeModal(); };
   const entry = (ic, t, d, fn) => h('button', { class: 'entry', onclick: () => { done(); fn(); } }, h('span', { class: 'eic' }, icon(ic)), h('span', { class: 't' }, t), h('span', { class: 'd' }, d));
   openModal('Welcome', h('div', { class: 'welcome' },
     h('div', { class: 'welcome-hero' }, brandMark(), h('div', {}, h('h1', {}, 'Portal Pressure Simulator'), h('p', { class: 'sub', style: { margin: '4px 0 0' } }, 'A living, physics-based model of the portal circulation.'))),
@@ -746,7 +722,6 @@ function firstRun() {
       entry('book', 'Take a lesson', '11 short lessons: predict, observe, explain.', () => store.set({ mode: 'learn' })),
       entry('case', 'Manage a case', 'A variceal bleed at 3 a.m., and three diagnostic puzzles.', () => store.set({ mode: 'cases' }))),
     h('p', { class: 'disclaimer', style: { margin: 0 } }, 'Educational simulation. Simplified model with illustrative values; not for diagnosis or treatment decisions.')), { bare: true });
-  $('#modalBack').addEventListener('click', () => setTimeout(renderCoach, 0), { once: true });
 }
 
 main().catch((err) => { console.error(err); document.body.append(h('pre', { style: { position: 'fixed', bottom: 0, left: 0, background: '#fff', color: '#900', padding: '8px', zIndex: 999 } }, String(err.stack || err))); });
