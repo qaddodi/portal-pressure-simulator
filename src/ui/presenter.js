@@ -6,7 +6,7 @@
 
 import { store } from './store.js?v=e9304c5ee2';
 import { h, toast, svgIcon, icon } from './util.js?v=cb539c0cd8';
-import { download } from './records.js?v=56e1c7c37c';
+import { download } from './records.js?v=26ab8fb634';
 
 export const SCRIPTS = [
   {

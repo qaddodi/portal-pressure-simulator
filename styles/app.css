@@ -1490,3 +1490,5 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .home-records .input { min-width: 200px; }
 .home-records .input { border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; }
 .stage-view.in-lobule .big-overlay { display: none; }
+/* Right-to-left: English content inside an Arabic interface keeps its own direction. */
+[dir="rtl"] p, [dir="rtl"] .d, [dir="rtl"] .t, [dir="rtl"] li, [dir="rtl"] .feedback { unicode-bidi: plaintext; }

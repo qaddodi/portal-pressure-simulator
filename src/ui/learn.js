@@ -3,7 +3,7 @@
 import { store, updateParams } from './store.js?v=e9304c5ee2';
 import { host } from './host.js?v=eba3cdc684';
 import { h, fmt, toast, svgIcon } from './util.js?v=cb539c0cd8';
-import { addRecord } from './records.js?v=56e1c7c37c';
+import { addRecord } from './records.js?v=26ab8fb634';
 import { EDGES } from '../engine/topology.js?v=44e0aca402';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

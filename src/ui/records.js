@@ -5,10 +5,15 @@
 const KEY = 'pps.records';
 const read = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
 
+const listeners = [];
+/** Called with every new record (the LMS bridge reports scores this way). */
+export const onRecord = (fn) => listeners.push(fn);
 export function addRecord(rec) {
   const all = read();
-  all.push({ ...rec, date: new Date().toISOString() });
+  const r = { ...rec, date: new Date().toISOString() };
+  all.push(r);
   try { localStorage.setItem(KEY, JSON.stringify(all.slice(-500))); } catch { /* storage unavailable */ }
+  for (const fn of listeners) { try { fn(r); } catch { /* a listener must not break the record */ } }
 }
 export const records = read;
 export function learnerName() { try { return localStorage.getItem('pps.learner') || ''; } catch { return ''; } }

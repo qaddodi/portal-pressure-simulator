@@ -1,13 +1,14 @@
 {
   "name": "portal-pressure-simulator",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Interactive, physics-based simulator of the portal circulation for medical education.",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.js",
     "stamp": "node scripts/stamp.mjs",
-    "start": "npx --yes http-server -c-1 -p 8080 ."
+    "start": "npx --yes http-server -c-1 -p 8080 .",
+    "scorm": "node scripts/scorm.mjs"
   },
   "license": "MIT"
 }

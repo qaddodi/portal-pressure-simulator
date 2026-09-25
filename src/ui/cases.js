@@ -5,7 +5,7 @@
 import { store, updateParams } from './store.js?v=e9304c5ee2';
 import { host } from './host.js?v=eba3cdc684';
 import { h, fmt, openModal, closeModal, toast, svgIcon } from './util.js?v=cb539c0cd8';
-import { addRecord, exportCSV, exportXAPI } from './records.js?v=56e1c7c37c';
+import { addRecord, exportCSV, exportXAPI } from './records.js?v=26ab8fb634';
 
 const ACTIONS = {
   crystalloid: { label: '1 L crystalloid', run: (a) => a.action({ kind: 'infuse', fluid: 'crystalloid' }) },

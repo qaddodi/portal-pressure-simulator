@@ -8,16 +8,20 @@ import { createInspector, activeInterventions } from './inspector.js?v=f427b5902
 import { createDock } from './dock.js?v=3618e79469';
 import { createWhy } from './why.js?v=e38edff8d5';
 import { createTimeline } from './timeline.js?v=dad0f29780';
-import { createLearn } from './learn.js?v=e376872e6c';
-import { createCases } from './cases.js?v=2287efa897';
+import { createLearn } from './learn.js?v=df0f4b5a11';
+import { createCases } from './cases.js?v=37bc1636c4';
 import { createCompare } from './compare.js?v=cae6038c84';
 import { createFigure } from './figure.js?v=6f83d73754';
 import { createCard } from './card.js?v=bdc93151b9';
 import { createChart } from './chart.js?v=b46fc36099';
-import { createHome } from './home.js?v=b7424c735c';
-import { createPalette } from './palette.js?v=e051a2e46e';
-import { createPresenter } from './presenter.js?v=39eb8486ad';
-import { exportCSV, exportXAPI, learnerName, setLearnerName } from './records.js?v=56e1c7c37c';
+import { createHome } from './home.js?v=e2a4e54835';
+import { createPalette } from './palette.js?v=0619042361';
+import { createPresenter } from './presenter.js?v=4a3009883b';
+import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=743b542534';
+import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=5ff75548d4';
+import { startLMS } from './lms.js?v=4511ed56b8';
+import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION } from '../version.js?v=9a2c622775';
+import { exportCSV, exportXAPI, learnerName, setLearnerName } from './records.js?v=26ab8fb634';
 import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=9064024871';
 import { gradientCss, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=fa78a29bc0';
 import { EDGES, NODES } from '../engine/topology.js?v=44e0aca402';
@@ -55,6 +59,9 @@ let stage, inspector, dock, why, timeline, learn, cases, compare, figure, card, 
 
 async function main() {
   applyTheme(readLS('pps.theme'));
+  applyI18n();
+  startLMS();
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => { /* offline support is optional */ });
   store.set({ role: readLS('pps.role') || 'student' });
   const kind = await startHost();
   console.info(`Engine running in ${kind === 'worker' ? 'a Web Worker' : 'the main thread'}.`);
@@ -160,7 +167,20 @@ async function main() {
   inspector.render();
   sizeDock();
   addEventListener('resize', sizeDock);
-  firstRun();
+  if (!(await openDeepLink())) firstRun();
+  addEventListener('pps:lang', () => { if (home.isOpen()) home.render(); });
+  if (readLS('pps.sonify') === '1') addEventListener('pointerdown', () => setSonify(true), { once: true });
+}
+// Deep links, for an LMS or a syllabus: ?lesson=<id>, ?case=<id>, ?script=<id>, ?preset=<id>,
+// ?home=explore|learn|cases|present. They open straight into that activity.
+async function openDeepLink() {
+  const q = new URLSearchParams(location.search);
+  if (q.get('lesson')) { startLesson(q.get('lesson')); return true; }
+  if (q.get('case')) { startCase(q.get('case')); return true; }
+  if (q.get('script')) { presenter.start(q.get('script')); return true; }
+  if (q.get('preset')) { await loadPreset(q.get('preset')); return true; }
+  if (q.get('home')) { home.open(q.get('home')); return true; }
+  return false;
 }
 const redraw = () => { const f = store.get().frame; if (f) stage.update(viewFrame(f)); };
 
@@ -174,7 +194,7 @@ function viewFrame(f) {
 // The engine ticks ~30×/s, but pressures ease over seconds, so the anatomy, readouts and panel
 // are repainted at most ~10×/s (the chevrons animate separately). Repainting the whole SVG plate
 // on every tick kept the main thread busy and the laptop warm for no visible gain.
-let lastPaint = 0;
+let lastPaint = 0, lastDesc = 0;
 function onFrame(f) {
   if (f.params) replaceParams(f.params);
   if (f.events?.length) { const hid = store.get().hiddenEvents; const ev = hid ? f.events.filter((e) => !hid.has(e.id)) : f.events; if (ev.length) timeline.addEvents(ev); }
@@ -192,6 +212,8 @@ function onFrame(f) {
   if (txt !== lastClockTxt) { lastClockTxt = txt; stageClock.textContent = txt; }
   updateBleedBanner(f);
   if (projector) updateProjector(f);
+  sonifyFrame(f);
+  if (now - lastDesc > 3000) { lastDesc = now; $('#stage').setAttribute('aria-description', describe(f)); }
   if (app.classList.contains('figure-mode') && performance.now() - lastFig > 500) { lastFig = performance.now(); figure.update(f); }
 }
 
@@ -456,7 +478,7 @@ function openLayers(anchor) {
     h('div', { class: 'menu-title' }, 'Show'),
     cb('flow', 'Flow arrows'), cb('chips', 'Pressure values on labels'), cb('collaterals', 'Potential collaterals (dotted)'), cb('labels', 'Organ names'),
     h('div', { class: 'menu-sep' }),
-    h('div', { class: 'menu-title' }, 'Units'),
+    h('div', { class: 'menu-title' }, t('menu.units')),
     h('div', { style: { display: 'flex', gap: '6px', padding: '2px 10px 6px' } }, unitSel('pressure', ['mmHg', 'cmH2O', 'kPa']), unitSel('flow', ['L/min', 'mL/min'])),
     h('div', { class: 'menu-sep' }),
     menuItem('Figure view (export)', { icon: 'camera', kb: 'F', onClick: () => { closePopover(); toggleFigure(true); } }),
@@ -553,17 +575,24 @@ function openMenu(anchor) {
     return sel;
   };
   popover(anchor, [
-    h('div', { class: 'menu-title' }, 'Appearance'),
-    h('div', { class: 'seg full', style: { margin: '2px 6px 6px' } }, [['light', 'Light'], ['dark', 'Dark'], ['system', 'System']].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { closePopover(); applyTheme(v === 'system' ? null : v, v === 'system'); }); return b; })),
+    h('div', { class: 'menu-title' }, t('menu.appearance')),
+    h('div', { class: 'seg full', style: { margin: '2px 6px 6px' } }, [['light', t('menu.light')], ['dark', t('menu.dark')], ['system', t('menu.system')]].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { closePopover(); applyTheme(v === 'system' ? null : v, v === 'system'); }); return b; })),
     h('div', { class: 'menu-title' }, 'Units'),
     h('div', { style: { display: 'flex', gap: '6px', padding: '2px 10px 6px' } }, unitSel('pressure', ['mmHg', 'cmH2O', 'kPa']), unitSel('flow', ['L/min', 'mL/min'])),
+    h('div', { class: 'menu-title' }, t('menu.language')),
+    (() => { const sel = h('select', { class: 'select', style: { height: '30px', fontSize: '12.5px', margin: '2px 10px 6px', width: 'calc(100% - 20px)' }, 'aria-label': t('menu.language') }, LANGS.map(([v, l]) => h('option', { value: v, selected: currentLang() === v }, l))); sel.addEventListener('change', () => { setLang(sel.value); closePopover(); }); return sel; })(),
+    h('div', { class: 'menu-title' }, t('menu.access')),
+    menuItem(t('menu.describe'), { icon: 'help', kb: 'D', onClick: () => { closePopover(); const d = describe(store.get().frame); announce(d); toast(d); } }),
+    menuItem(t('menu.sonify'), { checked: sonifying(), onClick: () => { closePopover(); setSonify(!sonifying()); toast(sonifying() ? 'Sonification on: pitch follows the pressure of the selected vessel (or the portal vein).' : 'Sonification off.'); } }),
     h('div', { class: 'menu-sep' }),
-    h('div', { class: 'menu-title' }, 'I am a…'),
+    h('div', { class: 'menu-title' }, t('menu.role')),
     ...ROLES.map(([v, l, d]) => { const b = menuItem(l, { checked: role === v, onClick: () => { closePopover(); store.set({ role: v }); toast(`${l}: ${d}`); } }); b.title = d; return b; }),
     h('div', { class: 'menu-sep' }),
-    menuItem('Home', { icon: 'grid', onClick: () => { closePopover(); home.open(); } }),
-    menuItem('Command palette', { icon: 'explore', kb: 'Ctrl K', onClick: () => { closePopover(); palette.open(); } }),
-    menuItem('Guide & shortcuts', { icon: 'help', kb: '?', onClick: () => { closePopover(); openHelp(); } }),
+    menuItem(t('menu.home'), { icon: 'grid', onClick: () => { closePopover(); home.open(); } }),
+    menuItem(t('menu.palette'), { icon: 'explore', kb: 'Ctrl K', onClick: () => { closePopover(); palette.open(); } }),
+    menuItem(t('menu.guide'), { icon: 'help', kb: '?', onClick: () => { closePopover(); openHelp(); } }),
+    menuItem(t('menu.about'), { icon: 'book', onClick: () => { closePopover(); openAbout(); } }),
+    menuItem(t('menu.privacy'), { icon: 'lock', onClick: () => { closePopover(); openPrivacy(); } }),
   ], { align: 'end', cls: 'app-menu' });
 }
 function doUndo() { timeline.undo(); }
@@ -655,6 +684,7 @@ function wireKeyboard() {
     if (k === 'f' && !e.shiftKey) { toggleFigure(); return; }
     if (k === 'i') { dock.toggle(); return; }
     if (k === 'p') { timeline.togglePin(); return; }
+    if (k === 'd') { const d = describe(store.get().frame); announce(d); toast(d); return; }
   });
 }
 
@@ -760,6 +790,36 @@ function openHelp() {
     h('h3', {}, 'Thresholds & references'),
     h('p', { class: 'sub' }, 'Baveno VII consensus on portal hypertension (2022); AASLD guidance on risk stratification and management of portal hypertension and varices in cirrhosis (2024). Physiology after Guyton; Lautt (hepatic arterial buffer response); Bosch & Groszmann (HVPG).'),
     h('p', { class: 'disclaimer' }, 'Educational simulation. The model is simplified and its values are illustrative; do not use it for diagnosis or treatment decisions.')), { wide: true });
+}
+function openAbout() {
+  openModal('About the model', h('div', {},
+    h('p', {}, `Portal Pressure Simulator ${APP_VERSION} · content version ${CONTENT_VERSION} (${RELEASED}). A course built on one content version behaves the same all term: the model, patients, lessons and cases change only with a new content version.`),
+    h('h3', {}, 'The model'),
+    h('p', {}, 'A lumped-parameter hemodynamic network of the splanchnic, portal, hepatic and systemic veins with the heart, arterial inflow and the hepatic arterial buffer; collateral recruitment and remodeling on a disease clock; Starling filtration and lymph for ascites; Laplace wall tension for varices; blood volume, bleeding and transfusion. Every number on screen comes out of it; nothing is scripted.'),
+    h('h3', {}, 'Validation targets'),
+    h('p', { class: 'sub' }, 'Each is an automated test that must pass before a release:'),
+    h('ol', { class: 'refs' }, VALIDATION.map((v) => h('li', {}, v))),
+    h('h3', {}, 'Clinical review'),
+    h('p', {}, 'Lesson and case content follows the guidance below. An external clinical advisory review with named reviewers is pending; their sign-off per lesson and case will be listed here.'),
+    h('h3', {}, 'References'),
+    h('ol', { class: 'refs' },
+      h('li', {}, 'de Franchis R, et al. Baveno VII: renewing consensus in portal hypertension. J Hepatol 2022;76:959–74.'),
+      h('li', {}, 'Kaplan DE, et al. AASLD Practice Guidance on risk stratification and management of portal hypertension and varices in cirrhosis. Hepatology 2024;79:1180–1211.'),
+      h('li', {}, 'Bosch J, Groszmann RJ, et al. Measurement of portal pressure (HVPG). Hepatology / Semin Liver Dis.'),
+      h('li', {}, 'Lautt WW. Hepatic Circulation: Physiology and Pathophysiology. Morgan & Claypool, 2009.'),
+      h('li', {}, 'Guyton AC. Venous return and the systemic filling pressure.')),
+    h('h3', {}, 'Licenses'),
+    h('p', { class: 'sub' }, 'Application code: MIT. Fonts: Inter, JetBrains Mono and Source Serif 4 under the SIL Open Font License, served from this site. Anatomy, pathology art and icons were drawn for this project.'),
+    h('p', { class: 'disclaimer' }, t('app.disclaimer'))), { wide: true, sub: `Version ${APP_VERSION}` });
+}
+function openPrivacy() {
+  const keys = (() => { try { return Object.keys(localStorage).filter((k) => k.startsWith('pps.')); } catch { return []; } })();
+  openModal('Privacy', h('div', {},
+    h('p', {}, 'The simulator runs entirely in your browser. It makes no requests to any other site: no analytics, no trackers, no advertising, no third-party fonts or scripts. There is no account and no server that stores anything about you.'),
+    h('p', {}, 'What stays on this device, in your browser’s storage: your preferences (theme, units, language, role), lesson progress and case scores, your assessment records and the name you type for them, and presenter scripts you create. It leaves the device only when you export it (CSV, xAPI, a shared link or a script file) or when your institution runs the simulator inside its LMS, which then receives your score.'),
+    h('p', {}, 'For institutions: no personal data is processed by the publisher, which supports FERPA and GDPR compliance; the LMS remains the system of record.'),
+    h('p', { class: 'sub' }, keys.length ? `Stored now: ${keys.join(', ')}.` : 'Nothing is stored on this device yet.'),
+    h('div', { class: 'btn-row' }, h('button', { class: 'btn', onclick: () => { if (!confirm('Delete everything this simulator has stored on this device?')) return; for (const k of keys) { try { localStorage.removeItem(k); } catch { /* storage unavailable */ } } closeModal(); toast('Your data on this device has been cleared.'); } }, 'Clear my data on this device'))));
 }
 function firstRun() {
   if (readLS('pps.seen') === '1' || readShare()) return;

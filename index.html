@@ -10,9 +10,10 @@
   <link rel="icon" href="brand/mark.svg" type="image/svg+xml" />
   <link rel="icon" href="brand/icon-32.png" sizes="32x32" type="image/png" />
   <link rel="apple-touch-icon" href="brand/icon-180.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
   <link rel="stylesheet" href="fonts/fonts.css" />
-  <link rel="stylesheet" href="styles/tokens.css?v=691ed4de5c" />
-  <link rel="stylesheet" href="styles/app.css?v=3bd70b9481" />
+  <link rel="stylesheet" href="styles/tokens.css?v=a52b9f237d" />
+  <link rel="stylesheet" href="styles/app.css?v=b6ec0f1444" />
 </head>
 <body>
   <!-- Icon set: 24px grid, 1.6px stroke, round caps (blueprint §5.6). -->
@@ -61,6 +62,7 @@
       <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3.5"/></symbol>
       <symbol id="i-chev-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
       <symbol id="i-chev-right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8.2 10.5V8a3.8 3.8 0 0 1 7.6 0v2.5"/></symbol>
       <symbol id="i-chev-left" viewBox="0 0 24 24"><g transform="matrix(-1 0 0 1 24 0)"><path d="m9 6 6 6-6 6"/></g></symbol>
       <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
       <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="19" cy="12" r="1.4" fill="currentColor"/></symbol>
@@ -91,16 +93,16 @@
         <span class="brand-text"><span class="brand-name">Portal Pressure</span><span class="brand-sub">Simulator</span></span>
       </a>
       <button class="scenario-btn" id="scenarioBtn" aria-haspopup="dialog" title="Choose a patient scenario">
-        <span class="scenario-k">Patient</span>
+        <span class="scenario-k" data-i18n="top.patient">Patient</span>
         <span class="scenario-v" id="scenarioName">Healthy</span>
         <svg class="chev"><use href="#i-chev-down"/></svg>
       </button>
       <div class="session-bar" id="sessionBar" role="status" hidden></div>
       <div class="top-right">
-        <button class="pal-btn" id="btnPalette" title="Command palette (Ctrl K)" aria-label="Command palette"><svg><use href="#i-explore"/></svg><span class="pal-l">Search or run…</span><kbd>Ctrl K</kbd></button>
-        <button class="ib" id="btnShare" title="Share &amp; export" aria-label="Share and export" aria-haspopup="menu"><svg><use href="#i-share"/></svg></button>
-        <button class="ib" id="btnMenu" title="Settings, role, help" aria-label="Menu" aria-haspopup="menu"><svg><use href="#i-sliders"/></svg></button>
-        <button class="btn panel-toggle" id="btnInspector" aria-label="Show or hide the patient chart" aria-pressed="true"><svg><use href="#i-panel"/></svg><span>Chart</span></button>
+        <button class="pal-btn" id="btnPalette" title="Command palette (Ctrl K)" aria-label="Command palette"><svg><use href="#i-explore"/></svg><span class="pal-l" data-i18n="top.search">Search or run…</span><kbd>Ctrl K</kbd></button>
+        <button class="ib" id="btnShare" title="Share &amp; export" aria-label="Share and export" data-i18n-attr="aria-label:top.share" aria-haspopup="menu"><svg><use href="#i-share"/></svg></button>
+        <button class="ib" id="btnMenu" title="Settings, role, help" aria-label="Menu" data-i18n-attr="aria-label:top.menu" aria-haspopup="menu"><svg><use href="#i-sliders"/></svg></button>
+        <button class="btn panel-toggle" id="btnInspector" aria-label="Show or hide the patient chart" aria-pressed="true"><svg><use href="#i-panel"/></svg><span data-i18n="top.chart">Chart</span></button>
       </div>
     </header>
 
@@ -108,17 +110,17 @@
       <div class="stage-bar top" id="stageTop">
         <div class="sb-left">
           <div class="seg" id="viewSeg" role="group" aria-label="View">
-            <button data-view="anatomic" aria-pressed="true" title="Anatomic view (A)">Anatomy</button>
-            <button data-view="circuit" aria-pressed="false" title="Circuit view (A)">Circuit</button>
+            <button data-view="anatomic" aria-pressed="true" title="Anatomic view (A)" data-i18n="bar.anatomy">Anatomy</button>
+            <button data-view="circuit" aria-pressed="false" title="Circuit view (A)" data-i18n="bar.circuit">Circuit</button>
           </div>
-          <button class="chip-btn" id="btnLayers" aria-haspopup="dialog" title="Vessel color, layers and units (L cycles)"><svg><use href="#i-layers"/></svg><span class="cb-k">Lens</span><span id="colorModeLabel">Pressure</span><svg class="chev"><use href="#i-chev-down"/></svg></button>
-          <button class="chip-btn" id="btnDraw" aria-haspopup="menu" title="Paint fibrosis or clot directly on the anatomy"><svg><use href="#i-fibrosis"/></svg><span class="cb-k">Draw</span><svg class="chev"><use href="#i-chev-down"/></svg></button>
+          <button class="chip-btn" id="btnLayers" aria-haspopup="dialog" title="Vessel color, layers and units (L cycles)"><svg><use href="#i-layers"/></svg><span class="cb-k" data-i18n="bar.lens">Lens</span><span id="colorModeLabel">Pressure</span><svg class="chev"><use href="#i-chev-down"/></svg></button>
+          <button class="chip-btn" id="btnDraw" aria-haspopup="menu" title="Paint fibrosis or clot directly on the anatomy"><svg><use href="#i-fibrosis"/></svg><span class="cb-k" data-i18n="bar.draw">Draw</span><svg class="chev"><use href="#i-chev-down"/></svg></button>
         </div>
         <div class="sb-center stage-blocker" id="stageCenter"><span class="bleed-pill" id="bleedPill" role="status" hidden></span><div class="sb-banner" id="stageBanner"></div></div>
         <div class="sb-right">
           <div class="legend" id="legend" role="img" aria-label="Color legend"></div>
-          <button class="chip-btn" id="btnInstruments" aria-haspopup="dialog" title="Instruments: pressure profile, Doppler, HVPG, endoscopy… (I)"><svg><use href="#i-chart"/></svg><span>Instruments</span></button>
-          <button class="chip-btn" id="btnFigure" title="Figure view: a clean, labeled plate to present or export (F)"><svg><use href="#i-camera"/></svg><span>Figure</span></button>
+          <button class="chip-btn" id="btnInstruments" aria-haspopup="dialog" title="Instruments: pressure profile, Doppler, HVPG, endoscopy… (I)"><svg><use href="#i-chart"/></svg><span data-i18n="bar.instruments">Instruments</span></button>
+          <button class="chip-btn" id="btnFigure" title="Figure view: a clean, labeled plate to present or export (F)"><svg><use href="#i-camera"/></svg><span data-i18n="bar.figure">Figure</span></button>
           <button class="ib show-sm" id="btnExpand" aria-label="Expand figure" aria-pressed="false"><svg><use href="#i-fit"/></svg></button>
         </div>
       </div>
@@ -153,8 +155,8 @@
     </aside>
 
     <nav class="mobile-tabs" id="mobileTabs" role="tablist" aria-label="Panels">
-      <button role="tab" data-sheet="panel" aria-selected="true"><svg><use href="#i-gauge"/></svg><span>Chart</span></button>
-      <button role="tab" data-sheet="charts" aria-selected="false"><svg><use href="#i-chart"/></svg><span>Instruments</span></button>
+      <button role="tab" data-sheet="panel" aria-selected="true"><svg><use href="#i-gauge"/></svg><span data-i18n="tabs.chart">Chart</span></button>
+      <button role="tab" data-sheet="charts" aria-selected="false"><svg><use href="#i-chart"/></svg><span data-i18n="tabs.instruments">Instruments</span></button>
     </nav>
   </div>
 
@@ -165,6 +167,6 @@
   <div class="toast-wrap" id="toasts"></div>
   <div class="sr-only" aria-live="polite" id="live"></div>
 
-  <script type="module" src="src/ui/main.js?v=021e199a51"></script>
+  <script type="module" src="src/ui/main.js?v=52ecd372da"></script>
 </body>
 </html>
