@@ -1,13 +1,13 @@
 // Lumped-parameter hemodynamic engine (blueprint §7).
 // Pure JS, no DOM: runs in a Web Worker, on the main thread, or in Node tests.
 
-import { NODES, EDGES, COLLATERAL_DMIN_RATIO, dMinOf, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=3fdc1306dd';
+import { NODES, EDGES, COLLATERAL_DMIN_RATIO, dMinOf, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=44e0aca402';
 import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=8b006eefeb';
-import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=5ce6f00fdc';
-import { detectEvents } from './events.js?v=05c3d4dce1';
+import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=3bed5bf285';
+import { detectEvents } from './events.js?v=d8b29adc5b';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -287,6 +287,7 @@ export class Engine {
           else if (e.shunt === 'portocaval' && p.portocaval) g = 1 / (0.03 * visc);
           else if (e.shunt === 'dsrs' && p.dsrs) g = 1 / (0.08 * visc);
           else if (e.shunt === 'mesocaval' && p.mesocaval) g = 1 / (0.08 * visc);
+          else if (e.shunt === 'custom' && p.customShunts?.[e.id]) g = 1 / (0.05 * Math.pow(10 / p.customShunts[e.id], 4) * visc);
           if (g > 0) g /= Math.min(1e9, stenosisFactor(this.occlusion(e.id)));
           this.G[k] = g;
           continue;
@@ -703,6 +704,7 @@ export class Engine {
     }
     if (e.kind === 'shunt') {
       if (e.shunt === 'tips') return this.params.tips.on ? this.params.tips.d : 0;
+      if (e.shunt === 'custom') return this.params.customShunts?.[e.id] || 0;
       return this.G[k] > 0 ? (e.d || 3) : 0;
     }
     const base = e.d || 3;

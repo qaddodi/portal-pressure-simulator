@@ -1,8 +1,8 @@
 // Controls panel (blueprint §4.1, §8.4): global parameters in three tabs, or the selected vessel.
 
-import { EDGES, NODES, COLLATERAL_DMIN_RATIO, dMinOf } from '../engine/topology.js?v=3fdc1306dd';
-import { DRUGS } from '../engine/scenario.js?v=5ce6f00fdc';
-import { store, updateParams, isLocked } from './store.js?v=384ec84b1e';
+import { EDGES, NODES, COLLATERAL_DMIN_RATIO, dMinOf } from '../engine/topology.js?v=44e0aca402';
+import { DRUGS } from '../engine/scenario.js?v=3bed5bf285';
+import { store, updateParams, isLocked } from './store.js?v=c4bae453f7';
 import { h, fmt, fp, ff, clamp, tooltipFor, icon, svgIcon } from './util.js?v=61d6f9c200';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -285,6 +285,12 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onS
       ctl.push(build('tipsD'));
       ctl.push(h('button', { class: 'btn danger', onclick: () => { updateParams({ tips: { on: false } }, { label: 'Remove TIPS' }); store.set({ selection: null }); } }, 'Remove TIPS'));
     }
+    if (e.shunt === 'custom') {
+      ctl.push(reg(slider({ key: 'customShunts', label: 'Shunt diameter', min: 4, max: 16, step: 0.5,
+        get: (p) => p.customShunts?.[id] || 10, set: (p, v) => { p.customShunts = { ...(p.customShunts || {}), [id]: v }; }, format: (v) => `${v.toFixed(1)} mm`, def: 10,
+        info: 'Resistance ∝ 1/d⁴ (Poiseuille): small changes in diameter matter a lot.' })));
+      ctl.push(h('button', { class: 'btn danger', onclick: () => { updateParams((p) => { const c = { ...(p.customShunts || {}) }; delete c[id]; p.customShunts = c; return p; }, { label: 'Remove shunt' }); store.set({ selection: null }); } }, 'Take down shunt'));
+    }
     if (['S_PC', 'S_DSR', 'S_MC'].includes(id)) {
       const key = { S_PC: 'portocaval', S_DSR: 'dsrs', S_MC: 'mesocaval' }[id];
       ctl.push(h('button', { class: 'btn danger', onclick: () => { updateParams({ [key]: false }, { label: 'Remove shunt' }); store.set({ selection: null }); } }, 'Take down shunt'));
@@ -392,6 +398,7 @@ export function activeInterventions(p) {
   if (p.portocaval) add('Portocaval shunt', (q) => { q.portocaval = false; });
   if (p.dsrs) add('Distal splenorenal shunt', (q) => { q.dsrs = false; });
   if (p.mesocaval) add('Mesocaval shunt', (q) => { q.mesocaval = false; });
+  for (const [id, d] of Object.entries(p.customShunts || {})) add(`${lab(id)} ${d} mm`, (q) => { const c = { ...(q.customShunts || {}) }; delete c[id]; q.customShunts = c; });
   if (p.balloonEso) add('Esophageal balloon', (q) => { q.balloonEso = false; });
   if (p.balloonGas) add('Gastric balloon', (q) => { q.balloonGas = false; });
   for (const id of Object.keys(p.occluded)) add(`${lab(id)} occluded`, (q) => { delete q.occluded[id]; });

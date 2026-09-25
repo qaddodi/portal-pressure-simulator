@@ -1,9 +1,9 @@
 // Anatomical stage (blueprint §6): SVG anatomy + canvas flow layer + screen-space labels.
 
-import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf } from '../engine/topology.js?v=3fdc1306dd';
+import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=44e0aca402';
 import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS } from './anatomy.js?v=4abd383f22';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=fa78a29bc0';
-import { store, updateParams } from './store.js?v=384ec84b1e';
+import { store, updateParams } from './store.js?v=c4bae453f7';
 import { s, fmt, fp, clamp, lerp, toast } from './util.js?v=61d6f9c200';
 
 const N_SAMPLES = 64;
@@ -833,9 +833,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const pts = geo[id].cur.slice(Math.floor(N_SAMPLES * 0.3), Math.ceil(N_SAMPLES * 0.72));
       ov.thrombi.append(s('path', { class: 'thrombus', d: polyD(pts), 'stroke-width': (E[id].width * clamp(v, 0.3, 1)).toFixed(1) }));
     }
-    for (const id of ['TIPS', 'S_PC', 'S_DSR', 'S_MC']) {
+    for (const id of ['TIPS', 'S_PC', 'S_DSR', 'S_MC', ...Object.keys(p.customShunts || {})]) {
       if (!E[id].vis || E[id].reveal) continue;
-      if (id === 'TIPS') stentMesh(id); else anastomoses(id);
+      if (id === 'TIPS' || id.startsWith('X_')) stentMesh(id); else anastomoses(id);
     }
     for (const id of Object.keys(p.occluded)) {
       if (!p.occluded[id] || !E[id] || !E[id].vis) continue;
@@ -1779,6 +1779,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return null;
   }
 
+  // Any portal vessel to any systemic vein: when no named shunt fits, connect the nearest portal
+  // endpoint of one vessel to the nearest systemic endpoint of the other.
+  function customRule(a, b, ax, ay, bx, by) {
+    const t = easeInOut(morph);
+    const ends = (id, set, x, y) => [E[id].e.from, E[id].e.to].filter((n) => set.includes(n))
+      .sort((m, n) => Math.hypot(nodePos(m, t)[0] - x, nodePos(m, t)[1] - y) - Math.hypot(nodePos(n, t)[0] - x, nodePos(n, t)[1] - y))[0];
+    for (const [pe, px, py, se, sx, sy] of [[a, ax, ay, b, bx, by], [b, bx, by, a, ax, ay]]) {
+      const pn = ends(pe, SHUNT_PORTAL, px, py), sn = ends(se, SHUNT_SYSTEMIC, sx, sy);
+      if (!pn || !sn) continue;
+      const id = customShuntId(pn, sn);
+      if (EI[id] != null) return { key: 'custom', id, label: EDGES[EI[id]].label };
+    }
+    return null;
+  }
+
   function handleToolDown(tool, id, wx, wy, ev, isClick = false) {
     const st = store.get();
     const isEdge = id && EI[id] != null;
@@ -1896,7 +1911,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       drag.lobe = wx < LIVER_SPLIT_X ? 'R' : 'L';
     } else if (drag.type === 'stent') {
       const tgt = edgeFromEvent(ev);
-      const rule = tgt && tgt !== drag.id ? stentRule(drag.id, tgt) : null;
+      const rule = tgt && tgt !== drag.id ? stentRule(drag.id, tgt) || customRule(drag.id, tgt, drag.wx, drag.wy, wx, wy) : null;
       drag.tgt = tgt; drag.rule = rule;
       gGuides.append(s('path', { class: 'stent-guide' + (tgt && !rule ? ' invalid' : ''), d: `M${drag.wx} ${drag.wy} L ${wx} ${wy}` }));
       if (tgt && E[tgt]) gGuides.append(s('path', { class: 'target-glow', d: E[tgt].wall.getAttribute('d'), 'stroke-width': E[tgt].width + 16 }));
@@ -1909,11 +1924,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (drag.rule) {
         const r = drag.rule;
         if (r.key === 'tips') updateParams({ tips: { on: true, d: store.get().params.tips.d || 10 } }, { label: 'TIPS' });
+        else if (r.key === 'custom') updateParams((p) => { p.customShunts = { ...(p.customShunts || {}), [r.id]: 10 }; return p; }, { label: r.label });
         else updateParams({ [r.key]: true }, { label: r.label });
-        toast(`${r.label} created.${r.key === 'tips' ? ' Adjust its diameter in the inspector.' : ''}`);
-        onSelect({ type: 'edge', id: r.key === 'tips' ? 'TIPS' : { portocaval: 'S_PC', dsrs: 'S_DSR', mesocaval: 'S_MC' }[r.key] });
+        toast(`${r.label} created.${r.key === 'tips' || r.key === 'custom' ? ' Adjust its diameter in the inspector.' : ''}`);
+        onSelect({ type: 'edge', id: r.key === 'tips' ? 'TIPS' : r.key === 'custom' ? r.id : { portocaval: 'S_PC', dsrs: 'S_DSR', mesocaval: 'S_MC' }[r.key] });
       } else if (drag.tgt && drag.tgt !== drag.id) {
-        toast('Not a valid shunt: connect a portal vessel (portal, splenic or mesenteric vein) to a systemic vein (hepatic vein, IVC or left renal vein).', 'bad');
+        toast('Not a valid shunt: connect a portal vessel (portal, splenic, mesenteric, gastric or varix) to a systemic vein (hepatic vein, IVC, renal, iliac, azygos or SVC).', 'bad');
       }
     }
   }

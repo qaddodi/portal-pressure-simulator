@@ -24,6 +24,7 @@ export function defaultParams() {
     occluded: {},                 // collateral id → true (BRTO / plug)
     tips: { on: false, d: 10 },
     portocaval: false,
+    customShunts: {},
     dsrs: false,
     mesocaval: false,
     balloonEso: false,

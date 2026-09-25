@@ -1,11 +1,11 @@
 // Instruments (blueprint §8.3, §9.4, §9.5, §6.4): HVPG catheter, Doppler, endoscopy,
 // liver lobule, varix cross-section, abdomen.
 
-import { NODES, EDGES } from '../engine/topology.js?v=3fdc1306dd';
+import { NODES, EDGES } from '../engine/topology.js?v=44e0aca402';
 import { pressureColor } from './colormap.js?v=fa78a29bc0';
-import { store, updateParams } from './store.js?v=384ec84b1e';
+import { store, updateParams } from './store.js?v=c4bae453f7';
 import { h, fmt, fitCanvas, cssVar, clamp, toast, icon } from './util.js?v=61d6f9c200';
-import { FONT } from './charts.js?v=775024d8a7';
+import { FONT } from './charts.js?v=e555d01b28';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

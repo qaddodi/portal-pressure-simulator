@@ -165,6 +165,19 @@ export const EDGES = [
   { id: 'S_MC', from: 'SMV', to: 'IVCI', kind: 'shunt', shunt: 'mesocaval', d: 10, label: 'Mesocaval shunt' },
 ];
 
+// Custom portosystemic shunts: any portal vessel to any systemic vein, created with the stent
+// tool. Each exists in the topology from the start, closed (zero conductance) until the learner
+// opens it; params.customShunts[id] holds its diameter in mm.
+export const SHUNT_PORTAL = ['SMV', 'IMV', 'SV', 'LGV', 'CONF', 'PVH', 'RPV', 'LPV', 'VAR', 'GV'];
+export const SHUNT_SYSTEMIC = ['RHV', 'MHV', 'LHV', 'IVCI', 'IVCS', 'SVC', 'AZY', 'ILI', 'LRV'];
+const NAMED_SHUNTS = new Set(['RPV>RHV', 'CONF>IVCI', 'SV>LRV', 'SMV>IVCI']);
+const nodeLabel = (id) => { const n = NODES.find((x) => (Array.isArray(x) ? x[0] : x.id) === id); return Array.isArray(n) ? n[1] : n?.label || id; };
+export const customShuntId = (p, q) => `X_${p}_${q}`;
+for (const p of SHUNT_PORTAL) for (const q of SHUNT_SYSTEMIC) {
+  if (NAMED_SHUNTS.has(`${p}>${q}`)) continue;
+  EDGES.push({ id: customShuntId(p, q), from: p, to: q, kind: 'shunt', shunt: 'custom', label: `${nodeLabel(p)} → ${nodeLabel(q)} shunt` });
+}
+
 // Collaterals: diameter floor. R(d) = Ropen·(dMax/d)^4, closed ≈ 256·Ropen.
 export const COLLATERAL_DMIN_RATIO = 1 / 4;
 /** Resting (unrecruited) diameter of a collateral; a route may set its own ratio (dMinRatio). */
