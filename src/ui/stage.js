@@ -1,7 +1,7 @@
 // Anatomical stage (blueprint §6): SVG anatomy + canvas flow layer + screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO } from '../engine/topology.js?v=0c370bc4ec';
-import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS } from './anatomy.js?v=07f5b91094';
+import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS } from './anatomy.js?v=28cb17fbfb';
 import { pressureColor, deltaColor, dropColor } from './colormap.js?v=884435083d';
 import { store, updateParams } from './store.js?v=59e4c262de';
 import { s, fmt, fp, clamp, lerp, toast } from './util.js?v=61d6f9c200';
@@ -29,6 +29,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const svg = wrap.querySelector('#stage');
   const canvas = wrap.querySelector('#particles');
   const overlay = wrap.querySelector('#overlay');
+  const stageWrap = wrap.closest('.stage-wrap') || wrap;
   svg.setAttribute('viewBox', `0 0 ${VIEW.w} ${VIEW.h}`);
   svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
@@ -54,6 +55,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     geo[e.id] = { dA, dC, A: sample(dA), C: sample(dC), cur: null, len: 0, wig: 0 };
   }
   scratch.remove();
+  // Where to caption each circuit lane: the middle of its longest horizontal run.
+  const laneU = {};
+  for (const id of Object.keys(LANE_CAPTIONS)) {
+    const C = geo[id]?.C;
+    if (!C) continue;
+    let best = [0, 0], run = 0;
+    for (let i = 1; i < C.length; i++) {
+      if (Math.abs(C[i][1] - C[i - 1][1]) < 0.6) { run++; if (run > best[1]) best = [i - run / 2, run]; } else run = 0;
+    }
+    laneU[id] = best[1] ? best[0] / (C.length - 1) : 0.5;
+  }
 
   const polyD = (pts) => {
     // Catmull-Rom → cubic Bézier for a smooth morph
@@ -92,6 +104,50 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return [p[0] + nx * w, p[1] + ny * w];
     });
   }
+  // Light comes from the top (slightly left). For each sample: the unit normal and how much it
+  // faces the light (n·L), so a tube's sheen and shade slide smoothly around its curves.
+  const LIGHT = (() => { const n = Math.hypot(-0.42, -0.91); return [-0.42 / n, -0.91 / n]; })();
+  function litNormals(pts) {
+    return pts.map((p, i) => {
+      const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+      let nx = -(b[1] - a[1]), ny = b[0] - a[0];
+      const n = Math.hypot(nx, ny) || 1; nx /= n; ny /= n;
+      const dot = nx * LIGHT[0] + ny * LIGHT[1];
+      return [nx, ny, dot];
+    });
+  }
+  // A centerline shifted toward (k > 0) or away from (k < 0) the light by k·(n·L) world units.
+  function litOffset(pts, lit, k, u0 = 0, u1 = 1) {
+    const i0 = Math.round(u0 * (pts.length - 1)), i1 = Math.round(u1 * (pts.length - 1));
+    const out = [];
+    for (let i = i0; i <= i1; i++) { const [nx, ny, dot] = lit[i]; out.push([pts[i][0] + nx * dot * k, pts[i][1] + ny * dot * k]); }
+    return out;
+  }
+  // Outline of a tube of radius r(u) along pts (with round ends), as a closed path.
+  function tubeOutline(pts, lit, rOf) {
+    const L = [], R = [];
+    for (let i = 0; i < pts.length; i++) {
+      const r = rOf(i / (pts.length - 1));
+      const [nx, ny] = lit[i];
+      L.push([pts[i][0] + nx * r, pts[i][1] + ny * r]); R.push([pts[i][0] - nx * r, pts[i][1] - ny * r]);
+    }
+    const f = (p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`;
+    const r0 = rOf(0), r1 = rOf(1);
+    return `M${f(L[0])} ` + L.slice(1).map((p) => 'L' + f(p)).join(' ')
+      + ` A${r1.toFixed(1)} ${r1.toFixed(1)} 0 0 1 ${f(R[R.length - 1])} ` + R.slice(0, -1).reverse().map((p) => 'L' + f(p)).join(' ')
+      + ` A${r0.toFixed(1)} ${r0.toFixed(1)} 0 0 1 ${f(L[0])} Z`;
+  }
+  // Where along each vessel a stenosis sits (0–1, view-only: the model treats a vessel as one
+  // lumped segment, so this only places the drawing). Set where the learner pinched.
+  const stenosisAt = {};
+  // Lumen radius factor along a stenosed vessel: the diameter narrows by the stenosis fraction
+  // (the model's resistance scales as 1/(1−s)⁴), with a smooth waist about 2.5 diameters long.
+  function waist(id, v, len, w) {
+    const u0 = stenosisAt[id] ?? 0.5;
+    const sig = Math.max(9, w * 1.25) / Math.max(1, len);
+    return (u) => 1 - v * Math.exp(-(((u - u0) / sig) ** 2));
+  }
+
   const nodePos = (id, t) => { const [a, c] = NODE_POS[id]; return [lerp(a[0], c[0], t), lerp(a[1], c[1], t)]; };
 
   // ── SVG scaffolding ───────────────────────────────
@@ -105,11 +161,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     <pattern id="nodules" width="13" height="11.3" patternUnits="userSpaceOnUse">
       <g class="nodule"><circle cx="3.25" cy="2.8" r="3.1"/><circle cx="9.75" cy="2.8" r="3.1"/><circle cx="0" cy="8.5" r="3.1"/><circle cx="6.5" cy="8.5" r="3.1"/><circle cx="13" cy="8.5" r="3.1"/></g>
     </pattern>
-    <clipPath id="abdomenClip"><path d="${ABDOMEN_CLIP}"/></clipPath>`;
+    <clipPath id="abdomenClip"><path d="${ABDOMEN_CLIP}"/></clipPath>
+    <radialGradient id="orgForm" cx=".3" cy=".2" r=".95"><stop offset="0" class="lit-hi"/><stop offset=".48" class="lit-mid"/><stop offset="1" class="lit-lo"/></radialGradient>
+    <radialGradient id="cavityShade" cx=".5" cy=".46" r=".5"><stop offset="0" class="cav-hi"/><stop offset=".72" class="cav-mid"/><stop offset="1" class="cav-lo"/></radialGradient>
+    <filter id="castShadow" x="-10%" y="-10%" width="130%" height="130%"><feGaussianBlur stdDeviation="7"/></filter>
+    <pattern id="texLiver" width="22" height="19" patternUnits="userSpaceOnUse"><path class="tex" d="M5.5 0l5.5 3.2v6.3l-5.5 3.2L0 9.5V3.2zM16.5 9.5l5.5 3.2V19M11 9.5l5.5-3.2"/></pattern>
+    <pattern id="texFine" width="9" height="9" patternUnits="userSpaceOnUse"><circle class="tex-dot" cx="2" cy="2" r=".8"/><circle class="tex-dot" cx="6.5" cy="6.5" r=".6"/></pattern>
+    <pattern id="texRugae" width="40" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(-38)"><path class="tex" d="M0 6c7-4 13 4 20 0s13-4 20 0"/></pattern>
+    <pattern id="texLobules" width="14" height="12" patternUnits="userSpaceOnUse"><path class="tex" d="M1 6a6 5 0 0 1 12 0M-6 12a6 5 0 0 1 12 0M8 12a6 5 0 0 1 12 0"/></pattern>
+    <pattern id="texMuscle" width="30" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(24)"><path class="tex" d="M0 5c8-3 22 3 30 0"/></pattern>
+    <pattern id="mapGrid" width="20" height="20" patternUnits="userSpaceOnUse"><circle class="map-dot" cx="10" cy="10" r=".9"/></pattern>`;
   svg.append(defs);
   const world = s('g', { id: 'world' });
   svg.append(world);
   const gGrid = s('g', { id: 'grid', class: 'circuit-only' });
+  // Background plane (anatomy): body cavity and diaphragm, behind everything else.
+  const gBackdrop = s('g', { id: 'backdrop' });
+  gBackdrop.innerHTML = `<path class="bd-cavity" d="${BACKDROP.cavity}" fill="url(#cavityShade)"/>`
+    + `<path class="org-diaphragm band-edge" d="${BACKDROP.diaphragm}"/><path class="org-diaphragm band-body" d="${BACKDROP.diaphragm}"/>`;
   const gOrgans = s('g', { id: 'organs' });
   const gAscites = s('g', { id: 'ascites', 'clip-path': 'url(#abdomenClip)' });
   const gBack = s('g', { id: 'backEdges' });
@@ -121,12 +190,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const gNodes = s('g', { id: 'nodes', class: 'circuit-only' });
   const gFocus = s('g', { id: 'focus' });
   const gGuides = s('g', { id: 'guides' });
-  world.append(gGrid, gBack, gOrgans, gGhost, gAscites, gFocus, gEdges, gOver, gNodes, gGuides);
+  world.append(gBackdrop, gGrid, gBack, gOrgans, gGhost, gAscites, gFocus, gEdges, gOver, gNodes, gGuides);
 
   // Circuit view: quiet bands for each pressure zone (captioned by the label layer).
+  gGrid.append(s('rect', { x: 30, y: 30, width: 1340, height: 700, fill: 'url(#mapGrid)', class: 'map-grid' }));
   CIRCUIT_ZONES.forEach(([, x0, x1], i) => {
     gGrid.append(s('rect', { x: x0, y: 40, width: x1 - x0, height: 690, class: 'zone' + (i % 2 ? ' alt' : '') }));
   });
+  const liverModule = s('rect', { class: 'liver-module', x: LIVER_MODULE.x0, y: LIVER_MODULE.y0, width: LIVER_MODULE.x1 - LIVER_MODULE.x0, height: LIVER_MODULE.y1 - LIVER_MODULE.y0, rx: 16 });
+  gGrid.append(liverModule);
 
   // Colon folds: short arcs across the tube at regular intervals.
   function haustra(d, r) {
@@ -144,6 +216,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // Each organ: a filled body, a soft shade just inside its edge (so it reads as a solid form
   // rather than a flat blob), then a crisp outline. Tubes (colon, duodenum, diaphragm) are stroked.
+  const TEXTURE = { liver: 'texLiver', spleen: 'texFine', stomach: 'texRugae', pancreas: 'texLobules', heart: 'texMuscle', 'kidney-l': 'texFine' };
   const organEls = {}, organG = {};
   for (const o of ORGANS) {
     const g = s('g', { class: 'organ organ-' + o.id });
@@ -151,13 +224,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (o.circle) { const [cx, cy, r] = o.circle; el = s('circle', { cx, cy, r, class: o.cls }); g.append(el); }
     else if (o.band) {
       el = s('path', { d: o.d, class: o.cls + ' band-body' });
-      g.append(s('path', { d: o.d, class: o.cls + ' band-edge' }), el);
+      g.append(s('path', { d: o.d, class: 'band-cast', transform: 'translate(4 6)' }), s('path', { d: o.d, class: o.cls + ' band-edge' }), el, s('path', { d: o.d, class: o.cls + ' band-sheen', transform: 'translate(-2 -3.5)' }));
       if (o.cls === 'org-colon') g.append(s('path', { d: haustra(o.d, 11.5), class: 'org-haustra' }));
     } else if (o.deco) { el = s('path', { d: o.d, class: o.cls }); g.append(el); }
     else {
+      // Cast shadow on the plane behind (soft light from the upper left), the body, a tissue
+      // texture, the form shading (lit upper left, turning away lower right), the soft inner
+      // rim, then the outline.
       el = s('path', { d: o.d, class: o.cls + ' org-fill' });
       defs.insertAdjacentHTML('beforeend', `<clipPath id="clip-${o.id}"><path d="${o.d}"/></clipPath>`);
-      g.append(el, s('path', { d: o.d, class: 'org-rim', 'clip-path': `url(#clip-${o.id})`, filter: 'url(#orgSoft)' }), s('path', { d: o.d, class: o.cls + ' org-line' }));
+      g.append(s('path', { d: o.d, class: 'org-cast', filter: 'url(#castShadow)', transform: 'translate(7 10)' }), el);
+      if (TEXTURE[o.id]) g.append(s('path', { d: o.d, class: 'org-tex', fill: `url(#${TEXTURE[o.id]})` }));
+      g.append(s('path', { d: o.d, class: 'org-form', fill: 'url(#orgForm)' }),
+        s('path', { d: o.d, class: 'org-rim', 'clip-path': `url(#clip-${o.id})`, filter: 'url(#orgSoft)' }), s('path', { d: o.d, class: o.cls + ' org-line' }));
     }
     organEls[o.id] = el; organG[o.id] = g;
     gOrgans.append(g);
@@ -183,15 +262,27 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const isArt = e.kind === 'arteriole' || e.kind === 'artery' || (e.kind === 'shunt' && e.shunt === 'ap');
     const halo = s('path', { class: 'v-halo' });
     const sel = s('path', { class: 'v-select' });
+    // Anatomy: a soft contact shadow under the tube (so a vessel in front visibly passes over
+    // the one behind it), the casing, the pressure-colored lumen, then the tube's shading: a
+    // darker band on the side turned away from the light and a narrow sheen on the lit side.
+    // Circuit: the main route carries a quiet spine band underneath.
+    const shadow = s('path', { class: 'v-shadow' });
+    const spine = MAIN_ROUTE.has(e.id) ? s('path', { class: 'v-spine' }) : null;
     const wall = s('path', { class: isArt ? 'v-artery' : 'v-wall' });
     const lumen = isArt ? null : s('path', { class: 'v-lumen' + (e.kind === 'liver' && (e.zone === 'sin' || e.zone === 'inter') ? ' liver-micro' : ''), stroke: `url(#gr-${e.id})` });
+    const shade = isArt ? null : s('path', { class: 'v-shade' });
+    const sheen = s('path', { class: 'v-sheen' });
+    // A stenosed vessel is drawn as a filled outline whose width narrows at the lesion.
+    const wallP = isArt ? null : s('path', { class: 'v-wallP' });
+    const lumenP = isArt ? null : s('path', { class: 'v-lumenP', fill: `url(#gr-${e.id})` });
     const hit = s('path', { class: 'v-hit', tabindex: 0, role: 'button', 'aria-label': e.label || e.id, 'data-id': e.id });
-    g.append(halo, sel, wall);
-    if (lumen) g.append(lumen);
-    g.append(hit);
+    if (spine) g.append(spine);
+    g.append(halo, sel, shadow, wall);
+    if (lumen) g.append(lumen, shade, wallP, lumenP);
+    g.append(sheen, hit);
     gEdges.append(g);
     if (e.kind === 'collateral') g.classList.add('coll');
-    E[e.id] = { e, g, grad, st0, st1, halo, sel, wall, lumen, hit, isArt, vis: true, width: 4 };
+    E[e.id] = { e, g, grad, st0, st1, halo, sel, shadow, spine, wall, lumen, shade, sheen, wallP, lumenP, hit, isArt, vis: true, width: 4, shadeKey: '' };
   }
   // draw order: arteries at the back, the portal tree in front (it lies anterior to the IVC)
   for (const x of Object.values(E)) if (x.isArt) gEdges.prepend(x.g);
@@ -325,7 +416,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       g.len = arcLen(pts);
       const d = t === 0 && !(x.e.kind === 'collateral' && g.wig > 0.3) ? g.dA : t === 1 ? g.dC : polyD(pts);
       x.halo.setAttribute('d', d); x.sel.setAttribute('d', d); x.wall.setAttribute('d', d); x.hit.setAttribute('d', d);
+      x.shadow.setAttribute('d', d);
+      if (x.spine) x.spine.setAttribute('d', d);
       if (x.lumen) x.lumen.setAttribute('d', d);
+      g.lit = litNormals(pts);
+      x.shadeKey = '';
       const a = pts[0], b = pts[pts.length - 1];
       x.grad.setAttribute('x1', a[0]); x.grad.setAttribute('y1', a[1]);
       x.grad.setAttribute('x2', b[0] === a[0] && b[1] === a[1] ? a[0] + 1 : b[0]); x.grad.setAttribute('y2', b[1]);
@@ -342,9 +437,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const vb = VB_ANAT.map((a, i) => lerp(a, VB_CIRC[i], t));
     svg.setAttribute('viewBox', vb.map((v) => v.toFixed(1)).join(' '));
     gOrgans.style.opacity = String(1 - t);
+    gBackdrop.style.opacity = String(1 - t);
     gGhost.style.opacity = String(1 - t);
     gAscites.style.opacity = String(1 - t);
     svg.classList.toggle('circuit', t > 0.5);
+    // The circuit is a dark hemodynamic map; the anatomy an atlas plate on paper.
+    stageWrap.classList.toggle('cmap', t > 0.5);
     gGrid.style.opacity = String(t);
     gNodes.style.opacity = String(t);
     CTM = null;
@@ -387,12 +485,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       let w = lerp(wA, wC, t);
       if (x.isArt) w = lerp(Math.max(1.8, vesselPx(D) * 0.5), 3, t);
       x.width = w;
-      if (x.isArt) { x.wall.setAttribute('stroke-width', w.toFixed(1)); continue; }
+      if (x.isArt) { x.wall.setAttribute('stroke-width', w.toFixed(1)); x.shadow.setAttribute('stroke-width', (w + 2).toFixed(1)); continue; }
       x.pmid = (P1 + P2) / 2;
       const baseD = e.d || (e.dMax ? e.dMax * COLLATERAL_DMIN_RATIO : 3);
       const wallPx = e.kind === 'liver' ? 0.7 : clamp(0.9 * Math.sqrt(baseD / Math.max(0.3, D)), 0.8, 1.6);
       x.wall.setAttribute('stroke-width', (w + 2 * wallPx).toFixed(1));
       x.lumen.setAttribute('stroke-width', w.toFixed(1));
+      x.shadow.setAttribute('stroke-width', (w + 2 * wallPx + 2.5).toFixed(1));
+      if (x.spine) x.spine.setAttribute('stroke-width', (w + 16).toFixed(1));
+      renderTube(x, w, wallPx, p, t);
       let c1, c2;
       if (mode === 'pressure') { c1 = pressureColor(P1); c2 = pressureColor(P2); }
       else if (mode === 'drop') { c1 = c2 = dropColor(P1 - P2); }
@@ -411,13 +512,179 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (e.id === 'SIN_RL') x.g.style.opacity = String(0.35 * t);
       const selOn = st.selection?.type === 'edge' && st.selection.id === e.id;
       x.sel.classList.toggle('on', selOn);
+      x.g.classList.toggle('is-sel', selOn);
       if (selOn) x.sel.setAttribute('stroke-width', (w + 12).toFixed(1));
     }
+    // A selected vessel stays bright while the rest of the network recedes.
+    wrap.classList.toggle('has-sel', st.selection?.type === 'edge' && !!E[st.selection.id]?.vis);
+    liverModule.classList.toggle('open', liverExpanded());
+    trackChanges(f, p);
     updateNodesCircuit(f);
     updateOverlays(f, p, gain, t);
     updateFocus();
     updateLabels(f);
     updateOrgans(f, p, t);
+  }
+
+  // Tube shading and, for a stenosed vessel, the waisted outline. Recomputed only when the
+  // width, the lesion or the geometry changes.
+  function renderTube(x, w, wallPx, p, t) {
+    const g = geo[x.e.id];
+    const v = isImaging() ? 0 : p.stenosis[x.e.id] || 0;
+    const sten = v > 0.01;
+    x.g.classList.toggle('sten', sten);
+    const key = `${w.toFixed(1)}|${wallPx.toFixed(2)}|${sten ? v.toFixed(3) + '@' + (stenosisAt[x.e.id] ?? 0.5) : ''}|${lastMorph}`;
+    if (key === x.shadeKey) return;
+    x.shadeKey = key;
+    const pts = g.cur, lit = g.lit;
+    if (sten) {
+      const f = waist(x.e.id, v, g.len, w);
+      x.wallP.setAttribute('d', tubeOutline(pts, lit, (u) => Math.max(0.35, (w / 2) * f(u)) + wallPx));
+      x.lumenP.setAttribute('d', tubeOutline(pts, lit, (u) => Math.max(0.35, (w / 2) * f(u))));
+    }
+    if (w < 3.4 || t >= 0.999) { x.sheen.removeAttribute('d'); x.shade.removeAttribute('d'); return; }
+    x.sheen.setAttribute('d', polyD(litOffset(pts, lit, w * 0.2, 0.02, 0.98)));
+    x.sheen.setAttribute('stroke-width', (w * 0.24).toFixed(2));
+    x.shade.setAttribute('d', polyD(litOffset(pts, lit, -w * 0.24)));
+    x.shade.setAttribute('stroke-width', (w * 0.4).toFixed(2));
+  }
+
+  // Circuit liver module: collapsed unless asked for, selected into, or zoomed in on.
+  let liverOpen = false;
+  function liverExpanded() {
+    const sel = store.get().selection;
+    return liverOpen || vt.k >= 1.9 || (sel?.type === 'edge' && LIVER_EDGES.has(sel.id)) || (sel?.type === 'node' && LIVER_INNER.has(sel.id));
+  }
+
+  // ── Model-driven transitions ──────────────────────
+  // Only changes the model computes are animated, and each one settles: a vessel whose mean
+  // pressure is rising carries a faint band travelling upstream (falling: downstream) until the
+  // pressure settles; a vessel whose resistance jumps gets a closing ring at the lesion; a
+  // vessel whose flow reverses gets a brief glow; a collateral or shunt that opens is drawn on
+  // in the direction of its flow. Nothing runs under reduced motion or in the figure view.
+  const track = {};
+  const pulses = [];
+  let lastTrack = performance.now();
+  const appEl = document.getElementById('app');
+  const quietFx = () => reduceMotion.matches || !!appEl?.classList.contains('figure-mode') || isImaging();
+  function trackChanges(f, p) {
+    const now = performance.now();
+    const dt = Math.min(1, (now - lastTrack) / 1000);
+    lastTrack = now;
+    const a = 1 - Math.exp(-dt / 1.2);
+    const quiet = quietFx();
+    for (const x of Object.values(E)) {
+      const e = x.e, k = EI[e.id];
+      const P1 = f.P[NI[e.from]], P2 = f.P[NI[e.to]];
+      const pm = (P1 + P2) / 2;
+      const q = f.Qf ? f.Qf[k] : f.Q[k];
+      const R = Math.abs(q) > 0.05 ? (P1 - P2) / q : null;
+      const open = x.vis && !x.g.classList.contains('coll-ghost');
+      let m = track[e.id];
+      if (!m) { track[e.id] = { p: pm, dp: 0, r: R, rev: !!x.rev, open, lastR: 0 }; continue; }
+      m.dp = pm - m.p;
+      m.p += (pm - m.p) * a;
+      const lesion = e.kind === 'liver' || (p.stenosis[e.id] || 0) > 0 || (p.thrombus[e.id] || 0) > 0;
+      if (!quiet && x.vis && lesion && R > 0 && m.r > 0 && R / m.r > 1.06 && now - m.lastR > 2500 && (e.kind !== 'liver' || ['PRE_R', 'PRE_L', 'SIN_RR', 'SIN_LL', 'POST_R_RHV', 'POST_L_LHV'].includes(e.id))) {
+        pulses.push({ type: 'resist', id: e.id, t0: now, dur: 1800, ratio: R / m.r });
+        m.lastR = now;
+      }
+      if (R != null) m.r = m.r == null ? R : m.r + (R - m.r) * a;
+      const rev = !!x.rev;
+      if (rev !== m.rev && x.vis && !quiet) pulses.push({ type: rev ? 'rev' : 'unrev', id: e.id, t0: now, dur: 2400 });
+      m.rev = rev;
+      if (open && !m.open && (e.kind === 'collateral' || e.kind === 'shunt') && !quiet) x.reveal = { t0: now, dur: e.kind === 'shunt' ? 900 : 1500, dir: q >= 0 ? 1 : -1 };
+      m.open = open;
+    }
+    while (pulses.length > 40) pulses.shift();
+  }
+  const REVEAL_PARTS = ['shadow', 'wall', 'lumen', 'shade', 'sheen'];
+  function stepReveals(now) {
+    for (const x of Object.values(E)) {
+      if (!x.reveal) continue;
+      const r = x.reveal;
+      const u = clamp((now - r.t0) / r.dur, 0, 1);
+      const done = u >= 1 || quietFx();
+      const off = (1 - easeInOut(u)) * r.dir;
+      for (const part of REVEAL_PARTS) {
+        const el = x[part];
+        if (!el) continue;
+        if (done) { el.removeAttribute('pathLength'); el.style.strokeDasharray = ''; el.style.strokeDashoffset = ''; continue; }
+        el.setAttribute('pathLength', '1');
+        el.style.strokeDasharray = '1 1';
+        el.style.strokeDashoffset = off.toFixed(4);
+      }
+      if (done) x.reveal = null;
+    }
+  }
+  function drawTransients(now, st) {
+    if (quietFx()) { pulses.length = 0; return; }
+    const cs = getComputedStyle(wrap);
+    const ink = cs.getPropertyValue('--fx-ink').trim() || 'rgba(22,24,29,.9)';
+    const hot = cs.getPropertyValue('--flow-reversed').trim() || '#EC7424';
+    const cool = cs.getPropertyValue('--flow-normal').trim() || '#16988F';
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    // Pressure waves: only while the model's pressure is still moving.
+    if (st.running && now - lastTrack < 500) {
+      for (const x of Object.values(E)) {
+        if (!x.vis || x.isArt || x.reveal) continue;
+        const m = track[x.e.id];
+        if (!m || Math.abs(m.dp) < 0.3) continue;
+        const I = clamp((Math.abs(m.dp) - 0.3) / 2.5, 0, 1);
+        const q = F.Qf ? F.Qf[EI[x.e.id]] : F.Q[EI[x.e.id]];
+        // Rising pressure backs up against the flow; falling pressure drains with it.
+        const dir = (q >= 0 ? 1 : -1) * (m.dp > 0 ? -1 : 1);
+        const g = geo[x.e.id];
+        const per = clamp(g.len / 140, 0.7, 2.2);
+        let u = ((now / 1000) / per) % 1;
+        if (dir < 0) u = 1 - u;
+        const i0 = Math.max(0, Math.floor((u - 0.09) * (N_SAMPLES - 1))), i1 = Math.min(N_SAMPLES - 1, Math.ceil((u + 0.09) * (N_SAMPLES - 1)));
+        if (i1 - i0 < 1) continue;
+        ctx.beginPath();
+        ctx.moveTo(g.cur[i0][0], g.cur[i0][1]);
+        for (let i = i0 + 1; i <= i1; i++) ctx.lineTo(g.cur[i][0], g.cur[i][1]);
+        const edge = Math.min(u, 1 - u) * 8;
+        ctx.globalAlpha = (0.2 + 0.4 * I) * clamp(edge, 0, 1);
+        ctx.strokeStyle = m.dp > 0 ? 'rgba(255, 240, 248, 1)' : 'rgba(214, 240, 255, 1)';
+        ctx.lineWidth = Math.max(2, x.width * 0.7);
+        ctx.stroke();
+      }
+    }
+    for (let i = pulses.length - 1; i >= 0; i--) {
+      const pu = pulses[i];
+      const u = (now - pu.t0) / pu.dur;
+      const x = E[pu.id];
+      if (u >= 1 || !x?.vis) { pulses.splice(i, 1); continue; }
+      const g = geo[pu.id];
+      const fade = u < 0.15 ? u / 0.15 : 1 - (u - 0.15) / 0.85;
+      if (pu.type === 'resist') {
+        const at = x.g.classList.contains('sten') ? stenosisAt[pu.id] ?? 0.5 : 0.5;
+        const [cx, cy, dx, dy] = pointAt(g.cur, at);
+        const n = Math.hypot(dx, dy) || 1, nx = -dy / n, ny = dx / n;
+        // Two brackets closing across the vessel: resistance rising at this site.
+        const r = x.width / 2 + 3 + 12 * (1 - easeInOut(Math.min(1, u * 1.6)));
+        ctx.globalAlpha = 0.85 * fade;
+        ctx.strokeStyle = ink; ctx.lineWidth = 1.6;
+        for (const sg of [1, -1]) {
+          const bx = cx + nx * r * sg, by = cy + ny * r * sg, tx = (dx / n) * 6, ty = (dy / n) * 6;
+          ctx.beginPath(); ctx.moveTo(bx - tx, by - ty); ctx.lineTo(bx + tx, by + ty); ctx.stroke();
+        }
+        if (pu.ratio > 1.15 && (x.e.kind !== 'liver' || pu.id === 'SIN_RR')) {
+          ctx.font = `600 ${morph > 0.5 ? 11 : 12}px Inter, system-ui, sans-serif`;
+          ctx.fillStyle = ink;
+          ctx.fillText(`R ×${pu.ratio.toFixed(1)}`, cx + nx * (r + 6) + 4, cy + ny * (r + 6) + 4);
+        }
+      } else {
+        ctx.globalAlpha = 0.5 * fade;
+        ctx.strokeStyle = pu.type === 'rev' ? hot : cool;
+        ctx.lineWidth = x.width + 9;
+        ctx.beginPath();
+        ctx.moveTo(g.cur[0][0], g.cur[0][1]);
+        for (let j = 1; j < g.cur.length; j++) ctx.lineTo(g.cur[j][0], g.cur[j][1]);
+        ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
   }
 
   // Where a lesson step or case asks the learner to act.
@@ -449,6 +716,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const q = f.Q[k];
       const dp = f.P[NI[EDGES[k].from]] - f.P[NI[EDGES[k].to]];
       const R = Math.abs(q) > 1e-3 ? dp / (q * 0.06) : Infinity;
+      r.R = R;
       r.txt = Number.isFinite(R) ? `${R.toFixed(1)} WU` : '∞ WU';
       r.r.setAttribute('stroke-width', clamp(1 + Math.log10(Math.max(1, Math.abs(R))) * 1.5, 1, 4));
     }
@@ -486,7 +754,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const hideDx = isImaging();
     for (const [id, v] of Object.entries(p.stenosis)) {
       if (hideDx || !(v > 0) || !E[id] || !E[id].vis) continue;
-      const [x, y, dx, dy] = pointAt(geo[id].cur, 0.5);
+      const [x, y, dx, dy] = pointAt(geo[id].cur, stenosisAt[id] ?? 0.5);
       const n = Math.hypot(dx, dy) || 1, nx = -dy / n, ny = dx / n;
       const off = (E[id].width / 2) * (1 - v) + 3;
       for (const sgn of [1, -1]) {
@@ -503,7 +771,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       ov.thrombi.append(s('path', { class: 'thrombus', d: polyD(pts), 'stroke-width': (E[id].width * clamp(v, 0.3, 1)).toFixed(1) }));
     }
     for (const id of ['TIPS', 'S_PC', 'S_DSR', 'S_MC']) {
-      if (!E[id].vis) continue;
+      if (!E[id].vis || E[id].reveal) continue;
       ov.stents.append(s('path', { class: 'stent', d: polyD(geo[id].cur), 'stroke-width': (E[id].width + 5).toFixed(1) }));
     }
     for (const id of Object.keys(p.occluded)) {
@@ -606,14 +874,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lineW = (line) => line.reduce((w, r, i) => w + textW(r.t, r.size, r.weight, r.track || 0) + (i ? (r.gap ?? 3) : 0), 0);
 
   const pool = new Map(); // key → { g, sig, … }
-  function blockEl(key, cls, interactiveNode) {
+  function blockEl(key, cls, interactiveNode, onClick) {
     let b = pool.get(key);
     if (b) return b;
     const g = s('g', { class: 'lb ' + cls });
-    if (interactiveNode) {
+    const act = onClick || (interactiveNode ? () => onSelect({ type: 'node', id: interactiveNode }) : null);
+    if (act) {
       g.setAttribute('tabindex', '0'); g.setAttribute('role', 'button');
-      g.addEventListener('click', () => onSelect({ type: 'node', id: interactiveNode }));
-      g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect({ type: 'node', id: interactiveNode }); } });
+      g.addEventListener('click', act);
+      g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(); } });
     }
     gLabels.append(g);
     b = { g, sig: '', seen: 0 };
@@ -622,7 +891,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   let frameNo = 0;
   function renderBlock(it) {
-    const b = blockEl(it.key, it.cls, it.node);
+    const b = blockEl(it.key, it.cls, it.node, it.onClick);
     b.seen = frameNo;
     const sig = JSON.stringify([it.lines, it.align, it.swatch, it.bg, it.w, it.cls]);
     if (sig !== b.sig) {
@@ -723,6 +992,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return r.width ? { x0: r.left - wr.left - 4, y0: r.top - wr.top - 4, x1: r.right - wr.left + 4, y1: r.bottom - wr.top + 4 } : null;
     }).filter(Boolean);
     const placed = [...blockers];
+    // Stenosis clamps and their percentages are drawn on the figure; keep labels off them.
+    if (!isImaging()) for (const [id, v] of Object.entries((f.viewParams || st.params).stenosis)) {
+      if (!(v > 0) || !E[id]?.vis) continue;
+      const [sx, sy] = worldToLocal(...pointAt(geo[id].cur, stenosisAt[id] ?? 0.5));
+      placed.push({ x0: sx - 26, y0: sy - 22, x1: sx + 60, y1: sy + 22 });
+    }
     const out = [];
     let leaders = '';
     // Vessel geometry as a coarse density grid, so labels prefer positions that cover no lines.
@@ -846,10 +1121,31 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (b - a > it.w + 6) place(it, ['C'], 0, false);
       }
       buildLines();
+      // The liver module header: its sinusoidal pressure and the resistance of each compartment
+      // (both lobes in parallel). Click to show or hide the stations inside.
+      const open = liverExpanded();
+      const showVals = !isImaging() && st.layers.chips;
+      {
+        const par = (a, b) => { const ra = resistorEls[a].R, rb = resistorEls[b].R; return Number.isFinite(ra) && Number.isFinite(rb) ? (ra * rb) / (ra + rb) : Number.isFinite(ra) ? ra : rb; };
+        const R = [['pre', par('PRE_R', 'PRE_L')], ['sinusoidal', par('SIN_RR', 'SIN_LL')], ['post', par('POST_R_RHV', 'POST_L_LHV')]];
+        const sz = compact ? 9.5 : 10.5;
+        const lines = [[{ t: 'INSIDE THE LIVER', size: compact ? 9 : 9.5, weight: 700, cls: 'lb-zone', track: 0.1 }, { t: open ? '▾ hide stations' : '▸ show stations', size: compact ? 9 : 9.5, weight: 600, cls: 'lb-mod-act', gap: 8 }]];
+        if (showVals) {
+          const pr = pressureRuns((f.Pf || f.P)[NI.SIN_R], 'SIN_R', compact);
+          if (pr) lines.push([{ t: 'Sinusoids', size: compact ? 10.5 : 11.5, weight: 500, cls: 'lb-name', gap: 0 }, ...pr.map((r, i) => (i ? r : { ...r, gap: 6 }))]);
+          lines.push([{ t: 'Resistance', size: sz, weight: 500, cls: 'lb-name' }, ...R.flatMap(([k, v], i) => [{ t: (i ? '· ' : '') + k, size: sz, weight: 500, cls: 'lb-unit', gap: i ? 5 : 6 }, { t: Number.isFinite(v) ? fmt(v, 1) : '∞', size: sz, weight: 650, cls: 'lb-val', gap: 3 }]), { t: 'WU', size: sz, weight: 500, cls: 'lb-unit', gap: 3 }]);
+        }
+        const [ax, ay] = worldToLocal((LIVER_MODULE.x0 + LIVER_MODULE.x1) / 2, LIVER_MODULE.y0);
+        const it = { key: 'liver', cls: 'module' + (open ? ' open' : ''), lines, align: 'middle', bg: true, padX: 8, padY: 4, ax, ay, label: open ? 'Hide liver stations' : 'Show liver stations',
+          onClick: () => { liverOpen = !liverExpanded(); if (!liverOpen && vt.k >= 1.9) toast('Zoomed in: the liver stays expanded. Zoom out to collapse it.'); if (F) update(F); } };
+        it.w = Math.max(...lines.map(lineW)); it.h = lines.reduce((a, l) => a + LINE_H(l), 0);
+        place(it, ['N', 'C'], 4, false);
+      }
       const nodes = [];
       for (const n of NODES) {
         if (!nodeEls[n.id] || !CIRCUIT_LABELS[n.id]) continue;
         if (!nodeVisible(n.id)) continue;
+        if (!open && LIVER_INNER.has(n.id) && !(st.selection?.type === 'node' && st.selection.id === n.id)) continue;
         const [ax, ay] = worldToLocal(...nodePos(n.id, t));
         if (ax < -10 || ax > W + 10 || ay < -10 || ay > H + 10) continue;
         placed.push({ x0: ax - 5, y0: ay - 5, x1: ax + 5, y1: ay + 5 });
@@ -862,7 +1158,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const dirs = [...pref, ...['N', 'S', 'E', 'W', 'NE', 'SE', 'NW', 'SW'].filter((d) => !pref.includes(d))];
         if (!place(it, dirs, 7, false) && it.sel) place(it, dirs, 22, true);
       }
-      if (!isImaging() && st.layers.chips) {
+      // Collateral and shunt lanes, captioned along their run.
+      for (const [id, cap] of Object.entries(LANE_CAPTIONS)) {
+        const x = E[id];
+        if (!x?.vis || x.g.classList.contains('coll-ghost')) continue;
+        const [lx, ly] = pointAt(geo[id].cur, laneU[id]);
+        const [ax, ay] = worldToLocal(lx, ly);
+        const it = { key: 'lane:' + id, cls: 'lane', lines: [[{ t: cap, size: compact ? 9 : 10, weight: 550, cls: 'lb-lane' }]], align: 'middle', padX: 2, padY: 1, ax, ay };
+        it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
+        place(it, ['N', 'S'], 3 + (x.width || 4) / 2, false);
+      }
+      if (open && !isImaging() && st.layers.chips) {
         for (const [id, r] of Object.entries(resistorEls)) {
           const [x, y] = pointAt(geo[id].cur, 0.5);
           const [ax, ay] = worldToLocal(x, y);
@@ -922,7 +1228,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const st = store.get();
     if (!F || st.imaging || st.layers.flow === false) return;
     for (const x of Object.values(E)) {
-      if (!x.vis || x.g.classList.contains('coll-ghost') || (x.e.id === 'SIN_RL' && morph < 0.5)) continue;
+      if (!x.vis || x.reveal || x.g.classList.contains('coll-ghost') || (x.e.id === 'SIN_RL' && morph < 0.5)) continue;
       const { q, vel } = flowState(x);
       // Near-stagnant flow fades out rather than popping in and out.
       const fade = clamp((Math.abs(vel) - 0.1) / 0.5, 0, 1);
@@ -939,7 +1245,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const h = chevron ? w * 0.6 : 5.4, len = chevron ? w * 0.34 : 5.2;
       const lw = chevron ? clamp(w * 0.15, 1, 2.3) : 1.4;
       const marks = [];
-      for (let d = m + ph; d < L - m; d += sp) {
+      const v = x.g.classList.contains('sten') ? (F.viewParams || st.params).stenosis[x.e.id] || 0 : 0;
+      if (v > 0) {
+        // Through a stenosis the same flow crosses a smaller area, so the blood speeds up
+        // (v ∝ 1/A): marks are spaced evenly in transit time, not distance, and narrow with the lumen.
+        const f = waist(x.e.id, v, L, w);
+        const n = N_SAMPLES - 1, tau = [0];
+        for (let i = 1; i <= n; i++) tau.push(tau[i - 1] + (L / n) * Math.max(0.05, f((i - 0.5) / n) ** 2));
+        const T = tau[n];
+        let j = 1;
+        for (let tt = m + ph; tt < T - m; tt += sp) {
+          while (j < n && tau[j] < tt) j++;
+          const uu = (j - 1 + (tt - tau[j - 1]) / Math.max(1e-6, tau[j] - tau[j - 1])) / n;
+          const [px, py, dx, dy] = pointAt(g.cur, uu);
+          const nn = Math.hypot(dx, dy) || 1, k = Math.max(0.3, f(uu));
+          marks.push({ cx: px, cy: py, ux: (dx / nn) * sg, uy: (dy / nn) * sg, h: h * k, len: len * Math.max(0.5, k), lw: lw * Math.max(0.6, k), tri: !chevron });
+        }
+      } else for (let d = m + ph; d < L - m; d += sp) {
         const [px, py, dx, dy] = pointAt(g.cur, d / L);
         const n = Math.hypot(dx, dy) || 1;
         marks.push({ cx: px, cy: py, ux: (dx / n) * sg, uy: (dy / n) * sg, h, len, lw, tri: !chevron });
@@ -979,6 +1301,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
       if (F) update(F); else updateGeometry(true);
     }
+    stepReveals(now);
     drawFlow(dt, st);
     requestAnimationFrame(animate);
   }
@@ -995,13 +1318,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const moving = st.running && !reduceMotion.matches;
     const simSpeed = st.clock === 'hemo' ? clamp(Math.sqrt(st.speed), 0.5, 2) : 0.8;
     const hovering = wrap.classList.contains('hovering');
+    const receding = wrap.classList.contains('has-sel') && !appEl?.classList.contains('figure-mode');
     for (const x of Object.values(E)) {
       if (!x.vis || !moving) continue;
       const { vel } = flowState(x);
       phase[x.e.id] = (phase[x.e.id] || 0) + (3 + 16 * Math.log1p(Math.abs(vel) / 1.5)) * simSpeed * dt;
     }
     eachVesselMarks((x, ink, marks, fade) => {
-      ctx.globalAlpha = fade * (hovering && !x.g.classList.contains('hl') ? 0.2 : Number(x.g.style.opacity || 1));
+      ctx.globalAlpha = fade * (hovering && !x.g.classList.contains('hl') ? 0.2 : receding && !x.g.classList.contains('is-sel') ? 0.4 * Number(x.g.style.opacity || 1) : Number(x.g.style.opacity || 1));
       ctx.beginPath();
       for (const k of marks) {
         const pts = markPath(k);
@@ -1017,6 +1341,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
     });
     ctx.globalAlpha = 1;
+    drawTransients(performance.now(), st);
     // Active variceal bleeding: a small spray at the rupture site and blood pooling in the stomach.
     if (F.bleed?.active && morph < 0.5) {
       const gv = F.bleed.site === 'GV';
@@ -1218,7 +1543,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         break;
       case 'pinch':
         if (!isEdge || E[id].isArt && !['A_SMA', 'A_SPL', 'A_HEP'].includes(id)) { toast('Pinch a vein or portal vessel to create a stenosis.'); break; }
-        drag = { type: 'pinch', id, x0: ev.clientX, y0: ev.clientY, s0: st.params.stenosis[id] || 0, u: isClick ? 0.5 : nearestT(id, wx, wy) };
+        drag = { type: 'pinch', id, x0: ev.clientX, y0: ev.clientY, s0: st.params.stenosis[id] || 0, u: isClick ? stenosisAt[id] ?? 0.5 : clamp(nearestT(id, wx, wy), 0.12, 0.88) };
+        stenosisAt[id] = drag.u;
         onSelect({ type: 'edge', id }, { quiet: true });
         break;
       case 'thrombus':

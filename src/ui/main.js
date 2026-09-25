@@ -2,15 +2,15 @@
 
 import { startHost, host } from './host.js?v=89161691f2';
 import { store, updateParams, replaceParams, bindParamSender, undo, redo, canUndo, canRedo, clearHistory } from './store.js?v=59e4c262de';
-import { createStage } from './stage.js?v=c0babda72c';
+import { createStage } from './stage.js?v=00d25bbb35';
 import { createInspector, activeInterventions } from './inspector.js?v=ebe6b4a11e';
-import { createDock } from './dock.js?v=ff6105438c';
+import { createDock } from './dock.js?v=c633148896';
 import { createWhy } from './why.js?v=15c9ba3bdf';
 import { createEventsUI } from './events-ui.js?v=4f3ef94ac9';
 import { createLearn } from './learn.js?v=082df4e5b2';
 import { createCases } from './cases.js?v=4110d95ae5';
 import { createCompare } from './compare.js?v=2c551d74f5';
-import { createFigure } from './figure.js?v=41b1ff9854';
+import { createFigure } from './figure.js?v=f366ce8bc9';
 import { gradientCss } from './colormap.js?v=884435083d';
 import { EDGES, NODES } from '../engine/topology.js?v=0c370bc4ec';
 import { $, $$, h, icon, fmt, toast, tooltipFor, openModal, closeModal, isModalOpen, units, popover, closePopover, menuItem, svgIcon } from './util.js?v=61d6f9c200';

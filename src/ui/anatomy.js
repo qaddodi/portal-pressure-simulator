@@ -217,6 +217,14 @@ export const ORGANS = [
   { id: 'gallbladder', cls: 'org org-gb', d: 'M532 466 C 518 484 516 512 532 526 C 548 538 570 528 572 508 C 574 490 564 474 554 466 Z' },
   { id: 'umbilicus', cls: 'org-umbilicus', circle: [600, 722, 5] },
 ];
+// Background plane (anatomic view): the posterior wall the organs sit against, drawn quietly
+// so the plate reads in depth: the body cavity and the diaphragm domes the liver and spleen
+// tuck under.
+export const BACKDROP = {
+  cavity: 'M318 250 C 314 190 360 150 440 142 C 520 136 600 150 700 150 C 800 150 900 150 980 166 C 1060 182 1100 230 1104 300 C 1112 480 1100 700 1068 900 L 352 900 C 326 700 318 480 318 250 Z',
+  diaphragm: 'M322 360 C 318 262 372 196 452 184 C 530 172 596 182 640 184 C 700 186 780 206 862 234 C 948 220 1040 238 1088 290 C 1110 318 1114 360 1108 400',
+};
+
 // Invisible peritoneal outline: ascites fills it from the bottom.
 export const ABDOMEN_CLIP = 'M330 440 C 320 600 340 780 380 900 L 1060 900 C 1090 780 1100 600 1092 440 Z';
 export const ABDOMEN_FLOOR = 900;
@@ -251,6 +259,21 @@ export const ATLAS_LABELS = {
 };
 
 export const LIVER_SPLIT_X = 640;
+
+// Circuit view: the liver is a module. Collapsed, its internal stations and the resistance of
+// each compartment are summarized in one header; it expands on selection, on a click on the
+// header, or when zoomed in far enough to read it.
+export const LIVER_MODULE = { x0: 650, y0: 212, x1: 934, y1: 424 };
+export const LIVER_INNER = new Set(['HA', 'RPV', 'LPV', 'SIN_R', 'SIN_L', 'CV_R', 'CV_L']);
+export const LIVER_EDGES = new Set(['A_HEP', 'A_HR', 'A_HL', 'AP_R', 'AP_L', 'PRE_R', 'PRE_L', 'SIN_RR', 'SIN_LL', 'SIN_RL', 'POST_R_RHV', 'POST_R_MHV', 'POST_L_LHV', 'POST_L_MHV', 'CAUD']);
+// The main series route (gut → portal vein → liver → hepatic veins → heart): the circuit's spine.
+export const MAIN_ROUTE = new Set(['V_INT', 'SMV_CONF', 'V_SPL', 'SV_CONF', 'PV_TRUNK', 'PVH_R', 'PVH_L', 'PRE_R', 'PRE_L', 'SIN_RR', 'SIN_LL', 'POST_R_RHV', 'POST_L_LHV', 'RHV_IVC', 'LHV_IVC', 'IVCS_RA']);
+// Collateral and shunt lanes in the circuit, captioned where they run (edge → caption).
+export const LANE_CAPTIONS = {
+  C1b: 'Esophageal route → azygos', C2: 'Short gastric', C3: 'Paraumbilical', C4: 'Rectal', C5: 'Gastrorenal shunt', C6: 'Splenorenal shunt',
+  C7: 'Retroperitoneal', C8: 'Periportal', C9: 'Caval → azygos', TIPS: 'TIPS', S_PC: 'Portocaval shunt', S_DSR: 'Distal splenorenal shunt', S_MC: 'Mesocaval shunt',
+  EPI_SVC: 'Epigastric → SVC',
+};
 
 // Event anchors
 export const ANCHORS = {

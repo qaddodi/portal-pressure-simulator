@@ -193,7 +193,7 @@ export function createFigure({ app, stage, onClose }) {
     });
     const fr = foot.getBoundingClientRect();
     const svg = `<svg xmlns="${SVGNS}" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family='${FONT}'>`
-      + `<defs>${defs}</defs><rect width="${W}" height="${H}" fill="${cssv('--stage-bg')}"/>`
+      + `<defs>${defs}</defs><rect width="${W}" height="${H}" fill="${getComputedStyle(wrap).getPropertyValue('--stage-bg').trim() || cssv('--stage-bg')}"/>`
       + ser.serializeToString(clone) + ser.serializeToString(lab)
       + `<rect x="0" y="${(fr.top - base.top).toFixed(1)}" width="${W}" height="1" fill="${cssv('--border')}"/>` + text + '</svg>';
     return { svg, W, H };
