@@ -9,7 +9,7 @@ model.
 > **Educational simulation.** The model is simplified and its values are illustrative. Don't use
 > it for diagnosis or treatment decisions.
 
-The design spec is [`docs/DESIGN_BLUEPRINT.md`](docs/DESIGN_BLUEPRINT.md).
+The design spec is [`docs/DESIGN_BLUEPRINT.md`](docs/DESIGN_BLUEPRINT.md). The plan for the next UI/UX and graphics pass is [`docs/UI_UX_NEXT_LEVEL.md`](docs/UI_UX_NEXT_LEVEL.md).
 
 ## Run it
 
