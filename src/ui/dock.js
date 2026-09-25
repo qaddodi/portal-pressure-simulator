@@ -1,14 +1,17 @@
-// Readout strip + tabbed charts and instruments (blueprint §9.1, §9.2).
+// Readout strip (small screens) and the instruments (blueprint §9.1, §9.2).
 
 import { store } from './store.js?v=609dde7847';
-import { h, fmt, icon, svgIcon } from './util.js?v=61d6f9c200';
-import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=254ea2428a';
-import { createHVPG, createDoppler, createEndoscopy, createLobule, createVarixWall, createAbdomen } from './instruments.js?v=78f33d8199';
+import { h, fmt, icon, svgIcon, popover, closePopover, clamp } from './util.js?v=61d6f9c200';
+import { NODES, EDGES } from '../engine/topology.js?v=44e0aca402';
+import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=e09357b83a';
+import { createHVPG, createDoppler, createEndoscopy, createLobule, createVarixWall, createAbdomen } from './instruments.js?v=61ab68738c';
 
+const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
+const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const SEV = { ok: 'var(--ok)', caution: 'var(--caution)', danger: 'var(--danger)', critical: 'var(--critical)', info: 'var(--info)' };
 
 // Readouts in reading order: the portal story first, then the systemic circulation.
-const TILES = [
+export const TILES = [
   { id: 'hvpg', k: 'HVPG', why: 'hvpg', v: (m) => m.hvpg, d: 1, u: 'mmHg', hideKey: 'trueHVPG', measured: () => store.get().lastHVPG,
     st: (v) => (v < 5 ? 'ok' : v < 10 ? 'caution' : v < 12 ? 'danger' : 'critical'),
     s: (v) => (v < 5 ? 'Normal' : v < 10 ? 'Subclinical' : v < 12 ? 'CSPH' : v < 20 ? 'Bleed risk' : 'High risk') },
@@ -26,7 +29,7 @@ const TILES = [
 ];
 
 // Systemic circulation: a compact vitals block at the end of the strip.
-const VITALS = [
+export const VITALS = [
   { k: 'MAP', why: 'map', v: (m) => fmt(m.map, 0), u: 'mmHg', bad: (m) => m.map < 65 },
   { k: 'HR', why: 'map', v: (m) => fmt(m.hr, 0), u: '/min', bad: (m) => m.hr > 110 },
   { k: 'CO', why: 'map', v: (m) => fmt(m.co, 1), u: 'L/min', bad: (m) => m.co > 6.5 },
@@ -35,10 +38,8 @@ const VITALS = [
   { k: 'Spleen', why: 'spleen', v: (m) => fmt(m.spleen.length, 1), u: 'cm', bad: (m) => m.spleen.length > 13 },
 ];
 
-// Instruments, grouped: hemodynamics · bedside measurements · microanatomy · log.
-const GROUPS = [['Hemodynamics', ['profile', 'scope', 'flow', 'perfusion']], ['Bedside', ['hvpg', 'doppler', 'endoscopy', 'abdomen']], ['Microanatomy', ['lobule', 'varixwall']]];
 // Key readouts always shown; the rest join the row when abnormal (or when the learner asks).
-const PRIMARY = new Set(['hvpg', 'pv', 'pvflow', 'varix']);
+export const PRIMARY = new Set(['hvpg', 'pv', 'pvflow', 'varix']);
 
 export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal }) {
   const app = document.getElementById('app');
@@ -116,67 +117,114 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     moreBtn.hidden = !hiddenCount && !strip.classList.contains('all');
   }
 
-  // ── Instrument drawer ─────────────────────────────
+  // ── Instruments: one level ────────────────────────
+  // The Instruments button opens a grid of cards, each with a live preview line. The chosen
+  // instrument docks under the figure (never taller than a quarter of the figure column); it can
+  // pop out as a floating, resizable window, and on a wide screen a second one can sit beside it.
   const panes = [
     createProfile(), createScope(), createSankey(), createPerfusion(), createHVPG(),
     createDoppler({ onProbe }), createEndoscopy({ onAction }), createLobule(), createVarixWall(), createAbdomen({ onAction }),
   ];
   const byId = Object.fromEntries(panes.map((p) => [p.id, p]));
-  const groupOf = (id) => GROUPS.find(([, ids]) => ids.includes(id))[0];
-  let active = 'profile';
-  const tabBtns = {};
-  const title = h('button', { class: 'dock-title', 'aria-expanded': 'false', title: 'Open or close the instruments (I)' }, svgIcon('chart'), 'Instruments');
-  title.addEventListener('click', () => toggle());
-  const groupSeg = h('div', { class: 'seg dock-groups', role: 'group', 'aria-label': 'Instrument group' }, GROUPS.map(([g, ids]) => {
-    const b = h('button', { 'aria-pressed': 'false', 'data-g': g }, g);
-    b.addEventListener('click', () => show(active && groupOf(active) === g ? active : ids[0], { open: app.classList.contains('dock-open') || window.matchMedia('(max-width: 767px)').matches, keepClosed: !app.classList.contains('dock-open') }));
-    return b;
-  }));
-  const tabs = h('div', { class: 'dock-tabs', role: 'tablist', 'aria-label': 'Instruments' });
-  for (const [, ids] of GROUPS) for (const id of ids) {
-    const p = byId[id];
-    const b = h('button', { role: 'tab', 'aria-selected': 'false', 'aria-controls': 'pane-' + p.id }, p.label);
-    b.addEventListener('click', () => show(p.id, { open: true }));
-    tabs.append(b);
-    tabBtns[p.id] = b;
-  }
-  const collapse = h('button', { class: 'ib dock-collapse', 'aria-label': 'Open instruments', title: 'Open or close the instruments (I)' }, svgIcon('chev-down'));
-  collapse.addEventListener('click', () => toggle());
-  head.append(title, groupSeg, tabs, collapse);
-  for (const p of panes) { p.el.id = 'pane-' + p.id; p.el.setAttribute('role', 'tabpanel'); body.append(p.el); }
-  // Wide: two levels (group, then its instruments). Narrow: every instrument in one scrolling row.
-  const grouped = matchMedia('(min-width: 1101px), (max-width: 767px)');
-  function syncTabs() {
-    const g = groupOf(active);
-    for (const b of groupSeg.children) b.setAttribute('aria-pressed', String(b.dataset.g === g));
-    for (const [id, b] of Object.entries(tabBtns)) { b.hidden = grouped.matches && groupOf(id) !== g; b.setAttribute('aria-selected', String(id === active)); }
-    const open = app.classList.contains('dock-open');
-    title.setAttribute('aria-expanded', String(open));
-    collapse.setAttribute('aria-label', open ? 'Close instruments' : 'Open instruments');
-  }
-  grouped.addEventListener('change', syncTabs);
+  const hiddenCase = () => store.get().imaging;
+  let open = [];            // ids docked, in order (1 or 2)
+  const floats = new Map(); // id → floating window element
+  const titleBtn = h('button', { class: 'dock-title', 'aria-haspopup': 'dialog', title: 'Choose an instrument' }, svgIcon('chart'), h('span', { class: 'dt-l' }, 'Instruments'), svgIcon('chev-down', 'chev'));
+  titleBtn.addEventListener('click', (e) => openGrid(e.currentTarget));
+  const second = h('button', { class: 'btn sm ghost dock-second', title: 'Show a second instrument beside this one' }, svgIcon('plus', 'mi-ic'), 'Add alongside');
+  second.addEventListener('click', (e) => openGrid(e.currentTarget, { alongside: true }));
+  const popBtn = h('button', { class: 'ib', 'aria-label': 'Pop out as a floating window', title: 'Pop out' }, svgIcon('panel'));
+  popBtn.addEventListener('click', () => { if (open[0]) popOut(open[0]); });
+  const closeBtn = h('button', { class: 'ib', 'aria-label': 'Close instruments', title: 'Close (I)' }, svgIcon('close'));
+  closeBtn.addEventListener('click', () => close());
+  head.append(titleBtn, h('span', { class: 'sp' }), second, popBtn, closeBtn);
+  for (const p of panes) { p.el.id = 'pane-' + p.id; p.el.setAttribute('role', 'region'); p.el.setAttribute('aria-label', p.label); body.append(p.el); }
 
-  function show(id, { open = true, reveal = false, keepClosed = false } = {}) {
-    if (!byId[id]) return;
-    active = id;
-    for (const p of panes) p.el.classList.toggle('active', p.id === id);
-    if (reveal) onReveal?.(reveal);
-    else if (open && !keepClosed) app.classList.add('dock-open');
-    if (app.classList.contains('dock-open')) title.classList.remove('ping');
-    syncTabs();
-    tabBtns[id].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  const INFO = {
+    profile: ['activity', 'Pressure along a path', (f) => `Portal ${fmt(f.P[NI.CONF], 1)} → RA ${fmt(f.P[NI.RA], 1)} mmHg`],
+    scope: ['chart', 'Pressures over time', (f) => `HVPG ${fmt(f.metrics.hvpg, 1)} mmHg now`],
+    flow: ['vessel', 'Where gut blood goes', (f) => `${Math.round(f.metrics.shuntFraction * 100)} % bypasses the liver`],
+    perfusion: ['liver', 'Liver perfusion & buffer', (f) => `${Math.round(f.metrics.liverPerfPct)} % perfused`],
+    hvpg: ['catheter', 'Wedged hepatic venous pressure', () => { const m = store.get().lastHVPG; return m ? `Measured ${fmt(m.hvpg, 1)} mmHg` : 'No measurement yet'; }],
+    doppler: ['doppler', 'Spectral Doppler of a vessel', (f) => { const k = EI[f.probe]; const D = Math.max(0.5, f.D[k]) / 10; const v = (f.Qf ? f.Qf[k] : f.Q[k]) / (Math.PI * D * D / 4); return `${fmt(Math.abs(v), 0)} cm/s ${v < -1 ? 'reversed' : ''}`; }],
+    endoscopy: ['endoscope', 'The varices from inside', (f) => (f.metrics.varix.d < 2.4 ? 'No varices' : `Esophageal ${f.metrics.varix.grade.code}`)],
+    lobule: ['liver', 'Microcirculation of a lobule', (f) => `Sinusoids ${fmt(f.P[NI.SIN_R], 1)} mmHg`],
+    varixwall: ['band', 'Laplace wall tension', (f) => `${Math.round(f.metrics.varix.ratio * 100)} % of rupture`],
+    abdomen: ['needle', 'Ascites & paracentesis', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],
+  };
+  function openGrid(anchor, { alongside = false } = {}) {
     const f = store.get().frame;
-    if (f) setTimeout(() => byId[id].update(f), app.classList.contains('dock-open') ? 300 : 0);
+    const cards = panes.map((p) => {
+      const [ic, desc, live] = INFO[p.id];
+      const on = open.includes(p.id) || floats.has(p.id);
+      const b = h('button', { class: 'instr-card' + (on ? ' on' : '') },
+        h('span', { class: 'ic-ic' }, svgIcon(ic)), h('span', { class: 'ic-t' }, p.label), h('span', { class: 'ic-d' }, desc),
+        h('span', { class: 'ic-live' }, f && !(hiddenCase() && ['profile', 'scope', 'lobule'].includes(p.id)) ? live(f) : '—'));
+      b.addEventListener('click', () => { closePopover(); show(p.id, { open: true, alongside }); });
+      return b;
+    });
+    popover(anchor, [h('div', { class: 'menu-title' }, alongside ? 'Add an instrument alongside' : 'Instruments'), h('div', { class: 'instr-grid' }, cards)], { cls: 'instr-pop', align: 'start', place: anchor.closest('.dock') ? 'above' : 'below' });
   }
-  function toggle() {
-    title.classList.remove('ping');
-    app.classList.toggle('dock-open');
-    syncTabs();
+  const wide = matchMedia('(min-width: 1600px)');
+  function layout() {
+    for (const p of panes) p.el.classList.toggle('active', open.includes(p.id) && !floats.has(p.id));
+    body.classList.toggle('split', open.length > 1);
+    const first = byId[open[0]];
+    head.querySelector('.dt-l').textContent = first ? (open.length > 1 ? `${first.label} · ${byId[open[1]].label}` : first.label) : 'Instruments';
+    second.hidden = !wide.matches || open.length !== 1;
+    popBtn.hidden = !open.length;
     const f = store.get().frame;
-    if (f) setTimeout(() => byId[active].update(f), 300);
+    if (f) setTimeout(() => { for (const id of open) byId[id].update(f); }, app.classList.contains('dock-open') ? 300 : 0);
+  }
+  wide.addEventListener('change', () => { if (!wide.matches && open.length > 1) open = open.slice(0, 1); layout(); });
+  function show(id, { open: doOpen = true, reveal = false, alongside = false } = {}) {
+    if (!byId[id]) return;
+    if (floats.has(id)) { floats.get(id).classList.add('flash'); setTimeout(() => floats.get(id)?.classList.remove('flash'), 600); return; }
+    if (alongside && open.length === 1 && open[0] !== id) open = [open[0], id];
+    else if (!open.includes(id)) open = [id];
+    layout();
+    if (reveal) onReveal?.(reveal);
+    else if (doOpen) app.classList.add('dock-open');
+    if (app.classList.contains('dock-open')) titleBtn.classList.remove('ping');
     setTimeout(() => dispatchEvent(new Event('resize')), 320);
   }
-  show('profile', { open: false });
+  function close() { app.classList.remove('dock-open'); setTimeout(() => dispatchEvent(new Event('resize')), 320); }
+  function toggle() {
+    titleBtn.classList.remove('ping');
+    if (!open.length) open = ['profile'];
+    layout();
+    app.classList.toggle('dock-open');
+    setTimeout(() => dispatchEvent(new Event('resize')), 320);
+  }
+  // Floating window over the figure: drag by its header, resize from the corner.
+  function popOut(id) {
+    const p = byId[id];
+    const view = document.getElementById('stageView');
+    const back = h('button', { class: 'ib', 'aria-label': 'Dock under the figure', title: 'Dock' }, svgIcon('download'));
+    const x = h('button', { class: 'ib', 'aria-label': 'Close', title: 'Close' }, svgIcon('close'));
+    const bar = h('header', { class: 'if-head' }, h('b', {}, p.label), h('span', { class: 'sp' }), back, x);
+    const win = h('section', { class: 'instr-float stage-blocker', role: 'dialog', 'aria-label': p.label }, bar, p.el);
+    win.style.left = '16px'; win.style.top = '16px';
+    view.append(win);
+    floats.set(id, win);
+    p.el.classList.add('active');
+    open = open.filter((o) => o !== id);
+    if (!open.length) app.classList.remove('dock-open');
+    layout();
+    const dock = () => { floats.delete(id); body.append(p.el); win.remove(); show(id, { open: true }); };
+    back.addEventListener('click', dock);
+    x.addEventListener('click', () => { floats.delete(id); body.append(p.el); p.el.classList.remove('active'); win.remove(); });
+    bar.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('button')) return;
+      const r = win.getBoundingClientRect(), vr = view.getBoundingClientRect();
+      const dx = e.clientX - r.left, dy = e.clientY - r.top;
+      bar.setPointerCapture(e.pointerId);
+      bar.onpointermove = (ev) => { win.style.left = `${clamp(ev.clientX - vr.left - dx, 0, vr.width - 80)}px`; win.style.top = `${clamp(ev.clientY - vr.top - dy, 0, vr.height - 40)}px`; };
+      bar.onpointerup = () => { bar.onpointermove = null; };
+    });
+    new ResizeObserver(() => { const f = store.get().frame; if (f) p.update(f); }).observe(win);
+    const f = store.get().frame; if (f) setTimeout(() => p.update(f), 30);
+  }
 
   function update(f, force) {
     updateStrip(f);
@@ -184,12 +232,12 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     // The HVPG instrument also records wedge measurements (lessons and cases wait on them),
     // so it runs whenever a catheter is in place, open or not.
     const cath = (f.params || store.get().params).catheter;
-    if (cath?.vein && active !== 'hvpg') byId.hvpg.update(f);
-    if (!force && !app.classList.contains('dock-open') && !window.matchMedia('(max-width: 767px), (max-height: 500px)').matches) { if (cath?.vein && active === 'hvpg') byId.hvpg.update(f); return; }
-    const p = byId[active];
-    if (p === byId.scope) p.redraw(); else p.update(f);
+    if (cath?.vein && !open.includes('hvpg') && !floats.has('hvpg')) byId.hvpg.update(f);
+    for (const id of floats.keys()) { const p = byId[id]; if (p === byId.scope) p.redraw(); else p.update(f); }
+    if (!force && !app.classList.contains('dock-open') && !window.matchMedia('(max-width: 767px), (max-height: 500px)').matches) return;
+    for (const id of open) { const p = byId[id]; if (p === byId.scope) p.redraw(); else p.update(f); }
   }
 
-  addEventListener('resize', () => { const f = store.get().frame; if (f) byId[active].update(f); });
-  return { update, show, toggle, profile: byId.profile, pane: (id) => byId[id] };
+  addEventListener('resize', () => { const f = store.get().frame; if (f) for (const id of [...open, ...floats.keys()]) byId[id].update(f); });
+  return { update, show, toggle, close, openGrid, profile: byId.profile, pane: (id) => byId[id], isOpen: (id) => open.includes(id) || floats.has(id) };
 }

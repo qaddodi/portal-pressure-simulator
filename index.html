@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles/tokens.css?v=ab946f615d" />
-  <link rel="stylesheet" href="styles/app.css?v=a8872a17b7" />
+  <link rel="stylesheet" href="styles/app.css?v=65a2d02a2a" />
 </head>
 <body>
   <!-- Icon set: 24px grid, 1.6px stroke, round caps (blueprint §5.6). -->
@@ -85,29 +85,21 @@
 
   <div class="app" id="app" data-sheet="panel" data-mode="explore">
     <header class="topbar">
-      <a class="brand" href="./" aria-label="Portal Pressure Simulator, home">
+      <a class="brand" href="./" id="brandBtn" aria-label="Portal Pressure Simulator: home">
         <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" class="brand-bg"/><path d="M16 27v-9M16 18l-7-9M16 18l7-9" stroke="#fff" stroke-width="3" stroke-linecap="round" fill="none"/><circle cx="9" cy="8.5" r="2.6" fill="#7CC4E4"/><circle cx="23" cy="8.5" r="2.6" fill="#C0307A"/></svg>
         <span class="brand-text"><span class="brand-name">Portal Pressure</span><span class="brand-sub">Simulator</span></span>
       </a>
-      <nav class="modes" role="tablist" aria-label="Mode" id="modeSeg">
-        <button role="tab" data-mode="explore" aria-selected="true"><svg><use href="#i-explore"/></svg><span>Explore</span></button>
-        <button role="tab" data-mode="learn" aria-selected="false"><svg><use href="#i-book"/></svg><span>Learn</span></button>
-        <button role="tab" data-mode="cases" aria-selected="false"><svg><use href="#i-case"/></svg><span>Cases</span></button>
-      </nav>
-      <button class="mode-menu" id="modeMenuBtn" aria-haspopup="menu" aria-label="Mode"><span id="modeMenuLabel">Explore</span><svg class="chev"><use href="#i-chev-down"/></svg></button>
+      <button class="scenario-btn" id="scenarioBtn" aria-haspopup="dialog" title="Choose a patient scenario">
+        <span class="scenario-k">Patient</span>
+        <span class="scenario-v" id="scenarioName">Healthy</span>
+        <svg class="chev"><use href="#i-chev-down"/></svg>
+      </button>
+      <div class="session-bar" id="sessionBar" role="status" hidden></div>
       <div class="top-right">
-        <button class="scenario-btn" id="scenarioBtn" aria-haspopup="dialog" title="Choose a patient scenario">
-          <span class="scenario-k">Patient</span>
-          <span class="scenario-v" id="scenarioName">Healthy</span>
-          <svg class="chev"><use href="#i-chev-down"/></svg>
-        </button>
-        <div class="tb-group hide-sm">
-          <button class="ib" id="btnShare" title="Copy a link to this exact scenario" aria-label="Share link"><svg><use href="#i-share"/></svg></button>
-          <button class="ib" id="btnTheme" title="Light / dark" aria-label="Toggle theme"><svg><use href="#i-theme"/></svg></button>
-          <button class="ib" id="btnHelp" title="Guide &amp; shortcuts (?)" aria-label="Help"><svg><use href="#i-help"/></svg></button>
-        </div>
-        <button class="ib show-sm" id="btnMore" aria-label="More" aria-haspopup="menu"><svg><use href="#i-more"/></svg></button>
-        <button class="btn panel-toggle hide-sm" id="btnInspector" aria-label="Toggle side panel" aria-pressed="true"><svg><use href="#i-panel"/></svg><span id="panelToggleLabel">Controls</span></button>
+        <button class="pal-btn" id="btnPalette" title="Command palette (Ctrl K)" aria-label="Command palette"><svg><use href="#i-explore"/></svg><span class="pal-l">Search or run…</span><kbd>Ctrl K</kbd></button>
+        <button class="ib" id="btnShare" title="Share &amp; export" aria-label="Share and export" aria-haspopup="menu"><svg><use href="#i-share"/></svg></button>
+        <button class="ib" id="btnMenu" title="Settings, role, help" aria-label="Menu" aria-haspopup="menu"><svg><use href="#i-sliders"/></svg></button>
+        <button class="btn panel-toggle" id="btnInspector" aria-label="Show or hide the patient chart" aria-pressed="true"><svg><use href="#i-panel"/></svg><span>Chart</span></button>
       </div>
     </header>
 
@@ -124,6 +116,7 @@
         <div class="sb-center stage-blocker" id="stageCenter"><span class="bleed-pill" id="bleedPill" role="status" hidden></span><div class="sb-banner" id="stageBanner"></div></div>
         <div class="sb-right">
           <div class="legend" id="legend" role="img" aria-label="Color legend"></div>
+          <button class="chip-btn" id="btnInstruments" aria-haspopup="dialog" title="Instruments: pressure profile, Doppler, HVPG, endoscopy… (I)"><svg><use href="#i-chart"/></svg><span>Instruments</span></button>
           <button class="chip-btn" id="btnFigure" title="Figure view: a clean, labeled plate to present or export (F)"><svg><use href="#i-camera"/></svg><span>Figure</span></button>
           <button class="ib show-sm" id="btnExpand" aria-label="Expand figure" aria-pressed="false"><svg><use href="#i-fit"/></svg></button>
         </div>
@@ -151,24 +144,25 @@
       <div class="dock-body" id="dockBody"></div>
     </section>
 
-    <aside class="panel" id="panel" aria-label="Side panel">
+    <aside class="panel" id="panel" aria-label="Patient chart">
       <div id="panelLesson"></div>
+      <div id="panelCase"></div>
       <div id="inspector"></div>
     </aside>
 
     <nav class="mobile-tabs" id="mobileTabs" role="tablist" aria-label="Panels">
-      <button role="tab" data-sheet="panel" aria-selected="true"><svg><use href="#i-sliders"/></svg><span id="mobilePanelLabel">Controls</span></button>
-      <button role="tab" data-sheet="readouts" aria-selected="false"><svg><use href="#i-gauge"/></svg><span>Readouts</span></button>
+      <button role="tab" data-sheet="panel" aria-selected="true"><svg><use href="#i-gauge"/></svg><span>Chart</span></button>
       <button role="tab" data-sheet="charts" aria-selected="false"><svg><use href="#i-chart"/></svg><span>Instruments</span></button>
     </nav>
   </div>
 
+  <section class="home" id="home" aria-label="Home" hidden></section>
   <div class="tooltip" id="tooltip" role="tooltip"></div>
   <div class="why-pop" id="whyPop" role="dialog" aria-label="Why?"></div>
   <div class="modal-back" id="modalBack"><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
   <div class="toast-wrap" id="toasts"></div>
   <div class="sr-only" aria-live="polite" id="live"></div>
 
-  <script type="module" src="src/ui/main.js?v=868fc29304"></script>
+  <script type="module" src="src/ui/main.js?v=a288477343"></script>
 </body>
 </html>

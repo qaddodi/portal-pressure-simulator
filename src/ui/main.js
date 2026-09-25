@@ -1,17 +1,21 @@
-// Application bootstrap: wires store, engine host, figure, panel, readouts, instruments and modes.
+// Application bootstrap: wires the engine host to the four surfaces (figure + action card,
+// timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
 import { startHost, host } from './host.js?v=878b8f0b20';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=609dde7847';
-import { createStage } from './stage.js?v=f5eba9430a';
-import { createInspector, activeInterventions } from './inspector.js?v=04a42bd879';
-import { createDock } from './dock.js?v=1a83a35ea5';
+import { createStage } from './stage.js?v=42ed04b6ae';
+import { createInspector, activeInterventions } from './inspector.js?v=ef36f22648';
+import { createDock } from './dock.js?v=28eb501b4e';
 import { createWhy } from './why.js?v=9aaf3b4a56';
-import { createTimeline } from './timeline.js?v=1c6d06a25e';
-import { createLearn } from './learn.js?v=ab8701efd7';
-import { createCases } from './cases.js?v=6e5394832b';
-import { createCompare } from './compare.js?v=9454ef93c9';
+import { createTimeline } from './timeline.js?v=551456b34d';
+import { createLearn } from './learn.js?v=5daa30d938';
+import { createCases } from './cases.js?v=f5f5cb7bcb';
+import { createCompare } from './compare.js?v=b976bdfeab';
 import { createFigure } from './figure.js?v=7db0e202ba';
 import { createCard } from './card.js?v=f46b09ec99';
+import { createChart } from './chart.js?v=f433f010b8';
+import { createHome } from './home.js?v=a222ed6130';
+import { createPalette } from './palette.js?v=8d92dad914';
 import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=3737b309ec';
 import { gradientCss, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=fa78a29bc0';
 import { EDGES, NODES } from '../engine/topology.js?v=44e0aca402';
@@ -43,13 +47,13 @@ const LENSES = {
 };
 const COLOR_MODES = { pressure: 'Pressure', delta: 'Change', heat: 'Congestion', drop: 'Pressure drop', flow: 'Flow volume', velocity: 'Velocity', direction: 'Flow direction' };
 const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };
-const MODE_LABEL = { explore: 'Explore', learn: 'Learn', cases: 'Cases' };
-const PANEL_LABEL = { explore: 'Controls', learn: 'Lesson', cases: 'Case' };
+const ROLES = [['student', 'Student', 'The model and the clinical orders.'], ['instructor', 'Instructor', 'Adds the physiology knobs and presenter scripts.'], ['researcher', 'Researcher', 'Everything open, with resistances on the cards.']];
 
-let stage, inspector, dock, why, timeline, learn, cases, compare, figure, card;
+let stage, inspector, dock, why, timeline, learn, cases, compare, figure, card, chart, home, palette;
 
 async function main() {
-  applyTheme(localStorage.getItem('pps.theme'));
+  applyTheme(readLS('pps.theme'));
+  store.set({ role: readLS('pps.role') || 'student' });
   const kind = await startHost();
   console.info(`Engine running in ${kind === 'worker' ? 'a Web Worker' : 'the main thread'}.`);
   bindParamSender((params, settle) => host.send({ type: 'setParams', params, settle }));
@@ -76,16 +80,35 @@ async function main() {
     canRevert: () => store.get().mode !== 'cases',
     scenarioLabel: () => store.get().presetList?.find((x) => x.id === store.get().presetId)?.label || 'Custom',
   });
+  chart = createChart({
+    onWhy: (m, el) => why.open(m, el), flash: (ids) => stage.flash(ids), onScenarios: (el) => openScenarios(el),
+    action: doAction, startShunt: (id, o) => stage.startShunt(id, o), select: (sel) => store.set({ selection: sel }), timeline, pinned: () => compare.section(),
+  });
   inspector = createInspector($('#inspector'), {
     onWhy: (m, el) => why.open(m, el), onAction: doAction, onOpenTab: (id) => dock.show(id, { reveal: true }), onClose: closePanel,
-    onScenarios: () => openScenarios($('#scenarioBtn')), onMode: (m) => store.set({ mode: m }),
-    pinned: () => compare.section(),
+    onScenarios: () => openScenarios($('#scenarioBtn')), onMode: (m) => store.set({ mode: m }), chart,
   });
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => host.send({ type: 'probe', id }), onReveal: revealDock });
-  const api = { beginSession, endSession, muteEvents: () => {}, loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), openPanel, setBanner, select: (sel) => store.set({ selection: sel }) };
+  const api = { beginSession, endSession, onEnd: () => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); }, muteEvents: () => {}, loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), openPanel, setBanner, select: (sel) => store.set({ selection: sel }) };
   // A lesson keeps its card in view on a phone: instruments it opens are flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), panel: $('#panel'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
-  cases = createCases({ root: $('#inspector'), api });
+  cases = createCases({ root: $('#panelCase'), api });
+  home = createHome({
+    el: $('#home'), brandMark,
+    onPreset: async (id) => { home.close(); if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); },
+    onLesson: (id) => { home.close(); startLesson(id); },
+    onCase: (id) => { home.close(); startCase(id); },
+    onPresenter: () => presenterHome(),
+    onClose: () => home.close(),
+  });
+  palette = createPalette({ ctx: {
+    select: (sel) => store.set({ selection: sel }), action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
+    wedge: () => { store.set({ selection: { type: 'edge', id: 'RHV_IVC' } }); setTimeout(() => card.trigger(3), 60); },
+    jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
+    zoomLobule: () => zoomLobule('R'), figure: () => toggleFigure(true), exportFile: (k) => { toggleFigure(true); setTimeout(() => figure.exportFile(k), 400); }, projector: () => toggleProjector(), instruments: () => dock.toggle(),
+    loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); toast(store.get().presetList.find((p) => p.id === id)?.label); },
+    lesson: (id) => startLesson(id), caseStart: (id) => startCase(id), home: () => home.open(), theme: () => toggleTheme(), help: () => openHelp(), share,
+  } });
   figure = createFigure({ app, stage, onClose: () => toggleFigure(false) });
   card = createCard({
     view, stage, onWhy: (m, el) => why.open(m, el),
@@ -117,15 +140,20 @@ async function main() {
   store.on('mode', onMode);
   store.on('layers', () => { app.classList.toggle('chips-off', !store.get().layers.chips); redraw(); });
   store.on('presetId', (id) => { $('#scenarioName').textContent = presets.find((p) => p.id === id)?.label || 'Custom'; });
+  store.on('role', (r) => { try { localStorage.setItem('pps.role', r); } catch { /* storage unavailable */ } app.dataset.role = r; card.render(); });
+  app.dataset.role = store.get().role;
   for (const k of ['compareSnap', 'compareView', 'colorMode', 'imaging']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
   store.on('compareSnap', () => { if (!store.get().details) inspector.render(); });
   store.on('focus', redraw);
   store.on('selection', redraw);
 
   // Console handle for educators preparing a class (and for automated screenshots).
-  window.pps = { loadPreset, store, updateParams, setTool, dock, stage, host, toggleFigure, figure, card };
+  window.pps = { loadPreset, store, updateParams, setTool, dock, stage, host, toggleFigure, figure, card, timeline, home, palette, startLesson, startCase };
   const shared = readShare();
   if (shared) await loadShared(shared); else timeline.reset();
+  inspector.render();
+  sizeDock();
+  addEventListener('resize', sizeDock);
   firstRun();
 }
 const redraw = () => { const f = store.get().frame; if (f) stage.update(viewFrame(f)); };
@@ -238,6 +266,9 @@ function endSession(kind) {
       h('button', { class: 'btn primary', onclick: back }, 'Return to where I was'))), { sub: null });
 }
 
+function startLesson(id) { if (store.get().mode === 'cases') cases.exit(); store.set({ mode: 'learn' }); learn.start(id); }
+function startCase(id) { if (store.get().mode === 'learn') learn.stop(); store.set({ mode: 'cases' }); cases.start(id); openPanel(); }
+
 // ── Actions ─────────────────────────────────────────
 function doAction(a) {
   if (a.kind === 'probe') { host.send({ type: 'probe', id: a.id }); return; }
@@ -320,6 +351,7 @@ function buildHud() {
   $('#legend').addEventListener('click', (e) => openLegend(e.currentTarget));
   $('#btnFigure').addEventListener('click', () => toggleFigure(true));
   $('#btnDraw').addEventListener('click', (e) => openDraw(e.currentTarget));
+  $('#btnInstruments').addEventListener('click', (e) => dock.openGrid(e.currentTarget));
   new ResizeObserver(() => stage.relayout()).observe(view);
 }
 function legendModel() {
@@ -456,26 +488,30 @@ function hoverInfo(info) {
   tipEl.style.top = Math.max(8, Math.min(H - tipEl.offsetHeight - 8, info.y + 16)) + 'px';
 }
 
-// Banner in the figure header: what the current lesson step asks, the case clock, or A/B.
+// The figure header carries the A / Now / A→Now switch when a moment is pinned; a lesson or
+// case shows a slim banner in the top bar with its progress and a way out.
 let bannerInfo = null;
 function setBanner(info) { bannerInfo = info; renderBanner(); }
 function renderBanner() {
   const el = $('#stageBanner');
   const s0 = store.get();
-  let kids = [];
+  const kids = [];
   if (s0.compareSnap) {
-    const seg = h('div', { class: 'seg cmp-seg', role: 'group', 'aria-label': 'Show state' }, [['A', 'A', 'The pinned moment A'], ['B', 'Now', 'The live model'], ['D', 'A→Now', 'Change from A to now']].map(([v, l, t]) => {
+    kids.push(h('div', { class: 'seg cmp-seg', role: 'group', 'aria-label': 'Show state' }, [['A', 'A', 'The pinned moment A'], ['B', 'Now', 'The live model'], ['D', 'A→Now', 'Change from A to now']].map(([v, l, t]) => {
       const b = h('button', { 'aria-pressed': String((s0.compareView || 'B') === v), title: t }, h('b', {}, l));
       b.addEventListener('click', () => store.set({ compareView: v }));
       return b;
-    }));
-    kids = [seg];
-  }
-  if (bannerInfo && (s0.mode === 'learn' || s0.mode === 'cases')) {
-    kids.push(h('div', { class: 'banner' + (s0.mode === 'cases' ? ' case' : ''), title: bannerInfo.text }, h('span', { class: 'b-tag' }, bannerInfo.tag), h('span', { class: 'b-text' }, bannerInfo.text)));
+    })));
   }
   el.replaceChildren(...kids);
-  // A clear badge when the figure shows the snapshot, not the live model.
+  const bar = $('#sessionBar');
+  const inSession = bannerInfo && (s0.mode === 'learn' || s0.mode === 'cases');
+  bar.hidden = !inSession;
+  if (inSession) {
+    const exit = h('button', { class: 'btn sm', onclick: () => (s0.mode === 'cases' ? cases.exit() : learn.stop()) }, `Exit ${s0.mode === 'cases' ? 'case' : 'lesson'}`);
+    bar.replaceChildren(h('span', { class: 'b-tag' + (s0.mode === 'cases' ? ' case' : '') }, bannerInfo.tag), h('span', { class: 'b-text', title: bannerInfo.text }, bannerInfo.text), exit);
+  }
+  app.classList.toggle('in-session', !!inSession);
   view.querySelector('.cmp-badge')?.remove();
   if (s0.compareSnap && s0.compareView === 'A') view.append(h('div', { class: 'cmp-badge stage-blocker' }, `Showing A · ${s0.compareSnap.when}`));
   redraw();
@@ -483,26 +519,46 @@ function renderBanner() {
 
 // ── Top bar & transport ─────────────────────────────
 function wireTopbar() {
-  $$('#modeSeg button').forEach((b) => b.addEventListener('click', () => store.set({ mode: b.dataset.mode })));
-  $('#modeMenuBtn').addEventListener('click', (e) => {
-    popover(e.currentTarget, [h('div', { class: 'menu-title' }, 'Mode'), ...Object.entries(MODE_LABEL).map(([m, l]) => menuItem(l, { checked: store.get().mode === m, onClick: () => { closePopover(); store.set({ mode: m }); } }))]);
-  });
+  $('#brandBtn').addEventListener('click', (e) => { e.preventDefault(); home.open(); });
   $('#scenarioBtn').addEventListener('click', (e) => openScenarios(e.currentTarget));
-  $('#btnShare').addEventListener('click', share);
-  $('#btnTheme').addEventListener('click', toggleTheme);
-  $('#btnHelp').addEventListener('click', openHelp);
-  $('#btnInspector').addEventListener('click', () => (panelShown() ? closePanel() : openPanel()));
-  $('#btnMore').addEventListener('click', (e) => popover(e.currentTarget, [
-    menuItem('Undo', { icon: 'undo', onClick: () => { closePopover(); doUndo(); } }), menuItem('Redo', { icon: 'redo', onClick: () => { closePopover(); doRedo(); } }),
+  $('#btnPalette').addEventListener('click', () => palette.open());
+  $('#btnShare').addEventListener('click', (e) => popover(e.currentTarget, [
+    h('div', { class: 'menu-title' }, 'Share & export'),
+    menuItem('Copy a link to this exact state', { icon: 'share', onClick: () => { closePopover(); share(); } }),
+    menuItem('Figure view', { icon: 'camera', kb: 'F', onClick: () => { closePopover(); toggleFigure(true); } }),
+    menuItem('Export PNG (2×)', { icon: 'download', onClick: () => { closePopover(); toggleFigure(true); setTimeout(() => figure.exportFile('png'), 400); } }),
+    menuItem('Export SVG (editable)', { icon: 'download', onClick: () => { closePopover(); toggleFigure(true); setTimeout(() => figure.exportFile('svg'), 400); } }),
+    menuItem('Print', { icon: 'print', onClick: () => { closePopover(); toggleFigure(true); setTimeout(() => print(), 400); } }),
     h('div', { class: 'menu-sep' }),
-    menuItem('Figure view (export)', { icon: 'camera', onClick: () => { closePopover(); toggleFigure(true); } }),
-    menuItem('Copy share link', { icon: 'share', onClick: () => { closePopover(); share(); } }),
-    menuItem('Light / dark', { icon: 'theme', onClick: () => { closePopover(); toggleTheme(); } }),
-    menuItem('Guide', { icon: 'help', onClick: () => { closePopover(); openHelp(); } }),
+    menuItem('Projector mode', { icon: 'projector', kb: 'Shift F', onClick: () => { closePopover(); toggleProjector(); } }),
   ], { align: 'end' }));
-  for (const [id, side] of [['#btnShare', 'bottom'], ['#btnTheme', 'bottom'], ['#btnHelp', 'bottom']]) {
+  $('#btnMenu').addEventListener('click', (e) => openMenu(e.currentTarget));
+  $('#btnInspector').addEventListener('click', () => (panelShown() ? closePanel() : openPanel()));
+  for (const [id, side] of [['#btnPalette', 'bottom'], ['#btnShare', 'bottom'], ['#btnMenu', 'bottom']]) {
     const b = $(id); tooltipFor(b, b.title, side); b.removeAttribute('title');
   }
+}
+function openMenu(anchor) {
+  const cur = document.documentElement.getAttribute('data-theme') || 'system';
+  const role = store.get().role;
+  const unitSel = (kind, opts) => {
+    const sel = h('select', { class: 'select', style: { height: '30px', fontSize: '12.5px' }, 'aria-label': kind === 'pressure' ? 'Pressure unit' : 'Flow unit' }, opts.map((u) => h('option', { value: u, selected: units[kind] === u }, u)));
+    sel.addEventListener('change', () => { units[kind] = sel.value; inspector.render(); card.render(); redraw(); });
+    return sel;
+  };
+  popover(anchor, [
+    h('div', { class: 'menu-title' }, 'Appearance'),
+    h('div', { class: 'seg full', style: { margin: '2px 6px 6px' } }, [['light', 'Light'], ['dark', 'Dark'], ['system', 'System']].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { closePopover(); applyTheme(v === 'system' ? null : v, v === 'system'); }); return b; })),
+    h('div', { class: 'menu-title' }, 'Units'),
+    h('div', { style: { display: 'flex', gap: '6px', padding: '2px 10px 6px' } }, unitSel('pressure', ['mmHg', 'cmH2O', 'kPa']), unitSel('flow', ['L/min', 'mL/min'])),
+    h('div', { class: 'menu-sep' }),
+    h('div', { class: 'menu-title' }, 'I am a…'),
+    ...ROLES.map(([v, l, d]) => { const b = menuItem(l, { checked: role === v, onClick: () => { closePopover(); store.set({ role: v }); toast(`${l}: ${d}`); } }); b.title = d; return b; }),
+    h('div', { class: 'menu-sep' }),
+    menuItem('Home', { icon: 'grid', onClick: () => { closePopover(); home.open(); } }),
+    menuItem('Command palette', { icon: 'explore', kb: 'Ctrl K', onClick: () => { closePopover(); palette.open(); } }),
+    menuItem('Guide & shortcuts', { icon: 'help', kb: '?', onClick: () => { closePopover(); openHelp(); } }),
+  ], { align: 'end', cls: 'app-menu' });
 }
 function doUndo() { timeline.undo(); }
 function doRedo() { timeline.redo(); }
@@ -512,10 +568,18 @@ function toggleTheme() {
 }
 function settle() { host.send({ type: 'settle' }); toast('Settled to equilibrium.'); }
 function setSpeed(v) { store.set({ speed: v }); host.send({ type: 'run', speed: v, clock: 'hemo' }); }
-function applyTheme(t) {
+function applyTheme(t, clear) {
   if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme');
-  try { if (t) localStorage.setItem('pps.theme', t); } catch { /* storage unavailable */ }
+  try { if (t) localStorage.setItem('pps.theme', t); else if (clear) localStorage.removeItem('pps.theme'); } catch { /* storage unavailable */ }
   const f = store.get().frame; if (f) { stage?.update(viewFrame(f)); dock?.update(f); }
+}
+function readLS(k) { try { return localStorage.getItem(k); } catch { return null; } }
+// An open instrument takes at most ~30 % of the figure column (never under 236 px, the least a
+// chart needs to stay legible); the figure keeps the rest.
+function sizeDock() {
+  const avail = app.clientHeight - ($('.topbar')?.offsetHeight || 52);
+  const want = parseFloat(readLS('pps.dockH')) || 260;
+  app.style.setProperty('--dock-open-h', `${Math.round(Math.max(236, Math.min(want, avail * 0.3)))}px`);
 }
 function panelShown() { return isNarrow() ? app.classList.contains('panel-open') : !app.classList.contains('panel-collapsed'); }
 function syncPanelToggle() { $('#btnInspector').setAttribute('aria-pressed', String(panelShown())); setTimeout(() => stage?.relayout(), 320); }
@@ -529,17 +593,14 @@ function closePanel() { if (isNarrow()) app.classList.remove('panel-open'); else
 // ── Modes ───────────────────────────────────────────
 function onMode(mode) {
   app.dataset.mode = mode;
-  $$('#modeSeg button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.mode === mode)));
-  $('#modeMenuLabel').textContent = MODE_LABEL[mode];
   if (mode !== 'cases' && cases?.active()) cases.exit();
+  if (mode !== 'learn' && learn?.active()) learn.stop();
   if (mode !== 'learn' && mode !== 'cases') { bannerInfo = null; store.set({ focus: null }); }
-  if (mode === 'cases') { cases.mount(); openPanel(); }
-  else inspector.render();
-  if (mode === 'learn') { learn.render(); if (!learn.active()) learn.openList(); }
+  if (mode === 'cases') cases.mount();
+  learn.render();
   if (mode === 'explore') { store.set({ locked: null, hiddenReadouts: null, imaging: false }); setAllowedTools(null); }
   store.set({ selection: null, details: null });
-  $('#mobilePanelLabel').textContent = PANEL_LABEL[mode];
-  $('#panelToggleLabel').textContent = PANEL_LABEL[mode];
+  inspector.render();
   renderPaintHint(); renderBanner(); renderLegend();
   if (isPhone()) setSheet('panel');
 }
@@ -548,10 +609,12 @@ function onMode(mode) {
 function wireKeyboard() {
   addEventListener('keydown', (e) => {
     const tag = (e.target.tagName || '').toLowerCase();
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); palette.isOpen() ? palette.close() : palette.open(); return; }
     if (tag === 'input' || tag === 'select' || tag === 'textarea') { if (e.key === 'Escape') e.target.blur(); return; }
     if (e.key === 'Escape') {
       closePopover();
       if (isModalOpen()) closeModal();
+      else if (home.isOpen()) home.close();
       else if (app.classList.contains('figure-mode')) toggleFigure(false);
       else if (projector) toggleProjector();
       else if (stage.isShunting()) stage.cancelShunt();
@@ -559,7 +622,8 @@ function wireKeyboard() {
       else store.set({ selection: null });
       return;
     }
-    if (isModalOpen()) return;
+    if (isModalOpen() || home.isOpen()) return;
+    if (e.key === '/') { e.preventDefault(); palette.open(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); (e.shiftKey ? doRedo : doUndo)(); return; }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === ' ' && !e.target.closest?.('.v-hit, button, .lb')) { e.preventDefault(); host.send({ type: 'run', running: !store.get().running }); return; }
@@ -656,7 +720,7 @@ function wireDockResize() {
     $('#dock').style.transition = 'none';
     handle.onpointermove = (ev) => { const nh = Math.max(180, Math.min(innerHeight * 0.6, h0 + (y0 - ev.clientY))); app.style.setProperty('--dock-open-h', nh + 'px'); };
   });
-  handle.addEventListener('pointerup', () => { handle.onpointermove = null; $('#dock').style.transition = ''; const f = store.get().frame; if (f) dock.update(f, true); });
+  handle.addEventListener('pointerup', () => { handle.onpointermove = null; $('#dock').style.transition = ''; try { localStorage.setItem('pps.dockH', String($('#dock').getBoundingClientRect().height)); } catch { /* storage unavailable */ } sizeDock(); const f = store.get().frame; if (f) dock.update(f, true); });
 }
 
 // ── Help & first run ────────────────────────────────
@@ -671,13 +735,13 @@ function openHelp() {
     ['F', 'Figure view'], ['I', 'Open / close instruments'], ['L', 'Next color lens (Shift: previous)'],
     ['Click', 'Open the actions for a vessel or organ'], ['1 – 9', 'Run an action on the open card'],
     ['Ctrl/⌘ Z', 'Back one change on the timeline (Shift: forward)'], ['P', 'Pin this moment as A / unpin'], ['Esc', 'Cancel · close the card · close'], ['Shift F', 'Projector mode'], ['?', 'This guide'],
-    ['Tab · Enter', 'Reach a vessel, open its actions'], ['← →', 'Walk vessels along the flow'],
+    ['Tab · Enter', 'Reach a vessel, open its actions'], ['← →', 'Walk vessels along the flow'], ['Ctrl/⌘ K or /', 'Command palette'],
   ];
   openModal('Guide', h('div', {},
     h('p', {}, 'A living model of the portal circulation. Every pressure, flow, collateral and varix comes out of one lumped-parameter hemodynamic model. Nothing is scripted: change a resistance and watch the consequences propagate.'),
     h('div', { class: 'entry-grid' },
       [['explore', 'Act on the anatomy', 'Click any vessel or organ. A card opens beside it with what you can do there: narrow or clot a vein, make the liver cirrhotic, band varices, wedge a catheter, start a shunt.'],
-        ['settle', 'Two clocks', 'Seconds for hemodynamics. Months for remodeling: collaterals, varices, spleen and ascites.'],
+        ['settle', 'One timeline', 'Play runs the heartbeat-scale model; +1 wk, +1 mo and +6 mo jump the disease ahead. Every change is a marker you can go back to or pin as A to compare.'],
         ['bulb', 'Ask “Why?”', 'Click any readout for a causal breakdown of what is driving it, change by change.']].map(([ic, t, d]) => h('div', { class: 'entry', style: { cursor: 'default' } }, h('span', { class: 'eic' }, icon(ic)), h('span', { class: 't' }, t), h('span', { class: 'd' }, d)))),
     h('h3', {}, 'Keyboard'),
     h('div', { class: 'keys' }, rows.map(([k, v]) => h('div', {}, h('span', {}, v), h('kbd', {}, k)))),
@@ -692,19 +756,13 @@ function openHelp() {
     h('p', { class: 'disclaimer' }, 'Educational simulation. The model is simplified and its values are illustrative; do not use it for diagnosis or treatment decisions.')), { wide: true });
 }
 function firstRun() {
-  let seen = false;
-  try { seen = localStorage.getItem('pps.seen') === '1'; } catch { /* storage unavailable */ }
-  if (seen) return;
-  const done = () => { try { localStorage.setItem('pps.seen', '1'); } catch { /* storage unavailable */ } closeModal(); };
-  const entry = (ic, t, d, fn) => h('button', { class: 'entry', onclick: () => { done(); fn(); } }, h('span', { class: 'eic' }, icon(ic)), h('span', { class: 't' }, t), h('span', { class: 'd' }, d));
-  openModal('Welcome', h('div', { class: 'welcome' },
-    h('div', { class: 'welcome-hero' }, brandMark(), h('div', {}, h('h1', {}, 'Portal Pressure Simulator'), h('p', { class: 'sub', style: { margin: '4px 0 0' } }, 'A living, physics-based model of the portal circulation.'))),
-    h('p', { style: { margin: 0 } }, 'Raise a resistance anywhere from the gut to the heart and blood finds another way: collaterals open, varices swell until they rupture, the portal vein reverses and ascites accumulates. All of it emerges from one hemodynamic model.'),
-    h('div', { class: 'entry-grid' },
-      entry('explore', 'Explore freely', 'Start from a healthy liver, or pick a patient scenario.', () => {}),
-      entry('book', 'Take a lesson', '11 short lessons: predict, observe, explain.', () => store.set({ mode: 'learn' })),
-      entry('case', 'Manage a case', 'A variceal bleed at 3 a.m., and three diagnostic puzzles.', () => store.set({ mode: 'cases' }))),
-    h('p', { class: 'disclaimer', style: { margin: 0 } }, 'Educational simulation. Simplified model with illustrative values; not for diagnosis or treatment decisions.')), { bare: true });
+  if (readLS('pps.seen') === '1' || readShare()) return;
+  try { localStorage.setItem('pps.seen', '1'); } catch { /* storage unavailable */ }
+  home.open('explore');
+}
+// Presenter scripts (Home › Presenter) arrive with the teaching tools; until then, projector mode.
+function presenterHome() {
+  return h('div', { class: 'home-grid' }, h('button', { class: 'home-item', onclick: () => { home.close(); toggleProjector(); } }, h('span', { class: 't' }, 'Projector mode'), h('span', { class: 'd' }, 'Large type and hidden chrome for the room.')));
 }
 
 main().catch((err) => { console.error(err); document.body.append(h('pre', { style: { position: 'fixed', bottom: 0, left: 0, background: '#fff', color: '#900', padding: '8px', zIndex: 999 } }, String(err.stack || err))); });

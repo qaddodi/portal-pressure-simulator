@@ -60,7 +60,7 @@ for (const k of Object.keys(DRUGS)) CONTROLS['drug:' + k] = { type: 'drug', key:
 
 const DRUG_SHORT = { propranolol: 'Non-selective β-blocker', carvedilol: 'β-blocker + α1 blockade', terlipressin: 'Vasopressin analogue', octreotide: 'Somatostatin analogue' };
 
-export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onScenarios, onMode, pinned }) {
+export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onScenarios, onMode, pinned, chart }) {
   let live = [];        // [el, fn(frame)]
   let syncers = [];
   let lastSel;
@@ -321,7 +321,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onS
     if (store.get().mode === 'cases') return; // the case panel owns this element
     live = []; syncers = [];
     const sel = store.get().details;
-    const els = (!sel ? globalPanel() : sel.type === 'edge' ? edgePanel(sel.id) : sel.type === 'node' ? nodePanel(sel.id) : sel.type === 'organ' ? organPanel(sel.id) : globalPanel());
+    const els = (!sel ? (chart ? chart.render((ids) => ids.map((id) => build(id))) : globalPanel()) : sel.type === 'edge' ? edgePanel(sel.id) : sel.type === 'node' ? nodePanel(sel.id) : sel.type === 'organ' ? organPanel(sel.id) : globalPanel());
     const scroller = root.closest('.panel') || root;
     const top = scroller.scrollTop;
     root.replaceChildren(...els.filter(Boolean));
@@ -332,14 +332,15 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onS
 
   function update(f) {
     for (const [el, fn] of live) { const v = fn(f); if (v != null && el.textContent !== v) el.textContent = v; }
+    if (!store.get().details) chart?.update(f);
   }
 
   store.on('details', render);
   store.on('locked', render);
   document.addEventListener('pps:rerender-panel', render);
-  store.on('presetId', () => { if (store.get().mode === 'explore' && !store.get().details) render(); });
+  for (const k of ['presetId', 'role', 'mode', 'allowedVerbs', 'hiddenReadouts']) store.on(k, () => { if (!store.get().details && store.get().mode !== 'cases') render(); });
   store.on('params', () => { const p = store.get().params; for (const s of syncers) s._sync(p); });
-  render();
+  if (!chart) render();
   return {
     render, update,
     /** Detached controls for a lesson card; they keep themselves in sync with params. */

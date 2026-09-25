@@ -47,15 +47,16 @@ export function createProfile() {
     // Arterial stations sit far above the venous scale: they are drawn in a band above a broken
     // axis (//) with their true value, never clipped.
     const hasArt = stations.some((n) => ARTERIAL.has(n));
-    const L = 40, R = 16, T = hasArt ? 58 : 22, B = stagger ? 44 : 30;
+    const roomy = hh > 230;
+    const L = 40, R = 16, T = hasArt ? (roomy ? 58 : 34) : 16, B = stagger ? (roomy ? 44 : 38) : 26;
     const slot = (w - L - R) / stations.length;
     const vals = F ? stations.map((n) => F.P[NI[n]]) : [];
     const venous = vals.filter((_, i) => !ARTERIAL.has(stations[i]));
     const maxP = Math.max(30, ...venous.map((v) => v + 4));
     const y = (p) => T + (hh - T - B) * (1 - clamp(p, -2, maxP) / maxP);
     const x = (i) => L + slot * (i + 0.5);
-    const artY = T - 24;
-    return { w, hh, stations, L, R, T, B, slot, maxP, x, y, stagger, hasArt, artY };
+    const artY = roomy ? T - 24 : T - 20;
+    return { w, hh, stations, L, R, T, B, slot, maxP, x, y, stagger, hasArt, artY, roomy };
   }
 
   function draw() {
@@ -63,7 +64,7 @@ export function createProfile() {
     const c = theme();
     const { ctx } = fitCanvas(cv);
     const g = geometry();
-    const { w, hh, stations, L, R, T, B, slot, maxP, x, y, stagger, hasArt, artY } = g;
+    const { w, hh, stations, L, R, T, B, slot, maxP, x, y, stagger, hasArt, artY, roomy } = g;
     ctx.clearRect(0, 0, w, hh);
     ctx.font = FONT(500, 11);
     // grid (solid hairlines) & clinical thresholds (dashed reference lines)
@@ -74,7 +75,7 @@ export function createProfile() {
       ctx.textAlign = 'right'; ctx.fillText(String(p), L - 8, y(p) + 4);
     }
     ctx.strokeStyle = c.axis; ctx.beginPath(); ctx.moveTo(L, Math.round(y(0)) + 0.5); ctx.lineTo(w - R, Math.round(y(0)) + 0.5); ctx.stroke();
-    ctx.textAlign = 'left'; ctx.fillText('mmHg', 6, 12);
+    if (roomy || !hasArt) { ctx.textAlign = 'left'; ctx.fillText('mmHg', 6, 12); } else { ctx.textAlign = 'right'; ctx.fillText('mmHg', w - R, artY + 4); }
     for (const p of [10, 12, 20]) {
       if (p > maxP) continue;
       ctx.setLineDash([3, 4]); ctx.strokeStyle = p === 12 ? c.danger : c.axis; ctx.globalAlpha = p === 12 ? 0.6 : 1;

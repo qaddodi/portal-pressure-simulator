@@ -99,15 +99,6 @@ export function createCases({ root, api }) {
   let cs = null, ctx = null, timer = null;
   const log = [];
 
-  function list() {
-    api.setBanner?.({ tag: 'Cases', text: 'Choose a case in the panel' });
-    root.replaceChildren(h('div', { class: 'p-body', style: { paddingTop: '16px' } },
-      h('div', { class: 'p-title', style: { marginBottom: '6px' } }, h('span', { class: 'kicker' }, 'Cases'), h('h2', {}, 'Clinical scenarios')),
-      h('p', { class: 'sub', style: { margin: '0 0 14px' } }, 'Manage a patient with clinical actions only: raw resistances are hidden, as in real life. Each case ends with a scored debrief.'),
-      h('div', { class: 'case-list' }, CASES.map((c) => h('button', { class: 'card', onclick: () => start(c.id) },
-        h('span', { class: 'meta' }, c.level), h('span', { class: 't' }, c.title), h('span', { class: 'd' }, c.summary))))));
-  }
-
   async function start(id) {
     await api.beginSession?.('case');
     cs = CASES.find((c) => c.id === id);
@@ -164,6 +155,7 @@ export function createCases({ root, api }) {
     const met = cs.objectives.filter((o) => c.obj[o.id] === 'met').length;
     const score = Math.round((met / cs.objectives.length) * 100 * (outcome === 'death' ? 0.4 : outcome === 'timeout' ? 0.8 : 1));
     const title = { success: 'Case complete', death: 'The patient died', timeout: 'Time is up' }[outcome];
+    try { const best = JSON.parse(localStorage.getItem('pps.caseScores') || '{}'); best[cs.id] = Math.max(best[cs.id] || 0, score); localStorage.setItem('pps.caseScores', JSON.stringify(best)); } catch { /* storage unavailable */ }
     const ring = (() => {
       const r = 32, c = 2 * Math.PI * r, col = score >= 80 ? 'var(--ok)' : score >= 50 ? 'var(--caution)' : 'var(--danger)';
       const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -183,6 +175,7 @@ export function createCases({ root, api }) {
   }
 
   function exit() {
+    if (!cs) return;
     clearInterval(timer);
     cs = null; ctx = null;
     store.set({ hiddenReadouts: null, locked: null, imaging: false });
@@ -190,8 +183,10 @@ export function createCases({ root, api }) {
     api.muteEvents?.(false);
     host.send({ type: 'run', running: true, speed: 1 });
     store.set({ speed: 1 });
-    list();
+    root.replaceChildren();
+    api.setBanner?.(null);
     api.endSession?.('case');
+    api.onEnd?.();
   }
 
   let liveEls = null, lastBanner = '';
@@ -218,7 +213,7 @@ export function createCases({ root, api }) {
         return b;
       }))))) : null;
     root.replaceChildren(
-      h('div', { class: 'p-head' }, h('div', { class: 'p-head-row' }, h('div', { class: 'p-title' }, h('span', { class: 'kicker' }, `Case · ${cs.level}`), h('h2', {}, cs.title)), h('button', { class: 'btn sm', onclick: exit }, 'Exit case'))),
+      h('div', { class: 'p-head case-head' }, h('div', { class: 'p-head-row' }, h('div', { class: 'p-title' }, h('span', { class: 'kicker' }, `Case · ${cs.level}`), h('h2', {}, cs.title)), h('button', { class: 'btn sm', onclick: exit }, 'Exit case'))),
       h('div', { class: 'p-body', style: { display: 'flex', flexDirection: 'column', gap: '14px', paddingTop: '14px' } },
         h('p', { class: 'sub', style: { margin: 0, fontSize: '13.5px', color: 'var(--text)' } }, cs.summary),
         h('div', { class: 'case-clock' }, h('span', { class: 'overline' }, 'Clinical time'), clock),
@@ -238,7 +233,7 @@ export function createCases({ root, api }) {
     const m = f.metrics, hidden = store.get().hiddenReadouts;
     liveEls.clock.textContent = fmtClock(ctx.t);
     const bt = `Clinical time ${fmtClock(ctx.t)}`;
-    if (bt !== lastBanner) { lastBanner = bt; api.setBanner?.({ tag: 'Case', text: bt }); }
+    if (bt !== lastBanner) { lastBanner = bt; api.setBanner?.({ tag: 'Case', text: `${cs.title} · ${bt}` }); }
     const v = (lbl, val, bad) => h('div', { class: bad ? 'bad' : '' }, h('span', { class: 'lbl' }, lbl), h('b', {}, val));
     liveEls.vit.replaceChildren(
       v('HR', Math.round(m.hr), m.hr > 110), v('MAP', Math.round(m.map), m.map < 65), v('Hb', fmt(m.blood.hb, 1), m.blood.hb < 7), v('CVP', hidden?.has('ra') ? '?' : fmt(m.ra, 0), false),
@@ -249,7 +244,8 @@ export function createCases({ root, api }) {
   }
 
   return {
-    mount() { if (cs) render(); else list(); },
+    mount() { if (cs) render(); else root.replaceChildren(); },
+    start,
     active: () => !!cs,
     exit,
   };

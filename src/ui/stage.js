@@ -1993,6 +1993,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     zoomToBox,
     focusEdge(id) { E[id]?.hit.focus(); },
     startShunt, cancelShunt, isShunting: () => !!shunt, anchorFor, organAt,
+    /** Briefly glow the given vessels (where a readout is measured). */
+    flash(ids) {
+      const g = s('g', { class: 'flash' });
+      for (const id of ids) if (E[id]?.vis) g.append(s('path', { class: 'flash-ring', d: E[id].wall.getAttribute('d'), 'stroke-width': (E[id].width + 18).toFixed(1) }));
+      gFocus.after(g);
+      setTimeout(() => g.remove(), 1700);
+    },
     edgeMid: (id) => (geo[id] ? pointAt(geo[id].cur, 0.5) : null),
     isVisible: (id) => E[id]?.vis,
   };

@@ -176,11 +176,11 @@ const STEP = {
 // Lesson steps name locked-control keys; these are the matching controls to embed in the card.
 const INLINE = { cirrhosis: 'cirrhosis', splanchnicTone: 'splanchnicTone', 'drug:propranolol': 'drug:propranolol', 'drug:terlipressin': 'drug:terlipressin', apShunt: 'apShunt', spontaneous: 'srShunt', diuretics: 'diuretics', brto: 'brto' };
 
-export function createLearn({ host: hostEl, panel, dock, inspector, beginSession, endSession, loadPreset, setTool, setAllowedTools, showPane, setProbe, openPanel, setBanner }) {
+export function createLearn({ host: hostEl, panel, dock, inspector, beginSession, endSession, onEnd, loadPreset, setTool, setAllowedTools, showPane, setProbe, openPanel, setBanner }) {
   let lesson = null, idx = 0, state = {};
   let pollTimer = null, inline = null, showAll = false;
 
-  function openList() { lesson = null; render(); openPanel?.(); panel.scrollTop = 0; }
+  function openList() { render(); }
 
   async function start(id) {
     await beginSession?.('lesson');
@@ -199,6 +199,7 @@ export function createLearn({ host: hostEl, panel, dock, inspector, beginSession
     setBanner?.(null);
     render();
     endSession?.('lesson');
+    onEnd?.();
   }
 
   async function enter() {
@@ -270,10 +271,7 @@ export function createLearn({ host: hostEl, panel, dock, inspector, beginSession
   function render() {
     inline?.dispose?.(); inline = null;
     const inLearn = store.get().mode === 'learn';
-    panel.classList.toggle('lesson-focus', inLearn);
-    panel.classList.toggle('show-all', inLearn && showAll);
-    if (!inLearn) { hostEl.replaceChildren(); return; }
-    if (!lesson) { hostEl.replaceChildren(catalog()); setBanner?.({ tag: 'Learn', text: 'Choose a lesson in the panel' }); return; }
+    if (!inLearn || !lesson) { hostEl.replaceChildren(); return; }
     const st = lesson.steps[idx];
     const body = [];
     if (st.text) body.push(h('p', {}, md(st.text)));
@@ -314,15 +312,15 @@ export function createLearn({ host: hostEl, panel, dock, inspector, beginSession
       });
     }
     const [ic, typeLabel] = STEP[st.type];
-    setBanner?.({ tag: typeLabel, text: bannerText(st) });
+    const bt = bannerText(st);
+    setBanner?.({ tag: `Lesson · ${idx + 1}/${lesson.steps.length}`, text: bt === lesson.title ? lesson.title : `${lesson.title}: ${bt}` });
     const card = h('section', { class: 'lesson', 'aria-label': `Lesson: ${lesson.title}` },
       h('div', { class: 'lesson-top' }, h('span', { class: 'step-type' }, svgIcon(ic, 'sec-ic'), typeLabel, h('span', { class: 'n' }, `· Step ${idx + 1} of ${lesson.steps.length}`)), h('button', { class: 'link', onclick: stop }, 'Exit lesson')),
       h('div', { class: 'phase-rail', 'aria-hidden': 'true' }, lesson.steps.map((s0, i) => h('span', { class: i < idx ? 'on' : i === idx ? 'cur' : '' }, h('i'), h('b', {}, STEP[s0.type][1])))),
       h('h3', {}, lesson.title), ...body,
       h('div', { class: 'lesson-foot' }, idx > 0 ? h('button', { class: 'btn ghost', onclick: back }, 'Back') : h('span'),
         h('button', { class: 'btn primary', disabled: !canNext, onclick: () => { if (st.type === 'predict' && st.mode === 'draw') dock.profile.endPredict(false); next(); } }, idx === lesson.steps.length - 1 ? 'Finish lesson' : 'Continue', svgIcon('chev-right'))));
-    const toggleAll = h('button', { class: 'btn all-controls-toggle', 'aria-expanded': String(showAll), onclick: () => { showAll = !showAll; render(); } }, showAll ? 'Hide all controls' : 'Show all controls', svgIcon(showAll ? 'chev-down' : 'chev-right'));
-    hostEl.replaceChildren(card, toggleAll);
+    hostEl.replaceChildren(card);
   }
 
   store.on('mode', (m) => { if (m !== 'learn' && lesson) stop(); render(); });
