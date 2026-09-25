@@ -1050,6 +1050,8 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .app.projector { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); grid-template-areas: "stage"; }
 .app.projector .topbar, .app.projector .panel, .app.projector .dock, .app.projector .readouts, .app.projector .toolbar, .app.projector .mobile-tabs { display: none; }
 .app.projector #labels .lb-name { font-size: 15px; }
+.projector-exit { position: absolute; top: 14px; right: 14px; z-index: 6; gap: 6px; background: var(--surface); box-shadow: var(--shadow-2); }
+.projector-exit svg { width: 16px; height: 16px; }
 .big-overlay { position: absolute; left: 24px; top: 16px; font-weight: 650; font-size: 60px; letter-spacing: -.03em; color: var(--text); pointer-events: none; line-height: 1; z-index: 5; }
 .big-overlay small { display: block; font-size: 14px; font-weight: 600; color: var(--text-3); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 6px; }
 .big-overlay .unit { font-size: 20px; }

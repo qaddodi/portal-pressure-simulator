@@ -602,6 +602,7 @@ function wireKeyboard() {
       closePopover();
       if (isModalOpen()) closeModal();
       else if (app.classList.contains('figure-mode')) toggleFigure(false);
+      else if (projector) toggleProjector();
       else if (store.get().tool !== 'select') setTool('select');
       else store.set({ selection: null });
       return;
@@ -638,12 +639,18 @@ function toggleFigure(on = !app.classList.contains('figure-mode')) {
 }
 
 // ── Projector mode (§4.4) ───────────────────────────
-let projector = false, bigEl = null;
+let projector = false, bigEl = null, exitEl = null;
 function toggleProjector() {
   projector = !projector;
   app.classList.toggle('projector', projector);
-  if (projector) { bigEl = h('div', { class: 'big-overlay stage-blocker' }); view.append(bigEl); toast('Projector mode. Press Shift+F to leave.'); }
-  else { bigEl?.remove(); bigEl = null; }
+  if (projector) {
+    bigEl = h('div', { class: 'big-overlay stage-blocker' });
+    // The top bar (and its menu) is hidden in projector mode, so the way out is on the figure.
+    exitEl = h('button', { class: 'btn projector-exit stage-blocker', title: 'Leave projector mode (Esc)', onclick: () => { if (projector) toggleProjector(); } }, icon('close'), 'Exit projector');
+    view.append(bigEl, exitEl);
+    toast('Projector mode. Press Esc or Exit to leave.');
+    const f = store.get().frame; if (f) updateProjector(f);
+  } else { bigEl?.remove(); exitEl?.remove(); bigEl = exitEl = null; }
   setTimeout(() => dispatchEvent(new Event('resize')), 50);
 }
 function updateProjector(f) {

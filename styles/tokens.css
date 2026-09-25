@@ -139,9 +139,10 @@
   color-scheme: dark;
 }
 
-/* Circuit view: a dark "hemodynamic command map" in either theme, scoped to the figure so the
-   chrome around it keeps the page theme. */
-.stage-wrap.cmap {
+/* Circuit view: follows the page theme. In the light theme it is a light schematic on the page
+   paper; in the dark theme a darker "hemodynamic map" than the surrounding chrome. */
+.stage-wrap.cmap { --map-dot: rgba(70, 90, 160, .16); --spine: rgba(90, 110, 200, .1); }
+:root[data-theme="dark"] .stage-wrap.cmap {
   --bg: #070B14; --stage-bg: #0A0F1C; --surface: #10172A; --surface-2: #151E34; --surface-3: #1D2842;
   --glass: rgba(14, 20, 38, .9);
   --hairline: rgba(200, 215, 255, .09); --border: #222C46; --border-strong: #33405F;
@@ -155,4 +156,21 @@
   --fx-ink: rgba(233, 237, 246, .9); --stent-metal: #C3CBD8; --stent-marker: #EEF1F6;
   --shadow-1: 0 1px 2px rgba(0, 0, 0, .4); --shadow-2: 0 6px 20px rgba(0, 0, 0, .45);
   color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .stage-wrap.cmap {
+  --bg: #070B14; --stage-bg: #0A0F1C; --surface: #10172A; --surface-2: #151E34; --surface-3: #1D2842;
+  --glass: rgba(14, 20, 38, .9);
+  --hairline: rgba(200, 215, 255, .09); --border: #222C46; --border-strong: #33405F;
+  --text: #E9EDF6; --text-2: #A9B2C7; --text-3: #75809B; --text-inverse: #0B1120;
+  --accent: #7C9BFF; --accent-ink: #A5BAFF; --accent-soft: rgba(124, 155, 255, .13); --accent-line: rgba(124, 155, 255, .4); --focus: #7C9BFF;
+  --ok: #34C38F; --caution: #F0B43C; --danger: #F2634D; --critical: #E6508A; --info: #7C9BFF;
+  --flow-normal: #2CC5BD; --flow-reversed: #FF8C42;
+  --artery: #E4606C; --vessel-casing: rgba(0, 0, 0, .72); --leader: rgba(200, 212, 240, .42);
+  --vein-portal: #9C90DA; --vein-systemic: #6FA6DA; --arrow-ink: rgba(233, 237, 246, .82); --label-halo: rgba(10, 15, 28, .92);
+  --spine: rgba(124, 150, 255, .1); --map-dot: rgba(160, 182, 255, .12);
+  --fx-ink: rgba(233, 237, 246, .9); --stent-metal: #C3CBD8; --stent-marker: #EEF1F6;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, .4); --shadow-2: 0 6px 20px rgba(0, 0, 0, .45);
+  color-scheme: dark;
+}
 }
