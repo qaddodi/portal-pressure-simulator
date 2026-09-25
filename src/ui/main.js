@@ -1,18 +1,18 @@
 // Application bootstrap: wires store, engine host, figure, panel, readouts, instruments and modes.
 
-import { startHost, host } from './host.js?v=d715541c27';
+import { startHost, host } from './host.js?v=f1fa2b60df';
 import { store, updateParams, replaceParams, bindParamSender, undo, redo, canUndo, canRedo, clearHistory } from './store.js?v=384ec84b1e';
-import { createStage } from './stage.js?v=487d905050';
-import { createInspector, activeInterventions } from './inspector.js?v=e3e000fb47';
-import { createDock } from './dock.js?v=52e906da0f';
-import { createWhy } from './why.js?v=0aa85e3fa4';
+import { createStage } from './stage.js?v=c5be5f911e';
+import { createInspector, activeInterventions } from './inspector.js?v=47209acbd6';
+import { createDock } from './dock.js?v=90bc9659af';
+import { createWhy } from './why.js?v=0fb45a787b';
 import { createEventsUI } from './events-ui.js?v=ad03b28f31';
-import { createLearn } from './learn.js?v=a00b557f7d';
-import { createCases } from './cases.js?v=9daec41406';
-import { createCompare } from './compare.js?v=6ae9fe5be6';
+import { createLearn } from './learn.js?v=4175e7bb4b';
+import { createCases } from './cases.js?v=de5c77f6ee';
+import { createCompare } from './compare.js?v=50b81a2473';
 import { createFigure } from './figure.js?v=d8ed67bdf5';
 import { gradientCss, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=fa78a29bc0';
-import { EDGES, NODES } from '../engine/topology.js?v=0c370bc4ec';
+import { EDGES, NODES } from '../engine/topology.js?v=3fdc1306dd';
 import { $, $$, h, icon, fmt, toast, tooltipFor, openModal, closeModal, isModalOpen, units, popover, closePopover, menuItem, svgIcon } from './util.js?v=61d6f9c200';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

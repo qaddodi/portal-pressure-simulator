@@ -2,10 +2,10 @@
 // Each factor that differs from the healthy state is reverted in isolation on a scratch engine;
 // its contribution is (current − reverted). Contributions are approximate: they need not sum exactly.
 
-import { Engine } from './engine.js?v=32c0c52424';
-import { computeMetrics } from './metrics.js?v=665d045342';
+import { Engine } from './engine.js?v=a1c8cd3788';
+import { computeMetrics } from './metrics.js?v=151f4a8d03';
 import { defaultParams, DRUGS } from './scenario.js?v=5ce6f00fdc';
-import { EDGES, COLLATERAL_DMIN_RATIO } from './topology.js?v=0c370bc4ec';
+import { EDGES, COLLATERAL_DMIN_RATIO, dMinOf } from './topology.js?v=3fdc1306dd';
 
 export const METRICS = {
   pv: { label: 'Portal pressure', unit: 'mmHg', get: (m) => m.pv, digits: 1 },
@@ -50,9 +50,9 @@ function factors(eng) {
   if (p.balloonEso || p.balloonGas) add('Balloon tamponade', (e) => { e.params.balloonEso = false; e.params.balloonGas = false; });
   for (const id of Object.keys(p.occluded)) if (p.occluded[id]) add(`Occluded ${edgeLabel(id)}`, (e) => { delete e.params.occluded[id]; });
   if (p.albumin !== d.albumin) add(`Serum albumin ${p.albumin.toFixed(1)} g/dL`, (e) => { e.params.albumin = d.albumin; });
-  const collOpen = EDGES.filter((e) => e.kind === 'collateral').some((e) => s.d[e.id] > e.dMax * COLLATERAL_DMIN_RATIO * 1.15);
+  const collOpen = EDGES.filter((e) => e.kind === 'collateral').some((e) => s.d[e.id] > dMinOf(e) * 1.15);
   if (collOpen) add('Collateral network (portosystemic decompression)', (e) => {
-    for (const x of EDGES) if (x.kind === 'collateral') e.slow.d[x.id] = x.dMax * COLLATERAL_DMIN_RATIO;
+    for (const x of EDGES) if (x.kind === 'collateral') e.slow.d[x.id] = dMinOf(x);
   }, 'slow');
   if (s.ascites > 200) add(`Ascites ${(s.ascites / 1000).toFixed(1)} L (intra-abdominal pressure)`, (e) => { e.slow.ascites = 0; }, 'slow');
   const dv = eng.bloodVolume() - 5000;

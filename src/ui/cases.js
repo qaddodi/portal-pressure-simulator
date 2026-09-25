@@ -1,7 +1,7 @@
 // Cases mode (blueprint §10.4): clinical scenarios as state machines with objectives & debrief.
 
 import { store, updateParams } from './store.js?v=384ec84b1e';
-import { host } from './host.js?v=d715541c27';
+import { host } from './host.js?v=f1fa2b60df';
 import { h, fmt, openModal, closeModal, toast, svgIcon } from './util.js?v=61d6f9c200';
 
 const ACTIONS = {

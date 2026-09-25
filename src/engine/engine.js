@@ -1,13 +1,13 @@
 // Lumped-parameter hemodynamic engine (blueprint §7).
 // Pure JS, no DOM: runs in a Web Worker, on the main thread, or in Node tests.
 
-import { NODES, EDGES, COLLATERAL_DMIN_RATIO, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=0c370bc4ec';
+import { NODES, EDGES, COLLATERAL_DMIN_RATIO, dMinOf, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=3fdc1306dd';
 import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=8b006eefeb';
 import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=5ce6f00fdc';
-import { detectEvents } from './events.js?v=212fb31a01';
+import { detectEvents } from './events.js?v=05c3d4dce1';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -16,7 +16,7 @@ const EXT_OVERRIDE = { IVC_IS: 'abd', CAUD: 'none' };
 export const VARIX = { Tcrit: 120, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 3.5, k: 0.22 };
 /** Rupture hazard per day as a function of T/Tcrit (§7.5). */
 export const ruptureHazardPerDay = (x) => (x <= 1 ? 0 : 0.01 * Math.pow((x - 1) / 0.25, 3));
-export const COLLATERAL = { open: 7.5, span: 14, tauGrow: 50, tauRegress: 120 };
+export const COLLATERAL = { open: 7.5, span: 14, tauGrow: 50, tauRegress: 120, acute: 0.4 };
 const BLOOD_BASE = 5000, HCT_BASE = 0.42;
 export const LYMPH = { base: 2.5, max: 10, adapt: 0.03, kfHep: 0.45, kfSpl: 0.2, adaptFrac: 0.6 };
 
@@ -71,7 +71,7 @@ export class Engine {
     this.baro = 1; this.MAPf = 93; this.habr = 1;
     this.hr = 72;
     this.slow = {
-      d: Object.fromEntries(this.collaterals.map((k) => [EDGES[k].id, EDGES[k].dMax * COLLATERAL_DMIN_RATIO])),
+      d: Object.fromEntries(this.collaterals.map((k) => [EDGES[k].id, dMinOf(EDGES[k])])),
       r0: { VAR: VARIX.r0Healthy, GV: VARIX.r0Healthy },
       spleen: 11,
       splTone: 1,
@@ -274,7 +274,7 @@ export class Engine {
         case 'collateral': {
           const present = !e.spontaneous || p.spontaneous[e.id];
           if (!present || p.occluded[e.id]) { this.G[k] = 0; continue; }
-          const dd = this.slow.d[e.id];
+          const dd = this.collateralD(e);
           // Collaterals cross compartments (e.g. the diaphragm): each end sees its own surroundings.
           R = e.Ropen * Math.pow(e.dMax / dd, 4) * tubeResistanceFactor(P[f] - this.ext[f], P[t] - this.ext[t], this.refP ? this.refP[f] : this.Pbase[f], this.refP ? this.refP[t] : this.Pbase[t], KD.collateral);
           if (e.code === 'C1' && this.bands > 0) R /= Math.max(0.02, 1 - this.bands / 4);
@@ -528,7 +528,7 @@ export class Engine {
       const f = this.edgeF[k], t = this.edgeT[k];
       let driver = this.routeExcess(e.route);
       if (p.occluded[e.id]) driver = 0;
-      const dMin = e.dMax * COLLATERAL_DMIN_RATIO;
+      const dMin = dMinOf(e);
       const frac = clamp((driver - COLLATERAL.open) / COLLATERAL.span, 0, 1);
       const target = dMin + (e.dMax - dMin) * Math.sqrt(frac);
       const d = s.d[e.id];
@@ -568,6 +568,28 @@ export class Engine {
         if (p.thrombus[k] === 0) delete p.thrombus[k];
       }
     }
+  }
+
+  /**
+   * Working diameter of a collateral (mm): the largest of
+   *  - its remodeled size (slow.d: weeks of growth under a sustained gradient, disease clock);
+   *  - an acute, passive opening of the pre-existing channel, which dilates within seconds as the
+   *    gradient across its route rises (up to COLLATERAL.acute of the full range);
+   *  - full size for a spontaneous shunt that is present (an anatomical variant, not remodeled).
+   * The result is recorded in slow.dEff so the figure draws what the model conducts.
+   */
+  collateralD(e) {
+    let d = this.slow.d[e.id];
+    // A gastrorenal shunt drains fundal varices fed by the short/posterior gastric veins: where
+    // it is present, that feeding channel is patent too.
+    if (e.spontaneous || (e.id === 'C2' && this.params.spontaneous.C5)) d = e.dMax;
+    else if (this.refP) {
+      const dMin = dMinOf(e);
+      const frac = clamp((this.routeExcess(e.route) - COLLATERAL.open) / COLLATERAL.span, 0, 1);
+      d = Math.max(d, dMin + (e.dMax - dMin) * COLLATERAL.acute * Math.sqrt(frac));
+    }
+    (this.slow.dEff ||= {})[e.id] = d;
+    return d;
   }
 
   /** Gradient between two nodes in excess of the healthy gradient (mmHg). */
@@ -677,7 +699,7 @@ export class Engine {
       const f = this.edgeF[k], t = this.edgeT[k];
       const a = 0.5 * (tubeArea(this.P[f] - this.ext[f], 0.08) / tubeArea(this.refP[f], 0.08) + tubeArea(this.P[t] - this.ext[t], 0.08) / tubeArea(this.refP[t], 0.08));
       const present = !e.spontaneous || this.params.spontaneous[e.id];
-      return present && !this.params.occluded[e.id] ? this.slow.d[e.id] * Math.sqrt(a) : 0;
+      return present && !this.params.occluded[e.id] ? this.collateralD(e) * Math.sqrt(a) : 0;
     }
     if (e.kind === 'shunt') {
       if (e.shunt === 'tips') return this.params.tips.on ? this.params.tips.d : 0;

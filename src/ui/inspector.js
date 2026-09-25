@@ -1,6 +1,6 @@
 // Controls panel (blueprint §4.1, §8.4): global parameters in three tabs, or the selected vessel.
 
-import { EDGES, NODES, COLLATERAL_DMIN_RATIO } from '../engine/topology.js?v=0c370bc4ec';
+import { EDGES, NODES, COLLATERAL_DMIN_RATIO, dMinOf } from '../engine/topology.js?v=3fdc1306dd';
 import { DRUGS } from '../engine/scenario.js?v=5ce6f00fdc';
 import { store, updateParams, isLocked } from './store.js?v=384ec84b1e';
 import { h, fmt, fp, ff, clamp, tooltipFor, icon, svgIcon } from './util.js?v=61d6f9c200';
@@ -259,7 +259,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onS
             stat('Mean velocity', (f) => { const D = Math.max(0.5, f.D[k]) / 10; return `${fmt(f.Q[k] / (Math.PI * D * D / 4), 1)} cm/s`; }),
             stat('Diameter', (f) => `${fmt(f.D[k], 1)} mm`),
             stat('Resistance', R),
-            isColl ? stat('Recruitment', (f) => `${Math.round(clamp((f.slow.d[id] - e.dMax * COLLATERAL_DMIN_RATIO) / (e.dMax * (1 - COLLATERAL_DMIN_RATIO)), 0, 1) * 100)} %`) : stat('Healthy flow', () => { const q = store.get().healthy?.Q?.[k]; return q != null ? `${fmt(q * 0.06, 2)} L/min` : '—'; })),
+            isColl ? stat('Recruitment', (f) => `${Math.round(clamp(((f.slow.dEff?.[id] ?? f.slow.d[id]) - dMinOf(e)) / (e.dMax - dMinOf(e)), 0, 1) * 100)} %`) : stat('Healthy flow', () => { const q = store.get().healthy?.Q?.[k]; return q != null ? `${fmt(q * 0.06, 2)} L/min` : '—'; })),
           h('div', { class: 'btn-row' },
             h('button', { class: 'btn sm', onclick: () => { onAction({ kind: 'probe', id }); onOpenTab('doppler'); } }, icon('doppler'), 'Doppler here'),
             whyBtn(['PV_TRUNK', 'SMV_CONF', 'SV_CONF', 'PVH_R', 'PVH_L'].includes(id) ? 'pvFlow' : isColl ? 'shunt' : 'pv'))),

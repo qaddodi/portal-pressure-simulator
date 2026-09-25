@@ -1,6 +1,6 @@
 // Anatomical stage (blueprint §6): SVG anatomy + canvas flow layer + screen-space labels.
 
-import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO } from '../engine/topology.js?v=0c370bc4ec';
+import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf } from '../engine/topology.js?v=3fdc1306dd';
 import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS } from './anatomy.js?v=6aa967ed96';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=fa78a29bc0';
 import { store, updateParams } from './store.js?v=384ec84b1e';
@@ -449,7 +449,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (NEEDS_C3.has(e.id)) return recruitFrac('C3', f) > 0.2;
     if (e.kind === 'collateral') {
       if (e.spontaneous && !p.spontaneous[e.id]) return false;
-      return store.get().layers.collaterals || recruitFrac(e.id, f) > 0.12;
+      return store.get().layers.collaterals || collOpen(e.id, f);
     }
     if (e.kind === 'shunt') {
       if (e.shunt === 'ap') return f.Q[EI[e.id]] > 0.3;
@@ -457,10 +457,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     return true;
   }
+  // A collateral is drawn as open once it has grown noticeably or carries meaningful flow
+  // (≥ 0.3 mL/s), so a channel the model is using is never hidden.
+  function collOpen(id, f) {
+    const k = EI[id];
+    return recruitFrac(id, f) > 0.12 || Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) > 0.3;
+  }
   function recruitFrac(id, f) {
     const e = EDGES[EI[id]];
-    const dMin = e.dMax * COLLATERAL_DMIN_RATIO;
-    return clamp((f.slow.d[id] - dMin) / (e.dMax - dMin), 0, 1);
+    const dMin = dMinOf(e);
+    return clamp(((f.slow.dEff?.[id] ?? f.slow.d[id]) - dMin) / (e.dMax - dMin), 0, 1);
   }
 
   function updateGeometry(force) {
@@ -553,7 +559,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       x.width = w;
       if (x.isArt) { x.wall.setAttribute('stroke-width', w.toFixed(1)); continue; }
       x.pmid = (P1 + P2) / 2;
-      const baseD = e.d || (e.dMax ? e.dMax * COLLATERAL_DMIN_RATIO : 3);
+      const baseD = e.d || (e.dMax ? dMinOf(e) : 3);
       const wallPx = e.kind === 'liver' ? 0.7 : clamp(0.9 * Math.sqrt(baseD / Math.max(0.3, D)), 0.8, 1.6);
       x.wallPx = wallPx;
       x.wall.setAttribute('stroke-width', (w + 2 * wallPx).toFixed(1));
@@ -574,8 +580,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (x.heat) { x.heat.setAttribute('stroke', c1); x.heat.setAttribute('stroke-width', (w + 22).toFixed(1)); x.heat.style.opacity = mode === 'heat' && ref ? clamp((x.pmid - (ref[NI[e.from]] + ref[NI[e.to]]) / 2) / 8, 0, 1).toFixed(2) : '0'; }
       if (e.kind === 'collateral') {
         const fr = recruitFrac(e.id, f);
-        cls(x, 'coll-ghost', fr < 0.12);
-        setStyle(x, 'opacity', p.occluded[e.id] ? '0.45' : String(0.3 + 0.7 * Math.min(1, fr * 2.5)));
+        const qa = Math.abs(f.Qf ? f.Qf[k] : f.Q[k]);
+        cls(x, 'coll-ghost', !collOpen(e.id, f));
+        setStyle(x, 'opacity', p.occluded[e.id] ? '0.45' : String(0.3 + 0.7 * Math.min(1, Math.max(fr * 2.5, qa / 1.5))));
       }
       x.rev = REVERSAL_WATCH.has(e.id) && isReversed(e, f);
       if (e.id === 'SIN_RL') setStyle(x, 'opacity', String(0.35 * t));

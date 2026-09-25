@@ -142,8 +142,8 @@ export const EDGES = [
 
   // Portosystemic collaterals (§6.3). dMax/Ropen: fully recruited geometry.
   // route = [upstream, downstream] nodes whose gradient (above healthy) drives remodeling.
-  { id: 'C1a', from: 'LGV', to: 'VAR', kind: 'collateral', route: ['LGV', 'AZY'], dMax: 6, Ropen: 0.25, label: 'Coronary vein → esophageal varices', code: 'C1' },
-  { id: 'C1b', from: 'VAR', to: 'AZY', kind: 'collateral', route: ['LGV', 'AZY'], dMax: 6, Ropen: 0.5, label: 'Esophageal varices → azygos', code: 'C1' },
+  { id: 'C1a', from: 'LGV', to: 'VAR', kind: 'collateral', route: ['LGV', 'AZY'], dMax: 6, Ropen: 0.0133, dMinRatio: 0.12, label: 'Coronary vein → esophageal varices', code: 'C1' },
+  { id: 'C1b', from: 'VAR', to: 'AZY', kind: 'collateral', route: ['LGV', 'AZY'], dMax: 6, Ropen: 0.0265, dMinRatio: 0.12, label: 'Esophageal varices → azygos', code: 'C1' },
   { id: 'C2', from: 'SV', to: 'GV', kind: 'collateral', route: ['SV', 'IVCI'], dMax: 6, Ropen: 0.3, label: 'Short / posterior gastric veins', code: 'C2' },
   { id: 'C2b', from: 'GV', to: 'LGV', kind: 'collateral', route: ['SV', 'AZY'], dMax: 5, Ropen: 0.4, label: 'Fundal → coronary vein', code: 'C2' },
   { id: 'C3', from: 'LPV', to: 'EPI', kind: 'collateral', route: ['LPV', 'ILI'], dMax: 8, Ropen: 0.6, label: 'Paraumbilical vein', code: 'C3' },
@@ -167,6 +167,8 @@ export const EDGES = [
 
 // Collaterals: diameter floor. R(d) = Ropen·(dMax/d)^4, closed ≈ 256·Ropen.
 export const COLLATERAL_DMIN_RATIO = 1 / 4;
+/** Resting (unrecruited) diameter of a collateral; a route may set its own ratio (dMinRatio). */
+export const dMinOf = (e) => e.dMax * (e.dMinRatio ?? COLLATERAL_DMIN_RATIO);
 
 export const TARGETS = {
   MAP: 93, CO_Lmin: 5.0, RA: 3, IVC: 3.5, FHVP: 4, HVPG: 3, PV: 7.5,
