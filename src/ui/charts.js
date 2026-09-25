@@ -1,7 +1,7 @@
 // Dock charts (blueprint §9.2): pressure profile, scope, Sankey, perfusion + operating point.
 
 import { NODES, EDGES } from '../engine/topology.js?v=44e0aca402';
-import { PROFILE_PATHS, SHORT } from './anatomy.js?v=4abd383f22';
+import { PROFILE_PATHS, SHORT } from './anatomy.js?v=1eeeff8e27';
 import { pressureColor } from './colormap.js?v=fa78a29bc0';
 import { store } from './store.js?v=c4bae453f7';
 import { h, fmt, fitCanvas, cssVar, clamp } from './util.js?v=61d6f9c200';
@@ -42,14 +42,20 @@ export function createProfile() {
     const { w, h: hh } = fitCanvas(cv);
     const path = PROFILE_PATHS.find((p) => p.id === pathId);
     const stations = path.nodes;
-    const L = 40, R = 16, T = 22, B = 34;
+    const slot0 = (w - 56) / stations.length;
+    const stagger = slot0 < 74;
+    // Arterial stations sit far above the venous scale: they are drawn in a band above a broken
+    // axis (//) with their true value, never clipped.
+    const hasArt = stations.some((n) => ARTERIAL.has(n));
+    const L = 40, R = 16, T = hasArt ? 58 : 22, B = stagger ? 44 : 30;
     const slot = (w - L - R) / stations.length;
     const vals = F ? stations.map((n) => F.P[NI[n]]) : [];
     const venous = vals.filter((_, i) => !ARTERIAL.has(stations[i]));
     const maxP = Math.max(30, ...venous.map((v) => v + 4));
     const y = (p) => T + (hh - T - B) * (1 - clamp(p, -2, maxP) / maxP);
     const x = (i) => L + slot * (i + 0.5);
-    return { w, hh, stations, L, R, T, B, slot, maxP, x, y };
+    const artY = T - 24;
+    return { w, hh, stations, L, R, T, B, slot, maxP, x, y, stagger, hasArt, artY };
   }
 
   function draw() {
@@ -57,7 +63,7 @@ export function createProfile() {
     const c = theme();
     const { ctx } = fitCanvas(cv);
     const g = geometry();
-    const { w, hh, stations, L, R, T, B, slot, maxP, x, y } = g;
+    const { w, hh, stations, L, R, T, B, slot, maxP, x, y, stagger, hasArt, artY } = g;
     ctx.clearRect(0, 0, w, hh);
     ctx.font = FONT(500, 11);
     // grid (solid hairlines) & clinical thresholds (dashed reference lines)
@@ -76,27 +82,35 @@ export function createProfile() {
     }
     ctx.textAlign = 'right'; ctx.fillStyle = c.faint;
     ctx.fillText('CSPH 10 · bleeding 12', w - R, y(12) - 5);
-    // station labels
+    // station labels: horizontal, staggered over two rows when the stations are close together
     ctx.fillStyle = c.muted; ctx.textAlign = 'center'; ctx.font = FONT(500, 11);
     stations.forEach((n, i) => {
-      const lbl = SHORT[n] || n;
-      ctx.save(); ctx.translate(x(i), hh - B + 16);
-      if (slot < 74) { ctx.rotate(-0.4); ctx.textAlign = 'right'; ctx.translate(10, 0); }
-      ctx.fillText(lbl, 0, 0); ctx.restore();
+      const row = stagger && i % 2 ? 1 : 0;
+      if (row) { ctx.strokeStyle = c.border; ctx.beginPath(); ctx.moveTo(x(i) + 0.5, hh - B + 4); ctx.lineTo(x(i) + 0.5, hh - B + 18); ctx.stroke(); }
+      ctx.fillText(SHORT[n] || n, x(i), hh - B + 16 + row * 15);
     });
+    // broken axis for arterial stations
+    if (hasArt) {
+      ctx.strokeStyle = c.axis; ctx.lineWidth = 1.2;
+      for (const dy of [-3, 3]) { ctx.beginPath(); ctx.moveTo(L - 6, T - 10 + dy + 3); ctx.lineTo(L + 6, T - 10 + dy - 3); ctx.stroke(); }
+      ctx.fillStyle = c.faint; ctx.textAlign = 'right'; ctx.font = FONT(500, 10.5); ctx.fillText('arterial', L - 8, artY + 4);
+    }
+    const Y = (v, i) => (ARTERIAL.has(stations[i]) ? artY : y(v));
     const series = (vals, color, width, dash, markers) => {
       ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dash || []);
       ctx.beginPath();
       vals.forEach((v, i) => {
         const x0 = x(i) - slot * 0.32, x1 = x(i) + slot * 0.32;
-        if (i === 0) ctx.moveTo(x0, y(v)); else ctx.lineTo(x0, y(v));
-        ctx.lineTo(x1, y(v));
+        if (i === 0) ctx.moveTo(x0, Y(v, i)); else ctx.lineTo(x0, Y(v, i));
+        ctx.lineTo(x1, Y(v, i));
       });
       ctx.stroke(); ctx.setLineDash([]);
       if (markers) vals.forEach((v, i) => {
-        ctx.fillStyle = ARTERIAL.has(stations[i]) ? c.artery : pressureColor(v);
+        const art = ARTERIAL.has(stations[i]);
+        ctx.fillStyle = art ? c.artery : pressureColor(v);
         const bx = x(i) - slot * 0.32, bw = slot * 0.64;
-        ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, y(v) - 3.5, bw, 7, 3.5) : ctx.rect(bx, y(v) - 3.5, bw, 7); ctx.fill();
+        ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, Y(v, i) - 3.5, bw, 7, 3.5) : ctx.rect(bx, Y(v, i) - 3.5, bw, 7); ctx.fill();
+        if (art) { ctx.fillStyle = c.text; ctx.font = FONT(600, 10.5); ctx.textAlign = 'left'; ctx.fillText(`${fmt(v, 0)} mmHg`, bx + bw + 6, Y(v, i) + 4); }
       });
     };
     const st = store.get();
@@ -117,9 +131,7 @@ export function createProfile() {
       ctx.fillStyle = dp < 0 ? c.rev : c.muted;
       ctx.fillText((dp > 0 ? 'Δ ' : 'Δ +') + Math.abs(dp).toFixed(1), xm + 4, ym + 4);
     }
-    // off-scale arterial
-    const off = stations.filter((n) => ARTERIAL.has(n)).map((n) => `${SHORT[n]} ${fmt(F.P[NI[n]], 0)} mmHg`);
-    el.querySelector('#profileOffscale').textContent = off.length ? `Off the scale (red): ${off.join(', ')}.` : '';
+    el.querySelector('#profileOffscale').textContent = hasArt ? 'Arterial pressure is drawn above the break (//) at its true value.' : '';
     // prediction
     const lp = el.querySelector('.lg-pred');
     if (predict?.values?.size) {
@@ -127,7 +139,7 @@ export function createProfile() {
       ctx.strokeStyle = c.accent; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
       ctx.beginPath();
       let first = true;
-      stations.forEach((n, i) => { const v = predict.values.get(n); if (v == null) return; if (first) { ctx.moveTo(x(i), y(v)); first = false; } else ctx.lineTo(x(i), y(v)); });
+      stations.forEach((n, i) => { const v = predict.values.get(n); if (v == null || ARTERIAL.has(n)) return; if (first) { ctx.moveTo(x(i), y(v)); first = false; } else ctx.lineTo(x(i), y(v)); });
       ctx.stroke(); ctx.setLineDash([]);
       if (predict.reveal) {
         ctx.fillStyle = 'rgba(210,69,47,.14)';

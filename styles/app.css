@@ -5,7 +5,7 @@
 html, body { height: 100%; }
 body {
   margin: 0; background: var(--bg); color: var(--text);
-  font: 14px/1.45 var(--font-ui); font-feature-settings: 'cv11', 'ss01';
+  font: 14px/1.45 var(--font-ui); font-feature-settings: 'cv11', 'ss01'; font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; overflow: hidden;
 }
 button, input, select { font: inherit; color: inherit; }
@@ -84,7 +84,8 @@ svg { flex: none; }
 @container figbar (max-width: 1180px) { .lg-note { display: none; } }
 @container figbar (max-width: 1000px) { .lg-title, .chip-btn .cb-k { display: none; } }
 @container figbar (max-width: 860px) { #btnFigure span, #colorModeLabel { display: none; } .lg-scale { width: 128px; } }
-.stage-bar.bottom { height: 60px; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+.stage-bar.bottom { height: 60px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; }
+.stage-bar.bottom .toolbar { min-width: 0; }
 .sb-left, .sb-right { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .sb-right { margin-left: auto; }
 .sb-center { flex: 1; min-width: 0; display: flex; justify-content: center; align-items: center; gap: 8px; }
@@ -326,7 +327,7 @@ div.vital { cursor: default; }
 .vital b { font-weight: 600; color: var(--text); font-size: 13px; font-variant-numeric: tabular-nums; }
 .vital.bad b { color: var(--danger); }
 button.vital:hover b { text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
-.more-readouts { flex: none; align-self: center; margin: 0 10px 0 4px; height: 30px; font-size: 12px; }
+.more-readouts { flex: none; align-self: center; margin: 0 10px 0 4px; height: 30px; font-size: 12px; color: var(--accent-ink) !important; font-weight: 600; }
 .readouts.all .metric.secondary[hidden] { display: flex; }
 /* Not enough room for vitals beside the portal readouts: they move behind “All readouts”. */
 @container (max-width: 1180px) { .readouts:not(.all) .vitals-block { display: none; } }
@@ -449,7 +450,7 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .org-line { fill: none; stroke: color-mix(in srgb, currentColor 80%, #000); stroke-width: 1.2; stroke-opacity: .6; stroke-linejoin: round; }
 .org-rim { fill: none; stroke: currentColor; stroke-width: 20; stroke-opacity: .26; }
 .org-fill { fill: color-mix(in srgb, currentColor var(--organ-tint), var(--stage-bg)); }
-.org-liver.org-fill { fill: color-mix(in srgb, var(--organ-liver) calc(var(--organ-tint) + 6%), var(--stage-bg)); }
+.org-liver.org-fill { fill: color-mix(in srgb, var(--organ-liver) calc(var(--organ-tint) + 3%), var(--stage-bg)); }
 .ghost { opacity: .34; pointer-events: none; }
 .org-heart-groove { fill: none; stroke: var(--organ-heart); stroke-opacity: .45; stroke-width: 1; stroke-linecap: round; }
 .org-great.band-edge { stroke: var(--organ-heart); stroke-width: 15; stroke-opacity: .5; }
@@ -485,6 +486,9 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .v-artery { fill: none; stroke: var(--artery); stroke-linecap: round; stroke-linejoin: round; stroke-opacity: .85; }
 .v-hit { fill: none; stroke: transparent; stroke-width: 20; stroke-linecap: round; pointer-events: stroke; cursor: pointer; }
 .v-hit:focus { outline: none; }
+/* Hit priority: the portal tree and hepatic outflow take a wide target; quiet context veins and
+   vessels behind the organs only a narrow one, so a click near them rarely lands there by accident. */
+.vg.ctx .v-hit, #backEdges .v-hit { stroke-width: 8; }
 .v-halo { display: none; }
 /* Tubes: contact shadow, casing, lumen, then the shading of a cylinder lit from above. */
 .v-shadow { fill: var(--vessel-shadow); stroke: none; transform: translate(1.4px, 2.8px); }
@@ -874,7 +878,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   #btnMore { display: inline-grid !important; }
   .scenario-btn { min-width: 150px; }
 }
-@media (max-width: 880px) {
+@media (max-width: 1100px) {
   .tb-btn .tb-l { display: none; }
   .tb-btn { padding: 0 9px; }
 }

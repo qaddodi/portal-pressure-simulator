@@ -2,13 +2,13 @@
 
 import { startHost, host } from './host.js?v=878b8f0b20';
 import { store, updateParams, replaceParams, bindParamSender, undo, redo, canUndo, canRedo, clearHistory } from './store.js?v=c4bae453f7';
-import { createStage } from './stage.js?v=8514b5396e';
+import { createStage } from './stage.js?v=74797379a8';
 import { createInspector, activeInterventions } from './inspector.js?v=be4bdc005b';
-import { createDock } from './dock.js?v=726d5f02bb';
+import { createDock } from './dock.js?v=9bea43be83';
 import { createWhy } from './why.js?v=9aaf3b4a56';
 import { createEventsUI } from './events-ui.js?v=ad03b28f31';
-import { createLearn } from './learn.js?v=aea605e162';
-import { createCases } from './cases.js?v=169ec696b7';
+import { createLearn } from './learn.js?v=eb0eb29c6d';
+import { createCases } from './cases.js?v=978a919112';
 import { createCompare } from './compare.js?v=142f978d48';
 import { createFigure } from './figure.js?v=cb011e25be';
 import { gradientCss, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=fa78a29bc0';
@@ -29,7 +29,7 @@ const TOOLS = [
   { id: 'select', icon: 'select', key: 'V', label: 'Select', group: null, hint: 'Click a vessel or label to inspect it. Hover traces the path blood takes through it. Drag to pan, scroll or pinch to zoom.' },
   { id: 'pinch', icon: 'pinch', key: 'P', label: 'Pinch · stenosis', group: 'Disease', desc: 'Narrow a vessel', hint: 'Press on a vessel and drag away from it to narrow the lumen. Resistance rises with (1 − s)⁻⁴.' },
   { id: 'thrombus', icon: 'clot', key: 'T', label: 'Thrombus', group: 'Disease', desc: 'Grow or dissolve a clot', hint: 'Press and hold on a vein to grow a clot. Hold Shift to dissolve it.' },
-  { id: 'fibrosis', icon: 'fibrosis', key: 'F', label: 'Fibrosis brush', group: 'Disease', desc: 'Paint fibrosis on a liver lobe', hint: 'Press and hold on a liver lobe to lay down fibrosis in the chosen zone. Hold Shift to reverse.', zones: true },
+  { id: 'fibrosis', icon: 'fibrosis', key: 'R', label: 'Fibrosis brush', group: 'Disease', desc: 'Paint fibrosis on a liver lobe', hint: 'Press and hold on a liver lobe to lay down fibrosis in the chosen zone. Hold Shift to reverse.', zones: true },
   { id: 'stent', icon: 'stent', key: 'S', label: 'Stent · shunt', group: 'Treat', desc: 'TIPS or a surgical shunt', hint: 'Drag from a portal vessel to a systemic vein. Right portal → hepatic vein makes a TIPS; splenic → left renal a Warren shunt; portal → IVC a portocaval shunt.' },
   { id: 'band', icon: 'band', key: 'B', label: 'Band ligation', group: 'Treat', desc: 'Band esophageal varices (EVL)', hint: 'Click the esophageal varices in the lower esophagus to band a column (EVL).' },
   { id: 'occlude', icon: 'occlude', key: 'O', label: 'Occlude collateral', group: 'Treat', desc: 'Plug a collateral (BRTO)', hint: 'Click a collateral to plug it. The gastrorenal shunt is the BRTO target.' },
@@ -87,7 +87,7 @@ async function main() {
   });
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => host.send({ type: 'probe', id }), onReveal: revealDock });
   compare = createCompare({ onBack: () => store.set({ mode: 'explore' }) });
-  const api = { muteEvents: (v) => eventsUI.mute(v), loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), openPanel, setBanner };
+  const api = { beginSession, endSession, muteEvents: (v) => eventsUI.mute(v), loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), openPanel, setBanner };
   // A lesson keeps its card in view on a phone: instruments it opens are flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), panel: $('#panel'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#inspector'), api });
@@ -212,6 +212,32 @@ async function loadShared(s) {
 async function share() {
   const url = `${location.origin}${location.pathname}#s=${encodeShare()}`;
   try { await navigator.clipboard.writeText(url); toast('Link to this exact scenario copied.'); } catch { history.replaceState(null, '', url); toast('Link placed in the address bar.'); }
+}
+
+// ── Session boundaries ──────────────────────────────
+// Entering a lesson or case remembers the model as it was; leaving one always asks whether to
+// keep that patient or go back, so a running bleed never follows the learner into Explore.
+let session = null;
+async function beginSession(kind) {
+  if (session) return;
+  const { snap } = await host.request('snapshot');
+  session = { kind, snap, presetId: store.get().presetId, view: store.get().view };
+}
+function endSession(kind) {
+  if (!session || session.kind !== kind) return;
+  const saved = session;
+  session = null;
+  const f = store.get().frame;
+  const bleeding = !!f?.metrics?.bleeding;
+  const noun = kind === 'case' ? 'case' : 'lesson';
+  const back = () => { closeModal(); host.send({ type: 'restore', snap: saved.snap }); replaceParams(saved.snap.params); clearHistory(); store.set({ presetId: saved.presetId, lastHVPG: null, historyTick: (store.get().historyTick || 0) + 1 }); eventsUI?.clear(); toast('Back where you were before the ' + noun + '.'); };
+  const keep = () => { closeModal(); toast(bleeding ? 'Kept the patient. The variceal bleed is still running.' : 'Kept this patient.'); };
+  openModal(`Leaving the ${noun}`, h('div', {},
+    h('p', {}, `Keep this patient to explore it further, or return to the model as it was before the ${noun}.`),
+    bleeding ? h('div', { class: 'callout-note', style: { marginBottom: '12px', color: 'var(--danger)' } }, 'This patient is still bleeding from varices. Keeping them keeps the bleed running.') : null,
+    h('div', { class: 'btn-row', style: { justifyContent: 'flex-end', marginTop: '8px' } },
+      h('button', { class: 'btn', onclick: keep }, 'Keep this patient'),
+      h('button', { class: 'btn primary', onclick: back }, 'Return to where I was'))), { sub: null });
 }
 
 // ── Actions ─────────────────────────────────────────

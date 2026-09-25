@@ -53,7 +53,7 @@
   --organ-pancreas: #C9A35A;
   --organ-gb: #7F9D57;
   --organ-a: .3;
-  --organ-tint: 20%;
+  --organ-tint: 13%;
   --diaphragm: #8E7566;
   --artery: #C8414D;
   --vessel-casing: rgba(30, 24, 40, .56);
@@ -111,7 +111,7 @@
     --flow-normal: #2CC5BD; --flow-reversed: #FF8C42;
     --organ-body: #141C31; --organ-body-line: #25304D;
     --organ-liver: #B97C6C; --organ-spleen: #9C6B94; --organ-gut: #B89272; --organ-stomach: #B98A7B; --organ-heart: #C75A69;
-    --organ-kidney: #A67E6B; --organ-lung: #5A6E90; --organ-pancreas: #BFA16A; --organ-gb: #7E9A58; --organ-a: .3; --organ-tint: 26%; --diaphragm: #9C8C84;
+    --organ-kidney: #A67E6B; --organ-lung: #5A6E90; --organ-pancreas: #BFA16A; --organ-gb: #7E9A58; --organ-a: .3; --organ-tint: 18%; --diaphragm: #9C8C84;
     --artery: #E4606C; --vessel-casing: rgba(0, 0, 0, .7); --ascites: #3E8FC0; --stage-grid: rgba(160, 180, 255, .05); --leader: rgba(200, 212, 240, .42); --vein-portal: #9C90DA; --vein-systemic: #6FA6DA; --arrow-ink: rgba(233, 237, 246, .82); --label-halo: rgba(11, 17, 32, .9);
     --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
     --grid: #1F2840; --axis: #34405E;
@@ -130,7 +130,7 @@
   --flow-normal: #2CC5BD; --flow-reversed: #FF8C42;
   --organ-body: #141C31; --organ-body-line: #25304D;
   --organ-liver: #B97C6C; --organ-spleen: #9C6B94; --organ-gut: #B89272; --organ-stomach: #B98A7B; --organ-heart: #C75A69;
-  --organ-kidney: #A67E6B; --organ-lung: #5A6E90; --organ-pancreas: #BFA16A; --organ-gb: #7E9A58; --organ-a: .3; --organ-tint: 26%; --diaphragm: #9C8C84;
+  --organ-kidney: #A67E6B; --organ-lung: #5A6E90; --organ-pancreas: #BFA16A; --organ-gb: #7E9A58; --organ-a: .3; --organ-tint: 18%; --diaphragm: #9C8C84;
   --artery: #E4606C; --vessel-casing: rgba(0, 0, 0, .7); --ascites: #3E8FC0; --stage-grid: rgba(160, 180, 255, .05); --leader: rgba(200, 212, 240, .42); --vein-portal: #9C90DA; --vein-systemic: #6FA6DA; --arrow-ink: rgba(233, 237, 246, .82); --label-halo: rgba(11, 17, 32, .9);
   --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
   --grid: #1F2840; --axis: #34405E;

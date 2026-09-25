@@ -176,13 +176,14 @@ const STEP = {
 // Lesson steps name locked-control keys; these are the matching controls to embed in the card.
 const INLINE = { cirrhosis: 'cirrhosis', splanchnicTone: 'splanchnicTone', 'drug:propranolol': 'drug:propranolol', 'drug:terlipressin': 'drug:terlipressin', apShunt: 'apShunt', spontaneous: 'srShunt', diuretics: 'diuretics', brto: 'brto' };
 
-export function createLearn({ host: hostEl, panel, dock, inspector, loadPreset, setTool, setAllowedTools, showPane, setProbe, openPanel, setBanner }) {
+export function createLearn({ host: hostEl, panel, dock, inspector, beginSession, endSession, loadPreset, setTool, setAllowedTools, showPane, setProbe, openPanel, setBanner }) {
   let lesson = null, idx = 0, state = {};
   let pollTimer = null, inline = null, showAll = false;
 
   function openList() { lesson = null; render(); openPanel?.(); panel.scrollTop = 0; }
 
   async function start(id) {
+    await beginSession?.('lesson');
     lesson = LESSONS.find((l) => l.id === id);
     idx = 0; state = {}; showAll = false;
     await enter();
@@ -197,6 +198,7 @@ export function createLearn({ host: hostEl, panel, dock, inspector, loadPreset, 
     store.set({ focus: null });
     setBanner?.(null);
     render();
+    endSession?.('lesson');
   }
 
   async function enter() {

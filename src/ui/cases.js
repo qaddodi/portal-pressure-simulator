@@ -109,6 +109,7 @@ export function createCases({ root, api }) {
   }
 
   async function start(id) {
+    await api.beginSession?.('case');
     cs = CASES.find((c) => c.id === id);
     log.length = 0;
     await api.loadPreset(cs.preset, { keepLesson: true, days: cs.days });
@@ -190,6 +191,7 @@ export function createCases({ root, api }) {
     host.send({ type: 'run', running: true, speed: 1 });
     store.set({ speed: 1 });
     list();
+    api.endSession?.('case');
   }
 
   let liveEls = null, lastBanner = '';
@@ -216,7 +218,7 @@ export function createCases({ root, api }) {
         return b;
       }))))) : null;
     root.replaceChildren(
-      h('div', { class: 'p-head' }, h('div', { class: 'p-head-row' }, h('div', { class: 'p-title' }, h('span', { class: 'kicker' }, `Case · ${cs.level}`), h('h2', {}, cs.title)), h('button', { class: 'btn sm ghost', onclick: exit }, 'Exit'))),
+      h('div', { class: 'p-head' }, h('div', { class: 'p-head-row' }, h('div', { class: 'p-title' }, h('span', { class: 'kicker' }, `Case · ${cs.level}`), h('h2', {}, cs.title)), h('button', { class: 'btn sm', onclick: exit }, 'Exit case'))),
       h('div', { class: 'p-body', style: { display: 'flex', flexDirection: 'column', gap: '14px', paddingTop: '14px' } },
         h('p', { class: 'sub', style: { margin: 0, fontSize: '13.5px', color: 'var(--text)' } }, cs.summary),
         h('div', { class: 'case-clock' }, h('span', { class: 'overline' }, 'Clinical time'), clock),

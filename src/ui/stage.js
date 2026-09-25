@@ -1,7 +1,7 @@
 // Anatomical stage (blueprint §6): SVG anatomy + canvas flow layer + screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=44e0aca402';
-import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS } from './anatomy.js?v=4abd383f22';
+import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS } from './anatomy.js?v=1eeeff8e27';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=fa78a29bc0';
 import { store, updateParams } from './store.js?v=c4bae453f7';
 import { s, fmt, fp, clamp, lerp, toast } from './util.js?v=61d6f9c200';
@@ -447,6 +447,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   function edgeVisible(x, f) {
     const e = x.e, p = f.viewParams || store.get().params;
+    if (ANAT_HIDDEN.has(e.id) && morph < 0.5) return false;
     if (NEEDS_C3.has(e.id)) return recruitFrac('C3', f) > 0.2;
     if (e.kind === 'collateral') {
       if (e.spontaneous && !p.spontaneous[e.id]) return false;
@@ -749,7 +750,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The parenchyma keeps its own color at normal pressure and takes on the pressure hue as
     // sinusoidal pressure rises (sinusoidal hypertension).
     const psin = Math.max(f.P[NI.SIN_R], f.P[NI.SIN_L]);
-    liverTint.style.opacity = isImaging() ? 0 : clamp((psin - 8) / 16, 0, 0.32).toFixed(3);
+    liverTint.style.opacity = isImaging() ? 0 : clamp((psin - 8) / 16, 0, 0.16).toFixed(3);
     organG.umbilicus.style.display = recruitFrac('C3', f) > 0.25 ? '' : 'none';
     const sc = f.slow.spleen / 11;
     organG.spleen.setAttribute('transform', `translate(${SPLEEN_CENTER[0]} ${SPLEEN_CENTER[1]}) scale(${sc.toFixed(3)}) translate(${-SPLEEN_CENTER[0]} ${-SPLEEN_CENTER[1]})`);
@@ -1142,18 +1143,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     };
     // Among the candidate positions that collide with nothing already placed, take the one that
     // covers the least vessel geometry (ties go to the earlier, preferred direction).
+    // `gap` may be a list: nearer rings are preferred, but a label moves further out rather than
+    // sit on a vessel line.
     const place = (it, dirs, gap, leader) => {
       let best = null;
-      dirs.forEach((dir, i) => {
-        const [dx, dy] = offset(dir, it, gap);
+      (Array.isArray(gap) ? gap : [gap]).forEach((gp, gi) => dirs.forEach((dir, i) => {
+        const [dx, dy] = offset(dir, it, gp);
         const x = it.ax + dx, y = it.ay + dy;
         const r = rectOf({ ...it, x, y });
         if (!within(r, B) || placed.some((p) => hits(r, p))) return;
-        const cost = (useLines ? lineCost(r) * 4 : 0) + i;
-        if (!best || cost < best.cost) best = { cost, x, y, r, dir };
-      });
+        const cost = (useLines ? lineCost(r) * 12 : 0) + i + gi * 6;
+        if (!best || cost < best.cost) best = { cost, x, y, r, dir, far: gi > 0 };
+      }));
       if (!best) return false;
-      it.x = best.x; it.y = best.y; it.dir = best.dir; it.leader = leader;
+      it.x = best.x; it.y = best.y; it.dir = best.dir; it.leader = leader || best.far;
       placed.push(best.r); out.push(it);
       return true;
     };
@@ -1276,7 +1279,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const it of nodes.sort((a, b) => b.pri - a.pri)) {
         const pref = CIRCUIT_LABELS[it.node].dirs;
         const dirs = [...pref, ...['N', 'S', 'E', 'W', 'NE', 'SE', 'NW', 'SW'].filter((d) => !pref.includes(d))];
-        if (!place(it, dirs, 7, false) && it.sel) place(it, dirs, 22, true);
+        if (!place(it, dirs, [7, 18, 30], false) && it.sel) place(it, dirs, 40, true);
+      }
+      for (const it of nodes) {
+        if (!it.leader || !out.includes(it)) continue;
+        const r = rectOf(it);
+        leaders += `<path class="leader" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${clamp(it.ax, r.x0, r.x1).toFixed(1)} ${clamp(it.ay, r.y0, r.y1).toFixed(1)}"/>`;
       }
       // Collateral and shunt lanes, captioned along their run.
       for (const [id, cap] of Object.entries(LANE_CAPTIONS)) {
@@ -1286,7 +1294,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const [ax, ay] = worldToLocal(lx, ly);
         const it = { key: 'lane:' + id, cls: 'lane', lines: [[{ t: cap, size: compact ? 9 : 10, weight: 550, cls: 'lb-lane' }]], align: 'middle', padX: 2, padY: 1, ax, ay };
         it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
-        place(it, ['N', 'S'], 3 + (x.width || 4) / 2, false);
+        place(it, ['N', 'S'], [3 + (x.width || 4) / 2, 12 + (x.width || 4) / 2], false);
       }
       if (open && !isImaging() && st.layers.chips) {
         for (const [id, r] of Object.entries(resistorEls)) {
