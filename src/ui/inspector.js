@@ -217,21 +217,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onS
         h('p', { class: 'disclaimer', style: { margin: '16px 0 0' } }, 'Educational simulation. The model is simplified and its values are illustrative; do not use it for diagnosis or treatment decisions.'),
       ];
     }
-    return [startCard(), head, activeBox, h('div', { class: 'p-body' }, body)];
-  }
-
-  // Explore, healthy baseline: three clear ways in, each with immediate feedback on the figure.
-  function startCard() {
-    const st = store.get();
-    if (st.mode !== 'explore' || activeInterventions(st.params).length || st.presetId !== 'healthy') return null;
-    const act = (ic, t, d, fn) => h('button', { class: 'start-act', onclick: fn }, h('span', { class: 'ic' }, icon(ic)), h('span', { class: 't' }, t), svgIcon('chev-right', 'chev'), h('span', { class: 'd' }, d));
-    return h('section', { class: 'start', 'aria-label': 'Where to begin' },
-      h('h3', {}, 'Where to begin'),
-      h('p', {}, 'The model is running a healthy adult. Change one thing and watch pressure and flow respond on the figure.'),
-      h('div', { class: 'start-actions' },
-        act('liver', 'Stiffen the liver', 'Cirrhosis 60 %: sinusoidal pressure backs up into the portal vein.', () => updateParams({ cirrhosis: 0.6 }, { label: 'Cirrhosis 60 %' })),
-        act('vessel', 'Choose a patient', `${store.get().presetList?.length || 16} scenarios, from portal vein thrombosis to heart failure.`, () => onScenarios?.()),
-        act('book', 'Take a guided lesson', 'Predict, act, observe, explain: 4–7 minutes each.', () => onMode?.('learn'))));
+    return [head, activeBox, h('div', { class: 'p-body' }, body)];
   }
 
   // ── Selection panels ──────────────────────────────
@@ -374,9 +360,6 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onS
   store.on('selection', render);
   store.on('locked', render);
   document.addEventListener('pps:rerender-panel', render);
-  // The start card goes away as soon as the learner changes something (and comes back on reset).
-  let hadChanges = false;
-  store.on('params', () => { const has = activeInterventions(store.get().params).length > 0; if (has !== hadChanges && store.get().mode === 'explore' && !store.get().selection) { hadChanges = has; render(); } });
   store.on('presetId', () => { if (store.get().mode === 'explore' && !store.get().selection) render(); });
   store.on('params', () => { const p = store.get().params; for (const s of syncers) s._sync(p); });
   render();

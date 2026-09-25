@@ -4,7 +4,7 @@
 
 import { store } from './store.js?v=384ec84b1e';
 import { h, fmt, icon } from './util.js?v=61d6f9c200';
-import { activeInterventions } from './inspector.js?v=e6aa5464f0';
+import { activeInterventions } from './inspector.js?v=e3e000fb47';
 
 const ROWS = [
   ['HVPG', (m) => m.hvpg, 1, 'mmHg'], ['Portal pressure', (m) => m.pv, 1, 'mmHg'], ['Portosystemic gradient', (m) => m.ppg, 1, 'mmHg'], ['Portal flow', (m) => m.pvFlow, 2, 'L/min'],

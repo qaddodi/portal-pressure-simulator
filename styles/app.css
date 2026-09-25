@@ -821,17 +821,6 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .mobile-tabs { display: none; }
 
 /* ── Explore start card, compare panel, lesson rail ─ */
-.start { padding: 16px 18px 18px; border-bottom: 1px solid var(--hairline); display: flex; flex-direction: column; gap: 10px; background: linear-gradient(180deg, var(--accent-soft), transparent 85%); }
-.start h3 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -.01em; }
-.start p { margin: 0; font-size: 12.5px; color: var(--text-2); line-height: 1.55; }
-.start-actions { display: flex; flex-direction: column; gap: 6px; }
-.start-act { display: grid; grid-template-columns: 30px 1fr auto; gap: 1px 10px; align-items: center; padding: 9px 10px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); text-align: left; cursor: pointer; transition: border-color var(--t-fast), box-shadow var(--t-fast); }
-.start-act:hover { border-color: var(--accent-line); box-shadow: var(--shadow-1); }
-.start-act .ic { grid-row: span 2; width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); }
-.start-act .ic svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-.start-act .t { font-size: 13px; font-weight: 600; color: var(--text); }
-.start-act .d { font-size: 11.5px; color: var(--text-3); line-height: 1.4; }
-.start-act .chev { grid-row: span 2; width: 14px; height: 14px; color: var(--text-3); stroke: currentColor; fill: none; stroke-width: 2; }
 
 .cmp-states { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .cmp-card { border: 1px solid var(--border); border-radius: 12px; padding: 10px 11px; display: flex; flex-direction: column; gap: 4px; min-width: 0; background: var(--surface); }
@@ -988,7 +977,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   .tray-item { padding: 11px 10px; }
   .p-head { padding: 12px 14px 10px; }
   .p-body { padding: 4px 14px 24px; }
-  .changes, .start { padding-left: 14px; padding-right: 14px; }
+  .changes { padding-left: 14px; padding-right: 14px; }
   .lesson { padding: 14px; }
   input[type=range]::-webkit-slider-thumb { width: 22px; height: 22px; margin-top: -9px; }
   .range-wrap, input[type=range] { height: 28px; }
