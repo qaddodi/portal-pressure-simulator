@@ -504,6 +504,12 @@ function wireTopbar() {
   $('#scenarioBtn').addEventListener('click', (e) => openScenarios(e.currentTarget));
   $('#btnUndo').addEventListener('click', doUndo);
   $('#btnRedo').addEventListener('click', doRedo);
+  $('#btnReset').addEventListener('click', async () => {
+    const st = store.get();
+    const id = st.presetList?.some((x) => x.id === st.presetId) ? st.presetId : 'healthy';
+    await loadPreset(id);
+    toast(`Reset: ${st.presetList?.find((x) => x.id === id)?.label || 'Healthy'}`);
+  });
   $('#btnUndo').disabled = true; $('#btnRedo').disabled = true;
   $('#btnShare').addEventListener('click', share);
   $('#btnTheme').addEventListener('click', toggleTheme);
@@ -517,7 +523,7 @@ function wireTopbar() {
     menuItem('Light / dark', { icon: 'theme', onClick: () => { closePopover(); toggleTheme(); } }),
     menuItem('Guide', { icon: 'help', onClick: () => { closePopover(); openHelp(); } }),
   ], { align: 'end' }));
-  for (const [id, side] of [['#btnUndo', 'bottom'], ['#btnRedo', 'bottom'], ['#btnShare', 'bottom'], ['#btnTheme', 'bottom'], ['#btnHelp', 'bottom']]) {
+  for (const [id, side] of [['#btnUndo', 'bottom'], ['#btnRedo', 'bottom'], ['#btnReset', 'bottom'], ['#btnShare', 'bottom'], ['#btnTheme', 'bottom'], ['#btnHelp', 'bottom']]) {
     const b = $(id); tooltipFor(b, b.title, side); b.removeAttribute('title');
   }
 }
