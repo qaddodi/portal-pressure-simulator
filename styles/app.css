@@ -120,26 +120,25 @@ svg { flex: none; }
 .stage-wrap.panning #stage { cursor: grabbing; }
 
 /* SVG anatomy */
-.org { stroke-width: 1.1; stroke-linejoin: round; }
-.org-body { fill: var(--organ-body); fill-opacity: .55; stroke: var(--organ-body-line); stroke-width: 1.4; }
-.org-lung { fill: url(#gLung); stroke: var(--organ-lung); stroke-opacity: .5; }
-.org-heart { fill: url(#gHeart); stroke: var(--organ-heart); stroke-opacity: .55; }
-.org-diaphragm { fill: none; stroke: var(--organ-body-line); stroke-width: 1.4; stroke-dasharray: 1 5; stroke-linecap: round; }
-.org-eso { fill: url(#gStomach); stroke: var(--organ-stomach); stroke-opacity: .5; }
-.org-liver { fill: url(#gLiver); stroke: var(--organ-liver); stroke-opacity: .6; stroke-width: 1.3; }
-.org-caudate { fill: var(--organ-liver); fill-opacity: .16; stroke: var(--organ-liver); stroke-opacity: .5; stroke-dasharray: 3 3; }
-.org-lobe-line { fill: none; stroke: var(--organ-liver); stroke-opacity: .35; stroke-width: 1; stroke-dasharray: 2 4; }
-.org-gb { fill: var(--organ-gb); fill-opacity: .32; stroke: var(--organ-gb); stroke-opacity: .5; }
-.org-stomach { fill: url(#gStomach); stroke: var(--organ-stomach); stroke-opacity: .6; }
-.org-spleen { fill: url(#gSpleen); stroke: var(--organ-spleen); stroke-opacity: .6; }
-.org-pancreas { fill: var(--organ-pancreas); fill-opacity: calc(var(--organ-a) * .9); stroke: var(--organ-pancreas); stroke-opacity: .5; }
-.org-kidney { fill: url(#gKidney); stroke: var(--organ-kidney); stroke-opacity: .55; }
-.org-colon { fill: none; stroke: var(--organ-gut); stroke-opacity: .38; stroke-width: 26; stroke-linecap: round; stroke-linejoin: round; }
-.org-colon-haustra { fill: none; stroke: var(--organ-gut); stroke-opacity: .5; stroke-width: 26; stroke-dasharray: 1.2 13; stroke-linecap: butt; }
-.org-bowel { fill: url(#gGut); stroke: var(--organ-gut); stroke-opacity: .5; }
-.org-bowel-loops { fill: none; stroke: var(--organ-gut); stroke-opacity: .45; stroke-width: 1.2; }
-.org-rectum { fill: var(--organ-gut); fill-opacity: .35; stroke: var(--organ-gut); stroke-opacity: .5; }
-.org-umbilicus { fill: none; stroke: var(--organ-body-line); stroke-width: 1.6; }
+.org { stroke-width: 1; stroke-linejoin: round; stroke-opacity: .38; }
+.org-heart { fill: url(#gHeart); stroke: var(--organ-heart); }
+.org-eso { fill: url(#gStomach); stroke: var(--organ-stomach); }
+.org-liver { fill: url(#gLiver); stroke: var(--organ-liver); stroke-opacity: .5; }
+.org-caudate { fill: var(--organ-liver); fill-opacity: .12; stroke: var(--organ-liver); stroke-opacity: .4; stroke-dasharray: 2 3; }
+.org-lobe-line { fill: none; stroke: var(--organ-liver); stroke-opacity: .4; stroke-width: 1; stroke-dasharray: 1 4; stroke-linecap: round; }
+.org-gb { fill: var(--organ-gb); fill-opacity: .3; stroke: var(--organ-gb); }
+.org-stomach { fill: url(#gStomach); stroke: var(--organ-stomach); }
+.org-spleen { fill: url(#gSpleen); stroke: var(--organ-spleen); }
+.org-pancreas { fill: url(#gPancreas); stroke: var(--organ-pancreas); }
+.org-kidney { fill: url(#gKidney); stroke: var(--organ-kidney); }
+.org-bowel { fill: url(#gGut); stroke: var(--organ-gut); stroke-opacity: .25; }
+.liver-tint { opacity: .16; }
+.org-colon { fill: none; stroke: var(--organ-gut); stroke-opacity: .3; stroke-width: 26; stroke-linecap: round; stroke-linejoin: round; }
+.org-colon-haustra { fill: none; stroke: var(--stage-bg); stroke-opacity: .55; stroke-width: 26; stroke-dasharray: 1.2 14; }
+.vg[data-id='SIN_RL'] { opacity: .35; }
+#backEdges .vg { opacity: .8; }
+.org-bowel-loops { fill: none; stroke: var(--organ-gut); stroke-opacity: .35; stroke-width: 1; stroke-linecap: round; }
+.org-umbilicus { fill: var(--stage-bg); stroke: var(--text-3); stroke-width: 1.2; stroke-opacity: .6; }
 .organ-label { font: 600 10.5px var(--font-ui); letter-spacing: .12em; text-transform: uppercase; fill: var(--text-3); fill-opacity: .8; pointer-events: none; }
 #organs, #organLabels { transition: opacity .5s var(--ease); }
 #organs, #organLabels, #ascites, #grid, #overlays, #nodes, #guides { pointer-events: none; }
@@ -156,6 +155,11 @@ svg { flex: none; }
 @keyframes dash { to { stroke-dashoffset: -24; } }
 .stage-wrap.hovering .vg:not(.hl) { opacity: .22; }
 .vg { transition: opacity .25s var(--ease); }
+.vg.ctx { opacity: .45; }
+.stage-wrap.hovering .vg.ctx:not(.hl) { opacity: .12; }
+.zone { fill: var(--text); fill-opacity: 0; }
+.zone.alt { fill-opacity: .025; }
+.circuit-note { font: 500 11px var(--font-ui); fill: var(--text-3); }
 .coll-ghost .v-lumen { stroke-dasharray: 1.5 4.5; }
 .coll-ghost .v-wall { stroke-opacity: .35; stroke-dasharray: 1.5 4.5; }
 .liver-micro { stroke-dasharray: 1.2 3.2; }
@@ -164,12 +168,12 @@ svg { flex: none; }
 .clamp-label, .guide-label { font: 600 11px var(--font-ui); fill: var(--text); paint-order: stroke; stroke: var(--stage-bg); stroke-width: 4px; stroke-linejoin: round; }
 .thrombus { stroke: #4A0D17; stroke-linecap: round; fill: none; stroke-opacity: .9; stroke-dasharray: 5 2 2 2; }
 .node-dot { stroke: var(--stage-bg); stroke-width: 2; }
-.node-label { font: 500 10.5px var(--font-ui); fill: var(--text-2); paint-order: stroke; stroke: var(--stage-bg); stroke-width: 3.5px; stroke-linejoin: round; }
+.node-label { font: 500 14px var(--font-ui); fill: var(--text-2); paint-order: stroke; stroke: var(--stage-bg); stroke-width: 3.5px; stroke-linejoin: round; }
 .circuit-only { opacity: 0; transition: opacity .4s; }
 .circuit .circuit-only { opacity: 1; }
 .resistor { fill: var(--surface); stroke: var(--text-2); stroke-width: 1.2; }
-.resistor-label { font: 600 10px var(--font-ui); fill: var(--text-3); font-variant-numeric: tabular-nums; }
-.circuit-title { font: 600 11px var(--font-ui); letter-spacing: .1em; text-transform: uppercase; fill: var(--text-3); }
+.resistor-label { font: 600 12.5px var(--font-ui); fill: var(--text-3); font-variant-numeric: tabular-nums; }
+.circuit-title { font: 600 13px var(--font-ui); letter-spacing: .12em; text-transform: uppercase; fill: var(--text-3); }
 .varix-bead { stroke: rgba(30, 30, 80, .45); }
 .band-ring { fill: none; stroke: var(--text); stroke-width: 2.4; }
 .redwale { stroke: #D0192E; stroke-width: 1.3; stroke-linecap: round; }
@@ -266,6 +270,11 @@ svg { flex: none; }
 .speed:hover { background: var(--surface-3); }
 .t-sep { width: 1px; height: 20px; background: var(--hairline); margin: 0 4px; }
 .clock-readout { font-size: 12px; font-weight: 500; color: var(--text-2); min-width: 78px; text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.transport.in-topbar { margin: 0 auto; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--hairline); padding: 3px 5px; border-radius: 12px; backdrop-filter: none; }
+.transport.in-topbar .play { width: 30px; height: 30px; border-radius: 8px; }
+.transport.in-topbar .ib { width: 30px; height: 30px; }
+.transport.in-topbar .seg-mini { background: var(--surface-3); }
+.topbar:has(.transport.in-topbar) .top-right { margin-left: 0; }
 .zoom { display: flex; flex-direction: column; padding: 3px; gap: 1px; border-radius: 12px; }
 .zoom .ib { width: 32px; height: 32px; }
 .fab { position: absolute; right: 14px; bottom: 70px; z-index: 6; width: 46px; height: 46px; border-radius: 50%; border: 0; background: var(--text); color: var(--stage-bg); box-shadow: var(--shadow-3); display: grid; place-items: center; }
@@ -647,7 +656,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .keys div { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--hairline); font-size: 13px; color: var(--text-2); }
 .keys kbd { font: 500 11.5px var(--font-mono); color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; white-space: nowrap; }
 .toast-wrap { position: fixed; left: calc(50% - 180px); top: 124px; transform: translateX(-50%); z-index: 90; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
-.toast { background: var(--text); color: var(--stage-bg); padding: 9px 14px; border-radius: 10px; box-shadow: var(--shadow-3); font-size: 13px; line-height: 1.45; max-width: min(520px, 92vw); animation: fadeDown .22s var(--ease); pointer-events: auto; }
+.toast { background: var(--text); color: var(--stage-bg); padding: 9px 14px; border-radius: 10px; box-shadow: var(--shadow-3); font-size: 13px; line-height: 1.45; max-width: min(520px, 92vw); animation: fadeDown .22s var(--ease); pointer-events: none; }
 .toast.bad { background: var(--danger); color: #fff; }
 .toast.leaving { animation: fade .2s reverse forwards; }
 
@@ -655,6 +664,8 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .mobile-tabs { display: none; }
 
 @media (max-height: 820px) and (min-width: 768px) { .app { --dock-h: 222px; } }
+
+@media (max-width: 1600px) { .scenario-k { display: none; } }
 
 /* ── Tablet (768–1279) ──────────────────────────── */
 @media (max-width: 1279px) {

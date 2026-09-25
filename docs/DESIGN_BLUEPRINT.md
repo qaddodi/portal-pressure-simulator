@@ -28,6 +28,7 @@
 > - **Typography and charts.** Inter throughout, with tabular figures only where numbers align in columns. The Scope uses stacked small multiples with one axis per unit instead of a second y-axis. Series colors come from a CVD-validated categorical order.
 > - **Vessel width.** Displayed width follows diameter on a compressed scale (∝ d^0.78) so the cavae don't drown out the portal tree. Distension is still visible.
 > - **Learn.** Lessons live in the side panel and embed the controls each step needs.
+> - **Focused stage (v1.2).** The anatomic view draws only the portal story: portal tree, liver microcirculation, hepatic veins, IVC → RA, collaterals, the hepatic artery, and faint systemic drains (SVC, azygos, iliac, left renal). The aorta, limb and head vessels and the right kidney are not drawn (§6.1 placement is otherwise kept). The retroperitoneal IVC is drawn behind the organs. The circuit view (§6.5) is a transit map with 45° routing and zone bands.
 
 ---
 

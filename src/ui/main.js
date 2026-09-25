@@ -98,7 +98,7 @@ async function main() {
 let lastClockTxt = '', lastRunning = null;
 function onFrame(f) {
   if (f.params) replaceParams(f.params);
-  store.set({ frame: f, running: f.running, clock: f.clock, speed: f.speed ?? store.get().speed });
+  store.set({ frame: f, running: f.running, clock: f.clock });
   stage.update(f);
   dock.update(f);
   inspector.update(f);
@@ -323,6 +323,15 @@ function wireTopbar() {
   }
 }
 function wireTransport() {
+  // Wide screens: playback lives in the top bar so nothing floats over the top of the anatomy.
+  const wide = matchMedia('(min-width: 1280px)');
+  const place = () => {
+    const tr = $('#transport');
+    if (wide.matches) $('#modeSeg').after(tr); else $('#hudTC').prepend(tr);
+    tr.classList.toggle('in-topbar', wide.matches);
+  };
+  wide.addEventListener('change', place);
+  place();
   $('#btnPlay').addEventListener('click', () => host.send({ type: 'run', running: !store.get().running }));
   $('#speedBtn').addEventListener('click', (e) => {
     popover(e.currentTarget, [h('div', { class: 'menu-title' }, 'Speed'), ...SPEEDS.map((v) => menuItem(`${v}×`, { checked: store.get().speed === v, onClick: () => { setSpeed(v); closePopover(); } }))], { place: 'above', align: 'center' });
