@@ -817,7 +817,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .keys { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 28px; }
 .keys div { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--hairline); font-size: 13px; color: var(--text-2); }
 .keys kbd { font: 500 11.5px var(--font-mono); color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; white-space: nowrap; }
-.toast-wrap { position: fixed; left: calc(50% - 180px); top: 124px; transform: translateX(-50%); z-index: 90; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+.toast-wrap { position: fixed; left: calc(50% - 180px); bottom: 28px; transform: translateX(-50%); z-index: 90; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
 .toast { background: var(--text); color: var(--stage-bg); padding: 9px 14px; border-radius: 10px; box-shadow: var(--shadow-3); font-size: 13px; line-height: 1.45; max-width: min(520px, 92vw); animation: fadeDown .22s var(--ease); pointer-events: none; }
 .toast.bad { background: var(--danger); color: #fff; }
 .toast.leaving { animation: fade .2s reverse forwards; }
@@ -918,7 +918,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   #viewSeg button { padding: 7px 10px; }
   .chip-btn { height: 34px; padding: 0 9px; }
   #btnLayers #colorModeLabel { display: none; }
-  #btnFigure { display: none; }
+  #btnFigure, #btnDraw { display: none; }
   .legend .lg-title { display: none; }
   .lg-scale { width: 104px; }
   .lg-num { font-size: 9.5px; }
@@ -1057,3 +1057,79 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   .fig-head { display: flex !important; }
   .fig-foot { display: grid !important; }
 }
+
+/* ── Action card (object → verb) ─────────────────── */
+.action-card {
+  position: absolute; z-index: 8; width: 288px; max-height: calc(100% - 16px); overflow: auto; overscroll-behavior: contain;
+  background: var(--surface); border-radius: 14px; box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline);
+  padding: 12px 14px 10px; animation: acIn .12s var(--ease); font-size: 12.5px; transition: left .18s var(--ease), top .18s var(--ease);
+}
+@keyframes acIn { from { opacity: 0; transform: translateY(4px); } }
+.ac-head { display: flex; align-items: flex-start; gap: 8px; }
+.ac-titles { flex: 1; min-width: 0; }
+.ac-kicker { font-size: 10.5px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; color: var(--text-3); }
+.ac-head h3 { margin: 1px 0 0; font-size: 15px; font-weight: 650; letter-spacing: -.01em; line-height: 1.3; }
+.ac-close { width: 28px; height: 28px; margin: -4px -6px 0 0; }
+.ac-close svg { width: 15px; height: 15px; }
+.ac-readout { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin: 6px 0 10px; }
+.ac-value { display: flex; align-items: baseline; gap: 2px; white-space: nowrap; }
+.ac-value b { font-size: 22px; font-weight: 650; letter-spacing: -.02em; }
+.ac-value .unit { font-size: 11.5px; }
+.ac-delta { margin-left: 8px; font-size: 12px; font-weight: 650; }
+.ac-delta.up { color: color-mix(in srgb, var(--danger) 88%, var(--text)); } .ac-delta.down { color: var(--accent-ink); }
+.ac-unmeasured { color: var(--text-3); font-style: italic; font-size: 12.5px; }
+.ac-body { display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px solid var(--hairline); }
+.ac-label { display: inline-flex; align-items: center; gap: 6px; font-weight: 550; font-size: 12.5px; color: var(--text); }
+.ac-ic { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; color: var(--text-2); flex: none; }
+.ac-slider, .ac-drain { display: flex; flex-direction: column; gap: 3px; position: relative; }
+.ac-slider.changed .ctl-val { color: var(--accent-ink); }
+.ac-slider.locked, .ac-drain.locked { opacity: .5; }
+.ac-row { display: flex; flex-direction: column; gap: 5px; }
+.ac-seg button { padding: 4px 6px; font-size: 12px; }
+.ac-seg.small button { padding: 3px 6px; font-size: 11.5px; }
+.ac-btn, .ac-toggle {
+  position: relative; display: flex; align-items: center; gap: 8px; width: 100%; min-height: 34px; padding: 6px 10px; border-radius: 9px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 12.5px; font-weight: 550; cursor: pointer; text-align: left;
+  transition: background var(--t-fast), border-color var(--t-fast);
+}
+.ac-btn:hover:not(:disabled), .ac-toggle:hover:not(:disabled) { background: var(--surface-2); border-color: var(--border-strong); }
+.ac-btn:disabled, .ac-toggle:disabled { opacity: .45; cursor: not-allowed; }
+.ac-btn.on { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent-ink); }
+.ac-btn.on .ac-ic { color: var(--accent-ink); }
+.ac-btn.danger { color: var(--danger); }
+.ac-btn.danger .ac-ic { color: currentColor; }
+.ac-bl, .ac-tl { flex: 1; min-width: 0; }
+[data-key]::after { content: attr(data-key); font: 500 10px var(--font-mono); color: var(--text-3); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; line-height: 15px; }
+.ac-slider[data-key]::after { position: absolute; right: 0; top: -1px; display: none; }
+.ac-toggle .switch-vis { position: relative; width: 30px; height: 18px; border-radius: 999px; background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--hairline); flex: none; transition: background .2s; }
+.ac-toggle .switch-vis i { position: absolute; left: 2px; top: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .25); transition: transform .2s var(--ease); }
+.ac-toggle[aria-checked="true"] .switch-vis { background: var(--accent); }
+.ac-toggle[aria-checked="true"] .switch-vis i { transform: translateX(12px); }
+.ac-toggle[data-key]::after { order: 3; }
+.ac-note { font-size: 11.5px; color: var(--text-2); line-height: 1.45; padding: 4px 2px 0; }
+.ac-btn-wrap { display: flex; flex-direction: column; }
+.ac-stat { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--text-2); padding: 2px 1px; }
+.ac-stat b { color: var(--text); font-weight: 600; }
+.ac-link { align-self: flex-start; display: inline-flex; align-items: center; gap: 2px; font-size: 12.5px; }
+.ac-drain-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ac-drain-row .ac-btn { width: auto; }
+.ac-drain-row .check-row { padding: 2px 0; font-size: 12px; }
+.ac-foot { display: flex; justify-content: space-between; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--hairline); }
+.ac-foot .link { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; }
+.mi-ic { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.action-card.docked { left: 8px !important; right: 8px; top: auto !important; bottom: 8px; width: auto; max-height: 56%; }
+.app.figure-mode .action-card { display: none; }
+.hover-tip .hint { margin-top: 5px; font-size: 11px; color: var(--text-3); }
+
+/* Selection feedback on organs and sites */
+.org-sel-line { fill: none; stroke: var(--accent); stroke-width: 2.4; stroke-opacity: .55; stroke-linejoin: round; pointer-events: none; }
+.org-sel-ring { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 2; stroke-opacity: .6; stroke-dasharray: 5 4; pointer-events: none; }
+#organSel { pointer-events: none; }
+.app.figure-mode #organSel { display: none; }
+
+/* Shunt gesture: the source and every valid target glow */
+.stage-view.shunting #stage { cursor: crosshair; }
+.vg.shunt-target .v-lumen, .vg.shunt-target .v-lumenP { filter: drop-shadow(0 0 4px var(--accent)); }
+.vg.shunt-src .v-lumen, .vg.shunt-src .v-lumenP { filter: drop-shadow(0 0 5px var(--flow-normal)); }
+.stage-view.shunting .vg:not(.shunt-target):not(.shunt-src) { opacity: .35; }
+.tool-card .tc-title .btn { margin: -4px -4px -4px 0; }

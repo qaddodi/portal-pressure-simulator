@@ -1,16 +1,18 @@
 // Application bootstrap: wires store, engine host, figure, panel, readouts, instruments and modes.
 
 import { startHost, host } from './host.js?v=878b8f0b20';
-import { store, updateParams, replaceParams, bindParamSender, undo, redo, canUndo, canRedo, clearHistory } from './store.js?v=c4bae453f7';
-import { createStage } from './stage.js?v=74797379a8';
-import { createInspector, activeInterventions } from './inspector.js?v=be4bdc005b';
-import { createDock } from './dock.js?v=9bea43be83';
+import { store, updateParams, replaceParams, bindParamSender, undo, redo, canUndo, canRedo, clearHistory } from './store.js?v=258b91f30b';
+import { createStage } from './stage.js?v=77ec41191c';
+import { createInspector, activeInterventions } from './inspector.js?v=a0fe210f37';
+import { createDock } from './dock.js?v=fcdb5ab0ec';
 import { createWhy } from './why.js?v=9aaf3b4a56';
 import { createEventsUI } from './events-ui.js?v=ad03b28f31';
-import { createLearn } from './learn.js?v=eb0eb29c6d';
-import { createCases } from './cases.js?v=978a919112';
-import { createCompare } from './compare.js?v=142f978d48';
-import { createFigure } from './figure.js?v=cb011e25be';
+import { createLearn } from './learn.js?v=1a168c4844';
+import { createCases } from './cases.js?v=1891f081a4';
+import { createCompare } from './compare.js?v=441b8fa466';
+import { createFigure } from './figure.js?v=a053858e41';
+import { createCard } from './card.js?v=61e102c204';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=ffcc8f5a31';
 import { gradientCss, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=fa78a29bc0';
 import { EDGES, NODES } from '../engine/topology.js?v=44e0aca402';
 import { $, $$, h, icon, fmt, toast, tooltipFor, openModal, closeModal, isModalOpen, units, popover, closePopover, menuItem, svgIcon } from './util.js?v=61d6f9c200';
@@ -23,24 +25,12 @@ const isPhone = () => matchMedia('(max-width: 767px), (max-width: 1023px) and (m
 const isNarrow = () => matchMedia('(max-width: 1279px)').matches;
 const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
-// Tools, grouped by what the learner is doing (blueprint §8.1). Select stands alone; the rest
-// live in three named groups whose trays list each tool by name, shortcut and purpose.
-const TOOLS = [
-  { id: 'select', icon: 'select', key: 'V', label: 'Select', group: null, hint: 'Click a vessel or label to inspect it. Hover traces the path blood takes through it. Drag to pan, scroll or pinch to zoom.' },
-  { id: 'pinch', icon: 'pinch', key: 'P', label: 'Pinch · stenosis', group: 'Disease', desc: 'Narrow a vessel', hint: 'Press on a vessel and drag away from it to narrow the lumen. Resistance rises with (1 − s)⁻⁴.' },
-  { id: 'thrombus', icon: 'clot', key: 'T', label: 'Thrombus', group: 'Disease', desc: 'Grow or dissolve a clot', hint: 'Press and hold on a vein to grow a clot. Hold Shift to dissolve it.' },
-  { id: 'fibrosis', icon: 'fibrosis', key: 'R', label: 'Fibrosis brush', group: 'Disease', desc: 'Paint fibrosis on a liver lobe', hint: 'Press and hold on a liver lobe to lay down fibrosis in the chosen zone. Hold Shift to reverse.', zones: true },
-  { id: 'stent', icon: 'stent', key: 'S', label: 'Stent · shunt', group: 'Treat', desc: 'TIPS or a surgical shunt', hint: 'Drag from a portal vessel to a systemic vein. Right portal → hepatic vein makes a TIPS; splenic → left renal a Warren shunt; portal → IVC a portocaval shunt.' },
-  { id: 'band', icon: 'band', key: 'B', label: 'Band ligation', group: 'Treat', desc: 'Band esophageal varices (EVL)', hint: 'Click the esophageal varices in the lower esophagus to band a column (EVL).' },
-  { id: 'occlude', icon: 'occlude', key: 'O', label: 'Occlude collateral', group: 'Treat', desc: 'Plug a collateral (BRTO)', hint: 'Click a collateral to plug it. The gastrorenal shunt is the BRTO target.' },
-  { id: 'balloon', icon: 'balloon', key: 'L', label: 'Balloon tamponade', group: 'Treat', desc: 'Esophageal or gastric balloon', hint: 'Click the lower esophagus or the gastric fundus to inflate a tamponade balloon.' },
-  { id: 'probe', icon: 'probe', key: 'M', label: 'Measure (hover)', group: 'Measure', desc: 'Live pressure, flow, velocity', hint: 'Hover any vessel for live pressure, flow, velocity and diameter.' },
-  { id: 'catheter', icon: 'catheter', key: 'C', label: 'Hepatic vein catheter', group: 'Measure', desc: 'Free and wedged pressure → HVPG', hint: 'Click a hepatic vein to place the catheter (free pressure). Click it again to inflate the balloon and wedge.', pane: 'hvpg' },
-  { id: 'doppler', icon: 'doppler', key: 'D', label: 'Doppler probe', group: 'Measure', desc: 'Spectral Doppler of a vessel', hint: 'Click a vessel to insonate it. The spectrum appears in the Doppler instrument.', pane: 'doppler' },
-  { id: 'endoscope', icon: 'endoscope', key: 'E', label: 'Endoscope', group: 'Measure', desc: 'Look at the varices', hint: 'Click the esophagus or stomach to look at the varices.', pane: 'endoscopy' },
-  { id: 'needle', icon: 'needle', key: 'N', label: 'Paracentesis', group: 'Measure', desc: 'Drain ascites', hint: 'Click the abdomen, then choose the volume to drain.', pane: 'abdomen' },
-];
-const TOOL_GROUPS = [['Disease', 'pinch'], ['Treat', 'stent'], ['Measure', 'catheter']];
+// Everything the learner does is a verb on the structure they click (actions.js, card.js). The
+// only armed modes left are two paint brushes in the figure's Draw menu, for power users.
+const PAINT = {
+  fibrosis: { icon: 'fibrosis', label: 'Fibrosis brush', hint: 'Press and hold on a liver lobe to lay down fibrosis in the chosen zone. Hold Shift to remove it.', zones: true },
+  thrombus: { icon: 'clot', label: 'Paint clot', hint: 'Press and hold on a vein to grow a clot; drag along to spread it. Hold Shift to dissolve it.' },
+};
 // Color lenses: [title, what it shows, legend swatch].
 const LENSES = {
   pressure: ['Pressure', 'Venous pressure in each vessel', () => gradientCss('to right', 30)],
@@ -54,11 +44,9 @@ const LENSES = {
 const COLOR_MODES = { pressure: 'Pressure', delta: 'Change', heat: 'Congestion', drop: 'Pressure drop', flow: 'Flow volume', velocity: 'Velocity', direction: 'Flow direction' };
 const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };
 const MODE_LABEL = { explore: 'Explore', learn: 'Learn', cases: 'Cases', compare: 'Compare' };
-const compactTools = matchMedia('(max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape)');
 const PANEL_LABEL = { explore: 'Controls', learn: 'Lesson', cases: 'Case', compare: 'Compare' };
 
-let allowedTools = null;
-let stage, inspector, dock, why, eventsUI, learn, cases, compare, figure;
+let stage, inspector, dock, why, eventsUI, learn, cases, compare, figure, card;
 
 async function main() {
   applyTheme(localStorage.getItem('pps.theme'));
@@ -74,7 +62,7 @@ async function main() {
   why = createWhy($('#whyPop'));
   stage = createStage({
     wrap: view,
-    onSelect: (sel, opts) => { store.set({ selection: sel }); if (sel && !opts?.quiet) openPanel(); },
+    onSelect: (sel, opts) => { store.set({ selection: sel }); if (opts?.keyboard) setTimeout(() => card?.focusFirst(), 30); },
     onAction: doAction,
     onOpenTab: (id) => dock.show(id, { reveal: 'soft' }),
     onHoverInfo: hoverInfo,
@@ -87,13 +75,22 @@ async function main() {
   });
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => host.send({ type: 'probe', id }), onReveal: revealDock });
   compare = createCompare({ onBack: () => store.set({ mode: 'explore' }) });
-  const api = { beginSession, endSession, muteEvents: (v) => eventsUI.mute(v), loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), openPanel, setBanner };
+  const api = { beginSession, endSession, muteEvents: (v) => eventsUI.mute(v), loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), openPanel, setBanner, select: (sel) => store.set({ selection: sel }) };
   // A lesson keeps its card in view on a phone: instruments it opens are flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), panel: $('#panel'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#inspector'), api });
   figure = createFigure({ app, stage, onClose: () => toggleFigure(false) });
+  card = createCard({
+    view, stage, onWhy: (m, el) => why.open(m, el),
+    onDetails: (sel) => { store.set({ details: normalizeSel(sel) || sel }); openPanel(); },
+    ctx: {
+      action: doAction, showPane: (id) => dock.show(id, { reveal: true }), probe: (id) => host.send({ type: 'probe', id }),
+      startShunt: (id) => stage.startShunt(id), canShunt: (id) => shuntable(id), select: (sel) => store.set({ selection: sel }),
+      zoomLobule: (lobe) => zoomLobule(lobe), paneApi: (id) => dock.pane(id),
+    },
+  });
 
-  buildToolbar();
+  renderPaintHint();
   buildHud();
   wireTopbar();
   wireTransport();
@@ -108,8 +105,9 @@ async function main() {
   store.on('tool', (t) => {
     for (const c of [...view.classList]) if (c.startsWith('tool-')) view.classList.remove(c);
     view.classList.add('tool-' + t);
-    renderToolbar(); renderToolCard();
+    renderPaintHint();
   });
+  store.on('shunting', renderPaintHint);
   store.on('mode', onMode);
   store.on('historyTick', () => { $('#btnUndo').disabled = !canUndo(); $('#btnRedo').disabled = !canRedo(); });
   store.on('layers', () => { app.classList.toggle('chips-off', !store.get().layers.chips); redraw(); });
@@ -119,7 +117,7 @@ async function main() {
   store.on('selection', redraw);
 
   // Console handle for educators preparing a class (and for automated screenshots).
-  window.pps = { loadPreset, store, updateParams, setTool, dock, stage, host, toggleFigure, figure };
+  window.pps = { loadPreset, store, updateParams, setTool, dock, stage, host, toggleFigure, figure, card };
   const shared = readShare();
   if (shared) await loadShared(shared);
   firstRun();
@@ -145,6 +143,7 @@ function onFrame(f) {
   lastPaint = now;
   store.set({ frame: f, running: f.running, clock: f.clock });
   stage.update(viewFrame(f));
+  card.update(f);
   dock.update(f);
   inspector.update(f);
   compare.update(f);
@@ -252,95 +251,55 @@ function doAction(a) {
   else if (m) toast(m);
 }
 
-// ── Tool bar ────────────────────────────────────────
-function buildToolbar() {
-  compactTools.addEventListener('change', renderToolbar);
-  renderToolbar();
-  renderToolCard();
-}
-const toolById = (id) => TOOLS.find((t) => t.id === id);
-function renderToolbar() {
-  const bar = $('#toolbar');
-  const cur = store.get().tool;
-  const btn = (t, { label = t.label, ic = t.icon, pressed = cur === t.id, onClick, extra = [] } = {}) => {
-    const b = h('button', { class: 'tb-btn', 'aria-pressed': String(pressed), 'aria-label': `${label}${t?.key ? ` (${t.key})` : ''}` }, icon(ic), h('span', { class: 'tb-l' }, label), ...extra);
-    b.addEventListener('click', onClick || (() => setTool(t.id)));
-    return b;
-  };
-  const kids = [];
-  if (compactTools.matches && !allowedTools) {
-    // Phone: Select plus one named Tools tray (all three groups inside).
-    const active = TOOLS.find((t) => t.id === cur && t.group);
-    kids.push(btn(toolById('select')));
-    const b = btn(active || { label: 'Tools', icon: 'tools' }, { label: active ? 'Tool' : 'Tools', ic: active ? active.icon : 'tools', pressed: !!active, onClick: (e) => openTray(e.currentTarget, null) });
-    b.classList.add('tb-tools');
-    b.setAttribute('aria-haspopup', 'menu');
-    b.setAttribute('aria-label', active ? `Tools: ${active.label}` : 'Tools');
-    kids.push(b);
-  } else if (allowedTools) {
-    // A lesson or case names the tools it needs: show exactly those, by name.
-    for (const id of allowedTools) { const t = toolById(id); if (t) kids.push(btn(t)); }
-  } else {
-    kids.push(btn(toolById('select')), h('span', { class: 'tb-sep', 'aria-hidden': 'true' }));
-    for (const [g, ic] of TOOL_GROUPS) {
-      const inGroup = TOOLS.filter((t) => t.group === g);
-      const active = inGroup.find((t) => t.id === cur);
-      const b = btn(active || { label: g, icon: ic }, {
-        label: active ? active.label : g, ic: active ? active.icon : ic, pressed: !!active,
-        extra: [svgIcon('chev-down', 'chev')],
-        onClick: (e) => openTray(e.currentTarget, g),
-      });
-      b.setAttribute('aria-haspopup', 'menu');
-      b.setAttribute('aria-label', active ? `${g}: ${active.label}` : `${g} tools`);
-      b.dataset.group = g;
-      kids.push(b);
-    }
-  }
-  bar.classList.toggle('few', !!allowedTools && allowedTools.length <= 3);
-  bar.replaceChildren(...kids);
-}
-function openTray(anchor, group) {
-  const cur = store.get().tool;
-  const item = (t) => {
-    const b = h('button', { class: 'tray-item', 'aria-pressed': String(cur === t.id), disabled: !!allowedTools && !allowedTools.includes(t.id) },
-      icon(t.icon), h('span', { class: 'n' }, t.label), h('kbd', {}, t.key), h('span', { class: 'd' }, t.desc));
-    b.addEventListener('click', () => { closePopover(); setTool(t.id); });
-    return b;
-  };
-  const groups = group ? [group] : TOOL_GROUPS.map(([g]) => g);
-  const content = groups.flatMap((g) => [h('div', { class: 'menu-title' }, g), ...TOOLS.filter((t) => t.group === g).map(item)]);
-  const el = popover(anchor, content, { cls: 'tool-tray' + (group ? '' : ' all'), place: 'above', align: group ? 'center' : 'end', onClose: () => anchor.setAttribute('aria-expanded', 'false') });
-  el?.querySelector('.tray-item[aria-pressed="true"], .tray-item:not(:disabled)')?.focus();
-}
+// ── Draw menu (paint brushes) and the hint for armed gestures ─────
 function setTool(id) {
-  if (allowedTools && !allowedTools.includes(id)) { toast('That tool is locked in this lesson or case.'); return; }
+  if (id !== 'select' && !PAINT[id]) id = 'select';
+  if (id !== 'select' && store.get().allowedVerbs && !store.get().allowedVerbs.includes(id === 'thrombus' ? 'clot' : id)) { toast('Not available in this step.'); return; }
   store.set({ tool: id });
-  const t = toolById(id);
-  if (t?.pane && !isPhone()) dock.show(t.pane, { reveal: true });
-  if (t?.pane && isPhone()) dock.show(t.pane, { reveal: 'soft' });
 }
 function setAllowedTools(list) {
-  allowedTools = list;
-  if (list && !list.includes(store.get().tool)) store.set({ tool: 'select' });
-  renderToolbar();
+  store.set({ allowedVerbs: toolsToVerbs(list) });
+  if (store.get().tool !== 'select') store.set({ tool: 'select' });
 }
-function renderToolCard() {
-  const card = $('#toolHint');
-  const t = toolById(store.get().tool);
-  if (!t || t.id === 'select') { card.hidden = true; redraw(); return; }
-  card.hidden = false;
-  const close = h('button', { class: 'ib', 'aria-label': 'Back to Select', title: 'Back to Select (V)' }, icon('close'));
-  close.addEventListener('click', () => setTool('select'));
-  card.replaceChildren(h('div', { class: 'tc-title' }, icon(t.icon), t.label, h('kbd', {}, t.key), h('span', { class: 'sp' }), close), h('div', {}, t.hint));
+function openDraw(anchor) {
+  const cur = store.get().tool;
+  const item = (id) => {
+    const t = PAINT[id];
+    const b = h('button', { class: 'tray-item', 'aria-pressed': String(cur === id) }, icon(t.icon), h('span', { class: 'n' }, t.label), h('span', { class: 'd' }, t.hint));
+    b.addEventListener('click', () => { closePopover(); setTool(cur === id ? 'select' : id); });
+    return b;
+  };
+  popover(anchor, [h('div', { class: 'menu-title' }, 'Draw on the anatomy'), item('fibrosis'), item('thrombus'),
+    h('div', { class: 'ctl-sub', style: { padding: '4px 10px 6px' } }, 'For quick sketches. Every change can also be made by clicking the structure itself.')], { cls: 'tool-tray', align: 'start' });
+}
+// One hint card for whatever gesture is armed: a shunt waiting for its target, or a brush.
+function renderPaintHint() {
+  const el = $('#toolHint');
+  const st = store.get();
+  const done = (label, fn) => { const b = h('button', { class: 'btn sm' }, label); b.addEventListener('click', fn); return b; };
+  if (st.shunting) {
+    const only = st.shunting.only;
+    el.hidden = false;
+    el.replaceChildren(h('div', { class: 'tc-title' }, icon('stent'), only === 'tips' ? 'Place the TIPS' : 'Make a shunt', h('span', { class: 'sp' }), done('Cancel', () => stage.cancelShunt())),
+      h('div', {}, only === 'tips' ? 'Click the hepatic vein where the stent should end. Glowing vessels are valid targets.' : 'Click the vein to connect it to. Glowing vessels are valid targets: a portal branch to a hepatic vein makes a TIPS, splenic to left renal a Warren shunt. Esc cancels.'));
+    redraw();
+    return;
+  }
+  const t = PAINT[st.tool];
+  if (!t) { el.hidden = true; redraw(); return; }
+  el.hidden = false;
+  el.replaceChildren(h('div', { class: 'tc-title' }, icon(t.icon), t.label, h('span', { class: 'sp' }), done('Done', () => setTool('select'))), h('div', {}, t.hint));
   if (t.zones) {
-    card.append(h('div', { class: 'seg full', role: 'group', 'aria-label': 'Fibrosis zone' }, [['pre', 'Portal tract'], ['sin', 'Sinusoids'], ['post', 'Central vein']].map(([z, l]) => {
+    el.append(h('div', { class: 'seg full', role: 'group', 'aria-label': 'Fibrosis zone' }, [['pre', 'Portal tract'], ['sin', 'Sinusoids'], ['post', 'Central vein']].map(([z, l]) => {
       const b = h('button', { 'aria-pressed': String(store.get().fibrosisZone === z) }, l);
-      b.addEventListener('click', () => { store.set({ fibrosisZone: z }); renderToolCard(); });
+      b.addEventListener('click', () => { store.set({ fibrosisZone: z }); renderPaintHint(); });
       return b;
     })));
   }
   redraw();
 }
+// The lobule, reached from the liver (semantic zoom arrives with the signature visuals).
+function zoomLobule() { dock.show('lobule', { reveal: true }); }
 
 // ── Figure header: view, color, legend; banners ─────
 let bleedEl, tipEl, stageClock;
@@ -359,6 +318,7 @@ function buildHud() {
   $('#btnLayers').addEventListener('click', (e) => openLayers(e.currentTarget));
   $('#legend').addEventListener('click', (e) => openLegend(e.currentTarget));
   $('#btnFigure').addEventListener('click', () => toggleFigure(true));
+  $('#btnDraw').addEventListener('click', (e) => openDraw(e.currentTarget));
   new ResizeObserver(() => stage.relayout()).observe(view);
 }
 function legendModel() {
@@ -481,14 +441,14 @@ function updateBleedBanner(f) {
 function hoverInfo(info) {
   const f = store.get().frame;
   const tool = store.get().tool;
-  if (!info || !f || !['probe', 'select'].includes(tool) || isPhone() || store.get().imaging) { tipEl.style.display = 'none'; return; }
+  if (!info || !f || tool !== 'select' || store.get().shunting || isPhone() || store.get().imaging) { tipEl.style.display = 'none'; return; }
   const e = EDGES[EI[info.id]], k = EI[info.id];
   const D = Math.max(0.5, f.D[k]) / 10;
   const v = f.Q[k] / (Math.PI * D * D / 4);
   const r = (a, b) => h('div', { class: 'r' }, a, h('b', {}, b));
   tipEl.replaceChildren(h('div', { class: 't' }, e.label),
     r('Pressure', `${fmt(f.P[NI[e.from]], 1)} → ${fmt(f.P[NI[e.to]], 1)} mmHg`), r('Flow', `${fmt(f.Q[k] * 0.06, 2)} L/min`),
-    tool === 'probe' ? [r('ΔP', `${fmt(f.P[NI[e.from]] - f.P[NI[e.to]], 1)} mmHg`), r('Velocity', `${fmt(v, 1)} cm/s`), r('Diameter', `${fmt(f.D[k], 1)} mm`)] : null);
+    r('Velocity', `${fmt(v, 1)} cm/s`), r('Diameter', `${fmt(f.D[k], 1)} mm`), h('div', { class: 'hint' }, 'Click for actions'));
   tipEl.style.display = '';
   const W = view.clientWidth, H = view.clientHeight;
   tipEl.style.left = Math.max(8, Math.min(W - 200, info.x + 16)) + 'px';
@@ -611,9 +571,10 @@ function onMode(mode) {
   if (mode === 'learn') { learn.render(); if (!learn.active()) learn.openList(); }
   if (mode === 'compare') openPanel();
   if (mode === 'explore') { store.set({ locked: null, hiddenReadouts: null, imaging: false }); setAllowedTools(null); }
+  store.set({ selection: null, details: null });
   $('#mobilePanelLabel').textContent = PANEL_LABEL[mode];
   $('#panelToggleLabel').textContent = PANEL_LABEL[mode];
-  renderToolCard(); renderBanner(); renderLegend();
+  renderPaintHint(); renderBanner(); renderLegend();
   if (isPhone()) setSheet('panel');
 }
 
@@ -621,12 +582,13 @@ function onMode(mode) {
 function wireKeyboard() {
   addEventListener('keydown', (e) => {
     const tag = (e.target.tagName || '').toLowerCase();
-    if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
+    if (tag === 'input' || tag === 'select' || tag === 'textarea') { if (e.key === 'Escape') e.target.blur(); return; }
     if (e.key === 'Escape') {
       closePopover();
       if (isModalOpen()) closeModal();
       else if (app.classList.contains('figure-mode')) toggleFigure(false);
       else if (projector) toggleProjector();
+      else if (stage.isShunting()) stage.cancelShunt();
       else if (store.get().tool !== 'select') setTool('select');
       else store.set({ selection: null });
       return;
@@ -635,6 +597,8 @@ function wireKeyboard() {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); (e.shiftKey ? doRedo : doUndo)(); return; }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === ' ' && !e.target.closest?.('.v-hit, button, .lb')) { e.preventDefault(); $('#btnPlay').click(); return; }
+    // With a card open, the number keys run its verbs in order.
+    if (/^[1-9]$/.test(e.key) && card.isOpen()) { if (card.trigger(+e.key)) e.preventDefault(); return; }
     if (e.key === '.') { host.send({ type: 'run', running: true }); setTimeout(() => host.send({ type: 'run', running: false }), 60); return; }
     if (e.key === '[' || e.key === ']') {
       const i = SPEEDS.indexOf(store.get().speed);
@@ -642,20 +606,18 @@ function wireKeyboard() {
       toast(`Speed ${store.get().speed}×`);
       return;
     }
-    if (['1', '2', '3', '4'].includes(e.key)) { store.set({ mode: ['explore', 'learn', 'cases', 'compare'][+e.key - 1] }); return; }
-    if (e.key.toLowerCase() === 'a' && !e.shiftKey) { store.set({ view: store.get().view === 'circuit' ? 'anatomic' : 'circuit' }); return; }
-    if (e.key === 'C' && e.shiftKey && !e.ctrlKey && !e.metaKey && !store.get().imaging) {
+    const k = e.key.toLowerCase();
+    if (k === 'a' && !e.shiftKey) { store.set({ view: store.get().view === 'circuit' ? 'anatomic' : 'circuit' }); return; }
+    if ((k === 'l' || (e.key === 'C' && e.shiftKey)) && !store.get().imaging) {
       const ks = Object.keys(LENSES), i = ks.indexOf(store.get().colorMode);
-      const next = ks[(i + 1) % ks.length];
-      store.set({ colorMode: next }); toast(`Color: ${LENSES[next][0]}. ${LENSES[next][1]}.`); return;
+      const next = ks[(i + (e.shiftKey && k === 'l' ? ks.length - 1 : 1)) % ks.length];
+      store.set({ colorMode: next }); toast(`Lens: ${LENSES[next][0]}. ${LENSES[next][1]}.`); return;
     }
-    if (e.key.toLowerCase() === 'z') { settle(); return; }
+    if (k === 'z') { settle(); return; }
     if (e.key === '?') { openHelp(); return; }
     if (e.key === 'F' && e.shiftKey) { toggleProjector(); return; }
-    if (e.key === 'f' && !e.shiftKey && store.get().tool === 'select') { toggleFigure(); return; }
-    if (e.key === 'i') { dock.toggle(); return; }
-    const t = TOOLS.find((x) => x.key.toLowerCase() === e.key.toLowerCase());
-    if (t) setTool(t.id);
+    if (k === 'f' && !e.shiftKey) { toggleFigure(); return; }
+    if (k === 'i') { dock.toggle(); return; }
   });
 }
 
@@ -738,15 +700,16 @@ function brandMark() {
 }
 function openHelp() {
   const rows = [
-    ['Space', 'Play / pause'], ['[ ]', 'Slower / faster'], ['.', 'Step'], ['Z', 'Settle to equilibrium'], ['A', 'Anatomy ⇄ circuit'], ['1 – 4', 'Explore · Learn · Cases · Compare'],
-    ['F', 'Figure view'], ['I', 'Open / close instruments'],
-    ...TOOLS.map((t) => [t.key, t.label]), ['Ctrl/⌘ Z', 'Undo (Shift to redo)'], ['Esc', 'Back to Select · clear selection · close'], ['Shift F', 'Projector mode'], ['?', 'This guide'],
-    ['Tab · ← →', 'Walk vessels along the flow'], ['+ −', 'Stenosis on the focused vessel'],
+    ['Space', 'Play / pause'], ['[ ]', 'Slower / faster'], ['.', 'Step'], ['Z', 'Settle to equilibrium'], ['A', 'Anatomy ⇄ circuit'],
+    ['F', 'Figure view'], ['I', 'Open / close instruments'], ['L', 'Next color lens (Shift: previous)'],
+    ['Click', 'Open the actions for a vessel or organ'], ['1 – 9', 'Run an action on the open card'],
+    ['Ctrl/⌘ Z', 'Undo (Shift to redo)'], ['Esc', 'Cancel · close the card · close'], ['Shift F', 'Projector mode'], ['?', 'This guide'],
+    ['Tab · Enter', 'Reach a vessel, open its actions'], ['← →', 'Walk vessels along the flow'],
   ];
   openModal('Guide', h('div', {},
     h('p', {}, 'A living model of the portal circulation. Every pressure, flow, collateral and varix comes out of one lumped-parameter hemodynamic model. Nothing is scripted: change a resistance and watch the consequences propagate.'),
     h('div', { class: 'entry-grid' },
-      [['explore', 'Manipulate the anatomy', 'Pick a tool group under the figure: Disease, Treat or Measure. Pinch vessels, paint clots or fibrosis, drag a TIPS, band varices, wedge a catheter.'],
+      [['explore', 'Act on the anatomy', 'Click any vessel or organ. A card opens beside it with what you can do there: narrow or clot a vein, make the liver cirrhotic, band varices, wedge a catheter, start a shunt.'],
         ['settle', 'Two clocks', 'Seconds for hemodynamics. Months for remodeling: collaterals, varices, spleen and ascites.'],
         ['bulb', 'Ask “Why?”', 'Click any readout for a causal breakdown of what is driving it, change by change.']].map(([ic, t, d]) => h('div', { class: 'entry', style: { cursor: 'default' } }, h('span', { class: 'eic' }, icon(ic)), h('span', { class: 't' }, t), h('span', { class: 'd' }, d)))),
     h('h3', {}, 'Keyboard'),

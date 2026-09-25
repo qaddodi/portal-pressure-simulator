@@ -3,9 +3,9 @@
 
 import { NODES, EDGES } from '../engine/topology.js?v=44e0aca402';
 import { pressureColor } from './colormap.js?v=fa78a29bc0';
-import { store, updateParams } from './store.js?v=c4bae453f7';
+import { store, updateParams } from './store.js?v=258b91f30b';
 import { h, fmt, fitCanvas, cssVar, clamp, toast, icon } from './util.js?v=61d6f9c200';
-import { FONT } from './charts.js?v=725583ec6f';
+import { FONT } from './charts.js?v=eff00799f7';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -256,7 +256,7 @@ export function createEndoscopy({ onAction }) {
     ctx.restore();
     ctx.strokeStyle = '#1B1D22'; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.stroke();
   }
-  return { id: 'endoscopy', label: 'Endoscopy', el, update };
+  return { id: 'endoscopy', label: 'Endoscopy', el, update, setView(v) { view = v; seg.querySelectorAll('button').forEach((x, i) => x.setAttribute('aria-pressed', String((i === 0) === (v === 'eso')))); } };
 }
 
 // ── Liver lobule (L2) ───────────────────────────────

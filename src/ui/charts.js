@@ -3,7 +3,7 @@
 import { NODES, EDGES } from '../engine/topology.js?v=44e0aca402';
 import { PROFILE_PATHS, SHORT } from './anatomy.js?v=1eeeff8e27';
 import { pressureColor } from './colormap.js?v=fa78a29bc0';
-import { store } from './store.js?v=c4bae453f7';
+import { store } from './store.js?v=258b91f30b';
 import { h, fmt, fitCanvas, cssVar, clamp } from './util.js?v=61d6f9c200';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -93,7 +93,7 @@ export function createProfile() {
     if (hasArt) {
       ctx.strokeStyle = c.axis; ctx.lineWidth = 1.2;
       for (const dy of [-3, 3]) { ctx.beginPath(); ctx.moveTo(L - 6, T - 10 + dy + 3); ctx.lineTo(L + 6, T - 10 + dy - 3); ctx.stroke(); }
-      ctx.fillStyle = c.faint; ctx.textAlign = 'right'; ctx.font = FONT(500, 10.5); ctx.fillText('arterial', L - 8, artY + 4);
+      ctx.fillStyle = c.faint; ctx.textAlign = 'left'; ctx.font = FONT(500, 10.5); ctx.fillText('arterial', 4, artY + 4);
     }
     const Y = (v, i) => (ARTERIAL.has(stations[i]) ? artY : y(v));
     const series = (vals, color, width, dash, markers) => {

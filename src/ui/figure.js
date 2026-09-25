@@ -3,7 +3,7 @@
 // exported file is built from the live SVG layers with every style resolved inline, so it opens
 // the same in a vector editor, a slide or a manuscript.
 
-import { store } from './store.js?v=c4bae453f7';
+import { store } from './store.js?v=258b91f30b';
 import { h, fmt, icon, toast } from './util.js?v=61d6f9c200';
 import { pressureColor, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=fa78a29bc0';
 

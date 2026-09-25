@@ -1,6 +1,6 @@
 // Learn mode (blueprint §11): lessons as step sequences with Predict → Observe → Explain.
 
-import { store, updateParams } from './store.js?v=c4bae453f7';
+import { store, updateParams } from './store.js?v=258b91f30b';
 import { host } from './host.js?v=878b8f0b20';
 import { h, fmt, toast, svgIcon } from './util.js?v=61d6f9c200';
 
@@ -18,7 +18,7 @@ export const LESSONS = [
       { type: 'predict', q: 'You are about to pinch the main portal vein to 80 %. What happens to pressure in the SMV, upstream of the pinch?',
         options: ['It rises', 'It falls', 'It stays the same'], answer: 0,
         why: 'Upstream of a new resistance, pressure rises until the gradient can push the flow through (or around) it.' },
-      { type: 'do', text: 'Use the **Pinch** tool: press on the portal vein and drag sideways until the stenosis reaches ≥ 80 %.', focus: ['PV_TRUNK'], focusLabel: 'Pinch the portal vein', goal: (f, p) => (p.stenosis.PV_TRUNK || 0) >= 0.8, hint: 'The portal vein runs from the confluence behind the pancreas up to the liver hilum.' },
+      { type: 'do', text: 'Click the **portal vein**, then drag **Narrow** on its card to at least 80 %.', focus: ['PV_TRUNK'], focusLabel: 'Pinch the portal vein', goal: (f, p) => (p.stenosis.PV_TRUNK || 0) >= 0.8, hint: 'The portal vein runs from the confluence behind the pancreas up to the liver hilum.' },
       { type: 'observe', seconds: 6, text: 'Look at the pressure profile: a big step appears at the portal vein, with everything upstream higher and everything downstream lower.' },
       { type: 'explain', metric: 'pv', text: 'The pressure drop across a segment is Q × R. A four-fold narrowing raises R ~ 256-fold (Poiseuille, r⁴).' },
       { type: 'check', quiz: [
@@ -49,11 +49,11 @@ export const LESSONS = [
     steps: [
       { type: 'frame', preset: 'csph', tools: ['select', 'catheter'], tab: 'hvpg', hide: ['trueHVPG', 'pv'],
         text: 'HVPG = **wedged** (WHVP) − **free** (FHVP) hepatic venous pressure. The wedged balloon stops flow, so the stagnant column reads the pressure of the sinusoids behind it.' },
-      { type: 'do', focus: ['RHV_IVC'], focusLabel: 'Right hepatic vein', text: 'With the **Catheter** tool, click a hepatic vein, then click it again (or press *Inflate balloon*) to wedge. Wait for the plateau.', goal: () => !!store.get().lastHVPG, hint: 'The HVPG tab shows the pressure trace.' },
+      { type: 'do', focus: ['RHV_IVC'], focusLabel: 'Right hepatic vein', text: 'Click the **right hepatic vein** and choose **Wedge → HVPG**. The catheter reads the free pressure, then inflates its balloon; wait for the plateau.', goal: () => !!store.get().lastHVPG, hint: 'The HVPG instrument shows the pressure trace.' },
       { type: 'observe', seconds: 2, text: 'Your measurement is in the HVPG tab. In cirrhosis, WHVP ≈ portal pressure because the diseased sinusoids no longer communicate.' },
       { type: 'predict', preset: 'schisto', q: 'New patient: schistosomiasis (presinusoidal fibrosis). The portal pressure is ~19 mmHg. What will the HVPG be?', options: ['High (≥ 10)', 'Normal (< 5)', 'Negative'], answer: 1,
         why: 'The block is upstream of the sinusoids. The stagnant column behind the balloon only reaches normal sinusoids.' },
-      { type: 'do', focus: ['RHV_IVC'], focusLabel: 'Right hepatic vein', text: 'Measure the HVPG in this patient.', goal: () => store.get().presetId === 'schisto' && !!store.get().lastHVPG, hint: 'Place the catheter, then wedge.' },
+      { type: 'do', focus: ['RHV_IVC'], focusLabel: 'Right hepatic vein', text: 'Measure the HVPG in this patient.', goal: () => store.get().presetId === 'schisto' && !!store.get().lastHVPG, hint: 'Click a hepatic vein, then Wedge → HVPG.' },
       { type: 'explain', metric: 'pv', text: 'Presinusoidal portal hypertension: high portal pressure, normal HVPG. HVPG underestimates it.' },
       { type: 'check', quiz: [
         { q: 'Right heart failure: RA 18 mmHg, FHVP 19, WHVP 21. The HVPG is…', options: ['21 mmHg: severe portal hypertension', '2 mmHg: normal, because both rise together', 'Cannot be calculated'], answer: 1 },
@@ -134,7 +134,7 @@ export const LESSONS = [
     steps: [
       { type: 'frame', preset: 'healthy', tools: ['select', 'thrombus', 'endoscope'], tab: 'endoscopy',
         text: 'Pancreatitis can thrombose the splenic vein. The spleen then has to drain another way.' },
-      { type: 'do', focus: ['SV_CONF'], focusLabel: 'Proximal splenic vein', text: 'Use the **Thrombus** tool to occlude the proximal splenic vein fully (hold on it).', goal: (f, p) => (p.thrombus.SV_CONF || 0) >= 0.95 },
+      { type: 'do', focus: ['SV_CONF'], focusLabel: 'Proximal splenic vein', text: 'Click the **proximal splenic vein** and drag **Clot** to 100 %.', goal: (f, p) => (p.thrombus.SV_CONF || 0) >= 0.95 },
       { type: 'predict', q: 'Where will varices appear?', options: ['Esophagus', 'Gastric fundus (via short gastric veins)', 'Rectum'], answer: 1 },
       { type: 'observe', days: 150, text: 'Short gastric veins carry splenic blood to the fundus: **isolated gastric varices**. Portal pressure stays normal.' },
       { type: 'explain', metric: 'pv' },
@@ -147,11 +147,11 @@ export const LESSONS = [
     steps: [
       { type: 'frame', preset: 'cirr-decomp', tools: ['select', 'stent', 'occlude'], tab: 'flow',
         text: 'A TIPS decompresses the portal system by bypassing the liver. Watch where the gut blood goes.' },
-      { type: 'do', focus: ['PVH_R', 'RHV_IVC'], focusLabel: 'Right portal → right hepatic vein', text: 'Create a **TIPS**: with the Stent tool, drag from the right portal vein to the right hepatic vein.', goal: (f, p) => p.tips.on },
+      { type: 'do', focus: ['PVH_R', 'RHV_IVC'], focusLabel: 'Right portal → right hepatic vein', text: 'Click the **right portal vein**, choose **Shunt from here**, then click the right hepatic vein.', goal: (f, p) => p.tips.on },
       { type: 'observe', seconds: 8, text: 'Portosystemic gradient falls below 12, varices decompress, but the shunt fraction rises, liver perfusion falls, and the intrahepatic portal branches reverse toward the stent.' },
       { type: 'explain', metric: 'shunt' },
       { type: 'predict', preset: 'gastric-varix', q: 'New patient with fundal varices draining via a gastrorenal shunt. After BRTO (occluding that shunt), portal pressure will…', options: ['Rise', 'Fall', 'Not change'], answer: 0 },
-      { type: 'do', focus: ['C5'], focusLabel: 'Gastrorenal shunt', text: 'Occlude the **gastrorenal shunt**: use the Occlude tool on it, or the switch below.', goal: (f, p) => !!p.occluded.C5, inline: ['brto'] },
+      { type: 'do', focus: ['C5'], focusLabel: 'Gastrorenal shunt', text: 'Click the **gastrorenal shunt** and switch on **Occlude (BRTO)**, or use the switch below.', goal: (f, p) => !!p.occluded.C5, inline: ['brto'] },
       { type: 'explain', metric: 'pv', text: 'Closing an exit raises upstream pressure: esophageal varices and ascites can worsen after BRTO.' },
       { type: 'check', quiz: [{ q: 'The main neurological risk after TIPS is…', options: ['Stroke', 'Hepatic encephalopathy from shunted gut blood', 'Seizures from hyponatremia'], answer: 1 }] },
     ],
@@ -219,7 +219,6 @@ export function createLearn({ host: hostEl, panel, dock, inspector, beginSession
     if (st.type === 'predict' && st.mode === 'draw') { dock.profile.startPredict(() => render()); showPane('profile'); }
     if (st.type === 'do') {
       host.send({ type: 'run', running: true });
-      if (st.tools?.[1]) setTool(st.tools[1]);
       pollTimer = setInterval(() => {
         const f = store.get().frame;
         if (f && st.goal(f, store.get().params)) { state.met = true; clearInterval(pollTimer); render(); setTimeout(() => { if (lesson && lesson.steps[idx] === st) next(); }, 1100); }

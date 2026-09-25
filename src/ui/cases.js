@@ -1,6 +1,6 @@
 // Cases mode (blueprint §10.4): clinical scenarios as state machines with objectives & debrief.
 
-import { store, updateParams } from './store.js?v=c4bae453f7';
+import { store, updateParams } from './store.js?v=258b91f30b';
 import { host } from './host.js?v=878b8f0b20';
 import { h, fmt, openModal, closeModal, toast, svgIcon } from './util.js?v=61d6f9c200';
 
@@ -18,8 +18,8 @@ const ACTIONS = {
   diuretics: { label: 'Diuretics', toggle: (p) => p.diuretics, run: () => updateParams((p) => { p.diuretics = !p.diuretics; return p; }, { label: 'Diuretics' }) },
   carvedilol: { label: 'Carvedilol', toggle: (p) => p.drugs.carvedilol, run: () => updateParams((p) => { p.drugs.carvedilol = !p.drugs.carvedilol; return p; }, { label: 'Carvedilol' }) },
   echo: { label: 'Echocardiogram', once: true, run: (a) => { const s = store.get().hiddenReadouts; s?.delete('ra'); store.set({ hiddenReadouts: new Set(s || []) }); const f = store.get().frame; toast(`Echo: RA pressure ≈ ${fmt(f.metrics.ra, 0)} mmHg${store.get().params.tr > 0.3 ? ', severe tricuspid regurgitation' : ''}.`); } },
-  doppler: { label: 'Doppler ultrasound', run: (a) => { a.setTool('doppler'); a.showPane('doppler'); } },
-  hvpg: { label: 'Hepatic vein catheterization', run: (a) => { a.setTool('catheter'); a.showPane('hvpg'); } },
+  doppler: { label: 'Doppler ultrasound', run: (a) => { a.showPane('doppler'); toast('Click a vessel and choose Doppler, or pick the vessel in the Doppler instrument.'); } },
+  hvpg: { label: 'Hepatic vein catheterization', run: (a) => { a.showPane('hvpg'); a.select?.({ type: 'edge', id: 'RHV_IVC' }); toast('Choose Wedge → HVPG on the hepatic vein card.'); } },
   endoscopy: { label: 'Endoscopy', run: (a) => { a.showPane('endoscopy'); } },
   ascitic: { label: 'Diagnostic paracentesis', once: true, run: () => { const m = store.get().frame.metrics; toast(m.ascites.volume > 150 ? `Ascitic fluid: SAAG ${m.ppg > 6 || m.whvp > 10 ? '≥ 1.1' : '< 1.1'}, protein ${m.ascites.highProtein ? '> 2.5' : '< 2.5'} g/dL.` : 'No tappable ascites.'); } },
 };

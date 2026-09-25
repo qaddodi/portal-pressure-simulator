@@ -2,9 +2,9 @@
 // The panel names both states and tabulates the differences; the figure header switches the
 // plate between A, B and the change from A to B (colored on a diverging scale).
 
-import { store } from './store.js?v=c4bae453f7';
+import { store } from './store.js?v=258b91f30b';
 import { h, fmt, icon } from './util.js?v=61d6f9c200';
-import { activeInterventions } from './inspector.js?v=be4bdc005b';
+import { activeInterventions } from './inspector.js?v=a0fe210f37';
 
 const ROWS = [
   ['HVPG', (m) => m.hvpg, 1, 'mmHg'], ['Portal pressure', (m) => m.pv, 1, 'mmHg'], ['Portosystemic gradient', (m) => m.ppg, 1, 'mmHg'], ['Portal flow', (m) => m.pvFlow, 2, 'L/min'],
@@ -63,7 +63,7 @@ export function createCompare() {
 
   function update(f) {
     const st = store.get();
-    if (st.mode !== 'compare' || st.selection || !tableEl || !st.compareSnap || !tableEl.isConnected) return;
+    if (st.mode !== 'compare' || st.details || !tableEl || !st.compareSnap || !tableEl.isConnected) return;
     const A = st.compareSnap.metrics, B = f.metrics;
     const maxRel = Math.max(...ROWS.map(([, g, d]) => { const a = g(A), b = g(B); return Math.abs(b - a) / Math.max(Math.abs(a), 1); }), 1e-6);
     tableEl.replaceChildren(h('table', { class: 'cmp-table' },
@@ -84,6 +84,6 @@ export function createCompare() {
     n.textContent = st.presetList?.find((p) => p.id === st.presetId)?.label || 'Custom';
     d.textContent = describe(activeInterventions(st.params).map((a) => a.label));
   });
-  store.on('compareSnap', () => { if (store.get().mode === 'compare' && !store.get().selection) document.dispatchEvent(new Event('pps:rerender-panel')); });
+  store.on('compareSnap', () => { if (store.get().mode === 'compare' && !store.get().details) document.dispatchEvent(new Event('pps:rerender-panel')); });
   return { render, update, snapshot, clear };
 }

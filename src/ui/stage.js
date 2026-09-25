@@ -3,7 +3,7 @@
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=44e0aca402';
 import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS } from './anatomy.js?v=1eeeff8e27';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=fa78a29bc0';
-import { store, updateParams } from './store.js?v=c4bae453f7';
+import { store, updateParams } from './store.js?v=258b91f30b';
 import { s, fmt, fp, clamp, lerp, toast } from './util.js?v=61d6f9c200';
 
 const N_SAMPLES = 64;
@@ -613,6 +613,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const x of Object.values(E)) if (x.vis && !x.isArt) renderTube(x, p, t, J);
     // A selected vessel stays bright while the rest of the network recedes.
     wrap.classList.toggle('has-sel', st.selection?.type === 'edge' && !!E[st.selection.id]?.vis);
+    updateOrganSel(st.selection, t);
     liverModule.classList.toggle('open', liverExpanded());
     updateNodesCircuit(f);
     updateOverlays(f, p, gain, t);
@@ -708,6 +709,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // same frame, rather than holding the stroke until the next model update.
     if (finished && F && !inUpdate) update(F);
   }
+  // A selected organ keeps a quiet outline; a selected site (varices, fundus, abdomen) a ring.
+  const gSelO = s('g', { id: 'organSel' });
+  gOver.after(gSelO);
+  let selOKey = '';
+  function updateOrganSel(sel, t) {
+    const o = sel?.type === 'organ' && t < 0.5 ? sel.id : null;
+    const key = o ? o + (sel.lobe || '') : '';
+    if (key === selOKey) return;
+    selOKey = key;
+    for (const g of Object.values(organG)) g.classList.remove('org-sel');
+    gSelO.replaceChildren();
+    if (!o) return;
+    const byOrgan = { liver: ['liver'], heart: ['heart', 'heart-ra'], spleen: ['spleen'] }[o];
+    if (byOrgan) { for (const id of byOrgan) organG[id]?.classList.add('org-sel'); const d = ORGANS.find((x) => x.id === byOrgan[0])?.d; if (d) gSelO.append(s('path', { d, class: 'org-sel-line' })); return; }
+    const at = { varices: [SITES.varix[0], SITES.varix[1] + 20, 26, 62], gastric: [SITES.fundus[0], SITES.fundus[1], 34, 30], abdomen: [720, 790, 230, 110] }[o];
+    if (at) gSelO.append(s('ellipse', { cx: at[0], cy: at[1], rx: at[2], ry: at[3], class: 'org-sel-ring' }));
+  }
+
   // Where a lesson step or case asks the learner to act.
   function updateFocus() {
     const foc = store.get().focus;
@@ -1198,6 +1217,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           const elbow = side === 'L' ? lx + 12 : rx - 12;
           for (const it of col) {
             it.x = side === 'L' ? lx - 8 - it.w : rx + 8;
+            // A floating card over the column hides the labels it covers rather than sitting on them.
+            if (blockers.some((b) => hits(rectOf(it), b))) continue;
             it.align = side === 'L' ? 'end' : 'start';
             const ly = it.y + Math.min(it.h / 2, 16);
             const x0 = side === 'L' ? lx - 4 : rx + 4;
@@ -1304,18 +1325,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
           place(it, ['S', 'N'], 6, false);
         }
-      }
-    }
-    // Selected vessel: name it on the figure, next to the vessel.
-    const selE = st.selection?.type === 'edge' ? st.selection.id : null;
-    if (selE && E[selE]?.vis) {
-      const [x, y] = pointAt(geo[selE].cur, 0.5);
-      const [ax, ay] = worldToLocal(x, y);
-      const it = { key: 'selE', cls: 'selE', lines: [[{ t: E[selE].e.label || selE, size: compact ? 11 : 12, weight: 650, cls: 'lb-selname' }]], align: 'start', bg: true, padX: 7, padY: 3, ax, ay };
-      it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
-      if (place(it, ['E', 'W', 'NE', 'SE', 'NW', 'SW', 'N', 'S'], 10 + (E[selE].width || 4) / 2, true) || place(it, ['E', 'W', 'NE', 'SE', 'NW', 'SW'], 34, true)) {
-        const r = rectOf(it);
-        leaders += `<path class="leader hl" d="M${ax.toFixed(1)} ${ay.toFixed(1)} L${clamp(ax, r.x0, r.x1).toFixed(1)} ${clamp(ay, r.y0, r.y1).toFixed(1)}"/>`;
       }
     }
     // Lesson / case focus callout
@@ -1617,8 +1626,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
 
   // ── Interaction ───────────────────────────────────
+  // A click picks a structure (a vessel, else the organ under the pointer, else nothing); a drag
+  // pans. The only gestures that stay "armed" are the shunt (from its source to a drop target)
+  // and the two paint brushes in the Draw menu, and each shows how to finish or cancel it.
   const pointers = new Map();
   let drag = null;
+  let shunt = null; // { src, wx, wy, targets: Map(id → rule), hover }
 
   function edgeFromEvent(ev) {
     // While the pointer is captured, events retarget to the <svg>: hit-test the real point instead.
@@ -1626,12 +1639,29 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const el = t?.closest?.('.v-hit, .ghost-hit');
     return el ? el.getAttribute('data-id') : null;
   }
-  function nearestT(id, wx, wy) {
-    const pts = geo[id].cur;
-    let best = 0, bd = Infinity;
-    pts.forEach((p, i) => { const d = (p[0] - wx) ** 2 + (p[1] - wy) ** 2; if (d < bd) { bd = d; best = i; } });
-    return best / (pts.length - 1);
+
+  // Organs under a point (anatomy only). The varices and fundus are small sites; the abdomen is
+  // whatever lies inside the peritoneal cavity below the stomach.
+  const ORGAN_OF = { liver: 'liver', heart: 'heart', 'heart-ra': 'heart', spleen: 'spleen', stomach: 'gastric', esophagus: 'varices', bowel: 'abdomen', 'colon-d': 'abdomen', duodenum: 'abdomen', pancreas: null, 'kidney-l': null };
+  const ptIn = (el, x, y, stroke) => {
+    if (!el) return false;
+    const pt = svg.createSVGPoint(); pt.x = x; pt.y = y;
+    try { return stroke ? el.isPointInStroke(pt) : el.isPointInFill(pt); } catch { return false; }
+  };
+  function organAt(wx, wy) {
+    if (morph > 0.5) return null;
+    if (insideVarix(wx, wy)) return 'varices';
+    if (Math.hypot(wx - SITES.fundus[0], wy - SITES.fundus[1]) < 34) return 'gastric';
+    for (const o of [...ORGANS].reverse()) {
+      if (o.deco || !(o.id in ORGAN_OF)) continue;
+      const el = organEls[o.id];
+      if (o.band ? ptIn(el, wx, wy, true) : ptIn(el, wx, wy)) return ORGAN_OF[o.id];
+    }
+    if (ptIn(abdomenEl, wx, wy) && wy > 560) return 'abdomen';
+    return null;
   }
+  const abdomenEl = s('path', { d: ABDOMEN_CLIP, fill: 'none', stroke: 'none' });
+  defs.append(abdomenEl);
 
   function computeHighlight(id) {
     if (!F) return new Set([id]);
@@ -1664,8 +1694,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     hoverId = id;
     if (hl) for (const e of hl) if (E[e]) cls(E[e], 'hl', false);
     hl = null;
-    const tool = store.get().tool;
-    if (id && (tool === 'select' || tool === 'probe')) {
+    if (id && store.get().tool === 'select' && !shunt) {
       hl = computeHighlight(id);
       for (const e of hl) if (E[e]) cls(E[e], 'hl', true);
       wrap.classList.add('hovering');
@@ -1679,8 +1708,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   svg.addEventListener('pointerout', (ev) => { if (edgeFromEvent(ev)) { setHover(null); onHoverInfo(null); } });
   svg.addEventListener('pointermove', (ev) => {
     const id = edgeFromEvent(ev);
-    if (id && EI[id] != null && F) onHoverInfo({ id, x: ev.clientX - wrap.getBoundingClientRect().left, y: ev.clientY - wrap.getBoundingClientRect().top });
+    if (id && EI[id] != null && F && !shunt) onHoverInfo({ id, x: ev.clientX - wrap.getBoundingClientRect().left, y: ev.clientY - wrap.getBoundingClientRect().top });
     else if (!drag) onHoverInfo(null);
+    if (shunt) shuntMove(ev);
   });
 
   svg.addEventListener('wheel', (ev) => { ev.preventDefault(); zoomAt(ev.clientX, ev.clientY, Math.exp(-ev.deltaY * 0.0015)); }, { passive: false });
@@ -1692,12 +1722,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const id = edgeFromEvent(ev);
     const [wx, wy] = clientToWorld(ev.clientX, ev.clientY);
     svg.setPointerCapture(ev.pointerId);
-    if (ev.button === 1 || (!id && (tool === 'select' || tool === 'probe' || tool === 'doppler')) || spaceDown) {
+    const paint = !shunt && ((tool === 'fibrosis' && insideLiver(wx, wy)) || (tool === 'thrombus' && id && EI[id] != null && !E[id].isArt));
+    if (ev.button === 1 || !paint || spaceDown) {
       drag = { type: 'pan', x: ev.clientX, y: ev.clientY, vx: vt.x, vy: vt.y, moved: false, id };
       wrap.classList.add('panning');
       return;
     }
-    handleToolDown(tool, id, wx, wy, ev);
+    handlePaintDown(tool, id, wx, wy, ev);
   });
   svg.addEventListener('pointermove', (ev) => {
     if (pointers.has(ev.pointerId)) pointers.set(ev.pointerId, [ev.clientX, ev.clientY]);
@@ -1710,12 +1741,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (drag.type === 'pan') {
       const s0 = svg.getScreenCTM().a;
-      vt.x = drag.vx + (ev.clientX - drag.x) / s0; vt.y = drag.vy + (ev.clientY - drag.y) / s0;
       if (Math.abs(ev.clientX - drag.x) + Math.abs(ev.clientY - drag.y) > 4) drag.moved = true;
-      applyVT(); CTM = null;
+      if (drag.moved) { vt.x = drag.vx + (ev.clientX - drag.x) / s0; vt.y = drag.vy + (ev.clientY - drag.y) / s0; applyVT(); CTM = null; }
       return;
     }
-    handleToolMove(ev);
+    handlePaintMove(ev);
   });
   const endPointer = (ev) => {
     pointers.delete(ev.pointerId);
@@ -1723,51 +1753,52 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (drag.type === 'pan') {
       wrap.classList.remove('panning');
       if (!drag.moved) {
-        const tool = store.get().tool;
-        if (drag.id) handleToolDown(tool, drag.id, 0, 0, ev, true);
-        else onSelect(null);
+        if (shunt) shuntDrop(ev);
+        else pick(drag.id, ev);
       }
       drag = null;
       return;
     }
-    handleToolUp(ev);
     drag = null;
+    gGuides.innerHTML = '';
   };
   svg.addEventListener('pointerup', endPointer);
   svg.addEventListener('pointercancel', endPointer);
+
+  function pick(id, ev) {
+    if (id && EI[id] != null) { onSelect({ type: 'edge', id }); return; }
+    const [wx, wy] = clientToWorld(ev.clientX, ev.clientY);
+    const o = organAt(wx, wy);
+    onSelect(o ? { type: 'organ', id: o, at: [wx, wy], lobe: o === 'liver' ? (wx < LIVER_SPLIT_X ? 'R' : 'L') : undefined } : null);
+  }
 
   let spaceDown = false;
   addEventListener('keydown', (e) => { if (e.code === 'Space' && e.target === document.body) spaceDown = true; });
   addEventListener('keyup', (e) => { if (e.code === 'Space') spaceDown = false; });
 
-  // Keyboard navigation along the flow
+  // Keyboard: Tab reaches each vessel, Enter opens its card, arrows walk along the flow.
   svg.addEventListener('keydown', (ev) => {
     const id = ev.target.getAttribute?.('data-id');
     if (!id) return;
-    if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); handleToolDown(store.get().tool, id, 0, 0, ev, true); }
+    if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); if (shunt) { shuntDropOn(id); return; } onSelect({ type: 'edge', id }, { keyboard: true }); }
     if ((ev.key === 'ArrowRight' || ev.key === 'ArrowLeft') && F && EI[id] != null) {
       ev.preventDefault();
       const e = EDGES[EI[id]];
       const q = F.Q[EI[id]];
       const node = (ev.key === 'ArrowRight') === (q >= 0) ? e.to : e.from;
       const next = EDGES.find((x) => x.id !== id && E[x.id]?.vis && (x.from === node || x.to === node) && x.kind !== 'wedge');
-      if (next) { E[next.id].hit.focus(); onSelect({ type: 'edge', id: next.id }); }
-    }
-    if ((ev.key === '+' || ev.key === '-') && EI[id] != null) {
-      const cur = store.get().params.stenosis[id] || 0;
-      const v = clamp(cur + (ev.key === '+' ? 0.1 : -0.1), 0, 1);
-      updateParams((p) => { if (v <= 0) delete p.stenosis[id]; else p.stenosis[id] = +v.toFixed(2); return p; }, { label: 'Stenosis' });
+      if (next) { E[next.id].hit.focus(); onSelect({ type: 'edge', id: next.id }, { quiet: true }); }
     }
   });
   svg.addEventListener('focusin', (ev) => {
     const id = ev.target.getAttribute?.('data-id');
     if (id && F && EI[id] != null) {
       const e = EDGES[EI[id]], q = F.Q[EI[id]];
-      ev.target.setAttribute('aria-label', `${e.label}: ${fmt(F.P[NI[e.from]], 1)} to ${fmt(F.P[NI[e.to]], 1)} millimeters of mercury, flow ${fmt(q * 0.06, 2)} liters per minute${E[id].rev ? ', reversed' : ''}.`);
+      ev.target.setAttribute('aria-label', `${e.label}: ${fmt(F.P[NI[e.from]], 1)} to ${fmt(F.P[NI[e.to]], 1)} millimeters of mercury, flow ${fmt(q * 0.06, 2)} liters per minute${E[id].rev ? ', reversed' : ''}. Press Enter for actions.`);
     }
   });
 
-  // ── Tools ─────────────────────────────────────────
+  // ── Shunts: from a source vessel to a drop target ──
   const STENT_RULES = [
     { a: ['RPV', 'LPV', 'PV'], b: ['RHV', 'MHV', 'LHV', 'IVC'], key: 'tips', label: 'TIPS' },
     { a: ['PV'], b: ['IVC'], key: 'portocaval', label: 'Portocaval shunt' },
@@ -1786,7 +1817,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     return null;
   }
-
   // Any portal vessel to any systemic vein: when no named shunt fits, connect the nearest portal
   // endpoint of one vessel to the nearest systemic endpoint of the other.
   function customRule(a, b, ax, ay, bx, by) {
@@ -1801,72 +1831,72 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     return null;
   }
+  function startShunt(src, { only } = {}) {
+    if (!E[src]?.vis) return false;
+    cancelShunt(true);
+    const [wx, wy] = pointAt(geo[src].cur, 0.5);
+    const targets = new Map();
+    for (const x of Object.values(E)) {
+      if (!x.vis || x.isArt || x.e.id === src || x.e.kind === 'shunt' || x.e.kind === 'liver') continue;
+      const [tx, ty] = pointAt(geo[x.e.id].cur, 0.5);
+      const r = stentRule(src, x.e.id) || customRule(src, x.e.id, wx, wy, tx, ty);
+      if (r && (!only || r.key === only)) { targets.set(x.e.id, r); cls(x, 'shunt-target', true); }
+    }
+    if (!targets.size) { toast('No vessel on the other side of the circulation to connect this one to.'); return false; }
+    shunt = { src, wx, wy, targets, hover: null };
+    cls(E[src], 'shunt-src', true);
+    wrap.classList.add('shunting');
+    setHover(null);
+    store.set({ shunting: { src, only: only || null } });
+    return true;
+  }
+  function cancelShunt(silent) {
+    if (!shunt) return;
+    for (const id of shunt.targets.keys()) if (E[id]) cls(E[id], 'shunt-target', false);
+    if (E[shunt.src]) cls(E[shunt.src], 'shunt-src', false);
+    shunt = null;
+    gGuides.innerHTML = '';
+    wrap.classList.remove('shunting');
+    if (!silent) store.set({ shunting: null });
+  }
+  function shuntMove(ev) {
+    const [wx, wy] = clientToWorld(ev.clientX, ev.clientY);
+    const tgt = edgeFromEvent(ev);
+    const ok = tgt && shunt.targets.has(tgt);
+    shunt.hover = ok ? tgt : null;
+    gGuides.innerHTML = '';
+    gGuides.append(s('path', { class: 'stent-guide' + (tgt && !ok && tgt !== shunt.src ? ' invalid' : ''), d: `M${shunt.wx} ${shunt.wy} L ${wx} ${wy}` }));
+    if (ok) {
+      gGuides.append(s('path', { class: 'target-glow', d: E[tgt].wall.getAttribute('d'), 'stroke-width': E[tgt].width + 16 }));
+      const r = shunt.targets.get(tgt);
+      gGuides.append(s('text', { x: wx + 14, y: wy - 10, class: 'guide-label' }, document.createTextNode(r.label)));
+    }
+  }
+  function shuntDrop(ev) {
+    const tgt = edgeFromEvent(ev);
+    if (tgt && shunt.targets.has(tgt)) { shuntDropOn(tgt); return; }
+    if (!tgt) { cancelShunt(); toast('Shunt cancelled.'); }
+  }
+  function shuntDropOn(tgt) {
+    const r = shunt?.targets.get(tgt);
+    if (!r) return;
+    cancelShunt();
+    if (r.key === 'tips') updateParams({ tips: { on: true, d: store.get().params.tips.d || 10 } }, { label: 'TIPS' });
+    else if (r.key === 'custom') updateParams((p) => { p.customShunts = { ...(p.customShunts || {}), [r.id]: 10 }; return p; }, { label: r.label });
+    else updateParams({ [r.key]: true }, { label: r.label });
+    toast(`${r.label} created.`);
+    onSelect({ type: 'edge', id: r.key === 'tips' ? 'TIPS' : r.key === 'custom' ? r.id : { portocaval: 'S_PC', dsrs: 'S_DSR', mesocaval: 'S_MC' }[r.key] });
+  }
 
-  function handleToolDown(tool, id, wx, wy, ev, isClick = false) {
+  // ── Paint brushes (Draw menu) ─────────────────────
+  function handlePaintDown(tool, id, wx, wy, ev) {
     const st = store.get();
-    const isEdge = id && EI[id] != null;
-    switch (tool) {
-      case 'select': case 'probe':
-        if (id) onSelect({ type: 'edge', id });
-        break;
-      case 'pinch':
-        if (!isEdge || E[id].isArt && !['A_SMA', 'A_SPL', 'A_HEP'].includes(id)) { toast('Pinch a vein or portal vessel to create a stenosis.'); break; }
-        drag = { type: 'pinch', id, x0: ev.clientX, y0: ev.clientY, s0: st.params.stenosis[id] || 0, u: isClick ? stenosisAt[id] ?? 0.5 : clamp(nearestT(id, wx, wy), 0.12, 0.88) };
-        stenosisAt[id] = drag.u;
-        onSelect({ type: 'edge', id }, { quiet: true });
-        break;
-      case 'thrombus':
-        if (!isEdge || E[id].isArt) { toast('Paint thrombus onto a vein.'); break; }
-        drag = { type: 'thrombus', id, t0: performance.now(), s0: st.params.thrombus[id] || 0, sign: ev.shiftKey || ev.altKey ? -1 : 1, last: id };
-        tickThrombus();
-        break;
-      case 'fibrosis': {
-        if (morph > 0.5) { toast('Switch to the anatomic view to paint the liver (or use the Lobule panel).'); break; }
-        const lobe = wx < LIVER_SPLIT_X ? 'R' : 'L';
-        if (!insideLiver(wx, wy)) { toast('Paint on the liver. Choose the zone (portal / sinusoidal / central) in the tool options.'); break; }
-        drag = { type: 'fibrosis', lobe, sign: ev.shiftKey || ev.altKey ? -1 : 1 };
-        tickFibrosis();
-        break;
-      }
-      case 'stent':
-        if (!isEdge) { toast('Drag from a portal vessel to a systemic vein to create a shunt.'); break; }
-        drag = { type: 'stent', id, wx: isClick ? pointAt(geo[id].cur, 0.5)[0] : wx, wy: isClick ? pointAt(geo[id].cur, 0.5)[1] : wy };
-        break;
-      case 'band':
-        if (id === 'C1a' || id === 'C1b' || insideVarix(wx, wy)) { onAction({ kind: 'band' }); toast('Band placed on an esophageal varix column.'); }
-        else toast('Tap the esophageal varices (lower esophagus) to band them.');
-        break;
-      case 'occlude':
-        if (isEdge && EDGES[EI[id]].kind === 'collateral') {
-          const on = !st.params.occluded[id];
-          updateParams((p) => { if (on) p.occluded[id] = true; else delete p.occluded[id]; return p; }, { label: on ? 'Occlude collateral' : 'Reopen collateral' });
-          toast(on ? `${EDGES[EI[id]].label} occluded${id === 'C5' ? ' (BRTO)' : ''}.` : 'Collateral reopened.');
-        } else toast('Tap a collateral vessel (dotted when unrecruited) to occlude it.');
-        break;
-      case 'balloon':
-        if (insideVarix(wx, wy) || id === 'C1b' || id === 'C1a') updateParams((p) => { p.balloonEso = !p.balloonEso; return p; }, { label: 'Esophageal balloon' });
-        else if (Math.hypot(wx - SITES.fundus[0], wy - SITES.fundus[1]) < 40 || id === 'C2' || id === 'C2b') updateParams((p) => { p.balloonGas = !p.balloonGas; return p; }, { label: 'Gastric balloon' });
-        else toast('Tap the lower esophagus or the gastric fundus to inflate a tamponade balloon.');
-        break;
-      case 'catheter': {
-        const vein = { RHV_IVC: 'R', POST_R_RHV: 'R', MHV_IVC: 'M', POST_R_MHV: 'M', POST_L_MHV: 'M', LHV_IVC: 'L', POST_L_LHV: 'L' }[id];
-        if (!vein) { toast('Steer the catheter into a hepatic vein (right, middle or left).'); break; }
-        const c = st.params.catheter;
-        if (c.vein === vein) updateParams({ catheter: { vein, wedged: !c.wedged } }, { label: c.wedged ? 'Deflate balloon' : 'Wedge catheter' });
-        else updateParams({ catheter: { vein, wedged: false } }, { label: 'Catheter placed' });
-        onOpenTab('hvpg');
-        break;
-      }
-      case 'doppler':
-        if (isEdge) { onAction({ kind: 'probe', id }); onOpenTab('doppler'); }
-        break;
-      case 'endoscope':
-        onOpenTab('endoscopy');
-        break;
-      case 'needle':
-        onOpenTab('abdomen');
-        onAction({ kind: 'paracentesisPrompt' });
-        break;
+    if (tool === 'thrombus') {
+      drag = { type: 'thrombus', id, t0: performance.now(), s0: st.params.thrombus[id] || 0, sign: ev.shiftKey || ev.altKey ? -1 : 1, last: id };
+      tickThrombus();
+    } else if (tool === 'fibrosis') {
+      drag = { type: 'fibrosis', lobe: wx < LIVER_SPLIT_X ? 'R' : 'L', sign: ev.shiftKey || ev.altKey ? -1 : 1 };
+      tickFibrosis();
     }
   }
   function tickThrombus() {
@@ -1892,54 +1922,42 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setTimeout(tickFibrosis, 120);
   }
   const liverShape = organEls.liver;
-  function insideLiver(x, y) {
-    const pt = svg.createSVGPoint(); pt.x = x; pt.y = y;
-    return liverShape.isPointInFill ? liverShape.isPointInFill(pt) : (x > 340 && x < 860 && y > 245 && y < 540);
-  }
+  function insideLiver(x, y) { return ptIn(liverShape, x, y); }
   const insideVarix = (x, y) => x > 776 && x < 826 && y > 170 && y < 292;
-
-  function handleToolMove(ev) {
+  function handlePaintMove(ev) {
     if (!drag) return;
-    const [wx, wy] = clientToWorld(ev.clientX, ev.clientY);
-    gGuides.innerHTML = '';
-    if (drag.type === 'pinch') {
-      const [x, y, dx, dy] = pointAt(geo[drag.id].cur, drag.u);
-      const n = Math.hypot(dx, dy) || 1, nx = -dy / n, ny = dx / n;
-      const dist = Math.abs((wx - x) * nx + (wy - y) * ny);
-      const v = clamp(drag.s0 + dist / 70, 0, 1);
-      drag.v = v;
-      gGuides.append(s('path', { class: 'pinch-guide', d: `M${x - nx * 60} ${y - ny * 60} L ${x + nx * 60} ${y + ny * 60}` }));
-      gGuides.append(s('text', { x: x + nx * 20 + 10, y: y + ny * 20, class: 'clamp-label' }, document.createTextNode(`${Math.round(v * 100)}% stenosis`)));
-      updateParams((p) => { if (v <= 0.005) delete p.stenosis[drag.id]; else p.stenosis[drag.id] = +v.toFixed(2); return p; }, { history: !drag.recorded, label: 'Stenosis' });
-      drag.recorded = true;
-    } else if (drag.type === 'thrombus') {
+    const [wx] = clientToWorld(ev.clientX, ev.clientY);
+    if (drag.type === 'thrombus') {
       const id = edgeFromEvent(ev);
       if (id && EI[id] != null && !E[id].isArt) drag.last = id;
-    } else if (drag.type === 'fibrosis') {
-      drag.lobe = wx < LIVER_SPLIT_X ? 'R' : 'L';
-    } else if (drag.type === 'stent') {
-      const tgt = edgeFromEvent(ev);
-      const rule = tgt && tgt !== drag.id ? stentRule(drag.id, tgt) || customRule(drag.id, tgt, drag.wx, drag.wy, wx, wy) : null;
-      drag.tgt = tgt; drag.rule = rule;
-      gGuides.append(s('path', { class: 'stent-guide' + (tgt && !rule ? ' invalid' : ''), d: `M${drag.wx} ${drag.wy} L ${wx} ${wy}` }));
-      if (tgt && E[tgt]) gGuides.append(s('path', { class: 'target-glow', d: E[tgt].wall.getAttribute('d'), 'stroke-width': E[tgt].width + 16 }));
-    }
+    } else if (drag.type === 'fibrosis') drag.lobe = wx < LIVER_SPLIT_X ? 'R' : 'L';
   }
-  function handleToolUp() {
-    gGuides.innerHTML = '';
-    if (!drag) return;
-    if (drag.type === 'stent') {
-      if (drag.rule) {
-        const r = drag.rule;
-        if (r.key === 'tips') updateParams({ tips: { on: true, d: store.get().params.tips.d || 10 } }, { label: 'TIPS' });
-        else if (r.key === 'custom') updateParams((p) => { p.customShunts = { ...(p.customShunts || {}), [r.id]: 10 }; return p; }, { label: r.label });
-        else updateParams({ [r.key]: true }, { label: r.label });
-        toast(`${r.label} created.${r.key === 'tips' || r.key === 'custom' ? ' Adjust its diameter in the inspector.' : ''}`);
-        onSelect({ type: 'edge', id: r.key === 'tips' ? 'TIPS' : r.key === 'custom' ? r.id : { portocaval: 'S_PC', dsrs: 'S_DSR', mesocaval: 'S_MC' }[r.key] });
-      } else if (drag.tgt && drag.tgt !== drag.id) {
-        toast('Not a valid shunt: connect a portal vessel (portal, splenic, mesenteric, gastric or varix) to a systemic vein (hepatic vein, IVC, renal, iliac, azygos or SVC).', 'bad');
-      }
+
+  // ── Anchors for the action card ───────────────────
+  const ORGAN_ANCHOR = { liver: [470, 360], heart: [660, 118], spleen: [1052, 362], varices: SITES.varix, gastric: SITES.fundus, abdomen: [720, 770] };
+  function anchorFor(sel) {
+    if (!sel) return null;
+    refreshCTM();
+    if (sel.type === 'edge' && geo[sel.id] && E[sel.id]?.vis) {
+      const pts = geo[sel.id].cur;
+      const [x, y] = worldToLocal(...pointAt(pts, 0.5));
+      const path = [];
+      for (let i = 0; i < pts.length; i += 3) path.push(worldToLocal(pts[i][0], pts[i][1]));
+      return { x, y, path };
     }
+    if (sel.type === 'organ') {
+      const w = sel.at || ORGAN_ANCHOR[sel.id];
+      if (!w) return null;
+      const [x, y] = worldToLocal(w[0], w[1]);
+      const org = { liver: 'liver', heart: 'heart', spleen: 'spleen' }[sel.id];
+      const path = [[x, y]];
+      if (org && organEls[org]?.getBBox) {
+        const b = organEls[org].getBBox();
+        for (let i = 0; i <= 4; i++) for (let j = 0; j <= 4; j++) path.push(worldToLocal(b.x + (b.width * i) / 4, b.y + (b.height * j) / 4));
+      }
+      return { x, y, path };
+    }
+    return null;
   }
 
   // ── Public API ────────────────────────────────────
@@ -1974,6 +1992,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     fit,
     zoomToBox,
     focusEdge(id) { E[id]?.hit.focus(); },
+    startShunt, cancelShunt, isShunting: () => !!shunt, anchorFor, organAt,
     edgeMid: (id) => (geo[id] ? pointAt(geo[id].cur, 0.5) : null),
     isVisible: (id) => E[id]?.vis,
   };

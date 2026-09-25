@@ -1,9 +1,9 @@
 // Readout strip + tabbed charts and instruments (blueprint §9.1, §9.2).
 
-import { store } from './store.js?v=c4bae453f7';
+import { store } from './store.js?v=258b91f30b';
 import { h, fmt, icon, svgIcon } from './util.js?v=61d6f9c200';
-import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=725583ec6f';
-import { createHVPG, createDoppler, createEndoscopy, createLobule, createVarixWall, createAbdomen } from './instruments.js?v=748f298c3d';
+import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=eff00799f7';
+import { createHVPG, createDoppler, createEndoscopy, createLobule, createVarixWall, createAbdomen } from './instruments.js?v=424d16e32e';
 
 const SEV = { ok: 'var(--ok)', caution: 'var(--caution)', danger: 'var(--danger)', critical: 'var(--critical)', info: 'var(--info)' };
 
@@ -193,7 +193,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   }
 
   addEventListener('resize', () => { const f = store.get().frame; if (f) byId[active].update(f); });
-  return { update, show, toggle, profile: byId.profile, events };
+  return { update, show, toggle, profile: byId.profile, events, pane: (id) => byId[id] };
 }
 
 function createEventsPane() {

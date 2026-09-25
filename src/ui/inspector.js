@@ -2,7 +2,7 @@
 
 import { EDGES, NODES, COLLATERAL_DMIN_RATIO, dMinOf } from '../engine/topology.js?v=44e0aca402';
 import { DRUGS } from '../engine/scenario.js?v=3bed5bf285';
-import { store, updateParams, isLocked } from './store.js?v=c4bae453f7';
+import { store, updateParams, isLocked } from './store.js?v=258b91f30b';
 import { h, fmt, fp, ff, clamp, tooltipFor, icon, svgIcon } from './util.js?v=61d6f9c200';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -64,7 +64,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onS
   let live = [];        // [el, fn(frame)]
   let syncers = [];
   let lastSel;
-  let tab = 'pathology';
+  let tab = 'therapy';
   const openSections = new Set(['liver', 'drugs', 'procedures', 'inflow', 'live', 'ctl']);
 
   const liveText = (fn) => { const el = h('span', { class: 'num' }); live.push([el, fn]); return el; };
@@ -161,7 +161,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onS
     activeBox._sync = renderActive;
     syncers.push(activeBox);
 
-    const tabs = h('div', { class: 'seg full', role: 'tablist', 'aria-label': 'Control groups' }, [['pathology', 'Pathology'], ['therapy', 'Therapy'], ['physiology', 'Physiology'], ['findings', 'Findings']].map(([id, l]) => {
+    const tabs = h('div', { class: 'seg full', role: 'tablist', 'aria-label': 'Control groups' }, [['therapy', 'Therapy'], ['physiology', 'Physiology'], ['findings', 'Findings']].map(([id, l]) => {
       const b = h('button', { role: 'tab', 'aria-selected': String(tab === id) }, l, id === 'findings' && findings ? findings.badge() : null);
       b.addEventListener('click', () => { tab = id; render(); });
       return b;
@@ -172,25 +172,15 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onS
         h('button', { class: 'ib show-md', 'aria-label': 'Close panel', onclick: onClose, title: 'Close' }, icon('close'))),
       tabs);
     let body;
-    if (tab === 'pathology') {
-      body = [
-        section('liver', 'Liver', 'liver', changedCount(['cirrhosis', 'fibPre', 'fibSin', 'fibPost']), build('cirrhosis'),
-          h('div', { class: 'subhead' }, 'Zonal fibrosis (both lobes)'), build('fibPre'), build('fibSin'), build('fibPost'),
-          h('div', { class: 'ctl-sub' }, 'Paint one lobe at a time with the Fibrosis brush, or open the Lobule tab.')),
-        section('vessels', 'Thrombosis & obstruction', 'vessel', changedCount(['pvt', 'svt', 'smvt', 'rhv', 'mhv', 'lhv', 'ivc', 'anticoag']),
-          h('div', { class: 'subhead' }, 'Portal side'), build('pvt'), build('svt'), build('smvt'),
-          h('div', { class: 'subhead' }, 'Hepatic outflow'), build('rhv'), build('mhv'), build('lhv'), build('ivc'), build('anticoag')),
-        section('heart', 'Heart', 'heart', changedCount(['contractility', 'tr', 'pericardial']), build('contractility'), build('tr'), build('pericardial')),
-        section('anatomy', 'Anatomical variants', null, changedCount(['grShunt', 'srShunt']), build('grShunt'), build('srShunt')),
-      ];
-    } else if (tab === 'therapy') {
+    if (tab === 'therapy') {
       const fluids = h('div', { class: 'action-grid' },
         h('button', { class: 'btn', onclick: () => onAction({ kind: 'infuse', fluid: 'crystalloid' }) }, '+ 1 L crystalloid'),
         h('button', { class: 'btn', onclick: () => onAction({ kind: 'infuse', fluid: 'prbc' }) }, '+ 1 unit PRBC'),
         h('button', { class: 'btn', onclick: () => onAction({ kind: 'infuse', fluid: 'albumin' }) }, '+ Albumin'),
         h('button', { class: 'btn danger', onclick: () => onAction({ kind: 'hemorrhage', mL: 500 }) }, '− 500 mL bleed'));
       body = [
-        section('drugs', 'Drugs', 'pill', changedCount(Object.keys(DRUGS).map((k) => 'drug:' + k)), h('div', { class: 'drug-grid' }, Object.keys(DRUGS).map((k) => build('drug:' + k)))),
+        h('div', { class: 'callout-note', style: { margin: '14px 0 4px' } }, 'Disease is set on the anatomy: click the liver, a vein, the heart or the varices and use the card beside it.'),
+        section('drugs', 'Drugs', 'pill', changedCount([...Object.keys(DRUGS).map((k) => 'drug:' + k), 'anticoag']), h('div', { class: 'drug-grid' }, Object.keys(DRUGS).map((k) => build('drug:' + k))), build('anticoag')),
         section('procedures', 'Procedures', 'stent', changedCount(['tips', 'balloonEso', 'balloonGas', 'brto', 'portocaval', 'dsrs', 'mesocaval']),
           build('tips'), build('tipsD'),
           h('div', { class: 'action-grid' },
@@ -210,6 +200,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onS
       body = [
         section('inflow', 'Inflow & vascular tone', 'activity', changedCount(['splanchnicTone', 'systemicTone']), build('splanchnicTone'), build('systemicTone')),
         section('hepatic', 'Hepatic circulation', 'liver', changedCount(['habr', 'apShunt']), build('habr'), build('apShunt')),
+        section('anatomy', 'Anatomical variants', null, changedCount(['grShunt', 'srShunt']), build('grShunt'), build('srShunt')),
         section('env', 'Simulation', 'settle', null, build('pulsatile'), build('respiration'), build('respDepth'), build('detRupture'),
           h('div', { class: 'action-grid' },
             h('button', { class: 'btn', onclick: () => onAction({ kind: 'valsalva' }) }, 'Valsalva'),
@@ -224,7 +215,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onS
   function selectionHead(kicker, title, extra) {
     return h('div', { class: 'p-head' },
       h('div', { class: 'p-head-row' },
-        h('button', { class: 'ib', 'aria-label': 'Back to all controls', title: 'All controls', onclick: () => store.set({ selection: null }) }, icon('arrow-left')),
+        h('button', { class: 'ib', 'aria-label': 'Back', title: 'Back', onclick: () => store.set({ details: null }) }, icon('arrow-left')),
         h('div', { class: 'p-title' }, h('span', { class: 'kicker' }, kicker), h('h2', { title }, title)),
         h('button', { class: 'ib show-md', 'aria-label': 'Close panel', onclick: onClose, title: 'Close' }, icon('close'))),
       extra);
@@ -265,42 +256,8 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onS
             whyBtn(['PV_TRUNK', 'SMV_CONF', 'SV_CONF', 'PVH_R', 'PVH_L'].includes(id) ? 'pvFlow' : isColl ? 'shunt' : 'pv'))),
       ),
     ];
-    const ctl = [];
-    if (!isArt && e.kind !== 'shunt' && e.kind !== 'liver') {
-      ctl.push(reg(slider({ key: 'stenosis', label: 'Stenosis', min: 0, max: 1, step: 0.01, get: (p) => p.stenosis[id] || 0, set: (p, v) => { if (v <= 0) delete p.stenosis[id]; else p.stenosis[id] = v; }, format: pct, def: 0,
-        info: 'Lumen narrowing. Resistance rises with (1 − s)⁻⁴ (Poiseuille), plus turbulence above 70 %.' })));
-      ctl.push(reg(slider({ key: 'thrombus', label: 'Thrombus', min: 0, max: 1, step: 0.01, get: (p) => p.thrombus[id] || 0, set: (p, v) => { if (v <= 0) delete p.thrombus[id]; else p.thrombus[id] = v; }, format: pct, def: 0 })));
-    }
-    if (isColl) {
-      ctl.push(reg(toggle({ key: 'occluded', label: 'Occlude (plug / BRTO)', get: (p) => !!p.occluded[id], set: (p, v) => { if (v) p.occluded[id] = true; else delete p.occluded[id]; } })));
-      if (e.spontaneous) ctl.push(reg(toggle({ key: 'spontaneous', label: 'Present in this patient', get: (p) => p.spontaneous[id], set: (p, v) => { p.spontaneous[id] = v; } })));
-      ctl.push(h('div', { class: 'callout-note' }, 'Collaterals grow on the Months clock when the portal-to-systemic gradient exceeds its healthy value by about 7 mmHg. After decompression they regress slowly.'));
-    }
-    if (e.kind === 'liver' && (e.lobe === 'R' || e.lobe === 'L')) {
-      const zn = { pre: 'presinusoidal', sin: 'sinusoidal', post: 'postsinusoidal' }[e.zone];
-      ctl.push(reg(slider({ key: 'fibrosis', label: `Fibrosis (${zn}, ${e.lobe === 'R' ? 'right' : 'left'} lobe)`, min: 1, max: 80, step: 0.5,
-        get: (p) => p.fibrosis[e.lobe][e.zone], set: (p, v) => { p.fibrosis[e.lobe][e.zone] = v; }, format: (v) => `×${v.toFixed(1)}`, def: 1 })));
-    }
-    if (id === 'TIPS') {
-      ctl.push(build('tipsD'));
-      ctl.push(h('button', { class: 'btn danger', onclick: () => { updateParams({ tips: { on: false } }, { label: 'Remove TIPS' }); store.set({ selection: null }); } }, 'Remove TIPS'));
-    }
-    if (e.shunt === 'custom') {
-      ctl.push(reg(slider({ key: 'customShunts', label: 'Shunt diameter', min: 4, max: 16, step: 0.5,
-        get: (p) => p.customShunts?.[id] || 10, set: (p, v) => { p.customShunts = { ...(p.customShunts || {}), [id]: v }; }, format: (v) => `${v.toFixed(1)} mm`, def: 10,
-        info: 'Resistance ∝ 1/d⁴ (Poiseuille): small changes in diameter matter a lot.' })));
-      ctl.push(h('button', { class: 'btn danger', onclick: () => { updateParams((p) => { const c = { ...(p.customShunts || {}) }; delete c[id]; p.customShunts = c; return p; }, { label: 'Remove shunt' }); store.set({ selection: null }); } }, 'Take down shunt'));
-    }
-    if (['S_PC', 'S_DSR', 'S_MC'].includes(id)) {
-      const key = { S_PC: 'portocaval', S_DSR: 'dsrs', S_MC: 'mesocaval' }[id];
-      ctl.push(h('button', { class: 'btn danger', onclick: () => { updateParams({ [key]: false }, { label: 'Remove shunt' }); store.set({ selection: null }); } }, 'Take down shunt'));
-    }
-    if (['RHV_IVC', 'MHV_IVC', 'LHV_IVC'].includes(id)) {
-      const vein = id[0];
-      ctl.push(h('button', { class: 'btn', onclick: () => { updateParams({ catheter: { vein, wedged: false } }, { label: 'Catheter placed' }); onOpenTab('hvpg'); } }, icon('catheter'), 'Place a catheter here'));
-    }
     const body = els[1];
-    if (ctl.length) body.append(section('ctl', 'Manipulate', null, null, ...ctl));
+    body.append(h('p', { class: 'ctl-sub', style: { margin: '12px 0 0' } }, 'Change this vessel from its card on the figure.'));
     body.append(section('about', 'About this vessel', null, null, h('p', { class: 'sub', style: { margin: 0 } }, aboutEdge(e))));
     openSections.add('about');
     return els;
@@ -319,8 +276,25 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onS
             stat('Transmural', (f) => `${fmt(f.P[NI[id]] - f.ext[NI[id]], 1)} mmHg`)),
           h('div', { class: 'btn-row' }, whyBtn(id === 'RA' ? 'ra' : id === 'AO' ? 'map' : id === 'VAR' ? 'varix' : 'pv'))),
         section('connections', 'Connected vessels', null, null, h('div', { class: 'btn-row' },
-          EDGES.filter((e) => (e.from === id || e.to === id) && e.kind !== 'wedge').map((e) => h('button', { class: 'btn sm', onclick: () => store.set({ selection: { type: 'edge', id: e.id } }) }, e.label || e.id))))),
+          EDGES.filter((e) => (e.from === id || e.to === id) && e.kind !== 'wedge').map((e) => h('button', { class: 'btn sm', onclick: () => store.set({ details: { type: 'edge', id: e.id }, selection: { type: 'edge', id: e.id } }) }, e.label || e.id))))),
     ];
+  }
+
+  const ORGAN_ABOUT = {
+    liver: ['Organ', 'Liver', 'Blood crosses three resistances in series: portal venules (presinusoidal), sinusoids and central veins (postsinusoidal). Cirrhosis raises sinusoidal resistance; schistosomiasis blocks the portal tracts; sinusoidal obstruction syndrome the central veins. The hepatic artery buffers falls in portal flow.', [['Sinusoids (R)', (f) => fp(f.P[NI.SIN_R]).join(' ')], ['HVPG', (f) => `${fmt(f.metrics.hvpg, 1)} mmHg`], ['Liver perfusion', (f) => `${Math.round(f.metrics.liverPerfPct)} %`], ['Hepatic artery flow', (f) => `${fmt(f.metrics.arterialIn, 2)} L/min`]], 'hvpg'],
+    heart: ['Organ', 'Right heart', 'The right atrium is where both cavae end. Its pressure is the floor of the whole venous system: a failing right ventricle or tricuspid regurgitation raises every pressure upstream, including the hepatic veins, so the HVPG stays normal.', [['Right atrium', (f) => fp(f.P[NI.RA]).join(' ')], ['Cardiac output', (f) => `${fmt(f.metrics.co, 2)} L/min`], ['MAP', (f) => `${fmt(f.metrics.map, 0)} mmHg`], ['Heart rate', (f) => `${fmt(f.metrics.hr, 0)} /min`]], 'ra'],
+    varices: ['Collateral bed', 'Esophageal varices', 'Submucosal veins of the lower esophagus fed by the left gastric (coronary) vein and draining to the azygos. Wall tension follows Laplace: T = ΔP · r / w, so large thin-walled varices rupture.', [['Pressure', (f) => fp(f.P[NI.VAR]).join(' ')], ['Diameter', (f) => `${fmt(f.metrics.varix.d, 1)} mm`], ['Wall tension', (f) => `${Math.round(f.metrics.varix.ratio * 100)} % of rupture`], ['Grade', (f) => f.metrics.varix.grade.code]], 'varix'],
+    gastric: ['Collateral bed', 'Fundal varices', 'Fed by the short and posterior gastric veins, often draining through a gastrorenal shunt to the left renal vein. They bleed at lower pressures than esophageal varices; BRTO occludes the shunt.', [['Pressure', (f) => fp(f.P[NI.GV]).join(' ')], ['Diameter', (f) => `${fmt(f.metrics.gastricVarix.d, 1)} mm`], ['Wall tension', (f) => `${Math.round(f.metrics.gastricVarix.ratio * 100)} % of rupture`]], 'varix'],
+    spleen: ['Organ', 'Spleen', 'Portal hypertension congests and enlarges the spleen, which sequesters platelets. Splenic vein thrombosis isolates it: sinistral portal hypertension with fundal varices.', [['Length', (f) => `${fmt(f.metrics.spleen.length, 1)} cm`], ['Platelets (illustrative)', (f) => `${Math.round(f.metrics.spleen.platelets)} ×10⁹/L`]], 'spleen'],
+    abdomen: ['Peritoneum', 'Abdomen & ascites', 'Ascites forms when filtration from the sinusoids and gut capillaries outpaces lymph drainage (Starling). Sinusoidal pressure and albumin decide the balance; intra-abdominal pressure rises as it accumulates.', [['Ascites', (f) => `${fmt(f.metrics.ascites.volume / 1000, 2)} L`], ['Formation', (f) => `${fmt(f.metrics.ascites.ratePerDay, 0)} mL/day`], ['IAP', (f) => `${fmt(f.metrics.ascites.iap, 1)} mmHg`], ['Hepatic lymph', (f) => `${fmt(f.metrics.ascites.hepLymph, 1)} mL/min`]], 'ascites'],
+  };
+  function organPanel(id) {
+    const o = ORGAN_ABOUT[id];
+    if (!o) return globalPanel();
+    const [kicker, title, about, stats, why] = o;
+    return [selectionHead(kicker, title), h('div', { class: 'p-body' },
+      section('live', 'Live values', null, null, h('div', { class: 'stat-grid' }, stats.map(([k, fn]) => stat(k, fn))), h('div', { class: 'btn-row' }, whyBtn(why))),
+      section('about', 'About', null, null, h('p', { class: 'sub', style: { margin: 0 } }, about)))];
   }
 
   function aboutEdge(e) {
@@ -348,9 +322,9 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onS
   function render() {
     if (store.get().mode === 'cases') return; // the case panel owns this element
     live = []; syncers = [];
-    const sel = store.get().selection;
-    const alt = renderAlt?.();
-    const els = alt || (!sel ? globalPanel() : sel.type === 'edge' ? edgePanel(sel.id) : sel.type === 'node' ? nodePanel(sel.id) : globalPanel());
+    const sel = store.get().details;
+    const alt = !sel && renderAlt?.();
+    const els = alt || (!sel ? globalPanel() : sel.type === 'edge' ? edgePanel(sel.id) : sel.type === 'node' ? nodePanel(sel.id) : sel.type === 'organ' ? organPanel(sel.id) : globalPanel());
     const scroller = root.closest('.panel') || root;
     const top = scroller.scrollTop;
     root.replaceChildren(...els.filter(Boolean));
@@ -363,10 +337,10 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onS
     for (const [el, fn] of live) { const v = fn(f); if (v != null && el.textContent !== v) el.textContent = v; }
   }
 
-  store.on('selection', render);
+  store.on('details', render);
   store.on('locked', render);
   document.addEventListener('pps:rerender-panel', render);
-  store.on('presetId', () => { if (store.get().mode === 'explore' && !store.get().selection) render(); });
+  store.on('presetId', () => { if (store.get().mode === 'explore' && !store.get().details) render(); });
   store.on('params', () => { const p = store.get().params; for (const s of syncers) s._sync(p); });
   render();
   return {

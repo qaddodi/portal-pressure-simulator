@@ -7,7 +7,10 @@ const state = {
   mode: 'explore',
   tool: 'select',
   view: 'anatomic',
-  selection: null,            // { type: 'edge' | 'node' | 'organ', id }
+  selection: null,            // { type: 'edge' | 'node' | 'organ', id } — the structure whose action card is open
+  details: null,              // a selection shown in full in the side panel ('Details ›')
+  allowedVerbs: null,         // verbs a lesson or case step allows (null = all)
+  shunting: null,             // { src, only } while a shunt waits for its drop target
   layers: { flow: true, chips: true, collaterals: false, organs: true, labels: true, grid: false },
   colorMode: 'pressure',      // pressure | delta | heat | drop | flow | velocity | direction
   params: defaultParams(),

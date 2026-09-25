@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles/tokens.css?v=ab946f615d" />
-  <link rel="stylesheet" href="styles/app.css?v=b2017be607" />
+  <link rel="stylesheet" href="styles/app.css?v=ac98abb0a3" />
 </head>
 <body>
   <!-- Icon set: 24px grid, 1.6px stroke, round caps (blueprint §5.6). -->
@@ -124,7 +124,8 @@
             <button data-view="anatomic" aria-pressed="true" title="Anatomic view (A)">Anatomy</button>
             <button data-view="circuit" aria-pressed="false" title="Circuit view (A)">Circuit</button>
           </div>
-          <button class="chip-btn" id="btnLayers" aria-haspopup="dialog" title="Vessel color, layers and units"><svg><use href="#i-layers"/></svg><span class="cb-k">Color</span><span id="colorModeLabel">Pressure</span><svg class="chev"><use href="#i-chev-down"/></svg></button>
+          <button class="chip-btn" id="btnLayers" aria-haspopup="dialog" title="Vessel color, layers and units (L cycles)"><svg><use href="#i-layers"/></svg><span class="cb-k">Lens</span><span id="colorModeLabel">Pressure</span><svg class="chev"><use href="#i-chev-down"/></svg></button>
+          <button class="chip-btn" id="btnDraw" aria-haspopup="menu" title="Paint fibrosis or clot directly on the anatomy"><svg><use href="#i-fibrosis"/></svg><span class="cb-k">Draw</span><svg class="chev"><use href="#i-chev-down"/></svg></button>
         </div>
         <div class="sb-center stage-blocker" id="stageCenter"><span class="bleed-pill" id="bleedPill" role="status" hidden></span><div class="sb-banner" id="stageBanner"></div></div>
         <div class="sb-right">
@@ -152,7 +153,6 @@
           <span class="clock-readout" id="clockReadout">0.0 s</span>
           <button class="ib" id="btnTime" aria-label="Speed, fast-forward and settle" aria-haspopup="menu"><svg><use href="#i-ff"/></svg></button>
         </div>
-        <div class="toolbar" id="toolbar" role="toolbar" aria-label="Tools"></div>
         <div class="zoom" id="zoomCtl">
           <button class="ib" id="zoomOut" aria-label="Zoom out" title="Zoom out"><svg><use href="#i-minus"/></svg></button>
           <button class="ib" id="zoomFit" aria-label="Fit to view" title="Fit"><svg><use href="#i-fit"/></svg></button>
@@ -187,6 +187,6 @@
   <div class="toast-wrap" id="toasts"></div>
   <div class="sr-only" aria-live="polite" id="live"></div>
 
-  <script type="module" src="src/ui/main.js?v=14f8cfbade"></script>
+  <script type="module" src="src/ui/main.js?v=222850438f"></script>
 </body>
 </html>
