@@ -1307,10 +1307,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const nodeVisible = (id) => ALL_EDGES.some((e) => (e.from === id || e.to === id) && E[e.id]?.vis);
 
   // ── Flow marks ────────────────────────────────────
-  // Blood flow is drawn as evenly spaced chevrons inside each lumen, pointing and moving
+  // Blood flow is drawn as evenly spaced arrowheads inside each lumen, pointing and moving
   // downstream. Their speed follows mean velocity (log-compressed), so fast and slow vessels are
   // told apart at a glance; a vessel without flow carries none; reversed flow simply runs the
-  // other way. Paused, or with reduced motion, the chevrons hold still and keep their direction.
+  // other way. Paused, or with reduced motion, the arrows hold still and keep their direction.
   const phase = {};
   function flowState(x) {
     const e = x.e, k = EI[e.id];
@@ -1320,19 +1320,67 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const vel = e.kind === 'liver' ? q * 0.6 : q / (Math.PI * D * D / 4);
     return { q, vel };
   }
-  const markSpacing = (w) => (w >= 4.6 ? clamp(w * 2.7, 14, 34) : 44);
-  // Chevron drift speed (world units/s). Capped well below one spacing per second's worth of
-  // frames: a mark that moves close to its own spacing between frames reads as flicker (the
-  // wagon-wheel effect) and its direction is lost. Fast vessels still read as faster, but
-  // the difference saturates instead of strobing.
+  // One mark everywhere: a filled arrowhead (a dart with a shallow notch), sized to the lumen,
+  // white on dark vessels and ink on light ones, orange where flow is reversed. A faint outline
+  // in the opposite tone keeps it legible where it overhangs a thin vessel. Direction mode, whose
+  // whole subject is the arrows, draws them larger.
+  const markSize = (w) => clamp(w * 0.85, 5.5, 12) * (colorModeIs('direction') ? 1.3 : 1);
+  const markSpacing = (w) => clamp(markSize(w) * 3, 18, 38);
+  // Drift speed (world units/s). Capped below ~1 spacing per second: a mark that moves close to
+  // its own spacing between frames reads as flicker (the wagon-wheel effect).
   function markSpeed(x, vel, simSpeed) {
     const v = (3 + 16 * Math.log1p(Math.abs(vel) / 1.5)) * simSpeed;
-    return Math.min(v, markSpacing(x.width) * 1.1);
+    return Math.min(v, (x.sp || markSpacing(x.width)) * 1.1);
   }
-  // Calls cb(x, ink, marks[]) per vessel; each mark is { cx, cy, ux, uy, h, len, lw, dash }.
+  function colorModeIs(m) { return (store.get().colorMode || 'pressure') === m; }
+
+  // Where two vessels share a drawn course (circuit routes that run together, a trunk and the
+  // branch leaving it), only the one carrying more flow draws marks there, so marks never double
+  // up or cross. Recomputed a few times a second from the current centerlines.
+  let cover = {}, coverAt = 0, coverMorph = -1;
+  function updateCover(now) {
+    if (now - coverAt < 400 && coverMorph === morph) return;
+    coverAt = now; coverMorph = morph;
+    const CELL = 12, grid = new Map(), list = [];
+    for (const x of Object.values(E)) {
+      if (!x.vis || x.g.classList.contains('coll-ghost')) continue;
+      const q = Math.abs(F.Qf ? F.Qf[EI[x.e.id]] : F.Q[EI[x.e.id]]);
+      list.push([x, q]);
+      const c = geo[x.e.id].cur;
+      for (let i = 1; i < c.length; i++) {
+        const gx0 = Math.floor(Math.min(c[i - 1][0], c[i][0]) / CELL), gx1 = Math.floor(Math.max(c[i - 1][0], c[i][0]) / CELL);
+        const gy0 = Math.floor(Math.min(c[i - 1][1], c[i][1]) / CELL), gy1 = Math.floor(Math.max(c[i - 1][1], c[i][1]) / CELL);
+        for (let gx = gx0; gx <= gx1; gx++) for (let gy = gy0; gy <= gy1; gy++) {
+          const k = gx * 4096 + gy;
+          if (!grid.has(k)) grid.set(k, []);
+          grid.get(k).push([x, q, c[i - 1], c[i]]);
+        }
+      }
+    }
+    const next = {};
+    for (const [x, q] of list) {
+      const c = geo[x.e.id].cur, mask = new Uint8Array(c.length);
+      const tol = Math.max(1.5, x.width * 0.35);
+      for (let i = 0; i < c.length; i++) {
+        const [px, py] = c[i];
+        const segs = grid.get(Math.floor(px / CELL) * 4096 + Math.floor(py / CELL)) || [];
+        for (const [y, qy, a0, a1] of segs) {
+          if (y === x || qy < q || (qy === q && y.e.id > x.e.id)) continue;
+          const dx = a1[0] - a0[0], dy = a1[1] - a0[1], L2 = dx * dx + dy * dy || 1;
+          const t = clamp(((px - a0[0]) * dx + (py - a0[1]) * dy) / L2, 0, 1);
+          if (Math.hypot(px - a0[0] - t * dx, py - a0[1] - t * dy) < tol) { mask[i] = 1; break; }
+        }
+      }
+      next[x.e.id] = mask;
+    }
+    cover = next;
+  }
+
+  // Calls cb(x, ink, marks[], fade) per vessel; each mark is { cx, cy, ux, uy, s }.
   function eachVesselMarks(cb) {
     const st = store.get();
     if (!F || st.imaging || st.layers.flow === false) return;
+    updateCover(performance.now());
     for (const x of Object.values(E)) {
       if (!x.vis || x.reveal || x.g.classList.contains('coll-ghost') || (x.e.id === 'SIN_RL' && morph < 0.5)) continue;
       const { q, vel } = flowState(x);
@@ -1342,18 +1390,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const g = geo[x.e.id];
       const L = g.len;
       const w = x.width;
-      const chevron = w >= 4.6;
-      // Spacing eases toward its target (vessel width updates arrive in steps); a sudden change
-      // of spacing would make every chevron jump.
-      const spT = markSpacing(w);
+      // Spacing and size ease toward their targets (vessel widths update in steps).
+      const spT = markSpacing(w), sT = markSize(w);
       x.sp = x.sp ? x.sp + (spT - x.sp) * 0.04 : spT;
+      x.ms = x.ms ? x.ms + (sT - x.ms) * 0.04 : sT;
       const sp = x.sp;
-      const m = Math.min(L * 0.12, w * 0.5 + 2);
-      if (L - 2 * m < 4) continue;
+      const m = Math.min(L * 0.12, w * 0.5 + 3);
+      if (L - 2 * m < 6) continue;
       const sg = q >= 0 ? 1 : -1;
       const ph = ((((phase[x.e.id] || 0) % 1) + 1) % 1) * sp;
-      const h = chevron ? w * 0.6 : 5.4, len = chevron ? w * 0.34 : 5.2;
-      const lw = chevron ? clamp(w * 0.15, 1, 2.3) : 1.4;
+      const mask = cover[x.e.id];
       const marks = [];
       // Marks are spaced evenly in transit time, not distance: where the lumen narrows (a taper
       // or a stenosis) the same flow crosses a smaller area and speeds up (v ∝ 1/A), so the marks
@@ -1366,43 +1412,41 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (let tt = m + ph; tt < T - m; tt += sp) {
         while (j < n && tau[j] < tt) j++;
         const uu = (j - 1 + (tt - tau[j - 1]) / Math.max(1e-6, tau[j] - tau[j - 1])) / n;
+        if (mask && mask[Math.round(uu * n)]) continue;
+        // Circuit: keep clear of the resistor box drawn at the middle of each liver segment.
+        if (resistorEls[x.e.id] && morph > 0.5 && Math.abs(uu - 0.5) * L < 14 + x.ms / 2) continue;
         const [px, py, dx, dy] = pointAt(g.cur, uu);
-        // Chevrons grow in at the upstream end and shrink away at the downstream end instead of
-        // popping in and out.
+        // Marks grow in at the upstream end and shrink away downstream instead of popping.
         const ends = clamp(Math.min(tt - m, T - m - tt) / (sp * 0.8), 0, 1);
-        if (ends < 0.05) continue;
-        const nn = Math.hypot(dx, dy) || 1, k = clamp(rOf(uu) / r0, 0.3, 1.5) * ends;
-        marks.push({ cx: px, cy: py, ux: (dx / nn) * sg, uy: (dy / nn) * sg, h: chevron ? h * k : h * ends, len: chevron ? len * Math.max(0.5, k) : len * ends, lw: chevron ? lw * Math.max(0.6, Math.min(1.2, k)) : lw, tri: !chevron });
+        if (ends < 0.08) continue;
+        const nn = Math.hypot(dx, dy) || 1;
+        marks.push({ cx: px, cy: py, ux: (dx / nn) * sg, uy: (dy / nn) * sg, s: x.ms * clamp(rOf(uu) / r0, 0.6, 1.3) * ends });
       }
-      if (marks.length) cb(x, marks[0].tri ? (x.rev ? 'triRev' : 'tri') : x.rev ? 'rev' : x.inkDark && !x.isArt ? 'dark' : 'light', marks, fade);
+      const ink = x.rev && !colorModeIs('direction') ? 'rev' : x.inkDark && !x.isArt ? 'dark' : 'light';
+      if (marks.length) cb(x, ink, marks, fade);
     }
   }
   // Reversed (hepatofugal) flow keeps its own steady ink, so it reads as a state, not an event.
-  const INK = { light: 'rgba(255, 255, 255, 0.92)', dark: 'rgba(28, 30, 48, 0.62)', tri: 'rgba(34, 28, 46, 0.86)', rev: 'rgba(255, 170, 70, 1)', triRev: 'rgba(214, 102, 20, 1)' };
-  const TRI_HALO = 'rgba(255, 255, 255, 0.9)';
+  const INK = { light: 'rgba(255, 255, 255, 0.95)', dark: 'rgba(24, 26, 40, 0.78)', rev: 'rgba(255, 150, 50, 1)' };
+  const HALO = { light: 'rgba(20, 22, 36, 0.35)', dark: 'rgba(255, 255, 255, 0.45)', rev: 'rgba(60, 24, 0, 0.55)' };
   function markPath(k) {
-    if (k.tri) {
-      const bx = k.cx - k.ux * k.len / 2, by = k.cy - k.uy * k.len / 2;
-      return [[k.cx + k.ux * k.len / 2, k.cy + k.uy * k.len / 2], [bx - k.uy * k.h / 2, by + k.ux * k.h / 2], [bx + k.uy * k.h / 2, by - k.ux * k.h / 2]];
-    }
-    const bx = k.cx - k.ux * k.len / 2, by = k.cy - k.uy * k.len / 2;
-    return [[bx - k.uy * k.h / 2, by + k.ux * k.h / 2], [k.cx + k.ux * k.len / 2, k.cy + k.uy * k.len / 2], [bx + k.uy * k.h / 2, by - k.ux * k.h / 2]];
+    const { cx, cy, ux, uy, s } = k, nx = -uy, ny = ux;
+    const tip = [cx + ux * s * 0.55, cy + uy * s * 0.55];
+    const bx = cx - ux * s * 0.45, by = cy - uy * s * 0.45;
+    const notch = [cx - ux * s * 0.2, cy - uy * s * 0.2];
+    return [tip, [bx + nx * s * 0.45, by + ny * s * 0.45], notch, [bx - nx * s * 0.45, by - ny * s * 0.45]];
   }
   /** Static flow marks as SVG (world coordinates), for exported figures. */
   function flowSVG() {
     let out = '';
     eachVesselMarks((x, ink, marks, fade) => {
       const op = fade < 1 ? ` opacity="${fade.toFixed(2)}"` : '';
-      const d = marks.map((k) => 'M' + markPath(k).map(([a, b]) => `${a.toFixed(1)} ${b.toFixed(1)}`).join(' L') + (k.tri ? ' Z' : '')).join(' ');
-      out += ink === 'tri' || ink === 'triRev'
-        ? `<path d="${d}" fill="${INK[ink]}" stroke="${TRI_HALO}" stroke-width="1.6" stroke-linejoin="round" paint-order="stroke"${op}/>`
-        : `<path d="${d}" fill="none" stroke="${INK[ink]}" stroke-width="${marks[0].lw.toFixed(2)}" stroke-linecap="round" stroke-linejoin="round"${op}/>`;
+      const d = marks.map((k) => 'M' + markPath(k).map(([a, b]) => `${a.toFixed(1)} ${b.toFixed(1)}`).join(' L') + ' Z').join(' ');
+      out += `<path d="${d}" fill="${INK[ink]}" stroke="${HALO[ink]}" stroke-width="0.8" stroke-linejoin="round" paint-order="stroke"${op}/>`;
     });
     return `<g>${out}</g>`;
   }
 
-  // The chevron layer is redrawn every display frame (it is cheap, and a lower rate judders on
-  // high-refresh screens), but not at all while paused and nothing changed.
   let lastT = performance.now(), lastDrawKey = null, lastDrawF = null, lastDrawCTM = null;
   function animate(now) {
     const dt = Math.min(0.1, (now - lastT) / 1000);
@@ -1449,14 +1493,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const pts = markPath(k);
         ctx.moveTo(pts[0][0], pts[0][1]);
         for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
-        if (k.tri) ctx.closePath();
+        ctx.closePath();
       }
-      if (ink === 'tri' || ink === 'triRev') {
-        ctx.strokeStyle = TRI_HALO; ctx.lineWidth = 1.6; ctx.stroke();
-        ctx.fillStyle = INK[ink]; ctx.fill();
-      } else {
-        ctx.strokeStyle = INK[ink]; ctx.lineWidth = marks[0].lw; ctx.stroke();
-      }
+      ctx.strokeStyle = HALO[ink]; ctx.lineWidth = 0.8 / Math.max(0.2, Math.abs(CTM.a)); ctx.stroke();
+      ctx.fillStyle = INK[ink]; ctx.fill();
     });
     ctx.globalAlpha = 1;
     // Active variceal bleeding: a small spray at the rupture site and blood pooling in the stomach.

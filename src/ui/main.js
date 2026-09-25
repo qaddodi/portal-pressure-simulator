@@ -2,7 +2,7 @@
 
 import { startHost, host } from './host.js?v=d715541c27';
 import { store, updateParams, replaceParams, bindParamSender, undo, redo, canUndo, canRedo, clearHistory } from './store.js?v=384ec84b1e';
-import { createStage } from './stage.js?v=e0b361a849';
+import { createStage } from './stage.js?v=37bf1106c4';
 import { createInspector, activeInterventions } from './inspector.js?v=e6aa5464f0';
 import { createDock } from './dock.js?v=52e906da0f';
 import { createWhy } from './why.js?v=0aa85e3fa4';
@@ -41,6 +41,16 @@ const TOOLS = [
   { id: 'needle', icon: 'needle', key: 'N', label: 'Paracentesis', group: 'Measure', desc: 'Drain ascites', hint: 'Click the abdomen, then choose the volume to drain.', pane: 'abdomen' },
 ];
 const TOOL_GROUPS = [['Disease', 'pinch'], ['Treat', 'stent'], ['Measure', 'catheter']];
+// Color lenses: [title, what it shows, legend swatch].
+const LENSES = {
+  pressure: ['Pressure', 'Venous pressure in each vessel', () => gradientCss('to right', 30)],
+  delta: ['Change', 'Higher or lower than healthy', () => 'linear-gradient(to right, #2D6CDF, #9696A0, #D22846)'],
+  heat: ['Congestion', 'Where pressure has backed up', () => heatCss('to right')],
+  drop: ['Pressure drop', 'Where the resistance lives', () => gradientCss('to right', 30)],
+  flow: ['Flow volume', 'How much blood; width = flow', () => flowCss('to right')],
+  velocity: ['Velocity', 'How fast; red = stagnant', () => velocityCss('to right')],
+  direction: ['Direction', 'Toward the liver or away', () => 'linear-gradient(to right, var(--flow-normal) 50%, var(--flow-reversed) 50%)'],
+};
 const COLOR_MODES = { pressure: 'Pressure', delta: 'Change', heat: 'Congestion', drop: 'Pressure drop', flow: 'Flow volume', velocity: 'Velocity', direction: 'Flow direction' };
 const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };
 const MODE_LABEL = { explore: 'Explore', learn: 'Learn', cases: 'Cases', compare: 'Compare' };
@@ -390,7 +400,7 @@ function openLegend(anchor) {
   popover(anchor, [h('div', { class: 'menu-title' }, 'How to read the figure'),
     h('div', { style: { padding: '2px 10px 8px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12.5px', lineHeight: 1.5, color: 'var(--text-2)', maxWidth: '340px' } },
       rows.map(([k, v]) => h('div', {}, h('b', { style: { color: 'var(--text)' } }, k + '. '), v)),
-      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Flow. '), 'Chevrons inside each vessel point and move downstream; their speed follows blood velocity, and a vessel without flow has none. Reversed flow runs the other way. Paused, they hold still and keep their direction.'),
+      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Flow. '), 'Arrowheads inside each vessel point and move downstream; their speed follows blood velocity, and a vessel without flow has none. Reversed flow turns them orange and runs them the other way. Paused, they hold still and keep their direction.'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Notation. '), 'Dotted vessels are closed potential collaterals. Line width follows vessel diameter (compressed). Faint lines crossing an organ run behind it. ▲ / ▼ on a label: change in mmHg from healthy (from state A in Compare).'))], { align: 'end', cls: 'legend-pop' });
 }
 function openLayers(anchor) {
@@ -400,20 +410,26 @@ function openLayers(anchor) {
     c.addEventListener('change', () => store.set({ layers: { ...store.get().layers, [key]: c.checked } }));
     return h('label', { class: 'menu-item' }, c, label);
   };
-  const radio = (v, l) => menuItem(l, { checked: store.get().colorMode === v, onClick: () => { store.set({ colorMode: v }); closePopover(); } });
+  const cur = store.get().colorMode;
+  const lens = (v) => {
+    const [title, desc, sw] = LENSES[v];
+    const b = h('button', { class: 'lens' + (cur === v ? ' on' : ''), role: 'menuitemradio', 'aria-checked': String(cur === v), onclick: () => { store.set({ colorMode: v }); closePopover(); } },
+      h('span', { class: 'lens-sw', style: { background: sw() } }),
+      h('span', { class: 'lens-t' }, title), h('span', { class: 'lens-d' }, desc));
+    return b;
+  };
   const unitSel = (kind, opts) => {
     const s = h('select', { class: 'select', style: { height: '30px', fontSize: '12.5px' }, 'aria-label': kind === 'pressure' ? 'Pressure unit' : 'Flow unit' }, opts.map((u) => h('option', { value: u, selected: units[kind] === u }, u)));
     s.addEventListener('change', () => { units[kind] = s.value; inspector.render(); redraw(); });
     return s;
   };
   popover(anchor, [
-    h('div', { class: 'menu-title' }, 'Color vessels by'),
-    radio('pressure', 'Pressure'), radio('delta', 'Change from healthy'), radio('heat', 'Congestion heat map'), radio('drop', 'Pressure drop (where resistance lives)'),
-    radio('flow', 'Flow volume (width = flow)'), radio('velocity', 'Velocity and stasis'), radio('direction', 'Flow direction'),
+    h('div', { class: 'menu-title' }, 'Color vessels by', h('span', { class: 'kb' }, 'Shift C cycles')),
+    h('div', { class: 'lens-grid' }, Object.keys(LENSES).map(lens)),
     s0.imaging ? h('div', { class: 'ctl-sub', style: { padding: '2px 10px 6px' } }, 'This case shows anatomy only until you measure.') : null,
     h('div', { class: 'menu-sep' }),
     h('div', { class: 'menu-title' }, 'Show'),
-    cb('chips', 'Pressure values on labels'), cb('flow', 'Blood flow (chevrons)'), cb('collaterals', 'Potential collaterals (dotted)'), cb('labels', 'Organ names'),
+    cb('flow', 'Flow arrows'), cb('chips', 'Pressure values on labels'), cb('collaterals', 'Potential collaterals (dotted)'), cb('labels', 'Organ names'),
     h('div', { class: 'menu-sep' }),
     h('div', { class: 'menu-title' }, 'Units'),
     h('div', { style: { display: 'flex', gap: '6px', padding: '2px 10px 6px' } }, unitSel('pressure', ['mmHg', 'cmH2O', 'kPa']), unitSel('flow', ['L/min', 'mL/min'])),
@@ -596,6 +612,11 @@ function wireKeyboard() {
     }
     if (['1', '2', '3', '4'].includes(e.key)) { store.set({ mode: ['explore', 'learn', 'cases', 'compare'][+e.key - 1] }); return; }
     if (e.key.toLowerCase() === 'a' && !e.shiftKey) { store.set({ view: store.get().view === 'circuit' ? 'anatomic' : 'circuit' }); return; }
+    if (e.key === 'C' && e.shiftKey && !e.ctrlKey && !e.metaKey && !store.get().imaging) {
+      const ks = Object.keys(LENSES), i = ks.indexOf(store.get().colorMode);
+      const next = ks[(i + 1) % ks.length];
+      store.set({ colorMode: next }); toast(`Color: ${LENSES[next][0]}. ${LENSES[next][1]}.`); return;
+    }
     if (e.key.toLowerCase() === 'z') { settle(); return; }
     if (e.key === '?') { openHelp(); return; }
     if (e.key === 'F' && e.shiftKey) { toggleProjector(); return; }
