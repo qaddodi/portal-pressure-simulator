@@ -17,7 +17,10 @@ export const HIDDEN_EDGES = new Set(['A_SMA', 'A_IMA', 'A_SPL', 'A_LGA', 'A_REN_
   'V_LOW', 'V_KID_R', 'RRV_IVC',
   // The hepatic artery and its branches (and the arterioportal shunts off them) are modeled
   // but not drawn: the plate is about the venous portal circulation.
-  'A_HEP', 'A_HR', 'A_HL', 'AP_R', 'AP_L']);
+  'A_HEP', 'A_HR', 'A_HL', 'AP_R', 'AP_L',
+  // The interlobar sinusoidal link is modeled but not drawn: it carries almost nothing and added
+  // a line that only lit up with congestion the lobes already show.
+  'SIN_RL']);
 export const HIDDEN_NODES = new Set(['AO', 'UPPV', 'LOWV', 'KID_R', 'RRV', 'HA']);
 // Systemic veins drawn quietly: they matter only as the places collaterals drain to.
 export const CONTEXT_EDGES = new Set(['V_UP', 'SVC_RA', 'AZY_SVC', 'ILI_IVC', 'EPI_ILI', 'EPI_SVC', 'V_KID_L', 'LRV_IVC']);

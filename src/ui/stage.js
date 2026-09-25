@@ -1,7 +1,7 @@
 // Anatomical stage (blueprint §6): SVG anatomy + canvas flow layer + screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf } from '../engine/topology.js?v=3fdc1306dd';
-import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS } from './anatomy.js?v=0f366b7b22';
+import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS } from './anatomy.js?v=09128b4bf9';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=fa78a29bc0';
 import { store, updateParams } from './store.js?v=384ec84b1e';
 import { s, fmt, fp, clamp, lerp, toast } from './util.js?v=61d6f9c200';
@@ -590,7 +590,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         setStyle(x, 'opacity', p.occluded[e.id] ? '0.45' : String(0.3 + 0.7 * Math.min(1, Math.max(fr * 2.5, qa / 1.5))));
       }
       x.rev = REVERSAL_WATCH.has(e.id) && isReversed(e, f);
-      if (e.id === 'SIN_RL') setStyle(x, 'opacity', String(0.35 * t));
       const selOn = st.selection?.type === 'edge' && st.selection.id === e.id;
       x.sel.classList.toggle('on', selOn);
       cls(x, 'is-sel', selOn);
@@ -600,7 +599,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // others widen toward it, so calibers change smoothly through every junction.
     const jw = {};
     for (const x of Object.values(E)) {
-      if (!x.vis || x.isArt || x.g.classList.contains('coll-ghost') || x.e.id === 'SIN_RL') continue;
+      if (!x.vis || x.isArt || x.g.classList.contains('coll-ghost')) continue;
       (jw[x.e.from] ||= []).push(x.width); (jw[x.e.to] ||= []).push(x.width);
     }
     const J = {};
@@ -1418,7 +1417,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Circuit: no vessel's marks land on a resistor box (several liver routes share a lane).
     const boxes = morph > 0.5 ? Object.keys(resistorEls).map((id) => pointAt(geo[id].cur, 0.5)) : null;
     for (const x of Object.values(E)) {
-      if (!x.vis || x.reveal || x.g.classList.contains('coll-ghost') || (x.e.id === 'SIN_RL' && morph < 0.5)) continue;
+      if (!x.vis || x.reveal || x.g.classList.contains('coll-ghost')) continue;
       const { q, vel } = flowState(x);
       // Near-stagnant flow fades out rather than popping in and out.
       const fade = clamp((Math.abs(vel) - 0.1) / 0.5, 0, 1);
