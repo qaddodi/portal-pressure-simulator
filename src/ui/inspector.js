@@ -60,7 +60,7 @@ for (const k of Object.keys(DRUGS)) CONTROLS['drug:' + k] = { type: 'drug', key:
 
 const DRUG_SHORT = { propranolol: 'Non-selective β-blocker', carvedilol: 'β-blocker + α1 blockade', terlipressin: 'Vasopressin analogue', octreotide: 'Somatostatin analogue' };
 
-export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onScenarios, onMode, renderAlt }) {
+export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onScenarios, onMode, renderAlt, findings }) {
   let live = [];        // [el, fn(frame)]
   let syncers = [];
   let lastSel;
@@ -161,8 +161,8 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onS
     activeBox._sync = renderActive;
     syncers.push(activeBox);
 
-    const tabs = h('div', { class: 'seg full', role: 'tablist', 'aria-label': 'Control groups' }, [['pathology', 'Pathology'], ['therapy', 'Therapy'], ['physiology', 'Physiology']].map(([id, l]) => {
-      const b = h('button', { role: 'tab', 'aria-selected': String(tab === id) }, l);
+    const tabs = h('div', { class: 'seg full', role: 'tablist', 'aria-label': 'Control groups' }, [['pathology', 'Pathology'], ['therapy', 'Therapy'], ['physiology', 'Physiology'], ['findings', 'Findings']].map(([id, l]) => {
+      const b = h('button', { role: 'tab', 'aria-selected': String(tab === id) }, l, id === 'findings' && findings ? findings.badge() : null);
       b.addEventListener('click', () => { tab = id; render(); });
       return b;
     }));
@@ -204,6 +204,8 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onS
             h('div', { class: 'stat' }, h('span', { class: 'k' }, 'Hemoglobin'), h('span', { class: 'v' }, liveText((f) => `${fmt(f.metrics.blood.hb, 1)} g/dL`)))),
           fluids, build('albumin'), build('diuretics')),
       ];
+    } else if (tab === 'findings') {
+      body = findings ? findings.panel() : [];
     } else {
       body = [
         section('inflow', 'Inflow & vascular tone', 'activity', changedCount(['splanchnicTone', 'systemicTone']), build('splanchnicTone'), build('systemicTone')),

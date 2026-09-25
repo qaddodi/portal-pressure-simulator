@@ -82,15 +82,13 @@ svg { flex: none; }
 .stage-bar.top { height: 52px; container-type: inline-size; container-name: figbar; }
 /* The figure header adapts to its own width (the side panel may be open or closed). */
 @container figbar (max-width: 1180px) { .lg-note { display: none; } }
-@container figbar (max-width: 1000px) { .lg-title, .chip-btn .cb-k, .find-btn .find-l { display: none; } .find-btn.has-latest .find-latest { max-width: 150px; } }
+@container figbar (max-width: 1000px) { .lg-title, .chip-btn .cb-k { display: none; } }
 @container figbar (max-width: 860px) { #btnFigure span, #colorModeLabel { display: none; } .lg-scale { width: 128px; } }
 .stage-bar.bottom { height: 60px; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
 .sb-left, .sb-right { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .sb-right { margin-left: auto; }
 .sb-center { flex: 1; min-width: 0; display: flex; justify-content: center; align-items: center; gap: 8px; }
 .sb-banner { display: flex; min-width: 0; justify-content: center; }
-.app.bleeding .find-l, .app[data-mode="cases"] .find-l, .app[data-mode="learn"] .find-l, .app[data-mode="compare"] .find-l { display: none; }
-.app.bleeding .find-btn.has-latest .find-latest { max-width: 0; opacity: 0; }
 .sb-banner:empty { display: none; }
 /* The case panel already shows the clinical clock beside the figure. */
 @media (min-width: 1280px) { .app[data-mode="cases"]:not(.panel-collapsed) .sb-banner { display: none; } }
@@ -99,16 +97,13 @@ svg { flex: none; }
   color: color-mix(in srgb, var(--critical) 82%, var(--text)); background: color-mix(in srgb, var(--critical) 9%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--critical) 28%, transparent); }
 .bp-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--critical); flex: none; }
 /* Findings: one quiet control instead of alerts over the figure */
-.find-btn { position: relative; }
-.find-btn .find-l { color: var(--text-2); }
-.find-count { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; display: inline-grid; place-items: center; font-variant-numeric: tabular-nums; }
+.find-count { margin-left: 5px; min-width: 16px; height: 16px; font-size: 10.5px; padding: 0 5px; border-radius: 9px; background: var(--accent); color: #fff; font-weight: 700; display: inline-grid; place-items: center; font-variant-numeric: tabular-nums; }
 :root[data-theme="dark"] .find-count { color: #0B1120; }
-.find-btn[data-sev="danger"] .find-count, .find-btn[data-sev="critical"] .find-count { background: var(--critical); color: #fff; }
-.find-btn[data-sev="caution"] .find-count { background: var(--caution); color: #1b1300; }
-.find-latest { max-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--text); font-weight: 500; opacity: 0; transition: max-width .35s var(--ease), opacity .25s; }
-.find-btn.has-latest .find-latest { max-width: 240px; opacity: 1; }
-.find-pop { width: min(360px, calc(100vw - 16px)); }
-.find-list { display: flex; flex-direction: column; max-height: min(52vh, 420px); overflow: auto; padding: 0 4px; }
+.find-count[hidden] { display: none; }
+.find-count[data-sev="danger"], .find-count[data-sev="critical"] { background: var(--critical); color: #fff; }
+.find-count[data-sev="caution"] { background: var(--caution); color: #1b1300; }
+.find-list { display: flex; flex-direction: column; margin-top: 12px; }
+.find-log { margin-top: 12px; width: 100%; justify-content: center; }
 .find-item { display: grid; grid-template-columns: 8px 1fr; gap: 10px; padding: 8px 6px; border-bottom: 1px solid var(--hairline); }
 .find-item:last-child { border-bottom: 0; }
 .find-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; }
@@ -918,8 +913,6 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   .stage-bar.top { height: 46px; padding: 0 8px; gap: 6px; }
   .stage-bar.bottom { height: 56px; padding: 0 8px; grid-template-columns: auto minmax(0, 1fr); gap: 8px; }
   .sb-center { display: none; }
-  .find-btn { height: 36px; padding: 0 8px; border: 0; background: transparent; }
-  .find-btn .find-l, .find-btn .find-latest { display: none; }
   .app.bleeding .sb-center, .app[data-mode="learn"] .sb-center, .app[data-mode="compare"] .sb-center, .app[data-mode="cases"] .sb-center { display: flex; position: absolute; left: 8px; right: 8px; top: 46px; justify-content: flex-start; z-index: 7; pointer-events: none; }
   .sb-center > * { pointer-events: auto; }
   .banner { font-size: 12px; box-shadow: var(--shadow-1); background: color-mix(in srgb, var(--accent-soft) 60%, var(--surface)); }
@@ -1022,7 +1015,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   .mode-menu .chev { width: 14px; height: 14px; color: var(--text-3); }
   .stage-bar.top { height: 44px; padding: 0 8px; }
   .stage-bar.bottom { height: 52px; padding: 0 8px; grid-template-columns: auto minmax(0, 1fr); }
-  .sb-center, .zoom, #btnFigure, .clock-readout, .legend .lg-title, #btnLayers #colorModeLabel, .chip-btn .cb-k, .tb-btn .tb-l, .tb-btn .chev, .tb-sep, .find-l, .find-latest { display: none; }
+  .sb-center, .zoom, #btnFigure, .clock-readout, .legend .lg-title, #btnLayers #colorModeLabel, .chip-btn .cb-k, .tb-btn .tb-l, .tb-btn .chev, .tb-sep { display: none; }
   .lg-scale { width: 110px; }
   .toolbar { justify-self: end; }
   .readouts { display: none; }

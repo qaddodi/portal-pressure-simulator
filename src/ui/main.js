@@ -2,14 +2,14 @@
 
 import { startHost, host } from './host.js?v=89161691f2';
 import { store, updateParams, replaceParams, bindParamSender, undo, redo, canUndo, canRedo, clearHistory } from './store.js?v=384ec84b1e';
-import { createStage } from './stage.js?v=62aa8c312d';
-import { createInspector, activeInterventions } from './inspector.js?v=4f37634b66';
-import { createDock } from './dock.js?v=bb3bc695c8';
+import { createStage } from './stage.js?v=ea16c0c02b';
+import { createInspector, activeInterventions } from './inspector.js?v=e6aa5464f0';
+import { createDock } from './dock.js?v=52e906da0f';
 import { createWhy } from './why.js?v=15c9ba3bdf';
-import { createEventsUI } from './events-ui.js?v=4f3ef94ac9';
+import { createEventsUI } from './events-ui.js?v=ad03b28f31';
 import { createLearn } from './learn.js?v=d26437adc1';
 import { createCases } from './cases.js?v=0db98da135';
-import { createCompare } from './compare.js?v=0b177f48f9';
+import { createCompare } from './compare.js?v=e3dbb8d05a';
 import { createFigure } from './figure.js?v=db93c70444';
 import { gradientCss, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=fa78a29bc0';
 import { EDGES, NODES } from '../engine/topology.js?v=0c370bc4ec';
@@ -69,13 +69,13 @@ async function main() {
     onOpenTab: (id) => dock.show(id, { reveal: 'soft' }),
     onHoverInfo: hoverInfo,
   });
+  eventsUI = createEventsUI({ onWhy: (m, el) => why.open(m, el), onOpenLog: () => dock.show('events', { reveal: true }) });
   inspector = createInspector($('#inspector'), {
     onWhy: (m, el) => why.open(m, el), onAction: doAction, onOpenTab: (id) => dock.show(id, { reveal: true }), onClose: closePanel,
     onScenarios: () => openScenarios($('#scenarioBtn')), onMode: (m) => store.set({ mode: m }),
-    renderAlt: () => (store.get().mode === 'compare' && !store.get().selection ? compare.render() : null),
+    renderAlt: () => (store.get().mode === 'compare' && !store.get().selection ? compare.render() : null), findings: eventsUI,
   });
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => host.send({ type: 'probe', id }), onReveal: revealDock });
-  eventsUI = createEventsUI({ button: $('#btnFindings'), onWhy: (m, el) => why.open(m, el), onOpenLog: () => dock.show('events', { reveal: true }) });
   compare = createCompare({ onBack: () => store.set({ mode: 'explore' }) });
   const api = { muteEvents: (v) => eventsUI.mute(v), loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), openPanel, setBanner };
   // A lesson keeps its card in view on a phone: instruments it opens are flagged, not forced.
@@ -329,11 +329,6 @@ function buildHud() {
   renderLegend();
   store.on('colorMode', () => { $('#colorModeLabel').textContent = COLOR_MODES[store.get().colorMode]; });
   bleedEl = $('#bleedPill');
-  // Phone: the Findings button lives in the top bar, where there is room for it.
-  const phoneBar = matchMedia('(max-width: 767px)');
-  const placeFindings = () => { if (phoneBar.matches) $('#btnMore').before($('#btnFindings')); else $('#legend').before($('#btnFindings')); };
-  phoneBar.addEventListener('change', placeFindings);
-  placeFindings();
   tipEl = h('div', { class: 'hover-tip', style: { display: 'none' } });
   view.append(tipEl);
   stageClock = h('div', { class: 'stage-clock', 'aria-hidden': 'true' });

@@ -1,7 +1,7 @@
 // Anatomical stage (blueprint §6): SVG anatomy + canvas flow layer + screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO } from '../engine/topology.js?v=0c370bc4ec';
-import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS } from './anatomy.js?v=73dca168ed';
+import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS } from './anatomy.js?v=6aa967ed96';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=fa78a29bc0';
 import { store, updateParams } from './store.js?v=384ec84b1e';
 import { s, fmt, fp, clamp, lerp, toast } from './util.js?v=61d6f9c200';
@@ -646,47 +646,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
 
   // ── Model-driven transitions ──────────────────────
-  // Only changes the model computes are animated, and each one settles: a vessel whose mean
-  // pressure is rising carries a faint band travelling upstream (falling: downstream) until the
-  // pressure settles; a vessel whose resistance jumps gets a closing ring at the lesion; a
-  // vessel whose flow reverses gets a brief glow; a collateral or shunt that opens is drawn on
-  // in the direction of its flow. Nothing runs under reduced motion or in the figure view.
+  // Nothing flashes or sweeps across the anatomy. Pressure change shows as the vessel's own color
+  // easing; reversed flow is a steady state (its chevrons turn orange and run the other way);
+  // the one animation is a collateral or shunt that opens, drawn on in the direction of its
+  // flow. Nothing runs under reduced motion or in the figure view.
   const track = {};
-  const pulses = [];
-  let lastTrack = performance.now();
   const appEl = document.getElementById('app');
-  const bornAt = performance.now();
   const quietFx = () => reduceMotion.matches || !!appEl?.classList.contains('figure-mode') || isImaging();
-  function trackChanges(f, p) {
+  function trackChanges(f) {
     const now = performance.now();
-    const dt = Math.min(1, (now - lastTrack) / 1000);
-    lastTrack = now;
-    const a = 1 - Math.exp(-dt / 1.2);
     const quiet = quietFx();
     for (const x of Object.values(E)) {
-      const e = x.e, k = EI[e.id];
-      const P1 = f.P[NI[e.from]], P2 = f.P[NI[e.to]];
-      const pm = (P1 + P2) / 2;
-      const q = f.Qf ? f.Qf[k] : f.Q[k];
-      const R = Math.abs(q) > 0.05 ? (P1 - P2) / q : null;
+      const e = x.e;
+      const q = f.Qf ? f.Qf[EI[e.id]] : f.Q[EI[e.id]];
       const open = x.vis && !x.g.classList.contains('coll-ghost');
-      let m = track[e.id];
-      if (!m) { track[e.id] = { p: pm, dp: 0, r: R, rev: !!x.rev, open, lastR: 0 }; continue; }
-      m.dp = pm - m.p;
-      m.p += (pm - m.p) * a;
-      const lesion = e.kind === 'liver' || (p.stenosis[e.id] || 0) > 0 || (p.thrombus[e.id] || 0) > 0;
-      if (!quiet && now - bornAt > 4000 && x.vis && lesion && R > 0 && m.r > 0 && R / m.r > 1.06 && now - m.lastR > 2500 && (e.kind !== 'liver' || ['PRE_R', 'PRE_L', 'SIN_RR', 'SIN_LL', 'POST_R_RHV', 'POST_L_LHV'].includes(e.id))) {
-        pulses.push({ type: 'resist', id: e.id, t0: now, dur: 1800, ratio: R / m.r });
-        m.lastR = now;
-      }
-      if (R != null) m.r = m.r == null ? R : m.r + (R - m.r) * a;
-      const rev = !!x.rev;
-      if (rev !== m.rev && x.vis && !quiet) pulses.push({ type: rev ? 'rev' : 'unrev', id: e.id, t0: now, dur: 2400 });
-      m.rev = rev;
-      if (open && !m.open && (e.kind === 'collateral' || e.kind === 'shunt') && !quiet) x.reveal = { t0: now, dur: e.kind === 'shunt' ? 900 : 1500, dir: q >= 0 ? 1 : -1 };
-      m.open = open;
+      const was = track[e.id];
+      track[e.id] = open;
+      if (was === false && open && (e.kind === 'collateral' || e.kind === 'shunt') && !quiet) x.reveal = { t0: now, dur: e.kind === 'shunt' ? 900 : 1500, dir: q >= 0 ? 1 : -1 };
     }
-    while (pulses.length > 40) pulses.shift();
   }
   const REVEAL_PARTS = ['shadow', 'wall', 'lumen', 'shade', 'sheen'];
   function stepReveals(now) {
@@ -707,76 +684,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (done) x.reveal = null;
     }
   }
-  function drawTransients(now, st) {
-    if (quietFx()) { pulses.length = 0; return; }
-    const cs = getComputedStyle(wrap);
-    const ink = cs.getPropertyValue('--fx-ink').trim() || 'rgba(22,24,29,.9)';
-    const hot = cs.getPropertyValue('--flow-reversed').trim() || '#EC7424';
-    const cool = cs.getPropertyValue('--flow-normal').trim() || '#16988F';
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    // Pressure waves: only while the model's pressure is still moving.
-    if (st.running && now - lastTrack < 500) {
-      for (const x of Object.values(E)) {
-        if (!x.vis || x.isArt || x.reveal) continue;
-        const m = track[x.e.id];
-        if (!m || Math.abs(m.dp) < 0.3) continue;
-        const I = clamp((Math.abs(m.dp) - 0.3) / 2.5, 0, 1);
-        const q = F.Qf ? F.Qf[EI[x.e.id]] : F.Q[EI[x.e.id]];
-        // Rising pressure backs up against the flow; falling pressure drains with it.
-        const dir = (q >= 0 ? 1 : -1) * (m.dp > 0 ? -1 : 1);
-        const g = geo[x.e.id];
-        const per = clamp(g.len / 140, 0.7, 2.2);
-        let u = ((now / 1000) / per) % 1;
-        if (dir < 0) u = 1 - u;
-        const i0 = Math.max(0, Math.floor((u - 0.09) * (N_SAMPLES - 1))), i1 = Math.min(N_SAMPLES - 1, Math.ceil((u + 0.09) * (N_SAMPLES - 1)));
-        if (i1 - i0 < 1) continue;
-        ctx.beginPath();
-        ctx.moveTo(g.cur[i0][0], g.cur[i0][1]);
-        for (let i = i0 + 1; i <= i1; i++) ctx.lineTo(g.cur[i][0], g.cur[i][1]);
-        const edge = Math.min(u, 1 - u) * 8;
-        ctx.globalAlpha = (0.2 + 0.4 * I) * clamp(edge, 0, 1);
-        ctx.strokeStyle = m.dp > 0 ? 'rgba(255, 240, 248, 1)' : 'rgba(214, 240, 255, 1)';
-        ctx.lineWidth = Math.max(2, x.width * 0.7);
-        ctx.stroke();
-      }
-    }
-    for (let i = pulses.length - 1; i >= 0; i--) {
-      const pu = pulses[i];
-      const u = (now - pu.t0) / pu.dur;
-      const x = E[pu.id];
-      if (u >= 1 || !x?.vis) { pulses.splice(i, 1); continue; }
-      const g = geo[pu.id];
-      const fade = u < 0.15 ? u / 0.15 : 1 - (u - 0.15) / 0.85;
-      if (pu.type === 'resist') {
-        const at = x.g.classList.contains('sten') ? stenosisAt[pu.id] ?? 0.5 : 0.5;
-        const [cx, cy, dx, dy] = pointAt(g.cur, at);
-        const n = Math.hypot(dx, dy) || 1, nx = -dy / n, ny = dx / n;
-        // Two brackets closing across the vessel: resistance rising at this site.
-        const r = x.width / 2 + 3 + 12 * (1 - easeInOut(Math.min(1, u * 1.6)));
-        ctx.globalAlpha = 0.85 * fade;
-        ctx.strokeStyle = ink; ctx.lineWidth = 1.6;
-        for (const sg of [1, -1]) {
-          const bx = cx + nx * r * sg, by = cy + ny * r * sg, tx = (dx / n) * 6, ty = (dy / n) * 6;
-          ctx.beginPath(); ctx.moveTo(bx - tx, by - ty); ctx.lineTo(bx + tx, by + ty); ctx.stroke();
-        }
-        if (pu.ratio > 1.15 && (x.e.kind !== 'liver' || pu.id === 'SIN_RR')) {
-          ctx.font = `600 ${morph > 0.5 ? 11 : 12}px Inter, system-ui, sans-serif`;
-          ctx.fillStyle = ink;
-          ctx.fillText(`R ×${pu.ratio.toFixed(1)}`, cx + nx * (r + 6) + 4, cy + ny * (r + 6) + 4);
-        }
-      } else {
-        ctx.globalAlpha = 0.5 * fade;
-        ctx.strokeStyle = pu.type === 'rev' ? hot : cool;
-        ctx.lineWidth = x.width + 9;
-        ctx.beginPath();
-        ctx.moveTo(g.cur[0][0], g.cur[0][1]);
-        for (let j = 1; j < g.cur.length; j++) ctx.lineTo(g.cur[j][0], g.cur[j][1]);
-        ctx.stroke();
-      }
-    }
-    ctx.globalAlpha = 1;
-  }
-
   // Where a lesson step or case asks the learner to act.
   function updateFocus() {
     const foc = store.get().focus;
@@ -1413,6 +1320,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const vel = e.kind === 'liver' ? q * 0.6 : q / (Math.PI * D * D / 4);
     return { q, vel };
   }
+  const markSpacing = (w) => (w >= 4.6 ? clamp(w * 2.7, 14, 34) : 44);
+  // Chevron drift speed (world units/s). Capped well below one spacing per second's worth of
+  // frames: a mark that moves close to its own spacing between frames reads as flicker (the
+  // wagon-wheel effect) and its direction is lost. Fast vessels still read as faster, but
+  // the difference saturates instead of strobing.
+  function markSpeed(x, vel, simSpeed) {
+    const v = (3 + 16 * Math.log1p(Math.abs(vel) / 1.5)) * simSpeed;
+    return Math.min(v, markSpacing(x.width) * 1.1);
+  }
   // Calls cb(x, ink, marks[]) per vessel; each mark is { cx, cy, ux, uy, h, len, lw, dash }.
   function eachVesselMarks(cb) {
     const st = store.get();
@@ -1427,11 +1343,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const L = g.len;
       const w = x.width;
       const chevron = w >= 4.6;
-      const sp = chevron ? clamp(w * 2.7, 14, 34) : 44;
+      const sp = markSpacing(w);
       const m = Math.min(L * 0.12, w * 0.5 + 2);
       if (L - 2 * m < 4) continue;
       const sg = q >= 0 ? 1 : -1;
-      const ph = (((phase[x.e.id] || 0) % sp) + sp) % sp;
+      const ph = ((((phase[x.e.id] || 0) % 1) + 1) % 1) * sp;
       const h = chevron ? w * 0.6 : 5.4, len = chevron ? w * 0.34 : 5.2;
       const lw = chevron ? clamp(w * 0.15, 1, 2.3) : 1.4;
       const marks = [];
@@ -1450,10 +1366,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const nn = Math.hypot(dx, dy) || 1, k = clamp(rOf(uu) / r0, 0.3, 1.5);
         marks.push({ cx: px, cy: py, ux: (dx / nn) * sg, uy: (dy / nn) * sg, h: chevron ? h * k : h, len: chevron ? len * Math.max(0.5, k) : len, lw: chevron ? lw * Math.max(0.6, Math.min(1.2, k)) : lw, tri: !chevron });
       }
-      if (marks.length) cb(x, marks[0].tri ? 'tri' : x.inkDark && !x.isArt ? 'dark' : 'light', marks, fade);
+      if (marks.length) cb(x, marks[0].tri ? (x.rev ? 'triRev' : 'tri') : x.rev ? 'rev' : x.inkDark && !x.isArt ? 'dark' : 'light', marks, fade);
     }
   }
-  const INK = { light: 'rgba(255, 255, 255, 0.92)', dark: 'rgba(28, 30, 48, 0.62)', tri: 'rgba(34, 28, 46, 0.86)' };
+  // Reversed (hepatofugal) flow keeps its own steady ink, so it reads as a state, not an event.
+  const INK = { light: 'rgba(255, 255, 255, 0.92)', dark: 'rgba(28, 30, 48, 0.62)', tri: 'rgba(34, 28, 46, 0.86)', rev: 'rgba(255, 170, 70, 1)', triRev: 'rgba(214, 102, 20, 1)' };
   const TRI_HALO = 'rgba(255, 255, 255, 0.9)';
   function markPath(k) {
     if (k.tri) {
@@ -1469,8 +1386,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     eachVesselMarks((x, ink, marks, fade) => {
       const op = fade < 1 ? ` opacity="${fade.toFixed(2)}"` : '';
       const d = marks.map((k) => 'M' + markPath(k).map(([a, b]) => `${a.toFixed(1)} ${b.toFixed(1)}`).join(' L') + (k.tri ? ' Z' : '')).join(' ');
-      out += ink === 'tri'
-        ? `<path d="${d}" fill="${INK.tri}" stroke="${TRI_HALO}" stroke-width="1.6" stroke-linejoin="round" paint-order="stroke"${op}/>`
+      out += ink === 'tri' || ink === 'triRev'
+        ? `<path d="${d}" fill="${INK[ink]}" stroke="${TRI_HALO}" stroke-width="1.6" stroke-linejoin="round" paint-order="stroke"${op}/>`
         : `<path d="${d}" fill="none" stroke="${INK[ink]}" stroke-width="${marks[0].lw.toFixed(2)}" stroke-linecap="round" stroke-linejoin="round"${op}/>`;
     });
     return `<g>${out}</g>`;
@@ -1506,7 +1423,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const x of Object.values(E)) {
       if (!x.vis || !moving) continue;
       const { vel } = flowState(x);
-      phase[x.e.id] = (phase[x.e.id] || 0) + (3 + 16 * Math.log1p(Math.abs(vel) / 1.5)) * simSpeed * dt;
+      phase[x.e.id] = ((phase[x.e.id] || 0) + (markSpeed(x, vel, simSpeed) / markSpacing(x.width)) * Math.sign(flowState(x).q) * dt) % 1;
     }
     eachVesselMarks((x, ink, marks, fade) => {
       ctx.globalAlpha = fade * (hovering && !x.g.classList.contains('hl') ? 0.2 : receding && !x.g.classList.contains('is-sel') ? 0.4 * Number(x.g.style.opacity || 1) : Number(x.g.style.opacity || 1));
@@ -1517,15 +1434,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
         if (k.tri) ctx.closePath();
       }
-      if (ink === 'tri') {
+      if (ink === 'tri' || ink === 'triRev') {
         ctx.strokeStyle = TRI_HALO; ctx.lineWidth = 1.6; ctx.stroke();
-        ctx.fillStyle = INK.tri; ctx.fill();
+        ctx.fillStyle = INK[ink]; ctx.fill();
       } else {
         ctx.strokeStyle = INK[ink]; ctx.lineWidth = marks[0].lw; ctx.stroke();
       }
     });
     ctx.globalAlpha = 1;
-    drawTransients(performance.now(), st);
     // Active variceal bleeding: a small spray at the rupture site and blood pooling in the stomach.
     if (F.bleed?.active && morph < 0.5) {
       const gv = F.bleed.site === 'GV';
