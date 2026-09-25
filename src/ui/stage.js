@@ -1502,7 +1502,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     ctx.globalCompositeOperation = 'destination-out';
     ctx.globalAlpha = 1;
     ctx.fillStyle = ctx.strokeStyle = '#000';
-    if (dpt === 1 && morph < 0.5) for (const { p, w } of getOrganCovers()) { if (w) { ctx.lineWidth = w; ctx.stroke(p); } else ctx.fill(p); }
+    // Organs don't hide deeper marks completely: the SVG shows posterior veins through them as a
+    // faint ghost (opacity .34), so their marks stay at the same faint strength. Solid organs are
+    // merged into one path so overlapping organs don't fade the marks twice.
+    if (dpt === 1 && morph < 0.5) {
+      ctx.globalAlpha = 0.66;
+      const solid = new Path2D();
+      for (const { p, w } of getOrganCovers()) { if (w) { ctx.lineWidth = w; ctx.stroke(p); } else solid.addPath(p); }
+      ctx.fill(solid);
+      ctx.globalAlpha = 1;
+    }
     for (const x of Object.values(E)) {
       if (!x.vis || x.isArt || depth(x) < dpt || x.g.classList.contains('coll-ghost')) continue;
       const c = geo[x.e.id].cur;
