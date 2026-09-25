@@ -517,7 +517,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 
   // ── Update from frame ─────────────────────────────
+  let inUpdate = false;
   function update(f) {
+    inUpdate = true;
+    try { updateInner(f); } finally { inUpdate = false; }
+  }
+  function updateInner(f) {
     F = f;
     const st = store.get();
     const p = f.viewParams || st.params;
@@ -600,11 +605,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     const J = {};
     for (const [n, ws] of Object.entries(jw)) { ws.sort((a, b) => b - a); J[n] = ws[1] ?? ws[0]; }
+    // Detect newly opened collaterals before the tubes are built: a revealing vessel is drawn as a
+    // dashed stroke from its first frame (never first as a full tube that then vanishes).
+    trackChanges(f, p);
+    stepReveals(performance.now());
     for (const x of Object.values(E)) if (x.vis && !x.isArt) renderTube(x, p, t, J);
     // A selected vessel stays bright while the rest of the network recedes.
     wrap.classList.toggle('has-sel', st.selection?.type === 'edge' && !!E[st.selection.id]?.vis);
     liverModule.classList.toggle('open', liverExpanded());
-    trackChanges(f, p);
     updateNodesCircuit(f);
     updateOverlays(f, p, gain, t);
     updateFocus();
@@ -678,6 +686,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   const REVEAL_PARTS = ['shadow', 'wall', 'lumen', 'shade', 'sheen'];
   function stepReveals(now) {
+    let finished = false;
     for (const x of Object.values(E)) {
       if (!x.reveal) continue;
       const r = x.reveal;
@@ -692,8 +701,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         el.style.strokeDasharray = '1 1';
         el.style.strokeDashoffset = off.toFixed(4);
       }
-      if (done) x.reveal = null;
+      if (done) { x.reveal = null; finished = true; }
     }
+    // Rebuild at once so the vessel turns from the drawn-on stroke into its shaded tube on the
+    // same frame, rather than holding the stroke until the next model update.
+    if (finished && F && !inUpdate) update(F);
   }
   // Where a lesson step or case asks the learner to act.
   function updateFocus() {
