@@ -2,7 +2,7 @@
 
 import { EDGES, NODES, COLLATERAL_DMIN_RATIO } from '../engine/topology.js?v=0c370bc4ec';
 import { DRUGS } from '../engine/scenario.js?v=5ce6f00fdc';
-import { store, updateParams, isLocked } from './store.js?v=59e4c262de';
+import { store, updateParams, isLocked } from './store.js?v=384ec84b1e';
 import { h, fmt, fp, ff, clamp, tooltipFor, icon, svgIcon } from './util.js?v=61d6f9c200';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

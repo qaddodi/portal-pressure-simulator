@@ -3,9 +3,9 @@
 // exported file is built from the live SVG layers with every style resolved inline, so it opens
 // the same in a vector editor, a slide or a manuscript.
 
-import { store } from './store.js?v=59e4c262de';
+import { store } from './store.js?v=384ec84b1e';
 import { h, fmt, icon, toast } from './util.js?v=61d6f9c200';
-import { pressureColor } from './colormap.js?v=884435083d';
+import { pressureColor, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=fa78a29bc0';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const PROPS = ['fill', 'fill-opacity', 'fill-rule', 'stroke', 'stroke-width', 'stroke-opacity', 'stroke-dasharray', 'stroke-dashoffset', 'stroke-linecap', 'stroke-linejoin',
@@ -39,11 +39,26 @@ export function createFigure({ app, stage, onClose }) {
     return [[`Model time ${when}. `, false], ['HVPG ', false], [`${fmt(m.hvpg, 1)} mmHg`, true], [' · portal vein ', false], [`${fmt(m.pv, 1)} mmHg`, true],
       [' · portal flow ', false], [`${fmt(m.pvFlow, 2)} L/min${rev ? ' (hepatofugal)' : ''}`, true], [' · varix wall tension ', false], [`${fmt(m.varix.ratio * 100, 0)} %`, true], [' of the rupture threshold', false]];
   }
+  function colorSentence() {
+    const st = store.get();
+    const mode = st.imaging ? 'neutral' : st.mode === 'compare' && st.compareSnap && st.compareView === 'D' ? 'delta' : st.colorMode;
+    const width = 'Line width follows vessel diameter (∝ d⁰·⁷²).';
+    return {
+      pressure: `Vessel color gives mean venous pressure; labels give values in mmHg with the change from healthy. ${width}`,
+      delta: `Vessel color gives the change in pressure from the reference (mmHg). ${width}`,
+      heat: `Vessel color and glow give congestion, the pressure above the reference (mmHg). ${width}`,
+      drop: `Vessel color gives the pressure lost across each vessel, which locates the resistance. ${width}`,
+      flow: 'Vessel color and width give flow volume (L/min; width ∝ √flow); labels give flow into each station with the change from healthy.',
+      velocity: `Vessel color gives mean velocity (cm/s); below ~5 cm/s is near-stasis. ${width}`,
+      direction: `Vessel color gives flow direction: physiological or reversed. ${width}`,
+      neutral: `Vessels colored by territory; pressures unmeasured. ${width}`,
+    }[mode] || '';
+  }
   function captionText() {
     const circuit = store.get().view === 'circuit';
     return (circuit
       ? 'Transit-map schematic of the same model. Mean pressure falls from left to right across the main series circuit (gut, portal vein, liver, hepatic veins, inferior vena cava, right atrium); collaterals and shunts run in separate lanes as bypasses. Values at each station in mmHg; resistances across the liver in Wood units (mmHg·min/L).'
-      : 'Frontal view, patient’s right on the viewer’s left. Vessel color gives mean venous pressure; labels give values in mmHg with the change from healthy. Line width follows vessel diameter (∝ d⁰·⁷²). Chevrons in each lumen point in the direction of mean flow. Vessels that only close the systemic loop are part of the model but not drawn.')
+      : `Frontal view, patient’s right on the viewer’s left. ${colorSentence()} Chevrons in each lumen point in the direction of mean flow. Vessels that only close the systemic loop are part of the model but not drawn.`)
       + ' Output of a lumped-parameter hemodynamic model for teaching; values are illustrative and not for clinical decisions.';
   }
 
@@ -63,6 +78,20 @@ export function createFigure({ app, stage, onClose }) {
       blk.append(h('span', { class: 'fk-t' }, `Change from ${st.mode === 'compare' ? 'state A' : 'healthy'} (mmHg)`),
         h('div', { class: 'lg-scale' }, h('div', { class: 'lg-bar', style: { background: 'linear-gradient(to right, #2D6CDF, #9696A0, #D22846)' } }), h('span', { class: 'lg-tick', style: { left: '50%' } }),
           [[0, '−12'], [50, '0'], [100, '+12']].map(([p, t]) => h('span', { class: 'lg-num', style: { left: p + '%' } }, t))));
+    } else if (mode === 'flow') {
+      blk.append(h('span', { class: 'fk-t' }, 'Flow volume (L/min, log scale)'),
+        h('div', { class: 'lg-scale' }, h('div', { class: 'lg-bar', style: { background: flowCss('to right') } }),
+          [[0.02, '0.02'], [0.1, '0.1'], [0.5, '0.5'], [1, '1'], [5, '5']].map(([v, t]) => h('span', { class: 'lg-num', style: { left: flowPos(v) * 100 + '%' } }, t))),
+        h('span', { class: 'fig-cap', style: { maxWidth: '260px' } }, 'Line width grows with flow (∝ √flow). Labels: flow into each station, change from healthy.'));
+    } else if (mode === 'velocity') {
+      blk.append(h('span', { class: 'fk-t' }, 'Mean velocity (cm/s)'),
+        h('div', { class: 'lg-scale' }, h('div', { class: 'lg-bar', style: { background: velocityCss('to right') } }), h('span', { class: 'lg-tick', style: { left: velPos(5) * 100 + '%' } }),
+          [[0, '0'], [5, '5'], [15, '15'], [30, '30'], [60, '60']].map(([v, t]) => h('span', { class: 'lg-num', style: { left: velPos(v) * 100 + '%' } }, t))),
+        h('span', { class: 'fig-cap', style: { maxWidth: '260px' } }, 'Below ~5 cm/s is near-stasis. Liver microcirculation shown grey.'));
+    } else if (mode === 'heat') {
+      blk.append(h('span', { class: 'fk-t' }, `Congestion: mmHg above ${st.mode === 'compare' && st.compareSnap ? 'state A' : 'healthy'}`),
+        h('div', { class: 'lg-scale' }, h('div', { class: 'lg-bar', style: { background: heatCss('to right') } }),
+          [[0, '0'], [5, '5'], [10, '10'], [15, '15+']].map(([v, t]) => h('span', { class: 'lg-num', style: { left: (v / HEAT_MAX) * 100 + '%' } }, t))));
     } else if (mode === 'neutral') {
       blk.append(h('span', { class: 'fk-t' }, 'Vessels'), h('span', { class: 'fk-row' }, glyph('line', 'var(--vein-portal)'), 'Portal venous system'), h('span', { class: 'fk-row' }, glyph('line', 'var(--vein-systemic)'), 'Systemic veins'));
     } else if (mode === 'direction') {

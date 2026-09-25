@@ -495,19 +495,30 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .v-hit:focus { outline: none; }
 .v-halo { display: none; }
 /* Tubes: contact shadow, casing, lumen, then the shading of a cylinder lit from above. */
-.v-shadow { fill: none; stroke: var(--vessel-shadow); stroke-linecap: round; stroke-linejoin: round; transform: translate(1.4px, 2.6px); }
+.v-shadow { fill: var(--vessel-shadow); stroke: none; transform: translate(1.4px, 2.8px); }
 .v-shade { fill: none; stroke: #0A0612; stroke-opacity: var(--tube-shade); stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
 .v-sheen { fill: none; stroke: #fff; stroke-opacity: var(--tube-sheen); stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
-.v-wallP, .v-lumenP { display: none; stroke: none; }
+/* Veins are filled, tapered tubes; strokes are used in the circuit, for closed collaterals and
+   while a vessel is being drawn on. */
+.v-wallP, .v-lumenP { stroke: none; }
 .v-wallP { fill: var(--vessel-casing); }
-.vg.sten .v-wall, .vg.sten .v-lumen, .vg.sten .v-shade, .vg.sten .v-sheen, .vg.sten .v-shadow { display: none; }
-.vg.sten .v-wallP, .vg.sten .v-lumenP { display: inline; }
+.vg .v-wall, .vg .v-lumen { display: none; }
+.vg.stroked .v-wall, .vg.stroked .v-lumen { display: inline; }
+.vg.stroked .v-wallP, .vg.stroked .v-lumenP, .vg.stroked .v-shadow { display: none; }
 .v-spine { fill: none; stroke: var(--spine); stroke-linecap: round; stroke-linejoin: round; opacity: 0; transition: opacity .4s; }
 .circuit .v-spine { opacity: 1; }
 .circuit .v-shadow, .circuit .v-shade, .circuit .v-sheen { display: none; }
-.coll-ghost .v-shadow, .coll-ghost .v-shade, .coll-ghost .v-sheen, .ctx .v-sheen, #backEdges .v-sheen, #backEdges .v-shadow { display: none; }
+.coll-ghost .v-shade, .coll-ghost .v-sheen, .ctx .v-sheen, #backEdges .v-sheen, #backEdges .v-shadow { display: none; }
+.org-ra.org-fill { fill: color-mix(in srgb, var(--organ-heart) calc(var(--organ-tint) + 14%), var(--stage-bg)); }
+.organ-heart-ra { color: color-mix(in srgb, var(--organ-heart) 80%, #000); }
+.org-heart-flow { fill: none; stroke: color-mix(in srgb, var(--organ-heart) 70%, #000); stroke-opacity: .55; stroke-width: 1.6; stroke-linecap: round; stroke-dasharray: 3 3; }
 /* The figure is a clean plate: flat lumens (color is the value), no texture or cast shadows. */
 .app.figure-mode .v-shade, .app.figure-mode .v-sheen, .app.figure-mode .v-shadow, .app.figure-mode .org-tex, .app.figure-mode .org-cast, .app.figure-mode .band-cast, .app.figure-mode .band-sheen { display: none; }
+/* Data layers: the anatomy steps back so the network carries the reading. */
+.stage-view.data-layer #organs, .stage-view.data-layer #backdrop { filter: saturate(.12) opacity(.72); }
+#heatGlow { display: none; pointer-events: none; }
+.stage-view[data-layer="heat"] #heatGlow { display: inline; }
+.v-heat { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .liver-module { fill: var(--module-fill); stroke: var(--module-line); stroke-width: 1.2; stroke-dasharray: 5 4; transition: fill .3s, stroke .3s; }
 .liver-module.open { fill: var(--module-fill-open); stroke-dasharray: none; }
 .map-grid { opacity: .9; }
@@ -533,12 +544,15 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .v-select.on { stroke-opacity: .34; }
 .vg { transition: opacity .25s var(--ease); }
 .vg.ctx { opacity: .6; }
-#backEdges .vg { opacity: .85; }
+#backEdges { opacity: .85; }
 .zone { fill: var(--text); fill-opacity: 0; }
 .zone.alt { fill-opacity: .028; }
 .coll-ghost .v-lumen { stroke-dasharray: 1.5 4.5; }
 .coll-ghost .v-wall { stroke-opacity: .35; stroke-dasharray: 1.5 4.5; }
-.stent { fill: none; stroke: var(--text-2); stroke-opacity: .55; stroke-dasharray: 1.5 3; stroke-linecap: round; }
+.stent-rail { fill: none; stroke: var(--stent-metal); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+.stent-strut { fill: none; stroke: var(--stent-metal); stroke-width: 1; stroke-linejoin: miter; stroke-opacity: .95; }
+.stent-mark { fill: none; stroke: var(--stent-marker); stroke-width: 2.8; stroke-linecap: round; }
+.suture { fill: none; stroke: var(--text); stroke-opacity: .7; stroke-width: 1.1; stroke-linecap: round; }
 .clamp { fill: var(--text); fill-opacity: .82; }
 .clamp-label, .guide-label { font: 600 11px var(--font-ui); fill: var(--text); paint-order: stroke; stroke: var(--stage-bg); stroke-width: 4px; stroke-linejoin: round; }
 .thrombus { stroke: #5B1222; stroke-linecap: round; fill: none; stroke-opacity: .92; }

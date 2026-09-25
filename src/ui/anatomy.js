@@ -14,14 +14,14 @@ export const ATLAS_COLUMNS = [318, 1102];
 
 // Model vessels that are never drawn, and nodes that therefore have no position of their own.
 export const HIDDEN_EDGES = new Set(['A_SMA', 'A_IMA', 'A_SPL', 'A_LGA', 'A_REN_L', 'A_REN_R', 'A_LOW', 'A_UP', 'A_AZY', 'A_EPI',
-  'V_LOW', 'V_UP', 'V_KID_R', 'RRV_IVC']);
+  'V_LOW', 'V_KID_R', 'RRV_IVC']);
 export const HIDDEN_NODES = new Set(['AO', 'UPPV', 'LOWV', 'KID_R', 'RRV']);
 // Systemic veins drawn quietly: they matter only as the places collaterals drain to.
-export const CONTEXT_EDGES = new Set(['SVC_RA', 'AZY_SVC', 'ILI_IVC', 'EPI_ILI', 'EPI_SVC', 'V_KID_L', 'LRV_IVC']);
+export const CONTEXT_EDGES = new Set(['V_UP', 'SVC_RA', 'AZY_SVC', 'ILI_IVC', 'EPI_ILI', 'EPI_SVC', 'V_KID_L', 'LRV_IVC']);
 // Drawn only once the paraumbilical collateral has opened.
 export const NEEDS_C3 = new Set(['EPI_ILI', 'EPI_SVC']);
 // Retroperitoneal vessels, drawn behind the organs (the liver and pancreas veil them).
-export const BACK_EDGES = new Set(['IVC_IS', 'ILI_IVC', 'LRV_IVC', 'V_KID_L', 'C7', 'C9', 'S_MC', 'AZY_SVC', 'C1b', 'CAUD']);
+export const BACK_EDGES = new Set(['IVC_IS', 'ILI_IVC', 'LRV_IVC', 'V_KID_L', 'C7', 'C9', 'S_MC', 'C1b', 'CAUD']);
 
 // Node positions: [anatomic, circuit]
 export const NODE_POS = {
@@ -55,8 +55,8 @@ export const NODE_POS = {
   IVCS: [[620, 190], [1120, 345]],
   RA: [[620, 112], [1250, 345]],
   SVC: [[620, 40], [1250, 205]],
-  AZY: [[700, 150], [1120, 205]],
-  UPPV: [[620, -60], [1250, 100]],
+  AZY: [[566, 172], [1120, 205]],
+  UPPV: [[620, -40], [1250, 100]],
   LOWV: [[620, 980], [1120, 660]],
   ILI: [[620, 880], [1120, 610]],
   EPI: [[600, 722], [1000, 610]],
@@ -98,8 +98,11 @@ export const EDGE_PATH = {
   LHV_IVC: 'M660 214 C 646 204 632 196 620 190',
   IVC_IS: 'M620 650 L 620 190',
   IVCS_RA: 'M620 190 L 620 112',
+  V_UP: 'M620 -40 L 620 40',
   SVC_RA: 'M620 40 L 620 112',
-  AZY_SVC: 'M700 150 C 702 110 694 70 668 55 C 652 46 634 42 620 40',
+  // The azygos ascends lateral to the cava (drawn clear of the heart) and arches medially into
+  // the SVC above the right atrium.
+  AZY_SVC: 'M566 172 C 562 136 558 96 566 72 C 574 50 598 42 620 40',
   V_KID_L: 'M1005 622 C 960 620 910 618 862 618',
   LRV_IVC: 'M862 618 C 790 620 700 640 620 650',
   ILI_IVC: 'M620 880 L 620 650',
@@ -107,7 +110,7 @@ export const EDGE_PATH = {
   EPI_SVC: 'M600 722 C 520 700 352 640 334 520 C 318 410 318 260 360 170 C 400 90 520 52 620 40',
 
   C1a: 'M822 432 C 836 390 830 340 815 300 C 806 276 800 256 797 232',
-  C1b: 'M797 232 C 772 206 738 172 700 150',
+  C1b: 'M797 232 C 770 214 720 202 666 198 C 622 196 584 192 566 172',
   C2: 'M880 505 C 945 480 985 420 968 370 C 950 322 910 300 876 302',
   C2b: 'M876 302 C 880 350 860 400 822 432',
   C3: 'M688 378 C 668 430 650 490 640 560 C 630 630 612 690 600 722',
@@ -116,7 +119,7 @@ export const EDGE_PATH = {
   C6: 'M880 505 C 905 545 895 590 862 618',
   C7: 'M690 660 C 668 676 640 670 620 650',
   C8: 'M700 556 C 695 520 650 470 602 442',
-  C9: 'M620 650 C 572 600 560 480 565 380 C 570 280 640 190 700 150',
+  C9: 'M620 650 C 584 604 566 500 564 400 C 562 300 564 230 566 172',
 
   AP_R: 'M655 478 C 612 470 552 432 505 398',
   AP_L: 'M655 478 C 668 440 680 405 688 378',
@@ -205,6 +208,9 @@ export const CIRCUIT_LABELS = {
 export const ORGANS = [
   { id: 'esophagus', cls: 'org org-eso', d: 'M776 0 L 798 0 C 800 90 805 190 818 292 L 796 300 C 787 200 781 90 776 0 Z' },
   { id: 'heart', cls: 'org org-heart', d: 'M616 60 C 600 74 596 100 600 124 C 604 150 620 168 646 174 C 690 184 744 178 780 160 C 800 150 806 132 800 114 C 792 90 770 70 742 58 C 716 48 688 46 664 48 C 644 50 628 52 616 60 Z' },
+  // The right atrium, where both cavae end; the arrow shows where the blood goes next.
+  { id: 'heart-ra', cls: 'org org-ra', d: 'M612 66 C 596 80 592 112 598 136 C 604 160 622 176 646 176 C 668 176 680 158 682 132 C 684 104 674 80 656 68 C 642 60 624 58 612 66 Z' },
+  { id: 'heart-out', cls: 'org-heart-flow', deco: true, d: 'M664 118 C 690 112 716 114 742 126' },
   { id: 'kidney-l', cls: 'org org-kidney', d: 'M1002 556 C 1040 548 1066 584 1064 626 C 1062 672 1034 700 1000 694 C 982 690 984 668 994 654 C 1000 642 998 630 990 620 C 984 606 978 574 1002 556 Z' },
   { id: 'spleen', cls: 'org org-spleen', d: 'M1022 268 C 1068 262 1100 300 1102 356 C 1104 414 1074 454 1032 460 C 1010 462 998 448 1006 432 C 1016 414 1022 394 1018 372 C 1024 352 1022 330 1010 308 C 1000 290 1002 272 1022 268 Z' },
   { id: 'stomach', cls: 'org org-stomach', d: 'M796 300 C 802 272 830 248 866 244 C 904 240 940 258 958 290 C 976 322 982 372 976 414 C 968 468 932 512 880 534 C 842 550 790 556 752 544 C 732 538 716 524 708 510 L 718 490 C 738 494 770 490 794 474 C 818 456 828 424 828 388 C 828 356 822 330 818 308 Z' },
@@ -241,7 +247,7 @@ export const SITES = {
 // Organ captions: [text, x, y, anchor]
 export const ORGAN_LABELS = [
   ['Liver', 404, 446], ['Stomach', 918, 432], ['Spleen', 1058, 482], ['Pancreas', 820, 578], ['Colon', 1016, 824], ['Kidney', 1030, 716],
-  ['Small bowel', 732, 868], ['Esophagus', 852, 38], ['Heart', 716, 118],
+  ['Small bowel', 732, 868], ['Esophagus', 852, 38], ['Heart', 760, 96], ['to RV', 744, 146],
 ];
 
 // Atlas labels: node → caption and which margin column it hangs from.

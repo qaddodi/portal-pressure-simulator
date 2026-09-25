@@ -74,6 +74,7 @@
   --spine: rgba(124, 150, 255, .09); --map-dot: rgba(160, 182, 255, .11);
   --module-fill: rgba(255, 255, 255, .02); --module-fill-open: rgba(124, 150, 255, .05); --module-line: rgba(150, 172, 255, .3);
   --fx-ink: rgba(22, 24, 29, .88);
+  --stent-metal: #5E6878; --stent-marker: #2A2F38;
 
   /* chart series (validated categorical order, light) */
   --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #4a3aa7; --s8: #e34948;
@@ -115,7 +116,7 @@
     --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
     --grid: #1F2840; --axis: #34405E;
     --shadow-1: 0 1px 2px rgba(0, 0, 0, .4); --shadow-2: 0 6px 20px rgba(0, 0, 0, .45); --shadow-3: 0 24px 60px rgba(0, 0, 0, .6);
-    --vessel-shadow: rgba(0, 0, 0, .38); --tube-shade: .3; --tube-sheen: .26; --organ-cast: rgba(0, 0, 0, .42); --tex-a: .13; --lit-hi: .2; --lit-lo: .18; --cavity: #10182C; --fx-ink: rgba(233, 237, 246, .9);
+    --vessel-shadow: rgba(0, 0, 0, .38); --tube-shade: .3; --tube-sheen: .26; --organ-cast: rgba(0, 0, 0, .42); --tex-a: .13; --lit-hi: .2; --lit-lo: .18; --cavity: #10182C; --fx-ink: rgba(233, 237, 246, .9); --stent-metal: #C3CBD8; --stent-marker: #EEF1F6;
     color-scheme: dark;
   }
 }
@@ -134,7 +135,7 @@
   --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
   --grid: #1F2840; --axis: #34405E;
   --shadow-1: 0 1px 2px rgba(0, 0, 0, .4); --shadow-2: 0 6px 20px rgba(0, 0, 0, .45); --shadow-3: 0 24px 60px rgba(0, 0, 0, .6);
-  --vessel-shadow: rgba(0, 0, 0, .38); --tube-shade: .3; --tube-sheen: .26; --organ-cast: rgba(0, 0, 0, .42); --tex-a: .13; --lit-hi: .2; --lit-lo: .18; --cavity: #10182C; --fx-ink: rgba(233, 237, 246, .9);
+  --vessel-shadow: rgba(0, 0, 0, .38); --tube-shade: .3; --tube-sheen: .26; --organ-cast: rgba(0, 0, 0, .42); --tex-a: .13; --lit-hi: .2; --lit-lo: .18; --cavity: #10182C; --fx-ink: rgba(233, 237, 246, .9); --stent-metal: #C3CBD8; --stent-marker: #EEF1F6;
   color-scheme: dark;
 }
 
@@ -151,7 +152,7 @@
   --artery: #E4606C; --vessel-casing: rgba(0, 0, 0, .72); --leader: rgba(200, 212, 240, .42);
   --vein-portal: #9C90DA; --vein-systemic: #6FA6DA; --arrow-ink: rgba(233, 237, 246, .82); --label-halo: rgba(10, 15, 28, .92);
   --spine: rgba(124, 150, 255, .1); --map-dot: rgba(160, 182, 255, .12);
-  --fx-ink: rgba(233, 237, 246, .9);
+  --fx-ink: rgba(233, 237, 246, .9); --stent-metal: #C3CBD8; --stent-marker: #EEF1F6;
   --shadow-1: 0 1px 2px rgba(0, 0, 0, .4); --shadow-2: 0 6px 20px rgba(0, 0, 0, .45);
   color-scheme: dark;
 }

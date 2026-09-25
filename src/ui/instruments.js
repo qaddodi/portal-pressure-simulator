@@ -2,10 +2,10 @@
 // liver lobule, varix cross-section, abdomen.
 
 import { NODES, EDGES } from '../engine/topology.js?v=0c370bc4ec';
-import { pressureColor } from './colormap.js?v=884435083d';
-import { store, updateParams } from './store.js?v=59e4c262de';
+import { pressureColor } from './colormap.js?v=fa78a29bc0';
+import { store, updateParams } from './store.js?v=384ec84b1e';
 import { h, fmt, fitCanvas, cssVar, clamp, toast, icon } from './util.js?v=61d6f9c200';
-import { FONT } from './charts.js?v=b48689cdde';
+import { FONT } from './charts.js?v=56813c62ab';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

@@ -9,7 +9,7 @@ const state = {
   view: 'anatomic',
   selection: null,            // { type: 'edge' | 'node' | 'organ', id }
   layers: { flow: true, chips: true, collaterals: false, organs: true, labels: true, grid: false },
-  colorMode: 'pressure',      // pressure | drop | direction | delta
+  colorMode: 'pressure',      // pressure | delta | heat | drop | flow | velocity | direction
   params: defaultParams(),
   frame: null,
   running: true,

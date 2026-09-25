@@ -1,17 +1,17 @@
 // Application bootstrap: wires store, engine host, figure, panel, readouts, instruments and modes.
 
 import { startHost, host } from './host.js?v=89161691f2';
-import { store, updateParams, replaceParams, bindParamSender, undo, redo, canUndo, canRedo, clearHistory } from './store.js?v=59e4c262de';
-import { createStage } from './stage.js?v=00d25bbb35';
-import { createInspector, activeInterventions } from './inspector.js?v=ebe6b4a11e';
-import { createDock } from './dock.js?v=c633148896';
+import { store, updateParams, replaceParams, bindParamSender, undo, redo, canUndo, canRedo, clearHistory } from './store.js?v=384ec84b1e';
+import { createStage } from './stage.js?v=62aa8c312d';
+import { createInspector, activeInterventions } from './inspector.js?v=4f37634b66';
+import { createDock } from './dock.js?v=bb3bc695c8';
 import { createWhy } from './why.js?v=15c9ba3bdf';
 import { createEventsUI } from './events-ui.js?v=4f3ef94ac9';
-import { createLearn } from './learn.js?v=082df4e5b2';
-import { createCases } from './cases.js?v=4110d95ae5';
-import { createCompare } from './compare.js?v=2c551d74f5';
-import { createFigure } from './figure.js?v=f366ce8bc9';
-import { gradientCss } from './colormap.js?v=884435083d';
+import { createLearn } from './learn.js?v=d26437adc1';
+import { createCases } from './cases.js?v=0db98da135';
+import { createCompare } from './compare.js?v=0b177f48f9';
+import { createFigure } from './figure.js?v=db93c70444';
+import { gradientCss, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=fa78a29bc0';
 import { EDGES, NODES } from '../engine/topology.js?v=0c370bc4ec';
 import { $, $$, h, icon, fmt, toast, tooltipFor, openModal, closeModal, isModalOpen, units, popover, closePopover, menuItem, svgIcon } from './util.js?v=61d6f9c200';
 
@@ -41,7 +41,7 @@ const TOOLS = [
   { id: 'needle', icon: 'needle', key: 'N', label: 'Paracentesis', group: 'Measure', desc: 'Drain ascites', hint: 'Click the abdomen, then choose the volume to drain.', pane: 'abdomen' },
 ];
 const TOOL_GROUPS = [['Disease', 'pinch'], ['Treat', 'stent'], ['Measure', 'catheter']];
-const COLOR_MODES = { pressure: 'Pressure', drop: 'Pressure drop', direction: 'Flow direction', delta: 'Change' };
+const COLOR_MODES = { pressure: 'Pressure', delta: 'Change', heat: 'Congestion', drop: 'Pressure drop', flow: 'Flow volume', velocity: 'Velocity', direction: 'Flow direction' };
 const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };
 const MODE_LABEL = { explore: 'Explore', learn: 'Learn', cases: 'Cases', compare: 'Compare' };
 const compactTools = matchMedia('(max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape)');
@@ -367,6 +367,21 @@ function renderLegend() {
       m === 'pressure' ? scale(gradientCss('to right', max), [[at(0), '0'], [at(5), '5'], [at(10), '10'], [at(20), '20'], [at(30), '30']], [at(5), at(10), at(12), at(20)])
         : scale(gradientCss('to right', max), [[0, '0'], [100, '12+']]));
     el.setAttribute('aria-label', m === 'pressure' ? 'Legend: venous pressure from 0 to 30 millimeters of mercury, pale blue to dark magenta' : 'Legend: pressure drop across each vessel, 0 to 12 or more millimeters of mercury');
+  } else if (m === 'flow') {
+    const at = (v) => flowPos(v) * 100;
+    el.replaceChildren(h('div', { class: 'lg-title' }, 'Flow volume', h('small', {}, 'L/min · width ∝ √flow')),
+      scale(flowCss('to right'), [[at(0.02), '0.02'], [at(0.1), '0.1'], [at(0.5), '0.5'], [at(1), '1'], [at(5), '5']], [at(0.1), at(1)]));
+    el.setAttribute('aria-label', 'Legend: flow volume from 0.02 to 6 liters per minute on a log scale, pale mint to deep blue; line width grows with flow');
+  } else if (m === 'velocity') {
+    const at = (v) => velPos(v) * 100;
+    el.replaceChildren(h('div', { class: 'lg-title' }, 'Mean velocity', h('small', {}, 'cm/s')),
+      scale(velocityCss('to right'), [[at(0), '0'], [at(5), '5'], [at(15), '15'], [at(30), '30'], [at(60), '60']], [at(5)]));
+    el.setAttribute('aria-label', 'Legend: mean blood velocity from 0 to 60 centimeters per second; dark red is stagnant (below 5), green is free-flowing');
+  } else if (m === 'heat') {
+    const at = (v) => (v / HEAT_MAX) * 100;
+    el.replaceChildren(h('div', { class: 'lg-title' }, 'Congestion', h('small', {}, `mmHg above ${ref}`)),
+      scale(heatCss('to right'), [[at(0), '0'], [at(5), '5'], [at(10), '10'], [at(15), '15+']], []));
+    el.setAttribute('aria-label', `Legend: pressure above ${ref}, 0 to 15 millimeters of mercury, grey to yellow to deep red, with a glow where congestion is highest`);
   } else if (m === 'direction') {
     el.replaceChildren(h('div', { class: 'lg-cats' }, h('span', {}, h('i', { style: { background: 'var(--flow-normal)' } }), 'Physiological'), h('span', {}, h('i', { style: { background: 'var(--flow-reversed)' } }), 'Reversed')));
     el.setAttribute('aria-label', 'Legend: teal is physiological flow direction, orange is reversed');
@@ -388,6 +403,9 @@ function openLegend(anchor) {
     ['Scale', 'Mean venous pressure, perceptually uniform (OKLab) from 0 to 30 mmHg.'],
     ['Breakpoints', 'The color steps at 5, 10, 12 and 20 mmHg mirror the clinical HVPG thresholds: normal ≤ 5, CSPH ≥ 10, variceal bleeding ≥ 12, high risk ≥ 20. HVPG is a gradient (wedged − free hepatic venous pressure); read it in the HVPG readout, not from a single vessel color.'],
   ] : m === 'drop' ? [['Scale', 'Pressure lost across each vessel (upstream − downstream). Bright segments are where the resistance sits.']]
+    : m === 'flow' ? [['Scale', 'Blood flow through each vessel in L/min, log scale; line width also grows with flow (∝ √flow), like traffic volume on a city map. Labels give the flow into each station and its change from healthy.']]
+    : m === 'velocity' ? [['Scale', 'Mean velocity (flow ÷ lumen area). Dark red below ~5 cm/s is near-stasis, where thrombosis is likely (e.g. portal vein thrombosis in advanced cirrhosis); green is free-flowing. The liver microcirculation is grey: it is a bed, not a single tube.']]
+    : m === 'heat' ? [['Scale', `Congestion: how far pressure has risen above ${ref === 'state A' ? 'state A' : 'healthy'}. Grey is unchanged; the glow marks the territories under the most back-pressure.`]]
     : m === 'direction' ? [['Scale', 'Teal: flow in the physiological direction. Orange: reversed (e.g. hepatofugal portal flow).']]
       : m === 'neutral' ? [['Why no pressures?', 'In this case pressures are unmeasured, as at the bedside. Use the catheter, Doppler or endoscope to investigate.']]
         : [['Scale', 'Pressure now minus the reference (healthy, or state A in Compare). Red higher, blue lower.']];
@@ -412,7 +430,8 @@ function openLayers(anchor) {
   };
   popover(anchor, [
     h('div', { class: 'menu-title' }, 'Color vessels by'),
-    radio('pressure', 'Absolute pressure'), radio('drop', 'Pressure drop (where resistance lives)'), radio('direction', 'Flow direction'), radio('delta', 'Change from healthy'),
+    radio('pressure', 'Pressure'), radio('delta', 'Change from healthy'), radio('heat', 'Congestion heat map'), radio('drop', 'Pressure drop (where resistance lives)'),
+    radio('flow', 'Flow volume (width = flow)'), radio('velocity', 'Velocity and stasis'), radio('direction', 'Flow direction'),
     s0.imaging ? h('div', { class: 'ctl-sub', style: { padding: '2px 10px 6px' } }, 'This case shows anatomy only until you measure.') : null,
     h('div', { class: 'menu-sep' }),
     h('div', { class: 'menu-title' }, 'Show'),

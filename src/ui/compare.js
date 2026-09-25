@@ -2,9 +2,9 @@
 // The panel names both states and tabulates the differences; the figure header switches the
 // plate between A, B and the change from A to B (colored on a diverging scale).
 
-import { store } from './store.js?v=59e4c262de';
+import { store } from './store.js?v=384ec84b1e';
 import { h, fmt, icon } from './util.js?v=61d6f9c200';
-import { activeInterventions } from './inspector.js?v=ebe6b4a11e';
+import { activeInterventions } from './inspector.js?v=4f37634b66';
 
 const ROWS = [
   ['HVPG', (m) => m.hvpg, 1, 'mmHg'], ['Portal pressure', (m) => m.pv, 1, 'mmHg'], ['Portosystemic gradient', (m) => m.ppg, 1, 'mmHg'], ['Portal flow', (m) => m.pvFlow, 2, 'L/min'],
