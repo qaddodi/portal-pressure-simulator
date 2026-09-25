@@ -43,17 +43,18 @@
   /* anatomy */
   --organ-body: #EFE8DF;
   --organ-body-line: #D9CEC0;
-  --organ-liver: #A9624F;
-  --organ-spleen: #86607F;
-  --organ-gut: #C49B74;
-  --organ-stomach: #C3826F;
-  --organ-heart: #AE4D57;
-  --organ-kidney: #9C6752;
+  --organ-liver: #946658;
+  --organ-spleen: #80697F;
+  --organ-gut: #B09780;
+  --organ-stomach: #AB857A;
+  --organ-heart: #A06469;
+  --organ-kidney: #957466;
   --organ-lung: #AFC0D2;
-  --organ-pancreas: #C9A35A;
-  --organ-gb: #7F9D57;
+  --organ-pancreas: #B09E78;
+  --organ-gb: #849077;
+  --organ-aorta: #B7A7A3;
   --organ-a: .3;
-  --organ-tint: 13%;
+  --organ-tint: 18%;
   --diaphragm: #8E7566;
   --artery: #C8414D;
   --vessel-casing: rgba(30, 24, 40, .56);
@@ -93,6 +94,7 @@
   --hit: 36px; /* minimum pointer target; 44px on touch */
   --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-num: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Source Serif 4', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
   --ease: cubic-bezier(.2, .8, .2, 1);
   --t-fast: .16s; --t: .24s;
@@ -110,8 +112,8 @@
     --ok: #34C38F; --caution: #F0B43C; --danger: #F2634D; --critical: #E6508A; --info: #7C9BFF;
     --flow-normal: #2CC5BD; --flow-reversed: #FF8C42;
     --organ-body: #141C31; --organ-body-line: #25304D;
-    --organ-liver: #B97C6C; --organ-spleen: #9C6B94; --organ-gut: #B89272; --organ-stomach: #B98A7B; --organ-heart: #C75A69;
-    --organ-kidney: #A67E6B; --organ-lung: #5A6E90; --organ-pancreas: #BFA16A; --organ-gb: #7E9A58; --organ-a: .3; --organ-tint: 18%; --diaphragm: #9C8C84;
+    --organ-liver: #A88C82; --organ-spleen: #93889A; --organ-gut: #A8998A; --organ-stomach: #A99088; --organ-heart: #AE8387;
+    --organ-kidney: #A08A80; --organ-lung: #5A6E90; --organ-pancreas: #AFA286; --organ-gb: #8C9A7E; --organ-aorta: #6E6470; --organ-a: .3; --organ-tint: 20%; --diaphragm: #9C8C84;
     --artery: #E4606C; --vessel-casing: rgba(0, 0, 0, .7); --ascites: #3E8FC0; --stage-grid: rgba(160, 180, 255, .05); --leader: rgba(200, 212, 240, .42); --vein-portal: #9C90DA; --vein-systemic: #6FA6DA; --arrow-ink: rgba(233, 237, 246, .82); --label-halo: rgba(11, 17, 32, .9);
     --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
     --grid: #1F2840; --axis: #34405E;
@@ -129,8 +131,8 @@
   --ok: #34C38F; --caution: #F0B43C; --danger: #F2634D; --critical: #E6508A; --info: #7C9BFF;
   --flow-normal: #2CC5BD; --flow-reversed: #FF8C42;
   --organ-body: #141C31; --organ-body-line: #25304D;
-  --organ-liver: #B97C6C; --organ-spleen: #9C6B94; --organ-gut: #B89272; --organ-stomach: #B98A7B; --organ-heart: #C75A69;
-  --organ-kidney: #A67E6B; --organ-lung: #5A6E90; --organ-pancreas: #BFA16A; --organ-gb: #7E9A58; --organ-a: .3; --organ-tint: 18%; --diaphragm: #9C8C84;
+  --organ-liver: #A88C82; --organ-spleen: #93889A; --organ-gut: #A8998A; --organ-stomach: #A99088; --organ-heart: #AE8387;
+  --organ-kidney: #A08A80; --organ-lung: #5A6E90; --organ-pancreas: #AFA286; --organ-gb: #8C9A7E; --organ-aorta: #6E6470; --organ-a: .3; --organ-tint: 20%; --diaphragm: #9C8C84;
   --artery: #E4606C; --vessel-casing: rgba(0, 0, 0, .7); --ascites: #3E8FC0; --stage-grid: rgba(160, 180, 255, .05); --leader: rgba(200, 212, 240, .42); --vein-portal: #9C90DA; --vein-systemic: #6FA6DA; --arrow-ink: rgba(233, 237, 246, .82); --label-halo: rgba(11, 17, 32, .9);
   --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
   --grid: #1F2840; --axis: #34405E;

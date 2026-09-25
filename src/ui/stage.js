@@ -1,10 +1,10 @@
 // Anatomical stage (blueprint §6): SVG anatomy + canvas flow layer + screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=44e0aca402';
-import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS } from './anatomy.js?v=1eeeff8e27';
+import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS } from './anatomy.js?v=399161e64e';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=fa78a29bc0';
 import { store, updateParams } from './store.js?v=609dde7847';
-import { s, fmt, fp, clamp, lerp, toast } from './util.js?v=61d6f9c200';
+import { s, fmt, fp, clamp, lerp, toast, cssVar } from './util.js?v=61d6f9c200';
 
 const N_SAMPLES = 64;
 // Displayed width grows sub-linearly with diameter so the cavae don't swamp the portal tree,
@@ -195,9 +195,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     ${grad('gLiver', '--organ-liver', 0.8, 1.05)}${grad('gStomach', '--organ-stomach', 0.75, 1)}${grad('gSpleen', '--organ-spleen', 0.8, 1.05)}
     ${grad('gKidney', '--organ-kidney', 0.75, 1)}${grad('gGut', '--organ-gut', 0.6, 0.85)}${grad('gHeart', '--organ-heart', 0.8, 1.05)}${grad('gPancreas', '--organ-pancreas', 0.8, 1)}
     <filter id="orgSoft" x="-8%" y="-8%" width="116%" height="116%"><feGaussianBlur stdDeviation="6"/></filter>
-    <pattern id="nodules" width="13" height="11.3" patternUnits="userSpaceOnUse">
-      <g class="nodule"><circle cx="3.25" cy="2.8" r="3.1"/><circle cx="9.75" cy="2.8" r="3.1"/><circle cx="0" cy="8.5" r="3.1"/><circle cx="6.5" cy="8.5" r="3.1"/><circle cx="13" cy="8.5" r="3.1"/></g>
+    <pattern id="nodules" width="34" height="30" patternUnits="userSpaceOnUse">
+      <g class="nodule"><circle cx="5" cy="5" r="4.6"/><circle cx="15.5" cy="3.5" r="3.4"/><circle cx="25" cy="6.5" r="5.2"/><circle cx="10" cy="14.5" r="4"/><circle cx="21" cy="16" r="5.6"/><circle cx="31" cy="17" r="3.2"/>
+        <circle cx="3" cy="24" r="3.6"/><circle cx="13" cy="25" r="4.8"/><circle cx="25.5" cy="26.5" r="3.9"/><circle cx="34" cy="5" r="4.6"/><circle cx="0" cy="14.5" r="3.2"/><circle cx="34" cy="30" r="3.4"/></g>
     </pattern>
+    <pattern id="nutmeg" width="16" height="14" patternUnits="userSpaceOnUse"><g class="nutmeg"><circle cx="3" cy="3" r="1.9"/><circle cx="11" cy="5" r="2.4"/><circle cx="6" cy="10.5" r="2.1"/><circle cx="14" cy="12" r="1.6"/></g></pattern>
+    <radialGradient id="congest" cx=".42" cy=".42" r=".7"><stop offset=".35" class="cg-in"/><stop offset="1" class="cg-out"/></radialGradient>
+    <linearGradient id="fluid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="fl-top"/><stop offset="1" class="fl-bot"/></linearGradient>
+    <radialGradient id="skin" cx=".5" cy=".5" r=".5"><stop offset="0" class="sk-in"/><stop offset=".8" class="sk-mid"/><stop offset="1" class="sk-out"/></radialGradient>
+    <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" class="mt-a"/><stop offset=".5" class="mt-b"/><stop offset="1" class="mt-a"/></linearGradient>
     <clipPath id="abdomenClip"><path d="${ABDOMEN_CLIP}"/></clipPath>
     <radialGradient id="orgForm" cx=".3" cy=".2" r=".95"><stop offset="0" class="lit-hi"/><stop offset=".48" class="lit-mid"/><stop offset="1" class="lit-lo"/></radialGradient>
     <radialGradient id="cavityShade" cx=".5" cy=".46" r=".5"><stop offset="0" class="cav-hi"/><stop offset=".72" class="cav-mid"/><stop offset="1" class="cav-lo"/></radialGradient>
@@ -266,7 +272,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // Each organ: a filled body, a soft shade just inside its edge (so it reads as a solid form
   // rather than a flat blob), then a crisp outline. Tubes (colon, duodenum, diaphragm) are stroked.
-  const TEXTURE = { liver: 'texLiver', spleen: 'texFine', stomach: 'texRugae', pancreas: 'texLobules', heart: 'texMuscle', 'kidney-l': 'texFine' };
+  const TEXTURE = { liver: 'texLiver', spleen: 'texFine', stomach: 'texRugae', pancreas: 'texLobules', heart: 'texMuscle', 'kidney-l': 'texFine', 'kidney-r': 'texFine' };
   const organEls = {}, organG = {};
   for (const o of ORGANS) {
     const g = s('g', { class: 'organ organ-' + o.id });
@@ -291,16 +297,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     organEls[o.id] = el; organG[o.id] = g;
     gOrgans.append(g);
   }
-  // Parenchyma tinted by sinusoidal pressure, right lobe → left lobe.
-  defs.insertAdjacentHTML('beforeend', '<linearGradient id="gSinus" x1="340" y1="0" x2="780" y2="0" gradientUnits="userSpaceOnUse"><stop offset=".35"/><stop offset=".72"/></linearGradient>');
-  const sinusStops = defs.querySelectorAll('#gSinus stop');
-  const liverTint = s('path', { d: ORGANS.find((o) => o.id === 'liver').d, fill: 'url(#gSinus)', class: 'liver-tint' });
-  const liverNodules = s('path', { d: ORGANS.find((o) => o.id === 'liver').d, fill: 'url(#nodules)', opacity: 0 });
-  organG.liver.insertBefore(liverTint, organG.liver.querySelector('.org-rim'));
-  organG.liver.insertBefore(liverNodules, organG.liver.querySelector('.org-rim'));
-  const ascitesPath = s('path', { class: 'ascites-fill', d: '' });
+  // The liver shows its disease as texture, never as a pressure hue (hue is kept for data):
+  // a congested vignette as sinusoidal pressure rises, nutmeg mottling when the outflow backs up,
+  // a nodular surface with cirrhosis, and a slightly shrunken, blunter organ.
+  const liverD = ORGANS.find((o) => o.id === 'liver').d;
+  const liverTint = s('path', { d: liverD, fill: 'url(#congest)', class: 'liver-tint' });
+  const liverNutmeg = s('path', { d: liverD, fill: 'url(#nutmeg)', opacity: 0 });
+  const liverNodules = s('path', { d: liverD, fill: 'url(#nodules)', opacity: 0 });
+  for (const el of [liverTint, liverNutmeg, liverNodules]) organG.liver.insertBefore(el, organG.liver.querySelector('.org-rim'));
+  // Abdominal wall (anterior): appears only with caput medusae, under the radiating veins.
+  const abdWall = s('ellipse', { cx: SITES.umbilicus[0], cy: SITES.umbilicus[1], rx: 120, ry: 96, fill: 'url(#skin)', class: 'abd-wall', opacity: 0 });
+  // Flanks: the outline of the abdominal wall, which bulges as ascites accumulates.
+  const flank = s('path', { class: 'flank', d: '' });
+  gOver.before(abdWall);
+  const ascitesPath = s('path', { class: 'ascites-fill', d: '', fill: 'url(#fluid)' });
   const ascitesLine = s('path', { class: 'ascites-line', d: '' });
-  gAscites.append(ascitesPath, ascitesLine);
+  const ascitesGlint = s('path', { class: 'ascites-glint', d: '' });
+  gAscites.append(ascitesPath, ascitesLine, ascitesGlint);
+  gBackdrop.append(flank);
 
   // Edge groups
   const E = {};
@@ -709,6 +723,38 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // same frame, rather than holding the stroke until the next model update.
     if (finished && F && !inUpdate) update(F);
   }
+  // Δ halos: after a change, the three places whose pressure moved most get a brief ring and
+  // their change in mmHg, once the model has had a moment to respond. Answers "what did that do?"
+  // without a sweep across the whole figure.
+  const gHalo = s('g', { id: 'halos', 'aria-hidden': 'true' });
+  gOver.after(gHalo);
+  let haloBase = null, haloTimer = 0;
+  store.on('params', () => {
+    if (!F || quietFx()) return;
+    if (!haloBase) haloBase = { P: Float64Array.from(F.P), t: performance.now() };
+    clearTimeout(haloBase.timer);
+    haloBase.timer = setTimeout(() => { if (F && haloBase) { haloBase.t = 0; stepHalos(F, easeInOut(morph)); } }, 1200);
+  });
+  function stepHalos(f, t) {
+    if (!haloBase || performance.now() - haloBase.t < 1100) return;
+    const base = haloBase.P; haloBase = null;
+    if (quietFx() || !f.P) return;
+    const cand = [];
+    for (const n of NODES) {
+      if (n.kind === 'wedge' || HIDDEN_NODES.has(n.id) || !NODE_POS[n.id]) continue;
+      const d = f.P[NI[n.id]] - base[NI[n.id]];
+      if (Math.abs(d) >= 1) cand.push([n.id, d]);
+    }
+    cand.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+    clearTimeout(haloTimer);
+    gHalo.replaceChildren(...cand.slice(0, 3).map(([id, d]) => {
+      const [x, y] = nodePos(id, t);
+      return s('g', { class: 'halo ' + (d > 0 ? 'up' : 'down'), transform: `translate(${x.toFixed(1)} ${y.toFixed(1)})` },
+        s('circle', { r: 16 }), s('text', { y: -24, 'text-anchor': 'middle' }, `${d > 0 ? '+' : '−'}${Math.abs(d).toFixed(Math.abs(d) < 10 ? 1 : 0)}`));
+    }));
+    haloTimer = setTimeout(() => gHalo.replaceChildren(), 1500);
+  }
+
   // A selected organ keeps a quiet outline; a selected site (varices, fundus, abdomen) a ring.
   const gSelO = s('g', { id: 'organSel' });
   gOver.after(gSelO);
@@ -763,26 +809,42 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
 
   function updateOrgans(f, p, t) {
-    liverNodules.setAttribute('opacity', (Math.min(1, p.cirrhosis) * 0.55 * (1 - t)).toFixed(2));
-    sinusStops[0].setAttribute('stop-color', pressureColor(f.P[NI.SIN_R]));
-    sinusStops[1].setAttribute('stop-color', pressureColor(f.P[NI.SIN_L]));
-    // The parenchyma keeps its own color at normal pressure and takes on the pressure hue as
-    // sinusoidal pressure rises (sinusoidal hypertension).
+    const k = 1 - t;
+    const imaging = isImaging();
+    liverNodules.setAttribute('opacity', (Math.min(1, p.cirrhosis) * 0.75 * k).toFixed(2));
     const psin = Math.max(f.P[NI.SIN_R], f.P[NI.SIN_L]);
-    liverTint.style.opacity = isImaging() ? 0 : clamp((psin - 8) / 16, 0, 0.16).toFixed(3);
-    organG.umbilicus.style.display = recruitFrac('C3', f) > 0.25 ? '' : 'none';
+    liverTint.style.opacity = imaging ? 0 : (clamp((psin - 8) / 16, 0, 1) * 0.5 * k).toFixed(3);
+    const hp = store.get().healthy?.P;
+    const cvUp = hp ? Math.max(f.P[NI.CV_R] - hp[NI.CV_R], f.P[NI.CV_L] - hp[NI.CV_L]) : 0;
+    liverNutmeg.setAttribute('opacity', imaging ? 0 : (clamp((cvUp - 4) / 10, 0, 1) * 0.6 * k).toFixed(2));
+    // A cirrhotic liver shrinks a little; a congested one does not.
+    const shrink = 1 - 0.035 * Math.min(1, p.cirrhosis);
+    organG.liver.setAttribute('transform', `translate(560 350) scale(${shrink.toFixed(4)}) translate(-560 -350)`);
+    const c3 = recruitFrac('C3', f);
+    organG.umbilicus.style.display = c3 > 0.25 ? '' : 'none';
+    abdWall.setAttribute('opacity', (clamp((c3 - 0.2) / 0.5, 0, 1) * 0.9 * k).toFixed(2));
     const sc = f.slow.spleen / 11;
     organG.spleen.setAttribute('transform', `translate(${SPLEEN_CENTER[0]} ${SPLEEN_CENTER[1]}) scale(${sc.toFixed(3)}) translate(${-SPLEEN_CENTER[0]} ${-SPLEEN_CENTER[1]})`);
-    // ascites
+    // Ascites collects in the flanks and the pelvis first (supine patient, frontal view), so its
+    // surface is a meniscus: highest at the sides, lowest in the middle. The abdominal wall bulges
+    // and the bowel floats up on it. A slow ripple runs along the surface.
     const V = f.slow.ascites;
-    const hgt = clamp(V / 11000, 0, 1) * 300;
-    if (hgt < 2) { ascitesPath.setAttribute('d', ''); ascitesLine.setAttribute('d', ''); }
+    const u = clamp(V / 11000, 0, 1);
+    const bulge = u * 34;
+    flank.setAttribute('d', u < 0.04 ? '' : `M336 470 C ${324 - bulge} 610 ${330 - bulge} 780 ${372 - bulge * 0.4} 904 M1088 470 C ${1100 + bulge} 610 ${1094 + bulge} 780 ${1052 + bulge * 0.4} 904`);
+    organG.bowel.setAttribute('transform', `translate(0 ${(-u * 26).toFixed(1)})`);
+    const hgt = u * 330;
+    if (hgt < 3) { ascitesPath.setAttribute('d', ''); ascitesLine.setAttribute('d', ''); ascitesGlint.setAttribute('d', ''); }
     else {
-      const y = ABDOMEN_FLOOR - hgt, ph = (performance.now() / 900) % (Math.PI * 2);
+      const floor = ABDOMEN_FLOOR + 5, ph = reduceMotion.matches ? 0 : (performance.now() / 1100) % (Math.PI * 2);
+      const surf = (x) => { const c = (x - 712) / 400; return floor - hgt * (0.55 + 0.45 * c * c) + Math.sin(x / 38 + ph) * 1.6 * Math.min(1, u * 4); };
       let line = '';
-      for (let x = 300; x <= 1100; x += 20) line += `${x === 300 ? 'M' : ' L'}${x} ${(y + Math.sin(x / 46 + ph) * 2.5).toFixed(1)}`;
+      for (let x = 296; x <= 1128; x += 16) line += `${x === 296 ? 'M' : ' L'}${x} ${surf(x).toFixed(1)}`;
       ascitesLine.setAttribute('d', line);
-      ascitesPath.setAttribute('d', `${line} L 1100 ${ABDOMEN_FLOOR + 5} L 300 ${ABDOMEN_FLOOR + 5} Z`);
+      ascitesPath.setAttribute('d', `${line} L 1128 ${floor} L 296 ${floor} Z`);
+      let glint = '';
+      for (let x = 470; x <= 950; x += 16) glint += `${x === 470 ? 'M' : ' L'}${x} ${(surf(x) + 5).toFixed(1)}`;
+      ascitesGlint.setAttribute('d', glint);
     }
   }
 
@@ -815,7 +877,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     let marks = '';
     for (const d of [d0, d1]) { const a = f(d, 1), b = f(d, -1); marks += `M${P(a)} L${P(b)} `; }
-    ov.stents.append(s('path', { class: 'stent-strut', d: struts }), s('path', { class: 'stent-rail', d: rails }), s('path', { class: 'stent-mark', d: marks }));
+    ov.stents.append(s('path', { class: 'stent-strut', d: struts }), s('path', { class: 'stent-rail', d: rails }), s('path', { class: 'stent-rail-glint', d: rails }), s('path', { class: 'stent-mark', d: marks }));
   }
   // Surgical shunts: a row of sutures across each anastomosis.
   function anastomoses(id) {
@@ -848,10 +910,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       ov.clamps.append(s('text', { x: x + nx * (off + 16) + 4, y: y + ny * (off + 16) + 4, class: 'clamp-label' }, document.createTextNode(`${Math.round(v * 100)} %`)));
     }
+    // Thrombus: a dark clot inside the lumen, its length and bulk following the occlusion, with
+    // laminations (lines of Zahn) and, below full occlusion, the channel blood still finds.
     for (const [id, v] of Object.entries(p.thrombus)) {
       if (hideDx || !(v > 0) || !E[id] || !E[id].vis) continue;
-      const pts = geo[id].cur.slice(Math.floor(N_SAMPLES * 0.3), Math.ceil(N_SAMPLES * 0.72));
-      ov.thrombi.append(s('path', { class: 'thrombus', d: polyD(pts), 'stroke-width': (E[id].width * clamp(v, 0.3, 1)).toFixed(1) }));
+      const g = geo[id], lit = g.lit, x = E[id];
+      const u0 = 0.5 - 0.1 - 0.22 * v, u1 = 0.5 + 0.1 + 0.22 * v;
+      const R = (x.width / 2) * clamp(0.55 + 0.45 * v, 0.55, 1);
+      const rOf = (u) => { const uu = u0 + u * (u1 - u0); const e = Math.sin(Math.PI * clamp((uu - u0) / (u1 - u0), 0, 1)); return R * (0.35 + 0.65 * Math.sqrt(e)); };
+      const i0 = Math.round(u0 * (N_SAMPLES - 1)), i1 = Math.round(u1 * (N_SAMPLES - 1));
+      const pts = g.cur.slice(i0, i1 + 1), ln = lit.slice(i0, i1 + 1);
+      if (pts.length < 3) continue;
+      ov.thrombi.append(s('path', { class: 'thrombus', d: tubeOutline(pts, ln, rOf) }));
+      for (const k of [-0.45, 0, 0.45]) ov.thrombi.append(s('path', { class: 'thrombus-lam', d: polyD(litOffset(g.cur, lit, R * k * 0.6, u0 + 0.06, u1 - 0.06)) }));
+      if (v < 0.97) ov.thrombi.append(s('path', { class: 'thrombus-channel', d: polyD(litOffset(g.cur, lit, R * 0.62, u0, u1)), 'stroke-width': (R * 0.5 * (1 - v)).toFixed(2) }));
     }
     for (const id of ['TIPS', 'S_PC', 'S_DSR', 'S_MC', ...Object.keys(p.customShunts || {})]) {
       if (!E[id].vis || E[id].reveal) continue;
@@ -865,50 +937,63 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     const m = f.metrics;
 
-    // Esophageal varices (beads)
+    // Esophageal varices: beaded, tortuous columns in the lower esophagus. The number of columns,
+    // their length and the size of the beads grow with the grade (F1 straight and small, F2
+    // beaded, F3 large and coiled); red wale streaks mark high wall tension.
     ov.varices.innerHTML = ''; ov.gvarices.innerHTML = ''; ov.caput.innerHTML = ''; ov.bands.innerHTML = '';
     if (anat) {
       const vr = m.varix;
-      // Esophageal varices: three serpentine columns in the lower esophagus. Width follows
-      // the varix radius, tortuosity grows with size, red wale marks mark high wall tension.
       const eso = (y) => 789 + (y - 24) * 0.066;
       if (vr.d >= 2.4) {
         const col = pressureColor(f.P[NI.VAR]);
         const grow = clamp((vr.d - 2.4) / 8, 0, 1);
-        const wPx = clamp(1.4 + vr.r * 1.05, 1.6, 9);
-        const alpha = clamp(0.45 + grow, 0.45, 1).toFixed(2);
-        [-6.5, 0, 6.5].forEach((off, ci) => {
+        const cols = grow > 0.55 ? [-7.5, -2.5, 2.5, 7.5] : [-6, 0, 6];
+        const top = 292 - (70 + 70 * grow);
+        cols.forEach((off, ci) => {
           const pts = [];
-          for (let y = 176; y <= 286; y += 5) pts.push([eso(y) + off * (0.6 + 0.5 * grow) + Math.sin(y * 0.2 + ci * 2.1) * (0.6 + 3.2 * grow), y]);
-          ov.varices.append(s('path', { d: polyD(pts), fill: 'none', stroke: 'var(--vessel-casing)', 'stroke-width': (wPx + 1.6).toFixed(1), 'stroke-linecap': 'round', opacity: alpha }));
-          ov.varices.append(s('path', { d: polyD(pts), fill: 'none', stroke: col, 'stroke-width': wPx.toFixed(1), 'stroke-linecap': 'round', opacity: alpha }));
-          if (vr.ratio > 0.7) for (let k = 3; k < pts.length - 2; k += 4) {
+          for (let y = top; y <= 290; y += 4) pts.push([eso(y) + off * (0.6 + 0.5 * grow) + Math.sin(y * (0.16 + 0.05 * ci) + ci * 2.1) * (0.6 + 3.4 * grow), y]);
+          const w = clamp(1.4 + vr.r * 0.9, 1.6, 7);
+          ov.varices.append(s('path', { d: polyD(pts), class: 'varix-col-case', 'stroke-width': (w + 1.8).toFixed(1) }), s('path', { d: polyD(pts), class: 'varix-col', stroke: col, 'stroke-width': w.toFixed(1) }));
+          if (grow > 0.18) for (let k = 2; k < pts.length - 1; k += 3) {
             const [x, y] = pts[k];
-            ov.varices.append(s('path', { class: 'redwale', d: `M${(x - wPx * 0.3).toFixed(1)} ${(y - 1.5).toFixed(1)} l ${(wPx * 0.6).toFixed(1)} 3`, opacity: clamp((vr.ratio - 0.7) / 0.3, 0.3, 1).toFixed(2) }));
+            const r = (w / 2) * (1 + 0.55 * grow * (0.6 + 0.4 * Math.sin(k * 1.7 + ci)));
+            ov.varices.append(s('ellipse', { cx: x.toFixed(1), cy: y.toFixed(1), rx: r.toFixed(1), ry: (r * 1.25).toFixed(1), class: 'varix-bead', fill: col }));
+            ov.varices.append(s('ellipse', { cx: (x - r * 0.35).toFixed(1), cy: (y - r * 0.4).toFixed(1), rx: (r * 0.32).toFixed(1), ry: (r * 0.24).toFixed(1), class: 'bead-glint' }));
+            if (vr.ratio > 0.7 && k % 6 === 2) ov.varices.append(s('path', { class: 'redwale', d: `M${(x - r * 0.5).toFixed(1)} ${(y - 1).toFixed(1)} l ${(r).toFixed(1)} 2.4`, opacity: clamp((vr.ratio - 0.7) / 0.3, 0.3, 1).toFixed(2) }));
           }
         });
       }
       const nb = Math.round(f.bands || 0);
       for (let i = 0; i < nb; i++) { const y = 272 - i * 16; ov.bands.append(s('ellipse', { cx: eso(y), cy: y, rx: 11, ry: 3, class: 'band-ring' })); }
+      // Fundal varices: a grape-like cluster at the fundus, each grape with a highlight.
       const gv = m.gastricVarix;
       if (gv.d >= 2.4) {
         const col = pressureColor(f.P[NI.GV]);
-        const r = clamp(gv.r * 1.4, 2, 12);
-        for (const [dx, dy] of [[-10, -6], [4, -10], [12, 2], [0, 8], [-8, 8], [10, 12]]) {
-          ov.gvarices.append(s('circle', { cx: SITES.fundus[0] + dx * (0.6 + r / 12), cy: SITES.fundus[1] - 4 + dy * (0.6 + r / 12), r: (r * 0.7).toFixed(1), fill: col, 'fill-opacity': clamp((gv.d - 2.4) / 2, 0.2, 0.95), class: 'varix-bead' }));
+        const g0 = clamp((gv.d - 2.4) / 6, 0, 1);
+        const r = 3 + 7 * g0;
+        const grapes = [[0, 0], [-1.1, -0.6], [1.0, -0.8], [0.2, -1.5], [-1.6, 0.7], [1.5, 0.6], [-0.4, 1.2], [0.9, 1.5], [-1.9, -1.2], [2.0, -1.6]].slice(0, 5 + Math.round(5 * g0));
+        for (const [dx, dy] of grapes.slice().reverse()) {
+          const cx = SITES.fundus[0] + dx * r * 1.25, cy = SITES.fundus[1] - 4 + dy * r * 1.2;
+          ov.gvarices.append(s('circle', { cx: cx.toFixed(1), cy: cy.toFixed(1), r: (r * 0.72).toFixed(1), fill: col, class: 'varix-bead' }),
+            s('circle', { cx: (cx - r * 0.24).toFixed(1), cy: (cy - r * 0.26).toFixed(1), r: (r * 0.2).toFixed(1), class: 'bead-glint' }));
         }
       }
+      // Caput medusae: tortuous, slightly raised veins radiating from the umbilicus over a
+      // semi-transparent abdominal wall, only when the paraumbilical route carries real flow.
       const c3 = recruitFrac('C3', f);
       if (c3 > 0.25 && E.C3.vis) {
         const col = pressureColor(f.P[NI.EPI]);
-        for (let i = 0; i < 7; i++) {
-          const a = (i / 7) * Math.PI * 2 + 0.3, L = 12 + 22 * c3;
+        const n = 9;
+        for (let i = 0; i < n; i++) {
+          const a0 = (i / n) * Math.PI * 2 + 0.25, L = 16 + 44 * c3 * (0.7 + 0.3 * Math.sin(i * 2.3));
           const pts = [];
-          for (let j = 0; j <= 6; j++) {
-            const rr = 7 + (L * j) / 6, wob = j === 0 ? 0 : Math.sin(j * 1.3 + i) * 2 * c3;
-            pts.push([SITES.umbilicus[0] + Math.cos(a) * rr - Math.sin(a) * wob, SITES.umbilicus[1] + Math.sin(a) * rr + Math.cos(a) * wob]);
+          for (let j = 0; j <= 10; j++) {
+            const rr = 7 + (L * j) / 10, wob = j === 0 ? 0 : Math.sin(j * 1.6 + i * 1.3) * (1.5 + 3.5 * c3) * Math.min(1, j / 3);
+            const a = a0 + Math.sin(j * 0.5 + i) * 0.12;
+            pts.push([SITES.umbilicus[0] + Math.cos(a) * rr - Math.sin(a) * wob, SITES.umbilicus[1] + Math.sin(a) * rr * 0.86 + Math.cos(a) * wob]);
           }
-          ov.caput.append(s('path', { d: polyD(pts), fill: 'none', stroke: 'var(--vessel-casing)', 'stroke-width': (2.4 + 1.8 * c3).toFixed(2), 'stroke-linecap': 'round' }), s('path', { d: polyD(pts), fill: 'none', stroke: col, 'stroke-width': (1.2 + 1.4 * c3).toFixed(2), 'stroke-linecap': 'round' }));
+          const w = 1.3 + 2.2 * c3;
+          ov.caput.append(s('path', { d: polyD(pts), class: 'caput-case', 'stroke-width': (w + 1.8).toFixed(2) }), s('path', { d: polyD(pts), class: 'caput-vein', stroke: col, 'stroke-width': w.toFixed(2) }));
         }
       }
     }
@@ -1523,7 +1608,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (organCovers) return organCovers;
     organCovers = [];
     for (const o of ORGANS) {
-      if (o.deco || !organEls[o.id]) continue;
+      if (o.deco || o.noCover || !organEls[o.id]) continue;
       if (o.circle) { const p = new Path2D(); p.arc(o.circle[0], o.circle[1], o.circle[2], 0, Math.PI * 2); organCovers.push({ p, w: 0 }); continue; }
       const w = o.band ? parseFloat(getComputedStyle(organEls[o.id]).strokeWidth) || 0 : 0;
       if (o.band && w < 4) continue; // the diaphragm is a hairline, not a cover
@@ -1642,7 +1727,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   // Organs under a point (anatomy only). The varices and fundus are small sites; the abdomen is
   // whatever lies inside the peritoneal cavity below the stomach.
-  const ORGAN_OF = { liver: 'liver', heart: 'heart', 'heart-ra': 'heart', spleen: 'spleen', stomach: 'gastric', esophagus: 'varices', bowel: 'abdomen', 'colon-d': 'abdomen', duodenum: 'abdomen', pancreas: null, 'kidney-l': null };
+  const ORGAN_OF = { liver: 'liver', gallbladder: 'liver', heart: 'heart', 'heart-ra': 'heart', spleen: 'spleen', stomach: 'gastric', esophagus: 'varices', bowel: 'abdomen', cecum: 'abdomen', 'colon-a': 'abdomen', 'colon-t': 'abdomen', 'colon-d': 'abdomen', duodenum: 'abdomen', pancreas: null, 'kidney-l': null, 'kidney-r': null };
   const ptIn = (el, x, y, stroke) => {
     if (!el) return false;
     const pt = svg.createSVGPoint(); pt.x = x; pt.y = y;

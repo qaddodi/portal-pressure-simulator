@@ -3,9 +3,9 @@
 
 import { startHost, host } from './host.js?v=878b8f0b20';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=609dde7847';
-import { createStage } from './stage.js?v=42ed04b6ae';
+import { createStage } from './stage.js?v=e37d0f47fc';
 import { createInspector, activeInterventions } from './inspector.js?v=ef36f22648';
-import { createDock } from './dock.js?v=28eb501b4e';
+import { createDock } from './dock.js?v=53411fa44d';
 import { createWhy } from './why.js?v=9aaf3b4a56';
 import { createTimeline } from './timeline.js?v=551456b34d';
 import { createLearn } from './learn.js?v=5daa30d938';
@@ -13,9 +13,9 @@ import { createCases } from './cases.js?v=f5f5cb7bcb';
 import { createCompare } from './compare.js?v=b976bdfeab';
 import { createFigure } from './figure.js?v=7db0e202ba';
 import { createCard } from './card.js?v=f46b09ec99';
-import { createChart } from './chart.js?v=f433f010b8';
+import { createChart } from './chart.js?v=c0ef777ce7';
 import { createHome } from './home.js?v=a222ed6130';
-import { createPalette } from './palette.js?v=8d92dad914';
+import { createPalette } from './palette.js?v=f93e4e990e';
 import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=3737b309ec';
 import { gradientCss, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=fa78a29bc0';
 import { EDGES, NODES } from '../engine/topology.js?v=44e0aca402';

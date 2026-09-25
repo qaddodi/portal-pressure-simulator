@@ -445,7 +445,7 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
    outline); vessels are tubes (dark casing + pressure-colored lumen) drawn over them. */
 .organ-liver { color: var(--organ-liver); } .organ-stomach, .organ-esophagus, .organ-duodenum { color: var(--organ-stomach); }
 .organ-spleen { color: var(--organ-spleen); } .organ-pancreas { color: var(--organ-pancreas); } .organ-kidney-l { color: var(--organ-kidney); }
-.organ-heart, .organ-heart-grooves { color: var(--organ-heart); } .organ-gallbladder { color: var(--organ-gb); } .organ-bowel, .organ-bowel-loops, .organ-colon-a, .organ-colon-d { color: var(--organ-gut); }
+.organ-heart, .organ-heart-grooves { color: var(--organ-heart); } .organ-gallbladder { color: var(--organ-gb); } .organ-bowel, .organ-bowel-loops, .organ-colon-a, .organ-colon-t, .organ-colon-d { color: var(--organ-gut); } .organ-kidney-r { color: var(--organ-kidney); } .organ-cecum { color: var(--organ-gut); } .organ-gallbladder { color: var(--organ-gb); }
 .org-fill { stroke: none; }
 .org-line { fill: none; stroke: color-mix(in srgb, currentColor 80%, #000); stroke-width: 1.2; stroke-opacity: .6; stroke-linejoin: round; }
 .org-rim { fill: none; stroke: currentColor; stroke-width: 20; stroke-opacity: .26; }
@@ -455,12 +455,16 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .org-heart-groove { fill: none; stroke: var(--organ-heart); stroke-opacity: .45; stroke-width: 1; stroke-linecap: round; }
 .org-great.band-edge { stroke: var(--organ-heart); stroke-width: 15; stroke-opacity: .5; }
 .org-great.band-body { stroke: color-mix(in srgb, var(--organ-heart) 26%, var(--stage-bg)); stroke-width: 13; }
-.org-bowel.band-edge { stroke: var(--organ-gut); stroke-width: 25; stroke-opacity: .55; }
-.org-bowel.band-body { stroke: color-mix(in srgb, var(--organ-gut) 24%, var(--stage-bg)); stroke-width: 22.6; }
+.org-bowel.band-edge { stroke: color-mix(in srgb, var(--organ-gut) 80%, #000); stroke-width: 21; stroke-opacity: .5; }
+.org-bowel.band-body { stroke: color-mix(in srgb, var(--organ-gut) 22%, var(--stage-bg)); stroke-width: 19; }
+.org-bowel.band-cast { stroke-width: 20; }
+.org-aorta.band-edge { stroke: var(--organ-aorta); stroke-width: 19; stroke-opacity: .45; }
+.org-aorta.band-body { stroke: color-mix(in srgb, var(--organ-aorta) 18%, var(--stage-bg)); stroke-width: 17; }
+.org-lobe-line.faint { stroke-opacity: .22; stroke-dasharray: 4 5; }
 .org-caudate { fill: var(--organ-liver); fill-opacity: .08; stroke: var(--organ-liver); stroke-opacity: .42; stroke-width: 1; stroke-dasharray: 3 3; }
 .org-lobe-line { fill: none; stroke: var(--organ-liver); stroke-opacity: .45; stroke-width: 1; stroke-linecap: round; }
 .band-edge, .band-body { fill: none; stroke-linecap: round; stroke-linejoin: round; }
-.org-colon.band-edge { stroke: var(--organ-gut); stroke-width: 27; stroke-opacity: .5; }
+.org-colon.band-edge { stroke: color-mix(in srgb, var(--organ-gut) 80%, #000); stroke-width: 27; stroke-opacity: .45; }
 .org-colon.band-body { stroke: color-mix(in srgb, var(--organ-gut) 26%, var(--stage-bg)); stroke-width: 24.6; }
 .org-haustra { fill: none; stroke: var(--organ-gut); stroke-opacity: .38; stroke-width: 1; stroke-linecap: round; }
 .org-duodenum.band-edge { stroke: var(--organ-stomach); stroke-width: 21; stroke-opacity: .5; }
@@ -470,7 +474,25 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .org-bowel-loops { fill: none; stroke: var(--organ-gut); stroke-opacity: .5; stroke-width: 1.1; stroke-linecap: round; }
 .org-umbilicus { fill: var(--stage-bg); stroke: var(--text-3); stroke-width: 1.2; stroke-opacity: .7; }
 .liver-tint { transition: opacity .6s var(--ease); }
-.nodule circle { fill: var(--organ-liver); fill-opacity: .1; stroke: var(--organ-liver); stroke-opacity: .5; stroke-width: .7; }
+.cg-in { stop-color: #6B2432; stop-opacity: 0; } .cg-out { stop-color: #6B2432; stop-opacity: .55; }
+.nutmeg circle { fill: #5A2230; fill-opacity: .55; }
+.fl-top { stop-color: var(--ascites); stop-opacity: .1; } .fl-bot { stop-color: var(--ascites); stop-opacity: .3; }
+.sk-in { stop-color: #E9C9B4; stop-opacity: .5; } .sk-mid { stop-color: #E9C9B4; stop-opacity: .3; } .sk-out { stop-color: #E9C9B4; stop-opacity: 0; }
+:root[data-theme="dark"] .sk-in, :root[data-theme="dark"] .sk-mid { stop-color: #7A5E55; }
+.mt-a { stop-color: var(--stent-metal); } .mt-b { stop-color: #fff; }
+.abd-wall { pointer-events: none; transition: opacity .8s var(--ease); }
+.flank { fill: none; stroke: var(--organ-body-line); stroke-width: 1.4; stroke-opacity: .8; stroke-linecap: round; }
+.ascites-glint { fill: none; stroke: #fff; stroke-opacity: .35; stroke-width: 1; }
+.varix-col-case { fill: none; stroke: var(--vessel-casing); stroke-linecap: round; opacity: .9; }
+.varix-col { fill: none; stroke-linecap: round; }
+.varix-bead { stroke: var(--vessel-casing); stroke-width: .9; }
+.bead-glint { fill: #fff; fill-opacity: .55; pointer-events: none; }
+.caput-case { fill: none; stroke: var(--vessel-casing); stroke-linecap: round; stroke-linejoin: round; opacity: .8; }
+.caput-vein { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.thrombus-lam { fill: none; stroke: #C77A6E; stroke-opacity: .5; stroke-width: .7; stroke-linecap: round; }
+.thrombus-channel { fill: none; stroke: #C45B7A; stroke-opacity: .85; stroke-linecap: round; }
+.stent-rail-glint { fill: none; stroke: #fff; stroke-opacity: .5; stroke-width: .5; transform: translate(-.4px, -.4px); }
+.nodule circle { fill: color-mix(in srgb, var(--organ-liver) 30%, var(--stage-bg)); fill-opacity: .55; stroke: color-mix(in srgb, var(--organ-liver) 70%, #000); stroke-opacity: .45; stroke-width: .8; }
 #organs, #ascites, #grid, #overlays, #nodes, #guides, #focus { pointer-events: none; }
 #organs { transition: opacity .5s var(--ease); }
 .stage-view.hovering .vg:not(.hl) { opacity: .22; }
@@ -509,7 +531,7 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .organ-heart-ra { color: color-mix(in srgb, var(--organ-heart) 80%, #000); }
 .org-heart-flow { fill: none; stroke: color-mix(in srgb, var(--organ-heart) 70%, #000); stroke-opacity: .55; stroke-width: 1.6; stroke-linecap: round; stroke-dasharray: 3 3; }
 /* The figure is a clean plate: flat lumens (color is the value), no texture or cast shadows. */
-.app.figure-mode .v-shade, .app.figure-mode .v-sheen, .app.figure-mode .v-shadow, .app.figure-mode .org-tex, .app.figure-mode .org-cast, .app.figure-mode .band-cast, .app.figure-mode .band-sheen { display: none; }
+.app.figure-mode .bead-glint, .app.figure-mode .ascites-glint, .app.figure-mode .v-shade, .app.figure-mode .v-sheen, .app.figure-mode .v-shadow, .app.figure-mode .org-tex, .app.figure-mode .org-cast, .app.figure-mode .band-cast, .app.figure-mode .band-sheen { display: none; }
 /* Data layers: the anatomy steps back so the network carries the reading. */
 .stage-view.data-layer #organs, .stage-view.data-layer #backdrop { filter: saturate(.12) opacity(.72); }
 #heatGlow { display: none; pointer-events: none; }
@@ -551,7 +573,7 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .suture { fill: none; stroke: var(--text); stroke-opacity: .7; stroke-width: 1.1; stroke-linecap: round; }
 .clamp { fill: var(--text); fill-opacity: .82; }
 .clamp-label, .guide-label { font: 600 11px var(--font-ui); fill: var(--text); paint-order: stroke; stroke: var(--stage-bg); stroke-width: 4px; stroke-linejoin: round; }
-.thrombus { stroke: #5B1222; stroke-linecap: round; fill: none; stroke-opacity: .92; }
+.thrombus { fill: #4E1420; stroke: #2E0A12; stroke-width: .8; fill-opacity: .94; }
 .node-dot { fill: var(--stage-bg); stroke: var(--text); stroke-width: 1.6; }
 .circuit-only { opacity: 0; transition: opacity .4s; }
 .circuit .circuit-only { opacity: 1; }
@@ -561,8 +583,8 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .redwale { stroke: #D0192E; stroke-width: 1.3; stroke-linecap: round; }
 .balloon-shape { fill: #F2E3A6; fill-opacity: .8; stroke: #B69A2C; stroke-width: 1.4; }
 .catheter { fill: none; stroke: var(--text-2); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
-.ascites-fill { fill: var(--ascites); fill-opacity: .16; }
-.ascites-line { fill: none; stroke: var(--ascites); stroke-opacity: .55; stroke-width: 1.2; }
+.ascites-fill { stroke: none; }
+.ascites-line { fill: none; stroke: var(--ascites); stroke-opacity: .7; stroke-width: 1.4; }
 .pinch-guide { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 4 3; }
 .stent-guide { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 6 4; stroke-linecap: round; }
 .stent-guide.invalid { stroke: var(--danger); }
@@ -1357,3 +1379,18 @@ div.vt-vital { cursor: default; }
 @media (min-width: 1280px) { .app:not(.panel-collapsed) .readouts { display: none; } }
 .case-head { position: static; }
 #panelCase:empty, #panelLesson:empty { display: none; }
+
+/* Display type (Phase E): a serif for the few places that read as prose or a title. */
+.lesson > h3, .lesson .q, .home-head h1, .modal h2, .dbf-title { font-family: var(--font-display); letter-spacing: -.01em; }
+.lesson > h3 { font-weight: 600; font-size: 19px; }
+.lesson > p:not([class]) { font-family: var(--font-display); font-size: 15px; line-height: 1.55; }
+/* Δ halos: where pressure moved most after a change */
+.halo circle { fill: none; stroke-width: 2.5; animation: haloRing 1.5s var(--ease) forwards; }
+.halo.up circle { stroke: var(--up, #C0392B); } .halo.down circle { stroke: var(--down, #2F7FB8); }
+.halo text { font: 700 17px var(--font-num); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--bg); stroke-width: 4px; animation: haloText 1.5s var(--ease) forwards; }
+.halo.up text { fill: var(--up, #C0392B); } .halo.down text { fill: var(--down, #2F7FB8); }
+@keyframes haloRing { 0% { r: 8px; stroke-opacity: 0; } 20% { stroke-opacity: .9; } 100% { r: 26px; stroke-opacity: 0; } }
+@keyframes haloText { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+/* Selection lift: the chosen vessel rises off the page */
+.vg.is-sel .v-shadow { transform: translate(0, 3px); opacity: .9; filter: blur(2.5px); transition: transform .18s var(--ease); }
+@media (prefers-reduced-motion: reduce) { .halo circle, .halo text { animation: none; } }

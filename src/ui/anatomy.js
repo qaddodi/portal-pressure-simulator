@@ -213,27 +213,39 @@ export const CIRCUIT_LABELS = {
   HA: { dirs: ['N', 'NW', 'NE'], pri: 4 },
 };
 
-// Organ artwork (anatomic view only): a frontal plate of opaque, quiet silhouettes behind the
-// vessels, listed back to front (retroperitoneal organs first, the liver in front). Shapes follow the anatomy (the right lobe under the right dome of the diaphragm, a
-// J-shaped stomach whose lesser curve carries the left gastric vein, the pancreas along the
-// splenic vein, the colon framing the small bowel). `band` shapes are stroked tubes; `deco`
-// shapes are texture only.
+// Organ artwork (anatomic view only): a frontal plate drawn back to front, as a medical
+// illustrator layers it. Retroperitoneal structures first (both kidneys, the right one peeking
+// below the liver), then the heart, the colon framing the small
+// bowel (ascending on the viewer's left, transverse slung between the flexures, descending,
+// sigmoid), the coiled small bowel ending at the cecum, spleen, stomach, duodenal C-loop and
+// pancreas, and the liver in front with its gallbladder. The vessel geometry above is fixed; the
+// organs are drawn to sit around it. `band` shapes are stroked tubes; `deco` shapes are line work
+// only; `noCover` shapes never hide the flow marks of vessels behind them.
 export const ORGANS = [
-  { id: 'esophagus', cls: 'org org-eso', d: 'M776 0 L 798 0 C 800 90 805 190 818 292 L 796 300 C 787 200 781 90 776 0 Z' },
-  { id: 'heart', cls: 'org org-heart', d: 'M616 60 C 600 74 596 100 600 124 C 604 150 620 168 646 174 C 690 184 744 178 780 160 C 800 150 806 132 800 114 C 792 90 770 70 742 58 C 716 48 688 46 664 48 C 644 50 628 52 616 60 Z' },
-  // The right atrium, where both cavae end; the arrow shows where the blood goes next.
-  { id: 'heart-ra', cls: 'org org-ra', d: 'M612 66 C 596 80 592 112 598 136 C 604 160 622 176 646 176 C 668 176 680 158 682 132 C 684 104 674 80 656 68 C 642 60 624 58 612 66 Z' },
-  { id: 'heart-out', cls: 'org-heart-flow', deco: true, d: 'M664 118 C 690 112 716 114 742 126' },
+  { id: 'kidney-r', cls: 'org org-kidney', d: 'M474 578 C 446 586 434 626 440 664 C 446 700 474 720 500 714 C 518 710 522 692 516 676 C 510 662 512 646 518 634 C 524 618 520 596 506 584 C 496 576 484 574 474 578 Z' },
   { id: 'kidney-l', cls: 'org org-kidney', d: 'M1002 556 C 1040 548 1066 584 1064 626 C 1062 672 1034 700 1000 694 C 982 690 984 668 994 654 C 1000 642 998 630 990 620 C 984 606 978 574 1002 556 Z' },
+  { id: 'esophagus', cls: 'org org-eso', d: 'M776 0 L 798 0 C 800 90 805 190 818 290 C 820 298 813 304 805 302 L 796 300 C 787 200 781 90 776 0 Z' },
+  { id: 'heart', cls: 'org org-heart', d: 'M600 70 C 588 92 588 128 600 152 C 614 178 646 190 684 192 C 736 194 784 184 810 164 C 826 150 824 130 808 116 C 784 94 748 70 712 58 C 676 48 628 50 600 70 Z' },
+  // The right atrium, where both cavae end; the arrow shows where the blood goes next.
+  { id: 'heart-ra', cls: 'org org-ra', d: 'M604 72 C 590 92 588 126 598 150 C 608 172 630 184 652 182 C 676 180 688 160 688 132 C 688 104 678 82 660 70 C 642 60 616 62 604 72 Z' },
+  { id: 'heart-grooves', cls: 'org-heart-groove', deco: true, d: 'M676 60 C 694 96 700 148 684 190 M752 72 C 764 102 778 136 802 164 M676 110 C 684 118 686 132 680 144' },
+  { id: 'heart-out', cls: 'org-heart-flow', deco: true, d: 'M664 118 C 690 112 716 114 742 126' },
+  { id: 'cecum', cls: 'org org-cecum', d: 'M404 842 C 392 868 402 900 430 906 C 458 912 476 890 470 866 C 466 846 448 834 430 834 C 418 834 410 836 404 842 Z' },
+  { id: 'colon-a', cls: 'org-colon', band: true, d: 'M426 846 C 408 812 398 764 400 704 C 402 646 412 596 438 568' },
+  { id: 'colon-t', cls: 'org-colon', band: true, d: 'M438 568 C 472 556 506 588 544 628 C 592 678 650 700 720 700 C 800 700 870 660 916 600 C 946 560 970 510 984 468' },
+  { id: 'colon-d', cls: 'org-colon', band: true, d: 'M984 468 C 992 560 988 700 972 790 C 962 848 924 880 868 892 C 838 898 812 902 788 906' },
+  { id: 'bowel', cls: 'org-bowel', band: true, d: 'M604 722 C 650 706 700 714 742 722 C 786 730 830 712 872 724 C 904 734 906 764 878 772 C 840 782 800 764 760 770 C 716 776 684 790 646 782 C 610 774 590 790 598 808 C 606 826 640 830 676 824 C 720 816 760 834 800 830 C 846 826 884 812 906 826 C 928 842 918 870 888 874 C 846 880 810 862 764 868 C 716 874 680 888 630 880 C 580 872 540 860 500 862 C 480 864 466 866 456 866' },
   { id: 'spleen', cls: 'org org-spleen', d: 'M1022 268 C 1068 262 1100 300 1102 356 C 1104 414 1074 454 1032 460 C 1010 462 998 448 1006 432 C 1016 414 1022 394 1018 372 C 1024 352 1022 330 1010 308 C 1000 290 1002 272 1022 268 Z' },
-  { id: 'stomach', cls: 'org org-stomach', d: 'M796 300 C 802 272 830 248 866 244 C 904 240 940 258 958 290 C 976 322 982 372 976 414 C 968 468 932 512 880 534 C 842 550 790 556 752 544 C 732 538 716 524 708 510 L 718 490 C 738 494 770 490 794 474 C 818 456 828 424 828 388 C 828 356 822 330 818 308 Z' },
+  { id: 'stomach', cls: 'org org-stomach', d: 'M800 300 C 804 272 830 250 866 246 C 906 242 944 262 962 296 C 980 330 986 378 980 420 C 972 474 936 518 884 540 C 846 556 796 560 758 548 C 740 542 726 532 716 520 L 710 508 C 714 500 722 496 732 496 C 760 496 790 486 808 466 C 826 444 832 414 830 384 C 828 352 822 326 816 306 Z' },
+  { id: 'pylorus', cls: 'org-lobe-line', deco: true, d: 'M722 494 C 716 504 716 516 722 526' },
   { id: 'duodenum', cls: 'org-duodenum', band: true, d: 'M712 508 C 676 508 648 528 642 566 C 636 612 650 650 688 668 C 724 684 772 680 806 664' },
   { id: 'pancreas', cls: 'org org-pancreas', d: 'M662 604 C 652 576 668 550 700 546 C 760 540 832 518 902 490 C 950 470 990 448 1012 436 C 1022 444 1014 462 994 474 C 944 506 884 540 822 562 C 782 576 748 584 728 600 C 722 628 704 650 684 648 C 664 646 660 626 662 604 Z' },
-  { id: 'colon-d', cls: 'org-colon', band: true, d: 'M984 468 C 992 560 988 700 972 790 C 962 848 924 880 868 892 C 838 898 812 902 788 906' },
-  { id: 'bowel', cls: 'org-bowel', band: true, d: 'M596 714 C 660 700 790 704 860 714 C 896 720 900 750 866 756 C 800 766 700 744 628 756 C 590 762 584 792 616 796 C 690 804 800 780 868 794 C 902 802 900 834 864 836 C 790 840 700 818 626 836 C 592 844 598 872 634 874 C 710 880 790 862 846 870' },
-  { id: 'liver', cls: 'org org-liver', d: 'M808 262 C 796 238 772 216 736 204 C 690 190 640 188 600 188 C 530 188 450 190 398 206 C 356 220 332 252 326 300 C 320 350 330 410 352 448 C 368 474 392 488 424 492 C 470 496 520 486 562 470 C 596 458 624 442 652 424 C 694 398 734 360 770 318 C 788 298 804 280 808 262 Z' },
-  { id: 'falciform', cls: 'org-lobe-line', deco: true, d: 'M646 190 C 642 260 640 340 648 422' },
-  { id: 'gallbladder', cls: 'org org-gb', d: 'M532 466 C 518 484 516 512 532 526 C 548 538 570 528 572 508 C 574 490 564 474 554 466 Z' },
+  { id: 'liver', cls: 'org org-liver', d: 'M812 256 C 800 232 772 212 734 202 C 692 190 650 188 620 188 C 560 186 488 184 430 196 C 380 206 342 234 328 280 C 316 322 318 376 330 418 C 342 456 368 486 404 498 C 440 510 488 508 520 492 C 530 486 540 478 552 474 C 566 470 582 466 596 458 C 614 448 632 440 646 432 L 654 424 C 660 432 668 434 676 428 C 712 402 748 364 778 322 C 796 298 810 276 812 256 Z' },
+  // Cantlie's line (gallbladder fossa to the IVC) and the falciform ligament: the lobes as a
+  // surgeon reads them.
+  { id: 'falciform', cls: 'org-lobe-line', deco: true, d: 'M654 424 C 648 350 646 270 648 190' },
+  { id: 'cantlie', cls: 'org-lobe-line faint', deco: true, d: 'M548 476 C 566 400 590 290 618 196' },
+  { id: 'gallbladder', cls: 'org org-gb', d: 'M528 486 C 516 504 514 530 530 544 C 546 556 570 548 574 528 C 578 510 570 492 560 484 Z' },
   { id: 'umbilicus', cls: 'org-umbilicus', circle: [500, 800, 5] },
 ];
 // Background plane (anatomic view): the posterior wall the organs sit against, drawn quietly
@@ -260,7 +272,7 @@ export const SITES = {
 // Organ captions: [text, x, y, anchor]
 export const ORGAN_LABELS = [
   ['Liver', 404, 446], ['Stomach', 918, 432], ['Spleen', 1058, 482], ['Pancreas', 820, 578], ['Colon', 1016, 824], ['Kidney', 1030, 716],
-  ['Small bowel', 732, 868], ['Esophagus', 852, 38], ['Heart', 760, 96], ['to RV', 744, 146],
+  ['Small bowel', 740, 797], ['Esophagus', 852, 38], ['Heart', 760, 96], ['to RV', 744, 146],
 ];
 
 // Atlas labels: node → caption and which margin column it hangs from.
