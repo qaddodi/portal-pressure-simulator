@@ -105,7 +105,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const f = clamp(u, 0, 1) * (pts.length - 1);
     const i = Math.min(pts.length - 2, Math.floor(f)), t = f - i;
     const a = pts[i], b = pts[i + 1];
-    return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, b[0] - a[0], b[1] - a[1]];
+    // The tangent blends between the directions at the two samples (central differences), so a
+    // mark gliding along a curve turns smoothly instead of snapping at each sample.
+    const tan = (j) => { const p0 = pts[Math.max(0, j - 1)], p1 = pts[Math.min(pts.length - 1, j + 1)]; const dx = p1[0] - p0[0], dy = p1[1] - p0[1], n = Math.hypot(dx, dy) || 1; return [dx / n, dy / n]; };
+    const ta = tan(i), tb = tan(i + 1);
+    return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, ta[0] + (tb[0] - ta[0]) * t, ta[1] + (tb[1] - ta[1]) * t];
   }
   // Tortuous collateral: a smooth serpentine (wavelength ≈ 64 units) along the centerline,
   // tapered to zero at both ends so the vessel still meets its nodes.
@@ -337,7 +341,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     E[e.id] = { e, g, gc, gs, groups: isArt ? [g] : [gs, gc, g], heat, grad, st0, st1, halo, sel, shadow, spine, wall, lumen, shade, sheen, wallP, lumenP, hit, isArt, vis: true, width: 4, wallPx: 1, shadeKey: '' };
   }
   // Draw order within each tier: the portal tree in front (it lies anterior to the IVC).
-  for (const x of Object.values(E)) if (!x.isArt && (x.e.kind === 'vein' && PORTAL_TERRITORY.has(x.e.to) && PORTAL_TERRITORY.has(x.e.from || '') || ['PV_TRUNK', 'PVH_R', 'PVH_L', 'SMV_CONF', 'SV_CONF'].includes(x.e.id))) { gShadowL.append(x.gs); gCaseL.append(x.gc); gEdges.append(x.g); }
+  for (const x of Object.values(E)) if (!x.isArt && (x.e.kind === 'vein' && PORTAL_TERRITORY.has(x.e.to) && PORTAL_TERRITORY.has(x.e.from || '') || ['PV_TRUNK', 'PVH_R', 'PVH_L', 'SMV_CONF', 'SV_CONF'].includes(x.e.id))) { gShadowL.append(x.gs); gCaseL.append(x.gc); gEdges.append(x.g); x.front = true; }
   for (const id of BACK_EDGES) if (E[id]) {
     const x = E[id];
     if (x.isArt) gBackL.append(x.g); else { gBackS.append(x.gs); gBackC.append(x.gc); gBackL.append(x.g); }
@@ -1334,41 +1338,51 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function colorModeIs(m) { return (store.get().colorMode || 'pressure') === m; }
 
-  // Where two vessels share a drawn course (circuit routes that run together, a trunk and the
-  // branch leaving it), only the one carrying more flow draws marks there, so marks never double
-  // up or cross. Recomputed a few times a second from the current centerlines.
-  let cover = {}, coverAt = 0, coverMorph = -1;
-  function updateCover(now) {
-    if (now - coverAt < 400 && coverMorph === morph) return;
-    coverAt = now; coverMorph = morph;
-    const CELL = 12, grid = new Map(), list = [];
+  // Where two vessels share a drawn course or cross, only one draws marks there. Ownership
+  // follows the drawing's own depth: the portal tree (in front) over other veins, and those over
+  // vessels that pass behind the organs (the retrohepatic IVC, renal and iliac veins). Between
+  // vessels at the same depth, the smaller one keeps its marks up to where it joins, and the
+  // trunk leaves that stretch clear. Recomputed only when the layout or the ranking changes, so
+  // marks never blink on and off.
+  let cover = {}, coverKey = '';
+  const depth = (x) => (morph > 0.5 ? 1 : x.back ? 0 : x.front ? 2 : 1);
+  function updateCover() {
+    const list = [];
     for (const x of Object.values(E)) {
       if (!x.vis || x.g.classList.contains('coll-ghost')) continue;
-      const q = Math.abs(F.Qf ? F.Qf[EI[x.e.id]] : F.Q[EI[x.e.id]]);
-      list.push([x, q]);
-      const c = geo[x.e.id].cur;
+      list.push([x, depth(x), Math.round(Math.log2(0.01 + Math.abs(F.Qf ? F.Qf[EI[x.e.id]] : F.Q[EI[x.e.id]])))]);
+    }
+    const key = morph.toFixed(2) + '|' + list.map(([x, d, q]) => x.e.id + d + q).join(',');
+    if (key === coverKey) return;
+    coverKey = key;
+    // owns(y over x): y is in front, or at the same depth and carries less flow.
+    const owns = (y, dy, qy, x, dx, qx) => dy > dx || (dy === dx && (qy < qx || (qy === qx && y.e.id < x.e.id)));
+    const CELL = 16, grid = new Map();
+    for (const it of list) {
+      const c = geo[it[0].e.id].cur;
       for (let i = 1; i < c.length; i++) {
         const gx0 = Math.floor(Math.min(c[i - 1][0], c[i][0]) / CELL), gx1 = Math.floor(Math.max(c[i - 1][0], c[i][0]) / CELL);
         const gy0 = Math.floor(Math.min(c[i - 1][1], c[i][1]) / CELL), gy1 = Math.floor(Math.max(c[i - 1][1], c[i][1]) / CELL);
         for (let gx = gx0; gx <= gx1; gx++) for (let gy = gy0; gy <= gy1; gy++) {
           const k = gx * 4096 + gy;
           if (!grid.has(k)) grid.set(k, []);
-          grid.get(k).push([x, q, c[i - 1], c[i]]);
+          grid.get(k).push([it, c[i - 1], c[i]]);
         }
       }
     }
     const next = {};
-    for (const [x, q] of list) {
+    for (const it of list) {
+      const [x, dx, qx] = it;
       const c = geo[x.e.id].cur, mask = new Uint8Array(c.length);
-      const tol = Math.max(1.5, x.width * 0.35);
+      const half = markSize(x.width) * 0.6;
       for (let i = 0; i < c.length; i++) {
         const [px, py] = c[i];
         const segs = grid.get(Math.floor(px / CELL) * 4096 + Math.floor(py / CELL)) || [];
-        for (const [y, qy, a0, a1] of segs) {
-          if (y === x || qy < q || (qy === q && y.e.id > x.e.id)) continue;
-          const dx = a1[0] - a0[0], dy = a1[1] - a0[1], L2 = dx * dx + dy * dy || 1;
-          const t = clamp(((px - a0[0]) * dx + (py - a0[1]) * dy) / L2, 0, 1);
-          if (Math.hypot(px - a0[0] - t * dx, py - a0[1] - t * dy) < tol) { mask[i] = 1; break; }
+        for (const [[y, dy, qy], a0, a1] of segs) {
+          if (y === x || !owns(y, dy, qy, x, dx, qx)) continue;
+          const ddx = a1[0] - a0[0], ddy = a1[1] - a0[1], L2 = ddx * ddx + ddy * ddy || 1;
+          const t = clamp(((px - a0[0]) * ddx + (py - a0[1]) * ddy) / L2, 0, 1);
+          if (Math.hypot(px - a0[0] - t * ddx, py - a0[1] - t * ddy) < y.width / 2 + half) { mask[i] = 1; break; }
         }
       }
       next[x.e.id] = mask;
@@ -1380,7 +1394,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function eachVesselMarks(cb) {
     const st = store.get();
     if (!F || st.imaging || st.layers.flow === false) return;
-    updateCover(performance.now());
+    updateCover();
+    // Circuit: no vessel's marks land on a resistor box (several liver routes share a lane).
+    const boxes = morph > 0.5 ? Object.keys(resistorEls).map((id) => pointAt(geo[id].cur, 0.5)) : null;
     for (const x of Object.values(E)) {
       if (!x.vis || x.reveal || x.g.classList.contains('coll-ghost') || (x.e.id === 'SIN_RL' && morph < 0.5)) continue;
       const { q, vel } = flowState(x);
@@ -1390,34 +1406,30 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const g = geo[x.e.id];
       const L = g.len;
       const w = x.width;
-      // Spacing and size ease toward their targets (vessel widths update in steps).
-      const spT = markSpacing(w), sT = markSize(w);
-      x.sp = x.sp ? x.sp + (spT - x.sp) * 0.04 : spT;
-      x.ms = x.ms ? x.ms + (sT - x.ms) * 0.04 : sT;
+      // Spacing is fixed per vessel (set once, revised only if the vessel's caliber changes a lot),
+      // and marks are spaced by distance along the centerline: nothing about a mark's position
+      // depends on the model's frame-to-frame values except its steady drift.
+      const spT = markSpacing(w);
+      if (!x.sp || Math.abs(spT - x.sp) / x.sp > 0.35) x.spGoal = spT;
+      if (x.spGoal) { x.sp = x.sp ? x.sp + (x.spGoal - x.sp) * 0.03 : x.spGoal; if (Math.abs(x.sp - x.spGoal) < 0.05) { x.sp = x.spGoal; x.spGoal = 0; } }
+      x.ms = x.ms ? x.ms + (markSize(w) - x.ms) * 0.01 : markSize(w);
       const sp = x.sp;
-      const m = Math.min(L * 0.12, w * 0.5 + 3);
+      const m = Math.min(L * 0.12, sp * 0.35 + 2);
       if (L - 2 * m < 6) continue;
-      const sg = q >= 0 ? 1 : -1;
+      // Point the way the marks are actually moving (their speed eases through a reversal).
+      const sg = (x.spd != null && x.spd !== 0 ? x.spd : q) >= 0 ? 1 : -1;
       const ph = ((((phase[x.e.id] || 0) % 1) + 1) % 1) * sp;
       const mask = cover[x.e.id];
       const marks = [];
-      // Marks are spaced evenly in transit time, not distance: where the lumen narrows (a taper
-      // or a stenosis) the same flow crosses a smaller area and speeds up (v ∝ 1/A), so the marks
-      // spread out and shrink with the lumen.
       const r0 = w / 2, rOf = x.rOf && !x.g.classList.contains('stroked') ? x.rOf : () => r0;
-      const n = N_SAMPLES - 1, tau = [0];
-      for (let i = 1; i <= n; i++) tau.push(tau[i - 1] + (L / n) * Math.max(0.05, (rOf((i - 0.5) / n) / r0) ** 2));
-      const T = tau[n];
-      let j = 1;
-      for (let tt = m + ph; tt < T - m; tt += sp) {
-        while (j < n && tau[j] < tt) j++;
-        const uu = (j - 1 + (tt - tau[j - 1]) / Math.max(1e-6, tau[j] - tau[j - 1])) / n;
+      const n = N_SAMPLES - 1;
+      for (let tt = m + ph; tt < L - m; tt += sp) {
+        const uu = tt / L;
         if (mask && mask[Math.round(uu * n)]) continue;
-        // Circuit: keep clear of the resistor box drawn at the middle of each liver segment.
-        if (resistorEls[x.e.id] && morph > 0.5 && Math.abs(uu - 0.5) * L < 14 + x.ms / 2) continue;
         const [px, py, dx, dy] = pointAt(g.cur, uu);
+        if (boxes && boxes.some(([bx, by]) => Math.abs(px - bx) < 12 + x.ms / 2 && Math.abs(py - by) < 5 + x.ms / 2)) continue;
         // Marks grow in at the upstream end and shrink away downstream instead of popping.
-        const ends = clamp(Math.min(tt - m, T - m - tt) / (sp * 0.8), 0, 1);
+        const ends = clamp(Math.min(tt - m, L - m - tt) / (sp * 0.8), 0, 1);
         if (ends < 0.08) continue;
         const nn = Math.hypot(dx, dy) || 1;
         marks.push({ cx: px, cy: py, ux: (dx / nn) * sg, uy: (dy / nn) * sg, s: x.ms * clamp(rOf(uu) / r0, 0.6, 1.3) * ends });
@@ -1481,9 +1493,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const x of Object.values(E)) {
       if (!x.vis || !moving) continue;
       const { vel } = flowState(x);
-      // Signed speed in spacings/s, eased so model updates (~10×/s) don't step it.
+      // Signed speed in spacings/s. Eased over ~2 s: slow enough that breathing (the IVC's flow
+      // swings ±20 % over each 4 s breath) and the stepped model updates don't make the marks
+      // surge and stall, quick enough to follow a real change.
       const target = (markSpeed(x, vel, simSpeed) / (x.sp || markSpacing(x.width))) * Math.sign(flowState(x).q);
-      x.spd = x.spd == null ? target : x.spd + (target - x.spd) * Math.min(1, dt * 4);
+      x.spd = x.spd == null ? target : x.spd + (target - x.spd) * Math.min(1, dt * 0.5);
       phase[x.e.id] = ((phase[x.e.id] || 0) + x.spd * dt) % 1;
     }
     eachVesselMarks((x, ink, marks, fade) => {
