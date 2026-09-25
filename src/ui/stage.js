@@ -1343,7 +1343,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const L = g.len;
       const w = x.width;
       const chevron = w >= 4.6;
-      const sp = markSpacing(w);
+      // Spacing eases toward its target (vessel width updates arrive in steps); a sudden change
+      // of spacing would make every chevron jump.
+      const spT = markSpacing(w);
+      x.sp = x.sp ? x.sp + (spT - x.sp) * 0.04 : spT;
+      const sp = x.sp;
       const m = Math.min(L * 0.12, w * 0.5 + 2);
       if (L - 2 * m < 4) continue;
       const sg = q >= 0 ? 1 : -1;
@@ -1363,8 +1367,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         while (j < n && tau[j] < tt) j++;
         const uu = (j - 1 + (tt - tau[j - 1]) / Math.max(1e-6, tau[j] - tau[j - 1])) / n;
         const [px, py, dx, dy] = pointAt(g.cur, uu);
-        const nn = Math.hypot(dx, dy) || 1, k = clamp(rOf(uu) / r0, 0.3, 1.5);
-        marks.push({ cx: px, cy: py, ux: (dx / nn) * sg, uy: (dy / nn) * sg, h: chevron ? h * k : h, len: chevron ? len * Math.max(0.5, k) : len, lw: chevron ? lw * Math.max(0.6, Math.min(1.2, k)) : lw, tri: !chevron });
+        // Chevrons grow in at the upstream end and shrink away at the downstream end instead of
+        // popping in and out.
+        const ends = clamp(Math.min(tt - m, T - m - tt) / (sp * 0.8), 0, 1);
+        if (ends < 0.05) continue;
+        const nn = Math.hypot(dx, dy) || 1, k = clamp(rOf(uu) / r0, 0.3, 1.5) * ends;
+        marks.push({ cx: px, cy: py, ux: (dx / nn) * sg, uy: (dy / nn) * sg, h: chevron ? h * k : h * ends, len: chevron ? len * Math.max(0.5, k) : len * ends, lw: chevron ? lw * Math.max(0.6, Math.min(1.2, k)) : lw, tri: !chevron });
       }
       if (marks.length) cb(x, marks[0].tri ? (x.rev ? 'triRev' : 'tri') : x.rev ? 'rev' : x.inkDark && !x.isArt ? 'dark' : 'light', marks, fade);
     }
@@ -1393,11 +1401,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return `<g>${out}</g>`;
   }
 
-  // The chevron layer is redrawn at most ~30×/s (plenty for a slow drift, half the GPU work of
-  // 60), and not at all while paused and nothing changed.
+  // The chevron layer is redrawn every display frame (it is cheap, and a lower rate judders on
+  // high-refresh screens), but not at all while paused and nothing changed.
   let lastT = performance.now(), lastDrawKey = null, lastDrawF = null, lastDrawCTM = null;
   function animate(now) {
-    if (now - lastT < 30) { requestAnimationFrame(animate); return; }
     const dt = Math.min(0.1, (now - lastT) / 1000);
     lastT = now;
     const st = store.get();
@@ -1430,7 +1437,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const x of Object.values(E)) {
       if (!x.vis || !moving) continue;
       const { vel } = flowState(x);
-      phase[x.e.id] = ((phase[x.e.id] || 0) + (markSpeed(x, vel, simSpeed) / markSpacing(x.width)) * Math.sign(flowState(x).q) * dt) % 1;
+      // Signed speed in spacings/s, eased so model updates (~10×/s) don't step it.
+      const target = (markSpeed(x, vel, simSpeed) / (x.sp || markSpacing(x.width))) * Math.sign(flowState(x).q);
+      x.spd = x.spd == null ? target : x.spd + (target - x.spd) * Math.min(1, dt * 4);
+      phase[x.e.id] = ((phase[x.e.id] || 0) + x.spd * dt) % 1;
     }
     eachVesselMarks((x, ink, marks, fade) => {
       ctx.globalAlpha = fade * (hovering && !x.g.classList.contains('hl') ? 0.2 : receding && !x.g.classList.contains('is-sel') ? 0.4 * Number(x.g.style.opacity || 1) : Number(x.g.style.opacity || 1));
