@@ -20,7 +20,10 @@ export const HIDDEN_EDGES = new Set(['A_SMA', 'A_IMA', 'A_SPL', 'A_LGA', 'A_REN_
   'A_HEP', 'A_HR', 'A_HL', 'AP_R', 'AP_L',
   // The interlobar sinusoidal link is modeled but not drawn: it carries almost nothing and added
   // a line that only lit up with congestion the lobes already show.
-  'SIN_RL']);
+  'SIN_RL',
+  // The stomach's own drainage into the coronary vein is modeled, not drawn: a branch across the
+  // stomach body only cluttered the lesser curvature.
+  'V_STO']);
 export const HIDDEN_NODES = new Set(['AO', 'UPPV', 'LOWV', 'KID_R', 'RRV', 'HA']);
 // Systemic veins drawn quietly: they matter only as the places collaterals drain to.
 export const CONTEXT_EDGES = new Set(['V_UP', 'SVC_RA', 'AZY_SVC', 'ILI_IVC', 'EPI_ILI', 'EPI_SVC', 'V_KID_L', 'LRV_IVC']);
@@ -40,7 +43,7 @@ export const NODE_POS = {
   SMV: [[690, 660], [320, 394]],
   IMV: [[932, 690], [240, 310]],
   SV: [[880, 505], [320, 261]],
-  LGV: [[792, 312], [320, 191]],
+  LGV: [[821, 318], [320, 191]],
   CONF: [[700, 556], [480, 345]],
   PVH: [[602, 442], [580, 345]],
   RPV: [[505, 398], [680, 303]],
@@ -85,7 +88,7 @@ export const EDGE_PATH = {
   V_STO: 'M880 395 C 860 368 828 332 792 312',
   SMV_CONF: 'M690 660 C 692 625 696 590 700 556',
   SV_CONF: 'M880 505 C 830 525 765 545 700 556',
-  LGV_CONF: 'M792 312 C 798 344 800 378 798 404 C 795 428 786 444 769 453 C 750 463 728 462 712 468 C 699 478 697 520 700 556',
+  LGV_CONF: 'M821 318 C 829 348 835 384 833 412 C 831 440 818 463 797 477 C 774 492 746 499 726 500 C 710 506 702 528 700 556',
   PV_TRUNK: 'M700 556 C 675 522 638 478 602 442',
   PVH_R: 'M602 442 C 568 428 535 414 505 398',
   PVH_L: 'M602 442 C 632 418 660 398 688 378',
@@ -115,10 +118,10 @@ export const EDGE_PATH = {
   EPI_ILI: 'M500 800 C 530 860 580 884 620 880',
   EPI_SVC: 'M500 800 C 420 780 340 680 334 520 C 318 410 318 260 360 170 C 400 90 520 52 620 40',
 
-  C1a: 'M792 312 C 793 294 803 280 800 262 C 798 250 797 240 797 232',
+  C1a: 'M821 318 C 814 296 803 280 800 262 C 798 250 797 240 797 232',
   C1b: 'M797 232 C 770 214 720 202 666 198 C 622 196 584 192 566 172',
   C2: 'M880 505 C 890 462 912 420 922 380 C 930 344 910 308 876 302',
-  C2b: 'M876 302 C 852 294 820 298 792 312',
+  C2b: 'M876 302 C 858 300 838 306 821 318',
   C3: 'M688 378 C 668 440 646 520 620 600 C 590 690 540 760 500 800',
   C4: 'M932 690 C 940 790 890 870 810 890 C 730 908 660 900 620 880',
   C5: 'M876 302 C 856 350 846 420 843 480 C 840 560 846 600 862 618',
