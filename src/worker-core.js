@@ -58,6 +58,7 @@ export function createCore(post) {
     post(f, [f.P.buffer, f.Pf.buffer, f.Q.buffer, f.Qf.buffer, f.ext.buffer, f.D.buffer]);
   }
 
+  let lastFrame = 0;
   function tick() {
     const now = performance.now();
     const realDt = last == null ? 0 : Math.min(0.1, (now - last) / 1000);
@@ -84,7 +85,9 @@ export function createCore(post) {
         }
       }
     }
-    frame();
+    // Paused, nothing is evolving: a few frames a second keep the page in step with any action
+    // taken, without recomputing and repainting everything 30 times a second.
+    if (running || paramsDirty || now - lastFrame > 250) { lastFrame = now; frame(); }
   }
 
   function start() {

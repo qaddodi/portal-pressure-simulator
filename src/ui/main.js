@@ -1,14 +1,14 @@
 // Application bootstrap: wires store, engine host, figure, panel, readouts, instruments and modes.
 
-import { startHost, host } from './host.js?v=89161691f2';
+import { startHost, host } from './host.js?v=d715541c27';
 import { store, updateParams, replaceParams, bindParamSender, undo, redo, canUndo, canRedo, clearHistory } from './store.js?v=384ec84b1e';
-import { createStage } from './stage.js?v=ea16c0c02b';
+import { createStage } from './stage.js?v=f459e0bccc';
 import { createInspector, activeInterventions } from './inspector.js?v=e6aa5464f0';
 import { createDock } from './dock.js?v=52e906da0f';
-import { createWhy } from './why.js?v=15c9ba3bdf';
+import { createWhy } from './why.js?v=0aa85e3fa4';
 import { createEventsUI } from './events-ui.js?v=ad03b28f31';
-import { createLearn } from './learn.js?v=d26437adc1';
-import { createCases } from './cases.js?v=0db98da135';
+import { createLearn } from './learn.js?v=a00b557f7d';
+import { createCases } from './cases.js?v=9daec41406';
 import { createCompare } from './compare.js?v=e3dbb8d05a';
 import { createFigure } from './figure.js?v=db93c70444';
 import { gradientCss, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=fa78a29bc0';
@@ -126,14 +126,21 @@ function viewFrame(f) {
   if (st.mode === 'compare' && st.compareSnap && st.compareView === 'A') return st.compareSnap.frame;
   return f;
 }
+// The engine ticks ~30×/s, but pressures ease over seconds, so the anatomy, readouts and panel
+// are repainted at most ~10×/s (the chevrons animate separately). Repainting the whole SVG plate
+// on every tick kept the main thread busy and the laptop warm for no visible gain.
+let lastPaint = 0;
 function onFrame(f) {
   if (f.params) replaceParams(f.params);
+  if (f.events?.length) eventsUI.handle(f.events);
+  const now = performance.now();
+  if (!f.params && !f.events?.length && f.running === lastRunning && now - lastPaint < 100) return;
+  lastPaint = now;
   store.set({ frame: f, running: f.running, clock: f.clock });
   stage.update(viewFrame(f));
   dock.update(f);
   inspector.update(f);
   compare.update(f);
-  if (f.events?.length) eventsUI.handle(f.events);
   const txt = f.clock === 'disease' || f.day > 0 ? `Day ${f.day}` : `${fmt(f.t, 1)} s`;
   if (txt !== lastClockTxt) {
     lastClockTxt = txt;

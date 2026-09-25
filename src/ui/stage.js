@@ -1393,17 +1393,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return `<g>${out}</g>`;
   }
 
-  let lastT = performance.now();
+  // The chevron layer is redrawn at most ~30×/s (plenty for a slow drift, half the GPU work of
+  // 60), and not at all while paused and nothing changed.
+  let lastT = performance.now(), lastDrawKey = null, lastDrawF = null, lastDrawCTM = null;
   function animate(now) {
-    const dt = Math.min(0.05, (now - lastT) / 1000);
+    if (now - lastT < 30) { requestAnimationFrame(animate); return; }
+    const dt = Math.min(0.1, (now - lastT) / 1000);
     lastT = now;
     const st = store.get();
+    const still = !st.running || reduceMotion.matches;
+    const key = still ? `${morph}|${wrap.className}|${st.layers.flow}|${dpr}|${canvas.width}x${canvas.height}` : null;
+    if (still && morph === morphTarget && key === lastDrawKey && F === lastDrawF && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { requestAnimationFrame(animate); return; }
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
       if (F) update(F); else updateGeometry(true);
     }
     stepReveals(now);
     drawFlow(dt, st);
+    lastDrawKey = key; lastDrawF = F; lastDrawCTM = CTM;
     requestAnimationFrame(animate);
   }
   requestAnimationFrame(animate);
