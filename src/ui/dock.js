@@ -1,9 +1,9 @@
 // Readout strip + tabbed charts and instruments (blueprint §9.1, §9.2).
 
-import { store } from './store.js?v=258b91f30b';
+import { store } from './store.js?v=609dde7847';
 import { h, fmt, icon, svgIcon } from './util.js?v=61d6f9c200';
-import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=eff00799f7';
-import { createHVPG, createDoppler, createEndoscopy, createLobule, createVarixWall, createAbdomen } from './instruments.js?v=424d16e32e';
+import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=254ea2428a';
+import { createHVPG, createDoppler, createEndoscopy, createLobule, createVarixWall, createAbdomen } from './instruments.js?v=78f33d8199';
 
 const SEV = { ok: 'var(--ok)', caution: 'var(--caution)', danger: 'var(--danger)', critical: 'var(--critical)', info: 'var(--info)' };
 
@@ -36,7 +36,7 @@ const VITALS = [
 ];
 
 // Instruments, grouped: hemodynamics · bedside measurements · microanatomy · log.
-const GROUPS = [['Hemodynamics', ['profile', 'scope', 'flow', 'perfusion']], ['Bedside', ['hvpg', 'doppler', 'endoscopy', 'abdomen']], ['Microanatomy', ['lobule', 'varixwall']], ['Log', ['events']]];
+const GROUPS = [['Hemodynamics', ['profile', 'scope', 'flow', 'perfusion']], ['Bedside', ['hvpg', 'doppler', 'endoscopy', 'abdomen']], ['Microanatomy', ['lobule', 'varixwall']]];
 // Key readouts always shown; the rest join the row when abnormal (or when the learner asks).
 const PRIMARY = new Set(['hvpg', 'pv', 'pvflow', 'varix']);
 
@@ -69,7 +69,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const m = f.metrics;
     const st0 = store.get();
     const hidden = st0.hiddenReadouts;
-    const A = st0.mode === 'compare' ? st0.compareSnap?.metrics : null;
+    const A = st0.compareSnap?.metrics || null;
     let hiddenCount = 0;
     for (const x of Object.values(tileEls)) {
       const { el, t } = x;
@@ -117,10 +117,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   }
 
   // ── Instrument drawer ─────────────────────────────
-  const events = createEventsPane();
   const panes = [
     createProfile(), createScope(), createSankey(), createPerfusion(), createHVPG(),
-    createDoppler({ onProbe }), createEndoscopy({ onAction }), createLobule(), createVarixWall(), createAbdomen({ onAction }), events,
+    createDoppler({ onProbe }), createEndoscopy({ onAction }), createLobule(), createVarixWall(), createAbdomen({ onAction }),
   ];
   const byId = Object.fromEntries(panes.map((p) => [p.id, p]));
   const groupOf = (id) => GROUPS.find(([, ids]) => ids.includes(id))[0];
@@ -182,7 +181,6 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   function update(f, force) {
     updateStrip(f);
     byId.scope.ingest(f);
-    if (f.events?.length) events.add(f.events);
     // The HVPG instrument also records wedge measurements (lessons and cases wait on them),
     // so it runs whenever a catheter is in place, open or not.
     const cath = (f.params || store.get().params).catheter;
@@ -193,25 +191,5 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   }
 
   addEventListener('resize', () => { const f = store.get().frame; if (f) byId[active].update(f); });
-  return { update, show, toggle, profile: byId.profile, events, pane: (id) => byId[id] };
-}
-
-function createEventsPane() {
-  const el = h('div', { class: 'dock-pane', 'data-pane': 'events' });
-  const list = h('div', { class: 'event-log', role: 'log', 'aria-live': 'off' }, h('div', { class: 'empty' }, 'Nothing has happened yet. Events (collaterals opening, flow reversing, varices rupturing) are logged here with their simulated time.'));
-  el.append(list);
-  const items = [];
-  return {
-    id: 'events', label: 'Events', el,
-    add(evs) {
-      list.querySelector('.empty')?.remove();
-      for (const e of evs) {
-        items.unshift(e);
-        list.prepend(h('div', { class: 'event-row' }, h('span', { class: 'when' }, e.day > 0 ? `Day ${e.day}` : `${Math.round(e.t)} s`), h('span', { class: 'sev', style: { background: SEV[e.severity] || 'var(--info)' } }), h('span', {}, h('b', {}, e.title), e.detail ? h('span', { class: 'd' }, ` · ${e.detail}`) : null)));
-      }
-      while (list.children.length > 150) list.lastChild.remove();
-    },
-    update() {},
-    items,
-  };
+  return { update, show, toggle, profile: byId.profile, pane: (id) => byId[id] };
 }

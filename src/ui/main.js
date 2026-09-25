@@ -1,18 +1,18 @@
 // Application bootstrap: wires store, engine host, figure, panel, readouts, instruments and modes.
 
 import { startHost, host } from './host.js?v=878b8f0b20';
-import { store, updateParams, replaceParams, bindParamSender, undo, redo, canUndo, canRedo, clearHistory } from './store.js?v=258b91f30b';
-import { createStage } from './stage.js?v=77ec41191c';
-import { createInspector, activeInterventions } from './inspector.js?v=a0fe210f37';
-import { createDock } from './dock.js?v=fcdb5ab0ec';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=609dde7847';
+import { createStage } from './stage.js?v=f5eba9430a';
+import { createInspector, activeInterventions } from './inspector.js?v=04a42bd879';
+import { createDock } from './dock.js?v=1a83a35ea5';
 import { createWhy } from './why.js?v=9aaf3b4a56';
-import { createEventsUI } from './events-ui.js?v=ad03b28f31';
-import { createLearn } from './learn.js?v=1a168c4844';
-import { createCases } from './cases.js?v=1891f081a4';
-import { createCompare } from './compare.js?v=441b8fa466';
-import { createFigure } from './figure.js?v=a053858e41';
-import { createCard } from './card.js?v=61e102c204';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=ffcc8f5a31';
+import { createTimeline } from './timeline.js?v=1c6d06a25e';
+import { createLearn } from './learn.js?v=ab8701efd7';
+import { createCases } from './cases.js?v=6e5394832b';
+import { createCompare } from './compare.js?v=9454ef93c9';
+import { createFigure } from './figure.js?v=7db0e202ba';
+import { createCard } from './card.js?v=f46b09ec99';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=3737b309ec';
 import { gradientCss, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=fa78a29bc0';
 import { EDGES, NODES } from '../engine/topology.js?v=44e0aca402';
 import { $, $$, h, icon, fmt, toast, tooltipFor, openModal, closeModal, isModalOpen, units, popover, closePopover, menuItem, svgIcon } from './util.js?v=61d6f9c200';
@@ -43,10 +43,10 @@ const LENSES = {
 };
 const COLOR_MODES = { pressure: 'Pressure', delta: 'Change', heat: 'Congestion', drop: 'Pressure drop', flow: 'Flow volume', velocity: 'Velocity', direction: 'Flow direction' };
 const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };
-const MODE_LABEL = { explore: 'Explore', learn: 'Learn', cases: 'Cases', compare: 'Compare' };
-const PANEL_LABEL = { explore: 'Controls', learn: 'Lesson', cases: 'Case', compare: 'Compare' };
+const MODE_LABEL = { explore: 'Explore', learn: 'Learn', cases: 'Cases' };
+const PANEL_LABEL = { explore: 'Controls', learn: 'Lesson', cases: 'Case' };
 
-let stage, inspector, dock, why, eventsUI, learn, cases, compare, figure, card;
+let stage, inspector, dock, why, timeline, learn, cases, compare, figure, card;
 
 async function main() {
   applyTheme(localStorage.getItem('pps.theme'));
@@ -67,15 +67,22 @@ async function main() {
     onOpenTab: (id) => dock.show(id, { reveal: 'soft' }),
     onHoverInfo: hoverInfo,
   });
-  eventsUI = createEventsUI({ onWhy: (m, el) => why.open(m, el), onOpenLog: () => dock.show('events', { reveal: true }) });
+  compare = createCompare();
+  timeline = createTimeline({
+    root: $('#timeline'), onWhy: (m, el) => why.open(m, el),
+    onPlay: () => host.send({ type: 'run', running: !store.get().running }),
+    onSpeed: (v) => setSpeed(v),
+    onJump: (d) => host.send(d === 'event' ? { type: 'advance', untilEvent: true } : { type: 'advance', days: d }),
+    canRevert: () => store.get().mode !== 'cases',
+    scenarioLabel: () => store.get().presetList?.find((x) => x.id === store.get().presetId)?.label || 'Custom',
+  });
   inspector = createInspector($('#inspector'), {
     onWhy: (m, el) => why.open(m, el), onAction: doAction, onOpenTab: (id) => dock.show(id, { reveal: true }), onClose: closePanel,
     onScenarios: () => openScenarios($('#scenarioBtn')), onMode: (m) => store.set({ mode: m }),
-    renderAlt: () => (store.get().mode === 'compare' && !store.get().selection ? compare.render() : null), findings: eventsUI,
+    pinned: () => compare.section(),
   });
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => host.send({ type: 'probe', id }), onReveal: revealDock });
-  compare = createCompare({ onBack: () => store.set({ mode: 'explore' }) });
-  const api = { beginSession, endSession, muteEvents: (v) => eventsUI.mute(v), loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), openPanel, setBanner, select: (sel) => store.set({ selection: sel }) };
+  const api = { beginSession, endSession, muteEvents: () => {}, loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), openPanel, setBanner, select: (sel) => store.set({ selection: sel }) };
   // A lesson keeps its card in view on a phone: instruments it opens are flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), panel: $('#panel'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#inspector'), api });
@@ -93,7 +100,6 @@ async function main() {
   renderPaintHint();
   buildHud();
   wireTopbar();
-  wireTransport();
   wireKeyboard();
   wireMobile();
   wireDockResize();
@@ -109,26 +115,26 @@ async function main() {
   });
   store.on('shunting', renderPaintHint);
   store.on('mode', onMode);
-  store.on('historyTick', () => { $('#btnUndo').disabled = !canUndo(); $('#btnRedo').disabled = !canRedo(); });
   store.on('layers', () => { app.classList.toggle('chips-off', !store.get().layers.chips); redraw(); });
   store.on('presetId', (id) => { $('#scenarioName').textContent = presets.find((p) => p.id === id)?.label || 'Custom'; });
   for (const k of ['compareSnap', 'compareView', 'colorMode', 'imaging']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
+  store.on('compareSnap', () => { if (!store.get().details) inspector.render(); });
   store.on('focus', redraw);
   store.on('selection', redraw);
 
   // Console handle for educators preparing a class (and for automated screenshots).
   window.pps = { loadPreset, store, updateParams, setTool, dock, stage, host, toggleFigure, figure, card };
   const shared = readShare();
-  if (shared) await loadShared(shared);
+  if (shared) await loadShared(shared); else timeline.reset();
   firstRun();
 }
 const redraw = () => { const f = store.get().frame; if (f) stage.update(viewFrame(f)); };
 
 // ── Frames ──────────────────────────────────────────
-let lastClockTxt = '', lastRunning = null, lastFig = 0;
+let lastClockTxt = '', lastFig = 0;
 function viewFrame(f) {
   const st = store.get();
-  if (st.mode === 'compare' && st.compareSnap && st.compareView === 'A') return st.compareSnap.frame;
+  if (st.compareSnap && st.compareView === 'A') return st.compareSnap.frame;
   return f;
 }
 // The engine ticks ~30×/s, but pressures ease over seconds, so the anatomy, readouts and panel
@@ -137,9 +143,9 @@ function viewFrame(f) {
 let lastPaint = 0;
 function onFrame(f) {
   if (f.params) replaceParams(f.params);
-  if (f.events?.length) eventsUI.handle(f.events);
+  if (f.events?.length) timeline.addEvents(f.events);
   const now = performance.now();
-  if (!f.params && !f.events?.length && f.running === lastRunning && now - lastPaint < 100) return;
+  if (!f.params && !f.events?.length && now - lastPaint < 100) return;
   lastPaint = now;
   store.set({ frame: f, running: f.running, clock: f.clock });
   stage.update(viewFrame(f));
@@ -147,18 +153,9 @@ function onFrame(f) {
   dock.update(f);
   inspector.update(f);
   compare.update(f);
-  const txt = f.clock === 'disease' || f.day > 0 ? `Day ${f.day}` : `${fmt(f.t, 1)} s`;
-  if (txt !== lastClockTxt) {
-    lastClockTxt = txt;
-    $('#clockReadout').replaceChildren(txt, store.get().speed !== 1 ? h('span', { class: 'spd' }, `${store.get().speed}×`) : null);
-    stageClock.textContent = txt;
-  }
-  if (f.running !== lastRunning) {
-    lastRunning = f.running;
-    $('#btnPlay').replaceChildren(icon(f.running ? 'pause' : 'play'));
-    $('#btnPlay').setAttribute('aria-label', f.running ? 'Pause' : 'Play');
-  }
-  $$('#clockSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.clock === f.clock)));
+  timeline.update(f);
+  const txt = f.day > 0 ? `Day ${f.day}` : `${fmt(f.t, 0)} s`;
+  if (txt !== lastClockTxt) { lastClockTxt = txt; stageClock.textContent = txt; }
   updateBleedBanner(f);
   if (projector) updateProjector(f);
   if (app.classList.contains('figure-mode') && performance.now() - lastFig > 500) { lastFig = performance.now(); figure.update(f); }
@@ -189,7 +186,7 @@ async function loadPreset(id, opts = {}) {
   replaceParams(res.params);
   clearHistory();
   store.set({ presetId: id, lastHVPG: null, selection: store.get().mode === 'cases' ? null : store.get().selection, historyTick: (store.get().historyTick || 0) + 1 });
-  eventsUI?.clear();
+  timeline?.reset(store.get().presetList?.find((x) => x.id === id)?.label);
 }
 
 function encodeShare() {
@@ -206,6 +203,7 @@ async function loadShared(s) {
   await loadPreset(s.preset || 'healthy');
   if (s.params) updateParams(s.params, { settle: true, history: false });
   if (s.view) store.set({ view: s.view });
+  timeline.flush();
   toast('Loaded the shared scenario.');
 }
 async function share() {
@@ -220,7 +218,8 @@ let session = null;
 async function beginSession(kind) {
   if (session) return;
   const { snap } = await host.request('snapshot');
-  session = { kind, snap, presetId: store.get().presetId, view: store.get().view };
+  timeline.flush();
+  session = { kind, snap, presetId: store.get().presetId, view: store.get().view, tl: timeline.save() };
 }
 function endSession(kind) {
   if (!session || session.kind !== kind) return;
@@ -229,7 +228,7 @@ function endSession(kind) {
   const f = store.get().frame;
   const bleeding = !!f?.metrics?.bleeding;
   const noun = kind === 'case' ? 'case' : 'lesson';
-  const back = () => { closeModal(); host.send({ type: 'restore', snap: saved.snap }); replaceParams(saved.snap.params); clearHistory(); store.set({ presetId: saved.presetId, lastHVPG: null, historyTick: (store.get().historyTick || 0) + 1 }); eventsUI?.clear(); toast('Back where you were before the ' + noun + '.'); };
+  const back = () => { closeModal(); host.send({ type: 'restore', snap: saved.snap }); replaceParams(saved.snap.params); clearHistory(); store.set({ presetId: saved.presetId, lastHVPG: null, historyTick: (store.get().historyTick || 0) + 1 }); timeline.load(saved.tl); toast('Back where you were before the ' + noun + '.'); };
   const keep = () => { closeModal(); toast(bleeding ? 'Kept the patient. The variceal bleed is still running.' : 'Kept this patient.'); };
   openModal(`Leaving the ${noun}`, h('div', {},
     h('p', {}, `Keep this patient to explore it further, or return to the model as it was before the ${noun}.`),
@@ -244,6 +243,10 @@ function doAction(a) {
   if (a.kind === 'probe') { host.send({ type: 'probe', id: a.id }); return; }
   if (a.kind === 'paracentesisPrompt') { dock.show('abdomen', { reveal: true }); toast('Choose the volume in the Abdomen instrument, then Drain.'); return; }
   host.send({ type: 'action', action: a });
+  const tl = { infuse: { crystalloid: '1 L crystalloid', prbc: '1 unit PRBC', albumin: 'Albumin infusion' }, hemorrhage: `Hemorrhage ${a.mL} mL`, band: 'Band ligation', valsalva: 'Valsalva', rupture: 'Varix ruptured (manual)', stopBleed: 'Bleeding stopped',
+    paracentesis: `Paracentesis ${((a.mL || 0) / 1000).toFixed(1)} L${a.albumin ? ' + albumin' : ''}` }[a.kind];
+  const tlLabel = typeof tl === 'object' ? tl[a.fluid] : tl;
+  if (tlLabel) timeline.recordAction(tlLabel);
   const msgs = { infuse: { crystalloid: '1 L crystalloid running (≈25 % stays intravascular).', prbc: '1 unit of packed red cells running.', albumin: 'Albumin given: plasma oncotic pressure rises.' },
     hemorrhage: 'Hemorrhage: 500 mL lost.', band: 'Band placed on a variceal column.', valsalva: 'Valsalva: intrathoracic and abdominal pressure up for 10 s.' };
   const m = typeof msgs[a.kind] === 'object' ? msgs[a.kind][a.fluid] : msgs[a.kind];
@@ -311,8 +314,6 @@ function buildHud() {
   view.append(tipEl);
   stageClock = h('div', { class: 'stage-clock', 'aria-hidden': 'true' });
   view.append(stageClock);
-  $('#zoomIn').onclick = () => stage.zoomIn();
-  $('#zoomOut').onclick = () => stage.zoomOut();
   $('#zoomFit').onclick = () => stage.fit();
   $$('#viewSeg button').forEach((b) => b.addEventListener('click', () => store.set({ view: b.dataset.view })));
   $('#btnLayers').addEventListener('click', (e) => openLayers(e.currentTarget));
@@ -324,7 +325,7 @@ function buildHud() {
 function legendModel() {
   const st = store.get();
   const imaging = st.imaging;
-  const cmp = st.mode === 'compare' && st.compareSnap;
+  const cmp = !!st.compareSnap;
   const m = imaging ? 'neutral' : cmp && st.compareView === 'D' ? 'delta' : st.colorMode;
   const ref = cmp ? 'state A' : 'healthy';
   return { m, ref, imaging };
@@ -368,7 +369,7 @@ function renderLegend() {
       scale('linear-gradient(to right, #2D6CDF, #9696A0, #D22846)', [[0, '−12'], [50, '0'], [100, '+12']], [50]));
     el.setAttribute('aria-label', `Legend: change in pressure from ${ref}, blue lower, red higher, up to 12 millimeters of mercury`);
   }
-  $('#colorModeLabel').textContent = m === 'neutral' ? 'Anatomy' : m === 'delta' && st().mode === 'compare' ? 'Change A→B' : COLOR_MODES[m];
+  $('#colorModeLabel').textContent = m === 'neutral' ? 'Anatomy' : m === 'delta' && st().compareSnap ? 'Change A→now' : COLOR_MODES[m];
 }
 const st = () => store.get();
 function openLegend(anchor) {
@@ -462,22 +463,21 @@ function renderBanner() {
   const el = $('#stageBanner');
   const s0 = store.get();
   let kids = [];
-  if (s0.mode === 'compare') {
-    if (s0.compareSnap) {
-      const seg = h('div', { class: 'seg cmp-seg', role: 'group', 'aria-label': 'Show state' }, [['A', 'A', 'State A (snapshot)'], ['B', 'B', 'State B (now)'], ['D', 'A→B', 'Change from A to B']].map(([v, l, t]) => {
-        const b = h('button', { 'aria-pressed': String((s0.compareView || 'B') === v), title: t }, h('b', {}, l));
-        b.addEventListener('click', () => store.set({ compareView: v }));
-        return b;
-      }));
-      kids = [seg];
-    } else kids = [h('div', { class: 'banner' }, h('span', { class: 'b-tag' }, 'Compare'), h('span', { class: 'b-text' }, 'Capture state A in the panel, then change something'))];
-  } else if (bannerInfo && (s0.mode === 'learn' || s0.mode === 'cases')) {
-    kids = [h('div', { class: 'banner' + (s0.mode === 'cases' ? ' case' : ''), title: bannerInfo.text }, h('span', { class: 'b-tag' }, bannerInfo.tag), h('span', { class: 'b-text' }, bannerInfo.text))];
+  if (s0.compareSnap) {
+    const seg = h('div', { class: 'seg cmp-seg', role: 'group', 'aria-label': 'Show state' }, [['A', 'A', 'The pinned moment A'], ['B', 'Now', 'The live model'], ['D', 'A→Now', 'Change from A to now']].map(([v, l, t]) => {
+      const b = h('button', { 'aria-pressed': String((s0.compareView || 'B') === v), title: t }, h('b', {}, l));
+      b.addEventListener('click', () => store.set({ compareView: v }));
+      return b;
+    }));
+    kids = [seg];
+  }
+  if (bannerInfo && (s0.mode === 'learn' || s0.mode === 'cases')) {
+    kids.push(h('div', { class: 'banner' + (s0.mode === 'cases' ? ' case' : ''), title: bannerInfo.text }, h('span', { class: 'b-tag' }, bannerInfo.tag), h('span', { class: 'b-text' }, bannerInfo.text)));
   }
   el.replaceChildren(...kids);
   // A clear badge when the figure shows the snapshot, not the live model.
   view.querySelector('.cmp-badge')?.remove();
-  if (s0.mode === 'compare' && s0.compareSnap && s0.compareView === 'A') view.append(h('div', { class: 'cmp-badge stage-blocker' }, 'Showing state A · snapshot'));
+  if (s0.compareSnap && s0.compareView === 'A') view.append(h('div', { class: 'cmp-badge stage-blocker' }, `Showing A · ${s0.compareSnap.when}`));
   redraw();
 }
 
@@ -488,15 +488,6 @@ function wireTopbar() {
     popover(e.currentTarget, [h('div', { class: 'menu-title' }, 'Mode'), ...Object.entries(MODE_LABEL).map(([m, l]) => menuItem(l, { checked: store.get().mode === m, onClick: () => { closePopover(); store.set({ mode: m }); } }))]);
   });
   $('#scenarioBtn').addEventListener('click', (e) => openScenarios(e.currentTarget));
-  $('#btnUndo').addEventListener('click', doUndo);
-  $('#btnRedo').addEventListener('click', doRedo);
-  $('#btnReset').addEventListener('click', async () => {
-    const st = store.get();
-    const id = st.presetList?.some((x) => x.id === st.presetId) ? st.presetId : 'healthy';
-    await loadPreset(id);
-    toast(`Reset: ${st.presetList?.find((x) => x.id === id)?.label || 'Healthy'}`);
-  });
-  $('#btnUndo').disabled = true; $('#btnRedo').disabled = true;
   $('#btnShare').addEventListener('click', share);
   $('#btnTheme').addEventListener('click', toggleTheme);
   $('#btnHelp').addEventListener('click', openHelp);
@@ -509,42 +500,18 @@ function wireTopbar() {
     menuItem('Light / dark', { icon: 'theme', onClick: () => { closePopover(); toggleTheme(); } }),
     menuItem('Guide', { icon: 'help', onClick: () => { closePopover(); openHelp(); } }),
   ], { align: 'end' }));
-  for (const [id, side] of [['#btnUndo', 'bottom'], ['#btnRedo', 'bottom'], ['#btnReset', 'bottom'], ['#btnShare', 'bottom'], ['#btnTheme', 'bottom'], ['#btnHelp', 'bottom']]) {
+  for (const [id, side] of [['#btnShare', 'bottom'], ['#btnTheme', 'bottom'], ['#btnHelp', 'bottom']]) {
     const b = $(id); tooltipFor(b, b.title, side); b.removeAttribute('title');
   }
 }
-function doUndo() { const l = undo(); if (l) toast(`Undone${l === true ? '' : `: ${l}`}`); }
-function doRedo() { const l = redo(); if (l) toast(`Redone${l === true ? '' : `: ${l}`}`); }
+function doUndo() { timeline.undo(); }
+function doRedo() { timeline.redo(); }
 function toggleTheme() {
   const cur = document.documentElement.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   applyTheme(cur === 'dark' ? 'light' : 'dark');
 }
-function wireTransport() {
-  $('#btnPlay').addEventListener('click', () => host.send({ type: 'run', running: !store.get().running }));
-  $$('#clockSeg button').forEach((b) => b.addEventListener('click', () => {
-    host.send({ type: 'run', clock: b.dataset.clock, running: true });
-    if (b.dataset.clock === 'disease') toast('Disease clock: one simulated day per second. Collaterals, varices, spleen and ascites remodel.');
-  }));
-  $('#btnTime').addEventListener('click', (e) => {
-    const go = (v) => { closePopover(); host.send(v === 'event' ? { type: 'advance', untilEvent: true } : { type: 'advance', days: v }); toast(v === 'event' ? 'Advancing until something happens (up to 2 years)…' : `Advanced ${v} days.`); };
-    popover(e.currentTarget, [
-      h('div', { class: 'menu-title' }, 'Fast-forward the disease'),
-      menuItem('1 week', { onClick: () => go(7) }), menuItem('1 month', { onClick: () => go(30) }), menuItem('6 months', { onClick: () => go(180) }), menuItem('Until the next event', { onClick: () => go('event') }),
-      h('div', { class: 'menu-sep' }),
-      menuItem('Settle to equilibrium', { icon: 'settle', kb: 'Z', onClick: () => { closePopover(); settle(); } }),
-      h('div', { class: 'menu-sep' }),
-      h('div', { class: 'menu-title' }, 'Playback speed'),
-      h('div', { class: 'seg full', style: { margin: '2px 6px 6px' }, role: 'group', 'aria-label': 'Speed' }, SPEEDS.map((v) => {
-        const b = h('button', { 'aria-pressed': String(store.get().speed === v) }, `${v}×`);
-        b.addEventListener('click', () => { setSpeed(v); closePopover(); });
-        return b;
-      })),
-    ], { place: 'above', align: 'start', cls: 'time-pop' });
-  });
-  tooltipFor($('#btnTime'), 'Speed, fast-forward, settle', 'top');
-}
 function settle() { host.send({ type: 'settle' }); toast('Settled to equilibrium.'); }
-function setSpeed(v) { store.set({ speed: v }); host.send({ type: 'run', speed: v }); lastClockTxt = ''; }
+function setSpeed(v) { store.set({ speed: v }); host.send({ type: 'run', speed: v, clock: 'hemo' }); }
 function applyTheme(t) {
   if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme');
   try { if (t) localStorage.setItem('pps.theme', t); } catch { /* storage unavailable */ }
@@ -569,7 +536,6 @@ function onMode(mode) {
   if (mode === 'cases') { cases.mount(); openPanel(); }
   else inspector.render();
   if (mode === 'learn') { learn.render(); if (!learn.active()) learn.openList(); }
-  if (mode === 'compare') openPanel();
   if (mode === 'explore') { store.set({ locked: null, hiddenReadouts: null, imaging: false }); setAllowedTools(null); }
   store.set({ selection: null, details: null });
   $('#mobilePanelLabel').textContent = PANEL_LABEL[mode];
@@ -596,7 +562,7 @@ function wireKeyboard() {
     if (isModalOpen()) return;
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); (e.shiftKey ? doRedo : doUndo)(); return; }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (e.key === ' ' && !e.target.closest?.('.v-hit, button, .lb')) { e.preventDefault(); $('#btnPlay').click(); return; }
+    if (e.key === ' ' && !e.target.closest?.('.v-hit, button, .lb')) { e.preventDefault(); host.send({ type: 'run', running: !store.get().running }); return; }
     // With a card open, the number keys run its verbs in order.
     if (/^[1-9]$/.test(e.key) && card.isOpen()) { if (card.trigger(+e.key)) e.preventDefault(); return; }
     if (e.key === '.') { host.send({ type: 'run', running: true }); setTimeout(() => host.send({ type: 'run', running: false }), 60); return; }
@@ -618,6 +584,7 @@ function wireKeyboard() {
     if (e.key === 'F' && e.shiftKey) { toggleProjector(); return; }
     if (k === 'f' && !e.shiftKey) { toggleFigure(); return; }
     if (k === 'i') { dock.toggle(); return; }
+    if (k === 'p') { timeline.togglePin(); return; }
   });
 }
 
@@ -703,7 +670,7 @@ function openHelp() {
     ['Space', 'Play / pause'], ['[ ]', 'Slower / faster'], ['.', 'Step'], ['Z', 'Settle to equilibrium'], ['A', 'Anatomy ⇄ circuit'],
     ['F', 'Figure view'], ['I', 'Open / close instruments'], ['L', 'Next color lens (Shift: previous)'],
     ['Click', 'Open the actions for a vessel or organ'], ['1 – 9', 'Run an action on the open card'],
-    ['Ctrl/⌘ Z', 'Undo (Shift to redo)'], ['Esc', 'Cancel · close the card · close'], ['Shift F', 'Projector mode'], ['?', 'This guide'],
+    ['Ctrl/⌘ Z', 'Back one change on the timeline (Shift: forward)'], ['P', 'Pin this moment as A / unpin'], ['Esc', 'Cancel · close the card · close'], ['Shift F', 'Projector mode'], ['?', 'This guide'],
     ['Tab · Enter', 'Reach a vessel, open its actions'], ['← →', 'Walk vessels along the flow'],
   ];
   openModal('Guide', h('div', {},

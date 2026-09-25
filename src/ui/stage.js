@@ -3,7 +3,7 @@
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=44e0aca402';
 import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS } from './anatomy.js?v=1eeeff8e27';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=fa78a29bc0';
-import { store, updateParams } from './store.js?v=258b91f30b';
+import { store, updateParams } from './store.js?v=609dde7847';
 import { s, fmt, fp, clamp, lerp, toast } from './util.js?v=61d6f9c200';
 
 const N_SAMPLES = 64;
@@ -1029,13 +1029,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   const REF = () => {
     const st = store.get();
-    return st.mode === 'compare' && st.compareSnap ? st.compareSnap.P : st.healthy?.P;
+    return st.compareSnap ? st.compareSnap.P : st.healthy?.P;
   };
   const isImaging = () => !!store.get().imaging;
   // The active data layer (what vessel color encodes).
   function layerMode() {
     const st = store.get();
-    return isImaging() ? 'neutral' : st.mode === 'compare' && st.compareSnap && st.compareView === 'D' ? 'delta' : st.colorMode;
+    return isImaging() ? 'neutral' : st.compareSnap && st.compareView === 'D' ? 'delta' : st.colorMode;
   }
   // Mean velocity in a vessel, cm/s (flow mL/s over lumen area).
   function edgeVel(f, k) {
@@ -1075,7 +1075,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const v = throughput(f.Qf || f.Q, id);
       const runs = [{ ...big, t: fmt(v, v < 0.1 ? 3 : 2) }, { ...unit, t: 'L/min' }];
       const refQ = store.get().healthy?.Q;
-      if (refQ && store.get().mode !== 'compare') {
+      if (refQ && !store.get().compareSnap) {
         const r = throughput(refQ, id);
         if (r > 0.02 && Math.abs(v - r) / r >= 0.1) runs.push({ t: `${v > r ? '▲' : '▼'} ${Math.round(Math.abs(v - r) / r * 100)}%`, size: compact ? 9.5 : 10.5, weight: 650, cls: 'lb-delta ' + (v > r ? 'up' : 'down'), gap: 6 });
       }

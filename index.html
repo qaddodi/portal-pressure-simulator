@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles/tokens.css?v=ab946f615d" />
-  <link rel="stylesheet" href="styles/app.css?v=ac98abb0a3" />
+  <link rel="stylesheet" href="styles/app.css?v=a8872a17b7" />
 </head>
 <body>
   <!-- Icon set: 24px grid, 1.6px stroke, round caps (blueprint §5.6). -->
@@ -93,7 +93,6 @@
         <button role="tab" data-mode="explore" aria-selected="true"><svg><use href="#i-explore"/></svg><span>Explore</span></button>
         <button role="tab" data-mode="learn" aria-selected="false"><svg><use href="#i-book"/></svg><span>Learn</span></button>
         <button role="tab" data-mode="cases" aria-selected="false"><svg><use href="#i-case"/></svg><span>Cases</span></button>
-        <button role="tab" data-mode="compare" aria-selected="false"><svg><use href="#i-compare"/></svg><span>Compare</span></button>
       </nav>
       <button class="mode-menu" id="modeMenuBtn" aria-haspopup="menu" aria-label="Mode"><span id="modeMenuLabel">Explore</span><svg class="chev"><use href="#i-chev-down"/></svg></button>
       <div class="top-right">
@@ -102,11 +101,6 @@
           <span class="scenario-v" id="scenarioName">Healthy</span>
           <svg class="chev"><use href="#i-chev-down"/></svg>
         </button>
-        <div class="tb-group">
-          <button class="ib" id="btnUndo" title="Undo (Ctrl+Z)" aria-label="Undo"><svg><use href="#i-undo"/></svg></button>
-          <button class="ib" id="btnRedo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo"><svg><use href="#i-redo"/></svg></button>
-          <button class="ib" id="btnReset" title="Reset this patient to its starting state" aria-label="Reset"><svg><use href="#i-reset"/></svg></button>
-        </div>
         <div class="tb-group hide-sm">
           <button class="ib" id="btnShare" title="Copy a link to this exact scenario" aria-label="Share link"><svg><use href="#i-share"/></svg></button>
           <button class="ib" id="btnTheme" title="Light / dark" aria-label="Toggle theme"><svg><use href="#i-theme"/></svg></button>
@@ -141,23 +135,11 @@
         <svg id="labels" aria-label="Pressure labels"></svg>
         <div id="overlay"></div>
         <div class="tool-card stage-blocker" id="toolHint" role="status" hidden></div>
+        <button class="ib stage-fit" id="zoomFit" aria-label="Fit the figure to the view" title="Fit (scroll or pinch to zoom, drag to pan)"><svg><use href="#i-fit"/></svg></button>
       </div>
       <div class="fig-foot" id="figFoot"></div>
       <div class="stage-bar bottom" id="stageBottom">
-        <div class="transport" id="transport">
-          <button class="ib play" id="btnPlay" title="Play / pause (Space)" aria-label="Pause"><svg><use href="#i-pause"/></svg></button>
-          <div class="seg seg-mini" id="clockSeg" role="group" aria-label="Clock">
-            <button data-clock="hemo" aria-pressed="true" title="Hemodynamic clock: seconds">Seconds</button>
-            <button data-clock="disease" aria-pressed="false" title="Disease clock: 1 simulated day per second (remodeling)">Months</button>
-          </div>
-          <span class="clock-readout" id="clockReadout">0.0 s</span>
-          <button class="ib" id="btnTime" aria-label="Speed, fast-forward and settle" aria-haspopup="menu"><svg><use href="#i-ff"/></svg></button>
-        </div>
-        <div class="zoom" id="zoomCtl">
-          <button class="ib" id="zoomOut" aria-label="Zoom out" title="Zoom out"><svg><use href="#i-minus"/></svg></button>
-          <button class="ib" id="zoomFit" aria-label="Fit to view" title="Fit"><svg><use href="#i-fit"/></svg></button>
-          <button class="ib" id="zoomIn" aria-label="Zoom in" title="Zoom in"><svg><use href="#i-plus"/></svg></button>
-        </div>
+        <div class="timeline" id="timeline" role="group" aria-label="Timeline"></div>
       </div>
     </main>
 
@@ -187,6 +169,6 @@
   <div class="toast-wrap" id="toasts"></div>
   <div class="sr-only" aria-live="polite" id="live"></div>
 
-  <script type="module" src="src/ui/main.js?v=222850438f"></script>
+  <script type="module" src="src/ui/main.js?v=868fc29304"></script>
 </body>
 </html>

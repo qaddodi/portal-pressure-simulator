@@ -2,7 +2,7 @@
 
 import { EDGES, NODES, COLLATERAL_DMIN_RATIO, dMinOf } from '../engine/topology.js?v=44e0aca402';
 import { DRUGS } from '../engine/scenario.js?v=3bed5bf285';
-import { store, updateParams, isLocked } from './store.js?v=258b91f30b';
+import { store, updateParams, isLocked } from './store.js?v=609dde7847';
 import { h, fmt, fp, ff, clamp, tooltipFor, icon, svgIcon } from './util.js?v=61d6f9c200';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -60,7 +60,7 @@ for (const k of Object.keys(DRUGS)) CONTROLS['drug:' + k] = { type: 'drug', key:
 
 const DRUG_SHORT = { propranolol: 'Non-selective β-blocker', carvedilol: 'β-blocker + α1 blockade', terlipressin: 'Vasopressin analogue', octreotide: 'Somatostatin analogue' };
 
-export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onScenarios, onMode, renderAlt, findings }) {
+export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onScenarios, onMode, pinned }) {
   let live = [];        // [el, fn(frame)]
   let syncers = [];
   let lastSel;
@@ -161,8 +161,8 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onS
     activeBox._sync = renderActive;
     syncers.push(activeBox);
 
-    const tabs = h('div', { class: 'seg full', role: 'tablist', 'aria-label': 'Control groups' }, [['therapy', 'Therapy'], ['physiology', 'Physiology'], ['findings', 'Findings']].map(([id, l]) => {
-      const b = h('button', { role: 'tab', 'aria-selected': String(tab === id) }, l, id === 'findings' && findings ? findings.badge() : null);
+    const tabs = h('div', { class: 'seg full', role: 'tablist', 'aria-label': 'Control groups' }, [['therapy', 'Therapy'], ['physiology', 'Physiology']].map(([id, l]) => {
+      const b = h('button', { role: 'tab', 'aria-selected': String(tab === id) }, l);
       b.addEventListener('click', () => { tab = id; render(); });
       return b;
     }));
@@ -194,8 +194,6 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onS
             h('div', { class: 'stat' }, h('span', { class: 'k' }, 'Hemoglobin'), h('span', { class: 'v' }, liveText((f) => `${fmt(f.metrics.blood.hb, 1)} g/dL`)))),
           fluids, build('albumin'), build('diuretics')),
       ];
-    } else if (tab === 'findings') {
-      body = findings ? findings.panel() : [];
     } else {
       body = [
         section('inflow', 'Inflow & vascular tone', 'activity', changedCount(['splanchnicTone', 'systemicTone']), build('splanchnicTone'), build('systemicTone')),
@@ -208,7 +206,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onS
         h('p', { class: 'disclaimer', style: { margin: '16px 0 0' } }, 'Educational simulation. The model is simplified and its values are illustrative; do not use it for diagnosis or treatment decisions.'),
       ];
     }
-    return [head, activeBox, h('div', { class: 'p-body' }, body)];
+    return [head, pinned?.(), activeBox, h('div', { class: 'p-body' }, body)];
   }
 
   // ── Selection panels ──────────────────────────────
@@ -323,8 +321,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onS
     if (store.get().mode === 'cases') return; // the case panel owns this element
     live = []; syncers = [];
     const sel = store.get().details;
-    const alt = !sel && renderAlt?.();
-    const els = alt || (!sel ? globalPanel() : sel.type === 'edge' ? edgePanel(sel.id) : sel.type === 'node' ? nodePanel(sel.id) : sel.type === 'organ' ? organPanel(sel.id) : globalPanel());
+    const els = (!sel ? globalPanel() : sel.type === 'edge' ? edgePanel(sel.id) : sel.type === 'node' ? nodePanel(sel.id) : sel.type === 'organ' ? organPanel(sel.id) : globalPanel());
     const scroller = root.closest('.panel') || root;
     const top = scroller.scrollTop;
     root.replaceChildren(...els.filter(Boolean));
@@ -356,38 +353,38 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onS
 
 export function activeInterventions(p) {
   const out = [];
-  const add = (label, remove) => out.push({ label, remove });
+  const add = (key, label, remove) => out.push({ key, label, remove });
   const zn = { pre: 'Presinusoidal', sin: 'Sinusoidal', post: 'Postsinusoidal' };
-  if (p.cirrhosis > 0) add(`Cirrhosis ${Math.round(p.cirrhosis * 100)} %`, (q) => { q.cirrhosis = 0; });
+  if (p.cirrhosis > 0) add('cirrhosis', `Cirrhosis ${Math.round(p.cirrhosis * 100)} %`, (q) => { q.cirrhosis = 0; });
   for (const z of ['pre', 'sin', 'post']) {
     const r = p.fibrosis.R[z], l = p.fibrosis.L[z];
-    if (r !== 1 && Math.abs(r - l) < 1e-9) add(`${zn[z]} ×${r.toFixed(0)}`, (q) => { q.fibrosis.R[z] = 1; q.fibrosis.L[z] = 1; });
-    else for (const lobe of ['R', 'L']) if (p.fibrosis[lobe][z] !== 1) add(`${zn[z]} ${lobe === 'R' ? 'right' : 'left'} ×${p.fibrosis[lobe][z].toFixed(0)}`, (q) => { q.fibrosis[lobe][z] = 1; });
+    if (r !== 1 && Math.abs(r - l) < 1e-9) add('fib:' + z, `${zn[z]} fibrosis ×${r.toFixed(r < 10 ? 1 : 0)}`, (q) => { q.fibrosis.R[z] = 1; q.fibrosis.L[z] = 1; });
+    else for (const lobe of ['R', 'L']) if (p.fibrosis[lobe][z] !== 1) add(`fib:${lobe}:${z}`, `${zn[z]} fibrosis, ${lobe === 'R' ? 'right' : 'left'} lobe ×${p.fibrosis[lobe][z].toFixed(1)}`, (q) => { q.fibrosis[lobe][z] = 1; });
   }
   const lab = (id) => EDGES[EI[id]]?.label || id;
-  for (const [id, v] of Object.entries(p.stenosis)) add(`${lab(id)} stenosis ${Math.round(v * 100)} %`, (q) => { delete q.stenosis[id]; });
-  for (const [id, v] of Object.entries(p.thrombus)) add(`${lab(id)} thrombus ${Math.round(v * 100)} %`, (q) => { delete q.thrombus[id]; });
-  for (const [k, on] of Object.entries(p.drugs)) if (on) add(DRUGS[k].label, (q) => { q.drugs[k] = false; });
-  if (p.tips.on) add(`TIPS ${p.tips.d} mm`, (q) => { q.tips.on = false; });
-  if (p.portocaval) add('Portocaval shunt', (q) => { q.portocaval = false; });
-  if (p.dsrs) add('Distal splenorenal shunt', (q) => { q.dsrs = false; });
-  if (p.mesocaval) add('Mesocaval shunt', (q) => { q.mesocaval = false; });
-  for (const [id, d] of Object.entries(p.customShunts || {})) add(`${lab(id)} ${d} mm`, (q) => { const c = { ...(q.customShunts || {}) }; delete c[id]; q.customShunts = c; });
-  if (p.balloonEso) add('Esophageal balloon', (q) => { q.balloonEso = false; });
-  if (p.balloonGas) add('Gastric balloon', (q) => { q.balloonGas = false; });
-  for (const id of Object.keys(p.occluded)) add(`${lab(id)} occluded`, (q) => { delete q.occluded[id]; });
-  if (p.splanchnicTone !== 1) add(`Splanchnic tone ×${p.splanchnicTone.toFixed(2)}`, (q) => { q.splanchnicTone = 1; });
-  if (p.systemicTone !== 1) add(`Systemic tone ×${p.systemicTone.toFixed(2)}`, (q) => { q.systemicTone = 1; });
-  if (p.contractility !== 1) add(`Contractility ${Math.round(p.contractility * 100)} %`, (q) => { q.contractility = 1; });
-  if (p.tr > 0) add(`TR ${Math.round(p.tr * 100)} %`, (q) => { q.tr = 0; });
-  if (p.pericardial > 0) add(`Pericardial ${Math.round(p.pericardial * 100)} %`, (q) => { q.pericardial = 0; });
-  if (p.apShunt > 0) add(`AP shunting ${Math.round(p.apShunt * 100)} %`, (q) => { q.apShunt = 0; });
-  if (p.habrStrength !== 1) add(`Arterial buffer ×${p.habrStrength.toFixed(2)}`, (q) => { q.habrStrength = 1; });
-  if (p.albumin !== 4) add(`Albumin ${p.albumin.toFixed(1)} g/dL`, (q) => { q.albumin = 4; });
-  if (p.diuretics) add('Diuretics', (q) => { q.diuretics = false; });
-  if (p.anticoag) add('Anticoagulation', (q) => { q.anticoag = false; });
-  if (p.spontaneous.C5) add('Gastrorenal shunt', (q) => { q.spontaneous.C5 = false; });
-  if (p.spontaneous.C6) add('Splenorenal shunt', (q) => { q.spontaneous.C6 = false; });
-  if (p.catheter.vein) add(`Catheter ${p.catheter.vein}HV${p.catheter.wedged ? ' (wedged)' : ''}`, (q) => { q.catheter = { vein: null, wedged: false }; });
+  for (const [id, v] of Object.entries(p.stenosis)) add('sten:' + id, `${lab(id)} narrowed ${Math.round(v * 100)} %`, (q) => { delete q.stenosis[id]; });
+  for (const [id, v] of Object.entries(p.thrombus)) add('thr:' + id, `${lab(id)} thrombus ${Math.round(v * 100)} %`, (q) => { delete q.thrombus[id]; });
+  for (const [k, on] of Object.entries(p.drugs)) if (on) add('drug:' + k, DRUGS[k].label, (q) => { q.drugs[k] = false; });
+  if (p.tips.on) add('tips', `TIPS ${p.tips.d} mm`, (q) => { q.tips.on = false; });
+  if (p.portocaval) add('portocaval', 'Portocaval shunt', (q) => { q.portocaval = false; });
+  if (p.dsrs) add('dsrs', 'Distal splenorenal shunt', (q) => { q.dsrs = false; });
+  if (p.mesocaval) add('mesocaval', 'Mesocaval shunt', (q) => { q.mesocaval = false; });
+  for (const [id, d] of Object.entries(p.customShunts || {})) add('cs:' + id, `${lab(id)} ${d} mm`, (q) => { const c = { ...(q.customShunts || {}) }; delete c[id]; q.customShunts = c; });
+  if (p.balloonEso) add('balloonEso', 'Esophageal balloon', (q) => { q.balloonEso = false; });
+  if (p.balloonGas) add('balloonGas', 'Gastric balloon', (q) => { q.balloonGas = false; });
+  for (const id of Object.keys(p.occluded)) add('occ:' + id, `${id === 'C5' ? 'BRTO (gastrorenal shunt occluded)' : lab(id) + ' occluded'}`, (q) => { delete q.occluded[id]; });
+  if (p.splanchnicTone !== 1) add('splTone', `Splanchnic tone ×${p.splanchnicTone.toFixed(2)}`, (q) => { q.splanchnicTone = 1; });
+  if (p.systemicTone !== 1) add('sysTone', `Systemic tone ×${p.systemicTone.toFixed(2)}`, (q) => { q.systemicTone = 1; });
+  if (p.contractility !== 1) add('contractility', `RV contractility ${Math.round(p.contractility * 100)} %`, (q) => { q.contractility = 1; });
+  if (p.tr > 0) add('tr', `Tricuspid regurgitation ${Math.round(p.tr * 100)} %`, (q) => { q.tr = 0; });
+  if (p.pericardial > 0) add('pericardial', `Pericardial constraint ${Math.round(p.pericardial * 100)} %`, (q) => { q.pericardial = 0; });
+  if (p.apShunt > 0) add('apShunt', `Arterioportal shunting ${Math.round(p.apShunt * 100)} %`, (q) => { q.apShunt = 0; });
+  if (p.habrStrength !== 1) add('habr', `Arterial buffer ×${p.habrStrength.toFixed(2)}`, (q) => { q.habrStrength = 1; });
+  if (p.albumin !== 4) add('albumin', `Albumin ${p.albumin.toFixed(1)} g/dL`, (q) => { q.albumin = 4; });
+  if (p.diuretics) add('diuretics', 'Diuretics', (q) => { q.diuretics = false; });
+  if (p.anticoag) add('anticoag', 'Anticoagulation', (q) => { q.anticoag = false; });
+  if (p.spontaneous.C5) add('C5', 'Gastrorenal shunt', (q) => { q.spontaneous.C5 = false; });
+  if (p.spontaneous.C6) add('C6', 'Splenorenal shunt', (q) => { q.spontaneous.C6 = false; });
+  if (p.catheter.vein) add('catheter', `Catheter in ${p.catheter.vein}HV${p.catheter.wedged ? ' (wedged)' : ''}`, (q) => { q.catheter = { vein: null, wedged: false }; });
   return out;
 }

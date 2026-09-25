@@ -21,7 +21,7 @@ const state = {
   theme: null,
   fibrosisZone: 'sin',
   compareSnap: null,
-  compareView: 'B',           // Compare: which state the figure shows (A | B | D = change)
+  compareView: 'B',           // With A pinned, what the figure shows: A | B (now) | D (change A→now)
   imaging: false,             // Cases: anatomy only, pressures unmeasured
   focus: null,                // { edges: [ids], label } where a lesson step asks the learner to act
   compareMetrics: null,
@@ -49,7 +49,10 @@ export const store = {
 // Parameter history
 const past = [], future = [];
 let sender = null;
+const changeHooks = [];
 export function bindParamSender(fn) { sender = fn; }
+/** Called on every learner-made parameter change ({ label, history }); the timeline records them. */
+export function onParamChange(fn) { changeHooks.push(fn); }
 
 /** Apply a params patch (object or function). Records history unless {history:false}. */
 export function updateParams(patchOrFn, { settle = false, history = true, label = '' } = {}) {
@@ -60,6 +63,7 @@ export function updateParams(patchOrFn, { settle = false, history = true, label 
   store.set({ params: next });
   sender?.(next, settle);
   store.set({ historyTick: (state.historyTick || 0) + 1 });
+  for (const fn of changeHooks) fn({ label, history });
 }
 export function replaceParams(p) { store.set({ params: p }); }
 export function undo() {

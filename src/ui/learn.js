@@ -1,6 +1,6 @@
 // Learn mode (blueprint §11): lessons as step sequences with Predict → Observe → Explain.
 
-import { store, updateParams } from './store.js?v=258b91f30b';
+import { store, updateParams } from './store.js?v=609dde7847';
 import { host } from './host.js?v=878b8f0b20';
 import { h, fmt, toast, svgIcon } from './util.js?v=61d6f9c200';
 
