@@ -2,8 +2,8 @@
 
 import { store } from './store.js?v=384ec84b1e';
 import { h, fmt, icon, svgIcon } from './util.js?v=61d6f9c200';
-import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=03a411ef8e';
-import { createHVPG, createDoppler, createEndoscopy, createLobule, createVarixWall, createAbdomen } from './instruments.js?v=fd3bc792b3';
+import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=66af0f81e0';
+import { createHVPG, createDoppler, createEndoscopy, createLobule, createVarixWall, createAbdomen } from './instruments.js?v=3a9ebac16a';
 
 const SEV = { ok: 'var(--ok)', caution: 'var(--caution)', danger: 'var(--danger)', critical: 'var(--critical)', info: 'var(--info)' };
 

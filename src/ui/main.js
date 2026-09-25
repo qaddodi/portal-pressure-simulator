@@ -2,9 +2,9 @@
 
 import { startHost, host } from './host.js?v=f1fa2b60df';
 import { store, updateParams, replaceParams, bindParamSender, undo, redo, canUndo, canRedo, clearHistory } from './store.js?v=384ec84b1e';
-import { createStage } from './stage.js?v=c5be5f911e';
+import { createStage } from './stage.js?v=1b9444e24f';
 import { createInspector, activeInterventions } from './inspector.js?v=47209acbd6';
-import { createDock } from './dock.js?v=90bc9659af';
+import { createDock } from './dock.js?v=d1d20776c4';
 import { createWhy } from './why.js?v=0fb45a787b';
 import { createEventsUI } from './events-ui.js?v=ad03b28f31';
 import { createLearn } from './learn.js?v=4175e7bb4b';

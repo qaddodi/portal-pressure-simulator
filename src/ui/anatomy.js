@@ -62,7 +62,7 @@ export const NODE_POS = {
   UPPV: [[620, -40], [1250, 100]],
   LOWV: [[620, 980], [1120, 660]],
   ILI: [[620, 880], [1120, 610]],
-  EPI: [[600, 722], [1000, 610]],
+  EPI: [[500, 800], [1000, 610]],
   KID_L: [[1005, 622], [880, 540]],
   KID_R: [[500, 622], [880, 562]],
   LRV: [[862, 618], [1000, 540]],
@@ -109,14 +109,14 @@ export const EDGE_PATH = {
   V_KID_L: 'M1005 622 C 960 620 910 618 862 618',
   LRV_IVC: 'M862 618 C 790 620 700 640 620 650',
   ILI_IVC: 'M620 880 L 620 650',
-  EPI_ILI: 'M600 722 C 596 780 604 840 620 880',
-  EPI_SVC: 'M600 722 C 520 700 352 640 334 520 C 318 410 318 260 360 170 C 400 90 520 52 620 40',
+  EPI_ILI: 'M500 800 C 530 860 580 884 620 880',
+  EPI_SVC: 'M500 800 C 420 780 340 680 334 520 C 318 410 318 260 360 170 C 400 90 520 52 620 40',
 
   C1a: 'M822 432 C 836 390 830 340 815 300 C 806 276 800 256 797 232',
   C1b: 'M797 232 C 770 214 720 202 666 198 C 622 196 584 192 566 172',
   C2: 'M880 505 C 945 480 985 420 968 370 C 950 322 910 300 876 302',
   C2b: 'M876 302 C 880 350 860 400 822 432',
-  C3: 'M688 378 C 668 430 650 490 640 560 C 630 630 612 690 600 722',
+  C3: 'M688 378 C 668 440 646 520 620 600 C 590 690 540 760 500 800',
   C4: 'M932 690 C 940 790 890 870 810 890 C 730 908 660 900 620 880',
   C5: 'M876 302 C 940 340 975 450 945 540 C 925 590 895 612 862 618',
   C6: 'M880 505 C 905 545 895 590 862 618',
@@ -224,7 +224,7 @@ export const ORGANS = [
   { id: 'liver', cls: 'org org-liver', d: 'M808 262 C 796 238 772 216 736 204 C 690 190 640 188 600 188 C 530 188 450 190 398 206 C 356 220 332 252 326 300 C 320 350 330 410 352 448 C 368 474 392 488 424 492 C 470 496 520 486 562 470 C 596 458 624 442 652 424 C 694 398 734 360 770 318 C 788 298 804 280 808 262 Z' },
   { id: 'falciform', cls: 'org-lobe-line', deco: true, d: 'M646 190 C 642 260 640 340 648 422' },
   { id: 'gallbladder', cls: 'org org-gb', d: 'M532 466 C 518 484 516 512 532 526 C 548 538 570 528 572 508 C 574 490 564 474 554 466 Z' },
-  { id: 'umbilicus', cls: 'org-umbilicus', circle: [600, 722, 5] },
+  { id: 'umbilicus', cls: 'org-umbilicus', circle: [500, 800, 5] },
 ];
 // Background plane (anatomic view): the posterior wall the organs sit against, drawn quietly
 // so the plate reads in depth: the body cavity and the diaphragm domes the liver and spleen
@@ -244,7 +244,7 @@ export const SITES = {
   varix: [797, 232],        // lower esophagus
   fundus: [876, 304],       // gastric fundus
   stomachPool: [872, 452],  // blood collecting in the stomach during a bleed
-  umbilicus: [600, 722],
+  umbilicus: [500, 800],
 };
 
 // Organ captions: [text, x, y, anchor]
