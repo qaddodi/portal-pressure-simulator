@@ -3,9 +3,9 @@
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=44e0aca402';
 import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS } from './anatomy.js?v=2aa57b853f';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=fa78a29bc0';
-import { store, updateParams } from './store.js?v=609dde7847';
-import { s, h, fmt, fp, clamp, lerp, toast, cssVar } from './util.js?v=61d6f9c200';
-import { createLobuleZoom } from './lobule-zoom.js?v=cfe0a735fc';
+import { store, updateParams } from './store.js?v=e9304c5ee2';
+import { s, h, fmt, fp, clamp, lerp, toast, cssVar } from './util.js?v=cb539c0cd8';
+import { createLobuleZoom } from './lobule-zoom.js?v=53e65a948d';
 
 const N_SAMPLES = 64;
 // Displayed width grows sub-linearly with diameter so the cavae don't swamp the portal tree,
@@ -497,7 +497,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     animateVT(vtFor(lb.x + lb.w / 2, lb.y + lb.h / 2, clamp(Math.min(b.width / lb.w, b.height / lb.h) * 0.92, 2, 3)));
   }
   function zoomLobule(lobe = 'R') {
-    if (morphTarget !== 0) { store.set({ view: 'anatomy' }); setTimeout(() => zoomLobule(lobe), 650); return; }
+    if (morphTarget !== 0) { store.set({ view: 'anatomic' }); setTimeout(() => zoomLobule(lobe), 650); return; }
     const lb = liverBox(); if (!lb) return;
     lz.setLobe(lobe);
     animateVT(vtFor(lb.x + lb.w * (lobe === 'L' ? 0.74 : 0.34), lb.y + lb.h * (lobe === 'L' ? 0.36 : 0.5), 4.8), 900);

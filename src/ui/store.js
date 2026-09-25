@@ -29,6 +29,7 @@ const state = {
   presetId: 'healthy',
   locked: null,               // Set of locked control keys (Learn / Cases)
   hiddenReadouts: null,       // Set of hidden metrics (Cases)
+  hiddenEvents: null,         // Set of event ids a case keeps out of the story (model-only knowledge)
 };
 
 export const store = {

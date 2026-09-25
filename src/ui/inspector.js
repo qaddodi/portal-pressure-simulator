@@ -2,8 +2,8 @@
 
 import { EDGES, NODES, COLLATERAL_DMIN_RATIO, dMinOf } from '../engine/topology.js?v=44e0aca402';
 import { DRUGS } from '../engine/scenario.js?v=3bed5bf285';
-import { store, updateParams, isLocked } from './store.js?v=609dde7847';
-import { h, fmt, fp, ff, clamp, tooltipFor, icon, svgIcon } from './util.js?v=61d6f9c200';
+import { store, updateParams, isLocked } from './store.js?v=e9304c5ee2';
+import { h, fmt, fp, ff, clamp, tooltipFor, icon, svgIcon } from './util.js?v=cb539c0cd8';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

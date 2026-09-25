@@ -96,6 +96,18 @@ export function createCore(post) {
     timer = setInterval(tick, 33);
   }
 
+  function applyAction(e, a) {
+    switch (a.kind) {
+      case 'infuse': e.infuse(a.fluid); break;
+      case 'hemorrhage': e.hemorrhage(a.mL); break;
+      case 'band': e.band(); break;
+      case 'paracentesis': e.paracentesis(a.mL, a.albumin); break;
+      case 'valsalva': e.startValsalva(a.sec || 10); break;
+      case 'rupture': e.rupture(a.site || 'VAR', a.tear || 0.6); break;
+      case 'stopBleed': e.stopBleed('clot'); break;
+    }
+  }
+
   const handlers = {
     init({ params }) {
       if (params) { eng.setParams(deepMerge(defaultParams(), params)); eng.settle(); }
@@ -131,18 +143,32 @@ export function createCore(post) {
       paramsDirty = true;
     },
     settle() { eng.settle(); },
-    action({ action }) {
-      const a = action;
-      switch (a.kind) {
-        case 'infuse': eng.infuse(a.fluid); break;
-        case 'hemorrhage': eng.hemorrhage(a.mL); break;
-        case 'band': eng.band(); break;
-        case 'paracentesis': eng.paracentesis(a.mL, a.albumin); break;
-        case 'valsalva': eng.startValsalva(a.sec || 10); break;
-        case 'rupture': eng.rupture(a.site || 'VAR', a.tear || 0.6); break;
-        case 'stopBleed': eng.stopBleed('clot'); break;
-      }
+    action({ action }) { applyAction(eng, action); paramsDirty = true; },
+    // Run the model forward at bedside time (e.g. so a case opens with vitals that match its story).
+    preroll({ seconds, reqId }) {
+      for (let t = 0; t < seconds; t += 0.1) eng.step(0.1);
       paramsDirty = true;
+      if (reqId) post({ type: 'prerolled', reqId });
+    },
+    // Counterfactual for a case debrief: from a snapshot, replay a plan of timed parameter sets
+    // and actions in a separate engine, and report how the patient would have done.
+    counterfactual({ snap, plan, seconds, reqId }) {
+      const e = new Engine();
+      e.restore(snap);
+      const steps = plan.slice().sort((a, b) => a.t - b.t);
+      let i = 0, minMap = Infinity, stopAt = null;
+      for (let t = 0, k = 0; t < seconds; t += 0.1, k++) {
+        while (i < steps.length && steps[i].t <= t) {
+          const s0 = steps[i++];
+          if (s0.params) e.setParams(deepMerge(defaultParams(), s0.params));
+          if (s0.action) applyAction(e, s0.action);
+        }
+        e.step(0.1);
+        if (k % 10 === 0) minMap = Math.min(minMap, computeMetrics(e).map);
+        if (stopAt == null && !e.bleed.active && t > 1) stopAt = t;
+      }
+      const m = computeMetrics(e);
+      post({ type: 'counterfactual', reqId, result: { minMap, lost: e.blood.lost, hb: m.blood.hb, map: m.map, bleeding: e.bleed.active, stopAt } });
     },
     probe({ id }) { probe = id; },
     snapshot({ reqId }) { post({ type: 'snapshot', reqId, snap: eng.snapshot() }); },

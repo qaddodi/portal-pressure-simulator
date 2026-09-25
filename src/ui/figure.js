@@ -3,8 +3,8 @@
 // exported file is built from the live SVG layers with every style resolved inline, so it opens
 // the same in a vector editor, a slide or a manuscript.
 
-import { store } from './store.js?v=609dde7847';
-import { h, fmt, icon, toast } from './util.js?v=61d6f9c200';
+import { store } from './store.js?v=e9304c5ee2';
+import { h, fmt, icon, toast } from './util.js?v=cb539c0cd8';
 import { pressureColor, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=fa78a29bc0';
 
 const SVGNS = 'http://www.w3.org/2000/svg';

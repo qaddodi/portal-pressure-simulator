@@ -6,8 +6,8 @@
 // sinusoids, central vein, bridging septa in cirrhosis), and zone-3 congestion when the outflow
 // pressure rises. Zooming back out returns to the liver. It replaces the old Lobule instrument.
 
-import { store, updateParams } from './store.js?v=609dde7847';
-import { h, fmt, clamp, cssVar } from './util.js?v=61d6f9c200';
+import { store, updateParams } from './store.js?v=e9304c5ee2';
+import { h, fmt, clamp, cssVar } from './util.js?v=cb539c0cd8';
 import { pressureColor } from './colormap.js?v=fa78a29bc0';
 import { NODES, EDGES } from '../engine/topology.js?v=44e0aca402';
 
@@ -44,6 +44,7 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
   el.addEventListener('wheel', (ev) => { ev.preventDefault(); onWheel?.(ev); }, { passive: false });
 
   let F = null, fade = 0, raf = 0, last = 0;
+  const pc = (p) => (model?.hide ? '#A0939C' : pressureColor(p));
   let geo = null, geoKey = '';
   const tissue = document.createElement('canvas');
   let tissueKey = '', ink = { bg: '#fff', text: '#222' };
@@ -97,12 +98,16 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
     const fib = p.fibrosis[lobe], s = p.cirrhosis;
     const zone = { pre: (1 + 2 * s) * fib.pre, sin: (1 + 20 * s ** 2.5) * fib.sin, post: (1 + 2 * s) * fib.post };
     const cong = Math.max(0, P3 - (H?.P?.[NI[S.cv]] ?? P3));
-    legend.querySelector('.lg-pv').style.background = pressureColor(P1);
+    legend.querySelector('.lg-pv').style.background = pc(P1);
     model = { P1, P2, P3, flow: clamp(Q / Q0, 0, 3), zone, s, cong };
+    // In a case where pressures are unmeasured, the lobule shows anatomy only.
+    const hide = !!store.get().imaging;
+    model.hide = hide;
+    const mm = (v) => (hide ? '?' : `${fmt(v, 1)} mmHg`);
     stats.replaceChildren(
-      h('dt', {}, 'Portal venule'), h('dd', {}, `${fmt(P1, 1)} mmHg`),
-      h('dt', {}, 'Sinusoids'), h('dd', {}, `${fmt(P2, 1)} mmHg`),
-      h('dt', {}, 'Central vein'), h('dd', {}, `${fmt(P3, 1)} mmHg`),
+      h('dt', {}, 'Portal venule'), h('dd', {}, mm(P1)),
+      h('dt', {}, 'Sinusoids'), h('dd', {}, mm(P2)),
+      h('dt', {}, 'Central vein'), h('dd', {}, mm(P3)),
       h('dt', {}, 'Sinusoidal flow'), h('dd', {}, `${Math.round((Q / Q0) * 100)} % of normal`),
       h('dt', {}, 'Resistance'), h('dd', {}, `pre ×${fmt(zone.pre, 1)} · sin ×${fmt(zone.sin, 1)} · post ×${fmt(zone.post, 1)}`),
       h('dt', {}, 'Hepatic lymph'), h('dd', {}, `${fmt(f.metrics.ascites.hepLymph, 1)} mL/min`));
@@ -132,7 +137,7 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
     // The tissue only changes with the model, so it is painted once into an offscreen layer and
     // each frame just moves the red cells over it.
     const q = (v) => Math.round(v * 2) / 2;   // half-mmHg steps: finer changes are invisible in color
-    const tkey = [key, dpr, dark, q(P1), q(P2), q(P3), zone.pre.toFixed(2), zone.sin.toFixed(2), zone.post.toFixed(2), s.toFixed(2), q(cong)].join('|');
+    const tkey = [key, dpr, dark, q(P1), q(P2), q(P3), zone.pre.toFixed(2), zone.sin.toFixed(2), zone.post.toFixed(2), s.toFixed(2), q(cong), !!model.hide].join('|');
     if (tkey !== tissueKey) { tissueKey = tkey; paintTissue(W, HH, dpr, dark, sinW); }
     const c = cv.getContext('2d');
     c.setTransform(1, 0, 0, 1, 0, 0);
@@ -163,10 +168,11 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
       c.fillStyle = ink.text; c.fillText(t, x, y);
     };
     const m = L[0], cr = m.corners;
-    lab(`Central vein · ${fmt(P3, 1)} mmHg`, m.x, m.y + R * 0.2);
-    lab(`Portal triad · ${fmt(P1, 1)} mmHg`, cr[5][0], cr[5][1] - R * 0.2);
+    const mm = (v, u = ' mmHg') => (model.hide ? '' : ` · ${fmt(v, 1)}${u}`);
+    lab(`Central vein${mm(P3)}`, m.x, m.y + R * 0.2);
+    lab(`Portal triad${mm(P1)}`, cr[5][0], cr[5][1] - R * 0.2);
     const sm = at(m.sins[Math.floor(m.sins.length * 0.08)], 0.5);
-    lab(`Sinusoids · ${fmt(P2, 1)}`, sm[0] + 10, sm[1] - 14, 'left');
+    lab(`Sinusoids${mm(P2, '')}`, sm[0] + 10, sm[1] - 14, 'left');
     if (s > 0.2) lab(`Capillarization: fenestrae closing`, m.x, cr[1][1] + R * 0.14);
   }
 
@@ -199,7 +205,7 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
       // Sinusoids: blood channels from the triads to the central vein, colored by pressure.
       for (const pts of l.sins) {
         const gr = c.createLinearGradient(pts[0][0], pts[0][1], pts[pts.length - 1][0], pts[pts.length - 1][1]);
-        gr.addColorStop(0, pressureColor(P2)); gr.addColorStop(1, pressureColor(P3));
+        gr.addColorStop(0, pc(P2)); gr.addColorStop(1, pc(P3));
         c.strokeStyle = gr; c.lineCap = 'round'; c.lineJoin = 'round';
         c.beginPath(); pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y)));
         c.lineWidth = sinW; c.stroke();
@@ -236,7 +242,7 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
       // Central vein.
       const rcv = R * (0.075 + 0.05 * congU);
       if (fibPost > 0.05) { c.fillStyle = col(0.3 + 0.55 * fibPost); c.beginPath(); c.arc(l.x, l.y, rcv * (1.5 + fibPost), 0, TAU); c.fill(); }
-      c.fillStyle = pressureColor(P3); c.beginPath(); c.arc(l.x, l.y, rcv, 0, TAU); c.fill();
+      c.fillStyle = pc(P3); c.beginPath(); c.arc(l.x, l.y, rcv, 0, TAU); c.fill();
       c.strokeStyle = dark ? 'rgba(255,255,255,.5)' : 'rgba(40,30,40,.45)'; c.lineWidth = 1.2; c.stroke();
       c.restore();
     }
@@ -249,7 +255,7 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
       c.save(); c.globalAlpha = near ? 1 : 0.45;
       const rt = R * 0.1;
       c.fillStyle = col(0.45 + 0.5 * fibPre); c.beginPath(); c.arc(x, y, rt * (1 + 0.9 * fibPre), 0, TAU); c.fill();
-      c.fillStyle = pressureColor(P1); c.beginPath(); c.ellipse(x - rt * 0.25, y + rt * 0.05, rt * 0.5, rt * 0.38, 0.3, 0, TAU); c.fill();
+      c.fillStyle = pc(P1); c.beginPath(); c.ellipse(x - rt * 0.25, y + rt * 0.05, rt * 0.5, rt * 0.38, 0.3, 0, TAU); c.fill();
       c.fillStyle = cssVar('--artery') || '#C0392B'; c.beginPath(); c.arc(x + rt * 0.42, y - rt * 0.28, rt * 0.17, 0, TAU); c.fill();
       c.strokeStyle = '#6E9B4E'; c.lineWidth = 1.6; c.beginPath(); c.arc(x + rt * 0.38, y + rt * 0.36, rt * 0.14, 0, TAU); c.stroke();
       c.restore();

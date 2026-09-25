@@ -1,13 +1,19 @@
 // Learn mode (blueprint §11): lessons as step sequences with Predict → Observe → Explain.
 
-import { store, updateParams } from './store.js?v=609dde7847';
-import { host } from './host.js?v=878b8f0b20';
-import { h, fmt, toast, svgIcon } from './util.js?v=61d6f9c200';
+import { store, updateParams } from './store.js?v=e9304c5ee2';
+import { host } from './host.js?v=eba3cdc684';
+import { h, fmt, toast, svgIcon } from './util.js?v=cb539c0cd8';
+import { addRecord } from './records.js?v=56e1c7c37c';
+import { EDGES } from '../engine/topology.js?v=44e0aca402';
+
+const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 
 const saved = (() => { try { return JSON.parse(localStorage.getItem('pps.lessons') || '{}'); } catch { return {}; } })();
 const save = () => { try { localStorage.setItem('pps.lessons', JSON.stringify(saved)); } catch { /* storage unavailable */ } };
 
-// Step types: frame | predict (mcq | draw) | do (goal) | observe (seconds / days) | explain (metric) | check (quiz)
+// Step types: frame | predict (mcq | draw | direction) | do (goal) | observe (seconds / days) | explain (metric) | check (quiz)
+// A 'direction' prediction is made on the figure: two arrows at the vessel, toward or away from
+// the liver; the next observe step compares it with the model.
 export const LESSONS = [
   {
     id: 'valveless', title: 'Pipes without valves', minutes: 4,
@@ -15,6 +21,7 @@ export const LESSONS = [
     steps: [
       { type: 'frame', preset: 'healthy', tools: ['select', 'pinch'], tab: 'profile', path: 'main',
         text: 'The portal vein collects blood from the gut and spleen and delivers it to the liver. Its pressure is set by flow × resistance: P = Q × R. Unlike limb veins, the portal system has **no valves**.' },
+      { type: 'predict', mode: 'direction', edge: 'SV_CONF', q: 'Before we change anything: which way does blood run in the splenic vein? Choose an arrow on the figure.' },
       { type: 'predict', q: 'You are about to pinch the main portal vein to 80 %. What happens to pressure in the SMV, upstream of the pinch?',
         options: ['It rises', 'It falls', 'It stays the same'], answer: 0,
         why: 'Upstream of a new resistance, pressure rises until the gradient can push the flow through (or around) it.' },
@@ -108,6 +115,7 @@ export const LESSONS = [
       { type: 'frame', preset: 'cirr-decomp', tools: ['select', 'doppler'], tab: 'doppler', probe: 'PV_TRUNK',
         text: 'Portal flow is normally **hepatopetal** (toward the liver). When liver resistance is extreme, flow can reverse and the portal vein **drains** the liver.' },
       { type: 'predict', q: 'Which combination can drive the portal vein backwards?', options: ['High sinusoidal resistance + arterioportal shunting + a large collateral', 'Low albumin', 'High heart rate'], answer: 0 },
+      { type: 'predict', mode: 'direction', edge: 'PV_TRUNK', q: 'After you make those three changes and wait two months, which way will the portal vein flow? Choose an arrow on the figure.' },
       { type: 'do', text: 'Set **Arterioportal shunting** to 100 % and **Cirrhosis** ≥ 95 %; and make a **splenorenal shunt** present.', goal: (f, p) => p.apShunt >= 0.99 && p.cirrhosis >= 0.95 && p.spontaneous.C6, controls: ['apShunt', 'cirrhosis', 'spontaneous'] },
       { type: 'observe', days: 60, text: 'The Doppler trace drops below the baseline: hepatofugal flow. On the figure, the chevrons in the portal vein now run away from the liver.' },
       { type: 'explain', metric: 'pvFlow' },
@@ -176,8 +184,13 @@ const STEP = {
 // Lesson steps name locked-control keys; these are the matching controls to embed in the card.
 const INLINE = { cirrhosis: 'cirrhosis', splanchnicTone: 'splanchnicTone', 'drug:propranolol': 'drug:propranolol', 'drug:terlipressin': 'drug:terlipressin', apShunt: 'apShunt', spontaneous: 'srShunt', diuretics: 'diuretics', brto: 'brto' };
 
-export function createLearn({ host: hostEl, panel, dock, inspector, beginSession, endSession, onEnd, loadPreset, setTool, setAllowedTools, showPane, setProbe, openPanel, setBanner }) {
+export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector, beginSession, endSession, onEnd, loadPreset, setTool, setAllowedTools, showPane, setProbe, openPanel, setBanner }) {
   let lesson = null, idx = 0, state = {};
+  // On a wide screen the step card sits on the figure (a coach mark), next to what it asks
+  // about; on a phone it stays in the panel.
+  const onFigure = matchMedia('(min-width: 1100px)');
+  const snaps = [];             // starting state of each step, for Replay
+  let tally = { right: 0, total: 0 }, t0 = 0, prediction = null, chooser = null;
   let pollTimer = null, inline = null, showAll = false;
 
   function openList() { render(); }
@@ -185,12 +198,14 @@ export function createLearn({ host: hostEl, panel, dock, inspector, beginSession
   async function start(id) {
     await beginSession?.('lesson');
     lesson = LESSONS.find((l) => l.id === id);
-    idx = 0; state = {}; showAll = false;
+    idx = 0; state = {}; showAll = false; snaps.length = 0; tally = { right: 0, total: 0 }; t0 = Date.now(); prediction = null;
     await enter();
     panel.scrollTop = 0;
   }
   function stop() {
     lesson = null;
+    chooser?.remove(); chooser = null;
+    coach?.replaceChildren();
     clearInterval(pollTimer);
     store.set({ locked: null, hiddenReadouts: null });
     setAllowedTools(null);
@@ -202,11 +217,13 @@ export function createLearn({ host: hostEl, panel, dock, inspector, beginSession
     onEnd?.();
   }
 
-  async function enter() {
+  async function enter({ replay = false } = {}) {
     const st = lesson.steps[idx];
     clearInterval(pollTimer);
+    chooser?.remove(); chooser = null;
     state = { answered: null, quizAns: {}, observed: false, met: false };
-    if (st.preset) await loadPreset(st.preset, { keepLesson: true });
+    if (st.preset && !replay) await loadPreset(st.preset, { keepLesson: true });
+    if (!replay) { const at = idx; host.request('snapshot').then(({ snap }) => { if (lesson) { snaps[at] = { snap, params: structuredClone(store.get().params) }; if (at === idx) render(); } }); }
     if (st.params) updateParams(st.params, { history: false });
     if (st.tools) setAllowedTools(st.tools);
     if (st.hide) store.set({ hiddenReadouts: new Set(st.hide) });
@@ -218,6 +235,7 @@ export function createLearn({ host: hostEl, panel, dock, inspector, beginSession
     store.set({ focus: st.focus ? { edges: st.focus, label: st.focusLabel } : null });
     if (st.type === 'predict' || st.type === 'frame' || st.type === 'check') host.send({ type: 'run', running: st.type === 'frame' });
     if (st.type === 'predict' && st.mode === 'draw') { dock.profile.startPredict(() => render()); showPane('profile'); }
+    if (st.type === 'predict' && st.mode === 'direction') setTimeout(() => showChooser(st), 120);
     if (st.type === 'do') {
       host.send({ type: 'run', running: true });
       pollTimer = setInterval(() => {
@@ -241,10 +259,41 @@ export function createLearn({ host: hostEl, panel, dock, inspector, beginSession
   }
   function next() {
     if (!lesson) return;
+    const st = lesson.steps[idx];
+    if (st.type === 'predict' && st.options && state.answered != null) { tally.total++; if (state.answered === st.answer) tally.right++; }
+    if (st.type === 'check') st.quiz.forEach((qq, qi) => { tally.total++; if (state.quizAns[qi] === qq.answer) tally.right++; });
     if (idx < lesson.steps.length - 1) { idx++; enter(); panel.scrollTop = 0; }
-    else { saved[lesson.id] = true; save(); toast(`Lesson complete: ${lesson.title}`); stop(); }
+    else {
+      const score = tally.total ? Math.round((tally.right / tally.total) * 100) : 100;
+      saved[lesson.id] = { score: Math.max(score, saved[lesson.id]?.score || 0), date: new Date().toISOString() }; save();
+      addRecord({ kind: 'lesson', id: lesson.id, title: lesson.title, score, duration: (Date.now() - t0) / 1000, met: tally.right, total: tally.total });
+      toast(`Lesson complete: ${lesson.title} · ${score} %`); stop();
+    }
+  }
+  // Replay: back to the state this step started from (it is also a timeline entry).
+  function replay() {
+    const s0 = snaps[idx];
+    if (!s0) return;
+    host.send({ type: 'restore', snap: s0.snap });
+    updateParams(s0.params, { history: false });
+    enter({ replay: true });
+  }
+  // Predict on the figure: two arrow chips beside the vessel. The choice is compared with the
+  // model's flow when the lesson next observes.
+  function showChooser(st) {
+    chooser?.remove(); chooser = null;
+    const wrap = document.getElementById('stageView');
+    const a = stage?.anchorFor({ type: 'edge', id: st.edge });
+    if (!wrap || !a) return;
+    const pts = a.path, p0 = pts[0], p1 = pts[pts.length - 1];
+    const ang = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]) * 180 / Math.PI;
+    const pick = (dir) => { prediction = { edge: st.edge, dir }; state.answered = dir; chooser?.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.d) === dir))); render(); };
+    const btn = (dir, label) => { const b = h('button', { class: 'dir-chip', 'data-d': dir, 'aria-pressed': 'false', 'aria-label': label, title: label, onclick: () => pick(dir) }, h('span', { class: 'dir-arrow', style: { transform: `rotate(${ang + (dir > 0 ? 0 : 180)}deg)` } }, '➜'), h('span', { class: 'dir-l' }, label)); return b; };
+    chooser = h('div', { class: 'dir-chooser stage-blocker', style: { left: `${a.x}px`, top: `${a.y}px` } }, btn(1, 'With the normal flow'), btn(-1, 'Reversed'));
+    wrap.append(chooser);
   }
   function back() { if (lesson && idx > 0) { idx--; enter(); } }
+  const flowSign = (id) => { const f = store.get().frame; const q = f ? (f.Qf || f.Q)[EI[id]] : 0; return q >= 0 ? 1 : -1; };
 
   const plain = (t) => String(t || '').replace(/\*\*(.+?)\*\*/g, '$1').replace(/\*(.+?)\*/g, '$1');
   function bannerText(st) {
@@ -271,12 +320,12 @@ export function createLearn({ host: hostEl, panel, dock, inspector, beginSession
   function render() {
     inline?.dispose?.(); inline = null;
     const inLearn = store.get().mode === 'learn';
-    if (!inLearn || !lesson) { hostEl.replaceChildren(); return; }
+    if (!inLearn || !lesson) { hostEl.replaceChildren(); coach?.replaceChildren(); return; }
     const st = lesson.steps[idx];
     const body = [];
     if (st.text) body.push(h('p', {}, md(st.text)));
     let canNext = true;
-    if (st.type === 'predict' && st.mode !== 'draw') {
+    if (st.type === 'predict' && !st.mode) {
       body.push(h('p', { class: 'q' }, st.q));
       canNext = state.answered != null;
       body.push(h('div', { class: 'opts' }, st.options.map((o, i) => h('button', { class: 'opt' + (state.answered != null ? (i === st.answer ? ' right' : i === state.answered ? ' wrong' : '') : ''), disabled: state.answered != null,
@@ -284,6 +333,11 @@ export function createLearn({ host: hostEl, panel, dock, inspector, beginSession
       if (state.answered != null) body.push(h('div', { class: 'feedback' }, h('b', {}, state.answered === st.answer ? 'Correct. ' : 'Not quite. '), st.why || 'Now let’s see what the model does.'));
     }
     if (st.type === 'predict' && st.mode === 'draw') body.push(h('div', { class: 'feedback' }, 'Draw on the pressure profile below the anatomy. When you have at least four points, continue.'));
+    if (st.type === 'predict' && st.mode === 'direction') {
+      body.push(h('p', { class: 'q' }, st.q));
+      canNext = state.answered != null;
+      body.push(h('div', { class: 'feedback' }, state.answered == null ? 'Choose one of the two arrows on the vessel in the figure.' : `Your prediction: ${state.answered > 0 ? 'flow in the normal direction' : 'reversed flow'}. Let’s see what the model does.`));
+    }
     if (st.type === 'do') {
       canNext = state.met;
       const ids = [...(st.inline || []), ...(st.controls || []).map((k) => INLINE[k]).filter(Boolean)];
@@ -299,6 +353,13 @@ export function createLearn({ host: hostEl, panel, dock, inspector, beginSession
       canNext = state.observed;
       if (!state.observed) body.push(h('div', { class: 'goal waiting' }, h('span', { class: 'chk' }, svgIcon('check')), st.days ? `Running ${st.days} simulated days…` : 'Watching the model…'));
       else if (st.reveal) { const err = dock.profile.predictionError(); if (err != null) body.push(h('div', { class: 'feedback' }, `Your prediction was off by `, h('b', {}, `${fmt(err, 1)} mmHg`), ' on average.')); }
+      if (state.observed && prediction) {
+        const actual = flowSign(prediction.edge), ok = actual === prediction.dir;
+        if (!state.scoredDir) { state.scoredDir = true; tally.total++; if (ok) tally.right++; }
+        body.push(h('div', { class: 'feedback pop ' + (ok ? 'right' : 'wrong') }, h('b', {}, ok ? 'Your prediction was right. ' : 'Not what you predicted. '), `The ${EDGES[EI[prediction.edge]].label.toLowerCase()} now runs ${actual > 0 ? 'in its normal direction' : 'backwards'}: follow the chevrons on the figure.`));
+        stage?.flash([prediction.edge]);
+        prediction = null;
+      }
     }
     if (st.type === 'explain') {
       if (state.loading) body.push(h('div', { class: 'skeleton', style: { width: '95%' } }), h('div', { class: 'skeleton', style: { width: '75%' } }));
@@ -315,14 +376,19 @@ export function createLearn({ host: hostEl, panel, dock, inspector, beginSession
     const bt = bannerText(st);
     setBanner?.({ tag: `Lesson · ${idx + 1}/${lesson.steps.length}`, text: bt === lesson.title ? lesson.title : `${lesson.title}: ${bt}` });
     const card = h('section', { class: 'lesson', 'aria-label': `Lesson: ${lesson.title}` },
-      h('div', { class: 'lesson-top' }, h('span', { class: 'step-type' }, svgIcon(ic, 'sec-ic'), typeLabel, h('span', { class: 'n' }, `· Step ${idx + 1} of ${lesson.steps.length}`)), h('button', { class: 'link', onclick: stop }, 'Exit lesson')),
+      h('div', { class: 'lesson-top' }, h('span', { class: 'step-type' }, svgIcon(ic, 'sec-ic'), typeLabel, h('span', { class: 'n' }, `· Step ${idx + 1} of ${lesson.steps.length}`)),
+        h('span', { class: 'lt-act' }, h('button', { class: 'link', title: 'Back to the state this step started from', onclick: replay, disabled: !snaps[idx] }, 'Replay'), h('button', { class: 'link', onclick: stop }, 'Exit'))),
       h('div', { class: 'phase-rail', 'aria-hidden': 'true' }, lesson.steps.map((s0, i) => h('span', { class: i < idx ? 'on' : i === idx ? 'cur' : '' }, h('i'), h('b', {}, STEP[s0.type][1])))),
       h('h3', {}, lesson.title), ...body,
       h('div', { class: 'lesson-foot' }, idx > 0 ? h('button', { class: 'btn ghost', onclick: back }, 'Back') : h('span'),
         h('button', { class: 'btn primary', disabled: !canNext, onclick: () => { if (st.type === 'predict' && st.mode === 'draw') dock.profile.endPredict(false); next(); } }, idx === lesson.steps.length - 1 ? 'Finish lesson' : 'Continue', svgIcon('chev-right'))));
-    hostEl.replaceChildren(card);
+    const target = onFigure.matches && coach ? coach : hostEl;
+    (target === coach ? hostEl : coach)?.replaceChildren();
+    target.replaceChildren(card);
+    card.classList.toggle('on-figure', target === coach);
   }
 
   store.on('mode', (m) => { if (m !== 'learn' && lesson) stop(); render(); });
+  onFigure.addEventListener('change', () => render());
   return { openList, start, stop, render, active: () => !!lesson };
 }

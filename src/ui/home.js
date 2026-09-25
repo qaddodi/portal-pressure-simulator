@@ -2,10 +2,10 @@
 // present to a class. It replaces the mode tabs and the first-run welcome; the brand mark
 // brings it back. A lesson or case then runs in the ordinary workspace with a slim banner.
 
-import { store } from './store.js?v=609dde7847';
-import { h, svgIcon, icon } from './util.js?v=61d6f9c200';
-import { LESSONS } from './learn.js?v=64140e2389';
-import { CASES } from './cases.js?v=f5f5cb7bcb';
+import { store } from './store.js?v=e9304c5ee2';
+import { h, svgIcon, icon } from './util.js?v=cb539c0cd8';
+import { LESSONS } from './learn.js?v=e376872e6c';
+import { CASES } from './cases.js?v=2287efa897';
 
 const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };
 const read = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || d); } catch { return JSON.parse(d); } };
@@ -42,6 +42,14 @@ export function createHome({ el, brandMark, onPreset, onLesson, onCase, onPresen
         h('span', { class: 't' }, c.title), h('span', { class: 'd' }, c.summary))));
     } else {
       body = onPresenter();
+    }
+    // Assessment: every finished lesson and case is recorded on this device for export.
+    if (tab === 'learn' || tab === 'cases') {
+      const name = h('input', { class: 'input', type: 'text', placeholder: 'Your name (for the export)', value: learnerName(), 'aria-label': 'Learner name' });
+      name.addEventListener('change', () => setLearnerName(name.value.trim()));
+      const n = records().length;
+      body = h('div', {}, body, h('div', { class: 'home-records' }, h('span', { class: 'overline' }, `Your records · ${n} attempt${n === 1 ? '' : 's'}`), name,
+        h('button', { class: 'btn sm', disabled: !n, onclick: exportCSV }, 'Export CSV'), h('button', { class: 'btn sm', disabled: !n, onclick: exportXAPI }, 'Export xAPI')));
     }
     el.replaceChildren(h('div', { class: 'home-inner' },
       h('header', { class: 'home-head' }, brandMark(), h('div', {}, h('h1', {}, 'Portal Pressure Simulator'), h('p', {}, 'A living, physics-based model of the portal circulation. Raise a resistance anywhere from the gut to the heart and blood finds another way.')),

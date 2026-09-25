@@ -1,25 +1,27 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=878b8f0b20';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=609dde7847';
-import { createStage } from './stage.js?v=cd85c3a76e';
-import { createInspector, activeInterventions } from './inspector.js?v=ef36f22648';
-import { createDock } from './dock.js?v=e96ad88daf';
-import { createWhy } from './why.js?v=9aaf3b4a56';
-import { createTimeline } from './timeline.js?v=551456b34d';
-import { createLearn } from './learn.js?v=64140e2389';
-import { createCases } from './cases.js?v=f5f5cb7bcb';
-import { createCompare } from './compare.js?v=b976bdfeab';
-import { createFigure } from './figure.js?v=7db0e202ba';
-import { createCard } from './card.js?v=f46b09ec99';
-import { createChart } from './chart.js?v=c88bc8a5b8';
-import { createHome } from './home.js?v=8ed4f0993e';
-import { createPalette } from './palette.js?v=c2dba25c5f';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=3737b309ec';
+import { startHost, host } from './host.js?v=eba3cdc684';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=e9304c5ee2';
+import { createStage } from './stage.js?v=2fffd193c7';
+import { createInspector, activeInterventions } from './inspector.js?v=f427b5902d';
+import { createDock } from './dock.js?v=3618e79469';
+import { createWhy } from './why.js?v=e38edff8d5';
+import { createTimeline } from './timeline.js?v=dad0f29780';
+import { createLearn } from './learn.js?v=e376872e6c';
+import { createCases } from './cases.js?v=2287efa897';
+import { createCompare } from './compare.js?v=cae6038c84';
+import { createFigure } from './figure.js?v=6f83d73754';
+import { createCard } from './card.js?v=bdc93151b9';
+import { createChart } from './chart.js?v=b46fc36099';
+import { createHome } from './home.js?v=b7424c735c';
+import { createPalette } from './palette.js?v=e051a2e46e';
+import { createPresenter } from './presenter.js?v=39eb8486ad';
+import { exportCSV, exportXAPI, learnerName, setLearnerName } from './records.js?v=56e1c7c37c';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=9064024871';
 import { gradientCss, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=fa78a29bc0';
 import { EDGES, NODES } from '../engine/topology.js?v=44e0aca402';
-import { $, $$, h, icon, fmt, toast, tooltipFor, openModal, closeModal, isModalOpen, units, popover, closePopover, menuItem, svgIcon } from './util.js?v=61d6f9c200';
+import { $, $$, h, icon, fmt, toast, tooltipFor, openModal, closeModal, isModalOpen, units, popover, closePopover, menuItem, svgIcon } from './util.js?v=cb539c0cd8';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -49,7 +51,7 @@ const COLOR_MODES = { pressure: 'Pressure', delta: 'Change', heat: 'Congestion',
 const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };
 const ROLES = [['student', 'Student', 'The model and the clinical orders.'], ['instructor', 'Instructor', 'Adds the physiology knobs and presenter scripts.'], ['researcher', 'Researcher', 'Everything open, with resistances on the cards.']];
 
-let stage, inspector, dock, why, timeline, learn, cases, compare, figure, card, chart, home, palette;
+let stage, inspector, dock, why, timeline, learn, cases, compare, figure, card, chart, home, palette, presenter;
 
 async function main() {
   applyTheme(readLS('pps.theme'));
@@ -91,14 +93,17 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => host.send({ type: 'probe', id }), onReveal: revealDock, onLobule: () => zoomLobule('R') });
   const api = { beginSession, endSession, onEnd: () => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); }, muteEvents: () => {}, loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), openPanel, setBanner, select: (sel) => store.set({ selection: sel }) };
   // A lesson keeps its card in view on a phone: instruments it opens are flagged, not forced.
-  learn = createLearn({ host: $('#panelLesson'), panel: $('#panel'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
+  learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panel'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
+  presenter = createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+    projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
+    closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } });
   home = createHome({
     el: $('#home'), brandMark,
     onPreset: async (id) => { home.close(); if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); },
     onLesson: (id) => { home.close(); startLesson(id); },
     onCase: (id) => { home.close(); startCase(id); },
-    onPresenter: () => presenterHome(),
+    onPresenter: () => presenter.home(),
     onClose: () => home.close(),
   });
   palette = createPalette({ ctx: {
@@ -148,7 +153,8 @@ async function main() {
   store.on('selection', redraw);
 
   // Console handle for educators preparing a class (and for automated screenshots).
-  window.pps = { loadPreset, store, updateParams, setTool, dock, stage, host, toggleFigure, figure, card, timeline, home, palette, startLesson, startCase };
+  window.pps = { loadPreset, store, updateParams, setTool, dock, stage, host, toggleFigure, figure, card, timeline, home, palette, startLesson, startCase, presenter };
+  if (presenter.readLink()) home.open('present');
   const shared = readShare();
   if (shared) await loadShared(shared); else timeline.reset();
   inspector.render();
@@ -171,7 +177,7 @@ function viewFrame(f) {
 let lastPaint = 0;
 function onFrame(f) {
   if (f.params) replaceParams(f.params);
-  if (f.events?.length) timeline.addEvents(f.events);
+  if (f.events?.length) { const hid = store.get().hiddenEvents; const ev = hid ? f.events.filter((e) => !hid.has(e.id)) : f.events; if (ev.length) timeline.addEvents(ev); }
   const now = performance.now();
   if (!f.params && !f.events?.length && now - lastPaint < 100) return;
   lastPaint = now;
@@ -598,7 +604,7 @@ function onMode(mode) {
   if (mode !== 'learn' && mode !== 'cases') { bannerInfo = null; store.set({ focus: null }); }
   if (mode === 'cases') cases.mount();
   learn.render();
-  if (mode === 'explore') { store.set({ locked: null, hiddenReadouts: null, imaging: false }); setAllowedTools(null); }
+  if (mode === 'explore') { store.set({ locked: null, hiddenReadouts: null, hiddenEvents: null, imaging: false }); setAllowedTools(null); }
   store.set({ selection: null, details: null });
   inspector.render();
   renderPaintHint(); renderBanner(); renderLegend();
@@ -760,9 +766,4 @@ function firstRun() {
   try { localStorage.setItem('pps.seen', '1'); } catch { /* storage unavailable */ }
   home.open('explore');
 }
-// Presenter scripts (Home › Presenter) arrive with the teaching tools; until then, projector mode.
-function presenterHome() {
-  return h('div', { class: 'home-grid' }, h('button', { class: 'home-item', onclick: () => { home.close(); toggleProjector(); } }, h('span', { class: 't' }, 'Projector mode'), h('span', { class: 'd' }, 'Large type and hidden chrome for the room.')));
-}
-
 main().catch((err) => { console.error(err); document.body.append(h('pre', { style: { position: 'fixed', bottom: 0, left: 0, background: '#fff', color: '#900', padding: '8px', zIndex: 999 } }, String(err.stack || err))); });
