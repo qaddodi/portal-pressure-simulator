@@ -1,0 +1,86 @@
+/* Design tokens (blueprint §5.2). Light = "Atlas", dark = "Monitor". */
+:root {
+  --bg: #F7F5F2;
+  --surface: #FFFFFF;
+  --surface-2: #F1EEEA;
+  --surface-3: #E9E4DD;
+  --border: #E3DED7;
+  --border-strong: #CFC7BC;
+  --text: #1D2330;
+  --text-muted: #5B6475;
+  --text-faint: #8A91A0;
+  --focus: #3B82F6;
+  --accent: #2D6CDF;
+  --accent-soft: rgba(45, 108, 223, .12);
+
+  --organ-body: #E9DDD2;     --organ-body-a: .45;
+  --organ-liver: #C9887A;    --organ-liver-a: .30;
+  --organ-spleen: #9C6B8E;   --organ-spleen-a: .30;
+  --organ-gut: #E0B48F;      --organ-gut-a: .26;
+  --organ-stomach: #D9A38F;  --organ-stomach-a: .30;
+  --organ-heart: #B5505C;    --organ-heart-a: .26;
+  --organ-kidney: #A9745F;   --organ-kidney-a: .28;
+  --organ-lung: #B9C7D6;     --organ-lung-a: .22;
+  --organ-pancreas: #E3C48A; --organ-pancreas-a: .30;
+  --organ-line: #A89A8A;
+  --artery: #C2414B;
+  --wall: #8C8378;
+  --ascites: #6FB6D9;
+
+  --ok: #1F9D74;
+  --caution: #D99A1E;
+  --danger: #D23B3B;
+  --critical: #A3134B;
+  --info: #2D6CDF;
+
+  --flow-normal: #19A7A0;
+  --flow-reversed: #F0782B;
+
+  --shadow-1: 0 1px 2px rgba(20, 24, 32, .06), 0 2px 8px rgba(20, 24, 32, .06);
+  --shadow-2: 0 6px 24px rgba(20, 24, 32, .14), 0 2px 6px rgba(20, 24, 32, .08);
+  --radius: 12px;
+  --radius-sm: 8px;
+
+  --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-num: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+
+  --stage-bg: #FBF8F4;
+  --grid-line: rgba(90, 80, 70, .06);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0B1020; --surface: #121831; --surface-2: #19203C; --surface-3: #212A4A;
+    --border: #252E50; --border-strong: #34406A; --text: #E7EBF5; --text-muted: #A2ABC2; --text-faint: #6F7894;
+    --focus: #60A5FA; --accent: #6E9BFF; --accent-soft: rgba(110, 155, 255, .14);
+    --organ-body: #1B2342; --organ-body-a: .8;
+    --organ-liver: #B3786B; --organ-liver-a: .22; --organ-spleen: #9C6B8E; --organ-spleen-a: .22;
+    --organ-gut: #C4976F; --organ-gut-a: .16; --organ-stomach: #C28E7B; --organ-stomach-a: .2;
+    --organ-heart: #C75A67; --organ-heart-a: .22; --organ-kidney: #A9745F; --organ-kidney-a: .2;
+    --organ-lung: #5A6D8C; --organ-lung-a: .18; --organ-pancreas: #C8A86C; --organ-pancreas-a: .2;
+    --organ-line: #4B557A; --artery: #E0606A; --wall: #5B6588; --ascites: #3E8FC0;
+    --ok: #34C38F; --caution: #F0B43C; --danger: #F05252; --critical: #E0457F; --info: #6E9BFF;
+    --flow-normal: #2CC5BD; --flow-reversed: #FF8C42;
+    --shadow-1: 0 1px 2px rgba(0,0,0,.4); --shadow-2: 0 8px 28px rgba(0,0,0,.5);
+    --stage-bg: #0D1326; --grid-line: rgba(160, 180, 255, .05);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0B1020; --surface: #121831; --surface-2: #19203C; --surface-3: #212A4A;
+  --border: #252E50; --border-strong: #34406A; --text: #E7EBF5; --text-muted: #A2ABC2; --text-faint: #6F7894;
+  --focus: #60A5FA; --accent: #6E9BFF; --accent-soft: rgba(110, 155, 255, .14);
+  --organ-body: #1B2342; --organ-body-a: .8;
+  --organ-liver: #B3786B; --organ-liver-a: .22; --organ-spleen: #9C6B8E; --organ-spleen-a: .22;
+  --organ-gut: #C4976F; --organ-gut-a: .16; --organ-stomach: #C28E7B; --organ-stomach-a: .2;
+  --organ-heart: #C75A67; --organ-heart-a: .22; --organ-kidney: #A9745F; --organ-kidney-a: .2;
+  --organ-lung: #5A6D8C; --organ-lung-a: .18; --organ-pancreas: #C8A86C; --organ-pancreas-a: .2;
+  --organ-line: #4B557A; --artery: #E0606A; --wall: #5B6588; --ascites: #3E8FC0;
+  --ok: #34C38F; --caution: #F0B43C; --danger: #F05252; --critical: #E0457F; --info: #6E9BFF;
+  --flow-normal: #2CC5BD; --flow-reversed: #FF8C42;
+  --shadow-1: 0 1px 2px rgba(0,0,0,.4); --shadow-2: 0 8px 28px rgba(0,0,0,.5);
+  --stage-bg: #0D1326; --grid-line: rgba(160, 180, 255, .05);
+  color-scheme: dark;
+}

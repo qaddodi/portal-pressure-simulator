@@ -11,6 +11,16 @@
 >
 > **Scope:** education only. This isn't a clinical decision tool, and the app must say so (§14).
 
+
+> **Implementation status (v1).** The first implementation is on `main`. It departs from this draft in these ways:
+> - **Stack.** It's a no-build ES-module app (vanilla JS + SVG + Canvas2D) instead of Vite/React/Pixi, so the repository serves directly as a static site.
+> - **Calibration.** Resistances are calibrated by construction (R = ΔP/Q from target pressures and flows) rather than by a fitting tool.
+> - **Compare.** Compare mode uses an A/B snapshot with ghost overlays instead of two live engines.
+> - **Scope.** It ships 11 lessons and 4 cases.
+> - **T15.** Paracentesis is tested on cirrhosis with tense ascites. Budd–Chiari was a poor test case: IVC decompression there raises cardiac output.
+>
+> All §12 acceptance tests are automated in `tests/acceptance.test.js`.
+
 ---
 
 ## Table of contents
