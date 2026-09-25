@@ -4,14 +4,17 @@
 // entry in the timeline; nothing stays "armed".
 
 import { store, updateParams } from './store.js?v=e9304c5ee2';
-import { h, icon, svgIcon, fmt, clamp, tooltipFor } from './util.js?v=cb539c0cd8';
-import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=9064024871';
+import { h, icon, svgIcon, fmt, clamp, tooltipFor } from './util.js?v=13768f12bf';
+import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=d4515a7b91';
 
 const LOCK_TIP = 'Not available in this step of the lesson or case';
 
 export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   const el = h('section', { class: 'action-card stage-blocker', role: 'dialog', 'aria-label': 'Actions', hidden: true });
   view.append(el);
+  const sizes = { vw: view.clientWidth, vh: view.clientHeight, w: 0, h: 0 };
+  new ResizeObserver(() => { sizes.vw = view.clientWidth; sizes.vh = view.clientHeight; placedFor = ''; position(); }).observe(view);
+  new ResizeObserver(() => { sizes.w = el.offsetWidth; sizes.h = el.offsetHeight; placedFor = ''; position(); }).observe(el);
   const uiState = {};
   ctx.ui = (key, def) => (uiState[key] ||= def);
   let model = null, live = [], syncs = [], actionable = [], selRef = null, placedFor = '';
@@ -168,8 +171,10 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     el.classList.remove('docked');
     const a = stage.anchorFor(normalizeSel(selRef) || selRef);
     if (!a) return;
-    const W = view.clientWidth, H = view.clientHeight;
-    const w = el.offsetWidth || 288, hh = el.offsetHeight || 240;
+    // Sizes come from ResizeObservers: measuring here, after the frame's DOM writes, would force
+    // a layout every frame while the card is open.
+    const W = sizes.vw, H = sizes.vh;
+    const w = sizes.w || 288, hh = sizes.h || 240;
     const pts = a.path || [[a.x, a.y]];
     const gap = 22;
     const cands = [[a.x + gap, a.y - hh / 2], [a.x - gap - w, a.y - hh / 2], [a.x - w / 2, a.y + gap], [a.x - w / 2, a.y - gap - hh], [a.x + gap, a.y - 30], [a.x - gap - w, a.y - 30]];

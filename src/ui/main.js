@@ -1,31 +1,31 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=eba3cdc684';
+import { startHost, host } from './host.js?v=9b28abbb15';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=e9304c5ee2';
-import { createStage } from './stage.js?v=81f90c7dc5';
-import { createInspector, activeInterventions } from './inspector.js?v=f427b5902d';
-import { createDock } from './dock.js?v=3618e79469';
-import { createWhy } from './why.js?v=e38edff8d5';
-import { createTimeline } from './timeline.js?v=dad0f29780';
-import { createLearn } from './learn.js?v=df0f4b5a11';
-import { createCases } from './cases.js?v=37bc1636c4';
-import { createCompare } from './compare.js?v=cae6038c84';
-import { createFigure } from './figure.js?v=6f83d73754';
-import { createCard } from './card.js?v=bdc93151b9';
-import { createChart } from './chart.js?v=b46fc36099';
-import { createHome } from './home.js?v=e2a4e54835';
-import { createPalette } from './palette.js?v=0619042361';
-import { createPresenter } from './presenter.js?v=4a3009883b';
+import { createStage } from './stage.js?v=9d093f92d7';
+import { createInspector, activeInterventions } from './inspector.js?v=87d3126b53';
+import { createDock } from './dock.js?v=28492ab277';
+import { createWhy } from './why.js?v=18225e047e';
+import { createTimeline } from './timeline.js?v=318a7aad38';
+import { createLearn } from './learn.js?v=5779851b56';
+import { createCases } from './cases.js?v=59603b916f';
+import { createCompare } from './compare.js?v=0a28b9dcc5';
+import { createFigure } from './figure.js?v=8e60100bd5';
+import { createCard } from './card.js?v=b91b1c7319';
+import { createChart } from './chart.js?v=a8f5ff835a';
+import { createHome } from './home.js?v=ef56611b82';
+import { createPalette } from './palette.js?v=22f77b084a';
+import { createPresenter } from './presenter.js?v=b1d6524fa0';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=743b542534';
-import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=5ff75548d4';
+import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=a1a7234e43';
 import { startLMS } from './lms.js?v=4511ed56b8';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION } from '../version.js?v=9a2c622775';
 import { exportCSV, exportXAPI, learnerName, setLearnerName } from './records.js?v=26ab8fb634';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=9064024871';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=d4515a7b91';
 import { gradientCss, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=fa78a29bc0';
 import { EDGES, NODES } from '../engine/topology.js?v=44e0aca402';
-import { $, $$, h, icon, fmt, toast, tooltipFor, openModal, closeModal, isModalOpen, units, popover, closePopover, menuItem, svgIcon } from './util.js?v=cb539c0cd8';
+import { $, $$, h, icon, fmt, toast, tooltipFor, openModal, closeModal, isModalOpen, units, popover, closePopover, menuItem, svgIcon } from './util.js?v=13768f12bf';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -199,7 +199,7 @@ function onFrame(f) {
   if (f.params) replaceParams(f.params);
   if (f.events?.length) { const hid = store.get().hiddenEvents; const ev = hid ? f.events.filter((e) => !hid.has(e.id)) : f.events; if (ev.length) timeline.addEvents(ev); }
   const now = performance.now();
-  if (!f.params && !f.events?.length && now - lastPaint < 100) return;
+  if (!f.params && !f.events?.length && now - lastPaint < 80) return;
   lastPaint = now;
   store.set({ frame: f, running: f.running, clock: f.clock });
   stage.update(viewFrame(f));

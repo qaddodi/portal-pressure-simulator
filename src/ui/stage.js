@@ -4,8 +4,8 @@ import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, SHUNT_PO
 import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS } from './anatomy.js?v=2aa57b853f';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=fa78a29bc0';
 import { store, updateParams } from './store.js?v=e9304c5ee2';
-import { s, h, fmt, fp, clamp, lerp, toast, cssVar } from './util.js?v=cb539c0cd8';
-import { createLobuleZoom } from './lobule-zoom.js?v=53e65a948d';
+import { s, h, fmt, fp, clamp, lerp, toast, cssVar } from './util.js?v=13768f12bf';
+import { createLobuleZoom } from './lobule-zoom.js?v=bb32f428eb';
 
 const N_SAMPLES = 64;
 // Displayed width grows sub-linearly with diameter so the cavae don't swamp the portal tree,
@@ -368,7 +368,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
 
   const cls = (x, c, on) => { for (const g of x.groups) g.classList.toggle(c, on); };
-  const setStyle = (x, k, v) => { for (const g of x.groups) g.style[k] = v; };
+  const setStyle = (x, k, v) => { if (x['_s' + k] === v) return; x['_s' + k] = v; for (const g of x.groups) g.style[k] = v; };
+  // Performance: every model frame (≈10 a second) would otherwise rewrite hundreds of SVG
+  // attributes with values that differ only in the third decimal, and each write makes the
+  // browser restyle and repaint the figure. Writes go through a per-element cache, pressures
+  // used for color are rounded to 0.25 mmHg and widths to 0.25 px (well below what shows).
+  const setA = (el, k, v) => { const c = el._a || (el._a = {}); if (c[k] === v) return; c[k] = v; el.setAttribute(k, v); };
+  const qP = (v) => Math.round(v * 4) / 4;
+  const qW = (v) => Math.round(v * 4) / 4;
 
   // Nodes (circuit view)
   const nodeEls = {};
@@ -528,7 +535,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let dpr = 1;
   function resizeCanvas() {
     const r = wrap.getBoundingClientRect();
-    dpr = Math.min(2, devicePixelRatio || 1);
+    // The flow marks are small, soft-edged arrows: at 1.5× they stay crisp on a Retina screen for
+    // a little over half the pixels of 2×, and on phones every pixel is paid for each frame.
+    dpr = Math.min(window.PPS_FLOW_DPR || 1.5, devicePixelRatio || 1);
     canvas.width = Math.max(1, Math.round(r.width * dpr));
     canvas.height = Math.max(1, Math.round(r.height * dpr));
     wrap.classList.toggle('compact', r.height < 600);
@@ -663,39 +672,40 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // Flow layer: width follows flow volume (∝ √Q), like traffic volume on a city map.
       if (mode === 'flow' && !x.isArt) w = clamp(2.2 + 8.5 * Math.sqrt(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) * 0.06), 2.2, 22);
       if (x.isArt) w = lerp(Math.max(1.8, vesselPx(D) * 0.5), 3, t);
+      w = qW(w);
       x.width = w;
-      if (x.isArt) { x.wall.setAttribute('stroke-width', w.toFixed(1)); continue; }
+      if (x.isArt) { setA(x.wall, 'stroke-width', w.toFixed(1)); continue; }
       x.pmid = (P1 + P2) / 2;
       const baseD = e.d || (e.dMax ? dMinOf(e) : 3);
       const wallPx = e.kind === 'liver' ? 0.7 : clamp(0.9 * Math.sqrt(baseD / Math.max(0.3, D)), 0.8, 1.6);
       x.wallPx = wallPx;
-      x.wall.setAttribute('stroke-width', (w + 2 * wallPx).toFixed(1));
-      x.lumen.setAttribute('stroke-width', w.toFixed(1));
-      if (x.spine) x.spine.setAttribute('stroke-width', (w + 16).toFixed(1));
+      setA(x.wall, 'stroke-width', (w + 2 * wallPx).toFixed(1));
+      setA(x.lumen, 'stroke-width', w.toFixed(1));
+      if (x.spine) setA(x.spine, 'stroke-width', (w + 16).toFixed(1));
       let c1, c2;
-      if (mode === 'pressure') { c1 = pressureColor(P1); c2 = pressureColor(P2); }
+      if (mode === 'pressure') { c1 = pressureColor(qP(P1)); c2 = pressureColor(qP(P2)); }
       else if (mode === 'drop') { c1 = c2 = dropColor(P1 - P2); }
       else if (mode === 'direction') { const rev = isReversed(e, f); c1 = c2 = rev ? 'var(--flow-reversed)' : 'var(--flow-normal)'; }
       else if (mode === 'flow') { c1 = c2 = flowColor(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) * 0.06); }
       else if (mode === 'velocity') { c1 = c2 = e.kind === 'liver' ? 'rgb(150,152,162)' : velocityColor(edgeVel(f, k)); }
-      else if (mode === 'heat') { c1 = heatColor(ref ? P1 - ref[NI[e.from]] : 0); c2 = heatColor(ref ? P2 - ref[NI[e.to]] : 0); }
+      else if (mode === 'heat') { c1 = heatColor(ref ? qP(P1 - ref[NI[e.from]]) : 0); c2 = heatColor(ref ? qP(P2 - ref[NI[e.to]]) : 0); }
       else if (mode === 'neutral') { c1 = c2 = PORTAL_TERRITORY.has(e.from) || PORTAL_TERRITORY.has(e.to) ? 'var(--vein-portal)' : 'var(--vein-systemic)'; }
-      else { c1 = deltaColor(ref ? P1 - ref[NI[e.from]] : 0); c2 = deltaColor(ref ? P2 - ref[NI[e.to]] : 0); }
-      x.st0.setAttribute('stop-color', c1); x.st1.setAttribute('stop-color', c2);
+      else { c1 = deltaColor(ref ? qP(P1 - ref[NI[e.from]]) : 0); c2 = deltaColor(ref ? qP(P2 - ref[NI[e.to]]) : 0); }
+      setA(x.st0, 'stop-color', c1); setA(x.st1, 'stop-color', c2);
       // Flow marks are white on dark lumens and ink on pale ones.
       x.inkDark = mode === 'pressure' ? luminance(pressureColor((P1 + P2) / 2)) > 0.36 : luminance(c1) > 0.36;
-      if (x.heat) { x.heat.setAttribute('stroke', c1); x.heat.setAttribute('stroke-width', (w + 22).toFixed(1)); x.heat.style.opacity = mode === 'heat' && ref ? clamp((x.pmid - (ref[NI[e.from]] + ref[NI[e.to]]) / 2) / 8, 0, 1).toFixed(2) : '0'; }
+      if (x.heat) { setA(x.heat, 'stroke', c1); setA(x.heat, 'stroke-width', (w + 22).toFixed(1)); const ho = mode === 'heat' && ref ? clamp((x.pmid - (ref[NI[e.from]] + ref[NI[e.to]]) / 2) / 8, 0, 1).toFixed(2) : '0'; if (x.heat._op !== ho) { x.heat._op = ho; x.heat.style.opacity = ho; } }
       if (e.kind === 'collateral') {
         const fr = recruitFrac(e.id, f);
         const qa = Math.abs(f.Qf ? f.Qf[k] : f.Q[k]);
         cls(x, 'coll-ghost', !collOpen(e.id, f));
-        setStyle(x, 'opacity', p.occluded[e.id] ? '0.45' : String(0.3 + 0.7 * Math.min(1, Math.max(fr * 2.5, qa / 1.5))));
+        setStyle(x, 'opacity', p.occluded[e.id] ? '0.45' : (0.3 + 0.7 * Math.min(1, Math.max(fr * 2.5, qa / 1.5))).toFixed(2));
       }
       x.rev = REVERSAL_WATCH.has(e.id) && isReversed(e, f);
       const selOn = st.selection?.type === 'edge' && st.selection.id === e.id;
       x.sel.classList.toggle('on', selOn);
       cls(x, 'is-sel', selOn);
-      if (selOn) x.sel.setAttribute('stroke-width', (w + 12).toFixed(1));
+      if (selOn) setA(x.sel, 'stroke-width', (w + 12).toFixed(1));
     }
     // Junction widths: where vessels meet, the largest narrows to the second largest and the
     // others widen toward it, so calibers change smoothly through every junction.
@@ -1025,7 +1035,26 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
 
   // Overlays (stenosis, thrombus, stents, varices, balloons, catheter…)
+  // The overlays (clamps, clots, stents, varices, caput medusae, balloons, catheter) are rebuilt
+  // only when something they draw has visibly changed: the key holds every input, rounded.
+  let overlayKey = '';
+  function overlayInputs(f, p, t) {
+    const m = f.metrics, q1 = (v) => Math.round(v * 10) / 10;
+    const lesions = [...Object.keys(p.stenosis), ...Object.keys(p.thrombus), ...Object.keys(p.occluded), 'TIPS', 'S_PC', 'S_DSR', 'S_MC', ...Object.keys(p.customShunts || {}), 'C3'];
+    return JSON.stringify([t.toFixed(3), isImaging(), p.stenosis, p.thrombus, p.occluded, p.tips, p.customShunts, p.balloonEso, p.balloonGas, p.catheter,
+      lesions.map((id) => (E[id] ? [E[id].vis, E[id].width, !!E[id].reveal] : 0)),
+      Math.round(m.varix.d * 2), Math.round(m.varix.r * 2), Math.round(m.varix.ratio * 10), Math.round(f.bands || 0),
+      Math.round(m.gastricVarix.d * 2), Math.round(recruitFrac('C3', f) * 10), lastMorph]);
+  }
+  const setVar = (el, k, v) => { const c = el._v || (el._v = {}); if (c[k] === v) return; c[k] = v; el.style.setProperty(k, v); };
   function updateOverlays(f, p, gain, t) {
+    // Colors follow pressure continuously through CSS variables; geometry rebuilds only on change.
+    setVar(ov.varices, '--vx', pressureColor(qP(f.P[NI.VAR])));
+    setVar(ov.gvarices, '--vx', pressureColor(qP(f.P[NI.GV])));
+    setVar(ov.caput, '--vx', pressureColor(qP(f.P[NI.EPI])));
+    const key = overlayInputs(f, p, t);
+    if (key === overlayKey) return;
+    overlayKey = key;
     const anat = t < 0.5;
     // stenosis clamps & thrombi
     ov.clamps.innerHTML = ''; ov.thrombi.innerHTML = ''; ov.stents.innerHTML = ''; ov.plugs.innerHTML = '';
@@ -1078,7 +1107,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const vr = m.varix;
       const eso = (y) => 789 + (y - 24) * 0.066;
       if (vr.d >= 2.4) {
-        const col = pressureColor(f.P[NI.VAR]);
+        const col = 'var(--vx)';
         const grow = clamp((vr.d - 2.4) / 8, 0, 1);
         const cols = grow > 0.55 ? [-7.5, -2.5, 2.5, 7.5] : [-6, 0, 6];
         const top = 292 - (70 + 70 * grow);
@@ -1086,11 +1115,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           const pts = [];
           for (let y = top; y <= 290; y += 4) pts.push([eso(y) + off * (0.6 + 0.5 * grow) + Math.sin(y * (0.16 + 0.05 * ci) + ci * 2.1) * (0.6 + 3.4 * grow), y]);
           const w = clamp(1.4 + vr.r * 0.9, 1.6, 7);
-          ov.varices.append(s('path', { d: polyD(pts), class: 'varix-col-case', 'stroke-width': (w + 1.8).toFixed(1) }), s('path', { d: polyD(pts), class: 'varix-col', stroke: col, 'stroke-width': w.toFixed(1) }));
+          ov.varices.append(s('path', { d: polyD(pts), class: 'varix-col-case', 'stroke-width': (w + 1.8).toFixed(1) }), s('path', { d: polyD(pts), class: 'varix-col', style: 'stroke: var(--vx)', 'stroke-width': w.toFixed(1) }));
           if (grow > 0.18) for (let k = 2; k < pts.length - 1; k += 3) {
             const [x, y] = pts[k];
             const r = (w / 2) * (1 + 0.55 * grow * (0.6 + 0.4 * Math.sin(k * 1.7 + ci)));
-            ov.varices.append(s('ellipse', { cx: x.toFixed(1), cy: y.toFixed(1), rx: r.toFixed(1), ry: (r * 1.25).toFixed(1), class: 'varix-bead', fill: col }));
+            ov.varices.append(s('ellipse', { cx: x.toFixed(1), cy: y.toFixed(1), rx: r.toFixed(1), ry: (r * 1.25).toFixed(1), class: 'varix-bead', style: 'fill: var(--vx)' }));
             ov.varices.append(s('ellipse', { cx: (x - r * 0.35).toFixed(1), cy: (y - r * 0.4).toFixed(1), rx: (r * 0.32).toFixed(1), ry: (r * 0.24).toFixed(1), class: 'bead-glint' }));
             if (vr.ratio > 0.7 && k % 6 === 2) ov.varices.append(s('path', { class: 'redwale', d: `M${(x - r * 0.5).toFixed(1)} ${(y - 1).toFixed(1)} l ${(r).toFixed(1)} 2.4`, opacity: clamp((vr.ratio - 0.7) / 0.3, 0.3, 1).toFixed(2) }));
           }
@@ -1101,13 +1130,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // Fundal varices: a grape-like cluster at the fundus, each grape with a highlight.
       const gv = m.gastricVarix;
       if (gv.d >= 2.4) {
-        const col = pressureColor(f.P[NI.GV]);
+        const col = 'var(--vx)';
         const g0 = clamp((gv.d - 2.4) / 6, 0, 1);
         const r = 3 + 7 * g0;
         const grapes = [[0, 0], [-1.1, -0.6], [1.0, -0.8], [0.2, -1.5], [-1.6, 0.7], [1.5, 0.6], [-0.4, 1.2], [0.9, 1.5], [-1.9, -1.2], [2.0, -1.6]].slice(0, 5 + Math.round(5 * g0));
         for (const [dx, dy] of grapes.slice().reverse()) {
           const cx = SITES.fundus[0] + dx * r * 1.25, cy = SITES.fundus[1] - 4 + dy * r * 1.2;
-          ov.gvarices.append(s('circle', { cx: cx.toFixed(1), cy: cy.toFixed(1), r: (r * 0.72).toFixed(1), fill: col, class: 'varix-bead' }),
+          ov.gvarices.append(s('circle', { cx: cx.toFixed(1), cy: cy.toFixed(1), r: (r * 0.72).toFixed(1), style: 'fill: var(--vx)', class: 'varix-bead' }),
             s('circle', { cx: (cx - r * 0.24).toFixed(1), cy: (cy - r * 0.26).toFixed(1), r: (r * 0.2).toFixed(1), class: 'bead-glint' }));
         }
       }
@@ -1115,7 +1144,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // semi-transparent abdominal wall, only when the paraumbilical route carries real flow.
       const c3 = recruitFrac('C3', f);
       if (c3 > 0.25 && E.C3.vis) {
-        const col = pressureColor(f.P[NI.EPI]);
+        const col = 'var(--vx)';
         const n = 9;
         for (let i = 0; i < n; i++) {
           const a0 = (i / n) * Math.PI * 2 + 0.25, L = 16 + 44 * c3 * (0.7 + 0.3 * Math.sin(i * 2.3));
@@ -1126,7 +1155,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
             pts.push([SITES.umbilicus[0] + Math.cos(a) * rr - Math.sin(a) * wob, SITES.umbilicus[1] + Math.sin(a) * rr * 0.86 + Math.cos(a) * wob]);
           }
           const w = 1.3 + 2.2 * c3;
-          ov.caput.append(s('path', { d: polyD(pts), class: 'caput-case', 'stroke-width': (w + 1.8).toFixed(2) }), s('path', { d: polyD(pts), class: 'caput-vein', stroke: col, 'stroke-width': w.toFixed(2) }));
+          ov.caput.append(s('path', { d: polyD(pts), class: 'caput-case', 'stroke-width': (w + 1.8).toFixed(2) }), s('path', { d: polyD(pts), class: 'caput-vein', style: 'stroke: var(--vx)', 'stroke-width': w.toFixed(2) }));
         }
       }
     }
@@ -1769,29 +1798,51 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // Erase from the canvas whatever the SVG draws in front of depth `dpt` - 1 (organs lie in
   // front of depth 0 only; vessels of depth ≥ dpt in front of everything shallower).
+  // What the SVG draws in front of each depth of flow marks (organs over the posterior veins,
+  // nearer vessels over deeper ones) is erased from the canvas. The masks only change when the
+  // view moves or a vessel changes width, so each depth's mask is painted into a bitmap once
+  // and stamped out with a single image draw per frame, instead of stroking every vessel and
+  // filling every organ outline 60 times a second.
+  const masks = {};
   function eraseCovers(dpt) {
+    const m = ctx.getTransform();
+    const organs = dpt === 1 && morph < 0.5;
+    let sig = [m.a, m.e, m.f].map((v) => v.toFixed(2)).join(',') + `|${canvas.width}x${canvas.height}|${morph.toFixed(3)}|${organs}`;
+    const list = [];
+    for (const x of Object.values(E)) {
+      if (!x.vis || x.isArt || depth(x) < dpt || x.g.classList.contains('coll-ghost')) continue;
+      list.push(x); sig += `|${x.e.id}:${x.width}`;
+    }
+    const mk = masks[dpt] || (masks[dpt] = { c: document.createElement('canvas'), key: '' });
+    if (mk.key !== sig) {
+      mk.key = sig;
+      mk.c.width = canvas.width; mk.c.height = canvas.height;
+      const mc = mk.c.getContext('2d');
+      mc.setTransform(m);
+      mc.lineCap = 'round'; mc.lineJoin = 'round';
+      // Organs don't hide deeper marks completely: the SVG shows posterior veins through them as
+      // a faint ghost (opacity .34), so their marks stay at the same faint strength. Solid organs
+      // are merged into one path so overlapping organs don't fade the marks twice.
+      if (organs) {
+        mc.fillStyle = mc.strokeStyle = 'rgba(0,0,0,.66)';
+        const solid = new Path2D();
+        for (const { p, w } of getOrganCovers()) { if (w) { mc.lineWidth = w; mc.stroke(p); } else solid.addPath(p); }
+        mc.fill(solid);
+      }
+      mc.strokeStyle = '#000';
+      for (const x of list) {
+        const c = geo[x.e.id].cur;
+        mc.lineWidth = x.width + 2 * (x.wallPx || 1);
+        mc.beginPath(); mc.moveTo(c[0][0], c[0][1]);
+        for (let i = 1; i < c.length; i++) mc.lineTo(c[i][0], c[i][1]);
+        mc.stroke();
+      }
+    }
     ctx.save();
     ctx.globalCompositeOperation = 'destination-out';
     ctx.globalAlpha = 1;
-    ctx.fillStyle = ctx.strokeStyle = '#000';
-    // Organs don't hide deeper marks completely: the SVG shows posterior veins through them as a
-    // faint ghost (opacity .34), so their marks stay at the same faint strength. Solid organs are
-    // merged into one path so overlapping organs don't fade the marks twice.
-    if (dpt === 1 && morph < 0.5) {
-      ctx.globalAlpha = 0.66;
-      const solid = new Path2D();
-      for (const { p, w } of getOrganCovers()) { if (w) { ctx.lineWidth = w; ctx.stroke(p); } else solid.addPath(p); }
-      ctx.fill(solid);
-      ctx.globalAlpha = 1;
-    }
-    for (const x of Object.values(E)) {
-      if (!x.vis || x.isArt || depth(x) < dpt || x.g.classList.contains('coll-ghost')) continue;
-      const c = geo[x.e.id].cur;
-      ctx.lineWidth = x.width + 2 * (x.wallPx || 1);
-      ctx.beginPath(); ctx.moveTo(c[0][0], c[0][1]);
-      for (let i = 1; i < c.length; i++) ctx.lineTo(c[i][0], c[i][1]);
-      ctx.stroke();
-    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(mk.c, 0, 0);
     ctx.restore();
   }
 

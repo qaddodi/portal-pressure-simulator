@@ -160,11 +160,26 @@ export const isModalOpen = () => document.getElementById('modalBack').classList.
 export const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 export const lerp = (a, b, t) => a + (b - a) * t;
 
-export function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+// Theme tokens are read many times per frame by the canvas instruments. getComputedStyle after
+// the frame's DOM writes forces a style pass, so values are cached and dropped when the theme
+// can change (the data-theme attribute or the system color scheme).
+const varCache = new Map();
+new MutationObserver(() => varCache.clear()).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'style', 'class'] });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => varCache.clear());
+export function cssVar(name) {
+  let v = varCache.get(name);
+  if (v === undefined) { v = getComputedStyle(document.documentElement).getPropertyValue(name).trim(); varCache.set(name, v); }
+  return v;
+}
 
 /** Canvas sized to its box with device-pixel ratio. Returns ctx with CSS-pixel units. */
+// Each canvas's box is tracked by a ResizeObserver instead of measured on every draw (a
+// forced layout when it follows other DOM writes).
+const boxes = new WeakMap();
+const boxObserver = new ResizeObserver((entries) => { for (const e of entries) boxes.set(e.target, { width: e.contentRect.width, height: e.contentRect.height }); });
 export function fitCanvas(canvas) {
-  const r = canvas.getBoundingClientRect();
+  let r = boxes.get(canvas);
+  if (!r) { const b = canvas.getBoundingClientRect(); r = { width: b.width, height: b.height }; boxes.set(canvas, r); boxObserver.observe(canvas); }
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const w = Math.max(1, Math.round(r.width * dpr)), hh = Math.max(1, Math.round(r.height * dpr));
   if (canvas.width !== w || canvas.height !== hh) { canvas.width = w; canvas.height = hh; }

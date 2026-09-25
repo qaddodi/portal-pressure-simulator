@@ -10,9 +10,9 @@
 // switch, undo/redo/reset, the Findings list, the Log instrument and Compare mode.
 
 import { store, replaceParams, onParamChange } from './store.js?v=e9304c5ee2';
-import { host } from './host.js?v=eba3cdc684';
-import { h, fmt, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=cb539c0cd8';
-import { activeInterventions } from './inspector.js?v=f427b5902d';
+import { host } from './host.js?v=9b28abbb15';
+import { h, fmt, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=13768f12bf';
+import { activeInterventions } from './inspector.js?v=87d3126b53';
 
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };
 export const EVENT_WHY = { VARIX_RUPTURE: 'varix', RED_WALE: 'varix', VARIX_LARGE: 'varix', HEPATOFUGAL_PV: 'pvFlow', PV_STASIS: 'pvFlow', CSPH: 'hvpg', BLEED_RISK: 'hvpg', ASCITES_FORMING: 'ascites', TENSE_ASCITES: 'ascites', HIGH_SHUNT: 'shunt', LIVER_HYPOPERFUSION: 'liverPerf', RA_HIGH: 'ra', HYPERDYNAMIC: 'co', SPLENOMEGALY: 'spleen' };
@@ -225,16 +225,22 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, canRevert
     } else nowX = liveX;
     return { at: xs.map(px), now: px(nowX) };
   }
-  let lastRenderKey = '';
+  // Track width is cached (reading it after the frame's DOM writes would force a layout). The
+  // playhead moves every frame; the markers, which only drift slowly on the story axis, are
+  // rebuilt when the timeline's contents change, or at most once a second as time passes.
+  let trackW = 0;
+  new ResizeObserver(() => { trackW = track.clientWidth; render(true); }).observe(track);
+  let lastRenderKey = '', lastMarksAt = 0, lastNow = -1;
   function render(force) {
-    const W = track.clientWidth;
+    const W = trackW || (trackW = track.clientWidth);
     if (!W) return;
     const { at, now } = positions(W);
-    const key = `${entries.length}|${cursor}|${Math.round(now)}|${W}|${entries.map((e) => (e.snap ? 1 : 0)).join('')}`;
-    if (!force && key === lastRenderKey) return;
-    lastRenderKey = key;
-    fill.style.width = `${now}px`;
-    nowEl.style.left = `${now}px`;
+    const rn = Math.round(now);
+    if (rn !== lastNow) { lastNow = rn; fill.style.width = `${rn}px`; nowEl.style.left = `${rn}px`; }
+    const key = `${entries.length}|${cursor}|${W}|${entries.map((e) => (e.snap ? 1 : 0)).join('')}`;
+    const t = performance.now();
+    if (!force && key === lastRenderKey && t - lastMarksAt < 1000) return;
+    lastRenderKey = key; lastMarksAt = t;
     // Group markers that would overlap into one, with a count.
     const groups = [];
     entries.forEach((e, i) => {
@@ -290,7 +296,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, canRevert
       lastBleed = bleeding;
       bleedBand.hidden = !bleeding;
       if (bleeding) {
-        const W = track.clientWidth, { at, now } = positions(W);
+        const W = trackW || track.clientWidth, { at, now } = positions(W);
         let i = entries.length - 1;
         while (i > 0 && !(entries[i].kind === 'event' && entries[i].evId === 'VARIX_RUPTURE')) i--;
         const x0 = i > 0 ? at[i] : now - 30;

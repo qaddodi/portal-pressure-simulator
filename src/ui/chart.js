@@ -9,12 +9,12 @@
 //   Advanced                             physiology knobs (instructor / researcher)
 
 import { store, updateParams } from './store.js?v=e9304c5ee2';
-import { h, fmt, icon, svgIcon, toast } from './util.js?v=cb539c0cd8';
+import { h, fmt, icon, svgIcon, toast } from './util.js?v=13768f12bf';
 import { DRUGS } from '../engine/scenario.js?v=3bed5bf285';
-import { TILES, VITALS, PRIMARY } from './dock.js?v=3618e79469';
-import { activeInterventions } from './inspector.js?v=f427b5902d';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=9064024871';
-import { fmtClock } from './timeline.js?v=dad0f29780';
+import { TILES, VITALS, PRIMARY } from './dock.js?v=28492ab277';
+import { activeInterventions } from './inspector.js?v=87d3126b53';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=d4515a7b91';
+import { fmtClock } from './timeline.js?v=318a7aad38';
 
 // Where each readout is measured, so a click can show it on the figure.
 const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS'] };
@@ -92,7 +92,16 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     live.push(paint);
     return section('vitals', 'Vitals & hemodynamics', 'gauge', null, rows, sys, more);
   }
+  // A sparkline changes only when its history is sampled (every 0.7 s) or its severity color
+  // changes; redrawing it every frame, and reading its color with getComputedStyle (a forced
+  // style pass right after the frame's DOM writes), was a large share of the page's work.
+  const darkQ = matchMedia('(prefers-color-scheme: dark)');
   function spark(cv, data, sev) {
+    const key = `${lastSample}|${sev}|${data.length}`;
+    if (cv._k === key) return;
+    const ck = sev + (document.documentElement.getAttribute('data-theme') || '') + darkQ.matches;
+    if (cv._ck !== ck || !cv._color) { cv._ck = ck; cv._color = getComputedStyle(cv).color; cv._k = ''; }
+    cv._k = key;
     const ctx = cv.getContext('2d');
     const W = cv.width, H = cv.height;
     ctx.clearRect(0, 0, W, H);
@@ -101,7 +110,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     for (const v of data) { if (v < mn) mn = v; if (v > mx) mx = v; }
     const pad = Math.max(1e-3, (mx - mn) * 0.15);
     mn -= pad; mx += pad;
-    ctx.strokeStyle = getComputedStyle(cv).color;
+    ctx.strokeStyle = cv._color;
     ctx.lineWidth = 1.4; ctx.lineJoin = 'round';
     ctx.beginPath();
     const n = Math.max(12, data.length) - 1;

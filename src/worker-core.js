@@ -87,7 +87,11 @@ export function createCore(post) {
     }
     // Paused, nothing is evolving: a few frames a second keep the page in step with any action
     // taken, without recomputing and repainting everything 30 times a second.
-    if (running || paramsDirty || now - lastFrame > 250) { lastFrame = now; frame(); }
+    // Running, the page redraws the figure about ten times a second (the flow marks animate on
+    // their own), so frames go out at that rate: sending 30 a second only cost the page the
+    // work of receiving and discarding two of every three. A change is sent at once.
+    const due = running ? 95 : 250;
+    if (paramsDirty || eng.newEvents.length || now - lastFrame > due) { lastFrame = now; frame(); }
   }
 
   function start() {
