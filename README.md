@@ -20,6 +20,8 @@ npm start            # npx http-server on http://localhost:8080
 # or: python3 -m http.server 8080
 ```
 
+After editing any file under `src/` or `styles/`, run `npm run stamp`. It updates the `?v=<hash>` on every local import and link, so a browser never combines freshly deployed files with stale cached ones. `npm test` fails if a stamp is out of date.
+
 The page has to be served over HTTP (ES modules and the Web Worker don't load from `file://`).
 The engine runs in a Web Worker and falls back to the main thread if workers aren't available.
 
