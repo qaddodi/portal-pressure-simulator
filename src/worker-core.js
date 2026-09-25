@@ -1,11 +1,11 @@
 // Simulation host: owns the Engine, runs the clocks, streams frames (blueprint §13.4).
 // Used inside a Web Worker (src/worker.js) or on the main thread as a fallback.
 
-import { Engine } from './engine/engine.js';
-import { computeMetrics } from './engine/metrics.js';
-import { detectEvents } from './engine/events.js';
-import { explain } from './engine/explain.js';
-import { defaultParams, deepMerge, PRESETS } from './engine/scenario.js';
+import { Engine } from './engine/engine.js?v=32c0c52424';
+import { computeMetrics } from './engine/metrics.js?v=665d045342';
+import { detectEvents } from './engine/events.js?v=212fb31a01';
+import { explain } from './engine/explain.js?v=c2b589ce3c';
+import { defaultParams, deepMerge, PRESETS } from './engine/scenario.js?v=5ce6f00fdc';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
 

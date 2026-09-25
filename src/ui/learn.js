@@ -1,8 +1,8 @@
 // Learn mode (blueprint §11): lessons as step sequences with Predict → Observe → Explain.
 
-import { store, updateParams } from './store.js';
-import { host } from './host.js';
-import { h, fmt, toast, svgIcon } from './util.js';
+import { store, updateParams } from './store.js?v=59e4c262de';
+import { host } from './host.js?v=89161691f2';
+import { h, fmt, toast, svgIcon } from './util.js?v=61d6f9c200';
 
 const saved = (() => { try { return JSON.parse(localStorage.getItem('pps.lessons') || '{}'); } catch { return {}; } })();
 const save = () => { try { localStorage.setItem('pps.lessons', JSON.stringify(saved)); } catch { /* storage unavailable */ } };

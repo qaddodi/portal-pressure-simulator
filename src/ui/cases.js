@@ -1,8 +1,8 @@
 // Cases mode (blueprint §10.4): clinical scenarios as state machines with objectives & debrief.
 
-import { store, updateParams } from './store.js';
-import { host } from './host.js';
-import { h, fmt, openModal, closeModal, toast, svgIcon } from './util.js';
+import { store, updateParams } from './store.js?v=59e4c262de';
+import { host } from './host.js?v=89161691f2';
+import { h, fmt, openModal, closeModal, toast, svgIcon } from './util.js?v=61d6f9c200';
 
 const ACTIONS = {
   crystalloid: { label: '1 L crystalloid', run: (a) => a.action({ kind: 'infuse', fluid: 'crystalloid' }) },

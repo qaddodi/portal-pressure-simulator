@@ -3,9 +3,9 @@
 // exported file is built from the live SVG layers with every style resolved inline, so it opens
 // the same in a vector editor, a slide or a manuscript.
 
-import { store } from './store.js';
-import { h, fmt, icon, toast } from './util.js';
-import { pressureColor } from './colormap.js';
+import { store } from './store.js?v=59e4c262de';
+import { h, fmt, icon, toast } from './util.js?v=61d6f9c200';
+import { pressureColor } from './colormap.js?v=884435083d';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const PROPS = ['fill', 'fill-opacity', 'fill-rule', 'stroke', 'stroke-width', 'stroke-opacity', 'stroke-dasharray', 'stroke-dashoffset', 'stroke-linecap', 'stroke-linejoin',

@@ -1,9 +1,9 @@
 // Readout strip + tabbed charts and instruments (blueprint §9.1, §9.2).
 
-import { store } from './store.js';
-import { h, fmt, icon, svgIcon } from './util.js';
-import { createProfile, createScope, createSankey, createPerfusion } from './charts.js';
-import { createHVPG, createDoppler, createEndoscopy, createLobule, createVarixWall, createAbdomen } from './instruments.js';
+import { store } from './store.js?v=59e4c262de';
+import { h, fmt, icon, svgIcon } from './util.js?v=61d6f9c200';
+import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=d606bd7182';
+import { createHVPG, createDoppler, createEndoscopy, createLobule, createVarixWall, createAbdomen } from './instruments.js?v=8e8b58c4d0';
 
 const SEV = { ok: 'var(--ok)', caution: 'var(--caution)', danger: 'var(--danger)', critical: 'var(--critical)', info: 'var(--info)' };
 

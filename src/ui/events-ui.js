@@ -4,7 +4,7 @@
 // button for a few seconds; the list gives each one's detail and its cause ("Why?"). Nothing is
 // drawn over the anatomy, nothing flashes, and every event stays in the Log instrument.
 
-import { h, announce, svgIcon, popover, closePopover, fmt } from './util.js';
+import { h, announce, svgIcon, popover, closePopover, fmt } from './util.js?v=61d6f9c200';
 
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };
 const WHY = { VARIX_RUPTURE: 'varix', RED_WALE: 'varix', VARIX_LARGE: 'varix', HEPATOFUGAL_PV: 'pvFlow', PV_STASIS: 'pvFlow', CSPH: 'hvpg', BLEED_RISK: 'hvpg', ASCITES_FORMING: 'ascites', TENSE_ASCITES: 'ascites', HIGH_SHUNT: 'shunt', LIVER_HYPOPERFUSION: 'liverPerf', RA_HIGH: 'ra', HYPERDYNAMIC: 'co', SPLENOMEGALY: 'spleen' };

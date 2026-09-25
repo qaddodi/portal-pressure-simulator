@@ -1,10 +1,10 @@
 // Dock charts (blueprint §9.2): pressure profile, scope, Sankey, perfusion + operating point.
 
-import { NODES, EDGES } from '../engine/topology.js';
-import { PROFILE_PATHS, SHORT } from './anatomy.js';
-import { pressureColor } from './colormap.js';
-import { store } from './store.js';
-import { h, fmt, fitCanvas, cssVar, clamp } from './util.js';
+import { NODES, EDGES } from '../engine/topology.js?v=0c370bc4ec';
+import { PROFILE_PATHS, SHORT } from './anatomy.js?v=07f5b91094';
+import { pressureColor } from './colormap.js?v=884435083d';
+import { store } from './store.js?v=59e4c262de';
+import { h, fmt, fitCanvas, cssVar, clamp } from './util.js?v=61d6f9c200';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

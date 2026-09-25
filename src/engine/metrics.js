@@ -1,7 +1,7 @@
 // Clinical readouts derived from engine state (blueprint §9.1).
 
-import { PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES, EDGES } from './topology.js';
-import { clamp } from './physiology.js';
+import { PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES, EDGES } from './topology.js?v=0c370bc4ec';
+import { clamp } from './physiology.js?v=8b006eefeb';
 
 export const BASE_HEPATIC_FLOW = 25; // mL/s (≈1.5 L/min), overwritten by engine baseline at first call
 
