@@ -7,7 +7,7 @@ import { ANCHORS } from './anatomy.js';
 const ICON = { critical: 'alert', danger: 'alert', caution: 'info', info: 'info', ok: 'check' };
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };
 const WHY = { VARIX_RUPTURE: 'varix', RED_WALE: 'varix', VARIX_LARGE: 'varix', HEPATOFUGAL_PV: 'pvFlow', PV_STASIS: 'pvFlow', CSPH: 'hvpg', BLEED_RISK: 'hvpg', ASCITES_FORMING: 'ascites', TENSE_ASCITES: 'ascites', HIGH_SHUNT: 'shunt', LIVER_HYPOPERFUSION: 'liverPerf', RA_HIGH: 'ra', HYPERDYNAMIC: 'co', SPLENOMEGALY: 'spleen' };
-const MAX = 3;
+const MAX = 2;
 
 export function createEventsUI({ stack, overlay, vignette, stage, onWhy }) {
   const active = [];
@@ -27,7 +27,7 @@ export function createEventsUI({ stack, overlay, vignette, stage, onWhy }) {
     const item = { ev, born: now };
     const close = h('button', { class: 'ib x', 'aria-label': 'Dismiss' }, svgIcon('close'));
     close.addEventListener('click', () => dismiss(item));
-    const el = h('div', { class: `note glass ${ev.severity}`, role: ev.severity === 'critical' ? 'alert' : 'status', style: { '--sev': SEV[ev.severity] || SEV.info } },
+    const el = h('div', { class: `note glass stage-blocker ${ev.severity}`, role: ev.severity === 'critical' ? 'alert' : 'status', style: { '--sev': SEV[ev.severity] || SEV.info } },
       svgIcon(ICON[ev.severity] || 'info', 'ic'), h('span', { class: 'ttl' }, ev.title), close,
       ev.detail ? h('span', { class: 'dtl' }, ev.detail) : null,
       why ? h('div', { class: 'row' }, h('button', { class: 'link', onclick: (e) => onWhy(why, e.currentTarget) }, 'Why?'), ev.severity === 'critical' ? h('button', { class: 'link', onclick: () => dismiss(item) }, 'Acknowledge') : null) : null);

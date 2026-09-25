@@ -100,6 +100,7 @@ export function createCases({ root, api }) {
   const log = [];
 
   function list() {
+    api.setBanner?.({ tag: 'Cases', text: 'Choose a case in the panel' });
     root.replaceChildren(h('div', { class: 'p-body', style: { paddingTop: '16px' } },
       h('div', { class: 'p-title', style: { marginBottom: '6px' } }, h('span', { class: 'kicker' }, 'Cases'), h('h2', {}, 'Clinical scenarios')),
       h('p', { class: 'sub', style: { margin: '0 0 14px' } }, 'Manage a patient with clinical actions only: raw resistances are hidden, as in real life. Each case ends with a scored debrief.'),
@@ -113,8 +114,10 @@ export function createCases({ root, api }) {
     await api.loadPreset(cs.preset, { keepLesson: true, days: cs.days });
     if (cs.prep) updateParams(cs.prep, { history: false });
     if (cs.params) updateParams(cs.params, { history: false });
-    store.set({ hiddenReadouts: new Set(cs.hidden || []), lastHVPG: null, locked: new Set(['!cirrhosis']) });
+    // Pressures the clinician cannot see are hidden on the figure too: anatomy only, until measured.
+    store.set({ hiddenReadouts: new Set(cs.hidden || []), lastHVPG: null, locked: new Set(['!cirrhosis']), imaging: (cs.hidden || []).includes('pv') });
     api.setAllowedTools(cs.tools);
+    api.muteEvents?.(true); // the case panel carries the clinical story; only critical events interrupt
     cs.setup?.(api);
     host.send({ type: 'run', running: true, speed: cs.speed, clock: 'hemo' });
     store.set({ speed: cs.speed });
@@ -181,14 +184,15 @@ export function createCases({ root, api }) {
   function exit() {
     clearInterval(timer);
     cs = null; ctx = null;
-    store.set({ hiddenReadouts: null, locked: null });
+    store.set({ hiddenReadouts: null, locked: null, imaging: false });
     api.setAllowedTools(null);
+    api.muteEvents?.(false);
     host.send({ type: 'run', running: true, speed: 1 });
     store.set({ speed: 1 });
     list();
   }
 
-  let liveEls = null;
+  let liveEls = null, lastBanner = '';
   function render() {
     const vit = h('div', { class: 'vitals' });
     const objs = h('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } });
@@ -231,6 +235,8 @@ export function createCases({ root, api }) {
     if (!f) return;
     const m = f.metrics, hidden = store.get().hiddenReadouts;
     liveEls.clock.textContent = fmtClock(ctx.t);
+    const bt = `Clinical time ${fmtClock(ctx.t)}`;
+    if (bt !== lastBanner) { lastBanner = bt; api.setBanner?.({ tag: 'Case', text: bt }); }
     const v = (lbl, val, bad) => h('div', { class: bad ? 'bad' : '' }, h('span', { class: 'lbl' }, lbl), h('b', {}, val));
     liveEls.vit.replaceChildren(
       v('HR', Math.round(m.hr), m.hr > 110), v('MAP', Math.round(m.map), m.map < 65), v('Hb', fmt(m.blood.hb, 1), m.blood.hb < 7), v('CVP', hidden?.has('ra') ? '?' : fmt(m.ra, 0), false),

@@ -18,7 +18,7 @@ export const LESSONS = [
       { type: 'predict', q: 'You are about to pinch the main portal vein to 80 %. What happens to pressure in the SMV, upstream of the pinch?',
         options: ['It rises', 'It falls', 'It stays the same'], answer: 0,
         why: 'Upstream of a new resistance, pressure rises until the gradient can push the flow through (or around) it.' },
-      { type: 'do', text: 'Use the **Pinch** tool: press on the portal vein and drag sideways until the stenosis reaches ≥ 80 %.', goal: (f, p) => (p.stenosis.PV_TRUNK || 0) >= 0.8, hint: 'The portal vein runs from the confluence behind the pancreas up to the liver hilum.' },
+      { type: 'do', text: 'Use the **Pinch** tool: press on the portal vein and drag sideways until the stenosis reaches ≥ 80 %.', focus: ['PV_TRUNK'], focusLabel: 'Pinch the portal vein', goal: (f, p) => (p.stenosis.PV_TRUNK || 0) >= 0.8, hint: 'The portal vein runs from the confluence behind the pancreas up to the liver hilum.' },
       { type: 'observe', seconds: 6, text: 'Look at the pressure profile: a big step appears at the portal vein, with everything upstream higher and everything downstream lower.' },
       { type: 'explain', metric: 'pv', text: 'The pressure drop across a segment is Q × R. A four-fold narrowing raises R ~ 256-fold (Poiseuille, r⁴).' },
       { type: 'check', quiz: [
@@ -49,11 +49,11 @@ export const LESSONS = [
     steps: [
       { type: 'frame', preset: 'csph', tools: ['select', 'catheter'], tab: 'hvpg', hide: ['trueHVPG', 'pv'],
         text: 'HVPG = **wedged** (WHVP) − **free** (FHVP) hepatic venous pressure. The wedged balloon stops flow, so the stagnant column reads the pressure of the sinusoids behind it.' },
-      { type: 'do', text: 'With the **Catheter** tool, click a hepatic vein, then click it again (or press *Inflate balloon*) to wedge. Wait for the plateau.', goal: () => !!store.get().lastHVPG, hint: 'The HVPG tab shows the pressure trace.' },
+      { type: 'do', focus: ['RHV_IVC'], focusLabel: 'Right hepatic vein', text: 'With the **Catheter** tool, click a hepatic vein, then click it again (or press *Inflate balloon*) to wedge. Wait for the plateau.', goal: () => !!store.get().lastHVPG, hint: 'The HVPG tab shows the pressure trace.' },
       { type: 'observe', seconds: 2, text: 'Your measurement is in the HVPG tab. In cirrhosis, WHVP ≈ portal pressure because the diseased sinusoids no longer communicate.' },
       { type: 'predict', preset: 'schisto', q: 'New patient: schistosomiasis (presinusoidal fibrosis). The portal pressure is ~19 mmHg. What will the HVPG be?', options: ['High (≥ 10)', 'Normal (< 5)', 'Negative'], answer: 1,
         why: 'The block is upstream of the sinusoids. The stagnant column behind the balloon only reaches normal sinusoids.' },
-      { type: 'do', text: 'Measure the HVPG in this patient.', goal: () => store.get().presetId === 'schisto' && !!store.get().lastHVPG, hint: 'Place the catheter, then wedge.' },
+      { type: 'do', focus: ['RHV_IVC'], focusLabel: 'Right hepatic vein', text: 'Measure the HVPG in this patient.', goal: () => store.get().presetId === 'schisto' && !!store.get().lastHVPG, hint: 'Place the catheter, then wedge.' },
       { type: 'explain', metric: 'pv', text: 'Presinusoidal portal hypertension: high portal pressure, normal HVPG. HVPG underestimates it.' },
       { type: 'check', quiz: [
         { q: 'Right heart failure: RA 18 mmHg, FHVP 19, WHVP 21. The HVPG is…', options: ['21 mmHg: severe portal hypertension', '2 mmHg: normal, because both rise together', 'Cannot be calculated'], answer: 1 },
@@ -134,7 +134,7 @@ export const LESSONS = [
     steps: [
       { type: 'frame', preset: 'healthy', tools: ['select', 'thrombus', 'endoscope'], tab: 'endoscopy',
         text: 'Pancreatitis can thrombose the splenic vein. The spleen then has to drain another way.' },
-      { type: 'do', text: 'Use the **Thrombus** tool to occlude the proximal splenic vein fully (hold on it).', goal: (f, p) => (p.thrombus.SV_CONF || 0) >= 0.95 },
+      { type: 'do', focus: ['SV_CONF'], focusLabel: 'Proximal splenic vein', text: 'Use the **Thrombus** tool to occlude the proximal splenic vein fully (hold on it).', goal: (f, p) => (p.thrombus.SV_CONF || 0) >= 0.95 },
       { type: 'predict', q: 'Where will varices appear?', options: ['Esophagus', 'Gastric fundus (via short gastric veins)', 'Rectum'], answer: 1 },
       { type: 'observe', days: 150, text: 'Short gastric veins carry splenic blood to the fundus: **isolated gastric varices**. Portal pressure stays normal.' },
       { type: 'explain', metric: 'pv' },
@@ -147,11 +147,11 @@ export const LESSONS = [
     steps: [
       { type: 'frame', preset: 'cirr-decomp', tools: ['select', 'stent', 'occlude'], tab: 'flow',
         text: 'A TIPS decompresses the portal system by bypassing the liver. Watch where the gut blood goes.' },
-      { type: 'do', text: 'Create a **TIPS**: with the Stent tool, drag from the right portal vein to the right hepatic vein.', goal: (f, p) => p.tips.on },
+      { type: 'do', focus: ['PVH_R', 'RHV_IVC'], focusLabel: 'Right portal → right hepatic vein', text: 'Create a **TIPS**: with the Stent tool, drag from the right portal vein to the right hepatic vein.', goal: (f, p) => p.tips.on },
       { type: 'observe', seconds: 8, text: 'Portosystemic gradient falls below 12, varices decompress, but the shunt fraction rises, liver perfusion falls, and the intrahepatic portal branches reverse toward the stent.' },
       { type: 'explain', metric: 'shunt' },
       { type: 'predict', preset: 'gastric-varix', q: 'New patient with fundal varices draining via a gastrorenal shunt. After BRTO (occluding that shunt), portal pressure will…', options: ['Rise', 'Fall', 'Not change'], answer: 0 },
-      { type: 'do', text: 'Occlude the **gastrorenal shunt**: use the Occlude tool on it, or the switch below.', goal: (f, p) => !!p.occluded.C5, inline: ['brto'] },
+      { type: 'do', focus: ['C5'], focusLabel: 'Gastrorenal shunt', text: 'Occlude the **gastrorenal shunt**: use the Occlude tool on it, or the switch below.', goal: (f, p) => !!p.occluded.C5, inline: ['brto'] },
       { type: 'explain', metric: 'pv', text: 'Closing an exit raises upstream pressure: esophageal varices and ascites can worsen after BRTO.' },
       { type: 'check', quiz: [{ q: 'The main neurological risk after TIPS is…', options: ['Stroke', 'Hepatic encephalopathy from shunted gut blood', 'Seizures from hyponatremia'], answer: 1 }] },
     ],
@@ -176,7 +176,7 @@ const STEP = {
 // Lesson steps name locked-control keys; these are the matching controls to embed in the card.
 const INLINE = { cirrhosis: 'cirrhosis', splanchnicTone: 'splanchnicTone', 'drug:propranolol': 'drug:propranolol', 'drug:terlipressin': 'drug:terlipressin', apShunt: 'apShunt', spontaneous: 'srShunt', diuretics: 'diuretics', brto: 'brto' };
 
-export function createLearn({ host: hostEl, panel, dock, inspector, loadPreset, setTool, setAllowedTools, showPane, setProbe, openPanel }) {
+export function createLearn({ host: hostEl, panel, dock, inspector, loadPreset, setTool, setAllowedTools, showPane, setProbe, openPanel, setBanner }) {
   let lesson = null, idx = 0, state = {};
   let pollTimer = null, inline = null, showAll = false;
 
@@ -194,6 +194,8 @@ export function createLearn({ host: hostEl, panel, dock, inspector, loadPreset, 
     store.set({ locked: null, hiddenReadouts: null });
     setAllowedTools(null);
     dock.profile.clearPredict();
+    store.set({ focus: null });
+    setBanner?.(null);
     render();
   }
 
@@ -210,6 +212,7 @@ export function createLearn({ host: hostEl, panel, dock, inspector, loadPreset, 
     if (st.tab) showPane(st.tab);
     if (st.path) dock.profile.setPath(st.path);
     if (st.probe) setProbe(st.probe);
+    store.set({ focus: st.focus ? { edges: st.focus, label: st.focusLabel } : null });
     if (st.type === 'predict' || st.type === 'frame' || st.type === 'check') host.send({ type: 'run', running: st.type === 'frame' });
     if (st.type === 'predict' && st.mode === 'draw') { dock.profile.startPredict(() => render()); showPane('profile'); }
     if (st.type === 'do') {
@@ -241,6 +244,15 @@ export function createLearn({ host: hostEl, panel, dock, inspector, loadPreset, 
   }
   function back() { if (lesson && idx > 0) { idx--; enter(); } }
 
+  const plain = (t) => String(t || '').replace(/\*\*(.+?)\*\*/g, '$1').replace(/\*(.+?)\*/g, '$1');
+  function bannerText(st) {
+    if (st.type === 'predict') return st.q ? plain(st.q) : 'Draw your prediction on the pressure profile';
+    if (st.type === 'do') return state.met ? 'Done: moving on' : plain(st.text);
+    if (st.type === 'observe') return state.observed ? 'Now read what changed on the figure' : plain(st.text).split('. ')[0];
+    if (st.type === 'explain') return `Why? ${lesson.title}`;
+    if (st.type === 'check') return 'Check your understanding in the panel';
+    return lesson.title;
+  }
   const md = (t) => { const span = h('span'); span.innerHTML = String(t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\*(.+?)\*/g, '<i>$1</i>'); return span; };
   const letter = (i) => h('span', { class: 'letter' }, 'ABCDE'[i]);
 
@@ -260,7 +272,7 @@ export function createLearn({ host: hostEl, panel, dock, inspector, loadPreset, 
     panel.classList.toggle('lesson-focus', inLearn);
     panel.classList.toggle('show-all', inLearn && showAll);
     if (!inLearn) { hostEl.replaceChildren(); return; }
-    if (!lesson) { hostEl.replaceChildren(catalog()); return; }
+    if (!lesson) { hostEl.replaceChildren(catalog()); setBanner?.({ tag: 'Learn', text: 'Choose a lesson in the panel' }); return; }
     const st = lesson.steps[idx];
     const body = [];
     if (st.text) body.push(h('p', {}, md(st.text)));
@@ -301,9 +313,10 @@ export function createLearn({ host: hostEl, panel, dock, inspector, loadPreset, 
       });
     }
     const [ic, typeLabel] = STEP[st.type];
+    setBanner?.({ tag: typeLabel, text: bannerText(st) });
     const card = h('section', { class: 'lesson', 'aria-label': `Lesson: ${lesson.title}` },
       h('div', { class: 'lesson-top' }, h('span', { class: 'step-type' }, svgIcon(ic, 'sec-ic'), typeLabel, h('span', { class: 'n' }, `· Step ${idx + 1} of ${lesson.steps.length}`)), h('button', { class: 'link', onclick: stop }, 'Exit lesson')),
-      h('div', { class: 'progress', 'aria-hidden': 'true' }, lesson.steps.map((_, i) => h('i', { class: i < idx ? 'on' : i === idx ? 'cur' : '' }))),
+      h('div', { class: 'phase-rail', 'aria-hidden': 'true' }, lesson.steps.map((s0, i) => h('span', { class: i < idx ? 'on' : i === idx ? 'cur' : '' }, h('i'), h('b', {}, STEP[s0.type][1])))),
       h('h3', {}, lesson.title), ...body,
       h('div', { class: 'lesson-foot' }, idx > 0 ? h('button', { class: 'btn ghost', onclick: back }, 'Back') : h('span'),
         h('button', { class: 'btn primary', disabled: !canNext, onclick: () => { if (st.type === 'predict' && st.mode === 'draw') dock.profile.endPredict(false); next(); } }, idx === lesson.steps.length - 1 ? 'Finish lesson' : 'Continue', svgIcon('chev-right'))));

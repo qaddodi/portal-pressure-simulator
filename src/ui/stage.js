@@ -1,10 +1,10 @@
 // Anatomical stage (blueprint §6): SVG anatomy + canvas particle layer + HTML overlay.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO } from '../engine/topology.js';
-import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X } from './anatomy.js';
+import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, ARROW_EDGES, LABEL_FLOW_EDGE } from './anatomy.js';
 import { pressureColor, deltaColor, dropColor } from './colormap.js';
 import { store, updateParams } from './store.js';
-import { s, h, fmt, clamp, lerp, toast } from './util.js';
+import { s, fmt, fp, clamp, lerp, toast } from './util.js';
 
 const N_SAMPLES = 64;
 // Displayed width grows sub-linearly with diameter so the cavae don't swamp the portal tree,
@@ -15,11 +15,11 @@ const ALL_EDGES = EDGES.filter((e) => e.kind !== 'wedge' && !HIDDEN_EDGES.has(e.
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const REVERSAL_WATCH = new Set(['PV_TRUNK', 'SV_CONF', 'SMV_CONF', 'LGV_CONF', 'PVH_R', 'PVH_L', 'PRE_R', 'PRE_L', 'V_SPL', 'V_IMV', 'V_INT', 'RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'V_STO', 'IVC_IS']);
-const BADGE_EDGES = new Set(['PV_TRUNK', 'SV_CONF', 'SMV_CONF', 'PVH_L', 'PVH_R', 'LGV_CONF', 'RHV_IVC']);
+const ARROWS = new Set(ARROW_EDGES);
 
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
 
-export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }) {
+export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   const svg = wrap.querySelector('#stage');
   const canvas = wrap.querySelector('#particles');
   const overlay = wrap.querySelector('#overlay');
@@ -104,20 +104,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
   const gGrid = s('g', { id: 'grid', class: 'circuit-only' });
   const gOrgans = s('g', { id: 'organs' });
   const gAscites = s('g', { id: 'ascites', 'clip-path': 'url(#abdomenClip)' });
-  const gOrganLabels = s('g', { id: 'organLabels' });
   const gBack = s('g', { id: 'backEdges' });
   const gEdges = s('g', { id: 'edges' });
   const gOver = s('g', { id: 'overlays' });
+  const gArrows = s('g', { id: 'arrows' });
   const gNodes = s('g', { id: 'nodes', class: 'circuit-only' });
+  const gFocus = s('g', { id: 'focus' });
   const gGuides = s('g', { id: 'guides' });
-  world.append(gGrid, gBack, gOrgans, gAscites, gOrganLabels, gEdges, gOver, gNodes, gGuides);
+  world.append(gGrid, gBack, gOrgans, gAscites, gFocus, gEdges, gOver, gArrows, gNodes, gGuides);
 
-  // Circuit view: quiet bands for each pressure zone, captioned along the top.
-  [['Splanchnic beds', 60, 390], ['Portal veins', 390, 630], ['Liver', 630, 950], ['Hepatic veins · IVC', 950, 1185], ['Heart', 1185, 1330]].forEach(([t, x0, x1], i) => {
-    gGrid.append(s('rect', { x: x0, y: 40, width: x1 - x0, height: 680, class: 'zone' + (i % 2 ? ' alt' : '') }));
-    gGrid.append(s('text', { x: (x0 + x1) / 2, y: 66, class: 'circuit-title', 'text-anchor': 'middle' }, document.createTextNode(t)));
+  // Circuit view: quiet bands for each pressure zone (captioned by the label layer).
+  CIRCUIT_ZONES.forEach(([, x0, x1], i) => {
+    gGrid.append(s('rect', { x: x0, y: 40, width: x1 - x0, height: 690, class: 'zone' + (i % 2 ? ' alt' : '') }));
   });
-  gGrid.append(s('text', { x: 695, y: 928, class: 'circuit-note', opacity: 0, 'text-anchor': 'middle' }, document.createTextNode('Pressure falls from left to right · collaterals loop around the outside')));
 
   const organEls = {};
   for (const o of ORGANS) {
@@ -138,9 +137,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
   const ascitesPath = s('path', { class: 'ascites-fill', d: '' });
   const ascitesLine = s('path', { class: 'ascites-line', d: '' });
   gAscites.append(ascitesPath, ascitesLine);
-  for (const [txt, x, y, anchor] of ORGAN_LABELS) {
-    gOrganLabels.append(s('text', { x, y, class: 'organ-label', 'text-anchor': anchor }, document.createTextNode(txt)));
-  }
 
   // Edge groups
   const E = {};
@@ -171,18 +167,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
   const nodeEls = {};
   for (const n of NODES) {
     if (n.kind === 'wedge' || HIDDEN_NODES.has(n.id)) continue;
-    const c = s('circle', { r: n.kind === 'heart' ? 7 : n.kind === 'bed' ? 5.5 : 4, class: 'node-dot circuit-only' });
-    const t = s('text', { class: 'node-label circuit-only', 'text-anchor': 'middle' }, document.createTextNode(SHORT[n.id] || n.id));
-    gNodes.append(c, t);
-    nodeEls[n.id] = { c, t };
+    const c = s('circle', { r: n.kind === 'heart' ? 7 : n.kind === 'bed' ? 5.5 : 4.5, class: 'node-dot circuit-only' });
+    gNodes.append(c);
+    nodeEls[n.id] = { c };
   }
   // Resistor glyphs on liver segments (circuit)
   const resistorEls = {};
   for (const id of ['PRE_R', 'PRE_L', 'SIN_RR', 'SIN_LL', 'POST_R_RHV', 'POST_L_LHV']) {
     const r = s('rect', { class: 'resistor circuit-only', rx: 2 });
-    const t = s('text', { class: 'resistor-label circuit-only', 'text-anchor': 'middle' });
-    gNodes.append(r, t);
-    resistorEls[id] = { r, t };
+    gNodes.append(r);
+    resistorEls[id] = { r, txt: '' };
   }
 
   // Overlays
@@ -225,7 +219,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
     applyVT(); CTM = null;
     setTimeout(() => { world.style.transition = ''; CTM = null; }, 420);
   }
-  const fit = () => { vt = { k: 1, x: 0, y: 0 }; applyVT(); CTM = null; };
+  // Default framing. The circuit is a wide map (≈ 1.9 : 1); in a squarish or tall viewport,
+  // fitting its width would shrink every station to a dot, so it opens zoomed to fill the height,
+  // centered on the portal vein and liver, and the learner pans sideways to the beds or heart.
+  function defaultVT(circuit) {
+    if (!circuit) return { k: 1, x: 0, y: 0 };
+    const W = wrap.clientWidth, H = wrap.clientHeight;
+    const s0 = Math.min(W / VB_CIRC[2], H / VB_CIRC[3]);
+    if (VB_CIRC[3] * s0 > 0.62 * H) return { k: 1, x: 0, y: 0 };
+    const k = clamp((0.94 * H) / (VB_CIRC[3] * s0), 1, 3);
+    const cx = VB_CIRC[0] + VB_CIRC[2] / 2, cy = VB_CIRC[1] + VB_CIRC[3] / 2;
+    const fx = 640, fy = cy;
+    return { k, x: cx - k * fx, y: cy - k * fy };
+  }
+  const fit = () => { vt = defaultVT(morphTarget === 1); applyVT(); CTM = null; };
 
   // ── Particles ─────────────────────────────────────
   const ctx = canvas.getContext('2d');
@@ -248,7 +255,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
   const velDisp = {};      // smoothed display velocity per edge (px/s)
 
   function edgeVisible(x, f) {
-    const e = x.e, p = f.params ?? store.get().params;
+    const e = x.e, p = f.viewParams || store.get().params;
     if (NEEDS_C3.has(e.id)) return recruitFrac('C3', f) > 0.2;
     if (e.kind === 'collateral') {
       if (e.spontaneous && !p.spontaneous[e.id]) return false;
@@ -288,17 +295,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
       if (!nodeEls[n.id]) continue;
       const [x, y] = nodePos(n.id, t);
       nodeEls[n.id].c.setAttribute('cx', x); nodeEls[n.id].c.setAttribute('cy', y);
-      nodeEls[n.id].t.setAttribute('x', x); nodeEls[n.id].t.setAttribute('y', y - 13);
     }
     for (const [id, r] of Object.entries(resistorEls)) {
       const [x, y] = pointAt(geo[id].cur, 0.5);
       r.r.setAttribute('x', x - 12); r.r.setAttribute('y', y - 5); r.r.setAttribute('width', 24); r.r.setAttribute('height', 10);
-      r.t.setAttribute('x', x); r.t.setAttribute('y', y + 24);
     }
     const vb = VB_ANAT.map((a, i) => lerp(a, VB_CIRC[i], t));
     svg.setAttribute('viewBox', vb.map((v) => v.toFixed(1)).join(' '));
     gOrgans.style.opacity = String(1 - t);
-    gOrganLabels.style.opacity = String((1 - t) * (store.get().layers.labels ? 1 : 0));
     gAscites.style.opacity = String(1 - t);
     svg.classList.toggle('circuit', t > 0.5);
     gGrid.style.opacity = String(t);
@@ -311,11 +315,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
   function update(f) {
     F = f;
     const st = store.get();
-    const p = st.params;
+    const p = f.viewParams || st.params;
     const t = easeInOut(morph);
     const gain = lerp(1, 0.8, t);
-    const healthy = st.healthy;
-    const mode = st.colorMode;
+    const ref = REF();
+    const imaging = isImaging();
+    const mode = imaging ? 'neutral' : st.mode === 'compare' && st.compareSnap && st.compareView === 'D' ? 'delta' : st.colorMode;
+    wrap.classList.toggle('imaging', imaging);
 
     // collateral tortuosity
     let geomDirty = false;
@@ -347,7 +353,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
       if (mode === 'pressure') { c1 = pressureColor(P1); c2 = pressureColor(P2); }
       else if (mode === 'drop') { c1 = c2 = dropColor(P1 - P2); }
       else if (mode === 'direction') { const rev = isReversed(e, f); c1 = c2 = rev ? 'var(--flow-reversed)' : 'var(--flow-normal)'; }
-      else { const h0 = healthy?.P; c1 = deltaColor(h0 ? P1 - h0[NI[e.from]] : 0); c2 = deltaColor(h0 ? P2 - h0[NI[e.to]] : 0); }
+      else if (mode === 'neutral') { c1 = c2 = PORTAL_TERRITORY.has(e.from) || PORTAL_TERRITORY.has(e.to) ? 'var(--vein-portal)' : 'var(--vein-systemic)'; }
+      else { c1 = deltaColor(ref ? P1 - ref[NI[e.from]] : 0); c2 = deltaColor(ref ? P2 - ref[NI[e.to]] : 0); }
       x.st0.setAttribute('stop-color', c1); x.st1.setAttribute('stop-color', c2);
       if (e.kind === 'collateral') {
         const fr = recruitFrac(e.id, f);
@@ -355,7 +362,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
         x.g.style.opacity = p.occluded[e.id] ? '0.45' : String(0.3 + 0.7 * Math.min(1, fr * 2.5));
       }
       const rev = REVERSAL_WATCH.has(e.id) && isReversed(e, f);
-      x.halo.classList.toggle('on', rev);
+      x.halo.classList.toggle('on', rev && !imaging);
       if (rev) x.halo.setAttribute('stroke-width', (w + 7).toFixed(1));
       x.rev = rev;
       const selOn = st.selection?.type === 'edge' && st.selection.id === e.id;
@@ -364,8 +371,52 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
     }
     updateNodesCircuit(f);
     updateOverlays(f, p, gain, t);
+    updateArrows(f, t, imaging);
+    updateFocus();
     updateLabels(f);
     updateOrgans(f, p, t);
+  }
+
+  // Flow-direction arrowheads: a chevron on each major vessel, pointing downstream, so the
+  // figure reads correctly when it is still (exported, printed, reduced motion).
+  function updateArrows(f, t, imaging) {
+    let d = '', dr = '';
+    if (!imaging && store.get().layers.arrows !== false) {
+      for (const id of ARROWS) {
+        const x = E[id];
+        if (!x || !x.vis) continue;
+        const k = EI[id];
+        const q = f.Qf ? f.Qf[k] : f.Q[k];
+        const ref = Math.abs(store.get().healthy?.Q?.[k] ?? 1);
+        if (Math.abs(q) < Math.max(0.25, 0.03 * ref)) continue;
+        const g = geo[id];
+        const us = g.len > 300 ? [0.3, 0.7] : [0.5];
+        const sz = clamp(x.width * 0.75 + 4.5, 5.5, 11) * lerp(1, 1.15, t);
+        for (const u of us) {
+          const [px, py, dx, dy] = pointAt(g.cur, u);
+          const n = Math.hypot(dx, dy) || 1, sg = q >= 0 ? 1 : -1;
+          const ux = (dx / n) * sg, uy = (dy / n) * sg;
+          const tipX = px + ux * sz * 0.45, tipY = py + uy * sz * 0.45;
+          const bx = px - ux * sz * 0.45, by = py - uy * sz * 0.45;
+          const seg = `M${(bx - uy * sz * 0.55).toFixed(1)} ${(by + ux * sz * 0.55).toFixed(1)} L${tipX.toFixed(1)} ${tipY.toFixed(1)} L${(bx + uy * sz * 0.55).toFixed(1)} ${(by - ux * sz * 0.55).toFixed(1)} `;
+          if (x.rev) dr += seg; else d += seg;
+        }
+      }
+    }
+    if (gArrows._d !== d + '|' + dr) {
+      gArrows._d = d + '|' + dr;
+      gArrows.innerHTML = `<path class="arrow-halo" d="${d}${dr}"/><path class="arrow" d="${d}"/><path class="arrow rev" d="${dr}"/>`;
+    }
+  }
+
+  // Where a lesson step or case asks the learner to act.
+  function updateFocus() {
+    const foc = store.get().focus;
+    const ids = (foc?.edges || []).filter((id) => E[id]?.vis);
+    const key = ids.join(',') + '|' + ids.map((id) => E[id].width.toFixed(0)).join(',') + '|' + lastMorph;
+    if (gFocus._k === key) return;
+    gFocus._k = key;
+    gFocus.replaceChildren(...ids.map((id) => s('path', { class: 'focus-ring', d: E[id].wall.getAttribute('d'), 'stroke-width': (E[id].width + 16).toFixed(1) })));
   }
 
   function isReversed(e, f) {
@@ -377,16 +428,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
 
   function updateNodesCircuit(f) {
     if (morph < 0.02) return;
+    const imaging = isImaging();
     for (const n of NODES) {
       if (!nodeEls[n.id]) continue;
-      nodeEls[n.id].c.setAttribute('fill', pressureColor(f.P[NI[n.id]]));
+      nodeEls[n.id].c.setAttribute('fill', imaging ? (PORTAL_TERRITORY.has(n.id) ? 'var(--vein-portal)' : 'var(--vein-systemic)') : pressureColor(f.P[NI[n.id]]));
+      nodeEls[n.id].c.style.display = nodeVisible(n.id) ? '' : 'none';
     }
     for (const [id, r] of Object.entries(resistorEls)) {
       const k = EI[id];
       const q = f.Q[k];
       const dp = f.P[NI[EDGES[k].from]] - f.P[NI[EDGES[k].to]];
       const R = Math.abs(q) > 1e-3 ? dp / (q * 0.06) : Infinity;
-      r.t.textContent = Number.isFinite(R) ? `${R.toFixed(1)} WU` : '∞';
+      r.txt = Number.isFinite(R) ? `${R.toFixed(1)} WU` : '∞ WU';
       r.r.setAttribute('stroke-width', clamp(1 + Math.log10(Math.max(1, Math.abs(R))) * 1.5, 1, 4));
     }
   }
@@ -415,8 +468,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
     const anat = t < 0.5;
     // stenosis clamps & thrombi
     ov.clamps.innerHTML = ''; ov.thrombi.innerHTML = ''; ov.stents.innerHTML = ''; ov.plugs.innerHTML = ''; ov.stasis.innerHTML = '';
+    const hideDx = isImaging();
     for (const [id, v] of Object.entries(p.stenosis)) {
-      if (!(v > 0) || !E[id] || !E[id].vis) continue;
+      if (hideDx || !(v > 0) || !E[id] || !E[id].vis) continue;
       const [x, y, dx, dy] = pointAt(geo[id].cur, 0.5);
       const n = Math.hypot(dx, dy) || 1, nx = -dy / n, ny = dx / n;
       const off = (E[id].width / 2) * (1 - v) + 3;
@@ -429,7 +483,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
       ov.clamps.append(s('text', { x: x + nx * (off + 16) + 4, y: y + ny * (off + 16) + 4, class: 'clamp-label' }, document.createTextNode(`${Math.round(v * 100)} %`)));
     }
     for (const [id, v] of Object.entries(p.thrombus)) {
-      if (!(v > 0) || !E[id] || !E[id].vis) continue;
+      if (hideDx || !(v > 0) || !E[id] || !E[id].vis) continue;
       const pts = geo[id].cur.slice(Math.floor(N_SAMPLES * 0.3), Math.ceil(N_SAMPLES * 0.72));
       ov.thrombi.append(s('path', { class: 'thrombus', d: polyD(pts), 'stroke-width': (E[id].width * clamp(v, 0.25, 1) + 1).toFixed(1) }));
     }
@@ -445,7 +499,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
     }
     // PV stasis hatch
     const m = f.metrics;
-    if (Math.abs(m.pvVel) < 5 && (p.thrombus.PV_TRUNK || 0) < 0.99) {
+    if (!hideDx && Math.abs(m.pvVel) < 5 && (p.thrombus.PV_TRUNK || 0) < 0.99) {
       ov.stasis.append(s('path', { d: polyD(geo.PV_TRUNK.cur), stroke: 'var(--caution)', 'stroke-width': E.PV_TRUNK.width + 7, 'stroke-dasharray': '1.5 4', 'stroke-linecap': 'round', fill: 'none', opacity: 0.75 }));
     }
 
@@ -515,111 +569,330 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
     }
   }
 
-  // ── Atlas labels (HTML) + leader lines (screen-space SVG) ──
-  // Wide stages: labels hang in the margins beside the body, like an atlas plate, with thin
-  // leaders to their structure. Narrow stages / circuit view: compact inline labels.
-  const leaderSvg = wrap.querySelector('#leaders');
-  const labelEls = {};
-  const badgeEls = {};
-  function makeLabel(id) {
-    const sw = h('span', { class: 'sw' }), nm = h('span', { class: 'nm' }), vl = h('span', { class: 'vl' }), dl = h('span', { class: 'dl' });
-    const el = h('div', { class: 'lbl', role: 'button', tabindex: 0, 'aria-label': NODES[NI[id]].label }, sw, h('span', { class: 'tx' }, nm, h('span', {}, vl, dl)));
-    el.addEventListener('click', () => onSelect({ type: 'node', id }));
-    el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect({ type: 'node', id }); } });
-    overlay.append(el);
-    return (labelEls[id] = { el, sw, nm, vl, dl, side: null, mode: null });
+  // ── Labels: a screen-space layer (SVG) laid out every frame ──
+  // Text keeps a constant on-screen size whatever the zoom. Every label is a block with a
+  // priority and a list of candidate positions; blocks are placed greedily, most important
+  // first, and a block that cannot be placed without a collision is dropped. Anatomy on a wide
+  // stage uses atlas columns in the margins with leader lines; everything else is placed
+  // around its anchor. The same layer is serialized into exported figures.
+  const labelSvg = wrap.querySelector('#labels');
+  const gLeaders = s('g', { class: 'lb-leaders' });
+  const gLabels = s('g', { class: 'lb-blocks' });
+  labelSvg.append(gLeaders, gLabels);
+  const FONT = 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+  const measure = document.createElement('canvas').getContext('2d');
+  const widths = new Map();
+  function textW(t, size, weight = 500, track = 0) {
+    const k = `${weight}|${size}|${track}|${t}`;
+    let w = widths.get(k);
+    if (w == null) { measure.font = `${weight} ${size}px ${FONT}`; w = measure.measureText(t).width + track * size * t.length; widths.set(k, w); }
+    return w;
   }
+  document.fonts?.ready?.then(() => { widths.clear(); if (F) updateLabels(F); });
+
+  // A line is a list of runs { t, size, weight, cls, track }. Returns [width, height].
+  const LINE_H = (line) => Math.max(...line.map((r) => r.size)) * 1.24;
+  const lineW = (line) => line.reduce((w, r, i) => w + textW(r.t, r.size, r.weight, r.track || 0) + (i ? (r.gap ?? 3) : 0), 0);
+
+  const pool = new Map(); // key → { g, sig, … }
+  function blockEl(key, cls, interactiveNode) {
+    let b = pool.get(key);
+    if (b) return b;
+    const g = s('g', { class: 'lb ' + cls });
+    if (interactiveNode) {
+      g.setAttribute('tabindex', '0'); g.setAttribute('role', 'button');
+      g.addEventListener('click', () => onSelect({ type: 'node', id: interactiveNode }));
+      g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect({ type: 'node', id: interactiveNode }); } });
+    }
+    gLabels.append(g);
+    b = { g, sig: '', seen: 0 };
+    pool.set(key, b);
+    return b;
+  }
+  let frameNo = 0;
+  function renderBlock(it) {
+    const b = blockEl(it.key, it.cls, it.node);
+    b.seen = frameNo;
+    const sig = JSON.stringify([it.lines, it.align, it.swatch, it.bg, it.w, it.cls]);
+    if (sig !== b.sig) {
+      b.sig = sig;
+      const kids = [];
+      if (it.bg) kids.push(s('rect', { class: 'lb-bg', x: -it.padX, y: -it.padY, width: it.w + 2 * it.padX, height: it.h + 2 * it.padY, rx: 6 }));
+      let y = 0;
+      const tx = it.swatch ? (it.align === 'end' ? it.w - 7 : 7) : 0;
+      for (const line of it.lines) {
+        const lh = LINE_H(line);
+        const t = s('text', { x: it.align === 'end' ? it.w - (it.swatch ? 7 : 0) : it.align === 'middle' ? it.w / 2 : tx, y: y + lh * 0.78, 'text-anchor': it.align === 'end' ? 'end' : it.align === 'middle' ? 'middle' : 'start' });
+        line.forEach((r, i) => {
+          const sp = s('tspan', { class: r.cls || '', 'font-size': r.size, 'font-weight': r.weight || 500 });
+          if (i) sp.setAttribute('dx', r.gap ?? 3);
+          if (r.track) sp.setAttribute('letter-spacing', `${r.track}em`);
+          sp.textContent = r.t;
+          t.append(sp);
+        });
+        kids.push(t);
+        y += lh;
+      }
+      if (it.swatch) kids.unshift(s('rect', { class: 'lb-sw', x: it.align === 'end' ? it.w - 3 : 0, y: 1, width: 3, height: Math.max(8, it.h - 2), rx: 1.5 }));
+      b.g.replaceChildren(...kids);
+      b.sw = it.swatch ? b.g.querySelector('.lb-sw') : null;
+      if (it.label) b.g.setAttribute('aria-label', it.label);
+    }
+    if (b.sw) b.sw.setAttribute('fill', it.swatch);
+    b.g.classList.toggle('sel', !!it.sel);
+    b.g.setAttribute('transform', `translate(${it.x.toFixed(1)} ${it.y.toFixed(1)})`);
+    b.g.style.display = '';
+  }
+
+  const rectOf = (it) => ({ x0: it.x - it.padX, y0: it.y - it.padY, x1: it.x + it.w + it.padX, y1: it.y + it.h + it.padY });
+  const hits = (a, b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
+  const within = (r, B) => r.x0 >= B.x0 && r.y0 >= B.y0 && r.x1 <= B.x1 && r.y1 <= B.y1;
+  // Candidate offset of a block around its anchor.
+  function offset(dir, it, gap) {
+    const { w, h: hh } = it;
+    const d = gap * 0.72;
+    switch (dir) {
+      case 'N': return [-w / 2, -gap - hh];
+      case 'S': return [-w / 2, gap];
+      case 'E': return [gap, -hh / 2];
+      case 'W': return [-gap - w, -hh / 2];
+      case 'NE': return [d, -d - hh];
+      case 'NW': return [-d - w, -d - hh];
+      case 'SE': return [d, d];
+      case 'SW': return [-d - w, d];
+      default: return [-w / 2, -hh / 2]; // 'C': centered on the anchor
+    }
+  }
+
+  const REF = () => {
+    const st = store.get();
+    return st.mode === 'compare' && st.compareSnap ? st.compareSnap.P : st.healthy?.P;
+  };
+  const isImaging = () => !!store.get().imaging;
+
+  function pressureRuns(P, id, compact) {
+    if (!store.get().layers.chips || isImaging()) return null;
+    const [v, u] = fp(P);
+    const runs = [{ t: v, size: compact ? 12.5 : 14, weight: 650, cls: 'lb-val' }, { t: u, size: compact ? 9.5 : 10, weight: 500, cls: 'lb-unit', gap: 2.5 }];
+    const ref = REF()?.[NI[id]];
+    if (ref != null && Math.abs(P - ref) >= 1) runs.push({ t: `${P > ref ? '▲' : '▼'} ${fmt(Math.abs(P - ref), 0)}`, size: compact ? 9.5 : 10.5, weight: 650, cls: 'lb-delta ' + (P > ref ? 'up' : 'down'), gap: 6 });
+    return runs;
+  }
+
+  function nodeItem(id, f, mode, compact) {
+    const st = store.get();
+    const meta = ATLAS_LABELS[id];
+    const P = (f.Pf || f.P)[NI[id]];
+    const name = mode === 'atlas' ? (meta?.name || NODES[NI[id]].label) : (SHORT[id] || id);
+    const lines = [[{ t: name, size: compact ? 10.5 : 11.5, weight: 500, cls: 'lb-name' }]];
+    const pr = pressureRuns(P, id, compact);
+    if (pr) lines.push(pr);
+    const fe = LABEL_FLOW_EDGE[id];
+    if (fe && E[fe]?.vis && E[fe].rev && !isImaging()) lines.push([{ t: '⟲ flow reversed', size: compact ? 9.5 : 10.5, weight: 650, cls: 'lb-rev' }]);
+    const w = Math.max(...lines.map(lineW)) + (mode === 'atlas' ? 7 : 0);
+    const hh = lines.reduce((a, l) => a + LINE_H(l), 0);
+    const sel = st.selection?.type === 'node' && st.selection.id === id;
+    return { key: 'n:' + id, node: id, cls: 'node ' + mode, lines, w, h: hh, sel, label: `${NODES[NI[id]].label}${pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}`,
+      swatch: mode === 'atlas' && pr ? pressureColor(P) : null, bg: mode === 'inline', padX: mode === 'inline' ? 6 : 3, padY: mode === 'inline' ? 3 : 2 };
+  }
+
+  const ANAT_PRI = { CONF: 10, VAR: 9, SIN_R: 9, RHV: 8, RA: 8, SV: 7, SMV: 7, GV: 7, IVCS: 6, W_R: 12, W_M: 12, W_L: 12 };
+
   function updateLabels(f) {
     refreshCTM();
+    frameNo++;
     const st = store.get();
     const t = easeInOut(morph);
+    const circuit = t >= 0.5;
     const W = wrap.clientWidth, H = wrap.clientHeight;
-    const show = new Set(st.layers.chips ? CHIP_NODES : []);
-    if (st.layers.chips && f.metrics.gastricVarix.d >= 2.4) show.add('GV');
-    if (st.selection?.type === 'node') show.add(st.selection.id);
-    const cath = st.params.catheter;
-    if (cath.vein && cath.wedged) show.add('W_' + cath.vein);
-    for (const id of Object.keys(labelEls)) if (!show.has(id)) { labelEls[id].el.remove(); delete labelEls[id]; }
-
-    const [lx] = worldToLocal(ATLAS_COLUMNS[0], 500), [rx] = worldToLocal(ATLAS_COLUMNS[1], 500);
-    const atlas = t < 0.5 && lx > 158 && W - rx > 158;
-    const items = [];
-    for (const id of show) {
-      if (!NODE_POS[id]) continue;
-      const [ax, ay] = worldToLocal(...nodePos(id, t));
-      const L = labelEls[id] || makeLabel(id);
-      const off = ax < -20 || ax > W + 20 || ay < -20 || ay > H + 20;
-      L.el.style.display = off ? 'none' : '';
-      if (off) continue;
-      const meta = ATLAS_LABELS[id];
-      const side = meta?.side || (NODE_POS[id][0][0] < 700 ? 'L' : 'R');
-      const mode = atlas ? 'atlas' : 'inline';
-      if (L.mode !== mode || L.side !== side) { L.el.className = `lbl ${mode === 'atlas' ? 'side-' + side : 'inline'}`; L.mode = mode; L.side = side; }
-      L.el.classList.toggle('sel', st.selection?.type === 'node' && st.selection.id === id);
-      L.nm.textContent = mode === 'atlas' ? (meta?.name || NODES[NI[id]].label) : (SHORT[id] || id);
-      const P = (f.Pf || f.P)[NI[id]];
-      L.sw.style.background = pressureColor(P);
-      L.vl.replaceChildren(fmt(P, 1), h('span', { class: 'unit' }, 'mmHg'));
-      const h0 = st.healthy?.P?.[NI[id]];
-      if (h0 != null && Math.abs(P - h0) >= 1) { L.dl.textContent = (P > h0 ? '▲ ' : '▼ ') + fmt(Math.abs(P - h0), 0); L.dl.className = 'dl ' + (P > h0 ? 'up' : 'down'); L.dl.style.display = ''; }
-      else L.dl.style.display = 'none';
-      items.push({ id, L, ax, ay, side, y: ay, hgt: mode === 'atlas' ? 38 : 22 });
-    }
-    let lines = '';
-    if (atlas) {
-      // Keep clear of floating HUD panels (notifications, legend) that sit over a column.
-      const wr = wrap.getBoundingClientRect();
-      const blockers = [...wrap.querySelectorAll('.hud-tr .note:not(.leaving), .hud-bl .legend, .hud-tc .bleed-banner:not([hidden])')].map((el) => { const r = el.getBoundingClientRect(); return { x0: r.left - wr.left, x1: r.right - wr.left, y0: r.top - wr.top, y1: r.bottom - wr.top }; });
-      for (const side of ['L', 'R']) {
-        const col = items.filter((it) => it.side === side).sort((a, b) => a.ay - b.ay);
-        const cx0 = side === 'L' ? lx - 170 : rx, cx1 = side === 'L' ? lx : rx + 170;
-        let top = 64, bottom = H - 76;
-        for (const b of blockers) {
-          if (b.x1 < cx0 || b.x0 > cx1) continue;
-          if (b.y0 < H / 2) top = Math.max(top, b.y1 + 22); else bottom = Math.min(bottom, b.y0 - 22);
+    const B = { x0: 6, y0: 6, x1: W - 6, y1: H - 6 };
+    const compact = W < 700;
+    const wr = wrap.getBoundingClientRect();
+    // Floating panels over the figure (notifications, hint cards, banners) are obstacles.
+    const blockers = [...document.querySelectorAll('.stage-blocker:not([hidden])')].map((el) => {
+      const r = el.getBoundingClientRect();
+      return r.width ? { x0: r.left - wr.left - 4, y0: r.top - wr.top - 4, x1: r.right - wr.left + 4, y1: r.bottom - wr.top + 4 } : null;
+    }).filter(Boolean);
+    const placed = [...blockers];
+    const out = [];
+    let leaders = '';
+    // Vessel geometry as a coarse density grid, so labels prefer positions that cover no lines.
+    const CELL = 10, lines = new Map();
+    const lineCost = (r) => {
+      let c = 0;
+      for (let gx = Math.floor(r.x0 / CELL); gx <= Math.floor(r.x1 / CELL); gx++) for (let gy = Math.floor(r.y0 / CELL); gy <= Math.floor(r.y1 / CELL); gy++) c += lines.get(gx * 4096 + gy) || 0;
+      return c;
+    };
+    let useLines = false;
+    const buildLines = () => {
+      useLines = true;
+      for (const x of Object.values(E)) {
+        if (!x.vis) continue;
+        const pts = geo[x.e.id].cur;
+        for (let i = 0; i < pts.length; i += 2) {
+          const [sx, sy] = worldToLocal(pts[i][0], pts[i][1]);
+          const k = Math.floor(sx / CELL) * 4096 + Math.floor(sy / CELL);
+          lines.set(k, (lines.get(k) || 0) + 1);
         }
-        const need = col.reduce((sum, it) => sum + it.hgt, 0);
-        if (bottom - top < need) { top = 64; bottom = Math.max(top + need, H - 76); }
-        for (let i = 0; i < col.length; i++) col[i].y = Math.max(col[i].ay, i ? col[i - 1].y + col[i - 1].hgt : top);
-        for (let i = col.length - 1; i >= 0; i--) col[i].y = Math.min(col[i].y, i < col.length - 1 ? col[i + 1].y - col[i].hgt : bottom);
-        const x = side === 'L' ? lx - 6 : rx + 6;
-        const elbow = side === 'L' ? lx + 14 : rx - 14;
-        for (const it of col) {
-          it.L.el.style.left = x + 'px'; it.L.el.style.top = it.y + 'px';
-          const x0 = side === 'L' ? x + 2 : x - 2;
-          lines += `<path class="leader${it.L.el.classList.contains('sel') ? ' hl' : ''}" d="M${x0.toFixed(1)} ${it.y.toFixed(1)} L${elbow.toFixed(1)} ${it.y.toFixed(1)} L${it.ax.toFixed(1)} ${it.ay.toFixed(1)}"/><circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.6"/>`;
+      }
+    };
+    // Among the candidate positions that collide with nothing already placed, take the one that
+    // covers the least vessel geometry (ties go to the earlier, preferred direction).
+    const place = (it, dirs, gap, leader) => {
+      let best = null;
+      dirs.forEach((dir, i) => {
+        const [dx, dy] = offset(dir, it, gap);
+        const x = it.ax + dx, y = it.ay + dy;
+        const r = rectOf({ ...it, x, y });
+        if (!within(r, B) || placed.some((p) => hits(r, p))) return;
+        const cost = (useLines ? lineCost(r) * 4 : 0) + i;
+        if (!best || cost < best.cost) best = { cost, x, y, r, dir };
+      });
+      if (!best) return false;
+      it.x = best.x; it.y = best.y; it.dir = best.dir; it.leader = leader;
+      placed.push(best.r); out.push(it);
+      return true;
+    };
+
+    if (!circuit) {
+      // ── Anatomy ──
+      const show = new Set(CHIP_NODES);
+      if (f.metrics.gastricVarix.d >= 2.4) show.add('GV');
+      if (st.selection?.type === 'node') show.add(st.selection.id);
+      const cath = (f.viewParams || st.params).catheter;
+      if (cath.vein && cath.wedged) show.add('W_' + cath.vein);
+      const [lx] = worldToLocal(ATLAS_COLUMNS[0], 500), [rx] = worldToLocal(ATLAS_COLUMNS[1], 500);
+      const colW = 150;
+      const atlas = lx - 8 > colW && W - rx - 8 > colW;
+      const items = [];
+      for (const id of show) {
+        if (!NODE_POS[id]) continue;
+        const [ax, ay] = worldToLocal(...nodePos(id, t));
+        if (ax < -20 || ax > W + 20 || ay < -20 || ay > H + 20) continue;
+        const it = nodeItem(id, f, atlas ? 'atlas' : 'inline', compact);
+        it.ax = ax; it.ay = ay; it.pri = it.sel ? 100 : ANAT_PRI[id] || 5;
+        it.side = ATLAS_LABELS[id]?.side || (NODE_POS[id][0][0] < 700 ? 'L' : 'R');
+        items.push(it);
+      }
+      if (atlas) {
+        for (const side of ['L', 'R']) {
+          const col = items.filter((it) => it.side === side).sort((a, b) => a.ay - b.ay);
+          const cx0 = side === 'L' ? lx - colW : rx, cx1 = side === 'L' ? lx : rx + colW;
+          let top = 10, bottom = H - 10;
+          for (const b of blockers) {
+            if (b.x1 < cx0 || b.x0 > cx1) continue;
+            if (b.y0 < H / 2) top = Math.max(top, b.y1 + 8); else bottom = Math.min(bottom, b.y0 - 8);
+          }
+          const gap = 8;
+          const need = col.reduce((sum, it) => sum + it.h + gap, 0);
+          if (bottom - top < need) { top = 10; bottom = Math.max(top + need, H - 10); }
+          for (let i = 0; i < col.length; i++) col[i].y = Math.max(col[i].ay - col[i].h / 2, i ? col[i - 1].y + col[i - 1].h + gap : top);
+          for (let i = col.length - 1; i >= 0; i--) col[i].y = Math.min(col[i].y, i < col.length - 1 ? col[i + 1].y - col[i].h - gap : bottom - col[i].h);
+          const elbow = side === 'L' ? lx + 12 : rx - 12;
+          for (const it of col) {
+            it.x = side === 'L' ? lx - 8 - it.w : rx + 8;
+            it.align = side === 'L' ? 'end' : 'start';
+            const ly = it.y + Math.min(it.h / 2, 16);
+            const x0 = side === 'L' ? lx - 4 : rx + 4;
+            leaders += `<path class="leader${it.sel ? ' hl' : ''}" d="M${x0.toFixed(1)} ${ly.toFixed(1)} L${elbow.toFixed(1)} ${ly.toFixed(1)} L${it.ax.toFixed(1)} ${it.ay.toFixed(1)}"/><circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
+            placed.push(rectOf(it));
+            out.push(it);
+          }
+        }
+      } else {
+        // Inline: dots on the anatomy, labels nearby with short leaders, most important first.
+        buildLines();
+        for (const it of items) placed.push({ x0: it.ax - 4, y0: it.ay - 4, x1: it.ax + 4, y1: it.ay + 4 });
+        for (const it of items.sort((a, b) => b.pri - a.pri)) {
+          it.align = 'start';
+          const dirs = it.side === 'L' ? ['NW', 'W', 'SW', 'N', 'S', 'NE', 'E', 'SE'] : ['NE', 'E', 'SE', 'N', 'S', 'NW', 'W', 'SW'];
+          if (place(it, dirs, 12, true) || place(it, dirs, 30, true)) continue;
+          if (it.sel) { place(it, ['C'], 0, false) || (out.push(Object.assign(it, { x: it.ax + 8, y: it.ay - it.h / 2 })), true); }
+        }
+        for (const it of out) {
+          if (!it.leader) continue;
+          const r = rectOf(it);
+          const px = clamp(it.ax, r.x0, r.x1), py = clamp(it.ay, r.y0, r.y1);
+          if (Math.hypot(px - it.ax, py - it.ay) > 5) leaders += `<path class="leader${it.sel ? ' hl' : ''}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}"/>`;
+          leaders += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
+        }
+      }
+      // Organ names: fixed inside their organ, dropped where a label needs the room.
+      if (st.layers.labels && t < 0.3) {
+        for (const [txt, x, y] of ORGAN_LABELS) {
+          const [ax, ay] = worldToLocal(x, y);
+          const up = txt.toUpperCase();
+          const it = { key: 'o:' + txt, cls: 'organ', lines: [[{ t: up, size: compact ? 8.5 : 9.5, weight: 600, cls: 'lb-organ', track: 0.1 }]], align: 'middle', padX: 2, padY: 1, ax, ay };
+          it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
+          place(it, ['C'], 0, false);
         }
       }
     } else {
-      const placed = [];
-      for (const it of items.sort((a, b) => a.ay - b.ay)) {
-        let { ax: x, ay: y } = it;
-        const cw = it.L.el.offsetWidth || 90, ch = 22;
-        for (let k = 0; k < 6; k++) {
-          const hit = placed.find((r) => Math.abs(r.x - x) < (r.w + cw) / 2 + 2 && Math.abs(r.y - y) < ch);
-          if (!hit) break;
-          y = hit.y + (y >= hit.y ? ch : -ch);
+      // ── Circuit: zone titles, then stations by priority, then resistances ──
+      for (const [txt, x0, x1] of CIRCUIT_ZONES) {
+        const [a] = worldToLocal(x0, 60), [b, by] = worldToLocal(x1, 60);
+        const it = { key: 'z:' + txt, cls: 'zonecap', lines: [[{ t: txt.toUpperCase(), size: compact ? 8.5 : 9.5, weight: 650, cls: 'lb-zone', track: 0.1 }]], align: 'middle', padX: 2, padY: 2 };
+        it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
+        it.ax = (a + b) / 2; it.ay = Math.max(14, by);
+        if (b - a > it.w + 6) place(it, ['C'], 0, false);
+      }
+      buildLines();
+      const nodes = [];
+      for (const n of NODES) {
+        if (!nodeEls[n.id] || !CIRCUIT_LABELS[n.id]) continue;
+        if (!nodeVisible(n.id)) continue;
+        const [ax, ay] = worldToLocal(...nodePos(n.id, t));
+        if (ax < -10 || ax > W + 10 || ay < -10 || ay > H + 10) continue;
+        placed.push({ x0: ax - 5, y0: ay - 5, x1: ax + 5, y1: ay + 5 });
+        const it = nodeItem(n.id, f, 'station', compact);
+        it.align = 'middle'; it.ax = ax; it.ay = ay; it.pri = it.sel ? 100 : CIRCUIT_LABELS[n.id].pri;
+        nodes.push(it);
+      }
+      for (const it of nodes.sort((a, b) => b.pri - a.pri)) {
+        const pref = CIRCUIT_LABELS[it.node].dirs;
+        const dirs = [...pref, ...['N', 'S', 'E', 'W', 'NE', 'SE', 'NW', 'SW'].filter((d) => !pref.includes(d))];
+        if (!place(it, dirs, 7, false) && it.sel) place(it, dirs, 22, true);
+      }
+      if (!isImaging() && st.layers.chips) {
+        for (const [id, r] of Object.entries(resistorEls)) {
+          const [x, y] = pointAt(geo[id].cur, 0.5);
+          const [ax, ay] = worldToLocal(x, y);
+          const it = { key: 'r:' + id, cls: 'res', lines: [[{ t: r.txt, size: compact ? 9 : 10, weight: 600, cls: 'lb-res' }]], align: 'middle', padX: 2, padY: 1, ax, ay: ay + 4 };
+          it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
+          place(it, ['S', 'N'], 6, false);
         }
-        placed.push({ x, y, w: cw });
-        it.L.el.style.left = x + 'px'; it.L.el.style.top = y + 'px';
       }
     }
-    // In the circuit view a node that carries a label doesn't also need its small caption.
-    for (const n of NODES) if (nodeEls[n.id]) nodeEls[n.id].t.style.visibility = !atlas && show.has(n.id) ? 'hidden' : '';
-    if (leaderSvg._last !== lines) { leaderSvg.innerHTML = lines; leaderSvg._last = lines; }
-
-    // reversal badges
-    for (const id of BADGE_EDGES) {
-      const x = E[id];
-      if (x.rev && x.vis) {
-        let b = badgeEls[id];
-        if (!b) { b = h('div', { class: 'badge-rev' }, '⟲ reversed'); overlay.append(b); badgeEls[id] = b; }
-        const [px, py] = pointAt(geo[id].cur, 0.5);
-        const [bx, by] = worldToLocal(px, py);
-        b.style.left = (bx + 30) + 'px'; b.style.top = (by + 12) + 'px';
-      } else if (badgeEls[id]) { badgeEls[id].remove(); delete badgeEls[id]; }
+    // Selected vessel: name it on the figure, next to the vessel.
+    const selE = st.selection?.type === 'edge' ? st.selection.id : null;
+    if (selE && E[selE]?.vis) {
+      const [x, y] = pointAt(geo[selE].cur, 0.5);
+      const [ax, ay] = worldToLocal(x, y);
+      const it = { key: 'selE', cls: 'selE', lines: [[{ t: E[selE].e.label || selE, size: compact ? 11 : 12, weight: 650, cls: 'lb-selname' }]], align: 'start', bg: true, padX: 7, padY: 3, ax, ay };
+      it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
+      if (place(it, ['E', 'W', 'NE', 'SE', 'NW', 'SW', 'N', 'S'], 10 + (E[selE].width || 4) / 2, true) || place(it, ['E', 'W', 'NE', 'SE', 'NW', 'SW'], 34, true)) {
+        const r = rectOf(it);
+        leaders += `<path class="leader hl" d="M${ax.toFixed(1)} ${ay.toFixed(1)} L${clamp(ax, r.x0, r.x1).toFixed(1)} ${clamp(ay, r.y0, r.y1).toFixed(1)}"/>`;
+      }
     }
+    // Lesson / case focus callout
+    const foc = st.focus;
+    if (foc?.edges?.length && E[foc.edges[0]]?.vis) {
+      const [x, y] = pointAt(geo[foc.edges[0]].cur, 0.5);
+      const [ax, ay] = worldToLocal(x, y);
+      const it = { key: 'focus', cls: 'focus', lines: [[{ t: foc.label || 'Here', size: 11.5, weight: 650, cls: 'lb-focus' }]], align: 'start', bg: true, padX: 8, padY: 4, ax, ay };
+      it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
+      if (place(it, ['E', 'W', 'NE', 'SE', 'N', 'S'], 18 + (E[foc.edges[0]].width || 4), true)) {
+        const r = rectOf(it);
+        leaders += `<path class="leader focus" d="M${ax.toFixed(1)} ${ay.toFixed(1)} L${clamp(ax, r.x0, r.x1).toFixed(1)} ${clamp(ay, r.y0, r.y1).toFixed(1)}"/>`;
+      }
+    }
+
+    for (const it of out) renderBlock(it);
+    for (const [k, b] of pool) if (b.seen !== frameNo) b.g.style.display = 'none';
+    if (gLeaders._last !== leaders) { gLeaders.innerHTML = leaders; gLeaders._last = leaders; }
   }
+  const nodeVisible = (id) => ALL_EDGES.some((e) => (e.from === id || e.to === id) && E[e.id]?.vis);
 
   // ── Particle animation loop ───────────────────────
   let lastT = performance.now();
@@ -640,14 +913,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
     if (!CTM) refreshCTM();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (!F || !st.layers.particles) return;
+    if (!F) return;
     const m = CTM;
     ctx.setTransform(dpr * m.a, dpr * m.b, dpr * m.c, dpr * m.d, dpr * (m.e - wrapRect.left), dpr * (m.f - wrapRect.top));
     ctx.lineCap = 'round';
     const running = st.running;
     const simSpeed = st.clock === 'hemo' ? clamp(Math.sqrt(st.speed), 0.4, 2) : 0.8;
     const still = reduceMotion.matches;
+    const showParticles = st.layers.particles && !st.imaging;
     for (const x of Object.values(E)) {
+      if (!showParticles) { x.parts.length = 0; continue; }
       if (!x.vis) { x.parts.length = 0; continue; }
       const e = x.e;
       const g = geo[e.id];
@@ -1038,7 +1313,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo }
   // ── Public API ────────────────────────────────────
   return {
     update,
-    setView(v) { morphTarget = v === 'circuit' ? 1 : 0; },
+    setView(v) {
+      const target = v === 'circuit' ? 1 : 0;
+      if (target === morphTarget) return;
+      morphTarget = target;
+      const d = defaultVT(target === 1);
+      if (d.k !== vt.k || d.x !== vt.x || d.y !== vt.y) { world.style.transition = 'transform .6s var(--ease)'; vt = d; applyVT(); CTM = null; setTimeout(() => { world.style.transition = ''; CTM = null; }, 620); }
+    },
+    relayout() { refreshCTM(); if (F) updateLabels(F); },
+    labelLayer: () => labelSvg,
+    svg,
     worldToLocal: (x, y) => { refreshCTM(); return worldToLocal(x, y); },
     anchorPos(anchor) {
       const t = easeInOut(morph);

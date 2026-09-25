@@ -35,20 +35,24 @@ const VITALS = [
   { k: 'Spleen', why: 'spleen', v: (m) => fmt(m.spleen.length, 1), u: 'cm', bad: (m) => m.spleen.length > 13 },
 ];
 
-// Chart tabs, grouped: hemodynamics · bedside measurements · microanatomy · log.
-const GROUPS = [['profile', 'scope', 'flow', 'perfusion'], ['hvpg', 'doppler', 'endoscopy', 'abdomen'], ['lobule', 'varixwall'], ['events', 'compare']];
+// Instruments, grouped: hemodynamics · bedside measurements · microanatomy · log.
+const GROUPS = [['Hemodynamics', ['profile', 'scope', 'flow', 'perfusion']], ['Bedside', ['hvpg', 'doppler', 'endoscopy', 'abdomen']], ['Microanatomy', ['lobule', 'varixwall']], ['Log', ['events']]];
+// Key readouts always shown; the rest join the row when abnormal (or when the learner asks).
+const PRIMARY = new Set(['hvpg', 'pv', 'pvflow', 'varix']);
 
-export function createDock({ strip, tabs, body, onWhy, onAction, onProbe }) {
+export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal }) {
+  const app = document.getElementById('app');
   // ── Readout strip ─────────────────────────────────
   const tileEls = {};
   for (const t of TILES) {
-    const val = h('span', { class: 'val' }, '—'), tr = h('span', { class: 'tr' }), st = h('span', { class: 'status' });
-    const el = h('button', { class: 'metric' + (t.group ? ' group-start' : ''), role: 'listitem', 'aria-label': t.k },
-      h('span', { class: 'k' }, t.k), h('span', { class: 'v' }, val, h('span', { class: 'unit' }, t.u), tr), h('span', { class: 's' }, st));
+    const val = h('span', { class: 'val' }, '—'), tr = h('span', { class: 'tr' }), st = h('span', { class: 'status' }), cmp = h('span', { class: 'cmp' });
+    const secondary = !PRIMARY.has(t.id);
+    const el = h('button', { class: 'metric' + (secondary ? ' secondary' : ''), 'aria-label': t.title || t.k, hidden: secondary },
+      h('span', { class: 'k' }, t.k), h('span', { class: 'v' }, val, h('span', { class: 'unit' }, t.u), tr), h('span', { class: 's' }, st, cmp));
     if (t.why) el.addEventListener('click', () => onWhy(t.why, el));
     el.title = `${t.title || t.k}${t.why ? ' · click for a causal breakdown' : ''}`;
     strip.append(el);
-    tileEls[t.id] = { el, t, val, tr, st, last: null, trendT: 0, sev: null };
+    tileEls[t.id] = { el, t, val, tr, st, cmp, last: null, trendT: 0, sev: null, secondary };
   }
   const vitEls = VITALS.map((v) => {
     const val = h('b', {}, '—');
@@ -56,24 +60,30 @@ export function createDock({ strip, tabs, body, onWhy, onAction, onProbe }) {
     if (v.why) el.addEventListener('click', () => onWhy(v.why, el));
     return { v, el, val };
   });
-  strip.append(h('div', { class: 'vitals-block', role: 'listitem', 'aria-label': 'Systemic vitals' }, h('span', { class: 'vb-title' }, 'Systemic'), h('div', { class: 'vb-grid' }, vitEls.map((x) => x.el))));
+  strip.append(h('div', { class: 'vitals-block', 'aria-label': 'Systemic vitals' }, h('span', { class: 'vb-title' }, 'Systemic'), h('div', { class: 'vb-grid' }, vitEls.map((x) => x.el))));
+  const moreBtn = h('button', { class: 'btn sm ghost more-readouts', 'aria-expanded': 'false' }, 'All readouts');
+  moreBtn.addEventListener('click', () => { const on = strip.classList.toggle('all'); moreBtn.setAttribute('aria-expanded', String(on)); moreBtn.textContent = on ? 'Fewer readouts' : 'All readouts'; });
+  strip.append(moreBtn);
 
   function updateStrip(f) {
     const m = f.metrics;
-    const hidden = store.get().hiddenReadouts;
+    const st0 = store.get();
+    const hidden = st0.hiddenReadouts;
+    const A = st0.mode === 'compare' ? st0.compareSnap?.metrics : null;
+    let hiddenCount = 0;
     for (const x of Object.values(tileEls)) {
       const { el, t } = x;
-      let sev;
+      let sev, v = null;
       if (hidden?.has(t.hideKey)) {
         const meas = t.id === 'hvpg' ? t.measured?.() : null;
         x.val.textContent = meas ? fmt(meas.hvpg, 1) : '?';
-        x.st.textContent = meas ? 'Measured' : t.id === 'hvpg' ? 'Use catheter' : 'Unknown';
+        x.st.textContent = meas ? 'Measured' : t.id === 'hvpg' ? 'Use catheter' : 'Not measured';
         sev = meas ? t.st(meas.hvpg, m) : 'none';
         el.classList.toggle('hidden-val', !meas);
         x.tr.textContent = '';
       } else {
         el.classList.remove('hidden-val');
-        const v = t.v(m);
+        v = t.v(m);
         const txt = fmt(v, t.d);
         if (x.val.textContent !== txt) x.val.textContent = txt;
         const s = t.s(v, m);
@@ -83,66 +93,107 @@ export function createDock({ strip, tabs, body, onWhy, onAction, onProbe }) {
         else if (performance.now() - x.trendT > 1500) x.tr.textContent = '';
         x.last = v;
       }
+      // Compare: each tile reports its change from state A in place of the status word.
+      if (A && v != null) {
+        const a = t.v(A), d = v - a;
+        const same = Math.abs(d) < Math.pow(10, -t.d) * 0.5;
+        x.cmp.textContent = same ? 'same as A' : `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), t.d)} vs A`;
+        x.cmp.className = 'cmp ' + (same ? 'same' : d > 0 ? 'up' : 'down');
+        x.st.hidden = true;
+      } else if (x.cmp.textContent) { x.cmp.textContent = ''; x.st.hidden = false; }
       if (sev !== x.sev) { el.dataset.sev = sev; x.sev = sev; }
+      if (x.secondary) {
+        const show = sev !== 'ok' || !!A;
+        if (el.hidden === show) { el.hidden = !show; el.classList.toggle('promoted', show); }
+        if (!show) hiddenCount++;
+      }
     }
     for (const x of vitEls) {
       const txt = hidden?.has(x.v.hideKey) ? '?' : x.v.v(m);
       if (x.val.textContent !== txt) x.val.textContent = txt;
       x.el.classList.toggle('bad', !hidden?.has(x.v.hideKey) && x.v.bad(m));
     }
+    moreBtn.hidden = !hiddenCount && !strip.classList.contains('all');
   }
 
-  // ── Panes ─────────────────────────────────────────
+  // ── Instrument drawer ─────────────────────────────
   const events = createEventsPane();
-  const compare = createComparePane();
   const panes = [
     createProfile(), createScope(), createSankey(), createPerfusion(), createHVPG(),
-    createDoppler({ onProbe }), createEndoscopy({ onAction }), createLobule(), createVarixWall(), createAbdomen({ onAction }), events, compare,
+    createDoppler({ onProbe }), createEndoscopy({ onAction }), createLobule(), createVarixWall(), createAbdomen({ onAction }), events,
   ];
   const byId = Object.fromEntries(panes.map((p) => [p.id, p]));
+  const groupOf = (id) => GROUPS.find(([, ids]) => ids.includes(id))[0];
   let active = 'profile';
   const tabBtns = {};
-  GROUPS.forEach((g, gi) => {
-    if (gi) tabs.append(h('span', { class: 'grp-sep', 'aria-hidden': 'true' }));
-    for (const id of g) {
-      const p = byId[id];
-      const b = h('button', { role: 'tab', 'aria-selected': String(p.id === active), 'aria-controls': 'pane-' + p.id }, p.label);
-      b.addEventListener('click', () => show(p.id));
-      tabs.append(b);
-      tabBtns[p.id] = b;
-    }
-  });
+  const title = h('button', { class: 'dock-title', 'aria-expanded': 'false', title: 'Open or close the instruments (I)' }, svgIcon('chart'), 'Instruments');
+  title.addEventListener('click', () => toggle());
+  const groupSeg = h('div', { class: 'seg dock-groups', role: 'group', 'aria-label': 'Instrument group' }, GROUPS.map(([g, ids]) => {
+    const b = h('button', { 'aria-pressed': 'false', 'data-g': g }, g);
+    b.addEventListener('click', () => show(active && groupOf(active) === g ? active : ids[0], { open: app.classList.contains('dock-open') || window.matchMedia('(max-width: 767px)').matches, keepClosed: !app.classList.contains('dock-open') }));
+    return b;
+  }));
+  const tabs = h('div', { class: 'dock-tabs', role: 'tablist', 'aria-label': 'Instruments' });
+  for (const [, ids] of GROUPS) for (const id of ids) {
+    const p = byId[id];
+    const b = h('button', { role: 'tab', 'aria-selected': 'false', 'aria-controls': 'pane-' + p.id }, p.label);
+    b.addEventListener('click', () => show(p.id, { open: true }));
+    tabs.append(b);
+    tabBtns[p.id] = b;
+  }
+  const collapse = h('button', { class: 'ib dock-collapse', 'aria-label': 'Open instruments', title: 'Open or close the instruments (I)' }, svgIcon('chev-down'));
+  collapse.addEventListener('click', () => toggle());
+  head.append(title, groupSeg, tabs, collapse);
   for (const p of panes) { p.el.id = 'pane-' + p.id; p.el.setAttribute('role', 'tabpanel'); body.append(p.el); }
-  const app = document.getElementById('app');
-  const collapse = h('button', { class: 'ib', title: 'Collapse charts', 'aria-label': 'Collapse charts' }, svgIcon('chev-down'));
-  const syncCollapse = () => { const c = app.classList.contains('dock-collapsed'); collapse.style.transform = c ? 'rotate(180deg)' : ''; collapse.setAttribute('aria-label', c ? 'Expand charts' : 'Collapse charts'); };
-  collapse.addEventListener('click', () => { app.classList.toggle('dock-collapsed'); syncCollapse(); const f = store.get().frame; if (f) byId[active].update(f); });
-  tabs.parentElement.append(collapse);
-  tabBtns.compare.hidden = true;
+  // Wide: two levels (group, then its instruments). Narrow: every instrument in one scrolling row.
+  const grouped = matchMedia('(min-width: 1101px), (max-width: 767px)');
+  function syncTabs() {
+    const g = groupOf(active);
+    for (const b of groupSeg.children) b.setAttribute('aria-pressed', String(b.dataset.g === g));
+    for (const [id, b] of Object.entries(tabBtns)) { b.hidden = grouped.matches && groupOf(id) !== g; b.setAttribute('aria-selected', String(id === active)); }
+    const open = app.classList.contains('dock-open');
+    title.setAttribute('aria-expanded', String(open));
+    collapse.setAttribute('aria-label', open ? 'Close instruments' : 'Open instruments');
+  }
+  grouped.addEventListener('change', syncTabs);
 
-  function show(id) {
+  function show(id, { open = true, reveal = false, keepClosed = false } = {}) {
     if (!byId[id]) return;
     active = id;
-    for (const p of panes) { p.el.classList.toggle('active', p.id === id); tabBtns[p.id].setAttribute('aria-selected', String(p.id === id)); }
-    app.classList.remove('dock-collapsed'); syncCollapse();
+    for (const p of panes) p.el.classList.toggle('active', p.id === id);
+    if (reveal) onReveal?.(reveal);
+    else if (open && !keepClosed) app.classList.add('dock-open');
+    if (app.classList.contains('dock-open')) title.classList.remove('ping');
+    syncTabs();
     tabBtns[id].scrollIntoView({ block: 'nearest', inline: 'nearest' });
     const f = store.get().frame;
-    if (f) requestAnimationFrame(() => byId[id].update(f));
+    if (f) setTimeout(() => byId[id].update(f), app.classList.contains('dock-open') ? 300 : 0);
   }
-  show('profile');
+  function toggle() {
+    title.classList.remove('ping');
+    app.classList.toggle('dock-open');
+    syncTabs();
+    const f = store.get().frame;
+    if (f) setTimeout(() => byId[active].update(f), 300);
+    setTimeout(() => dispatchEvent(new Event('resize')), 320);
+  }
+  show('profile', { open: false });
 
-  function update(f) {
+  function update(f, force) {
     updateStrip(f);
     byId.scope.ingest(f);
     if (f.events?.length) events.add(f.events);
-    if (app.classList.contains('dock-collapsed')) return;
+    // The HVPG instrument also records wedge measurements (lessons and cases wait on them),
+    // so it runs whenever a catheter is in place, open or not.
+    const cath = (f.params || store.get().params).catheter;
+    if (cath?.vein && active !== 'hvpg') byId.hvpg.update(f);
+    if (!force && !app.classList.contains('dock-open') && !window.matchMedia('(max-width: 767px), (max-height: 500px)').matches) { if (cath?.vein && active === 'hvpg') byId.hvpg.update(f); return; }
     const p = byId[active];
     if (p === byId.scope) p.redraw(); else p.update(f);
   }
 
-  store.on('mode', (mode) => { tabBtns.compare.hidden = mode !== 'compare'; if (mode === 'compare') show('compare'); });
   addEventListener('resize', () => { const f = store.get().frame; if (f) byId[active].update(f); });
-  return { update, show, profile: byId.profile, events };
+  return { update, show, toggle, profile: byId.profile, events };
 }
 
 function createEventsPane() {
@@ -162,38 +213,5 @@ function createEventsPane() {
     },
     update() {},
     items,
-  };
-}
-
-function createComparePane() {
-  const el = h('div', { class: 'dock-pane', 'data-pane': 'compare' });
-  const table = h('div', { style: { flex: 1, overflow: 'auto', minWidth: 0 } });
-  const snapBtn = h('button', { class: 'btn primary block' }, icon('camera'), 'Take snapshot A');
-  const clearBtn = h('button', { class: 'btn block' }, 'Clear snapshot');
-  const side = h('div', { class: 'chart-side' }, h('div', { class: 'side-title' }, 'Compare two states'),
-    h('div', { class: 'sub' }, 'Snapshot the current state as A, then change anything. The table and the pressure profile show A against now (B).'), snapBtn, clearBtn);
-  el.append(table, side);
-  snapBtn.addEventListener('click', () => { const f = store.get().frame; if (f) store.set({ compareSnap: { P: Array.from(f.P), metrics: structuredClone(f.metrics), params: structuredClone(store.get().params) } }); });
-  clearBtn.addEventListener('click', () => store.set({ compareSnap: null }));
-  const rows = [
-    ['HVPG', (m) => m.hvpg, 1, 'mmHg'], ['Portal pressure', (m) => m.pv, 1, 'mmHg'], ['Portosystemic gradient', (m) => m.ppg, 1, 'mmHg'], ['Portal flow', (m) => m.pvFlow, 2, 'L/min'],
-    ['Liver perfusion', (m) => m.liverPerfPct, 0, '%'], ['Shunt fraction', (m) => m.shuntFraction * 100, 0, '%'], ['Varix wall tension', (m) => m.varix.ratio * 100, 0, '%'],
-    ['Ascites formation', (m) => m.ascites.ratePerDay, 0, 'mL/day'], ['Right atrium', (m) => m.ra, 1, 'mmHg'], ['MAP', (m) => m.map, 0, 'mmHg'], ['Cardiac output', (m) => m.co, 2, 'L/min'],
-  ];
-  return {
-    id: 'compare', label: 'Compare', el,
-    update(f) {
-      const A = store.get().compareSnap?.metrics;
-      const cell = (txt, extra = {}) => h('dd', extra, txt);
-      table.replaceChildren(h('dl', { class: 'kv', style: { gridTemplateColumns: 'minmax(140px, 1fr) repeat(3, minmax(64px, auto))', maxWidth: '620px' } },
-        h('dt', { class: 'overline' }, 'Metric'), cell('A', { class: 'overline' }), cell('Now', { class: 'overline' }), cell('Δ', { class: 'overline' }),
-        rows.map(([lab, g, d, u]) => {
-          const b = g(f.metrics), a = A ? g(A) : null;
-          const delta = a != null ? b - a : null;
-          const big = delta != null && Math.abs(delta) >= Math.pow(10, -d);
-          return [h('dt', {}, lab, h('span', { class: 'unit' }, u)), cell(a != null ? fmt(a, d) : '—', { style: { color: 'var(--text-2)', fontWeight: 500 } }), cell(fmt(b, d)),
-            cell(delta != null ? (delta > 0 ? '+' : '') + fmt(delta, d) : '', { style: { color: !big ? 'var(--text-3)' : delta > 0 ? 'var(--danger)' : 'var(--accent)' } })];
-        })));
-    },
   };
 }

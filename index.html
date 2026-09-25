@@ -75,6 +75,9 @@
       <symbol id="i-heart" viewBox="0 0 24 24"><path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7z"/></symbol>
       <symbol id="i-liver" viewBox="0 0 24 24"><path d="M3 9.5c0-3 3.2-4.3 8-4.3 5 0 10 .8 10 3.3 0 2.3-4 3.5-7.5 6.7C11.3 17.3 8.8 19 6.3 18.2 3.8 17.4 3 13.4 3 9.5z"/></symbol>
       <symbol id="i-vessel" viewBox="0 0 24 24"><path d="M12 22v-8M12 14 5 4M12 14l7-10M8.5 9 5 9.5"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></symbol>
+      <symbol id="i-print" viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7" rx="1"/></symbol>
+      <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
       <symbol id="i-activity" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
     </defs>
   </svg>
@@ -91,9 +94,10 @@
         <button role="tab" data-mode="cases" aria-selected="false"><svg><use href="#i-case"/></svg><span>Cases</span></button>
         <button role="tab" data-mode="compare" aria-selected="false"><svg><use href="#i-compare"/></svg><span>Compare</span></button>
       </nav>
+      <button class="mode-menu" id="modeMenuBtn" aria-haspopup="menu" aria-label="Mode"><span id="modeMenuLabel">Explore</span><svg class="chev"><use href="#i-chev-down"/></svg></button>
       <div class="top-right">
         <button class="scenario-btn" id="scenarioBtn" aria-haspopup="dialog" title="Choose a patient scenario">
-          <span class="scenario-k">Scenario</span>
+          <span class="scenario-k">Patient</span>
           <span class="scenario-v" id="scenarioName">Healthy</span>
           <svg class="chev"><use href="#i-chev-down"/></svg>
         </button>
@@ -104,66 +108,69 @@
         <div class="tb-group hide-sm">
           <button class="ib" id="btnShare" title="Copy a link to this exact scenario" aria-label="Share link"><svg><use href="#i-share"/></svg></button>
           <button class="ib" id="btnTheme" title="Light / dark" aria-label="Toggle theme"><svg><use href="#i-theme"/></svg></button>
-          <button class="ib" id="btnHelp" title="Guide & shortcuts (?)" aria-label="Help"><svg><use href="#i-help"/></svg></button>
+          <button class="ib" id="btnHelp" title="Guide &amp; shortcuts (?)" aria-label="Help"><svg><use href="#i-help"/></svg></button>
         </div>
-        <button class="ib show-md" id="btnInspector" title="Controls panel" aria-label="Toggle controls panel"><svg><use href="#i-panel"/></svg></button>
+        <button class="ib show-sm" id="btnMore" aria-label="More" aria-haspopup="menu"><svg><use href="#i-more"/></svg></button>
+        <button class="btn panel-toggle hide-sm" id="btnInspector" aria-label="Toggle side panel" aria-pressed="true"><svg><use href="#i-panel"/></svg><span id="panelToggleLabel">Controls</span></button>
       </div>
     </header>
 
-    <main class="stage-wrap" id="stageWrap" aria-label="Anatomical stage">
-      <svg id="stage" role="application" aria-label="Portal circulation. Tab through vessels; arrow keys move along the flow."></svg>
-      <canvas id="particles" aria-hidden="true"></canvas>
-      <svg id="leaders" aria-hidden="true"></svg>
-      <div id="overlay"></div>
-      <div class="vignette" id="vignette"></div>
-
-      <div class="hud hud-tl" id="hudTL">
-        <div class="seg seg-glass" id="viewSeg" role="group" aria-label="View">
-          <button data-view="anatomic" aria-pressed="true" title="Anatomic view (A)">Anatomy</button>
-          <button data-view="circuit" aria-pressed="false" title="Circuit view (A)">Circuit</button>
+    <main class="stage-wrap" id="stageWrap" aria-label="Figure">
+      <div class="stage-bar top" id="stageTop">
+        <div class="sb-left">
+          <div class="seg" id="viewSeg" role="group" aria-label="View">
+            <button data-view="anatomic" aria-pressed="true" title="Anatomic view (A)">Anatomy</button>
+            <button data-view="circuit" aria-pressed="false" title="Circuit view (A)">Circuit</button>
+          </div>
+          <button class="chip-btn" id="btnLayers" aria-haspopup="dialog" title="Vessel color, layers and units"><svg><use href="#i-layers"/></svg><span class="cb-k">Color</span><span id="colorModeLabel">Pressure</span><svg class="chev"><use href="#i-chev-down"/></svg></button>
         </div>
-        <button class="ib glass" id="btnLayers" title="Layers & vessel color" aria-label="Layers and vessel color" aria-haspopup="dialog"><svg><use href="#i-layers"/></svg></button>
+        <div class="sb-center stage-blocker" id="stageBanner"></div>
+        <div class="sb-right">
+          <div class="legend" id="legend" role="img" aria-label="Color legend"></div>
+          <button class="chip-btn" id="btnFigure" title="Figure view: a clean, labeled plate to present or export (F)"><svg><use href="#i-camera"/></svg><span>Figure</span></button>
+          <button class="ib show-sm" id="btnExpand" aria-label="Expand figure" aria-pressed="false"><svg><use href="#i-fit"/></svg></button>
+        </div>
       </div>
-      <div class="palette" id="toolRail" role="toolbar" aria-label="Tools" aria-orientation="vertical"></div>
-      <div class="tool-card" id="toolHint" role="status" hidden></div>
-      <div class="hud hud-tc" id="hudTC">
-        <div class="transport glass" id="transport">
+      <div class="fig-head" id="figHead"></div>
+      <div class="stage-view" id="stageView">
+        <svg id="stage" role="application" aria-label="Portal circulation. Tab through vessels; arrow keys move along the flow."></svg>
+        <canvas id="particles" aria-hidden="true"></canvas>
+        <svg id="labels" aria-label="Pressure labels"></svg>
+        <div id="overlay"></div>
+        <div class="vignette" id="vignette"></div>
+        <div class="hud hud-tr" id="events" aria-live="polite"></div>
+        <div class="tool-card stage-blocker" id="toolHint" role="status" hidden></div>
+        <div class="coach stage-blocker" id="coach" hidden></div>
+      </div>
+      <div class="fig-foot" id="figFoot"></div>
+      <div class="stage-bar bottom" id="stageBottom">
+        <div class="transport" id="transport">
           <button class="ib play" id="btnPlay" title="Play / pause (Space)" aria-label="Pause"><svg><use href="#i-pause"/></svg></button>
-          <button class="speed" id="speedBtn" title="Simulation speed ([ and ])" aria-haspopup="menu">1×</button>
-          <span class="t-sep"></span>
           <div class="seg seg-mini" id="clockSeg" role="group" aria-label="Clock">
             <button data-clock="hemo" aria-pressed="true" title="Hemodynamic clock: seconds">Seconds</button>
             <button data-clock="disease" aria-pressed="false" title="Disease clock: 1 simulated day per second (remodeling)">Months</button>
           </div>
-          <button class="ib" id="btnAdvance" title="Fast-forward the disease" aria-haspopup="menu" aria-label="Fast-forward"><svg><use href="#i-ff"/></svg></button>
-          <span class="t-sep"></span>
           <span class="clock-readout" id="clockReadout">0.0 s</span>
-          <button class="ib" id="btnSettle" title="Settle to equilibrium (Z)" aria-label="Settle to equilibrium"><svg><use href="#i-settle"/></svg></button>
+          <button class="ib" id="btnTime" aria-label="Speed, fast-forward and settle" aria-haspopup="menu"><svg><use href="#i-ff"/></svg></button>
         </div>
-      </div>
-      <div class="hud hud-tr" id="events" aria-live="polite"></div>
-      <div class="hud hud-bl" id="hudBL"></div>
-      <div class="hud hud-br" id="hudBR">
-        <div class="zoom glass">
-          <button class="ib" id="zoomIn" aria-label="Zoom in" title="Zoom in"><svg><use href="#i-plus"/></svg></button>
+        <div class="toolbar" id="toolbar" role="toolbar" aria-label="Tools"></div>
+        <div class="zoom" id="zoomCtl">
           <button class="ib" id="zoomOut" aria-label="Zoom out" title="Zoom out"><svg><use href="#i-minus"/></svg></button>
           <button class="ib" id="zoomFit" aria-label="Fit to view" title="Fit"><svg><use href="#i-fit"/></svg></button>
+          <button class="ib" id="zoomIn" aria-label="Zoom in" title="Zoom in"><svg><use href="#i-plus"/></svg></button>
         </div>
       </div>
-      <button class="fab show-sm" id="btnTools" aria-label="Tools" title="Tools"><svg><use href="#i-tools"/></svg></button>
     </main>
 
-    <section class="readouts" id="strip" role="list" aria-label="Clinical readouts"></section>
+    <section class="readouts" id="strip" aria-label="Clinical readouts"></section>
 
-    <section class="dock" id="dock" aria-label="Charts and instruments">
+    <section class="dock" id="dock" aria-label="Instruments">
       <div class="dock-resize" id="dockResize" title="Drag to resize"></div>
-      <div class="dock-head">
-        <div class="dock-tabs" role="tablist" id="dockTabs"></div>
-      </div>
+      <div class="dock-head" id="dockHead"></div>
       <div class="dock-body" id="dockBody"></div>
     </section>
 
-    <aside class="panel" id="panel" aria-label="Controls">
+    <aside class="panel" id="panel" aria-label="Side panel">
       <div id="panelLesson"></div>
       <div id="inspector"></div>
     </aside>
@@ -171,7 +178,7 @@
     <nav class="mobile-tabs" id="mobileTabs" role="tablist" aria-label="Panels">
       <button role="tab" data-sheet="panel" aria-selected="true"><svg><use href="#i-sliders"/></svg><span id="mobilePanelLabel">Controls</span></button>
       <button role="tab" data-sheet="readouts" aria-selected="false"><svg><use href="#i-gauge"/></svg><span>Readouts</span></button>
-      <button role="tab" data-sheet="charts" aria-selected="false"><svg><use href="#i-chart"/></svg><span>Charts</span></button>
+      <button role="tab" data-sheet="charts" aria-selected="false"><svg><use href="#i-chart"/></svg><span>Instruments</span></button>
     </nav>
   </div>
 

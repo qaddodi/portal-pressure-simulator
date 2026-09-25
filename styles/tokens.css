@@ -57,7 +57,11 @@
   --vessel-casing: rgba(38, 30, 42, .30);
   --ascites: #5FA9D6;
   --stage-grid: rgba(80, 70, 60, .06);
-  --leader: rgba(40, 42, 52, .38);
+  --leader: rgba(40, 42, 52, .42);
+  --vein-portal: #7D6FB6;
+  --vein-systemic: #5E8FC4;
+  --arrow-ink: rgba(24, 26, 34, .78);
+  --label-halo: rgba(251, 250, 247, .92);
 
   /* chart series (validated categorical order, light) */
   --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #4a3aa7; --s8: #e34948;
@@ -69,6 +73,11 @@
   --shadow-2: 0 4px 16px rgba(20, 22, 30, .08), 0 1px 3px rgba(20, 22, 30, .06);
   --shadow-3: 0 18px 48px rgba(20, 22, 30, .16), 0 4px 12px rgba(20, 22, 30, .08);
   --r-xs: 6px; --r-sm: 8px; --r: 12px; --r-lg: 16px; --r-pill: 999px;
+  /* type scale (px): 11 · 12 · 13 · 14 · 16 · 20 · 24 */
+  --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-base: 14px; --fs-lg: 16px; --fs-xl: 20px; --fs-2xl: 24px;
+  /* spacing (4-pt) */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px;
+  --hit: 36px; /* minimum pointer target; 44px on touch */
   --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-num: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
@@ -90,7 +99,7 @@
     --organ-body: #141C31; --organ-body-line: #25304D;
     --organ-liver: #B97C6C; --organ-spleen: #9C6B94; --organ-gut: #B89272; --organ-stomach: #B98A7B; --organ-heart: #C75A69;
     --organ-kidney: #A67E6B; --organ-lung: #5A6E90; --organ-pancreas: #BFA16A; --organ-gb: #7E9A58; --organ-a: .30;
-    --artery: #E4606C; --vessel-casing: rgba(0, 0, 0, .55); --ascites: #3E8FC0; --stage-grid: rgba(160, 180, 255, .05); --leader: rgba(200, 212, 240, .38);
+    --artery: #E4606C; --vessel-casing: rgba(0, 0, 0, .55); --ascites: #3E8FC0; --stage-grid: rgba(160, 180, 255, .05); --leader: rgba(200, 212, 240, .42); --vein-portal: #9C90DA; --vein-systemic: #6FA6DA; --arrow-ink: rgba(233, 237, 246, .82); --label-halo: rgba(11, 17, 32, .9);
     --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
     --grid: #1F2840; --axis: #34405E;
     --shadow-1: 0 1px 2px rgba(0, 0, 0, .4); --shadow-2: 0 6px 20px rgba(0, 0, 0, .45); --shadow-3: 0 24px 60px rgba(0, 0, 0, .6);
@@ -108,7 +117,7 @@
   --organ-body: #141C31; --organ-body-line: #25304D;
   --organ-liver: #B97C6C; --organ-spleen: #9C6B94; --organ-gut: #B89272; --organ-stomach: #B98A7B; --organ-heart: #C75A69;
   --organ-kidney: #A67E6B; --organ-lung: #5A6E90; --organ-pancreas: #BFA16A; --organ-gb: #7E9A58; --organ-a: .30;
-  --artery: #E4606C; --vessel-casing: rgba(0, 0, 0, .55); --ascites: #3E8FC0; --stage-grid: rgba(160, 180, 255, .05); --leader: rgba(200, 212, 240, .38);
+  --artery: #E4606C; --vessel-casing: rgba(0, 0, 0, .55); --ascites: #3E8FC0; --stage-grid: rgba(160, 180, 255, .05); --leader: rgba(200, 212, 240, .42); --vein-portal: #9C90DA; --vein-systemic: #6FA6DA; --arrow-ink: rgba(233, 237, 246, .82); --label-halo: rgba(11, 17, 32, .9);
   --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
   --grid: #1F2840; --axis: #34405E;
   --shadow-1: 0 1px 2px rgba(0, 0, 0, .4); --shadow-2: 0 6px 20px rgba(0, 0, 0, .45); --shadow-3: 0 24px 60px rgba(0, 0, 0, .6);

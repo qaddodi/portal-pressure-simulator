@@ -8,7 +8,7 @@ const state = {
   tool: 'select',
   view: 'anatomic',
   selection: null,            // { type: 'edge' | 'node' | 'organ', id }
-  layers: { particles: true, chips: true, collaterals: false, organs: true, labels: true, grid: false },
+  layers: { particles: true, chips: true, arrows: true, collaterals: false, organs: true, labels: true, grid: false },
   colorMode: 'pressure',      // pressure | drop | direction | delta
   params: defaultParams(),
   frame: null,
@@ -18,6 +18,9 @@ const state = {
   theme: null,
   fibrosisZone: 'sin',
   compareSnap: null,
+  compareView: 'B',           // Compare: which state the figure shows (A | B | D = change)
+  imaging: false,             // Cases: anatomy only, pressures unmeasured
+  focus: null,                // { edges: [ids], label } where a lesson step asks the learner to act
   compareMetrics: null,
   healthy: null,
   presetId: 'healthy',
