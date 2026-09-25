@@ -8,7 +8,7 @@ const state = {
   tool: 'select',
   view: 'anatomic',
   selection: null,            // { type: 'edge' | 'node' | 'organ', id }
-  layers: { particles: true, chips: true, arrows: true, collaterals: false, organs: true, labels: true, grid: false },
+  layers: { flow: true, chips: true, collaterals: false, organs: true, labels: true, grid: false },
   colorMode: 'pressure',      // pressure | drop | direction | delta
   params: defaultParams(),
   frame: null,

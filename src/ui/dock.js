@@ -16,7 +16,7 @@ const TILES = [
   { id: 'ppg', k: 'PPG', title: 'Portosystemic pressure gradient (portal vein − IVC)', why: 'ppg', v: (m) => m.ppg, d: 1, u: 'mmHg', st: (v) => (v < 10 ? 'ok' : v < 12 ? 'caution' : 'danger'), s: (v) => (v < 12 ? 'Below 12' : 'Above 12') },
   { id: 'pvflow', k: 'Portal flow', why: 'pvFlow', v: (m) => m.pvFlow, d: 2, u: 'L/min',
     st: (v, m) => (v < -0.02 ? 'critical' : Math.abs(m.pvVel) < 5 ? 'caution' : 'ok'),
-    s: (v, m) => (v < -0.02 ? '⟲ Hepatofugal' : Math.abs(m.pvVel) < 5 ? 'Stasis' : `${fmt(m.pvVel, 0)} cm/s`) },
+    s: (v, m) => (v < -0.02 ? 'Hepatofugal' : Math.abs(m.pvVel) < 5 ? 'Stasis' : `${fmt(m.pvVel, 0)} cm/s`) },
   { id: 'varix', k: 'Varix tension', why: 'varix', v: (m) => m.varix.ratio * 100, d: 0, u: '%',
     st: (v, m) => (m.varix.ratio > 1 ? 'critical' : m.varix.ratio > 0.7 ? 'danger' : m.varix.d >= 5 ? 'caution' : 'ok'),
     s: (v, m) => (m.varix.d < 2.5 ? 'No varices' : m.varix.redWale ? 'Red wale' : `${m.varix.grade.code} · ${fmt(m.varix.d, 1)} mm`), title: 'Esophageal varix wall tension, % of the rupture threshold (Laplace)' },

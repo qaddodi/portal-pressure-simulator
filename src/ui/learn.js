@@ -109,7 +109,7 @@ export const LESSONS = [
         text: 'Portal flow is normally **hepatopetal** (toward the liver). When liver resistance is extreme, flow can reverse and the portal vein **drains** the liver.' },
       { type: 'predict', q: 'Which combination can drive the portal vein backwards?', options: ['High sinusoidal resistance + arterioportal shunting + a large collateral', 'Low albumin', 'High heart rate'], answer: 0 },
       { type: 'do', text: 'Set **Arterioportal shunting** to 100 % and **Cirrhosis** ≥ 95 %; and make a **splenorenal shunt** present.', goal: (f, p) => p.apShunt >= 0.99 && p.cirrhosis >= 0.95 && p.spontaneous.C6, controls: ['apShunt', 'cirrhosis', 'spontaneous'] },
-      { type: 'observe', days: 60, text: 'The Doppler trace drops below the baseline: hepatofugal flow. The ⟲ badge marks reversed vessels.' },
+      { type: 'observe', days: 60, text: 'The Doppler trace drops below the baseline: hepatofugal flow. On the figure, the chevrons in the portal vein now run away from the liver.' },
       { type: 'explain', metric: 'pvFlow' },
       { type: 'check', quiz: [{ q: 'Hepatofugal portal flow means blood in the portal vein flows…', options: ['Toward the liver', 'Away from the liver', 'Not at all'], answer: 1 }] },
     ],

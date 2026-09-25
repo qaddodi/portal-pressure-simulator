@@ -79,12 +79,41 @@ svg { flex: none; }
 .stage-bar { flex: none; display: flex; align-items: center; gap: 10px; padding: 0 12px; background: var(--stage-bg); position: relative; z-index: 6; min-width: 0; }
 .stage-bar.top { height: 52px; container-type: inline-size; container-name: figbar; }
 /* The figure header adapts to its own width (the side panel may be open or closed). */
-@container figbar (max-width: 1000px) { .lg-title, .chip-btn .cb-k { display: none; } }
+@container figbar (max-width: 1180px) { .lg-note { display: none; } }
+@container figbar (max-width: 1000px) { .lg-title, .chip-btn .cb-k, .find-btn .find-l { display: none; } .find-btn.has-latest .find-latest { max-width: 150px; } }
 @container figbar (max-width: 860px) { #btnFigure span, #colorModeLabel { display: none; } .lg-scale { width: 128px; } }
 .stage-bar.bottom { height: 60px; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
 .sb-left, .sb-right { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .sb-right { margin-left: auto; }
-.sb-center { flex: 1; min-width: 0; display: flex; justify-content: center; }
+.sb-center { flex: 1; min-width: 0; display: flex; justify-content: center; align-items: center; gap: 8px; }
+.sb-banner { display: flex; min-width: 0; justify-content: center; }
+.app.bleeding .find-l, .app[data-mode="cases"] .find-l, .app[data-mode="learn"] .find-l, .app[data-mode="compare"] .find-l { display: none; }
+.app.bleeding .find-btn.has-latest .find-latest { max-width: 0; opacity: 0; }
+.sb-banner:empty { display: none; }
+/* The case panel already shows the clinical clock beside the figure. */
+@media (min-width: 1280px) { .app[data-mode="cases"]:not(.panel-collapsed) .sb-banner { display: none; } }
+/* Active bleeding: a steady status, not a flashing alarm */
+.bleed-pill { flex: none; display: inline-flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; padding: 5px 11px 5px 9px; border-radius: 9px; font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: color-mix(in srgb, var(--critical) 82%, var(--text)); background: color-mix(in srgb, var(--critical) 9%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--critical) 28%, transparent); }
+.bp-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--critical); flex: none; }
+/* Findings: one quiet control instead of alerts over the figure */
+.find-btn { position: relative; }
+.find-btn .find-l { color: var(--text-2); }
+.find-count { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; display: inline-grid; place-items: center; font-variant-numeric: tabular-nums; }
+:root[data-theme="dark"] .find-count { color: #0B1120; }
+.find-btn[data-sev="danger"] .find-count, .find-btn[data-sev="critical"] .find-count { background: var(--critical); color: #fff; }
+.find-btn[data-sev="caution"] .find-count { background: var(--caution); color: #1b1300; }
+.find-latest { max-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--text); font-weight: 500; opacity: 0; transition: max-width .35s var(--ease), opacity .25s; }
+.find-btn.has-latest .find-latest { max-width: 240px; opacity: 1; }
+.find-pop { width: min(360px, calc(100vw - 16px)); }
+.find-list { display: flex; flex-direction: column; max-height: min(52vh, 420px); overflow: auto; padding: 0 4px; }
+.find-item { display: grid; grid-template-columns: 8px 1fr; gap: 10px; padding: 8px 6px; border-bottom: 1px solid var(--hairline); }
+.find-item:last-child { border-bottom: 0; }
+.find-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; }
+.find-t { font-size: 13px; font-weight: 600; color: var(--text); display: flex; justify-content: space-between; gap: 10px; }
+.find-when { font-size: 11px; font-weight: 500; color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.find-d { font-size: 12px; color: var(--text-2); line-height: 1.45; margin: 1px 0 2px; }
+.find-empty { font-size: 12.5px; color: var(--text-3); line-height: 1.5; padding: 4px 8px 8px; }
 .stage-view { position: relative; flex: 1; min-height: 0; touch-action: none; overflow: hidden; }
 .stage-view svg#stage, .stage-view canvas, .stage-view svg#labels { position: absolute; inset: 0; width: 100%; height: 100%; }
 .stage-view canvas { pointer-events: none; }
@@ -130,7 +159,6 @@ svg { flex: none; }
 .lb-unit { fill: var(--text-3); }
 .lb-delta.up { fill: color-mix(in srgb, var(--danger) 88%, var(--text)); }
 .lb-delta.down { fill: var(--accent-ink); }
-.lb-rev { fill: color-mix(in srgb, var(--flow-reversed) 88%, var(--text)); }
 .lb-organ { fill: var(--text-3); }
 .lb-zone { fill: var(--text-3); }
 .lb-res { fill: var(--text-3); }
@@ -151,11 +179,6 @@ svg { flex: none; }
 .leader-dot { fill: var(--stage-bg); stroke: var(--text-2); stroke-width: 1.3; }
 .chips-off .lb-val { display: none; }
 
-/* flow arrowheads (world space) */
-.arrow-halo { fill: none; stroke: var(--label-halo); stroke-width: 3.6; stroke-linecap: round; stroke-linejoin: round; opacity: .9; }
-.arrow { fill: none; stroke: var(--arrow-ink); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-.arrow.rev { stroke: var(--flow-reversed); stroke-width: 2; }
-.circuit .arrow-halo { stroke-width: 4.4; } .circuit .arrow { stroke-width: 2.1; }
 .focus-ring { fill: none; stroke: var(--accent); stroke-opacity: .34; stroke-linecap: round; stroke-linejoin: round; animation: focusPulse 1.6s ease-in-out infinite; }
 @keyframes focusPulse { 50% { stroke-opacity: .12; } }
 
@@ -227,20 +250,9 @@ svg { flex: none; }
 @keyframes rise { from { opacity: 0; transform: translate(-50%, 4px); } }
 @keyframes lift { from { opacity: 0; transform: translateY(4px); } }
 
-.pulse-ring { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; border: 2px solid var(--info); pointer-events: none; animation: pulse 1.6s var(--ease) 3; opacity: 0; }
-.pulse-ring.caution { border-color: var(--caution); } .pulse-ring.danger { border-color: var(--danger); } .pulse-ring.critical { border-color: var(--critical); } .pulse-ring.ok { border-color: var(--ok); }
-@keyframes pulse { 0% { transform: scale(.5); opacity: .95; } 100% { transform: scale(2.6); opacity: 0; } }
-.vignette { position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 140px rgba(200, 16, 46, .5); opacity: 0; }
-.vignette.pulse { animation: vig 1.1s ease-in-out 2; }
-@keyframes vig { 50% { opacity: 1; } }
 .hud { position: absolute; pointer-events: none; z-index: 4; }
 .hud > * { pointer-events: auto; }
 .hud-tr { top: 10px; right: 12px; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; width: min(290px, calc(100% - 24px)); }
-.bleed-banner { display: flex; gap: 12px; align-items: center; padding: 6px 12px 6px 10px; border-radius: var(--r-pill); background: var(--critical); color: #fff; font-size: 12.5px; font-weight: 500; white-space: nowrap; box-shadow: 0 6px 24px color-mix(in srgb, var(--critical) 45%, transparent); animation: fadeDown .3s var(--ease); }
-.bleed-banner b { font-weight: 600; }
-.bleed-banner .dot { width: 8px; height: 8px; border-radius: 50%; background: #fff; animation: blink 1.2s ease-in-out infinite; }
-.bleed-banner .num { opacity: .92; }
-@keyframes blink { 50% { opacity: .25; } }
 @keyframes fadeDown { from { opacity: 0; transform: translateY(-6px); } }
 .hover-tip { position: absolute; pointer-events: none; padding: 9px 11px; font-size: 12px; min-width: 170px; z-index: 7; border-radius: 10px; background: var(--surface); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); }
 .hover-tip .t { font-weight: 600; margin-bottom: 4px; color: var(--text); }
@@ -429,89 +441,76 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
   background-repeat: no-repeat; background-position: right 8px center; background-size: 14px; max-width: 100%; cursor: pointer; }
 .select:hover { border-color: var(--border-strong); }
 
-/* SVG anatomy */
-/* SVG anatomy */
-.org { stroke-width: 1; stroke-linejoin: round; stroke-opacity: .38; }
-.org-heart { fill: url(#gHeart); stroke: var(--organ-heart); }
-.org-eso { fill: url(#gStomach); stroke: var(--organ-stomach); }
-.org-liver { fill: url(#gLiver); stroke: var(--organ-liver); stroke-opacity: .5; }
-.org-caudate { fill: var(--organ-liver); fill-opacity: .12; stroke: var(--organ-liver); stroke-opacity: .4; stroke-dasharray: 2 3; }
-.org-lobe-line { fill: none; stroke: var(--organ-liver); stroke-opacity: .4; stroke-width: 1; stroke-dasharray: 1 4; stroke-linecap: round; }
-.org-gb { fill: var(--organ-gb); fill-opacity: .3; stroke: var(--organ-gb); }
-.org-stomach { fill: url(#gStomach); stroke: var(--organ-stomach); }
-.org-spleen { fill: url(#gSpleen); stroke: var(--organ-spleen); }
-.org-pancreas { fill: url(#gPancreas); stroke: var(--organ-pancreas); }
-.org-kidney { fill: url(#gKidney); stroke: var(--organ-kidney); }
-.org-bowel { fill: url(#gGut); stroke: var(--organ-gut); stroke-opacity: .25; }
-.liver-tint { opacity: .16; }
-.org-colon { fill: none; stroke: var(--organ-gut); stroke-opacity: .3; stroke-width: 26; stroke-linecap: round; stroke-linejoin: round; }
-.org-colon-haustra { fill: none; stroke: var(--stage-bg); stroke-opacity: .55; stroke-width: 26; stroke-dasharray: 1.2 14; }
-.vg[data-id='SIN_RL'] { opacity: .35; }
-#backEdges .vg { opacity: .8; }
-.org-bowel-loops { fill: none; stroke: var(--organ-gut); stroke-opacity: .35; stroke-width: 1; stroke-linecap: round; }
-.org-umbilicus { fill: var(--stage-bg); stroke: var(--text-3); stroke-width: 1.2; stroke-opacity: .6; }
-#organs, #organLabels, #ascites, #grid, #overlays, #nodes, #guides, #arrows, #focus { pointer-events: none; }
+/* SVG anatomy: organs are quiet solid forms (fill, a soft shade inside the edge, a crisp
+   outline); vessels are tubes (dark casing + pressure-colored lumen) drawn over them. */
+.organ-liver { color: var(--organ-liver); } .organ-stomach, .organ-esophagus, .organ-duodenum { color: var(--organ-stomach); }
+.organ-spleen { color: var(--organ-spleen); } .organ-pancreas { color: var(--organ-pancreas); } .organ-kidney-l { color: var(--organ-kidney); }
+.organ-heart, .organ-heart-grooves { color: var(--organ-heart); } .organ-gallbladder { color: var(--organ-gb); } .organ-bowel, .organ-bowel-loops, .organ-colon-a, .organ-colon-d { color: var(--organ-gut); }
+.org-fill { stroke: none; }
+.org-line { fill: none; stroke: currentColor; stroke-width: 1.15; stroke-opacity: .62; stroke-linejoin: round; }
+.org-rim { fill: none; stroke: currentColor; stroke-width: 20; stroke-opacity: .26; }
+.org-fill { fill: color-mix(in srgb, currentColor var(--organ-tint), var(--stage-bg)); }
+.org-liver.org-fill { fill: color-mix(in srgb, var(--organ-liver) calc(var(--organ-tint) + 6%), var(--stage-bg)); }
+.ghost { opacity: .34; pointer-events: none; }
+.org-heart-groove { fill: none; stroke: var(--organ-heart); stroke-opacity: .45; stroke-width: 1; stroke-linecap: round; }
+.org-great.band-edge { stroke: var(--organ-heart); stroke-width: 15; stroke-opacity: .5; }
+.org-great.band-body { stroke: color-mix(in srgb, var(--organ-heart) 26%, var(--stage-bg)); stroke-width: 13; }
+.org-bowel.band-edge { stroke: var(--organ-gut); stroke-width: 25; stroke-opacity: .55; }
+.org-bowel.band-body { stroke: color-mix(in srgb, var(--organ-gut) 24%, var(--stage-bg)); stroke-width: 22.6; }
+.org-caudate { fill: var(--organ-liver); fill-opacity: .08; stroke: var(--organ-liver); stroke-opacity: .42; stroke-width: 1; stroke-dasharray: 3 3; }
+.org-lobe-line { fill: none; stroke: var(--organ-liver); stroke-opacity: .45; stroke-width: 1; stroke-linecap: round; }
+.band-edge, .band-body { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.org-colon.band-edge { stroke: var(--organ-gut); stroke-width: 27; stroke-opacity: .5; }
+.org-colon.band-body { stroke: color-mix(in srgb, var(--organ-gut) 26%, var(--stage-bg)); stroke-width: 24.6; }
+.org-haustra { fill: none; stroke: var(--organ-gut); stroke-opacity: .38; stroke-width: 1; stroke-linecap: round; }
+.org-duodenum.band-edge { stroke: var(--organ-stomach); stroke-width: 21; stroke-opacity: .5; }
+.org-duodenum.band-body { stroke: color-mix(in srgb, var(--organ-stomach) 22%, var(--stage-bg)); stroke-width: 18.8; }
+.org-diaphragm.band-edge { stroke: var(--diaphragm); stroke-width: 7; stroke-opacity: .22; }
+.org-diaphragm.band-body { stroke: var(--diaphragm); stroke-width: 1.3; stroke-opacity: .7; }
+.org-bowel-loops { fill: none; stroke: var(--organ-gut); stroke-opacity: .5; stroke-width: 1.1; stroke-linecap: round; }
+.org-umbilicus { fill: var(--stage-bg); stroke: var(--text-3); stroke-width: 1.2; stroke-opacity: .7; }
+.liver-tint { transition: opacity .6s var(--ease); }
+.nodule circle { fill: var(--organ-liver); fill-opacity: .1; stroke: var(--organ-liver); stroke-opacity: .5; stroke-width: .7; }
+#organs, #ascites, #grid, #overlays, #nodes, #guides, #focus { pointer-events: none; }
 #organs { transition: opacity .5s var(--ease); }
 .stage-view.hovering .vg:not(.hl) { opacity: .22; }
 .stage-view.hovering .vg.ctx:not(.hl) { opacity: .12; }
 
 .v-wall { fill: none; stroke: var(--vessel-casing); stroke-linecap: round; stroke-linejoin: round; }
 .v-lumen { fill: none; stroke-linecap: round; stroke-linejoin: round; }
-.v-artery { fill: none; stroke: var(--artery); stroke-linecap: round; stroke-linejoin: round; stroke-opacity: .72; }
+.v-artery { fill: none; stroke: var(--artery); stroke-linecap: round; stroke-linejoin: round; stroke-opacity: .85; }
 .v-hit { fill: none; stroke: transparent; stroke-width: 20; stroke-linecap: round; pointer-events: stroke; cursor: pointer; }
 .v-hit:focus { outline: none; }
-.v-halo { fill: none; stroke: var(--flow-reversed); stroke-linecap: round; stroke-dasharray: 5 7; opacity: 0; transition: opacity .4s; animation: dash 1s linear infinite; }
-.v-halo.on { opacity: .85; }
+.v-halo { display: none; }
 .v-select { fill: none; stroke: var(--accent); stroke-linecap: round; stroke-opacity: 0; transition: stroke-opacity .2s; }
 .v-select.on { stroke-opacity: .34; }
-@keyframes dash { to { stroke-dashoffset: -24; } }
 .vg { transition: opacity .25s var(--ease); }
-.vg.ctx { opacity: .45; }
+.vg.ctx { opacity: .6; }
+#backEdges .vg { opacity: .85; }
 .zone { fill: var(--text); fill-opacity: 0; }
-.zone.alt { fill-opacity: .025; }
+.zone.alt { fill-opacity: .028; }
 .coll-ghost .v-lumen { stroke-dasharray: 1.5 4.5; }
 .coll-ghost .v-wall { stroke-opacity: .35; stroke-dasharray: 1.5 4.5; }
-.liver-micro { stroke-dasharray: 1.2 3.2; }
-.stent { fill: none; stroke: var(--text); stroke-opacity: .55; stroke-dasharray: 2 2.5; }
+.stent { fill: none; stroke: var(--text-2); stroke-opacity: .55; stroke-dasharray: 1.5 3; stroke-linecap: round; }
 .clamp { fill: var(--text); fill-opacity: .82; }
 .clamp-label, .guide-label { font: 600 11px var(--font-ui); fill: var(--text); paint-order: stroke; stroke: var(--stage-bg); stroke-width: 4px; stroke-linejoin: round; }
-.thrombus { stroke: #4A0D17; stroke-linecap: round; fill: none; stroke-opacity: .9; stroke-dasharray: 5 2 2 2; }
-.node-dot { stroke: var(--stage-bg); stroke-width: 2; }
+.thrombus { stroke: #5B1222; stroke-linecap: round; fill: none; stroke-opacity: .92; }
+.node-dot { fill: var(--stage-bg); stroke: var(--text); stroke-width: 1.6; }
 .circuit-only { opacity: 0; transition: opacity .4s; }
 .circuit .circuit-only { opacity: 1; }
-.resistor { fill: var(--surface); stroke: var(--text-2); stroke-width: 1.2; }
+.resistor { fill: var(--stage-bg); stroke: var(--text-2); stroke-width: 1.3; }
 .varix-bead { stroke: rgba(30, 30, 80, .45); }
 .band-ring { fill: none; stroke: var(--text); stroke-width: 2.4; }
 .redwale { stroke: #D0192E; stroke-width: 1.3; stroke-linecap: round; }
 .balloon-shape { fill: #F2E3A6; fill-opacity: .8; stroke: #B69A2C; stroke-width: 1.4; }
 .catheter { fill: none; stroke: var(--text-2); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
-.ascites-fill { fill: var(--ascites); fill-opacity: .2; }
-.ascites-line { fill: none; stroke: var(--ascites); stroke-opacity: .6; stroke-width: 1.2; }
-.nodule { fill: var(--organ-liver); }
+.ascites-fill { fill: var(--ascites); fill-opacity: .16; }
+.ascites-line { fill: none; stroke: var(--ascites); stroke-opacity: .55; stroke-width: 1.2; }
 .pinch-guide { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 4 3; }
 .stent-guide { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 6 4; stroke-linecap: round; }
 .stent-guide.invalid { stroke: var(--danger); }
 .target-glow { fill: none; stroke: var(--accent); stroke-opacity: .35; stroke-linecap: round; }
 
-/* Event notifications */
-/* Event notifications */
-.note {
-  width: 100%; display: grid; grid-template-columns: 16px 1fr auto; gap: 1px 8px; align-items: start; padding: 9px 9px 9px 11px;
-  font-size: 12px; animation: slideIn .28s var(--ease); border-radius: var(--r);
-}
-.note .ic { width: 16px; height: 16px; margin-top: 1px; stroke: var(--sev, var(--info)); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.note .ttl { font-weight: 600; color: var(--text); line-height: 1.35; }
-.note .dtl { grid-column: 2 / 4; color: var(--text-2); line-height: 1.45; }
-.note .row { grid-column: 2 / 4; display: flex; gap: 12px; margin-top: 4px; }
-.note .x { width: 22px; height: 22px; margin: -3px -3px 0 0; }
-.note .x svg { width: 14px; height: 14px; }
-.note.critical { box-shadow: var(--shadow-2), inset 0 0 0 1.5px var(--critical); }
-.note.leaving { animation: slideOut .22s var(--ease) forwards; }
-@keyframes slideIn { from { opacity: 0; transform: translateX(10px); } }
-.stage-view.compact .note .dtl { display: none; }
-.stage-view.compact .note { padding: 8px 8px 8px 10px; }
-.stage-view.compact .note .row { margin-top: 1px; }
-@keyframes slideOut { to { opacity: 0; transform: translateX(10px); } }
 
 /* ── Panel (inspector, lessons, cases) ──────────── */
 .panel { grid-area: panel; background: var(--surface); border-left: 1px solid var(--hairline); overflow-y: auto; overflow-x: hidden; min-width: 0; z-index: 10; }
@@ -858,7 +857,9 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   .stage-bar.top { height: 46px; padding: 0 8px; gap: 6px; }
   .stage-bar.bottom { height: 56px; padding: 0 8px; grid-template-columns: auto minmax(0, 1fr); gap: 8px; }
   .sb-center { display: none; }
-  .app[data-mode="learn"] .sb-center, .app[data-mode="compare"] .sb-center, .app[data-mode="cases"] .sb-center { display: flex; position: absolute; left: 8px; right: 8px; top: 46px; justify-content: flex-start; z-index: 7; pointer-events: none; }
+  .find-btn { height: 36px; padding: 0 8px; border: 0; background: transparent; }
+  .find-btn .find-l, .find-btn .find-latest { display: none; }
+  .app.bleeding .sb-center, .app[data-mode="learn"] .sb-center, .app[data-mode="compare"] .sb-center, .app[data-mode="cases"] .sb-center { display: flex; position: absolute; left: 8px; right: 8px; top: 46px; justify-content: flex-start; z-index: 7; pointer-events: none; }
   .sb-center > * { pointer-events: auto; }
   .banner { font-size: 12px; box-shadow: var(--shadow-1); background: color-mix(in srgb, var(--accent-soft) 60%, var(--surface)); }
   .seg button { padding: 7px 11px; }
@@ -886,15 +887,12 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   .tool-card { left: 8px; bottom: 8px; width: calc(100% - 16px); }
   .lg-note { display: none !important; }
   .coach { left: 8px; right: 8px; bottom: 8px; max-width: none; }
-  .hud-tr { top: auto; bottom: 8px; right: 8px; width: calc(100% - 16px); }
   .toolbar.few .tb-btn:not(:first-child) .tb-l { display: inline; max-width: 92px; overflow: hidden; text-overflow: ellipsis; }
   .dock-head { flex-wrap: wrap; height: auto; padding: 8px 8px 0; gap: 4px 8px; }
   .dock-groups { width: 100%; display: flex !important; }
   .dock-groups button { flex: 1; }
   .dock-tabs { flex: 1 1 100%; height: 40px; }
   .app.figure-mode .stage-clock { display: none; }
-  .hud-tr .note:not(:first-child) { display: none; }
-  .note .dtl { display: none; }
 
   .readouts { border-top: 1px solid var(--hairline); }
   .metric { min-width: 92px; padding: 7px 10px 8px 12px; flex: 1 0 auto; max-width: none; }
@@ -963,7 +961,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   .mode-menu .chev { width: 14px; height: 14px; color: var(--text-3); }
   .stage-bar.top { height: 44px; padding: 0 8px; }
   .stage-bar.bottom { height: 52px; padding: 0 8px; grid-template-columns: auto minmax(0, 1fr); }
-  .sb-center, .zoom, #btnFigure, .clock-readout, .legend .lg-title, #btnLayers #colorModeLabel, .chip-btn .cb-k, .tb-btn .tb-l, .tb-btn .chev, .tb-sep { display: none; }
+  .sb-center, .zoom, #btnFigure, .clock-readout, .legend .lg-title, #btnLayers #colorModeLabel, .chip-btn .cb-k, .tb-btn .tb-l, .tb-btn .chev, .tb-sep, .find-l, .find-latest { display: none; }
   .lg-scale { width: 110px; }
   .toolbar { justify-self: end; }
   .readouts { display: none; }
@@ -984,7 +982,6 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   .chart-side { width: auto !important; }
   .dock-pane.active { flex-direction: column; }
   .dock-pane .chart-box { min-height: 200px; max-width: none !important; }
-  .hud-tr .note:not(:first-child), .note .dtl { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -999,7 +996,6 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .app.projector { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); grid-template-areas: "stage"; }
 .app.projector .topbar, .app.projector .panel, .app.projector .dock, .app.projector .readouts, .app.projector .toolbar, .app.projector .mobile-tabs { display: none; }
 .app.projector #labels .lb-name { font-size: 15px; }
-.app.projector .note { font-size: 16px; }
 .big-overlay { position: absolute; left: 24px; top: 16px; font-weight: 650; font-size: 60px; letter-spacing: -.03em; color: var(--text); pointer-events: none; line-height: 1; z-index: 5; }
 .big-overlay small { display: block; font-size: 14px; font-weight: 600; color: var(--text-3); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 6px; }
 .big-overlay .unit { font-size: 20px; }

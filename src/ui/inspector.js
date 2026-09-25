@@ -254,7 +254,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onS
     live.push([dirEl, (f) => {
       const q = f.Qf[k];
       const ref = store.get().healthy?.Q?.[k] ?? 1;
-      const cls = Math.abs(q) < 0.05 ? ['warn', 'Stagnant'] : q < -Math.max(0.12, 0.02 * Math.abs(ref)) ? ['rev', '⟲ Reversed flow'] : ['ok', 'Physiological direction'];
+      const cls = Math.abs(q) < 0.05 ? ['warn', 'Stagnant'] : q < -Math.max(0.12, 0.02 * Math.abs(ref)) ? ['rev', 'Reversed flow'] : ['ok', 'Physiological direction'];
       if (dirEl._c !== cls[1]) { dirEl.replaceChildren(h('span', { class: 'pill ' + cls[0] }, cls[1])); dirEl._c = cls[1]; }
       return null;
     }]);

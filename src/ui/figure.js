@@ -43,7 +43,7 @@ export function createFigure({ app, stage, onClose }) {
     const circuit = store.get().view === 'circuit';
     return (circuit
       ? 'Transit-map schematic of the same model. Mean pressure falls from left to right across the main series circuit (gut, portal vein, liver, hepatic veins, inferior vena cava, right atrium); collaterals and shunts run in separate lanes as bypasses. Values at each station in mmHg; resistances across the liver in Wood units (mmHg·min/L).'
-      : 'Frontal view, patient’s right on the viewer’s left. Vessel color gives mean venous pressure; labels give values in mmHg with the change from healthy. Line width follows vessel diameter (∝ d⁰·⁷⁸). Vessels that only close the systemic loop are part of the model but not drawn.')
+      : 'Frontal view, patient’s right on the viewer’s left. Vessel color gives mean venous pressure; labels give values in mmHg with the change from healthy. Line width follows vessel diameter (∝ d⁰·⁷²). Chevrons in each lumen point in the direction of mean flow. Vessels that only close the systemic loop are part of the model but not drawn.')
       + ' Output of a lumped-parameter hemodynamic model for teaching; values are illustrative and not for clinical decisions.';
   }
 
@@ -76,15 +76,17 @@ export function createFigure({ app, stage, onClose }) {
     const s = document.createElementNS(SVGNS, 'svg');
     s.setAttribute('viewBox', '0 0 26 12');
     if (kind === 'line') s.innerHTML = `<path d="M2 6h22" stroke="${color}" stroke-width="4" stroke-linecap="round"/>`;
-    if (kind === 'arrow') s.innerHTML = '<path d="M2 6h22" stroke="var(--vein-systemic)" stroke-width="4" stroke-linecap="round"/><path d="M10 2.5 14 6l-4 3.5" fill="none" stroke="var(--label-halo)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 2.5 14 6l-4 3.5" fill="none" stroke="var(--arrow-ink)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>';
-    if (kind === 'rev') s.innerHTML = '<path d="M2 6h22" stroke="var(--flow-reversed)" stroke-width="9" stroke-linecap="round" stroke-dasharray="4 5" opacity=".85"/><path d="M2 6h22" stroke="var(--vein-portal)" stroke-width="4" stroke-linecap="round"/><path d="M16 2.5 12 6l4 3.5" fill="none" stroke="var(--flow-reversed)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+    if (kind === 'flow') s.innerHTML = '<path d="M2 6h22" stroke="var(--vessel-casing)" stroke-width="9" stroke-linecap="round"/><path d="M2 6h22" stroke="#B0306E" stroke-width="7" stroke-linecap="round"/><path d="M7 3.6 9.4 6 7 8.4M14 3.6 16.4 6 14 8.4M21 3.6 23.4 6 21 8.4" fill="none" stroke="#fff" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>';
+    if (kind === 'thin') s.innerHTML = '<path d="M2 6h22" stroke="var(--vessel-casing)" stroke-width="4.4" stroke-linecap="round"/><path d="M2 6h22" stroke="#7E6BC4" stroke-width="3" stroke-linecap="round"/><path d="M15.6 6 10.4 3.3v5.4z" fill="rgba(34,28,46,.86)" stroke="#fff" stroke-width="1.4" stroke-linejoin="round" paint-order="stroke"/>';
+    if (kind === 'ghost') s.innerHTML = '<path d="M2 6h22" stroke="var(--vein-systemic)" stroke-width="5" stroke-linecap="round" opacity=".34"/>';
     if (kind === 'dot') s.innerHTML = '<path d="M2 6h22" stroke="var(--vein-portal)" stroke-width="3" stroke-linecap="round" stroke-dasharray="1.5 4.5" opacity=".7"/>';
     return s;
   }
   function keyBlock() {
     const st = store.get();
     const rows = [];
-    if (!st.imaging) rows.push([glyph('arrow'), 'Direction of mean flow'], [glyph('rev'), 'Reversed flow (dashed orange casing)']);
+    if (!st.imaging) rows.push([glyph('flow'), 'Blood flow: chevrons point downstream'], [glyph('thin'), 'Flow in a small vessel']);
+    rows.push([glyph('ghost'), 'Vein passing behind an organ']);
     rows.push([glyph('dot'), 'Closed potential collateral']);
     if (!st.imaging) rows.push([h('span', { style: { width: '26px', fontSize: '10.5px', fontWeight: 700, color: 'color-mix(in srgb, var(--danger) 88%, var(--text))' } }, '▲ 3'), `Change from ${st.mode === 'compare' && st.compareSnap ? 'state A' : 'healthy'}, mmHg`]);
     return h('div', { class: 'fig-key' }, h('span', { class: 'fk-t' }, 'Notation'), rows.map(([g, t]) => h('span', { class: 'fk-row' }, g, t)));
@@ -154,6 +156,8 @@ export function createFigure({ app, stage, onClose }) {
     const src = stage.svg;
     const clone = src.cloneNode(true);
     inlineStyles(src, clone);
+    // The live flow layer is a canvas; the export carries the same chevrons as vector paths.
+    clone.querySelector('#world')?.insertAdjacentHTML('beforeend', stage.flowSVG());
     clone.setAttribute('x', (vr.left - base.left).toFixed(1)); clone.setAttribute('y', (vr.top - base.top).toFixed(1));
     clone.setAttribute('width', vr.width.toFixed(1)); clone.setAttribute('height', vr.height.toFixed(1));
     clone.removeAttribute('aria-label');

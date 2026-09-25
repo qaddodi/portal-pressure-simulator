@@ -21,12 +21,12 @@ export const CONTEXT_EDGES = new Set(['SVC_RA', 'AZY_SVC', 'ILI_IVC', 'EPI_ILI',
 // Drawn only once the paraumbilical collateral has opened.
 export const NEEDS_C3 = new Set(['EPI_ILI', 'EPI_SVC']);
 // Retroperitoneal vessels, drawn behind the organs (the liver and pancreas veil them).
-export const BACK_EDGES = new Set(['IVC_IS', 'ILI_IVC', 'LRV_IVC', 'V_KID_L', 'C7', 'C9', 'S_MC']);
+export const BACK_EDGES = new Set(['IVC_IS', 'ILI_IVC', 'LRV_IVC', 'V_KID_L', 'C7', 'C9', 'S_MC', 'AZY_SVC', 'C1b', 'CAUD']);
 
 // Node positions: [anatomic, circuit]
 export const NODE_POS = {
   AO: [[760, 540], [610, 240]],
-  HA: [[655, 478], [680, 240]],
+  HA: [[655, 478], [740, 228]],
   INT: [[690, 790], [140, 394]],
   COL: [[960, 790], [140, 310]],
   SPL: [[1034, 360], [140, 261]],
@@ -41,9 +41,9 @@ export const NODE_POS = {
   LPV: [[688, 378], [680, 387]],
   VAR: [[797, 232], [620, 128]],
   GV: [[876, 302], [240, 121]],
-  SIN_R: [[386, 372], [800, 303]],
-  SIN_L: [[742, 292], [800, 387]],
-  CV_R: [[378, 322], [900, 303]],
+  SIN_R: [[420, 345], [800, 303]],
+  SIN_L: [[750, 300], [800, 387]],
+  CV_R: [[446, 296], [900, 303]],
   CV_L: [[738, 262], [900, 387]],
   W_R: [[470, 262], [960, 290]],
   W_M: [[560, 272], [960, 346]],
@@ -69,8 +69,8 @@ export const NODE_POS = {
 // Anatomic edge paths (SVG path data). Edges without an entry are drawn from node to node.
 export const EDGE_PATH = {
   A_HEP: 'M760 540 C 730 520 690 495 655 478',
-  A_HR: 'M655 478 C 610 462 545 430 505 412 C 468 400 428 392 386 372',
-  A_HL: 'M655 478 C 672 440 690 400 710 362 C 722 336 734 312 742 292',
+  A_HR: 'M655 478 C 610 462 545 430 505 412 C 472 398 444 372 420 345',
+  A_HL: 'M655 478 C 672 440 690 400 712 362 C 728 336 740 318 750 300',
 
   V_INT: 'M690 790 C 690 750 690 700 690 660',
   V_COL: 'M960 790 C 952 760 942 725 932 690',
@@ -83,16 +83,16 @@ export const EDGE_PATH = {
   PV_TRUNK: 'M700 556 C 675 522 638 478 602 442',
   PVH_R: 'M602 442 C 568 428 535 414 505 398',
   PVH_L: 'M602 442 C 632 418 660 398 688 378',
-  PRE_R: 'M505 398 C 470 392 425 386 386 372',
-  PRE_L: 'M688 378 C 706 356 726 322 742 292',
-  SIN_RR: 'M386 372 C 376 358 372 340 378 322',
-  SIN_LL: 'M742 292 C 744 282 742 272 738 262',
-  SIN_RL: 'M386 372 C 500 402 650 372 742 292',
-  POST_R_RHV: 'M378 322 C 420 280 480 240 540 224',
-  POST_R_MHV: 'M378 322 C 450 318 540 290 598 238',
+  PRE_R: 'M505 398 C 478 392 446 374 420 345',
+  PRE_L: 'M688 378 C 708 352 730 326 750 300',
+  SIN_RR: 'M420 345 C 414 328 424 308 446 296',
+  SIN_LL: 'M750 300 C 754 286 750 272 738 262',
+  SIN_RL: 'M420 345 C 520 382 664 362 750 300',
+  POST_R_RHV: 'M446 296 C 474 270 506 240 540 224',
+  POST_R_MHV: 'M446 296 C 496 292 562 276 598 238',
   POST_L_LHV: 'M738 262 C 712 242 686 226 660 214',
   POST_L_MHV: 'M738 262 C 694 256 640 250 598 238',
-  CAUD: 'M378 322 C 470 332 590 332 608 298 C 618 272 620 230 620 190',
+  CAUD: 'M446 296 C 500 302 568 302 598 292 C 614 284 618 240 620 190',
   RHV_IVC: 'M540 224 C 568 210 594 198 620 190',
   MHV_IVC: 'M598 238 C 606 222 613 205 620 190',
   LHV_IVC: 'M660 214 C 646 204 632 196 620 190',
@@ -104,7 +104,7 @@ export const EDGE_PATH = {
   LRV_IVC: 'M862 618 C 790 620 700 640 620 650',
   ILI_IVC: 'M620 880 L 620 650',
   EPI_ILI: 'M600 722 C 596 780 604 840 620 880',
-  EPI_SVC: 'M600 722 C 470 690 400 560 395 420 C 390 280 440 120 520 70 C 560 48 595 42 620 40',
+  EPI_SVC: 'M600 722 C 520 700 352 640 334 520 C 318 410 318 260 360 170 C 400 90 520 52 620 40',
 
   C1a: 'M822 432 C 836 390 830 340 815 300 C 806 276 800 256 797 232',
   C1b: 'M797 232 C 772 206 738 172 700 150',
@@ -150,8 +150,8 @@ export function route(pts, r = 16) {
 export const CIRCUIT_PATH = {
   // hepatic arterial supply and the intrahepatic bypasses stay gentle curves
   CAUD: route([[900, 303], [940, 252], [1086, 252], [1120, 290], [1120, 345]], 18),
-  A_HL: 'M 680 240 C 740 240 760 359 800 387',
-  AP_L: 'M 680 240 C 630 282 630 359 680 387',
+  A_HL: route([[740, 228], [770, 258], [770, 357], [800, 387]], 12),
+  AP_L: route([[740, 228], [706, 262], [706, 361], [680, 387]], 12),
   TIPS: route([[680, 303], [712, 272], [972, 272], [1000, 282]], 14),
   // esophageal and gastric route, above the spine
   C1a: route([[320, 191], [383, 128], [620, 128]]),
@@ -197,30 +197,25 @@ export const CIRCUIT_LABELS = {
   HA: { dirs: ['N', 'NW', 'NE'], pri: 4 },
 };
 
-// Flow-direction arrowheads: drawn on these vessels (both views) when flow is appreciable.
-export const ARROW_EDGES = ['V_INT', 'V_SPL', 'V_IMV', 'V_STO', 'SMV_CONF', 'SV_CONF', 'LGV_CONF', 'PV_TRUNK', 'PVH_R', 'PVH_L', 'RHV_IVC', 'MHV_IVC', 'LHV_IVC',
-  'IVC_IS', 'IVCS_RA', 'SVC_RA', 'AZY_SVC', 'LRV_IVC', 'C1a', 'C1b', 'C2', 'C2b', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'TIPS', 'S_PC', 'S_DSR', 'S_MC', 'PRE_R', 'PRE_L', 'POST_R_RHV', 'POST_L_LHV'];
-
-// Atlas labels that also report the flow direction of the vessel they name.
-export const LABEL_FLOW_EDGE = { CONF: 'PV_TRUNK', SV: 'SV_CONF', SMV: 'SMV_CONF', RHV: 'RHV_IVC', VAR: 'C1b', GV: 'C2' };
-
-// Organ artwork (anatomic view only). Colors come from CSS tokens; `deco` shapes are texture only.
+// Organ artwork (anatomic view only): a frontal plate of opaque, quiet silhouettes behind the
+// vessels, listed back to front (retroperitoneal organs first, the liver in front). Shapes follow the anatomy (the right lobe under the right dome of the diaphragm, a
+// J-shaped stomach whose lesser curve carries the left gastric vein, the pancreas along the
+// splenic vein, the colon framing the small bowel). `band` shapes are stroked tubes; `deco`
+// shapes are texture only.
 export const ORGANS = [
-  { id: 'heart', cls: 'org org-heart', d: 'M588 100 C 590 76 612 66 634 70 C 656 74 664 96 660 116 C 656 138 636 150 614 146 C 594 142 586 122 588 100 Z' },
-  { id: 'esophagus', cls: 'org org-eso', d: 'M786 24 L 802 24 C 804 130 808 230 820 294 L 804 302 C 794 250 790 140 786 24 Z' },
-  { id: 'stomach', cls: 'org org-stomach', d: 'M812 296 C 828 268 876 262 904 286 C 940 318 954 396 938 448 C 920 506 862 536 806 532 C 776 530 752 522 736 512 L 734 478 C 760 474 790 462 806 444 C 826 420 828 370 816 334 C 810 318 806 308 812 296 Z' },
-  { id: 'spleen', cls: 'org org-spleen', d: 'M1012 272 C 1056 264 1088 302 1088 352 C 1088 408 1058 448 1018 452 C 1002 454 994 442 1002 430 C 1016 410 1022 386 1018 360 C 1014 330 1002 306 996 292 C 993 280 1000 273 1012 272 Z' },
-  { id: 'pancreas', cls: 'org org-pancreas', d: 'M704 548 C 698 578 724 602 760 594 C 822 580 884 544 944 504 C 978 482 1004 460 1010 442 C 998 436 978 444 952 458 C 896 488 830 522 770 537 C 745 543 718 534 704 548 Z' },
-  { id: 'kidney-l', cls: 'org org-kidney', d: 'M992 560 C 1030 550 1058 586 1058 626 C 1058 672 1030 700 994 692 C 974 688 978 664 992 652 C 978 640 966 604 992 560 Z' },
-  { id: 'colon', cls: 'org-colon', stroke: true, d: 'M986 470 C 988 600 982 750 962 826 C 944 888 868 906 782 900' },
-  { id: 'colon-h', cls: 'org-colon-haustra', deco: true, d: 'M986 470 C 988 600 982 750 962 826 C 944 888 868 906 782 900' },
-  { id: 'bowel', cls: 'org org-bowel', d: 'M578 712 C 600 690 700 684 800 688 C 858 692 872 730 866 780 C 862 836 838 866 760 872 C 670 878 600 866 584 822 C 572 786 566 734 578 712 Z' },
-  { id: 'bowel-loops', cls: 'org-bowel-loops', deco: true, d: 'M602 730 C 634 712 668 748 704 728 C 740 708 780 744 832 722 M596 786 C 632 766 668 802 712 782 C 756 762 800 798 850 776 M610 840 C 648 822 690 856 734 836 C 778 816 810 846 840 830' },
-  { id: 'liver', cls: 'org org-liver', d: 'M778 246 C 745 212 680 188 600 184 C 500 178 405 190 360 228 C 328 258 318 326 330 388 C 342 448 382 490 432 496 C 490 502 540 478 574 456 C 598 442 612 438 626 432 C 660 416 690 390 712 356 C 738 318 766 280 778 246 Z' },
-  { id: 'falciform', cls: 'org-lobe-line', deco: true, d: 'M640 188 C 636 260 634 350 640 425' },
-  { id: 'caudate', cls: 'org-caudate', d: 'M598 284 C 606 270 626 272 630 290 C 634 310 622 324 608 320 C 596 316 592 298 598 284 Z' },
-  { id: 'gallbladder', cls: 'org org-gb', d: 'M532 468 C 520 488 522 516 540 524 C 558 532 574 516 570 496 C 567 480 560 470 552 464 Z' },
-  { id: 'umbilicus', cls: 'org-umbilicus', circle: [600, 722, 6] },
+  { id: 'esophagus', cls: 'org org-eso', d: 'M776 0 L 798 0 C 800 90 805 190 818 292 L 796 300 C 787 200 781 90 776 0 Z' },
+  { id: 'heart', cls: 'org org-heart', d: 'M616 60 C 600 74 596 100 600 124 C 604 150 620 168 646 174 C 690 184 744 178 780 160 C 800 150 806 132 800 114 C 792 90 770 70 742 58 C 716 48 688 46 664 48 C 644 50 628 52 616 60 Z' },
+  { id: 'kidney-l', cls: 'org org-kidney', d: 'M1002 556 C 1040 548 1066 584 1064 626 C 1062 672 1034 700 1000 694 C 982 690 984 668 994 654 C 1000 642 998 630 990 620 C 984 606 978 574 1002 556 Z' },
+  { id: 'spleen', cls: 'org org-spleen', d: 'M1022 268 C 1068 262 1100 300 1102 356 C 1104 414 1074 454 1032 460 C 1010 462 998 448 1006 432 C 1016 414 1022 394 1018 372 C 1024 352 1022 330 1010 308 C 1000 290 1002 272 1022 268 Z' },
+  { id: 'stomach', cls: 'org org-stomach', d: 'M796 300 C 802 272 830 248 866 244 C 904 240 940 258 958 290 C 976 322 982 372 976 414 C 968 468 932 512 880 534 C 842 550 790 556 752 544 C 732 538 716 524 708 510 L 718 490 C 738 494 770 490 794 474 C 818 456 828 424 828 388 C 828 356 822 330 818 308 Z' },
+  { id: 'duodenum', cls: 'org-duodenum', band: true, d: 'M712 508 C 676 508 648 528 642 566 C 636 612 650 650 688 668 C 724 684 772 680 806 664' },
+  { id: 'pancreas', cls: 'org org-pancreas', d: 'M662 604 C 652 576 668 550 700 546 C 760 540 832 518 902 490 C 950 470 990 448 1012 436 C 1022 444 1014 462 994 474 C 944 506 884 540 822 562 C 782 576 748 584 728 600 C 722 628 704 650 684 648 C 664 646 660 626 662 604 Z' },
+  { id: 'colon-d', cls: 'org-colon', band: true, d: 'M984 468 C 992 560 988 700 972 790 C 962 848 924 880 868 892 C 838 898 812 902 788 906' },
+  { id: 'bowel', cls: 'org-bowel', band: true, d: 'M596 714 C 660 700 790 704 860 714 C 896 720 900 750 866 756 C 800 766 700 744 628 756 C 590 762 584 792 616 796 C 690 804 800 780 868 794 C 902 802 900 834 864 836 C 790 840 700 818 626 836 C 592 844 598 872 634 874 C 710 880 790 862 846 870' },
+  { id: 'liver', cls: 'org org-liver', d: 'M808 262 C 796 238 772 216 736 204 C 690 190 640 188 600 188 C 530 188 450 190 398 206 C 356 220 332 252 326 300 C 320 350 330 410 352 448 C 368 474 392 488 424 492 C 470 496 520 486 562 470 C 596 458 624 442 652 424 C 694 398 734 360 770 318 C 788 298 804 280 808 262 Z' },
+  { id: 'falciform', cls: 'org-lobe-line', deco: true, d: 'M646 190 C 642 260 640 340 648 422' },
+  { id: 'gallbladder', cls: 'org org-gb', d: 'M532 466 C 518 484 516 512 532 526 C 548 538 570 528 572 508 C 574 490 564 474 554 466 Z' },
+  { id: 'umbilicus', cls: 'org-umbilicus', circle: [600, 722, 5] },
 ];
 // Invisible peritoneal outline: ascites fills it from the bottom.
 export const ABDOMEN_CLIP = 'M330 440 C 320 600 340 780 380 900 L 1060 900 C 1090 780 1100 600 1092 440 Z';
@@ -237,9 +232,8 @@ export const SITES = {
 
 // Organ captions: [text, x, y, anchor]
 export const ORGAN_LABELS = [
-  ['Liver', 392, 452, 'start'], ['Stomach', 888, 474, 'middle'], ['Spleen', 1050, 480, 'middle'],
-  ['Pancreas', 842, 594, 'middle'], ['Colon', 1012, 820, 'start'], ['Kidney', 1024, 722, 'middle'], ['Small bowel', 722, 860, 'middle'],
-  ['Esophagus', 814, 64, 'start'],
+  ['Liver', 404, 446], ['Stomach', 918, 432], ['Spleen', 1058, 482], ['Pancreas', 820, 578], ['Colon', 1016, 824], ['Kidney', 1030, 716],
+  ['Small bowel', 732, 868], ['Esophagus', 852, 38], ['Heart', 716, 118],
 ];
 
 // Atlas labels: node → caption and which margin column it hangs from.

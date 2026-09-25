@@ -75,7 +75,7 @@ async function main() {
     renderAlt: () => (store.get().mode === 'compare' && !store.get().selection ? compare.render() : null),
   });
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => host.send({ type: 'probe', id }), onReveal: revealDock });
-  eventsUI = createEventsUI({ stack: $('#events'), overlay: $('#overlay'), vignette: $('#vignette'), stage, onWhy: (m, el) => why.open(m, el) });
+  eventsUI = createEventsUI({ button: $('#btnFindings'), onWhy: (m, el) => why.open(m, el), onOpenLog: () => dock.show('events', { reveal: true }) });
   compare = createCompare({ onBack: () => store.set({ mode: 'explore' }) });
   const api = { muteEvents: (v) => eventsUI.mute(v), loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), openPanel, setBanner };
   // A lesson keeps its card in view on a phone: instruments it opens are flagged, not forced.
@@ -317,7 +317,7 @@ function renderCoach() {
   ok.addEventListener('click', () => { updateParams({ cirrhosis: 0.6 }, { label: 'Cirrhosis 60 %' }); toast('Cirrhosis 60 %: watch the sinusoid and portal vein labels climb, and the ▲ change from healthy.'); dismissCoach(); });
   const later = h('button', { class: 'btn sm ghost' }, 'Got it');
   later.addEventListener('click', dismissCoach);
-  el.replaceChildren(h('div', { class: 'c-long' }, h('b', {}, 'This is a healthy liver. '), 'Labels give live venous pressures in mmHg; arrowheads show which way blood flows. Click any vessel to inspect it, or stiffen the liver and watch pressure back up.'),
+  el.replaceChildren(h('div', { class: 'c-long' }, h('b', {}, 'This is a healthy liver. '), 'Labels give live venous pressures in mmHg. The chevrons inside each vessel are the blood: they move the way it flows, faster where it flows faster. Click any vessel to inspect it, or stiffen the liver and watch pressure back up.'),
     h('div', { class: 'c-short' }, h('b', {}, 'A healthy liver. '), 'Labels are pressures in mmHg; tap a vessel to inspect it.'),
     h('div', { class: 'c-row' }, ok, later));
   redraw();
@@ -328,8 +328,12 @@ let bleedEl, tipEl, stageClock;
 function buildHud() {
   renderLegend();
   store.on('colorMode', () => { $('#colorModeLabel').textContent = COLOR_MODES[store.get().colorMode]; });
-  bleedEl = h('div', { class: 'bleed-banner stage-blocker', role: 'alert', hidden: true, style: { position: 'absolute', left: '50%', top: '10px', transform: 'translateX(-50%)', zIndex: 6 } });
-  view.append(bleedEl);
+  bleedEl = $('#bleedPill');
+  // Phone: the Findings button lives in the top bar, where there is room for it.
+  const phoneBar = matchMedia('(max-width: 767px)');
+  const placeFindings = () => { if (phoneBar.matches) $('#btnMore').before($('#btnFindings')); else $('#legend').before($('#btnFindings')); };
+  phoneBar.addEventListener('change', placeFindings);
+  placeFindings();
   tipEl = h('div', { class: 'hover-tip', style: { display: 'none' } });
   view.append(tipEl);
   stageClock = h('div', { class: 'stage-clock', 'aria-hidden': 'true' });
@@ -364,7 +368,7 @@ function renderLegend() {
         : scale(gradientCss('to right', max), [[0, '0'], [100, '12+']]));
     el.setAttribute('aria-label', m === 'pressure' ? 'Legend: venous pressure from 0 to 30 millimeters of mercury, pale blue to dark magenta' : 'Legend: pressure drop across each vessel, 0 to 12 or more millimeters of mercury');
   } else if (m === 'direction') {
-    el.replaceChildren(h('div', { class: 'lg-cats' }, h('span', {}, h('i', { style: { background: 'var(--flow-normal)' } }), 'Physiological'), h('span', {}, h('i', { style: { background: 'var(--flow-reversed)' } }), '⟲ Reversed')));
+    el.replaceChildren(h('div', { class: 'lg-cats' }, h('span', {}, h('i', { style: { background: 'var(--flow-normal)' } }), 'Physiological'), h('span', {}, h('i', { style: { background: 'var(--flow-reversed)' } }), 'Reversed')));
     el.setAttribute('aria-label', 'Legend: teal is physiological flow direction, orange is reversed');
   } else if (m === 'neutral') {
     el.replaceChildren(h('div', { class: 'lg-cats' }, h('span', {}, h('i', { style: { background: 'var(--vein-portal)' } }), 'Portal veins'), h('span', {}, h('i', { style: { background: 'var(--vein-systemic)' } }), 'Systemic veins'),
@@ -390,7 +394,8 @@ function openLegend(anchor) {
   popover(anchor, [h('div', { class: 'menu-title' }, 'How to read the figure'),
     h('div', { style: { padding: '2px 10px 8px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12.5px', lineHeight: 1.5, color: 'var(--text-2)', maxWidth: '340px' } },
       rows.map(([k, v]) => h('div', {}, h('b', { style: { color: 'var(--text)' } }, k + '. '), v)),
-      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Notation. '), 'Arrowheads point downstream. A dashed orange casing marks reversed flow. Dotted vessels are closed potential collaterals. Line width follows vessel diameter (compressed). ▲ / ▼ on a label: change in mmHg from healthy (from state A in Compare).'))], { align: 'end', cls: 'legend-pop' });
+      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Flow. '), 'Chevrons inside each vessel point and move downstream; their speed follows blood velocity, and a vessel without flow has none. Reversed flow runs the other way. Paused, they hold still and keep their direction.'),
+      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Notation. '), 'Dotted vessels are closed potential collaterals. Line width follows vessel diameter (compressed). Faint lines crossing an organ run behind it. ▲ / ▼ on a label: change in mmHg from healthy (from state A in Compare).'))], { align: 'end', cls: 'legend-pop' });
 }
 function openLayers(anchor) {
   const s0 = store.get();
@@ -411,7 +416,7 @@ function openLayers(anchor) {
     s0.imaging ? h('div', { class: 'ctl-sub', style: { padding: '2px 10px 6px' } }, 'This case shows anatomy only until you measure.') : null,
     h('div', { class: 'menu-sep' }),
     h('div', { class: 'menu-title' }, 'Show'),
-    cb('chips', 'Pressure values on labels'), cb('arrows', 'Flow arrowheads'), cb('particles', 'Flowing blood (animation)'), cb('collaterals', 'Potential collaterals (dotted)'), cb('labels', 'Organ names'),
+    cb('chips', 'Pressure values on labels'), cb('flow', 'Blood flow (chevrons)'), cb('collaterals', 'Potential collaterals (dotted)'), cb('labels', 'Organ names'),
     h('div', { class: 'menu-sep' }),
     h('div', { class: 'menu-title' }, 'Units'),
     h('div', { style: { display: 'flex', gap: '6px', padding: '2px 10px 6px' } }, unitSel('pressure', ['mmHg', 'cmH2O', 'kPa']), unitSel('flow', ['L/min', 'mL/min'])),
@@ -420,13 +425,19 @@ function openLayers(anchor) {
     menuItem('Projector mode', { icon: 'projector', kb: 'Shift F', onClick: () => { closePopover(); toggleProjector(); } }),
   ], { cls: 'layers-pop' });
 }
+// Active bleeding is a state, not an alarm: a steady status in the figure header.
+let lastBleed = '';
 function updateBleedBanner(f) {
   const b = f.metrics.bleeding;
-  const was = !bleedEl.hidden;
+  const txt = b ? `${b.site === 'GV' ? 'Gastric' : 'Variceal'} bleed · ${Math.round(b.rate)} mL/min` : '';
+  if (txt === lastBleed) return;
+  const changed = !!txt !== !!lastBleed;
+  lastBleed = txt;
   bleedEl.hidden = !b;
-  if (!b) { if (was) redraw(); return; }
-  bleedEl.replaceChildren(h('span', { class: 'dot' }), h('b', {}, b.site === 'GV' ? 'Gastric variceal bleeding' : 'Esophageal variceal bleeding'),
-    h('span', { class: 'num' }, `${Math.round(b.rate)} mL/min`), h('span', { class: 'num' }, `lost ${Math.round(f.metrics.blood.lost)} mL`), h('span', { class: 'num' }, `MAP ${Math.round(f.metrics.map)}`));
+  app.classList.toggle('bleeding', !!b);
+  bleedEl.replaceChildren(h('span', { class: 'bp-dot' }), txt);
+  bleedEl.title = b ? `${b.site === 'GV' ? 'Gastric' : 'Esophageal'} variceal bleeding: ${Math.round(b.rate)} mL/min, ${Math.round(f.metrics.blood.lost)} mL lost so far` : '';
+  if (changed) redraw();
 }
 function hoverInfo(info) {
   const f = store.get().frame;
@@ -686,7 +697,7 @@ function openHelp() {
     h('h3', {}, 'Reading the figure'),
     h('ul', {},
       h('li', {}, 'Veins are colored by mean pressure on a perceptually uniform scale (0–30 mmHg). Labels give the value in mmHg; ▲ / ▼ is the change from healthy. Arteries are thinner, in a fixed red.'),
-      h('li', {}, 'Arrowheads point downstream. A dashed orange casing, an orange arrowhead and “⟲ flow reversed” mark reversed flow. Dotted vessels are closed potential collaterals.'),
+      h('li', {}, 'Chevrons inside each vessel show the blood itself: they point and move downstream, faster where blood moves faster, and there are none where it is still. Reversed flow simply runs the other way. Thin vessels carry small arrowheads. Dotted vessels are closed potential collaterals.'),
       h('li', {}, 'Line width follows vessel diameter (compressed, so the cavae don’t drown the portal tree). Watch collaterals and varices swell.'),
       h('li', {}, 'The circuit view is a transit map: pressure falls from left to right; collaterals and shunts run in their own lanes as bypasses.')),
     h('h3', {}, 'Thresholds & references'),
