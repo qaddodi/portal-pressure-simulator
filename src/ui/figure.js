@@ -114,7 +114,7 @@ export function createFigure({ app, stage, onClose }) {
   function keyBlock() {
     const st = store.get();
     const rows = [];
-    if (!st.imaging) rows.push([glyph('flow'), 'Blood flow: chevrons point downstream'], [glyph('thin'), 'Flow in a small vessel']);
+    if (!st.imaging) rows.push([glyph('flow'), 'Blood flow: arrows point downstream (orange where reversed)']);
     rows.push([glyph('ghost'), 'Vein passing behind an organ']);
     rows.push([glyph('dot'), 'Closed potential collateral']);
     if (!st.imaging) rows.push([h('span', { style: { width: '26px', fontSize: '10.5px', fontWeight: 700, color: 'color-mix(in srgb, var(--danger) 88%, var(--text))' } }, '▲ 3'), `Change from ${st.mode === 'compare' && st.compareSnap ? 'state A' : 'healthy'}, mmHg`]);
@@ -185,8 +185,13 @@ export function createFigure({ app, stage, onClose }) {
     const src = stage.svg;
     const clone = src.cloneNode(true);
     inlineStyles(src, clone);
-    // The live flow layer is a canvas; the export carries the same chevrons as vector paths.
-    clone.querySelector('#world')?.insertAdjacentHTML('beforeend', stage.flowSVG());
+    // The live flow layer is a canvas; the export carries the same arrows as vector paths, each
+    // depth in its own layer so marks pass under organs and nearer vessels as they do live.
+    const [back, mid, front] = stage.flowSVG();
+    clone.querySelector('#backEdges')?.insertAdjacentHTML('beforeend', back);
+    const edges = clone.querySelector('#edges'), firstFront = edges?.querySelector('[data-front]');
+    if (firstFront) firstFront.insertAdjacentHTML('beforebegin', mid); else edges?.insertAdjacentHTML('beforeend', mid);
+    clone.querySelector('#world')?.insertAdjacentHTML('beforeend', front);
     clone.setAttribute('x', (vr.left - base.left).toFixed(1)); clone.setAttribute('y', (vr.top - base.top).toFixed(1));
     clone.setAttribute('width', vr.width.toFixed(1)); clone.setAttribute('height', vr.height.toFixed(1));
     clone.removeAttribute('aria-label');
