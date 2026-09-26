@@ -1362,9 +1362,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   document.fonts?.ready?.then(() => { widths.clear(); if (F) updateLabels(F); });
 
+  // Label text size: the reader's choice (Menu › Text size), and a larger baseline in the circuit,
+  // whose labels are the map's only text. Every run's size and spacing is scaled by labelK.
+  const CIRCUIT_LABEL_K = 1.22;
+  let labelScale = (() => { try { return clamp(parseFloat(localStorage.getItem('pps.labelScale')) || 1, 0.8, 1.5); } catch { return 1; } })();
+  let labelK = labelScale;
   // A line is a list of runs { t, size, weight, cls, track }. Returns [width, height].
-  const LINE_H = (line) => Math.max(...line.map((r) => r.size)) * 1.24;
-  const lineW = (line) => line.reduce((w, r, i) => w + textW(r.t, r.size, r.weight, r.track || 0) + (i ? (r.gap ?? 3) : 0), 0);
+  const LINE_H = (line) => Math.max(...line.map((r) => r.size)) * labelK * 1.24;
+  const lineW = (line) => line.reduce((w, r, i) => w + textW(r.t, r.size * labelK, r.weight, r.track || 0) + (i ? (r.gap ?? 3) * labelK : 0), 0);
 
   const pool = new Map(); // key → { g, sig, … }
   function blockEl(key, cls, interactiveNode, onClick) {
@@ -1388,7 +1393,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     b.seen = frameNo;
     // Text and pressure colors change far more often than label structure.
     // Retain the text nodes (and keyboard focus) across numeric updates.
-    const sig = JSON.stringify([it.lines.map((line) => line.map(({ t, ...style }) => style)), it.align, !!it.swatch, it.bg, it.cls]);
+    const sig = JSON.stringify([it.lines.map((line) => line.map(({ t, ...style }) => style)), it.align, !!it.swatch, it.bg, it.cls, labelK]);
     if (sig !== b.sig) {
       b.sig = sig;
       const kids = [];
@@ -1402,8 +1407,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const t = s('text', { x: it.align === 'end' ? it.w - (it.swatch ? 7 : 0) : it.align === 'middle' ? it.w / 2 : tx, y: y + lh * 0.78, 'text-anchor': it.align === 'end' ? 'end' : it.align === 'middle' ? 'middle' : 'start' });
         b.textLines.push(t);
         line.forEach((r, i) => {
-          const sp = s('tspan', { class: r.cls || '', 'font-size': r.size, 'font-weight': r.weight || 500 });
-          if (i) sp.setAttribute('dx', r.gap ?? 3);
+          const sp = s('tspan', { class: r.cls || '', 'font-size': +(r.size * labelK).toFixed(2), 'font-weight': r.weight || 500 });
+          if (i) sp.setAttribute('dx', +((r.gap ?? 3) * labelK).toFixed(2));
           if (r.track) sp.setAttribute('letter-spacing', `${r.track}em`);
           sp.textContent = r.t;
           b.spans.push(sp);
@@ -1569,6 +1574,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const st = store.get();
     const t = easeInOut(morph);
     const circuit = t >= 0.5;
+    labelK = labelScale * (circuit ? CIRCUIT_LABEL_K : 1);
     const wr = stageBox();
     const W = wr.width, H = wr.height;
     const B = { x0: 6, y0: 6, x1: W - 6, y1: H - 6 };
@@ -2628,6 +2634,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (d.k !== vt.k || d.x !== vt.x || d.y !== vt.y) animateVT(d, 600);
     },
     relayout() { refreshCTM(); if (F) updateLabels(F); },
+    labelScale: () => labelScale,
+    setLabelScale(v) {
+      labelScale = clamp(v, 0.8, 1.5);
+      try { localStorage.setItem('pps.labelScale', String(labelScale)); } catch { /* storage unavailable */ }
+      if (F) updateLabels(F);
+    },
     labelLayer: () => labelSvg,
     flowSVG,
     /** Direction of the first flow mark on a vessel (for tests): unit vector and flow sign. */

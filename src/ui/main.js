@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=0917f25b24';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=4bf5a96a9d';
-import { createStage } from './stage.js?v=59d2364cad';
+import { createStage } from './stage.js?v=3f6d2d372c';
 import { createInspector } from './inspector.js?v=718cafd0b0';
 import { createDock } from './dock.js?v=fa01c43d90';
 import { createWhy } from './why.js?v=74679380bf';
@@ -622,6 +622,12 @@ function openMenu(anchor) {
   popover(anchor, [
     h('div', { class: 'menu-title' }, t('menu.appearance')),
     h('div', { class: 'seg full', style: { margin: '2px 6px 6px' } }, [['light', t('menu.light')], ['dark', t('menu.dark')], ['system', t('menu.system')]].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { closePopover(); applyTheme(v === 'system' ? null : v, v === 'system'); }); return b; })),
+    h('div', { class: 'menu-title' }, 'Text size on the figure'),
+    h('div', { class: 'seg full', style: { margin: '2px 6px 6px' }, role: 'group', 'aria-label': 'Text size on the figure' }, [[0.85, 'Small'], [1, 'Default'], [1.15, 'Large'], [1.3, 'Larger']].map(([v, l]) => {
+      const b = h('button', { 'aria-pressed': String(Math.abs(stage.labelScale() - v) < 0.01), style: { fontSize: `${Math.round(11 * v)}px` } }, l);
+      b.addEventListener('click', () => { stage.setLabelScale(v); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); });
+      return b;
+    })),
     h('div', { class: 'menu-title' }, 'Units'),
     h('div', { style: { display: 'flex', gap: '6px', padding: '2px 10px 6px' } }, unitSel('pressure', ['mmHg', 'cmH2O', 'kPa']), unitSel('flow', ['L/min', 'mL/min'])),
     h('div', { class: 'menu-title' }, t('menu.language')),
