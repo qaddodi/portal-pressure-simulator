@@ -1,6 +1,6 @@
 // Product and content versions. A course built on one content version behaves the same all
 // semester: the model, presets, lessons and cases only change with a new content version.
-export const APP_VERSION = '2.0.0';
+export const APP_VERSION = '2.1.0';
 export const CONTENT_VERSION = '2.0';
 export const RELEASED = '2026-09';
 

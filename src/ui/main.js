@@ -3,21 +3,21 @@
 
 import { startHost, host } from './host.js?v=0489e81e1a';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=e9304c5ee2';
-import { createStage } from './stage.js?v=d10afbfabe';
+import { createStage } from './stage.js?v=6a30790d38';
 import { createInspector } from './inspector.js?v=87d3126b53';
-import { createDock } from './dock.js?v=3fa5ada5f1';
+import { createDock } from './dock.js?v=8659237910';
 import { createWhy } from './why.js?v=648b449677';
 import { createTimeline } from './timeline.js?v=2f4cb4fe9e';
 import { createLearn } from './learn.js?v=1e96075313';
 import { createCases } from './cases.js?v=10f87353cf';
 import { createCompare } from './compare.js?v=0a28b9dcc5';
 import { createCard } from './card.js?v=b91b1c7319';
-import { createChart } from './chart.js?v=0b36d7de7b';
+import { createChart } from './chart.js?v=d04eb56053';
 import { createHome } from './home.js?v=8d87045001';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=743b542534';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=a1a7234e43';
 import { startLMS } from './lms.js?v=4511ed56b8';
-import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION } from '../version.js?v=9a2c622775';
+import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION } from '../version.js?v=36ceb4fb38';
 import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=d4515a7b91';
 import { gradientCss, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=fa78a29bc0';
 import { EDGES, NODES } from '../engine/topology.js?v=44e0aca402';

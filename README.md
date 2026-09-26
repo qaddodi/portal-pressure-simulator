@@ -8,7 +8,7 @@ scripted: every number and every pixel comes from one lumped-parameter hemodynam
 > **Educational simulation.** The model is simplified and its values are illustrative. Don't use
 > it for diagnosis or treatment decisions.
 
-Version 2.0.0 · content version 2.0. See [CHANGELOG.md](CHANGELOG.md).
+Version 2.1.0 · content version 2.0. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Run it
 
@@ -56,7 +56,8 @@ stability). They are listed in the app under *Menu › About the model*.
 
 ## Using it
 
-**Home** has four doors: *Explore a patient* (16 patients from healthy to Budd–Chiari),
+**Home** has four doors: *Explore a patient* (16 patients from healthy to Budd–Chiari, laid out
+as a map of the disease: grouped by where the resistance sits, each with its pressure profile),
 *Lessons*, *Cases* and *Presenter*.
 
 - **Act on the anatomy.** Click any vessel or organ: a card opens beside it with what you can do
@@ -67,8 +68,10 @@ stability). They are listed in the app under *Menu › About the model*.
   compare with now.
 - **Patient chart.** Vitals with trends, Treat (drugs, fluids, procedures), and the Story of what
   happened and why. Click any readout for a causal **Why?**
-- **Instruments.** Pressure profile, trends, flow, perfusion, HVPG, spectral Doppler, endoscopy,
-  varix wall, abdomen. One opens under the figure; pop it out or put two side by side.
+- **Instruments.** Pressure profile, pressure landscape, trends, flow, perfusion, HVPG, spectral
+  Doppler, endoscopy, varix wall, abdomen. The **pressure landscape** raises the circuit by
+  pressure (drag to tilt): blood runs downhill, cliffs are resistances, and it names the steepest
+  fall on the portal pathway. One opens under the figure; pop it out or put two side by side.
 - **Semantic zoom.** Zoom into the liver and keep going: the plate becomes a honeycomb of lobules
   drawn from the model (sinusoids, stellate cells, collagen, congestion).
 - **Views and lenses.** Anatomy or a transit-map Circuit; color by pressure, change, congestion,

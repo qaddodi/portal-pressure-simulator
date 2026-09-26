@@ -973,6 +973,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       r.R = R;
       r.txt = Number.isFinite(R) ? `${R.toFixed(1)} WU` : '∞ WU';
       r.r.setAttribute('stroke-width', clamp(1 + Math.log10(Math.max(1, Math.abs(R))) * 1.5, 1, 4));
+      // The gate takes the color of the pressure it drops, so the dominant resistance lights up.
+      const gate = !imaging && Math.abs(dp) >= 2 ? dropColor(qP(dp)) : '';
+      if (r.gate !== gate) { r.gate = gate; r.r.style.fill = gate; }
     }
   }
 

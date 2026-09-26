@@ -27,6 +27,12 @@ patients, lessons and cases are unchanged (content version 2.0).
   lens switcher (one control, with "How to read the figure" inside); Draw is an icon. The
   pressure profile's ΔP labels are pills that never overlap bars or each other, and the largest
   fall (where the resistance sits) is highlighted. Phone readouts fit four across and snap.
+- **Phase 5, signature views.** The pressure landscape instrument: the circuit raised by mean
+  pressure in 2.5D (drag to tilt and turn), flow running downhill, the CSPH and bleeding planes,
+  and a live verdict naming the steepest fall on the portal pathway (presinusoidal, sinusoidal,
+  postsinusoidal, posthepatic). In the circuit, the liver's resistance gates take the color of
+  the pressure they drop, so the dominant resistance lights up. Instruments and Home arrive with
+  a short, staggered motion (off with reduced motion).
 
 ## 2.0.0 (content version 2.0), 2026-09
 

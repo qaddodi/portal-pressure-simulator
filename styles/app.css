@@ -1566,3 +1566,20 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   .metric .v .unit { font-size: 9.5px; }
   .metric .k, .metric .s { font-size: 10.5px; }
 }
+
+/* Pressure landscape */
+.land-box canvas { cursor: grab; }
+.land-box canvas:active { cursor: grabbing; }
+.land-verdict { margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); }
+.lv-k { font-size: 10.5px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.lv-v { font-size: 14px; font-weight: 650; margin-top: 2px; }
+.lv-v b { color: var(--danger); font-variant-numeric: tabular-nums; }
+.lv-d { font-size: 12px; color: var(--text-2); margin-top: 2px; line-height: 1.45; }
+
+/* Motion: things arrive, they do not pop. (Reduced motion turns all of it off, above.) */
+.dock-pane.active { animation: lift .28s var(--ease); }
+.home-body .home-group, .home-body .home-grid > .home-item { animation: lift .38s var(--ease) both; }
+.home-body .home-group:nth-child(2) { animation-delay: .04s; } .home-body .home-group:nth-child(3) { animation-delay: .08s; }
+.home-body .home-group:nth-child(4) { animation-delay: .12s; } .home-body .home-group:nth-child(5) { animation-delay: .16s; }
+.home-body .home-group:nth-child(6) { animation-delay: .2s; } .home-body .home-group:nth-child(7) { animation-delay: .24s; }
+.hp-line { transition: stroke .3s var(--ease); }

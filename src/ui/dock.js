@@ -5,6 +5,7 @@ import { h, fmt, icon, svgIcon, popover, closePopover, clamp } from './util.js?v
 import { NODES, EDGES } from '../engine/topology.js?v=44e0aca402';
 import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=b8c7fb27a9';
 import { createHVPG, createDoppler, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=00f55b1793';
+import { createLandscape } from './landscape.js?v=48946917a4';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -122,7 +123,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // instrument docks under the figure (never taller than a quarter of the figure column); it can
   // pop out as a floating, resizable window, and on a wide screen a second one can sit beside it.
   const panes = [
-    createProfile(), createScope(), createSankey(), createPerfusion(), createHVPG(),
+    createProfile(), createLandscape(), createScope(), createSankey(), createPerfusion(), createHVPG(),
     createDoppler({ onProbe }), createEndoscopy({ onAction }), createVarixWall(), createAbdomen({ onAction }),
   ];
   const byId = Object.fromEntries(panes.map((p) => [p.id, p]));
@@ -142,6 +143,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
 
   const INFO = {
     profile: ['activity', 'Pressure along a path', (f) => `Portal ${fmt(f.P[NI.CONF], 1)} → RA ${fmt(f.P[NI.RA], 1)} mmHg`],
+    landscape: ['layers', 'The circulation raised by pressure', (f) => { const P = f.Pf || f.P; return `Portal ${fmt(P[NI.CONF], 0)} → sinusoids ${fmt(P[NI.SIN_R], 0)} → RA ${fmt(P[NI.RA], 0)}`; }],
     scope: ['chart', 'Pressures over time', (f) => `HVPG ${fmt(f.metrics.hvpg, 1)} mmHg now`],
     flow: ['vessel', 'Where gut blood goes', (f) => `${Math.round(f.metrics.shuntFraction * 100)} % bypasses the liver`],
     perfusion: ['liver', 'Liver perfusion & buffer', (f) => `${Math.round(f.metrics.liverPerfPct)} % perfused`],
@@ -158,7 +160,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       const on = open.includes(p.id) || floats.has(p.id);
       const b = h('button', { class: 'instr-card' + (on ? ' on' : '') },
         h('span', { class: 'ic-ic' }, svgIcon(ic)), h('span', { class: 'ic-t' }, p.label), h('span', { class: 'ic-d' }, desc),
-        h('span', { class: 'ic-live' }, f && !(hiddenCase() && ['profile', 'scope', 'lobule'].includes(p.id)) ? live(f) : '—'));
+        h('span', { class: 'ic-live' }, f && !(hiddenCase() && ['profile', 'landscape', 'scope', 'lobule'].includes(p.id)) ? live(f) : '—'));
       b.addEventListener('click', () => { closePopover(); show(p.id, { open: true, alongside }); });
       return b;
     });

@@ -93,6 +93,9 @@ for (const device of Object.keys(DEVICES)) {
     await page.evaluate(() => window.pps.dock.show('profile', { reveal: true }));
     await page.waitForTimeout(500);
     await shot(page, `${device}-instruments`);
+    await page.evaluate(() => window.pps.dock.show('landscape', { reveal: true }));
+    await page.waitForFunction(() => document.querySelector('.land-verdict')?.textContent.includes('Steepest fall'));
+    await shot(page, `${device}-landscape`);
   });
 
   await check(device, 'lesson and case deep links', async (page) => {
