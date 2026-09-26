@@ -664,7 +664,29 @@ function applyTheme(t, clear) {
   if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme');
   try { if (t) localStorage.setItem('pps.theme', t); else if (clear) localStorage.removeItem('pps.theme'); } catch { /* storage unavailable */ }
   const f = store.get().frame; if (f) { stage?.update(viewFrame(f)); dock?.update(f); }
+  syncStatusBar();
 }
+// The browser's and the installed app's status bar take the color of whatever sits under it: the
+// top bar, the figure when the top bar is hidden, or the start screen when it is open. The theme can differ from the system's, so the
+// color comes from the page, not from a media query.
+function syncStatusBar() {
+  const homeEl = document.getElementById('home');
+  const appEl = document.getElementById('app');
+  const el = homeEl && !homeEl.hidden ? homeEl
+    : appEl.classList.contains('figure-mode') || appEl.classList.contains('projector') ? document.getElementById('stageWrap') : document.querySelector('.topbar');
+  const c = el && getComputedStyle(el).backgroundColor;
+  if (!c || c === 'rgba(0, 0, 0, 0)') return;
+  let m = document.querySelector('meta[name="theme-color"]:not([media])');
+  if (!m) {
+    document.querySelectorAll('meta[name="theme-color"]').forEach((x) => x.remove());
+    m = document.createElement('meta'); m.name = 'theme-color'; document.head.append(m);
+  }
+  if (m.content !== c) m.content = c;
+}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => syncStatusBar());
+new MutationObserver(() => syncStatusBar()).observe(document.getElementById('home'), { attributes: true, attributeFilter: ['hidden'] });
+// (again once the figure's background has finished its .5 s fade)
+new MutationObserver(() => { syncStatusBar(); setTimeout(syncStatusBar, 600); }).observe(document.getElementById('app'), { attributes: true, attributeFilter: ['class'] });
 function readLS(k) { try { return localStorage.getItem(k); } catch { return null; } }
 // ── Side panel: the patient chart and the instruments, one tab each ───
 // Beside the figure on a wide screen; below 1280 px it slides over the figure from the right
