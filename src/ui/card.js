@@ -17,7 +17,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   new ResizeObserver(() => { sizes.w = el.offsetWidth; sizes.h = el.offsetHeight; placedFor = ''; position(); }).observe(el);
   const uiState = {};
   ctx.ui = (key, def) => (uiState[key] ||= def);
-  let model = null, live = [], syncs = [], actionable = [], selRef = null, placedFor = '';
+  let model = null, live = [], syncs = [], actionable = [], selRef = null, placedFor = '', sheetCollapsed = false;
 
   const refP = () => { const st = store.get(); return st.compareSnap ? st.compareSnap.P : st.healthy?.P; };
   const lens = () => (store.get().imaging ? 'neutral' : store.get().colorMode);
@@ -52,10 +52,15 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     const foot = h('div', { class: 'ac-foot' },
       h('button', { class: 'link', onclick: (e) => onWhy(m.why, e.currentTarget) }, svgIcon('bulb', 'mi-ic'), 'Why?'),
       h('button', { class: 'link', onclick: () => onDetails(selRef) }, 'Details', svgIcon('chev-right', 'mi-ic')));
-    el.replaceChildren(
+    // On a phone the card is a bottom sheet: the top (grab handle, title, value, close) stays put
+    // and only the controls scroll; tapping or swiping the top collapses and expands it.
+    const grab = h('button', { class: 'ac-grab', 'aria-label': 'Collapse or expand the card', 'aria-expanded': String(!sheetCollapsed) });
+    const top = h('div', { class: 'ac-top' }, grab,
       h('header', { class: 'ac-head' }, h('div', { class: 'ac-titles' }, h('span', { class: 'ac-kicker' }, m.kicker), h('h3', {}, m.title)), close),
-      h('div', { class: 'ac-readout' }, valEl, pillEl),
-      body, foot);
+      h('div', { class: 'ac-readout' }, valEl, pillEl));
+    wireSheet(top, grab);
+    el.replaceChildren(top, h('div', { class: 'ac-scroll' }, body, foot));
+    el.classList.toggle('collapsed', sheetCollapsed);
     el.setAttribute('aria-label', `${m.title}: actions`);
     el.hidden = false;
     // Number keys trigger the verbs in order; show the number beside each.
@@ -65,6 +70,30 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     position();
     if (focusedIdx >= 0) actionable[focusedIdx]?.focus();
     stage.relayout?.();
+  }
+
+  // Bottom-sheet gestures (phone only): a tap on the handle or the title toggles; a swipe down
+  // collapses, and a second swipe down closes; a swipe up expands. The collapsed state carries
+  // over to the next card, so a learner who wants the figure clear keeps it clear.
+  function setCollapsed(on) {
+    sheetCollapsed = on;
+    el.classList.toggle('collapsed', on);
+    el.querySelector('.ac-grab')?.setAttribute('aria-expanded', String(!on));
+    stage.relayout?.();
+  }
+  function wireSheet(top, grab) {
+    grab.addEventListener('click', () => setCollapsed(!sheetCollapsed));
+    let y0 = null, moved = false;
+    top.addEventListener('pointerdown', (e) => { if (!el.classList.contains('docked') || e.target.closest('.ac-close')) return; y0 = e.clientY; moved = false; });
+    top.addEventListener('pointermove', (e) => { if (y0 != null && Math.abs(e.clientY - y0) > 8) moved = true; });
+    top.addEventListener('pointerup', (e) => {
+      if (y0 == null) return;
+      const dy = e.clientY - y0; y0 = null;
+      if (dy > 40) { if (sheetCollapsed) store.set({ selection: null }); else setCollapsed(true); }
+      else if (dy < -40) setCollapsed(false);
+      else if (!moved && !e.target.closest('button')) setCollapsed(!sheetCollapsed);
+    });
+    top.addEventListener('pointercancel', () => { y0 = null; });
   }
 
   function locked(v) { return !verbEnabled(v.id, v.key); }

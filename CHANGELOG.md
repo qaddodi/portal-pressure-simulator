@@ -59,6 +59,10 @@
   clear of the portal vein; the Budd–Chiari collaterals merge into it in smooth arcs.
 - The caudate lobe vein, its tributaries and its Budd–Chiari collaterals are hidden on the
   anatomy for now (still modeled, and still drawn in the circuit).
+- **Cards on phones** are a bottom sheet: the title, value and close button stay fixed while only
+  the controls scroll; the sheet is smaller (at most 44 % of the figure) and more compact. Tap
+  the handle or the title, or swipe, to collapse it to its header (a second swipe down closes
+  it); a collapsed sheet stays collapsed for the next card. No number-key hints on a phone.
 - **Caudate lobe.** Its vein runs from the portal vein straight into the IVC. In Budd–Chiari it
   enlarges with its flow and collaterals from the right and left portal veins drain into it.
 - **Flow rates** read to one decimal everywhere (labels, cards, readouts, charts), with "< 0.1"

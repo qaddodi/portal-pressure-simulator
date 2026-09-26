@@ -1129,7 +1129,28 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .ac-foot { display: flex; justify-content: space-between; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--hairline); }
 .ac-foot .link { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; }
 .mi-ic { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.action-card.docked { left: 8px !important; right: 8px; top: auto !important; bottom: 8px; width: auto; max-height: 56%; }
+.ac-grab { display: none; }
+/* Phone: a bottom sheet. The top (handle, title, value, close) is fixed; the controls scroll. */
+.action-card.docked {
+  left: 6px !important; right: 6px; top: auto !important; bottom: 6px; width: auto; max-height: min(44%, 360px);
+  display: flex; flex-direction: column; overflow: hidden; padding: 0; border-radius: 16px; font-size: 12.5px;
+}
+.action-card.docked .ac-top { flex: none; padding: 4px 12px 0; touch-action: none; cursor: grab; }
+.action-card.docked .ac-grab { display: block; width: 100%; height: 16px; margin: 0; padding: 0; border: 0; background: none; cursor: pointer; position: relative; }
+.action-card.docked .ac-grab::before { content: ''; position: absolute; left: 50%; top: 5px; width: 36px; height: 4px; border-radius: 2px; background: var(--border-strong); transform: translateX(-50%); }
+.action-card.docked .ac-head h3 { font-size: 14px; }
+.action-card.docked .ac-kicker { font-size: 10px; }
+.action-card.docked .ac-close { width: 36px; height: 36px; margin: -8px -8px 0 0; }
+.action-card.docked .ac-close svg { width: 17px; height: 17px; }
+.action-card.docked .ac-readout { margin: 2px 0 8px; }
+.action-card.docked .ac-value b { font-size: 18px; }
+.action-card.docked .ac-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 12px 10px; }
+.action-card.docked .ac-body { gap: 6px; padding-top: 8px; }
+.action-card.docked .ac-btn, .action-card.docked .ac-toggle { min-height: 40px; }
+.action-card.docked .ac-note { font-size: 11px; }
+.action-card.docked .ac-foot { margin-top: 8px; }
+.action-card.docked.collapsed .ac-scroll { display: none; }
+.action-card.docked.collapsed .ac-readout { margin-bottom: 6px; }
 .app.figure-mode .action-card { display: none; }
 .hover-tip .hint { margin-top: 5px; font-size: 11px; color: var(--text-3); }
 
@@ -1641,3 +1662,4 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 #backdrop { opacity: .7; }
 .organ .org-shade.s1, .organ .org-shade.s2, .organ .org-shade.s3 { stroke-opacity: .12; }
 .organ .org-line { stroke-opacity: .5; }
+.action-card.docked [data-key]::after { display: none !important; }   /* no number-key hints on a phone */
