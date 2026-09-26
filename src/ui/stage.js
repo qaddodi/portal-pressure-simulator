@@ -1,7 +1,7 @@
 // Anatomical stage (blueprint §6): SVG anatomy + canvas flow layer + screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, edgePresent, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=6d79260961';
-import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders } from './anatomy.js?v=61ac3d6e6d';
+import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders } from './anatomy.js?v=3d0771b169';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=5f8590b23c';
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=d483888526';
@@ -408,6 +408,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Extra channels of a braided collateral (cavernoma): plain strokes under the main tube.
     const strands = !isArt && STRANDS[e.id] ? STRANDS[e.id].map(([off, ph, k]) => ({ off, ph, k, wall: s('path', { class: 'v-strand-wall' }), lumen: s('path', { class: 'v-strand', stroke: `url(#gr-${e.id})` }) })) : null;
     const feeders = !isArt && feedGeo[e.id] ? feedGeo[e.id].map(({ pts: cur, k: fk }, i) => ({ cur, fk, len: arcLen(cur), ph: i * 0.37, wall: s('path', { class: 'v-strand-wall' }), lumen: s('path', { class: 'v-strand', stroke: `url(#gr-${e.id})` }) })) : null;
+    if (feeders && FEEDERS[e.id].fan) {
+      // Tributaries fade out toward the bowel they drain, so they stay background.
+      const { at, len } = FEEDERS[e.id].fan;
+      defs.insertAdjacentHTML('beforeend', `<radialGradient id="fg-${e.id}" gradientUnits="userSpaceOnUse" cx="${at[0]}" cy="${at[1]}" r="${len * 1.35}"><stop offset="0" stop-color="#fff" stop-opacity=".7"/><stop offset=".45" stop-color="#fff" stop-opacity=".4"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient><mask id="fm-${e.id}" maskUnits="userSpaceOnUse" x="0" y="0" width="${VIEW.w}" height="${VIEW.h}"><rect x="0" y="0" width="${VIEW.w}" height="${VIEW.h}" fill="url(#fg-${e.id})"/></mask>`);
+      for (const fd of feeders) { fd.wall.setAttribute('mask', `url(#fm-${e.id})`); fd.lumen.setAttribute('mask', `url(#fm-${e.id})`); fd.faded = true; }
+    }
+    // Veins that sink into a retroperitoneal vein fade into it instead of ending on it: the
+    // caudate vein into the IVC, the gastrorenal shunt into the left renal vein.
+    const FADE_IN = { CAUD: [602, 442, 620, 346, 0.55], C5: [852, 520, 862, 618, 0.6] };
+    if (FADE_IN[e.id]) {
+      const [x1, y1, x2, y2, o] = FADE_IN[e.id];
+      defs.insertAdjacentHTML('beforeend', `<linearGradient id="cg-${e.id}" gradientUnits="userSpaceOnUse" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"><stop offset="${o}" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity=".3"/></linearGradient><mask id="cm-${e.id}" maskUnits="userSpaceOnUse" x="0" y="0" width="${VIEW.w}" height="${VIEW.h}"><rect x="0" y="0" width="${VIEW.w}" height="${VIEW.h}" fill="url(#cg-${e.id})"/></mask>`);
+    }
     if (isArt) { g.append(halo, sel, wall, sheen, hit); gArt.append(g); }
     else {
       if (spine) gc.append(spine);
@@ -423,6 +436,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     const heat = isArt ? null : s('path', { class: 'v-heat' });
     if (heat) gHeat.append(heat);
+    if (FADE_IN[e.id]) for (const el of [g, gc, gs]) el.setAttribute('mask', `url(#cm-${e.id})`);
     E[e.id] = { e, g, gc, gs, groups: isArt ? [g] : [gs, gc, g], heat, grad, st0, st1, halo, sel, shadow, spine, wall, lumen, shade, sheen, wallP, lumenP, hit, strands, feeders, isArt, vis: true, width: 4, wallPx: 1, shadeKey: '' };
   }
   // Draw order within each tier: the portal tree in front (it lies anterior to the IVC).
@@ -908,7 +922,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const stroked = x.g.classList.contains('coll-ghost') || !!x.reveal || (t >= 0.5 && !sten);
     cls(x, 'sten', sten); cls(x, 'stroked', stroked);
     const lim = x.e.kind === 'collateral' ? 1.3 : 1.7;
-    const endW = (n) => (J[n] && !stroked ? clamp(J[n], w * 0.7, w * lim) : w);
+    // A large shunt tapers into the smaller vein it drains into instead of butting onto it.
+    const lo = x.e.spontaneous ? 0.4 : 0.7;
+    const endW = (n) => (J[n] && !stroked ? clamp(J[n], w * lo, w * lim) : w);
     const a = endW(x.e.from), b = endW(x.e.to);
     const key = `${w.toFixed(1)},${a.toFixed(1)},${b.toFixed(1)}|${wallPx.toFixed(2)}|${sten ? v.toFixed(3) + '@' + (stenosisAt[id] ?? 0.5) : ''}|${lastMorph}|${stroked}`;
     if (key === x.shadeKey) return;
@@ -1924,8 +1940,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (x.feeders && morph < 0.5) for (const fd of x.feeders) {
         if ((fd.live ?? 1) < 0.5) continue;
         const fsp = markSpacing(fd.w), fms = markSize(fd.w), fm = Math.min(fd.len * 0.12, fsp * 0.35 + 2);
-        for (let tt = fm + (((ph / sp) + fd.ph) % 1) * fsp; tt < fd.len - fm; tt += fsp) {
-          const ends = clamp(Math.min(tt - fm, fd.len - fm - tt) / (fsp * 0.8), 0, 1);
+        const f0 = fd.faded ? Math.max(fm, fd.len * 0.55) : fm;   // faded tributaries: marks near the vessel only
+        for (let tt = f0 + (((ph / sp) + fd.ph) % 1) * fsp; tt < fd.len - fm; tt += fsp) {
+          const ends = clamp(Math.min(tt - f0, fd.len - fm - tt) / (fsp * 0.8), 0, 1);
           if (ends < 0.08) continue;
           const [px, py, dx, dy] = pointAt(fd.cur, tt / fd.len);
           const nn = Math.hypot(dx, dy) || 1;

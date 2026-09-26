@@ -45,6 +45,10 @@
 - The gastrorenal shunt leaves the fundal varices in a smooth arc instead of a hairpin. In the
   circuit, the fundal varices → coronary vein line drops clear of the short gastric line instead
   of running on top of it.
+- Tributaries fade out into the bowel (only the stretch near the vessel carries flow marks); the
+  IMV's come from the descending colon on the patient's left. The gastrorenal shunt runs clear
+  of the coronary vein and fades into the left renal vein; the caudate vein fades into the IVC.
+  The esophageal varices drain to the azygos through one vein, no plexus.
 - **Caudate lobe.** Its vein runs from the portal vein straight into the IVC. In Budd–Chiari it
   enlarges with its flow and collaterals from the right and left portal veins drain into it.
 - **Flow rates** read to one decimal everywhere (labels, cards, readouts, charts), with "< 0.1"

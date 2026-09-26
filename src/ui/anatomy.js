@@ -129,9 +129,9 @@ export const EDGE_PATH = {
   C2b: 'M876 302 C 858 300 838 306 821 318',
   C3: 'M688 378 C 668 440 646 520 620 600 C 590 690 540 760 500 800',
   C4: 'M932 690 C 940 790 890 870 810 890 C 730 908 660 900 620 880',
-  // Leaves the fundus heading on in the direction the short gastric blood arrives (leftward),
-  // then sweeps down to the left renal vein: no hairpin at the varices.
-  C5: 'M876 302 C 856 310 840 334 838 380 C 835 440 840 560 862 618',
+  // Leaves the fundus in a gentle curve and runs down clear of the coronary vein, easing into
+  // the left renal vein.
+  C5: 'M876 302 C 864 318 854 340 852 380 C 850 460 852 560 858 596 C 860 606 861 612 862 618',
   C6: 'M880 505 C 880 548 874 590 862 618',
   C7: 'M690 660 C 668 676 640 670 620 650',
   C8: 'M700 556 C 695 520 650 470 602 442',
@@ -156,7 +156,6 @@ export const EDGE_PATH = {
 export const STRANDS = {
   C8: [[-36, 1.1, 0.5], [-24, 3.9, 0.6], [13, 2.4, 0.65], [25, 5.2, 0.5], [36, 0.3, 0.42]],
   C1a: [[-11, 0.7, 0.5], [-5, 3.3, 0.6], [6, 1.9, 0.55], [12, 4.6, 0.45]],
-  C1b: [[-16, 2.2, 0.45], [-7, 5.1, 0.55], [8, 0.9, 0.55], [17, 3.8, 0.42]],
   C2: [[-22, 4.1, 0.45], [-11, 1.4, 0.55], [10, 2.9, 0.55], [21, 0.4, 0.42]],
   C2b: [[-6, 2.6, 0.5], [6, 0.8, 0.5]],
 };
@@ -176,8 +175,8 @@ export const FEEDERS = {
   V_SPL: { k: 0.5, fan: { at: [1034, 360], dir: 0, spread: 140, len: 62, n: 5, seed: 3 } },
   // Superior mesenteric vein: jejunal and ileal branches fanning up from the small bowel.
   V_INT: { k: 0.5, fan: { at: [690, 790], dir: 90, spread: 130, len: 96, n: 6, seed: 7 } },
-  // Inferior mesenteric vein: the descending colic and sigmoid veins fanning up from below.
-  V_COL: { k: 0.55, fan: { at: [960, 790], dir: 82, spread: 100, len: 90, n: 5, seed: 11 } },
+  // Inferior mesenteric vein: the left colic veins, from the descending colon on the patient's left.
+  V_COL: { k: 0.55, fan: { at: [960, 790], dir: -5, spread: 110, len: 42, n: 5, seed: 11 } },
   // Budd–Chiari: collaterals from the right and left portal veins into the caudate vein.
   CAUD: { k: 0.8, when: 'caudate', wig: 3.5, paths: ['M505 398 C 532 382 572 372 606 386', 'M688 378 C 664 370 634 374 607 386'] },
 };
