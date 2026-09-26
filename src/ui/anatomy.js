@@ -129,7 +129,9 @@ export const EDGE_PATH = {
   C2b: 'M876 302 C 858 300 838 306 821 318',
   C3: 'M688 378 C 668 440 646 520 620 600 C 590 690 540 760 500 800',
   C4: 'M932 690 C 940 790 890 870 810 890 C 730 908 660 900 620 880',
-  C5: 'M876 302 C 856 350 846 420 843 480 C 840 560 846 600 862 618',
+  // Leaves the fundus heading on in the direction the short gastric blood arrives (leftward),
+  // then sweeps down to the left renal vein: no hairpin at the varices.
+  C5: 'M876 302 C 856 310 840 334 838 380 C 835 440 840 560 862 618',
   C6: 'M880 505 C 880 548 874 590 862 618',
   C7: 'M690 660 C 668 676 640 670 620 650',
   C8: 'M700 556 C 695 520 650 470 602 442',
@@ -166,13 +168,16 @@ export const STRAND_FROM = { C2: 0.5 };
 // the parent's color and flow marks. `k` is each one's caliber as a fraction of the parent;
 // `when: 'caudate'` shows them only once the caudate route is carrying several times its normal
 // flow (Budd–Chiari): portal blood from both lobes then collateralizes into the caudate vein.
+// A `fan` is generated (see fanFeeders): `n` tortuous tributaries spread over `spread` degrees
+// around `dir` (0 = toward +x, 90 = down), each about `len` long and entering the vessel along
+// the fan's axis, most with a smaller branch of their own.
 export const FEEDERS = {
-  // Splenic vein: the hilar branches from the upper pole, the hilum and the lower pole.
-  V_SPL: { k: 0.55, paths: ['M1058 292 C 1054 320 1042 344 1034 360', 'M1090 340 C 1068 346 1046 354 1034 360', 'M1070 424 C 1058 400 1044 378 1034 360'] },
-  // Superior mesenteric vein: jejunal and ileal branches fanning in from the small bowel below.
-  V_INT: { k: 0.5, paths: ['M604 872 C 636 846 684 836 690 790', 'M660 892 C 672 860 688 832 690 790', 'M742 886 C 716 858 694 834 690 790', 'M794 846 C 754 836 698 830 690 790'] },
-  // Inferior mesenteric vein: the descending colic and sigmoid veins fanning in from below.
-  V_COL: { k: 0.6, paths: ['M990 850 C 978 830 964 814 960 790', 'M944 888 C 952 854 958 822 960 790', 'M896 892 C 924 862 952 830 960 790'] },
+  // Splenic vein: hilar branches from the upper pole to the lower pole.
+  V_SPL: { k: 0.5, fan: { at: [1034, 360], dir: 0, spread: 140, len: 62, n: 5, seed: 3 } },
+  // Superior mesenteric vein: jejunal and ileal branches fanning up from the small bowel.
+  V_INT: { k: 0.5, fan: { at: [690, 790], dir: 90, spread: 130, len: 96, n: 6, seed: 7 } },
+  // Inferior mesenteric vein: the descending colic and sigmoid veins fanning up from below.
+  V_COL: { k: 0.55, fan: { at: [960, 790], dir: 82, spread: 100, len: 90, n: 5, seed: 11 } },
   // Budd–Chiari: collaterals from the right and left portal veins into the caudate vein.
   CAUD: { k: 0.8, when: 'caudate', wig: 3.5, paths: ['M505 398 C 532 382 572 372 606 386', 'M688 378 C 664 370 634 374 607 386'] },
 };
@@ -217,6 +222,9 @@ export const CIRCUIT_PATH = {
   C1a: route([[320, 191], [383, 128], [620, 128]]),
   C1b: route([[620, 128], [1043, 128], [1120, 205]]),
   C2: route([[320, 261], [292, 233], [292, 165], [248, 121], [240, 121]], 12),
+  // Fundal varices → coronary vein drops straight down from the varices before turning, clear of
+  // the short gastric's diagonal (a plain 45° route would run on top of it).
+  C2b: route([[240, 121], [240, 165], [266, 191], [320, 191]], 12),
   // portosystemic shunts, each in its own lane below the spine
   C8: route([[480, 345], [506, 376], [554, 376], [580, 345]], 12),
   S_PC: route([[480, 345], [480, 440], [1050, 440], [1088, 478], [1120, 478]]),
@@ -399,3 +407,29 @@ export const SHORT = {
 
 // Chips shown by default (major vessels)
 export const CHIP_NODES = ['CONF', 'SV', 'SMV', 'SIN_R', 'RHV', 'IVCS', 'RA', 'VAR'];
+
+/** Tributary fan → [{ d, k }] (path from the tip to the vessel; k = caliber relative to `k`). */
+export function fanFeeders({ at, dir, spread, len, n, seed = 1 }) {
+  let r = seed * 9301 + 49297;
+  const rnd = () => { r = (r * 9301 + 49297) % 233280; return r / 233280; };
+  const rad = (deg) => (deg * Math.PI) / 180, P = (p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`;
+  const ax = [Math.cos(rad(dir)), Math.sin(rad(dir))];
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const a = rad(dir + spread * (i / (n - 1) - 0.5) + (rnd() - 0.5) * 12), l = len * (0.75 + 0.4 * rnd());
+    const E = [at[0] + Math.cos(a) * l, at[1] + Math.sin(a) * l];
+    const c2 = [at[0] + ax[0] * l * 0.42, at[1] + ax[1] * l * 0.42];
+    const c1 = [E[0] + (c2[0] - E[0]) * 0.45, E[1] + (c2[1] - E[1]) * 0.45];
+    out.push({ d: `M${P(E)} C ${P(c1)} ${P(c2)} ${P(at)}`, k: 0.75 + 0.5 * rnd() });
+    // A smaller branch joining it part-way, on alternating sides.
+    if (rnd() < 0.8) {
+      const t = 0.3 + 0.2 * rnd(), u = 1 - t;
+      const M = [0, 1].map((j) => u * u * u * E[j] + 3 * u * u * t * c1[j] + 3 * u * t * t * c2[j] + t * t * t * at[j]);
+      const b = a + rad((i % 2 ? 1 : -1) * (28 + 14 * rnd())), bl = l * (0.35 + 0.2 * rnd());
+      const S = [M[0] + Math.cos(b) * bl, M[1] + Math.sin(b) * bl];
+      const q = [M[0] + Math.cos(a) * bl * 0.45, M[1] + Math.sin(a) * bl * 0.45];
+      out.push({ d: `M${P(S)} Q ${P(q)} ${P(M)}`, k: 0.45 + 0.2 * rnd() });
+    }
+  }
+  return out;
+}

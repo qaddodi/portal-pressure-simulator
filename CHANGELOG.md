@@ -38,10 +38,13 @@
 - **Shunts and feeders.** The gastrorenal and splenorenal shunts are drawn as single large veins,
   not tortuous collaterals. The short and posterior gastric veins leave the splenic vein as one
   vein and break into a plexus only as they reach the fundal varices.
-- **Tributaries.** The splenic vein (hilar branches), the superior mesenteric vein (jejunal,
-  ileal and ileocolic branches) and the inferior mesenteric vein (descending colic and sigmoid
-  veins) are drawn formed by their tributaries, which carry flow marks; the vessels themselves
-  have not moved.
+- **Tributaries.** The splenic vein (hilar branches), the superior mesenteric vein (jejunal and
+  ileal branches) and the inferior mesenteric vein (descending colic and sigmoid veins) are drawn
+  formed by a network of tortuous, branching tributaries, like the variceal plexus, with flow
+  marks (anatomy only); the vessels themselves have not moved.
+- The gastrorenal shunt leaves the fundal varices in a smooth arc instead of a hairpin. In the
+  circuit, the fundal varices → coronary vein line drops clear of the short gastric line instead
+  of running on top of it.
 - **Caudate lobe.** Its vein runs from the portal vein straight into the IVC. In Budd–Chiari it
   enlarges with its flow and collaterals from the right and left portal veins drain into it.
 - **Flow rates** read to one decimal everywhere (labels, cards, readouts, charts), with "< 0.1"

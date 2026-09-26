@@ -1,7 +1,7 @@
 // Anatomical stage (blueprint §6): SVG anatomy + canvas flow layer + screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, edgePresent, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=6d79260961';
-import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS } from './anatomy.js?v=9699956dae';
+import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders } from './anatomy.js?v=61ac3d6e6d';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=5f8590b23c';
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=d483888526';
@@ -82,7 +82,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Tributaries and feeders (anatomic only), sampled once, with a vein's gentle meander (a
   // feeder that is a collateral gets a serpentine instead).
   const feedGeo = {};
-  for (const [id, fd] of Object.entries(FEEDERS)) feedGeo[id] = fd.paths.map((d, i) => { const pts = sample(d); return fd.wig ? wiggle(pts, fd.wig, i * 2.3 + 1) : meander(pts, id + i); });
+  for (const [id, fd] of Object.entries(FEEDERS)) {
+    // A generated fan is a tortuous network (drawn like the variceal plexus); listed paths meander.
+    const list = fd.fan ? fanFeeders(fd.fan) : fd.paths.map((d) => ({ d, k: 1 }));
+    feedGeo[id] = list.map(({ d, k }, i) => { const pts = sample(d); return { k, pts: fd.fan ? wiggle(pts, 2.2 + 1.2 * k, i * 2.3 + 1) : fd.wig ? wiggle(pts, fd.wig, i * 2.3 + 1) : meander(pts, id + i) }; });
+  }
   scratch.remove();
   // Where to caption each circuit lane: the middle of its longest horizontal run.
   const laneU = {};
@@ -403,7 +407,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const hit = s('path', { class: 'v-hit', tabindex: 0, role: 'button', 'aria-label': e.label || e.id, 'data-id': e.id });
     // Extra channels of a braided collateral (cavernoma): plain strokes under the main tube.
     const strands = !isArt && STRANDS[e.id] ? STRANDS[e.id].map(([off, ph, k]) => ({ off, ph, k, wall: s('path', { class: 'v-strand-wall' }), lumen: s('path', { class: 'v-strand', stroke: `url(#gr-${e.id})` }) })) : null;
-    const feeders = !isArt && feedGeo[e.id] ? feedGeo[e.id].map((cur, i) => ({ cur, len: arcLen(cur), ph: i * 0.37, wall: s('path', { class: 'v-strand-wall' }), lumen: s('path', { class: 'v-strand', stroke: `url(#gr-${e.id})` }) })) : null;
+    const feeders = !isArt && feedGeo[e.id] ? feedGeo[e.id].map(({ pts: cur, k: fk }, i) => ({ cur, fk, len: arcLen(cur), ph: i * 0.37, wall: s('path', { class: 'v-strand-wall' }), lumen: s('path', { class: 'v-strand', stroke: `url(#gr-${e.id})` }) })) : null;
     if (isArt) { g.append(halo, sel, wall, sheen, hit); gArt.append(g); }
     else {
       if (spine) gc.append(spine);
@@ -831,8 +835,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           const ref = store.get().healthy?.Q?.[k], q = Math.abs(f.Qf ? f.Qf[k] : f.Q[k]);
           live = ref ? clamp((q / Math.abs(ref) - 2) / 2, 0, 1) : 0;
         }
-        const fw = Math.max(1.4, w * cfg.k * (cfg.when ? 0.5 + 0.5 * live : 1));
+        const fw0 = w * cfg.k * (cfg.when ? 0.5 + 0.5 * live : 1);
         for (const fd of x.feeders) {
+          const fw = Math.max(1.2, fw0 * fd.fk);
           fd.live = live; fd.w = fw;
           setA(fd.lumen, 'stroke-width', fw.toFixed(1)); setA(fd.wall, 'stroke-width', (fw + 2 * wallPx).toFixed(1));
           const vis = live > 0.02 ? '' : 'none', op = live < 1 ? live.toFixed(2) : '';
