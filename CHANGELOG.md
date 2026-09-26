@@ -49,6 +49,9 @@
   IMV's come from the descending colon on the patient's left. The gastrorenal shunt runs clear
   of the coronary vein and fades into the left renal vein; the caudate vein fades into the IVC.
   The esophageal varices drain to the azygos through one vein, no plexus.
+- Budd–Chiari caudate collaterals are drawn as veins: smooth, smaller, each colored from the
+  pressure of the portal branch it leaves (right or left portal vein) to that of the caudate vein,
+  and no longer veiled by the caudate vein's fade. The caudate vein itself is a little smaller.
 - **Caudate lobe.** Its vein runs from the portal vein straight into the IVC. In Budd–Chiari it
   enlarges with its flow and collaterals from the right and left portal veins drain into it.
 - **Flow rates** read to one decimal everywhere (labels, cards, readouts, charts), with "< 0.1"

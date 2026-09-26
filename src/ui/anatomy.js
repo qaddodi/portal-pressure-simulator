@@ -178,7 +178,8 @@ export const FEEDERS = {
   // Inferior mesenteric vein: the left colic veins, from the descending colon on the patient's left.
   V_COL: { k: 0.55, fan: { at: [960, 790], dir: -5, spread: 110, len: 42, n: 5, seed: 11 } },
   // Budd–Chiari: collaterals from the right and left portal veins into the caudate vein.
-  CAUD: { k: 0.8, when: 'caudate', wig: 3.5, paths: ['M505 398 C 532 382 572 372 606 386', 'M688 378 C 664 370 634 374 607 386'] },
+  // Each is colored from the pressure of the portal branch it leaves to that of the caudate vein.
+  CAUD: { k: 0.55, when: 'caudate', from: ['RPV', 'LPV'], paths: ['M505 398 C 532 384 570 378 603 394', 'M688 378 C 664 372 634 378 604 394'] },
 };
 
 // Circuit view: a transit map. Pressure falls left → right along the main series circuit

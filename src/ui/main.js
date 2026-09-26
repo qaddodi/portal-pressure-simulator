@@ -3,16 +3,16 @@
 
 import { startHost, host } from './host.js?v=0917f25b24';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=4bf5a96a9d';
-import { createStage } from './stage.js?v=7efe7583a3';
+import { createStage } from './stage.js?v=a37579ca94';
 import { createInspector } from './inspector.js?v=718cafd0b0';
-import { createDock } from './dock.js?v=ae3c869d40';
+import { createDock } from './dock.js?v=72cb7c42e7';
 import { createWhy } from './why.js?v=74679380bf';
 import { createTimeline } from './timeline.js?v=2c81ae8bfc';
 import { createLearn } from './learn.js?v=38cc26d87b';
 import { createCases } from './cases.js?v=4d72427eaf';
 import { createCompare } from './compare.js?v=20f877cd73';
 import { createCard } from './card.js?v=cc91e1a154';
-import { createChart } from './chart.js?v=e4e679e018';
+import { createChart } from './chart.js?v=ae6b0150dc';
 import { createHome } from './home.js?v=7248caebfc';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=743b542534';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=46c08905a9';
@@ -146,7 +146,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=91da8eb29d'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=120ca7583b'), ({ createPalette }) => createPalette({ ctx: {
     select: (sel) => store.set({ selection: sel }), action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     wedge: () => { store.set({ selection: { type: 'edge', id: 'RHV_IVC' } }); setTimeout(() => card.trigger(3), 60); },
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
