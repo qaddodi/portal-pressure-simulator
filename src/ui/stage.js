@@ -11,7 +11,10 @@ import { createFlowGL, rgba, MARK_FLOATS, SEG_FLOATS } from './flow-gl.js?v=5c84
 const N_SAMPLES = 64;
 // Displayed width grows sub-linearly with diameter so the cavae don't swamp the portal tree,
 // while distension of small veins and collaterals stays visible.
-const vesselPx = (D) => Math.max(2.6, 2.0 * Math.pow(Math.max(0.1, D), 0.72));
+// Drawn caliber (px) for a vessel diameter. The 1.3 lifts the baseline so the veins read at a
+// glance; the dilation of disease still scales on top of it.
+const CALIBER = 1.3;
+const vesselPx = (D) => CALIBER * Math.max(2.6, 2.0 * Math.pow(Math.max(0.1, D), 0.72));
 // Only the vessels that tell the portal story are drawn (see anatomy.js).
 const ALL_EDGES = EDGES.filter((e) => e.kind !== 'wedge' && !HIDDEN_EDGES.has(e.id));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -819,7 +822,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const P1 = PM[NI[e.from]], P2 = PM[NI[e.to]];
       // Anatomy: width follows diameter (compressed). Circuit: a narrower, more uniform range,
       // as on a transit map, so the lines stay even and legible.
-      const wA = e.kind === 'liver' ? (e.zone === 'sin' || e.zone === 'inter' ? 3.2 : 4.4) : vesselPx(D) * (e.id === 'IVC_IS' || e.id === 'IVCS_RA' || e.id === 'SVC_RA' ? 0.72 : 1);
+      const wA = e.kind === 'liver' ? (e.zone === 'sin' || e.zone === 'inter' ? 3.6 : 5.2) : vesselPx(D) * (e.id === 'IVC_IS' || e.id === 'IVCS_RA' || e.id === 'SVC_RA' ? 0.72 : 1);
       const wC = e.kind === 'liver' ? 5.5 : clamp(vesselPx(D) * 0.62, 4, 10);
       let w = lerp(wA, wC, t);
       // Flow layer: width follows flow volume (∝ √Q), like traffic volume on a city map.

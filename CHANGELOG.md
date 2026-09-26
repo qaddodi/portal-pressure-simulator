@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **New logo.** The mark is now a liver with the portal vein and its splenic and mesenteric
+  tributaries, colored by pressure from the gut (high) to the liver (low), replacing the abstract
+  "Y". Favicon, app icons and lockup redrawn to match.
+- **The logo says what it does.** It sits in a button with a *Modes* chevron (just the chevron on
+  narrow screens) and a hover state, and opens the start screen: explore, lessons, cases, presenter.
+- **Credit.** "Created by Mohammad Almeqdadi, MD" with a link to all of the author's tools, on
+  the start screen, at the foot of the settings menu and in *About the model*.
+- **Thicker veins.** Vessel calibers on the anatomy are 30 % larger at baseline (intrahepatic
+  branches about 15 %), so the veins read at a glance; dilation in disease scales on top.
+
 - **Lobule on request.** Scrolling or pinching into the liver no longer drops the view into the
   lobule; the zoom only moves the camera. The lobule opens from the zoom trail's *Lobule* step,
   the liver's card, the command palette or a presenter step, and scrolling or pinching out (or

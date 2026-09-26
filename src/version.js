@@ -4,6 +4,10 @@ export const APP_VERSION = '2.1.0';
 export const CONTENT_VERSION = '2.0';
 export const RELEASED = '2026-09';
 
+// Creator, and the page that lists all of their teaching tools.
+export const AUTHOR = 'Mohammad Almeqdadi, MD';
+export const AUTHOR_URL = 'https://qaddodi.github.io/#tools';
+
 // The model's validation targets: each is an automated test in tests/acceptance.test.js.
 export const VALIDATION = [
   'Healthy adult: portal pressure, HVPG, portal flow and cardiac output within normal ranges',

@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=0917f25b24';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=4bf5a96a9d';
-import { createStage } from './stage.js?v=3f6d2d372c';
+import { createStage } from './stage.js?v=d2df9078f5';
 import { createInspector } from './inspector.js?v=718cafd0b0';
 import { createDock } from './dock.js?v=fa01c43d90';
 import { createWhy } from './why.js?v=74679380bf';
@@ -13,11 +13,11 @@ import { createCases } from './cases.js?v=4d72427eaf';
 import { createCompare } from './compare.js?v=20f877cd73';
 import { createCard } from './card.js?v=6e704d1fc3';
 import { createChart } from './chart.js?v=33f737e9af';
-import { createHome } from './home.js?v=7248caebfc';
+import { createHome } from './home.js?v=c276ac8019';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=743b542534';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=46c08905a9';
 import { startLMS } from './lms.js?v=4511ed56b8';
-import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION } from '../version.js?v=36ceb4fb38';
+import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=ab32f7d0b5';
 import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=3aaea708e3';
 import { gradientCss, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=5f8590b23c';
 import { EDGES, NODES } from '../engine/topology.js?v=6d79260961';
@@ -644,6 +644,9 @@ function openMenu(anchor) {
     menuItem(t('menu.guide'), { icon: 'help', kb: '?', onClick: () => { closePopover(); openHelp(); } }),
     menuItem(t('menu.about'), { icon: 'book', onClick: () => { closePopover(); openAbout(); } }),
     menuItem(t('menu.privacy'), { icon: 'lock', onClick: () => { closePopover(); openPrivacy(); } }),
+    h('div', { class: 'menu-sep' }),
+    h('a', { class: 'menu-credit', href: AUTHOR_URL, target: '_blank', rel: 'noopener', onclick: () => closePopover() },
+      h('span', {}, 'Created by ', h('b', {}, AUTHOR)), h('span', { class: 'mc-link' }, 'All my tools ', icon('chev-right'))),
   ], { align: 'end', cls: 'app-menu' });
 }
 function doUndo() { timeline.undo(); }
@@ -845,6 +848,7 @@ function openHelp() {
 }
 function openAbout() {
   openModal('About the model', h('div', {},
+    h('p', {}, 'Created by ', h('b', {}, AUTHOR), '. ', h('a', { href: AUTHOR_URL, target: '_blank', rel: 'noopener' }, 'See all of the author’s teaching tools'), '.'),
     h('p', {}, `Portal Pressure Simulator ${APP_VERSION} · content version ${CONTENT_VERSION} (${RELEASED}). A course built on one content version behaves the same all term: the model, patients, lessons and cases change only with a new content version.`),
     h('h3', {}, 'The model'),
     h('p', {}, 'A lumped-parameter hemodynamic network of the splanchnic, portal, hepatic and systemic veins with the heart, arterial inflow and the hepatic arterial buffer; collateral recruitment and remodeling on a disease clock; Starling filtration and lymph for ascites; Laplace wall tension for varices; blood volume, bleeding and transfusion. Every number on screen comes out of it; nothing is scripted.'),

@@ -1,5 +1,7 @@
 # Portal Pressure Simulator
 
+Created by **Mohammad Almeqdadi, MD**. More teaching tools: [qaddodi.github.io](https://qaddodi.github.io/#tools).
+
 A living, physics-based model of the portal circulation for medical education. Raise a
 resistance anywhere from the gut to the heart and watch blood find another way: collaterals
 open, varices swell and rupture, the portal vein reverses, ascites accumulates. None of it is

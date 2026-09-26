@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Portal Pressure Simulator</title>
+  <meta name="author" content="Mohammad Almeqdadi, MD" />
   <meta name="description" content="An interactive, physics-based simulator of the portal circulation for medical education: collaterals, varices, flow reversal, HVPG, TIPS and more." />
   <meta name="theme-color" content="#FBFAF7" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#0B1120" media="(prefers-color-scheme: dark)" />
@@ -14,12 +15,14 @@
   <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="fonts/fonts.css" />
   <link rel="stylesheet" href="styles/tokens.css?v=2ef1aa6020" />
-  <link rel="stylesheet" href="styles/app.css?v=3ea547009b" />
+  <link rel="stylesheet" href="styles/app.css?v=6cbadadb5b" />
 </head>
 <body>
   <!-- Icon set: 24px grid, 1.6px stroke, round caps (blueprint §5.6). -->
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
     <defs>
+      <!-- brand mark: the portal vein, colored by pressure from the gut (high) to the liver (low) -->
+      <linearGradient id="pvGrad" gradientUnits="userSpaceOnUse" x1="0" y1="29" x2="0" y2="9"><stop offset="0" stop-color="#D2448A"/><stop offset=".5" stop-color="#7A86E0"/><stop offset="1" stop-color="#4FA9D6"/></linearGradient>
       <linearGradient id="brandGrad" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#7CC4E4"/><stop offset=".55" stop-color="#6A7FD8"/><stop offset="1" stop-color="#C0307A"/></linearGradient>
       <!-- tools -->
       <symbol id="i-select" viewBox="0 0 24 24"><path d="M4.6 4.2 19 10.1l-6.1 1.8-2 6.1z"/><path d="m13.2 12.3 5.3 5.3"/></symbol>
@@ -89,9 +92,10 @@
 
   <div class="app" id="app" data-mode="explore">
     <header class="topbar">
-      <a class="brand" href="./" id="brandBtn" aria-label="Portal Pressure Simulator: home">
-        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" class="brand-bg"/><path d="M16 27.4V19.6c0-3.3-2.3-5.1-4.9-6.8L8.6 11.2M16 19.6c0-3.3 2.3-5.1 4.9-6.8l2.5-1.6" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="8.2" cy="9.6" r="2.9" fill="#7CC4E4"/><circle cx="23.8" cy="9.6" r="2.9" fill="#C0307A"/></svg>
+      <a class="brand" href="./" id="brandBtn" aria-haspopup="dialog" aria-label="Portal Pressure Simulator: open the start screen (explore, lessons, cases, presenter)" title="Start screen: explore, lessons, cases, presenter">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" class="brand-bg"/><path d="M3.8 10.4c0-3.9 4.4-5.6 10.8-5.6 7 0 13.6 1 13.6 4.2 0 2.8-5.2 4.3-9.6 7.9-3 2.4-6.2 4.4-9.2 3.4C5.4 19.3 3.8 15.3 3.8 10.4z" fill="#F4E4E1"/><path d="M14.6 28.6V17.4M14.6 17.4l-5.2-5M14.6 17.4l5.8-5.4M14.6 23.4c3.6 0 7.4-.8 10.2-3.4" stroke="url(#pvGrad)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
         <span class="brand-text"><span class="brand-name">Portal Pressure</span><span class="brand-sub">Simulator</span></span>
+        <span class="brand-modes"><span class="brand-modes-l">Modes</span><svg class="chev"><use href="#i-chev-down"/></svg></span>
       </a>
       <button class="scenario-btn" id="scenarioBtn" aria-haspopup="dialog" title="Choose a patient scenario">
         <span class="scenario-k" data-i18n="top.patient">Patient</span>
@@ -167,7 +171,7 @@
   <div class="toast-wrap" id="toasts"></div>
   <div class="sr-only" aria-live="polite" id="live"></div>
 
-  <link rel="modulepreload" href="src/ui/stage.js?v=3f6d2d372c" />
+  <link rel="modulepreload" href="src/ui/stage.js?v=d2df9078f5" />
   <link rel="modulepreload" href="src/ui/anatomy.js?v=93011a493c" />
   <link rel="modulepreload" href="src/ui/util.js?v=d483888526" />
   <link rel="modulepreload" href="src/ui/store.js?v=4bf5a96a9d" />
@@ -178,6 +182,6 @@
   <link rel="modulepreload" href="src/ui/instruments.js?v=a2b23dfbe7" />
   <link rel="modulepreload" href="src/ui/timeline.js?v=2c81ae8bfc" />
   <link rel="modulepreload" href="src/engine/topology.js?v=6d79260961" />
-  <script type="module" src="src/ui/main.js?v=03fff2b800"></script>
+  <script type="module" src="src/ui/main.js?v=e7e0fbf1d3"></script>
 </body>
 </html>

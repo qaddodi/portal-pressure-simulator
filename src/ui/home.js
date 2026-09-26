@@ -10,6 +10,7 @@ import { t } from '../i18n/i18n.js?v=743b542534';
 import { exportCSV, exportXAPI, learnerName, setLearnerName, records } from './records.js?v=26ab8fb634';
 import { SNAPSHOTS, PATH } from './snapshots.js?v=85ffc8d0f9';
 import { pressureColor } from './colormap.js?v=5f8590b23c';
+import { AUTHOR, AUTHOR_URL } from '../version.js?v=ab32f7d0b5';
 
 const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };
 // Where each group's resistance sits along the pathway from the gut to the heart.
@@ -102,7 +103,9 @@ export function createHome({ el, brandMark, onPreset, onLesson, onCase, onPresen
         h('button', { class: 'btn sm', disabled: !n, onclick: exportCSV }, 'Export CSV'), h('button', { class: 'btn sm', disabled: !n, onclick: exportXAPI }, 'Export xAPI')));
     }
     el.replaceChildren(h('div', { class: 'home-inner' },
-      h('header', { class: 'home-head' }, brandMark(), h('div', {}, h('h1', {}, t('app.name')), h('p', {}, t('app.tagline'))),
+      h('header', { class: 'home-head' }, brandMark(), h('div', {}, h('h1', {}, t('app.name')), h('p', {}, t('app.tagline')),
+          h('p', { class: 'home-byline' }, 'Created by ', h('b', {}, AUTHOR), h('span', { class: 'sep', 'aria-hidden': 'true' }, '·'),
+            h('a', { href: AUTHOR_URL, target: '_blank', rel: 'noopener' }, 'More tools by the author ', icon('chev-right')))),
         h('button', { class: 'ib home-x', 'aria-label': 'Close', title: 'Back to the model (Esc)', onclick: onClose }, icon('close'))),
       nav, h('div', { class: 'home-body' }, body),
       h('p', { class: 'disclaimer' }, t('app.disclaimer'))));

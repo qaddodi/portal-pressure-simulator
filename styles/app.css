@@ -45,8 +45,14 @@ svg { flex: none; }
   grid-area: top; display: flex; align-items: center; gap: 16px; padding: 0 12px 0 16px; min-width: 0; z-index: 20;
   background: var(--surface); border-bottom: 1px solid var(--hairline);
 }
-.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; flex: none; }
-.brand-mark { width: 30px; height: 30px; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; flex: none; margin-left: -6px; padding: 4px 8px 4px 6px; border: 1px solid transparent; border-radius: 12px; transition: background var(--t-fast), border-color var(--t-fast); }
+.brand:hover { background: var(--surface-2); border-color: var(--border); }
+.brand:active { background: var(--surface-3); }
+.brand-mark { width: 32px; height: 32px; flex: none; }
+/* The logo opens the start screen: say so with a "Modes" chevron beside it. */
+.brand-modes { display: inline-flex; align-items: center; gap: 2px; margin-left: 2px; padding: 3px 5px 3px 7px; border-radius: 7px; background: var(--surface-2); color: var(--text-2); font-size: 11.5px; font-weight: 600; letter-spacing: .01em; transition: background var(--t-fast), color var(--t-fast); }
+.brand-modes .chev { width: 13px; height: 13px; stroke: currentColor; stroke-width: 2; fill: none; }
+.brand:hover .brand-modes { background: var(--accent-soft); color: var(--accent-ink); }
 .brand-bg { fill: var(--brand-bg); }
 .brand-text { display: flex; flex-direction: column; line-height: 1.1; }
 .brand-name { font-weight: 650; font-size: 14.5px; letter-spacing: -.012em; }
@@ -912,6 +918,9 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 }
 @media (max-width: 1100px) {
   .brand-text { display: none; }
+  .brand { gap: 4px; }
+  .brand-modes { padding: 3px; margin-left: 0; }
+  .brand-modes-l { display: none; }
   .modes button svg { display: none; }
   .chip-btn .cb-k { display: none; }
   .dock-groups { display: none; }
@@ -1253,6 +1262,15 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .home-head h1 { margin: 0; font: 650 28px/1.15 var(--font-display, var(--font-ui)); letter-spacing: -.02em; }
 .home-head p { margin: 6px 0 0; color: var(--text-2); max-width: 64ch; line-height: 1.55; }
 .home-x { margin-left: auto; align-self: flex-start; }
+.home-head p.home-byline { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 13px; color: var(--text-2); }
+.home-byline b { font-weight: 600; color: var(--text); }
+.home-byline .sep { color: var(--text-3); }
+.home-byline a, .menu-credit .mc-link { display: inline-flex; align-items: center; gap: 2px; color: var(--accent-ink); font-weight: 600; text-decoration: none; }
+.home-byline a:hover { text-decoration: underline; }
+.home-byline a svg, .menu-credit svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+.menu-credit { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; border-radius: 8px; font-size: 12px; color: var(--text-2); text-decoration: none; }
+.menu-credit b { font-weight: 600; color: var(--text); }
+.menu-credit:hover, .menu-credit:focus-visible { background: var(--surface-2); }
 .home-doors { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 .home-door { display: flex; flex-direction: column; gap: 6px; text-align: left; padding: 16px; border-radius: 16px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; transition: border-color var(--t-fast), box-shadow var(--t-fast), transform var(--t-fast); }
 .home-door:hover { border-color: var(--accent-line); box-shadow: var(--shadow-2); transform: translateY(-1px); }
