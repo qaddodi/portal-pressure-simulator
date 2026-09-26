@@ -5,6 +5,7 @@ The simulation timestep and physiological equations are unchanged by the perform
 - Running model frames are still published approximately ten times per second. Explicit actions publish immediately, including while paused.
 - Paused and hidden pages stop the simulation timer. Returning to the page resumes without integrating time spent hidden. Long jobs already in progress finish in command order.
 - Flow drawing is capped at approximately 30 frames per second, independent of display refresh rate. Elapsed time still controls flow speed and anatomy/circuit transitions.
+- Flow marks hidden under organs or nearer vessels are erased only in the 32 px canvas tiles that hold marks, not across the whole canvas. The result is pixel-identical to erasing the full canvas.
 - SVG labels retain their text elements when only values, widths or colors change. The vessel-density grid used for label placement is cached until geometry, visibility or the viewport transform changes. Label positions themselves are still evaluated to preserve collision handling.
 - Preset preparation, time jumps, prerolls and counterfactuals yield between batches. Commands remain serialized and timer ticks do not run inside partially completed jobs. A batch targets 8 ms, but an individual solver/day operation can exceed that budget. This is cooperative scheduling, not a hard latency guarantee.
 - A timed-out worker is terminated before fallback. The app element exposes `data-engine="worker"` or `data-engine="main"` for diagnosis.

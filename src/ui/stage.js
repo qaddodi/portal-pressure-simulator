@@ -1867,12 +1867,42 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         mc.stroke();
       }
     }
+    // Only tiles holding marks from the shallower depths have anything to erase; the rest of
+    // the canvas is empty. Stamping just those tiles (one image draw per run of adjacent dirty
+    // tiles in a row) gives the same pixels as stamping the whole mask, for a fraction of the
+    // fill: the flow canvas no longer does several full-screen blends every frame.
     ctx.save();
     ctx.globalCompositeOperation = 'destination-out';
     ctx.globalAlpha = 1;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.drawImage(mk.c, 0, 0);
+    const { cols, rows, dirty } = tiles;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (!dirty[r * cols + c]) continue;
+        const c0 = c;
+        while (c + 1 < cols && dirty[r * cols + c + 1]) c++;
+        const x = c0 * TILE, y = r * TILE;
+        const w = Math.min(canvas.width, (c + 1) * TILE) - x, h = Math.min(canvas.height, y + TILE) - y;
+        if (w > 0 && h > 0) ctx.drawImage(mk.c, x, y, w, h, x, y, w, h);
+      }
+    }
     ctx.restore();
+  }
+  // Device-pixel tiles touched by the marks drawn so far this frame (see eraseCovers).
+  const TILE = 32;
+  const tiles = { cols: 0, rows: 0, dirty: new Uint8Array(0) };
+  function resetTiles() {
+    const cols = Math.ceil(canvas.width / TILE), rows = Math.ceil(canvas.height / TILE);
+    if (cols !== tiles.cols || rows !== tiles.rows) Object.assign(tiles, { cols, rows, dirty: new Uint8Array(cols * rows) });
+    else tiles.dirty.fill(0);
+  }
+  // Marks a device-space square of half-size `r` around world point (x, y).
+  function markTiles(m, x, y, r) {
+    const X = m.a * x + m.c * y + m.e, Y = m.b * x + m.d * y + m.f;
+    const { cols, rows, dirty } = tiles;
+    const c0 = Math.max(0, Math.floor((X - r) / TILE)), c1 = Math.min(cols - 1, Math.floor((X + r) / TILE));
+    const r0 = Math.max(0, Math.floor((Y - r) / TILE)), r1 = Math.min(rows - 1, Math.floor((Y + r) / TILE));
+    for (let j = r0; j <= r1; j++) for (let i = c0; i <= c1; i++) dirty[j * cols + i] = 1;
   }
 
   function drawFlow(dt, st) {
@@ -1904,6 +1934,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const layers = [[], [], []];
     eachVesselMarks((x, ink, marks, fade) => layers[depth(x)].push([x, ink, marks, fade]));
     const lwHalo = 0.8 / Math.max(0.2, Math.abs(CTM.a));
+    resetTiles();
+    const dm = ctx.getTransform(), dScale = Math.hypot(dm.a, dm.b);
     for (let dpt = 0; dpt < 3; dpt++) {
       if (dpt > 0 && layers.slice(0, dpt).some((l) => l.length)) eraseCovers(dpt);
       for (const [x, ink, marks, fade] of layers[dpt]) {
@@ -1931,6 +1963,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         }
         ctx.strokeStyle = HALO[ink]; ctx.lineWidth = lwHalo; ctx.stroke();
         ctx.fillStyle = INK[ink]; ctx.fill();
+        // The deepest layer is never erased, so its tiles need no bookkeeping. The reach covers
+        // the chevron, its halo and the fast-flow trail, plus a pixel or two of antialiasing.
+        if (dpt < 2) for (const k of marks) markTiles(dm, k.cx, k.cy, (k.s * (fast > 0 ? 1.9 * (1 + fast) + 0.2 : 0.7) + lwHalo) * dScale + 3);
       }
     }
     ctx.globalAlpha = 1;
