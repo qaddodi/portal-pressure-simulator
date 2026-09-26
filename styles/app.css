@@ -7,12 +7,16 @@ html, body { height: 100%; }
    owns that strip (its own color runs up behind the clock), and the document never scrolls, so
    nothing slides up under the status bar. */
 :root { --safe-top: env(safe-area-inset-top, 0px); }
-/* iOS 26 blurs a band under the status bar that runs about half again as deep as the inset,
-   so an installed app keeps its controls below that band. */
+/* An installed iOS app draws a blur that runs about 30 px below the status bar into the page,
+   whether the page starts under the status bar (inset reported) or below it (inset 0). Keep the
+   controls clear of it; phones in landscape have no status bar. */
 @media (display-mode: standalone), (display-mode: fullscreen) {
-  :root { --safe-top: calc(env(safe-area-inset-top, 0px) * 1.6); }
+  :root { --safe-top: max(calc(env(safe-area-inset-top, 0px) * 1.6), 34px); }
 }
-:root.standalone { --safe-top: calc(env(safe-area-inset-top, 0px) * 1.6); }
+:root.standalone { --safe-top: max(calc(env(safe-area-inset-top, 0px) * 1.6), 34px); }
+@media (orientation: landscape) and (max-height: 500px) {
+  :root.standalone, :root { --safe-top: env(safe-area-inset-top, 0px); }
+}
 html { overflow: hidden; overscroll-behavior: none; }
 body {
   margin: 0; background: var(--bg); color: var(--text);
