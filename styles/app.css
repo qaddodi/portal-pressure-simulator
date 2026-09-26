@@ -7,16 +7,6 @@ html, body { height: 100%; }
    owns that strip (its own color runs up behind the clock), and the document never scrolls, so
    nothing slides up under the status bar. */
 :root { --safe-top: env(safe-area-inset-top, 0px); }
-/* An installed iOS app draws a blur that runs about 30 px below the status bar into the page,
-   whether the page starts under the status bar (inset reported) or below it (inset 0). Keep the
-   controls clear of it; phones in landscape have no status bar. */
-@media (display-mode: standalone), (display-mode: fullscreen) {
-  :root { --safe-top: max(calc(env(safe-area-inset-top, 0px) * 1.6), 34px); }
-}
-:root.standalone { --safe-top: max(calc(env(safe-area-inset-top, 0px) * 1.6), 34px); }
-@media (orientation: landscape) and (max-height: 500px) {
-  :root.standalone, :root { --safe-top: env(safe-area-inset-top, 0px); }
-}
 html { overflow: hidden; overscroll-behavior: none; }
 body {
   margin: 0; background: var(--bg); color: var(--text);
@@ -44,6 +34,9 @@ svg { flex: none; }
    the case, or the comparison) and the instruments. */
 .app {
   --panel-w: 360px; --top-h: 56px;
+  /* Fixed to the viewport, like the start screen: iOS 26 keeps a fixed header sharp under the
+     status bar but blurs ordinary page content that sits there. */
+  position: fixed; inset: 0;
   display: grid; height: 100dvh; width: 100%;
   grid-template-columns: minmax(0, 1fr) var(--panel-w);
   grid-template-rows: calc(var(--top-h) + var(--safe-top)) minmax(0, 1fr) auto;
@@ -1089,7 +1082,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .big-overlay .unit { font-size: 20px; }
 
 @media print {
-  .app { display: block; height: auto; }
+  .app { position: static; display: block; height: auto; }
   .topbar, .panel, .dock, .readouts, .stage-bar, .hud, .tool-card, .fig-head .fh-actions { display: none !important; }
   .stage-wrap { position: fixed; inset: 0; }
   .fig-head { display: flex !important; }
