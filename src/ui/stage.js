@@ -1156,30 +1156,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       hold('gd', m.gastricVarix.d, 0.5), hold('c3', recruitFrac('C3', f), 0.1), lastMorph]);
   }
   const setVar = (el, k, v) => { const c = el._v || (el._v = {}); if (c[k] === v) return; c[k] = v; el.style.setProperty(k, v); };
-  // Varix wall-tension gauge: a ring around the esophageal varices that closes as wall tension
-  // (Laplace: pressure × radius ÷ wall thickness) approaches the rupture threshold, turning amber
-  // above 70 % and red above 90 %. It answers "how close is this varix to bleeding?" at a glance.
-  const gauge = s('g', { class: 'vx-gauge', 'aria-hidden': 'true' });
-  const gaugeTrack = s('path', { class: 'vx-track' }), gaugeArc = s('path', { class: 'vx-arc', pathLength: 1 });
-  gauge.append(gaugeTrack, gaugeArc);
-  gOver.append(gauge);
-  function updateVarixGauge(f, t) {
-    const vr = f.metrics.varix;
-    const on = t < 0.5 && vr.d >= 2.4 && !isImaging() && !store.get().params.balloonEso;
-    if (gauge._on !== on) { gauge._on = on; gauge.style.display = on ? '' : 'none'; }
-    if (!on) return;
-    const grow = clamp((hold('vd', vr.d, 0.5) - 2.4) / 8, 0, 1);
-    const top = 292 - (70 + 70 * grow), cy = (top + 292) / 2, ry = (292 - top) / 2 + 16, rx = 25;
-    const cx = 789 + (cy - 24) * 0.066;
-    const d = `M${cx.toFixed(1)} ${(cy - ry).toFixed(1)} A${rx} ${ry.toFixed(1)} 0 1 1 ${cx.toFixed(1)} ${(cy + ry).toFixed(1)} A${rx} ${ry.toFixed(1)} 0 1 1 ${cx.toFixed(1)} ${(cy - ry).toFixed(1)}`;
-    setA(gaugeTrack, 'd', d); setA(gaugeArc, 'd', d);
-    const r = clamp(hold('vt-g', vr.ratio, 0.02), 0, 1);
-    setA(gaugeArc, 'stroke-dasharray', `${r.toFixed(3)} 1`);
-    const lvl = r >= 0.9 ? 'high' : r >= 0.7 ? 'mid' : 'low';
-    if (gauge._lvl !== lvl) { gauge._lvl = lvl; gauge.setAttribute('class', 'vx-gauge ' + lvl); }
-  }
   function updateOverlays(f, p, gain, t) {
-    updateVarixGauge(f, t);
     // Colors follow pressure continuously through CSS variables; geometry rebuilds only on change.
     const PM = f.Pf || f.P;
     setVar(ov.varices, '--vx', pressureColor(qP(PM[NI.VAR])));
@@ -1230,49 +1207,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       ov.plugs.append(s('circle', { cx: x, cy: y, r: 7, fill: 'var(--surface)', stroke: 'var(--danger)', 'stroke-width': 2 }),
         s('path', { d: `M${x - 4} ${y - 4} L ${x + 4} ${y + 4} M${x + 4} ${y - 4} L ${x - 4} ${y + 4}`, stroke: 'var(--danger)', 'stroke-width': 2 }));
     }
-    const m = f.metrics;
 
-    // Esophageal varices: beaded, tortuous columns in the lower esophagus. The number of columns,
-    // their length and the size of the beads grow with the grade (F1 straight and small, F2
-    // beaded, F3 large and coiled); red wale streaks mark high wall tension.
+    // The varices themselves are shown by the plexus of channels feeding and draining them (see
+    // STRANDS in anatomy.js), which swell as they are recruited; here only the bands, fitted at
+    // ligation, are drawn over the lower esophagus.
     ov.varices.innerHTML = ''; ov.gvarices.innerHTML = ''; ov.caput.innerHTML = ''; ov.bands.innerHTML = '';
     if (anat) {
-      const vr = m.varix;
       const eso = (y) => 789 + (y - 24) * 0.066;
-      if (vr.d >= 2.4) {
-        const col = 'var(--vx)';
-        const grow = clamp((vr.d - 2.4) / 8, 0, 1);
-        const cols = grow > 0.55 ? [-7.5, -2.5, 2.5, 7.5] : [-6, 0, 6];
-        const top = 292 - (70 + 70 * grow);
-        cols.forEach((off, ci) => {
-          const pts = [];
-          for (let y = top; y <= 290; y += 4) pts.push([eso(y) + off * (0.6 + 0.5 * grow) + Math.sin(y * (0.16 + 0.05 * ci) + ci * 2.1) * (0.6 + 3.4 * grow), y]);
-          const w = clamp(1.4 + vr.r * 0.9, 1.6, 7);
-          ov.varices.append(s('path', { d: polyD(pts), class: 'varix-col-case', 'stroke-width': (w + 1.8).toFixed(1) }), s('path', { d: polyD(pts), class: 'varix-col', style: 'stroke: var(--vx)', 'stroke-width': w.toFixed(1) }));
-          if (grow > 0.18) for (let k = 2; k < pts.length - 1; k += 3) {
-            const [x, y] = pts[k];
-            const r = (w / 2) * (1 + 0.55 * grow * (0.6 + 0.4 * Math.sin(k * 1.7 + ci)));
-            ov.varices.append(s('ellipse', { cx: x.toFixed(1), cy: y.toFixed(1), rx: r.toFixed(1), ry: (r * 1.25).toFixed(1), class: 'varix-bead', style: 'fill: var(--vx)' }));
-            ov.varices.append(s('ellipse', { cx: (x - r * 0.35).toFixed(1), cy: (y - r * 0.4).toFixed(1), rx: (r * 0.32).toFixed(1), ry: (r * 0.24).toFixed(1), class: 'bead-glint' }));
-            if (vr.ratio > 0.7 && k % 6 === 2) ov.varices.append(s('path', { class: 'redwale', d: `M${(x - r * 0.5).toFixed(1)} ${(y - 1).toFixed(1)} l ${(r).toFixed(1)} 2.4`, opacity: clamp((vr.ratio - 0.7) / 0.3, 0.3, 1).toFixed(2) }));
-          }
-        });
-      }
       const nb = Math.round(f.bands || 0);
       for (let i = 0; i < nb; i++) { const y = 272 - i * 16; ov.bands.append(s('ellipse', { cx: eso(y), cy: y, rx: 11, ry: 3, class: 'band-ring' })); }
-      // Fundal varices: a grape-like cluster at the fundus, each grape with a highlight.
-      const gv = m.gastricVarix;
-      if (gv.d >= 2.4) {
-        const col = 'var(--vx)';
-        const g0 = clamp((gv.d - 2.4) / 6, 0, 1);
-        const r = 3 + 7 * g0;
-        const grapes = [[0, 0], [-1.1, -0.6], [1.0, -0.8], [0.2, -1.5], [-1.6, 0.7], [1.5, 0.6], [-0.4, 1.2], [0.9, 1.5], [-1.9, -1.2], [2.0, -1.6]].slice(0, 5 + Math.round(5 * g0));
-        for (const [dx, dy] of grapes.slice().reverse()) {
-          const cx = SITES.fundus[0] + dx * r * 1.25, cy = SITES.fundus[1] - 4 + dy * r * 1.2;
-          ov.gvarices.append(s('circle', { cx: cx.toFixed(1), cy: cy.toFixed(1), r: (r * 0.72).toFixed(1), style: 'fill: var(--vx)', class: 'varix-bead' }),
-            s('circle', { cx: (cx - r * 0.24).toFixed(1), cy: (cy - r * 0.26).toFixed(1), r: (r * 0.2).toFixed(1), class: 'bead-glint' }));
-        }
-      }
       // Caput medusae: tortuous, slightly raised veins radiating from the umbilicus over a
       // semi-transparent abdominal wall, only when the paraumbilical route carries real flow.
       const c3 = recruitFrac('C3', f);

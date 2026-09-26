@@ -1490,11 +1490,6 @@ body.laser-on, body.laser-on * { cursor: none !important; }
    the congested vignette), so a healthy patient looks clean and a sick one visibly changes. */
 .org-cast, .band-cast, .org-rim, .band-sheen, .org-tex { display: none; }
 .org-form { opacity: .55; }
-.vx-track { fill: none; stroke: var(--text-3); stroke-opacity: .16; stroke-width: 2.4; }
-.vx-arc { fill: none; stroke: var(--text-2); stroke-opacity: .7; stroke-width: 2.4; stroke-linecap: round; transition: stroke .4s var(--ease); }
-.vx-gauge.mid .vx-arc { stroke: var(--caution); stroke-opacity: .95; }
-.vx-gauge.high .vx-arc { stroke: var(--danger); stroke-opacity: 1; }
-.app.figure-mode .vx-gauge { display: none; }
 #labels .lb.inline.bare text { stroke: var(--label-halo); stroke-width: 4px; }
 
 /* ── Home: a map of the disease ───────────────────────────────────────────────── */

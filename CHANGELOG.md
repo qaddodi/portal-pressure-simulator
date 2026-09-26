@@ -20,6 +20,9 @@
   as a braid of periesophageal channels; the short and posterior gastric veins reach the fundal
   varices as a leash from the splenic vein; the gastrorenal shunt leaves them as a tortuous
   bundle. The braids grow with recruitment and are hidden while the collateral is closed.
+  The varices are now shown by these channels alone: the beaded columns in the esophagus, the
+  grape cluster at the fundus and the wall-tension ring around the esophageal varices are gone
+  (wall tension is still read from Varix tension in the readouts and the Varix wall instrument).
 
 ## 2.1.0 (content version 2.0), 2026-09
 
