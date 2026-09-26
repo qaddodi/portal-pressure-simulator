@@ -1,21 +1,21 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=9b28abbb15';
+import { startHost, host } from './host.js?v=0489e81e1a';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=e9304c5ee2';
-import { createStage } from './stage.js?v=9d093f92d7';
+import { createStage } from './stage.js?v=17e11f0ee4';
 import { createInspector, activeInterventions } from './inspector.js?v=87d3126b53';
 import { createDock } from './dock.js?v=28492ab277';
-import { createWhy } from './why.js?v=18225e047e';
-import { createTimeline } from './timeline.js?v=318a7aad38';
-import { createLearn } from './learn.js?v=5779851b56';
-import { createCases } from './cases.js?v=59603b916f';
+import { createWhy } from './why.js?v=648b449677';
+import { createTimeline } from './timeline.js?v=2f4cb4fe9e';
+import { createLearn } from './learn.js?v=1e96075313';
+import { createCases } from './cases.js?v=10f87353cf';
 import { createCompare } from './compare.js?v=0a28b9dcc5';
 import { createFigure } from './figure.js?v=8e60100bd5';
 import { createCard } from './card.js?v=b91b1c7319';
-import { createChart } from './chart.js?v=a8f5ff835a';
-import { createHome } from './home.js?v=ef56611b82';
-import { createPalette } from './palette.js?v=22f77b084a';
+import { createChart } from './chart.js?v=d6c963e60a';
+import { createHome } from './home.js?v=63bad4e377';
+import { createPalette } from './palette.js?v=52b54ed91b';
 import { createPresenter } from './presenter.js?v=b1d6524fa0';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=743b542534';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=a1a7234e43';
@@ -65,6 +65,9 @@ async function main() {
   store.set({ role: readLS('pps.role') || 'student' });
   const kind = await startHost();
   console.info(`Engine running in ${kind === 'worker' ? 'a Web Worker' : 'the main thread'}.`);
+  app.dataset.engine = kind;
+  document.addEventListener('visibilitychange', () => host.send({ type: 'visibility', visible: !document.hidden }));
+  host.send({ type: 'visibility', visible: !document.hidden });
   bindParamSender((params, settle) => host.send({ type: 'setParams', params, settle }));
 
   const healthy = await host.request('healthyProfile');
@@ -199,7 +202,7 @@ function onFrame(f) {
   if (f.params) replaceParams(f.params);
   if (f.events?.length) { const hid = store.get().hiddenEvents; const ev = hid ? f.events.filter((e) => !hid.has(e.id)) : f.events; if (ev.length) timeline.addEvents(ev); }
   const now = performance.now();
-  if (!f.params && !f.events?.length && now - lastPaint < 80) return;
+  if (!f.changed && !f.params && !f.events?.length && now - lastPaint < 80) return;
   lastPaint = now;
   store.set({ frame: f, running: f.running, clock: f.clock });
   stage.update(viewFrame(f));

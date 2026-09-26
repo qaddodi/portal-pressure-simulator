@@ -117,6 +117,13 @@ export class Engine {
 
   /** Load a preset: healthy reset, apply params, run the disease clock for its chronic days. */
   loadPreset(id, { days } = {}) {
+    const steps = this.loadPresetSteps(id, { days });
+    let next;
+    do { next = steps.next(); } while (!next.done);
+    return next.value;
+  }
+
+  *loadPresetSteps(id, { days } = {}) {
     const pr = PRESETS.find((x) => x.id === id) || PRESETS[0];
     const params = pr.apply(defaultParams());
     params.seed = this.params.seed;
@@ -127,7 +134,7 @@ export class Engine {
     if (pr.volume) this.addVolume(pr.volume, 0.35);
     this.settle();
     const n = days ?? pr.days;
-    if (n > 0) this.advanceDays(n, { noRupture: true, silent: true });
+    if (n > 0) yield* this.advanceDaySteps(n, { noRupture: true, silent: true });
     this.day = 0;
     this.t = 0;
     this.eventLog = [];
@@ -501,6 +508,13 @@ export class Engine {
 
   // ───────────────────────── disease clock ─────────────────────────
   advanceDays(n, { noRupture = false, silent = false } = {}) {
+    const steps = this.advanceDaySteps(n, { noRupture, silent });
+    let next;
+    do { next = steps.next(); } while (!next.done);
+    return next.value;
+  }
+
+  *advanceDaySteps(n, { noRupture = false, silent = false } = {}) {
     const out = { ruptured: false };
     for (let d = 0; d < n; d++) {
       this.settleQuick();
@@ -516,6 +530,7 @@ export class Engine {
         }
         if (out.ruptured) break;
       }
+      yield this.day;
     }
     this.settleQuick();
     return out;
