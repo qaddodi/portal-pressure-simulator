@@ -107,7 +107,7 @@ export const EDGE_PATH = {
   // The caudate lobe drains straight into the retrohepatic IVC through its own short hepatic
   // veins: gathered from the lobe's parenchyma (tributaries, see FEEDERS), not from the portal
   // vein, which it does not touch.
-  CAUD: 'M566 372 C 584 368 604 360 620 346',
+  CAUD: 'M566 326 C 588 328 606 338 620 350',
   RHV_IVC: 'M540 224 C 568 210 594 198 620 190',
   MHV_IVC: 'M598 238 C 606 222 613 205 620 190',
   LHV_IVC: 'M660 214 C 646 204 632 196 620 190',
@@ -184,8 +184,10 @@ export const FEEDERS = {
   // portal branch it leaves to that of the caudate vein.
   // The fan's axis continues the vein's own course backward (it leaves up and to the right), so
   // every tributary flows into it without a kink; the collaterals also arrive along its course.
-  CAUD: { k: 0.55, fan: { at: [566, 372], dir: 172, spread: 80, len: 44, n: 4, seed: 5, wig: 0.8 },
-    when: 'caudate', from: ['RPV', 'LPV'], paths: ['M505 398 C 522 388 542 376 566 372', 'M688 378 C 622 424 556 410 578 370'] },
+  // They sit high in the lobe, between the hepatic vein branches and the portal veins, touching
+  // neither.
+  CAUD: { k: 0.55, fan: { at: [566, 326], dir: 172, spread: 84, len: 46, n: 4, seed: 5, wig: 0.7 },
+    when: 'caudate', from: ['RPV', 'LPV'], paths: ['M505 398 C 522 370 540 336 566 326', 'M688 378 C 630 404 546 384 566 326'] },
 };
 
 // Circuit view: a transit map. Pressure falls left → right along the main series circuit
@@ -381,7 +383,7 @@ export const LANE_CAPTIONS = {
 // Event anchors
 export const ANCHORS = {
   PERITONEUM: [720, 860], VAR: [797, 232], GV: [876, 302], TIPS: [522, 310], SPL: [1040, 362], RA: [620, 112],
-  AO: [700, 556], CAUD: [592, 366],
+  AO: [700, 556], CAUD: [592, 332],
 };
 
 // Which physical "vessel" an edge belongs to (for stent pairing & labels).

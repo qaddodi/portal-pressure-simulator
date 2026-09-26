@@ -3,9 +3,9 @@
 import { store } from './store.js?v=4bf5a96a9d';
 import { h, fmt, icon, svgIcon, popover, closePopover, clamp } from './util.js?v=d483888526';
 import { NODES, EDGES } from '../engine/topology.js?v=6d79260961';
-import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=a409ac252d';
-import { createHVPG, createDoppler, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=923084911f';
-import { createLandscape } from './landscape.js?v=af01e6bf5e';
+import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=76228f6497';
+import { createHVPG, createDoppler, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=64617aa9db';
+import { createLandscape } from './landscape.js?v=d543911ba4';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
