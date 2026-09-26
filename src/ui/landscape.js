@@ -4,12 +4,12 @@
 // the land falls. Drag to tilt and turn. The side panel names the steepest fall on the portal
 // pathway, live.
 
-import { store } from './store.js?v=e9304c5ee2';
+import { store } from './store.js?v=4bf5a96a9d';
 import { h, fmt, clamp, fitCanvas } from './util.js?v=13768f12bf';
-import { NODES, EDGES } from '../engine/topology.js?v=44e0aca402';
+import { NODES, EDGES } from '../engine/topology.js?v=6d79260961';
 import { NODE_POS, HIDDEN_EDGES, HIDDEN_NODES, CIRCUIT_ZONES, SHORT } from './anatomy.js?v=9a27037e31';
 import { pressureColor } from './colormap.js?v=fa78a29bc0';
-import { theme, FONT } from './charts.js?v=af67e3e2ae';
+import { theme, FONT } from './charts.js?v=fd7a3ec3eb';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 // The portal pathway, gut to heart, and what a fall across each step means.

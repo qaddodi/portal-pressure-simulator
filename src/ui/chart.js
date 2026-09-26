@@ -8,13 +8,13 @@
 //   Story                                what has happened, in plain language, with ✕ to undo
 //   Advanced                             physiology knobs (instructor / researcher)
 
-import { store, updateParams } from './store.js?v=e9304c5ee2';
+import { store, updateParams } from './store.js?v=4bf5a96a9d';
 import { h, fmt, icon, svgIcon, toast } from './util.js?v=13768f12bf';
-import { DRUGS } from '../engine/scenario.js?v=3bed5bf285';
-import { TILES, VITALS, PRIMARY } from './dock.js?v=e230d8070b';
-import { activeInterventions } from './inspector.js?v=f65bdc872b';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=d4515a7b91';
-import { fmtClock } from './timeline.js?v=7e9c24f2f0';
+import { DRUGS } from '../engine/scenario.js?v=8fc90f782f';
+import { TILES, VITALS, PRIMARY } from './dock.js?v=bf26011191';
+import { activeInterventions } from './inspector.js?v=fd277b5ba6';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=9df100e9fd';
+import { fmtClock } from './timeline.js?v=bf2d211251';
 
 // Where each readout is measured, so a click can show it on the figure.
 const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS'] };
@@ -202,7 +202,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     return section('advanced', 'Advanced physiology', 'sliders', null,
       h('div', { class: 'subhead' }, 'Inflow & vascular tone'), controls(['splanchnicTone', 'systemicTone']),
       h('div', { class: 'subhead' }, 'Hepatic circulation'), controls(['habr', 'apShunt']),
-      h('div', { class: 'subhead' }, 'Anatomical variants'), controls(['grShunt', 'srShunt']),
+      h('div', { class: 'subhead' }, 'Anatomical variants'), controls(['grShunt', 'geComm', 'srShunt']),
       h('div', { class: 'subhead' }, 'Simulation'), controls(['pulsatile', 'respiration', 'respDepth', 'detRupture']), acts);
   }
 

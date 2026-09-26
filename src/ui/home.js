@@ -2,13 +2,13 @@
 // present to a class. It replaces the mode tabs and the first-run welcome; the brand mark
 // brings it back. A lesson or case then runs in the ordinary workspace with a slim banner.
 
-import { store } from './store.js?v=e9304c5ee2';
+import { store } from './store.js?v=4bf5a96a9d';
 import { h, svgIcon, icon } from './util.js?v=13768f12bf';
-import { LESSONS } from './learn.js?v=1e96075313';
-import { CASES } from './cases.js?v=10f87353cf';
+import { LESSONS } from './learn.js?v=7a901c69eb';
+import { CASES } from './cases.js?v=7f74ef142f';
 import { t } from '../i18n/i18n.js?v=743b542534';
 import { exportCSV, exportXAPI, learnerName, setLearnerName, records } from './records.js?v=26ab8fb634';
-import { SNAPSHOTS, PATH } from './snapshots.js?v=84a81a7e14';
+import { SNAPSHOTS, PATH } from './snapshots.js?v=85ffc8d0f9';
 import { pressureColor } from './colormap.js?v=fa78a29bc0';
 
 const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };

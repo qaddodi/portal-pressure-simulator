@@ -1,11 +1,11 @@
 // Readout strip (small screens) and the instruments (blueprint §9.1, §9.2).
 
-import { store } from './store.js?v=e9304c5ee2';
+import { store } from './store.js?v=4bf5a96a9d';
 import { h, fmt, icon, svgIcon, popover, closePopover, clamp } from './util.js?v=13768f12bf';
-import { NODES, EDGES } from '../engine/topology.js?v=44e0aca402';
-import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=af67e3e2ae';
-import { createHVPG, createDoppler, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=4d4f3fb0eb';
-import { createLandscape } from './landscape.js?v=b6a8cf0a62';
+import { NODES, EDGES } from '../engine/topology.js?v=6d79260961';
+import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=fd7a3ec3eb';
+import { createHVPG, createDoppler, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=e0ee4e5106';
+import { createLandscape } from './landscape.js?v=4a59f36393';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

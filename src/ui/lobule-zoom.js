@@ -6,10 +6,10 @@
 // sinusoids, central vein, bridging septa in cirrhosis), and zone-3 congestion when the outflow
 // pressure rises. Zooming or pinching out returns to the liver. It replaces the old Lobule instrument.
 
-import { store, updateParams } from './store.js?v=e9304c5ee2';
+import { store, updateParams } from './store.js?v=4bf5a96a9d';
 import { h, fmt, clamp, cssVar } from './util.js?v=13768f12bf';
 import { pressureColor } from './colormap.js?v=fa78a29bc0';
-import { NODES, EDGES } from '../engine/topology.js?v=44e0aca402';
+import { NODES, EDGES } from '../engine/topology.js?v=6d79260961';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

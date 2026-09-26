@@ -3,9 +3,9 @@
 // palette, lessons and cases all call these same verbs, so each change is made one way and lands
 // in the timeline as one entry.
 
-import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf } from '../engine/topology.js?v=44e0aca402';
-import { DRUGS } from '../engine/scenario.js?v=3bed5bf285';
-import { store, updateParams } from './store.js?v=e9304c5ee2';
+import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=6d79260961';
+import { DRUGS } from '../engine/scenario.js?v=8fc90f782f';
+import { store, updateParams } from './store.js?v=4bf5a96a9d';
 import { fmt, clamp, toast } from './util.js?v=13768f12bf';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -88,7 +88,7 @@ export function cardFor(selIn, ctx) {
     verbs.push({ type: 'stat', label: 'Recruitment', value: (f) => `${Math.round(clamp(((f.slow.dEff?.[id] ?? f.slow.d[id]) - dMinOf(e)) / (e.dMax - dMinOf(e)), 0, 1) * 100)} %` });
     verbs.push({ type: 'toggle', id: 'occlude', key: 'occluded', label: id === 'C5' ? 'Occlude (BRTO)' : 'Occlude (plug)', icon: 'occlude',
       get: (p) => !!p.occluded[id], set: (p, v) => { if (v) p.occluded[id] = true; else delete p.occluded[id]; }, hist: `${e.label}: occlusion` });
-    if (e.spontaneous) verbs.push({ type: 'toggle', id: 'variant', key: 'spontaneous', label: 'Present in this patient', get: (p) => !!p.spontaneous[id], set: (p, v) => { p.spontaneous[id] = v; }, hist: `${e.label} present` });
+    if (e.spontaneous || e.variant) verbs.push({ type: 'toggle', id: 'variant', key: 'spontaneous', label: 'Present in this patient', get: (p) => edgePresent(e, p), set: (p, v) => { p.spontaneous[id] = v; }, hist: `${e.label} present` });
     if (id === 'C1a' || id === 'C1b') verbs.push(...varixVerbs('eso', ctx));
     if (id === 'C2' || id === 'C2b' || id === 'C5') verbs.push(...varixVerbs('gas', ctx));
     verbs.push(doppler);

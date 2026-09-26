@@ -1,8 +1,8 @@
 // Controls panel (blueprint §4.1, §8.4): global parameters in three tabs, or the selected vessel.
 
-import { EDGES, NODES, COLLATERAL_DMIN_RATIO, dMinOf } from '../engine/topology.js?v=44e0aca402';
-import { DRUGS } from '../engine/scenario.js?v=3bed5bf285';
-import { store, updateParams, isLocked } from './store.js?v=e9304c5ee2';
+import { EDGES, NODES, COLLATERAL_DMIN_RATIO, dMinOf } from '../engine/topology.js?v=6d79260961';
+import { DRUGS } from '../engine/scenario.js?v=8fc90f782f';
+import { store, updateParams, isLocked } from './store.js?v=4bf5a96a9d';
 import { h, fmt, fp, ff, clamp, tooltipFor, icon, svgIcon } from './util.js?v=13768f12bf';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -36,6 +36,7 @@ export const CONTROLS = {
   tr: { type: 'slider', key: 'tr', label: 'Tricuspid regurgitation', min: 0, max: 1, step: 0.01, ...prop('tr'), format: pct, def: 0, info: 'Systolic backflow into the right atrium: large v-waves reach the liver (turn on Pulsatile mode and use the Doppler).' },
   pericardial: { type: 'slider', key: 'pericardial', label: 'Pericardial constraint', min: 0, max: 1, step: 0.01, ...prop('pericardial'), format: pct, def: 0 },
   grShunt: { type: 'toggle', key: 'spontaneous', label: 'Gastrorenal shunt present', get: (p) => p.spontaneous.C5, set: (p, v) => { p.spontaneous.C5 = v; }, info: 'Present in a subset of patients: drains fundal varices into the left renal vein.' },
+  geComm: { type: 'toggle', key: 'spontaneous', label: 'Fundal varices reach the coronary vein', get: (p) => p.spontaneous.C2b !== false, set: (p, v) => { p.spontaneous.C2b = v; }, def: true, info: 'Gastroesophageal varices (GOV2) communicate with the coronary vein and the esophageal varices. Isolated fundal varices (IGV1) usually do not: they drain through a gastrorenal shunt.' },
   srShunt: { type: 'toggle', key: 'spontaneous', label: 'Splenorenal shunt present', get: (p) => p.spontaneous.C6, set: (p, v) => { p.spontaneous.C6 = v; }, info: 'A large spontaneous shunt from the splenic to the left renal vein.' },
   tips: { type: 'toggle', key: 'tips', label: 'TIPS', get: (p) => p.tips.on, set: (p, v) => { p.tips.on = v; }, info: 'Transjugular intrahepatic portosystemic shunt, right portal → right hepatic vein. You can also drag one with the Stent tool.' },
   tipsD: { type: 'slider', key: 'tips', label: 'Stent diameter', min: 6, max: 12, step: 0.5, get: (p) => p.tips.d, set: (p, v) => { p.tips.d = v; }, format: (v) => `${v.toFixed(1)} mm`, def: 10, info: 'Resistance ∝ 1/d⁴ (Poiseuille): small changes in diameter matter a lot.', showIf: (p) => p.tips.on },
@@ -141,7 +142,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
     d.addEventListener('toggle', () => { if (d.open) openSections.add(id); else openSections.delete(id); });
     return d;
   }
-  const changedCount = (ids) => { const p = store.get().params; const n = ids.filter((id) => { const c = CONTROLS[id]; if (!c) return false; const v = c.type === 'drug' ? p.drugs[c.drug] : c.get(p); return c.type === 'slider' ? Math.abs(v - c.def) > 1e-9 : !!v; }).length; return n || null; };
+  const changedCount = (ids) => { const p = store.get().params; const n = ids.filter((id) => { const c = CONTROLS[id]; if (!c) return false; const v = c.type === 'drug' ? p.drugs[c.drug] : c.get(p); return c.type === 'slider' ? Math.abs(v - c.def) > 1e-9 : c.def !== undefined ? v !== c.def : !!v; }).length; return n || null; };
   const whyBtn = (metric, text = 'Why this value?') => h('button', { class: 'btn sm', onclick: (e) => onWhy(metric, e.currentTarget) }, icon('bulb'), text);
 
   // ── Global panel ──────────────────────────────────
@@ -197,7 +198,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
       body = [
         section('inflow', 'Inflow & vascular tone', 'activity', changedCount(['splanchnicTone', 'systemicTone']), build('splanchnicTone'), build('systemicTone')),
         section('hepatic', 'Hepatic circulation', 'liver', changedCount(['habr', 'apShunt']), build('habr'), build('apShunt')),
-        section('anatomy', 'Anatomical variants', null, changedCount(['grShunt', 'srShunt']), build('grShunt'), build('srShunt')),
+        section('anatomy', 'Anatomical variants', null, changedCount(['grShunt', 'geComm', 'srShunt']), build('grShunt'), build('geComm'), build('srShunt')),
         section('env', 'Simulation', 'settle', null, build('pulsatile'), build('respiration'), build('respDepth'), build('detRupture'),
           h('div', { class: 'action-grid' },
             h('button', { class: 'btn', onclick: () => onAction({ kind: 'valsalva' }) }, 'Valsalva'),
@@ -384,6 +385,7 @@ export function activeInterventions(p) {
   if (p.anticoag) add('anticoag', 'Anticoagulation', (q) => { q.anticoag = false; });
   if (p.spontaneous.C5) add('C5', 'Gastrorenal shunt', (q) => { q.spontaneous.C5 = false; });
   if (p.spontaneous.C6) add('C6', 'Splenorenal shunt', (q) => { q.spontaneous.C6 = false; });
+  if (p.spontaneous.C2b === false) add('C2b', 'No fundal–coronary communication', (q) => { q.spontaneous.C2b = true; });
   if (p.catheter.vein) add('catheter', `Catheter in ${p.catheter.vein}HV${p.catheter.wedged ? ' (wedged)' : ''}`, (q) => { q.catheter = { vein: null, wedged: false }; });
   return out;
 }

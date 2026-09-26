@@ -1,11 +1,11 @@
 // Anatomical stage (blueprint §6): SVG anatomy + canvas flow layer + screen-space labels.
 
-import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=44e0aca402';
+import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, edgePresent, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=6d79260961';
 import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS } from './anatomy.js?v=9a27037e31';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=fa78a29bc0';
-import { store, updateParams } from './store.js?v=e9304c5ee2';
+import { store, updateParams } from './store.js?v=4bf5a96a9d';
 import { s, h, fmt, fp, clamp, lerp, toast, cssVar } from './util.js?v=13768f12bf';
-import { createLobuleZoom } from './lobule-zoom.js?v=7250a3e7fd';
+import { createLobuleZoom } from './lobule-zoom.js?v=07bdce5cd7';
 import { createFlowGL, rgba, MARK_FLOATS, SEG_FLOATS } from './flow-gl.js?v=0db0a6d947';
 
 const N_SAMPLES = 64;
@@ -646,7 +646,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (ANAT_HIDDEN.has(e.id) && morph < 0.5) return false;
     if (NEEDS_C3.has(e.id)) return recruitFrac('C3', f) > 0.15;
     if (e.kind === 'collateral') {
-      if (e.spontaneous && !p.spontaneous[e.id]) return false;
+      if (!edgePresent(e, p)) return false;
       return store.get().layers.collaterals || collOpen(e.id, f);
     }
     if (e.kind === 'shunt') {

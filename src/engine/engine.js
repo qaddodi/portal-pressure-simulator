@@ -1,13 +1,13 @@
 // Lumped-parameter hemodynamic engine (blueprint §7).
 // Pure JS, no DOM: runs in a Web Worker, on the main thread, or in Node tests.
 
-import { NODES, EDGES, COLLATERAL_DMIN_RATIO, dMinOf, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=44e0aca402';
+import { NODES, EDGES, COLLATERAL_DMIN_RATIO, dMinOf, edgePresent, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=6d79260961';
 import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=8b006eefeb';
-import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=3bed5bf285';
-import { detectEvents } from './events.js?v=d8b29adc5b';
+import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=8fc90f782f';
+import { detectEvents } from './events.js?v=910c3936a8';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -279,7 +279,7 @@ export class Engine {
           continue;
         }
         case 'collateral': {
-          const present = !e.spontaneous || p.spontaneous[e.id];
+          const present = edgePresent(e, p);
           if (!present || p.occluded[e.id]) { this.G[k] = 0; continue; }
           const dd = this.collateralD(e);
           // Collaterals cross compartments (e.g. the diaphragm): each end sees its own surroundings.
@@ -714,7 +714,7 @@ export class Engine {
     if (e.kind === 'collateral') {
       const f = this.edgeF[k], t = this.edgeT[k];
       const a = 0.5 * (tubeArea(this.P[f] - this.ext[f], 0.08) / tubeArea(this.refP[f], 0.08) + tubeArea(this.P[t] - this.ext[t], 0.08) / tubeArea(this.refP[t], 0.08));
-      const present = !e.spontaneous || this.params.spontaneous[e.id];
+      const present = edgePresent(e, this.params);
       return present && !this.params.occluded[e.id] ? this.collateralD(e) * Math.sqrt(a) : 0;
     }
     if (e.kind === 'shunt') {

@@ -23,6 +23,12 @@
   The varices are now shown by these channels alone: the beaded columns in the esophagus, the
   grape cluster at the fundus and the wall-tension ring around the esophageal varices are gone
   (wall tension is still read from Varix tension in the readouts and the Varix wall instrument).
+- **Fundal varices, anatomy corrected.** The fundal ↔ coronary vein channel is now an anatomical
+  variant ("Fundal varices reach the coronary vein", under Anatomical variants and on the vessel's
+  card), present by default: gastroesophageal varices (GOV2) and the sinistral route of splenic
+  vein thrombosis use it. The *Cirrhosis with gastrorenal shunt* patient now has isolated fundal
+  varices (IGV1) without it: fed by the short and posterior gastric veins, drained only through
+  the gastrorenal shunt. Its patient snapshot was regenerated.
 
 ## 2.1.0 (content version 2.0), 2026-09
 

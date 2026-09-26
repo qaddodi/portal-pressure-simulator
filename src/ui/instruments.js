@@ -1,11 +1,11 @@
 // Instruments (blueprint §8.3, §9.4, §9.5, §6.4): HVPG catheter, Doppler, endoscopy,
 // varix cross-section, abdomen.
 
-import { NODES, EDGES } from '../engine/topology.js?v=44e0aca402';
+import { NODES, EDGES } from '../engine/topology.js?v=6d79260961';
 import { pressureColor } from './colormap.js?v=fa78a29bc0';
-import { store, updateParams } from './store.js?v=e9304c5ee2';
+import { store, updateParams } from './store.js?v=4bf5a96a9d';
 import { h, fmt, fitCanvas, cssVar, clamp, toast, icon } from './util.js?v=13768f12bf';
-import { FONT } from './charts.js?v=af67e3e2ae';
+import { FONT } from './charts.js?v=fd7a3ec3eb';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

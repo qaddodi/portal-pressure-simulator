@@ -145,7 +145,11 @@ export const EDGES = [
   { id: 'C1a', from: 'LGV', to: 'VAR', kind: 'collateral', route: ['LGV', 'AZY'], dMax: 6, Ropen: 0.0133, dMinRatio: 0.12, label: 'Coronary vein → esophageal varices', code: 'C1' },
   { id: 'C1b', from: 'VAR', to: 'AZY', kind: 'collateral', route: ['LGV', 'AZY'], dMax: 6, Ropen: 0.0265, dMinRatio: 0.12, label: 'Esophageal varices → azygos', code: 'C1' },
   { id: 'C2', from: 'SV', to: 'GV', kind: 'collateral', route: ['SV', 'IVCI'], dMax: 6, Ropen: 0.3, label: 'Short / posterior gastric veins', code: 'C2' },
-  { id: 'C2b', from: 'GV', to: 'LGV', kind: 'collateral', route: ['SV', 'AZY'], dMax: 5, Ropen: 0.4, label: 'Fundal → coronary vein', code: 'C2' },
+  // Gastroesophageal communication: fundal varices that continue into the cardia and the
+  // esophageal varices (GOV2) drain partly through the coronary vein. Isolated fundal varices
+  // (IGV1) usually lack it and drain through a gastrorenal shunt, so it is an anatomical variant,
+  // present unless a patient says otherwise (params.spontaneous.C2b === false).
+  { id: 'C2b', from: 'GV', to: 'LGV', kind: 'collateral', route: ['SV', 'AZY'], dMax: 5, Ropen: 0.4, label: 'Gastroesophageal communication (fundus → coronary vein)', code: 'C2', variant: true },
   { id: 'C3', from: 'LPV', to: 'EPI', kind: 'collateral', route: ['LPV', 'ILI'], dMax: 8, Ropen: 0.6, label: 'Paraumbilical vein', code: 'C3' },
   { id: 'C4', from: 'IMV', to: 'ILI', kind: 'collateral', route: ['IMV', 'ILI'], dMax: 5, Ropen: 1.0, label: 'Superior ↔ middle/inferior rectal veins', code: 'C4' },
   { id: 'C5', from: 'GV', to: 'LRV', kind: 'collateral', route: ['SV', 'IVCI'], dMax: 12, Ropen: 0.12, label: 'Gastrorenal shunt', code: 'C5', spontaneous: true },
@@ -182,6 +186,9 @@ for (const p of SHUNT_PORTAL) for (const q of SHUNT_SYSTEMIC) {
 export const COLLATERAL_DMIN_RATIO = 1 / 4;
 /** Resting (unrecruited) diameter of a collateral; a route may set its own ratio (dMinRatio). */
 export const dMinOf = (e) => e.dMax * (e.dMinRatio ?? COLLATERAL_DMIN_RATIO);
+/** Whether a collateral exists in this patient: a spontaneous shunt only when present, an
+ *  anatomical variant unless absent, any other collateral always. */
+export const edgePresent = (e, p) => (e.spontaneous ? !!p.spontaneous?.[e.id] : e.variant ? p.spontaneous?.[e.id] !== false : true);
 
 export const TARGETS = {
   MAP: 93, CO_Lmin: 5.0, RA: 3, IVC: 3.5, FHVP: 4, HVPG: 3, PV: 7.5,
