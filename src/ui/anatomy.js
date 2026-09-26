@@ -169,6 +169,12 @@ export const CIRCUIT_PATH = {
   A_HL: route([[740, 228], [770, 258], [770, 357], [800, 387]], 12),
   AP_L: route([[740, 228], [706, 262], [706, 361], [680, 387]], 12),
   TIPS: route([[680, 303], [712, 272], [972, 272], [1000, 282]], 14),
+  // Branches that leave (or join) one station split right at it, as on a transit map, instead
+  // of sharing a stretch of track and forking part-way along.
+  PVH_R: route([[580, 345], [622, 303], [680, 303]], 12),
+  PVH_L: route([[580, 345], [622, 387], [680, 387]], 12),
+  POST_R_RHV: route([[900, 303], [921, 282], [1000, 282]], 10),
+  POST_L_LHV: route([[900, 387], [921, 408], [1000, 408]], 10),
   // esophageal and gastric route, above the spine
   C1a: route([[320, 191], [383, 128], [620, 128]]),
   C1b: route([[620, 128], [1043, 128], [1120, 205]]),
