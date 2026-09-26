@@ -15,6 +15,11 @@
   paraumbilical vein opens, and the umbilicus always marked. The tip of the left lobe of the
   liver is rounded. The esophagus now flows into the cardia of the stomach instead of ending
   over it.
+- **Varix plexuses.** Esophageal and fundal varices are drawn connected to their vessels the way
+  the cavernoma is: the coronary vein reaches the esophageal varices, and they reach the azygos,
+  as a braid of periesophageal channels; the short and posterior gastric veins reach the fundal
+  varices as a leash from the splenic vein; the gastrorenal shunt leaves them as a tortuous
+  bundle. The braids grow with recruitment and are hidden while the collateral is closed.
 
 ## 2.1.0 (content version 2.0), 2026-09
 

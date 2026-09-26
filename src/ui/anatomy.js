@@ -141,11 +141,21 @@ export const EDGE_PATH = {
   S_MC: 'M690 660 C 672 650 645 648 620 650',
 };
 
-// Cavernous transformation: the periportal collateral is not one vein but a braid of small,
-// tortuous channels around the occluded trunk. In the anatomic view it gets extra strands that
-// leave and rejoin its ends: [lateral offset at mid-course, serpentine phase, caliber fraction].
+// Collateral plexuses: a collateral is rarely one clean vein. The periportal collateral of a
+// cavernous transformation is a braid of small, tortuous channels around the occluded trunk,
+// and the varices are fed and drained the same way: the coronary vein reaches the esophageal
+// varices, and they reach the azygos, through a plexus of periesophageal channels; the short and
+// posterior gastric veins reach the fundal varices as a leash of vessels from the splenic hilum,
+// and the gastrorenal shunt leaves them as a tortuous bundle. In the anatomic view these get
+// extra strands that leave and rejoin the vessel's ends:
+// [lateral offset at mid-course, serpentine phase, caliber fraction].
 export const STRANDS = {
   C8: [[-36, 1.1, 0.5], [-24, 3.9, 0.6], [13, 2.4, 0.65], [25, 5.2, 0.5], [36, 0.3, 0.42]],
+  C1a: [[-11, 0.7, 0.5], [-5, 3.3, 0.6], [6, 1.9, 0.55], [12, 4.6, 0.45]],
+  C1b: [[-16, 2.2, 0.45], [-7, 5.1, 0.55], [8, 0.9, 0.55], [17, 3.8, 0.42]],
+  C2: [[-22, 4.1, 0.45], [-11, 1.4, 0.55], [10, 2.9, 0.55], [21, 0.4, 0.42]],
+  C2b: [[-6, 2.6, 0.5], [6, 0.8, 0.5]],
+  C5: [[-14, 1.7, 0.4], [12, 4.4, 0.45]],
 };
 
 // Circuit view: a transit map. Pressure falls left → right along the main series circuit
