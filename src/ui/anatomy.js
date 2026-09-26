@@ -104,9 +104,10 @@ export const EDGE_PATH = {
   POST_R_MHV: 'M446 296 C 496 292 562 276 598 238',
   POST_L_LHV: 'M738 262 C 712 242 686 226 660 214',
   POST_L_MHV: 'M738 262 C 694 256 640 250 598 238',
-  // The caudate lobe takes its own portal branch off the hilum and drains straight into the
-  // retrohepatic IVC through short hepatic veins (drawn as one vein, portal vein → IVC).
-  CAUD: 'M602 442 C 598 414 600 384 620 346',
+  // The caudate lobe drains straight into the retrohepatic IVC through its own short hepatic
+  // veins: gathered from the lobe's parenchyma (tributaries, see FEEDERS), not from the portal
+  // vein, which it does not touch.
+  CAUD: 'M590 404 C 596 384 606 362 620 346',
   RHV_IVC: 'M540 224 C 568 210 594 198 620 190',
   MHV_IVC: 'M598 238 C 606 222 613 205 620 190',
   LHV_IVC: 'M660 214 C 646 204 632 196 620 190',
@@ -165,11 +166,11 @@ export const STRAND_FROM = { C2: 0.5 };
 // Tributaries and feeders (anatomic view only): named veins are formed by several smaller ones,
 // drawn converging on the vessel so the plate reads as anatomy, not a wiring diagram. They carry
 // the parent's color and flow marks. `k` is each one's caliber as a fraction of the parent;
-// `when: 'caudate'` shows them only once the caudate route is carrying several times its normal
+// `when: 'caudate'` shows the listed `paths` only once the caudate route is carrying several times its normal
 // flow (Budd–Chiari): portal blood from both lobes then collateralizes into the caudate vein.
 // A `fan` is generated (see fanFeeders): `n` tortuous tributaries spread over `spread` degrees
 // around `dir` (0 = toward +x, 90 = down), each about `len` long and entering the vessel along
-// the fan's axis, most with a smaller branch of their own.
+// the fan's axis, most with a smaller branch of their own; `wig` scales their tortuosity.
 export const FEEDERS = {
   // Splenic vein: hilar branches from the upper pole to the lower pole.
   V_SPL: { k: 0.5, fan: { at: [1034, 360], dir: 0, spread: 140, len: 62, n: 5, seed: 3 } },
@@ -178,8 +179,11 @@ export const FEEDERS = {
   // Inferior mesenteric vein: the left colic veins, from the descending colon on the patient's left.
   V_COL: { k: 0.55, fan: { at: [960, 790], dir: -5, spread: 110, len: 42, n: 5, seed: 11 } },
   // Budd–Chiari: collaterals from the right and left portal veins into the caudate vein.
-  // Each is colored from the pressure of the portal branch it leaves to that of the caudate vein.
-  CAUD: { k: 0.55, when: 'caudate', from: ['RPV', 'LPV'], paths: ['M505 398 C 532 384 570 378 603 394', 'M688 378 C 664 372 634 378 604 394'] },
+  // Caudate vein: small tributaries from the caudate lobe, always; in Budd–Chiari (`when`), also
+  // collaterals from the right and left portal veins, each colored from the pressure of the
+  // portal branch it leaves to that of the caudate vein.
+  CAUD: { k: 0.55, fan: { at: [590, 404], dir: 190, spread: 130, len: 40, n: 4, seed: 5, wig: 0.9 },
+    when: 'caudate', from: ['RPV', 'LPV'], paths: ['M505 398 C 532 386 562 390 590 404', 'M688 378 C 656 378 620 390 591 404'] },
 };
 
 // Circuit view: a transit map. Pressure falls left → right along the main series circuit

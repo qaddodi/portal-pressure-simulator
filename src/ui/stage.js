@@ -1,7 +1,7 @@
 // Anatomical stage (blueprint §6): SVG anatomy + canvas flow layer + screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, edgePresent, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=6d79260961';
-import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders } from './anatomy.js?v=6fbbed2fbb';
+import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders } from './anatomy.js?v=6969abd130';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=5f8590b23c';
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=d483888526';
@@ -84,8 +84,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const feedGeo = {};
   for (const [id, fd] of Object.entries(FEEDERS)) {
     // A generated fan is a tortuous network (drawn like the variceal plexus); listed paths meander.
-    const list = fd.fan ? fanFeeders(fd.fan) : fd.paths.map((d) => ({ d, k: 1 }));
-    feedGeo[id] = list.map(({ d, k }, i) => { const pts = sample(d); return { k, pts: fd.fan ? wiggle(pts, 2.2 + 1.2 * k, i * 2.3 + 1) : fd.wig ? wiggle(pts, fd.wig, i * 2.3 + 1) : meander(pts, id + i) }; });
+    const list = [...(fd.fan ? fanFeeders(fd.fan).map((x) => ({ ...x, fan: true })) : []), ...(fd.paths || []).map((d, i) => ({ d, k: 1, when: fd.when, src: fd.from?.[i] }))];
+    feedGeo[id] = list.map(({ d, k, fan, when, src }, i) => { const pts = sample(d); return { k, fan, when, src, pts: fan ? wiggle(pts, (2.2 + 1.2 * k) * (fd.fan.wig ?? 1), i * 2.3 + 1) : fd.wig ? wiggle(pts, fd.wig, i * 2.3 + 1) : meander(pts, id + i) }; });
   }
   scratch.remove();
   // Where to caption each circuit lane: the middle of its longest horizontal run.
@@ -407,24 +407,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const hit = s('path', { class: 'v-hit', tabindex: 0, role: 'button', 'aria-label': e.label || e.id, 'data-id': e.id });
     // Extra channels of a braided collateral (cavernoma): plain strokes under the main tube.
     const strands = !isArt && STRANDS[e.id] ? STRANDS[e.id].map(([off, ph, k]) => ({ off, ph, k, wall: s('path', { class: 'v-strand-wall' }), lumen: s('path', { class: 'v-strand', stroke: `url(#gr-${e.id})` }) })) : null;
-    const feeders = !isArt && feedGeo[e.id] ? feedGeo[e.id].map(({ pts: cur, k: fk }, i) => ({ cur, fk, len: arcLen(cur), ph: i * 0.37, wall: s('path', { class: 'v-strand-wall' }), lumen: s('path', { class: 'v-strand', stroke: `url(#gr-${e.id})` }) })) : null;
+    const feeders = !isArt && feedGeo[e.id] ? feedGeo[e.id].map(({ pts: cur, k: fk, fan, when, src }, i) => ({ cur, fk, fan, when, src, len: arcLen(cur), ph: i * 0.37, wall: s('path', { class: 'v-strand-wall' }), lumen: s('path', { class: 'v-strand', stroke: `url(#gr-${e.id})` }) })) : null;
     // A feeder that leaves a named vein is colored from that vein's pressure to the vessel's.
-    if (feeders && FEEDERS[e.id].from) feeders.forEach((fd, i) => {
+    if (feeders) feeders.forEach((fd, i) => {
+      if (!fd.src) return;
       const a = fd.cur[0], b = fd.cur[fd.cur.length - 1];
       fd.st0 = s('stop', { offset: '0' }); fd.st1 = s('stop', { offset: '1' });
       const gr = s('linearGradient', { id: `gf-${e.id}-${i}`, gradientUnits: 'userSpaceOnUse', x1: a[0], y1: a[1], x2: b[0], y2: b[1] });
       gr.append(fd.st0, fd.st1); defs.append(gr);
-      fd.lumen.setAttribute('stroke', `url(#gf-${e.id}-${i})`); fd.src = FEEDERS[e.id].from[i];
+      fd.lumen.setAttribute('stroke', `url(#gf-${e.id}-${i})`);
     });
     if (feeders && FEEDERS[e.id].fan) {
       // Tributaries fade out toward the bowel they drain, so they stay background.
       const { at, len } = FEEDERS[e.id].fan;
       defs.insertAdjacentHTML('beforeend', `<radialGradient id="fg-${e.id}" gradientUnits="userSpaceOnUse" cx="${at[0]}" cy="${at[1]}" r="${len * 1.35}"><stop offset="0" stop-color="#fff" stop-opacity=".7"/><stop offset=".45" stop-color="#fff" stop-opacity=".4"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient><mask id="fm-${e.id}" maskUnits="userSpaceOnUse" x="0" y="0" width="${VIEW.w}" height="${VIEW.h}"><rect x="0" y="0" width="${VIEW.w}" height="${VIEW.h}" fill="url(#fg-${e.id})"/></mask>`);
-      for (const fd of feeders) { fd.wall.setAttribute('mask', `url(#fm-${e.id})`); fd.lumen.setAttribute('mask', `url(#fm-${e.id})`); fd.faded = true; }
+      for (const fd of feeders) if (fd.fan) { fd.wall.setAttribute('mask', `url(#fm-${e.id})`); fd.lumen.setAttribute('mask', `url(#fm-${e.id})`); fd.faded = true; }
     }
     // Veins that sink into a retroperitoneal vein fade into it instead of ending on it: the
     // caudate vein into the IVC, the gastrorenal shunt into the left renal vein.
-    const FADE_IN = { CAUD: [602, 442, 620, 346, 0.55], C5: [852, 520, 862, 618, 0.6] };
+    const FADE_IN = { CAUD: [590, 404, 620, 346, 0.45], C5: [852, 520, 862, 618, 0.6] };
     if (FADE_IN[e.id]) {
       const [x1, y1, x2, y2, o] = FADE_IN[e.id];
       defs.insertAdjacentHTML('beforeend', `<linearGradient id="cg-${e.id}" gradientUnits="userSpaceOnUse" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"><stop offset="${o}" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity=".3"/></linearGradient><mask id="cm-${e.id}" maskUnits="userSpaceOnUse" x="0" y="0" width="${VIEW.w}" height="${VIEW.h}"><rect x="0" y="0" width="${VIEW.w}" height="${VIEW.h}" fill="url(#cg-${e.id})"/></mask>`);
@@ -815,8 +816,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const k = EI[e.id];
       const D = f.D[k];
       const PM = f.Pf || f.P;
-      // The caudate vein is drawn from the portal hilum on the anatomy, so it starts at portal pressure.
-      const P1 = PM[NI[e.id === 'CAUD' && morph < 0.5 ? 'PVH' : e.from]], P2 = PM[NI[e.to]];
+      const P1 = PM[NI[e.from]], P2 = PM[NI[e.to]];
       // Anatomy: width follows diameter (compressed). Circuit: a narrower, more uniform range,
       // as on a transit map, so the lines stay even and legible.
       const wA = e.kind === 'liver' ? (e.zone === 'sin' || e.zone === 'inter' ? 3.2 : 4.4) : vesselPx(D) * (e.id === 'IVC_IS' || e.id === 'IVCS_RA' || e.id === 'SVC_RA' ? 0.72 : 1);
@@ -857,12 +857,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           const ref = store.get().healthy?.Q?.[k], q = Math.abs(f.Qf ? f.Qf[k] : f.Q[k]);
           live = ref ? clamp((q / Math.abs(ref) - 2) / 2, 0, 1) : 0;
         }
-        const fw0 = w * cfg.k * (cfg.when ? 0.5 + 0.5 * live : 1);
         for (const fd of x.feeders) {
-          const fw = Math.max(1.2, fw0 * fd.fk);
-          fd.live = live; fd.w = fw;
+          const lv = fd.when ? live : 1;   // only the conditional feeders come and go
+          const fw = Math.max(1.2, w * cfg.k * fd.fk * (fd.when ? 0.5 + 0.5 * lv : 1));
+          fd.live = lv; fd.w = fw;
           setA(fd.lumen, 'stroke-width', fw.toFixed(1)); setA(fd.wall, 'stroke-width', (fw + 2 * wallPx).toFixed(1));
-          const vis = live > 0.02 ? '' : 'none', op = live < 1 ? live.toFixed(2) : '';
+          const vis = lv > 0.02 ? '' : 'none', op = lv < 1 ? lv.toFixed(2) : '';
           for (const el of [fd.lumen, fd.wall]) { if (el.style.display !== vis) el.style.display = vis; if (el.style.opacity !== op) el.style.opacity = op; }
         }
       }

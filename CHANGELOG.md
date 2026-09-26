@@ -52,6 +52,9 @@
 - Budd–Chiari caudate collaterals are drawn as veins: smooth, smaller, each colored from the
   pressure of the portal branch it leaves (right or left portal vein) to that of the caudate vein,
   and no longer veiled by the caudate vein's fade. The caudate vein itself is a little smaller.
+- The caudate vein no longer looks like a portal vein → IVC channel on the anatomy: it gathers
+  from a few small tributaries in the caudate lobe and drains into the IVC (the circuit still
+  shows it connected). Only in Budd–Chiari do portal collaterals join it.
 - **Caudate lobe.** Its vein runs from the portal vein straight into the IVC. In Budd–Chiari it
   enlarges with its flow and collaterals from the right and left portal veins drain into it.
 - **Flow rates** read to one decimal everywhere (labels, cards, readouts, charts), with "< 0.1"
