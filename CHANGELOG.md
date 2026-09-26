@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.1.0 (content version 2.0), 2026-09
+
+The overhaul: faster on every device, a quieter and clearer figure, a simpler shell. The model,
+patients, lessons and cases are unchanged (content version 2.0).
+
+- **Phase 1, foundations.** Command palette, figure plate and presenter load on first use (and
+  are fetched when the app is idle, for offline use). Frosted-glass blurs replaced with solid
+  surfaces. The figure stops painting while Home covers it. Font and module preloads. An
+  optional production build (`npm run build`), ESLint, a browser smoke test on desktop and
+  phone, a performance report, and CI. Fixed: the legend's "How to read" popover failed in the
+  Congestion lens; an unknown `?preset=` link now says so and opens the closest patient.
+
 ## 2.0.0 (content version 2.0), 2026-09
 
 The v2 redesign from [docs/UI_UX_NEXT_LEVEL.md](docs/UI_UX_NEXT_LEVEL.md).

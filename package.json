@@ -5,10 +5,27 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/*.test.js",
-    "stamp": "node scripts/stamp.mjs",
     "start": "npx --yes http-server -c-1 -p 8080 .",
+    "test": "node --test tests/*.test.js",
+    "lint": "eslint .",
+    "stamp": "node scripts/stamp.mjs",
+    "build": "node scripts/build.mjs",
+    "preview": "node scripts/serve.mjs dist 8081",
+    "smoke": "node tests/e2e/smoke.mjs",
+    "smoke:dist": "node tests/e2e/smoke.mjs dist",
+    "perf": "node scripts/perf.mjs",
+    "check": "npm run lint && npm test && npm run build && npm run smoke && npm run smoke:dist",
     "scorm": "node scripts/scorm.mjs"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.11.0",
+    "globals": "^17.12.0",
+    "playwright": "^1.56.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
 }

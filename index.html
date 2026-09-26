@@ -11,9 +11,10 @@
   <link rel="icon" href="brand/icon-32.png" sizes="32x32" type="image/png" />
   <link rel="apple-touch-icon" href="brand/icon-180.png" />
   <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="fonts/fonts.css" />
-  <link rel="stylesheet" href="styles/tokens.css?v=a52b9f237d" />
-  <link rel="stylesheet" href="styles/app.css?v=b6ec0f1444" />
+  <link rel="stylesheet" href="styles/tokens.css?v=93bcb7e07d" />
+  <link rel="stylesheet" href="styles/app.css?v=9fc9251c5c" />
 </head>
 <body>
   <!-- Icon set: 24px grid, 1.6px stroke, round caps (blueprint §5.6). -->
@@ -167,6 +168,17 @@
   <div class="toast-wrap" id="toasts"></div>
   <div class="sr-only" aria-live="polite" id="live"></div>
 
-  <script type="module" src="src/ui/main.js?v=de59f20044"></script>
+  <link rel="modulepreload" href="src/ui/stage.js?v=b4fbb16d6b" />
+  <link rel="modulepreload" href="src/ui/anatomy.js?v=2aa57b853f" />
+  <link rel="modulepreload" href="src/ui/util.js?v=13768f12bf" />
+  <link rel="modulepreload" href="src/ui/store.js?v=e9304c5ee2" />
+  <link rel="modulepreload" href="src/ui/colormap.js?v=fa78a29bc0" />
+  <link rel="modulepreload" href="src/ui/inspector.js?v=87d3126b53" />
+  <link rel="modulepreload" href="src/ui/dock.js?v=28492ab277" />
+  <link rel="modulepreload" href="src/ui/charts.js?v=3b256e780e" />
+  <link rel="modulepreload" href="src/ui/instruments.js?v=c6402ebb65" />
+  <link rel="modulepreload" href="src/ui/timeline.js?v=2f4cb4fe9e" />
+  <link rel="modulepreload" href="src/engine/topology.js?v=44e0aca402" />
+  <script type="module" src="src/ui/main.js?v=79c2f4eb8c"></script>
 </body>
 </html>

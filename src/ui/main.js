@@ -3,25 +3,21 @@
 
 import { startHost, host } from './host.js?v=0489e81e1a';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=e9304c5ee2';
-import { createStage } from './stage.js?v=1c8fd835bd';
-import { createInspector, activeInterventions } from './inspector.js?v=87d3126b53';
+import { createStage } from './stage.js?v=b4fbb16d6b';
+import { createInspector } from './inspector.js?v=87d3126b53';
 import { createDock } from './dock.js?v=28492ab277';
 import { createWhy } from './why.js?v=648b449677';
 import { createTimeline } from './timeline.js?v=2f4cb4fe9e';
 import { createLearn } from './learn.js?v=1e96075313';
 import { createCases } from './cases.js?v=10f87353cf';
 import { createCompare } from './compare.js?v=0a28b9dcc5';
-import { createFigure } from './figure.js?v=8e60100bd5';
 import { createCard } from './card.js?v=b91b1c7319';
 import { createChart } from './chart.js?v=d6c963e60a';
-import { createHome } from './home.js?v=63bad4e377';
-import { createPalette } from './palette.js?v=52b54ed91b';
-import { createPresenter } from './presenter.js?v=b1d6524fa0';
+import { createHome } from './home.js?v=b2fa28e0b0';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=743b542534';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=a1a7234e43';
 import { startLMS } from './lms.js?v=4511ed56b8';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION } from '../version.js?v=9a2c622775';
-import { exportCSV, exportXAPI, learnerName, setLearnerName } from './records.js?v=26ab8fb634';
 import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=d4515a7b91';
 import { gradientCss, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=fa78a29bc0';
 import { EDGES, NODES } from '../engine/topology.js?v=44e0aca402';
@@ -55,7 +51,37 @@ const COLOR_MODES = { pressure: 'Pressure', delta: 'Change', heat: 'Congestion',
 const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };
 const ROLES = [['student', 'Student', 'The model and the clinical orders.'], ['instructor', 'Instructor', 'Adds the physiology knobs and presenter scripts.'], ['researcher', 'Researcher', 'Everything open, with resistances on the cards.']];
 
-let stage, inspector, dock, why, timeline, learn, cases, compare, figure, card, chart, home, palette, presenter;
+let stage, inspector, dock, why, timeline, learn, cases, compare, card, chart, home;
+
+// Surfaces most sessions never open (the command palette, the figure plate, the presenter) load
+// on first use, so the first paint only waits for the model, the figure and the chart.
+function lazy(load, make) {
+  let inst = null, pending = null;
+  const get = () => (pending ||= load().then((m) => (inst = make(m))));
+  // Fetching the module (without creating the surface) once the app is idle keeps it cached for
+  // offline use and makes the first open instant.
+  return { get, now: () => inst, warm: () => load().catch(() => {}) };
+}
+let paletteL, figureL, presenterL;
+const palette = {
+  open: () => paletteL.get().then((p) => p.open()),
+  close: () => paletteL.now()?.close(),
+  isOpen: () => !!paletteL.now()?.isOpen(),
+};
+const figure = {
+  open: () => figureL.get().then((f) => { if (app.classList.contains('figure-mode')) { f.open(); const fr = store.get().frame; if (fr) f.update(fr); } }),
+  close: () => figureL.now()?.close(),
+  update: (f) => figureL.now()?.update(f),
+  exportFile: (k) => figureL.get().then((f) => f.exportFile(k)),
+  buildSVG: (...a) => figureL.get().then((f) => f.buildSVG(...a)),
+};
+const presenter = {
+  home: () => presenterL.now()?.home() ?? (presenterL.get().then(() => { if (home.isOpen()) home.render(); }), h('div', { class: 'home-loading' }, 'Loading…')),
+  start: (id) => presenterL.get().then((p) => p.start(id)),
+  stop: () => presenterL.now()?.stop(),
+  readLink: () => (/#script=/.test(location.hash) ? presenterL.get().then((p) => p.readLink()) : false),
+  active: () => !!presenterL.now()?.active(),
+};
 
 async function main() {
   applyTheme(readLS('pps.theme'));
@@ -105,9 +131,9 @@ async function main() {
   // A lesson keeps its card in view on a phone: instruments it opens are flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panel'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenter = createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=b1d6524fa0'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
-    closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } });
+    closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
     el: $('#home'), brandMark,
     onPreset: async (id) => { home.close(); if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); },
@@ -115,16 +141,17 @@ async function main() {
     onCase: (id) => { home.close(); startCase(id); },
     onPresenter: () => presenter.home(),
     onClose: () => home.close(),
+    onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  palette = createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=52b54ed91b'), ({ createPalette }) => createPalette({ ctx: {
     select: (sel) => store.set({ selection: sel }), action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     wedge: () => { store.set({ selection: { type: 'edge', id: 'RHV_IVC' } }); setTimeout(() => card.trigger(3), 60); },
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), figure: () => toggleFigure(true), exportFile: (k) => { toggleFigure(true); setTimeout(() => figure.exportFile(k), 400); }, projector: () => toggleProjector(), instruments: () => dock.toggle(),
     loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); toast(store.get().presetList.find((p) => p.id === id)?.label); },
     lesson: (id) => startLesson(id), caseStart: (id) => startCase(id), home: () => home.open(), theme: () => toggleTheme(), help: () => openHelp(), share,
-  } });
-  figure = createFigure({ app, stage, onClose: () => toggleFigure(false) });
+  } }));
+  figureL = lazy(() => import('./figure.js?v=8e60100bd5'), ({ createFigure }) => createFigure({ app, stage, onClose: () => toggleFigure(false) }));
   card = createCard({
     view, stage, onWhy: (m, el) => why.open(m, el),
     onDetails: (sel) => { store.set({ details: normalizeSel(sel) || sel }); openPanel(); },
@@ -164,13 +191,15 @@ async function main() {
 
   // Console handle for educators preparing a class (and for automated screenshots).
   window.pps = { loadPreset, store, updateParams, setTool, dock, stage, host, toggleFigure, figure, card, timeline, home, palette, startLesson, startCase, presenter };
-  if (presenter.readLink()) home.open('present');
+  if (await presenter.readLink()) home.open('present');
   const shared = readShare();
   if (shared) await loadShared(shared); else timeline.reset();
   inspector.render();
   sizeDock();
   addEventListener('resize', sizeDock);
   if (!(await openDeepLink())) firstRun();
+  const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
+  setTimeout(() => idle(() => { paletteL.warm(); figureL.warm(); presenterL.warm(); }), 3000);
   addEventListener('pps:lang', () => { if (home.isOpen()) home.render(); });
   if (readLS('pps.sonify') === '1') addEventListener('pointerdown', () => setSonify(true), { once: true });
 }
@@ -181,7 +210,14 @@ async function openDeepLink() {
   if (q.get('lesson')) { startLesson(q.get('lesson')); return true; }
   if (q.get('case')) { startCase(q.get('case')); return true; }
   if (q.get('script')) { presenter.start(q.get('script')); return true; }
-  if (q.get('preset')) { await loadPreset(q.get('preset')); return true; }
+  if (q.get('preset')) {
+    const id = q.get('preset'), list = store.get().presetList || [];
+    if (list.some((p) => p.id === id)) { await loadPreset(id); return true; }
+    const near = list.find((p) => (p.id + ' ' + p.label).toLowerCase().includes(id.toLowerCase().split(/[-\s]/)[0]));
+    toast(`No patient called “${id}”.${near ? ` Showing ${near.label}.` : ''}`, 'bad');
+    if (near) { await loadPreset(near.id); return true; }
+    return false;
+  }
   if (q.get('home')) { home.open(q.get('home')); return true; }
   return false;
 }
@@ -197,7 +233,7 @@ function viewFrame(f) {
 // The engine ticks ~30×/s, but pressures ease over seconds, so the anatomy, readouts and panel
 // are repainted at most ~10×/s (the chevrons animate separately). Repainting the whole SVG plate
 // on every tick kept the main thread busy and the laptop warm for no visible gain.
-let lastPaint = 0, lastDesc = 0;
+let lastPaint = 0, lastDesc = 0, homeStale = false;
 function onFrame(f) {
   if (f.params) replaceParams(f.params);
   if (f.events?.length) { const hid = store.get().hiddenEvents; const ev = hid ? f.events.filter((e) => !hid.has(e.id)) : f.events; if (ev.length) timeline.addEvents(ev); }
@@ -205,6 +241,8 @@ function onFrame(f) {
   if (!f.changed && !f.params && !f.events?.length && now - lastPaint < 80) return;
   lastPaint = now;
   store.set({ frame: f, running: f.running, clock: f.clock });
+  // Home covers the whole workspace: keep the latest frame, paint it when Home closes.
+  if (home?.isOpen()) { homeStale = true; return; }
   stage.update(viewFrame(f));
   card.update(f);
   dock.update(f);
@@ -436,7 +474,7 @@ function renderLegend() {
 }
 const st = () => store.get();
 function openLegend(anchor) {
-  const { m } = legendModel();
+  const { m, ref } = legendModel();
   const rows = m === 'pressure' ? [
     ['Scale', 'Mean venous pressure, perceptually uniform (OKLab) from 0 to 30 mmHg.'],
     ['Breakpoints', 'The color steps at 5, 10, 12 and 20 mmHg mirror the clinical HVPG thresholds: normal ≤ 5, CSPH ≥ 10, variceal bleeding ≥ 12, high risk ≥ 20. HVPG is a gradient (wedged − free hepatic venous pressure); read it in the HVPG readout, not from a single vessel color.'],

@@ -26,11 +26,28 @@ After editing any file under `src/` or `styles/`, run `npm run stamp`: it update
 `?v=<hash>` on every local import and link so a browser never mixes fresh and stale files.
 `npm test` fails if a stamp is out of date.
 
+### Production build (optional)
+
+The repository root is the site, build-free. For hosts that can serve a build output,
+`npm run build` writes an optimized copy to `dist/`: bundled and minified modules with
+content-hashed names, rarely used surfaces split into chunks loaded on first use, one CSS file,
+and a service worker that precaches everything for offline use. `npm run preview` serves it on
+port 8081.
+
 ## Test it
 
 ```bash
+npm install          # dev tools only: esbuild, ESLint, Playwright
 npm test             # physiological acceptance tests and the stamp check (Node ≥ 20)
+npm run lint         # ESLint
+npm run smoke        # the app in a real browser (desktop and phone): loads, runs, every surface opens
+npm run perf         # frame rate and main-thread stalls on a desktop, a laptop and a phone profile
+npm run check        # all of the above, on the root site and on the build
 ```
+
+The browser checks need a Chromium for Playwright (`npx playwright install chromium`). CI
+(`.github/workflows/ci.yml`) runs lint, tests, the build, both smoke tests and the performance
+report on every push and pull request.
 
 The acceptance tests are the model's validation targets (healthy ranges, HVPG in presinusoidal
 disease and heart failure, splenic-vein reversal, hepatofugal flow, TIPS outcomes, the rupture

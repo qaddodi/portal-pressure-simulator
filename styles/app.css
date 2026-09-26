@@ -258,7 +258,7 @@ svg { flex: none; }
 .hover-tip .t { font-weight: 600; margin-bottom: 4px; color: var(--text); }
 .hover-tip .r { display: flex; justify-content: space-between; gap: 14px; color: var(--text-2); line-height: 1.6; }
 .hover-tip .r b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
-.glass { background: var(--glass); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); border-radius: var(--r); }
+.glass { background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); border-radius: var(--r); }
 .stage-clock { display: none; }
 
 /* ── Figure mode: a clean plate with title, key and caption ─────────── */
@@ -432,10 +432,10 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .seg button:hover { color: var(--text); }
 .seg button[aria-pressed="true"], .seg button[aria-selected="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow-1); }
 .seg.full { display: flex; } .seg.full button { flex: 1; }
-.seg-glass { background: var(--glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: var(--shadow-1), inset 0 0 0 1px var(--hairline); }
+.seg-glass { background: var(--glass); box-shadow: var(--shadow-1), inset 0 0 0 1px var(--hairline); }
 .seg-glass button[aria-pressed="true"] { background: var(--surface-3); box-shadow: none; }
 .seg-mini button { padding: 4px 9px; font-size: 12px; }
-.glass { background: var(--glass); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); border-radius: var(--r); }
+.glass { background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); border-radius: var(--r); }
 .select { height: 32px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); padding: 0 28px 0 10px; font-size: 13px; appearance: none; -webkit-appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2385878F' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right 8px center; background-size: 14px; max-width: 100%; cursor: pointer; }
@@ -813,7 +813,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .skeleton { height: 10px; border-radius: 4px; background: linear-gradient(90deg, var(--surface-2), var(--surface-3), var(--surface-2)); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; margin: 8px 0; }
 @keyframes shimmer { to { background-position: -200% 0; } }
 
-.modal-back { position: fixed; inset: 0; background: var(--scrim); z-index: 80; display: none; place-items: center; padding: 16px; backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+.modal-back { position: fixed; inset: 0; background: var(--scrim); z-index: 80; display: none; place-items: center; padding: 16px; }
 .modal-back.show { display: grid; animation: fade .2s var(--ease); }
 @keyframes fade { from { opacity: 0; } }
 .modal { background: var(--surface); border-radius: 18px; box-shadow: var(--shadow-3); width: min(720px, 100%); max-height: min(88dvh, 900px); overflow: auto; animation: pop .22s var(--ease); }
@@ -1235,7 +1235,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 @media (max-width: 1100px) { .pal-l, .pal-btn kbd { display: none; } .pal-btn { width: 34px; padding: 0; justify-content: center; } }
 
 /* Home */
-.home { position: fixed; inset: 0; z-index: 75; background: color-mix(in srgb, var(--bg) 94%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); overflow: auto; animation: fade .2s var(--ease); }
+.home { position: fixed; inset: 0; z-index: 75; background: var(--bg); overflow: auto; animation: fade .2s var(--ease); }
 .home-inner { max-width: 1080px; margin: 0 auto; padding: 36px 28px 40px; display: flex; flex-direction: column; gap: 22px; }
 .home-head { display: flex; align-items: center; gap: 18px; }
 .home-head > svg { width: 56px; height: 56px; flex: none; }
@@ -1271,7 +1271,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 @media (max-width: 900px) { .home-doors { grid-template-columns: 1fr 1fr; } .home-inner { padding: 20px 16px 28px; } }
 
 /* Command palette */
-.pal-back { position: fixed; inset: 0; z-index: 95; background: var(--scrim); display: flex; justify-content: center; align-items: flex-start; padding: 12vh 16px 16px; backdrop-filter: blur(2px); }
+.pal-back { position: fixed; inset: 0; z-index: 95; background: var(--scrim); display: flex; justify-content: center; align-items: flex-start; padding: 12vh 16px 16px; }
 .pal-back[hidden] { display: none; }
 .pal { width: min(620px, 100%); background: var(--surface); border-radius: 16px; box-shadow: var(--shadow-3); overflow: hidden; animation: pop .16s var(--ease); }
 .pal-top { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--hairline); }
@@ -1475,7 +1475,7 @@ div.vt-vital { cursor: default; }
   body.print-report #modal header .ib, body.print-report .no-print { display: none !important; }
 }
 /* Presenter */
-.presenter-bar { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 8; display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: color-mix(in srgb, var(--surface) 94%, transparent); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-3); backdrop-filter: blur(8px); max-width: calc(100% - 24px); }
+.presenter-bar { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 8; display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: color-mix(in srgb, var(--surface) 94%, transparent); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-3); max-width: calc(100% - 24px); }
 .presenter-bar .pb-t { display: grid; min-width: 0; padding: 0 6px; }
 .presenter-bar .pb-t b { font: 600 15px var(--font-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 42vw; }
 .presenter-bar .pb-n { font: 600 10.5px var(--font-ui); color: var(--text-3); letter-spacing: .06em; }

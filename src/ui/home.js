@@ -12,7 +12,7 @@ import { exportCSV, exportXAPI, learnerName, setLearnerName, records } from './r
 const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };
 const read = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || d); } catch { return JSON.parse(d); } };
 
-export function createHome({ el, brandMark, onPreset, onLesson, onCase, onPresenter, onClose }) {
+export function createHome({ el, brandMark, onPreset, onLesson, onCase, onPresenter, onClose, onClosed }) {
   let tab = 'explore';
   function render() {
     const st = store.get();
@@ -61,7 +61,7 @@ export function createHome({ el, brandMark, onPreset, onLesson, onCase, onPresen
   }
   return {
     open(t) { if (t) tab = t; render(); el.hidden = false; document.getElementById('app').classList.add('home-open'); el.querySelector('.home-door[aria-pressed="true"]')?.focus({ preventScroll: true }); },
-    close() { el.hidden = true; document.getElementById('app').classList.remove('home-open'); },
+    close() { if (el.hidden) return; el.hidden = true; document.getElementById('app').classList.remove('home-open'); onClosed?.(); },
     isOpen: () => !el.hidden,
     render,
   };

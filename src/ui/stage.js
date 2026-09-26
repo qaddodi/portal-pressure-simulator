@@ -1788,7 +1788,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function animate(now) {
     // High-refresh screens need not run the full flow renderer at their refresh
     // rate. Keep elapsed time intact so arrow speed and transitions stay correct.
-    if (document.hidden) { lastT = flowGate = now; requestAnimationFrame(animate); return; }
+    if (document.hidden || appEl?.classList.contains('home-open')) { lastT = flowGate = now; requestAnimationFrame(animate); return; }
     const interval = 1000 / 30;
     if (now - flowGate < interval) { requestAnimationFrame(animate); return; }
     flowGate = now - ((now - flowGate) % interval);
