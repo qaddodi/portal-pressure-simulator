@@ -57,8 +57,8 @@
   shows it connected). Only in Budd–Chiari do portal collaterals join it.
   Its tributaries fan out behind it along its own course, so they flow into it without a kink,
   clear of the portal vein; the Budd–Chiari collaterals merge into it in smooth arcs.
-- The caudate lobe vein, its tributaries and its Budd–Chiari collaterals are hidden on the
-  anatomy for now (still modeled, and still drawn in the circuit).
+- The caudate lobe vein, its tributaries and its Budd–Chiari collaterals are not drawn for now,
+  in either view (still modeled).
 - **Cards on phones** are a bottom sheet: the title, value and close button stay fixed while only
   the controls scroll; the sheet is smaller (at most 44 % of the figure) and more compact. Tap
   the handle or the title, or swipe, to collapse it to its header (a second swipe down closes

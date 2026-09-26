@@ -23,13 +23,15 @@ export const HIDDEN_EDGES = new Set(['A_SMA', 'A_IMA', 'A_SPL', 'A_LGA', 'A_REN_
   'SIN_RL',
   // The stomach's own drainage into the coronary vein is modeled, not drawn: a branch across the
   // stomach body only cluttered the lesser curvature.
-  'V_STO']);
+  'V_STO',
+  // The caudate lobe veins are modeled but set aside in both views for now (the drawing, its
+  // tributaries and Budd–Chiari collaterals are kept below for later).
+  'CAUD']);
 export const HIDDEN_NODES = new Set(['AO', 'UPPV', 'LOWV', 'KID_R', 'RRV', 'HA']);
 // Systemic veins drawn quietly: they matter only as the places collaterals drain to.
 export const CONTEXT_EDGES = new Set(['V_UP', 'SVC_RA', 'AZY_SVC', 'ILI_IVC', 'EPI_ILI', 'EPI_SVC', 'V_KID_L', 'LRV_IVC']);
-// Edges the circuit draws but the anatomy leaves out: the caudate lobe veins (with their
-// tributaries and Budd–Chiari collaterals, see FEEDERS) are set aside on the plate for now.
-export const ANAT_HIDDEN = new Set(['CAUD']);
+// Edges the circuit draws but the anatomy leaves out (none at present).
+export const ANAT_HIDDEN = new Set([]);
 // Drawn only once the paraumbilical collateral has opened.
 export const NEEDS_C3 = new Set(['EPI_ILI', 'EPI_SVC']);
 // Retroperitoneal vessels, drawn behind the organs (the liver and bowel veil them).
