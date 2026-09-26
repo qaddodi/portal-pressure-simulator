@@ -7,6 +7,11 @@ html, body { height: 100%; }
    owns that strip (its own color runs up behind the clock), and the document never scrolls, so
    nothing slides up under the status bar. */
 :root { --safe-top: env(safe-area-inset-top, 0px); }
+/* iOS 26 blurs a band under the status bar that runs about half again as deep as the inset,
+   so an installed app keeps its controls below that band. */
+@media (display-mode: standalone), (display-mode: fullscreen) {
+  :root { --safe-top: calc(env(safe-area-inset-top, 0px) * 1.6); }
+}
 html { overflow: hidden; overscroll-behavior: none; }
 body {
   margin: 0; background: var(--bg); color: var(--text);
