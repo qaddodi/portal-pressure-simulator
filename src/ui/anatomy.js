@@ -180,6 +180,9 @@ export const CIRCUIT_PATH = {
   // of sharing a stretch of track and forking part-way along.
   PVH_R: route([[580, 345], [622, 303], [680, 303]], 12),
   PVH_L: route([[580, 345], [622, 387], [680, 387]], 12),
+  // The left gastric vein drops into the confluence from above, clear of the splenic vein's
+  // diagonal (a plain 45° route would run on top of it for its last stretch).
+  LGV_CONF: route([[320, 191], [446, 191], [480, 225], [480, 345]], 14),
   POST_R_RHV: route([[900, 303], [921, 282], [1000, 282]], 10),
   POST_L_LHV: route([[900, 387], [921, 408], [1000, 408]], 10),
   // esophageal and gastric route, above the spine

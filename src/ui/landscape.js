@@ -7,9 +7,9 @@
 import { store } from './store.js?v=e9304c5ee2';
 import { h, fmt, clamp, fitCanvas } from './util.js?v=13768f12bf';
 import { NODES, EDGES } from '../engine/topology.js?v=44e0aca402';
-import { NODE_POS, HIDDEN_EDGES, HIDDEN_NODES, CIRCUIT_ZONES, SHORT } from './anatomy.js?v=82cfa012ee';
+import { NODE_POS, HIDDEN_EDGES, HIDDEN_NODES, CIRCUIT_ZONES, SHORT } from './anatomy.js?v=a799fac075';
 import { pressureColor } from './colormap.js?v=fa78a29bc0';
-import { theme, FONT } from './charts.js?v=48ad0c1d08';
+import { theme, FONT } from './charts.js?v=11b19fd5cf';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 // The portal pathway, gut to heart, and what a fall across each step means.

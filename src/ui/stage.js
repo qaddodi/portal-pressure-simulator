@@ -1,7 +1,7 @@
 // Anatomical stage (blueprint §6): SVG anatomy + canvas flow layer + screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=44e0aca402';
-import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS } from './anatomy.js?v=82cfa012ee';
+import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS } from './anatomy.js?v=a799fac075';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=fa78a29bc0';
 import { store, updateParams } from './store.js?v=e9304c5ee2';
 import { s, h, fmt, fp, clamp, lerp, toast, cssVar } from './util.js?v=13768f12bf';
@@ -662,6 +662,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const sp = wiggle(braid(base, sd.off * (1 - t)), (0.8 * g.wig + 3) * (1 - t), sd.ph);
         const d = polyD(sp);
         sd.wall.setAttribute('d', d); sd.lumen.setAttribute('d', d);
+        sd.cur = sp; sd.len = arcLen(sp);
       }
       g.cur = pts;
       g.len = arcLen(pts);
@@ -1882,6 +1883,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (ends < 0.08) continue;
         const nn = Math.hypot(dx, dy) || 1;
         marks.push({ cx: px, cy: py, ux: (dx / nn) * sg, uy: (dy / nn) * sg, s: x.ms * clamp(rOf(uu) / r0, 0.6, 1.3) * ends * cov });
+      }
+      // A braided collateral's other channels carry the same flow: the same marks, spaced and
+      // sized for each channel's own caliber, drifting in step with the main channel.
+      if (x.strands && morph < 0.5) for (const sd of x.strands) {
+        const sw = Math.max(1.6, w * sd.k), ssp = markSpacing(sw), sms = markSize(sw);
+        const sm = Math.min(sd.len * 0.12, ssp * 0.35 + 2);
+        for (let tt = sm + (ph / sp) * ssp; tt < sd.len - sm; tt += ssp) {
+          const ends = clamp(Math.min(tt - sm, sd.len - sm - tt) / (ssp * 0.8), 0, 1);
+          if (ends < 0.08) continue;
+          const [px, py, dx, dy] = pointAt(sd.cur, tt / sd.len);
+          const nn = Math.hypot(dx, dy) || 1;
+          marks.push({ cx: px, cy: py, ux: (dx / nn) * sg, uy: (dy / nn) * sg, s: sms * ends });
+        }
       }
       const ink = x.rev && !colorModeIs('direction') ? 'rev' : x.inkDark && !x.isArt ? 'dark' : 'light';
       if (marks.length) cb(x, ink, marks, fade);
