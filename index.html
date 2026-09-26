@@ -16,10 +16,13 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Portal Sim" />
+  <!-- Installed from the home screen (iOS reports it through navigator.standalone): leave room
+       for the status bar and the blur iOS draws under it before the first paint. -->
+  <script>if (navigator.standalone || matchMedia('(display-mode: standalone)').matches) document.documentElement.classList.add('standalone');</script>
   <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="fonts/fonts.css" />
   <link rel="stylesheet" href="styles/tokens.css?v=2ef1aa6020" />
-  <link rel="stylesheet" href="styles/app.css?v=dcc44163b8" />
+  <link rel="stylesheet" href="styles/app.css?v=7e484df0dd" />
 </head>
 <body>
   <!-- Icon set: 24px grid, 1.6px stroke, round caps (blueprint §5.6). -->

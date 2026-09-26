@@ -12,6 +12,7 @@ html, body { height: 100%; }
 @media (display-mode: standalone), (display-mode: fullscreen) {
   :root { --safe-top: calc(env(safe-area-inset-top, 0px) * 1.6); }
 }
+:root.standalone { --safe-top: calc(env(safe-area-inset-top, 0px) * 1.6); }
 html { overflow: hidden; overscroll-behavior: none; }
 body {
   margin: 0; background: var(--bg); color: var(--text);

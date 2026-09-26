@@ -2,7 +2,7 @@
 // first; everything else (the page itself, fonts, icons) is served from the network when there
 // is one and from the cache when there isn't, so the simulator keeps working in an exam hall
 // with poor Wi-Fi. Bump CACHE to drop old entries.
-const CACHE = 'pps-v2';
+const CACHE = 'pps-v3';
 const SHELL = ['./', 'index.html', 'fonts/fonts.css', 'manifest.webmanifest', 'brand/mark.svg', 'brand/icon-192.png'];
 
 self.addEventListener('install', (e) => {
@@ -19,7 +19,10 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(caches.match(req).then((hit) => hit || fetch(req).then((res) => { if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); } return res; })));
     return;
   }
-  e.respondWith(fetch(req).then((res) => {
+  // Revalidate with the server rather than trusting the HTTP cache, so an installed app picks up
+  // a new release on its next launch.
+  const fresh = req.mode === 'navigate' ? fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }) : fetch(req, { cache: 'no-cache' });
+  e.respondWith(fresh.then((res) => {
     if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); }
     return res;
   }).catch(() => caches.match(req).then((hit) => hit || (req.mode === 'navigate' ? caches.match('index.html') : Response.error()))));
