@@ -1318,7 +1318,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function textW(t, size, weight = 500, track = 0) {
     const k = `${weight}|${size}|${track}|${t}`;
     let w = widths.get(k);
-    if (w == null) { measure.font = `${weight} ${size}px ${FONT}`; w = measure.measureText(t).width + track * size * t.length; widths.set(k, w); }
+    // Labels draw tabular digits (every digit as wide as a zero), so measure them that way too:
+    // a value ticking from 6.0 to 6.1 then keeps its width and its label stays put.
+    if (w == null) { measure.font = `${weight} ${size}px ${FONT}`; w = measure.measureText(t.replace(/\d/g, '0')).width + track * size * t.length; widths.set(k, w); }
     return w;
   }
   document.fonts?.ready?.then(() => { widths.clear(); if (F) updateLabels(F); });
@@ -1440,12 +1442,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return sum * 0.06;
   }
 
+  // A change badge (▲ 3) appears at `on` and goes only below `off`: a value hovering at the
+  // threshold would otherwise add and drop the badge every beat, and its label would jump.
+  const badges = new Map();
+  function badge(key, v, on, off) {
+    const shown = v >= on || (badges.get(key) && v >= off);
+    badges.set(key, shown);
+    return shown;
+  }
   function pressureRuns(P, id, compact) {
     if (!store.get().layers.chips || isImaging()) return null;
     const [v, u] = fp(P);
     const runs = [{ t: v, size: compact ? 12.5 : 14, weight: 650, cls: 'lb-val' }, { t: u, size: compact ? 9.5 : 10, weight: 500, cls: 'lb-unit', gap: 2.5 }];
     const ref = REF()?.[NI[id]];
-    if (ref != null && Math.abs(P - ref) >= 1) runs.push({ t: `${P > ref ? '▲' : '▼'} ${fmt(Math.abs(P - ref), 0)}`, size: compact ? 9.5 : 10.5, weight: 650, cls: 'lb-delta ' + (P > ref ? 'up' : 'down'), gap: 6 });
+    if (ref != null && badge('p:' + id, Math.abs(P - ref), 1, 0.7)) runs.push({ t: `${P > ref ? '▲' : '▼'} ${fmt(Math.abs(P - ref), 0)}`, size: compact ? 9.5 : 10.5, weight: 650, cls: 'lb-delta ' + (P > ref ? 'up' : 'down'), gap: 6 });
     return runs;
   }
 
@@ -1462,7 +1472,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const refQ = store.get().healthy?.Q;
       if (refQ && !store.get().compareSnap) {
         const r = throughput(refQ, id);
-        if (r > 0.02 && Math.abs(v - r) / r >= 0.1) runs.push({ t: `${v > r ? '▲' : '▼'} ${Math.round(Math.abs(v - r) / r * 100)}%`, size: compact ? 9.5 : 10.5, weight: 650, cls: 'lb-delta ' + (v > r ? 'up' : 'down'), gap: 6 });
+        if (r > 0.02 && badge('q:' + id, Math.abs(v - r) / r, 0.1, 0.07)) runs.push({ t: `${v > r ? '▲' : '▼'} ${Math.round(Math.abs(v - r) / r * 100)}%`, size: compact ? 9.5 : 10.5, weight: 650, cls: 'lb-delta ' + (v > r ? 'up' : 'down'), gap: 6 });
       }
       return { runs, color: flowColor(v) };
     }
@@ -1515,6 +1525,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }).filter(Boolean);
   }
   let labelGridKey = '', labelGrid = new Map();
+  const labelMem = new Map();
   function updateLabels(f) {
     refreshCTM();
     frameNo++;
@@ -1576,18 +1587,28 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // covers the least vessel geometry (ties go to the earlier, preferred direction).
     // `gap` may be a list: nearer rings are preferred, but a label moves further out rather than
     // sit on a vessel line.
+    // Labels are steady: each keeps the slot it had while that slot stays free, and reserves a
+    // width that only grows (a value ticking from 9.9 to 10.0, or a change gaining a digit, would
+    // otherwise tip it to another side of its station and back, frame after frame).
     const place = (it, dirs, gap, leader) => {
       let best = null;
+      const mem = labelMem.get(it.key);
+      const wRes = mem && it.w <= mem.w && it.w > mem.w - 28 ? mem.w : it.w;
+      const probe = { ...it, w: wRes };
       (Array.isArray(gap) ? gap : [gap]).forEach((gp, gi) => dirs.forEach((dir, i) => {
-        const [dx, dy] = offset(dir, it, gp);
+        const [dx, dy] = offset(dir, probe, gp);
         const x = it.ax + dx, y = it.ay + dy;
-        const r = rectOf({ ...it, x, y });
+        const r = rectOf({ ...probe, x, y });
         if (!within(r, B) || placed.some((p) => hits(r, p))) return;
-        const cost = (useLines ? lineCost(r) * 12 : 0) + i + gi * 6;
-        if (!best || cost < best.cost) best = { cost, x, y, r, dir, far: gi > 0 };
+        const cost = (useLines ? lineCost(r) * 12 : 0) + i + gi * 6 - (mem && mem.dir === dir && mem.gi === gi ? 1e4 : 0);
+        if (!best || cost < best.cost) best = { cost, x, y, r, dir, gi, far: gi > 0 };
       }));
       if (!best) return false;
-      it.x = best.x; it.y = best.y; it.dir = best.dir; it.leader = leader || best.far;
+      // The text hugs the station side of its reserved box.
+      const slack = wRes - it.w, dir = best.dir;
+      it.x = best.x + (dir.includes('W') ? slack : dir.includes('E') ? 0 : slack / 2);
+      it.y = best.y; it.dir = dir; it.leader = leader || best.far;
+      labelMem.set(it.key, { dir, gi: best.gi, w: wRes });
       placed.push(best.r); out.push(it);
       return true;
     };
@@ -1728,6 +1749,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const it = { key: 'lane:' + id, cls: 'lane', lines: [[{ t: cap, size: compact ? 9 : 10, weight: 550, cls: 'lb-lane' }]], align: 'middle', padX: 2, padY: 1, ax, ay };
         it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
         place(it, ['N', 'S'], [3 + (x.width || 4) / 2, 12 + (x.width || 4) / 2], false);
+      }
+      // The resistance boxes are named above the right lobe's lane; the left lobe's boxes sit
+      // directly below, in the same columns.
+      for (const [id, cap] of [['PRE_R', 'presinusoidal'], ['SIN_RR', 'sinusoidal'], ['POST_R_RHV', 'postsinusoidal']]) {
+        const [x, y] = pointAt(geo[id].cur, 0.5);
+        const [ax, ay] = worldToLocal(x, y);
+        const it = { key: 'rcap:' + id, cls: 'lane', lines: [[{ t: cap, size: compact ? 8.5 : 9.5, weight: 550, cls: 'lb-lane' }]], align: 'middle', padX: 2, padY: 1, ax, ay };
+        it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
+        place(it, ['N'], [9, 16], false);
       }
       if (open && !isImaging() && st.layers.chips) {
         for (const [id, r] of Object.entries(resistorEls)) {
