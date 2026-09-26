@@ -29,6 +29,12 @@
   vein thrombosis use it. The *Cirrhosis with gastrorenal shunt* patient now has isolated fundal
   varices (IGV1) without it: fed by the short and posterior gastric veins, drained only through
   the gastrorenal shunt. Its patient snapshot was regenerated.
+- **Banding shows on the anatomy.** Each band thromboses one of the esophageal varix channels
+  (they fade out one by one) and the remaining channels shrink, alongside the band rings; as
+  bands slough over the months the channels return.
+- **One arrow style.** Flow marks no longer grow tails in fast vessels (TIPS, shunts, varices):
+  every arrow in the figure is the same notched dart, including the heart's "to RV" mark and the
+  figure legend.
 
 ## 2.1.0 (content version 2.0), 2026-09
 

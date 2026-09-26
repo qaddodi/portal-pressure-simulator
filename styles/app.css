@@ -540,7 +540,7 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .coll-ghost .v-shade, .coll-ghost .v-sheen, .ctx .v-sheen, #backEdges .v-sheen, #backEdges .v-shadow { display: none; }
 .org-ra.org-fill { fill: color-mix(in srgb, var(--organ-heart) calc(var(--organ-tint) + 14%), var(--stage-bg)); }
 .organ-heart-ra { color: color-mix(in srgb, var(--organ-heart) 80%, #000); }
-.org-heart-flow { fill: none; stroke: color-mix(in srgb, var(--organ-heart) 70%, #000); stroke-opacity: .55; stroke-width: 1.6; stroke-linecap: round; stroke-dasharray: 3 3; }
+.org-heart-flow { fill: color-mix(in srgb, var(--organ-heart) 70%, #000); fill-opacity: .55; stroke: none; }
 /* The figure is a clean plate: flat lumens (color is the value), no texture or cast shadows. */
 .app.figure-mode .bead-glint, .app.figure-mode .ascites-glint, .app.figure-mode .v-shade, .app.figure-mode .v-sheen, .app.figure-mode .v-shadow, .app.figure-mode .org-tex, .app.figure-mode .org-cast, .app.figure-mode .band-cast, .app.figure-mode .band-sheen { display: none; }
 /* Data layers: the anatomy steps back so the network carries the reading. */
@@ -1596,7 +1596,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .org-detail .org-lobules { stroke: none; opacity: .5; }
 #texLobules { color: var(--og-panc-3); }
 .org-heart-groove { stroke: var(--og-heart-3); stroke-opacity: .45; }
-.org-heart-flow { stroke: var(--og-heart-3); }
+.org-heart-flow { fill: var(--og-heart-3); }
 /* Tubes */
 .band-ao { fill: none; stroke: var(--og-ao); stroke-linecap: round; stroke-linejoin: round; }
 .band-under { fill: none; stroke: var(--o2); stroke-opacity: .75; stroke-linecap: round; stroke-linejoin: round; }

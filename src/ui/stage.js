@@ -6,7 +6,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
 import { s, h, fmt, fp, clamp, lerp, toast, cssVar } from './util.js?v=13768f12bf';
 import { createLobuleZoom } from './lobule-zoom.js?v=07bdce5cd7';
-import { createFlowGL, rgba, MARK_FLOATS, SEG_FLOATS } from './flow-gl.js?v=0db0a6d947';
+import { createFlowGL, rgba, MARK_FLOATS, SEG_FLOATS } from './flow-gl.js?v=5c846606ea';
 
 const N_SAMPLES = 64;
 // Displayed width grows sub-linearly with diameter so the cavae don't swamp the portal tree,
@@ -227,7 +227,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     <pattern id="texRugae" width="40" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(-38)"><path class="tex" d="M0 6c7-4 13 4 20 0s13-4 20 0"/></pattern>
     <pattern id="texLobules" width="14" height="12" patternUnits="userSpaceOnUse"><path class="tex" d="M1 6a6 5 0 0 1 12 0M-6 12a6 5 0 0 1 12 0M8 12a6 5 0 0 1 12 0"/></pattern>
     <pattern id="texMuscle" width="30" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(24)"><path class="tex" d="M0 5c8-3 22 3 30 0"/></pattern>
-    <marker id="heartArrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9 Z" fill="#8a3a44" fill-opacity=".7"/></marker>
     <filter id="heatBlur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="10"/></filter>
     <pattern id="mapGrid" width="20" height="20" patternUnits="userSpaceOnUse"><circle class="map-dot" cx="10" cy="10" r=".9"/></pattern>`;
   svg.append(defs);
@@ -318,7 +317,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         s('path', { d: o.d, class: o.cls + ' band-under', transform: 'translate(1.5 3)' }),
         s('path', { d: o.d, class: o.cls + ' band-sheen', transform: 'translate(-2 -3.5)' }));
       if (o.cls === 'org-colon') g.append(s('path', { d: haustra(o.d, 11.5), class: 'org-haustra' }));
-    } else if (o.deco) { el = s('path', { d: o.d, class: o.cls }); if (o.id === 'heart-out') el.setAttribute('marker-end', 'url(#heartArrow)'); g.append(el); }
+    } else if (o.id === 'heart-out') {
+      // Blood leaving for the right ventricle: the same notched darts as the flow marks, no shaft.
+      const n = o.d.match(/-?\d+(?:\.\d+)?/g).map(Number), L = [0, 2, 4, 6].map((i) => [n[i], n[i + 1]]);
+      const bez = (u) => [0, 1].map((j) => (1 - u) ** 3 * L[0][j] + 3 * (1 - u) ** 2 * u * L[1][j] + 3 * (1 - u) * u * u * L[2][j] + u ** 3 * L[3][j]);
+      const d = [0.3, 0.62, 0.94].map((u) => {
+        const [cx, cy] = bez(u), [ax, ay] = bez(u - 0.02), [bx, by] = bez(Math.min(1, u + 0.02));
+        const len = Math.hypot(bx - ax, by - ay) || 1;
+        return 'M' + markPath({ cx, cy, ux: (bx - ax) / len, uy: (by - ay) / len, s: 9 }).map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(' L') + ' Z';
+      }).join(' ');
+      el = s('path', { d, class: o.cls });
+      g.append(el);
+    } else if (o.deco) { el = s('path', { d: o.d, class: o.cls }); g.append(el); }
     else {
       el = s('path', { d: o.d, class: o.cls + ' org-fill', fill: o.tone ? `url(#og-${o.tone})` : null });
       defs.insertAdjacentHTML('beforeend', `<clipPath id="clip-${o.id}"><path d="${o.d}"/></clipPath>`);
@@ -609,9 +619,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   // ── Particles ─────────────────────────────────────
   // Adaptive detail: when the device cannot keep up (frames arriving slower than ~22 a second
-  // while the model runs), the flow layer steps down (fewer redraws, fewer pixels, no trails) and
+  // while the model runs), the flow layer steps down (fewer redraws, fewer pixels) and
   // steps back up once there is headroom. The level a device settles on is remembered.
-  const QUALITY = [{ fps: 30, res: 1, trails: true }, { fps: 24, res: 0.8, trails: true }, { fps: 15, res: 0.6, trails: false }];
+  const QUALITY = [{ fps: 30, res: 1 }, { fps: 24, res: 0.8 }, { fps: 15, res: 0.6 }];
   let quality = (() => { try { return clamp(parseInt(localStorage.getItem('pps.quality'), 10) || 0, 0, 2); } catch { return 0; } })();
   // The flow marks are drawn on the GPU (flow-gl.js) where WebGL2 is available, else with
   // Canvas2D. A canvas keeps the first kind of context it is asked for, so a failed WebGL start
@@ -768,6 +778,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // Flow layer: width follows flow volume (∝ √Q), like traffic volume on a city map.
       if (mode === 'flow' && !x.isArt) w = clamp(2.2 + 8.5 * Math.sqrt(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) * 0.06), 2.2, 22);
       if (x.isArt) w = lerp(Math.max(1.8, vesselPx(D) * 0.5), 3, t);
+      // Band ligation strangles the esophageal varices: each band thromboses a channel and the
+      // rest shrink (the model raises the route's resistance by the same count).
+      if (e.code === 'C1' && f.bands > 0 && t < 1) w *= 1 - 0.14 * Math.min(4, f.bands);
       w = qW(w);
       // Settled (not morphing, same lens): ignore sub-half-pixel wobble from the pulse and breath.
       const settled = (t === 0 || t === 1) && x.wMode === mode;
@@ -782,7 +795,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const wallPx = x.wallPx;
       setA(x.wall, 'stroke-width', (w + 2 * wallPx).toFixed(1));
       setA(x.lumen, 'stroke-width', w.toFixed(1));
-      if (x.strands) for (const sd of x.strands) { setA(sd.lumen, 'stroke-width', Math.max(1.6, w * sd.k).toFixed(1)); setA(sd.wall, 'stroke-width', (Math.max(1.6, w * sd.k) + 2 * wallPx).toFixed(1)); }
+      if (x.strands) x.strands.forEach((sd, i) => {
+        setA(sd.lumen, 'stroke-width', Math.max(1.6, w * sd.k).toFixed(1)); setA(sd.wall, 'stroke-width', (Math.max(1.6, w * sd.k) + 2 * wallPx).toFixed(1));
+        sd.live = e.code === 'C1' ? clamp(i + 1 - (f.bands || 0), 0, 1) : 1;
+        const vis = sd.live > 0.02 ? '' : 'none', op = sd.live < 1 ? sd.live.toFixed(2) : '';
+        for (const el of [sd.lumen, sd.wall]) { if (el.style.display !== vis) el.style.display = vis; if (el.style.opacity !== op) el.style.opacity = op; }
+      });
       if (x.spine) setA(x.spine, 'stroke-width', (w + 16).toFixed(1));
       let c1, c2;
       if (mode === 'pressure') { c1 = pressureColor(qP(P1)); c2 = pressureColor(qP(P2)); }
@@ -1847,6 +1865,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // A braided collateral's other channels carry the same flow: the same marks, spaced and
       // sized for each channel's own caliber, drifting in step with the main channel.
       if (x.strands && morph < 0.5) for (const sd of x.strands) {
+        if ((sd.live ?? 1) < 0.5) continue;   // a channel obliterated by a band carries nothing
         const sw = Math.max(1.6, w * sd.k), ssp = markSpacing(sw), sms = markSize(sw);
         const sm = Math.min(sd.len * 0.12, ssp * 0.35 + 2);
         for (let tt = sm + (ph / sp) * ssp; tt < sd.len - sm; tt += ssp) {
@@ -2065,20 +2084,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (dpt > 0 && layers.slice(0, dpt).some((l) => l.length)) eraseCovers(dpt);
       for (const [x, ink, marks, fade] of layers[dpt]) {
         ctx.globalAlpha = alphaOf(x, fade);
-        // Fast flow (a TIPS, a jet through a narrowing, a big shunt) leaves a soft trail behind
-        // each mark, so speed reads even in a still frame.
-        const fast = moving && marks.length && QUALITY[quality].trails ? clamp((Math.abs(flowState(x).vel) - 25) / 45, 0, 1) : 0;
-        if (fast > 0) {
-          const a0 = ctx.globalAlpha;
-          ctx.strokeStyle = INK[ink]; ctx.lineWidth = marks[0].s * 0.3;
-          for (const [from, to, al] of [[0.25, 0.9, 0.45], [0.9, 1.9, 0.2]]) {
-            ctx.globalAlpha = a0 * al * fast;
-            ctx.beginPath();
-            for (const k of marks) { const L = 1 + fast; ctx.moveTo(k.cx - k.ux * k.s * from * L, k.cy - k.uy * k.s * from * L); ctx.lineTo(k.cx - k.ux * k.s * to * L, k.cy - k.uy * k.s * to * L); }
-            ctx.stroke();
-          }
-          ctx.globalAlpha = a0;
-        }
         ctx.beginPath();
         for (const k of marks) {
           const pts = markPath(k);
@@ -2089,8 +2094,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         ctx.strokeStyle = HALO[ink]; ctx.lineWidth = lwHalo; ctx.stroke();
         ctx.fillStyle = INK[ink]; ctx.fill();
         // The deepest layer is never erased, so its tiles need no bookkeeping. The reach covers
-        // the chevron, its halo and the fast-flow trail, plus a pixel or two of antialiasing.
-        if (dpt < 2) for (const k of marks) markTiles(dm, k.cx, k.cy, (k.s * (fast > 0 ? 1.9 * (1 + fast) + 0.2 : 0.7) + lwHalo) * dScale + 3);
+        // the chevron and its halo, plus a pixel or two of antialiasing.
+        if (dpt < 2) for (const k of marks) markTiles(dm, k.cx, k.cy, (k.s * 0.7 + lwHalo) * dScale + 3);
       }
     }
     ctx.globalAlpha = 1;
@@ -2116,7 +2121,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
 
   // The same frame on the GPU: occlusion mask (rebuilt only when the layout changes), then every
-  // mark, trail and bleed droplet in one instanced draw.
+  // mark and bleed droplet in one instanced draw.
   let organBitmap = false, maskSig = '';
   function drawFlowGL(layers, T, moving, alphaOf, lwHalo) {
     flowGL.setTransform(T);
@@ -2158,7 +2163,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
     } else if (maskSig) { maskSig = ''; flowGL.clearMask(); }
     let count = 0;
-    for (const L of layers) for (const [, , marks] of L) count += marks.length * 3;
+    for (const L of layers) for (const [, , marks] of L) count += marks.length;
     const bleed = F.bleed?.active && morph < 0.5;
     const buf = flowGL.ensureMarks(count + (bleed ? 10 : 0));
     let o = 0;
@@ -2173,13 +2178,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (let dpt = 0; dpt < 3; dpt++) {
       for (const [x, ink, marks, fade] of layers[dpt]) {
         const a0 = alphaOf(x, fade), fill = rgba(INK[ink]), halo = rgba(HALO[ink]);
-        const fast = moving && marks.length && QUALITY[quality].trails ? clamp((Math.abs(flowState(x).vel) - 25) / 45, 0, 1) : 0;
-        if (fast > 0) {
-          const L = 1 + fast;
-          for (const [from, to, al] of [[0.25, 0.9, 0.45], [0.9, 1.9, 0.2]]) {
-            for (const k of marks) put(k.cx, k.cy, k.ux, k.uy, k.s, 1, k.s * from * L, k.s * to * L, fill, halo, 0, dpt, a0 * al * fast);
-          }
-        }
         for (const k of marks) put(k.cx, k.cy, k.ux, k.uy, k.s, 0, 0, 0, fill, halo, lwHalo, dpt, a0);
       }
     }

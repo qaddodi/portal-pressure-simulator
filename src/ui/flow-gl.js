@@ -1,5 +1,5 @@
 // Flow marks on the GPU (WebGL2). The same picture as the Canvas2D renderer in stage.js, drawn
-// as one instanced batch per frame: each arrowhead, fast-flow trail and bleed droplet is a quad
+// as one instanced batch per frame: each arrowhead and bleed droplet is a quad (the trail kind is kept but unused)
 // whose shape (a signed distance field) is cut in the fragment shader, antialiased at any zoom.
 //
 // Occlusion (a mark sliding under an organ or a nearer vessel) comes from a mask texture the

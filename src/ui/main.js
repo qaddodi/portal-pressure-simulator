@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=0917f25b24';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=4bf5a96a9d';
-import { createStage } from './stage.js?v=a92eb65ad1';
+import { createStage } from './stage.js?v=a900c86f34';
 import { createInspector } from './inspector.js?v=fd277b5ba6';
 import { createDock } from './dock.js?v=bf26011191';
 import { createWhy } from './why.js?v=58f5668693';
@@ -154,7 +154,7 @@ async function main() {
     loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); toast(store.get().presetList.find((p) => p.id === id)?.label); },
     lesson: (id) => startLesson(id), caseStart: (id) => startCase(id), home: () => home.open(), theme: () => toggleTheme(), help: () => openHelp(), share,
   } }));
-  figureL = lazy(() => import('./figure.js?v=1d1edc4ca7'), ({ createFigure }) => createFigure({ app, stage, onClose: () => toggleFigure(false) }));
+  figureL = lazy(() => import('./figure.js?v=9abb87e328'), ({ createFigure }) => createFigure({ app, stage, onClose: () => toggleFigure(false) }));
   card = createCard({
     view, stage, onWhy: (m, el) => why.open(m, el),
     onDetails: (sel) => { store.set({ details: normalizeSel(sel) || sel }); openPanel(); },

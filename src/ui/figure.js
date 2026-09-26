@@ -105,7 +105,7 @@ export function createFigure({ app, stage, onClose }) {
     const s = document.createElementNS(SVGNS, 'svg');
     s.setAttribute('viewBox', '0 0 26 12');
     if (kind === 'line') s.innerHTML = `<path d="M2 6h22" stroke="${color}" stroke-width="4" stroke-linecap="round"/>`;
-    if (kind === 'flow') s.innerHTML = '<path d="M2 6h22" stroke="var(--vessel-casing)" stroke-width="9" stroke-linecap="round"/><path d="M2 6h22" stroke="#B0306E" stroke-width="7" stroke-linecap="round"/><path d="M7 3.6 9.4 6 7 8.4M14 3.6 16.4 6 14 8.4M21 3.6 23.4 6 21 8.4" fill="none" stroke="#fff" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>';
+    if (kind === 'flow') s.innerHTML = '<path d="M2 6h22" stroke="var(--vessel-casing)" stroke-width="9" stroke-linecap="round"/><path d="M2 6h22" stroke="#B0306E" stroke-width="7" stroke-linecap="round"/><path d="M9.75 6 L4.75 3.75 L6 6 L4.75 8.25 Z M16.75 6 L11.75 3.75 L13 6 L11.75 8.25 Z M23.75 6 L18.75 3.75 L20 6 L18.75 8.25 Z" fill="#fff"/>';
     if (kind === 'thin') s.innerHTML = '<path d="M2 6h22" stroke="var(--vessel-casing)" stroke-width="4.4" stroke-linecap="round"/><path d="M2 6h22" stroke="#7E6BC4" stroke-width="3" stroke-linecap="round"/><path d="M15.6 6 10.4 3.3v5.4z" fill="rgba(34,28,46,.86)" stroke="#fff" stroke-width="1.4" stroke-linejoin="round" paint-order="stroke"/>';
     if (kind === 'ghost') s.innerHTML = '<path d="M2 6h22" stroke="var(--vein-systemic)" stroke-width="5" stroke-linecap="round" opacity=".34"/>';
     if (kind === 'dot') s.innerHTML = '<path d="M2 6h22" stroke="var(--vein-portal)" stroke-width="3" stroke-linecap="round" stroke-dasharray="1.5 4.5" opacity=".7"/>';
