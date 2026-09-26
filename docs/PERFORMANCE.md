@@ -1,5 +1,39 @@
 # Rendering and simulation scheduling
 
+## 2.1 overhaul (phase 2)
+
+Measured with `npm run perf` (Chromium, CPU throttled; busy patient: decompensated cirrhosis):
+
+| Profile | Before | After |
+|---|---|---|
+| Desktop | 60 fps | 60 fps |
+| Laptop (CPU 4×, 2× pixels) | 12 fps, p50 frame 83 ms | 37 fps, p50 17 ms |
+| Phone (CPU 6×, 3× pixels) | 7 fps, p50 150 ms, longest stall 150 ms | 31 fps, p50 17 ms, longest stall ~75 ms |
+
+What changed:
+
+- **Flow marks on the GPU** (`src/ui/flow-gl.js`): one instanced WebGL2 draw per frame; each
+  arrowhead, trail and bleed droplet is a quad cut by a signed distance field. Occlusion under
+  organs and nearer vessels comes from a mask the GPU renders only when the layout changes
+  (vessel centerlines as round-capped segments, organs from a world-space bitmap made once).
+  Used only with hardware acceleration (`failIfMajorPerformanceCaveat`); otherwise the Canvas2D
+  renderer runs. `window.PPS_FLOW_GL = true` / `PPS_FLOW_2D = true` force either (tests use both).
+- **Adaptive detail.** A governor watches frame pacing while the model runs; below ~22 frames a
+  second the flow layer steps down (24 then 15 redraws a second, fewer pixels, no trails) and
+  steps back up with headroom. The level is remembered per device (`pps.quality`). The stage
+  exposes `data-flow` and `data-quality` for diagnosis.
+- **No work on the heartbeat.** Vessel colors follow the beat-filtered mean pressure in
+  0.5 mmHg steps; widths, wall thickness and varix geometry change only once past a hysteresis
+  band. Gradients, tube outlines and varix beads were being rebuilt several times a second by
+  the pulse alone.
+- **Hit testing** is limited to the invisible hit strokes (`#world .v-hit`), so the browser
+  never tests the thousands of drawn paths on pointer moves.
+- The hidden congestion-glow layer is only updated in the Congestion lens; occlusion masks are
+  keyed on whole-pixel widths.
+
+The sections below describe the earlier scheduling work, still in place.
+
+
 The simulation timestep and physiological equations are unchanged by the performance work.
 
 - Running model frames are still published approximately ten times per second. Explicit actions publish immediately, including while paused.

@@ -506,11 +506,14 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .v-wall { fill: none; stroke: var(--vessel-casing); stroke-linecap: round; stroke-linejoin: round; }
 .v-lumen { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .v-artery { fill: none; stroke: var(--artery); stroke-linecap: round; stroke-linejoin: round; stroke-opacity: .85; }
-.v-hit { fill: none; stroke: transparent; stroke-width: 20; stroke-linecap: round; pointer-events: stroke; cursor: pointer; }
+/* Only the invisible hit strokes take the pointer: the browser then never tests the thousands of
+   drawn paths under it (a hit test runs on every pointer move, and after every repaint). */
+#world :is(g, path, circle, ellipse, rect, use, line, polyline, polygon, text) { pointer-events: none; }
+#world .v-hit { fill: none; stroke: transparent; stroke-width: 20; stroke-linecap: round; pointer-events: stroke; cursor: pointer; }
 .v-hit:focus { outline: none; }
 /* Hit priority: the portal tree and hepatic outflow take a wide target; quiet context veins and
    vessels behind the organs only a narrow one, so a click near them rarely lands there by accident. */
-.vg.ctx .v-hit, #backEdges .v-hit { stroke-width: 8; }
+#world .vg.ctx .v-hit, #world #backEdges .v-hit { stroke-width: 8; }
 .v-halo { display: none; }
 /* Tubes: contact shadow, casing, lumen, then the shading of a cylinder lit from above. */
 .v-shadow { fill: var(--vessel-shadow); stroke: none; transform: translate(1.4px, 2.8px); }

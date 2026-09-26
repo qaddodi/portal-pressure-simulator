@@ -103,6 +103,25 @@ for (const device of Object.keys(DEVICES)) {
     await shot(page, `${device}-case`);
   });
 
+  await check(device, 'flow renderers (WebGL2 forced, Canvas2D forced)', async (page) => {
+    await page.addInitScript(() => { window.PPS_FLOW_GL = true; });
+    await open(page, '?preset=cirr-hepatofugal');
+    const kind = await page.evaluate(() => document.querySelector('#stageView').dataset.flow);
+    if (kind !== 'webgl2') throw new Error(`expected the WebGL2 flow renderer, got ${kind}`);
+    await page.evaluate(() => window.pps.store.set({ view: 'circuit' }));
+    await page.waitForTimeout(900);
+    await page.evaluate(() => window.pps.store.set({ view: 'anatomic' }));
+    await page.waitForTimeout(900);
+    await shot(page, `${device}-flow-webgl2`);
+    const p2 = await page.context().newPage();
+    await p2.addInitScript(() => { window.PPS_FLOW_2D = true; });
+    await p2.goto(server.url + '?preset=cirr-hepatofugal');
+    await p2.waitForFunction(() => window.pps?.store?.get().frame);
+    const k2 = await p2.evaluate(() => document.querySelector('#stageView').dataset.flow);
+    if (k2 !== 'canvas2d') throw new Error(`expected the Canvas2D flow renderer, got ${k2}`);
+    await p2.close();
+  });
+
   await check(device, 'dark theme', async (page) => {
     await page.emulateMedia({ colorScheme: 'dark' });
     await open(page, '?preset=budd-chiari');

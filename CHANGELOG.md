@@ -11,6 +11,10 @@ patients, lessons and cases are unchanged (content version 2.0).
   optional production build (`npm run build`), ESLint, a browser smoke test on desktop and
   phone, a performance report, and CI. Fixed: the legend's "How to read" popover failed in the
   Congestion lens; an unknown `?preset=` link now says so and opens the closest patient.
+- **Phase 2, rendering.** Flow marks drawn on the GPU (WebGL2, with the Canvas2D renderer as the
+  fallback), occlusion masks rendered on the GPU; adaptive detail for slow devices; colors,
+  widths and varices no longer rebuilt on every heartbeat; hit testing limited to hit strokes.
+  On a throttled phone profile: 7 → 31 frames a second (see docs/PERFORMANCE.md).
 
 ## 2.0.0 (content version 2.0), 2026-09
 
