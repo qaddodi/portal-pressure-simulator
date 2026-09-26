@@ -1078,7 +1078,30 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       hold('gd', m.gastricVarix.d, 0.5), hold('c3', recruitFrac('C3', f), 0.1), lastMorph]);
   }
   const setVar = (el, k, v) => { const c = el._v || (el._v = {}); if (c[k] === v) return; c[k] = v; el.style.setProperty(k, v); };
+  // Varix wall-tension gauge: a ring around the esophageal varices that closes as wall tension
+  // (Laplace: pressure × radius ÷ wall thickness) approaches the rupture threshold, turning amber
+  // above 70 % and red above 90 %. It answers "how close is this varix to bleeding?" at a glance.
+  const gauge = s('g', { class: 'vx-gauge', 'aria-hidden': 'true' });
+  const gaugeTrack = s('path', { class: 'vx-track' }), gaugeArc = s('path', { class: 'vx-arc', pathLength: 1 });
+  gauge.append(gaugeTrack, gaugeArc);
+  gOver.append(gauge);
+  function updateVarixGauge(f, t) {
+    const vr = f.metrics.varix;
+    const on = t < 0.5 && vr.d >= 2.4 && !isImaging() && !store.get().params.balloonEso;
+    if (gauge._on !== on) { gauge._on = on; gauge.style.display = on ? '' : 'none'; }
+    if (!on) return;
+    const grow = clamp((hold('vd', vr.d, 0.5) - 2.4) / 8, 0, 1);
+    const top = 292 - (70 + 70 * grow), cy = (top + 292) / 2, ry = (292 - top) / 2 + 16, rx = 25;
+    const cx = 789 + (cy - 24) * 0.066;
+    const d = `M${cx.toFixed(1)} ${(cy - ry).toFixed(1)} A${rx} ${ry.toFixed(1)} 0 1 1 ${cx.toFixed(1)} ${(cy + ry).toFixed(1)} A${rx} ${ry.toFixed(1)} 0 1 1 ${cx.toFixed(1)} ${(cy - ry).toFixed(1)}`;
+    setA(gaugeTrack, 'd', d); setA(gaugeArc, 'd', d);
+    const r = clamp(hold('vt-g', vr.ratio, 0.02), 0, 1);
+    setA(gaugeArc, 'stroke-dasharray', `${r.toFixed(3)} 1`);
+    const lvl = r >= 0.9 ? 'high' : r >= 0.7 ? 'mid' : 'low';
+    if (gauge._lvl !== lvl) { gauge._lvl = lvl; gauge.setAttribute('class', 'vx-gauge ' + lvl); }
+  }
   function updateOverlays(f, p, gain, t) {
+    updateVarixGauge(f, t);
     // Colors follow pressure continuously through CSS variables; geometry rebuilds only on change.
     const PM = f.Pf || f.P;
     setVar(ov.varices, '--vx', pressureColor(qP(PM[NI.VAR])));
@@ -1396,15 +1419,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const meta = ATLAS_LABELS[id];
     const P = (f.Pf || f.P)[NI[id]];
     const name = mode === 'atlas' ? (meta?.name || NODES[NI[id]].label) : (SHORT[id] || id);
-    const lines = [[{ t: name, size: compact ? 10.5 : 11.5, weight: 500, cls: 'lb-name' }]];
+    // On a small screen an inline label is one quiet line (name, value) on a text halo, not a
+    // two-line card: it covers as little of the anatomy as it can.
+    const one = mode === 'inline' && compact;
+    const lines = [[{ t: name, size: compact ? 10.5 : 11.5, weight: one ? 600 : 500, cls: 'lb-name' }]];
     const lr = isImaging() ? null : layerRuns(f, id, compact);
     const pr = lr ? lr.runs : pressureRuns(P, id, compact);
-    if (pr) lines.push(pr);
+    // (The unit is in the legend right above the figure.)
+    if (pr && one) lines[0].push(...pr.filter((r) => r.cls !== 'lb-unit').map((r, i) => (i ? r : { ...r, gap: 4 })));
+    else if (pr) lines.push(pr);
     const w = Math.max(...lines.map(lineW)) + (mode === 'atlas' ? 7 : 0);
     const hh = lines.reduce((a, l) => a + LINE_H(l), 0);
     const sel = st.selection?.type === 'node' && st.selection.id === id;
-    return { key: 'n:' + id, node: id, cls: 'node ' + mode, lines, w, h: hh, sel, label: `${NODES[NI[id]].label}${lr ? `: ${lr.runs.map((r) => r.t).join(' ')}` : pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}`,
-      swatch: mode === 'atlas' && pr ? (lr ? lr.color : layerMode() === 'heat' ? heatColor(P - (REF()?.[NI[id]] ?? P)) : pressureColor(P)) : null, bg: mode === 'inline', padX: mode === 'inline' ? 6 : 3, padY: mode === 'inline' ? 3 : 2 };
+    return { key: 'n:' + id, node: id, cls: 'node ' + mode + (one ? ' bare' : ''), lines, w, h: hh, sel, label: `${NODES[NI[id]].label}${lr ? `: ${lr.runs.map((r) => r.t).join(' ')}` : pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}`,
+      swatch: mode === 'atlas' && pr ? (lr ? lr.color : layerMode() === 'heat' ? heatColor(P - (REF()?.[NI[id]] ?? P)) : pressureColor(P)) : null, bg: mode === 'inline' && !one, padX: mode === 'inline' && !one ? 6 : 3, padY: mode === 'inline' && !one ? 3 : 2 };
   }
 
   const ANAT_PRI = { CONF: 10, VAR: 9, SIN_R: 9, RHV: 8, RA: 8, SV: 7, SMV: 7, GV: 7, IVCS: 6, W_R: 12, W_M: 12, W_L: 12 };

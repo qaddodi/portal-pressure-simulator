@@ -15,6 +15,11 @@ patients, lessons and cases are unchanged (content version 2.0).
   fallback), occlusion masks rendered on the GPU; adaptive detail for slow devices; colors,
   widths and varices no longer rebuilt on every heartbeat; hit testing limited to hit strokes.
   On a throttled phone profile: 7 → 31 frames a second (see docs/PERFORMANCE.md).
+- **Phase 3, the figure.** Quiet anatomy: organs are flat tinted silhouettes with a hairline (no
+  cast shadows, blurred rims or decorative textures); texture now appears only as disease
+  (nodules, nutmeg, congestion). A varix wall-tension ring closes as the varices approach their
+  rupture threshold (amber ≥ 70 %, red ≥ 90 %). On small screens the station labels are single
+  lines on a text halo instead of cards, uncovering the anatomy.
 
 ## 2.0.0 (content version 2.0), 2026-09
 

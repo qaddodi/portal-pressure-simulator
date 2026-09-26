@@ -1495,3 +1495,17 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .stage-view.in-lobule .big-overlay { display: none; }
 /* Right-to-left: English content inside an Arabic interface keeps its own direction. */
 [dir="rtl"] p, [dir="rtl"] .d, [dir="rtl"] .t, [dir="rtl"] li, [dir="rtl"] .feedback { unicode-bidi: plaintext; }
+
+/* ── 2.1 visual language: quiet anatomy, vivid vessels ──────────────────────────
+   Organs are calm, flat silhouettes: a light tint of their own hue and a hairline, lit only by a
+   faint form gradient. No cast shadows, blurred rims or decorative tissue textures: depth comes
+   from layering. Texture appears only as a sign of disease (nodular cirrhosis, nutmeg congestion,
+   the congested vignette), so a healthy patient looks clean and a sick one visibly changes. */
+.org-cast, .band-cast, .org-rim, .band-sheen, .org-tex { display: none; }
+.org-form { opacity: .55; }
+.vx-track { fill: none; stroke: var(--text-3); stroke-opacity: .16; stroke-width: 2.4; }
+.vx-arc { fill: none; stroke: var(--text-2); stroke-opacity: .7; stroke-width: 2.4; stroke-linecap: round; transition: stroke .4s var(--ease); }
+.vx-gauge.mid .vx-arc { stroke: var(--caution); stroke-opacity: .95; }
+.vx-gauge.high .vx-arc { stroke: var(--danger); stroke-opacity: 1; }
+.app.figure-mode .vx-gauge { display: none; }
+#labels .lb.inline.bare text { stroke: var(--label-halo); stroke-width: 4px; }
