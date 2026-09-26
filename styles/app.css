@@ -3,6 +3,11 @@
    cover the anatomy; one contextual panel; instruments in a drawer that opens on demand. */
 *, *::before, *::after { box-sizing: border-box; }
 html, body { height: 100%; }
+/* Installed on an iPhone or iPad, the page runs edge to edge under the status bar. The top bar
+   owns that strip (its own color runs up behind the clock), and the document never scrolls, so
+   nothing slides up under the status bar. */
+:root { --safe-top: env(safe-area-inset-top, 0px); }
+html { overflow: hidden; overscroll-behavior: none; }
 body {
   margin: 0; background: var(--bg); color: var(--text);
   font: 14px/1.45 var(--font-ui); font-feature-settings: 'cv11', 'ss01'; font-variant-numeric: tabular-nums;
@@ -31,10 +36,12 @@ svg { flex: none; }
   --panel-w: 360px; --top-h: 56px;
   display: grid; height: 100dvh; width: 100%;
   grid-template-columns: minmax(0, 1fr) var(--panel-w);
-  grid-template-rows: var(--top-h) minmax(0, 1fr) auto;
+  grid-template-rows: calc(var(--top-h) + var(--safe-top)) minmax(0, 1fr) auto;
   grid-template-areas: "top top" "stage panel" "strip panel";
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+  padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left);
 }
+.app > .topbar { padding-top: var(--safe-top); }
+.app.figure-mode, .app.projector { padding-top: var(--safe-top); }
 .app.panel-collapsed { grid-template-columns: minmax(0, 1fr) 0; }
 .app.panel-collapsed .panel { visibility: hidden; }
 /* Charts need a little more width than the patient chart. */
@@ -840,7 +847,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .skeleton { height: 10px; border-radius: 4px; background: linear-gradient(90deg, var(--surface-2), var(--surface-3), var(--surface-2)); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; margin: 8px 0; }
 @keyframes shimmer { to { background-position: -200% 0; } }
 
-.modal-back { position: fixed; inset: 0; background: var(--scrim); z-index: 80; display: none; place-items: center; padding: 16px; }
+.modal-back { position: fixed; inset: 0; background: var(--scrim); z-index: 80; display: none; place-items: center; padding: calc(16px + var(--safe-top)) 16px 16px; }
 .modal-back.show { display: grid; animation: fade .2s var(--ease); }
 @keyframes fade { from { opacity: 0; } }
 .modal { background: var(--surface); border-radius: 18px; box-shadow: var(--shadow-3); width: min(720px, 100%); max-height: min(88dvh, 900px); overflow: auto; animation: pop .22s var(--ease); }
@@ -907,7 +914,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   .toast-wrap { left: 50%; }
   .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "stage" "strip"; }
   .app.panel-collapsed { grid-template-columns: minmax(0, 1fr); }
-  .panel { position: fixed; right: 0; top: var(--top-h); bottom: 0; width: min(380px, 92vw); z-index: 40; box-shadow: var(--shadow-3); transform: translateX(105%); transition: transform .3s var(--ease), width .3s var(--ease), visibility .3s; visibility: hidden; }
+  .panel { position: fixed; right: 0; top: calc(var(--top-h) + var(--safe-top)); bottom: 0; width: min(380px, 92vw); z-index: 40; box-shadow: var(--shadow-3); transform: translateX(105%); transition: transform .3s var(--ease), width .3s var(--ease), visibility .3s; visibility: hidden; }
   .app.dock-open .panel { width: min(460px, 92vw); }
   .app.panel-open .panel { transform: none; visibility: visible; }
   .panel-toggle[aria-pressed="true"] { background: var(--surface-3); }
@@ -950,7 +957,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 @media (max-width: 767px) {
   .app {
     --top-h: 52px;
-    grid-template-columns: minmax(0, 1fr); grid-template-rows: var(--top-h) minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr); grid-template-rows: calc(var(--top-h) + var(--safe-top)) minmax(0, 1fr) auto;
     grid-template-areas: "top" "stage" "strip";
   }
   .topbar { padding: 0 6px 0 10px; gap: 6px; }
@@ -1033,7 +1040,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 @media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
   .app {
     --top-h: 46px;
-    grid-template-columns: minmax(0, 1fr); grid-template-rows: var(--top-h) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr); grid-template-rows: calc(var(--top-h) + var(--safe-top)) minmax(0, 1fr);
     grid-template-areas: "top" "stage";
   }
   .topbar { padding: 0 8px; gap: 6px; }
@@ -1255,7 +1262,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 @media (max-width: 1100px) { .pal-l, .pal-btn kbd { display: none; } .pal-btn { width: 34px; padding: 0; justify-content: center; } }
 
 /* Home */
-.home { position: fixed; inset: 0; z-index: 75; background: var(--bg); overflow: auto; animation: fade .2s var(--ease); }
+.home { position: fixed; inset: 0; z-index: 75; background: var(--bg); overflow: auto; animation: fade .2s var(--ease); padding: var(--safe-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
 .home-inner { max-width: 1080px; margin: 0 auto; padding: 36px 28px 40px; display: flex; flex-direction: column; gap: 22px; }
 .home-head { display: flex; align-items: center; gap: 18px; }
 .home-head > svg { width: 56px; height: 56px; flex: none; }
@@ -1300,7 +1307,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 @media (max-width: 900px) { .home-doors { grid-template-columns: 1fr 1fr; } .home-inner { padding: 20px 16px 28px; } }
 
 /* Command palette */
-.pal-back { position: fixed; inset: 0; z-index: 95; background: var(--scrim); display: flex; justify-content: center; align-items: flex-start; padding: 12vh 16px 16px; }
+.pal-back { position: fixed; inset: 0; z-index: 95; background: var(--scrim); display: flex; justify-content: center; align-items: flex-start; padding: calc(12vh + var(--safe-top)) 16px 16px; }
 .pal-back[hidden] { display: none; }
 .pal { width: min(620px, 100%); background: var(--surface); border-radius: 16px; box-shadow: var(--shadow-3); overflow: hidden; animation: pop .16s var(--ease); }
 .pal-top { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--hairline); }

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Installed on iPhone and iPad.** The status bar no longer covers the top bar: the top bar
+  extends up behind the status bar, the side panel, start screen and dialogs start below it,
+  and the page can no longer scroll up under it.
 - **New logo.** The mark is now a liver with the portal vein and its splenic and mesenteric
   tributaries, colored by pressure from the gut (high) to the liver (low), replacing the abstract
   "Y". Favicon, app icons and lockup redrawn to match.

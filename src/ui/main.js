@@ -168,6 +168,9 @@ async function main() {
   renderPaintHint();
   buildHud();
   wireTopbar();
+  // iOS scrolls the whole page to reveal a focused field, which pushes the top bar up under the
+  // status bar of an installed app; the page itself never scrolls, so put it back.
+  addEventListener('scroll', () => { if (scrollX || scrollY) scrollTo(0, 0); }, { passive: true });
   wireKeyboard();
   wirePanel();
 
