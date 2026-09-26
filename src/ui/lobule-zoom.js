@@ -7,8 +7,8 @@
 // pressure rises. Zooming or pinching out returns to the liver. It replaces the old Lobule instrument.
 
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
-import { h, fmt, clamp, cssVar } from './util.js?v=13768f12bf';
-import { pressureColor } from './colormap.js?v=fa78a29bc0';
+import { h, fmt, clamp, cssVar } from './util.js?v=d483888526';
+import { pressureColor } from './colormap.js?v=5f8590b23c';
 import { NODES, EDGES } from '../engine/topology.js?v=6d79260961';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

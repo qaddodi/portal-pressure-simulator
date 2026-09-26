@@ -35,6 +35,17 @@
 - **One arrow style.** Flow marks no longer grow tails in fast vessels (TIPS, shunts, varices):
   every arrow in the figure is the same notched dart, including the heart's "to RV" mark and the
   figure legend.
+- **Shunts and feeders.** The gastrorenal and splenorenal shunts are drawn as single large veins,
+  not tortuous collaterals. The short and posterior gastric veins leave the splenic vein as one
+  vein and break into a plexus only as they reach the fundal varices.
+- **Tributaries.** The splenic vein (hilar branches), the superior mesenteric vein (jejunal,
+  ileal and ileocolic branches) and the inferior mesenteric vein (descending colic and sigmoid
+  veins) are drawn formed by their tributaries, which carry flow marks; the vessels themselves
+  have not moved.
+- **Caudate lobe.** Its vein runs from the portal vein straight into the IVC. In Budd–Chiari it
+  enlarges with its flow and collaterals from the right and left portal veins drain into it.
+- **Flow rates** read to one decimal everywhere (labels, cards, readouts, charts), with "< 0.1"
+  for a small but real flow; the low end of the flow lens is darker so trickles stay visible.
 
 ## 2.1.0 (content version 2.0), 2026-09
 

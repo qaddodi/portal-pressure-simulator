@@ -82,9 +82,10 @@ function makeScale(stops) {
   return at;
 }
 
-// Flow volume, L/min on a log scale from 0.02 to 6: pale mint (a trickle) to deep blue (the cavae).
+// Flow volume, L/min on a log scale from 0.02 to 6: soft sage (a trickle) to deep blue (the
+// cavae). The low end stays dark enough to read against the light plate.
 export const FLOW_MIN = 0.02, FLOW_MAX = 6;
-const flowScale = makeScale([[0, '#E4F2EC'], [0.25, '#A3D9C3'], [0.5, '#3EAA98'], [0.75, '#1E6F8C'], [1, '#1B366A']]);
+const flowScale = makeScale([[0, '#9CC7B5'], [0.25, '#72BFA4'], [0.5, '#3EAA98'], [0.75, '#1E6F8C'], [1, '#1B366A']]);
 export const flowPos = (lpm) => Math.log10(Math.max(FLOW_MIN, lpm) / FLOW_MIN) / Math.log10(FLOW_MAX / FLOW_MIN);
 export const flowColor = (lpm) => flowScale(flowPos(lpm));
 export const flowCss = (dir) => flowScale.css(dir);

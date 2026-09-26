@@ -3,25 +3,25 @@
 
 import { startHost, host } from './host.js?v=0917f25b24';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=4bf5a96a9d';
-import { createStage } from './stage.js?v=a900c86f34';
-import { createInspector } from './inspector.js?v=fd277b5ba6';
-import { createDock } from './dock.js?v=bf26011191';
-import { createWhy } from './why.js?v=58f5668693';
-import { createTimeline } from './timeline.js?v=bf2d211251';
-import { createLearn } from './learn.js?v=7a901c69eb';
-import { createCases } from './cases.js?v=7f74ef142f';
-import { createCompare } from './compare.js?v=2ec48ee73b';
-import { createCard } from './card.js?v=ff53c35e23';
-import { createChart } from './chart.js?v=3c9353d36f';
-import { createHome } from './home.js?v=75b8d4bca7';
+import { createStage } from './stage.js?v=a6de1e5064';
+import { createInspector } from './inspector.js?v=718cafd0b0';
+import { createDock } from './dock.js?v=cdf25183cd';
+import { createWhy } from './why.js?v=74679380bf';
+import { createTimeline } from './timeline.js?v=2c81ae8bfc';
+import { createLearn } from './learn.js?v=38cc26d87b';
+import { createCases } from './cases.js?v=4d72427eaf';
+import { createCompare } from './compare.js?v=20f877cd73';
+import { createCard } from './card.js?v=cc91e1a154';
+import { createChart } from './chart.js?v=d0f33f6cf3';
+import { createHome } from './home.js?v=7248caebfc';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=743b542534';
-import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=613fb582f8';
+import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=46c08905a9';
 import { startLMS } from './lms.js?v=4511ed56b8';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION } from '../version.js?v=36ceb4fb38';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=9df100e9fd';
-import { gradientCss, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=fa78a29bc0';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=3aaea708e3';
+import { gradientCss, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=5f8590b23c';
 import { EDGES, NODES } from '../engine/topology.js?v=6d79260961';
-import { $, $$, h, icon, fmt, toast, tooltipFor, openModal, closeModal, isModalOpen, units, popover, closePopover, menuItem, svgIcon } from './util.js?v=13768f12bf';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, units, popover, closePopover, menuItem, svgIcon } from './util.js?v=d483888526';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -134,7 +134,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=0042c393c7'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=75490b39d5'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -146,7 +146,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=202078ea3e'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=02f29ef249'), ({ createPalette }) => createPalette({ ctx: {
     select: (sel) => store.set({ selection: sel }), action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     wedge: () => { store.set({ selection: { type: 'edge', id: 'RHV_IVC' } }); setTimeout(() => card.trigger(3), 60); },
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
@@ -154,7 +154,7 @@ async function main() {
     loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); toast(store.get().presetList.find((p) => p.id === id)?.label); },
     lesson: (id) => startLesson(id), caseStart: (id) => startCase(id), home: () => home.open(), theme: () => toggleTheme(), help: () => openHelp(), share,
   } }));
-  figureL = lazy(() => import('./figure.js?v=9abb87e328'), ({ createFigure }) => createFigure({ app, stage, onClose: () => toggleFigure(false) }));
+  figureL = lazy(() => import('./figure.js?v=c8dd729de0'), ({ createFigure }) => createFigure({ app, stage, onClose: () => toggleFigure(false) }));
   card = createCard({
     view, stage, onWhy: (m, el) => why.open(m, el),
     onDetails: (sel) => { store.set({ details: normalizeSel(sel) || sel }); openPanel(); },
@@ -553,7 +553,7 @@ function hoverInfo(info) {
   const v = f.Q[k] / (Math.PI * D * D / 4);
   const r = (a, b) => h('div', { class: 'r' }, a, h('b', {}, b));
   tipEl.replaceChildren(h('div', { class: 't' }, e.label),
-    r('Pressure', `${fmt(f.P[NI[e.from]], 1)} → ${fmt(f.P[NI[e.to]], 1)} mmHg`), r('Flow', `${fmt(f.Q[k] * 0.06, 2)} L/min`),
+    r('Pressure', `${fmt(f.P[NI[e.from]], 1)} → ${fmt(f.P[NI[e.to]], 1)} mmHg`), r('Flow', `${fmtFlow(f.Q[k] * 0.06)} L/min`),
     r('Velocity', `${fmt(v, 1)} cm/s`), r('Diameter', `${fmt(f.D[k], 1)} mm`), h('div', { class: 'hint' }, 'Click for actions'));
   tipEl.style.display = '';
   const W = view.clientWidth, H = view.clientHeight;

@@ -4,8 +4,8 @@
 // the same in a vector editor, a slide or a manuscript.
 
 import { store } from './store.js?v=4bf5a96a9d';
-import { h, fmt, icon, toast } from './util.js?v=13768f12bf';
-import { pressureColor, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=fa78a29bc0';
+import { h, fmt, fmtFlow, icon, toast } from './util.js?v=d483888526';
+import { pressureColor, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=5f8590b23c';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const PROPS = ['fill', 'fill-opacity', 'fill-rule', 'stroke', 'stroke-width', 'stroke-opacity', 'stroke-dasharray', 'stroke-dashoffset', 'stroke-linecap', 'stroke-linejoin',
@@ -37,7 +37,7 @@ export function createFigure({ app, stage, onClose }) {
     if (st.imaging) return [['Anatomy only: pressures unmeasured in this case. ', false], [`Model time ${when}.`, false]];
     const rev = m.pvFlow < -0.02;
     return [[`Model time ${when}. `, false], ['HVPG ', false], [`${fmt(m.hvpg, 1)} mmHg`, true], [' · portal vein ', false], [`${fmt(m.pv, 1)} mmHg`, true],
-      [' · portal flow ', false], [`${fmt(m.pvFlow, 2)} L/min${rev ? ' (hepatofugal)' : ''}`, true], [' · varix wall tension ', false], [`${fmt(m.varix.ratio * 100, 0)} %`, true], [' of the rupture threshold', false]];
+      [' · portal flow ', false], [`${fmtFlow(m.pvFlow)} L/min${rev ? ' (hepatofugal)' : ''}`, true], [' · varix wall tension ', false], [`${fmt(m.varix.ratio * 100, 0)} %`, true], [' of the rupture threshold', false]];
   }
   function colorSentence() {
     const st = store.get();

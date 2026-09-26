@@ -33,7 +33,7 @@ export const ANAT_HIDDEN = new Set([]);
 // Drawn only once the paraumbilical collateral has opened.
 export const NEEDS_C3 = new Set(['EPI_ILI', 'EPI_SVC']);
 // Retroperitoneal vessels, drawn behind the organs (the liver and bowel veil them).
-export const BACK_EDGES = new Set(['IVC_IS', 'ILI_IVC', 'LRV_IVC', 'V_KID_L', 'C7', 'C9', 'S_MC', 'C1b', 'CAUD']);
+export const BACK_EDGES = new Set(['IVC_IS', 'ILI_IVC', 'LRV_IVC', 'V_KID_L', 'C7', 'C9', 'S_MC', 'C1b']);
 
 // Node positions: [anatomic, circuit]
 export const NODE_POS = {
@@ -104,7 +104,9 @@ export const EDGE_PATH = {
   POST_R_MHV: 'M446 296 C 496 292 562 276 598 238',
   POST_L_LHV: 'M738 262 C 712 242 686 226 660 214',
   POST_L_MHV: 'M738 262 C 694 256 640 250 598 238',
-  CAUD: 'M446 296 C 500 302 568 302 598 292 C 614 284 618 240 620 190',
+  // The caudate lobe takes its own portal branch off the hilum and drains straight into the
+  // retrohepatic IVC through short hepatic veins (drawn as one vein, portal vein → IVC).
+  CAUD: 'M602 442 C 598 414 600 384 620 346',
   RHV_IVC: 'M540 224 C 568 210 594 198 620 190',
   MHV_IVC: 'M598 238 C 606 222 613 205 620 190',
   LHV_IVC: 'M660 214 C 646 204 632 196 620 190',
@@ -145,17 +147,34 @@ export const EDGE_PATH = {
 // cavernous transformation is a braid of small, tortuous channels around the occluded trunk,
 // and the varices are fed and drained the same way: the coronary vein reaches the esophageal
 // varices, and they reach the azygos, through a plexus of periesophageal channels; the short and
-// posterior gastric veins reach the fundal varices as a leash of vessels from the splenic hilum,
-// and the gastrorenal shunt leaves them as a tortuous bundle. In the anatomic view these get
-// extra strands that leave and rejoin the vessel's ends:
-// [lateral offset at mid-course, serpentine phase, caliber fraction].
+// posterior gastric veins leave the splenic vein as one vein and break up into a leash of
+// channels as they reach the fundal varices. (A gastrorenal or splenorenal shunt is a single
+// large vein, not a plexus.) In the anatomic view these get extra strands that leave and rejoin
+// the vessel: [lateral offset at mid-course, serpentine phase, caliber fraction].
 export const STRANDS = {
   C8: [[-36, 1.1, 0.5], [-24, 3.9, 0.6], [13, 2.4, 0.65], [25, 5.2, 0.5], [36, 0.3, 0.42]],
   C1a: [[-11, 0.7, 0.5], [-5, 3.3, 0.6], [6, 1.9, 0.55], [12, 4.6, 0.45]],
   C1b: [[-16, 2.2, 0.45], [-7, 5.1, 0.55], [8, 0.9, 0.55], [17, 3.8, 0.42]],
   C2: [[-22, 4.1, 0.45], [-11, 1.4, 0.55], [10, 2.9, 0.55], [21, 0.4, 0.42]],
   C2b: [[-6, 2.6, 0.5], [6, 0.8, 0.5]],
-  C5: [[-14, 1.7, 0.4], [12, 4.4, 0.45]],
+};
+// Where along the vessel (0–1) the strands leave the main channel; before it the vessel is one.
+export const STRAND_FROM = { C2: 0.5 };
+
+// Tributaries and feeders (anatomic view only): named veins are formed by several smaller ones,
+// drawn converging on the vessel so the plate reads as anatomy, not a wiring diagram. They carry
+// the parent's color and flow marks. `k` is each one's caliber as a fraction of the parent;
+// `when: 'caudate'` shows them only once the caudate route is carrying several times its normal
+// flow (Budd–Chiari): portal blood from both lobes then collateralizes into the caudate vein.
+export const FEEDERS = {
+  // Splenic vein: the hilar branches from the upper pole, the hilum and the lower pole.
+  V_SPL: { k: 0.55, paths: ['M1058 292 C 1054 320 1042 344 1034 360', 'M1090 340 C 1068 346 1046 354 1034 360', 'M1070 424 C 1058 400 1044 378 1034 360'] },
+  // Superior mesenteric vein: jejunal and ileal branches fanning in from the small bowel below.
+  V_INT: { k: 0.5, paths: ['M604 872 C 636 846 684 836 690 790', 'M660 892 C 672 860 688 832 690 790', 'M742 886 C 716 858 694 834 690 790', 'M794 846 C 754 836 698 830 690 790'] },
+  // Inferior mesenteric vein: the descending colic and sigmoid veins fanning in from below.
+  V_COL: { k: 0.6, paths: ['M990 850 C 978 830 964 814 960 790', 'M944 888 C 952 854 958 822 960 790', 'M896 892 C 924 862 952 830 960 790'] },
+  // Budd–Chiari: collaterals from the right and left portal veins into the caudate vein.
+  CAUD: { k: 0.8, when: 'caudate', wig: 3.5, paths: ['M505 398 C 532 382 572 372 606 386', 'M688 378 C 664 370 634 374 607 386'] },
 };
 
 // Circuit view: a transit map. Pressure falls left → right along the main series circuit
@@ -348,7 +367,7 @@ export const LANE_CAPTIONS = {
 // Event anchors
 export const ANCHORS = {
   PERITONEUM: [720, 860], VAR: [797, 232], GV: [876, 302], TIPS: [522, 310], SPL: [1040, 362], RA: [620, 112],
-  AO: [700, 556], CAUD: [612, 300],
+  AO: [700, 556], CAUD: [606, 396],
 };
 
 // Which physical "vessel" an edge belongs to (for stent pairing & labels).

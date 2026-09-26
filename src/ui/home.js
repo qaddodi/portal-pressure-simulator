@@ -3,13 +3,13 @@
 // brings it back. A lesson or case then runs in the ordinary workspace with a slim banner.
 
 import { store } from './store.js?v=4bf5a96a9d';
-import { h, svgIcon, icon } from './util.js?v=13768f12bf';
-import { LESSONS } from './learn.js?v=7a901c69eb';
-import { CASES } from './cases.js?v=7f74ef142f';
+import { h, svgIcon, icon } from './util.js?v=d483888526';
+import { LESSONS } from './learn.js?v=38cc26d87b';
+import { CASES } from './cases.js?v=4d72427eaf';
 import { t } from '../i18n/i18n.js?v=743b542534';
 import { exportCSV, exportXAPI, learnerName, setLearnerName, records } from './records.js?v=26ab8fb634';
 import { SNAPSHOTS, PATH } from './snapshots.js?v=85ffc8d0f9';
-import { pressureColor } from './colormap.js?v=fa78a29bc0';
+import { pressureColor } from './colormap.js?v=5f8590b23c';
 
 const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };
 // Where each group's resistance sits along the pathway from the gut to the heart.

@@ -9,12 +9,12 @@
 //   Advanced                             physiology knobs (instructor / researcher)
 
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
-import { h, fmt, icon, svgIcon, toast } from './util.js?v=13768f12bf';
+import { h, fmt, icon, svgIcon, toast } from './util.js?v=d483888526';
 import { DRUGS } from '../engine/scenario.js?v=8fc90f782f';
-import { TILES, VITALS, PRIMARY } from './dock.js?v=bf26011191';
-import { activeInterventions } from './inspector.js?v=fd277b5ba6';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=9df100e9fd';
-import { fmtClock } from './timeline.js?v=bf2d211251';
+import { TILES, VITALS, PRIMARY } from './dock.js?v=cdf25183cd';
+import { activeInterventions } from './inspector.js?v=718cafd0b0';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=3aaea708e3';
+import { fmtClock } from './timeline.js?v=2c81ae8bfc';
 
 // Where each readout is measured, so a click can show it on the figure.
 const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS'] };

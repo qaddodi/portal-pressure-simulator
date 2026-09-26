@@ -43,6 +43,14 @@ export function fmt(v, d = 1) {
   if (v == null || !Number.isFinite(v)) return '—';
   return v.toFixed(d).replace('-', '−');
 }
+/** A flow rate in L/min to one decimal. A small but real flow reads "< 0.1" rather than 0.0, so
+ *  a trickle through a collateral never looks like none. */
+export function fmtFlow(v) {
+  if (v == null || !Number.isFinite(v)) return '—';
+  const a = Math.abs(v);
+  if (a > 0.0005 && a < 0.05) return (v < 0 ? '−' : '') + '< 0.1';
+  return fmt(v, 1);
+}
 export const unitConv = {
   pressure: {
     mmHg: { f: (v) => v, d: 1, u: 'mmHg' },
@@ -50,13 +58,13 @@ export const unitConv = {
     kPa: { f: (v) => v * 0.1333, d: 2, u: 'kPa' },
   },
   flow: {
-    'L/min': { f: (v) => v, d: 2, u: 'L/min' },
+    'L/min': { f: (v) => v, d: 1, u: 'L/min' },
     'mL/min': { f: (v) => v * 1000, d: 0, u: 'mL/min' },
   },
 };
 export const units = { pressure: 'mmHg', flow: 'L/min' };
 export function fp(v) { const c = unitConv.pressure[units.pressure]; return [fmt(c.f(v), c.d), c.u]; }
-export function ff(v) { const c = unitConv.flow[units.flow]; return [fmt(c.f(v), c.d), c.u]; }
+export function ff(v) { const c = unitConv.flow[units.flow]; return [units.flow === 'L/min' ? fmtFlow(v) : fmt(c.f(v), c.d), c.u]; }
 
 export function toast(msg, kind = '') {
   const wrap = document.getElementById('toasts');

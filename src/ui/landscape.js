@@ -5,11 +5,11 @@
 // pathway, live.
 
 import { store } from './store.js?v=4bf5a96a9d';
-import { h, fmt, clamp, fitCanvas } from './util.js?v=13768f12bf';
+import { h, fmt, clamp, fitCanvas } from './util.js?v=d483888526';
 import { NODES, EDGES } from '../engine/topology.js?v=6d79260961';
-import { NODE_POS, HIDDEN_EDGES, HIDDEN_NODES, CIRCUIT_ZONES, SHORT } from './anatomy.js?v=9a27037e31';
-import { pressureColor } from './colormap.js?v=fa78a29bc0';
-import { theme, FONT } from './charts.js?v=fd7a3ec3eb';
+import { NODE_POS, HIDDEN_EDGES, HIDDEN_NODES, CIRCUIT_ZONES, SHORT } from './anatomy.js?v=9699956dae';
+import { pressureColor } from './colormap.js?v=5f8590b23c';
+import { theme, FONT } from './charts.js?v=9591157a0e';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 // The portal pathway, gut to heart, and what a fall across each step means.

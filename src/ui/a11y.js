@@ -9,7 +9,7 @@
 // unless switched on, and stops with the page.
 
 import { store } from './store.js?v=4bf5a96a9d';
-import { fmt, clamp } from './util.js?v=13768f12bf';
+import { fmt, clamp } from './util.js?v=d483888526';
 import { EDGES, NODES } from '../engine/topology.js?v=6d79260961';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

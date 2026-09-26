@@ -2,10 +2,10 @@
 // varix cross-section, abdomen.
 
 import { NODES, EDGES } from '../engine/topology.js?v=6d79260961';
-import { pressureColor } from './colormap.js?v=fa78a29bc0';
+import { pressureColor } from './colormap.js?v=5f8590b23c';
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
-import { h, fmt, fitCanvas, cssVar, clamp, toast, icon } from './util.js?v=13768f12bf';
-import { FONT } from './charts.js?v=fd7a3ec3eb';
+import { h, fmt, fitCanvas, cssVar, clamp, toast, icon } from './util.js?v=d483888526';
+import { FONT } from './charts.js?v=9591157a0e';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

@@ -1,10 +1,10 @@
 // Dock charts (blueprint §9.2): pressure profile, scope, Sankey, perfusion + operating point.
 
 import { NODES, EDGES } from '../engine/topology.js?v=6d79260961';
-import { PROFILE_PATHS, SHORT } from './anatomy.js?v=9a27037e31';
-import { pressureColor } from './colormap.js?v=fa78a29bc0';
+import { PROFILE_PATHS, SHORT } from './anatomy.js?v=9699956dae';
+import { pressureColor } from './colormap.js?v=5f8590b23c';
 import { store } from './store.js?v=4bf5a96a9d';
-import { h, fmt, fitCanvas, cssVar, clamp } from './util.js?v=13768f12bf';
+import { h, fmt, fmtFlow, fitCanvas, cssVar, clamp } from './util.js?v=d483888526';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -459,8 +459,8 @@ export function createSankey() {
     for (const [b, v] of C) ribbon(b, IVC, v, c.rev);
     el.querySelector('#sankeyStats').replaceChildren(
       h('dt', {}, 'Shunt fraction'), h('dd', {}, `${Math.round(m.shuntFraction * 100)} %`),
-      h('dt', {}, 'Portal → liver'), h('dd', {}, `${fmt(portalToLiver, 2)} L/min`),
-      h('dt', {}, 'Hepatic artery'), h('dd', {}, `${fmt(ha, 2)} L/min`),
+      h('dt', {}, 'Portal → liver'), h('dd', {}, `${fmtFlow(portalToLiver)} L/min`),
+      h('dt', {}, 'Hepatic artery'), h('dd', {}, `${fmtFlow(ha)} L/min`),
       h('dt', {}, 'Liver perfusion'), h('dd', {}, `${Math.round(m.liverPerfPct)} %`));
   }
   return { id: 'flow', label: 'Flow', el, update: draw };
@@ -524,8 +524,8 @@ export function createPerfusion() {
       ctx.fillStyle = c.muted; ctx.font = FONT(500, 11.5); ctx.fillText(`healthy ${fmt(dp0 / q0, 1)} WU (dashed)`, L + 10, T + 30);
     }
     el.querySelector('#perfStats').replaceChildren(
-      h('dt', {}, 'Portal inflow'), h('dd', {}, `${fmt(m.portalIn, 2)} L/min`),
-      h('dt', {}, 'Arterial inflow'), h('dd', {}, `${fmt(m.arterialIn, 2)} L/min`),
+      h('dt', {}, 'Portal inflow'), h('dd', {}, `${fmtFlow(m.portalIn)} L/min`),
+      h('dt', {}, 'Arterial inflow'), h('dd', {}, `${fmtFlow(m.arterialIn)} L/min`),
       h('dt', {}, 'HABR gain'), h('dd', {}, `×${fmt(m.habr, 2)}`),
       h('dt', {}, 'Splanchnic tone'), h('dd', {}, `×${fmt(m.splTone, 2)}`));
   }
