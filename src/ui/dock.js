@@ -3,9 +3,9 @@
 import { store } from './store.js?v=e9304c5ee2';
 import { h, fmt, icon, svgIcon, popover, closePopover, clamp } from './util.js?v=13768f12bf';
 import { NODES, EDGES } from '../engine/topology.js?v=44e0aca402';
-import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=11b19fd5cf';
-import { createHVPG, createDoppler, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=3ebde59716';
-import { createLandscape } from './landscape.js?v=2ca22913dd';
+import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=5f03127400';
+import { createHVPG, createDoppler, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=ee67c9a9b1';
+import { createLandscape } from './landscape.js?v=ca9777077f';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -42,8 +42,7 @@ export const VITALS = [
 // Key readouts always shown; the rest join the row when abnormal (or when the learner asks).
 export const PRIMARY = new Set(['hvpg', 'pv', 'pvflow', 'varix']);
 
-export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onLobule }) {
-  const app = document.getElementById('app');
+export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onLobule, onOpen, onClose, isVisible }) {
   // ── Readout strip ─────────────────────────────────
   const tileEls = {};
   for (const t of TILES) {
@@ -120,8 +119,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
 
   // ── Instruments: one level ────────────────────────
   // The Instruments button opens a grid of cards, each with a live preview line. The chosen
-  // instrument docks under the figure (never taller than a quarter of the figure column); it can
-  // pop out as a floating, resizable window, and on a wide screen a second one can sit beside it.
+  // instrument opens in the side panel's Instruments tab (the panel widens a little for it); it
+  // can pop out as a floating, resizable window, and on a wide screen a second one can sit below it.
   const panes = [
     createProfile(), createLandscape(), createScope(), createSankey(), createPerfusion(), createHVPG(),
     createDoppler({ onProbe }), createEndoscopy({ onAction }), createVarixWall(), createAbdomen({ onAction }),
@@ -132,13 +131,11 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const floats = new Map(); // id → floating window element
   const titleBtn = h('button', { class: 'dock-title', 'aria-haspopup': 'dialog', title: 'Choose an instrument' }, svgIcon('chart'), h('span', { class: 'dt-l' }, 'Instruments'), svgIcon('chev-down', 'chev'));
   titleBtn.addEventListener('click', (e) => openGrid(e.currentTarget));
-  const second = h('button', { class: 'btn sm ghost dock-second', title: 'Show a second instrument beside this one' }, svgIcon('plus', 'mi-ic'), 'Add alongside');
+  const second = h('button', { class: 'btn sm ghost dock-second', title: 'Show a second instrument below this one' }, svgIcon('plus', 'mi-ic'), 'Add another');
   second.addEventListener('click', (e) => openGrid(e.currentTarget, { alongside: true }));
   const popBtn = h('button', { class: 'ib', 'aria-label': 'Pop out as a floating window', title: 'Pop out' }, svgIcon('panel'));
   popBtn.addEventListener('click', () => { if (open[0]) popOut(open[0]); });
-  const closeBtn = h('button', { class: 'ib', 'aria-label': 'Close instruments', title: 'Close (I)' }, svgIcon('close'));
-  closeBtn.addEventListener('click', () => close());
-  head.append(titleBtn, h('span', { class: 'sp' }), second, popBtn, closeBtn);
+  head.append(titleBtn, h('span', { class: 'sp' }), second, popBtn);
   for (const p of panes) { p.el.id = 'pane-' + p.id; p.el.setAttribute('role', 'region'); p.el.setAttribute('aria-label', p.label); body.append(p.el); }
 
   const INFO = {
@@ -171,7 +168,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       b.addEventListener('click', () => { closePopover(); onLobule(); });
       cards.push(b);
     }
-    popover(anchor, [h('div', { class: 'menu-title' }, alongside ? 'Add an instrument alongside' : 'Instruments'), h('div', { class: 'instr-grid' }, cards)], { cls: 'instr-pop', align: 'start', place: anchor.closest('.dock') ? 'above' : 'below' });
+    popover(anchor, [h('div', { class: 'menu-title' }, alongside ? 'Add an instrument alongside' : 'Instruments'), h('div', { class: 'instr-grid' }, cards)], { cls: 'instr-pop', align: anchor.closest('.dock') ? 'end' : 'start', place: 'below' });
   }
   const wide = matchMedia('(min-width: 1600px)');
   function layout() {
@@ -182,7 +179,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     second.hidden = !wide.matches || open.length !== 1;
     popBtn.hidden = !open.length;
     const f = store.get().frame;
-    if (f) setTimeout(() => { for (const id of open) byId[id].update(f); }, app.classList.contains('dock-open') ? 300 : 0);
+    if (f) setTimeout(() => { for (const id of open) byId[id].update(f); }, isVisible() ? 300 : 0);
   }
   wide.addEventListener('change', () => { if (!wide.matches && open.length > 1) open = open.slice(0, 1); layout(); });
   function show(id, { open: doOpen = true, reveal = false, alongside = false } = {}) {
@@ -193,23 +190,21 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     else if (!open.includes(id)) open = [id];
     layout();
     if (reveal) onReveal?.(reveal);
-    else if (doOpen) app.classList.add('dock-open');
-    if (app.classList.contains('dock-open')) titleBtn.classList.remove('ping');
+    else if (doOpen) onOpen();
     setTimeout(() => dispatchEvent(new Event('resize')), 320);
   }
-  function close() { app.classList.remove('dock-open'); setTimeout(() => dispatchEvent(new Event('resize')), 320); }
+  function close() { onClose(); setTimeout(() => dispatchEvent(new Event('resize')), 320); }
+  /** Makes sure something is docked before the Instruments tab is shown. */
+  function ensure() { if (!open.length) { open = ['profile']; layout(); } }
   function toggle() {
-    titleBtn.classList.remove('ping');
-    if (!open.length) open = ['profile'];
-    layout();
-    app.classList.toggle('dock-open');
-    setTimeout(() => dispatchEvent(new Event('resize')), 320);
+    if (isVisible()) close();
+    else { ensure(); onOpen(); setTimeout(() => dispatchEvent(new Event('resize')), 320); }
   }
   // Floating window over the figure: drag by its header, resize from the corner.
   function popOut(id) {
     const p = byId[id];
     const view = document.getElementById('stageView');
-    const back = h('button', { class: 'ib', 'aria-label': 'Dock under the figure', title: 'Dock' }, svgIcon('download'));
+    const back = h('button', { class: 'ib', 'aria-label': 'Dock in the side panel', title: 'Dock' }, svgIcon('download'));
     const x = h('button', { class: 'ib', 'aria-label': 'Close', title: 'Close' }, svgIcon('close'));
     const bar = h('header', { class: 'if-head' }, h('b', {}, p.label), h('span', { class: 'sp' }), back, x);
     const win = h('section', { class: 'instr-float stage-blocker', role: 'dialog', 'aria-label': p.label }, bar, p.el);
@@ -218,7 +213,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     floats.set(id, win);
     p.el.classList.add('active');
     open = open.filter((o) => o !== id);
-    if (!open.length) app.classList.remove('dock-open');
+    if (!open.length && isVisible()) onClose();
     layout();
     const dock = () => { floats.delete(id); body.append(p.el); win.remove(); show(id, { open: true }); };
     back.addEventListener('click', dock);
@@ -243,10 +238,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const cath = (f.params || store.get().params).catheter;
     if (cath?.vein && !open.includes('hvpg') && !floats.has('hvpg')) byId.hvpg.update(f);
     for (const id of floats.keys()) { const p = byId[id]; if (p === byId.scope) p.redraw(); else p.update(f); }
-    if (!force && !app.classList.contains('dock-open') && !window.matchMedia('(max-width: 767px), (max-height: 500px)').matches) return;
+    if (!force && !isVisible()) return;
     for (const id of open) { const p = byId[id]; if (p === byId.scope) p.redraw(); else p.update(f); }
   }
 
   addEventListener('resize', () => { const f = store.get().frame; if (f) for (const id of [...open, ...floats.keys()]) byId[id].update(f); });
-  return { update, show, toggle, close, openGrid, profile: byId.profile, pane: (id) => byId[id], isOpen: (id) => open.includes(id) || floats.has(id) };
+  return { update, show, toggle, close, ensure, openGrid, profile: byId.profile, pane: (id) => byId[id], isOpen: (id) => open.includes(id) || floats.has(id) };
 }

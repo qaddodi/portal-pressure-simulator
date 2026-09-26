@@ -14,7 +14,7 @@
   <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="fonts/fonts.css" />
   <link rel="stylesheet" href="styles/tokens.css?v=2ef1aa6020" />
-  <link rel="stylesheet" href="styles/app.css?v=38cfe11ad2" />
+  <link rel="stylesheet" href="styles/app.css?v=fd81afb77e" />
 </head>
 <body>
   <!-- Icon set: 24px grid, 1.6px stroke, round caps (blueprint §5.6). -->
@@ -87,7 +87,7 @@
     </defs>
   </svg>
 
-  <div class="app" id="app" data-sheet="panel" data-mode="explore">
+  <div class="app" id="app" data-mode="explore">
     <header class="topbar">
       <a class="brand" href="./" id="brandBtn" aria-label="Portal Pressure Simulator: home">
         <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" class="brand-bg"/><path d="M16 27.4V19.6c0-3.3-2.3-5.1-4.9-6.8L8.6 11.2M16 19.6c0-3.3 2.3-5.1 4.9-6.8l2.5-1.6" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="8.2" cy="9.6" r="2.9" fill="#7CC4E4"/><circle cx="23.8" cy="9.6" r="2.9" fill="#C0307A"/></svg>
@@ -103,7 +103,7 @@
         <button class="pal-btn" id="btnPalette" title="Command palette (Ctrl K)" aria-label="Command palette"><svg><use href="#i-explore"/></svg><span class="pal-l" data-i18n="top.search">Search or run…</span><kbd>Ctrl K</kbd></button>
         <button class="ib" id="btnShare" title="Share &amp; export" aria-label="Share and export" data-i18n-attr="aria-label:top.share" aria-haspopup="menu"><svg><use href="#i-share"/></svg></button>
         <button class="ib" id="btnMenu" title="Settings, role, help" aria-label="Menu" data-i18n-attr="aria-label:top.menu" aria-haspopup="menu"><svg><use href="#i-sliders"/></svg></button>
-        <button class="btn panel-toggle" id="btnInspector" aria-label="Show or hide the patient chart" aria-pressed="true"><svg><use href="#i-panel"/></svg><span data-i18n="top.chart">Chart</span></button>
+        <button class="btn panel-toggle" id="btnInspector" aria-label="Show or hide the side panel (patient chart and instruments)" aria-pressed="true"><svg><use href="#i-panel"/></svg><span data-i18n="top.chart">Chart</span></button>
       </div>
     </header>
 
@@ -121,7 +121,6 @@
           <div class="lens-btn" id="btnLayers" role="button" tabindex="0" aria-haspopup="dialog" title="Color the vessels by… (L cycles)"><span class="lens-name" id="colorModeLabel">Pressure</span><div class="legend" id="legend" role="img" aria-label="Color legend"></div><svg class="chev"><use href="#i-chev-down"/></svg></div>
           <button class="chip-btn" id="btnInstruments" aria-haspopup="dialog" title="Instruments: pressure profile, Doppler, HVPG, endoscopy… (I)"><svg><use href="#i-chart"/></svg><span data-i18n="bar.instruments">Instruments</span></button>
           <button class="chip-btn" id="btnFigure" title="Figure view: a clean, labeled plate to present or export (F)"><svg><use href="#i-camera"/></svg><span data-i18n="bar.figure">Figure</span></button>
-          <button class="ib show-sm" id="btnExpand" aria-label="Expand figure" aria-pressed="false"><svg><use href="#i-fit"/></svg></button>
         </div>
       </div>
       <div class="fig-head" id="figHead"></div>
@@ -142,22 +141,23 @@
 
     <section class="readouts" id="strip" aria-label="Clinical readouts"></section>
 
-    <section class="dock" id="dock" aria-label="Instruments">
-      <div class="dock-resize" id="dockResize" title="Drag to resize"></div>
-      <div class="dock-head" id="dockHead"></div>
-      <div class="dock-body" id="dockBody"></div>
-    </section>
-
-    <aside class="panel" id="panel" aria-label="Patient chart">
-      <div id="panelLesson"></div>
-      <div id="panelCase"></div>
-      <div id="inspector"></div>
+    <div class="panel-scrim" id="panelScrim" aria-hidden="true"></div>
+    <aside class="panel" id="panel" aria-label="Side panel">
+      <div class="panel-tabs" role="tablist" aria-label="Side panel">
+        <button role="tab" id="tabChart" data-ptab="chart" aria-selected="true" aria-controls="panelChart"><svg><use href="#i-gauge"/></svg><span data-i18n="tabs.chart">Chart</span></button>
+        <button role="tab" id="tabInstruments" data-ptab="instruments" aria-selected="false" aria-controls="dock"><svg><use href="#i-chart"/></svg><span data-i18n="tabs.instruments">Instruments</span></button>
+        <button class="ib panel-close" id="panelClose" aria-label="Close the side panel" title="Close"><svg><use href="#i-close"/></svg></button>
+      </div>
+      <div class="panel-page" id="panelChart" role="tabpanel" aria-labelledby="tabChart">
+        <div id="panelLesson"></div>
+        <div id="panelCase"></div>
+        <div id="inspector"></div>
+      </div>
+      <section class="dock" id="dock" role="tabpanel" aria-labelledby="tabInstruments">
+        <div class="dock-head" id="dockHead"></div>
+        <div class="dock-body" id="dockBody"></div>
+      </section>
     </aside>
-
-    <nav class="mobile-tabs" id="mobileTabs" role="tablist" aria-label="Panels">
-      <button role="tab" data-sheet="panel" aria-selected="true"><svg><use href="#i-gauge"/></svg><span data-i18n="tabs.chart">Chart</span></button>
-      <button role="tab" data-sheet="charts" aria-selected="false"><svg><use href="#i-chart"/></svg><span data-i18n="tabs.instruments">Instruments</span></button>
-    </nav>
   </div>
 
   <section class="home" id="home" aria-label="Home" hidden></section>
@@ -167,17 +167,17 @@
   <div class="toast-wrap" id="toasts"></div>
   <div class="sr-only" aria-live="polite" id="live"></div>
 
-  <link rel="modulepreload" href="src/ui/stage.js?v=359159fe57" />
-  <link rel="modulepreload" href="src/ui/anatomy.js?v=a799fac075" />
+  <link rel="modulepreload" href="src/ui/stage.js?v=a17a65dc51" />
+  <link rel="modulepreload" href="src/ui/anatomy.js?v=a216a3a911" />
   <link rel="modulepreload" href="src/ui/util.js?v=13768f12bf" />
   <link rel="modulepreload" href="src/ui/store.js?v=e9304c5ee2" />
   <link rel="modulepreload" href="src/ui/colormap.js?v=fa78a29bc0" />
-  <link rel="modulepreload" href="src/ui/inspector.js?v=87d3126b53" />
-  <link rel="modulepreload" href="src/ui/dock.js?v=43bf823aee" />
-  <link rel="modulepreload" href="src/ui/charts.js?v=11b19fd5cf" />
-  <link rel="modulepreload" href="src/ui/instruments.js?v=3ebde59716" />
-  <link rel="modulepreload" href="src/ui/timeline.js?v=2f4cb4fe9e" />
+  <link rel="modulepreload" href="src/ui/inspector.js?v=f65bdc872b" />
+  <link rel="modulepreload" href="src/ui/dock.js?v=ce88824188" />
+  <link rel="modulepreload" href="src/ui/charts.js?v=5f03127400" />
+  <link rel="modulepreload" href="src/ui/instruments.js?v=ee67c9a9b1" />
+  <link rel="modulepreload" href="src/ui/timeline.js?v=7e9c24f2f0" />
   <link rel="modulepreload" href="src/engine/topology.js?v=44e0aca402" />
-  <script type="module" src="src/ui/main.js?v=192d6db906"></script>
+  <script type="module" src="src/ui/main.js?v=6ecbf505f9"></script>
 </body>
 </html>

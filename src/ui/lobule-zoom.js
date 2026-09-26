@@ -1,10 +1,10 @@
-// Semantic zoom, last step: the liver lobule. Zooming far into the liver on the anatomy (or
-// "Zoom into the lobule" on the liver's card) cross-fades the plate into a honeycomb of hepatic
+// Semantic zoom, last step: the liver lobule. The Lobule step of the zoom trail, or "Zoom into
+// the lobule" on the liver's card, cross-fades the plate into a honeycomb of hepatic
 // lobules drawn from the live model: portal triads at the corners, sinusoids running to the
 // central vein with red cells moving at the model's sinusoidal flow, hepatocyte plates, stellate
 // cells that activate with fibrosis, collagen where the model puts resistance (portal tract,
 // sinusoids, central vein, bridging septa in cirrhosis), and zone-3 congestion when the outflow
-// pressure rises. Zooming back out returns to the liver. It replaces the old Lobule instrument.
+// pressure rises. Zooming or pinching out returns to the liver. It replaces the old Lobule instrument.
 
 import { store, updateParams } from './store.js?v=e9304c5ee2';
 import { h, fmt, clamp, cssVar } from './util.js?v=13768f12bf';
@@ -42,6 +42,17 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
     h('div', { class: 'lz-side' }, h('div', { class: 'lz-title' }, 'Hepatic lobule'), stats, fibBtns, legend));
   host.append(el);
   el.addEventListener('wheel', (ev) => { ev.preventDefault(); onWheel?.(ev); }, { passive: false });
+  // A pinch out inside the lobule steps back to the liver, as a wheel out does.
+  const touches = new Map();
+  let pinch0 = 0;
+  const spread = () => { const [a, b] = [...touches.values()]; return Math.hypot(a[0] - b[0], a[1] - b[1]); };
+  el.addEventListener('pointerdown', (ev) => { touches.set(ev.pointerId, [ev.clientX, ev.clientY]); if (touches.size === 2) pinch0 = spread(); });
+  el.addEventListener('pointermove', (ev) => {
+    if (!touches.has(ev.pointerId)) return;
+    touches.set(ev.pointerId, [ev.clientX, ev.clientY]);
+    if (touches.size === 2 && pinch0 && spread() < pinch0 * 0.75) { pinch0 = 0; onBack?.(); }
+  });
+  for (const t of ['pointerup', 'pointercancel', 'pointerleave']) el.addEventListener(t, (ev) => { touches.delete(ev.pointerId); if (touches.size < 2) pinch0 = 0; });
 
   let F = null, fade = 0, raf = 0, last = 0;
   const pc = (p) => (model?.hide ? '#A0939C' : pressureColor(p));

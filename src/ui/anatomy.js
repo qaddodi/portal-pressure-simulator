@@ -27,10 +27,9 @@ export const HIDDEN_EDGES = new Set(['A_SMA', 'A_IMA', 'A_SPL', 'A_LGA', 'A_REN_
 export const HIDDEN_NODES = new Set(['AO', 'UPPV', 'LOWV', 'KID_R', 'RRV', 'HA']);
 // Systemic veins drawn quietly: they matter only as the places collaterals drain to.
 export const CONTEXT_EDGES = new Set(['V_UP', 'SVC_RA', 'AZY_SVC', 'ILI_IVC', 'EPI_ILI', 'EPI_SVC', 'V_KID_L', 'LRV_IVC']);
-// The abdominal-wall veins the paraumbilical route drains into are shown on the anatomy as the
-// caput medusae around the umbilicus, not as a line around the whole body; the circuit keeps
-// their lane.
-export const ANAT_HIDDEN = new Set(['EPI_SVC', 'EPI_ILI']);
+// Edges the circuit draws but the anatomy leaves out (none at present: the abdominal-wall veins
+// the paraumbilical route opens into are drawn from the caput medusae to the SVC and the iliac).
+export const ANAT_HIDDEN = new Set([]);
 // Drawn only once the paraumbilical collateral has opened.
 export const NEEDS_C3 = new Set(['EPI_ILI', 'EPI_SVC']);
 // Retroperitoneal vessels, drawn behind the organs (the liver and bowel veil them).
@@ -240,7 +239,7 @@ export const CIRCUIT_LABELS = {
 export const ORGANS = [
   { id: 'kidney-r', tone: 'kidney', cls: 'org org-kidney', d: 'M474 578 C 446 586 434 626 440 664 C 446 700 474 720 500 714 C 518 710 522 692 516 676 C 510 662 512 646 518 634 C 524 618 520 596 506 584 C 496 576 484 574 474 578 Z' },
   { id: 'kidney-l', tone: 'kidney', cls: 'org org-kidney', d: 'M1002 556 C 1040 548 1066 584 1064 626 C 1062 672 1034 700 1000 694 C 982 690 984 668 994 654 C 1000 642 998 630 990 620 C 984 606 978 574 1002 556 Z' },
-  { id: 'esophagus', tone: 'eso', cls: 'org org-eso', d: 'M776 0 L 798 0 C 800 90 805 190 818 290 C 820 298 813 304 805 302 L 796 300 C 787 200 781 90 776 0 Z' },
+  { id: 'esophagus', tone: 'eso', cls: 'org org-eso', d: 'M776 0 L 798 0 C 800 90 805 190 813 251 L 792 251 C 787 190 781 90 776 0 Z' },
   { id: 'heart', tone: 'heart', cls: 'org org-heart', d: 'M618 64 C 600 88 598 128 606 158 C 614 184 640 194 682 194 C 742 194 800 188 836 172 C 850 165 850 150 839 140 C 812 110 776 80 736 64 C 700 51 648 50 618 64 Z' },
   { id: 'heart-grooves', cls: 'org-heart-groove', deco: true, d: 'M736 64 C 750 108 786 152 832 176 M666 64 C 682 102 686 150 678 193' },
   { id: 'heart-out', cls: 'org-heart-flow', deco: true, d: 'M664 118 C 690 112 716 114 742 126' },
@@ -249,10 +248,10 @@ export const ORGANS = [
   { id: 'colon', tone: 'gut', cls: 'org-colon', band: true, d: 'M424 900 C 420 880 414 864 410 846 C 402 808 398 764 400 704 C 402 646 412 596 438 568 C 472 556 506 588 544 628 C 592 678 650 700 720 700 C 800 700 870 660 916 600 C 946 560 970 510 984 468 C 992 560 988 700 972 790 C 962 848 924 880 868 892 C 838 898 812 902 788 906' },
   { id: 'spleen', tone: 'spleen', cls: 'org org-spleen', d: 'M1030 266 C 1072 264 1100 300 1104 352 C 1108 408 1082 452 1040 462 C 1018 466 1002 456 1004 440 C 1006 426 1016 414 1017 400 C 1018 390 1014 382 1016 372 C 1018 358 1018 342 1013 328 C 1008 314 1006 300 1008 288 C 1010 274 1018 267 1030 266 Z' },
   { id: 'duodenum', tone: 'stomach', cls: 'org-duodenum', band: true, d: 'M726 514 C 690 506 652 526 644 566 C 636 612 650 650 688 668 C 724 684 772 680 806 664' },
-  { id: 'stomach', tone: 'stomach', cls: 'org org-stomach', d: 'M804 300 C 806 270 830 246 868 242 C 910 238 948 260 966 296 C 984 332 990 380 984 424 C 976 480 940 524 886 546 C 846 562 796 566 756 552 C 738 546 724 536 714 522 L 708 508 C 712 498 722 494 734 494 C 764 494 794 484 812 462 C 822 450 828 436 830 420 C 834 392 830 350 822 320 C 820 310 818 304 818 298 Z' },
+  { id: 'stomach', tone: 'stomach', cls: 'org org-stomach', d: 'M813 249 C 818 257 828 253 840 247 C 850 242 859 241 868 242 C 910 238 948 260 966 296 C 984 332 990 380 984 424 C 976 480 940 524 886 546 C 846 562 796 566 756 552 C 738 546 724 536 714 522 L 708 508 C 712 498 722 494 734 494 C 764 494 794 484 812 462 C 822 450 828 436 830 420 C 834 392 830 350 822 320 C 815 298 800 276 792 249 Z' },
   // The gallbladder lies under the liver; only its fundus shows below the inferior margin.
   { id: 'gallbladder', tone: 'gb', cls: 'org org-gb', d: 'M540 464 C 526 488 522 520 534 536 C 548 552 574 546 580 524 C 586 502 580 482 570 470 C 562 462 548 458 540 464 Z' },
-  { id: 'liver', tone: 'liver', cls: 'org org-liver', d: 'M866 270 C 850 254 806 232 748 212 C 700 196 650 188 620 187 C 560 184 470 178 404 188 C 358 196 330 220 322 262 C 316 312 318 382 330 432 C 338 466 356 490 388 498 C 432 505 492 494 540 480 C 575 470 602 459 630 446 C 644 440 650 436 653 431 C 656 435 661 437 667 433 C 724 398 796 330 866 270 Z' },
+  { id: 'liver', tone: 'liver', cls: 'org org-liver', d: 'M858 250 C 832 236 798 226 748 212 C 700 196 650 188 620 187 C 560 184 470 178 404 188 C 358 196 330 220 322 262 C 316 312 318 382 330 432 C 338 466 356 490 388 498 C 432 505 492 494 540 480 C 575 470 602 459 630 446 C 644 440 650 436 653 431 C 656 435 661 437 667 433 C 724 398 790 340 846 292 C 864 277 873 259 858 250 Z' },
   // Cantlie's line (gallbladder fossa to the IVC) and the falciform ligament: the lobes as a
   // surgeon reads them.
   { id: 'falciform', cls: 'org-lobe-line', deco: true, d: 'M657 434 C 652 370 646 290 642 190' },

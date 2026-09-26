@@ -71,9 +71,13 @@ as a map of the disease: grouped by where the resistance sits, each with its pre
 - **Instruments.** Pressure profile, pressure landscape, trends, flow, perfusion, HVPG, spectral
   Doppler, endoscopy, varix wall, abdomen. The **pressure landscape** raises the circuit by
   pressure (drag to tilt): blood runs downhill, cliffs are resistances, and it names the steepest
-  fall on the portal pathway. One opens under the figure; pop it out or put two side by side.
-- **Semantic zoom.** Zoom into the liver and keep going: the plate becomes a honeycomb of lobules
-  drawn from the model (sinusoids, stellate cells, collagen, congestion).
+  fall on the portal pathway. One opens in the side panel's Instruments tab, beside the
+  patient chart; pop it out or stack a second one below it.
+- **Semantic zoom.** Zoom into the liver, then choose *Lobule* in the zoom trail (or *Zoom into
+  the lobule* on the liver's card): the plate becomes a honeycomb of lobules drawn from the model
+  (sinusoids, stellate cells, collagen, congestion). Zooming alone never leaves the anatomy.
+- **Phones.** The figure takes the screen; the Chart button slides the side panel (chart and
+  instruments) over it.
 - **Views and lenses.** Anatomy or a transit-map Circuit; color by pressure, change, congestion,
   pressure drop, flow, velocity or direction.
 - **Figure (F).** A clean labeled plate to present, print or export as SVG or PNG.

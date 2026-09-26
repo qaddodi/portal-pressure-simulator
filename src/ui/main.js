@@ -3,16 +3,16 @@
 
 import { startHost, host } from './host.js?v=0489e81e1a';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=e9304c5ee2';
-import { createStage } from './stage.js?v=359159fe57';
-import { createInspector } from './inspector.js?v=87d3126b53';
-import { createDock } from './dock.js?v=43bf823aee';
+import { createStage } from './stage.js?v=a17a65dc51';
+import { createInspector } from './inspector.js?v=f65bdc872b';
+import { createDock } from './dock.js?v=ce88824188';
 import { createWhy } from './why.js?v=648b449677';
-import { createTimeline } from './timeline.js?v=2f4cb4fe9e';
+import { createTimeline } from './timeline.js?v=7e9c24f2f0';
 import { createLearn } from './learn.js?v=1e96075313';
 import { createCases } from './cases.js?v=10f87353cf';
-import { createCompare } from './compare.js?v=0a28b9dcc5';
+import { createCompare } from './compare.js?v=f2db198935';
 import { createCard } from './card.js?v=b91b1c7319';
-import { createChart } from './chart.js?v=98ad3f33f5';
+import { createChart } from './chart.js?v=e70cd7cf7c';
 import { createHome } from './home.js?v=8d87045001';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=743b542534';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=a1a7234e43';
@@ -124,13 +124,15 @@ async function main() {
     action: doAction, startShunt: (id, o) => stage.startShunt(id, o), select: (sel) => store.set({ selection: sel }), timeline, pinned: () => compare.section(),
   });
   inspector = createInspector($('#inspector'), {
-    onWhy: (m, el) => why.open(m, el), onAction: doAction, onOpenTab: (id) => dock.show(id, { reveal: true }), onClose: closePanel,
+    onWhy: (m, el) => why.open(m, el), onAction: doAction, onOpenTab: (id) => dock.show(id, { reveal: true }),
     onScenarios: () => openScenarios($('#scenarioBtn')), onMode: (m) => store.set({ mode: m }), chart,
   });
-  dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => host.send({ type: 'probe', id }), onReveal: revealDock, onLobule: () => zoomLobule('R') });
+  dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => host.send({ type: 'probe', id }), onReveal: revealDock, onLobule: () => zoomLobule('R'),
+    onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), isVisible: () => app.classList.contains('dock-open') && panelShown() });
   const api = { beginSession, endSession, onEnd: () => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); }, muteEvents: () => {}, loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), openPanel, setBanner, select: (sel) => store.set({ selection: sel }) };
-  // A lesson keeps its card in view on a phone: instruments it opens are flagged, not forced.
-  learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panel'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
+  // A lesson keeps its card in view where the panel covers the figure: instruments it opens are
+  // flagged, not forced.
+  learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
   presenterL = lazy(() => import('./presenter.js?v=b1d6524fa0'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
@@ -144,7 +146,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=497a400652'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=e497240b7a'), ({ createPalette }) => createPalette({ ctx: {
     select: (sel) => store.set({ selection: sel }), action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     wedge: () => { store.set({ selection: { type: 'edge', id: 'RHV_IVC' } }); setTimeout(() => card.trigger(3), 60); },
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
@@ -167,8 +169,7 @@ async function main() {
   buildHud();
   wireTopbar();
   wireKeyboard();
-  wireMobile();
-  wireDockResize();
+  wirePanel();
 
   host.on('frame', onFrame);
   host.on('error', (m) => { console.error(m.message); toast('Engine error: see the console.', 'bad'); });
@@ -196,8 +197,6 @@ async function main() {
   const shared = readShare();
   if (shared) await loadShared(shared); else timeline.reset();
   inspector.render();
-  sizeDock();
-  addEventListener('resize', sizeDock);
   if (!(await openDeepLink())) firstRun();
   const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
   setTimeout(() => idle(() => { paletteL.warm(); figureL.warm(); presenterL.warm(); }), 3000);
@@ -655,21 +654,34 @@ function applyTheme(t, clear) {
   const f = store.get().frame; if (f) { stage?.update(viewFrame(f)); dock?.update(f); }
 }
 function readLS(k) { try { return localStorage.getItem(k); } catch { return null; } }
-// An open instrument takes at most ~30 % of the figure column (never under 236 px, the least a
-// chart needs to stay legible); the figure keeps the rest.
-function sizeDock() {
-  const avail = app.clientHeight - ($('.topbar')?.offsetHeight || 52);
-  const want = parseFloat(readLS('pps.dockH')) || 260;
-  app.style.setProperty('--dock-open-h', `${Math.round(Math.max(236, Math.min(want, avail * 0.3)))}px`);
-}
+// ── Side panel: the patient chart and the instruments, one tab each ───
+// Beside the figure on a wide screen; below 1280 px it slides over the figure from the right
+// (with a scrim on a phone) and the top bar's Chart button opens it.
 function panelShown() { return isNarrow() ? app.classList.contains('panel-open') : !app.classList.contains('panel-collapsed'); }
-function syncPanelToggle() { $('#btnInspector').setAttribute('aria-pressed', String(panelShown())); setTimeout(() => stage?.relayout(), 320); }
-function openPanel() {
+function syncPanelToggle() {
+  const on = panelShown();
+  $('#btnInspector').setAttribute('aria-pressed', String(on));
+  if (on) $('#btnInspector').classList.remove('ping');
+  setTimeout(() => stage?.relayout(), 320);
+}
+/** Opens the side panel; on the patient chart unless a tab is named. */
+function openPanel(tab = 'chart') {
   app.classList.remove('panel-collapsed'); app.classList.add('panel-open');
-  if (isPhone()) setSheet('panel');
+  setPanelTab(tab);
   syncPanelToggle();
 }
 function closePanel() { if (isNarrow()) app.classList.remove('panel-open'); else app.classList.add('panel-collapsed'); syncPanelToggle(); }
+function setPanelTab(tab) {
+  const instr = tab === 'instruments';
+  if (instr) dock.ensure();
+  const was = app.classList.contains('dock-open');
+  app.classList.toggle('dock-open', instr);
+  $$('.panel-tabs [role="tab"]').forEach((b) => { const on = b.dataset.ptab === tab; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; if (on) b.classList.remove('ping'); });
+  if (was !== instr) {
+    const f = store.get().frame; if (f && instr) requestAnimationFrame(() => dock.update(f, true));
+    setTimeout(() => dispatchEvent(new Event('resize')), 320);
+  }
+}
 
 // ── Modes ───────────────────────────────────────────
 function onMode(mode) {
@@ -683,7 +695,7 @@ function onMode(mode) {
   store.set({ selection: null, details: null });
   inspector.render();
   renderPaintHint(); renderBanner(); renderLegend();
-  if (isPhone()) setSheet('panel');
+  setPanelTab('chart');
 }
 
 // ── Keyboard (§8.5) ─────────────────────────────────
@@ -763,46 +775,34 @@ function updateProjector(f) {
 }
 
 // ── Phone & tablet ──────────────────────────────────
-function setSheet(s) {
-  app.dataset.sheet = s;
-  app.classList.remove('fig-expanded');
-  $('#btnExpand').setAttribute('aria-pressed', 'false');
-  $$('#mobileTabs button').forEach((b) => { b.setAttribute('aria-selected', String(b.dataset.sheet === s)); if (b.dataset.sheet === s) b.classList.remove('ping'); });
-  const f = store.get().frame; if (f) requestAnimationFrame(() => dock.update(f, true));
-}
-// How an instrument is brought forward: 'hard' (a button asked for it) opens it; 'lesson' opens
-// the drawer on desktop but only flags it on a phone; 'soft' (a click on the figure) never
-// re-frames the figure under the pointer, so it only flags the drawer when it is closed.
+// How an instrument is brought forward: 'hard' (a button asked for it) opens it in the side
+// panel; 'lesson' does the same where the panel sits beside the figure but only flags it where
+// the panel would cover the figure; 'soft' (a click on the figure) never re-frames the figure
+// under the pointer, so it only flags the Instruments tab (or the Chart button) when hidden.
 function revealDock(mode) {
-  if (!isPhone()) {
-    if (mode === 'soft' && !app.classList.contains('dock-open')) $('#dockHead .dock-title').classList.add('ping');
-    else app.classList.add('dock-open');
-    return;
-  }
-  if (mode === 'soft' || mode === 'lesson') { if (app.dataset.sheet !== 'charts') $('#mobileTabs button[data-sheet="charts"]').classList.add('ping'); }
-  else setSheet('charts');
+  const visible = app.classList.contains('dock-open') && panelShown();
+  if (visible) return;
+  const flag = mode === 'soft' || (mode === 'lesson' && isNarrow());
+  if (!flag) { openPanel('instruments'); return; }
+  if (panelShown()) $('#tabInstruments').classList.add('ping');
+  else { $('#btnInspector').classList.add('ping'); $('#tabInstruments').classList.add('ping'); }
 }
-function wireMobile() {
-  $$('#mobileTabs button').forEach((b) => b.addEventListener('click', () => setSheet(b.dataset.sheet)));
-  $('#btnExpand').addEventListener('click', () => {
-    const on = !app.classList.contains('fig-expanded');
-    app.classList.toggle('fig-expanded', on);
-    $('#btnExpand').setAttribute('aria-pressed', String(on));
-    $('#btnExpand').setAttribute('aria-label', on ? 'Show panels' : 'Expand figure');
+function wirePanel() {
+  const tabs = $$('.panel-tabs [role="tab"]');
+  tabs.forEach((b, i) => {
+    b.addEventListener('click', () => setPanelTab(b.dataset.ptab));
+    b.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const n = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+      n.focus(); setPanelTab(n.dataset.ptab);
+    });
   });
-  // Tablet: the panel starts closed so the figure has the width; desktop: open.
+  $('#panelClose').addEventListener('click', closePanel);
+  $('#panelScrim').addEventListener('click', closePanel);
+  // Below 1280 px the panel starts closed so the figure has the room; wider, it is open.
   if (isNarrow()) app.classList.remove('panel-open');
+  setPanelTab('chart');
   syncPanelToggle();
-}
-function wireDockResize() {
-  const handle = $('#dockResize');
-  let y0 = 0, h0 = 0;
-  handle.addEventListener('pointerdown', (e) => {
-    y0 = e.clientY; h0 = $('#dock').getBoundingClientRect().height; handle.setPointerCapture(e.pointerId);
-    $('#dock').style.transition = 'none';
-    handle.onpointermove = (ev) => { const nh = Math.max(180, Math.min(innerHeight * 0.6, h0 + (y0 - ev.clientY))); app.style.setProperty('--dock-open-h', nh + 'px'); };
-  });
-  handle.addEventListener('pointerup', () => { handle.onpointermove = null; $('#dock').style.transition = ''; try { localStorage.setItem('pps.dockH', String($('#dock').getBoundingClientRect().height)); } catch { /* storage unavailable */ } sizeDock(); const f = store.get().frame; if (f) dock.update(f, true); });
 }
 
 // ── Help & first run ────────────────────────────────

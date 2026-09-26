@@ -60,7 +60,7 @@ for (const k of Object.keys(DRUGS)) CONTROLS['drug:' + k] = { type: 'drug', key:
 
 const DRUG_SHORT = { propranolol: 'Non-selective β-blocker', carvedilol: 'β-blocker + α1 blockade', terlipressin: 'Vasopressin analogue', octreotide: 'Somatostatin analogue' };
 
-export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onScenarios, onMode, pinned, chart }) {
+export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios, onMode, pinned, chart }) {
   let live = [];        // [el, fn(frame)]
   let syncers = [];
   let lastSel;
@@ -168,8 +168,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onS
     }));
     const scen = store.get().presetList?.find((x) => x.id === store.get().presetId)?.label || 'Custom';
     const head = h('div', { class: 'p-head' },
-      h('div', { class: 'p-head-row' }, h('div', { class: 'p-title' }, h('span', { class: 'kicker' }, `Patient · ${scen}`), h('h2', {}, 'Controls')),
-        h('button', { class: 'ib show-md', 'aria-label': 'Close panel', onclick: onClose, title: 'Close' }, icon('close'))),
+      h('div', { class: 'p-head-row' }, h('div', { class: 'p-title' }, h('span', { class: 'kicker' }, `Patient · ${scen}`), h('h2', {}, 'Controls'))),
       tabs);
     let body;
     if (tab === 'therapy') {
@@ -214,8 +213,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onClose, onS
     return h('div', { class: 'p-head' },
       h('div', { class: 'p-head-row' },
         h('button', { class: 'ib', 'aria-label': 'Back', title: 'Back', onclick: () => store.set({ details: null }) }, icon('arrow-left')),
-        h('div', { class: 'p-title' }, h('span', { class: 'kicker' }, kicker), h('h2', { title }, title)),
-        h('button', { class: 'ib show-md', 'aria-label': 'Close panel', onclick: onClose, title: 'Close' }, icon('close'))),
+        h('div', { class: 'p-title' }, h('span', { class: 'kicker' }, kicker), h('h2', { title }, title))),
       extra);
   }
   function stat(k, fn, wide) { return h('div', { class: 'stat' + (wide ? ' wide' : '') }, h('span', { class: 'k' }, k), h('span', { class: 'v' }, liveText(fn))); }

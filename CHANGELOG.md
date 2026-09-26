@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+- **Lobule on request.** Scrolling or pinching into the liver no longer drops the view into the
+  lobule; the zoom only moves the camera. The lobule opens from the zoom trail's *Lobule* step,
+  the liver's card, the command palette or a presenter step, and scrolling or pinching out (or
+  *Back to the liver*) returns to the liver.
+- **One side panel.** The instruments moved from the drawer under the figure into the side
+  panel, as a second tab beside the patient chart (the panel widens a little for charts). On
+  tablets and phones the panel slides over the figure from the Chart button; phones lose the
+  bottom sheet and tab bar, so the figure takes the screen, and a tap outside closes the panel.
+- **Anatomy.** Caput medusae restored in full: larger, with the abdominal-wall veins drawn again
+  from the umbilicus up to the SVC (beside the azygos arch) and down to the iliac once the
+  paraumbilical vein opens, and the umbilicus always marked. The tip of the left lobe of the
+  liver is rounded. The esophagus now flows into the cardia of the stomach instead of ending
+  over it.
+
 ## 2.1.0 (content version 2.0), 2026-09
 
 The overhaul: faster on every device, a quieter and clearer figure, a simpler shell. The model,

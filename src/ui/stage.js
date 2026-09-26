@@ -1,11 +1,11 @@
 // Anatomical stage (blueprint §6): SVG anatomy + canvas flow layer + screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=44e0aca402';
-import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS } from './anatomy.js?v=a799fac075';
+import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS } from './anatomy.js?v=a216a3a911';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=fa78a29bc0';
 import { store, updateParams } from './store.js?v=e9304c5ee2';
 import { s, h, fmt, fp, clamp, lerp, toast, cssVar } from './util.js?v=13768f12bf';
-import { createLobuleZoom } from './lobule-zoom.js?v=bb32f428eb';
+import { createLobuleZoom } from './lobule-zoom.js?v=7250a3e7fd';
 import { createFlowGL, rgba, MARK_FLOATS, SEG_FLOATS } from './flow-gl.js?v=0db0a6d947';
 
 const N_SAMPLES = 64;
@@ -492,6 +492,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return [m.a * cx + m.c * cy + m.e, m.b * cx + m.d * cy + m.f];
   }
   function zoomAt(cx, cy, factor) {
+    // Inside the lobule the plate is covered: zooming out steps back to the liver, zooming in
+    // has nowhere further to go.
+    if (lobuleOn) { if (factor < 1) zoomLiver(); return; }
     const [vx, vy] = clientToVB(cx, cy);
     const wx = (vx - vt.x) / vt.k, wy = (vy - vt.y) / vt.k;
     vt.k = clamp(vt.k * factor, 0.6, 6);
@@ -511,13 +514,29 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const fx = 640, fy = cy;
     return { k, x: cx - k * fx, y: cy - k * fy };
   }
-  const fit = () => { vt = defaultVT(morphTarget === 1); applyVT(); CTM = null; };
+  const fit = () => { setLobule(false); vt = defaultVT(morphTarget === 1); applyVT(); CTM = null; };
 
   // ── Semantic zoom: abdomen → liver → lobule ───────
-  // One continuous zoom. Past ×1.9 over the liver its inner trees open (see liverExpanded);
-  // past ×3.4 the plate cross-fades into the lobule, fully in by ×4.6. A trail in the corner
-  // names the level and steps back out.
+  // Zooming (wheel, pinch, buttons) only moves the camera: past ×1.9 over the liver its inner
+  // trees open (see liverExpanded) and a trail in the corner names the level. The lobule is
+  // never entered by zooming alone; it opens only when asked for (the trail's Lobule step, the
+  // liver's card, the palette, a presenter step) and cross-fades over the plate.
   let liverBB = null;
+  let lobuleOn = false, lobU = 0, lobAnim = 0, lobTimer = 0;
+  function setLobule(on) {
+    if (on && morphTarget !== 0) return;
+    if (lobuleOn === on && (lobU === (on ? 1 : 0))) return;
+    lobuleOn = on;
+    cancelAnimationFrame(lobAnim);
+    const from = lobU, to = on ? 1 : 0, t0 = performance.now(), ms = reduceMotion.matches ? 0 : 420;
+    const step = (now) => {
+      const u = ms ? clamp((now - t0) / ms, 0, 1) : 1;
+      lobU = from + (to - from) * easeInOut(u);
+      syncSemantic();
+      if (u < 1) lobAnim = requestAnimationFrame(step);
+    };
+    step(performance.now());
+  }
   function liverBox() {
     if (!liverBB && organEls.liver) { try { const b = organEls.liver.getBBox(); if (b.width) liverBB = { x: b.x, y: b.y, w: b.width, h: b.height }; } catch { /* not rendered yet */ } }
     return liverBB;
@@ -526,14 +545,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function semanticLevel() {
     const lb = liverBox();
     if (morphTarget !== 0 || !lb) return { lvl: 0, u: 0 };
+    if (lobuleOn) return { lvl: 2, u: lobU };
     const [cx, cy] = vbCenter(), wx = (cx - vt.x) / vt.k, wy = (cy - vt.y) / vt.k;
     const inside = wx > lb.x && wx < lb.x + lb.w && wy > lb.y && wy < lb.y + lb.h;
-    if (!inside || vt.k < 1.9) return { lvl: 0, u: 0 };
-    const u = clamp((vt.k - 3.4) / 1.2, 0, 1);
-    return { lvl: u > 0.98 ? 2 : 1, u };
+    return { lvl: inside && vt.k >= 1.9 ? 1 : 0, u: lobU };
   }
   function syncSemantic() {
     if (!lz) return;
+    if (lobuleOn && morphTarget !== 0) { lobuleOn = false; lobU = 0; cancelAnimationFrame(lobAnim); }
     const { lvl, u } = semanticLevel();
     const wasOpen = lz.isOpen();
     lz.setFade(u);
@@ -567,6 +586,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function vtFor(wx, wy, k) { const [cx, cy] = vbCenter(); return { k, x: cx - wx * k, y: cy - wy * k }; }
   function zoomLiver() {
+    setLobule(false);
     const lb = liverBox(); if (!lb) return;
     const b = svg.viewBox.baseVal;
     animateVT(vtFor(lb.x + lb.w / 2, lb.y + lb.h / 2, clamp(Math.min(b.width / lb.w, b.height / lb.h) * 0.92, 2, 3)));
@@ -575,11 +595,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (morphTarget !== 0) { store.set({ view: 'anatomic' }); setTimeout(() => zoomLobule(lobe), 650); return; }
     const lb = liverBox(); if (!lb) return;
     lz.setLobe(lobe);
-    animateVT(vtFor(lb.x + lb.w * (lobe === 'L' ? 0.74 : 0.34), lb.y + lb.h * (lobe === 'L' ? 0.36 : 0.5), 4.8), 900);
+    if (lobuleOn) return;
+    const ms = reduceMotion.matches ? 0 : 900;
+    animateVT(vtFor(lb.x + lb.w * (lobe === 'L' ? 0.74 : 0.34), lb.y + lb.h * (lobe === 'L' ? 0.36 : 0.5), 4.8), ms);
+    // The lobule fades in over the last part of the approach.
+    clearTimeout(lobTimer);
+    lobTimer = setTimeout(() => setLobule(true), Math.max(0, ms - 380));
   }
   lz = createLobuleZoom({ host: wrap, onWheel: (ev) => zoomAt(ev.clientX, ev.clientY, Math.exp(-ev.deltaY * 0.0015)), onBack: zoomLiver });
   crumbsEl = h('nav', { class: 'zoom-crumbs', 'aria-label': 'Zoom level', hidden: true },
-    [['Abdomen', () => animateVT(defaultVT(false))], ['Liver', zoomLiver], ['Lobule', () => zoomLobule()]].map(([t, fn], i) => h('button', { onclick: fn, 'data-i': i }, t)));
+    [['Abdomen', () => { setLobule(false); animateVT(defaultVT(false)); }], ['Liver', zoomLiver], ['Lobule', () => zoomLobule()]].map(([t, fn], i) => h('button', { onclick: fn, 'data-i': i }, t)));
   wrap.append(crumbsEl);
 
   // ── Particles ─────────────────────────────────────
@@ -619,7 +644,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function edgeVisible(x, f) {
     const e = x.e, p = f.viewParams || store.get().params;
     if (ANAT_HIDDEN.has(e.id) && morph < 0.5) return false;
-    if (NEEDS_C3.has(e.id)) return recruitFrac('C3', f) > 0.2;
+    if (NEEDS_C3.has(e.id)) return recruitFrac('C3', f) > 0.15;
     if (e.kind === 'collateral') {
       if (e.spontaneous && !p.spontaneous[e.id]) return false;
       return store.get().layers.collaterals || collOpen(e.id, f);
@@ -1043,8 +1068,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const shrink = 1 - 0.035 * Math.min(1, p.cirrhosis);
     organG.liver.setAttribute('transform', `translate(560 350) scale(${shrink.toFixed(4)}) translate(-560 -350)`);
     const c3 = recruitFrac('C3', f);
-    organG.umbilicus.style.display = c3 > 0.25 ? '' : 'none';
-    abdWall.setAttribute('opacity', (clamp((c3 - 0.2) / 0.5, 0, 1) * 0.9 * k).toFixed(2));
+    abdWall.setAttribute('opacity', (clamp((c3 - 0.1) / 0.4, 0, 1) * 0.9 * k).toFixed(2));
     const sc = f.slow.spleen / 11;
     organG.spleen.setAttribute('transform', `translate(${SPLEEN_CENTER[0]} ${SPLEEN_CENTER[1]}) scale(${sc.toFixed(3)}) translate(${-SPLEEN_CENTER[0]} ${-SPLEEN_CENTER[1]})`);
     // Ascites collects in the flanks and the pelvis first (supine patient, frontal view), so its
@@ -1252,18 +1276,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // Caput medusae: tortuous, slightly raised veins radiating from the umbilicus over a
       // semi-transparent abdominal wall, only when the paraumbilical route carries real flow.
       const c3 = recruitFrac('C3', f);
-      if (c3 > 0.25 && E.C3.vis) {
-        const col = 'var(--vx)';
-        const n = 9;
+      if (c3 > 0.15 && E.C3.vis) {
+        const n = 11;
         for (let i = 0; i < n; i++) {
-          const a0 = (i / n) * Math.PI * 2 + 0.25, L = 16 + 44 * c3 * (0.7 + 0.3 * Math.sin(i * 2.3));
+          const a0 = (i / n) * Math.PI * 2 + 0.25, L = 24 + 62 * c3 * (0.7 + 0.3 * Math.sin(i * 2.3));
           const pts = [];
           for (let j = 0; j <= 10; j++) {
             const rr = 7 + (L * j) / 10, wob = j === 0 ? 0 : Math.sin(j * 1.6 + i * 1.3) * (1.5 + 3.5 * c3) * Math.min(1, j / 3);
             const a = a0 + Math.sin(j * 0.5 + i) * 0.12;
             pts.push([SITES.umbilicus[0] + Math.cos(a) * rr - Math.sin(a) * wob, SITES.umbilicus[1] + Math.sin(a) * rr * 0.86 + Math.cos(a) * wob]);
           }
-          const w = 1.3 + 2.2 * c3;
+          const w = 1.6 + 2.6 * c3;
           ov.caput.append(s('path', { d: polyD(pts), class: 'caput-case', 'stroke-width': (w + 1.8).toFixed(2) }), s('path', { d: polyD(pts), class: 'caput-vein', style: 'stroke: var(--vx)', 'stroke-width': w.toFixed(2) }));
         }
       }
