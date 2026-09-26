@@ -428,13 +428,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     gNodes.append(c);
     nodeEls[n.id] = { c };
   }
-  // Resistor glyphs on liver segments (circuit)
-  const resistorEls = {};
-  for (const id of ['PRE_R', 'PRE_L', 'SIN_RR', 'SIN_LL', 'POST_R_RHV', 'POST_L_LHV']) {
-    const r = s('rect', { class: 'resistor circuit-only', rx: 2 });
-    gNodes.append(r);
-    resistorEls[id] = { r, txt: '' };
-  }
+  // Resistance of each liver compartment, per lobe (read out in the circuit's liver header).
+  const liverR = {};
+  for (const id of ['PRE_R', 'PRE_L', 'SIN_RR', 'SIN_LL', 'POST_R_RHV', 'POST_L_LHV']) liverR[id] = { R: Infinity };
 
   // Overlays
   const ov = {
@@ -682,10 +678,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!nodeEls[n.id]) continue;
       const [x, y] = nodePos(n.id, t);
       nodeEls[n.id].c.setAttribute('cx', x); nodeEls[n.id].c.setAttribute('cy', y);
-    }
-    for (const [id, r] of Object.entries(resistorEls)) {
-      const [x, y] = pointAt(geo[id].cur, 0.5);
-      r.r.setAttribute('x', x - 12); r.r.setAttribute('y', y - 5); r.r.setAttribute('width', 24); r.r.setAttribute('height', 10);
     }
     const vb = VB_ANAT.map((a, i) => lerp(a, VB_CIRC[i], t));
     svg.setAttribute('viewBox', vb.map((v) => v.toFixed(1)).join(' '));
@@ -1026,22 +1018,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   function updateNodesCircuit(f) {
     if (morph < 0.02) return;
-    const imaging = isImaging();
     for (const n of NODES) {
       if (!nodeEls[n.id]) continue;
       nodeEls[n.id].c.style.display = nodeVisible(n.id) ? '' : 'none';
     }
-    for (const [id, r] of Object.entries(resistorEls)) {
+    for (const [id, r] of Object.entries(liverR)) {
       const k = EI[id];
       const q = f.Q[k];
       const dp = f.P[NI[EDGES[k].from]] - f.P[NI[EDGES[k].to]];
-      const R = Math.abs(q) > 1e-3 ? dp / (q * 0.06) : Infinity;
-      r.R = R;
-      r.txt = Number.isFinite(R) ? `${R.toFixed(1)} WU` : '∞ WU';
-      r.r.setAttribute('stroke-width', clamp(1 + Math.log10(Math.max(1, Math.abs(R))) * 1.5, 1, 4));
-      // The gate takes the color of the pressure it drops, so the dominant resistance lights up.
-      const gate = !imaging && Math.abs(dp) >= 2 ? dropColor(qP(dp)) : '';
-      if (r.gate !== gate) { r.gate = gate; r.r.style.fill = gate; }
+      r.R = Math.abs(q) > 1e-3 ? dp / (q * 0.06) : Infinity;
     }
   }
 
@@ -1703,7 +1688,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const open = liverExpanded();
       const showVals = !isImaging() && st.layers.chips;
       {
-        const par = (a, b) => { const ra = resistorEls[a].R, rb = resistorEls[b].R; return Number.isFinite(ra) && Number.isFinite(rb) ? (ra * rb) / (ra + rb) : Number.isFinite(ra) ? ra : rb; };
+        const par = (a, b) => { const ra = liverR[a].R, rb = liverR[b].R; return Number.isFinite(ra) && Number.isFinite(rb) ? (ra * rb) / (ra + rb) : Number.isFinite(ra) ? ra : rb; };
         const R = [['pre', par('PRE_R', 'PRE_L')], ['sinusoidal', par('SIN_RR', 'SIN_LL')], ['post', par('POST_R_RHV', 'POST_L_LHV')]];
         const sz = compact ? 9.5 : 10.5;
         const lines = [[{ t: 'INSIDE THE LIVER', size: compact ? 9 : 9.5, weight: 700, cls: 'lb-zone', track: 0.1 }, { t: open ? '▾ hide stations' : '▸ show stations', size: compact ? 9 : 9.5, weight: 600, cls: 'lb-mod-act', gap: 8 }]];
@@ -1749,24 +1734,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const it = { key: 'lane:' + id, cls: 'lane', lines: [[{ t: cap, size: compact ? 9 : 10, weight: 550, cls: 'lb-lane' }]], align: 'middle', padX: 2, padY: 1, ax, ay };
         it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
         place(it, ['N', 'S'], [3 + (x.width || 4) / 2, 12 + (x.width || 4) / 2], false);
-      }
-      // The resistance boxes are named above the right lobe's lane; the left lobe's boxes sit
-      // directly below, in the same columns.
-      for (const [id, cap] of [['PRE_R', 'presinusoidal'], ['SIN_RR', 'sinusoidal'], ['POST_R_RHV', 'postsinusoidal']]) {
-        const [x, y] = pointAt(geo[id].cur, 0.5);
-        const [ax, ay] = worldToLocal(x, y);
-        const it = { key: 'rcap:' + id, cls: 'lane', lines: [[{ t: cap, size: compact ? 8.5 : 9.5, weight: 550, cls: 'lb-lane' }]], align: 'middle', padX: 2, padY: 1, ax, ay };
-        it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
-        place(it, ['N'], [9, 16], false);
-      }
-      if (open && !isImaging() && st.layers.chips) {
-        for (const [id, r] of Object.entries(resistorEls)) {
-          const [x, y] = pointAt(geo[id].cur, 0.5);
-          const [ax, ay] = worldToLocal(x, y);
-          const it = { key: 'r:' + id, cls: 'res', lines: [[{ t: r.txt, size: compact ? 9 : 10, weight: 600, cls: 'lb-res' }]], align: 'middle', padX: 2, padY: 1, ax, ay: ay + 4 };
-          it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
-          place(it, ['S', 'N'], 6, false);
-        }
       }
     }
     // Lesson / case focus callout
@@ -1874,8 +1841,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const st = store.get();
     if (!F || st.imaging || st.layers.flow === false) return;
     updateCover();
-    // Circuit: no vessel's marks land on a resistor box (several liver routes share a lane).
-    const boxes = morph > 0.5 ? Object.keys(resistorEls).map((id) => pointAt(geo[id].cur, 0.5)) : null;
     for (const x of Object.values(E)) {
       if (!x.vis || x.reveal || x.g.classList.contains('coll-ghost')) continue;
       const { q, vel } = flowState(x);
@@ -1907,7 +1872,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const cov = mask ? mask[Math.floor(uu * n)] + (mask[Math.min(n, Math.floor(uu * n) + 1)] - mask[Math.floor(uu * n)]) * (uu * n % 1) : 1;
         if (cov < 0.08) continue;
         const [px, py, dx, dy] = pointAt(g.cur, uu);
-        if (boxes && boxes.some(([bx, by]) => Math.abs(px - bx) < 12 + x.ms / 2 && Math.abs(py - by) < 5 + x.ms / 2)) continue;
         // Marks grow in at the upstream end and shrink away downstream instead of popping.
         const ends = clamp(Math.min(tt - m, L - m - tt) / (sp * 0.8), 0, 1);
         if (ends < 0.08) continue;

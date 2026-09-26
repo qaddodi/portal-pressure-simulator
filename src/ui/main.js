@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=0489e81e1a';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=e9304c5ee2';
-import { createStage } from './stage.js?v=0bcca438df';
+import { createStage } from './stage.js?v=359159fe57';
 import { createInspector } from './inspector.js?v=87d3126b53';
 import { createDock } from './dock.js?v=43bf823aee';
 import { createWhy } from './why.js?v=648b449677';
@@ -492,7 +492,6 @@ function openLegend(anchor) {
       rows.map(([k, v]) => h('div', {}, h('b', { style: { color: 'var(--text)' } }, k + '. '), v)),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Flow. '), 'Arrowheads inside each vessel point and move downstream; their speed follows blood velocity, and a vessel without flow has none. Reversed flow turns them orange and runs them the other way. Paused, they hold still and keep their direction.'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Notation. '), 'Dotted vessels are closed potential collaterals. Line width follows vessel diameter (compressed). Faint lines crossing an organ run behind it. ▲ / ▼ on a label: change in mmHg from healthy (from state A in Compare).'),
-      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Liver resistances. '), 'In the circuit, the boxes inside the liver are its three resistances in series, in each lobe: presinusoidal, sinusoidal and postsinusoidal. A box fills with the color of the pressure it drops, so the site of the block lights up: presinusoidal in schistosomiasis, sinusoidal in cirrhosis, postsinusoidal in sinusoidal obstruction syndrome.'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Organs. '), 'Organs are drawn as in an anatomy plate, lit from the upper left. On the liver, texture means disease: nodules for cirrhosis, mottling for congestion (nutmeg liver), a darker vignette as sinusoidal pressure rises. The spleen grows with splenomegaly.'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Varix ring. '), 'The ring around the esophageal varices closes as their wall tension (pressure × radius ÷ wall thickness) approaches the rupture threshold: amber from 70 %, red from 90 %.'))], { align: 'end', cls: 'legend-pop' });
 }
