@@ -1,7 +1,7 @@
 // Anatomical stage (blueprint §6): SVG anatomy + canvas flow layer + screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=44e0aca402';
-import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS } from './anatomy.js?v=17d7a74a78';
+import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS } from './anatomy.js?v=82cfa012ee';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=fa78a29bc0';
 import { store, updateParams } from './store.js?v=e9304c5ee2';
 import { s, h, fmt, fp, clamp, lerp, toast, cssVar } from './util.js?v=13768f12bf';
@@ -130,6 +130,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const env = Math.min(1, u * 6, (1 - u) * 6);
       const w = amp * env * Math.sin(cum[i] * k + seed);
       return [p[0] + nx * w, p[1] + ny * w];
+    });
+  }
+  // Lateral offset of `off` units at mid-course, easing to zero at both ends.
+  function braid(pts, off) {
+    if (Math.abs(off) < 0.3) return pts;
+    return pts.map((p, i) => {
+      if (i === 0 || i === pts.length - 1) return p;
+      const a = pts[i - 1], b = pts[i + 1];
+      let nx = -(b[1] - a[1]), ny = b[0] - a[0];
+      const n = Math.hypot(nx, ny) || 1; nx /= n; ny /= n;
+      const o = off * Math.sin((Math.PI * i) / (pts.length - 1));
+      return [p[0] + nx * o, p[1] + ny * o];
     });
   }
   // Light comes from the top (slightly left). For each sample: the unit normal and how much it
@@ -368,17 +380,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const wallP = isArt ? null : s('path', { class: 'v-wallP' });
     const lumenP = isArt ? null : s('path', { class: 'v-lumenP', fill: `url(#gr-${e.id})` });
     const hit = s('path', { class: 'v-hit', tabindex: 0, role: 'button', 'aria-label': e.label || e.id, 'data-id': e.id });
+    // Extra channels of a braided collateral (cavernoma): plain strokes under the main tube.
+    const strands = !isArt && STRANDS[e.id] ? STRANDS[e.id].map(([off, ph, k]) => ({ off, ph, k, wall: s('path', { class: 'v-strand-wall' }), lumen: s('path', { class: 'v-strand', stroke: `url(#gr-${e.id})` }) })) : null;
     if (isArt) { g.append(halo, sel, wall, sheen, hit); gArt.append(g); }
     else {
       if (spine) gc.append(spine);
       gs.append(shadow);
       gc.append(halo, sel, wall, wallP);
       g.append(lumen, lumenP, shade, sheen, hit);
+      if (strands) { gc.prepend(...strands.map((sd) => sd.wall)); g.prepend(...strands.map((sd) => sd.lumen)); }
       gShadowL.append(gs); gCaseL.append(gc); gEdges.append(g);
     }
     const heat = isArt ? null : s('path', { class: 'v-heat' });
     if (heat) gHeat.append(heat);
-    E[e.id] = { e, g, gc, gs, groups: isArt ? [g] : [gs, gc, g], heat, grad, st0, st1, halo, sel, shadow, spine, wall, lumen, shade, sheen, wallP, lumenP, hit, isArt, vis: true, width: 4, wallPx: 1, shadeKey: '' };
+    E[e.id] = { e, g, gc, gs, groups: isArt ? [g] : [gs, gc, g], heat, grad, st0, st1, halo, sel, shadow, spine, wall, lumen, shade, sheen, wallP, lumenP, hit, strands, isArt, vis: true, width: 4, wallPx: 1, shadeKey: '' };
   }
   // Draw order within each tier: the portal tree in front (it lies anterior to the IVC).
   for (const x of Object.values(E)) if (!x.isArt && (x.e.kind === 'vein' && PORTAL_TERRITORY.has(x.e.to) && PORTAL_TERRITORY.has(x.e.from || '') || ['PV_TRUNK', 'PVH_R', 'PVH_L', 'SMV_CONF', 'SV_CONF'].includes(x.e.id))) { gShadowL.append(x.gs); gCaseL.append(x.gc); gEdges.append(x.g); x.front = true; x.g.dataset.front = '1'; }
@@ -640,7 +655,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const g = geo[x.e.id];
       let pts;
       if (t === 0) pts = g.A; else if (t === 1) pts = g.C; else pts = g.A.map((p, i) => [lerp(p[0], g.C[i][0], t), lerp(p[1], g.C[i][1], t)]);
+      const base = pts;
       if (x.e.kind === 'collateral' && t < 1) pts = wiggle(pts, g.wig * (1 - t), x.e.id.length);
+      // Strands fan out from the shared ends and fold back onto the lane in the circuit.
+      if (x.strands) for (const sd of x.strands) {
+        const sp = wiggle(braid(base, sd.off * (1 - t)), (0.8 * g.wig + 3) * (1 - t), sd.ph);
+        const d = polyD(sp);
+        sd.wall.setAttribute('d', d); sd.lumen.setAttribute('d', d);
+      }
       g.cur = pts;
       g.len = arcLen(pts);
       const d = t === 1 ? g.dC : polyD(pts);
@@ -742,6 +764,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const wallPx = x.wallPx;
       setA(x.wall, 'stroke-width', (w + 2 * wallPx).toFixed(1));
       setA(x.lumen, 'stroke-width', w.toFixed(1));
+      if (x.strands) for (const sd of x.strands) { setA(sd.lumen, 'stroke-width', Math.max(1.6, w * sd.k).toFixed(1)); setA(sd.wall, 'stroke-width', (Math.max(1.6, w * sd.k) + 2 * wallPx).toFixed(1)); }
       if (x.spine) setA(x.spine, 'stroke-width', (w + 16).toFixed(1));
       let c1, c2;
       if (mode === 'pressure') { c1 = pressureColor(qP(P1)); c2 = pressureColor(qP(P2)); }
@@ -867,8 +890,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const u = clamp((now - r.t0) / r.dur, 0, 1);
       const done = u >= 1 || quietFx();
       const off = (1 - easeInOut(u)) * r.dir;
-      for (const part of REVEAL_PARTS) {
-        const el = x[part];
+      for (const el of REVEAL_PARTS.map((part) => x[part]).concat(x.strands ? x.strands.flatMap((sd) => [sd.wall, sd.lumen]) : [])) {
         if (!el) continue;
         if (done) { el.removeAttribute('pathLength'); el.style.strokeDasharray = ''; el.style.strokeDashoffset = ''; continue; }
         el.setAttribute('pathLength', '1');

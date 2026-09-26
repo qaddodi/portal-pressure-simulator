@@ -531,6 +531,10 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .vg .v-wall, .vg .v-lumen { display: none; }
 .vg.stroked .v-wall, .vg.stroked .v-lumen { display: inline; }
 .vg.stroked .v-wallP, .vg.stroked .v-lumenP, .vg.stroked .v-shadow { display: none; }
+/* Cavernoma: the extra channels of a braided collateral, shown only while it is open in the anatomy. */
+.v-strand-wall { fill: none; stroke: var(--vessel-casing); stroke-linecap: round; stroke-linejoin: round; }
+.v-strand { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.coll-ghost :is(.v-strand, .v-strand-wall), .circuit :is(.v-strand, .v-strand-wall) { display: none; }
 .v-spine { fill: none; stroke: var(--spine); stroke-linecap: round; stroke-linejoin: round; opacity: 0; transition: opacity .4s; }
 .circuit .v-spine { opacity: 1; }
 .circuit .v-shadow, .circuit .v-shade, .circuit .v-sheen { display: none; }
