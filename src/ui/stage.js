@@ -409,9 +409,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let morph = store.get().view === 'circuit' ? 1 : 0, morphTarget = morph, lastMorph = -1;
   let lz = null, crumbsEl = null;   // semantic zoom: lobule layer and the Abdomen › Liver › Lobule trail
   let geometryVersion = 0;
-  const applyVT = () => { world.setAttribute('transform', `translate(${vt.x} ${vt.y}) scale(${vt.k})`); syncSemantic(); };
+  // Everything drawn in screen space (labels, leaders, organ names, the flow marks, the action
+  // card) follows the artwork on the very next frame of a pan or zoom, not on the next model
+  // update: a view change schedules one coalesced sync per animation frame.
+  let viewRaf = 0, viewVersion = 0, CTM = null, wrapRect = null;
+  const applyVT = () => {
+    world.setAttribute('transform', `translate(${vt.x} ${vt.y}) scale(${vt.k})`);
+    syncSemantic();
+    CTM = null; viewVersion++;
+    if (!viewRaf) viewRaf = requestAnimationFrame(syncView);
+  };
+  function syncView() {
+    viewRaf = 0;
+    if (!F || lz?.isOpen()) return;
+    refreshCTM();
+    updateLabels(F);
+    onViewChange?.();
+  }
   applyVT();
-  let CTM = null, wrapRect = null;
   // The figure's screen transform, computed from the viewBox, the zoom state and the stage box.
   // Asking the browser (getScreenCTM / getBoundingClientRect) right after the SVG has been
   // updated forces a synchronous style + layout pass over thousands of elements, every frame;
@@ -447,13 +462,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     vt.k = clamp(vt.k * factor, 0.6, 6);
     vt.x = vx - wx * vt.k; vt.y = vy - wy * vt.k;
     applyVT(); CTM = null;
-  }
-  function zoomToBox(x0, y0, x1, y1) {
-    const k = clamp(Math.min(VIEW.w / (x1 - x0), VIEW.h / (y1 - y0)) * 0.9, 1, 5);
-    vt = { k, x: VIEW.w / 2 - ((x0 + x1) / 2) * k, y: VIEW.h / 2 - ((y0 + y1) / 2) * k };
-    world.style.transition = 'transform .4s var(--ease)';
-    applyVT(); CTM = null;
-    setTimeout(() => { world.style.transition = ''; CTM = null; }, 420);
   }
   // Default framing. The circuit is a wide map (≈ 1.9 : 1); in a squarish or tall viewport,
   // fitting its width would shrink every station to a dot, so it opens zoomed to fill the height,
@@ -517,6 +525,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (u < 1) vtAnim = requestAnimationFrame(step);
     };
     vtAnim = requestAnimationFrame(step);
+  }
+  function zoomToBox(x0, y0, x1, y1) {
+    const k = clamp(Math.min(VIEW.w / (x1 - x0), VIEW.h / (y1 - y0)) * 0.9, 1, 5);
+    animateVT({ k, x: VIEW.w / 2 - ((x0 + x1) / 2) * k, y: VIEW.h / 2 - ((y0 + y1) / 2) * k }, 400);
   }
   function vtFor(wx, wy, k) { const [cx, cy] = vbCenter(); return { k, x: cx - wx * k, y: cy - wy * k }; }
   function zoomLiver() {
@@ -1272,7 +1284,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function blockEl(key, cls, interactiveNode, onClick) {
     let b = pool.get(key);
     if (b) return b;
-    const g = s('g', { class: 'lb ' + cls });
+    const g = s('g', { class: 'lb ' + cls, 'data-key': key });
     const act = onClick || (interactiveNode ? () => onSelect({ type: 'node', id: interactiveNode }) : null);
     if (act) {
       g.setAttribute('tabindex', '0'); g.setAttribute('role', 'button');
@@ -1852,7 +1864,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
 
   let lastT = performance.now(), lastDrawKey = null, lastDrawF = null, lastDrawCTM = null;
-  let lastRaf = 0, gapEMA = 16, qCheck = 0, qGood = 0;
+  let lastRaf = 0, gapEMA = 16, qCheck = 0, qGood = 0, drawnView = -1;
   function governQuality(now) {
     const gap = lastRaf ? now - lastRaf : 16;
     lastRaf = now;
@@ -1877,7 +1889,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (document.hidden || appEl?.classList.contains('home-open')) { lastT = flowGate = now; lastRaf = 0; requestAnimationFrame(animate); return; }
     governQuality(now);
     const interval = 1000 / QUALITY[quality].fps;
-    if (now - flowGate < interval) { requestAnimationFrame(animate); return; }
+    // A pan or zoom redraws at once (the marks must stay on their vessels); only the model's
+    // own motion is paced.
+    const viewMoved = viewVersion !== drawnView;
+    if (!viewMoved && now - flowGate < interval) { requestAnimationFrame(animate); return; }
     flowGate = now - ((now - flowGate) % interval);
     const dt = Math.min(0.1, (now - lastT) / 1000);
     lastT = now;
@@ -1893,6 +1908,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     stepReveals(now);
     drawFlow(dt, st);
+    drawnView = viewVersion;
     lastDrawKey = key; lastDrawF = F; lastDrawCTM = CTM;
     requestAnimationFrame(animate);
   }
@@ -2509,7 +2525,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       morphTarget = target;
       syncSemantic();
       const d = defaultVT(target === 1);
-      if (d.k !== vt.k || d.x !== vt.x || d.y !== vt.y) { world.style.transition = 'transform .6s var(--ease)'; vt = d; applyVT(); CTM = null; setTimeout(() => { world.style.transition = ''; CTM = null; }, 620); }
+      if (d.k !== vt.k || d.x !== vt.x || d.y !== vt.y) animateVT(d, 600);
     },
     relayout() { refreshCTM(); if (F) updateLabels(F); },
     labelLayer: () => labelSvg,

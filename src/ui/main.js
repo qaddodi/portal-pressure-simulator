@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=0489e81e1a';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=e9304c5ee2';
-import { createStage } from './stage.js?v=03957c3649';
+import { createStage } from './stage.js?v=aca9dadeae';
 import { createInspector } from './inspector.js?v=87d3126b53';
 import { createDock } from './dock.js?v=666802b1f6';
 import { createWhy } from './why.js?v=648b449677';
@@ -108,6 +108,7 @@ async function main() {
     onAction: doAction,
     onOpenTab: (id) => dock.show(id, { reveal: 'soft' }),
     onHoverInfo: hoverInfo,
+    onViewChange: () => card?.position(),
   });
   compare = createCompare();
   timeline = createTimeline({
