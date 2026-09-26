@@ -404,6 +404,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let vt = { k: 1, x: 0, y: 0 };
   let morph = store.get().view === 'circuit' ? 1 : 0, morphTarget = morph, lastMorph = -1;
   let lz = null, crumbsEl = null;   // semantic zoom: lobule layer and the Abdomen › Liver › Lobule trail
+  let geometryVersion = 0;
   const applyVT = () => { world.setAttribute('transform', `translate(${vt.x} ${vt.y}) scale(${vt.k})`); syncSemantic(); };
   applyVT();
   let CTM = null, wrapRect = null;
@@ -580,6 +581,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function updateGeometry(force) {
     const t = easeInOut(morph);
     if (!force && t === lastMorph) return;
+    geometryVersion++;
     lastMorph = t;
     for (const x of Object.values(E)) {
       const g = geo[x.e.id];
@@ -1223,21 +1225,27 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function renderBlock(it) {
     const b = blockEl(it.key, it.cls, it.node, it.onClick);
     b.seen = frameNo;
-    const sig = JSON.stringify([it.lines, it.align, it.swatch, it.bg, it.w, it.cls]);
+    // Text and pressure colors change far more often than label structure.
+    // Retain the text nodes (and keyboard focus) across numeric updates.
+    const sig = JSON.stringify([it.lines.map((line) => line.map(({ t, ...style }) => style)), it.align, !!it.swatch, it.bg, it.cls]);
     if (sig !== b.sig) {
       b.sig = sig;
       const kids = [];
+      b.spans = [];
+      b.textLines = [];
       if (it.bg) kids.push(s('rect', { class: 'lb-bg', x: -it.padX, y: -it.padY, width: it.w + 2 * it.padX, height: it.h + 2 * it.padY, rx: 6 }));
       let y = 0;
       const tx = it.swatch ? (it.align === 'end' ? it.w - 7 : 7) : 0;
       for (const line of it.lines) {
         const lh = LINE_H(line);
         const t = s('text', { x: it.align === 'end' ? it.w - (it.swatch ? 7 : 0) : it.align === 'middle' ? it.w / 2 : tx, y: y + lh * 0.78, 'text-anchor': it.align === 'end' ? 'end' : it.align === 'middle' ? 'middle' : 'start' });
+        b.textLines.push(t);
         line.forEach((r, i) => {
           const sp = s('tspan', { class: r.cls || '', 'font-size': r.size, 'font-weight': r.weight || 500 });
           if (i) sp.setAttribute('dx', r.gap ?? 3);
           if (r.track) sp.setAttribute('letter-spacing', `${r.track}em`);
           sp.textContent = r.t;
+          b.spans.push(sp);
           t.append(sp);
         });
         kids.push(t);
@@ -1246,11 +1254,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (it.swatch) kids.unshift(s('rect', { class: 'lb-sw', x: it.align === 'end' ? it.w - 3 : 0, y: 1, width: 3, height: Math.max(8, it.h - 2), rx: 1.5 }));
       b.g.replaceChildren(...kids);
       b.sw = it.swatch ? b.g.querySelector('.lb-sw') : null;
-      if (it.label) b.g.setAttribute('aria-label', it.label);
+      b.bg = b.g.querySelector('.lb-bg');
     }
-    if (b.sw) b.sw.setAttribute('fill', it.swatch);
+    let i = 0;
+    for (const line of it.lines) for (const r of line) {
+      const sp = b.spans[i++];
+      if (sp.textContent !== r.t) sp.textContent = r.t;
+    }
+    for (const text of b.textLines) setA(text, 'x', it.align === 'end' ? it.w - (it.swatch ? 7 : 0) : it.align === 'middle' ? it.w / 2 : it.swatch ? 7 : 0);
+    if (b.bg) { setA(b.bg, 'width', it.w + 2 * it.padX); setA(b.bg, 'height', it.h + 2 * it.padY); }
+    if (it.label) setA(b.g, 'aria-label', it.label);
+    if (b.sw) { setA(b.sw, 'fill', it.swatch); setA(b.sw, 'x', it.align === 'end' ? it.w - 3 : 0); }
     b.g.classList.toggle('sel', !!it.sel);
-    b.g.setAttribute('transform', `translate(${it.x.toFixed(1)} ${it.y.toFixed(1)})`);
+    setA(b.g, 'transform', `translate(${it.x.toFixed(1)} ${it.y.toFixed(1)})`);
     b.g.style.display = '';
   }
 
@@ -1371,6 +1387,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return r.width ? { x0: r.left - wr.left - 4, y0: r.top - wr.top - 4, x1: r.right - wr.left + 4, y1: r.bottom - wr.top + 4 } : null;
     }).filter(Boolean);
   }
+  let labelGridKey = '', labelGrid = new Map();
   function updateLabels(f) {
     refreshCTM();
     frameNo++;
@@ -1394,7 +1411,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const out = [];
     let leaders = '';
     // Vessel geometry as a coarse density grid, so labels prefer positions that cover no lines.
-    const CELL = 10, lines = new Map();
+    const CELL = 10;
+    let lines = labelGrid;
     const lineCost = (r) => {
       let c = 0;
       for (let gx = Math.floor(r.x0 / CELL); gx <= Math.floor(r.x1 / CELL); gx++) for (let gy = Math.floor(r.y0 / CELL); gy <= Math.floor(r.y1 / CELL); gy++) c += lines.get(gx * 4096 + gy) || 0;
@@ -1403,6 +1421,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     let useLines = false;
     const buildLines = () => {
       useLines = true;
+      const key = `${geometryVersion}|${CTM.a}|${CTM.e - wr.left}|${CTM.f - wr.top}|${Object.values(E).filter((x) => x.vis).map((x) => x.e.id).join(',')}`;
+      if (key === labelGridKey) return;
+      labelGridKey = key;
+      lines = labelGrid = new Map();
       for (const x of Object.values(E)) {
         if (!x.vis) continue;
         // Walk every segment in half-cell steps: straight circuit runs have few vertices, and
@@ -1762,7 +1784,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
 
   let lastT = performance.now(), lastDrawKey = null, lastDrawF = null, lastDrawCTM = null;
+  let flowGate = lastT;
   function animate(now) {
+    // High-refresh screens need not run the full flow renderer at their refresh
+    // rate. Keep elapsed time intact so arrow speed and transitions stay correct.
+    if (document.hidden) { lastT = flowGate = now; requestAnimationFrame(animate); return; }
+    const interval = 1000 / 30;
+    if (now - flowGate < interval) { requestAnimationFrame(animate); return; }
+    flowGate = now - ((now - flowGate) % interval);
     const dt = Math.min(0.1, (now - lastT) / 1000);
     lastT = now;
     // Fully inside the lobule, the plate is covered: skip its flow marks.
