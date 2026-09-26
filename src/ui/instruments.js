@@ -5,7 +5,7 @@ import { NODES, EDGES } from '../engine/topology.js?v=6d79260961';
 import { pressureColor } from './colormap.js?v=5f8590b23c';
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
 import { h, fmt, fitCanvas, cssVar, clamp, toast, icon } from './util.js?v=d483888526';
-import { FONT } from './charts.js?v=3a520126f6';
+import { FONT } from './charts.js?v=a409ac252d';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
