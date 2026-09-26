@@ -27,9 +27,9 @@ export const HIDDEN_EDGES = new Set(['A_SMA', 'A_IMA', 'A_SPL', 'A_LGA', 'A_REN_
 export const HIDDEN_NODES = new Set(['AO', 'UPPV', 'LOWV', 'KID_R', 'RRV', 'HA']);
 // Systemic veins drawn quietly: they matter only as the places collaterals drain to.
 export const CONTEXT_EDGES = new Set(['V_UP', 'SVC_RA', 'AZY_SVC', 'ILI_IVC', 'EPI_ILI', 'EPI_SVC', 'V_KID_L', 'LRV_IVC']);
-// Edges the circuit draws but the anatomy leaves out (none at present: the abdominal-wall veins
-// the paraumbilical route opens into are drawn from the caput medusae to the SVC and the iliac).
-export const ANAT_HIDDEN = new Set([]);
+// Edges the circuit draws but the anatomy leaves out: the caudate lobe veins (with their
+// tributaries and Budd–Chiari collaterals, see FEEDERS) are set aside on the plate for now.
+export const ANAT_HIDDEN = new Set(['CAUD']);
 // Drawn only once the paraumbilical collateral has opened.
 export const NEEDS_C3 = new Set(['EPI_ILI', 'EPI_SVC']);
 // Retroperitoneal vessels, drawn behind the organs (the liver and bowel veil them).

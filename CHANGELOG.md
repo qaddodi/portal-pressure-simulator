@@ -57,6 +57,8 @@
   shows it connected). Only in Budd–Chiari do portal collaterals join it.
   Its tributaries fan out behind it along its own course, so they flow into it without a kink,
   clear of the portal vein; the Budd–Chiari collaterals merge into it in smooth arcs.
+- The caudate lobe vein, its tributaries and its Budd–Chiari collaterals are hidden on the
+  anatomy for now (still modeled, and still drawn in the circuit).
 - **Caudate lobe.** Its vein runs from the portal vein straight into the IVC. In Budd–Chiari it
   enlarges with its flow and collaterals from the right and left portal veins drain into it.
 - **Flow rates** read to one decimal everywhere (labels, cards, readouts, charts), with "< 0.1"
