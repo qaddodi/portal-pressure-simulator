@@ -3,8 +3,8 @@
 import { store } from './store.js?v=e9304c5ee2';
 import { h, fmt, icon, svgIcon, popover, closePopover, clamp } from './util.js?v=13768f12bf';
 import { NODES, EDGES } from '../engine/topology.js?v=44e0aca402';
-import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=3b256e780e';
-import { createHVPG, createDoppler, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=c6402ebb65';
+import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=b8c7fb27a9';
+import { createHVPG, createDoppler, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=00f55b1793';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

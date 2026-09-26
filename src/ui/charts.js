@@ -122,16 +122,41 @@ export function createProfile() {
     else el.querySelector('.lg-compare').style.display = 'none';
     const now = stations.map((n) => F.P[NI[n]]);
     series(now, c.text, 2, null, true);
-    // ΔP labels on the risers that matter (≥ 1 mmHg), in ink
-    ctx.font = FONT(600, 10.5); ctx.textAlign = 'left';
+    // ΔP labels on the risers that matter (≥ 1 mmHg): small pills that never sit on a bar or on
+    // each other. The largest fall is where the resistance sits, and is marked as such.
+    ctx.font = FONT(600, 10.5); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    let big = -1, bigDp = 3;
+    for (let i = 0; i < now.length - 1; i++) { const d = now[i] - now[i + 1]; if (!ARTERIAL.has(stations[i]) && d > bigDp) { bigDp = d; big = i; } }
+    const taken = [];
+    const bars = now.map((v, i) => ({ x0: x(i) - slot * 0.32 - 2, x1: x(i) + slot * 0.32 + 2, y0: Y(v, i) - 6, y1: Y(v, i) + 6 }));
+    const clash = (r) => [...taken, ...bars].some((o) => r.x0 < o.x1 && r.x1 > o.x0 && r.y0 < o.y1 && r.y1 > o.y0);
     for (let i = 0; i < now.length - 1; i++) {
       const dp = now[i] - now[i + 1];
       if (Math.abs(dp) < 1 || ARTERIAL.has(stations[i])) continue;
+      const txt = (dp > 0 ? 'Δ ' : 'Δ +') + Math.abs(dp).toFixed(1);
+      const tw = ctx.measureText(txt).width + 10, th = 16;
       const xm = (x(i) + x(i + 1)) / 2;
-      const ym = Math.max(T + 10, Math.min(hh - B - 4, (y(now[i]) + y(now[i + 1])) / 2));
-      ctx.fillStyle = dp < 0 ? c.rev : c.muted;
-      ctx.fillText((dp > 0 ? 'Δ ' : 'Δ +') + Math.abs(dp).toFixed(1), xm + 4, ym + 4);
+      const ya = y(now[i]), yb = y(now[i + 1]);
+      // Beside a tall riser; above the higher step (then below the lower) for a short one.
+      const tall = Math.abs(ya - yb) > th + 8;
+      const cands = tall ? [[(ya + yb) / 2, tw / 2 + 8], [(ya + yb) / 2, -tw / 2 - 8]] : [[Math.min(ya, yb) - 14, 0], [Math.max(ya, yb) + 14, 0], [Math.min(ya, yb) - 30, 0]];
+      let r = null;
+      for (const [cy, dx] of cands) {
+        const yy = Math.max(T + th / 2, Math.min(hh - B - th / 2, cy));
+        const cand = { x0: xm + dx - tw / 2, x1: xm + dx + tw / 2, y0: yy - th / 2, y1: yy + th / 2 };
+        if (!clash(cand)) { r = cand; break; }
+      }
+      if (!r) continue;
+      taken.push(r);
+      const main = i === big;
+      ctx.fillStyle = main ? c.danger : c.surface;
+      ctx.globalAlpha = main ? 0.12 : 0.92;
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(r.x0, r.y0, tw, th, 8) : ctx.rect(r.x0, r.y0, tw, th); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = dp < 0 ? c.rev : main ? c.danger : c.muted;
+      ctx.fillText(txt, (r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2 + 0.5);
     }
+    ctx.textBaseline = 'alphabetic';
     el.querySelector('#profileOffscale').textContent = hasArt ? 'Arterial pressure is drawn above the break (//) at its true value.' : '';
     // prediction
     const lp = el.querySelector('.lg-pred');

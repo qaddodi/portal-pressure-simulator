@@ -5,15 +5,15 @@ import { startHost, host } from './host.js?v=0489e81e1a';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=e9304c5ee2';
 import { createStage } from './stage.js?v=d10afbfabe';
 import { createInspector } from './inspector.js?v=87d3126b53';
-import { createDock } from './dock.js?v=28492ab277';
+import { createDock } from './dock.js?v=3fa5ada5f1';
 import { createWhy } from './why.js?v=648b449677';
 import { createTimeline } from './timeline.js?v=2f4cb4fe9e';
 import { createLearn } from './learn.js?v=1e96075313';
 import { createCases } from './cases.js?v=10f87353cf';
 import { createCompare } from './compare.js?v=0a28b9dcc5';
 import { createCard } from './card.js?v=b91b1c7319';
-import { createChart } from './chart.js?v=d6c963e60a';
-import { createHome } from './home.js?v=b2fa28e0b0';
+import { createChart } from './chart.js?v=0b36d7de7b';
+import { createHome } from './home.js?v=8d87045001';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=743b542534';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=a1a7234e43';
 import { startLMS } from './lms.js?v=4511ed56b8';
@@ -416,8 +416,9 @@ function buildHud() {
   view.append(stageClock);
   $('#zoomFit').onclick = () => stage.fit();
   $$('#viewSeg button').forEach((b) => b.addEventListener('click', () => store.set({ view: b.dataset.view })));
+  // The legend is the lens switcher: it shows what the colors mean and changes what they show.
   $('#btnLayers').addEventListener('click', (e) => openLayers(e.currentTarget));
-  $('#legend').addEventListener('click', (e) => openLegend(e.currentTarget));
+  $('#btnLayers').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); openLayers(e.currentTarget); } });
   $('#btnFigure').addEventListener('click', () => toggleFigure(true));
   $('#btnDraw').addEventListener('click', (e) => openDraw(e.currentTarget));
   $('#btnInstruments').addEventListener('click', (e) => dock.openGrid(e.currentTarget));
@@ -524,6 +525,7 @@ function openLayers(anchor) {
     h('div', { class: 'menu-title' }, t('menu.units')),
     h('div', { style: { display: 'flex', gap: '6px', padding: '2px 10px 6px' } }, unitSel('pressure', ['mmHg', 'cmH2O', 'kPa']), unitSel('flow', ['L/min', 'mL/min'])),
     h('div', { class: 'menu-sep' }),
+    menuItem('How to read the figure', { icon: 'info', onClick: () => { const a = $('#btnLayers'); closePopover(); openLegend(a); } }),
     menuItem('Figure view (export)', { icon: 'camera', kb: 'F', onClick: () => { closePopover(); toggleFigure(true); } }),
     menuItem('Projector mode', { icon: 'projector', kb: 'Shift F', onClick: () => { closePopover(); toggleProjector(); } }),
   ], { cls: 'layers-pop' });

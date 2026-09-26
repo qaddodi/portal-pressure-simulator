@@ -14,7 +14,7 @@
   <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="fonts/fonts.css" />
   <link rel="stylesheet" href="styles/tokens.css?v=93bcb7e07d" />
-  <link rel="stylesheet" href="styles/app.css?v=282c1e452d" />
+  <link rel="stylesheet" href="styles/app.css?v=5990481a6f" />
 </head>
 <body>
   <!-- Icon set: 24px grid, 1.6px stroke, round caps (blueprint §5.6). -->
@@ -114,12 +114,11 @@
             <button data-view="anatomic" aria-pressed="true" title="Anatomic view (A)" data-i18n="bar.anatomy">Anatomy</button>
             <button data-view="circuit" aria-pressed="false" title="Circuit view (A)" data-i18n="bar.circuit">Circuit</button>
           </div>
-          <button class="chip-btn" id="btnLayers" aria-haspopup="dialog" title="Vessel color, layers and units (L cycles)"><svg><use href="#i-layers"/></svg><span class="cb-k" data-i18n="bar.lens">Lens</span><span id="colorModeLabel">Pressure</span><svg class="chev"><use href="#i-chev-down"/></svg></button>
-          <button class="chip-btn" id="btnDraw" aria-haspopup="menu" title="Paint fibrosis or clot directly on the anatomy"><svg><use href="#i-fibrosis"/></svg><span class="cb-k" data-i18n="bar.draw">Draw</span><svg class="chev"><use href="#i-chev-down"/></svg></button>
+          <button class="chip-btn icon-only" id="btnDraw" aria-haspopup="menu" aria-label="Draw: paint fibrosis or clot on the anatomy" title="Draw: paint fibrosis or clot on the anatomy"><svg><use href="#i-fibrosis"/></svg></button>
         </div>
         <div class="sb-center stage-blocker" id="stageCenter"><span class="bleed-pill" id="bleedPill" role="status" hidden></span><div class="sb-banner" id="stageBanner"></div></div>
         <div class="sb-right">
-          <div class="legend" id="legend" role="img" aria-label="Color legend"></div>
+          <div class="lens-btn" id="btnLayers" role="button" tabindex="0" aria-haspopup="dialog" title="Color the vessels by… (L cycles)"><span class="lens-name" id="colorModeLabel">Pressure</span><div class="legend" id="legend" role="img" aria-label="Color legend"></div><svg class="chev"><use href="#i-chev-down"/></svg></div>
           <button class="chip-btn" id="btnInstruments" aria-haspopup="dialog" title="Instruments: pressure profile, Doppler, HVPG, endoscopy… (I)"><svg><use href="#i-chart"/></svg><span data-i18n="bar.instruments">Instruments</span></button>
           <button class="chip-btn" id="btnFigure" title="Figure view: a clean, labeled plate to present or export (F)"><svg><use href="#i-camera"/></svg><span data-i18n="bar.figure">Figure</span></button>
           <button class="ib show-sm" id="btnExpand" aria-label="Expand figure" aria-pressed="false"><svg><use href="#i-fit"/></svg></button>
@@ -174,11 +173,11 @@
   <link rel="modulepreload" href="src/ui/store.js?v=e9304c5ee2" />
   <link rel="modulepreload" href="src/ui/colormap.js?v=fa78a29bc0" />
   <link rel="modulepreload" href="src/ui/inspector.js?v=87d3126b53" />
-  <link rel="modulepreload" href="src/ui/dock.js?v=28492ab277" />
-  <link rel="modulepreload" href="src/ui/charts.js?v=3b256e780e" />
-  <link rel="modulepreload" href="src/ui/instruments.js?v=c6402ebb65" />
+  <link rel="modulepreload" href="src/ui/dock.js?v=3fa5ada5f1" />
+  <link rel="modulepreload" href="src/ui/charts.js?v=b8c7fb27a9" />
+  <link rel="modulepreload" href="src/ui/instruments.js?v=00f55b1793" />
   <link rel="modulepreload" href="src/ui/timeline.js?v=2f4cb4fe9e" />
   <link rel="modulepreload" href="src/engine/topology.js?v=44e0aca402" />
-  <script type="module" src="src/ui/main.js?v=3c387e273d"></script>
+  <script type="module" src="src/ui/main.js?v=ba9892d899"></script>
 </body>
 </html>

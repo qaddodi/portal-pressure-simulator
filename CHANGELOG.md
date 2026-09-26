@@ -20,6 +20,13 @@ patients, lessons and cases are unchanged (content version 2.0).
   (nodules, nutmeg, congestion). A varix wall-tension ring closes as the varices approach their
   rupture threshold (amber ≥ 70 %, red ≥ 90 %). On small screens the station labels are single
   lines on a text halo instead of cards, uncovering the anatomy.
+- **Phase 4, the shell.** Home's patient list is now a map of the disease: patients grouped by
+  where the resistance sits, each drawn as its own pressure profile from the gut to the heart
+  (generated from the model by `scripts/snapshots.mjs`, checked by `npm test`), with HVPG,
+  portal pressure, flow direction and ascites. Compact Home on phones. The legend is now the
+  lens switcher (one control, with "How to read the figure" inside); Draw is an icon. The
+  pressure profile's ΔP labels are pills that never overlap bars or each other, and the largest
+  fall (where the resistance sits) is highlighted. Phone readouts fit four across and snap.
 
 ## 2.0.0 (content version 2.0), 2026-09
 

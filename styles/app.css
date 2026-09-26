@@ -133,8 +133,13 @@ svg { flex: none; }
 .chip-btn[aria-pressed="true"] svg { color: currentColor; }
 
 /* Legend: a horizontal scale that sits in the figure header, never on the anatomy */
-.legend { display: flex; align-items: center; gap: 10px; padding: 0 4px; cursor: pointer; border-radius: 8px; }
-.legend:hover { background: var(--surface-2); }
+.lens-btn { display: flex; align-items: center; gap: 4px; height: 42px; padding: 0 8px 0 6px; border-radius: 10px; border: 1px solid transparent; cursor: pointer; transition: background var(--t-fast), border-color var(--t-fast); }
+.lens-btn:hover { background: var(--surface); border-color: var(--border); }
+.lens-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.lens-btn .chev { width: 13px; height: 13px; flex: none; stroke: var(--text-3); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.lens-name { display: none; }
+.chip-btn.icon-only { width: 32px; padding: 0; justify-content: center; }
+.legend { display: flex; align-items: center; gap: 10px; padding: 0 4px; border-radius: 8px; pointer-events: none; }
 .lg-title { display: flex; flex-direction: column; line-height: 1.15; font-size: 11px; color: var(--text-2); font-weight: 600; text-align: right; white-space: nowrap; margin-right: 4px; }
 .lg-title small { font-size: 10px; color: var(--text-3); font-weight: 500; }
 .lg-scale { position: relative; width: 168px; height: 30px; }
@@ -1509,3 +1514,55 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .vx-gauge.high .vx-arc { stroke: var(--danger); stroke-opacity: 1; }
 .app.figure-mode .vx-gauge { display: none; }
 #labels .lb.inline.bare text { stroke: var(--label-halo); stroke-width: 4px; }
+
+/* ── Home: a map of the disease ───────────────────────────────────────────────── */
+.hp-intro { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 24px; margin: 0 0 18px; }
+.hp-intro p { margin: 0; font-size: 13px; color: var(--text-2); max-width: 60ch; line-height: 1.5; }
+.hp-intro b { color: var(--text); font-weight: 600; }
+.hp-axis { display: flex; gap: 2px; font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-3); }
+.hp-axis span { padding: 3px 6px; border-radius: 6px; background: var(--surface-2); white-space: nowrap; }
+.home-group h3 small { margin-left: auto; font-size: 11px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--text-3); }
+.home-grid.scen .home-item.hp { gap: 6px; padding: 12px 12px 12px; border: 1px solid var(--border); background: var(--surface); border-radius: 14px; }
+.home-grid.scen .home-item.hp:hover { border-color: var(--accent-line); box-shadow: var(--shadow-2); transform: translateY(-1px); }
+.home-item.hp { transition: border-color var(--t-fast), box-shadow var(--t-fast), transform var(--t-fast); }
+.home-item.hp.cur { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--surface); }
+.home-item.hp .d { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 12px; color: var(--text-3); }
+.hp-prof { width: 100%; height: 56px; display: block; margin: 2px 0 0; overflow: visible; }
+.hp-grid { stroke: var(--grid); stroke-width: 1; stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; }
+.hp-area { fill: var(--accent); fill-opacity: .06; }
+.hp-drop { fill: var(--danger); fill-opacity: .08; }
+.hp-line { stroke-width: 2.4; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.hp-line.fall { stroke-width: 3.2; }
+.hp-dot { stroke: var(--surface); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.hp-facts { display: flex; flex-wrap: wrap; gap: 4px; }
+.hp-chip { display: inline-flex; align-items: baseline; gap: 3px; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 500; color: var(--text-2); background: var(--surface-2); font-variant-numeric: tabular-nums; }
+.hp-chip b { font-weight: 700; color: var(--text); }
+.hp-chip.ok b { color: var(--ok); }
+.hp-chip.low b { color: var(--caution); }
+.hp-chip.mid b, .hp-chip.high b { color: var(--danger); }
+.hp-chip.high { background: color-mix(in srgb, var(--danger) 10%, var(--surface)); }
+.hp-chip.rev { color: color-mix(in srgb, var(--flow-reversed) 80%, var(--text)); background: color-mix(in srgb, var(--flow-reversed) 12%, var(--surface)); font-weight: 600; }
+.home-loading { padding: 24px; color: var(--text-3); }
+@media (max-width: 700px) { .hp-axis { display: none; } }
+@media (max-width: 700px) {
+  .home-inner { gap: 16px; }
+  .home-head { gap: 12px; align-items: flex-start; }
+  .home-head > svg { width: 40px; height: 40px; }
+  .home-head h1 { font-size: 21px; }
+  .home-head p { font-size: 13px; line-height: 1.45; margin-top: 4px; }
+  /* The four doors become one compact segmented row: icon and name. */
+  .home-doors { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .home-door { align-items: center; text-align: center; padding: 10px 4px; gap: 6px; border-radius: 12px; }
+  .home-door .hd-d { display: none; }
+  .home-door .hd-t { font-size: 12px; }
+  .hp-intro p { font-size: 12.5px; }
+}
+
+/* Phones: the readout strip fits four tiles across and snaps tile by tile beyond that. */
+@media (max-width: 767px) {
+  .readouts { scroll-snap-type: x mandatory; }
+  .metric { flex: 1 0 88px; min-width: 88px; padding: 7px 8px 8px 10px; scroll-snap-align: start; }
+  .metric .v { font-size: 16px; }
+  .metric .v .unit { font-size: 9.5px; }
+  .metric .k, .metric .s { font-size: 10.5px; }
+}
