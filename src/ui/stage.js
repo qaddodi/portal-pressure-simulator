@@ -1,7 +1,7 @@
 // Anatomical stage (blueprint §6): SVG anatomy + canvas flow layer + screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=44e0aca402';
-import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS } from './anatomy.js?v=c6cb3c4ecf';
+import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS } from './anatomy.js?v=17d7a74a78';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=fa78a29bc0';
 import { store, updateParams } from './store.js?v=e9304c5ee2';
 import { s, h, fmt, fp, clamp, lerp, toast, cssVar } from './util.js?v=13768f12bf';
@@ -272,29 +272,53 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     p.remove();
     return out;
   }
-  // Each organ: a filled body, a soft shade just inside its edge (so it reads as a solid form
-  // rather than a flat blob), then a crisp outline. Tubes (colon, duodenum, diaphragm) are stroked.
-  const TEXTURE = { liver: 'texLiver', spleen: 'texFine', stomach: 'texRugae', pancreas: 'texLobules', heart: 'texMuscle', 'kidney-l': 'texFine', 'kidney-r': 'texFine' };
+  // Each organ is drawn as a medical plate draws it, lit from the upper left:
+  //   ambient occlusion where it meets the body wall (a soft dark edge outside it),
+  //   its tissue tone (a light face turning to a shaded face, per tissue),
+  //   the volume of a curved surface (a broad highlight and a darker turn at the rim),
+  //   its surface anatomy (fissures, rugae, hilum, lobulation; clipped inside),
+  //   an inner shade along the lower-right edge and a rim light along the upper-left edge,
+  //   and a crisp outline in the tissue's own darker tone.
+  // Everything is gradients and clips (no blur filters), so it costs nothing per frame.
+  const TONES = ['liver', 'stomach', 'eso', 'spleen', 'panc', 'kidney', 'gb', 'gut', 'heart', 'ra'];
+  defs.insertAdjacentHTML('beforeend', TONES.map((t) => `<linearGradient id="og-${t}" x1=".15" y1="0" x2=".85" y2="1"><stop offset="0" style="stop-color:var(--og-${t}-1)"/><stop offset="1" style="stop-color:var(--og-${t}-2)"/></linearGradient>`).join('')
+    + '<radialGradient id="ogVol" cx=".34" cy=".26" r=".92"><stop offset="0" style="stop-color:#fff;stop-opacity:.22"/><stop offset=".5" style="stop-color:#fff;stop-opacity:0"/><stop offset=".8" style="stop-color:#2a1410;stop-opacity:0"/><stop offset="1" style="stop-color:#2a1410;stop-opacity:.1"/></radialGradient>');
   const organEls = {}, organG = {};
+  const detailFor = (o) => {
+    const list = ORGAN_DETAIL[o.id];
+    if (!list) return null;
+    const dg = s('g', { class: 'org-detail', 'clip-path': `url(#clip-${o.id})` });
+    for (const [kind, d] of list) {
+      if (kind === 'lobules') dg.append(s('path', { d: o.d, class: 'org-lobules', fill: 'url(#texLobules)' }));
+      else dg.append(s('path', { d, class: 'od-' + kind }));
+    }
+    return dg;
+  };
   for (const o of ORGANS) {
-    const g = s('g', { class: 'organ organ-' + o.id });
+    const g = s('g', { class: 'organ organ-' + o.id + (o.tone ? ' tone-' + o.tone : '') });
     let el;
     if (o.circle) { const [cx, cy, r] = o.circle; el = s('circle', { cx, cy, r, class: o.cls }); g.append(el); }
     else if (o.band) {
+      // Tubes (colon, small bowel, duodenum): a soft contact edge, the wall, the lumen in the
+      // tissue tone, a shaded underside and a light top, then the colon's haustra.
       el = s('path', { d: o.d, class: o.cls + ' band-body' });
-      g.append(s('path', { d: o.d, class: 'band-cast', transform: 'translate(4 6)' }), s('path', { d: o.d, class: o.cls + ' band-edge' }), el, s('path', { d: o.d, class: o.cls + ' band-sheen', transform: 'translate(-2 -3.5)' }));
+      g.append(s('path', { d: o.d, class: o.cls + ' band-ao' }), s('path', { d: o.d, class: o.cls + ' band-edge' }), el,
+        s('path', { d: o.d, class: o.cls + ' band-under', transform: 'translate(1.5 3)' }),
+        s('path', { d: o.d, class: o.cls + ' band-sheen', transform: 'translate(-2 -3.5)' }));
       if (o.cls === 'org-colon') g.append(s('path', { d: haustra(o.d, 11.5), class: 'org-haustra' }));
     } else if (o.deco) { el = s('path', { d: o.d, class: o.cls }); if (o.id === 'heart-out') el.setAttribute('marker-end', 'url(#heartArrow)'); g.append(el); }
     else {
-      // Cast shadow on the plane behind (soft light from the upper left), the body, a tissue
-      // texture, the form shading (lit upper left, turning away lower right), the soft inner
-      // rim, then the outline.
-      el = s('path', { d: o.d, class: o.cls + ' org-fill' });
+      el = s('path', { d: o.d, class: o.cls + ' org-fill', fill: o.tone ? `url(#og-${o.tone})` : null });
       defs.insertAdjacentHTML('beforeend', `<clipPath id="clip-${o.id}"><path d="${o.d}"/></clipPath>`);
-      g.append(s('path', { d: o.d, class: 'org-cast', filter: 'url(#castShadow)', transform: 'translate(7 10)' }), el);
-      if (TEXTURE[o.id]) g.append(s('path', { d: o.d, class: 'org-tex', fill: `url(#${TEXTURE[o.id]})` }));
-      g.append(s('path', { d: o.d, class: 'org-form', fill: 'url(#orgForm)' }),
-        s('path', { d: o.d, class: 'org-rim', 'clip-path': `url(#clip-${o.id})`, filter: 'url(#orgSoft)' }), s('path', { d: o.d, class: o.cls + ' org-line' }));
+      const clip = `url(#clip-${o.id})`;
+      g.append(s('path', { d: o.d, class: 'org-ao' }), el, s('path', { d: o.d, class: 'org-form', fill: 'url(#ogVol)' }));
+      const dg = detailFor(o);
+      if (dg) g.append(dg);
+      // The inner shade is a soft ramp (three widening, fading strokes), never a hard band.
+      for (const k of [1, 2, 3]) g.append(s('path', { d: o.d, class: 'org-shade s' + k, 'clip-path': clip, transform: 'translate(-3.5 -5)' }));
+      g.append(
+        s('path', { d: o.d, class: 'org-rimlight', 'clip-path': clip, transform: 'translate(2 3)' }),
+        s('path', { d: o.d, class: o.cls + ' org-line' }));
     }
     organEls[o.id] = el; organG[o.id] = g;
     gOrgans.append(g);
@@ -306,7 +330,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const liverTint = s('path', { d: liverD, fill: 'url(#congest)', class: 'liver-tint' });
   const liverNutmeg = s('path', { d: liverD, fill: 'url(#nutmeg)', opacity: 0 });
   const liverNodules = s('path', { d: liverD, fill: 'url(#nodules)', opacity: 0 });
-  for (const el of [liverTint, liverNutmeg, liverNodules]) organG.liver.insertBefore(el, organG.liver.querySelector('.org-rim'));
+  for (const el of [liverTint, liverNutmeg, liverNodules]) organG.liver.insertBefore(el, organG.liver.querySelector('.org-shade'));
   // Abdominal wall (anterior): appears only with caput medusae, under the radiating veins.
   const abdWall = s('ellipse', { cx: SITES.umbilicus[0], cy: SITES.umbilicus[1], rx: 120, ry: 96, fill: 'url(#skin)', class: 'abd-wall', opacity: 0 });
   // Flanks: the outline of the abdominal wall, which bulges as ascites accumulates.
@@ -901,7 +925,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const g of Object.values(organG)) g.classList.remove('org-sel');
     gSelO.replaceChildren();
     if (!o) return;
-    const byOrgan = { liver: ['liver'], heart: ['heart', 'heart-ra'], spleen: ['spleen'] }[o];
+    const byOrgan = { liver: ['liver'], heart: ['heart'], spleen: ['spleen'] }[o];
     if (byOrgan) { for (const id of byOrgan) organG[id]?.classList.add('org-sel'); const d = ORGANS.find((x) => x.id === byOrgan[0])?.d; if (d) gSelO.append(s('path', { d, class: 'org-sel-line' })); return; }
     const at = { varices: [SITES.varix[0], SITES.varix[1] + 20, 26, 62], gastric: [SITES.fundus[0], SITES.fundus[1], 34, 30], abdomen: [720, 790, 230, 110] }[o];
     if (at) gSelO.append(s('ellipse', { cx: at[0], cy: at[1], rx: at[2], ry: at[3], class: 'org-sel-ring' }));
@@ -2198,7 +2222,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   // Organs under a point (anatomy only). The varices and fundus are small sites; the abdomen is
   // whatever lies inside the peritoneal cavity below the stomach.
-  const ORGAN_OF = { liver: 'liver', gallbladder: 'liver', heart: 'heart', 'heart-ra': 'heart', spleen: 'spleen', stomach: 'gastric', esophagus: 'varices', bowel: 'abdomen', cecum: 'abdomen', 'colon-a': 'abdomen', 'colon-t': 'abdomen', 'colon-d': 'abdomen', duodenum: 'abdomen', pancreas: null, 'kidney-l': null, 'kidney-r': null };
+  const ORGAN_OF = { liver: 'liver', gallbladder: 'liver', heart: 'heart', spleen: 'spleen', stomach: 'gastric', esophagus: 'varices', bowel: 'abdomen', colon: 'abdomen', appendix: 'abdomen', duodenum: 'abdomen', 'kidney-l': null, 'kidney-r': null };
   const ptIn = (el, x, y, stroke) => {
     if (!el) return false;
     const pt = svg.createSVGPoint(); pt.x = x; pt.y = y;

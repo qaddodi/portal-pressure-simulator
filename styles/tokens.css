@@ -41,6 +41,19 @@
   --flow-reversed: #EC7424;
 
   /* anatomy */
+  /* anatomy plate: tissue tones [light face, shaded face, outline], muted so vessels lead */
+  --og-liver-1: #E9C3B6; --og-liver-2: #C98E7E; --og-liver-3: #9A5D4F;
+  --og-stomach-1: #F4D9CF; --og-stomach-2: #DDAC9C; --og-stomach-3: #A87464;
+  --og-eso-1: #F0D2C6; --og-eso-2: #D9A898; --og-eso-3: #A5766A;
+  --og-spleen-1: #D8BDD0; --og-spleen-2: #A9829D; --og-spleen-3: #7A566F;
+  --og-panc-1: #F5E3BA; --og-panc-2: #DDBF86; --og-panc-3: #A88A52;
+  --og-kidney-1: #E6BBAA; --og-kidney-2: #C08672; --og-kidney-3: #8E5A4A;
+  --og-gb-1: #D6E0B4; --og-gb-2: #A5B87E; --og-gb-3: #6F8450;
+  --og-gut-1: #F6E2D3; --og-gut-2: #E3C0A8; --og-gut-3: #B08A72;
+  --og-heart-1: #EDB8B0; --og-heart-2: #CC8479; --og-heart-3: #97554D;
+  --og-ra-1: #E4A69F; --og-ra-2: #C27268; --og-ra-3: #8C4A43;
+  --og-light: rgba(255, 255, 255, .55); --og-dark: rgba(60, 22, 18, .22); --og-ao: rgba(70, 40, 30, .09);
+  --knockout: rgba(251, 250, 247, .75);
   --organ-body: #EFE8DF;
   --organ-body-line: #D9CEC0;
   --organ-liver: #946658;
@@ -111,6 +124,18 @@
     --brand-bg: #24325C; --accent: #7C9BFF; --accent-ink: #A5BAFF; --accent-soft: rgba(124, 155, 255, .13); --accent-line: rgba(124, 155, 255, .4); --focus: #7C9BFF;
     --ok: #34C38F; --caution: #F0B43C; --danger: #F2634D; --critical: #E6508A; --info: #7C9BFF;
     --flow-normal: #2CC5BD; --flow-reversed: #FF8C42;
+    --og-liver-1: #6E4A43; --og-liver-2: #4E302B; --og-liver-3: #A57A70;
+    --og-stomach-1: #6A4D48; --og-stomach-2: #4B3431; --og-stomach-3: #A08079;
+    --og-eso-1: #62463F; --og-eso-2: #46302B; --og-eso-3: #957469;
+    --og-spleen-1: #5E4658; --og-spleen-2: #43303F; --og-spleen-3: #977C8F;
+    --og-panc-1: #6A5C3E; --og-panc-2: #4C412B; --og-panc-3: #A4936B;
+    --og-kidney-1: #664640; --og-kidney-2: #49302C; --og-kidney-3: #A0786D;
+    --og-gb-1: #505C3C; --og-gb-2: #37402A; --og-gb-3: #8E9C70;
+    --og-gut-1: #5E4C44; --og-gut-2: #43352F; --og-gut-3: #94796C;
+    --og-heart-1: #74443F; --og-heart-2: #532E2A; --og-heart-3: #AE7C74;
+    --og-ra-1: #7C433E; --og-ra-2: #582B27; --og-ra-3: #B6807A;
+    --og-light: rgba(255, 235, 225, .14); --og-dark: rgba(0, 0, 0, .35); --og-ao: rgba(0, 0, 0, .3);
+    --knockout: rgba(11, 17, 32, .7);
     --organ-body: #141C31; --organ-body-line: #25304D;
     --organ-liver: #A88C82; --organ-spleen: #93889A; --organ-gut: #A8998A; --organ-stomach: #A99088; --organ-heart: #AE8387;
     --organ-kidney: #A08A80; --organ-lung: #5A6E90; --organ-pancreas: #AFA286; --organ-gb: #8C9A7E; --organ-aorta: #6E6470; --organ-a: .3; --organ-tint: 20%; --diaphragm: #9C8C84;
@@ -130,6 +155,18 @@
   --brand-bg: #24325C; --accent: #7C9BFF; --accent-ink: #A5BAFF; --accent-soft: rgba(124, 155, 255, .13); --accent-line: rgba(124, 155, 255, .4); --focus: #7C9BFF;
   --ok: #34C38F; --caution: #F0B43C; --danger: #F2634D; --critical: #E6508A; --info: #7C9BFF;
   --flow-normal: #2CC5BD; --flow-reversed: #FF8C42;
+  --og-liver-1: #6E4A43; --og-liver-2: #4E302B; --og-liver-3: #A57A70;
+  --og-stomach-1: #6A4D48; --og-stomach-2: #4B3431; --og-stomach-3: #A08079;
+  --og-eso-1: #62463F; --og-eso-2: #46302B; --og-eso-3: #957469;
+  --og-spleen-1: #5E4658; --og-spleen-2: #43303F; --og-spleen-3: #977C8F;
+  --og-panc-1: #6A5C3E; --og-panc-2: #4C412B; --og-panc-3: #A4936B;
+  --og-kidney-1: #664640; --og-kidney-2: #49302C; --og-kidney-3: #A0786D;
+  --og-gb-1: #505C3C; --og-gb-2: #37402A; --og-gb-3: #8E9C70;
+  --og-gut-1: #5E4C44; --og-gut-2: #43352F; --og-gut-3: #94796C;
+  --og-heart-1: #74443F; --og-heart-2: #532E2A; --og-heart-3: #AE7C74;
+  --og-ra-1: #7C433E; --og-ra-2: #582B27; --og-ra-3: #B6807A;
+  --og-light: rgba(255, 235, 225, .14); --og-dark: rgba(0, 0, 0, .35); --og-ao: rgba(0, 0, 0, .3);
+  --knockout: rgba(11, 17, 32, .7);
   --organ-body: #141C31; --organ-body-line: #25304D;
   --organ-liver: #A88C82; --organ-spleen: #93889A; --organ-gut: #A8998A; --organ-stomach: #A99088; --organ-heart: #AE8387;
   --organ-kidney: #A08A80; --organ-lung: #5A6E90; --organ-pancreas: #AFA286; --organ-gb: #8C9A7E; --organ-aorta: #6E6470; --organ-a: .3; --organ-tint: 20%; --diaphragm: #9C8C84;

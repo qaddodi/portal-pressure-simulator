@@ -33,6 +33,16 @@ patients, lessons and cases are unchanged (content version 2.0).
   postsinusoidal, posthepatic). In the circuit, the liver's resistance gates take the color of
   the pressure they drop, so the dominant resistance lights up. Instruments and Home arrive with
   a short, staggered motion (off with reduced motion).
+- **Anatomy redrawn as a plate.** New silhouettes drawn to the anterior view of an atlas: a
+  domed liver with a sharp oblique inferior margin, a teres notch and a thin rounded left lobe,
+  the gallbladder fundus just below the margin; a single-form heart on the diaphragm; a smooth
+  notched spleen; one continuous colon ending in the cecum where the ileum enters, with the
+  appendix; the duodenum leaving the pylorus. The pancreas is no longer drawn. Matte tissue
+  rendering from one light source: per-tissue tones, soft volume, a gradual inner shade, a faint
+  rim light and ambient occlusion; surface anatomy (falciform ligament, gastric folds, pylorus,
+  splenic and renal hila, haustra). Vessels are cut out of the tissue by a thin paper edge so
+  pressure colors stay legible. Light and dark themes; gradients and clips only (no blur
+  filters); exports as vector.
 
 ## 2.0.0 (content version 2.0), 2026-09
 

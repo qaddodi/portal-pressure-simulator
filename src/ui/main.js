@@ -3,16 +3,16 @@
 
 import { startHost, host } from './host.js?v=0489e81e1a';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=e9304c5ee2';
-import { createStage } from './stage.js?v=aca9dadeae';
+import { createStage } from './stage.js?v=36d4a4bf7c';
 import { createInspector } from './inspector.js?v=87d3126b53';
-import { createDock } from './dock.js?v=666802b1f6';
+import { createDock } from './dock.js?v=c03e45f2c3';
 import { createWhy } from './why.js?v=648b449677';
 import { createTimeline } from './timeline.js?v=2f4cb4fe9e';
 import { createLearn } from './learn.js?v=1e96075313';
 import { createCases } from './cases.js?v=10f87353cf';
 import { createCompare } from './compare.js?v=0a28b9dcc5';
 import { createCard } from './card.js?v=b91b1c7319';
-import { createChart } from './chart.js?v=e2e9800952';
+import { createChart } from './chart.js?v=f23d50ee6f';
 import { createHome } from './home.js?v=8d87045001';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=743b542534';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=a1a7234e43';
@@ -144,7 +144,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=27fd25ae05'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=7053fe5418'), ({ createPalette }) => createPalette({ ctx: {
     select: (sel) => store.set({ selection: sel }), action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     wedge: () => { store.set({ selection: { type: 'edge', id: 'RHV_IVC' } }); setTimeout(() => card.trigger(3), 60); },
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
@@ -492,7 +492,7 @@ function openLegend(anchor) {
       rows.map(([k, v]) => h('div', {}, h('b', { style: { color: 'var(--text)' } }, k + '. '), v)),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Flow. '), 'Arrowheads inside each vessel point and move downstream; their speed follows blood velocity, and a vessel without flow has none. Reversed flow turns them orange and runs them the other way. Paused, they hold still and keep their direction.'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Notation. '), 'Dotted vessels are closed potential collaterals. Line width follows vessel diameter (compressed). Faint lines crossing an organ run behind it. ▲ / ▼ on a label: change in mmHg from healthy (from state A in Compare).'),
-      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Organs. '), 'Organs stay plain while they are healthy. Texture means disease: nodules for cirrhosis, mottling for congestion (nutmeg liver), a darker vignette as sinusoidal pressure rises.'),
+      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Organs. '), 'Organs are drawn as in an anatomy plate, lit from the upper left. On the liver, texture means disease: nodules for cirrhosis, mottling for congestion (nutmeg liver), a darker vignette as sinusoidal pressure rises. The spleen grows with splenomegaly.'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Varix ring. '), 'The ring around the esophageal varices closes as their wall tension (pressure × radius ÷ wall thickness) approaches the rupture threshold: amber from 70 %, red from 90 %.'))], { align: 'end', cls: 'legend-pop' });
 }
 function openLayers(anchor) {

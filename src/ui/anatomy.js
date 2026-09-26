@@ -33,7 +33,7 @@ export const CONTEXT_EDGES = new Set(['V_UP', 'SVC_RA', 'AZY_SVC', 'ILI_IVC', 'E
 export const ANAT_HIDDEN = new Set(['EPI_SVC', 'EPI_ILI']);
 // Drawn only once the paraumbilical collateral has opened.
 export const NEEDS_C3 = new Set(['EPI_ILI', 'EPI_SVC']);
-// Retroperitoneal vessels, drawn behind the organs (the liver and pancreas veil them).
+// Retroperitoneal vessels, drawn behind the organs (the liver and bowel veil them).
 export const BACK_EDGES = new Set(['IVC_IS', 'ILI_IVC', 'LRV_IVC', 'V_KID_L', 'C7', 'C9', 'S_MC', 'C1b', 'CAUD']);
 
 // Node positions: [anatomic, circuit]
@@ -223,43 +223,57 @@ export const CIRCUIT_LABELS = {
 // illustrator layers it. Retroperitoneal structures first (both kidneys, the right one peeking
 // below the liver), then the heart, the colon framing the small
 // bowel (ascending on the viewer's left, transverse slung between the flexures, descending,
-// sigmoid), the coiled small bowel ending at the cecum, spleen, stomach, duodenal C-loop and
-// pancreas, and the liver in front with its gallbladder. The vessel geometry above is fixed; the
+// sigmoid) from the cecum and appendix, the coiled small bowel entering the cecum, spleen,
+// duodenal C-loop, stomach, and the liver in front with the gallbladder beneath its margin. The vessel geometry above is fixed; the
 // organs are drawn to sit around it. `band` shapes are stroked tubes; `deco` shapes are line work
 // only; `noCover` shapes never hide the flow marks of vessels behind them.
 export const ORGANS = [
-  { id: 'kidney-r', cls: 'org org-kidney', d: 'M474 578 C 446 586 434 626 440 664 C 446 700 474 720 500 714 C 518 710 522 692 516 676 C 510 662 512 646 518 634 C 524 618 520 596 506 584 C 496 576 484 574 474 578 Z' },
-  { id: 'kidney-l', cls: 'org org-kidney', d: 'M1002 556 C 1040 548 1066 584 1064 626 C 1062 672 1034 700 1000 694 C 982 690 984 668 994 654 C 1000 642 998 630 990 620 C 984 606 978 574 1002 556 Z' },
-  { id: 'esophagus', cls: 'org org-eso', d: 'M776 0 L 798 0 C 800 90 805 190 818 290 C 820 298 813 304 805 302 L 796 300 C 787 200 781 90 776 0 Z' },
-  { id: 'heart', cls: 'org org-heart', d: 'M600 70 C 588 92 588 128 600 152 C 614 178 646 190 684 192 C 736 194 784 184 810 164 C 826 150 824 130 808 116 C 784 94 748 70 712 58 C 676 48 628 50 600 70 Z' },
-  // The right atrium, where both cavae end; the arrow shows where the blood goes next.
-  { id: 'heart-ra', cls: 'org org-ra', d: 'M604 72 C 590 92 588 126 598 150 C 608 172 630 184 652 182 C 676 180 688 160 688 132 C 688 104 678 82 660 70 C 642 60 616 62 604 72 Z' },
-  { id: 'heart-grooves', cls: 'org-heart-groove', deco: true, d: 'M676 60 C 694 96 700 148 684 190 M752 72 C 764 102 778 136 802 164 M676 110 C 684 118 686 132 680 144' },
+  { id: 'kidney-r', tone: 'kidney', cls: 'org org-kidney', d: 'M474 578 C 446 586 434 626 440 664 C 446 700 474 720 500 714 C 518 710 522 692 516 676 C 510 662 512 646 518 634 C 524 618 520 596 506 584 C 496 576 484 574 474 578 Z' },
+  { id: 'kidney-l', tone: 'kidney', cls: 'org org-kidney', d: 'M1002 556 C 1040 548 1066 584 1064 626 C 1062 672 1034 700 1000 694 C 982 690 984 668 994 654 C 1000 642 998 630 990 620 C 984 606 978 574 1002 556 Z' },
+  { id: 'esophagus', tone: 'eso', cls: 'org org-eso', d: 'M776 0 L 798 0 C 800 90 805 190 818 290 C 820 298 813 304 805 302 L 796 300 C 787 200 781 90 776 0 Z' },
+  { id: 'heart', tone: 'heart', cls: 'org org-heart', d: 'M618 64 C 600 88 598 128 606 158 C 614 184 640 194 682 194 C 742 194 800 188 836 172 C 850 165 850 150 839 140 C 812 110 776 80 736 64 C 700 51 648 50 618 64 Z' },
+  { id: 'heart-grooves', cls: 'org-heart-groove', deco: true, d: 'M736 64 C 750 108 786 152 832 176 M666 64 C 682 102 686 150 678 193' },
   { id: 'heart-out', cls: 'org-heart-flow', deco: true, d: 'M664 118 C 690 112 716 114 742 126' },
-  { id: 'cecum', cls: 'org org-cecum', d: 'M404 842 C 392 868 402 900 430 906 C 458 912 476 890 470 866 C 466 846 448 834 430 834 C 418 834 410 836 404 842 Z' },
-  { id: 'colon-a', cls: 'org-colon', band: true, d: 'M426 846 C 408 812 398 764 400 704 C 402 646 412 596 438 568' },
-  { id: 'colon-t', cls: 'org-colon', band: true, d: 'M438 568 C 472 556 506 588 544 628 C 592 678 650 700 720 700 C 800 700 870 660 916 600 C 946 560 970 510 984 468' },
-  { id: 'colon-d', cls: 'org-colon', band: true, d: 'M984 468 C 992 560 988 700 972 790 C 962 848 924 880 868 892 C 838 898 812 902 788 906' },
-  { id: 'bowel', cls: 'org-bowel', band: true, d: 'M604 722 C 650 706 700 714 742 722 C 786 730 830 712 872 724 C 904 734 906 764 878 772 C 840 782 800 764 760 770 C 716 776 684 790 646 782 C 610 774 590 790 598 808 C 606 826 640 830 676 824 C 720 816 760 834 800 830 C 846 826 884 812 906 826 C 928 842 918 870 888 874 C 846 880 810 862 764 868 C 716 874 680 888 630 880 C 580 872 540 860 500 862 C 480 864 466 866 456 866' },
-  { id: 'spleen', cls: 'org org-spleen', d: 'M1022 268 C 1068 262 1100 300 1102 356 C 1104 414 1074 454 1032 460 C 1010 462 998 448 1006 432 C 1016 414 1022 394 1018 372 C 1024 352 1022 330 1010 308 C 1000 290 1002 272 1022 268 Z' },
-  { id: 'stomach', cls: 'org org-stomach', d: 'M800 300 C 804 272 830 250 866 246 C 906 242 944 262 962 296 C 980 330 986 378 980 420 C 972 474 936 518 884 540 C 846 556 796 560 758 548 C 740 542 726 532 716 520 L 710 508 C 714 500 722 496 732 496 C 760 496 790 486 808 466 C 826 444 832 414 830 384 C 828 352 822 326 816 306 Z' },
-  { id: 'pylorus', cls: 'org-lobe-line', deco: true, d: 'M722 494 C 716 504 716 516 722 526' },
-  { id: 'duodenum', cls: 'org-duodenum', band: true, d: 'M712 508 C 676 508 648 528 642 566 C 636 612 650 650 688 668 C 724 684 772 680 806 664' },
-  { id: 'pancreas', cls: 'org org-pancreas', d: 'M662 604 C 652 576 668 550 700 546 C 760 540 832 518 902 490 C 950 470 990 448 1012 436 C 1022 444 1014 462 994 474 C 944 506 884 540 822 562 C 782 576 748 584 728 600 C 722 628 704 650 684 648 C 664 646 660 626 662 604 Z' },
-  { id: 'liver', cls: 'org org-liver', d: 'M812 256 C 800 232 772 212 734 202 C 692 190 650 188 620 188 C 560 186 488 184 430 196 C 380 206 342 234 328 280 C 316 322 318 376 330 418 C 342 456 368 486 404 498 C 440 510 488 508 520 492 C 530 486 540 478 552 474 C 566 470 582 466 596 458 C 614 448 632 440 646 432 L 654 424 C 660 432 668 434 676 428 C 712 402 748 364 778 322 C 796 298 810 276 812 256 Z' },
+  { id: 'appendix', tone: 'gut', cls: 'org-appendix', band: true, d: 'M420 906 C 418 924 428 938 448 940' },
+  { id: 'bowel', tone: 'gut', cls: 'org-bowel', band: true, d: 'M604 722 C 650 706 700 714 742 722 C 786 730 830 712 872 724 C 904 734 906 764 878 772 C 840 782 800 764 760 770 C 716 776 684 790 646 782 C 610 774 590 790 598 808 C 606 826 640 830 676 824 C 720 816 760 834 800 830 C 846 826 884 812 906 826 C 928 842 918 870 888 874 C 846 880 810 862 764 868 C 716 874 680 888 630 880 C 580 872 540 860 500 862 C 470 864 446 870 424 874' },
+  { id: 'colon', tone: 'gut', cls: 'org-colon', band: true, d: 'M424 900 C 420 880 414 864 410 846 C 402 808 398 764 400 704 C 402 646 412 596 438 568 C 472 556 506 588 544 628 C 592 678 650 700 720 700 C 800 700 870 660 916 600 C 946 560 970 510 984 468 C 992 560 988 700 972 790 C 962 848 924 880 868 892 C 838 898 812 902 788 906' },
+  { id: 'spleen', tone: 'spleen', cls: 'org org-spleen', d: 'M1030 266 C 1072 264 1100 300 1104 352 C 1108 408 1082 452 1040 462 C 1018 466 1002 456 1004 440 C 1006 426 1016 414 1017 400 C 1018 390 1014 382 1016 372 C 1018 358 1018 342 1013 328 C 1008 314 1006 300 1008 288 C 1010 274 1018 267 1030 266 Z' },
+  { id: 'duodenum', tone: 'stomach', cls: 'org-duodenum', band: true, d: 'M726 514 C 690 506 652 526 644 566 C 636 612 650 650 688 668 C 724 684 772 680 806 664' },
+  { id: 'stomach', tone: 'stomach', cls: 'org org-stomach', d: 'M804 300 C 806 270 830 246 868 242 C 910 238 948 260 966 296 C 984 332 990 380 984 424 C 976 480 940 524 886 546 C 846 562 796 566 756 552 C 738 546 724 536 714 522 L 708 508 C 712 498 722 494 734 494 C 764 494 794 484 812 462 C 822 450 828 436 830 420 C 834 392 830 350 822 320 C 820 310 818 304 818 298 Z' },
+  // The gallbladder lies under the liver; only its fundus shows below the inferior margin.
+  { id: 'gallbladder', tone: 'gb', cls: 'org org-gb', d: 'M540 464 C 526 488 522 520 534 536 C 548 552 574 546 580 524 C 586 502 580 482 570 470 C 562 462 548 458 540 464 Z' },
+  { id: 'liver', tone: 'liver', cls: 'org org-liver', d: 'M866 270 C 850 254 806 232 748 212 C 700 196 650 188 620 187 C 560 184 470 178 404 188 C 358 196 330 220 322 262 C 316 312 318 382 330 432 C 338 466 356 490 388 498 C 432 505 492 494 540 480 C 575 470 602 459 630 446 C 644 440 650 436 653 431 C 656 435 661 437 667 433 C 724 398 796 330 866 270 Z' },
   // Cantlie's line (gallbladder fossa to the IVC) and the falciform ligament: the lobes as a
   // surgeon reads them.
-  { id: 'falciform', cls: 'org-lobe-line', deco: true, d: 'M654 424 C 648 350 646 270 648 190' },
-  { id: 'cantlie', cls: 'org-lobe-line faint', deco: true, d: 'M548 476 C 566 400 590 290 618 196' },
-  { id: 'gallbladder', cls: 'org org-gb', d: 'M528 486 C 516 504 514 530 530 544 C 546 556 570 548 574 528 C 578 510 570 492 560 484 Z' },
+  { id: 'falciform', cls: 'org-lobe-line', deco: true, d: 'M657 434 C 652 370 646 290 642 190' },
   { id: 'umbilicus', cls: 'org-umbilicus', circle: [500, 800, 5] },
 ];
+// Surface anatomy drawn inside each organ (clipped to it), as a medical plate shows it:
+// fissures and ligaments, rugae, hilum, lobulation. Classes: fine (hairline in the organ's
+// outline tone), soft (a broader, fainter fold), sheen (a light reflection on a curved surface).
+export const ORGAN_DETAIL = {
+  liver: [
+    ['fine', 'M657 434 C 652 370 646 290 642 190'],
+  ],
+  stomach: [
+    ['fold', 'M858 300 C 884 330 894 372 890 418 C 887 452 872 484 846 508'],
+    ['fold', 'M880 290 C 912 326 922 378 914 432 C 908 470 890 500 862 522'],
+    ['fold', 'M904 292 C 934 332 944 390 936 444'],
+    ['fold', 'M842 346 C 856 388 856 434 840 474'],
+    ['fine', 'M722 494 C 716 504 716 516 722 526'],
+    ['fine', 'M732 494 C 726 506 727 520 735 532'],
+  ],
+  spleen: [['fine', 'M1026 334 C 1034 352 1034 374 1026 396']],
+  'kidney-l': [['fine', 'M996 628 C 1010 624 1020 632 1022 644']],
+  'kidney-r': [['fine', 'M518 648 C 506 646 498 654 498 664']],
+  heart: [['fine', 'M736 64 C 750 108 786 152 832 176']],
+};
 // Background plane (anatomic view): the posterior wall the organs sit against, drawn quietly
 // so the plate reads in depth: the body cavity and the diaphragm domes the liver and spleen
 // tuck under.
 export const BACKDROP = {
   cavity: 'M318 250 C 314 190 360 150 440 142 C 520 136 600 150 700 150 C 800 150 900 150 980 166 C 1060 182 1100 230 1104 300 C 1112 480 1100 700 1068 900 L 352 900 C 326 700 318 480 318 250 Z',
-  diaphragm: 'M322 360 C 318 262 372 196 452 184 C 530 172 596 182 640 184 C 700 186 780 206 862 234 C 948 220 1040 238 1088 290 C 1110 318 1114 360 1108 400',
+  diaphragm: 'M316 330 C 314 250 352 182 450 170 C 520 162 590 170 640 176 C 700 184 780 204 848 226 C 940 214 1040 232 1092 290 C 1112 316 1116 360 1110 400',
 };
 
 // Invisible peritoneal outline: ascites fills it from the bottom.
@@ -277,7 +291,7 @@ export const SITES = {
 
 // Organ captions: [text, x, y, anchor]
 export const ORGAN_LABELS = [
-  ['Liver', 404, 446], ['Stomach', 918, 432], ['Spleen', 1058, 482], ['Pancreas', 820, 578], ['Colon', 1016, 824], ['Kidney', 1030, 716],
+  ['Liver', 404, 446], ['Stomach', 918, 432], ['Spleen', 1058, 482], ['Colon', 1016, 824], ['Kidney', 1030, 716],
   ['Small bowel', 740, 797], ['Esophagus', 852, 38], ['Heart', 760, 96], ['to RV', 744, 146],
 ];
 

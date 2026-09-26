@@ -1583,3 +1583,84 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .home-body .home-group:nth-child(4) { animation-delay: .12s; } .home-body .home-group:nth-child(5) { animation-delay: .16s; }
 .home-body .home-group:nth-child(6) { animation-delay: .2s; } .home-body .home-group:nth-child(7) { animation-delay: .24s; }
 .hp-line { transition: stroke .3s var(--ease); }
+
+/* ── Anatomy plate (2.1): tissue tones, volume, rim light, surface anatomy ─────────
+   Each organ group carries its tissue's three tones (--o1 light face, --o2 shaded face, --o3
+   outline); every layer below reads them, so one rule set draws every organ. */
+.tone-liver { --o1: var(--og-liver-1); --o2: var(--og-liver-2); --o3: var(--og-liver-3); }
+.tone-liver .org-fill { fill: url(#og-liver); stroke: none; }
+.tone-stomach { --o1: var(--og-stomach-1); --o2: var(--og-stomach-2); --o3: var(--og-stomach-3); }
+.tone-stomach .org-fill { fill: url(#og-stomach); stroke: none; }
+.tone-eso { --o1: var(--og-eso-1); --o2: var(--og-eso-2); --o3: var(--og-eso-3); }
+.tone-eso .org-fill { fill: url(#og-eso); stroke: none; }
+.tone-spleen { --o1: var(--og-spleen-1); --o2: var(--og-spleen-2); --o3: var(--og-spleen-3); }
+.tone-spleen .org-fill { fill: url(#og-spleen); stroke: none; }
+.tone-panc { --o1: var(--og-panc-1); --o2: var(--og-panc-2); --o3: var(--og-panc-3); }
+.tone-panc .org-fill { fill: url(#og-panc); stroke: none; }
+.tone-kidney { --o1: var(--og-kidney-1); --o2: var(--og-kidney-2); --o3: var(--og-kidney-3); }
+.tone-kidney .org-fill { fill: url(#og-kidney); stroke: none; }
+.tone-gb { --o1: var(--og-gb-1); --o2: var(--og-gb-2); --o3: var(--og-gb-3); }
+.tone-gb .org-fill { fill: url(#og-gb); stroke: none; }
+.tone-gut { --o1: var(--og-gut-1); --o2: var(--og-gut-2); --o3: var(--og-gut-3); }
+.tone-gut .org-fill { fill: url(#og-gut); stroke: none; }
+.tone-heart { --o1: var(--og-heart-1); --o2: var(--og-heart-2); --o3: var(--og-heart-3); }
+.tone-heart .org-fill { fill: url(#og-heart); stroke: none; }
+.tone-ra { --o1: var(--og-ra-1); --o2: var(--og-ra-2); --o3: var(--og-ra-3); }
+.tone-ra .org-fill { fill: url(#og-ra); stroke: none; }
+.organ .org-ao { fill: none; stroke: var(--og-ao); stroke-width: 9; stroke-linejoin: round; }
+.organ .org-form { opacity: 1; stroke: none; }
+.organ .org-shade { fill: none; stroke: var(--og-dark); stroke-width: 11; stroke-linejoin: round; }
+.organ .org-rimlight { fill: none; stroke: var(--og-light); stroke-width: 4.5; stroke-linejoin: round; }
+.organ .org-line { fill: none; stroke: var(--o3); stroke-width: 1.15; stroke-opacity: .8; stroke-linejoin: round; }
+.org-detail path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.org-detail .od-fine { stroke: var(--o3); stroke-width: .9; stroke-opacity: .55; }
+.org-detail .od-soft { stroke: var(--o3); stroke-width: 6; stroke-opacity: .1; }
+.org-detail .od-sheen { stroke: var(--og-light); stroke-width: 5; stroke-opacity: .75; }
+.org-detail .org-lobules { stroke: none; opacity: .5; }
+#texLobules { color: var(--og-panc-3); }
+.org-heart-groove { stroke: var(--og-heart-3); stroke-opacity: .45; }
+.org-heart-flow { stroke: var(--og-heart-3); }
+/* Tubes */
+.band-ao { fill: none; stroke: var(--og-ao); stroke-linecap: round; stroke-linejoin: round; }
+.band-under { fill: none; stroke: var(--o2); stroke-opacity: .75; stroke-linecap: round; stroke-linejoin: round; }
+.organ .band-sheen { display: inline; fill: none; stroke: var(--og-light); stroke-width: 3.5; stroke-opacity: .9; stroke-linecap: round; stroke-linejoin: round; }
+.org-colon.band-ao { stroke-width: 35; } .org-colon.band-edge { stroke: var(--o3); stroke-width: 27; stroke-opacity: .6; } .org-colon.band-body { stroke: var(--o1); stroke-width: 25; } .org-colon.band-under { stroke-width: 15; }
+.org-bowel.band-ao { stroke-width: 29; } .org-bowel.band-edge { stroke: var(--o3); stroke-width: 21; stroke-opacity: .6; } .org-bowel.band-body { stroke: var(--o1); stroke-width: 19; } .org-bowel.band-under { stroke-width: 11; }
+.org-duodenum.band-ao { stroke-width: 29; } .org-duodenum.band-edge { stroke: var(--o3); stroke-width: 21; stroke-opacity: .6; } .org-duodenum.band-body { stroke: var(--o1); stroke-width: 19; } .org-duodenum.band-under { stroke-width: 11; }
+.org-haustra { stroke: var(--og-gut-3); stroke-opacity: .5; stroke-width: 1; }
+.bowel-bed { fill: var(--og-gut-2); fill-opacity: .4; stroke: none; }
+/* Vessels are cut out of the tissue beneath them by a thin paper-colored edge, so a pressure
+   color never merges with an organ's tone. */
+.v-shadow { fill: var(--knockout); stroke: var(--knockout); stroke-width: 3.2; stroke-linejoin: round; transform: none; }
+
+.org-detail .org-lobules { fill: url(#texLobules); opacity: .55; }
+.org-detail .od-fold { stroke: var(--o3); stroke-width: 1.4; stroke-opacity: .16; }
+.bowel-bed { fill: var(--og-gut-2); fill-opacity: .28; }
+/* Disease and tissue textures sit in the surface, not on it. */
+.nodule circle { fill: var(--og-liver-1); fill-opacity: .42; stroke: var(--og-liver-3); stroke-opacity: .32; stroke-width: .7; }
+.org-detail .org-lobules { opacity: .28; }
+.org-great.band-ao { stroke-width: 22; } .org-great.band-edge { stroke: var(--o3); stroke-width: 16; stroke-opacity: .6; } .org-great.band-body { stroke: var(--o1); stroke-width: 14; } .org-great.band-under { stroke-width: 7; }
+.nutmeg circle { fill-opacity: .32; }
+/* Matte tissue: soft form, no gloss. */
+.organ .org-shade { stroke-width: 16; stroke-opacity: .45; }
+.organ .org-rimlight { stroke-width: 3; stroke-opacity: .45; }
+.organ .org-line { stroke-width: 1; stroke-opacity: .7; }
+.organ .band-sheen { stroke-width: 3; stroke-opacity: .45; }
+.org-appendix.band-ao { stroke-width: 11; } .org-appendix.band-edge { stroke: var(--o3); stroke-width: 7.5; stroke-opacity: .6; } .org-appendix.band-body { stroke: var(--o1); stroke-width: 6; } .org-appendix.band-under { stroke-width: 2; } .org-appendix.band-sheen { display: none; }
+.band-body, .band-edge, .band-ao, .band-under { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.organ .org-shade { stroke-opacity: 1; }
+.organ .org-shade.s1 { stroke-width: 30; stroke-opacity: .16; }
+.organ .org-shade.s2 { stroke-width: 18; stroke-opacity: .22; }
+.organ .org-shade.s3 { stroke-width: 8; stroke-opacity: .3; }
+.org-diaphragm.band-edge { stroke-opacity: .1; }
+.org-diaphragm.band-body { stroke-opacity: .35; stroke-width: 1; }
+.tone-ra { --o1: var(--og-heart-1); --o2: color-mix(in srgb, var(--og-heart-2) 80%, var(--og-ra-2)); }
+.tone-ra .org-fill { fill: url(#og-heart); }
+.org-great.band-ao { stroke-width: 18; } .org-great.band-edge { stroke-width: 13; } .org-great.band-body { stroke-width: 11; } .org-great.band-under { stroke-width: 5; }
+.organ-heart-ra .org-line { stroke-opacity: .35; }
+.organ-heart-ra .org-rimlight { stroke-opacity: .2; }
+/* Organs recede behind the vessels: the plate is context, the circulation is the subject. */
+#organs > .organ { opacity: .55; }
+#backdrop { opacity: .7; }
+.organ .org-shade.s1, .organ .org-shade.s2, .organ .org-shade.s3 { stroke-opacity: .12; }
+.organ .org-line { stroke-opacity: .5; }
