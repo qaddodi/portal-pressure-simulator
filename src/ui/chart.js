@@ -211,8 +211,9 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     live = [];
     const st = store.get();
     const pr = st.presetList?.find((p) => p.id === st.presetId);
-    // The patient's name lives in the top bar; the chart opens on what the patient has.
-    const head = pr?.summary ? h('div', { class: 'p-head chart-head' }, h('p', { class: 'chart-sum' }, pr.summary)) : null;
+    // The patient's name lives in the top bar; the chart opens on what the patient has. On a
+    // phone, where the top bar truncates the name, the sheet carries it in full.
+    const head = pr ? h('div', { class: 'p-head chart-head' }, h('h2', { class: 'chart-name' }, pr.label), pr.summary ? h('p', { class: 'chart-sum' }, pr.summary) : null) : null;
     const inCase = st.mode === 'cases';
     const kids = [head, pinned(), h('div', { class: 'p-body chart-body' }, vitals(), inCase ? null : treat(), story(), advanced())];
     update(store.get().frame, true);
