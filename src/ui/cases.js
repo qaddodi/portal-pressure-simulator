@@ -314,7 +314,7 @@ export function createCases({ root, api }) {
       });
       return b;
     }));
-    const quiz = cs.quiz ? h('div', {}, cs.quiz.map((qq, qi) => h('div', { style: { marginTop: '4px' } }, h('p', { class: 'q', style: { margin: '0 0 8px', fontWeight: 600, fontSize: '13.5px' } }, qq.q),
+    const quiz = cs.quiz ? h('div', {}, cs.quiz.map((qq, qi) => h('div', { style: { marginTop: '4px' } }, h('p', { class: 'q', style: { margin: '0 0 8px', fontWeight: 600, fontSize: 'var(--fs-14)' } }, qq.q),
       h('div', { class: 'opts', style: { margin: '0 0 12px' } }, qq.options.map((o, i) => {
         const b = h('button', { class: 'opt' }, h('span', { class: 'letter' }, 'ABCDE'[i]), h('span', {}, o));
         b.addEventListener('click', () => { if (ctx.quiz[qi] != null) return; ctx.quiz[qi] = i; b.classList.add(i === qq.answer ? 'right' : 'wrong'); if (i !== qq.answer) b.parentElement.children[qq.answer].classList.add('right'); [...b.parentElement.children].forEach((x) => { x.disabled = true; }); log.push({ id: `Answer ${qi + 1}: ${o}`, t: ctx.t }); });
@@ -323,7 +323,7 @@ export function createCases({ root, api }) {
     root.replaceChildren(
       h('div', { class: 'p-head case-head' }, h('div', { class: 'p-head-row' }, h('div', { class: 'p-title' }, h('span', { class: 'kicker' }, `Case · ${cs.level}`), h('h2', {}, cs.title)), h('button', { class: 'btn sm', onclick: exit }, 'Exit case'))),
       h('div', { class: 'p-body', style: { display: 'flex', flexDirection: 'column', gap: '14px', paddingTop: '14px' } },
-        h('p', { class: 'sub', style: { margin: 0, fontSize: '13.5px', color: 'var(--text)' } }, cs.summary),
+        h('p', { class: 'sub', style: { margin: 0, fontSize: 'var(--fs-14)', color: 'var(--text)' } }, cs.summary),
         h('div', { class: 'case-clock' }, h('span', { class: 'overline' }, 'Clinical time'), clock, cs.variant ? h('span', { class: 'variant' }, `Variant ${seed}`) : null),
         vit,
         h('div', { class: 'subhead', style: { marginBottom: '-6px' } }, 'Orders'), acts,

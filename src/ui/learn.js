@@ -367,7 +367,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     }
     if (st.type === 'explain') {
       if (state.loading) body.push(h('div', { class: 'skeleton', style: { width: '95%' } }), h('div', { class: 'skeleton', style: { width: '75%' } }));
-      else if (state.explain) body.push(h('div', { class: 'feedback', style: { color: 'var(--text)', fontSize: '13.5px' } }, state.explain.sentence), state.explain.formula ? h('div', { class: 'formula', style: { marginBottom: '12px' } }, state.explain.formula) : null);
+      else if (state.explain) body.push(h('div', { class: 'feedback', style: { color: 'var(--text)', fontSize: 'var(--fs-14)' } }, state.explain.sentence), state.explain.formula ? h('div', { class: 'formula', style: { marginBottom: '12px' } }, state.explain.formula) : null);
     }
     if (st.type === 'check') {
       canNext = st.quiz.every((_, qi) => state.quizAns[qi] != null);

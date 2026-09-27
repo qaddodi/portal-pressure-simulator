@@ -4,16 +4,16 @@
 import { startHost, host } from './host.js?v=0917f25b24';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=4bf5a96a9d';
 import { createStage } from './stage.js?v=649655a1b5';
-import { createInspector } from './inspector.js?v=6a4f3a0c89';
-import { createDock, CUTOFFS } from './dock.js?v=c019ce66ac';
+import { createInspector } from './inspector.js?v=6b6bb6ada3';
+import { createDock, CUTOFFS } from './dock.js?v=b735c47f9e';
 import { createWhy } from './why.js?v=eafc26e516';
-import { createTimeline } from './timeline.js?v=acec98dac3';
-import { createLearn } from './learn.js?v=f03977ac69';
-import { createCases } from './cases.js?v=38509e394f';
-import { createCompare } from './compare.js?v=82941439cb';
+import { createTimeline } from './timeline.js?v=abe9d81409';
+import { createLearn } from './learn.js?v=39a10924bf';
+import { createCases } from './cases.js?v=61bb2f80e2';
+import { createCompare } from './compare.js?v=2a595d4a7e';
 import { createCard } from './card.js?v=c5536df04e';
-import { createChart } from './chart.js?v=d542611b70';
-import { createHome } from './home.js?v=2bdf22c9b7';
+import { createChart } from './chart.js?v=1d3b9ca27a';
+import { createHome } from './home.js?v=ac786ce6b5';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=0457b367b9';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=b83c19559d';
 import { startLMS } from './lms.js?v=4511ed56b8';
@@ -146,7 +146,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=774ef6a65b'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=008ae5d10e'), ({ createPalette }) => createPalette({ ctx: {
     select: (sel) => store.set({ selection: sel }), action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     wedge: () => { store.set({ selection: { type: 'edge', id: 'RHV_IVC' } }); setTimeout(() => card.trigger(3), 60); },
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
@@ -154,7 +154,7 @@ async function main() {
     loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); toast(store.get().presetList.find((p) => p.id === id)?.label); },
     lesson: (id) => startLesson(id), caseStart: (id) => startCase(id), home: () => home.open(), theme: () => toggleTheme(), help: () => openHelp(), share, restart: () => restartPatient(), reset: () => resetEverything(),
   } }));
-  figureL = lazy(() => import('./figure.js?v=fa50a6e9f5'), ({ createFigure }) => createFigure({ app, stage, onClose: () => toggleFigure(false) }));
+  figureL = lazy(() => import('./figure.js?v=66908eb649'), ({ createFigure }) => createFigure({ app, stage, onClose: () => toggleFigure(false) }));
   card = createCard({
     view, stage, onWhy: (m, el) => why.open(m, el),
     onDetails: (sel) => { store.set({ details: normalizeSel(sel) || sel }); openPanel(); },
@@ -269,8 +269,8 @@ function openScenarios(anchor) {
   const cur = store.get().presetId;
   const body = h('div', {},
     h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '2px 10px 10px', gap: '12px' } },
-      h('div', {}, h('div', { style: { fontWeight: 600, fontSize: '15px' } }, 'Patient scenarios'), h('div', { class: 'sub' }, 'Grouped by where the resistance sits, from the gut to the heart.')),
-      h('span', { class: 'muted', style: { fontSize: '12px', whiteSpace: 'nowrap' } }, `${presets.length} scenarios`)),
+      h('div', {}, h('div', { style: { fontWeight: 600, fontSize: 'var(--fs-16)' } }, 'Patient scenarios'), h('div', { class: 'sub' }, 'Grouped by where the resistance sits, from the gut to the heart.')),
+      h('span', { class: 'muted', style: { fontSize: 'var(--fs-12)', whiteSpace: 'nowrap' } }, `${presets.length} scenarios`)),
     h('div', { class: 'scenario-grid' }, Object.entries(groups).map(([g, ps]) => h('div', { class: 'scn-group' },
       h('div', { class: 'menu-title' }, h('i', { style: { background: GROUP_COLOR[g] || 'var(--text-3)' } }), g),
       ps.map((p) => h('button', { class: 'scn', 'aria-current': String(p.id === cur), onclick: async () => {
@@ -513,7 +513,7 @@ function openLegend(anchor) {
       : m === 'neutral' ? [['Why no pressures?', 'In this case pressures are unmeasured, as at the bedside. Use the catheter, Doppler or endoscope to investigate.']]
         : [['Scale', 'Pressure now minus the reference (healthy, or the moment you compare from). Red higher, blue lower.']];
   popover(anchor, [h('div', { class: 'menu-title' }, 'How to read the figure'),
-    h('div', { style: { padding: '2px 10px 8px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12.5px', lineHeight: 1.5, color: 'var(--text-2)', maxWidth: '340px' } },
+    h('div', { style: { padding: '2px 10px 8px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: 'var(--fs-13)', lineHeight: 1.5, color: 'var(--text-2)', maxWidth: '340px' } },
       rows.map(([k, v]) => h('div', {}, h('b', { style: { color: 'var(--text)' } }, k + '. '), v)),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Flow. '), 'Arrowheads inside each vessel point and move downstream; their speed follows blood velocity, and a vessel without flow has none. Reversed flow turns them orange and runs them the other way. Paused, they hold still and keep their direction.'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Notation. '), 'Dotted vessels are closed potential collaterals. Line width follows vessel diameter (compressed). Faint lines crossing an organ run behind it. ▲ / ▼ on a label: change in mmHg from healthy, shown once it reaches 5 mmHg (while comparing, every change from the moment you compare from).'),
@@ -536,7 +536,7 @@ function openLayers(anchor) {
     return b;
   };
   const unitSel = (kind, opts) => {
-    const s = h('select', { class: 'select', style: { height: '30px', fontSize: '12.5px' }, 'aria-label': kind === 'pressure' ? 'Pressure unit' : 'Flow unit' }, opts.map((u) => h('option', { value: u, selected: units[kind] === u }, u)));
+    const s = h('select', { class: 'select', style: { height: '30px', fontSize: 'var(--fs-13)' }, 'aria-label': kind === 'pressure' ? 'Pressure unit' : 'Flow unit' }, opts.map((u) => h('option', { value: u, selected: units[kind] === u }, u)));
     s.addEventListener('change', () => { units[kind] = s.value; inspector.render(); redraw(); });
     return s;
   };

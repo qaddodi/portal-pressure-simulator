@@ -117,7 +117,7 @@ export function createFigure({ app, stage, onClose }) {
     if (!st.imaging) rows.push([glyph('flow'), 'Blood flow: arrows point downstream (orange where reversed)']);
     rows.push([glyph('ghost'), 'Vein passing behind an organ']);
     rows.push([glyph('dot'), 'Closed potential collateral']);
-    if (!st.imaging) rows.push([h('span', { style: { width: '26px', fontSize: '10.5px', fontWeight: 700, color: 'var(--text-2)' } }, '▲ 5'), `Change from ${st.compareSnap ? st.compareSnap.when : 'healthy'}, mmHg`]);
+    if (!st.imaging) rows.push([h('span', { style: { width: '26px', fontSize: 'var(--fs-11)', fontWeight: 700, color: 'var(--text-2)' } }, '▲ 5'), `Change from ${st.compareSnap ? st.compareSnap.when : 'healthy'}, mmHg`]);
     return h('div', { class: 'fig-key' }, h('span', { class: 'fk-t' }, 'Notation'), rows.map(([g, t]) => h('span', { class: 'fk-row' }, g, t)));
   }
 

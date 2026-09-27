@@ -153,7 +153,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
       const active = activeInterventions(pp);
       activeBox.replaceChildren(
         h('div', { class: 'changes-head' }, h('span', { class: 'overline' }, active.length ? `Active changes · ${active.length}` : 'Active changes'),
-          active.length ? h('button', { class: 'link', style: { fontSize: '12px' }, onclick: () => updateParams((q) => { for (const a of activeInterventions(q)) a.remove(q); return q; }, { label: 'Clear all changes' }) }, 'Clear all') : null),
+          active.length ? h('button', { class: 'link', style: { fontSize: 'var(--fs-12)' }, onclick: () => updateParams((q) => { for (const a of activeInterventions(q)) a.remove(q); return q; }, { label: 'Clear all changes' }) }, 'Clear all') : null),
         active.length
           ? h('div', { class: 'chips-list' }, active.map((a) => h('span', { class: 'active-chip' }, a.label, h('button', { 'aria-label': `Remove ${a.label}`, title: 'Remove', onclick: () => updateParams((q) => { a.remove(q); return q; }, { label: `Remove ${a.label}` }) }, icon('close')))))
           : h('div', { class: 'ctl-sub' }, 'Healthy baseline. Change something with the tools on the anatomy or the controls below.'));

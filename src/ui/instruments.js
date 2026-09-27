@@ -235,7 +235,7 @@ export function createDoppler({ onProbe }) {
 // ── Endoscopy ───────────────────────────────────────
 export function createEndoscopy({ onAction }) {
   const el = h('div', { class: 'dock-pane', 'data-pane': 'endoscopy' });
-  const box = h('div', { class: 'chart-box', style: { maxWidth: '420px' } });
+  const box = h('div', { class: 'chart-box square' });
   const cv = h('canvas', { role: 'img', 'aria-label': 'Endoscopic view' });
   box.append(cv);
   let view = 'eso';
@@ -514,7 +514,7 @@ export function createVarixWall() {
 // ── Abdomen (L2c) ───────────────────────────────────
 export function createAbdomen({ onAction }) {
   const el = h('div', { class: 'dock-pane', 'data-pane': 'abdomen' });
-  const box = h('div', { class: 'chart-box', style: { maxWidth: '420px' } });
+  const box = h('div', { class: 'chart-box square' });
   const cv = h('canvas', { role: 'img', 'aria-label': 'Abdomen: ascites and spleen' });
   box.append(cv);
   const vol = h('input', { type: 'range', min: 1, max: 10, step: 0.5, value: 5, 'aria-label': 'Volume to drain (L)' });
