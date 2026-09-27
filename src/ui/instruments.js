@@ -28,8 +28,10 @@ export function createHVPG() {
     updateParams({ catheter: { vein: c.vein, wedged: !c.wedged } }, { label: c.wedged ? 'Deflate balloon' : 'Wedge catheter' });
   });
   removeBtn.addEventListener('click', () => updateParams({ catheter: { vein: null, wedged: false } }, { label: 'Remove catheter' }));
-  const side = h('div', { class: 'chart-side', style: { width: '284px' } }, h('div', { class: 'side-title' }, 'Transjugular HVPG'), status, h('div', { class: 'seg full' }, [...veinBtns.children]), h('div', { class: 'btn-row' }, wedgeBtn, removeBtn), readout, h('div', { class: 'side-label' }, 'Measurements'), table);
-  el.append(box, side);
+  // Top-down: what to do first, then the trace (only once a catheter is in), then the numbers.
+  const side = h('div', { class: 'chart-side' }, h('div', { class: 'side-title' }, 'Transjugular HVPG'), status, h('div', { class: 'seg full' }, [...veinBtns.children]), h('div', { class: 'btn-row' }, wedgeBtn, removeBtn));
+  const results = h('div', { class: 'chart-side' }, readout, h('div', { class: 'side-label' }, 'Measurements'), table);
+  el.append(side, box, results);
   const trace = [];
   let fhvp = null, whvp = null, wedgeStart = null;
   const log = [];
@@ -55,7 +57,8 @@ export function createHVPG() {
         }
       }
     } else { trace.length = 0; }
-    status.textContent = !c.vein ? 'Choose a hepatic vein. Or use the Catheter tool on the anatomy.'
+    box.hidden = !c.vein;
+    status.textContent = !c.vein ? 'Choose a hepatic vein, or click one on the figure and choose Wedge → HVPG.'
       : !c.wedged ? `Catheter free in the ${c.vein}HV: reading free hepatic venous pressure (FHVP). Now inflate the balloon.`
         : wedgeStart != null && now - wedgeStart < 12 ? 'Balloon inflated: the column is stagnant and pressure is equilibrating with the sinusoids…' : 'Wedged pressure plateau reached.';
     wedgeBtn.textContent = c.wedged ? 'Deflate balloon' : 'Inflate balloon';

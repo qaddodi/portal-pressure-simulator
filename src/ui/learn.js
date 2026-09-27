@@ -186,9 +186,11 @@ const INLINE = { cirrhosis: 'cirrhosis', splanchnicTone: 'splanchnicTone', 'drug
 
 export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector, beginSession, endSession, onEnd, loadPreset, setTool, setAllowedTools, showPane, setProbe, openPanel, setBanner }) {
   let lesson = null, idx = 0, state = {};
-  // On a wide screen the step card sits on the figure (a coach mark), next to what it asks
-  // about; on a phone it stays in the panel.
-  const onFigure = matchMedia('(min-width: 1100px)');
+  // The step card never covers the figure. Where the side panel sits beside the figure (wide
+  // screens) it heads the panel; below that it is a bottom sheet under the figure, which gives up
+  // its own height to it.
+  const asSheet = matchMedia('(max-width: 1279px)');
+  let sheetMin = false;
   const snaps = [];             // starting state of each step, for Replay
   let tally = { right: 0, total: 0 }, t0 = 0, prediction = null, chooser = null;
   let pollTimer = null, inline = null, showAll = false;
@@ -199,7 +201,9 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     await beginSession?.('lesson');
     lesson = LESSONS.find((l) => l.id === id);
     idx = 0; state = {}; showAll = false; snaps.length = 0; tally = { right: 0, total: 0 }; t0 = Date.now(); prediction = null;
+    sheetMin = false;
     await enter();
+    if (!asSheet.matches) openPanel?.('chart');
     panel.scrollTop = 0;
   }
   function stop() {
@@ -372,23 +376,29 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
         body.push(h('div', { class: 'opts' }, qq.options.map((o, i) => h('button', { class: 'opt' + (state.quizAns[qi] != null ? (i === qq.answer ? ' right' : i === state.quizAns[qi] ? ' wrong' : '') : ''), disabled: state.quizAns[qi] != null, onclick: () => { state.quizAns[qi] = i; render(); } }, letter(i), h('span', {}, o)))));
       });
     }
-    const [ic, typeLabel] = STEP[st.type];
+    const [, typeLabel] = STEP[st.type];
     const bt = bannerText(st);
     setBanner?.({ tag: `Lesson · ${idx + 1}/${lesson.steps.length}`, text: bt === lesson.title ? lesson.title : `${lesson.title}: ${bt}` });
+    const sheet = asSheet.matches && coach;
     const card = h('section', { class: 'lesson', 'aria-label': `Lesson: ${lesson.title}` },
-      h('div', { class: 'lesson-top' }, h('span', { class: 'step-type' }, svgIcon(ic, 'sec-ic'), typeLabel, h('span', { class: 'n' }, `· Step ${idx + 1} of ${lesson.steps.length}`)),
-        h('span', { class: 'lt-act' }, h('button', { class: 'link', title: 'Back to the state this step started from', onclick: replay, disabled: !snaps[idx] }, 'Replay'), h('button', { class: 'link', onclick: stop }, 'Exit'))),
-      h('div', { class: 'phase-rail', 'aria-hidden': 'true' }, lesson.steps.map((s0, i) => h('span', { class: i < idx ? 'on' : i === idx ? 'cur' : '' }, h('i'), h('b', {}, STEP[s0.type][1])))),
+      // Progress: a dot per step, with only the current step named.
+      h('div', { class: 'lesson-top' },
+        h('div', { class: 'phase-rail', role: 'img', 'aria-label': `Step ${idx + 1} of ${lesson.steps.length}: ${typeLabel}` }, lesson.steps.map((s0, i) => h('span', { class: i < idx ? 'on' : i === idx ? 'cur' : '' }, h('i'), i === idx ? h('b', {}, typeLabel) : null))),
+        h('span', { class: 'lt-act' }, h('button', { class: 'link', title: 'Back to the state this step started from', onclick: replay, disabled: !snaps[idx] }, 'Replay'), h('button', { class: 'link', onclick: stop }, 'Exit'),
+          sheet ? h('button', { class: 'ib sheet-min', 'aria-label': sheetMin ? 'Expand the lesson' : 'Minimize the lesson', 'aria-expanded': String(!sheetMin), onclick: () => { sheetMin = !sheetMin; render(); } }, svgIcon('chev-down')) : null)),
       h('h3', {}, lesson.title), ...body,
       h('div', { class: 'lesson-foot' }, idx > 0 ? h('button', { class: 'btn ghost', onclick: back }, 'Back') : h('span'),
         h('button', { class: 'btn primary', disabled: !canNext, onclick: () => { if (st.type === 'predict' && st.mode === 'draw') dock.profile.endPredict(false); next(); } }, idx === lesson.steps.length - 1 ? 'Finish lesson' : 'Continue', svgIcon('chev-right'))));
-    const target = onFigure.matches && coach ? coach : hostEl;
+    const target = sheet ? coach : hostEl;
     (target === coach ? hostEl : coach)?.replaceChildren();
     target.replaceChildren(card);
-    card.classList.toggle('on-figure', target === coach);
+    card.classList.toggle('sheet', !!sheet);
+    card.classList.toggle('min', !!sheet && sheetMin);
+    // The figure gives up (or takes back) the sheet's height.
+    requestAnimationFrame(() => stage?.relayout());
   }
 
   store.on('mode', (m) => { if (m !== 'learn' && lesson) stop(); render(); });
-  onFigure.addEventListener('change', () => render());
+  asSheet.addEventListener('change', () => { render(); if (lesson && !asSheet.matches) openPanel?.('chart'); });
   return { openList, start, stop, render, active: () => !!lesson };
 }

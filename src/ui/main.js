@@ -5,15 +5,15 @@ import { startHost, host } from './host.js?v=0917f25b24';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=4bf5a96a9d';
 import { createStage } from './stage.js?v=649655a1b5';
 import { createInspector } from './inspector.js?v=6a4f3a0c89';
-import { createDock, CUTOFFS } from './dock.js?v=faecaf42f2';
+import { createDock, CUTOFFS } from './dock.js?v=c019ce66ac';
 import { createWhy } from './why.js?v=eafc26e516';
 import { createTimeline } from './timeline.js?v=acec98dac3';
-import { createLearn } from './learn.js?v=f3aebe8dbf';
+import { createLearn } from './learn.js?v=f03977ac69';
 import { createCases } from './cases.js?v=38509e394f';
 import { createCompare } from './compare.js?v=82941439cb';
 import { createCard } from './card.js?v=c5536df04e';
-import { createChart } from './chart.js?v=3f7966e13f';
-import { createHome } from './home.js?v=147519743b';
+import { createChart } from './chart.js?v=d542611b70';
+import { createHome } from './home.js?v=2bdf22c9b7';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=0457b367b9';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=b83c19559d';
 import { startLMS } from './lms.js?v=4511ed56b8';
@@ -146,7 +146,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=2d70738d3e'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=774ef6a65b'), ({ createPalette }) => createPalette({ ctx: {
     select: (sel) => store.set({ selection: sel }), action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     wedge: () => { store.set({ selection: { type: 'edge', id: 'RHV_IVC' } }); setTimeout(() => card.trigger(3), 60); },
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),

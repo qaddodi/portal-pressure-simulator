@@ -386,6 +386,7 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .dock-pane .chart-side { width: auto; overflow: visible; }
 .chart-box { position: relative; flex: 1; min-width: 0; min-height: 120px; }
 .chart-box canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.chart-box[hidden] { display: none; }
 .chart-box.dark { background: #05070D; border-radius: 10px; }
 .chart-side { width: 256px; flex: none; display: flex; flex-direction: column; gap: 10px; font-size: 12.5px; overflow-y: auto; padding-right: 2px; }
 .chart-side > * { flex-shrink: 0; }
@@ -624,6 +625,10 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 /* ── Panel (inspector, lessons, cases) ──────────── */
 .panel { grid-area: panel; background: var(--surface); border-left: 1px solid var(--hairline); overflow: hidden; min-width: 0; z-index: 10; display: flex; flex-direction: column; }
 .panel-page { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; }
+/* A lesson's step card has its own rail at the top of the panel, above both tabs. */
+.lesson-rail { flex: none; max-height: 58%; overflow-y: auto; border-bottom: 1px solid var(--border); }
+.lesson-rail:empty { display: none; }
+.lesson-rail .lesson { border-bottom: 0; }
 .panel-tabs { flex: none; display: flex; align-items: stretch; gap: 2px; height: 44px; padding: 0 6px 0 8px; border-bottom: 1px solid var(--hairline); background: var(--surface); }
 .panel-tabs [role="tab"] { position: relative; display: inline-flex; align-items: center; gap: 7px; border: 0; background: none; padding: 0 12px; font: 600 13px var(--font-ui); color: var(--text-3); cursor: pointer; }
 .panel-tabs [role="tab"]:hover { color: var(--text); }
@@ -909,13 +914,13 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .cmp-table tr.big td { background: color-mix(in srgb, var(--accent) 4%, transparent); }
 .cmp-bar { display: inline-block; height: 6px; border-radius: 3px; vertical-align: middle; margin-right: 6px; }
 
-.phase-rail { display: flex; gap: 3px; margin: 0 0 14px; }
-.phase-rail span { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; font-size: 10px; font-weight: 600; color: var(--text-3); letter-spacing: .02em; }
-.phase-rail span i { height: 3px; border-radius: 2px; background: var(--surface-3); }
+.phase-rail { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.phase-rail span { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--text-3); }
+.phase-rail span i { width: 6px; height: 6px; border-radius: 50%; background: var(--surface-3); }
 .phase-rail span.on i { background: var(--accent); }
-.phase-rail span.cur i { background: color-mix(in srgb, var(--accent) 55%, var(--surface-3)); }
-.phase-rail span.cur { color: var(--accent-ink); }
-.phase-rail span b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.phase-rail span.cur i { width: 16px; border-radius: 3px; background: var(--accent); }
+.phase-rail span.cur { color: var(--accent-ink); margin: 0 4px 0 1px; }
+.phase-rail span b { font-weight: 600; white-space: nowrap; }
 
 /* ── Tablet (768–1279) ──────────────────────────── */
 @media (max-width: 1279px) {
@@ -1265,6 +1270,14 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .session-bar .b-tag.case { background: var(--text); color: var(--stage-bg); }
 .session-bar .b-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; font-weight: 500; color: var(--text); }
 .session-bar .btn { flex: none; height: 26px; }
+/* Below 1280 px a lesson's sheet carries its progress and Exit, so the top bar keeps the patient;
+   on a phone, a case's banner takes the patient button's place. */
+@media (max-width: 1279px) { .app[data-mode="learn"] .session-bar { display: none; } }
+@media (max-width: 767px) {
+  .app.in-session[data-mode="cases"] .scenario-btn { display: none; }
+  .app.in-session[data-mode="cases"] .session-bar { flex: 1 1 auto; }
+  .session-bar .b-text { display: none; }
+}
 .pal-btn { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 8px 0 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); color: var(--text-3); font: 500 12.5px var(--font-ui); cursor: pointer; min-width: 0; }
 .pal-btn:hover { border-color: var(--border-strong); color: var(--text-2); }
 .pal-btn svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.7; }
@@ -1483,15 +1496,21 @@ div.vt-vital { cursor: default; }
 #bridges .bridge-gap { stroke: var(--stage-bg, var(--bg)); }
 
 /* ── Phase G: teaching ─────────────────────────────── */
-/* Lesson coach card on the figure */
-.coach { position: absolute; left: 14px; bottom: 14px; z-index: 6; width: min(380px, calc(100% - 28px)); max-height: calc(100% - 80px); overflow: auto; border-radius: 14px; }
+/* Lesson step card as a bottom sheet under the figure (below 1280 px): it takes its own height,
+   so it never covers the anatomy; minimized, only its progress line stays. */
+.coach { flex: none; position: relative; z-index: 6; max-height: 46%; overflow-y: auto; background: var(--surface); border-top: 1px solid var(--border); box-shadow: 0 -6px 18px -12px rgba(0,0,0,.25); }
 .coach:empty { display: none; }
-.coach .lesson.on-figure { border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-3); background: var(--surface); padding: 16px; animation: coachIn .16s var(--ease); }
-.coach .lesson.on-figure .phase-rail { margin-bottom: 10px; }
-.coach .lesson.on-figure > h3 { font-size: 17px; margin: 0 0 8px; }
-.coach .lesson.on-figure > p:not([class]) { font-size: 14px; }
+.coach .lesson.sheet { border-bottom: 0; padding: 12px 16px 14px; animation: coachIn .16s var(--ease); }
+.coach .lesson.sheet .lesson-top { margin-bottom: 8px; }
+.coach .lesson.sheet.min > :not(.lesson-top) { display: none; }
+.coach .lesson.sheet.min .lesson-top { margin-bottom: 0; }
+.coach .lesson.sheet > h3 { font-size: 16px; margin: 0 0 6px; }
+.coach .lesson.sheet > p:not([class]) { font-size: 14px; }
+.sheet-min { width: 32px; height: 32px; margin: -6px -6px -6px 0; color: var(--text-2); }
+.sheet-min svg { width: 16px; height: 16px; transition: transform .2s var(--ease); }
+.lesson.min .sheet-min svg { transform: rotate(180deg); }
 @keyframes coachIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-.lt-act { display: inline-flex; gap: 12px; }
+.lt-act { display: inline-flex; align-items: center; gap: 12px; flex: none; }
 .lt-act .link:disabled { opacity: .4; cursor: default; }
 .feedback.pop { animation: fbPop .35s var(--ease); }
 .feedback.right { background: color-mix(in srgb, var(--ok) 10%, var(--surface)); }
@@ -1502,7 +1521,6 @@ div.vt-vital { cursor: default; }
 .dir-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); border-radius: 9px; padding: 6px 10px; font: 600 12px var(--font-ui); cursor: pointer; }
 .dir-chip[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
 .dir-arrow { display: inline-block; font-size: 16px; line-height: 1; color: var(--accent-ink, var(--accent)); }
-@media (max-width: 1099px) { .coach { display: none; } }
 
 /* Case: bedside monitor */
 .monitor { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: #1C2128; border-radius: 12px; overflow: hidden; border: 1px solid #2A3038; box-shadow: inset 0 0 0 1px rgba(255,255,255,.03); }

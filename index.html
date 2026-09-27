@@ -19,7 +19,7 @@
   <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="fonts/fonts.css" />
   <link rel="stylesheet" href="styles/tokens.css?v=2ef1aa6020" />
-  <link rel="stylesheet" href="styles/app.css?v=a013f9db42" />
+  <link rel="stylesheet" href="styles/app.css?v=b884c868e5" />
 </head>
 <body>
   <!-- Icon set: 24px grid, 1.6px stroke, round caps (blueprint §5.6). -->
@@ -139,9 +139,9 @@
         <svg id="labels" aria-label="Pressure labels"></svg>
         <div id="overlay"></div>
         <div class="tool-card stage-blocker" id="toolHint" role="status" hidden></div>
-        <div class="coach stage-blocker" id="coach" aria-live="polite"></div>
         <button class="ib stage-fit" id="zoomFit" aria-label="Fit the figure to the view" title="Fit (scroll or pinch to zoom, drag to pan)"><svg><use href="#i-fit"/></svg></button>
       </div>
+      <div class="coach" id="coach" aria-live="polite"></div>
       <div class="fig-foot" id="figFoot"></div>
       <div class="stage-bar bottom" id="stageBottom">
         <div class="timeline" id="timeline" role="group" aria-label="Timeline"></div>
@@ -152,13 +152,13 @@
 
     <div class="panel-scrim" id="panelScrim" aria-hidden="true"></div>
     <aside class="panel" id="panel" aria-label="Side panel">
+      <div class="lesson-rail" id="panelLesson" aria-label="Lesson"></div>
       <div class="panel-tabs" role="tablist" aria-label="Side panel">
         <button role="tab" id="tabChart" data-ptab="chart" aria-selected="true" aria-controls="panelChart"><svg><use href="#i-heart"/></svg><span data-i18n="tabs.chart">Patient</span></button>
         <button role="tab" id="tabInstruments" data-ptab="instruments" aria-selected="false" aria-controls="dock"><svg><use href="#i-gauge"/></svg><span data-i18n="tabs.instruments">Measure</span></button>
         <button class="ib panel-close" id="panelClose" aria-label="Close the side panel" title="Close"><svg><use href="#i-close"/></svg></button>
       </div>
       <div class="panel-page" id="panelChart" role="tabpanel" aria-labelledby="tabChart">
-        <div id="panelLesson"></div>
         <div id="panelCase"></div>
         <div id="inspector"></div>
       </div>
@@ -182,11 +182,11 @@
   <link rel="modulepreload" href="src/ui/store.js?v=4bf5a96a9d" />
   <link rel="modulepreload" href="src/ui/colormap.js?v=5f8590b23c" />
   <link rel="modulepreload" href="src/ui/inspector.js?v=6a4f3a0c89" />
-  <link rel="modulepreload" href="src/ui/dock.js?v=faecaf42f2" />
+  <link rel="modulepreload" href="src/ui/dock.js?v=c019ce66ac" />
   <link rel="modulepreload" href="src/ui/charts.js?v=2be73dc961" />
-  <link rel="modulepreload" href="src/ui/instruments.js?v=9b737c8609" />
+  <link rel="modulepreload" href="src/ui/instruments.js?v=c4f0fda6ce" />
   <link rel="modulepreload" href="src/ui/timeline.js?v=acec98dac3" />
   <link rel="modulepreload" href="src/engine/topology.js?v=6d79260961" />
-  <script type="module" src="src/ui/main.js?v=eb78292cb8"></script>
+  <script type="module" src="src/ui/main.js?v=53b5dab315"></script>
 </body>
 </html>
