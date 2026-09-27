@@ -69,7 +69,7 @@ export const NODE_POS = {
   IVCS: [[620, 190], [1120, 345]],
   RA: [[620, 112], [1250, 345]],
   SVC: [[620, 40], [1250, 205]],
-  AZY: [[566, 172], [1120, 205]],
+  AZY: [[574, 30], [1120, 205]],
   UPPV: [[620, -40], [1250, 100]],
   LOWV: [[620, 980], [1120, 660]],
   ILI: [[620, 880], [1120, 610]],
@@ -117,9 +117,10 @@ export const EDGE_PATH = {
   IVCS_RA: 'M620 190 L 620 112',
   V_UP: 'M620 -40 L 620 40',
   SVC_RA: 'M620 40 L 620 112',
-  // The azygos ascends lateral to the cava (drawn clear of the heart) and arches medially into
-  // the SVC above the right atrium.
-  AZY_SVC: 'M566 172 C 562 136 558 96 566 72 C 574 50 598 42 620 40',
+  // The azygos ascends lateral to the cava (drawn clear of the heart; see C9) and arches
+  // medially into the SVC above the right atrium. The node sits on the arch, where the
+  // esophageal veins join it.
+  AZY_SVC: 'M574 30 C 592 22 612 28 620 40',
   V_KID_L: 'M1005 622 C 960 620 910 618 862 618',
   LRV_IVC: 'M862 618 C 790 620 700 640 620 650',
   ILI_IVC: 'M620 880 L 620 650',
@@ -127,7 +128,9 @@ export const EDGE_PATH = {
   EPI_SVC: 'M500 800 C 420 780 340 680 334 520 C 318 410 318 260 360 170 C 400 90 520 52 620 40',
 
   C1a: 'M821 318 C 814 296 803 280 800 262 C 798 250 797 240 797 232',
-  C1b: 'M797 232 C 770 214 720 202 666 198 C 622 196 584 192 566 172',
+  // The varices drain up the paraesophageal veins, behind the heart, and over it into the
+  // azygos arch (crossing behind the SVC).
+  C1b: 'M797 232 C 814 206 820 160 816 116 C 812 78 800 48 774 32 C 744 16 672 12 632 17 C 606 20 588 24 574 30',
   C2: 'M880 505 C 890 462 912 420 922 380 C 930 344 910 308 876 302',
   C2b: 'M876 302 C 858 300 838 306 821 318',
   C3: 'M688 378 C 668 440 646 520 620 600 C 590 690 540 760 500 800',
@@ -138,7 +141,8 @@ export const EDGE_PATH = {
   C6: 'M880 505 C 880 548 874 590 862 618',
   C7: 'M690 660 C 668 676 640 670 620 650',
   C8: 'M700 556 C 695 520 650 470 602 442',
-  C9: 'M620 650 C 584 604 566 500 564 400 C 562 300 564 230 566 172',
+  // Ascending lumbar veins → the ascending azygos, up to its arch.
+  C9: 'M620 650 C 584 604 566 500 564 400 C 562 300 564 230 566 172 C 563 120 561 70 565 50 C 567 40 570 34 574 30',
 
   AP_R: 'M655 478 C 612 470 552 432 505 398',
   AP_L: 'M655 478 C 668 440 680 405 688 378',
@@ -188,6 +192,9 @@ export const FEEDERS = {
   // every tributary flows into it without a kink; the collaterals also arrive along its course.
   // They sit high in the lobe, between the hepatic vein branches and the portal veins, touching
   // neither.
+  // Azygos: its ascending trunk (the intercostal and ascending lumbar veins' channel) climbs
+  // beside the cava into the arch.
+  AZY_SVC: { k: 1, paths: ['M566 172 C 563 120 561 70 565 50 C 567 40 570 34 574 30'] },
   CAUD: { k: 0.55, fan: { at: [566, 326], dir: 172, spread: 84, len: 46, n: 4, seed: 5, wig: 0.7 },
     when: 'caudate', from: ['RPV', 'LPV'], paths: ['M505 398 C 522 370 540 336 566 326', 'M688 378 C 630 404 546 384 566 326'] },
 };
@@ -348,7 +355,7 @@ export const SITES = {
 // Organ captions: [text, x, y, anchor]
 export const ORGAN_LABELS = [
   ['Liver', 404, 446], ['Stomach', 918, 432], ['Spleen', 1058, 482], ['Colon', 1016, 824], ['Kidney', 1030, 716],
-  ['Small bowel', 740, 797], ['Esophagus', 852, 38], ['Heart', 760, 96], ['to RV', 744, 146],
+  ['Small bowel', 740, 797], ['Esophagus', 860, 40], ['Heart', 760, 96], ['to RV', 744, 146],
 ];
 
 // Atlas labels: node → caption and which margin column it hangs from.
