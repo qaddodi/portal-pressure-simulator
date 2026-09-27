@@ -7,12 +7,12 @@ import { createStage } from './stage.js?v=7871f26230';
 import { createInspector } from './inspector.js?v=718cafd0b0';
 import { createDock } from './dock.js?v=59ceb27117';
 import { createWhy } from './why.js?v=74679380bf';
-import { createTimeline } from './timeline.js?v=2c81ae8bfc';
+import { createTimeline } from './timeline.js?v=7b5a4eb22e';
 import { createLearn } from './learn.js?v=38cc26d87b';
 import { createCases } from './cases.js?v=4d72427eaf';
 import { createCompare } from './compare.js?v=20f877cd73';
 import { createCard } from './card.js?v=6e704d1fc3';
-import { createChart } from './chart.js?v=f26c705c80';
+import { createChart } from './chart.js?v=23a38778b4';
 import { createHome } from './home.js?v=c276ac8019';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=743b542534';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=46c08905a9';
@@ -116,6 +116,7 @@ async function main() {
     onPlay: () => host.send({ type: 'run', running: !store.get().running }),
     onSpeed: (v) => setSpeed(v),
     onJump: (d) => host.send(d === 'event' ? { type: 'advance', untilEvent: true } : { type: 'advance', days: d }),
+    onRestart: () => restartPatient(),
     canRevert: () => store.get().mode !== 'cases',
     scenarioLabel: () => store.get().presetList?.find((x) => x.id === store.get().presetId)?.label || 'Custom',
   });
@@ -146,13 +147,13 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=f288a9b060'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=dbe41aff07'), ({ createPalette }) => createPalette({ ctx: {
     select: (sel) => store.set({ selection: sel }), action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     wedge: () => { store.set({ selection: { type: 'edge', id: 'RHV_IVC' } }); setTimeout(() => card.trigger(3), 60); },
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), figure: () => toggleFigure(true), exportFile: (k) => { toggleFigure(true); setTimeout(() => figure.exportFile(k), 400); }, projector: () => toggleProjector(), instruments: () => dock.toggle(),
     loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); toast(store.get().presetList.find((p) => p.id === id)?.label); },
-    lesson: (id) => startLesson(id), caseStart: (id) => startCase(id), home: () => home.open(), theme: () => toggleTheme(), help: () => openHelp(), share,
+    lesson: (id) => startLesson(id), caseStart: (id) => startCase(id), home: () => home.open(), theme: () => toggleTheme(), help: () => openHelp(), share, restart: () => restartPatient(), reset: () => resetEverything(),
   } }));
   figureL = lazy(() => import('./figure.js?v=c8dd729de0'), ({ createFigure }) => createFigure({ app, stage, onClose: () => toggleFigure(false) }));
   card = createCard({
@@ -309,6 +310,30 @@ async function loadShared(s) {
 async function share() {
   const url = `${location.origin}${location.pathname}#s=${encodeShare()}`;
   try { await navigator.clipboard.writeText(url); toast('Link to this exact scenario copied.'); } catch { history.replaceState(null, '', url); toast('Link placed in the address bar.'); }
+}
+
+// ── Restart & reset ─────────────────────────────────
+// Restart: the current patient from its first moment (during a lesson or case, its own start).
+// Reset: everything back to a fresh start, as on a first visit but keeping the preferences
+// (theme, units, language, role, progress): the page reloads without its links or state.
+async function restartPatient() {
+  const mode = store.get().mode;
+  if (mode === 'cases') { toast('A case runs once. Exit the case to restart the patient.'); return; }
+  closePopover();
+  store.set({ compareSnap: null, compareView: 'B', selection: null, details: null });
+  if (stage.isShunting()) stage.cancelShunt();
+  setTool('select');
+  const id = store.get().presetId || 'healthy';
+  await loadPreset(id);
+  toast(`Restarted: ${store.get().presetList?.find((p) => p.id === id)?.label || 'patient'}.`);
+}
+function resetEverything() {
+  closePopover();
+  openModal('Reset everything?', h('div', {},
+    h('p', {}, 'This leaves any lesson or case, clears the timeline, comparisons and every change, and reloads the simulator with a healthy patient. Your preferences, lesson progress and case scores are kept.'),
+    h('div', { class: 'btn-row', style: { justifyContent: 'flex-end', marginTop: '8px' } },
+      h('button', { class: 'btn', onclick: () => closeModal() }, 'Cancel'),
+      h('button', { class: 'btn primary', onclick: () => { try { sessionStorage.clear(); } catch { /* storage unavailable */ } location.replace(location.pathname); } }, 'Reset and reload'))), { sub: null });
 }
 
 // ── Session boundaries ──────────────────────────────
@@ -643,6 +668,7 @@ function openMenu(anchor) {
     ...ROLES.map(([v, l, d]) => { const b = menuItem(l, { checked: role === v, onClick: () => { closePopover(); store.set({ role: v }); toast(`${l}: ${d}`); } }); b.title = d; return b; }),
     h('div', { class: 'menu-sep' }),
     menuItem(t('menu.home'), { icon: 'grid', onClick: () => { closePopover(); home.open(); } }),
+    menuItem('Reset everything…', { icon: 'reset', onClick: () => resetEverything() }),
     menuItem(t('menu.palette'), { icon: 'explore', kb: 'Ctrl K', onClick: () => { closePopover(); palette.open(); } }),
     menuItem(t('menu.guide'), { icon: 'help', kb: '?', onClick: () => { closePopover(); openHelp(); } }),
     menuItem(t('menu.about'), { icon: 'book', onClick: () => { closePopover(); openAbout(); } }),

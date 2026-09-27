@@ -33,7 +33,7 @@ export const fmtClock = (t, day) => {
   return day > 0 ? `Day ${day} · ${tt}` : tt;
 };
 
-export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, canRevert, scenarioLabel }) {
+export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart, canRevert, scenarioLabel }) {
   let entries = [], cursor = -1, seq = 0, baseline = null, pending = null, lastEv = {};
   const listeners = [];
   const absT = (e) => e.day * 86400 + e.t;
@@ -43,6 +43,9 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, canRevert
   // ── DOM ───────────────────────────────────────────
   const playBtn = h('button', { class: 'ib play', 'aria-label': 'Pause', title: 'Play / pause (Space)' }, icon('pause'));
   playBtn.addEventListener('click', () => onPlay());
+  // Restart: the same patient from its first moment, every change and the clock cleared.
+  const restartBtn = h('button', { class: 'ib tl-restart', 'aria-label': 'Restart this patient' }, icon('reset'));
+  restartBtn.addEventListener('click', () => onRestart?.());
   const speedBtn = h('button', { class: 'tl-speed', title: 'Playback speed ([ and ])', 'aria-label': 'Playback speed' }, '1×');
   speedBtn.addEventListener('click', () => { const i = SPEEDS.indexOf(store.get().speed); onSpeed(SPEEDS[(i + 1) % SPEEDS.length]); });
   const rail = h('div', { class: 'tl-rail' });
@@ -62,14 +65,16 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, canRevert
     h('div', { class: 'menu-title' }, 'Time'),
     menuBtn('Until something happens', () => jump('event', 'until the next event')),
     menuBtn('Settle to equilibrium', () => { host.send({ type: 'settle' }); toast('Settled to equilibrium.'); }),
+    menuBtn('Restart this patient', () => onRestart?.()),
     h('div', { class: 'menu-sep' }),
     h('div', { class: 'menu-title' }, 'Playback speed'),
     h('div', { class: 'seg full', style: { margin: '2px 6px 6px' } }, [0.25, ...SPEEDS, 8].map((v) => { const b = h('button', { 'aria-pressed': String(store.get().speed === v) }, `${v}×`); b.addEventListener('click', () => { closePopover(); onSpeed(v); }); return b; })),
   ], { place: 'above', align: 'end', cls: 'time-pop' }));
   const pinBtn = h('button', { class: 'tl-pin', 'aria-pressed': 'false', title: 'Freeze this moment as A to compare against (P)' }, svgIcon('camera', 'mi-ic'), h('span', {}, 'Pin as A'));
   pinBtn.addEventListener('click', () => togglePin());
-  root.replaceChildren(h('div', { class: 'tl-left' }, playBtn, speedBtn), track, timeEl, h('div', { class: 'tl-jumps' }, jumpBtns, moreBtn), pinBtn);
+  root.replaceChildren(h('div', { class: 'tl-left' }, playBtn, restartBtn, speedBtn), track, timeEl, h('div', { class: 'tl-jumps' }, jumpBtns, moreBtn), pinBtn);
   tooltipFor(playBtn, 'Play / pause · Space', 'top');
+  tooltipFor(restartBtn, 'Restart this patient', 'top');
   function menuBtn(label, fn) { const b = h('button', { class: 'menu-item' }, label); b.addEventListener('click', () => { closePopover(); fn(); }); return b; }
 
   // ── Recording ─────────────────────────────────────

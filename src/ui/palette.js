@@ -54,6 +54,7 @@ export function createPalette({ ctx }) {
     for (const [d, l] of [[7, '+1 week'], [30, '+1 month'], [180, '+6 months'], [365, '+1 year']]) add('Time', l, () => ctx.jump(d, l.slice(1)), { kw: 'jump advance months weeks forward disease' });
     add('Time', 'Until something happens', () => ctx.jump('event', 'until the next event'), { kw: 'next event advance' });
     add('Time', 'Undo (back one change)', () => ctx.undo(), { kw: 'revert back' });
+    add('Time', 'Restart this patient', () => ctx.restart(), { kw: 'restart reset start over beginning' });
     add('Time', 'Pin this moment as A', () => ctx.pin(), { kw: 'compare snapshot' });
     // View
     for (const [id, [t, d]] of Object.entries(ctx.lenses)) add('View', `Lens: ${t}`, () => store.set({ colorMode: id }), { kw: `color ${d}` });
@@ -73,6 +74,7 @@ export function createPalette({ ctx }) {
     for (const l of LESSONS) add('Lesson', l.title, () => ctx.lesson(l.id), { kw: 'learn ' + l.summary });
     for (const c of CASES) add('Case', c.title, () => ctx.caseStart(c.id), { kw: 'case ' + c.summary });
     add('App', 'Home', () => ctx.home(), { kw: 'start' });
+    add('App', 'Reset everything', () => ctx.reset(), { kw: 'reset reload refresh clear start over' });
     add('App', 'Light / dark theme', () => ctx.theme(), { kw: 'appearance' });
     add('App', 'Guide & shortcuts', () => ctx.help(), { kw: 'help keyboard' });
     add('App', 'Copy share link', () => ctx.share(), { kw: 'url' });

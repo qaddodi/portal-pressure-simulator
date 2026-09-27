@@ -1195,6 +1195,8 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .timeline .play svg { width: 15px; height: 15px; }
 .tl-speed { height: 28px; min-width: 36px; padding: 0 7px; border: 0; border-radius: 8px; background: var(--surface-3); color: var(--text-2); font: 600 12px var(--font-ui); cursor: pointer; font-variant-numeric: tabular-nums; }
 .tl-speed:hover { color: var(--text); }
+.timeline .tl-restart { width: 32px; height: 32px; color: var(--text-2); flex: none; }
+.timeline .tl-restart svg { width: 17px; height: 17px; }
 .tl-track { position: relative; flex: 1; min-width: 120px; height: 40px; }
 .tl-rail { position: absolute; left: 6px; right: 6px; top: 25px; height: 3px; border-radius: 2px; background: var(--surface-3); }
 .tl-fill { position: absolute; left: 6px; top: 25px; height: 3px; border-radius: 2px; background: color-mix(in srgb, var(--text) 35%, var(--surface-3)); transition: width .3s var(--ease); }
