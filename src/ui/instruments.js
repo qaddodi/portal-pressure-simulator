@@ -244,7 +244,7 @@ export function createEndoscopy({ onAction }) {
   const stats = h('dl', { class: 'kv' });
   const side = h('div', { class: 'chart-side', style: { width: '300px' } }, h('div', { class: 'side-title' }, 'Endoscopy'), seg, stats,
     h('button', { class: 'btn primary', onclick: () => onAction({ kind: 'band' }) }, icon('band'), 'Band a column (EVL)'),
-    h('div', { class: 'ctl-sub' }, 'Rendered from the model. F1 small and straight, F2 enlarged and tortuous, F3 large and beaded. Red wale marks and cherry-red spots mean high wall tension.'));
+    h('div', { class: 'ctl-sub' }, 'Rendered from the model, looking down the distal esophagus: varices are submucosal columns running toward the lumen. F1 small and straight, F2 enlarged and tortuous, F3 large and beaded. Red wale marks and cherry-red spots mean high wall tension.'));
   el.append(box, side);
   let seed = 0;
   function update(f) {
@@ -288,26 +288,106 @@ export function createEndoscopy({ onAction }) {
       ctx.fillStyle = gg; ctx.beginPath(); ctx.ellipse(x, y, R * 0.05, R * 0.02, a + Math.PI / 2, 0, Math.PI * 2); ctx.fill();
     }
   }
-  // A varix column from the wall toward the lumen: a shaded tube (dark blue core, pale crest,
-  // shadow on the far side); beaded when large.
-  function column(ctx, pts, width, beaded, r) {
-    const seg = (fn) => { ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); fn(); };
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.strokeStyle = 'rgba(60, 10, 20, .35)'; ctx.lineWidth = width * 1.25; ctx.save(); ctx.translate(width * 0.18, width * 0.12); seg(() => ctx.stroke()); ctx.restore();
-    ctx.strokeStyle = '#9594ba'; ctx.lineWidth = width; seg(() => ctx.stroke());
-    ctx.strokeStyle = 'rgba(72, 72, 132, .6)'; ctx.lineWidth = width * 0.5; seg(() => ctx.stroke());
-    ctx.strokeStyle = 'rgba(214, 220, 245, .55)'; ctx.lineWidth = Math.max(1, width * 0.16); ctx.save(); ctx.translate(-width * 0.2, -width * 0.14); seg(() => ctx.stroke()); ctx.restore();
-    if (beaded) for (let i = 2; i < pts.length - 1; i += 3) {
-      const [x, y] = pts[i], rb = width * (0.62 + 0.18 * r());
-      const g = ctx.createRadialGradient(x - rb * 0.35, y - rb * 0.35, rb * 0.1, x, y, rb);
-      g.addColorStop(0, '#c9cfe9'); g.addColorStop(0.5, '#7b82b2'); g.addColorStop(1, '#474d86');
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, rb, 0, Math.PI * 2); ctx.fill();
+  // End-on view down the distal esophagus. A varix is a longitudinal submucosal vein, so from
+  // the scope tip each one is a column of mucosa bulging into the lumen, running away from the
+  // viewer and converging on the dark lumen at the vanishing point. Depth s (0 at the scope, 1
+  // at the lumen) maps to screen radius by perspective; a column keeps its angular width, so
+  // it narrows with distance. It is shaded as raised, wet mucosa (a bluish cast where the vein
+  // shows through, a lit flank, a shadowed flank, a glint on the crest), serpentine when
+  // tortuous (F2), beaded when large (F3), and large ones crowd the lumen.
+  const depthR = (R, s) => R * 1.12 / (1 + 5 * s);
+  const lit = (rr, R) => clamp((rr / R - 0.13) / 0.8, 0, 1) ** 0.85;
+  const VEIN = [132, 128, 186];
+  function esoVarices(ctx, cx, cy, R, lx, ly, vx, grow, bands, r) {
+    const n = grow < 0.25 ? 3 : 4;
+    const tort = grow < 0.3 ? 0.025 : 0.05 + 0.1 * grow; // F1 nearly straight, F2–F3 serpentine
+    const beaded = grow > 0.55;                          // F3
+    const relief = 0.45 + 0.55 * clamp(grow * 2.2, 0, 1); // F1 barely raised, F2–F3 bulging
+    const cols = [];
+    for (let c = 0; c < n; c++) {
+      const a0 = (c / n) * Math.PI * 2 + 0.45 + (r() - 0.5) * 0.35;
+      const th = 0.07 + 0.16 * grow + (r() - 0.5) * 0.03; // angular half-width
+      const ph = r() * 6;
+      cols.push({ c, a0, th, ph, banded: c < bands });
+    }
+    // Faint longitudinal mucosal folds between the columns, converging the same way.
+    ctx.strokeStyle = 'rgba(120, 40, 40, .09)'; ctx.lineWidth = 1.4;
+    for (let i = 0; i < 10; i++) {
+      const a = r() * Math.PI * 2, wv = r() * 6;
+      ctx.beginPath();
+      for (let s0 = 0; s0 <= 1.0001; s0 += 0.05) { const rr = depthR(R, s0), k = a + 0.03 * Math.sin(s0 * 9 + wv), x = lx + Math.cos(k) * rr, y = ly + Math.sin(k) * rr; if (s0) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
+      ctx.stroke();
+    }
+    // Light comes from the scope tip, slightly above: flanks facing up are lit.
+    const S = 48, U = 22;
+    const litGrad = (alpha, rgbS, floor = 0) => {
+      // Depth fades a highlight (and the vein's cast): nothing is lit down in the dark lumen.
+      const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, depthR(R, 0));
+      for (const t of [0, 0.15, 0.25, 0.4, 0.6, 0.8, 1]) g.addColorStop(t, `rgba(${rgbS}, ${(alpha * (floor + (1 - floor) * lit(t * depthR(R, 0), R))).toFixed(3)})`);
+      return g;
+    };
+    for (const col of cols) {
+      const end = col.banded ? 0.46 : 1;
+      // Serpentine in depth; the wiggle settles toward the vanishing point, where perspective
+      // would otherwise wind it into a hook.
+      const crest = (s0) => col.a0 + tort * Math.sin(s0 * 7 + col.ph) * (1 - s0 * s0);
+      // Beads (F3) are broad nodules; every column tapers to a point at the lumen.
+      const half = (s0) => col.th * (beaded ? 0.82 + 0.36 * Math.sin(s0 * 11 + col.ph) ** 2 : 1) * (col.banded ? 0.7 : 1) * (1 - 0.2 * s0) * Math.sqrt(Math.max(0, 1 - s0 ** 3));
+      // Which flank faces the light (up on screen): +1 when the column's +u side is lit.
+      const side = Math.cos(col.a0) >= 0 ? -1 : 1;
+      const edge = (u) => { const pts = []; for (let i = 0; i <= S; i++) { const s0 = (i / S) * end, rr = depthR(R, s0), k = crest(s0) + u * half(s0); pts.push([lx + Math.cos(k) * rr, ly + Math.sin(k) * rr]); } return pts; };
+      const strip = (u0, u1, fill) => {
+        const A = edge(u0), B = edge(u1).reverse();
+        ctx.beginPath(); ctx.moveTo(...A[0]); for (const q of A.slice(1)) ctx.lineTo(...q); for (const q of B) ctx.lineTo(...q); ctx.closePath();
+        ctx.fillStyle = fill; ctx.fill();
+      };
+      // A soft shadow cast on the mucosa beside the shadowed flank.
+      for (let j = 0; j < 6; j++) { const u0 = -side * (1 + j * 0.08), u1 = -side * (1 + (j + 1) * 0.08); strip(Math.min(u0, u1), Math.max(u0, u1), `rgba(40, 6, 10, ${(relief * 0.08 * (1 - j / 6) ** 2).toFixed(3)})`); }
+      for (let j = 0; j < U; j++) {
+        const u0 = -1 + (2 * j) / U, u1 = -1 + (2 * (j + 1)) / U, um = (u0 + u1) / 2;
+        const hgt = Math.sqrt(Math.max(0, 1 - um * um)), L = um * side;
+        // The vein showing through the mucosa: a bluish cast, strongest on the crest.
+        strip(u0, u1, litGrad((0.16 + 0.55 * grow) * hgt ** 1.6, VEIN.join(','), 0.35));
+        // Raised mucosa: the flank toward the light brightens, the other darkens.
+        if (L > 0) strip(u0, u1, litGrad(relief * 0.26 * L * hgt, '255, 236, 228'));
+        else strip(u0, u1, `rgba(50, 8, 14, ${(relief * 0.32 * -L * hgt ** 0.8).toFixed(3)})`);
+      }
+      // A wet glint running along the crest on the lit side, thinning with depth.
+      const gl = edge(side * 0.34);
+      ctx.strokeStyle = litGrad(0.25 + 0.3 * relief, '255, 250, 246'); ctx.lineCap = 'round';
+      for (let i = 0; i < gl.length * 0.75; i++) {
+        const s0 = (i / S) * end;
+        ctx.lineWidth = Math.max(0.6, depthR(R, s0) * half(s0) * (0.1 + 0.06 * Math.sin(i * 0.9 + col.ph)));
+        ctx.beginPath(); ctx.moveTo(...gl[i]); ctx.lineTo(...gl[i + 1]); ctx.stroke();
+      }
+      // Red wale marks (longitudinal red streaks) and cherry-red spots on the crest.
+      if (vx.redWale) {
+        const cr = edge(-side * 0.05), rw = rnd(17 + col.c * 7);
+        ctx.strokeStyle = 'rgba(196, 24, 40, .75)'; ctx.lineCap = 'round';
+        for (let i = 2 + Math.floor(rw() * 3); i < cr.length * 0.7; i += 4 + Math.floor(rw() * 4)) {
+          const s0 = (i / S) * end; ctx.lineWidth = Math.max(0.8, depthR(R, s0) * half(s0) * 0.08);
+          ctx.beginPath(); ctx.moveTo(...cr[i]); ctx.lineTo(...cr[i + 1 + Math.floor(rw() * 2)]); ctx.stroke();
+        }
+        const sp = edge(-side * 0.3);
+        ctx.fillStyle = 'rgba(210, 22, 44, .9)';
+        for (let i = 5 + Math.floor(rw() * 4); i < sp.length * 0.65; i += 8 + Math.floor(rw() * 6)) { const s0 = (i / S) * end; ctx.beginPath(); ctx.arc(...sp[i], Math.max(1.2, depthR(R, s0) * half(s0) * 0.13), 0, Math.PI * 2); ctx.fill(); }
+      }
+      if (col.banded) {
+        // Ligated: the column is sucked into a purple knuckle and strangled by a black band.
+        const rr = depthR(R, end), kc = crest(end), x = lx + Math.cos(kc) * rr, y = ly + Math.sin(kc) * rr;
+        const rb = Math.max(R * 0.07, rr * col.th * 1.4);
+        const g = ctx.createRadialGradient(x - rb * 0.3, y - rb * 0.3, rb * 0.1, x, y, rb);
+        g.addColorStop(0, '#b886a8'); g.addColorStop(1, '#5a2750');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, rb, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#111'; ctx.lineWidth = rb * 0.3; ctx.beginPath(); ctx.arc(x, y, rb * 0.74, 0, Math.PI * 2); ctx.stroke();
+      }
     }
   }
   function draw(f, vx) {
     const { ctx, w, h: hh } = fitCanvas(cv);
     ctx.clearRect(0, 0, w, hh);
-    const cx = w / 2, cy = hh / 2, R = Math.min(w, hh) / 2 - 6;
+    // The field sits above its caption, never under it.
+    const cx = w / 2, cy = (hh - 16) / 2, R = Math.min(w, hh - 16) / 2 - 6;
     const r = rnd(view === 'eso' ? 11 : 23);
     ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
     const d = vx.d, grow = clamp((d - 2) / 10, 0, 1), present = d >= 2.4;
@@ -315,39 +395,7 @@ export function createEndoscopy({ onAction }) {
     if (view === 'eso') {
       const lx = cx + R * 0.06, ly = cy - R * 0.04;
       mucosa(ctx, cx, cy, R, lx, ly, r);
-      // Circular folds of the distal esophagus, faint rings toward the lumen.
-      ctx.strokeStyle = 'rgba(120, 40, 40, .18)'; ctx.lineWidth = 2;
-      for (const k of [0.3, 0.45, 0.62]) { ctx.beginPath(); ctx.ellipse(lx, ly, R * k, R * k * 0.92, 0, 0, Math.PI * 2); ctx.stroke(); }
-      if (present) {
-        const n = grow < 0.25 ? 3 : 4;
-        for (let c = 0; c < n; c++) {
-          const a0 = (c / n) * Math.PI * 2 + 0.5 + (r() - 0.5) * 0.3;
-          const width = R * (0.05 + 0.2 * grow);
-          const pts = [];
-          for (let s0 = 0; s0 <= 1.0001; s0 += 0.06) {
-            const rr = R * (0.2 + 0.85 * s0);
-            const tort = Math.sin(s0 * (8 + 8 * grow) + c * 1.7) * (0.02 + 0.13 * grow) * (0.4 + s0);
-            pts.push([lx + Math.cos(a0 + tort) * rr, ly + Math.sin(a0 + tort) * rr]);
-          }
-          if (c < bands) {
-            // A banded varix: a purple knuckle strangled by a black rubber band.
-            const [x, y] = pts[Math.floor(pts.length * 0.62)], rb = Math.max(width * 1.1, R * 0.09);
-            column(ctx, pts.slice(0, Math.floor(pts.length * 0.5)), width * 0.6, false, r);
-            const g = ctx.createRadialGradient(x - rb * 0.3, y - rb * 0.3, rb * 0.1, x, y, rb);
-            g.addColorStop(0, '#b886a8'); g.addColorStop(1, '#5a2750');
-            ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, rb, 0, Math.PI * 2); ctx.fill();
-            ctx.strokeStyle = '#111'; ctx.lineWidth = rb * 0.32; ctx.beginPath(); ctx.arc(x, y, rb * 0.72, 0, Math.PI * 2); ctx.stroke();
-            continue;
-          }
-          column(ctx, pts, width, grow > 0.45, r);
-          if (vx.redWale) {
-            ctx.strokeStyle = 'rgba(205, 25, 40, .9)'; ctx.lineWidth = Math.max(1.2, width * 0.12); ctx.lineCap = 'round';
-            for (let i = 4; i < pts.length - 2; i += 3) { const [x, y] = pts[i], [x2, y2] = pts[i + 1]; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + (x2 - x) * 0.7, y + (y2 - y) * 0.7); ctx.stroke(); }
-            ctx.fillStyle = 'rgba(215, 20, 45, .95)';
-            for (let i = 6; i < pts.length; i += 5) { const [x, y] = pts[i]; ctx.beginPath(); ctx.arc(x + width * 0.15, y, Math.max(1.4, width * 0.1), 0, Math.PI * 2); ctx.fill(); }
-          }
-        }
-      }
+      if (present) esoVarices(ctx, cx, cy, R, lx, ly, vx, grow, bands, r);
       glints(ctx, cx, cy, R, r, 9);
     } else {
       // Retroflexed view of the fundus: rugal folds, the scope shaft entering the cardia.
@@ -407,7 +455,7 @@ export function createEndoscopy({ onAction }) {
     ctx.restore();
     ctx.strokeStyle = '#0c0d10'; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
     ctx.fillStyle = cssVar('--text-3') || '#888'; ctx.font = FONT(500, 10); ctx.textAlign = 'left';
-    ctx.fillText(view === 'eso' ? 'Distal esophagus · 36 cm' : 'Fundus · retroflexed', 6, hh - 6);
+    ctx.fillText(view === 'eso' ? 'Distal esophagus · 36 cm' : 'Fundus · retroflexed', 6, hh - 3);
   }
   return { id: 'endoscopy', label: 'Endoscopy', el, update, setView(v) { view = v; seg.querySelectorAll('button').forEach((x, i) => x.setAttribute('aria-pressed', String((i === 0) === (v === 'eso')))); } };
 }

@@ -4,7 +4,7 @@ import { store } from './store.js?v=4bf5a96a9d';
 import { h, fmt, icon, svgIcon, popover, closePopover, clamp } from './util.js?v=d483888526';
 import { NODES, EDGES } from '../engine/topology.js?v=6d79260961';
 import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=df3b6e4e0b';
-import { createHVPG, createDoppler, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=84e71208c1';
+import { createHVPG, createDoppler, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=f6f69759da';
 import { createLandscape } from './landscape.js?v=5f3223280d';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
