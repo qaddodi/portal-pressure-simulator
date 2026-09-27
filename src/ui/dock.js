@@ -11,22 +11,36 @@ const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const SEV = { ok: 'var(--ok)', caution: 'var(--caution)', danger: 'var(--danger)', critical: 'var(--critical)', info: 'var(--info)' };
 
-// Readouts in reading order: the portal story first, then the systemic circulation.
+// Readouts in reading order: the portal story first, then the systemic circulation. Each
+// readout's status (dot color and word) comes from a clinical cut-off, listed in CUTOFFS below
+// and in About the model: green is normal, amber borderline, red past a clinical threshold,
+// dark red past the high-risk one.
 export const TILES = [
   { id: 'hvpg', k: 'HVPG', why: 'hvpg', v: (m) => m.hvpg, d: 1, u: 'mmHg', hideKey: 'trueHVPG', measured: () => store.get().lastHVPG,
-    st: (v) => (v < 5 ? 'ok' : v < 10 ? 'caution' : v < 12 ? 'danger' : 'critical'),
+    st: (v) => (v < 5 ? 'ok' : v < 10 ? 'caution' : v < 20 ? 'danger' : 'critical'),
     s: (v) => (v < 5 ? 'Normal' : v < 10 ? 'Subclinical' : v < 12 ? 'CSPH' : v < 20 ? 'Bleed risk' : 'High risk') },
   { id: 'pv', k: 'Portal vein', title: 'Portal vein pressure', why: 'pv', v: (m) => m.pv, d: 1, u: 'mmHg', hideKey: 'pv', st: (v) => (v <= 10 ? 'ok' : v < 15 ? 'caution' : 'danger'), s: (v) => (v <= 10 ? 'Normal' : v < 15 ? 'Raised' : 'High') },
-  { id: 'ppg', k: 'PPG', title: 'Portosystemic pressure gradient (portal vein − IVC)', why: 'ppg', hideKey: 'pv', v: (m) => m.ppg, d: 1, u: 'mmHg', st: (v) => (v < 10 ? 'ok' : v < 12 ? 'caution' : 'danger'), s: (v) => (v < 12 ? 'Below 12' : 'Above 12') },
+  { id: 'ppg', k: 'PPG', title: 'Portosystemic pressure gradient (portal vein − IVC)', why: 'ppg', hideKey: 'pv', v: (m) => m.ppg, d: 1, u: 'mmHg', st: (v) => (v < 10 ? 'ok' : v < 12 ? 'caution' : 'danger'), s: (v) => (v < 10 ? 'Normal' : v < 12 ? 'Raised' : 'Above 12') },
   { id: 'pvflow', k: 'Portal flow', why: 'pvFlow', v: (m) => m.pvFlow, d: 1, u: 'L/min',
-    st: (v, m) => (v < -0.02 ? 'critical' : Math.abs(m.pvVel) < 5 ? 'caution' : 'ok'),
-    s: (v, m) => (v < -0.02 ? 'Hepatofugal' : Math.abs(m.pvVel) < 5 ? 'Stasis' : `${fmt(m.pvVel, 0)} cm/s`) },
+    st: (v, m) => (v < -0.02 ? 'critical' : Math.abs(m.pvVel) < 5 ? 'danger' : v < 0.9 || Math.abs(m.pvVel) < 12 ? 'caution' : 'ok'),
+    s: (v, m) => (v < -0.02 ? 'Hepatofugal' : Math.abs(m.pvVel) < 5 ? 'Stasis' : v < 0.9 ? `Reduced · ${fmt(m.pvVel, 0)} cm/s` : Math.abs(m.pvVel) < 12 ? `Slow · ${fmt(m.pvVel, 0)} cm/s` : `${fmt(m.pvVel, 0)} cm/s`) },
   { id: 'varix', k: 'Varix tension', why: 'varix', hideKey: 'model', v: (m) => m.varix.ratio * 100, d: 0, u: '%',
-    st: (v, m) => (m.varix.ratio > 1 ? 'critical' : m.varix.ratio > 0.7 ? 'danger' : m.varix.d >= 5 ? 'caution' : 'ok'),
+    st: (v, m) => (m.varix.ratio >= 0.9 ? 'critical' : m.varix.ratio >= 0.7 ? 'danger' : m.varix.ratio >= 0.4 || m.varix.d >= 5 ? 'caution' : 'ok'),
     s: (v, m) => (m.varix.d < 2.5 ? 'No varices' : m.varix.redWale ? 'Red wale' : `${m.varix.grade.code} · ${fmt(m.varix.d, 1)} mm`), title: 'Esophageal varix wall tension, % of the rupture threshold (Laplace)' },
   { id: 'ascites', k: 'Ascites', why: 'ascites', v: (m) => m.ascites.volume / 1000, d: 1, u: 'L', st: (v, m) => (m.ascites.grade === 0 ? 'ok' : m.ascites.grade === 1 ? 'caution' : 'danger'), s: (v, m) => (m.ascites.grade === 0 ? 'None' : `Grade ${m.ascites.grade}`) },
   { id: 'liver', hideKey: 'model', k: 'Liver flow', title: 'Liver perfusion: total sinusoidal flow, % of normal', why: 'liverPerf', v: (m) => m.liverPerfPct, d: 0, u: '%', st: (v) => (v > 75 ? 'ok' : v > 55 ? 'caution' : 'danger'), s: (v, m) => `Artery ×${fmt(m.habr, 1)}` },
   { id: 'shunt', k: 'Shunt', why: 'shunt', hideKey: 'model', v: (m) => m.shuntFraction * 100, d: 0, u: '%', st: (v) => (v < 10 ? 'ok' : v < 30 ? 'caution' : v < 60 ? 'danger' : 'critical'), s: (v, m) => `HE ${m.heRisk.label === 'Moderate' ? 'moderate' : m.heRisk.label.toLowerCase()}`, title: 'Portosystemic shunt fraction of splanchnic inflow; HE = hepatic encephalopathy' },
+];
+// The cut-offs behind each status, as About the model lists them: [readout, normal, amber, red, dark red].
+export const CUTOFFS = [
+  ['HVPG', '< 5 mmHg', '5–9 (subclinical)', '10–19 (≥ 10 CSPH, ≥ 12 bleeding risk)', '≥ 20 (high risk)'],
+  ['Portal vein pressure', '≤ 10 mmHg', '11–14', '≥ 15', '—'],
+  ['Portosystemic gradient', '< 10 mmHg', '10–11', '≥ 12 (variceal bleeding)', '—'],
+  ['Portal flow', '≥ 0.9 L/min and ≥ 12 cm/s', '< 0.9 L/min or < 12 cm/s', '< 5 cm/s (stasis)', 'Hepatofugal'],
+  ['Varix wall tension', '< 40 % of rupture', '40–69 %, or diameter ≥ 5 mm', '70–89 %', '≥ 90 %'],
+  ['Ascites', 'None', 'Grade 1', 'Grade 2–3', '—'],
+  ['Liver perfusion', '> 75 % of normal', '56–75 %', '≤ 55 %', '—'],
+  ['Shunt fraction', '< 10 %', '10–29 %', '30–59 %', '≥ 60 %'],
 ];
 
 // Systemic circulation: a compact vitals block at the end of the strip.

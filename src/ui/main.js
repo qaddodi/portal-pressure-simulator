@@ -3,16 +3,16 @@
 
 import { startHost, host } from './host.js?v=0917f25b24';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=4bf5a96a9d';
-import { createStage } from './stage.js?v=5b0066037b';
+import { createStage } from './stage.js?v=9da1a23cc6';
 import { createInspector } from './inspector.js?v=6a4f3a0c89';
-import { createDock } from './dock.js?v=f8c27c2c53';
+import { createDock, CUTOFFS } from './dock.js?v=faecaf42f2';
 import { createWhy } from './why.js?v=eafc26e516';
 import { createTimeline } from './timeline.js?v=acec98dac3';
 import { createLearn } from './learn.js?v=f3aebe8dbf';
 import { createCases } from './cases.js?v=38509e394f';
 import { createCompare } from './compare.js?v=82941439cb';
 import { createCard } from './card.js?v=c5536df04e';
-import { createChart } from './chart.js?v=6b69dceb73';
+import { createChart } from './chart.js?v=3f7966e13f';
 import { createHome } from './home.js?v=147519743b';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=0457b367b9';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=b83c19559d';
@@ -154,7 +154,7 @@ async function main() {
     loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); toast(store.get().presetList.find((p) => p.id === id)?.label); },
     lesson: (id) => startLesson(id), caseStart: (id) => startCase(id), home: () => home.open(), theme: () => toggleTheme(), help: () => openHelp(), share, restart: () => restartPatient(), reset: () => resetEverything(),
   } }));
-  figureL = lazy(() => import('./figure.js?v=0b6b0be831'), ({ createFigure }) => createFigure({ app, stage, onClose: () => toggleFigure(false) }));
+  figureL = lazy(() => import('./figure.js?v=fa50a6e9f5'), ({ createFigure }) => createFigure({ app, stage, onClose: () => toggleFigure(false) }));
   card = createCard({
     view, stage, onWhy: (m, el) => why.open(m, el),
     onDetails: (sel) => { store.set({ details: normalizeSel(sel) || sel }); openPanel(); },
@@ -516,7 +516,7 @@ function openLegend(anchor) {
     h('div', { style: { padding: '2px 10px 8px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12.5px', lineHeight: 1.5, color: 'var(--text-2)', maxWidth: '340px' } },
       rows.map(([k, v]) => h('div', {}, h('b', { style: { color: 'var(--text)' } }, k + '. '), v)),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Flow. '), 'Arrowheads inside each vessel point and move downstream; their speed follows blood velocity, and a vessel without flow has none. Reversed flow turns them orange and runs them the other way. Paused, they hold still and keep their direction.'),
-      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Notation. '), 'Dotted vessels are closed potential collaterals. Line width follows vessel diameter (compressed). Faint lines crossing an organ run behind it. ▲ / ▼ on a label: change in mmHg from healthy (from the moment you compare from, while comparing).'),
+      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Notation. '), 'Dotted vessels are closed potential collaterals. Line width follows vessel diameter (compressed). Faint lines crossing an organ run behind it. ▲ / ▼ on a label: change in mmHg from healthy, shown once it reaches 5 mmHg (while comparing, every change from the moment you compare from).'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Organs. '), 'Organs are drawn as in an anatomy plate, lit from the upper left. On the liver, texture means disease: nodules for cirrhosis, mottling for congestion (nutmeg liver), a darker vignette as sinusoidal pressure rises. The spleen grows with splenomegaly.'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Varix ring. '), 'The ring around the esophageal varices closes as their wall tension (pressure × radius ÷ wall thickness) approaches the rupture threshold: amber from 70 %, red from 90 %.'))], { align: 'end', cls: 'legend-pop' });
 }
@@ -894,7 +894,7 @@ function openHelp(section) {
     h('div', { class: 'keys' }, rows.map(([k, v]) => h('div', {}, h('span', {}, v), h('kbd', {}, k)))),
     h('h3', {}, 'Reading the figure'),
     h('ul', {},
-      h('li', {}, 'Veins are colored by mean pressure on a perceptually uniform scale (0–30 mmHg). Labels give the value in mmHg; ▲ / ▼ is the change from healthy. Arteries are thinner, in a fixed red.'),
+      h('li', {}, 'Veins are colored by mean pressure on a perceptually uniform scale (0–30 mmHg). Labels give the value in mmHg; ▲ / ▼ is the change from healthy, shown from 5 mmHg. Arteries are thinner, in a fixed red.'),
       h('li', {}, 'Chevrons inside each vessel show the blood itself: they point and move downstream, faster where blood moves faster, and there are none where it is still. Reversed flow simply runs the other way. Thin vessels carry small arrowheads. Dotted vessels are closed potential collaterals.'),
       h('li', {}, 'Line width follows vessel diameter (compressed, so the cavae don’t drown the portal tree). Watch collaterals and varices swell.'),
       h('li', {}, 'The circuit view is a transit map: pressure falls from left to right; collaterals and shunts run in their own lanes as bypasses.')),
@@ -914,6 +914,11 @@ function openAbout(section) {
     h('h3', {}, 'Validation targets'),
     h('p', { class: 'sub' }, 'Each is an automated test that must pass before a release:'),
     h('ol', { class: 'refs' }, VALIDATION.map((v) => h('li', {}, v))),
+    h('h3', {}, 'Status colors'),
+    h('p', { class: 'sub' }, 'Every readout’s dot and status word follow a clinical cut-off. Changes (▲ / ▼) are drawn in neutral ink; red means a threshold has been crossed.'),
+    h('div', { class: 'table-wrap' }, h('table', { class: 'cut-table' },
+      h('thead', {}, h('tr', {}, ['Readout', 'Normal', 'Borderline', 'Past a threshold', 'High risk'].map((x, i) => h('th', {}, i ? h('span', { class: 'cut-h' }, h('i', { class: 'dot', 'data-sev': ['', 'ok', 'caution', 'danger', 'critical'][i] }), x) : x)))),
+      h('tbody', {}, CUTOFFS.map((r) => h('tr', {}, r.map((c) => h('td', {}, c))))))),
     h('h3', {}, 'Clinical review'),
     h('p', {}, 'Lesson and case content follows the guidance below. An external clinical advisory review with named reviewers is pending; their sign-off per lesson and case will be listed here.'),
     h('h3', { 'data-sec': 'refs' }, 'References'),

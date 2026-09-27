@@ -173,8 +173,8 @@ svg { flex: none; }
 .lb-name { fill: var(--text-2); }
 .lb-val { fill: var(--text); }
 .lb-unit { fill: var(--text-3); }
-.lb-delta.up { fill: color-mix(in srgb, var(--danger) 88%, var(--text)); }
-.lb-delta.down { fill: var(--accent-ink); }
+.lb-delta { fill: var(--text-2); }
+.lb-alert { fill: var(--danger); }
 .lb-organ { fill: var(--text-3); }
 .lb-zone { fill: var(--text-3); }
 .lb.node { pointer-events: auto; cursor: pointer; outline: none; }
@@ -320,7 +320,15 @@ svg { flex: none; }
 .metric .v { font-size: 19px; font-weight: 600; letter-spacing: -.015em; white-space: nowrap; display: flex; align-items: baseline; line-height: 1.3; }
 .metric .v .unit { font-size: 11px; }
 .metric .tr { font-size: 10px; margin-left: 4px; width: 8px; }
-.metric .tr.up { color: var(--danger); } .metric .tr.down { color: var(--accent); }
+.metric .tr.up, .metric .tr.down { color: var(--text-3); }
+.table-wrap { overflow-x: auto; margin: 4px 0 8px; }
+.cut-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.cut-table th, .cut-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--hairline); vertical-align: top; }
+.cut-table th { font-weight: 600; color: var(--text-2); white-space: nowrap; }
+.cut-table td:first-child { font-weight: 600; color: var(--text); white-space: nowrap; }
+.cut-h { display: inline-flex; align-items: center; gap: 6px; }
+.cut-h .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sev); }
+.cut-h .dot[data-sev="ok"] { --sev: var(--ok); } .cut-h .dot[data-sev="caution"] { --sev: var(--caution); } .cut-h .dot[data-sev="danger"] { --sev: var(--danger); } .cut-h .dot[data-sev="critical"] { --sev: var(--critical); }
 .metric .s { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--text-3); white-space: nowrap; overflow: hidden; }
 .metric .status { overflow: hidden; text-overflow: ellipsis; }
 .status { display: inline-flex; align-items: center; gap: 5px; font-weight: 500; }
@@ -1431,9 +1439,9 @@ div.vt-vital { cursor: default; }
 .lesson > p:not([class]) { font-family: var(--font-display); font-size: 15px; line-height: 1.55; }
 /* Δ halos: where pressure moved most after a change */
 .halo circle { fill: none; stroke-width: 2.5; animation: haloRing 1.5s var(--ease) forwards; }
-.halo.up circle { stroke: var(--up, #C0392B); } .halo.down circle { stroke: var(--down, #2F7FB8); }
+.halo circle { stroke: var(--text-2); }
 .halo text { font: 700 17px var(--font-num); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--bg); stroke-width: 4px; animation: haloText 1.5s var(--ease) forwards; }
-.halo.up text { fill: var(--up, #C0392B); } .halo.down text { fill: var(--down, #2F7FB8); }
+.halo text { fill: var(--text); }
 @keyframes haloRing { 0% { r: 8px; stroke-opacity: 0; } 20% { stroke-opacity: .9; } 100% { r: 26px; stroke-opacity: 0; } }
 @keyframes haloText { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
 /* Selection lift: the chosen vessel rises off the page */

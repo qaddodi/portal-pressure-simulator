@@ -1490,6 +1490,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A change badge (▲ 3) appears at `on` and goes only below `off`: a value hovering at the
   // threshold would otherwise add and drop the badge every beat, and its label would jump.
   const badges = new Map();
+  const DELTA_MIN = 5;
   function badge(key, v, on, off) {
     const shown = v >= on || (badges.get(key) && v >= off);
     badges.set(key, shown);
@@ -1499,8 +1500,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!store.get().layers.chips || isImaging()) return null;
     const [v, u] = fp(P);
     const runs = [{ t: v, size: compact ? 12.5 : 14, weight: 650, cls: 'lb-val' }, { t: u, size: compact ? 9.5 : 10, weight: 500, cls: 'lb-unit', gap: 2.5 }];
-    const ref = REF()?.[NI[id]];
-    if (ref != null && badge('p:' + id, Math.abs(P - ref), 1, 0.7)) runs.push({ t: `${P > ref ? '▲' : '▼'} ${fmt(Math.abs(P - ref), 0)}`, size: compact ? 9.5 : 10.5, weight: 650, cls: 'lb-delta ' + (P > ref ? 'up' : 'down'), gap: 6 });
+    // A change from healthy is shown only once it matters clinically (5 mmHg, the upper limit
+    // of a normal HVPG); while comparing, every change from the pinned moment is shown. Deltas
+    // are neutral ink: red is kept for crossed thresholds.
+    const ref = REF()?.[NI[id]], cmp = !!store.get().compareSnap;
+    if (ref != null && badge((cmp ? 'pc:' : 'p:') + id, Math.abs(P - ref), cmp ? 1 : DELTA_MIN, cmp ? 0.7 : DELTA_MIN - 1)) runs.push({ t: `${P > ref ? '▲' : '▼'} ${fmt(Math.abs(P - ref), 0)}`, size: compact ? 9.5 : 10.5, weight: 650, cls: 'lb-delta ' + (P > ref ? 'up' : 'down'), gap: 6 });
     return runs;
   }
 
@@ -1517,7 +1521,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const refQ = store.get().healthy?.Q;
       if (refQ && !store.get().compareSnap) {
         const r = throughput(refQ, id);
-        if (r > 0.02 && badge('q:' + id, Math.abs(v - r) / r, 0.1, 0.07)) runs.push({ t: `${v > r ? '▲' : '▼'} ${Math.round(Math.abs(v - r) / r * 100)}%`, size: compact ? 9.5 : 10.5, weight: 650, cls: 'lb-delta ' + (v > r ? 'up' : 'down'), gap: 6 });
+        if (r > 0.02 && badge('q:' + id, Math.abs(v - r) / r, 0.3, 0.25)) runs.push({ t: `${v > r ? '▲' : '▼'} ${Math.round(Math.abs(v - r) / r * 100)}%`, size: compact ? 9.5 : 10.5, weight: 650, cls: 'lb-delta ' + (v > r ? 'up' : 'down'), gap: 6 });
       }
       return { runs, color: flowColor(v) };
     }
@@ -1534,7 +1538,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // collaterals carries no flow at all (not stasis in an open vessel).
     if (!tubes) return { runs: [{ ...unit, t: bed ? 'microcirculation' : 'collaterals closed', gap: 0 }], color: 'rgb(150,152,162)' };
     const runs = [{ ...big, t: fmt(best, 0) }, { ...unit, t: 'cm/s' }];
-    if (best < 5) runs.push({ t: 'stasis', size: compact ? 9.5 : 10.5, weight: 650, cls: 'lb-delta up', gap: 6 });
+    if (best < 5) runs.push({ t: 'stasis', size: compact ? 9.5 : 10.5, weight: 650, cls: 'lb-alert', gap: 6 });
     return { runs, color: velocityColor(best) };
   }
 
