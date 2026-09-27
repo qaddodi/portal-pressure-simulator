@@ -3,10 +3,10 @@
 // brings it back. A lesson or case then runs in the ordinary workspace with a slim banner.
 
 import { store } from './store.js?v=4bf5a96a9d';
-import { h, svgIcon, icon } from './util.js?v=d483888526';
-import { LESSONS } from './learn.js?v=38cc26d87b';
-import { CASES } from './cases.js?v=4d72427eaf';
-import { t } from '../i18n/i18n.js?v=743b542534';
+import { h, svgIcon, icon } from './util.js?v=cc7ee4cf38';
+import { LESSONS } from './learn.js?v=f3aebe8dbf';
+import { CASES } from './cases.js?v=38509e394f';
+import { t } from '../i18n/i18n.js?v=0457b367b9';
 import { exportCSV, exportXAPI, learnerName, setLearnerName, records } from './records.js?v=26ab8fb634';
 import { SNAPSHOTS, PATH } from './snapshots.js?v=85ffc8d0f9';
 import { pressureColor } from './colormap.js?v=5f8590b23c';
@@ -50,6 +50,17 @@ function patientCard(p, cur, onPreset) {
     snap ? profile(snap) : null,
     facts,
     h('span', { class: 'd' }, p.summary));
+}
+
+// Who is using the simulator: it sets how much of the model the cards and the chart open.
+export const ROLES = [['student', 'Student', 'The model and the clinical orders.'], ['instructor', 'Instructor', 'Adds the physiology knobs and presenter scripts.'], ['researcher', 'Researcher', 'Everything open, with resistances on the cards.']];
+function rolePicker(render) {
+  const cur = store.get().role || 'student';
+  const d = ROLES.find(([v]) => v === cur)?.[2];
+  return h('div', { class: 'home-role' },
+    h('span', { class: 'hr-k', id: 'homeRoleK' }, t('menu.role')),
+    h('div', { class: 'seg', role: 'group', 'aria-labelledby': 'homeRoleK' }, ROLES.map(([v, l, dd]) => h('button', { 'aria-pressed': String(cur === v), title: dd, onclick: () => { store.set({ role: v }); render(); } }, l))),
+    h('span', { class: 'hr-d' }, d));
 }
 
 const read = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || d); } catch { return JSON.parse(d); } };
@@ -107,6 +118,7 @@ export function createHome({ el, brandMark, onPreset, onLesson, onCase, onPresen
           h('p', { class: 'home-byline' }, 'Created by ', h('b', {}, AUTHOR), h('span', { class: 'sep', 'aria-hidden': 'true' }, '·'),
             h('a', { href: AUTHOR_URL, target: '_blank', rel: 'noopener' }, 'More tools by the author ', icon('chev-right')))),
         h('button', { class: 'ib home-x', 'aria-label': 'Close', title: 'Back to the model (Esc)', onclick: onClose }, icon('close'))),
+      rolePicker(render),
       nav, h('div', { class: 'home-body' }, body),
       h('p', { class: 'disclaimer' }, t('app.disclaimer'))));
   }

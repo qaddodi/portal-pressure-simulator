@@ -2,7 +2,7 @@
 
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
 import { host } from './host.js?v=0917f25b24';
-import { h, fmt, toast, svgIcon } from './util.js?v=d483888526';
+import { h, fmt, toast, svgIcon } from './util.js?v=cc7ee4cf38';
 import { addRecord } from './records.js?v=26ab8fb634';
 import { EDGES } from '../engine/topology.js?v=6d79260961';
 
@@ -155,7 +155,7 @@ export const LESSONS = [
     steps: [
       { type: 'frame', preset: 'cirr-decomp', tools: ['select', 'stent', 'occlude'], tab: 'flow',
         text: 'A TIPS decompresses the portal system by bypassing the liver. Watch where the gut blood goes.' },
-      { type: 'do', focus: ['PVH_R', 'RHV_IVC'], focusLabel: 'Right portal → right hepatic vein', text: 'Click the **right portal vein**, choose **Shunt from here**, then click the right hepatic vein.', goal: (f, p) => p.tips.on },
+      { type: 'do', focus: ['PVH_R', 'RHV_IVC'], focusLabel: 'Right portal → right hepatic vein', text: 'Click the **right portal vein**, choose **Create shunt…**, then click the right hepatic vein.', goal: (f, p) => p.tips.on },
       { type: 'observe', seconds: 8, text: 'Portosystemic gradient falls below 12, varices decompress, but the shunt fraction rises, liver perfusion falls, and the intrahepatic portal branches reverse toward the stent.' },
       { type: 'explain', metric: 'shunt' },
       { type: 'predict', preset: 'gastric-varix', q: 'New patient with fundal varices draining via a gastrorenal shunt. After BRTO (occluding that shunt), portal pressure will…', options: ['Rise', 'Fall', 'Not change'], answer: 0 },

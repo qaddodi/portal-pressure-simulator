@@ -4,7 +4,7 @@ import { NODES, EDGES } from '../engine/topology.js?v=6d79260961';
 import { PROFILE_PATHS, SHORT } from './anatomy.js?v=493c059e8f';
 import { pressureColor } from './colormap.js?v=5f8590b23c';
 import { store } from './store.js?v=4bf5a96a9d';
-import { h, fmt, fmtFlow, fitCanvas, cssVar, clamp } from './util.js?v=d483888526';
+import { h, fmt, fmtFlow, fitCanvas, cssVar, clamp } from './util.js?v=cc7ee4cf38';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

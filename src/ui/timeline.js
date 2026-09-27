@@ -1,18 +1,18 @@
 // The timeline: time, history, events and comparison on one strip under the figure.
 //
-//  ▶ 1×  |●──◆────◆──▲──────◆───●|  Day 142 · 0:14   [+1 wk][+1 mo][+6 mo]   📌 Pin A
+//  ▶ ↺ 1×  |●──◆────◆──▲──────◆───●|  Day 142 · 0:14   [+1 wk][+1 mo][+6 mo]   Compare from here
 //
 // Every change the learner makes is a marker (◆) carrying a full snapshot of the model; clicking
 // one goes back to that moment (the model, its clock and its remodeling), and later markers stay
 // ahead, faded, until something new happens. Threshold events (▲) are markers too, with their
-// detail and a Why?. Jumps (+1 wk / +1 mo / +6 mo) advance the disease clock in one step. Pinning
-// freezes the current moment as "A" for comparison. It replaces play/speed, the Seconds/Months
+// detail and a Why?. Jumps (+1 wk / +1 mo / +6 mo) advance the disease clock in one step. "Compare
+// from here" freezes the current moment as A for comparison. It replaces play/speed, the Seconds/Months
 // switch, undo/redo/reset, the Findings list, the Log instrument and Compare mode.
 
 import { store, replaceParams, onParamChange } from './store.js?v=4bf5a96a9d';
 import { host } from './host.js?v=0917f25b24';
-import { h, fmt, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=d483888526';
-import { activeInterventions } from './inspector.js?v=718cafd0b0';
+import { h, fmt, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=cc7ee4cf38';
+import { activeInterventions } from './inspector.js?v=6a4f3a0c89';
 
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };
 export const EVENT_WHY = { VARIX_RUPTURE: 'varix', RED_WALE: 'varix', VARIX_LARGE: 'varix', HEPATOFUGAL_PV: 'pvFlow', PV_STASIS: 'pvFlow', CSPH: 'hvpg', BLEED_RISK: 'hvpg', ASCITES_FORMING: 'ascites', TENSE_ASCITES: 'ascites', HIGH_SHUNT: 'shunt', LIVER_HYPOPERFUSION: 'liverPerf', RA_HIGH: 'ra', HYPERDYNAMIC: 'co', SPLENOMEGALY: 'spleen' };
@@ -70,7 +70,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
     h('div', { class: 'menu-title' }, 'Playback speed'),
     h('div', { class: 'seg full', style: { margin: '2px 6px 6px' } }, [0.25, ...SPEEDS, 8].map((v) => { const b = h('button', { 'aria-pressed': String(store.get().speed === v) }, `${v}×`); b.addEventListener('click', () => { closePopover(); onSpeed(v); }); return b; })),
   ], { place: 'above', align: 'end', cls: 'time-pop' }));
-  const pinBtn = h('button', { class: 'tl-pin', 'aria-pressed': 'false', title: 'Freeze this moment as A to compare against (P)' }, svgIcon('camera', 'mi-ic'), h('span', {}, 'Pin as A'));
+  const pinBtn = h('button', { class: 'tl-pin', 'aria-pressed': 'false', title: 'Freeze this moment and compare the live model with it (P)' }, svgIcon('compare', 'mi-ic'), h('span', {}, 'Compare from here'));
   pinBtn.addEventListener('click', () => togglePin());
   root.replaceChildren(h('div', { class: 'tl-left' }, playBtn, restartBtn, speedBtn), track, timeEl, h('div', { class: 'tl-jumps' }, jumpBtns, moreBtn), pinBtn);
   tooltipFor(playBtn, 'Play / pause · Space', 'top');
@@ -203,11 +203,11 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
     store.set({ compareSnap: { ...snapLike, label, when, changes: activeInterventions(snapLike.params).map((a) => a.label) }, compareView: 'B' });
   }
   function togglePin() {
-    if (store.get().compareSnap) { store.set({ compareSnap: null, compareView: 'B' }); toast('Unpinned A.'); return; }
+    if (store.get().compareSnap) { store.set({ compareSnap: null, compareView: 'B' }); toast('Stopped comparing.'); return; }
     const f = frameNow();
     if (!f) return;
     pinFrom(captureFrame(f, store.get().params), scenarioLabel(), fmtClock(f.t, f.day));
-    toast('Pinned this moment as A. Change something, then compare A with now.');
+    toast(`Comparing with ${fmtClock(f.t, f.day)}. Change something, then switch between then and now.`);
   }
 
   // ── Rendering ─────────────────────────────────────
@@ -274,7 +274,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
       const e = entries[i];
       const acts = [];
       if (e.snap && canRevert()) acts.push(h('button', { class: 'btn sm', onclick: () => { closePopover(); goTo(i); } }, icon('undo'), i === liveIndex() && cursor < 0 ? 'Back to this moment' : 'Go back here'));
-      if (e.frame) acts.push(h('button', { class: 'btn sm', onclick: () => { closePopover(); pinFrom(e.frame, e.label, fmtClock(e.t, e.day)); toast(`Pinned “${e.label}” as A.`); } }, svgIcon('camera', 'mi-ic'), 'Compare with now'));
+      if (e.frame) acts.push(h('button', { class: 'btn sm', onclick: () => { closePopover(); pinFrom(e.frame, e.label, fmtClock(e.t, e.day)); toast(`Comparing with ${fmtClock(e.t, e.day)}: ${e.label}.`); } }, svgIcon('camera', 'mi-ic'), 'Compare with now'));
       if (e.why) acts.push(h('button', { class: 'btn sm', onclick: (ev) => onWhy(e.why, ev.currentTarget) }, svgIcon('bulb', 'mi-ic'), 'Why?'));
       return h('div', { class: 'tl-pop-row' },
         h('div', { class: 'tl-pop-head' }, h('i', { class: `tl-dot ${e.kind}`, style: { background: e.kind === 'event' ? SEV[e.sev] || SEV.info : '' } }), h('b', {}, e.label), h('span', { class: 'when' }, fmtClock(e.t, e.day))),
@@ -312,7 +312,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   }
   store.on('compareSnap', (s) => {
     pinBtn.setAttribute('aria-pressed', String(!!s));
-    pinBtn.querySelector('span').textContent = s ? 'Unpin A' : 'Pin as A';
+    pinBtn.querySelector('span').textContent = s ? 'Stop comparing' : 'Compare from here';
   });
   onParamChange(({ label, history }) => { if (history || pending) noteParamChange(label); });
   new ResizeObserver(() => render(true)).observe(track);

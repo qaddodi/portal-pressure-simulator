@@ -134,8 +134,12 @@ export function closePopover() {
   openMenu = null;
 }
 export function menuItem(label, { checked, onClick, kb, icon: ic } = {}) {
-  const b = h('button', { class: 'menu-item', role: checked != null ? 'menuitemradio' : 'menuitem', 'aria-checked': checked != null ? String(!!checked) : null },
-    checked != null ? svgIcon('check', 'mi-check') : ic ? svgIcon(ic, 'mi-ic') : null, h('span', {}, label), kb ? h('span', { class: 'kb' }, kb) : null);
+  // A toggle with an icon keeps its icon (so every row in a group has one) and shows its state
+  // as a trailing check.
+  const toggle = checked != null && ic;
+  const b = h('button', { class: 'menu-item', role: toggle ? 'menuitemcheckbox' : checked != null ? 'menuitemradio' : 'menuitem', 'aria-checked': checked != null ? String(!!checked) : null },
+    toggle ? svgIcon(ic, 'mi-ic') : checked != null ? svgIcon('check', 'mi-check') : ic ? svgIcon(ic, 'mi-ic') : null, h('span', {}, label), kb ? h('span', { class: 'kb' }, kb) : null,
+    toggle ? svgIcon('check', 'mi-check mi-trail') : null);
   b.addEventListener('click', () => { onClick?.(); });
   return b;
 }

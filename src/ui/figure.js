@@ -4,7 +4,7 @@
 // the same in a vector editor, a slide or a manuscript.
 
 import { store } from './store.js?v=4bf5a96a9d';
-import { h, fmt, fmtFlow, icon, toast } from './util.js?v=d483888526';
+import { h, fmt, fmtFlow, icon, toast } from './util.js?v=cc7ee4cf38';
 import { pressureColor, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=5f8590b23c';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -24,7 +24,7 @@ export function createFigure({ app, stage, onClose }) {
   function titleText() {
     const st = store.get();
     const A = st.compareSnap;
-    if (A && st.compareView === 'A') return `Portal circulation · ${A.label} (A, ${A.when})`;
+    if (A && st.compareView === 'A') return `Portal circulation · ${A.label} (${A.when})`;
     if (A && st.compareView === 'D') return `Portal circulation · change from A to now`;
     return `Portal circulation · ${scenario()}`;
   }
@@ -75,7 +75,7 @@ export function createFigure({ app, stage, onClose }) {
           [[0, '0'], [5, '5'], [10, '10'], [12, '12'], [20, '20'], [30, '30']].map(([p, t]) => h('span', { class: 'lg-num', style: { left: at(p) + '%', transform: p === 10 ? 'translateX(-85%)' : p === 12 ? 'translateX(-15%)' : '' } }, t))),
         h('span', { class: 'fig-cap', style: { maxWidth: '260px' } }, 'Breaks at 5, 10, 12, 20 mirror the HVPG thresholds (normal, CSPH, bleeding, high risk).'));
     } else if (mode === 'delta') {
-      blk.append(h('span', { class: 'fk-t' }, `Change from ${st.compareSnap ? 'A' : 'healthy'} (mmHg)`),
+      blk.append(h('span', { class: 'fk-t' }, `Change from ${st.compareSnap ? st.compareSnap.when : 'healthy'} (mmHg)`),
         h('div', { class: 'lg-scale' }, h('div', { class: 'lg-bar', style: { background: 'linear-gradient(to right, #2D6CDF, #9696A0, #D22846)' } }), h('span', { class: 'lg-tick', style: { left: '50%' } }),
           [[0, '−12'], [50, '0'], [100, '+12']].map(([p, t]) => h('span', { class: 'lg-num', style: { left: p + '%' } }, t))));
     } else if (mode === 'flow') {
@@ -89,7 +89,7 @@ export function createFigure({ app, stage, onClose }) {
           [[0, '0'], [5, '5'], [15, '15'], [30, '30'], [60, '60']].map(([v, t]) => h('span', { class: 'lg-num', style: { left: velPos(v) * 100 + '%' } }, t))),
         h('span', { class: 'fig-cap', style: { maxWidth: '260px' } }, 'Below ~5 cm/s is near-stasis. Liver microcirculation shown grey.'));
     } else if (mode === 'heat') {
-      blk.append(h('span', { class: 'fk-t' }, `Congestion: mmHg above ${st.compareSnap ? 'state A' : 'healthy'}`),
+      blk.append(h('span', { class: 'fk-t' }, `Congestion: mmHg above ${st.compareSnap ? st.compareSnap.when : 'healthy'}`),
         h('div', { class: 'lg-scale' }, h('div', { class: 'lg-bar', style: { background: heatCss('to right') } }),
           [[0, '0'], [5, '5'], [10, '10'], [15, '15+']].map(([v, t]) => h('span', { class: 'lg-num', style: { left: (v / HEAT_MAX) * 100 + '%' } }, t))));
     } else if (mode === 'neutral') {
@@ -117,7 +117,7 @@ export function createFigure({ app, stage, onClose }) {
     if (!st.imaging) rows.push([glyph('flow'), 'Blood flow: arrows point downstream (orange where reversed)']);
     rows.push([glyph('ghost'), 'Vein passing behind an organ']);
     rows.push([glyph('dot'), 'Closed potential collateral']);
-    if (!st.imaging) rows.push([h('span', { style: { width: '26px', fontSize: '10.5px', fontWeight: 700, color: 'color-mix(in srgb, var(--danger) 88%, var(--text))' } }, '▲ 3'), `Change from ${st.compareSnap ? 'A' : 'healthy'}, mmHg`]);
+    if (!st.imaging) rows.push([h('span', { style: { width: '26px', fontSize: '10.5px', fontWeight: 700, color: 'color-mix(in srgb, var(--danger) 88%, var(--text))' } }, '▲ 3'), `Change from ${st.compareSnap ? st.compareSnap.when : 'healthy'}, mmHg`]);
     return h('div', { class: 'fig-key' }, h('span', { class: 'fk-t' }, 'Notation'), rows.map(([g, t]) => h('span', { class: 'fk-row' }, g, t)));
   }
 

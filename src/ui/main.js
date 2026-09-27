@@ -3,25 +3,25 @@
 
 import { startHost, host } from './host.js?v=0917f25b24';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=4bf5a96a9d';
-import { createStage } from './stage.js?v=7871f26230';
-import { createInspector } from './inspector.js?v=718cafd0b0';
-import { createDock } from './dock.js?v=2372a708d0';
-import { createWhy } from './why.js?v=74679380bf';
-import { createTimeline } from './timeline.js?v=7b5a4eb22e';
-import { createLearn } from './learn.js?v=38cc26d87b';
-import { createCases } from './cases.js?v=4d72427eaf';
-import { createCompare } from './compare.js?v=20f877cd73';
-import { createCard } from './card.js?v=6e704d1fc3';
-import { createChart } from './chart.js?v=5c442adfe4';
-import { createHome } from './home.js?v=c276ac8019';
-import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=743b542534';
-import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=46c08905a9';
+import { createStage } from './stage.js?v=5b0066037b';
+import { createInspector } from './inspector.js?v=6a4f3a0c89';
+import { createDock } from './dock.js?v=f8c27c2c53';
+import { createWhy } from './why.js?v=eafc26e516';
+import { createTimeline } from './timeline.js?v=acec98dac3';
+import { createLearn } from './learn.js?v=f3aebe8dbf';
+import { createCases } from './cases.js?v=38509e394f';
+import { createCompare } from './compare.js?v=82941439cb';
+import { createCard } from './card.js?v=c5536df04e';
+import { createChart } from './chart.js?v=6b69dceb73';
+import { createHome } from './home.js?v=147519743b';
+import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=0457b367b9';
+import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=b83c19559d';
 import { startLMS } from './lms.js?v=4511ed56b8';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=ab32f7d0b5';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=3aaea708e3';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=1d44a77db5';
 import { gradientCss, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=5f8590b23c';
 import { EDGES, NODES } from '../engine/topology.js?v=6d79260961';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, units, popover, closePopover, menuItem, svgIcon } from './util.js?v=d483888526';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, units, popover, closePopover, menuItem, svgIcon } from './util.js?v=cc7ee4cf38';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -49,7 +49,6 @@ const LENSES = {
 };
 const COLOR_MODES = { pressure: 'Pressure', delta: 'Change', heat: 'Congestion', drop: 'Pressure drop', flow: 'Flow volume', velocity: 'Velocity', direction: 'Flow direction' };
 const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };
-const ROLES = [['student', 'Student', 'The model and the clinical orders.'], ['instructor', 'Instructor', 'Adds the physiology knobs and presenter scripts.'], ['researcher', 'Researcher', 'Everything open, with resistances on the cards.']];
 
 let stage, inspector, dock, why, timeline, learn, cases, compare, card, chart, home;
 
@@ -135,7 +134,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=75490b39d5'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=3b4d025230'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -147,7 +146,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=dbe41aff07'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=2d70738d3e'), ({ createPalette }) => createPalette({ ctx: {
     select: (sel) => store.set({ selection: sel }), action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     wedge: () => { store.set({ selection: { type: 'edge', id: 'RHV_IVC' } }); setTimeout(() => card.trigger(3), 60); },
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
@@ -155,7 +154,7 @@ async function main() {
     loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); toast(store.get().presetList.find((p) => p.id === id)?.label); },
     lesson: (id) => startLesson(id), caseStart: (id) => startCase(id), home: () => home.open(), theme: () => toggleTheme(), help: () => openHelp(), share, restart: () => restartPatient(), reset: () => resetEverything(),
   } }));
-  figureL = lazy(() => import('./figure.js?v=c8dd729de0'), ({ createFigure }) => createFigure({ app, stage, onClose: () => toggleFigure(false) }));
+  figureL = lazy(() => import('./figure.js?v=0b6b0be831'), ({ createFigure }) => createFigure({ app, stage, onClose: () => toggleFigure(false) }));
   card = createCard({
     view, stage, onWhy: (m, el) => why.open(m, el),
     onDetails: (sel) => { store.set({ details: normalizeSel(sel) || sel }); openPanel(); },
@@ -449,7 +448,6 @@ function buildHud() {
   $('#btnLayers').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); openLayers(e.currentTarget); } });
   $('#btnFigure').addEventListener('click', () => toggleFigure(true));
   $('#btnDraw').addEventListener('click', (e) => openDraw(e.currentTarget));
-  $('#btnInstruments').addEventListener('click', (e) => dock.openGrid(e.currentTarget));
   new ResizeObserver(() => stage.relayout()).observe(view);
 }
 function legendModel() {
@@ -457,7 +455,7 @@ function legendModel() {
   const imaging = st.imaging;
   const cmp = !!st.compareSnap;
   const m = imaging ? 'neutral' : cmp && st.compareView === 'D' ? 'delta' : st.colorMode;
-  const ref = cmp ? 'state A' : 'healthy';
+  const ref = cmp ? st.compareSnap.when : 'healthy';
   return { m, ref, imaging };
 }
 function renderLegend() {
@@ -499,7 +497,7 @@ function renderLegend() {
       scale('linear-gradient(to right, #2D6CDF, #9696A0, #D22846)', [[0, '−12'], [50, '0'], [100, '+12']], [50]));
     el.setAttribute('aria-label', `Legend: change in pressure from ${ref}, blue lower, red higher, up to 12 millimeters of mercury`);
   }
-  $('#colorModeLabel').textContent = m === 'neutral' ? 'Anatomy' : m === 'delta' && st().compareSnap ? 'Change A→now' : COLOR_MODES[m];
+  $('#colorModeLabel').textContent = m === 'neutral' ? 'Anatomy' : m === 'delta' && st().compareSnap ? 'Change since then' : COLOR_MODES[m];
 }
 const st = () => store.get();
 function openLegend(anchor) {
@@ -510,15 +508,15 @@ function openLegend(anchor) {
   ] : m === 'drop' ? [['Scale', 'Pressure lost across each vessel (upstream − downstream). Bright segments are where the resistance sits.']]
     : m === 'flow' ? [['Scale', 'Blood flow through each vessel in L/min, log scale; line width also grows with flow (∝ √flow), like traffic volume on a city map. Labels give the flow into each station and its change from healthy.']]
     : m === 'velocity' ? [['Scale', 'Mean velocity (flow ÷ lumen area). Dark red below ~5 cm/s is near-stasis, where thrombosis is likely (e.g. portal vein thrombosis in advanced cirrhosis); green is free-flowing. The liver microcirculation is grey: it is a bed, not a single tube.']]
-    : m === 'heat' ? [['Scale', `Congestion: how far pressure has risen above ${ref === 'state A' ? 'state A' : 'healthy'}. Grey is unchanged; the glow marks the territories under the most back-pressure.`]]
+    : m === 'heat' ? [['Scale', `Congestion: how far pressure has risen above ${ref}. Grey is unchanged; the glow marks the territories under the most back-pressure.`]]
     : m === 'direction' ? [['Scale', 'Teal: flow in the physiological direction. Orange: reversed (e.g. hepatofugal portal flow).']]
       : m === 'neutral' ? [['Why no pressures?', 'In this case pressures are unmeasured, as at the bedside. Use the catheter, Doppler or endoscope to investigate.']]
-        : [['Scale', 'Pressure now minus the reference (healthy, or state A in Compare). Red higher, blue lower.']];
+        : [['Scale', 'Pressure now minus the reference (healthy, or the moment you compare from). Red higher, blue lower.']];
   popover(anchor, [h('div', { class: 'menu-title' }, 'How to read the figure'),
     h('div', { style: { padding: '2px 10px 8px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12.5px', lineHeight: 1.5, color: 'var(--text-2)', maxWidth: '340px' } },
       rows.map(([k, v]) => h('div', {}, h('b', { style: { color: 'var(--text)' } }, k + '. '), v)),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Flow. '), 'Arrowheads inside each vessel point and move downstream; their speed follows blood velocity, and a vessel without flow has none. Reversed flow turns them orange and runs them the other way. Paused, they hold still and keep their direction.'),
-      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Notation. '), 'Dotted vessels are closed potential collaterals. Line width follows vessel diameter (compressed). Faint lines crossing an organ run behind it. ▲ / ▼ on a label: change in mmHg from healthy (from state A in Compare).'),
+      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Notation. '), 'Dotted vessels are closed potential collaterals. Line width follows vessel diameter (compressed). Faint lines crossing an organ run behind it. ▲ / ▼ on a label: change in mmHg from healthy (from the moment you compare from, while comparing).'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Organs. '), 'Organs are drawn as in an anatomy plate, lit from the upper left. On the liver, texture means disease: nodules for cirrhosis, mottling for congestion (nutmeg liver), a darker vignette as sinusoidal pressure rises. The spleen grows with splenomegaly.'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Varix ring. '), 'The ring around the esophageal varices closes as their wall tension (pressure × radius ÷ wall thickness) approaches the rupture threshold: amber from 70 %, red from 90 %.'))], { align: 'end', cls: 'legend-pop' });
 }
@@ -589,7 +587,7 @@ function hoverInfo(info) {
   tipEl.style.top = Math.max(8, Math.min(H - tipEl.offsetHeight - 8, info.y + 16)) + 'px';
 }
 
-// The figure header carries the A / Now / A→Now switch when a moment is pinned; a lesson or
+// The figure header carries the Then / Now / Change switch when a moment is pinned; a lesson or
 // case shows a slim banner in the top bar with its progress and a way out.
 let bannerInfo = null;
 function setBanner(info) { bannerInfo = info; renderBanner(); }
@@ -598,7 +596,8 @@ function renderBanner() {
   const s0 = store.get();
   const kids = [];
   if (s0.compareSnap) {
-    kids.push(h('div', { class: 'seg cmp-seg', role: 'group', 'aria-label': 'Show state' }, [['A', 'A', 'The pinned moment A'], ['B', 'Now', 'The live model'], ['D', 'A→Now', 'Change from A to now']].map(([v, l, t]) => {
+    kids.push(h('span', { class: 'cmp-label' }, `Comparing with ${s0.compareSnap.when}`));
+    kids.push(h('div', { class: 'seg cmp-seg', role: 'group', 'aria-label': `Comparing with ${s0.compareSnap.when}: show` }, [['A', 'Then', `The model at ${s0.compareSnap.when}`], ['B', 'Now', 'The live model'], ['D', 'Change', `Change from ${s0.compareSnap.when} to now`]].map(([v, l, t]) => {
       const b = h('button', { 'aria-pressed': String((s0.compareView || 'B') === v), title: t }, h('b', {}, l));
       b.addEventListener('click', () => store.set({ compareView: v }));
       return b;
@@ -614,7 +613,7 @@ function renderBanner() {
   }
   app.classList.toggle('in-session', !!inSession);
   view.querySelector('.cmp-badge')?.remove();
-  if (s0.compareSnap && s0.compareView === 'A') view.append(h('div', { class: 'cmp-badge stage-blocker' }, `Showing A · ${s0.compareSnap.when}`));
+  if (s0.compareSnap && s0.compareView === 'A') view.append(h('div', { class: 'cmp-badge stage-blocker' }, `Showing ${s0.compareSnap.when}`));
   redraw();
 }
 
@@ -633,45 +632,50 @@ function wireTopbar() {
     h('div', { class: 'menu-sep' }),
     menuItem('Projector mode', { icon: 'projector', kb: 'Shift F', onClick: () => { closePopover(); toggleProjector(); } }),
   ], { align: 'end' }));
-  $('#btnMenu').addEventListener('click', (e) => openMenu(e.currentTarget));
+  $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
+  $('#btnHelp').addEventListener('click', (e) => openHelpMenu(e.currentTarget));
   $('#btnInspector').addEventListener('click', () => (panelShown() ? closePanel() : openPanel()));
-  for (const [id, side] of [['#btnPalette', 'bottom'], ['#btnShare', 'bottom'], ['#btnMenu', 'bottom']]) {
+  for (const [id, side] of [['#btnPalette', 'bottom'], ['#btnShare', 'bottom'], ['#btnSettings', 'bottom'], ['#btnHelp', 'bottom']]) {
     const b = $(id); tooltipFor(b, b.title, side); b.removeAttribute('title');
   }
+  tooltipFor($('#btnInspector'), () => (panelShown() ? t('top.panel.hide') : t('top.panel.show')), 'bottom');
 }
-function openMenu(anchor) {
+// Two menus with one job each: Settings (how the simulator looks and reads) and Help (how to
+// use it, what it is, and who made it). The role ("I am a…") lives on Home, where a session starts.
+function openSettings(anchor) {
   const cur = document.documentElement.getAttribute('data-theme') || 'system';
-  const role = store.get().role;
   const unitSel = (kind, opts) => {
-    const sel = h('select', { class: 'select', style: { height: '30px', fontSize: '12.5px' }, 'aria-label': kind === 'pressure' ? 'Pressure unit' : 'Flow unit' }, opts.map((u) => h('option', { value: u, selected: units[kind] === u }, u)));
+    const sel = h('select', { class: 'select', 'aria-label': kind === 'pressure' ? 'Pressure unit' : 'Flow unit' }, opts.map((u) => h('option', { value: u, selected: units[kind] === u }, u)));
     sel.addEventListener('change', () => { units[kind] = sel.value; inspector.render(); card.render(); redraw(); });
     return sel;
   };
   popover(anchor, [
     h('div', { class: 'menu-title' }, t('menu.appearance')),
-    h('div', { class: 'seg full', style: { margin: '2px 6px 6px' } }, [['light', t('menu.light')], ['dark', t('menu.dark')], ['system', t('menu.system')]].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { closePopover(); applyTheme(v === 'system' ? null : v, v === 'system'); }); return b; })),
+    h('div', { class: 'seg full menu-seg' }, [['light', t('menu.light')], ['dark', t('menu.dark')], ['system', t('menu.system')]].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { closePopover(); applyTheme(v === 'system' ? null : v, v === 'system'); }); return b; })),
     h('div', { class: 'menu-title' }, 'Text size on the figure'),
-    h('div', { class: 'seg full', style: { margin: '2px 6px 6px' }, role: 'group', 'aria-label': 'Text size on the figure' }, [[0.85, 'Small'], [1, 'Default'], [1.15, 'Large'], [1.3, 'Larger']].map(([v, l]) => {
-      const b = h('button', { 'aria-pressed': String(Math.abs(stage.labelScale() - v) < 0.01), style: { fontSize: `${Math.round(11 * v)}px` } }, l);
+    h('div', { class: 'seg full menu-seg', role: 'group', 'aria-label': 'Text size on the figure' }, [[0.85, 'Small'], [1, 'Default'], [1.15, 'Large'], [1.3, 'Larger']].map(([v, l]) => {
+      const b = h('button', { 'aria-pressed': String(Math.abs(stage.labelScale() - v) < 0.01) }, l);
       b.addEventListener('click', () => { stage.setLabelScale(v); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); });
       return b;
     })),
-    h('div', { class: 'menu-title' }, 'Units'),
-    h('div', { style: { display: 'flex', gap: '6px', padding: '2px 10px 6px' } }, unitSel('pressure', ['mmHg', 'cmH2O', 'kPa']), unitSel('flow', ['L/min', 'mL/min'])),
+    h('div', { class: 'menu-title' }, t('menu.units')),
+    h('div', { class: 'menu-row' }, unitSel('pressure', ['mmHg', 'cmH2O', 'kPa']), unitSel('flow', ['L/min', 'mL/min'])),
     h('div', { class: 'menu-title' }, t('menu.language')),
-    (() => { const sel = h('select', { class: 'select', style: { height: '30px', fontSize: '12.5px', margin: '2px 10px 6px', width: 'calc(100% - 20px)' }, 'aria-label': t('menu.language') }, LANGS.map(([v, l]) => h('option', { value: v, selected: currentLang() === v }, l))); sel.addEventListener('change', () => { setLang(sel.value); closePopover(); }); return sel; })(),
+    (() => { const sel = h('select', { class: 'select menu-select', 'aria-label': t('menu.language') }, LANGS.map(([v, l]) => h('option', { value: v, selected: currentLang() === v }, l))); sel.addEventListener('change', () => { setLang(sel.value); closePopover(); }); return sel; })(),
     h('div', { class: 'menu-title' }, t('menu.access')),
-    menuItem(t('menu.describe'), { icon: 'help', kb: 'D', onClick: () => { closePopover(); const d = describe(store.get().frame); announce(d); toast(d); } }),
-    menuItem(t('menu.sonify'), { checked: sonifying(), onClick: () => { closePopover(); setSonify(!sonifying()); toast(sonifying() ? 'Sonification on: pitch follows the pressure of the selected vessel (or the portal vein).' : 'Sonification off.'); } }),
+    menuItem(t('menu.describe'), { icon: 'info', kb: 'D', onClick: () => { closePopover(); const d = describe(store.get().frame); announce(d); toast(d); } }),
+    menuItem(t('menu.sonify'), { icon: 'activity', checked: sonifying(), onClick: () => { closePopover(); setSonify(!sonifying()); toast(sonifying() ? 'Sonification on: pitch follows the pressure of the selected vessel (or the portal vein).' : 'Sonification off.'); } }),
     h('div', { class: 'menu-sep' }),
-    h('div', { class: 'menu-title' }, t('menu.role')),
-    ...ROLES.map(([v, l, d]) => { const b = menuItem(l, { checked: role === v, onClick: () => { closePopover(); store.set({ role: v }); toast(`${l}: ${d}`); } }); b.title = d; return b; }),
-    h('div', { class: 'menu-sep' }),
-    menuItem(t('menu.home'), { icon: 'grid', onClick: () => { closePopover(); home.open(); } }),
-    menuItem('Reset everything…', { icon: 'reset', onClick: () => resetEverything() }),
-    menuItem(t('menu.palette'), { icon: 'explore', kb: 'Ctrl K', onClick: () => { closePopover(); palette.open(); } }),
-    menuItem(t('menu.guide'), { icon: 'help', kb: '?', onClick: () => { closePopover(); openHelp(); } }),
-    menuItem(t('menu.about'), { icon: 'book', onClick: () => { closePopover(); openAbout(); } }),
+    menuItem(t('menu.reset'), { icon: 'reset', onClick: () => resetEverything() }),
+  ], { align: 'end', cls: 'app-menu' });
+}
+function openHelpMenu(anchor) {
+  popover(anchor, [
+    h('div', { class: 'menu-title' }, t('menu.help')),
+    menuItem(t('menu.guide'), { icon: 'book', onClick: () => { closePopover(); openHelp(); } }),
+    menuItem(t('menu.shortcuts'), { icon: 'grid', kb: '?', onClick: () => { closePopover(); openHelp('keys'); } }),
+    menuItem(t('menu.about'), { icon: 'info', onClick: () => { closePopover(); openAbout(); } }),
+    menuItem(t('menu.refs'), { icon: 'case', onClick: () => { closePopover(); openAbout('refs'); } }),
     menuItem(t('menu.privacy'), { icon: 'lock', onClick: () => { closePopover(); openPrivacy(); } }),
     h('div', { class: 'menu-sep' }),
     h('a', { class: 'menu-credit', href: AUTHOR_URL, target: '_blank', rel: 'noopener', onclick: () => closePopover() },
@@ -714,13 +718,14 @@ new MutationObserver(() => syncStatusBar()).observe(document.getElementById('hom
 // (again once the figure's background has finished its .5 s fade)
 new MutationObserver(() => { syncStatusBar(); setTimeout(syncStatusBar, 600); }).observe(document.getElementById('app'), { attributes: true, attributeFilter: ['class'] });
 function readLS(k) { try { return localStorage.getItem(k); } catch { return null; } }
-// ── Side panel: the patient chart and the instruments, one tab each ───
+// ── Side panel: Patient and Measure, one tab each ───
 // Beside the figure on a wide screen; below 1280 px it slides over the figure from the right
-// (with a scrim on a phone) and the top bar's Chart button opens it.
+// (with a scrim on a phone) and the top bar's side-panel button opens it.
 function panelShown() { return isNarrow() ? app.classList.contains('panel-open') : !app.classList.contains('panel-collapsed'); }
 function syncPanelToggle() {
   const on = panelShown();
   $('#btnInspector').setAttribute('aria-pressed', String(on));
+  $('#btnInspector').setAttribute('aria-label', on ? t('top.panel.hide') : t('top.panel.show'));
   if (on) $('#btnInspector').classList.remove('ping');
   setTimeout(() => stage?.relayout(), 320);
 }
@@ -838,7 +843,7 @@ function updateProjector(f) {
 // How an instrument is brought forward: 'hard' (a button asked for it) opens it in the side
 // panel; 'lesson' does the same where the panel sits beside the figure but only flags it where
 // the panel would cover the figure; 'soft' (a click on the figure) never re-frames the figure
-// under the pointer, so it only flags the Instruments tab (or the Chart button) when hidden.
+// under the pointer, so it only flags the Measure tab (or the side-panel button) when hidden.
 function revealDock(mode) {
   const visible = app.classList.contains('dock-open') && panelShown();
   if (visible) return;
@@ -871,21 +876,21 @@ function brandMark() {
   s.removeAttribute('class');
   return s;
 }
-function openHelp() {
+function openHelp(section) {
   const rows = [
     ['Space', 'Play / pause'], ['[ ]', 'Slower / faster'], ['.', 'Step'], ['Z', 'Settle to equilibrium'], ['A', 'Anatomy ⇄ circuit'],
-    ['F', 'Figure view'], ['I', 'Open / close instruments'], ['L', 'Next color lens (Shift: previous)'],
+    ['F', 'Figure view'], ['I', 'Open / close Measure'], ['L', 'Next color lens (Shift: previous)'],
     ['Click', 'Open the actions for a vessel or organ'], ['1 – 9', 'Run an action on the open card'],
-    ['Ctrl/⌘ Z', 'Back one change on the timeline (Shift: forward)'], ['P', 'Pin this moment as A / unpin'], ['Esc', 'Cancel · close the card · close'], ['Shift F', 'Projector mode'], ['?', 'This guide'],
-    ['Tab · Enter', 'Reach a vessel, open its actions'], ['← →', 'Walk vessels along the flow'], ['Ctrl/⌘ K or /', 'Command palette'],
+    ['Ctrl/⌘ Z', 'Back one change on the timeline (Shift: forward)'], ['P', 'Compare from here / stop comparing'], ['Esc', 'Cancel · close the card · close'], ['Shift F', 'Projector mode'], ['?', 'This guide'],
+    ['Tab · Enter', 'Reach a vessel, open its actions'], ['← →', 'Walk vessels along the flow'], ['Ctrl/⌘ K or /', 'Search'],
   ];
   openModal('Guide', h('div', {},
     h('p', {}, 'A living model of the portal circulation. Every pressure, flow, collateral and varix comes out of one lumped-parameter hemodynamic model. Nothing is scripted: change a resistance and watch the consequences propagate.'),
     h('div', { class: 'entry-grid' },
       [['explore', 'Act on the anatomy', 'Click any vessel or organ. A card opens beside it with what you can do there: narrow or clot a vein, make the liver cirrhotic, band varices, wedge a catheter, start a shunt.'],
-        ['settle', 'One timeline', 'Play runs the heartbeat-scale model; +1 wk, +1 mo and +6 mo jump the disease ahead. Every change is a marker you can go back to or pin as A to compare.'],
+        ['settle', 'One timeline', 'Play runs the heartbeat-scale model; +1 wk, +1 mo and +6 mo jump the disease ahead. Every change is a marker you can go back to, or compare from.'],
         ['bulb', 'Ask “Why?”', 'Click any readout for a causal breakdown of what is driving it, change by change.']].map(([ic, t, d]) => h('div', { class: 'entry', style: { cursor: 'default' } }, h('span', { class: 'eic' }, icon(ic)), h('span', { class: 't' }, t), h('span', { class: 'd' }, d)))),
-    h('h3', {}, 'Keyboard'),
+    h('h3', { 'data-sec': 'keys' }, 'Keyboard'),
     h('div', { class: 'keys' }, rows.map(([k, v]) => h('div', {}, h('span', {}, v), h('kbd', {}, k)))),
     h('h3', {}, 'Reading the figure'),
     h('ul', {},
@@ -896,8 +901,11 @@ function openHelp() {
     h('h3', {}, 'Thresholds & references'),
     h('p', { class: 'sub' }, 'Baveno VII consensus on portal hypertension (2022); AASLD guidance on risk stratification and management of portal hypertension and varices in cirrhosis (2024). Physiology after Guyton; Lautt (hepatic arterial buffer response); Bosch & Groszmann (HVPG).'),
     h('p', { class: 'disclaimer' }, 'Educational simulation. The model is simplified and its values are illustrative; do not use it for diagnosis or treatment decisions.')), { wide: true });
+  scrollToSection(section);
 }
-function openAbout() {
+// Help and About open at a named section (Keyboard shortcuts, References).
+function scrollToSection(section) { if (section) requestAnimationFrame(() => $(`#modal [data-sec="${section}"]`)?.scrollIntoView({ block: 'start' })); }
+function openAbout(section) {
   openModal('About the model', h('div', {},
     h('p', {}, 'Created by ', h('b', {}, AUTHOR), '. ', h('a', { href: AUTHOR_URL, target: '_blank', rel: 'noopener' }, 'See all of the author’s teaching tools'), '.'),
     h('p', {}, `Portal Pressure Simulator ${APP_VERSION} · content version ${CONTENT_VERSION} (${RELEASED}). A course built on one content version behaves the same all term: the model, patients, lessons and cases change only with a new content version.`),
@@ -908,7 +916,7 @@ function openAbout() {
     h('ol', { class: 'refs' }, VALIDATION.map((v) => h('li', {}, v))),
     h('h3', {}, 'Clinical review'),
     h('p', {}, 'Lesson and case content follows the guidance below. An external clinical advisory review with named reviewers is pending; their sign-off per lesson and case will be listed here.'),
-    h('h3', {}, 'References'),
+    h('h3', { 'data-sec': 'refs' }, 'References'),
     h('ol', { class: 'refs' },
       h('li', {}, 'de Franchis R, et al. Baveno VII: renewing consensus in portal hypertension. J Hepatol 2022;76:959–74.'),
       h('li', {}, 'Kaplan DE, et al. AASLD Practice Guidance on risk stratification and management of portal hypertension and varices in cirrhosis. Hepatology 2024;79:1180–1211.'),
@@ -918,6 +926,7 @@ function openAbout() {
     h('h3', {}, 'Licenses'),
     h('p', { class: 'sub' }, 'Application code: MIT. Fonts: Inter, JetBrains Mono and Source Serif 4 under the SIL Open Font License, served from this site. Anatomy, pathology art and icons were drawn for this project.'),
     h('p', { class: 'disclaimer' }, t('app.disclaimer'))), { wide: true, sub: `Version ${APP_VERSION}` });
+  scrollToSection(section);
 }
 function openPrivacy() {
   const keys = (() => { try { return Object.keys(localStorage).filter((k) => k.startsWith('pps.')); } catch { return []; } })();

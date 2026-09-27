@@ -3,18 +3,18 @@
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
-import { h, svgIcon, toast } from './util.js?v=d483888526';
+import { h, svgIcon, toast } from './util.js?v=cc7ee4cf38';
 import { EDGES } from '../engine/topology.js?v=6d79260961';
 import { DRUGS } from '../engine/scenario.js?v=8fc90f782f';
 import { HIDDEN_EDGES } from './anatomy.js?v=493c059e8f';
-import { LESSONS } from './learn.js?v=38cc26d87b';
-import { CASES } from './cases.js?v=4d72427eaf';
+import { LESSONS } from './learn.js?v=f3aebe8dbf';
+import { CASES } from './cases.js?v=38509e394f';
 
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9+ ]/g, ' ');
 
 export function createPalette({ ctx }) {
   const back = h('div', { class: 'pal-back', hidden: true });
-  const input = h('input', { class: 'pal-input', type: 'text', placeholder: 'Type a command: “tips 10”, “cirrhosis 60”, “propranolol”, “+6 months”, “lens flow”…', 'aria-label': 'Command', autocomplete: 'off', spellcheck: 'false' });
+  const input = h('input', { class: 'pal-input', type: 'text', placeholder: 'Search a vessel, patient or treatment: “tips 10”, “+6 months”…', 'aria-label': 'Search', autocomplete: 'off', spellcheck: 'false' });
   const list = h('div', { class: 'pal-list', role: 'listbox' });
   const box = h('div', { class: 'pal', role: 'dialog', 'aria-label': 'Command palette' }, h('div', { class: 'pal-top' }, svgIcon('explore', 'pal-ic'), input, h('kbd', {}, 'Esc')), list);
   back.append(box);
@@ -55,7 +55,7 @@ export function createPalette({ ctx }) {
     add('Time', 'Until something happens', () => ctx.jump('event', 'until the next event'), { kw: 'next event advance' });
     add('Time', 'Undo (back one change)', () => ctx.undo(), { kw: 'revert back' });
     add('Time', 'Restart this patient', () => ctx.restart(), { kw: 'restart reset start over beginning' });
-    add('Time', 'Pin this moment as A', () => ctx.pin(), { kw: 'compare snapshot' });
+    add('Time', 'Compare from here', () => ctx.pin(), { kw: 'compare snapshot pin' });
     // View
     for (const [id, [t, d]] of Object.entries(ctx.lenses)) add('View', `Lens: ${t}`, () => store.set({ colorMode: id }), { kw: `color ${d}` });
     add('View', 'Anatomy view', () => store.set({ view: 'anatomic' }), { kw: 'anatomic' });
@@ -65,7 +65,7 @@ export function createPalette({ ctx }) {
     add('View', 'Export PNG', () => ctx.exportFile('png'), { kw: 'image save download' });
     add('View', 'Export SVG', () => ctx.exportFile('svg'), { kw: 'vector save download' });
     add('View', 'Projector mode', () => ctx.projector(), { kw: 'present lecture' });
-    add('View', 'Instruments', () => ctx.instruments(), { kw: 'charts dock' });
+    add('View', 'Measure', () => ctx.instruments(), { kw: 'instruments charts dock' });
     // Go to a structure
     for (const e of EDGES) if (!HIDDEN_EDGES.has(e.id) && e.kind !== 'wedge' && e.kind !== 'shunt' && e.label) add('Go to', e.label, () => ctx.select({ type: 'edge', id: e.id }), { kw: 'select vessel' });
     for (const [id, t] of [['liver', 'Liver'], ['heart', 'Right heart'], ['varices', 'Esophageal varices'], ['gastric', 'Fundal varices'], ['spleen', 'Spleen'], ['abdomen', 'Abdomen & ascites']]) add('Go to', t, () => ctx.select({ type: 'organ', id }), { kw: 'organ select' });

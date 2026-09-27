@@ -1,11 +1,11 @@
 // Readout strip (small screens) and the instruments (blueprint §9.1, §9.2).
 
 import { store } from './store.js?v=4bf5a96a9d';
-import { h, fmt, icon, svgIcon, popover, closePopover, clamp } from './util.js?v=d483888526';
+import { h, fmt, icon, svgIcon, popover, closePopover, clamp } from './util.js?v=cc7ee4cf38';
 import { NODES, EDGES } from '../engine/topology.js?v=6d79260961';
-import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=df3b6e4e0b';
-import { createHVPG, createDoppler, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=f6f69759da';
-import { createLandscape } from './landscape.js?v=5f3223280d';
+import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=2be73dc961';
+import { createHVPG, createDoppler, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=9b737c8609';
+import { createLandscape } from './landscape.js?v=8b00c72f66';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -94,11 +94,11 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         else if (performance.now() - x.trendT > 1500) x.tr.textContent = '';
         x.last = v;
       }
-      // Compare: each tile reports its change from state A in place of the status word.
+      // Compare: each tile reports its change from the pinned moment in place of the status word.
       if (A && v != null) {
         const a = t.v(A), d = v - a;
         const same = Math.abs(d) < Math.pow(10, -t.d) * 0.5;
-        x.cmp.textContent = same ? 'same as A' : `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), t.d)} vs A`;
+        x.cmp.textContent = same ? 'same as then' : `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), t.d)} vs then`;
         x.cmp.className = 'cmp ' + (same ? 'same' : d > 0 ? 'up' : 'down');
         x.st.hidden = true;
       } else if (x.cmp.textContent) { x.cmp.textContent = ''; x.st.hidden = false; }
@@ -118,8 +118,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   }
 
   // ── Instruments: one level ────────────────────────
-  // The Instruments button opens a grid of cards, each with a live preview line. The chosen
-  // instrument opens in the side panel's Instruments tab (the panel widens a little for it); it
+  // The Measure tab's title opens a grid of cards, each with a live preview line. The chosen
+  // instrument opens in the side panel's Measure tab (the panel widens a little for it); it
   // can pop out as a floating, resizable window, and on a wide screen a second one can sit below it.
   const panes = [
     createProfile(), createLandscape(), createScope(), createSankey(), createPerfusion(), createHVPG(),
@@ -129,7 +129,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const hiddenCase = () => store.get().imaging;
   let open = [];            // ids docked, in order (1 or 2)
   const floats = new Map(); // id → floating window element
-  const titleBtn = h('button', { class: 'dock-title', 'aria-haspopup': 'dialog', title: 'Choose an instrument' }, svgIcon('chart'), h('span', { class: 'dt-l' }, 'Instruments'), svgIcon('chev-down', 'chev'));
+  const titleBtn = h('button', { class: 'dock-title', 'aria-haspopup': 'dialog', title: 'Choose an instrument' }, svgIcon('chart'), h('span', { class: 'dt-l' }, 'Choose an instrument'), svgIcon('chev-down', 'chev'));
   titleBtn.addEventListener('click', (e) => openGrid(e.currentTarget));
   const second = h('button', { class: 'btn sm ghost dock-second', title: 'Show a second instrument below this one' }, svgIcon('plus', 'mi-ic'), 'Add another');
   second.addEventListener('click', (e) => openGrid(e.currentTarget, { alongside: true }));
@@ -168,14 +168,14 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       b.addEventListener('click', () => { closePopover(); onLobule(); });
       cards.push(b);
     }
-    popover(anchor, [h('div', { class: 'menu-title' }, alongside ? 'Add an instrument alongside' : 'Instruments'), h('div', { class: 'instr-grid' }, cards)], { cls: 'instr-pop', align: anchor.closest('.dock') ? 'end' : 'start', place: 'below' });
+    popover(anchor, [h('div', { class: 'menu-title' }, alongside ? 'Add an instrument alongside' : 'Measure'), h('div', { class: 'instr-grid' }, cards)], { cls: 'instr-pop', align: anchor.closest('.dock') ? 'end' : 'start', place: 'below' });
   }
   const wide = matchMedia('(min-width: 1600px)');
   function layout() {
     for (const p of panes) p.el.classList.toggle('active', open.includes(p.id) && !floats.has(p.id));
     body.classList.toggle('split', open.length > 1);
     const first = byId[open[0]];
-    head.querySelector('.dt-l').textContent = first ? (open.length > 1 ? `${first.label} · ${byId[open[1]].label}` : first.label) : 'Instruments';
+    head.querySelector('.dt-l').textContent = first ? (open.length > 1 ? `${first.label} · ${byId[open[1]].label}` : first.label) : 'Choose an instrument';
     second.hidden = !wide.matches || open.length !== 1;
     popBtn.hidden = !open.length;
     const f = store.get().frame;
@@ -194,7 +194,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     setTimeout(() => dispatchEvent(new Event('resize')), 320);
   }
   function close() { onClose(); setTimeout(() => dispatchEvent(new Event('resize')), 320); }
-  /** Makes sure something is docked before the Instruments tab is shown. */
+  /** Makes sure something is docked before the Measure tab is shown. */
   function ensure() { if (!open.length) { open = ['profile']; layout(); } }
   function toggle() {
     if (isVisible()) close();

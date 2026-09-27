@@ -1,11 +1,11 @@
-// Comparison with a pinned moment. Pinning (the timeline's "Pin as A", or "Compare with now" on
-// any marker) freezes a moment as A; the figure header then switches between A, now and the
-// change A→now, readouts report "vs A", and this section of the panel names both states and
+// Comparison with a pinned moment. "Compare from here" on the timeline (or "Compare with now" on
+// any marker) freezes a moment (A internally); the figure header then switches between then, now
+// and the change, readouts report "vs then", and this section of the panel names both states and
 // tabulates every difference. There is no Compare mode: unpinning ends it.
 
 import { store } from './store.js?v=4bf5a96a9d';
-import { h, fmt, svgIcon } from './util.js?v=d483888526';
-import { activeInterventions } from './inspector.js?v=718cafd0b0';
+import { h, fmt, svgIcon } from './util.js?v=cc7ee4cf38';
+import { activeInterventions } from './inspector.js?v=6a4f3a0c89';
 
 const ROWS = [
   ['HVPG', (m) => m.hvpg, 1, 'mmHg'], ['Portal pressure', (m) => m.pv, 1, 'mmHg'], ['Portosystemic gradient', (m) => m.ppg, 1, 'mmHg'], ['Portal flow', (m) => m.pvFlow, 1, 'L/min'],
@@ -25,12 +25,12 @@ export function createCompare() {
     if (!A) return null;
     tableEl = h('div');
     nowCard = card('b', 'N', 'Now · live', scen(), describe(activeInterventions(store.get().params).map((a) => a.label)));
-    const unpin = h('button', { class: 'btn sm', onclick: () => store.set({ compareSnap: null, compareView: 'B' }) }, svgIcon('close', 'mi-ic'), 'Unpin A');
+    const unpin = h('button', { class: 'btn sm', onclick: () => store.set({ compareSnap: null, compareView: 'B' }) }, svgIcon('close', 'mi-ic'), 'Stop comparing');
     const el = h('section', { class: 'cmp-section' },
-      h('div', { class: 'cmp-top' }, h('span', { class: 'overline' }, 'Compared with A'), unpin),
-      h('div', { class: 'cmp-states' }, card('a', 'A', `Pinned · ${A.when}`, A.label, describe(A.changes)), nowCard),
+      h('div', { class: 'cmp-top' }, h('span', { class: 'overline' }, `Comparing with ${A.when}`), unpin),
+      h('div', { class: 'cmp-states' }, card('a', 'T', `Then · ${A.when}`, A.label, describe(A.changes)), nowCard),
       tableEl,
-      h('p', { class: 'ctl-sub', style: { margin: 0 } }, 'Switch the figure between A, now and A→now in the figure header. The pressure profile overlays A as a dotted line.'));
+      h('p', { class: 'ctl-sub', style: { margin: 0 } }, 'Switch the figure between then, now and the change in the figure header. The pressure profile overlays then as a dotted line.'));
     const f = store.get().frame;
     if (f) update(f);
     return el;
@@ -42,7 +42,7 @@ export function createCompare() {
     const A = st.compareSnap.metrics, B = f.metrics;
     const maxRel = Math.max(...ROWS.map(([, g]) => { const a = g(A), b = g(B); return Math.abs(b - a) / Math.max(Math.abs(a), 1); }), 1e-6);
     tableEl.replaceChildren(h('table', { class: 'cmp-table' },
-      h('thead', {}, h('tr', {}, h('th', {}, 'Metric'), h('th', {}, 'A'), h('th', {}, 'Now'), h('th', {}, 'Δ'))),
+      h('thead', {}, h('tr', {}, h('th', {}, 'Metric'), h('th', {}, 'Then'), h('th', {}, 'Now'), h('th', {}, 'Δ'))),
       h('tbody', {}, ROWS.map(([lab, g, d, u]) => {
         const a = g(A), b = g(B), dd = b - a;
         const same = Math.abs(dd) < Math.pow(10, -d) * 0.5;

@@ -9,12 +9,12 @@
 //   Advanced                             physiology knobs (instructor / researcher)
 
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
-import { h, fmt, icon, svgIcon, toast } from './util.js?v=d483888526';
+import { h, fmt, icon, svgIcon, toast } from './util.js?v=cc7ee4cf38';
 import { DRUGS } from '../engine/scenario.js?v=8fc90f782f';
-import { TILES, VITALS, PRIMARY } from './dock.js?v=2372a708d0';
-import { activeInterventions } from './inspector.js?v=718cafd0b0';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=3aaea708e3';
-import { fmtClock } from './timeline.js?v=7b5a4eb22e';
+import { TILES, VITALS, PRIMARY } from './dock.js?v=f8c27c2c53';
+import { activeInterventions } from './inspector.js?v=6a4f3a0c89';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=1d44a77db5';
+import { fmtClock } from './timeline.js?v=acec98dac3';
 
 // Where each readout is measured, so a click can show it on the figure.
 const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS'] };
@@ -78,7 +78,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
           sev = t.st(v, m);
         }
         x.row.dataset.sev = sev;
-        if (A && v != null) { const d = v - t.v(A); x.cmp.textContent = Math.abs(d) < Math.pow(10, -t.d) * 0.5 ? 'same as A' : `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), t.d)} vs A`; x.cmp.className = 'vt-cmp ' + (d > 0 ? 'up' : 'down'); }
+        if (A && v != null) { const d = v - t.v(A); x.cmp.textContent = Math.abs(d) < Math.pow(10, -t.d) * 0.5 ? 'same as then' : `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), t.d)} vs then`; x.cmp.className = 'vt-cmp ' + (d > 0 ? 'up' : 'down'); }
         else x.cmp.textContent = '';
         const show = showAll || PRIMARY.has(t.id) || sev !== 'ok' || !!A;
         x.row.hidden = !show;
@@ -211,8 +211,8 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     live = [];
     const st = store.get();
     const pr = st.presetList?.find((p) => p.id === st.presetId);
-    const scen = h('button', { class: 'chart-scen', title: 'Choose a patient scenario', onclick: (e) => onScenarios(e.currentTarget) }, h('span', {}, pr?.label || 'Custom'), svgIcon('chev-down', 'chev'));
-    const head = h('div', { class: 'p-head chart-head' }, h('div', { class: 'p-title' }, h('span', { class: 'kicker' }, 'Patient'), scen), pr?.summary ? h('p', { class: 'chart-sum' }, pr.summary) : null);
+    // The patient's name lives in the top bar; the chart opens on what the patient has.
+    const head = pr?.summary ? h('div', { class: 'p-head chart-head' }, h('p', { class: 'chart-sum' }, pr.summary)) : null;
     const inCase = st.mode === 'cases';
     const kids = [head, pinned(), h('div', { class: 'p-body chart-body' }, vitals(), inCase ? null : treat(), story(), advanced())];
     update(store.get().frame, true);

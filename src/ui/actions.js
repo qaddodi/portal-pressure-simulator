@@ -6,7 +6,7 @@
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=6d79260961';
 import { DRUGS } from '../engine/scenario.js?v=8fc90f782f';
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
-import { fmt, fmtFlow, clamp, toast } from './util.js?v=d483888526';
+import { fmt, fmtFlow, clamp, toast } from './util.js?v=cc7ee4cf38';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -78,7 +78,7 @@ export function cardFor(selIn, ctx) {
     get: (p) => p.thrombus[id] || 0, set: (p, v) => { if (v <= 0.004) delete p.thrombus[id]; else p.thrombus[id] = +v.toFixed(2); }, hist: `${e.label}: thrombus`,
     info: 'Occlusive thrombus. With anticoagulation it recanalizes slowly on the disease clock.' };
   const doppler = { type: 'button', id: 'doppler', label: 'Doppler', icon: 'doppler', run: () => { ctx.probe(id); ctx.showPane('doppler'); } };
-  const shunt = ctx.canShunt(id) ? { type: 'button', id: 'shunt', label: 'Shunt from here', icon: 'stent', run: () => ctx.startShunt(id) } : null;
+  const shunt = ctx.canShunt(id) ? { type: 'button', id: 'shunt', label: 'Create shunt…', icon: 'stent', run: () => ctx.startShunt(id) } : null;
   let kicker = 'Vein', why = 'pv';
   if (isArt) {
     kicker = 'Artery';

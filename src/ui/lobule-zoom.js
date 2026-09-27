@@ -7,7 +7,7 @@
 // pressure rises. Zooming or pinching out returns to the liver. It replaces the old Lobule instrument.
 
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
-import { h, fmt, clamp, cssVar } from './util.js?v=d483888526';
+import { h, fmt, clamp, cssVar } from './util.js?v=cc7ee4cf38';
 import { pressureColor } from './colormap.js?v=5f8590b23c';
 import { NODES, EDGES } from '../engine/topology.js?v=6d79260961';
 
@@ -35,10 +35,9 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
   const stats = h('dl', { class: 'lz-stats' });
   const legend = h('div', { class: 'lz-legend', 'aria-hidden': 'true' },
     [['lg-pv', 'Portal venule'], ['lg-ha', 'Hepatic arteriole'], ['lg-bd', 'Bile ductule'], ['lg-hsc', 'Stellate cell'], ['lg-col', 'Collagen']].map(([c, t]) => h('span', {}, h('i', { class: c }), t)));
-  const back = h('button', { class: 'btn sm', onclick: () => onBack?.() }, '← Back to the liver');
   const el = h('div', { class: 'lz', 'aria-hidden': 'true' },
     cv,
-    h('div', { class: 'lz-top' }, back, lobeSeg),
+    h('div', { class: 'lz-top' }, lobeSeg),
     h('div', { class: 'lz-side' }, h('div', { class: 'lz-title' }, 'Hepatic lobule'), stats, fibBtns, legend));
   host.append(el);
   el.addEventListener('wheel', (ev) => { ev.preventDefault(); onWheel?.(ev); }, { passive: false });

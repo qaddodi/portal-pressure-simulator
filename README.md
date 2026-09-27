@@ -66,24 +66,25 @@ as a map of the disease: grouped by where the resistance sits, each with its pre
   there (narrow or clot a vein, make the liver cirrhotic, band varices, wedge a catheter, start
   a shunt, zoom into the lobule). Keys 1–9 run the card's actions.
 - **One timeline.** Play runs the heartbeat-scale model; +1 wk, +1 mo and +6 mo jump the disease
-  ahead. Every change and every event is a marker: click one to go back, or pin it as A to
-  compare with now.
-- **Patient chart.** Vitals with trends, Treat (drugs, fluids, procedures), and the Story of what
+  ahead. Every change and every event is a marker: click one to go back, or compare the live
+  model with it (*Compare from here*).
+- **Patient** (side panel tab). Vitals with trends, Treat (drugs, fluids, procedures), and the Story of what
   happened and why. Click any readout for a causal **Why?**
-- **Instruments.** Pressure profile, pressure landscape, trends, flow, perfusion, HVPG, spectral
+- **Measure** (side panel tab). Pressure profile, pressure landscape, trends, flow, perfusion, HVPG, spectral
   Doppler, endoscopy, varix wall, abdomen. The **pressure landscape** raises the circuit by
   pressure (drag to tilt): blood runs downhill, cliffs are resistances, and it names the steepest
-  fall on the portal pathway. One opens in the side panel's Instruments tab, beside the
-  patient chart; pop it out or stack a second one below it.
+  fall on the portal pathway. One opens in the Measure tab; pop it out or stack a second one below it.
 - **Semantic zoom.** Zoom into the liver, then choose *Lobule* in the zoom trail (or *Zoom into
   the lobule* on the liver's card): the plate becomes a honeycomb of lobules drawn from the model
   (sinusoids, stellate cells, collagen, congestion). Zooming alone never leaves the anatomy.
-- **Phones.** The figure takes the screen; the Chart button slides the side panel (chart and
-  instruments) over it.
+- **Phones.** The figure takes the screen; the side-panel button slides the panel (Patient and
+  Measure) over it.
 - **Views and lenses.** Anatomy or a transit-map Circuit; color by pressure, change, congestion,
   pressure drop, flow, velocity or direction.
 - **Figure (F).** A clean labeled plate to present, print or export as SVG or PNG.
-- **Command palette (Ctrl/⌘ K).** Everything, by name.
+- **Search (Ctrl/⌘ K).** Everything, by name.
+- **Restart and reset.** ↺ beside play restarts the patient; Settings › Reset everything reloads
+  the simulator clean.
 
 ### Teaching
 
