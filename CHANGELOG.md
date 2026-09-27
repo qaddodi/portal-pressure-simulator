@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+- **Esophageal drainage.** The varices stay at the distal esophagus; they now drain up the
+  paraesophageal veins behind the heart into the azygos arch.
+- **Touch.** Pinch zoom no longer jumps: every finger is tracked, two fingers zoom and pan
+  together, and lifting one hands over to a pan.
+- **Restart and reset.** ↺ beside play restarts the patient; Settings › Reset everything reloads
+  the simulator clean (preferences and progress kept).
+- **Endoscopy.** Esophageal varices are drawn as mucosa-covered submucosal columns converging on
+  the lumen (F1 straight, F2 tortuous, F3 beaded), inside the circular field.
+- **One home per thing.** Instruments open from the Measure tab only; the readout strip is always
+  under the figure; tabs are Patient and Measure; Settings and Help replace the sliders menu;
+  the role moves to Home; *Compare from here* replaces *Pin as A*; *Create shunt…*; *Search*.
+- **Quieter figure.** Changes from healthy show from 5 mmHg, in neutral ink; statuses follow
+  clinical cut-offs (listed in About the model).
+- **Presenting** is chrome-free: figure, hero metric, slide title, progress bar; controls appear
+  on mouse movement. Atlas labels switch to projection sizes.
+- **Lessons** get a reserved rail (top of the side panel, or a bottom sheet below 1280 px); the
+  HVPG instrument is laid out top-down.
+- **Design system.** One type ramp, three radii, six named layers, two shadows, a 4-pt grid, no
+  raw hex; re-lit dark organs; tabular figures; sentence-case eyebrows.
+- **New mark and lockups.** The portal confluence inside a liver; outlined wordmark lockups; a
+  generator for the SVGs and app icons (`scripts/brand/`).
+- **Devices.** Tablet keeps +1 wk; phones get a margined, centered figure and a snapping readout
+  carousel; verified at 320 px and 200 % zoom.
+
 - **Installed on iPhone and iPad.** The top bar is no longer blurred under the status bar: the
   app is a fixed layer (as the start screen already was), which iOS 26 keeps sharp, and the top
   bar extends up behind the status bar. The side panel, dialogs and palette start below it.
