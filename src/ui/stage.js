@@ -5,7 +5,7 @@ import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=5f8590b23c';
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=d483888526';
-import { createLobuleZoom } from './lobule-zoom.js?v=76c8a031ef';
+import { createLobuleZoom } from './lobule-zoom.js?v=87651f200f';
 import { createFlowGL, rgba, MARK_FLOATS, SEG_FLOATS } from './flow-gl.js?v=5c846606ea';
 
 const N_SAMPLES = 64;
@@ -2380,41 +2380,76 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   svg.addEventListener('wheel', (ev) => { ev.preventDefault(); zoomAt(ev.clientX, ev.clientY, Math.exp(-ev.deltaY * 0.0015)); }, { passive: false });
 
+  // Touch: every finger is captured by the figure, so a finger that lifts over a label or the
+  // card still ends here (an uncaptured finger used to linger in `pointers` and turn the next
+  // single touch into a pinch that jumped). Two fingers zoom and pan together: the point of the
+  // figure under their midpoint stays under it. Lifting one finger hands over to a pan.
+  const vbScale = () => { const b = stageBox(), vb = svg.viewBox.baseVal; return Math.min(b.sw / vb.width, b.sh / vb.height); };
+  function clientToVBFast(cx, cy) {
+    const b = stageBox(), vb = svg.viewBox.baseVal, s = Math.min(b.sw / vb.width, b.sh / vb.height);
+    return [(cx - b.left - b.sx - (b.sw - vb.width * s) / 2) / s + vb.x, (cy - b.top - b.sy - (b.sh - vb.height * s) / 2) / s + vb.y];
+  }
+  const startPan = (x, y, id, moved = false) => ({ type: 'pan', x, y, vx: vt.x, vy: vt.y, s0: vbScale(), moved, id });
+  function startPinch() {
+    const [a, b] = [...pointers.values()];
+    const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, [vx, vy] = clientToVBFast(mx, my);
+    return { type: 'pinchzoom', d0: Math.max(1, Math.hypot(a[0] - b[0], a[1] - b[1])), k0: vt.k, wx: (vx - vt.x) / vt.k, wy: (vy - vt.y) / vt.k, out: false };
+  }
   svg.addEventListener('pointerdown', (ev) => {
+    // The first finger of a new gesture: nothing else can still be down.
+    if (ev.isPrimary) pointers.clear();
     pointers.set(ev.pointerId, [ev.clientX, ev.clientY]);
-    if (pointers.size === 2) { const [a, b] = [...pointers.values()]; drag = { type: 'pinchzoom', d0: Math.hypot(a[0] - b[0], a[1] - b[1]), k0: vt.k }; return; }
+    cancelAnimationFrame(vtAnim);
+    try { svg.setPointerCapture(ev.pointerId); } catch { /* pointer already gone */ }
+    if (pointers.size >= 2) {
+      if (drag?.type === 'pan') wrap.classList.remove('panning');
+      if (drag && drag.type !== 'pan' && drag.type !== 'pinchzoom') gGuides.innerHTML = '';
+      drag = pointers.size === 2 ? startPinch() : drag;
+      return;
+    }
     const tool = store.get().tool;
     const id = edgeFromEvent(ev);
     const [wx, wy] = clientToWorld(ev.clientX, ev.clientY);
-    svg.setPointerCapture(ev.pointerId);
     const paint = !shunt && ((tool === 'fibrosis' && insideLiver(wx, wy)) || (tool === 'thrombus' && id && EI[id] != null && !E[id].isArt));
     if (ev.button === 1 || !paint || spaceDown) {
-      drag = { type: 'pan', x: ev.clientX, y: ev.clientY, vx: vt.x, vy: vt.y, moved: false, id };
+      drag = startPan(ev.clientX, ev.clientY, id);
       wrap.classList.add('panning');
       return;
     }
     handlePaintDown(tool, id, wx, wy, ev);
   });
   svg.addEventListener('pointermove', (ev) => {
-    if (pointers.has(ev.pointerId)) pointers.set(ev.pointerId, [ev.clientX, ev.clientY]);
+    if (!pointers.has(ev.pointerId)) return;
+    pointers.set(ev.pointerId, [ev.clientX, ev.clientY]);
     if (!drag) return;
-    if (drag.type === 'pinchzoom' && pointers.size === 2) {
+    if (drag.type === 'pinchzoom') {
+      if (pointers.size !== 2) return;
       const [a, b] = [...pointers.values()];
       const d = Math.hypot(a[0] - b[0], a[1] - b[1]);
-      zoomAt((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (drag.k0 * d / drag.d0) / vt.k);
+      // Inside the lobule the plate is covered: pinching out steps back to the liver.
+      if (lobuleOn) { if (!drag.out && d / drag.d0 < 0.8) { drag.out = true; zoomLiver(); } return; }
+      const k = clamp(drag.k0 * d / drag.d0, 0.6, 6);
+      const [vx, vy] = clientToVBFast((a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+      vt = { k, x: vx - drag.wx * k, y: vy - drag.wy * k };
+      applyVT(); CTM = null;
       return;
     }
     if (drag.type === 'pan') {
-      const s0 = svg.getScreenCTM().a;
       if (Math.abs(ev.clientX - drag.x) + Math.abs(ev.clientY - drag.y) > 4) drag.moved = true;
-      if (drag.moved) { vt.x = drag.vx + (ev.clientX - drag.x) / s0; vt.y = drag.vy + (ev.clientY - drag.y) / s0; applyVT(); CTM = null; }
+      if (drag.moved) { vt.x = drag.vx + (ev.clientX - drag.x) / drag.s0; vt.y = drag.vy + (ev.clientY - drag.y) / drag.s0; applyVT(); CTM = null; }
       return;
     }
     handlePaintMove(ev);
   });
   const endPointer = (ev) => {
-    pointers.delete(ev.pointerId);
+    if (!pointers.delete(ev.pointerId)) return;
     if (!drag) return;
+    if (drag.type === 'pinchzoom') {
+      // One finger stays down: it carries on as a pan (never as a click).
+      const rest = [...pointers.values()][0];
+      drag = rest && pointers.size === 1 ? startPan(rest[0], rest[1], null, true) : pointers.size >= 2 ? startPinch() : null;
+      return;
+    }
     if (drag.type === 'pan') {
       wrap.classList.remove('panning');
       if (!drag.moved) {
@@ -2429,6 +2464,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   };
   svg.addEventListener('pointerup', endPointer);
   svg.addEventListener('pointercancel', endPointer);
+  svg.addEventListener('lostpointercapture', endPointer);
 
   function pick(id, ev) {
     if (id && EI[id] != null) { onSelect({ type: 'edge', id }); return; }

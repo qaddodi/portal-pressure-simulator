@@ -46,7 +46,7 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
   const touches = new Map();
   let pinch0 = 0;
   const spread = () => { const [a, b] = [...touches.values()]; return Math.hypot(a[0] - b[0], a[1] - b[1]); };
-  el.addEventListener('pointerdown', (ev) => { touches.set(ev.pointerId, [ev.clientX, ev.clientY]); if (touches.size === 2) pinch0 = spread(); });
+  el.addEventListener('pointerdown', (ev) => { if (ev.isPrimary) touches.clear(); touches.set(ev.pointerId, [ev.clientX, ev.clientY]); if (touches.size === 2) pinch0 = spread(); });
   el.addEventListener('pointermove', (ev) => {
     if (!touches.has(ev.pointerId)) return;
     touches.set(ev.pointerId, [ev.clientX, ev.clientY]);
