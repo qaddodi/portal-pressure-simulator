@@ -1370,6 +1370,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const CIRCUIT_LABEL_K = 1.22;
   let labelScale = (() => { try { return clamp(parseFloat(localStorage.getItem('pps.labelScale')) || 1, 0.8, 1.5); } catch { return 1; } })();
   let labelK = labelScale;
+  // Projection ramp: presenting, or a wide screen (≥ 1600 px) with the Larger text size, sets the
+  // atlas labels at projector sizes (values 28 px, names 23 px), readable from the back of a room.
+  let projecting = false;
+  const labelBase = () => (projecting || (innerWidth >= 1600 && labelScale >= 1.3) ? 2 : labelScale);
   // A line is a list of runs { t, size, weight, cls, track }. Returns [width, height].
   const LINE_H = (line) => Math.max(...line.map((r) => r.size)) * labelK * 1.24;
   const lineW = (line) => line.reduce((w, r, i) => w + textW(r.t, r.size * labelK, r.weight, r.track || 0) + (i ? (r.gap ?? 3) * labelK : 0), 0);
@@ -1581,7 +1585,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const st = store.get();
     const t = easeInOut(morph);
     const circuit = t >= 0.5;
-    labelK = labelScale * (circuit ? CIRCUIT_LABEL_K : 1);
+    labelK = labelBase() * (circuit ? CIRCUIT_LABEL_K : 1);
     const wr = stageBox();
     const W = wr.width, H = wr.height;
     const B = { x0: 6, y0: 6, x1: W - 6, y1: H - 6 };
@@ -2683,6 +2687,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       try { localStorage.setItem('pps.labelScale', String(labelScale)); } catch { /* storage unavailable */ }
       if (F) updateLabels(F);
     },
+    setProjection(on) { projecting = !!on; if (F) updateLabels(F); },
     labelLayer: () => labelSvg,
     flowSVG,
     /** Direction of the first flow mark on a vessel (for tests): unit vector and flow sign. */

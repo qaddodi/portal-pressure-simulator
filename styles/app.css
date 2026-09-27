@@ -1080,7 +1080,6 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 /* Projector mode (§4.4): figure only, big type */
 .app.projector { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); grid-template-areas: "stage"; }
 .app.projector .topbar, .app.projector .panel, .app.projector .dock, .app.projector .readouts, .app.projector .toolbar { display: none; }
-.app.projector #labels .lb-name { font-size: 15px; }
 .projector-exit { position: absolute; top: 14px; right: 14px; z-index: 6; gap: 6px; background: var(--surface); box-shadow: var(--shadow-2); }
 .projector-exit svg { width: 16px; height: 16px; }
 .big-overlay { position: absolute; left: 24px; top: 16px; font-weight: 650; font-size: 60px; letter-spacing: -.03em; color: var(--text); pointer-events: none; line-height: 1; z-index: 5; }
@@ -1528,10 +1527,19 @@ div.vt-vital { cursor: default; }
   body.print-report #modal header .ib, body.print-report .no-print { display: none !important; }
 }
 /* Presenter */
-.presenter-bar { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 8; display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: color-mix(in srgb, var(--surface) 94%, transparent); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-3); max-width: calc(100% - 24px); }
-.presenter-bar .pb-t { display: grid; min-width: 0; padding: 0 6px; }
-.presenter-bar .pb-t b { font: 600 15px var(--font-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 42vw; }
-.presenter-bar .pb-n { font: 600 10.5px var(--font-ui); color: var(--text-3); letter-spacing: .06em; }
+.presenter-bar { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 8; display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: color-mix(in srgb, var(--surface) 94%, transparent); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-3); max-width: calc(100% - 24px); transition: opacity .3s var(--ease), transform .3s var(--ease); }
+.presenter-bar.idle { opacity: 0; pointer-events: none; transform: translate(-50%, 8px); }
+.presenter-bar .pb-n { font: 600 13px var(--font-ui); color: var(--text-2); font-variant-numeric: tabular-nums; padding: 0 4px; }
+.presenter-title { position: absolute; left: 28px; top: 22px; z-index: 6; max-width: min(60%, 900px); pointer-events: none; display: grid; gap: 6px; }
+.presenter-title .pt-n { font: 600 14px var(--font-ui); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.presenter-title .pt-t { font: 600 32px/1.15 var(--font-display); color: var(--text); letter-spacing: -.01em; }
+.presenter-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; z-index: 6; background: var(--hairline); pointer-events: none; }
+.presenter-progress i { display: block; height: 100%; background: var(--accent); transition: width .4s var(--ease); }
+/* Presenting: nothing of the editor stays on screen. */
+.app.presenting .stage-bar, .app.presenting #zoomFit, .app.presenting .zoom-crumbs, .app.presenting .action-card, .app.presenting .coach,
+.app.presenting #toolHint, .app.presenting .stage-clock, .app.presenting .hover-tip, .app.presenting .cmp-badge, .app.presenting .instr-float { display: none !important; }
+.app.presenting .big-overlay { left: auto; right: 28px; top: 22px; text-align: right; }
+@media (prefers-reduced-motion: reduce) { .presenter-bar, .presenter-progress i { transition: none; } }
 .presenter-bar .pb-sep { width: 1px; align-self: stretch; background: var(--border); margin: 0 2px; }
 .app.presenting .projector-exit { display: none; }
 .laser { position: fixed; left: -9px; top: -9px; width: 18px; height: 18px; border-radius: 50%; pointer-events: none; z-index: 9999; background: radial-gradient(circle, #FF2B3A 0 35%, rgba(255, 43, 58, .35) 36% 60%, rgba(255, 43, 58, 0) 61%); box-shadow: 0 0 14px rgba(255, 43, 58, .8); }

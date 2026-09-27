@@ -57,7 +57,7 @@ const enc = (o) => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace
 const dec = (s) => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))));
 
 export function createPresenter({ loadPreset, updateParams, host, stage, dock, action, projectorOn, projectorOff, closeHome, rerenderHome }) {
-  let script = null, idx = 0, bar = null, notesWin = null, laser = null;
+  let script = null, idx = 0, bar = null, titleEl = null, progEl = null, notesWin = null, laser = null;
   const all = () => [...SCRIPTS, ...readMine()];
 
   async function apply(step) {
@@ -78,17 +78,30 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
     await apply(script.steps[idx]);
     writeNotes();
   }
+  // Presenting is chrome-free: the figure, the hero metric, the slide title and a slim progress
+  // bar. The controls appear when the mouse moves and fade after 2 s (clickers and keys work
+  // without them).
   function renderBar() {
     if (!bar) return;
-    const st = script.steps[idx];
+    const st = script.steps[idx], n = script.steps.length;
+    titleEl.replaceChildren(h('span', { class: 'pt-n' }, `${idx + 1} / ${n} · ${script.title}`), h('span', { class: 'pt-t' }, st.title));
+    progEl.firstChild.style.width = `${((idx + 1) / n) * 100}%`;
+    progEl.setAttribute('aria-valuenow', String(idx + 1)); progEl.setAttribute('aria-valuemax', String(n));
     bar.replaceChildren(
       h('button', { class: 'ib', 'aria-label': 'Previous step', disabled: idx === 0, onclick: () => go(idx - 1) }, icon('chev-left')),
-      h('div', { class: 'pb-t' }, h('span', { class: 'pb-n' }, `${idx + 1} / ${script.steps.length}`), h('b', {}, st.title)),
-      h('button', { class: 'ib', 'aria-label': 'Next step', disabled: idx === script.steps.length - 1, onclick: () => go(idx + 1) }, icon('chev-right')),
+      h('span', { class: 'pb-n' }, `${idx + 1} / ${n}`),
+      h('button', { class: 'ib', 'aria-label': 'Next step', disabled: idx === n - 1, onclick: () => go(idx + 1) }, icon('chev-right')),
       h('span', { class: 'pb-sep' }),
       h('button', { class: 'btn sm', onclick: openNotes, title: 'Speaker notes in a second window (N)' }, 'Notes'),
       h('button', { class: 'btn sm', 'aria-pressed': String(!!laser), onclick: toggleLaser, title: 'Laser pointer (L)' }, 'Laser'),
       h('button', { class: 'ib', 'aria-label': 'Stop presenting', title: 'Stop presenting (Esc)', onclick: stop }, icon('close')));
+  }
+  let idleT = 0;
+  function wake() {
+    if (!bar) return;
+    bar.classList.remove('idle');
+    clearTimeout(idleT);
+    idleT = setTimeout(() => { if (bar && !bar.matches(':hover, :focus-within')) bar.classList.add('idle'); else wake(); }, 2000);
   }
   function openNotes() {
     notesWin = window.open('', 'pps-notes', 'width=520,height=640');
@@ -114,7 +127,7 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
     document.body.classList.add('laser-on');
     renderBar();
   }
-  addEventListener('pointermove', (e) => { if (laser) laser.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`; });
+  addEventListener('pointermove', (e) => { if (laser) laser.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`; if (script) wake(); });
 
   async function start(id) {
     script = typeof id === 'object' ? id : all().find((s) => s.id === id);
@@ -123,14 +136,22 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
     if (store.get().mode !== 'explore') store.set({ mode: 'explore' });
     projectorOn();
     bar = h('div', { class: 'presenter-bar stage-blocker', role: 'toolbar', 'aria-label': 'Presenter' });
-    document.getElementById('stageView').append(bar);
+    bar.addEventListener('focusin', wake);
+    titleEl = h('div', { class: 'presenter-title stage-blocker', role: 'status' });
+    progEl = h('div', { class: 'presenter-progress', role: 'progressbar', 'aria-label': 'Slide', 'aria-valuemin': '1' }, h('i'));
+    document.getElementById('stageView').append(titleEl, progEl, bar);
     document.getElementById('app').classList.add('presenting');
+    store.set({ selection: null });
+    stage.setProjection(true);
     await go(0);
+    wake();
   }
   function stop() {
     if (!script) return;
     script = null;
-    bar?.remove(); bar = null;
+    bar?.remove(); titleEl?.remove(); progEl?.remove(); bar = titleEl = progEl = null;
+    clearTimeout(idleT);
+    stage.setProjection(false);
     if (laser) toggleLaser();
     document.getElementById('app').classList.remove('presenting');
     projectorOff();

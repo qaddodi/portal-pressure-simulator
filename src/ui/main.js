@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=0917f25b24';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=4bf5a96a9d';
-import { createStage } from './stage.js?v=9da1a23cc6';
+import { createStage } from './stage.js?v=649655a1b5';
 import { createInspector } from './inspector.js?v=6a4f3a0c89';
 import { createDock, CUTOFFS } from './dock.js?v=faecaf42f2';
 import { createWhy } from './why.js?v=eafc26e516';
@@ -134,7 +134,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=3b4d025230'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=4ae2d2de08'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -829,7 +829,7 @@ function toggleProjector() {
     // The top bar (and its menu) is hidden in projector mode, so the way out is on the figure.
     exitEl = h('button', { class: 'btn projector-exit stage-blocker', title: 'Leave projector mode (Esc)', onclick: () => { if (projector) toggleProjector(); } }, icon('close'), 'Exit projector');
     view.append(bigEl, exitEl);
-    toast('Projector mode. Press Esc or Exit to leave.');
+    if (!presenter.active()) toast('Projector mode. Press Esc or Exit to leave.');
     const f = store.get().frame; if (f) updateProjector(f);
   } else { bigEl?.remove(); exitEl?.remove(); bigEl = exitEl = null; }
   setTimeout(() => dispatchEvent(new Event('resize')), 50);
