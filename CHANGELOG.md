@@ -2,8 +2,9 @@
 
 ## Unreleased
 
-- **Esophageal drainage.** The varices stay at the distal esophagus; they now drain up the
-  paraesophageal veins behind the heart into the azygos arch.
+- **Esophageal varices climb the esophagus.** From the gastroesophageal junction the varices run
+  up the esophageal wall as a braid of submucosal columns, then drain over the heart into the
+  azygos arch.
 - **Touch.** Pinch zoom no longer jumps: every finger is tracked, two fingers zoom and pan
   together, and lifting one hands over to a pan.
 - **Restart and reset.** ↺ beside play restarts the patient; Settings › Reset everything reloads

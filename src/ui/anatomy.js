@@ -53,7 +53,7 @@ export const NODE_POS = {
   PVH: [[602, 442], [580, 345]],
   RPV: [[505, 398], [680, 303]],
   LPV: [[688, 378], [680, 387]],
-  VAR: [[797, 232], [620, 128]],
+  VAR: [[789, 66], [620, 128]],
   GV: [[876, 302], [240, 121]],
   SIN_R: [[420, 345], [800, 303]],
   SIN_L: [[750, 300], [800, 387]],
@@ -127,10 +127,11 @@ export const EDGE_PATH = {
   EPI_ILI: 'M500 800 C 530 860 580 884 620 880',
   EPI_SVC: 'M500 800 C 420 780 340 680 334 520 C 318 410 318 260 360 170 C 400 90 520 52 620 40',
 
-  C1a: 'M821 318 C 814 296 803 280 800 262 C 798 250 797 240 797 232',
-  // The varices drain up the paraesophageal veins, behind the heart, and over it into the
-  // azygos arch (crossing behind the SVC).
-  C1b: 'M797 232 C 814 206 820 160 816 116 C 812 78 800 48 774 32 C 744 16 672 12 632 17 C 606 20 588 24 574 30',
+  // The coronary vein reaches the gastroesophageal junction; from there the varices climb the
+  // esophageal wall as a braid of submucosal columns (see STRANDS) up to the varices node.
+  C1a: 'M821 318 C 814 296 804 272 802 250 C 800 220 798 180 795 140 C 793 110 790 86 789 66',
+  // Above them the varices drain over the heart into the azygos arch (crossing behind the SVC).
+  C1b: 'M789 66 C 784 44 764 26 736 18 C 700 10 650 12 622 18 C 602 22 586 25 574 30',
   C2: 'M880 505 C 890 462 912 420 922 380 C 930 344 910 308 876 302',
   C2b: 'M876 302 C 858 300 838 306 821 318',
   C3: 'M688 378 C 668 440 646 520 620 600 C 590 690 540 760 500 800',
@@ -162,12 +163,12 @@ export const EDGE_PATH = {
 // the vessel: [lateral offset at mid-course, serpentine phase, caliber fraction].
 export const STRANDS = {
   C8: [[-36, 1.1, 0.5], [-24, 3.9, 0.6], [13, 2.4, 0.65], [25, 5.2, 0.5], [36, 0.3, 0.42]],
-  C1a: [[-11, 0.7, 0.5], [-5, 3.3, 0.6], [6, 1.9, 0.55], [12, 4.6, 0.45]],
+  C1a: [[-9, 0.7, 0.55], [-4.5, 3.3, 0.6], [0.5, 5.1, 0.5], [5, 1.9, 0.6], [9.5, 4.6, 0.5]],
   C2: [[-22, 4.1, 0.45], [-11, 1.4, 0.55], [10, 2.9, 0.55], [21, 0.4, 0.42]],
   C2b: [[-6, 2.6, 0.5], [6, 0.8, 0.5]],
 };
 // Where along the vessel (0–1) the strands leave the main channel; before it the vessel is one.
-export const STRAND_FROM = { C2: 0.5 };
+export const STRAND_FROM = { C2: 0.5, C1a: 0.22 };
 
 // Tributaries and feeders (anatomic view only): named veins are formed by several smaller ones,
 // drawn converging on the vessel so the plate reads as anatomy, not a wiring diagram. They carry
