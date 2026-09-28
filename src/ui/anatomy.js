@@ -296,7 +296,7 @@ export const CIRCUIT_LABELS = {
 // below the liver), then the heart, the colon framing the small
 // bowel (ascending on the viewer's left, transverse slung between the flexures, descending,
 // sigmoid) from the cecum and appendix, the coiled small bowel entering the cecum, spleen,
-// duodenal C-loop, stomach, and the liver in front with the gallbladder beneath its margin. The vessel geometry above is fixed; the
+// duodenal C-loop, stomach, and the liver in front. The vessel geometry above is fixed; the
 // organs are drawn to sit around it. `band` shapes are stroked tubes; `deco` shapes are line work
 // only; `noCover` shapes never hide the flow marks of vessels behind them.
 export const ORGANS = [
@@ -312,8 +312,6 @@ export const ORGANS = [
   { id: 'spleen', tone: 'spleen', cls: 'org org-spleen', d: 'M1030 266 C 1072 264 1100 300 1104 352 C 1108 408 1082 452 1040 462 C 1018 466 1002 456 1004 440 C 1006 426 1016 414 1017 400 C 1018 390 1014 382 1016 372 C 1018 358 1018 342 1013 328 C 1008 314 1006 300 1008 288 C 1010 274 1018 267 1030 266 Z' },
   { id: 'duodenum', tone: 'stomach', cls: 'org-duodenum', band: true, d: 'M726 514 C 690 506 652 526 644 566 C 636 612 650 650 688 668 C 724 684 772 680 806 664' },
   { id: 'stomach', tone: 'stomach', cls: 'org org-stomach', d: 'M813 249 C 818 257 828 253 840 247 C 850 242 859 241 868 242 C 910 238 948 260 966 296 C 984 332 990 380 984 424 C 976 480 940 524 886 546 C 846 562 796 566 756 552 C 738 546 724 536 714 522 L 708 508 C 712 498 722 494 734 494 C 764 494 794 484 812 462 C 822 450 828 436 830 420 C 834 392 830 350 822 320 C 815 298 800 276 792 249 Z' },
-  // The gallbladder lies under the liver; only its fundus shows below the inferior margin.
-  { id: 'gallbladder', tone: 'gb', cls: 'org org-gb', d: 'M540 464 C 526 488 522 520 534 536 C 548 552 574 546 580 524 C 586 502 580 482 570 470 C 562 462 548 458 540 464 Z' },
   { id: 'liver', tone: 'liver', cls: 'org org-liver', d: 'M858 250 C 832 236 798 226 748 212 C 700 196 650 188 620 187 C 560 184 470 178 404 188 C 358 196 330 220 322 262 C 316 312 318 382 330 432 C 338 466 356 490 388 498 C 432 505 492 494 540 480 C 575 470 602 459 630 446 C 644 440 650 436 653 431 C 656 435 661 437 667 433 C 724 398 790 340 846 292 C 864 277 873 259 858 250 Z' },
   // Cantlie's line (gallbladder fossa to the IVC) and the falciform ligament: the lobes as a
   // surgeon reads them.
