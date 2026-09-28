@@ -1688,7 +1688,10 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .org-detail .od-fold { stroke: var(--o3); stroke-width: 1.4; stroke-opacity: .16; }
 .bowel-bed { fill: var(--og-gut-2); fill-opacity: .28; }
 /* Disease and tissue textures sit in the surface, not on it. */
-.nodule circle { fill: var(--og-liver-1); fill-opacity: .42; stroke: var(--og-liver-3); stroke-opacity: .32; stroke-width: .7; }
+.nodule circle { fill: var(--og-liver-1); fill-opacity: .6; stroke: var(--og-liver-3); stroke-opacity: .6; stroke-width: .9; }
+.liver-bumps, .liver-bumps-case { fill: none; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+.liver-bumps-case { stroke: var(--og-liver-3); }
+.liver-bumps { stroke: var(--og-liver-1); }
 .org-detail .org-lobules { opacity: .28; }
 .org-great.band-ao { stroke-width: 22; } .org-great.band-edge { stroke: var(--o3); stroke-width: 16; stroke-opacity: .6; } .org-great.band-body { stroke: var(--o1); stroke-width: 14; } .org-great.band-under { stroke-width: 7; }
 .nutmeg circle { fill-opacity: .32; }

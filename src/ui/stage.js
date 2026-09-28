@@ -371,6 +371,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const liverNutmeg = s('path', { d: liverD, fill: 'url(#nutmeg)', opacity: 0 });
   const liverNodules = s('path', { d: liverD, fill: 'url(#nodules)', opacity: 0 });
   for (const el of [liverTint, liverNutmeg, liverNodules]) organG.liver.insertBefore(el, organG.liver.querySelector('.org-shade'));
+  // Cirrhosis also breaks up the liver's contour: a row of round beads along the edge (round-capped
+  // dots on the outline) turns the smooth border into a knobbly, nodular one.
+  const liverBumpsCase = s('path', { d: liverD, class: 'liver-bumps-case', opacity: 0 });
+  const liverBumps = s('path', { d: liverD, class: 'liver-bumps', opacity: 0 });
+  organG.liver.append(liverBumpsCase, liverBumps);
   // Abdominal wall (anterior): appears only with caput medusae, under the radiating veins.
   const abdWall = s('ellipse', { cx: SITES.umbilicus[0], cy: SITES.umbilicus[1], rx: 120, ry: 96, fill: 'url(#skin)', class: 'abd-wall', opacity: 0 });
   // Flanks: the outline of the abdominal wall, which bulges as ascites accumulates.
@@ -1147,15 +1152,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function updateOrgans(f, p, t) {
     const k = 1 - t;
     const imaging = isImaging();
-    liverNodules.setAttribute('opacity', (Math.min(1, p.cirrhosis) * 0.75 * k).toFixed(2));
+    const cir = clamp(p.cirrhosis, 0, 1);
+    liverNodules.setAttribute('opacity', (Math.min(1, cir * 1.6) * k).toFixed(2));
+    const bump = cir < 0.05 ? 0 : 4 + 10 * cir;
+    for (const [el, w] of [[liverBumpsCase, bump + 1.8], [liverBumps, bump]]) {
+      el.setAttribute('opacity', (Math.min(1, cir * 2.5) * k).toFixed(2));
+      el.setAttribute('stroke-width', w.toFixed(1));
+      el.setAttribute('stroke-dasharray', `0 ${(bump * 1.15).toFixed(1)}`);
+    }
     const psin = Math.max(f.P[NI.SIN_R], f.P[NI.SIN_L]);
     liverTint.style.opacity = imaging ? 0 : (clamp((psin - 8) / 16, 0, 1) * 0.5 * k).toFixed(3);
     const hp = store.get().healthy?.P;
     const cvUp = hp ? Math.max(f.P[NI.CV_R] - hp[NI.CV_R], f.P[NI.CV_L] - hp[NI.CV_L]) : 0;
     liverNutmeg.setAttribute('opacity', imaging ? 0 : (clamp((cvUp - 4) / 10, 0, 1) * 0.6 * k).toFixed(2));
-    // A cirrhotic liver shrinks a little; a congested one does not.
-    const shrink = 1 - 0.035 * Math.min(1, p.cirrhosis);
-    organG.liver.setAttribute('transform', `translate(560 350) scale(${shrink.toFixed(4)}) translate(-560 -350)`);
+    // A cirrhotic liver shrinks visibly (toward the hilum, so the portal vein still enters it); a
+    // congested one does not.
+    const shrink = 1 - 0.22 * cir;
+    organG.liver.setAttribute('transform', `translate(640 420) scale(${shrink.toFixed(4)}) translate(-640 -420)`);
     const c3 = recruitFrac('C3', f);
     abdWall.setAttribute('opacity', (clamp((c3 - 0.1) / 0.4, 0, 1) * 0.9 * k).toFixed(2));
     const sc = f.slow.spleen / 11;
