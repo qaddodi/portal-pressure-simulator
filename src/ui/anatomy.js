@@ -31,7 +31,10 @@ export const HIDDEN_NODES = new Set(['AO', 'UPPV', 'LOWV', 'KID_R', 'RRV', 'HA']
 // Systemic veins drawn quietly: they matter only as the places collaterals drain to.
 export const CONTEXT_EDGES = new Set(['V_UP', 'SVC_RA', 'AZY_SVC', 'ILI_IVC', 'EPI_ILI', 'EPI_SVC', 'V_KID_L', 'LRV_IVC']);
 // Edges the circuit draws but the anatomy leaves out (none at present).
-export const ANAT_HIDDEN = new Set([]);
+// The iliac vein is left out of the plate: the rectal and inferior epigastric veins fade out
+// toward the pelvis instead of joining it (they still drain into it in the model and the circuit).
+export const ANAT_HIDDEN = new Set(['ILI_IVC']);
+export const ANAT_HIDDEN_NODES = new Set(['ILI']);
 // Drawn only once the paraumbilical collateral has opened.
 export const NEEDS_C3 = new Set(['EPI_ILI', 'EPI_SVC']);
 // Retroperitoneal vessels, drawn behind the organs (the liver and bowel veil them).
@@ -41,7 +44,7 @@ export const BACK_EDGES = new Set(['IVC_IS', 'ILI_IVC', 'LRV_IVC', 'V_KID_L', 'C
 export const NODE_POS = {
   AO: [[760, 540], [610, 240]],
   HA: [[655, 478], [740, 228]],
-  INT: [[690, 790], [140, 394]],
+  INT: [[756, 800], [140, 394]],
   COL: [[960, 790], [140, 310]],
   SPL: [[1034, 360], [140, 261]],
   STO: [[880, 395], [140, 191]],
@@ -86,7 +89,7 @@ export const EDGE_PATH = {
   A_HR: 'M655 478 C 610 462 545 430 505 412 C 472 398 444 372 420 345',
   A_HL: 'M655 478 C 672 440 690 400 712 362 C 728 336 740 318 750 300',
 
-  V_INT: 'M690 790 C 690 750 690 700 690 660',
+  V_INT: 'M756 800 C 752 758 700 716 690 660',
   V_COL: 'M960 790 C 952 760 942 725 932 690',
   V_IMV: 'M932 690 C 925 620 905 560 880 505',
   V_SPL: 'M1034 360 C 1010 385 988 420 962 448 C 938 473 910 492 880 505',
@@ -124,7 +127,7 @@ export const EDGE_PATH = {
   V_KID_L: 'M1005 622 C 960 620 910 618 862 618',
   LRV_IVC: 'M862 618 C 790 620 700 640 620 650',
   ILI_IVC: 'M620 880 L 620 650',
-  EPI_ILI: 'M500 800 C 530 860 580 884 620 880',
+  EPI_ILI: 'M500 800 C 512 850 530 896 546 950',
   EPI_SVC: 'M500 800 C 420 780 340 680 334 520 C 318 410 318 260 360 170 C 400 90 520 52 620 40',
 
   // The coronary vein reaches the gastroesophageal junction; from there the varices climb the
@@ -135,7 +138,9 @@ export const EDGE_PATH = {
   C2: 'M880 505 C 890 462 912 420 922 380 C 930 344 910 308 876 302',
   C2b: 'M876 302 C 858 300 838 306 821 318',
   C3: 'M688 378 C 668 440 646 520 620 600 C 590 690 540 760 500 800',
-  C4: 'M932 690 C 940 790 890 870 810 890 C 730 908 660 900 620 880',
+  // Superior rectal veins: down beside the sigmoid to the anorectum, where they break up into
+  // submucosal anorectal varices (see STRANDS) and fade out toward the pelvis.
+  C4: 'M932 690 C 944 770 922 828 874 856 C 840 874 810 882 796 898 C 789 907 787 916 786 928',
   // Leaves the fundus in a gentle curve and runs down clear of the coronary vein, easing into
   // the left renal vein.
   C5: 'M876 302 C 864 318 854 340 852 380 C 850 460 852 560 858 596 C 860 606 861 612 862 618',
@@ -165,10 +170,10 @@ export const STRANDS = {
   C8: [[-36, 1.1, 0.5], [-24, 3.9, 0.6], [13, 2.4, 0.65], [25, 5.2, 0.5], [36, 0.3, 0.42]],
   C1a: [[-9, 0.7, 0.55], [-4.5, 3.3, 0.6], [0.5, 5.1, 0.5], [5, 1.9, 0.6], [9.5, 4.6, 0.5]],
   C2: [[-22, 4.1, 0.45], [-11, 1.4, 0.55], [10, 2.9, 0.55], [21, 0.4, 0.42]],
-  C2b: [[-6, 2.6, 0.5], [6, 0.8, 0.5]],
+  C4: [[-9, 0.9, 0.55], [-4.5, 3.6, 0.6], [0.5, 5.3, 0.5], [5, 2.1, 0.6], [9.5, 4.4, 0.5]],
 };
 // Where along the vessel (0–1) the strands leave the main channel; before it the vessel is one.
-export const STRAND_FROM = { C2: 0.5, C1a: 0.22 };
+export const STRAND_FROM = { C2: 0.5, C1a: 0.22, C4: 0.68 };
 
 // Tributaries and feeders (anatomic view only): named veins are formed by several smaller ones,
 // drawn converging on the vessel so the plate reads as anatomy, not a wiring diagram. They carry
@@ -181,10 +186,12 @@ export const STRAND_FROM = { C2: 0.5, C1a: 0.22 };
 export const FEEDERS = {
   // Splenic vein: hilar branches from the upper pole to the lower pole.
   V_SPL: { k: 0.5, fan: { at: [1034, 360], dir: 0, spread: 140, len: 62, n: 5, seed: 3 } },
-  // Superior mesenteric vein: jejunal and ileal branches fanning up from the small bowel.
-  V_INT: { k: 0.5, fan: { at: [690, 790], dir: 90, spread: 130, len: 96, n: 6, seed: 7 } },
-  // Inferior mesenteric vein: the left colic veins, from the descending colon on the patient's left.
-  V_COL: { k: 0.55, fan: { at: [960, 790], dir: -5, spread: 110, len: 42, n: 5, seed: 11 } },
+  // Superior mesenteric vein: jejunal and ileal veins branching out through the mesentery into
+  // the small bowel loops around it, each dividing like a tree (1 → 2 → 4).
+  V_INT: { k: 0.6, fan: { at: [756, 800], dir: 90, spread: 250, len: 50, n: 5, seed: 7, levels: 2, wig: 0.45 } },
+  // Inferior mesenteric vein: the left colic and sigmoid veins, from the descending colon on the
+  // patient's left, spreading up and down along it.
+  V_COL: { k: 0.6, fan: { at: [960, 790], dir: -5, spread: 150, len: 34, n: 3, seed: 11, levels: 2, wig: 0.45 } },
   // Budd–Chiari: collaterals from the right and left portal veins into the caudate vein.
   // Caudate vein: small tributaries from the caudate lobe, always; in Budd–Chiari (`when`), also
   // collaterals from the right and left portal veins, each colored from the pressure of the
@@ -341,8 +348,8 @@ export const BACKDROP = {
 };
 
 // Invisible peritoneal outline: ascites fills it from the bottom.
-export const ABDOMEN_CLIP = 'M330 440 C 320 600 340 780 380 900 L 1060 900 C 1090 780 1100 600 1092 440 Z';
-export const ABDOMEN_FLOOR = 900;
+export const ABDOMEN_CLIP = 'M330 440 C 320 600 340 800 388 950 L 1052 950 C 1090 800 1100 600 1092 440 Z';
+export const ABDOMEN_FLOOR = 950;
 export const SPLEEN_CENTER = [1040, 362];
 
 // Where the stage draws instruments and findings.
@@ -356,7 +363,7 @@ export const SITES = {
 // Organ captions: [text, x, y, anchor]
 export const ORGAN_LABELS = [
   ['Liver', 404, 446], ['Stomach', 918, 432], ['Spleen', 1058, 482], ['Colon', 1016, 824], ['Kidney', 1030, 716],
-  ['Small bowel', 740, 797], ['Esophagus', 860, 40], ['Heart', 700, 96], ['to RV', 690, 146],
+  ['Small bowel', 866, 752], ['Esophagus', 860, 40], ['Heart', 700, 96], ['to RV', 690, 146],
 ];
 
 // Atlas labels: node → caption and which margin column it hangs from.
@@ -427,12 +434,35 @@ export const SHORT = {
 export const CHIP_NODES = ['CONF', 'SV', 'SMV', 'SIN_R', 'RHV', 'IVCS', 'RA', 'VAR'];
 
 /** Tributary fan → [{ d, k }] (path from the tip to the vessel; k = caliber relative to `k`). */
-export function fanFeeders({ at, dir, spread, len, n, seed = 1 }) {
+export function fanFeeders({ at, dir, spread, len, n, seed = 1, levels = 0 }) {
   let r = seed * 9301 + 49297;
   const rnd = () => { r = (r * 9301 + 49297) % 233280; return r / 233280; };
   const rad = (deg) => (deg * Math.PI) / 180, P = (p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`;
   const ax = [Math.cos(rad(dir)), Math.sin(rad(dir))];
   const out = [];
+  if (levels) {
+    // A branching tree: each vein divides in two (now and then three) at its far end, and each
+    // branch again, shorter, finer and turning a little, so the tributaries arborize like real
+    // veins instead of radiating from one point.
+    const grow = (from, a, l, k, lv) => {
+      const E = [from[0] + Math.cos(a) * l, from[1] + Math.sin(a) * l];
+      const bend = (rnd() - 0.5) * 0.5;
+      const c1 = [E[0] - Math.cos(a + bend) * l * 0.35, E[1] - Math.sin(a + bend) * l * 0.35];
+      const c2 = [from[0] + Math.cos(a - bend) * l * 0.35, from[1] + Math.sin(a - bend) * l * 0.35];
+      out.push({ d: `M${P(E)} C ${P(c1)} ${P(c2)} ${P(from)}`, k });
+      if (lv >= levels) return;
+      const m = rnd() < 0.25 ? 3 : 2, fork = rad(24 + 12 * rnd());
+      for (let j = 0; j < m; j++) {
+        const off = m === 2 ? (j ? 1 : -1) * fork : (j - 1) * fork * 1.1;
+        grow(E, a + off + (rnd() - 0.5) * 0.2, l * (0.62 + 0.16 * rnd()), k * 0.72, lv + 1);
+      }
+    };
+    for (let i = 0; i < n; i++) {
+      const a = rad(dir + spread * (n > 1 ? i / (n - 1) - 0.5 : 0) + (rnd() - 0.5) * 10);
+      grow(at, a, len * (0.85 + 0.3 * rnd()), 0.9 + 0.2 * rnd(), 0);
+    }
+    return out;
+  }
   for (let i = 0; i < n; i++) {
     const a = rad(dir + spread * (i / (n - 1) - 0.5) + (rnd() - 0.5) * 12), l = len * (0.75 + 0.4 * rnd());
     const E = [at[0] + Math.cos(a) * l, at[1] + Math.sin(a) * l];

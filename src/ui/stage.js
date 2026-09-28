@@ -1,7 +1,7 @@
 // Anatomical stage (blueprint §6): SVG anatomy + canvas flow layer + screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, edgePresent, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=6d79260961';
-import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders } from './anatomy.js?v=b8e0a51a68';
+import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders } from './anatomy.js?v=b8e0a51a68';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=5f8590b23c';
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=cc7ee4cf38';
@@ -85,6 +85,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Tributaries and feeders (anatomic only), sampled once, with a vein's gentle meander (a
   // feeder that is a collateral gets a serpentine instead).
   const feedGeo = {};
+  const FADE_DOWN_Y = { C4: [892, 928], EPI_ILI: [870, 925] };
   for (const [id, fd] of Object.entries(FEEDERS)) {
     // A generated fan is a tortuous network (drawn like the variceal plexus); listed paths meander.
     const list = [...(fd.fan ? fanFeeders(fd.fan).map((x) => ({ ...x, fan: true })) : []), ...(fd.paths || []).map((d, i) => ({ d, k: 1, when: fd.when, src: fd.from?.[i] }))];
@@ -484,12 +485,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     });
     if (feeders && FEEDERS[e.id].fan) {
       // Tributaries fade out toward the bowel they drain, so they stay background.
-      const { at, len } = FEEDERS[e.id].fan;
-      defs.insertAdjacentHTML('beforeend', `<radialGradient id="fg-${e.id}" gradientUnits="userSpaceOnUse" cx="${at[0]}" cy="${at[1]}" r="${len * 1.35}"><stop offset="0" stop-color="#fff" stop-opacity=".7"/><stop offset=".45" stop-color="#fff" stop-opacity=".4"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient><mask id="fm-${e.id}" maskUnits="userSpaceOnUse" x="0" y="0" width="${VIEW.w}" height="${VIEW.h}"><rect x="0" y="0" width="${VIEW.w}" height="${VIEW.h}" fill="url(#fg-${e.id})"/></mask>`);
+      const { at, len, levels } = FEEDERS[e.id].fan;
+      defs.insertAdjacentHTML('beforeend', `<radialGradient id="fg-${e.id}" gradientUnits="userSpaceOnUse" cx="${at[0]}" cy="${at[1]}" r="${len * (levels ? 2.7 : 1.35)}"><stop offset="0" stop-color="#fff" stop-opacity=".7"/><stop offset=".45" stop-color="#fff" stop-opacity=".4"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient><mask id="fm-${e.id}" maskUnits="userSpaceOnUse" x="0" y="0" width="${VIEW.w}" height="${VIEW.h}"><rect x="0" y="0" width="${VIEW.w}" height="${VIEW.h}" fill="url(#fg-${e.id})"/></mask>`);
       for (const fd of feeders) if (fd.fan) { fd.wall.setAttribute('mask', `url(#fm-${e.id})`); fd.lumen.setAttribute('mask', `url(#fm-${e.id})`); fd.faded = true; }
     }
     // Veins that sink into a retroperitoneal vein fade into it instead of ending on it: the
     // caudate vein into the IVC, the gastrorenal shunt into the left renal vein.
+    const FADE_DOWN = FADE_DOWN_Y;
     const FADE_IN = { CAUD: [566, 326, 620, 350, 0.45], C5: [852, 520, 862, 618, 0.6] };
     if (FADE_IN[e.id]) {
       const [x1, y1, x2, y2, o] = FADE_IN[e.id];
@@ -511,6 +513,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const heat = isArt ? null : s('path', { class: 'v-heat' });
     if (heat) gHeat.append(heat);
     if (FADE_IN[e.id]) for (const el of [shadow, wall, lumen, shade, sheen, wallP, lumenP]) el?.setAttribute('mask', `url(#cm-${e.id})`);
+    // Veins that run on out of the plate toward the pelvis (the rectal veins and their anorectal
+    // varices, the inferior epigastric) fade out downward instead of ending: [y where the fade
+    // starts, y where it is gone]. Only the anatomy is that low; the circuit is unaffected.
+    const fadeY = FADE_DOWN[e.id];
+    if (fadeY) {
+      defs.insertAdjacentHTML('beforeend', `<linearGradient id="dg-${e.id}" gradientUnits="userSpaceOnUse" x1="0" y1="${fadeY[0]}" x2="0" y2="${fadeY[1]}"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><mask id="dm-${e.id}" maskUnits="userSpaceOnUse" x="0" y="0" width="${VIEW.w}" height="${VIEW.h}"><rect x="0" y="0" width="${VIEW.w}" height="${VIEW.h}" fill="url(#dg-${e.id})"/></mask>`);
+      for (const el of [shadow, wall, lumen, shade, sheen, wallP, lumenP, halo, sel, ...(strands || []).flatMap((sd) => [sd.wall, sd.lumen])]) el?.setAttribute('mask', `url(#dm-${e.id})`);
+    }
     E[e.id] = { e, g, gc, gs, groups: isArt ? [g] : [gs, gc, g], heat, grad, st0, st1, halo, sel, shadow, spine, wall, lumen, shade, sheen, wallP, lumenP, hit, strands, feeders, isArt, vis: true, width: 4, wallPx: 1, shadeKey: '' };
   }
   // Draw order within each tier: the portal tree in front (it lies anterior to the IVC).
@@ -1242,7 +1252,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const V = f.slow.ascites;
     const u = clamp(V / 11000, 0, 1);
     const bulge = u * 34;
-    flank.setAttribute('d', u < 0.04 ? '' : `M336 470 C ${324 - bulge} 610 ${330 - bulge} 780 ${372 - bulge * 0.4} 904 M1088 470 C ${1100 + bulge} 610 ${1094 + bulge} 780 ${1052 + bulge * 0.4} 904`);
+    flank.setAttribute('d', u < 0.04 ? '' : `M336 470 C ${324 - bulge} 610 ${330 - bulge} 780 ${372 - bulge * 0.4} 954 M1088 470 C ${1100 + bulge} 610 ${1094 + bulge} 780 ${1052 + bulge * 0.4} 954`);
     organG.bowel.setAttribute('transform', `translate(0 ${(-u * 26).toFixed(1)})`);
     const hgt = u * 330;
     if (hgt < 3) { ascitesPath.setAttribute('d', ''); ascitesLine.setAttribute('d', ''); ascitesGlint.setAttribute('d', ''); }
@@ -1898,7 +1908,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const [k, b] of pool) if (b.seen !== frameNo) b.g.style.display = 'none';
     if (gLeaders._last !== leaders) { gLeaders.innerHTML = leaders; gLeaders._last = leaders; }
   }
-  const nodeVisible = (id) => ALL_EDGES.some((e) => (e.from === id || e.to === id) && E[e.id]?.vis);
+  const nodeVisible = (id) => !(ANAT_HIDDEN_NODES.has(id) && morph < 0.5) && ALL_EDGES.some((e) => (e.from === id || e.to === id) && E[e.id]?.vis);
 
   // ── Flow marks ────────────────────────────────────
   // Blood flow is drawn as evenly spaced arrowheads inside each lumen, pointing and moving
@@ -2052,6 +2062,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         }
       }
       const ink = x.rev && !colorModeIs('direction') ? 'rev' : x.inkDark && !x.isArt ? 'dark' : 'light';
+      // Marks fade out with a vessel that fades out toward the pelvis.
+      const fy = morph < 0.5 && FADE_DOWN_Y[x.e.id];
+      if (fy) for (let i = marks.length - 1; i >= 0; i--) { const k = clamp((fy[1] - marks[i].cy) / (fy[1] - fy[0]), 0, 1); if (k < 0.15) marks.splice(i, 1); else marks[i].s *= k; }
       if (marks.length) cb(x, ink, marks, fade);
     }
   }
@@ -2550,7 +2563,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   svg.addEventListener('pointercancel', endPointer);
   svg.addEventListener('lostpointercapture', endPointer);
 
+  // A tap that just misses a thin vessel still picks it: look around the point (out to ~14 px,
+  // more on touch) for a vessel before falling back to the organ or the abdomen under it.
+  function nearbyEdge(ev) {
+    if (ev.clientX == null) return null;
+    const R = ev.pointerType === 'touch' ? 18 : 12;
+    for (const r of [R / 3, (2 * R) / 3, R]) {
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2;
+        const el = document.elementFromPoint(ev.clientX + Math.cos(a) * r, ev.clientY + Math.sin(a) * r)?.closest?.('.v-hit, .ghost-hit');
+        const id = el?.getAttribute('data-id');
+        if (id && EI[id] != null) return id;
+      }
+    }
+    return null;
+  }
   function pick(id, ev) {
+    if (!(id && EI[id] != null)) id = nearbyEdge(ev);
     if (id && EI[id] != null) { onSelect({ type: 'edge', id }); return; }
     const [wx, wy] = clientToWorld(ev.clientX, ev.clientY);
     const o = organAt(wx, wy);
