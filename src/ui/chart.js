@@ -11,10 +11,10 @@
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
 import { h, fmt, icon, svgIcon, toast } from './util.js?v=cc7ee4cf38';
 import { DRUGS } from '../engine/scenario.js?v=8fc90f782f';
-import { TILES, VITALS, PRIMARY } from './dock.js?v=956afc054e';
-import { activeInterventions } from './inspector.js?v=6b6bb6ada3';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=1d44a77db5';
-import { fmtClock } from './timeline.js?v=abe9d81409';
+import { TILES, VITALS, PRIMARY } from './dock.js?v=0a24a373d0';
+import { activeInterventions } from './inspector.js?v=ecfb4548ab';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=f17d736217';
+import { fmtClock } from './timeline.js?v=6d9de122c7';
 
 // Where each readout is measured, so a click can show it on the figure.
 const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS'] };

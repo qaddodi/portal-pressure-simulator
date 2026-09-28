@@ -4,11 +4,11 @@
 
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
 import { h, svgIcon, toast } from './util.js?v=cc7ee4cf38';
-import { EDGES } from '../engine/topology.js?v=6d79260961';
+import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { DRUGS } from '../engine/scenario.js?v=8fc90f782f';
-import { HIDDEN_EDGES } from './anatomy.js?v=b8e0a51a68';
-import { LESSONS } from './learn.js?v=39a10924bf';
-import { CASES } from './cases.js?v=61bb2f80e2';
+import { HIDDEN_EDGES } from './anatomy.js?v=6d41056e52';
+import { LESSONS } from './learn.js?v=b7b9423881';
+import { CASES } from './cases.js?v=9b06db297a';
 
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9+ ]/g, ' ');
 
