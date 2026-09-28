@@ -371,6 +371,68 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const liverNutmeg = s('path', { d: liverD, fill: 'url(#nutmeg)', opacity: 0 });
   const liverNodules = s('path', { d: liverD, fill: 'url(#nodules)', opacity: 0 });
   for (const el of [liverTint, liverNutmeg, liverNodules]) organG.liver.insertBefore(el, organG.liver.querySelector('.org-shade'));
+  // Cirrhosis reshapes the outline itself. The healthy outline is resampled evenly and every
+  // point is displaced, so the shape blends continuously with the slider: the right lobe
+  // atrophies toward the hilum, the lateral left lobe hypertrophies, the inferior edge draws up
+  // and blunts, and the contour dimples between regenerative nodules.
+  const liverPaths = [...organG.liver.querySelectorAll('path')].filter((el) => el.getAttribute('d') === liverD);
+  const liverClip = defs.querySelector('#clip-liver path');
+  if (liverClip) liverPaths.push(liverClip);
+  let baseLiver = null, liverKey = '';
+  function sampleLiver() {
+    const tmp = s('path', { d: liverD }); svg.append(tmp);
+    const L = tmp.getTotalLength(), n = 360, pts = [];
+    for (let i = 0; i < n; i++) { const q = tmp.getPointAtLength((L * i) / n); pts.push([q.x, q.y]); }
+    tmp.remove();
+    let area = 0;
+    for (let i = 0; i < n; i++) { const [ax, ay] = pts[i], [bx, by] = pts[(i + 1) % n]; area += ax * by - bx * ay; }
+    const sg = area > 0 ? 1 : -1; // outward normal for either winding
+    const nm = pts.map((_, i) => {
+      const [ax, ay] = pts[(i + n - 1) % n], [bx, by] = pts[(i + 1) % n];
+      const dx = bx - ax, dy = by - ay, l = Math.hypot(dx, dy) || 1;
+      return [(sg * dy) / l, (-sg * dx) / l];
+    });
+    // Nodules: irregular lengths along the edge, fixed per point.
+    let r = 7, lam = 0, start = 0;
+    const rnd = () => { r = (r * 9301 + 49297) % 233280; return r / 233280; };
+    lam = 18 + 10 * rnd();
+    const step = L / n, nod = [];
+    for (let i = 0; i < n; i++) {
+      const acc = i * step;
+      if (acc - start > lam) { start = acc; lam = 16 + 12 * rnd(); }
+      nod.push([(acc - start) / lam, 0.7 + 0.6 * rnd()]);
+    }
+    return { pts, nm, nod };
+  }
+  const smooth01 = (v) => { const t = clamp(v, 0, 1); return t * t * (3 - 2 * t); };
+  function morphLiver(cirr) {
+    const c = Math.round(clamp(cirr, 0, 1) * 40) / 40;
+    const key = String(c);
+    if (key === liverKey) return;
+    if (!baseLiver) { try { baseLiver = sampleLiver(); } catch { return; } if (!baseLiver.pts.length) { baseLiver = null; return; } }
+    liverKey = key;
+    let d = liverD;
+    if (c > 0) {
+      const { pts, nm, nod } = baseLiver;
+      d = 'M' + pts.map((p0, i) => {
+        let [x, y] = p0;
+        // Right lobe atrophy (toward the hilum) and lateral left lobe hypertrophy (outward).
+        const wr = smooth01((600 - p0[0]) / 260), wl = smooth01((p0[0] - 720) / 120);
+        x += (600 - x) * 0.2 * c * wr; y += (360 - y) * 0.16 * c * wr;
+        x += (x - 720) * 0.1 * c * wl; y += (y - 280) * 0.12 * c * wl;
+        const [nx, ny] = nm[i];
+        // Blunted inferior edge: the downward-facing margin draws up and rounds off.
+        const inf = clamp(ny, 0, 1);
+        x -= nx * 8 * c * inf; y -= ny * 8 * c * inf;
+        // Nodular contour: indentations between regenerative nodules.
+        const [u, a] = nod[i];
+        const dip = Math.pow(1 - Math.sin(Math.PI * u), 2) * 5 * a * c;
+        x -= nx * dip; y -= ny * dip;
+        return `${x.toFixed(1)} ${y.toFixed(1)}`;
+      }).join(' L') + ' Z';
+    }
+    for (const el of liverPaths) el.setAttribute('d', d);
+  }
   // Abdominal wall (anterior): appears only with caput medusae, under the radiating veins.
   const abdWall = s('ellipse', { cx: SITES.umbilicus[0], cy: SITES.umbilicus[1], rx: 120, ry: 96, fill: 'url(#skin)', class: 'abd-wall', opacity: 0 });
   // Flanks: the outline of the abdominal wall, which bulges as ascites accumulates.
@@ -1148,6 +1210,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const k = 1 - t;
     const imaging = isImaging();
     liverNodules.setAttribute('opacity', (Math.min(1, p.cirrhosis) * 0.75 * k).toFixed(2));
+    morphLiver(p.cirrhosis);
     const psin = Math.max(f.P[NI.SIN_R], f.P[NI.SIN_L]);
     liverTint.style.opacity = imaging ? 0 : (clamp((psin - 8) / 16, 0, 1) * 0.5 * k).toFixed(3);
     const hp = store.get().healthy?.P;
