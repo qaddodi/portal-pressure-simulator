@@ -31,9 +31,10 @@ export const HIDDEN_NODES = new Set(['AO', 'UPPV', 'LOWV', 'KID_R', 'RRV', 'HA']
 // Systemic veins drawn quietly: they matter only as the places collaterals drain to.
 export const CONTEXT_EDGES = new Set(['V_UP', 'SVC_RA', 'AZY_SVC', 'ILI_IVC', 'EPI_ILI', 'EPI_SVC', 'V_KID_L', 'LRV_IVC']);
 // Edges the circuit draws but the anatomy leaves out (none at present).
-// The iliac vein is left out of the plate: the rectal and inferior epigastric veins fade out
-// toward the pelvis instead of joining it (they still drain into it in the model and the circuit).
-export const ANAT_HIDDEN = new Set(['ILI_IVC']);
+// The iliac confluence is left out of the plate: the infrarenal IVC runs on down and fades out,
+// and the rectal and inferior epigastric veins fade out toward the pelvis instead of joining it
+// (they still drain into it in the model and the circuit).
+export const ANAT_HIDDEN = new Set([]);
 export const ANAT_HIDDEN_NODES = new Set(['ILI']);
 // Drawn only once the paraumbilical collateral has opened.
 export const NEEDS_C3 = new Set(['EPI_ILI', 'EPI_SVC']);
@@ -126,7 +127,7 @@ export const EDGE_PATH = {
   AZY_SVC: 'M574 30 C 592 22 612 28 620 40',
   V_KID_L: 'M1005 622 C 960 620 910 618 862 618',
   LRV_IVC: 'M862 618 C 790 620 700 640 620 650',
-  ILI_IVC: 'M620 880 L 620 650',
+  ILI_IVC: 'M620 950 L 620 650',
   EPI_ILI: 'M500 800 C 512 850 530 896 546 950',
   EPI_SVC: 'M500 800 C 420 780 340 680 334 520 C 318 410 318 260 360 170 C 400 90 520 52 620 40',
 
