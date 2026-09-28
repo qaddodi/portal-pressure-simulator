@@ -418,7 +418,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         let [x, y] = p0;
         // Right lobe atrophy (toward the hilum) and lateral left lobe hypertrophy (outward).
         const wr = smooth01((600 - p0[0]) / 260), wl = smooth01((p0[0] - 720) / 120);
-        x += (600 - x) * 0.2 * c * wr; y += (360 - y) * 0.16 * c * wr;
+        x += (600 - x) * 0.1 * c * wr; y += (360 - y) * 0.08 * c * wr;
         x += (x - 720) * 0.1 * c * wl; y += (y - 280) * 0.12 * c * wl;
         const [nx, ny] = nm[i];
         // Blunted inferior edge: the downward-facing margin draws up and rounds off.
@@ -1107,17 +1107,29 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A selected organ keeps a quiet outline; a selected site (varices, fundus, abdomen) a ring.
   const gSelO = s('g', { id: 'organSel' });
   gOver.after(gSelO);
-  let selOKey = '';
+  let selOKey = '', selLine = null;
+  function syncSelLine() {
+    if (!selLine) return;
+    const d = organEls[selLine.id].getAttribute('d'), tr = organG[selLine.id].getAttribute('transform');
+    if (selLine.el.getAttribute('d') !== d) selLine.el.setAttribute('d', d);
+    if (tr) selLine.el.setAttribute('transform', tr); else selLine.el.removeAttribute('transform');
+  }
   function updateOrganSel(sel, t) {
     const o = sel?.type === 'organ' && t < 0.5 ? sel.id : null;
     const key = o ? o + (sel.lobe || '') : '';
     if (key === selOKey) return;
     selOKey = key;
     for (const g of Object.values(organG)) g.classList.remove('org-sel');
-    gSelO.replaceChildren();
+    gSelO.replaceChildren(); selLine = null;
     if (!o) return;
     const byOrgan = { liver: ['liver'], heart: ['heart'], spleen: ['spleen'] }[o];
-    if (byOrgan) { for (const id of byOrgan) organG[id]?.classList.add('org-sel'); const d = ORGANS.find((x) => x.id === byOrgan[0])?.d; if (d) gSelO.append(s('path', { d, class: 'org-sel-line' })); return; }
+    if (byOrgan) {
+      for (const id of byOrgan) organG[id]?.classList.add('org-sel');
+      // The outline follows the organ as drawn now (a cirrhotic liver's reshaped contour, an
+      // enlarged spleen), not its healthy outline.
+      if (organEls[byOrgan[0]]?.getAttribute('d')) { selLine = { id: byOrgan[0], el: s('path', { class: 'org-sel-line' }) }; syncSelLine(); gSelO.append(selLine.el); }
+      return;
+    }
     const at = { varices: [SITES.varix[0], SITES.varix[1] + 20, 26, 62], gastric: [SITES.fundus[0], SITES.fundus[1], 34, 30], abdomen: [720, 790, 230, 110] }[o];
     if (at) gSelO.append(s('ellipse', { cx: at[0], cy: at[1], rx: at[2], ry: at[3], class: 'org-sel-ring' }));
   }
@@ -1223,6 +1235,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     abdWall.setAttribute('opacity', (clamp((c3 - 0.1) / 0.4, 0, 1) * 0.9 * k).toFixed(2));
     const sc = f.slow.spleen / 11;
     organG.spleen.setAttribute('transform', `translate(${SPLEEN_CENTER[0]} ${SPLEEN_CENTER[1]}) scale(${sc.toFixed(3)}) translate(${-SPLEEN_CENTER[0]} ${-SPLEEN_CENTER[1]})`);
+    syncSelLine();
     // Ascites collects in the flanks and the pelvis first (supine patient, frontal view), so its
     // surface is a meniscus: highest at the sides, lowest in the middle. The abdominal wall bulges
     // and the bowel floats up on it. A slow ripple runs along the surface.
