@@ -2058,6 +2058,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const it = { key: 'z:' + txt, cls: 'zonecap', lines: [[{ t: txt.toUpperCase(), size: compact ? 8.5 : 9.5, weight: 650, cls: 'lb-zone', track: 0.1 }]], align: 'middle', padX: 2, padY: 2 };
         it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
         if (turned) {
+          // The liver card names the liver itself, and takes the left edge beside the module.
+          if (/liver/i.test(txt)) continue;
           // Upright, a zone is a horizontal band: its title sits at the band's middle, at the map's left edge.
           it.ax = Math.max(it.w / 2 + 8, (a + b) / 2); it.ay = (ay0 + by) / 2;
           if (Math.abs(by - ay0) > it.h + 6) place(it, ['C'], 0, false);
@@ -2081,16 +2083,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (showVals) {
           const pr = pressureRuns((f.Pf || f.P)[NI.SIN_R], 'SIN_R', compact);
           const val = (v) => ({ t: Number.isFinite(v) ? fmt(v, 1) : '∞', size: sz, weight: 650, cls: 'lb-val', gap: 3 });
-          if (pr) lines.push([{ t: 'Sinusoids', size: compact ? 10.5 : 11.5, weight: 500, cls: 'lb-name', gap: 0 }, ...pr.map((r, i) => (i ? r : { ...r, gap: 6 }))]);
+          if (pr && turned) lines.push([{ t: 'Sinusoids', size: compact ? 10.5 : 11.5, weight: 500, cls: 'lb-name' }], pr);
+          else if (pr) lines.push([{ t: 'Sinusoids', size: compact ? 10.5 : 11.5, weight: 500, cls: 'lb-name', gap: 0 }, ...pr.map((r, i) => (i ? r : { ...r, gap: 6 }))]);
           if (turned) lines.push([{ t: 'Resistance, WU', size: sz, weight: 500, cls: 'lb-name' }], ...R.map(([k, v]) => [{ t: k, size: sz, weight: 500, cls: 'lb-unit' }, { ...val(v), gap: 6 }]));
           else lines.push([{ t: 'Resistance', size: sz, weight: 500, cls: 'lb-name' }, ...R.flatMap(([k, v], i) => [{ t: (i ? '· ' : '') + k, size: sz, weight: 500, cls: 'lb-unit', gap: i ? 5 : 6 }, val(v)]), { t: 'WU', size: sz, weight: 500, cls: 'lb-unit', gap: 3 }]);
         }
-        // Turned upright, the module's top edge is now its right side; the card goes there, beside the module.
-        const [ax, ay] = turned ? worldToLocal((LIVER_MODULE.x0 + LIVER_MODULE.x1) / 2, LIVER_MODULE.y1) : worldToLocal((LIVER_MODULE.x0 + LIVER_MODULE.x1) / 2, LIVER_MODULE.y0);
+        // Turned upright, the module's top edge is now its left side; the card goes there, beside the module.
+        const [ax, ay] = turned ? worldToLocal((LIVER_MODULE.x0 + LIVER_MODULE.x1) / 2, LIVER_MODULE.y0) : worldToLocal((LIVER_MODULE.x0 + LIVER_MODULE.x1) / 2, LIVER_MODULE.y0);
         const it = { key: 'liver', cls: 'module' + (open ? ' open' : ''), lines, align: 'middle', bg: true, padX: 8, padY: 4, ax, ay, label: open ? 'Hide liver stations' : 'Show liver stations',
           onClick: () => { liverOpen = !liverExpanded(); if (!liverOpen && vt.k >= 1.9) toast('Zoomed in: the liver stays expanded. Zoom out to collapse it.'); if (F) update(F); } };
         it.w = Math.max(...lines.map(lineW)); it.h = lines.reduce((a, l) => a + LINE_H(l), 0);
-        place(it, turned ? ['SE', 'E', 'W', 'C'] : ['N', 'C'], turned ? 8 : 4, false);
+        place(it, turned ? ['W', 'SW', 'NW', 'E', 'C'] : ['N', 'C'], turned ? 8 : 4, false);
       }
       const nodes = [];
       for (const n of NODES) {
