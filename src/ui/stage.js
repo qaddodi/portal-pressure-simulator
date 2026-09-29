@@ -1814,6 +1814,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const [ax, ay] = worldToLocal(...nodePos(id, t));
     return { ax, ay, mid: false, tan: null, w: 0 };
   }
+  // Whether the esophageal (VAR) or gastric (GV) varices exist yet (the app's "none" cut-off, 2.5 mm),
+  // or the learner has selected that station.
+  function hasVarices(id, f) {
+    const sel = store.get().selection;
+    if (sel?.type === 'node' && sel.id === id) return true;
+    return (id === 'VAR' ? f.metrics.varix.d : f.metrics.gastricVarix.d) >= 2.5;
+  }
   let labelGridKey = '', labelGrid = new Map();
   const labelMem = new Map();
   function updateLabels(f) {
@@ -1907,7 +1914,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!circuit) {
       // ── Anatomy ──
       const show = new Set(CHIP_NODES);
-      if (f.metrics.gastricVarix.d >= 2.4) show.add('GV');
+      // No varices, no varices callout: in a healthy patient the node's pressure is just the balance
+      // between the coronary vein and the azygos, and a "varices" label on it would mislead.
+      if (!hasVarices('VAR', f)) show.delete('VAR');
+      if (hasVarices('GV', f)) show.add('GV');
       if (st.selection?.type === 'node') show.add(st.selection.id);
       const cath = (f.viewParams || st.params).catheter;
       if (cath.vein && cath.wedged) show.add('W_' + cath.vein);
@@ -2013,6 +2023,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const n of NODES) {
         if (!nodeEls[n.id] || !CIRCUIT_LABELS[n.id]) continue;
         if (!nodeVisible(n.id)) continue;
+        if ((n.id === 'VAR' || n.id === 'GV') && !hasVarices(n.id, f)) continue;
         if (!open && LIVER_INNER.has(n.id) && !(st.selection?.type === 'node' && st.selection.id === n.id)) continue;
         const { ax, ay, mid, tan, w: vw } = labelAnchor(n.id, t);
         if (ax < -10 || ax > W + 10 || ay < -10 || ay > H + 10) continue;

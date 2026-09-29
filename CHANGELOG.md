@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **No varices, no varices label.** The "Esophageal varices" callout (and "Fundal varices", in the
+  circuit) is hidden until varices exist (2.5 mm or more), so a healthy patient no longer shows a
+  pressure on a structure that isn't there. It still appears if the station is selected.
 - **The coronary vein fades unless something attaches.** The left gastric (coronary) vein's upper
   end fades out into the stomach wall, and is drawn solid to its end only while a collateral to the
   esophageal varices or the fundus is open and leaves it there.
