@@ -48,6 +48,10 @@ jobs:
           # Keep the preview out of search engines and record what it was built from.
           sed -i 's|<head>|<head>\n  <meta name="robots" content="noindex" />|' site/preview/index.html
           printf 'branch: %s\ncommit: %s\nbuilt:  %s\n' "$BRANCH" "$SHA" "$(date -u +%FT%TZ)" > site/preview/preview-info.txt
+          # A branch preview wears a PREVIEW badge; after a merge /preview/ is just main, so no badge.
+          if [ "$BRANCH" != "main" ]; then
+            node preview/scripts/preview-badge.mjs site/preview "${SHA:0:7}"
+          fi
           touch site/.nojekyll
 
       - uses: actions/configure-pages@v5
