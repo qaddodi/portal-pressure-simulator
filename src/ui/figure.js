@@ -5,7 +5,8 @@
 
 import { store } from './store.js?v=4bf5a96a9d';
 import { h, fmt, fmtFlow, icon, toast } from './util.js?v=cc7ee4cf38';
-import { pressureColor, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=5f8590b23c';
+import { measurementRows, MEASURE_TITLE } from './measures.js?v=bbf4a3cf5d';
+import { pressureColor, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const PROPS = ['fill', 'fill-opacity', 'fill-rule', 'stroke', 'stroke-width', 'stroke-opacity', 'stroke-dasharray', 'stroke-dashoffset', 'stroke-linecap', 'stroke-linejoin',
@@ -16,7 +17,7 @@ export function createFigure({ app, stage, onClose }) {
   const head = document.getElementById('figHead');
   const foot = document.getElementById('figFoot');
   const wrap = document.getElementById('stageWrap');
-  let subEl, kEl, titleEl;
+  let subEl, kEl, titleEl, measEl, measKey = '';
 
   const scenario = () => { const st = store.get(); return st.presetList?.find((p) => p.id === st.presetId)?.label || 'Custom scenario'; };
   const viewName = () => (store.get().view === 'circuit' ? 'Circuit view' : 'Anatomic view');
@@ -69,11 +70,11 @@ export function createFigure({ app, stage, onClose }) {
     const blk = h('div', { class: 'fig-key lg-full' });
     if (mode === 'pressure') {
       const at = (p) => (p / 30) * 100;
-      blk.append(h('span', { class: 'fk-t' }, 'Venous pressure (mmHg)'),
+      blk.append(h('span', { class: 'fk-t' }, 'Mean venous pressure, mmHg'),
         h('div', { class: 'lg-scale' }, h('div', { class: 'lg-bar', style: { background: `linear-gradient(to right, ${Array.from({ length: 13 }, (_, i) => `${pressureColor(i * 2.5)} ${(i * 2.5 / 30) * 100}%`).join(',')})` } }),
-          [5, 10, 12, 20].map((p) => h('span', { class: 'lg-tick', style: { left: at(p) + '%' } })),
-          [[0, '0'], [5, '5'], [10, '10'], [12, '12'], [20, '20'], [30, '30']].map(([p, t]) => h('span', { class: 'lg-num', style: { left: at(p) + '%', transform: p === 10 ? 'translateX(-85%)' : p === 12 ? 'translateX(-15%)' : '' } }, t))),
-        h('span', { class: 'fig-cap', style: { maxWidth: '260px' } }, 'Breaks at 5, 10, 12, 20 mirror the HVPG thresholds (normal, CSPH, bleeding, high risk).'));
+          PRESSURE_TICKS.map((p) => h('span', { class: 'lg-tick', style: { left: at(p) + '%' } })),
+          PRESSURE_TICKS.map((p) => h('span', { class: 'lg-num', style: { left: at(p) + '%' } }, String(p)))),
+        h('span', { class: 'fig-cap', style: { maxWidth: '260px' } }, 'Absolute pressure at each vessel. It carries no clinical threshold: gradients are separate measurements.'));
     } else if (mode === 'delta') {
       blk.append(h('span', { class: 'fk-t' }, `Change from ${st.compareSnap ? st.compareSnap.when : 'healthy'} (mmHg)`),
         h('div', { class: 'lg-scale' }, h('div', { class: 'lg-bar', style: { background: 'linear-gradient(to right, #2D6CDF, #9696A0, #D22846)' } }), h('span', { class: 'lg-tick', style: { left: '50%' } }),
@@ -129,18 +130,30 @@ export function createFigure({ app, stage, onClose }) {
     close.addEventListener('click', onClose);
     kEl = h('div', { class: 'fh-k' }); titleEl = h('h1'); subEl = h('div', { class: 'fh-sub' });
     head.replaceChildren(h('div', { class: 'fh-text' }, kEl, titleEl, subEl), h('div', { class: 'fh-actions' }, ...actions, close));
-    foot.replaceChildren(legendBlock(), keyBlock(), h('p', { class: 'fig-cap', style: { margin: 0 } }, captionText()));
+    measEl = h('div', { class: 'fig-meas' }); measKey = '';
+    foot.replaceChildren(legendBlock(), keyBlock(), h('p', { class: 'fig-cap', style: { margin: 0 } }, captionText()), measEl);
+  }
+  // The three pressure measurements, side by side, so a vessel color is never read as a gradient.
+  function measures() {
+    const f = store.get().frame, rows = f && measurementRows(f);
+    const key = rows ? JSON.stringify(rows) : 'none';
+    if (key === measKey) return;
+    measKey = key;
+    if (!rows) { measEl.replaceChildren(); return; }
+    measEl.replaceChildren(h('span', { class: 'fk-t' }, MEASURE_TITLE), h('div', { class: 'fm-grid' },
+      rows.map((r) => h('p', { class: 'fig-cap fm-row' }, h('b', {}, `${r.name}: ${r.value}. `), [r.def, r.flag, r.note].filter(Boolean).join(' ')))));
   }
   function update(f) {
     if (!subEl || !f) return;
     kEl.textContent = `Figure · ${viewName()}`;
     titleEl.textContent = titleText();
     subEl.replaceChildren(...subRuns(f).map(([t, b]) => (b ? h('b', {}, t) : t)));
+    if (measEl) measures();
   }
   let unsub = [];
   function open() {
     build(); update(store.get().frame);
-    unsub = ['view', 'colorMode', 'compareView', 'presetId', 'compareSnap'].map((k) => store.on(k, () => { build(); update(store.get().frame); }));
+    unsub = ['view', 'colorMode', 'compareView', 'presetId', 'compareSnap', 'selection'].map((k) => store.on(k, () => { build(); update(store.get().frame); }));
     head.querySelector('.btn.primary')?.focus({ preventScroll: true });
   }
   function close() { unsub.forEach((u) => u()); unsub = []; }

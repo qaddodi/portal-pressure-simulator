@@ -294,6 +294,10 @@ svg { flex: none; }
 .fig-key svg { width: 26px; height: 12px; flex: none; }
 .fig-cap { font-size: var(--fs-12); color: var(--text-3); line-height: 1.55; max-width: 72ch; }
 .fig-cap b { color: var(--text-2); font-weight: 600; }
+.fig-foot .fig-meas { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; padding-top: 10px; border-top: 1px solid var(--hairline); }
+.fig-meas .fk-t { font-size: var(--fs-11); font-weight: 650; color: var(--text); }
+.fig-meas .fm-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 24px; }
+.fig-meas .fm-row { margin: 0; max-width: none; }
 .lg-full { display: flex; flex-direction: column; gap: 8px; }
 .lg-full .lg-scale { width: 240px; height: 42px; }
 .lg-full .lg-ann { position: absolute; top: 28px; transform: translateX(-50%); font-size: var(--fs-11); color: var(--text-3); white-space: nowrap; }
@@ -1032,6 +1036,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   .app.figure-mode .fig-head { padding: 16px 16px 4px; flex-direction: column; gap: 8px; }
   .app.figure-mode .fig-head h1 { font-size: var(--fs-16); }
   .app.figure-mode .fig-foot { grid-template-columns: 1fr; padding: 8px 16px 16px; gap: 8px; }
+  .fig-meas .fm-grid { grid-template-columns: 1fr; }
   .app.figure-mode .fig-key { flex-direction: row; flex-wrap: wrap; gap: 8px 16px; }
 }
 /* Phone in landscape: the figure fills the screen; the side panel slides over it */
@@ -1621,6 +1626,17 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 /* Pressure landscape */
 .land-box canvas { cursor: grab; }
 .land-box canvas:active { cursor: grabbing; }
+/* Three measurements card: vessel pressure, HVPG, direct gradient */
+.mcard { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: var(--r-card); background: var(--surface-2); }
+.mc-t { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); }
+.mc-row { display: flex; flex-direction: column; gap: 2px; padding-top: 10px; border-top: 1px solid var(--hairline); }
+.mc-t + .mc-row { padding-top: 0; border-top: 0; }
+.mc-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.mc-n { font-size: var(--fs-13); font-weight: 650; }
+.mc-v { font-size: var(--fs-14); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mc-d { font-size: var(--fs-12); color: var(--text-2); line-height: 1.45; }
+.mc-f { font-size: var(--fs-12); color: var(--text); line-height: 1.45; font-weight: 600; }
+.mc-a { font-size: var(--fs-12); color: var(--text-3); line-height: 1.45; }
 .land-verdict { margin-top: 12px; padding: 12px 12px; border-radius: var(--r-card); background: var(--surface-2); }
 .lv-k { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); }
 .lv-v { font-size: var(--fs-14); font-weight: 650; margin-top: 2px; }

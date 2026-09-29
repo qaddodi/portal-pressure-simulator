@@ -1,25 +1,25 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=6a22e2b420';
+import { startHost, host } from './host.js?v=ce51691de3';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=4bf5a96a9d';
-import { createStage } from './stage.js?v=a296c4f66d';
+import { createStage } from './stage.js?v=fb25357520';
 import { createInspector } from './inspector.js?v=ecfb4548ab';
-import { createDock, CUTOFFS } from './dock.js?v=02e30db2f0';
-import { createWhy } from './why.js?v=d43c195529';
-import { createTimeline } from './timeline.js?v=6d9de122c7';
-import { createLearn } from './learn.js?v=b7b9423881';
-import { createCases } from './cases.js?v=9b06db297a';
-import { createCompare } from './compare.js?v=7761d2d09f';
+import { createDock, CUTOFFS } from './dock.js?v=5512b42e41';
+import { createWhy } from './why.js?v=cb6efa350a';
+import { createTimeline } from './timeline.js?v=a16aa94cd6';
+import { createLearn } from './learn.js?v=cc9a38cf25';
+import { createCases } from './cases.js?v=52c633ef8b';
+import { createCompare } from './compare.js?v=e505a6db48';
 import { createCard } from './card.js?v=f9bd337cef';
-import { createChart } from './chart.js?v=f4fd851e43';
-import { createHome } from './home.js?v=0d190be632';
+import { createChart } from './chart.js?v=a66e3de3db';
+import { createHome } from './home.js?v=fe3cba9aa4';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=0457b367b9';
-import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=b10453f281';
+import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=0287515a1d';
 import { startLMS } from './lms.js?v=4511ed56b8';
-import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=ab32f7d0b5';
+import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=f17d736217';
-import { gradientCss, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=5f8590b23c';
+import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=29d10ad9ef';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, units, popover, closePopover, menuItem, svgIcon } from './util.js?v=cc7ee4cf38';
 
@@ -146,7 +146,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=fc91496603'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=85fbfd3e0d'), ({ createPalette }) => createPalette({ ctx: {
     select: (sel) => store.set({ selection: sel }), action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     wedge: () => { store.set({ selection: { type: 'edge', id: 'RHV_IVC' } }); setTimeout(() => card.trigger(3), 60); },
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
@@ -154,7 +154,7 @@ async function main() {
     loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); toast(store.get().presetList.find((p) => p.id === id)?.label); },
     lesson: (id) => startLesson(id), caseStart: (id) => startCase(id), home: () => home.open(), theme: () => toggleTheme(), help: () => openHelp(), share, restart: () => restartPatient(), reset: () => resetEverything(),
   } }));
-  figureL = lazy(() => import('./figure.js?v=66908eb649'), ({ createFigure }) => createFigure({ app, stage, onClose: () => toggleFigure(false) }));
+  figureL = lazy(() => import('./figure.js?v=5361a7d246'), ({ createFigure }) => createFigure({ app, stage, onClose: () => toggleFigure(false) }));
   card = createCard({
     view, stage, onWhy: (m, el) => why.open(m, el),
     onDetails: (sel) => { store.set({ details: normalizeSel(sel) || sel }); openPanel(); },
@@ -466,10 +466,10 @@ function renderLegend() {
     nums.map(([p, t]) => h('span', { class: 'lg-num', style: { left: p + '%' } }, t)));
   if (m === 'pressure' || m === 'drop') {
     const max = 30, at = (p) => (p / max) * 100;
-    el.replaceChildren(h('div', { class: 'lg-title' }, m === 'pressure' ? 'Venous pressure' : 'Pressure drop', h('small', {}, 'mmHg')),
-      m === 'pressure' ? scale(gradientCss('to right', max), [[at(0), '0'], [at(5), '5'], [at(10), '10'], [at(20), '20'], [at(30), '30']], [at(5), at(10), at(12), at(20)])
+    el.replaceChildren(h('div', { class: 'lg-title' }, m === 'pressure' ? 'Mean venous pressure' : 'Pressure drop', h('small', {}, 'mmHg')),
+      m === 'pressure' ? scale(gradientCss('to right', max), PRESSURE_TICKS.map((p) => [at(p), String(p)]), PRESSURE_TICKS.map(at))
         : scale(gradientCss('to right', max), [[0, '0'], [100, '12+']]));
-    el.setAttribute('aria-label', m === 'pressure' ? 'Legend: venous pressure from 0 to 30 millimeters of mercury, pale blue to dark magenta' : 'Legend: pressure drop across each vessel, 0 to 12 or more millimeters of mercury');
+    el.setAttribute('aria-label', m === 'pressure' ? 'Legend: mean venous pressure at each vessel, 0 to 30 millimeters of mercury, pale blue to dark magenta' : 'Legend: pressure drop across each vessel, 0 to 12 or more millimeters of mercury');
   } else if (m === 'flow') {
     const at = (v) => flowPos(v) * 100;
     el.replaceChildren(h('div', { class: 'lg-title' }, 'Flow volume', h('small', {}, 'L/min · width ∝ √flow')),
@@ -504,7 +504,7 @@ function openLegend(anchor) {
   const { m, ref } = legendModel();
   const rows = m === 'pressure' ? [
     ['Scale', 'Mean venous pressure, perceptually uniform (OKLab) from 0 to 30 mmHg.'],
-    ['Breakpoints', 'The color steps at 5, 10, 12 and 20 mmHg mirror the clinical HVPG thresholds: normal ≤ 5, CSPH ≥ 10, variceal bleeding ≥ 12, high risk ≥ 20. HVPG is a gradient (wedged − free hepatic venous pressure); read it in the HVPG readout, not from a single vessel color.'],
+    ['Not a threshold', 'The color is the absolute pressure at that vessel, with numeric ticks only. Clinical thresholds apply to gradients, which are different measurements: HVPG (wedged − free hepatic venous pressure) and the direct portal–systemic gradient (portal vein − suprahepatic IVC). They are read in their own readouts, and compared side by side in the Pressure landscape and the Figure view.'],
   ] : m === 'drop' ? [['Scale', 'Pressure lost across each vessel (upstream − downstream). Bright segments are where the resistance sits.']]
     : m === 'flow' ? [['Scale', 'Blood flow through each vessel in L/min, log scale; line width also grows with flow (∝ √flow), like traffic volume on a city map. Labels give the flow into each station and its change from healthy.']]
     : m === 'velocity' ? [['Scale', 'Mean velocity (flow ÷ lumen area). Dark red below ~5 cm/s is near-stasis, where thrombosis is likely (e.g. portal vein thrombosis in advanced cirrhosis); green is free-flowing. The liver microcirculation is grey: it is a bed, not a single tube.']]
@@ -899,12 +899,13 @@ function openHelp(section) {
       h('li', {}, 'Line width follows vessel diameter (compressed, so the cavae don’t drown the portal tree). Watch collaterals and varices swell.'),
       h('li', {}, 'The circuit view is a transit map: pressure falls from left to right; collaterals and shunts run in their own lanes as bypasses.')),
     h('h3', {}, 'Thresholds & references'),
-    h('p', { class: 'sub' }, 'Baveno VII consensus on portal hypertension (2022); AASLD guidance on risk stratification and management of portal hypertension and varices in cirrhosis (2024). Physiology after Guyton; Lautt (hepatic arterial buffer response); Bosch & Groszmann (HVPG).'),
+    h('p', { class: 'sub' }, 'Baveno VII consensus on portal hypertension (2022), reviewed against Baveno VIII (August 2026); AASLD guidance on risk stratification and management of portal hypertension and varices in cirrhosis (2024). Thresholds apply to gradients (HVPG, direct portal–systemic gradient), never to the pressure at a single vessel. Physiology after Guyton; Lautt (hepatic arterial buffer response); Bosch & Groszmann (HVPG).'),
     h('p', { class: 'disclaimer' }, 'Educational simulation. The model is simplified and its values are illustrative; do not use it for diagnosis or treatment decisions.')), { wide: true });
   scrollToSection(section);
 }
 // Help and About open at a named section (Keyboard shortcuts, References).
 function scrollToSection(section) { if (section) requestAnimationFrame(() => $(`#modal [data-sec="${section}"]`)?.scrollIntoView({ block: 'start' })); }
+const pmid = (id) => h('a', { href: `https://pubmed.ncbi.nlm.nih.gov/${id}/`, target: '_blank', rel: 'noopener' }, `PMID ${id}`);
 function openAbout(section) {
   openModal('About the model', h('div', {},
     h('p', {}, 'Created by ', h('b', {}, AUTHOR), '. ', h('a', { href: AUTHOR_URL, target: '_blank', rel: 'noopener' }, 'See all of the author’s teaching tools'), '.'),
@@ -919,13 +920,20 @@ function openAbout(section) {
     h('div', { class: 'table-wrap' }, h('table', { class: 'cut-table' },
       h('thead', {}, h('tr', {}, ['Readout', 'Normal', 'Borderline', 'Past a threshold', 'High risk'].map((x, i) => h('th', {}, i ? h('span', { class: 'cut-h' }, h('i', { class: 'dot', 'data-sev': ['', 'ok', 'caution', 'danger', 'critical'][i] }), x) : x)))),
       h('tbody', {}, CUTOFFS.map((r) => h('tr', {}, r.map((c) => h('td', {}, c))))))),
+    h('p', { class: 'sub' }, 'Thresholds belong to gradients, not to the color of a vessel. HVPG ≥ 10 mmHg is clinically significant portal hypertension in cirrhosis. HVPG ≥ 20 mmHg matters as a prognostic finding when measured during an acute variceal bleed. 12 mmHg is not a bleeding threshold: varices can bleed below it, and it is only a usual post-TIPS target for the direct gradient.'),
+    h('h3', {}, 'Reference review'),
+    h('p', {}, 'Baveno VII (2022) is the basis for the thresholds above. They were reviewed against Baveno VIII (J Hepatol, August 2026), whose abstract states that earlier HVPG measurement recommendations remain valid where they were not revised. A line-by-line check of each statement against the full Baveno VIII text is still pending.'),
     h('h3', {}, 'Clinical review'),
     h('p', {}, 'Lesson and case content follows the guidance below. An external clinical advisory review with named reviewers is pending; their sign-off per lesson and case will be listed here.'),
     h('h3', { 'data-sec': 'refs' }, 'References'),
     h('ol', { class: 'refs' },
-      h('li', {}, 'de Franchis R, et al. Baveno VII: renewing consensus in portal hypertension. J Hepatol 2022;76:959–74.'),
+      h('li', {}, 'de Franchis R, et al. Baveno VII: renewing consensus in portal hypertension. J Hepatol 2022;76:959–74. ', pmid(35120736)),
+      h('li', {}, 'Baveno VIII: advancing consensus in portal hypertension. J Hepatol, August 2026. ', pmid(42624290)),
       h('li', {}, 'Kaplan DE, et al. AASLD Practice Guidance on risk stratification and management of portal hypertension and varices in cirrhosis. Hepatology 2024;79:1180–1211.'),
       h('li', {}, 'Bosch J, Groszmann RJ, et al. Measurement of portal pressure (HVPG). Hepatology / Semin Liver Dis.'),
+      h('li', {}, 'Prognostic role of endoscopic ultrasound-guided direct portal pressure gradient measurement in porto-sinusoidal vascular disorder. Liver Int 2025. Mean direct gradient 16.7 and mean HVPG 5.5 mmHg. ', pmid(40251984)),
+      h('li', {}, 'Directly measured portal pressure gradient and variceal hemorrhage in patients undergoing TIPS: bleeding occurred below 12 mmHg. ', pmid(7485008)),
+      h('li', {}, 'Hepatic venous pressure gradient and prognosis in patients with acute variceal bleeding treated with pharmacologic and endoscopic therapy. ', pmid(18093686)),
       h('li', {}, 'Lautt WW. Hepatic Circulation: Physiology and Pathophysiology. Morgan & Claypool, 2009.'),
       h('li', {}, 'Guyton AC. Venous return and the systemic filling pressure.')),
     h('h3', {}, 'Licenses'),

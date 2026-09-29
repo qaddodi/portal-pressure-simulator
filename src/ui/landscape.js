@@ -8,8 +8,9 @@ import { store } from './store.js?v=4bf5a96a9d';
 import { h, fmt, clamp, fitCanvas } from './util.js?v=cc7ee4cf38';
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { NODE_POS, HIDDEN_EDGES, HIDDEN_NODES, CIRCUIT_ZONES, SHORT } from './anatomy.js?v=0fae49bf3a';
-import { pressureColor } from './colormap.js?v=5f8590b23c';
-import { theme, FONT } from './charts.js?v=33aa0d634b';
+import { pressureColor, PRESSURE_TICKS } from './colormap.js?v=6d64a94345';
+import { createMeasureCard } from './measures.js?v=bbf4a3cf5d';
+import { theme, FONT } from './charts.js?v=67b662f405';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 // The portal pathway, gut to heart, and what a fall across each step means.
@@ -27,11 +28,13 @@ export function createLandscape() {
   const cv = h('canvas', { role: 'img', 'aria-label': 'Pressure landscape: the circulation raised by pressure' });
   box.append(cv);
   const verdict = h('div', { class: 'land-verdict' });
+  const card = createMeasureCard();
   const side = h('div', { class: 'chart-side' },
     h('div', { class: 'side-title' }, 'Pressure landscape'),
-    h('div', { class: 'sub' }, 'The circuit raised by mean pressure. Blood runs downhill: plateaus are compartments, cliffs are resistances. Drag to tilt and turn.'),
-    verdict);
+    h('div', { class: 'sub' }, 'The circuit raised by mean venous pressure (mmHg). Blood runs downhill: plateaus are compartments, cliffs are resistances. Drag to tilt and turn.'),
+    verdict, card.el);
   el.append(box, side);
+  store.on('selection', () => { if (F) card.update(F); });
 
   let F = null, yaw = 0.3, tilt = 0.3, raf = 0, lastT = 0, phase = 0;
   const edges = EDGES.filter((e) => e.kind !== 'wedge' && !HIDDEN_EDGES.has(e.id) && NODE_POS[e.from] && NODE_POS[e.to] && !HIDDEN_NODES.has(e.from) && !HIDDEN_NODES.has(e.to));
@@ -93,13 +96,14 @@ export function createLandscape() {
     });
     ctx.strokeStyle = c.border; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(...corner(0, 0)); ctx.lineTo(...corner(1, 0)); ctx.lineTo(...corner(1, 1)); ctx.lineTo(...corner(0, 1)); ctx.closePath(); ctx.stroke();
-    // Reference planes: CSPH (10) and the bleeding threshold (12), as outlines at their height.
-    for (const [pv, col, lab] of [[10, c.axis, '10'], [12, c.danger, '12 mmHg']]) {
-      const q = [proj(X0, Y0, pv), proj(X1, Y0, pv), proj(X1, Y1, pv), proj(X0, Y1, pv)];
-      ctx.setLineDash([3, 4]); ctx.strokeStyle = col; ctx.globalAlpha = pv === 12 ? 0.55 : 0.8;
-      ctx.beginPath(); ctx.moveTo(...q[0]); for (const p of q.slice(1)) ctx.lineTo(...p); ctx.closePath(); ctx.stroke();
-      ctx.setLineDash([]); ctx.globalAlpha = 1;
-      if (pv === 12) { ctx.fillStyle = c.danger; ctx.font = FONT(600, 9.5); ctx.textAlign = 'right'; ctx.fillText(lab, q[0][0] - 4, q[0][1] + 3); }
+    // Height axis: plain numeric ticks (mean venous pressure, mmHg) up the front-left edge, clear
+    // of the stations. No clinical threshold is drawn here: height is the pressure at a vessel.
+    ctx.font = FONT(600, 9.5); ctx.textAlign = 'right'; ctx.strokeStyle = c.axis; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(...proj(X0, Y1, 0)); ctx.lineTo(...proj(X0, Y1, PRESSURE_TICKS.at(-1))); ctx.stroke();
+    for (const pv of PRESSURE_TICKS) {
+      const q = proj(X0, Y1, pv);
+      ctx.beginPath(); ctx.moveTo(q[0] - 3, q[1]); ctx.lineTo(q[0], q[1]); ctx.stroke();
+      ctx.fillStyle = c.faint; ctx.fillText(String(pv), q[0] - 5, q[1] + 3);
     }
     // Vessels, back to front: a translucent curtain down to the floor, then the ribbon at its
     // pressure, colored by the pressure scale; width follows diameter.
@@ -173,6 +177,7 @@ export function createLandscape() {
   }
   function update(f) {
     F = f;
+    card.update(f);
     draw();
     if (!raf && store.get().running && !matchMedia('(prefers-reduced-motion: reduce)').matches) { lastT = performance.now(); raf = requestAnimationFrame(loop); }
   }

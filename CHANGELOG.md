@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Pressure language.** Vessel color is absolute mean venous pressure with numeric ticks only;
+  the CSPH / bleeding / high-risk labels and the reference planes at 10 and 12 mmHg are gone from
+  the scale, the figure legend and the pressure landscape. A card sets three different
+  measurements side by side (in the Pressure landscape and on the Figure plate): vessel pressure,
+  HVPG (wedged − free) and the direct portal–systemic gradient (portal vein − suprahepatic IVC),
+  with thresholds only beside the two gradients and with their clinical context. 12 mmHg is no
+  longer called a bleeding threshold, and HVPG ≥ 20 is described as a prognostic finding in acute
+  variceal bleeding. The PPG readout is now *Portal–IVC*. About the model gains a reference
+  review against Baveno VIII (August 2026) and the supporting PMIDs.
 - **Esophageal varices climb the esophagus.** From the gastroesophageal junction the varices run
   up the esophageal wall as a braid of submucosal columns, then drain over the heart into the
   azygos arch.

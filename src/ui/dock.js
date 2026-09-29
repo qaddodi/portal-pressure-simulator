@@ -3,9 +3,9 @@
 import { store } from './store.js?v=4bf5a96a9d';
 import { h, fmt, icon, svgIcon, popover, closePopover, clamp } from './util.js?v=cc7ee4cf38';
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
-import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=33aa0d634b';
-import { createHVPG, createDoppler, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=689b51a64e';
-import { createLandscape } from './landscape.js?v=ec2a081a76';
+import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=67b662f405';
+import { createHVPG, createDoppler, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=c03dd8b697';
+import { createLandscape } from './landscape.js?v=7d2b47c95f';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -14,13 +14,13 @@ const SEV = { ok: 'var(--ok)', caution: 'var(--caution)', danger: 'var(--danger)
 // Readouts in reading order: the portal story first, then the systemic circulation. Each
 // readout's status (dot color and word) comes from a clinical cut-off, listed in CUTOFFS below
 // and in About the model: green is normal, amber borderline, red past a clinical threshold,
-// dark red past the high-risk one.
+// dark red past the highest one where a readout has one.
 export const TILES = [
-  { id: 'hvpg', k: 'HVPG', why: 'hvpg', v: (m) => m.hvpg, d: 1, u: 'mmHg', hideKey: 'trueHVPG', measured: () => store.get().lastHVPG,
-    st: (v) => (v < 5 ? 'ok' : v < 10 ? 'caution' : v < 20 ? 'danger' : 'critical'),
-    s: (v) => (v < 5 ? 'Normal' : v < 10 ? 'Subclinical' : v < 12 ? 'CSPH' : v < 20 ? 'Bleed risk' : 'High risk') },
+  { id: 'hvpg', k: 'HVPG', title: 'Hepatic venous pressure gradient (wedged − free hepatic venous pressure)', why: 'hvpg', v: (m) => m.hvpg, d: 1, u: 'mmHg', hideKey: 'trueHVPG', measured: () => store.get().lastHVPG,
+    st: (v) => (v < 5 ? 'ok' : v < 10 ? 'caution' : 'danger'),
+    s: (v) => (v < 5 ? 'Normal' : v < 10 ? 'Subclinical' : 'CSPH') },
   { id: 'pv', k: 'Portal vein', title: 'Portal vein pressure', why: 'pv', v: (m) => m.pv, d: 1, u: 'mmHg', hideKey: 'pv', st: (v) => (v <= 10 ? 'ok' : v < 15 ? 'caution' : 'danger'), s: (v) => (v <= 10 ? 'Normal' : v < 15 ? 'Raised' : 'High') },
-  { id: 'ppg', k: 'PPG', title: 'Portosystemic pressure gradient (portal vein − IVC)', why: 'ppg', hideKey: 'pv', v: (m) => m.ppg, d: 1, u: 'mmHg', st: (v) => (v < 10 ? 'ok' : v < 12 ? 'caution' : 'danger'), s: (v) => (v < 10 ? 'Normal' : v < 12 ? 'Raised' : 'Above 12') },
+  { id: 'ppg', k: 'Portal–IVC', title: 'Direct portal–systemic gradient (portal vein − suprahepatic IVC). Not the same as HVPG.', why: 'ppg', hideKey: 'pv', v: (m) => m.ppg, d: 1, u: 'mmHg', st: (v) => (v < 6 ? 'ok' : 'caution'), s: (v) => (v < 6 ? 'Normal' : 'Raised') },
   { id: 'pvflow', k: 'Portal flow', why: 'pvFlow', v: (m) => m.pvFlow, d: 1, u: 'L/min',
     st: (v, m) => (v < -0.02 ? 'critical' : Math.abs(m.pvVel) < 5 ? 'danger' : v < 0.9 || Math.abs(m.pvVel) < 12 ? 'caution' : 'ok'),
     s: (v, m) => (v < -0.02 ? 'Hepatofugal' : Math.abs(m.pvVel) < 5 ? 'Stasis' : v < 0.9 ? `Reduced · ${fmt(m.pvVel, 0)} cm/s` : Math.abs(m.pvVel) < 12 ? `Slow · ${fmt(m.pvVel, 0)} cm/s` : `${fmt(m.pvVel, 0)} cm/s`) },
@@ -33,9 +33,9 @@ export const TILES = [
 ];
 // The cut-offs behind each status, as About the model lists them: [readout, normal, amber, red, dark red].
 export const CUTOFFS = [
-  ['HVPG', '< 5 mmHg', '5–9 (subclinical)', '10–19 (≥ 10 CSPH, ≥ 12 bleeding risk)', '≥ 20 (high risk)'],
+  ['HVPG (wedged − free)', '< 5 mmHg', '5–9 (subclinical)', '≥ 10 (CSPH in cirrhosis)', '—'],
   ['Portal vein pressure', '≤ 10 mmHg', '11–14', '≥ 15', '—'],
-  ['Portosystemic gradient', '< 10 mmHg', '10–11', '≥ 12 (variceal bleeding)', '—'],
+  ['Direct portal–systemic gradient (portal vein − suprahepatic IVC)', '< 6 mmHg', '≥ 6', '—', '—'],
   ['Portal flow', '≥ 0.9 L/min and ≥ 12 cm/s', '< 0.9 L/min or < 12 cm/s', '< 5 cm/s (stasis)', 'Hepatofugal'],
   ['Varix wall tension', '< 40 % of rupture', '40–69 %, or diameter ≥ 5 mm', '70–89 %', '≥ 90 %'],
   ['Ascites', 'None', 'Grade 1', 'Grade 2–3', '—'],

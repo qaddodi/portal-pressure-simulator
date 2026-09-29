@@ -2,7 +2,7 @@
 
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { PROFILE_PATHS, SHORT } from './anatomy.js?v=0fae49bf3a';
-import { pressureColor } from './colormap.js?v=5f8590b23c';
+import { pressureColor } from './colormap.js?v=6d64a94345';
 import { store } from './store.js?v=4bf5a96a9d';
 import { h, fmt, fmtFlow, fitCanvas, cssVar, clamp } from './util.js?v=cc7ee4cf38';
 
@@ -67,7 +67,7 @@ export function createProfile() {
     const { w, hh, stations, L, R, T, B, slot, maxP, x, y, stagger, hasArt, artY, roomy } = g;
     ctx.clearRect(0, 0, w, hh);
     ctx.font = FONT(500, 11);
-    // grid (solid hairlines) & clinical thresholds (dashed reference lines)
+    // grid (solid hairlines): absolute pressure has no clinical threshold, so none is drawn
     ctx.strokeStyle = c.border; ctx.fillStyle = c.faint; ctx.lineWidth = 1;
     const step = maxP > 40 ? 10 : 5;
     for (let p = 0; p <= maxP; p += step) {
@@ -76,13 +76,6 @@ export function createProfile() {
     }
     ctx.strokeStyle = c.axis; ctx.beginPath(); ctx.moveTo(L, Math.round(y(0)) + 0.5); ctx.lineTo(w - R, Math.round(y(0)) + 0.5); ctx.stroke();
     if (roomy || !hasArt) { ctx.textAlign = 'left'; ctx.fillText('mmHg', 6, 12); } else { ctx.textAlign = 'right'; ctx.fillText('mmHg', w - R, artY + 4); }
-    for (const p of [10, 12, 20]) {
-      if (p > maxP) continue;
-      ctx.setLineDash([3, 4]); ctx.strokeStyle = p === 12 ? c.danger : c.axis; ctx.globalAlpha = p === 12 ? 0.6 : 1;
-      ctx.beginPath(); ctx.moveTo(L, y(p)); ctx.lineTo(w - R, y(p)); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
-    }
-    ctx.textAlign = 'right'; ctx.fillStyle = c.faint;
-    ctx.fillText('CSPH 10 · bleeding 12', w - R, y(12) - 5);
     // station labels: horizontal, staggered over two rows when the stations are close together
     ctx.fillStyle = c.muted; ctx.textAlign = 'center'; ctx.font = FONT(500, 11);
     stations.forEach((n, i) => {

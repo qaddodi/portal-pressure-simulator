@@ -3,9 +3,9 @@
 const STOPS = [
   [0, '#DCEBF7'], [5, '#7CC4E4'], [10, '#6A7FD8'], [12, '#8E4FC4'], [20, '#C0307A'], [30, '#6E0B3A'],
 ];
-export const PRESSURE_TICKS = [
-  [0, 'RA / collapse'], [5, 'Upper normal'], [10, 'CSPH'], [12, 'Bleeding threshold'], [20, 'High-risk'], [30, 'Extreme'],
-];
+// The scale shows absolute mean venous pressure at a vessel. Its ticks are plain numbers: no
+// value on it is a clinical threshold (HVPG and other gradients are separate measurements).
+export const PRESSURE_TICKS = [0, 10, 20, 30];
 
 const hex2rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
 const lin = (c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);

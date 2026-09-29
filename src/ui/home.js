@@ -4,13 +4,13 @@
 
 import { store } from './store.js?v=4bf5a96a9d';
 import { h, svgIcon, icon } from './util.js?v=cc7ee4cf38';
-import { LESSONS } from './learn.js?v=b7b9423881';
-import { CASES } from './cases.js?v=9b06db297a';
+import { LESSONS } from './learn.js?v=cc9a38cf25';
+import { CASES } from './cases.js?v=52c633ef8b';
 import { t } from '../i18n/i18n.js?v=0457b367b9';
 import { exportCSV, exportXAPI, learnerName, setLearnerName, records } from './records.js?v=26ab8fb634';
 import { SNAPSHOTS, PATH } from './snapshots.js?v=85ffc8d0f9';
-import { pressureColor } from './colormap.js?v=5f8590b23c';
-import { AUTHOR, AUTHOR_URL } from '../version.js?v=ab32f7d0b5';
+import { pressureColor } from './colormap.js?v=6d64a94345';
+import { AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 
 const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };
 // Where each group's resistance sits along the pathway from the gut to the heart.
