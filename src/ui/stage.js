@@ -1879,12 +1879,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   let labelGridKey = '', labelGrid = new Map();
   const labelMem = new Map();
+  let labelTurned = false;   // labels remember their side; turning the circuit changes which side is right
   function updateLabels(f) {
     refreshCTM();
     frameNo++;
     const st = store.get();
     const t = easeInOut(morph);
     const circuit = t >= 0.5;
+    if ((circuit && rotU > 0.5) !== labelTurned) { labelTurned = !labelTurned; labelMem.clear(); }
     // Zoomed far out (the whole map on a phone), the map's own scale is tiny, so its labels shrink with it
     // (down to 70 %) instead of burying it; from 0.6 px per unit up they are full size.
     labelK = labelBase() * (circuit ? CIRCUIT_LABEL_K * clamp(CTM.sc / 0.6, 0.7, 1) : 1);
@@ -2073,18 +2075,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const par = (a, b) => { const ra = liverR[a].R, rb = liverR[b].R; return Number.isFinite(ra) && Number.isFinite(rb) ? (ra * rb) / (ra + rb) : Number.isFinite(ra) ? ra : rb; };
         const R = [['pre', par('PRE_R', 'PRE_L')], ['sinusoidal', par('SIN_RR', 'SIN_LL')], ['post', par('POST_R_RHV', 'POST_L_LHV')]];
         const sz = compact ? 9.5 : 10.5;
-        const lines = [[{ t: 'INSIDE THE LIVER', size: compact ? 9 : 9.5, weight: 700, cls: 'lb-zone', track: 0.1 }, { t: open ? '▾ hide stations' : '▸ show stations', size: compact ? 9 : 9.5, weight: 600, cls: 'lb-mod-act', gap: 8 }]];
+        const hd = { t: 'INSIDE THE LIVER', size: compact ? 9 : 9.5, weight: 700, cls: 'lb-zone', track: 0.1 }, act = { t: open ? '▾ hide stations' : '▸ show stations', size: compact ? 9 : 9.5, weight: 600, cls: 'lb-mod-act', gap: 8 };
+        // Turned upright the module is a narrow column, and the card sits beside it: stacked, not one wide row.
+        const lines = turned ? [[hd], [{ ...act, gap: 0 }]] : [[hd, act]];
         if (showVals) {
           const pr = pressureRuns((f.Pf || f.P)[NI.SIN_R], 'SIN_R', compact);
+          const val = (v) => ({ t: Number.isFinite(v) ? fmt(v, 1) : '∞', size: sz, weight: 650, cls: 'lb-val', gap: 3 });
           if (pr) lines.push([{ t: 'Sinusoids', size: compact ? 10.5 : 11.5, weight: 500, cls: 'lb-name', gap: 0 }, ...pr.map((r, i) => (i ? r : { ...r, gap: 6 }))]);
-          lines.push([{ t: 'Resistance', size: sz, weight: 500, cls: 'lb-name' }, ...R.flatMap(([k, v], i) => [{ t: (i ? '· ' : '') + k, size: sz, weight: 500, cls: 'lb-unit', gap: i ? 5 : 6 }, { t: Number.isFinite(v) ? fmt(v, 1) : '∞', size: sz, weight: 650, cls: 'lb-val', gap: 3 }]), { t: 'WU', size: sz, weight: 500, cls: 'lb-unit', gap: 3 }]);
+          if (turned) lines.push([{ t: 'Resistance, WU', size: sz, weight: 500, cls: 'lb-name' }], ...R.map(([k, v]) => [{ t: k, size: sz, weight: 500, cls: 'lb-unit' }, { ...val(v), gap: 6 }]));
+          else lines.push([{ t: 'Resistance', size: sz, weight: 500, cls: 'lb-name' }, ...R.flatMap(([k, v], i) => [{ t: (i ? '· ' : '') + k, size: sz, weight: 500, cls: 'lb-unit', gap: i ? 5 : 6 }, val(v)]), { t: 'WU', size: sz, weight: 500, cls: 'lb-unit', gap: 3 }]);
         }
-        // Turned upright, the module's left edge is now its top; the header goes above or below the module instead.
-        const [ax, ay] = turned ? worldToLocal(LIVER_MODULE.x1, (LIVER_MODULE.y0 + LIVER_MODULE.y1) / 2) : worldToLocal((LIVER_MODULE.x0 + LIVER_MODULE.x1) / 2, LIVER_MODULE.y0);
+        // Turned upright, the module's top edge is now its right side; the card goes there, beside the module.
+        const [ax, ay] = turned ? worldToLocal((LIVER_MODULE.x0 + LIVER_MODULE.x1) / 2, LIVER_MODULE.y1) : worldToLocal((LIVER_MODULE.x0 + LIVER_MODULE.x1) / 2, LIVER_MODULE.y0);
         const it = { key: 'liver', cls: 'module' + (open ? ' open' : ''), lines, align: 'middle', bg: true, padX: 8, padY: 4, ax, ay, label: open ? 'Hide liver stations' : 'Show liver stations',
           onClick: () => { liverOpen = !liverExpanded(); if (!liverOpen && vt.k >= 1.9) toast('Zoomed in: the liver stays expanded. Zoom out to collapse it.'); if (F) update(F); } };
         it.w = Math.max(...lines.map(lineW)); it.h = lines.reduce((a, l) => a + LINE_H(l), 0);
-        place(it, turned ? ['N', 'S', 'C'] : ['N', 'C'], 4, false);
+        place(it, turned ? ['SE', 'E', 'W', 'C'] : ['N', 'C'], turned ? 8 : 4, false);
       }
       const nodes = [];
       for (const n of NODES) {
