@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Vessels join without seams.** The dark border and contact shadow of each vessel were
+  semi-transparent, so wherever two vessels overlapped (every junction and bend) they doubled up
+  into a darker ringed disc. Borders and shadows are now solid with their transparency applied once
+  per layer, so overlaps read as one shape. The translucent vessels (the SVC, azygos arch, renal
+  and iliac veins, and collaterals) are drawn as whole faded groups by opacity level, beneath the
+  opaque network, instead of each fading on its own; the ghost outlines behind the organs likewise.
+  When a vessel is selected or hovered, the rest of the network now recedes as one group and the
+  focused vessel is lifted above it, instead of every layer of every vessel dimming separately.
 - **Loose ends fade.** In the anatomic view the SVC fades out upward above the azygos arch
   instead of being cut off at the top of the plate, and the azygos trunk fades out toward its
   lower end instead of ending in a blunt stub. When the ascending lumbar collateral is open (for

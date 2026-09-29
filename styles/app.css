@@ -476,7 +476,8 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .org-rim { fill: none; stroke: currentColor; stroke-width: 20; stroke-opacity: .26; }
 .org-fill { fill: color-mix(in srgb, currentColor var(--organ-tint), var(--stage-bg)); }
 .org-liver.org-fill { fill: color-mix(in srgb, var(--organ-liver) calc(var(--organ-tint) + 3%), var(--stage-bg)); }
-.ghost { opacity: .34; pointer-events: none; }
+.ghost-layer { opacity: .34; }
+.ghost { pointer-events: none; }
 .org-heart-groove { fill: none; stroke: var(--organ-heart); stroke-opacity: .45; stroke-width: 1; stroke-linecap: round; }
 .org-great.band-edge { stroke: var(--organ-heart); stroke-width: 15; stroke-opacity: .5; }
 .org-great.band-body { stroke: color-mix(in srgb, var(--organ-heart) 26%, var(--stage-bg)); stroke-width: 13; }
@@ -519,15 +520,25 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .nodule circle { fill: color-mix(in srgb, var(--organ-liver) 30%, var(--stage-bg)); fill-opacity: .55; stroke: color-mix(in srgb, var(--organ-liver) 70%, var(--shade-ink)); stroke-opacity: .45; stroke-width: .8; }
 #organs, #ascites, #grid, #overlays, #nodes, #guides, #focus { pointer-events: none; }
 #organs { transition: opacity .5s var(--ease); }
-.stage-view.hovering .vg:not(.hl) { opacity: .22; }
+/* The venous network fades as one group (its union, once), with the focused vessel lifted out of
+   it (see gNet in stage.js); vessels behind the organs fade one by one. */
+/* Borders and contact shadows are solid, with their transparency set once per tier, so where two
+   vessels' borders overlap (every junction, every bend) they read as one shape, not a darker patch. */
+.tier-casing { opacity: var(--casing-a); }
+.tier-shadow { opacity: var(--shadow-a); }
+#net { transition: opacity .25s var(--ease); }
+.stage-view.has-sel #net { opacity: .42; }
+.stage-view.hovering #net { opacity: .22; }
+.stage-view.hovering #backEdges .vg:not(.hl) { opacity: .22; }
 /* A selected vessel stays bright; the rest of the network and the organs recede. */
-.stage-view.has-sel .vg:not(.is-sel):not(.hl) { filter: opacity(.42); }
+.stage-view.has-sel #backEdges .vg:not(.is-sel):not(.hl) { filter: opacity(.42); }
 .stage-view.has-sel #organs > g, .stage-view.has-sel #backdrop { filter: opacity(.72); }
 .stage-view.has-sel .vg.is-sel .v-lumen, .stage-view.has-sel .vg.is-sel .v-lumenP { filter: brightness(1.12) saturate(1.1); }
-.app.figure-mode .stage-view.has-sel .vg, .app.figure-mode .stage-view.has-sel #organs > g, .app.figure-mode .stage-view.has-sel #backdrop { filter: none; }
-.stage-view.hovering .vg.ctx:not(.hl) { opacity: .12; }
+.app.figure-mode .stage-view.has-sel #backEdges .vg, .app.figure-mode .stage-view.has-sel #organs > g, .app.figure-mode .stage-view.has-sel #backdrop { filter: none; }
+.app.figure-mode .stage-view.has-sel #net, .app.figure-mode .stage-view.hovering #net { opacity: 1; }
+.stage-view.hovering #backEdges .vg.ctx:not(.hl) { opacity: .12; }
 
-.v-wall { fill: none; stroke: var(--vessel-casing); stroke-linecap: round; stroke-linejoin: round; }
+.v-wall { fill: none; stroke: rgb(var(--casing-rgb)); stroke-linecap: round; stroke-linejoin: round; }
 .v-lumen { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .v-artery { fill: none; stroke: var(--artery); stroke-linecap: round; stroke-linejoin: round; stroke-opacity: .85; }
 /* Only the invisible hit strokes take the pointer: the browser then never tests the thousands of
@@ -540,18 +551,18 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 #world .vg.ctx .v-hit, #world #backEdges .v-hit { stroke-width: 8; }
 .v-halo { display: none; }
 /* Tubes: contact shadow, casing, lumen, then the shading of a cylinder lit from above. */
-.v-shadow { fill: var(--vessel-shadow); stroke: none; transform: translate(1.4px, 2.8px); }
+.v-shadow { fill: rgb(var(--shadow-rgb)); stroke: none; transform: translate(1.4px, 2.8px); }
 .v-shade { fill: var(--tube-shade-ink); fill-opacity: var(--tube-shade); stroke: none; pointer-events: none; }
 .v-sheen { fill: var(--light-ink); fill-opacity: var(--tube-sheen); stroke: none; pointer-events: none; }
 /* Veins are filled, tapered tubes; strokes are used in the circuit, for closed collaterals and
    while a vessel is being drawn on. */
 .v-wallP, .v-lumenP { stroke: none; }
-.v-wallP { fill: var(--vessel-casing); }
+.v-wallP { fill: rgb(var(--casing-rgb)); }
 .vg .v-wall, .vg .v-lumen { display: none; }
 .vg.stroked .v-wall, .vg.stroked .v-lumen { display: inline; }
 .vg.stroked .v-wallP, .vg.stroked .v-lumenP, .vg.stroked .v-shadow { display: none; }
 /* Cavernoma: the extra channels of a braided collateral, shown only while it is open in the anatomy. */
-.v-strand-wall { fill: none; stroke: var(--vessel-casing); stroke-linecap: round; stroke-linejoin: round; }
+.v-strand-wall { fill: none; stroke: rgb(var(--casing-rgb)); stroke-linecap: round; stroke-linejoin: round; }
 .v-strand { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .coll-ghost :is(.v-strand, .v-strand-wall), .circuit :is(.v-strand, .v-strand-wall) { display: none; }
 .v-spine { fill: none; stroke: var(--spine); stroke-linecap: round; stroke-linejoin: round; opacity: 0; transition: opacity .4s; }
@@ -592,7 +603,6 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .v-select { fill: none; stroke: var(--accent); stroke-linecap: round; stroke-opacity: 0; transition: stroke-opacity .2s; }
 .v-select.on { stroke-opacity: .34; }
 .vg { transition: opacity .25s var(--ease); }
-.vg.ctx { opacity: .6; }
 #backEdges { opacity: .85; }
 .zone { fill: var(--text); fill-opacity: 0; }
 .zone.alt { fill-opacity: .028; }

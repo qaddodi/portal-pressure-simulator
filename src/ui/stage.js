@@ -284,6 +284,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Posterior veins (retrohepatic IVC, iliac, azygos…) pass behind opaque organs; a faint copy
   // drawn over the organs shows their course, as a hidden line does in an anatomical plate.
   const gGhost = s('g', { id: 'ghosts' });
+  // The ghosts are faded together, as one layer, so where two meet they do not stack into a darker disc.
+  const gGhostIn = s('g', { class: 'ghost-layer' });
+  gGhost.append(gGhostIn);
   // Veins are drawn as one network, the way a map draws streets: every shadow, then every
   // casing, then every lumen, so where vessels join their lumens flow into each other instead of
   // one tube's wall cutting across another. Arteries lie beneath; retroperitoneal veins get the
@@ -302,7 +305,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const gNodes = s('g', { id: 'nodes', class: 'circuit-only' });
   const gFocus = s('g', { id: 'focus' });
   const gGuides = s('g', { id: 'guides' });
-  world.append(gBackdrop, gGrid, gBack, gOrgans, gGhost, gAscites, gFocus, gHeat, gArt, gShadowL, gCaseL, gEdges, gOver, gNodes, gGuides);
+  // The venous network is one group, so that fading it (when a vessel is selected or hovered) fades
+  // its union once: casings, lumens and overlaps together, not tier by tier. The focused vessel is
+  // lifted out of it, into a layer above that stays bright.
+  const gNet = s('g', { id: 'net' });
+  gNet.append(gArt, gShadowL, gCaseL, gEdges);
+  const gTop = s('g', { id: 'focusNet' });
+  const gTopS = s('g'), gTopC = s('g'), gTopL = s('g'), gTopH = s('g');
+  gTop.append(gTopS, gTopC, gTopL, gTopH);
+  world.append(gBackdrop, gGrid, gBack, gOrgans, gGhost, gAscites, gFocus, gHeat, gNet, gTop, gOver, gNodes, gGuides);
   gBack.append(gBackS, gBackC, gBackL, gBackH);
 
   // Circuit view: quiet bands for each pressure zone (captioned by the label layer).
@@ -566,11 +577,56 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     x.g.id = 'vg-' + id;
     // The ghost is also how the hidden stretch is picked: it carries the vessel's id.
     const u = s('use', { href: '#vg-' + id, class: 'ghost ghost-hit', 'data-id': id });
-    gGhost.append(u);
+    gGhostIn.append(u);
   }
 
+  // Translucent vessels (the context veins, collaterals) are drawn in stacks, one per opacity level,
+  // beneath the opaque network. A stack is faded once, as a whole, so where two of its vessels meet
+  // their overlap is composited as a union instead of each fading on its own and the overlap of
+  // their round ends showing as a darker, ringed disc; the opaque vessels above cover the ends
+  // that run in under them.
+  const LEVELS = [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
+  const nearestLevel = (o) => (o >= 0.95 ? 1 : LEVELS.reduce((b, l) => (Math.abs(l - o) < Math.abs(b - o) ? l : b)));
+  // Each stack is one group holding a level's shadows, casings, lumens and highlights, so the
+  // fade applies to the vessel as drawn (its border does not show through its own body).
+  const mkStacks = () => Object.fromEntries(LEVELS.map((l) => {
+    const P = s('g'); P.style.opacity = String(l);
+    const parts = { s: s('g', { class: 'tier-shadow' }), c: s('g', { class: 'tier-casing' }), l: s('g'), h: s('g') };
+    P.append(parts.s, parts.c, parts.l, parts.h);
+    return [l, { P, ...parts }];
+  }));
+  const midStacks = mkStacks(), backStacks = mkStacks();
+  const gStackMid = s('g'), gStackBack = s('g');
+  gStackMid.append(...LEVELS.map((l) => midStacks[l].P));
+  gStackBack.append(...LEVELS.map((l) => backStacks[l].P));
+  gShadowL.before(gStackMid);   // beneath the opaque network
+  gBackS.before(gStackBack);    // beneath the opaque part of the retroperitoneal veins
+  gShadowL.classList.add('tier-shadow'); gCaseL.classList.add('tier-casing');
+  gBackS.classList.add('tier-shadow'); gBackC.classList.add('tier-casing');
+  gTopS.classList.add('tier-shadow'); gTopC.classList.add('tier-casing');
+  // Where a vessel's parts (shadow, casing, lumen, highlights) go: on top when it is the focus
+  // (selected or hovered), in the stack of its opacity level when translucent, else in the opaque
+  // network. A vessel behind the organs is never lifted (it would jump in front of them).
+  function place(x) {
+    if (x.isArt) { (x.lifted ? gTopL : gArt).append(x.g); return; }
+    if (x.lifted && !x.back) { gTopS.append(x.gs); gTopC.append(x.gc); gTopL.append(x.g); gTopH.append(x.gh); return; }
+    const st = (x.level ?? 1) < 1 && (x.back ? backStacks : midStacks)[x.level];
+    if (st) { st.s.append(x.gs); st.c.append(x.gc); st.l.append(x.g); st.h.append(x.gh); }
+    else if (x.back) { gBackS.append(x.gs); gBackC.append(x.gc); gBackL.append(x.g); gBackH.append(x.gh); }
+    else if (x.front) { gShadowL.append(x.gs); gCaseL.append(x.gc); gEdges.insertBefore(x.g, gHiFront); gHiFront.append(x.gh); }
+    else { gShadowL.append(x.gs); gCaseL.append(x.gc); gEdges.insertBefore(x.g, gHiMid); gHiMid.append(x.gh); }
+  }
+  function setLevel(x, l) { if ((x.level ?? 1) === l) return; x.level = l; place(x); }
+  function syncLift() {
+    for (const x of Object.values(E)) {
+      const on = x.g.classList.contains('is-sel') || x.g.classList.contains('hl');
+      if (on !== !!x.lifted) { x.lifted = on; place(x); }
+    }
+  }
   const cls = (x, c, on) => { for (const g of x.groups) g.classList.toggle(c, on); };
   const setStyle = (x, k, v) => { if (x['_s' + k] === v) return; x['_s' + k] = v; for (const g of x.groups) g.style[k] = v; };
+  // Context veins are always translucent; collaterals start faint until the model says otherwise.
+  for (const x of Object.values(E)) if (!x.isArt) { if (CONTEXT_EDGES.has(x.e.id)) setLevel(x, 0.6); else if (x.e.kind === 'collateral') setLevel(x, 0.3); }
   // Performance: every model frame (≈10 a second) would otherwise rewrite hundreds of SVG
   // attributes with values that differ only in the third decimal, and each write makes the
   // browser restyle and repaint the figure. Writes go through a per-element cache, pressures
@@ -999,7 +1055,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const fr = recruitFrac(e.id, f);
         const qa = Math.abs(f.Qf ? f.Qf[k] : f.Q[k]);
         cls(x, 'coll-ghost', !collOpen(e.id, f));
-        setStyle(x, 'opacity', p.occluded[e.id] ? '0.45' : (0.3 + 0.7 * Math.min(1, Math.max(fr * 2.5, qa / 1.5))).toFixed(2));
+        x.opa = p.occluded[e.id] ? 0.45 : 0.3 + 0.7 * Math.min(1, Math.max(fr * 2.5, qa / 1.5));
+        setLevel(x, nearestLevel(x.opa));
       }
       x.rev = REVERSAL_WATCH.has(e.id) && isReversed(e, f);
       const selOn = st.selection?.type === 'edge' && st.selection.id === e.id;
@@ -1023,6 +1080,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const x of Object.values(E)) if (x.vis && !x.isArt) renderTube(x, p, t, J);
     // A selected vessel stays bright while the rest of the network recedes.
     wrap.classList.toggle('has-sel', st.selection?.type === 'edge' && !!E[st.selection.id]?.vis);
+    syncLift();
     updateOrganSel(st.selection, t);
     liverModule.classList.toggle('open', liverExpanded());
     updateNodesCircuit(f);
@@ -1204,7 +1262,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     bridgeKey = key;
     gBridges.replaceChildren();
     if (!vis.length) return;
-    const order = new Map([...gEdges.children].map((g, i) => [g, i]));
+    const order = new Map([...gNet.querySelectorAll('.vg[data-id]'), ...gTopL.querySelectorAll('.vg[data-id]')].map((g, i) => [g, i]));
     const box = (pts) => pts.reduce((b, p) => [Math.min(b[0], p[0]), Math.min(b[1], p[1]), Math.max(b[2], p[0]), Math.max(b[3], p[1])], [Infinity, Infinity, -Infinity, -Infinity]);
     const boxes = vis.map((x) => box(geo[x.e.id].cur));
     const out = [];
@@ -2326,7 +2384,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const layers = [[], [], []];
     eachVesselMarks((x, ink, marks, fade) => layers[depth(x)].push([x, ink, marks, fade]));
     const lwHalo = 0.8 / Math.max(0.2, Math.abs(CTM.a));
-    const alphaOf = (x, fade) => fade * (hovering && !x.g.classList.contains('hl') ? 0.2 : receding && !x.g.classList.contains('is-sel') ? 0.4 * Number(x.g.style.opacity || 1) : Number(x.g.style.opacity || 1));
+    const alphaOf = (x, fade) => fade * (hovering && !x.g.classList.contains('hl') ? 0.2 : receding && !x.g.classList.contains('is-sel') ? 0.4 * (x.opa ?? 1) : (x.opa ?? 1));
     if (flowGL) { drawFlowGL(layers, T, moving, alphaOf, lwHalo); return; }
     ctx.setTransform(...T);
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -2525,6 +2583,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const e of hl) if (E[e]) cls(E[e], 'hl', true);
       wrap.classList.add('hovering');
     } else wrap.classList.remove('hovering');
+    syncLift();
   }
 
   svg.addEventListener('pointerover', (ev) => {
