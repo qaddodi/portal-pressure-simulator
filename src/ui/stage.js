@@ -1726,7 +1726,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       glass.style.transform = `translate(${(it.x - it.padX).toFixed(1)}px, ${(it.y - it.padY).toFixed(1)}px)`;
       glass.style.width = `${(it.w + 2 * it.padX).toFixed(1)}px`; glass.style.height = `${(it.h + 2 * it.padY).toFixed(1)}px`;
     }
-    setA(b.g, 'transform', `translate(${it.x.toFixed(1)} ${it.y.toFixed(1)})`);
+    // A turned caption reads bottom to top: its box's top-left is (x, y), and its text runs up from the bottom.
+    setA(b.g, 'transform', it.rot ? `translate(${it.x.toFixed(1)} ${(it.y + it.w).toFixed(1)}) rotate(-90)` : `translate(${it.x.toFixed(1)} ${it.y.toFixed(1)})`);
     b.g.style.display = '';
   }
 
@@ -1959,7 +1960,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       let best = null;
       const mem = labelMem.get(it.key);
       const wRes = mem && it.w <= mem.w && it.w > mem.w - 28 ? mem.w : it.w;
-      const probe = { ...it, w: wRes };
+      // A turned caption (see renderBlock) takes up a box as wide as its text is tall.
+      const probe = it.rot ? { ...it, w: it.h, h: it.w } : { ...it, w: wRes };
       (Array.isArray(gap) ? gap : [gap]).forEach((gp, gi) => dirs.forEach((dir, i) => {
         const [dx, dy] = offset(dir, probe, gp);
         const x = it.ax + dx, y = it.ay + dy;
@@ -1970,7 +1972,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }));
       if (!best) return false;
       // The text hugs the station side of its reserved box.
-      const slack = wRes - it.w, dir = best.dir;
+      const slack = it.rot ? 0 : wRes - it.w, dir = best.dir;
       it.x = best.x + (dir.includes('W') ? slack : dir.includes('E') ? 0 : slack / 2);
       it.y = best.y; it.dir = dir; it.leader = leader || best.far;
       labelMem.set(it.key, { dir, gi: best.gi, w: wRes });
@@ -2142,7 +2144,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const [ax, ay] = worldToLocal(lx, ly);
         const it = { key: 'lane:' + id, cls: 'lane', lines: [[{ t: cap, size: compact ? 9 : 10, weight: 550, cls: 'lb-lane' }]], align: 'middle', padX: 2, padY: 1, ax, ay };
         it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
-        place(it, [dirOf('N'), dirOf('S')], [3 + (x.width || 4) / 2, 12 + (x.width || 4) / 2], false);
+        // Turned upright, a lane that runs up the screen is captioned along it (text turned to read bottom to top), beside it.
+        let vertical = false;
+        if (turned) {
+          const [bx, by] = worldToLocal(...pointAt(geo[id].cur, Math.min(1, laneU[id] + 0.03)));
+          vertical = Math.abs(by - ay) > Math.abs(bx - ax) * 1.2;
+        }
+        if (vertical) it.rot = true;
+        place(it, vertical ? ['E', 'W'] : [dirOf('N'), dirOf('S')], [3 + (x.width || 4) / 2, 12 + (x.width || 4) / 2], false);
       }
     }
     // Lesson / case focus callout
