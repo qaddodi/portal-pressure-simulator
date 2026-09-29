@@ -19,7 +19,7 @@
   <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="fonts/fonts.css" />
   <link rel="stylesheet" href="styles/tokens.css?v=32873879b9" />
-  <link rel="stylesheet" href="styles/app.css?v=3ed03c6285" />
+  <link rel="stylesheet" href="styles/app.css?v=40c142084c" />
 </head>
 <body>
   <!-- Icon set: 24px grid, 1.6px stroke, round caps (blueprint §5.6). -->
@@ -66,6 +66,7 @@
       <symbol id="i-tools" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.1-3.1a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9z"/></symbol>
       <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
       <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+      <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></symbol>
       <symbol id="i-fit" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></symbol>
       <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
       <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3.5"/></symbol>
@@ -138,6 +139,7 @@
         <svg id="labels" aria-label="Pressure labels"></svg>
         <div id="overlay"></div>
         <div class="tool-card stage-blocker" id="toolHint" role="status" hidden></div>
+        <button class="ib stage-rotate" id="rotateCircuit" aria-pressed="false" aria-label="Turn the circuit upright, flowing bottom to top" title="Turn the circuit upright (flow runs bottom to top)"><svg><use href="#i-rotate"/></svg></button>
         <button class="ib stage-fit" id="zoomFit" aria-label="Fit the figure to the view" title="Fit (scroll or pinch to zoom, drag to pan)"><svg><use href="#i-fit"/></svg></button>
       </div>
       <div class="coach" id="coach" aria-live="polite"></div>
@@ -175,7 +177,7 @@
   <div class="toast-wrap" id="toasts"></div>
   <div class="sr-only" aria-live="polite" id="live"></div>
 
-  <link rel="modulepreload" href="src/ui/stage.js?v=06685f8e28" />
+  <link rel="modulepreload" href="src/ui/stage.js?v=6c79d81f71" />
   <link rel="modulepreload" href="src/ui/anatomy.js?v=ad5ea5e8e5" />
   <link rel="modulepreload" href="src/ui/util.js?v=cc7ee4cf38" />
   <link rel="modulepreload" href="src/ui/store.js?v=4bf5a96a9d" />
@@ -186,6 +188,6 @@
   <link rel="modulepreload" href="src/ui/instruments.js?v=7d53c8b0a4" />
   <link rel="modulepreload" href="src/ui/timeline.js?v=a16aa94cd6" />
   <link rel="modulepreload" href="src/engine/topology.js?v=29d10ad9ef" />
-  <script type="module" src="src/ui/main.js?v=db7bf1cc58"></script>
+  <script type="module" src="src/ui/main.js?v=41d0e42882"></script>
 </body>
 </html>

@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=ce51691de3';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=4bf5a96a9d';
-import { createStage } from './stage.js?v=06685f8e28';
+import { createStage } from './stage.js?v=6c79d81f71';
 import { createInspector } from './inspector.js?v=ecfb4548ab';
 import { createDock, CUTOFFS } from './dock.js?v=cd9a4e396a';
 import { createWhy } from './why.js?v=cb6efa350a';
@@ -442,6 +442,10 @@ function buildHud() {
   stageClock = h('div', { class: 'stage-clock', 'aria-hidden': 'true' });
   view.append(stageClock);
   $('#zoomFit').onclick = () => stage.fit();
+  const rotateBtn = $('#rotateCircuit');
+  const syncRotate = () => rotateBtn.setAttribute('aria-pressed', String(stage.circuitRotated()));
+  rotateBtn.onclick = () => { stage.setCircuitRotated(!stage.circuitRotated()); syncRotate(); };
+  syncRotate();
   $$('#viewSeg button').forEach((b) => b.addEventListener('click', () => store.set({ view: b.dataset.view })));
   // The legend is the lens switcher: it shows what the colors mean and changes what they show.
   $('#btnLayers').addEventListener('click', (e) => openLayers(e.currentTarget));

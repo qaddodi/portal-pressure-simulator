@@ -676,6 +676,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // ── View transform (pan / zoom) ───────────────────
   let vt = { k: 1, x: 0, y: 0 };
   let morph = store.get().view === 'circuit' ? 1 : 0, morphTarget = morph, lastMorph = -1;
+  // The circuit can be turned a quarter turn counter-clockwise, so its flow runs bottom to top and
+  // the map is tall instead of wide: it fills a phone held upright. rotU is the (animated) turn,
+  // 0 to 1; the anatomy is never turned. The turn is part of the world transform and of the view
+  // box (which swaps its width and height with it), so pan, zoom and every screen-space layer
+  // keep working in the frame they already use.
+  let rotTarget = (() => { try { return localStorage.getItem('pps.circuitRot') === '1' ? 1 : 0; } catch { return 0; } })();
+  let rotU = rotTarget;
+  const rotEase = (u) => u * u * (3 - 2 * u);
+  const CIRC_C = [VB_CIRC[0] + VB_CIRC[2] / 2, VB_CIRC[1] + VB_CIRC[3] / 2];
+  const VB_CIRC_R = [CIRC_C[0] - VB_CIRC[3] / 2, CIRC_C[1] - VB_CIRC[2] / 2, VB_CIRC[3], VB_CIRC[2]];
+  // Degrees the world is turned by right now (blended in with the view morph).
+  const rotDeg = () => -90 * rotEase(rotU) * Math.max(0, lastMorph);
   let lz = null, crumbsEl = null;   // semantic zoom: lobule layer and the Abdomen › Liver › Lobule trail
   let geometryVersion = 0;
   // Everything drawn in screen space (labels, leaders, organ names, the flow marks, the action
@@ -683,7 +695,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // update: a view change schedules one coalesced sync per animation frame.
   let viewRaf = 0, viewVersion = 0, CTM = null, wrapRect = null;
   const applyVT = () => {
-    world.setAttribute('transform', `translate(${vt.x} ${vt.y}) scale(${vt.k})`);
+    const deg = rotDeg();
+    world.setAttribute('transform', `translate(${vt.x} ${vt.y}) scale(${vt.k})${deg ? ` rotate(${deg.toFixed(3)} ${CIRC_C[0]} ${CIRC_C[1]})` : ''}`);
     syncSemantic();
     CTM = null; viewVersion++;
     if (!viewRaf) viewRaf = requestAnimationFrame(syncView);
@@ -710,7 +723,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const b = stageBox(), vb = svg.viewBox.baseVal;
     const s = Math.min(b.sw / vb.width, b.sh / vb.height);
     const ox = b.left + b.sx + (b.sw - vb.width * s) / 2 - vb.x * s, oy = b.top + b.sy + (b.sh - vb.height * s) / 2 - vb.y * s;
-    CTM = { a: s * vt.k, b: 0, c: 0, d: s * vt.k, e: ox + s * vt.x, f: oy + s * vt.y };
+    // world → view box: translate(vt) · scale(k) · rotate(θ about the circuit's centre); then the view box → screen.
+    const th = (rotDeg() * Math.PI) / 180, co = Math.cos(th), si = Math.sin(th), sk = s * vt.k;
+    CTM = { a: sk * co, b: sk * si, c: -sk * si, d: sk * co, e: ox + s * vt.x + sk * (CIRC_C[0] - co * CIRC_C[0] + si * CIRC_C[1]), f: oy + s * vt.y + sk * (CIRC_C[1] - si * CIRC_C[0] - co * CIRC_C[1]), sc: sk };
     wrapRect = b;
   }
   function worldToLocal(x, y) {
@@ -751,6 +766,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const cx = VB_ANAT[0] + VB_ANAT[2] / 2, cy = VB_ANAT[1] + VB_ANAT[3] / 2;
       return { k, x: cx - k * ((x0 + x1) / 2), y: cy - k * (y1 / 2) };
     }
+    // Turned upright, the map is tall and fills the height of the stage as it is.
+    if (rotTarget) return { k: 1, x: 0, y: 0 };
     const W = wrap.clientWidth, H = wrap.clientHeight;
     const s0 = Math.min(W / VB_CIRC[2], H / VB_CIRC[3]);
     if (VB_CIRC[3] * s0 > 0.62 * H) return { k: 1, x: 0, y: 0 };
@@ -769,6 +786,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     vt = circuit && !near(focus, whole) ? (near(vt, whole) ? focus : whole) : focus;
     applyVT(); CTM = null;
   };
+
+  // Turn the circuit upright (flow bottom to top) or back to wide. The map is shown whole either way.
+  function setCircuitRotated(on) {
+    on = on ? 1 : 0;
+    try { localStorage.setItem('pps.circuitRot', String(on)); } catch { /* storage unavailable */ }
+    if (on === rotTarget) return;
+    rotTarget = on;
+    cancelAnimationFrame(vtAnim);
+    vt = { k: 1, x: 0, y: 0 };
+    if (morphTarget !== 1 || reduceMotion.matches) { rotU = on; setViewBox(easeInOut(morph)); }
+  }
 
   // ── Semantic zoom: abdomen → liver → lobule ───────
   // Zooming (wheel, pinch, buttons) only moves the camera: past ×1.9 over the liver its inner
@@ -921,6 +949,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return clamp(((f.slow.dEff?.[id] ?? f.slow.d[id]) - dMin) / (e.dMax - dMin), 0, 1);
   }
 
+  // The view box morphs from the anatomy's to the circuit's, wide or (turned) tall.
+  function setViewBox(t) {
+    const rr = rotEase(rotU), vb = VB_ANAT.map((a, i) => lerp(a, lerp(VB_CIRC[i], VB_CIRC_R[i], rr), t));
+    svg.setAttribute('viewBox', vb.map((v) => v.toFixed(1)).join(' '));
+    applyVT();
+  }
+
   function updateGeometry(force) {
     const t = easeInOut(morph);
     if (!force && t === lastMorph) return;
@@ -970,8 +1005,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const [x, y] = nodePos(n.id, t);
       nodeEls[n.id].c.setAttribute('cx', x); nodeEls[n.id].c.setAttribute('cy', y);
     }
-    const vb = VB_ANAT.map((a, i) => lerp(a, VB_CIRC[i], t));
-    svg.setAttribute('viewBox', vb.map((v) => v.toFixed(1)).join(' '));
+    setViewBox(t);
     gOrgans.style.opacity = String(1 - t);
     gBackdrop.style.opacity = String(1 - t);
     gGhost.style.opacity = String(1 - t);
@@ -1612,6 +1646,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Label text size: the reader's choice (Menu › Text size), and a larger baseline in the circuit,
   // whose labels are the map's only text. Every run's size and spacing is scaled by labelK.
   const CIRCUIT_LABEL_K = 1.22;
+  // Where a map direction lands on the screen once the circuit is turned a quarter turn counter-clockwise.
+  const TURN_DIR = { N: 'W', W: 'S', S: 'E', E: 'N', NE: 'NW', NW: 'SW', SW: 'SE', SE: 'NE', C: 'C' };
   let labelScale = (() => { try { return clamp(parseFloat(localStorage.getItem('pps.labelScale')) || 1, 0.8, 1.5); } catch { return 1; } })();
   let labelK = labelScale;
   // Projection ramp: presenting, or a wide screen (≥ 1600 px) with the Larger text size, sets the
@@ -1851,7 +1887,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const circuit = t >= 0.5;
     // Zoomed far out (the whole map on a phone), the map's own scale is tiny, so its labels shrink with it
     // (down to 70 %) instead of burying it; from 0.6 px per unit up they are full size.
-    labelK = labelBase() * (circuit ? CIRCUIT_LABEL_K * clamp(CTM.a / 0.6, 0.7, 1) : 1);
+    labelK = labelBase() * (circuit ? CIRCUIT_LABEL_K * clamp(CTM.sc / 0.6, 0.7, 1) : 1);
     const wr = stageBox();
     const W = wr.width, H = wr.height;
     const B = { x0: 6, y0: 6, x1: W - 6, y1: H - 6 };
@@ -1879,7 +1915,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     let useLines = false;
     const buildLines = () => {
       useLines = true;
-      const key = `${geometryVersion}|${CTM.a}|${CTM.e - wr.left}|${CTM.f - wr.top}|${Object.values(E).filter((x) => x.vis).map((x) => x.e.id).join(',')}`;
+      const key = `${geometryVersion}|${CTM.a}|${CTM.b}|${CTM.e - wr.left}|${CTM.f - wr.top}|${Object.values(E).filter((x) => x.vis).map((x) => x.e.id).join(',')}`;
       if (key === labelGridKey) return;
       labelGridKey = key;
       lines = labelGrid = new Map();
@@ -1952,7 +1988,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const { ax, ay, mid, w: vw } = labelAnchor(id, t);
         if (ax < -20 || ax > W + 20 || ay < -20 || ay > H + 20) continue;
         const it = nodeItem(id, f, atlas ? 'atlas' : 'inline', compact);
-        it.ax = ax; it.ay = ay; it.vw = mid ? vw * CTM.a : 0; it.pri = it.sel ? 100 : ANAT_PRI[id] || 5;
+        it.ax = ax; it.ay = ay; it.vw = mid ? vw * CTM.sc : 0; it.pri = it.sel ? 100 : ANAT_PRI[id] || 5;
         it.side = ATLAS_LABELS[id]?.side || (NODE_POS[id][0][0] < 700 ? 'L' : 'R');
         items.push(it);
       }
@@ -2013,10 +2049,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
     } else {
       // ── Circuit: zone titles, then stations by priority, then resistances ──
+      // Turned upright, a direction given on the map (N, E, ...) points somewhere else on the screen.
+      const turned = rotU > 0.5, dirOf = (d) => (turned ? TURN_DIR[d] : d);
       for (const [txt, x0, x1] of CIRCUIT_ZONES) {
-        const [a] = worldToLocal(x0, 60), [b, by] = worldToLocal(x1, 60);
+        const [a, ay0] = worldToLocal(x0, 60), [b, by] = worldToLocal(x1, 60);
         const it = { key: 'z:' + txt, cls: 'zonecap', lines: [[{ t: txt.toUpperCase(), size: compact ? 8.5 : 9.5, weight: 650, cls: 'lb-zone', track: 0.1 }]], align: 'middle', padX: 2, padY: 2 };
         it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
+        if (turned) {
+          // Upright, a zone is a horizontal band: its title sits at the band's middle, at the map's left edge.
+          it.ax = Math.max(it.w / 2 + 8, (a + b) / 2); it.ay = (ay0 + by) / 2;
+          if (Math.abs(by - ay0) > it.h + 6) place(it, ['C'], 0, false);
+          continue;
+        }
         it.ax = (a + b) / 2; it.ay = Math.max(14, by);
         if (b - a > it.w + 6) place(it, ['C'], 0, false);
       }
@@ -2035,11 +2079,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           if (pr) lines.push([{ t: 'Sinusoids', size: compact ? 10.5 : 11.5, weight: 500, cls: 'lb-name', gap: 0 }, ...pr.map((r, i) => (i ? r : { ...r, gap: 6 }))]);
           lines.push([{ t: 'Resistance', size: sz, weight: 500, cls: 'lb-name' }, ...R.flatMap(([k, v], i) => [{ t: (i ? '· ' : '') + k, size: sz, weight: 500, cls: 'lb-unit', gap: i ? 5 : 6 }, { t: Number.isFinite(v) ? fmt(v, 1) : '∞', size: sz, weight: 650, cls: 'lb-val', gap: 3 }]), { t: 'WU', size: sz, weight: 500, cls: 'lb-unit', gap: 3 }]);
         }
-        const [ax, ay] = worldToLocal((LIVER_MODULE.x0 + LIVER_MODULE.x1) / 2, LIVER_MODULE.y0);
+        // Turned upright, the module's left edge is now its top; the header goes above or below the module instead.
+        const [ax, ay] = turned ? worldToLocal(LIVER_MODULE.x1, (LIVER_MODULE.y0 + LIVER_MODULE.y1) / 2) : worldToLocal((LIVER_MODULE.x0 + LIVER_MODULE.x1) / 2, LIVER_MODULE.y0);
         const it = { key: 'liver', cls: 'module' + (open ? ' open' : ''), lines, align: 'middle', bg: true, padX: 8, padY: 4, ax, ay, label: open ? 'Hide liver stations' : 'Show liver stations',
           onClick: () => { liverOpen = !liverExpanded(); if (!liverOpen && vt.k >= 1.9) toast('Zoomed in: the liver stays expanded. Zoom out to collapse it.'); if (F) update(F); } };
         it.w = Math.max(...lines.map(lineW)); it.h = lines.reduce((a, l) => a + LINE_H(l), 0);
-        place(it, ['N', 'C'], 4, false);
+        place(it, turned ? ['N', 'S', 'C'] : ['N', 'C'], 4, false);
       }
       const nodes = [];
       for (const n of NODES) {
@@ -2054,12 +2099,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         placed.push({ x0: sx - 5, y0: sy - 5, x1: sx + 5, y1: sy + 5 });
         if (mid) placed.push({ x0: ax - 4, y0: ay - 4, x1: ax + 4, y1: ay + 4 });
         const it = nodeItem(n.id, f, 'station', compact);
-        it.align = 'middle'; it.ax = ax; it.ay = ay; it.mid = mid; it.tan = tan; it.vw = vw * CTM.a; it.pri = it.sel ? 100 : CIRCUIT_LABELS[n.id].pri;
+        it.align = 'middle'; it.ax = ax; it.ay = ay; it.mid = mid; it.tan = tan; it.vw = vw * CTM.sc; it.pri = it.sel ? 100 : CIRCUIT_LABELS[n.id].pri;
         nodes.push(it);
       }
       for (const it of nodes.sort((a, b) => b.pri - a.pri)) {
         // On a vessel, the label goes beside it: above or below a horizontal run, left or right of a vertical one.
-        const pref = it.mid ? (Math.abs(it.tan[0]) >= Math.abs(it.tan[1]) ? ['N', 'S'] : ['E', 'W']) : CIRCUIT_LABELS[it.node].dirs;
+        const pref = it.mid ? (Math.abs(it.tan[0]) >= Math.abs(it.tan[1]) ? ['N', 'S'] : ['E', 'W']) : CIRCUIT_LABELS[it.node].dirs.map(dirOf);
         const dirs = [...pref, ...['N', 'S', 'E', 'W', 'NE', 'SE', 'NW', 'SW'].filter((d) => !pref.includes(d))];
         const half = it.vw / 2;
         if (!place(it, dirs, [7 + half, 18 + half, 30 + half], false) && it.sel) place(it, dirs, 40 + half, true);
@@ -2080,7 +2125,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const [ax, ay] = worldToLocal(lx, ly);
         const it = { key: 'lane:' + id, cls: 'lane', lines: [[{ t: cap, size: compact ? 9 : 10, weight: 550, cls: 'lb-lane' }]], align: 'middle', padX: 2, padY: 1, ax, ay };
         it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
-        place(it, ['N', 'S'], [3 + (x.width || 4) / 2, 12 + (x.width || 4) / 2], false);
+        place(it, [dirOf('N'), dirOf('S')], [3 + (x.width || 4) / 2, 12 + (x.width || 4) / 2], false);
       }
     }
     // Lesson / case focus callout
@@ -2329,11 +2374,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (lz?.isOpen()) { requestAnimationFrame(animate); return; }
     const st = store.get();
     const still = !st.running || reduceMotion.matches;
-    const key = still ? `${morph}|${wrap.className}|${st.layers.flow}|${dpr}|${canvas.width}x${canvas.height}` : null;
-    if (still && morph === morphTarget && key === lastDrawKey && F === lastDrawF && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { requestAnimationFrame(animate); return; }
+    const key = still ? `${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${dpr}|${canvas.width}x${canvas.height}` : null;
+    if (still && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && F === lastDrawF && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { requestAnimationFrame(animate); return; }
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
       if (F) update(F); else updateGeometry(true);
+    }
+    if (rotU !== rotTarget) {
+      rotU = clamp(rotU + Math.sign(rotTarget - rotU) * dt / 0.5, 0, 1);
+      setViewBox(easeInOut(morph));
     }
     stepReveals(now);
     drawFlow(dt, st);
@@ -2463,7 +2512,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // just as its own vessel does, instead of being drawn over it or switched off.
     const layers = [[], [], []];
     eachVesselMarks((x, ink, marks, fade) => layers[depth(x)].push([x, ink, marks, fade]));
-    const lwHalo = 0.8 / Math.max(0.2, Math.abs(CTM.a));
+    const lwHalo = 0.8 / Math.max(0.2, CTM.sc);
     const alphaOf = (x, fade) => fade * (hovering && !x.g.classList.contains('hl') ? 0.2 : receding && !x.g.classList.contains('is-sel') ? 0.4 * (x.opa ?? 1) : (x.opa ?? 1));
     if (flowGL) { drawFlowGL(layers, T, moving, alphaOf, lwHalo); return; }
     ctx.setTransform(...T);
@@ -3018,6 +3067,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     zoomIn: () => { const r = wrap.getBoundingClientRect(); zoomAt(r.left + r.width / 2, r.top + r.height / 2, 1.25); },
     zoomOut: () => { const r = wrap.getBoundingClientRect(); zoomAt(r.left + r.width / 2, r.top + r.height / 2, 0.8); },
     fit,
+    setCircuitRotated,
+    circuitRotated: () => rotTarget === 1,
     zoomToBox,
     zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(),
     focusEdge(id) { E[id]?.hit.focus(); },

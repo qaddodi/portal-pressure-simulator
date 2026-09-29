@@ -62,6 +62,25 @@ for (const device of Object.keys(DEVICES)) {
     await shot(page, `${device}-anatomy`);
   });
 
+  await check(device, 'circuit turns upright and back', async (page) => {
+    await open(page, '?preset=csph');
+    if (await page.$eval('#rotateCircuit', (b) => getComputedStyle(b).display) !== 'none') throw new Error('turn button shows in the anatomy');
+    await page.evaluate(() => window.pps.store.set({ view: 'circuit' }));
+    await page.waitForTimeout(1000);
+    const box = () => page.$eval('#stage', (s) => s.viewBox.baseVal.height / s.viewBox.baseVal.width);
+    if (!((await box()) < 1)) throw new Error('circuit did not open wide');
+    await page.click('#rotateCircuit');
+    await page.waitForTimeout(900);
+    if (!((await box()) > 1)) throw new Error('circuit did not turn tall');
+    if ((await page.$eval('#rotateCircuit', (b) => b.getAttribute('aria-pressed'))) !== 'true') throw new Error('turn button is not pressed');
+    await shot(page, `${device}-circuit-upright`);
+    // A vessel can still be picked, and the flow marks keep running, in the turned map.
+    await page.evaluate(() => window.pps.store.set({ selection: { type: 'edge', id: 'PV_TRUNK' } }));
+    await page.waitForSelector('.action-card:not([hidden])');
+    await page.evaluate(() => { window.pps.store.set({ selection: null }); document.querySelector('#rotateCircuit').click(); });
+    await page.waitForTimeout(900);
+    if (!((await box()) < 1)) throw new Error('circuit did not turn back to wide');
+  });
   await check(device, 'circuit view, selection card, lenses', async (page) => {
     await open(page, '?preset=csph');
     await page.evaluate(() => window.pps.store.set({ view: 'circuit' }));
