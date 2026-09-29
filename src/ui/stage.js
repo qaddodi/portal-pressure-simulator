@@ -2067,11 +2067,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const it = { key: 'z:' + txt, cls: 'zonecap', lines: [[{ t: txt.toUpperCase(), size: compact ? 8.5 : 9.5, weight: 650, cls: 'lb-zone', track: 0.1 }]], align: 'middle', padX: 2, padY: 2 };
         it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
         if (turned) {
-          // The liver card names the liver itself, and sits over the middle of the module (there is no card on a phone).
-          if (!compact && /liver/i.test(txt)) continue;
-          // Upright, a zone is a horizontal band: its title sits at the band's middle, at the map's left edge.
-          it.ax = Math.max(it.w / 2 + 8, (a + b) / 2); it.ay = (ay0 + by) / 2;
-          if (Math.abs(by - ay0) > it.h + 6) place(it, ['C'], 0, false);
+          // Upright, a zone is a horizontal band: its title runs up the map's left edge (text turned to read
+          // bottom to top), centred on the band.
+          it.rot = true;
+          it.ax = Math.max(it.h / 2 + 8, (a + b) / 2); it.ay = (ay0 + by) / 2;
+          place(it, ['C'], 0, false);
           continue;
         }
         it.ax = (a + b) / 2; it.ay = Math.max(14, by);

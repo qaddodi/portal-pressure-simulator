@@ -6,8 +6,8 @@
   turn counter-clockwise, so the flow runs from the splanchnic beds at the bottom to the heart at the
   top. The map becomes tall instead of wide and fills a phone held upright, where the wide map was
   shown very small. Pan, zoom, selection and the flow marks work as before; labels and zone titles are
-  re-placed for the turned map, and the names of collaterals that run up the screen are turned to read
-  along them, bottom to top. The choice is remembered on the device. The anatomy is never turned.
+  re-placed for the turned map, and the zone titles and the names of collaterals that run up the screen are
+  turned to read bottom to top. The choice is remembered on the device. The anatomy is never turned.
 - **Zoomed out stays zoomed out.** Switching from the anatomy to the circuit while the whole plate
   is showing (or zoomed out) now opens the whole circuit, instead of the close-up the circuit uses
   by default on a phone. From a zoomed-in anatomy it still takes its usual framing.
