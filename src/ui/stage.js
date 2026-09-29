@@ -739,7 +739,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // fitting its width would shrink every station to a dot, so it opens zoomed to fill the height,
   // centered on the portal vein and liver, and the learner pans sideways to the beds or heart.
   function defaultVT(circuit) {
-    if (!circuit) return { k: 1, x: 0, y: 0 };
+    if (!circuit) {
+      // Fit shows the whole abdomen: with ascites, the flanks bulge and the fluid pools in the pelvic
+      // floor below the plate's usual frame, so the frame grows to take them in (up to ~8 %).
+      const V = F?.slow?.ascites || 0, W = wrap.clientWidth, H = wrap.clientHeight;
+      if (V < 500 || !W || !H) return { k: 1, x: 0, y: 0 };
+      const e = clamp(V / 4000, 0, 1), side = clamp(V / 11000, 0, 1) * 34 + 6 * e;
+      const x0 = VB_ANAT[0] - side, x1 = VB_ANAT[0] + VB_ANAT[2] + side, y1 = VB_ANAT[3] + 80 * e;
+      const s0 = Math.min(W / VB_ANAT[2], H / VB_ANAT[3]), s1 = Math.min(W / (x1 - x0), H / y1);
+      const k = clamp(s1 / s0, 0.85, 1);
+      const cx = VB_ANAT[0] + VB_ANAT[2] / 2, cy = VB_ANAT[1] + VB_ANAT[3] / 2;
+      return { k, x: cx - k * ((x0 + x1) / 2), y: cy - k * (y1 / 2) };
+    }
     const W = wrap.clientWidth, H = wrap.clientHeight;
     const s0 = Math.min(W / VB_CIRC[2], H / VB_CIRC[3]);
     if (VB_CIRC[3] * s0 > 0.62 * H) return { k: 1, x: 0, y: 0 };

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Fit on a phone, and fit takes in the ascites.** The Fit button (bottom right of the figure) was
+  hidden on phones; it now shows there, with a 44 px touch target. Fit also frames the whole
+  abdomen when there is ascites: the frame grows (by up to about 8 %) to take in the bulging
+  flanks and the fluid pooled in the pelvic floor, which the default frame cut off.
 - **No varices, no varices label.** The "Esophageal varices" callout (and "Fundal varices", in the
   circuit) is hidden until varices exist (2.5 mm or more), so a healthy patient no longer shows a
   pressure on a structure that isn't there. It still appears if the station is selected.
