@@ -1627,6 +1627,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // stage uses atlas columns in the margins with leader lines; everything else is placed
   // around its anchor. The same layer is serialized into exported figures.
   const labelSvg = wrap.querySelector('#labels');
+  // Frosted pane behind the liver card: a backdrop blur needs an HTML element, and the labels are SVG.
+  const glass = h('div', { class: 'lb-glass', 'aria-hidden': 'true', hidden: true });
+  labelSvg.before(glass);
   const gLeaders = s('g', { class: 'lb-leaders' });
   const gLabels = s('g', { class: 'lb-blocks' });
   labelSvg.append(gLeaders, gLabels);
@@ -1719,6 +1722,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (it.label) setA(b.g, 'aria-label', it.label);
     if (b.sw) { setA(b.sw, 'fill', it.swatch); setA(b.sw, 'x', it.align === 'end' ? it.w - 3 : 0); }
     b.g.classList.toggle('sel', !!it.sel);
+    if (it.key === 'liver') {
+      glass.style.transform = `translate(${(it.x - it.padX).toFixed(1)}px, ${(it.y - it.padY).toFixed(1)}px)`;
+      glass.style.width = `${(it.w + 2 * it.padX).toFixed(1)}px`; glass.style.height = `${(it.h + 2 * it.padY).toFixed(1)}px`;
+    }
     setA(b.g, 'transform', `translate(${it.x.toFixed(1)} ${it.y.toFixed(1)})`);
     b.g.style.display = '';
   }
@@ -2058,7 +2065,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const it = { key: 'z:' + txt, cls: 'zonecap', lines: [[{ t: txt.toUpperCase(), size: compact ? 8.5 : 9.5, weight: 650, cls: 'lb-zone', track: 0.1 }]], align: 'middle', padX: 2, padY: 2 };
         it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
         if (turned) {
-          // The liver card names the liver itself, and takes the left edge beside the module.
+          // The liver card names the liver itself, and sits over the middle of the module.
           if (/liver/i.test(txt)) continue;
           // Upright, a zone is a horizontal band: its title sits at the band's middle, at the map's left edge.
           it.ax = Math.max(it.w / 2 + 8, (a + b) / 2); it.ay = (ay0 + by) / 2;
@@ -2088,12 +2095,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           if (turned) lines.push([{ t: 'Resistance, WU', size: sz, weight: 500, cls: 'lb-name' }], ...R.map(([k, v]) => [{ t: k, size: sz, weight: 500, cls: 'lb-unit' }, { ...val(v), gap: 6 }]));
           else lines.push([{ t: 'Resistance', size: sz, weight: 500, cls: 'lb-name' }, ...R.flatMap(([k, v], i) => [{ t: (i ? '· ' : '') + k, size: sz, weight: 500, cls: 'lb-unit', gap: i ? 5 : 6 }, val(v)]), { t: 'WU', size: sz, weight: 500, cls: 'lb-unit', gap: 3 }]);
         }
-        // Turned upright, the module's top edge is now its left side; the card goes there, beside the module.
-        const [ax, ay] = turned ? worldToLocal((LIVER_MODULE.x0 + LIVER_MODULE.x1) / 2, LIVER_MODULE.y0) : worldToLocal((LIVER_MODULE.x0 + LIVER_MODULE.x1) / 2, LIVER_MODULE.y0);
+        // Turned upright, the card sits over the middle of the module, on frosted glass (see .lb-glass).
+        const [ax, ay] = worldToLocal((LIVER_MODULE.x0 + LIVER_MODULE.x1) / 2, turned ? (LIVER_MODULE.y0 + LIVER_MODULE.y1) / 2 : LIVER_MODULE.y0);
         const it = { key: 'liver', cls: 'module' + (open ? ' open' : ''), lines, align: 'middle', bg: true, padX: 8, padY: 4, ax, ay, label: open ? 'Hide liver stations' : 'Show liver stations',
           onClick: () => { liverOpen = !liverExpanded(); if (!liverOpen && vt.k >= 1.9) toast('Zoomed in: the liver stays expanded. Zoom out to collapse it.'); if (F) update(F); } };
         it.w = Math.max(...lines.map(lineW)); it.h = lines.reduce((a, l) => a + LINE_H(l), 0);
-        place(it, turned ? ['W', 'SW', 'NW', 'E', 'C'] : ['N', 'C'], turned ? 8 : 4, false);
+        place(it, turned ? ['C'] : ['N', 'C'], turned ? 8 : 4, false);
       }
       const nodes = [];
       for (const n of NODES) {
@@ -2152,6 +2159,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
     for (const it of out) renderBlock(it);
     for (const [k, b] of pool) if (b.seen !== frameNo) b.g.style.display = 'none';
+    glass.hidden = !out.some((it) => it.key === 'liver');
     if (gLeaders._last !== leaders) { gLeaders.innerHTML = leaders; gLeaders._last = leaders; }
   }
   const nodeVisible = (id) => !(ANAT_HIDDEN_NODES.has(id) && morph < 0.5) && ALL_EDGES.some((e) => (e.from === id || e.to === id) && E[e.id]?.vis);
