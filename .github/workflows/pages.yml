@@ -1,0 +1,58 @@
+name: Pages (live site + preview)
+
+# Publishes two copies of the build-free site to GitHub Pages:
+#   /          the tip of main (the live site)
+#   /preview/  the branch that triggered the run (a claude/** branch), or main again after a merge
+# Every run rebuilds both from scratch, so the newest run always wins.
+
+on:
+  push:
+    branches: [main, 'claude/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: live
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: preview
+
+      - name: Assemble the site
+        env:
+          BRANCH: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          mkdir site
+          rsync -a --exclude .git --exclude .github --exclude node_modules live/ site/
+          mkdir site/preview
+          rsync -a --exclude .git --exclude .github --exclude node_modules preview/ site/preview/
+          # Keep the preview out of search engines and record what it was built from.
+          sed -i 's|<head>|<head>\n  <meta name="robots" content="noindex" />|' site/preview/index.html
+          printf 'branch: %s\ncommit: %s\nbuilt:  %s\n' "$BRANCH" "$SHA" "$(date -u +%FT%TZ)" > site/preview/preview-info.txt
+          touch site/.nojekyll
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4
