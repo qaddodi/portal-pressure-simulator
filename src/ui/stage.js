@@ -2065,8 +2065,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const it = { key: 'z:' + txt, cls: 'zonecap', lines: [[{ t: txt.toUpperCase(), size: compact ? 8.5 : 9.5, weight: 650, cls: 'lb-zone', track: 0.1 }]], align: 'middle', padX: 2, padY: 2 };
         it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
         if (turned) {
-          // The liver card names the liver itself, and sits over the middle of the module.
-          if (/liver/i.test(txt)) continue;
+          // The liver card names the liver itself, and sits over the middle of the module (there is no card on a phone).
+          if (!compact && /liver/i.test(txt)) continue;
           // Upright, a zone is a horizontal band: its title sits at the band's middle, at the map's left edge.
           it.ax = Math.max(it.w / 2 + 8, (a + b) / 2); it.ay = (ay0 + by) / 2;
           if (Math.abs(by - ay0) > it.h + 6) place(it, ['C'], 0, false);
@@ -2080,7 +2080,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (both lobes in parallel). Click to show or hide the stations inside.
       const open = liverExpanded();
       const showVals = !isImaging() && st.layers.chips;
-      {
+      // On a phone there is no room for it: the liver's stations open when zoomed in (see liverExpanded).
+      if (!compact) {
         const par = (a, b) => { const ra = liverR[a].R, rb = liverR[b].R; return Number.isFinite(ra) && Number.isFinite(rb) ? (ra * rb) / (ra + rb) : Number.isFinite(ra) ? ra : rb; };
         const R = [['pre', par('PRE_R', 'PRE_L')], ['sinusoidal', par('SIN_RR', 'SIN_LL')], ['post', par('POST_R_RHV', 'POST_L_LHV')]];
         const sz = compact ? 9.5 : 10.5;
