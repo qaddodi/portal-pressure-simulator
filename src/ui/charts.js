@@ -1,7 +1,7 @@
 // Dock charts (blueprint §9.2): pressure profile, scope, Sankey, perfusion + operating point.
 
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
-import { PROFILE_PATHS, SHORT } from './anatomy.js?v=0a2e719f94';
+import { PROFILE_PATHS, SHORT } from './anatomy.js?v=9f55a45627';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { store } from './store.js?v=4bf5a96a9d';
 import { h, fmt, fmtFlow, fitCanvas, cssVar, clamp } from './util.js?v=cc7ee4cf38';

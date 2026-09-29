@@ -316,7 +316,7 @@ export const LABEL_VESSEL = {
 export const ORGANS = [
   { id: 'kidney-r', tone: 'kidney', cls: 'org org-kidney', d: 'M474 578 C 446 586 434 626 440 664 C 446 700 474 720 500 714 C 518 710 522 692 516 676 C 510 662 512 646 518 634 C 524 618 520 596 506 584 C 496 576 484 574 474 578 Z' },
   { id: 'kidney-l', tone: 'kidney', cls: 'org org-kidney', d: 'M1002 556 C 1040 548 1066 584 1064 626 C 1062 672 1034 700 1000 694 C 982 690 984 668 994 654 C 1000 642 998 630 990 620 C 984 606 978 574 1002 556 Z' },
-  { id: 'esophagus', tone: 'eso', cls: 'org org-eso', d: 'M776 0 L 798 0 C 800 90 805 190 813 251 L 792 251 C 787 190 781 90 776 0 Z' },
+  { id: 'esophagus', tone: 'eso', cls: 'org org-eso', d: 'M775 -90 L 799 -90 L 798 0 C 800 90 805 190 813 251 L 792 251 C 787 190 781 90 776 0 Z' },
   { id: 'heart', tone: 'heart', cls: 'org org-heart', d: 'M618 64 C 607 88 606 128 611 158 C 616 184 632 194 658 194 C 695 194 731 188 753 172 C 762 165 762 150 755 140 C 738 110 716 80 691 64 C 669 51 637 50 618 64 Z' },
   { id: 'heart-grooves', cls: 'org-heart-groove', deco: true, d: 'M691 64 C 700 108 722 152 751 176 M648 64 C 658 102 660 150 655 193' },
   { id: 'heart-out', cls: 'org-heart-flow', deco: true, d: 'M647 118 C 663 112 679 114 695 126' },
@@ -361,7 +361,9 @@ export const BACKDROP = {
 };
 
 // Invisible peritoneal outline: ascites fills it from the bottom.
-export const ABDOMEN_CLIP = 'M330 440 C 320 600 340 800 388 950 L 1052 950 C 1090 800 1100 600 1092 440 Z';
+// The peritoneal cavity closes in a rounded pelvic floor (below the plate's default frame), so
+// ascites pools in a basin when the view is zoomed out instead of ending in a flat cut.
+export const ABDOMEN_CLIP = 'M330 440 C 320 600 340 800 388 950 C 470 1010 970 1010 1052 950 C 1090 800 1100 600 1092 440 Z';
 export const ABDOMEN_FLOOR = 950;
 export const SPLEEN_CENTER = [1040, 362];
 

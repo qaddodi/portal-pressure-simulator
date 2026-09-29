@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Zooming out shows a finished figure.** The abdomen now closes in a rounded pelvic floor, so
+  ascites pools in a basin (and the abdominal outline closes beneath it) instead of ending in a
+  flat cut below the default frame, and the esophagus fades out at the top of the plate instead of
+  being cut off. The default framing is unchanged.
 - **Veins fade into their organs.** The splenic vein at the hilum, the superior and inferior
   mesenteric veins at the small bowel and colon, and the left renal vein at the kidney now end as
   straight vessels that fade out over their last stretch (and their flow marks with them), instead
