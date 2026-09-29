@@ -759,7 +759,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const fx = 640, fy = cy;
     return { k, x: cx - k * fx, y: cy - k * fy };
   }
-  const fit = () => { setLobule(false); vt = defaultVT(morphTarget === 1); applyVT(); CTM = null; };
+  // Fit shows the whole figure. On a narrow screen the circuit opens as a close-up of the portal vein
+  // and liver (see defaultVT), which is not a fit: there Fit shows the entire map, and tapping it
+  // again returns to the close-up, so the button always does something visible.
+  const fit = () => {
+    setLobule(false);
+    const circuit = morphTarget === 1, focus = defaultVT(circuit), whole = { k: 1, x: 0, y: 0 };
+    const near = (a, b) => Math.abs(a.k - b.k) < 0.02 && Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1;
+    vt = circuit && !near(focus, whole) ? (near(vt, whole) ? focus : whole) : focus;
+    applyVT(); CTM = null;
+  };
 
   // ── Semantic zoom: abdomen → liver → lobule ───────
   // Zooming (wheel, pinch, buttons) only moves the camera: past ×1.9 over the liver its inner
@@ -1840,7 +1849,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const st = store.get();
     const t = easeInOut(morph);
     const circuit = t >= 0.5;
-    labelK = labelBase() * (circuit ? CIRCUIT_LABEL_K : 1);
+    // Zoomed far out (the whole map on a phone), the map's own scale is tiny, so its labels shrink with it
+    // (down to 70 %) instead of burying it; from 0.6 px per unit up they are full size.
+    labelK = labelBase() * (circuit ? CIRCUIT_LABEL_K * clamp(CTM.a / 0.6, 0.7, 1) : 1);
     const wr = stageBox();
     const W = wr.width, H = wr.height;
     const B = { x0: 6, y0: 6, x1: W - 6, y1: H - 6 };

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Fit works on a phone in the circuit view.** The circuit opens on a phone as a close-up of the
+  portal vein and liver, so Fit (which went back to that same close-up) seemed to do nothing, and
+  jumped into a close-up after zooming out. Fit now shows the whole map there, and tapping it again
+  returns to the close-up. Station labels shrink (down to 70 %) when the map is shown that small, so
+  they no longer bury it.
 - **Fit on a phone, and fit takes in the ascites.** The Fit button (bottom right of the figure) was
   hidden on phones; it now shows there, with a 44 px touch target. Fit also frames the whole
   abdomen when there is ascites: the frame grows (by up to about 8 %) to take in the bulging
