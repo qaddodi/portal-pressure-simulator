@@ -2985,7 +2985,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (target === morphTarget) return;
       morphTarget = target;
       syncSemantic();
-      const d = defaultVT(target === 1);
+      // Zoomed out (or fitted) in the anatomy, the circuit opens zoomed out too: the whole map, not
+      // the close-up it opens with on a phone. From a zoomed-in view it takes its usual framing.
+      const wasOut = target === 1 && vt.k <= 1.001;   // the whole plate (or less) is showing
+      const d = wasOut ? { k: 1, x: 0, y: 0 } : defaultVT(target === 1);
       if (d.k !== vt.k || d.x !== vt.x || d.y !== vt.y) animateVT(d, 600);
     },
     relayout() { refreshCTM(); if (F) updateLabels(F); },

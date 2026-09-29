@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Zoomed out stays zoomed out.** Switching from the anatomy to the circuit while the whole plate
+  is showing (or zoomed out) now opens the whole circuit, instead of the close-up the circuit uses
+  by default on a phone. From a zoomed-in anatomy it still takes its usual framing.
 - **Fit works on a phone in the circuit view.** The circuit opens on a phone as a close-up of the
   portal vein and liver, so Fit (which went back to that same close-up) seemed to do nothing, and
   jumped into a close-up after zooming out. Fit now shows the whole map there, and tapping it again
