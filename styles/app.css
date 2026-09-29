@@ -512,8 +512,6 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .varix-col { fill: none; stroke-linecap: round; }
 .varix-bead { stroke: var(--vessel-casing); stroke-width: .9; }
 .bead-glint { fill: var(--light-ink); fill-opacity: .55; pointer-events: none; }
-.caput-case { fill: none; stroke: var(--vessel-casing); stroke-linecap: round; stroke-linejoin: round; opacity: .8; }
-.caput-vein { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .thrombus-lam { fill: none; stroke: var(--thrombus-lam); stroke-opacity: .5; stroke-width: .7; stroke-linecap: round; }
 .thrombus-channel { fill: none; stroke: var(--thrombus-channel); stroke-opacity: .85; stroke-linecap: round; }
 .stent-rail-glint { fill: none; stroke: var(--light-ink); stroke-opacity: .5; stroke-width: .5; transform: translate(-.4px, -.4px); }

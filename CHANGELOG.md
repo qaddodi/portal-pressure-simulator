@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Caput medusae redrawn.** Instead of an even ring of eleven flat, wavy strokes, the caput is
+  now a branching, tortuous network of veins that leaves the umbilicus, thins to fine tips and
+  fades into the skin: the same tree as the mesenteric and splenic-hilum veins, with the same
+  border and shading, the color of the epigastric veins' pressure, and flow marks running
+  outward. It fills in as the paraumbilical route opens and is absent before that.
 - **Vessels leave gracefully.** A collateral that closes, a shunt or TIPS that is removed, and the
   epigastric veins that come with the paraumbilical route no longer vanish in a single frame:
   they retract along their flow, the reverse of how they draw on, and then disappear (or turn

@@ -1,7 +1,7 @@
 // Anatomical stage (blueprint §6): SVG anatomy + canvas flow layer + screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, edgePresent, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=29d10ad9ef';
-import { LABEL_VESSEL, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders } from './anatomy.js?v=3405f1e9a1';
+import { LABEL_VESSEL, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders } from './anatomy.js?v=b77c91b2ff';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=cc7ee4cf38';
@@ -95,8 +95,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const FEEDER_CONNECTOR = { AZY_SVC: 'C9' };
   for (const [id, fd] of Object.entries(FEEDERS)) {
     // A generated fan is a tortuous network (drawn like the variceal plexus); listed paths meander.
-    const list = [...(fd.fan ? fanFeeders(fd.fan).map((x) => ({ ...x, fan: true })) : []), ...(fd.paths || []).map((d, i) => ({ d, k: 1, when: fd.when, src: fd.from?.[i] }))];
-    feedGeo[id] = list.map(({ d, k, fan, when, src }, i) => { const pts = sample(d); return { k, fan, when, src, pts: fan ? wiggle(pts, (2.2 + 1.2 * k) * (fd.fan.wig ?? 1), i * 2.3 + 1) : fd.wig ? wiggle(pts, fd.wig, i * 2.3 + 1) : meander(pts, id + i) }; });
+    const list = [...(fd.fan ? fanFeeders(fd.fan).map((x) => ({ ...x, fan: true, when: fd.fan.when, out: !!fd.fan.out })) : []), ...(fd.paths || []).map((d, i) => ({ d, k: 1, when: fd.when, src: fd.from?.[i] }))];
+    feedGeo[id] = list.map(({ d, k, fan, when, src, out }, i) => { const pts = sample(d); const shaped = fan ? wiggle(pts, (2.2 + 1.2 * k) * (fd.fan.wig ?? 1), i * 2.3 + 1) : fd.wig ? wiggle(pts, fd.wig, i * 2.3 + 1) : meander(pts, id + i); return { k, fan, when, src, out, pts: out ? shaped.slice().reverse() : shaped }; });
   }
   scratch.remove();
   // Where to caption each circuit lane: the middle of its longest horizontal run.
@@ -470,7 +470,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     for (const el of liverPaths) el.setAttribute('d', d);
   }
-  // Abdominal wall (anterior): appears only with caput medusae, under the radiating veins.
+  // Abdominal wall (anterior): a soft skin tint that appears only with caput medusae, under its veins.
   const abdWall = s('ellipse', { cx: SITES.umbilicus[0], cy: SITES.umbilicus[1], rx: 120, ry: 96, fill: 'url(#skin)', class: 'abd-wall', opacity: 0 });
   // Flanks: the outline of the abdominal wall, which bulges as ascites accumulates.
   const flank = s('path', { class: 'flank', d: '' });
@@ -509,7 +509,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const hit = s('path', { class: 'v-hit', tabindex: 0, role: 'button', 'aria-label': e.label || e.id, 'data-id': e.id });
     // Extra channels of a braided collateral (cavernoma): plain strokes under the main tube.
     const strands = !isArt && STRANDS[e.id] ? STRANDS[e.id].map(([off, ph, k]) => ({ off, ph, k, wall: s('path', { class: 'v-strand-wall' }), lumen: s('path', { class: 'v-strand', stroke: `url(#gr-${e.id})` }) })) : null;
-    const feeders = !isArt && feedGeo[e.id] ? feedGeo[e.id].map(({ pts: cur, k: fk, fan, when, src }, i) => ({ cur, fk, fan, when, src, len: arcLen(cur), ph: i * 0.37, wall: s('path', { class: 'v-strand-wall' }), lumen: s('path', { class: 'v-strand', stroke: `url(#gr-${e.id})` }) })) : null;
+    const feeders = !isArt && feedGeo[e.id] ? feedGeo[e.id].map(({ pts: cur, k: fk, fan, when, src, out }, i) => ({ cur, fk, fan, when, src, out, len: arcLen(cur), ph: i * 0.37, wall: s('path', { class: 'v-strand-wall' }), lumen: s('path', { class: 'v-strand', stroke: `url(#gr-${e.id})` }) })) : null;
     // A feeder that leaves a named vein is colored from that vein's pressure to the vessel's.
     if (feeders) feeders.forEach((fd, i) => {
       if (!fd.src) return;
@@ -521,8 +521,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     });
     if (feeders && FEEDERS[e.id].fan) {
       // Tributaries fade out toward the bowel they drain, so they stay background.
-      const { at, len, levels } = FEEDERS[e.id].fan;
-      defs.insertAdjacentHTML('beforeend', `<radialGradient id="fg-${e.id}" gradientUnits="userSpaceOnUse" cx="${at[0]}" cy="${at[1]}" r="${len * (levels ? 2.7 : 1.35)}"><stop offset="0" stop-color="#fff" stop-opacity=".7"/><stop offset=".45" stop-color="#fff" stop-opacity=".4"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient><mask id="fm-${e.id}" maskUnits="userSpaceOnUse" x="0" y="0" width="${VIEW.w}" height="${VIEW.h}"><rect x="0" y="0" width="${VIEW.w}" height="${VIEW.h}" fill="url(#fg-${e.id})"/></mask>`);
+      const { at, len, levels, fade = [0.7, 0.4] } = FEEDERS[e.id].fan;
+      defs.insertAdjacentHTML('beforeend', `<radialGradient id="fg-${e.id}" gradientUnits="userSpaceOnUse" cx="${at[0]}" cy="${at[1]}" r="${len * (levels ? 2.7 : 1.35)}"><stop offset="0" stop-color="#fff" stop-opacity="${fade[0]}"/><stop offset=".45" stop-color="#fff" stop-opacity="${fade[1]}"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient><mask id="fm-${e.id}" maskUnits="userSpaceOnUse" x="0" y="0" width="${VIEW.w}" height="${VIEW.h}"><rect x="0" y="0" width="${VIEW.w}" height="${VIEW.h}" fill="url(#fg-${e.id})"/></mask>`);
       for (const fd of feeders) if (fd.fan) { fd.wall.setAttribute('mask', `url(#fm-${e.id})`); fd.lumen.setAttribute('mask', `url(#fm-${e.id})`); fd.faded = true; }
     }
     // Veins that sink into a retroperitoneal vein fade into it instead of ending on it: the
@@ -652,7 +652,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   // Overlays
   const ov = {
-    clamps: s('g'), thrombi: s('g'), stents: s('g'), plugs: s('g'), varices: s('g'), gvarices: s('g'), caput: s('g'),
+    clamps: s('g'), thrombi: s('g'), stents: s('g'), plugs: s('g'), varices: s('g'), gvarices: s('g'),
     balloons: s('g'), catheter: s('g'), bands: s('g'),
   };
   Object.values(ov).forEach((g) => gOver.append(g));
@@ -1028,6 +1028,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (cfg.when === 'caudate') {
           const ref = store.get().healthy?.Q?.[k], q = Math.abs(f.Qf ? f.Qf[k] : f.Q[k]);
           live = ref ? clamp((q / Math.abs(ref) - 2) / 2, 0, 1) : 0;
+        } else if (cfg.when === 'caput') {
+          // Caput medusae: the epigastric network fills in as the paraumbilical route opens.
+          live = clamp((recruitFrac('C3', f) - 0.15) / 0.3, 0, 1);
         }
         // A trunk that a collateral carries on (the azygos, with the ascending lumbar veins) is
         // connected: it is drawn to its end; otherwise it fades out.
@@ -1054,7 +1057,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       else if (mode === 'neutral') { c1 = c2 = PORTAL_TERRITORY.has(e.from) || PORTAL_TERRITORY.has(e.to) ? 'var(--vein-portal)' : 'var(--vein-systemic)'; }
       else { c1 = deltaColor(ref ? qP(P1 - ref[NI[e.from]]) : 0); c2 = deltaColor(ref ? qP(P2 - ref[NI[e.to]]) : 0); }
       setA(x.st0, 'stop-color', c1); setA(x.st1, 'stop-color', c2);
-      if (x.feeders) for (const fd of x.feeders) if (fd.src) { setA(fd.st0, 'stop-color', mode === 'pressure' ? pressureColor(qP(PM[NI[fd.src]])) : c1); setA(fd.st1, 'stop-color', c1); }
+      if (x.feeders) for (const fd of x.feeders) {
+        if (fd.src) { setA(fd.st0, 'stop-color', mode === 'pressure' ? pressureColor(qP(PM[NI[fd.src]])) : c1); setA(fd.st1, 'stop-color', c1); }
+        else if (FEEDERS[e.id].tone === 'end') setA(fd.lumen, 'stroke', c2);   // a network that leaves the vessel's end takes that end's color
+      }
       // Flow marks are white on dark lumens and ink on pale ones.
       x.inkDark = mode === 'pressure' ? luminance(pressureColor((P1 + P2) / 2)) > 0.36 : luminance(c1) > 0.36;
       if (x.heat && mode === 'heat') { setA(x.heat, 'stroke', c1); setA(x.heat, 'stroke-width', (w + 22).toFixed(1)); const ho = mode === 'heat' && ref ? clamp((x.pmid - (ref[NI[e.from]] + ref[NI[e.to]]) / 2) / 8, 0, 1).toFixed(2) : '0'; if (x.heat._op !== ho) { x.heat._op = ho; x.heat.style.opacity = ho; } }
@@ -1457,7 +1463,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const PM = f.Pf || f.P;
     setVar(ov.varices, '--vx', pressureColor(qP(PM[NI.VAR])));
     setVar(ov.gvarices, '--vx', pressureColor(qP(PM[NI.GV])));
-    setVar(ov.caput, '--vx', pressureColor(qP(PM[NI.EPI])));
     const key = overlayInputs(f, p, t);
     if (key === overlayKey) return;
     overlayKey = key;
@@ -1507,28 +1512,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The varices themselves are shown by the plexus of channels feeding and draining them (see
     // STRANDS in anatomy.js), which swell as they are recruited; here only the bands, fitted at
     // ligation, are drawn over the lower esophagus.
-    ov.varices.innerHTML = ''; ov.gvarices.innerHTML = ''; ov.caput.innerHTML = ''; ov.bands.innerHTML = '';
+    ov.varices.innerHTML = ''; ov.gvarices.innerHTML = ''; ov.bands.innerHTML = '';
     if (anat) {
       const eso = (y) => 789 + (y - 24) * 0.066;
       const nb = Math.round(f.bands || 0);
       for (let i = 0; i < nb; i++) { const y = 272 - i * 16; ov.bands.append(s('ellipse', { cx: eso(y), cy: y, rx: 11, ry: 3, class: 'band-ring' })); }
-      // Caput medusae: tortuous, slightly raised veins radiating from the umbilicus over a
-      // semi-transparent abdominal wall, only when the paraumbilical route carries real flow.
-      const c3 = recruitFrac('C3', f);
-      if (c3 > 0.15 && E.C3.vis) {
-        const n = 11;
-        for (let i = 0; i < n; i++) {
-          const a0 = (i / n) * Math.PI * 2 + 0.25, L = 24 + 62 * c3 * (0.7 + 0.3 * Math.sin(i * 2.3));
-          const pts = [];
-          for (let j = 0; j <= 10; j++) {
-            const rr = 7 + (L * j) / 10, wob = j === 0 ? 0 : Math.sin(j * 1.6 + i * 1.3) * (1.5 + 3.5 * c3) * Math.min(1, j / 3);
-            const a = a0 + Math.sin(j * 0.5 + i) * 0.12;
-            pts.push([SITES.umbilicus[0] + Math.cos(a) * rr - Math.sin(a) * wob, SITES.umbilicus[1] + Math.sin(a) * rr * 0.86 + Math.cos(a) * wob]);
-          }
-          const w = 1.6 + 2.6 * c3;
-          ov.caput.append(s('path', { d: polyD(pts), class: 'caput-case', 'stroke-width': (w + 1.8).toFixed(2) }), s('path', { d: polyD(pts), class: 'caput-vein', style: 'stroke: var(--vx)', 'stroke-width': w.toFixed(2) }));
-        }
-      }
     }
     // Balloons
     ov.balloons.innerHTML = '';
@@ -2194,9 +2182,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (x.feeders && morph < 0.5) for (const fd of x.feeders) {
         if ((fd.live ?? 1) < 0.5) continue;
         const fsp = markSpacing(fd.w), fms = markSize(fd.w), fm = Math.min(fd.len * 0.12, fsp * 0.35 + 2);
-        const f0 = fd.faded ? Math.max(fm, fd.len * 0.55) : fm;   // faded tributaries: marks near the vessel only
-        for (let tt = f0 + (((ph / sp) + fd.ph) % 1) * fsp; tt < fd.len - fm; tt += fsp) {
-          const ends = clamp(Math.min(tt - f0, fd.len - fm - tt) / (fsp * 0.8), 0, 1);
+        // Faded tributaries: marks near the vessel only (for a network that leaves the vessel, that is its root).
+        const f0 = fd.faded && !fd.out ? Math.max(fm, fd.len * 0.55) : fm;
+        const f1 = fd.faded && fd.out ? Math.min(fd.len - fm, fd.len * 0.5) : fd.len - fm;
+        for (let tt = f0 + (((ph / sp) + fd.ph) % 1) * fsp; tt < f1; tt += fsp) {
+          const ends = clamp(Math.min(tt - f0, f1 - tt) / (fsp * 0.8), 0, 1);
           if (ends < 0.08) continue;
           const [px, py, dx, dy] = pointAt(fd.cur, tt / fd.len);
           const nn = Math.hypot(dx, dy) || 1;

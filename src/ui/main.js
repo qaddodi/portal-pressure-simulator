@@ -3,16 +3,16 @@
 
 import { startHost, host } from './host.js?v=ce51691de3';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=4bf5a96a9d';
-import { createStage } from './stage.js?v=5f5a19107d';
+import { createStage } from './stage.js?v=e2a06c009d';
 import { createInspector } from './inspector.js?v=ecfb4548ab';
-import { createDock, CUTOFFS } from './dock.js?v=97f5370816';
+import { createDock, CUTOFFS } from './dock.js?v=16fbcbc21f';
 import { createWhy } from './why.js?v=cb6efa350a';
 import { createTimeline } from './timeline.js?v=a16aa94cd6';
 import { createLearn } from './learn.js?v=cc9a38cf25';
 import { createCases } from './cases.js?v=52c633ef8b';
 import { createCompare } from './compare.js?v=e505a6db48';
 import { createCard } from './card.js?v=f9bd337cef';
-import { createChart } from './chart.js?v=f491d047e7';
+import { createChart } from './chart.js?v=b65a7495bf';
 import { createHome } from './home.js?v=fe3cba9aa4';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=0457b367b9';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=0287515a1d';
@@ -146,7 +146,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=5a50f627c3'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=f9fa72824f'), ({ createPalette }) => createPalette({ ctx: {
     select: (sel) => store.set({ selection: sel }), action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     wedge: () => { store.set({ selection: { type: 'edge', id: 'RHV_IVC' } }); setTimeout(() => card.trigger(3), 60); },
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),

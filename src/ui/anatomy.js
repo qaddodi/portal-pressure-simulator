@@ -204,6 +204,12 @@ export const FEEDERS = {
   // Azygos: its ascending trunk (the intercostal and ascending lumbar veins' channel) climbs
   // beside the cava into the arch.
   AZY_SVC: { k: 1, paths: ['M566 172 C 563 120 561 70 565 50 C 567 40 570 34 574 30'] },
+  // Caput medusae: the recanalized paraumbilical vein (C3) empties at the umbilicus into the
+  // superficial epigastric veins, which fan out over the abdominal wall as a tortuous, branching
+  // network that thins and fades into the skin (blood leaves the umbilicus, so its marks run
+  // outward). Arms leave in every direction but straight down, where the inferior epigastric vein
+  // already runs.
+  C3: { k: 0.5, when: 'caput', tone: 'end', fan: { at: [500, 800], dir: -95, spread: 280, len: 42, n: 5, seed: 4, levels: 2, wig: 0.35, out: true, when: 'caput', fade: [1, 0.85] } },
   CAUD: { k: 0.55, fan: { at: [566, 326], dir: 172, spread: 84, len: 46, n: 4, seed: 5, wig: 0.7 },
     when: 'caudate', from: ['RPV', 'LPV'], paths: ['M505 398 C 522 370 540 336 566 326', 'M688 378 C 630 404 546 384 566 326'] },
 };
