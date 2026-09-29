@@ -2,7 +2,7 @@
 // Each factor that differs from the healthy state is reverted in isolation on a scratch engine;
 // its contribution is (current − reverted). Contributions are approximate: they need not sum exactly.
 
-import { Engine } from './engine.js?v=8cd3474cd8';
+import { Engine } from './engine.js?v=576201352f';
 import { computeMetrics } from './metrics.js?v=9da2fb878d';
 import { defaultParams, DRUGS } from './scenario.js?v=8fc90f782f';
 import { EDGES, COLLATERAL_DMIN_RATIO, dMinOf } from './topology.js?v=29d10ad9ef';
@@ -10,7 +10,7 @@ import { EDGES, COLLATERAL_DMIN_RATIO, dMinOf } from './topology.js?v=29d10ad9ef
 export const METRICS = {
   pv: { label: 'Portal pressure', unit: 'mmHg', get: (m) => m.pv, digits: 1 },
   hvpg: { label: 'HVPG', unit: 'mmHg', get: (m) => m.hvpg, digits: 1 },
-  ppg: { label: 'Portosystemic gradient', unit: 'mmHg', get: (m) => m.ppg, digits: 1 },
+  ppg: { label: 'Direct portal–systemic gradient', unit: 'mmHg', get: (m) => m.ppg, digits: 1 },
   pvFlow: { label: 'Portal vein flow', unit: 'L/min', get: (m) => m.pvFlow, digits: 2 },
   liverPerf: { label: 'Liver perfusion', unit: '%', get: (m) => m.liverPerfPct, digits: 0 },
   shunt: { label: 'Shunt fraction', unit: '%', get: (m) => m.shuntFraction * 100, digits: 0 },

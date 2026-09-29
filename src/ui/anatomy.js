@@ -291,6 +291,16 @@ export const CIRCUIT_LABELS = {
   HA: { dirs: ['N', 'NW', 'NE'], pri: 4 },
 };
 
+// A station's label names a vessel, so its callout hangs from the middle of that vessel rather
+// than from the junction at one end (station → the vessel it names). Beds, organs, chambers, the
+// sinusoids and the varix/fundus sites have no single run and keep the station itself. The value
+// shown is still the station's pressure, so it matches the readout strip.
+export const LABEL_VESSEL = {
+  CONF: 'PV_TRUNK', SMV: 'SMV_CONF', SV: 'V_SPL', IMV: 'V_IMV', LGV: 'LGV_CONF', RPV: 'PVH_R', LPV: 'PVH_L',
+  RHV: 'RHV_IVC', MHV: 'MHV_IVC', LHV: 'LHV_IVC', IVCS: 'IVCS_RA', IVCI: 'IVC_IS', SVC: 'SVC_RA', AZY: 'AZY_SVC',
+  LRV: 'LRV_IVC', ILI: 'ILI_IVC', VAR: 'C1a',
+};
+
 // Organ artwork (anatomic view only): a frontal plate drawn back to front, as a medical
 // illustrator layers it. Retroperitoneal structures first (both kidneys, the right one peeking
 // below the liver), then the heart, the colon framing the small

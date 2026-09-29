@@ -19,7 +19,7 @@ export const VALIDATION = [
   'Splenorenal shunt in decompensated cirrhosis: the splenic vein reverses',
   'End-stage cirrhosis with arterioportal shunting: hepatofugal portal flow',
   'TIPS 10 mm at HVPG ≈ 20: gradient below 12 mmHg, shunt fraction and liver perfusion change as expected',
-  'No variceal rupture below HVPG 12 mmHg',
+  'Model calibration: no variceal rupture below HVPG 12 mmHg (a simplification: real varices can bleed below 12)',
   'Hemorrhage lowers portal pressure; over-transfusion raises it above the pre-bleed level',
   'BRTO of a gastrorenal shunt raises portal pressure by at least 2 mmHg',
   'Non-selective β-blockers lower HVPG; carvedilol more than propranolol',

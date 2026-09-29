@@ -3,7 +3,7 @@
 // variants, and a printable debrief with a counterfactual replayed in a separate engine.
 
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
-import { host } from './host.js?v=6a22e2b420';
+import { host } from './host.js?v=ce51691de3';
 import { h, fmt, openModal, closeModal, toast, svgIcon } from './util.js?v=cc7ee4cf38';
 import { addRecord, exportCSV, exportXAPI } from './records.js?v=26ab8fb634';
 
@@ -97,7 +97,7 @@ export const CASES = [
     actions: ['paracentesis', 'diuretics', 'tips8', 'tips10', 'carvedilol'],
     objectives: [
       { id: 'iap', text: 'Relieve intra-abdominal hypertension (IAP < 10 mmHg)', check: (c) => (c.m.ascites.iap < 10 ? 'met' : null) },
-      { id: 'ppg', text: 'Bring the portosystemic gradient below 12 mmHg', check: (c) => (c.m.ppg < 12 ? 'met' : null) },
+      { id: 'ppg', text: 'Bring the direct portal–systemic gradient below 12 mmHg (the usual TIPS target)', check: (c) => (c.m.ppg < 12 ? 'met' : null) },
       { id: 'he', text: 'Keep the shunt fraction below 70 % (encephalopathy)', check: (c) => (c.m.shuntFraction > 0.7 && c.params.tips.on ? 'failed' : c.ended ? 'met' : null) },
       { id: 'perf', text: 'Keep liver perfusion above 50 %', check: (c) => (c.m.liverPerfPct < 50 && c.params.tips.on ? 'failed' : c.ended ? 'met' : null) },
     ],
