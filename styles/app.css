@@ -541,8 +541,8 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .v-halo { display: none; }
 /* Tubes: contact shadow, casing, lumen, then the shading of a cylinder lit from above. */
 .v-shadow { fill: var(--vessel-shadow); stroke: none; transform: translate(1.4px, 2.8px); }
-.v-shade { fill: none; stroke: var(--tube-shade-ink); stroke-opacity: var(--tube-shade); stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
-.v-sheen { fill: none; stroke: var(--light-ink); stroke-opacity: var(--tube-sheen); stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+.v-shade { fill: var(--tube-shade-ink); fill-opacity: var(--tube-shade); stroke: none; pointer-events: none; }
+.v-sheen { fill: var(--light-ink); fill-opacity: var(--tube-sheen); stroke: none; pointer-events: none; }
 /* Veins are filled, tapered tubes; strokes are used in the circuit, for closed collaterals and
    while a vessel is being drawn on. */
 .v-wallP, .v-lumenP { stroke: none; }

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Continuous vessels.** Where veins meet, the lit highlight and the shaded side now taper to
+  nothing at each end and sit above the whole network, so they dissolve into a junction instead of
+  stopping and restarting on the next vessel. A thin vessel joining a thick one narrows more
+  gradually (down to half its width, was 0.7×).
+- **Callouts on the vessel.** A label that names a vessel (portal vein, splenic vein, SMV, hepatic
+  veins, IVC, esophageal varices, and so on) now hangs from the middle of that vessel in both the
+  anatomic and circuit views, with a small dot marking the spot, instead of from the junction at
+  one end. The value is still the station's pressure, so it matches the readout strip. Beds,
+  organs, the right atrium, sinusoids and the fundal varices keep their station.
 - **Pressure language.** Vessel color is absolute mean venous pressure with numeric ticks only;
   the CSPH / bleeding / high-risk labels and the reference planes at 10 and 12 mmHg are gone from
   the scale, the figure legend and the pressure landscape. A card sets three different

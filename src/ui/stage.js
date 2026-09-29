@@ -1,7 +1,7 @@
 // Anatomical stage (blueprint §6): SVG anatomy + canvas flow layer + screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, edgePresent, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=29d10ad9ef';
-import { VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders } from './anatomy.js?v=0fae49bf3a';
+import { LABEL_VESSEL, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders } from './anatomy.js?v=3405f1e9a1';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=cc7ee4cf38';
@@ -219,6 +219,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
 
   const nodePos = (id, t) => { const [a, c] = NODE_POS[id]; return [lerp(a[0], c[0], t), lerp(a[1], c[1], t)]; };
+  // The point half way along a drawn vessel, by length, and the direction it runs there.
+  function arcMid(pts) {
+    let total = 0;
+    for (let i = 1; i < pts.length; i++) total += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+    let run = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const seg = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+      if (run + seg >= total / 2 && seg > 0) {
+        const u = (total / 2 - run) / seg, dx = pts[i][0] - pts[i - 1][0], dy = pts[i][1] - pts[i - 1][1];
+        return [pts[i - 1][0] + dx * u, pts[i - 1][1] + dy * u, dx / seg, dy / seg];
+      }
+      run += seg;
+    }
+    return [pts[0][0], pts[0][1], 1, 0];
+  }
 
   // ── SVG scaffolding ───────────────────────────────
   const defs = s('defs');
@@ -272,13 +287,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const gHeat = s('g', { id: 'heatGlow', filter: 'url(#heatBlur)' });
   const gCaseL = s('g', { id: 'vCasings' });
   const gEdges = s('g', { id: 'edges' });
-  const gBackS = s('g'), gBackC = s('g'), gBackL = s('g');
+  const gBackS = s('g'), gBackC = s('g'), gBackL = s('g'), gBackH = s('g');
+  // Highlights (the lit sheen and the shaded side of each tube) are a tier of their own above the
+  // lumens of the whole network, so a vessel's highlight never cuts across its neighbor.
+  const gHiMid = s('g'), gHiFront = s('g');
   const gOver = s('g', { id: 'overlays' });
   const gNodes = s('g', { id: 'nodes', class: 'circuit-only' });
   const gFocus = s('g', { id: 'focus' });
   const gGuides = s('g', { id: 'guides' });
   world.append(gBackdrop, gGrid, gBack, gOrgans, gGhost, gAscites, gFocus, gHeat, gArt, gShadowL, gCaseL, gEdges, gOver, gNodes, gGuides);
-  gBack.append(gBackS, gBackC, gBackL);
+  gBack.append(gBackS, gBackC, gBackL, gBackH);
 
   // Circuit view: quiet bands for each pressure zone (captioned by the label layer).
   gGrid.append(s('rect', { x: 30, y: 30, width: 1340, height: 700, fill: 'url(#mapGrid)', class: 'map-grid' }));
@@ -450,7 +468,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   for (const e of ALL_EDGES) {
     const vcls = 'vg' + (CONTEXT_EDGES.has(e.id) ? ' ctx' : '') + (e.kind === 'collateral' ? ' coll' : '');
     const g = s('g', { class: vcls, 'data-id': e.id });
-    const gc = s('g', { class: vcls }), gs = s('g', { class: vcls });
+    const gc = s('g', { class: vcls }), gs = s('g', { class: vcls }), gh = s('g', { class: vcls });
     const grad = s('linearGradient', { id: 'gr-' + e.id, gradientUnits: 'userSpaceOnUse' });
     const st0 = s('stop', { offset: '0' }), st1 = s('stop', { offset: '1' });
     grad.append(st0, st1); defs.append(grad);
@@ -502,13 +520,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (spine) gc.append(spine);
       gs.append(shadow);
       gc.append(halo, sel, wall, wallP);
-      g.append(lumen, lumenP, shade, sheen, hit);
+      g.append(lumen, lumenP, hit);
+      gh.append(shade, sheen);
       if (strands) { gc.prepend(...strands.map((sd) => sd.wall)); g.prepend(...strands.map((sd) => sd.lumen)); }
       if (feeders) {
         for (const fd of feeders) { const d = polyD(fd.cur); fd.wall.setAttribute('d', d); fd.lumen.setAttribute('d', d); }
         gc.prepend(...feeders.map((fd) => fd.wall)); g.prepend(...feeders.map((fd) => fd.lumen));
       }
-      gShadowL.append(gs); gCaseL.append(gc); gEdges.append(g);
+      gShadowL.append(gs); gCaseL.append(gc); gEdges.append(g); gHiMid.append(gh);
     }
     const heat = isArt ? null : s('path', { class: 'v-heat' });
     if (heat) gHeat.append(heat);
@@ -521,13 +540,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       defs.insertAdjacentHTML('beforeend', `<linearGradient id="dg-${e.id}" gradientUnits="userSpaceOnUse" x1="0" y1="${fadeY[0]}" x2="0" y2="${fadeY[1]}"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><mask id="dm-${e.id}" maskUnits="userSpaceOnUse" x="0" y="0" width="${VIEW.w}" height="${VIEW.h}"><rect x="0" y="0" width="${VIEW.w}" height="${VIEW.h}" fill="url(#dg-${e.id})"/></mask>`);
       for (const el of [shadow, wall, lumen, shade, sheen, wallP, lumenP, halo, sel, ...(strands || []).flatMap((sd) => [sd.wall, sd.lumen])]) el?.setAttribute('mask', `url(#dm-${e.id})`);
     }
-    E[e.id] = { e, g, gc, gs, groups: isArt ? [g] : [gs, gc, g], heat, grad, st0, st1, halo, sel, shadow, spine, wall, lumen, shade, sheen, wallP, lumenP, hit, strands, feeders, isArt, vis: true, width: 4, wallPx: 1, shadeKey: '' };
+    E[e.id] = { e, g, gc, gs, gh, groups: isArt ? [g] : [gs, gc, g, gh], heat, grad, st0, st1, halo, sel, shadow, spine, wall, lumen, shade, sheen, wallP, lumenP, hit, strands, feeders, isArt, vis: true, width: 4, wallPx: 1, shadeKey: '' };
   }
   // Draw order within each tier: the portal tree in front (it lies anterior to the IVC).
-  for (const x of Object.values(E)) if (!x.isArt && (x.e.kind === 'vein' && PORTAL_TERRITORY.has(x.e.to) && PORTAL_TERRITORY.has(x.e.from || '') || ['PV_TRUNK', 'PVH_R', 'PVH_L', 'SMV_CONF', 'SV_CONF'].includes(x.e.id))) { gShadowL.append(x.gs); gCaseL.append(x.gc); gEdges.append(x.g); x.front = true; x.g.dataset.front = '1'; }
+  for (const x of Object.values(E)) if (!x.isArt && (x.e.kind === 'vein' && PORTAL_TERRITORY.has(x.e.to) && PORTAL_TERRITORY.has(x.e.from || '') || ['PV_TRUNK', 'PVH_R', 'PVH_L', 'SMV_CONF', 'SV_CONF'].includes(x.e.id))) { gShadowL.append(x.gs); gCaseL.append(x.gc); gEdges.append(x.g); gHiFront.append(x.gh); x.front = true; x.g.dataset.front = '1'; }
+  // Highlights of the middle tier sit above its lumens and below the front tier's; the front tier's above all.
+  gEdges.insertBefore(gHiMid, gEdges.querySelector('[data-front]'));
+  gEdges.append(gHiFront);
   for (const id of BACK_EDGES) if (E[id]) {
     const x = E[id];
-    if (x.isArt) gBackL.append(x.g); else { gBackS.append(x.gs); gBackC.append(x.gc); gBackL.append(x.g); }
+    if (x.isArt) gBackL.append(x.g); else { gBackS.append(x.gs); gBackC.append(x.gc); gBackL.append(x.g); gBackH.append(x.gh); }
     x.back = true;
     x.g.id = 'vg-' + id;
     // The ghost is also how the hidden stretch is picked: it carries the vessel's id.
@@ -1007,7 +1029,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cls(x, 'sten', sten); cls(x, 'stroked', stroked);
     const lim = x.e.kind === 'collateral' ? 1.3 : 1.7;
     // A large shunt tapers into the smaller vein it drains into instead of butting onto it.
-    const lo = x.e.spontaneous ? 0.4 : 0.7;
+    const lo = x.e.spontaneous ? 0.4 : 0.5;
     const endW = (n) => (J[n] && !stroked ? clamp(J[n], w * lo, w * lim) : w);
     const a = endW(x.e.from), b = endW(x.e.to);
     const key = `${w.toFixed(1)},${a.toFixed(1)},${b.toFixed(1)}|${wallPx.toFixed(2)}|${sten ? v.toFixed(3) + '@' + (stenosisAt[id] ?? 0.5) : ''}|${lastMorph}|${stroked}`;
@@ -1025,12 +1047,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       x.shadow.setAttribute('d', casing);
       x.lumenP.setAttribute('d', tubeOutline(pts, lit, x.rOf));
     }
-    if (w < 3.4 || t >= 0.999 || sten) { x.sheen.removeAttribute('d'); x.shade.removeAttribute('d'); return; }
+    if (stroked || w < 3.4 || t >= 0.999 || sten) { x.sheen.removeAttribute('d'); x.shade.removeAttribute('d'); return; }
+    // Highlights are filled ribbons that taper to nothing at both ends, so they dissolve into the
+    // junction instead of stopping short of it and starting again on the next vessel.
     const wm = Math.min(w, a, b);
-    x.sheen.setAttribute('d', polyD(litOffset(pts, lit, wm * 0.2, 0.04, 0.96)));
-    x.sheen.setAttribute('stroke-width', (wm * 0.24).toFixed(2));
-    x.shade.setAttribute('d', polyD(litOffset(pts, lit, -wm * 0.24, 0.02, 0.98)));
-    x.shade.setAttribute('stroke-width', (wm * 0.38).toFixed(2));
+    const taper = (u) => smooth(clamp(u / 0.22, 0, 1)) * smooth(clamp((1 - u) / 0.22, 0, 1));
+    x.sheen.setAttribute('d', tubeOutline(litOffset(pts, lit, wm * 0.2), lit, (u) => wm * 0.12 * taper(u)));
+    x.shade.setAttribute('d', tubeOutline(litOffset(pts, lit, -wm * 0.24), lit, (u) => wm * 0.19 * taper(u)));
   }
 
   // Circuit liver module: collapsed unless asked for, selected into, or zoomed in on.
@@ -1663,6 +1686,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return r.width ? { x0: r.left - wr.left - 4, y0: r.top - wr.top - 4, x1: r.right - wr.left + 4, y1: r.bottom - wr.top + 4 } : null;
     }).filter(Boolean);
   }
+  // Where a station's callout attaches: the middle of the vessel it names when that vessel is drawn
+  // (see LABEL_VESSEL), else the station itself. `tan` is the vessel's direction there, on screen.
+  function labelAnchor(id, t) {
+    const eid = LABEL_VESSEL[id], x = eid && E[eid];
+    if (x && x.vis && !x.g.classList.contains('coll-ghost') && geo[eid]?.cur?.length > 1) {
+      const [wx, wy, tx, ty] = arcMid(geo[eid].cur);
+      const [ax, ay] = worldToLocal(wx, wy), [bx, by] = worldToLocal(wx + tx, wy + ty);
+      const n = Math.hypot(bx - ax, by - ay) || 1;
+      return { ax, ay, mid: true, tan: [(bx - ax) / n, (by - ay) / n], w: x.width || 4 };
+    }
+    const [ax, ay] = worldToLocal(...nodePos(id, t));
+    return { ax, ay, mid: false, tan: null, w: 0 };
+  }
   let labelGridKey = '', labelGrid = new Map();
   const labelMem = new Map();
   function updateLabels(f) {
@@ -1766,10 +1802,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const items = [];
       for (const id of show) {
         if (!NODE_POS[id]) continue;
-        const [ax, ay] = worldToLocal(...nodePos(id, t));
+        const { ax, ay, mid, w: vw } = labelAnchor(id, t);
         if (ax < -20 || ax > W + 20 || ay < -20 || ay > H + 20) continue;
         const it = nodeItem(id, f, atlas ? 'atlas' : 'inline', compact);
-        it.ax = ax; it.ay = ay; it.pri = it.sel ? 100 : ANAT_PRI[id] || 5;
+        it.ax = ax; it.ay = ay; it.vw = mid ? vw * CTM.a : 0; it.pri = it.sel ? 100 : ANAT_PRI[id] || 5;
         it.side = ATLAS_LABELS[id]?.side || (NODE_POS[id][0][0] < 700 ? 'L' : 'R');
         items.push(it);
       }
@@ -1807,7 +1843,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         for (const it of items.sort((a, b) => b.pri - a.pri)) {
           it.align = 'start';
           const dirs = it.side === 'L' ? ['NW', 'W', 'SW', 'N', 'S', 'NE', 'E', 'SE'] : ['NE', 'E', 'SE', 'N', 'S', 'NW', 'W', 'SW'];
-          if (place(it, dirs, 12, true) || place(it, dirs, 30, true)) continue;
+          if (place(it, dirs, 12 + it.vw / 2, true) || place(it, dirs, 30 + it.vw / 2, true)) continue;
           if (it.sel) { place(it, ['C'], 0, false) || (out.push(Object.assign(it, { x: it.ax + 8, y: it.ay - it.h / 2 })), true); }
         }
         for (const it of out) {
@@ -1863,22 +1899,30 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (!nodeEls[n.id] || !CIRCUIT_LABELS[n.id]) continue;
         if (!nodeVisible(n.id)) continue;
         if (!open && LIVER_INNER.has(n.id) && !(st.selection?.type === 'node' && st.selection.id === n.id)) continue;
-        const [ax, ay] = worldToLocal(...nodePos(n.id, t));
+        const { ax, ay, mid, tan, w: vw } = labelAnchor(n.id, t);
         if (ax < -10 || ax > W + 10 || ay < -10 || ay > H + 10) continue;
-        placed.push({ x0: ax - 5, y0: ay - 5, x1: ax + 5, y1: ay + 5 });
+        // The station dot stays where it is; a callout on a vessel also keeps clear of its own marker.
+        const [sx, sy] = worldToLocal(...nodePos(n.id, t));
+        placed.push({ x0: sx - 5, y0: sy - 5, x1: sx + 5, y1: sy + 5 });
+        if (mid) placed.push({ x0: ax - 4, y0: ay - 4, x1: ax + 4, y1: ay + 4 });
         const it = nodeItem(n.id, f, 'station', compact);
-        it.align = 'middle'; it.ax = ax; it.ay = ay; it.pri = it.sel ? 100 : CIRCUIT_LABELS[n.id].pri;
+        it.align = 'middle'; it.ax = ax; it.ay = ay; it.mid = mid; it.tan = tan; it.vw = vw * CTM.a; it.pri = it.sel ? 100 : CIRCUIT_LABELS[n.id].pri;
         nodes.push(it);
       }
       for (const it of nodes.sort((a, b) => b.pri - a.pri)) {
-        const pref = CIRCUIT_LABELS[it.node].dirs;
+        // On a vessel, the label goes beside it: above or below a horizontal run, left or right of a vertical one.
+        const pref = it.mid ? (Math.abs(it.tan[0]) >= Math.abs(it.tan[1]) ? ['N', 'S'] : ['E', 'W']) : CIRCUIT_LABELS[it.node].dirs;
         const dirs = [...pref, ...['N', 'S', 'E', 'W', 'NE', 'SE', 'NW', 'SW'].filter((d) => !pref.includes(d))];
-        if (!place(it, dirs, [7, 18, 30], false) && it.sel) place(it, dirs, 40, true);
+        const half = it.vw / 2;
+        if (!place(it, dirs, [7 + half, 18 + half, 30 + half], false) && it.sel) place(it, dirs, 40 + half, true);
       }
       for (const it of nodes) {
-        if (!it.leader || !out.includes(it)) continue;
-        const r = rectOf(it);
-        leaders += `<path class="leader" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${clamp(it.ax, r.x0, r.x1).toFixed(1)} ${clamp(it.ay, r.y0, r.y1).toFixed(1)}"/>`;
+        if (!out.includes(it)) continue;
+        if (it.leader) {
+          const r = rectOf(it);
+          leaders += `<path class="leader" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${clamp(it.ax, r.x0, r.x1).toFixed(1)} ${clamp(it.ay, r.y0, r.y1).toFixed(1)}"/>`;
+        }
+        if (it.mid) leaders += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
       }
       // Collateral and shunt lanes, captioned along their run.
       for (const [id, cap] of Object.entries(LANE_CAPTIONS)) {
