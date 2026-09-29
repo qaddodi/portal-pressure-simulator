@@ -975,9 +975,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
     for (const x of Object.values(E)) {
       const e = x.e;
-      const vis = edgeVisible(x, f);
+      let vis = edgeVisible(x, f);
+      const wasDrawn = !!x.drawn;   // on screen in the previous frame (not merely flagged visible)
+      // A vessel that leaves (a collateral that closes, a shunt that is removed) retracts along its
+      // flow, the way it drew on, and is hidden when it is done; it is held visible until then.
+      if (x.reveal?.out) vis = true;
+      else if (!vis && x.vis && wasDrawn && canFade(x) && !x.reveal && !x.g.classList.contains('coll-ghost') && !quietFx()) { startExit(x, f); vis = true; }
       if (vis !== x.vis) { setStyle(x, 'display', vis ? '' : 'none'); if (x.heat) x.heat.style.display = vis ? '' : 'none'; x.vis = vis; }
-      if (!vis) continue;
+      if (!vis) { x.drawn = false; continue; }
+      x.drawn = true;   // it has been on screen, so leaving it is worth animating
       const k = EI[e.id];
       const D = f.D[k];
       const PM = f.Pf || f.P;
@@ -996,6 +1002,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // The caudate vein hypertrophies when it becomes the liver's outflow (Budd–Chiari).
       if (e.id === 'CAUD' && t < 1) { const ref = store.get().healthy?.Q?.[k]; if (ref) w *= 0.8 * clamp(Math.sqrt(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) / Math.abs(ref)), 1, 1.8); }
       w = qW(w);
+      if (x.reveal?.out && x.width != null) w = x.width;
       // Settled (not morphing, same lens): ignore sub-half-pixel wobble from the pulse and breath.
       const settled = (t === 0 || t === 1) && x.wMode === mode;
       if (!settled || x.width == null || Math.abs(w - x.width) >= 0.5) x.width = w;
@@ -1054,7 +1061,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (e.kind === 'collateral') {
         const fr = recruitFrac(e.id, f);
         const qa = Math.abs(f.Qf ? f.Qf[k] : f.Q[k]);
-        cls(x, 'coll-ghost', !collOpen(e.id, f));
+        const openNow = collOpen(e.id, f);
+        if (!openNow && wasDrawn && !x.g.classList.contains('coll-ghost') && !x.reveal && !quietFx()) startExit(x, f);
+        cls(x, 'coll-ghost', !openNow && !x.reveal?.out);
         x.opa = p.occluded[e.id] ? 0.45 : 0.3 + 0.7 * Math.min(1, Math.max(fr * 2.5, qa / 1.5));
         setLevel(x, nearestLevel(x.opa));
       }
@@ -1142,7 +1151,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Nothing flashes or sweeps across the anatomy. Pressure change shows as the vessel's own color
   // easing; reversed flow is a steady state (its chevrons turn orange and run the other way);
   // the one animation is a collateral or shunt that opens, drawn on in the direction of its
-  // flow. Nothing runs under reduced motion or in the figure view.
+  // flow, and, when it closes or is removed, retracted back the way it came. Nothing runs under
+  // reduced motion or in the figure view.
   const track = {};
   const appEl = document.getElementById('app');
   const quietFx = () => reduceMotion.matches || !!appEl?.classList.contains('figure-mode') || isImaging();
@@ -1152,11 +1162,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const x of Object.values(E)) {
       const e = x.e;
       const q = f.Qf ? f.Qf[EI[e.id]] : f.Q[EI[e.id]];
-      const open = x.vis && !x.g.classList.contains('coll-ghost');
+      const open = x.vis && !x.g.classList.contains('coll-ghost') && !x.reveal?.out;
       const was = track[e.id];
       track[e.id] = open;
-      if (was === false && open && (e.kind === 'collateral' || e.kind === 'shunt') && !quiet) x.reveal = { t0: now, dur: e.kind === 'shunt' ? 900 : 1500, dir: q >= 0 ? 1 : -1 };
+      if (was === false && open && canFade(x) && !quiet) x.reveal = { t0: now, dur: e.kind === 'shunt' ? 900 : 1500, dir: q >= 0 ? 1 : -1 };
     }
+  }
+  // The vessels that come and go with the disease (collaterals, shunts, the epigastric veins that
+  // open with the paraumbilical route) draw on when they appear and retract when they leave.
+  const canFade = (x) => !x.isArt && (x.e.kind === 'collateral' || x.e.kind === 'shunt' || NEEDS_C3.has(x.e.id));
+  function startExit(x, f) {
+    const q = f.Qf ? f.Qf[EI[x.e.id]] : f.Q[EI[x.e.id]];
+    x.reveal = { t0: performance.now(), dur: x.e.kind === 'shunt' ? 700 : 1100, dir: q >= 0 ? 1 : -1, out: true };
+  }
+  // When the retraction ends: hide the vessel, or leave the dotted outline of a closed collateral.
+  function finishExit(x) {
+    if (!F) return;
+    if (!edgeVisible(x, F)) { setStyle(x, 'display', 'none'); if (x.heat) x.heat.style.display = 'none'; x.vis = false; }
+    else if (x.e.kind === 'collateral' && !collOpen(x.e.id, F)) cls(x, 'coll-ghost', true);
   }
   const REVEAL_PARTS = ['shadow', 'wall', 'lumen', 'shade', 'sheen'];
   function stepReveals(now) {
@@ -1166,7 +1189,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const r = x.reveal;
       const u = clamp((now - r.t0) / r.dur, 0, 1);
       const done = u >= 1 || quietFx();
-      const off = (1 - easeInOut(u)) * r.dir;
+      const off = (r.out ? easeInOut(u) : 1 - easeInOut(u)) * r.dir;
       for (const el of REVEAL_PARTS.map((part) => x[part]).concat(x.strands ? x.strands.flatMap((sd) => [sd.wall, sd.lumen]) : [])) {
         if (!el) continue;
         if (done) { el.removeAttribute('pathLength'); el.style.strokeDasharray = ''; el.style.strokeDashoffset = ''; continue; }
@@ -1174,7 +1197,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         el.style.strokeDasharray = '1 1';
         el.style.strokeDashoffset = off.toFixed(4);
       }
-      if (done) { x.reveal = null; finished = true; }
+      if (done) { x.reveal = null; finished = true; if (r.out) finishExit(x); }
     }
     // Rebuild at once so the vessel turns from the drawn-on stroke into its shaded tube on the
     // same frame, rather than holding the stroke until the next model update.

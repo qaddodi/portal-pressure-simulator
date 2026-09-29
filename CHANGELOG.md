@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Vessels leave gracefully.** A collateral that closes, a shunt or TIPS that is removed, and the
+  epigastric veins that come with the paraumbilical route no longer vanish in a single frame:
+  they retract along their flow, the reverse of how they draw on, and then disappear (or turn
+  into the dotted outline of a closed collateral). The epigastric veins now also draw on when
+  they appear. Nothing plays under reduced motion or in the figure view.
 - **Vessels join without seams.** The dark border and contact shadow of each vessel were
   semi-transparent, so wherever two vessels overlapped (every junction and bend) they doubled up
   into a darker ringed disc. Borders and shadows are now solid with their transparency applied once
