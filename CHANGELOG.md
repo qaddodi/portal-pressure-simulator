@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Loose ends fade.** In the anatomic view the SVC fades out upward above the azygos arch
+  instead of being cut off at the top of the plate, and the azygos trunk fades out toward its
+  lower end instead of ending in a blunt stub. When the ascending lumbar collateral is open (for
+  example Budd–Chiari) the azygos is connected to it and is drawn through, unfaded.
 - **Continuous vessels.** Where veins meet, the lit highlight and the shaded side now taper to
   nothing at each end and sit above the whole network, so they dissolve into a junction instead of
   stopping and restarting on the next vessel. A thin vessel joining a thick one narrows more

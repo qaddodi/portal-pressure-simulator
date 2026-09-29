@@ -85,7 +85,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Tributaries and feeders (anatomic only), sampled once, with a vein's gentle meander (a
   // feeder that is a collateral gets a serpentine instead).
   const feedGeo = {};
-  const FADE_DOWN_Y = { C4: [892, 928], EPI_ILI: [870, 925], ILI_IVC: [850, 925] };
+  // Veins that run on out of the plate fade out instead of ending: [y where the fade starts, y where
+  // it is gone], downward for the rectal and epigastric veins and the infrarenal IVC, upward for the
+  // SVC above the azygos arch (it leaves the top of the plate).
+  const FADE_DOWN_Y = { C4: [892, 928], EPI_ILI: [870, 925], ILI_IVC: [850, 925], V_UP: [38, 4] };
+  // The azygos trunk fades out toward its lower end unless the ascending lumbar collateral (C9) is
+  // open and carries it on down to the cava: [y where the fade starts, y where it is gone].
+  const FEEDER_FADE_Y = { AZY_SVC: [110, 176] };
+  const FEEDER_CONNECTOR = { AZY_SVC: 'C9' };
   for (const [id, fd] of Object.entries(FEEDERS)) {
     // A generated fan is a tortuous network (drawn like the variceal plexus); listed paths meander.
     const list = [...(fd.fan ? fanFeeders(fd.fan).map((x) => ({ ...x, fan: true })) : []), ...(fd.paths || []).map((d, i) => ({ d, k: 1, when: fd.when, src: fd.from?.[i] }))];
@@ -509,6 +516,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // Veins that sink into a retroperitoneal vein fade into it instead of ending on it: the
     // caudate vein into the IVC, the gastrorenal shunt into the left renal vein.
+    if (feeders && FEEDER_FADE_Y[e.id]) {
+      const [y0, y1] = FEEDER_FADE_Y[e.id];
+      defs.insertAdjacentHTML('beforeend', `<linearGradient id="ffg-${e.id}" gradientUnits="userSpaceOnUse" x1="0" y1="${y0}" x2="0" y2="${y1}"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><mask id="ffm-${e.id}" maskUnits="userSpaceOnUse" x="0" y="0" width="${VIEW.w}" height="${VIEW.h}"><rect x="0" y="0" width="${VIEW.w}" height="${VIEW.h}" fill="url(#ffg-${e.id})"/></mask>`);
+      for (const fd of feeders) { fd.fadeMask = `url(#ffm-${e.id})`; fd.wall.setAttribute('mask', fd.fadeMask); fd.lumen.setAttribute('mask', fd.fadeMask); }
+    }
     const FADE_DOWN = FADE_DOWN_Y;
     const FADE_IN = { CAUD: [566, 326, 620, 350, 0.45], C5: [852, 520, 862, 618, 0.6] };
     if (FADE_IN[e.id]) {
@@ -954,7 +966,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           const ref = store.get().healthy?.Q?.[k], q = Math.abs(f.Qf ? f.Qf[k] : f.Q[k]);
           live = ref ? clamp((q / Math.abs(ref) - 2) / 2, 0, 1) : 0;
         }
+        // A trunk that a collateral carries on (the azygos, with the ascending lumbar veins) is
+        // connected: it is drawn to its end; otherwise it fades out.
+        const conn = FEEDER_CONNECTOR[e.id], joined = !!conn && collOpen(conn, f);
+        x.feedJoined = joined;
         for (const fd of x.feeders) {
+          if (fd.fadeMask) for (const el of [fd.wall, fd.lumen]) { if (joined) el.removeAttribute('mask'); else if (!el.hasAttribute('mask')) el.setAttribute('mask', fd.fadeMask); }
           const lv = fd.when ? live : 1;   // only the conditional feeders come and go
           const fw = Math.max(1.2, w * cfg.k * fd.fk * (fd.when ? 0.5 + 0.5 * lv : 1));
           fd.live = lv; fd.w = fw;
@@ -2105,6 +2122,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           marks.push({ cx: px, cy: py, ux: (dx / nn) * sg, uy: (dy / nn) * sg, s: fms * ends });
         }
       }
+      // Marks fade out with a trunk that fades out (see FEEDER_FADE_Y).
+      const ff = morph < 0.5 && FEEDER_FADE_Y[x.e.id];
+      if (ff && !x.feedJoined) for (let i = marks.length - 1; i >= 0; i--) { const k = clamp((ff[1] - marks[i].cy) / (ff[1] - ff[0]), 0, 1); if (k < 0.15) marks.splice(i, 1); else marks[i].s *= k; }
       const ink = x.rev && !colorModeIs('direction') ? 'rev' : x.inkDark && !x.isArt ? 'dark' : 'light';
       // Marks fade out with a vessel that fades out toward the pelvis.
       const fy = morph < 0.5 && FADE_DOWN_Y[x.e.id];
