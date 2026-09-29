@@ -181,18 +181,16 @@ export const STRAND_FROM = { C2: 0.5, C1a: 0.22, C4: 0.68 };
 // the parent's color and flow marks. `k` is each one's caliber as a fraction of the parent;
 // `when: 'caudate'` shows the listed `paths` only once the caudate route is carrying several times its normal
 // flow (Budd–Chiari): portal blood from both lobes then collateralizes into the caudate vein.
+// The veins that leave the plate into the organ they drain (the splenic hilum, the small bowel and
+// the colon, the left kidney) end as a straight vessel that fades out over the first fraction of its
+// length, rather than as a tree of branches: vessel → fraction of its length (from its first point)
+// over which it fades from nothing to solid. Anatomic view only.
+export const TIP_FADE = { V_SPL: 0.35, V_INT: 0.5, V_COL: 0.5, V_KID_L: 0.45 };
+
 // A `fan` is generated (see fanFeeders): `n` tortuous tributaries spread over `spread` degrees
 // around `dir` (0 = toward +x, 90 = down), each about `len` long and entering the vessel along
 // the fan's axis, most with a smaller branch of their own; `wig` scales their tortuosity.
 export const FEEDERS = {
-  // Splenic vein: hilar branches from the upper pole to the lower pole.
-  V_SPL: { k: 0.5, fan: { at: [1034, 360], dir: 0, spread: 140, len: 62, n: 5, seed: 3 } },
-  // Superior mesenteric vein: jejunal and ileal veins branching out through the mesentery into
-  // the small bowel loops around it, each dividing like a tree (1 → 2 → 4).
-  V_INT: { k: 0.6, fan: { at: [756, 800], dir: 90, spread: 250, len: 50, n: 5, seed: 7, levels: 2, wig: 0.45 } },
-  // Inferior mesenteric vein: the left colic and sigmoid veins, from the descending colon on the
-  // patient's left, spreading up and down along it.
-  V_COL: { k: 0.6, fan: { at: [960, 790], dir: -5, spread: 150, len: 34, n: 3, seed: 11, levels: 2, wig: 0.45 } },
   // Budd–Chiari: collaterals from the right and left portal veins into the caudate vein.
   // Caudate vein: small tributaries from the caudate lobe, always; in Budd–Chiari (`when`), also
   // collaterals from the right and left portal veins, each colored from the pressure of the

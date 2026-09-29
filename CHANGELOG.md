@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Veins fade into their organs.** The splenic vein at the hilum, the superior and inferior
+  mesenteric veins at the small bowel and colon, and the left renal vein at the kidney now end as
+  straight vessels that fade out over their last stretch (and their flow marks with them), instead
+  of breaking into small branching trees. The circuit view is unchanged.
 - **Caput medusae redrawn.** Instead of an even ring of eleven flat, wavy strokes, the caput is
   now a branching, tortuous network of veins that leaves the umbilicus, thins to fine tips and
   fades into the skin: the same tree as the mesenteric and splenic-hilum veins, with the same

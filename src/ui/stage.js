@@ -1,7 +1,7 @@
 // Anatomical stage (blueprint §6): SVG anatomy + canvas flow layer + screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, edgePresent, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=29d10ad9ef';
-import { LABEL_VESSEL, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders } from './anatomy.js?v=b77c91b2ff';
+import { LABEL_VESSEL, TIP_FADE, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders } from './anatomy.js?v=0a2e719f94';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=cc7ee4cf38';
@@ -563,7 +563,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       defs.insertAdjacentHTML('beforeend', `<linearGradient id="dg-${e.id}" gradientUnits="userSpaceOnUse" x1="0" y1="${fadeY[0]}" x2="0" y2="${fadeY[1]}"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><mask id="dm-${e.id}" maskUnits="userSpaceOnUse" x="0" y="0" width="${VIEW.w}" height="${VIEW.h}"><rect x="0" y="0" width="${VIEW.w}" height="${VIEW.h}" fill="url(#dg-${e.id})"/></mask>`);
       for (const el of [shadow, wall, lumen, shade, sheen, wallP, lumenP, halo, sel, ...(strands || []).flatMap((sd) => [sd.wall, sd.lumen])]) el?.setAttribute('mask', `url(#dm-${e.id})`);
     }
-    E[e.id] = { e, g, gc, gs, gh, groups: isArt ? [g] : [gs, gc, g, gh], heat, grad, st0, st1, halo, sel, shadow, spine, wall, lumen, shade, sheen, wallP, lumenP, hit, strands, feeders, isArt, vis: true, width: 4, wallPx: 1, shadeKey: '' };
+    // A vein that ends in the organ it drains fades out over its first stretch (TIP_FADE): a mask
+    // whose gradient follows the vessel's course, kept clear in the circuit (see updateGeometry).
+    let tipFade = null;
+    if (TIP_FADE[e.id] && !isArt) {
+      const tg = s('linearGradient', { id: `tg-${e.id}`, gradientUnits: 'userSpaceOnUse' });
+      const s0 = s('stop', { offset: '0', 'stop-color': '#fff', 'stop-opacity': '0' }), s1 = s('stop', { offset: '1', 'stop-color': '#fff' });
+      tg.append(s0, s1);
+      const tm = s('mask', { id: `tm-${e.id}`, maskUnits: 'userSpaceOnUse', x: 0, y: 0, width: VIEW.w, height: VIEW.h });
+      tm.append(s('rect', { x: 0, y: 0, width: VIEW.w, height: VIEW.h, fill: `url(#tg-${e.id})` }));
+      defs.append(tg, tm);
+      for (const el of [shadow, wall, lumen, shade, sheen, wallP, lumenP, halo, sel]) el?.setAttribute('mask', `url(#tm-${e.id})`);
+      tipFade = { tg, s0, frac: TIP_FADE[e.id], line: [0, 0, 1, 0] };
+    }
+    E[e.id] = { e, g, gc, gs, gh, tipFade, groups: isArt ? [g] : [gs, gc, g, gh], heat, grad, st0, st1, halo, sel, shadow, spine, wall, lumen, shade, sheen, wallP, lumenP, hit, strands, feeders, isArt, vis: true, width: 4, wallPx: 1, shadeKey: '' };
   }
   // Draw order within each tier: the portal tree in front (it lies anterior to the IVC).
   for (const x of Object.values(E)) if (!x.isArt && (x.e.kind === 'vein' && PORTAL_TERRITORY.has(x.e.to) && PORTAL_TERRITORY.has(x.e.from || '') || ['PV_TRUNK', 'PVH_R', 'PVH_L', 'SMV_CONF', 'SV_CONF'].includes(x.e.id))) { gShadowL.append(x.gs); gCaseL.append(x.gc); gEdges.append(x.g); gHiFront.append(x.gh); x.front = true; x.g.dataset.front = '1'; }
@@ -920,6 +933,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const a = pts[0], b = pts[pts.length - 1];
       x.grad.setAttribute('x1', a[0]); x.grad.setAttribute('y1', a[1]);
       x.grad.setAttribute('x2', b[0] === a[0] && b[1] === a[1] ? a[0] + 1 : b[0]); x.grad.setAttribute('y2', b[1]);
+      if (x.tipFade) {
+        // From the tip (nothing) to `frac` of the way along (solid); in the circuit there is no fade.
+        const q = pointAt(pts, x.tipFade.frac);
+        x.tipFade.line = [a[0], a[1], q[0], q[1]];
+        x.tipFade.tg.setAttribute('x1', a[0]); x.tipFade.tg.setAttribute('y1', a[1]);
+        x.tipFade.tg.setAttribute('x2', q[0]); x.tipFade.tg.setAttribute('y2', q[1]);
+        x.tipFade.s0.setAttribute('stop-opacity', t.toFixed(2));
+      }
     }
     for (const n of NODES) {
       if (!nodeEls[n.id]) continue;
@@ -2198,6 +2219,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (ff && !x.feedJoined) for (let i = marks.length - 1; i >= 0; i--) { const k = clamp((ff[1] - marks[i].cy) / (ff[1] - ff[0]), 0, 1); if (k < 0.15) marks.splice(i, 1); else marks[i].s *= k; }
       const ink = x.rev && !colorModeIs('direction') ? 'rev' : x.inkDark && !x.isArt ? 'dark' : 'light';
       // Marks fade out with a vessel that fades out toward the pelvis.
+      // Marks fade out with the tip of a vessel that fades into its organ (TIP_FADE).
+      if (x.tipFade && morph < 0.5) {
+        const [x1, y1, x2, y2] = x.tipFade.line, dx = x2 - x1, dy = y2 - y1, dd = dx * dx + dy * dy || 1;
+        for (let i = marks.length - 1; i >= 0; i--) { const k = clamp(((marks[i].cx - x1) * dx + (marks[i].cy - y1) * dy) / dd, 0, 1); if (k < 0.15) marks.splice(i, 1); else marks[i].s *= k; }
+      }
       const fy = morph < 0.5 && FADE_DOWN_Y[x.e.id];
       if (fy) for (let i = marks.length - 1; i >= 0; i--) { const k = clamp((fy[1] - marks[i].cy) / (fy[1] - fy[0]), 0, 1); if (k < 0.15) marks.splice(i, 1); else marks[i].s *= k; }
       if (marks.length) cb(x, ink, marks, fade);
