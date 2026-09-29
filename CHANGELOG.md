@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **The coronary vein fades unless something attaches.** The left gastric (coronary) vein's upper
+  end fades out into the stomach wall, and is drawn solid to its end only while a collateral to the
+  esophageal varices or the fundus is open and leaves it there.
 - **Zooming out shows a finished figure.** The abdomen now closes in a rounded pelvic floor, so
   ascites pools in a basin (and the abdominal outline closes beneath it) instead of ending in a
   flat cut below the default frame, and the esophagus fades out at the top of the plate instead of

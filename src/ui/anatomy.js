@@ -185,7 +185,11 @@ export const STRAND_FROM = { C2: 0.5, C1a: 0.22, C4: 0.68 };
 // the colon, the left kidney) end as a straight vessel that fades out over the first fraction of its
 // length, rather than as a tree of branches: vessel → fraction of its length (from its first point)
 // over which it fades from nothing to solid. Anatomic view only.
-export const TIP_FADE = { V_SPL: 0.35, V_INT: 0.5, V_COL: 0.5, V_KID_L: 0.45 };
+export const TIP_FADE = { V_SPL: 0.35, V_INT: 0.5, V_COL: 0.5, V_KID_L: 0.45, LGV_CONF: 0.28 };
+// A vessel whose tip fades unless something attaches there: it is drawn solid to its end while any
+// of the listed collaterals is open. The coronary vein's upper end is where the collaterals to the
+// esophageal varices (C1a) and the fundus (C2b) leave it.
+export const TIP_CONNECT = { LGV_CONF: ['C1a', 'C2b'] };
 
 // A `fan` is generated (see fanFeeders): `n` tortuous tributaries spread over `spread` degrees
 // around `dir` (0 = toward +x, 90 = down), each about `len` long and entering the vessel along

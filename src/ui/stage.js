@@ -1,7 +1,7 @@
 // Anatomical stage (blueprint §6): SVG anatomy + canvas flow layer + screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, edgePresent, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=29d10ad9ef';
-import { LABEL_VESSEL, TIP_FADE, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders } from './anatomy.js?v=9f55a45627';
+import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders } from './anatomy.js?v=ad5ea5e8e5';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=cc7ee4cf38';
@@ -577,7 +577,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       tm.append(s('rect', { x: 0, y: 0, width: VIEW.w, height: VIEW.h, fill: `url(#tg-${e.id})` }));
       defs.append(tg, tm);
       for (const el of [shadow, wall, lumen, shade, sheen, wallP, lumenP, halo, sel]) el?.setAttribute('mask', `url(#tm-${e.id})`);
-      tipFade = { tg, s0, frac: TIP_FADE[e.id], line: [0, 0, 1, 0] };
+      tipFade = { tg, s0, frac: TIP_FADE[e.id], line: [0, 0, 1, 0], joined: false };
     }
     E[e.id] = { e, g, gc, gs, gh, tipFade, groups: isArt ? [g] : [gs, gc, g, gh], heat, grad, st0, st1, halo, sel, shadow, spine, wall, lumen, shade, sheen, wallP, lumenP, hit, strands, feeders, isArt, vis: true, width: 4, wallPx: 1, shadeKey: '' };
   }
@@ -942,7 +942,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         x.tipFade.line = [a[0], a[1], q[0], q[1]];
         x.tipFade.tg.setAttribute('x1', a[0]); x.tipFade.tg.setAttribute('y1', a[1]);
         x.tipFade.tg.setAttribute('x2', q[0]); x.tipFade.tg.setAttribute('y2', q[1]);
-        x.tipFade.s0.setAttribute('stop-opacity', t.toFixed(2));
+        x.tipFade.s0.setAttribute('stop-opacity', (x.tipFade.joined ? 1 : t).toFixed(2));
       }
     }
     for (const n of NODES) {
@@ -1007,6 +1007,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       else if (!vis && x.vis && wasDrawn && canFade(x) && !x.reveal && !x.g.classList.contains('coll-ghost') && !quietFx()) { startExit(x, f); vis = true; }
       if (vis !== x.vis) { setStyle(x, 'display', vis ? '' : 'none'); if (x.heat) x.heat.style.display = vis ? '' : 'none'; x.vis = vis; }
       if (!vis) { x.drawn = false; continue; }
+      if (x.tipFade && TIP_CONNECT[e.id]) {
+        // Drawn solid to its end while something attaches there; otherwise it fades.
+        const joined = TIP_CONNECT[e.id].some((c) => E[c]?.vis && collOpen(c, f));
+        if (joined !== x.tipFade.joined) { x.tipFade.joined = joined; x.tipFade.s0.setAttribute('stop-opacity', (joined ? 1 : easeInOut(morph)).toFixed(2)); }
+      }
       x.drawn = true;   // it has been on screen, so leaving it is worth animating
       const k = EI[e.id];
       const D = f.D[k];
@@ -2223,7 +2228,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const ink = x.rev && !colorModeIs('direction') ? 'rev' : x.inkDark && !x.isArt ? 'dark' : 'light';
       // Marks fade out with a vessel that fades out toward the pelvis.
       // Marks fade out with the tip of a vessel that fades into its organ (TIP_FADE).
-      if (x.tipFade && morph < 0.5) {
+      if (x.tipFade && !x.tipFade.joined && morph < 0.5) {
         const [x1, y1, x2, y2] = x.tipFade.line, dx = x2 - x1, dy = y2 - y1, dd = dx * dx + dy * dy || 1;
         for (let i = marks.length - 1; i >= 0; i--) { const k = clamp(((marks[i].cx - x1) * dx + (marks[i].cy - y1) * dy) / dd, 0, 1); if (k < 0.15) marks.splice(i, 1); else marks[i].s *= k; }
       }
