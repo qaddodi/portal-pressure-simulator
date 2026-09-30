@@ -35,6 +35,8 @@ export function computeMetrics(eng) {
     shunted += Math.max(0, v);
     collateralFlows[id] = v;
   }
+  // Custom shunts the learner has made carry portal blood to systemic veins as well.
+  for (const e of EDGES) if (e.shunt === 'custom' && eng.params.customShunts?.[e.id]) shunted += Math.max(0, qf(e.id));
   for (const e of EDGES) if (e.kind === 'collateral') collateralFlows[e.id] = qf(e.id);
   const shuntFraction = clamp(shunted / Math.max(1e-6, splIn + apIn), 0, 1);
 

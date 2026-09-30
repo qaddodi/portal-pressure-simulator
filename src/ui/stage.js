@@ -1,7 +1,7 @@
 // Anatomical stage (blueprint §6): SVG anatomy + canvas flow layer + screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, edgePresent, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=29d10ad9ef';
-import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, EDGE_VESSEL, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders } from './anatomy.js?v=6728d01049';
+import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders } from './anatomy.js?v=6728d01049';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=fe164f31f1';
@@ -72,12 +72,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return [p[0] + nx * o, p[1] + ny * o];
     });
   }
+  const CIRC_SPINE_Y = 345;   // the circuit's main line runs along this row
   const defaultPath = (a, b, circuit) => (circuit ? metroPath(a, b) : `M${a[0]} ${a[1]} L ${b[0]} ${b[1]}`);
+  // A custom shunt in the circuit is a bypass: a gentle arc bowing away from the spine (the main
+  // portal → liver → heart line), so it crosses the lanes it meets instead of running along one.
+  const bypassPath = ([x1, y1], [x2, y2]) => {
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2, L = Math.hypot(x2 - x1, y2 - y1) || 1;
+    let nx = -(y2 - y1) / L, ny = (x2 - x1) / L;
+    const away = my < CIRC_SPINE_Y - 5 ? -1 : my > CIRC_SPINE_Y + 5 ? 1 : -1;
+    if (Math.sign(ny || 1) !== away) { nx = -nx; ny = -ny; }
+    const k = Math.max(0.28 * L, 40);
+    return `M${x1} ${y1} Q ${(mx + nx * k).toFixed(1)} ${(my + ny * k).toFixed(1)} ${x2} ${y2}`;
+  };
   const geo = {};
   for (const e of ALL_EDGES) {
     const a = NODE_POS[e.from], b = NODE_POS[e.to];
     const dA = EDGE_PATH[e.id] || defaultPath(a[0], b[0], false);
-    const dC = CIRCUIT_PATH[e.id] || defaultPath(a[1], b[1], true);
+    const dC = CIRCUIT_PATH[e.id] || (e.shunt === 'custom' ? bypassPath(a[1], b[1]) : defaultPath(a[1], b[1], true));
     // A spontaneous shunt (gastrorenal, splenorenal) is one large vein, drawn like one.
     const A = (e.kind === 'collateral' && !e.spontaneous) || e.kind === 'shunt' ? sample(dA) : meander(sample(dA), e.id);
     geo[e.id] = { dA, dC, A, C: sample(dC), cur: null, len: 0, wig: 0 };
@@ -2935,33 +2946,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   });
 
   // ── Shunts: from a source vessel to a drop target ──
-  const STENT_RULES = [
-    { a: ['RPV', 'LPV', 'PV'], b: ['RHV', 'MHV', 'LHV', 'IVC'], key: 'tips', label: 'TIPS' },
-    { a: ['PV'], b: ['IVC'], key: 'portocaval', label: 'Portocaval shunt' },
-    { a: ['SV'], b: ['LRV'], key: 'dsrs', label: 'Distal splenorenal shunt' },
-    { a: ['SMV'], b: ['IVC'], key: 'mesocaval', label: 'Mesocaval shunt' },
-  ];
-  const vesselOf = (id) => EDGE_VESSEL[id] || null;
-  function stentRule(a, b) {
-    const va = vesselOf(a), vb = vesselOf(b);
-    for (const r of STENT_RULES) {
-      if ((r.a.includes(va) && r.b.includes(vb)) || (r.a.includes(vb) && r.b.includes(va))) {
-        if (r.key === 'portocaval' && (va === 'PV' || vb === 'PV') && (va === 'IVC' || vb === 'IVC')) return r;
-        if (r.key === 'tips' && ((va === 'PV' || vb === 'PV') && (va === 'IVC' || vb === 'IVC'))) continue;
-        return r;
-      }
-    }
-    return null;
-  }
-  // Any portal vessel to any systemic vein: when no named shunt fits, connect the nearest portal
-  // endpoint of one vessel to the nearest systemic endpoint of the other.
-  function customRule(a, b, ax, ay, bx, by) {
+  // Any portal vein to any systemic vein. The shunt joins each vessel at its end nearer the
+  // other; when that pair is exactly a named procedure's (TIPS is right portal →
+  // right hepatic vein), it is that procedure, otherwise a custom shunt between those two veins.
+  const NAMED_RULES = {
+    'RPV>RHV': { key: 'tips', label: 'TIPS' },
+    'CONF>IVCI': { key: 'portocaval', label: 'Portocaval shunt' },
+    'SV>LRV': { key: 'dsrs', label: 'Distal splenorenal shunt' },
+    'SMV>IVCI': { key: 'mesocaval', label: 'Mesocaval shunt' },
+  };
+  function shuntRule(a, b, ax, ay, bx, by) {
     const t = easeInOut(morph);
     const ends = (id, set, x, y) => [E[id].e.from, E[id].e.to].filter((n) => set.includes(n))
       .sort((m, n) => Math.hypot(nodePos(m, t)[0] - x, nodePos(m, t)[1] - y) - Math.hypot(nodePos(n, t)[0] - x, nodePos(n, t)[1] - y))[0];
     for (const [pe, px, py, se, sx, sy] of [[a, ax, ay, b, bx, by], [b, bx, by, a, ax, ay]]) {
-      const pn = ends(pe, SHUNT_PORTAL, px, py), sn = ends(se, SHUNT_SYSTEMIC, sx, sy);
+      // Each vessel is joined at its end nearer the other vessel.
+      const pn = ends(pe, SHUNT_PORTAL, sx, sy), sn = ends(se, SHUNT_SYSTEMIC, px, py);
       if (!pn || !sn) continue;
+      if (NAMED_RULES[`${pn}>${sn}`]) return NAMED_RULES[`${pn}>${sn}`];
       const id = customShuntId(pn, sn);
       if (EI[id] != null) return { key: 'custom', id, label: EDGES[EI[id]].label };
     }
@@ -2975,7 +2977,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const x of Object.values(E)) {
       if (!x.vis || x.isArt || x.e.id === src || x.e.kind === 'shunt' || x.e.kind === 'liver') continue;
       const [tx, ty] = pointAt(geo[x.e.id].cur, 0.5);
-      const r = stentRule(src, x.e.id) || customRule(src, x.e.id, wx, wy, tx, ty);
+      const r = shuntRule(src, x.e.id, wx, wy, tx, ty);
       if (r && (!only || r.key === only)) { targets.set(x.e.id, r); cls(x, 'shunt-target', true); }
     }
     if (!targets.size) { toast('No vessel on the other side of the circulation to connect this one to.'); return false; }
