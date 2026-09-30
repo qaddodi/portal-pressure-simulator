@@ -4,6 +4,8 @@
 //   node tests/e2e/smoke.mjs            the repository root (the build-free site)
 //   node tests/e2e/smoke.mjs dist       the production build (npm run build first)
 //   SHOTS=dir node tests/e2e/smoke.mjs  also save screenshots
+//   SMOKE_WORKERS=1                    checks at a time (default 4; use 1 on a small CI runner)
+//   SMOKE_DEVICE=phone SMOKE_SHARD=1/2 one device, and one share of its checks (CI runs shards in parallel)
 //
 // Needs a Chromium for Playwright (`npx playwright install chromium`; the Claude Code cloud
 // image ships one).
@@ -24,7 +26,10 @@ const DEVICES = {
   phone: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
 };
 
-async function check(device, name, fn) {
+// Checks are queued, then run a few at a time (each has its own browser context).
+const queue = [];
+const check = (device, name, fn) => { queue.push([device, name, fn]); };
+async function runCheck(device, name, fn) {
   const ctx = await browser.newContext({ ...DEVICES[device], serviceWorkers: 'block' });
   const page = await ctx.newPage();
   const errors = [];
@@ -48,7 +53,7 @@ const open = async (page, q = '') => {
   await page.waitForFunction(() => window.pps?.store?.get().frame, null, { timeout: 20000 });
 };
 
-for (const device of Object.keys(DEVICES)) {
+for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVICE || d === process.env.SMOKE_DEVICE)) {
   await check(device, 'patient loads and the model runs', async (page) => {
     await open(page, '?preset=cirr-decomp');
     await page.waitForFunction(() => document.querySelector('#scenarioName').textContent.includes('Decompensated'));
@@ -133,6 +138,11 @@ for (const device of Object.keys(DEVICES)) {
     await page.evaluate(() => window.pps.store.set({ selection: { type: 'edge', id: 'PV_TRUNK' } }));
     await page.waitForSelector('.action-card:not([hidden])');
     await shot(page, `${device}-card`);
+    // Doppler from the card opens the instrument and puts the card away
+    await page.click('.action-card button:has-text("Doppler")');
+    await page.waitForSelector('#pane-doppler', { state: 'visible' });
+    await page.waitForFunction(() => !window.pps.store.get().selection);
+    if (await page.locator('.action-card').isVisible()) throw new Error('the card stays open after Doppler');
   });
 
   await check(device, 'home, palette, figure, presenter, instruments', async (page) => {
@@ -312,8 +322,15 @@ for (const device of Object.keys(DEVICES)) {
     await page.evaluate(() => window.pps.dock.close());
     await page.waitForFunction(() => !window.pps.store.get().frame.pulsing, null, { timeout: 5000 });
   });
-
 }
+// the slowest first, so they do not end up alone at the end (and shards share them out evenly)
+const SLOW = ['responsive instrument workspace', 'pressure over time and Doppler', 'action card is a compact sheet that keeps the vessel in view', 'circuit view, selection card, lenses'];
+const weight = (name) => { const i = SLOW.indexOf(name); return i < 0 ? 0 : SLOW.length - i; };
+queue.sort((a, b) => weight(b[1]) - weight(a[1]));
+const [shard, shards] = (process.env.SMOKE_SHARD || '1/1').split('/').map(Number);
+for (let i = queue.length - 1; i >= 0; i--) if (i % shards !== shard - 1) queue.splice(i, 1);
+const WORKERS = Number(process.env.SMOKE_WORKERS) || 4;
+await Promise.all(Array.from({ length: WORKERS }, async () => { while (queue.length) await runCheck(...queue.shift()); }));
 
 await browser.close();
 server.close();
