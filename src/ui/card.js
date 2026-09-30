@@ -13,7 +13,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   const el = h('section', { class: 'action-card stage-blocker', role: 'dialog', 'aria-label': 'Actions', hidden: true });
   view.append(el);
   const sizes = { vw: view.clientWidth, vh: view.clientHeight, w: 0, h: 0 };
-  new ResizeObserver(() => { sizes.vw = view.clientWidth; sizes.vh = view.clientHeight; placedFor = ''; lastLayout = ''; position(); }).observe(view);
+  new ResizeObserver(() => { sizes.vw = view.clientWidth; sizes.vh = view.clientHeight; placedFor = ''; lastLayout = ''; position(); if (isDocked()) reveal(); }).observe(view);
   new ResizeObserver(() => { sizes.w = el.offsetWidth; sizes.h = el.offsetHeight; placedFor = ''; lastLayout = ''; position(); syncMore(); if (isDocked()) reveal(); }).observe(el);
   const uiState = {};
   ctx.ui = (key, def) => (uiState[key] ||= def);
@@ -26,6 +26,9 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   let relayoutRaf = 0;
   const relayoutSoon = () => { if (!relayoutRaf) relayoutRaf = requestAnimationFrame(() => { relayoutRaf = 0; stage.relayout?.(); }); };
   const isDocked = () => el.classList.contains('docked');
+  // The phone sheet lives in the whole figure column, not in the figure itself: it reaches the bottom of the column,
+  // over the play and timeline row, and stops just above the readout strip.
+  const dockHost = view.closest('.stage-wrap') || view;
   // A card with more controls than fit scrolls, and fades at the bottom while there is more to see.
   function syncMore() {
     const sc = el.querySelector('.ac-scroll');
@@ -46,8 +49,10 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     cancelAnimationFrame(revealRaf);
     revealRaf = requestAnimationFrame(() => {
       const open = model && !el.hidden && isDocked();
-      liftButtons(open ? `${el.offsetHeight + 6}px` : '0px');
-      if (open) stage.reveal?.(normalizeSel(selRef) || selRef, el.offsetHeight + 6);
+      // How much of the figure the sheet covers (it also covers the row below the figure).
+      const covered = open ? Math.max(0, view.getBoundingClientRect().bottom - el.getBoundingClientRect().top) : 0;
+      liftButtons(open ? `${covered + 6}px` : '0px');
+      if (open) stage.reveal?.(normalizeSel(selRef) || selRef, covered);
     });
   }
   function hide() {
@@ -255,7 +260,11 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   // Beside the structure, on the side that covers least of it, inside the figure.
   function position() {
     if (!model || el.hidden) return;
-    if (matchMedia('(max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape)').matches) { el.style.left = ''; el.style.top = ''; el.classList.add('docked'); return; }
+    if (matchMedia('(max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape)').matches) {
+      if (el.parentNode !== dockHost) dockHost.append(el);
+      el.style.left = ''; el.style.top = ''; el.classList.add('docked'); return;
+    }
+    if (el.parentNode !== view) view.append(el);
     el.classList.remove('docked');
     // Where the structure is on screen changes only when the view or the drawn geometry does.
     const lk = stage.layoutKey ? stage.layoutKey() : '';

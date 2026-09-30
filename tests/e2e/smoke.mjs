@@ -88,7 +88,7 @@ for (const device of Object.keys(DEVICES)) {
     const read = () => page.evaluate(() => {
       const c = document.querySelector('.action-card'), r = c.getBoundingClientRect(), sv = document.querySelector('#stageView').getBoundingClientRect(), sc = c.querySelector('.ac-scroll');
       const link = c.querySelector('.ac-foot.in-head .link');
-      return { peek: c.classList.contains('peek'), docked: c.classList.contains('docked'), top: r.top - sv.top, h: r.height, stageH: sv.height, scrolls: sc.scrollHeight - sc.clientHeight, links: !!link && link.getBoundingClientRect().height > 0, foot: getComputedStyle(c.querySelector('.ac-foot.at-foot')).display !== 'none' };
+      return { covers: r.bottom > sv.bottom + 20, peek: c.classList.contains('peek'), docked: c.classList.contains('docked'), top: r.top - sv.top, h: r.height, stageH: sv.height, scrolls: sc.scrollHeight - sc.clientHeight, links: !!link && link.getBoundingClientRect().height > 0, foot: getComputedStyle(c.querySelector('.ac-foot.at-foot')).display !== 'none' };
     });
     const swipe = async (dy) => {
       const box = await (await page.$('.ac-top')).boundingBox();
@@ -100,7 +100,8 @@ for (const device of Object.keys(DEVICES)) {
     await page.waitForTimeout(900);
     let s = await read();
     if (!s.docked || s.peek) throw new Error('the card should open as a docked sheet, not as the strip');
-    if (s.h > s.stageH * 0.45) throw new Error(`the sheet covers ${Math.round((100 * s.h) / s.stageH)} % of the figure`);
+    if (s.h > s.stageH * 0.36) throw new Error(`the sheet covers ${Math.round((100 * s.h) / s.stageH)} % of the figure`);
+    if (!s.covers) throw new Error('the sheet should reach the bottom of the figure column, over the play row');
     if (s.scrolls > 2) throw new Error(`the portal vein card scrolls by ${s.scrolls} px: everything should show at once`);
     if (!s.links || s.foot) throw new Error('Why? and Details should be in the header, with no row of their own at the foot');
     const anchorY = await page.evaluate(() => { const a = window.pps.stage.anchorFor({ type: 'edge', id: 'PV_TRUNK' }); return a && a.y; });

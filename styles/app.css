@@ -1162,15 +1162,16 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .ac-foot .link { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-13); }
 .mi-ic { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .ac-grab { display: none; }
-/* Phone: a bottom sheet, sized to what is in it so nothing is wasted: the header (kind, Why?, Details, close; name; the
+/* Phone: a bottom sheet, sitting at the bottom of the figure column (over the play row, above the readouts), sized to what is in it so nothing is wasted: the header (kind, Why?, Details, close; name; the
    reading) is fixed and the controls follow. A tap on the handle folds it to a strip with just the header. Only a card with
    more controls than fit (a few liver compartments) scrolls, with a fade at the bottom to show there is more. */
 .action-card.docked {
-  left: 6px !important; right: 6px; top: auto !important; bottom: calc(6px + env(safe-area-inset-bottom, 0px)); width: auto; max-height: min(64%, 480px);
-  border-radius: var(--r-sheet); font-size: var(--fs-13);
+  left: 0 !important; right: 0; top: auto !important; bottom: 0; width: auto; max-height: min(46%, 400px);
+  border-radius: var(--r-sheet) var(--r-sheet) 0 0; font-size: var(--fs-13);
 }
 .action-card.docked.peek .ac-scroll { display: none; }
-.action-card.docked .ac-top { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 2px; align-items: center; padding: 2px 12px 6px; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.action-card.docked.peek .ac-top { padding-bottom: 12px; }
+.action-card.docked .ac-top { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 2px; align-items: center; padding: 2px 12px 4px; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
 .action-card.docked .ac-head, .action-card.docked .ac-titles, .action-card.docked .ac-readout { display: contents; }
 .action-card.docked .ac-grab { grid-column: 1 / -1; grid-row: 1; display: block; width: 100%; height: 12px; margin: 0; padding: 0; border: 0; background: none; cursor: pointer; position: relative; }
 .action-card.docked .ac-grab::before { content: ''; position: absolute; left: 50%; top: 3px; width: 36px; height: 4px; border-radius: 2px; background: var(--border-strong); transform: translateX(-50%); }
@@ -1185,23 +1186,26 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .action-card.docked .ac-head h3 { grid-column: 1; grid-row: 3; margin: 0; font-size: var(--fs-14); line-height: 1.25; padding-right: 8px; }
 .action-card.docked .ac-value { grid-column: 2 / -1; grid-row: 3; justify-self: end; }
 .action-card.docked .ac-value b { font-size: var(--fs-20); }
-.action-card.docked .ac-status { grid-column: 1 / -1; grid-row: 4; min-width: 0; margin-top: 2px; }
+.action-card.docked .ac-status { grid-column: 1; grid-row: 2; min-width: 0; }
 .action-card.docked .ac-status:empty { display: none; }
+.action-card.docked .ac-top:has(.ac-status:not(:empty)) .ac-kicker { display: none; }
 .action-card.docked .ac-status .pill { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.action-card.docked .ac-scroll { padding: 0 12px 4px; position: relative; }
-.action-card.docked .ac-body { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 6px 0 4px; }
+.action-card.docked .ac-scroll { padding: 0 12px 10px; position: relative; }
+.action-card.docked .ac-body { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 5px 0 2px; }
 /* Sliders, readouts and notes take the whole row; buttons and switches sit two to a row. */
 .action-card.docked .ac-body > .ac-slider, .action-card.docked .ac-body > .ac-row, .action-card.docked .ac-body > .ac-link, .action-card.docked .ac-body > .ac-btn-wrap.wide,
 .action-card.docked .ac-body > .ac-drain, .action-card.docked .ac-body > .ac-btn-wrap:has(.ac-note:not([hidden])) { grid-column: 1 / -1; }
-.action-card.docked .ac-btn, .action-card.docked .ac-toggle { min-height: 38px; padding: 5px 10px; }
+.action-card.docked .ac-btn, .action-card.docked .ac-toggle { min-height: 34px; padding: 3px 10px; }
 .action-card.docked .ac-toggle .ac-tl { line-height: 1.2; }
 .action-card.docked .ac-seg button { padding: 4px 6px; }
 .action-card.docked .ac-row { gap: 3px; }
 .action-card.docked .ac-row .ac-label { font-size: var(--fs-12); color: var(--text-2); font-weight: 500; }
 .action-card.docked .ac-body > .ac-stats { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; column-gap: 12px; row-gap: 2px; }
+.action-card.docked .ac-stats > .ac-stat:only-child { grid-column: 1 / -1; }
 .action-card.docked .ac-stat { padding: 0 1px; align-items: baseline; }
 /* A slider is one row: name, track, value (a long name takes a line of its own above the track and the value). */
 .action-card.docked .ac-slider { display: grid; align-items: center; column-gap: 10px; row-gap: 0; }
+.action-card.docked .range-wrap, .action-card.docked input[type=range] { height: 24px; }
 .action-card.docked .ac-slider:not(.long) { grid-template-columns: 92px minmax(0, 1fr) auto; }
 .action-card.docked .ac-slider:not(.long) .ctl-top { display: contents; }
 .action-card.docked .ac-slider:not(.long) .ac-label { grid-column: 1; grid-row: 1; }

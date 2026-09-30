@@ -4,9 +4,9 @@
 
 - **The action card, rebuilt for the phone.** Tapping a vessel opens a compact bottom sheet that shows everything
   at once, with nothing to swipe through: Why? and Details sit in the header (on the line with the kind and the
-  close button), the name has the reading at its right, and the controls follow with no row of wasted space
+  close button), the name has the reading at its right, the status takes the place of the kind, and the controls follow with no row of wasted space
   underneath. Short-named sliders share a row with their track, buttons and switches sit two to a row, and
-  readouts pair up. The sheet is as tall as what is in it (a portal vein is about a third of the figure); only a
+  readouts pair up. The sheet sits at the bottom of the screen over the play row (the readout strip stays visible), and is as tall as what is in it (a portal vein is under a third of the figure, and no sheet is taller than half); only a
   few liver compartments on a short phone scroll, with a fade at the bottom. Tap the handle to fold it to a strip
   with just the header, or swipe down to fold it and again to close it. The figure pans, no more than needed, so
   the vessel you tapped stays visible above the sheet, and goes back when the card closes; Fit, the turn button and
