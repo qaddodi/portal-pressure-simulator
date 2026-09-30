@@ -13,7 +13,10 @@ if (!dir) { console.error('usage: node scripts/preview-badge.mjs <site-dir> <lab
 const file = join(dir, 'index.html');
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
-const badge = `<div id="preview-badge" aria-hidden="true" style="position:fixed;left:50%;transform:translateX(-50%);top:calc(2px + env(safe-area-inset-top));z-index:2147483647;pointer-events:none;padding:2px 8px;border-radius:999px;background:#d9480f;color:#fff;font:700 10px/1.4 system-ui,sans-serif;letter-spacing:.08em;box-shadow:0 1px 4px rgba(0,0,0,.35)">PREVIEW${label ? ` · ${esc(label)}` : ''}</div>`;
+// Absolute, not fixed: on iOS 26 an installed app's top bar stays sharp under the status bar only
+// while the app's own fixed layer is the one fixed element there; a second fixed element at the top
+// edge (this pill) makes iOS blur that strip again. The page never scrolls, so it stays in place.
+const badge = `<div id="preview-badge" aria-hidden="true" style="position:absolute;left:50%;transform:translateX(-50%);top:calc(2px + env(safe-area-inset-top));z-index:2147483647;pointer-events:none;padding:2px 8px;border-radius:999px;background:#d9480f;color:#fff;font:700 10px/1.4 system-ui,sans-serif;letter-spacing:.08em;box-shadow:0 1px 4px rgba(0,0,0,.35)">PREVIEW${label ? ` · ${esc(label)}` : ''}</div>`;
 
 let html = readFileSync(file, 'utf8');
 if (!html.includes('</body>') || !html.includes('<title>')) { console.error('index.html: no </body> or <title> to mark'); process.exit(1); }

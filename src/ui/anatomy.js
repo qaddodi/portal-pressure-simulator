@@ -242,7 +242,10 @@ export const CIRCUIT_PATH = {
   CAUD: route([[900, 303], [940, 252], [1086, 252], [1120, 290], [1120, 345]], 18),
   A_HL: route([[740, 228], [770, 258], [770, 357], [800, 387]], 12),
   AP_L: route([[740, 228], [706, 262], [706, 361], [680, 387]], 12),
-  TIPS: route([[680, 303], [712, 272], [972, 272], [1000, 282]], 14),
+  // TIPS: leaves the right portal vein straight up, crosses the top of the liver in a lane of its
+  // own (clear of the right lobe's lane and of the right hepatic vein's last stretch, which it
+  // used to run on top of) and drops into the right hepatic vein from above.
+  TIPS: route([[680, 303], [680, 246], [1000, 246], [1000, 282]], 14),
   // Branches that leave (or join) one station split right at it, as on a transit map, instead
   // of sharing a stretch of track and forking part-way along.
   PVH_R: route([[580, 345], [622, 303], [680, 303]], 12),

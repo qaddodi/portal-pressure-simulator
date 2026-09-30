@@ -11,10 +11,10 @@
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
 import { h, fmt, icon, svgIcon, toast } from './util.js?v=fe164f31f1';
 import { DRUGS } from '../engine/scenario.js?v=8fc90f782f';
-import { TILES, VITALS, readoutValue } from './dock.js?v=9f03c8b9a1';
+import { TILES, VITALS, readoutValue } from './dock.js?v=0b89aa4f33';
 import { activeInterventions } from './inspector.js?v=d987f64f8e';
 import { verbEnabled, DRUG_NOTE } from './actions.js?v=749e19086d';
-import { fmtClock } from './timeline.js?v=dfb94b9a3c';
+import { fmtClock } from './timeline.js?v=fa921ac5bf';
 
 // Where each readout is measured, so a click can show it on the figure.
 const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS'], spleen: ['V_SPL', 'SV_CONF'], ra: ['IVCS_RA'] };
@@ -143,7 +143,13 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     const procs = h('div', { class: 'order-grid' },
       proc('band', 'Band ligation', 'on the esophageal varices', 'band', () => { select({ type: 'organ', id: 'varices' }); action({ kind: 'band' }); toast('Band placed. The varices card is open on the figure.'); }),
       proc('balloon', 'Balloon tamponade', 'esophageal or gastric', 'balloon', () => { select({ type: 'organ', id: 'varices' }); toast('Switch the balloon on in the varices card.'); }),
-      proc('stent', 'TIPS', 'choose the hepatic vein', 'shunt', () => { select(null); if (startShunt('PVH_R', { only: 'tips' })) toast('Click the hepatic vein where the stent should end.'); }),
+      // A TIPS is always right portal vein → right hepatic vein, so it is placed at once.
+      proc('stent', 'TIPS', 'right portal vein → right hepatic vein', 'shunt', () => {
+        const on = store.get().params.tips.on;
+        if (!on) updateParams({ tips: { on: true, d: store.get().params.tips.d || 10 } }, { label: 'TIPS' });
+        select({ type: 'edge', id: 'TIPS' });
+        toast(on ? 'The TIPS is already in place.' : 'TIPS placed: right portal vein → right hepatic vein.');
+      }),
       proc('stent', 'Surgical shunt', 'portocaval, Warren, mesocaval', 'shunt', () => { select(null); if (startShunt('PV_TRUNK')) toast('Click the systemic vein to connect the portal vein to.'); }),
       proc('occlude', 'BRTO', 'occlude the gastrorenal shunt', 'occlude', () => { select({ type: 'organ', id: 'gastric' }); if (!store.get().params.spontaneous.C5) toast('This patient has no gastrorenal shunt (see Advanced › anatomical variants).'); }),
       proc('needle', 'Paracentesis', 'drain ascites', 'paracentesis', () => select({ type: 'organ', id: 'abdomen' })));
