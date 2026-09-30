@@ -356,6 +356,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
   }
   wrap.dataset.veins = veins ? 'webgl2' : 'svg';
+  // While comparing (any ?veins= in the URL), a small tag names the renderer in use; tapping it
+  // reloads with the other one.
+  const veinsParam = new URLSearchParams(location.search).get('veins');
+  if (veinsParam != null) {
+    const tag = h('button', { class: 'veins-tag', type: 'button', title: 'Tap to switch renderer' },
+      veins ? 'Veins: GPU (WebGL2)' : VEINS_GL ? 'Veins: SVG (no WebGL2 here)' : 'Veins: SVG');
+    tag.dataset.on = veins ? 'gl' : 'svg';
+    tag.addEventListener('click', () => { const q = new URLSearchParams(location.search); q.set('veins', veinsParam === 'gl' ? 'svg' : 'gl'); location.search = q.toString(); });
+    wrap.append(tag);
+  }
   gBack.append(gBackS, gBackC, gBackL, gBackH);
 
   // Circuit view: quiet bands for each pressure zone (captioned by the label layer).
