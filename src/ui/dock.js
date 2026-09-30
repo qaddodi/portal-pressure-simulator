@@ -1,15 +1,11 @@
 // Readout strip (small screens) and the instruments (blueprint §9.1, §9.2).
 
 import { store } from './store.js?v=4bf5a96a9d';
-import { h, fmt, icon, svgIcon, popover, closePopover, clamp } from './util.js?v=cc7ee4cf38';
-import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
-import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=73528b3f92';
-import { createHVPG, createDoppler, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=7d53c8b0a4';
-import { createLandscape } from './landscape.js?v=0aca2ec93e';
+import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=cc7ee4cf38';
+import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=ce7abbcdd0';
+import { createHVPG, createDoppler, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=36d58a75da';
+import { createLandscape } from './landscape.js?v=bf136aba74';
 
-const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
-const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
-const SEV = { ok: 'var(--ok)', caution: 'var(--caution)', danger: 'var(--danger)', critical: 'var(--critical)', info: 'var(--info)' };
 
 // Readouts in reading order: the portal story first, then the systemic circulation. Each
 // readout's status (dot color and word) comes from a clinical cut-off, listed in CUTOFFS below
@@ -56,7 +52,7 @@ export const VITALS = [
 // Key readouts always shown; the rest join the row when abnormal (or when the learner asks).
 export const PRIMARY = new Set(['hvpg', 'pv', 'pvflow', 'varix']);
 
-export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onLobule, onOpen, onClose, isVisible }) {
+export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onCompare, onRun, onOpen, onClose, isVisible }) {
   // ── Readout strip ─────────────────────────────────
   const tileEls = {};
   for (const t of TILES) {
@@ -131,131 +127,252 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     moreBtn.hidden = !hiddenCount && !strip.classList.contains('all');
   }
 
-  // ── Instruments: one level ────────────────────────
-  // The Measure tab's title opens a grid of cards, each with a live preview line. The chosen
-  // instrument opens in the side panel's Measure tab (the panel widens a little for it); it
-  // can pop out as a floating, resizable window, and on a wide screen a second one can sit below it.
-  const panes = [
-    createProfile(), createLandscape(), createScope(), createSankey(), createPerfusion(), createHVPG(),
-    createDoppler({ onProbe }), createEndoscopy({ onAction }), createVarixWall(), createAbdomen({ onAction }),
-  ];
-  const byId = Object.fromEntries(panes.map((p) => [p.id, p]));
-  const hiddenCase = () => store.get().imaging;
-  let open = [];            // ids docked, in order (1 or 2)
-  const floats = new Map(); // id → floating window element
-  const titleBtn = h('button', { class: 'dock-title', 'aria-haspopup': 'dialog', title: 'Choose an instrument' }, svgIcon('chart'), h('span', { class: 'dt-l' }, 'Choose an instrument'), svgIcon('chev-down', 'chev'));
-  titleBtn.addEventListener('click', (e) => openGrid(e.currentTarget));
-  const second = h('button', { class: 'btn sm ghost dock-second', title: 'Show a second instrument below this one' }, svgIcon('plus', 'mi-ic'), 'Add another');
-  second.addEventListener('click', (e) => openGrid(e.currentTarget, { alongside: true }));
-  const popBtn = h('button', { class: 'ib', 'aria-label': 'Pop out as a floating window', title: 'Pop out' }, svgIcon('panel'));
-  popBtn.addEventListener('click', () => { if (open[0]) popOut(open[0]); });
-  head.append(titleBtn, h('span', { class: 'sp' }), second, popBtn);
-  for (const p of panes) { p.el.id = 'pane-' + p.id; p.el.setAttribute('role', 'region'); p.el.setAttribute('aria-label', p.label); body.append(p.el); }
-
-  const INFO = {
-    profile: ['activity', 'Pressure along a path', (f) => `Portal ${fmt(f.P[NI.CONF], 1)} → RA ${fmt(f.P[NI.RA], 1)} mmHg`],
-    landscape: ['layers', 'The circulation raised by pressure', (f) => { const P = f.Pf || f.P; return `Portal ${fmt(P[NI.CONF], 0)} → sinusoids ${fmt(P[NI.SIN_R], 0)} → RA ${fmt(P[NI.RA], 0)}`; }],
-    scope: ['chart', 'Pressures over time', (f) => `HVPG ${fmt(f.metrics.hvpg, 1)} mmHg now`],
-    flow: ['vessel', 'Where gut blood goes', (f) => `${Math.round(f.metrics.shuntFraction * 100)} % bypasses the liver`],
-    perfusion: ['liver', 'Liver perfusion & buffer', (f) => `${Math.round(f.metrics.liverPerfPct)} % perfused`],
-    hvpg: ['catheter', 'Wedged hepatic venous pressure', () => { const m = store.get().lastHVPG; return m ? `Measured ${fmt(m.hvpg, 1)} mmHg` : 'No measurement yet'; }],
-    doppler: ['doppler', 'Spectral Doppler of a vessel', (f) => { const k = EI[f.probe]; const D = Math.max(0.5, f.D[k]) / 10; const v = (f.Qf ? f.Qf[k] : f.Q[k]) / (Math.PI * D * D / 4); return `${fmt(Math.abs(v), 0)} cm/s ${v < -1 ? 'reversed' : ''}`; }],
-    endoscopy: ['endoscope', 'The varices from inside', (f) => (f.metrics.varix.d < 2.4 ? 'No varices' : `Esophageal ${f.metrics.varix.grade.code}`)],
-    varixwall: ['band', 'Laplace wall tension', (f) => `${Math.round(f.metrics.varix.ratio * 100)} % of rupture`],
-    abdomen: ['needle', 'Ascites & paracentesis', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],
+  // ── Instrument workspace ─────────────────────────
+  // One live workspace, below the anatomy. Legacy ids remain valid for lessons and actions:
+  // landscape is a Pressure view; varixwall is Endoscopy's expandable wall mechanics.
+  const app = document.getElementById('app');
+  const workspace = head.closest('.dock');
+  const stageWrap = document.getElementById('stageWrap');
+  const profile = createProfile(), landscape = createLandscape(), wall = createVarixWall();
+  const endoscopy = createEndoscopy({ onAction });
+  const wallDetails = h('details', { class: 'instrument-details wall-details' },
+    h('summary', {}, 'Wall mechanics', h('span', {}, 'Pressure, radius & wall thickness')), wall.el);
+  wall.el.className = 'instrument-view wall-view';
+  endoscopy.el.append(wallDetails);
+  wallDetails.addEventListener('toggle', () => { if (wallDetails.open && frame) wall.update(frame); });
+  const profileView = profile.el, landscapeView = landscape.el;
+  profileView.className = 'instrument-view';
+  landscapeView.className = 'instrument-view';
+  let pressureView = 'profile';
+  const viewSeg = h('div', { class: 'seg pressure-views', role: 'group', 'aria-label': 'Pressure view' },
+    ['profile', 'landscape'].map((id) => h('button', {
+      'data-view': id, 'aria-pressed': String(id === pressureView),
+      onclick: () => setPressureView(id),
+    }, id === 'profile' ? 'Profile' : 'Landscape')));
+  const pressure = {
+    id: 'profile', label: 'Pressure',
+    el: h('section', { class: 'dock-pane', 'data-pane': 'profile' }, viewSeg, profileView, landscapeView),
+    update(f) { (pressureView === 'landscape' ? landscape : profile).update(f); },
   };
-  function openGrid(anchor, { alongside = false } = {}) {
-    const f = store.get().frame;
-    const cards = panes.map((p) => {
-      const [ic, desc, live] = INFO[p.id];
-      const on = open.includes(p.id) || floats.has(p.id);
-      const b = h('button', { class: 'instr-card' + (on ? ' on' : '') },
-        h('span', { class: 'ic-ic' }, svgIcon(ic)), h('span', { class: 'ic-t' }, p.label), h('span', { class: 'ic-d' }, desc),
-        h('span', { class: 'ic-live' }, f && !(hiddenCase() && ['profile', 'landscape', 'scope', 'lobule'].includes(p.id)) ? live(f) : '—'));
-      b.addEventListener('click', () => { closePopover(); show(p.id, { open: true, alongside }); });
-      return b;
-    });
-    // The lobule is a zoom level of the figure, not a panel: its card zooms in.
-    if (!alongside && onLobule) {
-      const b = h('button', { class: 'instr-card' }, h('span', { class: 'ic-ic' }, svgIcon('liver')), h('span', { class: 'ic-t' }, 'Lobule'), h('span', { class: 'ic-d' }, 'Zoom the figure into a liver lobule'),
-        h('span', { class: 'ic-live' }, f && !hiddenCase() ? `Sinusoids ${fmt(f.P[NI.SIN_R], 1)} mmHg` : '—'));
-      b.addEventListener('click', () => { closePopover(); onLobule(); });
-      cards.push(b);
-    }
-    popover(anchor, [h('div', { class: 'menu-title' }, alongside ? 'Add an instrument alongside' : 'Measure'), h('div', { class: 'instr-grid' }, cards)], { cls: 'instr-pop', align: anchor.closest('.dock') ? 'end' : 'start', place: 'below' });
+  const instruments = [
+    pressure, createScope(), createSankey(), createPerfusion(), createHVPG(),
+    createDoppler({ onProbe }), endoscopy, createAbdomen({ onAction }),
+  ];
+  const panes = instruments.map((p) => {
+    if (p === pressure) return p;
+    p.el.className = 'instrument-view';
+    return { ...p, el: h('section', { class: 'dock-pane', 'data-pane': p.id }, p.el) };
+  });
+  const byId = Object.fromEntries(panes.map((p) => [p.id, p]));
+  let open = ['profile'], frame = null, state = 'open', heightRatio = null, resizeFrame = 0;
+  let chooserAdding = false;
+  const INFO = {
+    profile: ['activity', 'Locate resistance along a path or across the circulation.', (f) => `Portal ${fmt(f.metrics.pv, 1)} mmHg`],
+    scope: ['chart', 'Pressure and velocity waveforms; disease trends over days.', (f) => `HVPG ${fmt(f.metrics.hvpg, 1)} mmHg`],
+    flow: ['vessel', 'Follow blood through the liver, collaterals and shunts.', (f) => `${Math.round(f.metrics.shuntFraction * 100)}% bypasses the liver`],
+    perfusion: ['liver', 'Portal supply, arterial buffering and liver resistance.', (f) => `${Math.round(f.metrics.liverPerfPct)}% of baseline flow`],
+    hvpg: ['catheter', 'Place a catheter and measure wedged minus free pressure.', () => { const m = store.get().lastHVPG; return m ? `Measured ${fmt(m.hvpg, 1)} mmHg` : 'Choose a hepatic vein'; }],
+    doppler: ['doppler', 'Select a vessel to inspect velocity, direction and pulsatility.', (f) => `${fmt(Math.abs(f.metrics.pvVel), 0)} cm/s in portal vein`],
+    endoscopy: ['endoscope', 'Inspect and band varices; explore their wall mechanics.', (f) => f.metrics.varix.d < 2.5 ? 'No esophageal varices' : `Esophageal ${f.metrics.varix.grade.code}`],
+    abdomen: ['needle', 'Inspect ascites and drain fluid, with or without albumin.', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],
+  };
+  const live = h('span', { class: 'workspace-live', 'aria-live': 'off' });
+  const run = h('button', { class: 'workspace-run', title: 'Run or pause the simulation', onclick: () => onRun?.() }, svgIcon('play', 'mi-ic'), h('span', {}, 'Pause'));
+  const compareBtn = h('button', { class: 'btn sm workspace-compare', onclick: () => onCompare?.(), 'aria-pressed': 'false' }, svgIcon('compare', 'mi-ic'), h('span', {}, 'Compare'));
+  const titleBtn = h('button', { class: 'dock-title', 'aria-haspopup': 'dialog', title: 'Choose an instrument', onclick: (e) => openGrid(e.currentTarget) },
+    svgIcon('gauge'), h('span', { class: 'dt-l' }, 'Pressure'), svgIcon('chev-down', 'chev'));
+  const second = h('button', { class: 'btn sm dock-second', title: 'View two instruments side by side', onclick: (e) => openGrid(e.currentTarget, { alongside: true }) }, svgIcon('plus', 'mi-ic'), 'Add');
+  const expand = h('button', { class: 'ib workspace-expand', 'aria-label': 'Expand instrument', title: 'Expand instrument', onclick: () => setState(state === 'focus' ? 'open' : 'focus') }, svgIcon('fit'));
+  const fold = h('button', { class: 'ib workspace-fold', 'aria-label': 'Collapse instrument', title: 'Collapse instrument', onclick: () => setState(state === 'peek' ? 'open' : 'peek') }, svgIcon('chev-down'));
+  const closeBtn = h('button', { class: 'ib workspace-close', 'aria-label': 'Close instruments', title: 'Close instruments', onclick: close }, svgIcon('close'));
+  const divider = h('div', { class: 'workspace-divider', role: 'separator', tabindex: '0', 'aria-label': 'Instrument workspace height', 'aria-orientation': 'horizontal', 'aria-valuemin': '25', 'aria-valuemax': '75', 'aria-valuenow': '45' }, h('span'));
+  workspace.prepend(divider);
+  head.append(titleBtn, live, run, compareBtn, second, expand, fold, closeBtn);
+  for (const p of panes) {
+    p.el.id = 'pane-' + p.id; p.el.setAttribute('role', 'region'); p.el.setAttribute('aria-label', p.label);
+    body.append(p.el);
   }
-  const wide = matchMedia('(min-width: 1600px)');
+  // Each visible instrument has its own scroll surface; the anatomy remains interactive above.
+  const slots = h('div', { class: 'workspace-slots', 'aria-label': 'Open instruments' });
+  head.after(slots);
+  const comparison = h('div', { class: 'workspace-comparison', hidden: true });
+  head.after(comparison);
+  const chooser = h('div', { class: 'workspace-chooser', hidden: true });
+  body.before(chooser);
+  function setPressureView(id) {
+    pressureView = id;
+    profileView.hidden = id !== 'profile'; landscapeView.hidden = id !== 'landscape';
+    viewSeg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === id)));
+    refresh();
+  }
+  function refresh() {
+    if (!frame || !isVisible() || state === 'peek' || !workspace.offsetParent) return;
+    for (const id of open) {
+      const p = byId[id];
+      if (id === 'scope') p.redraw(); else p.update(frame);
+      if (id === 'endoscopy' && wallDetails.open) wall.update(frame);
+    }
+  }
+  function queueRefresh() {
+    if (resizeFrame) return;
+    resizeFrame = requestAnimationFrame(() => { resizeFrame = 0; refresh(); });
+  }
+  function updateSize() {
+    const max = stageWrap.clientHeight;
+    const ratio = heightRatio ?? (matchMedia('(max-width: 767px)').matches ? 0.56 : 0.46);
+    const height = Math.min(max - 150, Math.max(180, max * ratio));
+    workspace.style.setProperty('--instrument-h', `${Math.max(140, height)}px`);
+    divider.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
+  }
+  function setState(next) {
+    state = next;
+    workspace.dataset.state = state;
+    app.classList.toggle('instrument-focus', state === 'focus' && isVisible());
+    fold.setAttribute('aria-label', state === 'peek' ? 'Open instrument' : 'Collapse instrument');
+    fold.title = state === 'peek' ? 'Open instrument' : 'Collapse instrument';
+    expand.setAttribute('aria-label', state === 'focus' ? 'Return to split view' : 'Expand instrument');
+    expand.title = state === 'focus' ? 'Return to split view' : 'Expand instrument';
+    divider.hidden = state !== 'open';
+    body.hidden = state === 'peek';
+    slots.hidden = state === 'peek' || open.length < 2;
+    chooser.hidden = true;
+    updateHeader(); layout();
+    queueRefresh();
+  }
   function layout() {
-    for (const p of panes) p.el.classList.toggle('active', open.includes(p.id) && !floats.has(p.id));
+    // Never retain two cramped columns after rotation or resizing.
+    if (body.clientWidth < 1100 && open.length > 1) open = open.slice(0, 1);
+    for (const p of panes) p.el.classList.toggle('active', open.includes(p.id));
     body.classList.toggle('split', open.length > 1);
     const first = byId[open[0]];
-    head.querySelector('.dt-l').textContent = first ? (open.length > 1 ? `${first.label} · ${byId[open[1]].label}` : first.label) : 'Choose an instrument';
-    second.hidden = !wide.matches || open.length !== 1;
-    popBtn.hidden = !open.length;
-    const f = store.get().frame;
-    if (f) setTimeout(() => { for (const id of open) byId[id].update(f); }, isVisible() ? 300 : 0);
+    head.querySelector('.dt-l').textContent = first?.label || 'Choose an instrument';
+    second.hidden = state === 'peek' || body.clientWidth < 1100 || open.length > 1;
+    slots.replaceChildren(...open.map((id) => h('div', { class: 'workspace-slot' }, h('b', {}, byId[id].label),
+      h('button', { class: 'ib', 'aria-label': `Remove ${byId[id].label}`, onclick: () => { open = open.filter((x) => x !== id); layout(); } }, svgIcon('close')))));
+    slots.hidden = state === 'peek' || open.length < 2;
+    profileView.hidden = pressureView !== 'profile'; landscapeView.hidden = pressureView !== 'landscape';
+    queueRefresh();
   }
-  wide.addEventListener('change', () => { if (!wide.matches && open.length > 1) open = open.slice(0, 1); layout(); });
+  function renderChooser() {
+    const groups = [
+      ['Hemodynamics', ['profile', 'scope', 'flow', 'perfusion']],
+      ['Clinical tools', ['hvpg', 'doppler', 'endoscopy', 'abdomen']],
+    ];
+    chooser.replaceChildren(h('div', { class: 'chooser-heading' }, h('b', {}, chooserAdding ? 'Add alongside' : 'Choose an instrument'),
+      h('button', { class: 'ib', 'aria-label': 'Close instrument chooser', onclick: () => { chooser.hidden = true; titleBtn.focus(); } }, svgIcon('close'))),
+    ...groups.map(([name, ids]) => h('section', {}, h('h3', {}, name), ids.map((id) => {
+      const [ic, desc, summary] = INFO[id], p = byId[id];
+      return h('button', { class: 'instrument-option' + (open.includes(id) ? ' selected' : ''), 'aria-pressed': String(open.includes(id)), 'data-instrument': id, onclick: () => {
+        chooser.hidden = true; show(id, { alongside: chooserAdding }); titleBtn.focus();
+      } }, svgIcon(ic), h('span', {}, h('b', {}, p.label), h('small', {}, desc)),
+      h('span', { class: 'option-value' }, frame && !store.get().imaging ? summary(frame) : ''));
+    }))));
+  }
+  function openGrid(anchor, { alongside = false } = {}) {
+    closePopover();
+    if (!isVisible()) { onOpen(); setState('open'); }
+    else if (state === 'peek') setState('open');
+    chooserAdding = alongside && body.clientWidth >= 1100;
+    const same = !chooser.hidden;
+    chooser.hidden = same;
+    if (!same) { renderChooser(); chooser.querySelector('.instrument-option')?.focus(); }
+  }
   function show(id, { open: doOpen = true, reveal = false, alongside = false } = {}) {
-    if (id === 'lobule') { onLobule?.(); return; }
+    if (id === 'landscape') { pressureView = 'landscape'; id = 'profile'; }
+    else if (id === 'profile') pressureView = 'profile';
+    const revealWall = id === 'varixwall';
+    if (revealWall) { wallDetails.open = true; id = 'endoscopy'; }
     if (!byId[id]) return;
-    if (floats.has(id)) { floats.get(id).classList.add('flash'); setTimeout(() => floats.get(id)?.classList.remove('flash'), 600); return; }
-    if (alongside && open.length === 1 && open[0] !== id) open = [open[0], id];
+    if (alongside && open.length === 1 && open[0] !== id && body.clientWidth >= 1100) open = [open[0], id];
     else if (!open.includes(id)) open = [id];
-    layout();
+    chooser.hidden = true;
     if (reveal) onReveal?.(reveal);
     else if (doOpen) onOpen();
-    setTimeout(() => dispatchEvent(new Event('resize')), 320);
+    if (state === 'peek') setState('open');
+    layout();
+    viewSeg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === pressureView)));
+    if (revealWall) requestAnimationFrame(() => wallDetails.scrollIntoView({ block: 'nearest' }));
+    queueRefresh();
   }
-  function close() { onClose(); setTimeout(() => dispatchEvent(new Event('resize')), 320); }
-  /** Makes sure something is docked before the Measure tab is shown. */
-  function ensure() { if (!open.length) { open = ['profile']; layout(); } }
+  function close() {
+    chooser.hidden = true; app.classList.remove('instrument-focus');
+    onClose(); titleBtn.blur();
+    document.getElementById('tabInstruments')?.focus();
+  }
+  function ensure() { updateSize(); layout(); }
   function toggle() {
     if (isVisible()) close();
-    else { ensure(); onOpen(); setTimeout(() => dispatchEvent(new Event('resize')), 320); }
+    else { onOpen(); setState('open'); ensure(); }
   }
-  // Floating window over the figure: drag by its header, resize from the corner.
-  function popOut(id) {
-    const p = byId[id];
-    const view = document.getElementById('stageView');
-    const back = h('button', { class: 'ib', 'aria-label': 'Dock in the side panel', title: 'Dock' }, svgIcon('download'));
-    const x = h('button', { class: 'ib', 'aria-label': 'Close', title: 'Close' }, svgIcon('close'));
-    const bar = h('header', { class: 'if-head' }, h('b', {}, p.label), h('span', { class: 'sp' }), back, x);
-    const win = h('section', { class: 'instr-float stage-blocker', role: 'dialog', 'aria-label': p.label }, bar, p.el);
-    win.style.left = '16px'; win.style.top = '16px';
-    view.append(win);
-    floats.set(id, win);
-    p.el.classList.add('active');
-    open = open.filter((o) => o !== id);
-    if (!open.length && isVisible()) onClose();
+  // Divider supports mouse, touch and keyboard. It changes layout, never pauses the engine.
+  let drag = null;
+  divider.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    drag = { y: e.clientY, height: workspace.clientHeight };
+    divider.setPointerCapture(e.pointerId);
+  });
+  divider.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    heightRatio = clamp((drag.height + drag.y - e.clientY) / stageWrap.clientHeight, 0.25, 0.75);
+    updateSize();
+  });
+  for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) divider.addEventListener(ev, () => { drag = null; });
+  divider.addEventListener('keydown', (e) => {
+    if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) return;
+    e.preventDefault();
+    heightRatio = e.key === 'Home' ? 0.25 : e.key === 'End' ? 0.75 : clamp((heightRatio ?? workspace.clientHeight / stageWrap.clientHeight) + (e.key === 'ArrowUp' ? 0.05 : -0.05), 0.25, 0.75);
+    updateSize();
+  });
+  workspace.addEventListener('click', queueRefresh);
+  workspace.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!chooser.hidden) { chooser.hidden = true; titleBtn.focus(); }
+    else if (state === 'focus') setState('open');
+    else close();
+    e.stopPropagation();
+  });
+  const sizeObserver = new ResizeObserver(() => {
+    updateSize();
+    const h0 = workspace.clientHeight;
+    workspace.style.setProperty('--plot-h', `${clamp(h0 - 110, 190, 420)}px`);
+    workspace.style.setProperty('--square-size', `${clamp(h0 - 120, 230, 380)}px`);
     layout();
-    const dock = () => { floats.delete(id); body.append(p.el); win.remove(); show(id, { open: true }); };
-    back.addEventListener('click', dock);
-    x.addEventListener('click', () => { floats.delete(id); body.append(p.el); p.el.classList.remove('active'); win.remove(); });
-    bar.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('button')) return;
-      const r = win.getBoundingClientRect(), vr = view.getBoundingClientRect();
-      const dx = e.clientX - r.left, dy = e.clientY - r.top;
-      bar.setPointerCapture(e.pointerId);
-      bar.onpointermove = (ev) => { win.style.left = `${clamp(ev.clientX - vr.left - dx, 0, vr.width - 80)}px`; win.style.top = `${clamp(ev.clientY - vr.top - dy, 0, vr.height - 40)}px`; };
-      bar.onpointerup = () => { bar.onpointermove = null; };
-    });
-    new ResizeObserver(() => { const f = store.get().frame; if (f) p.update(f); }).observe(win);
-    const f = store.get().frame; if (f) setTimeout(() => p.update(f), 30);
+  });
+  sizeObserver.observe(stageWrap); sizeObserver.observe(body);
+  store.on('compareSnap', () => updateHeader());
+  function updateHeader() {
+    const st = store.get(), comparing = !!st.compareSnap;
+    compareBtn.setAttribute('aria-pressed', String(comparing));
+    compareBtn.querySelector('span').textContent = comparing ? 'Unpin' : 'Compare';
+    compareBtn.title = comparing ? 'Stop comparing with the pinned moment' : 'Pin this moment and compare before and after';
+    run.querySelector('span').textContent = st.running ? 'Pause' : 'Run';
+    comparison.hidden = !comparing || state === 'peek';
+    if (comparing && frame) {
+      const a = st.compareSnap.metrics, b = frame.metrics;
+      const delta = (label, v, digits, unit) => h('span', {}, label, h('b', {}, `${v > 0 ? '+' : ''}${fmt(v, digits)} ${unit}`));
+      comparison.replaceChildren(h('span', { class: 'comparison-label' }, 'Change since baseline'),
+        !st.hiddenReadouts?.has('trueHVPG') ? delta('HVPG', b.hvpg - a.hvpg, 1, 'mmHg') : null,
+        !st.hiddenReadouts?.has('model') ? delta('Liver flow', b.liverPerfPct - a.liverPerfPct, 0, 'pp') : null,
+        !st.hiddenReadouts?.has('model') ? delta('Shunting', (b.shuntFraction - a.shuntFraction) * 100, 0, 'pp') : null);
+    }
+    run.setAttribute('aria-pressed', String(st.running));
+    live.textContent = frame ? state === 'peek' && !st.imaging ? INFO[open[0]][2](frame)
+      : `${st.running ? 'Live' : 'Paused'} · ${frame.clock === 'disease' ? 'Day ' + frame.day : fmt(frame.t, 0) + ' s'} · HVPG ${st.hiddenReadouts?.has('trueHVPG') ? (st.lastHVPG ? fmt(st.lastHVPG.hvpg, 1) : '?') : fmt(frame.metrics.hvpg, 1)} mmHg` : '';
   }
-
   function update(f, force) {
-    updateStrip(f);
+    frame = f; updateStrip(f); updateHeader();
     byId.scope.ingest(f);
-    // The HVPG instrument also records wedge measurements (lessons and cases wait on them),
-    // so it runs whenever a catheter is in place, open or not.
     const cath = (f.params || store.get().params).catheter;
-    if (cath?.vein && !open.includes('hvpg') && !floats.has('hvpg')) byId.hvpg.update(f);
-    for (const id of floats.keys()) { const p = byId[id]; if (p === byId.scope) p.redraw(); else p.update(f); }
+    if (cath?.vein && (!isVisible() || state === 'peek' || !open.includes('hvpg'))) byId.hvpg.update(f);
     if (!force && !isVisible()) return;
-    for (const id of open) { const p = byId[id]; if (p === byId.scope) p.redraw(); else p.update(f); }
+    refresh();
   }
-
-  addEventListener('resize', () => { const f = store.get().frame; if (f) for (const id of [...open, ...floats.keys()]) byId[id].update(f); });
-  return { update, show, toggle, close, ensure, openGrid, profile: byId.profile, pane: (id) => byId[id], isOpen: (id) => open.includes(id) || floats.has(id) };
+  addEventListener('resize', () => { updateSize(); layout(); });
+  setState('open'); updateSize(); layout();
+  return {
+    update, show, toggle, close, ensure, openGrid, profile,
+    pane: (id) => id === 'landscape' ? landscape : id === 'varixwall' ? wall : byId[id],
+    isOpen: (id) => isVisible() && open.includes(id === 'landscape' ? 'profile' : id === 'varixwall' ? 'endoscopy' : id),
+    setState,
+  };
 }

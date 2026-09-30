@@ -244,7 +244,8 @@ export function createScope() {
   const boxes = h('div', { class: 'check-list' });
   const title = h('div', { class: 'side-title' });
   const hint = h('div', { class: 'ctl-sub' });
-  const side = h('div', { class: 'chart-side' }, title, winSeg, boxes, hint);
+  const side = h('div', { class: 'chart-side' }, title, winSeg,
+    h('details', { class: 'instrument-details trace-picker' }, h('summary', {}, 'Choose traces'), boxes), hint);
   el.append(box, side);
   const buf = { t: [] };
   const trend = { day: [] };
@@ -254,7 +255,7 @@ export function createScope() {
     const src = mode === 'hemo' ? TRACES : TRENDS;
     const set = mode === 'hemo' ? chosen : chosenTrend;
     const series = theme().series;
-    title.textContent = mode === 'hemo' ? 'Scope · seconds' : 'Trends · days';
+    title.textContent = mode === 'hemo' ? 'Waveforms · seconds' : 'Trends · days';
     boxes.replaceChildren(...Object.entries(src).map(([k, t]) => {
       const cb = h('input', { type: 'checkbox', checked: set.has(k) });
       cb.addEventListener('change', () => { if (cb.checked) set.add(k); else set.delete(k); draw(); });
@@ -369,7 +370,7 @@ export function createScope() {
     const step = isH ? (span > 30 ? 10 : span > 10 ? 2 : 1) : span > 360 ? 90 : span > 120 ? 30 : 7;
     for (let t = Math.ceil(x0 / step) * step; t <= x1; t += step) ctx.fillText(isH ? `${Math.round(t)} s` : `day ${Math.round(t)}`, X(t), hh - 6);
   }
-  return { id: 'scope', label: 'Scope', el, update(f) { ingest(f); draw(); }, ingest, redraw: draw };
+  return { id: 'scope', label: 'Waveforms & trends', el, update(f) { ingest(f); draw(); }, ingest, redraw: draw };
 }
 
 // ── Flow Sankey ─────────────────────────────────────
@@ -393,6 +394,33 @@ export function createSankey() {
       ['Gastrorenal shunt', q('C5')], ['Splenorenal shunt', q('C6')], ['Retroperitoneal', q('C7')],
       ['TIPS', q('TIPS')], ['Surgical shunts', q('S_PC') + q('S_DSR') + q('S_MC')],
     ].filter(([, v]) => v > 0.005);
+    // A narrow workspace uses labelled flow bars instead of squeezing a four-column Sankey.
+    if (w < 650) {
+      const routes = [
+        ['Portal blood reaching liver', Math.max(0, q('PRE_R')) + Math.max(0, q('PRE_L')), c.ok],
+        ['Hepatic artery to liver', q('A_HR') + q('A_HL'), c.artery],
+        ...colls.map(([label, v]) => [label, v, c.rev]),
+      ];
+      box.style.height = `${Math.max(230, 90 + routes.length * 48)}px`;
+      ctx.fillStyle = c.text; ctx.font = FONT(600, 14); ctx.textAlign = 'left';
+      ctx.fillText('Where gut blood goes', 12, 24);
+      ctx.fillStyle = c.muted; ctx.font = FONT(500, 11.5);
+      ctx.fillText(`${Math.round(m.shuntFraction * 100)}% bypasses the liver · flow in L/min`, 12, 46);
+      const max = Math.max(0.2, ...routes.map(([, v]) => v));
+      for (let i = 0; i < routes.length; i++) {
+        const [label, v, color] = routes[i], y = 76 + i * 48;
+        ctx.fillStyle = c.text; ctx.textAlign = 'left'; ctx.font = FONT(500, 11);
+        ctx.fillText(label, 12, y);
+        ctx.textAlign = 'right'; ctx.font = FONT(600, 11); ctx.fillText(fmtFlow(v), w - 12, y);
+        ctx.fillStyle = c.border; ctx.fillRect(12, y + 8, w - 24, 8);
+        ctx.fillStyle = color; ctx.fillRect(12, y + 8, (w - 24) * Math.max(0, v) / max, 8);
+      }
+      el.querySelector('#sankeyStats').replaceChildren(
+        h('dt', {}, 'Gut & spleen inflow'), h('dd', {}, `${fmtFlow(m.splanchnicIn)} L/min`),
+        h('dt', {}, 'Liver perfusion'), h('dd', {}, `${Math.round(m.liverPerfPct)} % of baseline`));
+      return;
+    }
+    box.style.height = '';
     const portalToLiver = Math.max(0, q('PRE_R')) + Math.max(0, q('PRE_L'));
     const liverToPortal = Math.max(0, -q('PRE_R')) + Math.max(0, -q('PRE_L'));
     const ha = q('A_HR') + q('A_HL');
@@ -454,7 +482,7 @@ export function createSankey() {
       h('dt', {}, 'Shunt fraction'), h('dd', {}, `${Math.round(m.shuntFraction * 100)} %`),
       h('dt', {}, 'Portal → liver'), h('dd', {}, `${fmtFlow(portalToLiver)} L/min`),
       h('dt', {}, 'Hepatic artery'), h('dd', {}, `${fmtFlow(ha)} L/min`),
-      h('dt', {}, 'Liver perfusion'), h('dd', {}, `${Math.round(m.liverPerfPct)} %`));
+      h('dt', {}, 'Liver perfusion'), h('dd', {}, `${Math.round(m.liverPerfPct)} % of baseline`));
   }
   return { id: 'flow', label: 'Flow', el, update: draw };
 }
@@ -485,7 +513,7 @@ export function createPerfusion() {
       }
       ctx.fillStyle = c.text; ctx.textAlign = 'center'; ctx.font = FONT(600, Math.max(14, Math.min(24, r * 0.5)));
       ctx.fillText(`${Math.round(m.liverPerfPct)}%`, cx, cy + 4);
-      ctx.font = FONT(500, 10.5); ctx.fillStyle = c.muted; ctx.fillText('perfused', cx, cy + 19);
+      ctx.font = FONT(500, 10.5); ctx.fillStyle = c.muted; ctx.fillText('of baseline flow', cx, cy + 19);
       ctx.textAlign = 'left'; ctx.font = FONT(500, 11);
       [['Portal', c.ok], ['Hepatic artery', c.artery], ['Bypassing the liver', c.rev]].forEach(([t, col], i) => { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(10, 12 + i * 16, 4, 0, 7); ctx.fill(); ctx.fillStyle = c.muted; ctx.fillText(t, 20, 16 + i * 16); });
     }

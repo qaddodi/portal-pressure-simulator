@@ -5,14 +5,14 @@ import { startHost, host } from './host.js?v=ce51691de3';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=4bf5a96a9d';
 import { createStage } from './stage.js?v=2b3475acad';
 import { createInspector } from './inspector.js?v=ecfb4548ab';
-import { createDock, CUTOFFS } from './dock.js?v=cd9a4e396a';
+import { createDock, CUTOFFS } from './dock.js?v=817e6f2283';
 import { createWhy } from './why.js?v=cb6efa350a';
 import { createTimeline } from './timeline.js?v=a16aa94cd6';
 import { createLearn } from './learn.js?v=cc9a38cf25';
 import { createCases } from './cases.js?v=52c633ef8b';
 import { createCompare } from './compare.js?v=e505a6db48';
 import { createCard } from './card.js?v=0efa7b06ef';
-import { createChart } from './chart.js?v=cabf903cef';
+import { createChart } from './chart.js?v=b1eb32b5c7';
 import { createHome } from './home.js?v=fe3cba9aa4';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=0457b367b9';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=0287515a1d';
@@ -127,8 +127,8 @@ async function main() {
     onWhy: (m, el) => why.open(m, el), onAction: doAction, onOpenTab: (id) => dock.show(id, { reveal: true }),
     onScenarios: () => openScenarios($('#scenarioBtn')), onMode: (m) => store.set({ mode: m }), chart,
   });
-  dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => host.send({ type: 'probe', id }), onReveal: revealDock, onLobule: () => zoomLobule('R'),
-    onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), isVisible: () => app.classList.contains('dock-open') && panelShown() });
+  dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => host.send({ type: 'probe', id }), onReveal: revealDock, onCompare: () => timeline.togglePin(), onRun: () => host.send({ type: 'run', running: !store.get().running }),
+    onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), isVisible: () => app.classList.contains('dock-open') });
   const api = { beginSession, endSession, onEnd: () => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); }, muteEvents: () => {}, loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), openPanel, setBanner, select: (sel) => store.set({ selection: sel }) };
   // A lesson keeps its card in view where the panel covers the figure: instruments it opens are
   // flagged, not forced.
@@ -368,7 +368,7 @@ function startCase(id) { if (store.get().mode === 'learn') learn.stop(); store.s
 // ── Actions ─────────────────────────────────────────
 function doAction(a) {
   if (a.kind === 'probe') { host.send({ type: 'probe', id: a.id }); return; }
-  if (a.kind === 'paracentesisPrompt') { dock.show('abdomen', { reveal: true }); toast('Choose the volume in the Abdomen instrument, then Drain.'); return; }
+  if (a.kind === 'paracentesisPrompt') { dock.show('abdomen', { reveal: true }); toast('Choose the volume in Ascites & paracentesis, then Drain.'); return; }
   host.send({ type: 'action', action: a });
   const tl = { infuse: { crystalloid: '1 L crystalloid', prbc: '1 unit PRBC', albumin: 'Albumin infusion' }, hemorrhage: `Hemorrhage ${a.mL} mL`, band: 'Band ligation', valsalva: 'Valsalva', rupture: 'Varix ruptured (manual)', stopBleed: 'Bleeding stopped',
     paracentesis: `Paracentesis ${((a.mL || 0) / 1000).toFixed(1)} L${a.albumin ? ' + albumin' : ''}` }[a.kind];
@@ -722,7 +722,7 @@ new MutationObserver(() => syncStatusBar()).observe(document.getElementById('hom
 // (again once the figure's background has finished its .5 s fade)
 new MutationObserver(() => { syncStatusBar(); setTimeout(syncStatusBar, 600); }).observe(document.getElementById('app'), { attributes: true, attributeFilter: ['class'] });
 function readLS(k) { try { return localStorage.getItem(k); } catch { return null; } }
-// ── Side panel: Patient and Measure, one tab each ───
+// ── Patient panel and independent instrument workspace ─
 // Beside the figure on a wide screen; below 1280 px it slides over the figure from the right
 // (with a scrim on a phone) and the top bar's side-panel button opens it.
 function panelShown() { return isNarrow() ? app.classList.contains('panel-open') : !app.classList.contains('panel-collapsed'); }
@@ -735,8 +735,12 @@ function syncPanelToggle() {
 }
 /** Opens the side panel; on the patient chart unless a tab is named. */
 function openPanel(tab = 'chart') {
+  if (tab === 'instruments') {
+    setPanelTab('instruments');
+    if (isNarrow()) closePanel();
+    return;
+  }
   app.classList.remove('panel-collapsed'); app.classList.add('panel-open');
-  setPanelTab(tab);
   syncPanelToggle();
 }
 function closePanel() { if (isNarrow()) app.classList.remove('panel-open'); else app.classList.add('panel-collapsed'); syncPanelToggle(); }
@@ -745,7 +749,9 @@ function setPanelTab(tab) {
   if (instr) dock.ensure();
   const was = app.classList.contains('dock-open');
   app.classList.toggle('dock-open', instr);
-  $$('.panel-tabs [role="tab"]').forEach((b) => { const on = b.dataset.ptab === tab; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; if (on) b.classList.remove('ping'); });
+  $('#tabInstruments').setAttribute('aria-pressed', String(instr));
+  if (instr) $('#tabInstruments').classList.remove('ping');
+  else app.classList.remove('instrument-focus');
   if (was !== instr) {
     const f = store.get().frame; if (f && instr) requestAnimationFrame(() => dock.update(f, true));
     setTimeout(() => dispatchEvent(new Event('resize')), 320);
@@ -844,28 +850,24 @@ function updateProjector(f) {
 }
 
 // ── Phone & tablet ──────────────────────────────────
-// How an instrument is brought forward: 'hard' (a button asked for it) opens it in the side
-// panel; 'lesson' does the same where the panel sits beside the figure but only flags it where
-// the panel would cover the figure; 'soft' (a click on the figure) never re-frames the figure
-// under the pointer, so it only flags the Measure tab (or the side-panel button) when hidden.
+// Instruments share space with the figure. A soft vessel hover/click can flag the launcher;
+// explicit tools and lesson steps open the workspace without a scrim.
 function revealDock(mode) {
-  const visible = app.classList.contains('dock-open') && panelShown();
-  if (visible) return;
-  const flag = mode === 'soft' || (mode === 'lesson' && isNarrow());
-  if (!flag) { openPanel('instruments'); return; }
-  if (panelShown()) $('#tabInstruments').classList.add('ping');
-  else { $('#btnInspector').classList.add('ping'); $('#tabInstruments').classList.add('ping'); }
+  if (app.classList.contains('dock-open')) return;
+  if (mode === 'soft') { $('#tabInstruments').classList.add('ping'); return; }
+  openPanel('instruments');
 }
 function wirePanel() {
   const tabs = $$('.panel-tabs [role="tab"]');
   tabs.forEach((b, i) => {
-    b.addEventListener('click', () => setPanelTab(b.dataset.ptab));
+    b.addEventListener('click', () => openPanel(b.dataset.ptab));
     b.addEventListener('keydown', (e) => {
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
       const n = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
-      n.focus(); setPanelTab(n.dataset.ptab);
+      n.focus(); openPanel(n.dataset.ptab);
     });
   });
+  $('#tabInstruments').addEventListener('click', () => dock.toggle());
   $('#panelClose').addEventListener('click', closePanel);
   $('#panelScrim').addEventListener('click', closePanel);
   // Below 1280 px the panel starts closed so the figure has the room; wider, it is open.

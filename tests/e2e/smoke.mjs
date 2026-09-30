@@ -189,6 +189,87 @@ for (const device of Object.keys(DEVICES)) {
     await page.waitForTimeout(800);
     await shot(page, `${device}-dark`);
   });
+  await check(device, 'responsive instrument workspace', async (page) => {
+    await open(page, '?preset=cirr-decomp');
+    await page.click('#tabInstruments');
+    await page.waitForSelector('#dockBody .dock-pane.active');
+    await page.waitForTimeout(400);
+    const geometry = () => page.evaluate(() => {
+      const dock = document.querySelector('#dock').getBoundingClientRect();
+      const stage = document.querySelector('#stageView').getBoundingClientRect();
+      const panel = document.querySelector('#panel');
+      return { stageH: stage.height, stageBottom: stage.bottom, dockTop: dock.top,
+        dockRight: dock.right, width: innerWidth,
+        scrim: getComputedStyle(document.querySelector('#panelScrim')).visibility,
+        panel: getComputedStyle(panel).visibility };
+    });
+    let g = await geometry();
+    if (g.stageH < 50 || g.stageBottom > g.dockTop + 1) throw new Error('workspace overlays or hides the anatomy');
+    if (g.dockRight > g.width + 1) throw new Error('workspace extends off screen');
+    if (device === 'phone' && (g.scrim === 'visible' || g.panel === 'visible')) throw new Error('opening instruments also opens a patient overlay');
+    const before = await page.evaluate(() => window.pps.store.get().frame.t);
+    await page.waitForTimeout(500);
+    if (!((await page.evaluate(() => window.pps.store.get().frame.t)) > before)) throw new Error('opening instruments paused simulation');
+    await page.click('.workspace-divider');
+    await page.keyboard.press('ArrowUp');
+    await page.click('.workspace-compare');
+    await page.waitForFunction(() => !!window.pps.store.get().compareSnap);
+    await page.waitForSelector('.workspace-comparison:not([hidden])');
+    const choose = async (id) => {
+      await page.click('#dockHead .dock-title');
+      if (await page.locator('.instrument-option').count() !== 8) throw new Error('chooser must offer eight distinct instruments');
+      await page.click(`.instrument-option[data-instrument="${id}"]`);
+      await page.waitForTimeout(250);
+    };
+    for (const id of ['scope', 'flow', 'perfusion', 'hvpg', 'doppler', 'endoscopy', 'abdomen', 'profile']) {
+      await choose(id);
+      const overflow = await page.$eval(`#pane-${id}`, (el) => el.scrollWidth - el.clientWidth);
+      if (overflow > 2) throw new Error(`${id} has horizontal overflow (${overflow}px)`);
+      const sized = await page.$eval(`#pane-${id}`, (el) => [...el.querySelectorAll('canvas')].filter((c) => c.getBoundingClientRect().height > 0).every((c) => c.width > 1 && c.height > 1));
+      if (!sized) throw new Error(`${id} has an unsized visible canvas`);
+    }
+    await page.evaluate(() => window.pps.dock.show('landscape', { reveal: true }));
+    await page.waitForSelector('.land-verdict');
+    await page.evaluate(() => window.pps.dock.show('varixwall', { reveal: true }));
+    if (!(await page.$eval('.wall-details', (d) => d.open))) throw new Error('legacy varixwall route does not open mechanics');
+    await page.click('.workspace-run');
+    await page.waitForFunction(() => !window.pps.store.get().running);
+    await page.click('.workspace-expand');
+    await page.waitForFunction(() => document.querySelector('#app').classList.contains('instrument-focus'));
+    await page.waitForTimeout(250);
+    const square = await page.$eval('#pane-endoscopy .chart-box.square', (el) => { const r = el.getBoundingClientRect(); return Math.abs(r.width - r.height); });
+    if (square > 2) throw new Error('endoscopy loses its square aspect ratio');
+    await page.$eval('#pane-endoscopy', (el) => { el.scrollTop = 0; });
+    await shot(page, `${device}-workspace-endoscopy`);
+    await page.click('.workspace-expand');
+    await page.click('.workspace-fold');
+    await page.waitForFunction(() => document.querySelector('#dock').dataset.state === 'peek');
+    await page.click('.workspace-fold');
+    if (device === 'phone') {
+      await page.setViewportSize({ width: 844, height: 390 });
+      await page.waitForTimeout(500);
+      g = await geometry();
+      if (g.dockRight > g.width + 1 || g.stageH < 20) throw new Error('rotation makes workspace unusable');
+      await page.click('.workspace-expand');
+      await shot(page, 'phone-workspace-landscape');
+      await page.click('.workspace-expand');
+      await page.setViewportSize({ width: 390, height: 844 });
+    } else {
+      await page.click('#btnInspector');
+      await page.waitForTimeout(500);
+      await page.click('.dock-second');
+      await page.click('.instrument-option[data-instrument="doppler"]');
+      await page.waitForSelector('#dockBody.split');
+      await shot(page, 'desktop-workspace-two-instruments');
+      await page.setViewportSize({ width: 768, height: 1024 });
+      await page.waitForTimeout(500);
+      if (await page.$eval('#dockBody', (el) => el.classList.contains('split'))) throw new Error('two cramped columns remain on tablet');
+      await shot(page, 'tablet-workspace');
+    }
+    await page.click('.workspace-run');
+    await page.waitForFunction(() => window.pps.store.get().running);
+  });
+
 }
 
 await browser.close();

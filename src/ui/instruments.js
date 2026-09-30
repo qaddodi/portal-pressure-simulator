@@ -5,7 +5,7 @@ import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
 import { h, fmt, fitCanvas, cssVar, clamp, toast, icon } from './util.js?v=cc7ee4cf38';
-import { FONT } from './charts.js?v=73528b3f92';
+import { FONT } from './charts.js?v=ce7abbcdd0';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -42,7 +42,7 @@ export function createHVPG() {
     const now = f.t;
     if (c.vein) {
       const v = c.wedged ? m.measured?.whvp : m.measured?.fhvp;
-      if (Number.isFinite(v)) trace.push([now, v, c.wedged]);
+      if (Number.isFinite(v) && trace[trace.length - 1]?.[0] !== now) trace.push([now, v, c.wedged]);
       while (trace.length && trace[0][0] < now - 60) trace.shift();
       if (!m.measured) { /* engine hasn't seen the catheter yet */ }
       else if (!c.wedged) { fhvp = m.measured.fhvp; wedgeStart = null; }
@@ -124,7 +124,10 @@ export function createDoppler({ onProbe }) {
 
   function update(f) {
     if (f.probe !== lastProbe) { buf.length = 0; lastProbe = f.probe; probeSel.value = f.probe; }
-    if (f.samples) for (let i = 0; i < f.samples.t.length; i++) buf.push([f.samples.t[i], f.samples.vel[i]]);
+    if (buf.length && f.t < buf[buf.length - 1][0]) buf.length = 0;
+    if (f.samples) for (let i = 0; i < f.samples.t.length; i++) {
+      if (!buf.length || f.samples.t[i] > buf[buf.length - 1][0]) buf.push([f.samples.t[i], f.samples.vel[i]]);
+    }
     const tNow = buf.length ? buf[buf.length - 1][0] : 0;
     while (buf.length && buf[0][0] < tNow - 6) buf.shift();
     const vs = buf.map((b) => b[1]);
@@ -524,10 +527,13 @@ export function createAbdomen({ onAction }) {
   const alb = h('input', { type: 'checkbox', checked: true });
   const drain = h('button', { class: 'btn primary block', onclick: () => onAction({ kind: 'paracentesis', mL: +vol.value * 1000, albumin: alb.checked }) }, 'Drain');
   const stats = h('dl', { class: 'kv' });
-  const side = h('div', { class: 'chart-side', style: { width: '290px' } }, h('div', { class: 'side-title' }, 'Paracentesis'),
-    h('div', { class: 'ctl' }, h('div', { class: 'ctl-top' }, h('span', { class: 'ctl-label' }, 'Volume'), volLbl), vol),
-    h('label', { class: 'check-row', style: { padding: '2px 0' } }, alb, 'Give albumin (8 g per L removed)'),
-    drain, stats);
+  const extraStats = h('dl', { class: 'kv' });
+  const side = h('div', { class: 'chart-side' },
+    h('div', { class: 'side-title' }, 'Ascites & paracentesis'), stats,
+    h('div', { class: 'procedure-controls' },
+      h('div', { class: 'ctl' }, h('div', { class: 'ctl-top' }, h('span', { class: 'ctl-label' }, 'Volume to drain'), volLbl), vol),
+      h('label', { class: 'check-row' }, alb, 'Give albumin (8 g per L removed)'), drain),
+    h('details', { class: 'instrument-details' }, h('summary', {}, 'Fluid balance & spleen'), extraStats));
   el.append(box, side);
   function update(f) {
     const a = f.metrics.ascites, sp = f.metrics.spleen;
@@ -541,6 +547,8 @@ export function createAbdomen({ onAction }) {
       h('dt', {}, 'SAAG'), h('dd', {}, a.volume > 150 ? (f.metrics.ppg > 6 || f.metrics.whvp > 10 ? '≥ 1.1 (portal hypertension)' : '< 1.1') : '—'),
       h('dt', {}, 'Spleen length'), h('dd', {}, `${fmt(sp.length, 1)} cm`),
       h('dt', {}, 'Platelets (illustrative)'), h('dd', {}, `${Math.round(sp.platelets)} ×10⁹/L`));
+    extraStats.replaceChildren();
+    while (stats.children.length > 8) extraStats.append(stats.children[8]);
     const { ctx, w, h: hh } = fitCanvas(cv);
     ctx.clearRect(0, 0, w, hh);
     const cx = w / 2, top = 20, bot = hh - 16;
@@ -561,5 +569,5 @@ export function createAbdomen({ onAction }) {
     ctx.fillStyle = a.iap >= 12 ? cssVar('--danger') : cssVar('--info'); ctx.fillRect(gx, gy + gh - iapH, 12, iapH);
     ctx.fillStyle = cssVar('--text-2'); ctx.textAlign = 'left'; ctx.fillText(`IAP ${fmt(a.iap, 0)}`, gx + 16, gy + gh - iapH + 4);
   }
-  return { id: 'abdomen', label: 'Abdomen', el, update };
+  return { id: 'abdomen', label: 'Ascites & paracentesis', el, update };
 }

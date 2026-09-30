@@ -48,7 +48,7 @@ svg { flex: none; }
 .app.panel-collapsed { grid-template-columns: minmax(0, 1fr) 0; }
 .app.panel-collapsed .panel { visibility: hidden; }
 /* Charts need a little more width than the patient chart. */
-.app.dock-open { --panel-w: 440px; }
+
 
 /* ── Top bar ────────────────────────────────────── */
 .topbar {
@@ -366,7 +366,7 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 /* ── Instrument drawer ──────────────────────────── */
 .dock { background: var(--surface); display: none; flex-direction: column; flex: 1; min-height: 0; min-width: 0; position: relative; }
 .app.dock-open .dock { display: flex; }
-.app.dock-open #panelChart { display: none; }
+
 .dock-head { display: flex; align-items: center; gap: 12px; flex: none; height: 43px; padding: 0 8px 0 12px; min-width: 0; }
 .dock-title { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-12); font-weight: 650; color: var(--text); white-space: nowrap; border: 0; background: none; cursor: pointer; padding: 8px 4px; border-radius: var(--r-control); }
 .dock-title { position: relative; }
@@ -939,7 +939,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "stage" "strip"; }
   .app.panel-collapsed { grid-template-columns: minmax(0, 1fr); }
   .panel { position: fixed; right: 0; top: calc(var(--top-h) + var(--safe-top)); bottom: 0; width: min(380px, 92vw); z-index: var(--z-panel); box-shadow: var(--shadow-3); transform: translateX(105%); transition: transform .3s var(--ease), width .3s var(--ease), visibility .3s; visibility: hidden; }
-  .app.dock-open .panel { width: min(460px, 92vw); }
+
   .app.panel-open .panel { transform: none; visibility: visible; }
   .panel-toggle[aria-pressed="true"] { background: var(--surface-3); }
   .brand-sub { display: none; }
@@ -1485,13 +1485,6 @@ div.vt-vital { cursor: default; }
 .dock-body.split { overflow-y: auto; }
 .dock-body.split .dock-pane { position: relative; inset: auto; overflow: visible; }
 .dock-body.split .dock-pane + .dock-pane { border-top: 1px solid var(--hairline); }
-.instr-float { position: absolute; z-index: var(--z-hud); width: 560px; height: 300px; min-width: 320px; min-height: 200px; max-width: calc(100% - 16px); max-height: calc(100% - 16px); display: flex; flex-direction: column; resize: both; overflow: hidden;
-  background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); animation: acIn .14s var(--ease); }
-.instr-float.flash { box-shadow: var(--shadow-3), 0 0 0 3px var(--accent); }
-.if-head { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 16px; border-bottom: 1px solid var(--hairline); cursor: grab; font-size: var(--fs-13); }
-.if-head .sp { flex: 1; }
-.if-head .ib { width: 28px; height: 28px; }
-.instr-float .dock-pane { position: relative; inset: auto; flex: 1; display: flex; min-height: 0; }
 .flash-ring { fill: none; stroke: var(--accent); stroke-linecap: round; stroke-linejoin: round; animation: flashRing 1.6s var(--ease) forwards; pointer-events: none; }
 @keyframes flashRing { 0% { stroke-opacity: 0; } 15% { stroke-opacity: .5; } 100% { stroke-opacity: 0; } }
 .app-menu { width: 280px; }
@@ -1805,3 +1798,124 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 /* Every live number uses tabular figures, so digits hold still as the model runs. */
 .metric, .vital, .vt-row, .vt-vital, .kv dd, .tl-time, .stage-clock, .big-overlay, .cmp-table, .cut-table, .hp-chip, .mon, .lz-side,
 .ctl-val, .event-log, .pb-n, .pt-n, .scn .d, #labels text, .ic-live, .tl-pop .when, .story .st-when, .bleed-pill { font-variant-numeric: tabular-nums; }
+
+/* ── Live instrument workspace ─────────────────────
+   Instruments share the figure column, independent of the patient panel. No floating windows
+   or mobile scrim; container queries adapt each instrument to its own available width. */
+.measure-launch { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; padding: 0 11px; border: 1px solid var(--hairline); border-radius: var(--r-control); background: var(--surface); color: var(--text-2); cursor: pointer; font: 600 var(--fs-13) var(--font-ui); position: relative; }
+.measure-launch svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+.measure-launch[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-ink); border-color: transparent; }
+.measure-launch.ping::after { content: ''; position: absolute; right: 5px; top: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.instrument-workspace { --instrument-h: 340px; --plot-h: 240px; --square-size: 260px; position: relative; flex: none; height: var(--instrument-h); min-height: 0; width: 100%; overflow: hidden; border-top: 1px solid var(--hairline); background: var(--surface); box-shadow: 0 -5px 24px rgba(0,0,0,.035); z-index: 2; }
+.app.dock-open .instrument-workspace { display: flex; }
+.workspace-divider { height: 12px; flex: none; display: grid; place-items: center; cursor: ns-resize; touch-action: none; background: var(--surface); }
+.workspace-divider span { width: 42px; height: 3px; background: var(--border-strong); border-radius: 4px; transition: width .15s; }
+.workspace-divider:hover span, .workspace-divider:focus-visible span { width: 64px; background: var(--accent); }
+.instrument-workspace .dock-head { height: 48px; flex: none; padding: 0 12px; gap: 8px; }
+.instrument-workspace .dock-title { min-width: 0; font-size: var(--fs-14); flex: none; }
+.instrument-workspace .dock-title .dt-l { max-width: 210px; overflow: hidden; text-overflow: ellipsis; }
+.workspace-live { flex: 1; min-width: 0; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; font: 500 var(--fs-12) var(--font-mono); color: var(--text-3); }
+.workspace-run { display: inline-flex; align-items: center; gap: 6px; background: var(--surface-2); color: var(--text); border: 0; border-radius: var(--r-control); cursor: pointer; min-height: 34px; padding: 0 10px; font: 600 var(--fs-12) var(--font-ui); }
+.workspace-run svg, .workspace-compare svg, .dock-second svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.6; }
+.workspace-run[aria-pressed="true"] svg { display: none; }
+.instrument-workspace .dock-head .ib { display: inline-flex; flex: none; width: 34px; height: 34px; }
+.instrument-workspace .dock-head .workspace-fold svg { transition: transform .2s; }
+.instrument-workspace[data-state="peek"] .workspace-fold svg { transform: rotate(180deg); }
+.instrument-workspace[data-state="peek"] { height: 52px; }
+.instrument-workspace[data-state="peek"] .dock-head { height: 52px; }
+.workspace-slots { display: grid; grid-template-columns: 1fr 1fr; flex: none; border-top: 1px solid var(--hairline); }
+.workspace-slot { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 2px 12px; font-size: var(--fs-12); color: var(--text-2); }
+.workspace-slot + .workspace-slot { border-left: 1px solid var(--hairline); }
+.workspace-slot .ib { width: 28px; height: 28px; }
+.instrument-workspace .dock-body { display: grid; grid-template-columns: minmax(0, 1fr); flex: 1; min-height: 0; overflow: hidden; }
+.instrument-workspace .dock-body.split { grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: hidden; }
+.instrument-workspace .dock-pane { position: relative; inset: auto; display: none; min-height: 0; min-width: 0; overflow: auto; overscroll-behavior: contain; padding: 16px 20px 20px; container-type: inline-size; }
+.instrument-workspace .dock-pane.active { display: flex; flex-direction: column; gap: 12px; animation: none; }
+.instrument-workspace .dock-body.split .dock-pane + .dock-pane { border-top: 0; border-left: 1px solid var(--hairline); }
+.instrument-view { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 20px; min-width: 0; }
+.instrument-workspace .instrument-view .chart-box { flex: none; height: var(--plot-h); min-height: 190px; max-width: none; min-width: 0; }
+.instrument-workspace .instrument-view .chart-box.square { width: min(100%, var(--square-size)); height: auto; aspect-ratio: 1; min-height: 0; justify-self: center; }
+.instrument-workspace .instrument-view .chart-side { width: auto !important; min-width: 0; overflow: visible; padding: 0; gap: 10px; }
+.instrument-view .kv { margin: 0; }
+.instrument-view .side-title { font-size: var(--fs-14); }
+.instrument-view .ctl-sub { line-height: 1.5; }
+.pressure-views { align-self: flex-start; flex: none; }
+.pressure-views button { min-height: 32px; padding-inline: 14px; }
+.instrument-details { min-width: 0; border-top: 1px solid var(--hairline); padding-top: 10px; font-size: var(--fs-13); }
+.instrument-details > summary { display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; color: var(--text); font-weight: 600; min-height: 34px; }
+.instrument-details > summary::-webkit-details-marker { display: none; }
+.instrument-details > summary::before { content: '+'; color: var(--text-3); font-size: 16px; font-weight: 400; width: 12px; }
+.instrument-details[open] > summary::before { content: '−'; }
+.instrument-details > summary > span { color: var(--text-3); font-weight: 400; font-size: var(--fs-12); }
+.instrument-details[open] > .instrument-view, .instrument-details[open] > .kv { margin-top: 12px; }
+.wall-details { grid-column: 1 / -1; }
+.trace-picker .check-list { margin-top: 8px; display: grid; grid-template-columns: 1fr; }
+.procedure-controls { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--hairline); border-radius: var(--r-card); background: var(--surface-2); }
+.workspace-comparison { display: flex; gap: 20px; flex: none; padding: 8px 20px; background: var(--accent-soft); font-size: var(--fs-12); color: var(--text-2); overflow-x: auto; white-space: nowrap; }
+.workspace-comparison > span { display: inline-flex; gap: 8px; }
+.workspace-comparison b { color: var(--text); font-variant-numeric: tabular-nums; }
+.workspace-comparison .comparison-label { color: var(--accent-ink); font-weight: 600; }
+.workspace-chooser { position: absolute; inset: 0; z-index: 4; overflow: auto; overscroll-behavior: contain; padding: 14px 20px 20px; background: var(--surface); }
+.chooser-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; font-size: var(--fs-14); }
+.workspace-chooser section { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 18px; }
+.workspace-chooser h3 { grid-column: 1 / -1; color: var(--text-3); font-size: var(--fs-11); letter-spacing: .06em; text-transform: uppercase; margin: 14px 0 6px; }
+.instrument-option { display: flex; align-items: center; gap: 12px; text-align: left; padding: 12px 10px; min-width: 0; background: none; color: var(--text); border: 1px solid transparent; border-radius: var(--r-control); cursor: pointer; }
+.instrument-option:hover { background: var(--surface-2); }
+.instrument-option.selected { background: var(--accent-soft); border-color: transparent; }
+.instrument-option > svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.5; color: var(--text-2); flex: none; }
+.instrument-option > span:first-of-type { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.instrument-option b { font-size: var(--fs-13); font-weight: 600; }
+.instrument-option small { font-size: var(--fs-12); color: var(--text-3); line-height: 1.4; }
+.instrument-option .option-value { margin-left: auto; font-size: var(--fs-12); color: var(--accent-ink); white-space: nowrap; }
+.app.instrument-focus .stage-view, .app.instrument-focus #stageTop, .app.instrument-focus #coach, .app.instrument-focus .fig-head, .app.instrument-focus .fig-foot { display: none; }
+.app.instrument-focus .instrument-workspace { height: auto; flex: 1; }
+.app.instrument-focus .panel { display: none; }
+.app.instrument-focus { grid-template-columns: minmax(0, 1fr) 0; }
+@container (min-width: 650px) {
+  .instrument-view { grid-template-columns: minmax(0, 1fr) 260px; }
+  .instrument-view[data-pane="hvpg"] { grid-template-columns: 230px minmax(0, 1fr); }
+  .instrument-view[data-pane="hvpg"] > .chart-side:last-child { grid-column: 1 / -1; }
+  .instrument-view[data-pane="perfusion"] { grid-template-columns: minmax(0, .75fr) minmax(0, 1fr); }
+  .instrument-view[data-pane="perfusion"] > .chart-side { grid-column: 1 / -1; }
+  .wall-view { grid-template-columns: minmax(0, 1fr) 230px; }
+  .instrument-option .option-value { display: none; }
+}
+@container (min-width: 1050px) {
+  .instrument-view[data-pane="hvpg"] { grid-template-columns: 220px minmax(0, 1fr) 250px; }
+  .instrument-view[data-pane="hvpg"] > .chart-side:last-child { grid-column: auto; }
+  .instrument-view[data-pane="perfusion"] { grid-template-columns: minmax(0, .7fr) minmax(0, 1.1fr) 250px; }
+  .instrument-view[data-pane="perfusion"] > .chart-side { grid-column: auto; }
+}
+@media (max-width: 1279px) {
+  .app.instrument-focus { grid-template-columns: minmax(0, 1fr); }
+  .instrument-workspace .dock-head { padding-inline: 12px; }
+  .workspace-chooser section { grid-template-columns: minmax(0, 1fr); }
+  .instrument-option .option-value { display: none; }
+}
+@media (max-width: 767px) {
+  .measure-launch { width: 36px; min-height: 36px; padding: 0; }
+  .measure-launch > span { display: none; }
+  .instrument-workspace .dock-head { height: 48px; gap: 4px; flex-wrap: wrap; padding-inline: 8px; }
+  .instrument-workspace .dock-title { flex: 1; font-size: var(--fs-13); }
+  .instrument-workspace .dock-title .dt-l { max-width: 175px; }
+  .instrument-workspace .workspace-live { flex-basis: 100%; order: 2; padding: 0 4px 6px; font-size: 10px; }
+  .instrument-workspace .dock-head { height: 68px; }
+  .instrument-workspace .dock-head .ib { width: 30px; height: 34px; }
+  .workspace-run { min-height: 32px; padding-inline: 8px; }
+  .workspace-run > span { font-size: 11px; }
+  .workspace-compare { min-height: 32px; padding-inline: 7px; font-size: 11px; }
+  .workspace-compare > svg { display: none; }
+  .workspace-close { display: none !important; }
+  .instrument-workspace[data-state="peek"] { height: 70px; }
+  .instrument-workspace[data-state="peek"] .dock-head { height: 70px; }
+  .instrument-workspace .dock-pane { padding: 12px 14px calc(16px + env(safe-area-inset-bottom)); }
+  .instrument-workspace .instrument-view .chart-box { min-height: 190px; }
+  .instrument-workspace .workspace-chooser { padding: 12px; }
+  .instrument-option { padding: 10px 8px; }
+  .instrument-details > summary > span { display: none; }
+  .workspace-comparison { gap: 14px; padding: 7px 14px; }
+  .workspace-comparison .comparison-label { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .workspace-divider span, .workspace-fold svg { transition: none; }
+}
