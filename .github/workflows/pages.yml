@@ -37,9 +37,16 @@ jobs:
 
   # The browser checks run alongside the deploy, not before it: a failure marks the run red
   # (so it is seen) but the preview is already published for testing on devices.
+  # Split over four runners (a device and half its checks each), one check at a time per runner:
+  # a runner is too small to run several browsers at once.
   browser-checks:
     runs-on: ubuntu-latest
     timeout-minutes: 6
+    strategy:
+      fail-fast: false
+      matrix:
+        device: [desktop, phone]
+        shard: ['1/2', '2/2']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -53,11 +60,14 @@ jobs:
       - name: Browser checks
         env:
           SHOTS: workspace-shots
+          SMOKE_DEVICE: ${{ matrix.device }}
+          SMOKE_SHARD: ${{ matrix.shard }}
+          SMOKE_WORKERS: 1
         run: npm run smoke
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: workspace-browser-checks
+          name: workspace-browser-checks-${{ matrix.device }}-${{ strategy.job-index }}
           path: workspace-shots/
           if-no-files-found: ignore
 

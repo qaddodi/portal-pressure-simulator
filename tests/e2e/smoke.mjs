@@ -4,6 +4,8 @@
 //   node tests/e2e/smoke.mjs            the repository root (the build-free site)
 //   node tests/e2e/smoke.mjs dist       the production build (npm run build first)
 //   SHOTS=dir node tests/e2e/smoke.mjs  also save screenshots
+//   SMOKE_WORKERS=1                    checks at a time (default 4; use 1 on a small CI runner)
+//   SMOKE_DEVICE=phone SMOKE_SHARD=1/2 one device, and one share of its checks (CI runs shards in parallel)
 //
 // Needs a Chromium for Playwright (`npx playwright install chromium`; the Claude Code cloud
 // image ships one).
@@ -51,7 +53,7 @@ const open = async (page, q = '') => {
   await page.waitForFunction(() => window.pps?.store?.get().frame, null, { timeout: 20000 });
 };
 
-for (const device of Object.keys(DEVICES)) {
+for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVICE || d === process.env.SMOKE_DEVICE)) {
   await check(device, 'patient loads and the model runs', async (page) => {
     await open(page, '?preset=cirr-decomp');
     await page.waitForFunction(() => document.querySelector('#scenarioName').textContent.includes('Decompensated'));
@@ -321,8 +323,12 @@ for (const device of Object.keys(DEVICES)) {
     await page.waitForFunction(() => !window.pps.store.get().frame.pulsing, null, { timeout: 5000 });
   });
 }
-// the slowest first, so they do not end up alone at the end
-queue.sort((a, b) => (b[1] === 'responsive instrument workspace') - (a[1] === 'responsive instrument workspace'));
+// the slowest first, so they do not end up alone at the end (and shards share them out evenly)
+const SLOW = ['responsive instrument workspace', 'pressure over time and Doppler', 'action card is a compact sheet that keeps the vessel in view', 'circuit view, selection card, lenses'];
+const weight = (name) => { const i = SLOW.indexOf(name); return i < 0 ? 0 : SLOW.length - i; };
+queue.sort((a, b) => weight(b[1]) - weight(a[1]));
+const [shard, shards] = (process.env.SMOKE_SHARD || '1/1').split('/').map(Number);
+for (let i = queue.length - 1; i >= 0; i--) if (i % shards !== shard - 1) queue.splice(i, 1);
 const WORKERS = Number(process.env.SMOKE_WORKERS) || 4;
 await Promise.all(Array.from({ length: WORKERS }, async () => { while (queue.length) await runCheck(...queue.shift()); }));
 
