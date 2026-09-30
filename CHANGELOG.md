@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Smooth joins between vessels.** Where a vein ends on a vessel drawn in a fainter or deeper layer (the
+  inferior vena cava where the renal vein and the infrarenal cava join it), its round end and outline no
+  longer sit on top of the other vessel as a ringed disc: the end now dissolves into the vessel beneath.
+  A blind end (nothing continues past it) keeps its round end.
 - **The action card, rebuilt for the phone.** Tapping a vessel opens a compact bottom sheet that shows everything
   at once, with nothing to swipe through: Why? and Details sit in the header (on the line with the kind and the
   close button), the name has the reading at its right, the status takes the place of the kind, and the controls follow with no row of wasted space
