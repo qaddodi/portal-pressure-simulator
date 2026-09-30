@@ -37,7 +37,7 @@ async function check(device, name, fn) {
     console.log(`ok   ${device.padEnd(7)} ${name} (${Date.now() - t0} ms)`);
   } catch (e) {
     failed++;
-    console.log(`FAIL ${device.padEnd(7)} ${name}: ${e.message.split('\n')[0]}`);
+    console.log('FAIL', device, name, e.message.split('\n')[0], (e.stack||'').split('\n').find((l) => l.includes('smoke')));
     if (shots) await page.screenshot({ path: `${shots}/FAIL-${device}-${name.replace(/\W+/g, '-')}.png` }).catch(() => {});
   }
   await ctx.close();
@@ -212,10 +212,8 @@ for (const device of Object.keys(DEVICES)) {
     if (!((await page.evaluate(() => window.pps.store.get().frame.t)) > before)) throw new Error('opening instruments paused simulation');
     await page.click('.workspace-divider');
     await page.keyboard.press('ArrowUp');
-    await page.click('.workspace-expand');
     await page.click('.workspace-compare');
     await page.waitForFunction(() => !!window.pps.store.get().compareSnap);
-    await page.click('.workspace-expand');
     await page.waitForSelector('.workspace-comparison:not([hidden])');
     const choose = async (id) => {
       await page.click('#dockHead .dock-title');
@@ -294,9 +292,8 @@ for (const device of Object.keys(DEVICES)) {
     await page.mouse.move(box[0], box[1]);
     await shot(page, `${device}-pressure-over-time`);
     await page.click('#pane-scope [data-range="days"]');
-    // A jump stops early if a varix ruptures on the way, so only require that the clock moved.
     await page.evaluate(() => window.pps.timeline.jump(30, '1 month'));
-    await page.waitForFunction(() => window.pps.store.get().frame.day > 0, null, { timeout: 20000 });
+    await page.waitForFunction(() => window.pps.store.get().frame.day >= 30, null, { timeout: 20000 });
     await page.waitForTimeout(500);
     await shot(page, `${device}-pressure-over-time-days`);
     await page.evaluate(() => window.pps.dock.show('doppler'));

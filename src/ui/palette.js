@@ -7,8 +7,8 @@ import { h, svgIcon, toast } from './util.js?v=fe164f31f1';
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { DRUGS } from '../engine/scenario.js?v=8fc90f782f';
 import { HIDDEN_EDGES } from './anatomy.js?v=ad5ea5e8e5';
-import { LESSONS } from './learn.js?v=d2a24b4cf2';
-import { CASES } from './cases.js?v=91b54c07e2';
+import { LESSONS } from './learn.js?v=20bcb606bb';
+import { CASES } from './cases.js?v=a66f8bd308';
 
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9+ ]/g, ' ');
 

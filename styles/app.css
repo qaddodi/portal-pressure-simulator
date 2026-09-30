@@ -1814,7 +1814,13 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .instrument-workspace .dock-head { height: 48px; flex: none; padding: 0 12px; gap: 8px; }
 .instrument-workspace .dock-title { min-width: 0; font-size: var(--fs-14); flex: none; }
 .instrument-workspace .dock-title .dt-l { max-width: 210px; overflow: hidden; text-overflow: ellipsis; }
-.workspace-live { flex: 1; min-width: 0; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; font: 500 var(--fs-12) var(--font-mono); color: var(--text-3); }
+.workspace-live { flex: 1; min-width: 0; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; font: 500 var(--fs-12) var(--font-ui); color: var(--text-3); display: inline-flex; align-items: center; gap: 6px; }
+.workspace-live[data-state="live"]::before, .workspace-live[data-state="paused"]::before { content: ''; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--text-3); }
+.workspace-live[data-state="live"]::before { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 18%, transparent); }
+.workspace-live[data-state="summary"] { color: var(--text-2); }
+/* Run and Compare repeat the play bar right above; they are only needed when the instrument
+   has the whole screen. */
+.app:not(.instrument-focus) .instrument-workspace .workspace-run, .app:not(.instrument-focus) .instrument-workspace .workspace-compare { display: none; }
 .workspace-run { display: inline-flex; align-items: center; gap: 6px; background: var(--surface-2); color: var(--text); border: 0; border-radius: var(--r-control); cursor: pointer; min-height: 34px; padding: 0 10px; font: 600 var(--fs-12) var(--font-ui); }
 .workspace-run svg, .workspace-compare svg, .dock-second svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.6; }
 .workspace-run[aria-pressed="true"] svg { display: none; }
@@ -1898,8 +1904,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   .instrument-workspace .dock-head { height: 48px; gap: 4px; flex-wrap: wrap; padding-inline: 8px; }
   .instrument-workspace .dock-title { flex: 1; font-size: var(--fs-13); }
   .instrument-workspace .dock-title .dt-l { max-width: 175px; }
-  .instrument-workspace .workspace-live { flex-basis: 100%; order: 2; padding: 0 4px 6px; font-size: 10px; }
-  .instrument-workspace .dock-head { height: 68px; }
+  .instrument-workspace .dock-title { flex: 0 1 auto; }
   .instrument-workspace .dock-head .ib { width: 30px; height: 34px; }
   .workspace-run { min-height: 32px; padding-inline: 8px; }
   .workspace-run > span { font-size: 11px; }
@@ -1918,4 +1923,79 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 }
 @media (prefers-reduced-motion: reduce) {
   .workspace-divider span, .workspace-fold svg { transition: none; }
+}
+
+/* ── Pressure over time ─────────────────────────── */
+.instrument-view.pt { display: flex; flex-direction: column; align-items: stretch; gap: 10px; min-height: 100%; }
+.pt-head { display: flex; align-items: center; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; }
+.pt-hero { display: flex; align-items: baseline; gap: 6px 12px; flex-wrap: wrap; min-width: 0; }
+.pt-k { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); letter-spacing: .02em; }
+.pt-v { display: inline-flex; align-items: baseline; gap: 4px; }
+.pt-num { font-size: 28px; font-weight: 650; letter-spacing: -.02em; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
+.pt-v small { font-size: var(--fs-12); color: var(--text-3); font-weight: 500; }
+.pt-sev { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-12); font-weight: 600; color: var(--text-2); }
+.pt-sev::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); }
+.pt-sev[data-sev="ok"]::before { background: var(--ok); }
+.pt-sev[data-sev="caution"]::before { background: var(--caution); }
+.pt-sev[data-sev="danger"]::before { background: var(--danger); }
+.pt-sev[data-sev="danger"] { color: var(--danger); }
+.pt-delta { font-size: var(--fs-12); color: var(--text-3); font-variant-numeric: tabular-nums; margin-right: auto; }
+.pt-delta[data-dir="up"] { color: var(--danger); }
+.pt-delta[data-dir="down"] { color: var(--ok); }
+.pt-range { flex: none; }
+.pt-range button { min-height: 30px; padding-inline: 12px; }
+.instrument-workspace .instrument-view.pt .pt-box { flex: 1 1 0; height: auto; min-height: 180px; }
+.pt-box canvas { touch-action: pan-y; cursor: crosshair; }
+.pt-chips { display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; flex: none; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); padding-right: 28px; }
+.pt-chips::-webkit-scrollbar { display: none; }
+.pt-chip { --chip: var(--text-3); display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 11px 0 9px; border-radius: var(--r-pill); border: 1px solid var(--border); background: transparent; color: var(--text-3); font: 500 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast); }
+.pt-chip i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--chip); box-sizing: border-box; }
+.pt-chip[aria-pressed="true"] { color: var(--text); background: var(--surface-2); border-color: transparent; }
+.pt-chip[aria-pressed="true"] i { background: var(--chip); }
+.pt-chip:hover { border-color: var(--border-strong); }
+@media (max-width: 767px) {
+  .pt-num { font-size: 24px; }
+  .pt-hero { flex-basis: 100%; }
+  .pt-range button { min-height: 28px; padding-inline: 10px; }
+  .pt-chips { margin-inline: -14px; padding-left: 14px; }
+}
+
+/* ── Doppler ────────────────────────────────────── */
+.instrument-view.dop { display: flex; flex-direction: column; align-items: stretch; gap: 10px; min-height: 100%; }
+.dop-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: none; }
+.dop-vessel { min-width: 0; max-width: 260px; flex: 0 1 260px; height: 34px; font-weight: 600; }
+.dop-tint { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px 0 10px; border-radius: var(--r-pill); border: 1px solid var(--border); background: transparent; color: var(--text-2); font: 500 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; }
+.dop-tint i { width: 14px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #d8413a 50%, #3f78d8 50%); opacity: .35; transition: opacity var(--t-fast); }
+.dop-tint[aria-pressed="true"] { color: var(--text); background: var(--surface-2); border-color: transparent; }
+.dop-tint[aria-pressed="true"] i { opacity: 1; }
+.dop-main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; flex: 1 1 0; min-height: 0; }
+.instrument-workspace .instrument-view.dop .dop-box { height: auto; min-height: 200px; border-radius: var(--r-card); overflow: hidden; }
+.dop-report { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.dop-k { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); }
+.dop-dir { font-size: var(--fs-20); font-weight: 650; letter-spacing: -.01em; line-height: 1.2; color: var(--text); display: inline-flex; align-items: center; gap: 8px; }
+.dop-dir::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--text-3); flex: none; }
+.dop-dir[data-sev="ok"]::before { background: var(--ok); }
+.dop-dir[data-sev="caution"]::before { background: var(--caution); }
+.dop-dir[data-sev="danger"]::before { background: var(--danger); }
+.dop-dir[data-sev="critical"]::before { background: var(--critical); }
+.dop-dir[data-sev="danger"], .dop-dir[data-sev="critical"] { color: var(--danger); }
+.dop-velrow { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin-top: 6px; }
+.dop-vel { display: inline-flex; align-items: baseline; gap: 6px; }
+.dop-vel b { font-size: 28px; font-weight: 650; letter-spacing: -.02em; line-height: 1; font-variant-numeric: tabular-nums; }
+.dop-vel small { font-size: var(--fs-12); color: var(--text-3); }
+.dop-range { font-size: var(--fs-12); color: var(--text-3); }
+.dop-pattern { margin-top: 6px; font-size: var(--fs-13); font-weight: 600; color: var(--text); }
+.dop-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; margin: 8px 0 0; padding-top: 8px; border-top: 1px solid var(--hairline); }
+.dop-stats > div[hidden] { display: none; }
+.dop-stats dt { font-size: var(--fs-11); color: var(--text-3); font-weight: 500; }
+.dop-stats dd { margin: 0; font-size: var(--fs-13); font-weight: 600; font-variant-numeric: tabular-nums; }
+.dop-note { margin: 8px 0 0; font-size: var(--fs-12); line-height: 1.5; color: var(--text-2); }
+@container (min-width: 620px) {
+  .dop-main { grid-template-columns: minmax(0, 1fr) 232px; }
+}
+@container (max-width: 619px) {
+  .dop-main { flex: none; gap: 12px; }
+  .instrument-workspace .instrument-view.dop .dop-box { height: clamp(180px, 30vh, 260px); flex: none; }
+  .dop-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .dop-vessel { flex: 1 1 auto; max-width: none; }
 }

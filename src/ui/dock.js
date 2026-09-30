@@ -2,9 +2,11 @@
 
 import { store } from './store.js?v=4bf5a96a9d';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=fe164f31f1';
-import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=43635bc44e';
-import { createHVPG, createDoppler, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=b6cd4ed2e7';
-import { createLandscape } from './landscape.js?v=7c3e94b095';
+import { createProfile, createSankey, createPerfusion } from './charts.js?v=6b0896f2bb';
+import { createPressureTime } from './pressure-time.js?v=4b9ff7589d';
+import { createDoppler } from './doppler.js?v=2bda77cee2';
+import { createHVPG, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=09846199e9';
+import { createLandscape } from './landscape.js?v=a2453afc17';
 
 
 // Readouts in reading order: the portal story first, then the systemic circulation. Each
@@ -52,7 +54,7 @@ export const VITALS = [
 // Key readouts always shown; the rest join the row when abnormal (or when the learner asks).
 export const PRIMARY = new Set(['hvpg', 'pv', 'pvflow', 'varix']);
 
-export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onCompare, onRun, onLobule, onOpen, onClose, isVisible }) {
+export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onCompare, onRun, onLobule, onOpen, onClose, isVisible, marks, onBeat }) {
   // ── Readout strip ─────────────────────────────────
   const tileEls = {};
   for (const t of TILES) {
@@ -155,12 +157,12 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     update(f) { (pressureView === 'landscape' ? landscape : profile).update(f); },
   };
   const instruments = [
-    pressure, createScope(), createSankey(), createPerfusion(), createHVPG(),
+    pressure, createPressureTime({ marks }), createSankey(), createPerfusion(), createHVPG(),
     createDoppler({ onProbe }), endoscopy, createAbdomen({ onAction }),
   ];
   const panes = instruments.map((p) => {
     if (p === pressure) return p;
-    p.el.className = 'instrument-view';
+    p.el.classList.remove('dock-pane'); p.el.classList.add('instrument-view');
     return { ...p, el: h('section', { class: 'dock-pane', 'data-pane': p.id }, p.el) };
   });
   const byId = Object.fromEntries(panes.map((p) => [p.id, p]));
@@ -168,11 +170,11 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   let chooserAdding = false;
   const INFO = {
     profile: ['activity', 'Locate resistance along a path or across the circulation.', (f) => `Portal ${fmt(f.metrics.pv, 1)} mmHg`],
-    scope: ['chart', 'Pressure and velocity waveforms; disease trends over days.', (f) => `HVPG ${fmt(f.metrics.hvpg, 1)} mmHg`],
+    scope: ['chart', 'Portal and hepatic pressures beat by beat, over minutes or over months.', (f) => `HVPG ${fmt(f.metrics.hvpg, 1)} mmHg`],
     flow: ['vessel', 'Follow blood through the liver, collaterals and shunts.', (f) => `${Math.round(f.metrics.shuntFraction * 100)}% bypasses the liver`],
     perfusion: ['liver', 'Portal supply, arterial buffering and liver resistance.', (f) => `${Math.round(f.metrics.liverPerfPct)}% of baseline flow`],
     hvpg: ['catheter', 'Place a catheter and measure wedged minus free pressure.', () => { const m = store.get().lastHVPG; return m ? `Measured ${fmt(m.hvpg, 1)} mmHg` : 'Choose a hepatic vein'; }],
-    doppler: ['doppler', 'Select a vessel to inspect velocity, direction and pulsatility.', (f) => `${fmt(Math.abs(f.metrics.pvVel), 0)} cm/s in portal vein`],
+    doppler: ['doppler', 'Direction, velocity and waveform in any portal, hepatic or shunt vessel.', (f) => `${fmt(Math.abs(f.metrics.pvVel), 0)} cm/s in portal vein`],
     endoscopy: ['endoscope', 'Inspect and band varices; explore their wall mechanics.', (f) => f.metrics.varix.d < 2.5 ? 'No esophageal varices' : `Esophageal ${f.metrics.varix.grade.code}`],
     abdomen: ['needle', 'Inspect ascites and drain fluid, with or without albumin.', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],
   };
@@ -209,7 +211,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     if (!frame || !isVisible() || state === 'peek' || !workspace.offsetParent) return;
     for (const id of open) {
       const p = byId[id];
-      if (id === 'scope') p.redraw(); else p.update(frame);
+      // live instruments keep their own history and only redraw; the rest draw from the frame
+      if (id === 'scope' || id === 'doppler') p.redraw(); else p.update(frame);
       if (id === 'endoscopy' && wallDetails.open) wall.update(frame);
     }
   }
@@ -357,12 +360,22 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         !st.hiddenReadouts?.has('model') ? delta('Shunting', (b.shuntFraction - a.shuntFraction) * 100, 0, 'pp') : null);
     }
     run.setAttribute('aria-pressed', String(st.running));
-    live.textContent = frame ? state === 'peek' && !st.imaging ? INFO[open[0]][2](frame)
-      : `${st.running ? 'Live' : 'Paused'} · ${frame.clock === 'disease' ? 'Day ' + frame.day : fmt(frame.t, 0) + ' s'} · ${st.imaging ? 'Pressures unmeasured' : 'HVPG ' + (st.hiddenReadouts?.has('trueHVPG') ? (st.lastHVPG ? fmt(st.lastHVPG.hvpg, 1) : '?') : fmt(frame.metrics.hvpg, 1)) + ' mmHg'}` : '';
+    // A quiet status beside the title: live or paused (the instrument itself carries the numbers),
+    // or, when folded, the one reading that instrument is about.
+    const txt = !frame ? '' : state === 'peek' && !st.imaging ? INFO[open[0]][2](frame)
+      : frame.clock === 'disease' ? `${st.running ? 'Live' : 'Paused'} · Day ${frame.day}` : st.running ? 'Live' : 'Paused';
+    if (live.textContent !== txt) live.textContent = txt;
+    live.dataset.state = state === 'peek' ? 'summary' : st.running ? 'live' : 'paused';
+  }
+  // The heartbeat (the model's pulsatile mode) runs while a waveform instrument is on screen.
+  let beat = null;
+  function syncBeat() {
+    const on = isVisible() && state !== 'peek' && open.some((id) => id === 'scope' || id === 'doppler');
+    if (on !== beat) { beat = on; onBeat?.(on); }
   }
   function update(f, force) {
-    frame = f; updateStrip(f); updateHeader();
-    byId.scope.ingest(f);
+    frame = f; updateStrip(f); updateHeader(); syncBeat();
+    byId.scope.ingest(f); byId.doppler.ingest(f);
     const cath = (f.params || store.get().params).catheter;
     if (cath?.vein && (!isVisible() || state === 'peek' || !open.includes('hvpg'))) byId.hvpg.update(f);
     if (!force && !isVisible()) return;

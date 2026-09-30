@@ -1,14 +1,13 @@
-// Instruments (blueprint §8.3, §9.4, §9.5, §6.4): HVPG catheter, Doppler, endoscopy,
+// Instruments (blueprint §8.3, §9.4, §9.5, §6.4): HVPG catheter, endoscopy,
 // varix cross-section, abdomen.
 
-import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
+import { NODES } from '../engine/topology.js?v=29d10ad9ef';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
 import { h, fmt, fitCanvas, cssVar, clamp, toast, icon } from './util.js?v=fe164f31f1';
-import { FONT } from './charts.js?v=43635bc44e';
+import { FONT } from './charts.js?v=6b0896f2bb';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
-const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 
 // ── HVPG procedure ──────────────────────────────────
 export function createHVPG() {
@@ -98,141 +97,6 @@ export function createHVPG() {
     ctx.fillStyle = cWedge; ctx.beginPath(); ctx.arc(L + 110, T + 9, 3.5, 0, 7); ctx.fill(); ctx.fillStyle = cssVar('--text-2'); ctx.fillText('Wedged (WHVP)', L + 118, T + 13);
   }
   return { id: 'hvpg', label: 'HVPG', el, update };
-}
-
-// ── Doppler ─────────────────────────────────────────
-export function createDoppler({ onProbe }) {
-  const el = h('div', { class: 'dock-pane', 'data-pane': 'doppler' });
-  const box = h('div', { class: 'chart-box dark' });
-  const cv = h('canvas', { role: 'img', 'aria-label': 'Spectral Doppler' });
-  box.append(cv);
-  const probeSel = h('select', { class: 'select', 'aria-label': 'Vessel' },
-    ['PV_TRUNK', 'PVH_R', 'PVH_L', 'SV_CONF', 'SMV_CONF', 'RHV_IVC', 'MHV_IVC', 'IVCS_RA', 'TIPS', 'C3', 'C1b', 'A_HEP'].map((id) => h('option', { value: id }, EDGES[EI[id]].label)));
-  probeSel.addEventListener('change', () => onProbe(probeSel.value));
-  // A spectral display is grey-scale on black, as on the machine; the tint is a teaching aid.
-  let tint = false;
-  const bartBtn = h('button', { class: 'btn sm', 'aria-pressed': 'false' }, 'Tint by direction');
-  bartBtn.addEventListener('click', () => { tint = !tint; bartBtn.setAttribute('aria-pressed', String(tint)); });
-  const stats = h('dl', { class: 'kv' });
-  const side = h('div', { class: 'chart-side', style: { width: '268px' } }, h('div', { class: 'side-title' }, 'Spectral Doppler'), probeSel, bartBtn, stats,
-    h('div', { class: 'ctl-sub' }, 'Above the baseline means toward the transducer (the physiological direction for this vessel). The yellow trace is the peak velocity envelope. With the tint on, red is toward and blue away (BART), direction relative to the probe, not artery versus vein.'),
-    h('div', { class: 'ctl-sub', id: 'dopHint' }));
-  el.append(box, side);
-  const buf = [];
-  let lastProbe = null;
-  let off = null;
-
-  function update(f) {
-    if (f.probe !== lastProbe) { buf.length = 0; lastProbe = f.probe; probeSel.value = f.probe; }
-    if (buf.length && f.t < buf[buf.length - 1][0]) buf.length = 0;
-    if (f.samples) for (let i = 0; i < f.samples.t.length; i++) {
-      if (!buf.length || f.samples.t[i] > buf[buf.length - 1][0]) buf.push([f.samples.t[i], f.samples.vel[i]]);
-    }
-    const tNow = buf.length ? buf[buf.length - 1][0] : 0;
-    while (buf.length && buf[0][0] < tNow - 6) buf.shift();
-    const vs = buf.map((b) => b[1]);
-    const vmax = vs.length ? Math.max(...vs) : 0, vmin = vs.length ? Math.min(...vs) : 0;
-    const mean = vs.length ? vs.reduce((a, b) => a + b, 0) / vs.length : 0;
-    const pi = Math.abs(vmax) > 0.5 ? (vmax - vmin) / Math.abs(vmax) : 0;
-    const k = EI[f.probe];
-    const D = Math.max(0.5, f.D[k]) / 10;
-    const area = Math.PI * D * D / 4;
-    const dirTxt = Math.abs(mean) < 2 ? 'stagnant / to-and-fro' : mean > 0 ? (f.probe.startsWith('PV') || f.probe.startsWith('PVH') ? 'hepatopetal' : 'antegrade') : (f.probe.startsWith('PV') || f.probe.startsWith('PVH') ? 'HEPATOFUGAL' : 'retrograde');
-    stats.replaceChildren(
-      h('dt', {}, 'Mean velocity'), h('dd', {}, `${fmt(mean, 1)} cm/s`),
-      h('dt', {}, 'Vmax / Vmin'), h('dd', {}, `${fmt(vmax, 0)} / ${fmt(vmin, 0)}`),
-      h('dt', {}, 'Direction'), h('dd', {}, dirTxt),
-      h('dt', {}, 'Pulsatility (Vmax−Vmin)/Vmax'), h('dd', {}, `${fmt(pi * 100, 0)} %`),
-      f.probe === 'PV_TRUNK' ? [h('dt', {}, 'Congestion index'), h('dd', {}, Math.abs(mean) > 0.5 ? `${fmt(area / Math.abs(mean), 3)} cm·s` : '—')] : null);
-    el.querySelector('#dopHint').textContent = f.params?.pulsatile ?? store.get().params.pulsatile ? '' : 'Tip: turn on Pulsatile mode to see cardiac and respiratory phasicity.';
-    draw(f, vmax, vmin);
-  }
-  // Spectral display: each screen column is one moment; brightness along it is how many red
-  // cells move at that velocity. Venous flow is a narrow band under a clear window; the band
-  // broadens as flow slows, and speckle is keyed to time so it scrolls with the trace instead
-  // of shimmering.
-  const hash = (a, b) => { let x = (a * 374761393 + b * 668265263) | 0; x = (x ^ (x >>> 13)) * 1274126177; return ((x ^ (x >>> 16)) >>> 0) / 4294967296; };
-  let img = null;
-  function draw() {
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const { ctx, w, h: hh } = fitCanvas(cv);
-    const W = cv.width, H = cv.height;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const padL = 10, padR = 44, padT = 16, padB = 16;
-    const x0 = Math.round(padL * dpr), x1 = Math.round((w - padR) * dpr);
-    const yT = Math.round(padT * dpr), yB = Math.round((hh - padB) * dpr);
-    if (buf.length > 1 && x1 > x0 && yB > yT) {
-      const vs = buf.map((b) => b[1]);
-      const vPk = Math.max(...vs.map(Math.abs));
-      const vAbs = Math.max(20, Math.ceil((vPk * 1.35) / 10) * 10);
-      const mean = vs.reduce((a, b) => a + b, 0) / vs.length;
-      // Baseline shifted toward the side with less signal, as a sonographer would.
-      const baseFrac = Math.abs(mean) < 1 ? 0.5 : mean > 0 ? 0.72 : 0.28;
-      const base = yT + (yB - yT) * baseFrac;
-      const pxPerV = Math.min(base - yT, yB - base) / vAbs * 0.92;
-      const t1 = buf[buf.length - 1][0], t0 = t1 - 6;
-      if (!img || img.width !== x1 - x0 || img.height !== yB - yT) img = ctx.createImageData(x1 - x0, yB - yT);
-      const D = img.data; D.fill(0);
-      let j = 0;
-      const env = [];
-      for (let px = 0; px < img.width; px++) {
-        const t = t0 + (px / img.width) * 6;
-        while (j < buf.length - 2 && buf[j + 1][0] < t) j++;
-        if (t < buf[0][0]) { env.push(null); continue; }
-        const [ta, va] = buf[j], [tb, vb] = buf[Math.min(buf.length - 1, j + 1)];
-        const v = tb > ta ? va + (vb - va) * clamp((t - ta) / (tb - ta), 0, 1) : va;
-        // Peak ≈ 1.35 × mean for the venous profile; the band spans from a floor near the wall
-        // filter up to the peak, brightest just under the envelope.
-        const pk = v * 1.35, lo = v * 0.25;
-        const broad = 1 + clamp(6 / (Math.abs(v) + 1), 0, 3) * 0.25;
-        const tick = Math.round(t * 400);
-        const yPk = base - pk * pxPerV - yT, yLo = base - lo * pxPerV - yT;
-        const ya = Math.max(0, Math.floor(Math.min(yPk, yLo) - 3 * dpr * broad)), yb = Math.min(img.height - 1, Math.ceil(Math.max(yPk, yLo, base - yT) + 2 * dpr));
-        for (let py = ya; py <= yb; py++) {
-          const vel = (base - yT - py) / pxPerV;
-          const u = pk !== lo ? (vel - lo) / (pk - lo) : 0;
-          let I = 0;
-          if (u >= -0.05 * broad && u <= 1 + 0.06 * broad) I = 0.35 + 0.65 * Math.pow(clamp(u, 0, 1), 1.6);
-          if (u > 1) I *= Math.max(0, 1 - (u - 1) / (0.06 * broad));
-          if (Math.abs(py - (base - yT)) < 2 * dpr) I = Math.max(I, 0.25); // wall-filter clutter at the baseline
-          if (I <= 0) continue;
-          I *= 0.55 + 0.75 * hash(tick, py);
-          I = clamp(I, 0, 1);
-          const k = (py * img.width + px) * 4;
-          let r = 255 * I, g = 255 * I, b = 255 * I;
-          if (tint) { if (vel >= 0) { g *= 0.55; b *= 0.4; } else { r *= 0.4; g *= 0.65; } }
-          D[k] = r; D[k + 1] = g; D[k + 2] = b; D[k + 3] = 255;
-        }
-        env.push(yPk + yT);
-      }
-      ctx.putImageData(img, x0, yT);
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      // Peak envelope (auto-trace).
-      ctx.strokeStyle = 'rgba(232, 214, 74, .9)'; ctx.lineWidth = 1.2 * dpr; ctx.beginPath();
-      let started = false;
-      env.forEach((y, i) => { if (y == null) return; const x = x0 + i; if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y); });
-      ctx.stroke();
-      // Baseline and velocity scale on the right, as on the scanner.
-      ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = dpr; ctx.beginPath(); ctx.moveTo(x0, Math.round(base) + 0.5); ctx.lineTo(x1, Math.round(base) + 0.5); ctx.stroke();
-      ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = FONT(500, 10 * dpr); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-      const step = vAbs > 60 ? 20 : vAbs > 30 ? 10 : 5;
-      for (let v = -vAbs; v <= vAbs; v += step) {
-        const y = base - v * pxPerV;
-        if (y < yT - 1 || y > yB + 1) continue;
-        ctx.fillRect(x1 + 2 * dpr, y, 4 * dpr, dpr);
-        if (v % (step * 2) === 0) ctx.fillText(String(v), x1 + 8 * dpr, y);
-      }
-      ctx.fillText('cm/s', x1 + 6 * dpr, yT - 8 * dpr);
-      // Time ticks: one per second along the bottom.
-      for (let s0 = Math.ceil(t0); s0 <= t1; s0++) { const x = x0 + ((s0 - t0) / 6) * (x1 - x0); ctx.fillRect(x, yB + 3 * dpr, dpr, 4 * dpr); }
-      ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(255,255,255,.7)';
-      ctx.fillText(`${EDGES[EI[lastProbe]]?.label || ''}  ·  θ 60°  ·  SV 3 mm`, x0 + 4 * dpr, yT - 8 * dpr);
-    }
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
-  return { id: 'doppler', label: 'Doppler', el, update };
 }
 
 // ── Endoscopy ───────────────────────────────────────

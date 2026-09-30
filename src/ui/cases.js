@@ -3,7 +3,7 @@
 // variants, and a printable debrief with a counterfactual replayed in a separate engine.
 
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
-import { host } from './host.js?v=ce51691de3';
+import { host } from './host.js?v=eb88ab8553';
 import { h, fmt, openModal, closeModal, toast, svgIcon } from './util.js?v=fe164f31f1';
 import { addRecord, exportCSV, exportXAPI } from './records.js?v=26ab8fb634';
 

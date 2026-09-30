@@ -1,19 +1,19 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=ce51691de3';
+import { startHost, host } from './host.js?v=eb88ab8553';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=4bf5a96a9d';
 import { createStage } from './stage.js?v=d06a8fa994';
 import { createInspector } from './inspector.js?v=d987f64f8e';
-import { createDock, CUTOFFS } from './dock.js?v=91b1b9f476';
-import { createWhy } from './why.js?v=9ce3cbc2f3';
-import { createTimeline } from './timeline.js?v=abb97dc98b';
-import { createLearn } from './learn.js?v=d2a24b4cf2';
-import { createCases } from './cases.js?v=91b54c07e2';
+import { createDock, CUTOFFS } from './dock.js?v=c722cb9ecf';
+import { createWhy } from './why.js?v=0c38166925';
+import { createTimeline } from './timeline.js?v=dfb94b9a3c';
+import { createLearn } from './learn.js?v=20bcb606bb';
+import { createCases } from './cases.js?v=a66f8bd308';
 import { createCompare } from './compare.js?v=ace33fc9f4';
 import { createCard } from './card.js?v=b411027227';
-import { createChart } from './chart.js?v=f098eded34';
-import { createHome } from './home.js?v=caf614fa18';
+import { createChart } from './chart.js?v=8aed1556c1';
+import { createHome } from './home.js?v=64684f9ba0';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=0457b367b9';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=eb8ef6048f';
 import { startLMS } from './lms.js?v=4511ed56b8';
@@ -128,7 +128,8 @@ async function main() {
     onScenarios: () => openScenarios($('#scenarioBtn')), onMode: (m) => store.set({ mode: m }), chart,
   });
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => host.send({ type: 'probe', id }), onReveal: revealDock, onLobule: () => zoomLobule('R'), onCompare: () => timeline.togglePin(), onRun: () => host.send({ type: 'run', running: !store.get().running }),
-    onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), isVisible: () => app.classList.contains('dock-open') });
+    onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), isVisible: () => app.classList.contains('dock-open'),
+    marks: () => timeline.entries(), onBeat: (on) => host.send({ type: 'beat', on }) });
   const api = { beginSession, endSession, onEnd: () => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); }, muteEvents: () => {}, loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), openPanel, setBanner, select: (sel) => store.set({ selection: sel }) };
   // A lesson keeps its card in view where the panel covers the figure: instruments it opens are
   // flagged, not forced.
@@ -146,7 +147,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=9814bed2f9'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=eb867d9ec9'), ({ createPalette }) => createPalette({ ctx: {
     select: (sel) => store.set({ selection: sel }), action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     wedge: () => { store.set({ selection: { type: 'edge', id: 'RHV_IVC' } }); setTimeout(() => card.trigger(3), 60); },
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
