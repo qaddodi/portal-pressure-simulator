@@ -2,7 +2,7 @@
 // grey-scale spectrum on black, flow toward the transducer above the baseline), with the reading
 // a sonographer would report beside it: direction, velocity against the vessel's normal range,
 // and the waveform pattern. The trace keeps recording while the instrument is closed, so it opens
-// full; it is drawn in sweep mode, so what is on screen stays still while new data is written.
+// full. It scrolls continuously; only the faint background noise stays fixed to the screen.
 
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { h, fmt, fitCanvas, clamp } from './util.js?v=fe164f31f1';
@@ -210,10 +210,9 @@ export function createDoppler({ onProbe }) {
     // the scale belongs to the dominant side; the other side shows what fits
     const pxPerV = (baseF >= 0.5 ? baseY : H - baseY) / scale;
 
-    // Spectrum in sweep mode, as on the scanner: each moment is written once, at a write head
-    // that runs left to right and wraps, erasing a short gap ahead of it. Nothing already on
-    // screen moves. Rendered at device resolution into an offscreen canvas; each column's
-    // speckle is keyed to its own moment, so a column looks the same on every frame.
+    // Spectrum, scrolling right to left with the newest moment at the right edge. Rendered at
+    // device resolution into an offscreen canvas. The signal's speckle belongs to its moment and
+    // travels with it; the faint noise behind it belongs to the screen and stays put.
     const k = dpr >= 1.5 ? 2 : 1;
     const RW = W * k, RH = H * k;
     if (!img || img.width !== RW || img.height !== RH) {
@@ -223,20 +222,16 @@ export function createDoppler({ onProbe }) {
     const D = img.data; D.fill(0);
     const rColsPerS = (W / WINDOW) * k;
     const cNow = Math.floor(tNow * rColsPerS);
-    const head = ((cNow % RW) + RW) % RW;
-    const gap = Math.round(0.12 * rColsPerS);           // erased band ahead of the head
     const rBase = baseY * k, rPxPerV = pxPerV * k;
     const tFirst = buf[0][0];
     const env = new Float32Array(W).fill(NaN);
     let j = 0;
-    // columns from oldest to newest, so the sample search runs forward
-    for (let age = RW - 1; age >= 0; age--) {
-      const c = cNow - age;
-      const rx = ((c % RW) + RW) % RW;
-      if (age >= RW - gap) continue;                     // the erased gap
+    // columns from oldest (left) to newest (right), so the sample search runs forward
+    for (let rx = 0; rx < RW; rx++) {
+      const c = cNow - (RW - 1 - rx);
       const t = c / rColsPerS;
       if (t < tFirst) {
-        for (let ry = 0; ry < RH; ry++) { const n = hash(c >> 1, ry) ** 18 * 34; if (n < 3) continue; const q = (ry * RW + rx) * 4; D[q] = D[q + 1] = D[q + 2] = n; D[q + 3] = 255; }
+        for (let ry = 0; ry < RH; ry++) { const n = hash(rx, ry) ** 18 * 34; if (n < 3) continue; const q = (ry * RW + rx) * 4; D[q] = D[q + 1] = D[q + 2] = n; D[q + 3] = 255; }
         continue;
       }
       while (j < buf.length - 2 && buf[j + 1][0] < t) j++;
@@ -254,7 +249,7 @@ export function createDoppler({ onProbe }) {
       if (rx % k === 0) env[rx / k] = yPk / k;
       for (let ry = 0; ry < RH; ry++) {
         const sp = hash(grain, ry);
-        let I = Math.pow(hash(c >> 1, ry), 18) * 0.13;                   // sparse noise floor
+        let I = Math.pow(hash(rx, ry), 18) * 0.13;                       // noise floor, fixed to the screen
         if (ry >= top - edge && ry <= bot + edge) {
           const u = bot > top ? (ry - top) / (bot - top) : 0.5;          // 0 at the upper edge
           const peakSide = pk >= 0 ? 1 - u : u;
@@ -277,21 +272,16 @@ export function createDoppler({ onProbe }) {
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(off, padL, padT, W, H);
 
-    // Peak envelope (auto-trace), broken at the write head
-    const headX = Math.floor(head / k), gapX = Math.ceil(gap / k);
+    // Peak envelope (auto-trace)
     ctx.strokeStyle = 'rgba(250, 214, 80, .85)'; ctx.lineWidth = 1.25; ctx.lineJoin = 'round';
     ctx.beginPath(); let started = false;
-    for (let px = 0; px < W; px++) {
+    for (let px = 0; px < W; px += 2) {
       const y = env[px];
-      const inGap = ((px - headX + W) % W) > 0 && ((px - headX + W) % W) <= gapX;
-      if (Number.isNaN(y) || inGap || px === headX + 1) { started = false; continue; }
-      if (px % 2 && px !== headX) continue;
+      if (Number.isNaN(y)) { started = false; continue; }
       const X = padL + px, Y = padT + y;
       if (!started) { ctx.moveTo(X, Y); started = true; } else ctx.lineTo(X, Y);
     }
     ctx.stroke();
-    // the write head
-    ctx.fillStyle = 'rgba(255,255,255,.28)'; ctx.fillRect(padL + headX + 1, padT, 1, H);
 
     // Baseline
     ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillRect(padL, padT + baseY, W, 1);
@@ -306,10 +296,10 @@ export function createDoppler({ onProbe }) {
       if (major) { ctx.fillStyle = 'rgba(255,255,255,.72)'; ctx.fillText(v === 0 ? '0' : num(v), padL + W + 13, y); }
     }
     ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.textAlign = 'right'; ctx.fillText('cm/s', w - 6, 13);
-    // One tick a second along the bottom, fixed to the moments they mark
+    // One tick a second along the bottom, scrolling with the trace
     ctx.fillStyle = 'rgba(255,255,255,.4)';
     for (let sec = Math.ceil(tNow - WINDOW); sec <= tNow; sec++) {
-      const x = ((Math.floor(sec * rColsPerS) % RW) + RW) % RW / k;
+      const x = (RW - 1 - (cNow - Math.floor(sec * rColsPerS))) / k;
       ctx.fillRect(Math.round(padL + x), padT + H + 5, 1, 4);
     }
     ctx.textBaseline = 'alphabetic';
