@@ -93,6 +93,9 @@
   /* chart series (validated categorical order, light) */
   --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #4a3aa7; --s8: #e34948;
   --grid: #E6E4DD;
+  /* pressure-over-time traces: the plate's own vessel hues (portal magenta, wedged violet,
+     hepatic blue), then quieter inks for the rest */
+  --tr-pv: #B01E62; --tr-wedge: #7650C8; --tr-hv: #2A78D6; --tr-ra: #5B6270; --tr-ivc: #1F9BB0; --tr-var: #E0632E; --tr-sv: #1BAF7A; --tr-smv: #C98500;
   --axis: #C6C2B8;
 
   /* elevation, shape, type, motion */
@@ -162,6 +165,7 @@
     --artery: #E4606C; --casing-rgb: 0 0 0; --casing-a: .7; --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a)); --ascites: #3E8FC0; --stage-grid: rgba(160, 180, 255, .05); --leader: rgba(200, 212, 240, .42); --vein-portal: #9C90DA; --vein-systemic: #6FA6DA; --arrow-ink: rgba(233, 237, 246, .82); --label-halo: rgba(11, 17, 32, .9);
     --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
     --grid: #1F2840; --axis: #34405E;
+    --tr-pv: #F0649E; --tr-wedge: #A68CF2; --tr-hv: #5CA4F2; --tr-ra: #A9B2C7; --tr-ivc: #4CC2D6; --tr-var: #F28A56; --tr-sv: #3BC690; --tr-smv: #E0A63A;
     --shadow-1: 0 0 0 1px var(--hairline); --shadow-2: var(--shadow-menu); --shadow-3: var(--shadow-dialog);
     --shadow-rgb: 0 0 0; --shadow-a: .38; --vessel-shadow: rgb(var(--shadow-rgb) / var(--shadow-a)); --tube-shade: .3; --tube-sheen: .26; --organ-cast: rgba(0, 0, 0, .42); --tex-a: .13; --lit-hi: .2; --lit-lo: .18; --cavity: #141B2E; --fx-ink: rgba(233, 237, 246, .9); --stent-metal: #C3CBD8; --stent-marker: #EEF1F6;
     color-scheme: dark;
@@ -196,6 +200,7 @@
   --artery: #E4606C; --casing-rgb: 0 0 0; --casing-a: .7; --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a)); --ascites: #3E8FC0; --stage-grid: rgba(160, 180, 255, .05); --leader: rgba(200, 212, 240, .42); --vein-portal: #9C90DA; --vein-systemic: #6FA6DA; --arrow-ink: rgba(233, 237, 246, .82); --label-halo: rgba(11, 17, 32, .9);
   --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
   --grid: #1F2840; --axis: #34405E;
+  --tr-pv: #F0649E; --tr-wedge: #A68CF2; --tr-hv: #5CA4F2; --tr-ra: #A9B2C7; --tr-ivc: #4CC2D6; --tr-var: #F28A56; --tr-sv: #3BC690; --tr-smv: #E0A63A;
   --shadow-1: 0 0 0 1px var(--hairline); --shadow-2: var(--shadow-menu); --shadow-3: var(--shadow-dialog);
   --shadow-rgb: 0 0 0; --shadow-a: .38; --vessel-shadow: rgb(var(--shadow-rgb) / var(--shadow-a)); --tube-shade: .3; --tube-sheen: .26; --organ-cast: rgba(0, 0, 0, .42); --tex-a: .13; --lit-hi: .2; --lit-lo: .18; --cavity: #141B2E; --fx-ink: rgba(233, 237, 246, .9); --stent-metal: #C3CBD8; --stent-marker: #EEF1F6;
   color-scheme: dark;

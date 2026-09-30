@@ -1,10 +1,10 @@
-// Dock charts (blueprint §9.2): pressure profile, scope, Sankey, perfusion + operating point.
+// Dock charts (blueprint §9.2): pressure profile, Sankey, perfusion + operating point.
 
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { PROFILE_PATHS, SHORT } from './anatomy.js?v=ad5ea5e8e5';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { store } from './store.js?v=4bf5a96a9d';
-import { h, fmt, fmtFlow, fitCanvas, cssVar, clamp } from './util.js?v=cc7ee4cf38';
+import { h, fmt, fmtFlow, fitCanvas, cssVar, clamp } from './util.js?v=fe164f31f1';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -29,8 +29,8 @@ export function createProfile() {
     h('span', {}, h('i', { style: { borderColor: 'var(--text-3)', borderTopStyle: 'dashed' } }), 'Healthy'),
     h('span', { class: 'lg-compare', style: { display: 'none' } }, h('i', { style: { borderColor: 'var(--s1)', borderTopStyle: 'dotted' } }), 'Snapshot A'),
     h('span', { class: 'lg-pred', style: { display: 'none' } }, h('i', { style: { borderColor: 'var(--accent)', borderTopStyle: 'dashed' } }), 'Your prediction'));
-  const note = h('div', { class: 'sub' }, 'Pressure at each station along the path. Every step down is a resistance (ΔP = Q × R); plateaus are compartments. Bar color is the pressure scale.');
-  const side = h('div', { class: 'chart-side' }, h('div', { class: 'side-title' }, 'Pressure profile'), sel, legend, note, h('div', { class: 'ctl-sub', id: 'profileOffscale' }));
+  const note = h('div', { class: 'sub' }, 'Pressure at each station along the path. Each step down is a resistance (ΔP = Q × R); plateaus are compartments.');
+  const side = h('div', { class: 'chart-side' }, sel, legend, note, h('div', { class: 'ctl-sub', id: 'profileOffscale' }));
   el.append(box, side);
   let pathId = 'main';
   sel.addEventListener('change', () => { pathId = sel.value; draw(); });
@@ -201,177 +201,6 @@ export function createProfile() {
   };
 }
 
-// ── Scope (time series) ─────────────────────────────
-// Series colors come from the validated categorical order (--s1…--s8), fixed per trace so a
-// trace keeps its color whatever else is switched on. One y-axis per panel: traces with
-// different units are drawn as stacked small multiples instead of a dual axis.
-const TRACES = {
-  CONF: { label: 'Portal vein', unit: 'mmHg', s: 0 },
-  SIN_R: { label: 'Sinusoids (≈ WHVP)', short: 'Sinusoids', unit: 'mmHg', s: 4 },
-  RHV: { label: 'Hepatic vein (FHVP)', short: 'Hepatic v.', unit: 'mmHg', s: 2 },
-  RA: { label: 'Right atrium', unit: 'mmHg', s: 1 },
-  IVCS: { label: 'IVC', unit: 'mmHg', s: 6 },
-  VAR: { label: 'Esophageal varix', short: 'Varix', unit: 'mmHg', s: 7 },
-  SV: { label: 'Splenic vein', unit: 'mmHg', s: 3 },
-  SMV: { label: 'SMV', unit: 'mmHg', s: 5 },
-  AO: { label: 'Aorta', unit: 'mmHg (arterial)', s: 7 },
-  pvVel: { label: 'Portal velocity', unit: 'cm/s', s: 0 },
-  hvVel: { label: 'Hepatic vein velocity', short: 'Hepatic v.', unit: 'cm/s', s: 1 },
-};
-const TRENDS = {
-  hvpg: { label: 'HVPG', unit: 'mmHg', s: 4, get: (m) => m.hvpg },
-  pv: { label: 'Portal pressure', unit: 'mmHg', s: 0, get: (m) => m.pv },
-  varix: { label: 'Varix diameter', unit: 'mm', s: 7, get: (m) => m.varix.d },
-  shunt: { label: 'Shunt fraction', unit: '%', s: 1, get: (m) => m.shuntFraction * 100 },
-  ascites: { label: 'Ascites', unit: 'L', s: 2, get: (m) => m.ascites.volume / 1000 },
-  spleen: { label: 'Spleen length', unit: 'cm', s: 6, get: (m) => m.spleen.length },
-  co: { label: 'Cardiac output', unit: 'L/min', s: 3, get: (m) => m.co },
-};
-
-export function createScope() {
-  const el = h('div', { class: 'dock-pane', 'data-pane': 'scope' });
-  const box = h('div', { class: 'chart-box' });
-  const cv = h('canvas', { role: 'img', 'aria-label': 'Time-series scope' });
-  box.append(cv);
-  const chosen = new Set(['CONF', 'SIN_R', 'RHV', 'RA']);
-  const chosenTrend = new Set(['hvpg', 'varix', 'ascites']);
-  let windowS = 20;
-  const winSeg = h('div', { class: 'seg full' }, [6, 20, 60].map((sec) => {
-    const b = h('button', { 'aria-pressed': String(sec === windowS) }, `${sec} s`);
-    b.addEventListener('click', () => { windowS = sec; winSeg.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); draw(); });
-    return b;
-  }));
-  const boxes = h('div', { class: 'check-list' });
-  const title = h('div', { class: 'side-title' });
-  const hint = h('div', { class: 'ctl-sub' });
-  const side = h('div', { class: 'chart-side' }, title, winSeg, boxes, hint);
-  el.append(box, side);
-  const buf = { t: [] };
-  const trend = { day: [] };
-  let mode = 'hemo';
-
-  function renderBoxes() {
-    const src = mode === 'hemo' ? TRACES : TRENDS;
-    const set = mode === 'hemo' ? chosen : chosenTrend;
-    const series = theme().series;
-    title.textContent = mode === 'hemo' ? 'Scope · seconds' : 'Trends · days';
-    boxes.replaceChildren(...Object.entries(src).map(([k, t]) => {
-      const cb = h('input', { type: 'checkbox', checked: set.has(k) });
-      cb.addEventListener('change', () => { if (cb.checked) set.add(k); else set.delete(k); draw(); });
-      return h('label', { class: 'check-row' }, cb, h('i', { style: { borderColor: series[t.s] } }), t.label, h('span', { class: 'unit', style: { marginLeft: 'auto' } }, t.unit));
-    }));
-    winSeg.hidden = mode !== 'hemo';
-    hint.textContent = mode === 'hemo' ? 'Turn on Pulsatile mode (Physiology tab) to see a- and v-waves and portal pulsatility.' : 'Disease clock: one point per simulated day.';
-  }
-  renderBoxes();
-
-  function ingest(f) {
-    const m = f.clock === 'disease' ? 'disease' : 'hemo';
-    if (m !== mode) { mode = m; renderBoxes(); }
-    if (f.samples) {
-      const smp = f.samples;
-      // A new scenario restarts the engine clock: start a fresh trace instead of plotting across the jump.
-      if (smp.t.length && buf.t.length && smp.t[0] < buf.t[buf.t.length - 1]) for (const k of Object.keys(buf)) buf[k].length = 0;
-      for (let i = 0; i < smp.t.length; i++) {
-        buf.t.push(smp.t[i]);
-        for (const k of Object.keys(TRACES)) (buf[k] ||= []).push(smp[k][i]);
-      }
-      const tMin = (buf.t[buf.t.length - 1] ?? 0) - 65;
-      let cut = 0; while (cut < buf.t.length && buf.t[cut] < tMin) cut++;
-      if (cut > 0) for (const k of Object.keys(buf)) buf[k].splice(0, cut);
-    }
-    if (trend.day[trend.day.length - 1] !== f.day) {
-      if (f.day < (trend.day[trend.day.length - 1] ?? -1)) for (const k of Object.keys(trend)) trend[k].length = 0;
-      trend.day.push(f.day);
-      for (const [k, t] of Object.entries(TRENDS)) (trend[k] ||= []).push(t.get(f.metrics));
-      if (trend.day.length > 1500) for (const k of Object.keys(trend)) trend[k].shift();
-    }
-  }
-
-  const nice = (span) => { const raw = span / 4; const p = Math.pow(10, Math.floor(Math.log10(raw))); const n = raw / p; return (n < 1.5 ? 1 : n < 3.5 ? 2 : n < 7.5 ? 5 : 10) * p; };
-
-  function draw() {
-    const c = theme();
-    const { ctx, w, h: hh } = fitCanvas(cv);
-    ctx.clearRect(0, 0, w, hh);
-    const L = 40, R = 118, T = 8, B = 24, GAP = 16;
-    ctx.font = FONT(500, 11);
-    const isH = mode === 'hemo';
-    const xs = isH ? buf.t : trend.day;
-    if (xs.length < 2) { ctx.fillStyle = c.faint; ctx.fillText(isH ? 'Collecting samples…' : 'Advance the disease clock to build a trend.', L, 30); return; }
-    const x1 = xs[xs.length - 1], x0 = isH ? Math.max(xs[0], x1 - windowS) : Math.max(xs[0], x1 - 730);
-    const src = isH ? TRACES : TRENDS;
-    const keys = [...(isH ? chosen : chosenTrend)].filter((k) => (isH ? buf[k] : trend[k]));
-    if (!keys.length) { ctx.fillStyle = c.faint; ctx.fillText('Choose at least one trace.', L, 30); return; }
-    const groups = [];
-    for (const k of keys) {
-      const u = src[k].unit;
-      let g = groups.find((x) => x.unit === u);
-      if (!g) groups.push(g = { unit: u, keys: [], mn: Infinity, mx: -Infinity });
-      g.keys.push(k);
-      const arr = isH ? buf[k] : trend[k];
-      for (let i = 0; i < xs.length; i++) if (xs[i] >= x0) { g.mn = Math.min(g.mn, arr[i]); g.mx = Math.max(g.mx, arr[i]); }
-    }
-    const ph = (hh - T - B - GAP * (groups.length - 1)) / groups.length;
-    const X = (t) => L + ((t - x0) / Math.max(1e-6, x1 - x0)) * (w - L - R);
-    groups.forEach((g, gi) => {
-      const top = T + gi * (ph + GAP), bot = top + ph;
-      const pad = Math.max(1, (g.mx - g.mn) * 0.12);
-      let mn = g.mn - pad, mx = g.mx + pad;
-      if (g.unit === 'mmHg' && mn > 0) mn = 0;
-      const tick = nice(mx - mn);
-      mn = Math.floor(mn / tick) * tick; mx = Math.ceil(mx / tick) * tick;
-      if (g.mn >= 0 && mn < 0) mn = 0;
-      const Y = (v) => bot - ((v - mn) / Math.max(1e-6, mx - mn)) * (bot - top);
-      ctx.lineWidth = 1; ctx.strokeStyle = c.border; ctx.fillStyle = c.faint; ctx.textAlign = 'right';
-      for (let v = mn; v <= mx + 1e-9; v += tick) {
-        const yy = Math.round(Y(v)) + 0.5;
-        ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(w - R, yy); ctx.stroke();
-        if (ph > 40 || v === mn || v >= mx - 1e-9) ctx.fillText(fmt(v, tick < 1 ? 1 : 0), L - 7, yy + 4);
-      }
-      ctx.textAlign = 'left'; ctx.fillStyle = c.muted; ctx.font = FONT(600, 10.5);
-      ctx.fillText(g.unit, L + 4, top + 11); ctx.font = FONT(500, 11);
-      // traces + direct end labels (ink text beside a colored key), nudged apart only when they collide
-      const ends = [];
-      ctx.save(); ctx.beginPath(); ctx.rect(L, top - 2, w - L - R, bot - top + 4); ctx.clip();
-      for (const k of g.keys) {
-        const arr = isH ? buf[k] : trend[k];
-        ctx.strokeStyle = c.series[src[k].s]; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-        ctx.beginPath();
-        let started = false, last = null;
-        for (let i = 0; i < xs.length; i++) {
-          if (xs[i] < x0) continue;
-          const px = X(xs[i]), py = Y(arr[i]);
-          if (!started) { ctx.moveTo(px, py); started = true; } else ctx.lineTo(px, py);
-          last = arr[i];
-        }
-        ctx.stroke();
-        if (last != null) ends.push({ k, y: Y(last), v: last });
-      }
-      ctx.restore();
-      ends.sort((a, b) => a.y - b.y);
-      for (let i = 1; i < ends.length; i++) ends[i].y = Math.max(ends[i].y, ends[i - 1].y + 13);
-      for (const e of ends) {
-        const yy = Math.min(bot, Math.max(top + 4, e.y));
-        ctx.fillStyle = c.series[src[e.k].s]; ctx.beginPath(); ctx.arc(w - R + 8, yy, 3, 0, 7); ctx.fill();
-        ctx.fillStyle = c.text; ctx.textAlign = 'left'; ctx.font = FONT(600, 11);
-        ctx.fillText(fmt(e.v, 1), w - R + 15, yy + 4);
-        const vw = ctx.measureText(fmt(e.v, 1)).width;
-        ctx.fillStyle = c.muted; ctx.font = FONT(500, 11);
-        const full = src[e.k].short || src[e.k].label;
-        const lab = full.length > 14 ? full.slice(0, 13) + '…' : full;
-        ctx.fillText(lab, w - R + 19 + vw, yy + 4);
-      }
-      ctx.strokeStyle = c.axis; ctx.beginPath(); ctx.moveTo(L, Math.round(bot) + 0.5); ctx.lineTo(w - R, Math.round(bot) + 0.5); ctx.stroke();
-    });
-    ctx.fillStyle = c.faint; ctx.textAlign = 'center'; ctx.font = FONT(500, 11);
-    const span = x1 - x0;
-    const step = isH ? (span > 30 ? 10 : span > 10 ? 2 : 1) : span > 360 ? 90 : span > 120 ? 30 : 7;
-    for (let t = Math.ceil(x0 / step) * step; t <= x1; t += step) ctx.fillText(isH ? `${Math.round(t)} s` : `day ${Math.round(t)}`, X(t), hh - 6);
-  }
-  return { id: 'scope', label: 'Scope', el, update(f) { ingest(f); draw(); }, ingest, redraw: draw };
-}
-
 // ── Flow Sankey ─────────────────────────────────────
 export function createSankey() {
   const el = h('div', { class: 'dock-pane', 'data-pane': 'flow' });
@@ -379,7 +208,7 @@ export function createSankey() {
   const cv = h('canvas', { role: 'img', 'aria-label': 'Flow distribution' });
   box.append(cv);
   const side = h('div', { class: 'chart-side' }, h('div', { class: 'side-title' }, 'Where does gut blood go?'),
-    h('div', { class: 'sub' }, 'Ribbon width is proportional to flow (L/min). Teal passes through the liver; orange bypasses it through portosystemic routes. That bypassed share is the shunt fraction.'),
+    h('div', { class: 'sub' }, 'Ribbon width is flow (L/min). Teal passes through the liver; orange bypasses it, and that share is the shunt fraction.'),
     h('dl', { id: 'sankeyStats', class: 'kv' }));
   el.append(box, side);
   function draw(f) {
@@ -393,6 +222,35 @@ export function createSankey() {
       ['Gastrorenal shunt', q('C5')], ['Splenorenal shunt', q('C6')], ['Retroperitoneal', q('C7')],
       ['TIPS', q('TIPS')], ['Surgical shunts', q('S_PC') + q('S_DSR') + q('S_MC')],
     ].filter(([, v]) => v > 0.005);
+    // A narrow workspace uses labelled flow bars instead of squeezing a four-column Sankey.
+    if (w < 650) {
+      const routes = [
+        ['Portal blood reaching liver', Math.max(0, q('PRE_R')) + Math.max(0, q('PRE_L')), c.ok],
+        ['Hepatic artery to liver', q('A_HR') + q('A_HL'), c.artery],
+        ...colls.map(([label, v]) => [label, v, c.rev]),
+        ['Liver → portal (reversed)', Math.max(0, -q('PRE_R')) + Math.max(0, -q('PRE_L')), c.rev],
+        ['GI lumen (bleeding)', (m.bleeding?.rate || 0) / 1000, c.danger],
+      ].filter(([, v], i) => i < 2 || v > 0.005);
+      box.style.height = `${Math.max(230, 90 + routes.length * 48)}px`;
+      ctx.fillStyle = c.text; ctx.font = FONT(600, 14); ctx.textAlign = 'left';
+      ctx.fillText('Where gut blood goes', 12, 24);
+      ctx.fillStyle = c.muted; ctx.font = FONT(500, 11.5);
+      ctx.fillText(`${Math.round(m.shuntFraction * 100)}% bypasses the liver · flow in L/min`, 12, 46);
+      const max = Math.max(0.2, ...routes.map(([, v]) => v));
+      for (let i = 0; i < routes.length; i++) {
+        const [label, v, color] = routes[i], y = 76 + i * 48;
+        ctx.fillStyle = c.text; ctx.textAlign = 'left'; ctx.font = FONT(500, 11);
+        ctx.fillText(label, 12, y);
+        ctx.textAlign = 'right'; ctx.font = FONT(600, 11); ctx.fillText(fmtFlow(v), w - 12, y);
+        ctx.fillStyle = c.border; ctx.fillRect(12, y + 8, w - 24, 8);
+        ctx.fillStyle = color; ctx.fillRect(12, y + 8, (w - 24) * Math.max(0, v) / max, 8);
+      }
+      el.querySelector('#sankeyStats').replaceChildren(
+        h('dt', {}, 'Gut & spleen inflow'), h('dd', {}, `${fmtFlow(m.splanchnicIn)} L/min`),
+        h('dt', {}, 'Liver perfusion'), h('dd', {}, `${Math.round(m.liverPerfPct)} % of baseline`));
+      return;
+    }
+    box.style.height = '';
     const portalToLiver = Math.max(0, q('PRE_R')) + Math.max(0, q('PRE_L'));
     const liverToPortal = Math.max(0, -q('PRE_R')) + Math.max(0, -q('PRE_L'));
     const ha = q('A_HR') + q('A_HL');
@@ -454,7 +312,7 @@ export function createSankey() {
       h('dt', {}, 'Shunt fraction'), h('dd', {}, `${Math.round(m.shuntFraction * 100)} %`),
       h('dt', {}, 'Portal → liver'), h('dd', {}, `${fmtFlow(portalToLiver)} L/min`),
       h('dt', {}, 'Hepatic artery'), h('dd', {}, `${fmtFlow(ha)} L/min`),
-      h('dt', {}, 'Liver perfusion'), h('dd', {}, `${Math.round(m.liverPerfPct)} %`));
+      h('dt', {}, 'Liver perfusion'), h('dd', {}, `${Math.round(m.liverPerfPct)} % of baseline`));
   }
   return { id: 'flow', label: 'Flow', el, update: draw };
 }
@@ -462,59 +320,79 @@ export function createSankey() {
 // ── Liver perfusion donut + P–Q operating point ─────
 export function createPerfusion() {
   const el = h('div', { class: 'dock-pane', 'data-pane': 'perfusion' });
-  const b1 = h('div', { class: 'chart-box', style: { maxWidth: '300px' } }), c1 = h('canvas', { role: 'img', 'aria-label': 'Liver perfusion composition' }); b1.append(c1);
+  const b1 = h('div', { class: 'chart-box perf-donut' }), c1 = h('canvas', { role: 'img', 'aria-label': 'Liver perfusion composition' }); b1.append(c1);
   const b2 = h('div', { class: 'chart-box' }), c2 = h('canvas', { role: 'img', 'aria-label': 'Pressure–flow operating point' }); b2.append(c2);
-  const side = h('div', { class: 'chart-side' }, h('div', { class: 'side-title' }, 'Hepatic arterial buffer'), h('div', { class: 'sub' }, 'When portal inflow falls, adenosine accumulates and the hepatic artery dilates, so liver perfusion falls less than portal flow. Right: the liver’s pressure–flow operating point; the slope is its resistance.'), h('dl', { class: 'kv', id: 'perfStats' }));
+  const side = h('div', { class: 'chart-side' }, h('div', { class: 'side-title' }, 'Hepatic arterial buffer'), h('div', { class: 'sub' }, 'As portal inflow falls, the hepatic artery dilates, so liver perfusion falls less than portal flow. The line’s slope is the liver’s resistance.'), h('dl', { class: 'kv', id: 'perfStats' }));
   el.append(b1, b2, side);
   function draw(f) {
     const c = theme();
     const m = f.metrics;
-    // donut
+    // donut: where the liver's blood comes from, and what bypasses it
     {
       const { ctx, w, h: hh } = fitCanvas(c1);
       ctx.clearRect(0, 0, w, hh);
-      const top = 58, R = Math.max(20, Math.min(w / 2, (hh - top) / 2) - 8), cx = w / 2, cy = top + (hh - top) / 2, r = R * 0.72;
+      const legendH = 58;
+      const R = Math.max(20, Math.min(w / 2, (hh - legendH) / 2) - 6), cx = w / 2, cy = 6 + R, r = R * 0.8;
       const portal = m.portalIn, art = m.arterialIn, lost = Math.max(0, m.splanchnicIn - portal);
       const total = portal + art + lost || 1;
       let a = -Math.PI / 2;
-      for (const [v, col] of [[portal, c.ok], [art, c.artery], [lost, c.rev]]) {
+      const parts = [['Portal', portal, c.ok], ['Hepatic artery', art, c.artery], ['Bypassing the liver', lost, c.rev]];
+      for (const [, v, col] of parts) {
         const da = (v / total) * Math.PI * 2;
-        const gap = da > 0.05 ? 0.02 : 0;
+        const gap = da > 0.05 ? 0.015 : 0;
         ctx.fillStyle = col; ctx.beginPath(); ctx.arc(cx, cy, R, a + gap, a + da - gap); ctx.arc(cx, cy, r, a + da - gap, a + gap, true); ctx.closePath(); ctx.fill();
         a += da;
       }
-      ctx.fillStyle = c.text; ctx.textAlign = 'center'; ctx.font = FONT(600, Math.max(14, Math.min(24, r * 0.5)));
+      ctx.fillStyle = c.text; ctx.textAlign = 'center'; ctx.font = FONT(650, Math.max(14, Math.min(26, r * 0.42)));
       ctx.fillText(`${Math.round(m.liverPerfPct)}%`, cx, cy + 4);
-      ctx.font = FONT(500, 10.5); ctx.fillStyle = c.muted; ctx.fillText('perfused', cx, cy + 19);
-      ctx.textAlign = 'left'; ctx.font = FONT(500, 11);
-      [['Portal', c.ok], ['Hepatic artery', c.artery], ['Bypassing the liver', c.rev]].forEach(([t, col], i) => { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(10, 12 + i * 16, 4, 0, 7); ctx.fill(); ctx.fillStyle = c.muted; ctx.fillText(t, 20, 16 + i * 16); });
+      ctx.font = FONT(500, 10.5); ctx.fillStyle = c.muted; ctx.fillText('liver flow vs normal', cx, cy + 20);
+      // legend with values, under the ring
+      ctx.font = FONT(500, 11.5); ctx.textBaseline = 'middle';
+      const lx = Math.max(6, cx - 105), ly = cy + R + 16;
+      parts.forEach(([t, v, col], k) => {
+        const yy = ly + k * 17;
+        ctx.fillStyle = col; ctx.beginPath(); ctx.arc(lx + 4, yy, 4, 0, 7); ctx.fill();
+        ctx.fillStyle = c.muted; ctx.textAlign = 'left'; ctx.fillText(t, lx + 14, yy);
+        ctx.fillStyle = c.text; ctx.textAlign = 'right'; ctx.fillText(`${fmtFlow(v)} L/min`, Math.min(w - 4, cx + 105), yy);
+      });
+      ctx.textBaseline = 'alphabetic';
     }
-    // operating point
+    // operating point: the liver's pressure drop against its blood flow; the slope is resistance
     {
       const { ctx, w, h: hh } = fitCanvas(c2);
       ctx.clearRect(0, 0, w, hh);
-      const L = 46, B = 30, T = 12, R = 14;
+      const L = 34, B = 24, T = 26, R = 16;
       const qL = m.hepaticFlow, dpL = f.P[NI.CONF] - f.P[NI.RHV];
       const healthy = store.get().healthy;
       const q0 = healthy ? healthy.metrics.hepaticFlow : 1.5, dp0 = healthy ? healthy.P[NI.CONF] - healthy.P[NI.RHV] : 3.7;
-      const qMax = Math.max(2.2, qL * 1.3), pMax = Math.max(30, dpL * 1.3);
+      const qMax = Math.max(2.2, qL * 1.3), pMax = Math.max(30, Math.ceil(dpL * 1.3 / 10) * 10);
       const X = (q) => L + (q / qMax) * (w - L - R), Y = (p) => T + (1 - p / pMax) * (hh - T - B);
-      ctx.fillStyle = c.faint; ctx.font = FONT(500, 11); ctx.lineWidth = 1;
-      ctx.strokeStyle = c.border;
-      for (let p = 10; p <= pMax; p += 10) { ctx.beginPath(); ctx.moveTo(L, Math.round(Y(p)) + 0.5); ctx.lineTo(w - R, Math.round(Y(p)) + 0.5); ctx.stroke(); }
-      ctx.strokeStyle = c.axis; ctx.beginPath(); ctx.moveTo(L, Math.round(hh - B) + 0.5); ctx.lineTo(w - R, Math.round(hh - B) + 0.5); ctx.stroke();
-      ctx.textAlign = 'center'; ctx.fillText('Liver blood flow (L/min)', (L + w) / 2, hh - 6);
-      ctx.save(); ctx.translate(12, (hh - B) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText('ΔP portal → hepatic vein (mmHg)', 0, 0); ctx.restore();
-      for (let p = 0; p <= pMax; p += 10) { ctx.textAlign = 'right'; ctx.fillText(String(p), L - 5, Y(p) + 4); }
-      for (let q = 0; q <= qMax; q += 0.5) { ctx.textAlign = 'center'; ctx.fillText(q.toFixed(1), X(q), hh - B + 13); }
-      const line = (slope, col, dash) => { ctx.strokeStyle = col; ctx.setLineDash(dash || []); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(X(0), Y(0)); const qe = Math.min(qMax, pMax / Math.max(slope, 1e-6)); ctx.lineTo(X(qe), Y(qe * slope)); ctx.stroke(); ctx.setLineDash([]); };
-      line(dp0 / q0, c.faint, [5, 4]);
-      if (qL > 0.01) line(dpL / qL, c.accent);
-      ctx.fillStyle = c.faint; ctx.beginPath(); ctx.arc(X(q0), Y(dp0), 5, 0, 7); ctx.fill();
-      ctx.fillStyle = c.accent; ctx.beginPath(); ctx.arc(X(qL), Y(dpL), 6, 0, 7); ctx.fill();
-      ctx.fillStyle = c.text; ctx.textAlign = 'left'; ctx.font = FONT(600, 12);
-      ctx.fillText(`Liver resistance ${fmt(dpL / Math.max(0.01, qL), 1)} WU`, L + 10, T + 14);
-      ctx.fillStyle = c.muted; ctx.font = FONT(500, 11.5); ctx.fillText(`healthy ${fmt(dp0 / q0, 1)} WU (dashed)`, L + 10, T + 30);
+      ctx.font = FONT(500, 10.5); ctx.lineWidth = 1; ctx.textBaseline = 'middle';
+      for (let p = 0; p <= pMax; p += 10) {
+        ctx.strokeStyle = p ? c.border : c.axis; ctx.beginPath(); ctx.moveTo(L, Math.round(Y(p)) + 0.5); ctx.lineTo(w - R, Math.round(Y(p)) + 0.5); ctx.stroke();
+        ctx.fillStyle = c.faint; ctx.textAlign = 'right'; ctx.fillText(String(p), L - 8, Y(p));
+      }
+      ctx.textBaseline = 'alphabetic';
+      for (let q = 0.5; q <= qMax; q += 0.5) { if (X(q) > w - R - 70) continue; ctx.textAlign = 'center'; ctx.fillStyle = c.faint; ctx.fillText(q.toFixed(1), X(q), hh - 6); }
+      ctx.textAlign = 'left'; ctx.fillStyle = c.faint; ctx.fillText('ΔP portal → hepatic vein, mmHg', 4, 11);
+      ctx.textAlign = 'right'; ctx.fillText('flow, L/min', w - R, hh - 6);
+      ctx.save(); ctx.beginPath(); ctx.rect(L, T - 2, w - L - R, hh - T - B + 2); ctx.clip();
+      const line = (slope, col, dash, width) => { ctx.strokeStyle = col; ctx.setLineDash(dash || []); ctx.lineWidth = width; ctx.beginPath(); ctx.moveTo(X(0), Y(0)); const qe = Math.min(qMax, pMax / Math.max(slope, 1e-6)); ctx.lineTo(X(qe), Y(qe * slope)); ctx.stroke(); ctx.setLineDash([]); };
+      line(dp0 / q0, c.faint, [4, 4], 1.5);
+      if (qL > 0.01) line(dpL / qL, c.accent, null, 2);
+      ctx.restore();
+      const dot = (q, p, col, rr, label, sub) => {
+        ctx.fillStyle = c.surface; ctx.beginPath(); ctx.arc(X(q), Y(p), rr + 2, 0, 7); ctx.fill();
+        ctx.fillStyle = col; ctx.beginPath(); ctx.arc(X(q), Y(p), rr, 0, 7); ctx.fill();
+        const right = col === c.accent ? X(q) + 10 + 140 < w - R : false;
+        ctx.textAlign = right ? 'left' : 'right';
+        const tx = right ? X(q) + 12 : X(q) - 12;
+        const ty = col === c.accent ? Y(p) : Y(p) - 16; // the healthy label sits above its point, clear of the dashed line
+        ctx.fillStyle = col === c.accent ? c.text : c.muted; ctx.font = FONT(650, 12); ctx.fillText(label, tx, ty - 2);
+        ctx.fillStyle = c.muted; ctx.font = FONT(500, 11); ctx.fillText(sub, tx, ty + 12);
+      };
+      dot(q0, dp0, c.faint, 4, 'Healthy', `${fmt(dp0 / q0, 1)} WU`);
+      dot(qL, dpL, c.accent, 5.5, `Now · ${fmt(dpL / Math.max(0.01, qL), 1)} WU`, `${fmt(dpL, 0)} mmHg at ${fmtFlow(qL)} L/min`);
     }
     el.querySelector('#perfStats').replaceChildren(
       h('dt', {}, 'Portal inflow'), h('dd', {}, `${fmtFlow(m.portalIn)} L/min`),

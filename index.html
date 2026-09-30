@@ -18,8 +18,8 @@
   <meta name="apple-mobile-web-app-title" content="Portal Sim" />
   <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="fonts/fonts.css" />
-  <link rel="stylesheet" href="styles/tokens.css?v=fed1973812" />
-  <link rel="stylesheet" href="styles/app.css?v=0812df2b67" />
+  <link rel="stylesheet" href="styles/tokens.css?v=b07020fc5a" />
+  <link rel="stylesheet" href="styles/app.css?v=0226ea8809" />
 </head>
 <body>
   <!-- Icon set: 24px grid, 1.6px stroke, round caps (blueprint §5.6). -->
@@ -109,6 +109,7 @@
       </button>
       <div class="session-bar" id="sessionBar" role="status" hidden></div>
       <div class="top-right">
+        <button class="measure-launch" id="tabInstruments" aria-pressed="false" aria-controls="dock" title="Open instrument workspace (I)"><svg><use href="#i-gauge"/></svg><span data-i18n="tabs.instruments">Measure</span></button>
         <button class="pal-btn" id="btnPalette" title="Search (Ctrl K)" aria-label="Search" data-i18n-attr="aria-label:top.search"><svg><use href="#i-search"/></svg><span class="pal-l" data-i18n="top.search">Search</span><kbd>Ctrl K</kbd></button>
         <button class="ib" id="btnShare" title="Share &amp; export" aria-label="Share and export" data-i18n-attr="aria-label:top.share" aria-haspopup="menu"><svg><use href="#i-share"/></svg></button>
         <button class="ib" id="btnSettings" title="Settings" aria-label="Settings" data-i18n-attr="aria-label:menu.settings" aria-haspopup="menu"><svg><use href="#i-gear"/></svg></button>
@@ -147,6 +148,10 @@
       <div class="stage-bar bottom" id="stageBottom">
         <div class="timeline" id="timeline" role="group" aria-label="Timeline"></div>
       </div>
+      <section class="dock instrument-workspace" id="dock" aria-label="Live instrument workspace" data-state="open">
+        <div class="dock-head" id="dockHead"></div>
+        <div class="dock-body" id="dockBody"></div>
+      </section>
     </main>
 
     <section class="readouts" id="strip" aria-label="Clinical readouts"></section>
@@ -156,17 +161,12 @@
       <div class="lesson-rail" id="panelLesson" aria-label="Lesson"></div>
       <div class="panel-tabs" role="tablist" aria-label="Side panel">
         <button role="tab" id="tabChart" data-ptab="chart" aria-selected="true" aria-controls="panelChart"><svg><use href="#i-heart"/></svg><span data-i18n="tabs.chart">Patient</span></button>
-        <button role="tab" id="tabInstruments" data-ptab="instruments" aria-selected="false" aria-controls="dock"><svg><use href="#i-gauge"/></svg><span data-i18n="tabs.instruments">Measure</span></button>
         <button class="ib panel-close" id="panelClose" aria-label="Close the side panel" title="Close"><svg><use href="#i-close"/></svg></button>
       </div>
       <div class="panel-page" id="panelChart" role="tabpanel" aria-labelledby="tabChart">
         <div id="panelCase"></div>
         <div id="inspector"></div>
       </div>
-      <section class="dock" id="dock" role="tabpanel" aria-labelledby="tabInstruments">
-        <div class="dock-head" id="dockHead"></div>
-        <div class="dock-body" id="dockBody"></div>
-      </section>
     </aside>
   </div>
 
@@ -177,17 +177,17 @@
   <div class="toast-wrap" id="toasts"></div>
   <div class="sr-only" aria-live="polite" id="live"></div>
 
-  <link rel="modulepreload" href="src/ui/stage.js?v=2b3475acad" />
+  <link rel="modulepreload" href="src/ui/stage.js?v=d06a8fa994" />
   <link rel="modulepreload" href="src/ui/anatomy.js?v=ad5ea5e8e5" />
-  <link rel="modulepreload" href="src/ui/util.js?v=cc7ee4cf38" />
+  <link rel="modulepreload" href="src/ui/util.js?v=fe164f31f1" />
   <link rel="modulepreload" href="src/ui/store.js?v=4bf5a96a9d" />
   <link rel="modulepreload" href="src/ui/colormap.js?v=6d64a94345" />
-  <link rel="modulepreload" href="src/ui/inspector.js?v=ecfb4548ab" />
-  <link rel="modulepreload" href="src/ui/dock.js?v=cd9a4e396a" />
-  <link rel="modulepreload" href="src/ui/charts.js?v=73528b3f92" />
-  <link rel="modulepreload" href="src/ui/instruments.js?v=7d53c8b0a4" />
-  <link rel="modulepreload" href="src/ui/timeline.js?v=a16aa94cd6" />
+  <link rel="modulepreload" href="src/ui/inspector.js?v=d987f64f8e" />
+  <link rel="modulepreload" href="src/ui/dock.js?v=f911d43a1b" />
+  <link rel="modulepreload" href="src/ui/charts.js?v=6046946e83" />
+  <link rel="modulepreload" href="src/ui/instruments.js?v=35fa9b1e35" />
+  <link rel="modulepreload" href="src/ui/timeline.js?v=dfb94b9a3c" />
   <link rel="modulepreload" href="src/engine/topology.js?v=29d10ad9ef" />
-  <script type="module" src="src/ui/main.js?v=011a1c3af9"></script>
+  <script type="module" src="src/ui/main.js?v=913226f401"></script>
 </body>
 </html>

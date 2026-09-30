@@ -1,27 +1,27 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=ce51691de3';
+import { startHost, host } from './host.js?v=eb88ab8553';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=4bf5a96a9d';
-import { createStage } from './stage.js?v=2b3475acad';
-import { createInspector } from './inspector.js?v=ecfb4548ab';
-import { createDock, CUTOFFS } from './dock.js?v=cd9a4e396a';
-import { createWhy } from './why.js?v=cb6efa350a';
-import { createTimeline } from './timeline.js?v=a16aa94cd6';
-import { createLearn } from './learn.js?v=cc9a38cf25';
-import { createCases } from './cases.js?v=52c633ef8b';
-import { createCompare } from './compare.js?v=e505a6db48';
-import { createCard } from './card.js?v=0efa7b06ef';
-import { createChart } from './chart.js?v=cabf903cef';
-import { createHome } from './home.js?v=fe3cba9aa4';
+import { createStage } from './stage.js?v=d06a8fa994';
+import { createInspector } from './inspector.js?v=d987f64f8e';
+import { createDock, CUTOFFS } from './dock.js?v=f911d43a1b';
+import { createWhy } from './why.js?v=0c38166925';
+import { createTimeline } from './timeline.js?v=dfb94b9a3c';
+import { createLearn } from './learn.js?v=20bcb606bb';
+import { createCases } from './cases.js?v=a66f8bd308';
+import { createCompare } from './compare.js?v=ace33fc9f4';
+import { createCard } from './card.js?v=b411027227';
+import { createChart } from './chart.js?v=c2e39890d8';
+import { createHome } from './home.js?v=64684f9ba0';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=0457b367b9';
-import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=0287515a1d';
+import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=eb8ef6048f';
 import { startLMS } from './lms.js?v=4511ed56b8';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=f17d736217';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=6e95eb2cc6';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=29d10ad9ef';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, units, popover, closePopover, menuItem, svgIcon } from './util.js?v=cc7ee4cf38';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, units, popover, closePopover, menuItem, svgIcon } from './util.js?v=fe164f31f1';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -127,14 +127,15 @@ async function main() {
     onWhy: (m, el) => why.open(m, el), onAction: doAction, onOpenTab: (id) => dock.show(id, { reveal: true }),
     onScenarios: () => openScenarios($('#scenarioBtn')), onMode: (m) => store.set({ mode: m }), chart,
   });
-  dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => host.send({ type: 'probe', id }), onReveal: revealDock, onLobule: () => zoomLobule('R'),
-    onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), isVisible: () => app.classList.contains('dock-open') && panelShown() });
+  dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => host.send({ type: 'probe', id }), onReveal: revealDock, onLobule: () => zoomLobule('R'), onCompare: () => timeline.togglePin(), onRun: () => host.send({ type: 'run', running: !store.get().running }),
+    onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), isVisible: () => app.classList.contains('dock-open'),
+    marks: () => timeline.entries(), onBeat: (on) => host.send({ type: 'beat', on }) });
   const api = { beginSession, endSession, onEnd: () => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); }, muteEvents: () => {}, loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), openPanel, setBanner, select: (sel) => store.set({ selection: sel }) };
   // A lesson keeps its card in view where the panel covers the figure: instruments it opens are
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=4ae2d2de08'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=a3d96e3547'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -146,7 +147,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=2e7b098b3e'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=eb867d9ec9'), ({ createPalette }) => createPalette({ ctx: {
     select: (sel) => store.set({ selection: sel }), action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     wedge: () => { store.set({ selection: { type: 'edge', id: 'RHV_IVC' } }); setTimeout(() => card.trigger(3), 60); },
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
@@ -154,7 +155,7 @@ async function main() {
     loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); toast(store.get().presetList.find((p) => p.id === id)?.label); },
     lesson: (id) => startLesson(id), caseStart: (id) => startCase(id), home: () => home.open(), theme: () => toggleTheme(), help: () => openHelp(), share, restart: () => restartPatient(), reset: () => resetEverything(),
   } }));
-  figureL = lazy(() => import('./figure.js?v=5361a7d246'), ({ createFigure }) => createFigure({ app, stage, onClose: () => toggleFigure(false) }));
+  figureL = lazy(() => import('./figure.js?v=641185ae96'), ({ createFigure }) => createFigure({ app, stage, onClose: () => toggleFigure(false) }));
   card = createCard({
     view, stage, onWhy: (m, el) => why.open(m, el),
     onDetails: (sel) => { store.set({ details: normalizeSel(sel) || sel }); openPanel(); },
@@ -368,7 +369,7 @@ function startCase(id) { if (store.get().mode === 'learn') learn.stop(); store.s
 // ── Actions ─────────────────────────────────────────
 function doAction(a) {
   if (a.kind === 'probe') { host.send({ type: 'probe', id: a.id }); return; }
-  if (a.kind === 'paracentesisPrompt') { dock.show('abdomen', { reveal: true }); toast('Choose the volume in the Abdomen instrument, then Drain.'); return; }
+  if (a.kind === 'paracentesisPrompt') { dock.show('abdomen', { reveal: true }); toast('Choose the volume in Ascites & paracentesis, then Drain.'); return; }
   host.send({ type: 'action', action: a });
   const tl = { infuse: { crystalloid: '1 L crystalloid', prbc: '1 unit PRBC', albumin: 'Albumin infusion' }, hemorrhage: `Hemorrhage ${a.mL} mL`, band: 'Band ligation', valsalva: 'Valsalva', rupture: 'Varix ruptured (manual)', stopBleed: 'Bleeding stopped',
     paracentesis: `Paracentesis ${((a.mL || 0) / 1000).toFixed(1)} L${a.albumin ? ' + albumin' : ''}` }[a.kind];
@@ -722,10 +723,10 @@ new MutationObserver(() => syncStatusBar()).observe(document.getElementById('hom
 // (again once the figure's background has finished its .5 s fade)
 new MutationObserver(() => { syncStatusBar(); setTimeout(syncStatusBar, 600); }).observe(document.getElementById('app'), { attributes: true, attributeFilter: ['class'] });
 function readLS(k) { try { return localStorage.getItem(k); } catch { return null; } }
-// ── Side panel: Patient and Measure, one tab each ───
+// ── Patient panel and independent instrument workspace ─
 // Beside the figure on a wide screen; below 1280 px it slides over the figure from the right
 // (with a scrim on a phone) and the top bar's side-panel button opens it.
-function panelShown() { return isNarrow() ? app.classList.contains('panel-open') : !app.classList.contains('panel-collapsed'); }
+function panelShown() { return !app.classList.contains('instrument-focus') && (isNarrow() ? app.classList.contains('panel-open') : !app.classList.contains('panel-collapsed')); }
 function syncPanelToggle() {
   const on = panelShown();
   $('#btnInspector').setAttribute('aria-pressed', String(on));
@@ -735,8 +736,13 @@ function syncPanelToggle() {
 }
 /** Opens the side panel; on the patient chart unless a tab is named. */
 function openPanel(tab = 'chart') {
+  if (tab === 'instruments') {
+    setPanelTab('instruments');
+    if (isNarrow()) closePanel();
+    return;
+  }
+  if (app.classList.contains('instrument-focus')) dock.setState('open');
   app.classList.remove('panel-collapsed'); app.classList.add('panel-open');
-  setPanelTab(tab);
   syncPanelToggle();
 }
 function closePanel() { if (isNarrow()) app.classList.remove('panel-open'); else app.classList.add('panel-collapsed'); syncPanelToggle(); }
@@ -745,7 +751,9 @@ function setPanelTab(tab) {
   if (instr) dock.ensure();
   const was = app.classList.contains('dock-open');
   app.classList.toggle('dock-open', instr);
-  $$('.panel-tabs [role="tab"]').forEach((b) => { const on = b.dataset.ptab === tab; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; if (on) b.classList.remove('ping'); });
+  $('#tabInstruments').setAttribute('aria-pressed', String(instr));
+  if (instr) $('#tabInstruments').classList.remove('ping');
+  else app.classList.remove('instrument-focus');
   if (was !== instr) {
     const f = store.get().frame; if (f && instr) requestAnimationFrame(() => dock.update(f, true));
     setTimeout(() => dispatchEvent(new Event('resize')), 320);
@@ -779,6 +787,7 @@ function wireKeyboard() {
       else if (home.isOpen()) home.close();
       else if (app.classList.contains('figure-mode')) toggleFigure(false);
       else if (projector) toggleProjector();
+      else if (app.classList.contains('instrument-focus')) dock.setState('open');
       else if (stage.isShunting()) stage.cancelShunt();
       else if (store.get().tool !== 'select') setTool('select');
       else store.set({ selection: null });
@@ -844,28 +853,24 @@ function updateProjector(f) {
 }
 
 // ── Phone & tablet ──────────────────────────────────
-// How an instrument is brought forward: 'hard' (a button asked for it) opens it in the side
-// panel; 'lesson' does the same where the panel sits beside the figure but only flags it where
-// the panel would cover the figure; 'soft' (a click on the figure) never re-frames the figure
-// under the pointer, so it only flags the Measure tab (or the side-panel button) when hidden.
+// Instruments share space with the figure. A soft vessel hover/click can flag the launcher;
+// explicit tools and lesson steps open the workspace without a scrim.
 function revealDock(mode) {
-  const visible = app.classList.contains('dock-open') && panelShown();
-  if (visible) return;
-  const flag = mode === 'soft' || (mode === 'lesson' && isNarrow());
-  if (!flag) { openPanel('instruments'); return; }
-  if (panelShown()) $('#tabInstruments').classList.add('ping');
-  else { $('#btnInspector').classList.add('ping'); $('#tabInstruments').classList.add('ping'); }
+  if (app.classList.contains('dock-open')) return;
+  if (mode === 'soft') { $('#tabInstruments').classList.add('ping'); return; }
+  openPanel('instruments');
 }
 function wirePanel() {
   const tabs = $$('.panel-tabs [role="tab"]');
   tabs.forEach((b, i) => {
-    b.addEventListener('click', () => setPanelTab(b.dataset.ptab));
+    b.addEventListener('click', () => openPanel(b.dataset.ptab));
     b.addEventListener('keydown', (e) => {
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
       const n = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
-      n.focus(); setPanelTab(n.dataset.ptab);
+      n.focus(); openPanel(n.dataset.ptab);
     });
   });
+  $('#tabInstruments').addEventListener('click', () => dock.toggle());
   $('#panelClose').addEventListener('click', closePanel);
   $('#panelScrim').addEventListener('click', closePanel);
   // Below 1280 px the panel starts closed so the figure has the room; wider, it is open.

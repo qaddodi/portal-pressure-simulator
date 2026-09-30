@@ -72,7 +72,7 @@ export function computeMetrics(eng) {
     ra, ivc: P[ni.IVCS],
     pvFlow: qf('PV_TRUNK') * 0.06,
     pvVel: eng.velocity('PV_TRUNK'),
-    pvPI: p.pulsatile ? eng.pi.value : null,
+    pvPI: p.pulsatile || eng.beat ? eng.pi.value : null,
     hepaticFlow: hepFlow * 0.06,
     liverPerfPct: (hepFlow / eng.baseHepFlow) * 100,
     portalIn: portalIn * 0.06,

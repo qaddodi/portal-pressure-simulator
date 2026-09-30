@@ -189,6 +189,130 @@ for (const device of Object.keys(DEVICES)) {
     await page.waitForTimeout(800);
     await shot(page, `${device}-dark`);
   });
+  await check(device, 'responsive instrument workspace', async (page) => {
+    await open(page, '?preset=cirr-decomp');
+    await page.click('#tabInstruments');
+    await page.waitForSelector('#dockBody .dock-pane.active');
+    await page.waitForTimeout(400);
+    const geometry = () => page.evaluate(() => {
+      const dock = document.querySelector('#dock').getBoundingClientRect();
+      const stage = document.querySelector('#stageView').getBoundingClientRect();
+      const panel = document.querySelector('#panel');
+      return { stageH: stage.height, stageBottom: stage.bottom, dockTop: dock.top,
+        dockRight: dock.right, width: innerWidth,
+        scrim: getComputedStyle(document.querySelector('#panelScrim')).visibility,
+        panel: getComputedStyle(panel).visibility };
+    });
+    let g = await geometry();
+    if (g.stageH < 50 || g.stageBottom > g.dockTop + 1) throw new Error('workspace overlays or hides the anatomy');
+    if (g.dockRight > g.width + 1) throw new Error('workspace extends off screen');
+    if (device === 'phone' && (g.scrim === 'visible' || g.panel === 'visible')) throw new Error('opening instruments also opens a patient overlay');
+    const before = await page.evaluate(() => window.pps.store.get().frame.t);
+    await page.waitForTimeout(500);
+    if (!((await page.evaluate(() => window.pps.store.get().frame.t)) > before)) throw new Error('opening instruments paused simulation');
+    await page.click('.workspace-divider');
+    await page.keyboard.press('ArrowUp');
+    await page.click('.workspace-expand');
+    await page.click('.workspace-compare');
+    await page.waitForFunction(() => !!window.pps.store.get().compareSnap);
+    await page.click('.workspace-expand');
+    await page.waitForSelector('.workspace-comparison:not([hidden])');
+    const choose = async (id) => {
+      await page.click('#dockHead .dock-title');
+      if (await page.locator('.instrument-option').count() !== 8) throw new Error('chooser must offer eight distinct instruments');
+      await page.click(`.instrument-option[data-instrument="${id}"]`);
+      await page.waitForTimeout(250);
+    };
+    for (const id of ['scope', 'flow', 'perfusion', 'hvpg', 'doppler', 'endoscopy', 'abdomen', 'profile']) {
+      await choose(id);
+      const overflow = await page.$eval(`#pane-${id}`, (el) => el.scrollWidth - el.clientWidth);
+      if (overflow > 2) throw new Error(`${id} has horizontal overflow (${overflow}px)`);
+      const sized = await page.$eval(`#pane-${id}`, (el) => [...el.querySelectorAll('canvas')].filter((c) => c.getBoundingClientRect().height > 0).every((c) => c.width > 1 && c.height > 1));
+      if (!sized) throw new Error(`${id} has an unsized visible canvas`);
+    }
+    await page.evaluate(() => window.pps.dock.show('landscape', { reveal: true }));
+    await page.waitForSelector('.land-verdict');
+    await page.evaluate(() => window.pps.dock.show('varixwall', { reveal: true }));
+    if (!(await page.$eval('.wall-details', (d) => d.open))) throw new Error('legacy varixwall route does not open mechanics');
+    await page.click('.workspace-expand');
+    await page.waitForFunction(() => document.querySelector('#app').classList.contains('instrument-focus'));
+    // Run and Compare live in the header only while the instrument has the whole screen.
+    await page.click('.workspace-run');
+    await page.waitForFunction(() => !window.pps.store.get().running);
+    await page.waitForTimeout(250);
+    const square = await page.$eval('#pane-endoscopy .chart-box.square', (el) => { const r = el.getBoundingClientRect(); return Math.abs(r.width - r.height); });
+    if (square > 2) throw new Error('endoscopy loses its square aspect ratio');
+    await page.$eval('#pane-endoscopy', (el) => { el.scrollTop = 0; });
+    await shot(page, `${device}-workspace-endoscopy`);
+    await page.click('.workspace-expand');
+    await page.click('.workspace-fold');
+    await page.waitForFunction(() => document.querySelector('#dock').dataset.state === 'peek');
+    await page.click('.workspace-fold');
+    if (device === 'phone') {
+      await page.setViewportSize({ width: 844, height: 390 });
+      await page.waitForTimeout(500);
+      g = await geometry();
+      if (g.dockRight > g.width + 1 || g.stageH < 20) throw new Error('rotation makes workspace unusable');
+      await page.click('.workspace-expand');
+      await shot(page, 'phone-workspace-landscape');
+      await page.click('.workspace-expand');
+      await page.setViewportSize({ width: 390, height: 844 });
+    } else {
+      await page.click('#btnInspector');
+      await page.waitForTimeout(500);
+      await page.click('.dock-second');
+      await page.click('.instrument-option[data-instrument="doppler"]');
+      await page.waitForSelector('#dockBody.split');
+      await shot(page, 'desktop-workspace-two-instruments');
+      await page.setViewportSize({ width: 768, height: 1024 });
+      await page.waitForTimeout(500);
+      if (await page.$eval('#dockBody', (el) => el.classList.contains('split'))) throw new Error('two cramped columns remain on tablet');
+      await shot(page, 'tablet-workspace');
+    }
+    await page.evaluate(() => window.pps.host.send({ type: 'run', running: true }));
+    await page.waitForFunction(() => window.pps.store.get().running);
+  });
+
+  await check(device, 'pressure over time and Doppler', async (page) => {
+    await open(page, '?preset=cirr-decomp');
+    if (await page.evaluate(() => window.pps.store.get().frame.pulsing)) throw new Error('heartbeat runs before a waveform instrument is open');
+    await page.click('#tabInstruments');
+    await page.evaluate(() => window.pps.dock.show('scope'));
+    // The heartbeat switches on while a waveform instrument is on screen, without touching the patient's parameters.
+    await page.waitForFunction(() => window.pps.store.get().frame.pulsing, null, { timeout: 5000 });
+    if (await page.evaluate(() => window.pps.store.get().params.pulsatile)) throw new Error('opening an instrument changed the patient parameters');
+    await page.waitForTimeout(2500);
+    const hero = await page.$eval('#pane-scope .pt-num', (el) => parseFloat(el.textContent));
+    if (!(hero > 12)) throw new Error(`pressure over time shows HVPG ${hero}`);
+    const drawn = await page.$eval('#pane-scope canvas', (c) => { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 16) if (d[i]) n++; return n; });
+    if (drawn < 200) throw new Error('pressure over time draws nothing');
+    await page.evaluate(() => window.pps.updateParams((p) => { p.drugs.carvedilol = true; return p; }, { label: 'Carvedilol' }));
+    await page.waitForTimeout(1500);
+    await page.click('#pane-scope [data-range="minutes"]');
+    await page.click('#pane-scope .pt-chip[data-trace="RA"]');
+    const box = await page.$eval('#pane-scope canvas', (c) => { const r = c.getBoundingClientRect(); return [r.x + r.width * 0.7, r.y + r.height * 0.4]; });
+    await page.mouse.move(box[0], box[1]);
+    await shot(page, `${device}-pressure-over-time`);
+    await page.click('#pane-scope [data-range="days"]');
+    // A jump stops early if a varix ruptures on the way, so only require that the clock moved.
+    await page.evaluate(() => window.pps.timeline.jump(30, '1 month'));
+    await page.waitForFunction(() => window.pps.store.get().frame.day > 0, null, { timeout: 20000 });
+    await page.waitForTimeout(500);
+    await shot(page, `${device}-pressure-over-time-days`);
+    await page.evaluate(() => window.pps.dock.show('doppler'));
+    await page.waitForTimeout(1500);
+    const dir = await page.$eval('#pane-doppler .dop-dir', (el) => el.textContent);
+    if (!/Hepatopetal|Hepatofugal|To-and-fro|Stasis|No flow/.test(dir)) throw new Error(`Doppler reports "${dir}" for the portal vein`);
+    await page.selectOption('#pane-doppler .dop-vessel', 'RHV_IVC');
+    await page.waitForFunction(() => window.pps.store.get().frame.probe === 'RHV_IVC');
+    await page.waitForTimeout(2500);
+    const pattern = await page.$eval('#pane-doppler .dop-pattern', (el) => el.textContent);
+    if (!/phasic/i.test(pattern)) throw new Error(`hepatic vein pattern is "${pattern}"`);
+    await shot(page, `${device}-doppler`);
+    await page.evaluate(() => window.pps.dock.close());
+    await page.waitForFunction(() => !window.pps.store.get().frame.pulsing, null, { timeout: 5000 });
+  });
+
 }
 
 await browser.close();

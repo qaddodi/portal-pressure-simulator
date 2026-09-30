@@ -1,10 +1,10 @@
 // Simulation host: owns the Engine, runs the clocks, streams frames (blueprint §13.4).
 // Used inside a Web Worker (src/worker.js) or on the main thread as a fallback.
 
-import { Engine } from './engine/engine.js?v=576201352f';
-import { computeMetrics } from './engine/metrics.js?v=9da2fb878d';
-import { detectEvents } from './engine/events.js?v=5b27c17ae5';
-import { explain } from './engine/explain.js?v=a4db7ce6f5';
+import { Engine } from './engine/engine.js?v=60cfbb8e58';
+import { computeMetrics } from './engine/metrics.js?v=dce09d914b';
+import { detectEvents } from './engine/events.js?v=ec3206ea69';
+import { explain } from './engine/explain.js?v=637d0b00d7';
 import { defaultParams, deepMerge, PRESETS } from './engine/scenario.js?v=8fc90f782f';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
@@ -22,7 +22,8 @@ export function createCore(post) {
   let frameDirty = true;
   let paramsDirty = true;
   let samples = null;
-  const newSamples = () => ({ t: [], vel: [], pvVel: [], hvVel: [], ...Object.fromEntries(SAMPLE_NODES.map((n) => [n, []])) });
+  let beat = false;
+  const newSamples = () => ({ t: [], vel: [], pvVel: [], hvVel: [], whvp: [], hvpg: [], ...Object.fromEntries(SAMPLE_NODES.map((n) => [n, []])) });
 
   function sample() {
     if (!samples) samples = newSamples();
@@ -30,6 +31,9 @@ export function createCore(post) {
     samples.vel.push(eng.velocity(probe));
     samples.pvVel.push(eng.velocity('PV_TRUNK'));
     samples.hvVel.push(eng.velocity('RHV_IVC'));
+    const hv = eng.hvpgTrue();
+    samples.whvp.push(hv.whvp);
+    samples.hvpg.push(hv.hvpg);
     for (const n of SAMPLE_NODES) samples[n].push(eng.P[eng.ni[n]]);
   }
 
@@ -41,6 +45,7 @@ export function createCore(post) {
       type: 'frame',
       changed: frameDirty,
       t: eng.t, day: eng.day, running, speed, clock, probe,
+      pulsing: !!(eng.params.pulsatile || eng.beat),
       phase: eng.phase(),
       P: Float32Array.from(eng.P),
       Pf: Float32Array.from(eng.Pf || eng.P),
@@ -67,11 +72,13 @@ export function createCore(post) {
     const now = performance.now();
     const realDt = last == null ? 0 : Math.min(0.1, (now - last) / 1000);
     last = now;
+    eng.beat = beat;
     if (running) {
       if (clock === 'hemo') {
-        const h = eng.params.pulsatile ? 0.004 : 0.02;
+        const pulse = eng.params.pulsatile || beat;
+        const h = pulse ? 0.004 : 0.02;
         let simDt = realDt * speed;
-        let n = Math.min(Math.ceil(simDt / h), eng.params.pulsatile ? 700 : 400);
+        let n = Math.min(Math.ceil(simDt / h), pulse ? 700 : 400);
         const every = Math.max(1, Math.floor(n / 24));
         for (let i = 0; i < n; i++) {
           eng.step(h);
@@ -181,6 +188,7 @@ export function createCore(post) {
       post({ type: 'counterfactual', reqId, result: { minMap, lost: e.blood.lost, hb: m.blood.hb, map: m.map, bleeding: e.bleed.active, stopAt } });
     },
     probe({ id }) { probe = id; },
+    beat({ on }) { if (beat !== !!on) { beat = !!on; frameDirty = true; } },
     snapshot({ reqId }) { post({ type: 'snapshot', reqId, snap: eng.snapshot() }); },
     restore({ snap }) { eng.restore(snap); paramsDirty = true; },
     explain({ metric, reqId }) {

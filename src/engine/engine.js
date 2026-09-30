@@ -7,7 +7,7 @@ import {
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=8b006eefeb';
 import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=8fc90f782f';
-import { detectEvents } from './events.js?v=5b27c17ae5';
+import { detectEvents } from './events.js?v=ec3206ea69';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -89,6 +89,9 @@ export class Engine {
     this.newEvents = [];
     this.eventLog = [];
     this.quiet = false;
+    // Beat-to-beat waveform switched on by the UI while a waveform instrument is on screen,
+    // without touching the patient's parameters (links, undo and cases stay unchanged).
+    this.beat = false;
     this.bands = 0;
     for (let i = 0; i < this.N; i++) {
       const [Pk, Ps] = this.nodeK[i];
@@ -202,7 +205,7 @@ export class Engine {
     const iapDev = this.iap - 5;
     const pplDev = ppl + vals;
     let raExt = pplDev + 12 * p.pericardial;
-    if (p.pulsatile && !this.quiet) raExt += raWave(this.phase());
+    if (this.pulsing()) raExt += raWave(this.phase());
     for (let i = 0; i < this.N; i++) {
       const ext = NODES[i].ext;
       this.ext[i] = ext === 'abd' ? iapDev
@@ -359,7 +362,7 @@ export class Engine {
     // Heart pump RA → AO
     const RA = this.ni.RA, AO = this.ni.AO;
     let m = 1;
-    if (p.pulsatile && !this.quiet) {
+    if (this.pulsing()) {
       const ph = this.phase();
       m = fillShape(ph) + p.tr * 1.2 * (fillShape(ph) - systoleShape(ph));
     }
@@ -424,8 +427,10 @@ export class Engine {
     this.t = tNew;
     this.controllers(dt);
     if (!this.quiet) this.fastProcesses(dt);
-    if (p.pulsatile && !this.quiet) this.trackPulsatility();
+    if (this.pulsing()) this.trackPulsatility();
   }
+
+  pulsing() { return (this.params.pulsatile || this.beat) && !this.quiet; }
 
   liverStiff(i) {
     const k = NODES[i].kind;

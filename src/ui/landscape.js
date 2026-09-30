@@ -5,12 +5,12 @@
 // pathway, live.
 
 import { store } from './store.js?v=4bf5a96a9d';
-import { h, fmt, clamp, fitCanvas } from './util.js?v=cc7ee4cf38';
+import { h, fmt, clamp, fitCanvas } from './util.js?v=fe164f31f1';
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { NODE_POS, HIDDEN_EDGES, HIDDEN_NODES, CIRCUIT_ZONES, SHORT } from './anatomy.js?v=ad5ea5e8e5';
 import { pressureColor, PRESSURE_TICKS } from './colormap.js?v=6d64a94345';
-import { createMeasureCard } from './measures.js?v=bbf4a3cf5d';
-import { theme, FONT } from './charts.js?v=73528b3f92';
+import { createMeasureCard } from './measures.js?v=c4dde065f7';
+import { theme, FONT } from './charts.js?v=6046946e83';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 // The portal pathway, gut to heart, and what a fall across each step means.
@@ -30,9 +30,8 @@ export function createLandscape() {
   const verdict = h('div', { class: 'land-verdict' });
   const card = createMeasureCard();
   const side = h('div', { class: 'chart-side' },
-    h('div', { class: 'side-title' }, 'Pressure landscape'),
-    h('div', { class: 'sub' }, 'The circuit raised by mean venous pressure (mmHg). Blood runs downhill: plateaus are compartments, cliffs are resistances. Drag to tilt and turn.'),
-    verdict, card.el);
+    h('div', { class: 'sub' }, 'The circuit raised by its mean venous pressure. Blood runs downhill: plateaus are compartments, cliffs are resistances. Drag to turn.'),
+    verdict, h('details', { class: 'instrument-details' }, h('summary', {}, 'Three measurements of pressure'), card.el));
   el.append(box, side);
   store.on('selection', () => { if (F) card.update(F); });
 

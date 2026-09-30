@@ -48,7 +48,7 @@ svg { flex: none; }
 .app.panel-collapsed { grid-template-columns: minmax(0, 1fr) 0; }
 .app.panel-collapsed .panel { visibility: hidden; }
 /* Charts need a little more width than the patient chart. */
-.app.dock-open { --panel-w: 440px; }
+
 
 /* ── Top bar ────────────────────────────────────── */
 .topbar {
@@ -366,7 +366,7 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 /* ── Instrument drawer ──────────────────────────── */
 .dock { background: var(--surface); display: none; flex-direction: column; flex: 1; min-height: 0; min-width: 0; position: relative; }
 .app.dock-open .dock { display: flex; }
-.app.dock-open #panelChart { display: none; }
+
 .dock-head { display: flex; align-items: center; gap: 12px; flex: none; height: 43px; padding: 0 8px 0 12px; min-width: 0; }
 .dock-title { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-12); font-weight: 650; color: var(--text); white-space: nowrap; border: 0; background: none; cursor: pointer; padding: 8px 4px; border-radius: var(--r-control); }
 .dock-title { position: relative; }
@@ -939,7 +939,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "stage" "strip"; }
   .app.panel-collapsed { grid-template-columns: minmax(0, 1fr); }
   .panel { position: fixed; right: 0; top: calc(var(--top-h) + var(--safe-top)); bottom: 0; width: min(380px, 92vw); z-index: var(--z-panel); box-shadow: var(--shadow-3); transform: translateX(105%); transition: transform .3s var(--ease), width .3s var(--ease), visibility .3s; visibility: hidden; }
-  .app.dock-open .panel { width: min(460px, 92vw); }
+
   .app.panel-open .panel { transform: none; visibility: visible; }
   .panel-toggle[aria-pressed="true"] { background: var(--surface-3); }
   .brand-sub { display: none; }
@@ -1485,13 +1485,6 @@ div.vt-vital { cursor: default; }
 .dock-body.split { overflow-y: auto; }
 .dock-body.split .dock-pane { position: relative; inset: auto; overflow: visible; }
 .dock-body.split .dock-pane + .dock-pane { border-top: 1px solid var(--hairline); }
-.instr-float { position: absolute; z-index: var(--z-hud); width: 560px; height: 300px; min-width: 320px; min-height: 200px; max-width: calc(100% - 16px); max-height: calc(100% - 16px); display: flex; flex-direction: column; resize: both; overflow: hidden;
-  background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); animation: acIn .14s var(--ease); }
-.instr-float.flash { box-shadow: var(--shadow-3), 0 0 0 3px var(--accent); }
-.if-head { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 16px; border-bottom: 1px solid var(--hairline); cursor: grab; font-size: var(--fs-13); }
-.if-head .sp { flex: 1; }
-.if-head .ib { width: 28px; height: 28px; }
-.instr-float .dock-pane { position: relative; inset: auto; flex: 1; display: flex; min-height: 0; }
 .flash-ring { fill: none; stroke: var(--accent); stroke-linecap: round; stroke-linejoin: round; animation: flashRing 1.6s var(--ease) forwards; pointer-events: none; }
 @keyframes flashRing { 0% { stroke-opacity: 0; } 15% { stroke-opacity: .5; } 100% { stroke-opacity: 0; } }
 .app-menu { width: 280px; }
@@ -1805,3 +1798,265 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 /* Every live number uses tabular figures, so digits hold still as the model runs. */
 .metric, .vital, .vt-row, .vt-vital, .kv dd, .tl-time, .stage-clock, .big-overlay, .cmp-table, .cut-table, .hp-chip, .mon, .lz-side,
 .ctl-val, .event-log, .pb-n, .pt-n, .scn .d, #labels text, .ic-live, .tl-pop .when, .story .st-when, .bleed-pill { font-variant-numeric: tabular-nums; }
+
+/* ── Live instrument workspace ─────────────────────
+   Instruments share the figure column, independent of the patient panel. No floating windows
+   or mobile scrim; container queries adapt each instrument to its own available width. */
+.measure-launch { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; padding: 0 11px; border: 1px solid var(--hairline); border-radius: var(--r-control); background: var(--surface); color: var(--text-2); cursor: pointer; font: 600 var(--fs-13) var(--font-ui); position: relative; }
+.measure-launch svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+.measure-launch[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-ink); border-color: transparent; }
+.measure-launch.ping::after { content: ''; position: absolute; right: 5px; top: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.instrument-workspace { --instrument-h: 340px; --plot-h: 240px; --square-size: 260px; position: relative; flex: none; height: var(--instrument-h); min-height: 0; width: 100%; overflow: hidden; border-top: 1px solid var(--hairline); background: var(--surface); box-shadow: 0 -5px 24px rgba(0,0,0,.035); z-index: 2; }
+.app.dock-open .instrument-workspace { display: flex; }
+.workspace-divider { height: 12px; flex: none; display: grid; place-items: center; cursor: ns-resize; touch-action: none; background: var(--surface); }
+.workspace-divider span { width: 42px; height: 3px; background: var(--border-strong); border-radius: 4px; transition: width .15s; }
+.workspace-divider:hover span, .workspace-divider:focus-visible span { width: 64px; background: var(--accent); }
+.instrument-workspace .dock-head { height: 48px; flex: none; padding: 0 12px; gap: 8px; }
+.instrument-workspace .dock-title { min-width: 0; font-size: var(--fs-14); flex: none; }
+.instrument-workspace .dock-title .dt-l { max-width: 210px; overflow: hidden; text-overflow: ellipsis; }
+.workspace-live { flex: 1; min-width: 0; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; font: 500 var(--fs-12) var(--font-ui); color: var(--text-3); display: inline-flex; align-items: center; gap: 6px; }
+.workspace-live[data-state="live"]::before, .workspace-live[data-state="paused"]::before { content: ''; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--text-3); }
+.workspace-live[data-state="live"]::before { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 18%, transparent); }
+.workspace-live[data-state="summary"] { color: var(--text-2); }
+/* Run and Compare repeat the play bar right above; they are only needed when the instrument
+   has the whole screen. */
+.app:not(.instrument-focus) .instrument-workspace .workspace-run, .app:not(.instrument-focus) .instrument-workspace .workspace-compare { display: none; }
+.workspace-run { display: inline-flex; align-items: center; gap: 6px; background: var(--surface-2); color: var(--text); border: 0; border-radius: var(--r-control); cursor: pointer; min-height: 34px; padding: 0 10px; font: 600 var(--fs-12) var(--font-ui); }
+.workspace-run svg, .workspace-compare svg, .dock-second svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.6; }
+.workspace-run[aria-pressed="true"] svg { display: none; }
+.instrument-workspace .dock-head .ib { display: inline-flex; flex: none; width: 34px; height: 34px; }
+.instrument-workspace .dock-head .workspace-fold svg { transition: transform .2s; }
+.instrument-workspace[data-state="peek"] .workspace-fold svg { transform: rotate(180deg); }
+.instrument-workspace[data-state="peek"] { height: 52px; }
+.instrument-workspace[data-state="peek"] .dock-head { height: 52px; }
+.workspace-slots { display: grid; grid-template-columns: 1fr 1fr; flex: none; border-top: 1px solid var(--hairline); }
+.workspace-slot { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 2px 12px; font-size: var(--fs-12); color: var(--text-2); }
+.workspace-slot + .workspace-slot { border-left: 1px solid var(--hairline); }
+.workspace-slot .ib { width: 28px; height: 28px; }
+.instrument-workspace .dock-body { display: grid; grid-template-columns: minmax(0, 1fr); flex: 1; min-height: 0; overflow: hidden; }
+.instrument-workspace .dock-body.split { grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: hidden; }
+.instrument-workspace .dock-pane { position: relative; inset: auto; display: none; min-height: 0; min-width: 0; overflow: auto; overscroll-behavior: contain; padding: 16px 20px 20px; container-type: inline-size; }
+.instrument-workspace .dock-pane.active { display: flex; flex-direction: column; gap: 12px; animation: none; }
+.instrument-workspace .dock-body.split .dock-pane + .dock-pane { border-top: 0; border-left: 1px solid var(--hairline); }
+.instrument-view { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 20px; min-width: 0; }
+.instrument-workspace .instrument-view .chart-box { flex: none; height: var(--plot-h); min-height: 190px; max-width: none; min-width: 0; }
+.instrument-workspace .instrument-view .chart-box.square { width: min(100%, var(--square-size)); height: auto; aspect-ratio: 1; min-height: 0; justify-self: center; }
+.instrument-workspace .instrument-view .chart-side { width: auto !important; min-width: 0; overflow: visible; padding: 0; gap: 10px; }
+.instrument-view .kv { margin: 0; }
+.instrument-view .side-title { font-size: var(--fs-14); }
+.instrument-view .ctl-sub { line-height: 1.5; }
+.pressure-views { align-self: flex-start; flex: none; }
+.pressure-views button { min-height: 32px; padding-inline: 14px; }
+.instrument-details { min-width: 0; border-top: 1px solid var(--hairline); padding-top: 10px; font-size: var(--fs-13); }
+.instrument-details > summary { display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; color: var(--text); font-weight: 600; min-height: 34px; }
+.instrument-details > summary::-webkit-details-marker { display: none; }
+.instrument-details > summary::before { content: '+'; color: var(--text-3); font-size: 16px; font-weight: 400; width: 12px; }
+.instrument-details[open] > summary::before { content: '−'; }
+.instrument-details > summary > span { color: var(--text-3); font-weight: 400; font-size: var(--fs-12); }
+.instrument-details[open] > .instrument-view, .instrument-details[open] > .kv { margin-top: 12px; }
+.wall-details { grid-column: 1 / -1; }
+.trace-picker .check-list { margin-top: 8px; display: grid; grid-template-columns: 1fr; }
+.procedure-controls { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--hairline); border-radius: var(--r-card); background: var(--surface-2); }
+.workspace-comparison { display: flex; gap: 20px; flex: none; padding: 8px 20px; background: var(--accent-soft); font-size: var(--fs-12); color: var(--text-2); overflow-x: auto; white-space: nowrap; }
+.workspace-comparison > span { display: inline-flex; gap: 8px; }
+.workspace-comparison b { color: var(--text); font-variant-numeric: tabular-nums; }
+.workspace-comparison .comparison-label { color: var(--accent-ink); font-weight: 600; }
+.workspace-chooser { position: absolute; inset: 0; z-index: 4; overflow: auto; overscroll-behavior: contain; padding: 14px 20px 20px; background: var(--surface); }
+.chooser-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; font-size: var(--fs-14); }
+.workspace-chooser section { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 18px; }
+.workspace-chooser h3 { grid-column: 1 / -1; color: var(--text-3); font-size: var(--fs-11); letter-spacing: .06em; text-transform: uppercase; margin: 14px 0 6px; }
+.instrument-option { display: flex; align-items: center; gap: 12px; text-align: left; padding: 12px 10px; min-width: 0; background: none; color: var(--text); border: 1px solid transparent; border-radius: var(--r-control); cursor: pointer; }
+.instrument-option:hover { background: var(--surface-2); }
+.instrument-option.selected { background: var(--accent-soft); border-color: transparent; }
+.instrument-option > svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.5; color: var(--text-2); flex: none; }
+.instrument-option > span:first-of-type { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.instrument-option b { font-size: var(--fs-13); font-weight: 600; }
+.instrument-option small { font-size: var(--fs-12); color: var(--text-3); line-height: 1.4; }
+.instrument-option .option-value { margin-left: auto; font-size: var(--fs-12); color: var(--accent-ink); white-space: nowrap; }
+.app.instrument-focus .stage-view, .app.instrument-focus #stageTop, .app.instrument-focus #coach, .app.instrument-focus .fig-head, .app.instrument-focus .fig-foot { display: none; }
+.app.instrument-focus .instrument-workspace { height: auto; flex: 1; }
+.app.instrument-focus .panel { display: none; }
+.app.instrument-focus { grid-template-columns: minmax(0, 1fr) 0; }
+@container (min-width: 650px) {
+  .instrument-view { grid-template-columns: minmax(0, 1fr) 260px; }
+  .instrument-view[data-pane="perfusion"] { grid-template-columns: minmax(0, .75fr) minmax(0, 1fr); }
+  .instrument-view[data-pane="perfusion"] > .chart-side { grid-column: 1 / -1; }
+  .wall-view { grid-template-columns: minmax(0, 1fr) 230px; }
+  .instrument-option .option-value { display: none; }
+}
+@container (min-width: 1050px) {
+  .instrument-view[data-pane="perfusion"] { grid-template-columns: minmax(220px, .55fr) minmax(0, 1.2fr) 240px; }
+  .instrument-view[data-pane="perfusion"] > .chart-side { grid-column: auto; }
+}
+@media (max-width: 1279px) {
+  .app.instrument-focus { grid-template-columns: minmax(0, 1fr); }
+  .instrument-workspace .dock-head { padding-inline: 12px; }
+  .workspace-chooser section { grid-template-columns: minmax(0, 1fr); }
+  .instrument-option .option-value { display: none; }
+}
+@media (max-width: 767px) {
+  .measure-launch { width: 36px; min-height: 36px; padding: 0; }
+  .measure-launch > span { display: none; }
+  .instrument-workspace .dock-head { height: 48px; gap: 4px; flex-wrap: wrap; padding-inline: 8px; }
+  .instrument-workspace .dock-title { flex: 1; font-size: var(--fs-13); }
+  .instrument-workspace .dock-title .dt-l { max-width: 175px; }
+  .instrument-workspace .dock-title { flex: 0 1 auto; }
+  .instrument-workspace .dock-head .ib { width: 30px; height: 34px; }
+  .workspace-run { min-height: 32px; padding-inline: 8px; }
+  .workspace-run > span { font-size: 11px; }
+  .workspace-compare { min-height: 32px; padding-inline: 7px; font-size: 11px; }
+  .workspace-compare > svg { display: none; }
+  .workspace-close { display: none !important; }
+  .instrument-workspace[data-state="peek"] { height: 70px; }
+  .instrument-workspace[data-state="peek"] .dock-head { height: 70px; }
+  .instrument-workspace .dock-pane { padding: 12px 14px calc(16px + env(safe-area-inset-bottom)); }
+  .instrument-workspace .instrument-view .chart-box { min-height: 190px; }
+  .instrument-workspace .workspace-chooser { padding: 12px; }
+  .instrument-option { padding: 10px 8px; }
+  .instrument-details > summary > span { display: none; }
+  .workspace-comparison { gap: 14px; padding: 7px 14px; }
+  .workspace-comparison .comparison-label { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .workspace-divider span, .workspace-fold svg { transition: none; }
+}
+
+/* ── Pressure over time ─────────────────────────── */
+.instrument-view.pt { display: flex; flex-direction: column; align-items: stretch; gap: 10px; min-height: 100%; }
+.pt-head { display: flex; align-items: center; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; }
+.pt-hero { display: flex; align-items: baseline; gap: 6px 12px; flex-wrap: wrap; min-width: 0; }
+.pt-k { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); letter-spacing: .02em; }
+.pt-v { display: inline-flex; align-items: baseline; gap: 4px; }
+.pt-num { font-size: 28px; font-weight: 650; letter-spacing: -.02em; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
+.pt-v small { font-size: var(--fs-12); color: var(--text-3); font-weight: 500; }
+.pt-sev { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-12); font-weight: 600; color: var(--text-2); }
+.pt-sev::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); }
+.pt-sev[data-sev="ok"]::before { background: var(--ok); }
+.pt-sev[data-sev="caution"]::before { background: var(--caution); }
+.pt-sev[data-sev="danger"]::before { background: var(--danger); }
+.pt-sev[data-sev="danger"] { color: var(--danger); }
+.pt-delta { font-size: var(--fs-12); color: var(--text-3); font-variant-numeric: tabular-nums; margin-right: auto; }
+.pt-delta[data-dir="up"] { color: var(--danger); }
+.pt-delta[data-dir="down"] { color: var(--ok); }
+.pt-range { flex: none; }
+.pt-range button { min-height: 30px; padding-inline: 12px; }
+.instrument-workspace .instrument-view.pt .pt-box { flex: 1 1 0; height: auto; min-height: 180px; }
+.pt-box canvas { touch-action: pan-y; cursor: crosshair; }
+.pt-chips { display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; flex: none; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); padding-right: 28px; }
+.pt-chips::-webkit-scrollbar { display: none; }
+.pt-chip { --chip: var(--text-3); display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 11px 0 9px; border-radius: var(--r-pill); border: 1px solid var(--border); background: transparent; color: var(--text-3); font: 500 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast); }
+.pt-chip i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--chip); box-sizing: border-box; }
+.pt-chip[aria-pressed="true"] { color: var(--text); background: var(--surface-2); border-color: transparent; }
+.pt-chip[aria-pressed="true"] i { background: var(--chip); }
+.pt-chip:hover { border-color: var(--border-strong); }
+@media (max-width: 767px) {
+  .pt-num { font-size: 24px; }
+  .pt-hero { flex-basis: 100%; }
+  .pt-range button { min-height: 28px; padding-inline: 10px; }
+  .pt-chips { margin-inline: -14px; padding-left: 14px; }
+}
+
+/* ── Doppler ────────────────────────────────────── */
+.instrument-view.dop { display: flex; flex-direction: column; align-items: stretch; gap: 10px; min-height: 100%; }
+.dop-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: none; }
+.dop-vessel { min-width: 0; max-width: 260px; flex: 0 1 260px; height: 34px; font-weight: 600; }
+.dop-tint { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px 0 10px; border-radius: var(--r-pill); border: 1px solid var(--border); background: transparent; color: var(--text-2); font: 500 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; }
+.dop-tint i { width: 14px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #d8413a 50%, #3f78d8 50%); opacity: .35; transition: opacity var(--t-fast); }
+.dop-tint[aria-pressed="true"] { color: var(--text); background: var(--surface-2); border-color: transparent; }
+.dop-tint[aria-pressed="true"] i { opacity: 1; }
+.dop-main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; flex: 1 1 0; min-height: 0; }
+.instrument-workspace .instrument-view.dop .dop-box { height: auto; min-height: 200px; border-radius: var(--r-card); overflow: hidden; }
+.dop-report { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.dop-k { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); }
+.dop-dir { font-size: var(--fs-20); font-weight: 650; letter-spacing: -.01em; line-height: 1.2; color: var(--text); display: inline-flex; align-items: center; gap: 8px; }
+.dop-dir::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--text-3); flex: none; }
+.dop-dir[data-sev="ok"]::before { background: var(--ok); }
+.dop-dir[data-sev="caution"]::before { background: var(--caution); }
+.dop-dir[data-sev="danger"]::before { background: var(--danger); }
+.dop-dir[data-sev="critical"]::before { background: var(--critical); }
+.dop-dir[data-sev="danger"], .dop-dir[data-sev="critical"] { color: var(--danger); }
+.dop-velrow { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin-top: 6px; }
+.dop-vel { display: inline-flex; align-items: baseline; gap: 6px; }
+.dop-vel b { font-size: 28px; font-weight: 650; letter-spacing: -.02em; line-height: 1; font-variant-numeric: tabular-nums; }
+.dop-vel small { font-size: var(--fs-12); color: var(--text-3); }
+.dop-range { font-size: var(--fs-12); color: var(--text-3); }
+.dop-pattern { margin-top: 6px; font-size: var(--fs-13); font-weight: 600; color: var(--text); }
+.dop-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; margin: 8px 0 0; padding-top: 8px; border-top: 1px solid var(--hairline); }
+.dop-stats > div[hidden] { display: none; }
+.dop-stats dt { font-size: var(--fs-11); color: var(--text-3); font-weight: 500; }
+.dop-stats dd { margin: 0; font-size: var(--fs-13); font-weight: 600; font-variant-numeric: tabular-nums; }
+.dop-note { margin: 8px 0 0; font-size: var(--fs-12); line-height: 1.5; color: var(--text-2); }
+@container (min-width: 620px) {
+  .dop-main { grid-template-columns: minmax(0, 1fr) 232px; }
+}
+@container (max-width: 619px) {
+  .dop-main { flex: none; gap: 12px; }
+  .instrument-workspace .instrument-view.dop .dop-box { height: clamp(180px, 30vh, 260px); flex: none; }
+  .dop-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .dop-vessel { flex: 1 1 auto; max-width: none; }
+}
+
+/* ── HVPG ───────────────────────────────────────── */
+.instrument-view.hv { display: flex; flex-direction: column; align-items: stretch; gap: 10px; min-height: 100%; }
+.hv-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; flex: none; }
+.hv-veins button { min-height: 32px; padding-inline: 14px; }
+.hv-actions { display: flex; gap: 6px; }
+.hv-actions .btn[disabled] { opacity: .45; cursor: default; }
+.hv-main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; flex: 1 1 0; min-height: 0; }
+.instrument-workspace .instrument-view.hv .hv-box { height: auto; min-height: 200px; }
+.hv-report { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.hv-k { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); }
+.hv-num { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
+.hv-num b { font-size: 28px; font-weight: 650; letter-spacing: -.02em; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.hv-num small { font-size: var(--fs-12); color: var(--text-3); }
+.hv-sev { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-12); font-weight: 600; color: var(--text-3); margin-left: 4px; }
+.hv-sev[data-sev]:not([data-sev=""])::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); }
+.hv-sev[data-sev="ok"]::before { background: var(--ok); }
+.hv-sev[data-sev="caution"]::before { background: var(--caution); }
+.hv-sev[data-sev="danger"] { color: var(--danger); }
+.hv-sev[data-sev="danger"]::before { background: var(--danger); }
+.hv-parts { font-size: var(--fs-12); color: var(--text-2); font-variant-numeric: tabular-nums; min-height: 1.4em; }
+.hv-steps { list-style: none; margin: 10px 0 0; padding: 10px 0 0; border-top: 1px solid var(--hairline); display: flex; flex-direction: column; gap: 7px; counter-reset: hv; }
+.hv-steps li { counter-increment: hv; display: flex; align-items: center; gap: 10px; font-size: var(--fs-12); color: var(--text-3); line-height: 1.35; }
+.hv-steps li::before { content: counter(hv); flex: none; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 10.5px; font-weight: 650; border: 1px solid var(--border-strong); color: var(--text-3); }
+.hv-steps li[data-state="now"] { color: var(--text); font-weight: 600; }
+.hv-steps li[data-state="now"]::before { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+.hv-steps li[data-state="done"] { color: var(--text-2); }
+.hv-steps li[data-state="done"]::before { content: '✓'; border-color: transparent; background: var(--accent-soft); color: var(--accent-ink); }
+.hv-true { margin-top: 8px; font-size: var(--fs-12); color: var(--text-3); }
+.hv-true:empty { display: none; }
+.hv-log { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.hv-log:empty { display: none; }
+.hv-row { display: flex; justify-content: space-between; gap: 12px; font-size: var(--fs-12); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.hv-row b { color: var(--text); font-weight: 600; }
+@container (min-width: 620px) {
+  .hv-main { grid-template-columns: minmax(0, 1fr) 232px; }
+}
+@container (max-width: 619px) {
+  .hv-main { flex: none; gap: 12px; }
+  .instrument-workspace .instrument-view.hv .hv-box { height: clamp(180px, 30vh, 260px); flex: none; }
+  .hv-veins { flex: 1 1 100%; display: flex; }
+  .hv-veins button { flex: 1; padding-inline: 6px; }
+}
+
+/* ── Ascites ────────────────────────────────────── */
+.instrument-view.ab { display: flex; flex-direction: column; align-items: stretch; min-height: 100%; }
+.instrument-workspace .instrument-view.ab .ab-box { height: auto; min-height: 220px; }
+.ab-report { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.ab-report .hv-num { margin-top: -4px; }
+.ab-grade { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-12); font-weight: 600; color: var(--text-2); margin-left: 4px; }
+.ab-grade::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); }
+.ab-grade[data-sev="ok"]::before { background: var(--ok); }
+.ab-grade[data-sev="caution"]::before { background: var(--caution); }
+.ab-grade[data-sev="danger"]::before { background: var(--danger); }
+.ab-report .procedure-controls { padding: 10px 12px; gap: 8px; }
+@container (min-width: 620px) {
+  .ab-main { grid-template-columns: minmax(0, 1fr) 260px; }
+}
+@container (max-width: 619px) {
+  .instrument-workspace .instrument-view.ab .ab-box { height: clamp(200px, 32vh, 280px); flex: none; }
+}
+.instrument-workspace .instrument-view .chart-box.perf-donut { height: min(var(--plot-h), 300px); }
+@container (max-width: 649px) {
+  .instrument-workspace .instrument-view .chart-box.perf-donut { height: 250px; }
+}

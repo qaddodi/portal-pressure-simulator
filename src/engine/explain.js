@@ -2,8 +2,8 @@
 // Each factor that differs from the healthy state is reverted in isolation on a scratch engine;
 // its contribution is (current − reverted). Contributions are approximate: they need not sum exactly.
 
-import { Engine } from './engine.js?v=576201352f';
-import { computeMetrics } from './metrics.js?v=9da2fb878d';
+import { Engine } from './engine.js?v=60cfbb8e58';
+import { computeMetrics } from './metrics.js?v=dce09d914b';
 import { defaultParams, DRUGS } from './scenario.js?v=8fc90f782f';
 import { EDGES, COLLATERAL_DMIN_RATIO, dMinOf } from './topology.js?v=29d10ad9ef';
 
