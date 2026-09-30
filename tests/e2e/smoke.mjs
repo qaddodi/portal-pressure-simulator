@@ -193,20 +193,25 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await p2.close();
   });
 
-  await check(device, 'GPU veins prototype (?veins=gl)', async (page) => {
+  await check(device, 'vessels and plate on the GPU (?veins=gl)', async (page) => {
     await open(page, '?preset=cirr-decomp&veins=gl');
     const kind = await page.evaluate(() => document.querySelector('#stageView').dataset.veins);
     if (kind !== 'webgl2') throw new Error(`expected the WebGL2 veins, got ${kind}`);
-    await page.waitForFunction(() => document.querySelectorAll('#stage .vg.gl').length > 10);
-    await page.evaluate(() => window.pps.store.set({ selection: { type: 'edge', id: 'PV_TRUNK' } }));
+    const on = (cls) => page.waitForFunction((c) => document.querySelector('#stageView').classList.contains(c), cls);
+    await on('gl-on');
+    await on('gl-plate');   // the organs, rasterized for the GPU
+    if (await page.evaluate(() => window.pps.stage.organAt(560, 350)) !== 'liver') throw new Error('organs cannot be picked under the GPU plate');
+    await page.evaluate(() => window.pps.store.set({ selection: { type: 'edge', id: 'PV_TRUNK' }, colorMode: 'heat' }));
     await page.evaluate(() => window.pps.store.set({ view: 'circuit' }));
-    await page.waitForFunction(() => !document.querySelector('#stage .vg.gl'));
-    await page.evaluate(() => window.pps.store.set({ view: 'anatomic', selection: null }));
-    await page.waitForFunction(() => document.querySelectorAll('#stage .vg.gl').length > 10);
+    await page.waitForFunction(() => !document.querySelector('#stageView').classList.contains('gl-on'));
+    await page.evaluate(() => window.pps.store.set({ view: 'anatomic', selection: null, colorMode: 'pressure' }));
+    await on('gl-on');
     // The exported figure is the SVG plate, tubes and overlays included.
     const svg = await page.evaluate(async () => (await window.pps.figure.buildSVG()).svg);
     if (!svg.includes('#gr-PV_TRUNK')) throw new Error('exported figure lost the vessel tubes');
-    if (!(await page.evaluate(() => document.querySelector('#stageView').classList.contains('veins-gl')))) throw new Error('the export left the SVG tubes showing');
+    if (!(await page.evaluate(() => document.querySelector('#stageView').classList.contains('gl-on')))) throw new Error('the export left the SVG tubes showing');
+    const png = await page.evaluate(() => window.pps.stage.rasterLayers(1));
+    if (!png?.veins?.startsWith('data:image/png')) throw new Error('no GPU picture for the PNG export');
     await shot(page, `${device}-veins-gl`);
   });
 

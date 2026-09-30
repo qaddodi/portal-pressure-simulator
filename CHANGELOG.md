@@ -2,11 +2,16 @@
 
 ## Unreleased
 
-- **Prototype: veins drawn on the GPU (`?veins=gl`).** Behind a URL flag, the anatomy's opaque venous network
-  (with the portal tree in front and a selected or hovered vessel on top) is drawn by a WebGL2 layer from signed
-  distances to each vein's centerline, so veins that share a junction merge into one smooth, filleted shape instead
-  of overlapping round ends. Translucent and retroperitoneal veins, tributaries and vessels drawing on are still
-  SVG for now; without the flag nothing changes. Exported figures are the SVG plate, as before.
+- **The anatomy is drawn on the GPU.** Where the device has a GPU with WebGL2, every vessel in the anatomy (the
+  portal tree, the veins behind the organs, the translucent context veins and collaterals, the arteries, the
+  cavernoma strands, the tributaries, closed collaterals and vessels drawing on) is drawn by one WebGL2 layer from
+  signed distances to each vessel's centerline. Vessels that share a junction merge into one smooth, filleted
+  shape, including where a vein ends on one in another layer, so no round ends or rings show where vessels meet.
+  The tubes are shaded as lit cylinders. The organs and the ascites are drawn by the same layer from a raster of
+  the plate (sharpened once a pan or zoom settles), so panning and zooming no longer repaint the SVG; the
+  congestion glow is drawn there too, without the SVG blur filter. The circuit stays SVG. An exported PNG is the
+  GPU's picture; an exported SVG keeps vector tubes. `?veins=svg` shows the SVG drawing, as does a device
+  without a GPU.
 - **Smooth joins between vessels.** Where a vein ends on a vessel drawn in a fainter or deeper layer (the
   inferior vena cava at the renal veins and at the right atrium, a splenorenal shunt at the renal vein), its
   round end and outline no longer sit on top of the other vessel as a ringed disc: the end now dissolves into
