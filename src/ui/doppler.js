@@ -179,8 +179,8 @@ export function createDoppler({ onProbe }) {
   let settleAt = 0;     // when the signal last fitted the current scale
   let tDisp = null;     // the display clock (model seconds)
   let wallLast = 0;
-  let img = null, off = null, octx = null;
-  let grain = null, floor = null, noiseAt = 0, nx = 0, ny = 0;
+  let img = null, off = null, octx = null, mimg = null, moff = null, mctx = null, tmp = null, tctx = null;
+  let grain = null, floor = null, edgeTex = null, noiseAt = 0, nx = 0, ny = 0, ex = 0, ey = 0;
   let ringKey = '', lastCol = null;
   const STEPS = [10, 15, 20, 30, 40, 60, 80, 100, 150, 200, 300];
   const A_SIG = 10 ** 2.8;          // signal power over the noise floor (≈ 28 dB)
@@ -189,6 +189,7 @@ export function createDoppler({ onProbe }) {
   const HEAD = 1.35;                // the spectrum is stored this much brighter; speckle averages it back
   const PAD = 96;                   // noise textures are this much larger than the display
   const live = () => !!frame?.running && frame.clock !== 'disease';
+  const mk = (w, h) => typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h) : Object.assign(document.createElement('canvas'), { width: w, height: h });
 
   // Model time shown at the right edge. Follows the samples by ~0.16 s of wall time so there is
   // always data to draw, and eases back to that lag instead of jumping when frames come unevenly.
@@ -213,39 +214,43 @@ export function createDoppler({ onProbe }) {
     return tb > ta ? va + (vb - va) * clamp((t - ta) / (tb - ta), 0, 1) : va;
   }
 
-  // Two screen-sized noise textures, made once per size: speckle to multiply the spectrum by, and
-  // the noise floor to add. Each frame shows them at a new random offset, so the noise changes
+  // Three screen-sized noise textures, made once per size: speckle to multiply the spectrum by,
+  // the noise floor to add, and bright sparse speckle for the spectrum's outer edge. Each frame shows them at a new random offset, so the noise changes
   // constantly without being recomputed. Speckle is exponential power, a weighted mean of two
   // draws (overlapping FFT windows), smooth over a frequency bin; both are log-compressed.
   function makeNoise(RW, RH, binPx) {
     const TW = RW + PAD, TH = RH + PAD;
-    const mk = () => typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(TW, TH) : Object.assign(document.createElement('canvas'), { width: TW, height: TH });
-    const gi = new ImageData(TW, TH), fi = new ImageData(TW, TH);
-    const G = gi.data, F = fi.data;
+    const gi = new ImageData(TW, TH), fi = new ImageData(TW, TH), ei = new ImageData(TW, TH);
+    const G = gi.data, F = fi.data, E = ei.data;
     const nb = Math.ceil(TH / binPx) + 2;
     const e = () => -Math.log(1 - Math.random() * 0.999999);
     const x3 = () => 0.75 * e() + 0.25 * e();
-    const sp = new Float32Array(nb), nf = new Float32Array(nb), spP = new Float32Array(nb), nfP = new Float32Array(nb);
+    const sp = new Float32Array(nb), nf = new Float32Array(nb), ed = new Float32Array(nb), spP = new Float32Array(nb), nfP = new Float32Array(nb);
     for (let x = 0; x < TW; x++) {
       for (let b = 0; b < nb; b++) {
         const a = x3(), c = x3();
         sp[b] = x ? 0.65 * a + 0.35 * spP[b] : a; spP[b] = sp[b];
         nf[b] = x ? 0.65 * c + 0.35 * nfP[b] : c; nfP[b] = nf[b];
+        ed[b] = e();
       }
       for (let y = 0; y < TH; y++) {
         const fb = y / binPx, b0 = fb | 0, f = fb - b0;
         const X = sp[b0] + (sp[b0 + 1] - sp[b0]) * f;
         const N = nf[b0] + (nf[b0 + 1] - nf[b0]) * f;
+        const Z = ed[b0] + (ed[b0 + 1] - ed[b0]) * f;
+        const k = clamp((Z - 0.7) * 0.55, 0, 0.95);
         const m = clamp((1 + Math.log(X) * LN10_10 / 15) / HEAD, 0, 1);
         let I = (Math.log(N) * LN10_10 - 2.5) / RANGE_DB;
         I = I <= 0 ? 0 : Math.pow(Math.min(1, I), 1.2);
         const q = (y * TW + x) * 4;
         G[q] = G[q + 1] = G[q + 2] = 255 * m; G[q + 3] = 255;
         F[q] = 236 * I; F[q + 1] = 240 * I; F[q + 2] = 250 * I; F[q + 3] = 255;
+        E[q] = 236 * k; E[q + 1] = 240 * k; E[q + 2] = 250 * k; E[q + 3] = 255;
       }
     }
-    grain = mk(); grain.getContext('2d').putImageData(gi, 0, 0);
-    floor = mk(); floor.getContext('2d').putImageData(fi, 0, 0);
+    grain = mk(TW, TH); grain.getContext('2d').putImageData(gi, 0, 0);
+    floor = mk(TW, TH); floor.getContext('2d').putImageData(fi, 0, 0);
+    edgeTex = mk(TW, TH); edgeTex.getContext('2d').putImageData(ei, 0, 0);
     grain.key = `${RW}x${RH}`;
   }
 
@@ -263,14 +268,20 @@ export function createDoppler({ onProbe }) {
     const L = av * (0.45 - 0.4 * clamp(1 - av / 12, 0, 1));
     const sigHi = 0.02 * P + 0.4, sigLo = 0.08 * P + 1.2;
     const wf = Math.max(1.2, 0.025 * scale);      // wall filter cut-off, cm/s
-    const D = img.data;
+    // where the edge noise shows: a few pixels either side of the outer edge, wider outside
+    // the smooth spectrum fades out over its last few pixels, so the speckle decides the contour
+    const wOut = 4 + 0.07 * P * rPxPerV, wIn = 3, edge = has && av > 0.5, fadeV = 5 / rPxPerV;
+    const D = img.data, M = mimg.data;
     for (let ry = 0; ry < RH; ry++) {
       const vel = (rBase - ry) / rPxPerV;
       let S = 0;
       if (has && av > 0.3) {
         const u = vel * s;                                       // along the flow direction
-        if (u > P) { const z = (u - P) / sigHi; S = Math.exp(-z * z); }
-        else if (u >= L) S = 0.28 + 0.72 * Math.pow((u - L) / Math.max(1e-6, P - L), 0.8);
+        if (u > P) { const z = (u - P) / sigHi; S = 0.03 * Math.exp(-z * z); }
+        else if (u >= L) {
+          S = 0.28 + 0.72 * Math.pow((u - L) / Math.max(1e-6, P - L), 0.8);
+          if (u > P - fadeV) { const z = (u - P + fadeV) / fadeV; S *= 1 - 0.97 * z * z; }
+        }
         else if (u > 0) { const z = (L - u) / sigLo; S = 0.28 * Math.exp(-z * z); }
       }
       const a = Math.abs(vel) / wf;
@@ -282,6 +293,10 @@ export function createDoppler({ onProbe }) {
       let r = 236 * HEAD * I, gg = 240 * HEAD * I, bl = 250 * HEAD * I;
       if (tint && S > 0.02) { if (vel >= 0) { gg *= 0.45; bl *= 0.38; } else { r *= 0.35; gg *= 0.6; } }
       D[q] = r; D[q + 1] = gg; D[q + 2] = bl; D[q + 3] = 255;
+      let ma = 0;
+      // (weaker where the spectrum is already bright, so it roughens the edge without a rim)
+      if (edge) { const e = (vel * s - P) * rPxPerV + 2, d = e / (e > 0 ? wOut : wIn); ma = Math.exp(-d * d) * (1 - I); }
+      M[q + 3] = 255 * ma * W;
     }
   }
 
@@ -332,18 +347,24 @@ export function createDoppler({ onProbe }) {
     const key = `${RW}x${RH}|${scale}|${baseF}|${tint}|${probe}`;
     if (!img || img.width !== RW || img.height !== RH) {
       img = new ImageData(RW, RH);
-      off = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(RW, RH) : Object.assign(document.createElement('canvas'), { width: RW, height: RH });
+      off = mk(RW, RH);
       octx = off.getContext('2d');
+      mimg = new ImageData(RW, RH);
+      mimg.data.fill(255);
+      moff = mk(RW, RH); mctx = moff.getContext('2d');
+      tmp = mk(RW, RH); tctx = tmp.getContext('2d');
     }
     // redraw every line after a change of scale, size or colour, or when time runs backwards
     const full = key !== ringKey || lastCol == null || cNow < lastCol || cNow - lastCol >= RW;
     const from = full ? cNow - RW + 1 : lastCol + 1;
     for (let c = from; c <= cNow; c++) writeLine(c, g);
-    if (full) octx.putImageData(img, 0, 0);
-    else if (cNow > lastCol) {
-      const x0 = ((from % RW) + RW) % RW, n = cNow - from + 1;
-      if (x0 + n <= RW) octx.putImageData(img, 0, 0, x0, 0, n, RH);
-      else { octx.putImageData(img, 0, 0, x0, 0, RW - x0, RH); octx.putImageData(img, 0, 0, 0, 0, x0 + n - RW, RH); }
+    for (const [cx, im] of [[octx, img], [mctx, mimg]]) {
+      if (full) cx.putImageData(im, 0, 0);
+      else if (cNow > lastCol) {
+        const x0 = ((from % RW) + RW) % RW, n = cNow - from + 1;
+        if (x0 + n <= RW) cx.putImageData(im, 0, 0, x0, 0, n, RH);
+        else { cx.putImageData(im, 0, 0, x0, 0, RW - x0, RH); cx.putImageData(im, 0, 0, 0, 0, x0 + n - RW, RH); }
+      }
     }
     ringKey = key; lastCol = cNow;
     // copy the ring out, oldest line on the left, pixel for pixel
@@ -351,13 +372,30 @@ export function createDoppler({ onProbe }) {
     const dx = Math.round(padL * dpr), dy = Math.round(padT * dpr);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.imageSmoothingEnabled = false;
-    if (p + 1 < RW) ctx.drawImage(off, p + 1, 0, RW - p - 1, RH, dx, dy, RW - p - 1, RH);
-    ctx.drawImage(off, 0, 0, p + 1, RH, dx + RW - p - 1, dy, p + 1, RH);
+    const ring = (c2, src, ox, oy) => {
+      if (p + 1 < RW) c2.drawImage(src, p + 1, 0, RW - p - 1, RH, ox, oy, RW - p - 1, RH);
+      c2.drawImage(src, 0, 0, p + 1, RH, ox + RW - p - 1, oy, p + 1, RH);
+    };
+    ring(ctx, off, dx, dy);
     // the noise, fixed to the screen: a new random view of the textures ~30 times a second
     if (grain?.key !== `${RW}x${RH}`) makeNoise(RW, RH, g.binPx);
-    if (now - noiseAt > 30) { noiseAt = now; nx = (Math.random() * PAD) | 0; ny = (Math.random() * PAD) | 0; }
+    if (now - noiseAt > 30) {
+      noiseAt = now;
+      nx = (Math.random() * PAD) | 0; ny = (Math.random() * PAD) | 0;
+      ex = (Math.random() * PAD) | 0; ey = (Math.random() * PAD) | 0;
+    }
     ctx.globalCompositeOperation = 'multiply';
     ctx.drawImage(grain, nx, ny, RW, RH, dx, dy, RW, RH);
+    // the edge: fresh speckle, cut to the band around the waveform's outer edge, added on top
+    // (mask first, then one source-in draw: a composite that clears outside the drawn area would
+    // wipe the first half of the wrapped ring)
+    tctx.globalCompositeOperation = 'source-over';
+    tctx.clearRect(0, 0, RW, RH);
+    ring(tctx, moff, 0, 0);
+    tctx.globalCompositeOperation = 'source-in';
+    tctx.drawImage(edgeTex, ex, ey, RW, RH, 0, 0, RW, RH);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.drawImage(tmp, dx, dy);
     ctx.globalCompositeOperation = 'lighter';
     ctx.drawImage(floor, PAD - 1 - nx, PAD - 1 - ny, RW, RH, dx, dy, RW, RH);
     ctx.globalCompositeOperation = 'source-over';
