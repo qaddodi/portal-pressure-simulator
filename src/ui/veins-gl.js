@@ -23,13 +23,15 @@
 // createVeinsGL(canvas) returns null when WebGL2 is unavailable; stage.js keeps the SVG tubes.
 
 export const N_SAMPLES = 64;
-export const TUBE_TEXELS = 7;          // texels of per-vessel attributes (see the layout below)
+export const TUBE_TEXELS = 8;          // texels of per-vessel attributes (see the layout below)
 export const MAX_TIERS = 20;
 const CELL = 16;                       // cell size, world units
 const ENT_W = 2048;                    // texels per row of the entry texture
 const QUAD = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]);
 
 // Flags (tube texel 2, z).
+// Stream flags (tube texel 5, w): the stream runs on at the upstream / downstream end; reversed flow.
+export const F_UP = 1, F_DN = 2, F_REV = 4;
 export const F_SEL = 1, F_DIFFUSE = 2, F_SHADOW = 4, F_DOTTED = 8, F_NOCASE = 16, F_SPEC = 32;
 
 const VS = `#version 300 es
@@ -54,8 +56,9 @@ void main() {
 //   2: tier, z (draw order within a tier), flags, congestion glow alpha
 //   3: fade: linear from (x, y) to (x, y), or radial: center (x, y), radius
 //   4: fade: offset, alpha at the start, alpha at the end (radial: at 45 %), mode (0 none, 1 linear, 2 radial)
-//   5: drawn part along the vessel (0–1): from, to; arc length (world); -
-//   6: congestion glow color (rgb), -
+//   5: drawn part along the vessel (0–1): from, to; arc length (world); stream flags (F_UP, F_DN, F_REV)
+//   6: congestion glow color (rgb), streak course length (world)
+//   7: flow streaks: phase at the upstream end, spacing (world), direction (±1, from → to), strength (0 off)
 const FS = `#version 300 es
 precision highp float;
 precision highp int;
@@ -79,6 +82,8 @@ uniform vec2 light;                    // unit direction toward the light (world
 uniform float netAlpha;                // the network group's opacity (dimmed while a vessel is focused)
 uniform int fx;                        // 1: shading and shadows (off in the figure view)
 uniform int heat;                      // 1: congestion glow
+uniform int streaks;                   // 1: flow streaks in the lumen
+uniform float clock;                   // flow clock (spacings passed since the start)
 uniform float tierAlpha[${MAX_TIERS}];
 uniform int tierGroup[${MAX_TIERS}];   // 0 behind the organs, 1 the network, 2 lifted
 out vec4 outColor;
@@ -104,10 +109,10 @@ void main() {
   // ── Nearest point of each vessel in this cell ──
   int n = 0;
   int sid[MAXS];
-  float sd[MAXS], sh[MAXS], sr[MAXS], su[MAXS];
+  float sd[MAXS], sh[MAXS], sr[MAXS], su[MAXS], sx[MAXS];
   vec2 sg[MAXS];
   int cur = -1;
-  float bd = 1e9, bs = 1e9, br = 0.0, bu = 0.0;
+  float bd = 1e9, bs = 1e9, br = 0.0, bu = 0.0, bx = 1.0;
   vec2 bg = vec2(0.0);
   vec4 clip = vec4(0.0, 1.0, 1.0, 0.0);
   bool dotted = false;
@@ -124,7 +129,7 @@ void main() {
           for (int s = 1; s < MAXS; s++) if (sd[s] > sd[slot]) slot = s;
           if (bd >= sd[slot]) slot = -1;
         } else n++;
-        if (slot >= 0) { sid[slot] = cur; sd[slot] = bd; sh[slot] = bs; sr[slot] = br; su[slot] = bu; sg[slot] = bg; }
+        if (slot >= 0) { sid[slot] = cur; sd[slot] = bd; sh[slot] = bs; sr[slot] = br; su[slot] = bu; sg[slot] = bg; sx[slot] = bx; }
       }
       cur = id; bd = 1e9; bs = 1e9;
       if (id >= 0) { clip = T(id, 5); dotted = (int(T(id, 2).z + 0.5) & ${F_DOTTED}) != 0; }
@@ -148,7 +153,7 @@ void main() {
       float along = m < 3.75 ? max(0.0, m - 1.5) : 6.0 - m;
       d = length(vec2(dist, along)) - r;
     }
-    if (d < bd) { bd = d; bg = dist > 1e-5 ? q / dist : vec2(0.0); br = r; bu = (i + hh) / LAST; }
+    if (d < bd) { bd = d; bg = dist > 1e-5 ? q / dist : vec2(0.0); br = r; bu = (i + hh) / LAST; bx = ba.x * q.y - ba.y * q.x < 0.0 ? -1.0 : 1.0; }
     float hs = clamp(dot(ps - a, ba) / L2, 0.0, 1.0);
     bs = min(bs, length(ps - a - ba * hs) - mix(rr.x, rr.y, mix(t0, t1, hs)));
   }
@@ -294,12 +299,38 @@ void main() {
     if (sel) { float ar = ring.a * clamp(0.5 - (D - wall - 4.0) / aa, 0.0, 1.0); c = over(vec4(ring.rgb * ar, ar), c); }
     c = over(vec4(casing.rgb, 1.0) * (casing.a * cA * aC), c);
     vec3 lum = col;
+    float rho = clamp((R + D) / max(R, 1e-3), 0.0, 1.0);
+    if (streaks == 1 && aL > 0.0 && rho < 0.8) {
+      // Flow streaks: soft, lighter teardrops gliding downstream along the centreline, like dye
+      // in the vessel (a round head, a tail that tapers and fades upstream). The owner's stream
+      // phase: chained so a streak leaving one vessel runs on into the next.
+      int id = sid[ow];
+      vec4 fl = T(id, 7);
+      if (fl.w > 0.0) {
+        float Ls = T(id, 6).w, sp = max(fl.y, 1.0);
+        int sf = int(T(id, 5).w + 0.5);
+        float s = (fl.z >= 0.0 ? su[ow] : 1.0 - su[ow]) * Ls;
+        float f = fl.x + s / sp - clock, n = floor(f + 0.5);
+        float x = (f - n) * sp;                              // along, + ahead of the head
+        float hsh = fract(sin(float(id) * 12.9898 + n * 78.233) * 43758.5453);
+        float lat = (rho * sx[ow] - (hsh - 0.5) * 0.28) * R; // across, with a slight jitter
+        float hr = 0.3 * R + 0.25 * aa, TL = min(0.7 * sp, 5.0 * R + 5.0);
+        float k = clamp(-x / TL, 0.0, 1.0);
+        float hw = x > 0.0 ? sqrt(max(hr * hr - x * x, 0.0)) : hr * (1.0 - 0.75 * k);
+        float soft = 0.35 * hr + aa;
+        float v = (1.0 - smoothstep(hw - soft, hw + soft, abs(lat))) * (x > 0.0 ? 1.0 : pow(1.0 - k, 1.6));
+        float ends = min((sf & ${F_UP}) != 0 ? 1.0 : smoothstep(0.0, 0.8 * sp, s), (sf & ${F_DN}) != 0 ? 1.0 : smoothstep(0.0, 0.8 * sp, Ls - s));
+        v *= fl.w * ends * smoothstep(0.9, 2.0, R / aa);
+        vec3 tint = (sf & ${F_REV}) != 0 ? vec3(1.0, 0.6, 0.22) : mix(lum, vec3(1.0), 0.5);
+        lum = mix(lum, tint, clamp(v, 0.0, 1.0) * 0.8);
+      }
+    }
     if (fx == 1 && (flags & ${F_DIFFUSE}) != 0 && aL > 0.0) {
       // A textbook plate, not a rendered tube: a flat lumen with one thin light line along the
       // side toward the light and one thin dark line along the other. The across-tube
       // coordinate toward the light (−1 … 1) places them, so they run on through the joins;
       // where the light runs along a vessel they fade, and on hairline vessels they are left out.
-      float rho = clamp((R + D) / max(R, 1e-3), 0.0, 1.0), side = rho * dot(g, light);
+      float side = rho * dot(g, light);
       float soft = 0.06 + aa / max(R, 1e-3);
       float thin = smoothstep(1.2, 2.6, R / aa);
       float aDark = (1.0 - smoothstep(0.1, 0.1 + soft, abs(side + 0.62))) * thin;
@@ -592,6 +623,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.uniform1f(u.netAlpha, look.netAlpha);
       gl.uniform1i(u.fx, look.fx ? 1 : 0);
       gl.uniform1i(u.heat, look.heat ? 1 : 0);
+      gl.uniform1i(u.streaks, look.streaks ? 1 : 0);
+      gl.uniform1f(u.clock, look.clock || 0);
       gl.uniform1fv(u.tierAlpha, look.tierAlpha);
       gl.uniform1iv(u.tierGroup, look.tierGroup);
       gl.uniform1i(u.useOrgan, look.organs && organRect ? 1 : 0);

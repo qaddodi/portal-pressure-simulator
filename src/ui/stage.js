@@ -8,7 +8,7 @@ import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=
 import { createLobuleZoom } from './lobule-zoom.js?v=76e3120d30';
 import { createFlowGL, rgba, MARK_FLOATS, SEG_FLOATS } from './flow-gl.js?v=5c846606ea';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
-import { createVeinsGL, binVeins, TUBE_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC } from './veins-gl.js?v=1303dd4cc7';
+import { createVeinsGL, binVeins, TUBE_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_UP, F_DN, F_REV } from './veins-gl.js?v=28c4988e0d';
 
 const N_SAMPLES = 64;
 // Displayed width grows sub-linearly with diameter so the cavae don't swamp the portal tree,
@@ -341,6 +341,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // second SVG above that layer, with the same view box and transform. ?veins=svg keeps the SVG
   // tubes; ?veins=gl insists on the GPU even with software rendering.
   const veinsParam = new URLSearchParams(location.search).get('veins');
+  // ?flow=streaks: flow streaks in the vessels' lumen (GPU anatomy) next to the chevrons;
+  // ?flow=streaks-only: the streaks alone there (the chevrons stay elsewhere).
+  const flowParam = new URLSearchParams(location.search).get('flow');
+  const STREAKS = flowParam === 'streaks-only' ? 'only' : flowParam === 'streaks' ? 'both' : '';
   const VEINS_GL = veinsParam !== 'svg' && !window.PPS_VEINS_SVG;
   const VEINS_FORCE = veinsParam === 'gl' || !!window.PPS_VEINS_GL;
   const GL_ROWS = ALL_EDGES.length + ALL_EDGES.reduce((n, e) => n + (STRANDS[e.id]?.length || 0) + (feedGeo[e.id]?.length || 0), 0);
@@ -1508,6 +1512,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const cssTriplet = (cs, name) => { const k = cs.getPropertyValue(name).trim().split(/[\s,/]+/).map(Number); return k.length >= 3 && k.every(Number.isFinite) ? k.slice(0, 3).map((v) => v / 255) : [0, 0, 0]; };
   /** Whether the GPU draws the vessels at morph `t` (never in the circuit, nor while an export is built). */
   const glWanted = (t) => !!veins && !veins.lost && t < 0.5 && !svgForce;
+  const streaksOn = () => !!STREAKS && !!vLook && wrap.classList.contains('gl-on') && morph < 0.5;
 
   // What the GPU draws this frame: each vessel on screen, its strands and its tributaries.
   function glItems() {
@@ -1586,6 +1591,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     return joins;
   }
+  // A vessel's flow streaks (tube texel 7 and the stream flags): [phase at the upstream end,
+  // spacing, direction, strength, flags, course length]. The same stream as the chevrons: speed
+  // from the mean velocity, phases chained along the flow; strands and tributaries run in step
+  // with their trunk. Brighter with more flow, fading out where flow is near stagnant.
+  function streakData(it, T0) {
+    const { x, kind, obj } = it;
+    const { q, vel } = flowState(x);
+    const fade = clamp((Math.abs(vel) - 0.1) / 0.5, 0, 1) * clamp((0.5 - T0) / 0.2, 0, 1);
+    if (fade <= 0 || Math.abs(q) < 0.02 || !x.sp) return null;
+    const dir = (x.spd != null && x.spd !== 0 ? x.spd : q) >= 0 ? 1 : -1;
+    const strength = fade * clamp(0.65 + 0.12 * Math.log1p(Math.abs(q)), 0.65, 1);
+    const rev = x.rev && !colorModeIs('direction') ? F_REV : 0;
+    if (kind === 'v') return [((x.chP || 0) % 1 + 1) % 1, x.sp, dir, strength, (x.mUp ? F_UP : 0) | (x.mDn ? F_DN : 0) | rev, geo[x.e.id].len || 1];
+    const w = kind === 's' ? Math.max(1.6, x.width * obj.k) : obj.w;
+    return [kind === 'f' ? obj.ph || 0 : 0, markSpacing(w), dir, strength * (obj.live ?? 1), F_UP | F_DN | rev, obj.len || 1];
+  }
   function syncVeins(t) {
     if (!veins || veins.lost) return;
     const on = glWanted(t);
@@ -1632,6 +1653,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const figure = !!appEl?.classList.contains('figure-mode');
     const artery = toRGB('var(--artery)', cs);
     tubeData.fill(0);
+    const st = store.get();
+    const flowOn = !!STREAKS && !st.imaging && st.layers.flow !== false;
+    if (flowOn) prepChains();
     for (const it of items) {
       const { x, kind, obj } = it, id = x.e.id, o = it.row * TUBE_TEXELS * 4;
       const ghost = x.g.classList.contains('coll-ghost');
@@ -1679,10 +1703,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const r = x.reveal, u = clamp((now - r.t0) / r.dur, 0, 1), off = r.out ? easeInOut(u) : 1 - easeInOut(u);
         if (r.dir > 0) hi = 1 - off; else lo = off;
       }
-      tubeData.set([lo, hi, kind === 's' ? obj.len : geo[id].len || 1, 0, ...(heatA ? toRGB(x.heatCol, cs) : [0, 0, 0]), 0], o + 20);
+      const fl = flowOn && !ghost && !x.reveal ? streakData(it, T0) : null;
+      tubeData.set([lo, hi, kind === 's' ? obj.len : geo[id].len || 1, fl ? fl[4] : 0, ...(heatA ? toRGB(x.heatCol, cs) : [0, 0, 0]), fl ? fl[5] : 0], o + 20);
+      if (fl) tubeData.set(fl.slice(0, 4), o + 28);
     }
     veins.setTubes(tubeData);
     vLook = {
+      streaks: flowOn, clock: flowClock,
       shOff: [1.4, 2.8], light: LIGHT, reach: heat ? 40 : 11, heat, organs: true,
       casing: [...cssTriplet(cs, '--casing-rgb'), cssNum(cs, '--casing-a', 0.56)],
       shadow: [...cssTriplet(cs, '--shadow-rgb'), cssNum(cs, '--shadow-a', 0.15)],
@@ -1705,6 +1732,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!veinsDirty && key === veinsDrawKey) return;
     if (key !== veinsDrawKey && plateOn()) schedulePlateView();
     veinsDirty = false; veinsDrawKey = key;
+    vLook.clock = flowClock;
     veins.draw(T, vLook);
   }
   // Exported figures are serialized SVG: for the export, the SVG tubes are built and shown, and
@@ -2904,10 +2932,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
 
   // Calls cb(x, ink, marks[], fade) per vessel; each mark is { cx, cy, ux, uy, s }.
-  function eachVesselMarks(cb) {
-    const st = store.get();
-    if (!F || st.imaging || st.layers.flow === false) return;
-    updateCover();
+  // The streams' phases through the network (chainPhases), shared by the chevrons and the streaks.
+  function prepChains() {
     const chain = [];
     for (const x of Object.values(E)) {
       if (!x.vis || x.reveal || x.g.classList.contains('coll-ghost')) continue;
@@ -2918,6 +2944,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       chain.push({ x, q: Math.abs(q), L: geo[x.e.id].len, sp: x.sp, up: fwd ? x.e.from : x.e.to, dn: fwd ? x.e.to : x.e.from, upPos: fwd ? P[0] : P[P.length - 1], dnPos: fwd ? P[P.length - 1] : P[0] });
     }
     chainPhases(chain);
+  }
+  function eachVesselMarks(cb) {
+    const st = store.get();
+    if (!F || st.imaging || st.layers.flow === false) return;
+    updateCover();
+    prepChains();
     for (const x of Object.values(E)) {
       if (!x.vis || x.reveal || x.g.classList.contains('coll-ghost')) continue;
       const { q, vel } = flowState(x);
@@ -3194,12 +3226,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       x.spd = x.spd == null ? Math.sign(q) : x.spd + (Math.sign(q) - x.spd) * Math.min(1, dt * 0.5);
     }
     if (moving) flowClock = (flowClock + FLOW_HZ * simSpeed * dt) % 1e4;
+    if (moving && streaksOn()) veinsDirty = true;
     // Marks are drawn back to front, one depth at a time; after each depth, everything the SVG
     // draws in front of the next is erased from the canvas (organs over the retroperitoneal veins,
     // nearer vessels over deeper ones), so a mark slides under a crossing vessel or a bowel loop
     // just as its own vessel does, instead of being drawn over it or switched off.
     const layers = [[], [], []];
-    eachVesselMarks((x, ink, marks, fade) => layers[depth(x)].push([x, ink, marks, fade]));
+    const noChev = STREAKS === 'only' && streaksOn();
+    eachVesselMarks((x, ink, marks, fade) => { if (!noChev) layers[depth(x)].push([x, ink, marks, fade]); });
     const lwHalo = 0.8 / Math.max(0.2, CTM.sc);
     const alphaOf = (x, fade) => fade * (hovering && !x.g.classList.contains('hl') ? 0.2 : receding && !x.g.classList.contains('is-sel') ? 0.4 * (x.opa ?? 1) : (x.opa ?? 1));
     if (flowGL) { drawFlowGL(layers, T, moving, alphaOf, lwHalo); return; }
