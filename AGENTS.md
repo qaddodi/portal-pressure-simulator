@@ -21,9 +21,14 @@ Work happens in the cloud; previews are published to GitHub Pages.
   coding agent; do not add `codex/` branches without changing both deployment rules.
 
 Loop for every change:
-1. Make the change and run `npm run check` (or at least `npm test` and `npm run lint`).
+1. Make the change and run `npm run lint && npm test` (well under a minute). Run the browser
+   checks locally (`npm run smoke`, about 1.5 minutes) only when the change needs them; do not
+   hold up a preview for the full `npm run check`.
 2. Commit and push to the preview branch. Tell the owner the preview URL, and check the
-   "Pages (live site + preview)" run finished (GitHub Actions tools) before saying it is ready.
+   "Pages (live site + preview)" deploy job finished (GitHub Actions tools) before saying it is
+   ready. Only lint and unit tests gate the deploy (about a minute); the browser checks run
+   alongside in the same run, so look at that job too and fix anything it reports. The full
+   CI (`ci.yml`) still runs every check on pull requests and on `main`.
 3. The owner tests on their devices.
 4. Merge to `main` only when the owner says so. That also resets `/preview/` to match `main`.
    If the branch is already merged, restart it from the latest `main` before more work.

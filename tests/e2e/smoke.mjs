@@ -24,7 +24,10 @@ const DEVICES = {
   phone: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
 };
 
-async function check(device, name, fn) {
+// Checks are queued, then run a few at a time (each has its own browser context).
+const queue = [];
+const check = (device, name, fn) => { queue.push([device, name, fn]); };
+async function runCheck(device, name, fn) {
   const ctx = await browser.newContext({ ...DEVICES[device], serviceWorkers: 'block' });
   const page = await ctx.newPage();
   const errors = [];
@@ -133,6 +136,11 @@ for (const device of Object.keys(DEVICES)) {
     await page.evaluate(() => window.pps.store.set({ selection: { type: 'edge', id: 'PV_TRUNK' } }));
     await page.waitForSelector('.action-card:not([hidden])');
     await shot(page, `${device}-card`);
+    // Doppler from the card opens the instrument and puts the card away
+    await page.click('.action-card button:has-text("Doppler")');
+    await page.waitForSelector('#pane-doppler', { state: 'visible' });
+    await page.waitForFunction(() => !window.pps.store.get().selection);
+    if (await page.locator('.action-card').isVisible()) throw new Error('the card stays open after Doppler');
   });
 
   await check(device, 'home, palette, figure, presenter, instruments', async (page) => {
@@ -312,8 +320,11 @@ for (const device of Object.keys(DEVICES)) {
     await page.evaluate(() => window.pps.dock.close());
     await page.waitForFunction(() => !window.pps.store.get().frame.pulsing, null, { timeout: 5000 });
   });
-
 }
+// the slowest first, so they do not end up alone at the end
+queue.sort((a, b) => (b[1] === 'responsive instrument workspace') - (a[1] === 'responsive instrument workspace'));
+const WORKERS = Number(process.env.SMOKE_WORKERS) || 4;
+await Promise.all(Array.from({ length: WORKERS }, async () => { while (queue.length) await runCheck(...queue.shift()); }));
 
 await browser.close();
 server.close();

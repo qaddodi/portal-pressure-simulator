@@ -30,9 +30,6 @@ const KEEP = 8;         // seconds kept
 const MINUS = '−';
 const num = (v, d = 0) => (v < 0 ? MINUS : '') + fmt(Math.abs(v), d);
 
-// Hash noise for speckle, keyed to the spectral line and frequency bin.
-const hash = (a, b) => { let x = (a * 374761393 + b * 668265263) | 0; x = (x ^ (x >>> 13)) * 1274126177; return ((x ^ (x >>> 16)) >>> 0) / 4294967296; };
-
 export function createDoppler({ onProbe }) {
   const probeSel = h('select', { class: 'select dop-vessel', 'aria-label': 'Vessel' },
     PROBES.map((p) => h('option', { value: p.id }, EDGES[EI[p.id]].label)));
@@ -172,22 +169,25 @@ export function createDoppler({ onProbe }) {
   // second, so the display runs on its own clock a fraction of a second behind the newest sample
   // and scrolls at the screen's frame rate instead of jumping ten pixels at a time.
   //
-  // A line is a power spectrum: the velocities in the sample volume, plus white noise, times an
-  // exponential speckle factor (the statistics of a Doppler signal), then log-compressed into grey.
-  // The speckle is smooth over a frequency bin and shared with the two previous lines
-  // (overlapping FFT windows), which gives the fine, slightly streaked grain of a real
-  // spectrum. The noise belongs to its line and travels with it, as on the machine.
+  // A line holds the smooth spectrum only: the velocities in the sample volume, log-compressed
+  // into grey. The grain is a separate layer fixed to the screen and redrawn with fresh noise
+  // many times a second, so the waveform scrolls while the noise shimmers in place: speckle
+  // (exponential, smooth over a frequency bin) multiplies the spectrum, and a faint noise floor
+  // is added over the whole display, cleared at the baseline by the wall filter.
   let scale = null;     // velocity half-range (cm/s)
   let baseF = null;     // baseline position (fraction of height)
   let settleAt = 0;     // when the signal last fitted the current scale
   let tDisp = null;     // the display clock (model seconds)
   let wallLast = 0;
-  let img = null, off = null, octx = null, envV = null;
+  let img = null, off = null, octx = null;
+  let grain = null, floor = null, noiseAt = 0, nx = 0, ny = 0;
   let ringKey = '', lastCol = null;
   const STEPS = [10, 15, 20, 30, 40, 60, 80, 100, 150, 200, 300];
   const A_SIG = 10 ** 2.8;          // signal power over the noise floor (≈ 28 dB)
   const FLOOR_DB = 4.5, RANGE_DB = 30;  // log compression: the grey map spans 4.5–34.5 dB
   const LN10_10 = 10 / Math.LN10;
+  const HEAD = 1.35;                // the spectrum is stored this much brighter; speckle averages it back
+  const PAD = 96;                   // noise textures are this much larger than the display
   const live = () => !!frame?.running && frame.clock !== 'disease';
 
   // Model time shown at the right edge. Follows the samples by ~0.16 s of wall time so there is
@@ -213,32 +213,56 @@ export function createDoppler({ onProbe }) {
     return tb > ta ? va + (vb - va) * clamp((t - ta) / (tb - ta), 0, 1) : va;
   }
 
-  // Speckle: exponential with unit mean, per (line, bin).
-  const expo = (c, b) => -Math.log(1 - hash(c, b) * 0.999999);
-  let spA = null;
+  // Two screen-sized noise textures, made once per size: speckle to multiply the spectrum by, and
+  // the noise floor to add. Each frame shows them at a new random offset, so the noise changes
+  // constantly without being recomputed. Speckle is exponential power, a weighted mean of two
+  // draws (overlapping FFT windows), smooth over a frequency bin; both are log-compressed.
+  function makeNoise(RW, RH, binPx) {
+    const TW = RW + PAD, TH = RH + PAD;
+    const mk = () => typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(TW, TH) : Object.assign(document.createElement('canvas'), { width: TW, height: TH });
+    const gi = new ImageData(TW, TH), fi = new ImageData(TW, TH);
+    const G = gi.data, F = fi.data;
+    const nb = Math.ceil(TH / binPx) + 2;
+    const e = () => -Math.log(1 - Math.random() * 0.999999);
+    const x3 = () => 0.75 * e() + 0.25 * e();
+    const sp = new Float32Array(nb), nf = new Float32Array(nb), spP = new Float32Array(nb), nfP = new Float32Array(nb);
+    for (let x = 0; x < TW; x++) {
+      for (let b = 0; b < nb; b++) {
+        const a = x3(), c = x3();
+        sp[b] = x ? 0.65 * a + 0.35 * spP[b] : a; spP[b] = sp[b];
+        nf[b] = x ? 0.65 * c + 0.35 * nfP[b] : c; nfP[b] = nf[b];
+      }
+      for (let y = 0; y < TH; y++) {
+        const fb = y / binPx, b0 = fb | 0, f = fb - b0;
+        const X = sp[b0] + (sp[b0 + 1] - sp[b0]) * f;
+        const N = nf[b0] + (nf[b0 + 1] - nf[b0]) * f;
+        const m = clamp((1 + Math.log(X) * LN10_10 / 15) / HEAD, 0, 1);
+        let I = (Math.log(N) * LN10_10 - 2.5) / RANGE_DB;
+        I = I <= 0 ? 0 : Math.pow(Math.min(1, I), 1.2);
+        const q = (y * TW + x) * 4;
+        G[q] = G[q + 1] = G[q + 2] = 255 * m; G[q + 3] = 255;
+        F[q] = 236 * I; F[q + 1] = 240 * I; F[q + 2] = 250 * I; F[q + 3] = 255;
+      }
+    }
+    grain = mk(); grain.getContext('2d').putImageData(gi, 0, 0);
+    floor = mk(); floor.getContext('2d').putImageData(fi, 0, 0);
+    grain.key = `${RW}x${RH}`;
+  }
 
   // Synthesise spectral line c into the ring. Geometry in device pixels.
   function writeLine(c, g) {
-    const { RW, RH, rBase, rPxPerV, binPx } = g;
+    const { RW, RH, rBase, rPxPerV } = g;
     const x = ((c % RW) + RW) % RW;
     const v = velAt(c / g.cps);
     const has = !Number.isNaN(v);
     const av = Math.abs(v);
     // velocity band: laminar flow runs from ~0.45× to 1.3× the mean with a clear window under
-    // it; slow flow broadens toward the baseline. The top edge is ragged from line to line.
+    // it; slow flow broadens toward the baseline
     const s = v < 0 ? -1 : 1;
-    const cb = c >> 2, jf = (c & 3) / 4;
-    const jit = 1 + 0.06 * (hash(cb, 7717) * (1 - jf) + hash(cb + 1, 7717) * jf - 0.5);
-    const P = av * 1.3 * jit;
+    const P = av * 1.3;
     const L = av * (0.45 - 0.4 * clamp(1 - av / 12, 0, 1));
     const sigHi = 0.02 * P + 0.4, sigLo = 0.08 * P + 1.2;
-    // the auto-trace follows the outer edge of the spectrum, without the line-to-line raggedness
-    envV[x] = has && av > 0.5 ? s * (P / jit + 1.5 * sigHi) : NaN;
     const wf = Math.max(1.2, 0.025 * scale);      // wall filter cut-off, cm/s
-    // speckle for this line, mixed with the two before it (overlapping windows)
-    const nb = Math.ceil(RH / binPx) + 2;
-    if (!spA || spA.length < nb) spA = new Float32Array(nb);
-    for (let b = 0; b < nb; b++) spA[b] = 0.5 * expo(c, b) + 0.3 * expo(c - 1, b) + 0.2 * expo(c - 2, b);
     const D = img.data;
     for (let ry = 0; ry < RH; ry++) {
       const vel = (rBase - ry) / rPxPerV;
@@ -249,15 +273,13 @@ export function createDoppler({ onProbe }) {
         else if (u >= L) S = 0.28 + 0.72 * Math.pow((u - L) / Math.max(1e-6, P - L), 0.8);
         else if (u > 0) { const z = (L - u) / sigLo; S = 0.28 * Math.exp(-z * z); }
       }
-      const fb = ry / binPx, b0 = fb | 0, f = fb - b0;
-      const X = spA[b0] + (spA[b0 + 1] - spA[b0]) * f;
       const a = Math.abs(vel) / wf;
       const W = a >= 1 ? 1 : a * a * a;                        // wall filter clears the baseline
-      const pw = (1 + A_SIG * S) * X * W;
+      const pw = (1 + A_SIG * S) * W;
       let I = pw > 0 ? (Math.log(pw) * LN10_10 - FLOOR_DB) / RANGE_DB : 0;
       I = I <= 0 ? 0 : I >= 1 ? 1 : Math.pow(I, 1.2);
       const q = (ry * RW + x) * 4;
-      let r = 236 * I, gg = 240 * I, bl = 250 * I;
+      let r = 236 * HEAD * I, gg = 240 * HEAD * I, bl = 250 * HEAD * I;
       if (tint && S > 0.02) { if (vel >= 0) { gg *= 0.45; bl *= 0.38; } else { r *= 0.35; gg *= 0.6; } }
       D[q] = r; D[q + 1] = gg; D[q + 2] = bl; D[q + 3] = 255;
     }
@@ -312,7 +334,6 @@ export function createDoppler({ onProbe }) {
       img = new ImageData(RW, RH);
       off = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(RW, RH) : Object.assign(document.createElement('canvas'), { width: RW, height: RH });
       octx = off.getContext('2d');
-      envV = new Float32Array(RW);
     }
     // redraw every line after a change of scale, size or colour, or when time runs backwards
     const full = key !== ringKey || lastCol == null || cNow < lastCol || cNow - lastCol >= RW;
@@ -332,19 +353,21 @@ export function createDoppler({ onProbe }) {
     ctx.imageSmoothingEnabled = false;
     if (p + 1 < RW) ctx.drawImage(off, p + 1, 0, RW - p - 1, RH, dx, dy, RW - p - 1, RH);
     ctx.drawImage(off, 0, 0, p + 1, RH, dx + RW - p - 1, dy, p + 1, RH);
+    // the noise, fixed to the screen: a new random view of the textures ~30 times a second
+    if (grain?.key !== `${RW}x${RH}`) makeNoise(RW, RH, g.binPx);
+    if (now - noiseAt > 30) { noiseAt = now; nx = (Math.random() * PAD) | 0; ny = (Math.random() * PAD) | 0; }
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.drawImage(grain, nx, ny, RW, RH, dx, dy, RW, RH);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.drawImage(floor, PAD - 1 - nx, PAD - 1 - ny, RW, RH, dx, dy, RW, RH);
+    ctx.globalCompositeOperation = 'source-over';
+    // the wall filter removes the noise near the baseline as well as the slow signal
+    const wfPx = Math.max(1.2, 0.025 * scale) * g.rPxPerV * 1.6, by = dy + g.rBase;
+    const wg = ctx.createLinearGradient(0, by - wfPx, 0, by + wfPx);
+    wg.addColorStop(0, 'rgba(0,0,0,0)'); wg.addColorStop(0.5, 'rgba(0,0,0,.9)'); wg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = wg; ctx.fillRect(dx, Math.max(dy, by - wfPx), RW, Math.min(dy + RH, by + wfPx) - Math.max(dy, by - wfPx));
     ctx.imageSmoothingEnabled = true;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-    // Peak envelope (auto-trace)
-    ctx.strokeStyle = 'rgba(250, 214, 80, .85)'; ctx.lineWidth = 1.25; ctx.lineJoin = 'round';
-    ctx.beginPath(); let started = false;
-    for (let px = 0; px < W; px += 2) {
-      const pv = envV[(p + 1 + Math.round(px * dpr)) % RW];
-      if (Number.isNaN(pv)) { started = false; continue; }
-      const X = padL + px, Y = padT + baseY - pv * pxPerV;
-      if (!started) { ctx.moveTo(X, Y); started = true; } else ctx.lineTo(X, Y);
-    }
-    ctx.stroke();
 
     // Baseline
     ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillRect(padL, padT + baseY, W, 1);

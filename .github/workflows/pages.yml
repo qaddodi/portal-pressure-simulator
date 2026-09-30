@@ -20,9 +20,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Quick checks gate the deploy (about a minute end to end), so a preview is never held up by
+  # the browser tests.
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Lint and unit tests
+        run: npm run lint && npm test
+
+  # The browser checks run alongside the deploy, not before it: a failure marks the run red
+  # (so it is seen) but the preview is already published for testing on devices.
+  browser-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,12 +48,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      # Pages serves the repository root, so the browser checks run once, against it. The
+      # Pages serves the repository root, so the browser checks run against it. The
       # production-build pass (npm run smoke:dist, for the SCORM package) stays in npm run check.
-      - name: Validate before publishing
+      - name: Browser checks
         env:
           SHOTS: workspace-shots
-        run: npm run lint && npm test && npm run build && npm run smoke
+        run: npm run smoke
       - uses: actions/upload-artifact@v4
         if: always()
         with:
