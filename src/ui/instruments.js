@@ -4,8 +4,8 @@
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
-import { h, fmt, fitCanvas, cssVar, clamp, toast, icon } from './util.js?v=cc7ee4cf38';
-import { FONT } from './charts.js?v=ce7abbcdd0';
+import { h, fmt, fitCanvas, cssVar, clamp, toast, icon } from './util.js?v=fe164f31f1';
+import { FONT } from './charts.js?v=565f8b5078';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -391,6 +391,7 @@ export function createEndoscopy({ onAction }) {
   }
   function draw(f, vx) {
     const { ctx, w, h: hh } = fitCanvas(cv);
+    if (w < 32 || hh < 32) return; // hidden/reflowing canvas: wait for its measured size
     ctx.clearRect(0, 0, w, hh);
     // The field sits above its caption, never under it.
     const cx = w / 2, cy = (hh - 16) / 2, R = Math.min(w, hh - 16) / 2 - 6;
@@ -484,6 +485,7 @@ export function createVarixWall() {
       h('dt', {}, 'Wall w'), h('dd', {}, `${fmt(v.w, 2)} mm`),
       h('dt', {}, 'Tension'), h('dd', {}, `${fmt(v.T, 0)} (${Math.round(v.ratio * 100)} %)`));
     const { ctx, w, h: hh } = fitCanvas(cv);
+    if (w < 32 || hh < 32) return;
     ctx.clearRect(0, 0, w, hh);
     const cx = Math.min(w * 0.4, hh * 0.6), cy = hh / 2, Rw = Math.min(cx, hh / 2) - 12;
     // esophageal wall ring

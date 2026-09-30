@@ -191,7 +191,10 @@ const boxes = new WeakMap();
 const boxObserver = new ResizeObserver((entries) => { for (const e of entries) boxes.set(e.target, { width: e.contentRect.width, height: e.contentRect.height }); });
 export function fitCanvas(canvas) {
   let r = boxes.get(canvas);
-  if (!r) { const b = canvas.getBoundingClientRect(); r = { width: b.width, height: b.height }; boxes.set(canvas, r); boxObserver.observe(canvas); }
+  if (!r || r.width < 1 || r.height < 1) {
+    const b = canvas.getBoundingClientRect(); r = { width: b.width, height: b.height };
+    boxes.set(canvas, r); boxObserver.observe(canvas);
+  }
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const w = Math.max(1, Math.round(r.width * dpr)), hh = Math.max(1, Math.round(r.height * dpr));
   if (canvas.width !== w || canvas.height !== hh) { canvas.width = w; canvas.height = hh; }

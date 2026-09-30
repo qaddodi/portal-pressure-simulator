@@ -1,10 +1,10 @@
 // Readout strip (small screens) and the instruments (blueprint §9.1, §9.2).
 
 import { store } from './store.js?v=4bf5a96a9d';
-import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=cc7ee4cf38';
-import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=ce7abbcdd0';
-import { createHVPG, createDoppler, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=36d58a75da';
-import { createLandscape } from './landscape.js?v=bf136aba74';
+import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=fe164f31f1';
+import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=565f8b5078';
+import { createHVPG, createDoppler, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=d6efb2d963';
+import { createLandscape } from './landscape.js?v=1c9ec0267e';
 
 
 // Readouts in reading order: the portal story first, then the systemic circulation. Each
@@ -52,7 +52,7 @@ export const VITALS = [
 // Key readouts always shown; the rest join the row when abnormal (or when the learner asks).
 export const PRIMARY = new Set(['hvpg', 'pv', 'pvflow', 'varix']);
 
-export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onCompare, onRun, onOpen, onClose, isVisible }) {
+export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onCompare, onRun, onLobule, onOpen, onClose, isVisible }) {
   // ── Readout strip ─────────────────────────────────
   const tileEls = {};
   for (const t of TILES) {
@@ -150,7 +150,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       onclick: () => setPressureView(id),
     }, id === 'profile' ? 'Profile' : 'Landscape')));
   const pressure = {
-    id: 'profile', label: 'Pressure',
+    ...profile, id: 'profile', label: 'Pressure',
     el: h('section', { class: 'dock-pane', 'data-pane': 'profile' }, viewSeg, profileView, landscapeView),
     update(f) { (pressureView === 'landscape' ? landscape : profile).update(f); },
   };
@@ -278,6 +278,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     if (!same) { renderChooser(); chooser.querySelector('.instrument-option')?.focus(); }
   }
   function show(id, { open: doOpen = true, reveal = false, alongside = false } = {}) {
+    if (id === 'lobule') { onLobule?.(); return; }
     if (id === 'landscape') { pressureView = 'landscape'; id = 'profile'; }
     else if (id === 'profile') pressureView = 'profile';
     const revealWall = id === 'varixwall';
@@ -346,7 +347,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     compareBtn.querySelector('span').textContent = comparing ? 'Unpin' : 'Compare';
     compareBtn.title = comparing ? 'Stop comparing with the pinned moment' : 'Pin this moment and compare before and after';
     run.querySelector('span').textContent = st.running ? 'Pause' : 'Run';
-    comparison.hidden = !comparing || state === 'peek';
+    comparison.hidden = !comparing || state === 'peek' || st.imaging;
     if (comparing && frame) {
       const a = st.compareSnap.metrics, b = frame.metrics;
       const delta = (label, v, digits, unit) => h('span', {}, label, h('b', {}, `${v > 0 ? '+' : ''}${fmt(v, digits)} ${unit}`));
@@ -357,7 +358,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     }
     run.setAttribute('aria-pressed', String(st.running));
     live.textContent = frame ? state === 'peek' && !st.imaging ? INFO[open[0]][2](frame)
-      : `${st.running ? 'Live' : 'Paused'} · ${frame.clock === 'disease' ? 'Day ' + frame.day : fmt(frame.t, 0) + ' s'} · HVPG ${st.hiddenReadouts?.has('trueHVPG') ? (st.lastHVPG ? fmt(st.lastHVPG.hvpg, 1) : '?') : fmt(frame.metrics.hvpg, 1)} mmHg` : '';
+      : `${st.running ? 'Live' : 'Paused'} · ${frame.clock === 'disease' ? 'Day ' + frame.day : fmt(frame.t, 0) + ' s'} · ${st.imaging ? 'Pressures unmeasured' : 'HVPG ' + (st.hiddenReadouts?.has('trueHVPG') ? (st.lastHVPG ? fmt(st.lastHVPG.hvpg, 1) : '?') : fmt(frame.metrics.hvpg, 1)) + ' mmHg'}` : '';
   }
   function update(f, force) {
     frame = f; updateStrip(f); updateHeader();

@@ -4,8 +4,8 @@
 // the same in a vector editor, a slide or a manuscript.
 
 import { store } from './store.js?v=4bf5a96a9d';
-import { h, fmt, fmtFlow, icon, toast } from './util.js?v=cc7ee4cf38';
-import { measurementRows, MEASURE_TITLE } from './measures.js?v=bbf4a3cf5d';
+import { h, fmt, fmtFlow, icon, toast } from './util.js?v=fe164f31f1';
+import { measurementRows, MEASURE_TITLE } from './measures.js?v=c4dde065f7';
 import { pressureColor, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
