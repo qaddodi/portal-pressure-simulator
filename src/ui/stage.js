@@ -753,18 +753,28 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Default framing. The circuit is a wide map (≈ 1.9 : 1); in a squarish or tall viewport,
   // fitting its width would shrink every station to a dot, so it opens zoomed to fill the height,
   // centered on the portal vein and liver, and the learner pans sideways to the beds or heart.
+  // The esophagus and the great veins run on above the plate and fade out; Fit stops where they fade.
+  const FIT_TOP = -40;
   function defaultVT(circuit) {
     if (!circuit) {
-      // Fit shows the whole abdomen: with ascites, the flanks bulge and the fluid pools in the pelvic
-      // floor below the plate's usual frame, so the frame grows to take them in (up to ~8 %).
-      const V = F?.slow?.ascites || 0, W = wrap.clientWidth, H = wrap.clientHeight;
-      if (V < 500 || !W || !H) return { k: 1, x: 0, y: 0 };
-      const e = clamp(V / 4000, 0, 1), side = clamp(V / 11000, 0, 1) * 34 + 6 * e;
-      const x0 = VB_ANAT[0] - side, x1 = VB_ANAT[0] + VB_ANAT[2] + side, y1 = VB_ANAT[3] + 80 * e;
-      const s0 = Math.min(W / VB_ANAT[2], H / VB_ANAT[3]), s1 = Math.min(W / (x1 - x0), H / y1);
-      const k = clamp(s1 / s0, 0.85, 1);
+      // Fit frames everything the plate draws: the heart and the veins above it, the organs, the
+      // flanks, and with ascites the fluid pooled in the pelvic floor below the default frame. The
+      // box is measured, so it follows an enlarged spleen or a growing ascites.
+      const r = svg.getBoundingClientRect();
+      if (!r.width || !r.height) return { k: 1, x: 0, y: 0 };
+      let x0 = VB_ANAT[0], y0 = VB_ANAT[1], x1 = VB_ANAT[0] + VB_ANAT[2], y1 = VB_ANAT[1] + VB_ANAT[3];
+      for (const g of [gBackdrop, gOrgans, gAscites, gNet, gBack]) {
+        let b; try { b = g.getBBox(); } catch { continue; }
+        if (!b.width || !b.height) continue;
+        x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.width); y1 = Math.max(y1, b.y + b.height);
+      }
+      y0 = Math.max(y0, FIT_TOP) - 8; y1 += 8;
+      // The svg shows its viewBox scaled to fit (meet), and the spare room on the other axis is
+      // visible too: fit the box into that whole visible area.
+      const s0 = Math.min(r.width / VB_ANAT[2], r.height / VB_ANAT[3]);
+      const k = Math.min(1, r.width / s0 / (x1 - x0), r.height / s0 / (y1 - y0));
       const cx = VB_ANAT[0] + VB_ANAT[2] / 2, cy = VB_ANAT[1] + VB_ANAT[3] / 2;
-      return { k, x: cx - k * ((x0 + x1) / 2), y: cy - k * (y1 / 2) };
+      return { k, x: cx - k * ((x0 + x1) / 2), y: cy - k * ((y0 + y1) / 2) };
     }
     // Turned upright, the map is tall and fills the height of the stage as it is.
     if (rotTarget) return { k: 1, x: 0, y: 0 };
@@ -1047,9 +1057,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   // ── Update from frame ─────────────────────────────
   let inUpdate = false;
+  // The anatomy opens fitted to everything it draws, once the first frame has drawn it; a view the
+  // learner has already zoomed or panned is left alone.
+  let firstFit = false;
   function update(f) {
     inUpdate = true;
     try { updateInner(f); } finally { inUpdate = false; }
+    if (!firstFit && morphTarget === 0) {
+      firstFit = true;
+      requestAnimationFrame(() => { if (morphTarget === 0 && vt.k === 1 && !vt.x && !vt.y) { vt = defaultVT(false); applyVT(); CTM = null; } });
+    }
   }
   function updateInner(f) {
     blockerBoxes = readBlockers();

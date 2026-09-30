@@ -364,8 +364,9 @@ div.vital { cursor: default; }
 .vital.bad b { color: var(--danger); }
 button.vital:hover b { text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
 .readouts .ro-more { display: none; flex: none; align-self: center; width: 32px; height: 32px; }
-.ro-more svg { transition: transform .2s var(--ease); }
-.readouts.all .ro-more svg { transform: rotate(180deg); }
+/* Points up to open the drawer, down to close it. */
+.ro-more svg { transform: rotate(180deg); transition: transform .2s var(--ease); }
+.readouts.all .ro-more svg { transform: none; }
 /* Narrower: the systemic block folds behind the chevron. */
 @container (max-width: 1000px) {
   .readouts .ro-more { display: inline-grid; }
