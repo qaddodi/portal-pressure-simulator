@@ -215,7 +215,7 @@ export function createDoppler({ onProbe }) {
   }
 
   // Three screen-sized noise textures, made once per size: speckle to multiply the spectrum by,
-  // the noise floor to add, and bright sparse speckle for the spectrum's outer edge. Each frame shows them at a new random offset, so the noise changes
+  // the noise floor to add, and fine vertical streaks for the spectrum's outer edge. Each frame shows them at a new random offset, so the noise changes
   // constantly without being recomputed. Speckle is exponential power, a weighted mean of two
   // draws (overlapping FFT windows), smooth over a frequency bin; both are log-compressed.
   function makeNoise(RW, RH, binPx) {
@@ -225,20 +225,24 @@ export function createDoppler({ onProbe }) {
     const nb = Math.ceil(TH / binPx) + 2;
     const e = () => -Math.log(1 - Math.random() * 0.999999);
     const x3 = () => 0.75 * e() + 0.25 * e();
-    const sp = new Float32Array(nb), nf = new Float32Array(nb), ed = new Float32Array(nb), spP = new Float32Array(nb), nfP = new Float32Array(nb);
+    const sp = new Float32Array(nb), nf = new Float32Array(nb), spP = new Float32Array(nb), nfP = new Float32Array(nb);
+    // edge streaks: one random strength per column (a spectral line reaching further or less far),
+    // varying slowly along it so the lines are not uniform bars
+    const SEG = 14, ns = Math.ceil(TH / SEG) + 2, ed = new Float32Array(ns);
     for (let x = 0; x < TW; x++) {
       for (let b = 0; b < nb; b++) {
         const a = x3(), c = x3();
         sp[b] = x ? 0.65 * a + 0.35 * spP[b] : a; spP[b] = sp[b];
         nf[b] = x ? 0.65 * c + 0.35 * nfP[b] : c; nfP[b] = nf[b];
-        ed[b] = e();
       }
+      const col = e();
+      for (let j = 0; j < ns; j++) ed[j] = col * (0.55 + 0.45 * Math.random());
       for (let y = 0; y < TH; y++) {
         const fb = y / binPx, b0 = fb | 0, f = fb - b0;
         const X = sp[b0] + (sp[b0 + 1] - sp[b0]) * f;
         const N = nf[b0] + (nf[b0 + 1] - nf[b0]) * f;
-        const Z = ed[b0] + (ed[b0 + 1] - ed[b0]) * f;
-        const k = clamp((Z - 0.7) * 0.55, 0, 0.95);
+        const fs = y / SEG, s0 = fs | 0;
+        const k = clamp((ed[s0] + (ed[s0 + 1] - ed[s0]) * (fs - s0)) * 0.5, 0, 0.95);
         const m = clamp((1 + Math.log(X) * LN10_10 / 15) / HEAD, 0, 1);
         let I = (Math.log(N) * LN10_10 - 2.5) / RANGE_DB;
         I = I <= 0 ? 0 : Math.pow(Math.min(1, I), 1.2);
@@ -270,7 +274,7 @@ export function createDoppler({ onProbe }) {
     const wf = Math.max(1.2, 0.025 * scale);      // wall filter cut-off, cm/s
     // where the edge noise shows: a few pixels either side of the outer edge, wider outside
     // the smooth spectrum fades out over its last few pixels, so the speckle decides the contour
-    const wOut = 4 + 0.07 * P * rPxPerV, wIn = 3, edge = has && av > 0.5, fadeV = 5 / rPxPerV;
+    const wOut = 3 + 0.05 * P * rPxPerV, wIn = 9, edge = has && av > 0.5, fadeV = 10 / rPxPerV;
     const D = img.data, M = mimg.data;
     for (let ry = 0; ry < RH; ry++) {
       const vel = (rBase - ry) / rPxPerV;
@@ -280,7 +284,7 @@ export function createDoppler({ onProbe }) {
         if (u > P) { const z = (u - P) / sigHi; S = 0.03 * Math.exp(-z * z); }
         else if (u >= L) {
           S = 0.28 + 0.72 * Math.pow((u - L) / Math.max(1e-6, P - L), 0.8);
-          if (u > P - fadeV) { const z = (u - P + fadeV) / fadeV; S *= 1 - 0.97 * z * z; }
+          if (u > P - fadeV) { const z = (u - P + fadeV) / fadeV; S *= 1 - 0.985 * Math.sqrt(z); }
         }
         else if (u > 0) { const z = (L - u) / sigLo; S = 0.28 * Math.exp(-z * z); }
       }
@@ -295,7 +299,7 @@ export function createDoppler({ onProbe }) {
       D[q] = r; D[q + 1] = gg; D[q + 2] = bl; D[q + 3] = 255;
       let ma = 0;
       // (weaker where the spectrum is already bright, so it roughens the edge without a rim)
-      if (edge) { const e = (vel * s - P) * rPxPerV + 2, d = e / (e > 0 ? wOut : wIn); ma = Math.exp(-d * d) * (1 - I); }
+      if (edge) { const e = (vel * s - P) * rPxPerV + 3; ma = (e > 0 ? Math.exp(-e / wOut) : Math.exp(-(e / wIn) * (e / wIn))) * (1 - 0.6 * I); }
       M[q + 3] = 255 * ma * W;
     }
   }

@@ -4,7 +4,7 @@ import { store } from './store.js?v=4bf5a96a9d';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=fe164f31f1';
 import { createProfile, createSankey, createPerfusion } from './charts.js?v=6046946e83';
 import { createPressureTime } from './pressure-time.js?v=92d1e98e8d';
-import { createDoppler } from './doppler.js?v=bb63e6a33c';
+import { createDoppler } from './doppler.js?v=b5ccf3638f';
 import { createHVPG, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=35fa9b1e35';
 import { createLandscape } from './landscape.js?v=808d667d6a';
 
