@@ -190,7 +190,9 @@ export function createFigure({ app, stage, onClose }) {
     return lines.map((l, i) => `<text x="${(r.left - base.left).toFixed(1)}" y="${(r.top - base.top + lh * (i + 0.78)).toFixed(1)}" font-family='${FONT}' font-size="${size}" font-weight="${weight}" fill="${color}"${cs.textTransform === 'uppercase' ? ` letter-spacing="${cs.letterSpacing}"` : ''}>${esc(cs.textTransform === 'uppercase' ? l.toUpperCase() : l)}</text>`).join('');
   }
 
-  function buildSVG() {
+  // With the GPU veins (?veins=gl), the figure is serialized from the SVG tubes, put back for it.
+  const buildSVG = () => (stage.withSVGVeins ? stage.withSVGVeins(buildSVGNow) : buildSVGNow());
+  function buildSVGNow() {
     const base = wrap.getBoundingClientRect();
     const W = Math.round(base.width), H = Math.round(base.height);
     const viewEl = document.getElementById('stageView');
