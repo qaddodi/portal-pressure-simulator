@@ -1879,17 +1879,13 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .app.instrument-focus { grid-template-columns: minmax(0, 1fr) 0; }
 @container (min-width: 650px) {
   .instrument-view { grid-template-columns: minmax(0, 1fr) 260px; }
-  .instrument-view[data-pane="hvpg"] { grid-template-columns: 230px minmax(0, 1fr); }
-  .instrument-view[data-pane="hvpg"] > .chart-side:last-child { grid-column: 1 / -1; }
   .instrument-view[data-pane="perfusion"] { grid-template-columns: minmax(0, .75fr) minmax(0, 1fr); }
   .instrument-view[data-pane="perfusion"] > .chart-side { grid-column: 1 / -1; }
   .wall-view { grid-template-columns: minmax(0, 1fr) 230px; }
   .instrument-option .option-value { display: none; }
 }
 @container (min-width: 1050px) {
-  .instrument-view[data-pane="hvpg"] { grid-template-columns: 220px minmax(0, 1fr) 250px; }
-  .instrument-view[data-pane="hvpg"] > .chart-side:last-child { grid-column: auto; }
-  .instrument-view[data-pane="perfusion"] { grid-template-columns: minmax(0, .7fr) minmax(0, 1.1fr) 250px; }
+  .instrument-view[data-pane="perfusion"] { grid-template-columns: minmax(220px, .55fr) minmax(0, 1.2fr) 240px; }
   .instrument-view[data-pane="perfusion"] > .chart-side { grid-column: auto; }
 }
 @media (max-width: 1279px) {
@@ -1998,4 +1994,69 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   .instrument-workspace .instrument-view.dop .dop-box { height: clamp(180px, 30vh, 260px); flex: none; }
   .dop-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .dop-vessel { flex: 1 1 auto; max-width: none; }
+}
+
+/* ── HVPG ───────────────────────────────────────── */
+.instrument-view.hv { display: flex; flex-direction: column; align-items: stretch; gap: 10px; min-height: 100%; }
+.hv-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; flex: none; }
+.hv-veins button { min-height: 32px; padding-inline: 14px; }
+.hv-actions { display: flex; gap: 6px; }
+.hv-actions .btn[disabled] { opacity: .45; cursor: default; }
+.hv-main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; flex: 1 1 0; min-height: 0; }
+.instrument-workspace .instrument-view.hv .hv-box { height: auto; min-height: 200px; }
+.hv-report { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.hv-k { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); }
+.hv-num { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
+.hv-num b { font-size: 28px; font-weight: 650; letter-spacing: -.02em; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.hv-num small { font-size: var(--fs-12); color: var(--text-3); }
+.hv-sev { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-12); font-weight: 600; color: var(--text-3); margin-left: 4px; }
+.hv-sev[data-sev]:not([data-sev=""])::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); }
+.hv-sev[data-sev="ok"]::before { background: var(--ok); }
+.hv-sev[data-sev="caution"]::before { background: var(--caution); }
+.hv-sev[data-sev="danger"] { color: var(--danger); }
+.hv-sev[data-sev="danger"]::before { background: var(--danger); }
+.hv-parts { font-size: var(--fs-12); color: var(--text-2); font-variant-numeric: tabular-nums; min-height: 1.4em; }
+.hv-steps { list-style: none; margin: 10px 0 0; padding: 10px 0 0; border-top: 1px solid var(--hairline); display: flex; flex-direction: column; gap: 7px; counter-reset: hv; }
+.hv-steps li { counter-increment: hv; display: flex; align-items: center; gap: 10px; font-size: var(--fs-12); color: var(--text-3); line-height: 1.35; }
+.hv-steps li::before { content: counter(hv); flex: none; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 10.5px; font-weight: 650; border: 1px solid var(--border-strong); color: var(--text-3); }
+.hv-steps li[data-state="now"] { color: var(--text); font-weight: 600; }
+.hv-steps li[data-state="now"]::before { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+.hv-steps li[data-state="done"] { color: var(--text-2); }
+.hv-steps li[data-state="done"]::before { content: '✓'; border-color: transparent; background: var(--accent-soft); color: var(--accent-ink); }
+.hv-true { margin-top: 8px; font-size: var(--fs-12); color: var(--text-3); }
+.hv-true:empty { display: none; }
+.hv-log { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.hv-log:empty { display: none; }
+.hv-row { display: flex; justify-content: space-between; gap: 12px; font-size: var(--fs-12); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.hv-row b { color: var(--text); font-weight: 600; }
+@container (min-width: 620px) {
+  .hv-main { grid-template-columns: minmax(0, 1fr) 232px; }
+}
+@container (max-width: 619px) {
+  .hv-main { flex: none; gap: 12px; }
+  .instrument-workspace .instrument-view.hv .hv-box { height: clamp(180px, 30vh, 260px); flex: none; }
+  .hv-veins { flex: 1 1 100%; display: flex; }
+  .hv-veins button { flex: 1; padding-inline: 6px; }
+}
+
+/* ── Ascites ────────────────────────────────────── */
+.instrument-view.ab { display: flex; flex-direction: column; align-items: stretch; min-height: 100%; }
+.instrument-workspace .instrument-view.ab .ab-box { height: auto; min-height: 220px; }
+.ab-report { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.ab-report .hv-num { margin-top: -4px; }
+.ab-grade { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-12); font-weight: 600; color: var(--text-2); margin-left: 4px; }
+.ab-grade::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); }
+.ab-grade[data-sev="ok"]::before { background: var(--ok); }
+.ab-grade[data-sev="caution"]::before { background: var(--caution); }
+.ab-grade[data-sev="danger"]::before { background: var(--danger); }
+.ab-report .procedure-controls { padding: 10px 12px; gap: 8px; }
+@container (min-width: 620px) {
+  .ab-main { grid-template-columns: minmax(0, 1fr) 260px; }
+}
+@container (max-width: 619px) {
+  .instrument-workspace .instrument-view.ab .ab-box { height: clamp(200px, 32vh, 280px); flex: none; }
+}
+.instrument-workspace .instrument-view .chart-box.perf-donut { height: min(var(--plot-h), 300px); }
+@container (max-width: 649px) {
+  .instrument-workspace .instrument-view .chart-box.perf-donut { height: 250px; }
 }

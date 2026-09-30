@@ -29,8 +29,8 @@ export function createProfile() {
     h('span', {}, h('i', { style: { borderColor: 'var(--text-3)', borderTopStyle: 'dashed' } }), 'Healthy'),
     h('span', { class: 'lg-compare', style: { display: 'none' } }, h('i', { style: { borderColor: 'var(--s1)', borderTopStyle: 'dotted' } }), 'Snapshot A'),
     h('span', { class: 'lg-pred', style: { display: 'none' } }, h('i', { style: { borderColor: 'var(--accent)', borderTopStyle: 'dashed' } }), 'Your prediction'));
-  const note = h('div', { class: 'sub' }, 'Pressure at each station along the path. Every step down is a resistance (ΔP = Q × R); plateaus are compartments. Bar color is the pressure scale.');
-  const side = h('div', { class: 'chart-side' }, h('div', { class: 'side-title' }, 'Pressure profile'), sel, legend, note, h('div', { class: 'ctl-sub', id: 'profileOffscale' }));
+  const note = h('div', { class: 'sub' }, 'Pressure at each station along the path. Each step down is a resistance (ΔP = Q × R); plateaus are compartments.');
+  const side = h('div', { class: 'chart-side' }, sel, legend, note, h('div', { class: 'ctl-sub', id: 'profileOffscale' }));
   el.append(box, side);
   let pathId = 'main';
   sel.addEventListener('change', () => { pathId = sel.value; draw(); });
@@ -208,7 +208,7 @@ export function createSankey() {
   const cv = h('canvas', { role: 'img', 'aria-label': 'Flow distribution' });
   box.append(cv);
   const side = h('div', { class: 'chart-side' }, h('div', { class: 'side-title' }, 'Where does gut blood go?'),
-    h('div', { class: 'sub' }, 'Ribbon width is proportional to flow (L/min). Teal passes through the liver; orange bypasses it through portosystemic routes. That bypassed share is the shunt fraction.'),
+    h('div', { class: 'sub' }, 'Ribbon width is flow (L/min). Teal passes through the liver; orange bypasses it, and that share is the shunt fraction.'),
     h('dl', { id: 'sankeyStats', class: 'kv' }));
   el.append(box, side);
   function draw(f) {
@@ -320,59 +320,79 @@ export function createSankey() {
 // ── Liver perfusion donut + P–Q operating point ─────
 export function createPerfusion() {
   const el = h('div', { class: 'dock-pane', 'data-pane': 'perfusion' });
-  const b1 = h('div', { class: 'chart-box', style: { maxWidth: '300px' } }), c1 = h('canvas', { role: 'img', 'aria-label': 'Liver perfusion composition' }); b1.append(c1);
+  const b1 = h('div', { class: 'chart-box perf-donut' }), c1 = h('canvas', { role: 'img', 'aria-label': 'Liver perfusion composition' }); b1.append(c1);
   const b2 = h('div', { class: 'chart-box' }), c2 = h('canvas', { role: 'img', 'aria-label': 'Pressure–flow operating point' }); b2.append(c2);
-  const side = h('div', { class: 'chart-side' }, h('div', { class: 'side-title' }, 'Hepatic arterial buffer'), h('div', { class: 'sub' }, 'When portal inflow falls, adenosine accumulates and the hepatic artery dilates, so liver perfusion falls less than portal flow. Right: the liver’s pressure–flow operating point; the slope is its resistance.'), h('dl', { class: 'kv', id: 'perfStats' }));
+  const side = h('div', { class: 'chart-side' }, h('div', { class: 'side-title' }, 'Hepatic arterial buffer'), h('div', { class: 'sub' }, 'As portal inflow falls, the hepatic artery dilates, so liver perfusion falls less than portal flow. The line’s slope is the liver’s resistance.'), h('dl', { class: 'kv', id: 'perfStats' }));
   el.append(b1, b2, side);
   function draw(f) {
     const c = theme();
     const m = f.metrics;
-    // donut
+    // donut: where the liver's blood comes from, and what bypasses it
     {
       const { ctx, w, h: hh } = fitCanvas(c1);
       ctx.clearRect(0, 0, w, hh);
-      const top = 58, R = Math.max(20, Math.min(w / 2, (hh - top) / 2) - 8), cx = w / 2, cy = top + (hh - top) / 2, r = R * 0.72;
+      const legendH = 58;
+      const R = Math.max(20, Math.min(w / 2, (hh - legendH) / 2) - 6), cx = w / 2, cy = 6 + R, r = R * 0.8;
       const portal = m.portalIn, art = m.arterialIn, lost = Math.max(0, m.splanchnicIn - portal);
       const total = portal + art + lost || 1;
       let a = -Math.PI / 2;
-      for (const [v, col] of [[portal, c.ok], [art, c.artery], [lost, c.rev]]) {
+      const parts = [['Portal', portal, c.ok], ['Hepatic artery', art, c.artery], ['Bypassing the liver', lost, c.rev]];
+      for (const [, v, col] of parts) {
         const da = (v / total) * Math.PI * 2;
-        const gap = da > 0.05 ? 0.02 : 0;
+        const gap = da > 0.05 ? 0.015 : 0;
         ctx.fillStyle = col; ctx.beginPath(); ctx.arc(cx, cy, R, a + gap, a + da - gap); ctx.arc(cx, cy, r, a + da - gap, a + gap, true); ctx.closePath(); ctx.fill();
         a += da;
       }
-      ctx.fillStyle = c.text; ctx.textAlign = 'center'; ctx.font = FONT(600, Math.max(14, Math.min(24, r * 0.5)));
+      ctx.fillStyle = c.text; ctx.textAlign = 'center'; ctx.font = FONT(650, Math.max(14, Math.min(26, r * 0.42)));
       ctx.fillText(`${Math.round(m.liverPerfPct)}%`, cx, cy + 4);
-      ctx.font = FONT(500, 10.5); ctx.fillStyle = c.muted; ctx.fillText('of baseline flow', cx, cy + 19);
-      ctx.textAlign = 'left'; ctx.font = FONT(500, 11);
-      [['Portal', c.ok], ['Hepatic artery', c.artery], ['Bypassing the liver', c.rev]].forEach(([t, col], i) => { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(10, 12 + i * 16, 4, 0, 7); ctx.fill(); ctx.fillStyle = c.muted; ctx.fillText(t, 20, 16 + i * 16); });
+      ctx.font = FONT(500, 10.5); ctx.fillStyle = c.muted; ctx.fillText('liver flow vs normal', cx, cy + 20);
+      // legend with values, under the ring
+      ctx.font = FONT(500, 11.5); ctx.textBaseline = 'middle';
+      const lx = Math.max(6, cx - 105), ly = cy + R + 16;
+      parts.forEach(([t, v, col], k) => {
+        const yy = ly + k * 17;
+        ctx.fillStyle = col; ctx.beginPath(); ctx.arc(lx + 4, yy, 4, 0, 7); ctx.fill();
+        ctx.fillStyle = c.muted; ctx.textAlign = 'left'; ctx.fillText(t, lx + 14, yy);
+        ctx.fillStyle = c.text; ctx.textAlign = 'right'; ctx.fillText(`${fmtFlow(v)} L/min`, Math.min(w - 4, cx + 105), yy);
+      });
+      ctx.textBaseline = 'alphabetic';
     }
-    // operating point
+    // operating point: the liver's pressure drop against its blood flow; the slope is resistance
     {
       const { ctx, w, h: hh } = fitCanvas(c2);
       ctx.clearRect(0, 0, w, hh);
-      const L = 46, B = 30, T = 12, R = 14;
+      const L = 34, B = 24, T = 26, R = 16;
       const qL = m.hepaticFlow, dpL = f.P[NI.CONF] - f.P[NI.RHV];
       const healthy = store.get().healthy;
       const q0 = healthy ? healthy.metrics.hepaticFlow : 1.5, dp0 = healthy ? healthy.P[NI.CONF] - healthy.P[NI.RHV] : 3.7;
-      const qMax = Math.max(2.2, qL * 1.3), pMax = Math.max(30, dpL * 1.3);
+      const qMax = Math.max(2.2, qL * 1.3), pMax = Math.max(30, Math.ceil(dpL * 1.3 / 10) * 10);
       const X = (q) => L + (q / qMax) * (w - L - R), Y = (p) => T + (1 - p / pMax) * (hh - T - B);
-      ctx.fillStyle = c.faint; ctx.font = FONT(500, 11); ctx.lineWidth = 1;
-      ctx.strokeStyle = c.border;
-      for (let p = 10; p <= pMax; p += 10) { ctx.beginPath(); ctx.moveTo(L, Math.round(Y(p)) + 0.5); ctx.lineTo(w - R, Math.round(Y(p)) + 0.5); ctx.stroke(); }
-      ctx.strokeStyle = c.axis; ctx.beginPath(); ctx.moveTo(L, Math.round(hh - B) + 0.5); ctx.lineTo(w - R, Math.round(hh - B) + 0.5); ctx.stroke();
-      ctx.textAlign = 'center'; ctx.fillText('Liver blood flow (L/min)', (L + w) / 2, hh - 6);
-      ctx.save(); ctx.translate(12, (hh - B) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText('ΔP portal → hepatic vein (mmHg)', 0, 0); ctx.restore();
-      for (let p = 0; p <= pMax; p += 10) { ctx.textAlign = 'right'; ctx.fillText(String(p), L - 5, Y(p) + 4); }
-      for (let q = 0; q <= qMax; q += 0.5) { ctx.textAlign = 'center'; ctx.fillText(q.toFixed(1), X(q), hh - B + 13); }
-      const line = (slope, col, dash) => { ctx.strokeStyle = col; ctx.setLineDash(dash || []); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(X(0), Y(0)); const qe = Math.min(qMax, pMax / Math.max(slope, 1e-6)); ctx.lineTo(X(qe), Y(qe * slope)); ctx.stroke(); ctx.setLineDash([]); };
-      line(dp0 / q0, c.faint, [5, 4]);
-      if (qL > 0.01) line(dpL / qL, c.accent);
-      ctx.fillStyle = c.faint; ctx.beginPath(); ctx.arc(X(q0), Y(dp0), 5, 0, 7); ctx.fill();
-      ctx.fillStyle = c.accent; ctx.beginPath(); ctx.arc(X(qL), Y(dpL), 6, 0, 7); ctx.fill();
-      ctx.fillStyle = c.text; ctx.textAlign = 'left'; ctx.font = FONT(600, 12);
-      ctx.fillText(`Liver resistance ${fmt(dpL / Math.max(0.01, qL), 1)} WU`, L + 10, T + 14);
-      ctx.fillStyle = c.muted; ctx.font = FONT(500, 11.5); ctx.fillText(`healthy ${fmt(dp0 / q0, 1)} WU (dashed)`, L + 10, T + 30);
+      ctx.font = FONT(500, 10.5); ctx.lineWidth = 1; ctx.textBaseline = 'middle';
+      for (let p = 0; p <= pMax; p += 10) {
+        ctx.strokeStyle = p ? c.border : c.axis; ctx.beginPath(); ctx.moveTo(L, Math.round(Y(p)) + 0.5); ctx.lineTo(w - R, Math.round(Y(p)) + 0.5); ctx.stroke();
+        ctx.fillStyle = c.faint; ctx.textAlign = 'right'; ctx.fillText(String(p), L - 8, Y(p));
+      }
+      ctx.textBaseline = 'alphabetic';
+      for (let q = 0.5; q <= qMax; q += 0.5) { if (X(q) > w - R - 70) continue; ctx.textAlign = 'center'; ctx.fillStyle = c.faint; ctx.fillText(q.toFixed(1), X(q), hh - 6); }
+      ctx.textAlign = 'left'; ctx.fillStyle = c.faint; ctx.fillText('ΔP portal → hepatic vein, mmHg', 4, 11);
+      ctx.textAlign = 'right'; ctx.fillText('flow, L/min', w - R, hh - 6);
+      ctx.save(); ctx.beginPath(); ctx.rect(L, T - 2, w - L - R, hh - T - B + 2); ctx.clip();
+      const line = (slope, col, dash, width) => { ctx.strokeStyle = col; ctx.setLineDash(dash || []); ctx.lineWidth = width; ctx.beginPath(); ctx.moveTo(X(0), Y(0)); const qe = Math.min(qMax, pMax / Math.max(slope, 1e-6)); ctx.lineTo(X(qe), Y(qe * slope)); ctx.stroke(); ctx.setLineDash([]); };
+      line(dp0 / q0, c.faint, [4, 4], 1.5);
+      if (qL > 0.01) line(dpL / qL, c.accent, null, 2);
+      ctx.restore();
+      const dot = (q, p, col, rr, label, sub) => {
+        ctx.fillStyle = c.surface; ctx.beginPath(); ctx.arc(X(q), Y(p), rr + 2, 0, 7); ctx.fill();
+        ctx.fillStyle = col; ctx.beginPath(); ctx.arc(X(q), Y(p), rr, 0, 7); ctx.fill();
+        const right = col === c.accent ? X(q) + 10 + 140 < w - R : false;
+        ctx.textAlign = right ? 'left' : 'right';
+        const tx = right ? X(q) + 12 : X(q) - 12;
+        const ty = col === c.accent ? Y(p) : Y(p) - 16; // the healthy label sits above its point, clear of the dashed line
+        ctx.fillStyle = col === c.accent ? c.text : c.muted; ctx.font = FONT(650, 12); ctx.fillText(label, tx, ty - 2);
+        ctx.fillStyle = c.muted; ctx.font = FONT(500, 11); ctx.fillText(sub, tx, ty + 12);
+      };
+      dot(q0, dp0, c.faint, 4, 'Healthy', `${fmt(dp0 / q0, 1)} WU`);
+      dot(qL, dpL, c.accent, 5.5, `Now · ${fmt(dpL / Math.max(0.01, qL), 1)} WU`, `${fmt(dpL, 0)} mmHg at ${fmtFlow(qL)} L/min`);
     }
     el.querySelector('#perfStats').replaceChildren(
       h('dt', {}, 'Portal inflow'), h('dd', {}, `${fmtFlow(m.portalIn)} L/min`),

@@ -2,11 +2,11 @@
 // grey-scale spectrum on black, flow toward the transducer above the baseline), with the reading
 // a sonographer would report beside it: direction, velocity against the vessel's normal range,
 // and the waveform pattern. The trace keeps recording while the instrument is closed, so it opens
-// full, and the scale follows the signal the way a sonographer adjusts it.
+// full; it is drawn in sweep mode, so what is on screen stays still while new data is written.
 
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { h, fmt, fitCanvas, clamp } from './util.js?v=fe164f31f1';
-import { FONT } from './charts.js?v=6b0896f2bb';
+import { FONT } from './charts.js?v=6046946e83';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 // kind decides the words for direction and pattern; normal is the usual mean velocity (cm/s).
@@ -166,8 +166,9 @@ export function createDoppler({ onProbe }) {
   }
 
   // ── Display ───────────────────────────────────────
-  let scale = null;     // eased velocity half-range
-  let baseF = null;     // eased baseline position (fraction of height)
+  let scale = null;     // velocity half-range (cm/s)
+  let baseF = null;     // baseline position (fraction of height)
+  let settleAt = 0;     // when the signal last fitted the current scale
   let img = null, off = null;
   const STEPS = [10, 15, 20, 30, 40, 60, 80, 100, 150, 200, 300];
   function draw() {
@@ -190,24 +191,29 @@ export function createDoppler({ onProbe }) {
       ctx.fillText(frame?.clock === 'disease' ? 'Doppler samples at the bedside: return to the seconds clock.' : 'Acquiring…', w / 2, hh / 2);
       return;
     }
-    // Scale: the peak fills about 70 % of its side, on the scanner's own velocity steps.
-    const tNow = buf[buf.length - 1][0], t0 = tNow - WINDOW;
+    // Scale: the peak fills about 70 % of its side, on the scanner's own velocity steps. Like a
+    // sonographer, the display changes scale or baseline only when the signal would clip or has
+    // stayed small for a few seconds, never continuously (a moving scale would smear the picture).
+    const tNow = buf[buf.length - 1][0];
     let pos = 0, neg = 0;
-    for (const [t, v] of buf) if (t >= t0) { if (v > pos) pos = v; if (-v > neg) neg = -v; }
+    for (const [t, v] of buf) if (t >= tNow - WINDOW) { if (v > pos) pos = v; if (-v > neg) neg = -v; }
     pos *= 1.3; neg *= 1.3;
     const need = Math.max(pos, neg, 8) / 0.72;
-    const target = STEPS.find((s) => s >= need) || STEPS[STEPS.length - 1];
-    scale = scale == null || target > scale ? target : scale + (target - scale) * 0.1;
-    // Baseline: moved toward the side with less signal, leaving room for a reversed component.
-    const tb = pos + neg < 1 ? 0.5 : clamp(0.1 + 0.8 * (pos / (pos + neg)), 0.2, 0.8);
-    const tbF = pos > 0 && neg < pos * 0.08 ? 0.78 : neg > 0 && pos < neg * 0.08 ? 0.22 : tb;
-    baseF = baseF == null ? tbF : baseF + (tbF - baseF) * 0.1;
+    const target = STEPS.find((x) => x >= need) || STEPS[STEPS.length - 1];
+    const tbRaw = pos + neg < 1 ? 0.5 : pos > 0 && neg < pos * 0.08 ? 0.78 : neg > 0 && pos < neg * 0.08 ? 0.22 : clamp(0.1 + 0.8 * (pos / (pos + neg)), 0.2, 0.8);
+    const tbF = Math.round(tbRaw * 10) / 10;
+    const fits = scale != null && need <= scale && (pos >= neg) === (baseF >= 0.5 || baseF == null);
+    if (scale == null || !fits) { scale = target; baseF = tbF; settleAt = tNow; }
+    else if (target < scale || Math.abs(tbF - baseF) > 0.15) { if (tNow - settleAt > 3) { scale = target; baseF = tbF; settleAt = tNow; } }
+    else settleAt = tNow;
     const baseY = Math.round(H * baseF);
     // the scale belongs to the dominant side; the other side shows what fits
-    const pxPerV = (pos >= neg ? baseY : H - baseY) / scale;
+    const pxPerV = (baseF >= 0.5 ? baseY : H - baseY) / scale;
 
-    // Spectrum, rendered at device resolution (two raster pixels per CSS pixel on a sharp
-    // screen) into an offscreen canvas. Speckle is keyed to time, so it scrolls with the trace.
+    // Spectrum in sweep mode, as on the scanner: each moment is written once, at a write head
+    // that runs left to right and wraps, erasing a short gap ahead of it. Nothing already on
+    // screen moves. Rendered at device resolution into an offscreen canvas; each column's
+    // speckle is keyed to its own moment, so a column looks the same on every frame.
     const k = dpr >= 1.5 ? 2 : 1;
     const RW = W * k, RH = H * k;
     if (!img || img.width !== RW || img.height !== RH) {
@@ -215,16 +221,22 @@ export function createDoppler({ onProbe }) {
       off = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(RW, RH) : Object.assign(document.createElement('canvas'), { width: RW, height: RH });
     }
     const D = img.data; D.fill(0);
-    const colsPerS = W / WINDOW, rColsPerS = colsPerS * k;
+    const rColsPerS = (W / WINDOW) * k;
+    const cNow = Math.floor(tNow * rColsPerS);
+    const head = ((cNow % RW) + RW) % RW;
+    const gap = Math.round(0.12 * rColsPerS);           // erased band ahead of the head
     const rBase = baseY * k, rPxPerV = pxPerV * k;
-    let j = 0;
+    const tFirst = buf[0][0];
     const env = new Float32Array(W).fill(NaN);
-    for (let rx = 0; rx < RW; rx++) {
-      const t = t0 + rx / rColsPerS;
-      const tk = Math.round(t * rColsPerS);
-      if (t < buf[0][0]) {
-        // before the first sample: noise floor only
-        for (let ry = 0; ry < RH; ry++) { const n = hash(tk >> 2, ry) ** 18 * 34; const q = (ry * RW + rx) * 4; D[q] = D[q + 1] = D[q + 2] = n; D[q + 3] = 255; }
+    let j = 0;
+    // columns from oldest to newest, so the sample search runs forward
+    for (let age = RW - 1; age >= 0; age--) {
+      const c = cNow - age;
+      const rx = ((c % RW) + RW) % RW;
+      if (age >= RW - gap) continue;                     // the erased gap
+      const t = c / rColsPerS;
+      if (t < tFirst) {
+        for (let ry = 0; ry < RH; ry++) { const n = hash(c >> 1, ry) ** 18 * 34; if (n < 3) continue; const q = (ry * RW + rx) * 4; D[q] = D[q + 1] = D[q + 2] = n; D[q + 3] = 255; }
         continue;
       }
       while (j < buf.length - 2 && buf[j + 1][0] < t) j++;
@@ -238,17 +250,17 @@ export function createDoppler({ onProbe }) {
       const yPk = rBase - pk * rPxPerV, yLo = rBase - lo * rPxPerV;
       const top = Math.min(yPk, yLo), bot = Math.max(yPk, yLo);
       const edge = (1.6 + 2.2 * clamp(1 - av / 20, 0, 1)) * k;
-      const grainT = tk >> 1;
+      const grain = c >> 1;
       if (rx % k === 0) env[rx / k] = yPk / k;
       for (let ry = 0; ry < RH; ry++) {
-        const s = hash(grainT, ry);
-        let I = Math.pow(hash(tk >> 2, ry), 18) * 0.13;                  // sparse noise floor
+        const sp = hash(grain, ry);
+        let I = Math.pow(hash(c >> 1, ry), 18) * 0.13;                   // sparse noise floor
         if (ry >= top - edge && ry <= bot + edge) {
           const u = bot > top ? (ry - top) / (bot - top) : 0.5;          // 0 at the upper edge
           const peakSide = pk >= 0 ? 1 - u : u;
           let b = 0.26 + 0.74 * Math.pow(clamp(peakSide, 0, 1), 0.9);
           if (ry < top) b *= Math.max(0, 1 - (top - ry) / edge); else if (ry > bot) b *= Math.max(0, 1 - (ry - bot) / edge);
-          I = Math.max(I, b * (0.42 + 0.9 * s * s));                       // speckle
+          I = Math.max(I, b * (0.42 + 0.9 * sp * sp));                     // speckle
         }
         const vel = (rBase - ry) / rPxPerV;
         if (Math.abs(vel) < 2.2 && av > 0.5) I *= 0.35 + 0.65 * Math.abs(vel) / 2.2; // wall filter
@@ -265,11 +277,21 @@ export function createDoppler({ onProbe }) {
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(off, padL, padT, W, H);
 
-    // Peak envelope (auto-trace)
+    // Peak envelope (auto-trace), broken at the write head
+    const headX = Math.floor(head / k), gapX = Math.ceil(gap / k);
     ctx.strokeStyle = 'rgba(250, 214, 80, .85)'; ctx.lineWidth = 1.25; ctx.lineJoin = 'round';
     ctx.beginPath(); let started = false;
-    for (let px = 0; px < W; px += 2) { const y = env[px]; if (Number.isNaN(y)) { started = false; continue; } const X = padL + px, Y = padT + y; if (!started) { ctx.moveTo(X, Y); started = true; } else ctx.lineTo(X, Y); }
+    for (let px = 0; px < W; px++) {
+      const y = env[px];
+      const inGap = ((px - headX + W) % W) > 0 && ((px - headX + W) % W) <= gapX;
+      if (Number.isNaN(y) || inGap || px === headX + 1) { started = false; continue; }
+      if (px % 2 && px !== headX) continue;
+      const X = padL + px, Y = padT + y;
+      if (!started) { ctx.moveTo(X, Y); started = true; } else ctx.lineTo(X, Y);
+    }
     ctx.stroke();
+    // the write head
+    ctx.fillStyle = 'rgba(255,255,255,.28)'; ctx.fillRect(padL + headX + 1, padT, 1, H);
 
     // Baseline
     ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillRect(padL, padT + baseY, W, 1);
@@ -284,9 +306,12 @@ export function createDoppler({ onProbe }) {
       if (major) { ctx.fillStyle = 'rgba(255,255,255,.72)'; ctx.fillText(v === 0 ? '0' : num(v), padL + W + 13, y); }
     }
     ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.textAlign = 'right'; ctx.fillText('cm/s', w - 6, 13);
-    // One tick a second along the bottom
+    // One tick a second along the bottom, fixed to the moments they mark
     ctx.fillStyle = 'rgba(255,255,255,.4)';
-    for (let s = Math.ceil(t0); s <= tNow; s++) ctx.fillRect(Math.round(padL + (s - t0) * colsPerS), padT + H + 5, 1, 4);
+    for (let sec = Math.ceil(tNow - WINDOW); sec <= tNow; sec++) {
+      const x = ((Math.floor(sec * rColsPerS) % RW) + RW) % RW / k;
+      ctx.fillRect(Math.round(padL + x), padT + H + 5, 1, 4);
+    }
     ctx.textBaseline = 'alphabetic';
   }
 
