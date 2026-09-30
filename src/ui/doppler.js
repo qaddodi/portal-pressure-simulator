@@ -2,7 +2,7 @@
 // grey-scale spectrum on black, flow toward the transducer above the baseline), with the reading
 // a sonographer would report beside it: direction, velocity against the vessel's normal range,
 // and the waveform pattern. The trace keeps recording while the instrument is closed, so it opens
-// full. It scrolls continuously; only the faint background noise stays fixed to the screen.
+// full. It scrolls continuously; the faint background noise flickers in place instead of scrolling.
 
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { h, fmt, fitCanvas, clamp } from './util.js?v=fe164f31f1';
@@ -169,6 +169,7 @@ export function createDoppler({ onProbe }) {
   let scale = null;     // velocity half-range (cm/s)
   let baseF = null;     // baseline position (fraction of height)
   let settleAt = 0;     // when the signal last fitted the current scale
+  let noiseFrame = 0;
   let img = null, off = null;
   const STEPS = [10, 15, 20, 30, 40, 60, 80, 100, 150, 200, 300];
   function draw() {
@@ -222,6 +223,8 @@ export function createDoppler({ onProbe }) {
     const D = img.data; D.fill(0);
     const rColsPerS = (W / WINDOW) * k;
     const cNow = Math.floor(tNow * rColsPerS);
+    // the noise floor is re-drawn each frame, like a scanner's: it flickers in place and never scrolls
+    const nk = (++noiseFrame * 2654435761) | 0;
     const rBase = baseY * k, rPxPerV = pxPerV * k;
     const tFirst = buf[0][0];
     const env = new Float32Array(W).fill(NaN);
@@ -231,7 +234,7 @@ export function createDoppler({ onProbe }) {
       const c = cNow - (RW - 1 - rx);
       const t = c / rColsPerS;
       if (t < tFirst) {
-        for (let ry = 0; ry < RH; ry++) { const n = hash(rx, ry) ** 18 * 34; if (n < 3) continue; const q = (ry * RW + rx) * 4; D[q] = D[q + 1] = D[q + 2] = n; D[q + 3] = 255; }
+        for (let ry = 0; ry < RH; ry++) { const n = hash(rx ^ nk, ry) ** 18 * 34; if (n < 3) continue; const q = (ry * RW + rx) * 4; D[q] = D[q + 1] = D[q + 2] = n; D[q + 3] = 255; }
         continue;
       }
       while (j < buf.length - 2 && buf[j + 1][0] < t) j++;
@@ -249,7 +252,7 @@ export function createDoppler({ onProbe }) {
       if (rx % k === 0) env[rx / k] = yPk / k;
       for (let ry = 0; ry < RH; ry++) {
         const sp = hash(grain, ry);
-        let I = Math.pow(hash(rx, ry), 18) * 0.13;                       // noise floor, fixed to the screen
+        let I = Math.pow(hash(rx ^ nk, ry), 18) * 0.13;                  // noise floor, in screen space
         if (ry >= top - edge && ry <= bot + edge) {
           const u = bot > top ? (ry - top) / (bot - top) : 0.5;          // 0 at the upper edge
           const peakSide = pk >= 0 ? 1 - u : u;
