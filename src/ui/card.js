@@ -13,16 +13,44 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   const el = h('section', { class: 'action-card stage-blocker', role: 'dialog', 'aria-label': 'Actions', hidden: true });
   view.append(el);
   const sizes = { vw: view.clientWidth, vh: view.clientHeight, w: 0, h: 0 };
-  new ResizeObserver(() => { sizes.vw = view.clientWidth; sizes.vh = view.clientHeight; placedFor = ''; position(); }).observe(view);
-  new ResizeObserver(() => { sizes.w = el.offsetWidth; sizes.h = el.offsetHeight; placedFor = ''; position(); }).observe(el);
+  new ResizeObserver(() => { sizes.vw = view.clientWidth; sizes.vh = view.clientHeight; placedFor = ''; lastLayout = ''; position(); }).observe(view);
+  new ResizeObserver(() => { sizes.w = el.offsetWidth; sizes.h = el.offsetHeight; placedFor = ''; lastLayout = ''; position(); if (isDocked()) reveal(); }).observe(el);
   const uiState = {};
   ctx.ui = (key, def) => (uiState[key] ||= def);
-  let model = null, live = [], syncs = [], actionable = [], selRef = null, placedFor = '', sheetCollapsed = false;
+  let model = null, live = [], syncs = [], actionable = [], selRef = null, placedFor = '', lastLayout = '', sheetState = 'half';
 
   const refP = () => { const st = store.get(); return st.compareSnap ? st.compareSnap.P : st.healthy?.P; };
   const lens = () => (store.get().imaging ? 'neutral' : store.get().colorMode);
 
-  function hide() { el.hidden = true; model = null; live = []; syncs = []; actionable = []; stage.relayout?.(); }
+  // Laying the labels out again (they steer clear of the card) is not needed more than once a frame.
+  let relayoutRaf = 0;
+  const relayoutSoon = () => { if (!relayoutRaf) relayoutRaf = requestAnimationFrame(() => { relayoutRaf = 0; stage.relayout?.(); }); };
+  const isDocked = () => el.classList.contains('docked');
+  // The sheet covers the bottom of the figure: keep the tapped vessel in the part that is left, and lift
+  // the figure's own buttons (Fit, turn) clear of it.
+  let revealRaf = 0, lift = null, liftedBy = '';
+  // The variable goes on the few elements that use it: set on the whole figure it would make the browser re-check
+  // the style of every element under it.
+  function liftButtons(px) {
+    if (px === liftedBy) return;
+    liftedBy = px;
+    lift ||= [...view.querySelectorAll('.stage-fit, .stage-rotate, .stage-clock')];
+    for (const b of lift) b.style.setProperty('--sheet-h', px);
+  }
+  function reveal() {
+    cancelAnimationFrame(revealRaf);
+    revealRaf = requestAnimationFrame(() => {
+      const open = model && !el.hidden && isDocked();
+      liftButtons(open ? `${el.offsetHeight + 6}px` : '0px');
+      if (open) stage.reveal?.(normalizeSel(selRef) || selRef, el.offsetHeight + 6);
+    });
+  }
+  function hide() {
+    el.hidden = true; model = null; live = []; syncs = []; actionable = [];
+    liftButtons('0px');
+    stage.unreveal?.();
+    relayoutSoon();
+  }
 
   function render({ keepFocus = false } = {}) {
     const st = store.get();
@@ -38,10 +66,11 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     live.push(() => {
       const f = store.get().frame;
       if (!f) return;
-      if (lens() === 'neutral' && model.why !== 'spleen' && model.why !== 'ascites') valEl.replaceChildren(h('span', { class: 'ac-unmeasured' }, 'Pressure unmeasured'));
+      if (lens() === 'neutral' && model.why !== 'spleen' && model.why !== 'ascites') { if (valEl._sig !== 'n') { valEl._sig = 'n'; valEl.replaceChildren(h('span', { class: 'ac-unmeasured' }, 'Pressure unmeasured')); } }
       else {
         const v = m.value(f, lens(), refP());
-        valEl.replaceChildren(h('b', {}, v.v), h('span', { class: 'unit' }, v.u), v.d ? h('span', { class: 'ac-delta ' + (v.up ? 'up' : 'down') }, v.d) : null);
+        const sig = `${v.v}|${v.u}|${v.d || ''}|${v.up ? 1 : 0}`;
+        if (valEl._sig !== sig) { valEl._sig = sig; valEl.replaceChildren(h('b', {}, v.v), h('span', { class: 'unit' }, v.u), v.d ? h('span', { class: 'ac-delta ' + (v.up ? 'up' : 'down') }, v.d) : null); }
       }
       const s = m.status?.(f);
       if (s) { if (pillEl._s !== s.join()) { pillEl.replaceChildren(h('span', { class: 'pill ' + s[0] }, s[1])); pillEl._s = s.join(); } }
@@ -52,46 +81,55 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     const foot = h('div', { class: 'ac-foot' },
       h('button', { class: 'link', onclick: (e) => onWhy(m.why, e.currentTarget) }, svgIcon('bulb', 'mi-ic'), 'Why?'),
       h('button', { class: 'link', onclick: () => onDetails(selRef) }, 'Details', svgIcon('chev-right', 'mi-ic')));
-    // On a phone the card is a bottom sheet: the top (grab handle, title, value, close) stays put
-    // and only the controls scroll; tapping or swiping the top collapses and expands it.
-    const grab = h('button', { class: 'ac-grab', 'aria-label': 'Collapse or expand the card', 'aria-expanded': String(!sheetCollapsed) });
+    // On a phone the card is a bottom sheet with three heights (a strip with the reading, half, full): the top
+    // (grab handle, title, value, close) and the foot stay put and only the controls scroll; tapping or
+    // swiping the top moves between the heights. The same layout is used, with room for the sliders, on a desktop.
+    const grab = h('button', { class: 'ac-grab', 'aria-label': 'Collapse or expand the card', 'aria-expanded': String(sheetState !== 'peek') });
     const top = h('div', { class: 'ac-top' }, grab,
       h('header', { class: 'ac-head' }, h('div', { class: 'ac-titles' }, h('span', { class: 'ac-kicker' }, m.kicker), h('h3', {}, m.title)), close),
       h('div', { class: 'ac-readout' }, valEl, pillEl));
     wireSheet(top, grab);
-    el.replaceChildren(top, h('div', { class: 'ac-scroll' }, body, foot));
-    el.classList.toggle('collapsed', sheetCollapsed);
+    el.replaceChildren(top, h('div', { class: 'ac-scroll' }, body), foot);
+    for (const s of ['peek', 'half', 'full']) el.classList.toggle(s, s === sheetState);
     el.setAttribute('aria-label', `${m.title}: actions`);
     el.hidden = false;
     // Number keys trigger the verbs in order; show the number beside each.
     actionable.forEach((a, i) => { if (i < 9) a.el.dataset.key = String(i + 1); });
     update();
-    placedFor = '';
+    placedFor = ''; lastLayout = '';
     position();
     if (focusedIdx >= 0) actionable[focusedIdx]?.focus();
-    stage.relayout?.();
+    relayoutSoon();
+    reveal();
   }
 
-  // Bottom-sheet gestures (phone only): a tap on the handle or the title toggles; a swipe down
-  // collapses, and a second swipe down closes; a swipe up expands. The collapsed state carries
-  // over to the next card, so a learner who wants the figure clear keeps it clear.
-  function setCollapsed(on) {
-    sheetCollapsed = on;
-    el.classList.toggle('collapsed', on);
-    el.querySelector('.ac-grab')?.setAttribute('aria-expanded', String(!on));
-    stage.relayout?.();
+  // Bottom-sheet gestures (phone only): a tap on the handle or the top toggles the strip and half height; a swipe
+  // up goes one height up, a swipe down one height down, and a swipe down from the strip closes. The height
+  // carries over to the next card, so a learner who wants the figure clear keeps it clear.
+  const HEIGHTS = ['peek', 'half', 'full'];
+  function setSheet(s) {
+    sheetState = s;
+    for (const k of HEIGHTS) el.classList.toggle(k, k === s);
+    el.querySelector('.ac-grab')?.setAttribute('aria-expanded', String(s !== 'peek'));
+    relayoutSoon();
+    reveal();
   }
   function wireSheet(top, grab) {
-    grab.addEventListener('click', () => setCollapsed(!sheetCollapsed));
+    grab.addEventListener('click', () => setSheet(sheetState === 'peek' ? 'half' : sheetState === 'half' ? 'peek' : 'half'));
     let y0 = null, moved = false;
-    top.addEventListener('pointerdown', (e) => { if (!el.classList.contains('docked') || e.target.closest('.ac-close')) return; y0 = e.clientY; moved = false; });
+    top.addEventListener('pointerdown', (e) => {
+      if (!isDocked() || e.target.closest('.ac-close')) return;
+      y0 = e.clientY; moved = false;
+      try { top.setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }   // a swipe may leave the top
+    });
     top.addEventListener('pointermove', (e) => { if (y0 != null && Math.abs(e.clientY - y0) > 8) moved = true; });
     top.addEventListener('pointerup', (e) => {
       if (y0 == null) return;
       const dy = e.clientY - y0; y0 = null;
-      if (dy > 40) { if (sheetCollapsed) store.set({ selection: null }); else setCollapsed(true); }
-      else if (dy < -40) setCollapsed(false);
-      else if (!moved && !e.target.closest('button')) setCollapsed(!sheetCollapsed);
+      const i = HEIGHTS.indexOf(sheetState);
+      if (dy > 40) { if (i === 0) store.set({ selection: null }); else setSheet(HEIGHTS[i - 1]); }
+      else if (dy < -40) setSheet(HEIGHTS[Math.min(2, i + 1)]);
+      else if (!moved && !e.target.closest('button')) setSheet(sheetState === 'peek' ? 'half' : 'peek');
     });
     top.addEventListener('pointercancel', () => { y0 = null; });
   }
@@ -131,7 +169,8 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
         updateParams((pp) => { v.set(pp, x); return pp; }, { history: fresh, label: v.hist || lab });
         fresh = false;
       });
-      const row = h('div', { class: 'ac-slider' + (dis ? ' locked' : ''), title: dis ? LOCK_TIP : null },
+      // On a phone a short name sits on one row with its track; a long one stacks above it.
+      const row = h('div', { class: 'ac-slider' + (lab.length > 13 ? ' long' : '') + (dis ? ' locked' : ''), title: dis ? LOCK_TIP : null },
         h('div', { class: 'ctl-top' }, h('span', { class: 'ac-label' }, v.icon ? svgIcon(v.icon, 'ac-ic') : null, lab, v.info ? infoI(v.info) : null), val),
         h('div', { class: 'range-wrap' }, input),
         v.sub ? h('div', { class: 'ctl-sub' }, v.sub) : null);
@@ -198,6 +237,10 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     if (!model || el.hidden) return;
     if (matchMedia('(max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape)').matches) { el.style.left = ''; el.style.top = ''; el.classList.add('docked'); return; }
     el.classList.remove('docked');
+    // Where the structure is on screen changes only when the view or the drawn geometry does.
+    const lk = stage.layoutKey ? stage.layoutKey() : '';
+    if (lk && lk === lastLayout && placedFor) return;
+    lastLayout = lk;
     const a = stage.anchorFor(normalizeSel(selRef) || selRef);
     if (!a) return;
     // Sizes come from ResizeObservers: measuring here, after the frame's DOM writes, would force

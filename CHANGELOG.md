@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **The action card, rebuilt for the phone.** Tapping a vessel opens a bottom sheet with three heights: a
+  strip with just the reading, half height (the default, about 40 % of the figure, with the controls and the
+  Why? and Details links pinned to the bottom), and full. Tap the handle to flip between the strip and half,
+  swipe up or down to step through the heights, and swipe down from the strip to close. The figure pans, no
+  more than needed, so the vessel you tapped stays visible above the sheet, and goes back when the card
+  closes; Fit, the turn button and the clock ride above the sheet. Short-named sliders sit on one row with
+  their track, and buttons and switches sit two to a row. On a desktop the card keeps its place beside the
+  vessel and has the same parts: title and reading on top, controls in the middle, Why? and Details pinned at
+  the bottom.
 - **Turn the circuit upright.** A new button above Fit (circuit view only) turns the circuit a quarter
   turn counter-clockwise, so the flow runs from the splanchnic beds at the bottom to the heart at the
   top. The map becomes tall instead of wide and fills a phone held upright, where the wide map was

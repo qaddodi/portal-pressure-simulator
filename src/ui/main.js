@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=ce51691de3';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=4bf5a96a9d';
-import { createStage } from './stage.js?v=02178d9346';
+import { createStage } from './stage.js?v=2b3475acad';
 import { createInspector } from './inspector.js?v=ecfb4548ab';
 import { createDock, CUTOFFS } from './dock.js?v=cd9a4e396a';
 import { createWhy } from './why.js?v=cb6efa350a';
@@ -11,7 +11,7 @@ import { createTimeline } from './timeline.js?v=a16aa94cd6';
 import { createLearn } from './learn.js?v=cc9a38cf25';
 import { createCases } from './cases.js?v=52c633ef8b';
 import { createCompare } from './compare.js?v=e505a6db48';
-import { createCard } from './card.js?v=f9bd337cef';
+import { createCard } from './card.js?v=06466f93a6';
 import { createChart } from './chart.js?v=cabf903cef';
 import { createHome } from './home.js?v=fe3cba9aa4';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=0457b367b9';

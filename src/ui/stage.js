@@ -798,6 +798,32 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (morphTarget !== 1 || reduceMotion.matches) { rotU = on; setViewBox(easeInOut(morph)); }
   }
 
+  // A bottom sheet (the action card on a phone) covers the lower part of the figure. reveal() pans the figure,
+  // no more than needed, so the selected structure stays in the part that is left; unreveal() puts the view back
+  // when the sheet closes, unless the learner has moved the figure since.
+  let revealFrom = null, revealTo = null;
+  const sameView = (a, b) => a && b && Math.abs(a.k - b.k) < 0.001 && Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1;
+  function reveal(sel, insetBottom) {
+    if (!sel || lobuleOn || lz?.isOpen()) return;
+    const a = anchorFor(sel);
+    if (!a) return;
+    const W = wrap.clientWidth, H = wrap.clientHeight, top = 44, bottom = H - insetBottom - 18, side = 18;
+    if (bottom - top < 80) return;
+    const inside = a.y >= top && a.y <= bottom && a.x >= side && a.x <= W - side;
+    if (inside) return;
+    const s = vbScale();
+    const dx = a.x < side || a.x > W - side ? W / 2 - a.x : 0;
+    const dy = a.y < top || a.y > bottom ? (top + bottom) / 2 - a.y : 0;
+    if (revealTo && !sameView(vt, revealTo)) revealFrom = null;   // the learner moved the figure: keep it where it is
+    if (!revealFrom) revealFrom = { ...vt };
+    revealTo = { k: vt.k, x: vt.x + dx / s, y: vt.y + dy / s };
+    animateVT(revealTo, 320);
+  }
+  function unreveal() {
+    if (revealFrom && sameView(vt, revealTo)) animateVT(revealFrom, 320);
+    revealFrom = revealTo = null;
+  }
+
   // ── Semantic zoom: abdomen → liver → lobule ───────
   // Zooming (wheel, pinch, buttons) only moves the camera: past ×1.9 over the liver its inner
   // trees open (see liverExpanded) and a trail in the corner names the level. The lobule is
@@ -3094,6 +3120,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     zoomIn: () => { const r = wrap.getBoundingClientRect(); zoomAt(r.left + r.width / 2, r.top + r.height / 2, 1.25); },
     zoomOut: () => { const r = wrap.getBoundingClientRect(); zoomAt(r.left + r.width / 2, r.top + r.height / 2, 0.8); },
     fit,
+    reveal, unreveal,
+    /** Changes whenever what is drawn where changes (a pan, a zoom, the morph): a cheap key for "did anything move". */
+    layoutKey: () => `${viewVersion}|${geometryVersion}`,
     setCircuitRotated,
     circuitRotated: () => rotTarget === 1,
     zoomToBox,

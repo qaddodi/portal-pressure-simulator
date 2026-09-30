@@ -81,6 +81,40 @@ for (const device of Object.keys(DEVICES)) {
     await page.waitForTimeout(900);
     if (!((await box()) < 1)) throw new Error('circuit did not turn back to wide');
   });
+  if (device === 'phone') await check(device, 'action card is a three-height sheet that keeps the vessel in view', async (page) => {
+    await open(page, '?preset=cirr-decomp');
+    await page.evaluate(() => window.pps.store.set({ view: 'anatomic' }));
+    await page.waitForTimeout(800);
+    const read = () => page.evaluate(() => {
+      const c = document.querySelector('.action-card'), r = c.getBoundingClientRect(), sv = document.querySelector('#stageView').getBoundingClientRect();
+      return { cls: [...c.classList], top: r.top - sv.top, h: r.height, stageH: sv.height, foot: !!c.querySelector('.ac-foot') && getComputedStyle(c.querySelector('.ac-foot')).display !== 'none' };
+    });
+    await page.evaluate(() => window.pps.store.set({ selection: { type: 'edge', id: 'PV_TRUNK' } }));
+    await page.waitForSelector('.action-card:not([hidden])');
+    await page.waitForTimeout(900);
+    let s = await read();
+    if (!s.cls.includes('docked') || !s.cls.includes('half')) throw new Error(`card should open docked at half height, got ${s.cls}`);
+    if (s.h > s.stageH * 0.55) throw new Error(`half-height sheet covers ${Math.round((100 * s.h) / s.stageH)} % of the figure`);
+    if (!s.foot) throw new Error('Why? / Details are not visible at half height');
+    // The tapped vessel is above the sheet.
+    const anchorY = await page.evaluate(() => { const a = window.pps.stage.anchorFor({ type: 'edge', id: 'PV_TRUNK' }); return a && a.y; });
+    if (anchorY == null || anchorY > s.top) throw new Error(`the vessel (y ${Math.round(anchorY)}) is under the sheet (top ${Math.round(s.top)})`);
+    await page.click('.ac-grab');
+    await page.waitForTimeout(500);
+    s = await read();
+    if (!s.cls.includes('peek') || s.h > s.stageH * 0.22) throw new Error('the strip height is not small');
+    await page.click('.ac-grab');
+    await page.waitForTimeout(300);
+    const box = await (await page.$('.ac-top')).boundingBox();
+    await page.mouse.move(box.x + 100, box.y + 30); await page.mouse.down(); await page.mouse.move(box.x + 100, box.y - 70, { steps: 6 }); await page.mouse.up();
+    await page.waitForTimeout(500);
+    s = await read();
+    if (!s.cls.includes('full')) throw new Error('a swipe up did not open the full height');
+    await shot(page, 'phone-card-full');
+    await page.evaluate(() => window.pps.store.set({ selection: null }));
+    await page.waitForTimeout(500);
+    if (!(await page.$eval('.action-card', (c) => c.hidden))) throw new Error('the card did not close');
+  });
   await check(device, 'circuit view, selection card, lenses', async (page) => {
     await open(page, '?preset=csph');
     await page.evaluate(() => window.pps.store.set({ view: 'circuit' }));
