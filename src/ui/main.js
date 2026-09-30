@@ -5,14 +5,14 @@ import { startHost, host } from './host.js?v=eb88ab8553';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=4bf5a96a9d';
 import { createStage } from './stage.js?v=d06a8fa994';
 import { createInspector } from './inspector.js?v=d987f64f8e';
-import { createDock, CUTOFFS } from './dock.js?v=5ee6451879';
-import { createWhy } from './why.js?v=0c38166925';
+import { createDock, CUTOFFS } from './dock.js?v=9f03c8b9a1';
+import { createWhy } from './why.js?v=12b5dd1ae8';
 import { createTimeline } from './timeline.js?v=dfb94b9a3c';
 import { createLearn } from './learn.js?v=20bcb606bb';
 import { createCases } from './cases.js?v=a66f8bd308';
 import { createCompare } from './compare.js?v=ace33fc9f4';
 import { createCard } from './card.js?v=1219f62f4d';
-import { createChart } from './chart.js?v=bc31652389';
+import { createChart } from './chart.js?v=d4836a47ee';
 import { createHome } from './home.js?v=64684f9ba0';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=0457b367b9';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=eb8ef6048f';
@@ -187,7 +187,7 @@ async function main() {
   store.on('shunting', renderPaintHint);
   store.on('mode', onMode);
   store.on('layers', () => { app.classList.toggle('chips-off', !store.get().layers.chips); redraw(); });
-  store.on('presetId', (id) => { $('#scenarioName').textContent = presets.find((p) => p.id === id)?.label || 'Custom'; });
+  store.on('presetId', (id) => { $('#scenarioName').textContent = $('#panelName').textContent = presets.find((p) => p.id === id)?.label || 'Custom'; });
   store.on('role', (r) => { try { localStorage.setItem('pps.role', r); } catch { /* storage unavailable */ } app.dataset.role = r; card.render(); });
   app.dataset.role = store.get().role;
   for (const k of ['compareSnap', 'compareView', 'colorMode', 'imaging']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
@@ -925,7 +925,7 @@ function openAbout(section) {
     h('p', { class: 'sub' }, 'Each is an automated test that must pass before a release:'),
     h('ol', { class: 'refs' }, VALIDATION.map((v) => h('li', {}, v))),
     h('h3', {}, 'Status colors'),
-    h('p', { class: 'sub' }, 'Every readout’s dot and status word follow a clinical cut-off. Changes (▲ / ▼) are drawn in neutral ink; red means a threshold has been crossed.'),
+    h('p', { class: 'sub' }, 'Every readout’s dot, bar and status word follow a clinical cut-off; the ticks on its bar mark the cut-offs below. A change (▲ / ▼) is drawn in neutral ink and appears only when a value keeps moving for several seconds, never for the heartbeat or breathing. Red means a threshold has been crossed.'),
     h('div', { class: 'table-wrap' }, h('table', { class: 'cut-table' },
       h('thead', {}, h('tr', {}, ['Readout', 'Normal', 'Borderline', 'Past a threshold', 'High risk'].map((x, i) => h('th', {}, i ? h('span', { class: 'cut-h' }, h('i', { class: 'dot', 'data-sev': ['', 'ok', 'caution', 'danger', 'critical'][i] }), x) : x)))),
       h('tbody', {}, CUTOFFS.map((r) => h('tr', {}, r.map((c) => h('td', {}, c))))))),

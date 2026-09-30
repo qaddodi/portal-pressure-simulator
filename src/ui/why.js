@@ -41,6 +41,6 @@ export function createWhy(pop) {
   }
   function close() { pop.classList.remove('show'); openFor = null; anchorEl?.focus?.({ preventScroll: true }); anchorEl = null; }
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && pop.classList.contains('show')) close(); });
-  addEventListener('pointerdown', (e) => { if (pop.classList.contains('show') && !pop.contains(e.target) && !e.target.closest('.metric, .btn, .link')) close(); });
+  addEventListener('pointerdown', (e) => { if (pop.classList.contains('show') && !pop.contains(e.target) && !e.target.closest('.metric, .finding, .vital, .btn, .link')) close(); });
   return { open, close };
 }

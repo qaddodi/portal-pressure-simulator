@@ -18,8 +18,8 @@
   <meta name="apple-mobile-web-app-title" content="Portal Sim" />
   <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="fonts/fonts.css" />
-  <link rel="stylesheet" href="styles/tokens.css?v=b07020fc5a" />
-  <link rel="stylesheet" href="styles/app.css?v=b210bff948" />
+  <link rel="stylesheet" href="styles/tokens.css?v=f1a68f1a5b" />
+  <link rel="stylesheet" href="styles/app.css?v=890a6e4845" />
 </head>
 <body>
   <!-- Icon set: 24px grid, 1.6px stroke, round caps (blueprint §5.6). -->
@@ -159,11 +159,11 @@
     <div class="panel-scrim" id="panelScrim" aria-hidden="true"></div>
     <aside class="panel" id="panel" aria-label="Side panel">
       <div class="lesson-rail" id="panelLesson" aria-label="Lesson"></div>
-      <div class="panel-tabs" role="tablist" aria-label="Side panel">
-        <button role="tab" id="tabChart" data-ptab="chart" aria-selected="true" aria-controls="panelChart"><svg><use href="#i-heart"/></svg><span data-i18n="tabs.chart">Patient</span></button>
+      <div class="panel-tabs panel-head">
+        <h2 class="ph-title" id="panelTitle"><span class="ph-k" data-i18n="tabs.chart">Patient</span><span class="ph-name" id="panelName">Healthy</span></h2>
         <button class="ib panel-close" id="panelClose" aria-label="Close the side panel" title="Close"><svg><use href="#i-close"/></svg></button>
       </div>
-      <div class="panel-page" id="panelChart" role="tabpanel" aria-labelledby="tabChart">
+      <div class="panel-page" id="panelChart" role="region" aria-labelledby="panelTitle">
         <div id="panelCase"></div>
         <div id="inspector"></div>
       </div>
@@ -183,11 +183,11 @@
   <link rel="modulepreload" href="src/ui/store.js?v=4bf5a96a9d" />
   <link rel="modulepreload" href="src/ui/colormap.js?v=6d64a94345" />
   <link rel="modulepreload" href="src/ui/inspector.js?v=d987f64f8e" />
-  <link rel="modulepreload" href="src/ui/dock.js?v=5ee6451879" />
+  <link rel="modulepreload" href="src/ui/dock.js?v=9f03c8b9a1" />
   <link rel="modulepreload" href="src/ui/charts.js?v=6046946e83" />
   <link rel="modulepreload" href="src/ui/instruments.js?v=35fa9b1e35" />
   <link rel="modulepreload" href="src/ui/timeline.js?v=dfb94b9a3c" />
   <link rel="modulepreload" href="src/engine/topology.js?v=29d10ad9ef" />
-  <script type="module" src="src/ui/main.js?v=628826d4c1"></script>
+  <script type="module" src="src/ui/main.js?v=80f483ddbd"></script>
 </body>
 </html>

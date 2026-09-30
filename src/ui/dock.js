@@ -1,4 +1,4 @@
-// Readout strip (small screens) and the instruments (blueprint §9.1, §9.2).
+// Readout strip (the live monitor under the figure) and the instruments (blueprint §9.1, §9.2).
 
 import { store } from './store.js?v=4bf5a96a9d';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=fe164f31f1';
@@ -9,124 +9,174 @@ import { createHVPG, createEndoscopy, createVarixWall, createAbdomen } from './i
 import { createLandscape } from './landscape.js?v=808d667d6a';
 
 
-// Readouts in reading order: the portal story first, then the systemic circulation. Each
-// readout's status (dot color and word) comes from a clinical cut-off, listed in CUTOFFS below
-// and in About the model: green is normal, amber borderline, red past a clinical threshold,
-// dark red past the highest one where a readout has one.
+// Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
+// circulation. Each readout's status (dot, bar color and word) comes from a clinical cut-off,
+// listed in CUTOFFS below and in About the model: green is normal, amber borderline, red past a
+// clinical threshold, dark red past the highest one where a readout has one. `scale` and `ticks`
+// draw the bar under each value: where the value sits between the cut-offs.
 export const TILES = [
-  { id: 'hvpg', k: 'HVPG', title: 'Hepatic venous pressure gradient (wedged − free hepatic venous pressure)', why: 'hvpg', v: (m) => m.hvpg, d: 1, u: 'mmHg', hideKey: 'trueHVPG', measured: () => store.get().lastHVPG,
+  { id: 'hvpg', group: 'pressure', k: 'HVPG', title: 'Hepatic venous pressure gradient: wedged − free hepatic venous pressure. Estimates the sinusoidal gradient; normal < 5, clinically significant ≥ 10 mmHg.', why: 'hvpg', v: (m) => m.hvpg, d: 1, u: 'mmHg', hideKey: 'trueHVPG', measured: () => store.get().lastHVPG,
+    scale: [0, 25], ticks: [5, 10],
     st: (v) => (v < 5 ? 'ok' : v < 10 ? 'caution' : 'danger'),
     s: (v) => (v < 5 ? 'Normal' : v < 10 ? 'Subclinical' : 'CSPH') },
-  { id: 'pv', k: 'Portal vein', title: 'Portal vein pressure', why: 'pv', v: (m) => m.pv, d: 1, u: 'mmHg', hideKey: 'pv', st: (v) => (v <= 10 ? 'ok' : v < 15 ? 'caution' : 'danger'), s: (v) => (v <= 10 ? 'Normal' : v < 15 ? 'Raised' : 'High') },
-  { id: 'ppg', k: 'Portal–IVC', title: 'Direct portal–systemic gradient (portal vein − suprahepatic IVC). Not the same as HVPG.', why: 'ppg', hideKey: 'pv', v: (m) => m.ppg, d: 1, u: 'mmHg', st: (v) => (v < 6 ? 'ok' : 'caution'), s: (v) => (v < 6 ? 'Normal' : 'Raised') },
-  { id: 'pvflow', k: 'Portal flow', why: 'pvFlow', v: (m) => m.pvFlow, d: 1, u: 'L/min',
+  { id: 'ppg', group: 'pressure', k: 'PPG', title: 'Portosystemic pressure gradient: portal vein − inferior vena cava, measured directly. Unlike HVPG it also includes a block before the liver (presinusoidal or prehepatic). Normal < 6 mmHg.', why: 'ppg', hideKey: 'pv', v: (m) => m.ppg, d: 1, u: 'mmHg',
+    scale: [0, 25], ticks: [6],
+    st: (v) => (v < 6 ? 'ok' : 'caution'), s: (v) => (v < 6 ? 'Normal' : 'Raised') },
+  { id: 'pv', group: 'pressure', k: 'Portal vein', title: 'Portal vein pressure (absolute). Normal ≤ 10 mmHg.', why: 'pv', v: (m) => m.pv, d: 1, u: 'mmHg', hideKey: 'pv',
+    scale: [0, 35], ticks: [10, 15],
+    st: (v) => (v <= 10 ? 'ok' : v < 15 ? 'caution' : 'danger'), s: (v) => (v <= 10 ? 'Normal' : v < 15 ? 'Raised' : 'High') },
+  { id: 'pvflow', group: 'flow', k: 'Portal vein', title: 'Portal vein blood flow toward the liver (negative = away from it). Normal ≥ 0.9 L/min at ≥ 12 cm/s.', why: 'pvFlow', v: (m) => m.pvFlow, d: 1, u: 'L/min',
+    scale: [-0.6, 2], ticks: [0, 0.9],
     st: (v, m) => (v < -0.02 ? 'critical' : Math.abs(m.pvVel) < 5 ? 'danger' : v < 0.9 || Math.abs(m.pvVel) < 12 ? 'caution' : 'ok'),
-    s: (v, m) => (v < -0.02 ? 'Hepatofugal' : Math.abs(m.pvVel) < 5 ? 'Stasis' : v < 0.9 ? `Reduced · ${fmt(m.pvVel, 0)} cm/s` : Math.abs(m.pvVel) < 12 ? `Slow · ${fmt(m.pvVel, 0)} cm/s` : `${fmt(m.pvVel, 0)} cm/s`) },
-  { id: 'varix', k: 'Varix tension', why: 'varix', hideKey: 'model', v: (m) => m.varix.ratio * 100, d: 0, u: '%',
+    s: (v, m) => (v < -0.02 ? 'Reversed' : Math.abs(m.pvVel) < 5 ? 'Stasis' : v < 0.9 ? 'Reduced' : Math.abs(m.pvVel) < 12 ? 'Slow' : 'Normal') },
+  { id: 'liver', group: 'flow', hideKey: 'model', k: 'Liver', title: 'Total blood flow through the liver sinusoids, % of normal (portal + hepatic artery).', why: 'liverPerf', v: (m) => m.liverPerfPct, d: 0, u: '%',
+    scale: [0, 150], ticks: [55, 75],
+    st: (v) => (v > 75 ? 'ok' : v > 55 ? 'caution' : 'danger'), s: (v) => (v > 75 ? 'Normal' : v > 55 ? 'Reduced' : 'Low') },
+  { id: 'shunt', group: 'flow', k: 'Shunted', why: 'shunt', hideKey: 'model', v: (m) => m.shuntFraction * 100, d: 0, u: '%', title: 'Share of gut and spleen blood that bypasses the liver through collaterals and shunts.',
+    scale: [0, 100], ticks: [10, 30, 60],
+    st: (v) => (v < 10 ? 'ok' : v < 30 ? 'caution' : v < 60 ? 'danger' : 'critical'), s: (v) => (v < 10 ? 'Minimal' : v < 30 ? 'Moderate' : v < 60 ? 'Large' : 'Most') },
+  { id: 'varix', group: 'effects', k: 'Varix wall', why: 'varix', hideKey: 'model', v: (m) => m.varix.ratio * 100, d: 0, u: '%', ux: ' of rupture', title: 'Esophageal varix wall tension, as a % of the tension at which it ruptures (Laplace: pressure × radius ÷ wall thickness).',
+    scale: [0, 100], ticks: [40, 70, 90],
     st: (v, m) => (m.varix.ratio >= 0.9 ? 'critical' : m.varix.ratio >= 0.7 ? 'danger' : m.varix.ratio >= 0.4 || m.varix.d >= 5 ? 'caution' : 'ok'),
-    s: (v, m) => (m.varix.d < 2.5 ? 'No varices' : m.varix.redWale ? 'Red wale' : `${m.varix.grade.code} · ${fmt(m.varix.d, 1)} mm`), title: 'Esophageal varix wall tension, % of the rupture threshold (Laplace)' },
-  { id: 'ascites', k: 'Ascites', why: 'ascites', v: (m) => m.ascites.volume / 1000, d: 1, u: 'L', st: (v, m) => (m.ascites.grade === 0 ? 'ok' : m.ascites.grade === 1 ? 'caution' : 'danger'), s: (v, m) => (m.ascites.grade === 0 ? 'None' : `Grade ${m.ascites.grade}`) },
-  { id: 'liver', hideKey: 'model', k: 'Liver flow', title: 'Liver perfusion: total sinusoidal flow, % of normal', why: 'liverPerf', v: (m) => m.liverPerfPct, d: 0, u: '%', st: (v) => (v > 75 ? 'ok' : v > 55 ? 'caution' : 'danger'), s: (v, m) => `Artery ×${fmt(m.habr, 1)}` },
-  { id: 'shunt', k: 'Shunt', why: 'shunt', hideKey: 'model', v: (m) => m.shuntFraction * 100, d: 0, u: '%', st: (v) => (v < 10 ? 'ok' : v < 30 ? 'caution' : v < 60 ? 'danger' : 'critical'), s: (v, m) => `HE ${m.heRisk.label === 'Moderate' ? 'moderate' : m.heRisk.label.toLowerCase()}`, title: 'Portosystemic shunt fraction of splanchnic inflow; HE = hepatic encephalopathy' },
+    s: (v, m) => (m.varix.d < 2.5 ? 'None' : m.varix.redWale ? 'Red wale signs' : { F1: 'Small (F1)', F2: 'Large (F2)', F3: 'Coiled (F3)' }[m.varix.grade.code]) },
+  { id: 'ascites', group: 'effects', k: 'Ascites', title: 'Free fluid in the abdomen. Grade 1 is seen on ultrasound only, grade 2 is moderate, grade 3 tense.', why: 'ascites', v: (m) => m.ascites.volume / 1000, d: 1, u: 'L',
+    scale: [0, 8], ticks: [0.15, 1.5, 5],
+    st: (v, m) => (m.ascites.grade === 0 ? 'ok' : m.ascites.grade === 1 ? 'caution' : 'danger'), s: (v, m) => (m.ascites.grade === 0 ? 'None' : `Grade ${m.ascites.grade}`) },
+  { id: 'spleen', group: 'effects', k: 'Spleen', title: 'Spleen length. Splenomegaly > 13 cm; the enlarged spleen traps platelets.', why: 'spleen', v: (m) => m.spleen.length, d: 1, u: 'cm',
+    scale: [8, 22], ticks: [13],
+    st: (v) => (v <= 13 ? 'ok' : v <= 16 ? 'caution' : 'danger'), s: (v) => (v <= 13 ? 'Normal' : v <= 16 ? 'Enlarged' : 'Large') },
 ];
+// A group whose readouts share a unit names it once, in its caption, so the tiles stay narrow.
+export const GROUPS = [['pressure', 'Pressure', 'mmHg'], ['flow', 'Flow'], ['effects', 'Consequences']];
 // The cut-offs behind each status, as About the model lists them: [readout, normal, amber, red, dark red].
 export const CUTOFFS = [
   ['HVPG (wedged − free)', '< 5 mmHg', '5–9 (subclinical)', '≥ 10 (CSPH in cirrhosis)', '—'],
+  ['PPG: portosystemic gradient (portal vein − IVC)', '< 6 mmHg', '≥ 6', '—', '—'],
   ['Portal vein pressure', '≤ 10 mmHg', '11–14', '≥ 15', '—'],
-  ['Direct portal–systemic gradient (portal vein − suprahepatic IVC)', '< 6 mmHg', '≥ 6', '—', '—'],
-  ['Portal flow', '≥ 0.9 L/min and ≥ 12 cm/s', '< 0.9 L/min or < 12 cm/s', '< 5 cm/s (stasis)', 'Hepatofugal'],
+  ['Portal flow', '≥ 0.9 L/min and ≥ 12 cm/s', '< 0.9 L/min or < 12 cm/s', '< 5 cm/s (stasis)', 'Reversed (hepatofugal)'],
+  ['Liver perfusion', '> 75 % of normal', '56–75 %', '≤ 55 %', '—'],
+  ['Shunted blood', '< 10 %', '10–29 %', '30–59 %', '≥ 60 %'],
   ['Varix wall tension', '< 40 % of rupture', '40–69 %, or diameter ≥ 5 mm', '70–89 %', '≥ 90 %'],
   ['Ascites', 'None', 'Grade 1', 'Grade 2–3', '—'],
-  ['Liver perfusion', '> 75 % of normal', '56–75 %', '≤ 55 %', '—'],
-  ['Shunt fraction', '< 10 %', '10–29 %', '30–59 %', '≥ 60 %'],
+  ['Spleen length', '≤ 13 cm', '13–16 cm', '> 16 cm', '—'],
 ];
 
-// Systemic circulation: a compact vitals block at the end of the strip.
+// Systemic circulation: a compact block at the end of the strip.
 export const VITALS = [
-  { k: 'MAP', why: 'map', v: (m) => fmt(m.map, 0), u: 'mmHg', bad: (m) => m.map < 65 },
-  { k: 'HR', why: 'map', v: (m) => fmt(m.hr, 0), u: '/min', bad: (m) => m.hr > 110 },
-  { k: 'CO', why: 'map', v: (m) => fmt(m.co, 1), u: 'L/min', bad: (m) => m.co > 6.5 },
-  { k: 'RA', why: 'ra', hideKey: 'ra', v: (m) => fmt(m.ra, 1), u: 'mmHg', bad: (m) => m.ra > 10 },
-  { k: 'Hb', why: null, v: (m) => fmt(m.blood.hb, 1), u: 'g/dL', bad: (m) => m.blood.hb < 7 },
-  { k: 'Spleen', why: 'spleen', v: (m) => fmt(m.spleen.length, 1), u: 'cm', bad: (m) => m.spleen.length > 13 },
+  { id: 'map', k: 'MAP', title: 'Mean arterial pressure', why: 'map', v: (m) => m.map, d: 0, u: 'mmHg', bad: (m) => m.map < 65 },
+  { id: 'hr', k: 'HR', title: 'Heart rate', why: 'map', v: (m) => m.hr, d: 0, u: '/min', bad: (m) => m.hr > 110 },
+  { id: 'co', k: 'CO', title: 'Cardiac output', why: 'co', v: (m) => m.co, d: 1, u: 'L/min', bad: (m) => m.co > 6.5 },
+  { id: 'ra', k: 'RA', title: 'Right atrial pressure', why: 'ra', hideKey: 'ra', v: (m) => m.ra, d: 1, u: 'mmHg', bad: (m) => m.ra > 10 },
+  { id: 'hb', k: 'Hb', title: 'Hemoglobin', why: null, v: (m) => m.blood.hb, d: 1, u: 'g/dL', bad: (m) => m.blood.hb < 7 },
 ];
 
-// Key readouts always shown; the rest join the row when abnormal (or when the learner asks).
+// The key readouts: the only ones on a phone until the strip is expanded.
 export const PRIMARY = new Set(['hvpg', 'pv', 'pvflow', 'varix']);
+
+// A trend arrow marks a sustained change (over TREND_S seconds, larger than TREND_FRAC of the
+// bar's range), so the heartbeat and breathing never make it flicker.
+const TREND_S = 5, TREND_FRAC = 0.03;
+
+/** The value a readout shows, or null when a case hides it and it has not been measured. */
+export function readoutValue(t, m, hidden) {
+  if (!hidden?.has(t.hideKey)) return t.v(m);
+  const meas = t.id === 'hvpg' ? t.measured?.() : null;
+  return meas ? meas.hvpg : null;
+}
 
 export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onCompare, onRun, onLobule, onOpen, onClose, isVisible, marks, onBeat }) {
   // ── Readout strip ─────────────────────────────────
   const tileEls = {};
-  for (const t of TILES) {
-    const val = h('span', { class: 'val' }, '—'), tr = h('span', { class: 'tr' }), st = h('span', { class: 'status' }), cmp = h('span', { class: 'cmp' });
-    const secondary = !PRIMARY.has(t.id);
-    const el = h('button', { class: 'metric' + (secondary ? ' secondary' : ''), 'aria-label': t.title || t.k, hidden: secondary },
-      h('span', { class: 'k' }, t.k), h('span', { class: 'v' }, val, h('span', { class: 'unit' }, t.u), tr), h('span', { class: 's' }, st, cmp));
+  const row = h('div', { class: 'ro-row' });
+  strip.append(row);
+  const pos = (t, v) => clamp((v - t.scale[0]) / (t.scale[1] - t.scale[0]), 0, 1) * 100;
+  function tile(t, shared) {
+    const val = h('span', { class: 'val' }, '—'), tr = h('span', { class: 'tr', 'aria-hidden': 'true' }), st = h('span', { class: 'status' }), cmp = h('span', { class: 'cmp' });
+    const fill = h('i', { class: 'rb-fill' });
+    const bar = h('span', { class: 'rb', 'aria-hidden': 'true' }, fill, t.ticks.map((x) => h('i', { class: 'rb-tick', style: { left: pos(t, x) + '%' } })));
+    const el = h('button', { class: 'metric' + (PRIMARY.has(t.id) ? ' primary' : ''), 'data-id': t.id },
+      h('span', { class: 'k' }, t.k), h('span', { class: 'v' }, val, shared ? null : h('span', { class: 'unit' }, t.u, t.ux ? h('span', { class: 'u-x' }, t.ux) : null), tr), bar, h('span', { class: 's' }, st, cmp));
+    el.title = `${t.title || t.k}${t.why ? '\nClick for what is driving it.' : ''}`;
     if (t.why) el.addEventListener('click', () => onWhy(t.why, el));
-    el.title = `${t.title || t.k}${t.why ? ' · click for a causal breakdown' : ''}`;
-    strip.append(el);
-    tileEls[t.id] = { el, t, val, tr, st, cmp, last: null, trendT: 0, sev: null, secondary };
+    tileEls[t.id] = { el, t, val, tr, st, cmp, fill, hist: [], sev: null, trend: '', ariaTxt: '' };
+    return el;
+  }
+  for (const [g, label, unit] of GROUPS) {
+    const ts = TILES.filter((t) => t.group === g);
+    row.append(h('div', { class: 'ro-group', 'data-group': g, role: 'group', 'aria-label': label },
+      h('span', { class: 'ro-cap', 'aria-hidden': 'true' }, label, unit ? h('span', { class: 'ro-unit' }, ` · ${unit}`) : null), h('div', { class: 'ro-tiles' }, ts.map((t) => tile(t, !!unit)))));
   }
   const vitEls = VITALS.map((v) => {
     const val = h('b', {}, '—');
-    const el = h(v.why ? 'button' : 'div', { class: 'vital', title: `${v.k} (${v.u})${v.why ? ' · click for a causal breakdown' : ''}` }, h('span', {}, v.k), val);
+    const el = h(v.why ? 'button' : 'div', { class: 'vital', title: `${v.title} (${v.u})${v.why ? '\nClick for what is driving it.' : ''}` }, h('span', {}, v.k), val);
     if (v.why) el.addEventListener('click', () => onWhy(v.why, el));
     return { v, el, val };
   });
-  strip.append(h('div', { class: 'vitals-block', 'aria-label': 'Systemic vitals' }, h('span', { class: 'vb-title' }, 'Systemic'), h('div', { class: 'vb-grid' }, vitEls.map((x) => x.el))));
-  const moreBtn = h('button', { class: 'btn sm ghost more-readouts', 'aria-expanded': 'false' }, 'All readouts');
-  moreBtn.addEventListener('click', () => { const on = strip.classList.toggle('all'); moreBtn.setAttribute('aria-expanded', String(on)); moreBtn.textContent = on ? 'Fewer readouts' : 'All readouts'; });
-  strip.append(moreBtn);
+  row.append(h('div', { class: 'ro-group ro-systemic', 'data-group': 'systemic', role: 'group', 'aria-label': 'Systemic' },
+    h('span', { class: 'ro-cap', 'aria-hidden': 'true' }, 'Systemic'), h('div', { class: 'vb-grid' }, vitEls.map((x) => x.el))));
+  const moreBtn = h('button', { class: 'ib ro-more', 'aria-expanded': 'false', 'aria-label': 'Show all readouts', title: 'All readouts' }, svgIcon('chev-down'));
+  moreBtn.addEventListener('click', () => {
+    const on = strip.classList.toggle('all');
+    moreBtn.setAttribute('aria-expanded', String(on));
+    moreBtn.setAttribute('aria-label', on ? 'Show fewer readouts' : 'Show all readouts');
+    setTimeout(() => dispatchEvent(new Event('resize')), 30);
+  });
+  row.append(moreBtn);
+
+  function trendOf(x, v, now) {
+    const hs = x.hist;
+    if (!hs.length || now - hs[hs.length - 1][0] > 500) { hs.push([now, v]); while (hs.length && now - hs[0][0] > TREND_S * 1000 + 600) hs.shift(); }
+    if (now - hs[0][0] < TREND_S * 1000 * 0.8) return '';
+    const d = v - hs[0][1], thr = TREND_FRAC * (x.t.scale[1] - x.t.scale[0]);
+    return d > thr ? 'up' : d < -thr ? 'down' : '';
+  }
 
   function updateStrip(f) {
     const m = f.metrics;
     const st0 = store.get();
     const hidden = st0.hiddenReadouts;
     const A = st0.compareSnap?.metrics || null;
-    let hiddenCount = 0;
+    const now = performance.now();
     for (const x of Object.values(tileEls)) {
       const { el, t } = x;
-      let sev, v = null;
-      if (hidden?.has(t.hideKey)) {
-        const meas = t.id === 'hvpg' ? t.measured?.() : null;
-        x.val.textContent = meas ? fmt(meas.hvpg, 1) : '?';
-        x.st.textContent = meas ? 'Measured' : t.id === 'hvpg' ? 'Use catheter' : 'Not measured';
-        sev = meas ? t.st(meas.hvpg, m) : 'none';
-        el.classList.toggle('hidden-val', !meas);
-        x.tr.textContent = '';
+      const v = readoutValue(t, m, hidden);
+      const measured = v != null && hidden?.has(t.hideKey);
+      let sev, s;
+      if (v == null) {
+        if (x.val.textContent !== '?') x.val.textContent = '?';
+        s = t.id === 'hvpg' ? 'Use the catheter' : 'Not measured';
+        sev = 'none';
+        x.hist.length = 0;
       } else {
-        el.classList.remove('hidden-val');
-        v = t.v(m);
         const txt = fmt(v, t.d);
         if (x.val.textContent !== txt) x.val.textContent = txt;
-        const s = t.s(v, m);
-        if (x.st.textContent !== s) x.st.textContent = s;
+        s = measured ? 'Measured' : t.s(v, m);
         sev = t.st(v, m);
-        if (x.last != null && Math.abs(v - x.last) > Math.pow(10, -t.d) * 0.6) { x.tr.textContent = v > x.last ? '▲' : '▼'; x.tr.className = 'tr ' + (v > x.last ? 'up' : 'down'); x.trendT = performance.now(); }
-        else if (performance.now() - x.trendT > 1500) x.tr.textContent = '';
-        x.last = v;
+        const w = pos(t, v), o = pos(t, clamp(0, t.scale[0], t.scale[1]));
+        x.fill.style.left = Math.min(w, o) + '%'; x.fill.style.width = Math.abs(w - o) + '%';
       }
+      el.classList.toggle('hidden-val', v == null);
+      if (x.st.textContent !== s) x.st.textContent = s;
+      const trend = v == null || measured ? '' : trendOf(x, v, now);
+      if (trend !== x.trend) { x.trend = trend; x.tr.textContent = trend === 'up' ? '▲' : trend === 'down' ? '▼' : ''; }
       // Compare: each tile reports its change from the pinned moment in place of the status word.
-      if (A && v != null) {
-        const a = t.v(A), d = v - a;
+      if (A && v != null && !measured) {
+        const d = v - t.v(A);
         const same = Math.abs(d) < Math.pow(10, -t.d) * 0.5;
         x.cmp.textContent = same ? 'same as then' : `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), t.d)} vs then`;
         x.cmp.className = 'cmp ' + (same ? 'same' : d > 0 ? 'up' : 'down');
         x.st.hidden = true;
       } else if (x.cmp.textContent) { x.cmp.textContent = ''; x.st.hidden = false; }
       if (sev !== x.sev) { el.dataset.sev = sev; x.sev = sev; }
-      if (x.secondary) {
-        const show = sev !== 'ok' || !!A;
-        if (el.hidden === show) { el.hidden = !show; el.classList.toggle('promoted', show); }
-        if (!show) hiddenCount++;
-      }
+      const aria = `${t.title || t.k}: ${v == null ? 'not measured' : `${fmt(v, t.d)} ${t.u}${t.ux || ''}, ${s}`}${x.trend ? `, ${x.trend === 'up' ? 'rising' : 'falling'}` : ''}`;
+      if (aria !== x.ariaTxt) { x.ariaTxt = aria; el.setAttribute('aria-label', aria); }
     }
     for (const x of vitEls) {
-      const txt = hidden?.has(x.v.hideKey) ? '?' : x.v.v(m);
+      const hid = hidden?.has(x.v.hideKey);
+      const txt = hid ? '?' : fmt(x.v.v(m), x.v.d);
       if (x.val.textContent !== txt) x.val.textContent = txt;
-      x.el.classList.toggle('bad', !hidden?.has(x.v.hideKey) && x.v.bad(m));
+      x.el.classList.toggle('bad', !hid && x.v.bad(m));
     }
-    moreBtn.hidden = !hiddenCount && !strip.classList.contains('all');
   }
 
   // ── Instrument workspace ─────────────────────────

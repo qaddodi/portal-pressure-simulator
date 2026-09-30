@@ -1,9 +1,9 @@
 // The patient chart: one panel, no tabs, read top to bottom like a bedside chart.
 //
-//   Patient · scenario
+//   Scenario summary                     (the patient's name heads the panel)
 //   [step card of a lesson or case]      (rendered by learn.js / cases.js above this)
 //   [Compared with A]                    (when a moment is pinned)
-//   Vitals & hemodynamics                key values; abnormal ones join; sparkline; Why?
+//   Findings                             what is abnormal, in words, with its cut-off; Why?
 //   Treat                                drugs · fluids & blood · procedures (on the anatomy)
 //   Story                                what has happened, in plain language, with ✕ to undo
 //   Advanced                             physiology knobs (instructor / researcher)
@@ -11,25 +11,51 @@
 import { store, updateParams } from './store.js?v=4bf5a96a9d';
 import { h, fmt, icon, svgIcon, toast } from './util.js?v=fe164f31f1';
 import { DRUGS } from '../engine/scenario.js?v=8fc90f782f';
-import { TILES, VITALS, PRIMARY } from './dock.js?v=5ee6451879';
+import { TILES, VITALS, readoutValue } from './dock.js?v=9f03c8b9a1';
 import { activeInterventions } from './inspector.js?v=d987f64f8e';
 import { verbEnabled, DRUG_NOTE } from './actions.js?v=749e19086d';
 import { fmtClock } from './timeline.js?v=dfb94b9a3c';
 
 // Where each readout is measured, so a click can show it on the figure.
-const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS'] };
-const SPARK_N = 90;
+const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS'], spleen: ['V_SPL', 'SV_CONF'], ra: ['IVCS_RA'] };
+const ALL = [...TILES, ...VITALS];
+const RANK = { critical: 3, danger: 2, caution: 1, ok: 0 };
+const n1 = (v) => fmt(v, 1), n0 = (v) => fmt(v, 0);
+// One finding per abnormal readout: [what it is, the numbers and the cut-off it crossed].
+const FIND = {
+  hvpg: (v, m, sev) => sev === 'caution'
+    ? ['Portal hypertension, subclinical', `HVPG ${n1(v)} mmHg: above normal (< 5), below the clinically significant threshold (10).`]
+    : ['Clinically significant portal hypertension', `HVPG ${n1(v)} mmHg (≥ 10). At this level varices, ascites and other complications can develop.`],
+  ppg: (v, m) => ['Portosystemic gradient raised', m.hvpg < 5
+    ? `PPG ${n1(v)} mmHg (normal < 6) while HVPG is normal: the block sits before the sinusoids, where the wedged catheter cannot see it.`
+    : `PPG ${n1(v)} mmHg (normal < 6), measured directly from the portal vein to the vena cava.`],
+  pv: (v, m, sev) => [sev === 'danger' ? 'Portal pressure high' : 'Portal pressure raised', `Portal vein ${n1(v)} mmHg (normal ≤ 10).`],
+  pvflow: (v, m, sev) => sev === 'critical'
+    ? ['Portal flow reversed (hepatofugal)', `${fmt(Math.abs(v), 1)} L/min flows away from the liver, out through collaterals.`]
+    : sev === 'danger'
+      ? ['Portal flow near stasis', `${n0(Math.abs(m.pvVel))} cm/s (normal ≥ 12). Slow flow favors portal vein thrombosis.`]
+      : ['Portal flow reduced', `${fmt(v, 1)} L/min at ${n0(Math.abs(m.pvVel))} cm/s (normal ≥ 0.9 L/min, ≥ 12 cm/s).`],
+  liver: (v, m) => ['Liver perfusion reduced', `${n0(v)} % of normal. The hepatic artery has risen ×${fmt(m.habr, 1)} to buffer the loss of portal flow.`],
+  shunt: (v, m) => ['Portosystemic shunting', `${n0(v)} % of gut blood bypasses the liver. Encephalopathy risk ${m.heRisk.label.toLowerCase()}.`],
+  varix: (v, m, sev) => [m.varix.d < 2.5 ? 'Varix wall under strain' : sev === 'critical' ? 'Varices close to rupture' : `Esophageal varices, ${m.varix.grade.label.toLowerCase()}`,
+    `${n1(m.varix.d)} mm across; wall tension ${n0(v)} % of the rupture point${m.varix.redWale ? ', with red wale signs' : ''}.`],
+  ascites: (v, m) => [`Ascites, grade ${m.ascites.grade}`, `${fmt(v, 1)} L of free fluid in the abdomen.`],
+  spleen: (v) => ['Splenomegaly', `Spleen ${n1(v)} cm (normal ≤ 13). An enlarged spleen traps platelets.`],
+  map: (v) => ['Hypotension', `Mean arterial pressure ${n0(v)} mmHg (< 65).`],
+  hr: (v) => ['Tachycardia', `Heart rate ${n0(v)} /min (> 110).`],
+  co: (v) => ['Hyperdynamic circulation', `Cardiac output ${n1(v)} L/min (> 6.5), from splanchnic and systemic vasodilation.`],
+  ra: (v) => ['Right atrial pressure raised', `RA ${n1(v)} mmHg (> 10). Back-pressure reaches the liver from the heart.`],
+  hb: (v) => ['Severe anemia', `Hemoglobin ${n1(v)} g/dL (< 7).`],
+};
 
 export function createChart({ onWhy, flash, onScenarios, action, startShunt, select, timeline, pinned }) {
   let controls = () => [];
   let storyPaint = null;
-  const hist = Object.fromEntries(TILES.map((t) => [t.id, []]));
-  let lastSample = 0, showAll = false;
-  const open = new Set(JSON.parse(safeGet('pps.chartOpen') || '["vitals","story"]'));
+  const open = new Set(JSON.parse(safeGet('pps.chartOpen2') || '["findings","treat","story"]'));
   let live = [];
 
   function safeGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
-  function remember() { try { localStorage.setItem('pps.chartOpen', JSON.stringify([...open])); } catch { /* storage unavailable */ } }
+  function remember() { try { localStorage.setItem('pps.chartOpen2', JSON.stringify([...open])); } catch { /* storage unavailable */ } }
 
   function section(id, title, ic, badge, ...kids) {
     const d = h('details', { class: 'section chart-sec', 'data-id': id },
@@ -40,85 +66,55 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     return d;
   }
 
-  // ── Vitals & hemodynamics ─────────────────────────
-  function vitals() {
-    const rows = h('div', { class: 'vt-rows', role: 'list' });
-    const els = TILES.map((t) => {
-      const val = h('b', { class: 'vt-v' }), st = h('span', { class: 'vt-s' }), cv = h('canvas', { class: 'vt-spark', width: 64, height: 20, 'aria-hidden': 'true' });
-      const cmp = h('span', { class: 'vt-cmp' });
-      const row = h('button', { class: 'vt-row', role: 'listitem', title: `${t.title || t.k} · click for why, and where it is measured` },
-        h('span', { class: 'vt-k' }, t.k), h('span', { class: 'vt-val' }, val, h('span', { class: 'unit' }, t.u)), cv, h('span', { class: 'vt-status' }, st, cmp));
-      row.addEventListener('click', () => { onWhy(t.why, row); flash(WHERE[t.id] || []); });
-      return { t, row, val, st, cv, cmp };
-    });
-    rows.append(...els.map((e) => e.row));
-    const sys = h('div', { class: 'vt-sys' });
-    const sysEls = VITALS.map((v) => { const b = h('b'); const el = h(v.why ? 'button' : 'div', { class: 'vt-vital', title: v.k }, h('span', {}, v.k), b, h('i', {}, v.u)); if (v.why) el.addEventListener('click', () => onWhy(v.why, el)); sys.append(el); return { v, el, b }; });
-    const more = h('button', { class: 'link vt-more' });
-    more.addEventListener('click', () => { showAll = !showAll; paint(); });
+  // ── Findings ──────────────────────────────────────
+  // The strip under the figure carries the numbers; the chart says what they mean. Each abnormal
+  // readout becomes one finding in plain language, most severe first, with its cut-off.
+  function findings() {
+    const list = h('div', { class: 'fd-list', role: 'list' });
+    const empty = h('p', { class: 'fd-empty' }, 'Nothing abnormal. Pressures, flow and the circulation are all in their normal ranges.');
+    const els = new Map();
+    let count = null, order = '';
+    const row = (key) => {
+      const src = ALL.find((x) => x.id === key);
+      const title = h('span', { class: 'fd-t' }), detail = h('span', { class: 'fd-d' });
+      const el = h(src.why ? 'button' : 'div', { class: 'finding', role: 'listitem' }, h('span', { class: 'fd-dot', 'aria-hidden': 'true' }), h('span', { class: 'fd-body' }, title, detail));
+      if (src.why) { el.title = 'What is driving this, and where it is measured'; el.addEventListener('click', () => { onWhy(src.why, el); flash(WHERE[key] || []); }); }
+      return { el, title, detail };
+    };
     const paint = () => {
       const f = store.get().frame;
       if (!f) return;
-      const m = f.metrics, hidden = store.get().hiddenReadouts, A = store.get().compareSnap?.metrics;
-      let hiddenN = 0;
-      for (const x of els) {
-        const t = x.t;
-        let sev, v = null;
-        if (hidden?.has(t.hideKey)) {
-          const meas = t.id === 'hvpg' ? t.measured?.() : null;
-          x.val.textContent = meas ? fmt(meas.hvpg, 1) : '?';
-          x.st.textContent = meas ? 'Measured' : t.id === 'hvpg' ? 'Use the catheter' : 'Not measured';
-          sev = meas ? t.st(meas.hvpg, m) : 'none';
-        } else {
-          v = t.v(m);
-          const txt = fmt(v, t.d);
-          if (x.val.textContent !== txt) x.val.textContent = txt;
-          const s = t.s(v, m);
-          if (x.st.textContent !== s) x.st.textContent = s;
-          sev = t.st(v, m);
-        }
-        x.row.dataset.sev = sev;
-        if (A && v != null) { const d = v - t.v(A); x.cmp.textContent = Math.abs(d) < Math.pow(10, -t.d) * 0.5 ? 'same as then' : `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), t.d)} vs then`; x.cmp.className = 'vt-cmp ' + (d > 0 ? 'up' : 'down'); }
-        else x.cmp.textContent = '';
-        const show = showAll || PRIMARY.has(t.id) || sev !== 'ok' || !!A;
-        x.row.hidden = !show;
-        if (!show) hiddenN++;
-        spark(x.cv, hidden?.has(t.hideKey) ? [] : hist[t.id], sev);
+      const m = f.metrics, hidden = store.get().hiddenReadouts;
+      const found = [];
+      for (const t of TILES) {
+        const v = readoutValue(t, m, hidden);
+        if (v == null) continue;
+        const sev = t.st(v, m);
+        if (sev === 'ok') continue;
+        const txt = FIND[t.id]?.(v, m, sev);
+        if (txt) found.push({ id: t.id, sev, txt });
       }
-      for (const x of sysEls) { const txt = hidden?.has(x.v.hideKey) ? '?' : x.v.v(m); if (x.b.textContent !== txt) x.b.textContent = txt; x.el.classList.toggle('bad', !hidden?.has(x.v.hideKey) && x.v.bad(m)); }
-      sys.hidden = !showAll;
-      more.textContent = showAll ? 'Show fewer' : `Show all (${TILES.length + VITALS.length})`;
+      for (const x of VITALS) {
+        if (hidden?.has(x.hideKey) || !x.bad(m)) continue;
+        found.push({ id: x.id, sev: 'danger', txt: FIND[x.id](x.v(m), m) });
+      }
+      found.sort((a, b) => RANK[b.sev] - RANK[a.sev]);
+      for (const x of found) {
+        let e = els.get(x.id);
+        if (!e) { e = row(x.id); els.set(x.id, e); }
+        if (e.el.dataset.sev !== x.sev) e.el.dataset.sev = x.sev;
+        if (e.title.textContent !== x.txt[0]) e.title.textContent = x.txt[0];
+        if (e.detail.textContent !== x.txt[1]) e.detail.textContent = x.txt[1];
+      }
+      const key = found.map((x) => x.id).join();
+      if (key !== order) { order = key; list.replaceChildren(...found.map((x) => els.get(x.id).el)); empty.hidden = found.length > 0; }
+      if (count && count.textContent !== String(found.length)) { count.textContent = found.length; count.hidden = !found.length; }
     };
     live.push(paint);
-    return section('vitals', 'Vitals & hemodynamics', 'gauge', null, rows, sys, more);
-  }
-  // A sparkline changes only when its history is sampled (every 0.7 s) or its severity color
-  // changes; redrawing it every frame, and reading its color with getComputedStyle (a forced
-  // style pass right after the frame's DOM writes), was a large share of the page's work.
-  const darkQ = matchMedia('(prefers-color-scheme: dark)');
-  function spark(cv, data, sev) {
-    const key = `${lastSample}|${sev}|${data.length}`;
-    if (cv._k === key) return;
-    const ck = sev + (document.documentElement.getAttribute('data-theme') || '') + darkQ.matches;
-    if (cv._ck !== ck || !cv._color) { cv._ck = ck; cv._color = getComputedStyle(cv).color; cv._k = ''; }
-    cv._k = key;
-    const ctx = cv.getContext('2d');
-    const W = cv.width, H = cv.height;
-    ctx.clearRect(0, 0, W, H);
-    if (data.length < 2) return;
-    let mn = Infinity, mx = -Infinity;
-    for (const v of data) { if (v < mn) mn = v; if (v > mx) mx = v; }
-    const pad = Math.max(1e-3, (mx - mn) * 0.15);
-    mn -= pad; mx += pad;
-    ctx.strokeStyle = cv._color;
-    ctx.lineWidth = 1.4; ctx.lineJoin = 'round';
-    ctx.beginPath();
-    const n = Math.max(12, data.length) - 1;
-    const x0 = W - ((data.length - 1) / n) * (W - 4) - 2;
-    data.forEach((v, i) => { const x = x0 + (i / n) * (W - 4), y = 2 + (H - 4) * (1 - (v - mn) / (mx - mn)); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
-    ctx.stroke();
-    const lx = W - 2, ly = 2 + (H - 4) * (1 - (data[data.length - 1] - mn) / (mx - mn));
-    ctx.fillStyle = ctx.strokeStyle; ctx.beginPath(); ctx.arc(lx, ly, 2, 0, 7); ctx.fill();
+    const sec = section('findings', 'Findings', 'activity', '0', list, empty);
+    count = sec.querySelector('summary .count');
+    count.classList.add('fd-count');
+    return sec;
   }
 
   // ── Treat ─────────────────────────────────────────
@@ -136,11 +132,12 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       Object.keys(DRUGS).map((k) => drugChip(k, DRUGS[k].label, `${DRUG_NOTE[k] || ''}. ${DRUGS[k].info || ''}`, (p) => p.drugs[k], (p, v) => { p.drugs[k] = v; })),
       drugChip('anticoag', 'Anticoagulation', 'Thrombi slowly recanalize on the disease clock.', (p) => p.anticoag, (p, v) => { p.anticoag = v; }),
       drugChip('diuretics', 'Diuretics', 'Spironolactone + furosemide: renal sodium and water loss mobilizes ascites.', (p) => p.diuretics, (p, v) => { p.diuretics = v; }));
-    const btn = (ic, label, run, sub) => { const b = h('button', { class: 'order-btn' }, ic ? svgIcon(ic, 'ac-ic') : null, h('span', { class: 'ob-t' }, label, sub ? h('small', {}, sub) : null)); b.addEventListener('click', run); return b; };
-    const fluids = h('div', { class: 'order-grid' },
-      btn('drop', '1 L crystalloid', () => action({ kind: 'infuse', fluid: 'crystalloid' }), '≈ 25 % stays in the vessels'),
-      btn('drop', '1 unit PRBC', () => action({ kind: 'infuse', fluid: 'prbc' }), 'packed red cells'),
-      btn('drop', 'Albumin', () => action({ kind: 'infuse', fluid: 'albumin' }), 'raises oncotic pressure'));
+    // One line per order; what it does is in its tooltip, so the list stays short.
+    const btn = (ic, label, run, sub) => { const b = h('button', { class: 'order-btn', title: sub ? `${label}: ${sub}` : label }, ic ? svgIcon(ic, 'ac-ic') : null, h('span', { class: 'ob-t' }, label)); b.addEventListener('click', run); return b; };
+    const fluids = h('div', { class: 'order-grid three' },
+      btn(null, '1 L crystalloid', () => action({ kind: 'infuse', fluid: 'crystalloid' }), 'about 25 % stays in the vessels'),
+      btn(null, '1 unit PRBC', () => action({ kind: 'infuse', fluid: 'prbc' }), 'packed red cells'),
+      btn(null, 'Albumin', () => action({ kind: 'infuse', fluid: 'albumin' }), 'raises oncotic pressure'));
     const lock = (id) => !verbEnabled(id);
     const proc = (ic, label, sub, id, run) => { const b = btn(ic, label, run, sub); if (lock(id)) b.disabled = true; return b; };
     const procs = h('div', { class: 'order-grid' },
@@ -160,8 +157,8 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
   // ── Story ─────────────────────────────────────────
   function story() {
     const list = h('ol', { class: 'story' });
-    const copy = h('button', { class: 'btn sm ghost', title: 'Copy the story as text' }, 'Copy');
-    const print = h('button', { class: 'btn sm ghost', title: 'Print the story' }, 'Print');
+    const copy = h('button', { class: 'link st-act', title: 'Copy the story as text' }, 'Copy');
+    const print = h('button', { class: 'link st-act', title: 'Print the story' }, 'Print');
     const paint = () => {
       const es = timeline.entries();
       const active = new Map(activeInterventions(store.get().params).map((a) => [a.key, a]));
@@ -184,7 +181,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     storyPaint = () => { if (list.isConnected) paint(); };
     live.push(() => { if (list.isConnected && list._n !== timeline.entries().length) { list._n = timeline.entries().length; paint(); } });
     paint();
-    return section('story', 'Story', 'book', null, list, h('div', { class: 'btn-row st-actions' }, copy, print));
+    return section('story', 'Story', 'book', null, list, h('div', { class: 'st-actions' }, copy, print));
   }
   function storyText() {
     return timeline.entries().map((e) => `${e.kind === 'start' ? 'Start' : fmtClock(e.t, e.day)}  ${e.kind === 'start' ? 'Patient: ' : ''}${e.label}${e.detail ? ': ' + e.detail : ''}`).join('\n');
@@ -211,24 +208,18 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     live = [];
     const st = store.get();
     const pr = st.presetList?.find((p) => p.id === st.presetId);
-    // The patient's name lives in the top bar; the chart opens on what the patient has. On a
-    // phone, where the top bar truncates the name, the sheet carries it in full.
-    const head = pr ? h('div', { class: 'p-head chart-head' }, h('h2', { class: 'chart-name' }, pr.label), pr.summary ? h('p', { class: 'chart-sum' }, pr.summary) : null) : null;
+    // The patient's name heads the panel; the chart opens on what the patient has.
+    const head = pr?.summary ? h('div', { class: 'p-head chart-head' }, h('p', { class: 'chart-sum' }, pr.summary)) : null;
     const inCase = st.mode === 'cases';
-    const kids = [head, pinned(), h('div', { class: 'p-body chart-body' }, vitals(), inCase ? null : treat(), story(), advanced())];
+    const kids = [head, pinned(), h('div', { class: 'p-body chart-body' }, findings(), inCase ? null : treat(), story(), advanced())];
     update(store.get().frame, true);
     return kids;
   }
 
-  function update(f, force) {
+  function update(f) {
     if (!f) return;
-    const now = performance.now();
-    if (now - lastSample > 700 || force) {
-      lastSample = now;
-      for (const t of TILES) { const a = hist[t.id]; a.push(t.v(f.metrics)); if (a.length > SPARK_N) a.shift(); }
-    }
     for (const fn of live) fn();
   }
-  timeline.onChange(() => { const es = timeline.entries(); if (es.length === 1) for (const k of Object.keys(hist)) hist[k].length = 0; storyPaint?.(); });
+  timeline.onChange(() => storyPaint?.());
   return { render, update };
 }

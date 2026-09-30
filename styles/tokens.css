@@ -33,7 +33,7 @@
   --ok: #178A63;
   --caution: #C98A0E;
   --danger: #D2452F;
-  --critical: #A3134B;
+  --critical: #8B1A10;
   --info: #3155D1;
 
   /* flow semantics */
@@ -144,7 +144,7 @@
     --hairline: rgba(200, 215, 255, .08); --border: #222C46; --border-strong: #33405F;
     --text: #E9EDF6; --text-2: #A9B2C7; --text-3: #8F99B3; --text-inverse: #0B1120;
     --brand-bg: #24325C; --accent: #7C9BFF; --accent-ink: #A5BAFF; --accent-soft: rgba(124, 155, 255, .13); --accent-line: rgba(124, 155, 255, .4); --focus: #7C9BFF;
-    --ok: #34C38F; --caution: #F0B43C; --danger: #F2634D; --critical: #E6508A; --info: #7C9BFF;
+    --ok: #34C38F; --caution: #F0B43C; --danger: #F2634D; --critical: #FF4747; --info: #7C9BFF;
     --flow-normal: #2CC5BD; --flow-reversed: #FF8C42;
     /* organs re-lit for the navy ground (not the light ramp dimmed): clearer hue, cool shade */
     --og-liver-1: #85514F; --og-liver-2: #5A3440; --og-liver-3: #C48A86;
@@ -179,7 +179,7 @@
   --hairline: rgba(200, 215, 255, .08); --border: #222C46; --border-strong: #33405F;
   --text: #E9EDF6; --text-2: #A9B2C7; --text-3: #8F99B3; --text-inverse: #0B1120;
   --brand-bg: #24325C; --accent: #7C9BFF; --accent-ink: #A5BAFF; --accent-soft: rgba(124, 155, 255, .13); --accent-line: rgba(124, 155, 255, .4); --focus: #7C9BFF;
-  --ok: #34C38F; --caution: #F0B43C; --danger: #F2634D; --critical: #E6508A; --info: #7C9BFF;
+  --ok: #34C38F; --caution: #F0B43C; --danger: #F2634D; --critical: #FF4747; --info: #7C9BFF;
   --flow-normal: #2CC5BD; --flow-reversed: #FF8C42;
   /* organs re-lit for the navy ground (not the light ramp dimmed): clearer hue, cool shade */
   --og-liver-1: #85514F; --og-liver-2: #5A3440; --og-liver-3: #C48A86;
@@ -215,7 +215,7 @@
   --hairline: rgba(200, 215, 255, .09); --border: #222C46; --border-strong: #33405F;
   --text: #E9EDF6; --text-2: #A9B2C7; --text-3: #8F99B3; --text-inverse: #0B1120;
   --accent: #7C9BFF; --accent-ink: #A5BAFF; --accent-soft: rgba(124, 155, 255, .13); --accent-line: rgba(124, 155, 255, .4); --focus: #7C9BFF;
-  --ok: #34C38F; --caution: #F0B43C; --danger: #F2634D; --critical: #E6508A; --info: #7C9BFF;
+  --ok: #34C38F; --caution: #F0B43C; --danger: #F2634D; --critical: #FF4747; --info: #7C9BFF;
   --flow-normal: #2CC5BD; --flow-reversed: #FF8C42;
   --artery: #E4606C; --casing-rgb: 0 0 0; --casing-a: .72; --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a)); --leader: rgba(200, 212, 240, .42);
   --vein-portal: #9C90DA; --vein-systemic: #6FA6DA; --arrow-ink: rgba(233, 237, 246, .82); --label-halo: rgba(10, 15, 28, .92);
@@ -231,7 +231,7 @@
   --hairline: rgba(200, 215, 255, .09); --border: #222C46; --border-strong: #33405F;
   --text: #E9EDF6; --text-2: #A9B2C7; --text-3: #8F99B3; --text-inverse: #0B1120;
   --accent: #7C9BFF; --accent-ink: #A5BAFF; --accent-soft: rgba(124, 155, 255, .13); --accent-line: rgba(124, 155, 255, .4); --focus: #7C9BFF;
-  --ok: #34C38F; --caution: #F0B43C; --danger: #F2634D; --critical: #E6508A; --info: #7C9BFF;
+  --ok: #34C38F; --caution: #F0B43C; --danger: #F2634D; --critical: #FF4747; --info: #7C9BFF;
   --flow-normal: #2CC5BD; --flow-reversed: #FF8C42;
   --artery: #E4606C; --casing-rgb: 0 0 0; --casing-a: .72; --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a)); --leader: rgba(200, 212, 240, .42);
   --vein-portal: #9C90DA; --vein-systemic: #6FA6DA; --arrow-ink: rgba(233, 237, 246, .82); --label-halo: rgba(10, 15, 28, .92);
