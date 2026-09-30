@@ -39,10 +39,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
   // ── Geometry sampling ──────────────────────────────
-  const scratch = s('path');
-  svg.append(scratch);
+  // A fresh element per course: Chromium can keep measuring a reused path's previous course after
+  // its `d` changes (a straight segment after another), which drew the suprahepatic IVC over the
+  // infrahepatic one and put the SVC out on the circuit's course.
+  const scratchG = s('g');
+  svg.append(scratchG);
   function sample(d) {
-    scratch.setAttribute('d', d);
+    const scratch = s('path', { d });
+    scratchG.replaceChildren(scratch);
     const L = scratch.getTotalLength();
     const pts = [];
     for (let i = 0; i < N_SAMPLES; i++) {
@@ -109,7 +113,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const list = [...(fd.fan ? fanFeeders(fd.fan).map((x) => ({ ...x, fan: true, when: fd.fan.when, out: !!fd.fan.out })) : []), ...(fd.paths || []).map((d, i) => ({ d, k: 1, when: fd.when, src: fd.from?.[i] }))];
     feedGeo[id] = list.map(({ d, k, fan, when, src, out }, i) => { const pts = sample(d); const shaped = fan ? wiggle(pts, (2.2 + 1.2 * k) * (fd.fan.wig ?? 1), i * 2.3 + 1) : fd.wig ? wiggle(pts, fd.wig, i * 2.3 + 1) : meander(pts, id + i); return { k, fan, when, src, out, pts: out ? shaped.slice().reverse() : shaped }; });
   }
-  scratch.remove();
+  scratchG.remove();
   // Where to caption each circuit lane: the middle of its longest horizontal run.
   const laneU = {};
   for (const id of Object.keys(LANE_CAPTIONS)) {
@@ -1230,6 +1234,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     trackChanges(f, p);
     stepReveals(performance.now());
     for (const x of Object.values(E)) if (x.vis && !x.isArt) renderTube(x, p, t, J);
+    updateJoins(t);
     // A selected vessel stays bright while the rest of the network recedes.
     wrap.classList.toggle('has-sel', st.selection?.type === 'edge' && !!E[st.selection.id]?.vis);
     syncLift();
@@ -1281,6 +1286,120 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const taper = (u) => smooth(clamp(u / 0.22, 0, 1)) * smooth(clamp((1 - u) / 0.22, 0, 1));
     x.sheen.setAttribute('d', tubeOutline(litOffset(pts, lit, wm * 0.2), lit, (u) => wm * 0.12 * taper(u)));
     x.shade.setAttribute('d', tubeOutline(litOffset(pts, lit, -wm * 0.24), lit, (u) => wm * 0.19 * taper(u)));
+  }
+
+  // Joins across layers: within a layer the casings lie under all the lumens, so vessels that meet
+  // merge. Where a vein ends on vessels drawn in a lower layer (a translucent context vein, one
+  // behind the organs), its round end and casing would sit on top of them as a ringed disc. That
+  // end instead dissolves into the vessel beneath over the length of its cap, unless it runs on
+  // into a vessel of its own layer. Found from the drawn courses, which need not end at the nodes.
+  const joinRank = (x) => (x.back ? 0 : 10) + (x.level ?? 1);
+  const shown = (y) => y.vis && !y.isArt && !y.g.classList.contains('coll-ghost');
+  // Distance from q to a drawn course; `body`: only to its length, not beyond either end.
+  function distTo(pts, q, body) {
+    let best = Infinity;
+    for (let i = 1; i < pts.length; i++) {
+      const [ax, ay] = pts[i - 1], dx = pts[i][0] - ax, dy = pts[i][1] - ay;
+      const v = ((q[0] - ax) * dx + (q[1] - ay) * dy) / (dx * dx + dy * dy || 1);
+      if (body && ((i === 1 && v < 0) || (i === pts.length - 1 && v > 1))) continue;
+      const u = clamp(v, 0, 1);
+      best = Math.min(best, Math.hypot(ax + dx * u - q[0], ay + dy * u - q[1]));
+    }
+    return best;
+  }
+  // For each vein end, the other veins whose course passes within reach of it, with the distance.
+  // Built from the anatomy's courses (joins are drawn only there).
+  let near = null, nearVersion = -1;
+  function buildNear() {
+    const xs = Object.values(E).filter((x) => !x.isArt && geo[x.e.id].cur);
+    const box = new Map(xs.map((x) => {
+      const P = geo[x.e.id].cur;
+      return [x, [Math.min(...P.map((q) => q[0])) - 14, Math.min(...P.map((q) => q[1])) - 14, Math.max(...P.map((q) => q[0])) + 14, Math.max(...P.map((q) => q[1])) + 14]];
+    }));
+    near = new Map();
+    for (const x of xs) {
+      const P = geo[x.e.id].cur;
+      near.set(x, [P[0], P[P.length - 1]].map((q) => {
+        const out = [];
+        for (const y of xs) {
+          const b = box.get(y);
+          if (y === x || q[0] < b[0] || q[0] > b[2] || q[1] < b[1] || q[1] > b[3]) continue;
+          const d = distTo(geo[y.e.id].cur, q);
+          if (d < 14) out.push([y, d]);
+        }
+        return out;
+      }));
+    }
+  }
+  // A vein's end: the end point, the direction out of the vessel there, and its outer radius.
+  function endFrame(x, i) {
+    const pts = geo[x.e.id].cur;
+    const R = (x.rOf ? x.rOf(i) : x.width / 2) + x.wallPx + 1;
+    const end = i ? pts[pts.length - 1] : pts[0];
+    let k = i ? pts.length - 2 : 1;
+    while (k > 0 && k < pts.length - 1 && Math.hypot(pts[k][0] - end[0], pts[k][1] - end[1]) < R) k += i ? -1 : 1;
+    const l = Math.hypot(end[0] - pts[k][0], end[1] - pts[k][1]) || 1;
+    return { end, R, tx: (end[0] - pts[k][0]) / l, ty: (end[1] - pts[k][1]) / l };
+  }
+  const JOIN_FADE = 1.1;   // outer radii over which an end fades, short of the junction
+  // Which ends of a vein (0, 1) fade into a vessel beneath that runs on past them.
+  function joinEnds(x, t) {
+    if (t >= 0.5 || !near?.has(x) || !shown(x) || x.reveal) return [];
+    const r = joinRank(x), ends = [];
+    near.get(x).forEach((list, i) => {
+      const cand = list.filter(([y, d]) => shown(y) && d < y.width / 2 + 1.5).map(([y]) => y);
+      const lower = cand.filter((y) => joinRank(y) < r);
+      if (!lower.length) return;
+      const { end, R, tx, ty } = endFrame(x, i);
+      // Its own tributaries are drawn with it (the azygos trunk into the arch) and would fade too.
+      if (x.feeders?.some((fd) => [fd.cur[0], fd.cur[fd.cur.length - 1]].some((c) => Math.hypot(c[0] - end[0], c[1] - end[1]) < 2 * R))) return;
+      const at = (k) => [end[0] + tx * k * R, end[1] + ty * k * R];
+      const covers = (ys, q) => ys.some((y) => distTo(geo[y.e.id].cur, q, true) < y.width / 2);
+      // Just past the end: a vessel of its own layer (or nearer) that runs on there merges with
+      // it (a small one, such as a collateral, does not cover the end); nothing beneath running on means a blind end, which keeps its round end.
+      const ahead = at(0.15);
+      if (covers(cand.filter((y) => joinRank(y) >= r && y.width >= 0.6 * x.width), ahead) || !covers(lower, ahead)) return;
+      ends.push(i);
+    });
+    return ends;
+  }
+  function updateJoins(t) {
+    if (t === 0 && nearVersion !== geometryVersion) { buildNear(); nearVersion = geometryVersion; }
+    for (const x of Object.values(E)) {
+      const ends = joinEnds(x, t);
+      const pts = geo[x.e.id].cur;
+      const key = ends.length && pts ? ends.join() + '|' + Math.round(x.width) + '|' + geometryVersion : '';
+      if (key === (x.joinKey || '')) continue;
+      x.joinKey = key;
+      if (!key) { for (const g of x.groups) g.removeAttribute('mask'); continue; }
+      if (!x.join) {
+        const id = x.e.id;
+        const m = s('mask', { id: `jm-${id}`, maskUnits: 'userSpaceOnUse', x: 0, y: 0, width: VIEW.w, height: VIEW.h });
+        m.append(s('rect', { x: 0, y: 0, width: VIEW.w, height: VIEW.h, fill: '#fff' }));
+        x.join = [0, 1].map((i) => {
+          const gr = s('linearGradient', { id: `jg-${id}-${i}`, gradientUnits: 'userSpaceOnUse' });
+          gr.append(s('stop', { offset: '0', 'stop-color': '#fff' }), s('stop', { offset: '1', 'stop-color': '#000' }));
+          const box = s('path', { fill: `url(#jg-${id}-${i})` });
+          defs.append(gr); m.append(box);
+          return { gr, box };
+        });
+        defs.append(m);
+      }
+      for (const i of [0, 1]) {
+        const { gr, box } = x.join[i];
+        if (!ends.includes(i)) { box.removeAttribute('d'); continue; }
+        const { end, R, tx, ty } = endFrame(x, i);
+        // From solid a little short of the junction to gone just past it, so no part of the round
+        // end or its outline is left: the vein turns into the vessel that carries on beneath.
+        const s0 = -JOIN_FADE * R, s1 = 0.3 * R, w = R + 2;
+        const at = (a, b) => [end[0] + tx * a - ty * b, end[1] + ty * a + tx * b];
+        gr.setAttribute('x1', at(s0, 0)[0].toFixed(1)); gr.setAttribute('y1', at(s0, 0)[1].toFixed(1));
+        gr.setAttribute('x2', at(s1, 0)[0].toFixed(1)); gr.setAttribute('y2', at(s1, 0)[1].toFixed(1));
+        const c = [at(s0 - 1, -w), at(R + 4, -w), at(R + 4, w), at(s0 - 1, w)];
+        box.setAttribute('d', 'M' + c.map((p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' L') + ' Z');
+      }
+      for (const g of x.groups) g.setAttribute('mask', `url(#jm-${x.e.id})`);
+    }
   }
 
   // Circuit liver module: collapsed unless asked for, selected into, or zoomed in on.
