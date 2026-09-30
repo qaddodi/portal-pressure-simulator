@@ -1150,6 +1150,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .ac-toggle[data-key]::after { order: 3; }
 .ac-note { font-size: var(--fs-12); color: var(--text-2); line-height: 1.45; padding: 4px 2px 0; }
 .ac-btn-wrap { display: flex; flex-direction: column; }
+.ac-stats { display: contents; }
 .ac-stat { display: flex; justify-content: space-between; gap: 12px; font-size: var(--fs-12); color: var(--text-2); padding: 2px 1px; }
 .ac-stat b { color: var(--text); font-weight: 600; }
 .ac-link { align-self: flex-start; display: inline-flex; align-items: center; gap: 2px; font-size: var(--fs-13); }
@@ -1157,43 +1158,70 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .ac-drain-row .ac-btn { width: auto; }
 .ac-drain-row .check-row { padding: 2px 0; font-size: var(--fs-12); }
 .ac-foot { flex: none; display: flex; justify-content: space-between; margin: 0; padding: 6px 16px 10px; border-top: 1px solid var(--hairline); }
+.ac-foot.in-head { display: none; }
 .ac-foot .link { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-13); }
 .mi-ic { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .ac-grab { display: none; }
-/* Phone: a bottom sheet with three heights. The top (handle, title, value, close) and the foot (Why?, Details) are
-   fixed; the controls scroll. Peek is just the reading; half fits a couple of controls; full is most of the figure. */
+/* Phone: a bottom sheet, sized to what is in it so nothing is wasted: the header (kind, Why?, Details, close; name; the
+   reading) is fixed and the controls follow. A tap on the handle folds it to a strip with just the header. Only a card with
+   more controls than fit (a few liver compartments) scrolls, with a fade at the bottom to show there is more. */
 .action-card.docked {
-  left: 6px !important; right: 6px; top: auto !important; bottom: 6px; width: auto; max-height: min(48%, 400px);
+  left: 6px !important; right: 6px; top: auto !important; bottom: calc(6px + env(safe-area-inset-bottom, 0px)); width: auto; max-height: min(64%, 480px);
   border-radius: var(--r-sheet); font-size: var(--fs-13);
 }
-.action-card.docked.full { max-height: min(82%, 680px); }
-.action-card.docked.peek .ac-scroll, .action-card.docked.peek .ac-foot { display: none; }
-.action-card.docked .ac-top { padding: 4px 12px 8px; touch-action: none; cursor: grab; }
-.action-card.docked .ac-grab { display: block; width: 100%; height: 16px; margin: 0; padding: 0; border: 0; background: none; cursor: pointer; position: relative; }
-.action-card.docked .ac-grab::before { content: ''; position: absolute; left: 50%; top: 5px; width: 36px; height: 4px; border-radius: 2px; background: var(--border-strong); transform: translateX(-50%); }
-.action-card.docked .ac-head h3 { font-size: var(--fs-14); }
-.action-card.docked .ac-kicker { font-size: var(--fs-11); }
-.action-card.docked .ac-close { width: 36px; height: 36px; margin: -8px -8px 0 0; }
-.action-card.docked .ac-close svg { width: 17px; height: 17px; }
-.action-card.docked .ac-readout { margin: 2px 0 0; flex-wrap: nowrap; }
+.action-card.docked.peek .ac-scroll { display: none; }
+.action-card.docked .ac-top { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 2px; align-items: center; padding: 2px 12px 6px; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.action-card.docked .ac-head, .action-card.docked .ac-titles, .action-card.docked .ac-readout { display: contents; }
+.action-card.docked .ac-grab { grid-column: 1 / -1; grid-row: 1; display: block; width: 100%; height: 12px; margin: 0; padding: 0; border: 0; background: none; cursor: pointer; position: relative; }
+.action-card.docked .ac-grab::before { content: ''; position: absolute; left: 50%; top: 3px; width: 36px; height: 4px; border-radius: 2px; background: var(--border-strong); transform: translateX(-50%); }
+/* The header is one grid. Line 1: the kind, the two links and the close button. Line 2: the name, with the reading at the
+   right. Line 3 (when there is one): the status. */
+.action-card.docked .ac-kicker { grid-column: 1; grid-row: 2; font-size: var(--fs-11); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.action-card.docked .ac-foot.in-head { display: flex; grid-column: 2; grid-row: 2; padding: 0; border: 0; gap: 0; }
+.action-card.docked .ac-foot.in-head .link { display: inline-flex; align-items: center; gap: 3px; min-height: 28px; padding: 0 8px; font-size: var(--fs-12); font-weight: 600; }
+.action-card.docked .ac-foot.at-foot { display: none; }
+.action-card.docked .ac-close { grid-column: 3; grid-row: 2; width: 28px; height: 28px; margin: 0 -6px 0 0; }
+.action-card.docked .ac-close svg { width: 16px; height: 16px; }
+.action-card.docked .ac-head h3 { grid-column: 1; grid-row: 3; margin: 0; font-size: var(--fs-14); line-height: 1.25; padding-right: 8px; }
+.action-card.docked .ac-value { grid-column: 2 / -1; grid-row: 3; justify-self: end; }
 .action-card.docked .ac-value b { font-size: var(--fs-20); }
-.action-card.docked .ac-scroll { padding: 0 12px; }
-.action-card.docked .ac-body { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 8px 0 8px; }
+.action-card.docked .ac-status { grid-column: 1 / -1; grid-row: 4; min-width: 0; margin-top: 2px; }
+.action-card.docked .ac-status:empty { display: none; }
+.action-card.docked .ac-status .pill { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.action-card.docked .ac-scroll { padding: 0 12px 4px; position: relative; }
+.action-card.docked .ac-body { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 6px 0 4px; }
 /* Sliders, readouts and notes take the whole row; buttons and switches sit two to a row. */
-.action-card.docked .ac-body > .ac-slider, .action-card.docked .ac-body > .ac-row, .action-card.docked .ac-body > .ac-stat, .action-card.docked .ac-body > .ac-link,
+.action-card.docked .ac-body > .ac-slider, .action-card.docked .ac-body > .ac-row, .action-card.docked .ac-body > .ac-link, .action-card.docked .ac-body > .ac-btn-wrap.wide,
 .action-card.docked .ac-body > .ac-drain, .action-card.docked .ac-body > .ac-btn-wrap:has(.ac-note:not([hidden])) { grid-column: 1 / -1; }
-.action-card.docked .ac-btn, .action-card.docked .ac-toggle { min-height: 44px; padding: 8px 10px; }
+.action-card.docked .ac-btn, .action-card.docked .ac-toggle { min-height: 38px; padding: 5px 10px; }
 .action-card.docked .ac-toggle .ac-tl { line-height: 1.2; }
-/* A slider is one row: name, track, value. */
-.action-card.docked .ac-slider:not(.long) { display: grid; grid-template-columns: 92px minmax(0, 1fr) auto; align-items: center; column-gap: 10px; row-gap: 0; }
+.action-card.docked .ac-seg button { padding: 4px 6px; }
+.action-card.docked .ac-row { gap: 3px; }
+.action-card.docked .ac-row .ac-label { font-size: var(--fs-12); color: var(--text-2); font-weight: 500; }
+.action-card.docked .ac-body > .ac-stats { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; column-gap: 12px; row-gap: 2px; }
+.action-card.docked .ac-stat { padding: 0 1px; align-items: baseline; }
+/* A slider is one row: name, track, value (a long name takes a line of its own above the track and the value). */
+.action-card.docked .ac-slider { display: grid; align-items: center; column-gap: 10px; row-gap: 0; }
+.action-card.docked .ac-slider:not(.long) { grid-template-columns: 92px minmax(0, 1fr) auto; }
 .action-card.docked .ac-slider:not(.long) .ctl-top { display: contents; }
 .action-card.docked .ac-slider:not(.long) .ac-label { grid-column: 1; grid-row: 1; }
 .action-card.docked .ac-slider:not(.long) .range-wrap { grid-column: 2; grid-row: 1; min-width: 0; }
 .action-card.docked .ac-slider:not(.long) .ctl-val { grid-column: 3; grid-row: 1; min-width: 3.2em; text-align: right; }
 .action-card.docked .ac-slider:not(.long) .ctl-sub { grid-column: 1 / -1; grid-row: 2; }
-.action-card.docked .ac-note { font-size: var(--fs-11); }
-.action-card.docked .ac-foot { padding: 4px 12px calc(6px + env(safe-area-inset-bottom, 0px)); }
-.action-card.docked .ac-foot .link { min-height: 40px; }
+.action-card.docked .ac-slider.long { grid-template-columns: minmax(0, 1fr); row-gap: 0; }
+.action-card.docked .ac-slider .ctl-sub { font-size: var(--fs-11); line-height: 1.3; }
+.action-card.docked .ac-note { font-size: var(--fs-11); padding-top: 2px; }
+/* On a short phone the sheet slims down further: thinner rows, and the explanatory captions under sliders drop out. */
+@media (max-height: 720px) {
+  .action-card.docked .ac-btn, .action-card.docked .ac-toggle { min-height: 34px; padding: 3px 10px; }
+  .action-card.docked .ac-body { gap: 4px; padding: 4px 0 2px; }
+  .action-card.docked .ac-slider .ctl-sub { display: none; }
+  .action-card.docked .ac-seg button { padding: 2px 6px; }
+  .action-card.docked .ac-foot.in-head .link { min-height: 26px; }
+  .action-card.docked .ac-top { padding-bottom: 4px; }
+}
+/* A card that has to scroll fades out at the bottom, so it is plain there is more. */
+.action-card.docked .ac-scroll.more { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent); }
 /* The figure's own buttons (Fit, turn) ride above the sheet instead of under it. */
 .stage-fit, .stage-rotate, .stage-clock { translate: 0 calc(-1 * var(--sheet-h, 0px)); transition: translate .2s var(--ease); }
 .app.figure-mode .action-card { display: none; }
