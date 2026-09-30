@@ -178,26 +178,27 @@ export function createDoppler({ onProbe }) {
   // second, so the display runs on its own clock a fraction of a second behind the newest sample
   // and scrolls at the screen's frame rate instead of jumping ten pixels at a time.
   //
-  // A line holds the smooth spectrum only: the velocities in the sample volume, log-compressed
-  // into grey. The grain is a separate layer fixed to the screen and redrawn with fresh noise
-  // many times a second, so the waveform scrolls while the noise shimmers in place: speckle
-  // (exponential, smooth over a frequency bin) multiplies the spectrum, and a faint noise floor
-  // is added over the whole display, cleared at the baseline by the wall filter.
+  // A line holds the spectrum with its own grain, as on a scanner: the velocities in the sample
+  // volume times speckle (exponential power, smooth over a frequency bin and shared in part with
+  // the previous line, as overlapping FFT windows do), log-compressed into grey. Written once, the
+  // grain scrolls with the trace and never flickers. Only a faint noise floor is a separate layer
+  // fixed to the screen, shimmering slowly in place, cleared at the baseline by the wall filter.
   let scale = null;     // velocity half-range (cm/s)
   let baseF = null;     // baseline position (fraction of height)
   let settleAt = 0;     // when the signal last fitted the current scale
   let tDisp = null;     // the display clock (model seconds)
   let wallLast = 0;
-  let img = null, off = null, octx = null, mimg = null, moff = null, mctx = null, tmp = null, tctx = null;
-  let grain = null, floor = null, edgeTex = null, noiseAt = 0, nx = 0, ny = 0, ex = 0, ey = 0;
-  let ringKey = '', lastCol = null, jit = 0, lineGain = 0;
+  let img = null, off = null, octx = null;
+  let floor = null, noiseAt = 0, nx = 0, ny = 0;
+  let ringKey = '', lastCol = null, jit = 0, lineGain = 0, spk = null;
   const STEPS = [10, 15, 20, 30, 40, 60, 80, 100, 150, 200, 300];
   const A_SIG = 10 ** 2.8;          // signal power over the noise floor (≈ 28 dB)
   const FLOOR_DB = 4.5, RANGE_DB = 30;  // log compression: the grey map spans 4.5–34.5 dB
   const LN10_10 = 10 / Math.LN10;
-  const HEAD = 1.35;                // the spectrum is stored this much brighter; speckle averages it back
-  const PAD = 96;                   // noise textures are this much larger than the display
+  const GAIN = 1.1;                 // display gain on the grey map
+  const PAD = 96;                   // the noise texture is this much larger than the display
   const live = () => !!frame?.running && frame.clock !== 'disease';
+  const expo = () => -Math.log(1 - Math.random() * 0.999999);
   const mk = (w, h) => typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h) : Object.assign(document.createElement('canvas'), { width: w, height: h });
 
   // Model time shown at the right edge. Follows the samples by ~0.16 s of wall time so there is
@@ -223,52 +224,30 @@ export function createDoppler({ onProbe }) {
     return g.pol * (tb > ta ? va + (vb - va) * clamp((t - ta) / (tb - ta), 0, 1) : va);
   }
 
-  // Three screen-sized noise textures, made once per size: speckle to multiply the spectrum by,
-  // the noise floor to add, and fine vertical streaks for the spectrum's outer edge. Each frame
-  // shows them at a new random offset, so the noise changes constantly without being recomputed.
-  // As on a scanner, the grain is the spectral estimate's own: each spectral line (about one CSS
-  // pixel wide) is independent of the next, and along it each frequency bin (two or three device
-  // pixels) is an independent exponential power, so the band is a fine, high-contrast grit with
-  // dark drop-outs rather than smooth streaks. Speckle and floor are log-compressed.
+  // The noise floor: a screen-sized texture made once per size and shown at a new random offset
+  // a few times a second. Like the grain, it is exponential power, independent from one spectral
+  // line to the next but smooth over a few frequency bins along it, log-compressed.
   function makeNoise(RW, RH, binPx, cw) {
-    binPx *= 1.6;
+    binPx *= 2;
     const TW = RW + PAD, TH = RH + PAD;
-    const gi = new ImageData(TW, TH), fi = new ImageData(TW, TH), ei = new ImageData(TW, TH);
-    const G = gi.data, F = fi.data, E = ei.data;
+    const fi = new ImageData(TW, TH), F = fi.data;
     const nb = Math.ceil(TH / binPx) + 2;
-    const e = () => -Math.log(1 - Math.random() * 0.999999);
-    const sp = new Float32Array(nb), nf = new Float32Array(nb);
+    const nf = new Float32Array(nb);
     let nextLine = 0;
-    // edge streaks: one random strength per column (a spectral line reaching further or less far),
-    // varying slowly along it so the lines are not uniform bars
-    const SEG = 14, ns = Math.ceil(TH / SEG) + 2, ed = new Float32Array(ns);
     for (let x = 0; x < TW; x++) {
       // a new spectral line every 1 to cw columns (at random, so there is no regular grid)
-      if (x && x < nextLine) { /* same line */ } else {
-        nextLine = x + 1 + Math.floor(Math.random() * cw);
-        for (let b = 0; b < nb; b++) { sp[b] = e(); nf[b] = e(); }
-        const col = e();
-        for (let j = 0; j < ns; j++) ed[j] = col * (0.55 + 0.45 * Math.random());
-      }
+      if (!x || x >= nextLine) { nextLine = x + 1 + Math.floor(Math.random() * cw); for (let b = 0; b < nb; b++) nf[b] = expo(); }
       for (let y = 0; y < TH; y++) {
         const fb = y / binPx, b0 = fb | 0, f0 = fb - b0, f = f0 * f0 * (3 - 2 * f0);
-        const X = sp[b0] + (sp[b0 + 1] - sp[b0]) * f;
         const N = nf[b0] + (nf[b0 + 1] - nf[b0]) * f;
-        const fs = y / SEG, s0 = fs | 0;
-        const k = clamp((ed[s0] + (ed[s0 + 1] - ed[s0]) * (fs - s0)) * 0.3, 0, 0.8);
-        const m = clamp((1 + Math.log(X) * LN10_10 / 17) / HEAD, 0, 1);
         let I = (Math.log(N) * LN10_10 - 2.5) / RANGE_DB;
         I = I <= 0 ? 0 : Math.pow(Math.min(1, I), 1.2);
         const q = (y * TW + x) * 4;
-        G[q] = G[q + 1] = G[q + 2] = 255 * m; G[q + 3] = 255;
         F[q] = 236 * I; F[q + 1] = 240 * I; F[q + 2] = 250 * I; F[q + 3] = 255;
-        E[q] = 236 * k; E[q + 1] = 240 * k; E[q + 2] = 250 * k; E[q + 3] = 255;
       }
     }
-    grain = mk(TW, TH); grain.getContext('2d').putImageData(gi, 0, 0);
     floor = mk(TW, TH); floor.getContext('2d').putImageData(fi, 0, 0);
-    edgeTex = mk(TW, TH); edgeTex.getContext('2d').putImageData(ei, 0, 0);
-    grain.key = `${RW}x${RH}`;
+    floor.key = `${RW}x${RH}`;
   }
 
   // Synthesise spectral line c into the ring. Geometry in device pixels.
@@ -292,10 +271,14 @@ export function createDoppler({ onProbe }) {
     const L = av * (g.venous ? 0.05 : 0.45 - 0.4 * clamp(1 - av / 12, 0, 1));
     const sigHi = 0.02 * P + 0.4, sigLo = 0.08 * P + 1.2;
     const wf = Math.max(1.2, 0.025 * scale);      // wall filter cut-off, cm/s
-    // where the edge noise shows: a few pixels either side of the outer edge, wider outside
-    // the smooth spectrum fades out over its last few pixels, so the speckle decides the contour
-    const wOut = 2 + 0.025 * P * rPxPerV, wIn = 9, edge = has && av > 0.5, fadeV = 10 / rPxPerV;
-    const D = img.data, M = mimg.data;
+    // the spectrum fades out over its last few pixels, so the speckle decides the contour
+    const fadeV = 10 / rPxPerV;
+    // this line's speckle: one exponential draw per frequency bin, half shared with the last line
+    // (more at high pixel density, so a grain is about a CSS pixel wide whatever the screen)
+    const nb = Math.ceil(RH / g.spkPx) + 2;
+    if (!spk || spk.length !== nb) spk = Float32Array.from({ length: nb }, expo);
+    for (let b = 0; b < nb; b++) spk[b] = g.spkMix * spk[b] + (1 - g.spkMix) * expo();
+    const D = img.data;
     for (let ry = 0; ry < RH; ry++) {
       const vel = (rBase - ry) / rPxPerV;
       let S = 0;
@@ -311,17 +294,15 @@ export function createDoppler({ onProbe }) {
       }
       const a = Math.abs(vel) / wf;
       const W = a >= 1 ? 1 : a * a * a;                        // wall filter clears the baseline
-      const pw = (1 + A_SIG * S * gain) * W;
+      const fb = ry / g.spkPx, b0 = fb | 0, f0 = fb - b0, f = f0 * f0 * (3 - 2 * f0);
+      const X = spk[b0] + (spk[b0 + 1] - spk[b0]) * f;
+      const pw = (1 + A_SIG * S * gain * X) * W;
       let I = pw > 0 ? (Math.log(pw) * LN10_10 - FLOOR_DB) / RANGE_DB : 0;
       I = I <= 0 ? 0 : I >= 1 ? 1 : Math.pow(I, 1.2);
       const q = (ry * RW + x) * 4;
-      let r = 236 * HEAD * I, gg = 240 * HEAD * I, bl = 250 * HEAD * I;
+      let r = 236 * GAIN * I, gg = 240 * GAIN * I, bl = 250 * GAIN * I;
       if (tint && S > 0.02) { if (vel >= 0) { gg *= 0.45; bl *= 0.38; } else { r *= 0.35; gg *= 0.6; } }
       D[q] = r; D[q + 1] = gg; D[q + 2] = bl; D[q + 3] = 255;
-      let ma = 0;
-      // (weaker where the spectrum is already bright, so it roughens the edge without a rim)
-      if (edge) { const e = (vel * s - P) * rPxPerV + 3; ma = (e > 0 ? Math.exp(-e / wOut) : Math.exp(-(e / wIn) * (e / wIn))) * (1 - 0.6 * I); }
-      M[q + 3] = 255 * ma * W;
     }
   }
 
@@ -368,29 +349,23 @@ export function createDoppler({ onProbe }) {
 
     // Spectrum, at device resolution, newest line at the right edge.
     const RW = Math.max(1, Math.round(W * dpr)), RH = Math.max(1, Math.round(H * dpr));
-    const g = { RW, RH, rBase: baseY * dpr, rPxPerV: pxPerV * dpr, cps: RW / WINDOW, binPx: Math.max(1.5, RH / 200), pol: sgn, venous: meta().kind !== 'artery' && meta().kind !== 'tips' };
+    const g = { RW, RH, rBase: baseY * dpr, rPxPerV: pxPerV * dpr, cps: RW / WINDOW, binPx: Math.max(1.5, RH / 200), spkPx: Math.max(2, RH / 110), spkMix: clamp(1 - 1 / dpr, 0.3, 0.65), pol: sgn, venous: meta().kind !== 'artery' && meta().kind !== 'tips' };
     const cNow = Math.floor(tNow * g.cps);
     const key = `${RW}x${RH}|${scale}|${baseF}|${tint}|${probe}|${sgn}`;
     if (!img || img.width !== RW || img.height !== RH) {
       img = new ImageData(RW, RH);
       off = mk(RW, RH);
       octx = off.getContext('2d');
-      mimg = new ImageData(RW, RH);
-      mimg.data.fill(255);
-      moff = mk(RW, RH); mctx = moff.getContext('2d');
-      tmp = mk(RW, RH); tctx = tmp.getContext('2d');
     }
     // redraw every line after a change of scale, size or colour, or when time runs backwards
     const full = key !== ringKey || lastCol == null || cNow < lastCol || cNow - lastCol >= RW;
     const from = full ? cNow - RW + 1 : lastCol + 1;
     for (let c = from; c <= cNow; c++) writeLine(c, g);
-    for (const [cx, im] of [[octx, img], [mctx, mimg]]) {
-      if (full) cx.putImageData(im, 0, 0);
-      else if (cNow > lastCol) {
-        const x0 = ((from % RW) + RW) % RW, n = cNow - from + 1;
-        if (x0 + n <= RW) cx.putImageData(im, 0, 0, x0, 0, n, RH);
-        else { cx.putImageData(im, 0, 0, x0, 0, RW - x0, RH); cx.putImageData(im, 0, 0, 0, 0, x0 + n - RW, RH); }
-      }
+    if (full) octx.putImageData(img, 0, 0);
+    else if (cNow > lastCol) {
+      const x0 = ((from % RW) + RW) % RW, n = cNow - from + 1;
+      if (x0 + n <= RW) octx.putImageData(img, 0, 0, x0, 0, n, RH);
+      else { octx.putImageData(img, 0, 0, x0, 0, RW - x0, RH); octx.putImageData(img, 0, 0, 0, 0, x0 + n - RW, RH); }
     }
     ringKey = key; lastCol = cNow;
     // copy the ring out, oldest line on the left, pixel for pixel
@@ -403,27 +378,11 @@ export function createDoppler({ onProbe }) {
       c2.drawImage(src, 0, 0, p + 1, RH, ox + RW - p - 1, oy, p + 1, RH);
     };
     ring(ctx, off, dx, dy);
-    // the noise, fixed to the screen: a new random view of the textures ~30 times a second
-    if (grain?.key !== `${RW}x${RH}`) makeNoise(RW, RH, g.binPx, Math.max(1, dpr));
-    if (now - noiseAt > 30) {
-      noiseAt = now;
-      nx = (Math.random() * PAD) | 0; ny = (Math.random() * PAD) | 0;
-      ex = (Math.random() * PAD) | 0; ey = (Math.random() * PAD) | 0;
-    }
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.drawImage(grain, nx, ny, RW, RH, dx, dy, RW, RH);
-    // the edge: fresh speckle, cut to the band around the waveform's outer edge, added on top
-    // (mask first, then one source-in draw: a composite that clears outside the drawn area would
-    // wipe the first half of the wrapped ring)
-    tctx.globalCompositeOperation = 'source-over';
-    tctx.clearRect(0, 0, RW, RH);
-    ring(tctx, moff, 0, 0);
-    tctx.globalCompositeOperation = 'source-in';
-    tctx.drawImage(edgeTex, ex, ey, RW, RH, 0, 0, RW, RH);
+    // the noise floor, fixed to the screen: a new random view of the texture ~10 times a second
+    if (floor?.key !== `${RW}x${RH}`) makeNoise(RW, RH, g.binPx, Math.max(1, dpr));
+    if (now - noiseAt > 100) { noiseAt = now; nx = (Math.random() * PAD) | 0; ny = (Math.random() * PAD) | 0; }
     ctx.globalCompositeOperation = 'lighter';
-    ctx.drawImage(tmp, dx, dy);
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.drawImage(floor, PAD - 1 - nx, PAD - 1 - ny, RW, RH, dx, dy, RW, RH);
+    ctx.drawImage(floor, nx, ny, RW, RH, dx, dy, RW, RH);
     ctx.globalCompositeOperation = 'source-over';
     // the wall filter removes the noise near the baseline as well as the slow signal
     const wfPx = Math.max(1.2, 0.025 * scale) * g.rPxPerV * 1.6, by = dy + g.rBase;
