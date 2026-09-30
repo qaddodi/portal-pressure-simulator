@@ -215,10 +215,14 @@ export function createDoppler({ onProbe }) {
   }
 
   // Three screen-sized noise textures, made once per size: speckle to multiply the spectrum by,
-  // the noise floor to add, and fine vertical streaks for the spectrum's outer edge. Each frame shows them at a new random offset, so the noise changes
-  // constantly without being recomputed. Speckle is exponential power, a weighted mean of two
-  // draws (overlapping FFT windows), smooth over a frequency bin; both are log-compressed.
+  // the noise floor to add, and fine vertical streaks for the spectrum's outer edge. Each frame
+  // shows them at a new random offset, so the noise changes constantly without being recomputed.
+  // As on a scanner, every column is its own spectral line: the noise is independent from one
+  // column to the next but smooth over several frequency bins along it, so the texture is made
+  // of fine vertical streaks rather than round speckle. Speckle is exponential power (a weighted
+  // mean of two draws, for overlapping FFT windows); speckle and floor are log-compressed.
   function makeNoise(RW, RH, binPx) {
+    binPx *= 3.5;
     const TW = RW + PAD, TH = RH + PAD;
     const gi = new ImageData(TW, TH), fi = new ImageData(TW, TH), ei = new ImageData(TW, TH);
     const G = gi.data, F = fi.data, E = ei.data;
@@ -232,8 +236,8 @@ export function createDoppler({ onProbe }) {
     for (let x = 0; x < TW; x++) {
       for (let b = 0; b < nb; b++) {
         const a = x3(), c = x3();
-        sp[b] = x ? 0.65 * a + 0.35 * spP[b] : a; spP[b] = sp[b];
-        nf[b] = x ? 0.65 * c + 0.35 * nfP[b] : c; nfP[b] = nf[b];
+        sp[b] = x ? 0.8 * a + 0.2 * spP[b] : a; spP[b] = sp[b];
+        nf[b] = x ? 0.8 * c + 0.2 * nfP[b] : c; nfP[b] = nf[b];
       }
       const col = e();
       for (let j = 0; j < ns; j++) ed[j] = col * (0.55 + 0.45 * Math.random());
@@ -283,10 +287,10 @@ export function createDoppler({ onProbe }) {
         const u = vel * s;                                       // along the flow direction
         if (u > P) { const z = (u - P) / sigHi; S = 0.03 * Math.exp(-z * z); }
         else if (u >= L) {
-          S = 0.28 + 0.72 * Math.pow((u - L) / Math.max(1e-6, P - L), 0.8);
+          S = 0.16 + 0.84 * Math.pow((u - L) / Math.max(1e-6, P - L), 1.3);
           if (u > P - fadeV) { const z = (u - P + fadeV) / fadeV; S *= 1 - 0.985 * Math.sqrt(z); }
         }
-        else if (u > 0) { const z = (L - u) / sigLo; S = 0.28 * Math.exp(-z * z); }
+        else if (u > 0) { const z = (L - u) / sigLo; S = 0.16 * Math.exp(-z * z); }
       }
       const a = Math.abs(vel) / wf;
       const W = a >= 1 ? 1 : a * a * a;                        // wall filter clears the baseline
@@ -325,14 +329,14 @@ export function createDoppler({ onProbe }) {
       ctx.fillText(frame?.clock === 'disease' ? 'Doppler samples at the bedside: return to the seconds clock.' : 'Acquiring…', w / 2, hh / 2);
       return;
     }
-    // Scale: the peak fills about 70 % of its side, on the scanner's own velocity steps. Like a
+    // Scale: the peak fills about half of its side, on the scanner's own velocity steps. Like a
     // sonographer, the display changes scale or baseline only when the signal would clip or has
     // stayed small for a few seconds, never continuously (a moving scale would smear the picture).
     const tNow = clockNow(now);
     let pos = 0, neg = 0;
     for (const [t, v] of buf) if (t >= tNow - WINDOW && t <= tNow) { if (v > pos) pos = v; if (-v > neg) neg = -v; }
     pos *= 1.3; neg *= 1.3;
-    const need = Math.max(pos, neg, 8) / 0.72;
+    const need = Math.max(pos, neg, 8) / 0.55;
     const target = STEPS.find((x) => x >= need) || STEPS[STEPS.length - 1];
     const tbRaw = pos + neg < 1 ? 0.5 : pos > 0 && neg < pos * 0.08 ? 0.78 : neg > 0 && pos < neg * 0.08 ? 0.22 : clamp(0.1 + 0.8 * (pos / (pos + neg)), 0.2, 0.8);
     const tbF = Math.round(tbRaw * 10) / 10;
