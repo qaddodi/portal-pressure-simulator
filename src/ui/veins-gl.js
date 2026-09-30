@@ -11,8 +11,8 @@
 //
 // The picture is composited in depth tiers, back to front, each tier as one shape: a soft
 // contact shadow, the casing band just outside the lumen, the pressure-colored lumen and the
-// shading of a lit cylinder, taken from the across-tube coordinate and the direction out of the
-// tube. Vessels in different tiers pass over or under each other with their own casings; where a
+// flat, textbook shading: a thin light line and a thin dark line, placed by the across-tube
+// coordinate. Vessels in different tiers pass over or under each other with their own casings; where a
 // vessel ends on one in a lower tier, the lower one is copied into the upper tier near the
 // junction and fades out with distance, so that join is filleted too. Tiers behind the organs
 // are faded where an organ covers them (the organ covers are a texture), as the SVG's ghost did.
@@ -206,8 +206,6 @@ void main() {
 
   // ── Tiers, back to front ──
   vec4 accB = vec4(0.0), accN = vec4(0.0), accT = vec4(0.0);
-  vec3 L3 = normalize(vec3(light * 0.75, 0.66));
-  vec3 H3 = normalize(L3 + vec3(0.0, 0.0, 1.0));
   float last = -1.0;
   for (int it = 0; it < MAXS; it++) {
     float tt = 1e9;
@@ -289,24 +287,26 @@ void main() {
     vec4 c = vec4(0.0);
     if (fx == 1 && (flags & ${F_SHADOW}) != 0) {
       float blur = sel ? 2.4 : 1.3;
-      float as = shadow.a * (1.0 - smoothstep(-blur, blur + aa, Ds - wall));
+      // A faint contact shadow only, so a vessel passing over another still reads as on top.
+      float as = 0.4 * shadow.a * (1.0 - smoothstep(-blur, blur + aa, Ds - wall));
       c = vec4(shadow.rgb * as, as);
     }
     if (sel) { float ar = ring.a * clamp(0.5 - (D - wall - 4.0) / aa, 0.0, 1.0); c = over(vec4(ring.rgb * ar, ar), c); }
     c = over(vec4(casing.rgb, 1.0) * (casing.a * cA * aC), c);
     vec3 lum = col;
     if (fx == 1 && (flags & ${F_DIFFUSE}) != 0 && aL > 0.0) {
-      // A lit cylinder: 0 on the centerline, 1 at the lumen's edge, the surface normal turning
-      // out of the tube toward the edge. Darker on the side away from the light, a soft
-      // highlight on the lit side, a little shade in the last stretch before the wall.
-      float rho = clamp((R + D) / max(R, 1e-3), 0.0, 1.0);
-      vec3 n3 = vec3(g * rho, sqrt(max(0.0, 1.0 - rho * rho)));
-      float diff = max(dot(n3, L3), 0.0);
-      lum = mix(lum, shadeInk.rgb, clamp(shadeInk.a * 2.2 * (1.0 - diff), 0.0, 0.85));
-      lum = mix(lum, shadeInk.rgb, shadeInk.a * 0.8 * smoothstep(0.72, 1.0, rho));
+      // A textbook plate, not a rendered tube: a flat lumen with one thin light line along the
+      // side toward the light and one thin dark line along the other. The across-tube
+      // coordinate toward the light (−1 … 1) places them, so they run on through the joins;
+      // where the light runs along a vessel they fade, and on hairline vessels they are left out.
+      float rho = clamp((R + D) / max(R, 1e-3), 0.0, 1.0), side = rho * dot(g, light);
+      float soft = 0.06 + aa / max(R, 1e-3);
+      float thin = smoothstep(1.2, 2.6, R / aa);
+      float aDark = (1.0 - smoothstep(0.1, 0.1 + soft, abs(side + 0.62))) * thin;
+      lum = mix(lum, shadeInk.rgb, clamp(shadeInk.a * 1.3 * aDark, 0.0, 0.5));
       if ((flags & ${F_SPEC}) != 0) {
-        float spec = pow(max(dot(n3, H3), 0.0), 22.0);
-        lum = mix(lum, sheenInk.rgb, clamp(spec * sheenInk.a * 1.4, 0.0, 0.9));
+        float aLight = (1.0 - smoothstep(0.07, 0.07 + soft, abs(side - 0.5))) * thin;
+        lum = mix(lum, sheenInk.rgb, clamp(sheenInk.a * 0.75 * aLight, 0.0, 0.5));
       }
     }
     if (sel && grp == 2) lum = min(lum * 1.12, vec3(1.0));

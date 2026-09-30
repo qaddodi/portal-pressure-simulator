@@ -2,12 +2,18 @@
 
 ## Unreleased
 
+- **Chevrons flow through the whole network.** Blood-flow chevrons no longer stop short of every junction and
+  restart on the next vessel: every vessel passes the same number of chevrons a second, and each vessel's stream
+  picks up where the one feeding it leaves off, so they run continuously from vessel to vessel. Their speed still
+  follows each vessel's flow (faster vessels have faster, more widely spaced chevrons). They fade out only where
+  the stream really ends, or where two streams merge out of step.
 - **The anatomy is drawn on the GPU.** Where the device has a GPU with WebGL2, every vessel in the anatomy (the
   portal tree, the veins behind the organs, the translucent context veins and collaterals, the arteries, the
   cavernoma strands, the tributaries, closed collaterals and vessels drawing on) is drawn by one WebGL2 layer from
   signed distances to each vessel's centerline. Vessels that share a junction merge into one smooth, filleted
   shape, including where a vein ends on one in another layer, so no round ends or rings show where vessels meet.
-  The tubes are shaded as lit cylinders. The organs and the ascites are drawn by the same layer from a raster of
+  Vessels are drawn as on a textbook plate: a flat pressure color with a thin light line along the lit side and a
+  thin dark line along the other, and only a faint contact shadow where one passes over another. The organs and the ascites are drawn by the same layer from a raster of
   the plate (sharpened once a pan or zoom settles), so panning and zooming no longer repaint the SVG; the
   congestion glow is drawn there too, without the SVG blur filter. The circuit stays SVG. An exported PNG is the
   GPU's picture; an exported SVG keeps vector tubes. `?veins=svg` shows the SVG drawing, as does a device

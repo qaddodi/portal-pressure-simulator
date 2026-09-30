@@ -8,7 +8,7 @@ import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=
 import { createLobuleZoom } from './lobule-zoom.js?v=76e3120d30';
 import { createFlowGL, rgba, MARK_FLOATS, SEG_FLOATS } from './flow-gl.js?v=5c846606ea';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
-import { createVeinsGL, binVeins, TUBE_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC } from './veins-gl.js?v=5182791007';
+import { createVeinsGL, binVeins, TUBE_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC } from './veins-gl.js?v=1303dd4cc7';
 
 const N_SAMPLES = 64;
 // Displayed width grows sub-linearly with diameter so the cavae don't swamp the portal tree,
@@ -1747,7 +1747,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const was = plateOn();
     wrap.classList.remove('gl-plate');
     const ser = new XMLSerializer();
-    let out = '';
+    let out;
     try {
       const dc = defs.cloneNode(true); inlineStyles(defs, dc);
       out = ser.serializeToString(dc);
@@ -2794,7 +2794,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // downstream. Their speed follows mean velocity (log-compressed), so fast and slow vessels are
   // told apart at a glance; a vessel without flow carries none; reversed flow simply runs the
   // other way. Paused, or with reduced motion, the arrows hold still and keep their direction.
-  const phase = {};
   function flowState(x) {
     const e = x.e, k = EI[e.id];
     // Mean (filtered) flow, so beat-to-beat or respiratory to-and-fro doesn't flip the chevrons.
@@ -2809,11 +2808,45 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // whole subject is the arrows, draws them larger.
   const markSize = (w) => clamp(w * 0.85, 5.5, 12) * (colorModeIs('direction') ? 1.3 : 1);
   const markSpacing = (w) => clamp(markSize(w) * 3, 18, 38);
-  // Drift speed (world units/s). Capped below ~1 spacing per second: a mark that moves close to
-  // its own spacing between frames reads as flicker (the wagon-wheel effect).
-  function markSpeed(x, vel, simSpeed) {
-    const v = (3 + 16 * Math.log1p(Math.abs(vel) / 1.5)) * simSpeed;
-    return Math.min(v, (x.sp || markSpacing(x.width)) * 1.1);
+  // Drift speed (world units/s), from the mean velocity.
+  const markSpeed = (x, vel, simSpeed) => (3 + 16 * Math.log1p(Math.abs(vel) / 1.5)) * simSpeed;
+  // The chevrons run through the network as one stream: every vessel passes the same number of
+  // marks a second (FLOW_HZ, well below the frame rate, so no wagon-wheel flicker), so a mark
+  // leaving one vessel meets the stream of the next. A vessel's speed shows as how fast its marks
+  // glide, and so how far apart they are.
+  const FLOW_HZ = 0.8;
+  const markSpacingFor = (x, speed) => clamp(speed / FLOW_HZ, markSize(x.width) * 1.5, 70);
+  let flowClock = 0, chainKey = '', chainOrder = [];
+  // Where along its course each vessel's stream starts (a phase, 0–1 of a spacing, at its
+  // upstream end), so the phase at a vessel's downstream end is the phase its next vessel starts
+  // with. Vessels are linked in order of flow (a spanning tree, kept while the network's shape
+  // holds): at a merge the smaller inflow, and a vessel closing a loop, may not line up, and
+  // those ends fade out as a vessel's free ends do.
+  function chainPhases(list) {
+    const ends = new Map();
+    for (const it of list) for (const [n, q] of [[it.up, it.upPos], [it.dn, it.dnPos]]) { if (!ends.has(n)) ends.set(n, []); ends.get(n).push([q, it]); }
+    const meets = (n, q, it) => ends.get(n).some(([r, o]) => o !== it && Math.hypot(r[0] - q[0], r[1] - q[1]) < 20);
+    for (const it of list) { it.mUp = meets(it.up, it.upPos, it); it.mDn = meets(it.dn, it.dnPos, it); }
+    const key = list.map((it) => it.x.row + (it.up === it.x.e.from ? '+' : '-')).join(',');
+    if (key !== chainKey) { chainKey = key; chainOrder = [...list].sort((a, b) => b.q - a.q).map((it) => it.x); }
+    const par = new Map(), pot = new Map();
+    const find = (n) => {
+      if (!par.has(n)) { par.set(n, n); pot.set(n, 0); }
+      const p = par.get(n);
+      if (p === n) return [n, 0];
+      const [r, pp] = find(p), v = pot.get(n) + pp;
+      par.set(n, r); pot.set(n, v);
+      return [r, v];
+    };
+    const byX = new Map(list.map((it) => [it.x, it]));
+    for (const x of chainOrder) {
+      const it = byX.get(x);
+      if (!it || it.up === it.dn) continue;
+      const d = it.L / it.sp, [ra, pa] = find(it.up), [rb, pb] = find(it.dn);
+      if (ra !== rb) { par.set(rb, ra); pot.set(rb, pa + d - pb); }
+      else if (Math.abs((((pb - pa - d) % 1) + 1.5) % 1 - 0.5) > 0.03) it.mDn = false;
+    }
+    for (const it of list) { it.x.chP = find(it.up)[1]; it.x.mUp = it.mUp; it.x.mDn = it.mDn; }
   }
   function colorModeIs(m) { return (store.get().colorMode || 'pressure') === m; }
 
@@ -2875,6 +2908,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const st = store.get();
     if (!F || st.imaging || st.layers.flow === false) return;
     updateCover();
+    const chain = [];
+    for (const x of Object.values(E)) {
+      if (!x.vis || x.reveal || x.g.classList.contains('coll-ghost')) continue;
+      const { q, vel } = flowState(x);
+      if ((Math.abs(vel) - 0.1) / 0.5 <= 0 || Math.abs(q) < 0.02) continue;
+      const P = geo[x.e.id].cur, fwd = (x.spd != null && x.spd !== 0 ? x.spd : q) >= 0;
+      if (!x.sp) x.sp = markSpacingFor(x, markSpeed(x, vel, 1));
+      chain.push({ x, q: Math.abs(q), L: geo[x.e.id].len, sp: x.sp, up: fwd ? x.e.from : x.e.to, dn: fwd ? x.e.to : x.e.from, upPos: fwd ? P[0] : P[P.length - 1], dnPos: fwd ? P[P.length - 1] : P[0] });
+    }
+    chainPhases(chain);
     for (const x of Object.values(E)) {
       if (!x.vis || x.reveal || x.g.classList.contains('coll-ghost')) continue;
       const { q, vel } = flowState(x);
@@ -2884,30 +2927,29 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const g = geo[x.e.id];
       const L = g.len;
       const w = x.width;
-      // Spacing is fixed per vessel (set once, revised only if the vessel's caliber changes a lot),
-      // and marks are spaced by distance along the centerline: nothing about a mark's position
-      // depends on the model's frame-to-frame values except its steady drift.
-      const spT = markSpacing(w);
-      if (!x.sp || Math.abs(spT - x.sp) / x.sp > 0.35) x.spGoal = spT;
-      if (x.spGoal) { x.sp = x.sp ? x.sp + (x.spGoal - x.sp) * 0.03 : x.spGoal; if (Math.abs(x.sp - x.spGoal) < 0.05) { x.sp = x.spGoal; x.spGoal = 0; } }
       x.ms = x.ms ? x.ms + (markSize(w) - x.ms) * 0.01 : markSize(w);
       const sp = x.sp;
       const m = Math.min(L * 0.12, sp * 0.35 + 2);
-      if (L - 2 * m < 6) continue;
-      // Point the way the marks are actually moving (their speed eases through a reversal).
+      // A free end (nothing drawn continues the stream there) fades its marks in or out; where the
+      // stream runs on into the next vessel, marks go right up to the junction.
+      if (L < 3 || (!x.mUp && !x.mDn && L - 2 * m < 6)) continue;
+      // Point the way the marks are actually moving (their direction eases through a reversal).
       const sg = (x.spd != null && x.spd !== 0 ? x.spd : q) >= 0 ? 1 : -1;
-      const ph = ((((phase[x.e.id] || 0) % 1) + 1) % 1) * sp;
+      const phF = ((((flowClock - (x.chP || 0)) % 1) + 1) % 1);
+      // The same phase along the stored course (from → to), for the strands and tributaries.
+      const phS = sg > 0 ? phF : 1 - phF;
       const mask = cover[x.e.id];
       const marks = [];
       const r0 = w / 2, rOf = x.rOf && !x.g.classList.contains('stroked') ? x.rOf : () => r0;
       const n = N_SAMPLES - 1;
-      for (let tt = m + ph; tt < L - m; tt += sp) {
-        const uu = tt / L;
+      // s: distance from the upstream end; marks where the stream's phase comes round.
+      for (let s = phF * sp; s < L; s += sp) {
+        const tt = sg > 0 ? s : L - s, uu = tt / L;
         const cov = mask ? mask[Math.floor(uu * n)] + (mask[Math.min(n, Math.floor(uu * n) + 1)] - mask[Math.floor(uu * n)]) * (uu * n % 1) : 1;
         if (cov < 0.08) continue;
         const [px, py, dx, dy] = pointAt(g.cur, uu);
-        // Marks grow in at the upstream end and shrink away downstream instead of popping.
-        const ends = clamp(Math.min(tt - m, L - m - tt) / (sp * 0.8), 0, 1);
+        // At a free end marks grow in (upstream) or shrink away (downstream) instead of popping.
+        const ends = Math.min(x.mUp ? 1 : clamp((s - m) / (sp * 0.8), 0, 1), x.mDn ? 1 : clamp((L - m - s) / (sp * 0.8), 0, 1));
         if (ends < 0.08) continue;
         const nn = Math.hypot(dx, dy) || 1;
         marks.push({ cx: px, cy: py, ux: (dx / nn) * sg, uy: (dy / nn) * sg, s: x.ms * clamp(rOf(uu) / r0, 0.6, 1.3) * ends * cov });
@@ -2919,7 +2961,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const sw = Math.max(1.6, w * sd.k), ssp = markSpacing(sw), sms = markSize(sw);
         // Past the trunk only: before `u0` the strand runs inside the main channel.
         const sm = Math.min(sd.len * 0.12, ssp * 0.35 + 2), sm0 = Math.max(sm, (sd.u0 || 0) * sd.len + ssp * 0.5);
-        for (let tt = sm0 + (ph / sp) * ssp; tt < sd.len - sm; tt += ssp) {
+        for (let tt = sm0 + phS * ssp; tt < sd.len - sm; tt += ssp) {
           const ends = clamp(Math.min(tt - sm0, sd.len - sm - tt) / (ssp * 0.8), 0, 1);
           if (ends < 0.08) continue;
           const [px, py, dx, dy] = pointAt(sd.cur, tt / sd.len);
@@ -2934,7 +2976,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // Faded tributaries: marks near the vessel only (for a network that leaves the vessel, that is its root).
         const f0 = fd.faded && !fd.out ? Math.max(fm, fd.len * 0.55) : fm;
         const f1 = fd.faded && fd.out ? Math.min(fd.len - fm, fd.len * 0.5) : fd.len - fm;
-        for (let tt = f0 + (((ph / sp) + fd.ph) % 1) * fsp; tt < f1; tt += fsp) {
+        for (let tt = f0 + ((phS + fd.ph) % 1) * fsp; tt < f1; tt += fsp) {
           const ends = clamp(Math.min(tt - f0, f1 - tt) / (fsp * 0.8), 0, 1);
           if (ends < 0.08) continue;
           const [px, py, dx, dy] = pointAt(fd.cur, tt / fd.len);
@@ -3145,10 +3187,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // Signed speed in spacings/s. Eased over ~2 s: slow enough that breathing (the IVC's flow
       // swings ±20 % over each 4 s breath) and the stepped model updates don't make the marks
       // surge and stall, quick enough to follow a real change.
-      const target = (markSpeed(x, vel, simSpeed) / (x.sp || markSpacing(x.width))) * Math.sign(flowState(x).q);
-      x.spd = x.spd == null ? target : x.spd + (target - x.spd) * Math.min(1, dt * 0.5);
-      phase[x.e.id] = ((phase[x.e.id] || 0) + x.spd * dt) % 1;
+      // Spacing follows the vessel's speed, eased over a few seconds (breathing and the stepped
+      // model updates don't make the marks surge); the direction eases through a reversal.
+      const q = flowState(x).q, spT = markSpacingFor(x, markSpeed(x, vel, 1));
+      x.sp = x.sp ? x.sp + (spT - x.sp) * Math.min(1, dt * 0.5) : spT;
+      x.spd = x.spd == null ? Math.sign(q) : x.spd + (Math.sign(q) - x.spd) * Math.min(1, dt * 0.5);
     }
+    if (moving) flowClock = (flowClock + FLOW_HZ * simSpeed * dt) % 1e4;
     // Marks are drawn back to front, one depth at a time; after each depth, everything the SVG
     // draws in front of the next is erased from the canvas (organs over the retroperitoneal veins,
     // nearer vessels over deeper ones), so a mark slides under a crossing vessel or a bowel loop
