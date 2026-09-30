@@ -2,7 +2,7 @@
 // grey-scale spectrum on black, flow toward the transducer above the baseline), with the reading
 // a sonographer would report beside it: direction, velocity against the vessel's normal range,
 // and the waveform pattern. The trace keeps recording while the instrument is closed, so it opens
-// full. It scrolls continuously; the faint background noise flickers in place instead of scrolling.
+// full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { h, fmt, fitCanvas, clamp } from './util.js?v=fe164f31f1';
@@ -30,7 +30,7 @@ const KEEP = 8;         // seconds kept
 const MINUS = '−';
 const num = (v, d = 0) => (v < 0 ? MINUS : '') + fmt(Math.abs(v), d);
 
-// Hash noise for speckle, keyed to time and velocity so it scrolls with the trace.
+// Hash noise for speckle, keyed to the spectral line and frequency bin.
 const hash = (a, b) => { let x = (a * 374761393 + b * 668265263) | 0; x = (x ^ (x >>> 13)) * 1274126177; return ((x ^ (x >>> 16)) >>> 0) / 4294967296; };
 
 export function createDoppler({ onProbe }) {
@@ -39,7 +39,7 @@ export function createDoppler({ onProbe }) {
   probeSel.addEventListener('change', () => onProbe(probeSel.value));
   let tint = false;
   const tintBtn = h('button', { class: 'dop-tint', 'aria-pressed': 'false', title: 'Color the spectrum by direction: red toward the probe, blue away' }, h('i'), 'Direction color');
-  tintBtn.addEventListener('click', () => { tint = !tint; tintBtn.setAttribute('aria-pressed', String(tint)); draw(); });
+  tintBtn.addEventListener('click', () => { tint = !tint; tintBtn.setAttribute('aria-pressed', String(tint)); if (frame) draw(); });
   const cv = h('canvas', { role: 'img', 'aria-label': 'Spectral Doppler' });
   const box = h('div', { class: 'chart-box dark dop-box' }, cv);
 
@@ -166,13 +166,104 @@ export function createDoppler({ onProbe }) {
   }
 
   // ── Display ───────────────────────────────────────
+  // Drawn as a scanner draws it. Each spectral line (one column of device pixels) is synthesised
+  // once, when its moment reaches the right edge, and written into a ring buffer; every screen
+  // frame then only copies the ring to the canvas. The model sends samples about ten times a
+  // second, so the display runs on its own clock a fraction of a second behind the newest sample
+  // and scrolls at the screen's frame rate instead of jumping ten pixels at a time.
+  //
+  // A line is a power spectrum: the velocities in the sample volume, plus white noise, times an
+  // exponential speckle factor (the statistics of a Doppler signal), then log-compressed into grey.
+  // The speckle is smooth over a frequency bin and shared with the two previous lines
+  // (overlapping FFT windows), which gives the fine, slightly streaked grain of a real
+  // spectrum. The noise belongs to its line and travels with it, as on the machine.
   let scale = null;     // velocity half-range (cm/s)
   let baseF = null;     // baseline position (fraction of height)
   let settleAt = 0;     // when the signal last fitted the current scale
-  let noiseFrame = 0;
-  let img = null, off = null;
+  let tDisp = null;     // the display clock (model seconds)
+  let wallLast = 0;
+  let img = null, off = null, octx = null, envV = null;
+  let ringKey = '', lastCol = null;
   const STEPS = [10, 15, 20, 30, 40, 60, 80, 100, 150, 200, 300];
-  function draw() {
+  const A_SIG = 10 ** 2.8;          // signal power over the noise floor (≈ 28 dB)
+  const FLOOR_DB = 4.5, RANGE_DB = 30;  // log compression: the grey map spans 4.5–34.5 dB
+  const LN10_10 = 10 / Math.LN10;
+  const live = () => !!frame?.running && frame.clock !== 'disease';
+
+  // Model time shown at the right edge. Follows the samples by ~0.16 s of wall time so there is
+  // always data to draw, and eases back to that lag instead of jumping when frames come unevenly.
+  function clockNow(now) {
+    const tLast = buf[buf.length - 1][0];
+    const dt = wallLast ? Math.min(0.1, (now - wallLast) / 1000) : 0;
+    wallLast = now;
+    const speed = frame?.speed || 1;
+    const target = tLast - 0.16 * speed;
+    if (tDisp == null || Math.abs(target - tDisp) > 1.2 * speed) tDisp = live() ? target : tLast;
+    else if (live()) { tDisp += dt * speed; tDisp += (target - tDisp) * Math.min(1, dt * 2.5); }
+    return tDisp = Math.min(tDisp, tLast);
+  }
+
+  // Mean velocity at time t (NaN outside the record); binary search, the record is sorted.
+  function velAt(t) {
+    const n = buf.length;
+    if (t < buf[0][0] || t > buf[n - 1][0]) return NaN;
+    let lo = 0, hi = n - 1;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (buf[m][0] <= t) lo = m; else hi = m; }
+    const [ta, va] = buf[lo], [tb, vb] = buf[hi];
+    return tb > ta ? va + (vb - va) * clamp((t - ta) / (tb - ta), 0, 1) : va;
+  }
+
+  // Speckle: exponential with unit mean, per (line, bin).
+  const expo = (c, b) => -Math.log(1 - hash(c, b) * 0.999999);
+  let spA = null;
+
+  // Synthesise spectral line c into the ring. Geometry in device pixels.
+  function writeLine(c, g) {
+    const { RW, RH, rBase, rPxPerV, binPx } = g;
+    const x = ((c % RW) + RW) % RW;
+    const v = velAt(c / g.cps);
+    const has = !Number.isNaN(v);
+    const av = Math.abs(v);
+    // velocity band: laminar flow runs from ~0.45× to 1.3× the mean with a clear window under
+    // it; slow flow broadens toward the baseline. The top edge is ragged from line to line.
+    const s = v < 0 ? -1 : 1;
+    const cb = c >> 2, jf = (c & 3) / 4;
+    const jit = 1 + 0.06 * (hash(cb, 7717) * (1 - jf) + hash(cb + 1, 7717) * jf - 0.5);
+    const P = av * 1.3 * jit;
+    const L = av * (0.45 - 0.4 * clamp(1 - av / 12, 0, 1));
+    const sigHi = 0.02 * P + 0.4, sigLo = 0.08 * P + 1.2;
+    // the auto-trace follows the outer edge of the spectrum, without the line-to-line raggedness
+    envV[x] = has && av > 0.5 ? s * (P / jit + 1.5 * sigHi) : NaN;
+    const wf = Math.max(1.2, 0.025 * scale);      // wall filter cut-off, cm/s
+    // speckle for this line, mixed with the two before it (overlapping windows)
+    const nb = Math.ceil(RH / binPx) + 2;
+    if (!spA || spA.length < nb) spA = new Float32Array(nb);
+    for (let b = 0; b < nb; b++) spA[b] = 0.5 * expo(c, b) + 0.3 * expo(c - 1, b) + 0.2 * expo(c - 2, b);
+    const D = img.data;
+    for (let ry = 0; ry < RH; ry++) {
+      const vel = (rBase - ry) / rPxPerV;
+      let S = 0;
+      if (has && av > 0.3) {
+        const u = vel * s;                                       // along the flow direction
+        if (u > P) { const z = (u - P) / sigHi; S = Math.exp(-z * z); }
+        else if (u >= L) S = 0.28 + 0.72 * Math.pow((u - L) / Math.max(1e-6, P - L), 0.8);
+        else if (u > 0) { const z = (L - u) / sigLo; S = 0.28 * Math.exp(-z * z); }
+      }
+      const fb = ry / binPx, b0 = fb | 0, f = fb - b0;
+      const X = spA[b0] + (spA[b0 + 1] - spA[b0]) * f;
+      const a = Math.abs(vel) / wf;
+      const W = a >= 1 ? 1 : a * a * a;                        // wall filter clears the baseline
+      const pw = (1 + A_SIG * S) * X * W;
+      let I = pw > 0 ? (Math.log(pw) * LN10_10 - FLOOR_DB) / RANGE_DB : 0;
+      I = I <= 0 ? 0 : I >= 1 ? 1 : Math.pow(I, 1.2);
+      const q = (ry * RW + x) * 4;
+      let r = 236 * I, gg = 240 * I, bl = 250 * I;
+      if (tint && S > 0.02) { if (vel >= 0) { gg *= 0.45; bl *= 0.38; } else { r *= 0.35; gg *= 0.6; } }
+      D[q] = r; D[q + 1] = gg; D[q + 2] = bl; D[q + 3] = 255;
+    }
+  }
+
+  function draw(now = performance.now()) {
     const { ctx, w, h: hh } = fitCanvas(cv);
     const dpr = cv.width / Math.max(1, w);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -188,6 +279,7 @@ export function createDoppler({ onProbe }) {
     ctx.font = FONT(500, 11); ctx.fillStyle = 'rgba(255,255,255,.5)';
     ctx.fillText('PW  ·  θ 60°  ·  SV 3 mm', padL + lw + 12, 13);
     if (buf.length < 2) {
+      tDisp = null;
       ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.55)';
       ctx.fillText(frame?.clock === 'disease' ? 'Doppler samples at the bedside: return to the seconds clock.' : 'Acquiring…', w / 2, hh / 2);
       return;
@@ -195,9 +287,9 @@ export function createDoppler({ onProbe }) {
     // Scale: the peak fills about 70 % of its side, on the scanner's own velocity steps. Like a
     // sonographer, the display changes scale or baseline only when the signal would clip or has
     // stayed small for a few seconds, never continuously (a moving scale would smear the picture).
-    const tNow = buf[buf.length - 1][0];
+    const tNow = clockNow(now);
     let pos = 0, neg = 0;
-    for (const [t, v] of buf) if (t >= tNow - WINDOW) { if (v > pos) pos = v; if (-v > neg) neg = -v; }
+    for (const [t, v] of buf) if (t >= tNow - WINDOW && t <= tNow) { if (v > pos) pos = v; if (-v > neg) neg = -v; }
     pos *= 1.3; neg *= 1.3;
     const need = Math.max(pos, neg, 8) / 0.72;
     const target = STEPS.find((x) => x >= need) || STEPS[STEPS.length - 1];
@@ -211,77 +303,45 @@ export function createDoppler({ onProbe }) {
     // the scale belongs to the dominant side; the other side shows what fits
     const pxPerV = (baseF >= 0.5 ? baseY : H - baseY) / scale;
 
-    // Spectrum, scrolling right to left with the newest moment at the right edge. Rendered at
-    // device resolution into an offscreen canvas. The signal's speckle belongs to its moment and
-    // travels with it; the faint noise behind it belongs to the screen and stays put.
-    const k = dpr >= 1.5 ? 2 : 1;
-    const RW = W * k, RH = H * k;
+    // Spectrum, at device resolution, newest line at the right edge.
+    const RW = Math.max(1, Math.round(W * dpr)), RH = Math.max(1, Math.round(H * dpr));
+    const g = { RW, RH, rBase: baseY * dpr, rPxPerV: pxPerV * dpr, cps: RW / WINDOW, binPx: Math.max(1.5, RH / 200) };
+    const cNow = Math.floor(tNow * g.cps);
+    const key = `${RW}x${RH}|${scale}|${baseF}|${tint}|${probe}`;
     if (!img || img.width !== RW || img.height !== RH) {
       img = new ImageData(RW, RH);
       off = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(RW, RH) : Object.assign(document.createElement('canvas'), { width: RW, height: RH });
+      octx = off.getContext('2d');
+      envV = new Float32Array(RW);
     }
-    const D = img.data; D.fill(0);
-    const rColsPerS = (W / WINDOW) * k;
-    const cNow = Math.floor(tNow * rColsPerS);
-    // the noise floor is re-drawn each frame, like a scanner's: it flickers in place and never scrolls
-    const nk = (++noiseFrame * 2654435761) | 0;
-    const rBase = baseY * k, rPxPerV = pxPerV * k;
-    const tFirst = buf[0][0];
-    const env = new Float32Array(W).fill(NaN);
-    let j = 0;
-    // columns from oldest (left) to newest (right), so the sample search runs forward
-    for (let rx = 0; rx < RW; rx++) {
-      const c = cNow - (RW - 1 - rx);
-      const t = c / rColsPerS;
-      if (t < tFirst) {
-        for (let ry = 0; ry < RH; ry++) { const n = hash(rx ^ nk, ry) ** 18 * 34; if (n < 3) continue; const q = (ry * RW + rx) * 4; D[q] = D[q + 1] = D[q + 2] = n; D[q + 3] = 255; }
-        continue;
-      }
-      while (j < buf.length - 2 && buf[j + 1][0] < t) j++;
-      const [ta, va] = buf[j], [tb2, vb] = buf[Math.min(buf.length - 1, j + 1)];
-      const v = tb2 > ta ? va + (vb - va) * clamp((t - ta) / (tb2 - ta), 0, 1) : va;
-      const av = Math.abs(v);
-      // laminar flow: a band from ~0.45× to 1.3× the mean with a clear window under it;
-      // slow flow broadens toward the baseline
-      const pk = v * 1.3;
-      const lo = v * (0.45 - 0.4 * clamp(1 - av / 12, 0, 1));
-      const yPk = rBase - pk * rPxPerV, yLo = rBase - lo * rPxPerV;
-      const top = Math.min(yPk, yLo), bot = Math.max(yPk, yLo);
-      const edge = (1.6 + 2.2 * clamp(1 - av / 20, 0, 1)) * k;
-      const grain = c >> 1;
-      if (rx % k === 0) env[rx / k] = yPk / k;
-      for (let ry = 0; ry < RH; ry++) {
-        const sp = hash(grain, ry);
-        let I = Math.pow(hash(rx ^ nk, ry), 18) * 0.13;                  // noise floor, in screen space
-        if (ry >= top - edge && ry <= bot + edge) {
-          const u = bot > top ? (ry - top) / (bot - top) : 0.5;          // 0 at the upper edge
-          const peakSide = pk >= 0 ? 1 - u : u;
-          let b = 0.26 + 0.74 * Math.pow(clamp(peakSide, 0, 1), 0.9);
-          if (ry < top) b *= Math.max(0, 1 - (top - ry) / edge); else if (ry > bot) b *= Math.max(0, 1 - (ry - bot) / edge);
-          I = Math.max(I, b * (0.42 + 0.9 * sp * sp));                     // speckle
-        }
-        const vel = (rBase - ry) / rPxPerV;
-        if (Math.abs(vel) < 2.2 && av > 0.5) I *= 0.35 + 0.65 * Math.abs(vel) / 2.2; // wall filter
-        if (I < 0.012) continue;
-        I = Math.min(1, I);
-        const q = (ry * RW + rx) * 4;
-        let r = 235 * I, g = 240 * I, bl = 255 * I;
-        if (tint) { if (vel >= 0) { g *= 0.45; bl *= 0.4; } else { r *= 0.35; g *= 0.6; } }
-        D[q] = r; D[q + 1] = g; D[q + 2] = bl; D[q + 3] = 255;
-      }
+    // redraw every line after a change of scale, size or colour, or when time runs backwards
+    const full = key !== ringKey || lastCol == null || cNow < lastCol || cNow - lastCol >= RW;
+    const from = full ? cNow - RW + 1 : lastCol + 1;
+    for (let c = from; c <= cNow; c++) writeLine(c, g);
+    if (full) octx.putImageData(img, 0, 0);
+    else if (cNow > lastCol) {
+      const x0 = ((from % RW) + RW) % RW, n = cNow - from + 1;
+      if (x0 + n <= RW) octx.putImageData(img, 0, 0, x0, 0, n, RH);
+      else { octx.putImageData(img, 0, 0, x0, 0, RW - x0, RH); octx.putImageData(img, 0, 0, 0, 0, x0 + n - RW, RH); }
     }
-    const octx = off.getContext('2d');
-    octx.putImageData(img, 0, 0);
+    ringKey = key; lastCol = cNow;
+    // copy the ring out, oldest line on the left, pixel for pixel
+    const p = ((cNow % RW) + RW) % RW;
+    const dx = Math.round(padL * dpr), dy = Math.round(padT * dpr);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    if (p + 1 < RW) ctx.drawImage(off, p + 1, 0, RW - p - 1, RH, dx, dy, RW - p - 1, RH);
+    ctx.drawImage(off, 0, 0, p + 1, RH, dx + RW - p - 1, dy, p + 1, RH);
     ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(off, padL, padT, W, H);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     // Peak envelope (auto-trace)
     ctx.strokeStyle = 'rgba(250, 214, 80, .85)'; ctx.lineWidth = 1.25; ctx.lineJoin = 'round';
     ctx.beginPath(); let started = false;
     for (let px = 0; px < W; px += 2) {
-      const y = env[px];
-      if (Number.isNaN(y)) { started = false; continue; }
-      const X = padL + px, Y = padT + y;
+      const pv = envV[(p + 1 + Math.round(px * dpr)) % RW];
+      if (Number.isNaN(pv)) { started = false; continue; }
+      const X = padL + px, Y = padT + baseY - pv * pxPerV;
       if (!started) { ctx.moveTo(X, Y); started = true; } else ctx.lineTo(X, Y);
     }
     ctx.stroke();
@@ -302,13 +362,27 @@ export function createDoppler({ onProbe }) {
     // One tick a second along the bottom, scrolling with the trace
     ctx.fillStyle = 'rgba(255,255,255,.4)';
     for (let sec = Math.ceil(tNow - WINDOW); sec <= tNow; sec++) {
-      const x = (RW - 1 - (cNow - Math.floor(sec * rColsPerS))) / k;
+      const x = (RW - 1 - (cNow - Math.floor(sec * g.cps))) / dpr;
       ctx.fillRect(Math.round(padL + x), padT + H + 5, 1, 4);
     }
     ctx.textBaseline = 'alphabetic';
   }
 
-  function redraw() { if (!frame) return; updateReport(); draw(); }
+  // The dock asks for a redraw with each model frame (~10 a second); the picture itself runs on
+  // animation frames while the model is live and the dock keeps asking, and stops when it doesn't.
+  let raf = 0, askedAt = 0;
+  function loop(now) {
+    raf = 0;
+    if (!frame || !cv.isConnected || !cv.offsetParent) return;
+    draw(now);
+    if (live() && now - askedAt < 400) raf = requestAnimationFrame(loop);
+  }
+  function redraw() {
+    if (!frame) return;
+    updateReport();
+    askedAt = performance.now();
+    if (!raf) raf = requestAnimationFrame(loop);
+  }
   function update(f) { ingest(f); redraw(); }
   return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw };
 }
