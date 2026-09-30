@@ -2,9 +2,9 @@
 
 import { store } from './store.js?v=4bf5a96a9d';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=fe164f31f1';
-import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=565f8b5078';
-import { createHVPG, createDoppler, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=d6efb2d963';
-import { createLandscape } from './landscape.js?v=1c9ec0267e';
+import { createProfile, createScope, createSankey, createPerfusion } from './charts.js?v=43635bc44e';
+import { createHVPG, createDoppler, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=b6cd4ed2e7';
+import { createLandscape } from './landscape.js?v=7c3e94b095';
 
 
 // Readouts in reading order: the portal story first, then the systemic circulation. Each

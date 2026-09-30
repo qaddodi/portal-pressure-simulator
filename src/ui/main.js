@@ -5,14 +5,14 @@ import { startHost, host } from './host.js?v=ce51691de3';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=4bf5a96a9d';
 import { createStage } from './stage.js?v=d06a8fa994';
 import { createInspector } from './inspector.js?v=d987f64f8e';
-import { createDock, CUTOFFS } from './dock.js?v=0135276848';
+import { createDock, CUTOFFS } from './dock.js?v=91b1b9f476';
 import { createWhy } from './why.js?v=9ce3cbc2f3';
 import { createTimeline } from './timeline.js?v=abb97dc98b';
 import { createLearn } from './learn.js?v=d2a24b4cf2';
 import { createCases } from './cases.js?v=91b54c07e2';
 import { createCompare } from './compare.js?v=ace33fc9f4';
 import { createCard } from './card.js?v=b411027227';
-import { createChart } from './chart.js?v=a203fd2c83';
+import { createChart } from './chart.js?v=f098eded34';
 import { createHome } from './home.js?v=caf614fa18';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=0457b367b9';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=eb8ef6048f';
@@ -725,7 +725,7 @@ function readLS(k) { try { return localStorage.getItem(k); } catch { return null
 // ── Patient panel and independent instrument workspace ─
 // Beside the figure on a wide screen; below 1280 px it slides over the figure from the right
 // (with a scrim on a phone) and the top bar's side-panel button opens it.
-function panelShown() { return isNarrow() ? app.classList.contains('panel-open') : !app.classList.contains('panel-collapsed'); }
+function panelShown() { return !app.classList.contains('instrument-focus') && (isNarrow() ? app.classList.contains('panel-open') : !app.classList.contains('panel-collapsed')); }
 function syncPanelToggle() {
   const on = panelShown();
   $('#btnInspector').setAttribute('aria-pressed', String(on));
@@ -740,6 +740,7 @@ function openPanel(tab = 'chart') {
     if (isNarrow()) closePanel();
     return;
   }
+  if (app.classList.contains('instrument-focus')) dock.setState('open');
   app.classList.remove('panel-collapsed'); app.classList.add('panel-open');
   syncPanelToggle();
 }
@@ -785,6 +786,7 @@ function wireKeyboard() {
       else if (home.isOpen()) home.close();
       else if (app.classList.contains('figure-mode')) toggleFigure(false);
       else if (projector) toggleProjector();
+      else if (app.classList.contains('instrument-focus')) dock.setState('open');
       else if (stage.isShunting()) stage.cancelShunt();
       else if (store.get().tool !== 'select') setTool('select');
       else store.set({ selection: null });

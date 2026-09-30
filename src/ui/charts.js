@@ -400,7 +400,9 @@ export function createSankey() {
         ['Portal blood reaching liver', Math.max(0, q('PRE_R')) + Math.max(0, q('PRE_L')), c.ok],
         ['Hepatic artery to liver', q('A_HR') + q('A_HL'), c.artery],
         ...colls.map(([label, v]) => [label, v, c.rev]),
-      ];
+        ['Liver → portal (reversed)', Math.max(0, -q('PRE_R')) + Math.max(0, -q('PRE_L')), c.rev],
+        ['GI lumen (bleeding)', (m.bleeding?.rate || 0) / 1000, c.danger],
+      ].filter(([, v], i) => i < 2 || v > 0.005);
       box.style.height = `${Math.max(230, 90 + routes.length * 48)}px`;
       ctx.fillStyle = c.text; ctx.font = FONT(600, 14); ctx.textAlign = 'left';
       ctx.fillText('Where gut blood goes', 12, 24);
