@@ -272,7 +272,7 @@ export function createDoppler({ onProbe }) {
     const sigHi = 0.02 * P + 0.4, sigLo = 0.08 * P + 1.2;
     const wf = Math.max(1.2, 0.025 * scale);      // wall filter cut-off, cm/s
     // the spectrum fades out over its last few pixels, so the speckle decides the contour
-    const fadeV = 10 / rPxPerV;
+    const fadeV = 7 / rPxPerV;
     // this line's speckle: one exponential draw per frequency bin, half shared with the last line
     // (more at high pixel density, so a grain is about a CSS pixel wide whatever the screen)
     const nb = Math.ceil(RH / g.spkPx) + 2;
@@ -287,7 +287,9 @@ export function createDoppler({ onProbe }) {
         if (u > P) { const z = (u - P) / sigHi; S = 0.03 * Math.exp(-z * z); }
         else if (u >= L) {
           const f = (u - L) / Math.max(1e-6, P - L);
-          S = g.venous ? 0.4 + 0.6 * Math.sqrt(f) : 0.16 + 0.84 * Math.pow(f, 1.3);
+          // brightest just under the outline, where most of the blood moves (blunt flow), and
+          // greyer toward the baseline; a vein keeps a dimmer fill all the way down
+          S = g.venous ? Math.min(1, 0.05 + 0.1 * f + 0.9 * Math.exp(-(((0.88 - f) / 0.16) ** 2))) : 0.16 + 0.84 * Math.pow(f, 1.3);
           if (u > P - fadeV) { const z = (u - P + fadeV) / fadeV; S *= 1 - 0.985 * Math.sqrt(z); }
         }
         else if (u > 0) { const z = (L - u) / sigLo; S = 0.16 * Math.exp(-z * z); }
