@@ -1123,6 +1123,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const t = easeInOut(morph);
     const gain = lerp(1, 0.8, t);
     const ref = REF();
+    // The circuit shown small (a phone, the whole map): every lane grows by the same factor, so the
+    // widest stays about 10 px on screen; capped so neighbouring lanes stay apart.
+    if (!CTM) refreshCTM();
+    const circBoost = clamp(10 / (15 * (CTM?.sc || 1)), 1, 1.75);
     const imaging = isImaging();
     const mode = layerMode();
     wrap.classList.toggle('imaging', imaging);
@@ -1162,7 +1166,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // Anatomy: width follows diameter (compressed). Circuit: a narrower, more uniform range,
       // as on a transit map, so the lines stay even and legible.
       const wA = e.kind === 'liver' ? (e.zone === 'sin' || e.zone === 'inter' ? 3.6 : 5.2) : vesselPx(D) * (e.id === 'IVC_IS' || e.id === 'IVCS_RA' || e.id === 'SVC_RA' ? 0.72 : 1);
-      const wC = e.kind === 'liver' ? 8 : clamp(vesselPx(D) * 0.95, 6, 15);
+      const wC = (e.kind === 'liver' ? 8 : clamp(vesselPx(D) * 0.95, 6, 15)) * circBoost;
       let w = lerp(wA, wC, t);
       // Flow layer: width follows flow volume (∝ √Q), like traffic volume on a city map.
       if (mode === 'flow' && !x.isArt) w = clamp(2.2 + 8.5 * Math.sqrt(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) * 0.06), 2.2, 22);

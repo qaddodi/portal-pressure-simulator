@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Circuit lanes stay tube-like on a phone.** Shown small (a phone, the whole map), every circuit lane grows by
+  the same factor so the widest stays about 10 px on screen, capped so neighbouring lanes stay apart.
 - **Simpler Blood menu:** just *Streaks* and *Chevrons*, each on or off. Parcels, breathing and heartbeat and the
   menu's dye item are gone (dye stays on each vessel's card and on J).
 - **Blood origin adds the hepatic artery** (crimson) beside SMV, IMV, splenic vein and systemic. The legend uses
