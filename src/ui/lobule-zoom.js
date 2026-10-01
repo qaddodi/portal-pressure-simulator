@@ -38,6 +38,7 @@ const BLOOD = {
   originCol: [[0.9, 0.6, 0.16], [0.09, 0.62, 0.55], [0.49, 0.36, 0.86], [0.84, 0.2, 0.28], [0.44, 0.56, 0.75]],
   dyeCol: [0.78, 0.96, 0.2], inkLight: [1, 1, 1], inkDark: [0.07, 0.08, 0.15], revCol: [1, 0.55, 0.16], chevInk: [0.08, 0.08, 0.1],
 };
+const LOBE = { pv: 'RPV', sin: 'SIN_R', cv: 'CV_R', hv: 'RHV', q: 'SIN_RR', a: 'A_HR', pre: 'PRE_R' };
 const ZONE_RGB = [[232, 104, 84], [214, 160, 92], [124, 98, 206]];   // zone 1 (oxygen-rich) → zone 3
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -97,12 +98,7 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
   const labels = h('div', { class: 'lz-labels' });
 
   // ── Controls ──
-  let lobe = 'R', zonesOn = false, lymphOn = false;
-  const lobeSeg = h('div', { class: 'seg' }, [['R', 'Right'], ['L', 'Left']].map(([v, l]) => {
-    const b = h('button', { 'aria-pressed': String(v === lobe) }, l, h('span', { class: 'lz-wide' }, ' lobe'));
-    b.addEventListener('click', () => { setLobe(v); if (F) update(F); });
-    return b;
-  }));
+  let zonesOn = false, lymphOn = false;
   const toggle = (label, title, get, set) => {
     const b = h('button', { class: 'lz-tg', 'aria-pressed': 'false', title }, h('i', { 'aria-hidden': 'true' }), label);
     b.addEventListener('click', () => { set(!get()); b.setAttribute('aria-pressed', String(get())); tissueKey = ''; layoutKey = ''; if (F) update(F); });
@@ -116,8 +112,8 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
   const verdict = h('p', { class: 'lz-verdict' });
   const stats = h('dl', { class: 'lz-stats' });
   const fibBtns = h('div', { class: 'lz-fib' }, h('span', { class: 'lz-k' }, 'Add fibrosis'), [['pre', 'Portal tract'], ['sin', 'Sinusoids'], ['post', 'Central vein']].map(([z, l]) =>
-    h('button', { class: 'btn sm', onclick: () => updateParams((p) => { p.fibrosis[lobe][z] = +Math.min(80, p.fibrosis[lobe][z] * 1.5).toFixed(2); return p; }, { label: `Fibrosis · ${l.toLowerCase()}` }) }, '+ ' + l)),
-  h('button', { class: 'btn sm ghost', onclick: () => updateParams((p) => { p.fibrosis[lobe] = { pre: 1, sin: 1, post: 1 }; return p; }, { label: 'Clear lobule fibrosis' }) }, 'Clear'));
+    h('button', { class: 'btn sm', onclick: () => updateParams((p) => { for (const lb of ['R', 'L']) p.fibrosis[lb][z] = +Math.min(80, p.fibrosis[lb][z] * 1.5).toFixed(2); return p; }, { label: `Fibrosis · ${l.toLowerCase()}` }) }, '+ ' + l)),
+  h('button', { class: 'btn sm ghost', onclick: () => updateParams((p) => { p.fibrosis.R = { pre: 1, sin: 1, post: 1 }; p.fibrosis.L = { pre: 1, sin: 1, post: 1 }; return p; }, { label: 'Clear lobule fibrosis' }) }, 'Clear'));
   const legend = h('div', { class: 'lz-legend', 'aria-hidden': 'true' });
   const sub = h('div', { class: 'lz-sub' });
   const more = h('button', { class: 'lz-more', 'aria-expanded': 'false' }, 'Details');
@@ -128,7 +124,7 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
   const card = h('div', { class: 'lz-card', role: 'dialog', 'aria-live': 'polite', hidden: true });
   const el = h('div', { class: 'lz', 'aria-hidden': 'true' },
     tissue, glCv, fx, leaders, labels,
-    h('div', { class: 'lz-top' }, lobeSeg, h('div', { class: 'lz-tgs' }, zonesBtn, lymphBtn)),
+    h('div', { class: 'lz-top' }, h('div', { class: 'lz-tgs' }, zonesBtn, lymphBtn)),
     side, card);
   host.append(el);
 
@@ -325,12 +321,13 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
     F = f;
     if (fade <= 0) return;
     const st = store.get(), p = f.params || st.params, H = st.healthy;
-    const S = lobe === 'R' ? { pv: 'RPV', sin: 'SIN_R', cv: 'CV_R', hv: 'RHV', q: 'SIN_RR', a: 'A_HR', pre: 'PRE_R' } : { pv: 'LPV', sin: 'SIN_L', cv: 'CV_L', hv: 'LHV', q: 'SIN_LL', a: 'A_HL', pre: 'PRE_L' };
+    // One representative lobule for the whole liver, read from the right lobe (most of the liver's flow).
+    const S = LOBE;
     const Pn = (id) => f.P[NI[id]], Hn = (id) => H?.P?.[NI[id]];
     const Q = f.Qf || f.Q, Qe = (id) => Q[EI[id]], He = (id) => H?.Q?.[EI[id]];
     const P1 = Pn(S.pv), P2 = Pn(S.sin), P3 = Pn(S.cv), P4 = Pn(S.hv), P5 = Pn('IVCS');
     const ratio = (id) => { const q = Qe(id), q0 = He(id) || Math.abs(q) || 1; return q / q0; };
-    const fib = p.fibrosis[lobe], sc = p.cirrhosis;
+    const fib = p.fibrosis.R, sc = p.cirrhosis;
     const zone = { pre: (1 + 2 * sc) * fib.pre, sin: (1 + 20 * sc ** 2.5) * fib.sin, post: (1 + 2 * sc) * fib.post };
     const cong = Math.max(0, P3 - (Hn(S.cv) ?? P3));
     const hide = !!st.imaging;
@@ -351,7 +348,7 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
 
   function panel() {
     const m = model;
-    sub.textContent = `${lobe === 'R' ? 'Right' : 'Left'} lobe · live`;
+    sub.textContent = 'Live from the model';
     // The pressure ladder: where along the lobule the pressure is lost, against the healthy ladder.
     const P = [m.P1, m.P2, m.P3, m.P4, m.P5], P0 = m.H, names = ['Portal venule', 'Sinusoids', 'Central vein', 'Hepatic vein', 'IVC'], short = ['PV', 'Sin', 'CV', 'HV', 'IVC'];
     const drops = [0, 1, 2, 3].map((i) => P[i] - P[i + 1]), drops0 = [0, 1, 2, 3].map((i) => (P0[i] ?? P[i]) - (P0[i + 1] ?? P[i + 1]));
@@ -404,8 +401,8 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
     if (m.shuntU > 0.02) items.push(['lg-sh', 'Intrahepatic shunt']);
     if (lymphOn) items.push(['lg-ly', 'Lymph']);
     legend.replaceChildren(items.map(([c, t, st]) => h('span', {}, h('i', { class: c, style: st }), t)));
-    tissue.setAttribute('aria-label', m.hide ? `Liver lobule, ${lobe === 'R' ? 'right' : 'left'} lobe. Pressures not measured.`
-      : `Liver lobule, ${lobe === 'R' ? 'right' : 'left'} lobe: portal venule ${fmt(m.P1, 1)}, sinusoids ${fmt(m.P2, 1)}, central vein ${fmt(m.P3, 1)} millimeters of mercury; sinusoidal flow ${Math.round(m.flow * 100)} percent of normal. ${why}`);
+    tissue.setAttribute('aria-label', m.hide ? 'Liver lobule. Pressures not measured.'
+      : `Liver lobule: portal venule ${fmt(m.P1, 1)}, sinusoids ${fmt(m.P2, 1)}, central vein ${fmt(m.P3, 1)} millimeters of mercury; sinusoidal flow ${Math.round(m.flow * 100)} percent of normal. ${why}`);
     // Station cards on the figure.
     const mv = (v) => (m.hide ? ['?', ''] : [fmt(v, 1), 'mmHg']);
     setLab('triad', 'Portal triad', ...mv(m.P1));
@@ -585,11 +582,11 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
       const lv = t.kind;
       if (lv === 's0' || lv === 's1' || lv === 's2') {
         v = vS * (lv === 's0' ? 1 : lv === 's1' ? 1.45 : 2.05); occ = clamp(0.5 * fr ** 0.6, 0.06, 0.95); f1 = lv === 's2' ? 1 : 0;
-        stasis = 1 - smooth(0.12, 0.45, fr); oe = lobe === 'R' ? 'SIN_RR' : 'SIN_LL';
-      } else if (lv === 'an') { v = 0.35 * vS * t.sign; occ = 0.25 * clamp(fr, 0.2, 1.5); strength = 0.6; oe = lobe === 'R' ? 'SIN_RR' : 'SIN_LL'; }
-      else if (lv === 'in') { v = 24 * Math.sign(pr) * Math.sqrt(Math.abs(pr)); occ = clamp(0.55 * Math.abs(pr) ** 0.6, 0.05, 0.95); f0 = 1; f1 = 1; rev = pr < -0.02 ? 1 : 0; oe = lobe === 'R' ? 'PRE_R' : 'PRE_L'; }
-      else if (lv === 'tw') { v = 30 * Math.sqrt(ar); occ = clamp(0.5 * ar ** 0.6, 0.05, 0.95); f0 = 1; oe = lobe === 'R' ? 'A_HR' : 'A_HL'; }
-      else if (lv === 'sh') { v = 40 * Math.sqrt(m.shuntU); occ = 0.6 * m.shuntU; f0 = 1; f1 = 1; oe = lobe === 'R' ? 'PRE_R' : 'PRE_L'; }
+        stasis = 1 - smooth(0.12, 0.45, fr); oe = LOBE.q;
+      } else if (lv === 'an') { v = 0.35 * vS * t.sign; occ = 0.25 * clamp(fr, 0.2, 1.5); strength = 0.6; oe = LOBE.q; }
+      else if (lv === 'in') { v = 24 * Math.sign(pr) * Math.sqrt(Math.abs(pr)); occ = clamp(0.55 * Math.abs(pr) ** 0.6, 0.05, 0.95); f0 = 1; f1 = 1; rev = pr < -0.02 ? 1 : 0; oe = LOBE.pre; }
+      else if (lv === 'tw') { v = 30 * Math.sqrt(ar); occ = clamp(0.5 * ar ** 0.6, 0.05, 0.95); f0 = 1; oe = LOBE.a; }
+      else if (lv === 'sh') { v = 40 * Math.sqrt(m.shuntU); occ = 0.6 * m.shuntU; f0 = 1; f1 = 1; oe = LOBE.pre; }
       else continue;   // vessels seen end-on carry no streaks
       const sm = t.stream || (t.stream = { D: (t.id * 977) % PERIOD, rev: rev });
       sm.D = (((sm.D + v * dt) % PERIOD) + PERIOD) % PERIOD;
@@ -943,13 +940,8 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
   }
   function closeCard() { card.hidden = true; if (sel) { sel = null; attrKey = ''; tissueKey = ''; } }
 
-  function setLobe(l) {
-    if (l !== 'R' && l !== 'L') return;
-    lobe = l;
-    lobeSeg.querySelectorAll('button').forEach((x, i) => x.setAttribute('aria-pressed', String((i === 0) === (l === 'R'))));
-    for (const t of geo?.tubes || []) t.stream = null;
-    tissueKey = ''; attrKey = '';
-  }
+  // The stage still passes the lobe it zoomed toward; one lobule stands for both.
+  const setLobe = () => {};
 
   return {
     el,
