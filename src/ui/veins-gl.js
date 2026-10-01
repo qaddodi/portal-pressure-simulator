@@ -420,6 +420,8 @@ uniform mat3 inv;                      // device pixels → world
 uniform float H;                       // canvas height, device pixels
 uniform float pxW;                     // world units per device pixel
 uniform int blood;                     // 1: draw the blood
+uniform int chev;                      // 1: flow chevrons on top (dark; orange where flow is reversed)
+uniform vec3 chevInk;
 uniform int look;                      // 0 parcels, 1 shimmer
 uniform int origin;                    // 1: color parcels by where their blood came from
 uniform int dyeOn;
@@ -574,6 +576,22 @@ vec3 originAt(int id, float y, float R) {
   c = mix(c, originCol[3], smoothstep(c3 - e, c3 + e, u));
   return c;
 }
+// Flow chevrons along the axis, pointing and moving with the mean flow: coverage (0–1).
+float chevAt(int id, float s, float y) {
+  vec4 f0 = texelFetch(flow, ivec2(0, id), 0), f1 = texelFetch(flow, ivec2(1, id), 0);
+  if (f1.z <= 0.0) return 0.0;
+  float len = max(texelFetch(tube, ivec2(5, id), 0).z, 1.0);
+  float R = max(texelFetch(rad, ivec2(clamp(int(clamp(s / len, 0.0, 1.0) * ${N_SAMPLES - 1}.0 + 0.5), 0, ${N_SAMPLES - 1}), id), 0).r, 0.3);
+  if (R < 1.6 * pxW) return 0.0;
+  float vd = f0.y, dir = vd < 0.0 ? -1.0 : 1.0;
+  // Spacing a power-of-two multiple of 28 world units, so it divides the stream's period (no jump on wrap).
+  float P = 28.0 * exp2(max(0.0, ceil(log2(max(5.0 * R, 26.0 * pxW) / 28.0))));
+  float x = mod(s - f0.x, P) - 0.5 * P, u = x * dir, yy = y * R;
+  float h = min(0.6 * R, 0.28 * P), w = max(0.15 * h, 0.9 * pxW);
+  float d = abs(u - (0.5 * h - abs(yy))) * 0.7071;
+  float c = (1.0 - smoothstep(w - pxW, w + pxW, d)) * (1.0 - smoothstep(h, h + pxW, abs(yy)));
+  return c * smoothstep(0.5, 3.0, abs(vd)) * f1.z;
+}
 // Dye concentration in one lumen: the column's front is bullet-shaped, the axis ahead of the wall
 // (laminar flow).
 float dyeAt(int id, float s, float y) {
@@ -604,7 +622,7 @@ void main() {
   vec4 v = texelFetch(base, ip, 0);
   uvec4 g = texelFetch(gbuf, ip, 0);
   float vis = g.x > 0u ? clamp(float(g.w) / 65535.0 / max(v.a, 1e-3), 0.0, 1.0) : 0.0;
-  if ((blood == 1 || dyeOn == 1) && vis > 0.03 && v.a > 0.01) {
+  if ((blood == 1 || dyeOn == 1 || chev == 1) && vis > 0.03 && v.a > 0.01) {
     vec3 col = v.rgb / v.a;
     // This lumen, and near a join the one it joins, cross-faded by its share.
     uvec4 g2 = texelFetch(gbuf2, ip, 0);
@@ -629,6 +647,10 @@ void main() {
       float c = dyeAt(id1, s1, y1) * (1.0 - b) + (b > 0.004 ? dyeAt(id2, s2, y2) * b : 0.0);
       // A rich, slightly glowing column: the dye tints the lumen and lifts it a little.
       col = mix(col, dyeCol, clamp(c, 0.0, 1.0) * 0.9 * vis);
+    }
+    if (chev == 1) {
+      float c = chevAt(id1, s1, y1);
+      if (c > 0.0) col = mix(col, mix(chevInk, revCol, texelFetch(flow, ivec2(1, id1), 0).w), c * 0.88 * vis);
     }
     v = vec4(col * v.a, v.a);
   }
@@ -965,6 +987,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.uniform4f(U.plateRect0, ...(plates[0]?.rect || [0, 0, 1, 1]));
       gl.uniform4f(U.plateRect1, ...(plates[1]?.rect || [0, 0, 1, 1]));
       gl.uniform1i(U.blood, blood.on ? 1 : 0);
+      gl.uniform1i(U.chev, blood.chev ? 1 : 0);
+      gl.uniform3f(U.chevInk, ...(blood.chevInk || [0.08, 0.08, 0.1]));
       gl.uniform1i(U.look, blood.look === 'shimmer' ? 1 : 0);
       gl.uniform1i(U.origin, blood.origin ? 1 : 0);
       gl.uniform1i(U.dyeOn, dyeAny && blood.dye !== false ? 1 : 0);

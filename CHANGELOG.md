@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Flow chevrons are back, as an option.** Blood menu › *Chevrons*: arrows along each vessel's axis that point
+  and move with the mean flow, dark, and orange where flow is reversed, drawn on top of the streaks. *Streaks*
+  and *Chevrons* switch on and off independently: streaks, chevrons, or both.
 - **Lighter on machines without a GPU.** Where WebGL is drawn on the CPU (a software renderer), the figure now
   draws at 8 frames a second and half resolution, so panels, menus and instruments stay responsive.
 - **Reversed flow glows orange.** Where a vessel's flow runs against its healthy direction (the Direction lens's

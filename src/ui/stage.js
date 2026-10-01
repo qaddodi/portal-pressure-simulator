@@ -4,11 +4,11 @@
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, edgePresent, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=29d10ad9ef';
 import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders } from './anatomy.js?v=6728d01049';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
-import { store, updateParams } from './store.js?v=fd17378e33';
+import { store, updateParams } from './store.js?v=e89cb3808e';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=fe164f31f1';
-import { createLobuleZoom } from './lobule-zoom.js?v=fb044770fc';
+import { createLobuleZoom } from './lobule-zoom.js?v=2479067374';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=38bcb6116c';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=354004d0f3';
 import { advanceStream, originFractions, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=1680c237fa';
 
 const N_SAMPLES = 64;
@@ -2804,6 +2804,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const net = { Q: new Float32Array(EDGES.length), vd: new Float32Array(EDGES.length), len: new Float32Array(EDGES.length) };
   let origins = null, originsF = null, bloodClock = 0, dyeShown = false, endsKey = '';
   const bloodOn = () => !!F && !store.get().imaging && store.get().layers.flow !== false;
+  const chevOn = () => !!F && !store.get().imaging && !!store.get().blood?.chevrons;
   // Mean velocity (cm/s) for a flow (mL/s): flow over lumen area; the liver beds are not one tube.
   function velOf(k, q) {
     const D = Math.max(0.5, F.D[k]) / 10;
@@ -2844,8 +2845,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       sm.rev = sm.rev == null ? rt : sm.rev + (rt - sm.rev) * ease;
     }
     if (!veins) return;
-    const on = bloodOn();
-    if (on && b.origin && originsF !== F) { origins = originFractions(EDGES, NODES, Qf, F.Pf || F.P); originsF = F; }
+    const on = bloodOn() || chevOn();
+    if (bloodOn() && b.origin && originsF !== F) { origins = originFractions(EDGES, NODES, Qf, F.Pf || F.P); originsF = F; }
     syncEnds();
     flowData.fill(0);
     const put = (row, k, q, f0, f1, strength) => {
@@ -2899,7 +2900,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Gut (amber), spleen (violet), hepatic artery (crimson), the rest of the body (slate blue): main.js keys them.
     originCol: [[0.9, 0.6, 0.16], [0.49, 0.36, 0.86], [0.84, 0.2, 0.28], [0.44, 0.56, 0.75]],
     dyeCol: [0.78, 0.96, 0.2], inkLight: [1, 1, 1], inkDark: [0.07, 0.08, 0.15],
-    revCol: [1, 0.55, 0.16],   // reversed flow: the moving blood glows orange (as --flow-reversed)
+    revCol: [1, 0.55, 0.16],
+    chevInk: [0.08, 0.08, 0.1],   // flow chevrons (orange, revCol, where reversed)   // reversed flow: the moving blood glows orange (as --flow-reversed)
   };
   // Active variceal bleeding: a small spray at the rupture site and blood pooling in the stomach.
   function bleedSpray(moving) {
@@ -2921,7 +2923,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function bloodLook() {
     const st = store.get(), b = st.blood || {};
-    return { on: bloodOn(), look: b.look, origin: !!b.origin, clock: bloodClock, dye: !st.imaging, bleed: bleedSpray(st.running && !reduceMotion.matches), ...BLOOD_COLORS };
+    return { on: bloodOn(), chev: chevOn(), look: b.look, origin: !!b.origin, clock: bloodClock, dye: !st.imaging, bleed: bleedSpray(st.running && !reduceMotion.matches), ...BLOOD_COLORS };
   }
 
   let lastT = performance.now(), lastDrawKey = null, lastDrawF = null, lastDrawCTM = null;

@@ -2,23 +2,23 @@
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
 import { startHost, host } from './host.js?v=d292ccefe8';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=fd17378e33';
-import { createStage } from './stage.js?v=7e8d5517de';
-import { createInspector } from './inspector.js?v=7778eed16a';
-import { createDock, CUTOFFS } from './dock.js?v=3115b12270';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=e89cb3808e';
+import { createStage } from './stage.js?v=bedf1ef28c';
+import { createInspector } from './inspector.js?v=f1bd2ada71';
+import { createDock, CUTOFFS } from './dock.js?v=9e666b6d61';
 import { createWhy } from './why.js?v=bf0f24a7a5';
-import { createTimeline } from './timeline.js?v=14e1cbc787';
-import { createLearn } from './learn.js?v=abd9ebf79e';
-import { createCases } from './cases.js?v=5934559246';
-import { createCompare } from './compare.js?v=897c906f97';
-import { createCard } from './card.js?v=5c8ea69bb3';
-import { createChart } from './chart.js?v=63a38b0a42';
-import { createHome } from './home.js?v=7280be8332';
+import { createTimeline } from './timeline.js?v=0c86891e39';
+import { createLearn } from './learn.js?v=b1a3a854e1';
+import { createCases } from './cases.js?v=927586ea92';
+import { createCompare } from './compare.js?v=57fbd63dbd';
+import { createCard } from './card.js?v=c4f9e33f8a';
+import { createChart } from './chart.js?v=9bc49ae457';
+import { createHome } from './home.js?v=003ebef903';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=0457b367b9';
-import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=624729a811';
+import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=66cfb23c21';
 import { startLMS } from './lms.js?v=4511ed56b8';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=1c8253a43a';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=e95a113be1';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=29d10ad9ef';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, units, popover, closePopover, menuItem, svgIcon } from './util.js?v=fe164f31f1';
@@ -137,7 +137,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=8d2ae2f15d'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=d2a1d91e4c'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -149,7 +149,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=f2205c28e0'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=78dec4f87d'), ({ createPalette }) => createPalette({ ctx: {
     select: (sel) => store.set({ selection: sel }), action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     wedge: () => { store.set({ selection: { type: 'edge', id: 'RHV_IVC' } }); setTimeout(() => card.trigger(3), 60); },
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
@@ -157,7 +157,7 @@ async function main() {
     loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); toast(store.get().presetList.find((p) => p.id === id)?.label); },
     lesson: (id) => startLesson(id), caseStart: (id) => startCase(id), home: () => home.open(), theme: () => toggleTheme(), help: () => openHelp(), share, restart: () => restartPatient(), reset: () => resetEverything(),
   } }));
-  figureL = lazy(() => import('./figure.js?v=c43de2edbf'), ({ createFigure }) => createFigure({ app, stage, onClose: () => toggleFigure(false) }));
+  figureL = lazy(() => import('./figure.js?v=61d4099904'), ({ createFigure }) => createFigure({ app, stage, onClose: () => toggleFigure(false) }));
   card = createCard({
     view, stage, onWhy: (m, el) => why.open(m, el),
     onDetails: (sel) => { store.set({ details: normalizeSel(sel) || sel }); openPanel(); },
@@ -443,11 +443,12 @@ function buildHud() {
   // ?blood=origin or ?blood=phasic (comma-separated) set them for a link.
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem('pps.blood') || 'null'); } catch { /* storage unavailable */ }
-  const blood = { look: 'shimmer', origin: false, phasic: false, ...(saved && typeof saved === 'object' ? saved : {}) };
+  const blood = { look: 'shimmer', origin: false, phasic: false, chevrons: false, ...(saved && typeof saved === 'object' ? saved : {}) };
   const asked = (new URLSearchParams(location.search).get('blood') || '').split(',');
   if (asked.includes('shimmer')) blood.look = 'shimmer';
   if (asked.includes('parcels')) blood.look = 'parcels';
   if (asked.includes('origin')) blood.origin = true;
+  if (asked.includes('chevrons')) blood.chevrons = true;
   if (asked.includes('phasic')) blood.phasic = true;
   if (blood.look !== 'shimmer') blood.look = 'parcels';
   store.set({ blood });
@@ -593,7 +594,8 @@ function openBlood(anchor) {
   }, h('span', { class: 'blood-sample ' + v, 'aria-hidden': 'true' }), h('span', {}, title, h('small', {}, sub)));
   popover(anchor, [
     h('div', { class: 'menu-title' }, 'Moving blood'),
-    toggle(flowOn, 'Show moving blood', 'Pause or reduced motion holds it still', (on) => { store.set({ layers: { ...store.get().layers, flow: on } }); syncBloodBtn(); renderBloodKey(); }),
+    toggle(flowOn, 'Streaks', 'The moving blood (shimmer or parcels); pause or reduced motion holds it still', (on) => { store.set({ layers: { ...store.get().layers, flow: on } }); syncBloodBtn(); renderBloodKey(); }),
+    toggle(!!b.chevrons, 'Chevrons', 'Arrows along each vessel, moving with the flow: dark, orange where reversed (drawn on top)', (on) => setBlood({ chevrons: on })),
     h('div', { class: 'menu-sep' }),
     h('div', { class: 'menu-title' }, 'Look'),
     lookBtn('parcels', 'Parcels', 'Each dot is a parcel of blood; count them for flow'),
