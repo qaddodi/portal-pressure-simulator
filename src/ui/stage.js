@@ -953,9 +953,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const b = svg.viewBox.baseVal;
     animateVT(vtFor(lb.x + lb.w / 2, lb.y + lb.h / 2, clamp(Math.min(b.width / lb.w, b.height / lb.h) * 0.92, 2, 3)));
   }
-  function zoomLobule(lobe = 'R') {
+  function zoomLobule(lobe = 'R', tries = 0) {
     if (morphTarget !== 0) { store.set({ view: 'anatomic' }); setTimeout(() => zoomLobule(lobe), 650); return; }
-    const lb = liverBox(); if (!lb) return;
+    // Asked for right after loading (a deep link, a presenter step), the liver may not be laid out yet: try again shortly.
+    const lb = liverBox(); if (!lb) { if (tries < 25) setTimeout(() => zoomLobule(lobe, tries + 1), 200); return; }
     lz.setLobe(lobe);
     // The anatomy's card (the liver's, usually) would sit over the lobule: the lobule's parts have their own.
     if (store.get().selection && store.get().selection.type !== 'lobule') store.set({ selection: null });

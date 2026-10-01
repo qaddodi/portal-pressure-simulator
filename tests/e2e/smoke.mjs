@@ -235,7 +235,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   await check(device, 'liver lobule: GPU vessels, ladder, cards, zones', async (page) => {
     await open(page, '?preset=cirr-decomp');
     await page.evaluate(() => window.pps.stage.zoomLobule('R'));
-    await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 8000 });
+    await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 15000 });
     await page.waitForTimeout(900);
     const kind = await page.evaluate(() => document.querySelector('.lz').dataset.vessels);
     if (kind !== 'webgl2') throw new Error(`expected the lobule's vessels on the GPU, got ${kind}`);
@@ -280,7 +280,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.evaluate(() => document.querySelector('.lz-lab:not([hidden])').click());   // its value updates live, so it never holds still for a pointer click
     await page.waitForSelector('.action-card:not([hidden])');
     await page.evaluate(() => window.pps.stage.zoomLiver());
-    await page.waitForFunction(() => !window.pps.stage.lobuleOpen(), null, { timeout: 8000 });
+    await page.waitForFunction(() => !window.pps.stage.lobuleOpen(), null, { timeout: 15000 });
     if (await page.evaluate(() => window.pps.store.get().selection?.type === 'lobule')) throw new Error('the lobule card stayed open after leaving');
   });
 
