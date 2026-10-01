@@ -576,21 +576,29 @@ vec3 originAt(int id, float y, float R) {
   c = mix(c, originCol[3], smoothstep(c3 - e, c3 + e, u));
   return c;
 }
-// Flow chevrons along the axis, pointing and moving with the mean flow: coverage (0–1).
-float chevAt(int id, float s, float y) {
+// Flow arrowheads along the axis, pointing and moving with the mean flow: a slim filled head with
+// a notched back. Returns its coverage (x) and a soft rim just outside it (y).
+vec2 chevAt(int id, float s, float y) {
   vec4 f0 = texelFetch(flow, ivec2(0, id), 0), f1 = texelFetch(flow, ivec2(1, id), 0);
-  if (f1.z <= 0.0) return 0.0;
+  if (f1.z <= 0.0) return vec2(0.0);
   float len = max(texelFetch(tube, ivec2(5, id), 0).z, 1.0);
   float R = max(texelFetch(rad, ivec2(clamp(int(clamp(s / len, 0.0, 1.0) * ${N_SAMPLES - 1}.0 + 0.5), 0, ${N_SAMPLES - 1}), id), 0).r, 0.3);
-  if (R < 1.6 * pxW) return 0.0;
+  if (R < 1.6 * pxW) return vec2(0.0);
   float vd = f0.y, dir = vd < 0.0 ? -1.0 : 1.0;
   // Spacing a power-of-two multiple of 28 world units, so it divides the stream's period (no jump on wrap).
-  float P = 28.0 * exp2(max(0.0, ceil(log2(max(5.0 * R, 26.0 * pxW) / 28.0))));
-  float x = mod(s - f0.x, P) - 0.5 * P, u = x * dir, yy = y * R;
-  float h = min(0.6 * R, 0.28 * P), w = max(0.15 * h, 0.9 * pxW);
-  float d = abs(u - (0.5 * h - abs(yy))) * 0.7071;
-  float c = (1.0 - smoothstep(w - pxW, w + pxW, d)) * (1.0 - smoothstep(h, h + pxW, abs(yy)));
-  return c * smoothstep(0.5, 3.0, abs(vd)) * f1.z;
+  float P = 28.0 * exp2(max(0.0, ceil(log2(max(4.0 * R, 34.0 * pxW) / 28.0))));
+  float u = (mod(s - f0.x, P) - 0.5 * P) * dir, ay = abs(y * R);
+  float hw = min(0.6 * R, 0.2 * P), L = 1.5 * hw;          // half width, length
+  float tip = 0.55 * L, back = -0.45 * L, notch = 0.32 * L;
+  // Inside when behind both slanted sides and ahead of the notched back.
+  float k = L / hw;
+  float side = (u - tip + ay * k) / sqrt(1.0 + k * k);
+  float rear = back + notch * (1.0 - clamp(ay / hw, 0.0, 1.0)) - u;
+  float d = max(max(side, rear), ay - hw);
+  float fade = smoothstep(0.5, 3.0, abs(vd)) * f1.z;
+  float c = 1.0 - smoothstep(-0.7 * pxW, 0.7 * pxW, d);
+  float rim = (1.0 - smoothstep(0.0, 1.6 * pxW + 0.08 * hw, d)) * (1.0 - c);
+  return vec2(c, rim) * fade;
 }
 // Dye concentration in one lumen: the column's front is bullet-shaped, the axis ahead of the wall
 // (laminar flow).
@@ -649,8 +657,13 @@ void main() {
       col = mix(col, dyeCol, clamp(c, 0.0, 1.0) * 0.9 * vis);
     }
     if (chev == 1) {
-      float c = chevAt(id1, s1, y1);
-      if (c > 0.0) col = mix(col, mix(chevInk, revCol, texelFetch(flow, ivec2(1, id1), 0).w), c * 0.88 * vis);
+      vec2 c = chevAt(id1, s1, y1);
+      if (c.x + c.y > 0.0) {
+        float rv = texelFetch(flow, ivec2(1, id1), 0).w;
+        // A faint light rim lifts the head off the lumen; the head itself dark, or orange if reversed.
+        col = mix(col, mix(col, inkLight, 0.8), c.y * 0.6 * vis);
+        col = mix(col, mix(chevInk, revCol, rv), c.x * 0.92 * vis);
+      }
     }
     v = vec4(col * v.a, v.a);
   }

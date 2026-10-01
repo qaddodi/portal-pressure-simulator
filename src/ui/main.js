@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=d292ccefe8';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=e89cb3808e';
-import { createStage } from './stage.js?v=bedf1ef28c';
+import { createStage } from './stage.js?v=f02f2ef1c2';
 import { createInspector } from './inspector.js?v=f1bd2ada71';
 import { createDock, CUTOFFS } from './dock.js?v=9e666b6d61';
 import { createWhy } from './why.js?v=bf0f24a7a5';
@@ -595,7 +595,7 @@ function openBlood(anchor) {
   popover(anchor, [
     h('div', { class: 'menu-title' }, 'Moving blood'),
     toggle(flowOn, 'Streaks', 'The moving blood (shimmer or parcels); pause or reduced motion holds it still', (on) => { store.set({ layers: { ...store.get().layers, flow: on } }); syncBloodBtn(); renderBloodKey(); }),
-    toggle(!!b.chevrons, 'Chevrons', 'Arrows along each vessel, moving with the flow: dark, orange where reversed (drawn on top)', (on) => setBlood({ chevrons: on })),
+    toggle(!!b.chevrons, 'Chevrons', 'Arrowheads along each vessel, moving with the flow: dark, orange where reversed (drawn on top)', (on) => setBlood({ chevrons: on })),
     h('div', { class: 'menu-sep' }),
     h('div', { class: 'menu-title' }, 'Look'),
     lookBtn('parcels', 'Parcels', 'Each dot is a parcel of blood; count them for flow'),
