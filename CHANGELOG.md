@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- **One card for everything.** The lobule's parts (triad, inlet venule, sinusoid, arteriole, central vein, shunt,
+  septum, hepatocytes) open the same action card as the anatomy's vessels: the close button always in view, Escape,
+  and on a phone the bottom sheet that drags up and down. Every card, anatomy included, now opens with a short
+  plain-language explanation of what the structure is and what is happening to it now (on a phone one line; tap
+  for the rest).
+- **Fibrosis where it happens.** The triad, sinusoid and central vein cards each carry their zone's fibrosis
+  slider (applied to the whole liver). The liver's card keeps only cirrhosis; its zone and lobe controls are gone.
+  The lobule's panel has the cirrhosis slider too.
+- **One lobule, no left/right switch.** It stands for the whole liver.
+- **Free zoom in the lobule.** Wheel, pinch or double-click zoom up to 5×; dragging pans, held to the lobule.
+  Zooming out past 1× returns to the liver. Leaving the lobule closes its card and folds its panel.
+- **Lymph as shimmer.** With *Lymph* on, soft streaks drift through the tissue from around the central vein out to
+  the portal tracts, denser, brighter and faster as hepatic lymph rises.
+- **The lobule follows every lens.** Pressure, change, congestion, drop, flow, velocity and direction now color the
+  lobule's vessels as they color the anatomy's (they followed only pressure and origin).
+- **Phone:** the lobule's panel drags up to open and down to fold; its header stays put while it scrolls.
 - **The liver lobule, redrawn.** Zooming into the lobule now grows it out of the liver and draws its vessels with the
   anatomy's own GPU renderer: the same casings, smooth filleted joins, shading and moving blood (streaks, chevrons,
   orange where flow reverses, and the Blood origin lens). The network follows blood's real path: a portal triad at

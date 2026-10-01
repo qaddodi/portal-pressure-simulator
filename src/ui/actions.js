@@ -7,6 +7,8 @@ import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from 
 import { DRUGS } from '../engine/scenario.js?v=8fc90f782f';
 import { store, updateParams } from './store.js?v=f6b049db80';
 import { fmt, fmtFlow, clamp, toast } from './util.js?v=fe164f31f1';
+import { aboutVessel, aboutOrgan } from './about.js?v=a7b8c7edc2';
+import { lobuleState } from './lobule-model.js?v=913fe4fa3c';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -56,7 +58,7 @@ export function normalizeSel(sel) {
 }
 
 const ORGAN_TITLE = { liver: 'Liver', heart: 'Right heart', varices: 'Esophageal varices', gastric: 'Fundal varices', spleen: 'Spleen', abdomen: 'Abdomen & peritoneum' };
-export const selTitle = (sel) => { const s = normalizeSel(sel); if (!s) return ''; return s.type === 'organ' ? ORGAN_TITLE[s.id] || s.id : EDGES[EI[s.id]]?.label || s.id; };
+export const selTitle = (sel) => { const s = normalizeSel(sel); if (!s) return ''; if (s.type === 'lobule') return 'Lobule'; return s.type === 'organ' ? ORGAN_TITLE[s.id] || s.id : EDGES[EI[s.id]]?.label || s.id; };
 
 /**
  * Build the action-card model for a selection.
@@ -65,7 +67,12 @@ export const selTitle = (sel) => { const s = normalizeSel(sel); if (!s) return '
 export function cardFor(selIn, ctx) {
   const sel = normalizeSel(selIn);
   if (!sel) return null;
-  if (sel.type === 'organ') return organCard(sel, ctx);
+  if (sel.type === 'lobule') return lobuleCard(sel, ctx);
+  if (sel.type === 'organ') {
+    const c = organCard(sel, ctx);
+    c?.verbs.unshift({ type: 'about', text: (f) => aboutOrgan(sel.id, f, store.get()) });
+    return c;
+  }
   const e = EDGES[EI[sel.id]];
   if (!e || e.kind === 'wedge') return null;
   const id = e.id, k = EI[id];
@@ -123,6 +130,7 @@ export function cardFor(selIn, ctx) {
     const at = verbs.indexOf(doppler);
     if (at >= 0) verbs.splice(at + 1, 0, dye); else verbs.push(dye);
   }
+  verbs.unshift({ type: 'about', text: (f) => aboutVessel(e, f, store.get()) });
   return {
     key: 'e:' + id, sel, kicker, title: e.label, why, edge: id, verbs,
     value: (f, lens, ref) => edgeValue(e, f, lens, ref),
@@ -189,21 +197,13 @@ function organCard(sel, ctx) {
   const id = sel.id;
   const stat = (label, value) => ({ type: 'stat', label, value });
   if (id === 'liver') {
-    const ui = ctx.ui('liver', { zone: sel.zone && sel.zone !== 'inter' ? sel.zone : 'sin', scope: sel.lobe || 'both' });
-    const zoneName = { pre: 'portal tract', sin: 'sinusoids', post: 'central veins' };
-    const lobes = () => (ui.scope === 'both' ? ['R', 'L'] : [ui.scope]);
     return {
       key: 'o:liver', sel, kicker: 'Organ', title: 'Liver', why: 'hvpg',
       value: (f, lens, ref) => { const P = f.P[NI.SIN_R]; const r = ref?.[NI.SIN_R]; return { v: fmt(P, 1), u: 'mmHg sinusoids', d: r != null && Math.abs(P - r) >= 1 ? `${P > r ? '▲' : '▼'} ${fmt(Math.abs(P - r), 0)}` : null, up: r != null && P > r }; },
       verbs: [
         { type: 'slider', id: 'cirrhosis', key: 'cirrhosis', label: 'Cirrhosis', icon: 'liver', min: 0, max: 1, step: 0.01, def: 0, format: pct, get: (p) => p.cirrhosis, set: (p, v) => { p.cirrhosis = v; }, hist: 'Cirrhosis',
           sub: '40 % compensated · 60 % CSPH · 85 % decompensated', info: 'Sinusoidal fibrosis, capillarization, a stiffer liver and arterioportal shunting. Jump months ahead on the timeline to watch collaterals open.' },
-        { type: 'seg', id: 'zone', label: 'Where is the block?', options: [['pre', 'Portal tract'], ['sin', 'Sinusoid'], ['post', 'Central vein']], get: () => ui.zone, set: (v) => { ui.zone = v; } },
-        { type: 'seg', id: 'scope', label: null, small: true, options: [['both', 'Both lobes'], ['R', 'Right'], ['L', 'Left']], get: () => ui.scope, set: (v) => { ui.scope = v; } },
-        { type: 'slider', id: 'fibrosis', key: 'fibrosis', label: () => `Fibrosis · ${zoneName[ui.zone]}`, icon: 'fibrosis', min: 1, max: 60, step: 0.5, def: 1, format: mult,
-          get: (p) => Math.max(...lobes().map((l) => p.fibrosis[l][ui.zone])), set: (p, v) => { for (const l of lobes()) p.fibrosis[l][ui.zone] = v; }, hist: 'Fibrosis',
-          info: 'Extra resistance in one zone. Presinusoidal: schistosomiasis. Postsinusoidal: sinusoidal obstruction syndrome.' },
-        { type: 'button', id: 'lobule', label: 'Zoom into the lobule', icon: 'explore', run: () => ctx.zoomLobule(sel.lobe || 'R') },
+        { type: 'button', id: 'lobule', label: 'Zoom into the lobule', icon: 'explore', run: () => ctx.zoomLobule(sel.lobe || 'R'), note: () => 'Add fibrosis to the portal tract, sinusoids or central vein from the lobule’s cards.' },
         stat('HVPG', (f) => `${fmt(f.metrics.hvpg, 1)} mmHg`),
       ],
     };
@@ -261,6 +261,61 @@ function organCard(sel, ctx) {
     };
   }
   return null;
+}
+
+// ── The lobule's parts (the lobule view selects them) ────────────────────
+const CIRRHOSIS = { type: 'slider', id: 'cirrhosis', key: 'cirrhosis', label: 'Cirrhosis', icon: 'liver', min: 0, max: 1, step: 0.01, def: 0, format: pct, get: (p) => p.cirrhosis, set: (p, v) => { p.cirrhosis = v; }, hist: 'Cirrhosis',
+  sub: '40 % compensated · 60 % CSPH · 85 % decompensated', info: 'Sinusoidal fibrosis, capillarization, a stiffer liver and arterioportal shunting.' };
+const ZONE_NAME = { pre: 'portal tract', sin: 'sinusoids', post: 'central vein' };
+/** Fibrosis in one zone of every lobule (both lobes: one lobule stands for the liver). */
+export const fibrosisVerb = (z) => ({ type: 'slider', id: 'fibrosis', key: 'fibrosis', label: `Fibrosis · ${ZONE_NAME[z]}`, icon: 'fibrosis', min: 1, max: 80, step: 0.5, def: 1, format: mult,
+  get: (p) => Math.max(p.fibrosis.R[z], p.fibrosis.L[z]), set: (p, v) => { p.fibrosis.R[z] = v; p.fibrosis.L[z] = v; }, hist: `Fibrosis · ${ZONE_NAME[z]}`,
+  info: { pre: 'Resistance before the sinusoids, as in schistosomiasis: portal pressure rises, the wedged pressure does not.', sin: 'Collagen in the space of Disse and closing fenestrae: resistance in the sinusoids themselves, read by HVPG.', post: 'Resistance at the central veins, as in sinusoidal obstruction syndrome: the sinusoids congest from the outflow side.' }[z] });
+const ZONE_TEXT = ['Zone 1 (periportal) gets blood first, richest in oxygen and nutrients: the first to regenerate, the last to die in ischemia.', 'Zone 2 lies between: intermediate oxygen.', 'Zone 3 (centrilobular) gets blood last, poorest in oxygen: first to suffer in congestion, shock and drug toxicity (paracetamol).'];
+
+function lobuleCard(sel, ctx) {
+  const L = (f) => lobuleState(f, store.get());
+  const mm = (v) => `${fmt(v, 1)} mmHg`, pc = (v) => `${Math.round(v * 100)} %`;
+  const stat = (label, value) => ({ type: 'stat', label, value: (f) => value(L(f), f) });
+  const pv = (v) => (f, lens, ref) => { const m = L(f); const x = v(m); const r = ref ? v({ P1: ref[NI.RPV], P2: ref[NI.SIN_R], P3: ref[NI.CV_R] }) : null; return { v: fmt(x, 1), u: 'mmHg', d: r != null && Math.abs(x - r) >= 1 ? `${x > r ? '▲' : '▼'} ${fmt(Math.abs(x - r), 0)}` : null, up: r != null && x > r }; };
+  const about = (fn) => ({ type: 'about', text: (f) => (f ? fn(L(f)) : []) });
+  // The lobule's parts have no page of their own in the side panel: no Details link.
+  const base = { key: 'l:' + sel.part + ':' + (sel.tube ?? sel.tri ?? sel.zone ?? ''), sel, kicker: 'Lobule', why: 'hvpg', noDetails: true };
+  switch (sel.part) {
+    case 'triad': return { ...base, title: 'Portal triad', value: pv((m) => m.P1),
+      verbs: [about((m) => ['Blood enters the lobule here: portal venous blood (about three quarters) and hepatic arterial blood, with a bile ductule carrying bile the other way. Inlet venules run along the lobule’s edge and feed the sinusoids.',
+        m.fibPre > 0.1 ? `Portal fibrosis (resistance ×${fmt(m.zone.pre, 1)}) narrows the venules before the sinusoids: pre-sinusoidal portal hypertension, with a near-normal wedged pressure.` : '',
+        m.portal < 0 ? 'Portal flow is reversed: blood leaves the liver through the portal venules (hepatofugal flow).' : ''].filter(Boolean)),
+      fibrosisVerb('pre'), stat('Portal inflow', (m) => (m.portal < 0 ? 'reversed' : pc(m.portal))), stat('Arterial inflow', (m) => pc(m.art))] };
+    case 'in': return { ...base, title: 'Inlet venule', value: pv((m) => m.P1),
+      verbs: [about((m) => ['A branch of the portal venule running along the lobule’s border, feeding the sinusoids it passes.', m.portal < 0 ? 'Flow here runs backwards (orange): arterial blood that entered the sinusoids drains out through the portal venules.' : ''].filter(Boolean)),
+        fibrosisVerb('pre'), stat('Portal inflow', (m) => (m.portal < 0 ? 'reversed' : pc(m.portal)))] };
+    case 'sin': case 'an': return { ...base, title: sel.part === 'an' ? 'Sinusoidal anastomosis' : 'Sinusoid', value: pv((m) => m.P2),
+      verbs: [about((m) => [sel.part === 'an' ? 'A cross-link between sinusoids: blood can go around a local block, so one obstructed sinusoid does not starve the cells beyond it.'
+        : 'A leaky capillary lined by fenestrated endothelium, between plates of hepatocytes one cell thick. Sinusoids merge toward the central vein, so blood speeds up as it goes; the highlighted path runs to the central vein.',
+      m.fibSin > 0.1 ? 'Capillarization: the fenestrae close and collagen fills the space of Disse (pale sleeve), raising sinusoidal resistance: this is what raises HVPG in cirrhosis.' : '',
+      m.congU > 0.1 ? 'Zone 3 sinusoids are dilated and packed with blood: the outflow is backing up.' : ''].filter(Boolean)),
+      fibrosisVerb('sin'), CIRRHOSIS, stat('Into the central vein', (m) => mm(m.P3)), stat('Sinusoidal flow', (m) => pc(m.flow))] };
+    case 'cv': return { ...base, title: 'Central vein', value: pv((m) => m.P3),
+      status: (f) => (L(f).congU > 0.1 ? ['warn', 'Congested'] : null),
+      verbs: [about((m) => ['Collects the sinusoids and drains into the hepatic veins. Zone 3 around it gets the least oxygen.',
+        m.fibPost > 0.1 ? `Fibrosis around the central vein (×${fmt(m.zone.post, 1)}) makes the block post-sinusoidal.` : '',
+        m.congU > 0.1 ? 'Raised outflow pressure congests zone 3 first: dilated sinusoids and dying cells give the “nutmeg” liver.' : ''].filter(Boolean)),
+      fibrosisVerb('post'), stat('Hepatic vein', (m) => mm(m.P4)), stat('Above normal', (m) => (m.congU > 0.05 ? `+${fmt(m.cong, 1)} mmHg` : 'none'))] };
+    case 'ha': return { ...base, title: 'Hepatic arteriole', value: (f) => ({ v: pc(L(f).art), u: 'of normal flow' }),
+      verbs: [about((m) => ['Oxygen-rich blood that empties into the first stretch of the sinusoids (zone 1).', m.art > 1.15 ? `Hepatic arterial buffer response: with less portal flow, less adenosine is washed out and the arteriole dilates (arterial flow ×${fmt(m.art, 1)}).` : ''].filter(Boolean))] };
+    case 'bd': return { ...base, title: 'Bile ductule', value: () => ({ v: 'Bile', u: 'flows out to the triad' }),
+      verbs: [about(() => ['Bile made by hepatocytes flows in canaliculi between them, toward the triad: against the blood. Not part of the circulation, but it marks the portal tract.'])] };
+    case 'sh': return { ...base, title: 'Intrahepatic shunt', value: pv((m) => m.P1),
+      verbs: [about(() => ['In cirrhosis, vessels form in the fibrous septa and connect portal venules directly to central veins: part of the blood bypasses the hepatocytes, one reason liver function falls.']), CIRRHOSIS] };
+    case 'septum': return { ...base, title: 'Fibrous septum', value: (f) => ({ v: pc(L(f).s), u: 'cirrhosis' }),
+      verbs: [about(() => ['Bands of collagen laid down by activated stellate cells bridge triad to triad and triad to central vein, cutting the lobules into regenerative nodules and distorting the vessels.']), CIRRHOSIS] };
+    case 'hep': default: {
+      const z = sel.zone || 1;
+      return { ...base, title: `Hepatocytes · zone ${z}`, value: () => ({ v: `Zone ${z}`, u: ['periportal', 'midzonal', 'centrilobular'][z - 1] }),
+        verbs: [about((m) => [ZONE_TEXT[z - 1], z === 3 && m.congU > 0.1 ? 'Here the outflow is backing up: congestion and cell dropout around the central vein.' : ''].filter(Boolean)), CIRRHOSIS] };
+    }
+  }
 }
 
 /** Can a shunt start from this vessel (a portal vessel or a systemic vein)? */
