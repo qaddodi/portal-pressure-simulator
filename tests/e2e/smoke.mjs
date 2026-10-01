@@ -298,9 +298,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.click('.workspace-fold');
     if (device === 'phone') {
       await page.setViewportSize({ width: 844, height: 390 });
-      await page.waitForTimeout(500);
-      g = await geometry();
-      if (g.dockRight > g.width + 1 || g.stageH < 20) throw new Error('rotation makes workspace unusable');
+      // As on a tablet: the relayout follows the resize event, so wait for it (up to 10 s).
+      await page.waitForFunction(() => {
+        const dock = document.querySelector('#dock').getBoundingClientRect(), stage = document.querySelector('#stageView').getBoundingClientRect();
+        return dock.right <= innerWidth + 1 && stage.height >= 20;
+      }, null, { timeout: 10000 }).catch(() => { throw new Error('rotation makes workspace unusable'); });
       await page.click('.workspace-expand');
       await shot(page, 'phone-workspace-landscape');
       await page.click('.workspace-expand');
@@ -313,8 +315,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await page.waitForSelector('#dockBody.split');
       await shot(page, 'desktop-workspace-two-instruments');
       await page.setViewportSize({ width: 768, height: 1024 });
-      await page.waitForTimeout(500);
-      if (await page.$eval('#dockBody', (el) => el.classList.contains('split'))) throw new Error('two cramped columns remain on tablet');
+      // The dock relayouts on the resize event, which a busy machine may deliver late: wait for it.
+      await page.waitForFunction(() => !document.querySelector('#dockBody').classList.contains('split'), null, { timeout: 10000 }).catch(() => { throw new Error('two cramped columns remain on tablet'); });
       await shot(page, 'tablet-workspace');
     }
     await page.evaluate(() => window.pps.host.send({ type: 'run', running: true }));
