@@ -616,8 +616,6 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .v-strand-wall { fill: none; stroke: rgb(var(--casing-rgb)); stroke-linecap: round; stroke-linejoin: round; }
 .v-strand { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .coll-ghost :is(.v-strand, .v-strand-wall), .circuit :is(.v-strand, .v-strand-wall) { display: none; }
-.v-spine { fill: none; stroke: var(--spine); stroke-linecap: round; stroke-linejoin: round; opacity: 0; transition: opacity .4s; }
-.circuit .v-spine { opacity: 1; }
 .circuit .v-shadow, .circuit .v-shade, .circuit .v-sheen { display: none; }
 .coll-ghost .v-shade, .coll-ghost .v-sheen, .ctx .v-sheen, #backEdges .v-sheen, #backEdges .v-shadow { display: none; }
 .org-ra.org-fill { fill: color-mix(in srgb, var(--organ-heart) calc(var(--organ-tint) + 14%), var(--stage-bg)); }
@@ -2536,3 +2534,51 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   .instrument-workspace.side .instr-tab .it-v { display: none; }
 }
 @media (max-width: 767px) { .coach { max-height: 34%; } }
+
+/* ── Lobule: a card on the right, the key beside the lobule, labels as in the anatomy ── */
+.lz-side { top: calc(var(--top-safe) + 4px); right: calc(env(safe-area-inset-right) + var(--gap) + var(--right-occ, 0px)); width: 300px; max-height: calc(100% - var(--top-safe) - var(--bot-occ, 120px) - 16px);
+  border: 0; border-radius: var(--r-sheet); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); padding: 14px 16px 16px; }
+.lz-head { margin: -14px -16px 0; padding: 14px 10px 4px 16px; align-items: center; }
+.lz-more { display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 6px 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text-2); font: 600 var(--fs-12) var(--font-ui); cursor: pointer; }
+.lz-more:hover { border-color: var(--border-strong); color: var(--text); }
+.lz-more .lz-chev { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; transition: transform .2s var(--ease); }
+.lz-side.open .lz-more .lz-chev { transform: rotate(180deg); }
+.lz-side:not(.open) .lz-ladder, .lz-side:not(.open) .lz-stats, .lz-side:not(.open) .lz-cir { display: none; }
+.lz-side:not(.open) .lz-verdict { margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.lz-key { position: absolute; left: calc(env(safe-area-inset-left) + var(--gap)); bottom: calc(var(--bot-occ, 120px) + 8px); max-width: min(560px, calc(100% - 2 * var(--gap) - var(--right-occ, 0px) - 320px));
+  padding: 8px 12px; border-radius: 12px; background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); transition: opacity .2s var(--ease); pointer-events: none; }
+.lz-key .lz-legend { border: 0; padding: 0; gap: 4px 14px; }
+.lz-key:has(.lz-legend:empty) { display: none; }
+.lz-top .lz-tgs { box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); border: 0; background: var(--glass); }
+/* Labels: no box; the station, then its pressure with the unit and the change from healthy; a bar in
+   the pressure's color on the side facing the vessel, as on the anatomy. */
+.lz-lab { display: grid; gap: 0; padding: 1px 8px 1px 9px; border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; border-left: 3px solid var(--sw, var(--border-strong)); line-height: 1.2; }
+.lz-lab.left { text-align: right; border-left: 0; border-right: 3px solid var(--sw, var(--border-strong)); padding: 1px 9px 1px 8px; }
+.lz-lab .n, .lz-lab .v { text-shadow: 0 0 3px var(--label-halo), 0 0 3px var(--label-halo), 0 0 6px var(--label-halo); }
+.lz-lab .n { font-size: 12px; font-weight: 500; color: var(--text-2); }
+.lz-lab .v { display: flex; align-items: baseline; gap: 3px; font-size: 15px; }
+.lz-lab.left .v { justify-content: flex-end; }
+.lz-lab .v b { font-weight: 650; color: var(--text); }
+.lz-lab small { font-size: 10.5px; color: var(--text-3); }
+.lz-lab .d { font-size: 11px; font-weight: 600; color: var(--text-2); margin-left: 4px; }
+.lz-lab .n-short { display: none; }
+.lz-lab:hover .n, .lz-lab:focus-visible .n { color: var(--accent-ink); }
+.lz-lab:hover, .lz-lab:focus-visible { border-color: var(--accent); outline: none; }
+/* Phone: one line, as the anatomy's labels there. */
+@media (max-width: 720px) {
+  .lz-lab { display: flex; align-items: baseline; gap: 4px; border: 0 !important; padding: 0 2px; }
+  .lz-lab .n-long { display: none; } .lz-lab .n-short { display: inline; }
+  .lz-lab .v { font-size: 14px; }
+  .lz-lab small { display: none; }
+  .lz-side { left: 8px; right: 8px; width: auto; top: auto; bottom: calc(var(--vdock-h) + 14px); max-height: 56%; }
+  .lz-key { left: 8px; right: 8px; bottom: auto; top: calc(var(--top-safe) + 48px); max-width: none; padding: 6px 10px; }
+  .lz-key .lz-legend { font-size: var(--fs-11); gap: 2px 10px; }
+  .lz-more .lz-more-l { display: inline; }
+}
+@media (min-width: 721px) { .stage-view.in-lobule .zoom-pill { right: calc(env(safe-area-inset-right) + var(--gap) * 2 + var(--right-occ, 0px) + 300px); } }
+@media (max-width: 720px) { .stage-view.in-lobule .zoom-pill { display: none; } }
+/* In the tall Instruments card the trace chips wrap instead of scrolling sideways. */
+.instrument-workspace.side .pt-chips { flex-wrap: wrap; overflow: visible; -webkit-mask-image: none; mask-image: none; padding-right: 0; }
+/* The lobule's key keeps clear of the zoom buttons beside the lobule card. */
+@media (min-width: 721px) { .lz-key { max-width: min(560px, calc(100% - 2 * var(--gap) - var(--right-occ, 0px) - 400px)); } }
+@media (max-width: 720px) { .lz-side { max-height: min(56%, calc(100% - var(--top-safe) - var(--bot-occ, 120px) - 120px)); } }

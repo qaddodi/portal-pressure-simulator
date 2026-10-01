@@ -77,6 +77,19 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await until(`(${ratio})() < 1`, 'circuit did not open wide');
     await page.click('#rotateCircuit');
     await until(`(${ratio})() > 1`, 'circuit did not turn tall');
+    // Zoomed in, turning back keeps the zoom.
+    // The zoom glides: read it once it holds still (a software renderer draws a frame a second or two apart).
+    const steady = () => page.evaluate(() => new Promise((res) => { let a = window.pps.stage.zoomLevel(); const t = setInterval(() => { const b = window.pps.stage.zoomLevel(); if (Math.abs(b - a) < 1e-4) { clearInterval(t); res(b); } a = b; }, 700); }));
+    const k0 = await steady();
+    await page.evaluate(() => { window.pps.stage.zoomIn(); window.pps.stage.zoomIn(); });
+    await page.waitForFunction((k0) => window.pps.stage.zoomLevel() > k0 * 1.5, k0, { timeout: 20000 });
+    const kIn = await steady();
+    await page.click('#rotateCircuit');
+    await until(`(${ratio})() < 1`, 'circuit did not turn back to wide');
+    const kAfter = await steady();
+    if (Math.abs(kAfter - kIn) / kIn > 0.05) throw new Error(`turning reset the zoom (${kIn.toFixed(2)} → ${kAfter.toFixed(2)})`);
+    await page.evaluate(() => window.pps.stage.fit()); await page.click('#rotateCircuit');
+    await until(`(${ratio})() > 1`, 'circuit did not turn tall again');
     if ((await page.$eval('#rotateCircuit', (b) => b.getAttribute('aria-pressed'))) !== 'true') throw new Error('turn button is not pressed');
     await shot(page, `${device}-circuit-upright`);
     // A vessel can still be picked, and the flow marks keep running, in the turned map.
@@ -268,6 +281,27 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForSelector('.action-card', { state: 'hidden' });
     // The liver's own card no longer carries fibrosis by zone; the lobule's panel has cirrhosis.
     if (!(await page.locator('.lz-cir input').count())) throw new Error('no cirrhosis slider in the lobule');
+    // Framed in the free space: the lobule's bottom corner is above the vitals dock, also with every readout open.
+    for (const all of [false, true]) {
+      if (all) await page.click('#strip .ro-more');
+      const clear = await page.waitForFunction(() => {
+        const dock = document.querySelector('#vdock').getBoundingClientRect().top, labs = [...document.querySelectorAll('.lz-lab:not([hidden])')];
+        return labs.every((l) => l.getBoundingClientRect().bottom <= dock + 1);
+      }, null, { timeout: 15000 }).then(() => true, () => false);
+      if (!clear) throw new Error(`a lobule label sits under the dock${all ? ' with every readout open' : ''}`);
+      if (all) { await page.click('#strip .ro-more'); await page.waitForTimeout(400); }
+    }
+    // The zoom buttons work in the lobule: in, out, and Fit back to the framing.
+    if (device === 'desktop') {
+      const zk = () => page.evaluate(() => window.pps.stage.lobuleViewKey?.());
+      // The framing glides when the free space changes: start from where it settles.
+      let k0 = await zk();
+      for (let i = 0; i < 20; i++) { await page.waitForTimeout(700); const k = await zk(); if (k === k0) break; k0 = k; }
+      await page.click('#zoomIn');
+      await page.waitForFunction((k0) => window.pps.stage.lobuleViewKey() !== k0, k0, { timeout: 15000 }).catch(() => { throw new Error('zoom in does nothing in the lobule'); });
+      await page.click('#zoomFit');
+      await page.waitForFunction((k0) => window.pps.stage.lobuleViewKey() === k0, k0, { timeout: 15000 }).catch(() => { throw new Error('Fit does not return the lobule to its framing'); });
+    }
     // Zooming in stays in the lobule.
     const box = await page.locator('.lz').boundingBox();
     await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.5);
@@ -317,16 +351,22 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // instruments, with the patient chart and the instruments together, and in a case.
   await check(device, 'floating pieces never overlap', async (page) => {
     const sizes = device === 'desktop' ? [[1440, 900], [1180, 820], [820, 1180]] : [[390, 844], [844, 390]];
-    const states = [['?preset=cirr-decomp', null], ['?preset=cirr-decomp', 'measure'], ['?preset=cirr-decomp', 'both'], ['?preset=cirr-decomp', 'card'], ['?case=bleed', null]];
+    const states = [['?preset=cirr-decomp', null], ['?preset=cirr-decomp', 'measure'], ['?preset=cirr-decomp', 'both'], ['?preset=cirr-decomp', 'card'], ['?case=bleed', null], ['?preset=cirr-decomp', 'lobule'], ['?preset=cirr-decomp', 'lobule-all']];
     for (const [w, hgt] of sizes) for (const [q, act] of states) {
       await page.setViewportSize({ width: w, height: hgt });
       await open(page, q);
       if (act === 'measure' || act === 'both') { await page.click('#tabInstruments'); await page.waitForSelector('#dockBody .dock-pane.active'); }
       if (act === 'both') await page.evaluate(() => document.querySelector('#btnInspector').click());
+      if (act === 'lobule' || act === 'lobule-all') {
+        await page.evaluate(() => window.pps.store.set({ lobule: true }));
+        await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 15000 });
+        if (act === 'lobule-all') await page.evaluate(() => document.querySelector('#strip .ro-more').click());   // hidden on a phone held sideways
+        await page.waitForTimeout(600);
+      }
       if (act === 'card') { await page.evaluate(() => window.pps.store.set({ selection: { type: 'edge', id: 'PV_TRUNK' } })); await page.waitForSelector('.action-card:not([hidden])'); }
       await page.waitForTimeout(700);
       const bad = await page.evaluate(() => {
-        const SEL = ['.tb-id', '.top-right', '#viewSeg', '.topbar .sb-right', '.sb-center.float-ui', '#vdock', '#panel', '#treatCard:not([hidden])', '#dock', '#zoomPill', '.action-card:not([hidden])', '.coach:not(:empty)'];
+        const SEL = ['.tb-id', '.top-right', '#viewSeg', '.topbar .sb-right', '.sb-center.float-ui', '#vdock', '#panel', '#treatCard:not([hidden])', '#dock', '#zoomPill', '.action-card:not([hidden])', '.coach:not(:empty)', '.lz.on .lz-side', '.lz.on .lz-key', '.lz.on .lz-top'];
         const vis = (el) => { const st = getComputedStyle(el), r = el.getBoundingClientRect(); return st.display !== 'none' && st.visibility !== 'hidden' && +st.opacity > 0.05 && r.width > 2 && r.height > 2; };
         // On a phone the chart, Treat and a vessel's card are sheets that rise over the dock by design.
         const sheet = (el) => el.classList.contains('docked') || (matchMedia('(max-width: 767px), (max-width: 1023px) and (max-height: 500px)').matches && (el.id === 'panel' || el.id === 'treatCard'));

@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **Into the lobule, a dive.** Choosing *Lobule* flies the camera into the liver (0.9 s) while the lobule grows out of
+  that spot and the liver dissolves into it; leaving, it shrinks back into the liver and the camera pulls out to
+  where the anatomy was. From the circuit it eases into the anatomy first. Reduced motion: a plain cross-fade.
+- **The lobule respects the rest of the screen.** It frames itself in the free space (under the top bar, above the
+  dock even with every readout open, beside its card) and follows when that space changes; zooming out stops at
+  that framing. The zoom pill's +, − and Fit now work in the lobule.
+- **Lobule labels as in the anatomy:** no boxes, the station, its pressure and unit, ▲/▼ from healthy past 5 mmHg,
+  and a bar in the pressure's color facing the vessel (one line on a phone); kept inside the free space.
+- **Lobule card:** a floating card on the right (a sheet on a phone), open on entry, foldable with *Details*; the
+  Resistance row is gone. The key to the lobule's parts is a pill beside the lobule that fades as you zoom in.
+- **Circuit:** the pale bands under the main route (an SVG layer drawn over the GPU picture, whose overlaps made
+  sharp seams) and the SVG crossing marks are gone; the GPU's own vessel border is a little wider in the circuit
+  instead. Turning the circuit keeps the zoom and the point in the middle of the screen (shown whole, it stays whole).
+- The zoom buttons glide, and zoom about the middle of the free space. The Instruments card's trace chips wrap.
 - **A menu you can see.** The logo is now a *Menu* button named after the current mode (Explore, Lesson, Case,
   Presenter). It opens Explore, Lessons, Cases and Presenter as four large choices, the Home page, Share and
   export (link, Figure view, PNG, SVG, print, projector), Settings and Help. Share, Settings and Help left the

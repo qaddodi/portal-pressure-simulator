@@ -123,6 +123,11 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     setTimeout(() => dispatchEvent(new Event('resize')), 30);
   });
   row.append(moreBtn);
+  // A phone held sideways has no room for every readout: it keeps the four key ones.
+  const sideways = matchMedia('(max-width: 1023px) and (max-height: 500px) and (orientation: landscape)');
+  const foldAll = () => { if (sideways.matches && strip.classList.contains('all')) { strip.classList.remove('all'); moreBtn.setAttribute('aria-expanded', 'false'); dispatchEvent(new Event('resize')); } };
+  sideways.addEventListener('change', foldAll);
+  new MutationObserver(foldAll).observe(strip, { attributes: true, attributeFilter: ['class'] });
 
   function trendOf(x, v, now) {
     const hs = x.hist;
