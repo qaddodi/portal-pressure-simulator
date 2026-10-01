@@ -2,23 +2,23 @@
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
 import { startHost, host } from './host.js?v=d292ccefe8';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=f6b049db80';
-import { createStage } from './stage.js?v=1e6d5b780c';
-import { createInspector } from './inspector.js?v=a20a2fce1e';
-import { createDock, CUTOFFS } from './dock.js?v=940ee67259';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=f9424489c6';
+import { createStage } from './stage.js?v=b2205d4c99';
+import { createInspector } from './inspector.js?v=208b6a3592';
+import { createDock, CUTOFFS } from './dock.js?v=fe557607ec';
 import { createWhy } from './why.js?v=bf0f24a7a5';
-import { createTimeline } from './timeline.js?v=18ec311aa0';
-import { createLearn } from './learn.js?v=d184166c0c';
-import { createCases } from './cases.js?v=fbd9bc4401';
-import { createCompare } from './compare.js?v=c91fb62d50';
-import { createCard } from './card.js?v=9d898760a3';
-import { createChart } from './chart.js?v=1658b2e336';
-import { createHome } from './home.js?v=238f03cd53';
-import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=0457b367b9';
-import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=3e72c9aacd';
+import { createTimeline } from './timeline.js?v=7bf66ab2fb';
+import { createLearn } from './learn.js?v=a48578b939';
+import { createCases } from './cases.js?v=02646abf69';
+import { createCompare } from './compare.js?v=730844b101';
+import { createCard } from './card.js?v=18ef0b42c9';
+import { createChart } from './chart.js?v=b2470c50bf';
+import { createHome } from './home.js?v=5538efbe12';
+import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
+import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=e7e5c98a1c';
 import { startLMS } from './lms.js?v=4511ed56b8';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=dfb8d26916';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=455d2754a5';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=29d10ad9ef';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, units, popover, closePopover, menuItem, svgIcon } from './util.js?v=fe164f31f1';
@@ -31,12 +31,8 @@ const isPhone = () => matchMedia('(max-width: 767px), (max-width: 1023px) and (m
 const isNarrow = () => matchMedia('(max-width: 1279px)').matches;
 const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
-// Everything the learner does is a verb on the structure they click (actions.js, card.js). The
-// only armed modes left are two paint brushes in the figure's Draw menu, for power users.
-const PAINT = {
-  fibrosis: { icon: 'fibrosis', label: 'Fibrosis brush', hint: 'Press and hold on a liver lobe to lay down fibrosis in the chosen zone. Hold Shift to remove it.', zones: true },
-  thrombus: { icon: 'clot', label: 'Paint clot', hint: 'Press and hold on a vein to grow a clot; drag along to spread it. Hold Shift to dissolve it.' },
-};
+// Everything the learner does is a verb on the structure they click (actions.js, card.js); the
+// only armed gesture left is a shunt waiting for its target.
 import { ORIGINS } from './blood.js?v=3acf4e936e';
 
 // Color lenses: [title, what it shows, legend swatch].
@@ -140,7 +136,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=a80e030d6a'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=2c2abe207d'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -152,7 +148,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=fd005fb21f'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=7cedcafea1'), ({ createPalette }) => createPalette({ ctx: {
     select: (sel) => store.set({ selection: sel }), action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     wedge: () => { store.set({ selection: { type: 'edge', id: 'RHV_IVC' } }); setTimeout(() => card.trigger(3), 60); },
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
@@ -160,7 +156,7 @@ async function main() {
     loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); toast(store.get().presetList.find((p) => p.id === id)?.label); },
     lesson: (id) => startLesson(id), caseStart: (id) => startCase(id), home: () => home.open(), theme: () => toggleTheme(), help: () => openHelp(), share, restart: () => restartPatient(), reset: () => resetEverything(),
   } }));
-  figureL = lazy(() => import('./figure.js?v=2563ccbf5a'), ({ createFigure }) => createFigure({ app, stage, onClose: () => toggleFigure(false) }));
+  figureL = lazy(() => import('./figure.js?v=7e1f85287a'), ({ createFigure }) => createFigure({ app, stage, onClose: () => toggleFigure(false) }));
   card = createCard({
     view, stage, onWhy: (m, el) => why.open(m, el),
     onDetails: (sel) => { store.set({ details: normalizeSel(sel) || sel }); openPanel(); },
@@ -185,7 +181,9 @@ async function main() {
   host.on('frame', onFrame);
   host.on('error', (m) => { console.error(m.message); toast('Engine error: see the console.', 'bad'); });
 
-  store.on('view', (v) => { stage.setView(v); $$('#viewSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === v))); });
+  const syncViewSeg = () => { const st = store.get(), cur = st.lobule ? 'lobule' : st.view; $$('#viewSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === cur))); };
+  store.on('view', (v) => { stage.setView(v); syncViewSeg(); });
+  store.on('lobule', syncViewSeg);
   store.on('tool', (t) => {
     for (const c of [...view.classList]) if (c.startsWith('tool-')) view.classList.remove(c);
     view.classList.add('tool-' + t);
@@ -389,28 +387,13 @@ function doAction(a) {
   else if (m) toast(m);
 }
 
-// ── Draw menu (paint brushes) and the hint for armed gestures ─────
-function setTool(id) {
-  if (id !== 'select' && !PAINT[id]) id = 'select';
-  if (id !== 'select' && store.get().allowedVerbs && !store.get().allowedVerbs.includes(id === 'thrombus' ? 'clot' : id)) { toast('Not available in this step.'); return; }
-  store.set({ tool: id });
-}
+// ── Armed gestures ─────
+function setTool() { store.set({ tool: 'select' }); }
 function setAllowedTools(list) {
   store.set({ allowedVerbs: toolsToVerbs(list) });
   if (store.get().tool !== 'select') store.set({ tool: 'select' });
 }
-function openDraw(anchor) {
-  const cur = store.get().tool;
-  const item = (id) => {
-    const t = PAINT[id];
-    const b = h('button', { class: 'tray-item', 'aria-pressed': String(cur === id) }, icon(t.icon), h('span', { class: 'n' }, t.label), h('span', { class: 'd' }, t.hint));
-    b.addEventListener('click', () => { closePopover(); setTool(cur === id ? 'select' : id); });
-    return b;
-  };
-  popover(anchor, [h('div', { class: 'menu-title' }, 'Draw on the anatomy'), item('fibrosis'), item('thrombus'),
-    h('div', { class: 'ctl-sub', style: { padding: '4px 10px 6px' } }, 'For quick sketches. Every change can also be made by clicking the structure itself.')], { cls: 'tool-tray', align: 'start' });
-}
-// One hint card for whatever gesture is armed: a shunt waiting for its target, or a brush.
+// The hint card for an armed gesture: a shunt waiting for its target.
 function renderPaintHint() {
   const el = $('#toolHint');
   const st = store.get();
@@ -423,21 +406,11 @@ function renderPaintHint() {
     redraw();
     return;
   }
-  const t = PAINT[st.tool];
-  if (!t) { el.hidden = true; redraw(); return; }
-  el.hidden = false;
-  el.replaceChildren(h('div', { class: 'tc-title' }, icon(t.icon), t.label, h('span', { class: 'sp' }), done('Done', () => setTool('select'))), h('div', {}, t.hint));
-  if (t.zones) {
-    el.append(h('div', { class: 'seg full', role: 'group', 'aria-label': 'Fibrosis zone' }, [['pre', 'Portal tract'], ['sin', 'Sinusoids'], ['post', 'Central vein']].map(([z, l]) => {
-      const b = h('button', { 'aria-pressed': String(store.get().fibrosisZone === z) }, l);
-      b.addEventListener('click', () => { store.set({ fibrosisZone: z }); renderPaintHint(); });
-      return b;
-    })));
-  }
+  el.hidden = true;
   redraw();
 }
-// The lobule is the deepest level of the figure's semantic zoom (abdomen → liver → lobule).
-function zoomLobule(lobe = 'R') { if (app.classList.contains('figure-mode')) toggleFigure(false); stage.zoomLobule(lobe); }
+// The Lobule view: a view of its own beside Anatomy and Circuit.
+function zoomLobule() { if (app.classList.contains('figure-mode')) toggleFigure(false); store.set({ lobule: true }); }
 
 // ── Figure header: view, color, legend; banners ─────
 let bleedEl, tipEl, stageClock;
@@ -470,12 +443,11 @@ function buildHud() {
   const syncRotate = () => rotateBtn.setAttribute('aria-pressed', String(stage.circuitRotated()));
   rotateBtn.onclick = () => { stage.setCircuitRotated(!stage.circuitRotated()); syncRotate(); };
   syncRotate();
-  $$('#viewSeg button').forEach((b) => b.addEventListener('click', () => store.set({ view: b.dataset.view })));
+  $$('#viewSeg button').forEach((b) => b.addEventListener('click', () => (b.dataset.view === 'lobule' ? zoomLobule() : store.set({ lobule: false, view: b.dataset.view }))));
   // The legend is the lens switcher: it shows what the colors mean and changes what they show.
   $('#btnLayers').addEventListener('click', (e) => openLayers(e.currentTarget));
   $('#btnLayers').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); openLayers(e.currentTarget); } });
   $('#btnFigure').addEventListener('click', () => toggleFigure(true));
-  $('#btnDraw').addEventListener('click', (e) => openDraw(e.currentTarget));
   new ResizeObserver(() => stage.relayout()).observe(view);
 }
 function legendModel() {
@@ -873,7 +845,7 @@ function wireKeyboard() {
       return;
     }
     const k = e.key.toLowerCase();
-    if (k === 'a' && !e.shiftKey) { store.set({ view: store.get().view === 'circuit' ? 'anatomic' : 'circuit' }); return; }
+    if (k === 'a' && !e.shiftKey) { store.set({ lobule: false, view: store.get().view === 'circuit' ? 'anatomic' : 'circuit' }); return; }
     if ((k === 'l' || (e.key === 'C' && e.shiftKey)) && !store.get().imaging) {
       const ks = Object.keys(LENSES), i = ks.indexOf(store.get().colorMode);
       const next = ks[(i + (e.shiftKey && k === 'l' ? ks.length - 1 : 1)) % ks.length];

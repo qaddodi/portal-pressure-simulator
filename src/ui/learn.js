@@ -1,6 +1,6 @@
 // Learn mode (blueprint §11): lessons as step sequences with Predict → Observe → Explain.
 
-import { store, updateParams } from './store.js?v=f6b049db80';
+import { store, updateParams } from './store.js?v=f9424489c6';
 import { host } from './host.js?v=d292ccefe8';
 import { h, fmt, toast, svgIcon } from './util.js?v=fe164f31f1';
 import { addRecord } from './records.js?v=26ab8fb634';
@@ -39,7 +39,7 @@ export const LESSONS = [
     summary: 'Pre-, sinusoidal and post-sinusoidal resistance, and why the site matters.',
     steps: [
       { type: 'frame', preset: 'healthy', tools: ['select'], tab: 'lobule',
-        text: 'Inside the liver, blood crosses three resistances in series: **portal venules** (presinusoidal), **sinusoids**, and **central veins** (postsinusoidal). Zoom into the liver to see them in a lobule; zoom back out when you are ready.' },
+        text: 'Inside the liver, blood crosses three resistances in series: **portal venules** (presinusoidal), **sinusoids**, and **central veins** (postsinusoidal). Open the **Lobule** view (beside Anatomy and Circuit) to see them in a lobule; switch back to Anatomy when you are ready.' },
       { type: 'predict', mode: 'draw', path: 'main', tab: 'profile',
         text: 'Predict: with **severe cirrhosis** (sinusoidal fibrosis), draw the pressures along gut → liver → heart. Drag across the chart.' },
       { type: 'do', text: 'Set **Cirrhosis severity** to at least 70 % (below).', goal: (f, p) => p.cirrhosis >= 0.7, controls: ['cirrhosis'] },

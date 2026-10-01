@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **Lobule is a view of its own.** *Anatomy · Circuit · Lobule* in the view switch. The lobule opens over the
+  anatomy and closes only from the switch (or A): zooming or pinching out stops at 1× instead of dropping back to
+  the liver, and Fit inside it shows the whole lobule. The Abdomen › Liver › Lobule zoom trail is gone; the
+  liver's card button reads *Open the lobule view*.
+- **One home framing for every zoom out.** First load, Fit and coming back from the circuit all use the same
+  fitted framing, and while the view sits there it follows the figure: as ascites fills the pelvis (or the spleen
+  grows) it re-fits, so the fluid is never cut off.
+- **Lymph is white** in the lobule.
+- **No stray vessel at 100 % cirrhosis.** The intrahepatic shunts (a straight vessel across the lobule) are gone;
+  portal-central septa now run wavy from three triads toward the central vein, cutting it into nodules.
+- **Labels without boxes on desktop**, one line each, as on a phone.
+- **Circuit:** the *Inside the liver* box (and its outline) is gone; the liver's stations show when zoomed in.
+- **No more paint brushes.** The Draw menu (fibrosis and clot brushes) is removed: the Clot and Narrow sliders on
+  each vessel's card and the fibrosis sliders on the lobule's cards do the same, better.
 - **One card for everything.** The lobule's parts (triad, inlet venule, sinusoid, arteriole, central vein, shunt,
   septum, hepatocytes) open the same action card as the anatomy's vessels: the close button always in view, Escape,
   and on a phone the bottom sheet that drags up and down. Every card, anatomy included, now opens with a short
