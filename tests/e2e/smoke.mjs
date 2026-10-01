@@ -234,8 +234,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
 
   await check(device, 'liver lobule: GPU vessels, ladder, cards, zones', async (page) => {
     await open(page, '?preset=cirr-decomp');
-    await page.evaluate(() => window.pps.stage.zoomLobule('R'));
+    // The lobule is a view of its own, beside Anatomy and Circuit.
+    await page.click('#viewSeg [data-view="lobule"]');
     await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 15000 });
+    if (await page.getAttribute('#viewSeg [data-view="lobule"]', 'aria-pressed') !== 'true') throw new Error('the Lobule button is not shown as the current view');
     await page.waitForTimeout(900);
     const kind = await page.evaluate(() => document.querySelector('.lz').dataset.vessels);
     if (kind !== 'webgl2') throw new Error(`expected the lobule's vessels on the GPU, got ${kind}`);
@@ -270,6 +272,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.5);
     if (device === 'desktop') { await page.mouse.wheel(0, -400); await page.waitForTimeout(300); }
     if (!(await page.evaluate(() => window.pps.stage.lobuleOpen()))) throw new Error('zooming in left the lobule');
+    // Zooming out never leaves the lobule view.
+    if (device === 'desktop') { for (let i = 0; i < 4; i++) await page.mouse.wheel(0, 600); await page.waitForTimeout(600); }
+    if (!(await page.evaluate(() => window.pps.stage.lobuleOpen()))) throw new Error('zooming out left the lobule');
     if (device === 'phone') await page.click('.lz-more');
     await page.click('.lz-tg.zones');
     await page.waitForFunction(() => document.querySelectorAll('.lz-zone').length === 3, null, { timeout: 5000 }).catch(() => { throw new Error('zones did not show'); });
@@ -279,7 +284,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     // Leaving the lobule closes its card.
     await page.evaluate(() => document.querySelector('.lz-lab:not([hidden])').click());   // its value updates live, so it never holds still for a pointer click
     await page.waitForSelector('.action-card:not([hidden])');
-    await page.evaluate(() => window.pps.stage.zoomLiver());
+    await page.click('#viewSeg [data-view="anatomic"]', { force: true });
     await page.waitForFunction(() => !window.pps.stage.lobuleOpen(), null, { timeout: 15000 });
     if (await page.evaluate(() => window.pps.store.get().selection?.type === 'lobule')) throw new Error('the lobule card stayed open after leaving');
   });

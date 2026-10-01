@@ -629,8 +629,6 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 #heatGlow { display: none; pointer-events: none; }
 .stage-view[data-layer="heat"] #heatGlow { display: inline; }
 .v-heat { fill: none; stroke-linecap: round; stroke-linejoin: round; }
-.liver-module { fill: var(--module-fill); stroke: var(--module-line); stroke-width: 1.2; stroke-dasharray: 5 4; transition: fill .3s, stroke .3s; }
-.liver-module.open { fill: var(--module-fill-open); stroke-dasharray: none; }
 .map-grid { opacity: .9; }
 .map-dot { fill: var(--map-dot); }
 /* Background plane: body cavity, vertebral column, diaphragm. */
@@ -1046,14 +1044,15 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   .sb-center > * { pointer-events: auto; }
   .banner { font-size: var(--fs-12); box-shadow: var(--shadow-1); background: color-mix(in srgb, var(--accent-soft) 60%, var(--surface)); }
   .seg button { padding: 8px 12px; }
-  #viewSeg button { padding: 8px 12px; }
+  /* Three views (Anatomy · Circuit · Lobule) share the row with the Blood and lens buttons. */
+  #viewSeg button { padding: 8px 8px; font-size: var(--fs-13); }
   .chip-btn { height: 34px; padding: 0 8px; }
   #btnLayers #colorModeLabel { display: none; }
-  #btnFigure, #btnDraw { display: none; }
+  #btnFigure { display: none; }
   #btnInspector { width: 36px; height: 36px; padding: 0; justify-content: center; }
   #btnInspector span { display: none; }
   .legend .lg-title { display: none; }
-  .lg-scale { width: 104px; }
+  .lg-scale { width: 88px; }
   .lg-num { font-size: var(--fs-11); }
   .zoom { display: none; }
   .transport { gap: 4px; }
@@ -1623,15 +1622,10 @@ button.finding:hover { background: var(--surface-2); }
 .lz-legend .lg-hsc { background: rgb(176, 104, 48); } .lz-legend .lg-col { background: rgb(236, 222, 186); }
 .lz-legend .lg-sh { background: linear-gradient(90deg, #9b3c86, #6fa6da); border-radius: 3px; height: 6px; }
 .lz-legend .lg-ly { background: rgb(40, 132, 214); }
-.zoom-crumbs { position: absolute; top: 12px; left: 12px; z-index: var(--z-hud); display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-pill); padding: 4px; box-shadow: var(--shadow-1); }
-.zoom-crumbs[hidden] { display: none; }
-.zoom-crumbs button { border: 0; background: none; font: 500 var(--fs-12) var(--font-ui); color: var(--text-2); padding: 4px 12px; border-radius: var(--r-pill); cursor: pointer; }
-.zoom-crumbs button + button::before { content: '›'; margin-right: 12px; color: var(--text-3); }
-.zoom-crumbs button.cur { color: var(--text); font-weight: 650; background: var(--surface-2, rgba(0,0,0,.05)); }
 .stage-view.in-lobule #labels, .stage-view.in-lobule #veins, .stage-view.in-lobule #stageOver, .stage-view.in-lobule #overlay { visibility: hidden; }
 /* Phone: controls under the zoom trail, the panel as a compact sheet that opens for details */
 @media (max-width: 720px) {
-  .lz-top { top: 50px; left: 12px; transform: none; }
+  .lz-top { top: 12px; left: 12px; transform: none; }
   .lz-side { left: 12px; right: 64px; top: auto; bottom: 12px; width: auto; max-height: 62%; padding: 8px 12px; gap: 8px; }
   .lz-head { top: -8px; margin: -8px -12px 0; padding: 14px 12px 4px; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; flex-wrap: wrap; }
   .lz-grab { display: block; position: absolute; left: 50%; top: 5px; width: 36px; height: 4px; border-radius: 2px; background: var(--border-strong); transform: translateX(-50%); }

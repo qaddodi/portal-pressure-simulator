@@ -3,9 +3,9 @@
 // sliders that used to live in the side panel. Every verb takes effect at once and becomes one
 // entry in the timeline; nothing stays "armed".
 
-import { store, updateParams } from './store.js?v=f6b049db80';
+import { store, updateParams } from './store.js?v=f9424489c6';
 import { h, icon, svgIcon, fmt, clamp, tooltipFor } from './util.js?v=fe164f31f1';
-import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=dfb8d26916';
+import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=455d2754a5';
 
 const LOCK_TIP = 'Not available in this step of the lesson or case';
 

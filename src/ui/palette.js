@@ -2,13 +2,13 @@
 // chart, so every command lands in the timeline like any other change. A number in the query is
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
-import { store, updateParams } from './store.js?v=f6b049db80';
+import { store, updateParams } from './store.js?v=f9424489c6';
 import { h, svgIcon, toast } from './util.js?v=fe164f31f1';
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { DRUGS } from '../engine/scenario.js?v=8fc90f782f';
 import { HIDDEN_EDGES } from './anatomy.js?v=6728d01049';
-import { LESSONS } from './learn.js?v=d184166c0c';
-import { CASES } from './cases.js?v=fbd9bc4401';
+import { LESSONS } from './learn.js?v=a48578b939';
+import { CASES } from './cases.js?v=02646abf69';
 
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9+ ]/g, ' ');
 
@@ -60,7 +60,7 @@ export function createPalette({ ctx }) {
     for (const [id, [t, d]] of Object.entries(ctx.lenses)) add('View', `Lens: ${t}`, () => store.set({ colorMode: id }), { kw: `color ${d}` });
     add('View', 'Anatomy view', () => store.set({ view: 'anatomic' }), { kw: 'anatomic' });
     add('View', 'Circuit view', () => store.set({ view: 'circuit' }), { kw: 'schematic map' });
-    add('View', 'Zoom into the lobule', () => ctx.zoomLobule(), { kw: 'microcirculation sinusoid' });
+    add('View', 'Lobule view', () => ctx.zoomLobule(), { kw: 'microcirculation sinusoid lobule zoom' });
     add('View', 'Figure view', () => ctx.figure(), { kw: 'export plate' });
     add('View', 'Export PNG', () => ctx.exportFile('png'), { kw: 'image save download' });
     add('View', 'Export SVG', () => ctx.exportFile('svg'), { kw: 'vector save download' });
