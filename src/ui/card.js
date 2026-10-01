@@ -5,7 +5,7 @@
 
 import { store, updateParams } from './store.js?v=f6b049db80';
 import { h, icon, svgIcon, fmt, clamp, tooltipFor } from './util.js?v=fe164f31f1';
-import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=a5c074d5e1';
+import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=dfb8d26916';
 
 const LOCK_TIP = 'Not available in this step of the lesson or case';
 
@@ -108,7 +108,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     // be a strip of wasted sheet) and at the foot on a desktop.
     const mkFoot = (where) => h('div', { class: 'ac-foot ' + where },
       h('button', { class: 'link', onclick: (e) => onWhy(m.why, e.currentTarget) }, svgIcon('bulb', 'mi-ic'), 'Why?'),
-      h('button', { class: 'link', onclick: () => onDetails(selRef) }, 'Details', svgIcon('chev-right', 'mi-ic')));
+      m.noDetails ? null : h('button', { class: 'link', onclick: () => onDetails(selRef) }, 'Details', svgIcon('chev-right', 'mi-ic')));
     const foot = mkFoot('at-foot');
     // On a phone the card is a bottom sheet with two heights: everything at once, or a strip with just the reading.
     // Tapping the handle or the top flips between them; a swipe down from the strip closes. The desktop card has the
@@ -175,6 +175,16 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       const val = h('b', { class: 'num' });
       live.push(() => { const f = store.get().frame; if (f) { const t = v.value(f); if (val.textContent !== t) val.textContent = t; } });
       return h('div', { class: 'ac-stat' }, h('span', {}, v.label), val);
+    }
+    if (v.type === 'about') {
+      // What this is and what is happening to it now, in plain words (as the lobule's cards).
+      const box = h('div', { class: 'ac-about' });
+      box.addEventListener('click', () => box.classList.toggle('full'));
+      live.push(() => {
+        const t = v.text(store.get().frame) || [], sig = t.join('\n');
+        if (box._sig !== sig) { box._sig = sig; box.replaceChildren(t.map((x) => h('p', {}, x))); }
+      });
+      return box;
     }
     if (v.type === 'link') return h('button', { class: 'link ac-link', onclick: v.run }, v.label, svgIcon('chev-right', 'mi-ic'));
     if (v.type === 'seg') {

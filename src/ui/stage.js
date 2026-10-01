@@ -6,7 +6,7 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=f6b049db80';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=fe164f31f1';
-import { createLobuleZoom } from './lobule-zoom.js?v=27fdc5cbc7';
+import { createLobuleZoom } from './lobule-zoom.js?v=c256d389f1';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=63596bcd73';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -953,10 +953,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const b = svg.viewBox.baseVal;
     animateVT(vtFor(lb.x + lb.w / 2, lb.y + lb.h / 2, clamp(Math.min(b.width / lb.w, b.height / lb.h) * 0.92, 2, 3)));
   }
-  function zoomLobule(lobe = 'R') {
+  function zoomLobule(lobe = 'R', tries = 0) {
     if (morphTarget !== 0) { store.set({ view: 'anatomic' }); setTimeout(() => zoomLobule(lobe), 650); return; }
-    const lb = liverBox(); if (!lb) return;
+    // Asked for right after loading (a deep link, a presenter step), the liver may not be laid out yet: try again shortly.
+    const lb = liverBox(); if (!lb) { if (tries < 25) setTimeout(() => zoomLobule(lobe, tries + 1), 200); return; }
     lz.setLobe(lobe);
+    // The anatomy's card (the liver's, usually) would sit over the lobule: the lobule's parts have their own.
+    if (store.get().selection && store.get().selection.type !== 'lobule') store.set({ selection: null });
     if (lobuleOn) return;
     const ms = reduceMotion.matches ? 0 : 900;
     animateVT(vtFor(lb.x + lb.w * (lobe === 'L' ? 0.74 : 0.34), lb.y + lb.h * (lobe === 'L' ? 0.36 : 0.5), 4.8), ms);
@@ -3361,6 +3364,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const ORGAN_ANCHOR = { liver: [470, 360], heart: [650, 118], spleen: [1052, 362], varices: SITES.varix, gastric: SITES.fundus, abdomen: [720, 770] };
   function anchorFor(sel) {
     if (!sel) return null;
+    if (sel.type === 'lobule') return lz?.anchorFor(sel) || null;
     refreshCTM();
     if (sel.type === 'edge' && geo[sel.id] && E[sel.id]?.vis) {
       const pts = geo[sel.id].cur;
@@ -3449,7 +3453,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     fit,
     reveal, unreveal,
     /** Changes whenever what is drawn where changes (a pan, a zoom, the morph): a cheap key for "did anything move". */
-    layoutKey: () => `${viewVersion}|${geometryVersion}`,
+    layoutKey: () => `${viewVersion}|${geometryVersion}` + (lz?.isOpen() ? '|' + lz.viewKey() : ''),
     setCircuitRotated,
     circuitRotated: () => rotTarget === 1,
     zoomToBox,

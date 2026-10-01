@@ -2,6 +2,38 @@
 
 ## Unreleased
 
+- **One card for everything.** The lobule's parts (triad, inlet venule, sinusoid, arteriole, central vein, shunt,
+  septum, hepatocytes) open the same action card as the anatomy's vessels: the close button always in view, Escape,
+  and on a phone the bottom sheet that drags up and down. Every card, anatomy included, now opens with a short
+  plain-language explanation of what the structure is and what is happening to it now (on a phone one line; tap
+  for the rest).
+- **Fibrosis where it happens.** The triad, sinusoid and central vein cards each carry their zone's fibrosis
+  slider (applied to the whole liver). The liver's card keeps only cirrhosis; its zone and lobe controls are gone.
+  The lobule's panel has the cirrhosis slider too.
+- **One lobule, no left/right switch.** It stands for the whole liver.
+- **Free zoom in the lobule.** Wheel, pinch or double-click zoom up to 5×; dragging pans, held to the lobule.
+  Zooming out past 1× returns to the liver. Leaving the lobule closes its card and folds its panel.
+- **Lymph as shimmer.** With *Lymph* on, soft streaks drift through the tissue from around the central vein out to
+  the portal tracts, denser, brighter and faster as hepatic lymph rises.
+- **The lobule follows every lens.** Pressure, change, congestion, drop, flow, velocity and direction now color the
+  lobule's vessels as they color the anatomy's (they followed only pressure and origin).
+- **Phone:** the lobule's panel drags up to open and down to fold; its header stays put while it scrolls.
+- **The liver lobule, redrawn.** Zooming into the lobule now grows it out of the liver and draws its vessels with the
+  anatomy's own GPU renderer: the same casings, smooth filleted joins, shading and moving blood (streaks, chevrons,
+  orange where flow reverses, and the Blood origin lens). The network follows blood's real path: a portal triad at
+  each corner (venule, arteriole, bile ductule), inlet venules along the edges, sinusoids that cross-link and merge
+  toward the central vein (so blood speeds up as they converge), and arterioles emptying into zone 1.
+- **Quiet tissue, visible disease.** Hepatocyte plates one cell thick; neighbouring lobules fade into the page.
+  Collagen, stellate cells and septa appear only with disease: capillarization sleeves along the sinusoids, a
+  thickened portal tract (pre-sinusoidal), a fibrotic central vein (post-sinusoidal), bridging septa that cut the
+  lobule into nodules with intrahepatic shunts running in them (cirrhosis), and zone-3 congestion with cell dropout
+  ("nutmeg") when the outflow backs up. In hepatofugal flow the inlet venules run backwards, in orange.
+- **Teaching layers in the lobule.** A pressure ladder (portal venule → sinusoids → central vein → hepatic vein →
+  IVC, against the healthy ladder) names where the pressure is lost and what that means for HVPG. *Zones* shades
+  the acinus (1 periportal → 3 centrilobular); *Lymph* shows lymph leaving the space of Disse for the portal tract
+  at the model's rate. Tap any part (triad, inlet venule, sinusoid, arteriole, central vein, shunt, septum,
+  hepatocytes) for a short card; a tapped sinusoid lights its path to the central vein. Station labels use the
+  anatomy's label cards. On a phone the panel is a compact sheet with *Details* (ladder, fibrosis buttons, legend).
 - **Circuit lanes stay tube-like on a phone.** Shown small (a phone, the whole map), every circuit lane grows by
   the same factor so the widest stays about 10 px on screen, capped so neighbouring lanes stay apart.
 - **Simpler Blood menu:** just *Streaks* and *Chevrons*, each on or off. Parcels, breathing and heartbeat and the
