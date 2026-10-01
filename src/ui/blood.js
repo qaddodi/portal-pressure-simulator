@@ -71,23 +71,30 @@ export function advanceStream(st, vMean, vNow, dt, { phasic = false, speed = 1, 
   return st;
 }
 
-// ── Where the blood comes from ─────────────────────────
-// The arteries that feed each bed name its blood: gut (intestine, colon, stomach), spleen, hepatic
-// artery; anything else is systemic. Composition mixes at each node, weighted by inflow.
+// ── Where the blood comes from ─────────────────────
+// The veins that drain each bed name its blood: the superior mesenteric vein (small bowel; the
+// coronary, left gastric, vein shares its color), the inferior mesenteric vein, the splenic vein;
+// everything else (the hepatic artery's blood included) is systemic. Composition mixes at each
+// node, weighted by inflow.
 export const ORIGINS = [
-  ['gut', 'Gut', 'Intestine, colon and stomach'],
-  ['spleen', 'Spleen', 'Splenic blood'],
-  ['artery', 'Hepatic artery', 'Arterial blood through the liver'],
-  ['systemic', 'Systemic', 'Blood from the rest of the body'],
+  ['smv', 'SMV', 'SMV', 'Superior mesenteric vein (and the coronary vein)'],
+  ['imv', 'IMV', 'IMV', 'Inferior mesenteric vein'],
+  ['spleen', 'Splenic vein', 'SV', 'Splenic blood'],
+  ['artery', 'Hepatic artery', 'HA', 'Arterial blood through the liver'],
+  ['systemic', 'Systemic', 'Sys', 'Blood from the rest of the body'],
 ];
-const SOURCE = { A_SMA: 0, A_IMA: 0, A_LGA: 0, A_SPL: 1, A_HEP: 2 };
+const SOURCE = { A_SMA: 0, A_LGA: 0, A_IMA: 1, A_SPL: 2, A_HEP: 3 };
+/** Named sources (the rest is systemic): the channels of originFractions. */
+export const ORIGIN_N = 4;
 
 /**
- * Per edge, the fraction of its blood from the gut, the spleen and the hepatic artery (the rest
- * is systemic), as a Float32Array of 3 × edges. Nodes are visited from high pressure to low, the
- * order blood flows in, so one pass mixes every junction from its already-mixed inflows.
+ * Per edge, the fraction of its blood from the SMV, the IMV, the splenic vein and the hepatic
+ * artery (the rest is systemic), as a Float32Array of ORIGIN_N × edges. Nodes are visited from high
+ * pressure to low, the order blood flows in, so one pass mixes every junction from its already-mixed
+ * inflows.
  */
 export function originFractions(edges, nodes, Q, P) {
+  const N = ORIGIN_N;
   const NI = new Map(nodes.map((n, i) => [n.id, i]));
   const from = edges.map((e) => NI.get(e.from)), to = edges.map((e) => NI.get(e.to));
   const inflow = nodes.map(() => []);
@@ -95,21 +102,22 @@ export function originFractions(edges, nodes, Q, P) {
     if (e.kind === 'wedge' || !Q[k]) return;
     inflow[Q[k] > 0 ? to[k] : from[k]].push(k);
   });
-  const node = new Float32Array(nodes.length * 3), edge = new Float32Array(edges.length * 3);
+  const node = new Float32Array(nodes.length * N), edge = new Float32Array(edges.length * N);
   const order = nodes.map((_, i) => i).sort((a, b) => P[b] - P[a]);
   const comp = (k, out) => {
     const s = SOURCE[edges[k].id];
-    if (s != null) { out[0] = s === 0 ? 1 : 0; out[1] = s === 1 ? 1 : 0; out[2] = s === 2 ? 1 : 0; return; }
+    if (s != null) { for (let c = 0; c < N; c++) out[c] = c === s ? 1 : 0; return; }
     const n = Q[k] >= 0 ? from[k] : to[k];
-    out[0] = node[n * 3]; out[1] = node[n * 3 + 1]; out[2] = node[n * 3 + 2];
+    for (let c = 0; c < N; c++) out[c] = node[n * N + c];
   };
-  const c = [0, 0, 0];
+  const c = new Array(N).fill(0), sum = new Array(N);
   for (const n of order) {
-    let w = 0, a = 0, b = 0, h = 0;
-    for (const k of inflow[n]) { const q = Math.abs(Q[k]); comp(k, c); w += q; a += q * c[0]; b += q * c[1]; h += q * c[2]; }
-    if (w > 0) { node[n * 3] = a / w; node[n * 3 + 1] = b / w; node[n * 3 + 2] = h / w; }
+    let w = 0;
+    sum.fill(0);
+    for (const k of inflow[n]) { const q = Math.abs(Q[k]); comp(k, c); w += q; for (let i = 0; i < N; i++) sum[i] += q * c[i]; }
+    if (w > 0) for (let i = 0; i < N; i++) node[n * N + i] = sum[i] / w;
   }
-  for (let k = 0; k < edges.length; k++) { comp(k, c); edge.set(c, k * 3); }
+  for (let k = 0; k < edges.length; k++) { comp(k, c); edge.set(c, k * N); }
   return edge;
 }
 

@@ -1,12 +1,12 @@
 // Readout strip (the live monitor under the figure) and the instruments (blueprint §9.1, §9.2).
 
-import { store } from './store.js?v=fd17378e33';
+import { store } from './store.js?v=f6b049db80';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=fe164f31f1';
-import { createProfile, createSankey, createPerfusion } from './charts.js?v=d8ff81a6fe';
-import { createPressureTime } from './pressure-time.js?v=ab7e895427';
-import { createDoppler } from './doppler.js?v=b6f9e679b7';
-import { createHVPG, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=37f902d14b';
-import { createLandscape } from './landscape.js?v=a29ccf558d';
+import { createProfile, createSankey, createPerfusion } from './charts.js?v=a4e198435e';
+import { createPressureTime } from './pressure-time.js?v=753d065d79';
+import { createDoppler } from './doppler.js?v=d45149b52a';
+import { createHVPG, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=5e40133b95';
+import { createLandscape } from './landscape.js?v=0de2ad8578';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic

@@ -189,13 +189,14 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const d0 = await page.evaluate(() => window.pps.stage.flowDir('PV_TRUNK').D);
     await page.waitForTimeout(400);
     if (await page.evaluate(() => window.pps.stage.flowDir('PV_TRUNK').D) !== d0) throw new Error('paused blood kept moving');
-    // The Blood menu: look, origin, phasic, dye.
+    // The Blood menu (streaks, chevrons), the Blood origin lens, dye.
     const fits = await page.$eval('#btnBlood', (el) => { const r = el.getBoundingClientRect(); return r.width >= 30 && r.left >= 0 && r.right <= innerWidth; });
     if (!fits) throw new Error('Blood button is clipped');
     await page.click('#btnBlood');
-    await page.click('.blood-pop .blood-look:nth-of-type(2)').catch(() => page.evaluate(() => window.pps.store.set({ blood: { ...window.pps.store.get().blood, look: 'shimmer' } })));
-    await page.evaluate(() => window.pps.store.set({ blood: { look: 'parcels', origin: true, phasic: true } }));
-    await page.waitForSelector('#bloodKey');
+    if ((await page.$$('.blood-pop .blood-opt')).length !== 2) throw new Error('the Blood menu should offer streaks and chevrons only');
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => window.pps.store.set({ colorMode: 'origin', blood: { look: 'shimmer', chevrons: true } }));
+    await page.waitForFunction(() => /Splenic vein|SV/.test(document.querySelector('#legend').textContent));
     await page.evaluate(() => window.pps.host.send({ type: 'run', running: true }));
     await page.keyboard.press('j');
     if (!(await page.evaluate(() => window.pps.stage.dyeActive()))) throw new Error('J did not inject dye');
@@ -203,7 +204,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForTimeout(900);
     if (!(await page.evaluate(() => document.querySelector('#stageView').classList.contains('gl-on')))) throw new Error('the circuit is not drawn on the GPU');
     await shot(page, `${device}-blood-circuit`);
-    await page.evaluate(() => window.pps.store.set({ view: 'anatomic', blood: { look: 'parcels', origin: false, phasic: false } }));
+    await page.evaluate(() => window.pps.store.set({ view: 'anatomic', colorMode: 'pressure', blood: { look: 'shimmer', chevrons: false } }));
     await page.waitForTimeout(900);
     await shot(page, `${device}-blood`);
   });
@@ -298,9 +299,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.click('.workspace-fold');
     if (device === 'phone') {
       await page.setViewportSize({ width: 844, height: 390 });
-      await page.waitForTimeout(500);
-      g = await geometry();
-      if (g.dockRight > g.width + 1 || g.stageH < 20) throw new Error('rotation makes workspace unusable');
+      // As on a tablet: the relayout follows the resize event, so wait for it (up to 10 s).
+      await page.waitForFunction(() => {
+        const dock = document.querySelector('#dock').getBoundingClientRect(), stage = document.querySelector('#stageView').getBoundingClientRect();
+        return dock.right <= innerWidth + 1 && stage.height >= 20;
+      }, null, { timeout: 10000 }).catch(() => { throw new Error('rotation makes workspace unusable'); });
       await page.click('.workspace-expand');
       await shot(page, 'phone-workspace-landscape');
       await page.click('.workspace-expand');
@@ -313,8 +316,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await page.waitForSelector('#dockBody.split');
       await shot(page, 'desktop-workspace-two-instruments');
       await page.setViewportSize({ width: 768, height: 1024 });
-      await page.waitForTimeout(500);
-      if (await page.$eval('#dockBody', (el) => el.classList.contains('split'))) throw new Error('two cramped columns remain on tablet');
+      // The dock relayouts on the resize event, which a busy machine may deliver late: wait for it.
+      await page.waitForFunction(() => !document.querySelector('#dockBody').classList.contains('split'), null, { timeout: 10000 }).catch(() => { throw new Error('two cramped columns remain on tablet'); });
       await shot(page, 'tablet-workspace');
     }
     await page.evaluate(() => window.pps.host.send({ type: 'run', running: true }));

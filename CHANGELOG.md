@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- **Circuit lanes stay tube-like on a phone.** Shown small (a phone, the whole map), every circuit lane grows by
+  the same factor so the widest stays about 10 px on screen, capped so neighbouring lanes stay apart.
+- **Simpler Blood menu:** just *Streaks* and *Chevrons*, each on or off. Parcels, breathing and heartbeat and the
+  menu's dye item are gone (dye stays on each vessel's card and on J).
+- **Blood origin adds the hepatic artery** (crimson) beside SMV, IMV, splenic vein and systemic. The legend uses
+  dots and, on a phone, short names in two rows (SMV · IMV · SV · HA · Sys).
+- **Bigger, clearer arrowheads** (a stronger light rim), and **wider circuit lanes**, still scaled to each vessel.
+- **Blood origin is a lens.** It moved from the Blood menu to the color dropdown (beside pressure, velocity,
+  direction, flow), and now separates the **SMV** (amber; the coronary vein shares it), the **IMV** (teal), the
+  **splenic vein** (violet) and **systemic** blood (slate blue, hepatic artery included), as streams side by side.
+  The legend names the four.
+- **Arrowheads keep one shape.** Each vessel's heads are one size (from its caliber), evenly spaced along it and
+  moving at its own speed; none is cut at a junction.
+- **Flow chevrons are back, as an option.** Blood menu › *Chevrons*: slim arrowheads (a notched back and a soft light rim) along each vessel's axis that point
+  and move with the mean flow, dark, and orange where flow is reversed, drawn on top of the streaks. *Streaks*
+  and *Chevrons* switch on and off independently: streaks, chevrons, or both.
+- **Lighter on machines without a GPU.** Where WebGL is drawn on the CPU (a software renderer), the figure now
+  draws at 8 frames a second and half resolution, so panels, menus and instruments stay responsive.
 - **Reversed flow glows orange.** Where a vessel's flow runs against its healthy direction (the Direction lens's
   test), its shimmer (or parcels) warms to the reversed-flow orange, easing in over half a second, so hepatofugal
   portal flow or a reversed splenic vein stands out as it happens. Not applied over the origin streams.

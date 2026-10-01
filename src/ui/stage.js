@@ -4,12 +4,12 @@
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, edgePresent, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=29d10ad9ef';
 import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_MODULE, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders } from './anatomy.js?v=6728d01049';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
-import { store, updateParams } from './store.js?v=fd17378e33';
+import { store, updateParams } from './store.js?v=f6b049db80';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=fe164f31f1';
-import { createLobuleZoom } from './lobule-zoom.js?v=fb044770fc';
+import { createLobuleZoom } from './lobule-zoom.js?v=27fdc5cbc7';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=a5f198e5a5';
-import { advanceStream, originFractions, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=1680c237fa';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=63596bcd73';
+import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
 
 const N_SAMPLES = 64;
 // Displayed width grows sub-linearly with diameter so the cavae don't swamp the portal tree,
@@ -973,8 +973,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Adaptive detail: when the device cannot keep up (frames arriving slower than ~22 a second
   // while the model runs), the moving blood steps down (fewer frames, fewer pixels) and steps
   // back up once there is headroom. The level a device settles on is remembered.
-  const QUALITY = [{ fps: 30, res: 1 }, { fps: 24, res: 0.8 }, { fps: 15, res: 0.6 }];
-  let quality = (() => { try { return clamp(parseInt(localStorage.getItem('pps.quality'), 10) || 0, 0, 2); } catch { return 0; } })();
+  // The last step is only for a software renderer (WebGL drawn on the CPU), where it starts: there
+  // every frame costs CPU the rest of the page needs.
+  const QUALITY = [{ fps: 30, res: 1 }, { fps: 24, res: 0.8 }, { fps: 15, res: 0.6 }, { fps: 8, res: 0.5 }];
+  const SOFTWARE = !!veins?.software;
+  const Q_MAX = SOFTWARE ? 3 : 2;
+  let quality = SOFTWARE ? 3 : (() => { try { return clamp(parseInt(localStorage.getItem('pps.quality'), 10) || 0, 0, 2); } catch { return 0; } })();
   vCanvas.addEventListener('webglcontextrestored', () => {
     veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true });
     vBinKey = ''; glOrgans = false; plateKey = '';
@@ -1119,6 +1123,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const t = easeInOut(morph);
     const gain = lerp(1, 0.8, t);
     const ref = REF();
+    // The circuit shown small (a phone, the whole map): every lane grows by the same factor, so the
+    // widest stays about 10 px on screen; capped so neighbouring lanes stay apart.
+    if (!CTM) refreshCTM();
+    const circBoost = clamp(10 / (15 * (CTM?.sc || 1)), 1, 1.75);
     const imaging = isImaging();
     const mode = layerMode();
     wrap.classList.toggle('imaging', imaging);
@@ -1158,7 +1166,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // Anatomy: width follows diameter (compressed). Circuit: a narrower, more uniform range,
       // as on a transit map, so the lines stay even and legible.
       const wA = e.kind === 'liver' ? (e.zone === 'sin' || e.zone === 'inter' ? 3.6 : 5.2) : vesselPx(D) * (e.id === 'IVC_IS' || e.id === 'IVCS_RA' || e.id === 'SVC_RA' ? 0.72 : 1);
-      const wC = e.kind === 'liver' ? 5.5 : clamp(vesselPx(D) * 0.62, 4, 10);
+      const wC = (e.kind === 'liver' ? 8 : clamp(vesselPx(D) * 0.95, 6, 15)) * circBoost;
       let w = lerp(wA, wC, t);
       // Flow layer: width follows flow volume (∝ √Q), like traffic volume on a city map.
       if (mode === 'flow' && !x.isArt) w = clamp(2.2 + 8.5 * Math.sqrt(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) * 0.06), 2.2, 22);
@@ -1608,7 +1616,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const hovering = wrap.classList.contains('hovering'), hasSel = wrap.classList.contains('has-sel');
     const figure = !!appEl?.classList.contains('figure-mode');
     const artery = toRGB('var(--artery)', cs);
-    const originMode = bloodOn() && !!store.get().blood?.origin;
+    const originMode = originOn();
     tubeData.fill(0);
     for (const it of items) {
       const { x, kind, obj } = it, id = x.e.id, o = it.row * TUBE_TEXELS * 4;
@@ -2791,7 +2799,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   //   0: stream distance (world, modulo PERIOD), display speed (signed, from → to), parcels a
   //      second, stasis (0–1)
   //   1: free at the from end, free at the to end (parcels fade there), strength, reversed (0–1, eased)
-  //   2: fraction of its blood from the gut, the spleen and the hepatic artery (rest: systemic)
+  //   2: fraction of its blood from the SMV, the IMV, the splenic vein and the hepatic artery (rest: systemic)
   const flowData = new Float32Array(GL_ROWS * FLOW_TEXELS * 4);
   const dyeData = new Float32Array(GL_ROWS * DYE_BINS), dyeRow = new Float32Array(DYE_BINS);
   const streams = EDGES.map((e, k) => ({ seed: k + 1 }));
@@ -2800,6 +2808,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const net = { Q: new Float32Array(EDGES.length), vd: new Float32Array(EDGES.length), len: new Float32Array(EDGES.length) };
   let origins = null, originsF = null, bloodClock = 0, dyeShown = false, endsKey = '';
   const bloodOn = () => !!F && !store.get().imaging && store.get().layers.flow !== false;
+  const chevOn = () => !!F && !store.get().imaging && !!store.get().blood?.chevrons;
+  // The Blood origin lens colors each lumen by where its blood comes from (streams side by side).
+  const originOn = () => !!F && layerMode() === 'origin';
   // Mean velocity (cm/s) for a flow (mL/s): flow over lumen area; the liver beds are not one tube.
   function velOf(k, q) {
     const D = Math.max(0.5, F.D[k]) / 10;
@@ -2840,15 +2851,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       sm.rev = sm.rev == null ? rt : sm.rev + (rt - sm.rev) * ease;
     }
     if (!veins) return;
-    const on = bloodOn();
-    if (on && b.origin && originsF !== F) { origins = originFractions(EDGES, NODES, Qf, F.Pf || F.P); originsF = F; }
+    const on = bloodOn() || chevOn() || originOn();
+    if (originOn() && originsF !== F) { origins = originFractions(EDGES, NODES, Qf, F.Pf || F.P); originsF = F; }
     syncEnds();
     flowData.fill(0);
     const put = (row, k, q, f0, f1, strength) => {
       const o = row * FLOW_TEXELS * 4, sm = streams[k];
       flowData[o] = sm.D; flowData[o + 1] = sm.vd; flowData[o + 2] = KAPPA * Math.abs(q); flowData[o + 3] = sm.stasis;
       flowData[o + 4] = f0 ? 1 : 0; flowData[o + 5] = f1 ? 1 : 0; flowData[o + 6] = strength; flowData[o + 7] = sm.rev;
-      if (origins) { flowData[o + 8] = origins[k * 3]; flowData[o + 9] = origins[k * 3 + 1]; flowData[o + 10] = origins[k * 3 + 2]; }
+      if (origins) for (let c = 0; c < ORIGIN_N; c++) flowData[o + 8 + c] = origins[k * ORIGIN_N + c];
     };
     if (on) for (const x of Object.values(E)) {
       if (!x.vis || x.isArt || x.reveal || x.g.classList.contains('coll-ghost')) continue;
@@ -2892,10 +2903,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // Colors for the blood (theme independent: they sit on the lumen, not on the page).
   const BLOOD_COLORS = {
-    // Gut (amber), spleen (violet), hepatic artery (crimson), the rest of the body (slate blue): main.js keys them.
-    originCol: [[0.9, 0.6, 0.16], [0.49, 0.36, 0.86], [0.84, 0.2, 0.28], [0.44, 0.56, 0.75]],
+    // SMV (amber), IMV (teal), splenic vein (violet), hepatic artery (crimson), systemic (slate blue): main.js keys them.
+    originCol: [[0.9, 0.6, 0.16], [0.09, 0.62, 0.55], [0.49, 0.36, 0.86], [0.84, 0.2, 0.28], [0.44, 0.56, 0.75]],
     dyeCol: [0.78, 0.96, 0.2], inkLight: [1, 1, 1], inkDark: [0.07, 0.08, 0.15],
-    revCol: [1, 0.55, 0.16],   // reversed flow: the moving blood glows orange (as --flow-reversed)
+    revCol: [1, 0.55, 0.16],
+    chevInk: [0.08, 0.08, 0.1],   // flow chevrons (orange, revCol, where reversed)   // reversed flow: the moving blood glows orange (as --flow-reversed)
   };
   // Active variceal bleeding: a small spray at the rupture site and blood pooling in the stomach.
   function bleedSpray(moving) {
@@ -2917,7 +2929,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function bloodLook() {
     const st = store.get(), b = st.blood || {};
-    return { on: bloodOn(), look: b.look, origin: !!b.origin, clock: bloodClock, dye: !st.imaging, bleed: bleedSpray(st.running && !reduceMotion.matches), ...BLOOD_COLORS };
+    return { on: bloodOn(), chev: chevOn(), look: b.look, origin: originOn(), clock: bloodClock, dye: !st.imaging, bleed: bleedSpray(st.running && !reduceMotion.matches), ...BLOOD_COLORS };
   }
 
   let lastT = performance.now(), lastDrawKey = null, lastDrawF = null, lastDrawCTM = null;
@@ -2925,12 +2937,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function governQuality(now) {
     const gap = lastRaf ? now - lastRaf : 16;
     lastRaf = now;
-    if (!store.get().running || gap > 500) return;   // idle or just resumed: nothing to learn
+    if (SOFTWARE || !store.get().running || gap > 500) return;   // software: stays at its step; idle or just resumed: nothing to learn
     gapEMA += (Math.min(gap, 250) - gapEMA) * 0.05;
     if (now - qCheck < 2000) return;
     qCheck = now;
     let next = quality;
-    if (gapEMA > 45 && quality < 2) { next = quality + 1; qGood = 0; }
+    if (gapEMA > 45 && quality < Q_MAX) { next = quality + 1; qGood = 0; }
     else if (gapEMA < 22 && quality > 0) { if (++qGood >= 3) { next = quality - 1; qGood = 0; } }
     else qGood = 0;
     if (next === quality) return;

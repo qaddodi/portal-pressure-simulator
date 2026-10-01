@@ -25,7 +25,7 @@
 //
 // createVeinsGL(canvas) returns null only when WebGL2 is unavailable altogether.
 
-import { SLOT, DYE_BINS } from './blood.js?v=1680c237fa';
+import { SLOT, DYE_BINS } from './blood.js?v=3acf4e936e';
 
 export const N_SAMPLES = 64;
 export const FLOW_TEXELS = 3;          // per-vessel blood: see stage.js (syncBlood)
@@ -420,11 +420,13 @@ uniform mat3 inv;                      // device pixels → world
 uniform float H;                       // canvas height, device pixels
 uniform float pxW;                     // world units per device pixel
 uniform int blood;                     // 1: draw the blood
+uniform int chev;                      // 1: flow chevrons on top (dark; orange where flow is reversed)
+uniform vec3 chevInk;
 uniform int look;                      // 0 parcels, 1 shimmer
 uniform int origin;                    // 1: color parcels by where their blood came from
 uniform int dyeOn;
 uniform float clock;                   // seconds (wrapped), for the drift of stagnant blood
-uniform vec3 originCol[4];
+uniform vec3 originCol[5];
 uniform vec3 dyeCol;
 uniform vec3 revCol;                   // the moving blood's color where flow runs backwards
 uniform vec3 inkLight, inkDark;
@@ -486,15 +488,17 @@ vec4 bloodAt(int id, float s, float y, vec3 col) {
   if (look == 0) {
     // Beads with a short tail behind them (longer where faster), scattered within their lane so
     // the stream reads as a suspension, not a string of beads.
-    int lc = n == 1 ? 0 : clamp(int(floor((y / 0.8 + 1.0) * 0.5 * float(n))), 0, n - 1);
+    // The two lanes either side of this point: a bead reaches under one lane spacing from its own
+    // lane (radius, jitter and drift), so no other lane can touch it.
+    int l0 = n == 1 ? 0 : int(floor((y / 0.8 + 1.0) * 0.5 * float(n) - 0.5));
     float rd = max(0.26 * laneW, 1.35 * pxW) * (1.0 + 0.6 * stasis);
     rd = min(rd, 0.45 * R);
     float TL = rd * (1.6 + 4.0 * clamp(abs(vd) / 60.0, 0.0, 1.0)) * (1.0 - stasis);
     float aa = 0.75 * pxW + stasis * 0.8 * rd;
     float period = 256.0 * s0;
     float cov = 0.0, glow = 0.0;
-    for (int dl = -1; dl <= 1; dl++) {
-      int li = lc + dl;
+    for (int dl = 0; dl <= 1; dl++) {
+      int li = l0 + dl;
       if (li < 0 || li >= n) continue;
       float yl = n == 1 ? 0.0 : ((float(li) + 0.5) / float(n) * 2.0 - 1.0) * 0.8;
       float k = n == 1 ? 8.0 : max(2.0, floor(16.0 * (1.0 - yl * yl) + 0.5));
@@ -549,8 +553,9 @@ vec4 bloodAt(int id, float s, float y, vec3 col) {
   vec2 qa = vec2((s - mod(D * k0 / 8.0, period)) / cellA + drift, qy);
   vec2 qb = vec2((s - mod(D * (k0 + 1.0) / 8.0, period)) / cellA + drift, qy);
   uint sd0 = uint(id) * 31u, sd1 = uint(id) * 57u + 11u;
-  float na = 0.62 * vnoise(qa, sd0, per) + 0.38 * vnoise(qa * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2);
-  float nb = 0.62 * vnoise(qb, sd0, per) + 0.38 * vnoise(qb * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2);
+  // Between two lane speeds the two fields are blended; most pixels need only one.
+  float na = t < 1.0 ? 0.62 * vnoise(qa, sd0, per) + 0.38 * vnoise(qa * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2) : 0.0;
+  float nb = t > 0.0 ? 0.62 * vnoise(qb, sd0, per) + 0.38 * vnoise(qb * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2) : 0.0;
   float nz = mix(na, nb, t);
   float dens = sqrt(clamp(p, 0.0, 1.0));
   float streak = smoothstep(0.5 - 0.08 * dens, 0.8, nz);
@@ -559,17 +564,47 @@ vec4 bloodAt(int id, float s, float y, vec3 col) {
   float a = clamp(streak * (0.5 + 0.38 * dens) + glowCore, 0.0, 0.9) * wall * ends * f1.z * mix(1.0, 0.6, stasis);
   return vec4(mix(halo, core, smoothstep(0.0, 0.7, streak)), a);
 }
-// Where a lumen's blood comes from, as streams side by side (laminar flow keeps them apart): gut,
-// spleen, hepatic artery, then the rest of the body, each as wide as its share of the flow.
+// Where a lumen's blood comes from, as streams side by side (laminar flow keeps them apart): SMV,
+// IMV, splenic vein, hepatic artery, then the rest of the body, each as wide as its share of the flow.
 vec3 originAt(int id, float y, float R) {
   vec4 f2 = texelFetch(flow, ivec2(2, id), 0);
   float u = clamp((y + 1.0) * 0.5, 0.0, 1.0), e = clamp(0.6 * pxW / max(R, 0.3), 0.01, 0.12);
-  float c1 = f2.x, c2 = c1 + f2.y, c3 = c2 + f2.z;
+  float c1 = f2.x, c2 = c1 + f2.y, c3 = c2 + f2.z, c4 = c3 + f2.w;
   vec3 c = originCol[0];
   c = mix(c, originCol[1], smoothstep(c1 - e, c1 + e, u));
   c = mix(c, originCol[2], smoothstep(c2 - e, c2 + e, u));
   c = mix(c, originCol[3], smoothstep(c3 - e, c3 + e, u));
+  c = mix(c, originCol[4], smoothstep(c4 - e, c4 + e, u));
   return c;
+}
+// Flow arrowheads along the axis, pointing and moving with the mean flow: a slim filled head with
+// a notched back. Returns its coverage (x) and a soft rim just outside it (y).
+vec2 chevAt(int id, float s, float y) {
+  vec4 f0 = texelFetch(flow, ivec2(0, id), 0), f1 = texelFetch(flow, ivec2(1, id), 0);
+  if (f1.z <= 0.0) return vec2(0.0);
+  float len = max(texelFetch(tube, ivec2(5, id), 0).z, 1.0);
+  // One size and one spacing for the whole vessel (from its caliber midway), so every head is the
+  // same shape and they keep an even distance; they move at the vessel's own speed.
+  float R = max(texelFetch(rad, ivec2(N_LAST / 2, id), 0).r, 0.3);
+  if (R < 1.6 * pxW) return vec2(0.0);
+  float vd = f0.y, dir = vd < 0.0 ? -1.0 : 1.0;
+  // Spacing a power-of-two multiple of 28 world units, so it divides the stream's period (no jump on wrap).
+  float P = 28.0 * exp2(max(0.0, ceil(log2(max(3.6 * R, 44.0 * pxW) / 28.0))));
+  float x = mod(s - f0.x, P) - 0.5 * P, u = x * dir, ay = abs(y) * R;
+  float hw = min(0.78 * R, 0.24 * P), L = 1.45 * hw;          // half width, length
+  float tip = 0.55 * L, back = -0.45 * L, notch = 0.32 * L;
+  // Inside when behind both slanted sides and ahead of the notched back.
+  float k = L / hw;
+  float side = (u - tip + ay * k) / sqrt(1.0 + k * k);
+  float rear = back + notch * (1.0 - clamp(ay / hw, 0.0, 1.0)) - u;
+  float d = max(max(side, rear), ay - hw);
+  // A head whose centre is within its length of either end is left out, never cut by a join.
+  float sc = s - x;
+  if (sc < L || sc > len - L) return vec2(0.0);
+  float fade = smoothstep(0.5, 3.0, abs(vd)) * f1.z;
+  float c = 1.0 - smoothstep(-0.7 * pxW, 0.7 * pxW, d);
+  float rim = (1.0 - smoothstep(0.0, 1.8 * pxW + 0.1 * hw, d)) * (1.0 - c);
+  return vec2(c, rim) * fade;
 }
 // Dye concentration in one lumen: the column's front is bullet-shaped, the axis ahead of the wall
 // (laminar flow).
@@ -600,16 +635,16 @@ void main() {
 
   vec4 v = texelFetch(base, ip, 0);
   uvec4 g = texelFetch(gbuf, ip, 0);
-  if ((blood == 1 || dyeOn == 1) && g.x > 0u && v.a > 0.01) {
+  float vis = g.x > 0u ? clamp(float(g.w) / 65535.0 / max(v.a, 1e-3), 0.0, 1.0) : 0.0;
+  if ((blood == 1 || dyeOn == 1 || chev == 1 || origin == 1) && vis > 0.03 && v.a > 0.01) {
     vec3 col = v.rgb / v.a;
-    float vis = clamp(float(g.w) / 65535.0 / max(v.a, 1e-3), 0.0, 1.0);
     // This lumen, and near a join the one it joins, cross-faded by its share.
     uvec4 g2 = texelFetch(gbuf2, ip, 0);
     float b = g2.x > 0u ? float(g2.w) / 65535.0 : 0.0;
     int id1 = int(g.x) - 1, id2 = int(g2.x) - 1;
     float s1 = float(g.y) / 16.0 - S_OFF, y1 = float(g.z) / 32767.5 - 1.0;
     float s2 = float(g2.y) / 16.0 - S_OFF, y2 = float(g2.z) / 32767.5 - 1.0;
-    if (blood == 1 && origin == 1) {
+    if (origin == 1) {
       // The lumen is drawn a neutral grey; its light and dark lines are kept as a ratio of that grey.
       float shade = clamp(dot(col, vec3(0.299, 0.587, 0.114)) / ORIGIN_GREY, 0.55, 1.45);
       vec3 oc = originAt(id1, y1, max(texelFetch(rad, ivec2(N_LAST / 2, id1), 0).r, 0.3));
@@ -626,6 +661,15 @@ void main() {
       float c = dyeAt(id1, s1, y1) * (1.0 - b) + (b > 0.004 ? dyeAt(id2, s2, y2) * b : 0.0);
       // A rich, slightly glowing column: the dye tints the lumen and lifts it a little.
       col = mix(col, dyeCol, clamp(c, 0.0, 1.0) * 0.9 * vis);
+    }
+    if (chev == 1) {
+      vec2 c = chevAt(id1, s1, y1);
+      if (c.x + c.y > 0.0) {
+        float rv = texelFetch(flow, ivec2(1, id1), 0).w;
+        // A faint light rim lifts the head off the lumen; the head itself dark, or orange if reversed.
+        col = mix(col, inkLight, c.y * 0.75 * vis);
+        col = mix(col, mix(chevInk, revCol, rv), c.x * vis);
+      }
     }
     v = vec4(col * v.a, v.a);
   }
@@ -818,9 +862,18 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
 
   let nCells = 0, lost = false, organRect = null;
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; });
+  // A software renderer (no usable GPU: the browser draws on the CPU) is told apart so the stage
+  // can draw less often and at a lower resolution there.
+  let software;
+  try {
+    const ri = gl.getExtension('WEBGL_debug_renderer_info');
+    software = /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(String(gl.getParameter(ri ? ri.UNMASKED_RENDERER_WEBGL : gl.RENDERER)));
+  } catch { software = false; }
 
   return {
     get lost() { return lost; },
+    /** Whether the browser renders WebGL on the CPU. */
+    software,
     /** Uploads the binned geometry (from binVeins). */
     setGeometry(bins) {
       gl.bindTexture(gl.TEXTURE_2D, entTex);
@@ -953,12 +1006,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.uniform4f(U.plateRect0, ...(plates[0]?.rect || [0, 0, 1, 1]));
       gl.uniform4f(U.plateRect1, ...(plates[1]?.rect || [0, 0, 1, 1]));
       gl.uniform1i(U.blood, blood.on ? 1 : 0);
+      gl.uniform1i(U.chev, blood.chev ? 1 : 0);
+      gl.uniform3f(U.chevInk, ...(blood.chevInk || [0.08, 0.08, 0.1]));
       gl.uniform1i(U.look, blood.look === 'shimmer' ? 1 : 0);
       gl.uniform1i(U.origin, blood.origin ? 1 : 0);
       gl.uniform1i(U.dyeOn, dyeAny && blood.dye !== false ? 1 : 0);
       gl.uniform1f(U.clock, blood.clock || 0);
       gl.uniform1f(U.rows, nTubes);
-      gl.uniform3fv(U.originCol, new Float32Array((blood.originCol || [[1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]]).flat()));
+      gl.uniform3fv(U.originCol, new Float32Array((blood.originCol || [[1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]]).flat()));
       gl.uniform3f(U.dyeCol, ...(blood.dyeCol || [0.8, 0.95, 0.2]));
       gl.uniform3f(U.revCol, ...(blood.revCol || [1, 0.55, 0.16]));
       gl.uniform3f(U.inkLight, ...(blood.inkLight || [1, 1, 1]));

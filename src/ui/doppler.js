@@ -6,7 +6,7 @@
 
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { h, fmt, fitCanvas, clamp } from './util.js?v=fe164f31f1';
-import { FONT } from './charts.js?v=d8ff81a6fe';
+import { FONT } from './charts.js?v=a4e198435e';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 // kind decides the words for direction and pattern; normal is the usual mean velocity (cm/s).
