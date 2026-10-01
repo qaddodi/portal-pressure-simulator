@@ -3,7 +3,9 @@ name: Pages (live site + preview)
 # Publishes two copies of the build-free site to GitHub Pages:
 #   /          the tip of main (the live site)
 #   /preview/  the branch that triggered the run (a claude/** branch), or main again after a merge
-# Every run rebuilds both from scratch, so the newest run always wins.
+# Every run rebuilds both from scratch, so the newest run always wins: the deploy job shares one
+# concurrency group across branches. The browser checks are grouped per branch, so a push from
+# another agent no longer cancels them part way through.
 
 on:
   push:
@@ -14,10 +16,6 @@ permissions:
   contents: read
   pages: write
   id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: true
 
 jobs:
   # Quick checks gate the deploy (about a minute end to end), so a preview is never held up by
@@ -41,6 +39,9 @@ jobs:
   # a runner is too small to run several browsers at once.
   browser-checks:
     runs-on: ubuntu-latest
+    concurrency:
+      group: browser-checks-${{ github.ref }}-${{ matrix.device }}-${{ matrix.shard }}
+      cancel-in-progress: true
     # Covers the install (capped at 4 minutes below) plus the checks (2 to 4 minutes).
     timeout-minutes: 10
     strategy:
@@ -91,6 +92,9 @@ jobs:
   deploy:
     needs: validate
     runs-on: ubuntu-latest
+    concurrency:
+      group: pages
+      cancel-in-progress: true
     timeout-minutes: 10
     environment:
       name: github-pages
