@@ -25,8 +25,23 @@ jobs:
         run: npm test
       - name: Production build
         run: npm run build
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+      # Chromium comes from a cache keyed on the Playwright version; only the system packages
+      # come from apt, with their own time limit so a slow mirror fails clearly.
+      - name: Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('./package-lock.json').packages['node_modules/playwright-core'].version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - name: Download Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 4
+        run: npx playwright install chromium
+      - name: Install Chromium system packages
+        timeout-minutes: 4
+        run: npx playwright install-deps chromium
       - name: Smoke test (build-free site)
         run: npm run smoke
       - name: Smoke test (production build)
