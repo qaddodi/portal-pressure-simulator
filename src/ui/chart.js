@@ -1,17 +1,17 @@
-// The patient chart: one panel, no tabs, read top to bottom like a bedside chart.
+// The patient chart: one card, no tabs, read top to bottom like a bedside chart. The orders
+// (drugs · fluids & blood · procedures) are in the Treat card, built here too (treatBody).
 //
 //   Scenario summary                     (the patient's name heads the panel)
 //   [step card of a lesson or case]      (rendered by learn.js / cases.js above this)
 //   [Compared with A]                    (when a moment is pinned)
 //   Findings                             what is abnormal, in words, with its cut-off; Why?
-//   Treat                                drugs · fluids & blood · procedures (on the anatomy)
 //   Story                                what has happened, in plain language, with ✕ to undo
 //   Advanced                             physiology knobs (instructor / researcher)
 
 import { store, updateParams } from './store.js?v=f9424489c6';
 import { h, fmt, icon, svgIcon, toast } from './util.js?v=fe164f31f1';
 import { DRUGS } from '../engine/scenario.js?v=8fc90f782f';
-import { TILES, VITALS, readoutValue } from './dock.js?v=fe557607ec';
+import { TILES, VITALS, readoutValue } from './dock.js?v=3d7d80691a';
 import { activeInterventions } from './inspector.js?v=208b6a3592';
 import { verbEnabled, DRUG_NOTE } from './actions.js?v=455d2754a5';
 import { fmtClock } from './timeline.js?v=7bf66ab2fb';
@@ -47,6 +47,24 @@ const FIND = {
   ra: (v) => ['Right atrial pressure raised', `RA ${n1(v)} mmHg (> 10). Back-pressure reaches the liver from the heart.`],
   hb: (v) => ['Severe anemia', `Hemoglobin ${n1(v)} g/dL (< 7).`],
 };
+
+/** Every abnormal readout as a finding, most severe first: [{ id, sev, txt: [title, detail] }]. */
+export function computeFindings(m, hidden) {
+  const found = [];
+  for (const t of TILES) {
+    const v = readoutValue(t, m, hidden);
+    if (v == null) continue;
+    const sev = t.st(v, m);
+    if (sev === 'ok') continue;
+    const txt = FIND[t.id]?.(v, m, sev);
+    if (txt) found.push({ id: t.id, sev, txt });
+  }
+  for (const x of VITALS) {
+    if (hidden?.has(x.hideKey) || !x.bad(m)) continue;
+    found.push({ id: x.id, sev: 'danger', txt: FIND[x.id](x.v(m), m) });
+  }
+  return found.sort((a, b) => RANK[b.sev] - RANK[a.sev]);
+}
 
 export function createChart({ onWhy, flash, onScenarios, action, startShunt, select, timeline, pinned }) {
   let controls = () => [];
@@ -84,21 +102,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     const paint = () => {
       const f = store.get().frame;
       if (!f) return;
-      const m = f.metrics, hidden = store.get().hiddenReadouts;
-      const found = [];
-      for (const t of TILES) {
-        const v = readoutValue(t, m, hidden);
-        if (v == null) continue;
-        const sev = t.st(v, m);
-        if (sev === 'ok') continue;
-        const txt = FIND[t.id]?.(v, m, sev);
-        if (txt) found.push({ id: t.id, sev, txt });
-      }
-      for (const x of VITALS) {
-        if (hidden?.has(x.hideKey) || !x.bad(m)) continue;
-        found.push({ id: x.id, sev: 'danger', txt: FIND[x.id](x.v(m), m) });
-      }
-      found.sort((a, b) => RANK[b.sev] - RANK[a.sev]);
+      const found = computeFindings(f.metrics, store.get().hiddenReadouts);
       for (const x of found) {
         let e = els.get(x.id);
         if (!e) { e = row(x.id); els.set(x.id, e); }
@@ -118,7 +122,9 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
   }
 
   // ── Treat ─────────────────────────────────────────
-  function treat() {
+  // The orders, for the Treat card. `sync` collects what must repaint when the parameters change.
+  function treatBody(sync, onDone) {
+    const live = sync;
     const p0 = store.get().params;
     const drugChip = (k, label, note, get, set) => {
       const b = h('button', { class: 'order-chip', 'aria-pressed': String(!!get(p0)), title: note }, h('span', { class: 'oc-dot' }, icon('check')), h('span', { class: 'oc-t' }, label));
@@ -140,6 +146,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       btn(null, 'Albumin', () => action({ kind: 'infuse', fluid: 'albumin' }), 'raises oncotic pressure'));
     const lock = (id) => !verbEnabled(id);
     const proc = (ic, label, sub, id, run) => { const b = btn(ic, label, run, sub); if (lock(id)) b.disabled = true; return b; };
+    // A procedure that continues on the figure (a card, a shunt to draw) puts the Treat card away.
     const procs = h('div', { class: 'order-grid' },
       proc('band', 'Band ligation', 'on the esophageal varices', 'band', () => { select({ type: 'organ', id: 'varices' }); action({ kind: 'band' }); toast('Band placed. The varices card is open on the figure.'); }),
       proc('balloon', 'Balloon tamponade', 'esophageal or gastric', 'balloon', () => { select({ type: 'organ', id: 'varices' }); toast('Switch the balloon on in the varices card.'); }),
@@ -153,11 +160,14 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       proc('stent', 'Surgical shunt', 'portocaval, Warren, mesocaval', 'shunt', () => { select(null); if (startShunt('PV_TRUNK')) toast('Click the systemic vein to connect the portal vein to.'); }),
       proc('occlude', 'BRTO', 'occlude the gastrorenal shunt', 'occlude', () => { select({ type: 'organ', id: 'gastric' }); if (!store.get().params.spontaneous.C5) toast('This patient has no gastrorenal shunt (see Advanced › anatomical variants).'); }),
       proc('needle', 'Paracentesis', 'drain ascites', 'paracentesis', () => select({ type: 'organ', id: 'abdomen' })));
-    const n = activeInterventions(p0).filter((a) => a.key.startsWith('drug:') || ['anticoag', 'diuretics', 'tips', 'balloonEso', 'balloonGas', 'portocaval', 'dsrs', 'mesocaval', 'occ:C5'].includes(a.key)).length;
-    return section('treat', 'Treat', 'pill', n || null,
-      h('div', { class: 'subhead' }, 'Drugs'), drugs,
+    for (const b of procs.querySelectorAll('button')) b.addEventListener('click', () => onDone?.());
+    return [h('div', { class: 'subhead' }, 'Drugs'), drugs,
       h('div', { class: 'subhead' }, 'Fluids & blood'), fluids,
-      h('div', { class: 'subhead' }, 'Procedures'), procs);
+      h('div', { class: 'subhead' }, 'Procedures'), procs];
+  }
+  /** How many treatments are running now (drugs, shunts, balloons, BRTO). */
+  function treatCount(p) {
+    return activeInterventions(p).filter((a) => a.key.startsWith('drug:') || ['anticoag', 'diuretics', 'tips', 'balloonEso', 'balloonGas', 'portocaval', 'dsrs', 'mesocaval', 'occ:C5'].includes(a.key)).length;
   }
 
   // ── Story ─────────────────────────────────────────
@@ -216,8 +226,8 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     const pr = st.presetList?.find((p) => p.id === st.presetId);
     // The patient's name heads the panel; the chart opens on what the patient has.
     const head = pr?.summary ? h('div', { class: 'p-head chart-head' }, h('p', { class: 'chart-sum' }, pr.summary)) : null;
-    const inCase = st.mode === 'cases';
-    const kids = [head, pinned(), h('div', { class: 'p-body chart-body' }, findings(), inCase ? null : treat(), story(), advanced())];
+    // Treat has a card of its own (the Treat button), so the chart keeps to what the patient has.
+    const kids = [head, pinned(), h('div', { class: 'p-body chart-body' }, findings(), story(), advanced())];
     update(store.get().frame, true);
     return kids;
   }
@@ -227,5 +237,5 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     for (const fn of live) fn();
   }
   timeline.onChange(() => storyPaint?.());
-  return { render, update };
+  return { render, update, treatBody, treatCount };
 }

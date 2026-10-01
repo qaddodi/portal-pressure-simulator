@@ -2,11 +2,11 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, edgePresent, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=29d10ad9ef';
-import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, MAIN_ROUTE, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders } from './anatomy.js?v=6728d01049';
+import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders } from './anatomy.js?v=6728d01049';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=f9424489c6';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=fe164f31f1';
-import { createLobuleZoom } from './lobule-zoom.js?v=f87b819826';
+import { createLobuleZoom } from './lobule-zoom.js?v=d62520c125';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=63596bcd73';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -540,9 +540,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Anatomy: a soft contact shadow under the tube (so a vessel in front visibly passes over
     // the one behind it), the casing, the pressure-colored lumen, then the tube's shading: a
     // darker band on the side turned away from the light and a narrow sheen on the lit side.
-    // Circuit: the main route carries a quiet spine band underneath.
     const shadow = s('path', { class: 'v-shadow' });
-    const spine = MAIN_ROUTE.has(e.id) ? s('path', { class: 'v-spine' }) : null;
     const wall = s('path', { class: isArt ? 'v-artery' : 'v-wall' });
     const lumen = isArt ? null : s('path', { class: 'v-lumen' + (e.kind === 'liver' && (e.zone === 'sin' || e.zone === 'inter') ? ' liver-micro' : ''), stroke: `url(#gr-${e.id})` });
     const shade = isArt ? null : s('path', { class: 'v-shade' });
@@ -583,7 +581,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (isArt) { g.append(halo, sel, wall, sheen, hit); gArt.append(g); }
     else {
-      if (spine) gc.append(spine);
       gs.append(shadow);
       gc.append(halo, sel, wall, wallP);
       g.append(lumen, lumenP, hit);
@@ -619,7 +616,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const el of [shadow, wall, lumen, shade, sheen, wallP, lumenP, halo, sel]) el?.setAttribute('mask', `url(#tm-${e.id})`);
       tipFade = { tg, s0, frac: TIP_FADE[e.id], line: [0, 0, 1, 0], joined: false };
     }
-    E[e.id] = { e, g, gc, gs, gh, tipFade, groups: isArt ? [g] : [gs, gc, g, gh], heat, grad, st0, st1, halo, sel, shadow, spine, wall, lumen, shade, sheen, wallP, lumenP, hit, strands, feeders, isArt, vis: true, width: 4, wallPx: 1, shadeKey: '' };
+    E[e.id] = { e, g, gc, gs, gh, tipFade, groups: isArt ? [g] : [gs, gc, g, gh], heat, grad, st0, st1, halo, sel, shadow, wall, lumen, shade, sheen, wallP, lumenP, hit, strands, feeders, isArt, vis: true, width: 4, wallPx: 1, shadeKey: '' };
   }
   ALL_EDGES.forEach((e, i) => { E[e.id].row = i; });
   // Draw order within each tier: the portal tree in front (it lies anterior to the IVC).
@@ -782,6 +779,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const m = svg.getScreenCTM().inverse();
     return [m.a * cx + m.c * cy + m.e, m.b * cx + m.d * cy + m.f];
   }
+  function freeCentre() { const ins = safeInsets(), b = stageBox(); return [b.left + (ins.l + ins.W - ins.r) / 2, b.top + (ins.t + ins.H - ins.b) / 2]; }
+  // A zoom step by the buttons glides there instead of jumping.
+  function animZoomAt(cx, cy, factor) {
+    if (lobuleOn) return;
+    const [vx, vy] = clientToVB(cx, cy), base = vtTarget && vtAnim ? vtTarget : vt;
+    const k = clamp(base.k * factor, 0.6, 6), wx = (vx - vt.x) / vt.k, wy = (vy - vt.y) / vt.k;
+    animateVT({ k, x: vx - wx * k, y: vy - wy * k }, 260);
+  }
   function zoomAt(cx, cy, factor) {
     if (lobuleOn) return;   // the lobule view has its own zoom
     const [vx, vy] = clientToVB(cx, cy);
@@ -795,6 +800,41 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // centered on the portal vein and liver, and the learner pans sideways to the beds or heart.
   // The esophagus and the great veins run on above the plate and fade out; Fit stops where they fade.
   const FIT_TOP = -40;
+  // The figure fills the window and the rest of the interface floats over it. Each floating piece
+  // says which edge it holds (data-safe="top|bottom|left|right"); the default framing keeps the
+  // figure in the space they leave. Side cards count only on a wide screen (on a phone they are
+  // sheets over the figure), and the figure never shrinks to a sliver for them.
+  function safeInsets() {
+    const wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height;
+    const ins = { t: 0, b: 0, l: 0, r: 0, W, H };
+    if (!W || !H) return ins;
+    for (const el of document.querySelectorAll('[data-safe]')) {
+      if (el.hidden || el.closest('[hidden]')) continue;
+      if (el.checkVisibility ? !el.checkVisibility({ visibilityProperty: true }) : getComputedStyle(el).visibility === 'hidden') continue;
+      const q = el.getBoundingClientRect();
+      if (!q.width || !q.height) continue;
+      const x0 = q.left - wr.left, y0 = q.top - wr.top, x1 = q.right - wr.left, y1 = q.bottom - wr.top;
+      if (x1 <= 0 || y1 <= 0 || x0 >= W || y0 >= H) continue;
+      const edge = el.dataset.safe;
+      if (edge === 'top') ins.t = Math.max(ins.t, y1);
+      else if (edge === 'bottom') ins.b = Math.max(ins.b, H - y0);
+      else if (W >= 768 && edge === 'right') ins.r = Math.max(ins.r, W - x0);
+      else if (W >= 768 && edge === 'left') ins.l = Math.max(ins.l, x1);
+    }
+    if (W - ins.l - ins.r < Math.min(W * 0.5, 360)) ins.l = ins.r = 0;
+    if (H - ins.t - ins.b < H * 0.35) { const k = (H * 0.65) / (ins.t + ins.b); ins.t *= k; ins.b *= k; }
+    return ins;
+  }
+  // A framing computed for the whole stage, moved and scaled into the free space.
+  function insetVT(v, vbArr) {
+    const ins = safeInsets(), { W, H } = ins;
+    if (!W || !H) return v;
+    const [vx, vy, vw, vh] = vbArr, s0 = Math.min(W / vw, H / vh);
+    const f = Math.min((W - ins.l - ins.r) / W, (H - ins.t - ins.b) / H);
+    const cx = vx + vw / 2, cy = vy + vh / 2, ox = (ins.l - ins.r) / 2 / s0, oy = (ins.t - ins.b) / 2 / s0;
+    return { k: v.k * f, x: cx + ox + f * (v.x - cx), y: cy + oy + f * (v.y - cy) };
+  }
+  const circVB = () => (rotTarget ? VB_CIRC_R : VB_CIRC);
   function defaultVT(circuit) {
     if (!circuit) {
       // Fit frames everything the plate draws: the heart and the veins above it, the organs, the
@@ -810,44 +850,67 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       y0 = Math.max(y0, FIT_TOP) - 8; y1 += 8;
       // The svg shows its viewBox scaled to fit (meet), and the spare room on the other axis is
-      // visible too: fit the box into that whole visible area.
+      // visible too: fit the box into that whole visible area, less what the floating pieces cover.
+      const ins = safeInsets();
       const s0 = Math.min(r.width / VB_ANAT[2], r.height / VB_ANAT[3]);
-      const k = Math.min(1, r.width / s0 / (x1 - x0), r.height / s0 / (y1 - y0));
-      const cx = VB_ANAT[0] + VB_ANAT[2] / 2, cy = VB_ANAT[1] + VB_ANAT[3] / 2;
+      const fw = Math.max(40, r.width - ins.l - ins.r), fh = Math.max(40, r.height - ins.t - ins.b);
+      const k = Math.min(1.15, fw / s0 / (x1 - x0), fh / s0 / (y1 - y0));
+      const cx = VB_ANAT[0] + VB_ANAT[2] / 2 + (ins.l - ins.r) / 2 / s0, cy = VB_ANAT[1] + VB_ANAT[3] / 2 + (ins.t - ins.b) / 2 / s0;
       return { k, x: cx - k * ((x0 + x1) / 2), y: cy - k * ((y0 + y1) / 2) };
     }
     // Turned upright, the map is tall and fills the height of the stage as it is.
-    if (rotTarget) return { k: 1, x: 0, y: 0 };
-    const W = wrap.clientWidth, H = wrap.clientHeight;
+    if (rotTarget) return insetVT({ k: 1, x: 0, y: 0 }, circVB());
+    const ins = safeInsets();
+    const W = ins.W - ins.l - ins.r, H = ins.H - ins.t - ins.b;
     const s0 = Math.min(W / VB_CIRC[2], H / VB_CIRC[3]);
-    if (VB_CIRC[3] * s0 > 0.62 * H) return { k: 1, x: 0, y: 0 };
+    if (VB_CIRC[3] * s0 > 0.62 * H) return insetVT({ k: 1, x: 0, y: 0 }, VB_CIRC);
     const k = clamp((0.94 * H) / (VB_CIRC[3] * s0), 1, 3);
     const cx = VB_CIRC[0] + VB_CIRC[2] / 2, cy = VB_CIRC[1] + VB_CIRC[3] / 2;
     const fx = 640, fy = cy;
-    return { k, x: cx - k * fx, y: cy - k * fy };
+    return insetVT({ k, x: cx - k * fx, y: cy - k * fy }, VB_CIRC);
   }
   // Fit shows the whole figure. On a narrow screen the circuit opens as a close-up of the portal vein
   // and liver (see defaultVT), which is not a fit: there Fit shows the entire map, and tapping it
   // again returns to the close-up, so the button always does something visible.
   const fit = () => {
     // In the lobule view, Fit shows the whole lobule again (it never leaves the view).
-    if (lobuleOn) { lz.resetView(); return; }
-    const circuit = morphTarget === 1, focus = defaultVT(circuit), whole = { k: 1, x: 0, y: 0 };
+    if (lobuleOn) { lz.fitView(); return; }
+    const circuit = morphTarget === 1, focus = defaultVT(circuit), whole = circuit ? insetVT({ k: 1, x: 0, y: 0 }, circVB()) : { k: 1, x: 0, y: 0 };
     const near = (a, b) => Math.abs(a.k - b.k) < 0.02 && Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1;
     vt = circuit && !near(focus, whole) ? (near(vt, whole) ? focus : whole) : focus;
     if (!circuit) homeAt = vtTarget = vt;
     applyVT(); CTM = null;
   };
 
-  // Turn the circuit upright (flow bottom to top) or back to wide. The map is shown whole either way.
+  // Turn the circuit upright (flow bottom to top) or back to wide. Shown whole, it stays whole (fitted
+  // to the new shape); zoomed in, it keeps the zoom and turns about the point at the middle of the
+  // free space, which stays where it is on screen.
+  let rotHold = null;
+  function holdView(hd) {
+    const b = stageBox(), vb = svg.viewBox.baseVal, s0 = Math.min(b.sw / vb.width, b.sh / vb.height);
+    const ox = b.left + b.sx + (b.sw - vb.width * s0) / 2 - vb.x * s0, oy = b.top + b.sy + (b.sh - vb.height * s0) / 2 - vb.y * s0;
+    const k = hd.sc / s0, th = (rotDeg() * Math.PI) / 180, co = Math.cos(th), si = Math.sin(th);
+    const dx = hd.w[0] - CIRC_C[0], dy = hd.w[1] - CIRC_C[1];
+    const rx = CIRC_C[0] + co * dx - si * dy, ry = CIRC_C[1] + si * dx + co * dy;
+    vt = { k, x: (hd.sx - ox) / s0 - k * rx, y: (hd.sy - oy) / s0 - k * ry };
+    applyVT(); CTM = null;
+  }
   function setCircuitRotated(on) {
     on = on ? 1 : 0;
     try { localStorage.setItem('pps.circuitRot', String(on)); } catch { /* storage unavailable */ }
     if (on === rotTarget) return;
+    const whole = morphTarget !== 1 || vt.k <= 1.001 || sameView(vt, insetVT({ k: 1, x: 0, y: 0 }, circVB()));
+    rotHold = null;
+    if (!whole) {
+      const ins = safeInsets(), b = stageBox();
+      const sx = b.left + (ins.l + ins.W - ins.r) / 2, sy = b.top + (ins.t + ins.H - ins.b) / 2;
+      refreshCTM();
+      rotHold = { w: clientToWorld(sx, sy), sx, sy, sc: CTM.sc };
+    }
     rotTarget = on;
     cancelAnimationFrame(vtAnim);
-    vt = { k: 1, x: 0, y: 0 };
-    if (morphTarget !== 1 || reduceMotion.matches) { rotU = on; setViewBox(easeInOut(morph)); }
+    if (whole) vt = morphTarget === 1 ? insetVT({ k: 1, x: 0, y: 0 }, circVB()) : { k: 1, x: 0, y: 0 };
+    if (morphTarget !== 1 || reduceMotion.matches) { rotU = on; setViewBox(easeInOut(morph)); if (rotHold) { holdView(rotHold); rotHold = null; } }
   }
 
   // A bottom sheet (the action card on a phone) covers the lower part of the figure. reveal() pans the figure,
@@ -859,7 +922,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!sel || lobuleOn || lz?.isOpen()) return;
     const a = anchorFor(sel);
     if (!a) return;
-    const W = wrap.clientWidth, H = wrap.clientHeight, top = 44, bottom = H - insetBottom - 18, side = 18;
+    const ins = safeInsets();
+    const W = wrap.clientWidth, H = wrap.clientHeight, top = Math.max(44, ins.t + 12), bottom = H - Math.max(insetBottom, ins.b) - 18, side = 18;
     if (bottom - top < 80) return;
     const inside = a.y >= top && a.y <= bottom && a.x >= side && a.x <= W - side;
     if (inside) return;
@@ -883,17 +947,42 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // liver's card, the palette, a presenter step) and cross-fades over the plate.
   let liverBB = null;
   let lobuleOn = false, lobU = 0, lobAnim = 0;
+  // Into the lobule, a dive (0.9 s): the camera flies into the liver while, over its second half, the
+  // lobule grows out of that spot and the liver's surface dissolves into it. Out, the reverse: the
+  // lobule shrinks back into the liver and the camera pulls out to the framing it had.
+  let preLobule = null, diveAt = null;
+  const DIVE_MS = 900;
+  function diveTarget() {
+    const lb = liverBox();
+    if (!lb) return null;
+    const b = svg.viewBox.baseVal, wx = lb.x + lb.w * 0.42, wy = lb.y + lb.h * 0.5;
+    return { w: [wx, wy], vt: vtFor(wx, wy, clamp(Math.min(b.width / lb.w, b.height / lb.h) * 1.7, 2.6, 5.5)) };
+  }
   function setLobule(on) {
     if (on && morphTarget !== 0) return;
     if (lobuleOn === on && (lobU === (on ? 1 : 0))) return;
     lobuleOn = on;
     cancelAnimationFrame(lobAnim);
-    const from = lobU, to = on ? 1 : 0, t0 = performance.now(), ms = reduceMotion.matches ? 0 : 420;
+    const ms = reduceMotion.matches ? 0 : DIVE_MS, from = lobU, t0 = performance.now();
+    if (on) {
+      if (lobU === 0) preLobule = { ...vt };
+      const d = diveTarget();
+      diveAt = d?.w || null;
+      if (d && ms) animateVT(d.vt, ms); else if (d) { vt = d.vt; applyVT(); CTM = null; }
+    } else if (ms) {
+      // Pull out a moment after the lobule starts to shrink, back to where the anatomy was.
+      const back = preLobule && !sameView(preLobule, { k: 1, x: 0, y: 0 }) ? preLobule : (homeAt || defaultVT(false));
+      setTimeout(() => { if (!lobuleOn) animateVT(back, ms * 0.85); }, ms * 0.15);
+    }
     const step = (now) => {
-      const u = ms ? clamp((now - t0) / ms, 0, 1) : 1;
-      lobU = from + (to - from) * easeInOut(u);
+      const e = ms ? clamp((now - t0) / ms, 0, 1) : 1;
+      // In: the lobule appears over the second half of the flight. Out: it is gone in the first half.
+      const u = on ? clamp((e - 0.42) / 0.58, 0, 1) : clamp(1 - e / 0.5, 0, 1);
+      lobU = on ? Math.max(from, easeInOut(u)) : Math.min(from, easeInOut(u));
+      if (diveAt) { refreshCTM(); const [x, y] = worldToLocal(diveAt[0], diveAt[1]); lz.setOrigin?.(x, y); }
       syncSemantic();
-      if (u < 1) lobAnim = requestAnimationFrame(step);
+      if (e < 1) lobAnim = requestAnimationFrame(step);
+      else if (!on) { lobU = 0; syncSemantic(); }
     };
     step(performance.now());
   }
@@ -946,7 +1035,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function openLobule(tries = 0) {
     if (morphTarget !== 0) store.set({ view: 'anatomic' });
     // Right after loading the liver may not be laid out yet: try again shortly.
-    if (!liverBox() || morphTarget !== 0) { if (tries < 25) setTimeout(() => { if (store.get().lobule) openLobule(tries + 1); }, 200); return; }
+    // From the circuit, ease into the anatomy first, then dive.
+    if (!liverBox() || morphTarget !== 0 || morph > 0.02) { if (tries < 40) setTimeout(() => { if (store.get().lobule) openLobule(tries + 1); }, 120); return; }
     // The anatomy's card (the liver's, usually) would sit over the lobule: the lobule's parts have their own.
     if (store.get().selection && store.get().selection.type !== 'lobule') store.set({ selection: null });
     setLobule(true);
@@ -1050,7 +1140,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const d = t === 1 ? g.dC : polyD(pts);
       x.halo.setAttribute('d', d); x.sel.setAttribute('d', d); x.wall.setAttribute('d', d); x.hit.setAttribute('d', d);
       x.shadow.setAttribute('d', d);
-      if (x.spine) x.spine.setAttribute('d', d);
       if (x.heat) x.heat.setAttribute('d', d);
       if (x.lumen) x.lumen.setAttribute('d', d);
       g.lit = litNormals(pts);
@@ -1183,7 +1272,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (x.isArt) { setA(x.wall, 'stroke-width', w.toFixed(1)); continue; }
       x.pmid = (P1 + P2) / 2;
       const baseD = e.d || (e.dMax ? dMinOf(e) : 3);
-      const wallT = e.kind === 'liver' ? 0.7 : clamp(0.9 * Math.sqrt(baseD / Math.max(0.3, D)), 0.8, 1.6);
+      // The circuit is a map: a slightly wider border (drawn by the GPU, as one shape with filleted
+      // joins) gives its lines their weight.
+      const wallT = (e.kind === 'liver' ? 0.7 : clamp(0.9 * Math.sqrt(baseD / Math.max(0.3, D)), 0.8, 1.6)) * (1 + 0.45 * t);
       if (x.wallPx == null || Math.abs(wallT - x.wallPx) >= 0.1) x.wallPx = Math.round(wallT * 20) / 20;
       const wallPx = x.wallPx;
       setA(x.wall, 'stroke-width', (w + 2 * wallPx).toFixed(1));
@@ -1218,7 +1309,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           for (const el of [fd.lumen, fd.wall]) { if (el.style.display !== vis) el.style.display = vis; if (el.style.opacity !== op) el.style.opacity = op; }
         }
       }
-      if (x.spine) setA(x.spine, 'stroke-width', (w + 16).toFixed(1));
       let c1, c2;
       if (mode === 'pressure') { c1 = pressureColor(qP(P1)); c2 = pressureColor(qP(P2)); }
       else if (mode === 'drop') { c1 = c2 = dropColor(P1 - P2); }
@@ -1979,6 +2069,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return u >= 0 && u < 1 && v >= 0 && v < 1 ? [a[0] + r[0] * u, a[1] + r[1] * u, r[0], r[1]] : null;
   }
   function updateBridges(t) {
+    // The GPU draws crossings itself (each tier passes over the one below with its own border).
+    if (wrap.classList.contains('gl-on')) { if (bridgeKey) { bridgeKey = ''; gBridges.replaceChildren(); } return; }
     const vis = t === 1 ? Object.values(E).filter((x) => x.vis && !x.isArt && !x.g.classList.contains('coll-ghost') && x.g.style.display !== 'none') : [];
     const key = vis.map((x) => x.e.id + ':' + x.width.toFixed(0)).join(',');
     if (key === bridgeKey) return;
@@ -2948,6 +3040,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (rotU !== rotTarget) {
       rotU = clamp(rotU + Math.sign(rotTarget - rotU) * dt / 0.5, 0, 1);
       setViewBox(easeInOut(morph));
+      if (rotHold) { holdView(rotHold); if (rotU === rotTarget) rotHold = null; }
+      else if (rotU === rotTarget && morphTarget === 1) { vt = insetVT({ k: 1, x: 0, y: 0 }, circVB()); applyVT(); CTM = null; }
     }
     stepReveals(now);
     if (F) stepBlood(dt);
@@ -3308,8 +3402,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       syncSemantic();
       // Zoomed out (or fitted) in the anatomy, the circuit opens zoomed out too: the whole map, not
       // the close-up it opens with on a phone. From a zoomed-in view it takes its usual framing.
-      const wasOut = target === 1 && vt.k <= 1.001;   // the whole plate (or less) is showing
-      const d = wasOut ? { k: 1, x: 0, y: 0 } : defaultVT(target === 1);
+      const wasOut = target === 1 && (vt.k <= 1.001 || (homeAt && sameView(vt, homeAt)));   // the whole plate (or less) is showing
+      const d = wasOut ? insetVT({ k: 1, x: 0, y: 0 }, circVB()) : defaultVT(target === 1);
       if (target === 0) homeAt = d;   // back to the anatomy: always its home framing
       if (d.k !== vt.k || d.x !== vt.x || d.y !== vt.y) animateVT(d, 600);
     },
@@ -3359,8 +3453,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (geo[anchor]) return pointAt(geo[anchor].cur, 0.5);
       return null;
     },
-    zoomIn: () => { const r = wrap.getBoundingClientRect(); zoomAt(r.left + r.width / 2, r.top + r.height / 2, 1.25); },
-    zoomOut: () => { const r = wrap.getBoundingClientRect(); zoomAt(r.left + r.width / 2, r.top + r.height / 2, 0.8); },
+    // The zoom buttons zoom about the middle of the free space; in the lobule they drive its own view.
+    zoomIn: () => { if (lobuleOn) { lz.zoomBy(1.4); return; } const c = freeCentre(); animZoomAt(c[0], c[1], 1.4); },
+    zoomOut: () => { if (lobuleOn) { lz.zoomBy(1 / 1.4); return; } const c = freeCentre(); animZoomAt(c[0], c[1], 1 / 1.4); },
     fit,
     reveal, unreveal,
     /** Changes whenever what is drawn where changes (a pan, a zoom, the morph): a cheap key for "did anything move". */
@@ -3368,7 +3463,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setCircuitRotated,
     circuitRotated: () => rotTarget === 1,
     zoomToBox,
-    zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(),
+    zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(), lobuleViewKey: () => lz?.viewKey(),
+    /** On-screen scale, px per world unit (for the tests: turning the circuit keeps it). */
+    zoomLevel: () => { refreshCTM(); return CTM.sc; },
     focusEdge(id) { E[id]?.hit.focus(); },
     startShunt, cancelShunt, isShunting: () => !!shunt, anchorFor, organAt,
     /** Briefly glow the given vessels (where a readout is measured). */

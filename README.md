@@ -68,17 +68,29 @@ as a map of the disease: grouped by where the resistance sits, each with its pre
 - **One timeline.** Play runs the heartbeat-scale model; +1 wk, +1 mo and +6 mo jump the disease
   ahead. Every change and every event is a marker: click one to go back, or compare the live
   model with it (*Compare from here*).
-- **Patient** (side panel tab). Vitals with trends, Treat (drugs, fluids, procedures), and the Story of what
-  happened and why. Click any readout for a causal **Why?**
-- **Measure** (side panel tab). Pressure profile, pressure landscape, trends, flow, perfusion, HVPG, spectral
+- **The figure fills the screen.** Everything else floats over it: one row of pills at the top
+  (the menu and patient · Anatomy/Circuit/Lobule · Blood and the color legend · Findings, Treat,
+  Measure, Search; two rows when they do not fit), a vitals dock at the bottom (play bar and the four
+  key readouts; its chevron opens the rest), a zoom pill, and cards that open on demand. Fit frames
+  the anatomy in the space they leave, and nothing floating ever covers anything else.
+- **Menu** (top left, named after the current mode). Explore, Lessons, Cases, Presenter, the Home
+  page; share, export and the figure view; settings and help.
+- **Findings** (top bar badge: a check, or how many findings in the color of the worst). Opens the
+  patient chart: what is abnormal in plain words, and the Story of what happened and why. Click
+  any readout for a causal **Why?**
+- **Treat (T).** One card with the drugs, fluids and blood, and procedures.
+- **Measure (I).** The Instruments card: on a wide landscape screen a tall card on the right (drag
+  its left edge to resize), on a phone or a portrait tablet a sheet above the dock. One tap on a tab
+  picks an instrument (each tab shows its live reading); *Two at once* shows a pair; *Full screen*
+  gives it the window. Pressure profile, pressure landscape, trends, flow, perfusion, HVPG, spectral
   Doppler, endoscopy, varix wall, abdomen. The **pressure landscape** raises the circuit by
   pressure (drag to tilt): blood runs downhill, cliffs are resistances, and it names the steepest
-  fall on the portal pathway. One opens in the Measure tab; pop it out or stack a second one below it.
+  fall on the portal pathway.
 - **Semantic zoom.** Zoom into the liver, then choose *Lobule* in the zoom trail (or *Zoom into
   the lobule* on the liver's card): the plate becomes a honeycomb of lobules drawn from the model
   (sinusoids, stellate cells, collagen, congestion). Zooming alone never leaves the anatomy.
-- **Phones.** The figure takes the screen; the side-panel button slides the panel (Patient and
-  Measure) over it.
+- **Phones.** The same layout; the patient chart and Treat open as bottom sheets with three
+  heights (drag the handle; drag below the lowest to close).
 - **Views and lenses.** Anatomy or a transit-map Circuit; color by pressure, change, congestion,
   pressure drop, flow, velocity or direction.
 - **Figure (F).** A clean labeled plate to present, print or export as SVG or PNG.
