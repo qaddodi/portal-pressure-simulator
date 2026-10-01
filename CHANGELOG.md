@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Reversed flow glows orange.** Where a vessel's flow runs against its healthy direction (the Direction lens's
+  test), its shimmer (or parcels) warms to the reversed-flow orange, easing in over half a second, so hepatofugal
+  portal flow or a reversed splenic vein stands out as it happens. Not applied over the origin streams.
 - **Shimmer, refined, and now the default look.** Long, soft streaks of light carried by the flow, each at its
   lane's laminar speed (fastest on the axis, so the sheen visibly shears), over a faint glow along the core;
   brighter and denser where more blood passes. Parcels remain in the Blood menu.

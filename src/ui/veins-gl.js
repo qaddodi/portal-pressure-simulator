@@ -426,6 +426,7 @@ uniform int dyeOn;
 uniform float clock;                   // seconds (wrapped), for the drift of stagnant blood
 uniform vec3 originCol[4];
 uniform vec3 dyeCol;
+uniform vec3 revCol;                   // the moving blood's color where flow runs backwards
 uniform vec3 inkLight, inkDark;
 uniform vec4 bleedE[10];               // world ellipses: center, radii
 uniform float bleedA[10];
@@ -477,6 +478,10 @@ vec4 bloodAt(int id, float s, float y, vec3 col) {
   // Parcels read as bright beads with a soft glow on a dark lumen, deep beads on a pale one.
   vec3 core = pale ? mix(col, inkDark, 0.62) : mix(col, inkLight, 0.86);
   vec3 halo = pale ? mix(col, inkDark, 0.3) : mix(col, inkLight, 0.45);
+  // Flow running backwards: the moving blood warms to orange (not over the origin streams, whose
+  // amber it would be lost in).
+  float rev = origin == 1 ? 0.0 : f1.w;
+  if (rev > 0.0) { core = mix(core, mix(revCol, inkLight, 0.18), rev); halo = mix(halo, mix(col, revCol, 0.7), rev); }
   float laneW = 1.6 * R / float(n);
   if (look == 0) {
     // Beads with a short tail behind them (longer where faster), scattered within their lane so
@@ -955,6 +960,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.uniform1f(U.rows, nTubes);
       gl.uniform3fv(U.originCol, new Float32Array((blood.originCol || [[1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]]).flat()));
       gl.uniform3f(U.dyeCol, ...(blood.dyeCol || [0.8, 0.95, 0.2]));
+      gl.uniform3f(U.revCol, ...(blood.revCol || [1, 0.55, 0.16]));
       gl.uniform3f(U.inkLight, ...(blood.inkLight || [1, 1, 1]));
       gl.uniform3f(U.inkDark, ...(blood.inkDark || [0.1, 0.1, 0.16]));
       const bl = blood.bleed || [];

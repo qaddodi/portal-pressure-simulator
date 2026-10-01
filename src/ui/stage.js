@@ -8,7 +8,7 @@ import { store, updateParams } from './store.js?v=fd17378e33';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=fe164f31f1';
 import { createLobuleZoom } from './lobule-zoom.js?v=fb044770fc';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=4b98f96af5';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=a5f198e5a5';
 import { advanceStream, originFractions, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=1680c237fa';
 
 const N_SAMPLES = 64;
@@ -2790,7 +2790,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // tributary row gets FLOW_TEXELS texels for the GPU:
   //   0: stream distance (world, modulo PERIOD), display speed (signed, from → to), parcels a
   //      second, stasis (0–1)
-  //   1: free at the from end, free at the to end (parcels fade there), strength, -
+  //   1: free at the from end, free at the to end (parcels fade there), strength, reversed (0–1, eased)
   //   2: fraction of its blood from the gut, the spleen and the hepatic artery (rest: systemic)
   const flowData = new Float32Array(GL_ROWS * FLOW_TEXELS * 4);
   const dyeData = new Float32Array(GL_ROWS * DYE_BINS), dyeRow = new Float32Array(DYE_BINS);
@@ -2832,7 +2832,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const speed = st.clock === 'hemo' ? clamp(Math.sqrt(st.speed), 0.5, 2) : 0.8;
     const Qf = F.Qf || F.Q;
     if (moving) bloodClock = (bloodClock + dt) % 10000;
-    for (let k = 0; k < EDGES.length; k++) advanceStream(streams[k], velOf(k, Qf[k]), velOf(k, F.Q[k]), moving ? dt : 0, { phasic: !!b.phasic, speed, large: LARGE[k] });
+    // Reversed flow (against the healthy direction, as the Direction lens has it) eases in and out.
+    const ease = -Math.expm1(-dt / 0.5), RF = { Qf };
+    for (let k = 0; k < EDGES.length; k++) {
+      const sm = advanceStream(streams[k], velOf(k, Qf[k]), velOf(k, F.Q[k]), moving ? dt : 0, { phasic: !!b.phasic, speed, large: LARGE[k] });
+      const rt = isReversed(EDGES[k], RF) ? 1 : 0;
+      sm.rev = sm.rev == null ? rt : sm.rev + (rt - sm.rev) * ease;
+    }
     if (!veins) return;
     const on = bloodOn();
     if (on && b.origin && originsF !== F) { origins = originFractions(EDGES, NODES, Qf, F.Pf || F.P); originsF = F; }
@@ -2841,7 +2847,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const put = (row, k, q, f0, f1, strength) => {
       const o = row * FLOW_TEXELS * 4, sm = streams[k];
       flowData[o] = sm.D; flowData[o + 1] = sm.vd; flowData[o + 2] = KAPPA * Math.abs(q); flowData[o + 3] = sm.stasis;
-      flowData[o + 4] = f0 ? 1 : 0; flowData[o + 5] = f1 ? 1 : 0; flowData[o + 6] = strength;
+      flowData[o + 4] = f0 ? 1 : 0; flowData[o + 5] = f1 ? 1 : 0; flowData[o + 6] = strength; flowData[o + 7] = sm.rev;
       if (origins) { flowData[o + 8] = origins[k * 3]; flowData[o + 9] = origins[k * 3 + 1]; flowData[o + 10] = origins[k * 3 + 2]; }
     };
     if (on) for (const x of Object.values(E)) {
@@ -2889,6 +2895,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Gut (amber), spleen (violet), hepatic artery (crimson), the rest of the body (slate blue): main.js keys them.
     originCol: [[0.9, 0.6, 0.16], [0.49, 0.36, 0.86], [0.84, 0.2, 0.28], [0.44, 0.56, 0.75]],
     dyeCol: [0.78, 0.96, 0.2], inkLight: [1, 1, 1], inkDark: [0.07, 0.08, 0.15],
+    revCol: [1, 0.55, 0.16],   // reversed flow: the moving blood glows orange (as --flow-reversed)
   };
   // Active variceal bleeding: a small spray at the rupture site and blood pooling in the stomach.
   function bleedSpray(moving) {

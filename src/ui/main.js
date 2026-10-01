@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=d292ccefe8';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=fd17378e33';
-import { createStage } from './stage.js?v=1a65fa6a10';
+import { createStage } from './stage.js?v=3f9980912b';
 import { createInspector } from './inspector.js?v=7778eed16a';
 import { createDock, CUTOFFS } from './dock.js?v=3115b12270';
 import { createWhy } from './why.js?v=bf0f24a7a5';
@@ -544,7 +544,7 @@ function openLegend(anchor) {
   popover(anchor, [h('div', { class: 'menu-title' }, 'How to read the figure'),
     h('div', { style: { padding: '2px 10px 8px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: 'var(--fs-13)', lineHeight: 1.5, color: 'var(--text-2)', maxWidth: '340px' } },
       rows.map(([k, v]) => h('div', {}, h('b', { style: { color: 'var(--text)' } }, k + '. '), v)),
-      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Moving blood. '), 'Blood moves the way the model\u2019s flow goes, as a silky shimmer (or, in the Blood menu, as parcels: dots you can count). The number passing a point each second is proportional to flow, so what enters a junction leaves it. Lanes near the axis run faster than those near the wall (laminar flow: the centre at twice the mean). Time is slowed and speed compressed (it grows with \u221Avelocity), so the order of speeds is right but not their ratio. Drifting smoke marks slow flow (under ~5 cm/s) in a large vein, where clots can form. Pause and reduced motion hold the blood still; the Direction lens gives a static cue. The Blood menu above the figure colors the blood by origin (side-by-side streams from the gut, spleen, hepatic artery and the rest of the body), adds breathing and heartbeat, or injects dye; a vessel\u2019s card injects dye into that vessel (hold to go on).'),
+      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Moving blood. '), 'Blood moves the way the model\u2019s flow goes, as a silky shimmer (or, in the Blood menu, as parcels: dots you can count). The number passing a point each second is proportional to flow, so what enters a junction leaves it. Lanes near the axis run faster than those near the wall (laminar flow: the centre at twice the mean). Time is slowed and speed compressed (it grows with \u221Avelocity), so the order of speeds is right but not their ratio. Where flow runs backwards (against its healthy direction) the moving blood turns orange. Drifting smoke marks slow flow (under ~5 cm/s) in a large vein, where clots can form. Pause and reduced motion hold the blood still; the Direction lens gives a static cue. The Blood menu above the figure colors the blood by origin (side-by-side streams from the gut, spleen, hepatic artery and the rest of the body), adds breathing and heartbeat, or injects dye; a vessel\u2019s card injects dye into that vessel (hold to go on).'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Notation. '), 'Dotted vessels are closed potential collaterals. In Flow volume, line width represents flow rate (square-root scale); in other lenses it follows vessel diameter (compressed). Faint lines crossing an organ run behind it. ▲ / ▼ on a label: change in mmHg from healthy, shown once it reaches 5 mmHg (while comparing, every change from the moment you compare from).'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Organs. '), 'Organs are drawn as in an anatomy plate, lit from the upper left. On the liver, texture means disease: nodules for cirrhosis, mottling for congestion (nutmeg liver), a darker vignette as sinusoidal pressure rises. The spleen grows with splenomegaly.'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Varix ring. '), 'The ring around the esophageal varices closes as their wall tension (pressure × radius ÷ wall thickness) approaches the rupture threshold: amber from 70 %, red from 90 %.'))], { align: 'end', cls: 'legend-pop' });
@@ -606,7 +606,7 @@ function openBlood(anchor) {
     h('p', { class: 'blood-note' }, st.selection?.type === 'edge' ? 'Into the selected vessel. ' : 'Into the gut\u2019s veins; or tap a vessel and use Inject dye on its card. ',
       `A ${DYE_SECONDS}-second injection (hold J to go on longer). It splits at junctions and is diluted where undyed blood joins.`),
     h('div', { class: 'menu-sep' }),
-    h('p', { class: 'blood-note' }, h('b', {}, 'What is true: '), 'direction; which vessel is faster; parcels passing a point each second are proportional to flow; centre lanes run at twice the mean (laminar flow). ',
+    h('p', { class: 'blood-note' }, h('b', {}, 'What is true: '), 'direction (where flow runs backwards, against its healthy direction, the moving blood turns orange); which vessel is faster; parcels passing a point each second are proportional to flow; centre lanes run at twice the mean (laminar flow). ',
       h('b', {}, 'Exaggerated: '), 'time is slowed and speed compressed (speed grows with √velocity). Smoke marks slow flow (under ~5 cm/s) in a large vein.'),
   ], { cls: 'blood-pop' });
 }
