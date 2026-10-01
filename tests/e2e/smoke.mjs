@@ -232,6 +232,43 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await shot(page, `${device}-veins-gl`);
   });
 
+  await check(device, 'liver lobule: GPU vessels, ladder, cards, zones', async (page) => {
+    await open(page, '?preset=cirr-decomp');
+    await page.evaluate(() => window.pps.stage.zoomLobule('R'));
+    await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 8000 });
+    await page.waitForTimeout(900);
+    const kind = await page.evaluate(() => document.querySelector('.lz').dataset.vessels);
+    if (kind !== 'webgl2') throw new Error(`expected the lobule's vessels on the GPU, got ${kind}`);
+    // The vessel layer actually holds a picture.
+    const lit = await page.evaluate(() => {
+      const g = document.querySelector('.lz-gl'), c = document.createElement('canvas');
+      c.width = 160; c.height = 100;
+      const x = c.getContext('2d');
+      x.drawImage(g, 0, 0, 160, 100);
+      const d = x.getImageData(0, 0, 160, 100).data;
+      let n = 0;
+      for (let i = 3; i < d.length; i += 4) if (d[i] > 40) n++;
+      return n;
+    });
+    if (lit < 300) throw new Error(`the lobule's vessel layer is nearly empty (${lit} px)`);
+    if ((await page.locator('.lz-lab').count()) !== 3) throw new Error('station cards missing');
+    if ((await page.locator('.lz-lad .lz-ladDot').count()) !== 5) throw new Error('pressure ladder incomplete');
+    const seg = await page.evaluate(() => document.querySelector('.lz-verdict').dataset.seg);
+    if (seg !== 'sinusoidal') throw new Error(`cirrhosis should read as a sinusoidal block, got ${seg}`);
+    await page.locator('.lz-lab').nth(1).click();
+    await page.waitForSelector('.lz-card:not([hidden])');
+    if (!(await page.locator('.lz-card').innerText()).includes('Sinusoid')) throw new Error('the sinusoid card did not open');
+    await page.keyboard.press('Escape');
+    if (device === 'phone') await page.click('.lz-more');
+    await page.click('.lz-tg.zones');
+    await page.waitForFunction(() => document.querySelectorAll('.lz-zone').length === 3, null, { timeout: 5000 }).catch(() => { throw new Error('zones did not show'); });
+    await page.click('.lz-tg.lymph');
+    await page.waitForTimeout(500);
+    await shot(page, `${device}-lobule`);
+    await page.evaluate(() => window.pps.stage.zoomLiver());
+    await page.waitForFunction(() => !window.pps.stage.lobuleOpen(), null, { timeout: 8000 });
+  });
+
   await check(device, 'dark theme', async (page) => {
     await page.emulateMedia({ colorScheme: 'dark' });
     await open(page, '?preset=budd-chiari');

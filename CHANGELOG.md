@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- **The liver lobule, redrawn.** Zooming into the lobule now grows it out of the liver and draws its vessels with the
+  anatomy's own GPU renderer: the same casings, smooth filleted joins, shading and moving blood (streaks, chevrons,
+  orange where flow reverses, and the Blood origin lens). The network follows blood's real path: a portal triad at
+  each corner (venule, arteriole, bile ductule), inlet venules along the edges, sinusoids that cross-link and merge
+  toward the central vein (so blood speeds up as they converge), and arterioles emptying into zone 1.
+- **Quiet tissue, visible disease.** Hepatocyte plates one cell thick; neighbouring lobules fade into the page.
+  Collagen, stellate cells and septa appear only with disease: capillarization sleeves along the sinusoids, a
+  thickened portal tract (pre-sinusoidal), a fibrotic central vein (post-sinusoidal), bridging septa that cut the
+  lobule into nodules with intrahepatic shunts running in them (cirrhosis), and zone-3 congestion with cell dropout
+  ("nutmeg") when the outflow backs up. In hepatofugal flow the inlet venules run backwards, in orange.
+- **Teaching layers in the lobule.** A pressure ladder (portal venule → sinusoids → central vein → hepatic vein →
+  IVC, against the healthy ladder) names where the pressure is lost and what that means for HVPG. *Zones* shades
+  the acinus (1 periportal → 3 centrilobular); *Lymph* shows lymph leaving the space of Disse for the portal tract
+  at the model's rate. Tap any part (triad, inlet venule, sinusoid, arteriole, central vein, shunt, septum,
+  hepatocytes) for a short card; a tapped sinusoid lights its path to the central vein. Station labels use the
+  anatomy's label cards. On a phone the panel is a compact sheet with *Details* (ladder, fibrosis buttons, legend).
 - **Circuit lanes stay tube-like on a phone.** Shown small (a phone, the whole map), every circuit lane grows by
   the same factor so the widest stays about 10 px on screen, capped so neighbouring lanes stay apart.
 - **Simpler Blood menu:** just *Streaks* and *Chevrons*, each on or off. Parcels, breathing and heartbeat and the
