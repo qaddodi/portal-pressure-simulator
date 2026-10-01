@@ -163,6 +163,19 @@ svg { flex: none; }
 .lg-cats { display: flex; gap: 12px; font-size: var(--fs-12); color: var(--text-2); }
 .lg-cats span { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
 .lg-cats i { width: 18px; height: 4px; border-radius: 2px; }
+.lg-dots { gap: 10px; }
+.lg-dots span { gap: 5px; }
+.lg-dots i { width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0, 0, 0, .18); }
+.lg-dots b { font-weight: 500; }
+.lg-dots .lg-short { display: none; }
+@media (max-width: 760px) {
+  /* Five short names in two compact rows, so the key fits beside the Blood button. */
+  .lg-dots { display: grid; grid-template-columns: repeat(3, auto); gap: 1px 7px; font-size: var(--fs-11); line-height: 1.25; }
+  .lg-dots span { gap: 3px; }
+  .lg-dots i { width: 7px; height: 7px; }
+  .lg-dots .lg-long { display: none; }
+  .lg-dots .lg-short { display: inline; }
+}
 .lg-note { color: var(--text-3); font-style: italic; }
 .lg-note svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; }
 
@@ -2099,13 +2112,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 #btnBlood.off svg:first-child { color: var(--text-3); }
 #btnBlood.off span { color: var(--text-3); text-decoration: line-through; text-decoration-thickness: 1px; }
 .blood-pop { width: min(340px, calc(100vw - 24px)); }
-.blood-pop .menu-item small, .blood-look small { display: block; color: var(--text-2); font-size: var(--fs-12); line-height: 1.4; margin-top: 2px; font-weight: 400; }
+.blood-pop .menu-item small { display: block; color: var(--text-2); font-size: var(--fs-12); line-height: 1.4; margin-top: 2px; font-weight: 400; }
 .blood-opt { align-items: flex-start; }
 .blood-opt input { margin-top: 3px; }
-.blood-look { align-items: center; }
-.blood-sample { flex: 0 0 34px; height: 12px; border-radius: 6px; background: #8E3A86; position: relative; overflow: hidden; }
-.blood-sample.parcels { background-image: radial-gradient(circle at center, rgba(255, 255, 255, .95) 0 1.6px, transparent 2.2px); background-size: 8px 6px; }
-.blood-sample.shimmer { background-image: linear-gradient(90deg, transparent 10%, rgba(255, 255, 255, .55) 30%, transparent 50%, rgba(255, 255, 255, .4) 75%, transparent 90%); }
-.blood-note { margin: 2px 10px 6px; color: var(--text-2); font-size: var(--fs-12); line-height: 1.45; }
-.blood-note b { color: var(--text); font-weight: 600; }
 @media (max-width: 600px) { #btnBlood > span, #btnBlood .chev { display: none; } }

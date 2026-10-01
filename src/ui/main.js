@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=d292ccefe8';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=f6b049db80';
-import { createStage } from './stage.js?v=ef3491c902';
+import { createStage } from './stage.js?v=25952e019f';
 import { createInspector } from './inspector.js?v=a20a2fce1e';
 import { createDock, CUTOFFS } from './dock.js?v=940ee67259';
 import { createWhy } from './why.js?v=bf0f24a7a5';
@@ -37,11 +37,11 @@ const PAINT = {
   fibrosis: { icon: 'fibrosis', label: 'Fibrosis brush', hint: 'Press and hold on a liver lobe to lay down fibrosis in the chosen zone. Hold Shift to remove it.', zones: true },
   thrombus: { icon: 'clot', label: 'Paint clot', hint: 'Press and hold on a vein to grow a clot; drag along to spread it. Hold Shift to dissolve it.' },
 };
-import { ORIGINS, DYE_SECONDS } from './blood.js?v=87995085c7';
+import { ORIGINS } from './blood.js?v=3acf4e936e';
 
 // Color lenses: [title, what it shows, legend swatch].
-// SMV, IMV, splenic vein, systemic: as stage.js BLOOD_COLORS.
-const ORIGIN_CSS = ['rgb(230, 153, 41)', 'rgb(23, 158, 140)', 'rgb(125, 92, 219)', 'rgb(112, 143, 191)'];
+// SMV, IMV, splenic vein, hepatic artery, systemic: as stage.js BLOOD_COLORS.
+const ORIGIN_CSS = ['rgb(230, 153, 41)', 'rgb(23, 158, 140)', 'rgb(125, 92, 219)', 'rgb(214, 51, 71)', 'rgb(112, 143, 191)'];
 const LENSES = {
   pressure: ['Pressure', 'Venous pressure in each vessel', () => gradientCss('to right', 30)],
   delta: ['Change', 'Higher or lower than healthy', () => 'linear-gradient(to right, #2D6CDF, #9696A0, #D22846)'],
@@ -50,7 +50,7 @@ const LENSES = {
   flow: ['Flow volume', 'How much blood; width = flow', () => flowCss('to right')],
   velocity: ['Velocity', 'How fast; red = stagnant', () => velocityCss('to right')],
   direction: ['Direction', 'Toward the liver or away', () => 'linear-gradient(to right, var(--flow-normal) 50%, var(--flow-reversed) 50%)'],
-  origin: ['Blood origin', 'Where each vessel\u2019s blood comes from', () => `linear-gradient(to right, ${ORIGIN_CSS[0]} 25%, ${ORIGIN_CSS[1]} 25% 50%, ${ORIGIN_CSS[2]} 50% 75%, ${ORIGIN_CSS[3]} 75%)`],
+  origin: ['Blood origin', 'Where each vessel\u2019s blood comes from', () => `linear-gradient(to right, ${ORIGIN_CSS.map((c, i) => `${c} ${i * 20}% ${(i + 1) * 20}%`).join(', ')})`],
 };
 const COLOR_MODES = { pressure: 'Pressure', delta: 'Change', heat: 'Congestion', drop: 'Pressure drop', flow: 'Flow volume', velocity: 'Velocity', direction: 'Flow direction', origin: 'Blood origin' };
 const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };
@@ -442,18 +442,14 @@ function zoomLobule(lobe = 'R') { if (app.classList.contains('figure-mode')) tog
 // ── Figure header: view, color, legend; banners ─────
 let bleedEl, tipEl, stageClock;
 function buildHud() {
-  // Moving blood: look, chevrons and phasic motion are remembered per device; ?blood=shimmer,
-  // ?blood=chevrons or ?blood=phasic (comma-separated) set them for a link.
+  // Moving blood: chevrons are remembered per device; ?blood=chevrons turns them on for a link.
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem('pps.blood') || 'null'); } catch { /* storage unavailable */ }
   const blood = { look: 'shimmer', phasic: false, chevrons: false, ...(saved && typeof saved === 'object' ? saved : {}) };
   delete blood.origin;   // now the Blood origin lens
   const asked = (new URLSearchParams(location.search).get('blood') || '').split(',');
-  if (asked.includes('shimmer')) blood.look = 'shimmer';
-  if (asked.includes('parcels')) blood.look = 'parcels';
   if (asked.includes('chevrons')) blood.chevrons = true;
-  if (asked.includes('phasic')) blood.phasic = true;
-  if (blood.look !== 'shimmer') blood.look = 'parcels';
+  blood.look = 'shimmer'; blood.phasic = false;   // the Blood menu offers streaks and chevrons only
   store.set({ blood });
   store.on('blood', (v) => {
     try { localStorage.setItem('pps.blood', JSON.stringify(v)); } catch { /* storage unavailable */ }
@@ -521,8 +517,9 @@ function renderLegend() {
     el.replaceChildren(h('div', { class: 'lg-cats' }, h('span', {}, h('i', { style: { background: 'var(--flow-normal)' } }), 'Physiological'), h('span', {}, h('i', { style: { background: 'var(--flow-reversed)' } }), 'Reversed')));
     el.setAttribute('aria-label', 'Legend: teal is physiological flow direction, orange is reversed');
   } else if (m === 'origin') {
-    el.replaceChildren(h('div', { class: 'lg-cats' }, ...ORIGINS.map(([, title], i) => h('span', {}, h('i', { style: { background: ORIGIN_CSS[i] } }), title))));
-    el.setAttribute('aria-label', 'Legend: blood colored by where it comes from, as streams side by side: amber SMV (with the coronary vein), teal IMV, violet splenic vein, slate blue systemic');
+    // Dots, and on a narrow screen the short names (SMV, IMV, SV, HA, Sys), so the five fit.
+    el.replaceChildren(h('div', { class: 'lg-cats lg-dots' }, ...ORIGINS.map(([, title, short], i) => h('span', { title }, h('i', { style: { background: ORIGIN_CSS[i] } }), h('b', { class: 'lg-long' }, title), h('b', { class: 'lg-short' }, short)))));
+    el.setAttribute('aria-label', 'Legend: blood colored by where it comes from, as streams side by side: amber SMV (with the coronary vein), teal IMV, violet splenic vein, crimson hepatic artery, slate blue systemic');
   } else if (m === 'neutral') {
     el.replaceChildren(h('div', { class: 'lg-cats' }, h('span', {}, h('i', { style: { background: 'var(--vein-portal)' } }), 'Portal veins'), h('span', {}, h('i', { style: { background: 'var(--vein-systemic)' } }), 'Systemic veins'),
       h('span', { class: 'lg-note' }, svgIcon('info'), 'Pressures unmeasured')));
@@ -550,7 +547,7 @@ function openLegend(anchor) {
   popover(anchor, [h('div', { class: 'menu-title' }, 'How to read the figure'),
     h('div', { style: { padding: '2px 10px 8px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: 'var(--fs-13)', lineHeight: 1.5, color: 'var(--text-2)', maxWidth: '340px' } },
       rows.map(([k, v]) => h('div', {}, h('b', { style: { color: 'var(--text)' } }, k + '. '), v)),
-      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Moving blood. '), 'Blood moves the way the model\u2019s flow goes, as a silky shimmer (or, in the Blood menu, as parcels: dots you can count). The number passing a point each second is proportional to flow, so what enters a junction leaves it. Lanes near the axis run faster than those near the wall (laminar flow: the centre at twice the mean). Time is slowed and speed compressed (it grows with \u221Avelocity), so the order of speeds is right but not their ratio. Where flow runs backwards (against its healthy direction) the moving blood turns orange. Drifting smoke marks slow flow (under ~5 cm/s) in a large vein, where clots can form. Pause and reduced motion hold the blood still; the Direction lens gives a static cue. The Blood menu above the figure colors the blood by origin (side-by-side streams from the gut, spleen, hepatic artery and the rest of the body), adds breathing and heartbeat, or injects dye; a vessel\u2019s card injects dye into that vessel (hold to go on).'),
+      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Moving blood. '), 'Blood moves the way the model\u2019s flow goes, as silky streaks, brighter where more blood passes. Lanes near the axis run faster than those near the wall (laminar flow: the centre at twice the mean). Time is slowed and speed compressed (it grows with \u221Avelocity), so the order of speeds is right but not their ratio. Where flow runs backwards (against its healthy direction) the moving blood turns orange. Drifting smoke marks slow flow (under ~5 cm/s) in a large vein, where clots can form. Pause and reduced motion hold the blood still; the Direction lens gives a static cue. The Blood menu above the figure switches the streaks and the chevrons (arrowheads) on or off. The Blood origin lens colors the blood by where it comes from (SMV, IMV, splenic vein, hepatic artery, systemic). A vessel\u2019s card injects dye into that vessel (hold to go on).'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Notation. '), 'Dotted vessels are closed potential collaterals. In Flow volume, line width represents flow rate (square-root scale); in other lenses it follows vessel diameter (compressed). Faint lines crossing an organ run behind it. ▲ / ▼ on a label: change in mmHg from healthy, shown once it reaches 5 mmHg (while comparing, every change from the moment you compare from).'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Organs. '), 'Organs are drawn as in an anatomy plate, lit from the upper left. On the liver, texture means disease: nodules for cirrhosis, mottling for congestion (nutmeg liver), a darker vignette as sinusoidal pressure rises. The spleen grows with splenomegaly.'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Varix ring. '), 'The ring around the esophageal varices closes as their wall tension (pressure × radius ÷ wall thickness) approaches the rupture threshold: amber from 70 %, red from 90 %.'))], { align: 'end', cls: 'legend-pop' });
@@ -584,27 +581,10 @@ function openBlood(anchor) {
     c.addEventListener('change', () => onChange(c.checked));
     return h('label', { class: 'menu-item blood-opt' }, c, h('span', {}, label, h('small', {}, sub)));
   };
-  const lookBtn = (v, title, sub) => h('button', {
-    class: 'menu-item blood-look', role: 'menuitemradio', 'aria-checked': String((b.look || 'shimmer') === v),
-    onclick: () => { setBlood({ look: v }); if (!flowOn) store.set({ layers: { ...store.get().layers, flow: true } }); closePopover(); },
-  }, h('span', { class: 'blood-sample ' + v, 'aria-hidden': 'true' }), h('span', {}, title, h('small', {}, sub)));
   popover(anchor, [
     h('div', { class: 'menu-title' }, 'Moving blood'),
-    toggle(flowOn, 'Streaks', 'The moving blood (shimmer or parcels); pause or reduced motion holds it still', (on) => { store.set({ layers: { ...store.get().layers, flow: on } }); syncBloodBtn(); }),
-    toggle(!!b.chevrons, 'Chevrons', 'Arrowheads along each vessel, moving with the flow: dark, orange where reversed (drawn on top)', (on) => setBlood({ chevrons: on })),
-    h('div', { class: 'menu-sep' }),
-    h('div', { class: 'menu-title' }, 'Look'),
-    lookBtn('parcels', 'Parcels', 'Each dot is a parcel of blood; count them for flow'),
-    lookBtn('shimmer', 'Shimmer', 'Silky streaks of light carried by the flow, fastest on the axis'),
-    h('div', { class: 'menu-sep' }),
-    toggle(!!b.phasic, 'Breathing and heartbeat', 'Flow speeds and slows with each breath and beat (×2)', (on) => setBlood({ phasic: on })),
-    h('div', { class: 'menu-sep' }),
-    menuItem('Inject dye', { icon: 'drop', kb: 'J', onClick: () => { closePopover(); injectDye(); } }),
-    h('p', { class: 'blood-note' }, st.selection?.type === 'edge' ? 'Into the selected vessel. ' : 'Into the gut\u2019s veins; or tap a vessel and use Inject dye on its card. ',
-      `A ${DYE_SECONDS}-second injection (hold J to go on longer). It splits at junctions and is diluted where undyed blood joins.`),
-    h('div', { class: 'menu-sep' }),
-    h('p', { class: 'blood-note' }, h('b', {}, 'What is true: '), 'direction (where flow runs backwards, against its healthy direction, the moving blood turns orange); which vessel is faster; parcels passing a point each second are proportional to flow; centre lanes run at twice the mean (laminar flow). ',
-      h('b', {}, 'Exaggerated: '), 'time is slowed and speed compressed (speed grows with √velocity). Smoke marks slow flow (under ~5 cm/s) in a large vein.'),
+    toggle(flowOn, 'Streaks', 'Silky streaks carried by the flow', (on) => { store.set({ layers: { ...store.get().layers, flow: on } }); syncBloodBtn(); }),
+    toggle(!!b.chevrons, 'Chevrons', 'Arrowheads moving with the flow; orange where it runs backwards', (on) => setBlood({ chevrons: on })),
   ], { cls: 'blood-pop' });
 }
 function openLayers(anchor) {
@@ -990,7 +970,7 @@ function openHelp(section) {
     h('h3', {}, 'Reading the figure'),
     h('ul', {},
       h('li', {}, 'Veins are colored by mean pressure on a perceptually uniform scale (0–30 mmHg). Labels give the value in mmHg; ▲ / ▼ is the change from healthy, shown from 5 mmHg. Arteries are thinner, in a fixed red.'),
-      h('li', {}, 'Parcels of blood move downstream: more of them pass each second where flow is greater, faster where velocity is higher, fastest along the axis (laminar flow). Smoke marks stagnant blood in a large vein. The Blood menu shows where blood comes from (side-by-side streams: gut, spleen, hepatic artery), adds breathing and heartbeat, or injects dye (J; hold for longer) to watch it travel and split. Tap a vessel and use Inject dye on its card to inject there. Dotted vessel outlines are closed potential collaterals.'),
+      h('li', {}, 'Streaks of blood move downstream, brighter where flow is greater, faster where velocity is higher, fastest along the axis (laminar flow); chevrons (Blood menu) point the way. Smoke marks stagnant blood in a large vein. The Blood origin lens shows where blood comes from. Tap a vessel and use Inject dye on its card (or press J; hold for longer) to watch dye travel and split. Dotted vessel outlines are closed potential collaterals.'),
       h('li', {}, 'Line width follows vessel diameter (compressed, so the cavae don’t drown the portal tree). Watch collaterals and varices swell.'),
       h('li', {}, 'The circuit view is a transit map: pressure falls from left to right; collaterals and shunts run in their own lanes as bypasses.')),
     h('h3', {}, 'Thresholds & references'),

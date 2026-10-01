@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Engine } from '../src/engine/engine.js';
 import { EDGES, NODES } from '../src/engine/topology.js';
-import { displaySpeed, lanes, occupancy, advanceStream, originFractions, createBolus, KAPPA, PERIOD, DYE_BINS, DYE_SECONDS, DYE_MAX_HOLD } from '../src/ui/blood.js';
+import { displaySpeed, lanes, occupancy, advanceStream, originFractions, ORIGIN_N, createBolus, KAPPA, PERIOD, DYE_BINS, DYE_SECONDS, DYE_MAX_HOLD } from '../src/ui/blood.js';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 
@@ -62,25 +62,25 @@ test('phasic display follows the instantaneous flow, amplified around the mean',
   assert.ok(span[1] - span[0] > 8, `phasic swing ${span[1] - span[0]}`);
 });
 
-test('origin: portal blood is SMV, IMV and splenic, the hepatic veins add systemic (arterial) blood', () => {
+test('origin: portal blood is SMV, IMV and splenic, the hepatic veins add hepatic arterial blood', () => {
   const e = new Engine(); e.settle();
   const f = originFractions(EDGES, NODES, e.Q, e.P);
-  const at = (id) => Array.from(f.slice(EI[id] * 3, EI[id] * 3 + 3));
+  const at = (id) => Array.from(f.slice(EI[id] * ORIGIN_N, EI[id] * ORIGIN_N + ORIGIN_N));
   const pv = at('PV_TRUNK');
-  assert.ok(Math.abs(pv[0] + pv[1] + pv[2] - 1) < 1e-4 && pv[0] > pv[1] && pv[0] > pv[2], `portal ${pv}`);
+  assert.ok(Math.abs(pv[0] + pv[1] + pv[2] - 1) < 1e-4 && pv[0] > pv[1] && pv[0] > pv[2] && pv[3] === 0, `portal ${pv}`);
   assert.ok(at('SV_CONF')[2] > 0.6, 'splenic vein: splenic blood');
   assert.ok(at('V_IMV')[1] > 0.9, 'IMV: its own blood');
-  const rhv = at('RHV_IVC'), rs = rhv[0] + rhv[1] + rhv[2];
-  assert.ok(rs > 0.3 && rs < 0.95, `hepatic vein: portal plus arterial (systemic) blood ${rhv}`);
+  const rhv = at('RHV_IVC');
+  assert.ok(rhv[3] > 0.1 && rhv[0] > 0.3, `hepatic vein: portal plus hepatic arterial blood ${rhv}`);
   const ivc = at('IVCS_RA');
-  assert.ok(ivc[0] + ivc[1] + ivc[2] < 0.6, 'mostly systemic');
+  assert.ok(ivc[0] + ivc[1] + ivc[2] + ivc[3] < 0.6, 'mostly systemic');
 });
 
 test('origin: with hepatofugal flow, gut blood reaches the systemic veins', () => {
   const e = new Engine(); e.loadPreset('cirr-hepatofugal');
   const f = originFractions(EDGES, NODES, e.Q, e.P);
   const azy = EI.AZY_SVC;
-  assert.ok(f[azy * 3] + f[azy * 3 + 1] + f[azy * 3 + 2] > 0.05, 'portal blood in the azygos');
+  assert.ok(f[azy * ORIGIN_N] + f[azy * ORIGIN_N + 1] + f[azy * ORIGIN_N + 2] > 0.05, 'portal blood in the azygos');
 });
 
 test('dye bolus: travels downstream, keeps concentration through a split, dilutes at a merge', () => {

@@ -189,13 +189,14 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const d0 = await page.evaluate(() => window.pps.stage.flowDir('PV_TRUNK').D);
     await page.waitForTimeout(400);
     if (await page.evaluate(() => window.pps.stage.flowDir('PV_TRUNK').D) !== d0) throw new Error('paused blood kept moving');
-    // The Blood menu: look, origin, phasic, dye.
+    // The Blood menu (streaks, chevrons), the Blood origin lens, dye.
     const fits = await page.$eval('#btnBlood', (el) => { const r = el.getBoundingClientRect(); return r.width >= 30 && r.left >= 0 && r.right <= innerWidth; });
     if (!fits) throw new Error('Blood button is clipped');
     await page.click('#btnBlood');
-    await page.click('.blood-pop .blood-look:nth-of-type(2)').catch(() => page.evaluate(() => window.pps.store.set({ blood: { ...window.pps.store.get().blood, look: 'shimmer' } })));
-    await page.evaluate(() => window.pps.store.set({ colorMode: 'origin', blood: { look: 'parcels', phasic: true, chevrons: true } }));
-    await page.waitForFunction(() => document.querySelector('#legend').textContent.includes('Splenic vein'));
+    if ((await page.$$('.blood-pop .blood-opt')).length !== 2) throw new Error('the Blood menu should offer streaks and chevrons only');
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => window.pps.store.set({ colorMode: 'origin', blood: { look: 'shimmer', chevrons: true } }));
+    await page.waitForFunction(() => /Splenic vein|SV/.test(document.querySelector('#legend').textContent));
     await page.evaluate(() => window.pps.host.send({ type: 'run', running: true }));
     await page.keyboard.press('j');
     if (!(await page.evaluate(() => window.pps.stage.dyeActive()))) throw new Error('J did not inject dye');
@@ -203,7 +204,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForTimeout(900);
     if (!(await page.evaluate(() => document.querySelector('#stageView').classList.contains('gl-on')))) throw new Error('the circuit is not drawn on the GPU');
     await shot(page, `${device}-blood-circuit`);
-    await page.evaluate(() => window.pps.store.set({ view: 'anatomic', colorMode: 'pressure', blood: { look: 'parcels', phasic: false, chevrons: false } }));
+    await page.evaluate(() => window.pps.store.set({ view: 'anatomic', colorMode: 'pressure', blood: { look: 'shimmer', chevrons: false } }));
     await page.waitForTimeout(900);
     await shot(page, `${device}-blood`);
   });

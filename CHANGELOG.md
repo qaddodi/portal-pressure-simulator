@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Simpler Blood menu:** just *Streaks* and *Chevrons*, each on or off. Parcels, breathing and heartbeat and the
+  menu's dye item are gone (dye stays on each vessel's card and on J).
+- **Blood origin adds the hepatic artery** (crimson) beside SMV, IMV, splenic vein and systemic. The legend uses
+  dots and, on a phone, short names in two rows (SMV · IMV · SV · HA · Sys).
+- **Bigger, clearer arrowheads** (a stronger light rim), and **wider circuit lanes**, still scaled to each vessel.
 - **Blood origin is a lens.** It moved from the Blood menu to the color dropdown (beside pressure, velocity,
   direction, flow), and now separates the **SMV** (amber; the coronary vein shares it), the **IMV** (teal), the
   **splenic vein** (violet) and **systemic** blood (slate blue, hepatic artery included), as streams side by side.
