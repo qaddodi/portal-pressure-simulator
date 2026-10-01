@@ -8,7 +8,7 @@ import { store, updateParams } from './store.js?v=fd17378e33';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=fe164f31f1';
 import { createLobuleZoom } from './lobule-zoom.js?v=fb044770fc';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=a5f198e5a5';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=38bcb6116c';
 import { advanceStream, originFractions, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=1680c237fa';
 
 const N_SAMPLES = 64;
@@ -973,8 +973,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Adaptive detail: when the device cannot keep up (frames arriving slower than ~22 a second
   // while the model runs), the moving blood steps down (fewer frames, fewer pixels) and steps
   // back up once there is headroom. The level a device settles on is remembered.
-  const QUALITY = [{ fps: 30, res: 1 }, { fps: 24, res: 0.8 }, { fps: 15, res: 0.6 }];
-  let quality = (() => { try { return clamp(parseInt(localStorage.getItem('pps.quality'), 10) || 0, 0, 2); } catch { return 0; } })();
+  // The last step is only for a software renderer (WebGL drawn on the CPU), where it starts: there
+  // every frame costs CPU the rest of the page needs.
+  const QUALITY = [{ fps: 30, res: 1 }, { fps: 24, res: 0.8 }, { fps: 15, res: 0.6 }, { fps: 8, res: 0.5 }];
+  const SOFTWARE = !!veins?.software;
+  const Q_MAX = SOFTWARE ? 3 : 2;
+  let quality = SOFTWARE ? 3 : (() => { try { return clamp(parseInt(localStorage.getItem('pps.quality'), 10) || 0, 0, 2); } catch { return 0; } })();
   vCanvas.addEventListener('webglcontextrestored', () => {
     veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true });
     vBinKey = ''; glOrgans = false; plateKey = '';
@@ -2925,12 +2929,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function governQuality(now) {
     const gap = lastRaf ? now - lastRaf : 16;
     lastRaf = now;
-    if (!store.get().running || gap > 500) return;   // idle or just resumed: nothing to learn
+    if (SOFTWARE || !store.get().running || gap > 500) return;   // software: stays at its step; idle or just resumed: nothing to learn
     gapEMA += (Math.min(gap, 250) - gapEMA) * 0.05;
     if (now - qCheck < 2000) return;
     qCheck = now;
     let next = quality;
-    if (gapEMA > 45 && quality < 2) { next = quality + 1; qGood = 0; }
+    if (gapEMA > 45 && quality < Q_MAX) { next = quality + 1; qGood = 0; }
     else if (gapEMA < 22 && quality > 0) { if (++qGood >= 3) { next = quality - 1; qGood = 0; } }
     else qGood = 0;
     if (next === quality) return;

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Lighter on machines without a GPU.** Where WebGL is drawn on the CPU (a software renderer), the figure now
+  draws at 8 frames a second and half resolution, so panels, menus and instruments stay responsive.
 - **Reversed flow glows orange.** Where a vessel's flow runs against its healthy direction (the Direction lens's
   test), its shimmer (or parcels) warms to the reversed-flow orange, easing in over half a second, so hepatofugal
   portal flow or a reversed splenic vein stands out as it happens. Not applied over the origin streams.

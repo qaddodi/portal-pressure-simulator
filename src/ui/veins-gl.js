@@ -486,15 +486,17 @@ vec4 bloodAt(int id, float s, float y, vec3 col) {
   if (look == 0) {
     // Beads with a short tail behind them (longer where faster), scattered within their lane so
     // the stream reads as a suspension, not a string of beads.
-    int lc = n == 1 ? 0 : clamp(int(floor((y / 0.8 + 1.0) * 0.5 * float(n))), 0, n - 1);
+    // The two lanes either side of this point: a bead reaches under one lane spacing from its own
+    // lane (radius, jitter and drift), so no other lane can touch it.
+    int l0 = n == 1 ? 0 : int(floor((y / 0.8 + 1.0) * 0.5 * float(n) - 0.5));
     float rd = max(0.26 * laneW, 1.35 * pxW) * (1.0 + 0.6 * stasis);
     rd = min(rd, 0.45 * R);
     float TL = rd * (1.6 + 4.0 * clamp(abs(vd) / 60.0, 0.0, 1.0)) * (1.0 - stasis);
     float aa = 0.75 * pxW + stasis * 0.8 * rd;
     float period = 256.0 * s0;
     float cov = 0.0, glow = 0.0;
-    for (int dl = -1; dl <= 1; dl++) {
-      int li = lc + dl;
+    for (int dl = 0; dl <= 1; dl++) {
+      int li = l0 + dl;
       if (li < 0 || li >= n) continue;
       float yl = n == 1 ? 0.0 : ((float(li) + 0.5) / float(n) * 2.0 - 1.0) * 0.8;
       float k = n == 1 ? 8.0 : max(2.0, floor(16.0 * (1.0 - yl * yl) + 0.5));
@@ -549,8 +551,9 @@ vec4 bloodAt(int id, float s, float y, vec3 col) {
   vec2 qa = vec2((s - mod(D * k0 / 8.0, period)) / cellA + drift, qy);
   vec2 qb = vec2((s - mod(D * (k0 + 1.0) / 8.0, period)) / cellA + drift, qy);
   uint sd0 = uint(id) * 31u, sd1 = uint(id) * 57u + 11u;
-  float na = 0.62 * vnoise(qa, sd0, per) + 0.38 * vnoise(qa * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2);
-  float nb = 0.62 * vnoise(qb, sd0, per) + 0.38 * vnoise(qb * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2);
+  // Between two lane speeds the two fields are blended; most pixels need only one.
+  float na = t < 1.0 ? 0.62 * vnoise(qa, sd0, per) + 0.38 * vnoise(qa * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2) : 0.0;
+  float nb = t > 0.0 ? 0.62 * vnoise(qb, sd0, per) + 0.38 * vnoise(qb * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2) : 0.0;
   float nz = mix(na, nb, t);
   float dens = sqrt(clamp(p, 0.0, 1.0));
   float streak = smoothstep(0.5 - 0.08 * dens, 0.8, nz);
@@ -600,9 +603,9 @@ void main() {
 
   vec4 v = texelFetch(base, ip, 0);
   uvec4 g = texelFetch(gbuf, ip, 0);
-  if ((blood == 1 || dyeOn == 1) && g.x > 0u && v.a > 0.01) {
+  float vis = g.x > 0u ? clamp(float(g.w) / 65535.0 / max(v.a, 1e-3), 0.0, 1.0) : 0.0;
+  if ((blood == 1 || dyeOn == 1) && vis > 0.03 && v.a > 0.01) {
     vec3 col = v.rgb / v.a;
-    float vis = clamp(float(g.w) / 65535.0 / max(v.a, 1e-3), 0.0, 1.0);
     // This lumen, and near a join the one it joins, cross-faded by its share.
     uvec4 g2 = texelFetch(gbuf2, ip, 0);
     float b = g2.x > 0u ? float(g2.w) / 65535.0 : 0.0;
@@ -818,9 +821,18 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
 
   let nCells = 0, lost = false, organRect = null;
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; });
+  // A software renderer (no usable GPU: the browser draws on the CPU) is told apart so the stage
+  // can draw less often and at a lower resolution there.
+  let software;
+  try {
+    const ri = gl.getExtension('WEBGL_debug_renderer_info');
+    software = /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(String(gl.getParameter(ri ? ri.UNMASKED_RENDERER_WEBGL : gl.RENDERER)));
+  } catch { software = false; }
 
   return {
     get lost() { return lost; },
+    /** Whether the browser renders WebGL on the CPU. */
+    software,
     /** Uploads the binned geometry (from binVeins). */
     setGeometry(bins) {
       gl.bindTexture(gl.TEXTURE_2D, entTex);

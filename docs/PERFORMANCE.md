@@ -22,6 +22,9 @@ What changed:
   second the moving blood steps down (24 then 15 redraws a second, fewer pixels) and steps back
   up with headroom. The level is remembered per device (`pps.quality`). The stage exposes
   `data-veins` and `data-quality` for diagnosis.
+- **Software rendering.** Where the browser has no usable GPU and draws WebGL on the CPU
+  (SwiftShader, llvmpipe), the stage starts and stays at a fourth step, 8 frames a second at half
+  resolution (`data-quality="3"`), so the rest of the page keeps the CPU it needs.
 - **No work on the heartbeat.** Vessel colors follow the beat-filtered mean pressure in
   0.5 mmHg steps; widths, wall thickness and varix geometry change only once past a hysteresis
   band. Gradients, tube outlines and varix beads were being rebuilt several times a second by
