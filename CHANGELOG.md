@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Shimmer, refined, and now the default look.** Long, soft streaks of light carried by the flow, each at its
+  lane's laminar speed (fastest on the axis, so the sheen visibly shears), over a faint glow along the core;
+  brighter and denser where more blood passes. Parcels remain in the Blood menu.
+- **Color by origin, redone.** Instead of grey vessels with scattered colored dots, the blood itself is colored:
+  side-by-side streams (laminar flow keeps them apart) for the gut (amber), spleen (violet), hepatic artery
+  (crimson) and the rest of the body (slate blue), each as wide as its share of the flow. The portal vein shows
+  gut and splenic blood running together; the hepatic veins add the arterial stream; in hepatofugal flow the
+  portal colors run out through the collaterals to the cava.
 - **Moving blood, polished.** Parcels are now bright beads with a soft glow on dark lumens (deep beads on pale
   ones), so the blood reads at a glance. At every junction the blood and the dye pass from one vessel into the
   next: near a join both vessels' streams are cross-faded over about a radius, and each stream runs on past its

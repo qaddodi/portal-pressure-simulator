@@ -33,6 +33,7 @@ const SLOT_W = SLOT;
 export const TUBE_TEXELS = 8;          // texels of per-vessel attributes (see the layout below)
 export const MAX_TIERS = 20;
 const S_OFF = 96;                      // arc length is stored offset by this, so it can run on past a vessel's start
+export const ORIGIN_GREY = 0.62;       // the lumen's color while the blood is colored by origin
 const CELL = 16;                       // cell size, world units
 const ENT_W = 2048;                    // texels per row of the entry texture
 const QUAD = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]);
@@ -435,6 +436,8 @@ out vec4 outColor;
 const float SLOT = ${SLOT_W}.0;
 const float BINS = ${DYE_BINS}.0;
 const float S_OFF = ${S_OFF}.0;
+const float ORIGIN_GREY = ${ORIGIN_GREY};
+const int N_LAST = ${N_SAMPLES - 1};
 
 uint hsh(uint x) { x ^= x >> 16; x *= 0x7feb352du; x ^= x >> 15; x *= 0x846ca68bu; x ^= x >> 16; return x; }
 float h01(uint x) { return float(hsh(x) & 0xffffffu) / 16777216.0; }
@@ -470,7 +473,7 @@ vec4 bloodAt(int id, float s, float y, vec3 col) {
   p = max(p, 0.45 * stasis);
   float ends = min(f1.x > 0.5 ? smoothstep(0.0, 1.5 * s0, s) : 1.0, f1.y > 0.5 ? smoothstep(0.0, 1.5 * s0, len - s) : 1.0);
   float lum = dot(col, vec3(0.299, 0.587, 0.114));
-  bool pale = lum > 0.62;
+  bool pale = lum > 0.62 && origin == 0;   // the origin streams always take light ink
   // Parcels read as bright beads with a soft glow on a dark lumen, deep beads on a pale one.
   vec3 core = pale ? mix(col, inkDark, 0.62) : mix(col, inkLight, 0.86);
   vec3 halo = pale ? mix(col, inkDark, 0.3) : mix(col, inkLight, 0.45);
@@ -485,7 +488,6 @@ vec4 bloodAt(int id, float s, float y, vec3 col) {
     float aa = 0.75 * pxW + stasis * 0.8 * rd;
     float period = 256.0 * s0;
     float cov = 0.0, glow = 0.0;
-    vec3 pc = core, ph = halo;
     for (int dl = -1; dl <= 1; dl++) {
       int li = lc + dl;
       if (li < 0 || li >= n) continue;
@@ -518,36 +520,51 @@ vec4 bloodAt(int id, float s, float y, vec3 col) {
         // A soft glow just around the bead (none on its tail), so it stands off the lumen.
         float gl = (1.0 - smoothstep(0.0, 1.3 * rd + pxW, max(d, 0.0))) * (ax >= 0.0 ? 1.0 : fade) * w;
         if (c > cov || gl > glow) {
-          vec3 oc = core, oh = halo;
-          if (origin == 1) {
-            float hc = h01(seed + 3u);
-            vec4 f2 = texelFetch(flow, ivec2(2, id), 0);
-            oc = hc < f2.x ? originCol[0] : hc < f2.x + f2.y ? originCol[1] : hc < f2.x + f2.y + f2.z ? originCol[2] : originCol[3];
-            oh = mix(col, oc, 0.6);
-          }
-          if (c > cov) { cov = c; pc = oc; }
-          if (gl > glow) { glow = gl; ph = oh; }
+          if (c > cov) cov = c;
+          if (gl > glow) glow = gl;
         }
       }
     }
     float strength = ends * f1.z * mix(1.0, 0.5, stasis);
-    float ga = glow * 0.38 * strength, ca = cov * (origin == 1 ? 1.0 : 0.94) * strength;
+    float ga = glow * 0.38 * strength, ca = cov * (origin == 1 ? 0.85 : 0.94) * strength;
     // The bead over its glow.
-    vec3 rgb = mix(ph, pc, ca / max(ca + ga * (1.0 - ca), 1e-4));
+    vec3 rgb = mix(halo, core, ca / max(ca + ga * (1.0 - ca), 1e-4));
     return vec4(rgb, ca + ga * (1.0 - ca));
   }
-  // Shimmer: a soft texture carried by the same laminar speeds, brighter where more blood passes.
-  float ay = clamp(abs(y), 0.0, 1.0) * 0.8;
-  float k8 = max(2.0, 16.0 * (1.0 - ay * ay));
-  float k0 = floor(k8), t = k8 - k0, period = 256.0 * s0;
-  float sh0 = s - mod(D * k0 / 8.0, period), sh1 = s - mod(D * (k0 + 1.0) / 8.0, period);
-  float cell = 1.6 * s0;
-  int per = int(period / cell + 0.5);
-  vec2 qa = vec2(sh0 / cell, y * R / max(laneW, 1.0) * 0.8), qb = vec2(sh1 / cell, qa.y);
-  float nz = mix(vnoise(qa, uint(id) * 31u, per), vnoise(qb, uint(id) * 31u, per), t);
+  // Shimmer: long, soft streaks of light, like light on a flowing liquid, each carried at its own
+  // lane's laminar speed (fastest on the axis, so the sheen visibly shears), over a faint glow
+  // along the core. Brighter and denser where more blood passes; stagnant blood barely stirs.
+  float ay = clamp(abs(y), 0.0, 1.0), yl = ay * 0.8;
+  float k8 = max(2.0, 16.0 * (1.0 - yl * yl));
+  float k0 = floor(k8), t = smoothstep(0.2, 0.8, k8 - k0), period = 256.0 * s0;
+  float cellA = 5.12 * s0;                // 50 cells a period: the noise wraps with the stream
+  int per = 50;
+  float qy = y * R / max(0.55 * laneW, 3.2 * pxW);
+  float drift = stasis * clock * 0.06;
+  vec2 qa = vec2((s - mod(D * k0 / 8.0, period)) / cellA + drift, qy);
+  vec2 qb = vec2((s - mod(D * (k0 + 1.0) / 8.0, period)) / cellA + drift, qy);
+  uint sd0 = uint(id) * 31u, sd1 = uint(id) * 57u + 11u;
+  float na = 0.62 * vnoise(qa, sd0, per) + 0.38 * vnoise(qa * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2);
+  float nb = 0.62 * vnoise(qb, sd0, per) + 0.38 * vnoise(qb * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2);
+  float nz = mix(na, nb, t);
   float dens = sqrt(clamp(p, 0.0, 1.0));
-  float a = smoothstep(0.62 - 0.22 * dens, 0.92, nz) * (0.35 + 0.6 * dens) * ends * f1.z;
-  return vec4(mix(halo, core, 0.6), a);
+  float streak = smoothstep(0.5 - 0.08 * dens, 0.8, nz);
+  float wall = 1.0 - smoothstep(0.78, 1.0, ay);
+  float glowCore = 0.16 * (1.0 - ay * ay);
+  float a = clamp(streak * (0.5 + 0.38 * dens) + glowCore, 0.0, 0.9) * wall * ends * f1.z * mix(1.0, 0.6, stasis);
+  return vec4(mix(halo, core, smoothstep(0.0, 0.7, streak)), a);
+}
+// Where a lumen's blood comes from, as streams side by side (laminar flow keeps them apart): gut,
+// spleen, hepatic artery, then the rest of the body, each as wide as its share of the flow.
+vec3 originAt(int id, float y, float R) {
+  vec4 f2 = texelFetch(flow, ivec2(2, id), 0);
+  float u = clamp((y + 1.0) * 0.5, 0.0, 1.0), e = clamp(0.6 * pxW / max(R, 0.3), 0.01, 0.12);
+  float c1 = f2.x, c2 = c1 + f2.y, c3 = c2 + f2.z;
+  vec3 c = originCol[0];
+  c = mix(c, originCol[1], smoothstep(c1 - e, c1 + e, u));
+  c = mix(c, originCol[2], smoothstep(c2 - e, c2 + e, u));
+  c = mix(c, originCol[3], smoothstep(c3 - e, c3 + e, u));
+  return c;
 }
 // Dye concentration in one lumen: the column's front is bullet-shaped, the axis ahead of the wall
 // (laminar flow).
@@ -587,6 +604,13 @@ void main() {
     int id1 = int(g.x) - 1, id2 = int(g2.x) - 1;
     float s1 = float(g.y) / 16.0 - S_OFF, y1 = float(g.z) / 32767.5 - 1.0;
     float s2 = float(g2.y) / 16.0 - S_OFF, y2 = float(g2.z) / 32767.5 - 1.0;
+    if (blood == 1 && origin == 1) {
+      // The lumen is drawn a neutral grey; its light and dark lines are kept as a ratio of that grey.
+      float shade = clamp(dot(col, vec3(0.299, 0.587, 0.114)) / ORIGIN_GREY, 0.55, 1.45);
+      vec3 oc = originAt(id1, y1, max(texelFetch(rad, ivec2(N_LAST / 2, id1), 0).r, 0.3));
+      if (b > 0.004) oc = mix(oc, originAt(id2, y2, max(texelFetch(rad, ivec2(N_LAST / 2, id2), 0).r, 0.3)), b);
+      col = mix(col, min(oc * shade, vec3(1.0)), vis);
+    }
     if (blood == 1) {
       vec4 A = bloodAt(id1, s1, y1, col);
       vec4 B = b > 0.004 ? bloodAt(id2, s2, y2, col) : vec4(0.0);

@@ -2,23 +2,23 @@
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
 import { startHost, host } from './host.js?v=d292ccefe8';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=bd000286b2';
-import { createStage } from './stage.js?v=db597cf539';
-import { createInspector } from './inspector.js?v=e3d3f7d518';
-import { createDock, CUTOFFS } from './dock.js?v=43db7d2997';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=fd17378e33';
+import { createStage } from './stage.js?v=1a65fa6a10';
+import { createInspector } from './inspector.js?v=7778eed16a';
+import { createDock, CUTOFFS } from './dock.js?v=3115b12270';
 import { createWhy } from './why.js?v=bf0f24a7a5';
-import { createTimeline } from './timeline.js?v=972b545713';
-import { createLearn } from './learn.js?v=d09f336c92';
-import { createCases } from './cases.js?v=789c6dc5cd';
-import { createCompare } from './compare.js?v=66796f9b88';
-import { createCard } from './card.js?v=6ec0cc5756';
-import { createChart } from './chart.js?v=15b27e3b99';
-import { createHome } from './home.js?v=d615d976b2';
+import { createTimeline } from './timeline.js?v=14e1cbc787';
+import { createLearn } from './learn.js?v=abd9ebf79e';
+import { createCases } from './cases.js?v=5934559246';
+import { createCompare } from './compare.js?v=897c906f97';
+import { createCard } from './card.js?v=5c8ea69bb3';
+import { createChart } from './chart.js?v=63a38b0a42';
+import { createHome } from './home.js?v=7280be8332';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=0457b367b9';
-import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=5c437d740e';
+import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=624729a811';
 import { startLMS } from './lms.js?v=4511ed56b8';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=d7c701277b';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=1c8253a43a';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=29d10ad9ef';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, units, popover, closePopover, menuItem, svgIcon } from './util.js?v=fe164f31f1';
@@ -137,7 +137,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=70e980e930'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=8d2ae2f15d'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -149,7 +149,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=3402ecc395'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=f2205c28e0'), ({ createPalette }) => createPalette({ ctx: {
     select: (sel) => store.set({ selection: sel }), action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     wedge: () => { store.set({ selection: { type: 'edge', id: 'RHV_IVC' } }); setTimeout(() => card.trigger(3), 60); },
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
@@ -157,7 +157,7 @@ async function main() {
     loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); toast(store.get().presetList.find((p) => p.id === id)?.label); },
     lesson: (id) => startLesson(id), caseStart: (id) => startCase(id), home: () => home.open(), theme: () => toggleTheme(), help: () => openHelp(), share, restart: () => restartPatient(), reset: () => resetEverything(),
   } }));
-  figureL = lazy(() => import('./figure.js?v=405e276afc'), ({ createFigure }) => createFigure({ app, stage, onClose: () => toggleFigure(false) }));
+  figureL = lazy(() => import('./figure.js?v=c43de2edbf'), ({ createFigure }) => createFigure({ app, stage, onClose: () => toggleFigure(false) }));
   card = createCard({
     view, stage, onWhy: (m, el) => why.open(m, el),
     onDetails: (sel) => { store.set({ details: normalizeSel(sel) || sel }); openPanel(); },
@@ -443,7 +443,7 @@ function buildHud() {
   // ?blood=origin or ?blood=phasic (comma-separated) set them for a link.
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem('pps.blood') || 'null'); } catch { /* storage unavailable */ }
-  const blood = { look: 'parcels', origin: false, phasic: false, ...(saved && typeof saved === 'object' ? saved : {}) };
+  const blood = { look: 'shimmer', origin: false, phasic: false, ...(saved && typeof saved === 'object' ? saved : {}) };
   const asked = (new URLSearchParams(location.search).get('blood') || '').split(',');
   if (asked.includes('shimmer')) blood.look = 'shimmer';
   if (asked.includes('parcels')) blood.look = 'parcels';
@@ -544,7 +544,7 @@ function openLegend(anchor) {
   popover(anchor, [h('div', { class: 'menu-title' }, 'How to read the figure'),
     h('div', { style: { padding: '2px 10px 8px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: 'var(--fs-13)', lineHeight: 1.5, color: 'var(--text-2)', maxWidth: '340px' } },
       rows.map(([k, v]) => h('div', {}, h('b', { style: { color: 'var(--text)' } }, k + '. '), v)),
-      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Moving blood. '), 'Each dot is a parcel of blood moving the way the model\u2019s flow goes. The number passing a point each second is proportional to flow, so what enters a junction leaves it. Lanes near the axis run faster than those near the wall (laminar flow: the centre at twice the mean). Time is slowed and speed compressed (it grows with \u221Avelocity), so the order of speeds is right but not their ratio. Drifting smoke marks slow flow (under ~5 cm/s) in a large vein, where clots can form. Pause and reduced motion hold the blood still; the Direction lens gives a static cue. The Blood menu above the figure colors parcels by origin, adds breathing and heartbeat, or injects dye; a vessel\u2019s card injects dye into that vessel (hold to go on).'),
+      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Moving blood. '), 'Blood moves the way the model\u2019s flow goes, as a silky shimmer (or, in the Blood menu, as parcels: dots you can count). The number passing a point each second is proportional to flow, so what enters a junction leaves it. Lanes near the axis run faster than those near the wall (laminar flow: the centre at twice the mean). Time is slowed and speed compressed (it grows with \u221Avelocity), so the order of speeds is right but not their ratio. Drifting smoke marks slow flow (under ~5 cm/s) in a large vein, where clots can form. Pause and reduced motion hold the blood still; the Direction lens gives a static cue. The Blood menu above the figure colors the blood by origin (side-by-side streams from the gut, spleen, hepatic artery and the rest of the body), adds breathing and heartbeat, or injects dye; a vessel\u2019s card injects dye into that vessel (hold to go on).'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Notation. '), 'Dotted vessels are closed potential collaterals. In Flow volume, line width represents flow rate (square-root scale); in other lenses it follows vessel diameter (compressed). Faint lines crossing an organ run behind it. ▲ / ▼ on a label: change in mmHg from healthy, shown once it reaches 5 mmHg (while comparing, every change from the moment you compare from).'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Organs. '), 'Organs are drawn as in an anatomy plate, lit from the upper left. On the liver, texture means disease: nodules for cirrhosis, mottling for congestion (nutmeg liver), a darker vignette as sinusoidal pressure rises. The spleen grows with splenomegaly.'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Varix ring. '), 'The ring around the esophageal varices closes as their wall tension (pressure × radius ÷ wall thickness) approaches the rupture threshold: amber from 70 %, red from 90 %.'))], { align: 'end', cls: 'legend-pop' });
@@ -557,7 +557,7 @@ function sendBeat() {
   const on = dockBeat || !!store.get().blood?.phasic;
   if (on !== beatSent) { beatSent = on; host.send({ type: 'beat', on }); }
 }
-const ORIGIN_CSS = ['rgb(237, 158, 43)', 'rgb(140, 97, 237)', 'rgb(227, 51, 64)', 'rgb(247, 250, 255)'];
+const ORIGIN_CSS = ['rgb(230, 153, 41)', 'rgb(125, 92, 219)', 'rgb(214, 51, 71)', 'rgb(112, 143, 191)'];   // as stage.js BLOOD_COLORS
 const setBlood = (patch) => store.set({ blood: { ...store.get().blood, ...patch } });
 function syncBloodBtn() {
   const b = $('#btnBlood');
@@ -588,7 +588,7 @@ function openBlood(anchor) {
     return h('label', { class: 'menu-item blood-opt' }, c, h('span', {}, label, h('small', {}, sub)));
   };
   const lookBtn = (v, title, sub) => h('button', {
-    class: 'menu-item blood-look', role: 'menuitemradio', 'aria-checked': String((b.look || 'parcels') === v),
+    class: 'menu-item blood-look', role: 'menuitemradio', 'aria-checked': String((b.look || 'shimmer') === v),
     onclick: () => { setBlood({ look: v }); if (!flowOn) store.set({ layers: { ...store.get().layers, flow: true } }); closePopover(); },
   }, h('span', { class: 'blood-sample ' + v, 'aria-hidden': 'true' }), h('span', {}, title, h('small', {}, sub)));
   popover(anchor, [
@@ -597,9 +597,9 @@ function openBlood(anchor) {
     h('div', { class: 'menu-sep' }),
     h('div', { class: 'menu-title' }, 'Look'),
     lookBtn('parcels', 'Parcels', 'Each dot is a parcel of blood; count them for flow'),
-    lookBtn('shimmer', 'Shimmer', 'A soft sheen carried by the same flow'),
+    lookBtn('shimmer', 'Shimmer', 'Silky streaks of light carried by the flow, fastest on the axis'),
     h('div', { class: 'menu-sep' }),
-    toggle(!!b.origin, 'Color by origin', 'Gut, spleen, hepatic artery or the rest of the body', (on) => setBlood({ origin: on })),
+    toggle(!!b.origin, 'Color by origin', 'Side-by-side streams: gut, spleen, hepatic artery, rest of the body', (on) => setBlood({ origin: on })),
     toggle(!!b.phasic, 'Breathing and heartbeat', 'Flow speeds and slows with each breath and beat (×2)', (on) => setBlood({ phasic: on })),
     h('div', { class: 'menu-sep' }),
     menuItem('Inject dye', { icon: 'drop', kb: 'J', onClick: () => { closePopover(); injectDye(); } }),
@@ -993,7 +993,7 @@ function openHelp(section) {
     h('h3', {}, 'Reading the figure'),
     h('ul', {},
       h('li', {}, 'Veins are colored by mean pressure on a perceptually uniform scale (0–30 mmHg). Labels give the value in mmHg; ▲ / ▼ is the change from healthy, shown from 5 mmHg. Arteries are thinner, in a fixed red.'),
-      h('li', {}, 'Parcels of blood move downstream: more of them pass each second where flow is greater, faster where velocity is higher, fastest along the axis (laminar flow). Smoke marks stagnant blood in a large vein. The Blood menu shows where blood comes from (gut, spleen, hepatic artery), adds breathing and heartbeat, or injects dye (J; hold for longer) to watch it travel and split. Tap a vessel and use Inject dye on its card to inject there. Dotted vessel outlines are closed potential collaterals.'),
+      h('li', {}, 'Parcels of blood move downstream: more of them pass each second where flow is greater, faster where velocity is higher, fastest along the axis (laminar flow). Smoke marks stagnant blood in a large vein. The Blood menu shows where blood comes from (side-by-side streams: gut, spleen, hepatic artery), adds breathing and heartbeat, or injects dye (J; hold for longer) to watch it travel and split. Tap a vessel and use Inject dye on its card to inject there. Dotted vessel outlines are closed potential collaterals.'),
       h('li', {}, 'Line width follows vessel diameter (compressed, so the cavae don’t drown the portal tree). Watch collaterals and varices swell.'),
       h('li', {}, 'The circuit view is a transit map: pressure falls from left to right; collaterals and shunts run in their own lanes as bypasses.')),
     h('h3', {}, 'Thresholds & references'),
