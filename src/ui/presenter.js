@@ -4,7 +4,7 @@
 // pointer. Instructors build their own scripts from the current model and share them as a file
 // or a link.
 
-import { store } from './store.js?v=f6b049db80';
+import { store } from './store.js?v=f9424489c6';
 import { h, toast, svgIcon, icon } from './util.js?v=fe164f31f1';
 import { download } from './records.js?v=26ab8fb634';
 
@@ -67,7 +67,8 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
     if (step.action) action(step.action);
     if (step.view && step.view !== store.get().view) store.set({ view: step.view });
     if (step.lens) store.set({ colorMode: step.lens });
-    if (step.zoom === 'lobule') stage.zoomLobule('R'); else if (step.zoom === 'liver') stage.zoomLiver(); else if (step.zoom === 'fit') stage.fit();
+    if (step.zoom === 'lobule') stage.zoomLobule('R');
+    else if (step.zoom === 'liver' || step.zoom === 'fit') { store.set({ lobule: false }); if (step.zoom === 'liver') stage.zoomLiver(); else stage.fit(); }
     if (step.pane) dock.show(step.pane, { reveal: true });
     host.send({ type: 'run', running: true });
   }

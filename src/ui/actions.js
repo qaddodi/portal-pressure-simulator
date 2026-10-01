@@ -5,7 +5,7 @@
 
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=29d10ad9ef';
 import { DRUGS } from '../engine/scenario.js?v=8fc90f782f';
-import { store, updateParams } from './store.js?v=f6b049db80';
+import { store, updateParams } from './store.js?v=f9424489c6';
 import { fmt, fmtFlow, clamp, toast } from './util.js?v=fe164f31f1';
 import { aboutVessel, aboutOrgan } from './about.js?v=a7b8c7edc2';
 import { lobuleState } from './lobule-model.js?v=913fe4fa3c';
@@ -203,7 +203,7 @@ function organCard(sel, ctx) {
       verbs: [
         { type: 'slider', id: 'cirrhosis', key: 'cirrhosis', label: 'Cirrhosis', icon: 'liver', min: 0, max: 1, step: 0.01, def: 0, format: pct, get: (p) => p.cirrhosis, set: (p, v) => { p.cirrhosis = v; }, hist: 'Cirrhosis',
           sub: '40 % compensated · 60 % CSPH · 85 % decompensated', info: 'Sinusoidal fibrosis, capillarization, a stiffer liver and arterioportal shunting. Jump months ahead on the timeline to watch collaterals open.' },
-        { type: 'button', id: 'lobule', label: 'Zoom into the lobule', icon: 'explore', run: () => ctx.zoomLobule(sel.lobe || 'R'), note: () => 'Add fibrosis to the portal tract, sinusoids or central vein from the lobule’s cards.' },
+        { type: 'button', id: 'lobule', label: 'Open the lobule view', icon: 'explore', run: () => ctx.zoomLobule(), note: () => 'Fibrosis of the portal tract, sinusoids or central vein is set there, on each part’s card.' },
         stat('HVPG', (f) => `${fmt(f.metrics.hvpg, 1)} mmHg`),
       ],
     };
@@ -306,8 +306,6 @@ function lobuleCard(sel, ctx) {
       verbs: [about((m) => ['Oxygen-rich blood that empties into the first stretch of the sinusoids (zone 1).', m.art > 1.15 ? `Hepatic arterial buffer response: with less portal flow, less adenosine is washed out and the arteriole dilates (arterial flow ×${fmt(m.art, 1)}).` : ''].filter(Boolean))] };
     case 'bd': return { ...base, title: 'Bile ductule', value: () => ({ v: 'Bile', u: 'flows out to the triad' }),
       verbs: [about(() => ['Bile made by hepatocytes flows in canaliculi between them, toward the triad: against the blood. Not part of the circulation, but it marks the portal tract.'])] };
-    case 'sh': return { ...base, title: 'Intrahepatic shunt', value: pv((m) => m.P1),
-      verbs: [about(() => ['In cirrhosis, vessels form in the fibrous septa and connect portal venules directly to central veins: part of the blood bypasses the hepatocytes, one reason liver function falls.']), CIRRHOSIS] };
     case 'septum': return { ...base, title: 'Fibrous septum', value: (f) => ({ v: pc(L(f).s), u: 'cirrhosis' }),
       verbs: [about(() => ['Bands of collagen laid down by activated stellate cells bridge triad to triad and triad to central vein, cutting the lobules into regenerative nodules and distorting the vessels.']), CIRRHOSIS] };
     case 'hep': default: {

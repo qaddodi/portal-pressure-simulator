@@ -52,8 +52,9 @@ If a deploy fails:
 - Each agent uses its own preview branch. Coordinate pushes: there is one shared `/preview/`,
   and the newest Pages run replaces it even when agents use different branches. Check
   `/preview/preview-info.txt` against your branch and commit before asking the owner to test.
-- Only one Pages run matters at a time (`concurrency: pages`, newest wins). A `main` push
-  replaces a branch preview with `main`, which is expected after a merge.
+- Only one Pages deploy matters at a time (job `deploy`, `concurrency: pages`, newest wins).
+  The browser checks are grouped per branch, so another branch's push does not cancel them.
+  A `main` push replaces a branch preview with `main`, which is expected after a merge.
 
 Preview access depends on the current agent's environment. Some cloud sandboxes block
 `github.io` (for example, with a proxy 403); others can open it. Try the available browser

@@ -12,18 +12,17 @@
 //
 // Under the vessels a quiet canvas holds the tissue: hepatocyte plates one cell thick, and only as
 // disease brings them, collagen (portal tract, space of Disse, central vein, bridging septa that cut
-// the lobule into nodules in cirrhosis, with intrahepatic shunts running in them), activated stellate
-// cells, and zone-3 congestion and cell dropout ("nutmeg") when the outflow backs up.
+// the lobule into nodules in cirrhosis), activated stellate cells, and zone-3 congestion and cell dropout ("nutmeg") when the outflow backs up.
 //
 // Teaching layers: Rappaport zones (toggle), hepatic lymph leaving the space of Disse for the portal
 // tract (toggle, rate from the model), a pressure ladder (portal venule → sinusoids → central vein →
 // hepatic vein → IVC, against the healthy ladder) that names where the resistance is, and a card for
-// anything tapped (triad, inlet venule, sinusoid, arteriole, central vein, shunt, septum, hepatocytes).
+// anything tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
-import { store, updateParams } from './store.js?v=f6b049db80';
+import { store, updateParams } from './store.js?v=f9424489c6';
 import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=913fe4fa3c';
-import { verbEnabled } from './actions.js?v=dfb8d26916';
+import { verbEnabled } from './actions.js?v=455d2754a5';
 import { h, s, fmt, clamp } from './util.js?v=fe164f31f1';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
@@ -89,7 +88,7 @@ function rgb01(c) {
 }
 const css = (a, al = 1) => `rgba(${Math.round(a[0] * 255)},${Math.round(a[1] * 255)},${Math.round(a[2] * 255)},${al})`;
 
-export function createLobuleZoom({ host, onWheel, onBack }) {
+export function createLobuleZoom({ host }) {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   const tissue = h('canvas', { class: 'lz-canvas', role: 'img', 'aria-label': 'Liver lobule microcirculation' });
   const glCv = h('canvas', { class: 'lz-canvas lz-gl', 'aria-hidden': 'true' });
@@ -181,7 +180,7 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
   el.addEventListener('wheel', (ev) => {
     ev.preventDefault();
     const f = Math.exp(-ev.deltaY * 0.0015);
-    if (V.k <= 1.001 && f < 1) { onWheel?.(ev); return; }
+    if (V.k <= 1.001 && f < 1) return;   // the lobule is a view of its own: zooming out stops at 1×
     const p = local(ev);
     zoomAround(p[0], p[1], f);
   }, { passive: false });
@@ -204,7 +203,6 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
       touches.set(ev.pointerId, local(ev));
       if (touches.size === 2 && pinch) {
         const [a, b] = pts2(), d = Math.hypot(a[0] - b[0], a[1] - b[1]), m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-        if (pinch.k <= 1.01 && d / pinch.d < 0.75) { pinch = null; onBack?.(); return; }
         V.x += m[0] - pinch.m[0]; V.y += m[1] - pinch.m[1]; pinch.m = m;
         zoomAround(m[0], m[1], (pinch.k * d / pinch.d) / V.k);
       } else if (touches.size === 1 && drag && (ev.buttons || ev.pointerType !== 'mouse')) {
@@ -376,12 +374,12 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
       const t = add('tw', curve((u) => [(1 - u) ** 2 * A[0] + 2 * u * (1 - u) * cxp + u * u * q[0], (1 - u) ** 2 * A[1] + 2 * u * (1 - u) * cyp + u * u * q[1]]), { tri: tr.i });
       join(A[0], A[1], [tr.haT, t], 1.2); join(q[0], q[1], [target, t], 1.6);
     }
-    // Intrahepatic shunts (cirrhosis): portal venule straight to the central vein, inside a septum.
-    const septaPC = [0, 3].map((i) => {
-      const [x, y] = C[i], ph = r() * TAU;
-      return curve((u) => { const e = R * 0.03 * Math.sin(Math.PI * u) * Math.sin(TAU * u + ph), nx = -(cy - y) / R, ny = (cx - x) / R; return [lerp(x, cx, u * 0.97) + nx * e, lerp(y, cy, u * 0.97) + ny * e]; });
+    // Portal-central septa (advanced cirrhosis): from three triads toward the central vein, wavy, stopping
+    // short of it, so the lobule is cut into three rounded nodules.
+    const septaPC = [0, 2, 4].map((i) => {
+      const [x, y] = C[i], ph = r() * TAU, nx = -(cy - y) / R, ny = (cx - x) / R;
+      return curve((u) => { const e = R * 0.05 * Math.sin(Math.PI * u) * Math.sin(1.5 * TAU * u + ph); return [lerp(x, cx, u * 0.82) + nx * e, lerp(y, cy, u * 0.82) + ny * e]; });
     });
-    const shunts = septaPC.map((c, j) => { const t = add('sh', c, { tri: j * 3 }); join(C[j * 3][0], C[j * 3][1], [triads[j * 3].pv, t], R * 0.016); join(cx + (c.pts[N - 1][0] - cx) * 0.5, cy + (c.pts[N - 1][1] - cy) * 0.5, [t, cv], R * 0.016); return t; });
     // Hepatocytes: plates one cell thick, radial cords in rings (a polar grid, clipped to the hexagon).
     const cells = [];
     const cl = R * 0.055, cw = R * 0.048;
@@ -404,7 +402,7 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
     // Lymph droplets: start deep in the lobule, drift to the nearest triad.
     // Lymph shimmer: each streak rises deep in the lobule and drifts out through the tissue to the nearest triad.
     const lymph = Array.from({ length: 140 }, () => ({ ph: r(), a: r() * TAU, r0: 0.1 + r() * 0.4, sp: 0.7 + r() * 0.6, w: r() * TAU, len: 0.07 + r() * 0.06 }));
-    return { W, H, phone, R, cx, cy, rt, rs0, rcv0, lobules, tubes, joins, triads, inlets, L0, L1, L2, cv, shunts, septaPC, cells, hsc, lymph };
+    return { W, H, phone, R, cx, cy, rt, rs0, rcv0, lobules, tubes, joins, triads, inlets, L0, L1, L2, cv, septaPC, cells, hsc, lymph };
   }
   function hexFrac(x, y, cx, cy, R) {
     let m = 0;
@@ -482,7 +480,6 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
     const items = [['lg-pv', 'Portal venule', { background: ink('pv') }], ['lg-ha', 'Hepatic arteriole'], ['lg-bd', 'Bile ductule'], ['lg-cv', 'Central vein', { background: ink('cv') }]];
     if (m.septU > 0 || m.fibPre > 0.05 || m.fibSin > 0.05 || m.fibPost > 0.05) items.push(['lg-col', 'Collagen']);
     if (m.act > 0.08) items.push(['lg-hsc', 'Stellate cell']);
-    if (m.shuntU > 0.02) items.push(['lg-sh', 'Intrahepatic shunt']);
     if (lymphOn) items.push(['lg-ly', 'Lymph']);
     legend.replaceChildren(items.map(([c, t, st]) => h('span', {}, h('i', { class: c, style: st }), t)));
     tissue.setAttribute('aria-label', m.hide ? 'Liver lobule. Pressures not measured.'
@@ -589,7 +586,6 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
       case 'cv': return R * (0.07 + 0.05 * m.congU) * (1 - 0.3 * m.fibPost);
       case 'ha': return Math.max(1.6, R * 0.014 * clamp(m.art, 0.6, 2.2) ** 0.3);
       case 'tw': return Math.max(1.1, R * 0.0055 * clamp(m.art, 0.6, 2.2) ** 0.3);
-      case 'sh': return Math.max(1.2, R * 0.014 * m.shuntU);
       default: return rs;
     }
   }
@@ -599,32 +595,32 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
   const qP = (v) => Math.round(v * 2) / 2;
   /**
    * A lumen's color in the active lens, as the anatomy colors the vessel it stands for. `seg`: pv,
-   * in (inlet venule), sin (sinusoids and anastomoses), cv or sh (shunt); `w`: along an inlet or a
-   * shunt 0 → 1, along the sinusoids the inlet's weight (sinW).
+   * in (inlet venule), sin (sinusoids and anastomoses) or cv; `w`: along an inlet 0 → 1, along the
+   * sinusoids the inlet's weight (sinW).
    */
   function ink(seg, w = 0) {
     const m = model, M = m.mode;
     if (M === 'pressure' || M === 'delta' || M === 'heat') {
       const V = M === 'pressure' ? [m.P1, m.P2, m.P3] : m.dP;
-      const v = seg === 'pv' ? V[0] : seg === 'in' ? lerp(V[0], V[1], 0.6 * w) : seg === 'cv' ? V[2] : seg === 'sh' ? lerp(V[0], V[2], w) : V[2] + (V[1] - V[2]) * w;
+      const v = seg === 'pv' ? V[0] : seg === 'in' ? lerp(V[0], V[1], 0.6 * w) : seg === 'cv' ? V[2] : V[2] + (V[1] - V[2]) * w;
       return M === 'pressure' ? pressureColor(v) : M === 'delta' ? deltaColor(qP(v)) : heatColor(qP(v));
     }
     const e = seg === 'sin' ? 'sin' : seg === 'cv' ? 'post' : 'pre';
     switch (M) {
-      case 'drop': return dropColor(seg === 'sh' ? m.P1 - m.P3 : e === 'pre' ? m.P1 - m.P2 : e === 'sin' ? m.P2 - m.P3 : m.P3 - m.P4);
+      case 'drop': return dropColor(e === 'pre' ? m.P1 - m.P2 : e === 'sin' ? m.P2 - m.P3 : m.P3 - m.P4);
       case 'direction': return m.rev[e] ? m.inks.reversed : m.inks.normal;
       case 'flow': return flowColor(Math.abs(m.Qs[e]) * 0.06);
       // Mean velocity as the anatomy has it for the liver's beds; in the sinusoids it rises toward the
       // central vein as they merge (the same ×1 → ×2 the moving blood shows).
       case 'velocity': return velocityColor(Math.abs(m.Qs[e]) * 0.6 * (seg === 'sin' ? lerp(1.35, 0.65, w) : 1));
       case 'neutral': {
-        const a = rgb01(m.inks.portal), b = rgb01(m.inks.systemic), k = seg === 'cv' ? 1 : seg === 'sin' ? 1 - w : seg === 'sh' ? w : 0;
+        const a = rgb01(m.inks.portal), b = rgb01(m.inks.systemic), k = seg === 'cv' ? 1 : seg === 'sin' ? 1 - w : 0;
         return css(a.map((x, i) => lerp(x, b[i], k)));
       }
       default: return pressureColor(seg === 'pv' || seg === 'in' ? m.P1 : seg === 'cv' ? m.P3 : m.P3 + (m.P2 - m.P3) * w);
     }
   }
-  const segOf = (t) => (t.kind === 'pv' || t.kind === 'in' || t.kind === 'cv' || t.kind === 'sh' ? t.kind : 'sin');
+  const segOf = (t) => (t.kind === 'pv' || t.kind === 'in' || t.kind === 'cv' ? t.kind : 'sin');
   const tubeInk = (t, end) => {
     const sg = segOf(t), i = end ? N - 1 : 0;
     return ink(sg, sg === 'sin' ? sinW(t.rho[i]) : end ? 1 : 0);
@@ -635,11 +631,10 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
     const res = g.software ? 0.5 : 1, k = dpr * res;
     const cw = Math.max(1, Math.round(W * k)), ch = Math.max(1, Math.round(H * k));
     if (glCv.width !== cw || glCv.height !== ch) { glCv.width = cw; glCv.height = ch; glDirty = true; }
-    const vis = (t) => t.kind !== 'sh' || m.shuntU > 0.02;
-    const live = G.tubes.filter(vis);
+    const live = G.tubes;
     // Radii, re-sent when a tube's caliber changed (they follow only these few model values).
     let reachGrew = false;
-    const rk0 = [m.zone.sin, m.congU, m.fibPre, m.fibPost, m.art, m.shuntU].map((x) => x.toFixed(3)).join('|') + '|' + G.W + 'x' + G.H;
+    const rk0 = [m.zone.sin, m.congU, m.fibPre, m.fibPost, m.art].map((x) => x.toFixed(3)).join('|') + '|' + G.W + 'x' + G.H;
     if (rk0 !== radAll) for (const t of live) {
       const r = Array.from({ length: N }, (_, i) => radiusAt(t, i)), rk = r.map((v) => v.toFixed(2)).join(',');
       t.maxR = Math.max(...r);
@@ -660,7 +655,7 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
     const origin = originOn();
     const selIdsN = selIds();
     const inks = new Map(live.map((t) => [t.id, [tubeInk(t, 0), tubeInk(t, 1)]]));
-    const ak = [m.mode, [...inks.values()].flat().join(','), m.hide, origin, m.shuntU.toFixed(2), [...selIdsN].join('.'), dark, cs.getPropertyValue('--artery')].join('|');
+    const ak = [m.mode, [...inks.values()].flat().join(','), m.hide, origin, [...selIdsN].join('.'), dark, cs.getPropertyValue('--artery')].join('|');
     if (ak !== attrKey) {
       attrKey = ak; glDirty = true;
       tubeData.fill(0);
@@ -669,8 +664,8 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
         const o = t.id * TUBE_TEXELS * 4, isArt = t.kind === 'ha' || t.kind === 'tw';
         const [i0, i1] = inks.get(t.id);
         const c0 = isArt ? art : origin ? grey : rgb01(i0), c1 = isArt ? art : origin ? grey : rgb01(i1);
-        const alpha = (t.kind === 'sh' ? clamp(m.shuntU * 1.4, 0, 1) : isArt ? 0.9 : 1) * (selIdsN.size && !selIdsN.has(t.id) ? 0.55 : 1);
-        const big = t.kind === 'pv' || t.kind === 'cv' || t.kind === 'in' || t.kind === 'sh';
+        const alpha = (isArt ? 0.9 : 1) * (selIdsN.size && !selIdsN.has(t.id) ? 0.55 : 1);
+        const big = t.kind === 'pv' || t.kind === 'cv' || t.kind === 'in';
         const flags = (selIdsN.has(t.id) ? F_SEL : 0) | (isArt ? F_NOCASE : F_DIFFUSE | F_SHADOW | (big ? F_SPEC : 0));
         const z = { s0: 0.1, s1: 0.11, s2: 0.12, an: 0.09, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.45, sh: 0.5, tw: 0.6, ly: 0.62, ha: 0.7 }[t.kind];
         tubeData.set([...c0, isArt ? 0 : WALL[t.kind], ...c1, alpha, 1, z, flags, 0], o);
@@ -701,7 +696,6 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
       } else if (lv === 'an') { v = 0.35 * vS * t.sign; occ = 0.25 * clamp(fr, 0.2, 1.5); strength = 0.6; oe = LOBE.q; }
       else if (lv === 'in') { v = 24 * Math.sign(pr) * Math.sqrt(Math.abs(pr)); occ = clamp(0.55 * Math.abs(pr) ** 0.6, 0.05, 0.95); f0 = 1; f1 = 1; rev = pr < -0.02 ? 1 : 0; oe = LOBE.pre; }
       else if (lv === 'tw') { v = 30 * Math.sqrt(ar); occ = clamp(0.5 * ar ** 0.6, 0.05, 0.95); f0 = 1; oe = LOBE.a; }
-      else if (lv === 'sh') { v = 40 * Math.sqrt(m.shuntU); occ = 0.6 * m.shuntU; f0 = 1; f1 = 1; oe = LOBE.pre; }
       else continue;   // vessels seen end-on carry no streaks
       const sm = t.stream || (t.stream = { D: (t.id * 977) % PERIOD, rev: rev });
       sm.D = (((sm.D + v * dt) % PERIOD) + PERIOD) % PERIOD;
@@ -798,7 +792,7 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
     if (m.fibSin > 0.05) {
       c.strokeStyle = col(0.75 * m.fibSin); c.lineCap = 'round'; c.lineJoin = 'round';
       for (const t of G.tubes) {
-        if (t.kind[0] !== 's' || t.kind === 'sh') continue;
+        if (t.kind[0] !== 's') continue;
         c.lineWidth = 2 * radiusAt(t, N >> 1) + 2 + 3.5 * m.fibSin;
         c.beginPath(); t.pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.stroke();
       }
@@ -865,10 +859,9 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
   }
   // Without WebGL2: the vessels as plain strokes on the tissue.
   function paintFlatVessels(c, cs) {
-    const G = geo, m = model, art = cs.getPropertyValue('--artery').trim() || '#C8414D', casing = 'rgba(30, 24, 40, .45)';
+    const G = geo, art = cs.getPropertyValue('--artery').trim() || '#C8414D', casing = 'rgba(30, 24, 40, .45)';
     c.lineCap = 'round'; c.lineJoin = 'round';
     for (const t of G.tubes) {
-      if (t.kind === 'sh' && m.shuntU < 0.02) continue;
       const r = radiusAt(t, N >> 1), isArt = t.kind === 'ha' || t.kind === 'tw', disc = t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha';
       const color = isArt ? art : tubeInk(t, 0);
       const [x0, y0] = t.pts[0];
@@ -898,14 +891,16 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
       // more lymph: the streaks grow denser, brighter and faster (and so does ascites).
       const rate = lymphRate(m), n = clamp(Math.round(22 * rate), 10, G.lymph.length), speed = 0.07 * Math.sqrt(clamp(rate, 0.3, 6));
       const R = G.R, glowA = clamp(0.35 + 0.15 * rate, 0.35, 0.9);
-      const ink = dark ? [176, 222, 255] : [36, 128, 222];
+      const ink = [255, 255, 255];   // lymph is clear and pale: white streaks
       const pos = (d, u) => {
         const aC = Math.round(d.a / (Math.PI / 3)) * (Math.PI / 3), e = u ** 1.6;
         const ang = d.a + (aC - d.a) * e, rr = lerp(d.r0, 0.96, u) * R, wob = Math.sin(u * 7 + d.w) * R * 0.014 * (1 - u);
         return [G.cx + Math.cos(ang) * rr - Math.sin(ang) * wob, G.cy + Math.sin(ang) * rr + Math.cos(ang) * wob];
       };
       c.save();
-      c.globalCompositeOperation = dark ? 'lighter' : 'source-over';
+      c.globalCompositeOperation = 'source-over';
+      // On the pale tissue a faint shadow keeps the white streaks legible.
+      if (!dark) { c.shadowColor = 'rgba(60, 30, 50, .35)'; c.shadowBlur = 3; }
       c.lineCap = 'round'; c.lineJoin = 'round';
       for (let i = 0; i < n; i++) {
         const d = G.lymph[i];
@@ -922,7 +917,7 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
         c.lineWidth = 1.8; c.globalAlpha = 1; c.stroke();      // bright core
       }
       // It gathers in the portal tracts.
-      c.globalAlpha = 1;
+      c.globalAlpha = 1; c.shadowBlur = 0;
       for (const tr of G.triads) {
         const rg = c.createRadialGradient(tr.x, tr.y, 0, tr.x, tr.y, G.rt * 1.1);
         rg.addColorStop(0, `rgba(${ink.join(',')},${(0.1 + 0.06 * clamp(rate, 0, 4)).toFixed(3)})`); rg.addColorStop(1, `rgba(${ink.join(',')},0)`);
@@ -956,12 +951,12 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
     if (Math.hypot(x - G.cx, y - G.cy) < radiusAt(G.cv, 0) + 4) return { part: 'cv' };
     let best = null, bd = Infinity;
     for (const t of G.tubes) {
-      if (t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || (t.kind === 'sh' && m.shuntU < 0.05)) continue;
+      if (t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha') continue;
       const [d] = distTo(t.pts, x, y), r = radiusAt(t, N >> 1), tol = r + (t.kind === 'tw' ? 6 : 5);
-      const score = d - r - (t.kind === 'sh' || t.kind === 'tw' ? 2 : 0);
+      const score = d - r - (t.kind === 'tw' ? 2 : 0);
       if (d < tol && score < bd) { bd = score; best = t; }
     }
-    if (best) return { part: best.kind === 'tw' ? 'ha' : best.kind[0] === 's' && best.kind !== 'sh' ? 'sin' : best.kind, tube: best.id, tri: best.tri };
+    if (best) return { part: best.kind === 'tw' ? 'ha' : best.kind[0] === 's' ? 'sin' : best.kind, tube: best.id, tri: best.tri };
     if (m.septU > 0.1) {
       const C = G.lobules[0].corners, w = G.R * (0.02 + 0.05 * m.septU) / 2 + 4;
       for (let i = 0; i < 6; i++) { const A = C[i], B = C[(i + 1) % 6], dx = B[0] - A[0], dy = B[1] - A[1], L2 = dx * dx + dy * dy, t = clamp(((x - A[0]) * dx + (y - A[1]) * dy) / L2, 0, 1); if (Math.hypot(A[0] + dx * t - x, A[1] + dy * t - y) < w) return { part: 'septum' }; }
@@ -1003,6 +998,7 @@ export function createLobuleZoom({ host, onWheel, onBack }) {
       const w = sl.at || [geo.cx, geo.cy], [x, y] = toScreen(w);
       return { x, y, path: [[x, y]] };
     },
+    resetView,
     viewKey: () => `${V.k.toFixed(3)},${V.x.toFixed(1)},${V.y.toFixed(1)}|${geoKey}`,
     isOpen: () => fade > 0.98,
     setLobe,
