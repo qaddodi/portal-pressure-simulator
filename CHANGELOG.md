@@ -2,6 +2,50 @@
 
 ## Unreleased
 
+- **Reversed flow glows orange.** Where a vessel's flow runs against its healthy direction (the Direction lens's
+  test), its shimmer (or parcels) warms to the reversed-flow orange, easing in over half a second, so hepatofugal
+  portal flow or a reversed splenic vein stands out as it happens. Not applied over the origin streams.
+- **Shimmer, refined, and now the default look.** Long, soft streaks of light carried by the flow, each at its
+  lane's laminar speed (fastest on the axis, so the sheen visibly shears), over a faint glow along the core;
+  brighter and denser where more blood passes. Parcels remain in the Blood menu.
+- **Color by origin, redone.** Instead of grey vessels with scattered colored dots, the blood itself is colored:
+  side-by-side streams (laminar flow keeps them apart) for the gut (amber), spleen (violet), hepatic artery
+  (crimson) and the rest of the body (slate blue), each as wide as its share of the flow. The portal vein shows
+  gut and splenic blood running together; the hepatic veins add the arterial stream; in hepatofugal flow the
+  portal colors run out through the collaterals to the cava.
+- **Moving blood, polished.** Parcels are now bright beads with a soft glow on dark lumens (deep beads on pale
+  ones), so the blood reads at a glance. At every junction the blood and the dye pass from one vessel into the
+  next: near a join both vessels' streams are cross-faded over about a radius, and each stream runs on past its
+  vessel's end, instead of stopping at a seam and reappearing beyond it. Dye now mixes visibly at a confluence.
+- **Inject dye from a vessel's card.** Tap a vessel and use *Inject dye*: a press injects for 6 seconds (it was 2),
+  a second press extends it, and holding the button (or J) goes on injecting until let go (up to 30 s).
+- **Circuit fixes.** The circuit no longer shows the anatomy's tributaries (the mesenteric fan, the azygos and
+  lumbar branches, the umbilical/epigastric network) at their anatomic places, and its lanes no longer wash out
+  where an organ lies in the anatomy. The brief Δ-pressure rings no longer appear when a patient is loaded, and
+  are cleared when the view changes, so no stray "+17" tags sit over the labels.
+- **Moving blood, rebuilt from scratch on the GPU.** The arrows, streaks, dashes and dots are gone. Each lumen now
+  carries fine parcels of blood, a quiet tint of the vessel's own color, drawn on the GPU inside the vessel (so they
+  pass under organs and nearer vessels exactly as the vessel does). What they show is kept true: direction; which
+  vessel is faster; the number of parcels passing a point each second is proportional to flow, so what enters a
+  junction leaves it; lanes near the axis run faster than those near the wall (laminar flow, the centre at twice the
+  mean). Time is slowed and speed compressed (speed grows with √velocity), and the menu says so. Slow flow (under
+  ~5 cm/s) in a large vein drifts and clumps like the "smoke" seen on ultrasound. A new **Blood** menu above the
+  figure: *Parcels* or *Shimmer* (a soft sheen carried by the same flow), *Color by origin* (gut, spleen, hepatic
+  artery or the rest of the body, mixed at every junction by flow: watch gut blood reach the cava in hepatofugal
+  flow), *Breathing and heartbeat* (the model's phasic flow, amplified ×2), and *Inject dye* (J): a short bolus
+  into the selected vessel, or the gut's veins, that travels the network, keeps its concentration through a split
+  and is diluted where undyed blood joins, with the bullet-shaped front of laminar flow. Per frame only the blood is
+  redrawn, over the vessels' tiles; the vessel layer is redrawn only when it changes.
+- **The anatomy is drawn on the GPU.** Where the device has a GPU with WebGL2, every vessel in the anatomy (the
+  portal tree, the veins behind the organs, the translucent context veins and collaterals, the arteries, the
+  cavernoma strands, the tributaries, closed collaterals and vessels drawing on) is drawn by one WebGL2 layer from
+  signed distances to each vessel's centerline. Vessels that share a junction merge into one smooth, filleted
+  shape, including where a vein ends on one in another layer, so no round ends or rings show where vessels meet.
+  Vessels are drawn as on a textbook plate: a flat pressure color with a thin light line along the lit side and a
+  thin dark line along the other, and only a faint contact shadow where one passes over another. The organs and the ascites are drawn by the same layer from a raster of
+  the plate (sharpened once a pan or zoom settles), so panning and zooming no longer repaint the SVG; the
+  congestion glow is drawn there too, without the SVG blur filter. The circuit is drawn on the GPU too. An
+  exported PNG is the GPU's picture; an exported SVG keeps vector tubes.
 - **Smooth joins between vessels.** Where a vein ends on a vessel drawn in a fainter or deeper layer (the
   inferior vena cava at the renal veins and at the right atrium, a splenorenal shunt at the renal vein), its
   round end and outline no longer sit on top of the other vessel as a ringed disc: the end now dissolves into

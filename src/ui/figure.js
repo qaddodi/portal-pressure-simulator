@@ -3,14 +3,13 @@
 // exported file is built from the live SVG layers with every style resolved inline, so it opens
 // the same in a vector editor, a slide or a manuscript.
 
-import { store } from './store.js?v=4bf5a96a9d';
+import { store } from './store.js?v=fd17378e33';
 import { h, fmt, fmtFlow, icon, toast } from './util.js?v=fe164f31f1';
-import { measurementRows, MEASURE_TITLE } from './measures.js?v=c4dde065f7';
+import { measurementRows, MEASURE_TITLE } from './measures.js?v=6fd4407721';
+import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { pressureColor, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
-const PROPS = ['fill', 'fill-opacity', 'fill-rule', 'stroke', 'stroke-width', 'stroke-opacity', 'stroke-dasharray', 'stroke-dashoffset', 'stroke-linecap', 'stroke-linejoin',
-  'opacity', 'font-family', 'font-size', 'font-weight', 'letter-spacing', 'text-anchor', 'paint-order', 'stop-color', 'stop-opacity', 'visibility'];
 const FONT = 'Inter, "Helvetica Neue", Arial, sans-serif';
 
 export function createFigure({ app, stage, onClose }) {
@@ -159,18 +158,6 @@ export function createFigure({ app, stage, onClose }) {
   function close() { unsub.forEach((u) => u()); unsub = []; }
 
   // ── Export ────────────────────────────────────────
-  function inlineStyles(src, dst) {
-    const cs = getComputedStyle(src);
-    if (cs.display === 'none') return false;
-    for (const p of PROPS) {
-      const v = cs.getPropertyValue(p);
-      if (v && v !== 'normal' && !(p === 'visibility' && v === 'visible')) dst.setAttribute(p, v);
-    }
-    dst.removeAttribute('class'); dst.removeAttribute('style'); dst.removeAttribute('tabindex'); dst.removeAttribute('role');
-    const sk = [...src.children], dk = [...dst.children];
-    for (let i = sk.length - 1; i >= 0; i--) if (inlineStyles(sk[i], dk[i]) === false) dk[i].remove();
-    return true;
-  }
   function wrapText(text, width, size, weight) {
     const c = document.createElement('canvas').getContext('2d');
     c.font = `${weight} ${size}px ${FONT}`;
@@ -190,7 +177,11 @@ export function createFigure({ app, stage, onClose }) {
     return lines.map((l, i) => `<text x="${(r.left - base.left).toFixed(1)}" y="${(r.top - base.top + lh * (i + 0.78)).toFixed(1)}" font-family='${FONT}' font-size="${size}" font-weight="${weight}" fill="${color}"${cs.textTransform === 'uppercase' ? ` letter-spacing="${cs.letterSpacing}"` : ''}>${esc(cs.textTransform === 'uppercase' ? l.toUpperCase() : l)}</text>`).join('');
   }
 
-  function buildSVG() {
+  // Where the GPU draws the plate and the vessels, an SVG export is serialized from the SVG tubes,
+  // built and shown for it. A PNG takes the GPU's own picture instead (`raster`): the SVG then
+  // carries only what lies over it (lesions, stents, labels) and the page around the figure.
+  const buildSVG = (opts = {}) => (opts.raster || !stage.withSVGVeins ? buildSVGNow(opts) : stage.withSVGVeins(() => buildSVGNow(opts)));
+  function buildSVGNow({ raster = false } = {}) {
     const base = wrap.getBoundingClientRect();
     const W = Math.round(base.width), H = Math.round(base.height);
     const viewEl = document.getElementById('stageView');
@@ -198,13 +189,15 @@ export function createFigure({ app, stage, onClose }) {
     const src = stage.svg;
     const clone = src.cloneNode(true);
     inlineStyles(src, clone);
-    // The live flow layer is a canvas; the export carries the same arrows as vector paths, each
-    // depth in its own layer so marks pass under organs and nearer vessels as they do live.
-    const [back, mid, front] = stage.flowSVG();
-    clone.querySelector('#backEdges')?.insertAdjacentHTML('beforeend', back);
-    const edges = clone.querySelector('#edges'), firstFront = edges?.querySelector('[data-front]');
-    if (firstFront) firstFront.insertAdjacentHTML('beforebegin', mid); else edges?.insertAdjacentHTML('beforeend', mid);
-    clone.querySelector('#world')?.insertAdjacentHTML('beforeend', front);
+    // The layer drawn over the GPU's (lesions, stents, halos), in the same frame as the figure.
+    const osrc = stage.overLayer?.();
+    let over = '';
+    if (osrc) {
+      const oc = osrc.cloneNode(true);
+      inlineStyles(osrc, oc);
+      for (const [k, v] of [['x', vr.left - base.left], ['y', vr.top - base.top], ['width', vr.width], ['height', vr.height]]) oc.setAttribute(k, v.toFixed(1));
+      over = new XMLSerializer().serializeToString(oc);
+    }
     clone.setAttribute('x', (vr.left - base.left).toFixed(1)); clone.setAttribute('y', (vr.top - base.top).toFixed(1));
     clone.setAttribute('width', vr.width.toFixed(1)); clone.setAttribute('height', vr.height.toFixed(1));
     clone.removeAttribute('aria-label');
@@ -239,11 +232,12 @@ export function createFigure({ app, stage, onClose }) {
       sc.querySelectorAll('.lg-num').forEach((t) => { const r = t.getBoundingClientRect(), cs = getComputedStyle(t); text += `<text x="${(r.left - base.left + r.width / 2).toFixed(1)}" y="${(r.top - base.top + r.height * 0.8).toFixed(1)}" text-anchor="middle" font-family='${FONT}' font-size="${cs.fontSize}" font-weight="${cs.fontWeight}" fill="${cs.color}">${esc(t.textContent)}</text>`; });
     });
     const fr = foot.getBoundingClientRect();
+    const bg = getComputedStyle(wrap).getPropertyValue('--stage-bg').trim() || cssv('--stage-bg');
     const svg = `<svg xmlns="${SVGNS}" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family='${FONT}'>`
-      + `<defs>${defs}</defs><rect width="${W}" height="${H}" fill="${getComputedStyle(wrap).getPropertyValue('--stage-bg').trim() || cssv('--stage-bg')}"/>`
-      + ser.serializeToString(clone) + ser.serializeToString(lab)
+      + `<defs>${defs}</defs>` + (raster ? '' : `<rect width="${W}" height="${H}" fill="${bg}"/>`)
+      + ser.serializeToString(clone) + over + ser.serializeToString(lab)
       + `<rect x="0" y="${(fr.top - base.top).toFixed(1)}" width="${W}" height="1" fill="${cssv('--border')}"/>` + text + '</svg>';
-    return { svg, W, H };
+    return { svg, W, H, bg, view: [vr.left - base.left, vr.top - base.top, vr.width, vr.height] };
   }
   function fileName(ext) {
     const st = store.get();
@@ -255,15 +249,22 @@ export function createFigure({ app, stage, onClose }) {
     document.body.append(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   }
+  const loadImg = (src) => new Promise((res, rej) => { const img = new Image(); img.onload = () => res(img); img.onerror = rej; img.src = src; });
   async function exportFile(kind) {
-    const { svg, W, H } = buildSVG();
-    if (kind === 'svg') { download(new Blob([svg], { type: 'image/svg+xml' }), fileName('svg')); toast('Figure saved as SVG.'); return; }
-    const img = new Image();
-    const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
-    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
     const k = 2;
+    const gpu = kind === 'png' ? stage.rasterLayers?.(k) : null;
+    const { svg, W, H, bg, view } = buildSVG({ raster: !!gpu });
+    if (kind === 'svg') { download(new Blob([svg], { type: 'image/svg+xml' }), fileName('svg')); toast('Figure saved as SVG.'); return; }
+    const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+    const img = await loadImg(url);
     const c = document.createElement('canvas'); c.width = W * k; c.height = H * k;
-    const ctx = c.getContext('2d'); ctx.scale(k, k); ctx.drawImage(img, 0, 0);
+    const ctx = c.getContext('2d'); ctx.scale(k, k);
+    if (gpu) {
+      // The page, then the GPU's plate and vessels and the flow marks, then everything drawn over them.
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+      if (gpu.veins) ctx.drawImage(await loadImg(gpu.veins), ...view);
+    }
+    ctx.drawImage(img, 0, 0);
     URL.revokeObjectURL(url);
     c.toBlob((b) => { download(b, fileName('png')); toast('Figure saved as PNG (2×).'); }, 'image/png');
   }

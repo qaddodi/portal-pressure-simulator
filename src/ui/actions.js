@@ -5,7 +5,7 @@
 
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=29d10ad9ef';
 import { DRUGS } from '../engine/scenario.js?v=8fc90f782f';
-import { store, updateParams } from './store.js?v=4bf5a96a9d';
+import { store, updateParams } from './store.js?v=fd17378e33';
 import { fmt, fmtFlow, clamp, toast } from './util.js?v=fe164f31f1';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -116,6 +116,12 @@ export function cardFor(selIn, ctx) {
     verbs.push(doppler);
     if (shunt) verbs.push(shunt);
     if (id === 'SV_CONF' || id === 'V_SPL') verbs.push({ type: 'link', label: 'Spleen', run: () => ctx.select({ type: 'organ', id: 'spleen' }) });
+  }
+  // Dye into this vessel, beside Doppler: a few seconds a press, or as long as it is held.
+  if (ctx.injectDye) {
+    const dye = { type: 'dye', id: 'dye', label: 'Inject dye', icon: 'drop', run: (o) => ctx.injectDye(id, o), release: () => ctx.releaseDye(), busy: () => ctx.dyeInjecting(), showIf: () => ctx.canDye?.() !== false };
+    const at = verbs.indexOf(doppler);
+    if (at >= 0) verbs.splice(at + 1, 0, dye); else verbs.push(dye);
   }
   return {
     key: 'e:' + id, sel, kicker, title: e.label, why, edge: id, verbs,

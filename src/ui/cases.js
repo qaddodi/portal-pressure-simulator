@@ -2,7 +2,7 @@
 // a bedside monitor, orders, one visibility map for what the clinician cannot know, randomized
 // variants, and a printable debrief with a counterfactual replayed in a separate engine.
 
-import { store, updateParams } from './store.js?v=4bf5a96a9d';
+import { store, updateParams } from './store.js?v=fd17378e33';
 import { host } from './host.js?v=d292ccefe8';
 import { h, fmt, openModal, closeModal, toast, svgIcon } from './util.js?v=fe164f31f1';
 import { addRecord, exportCSV, exportXAPI } from './records.js?v=26ab8fb634';

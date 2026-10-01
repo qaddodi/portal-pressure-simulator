@@ -3,7 +3,7 @@
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { PROFILE_PATHS, SHORT } from './anatomy.js?v=6728d01049';
 import { pressureColor } from './colormap.js?v=6d64a94345';
-import { store } from './store.js?v=4bf5a96a9d';
+import { store } from './store.js?v=fd17378e33';
 import { h, fmt, fmtFlow, fitCanvas, cssVar, clamp } from './util.js?v=fe164f31f1';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

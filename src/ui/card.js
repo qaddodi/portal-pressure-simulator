@@ -3,9 +3,9 @@
 // sliders that used to live in the side panel. Every verb takes effect at once and becomes one
 // entry in the timeline; nothing stays "armed".
 
-import { store, updateParams } from './store.js?v=4bf5a96a9d';
+import { store, updateParams } from './store.js?v=fd17378e33';
 import { h, icon, svgIcon, fmt, clamp, tooltipFor } from './util.js?v=fe164f31f1';
-import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=749e19086d';
+import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=1c8253a43a';
 
 const LOCK_TIP = 'Not available in this step of the lesson or case';
 
@@ -88,14 +88,21 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     });
     const body = h('div', { class: 'ac-body' });
     // Readouts that follow one another sit side by side on a phone (a lone one takes the whole row).
-    let statRun = null;
+    // Plain buttons that follow one another are grouped too: three of them share one row on a phone.
+    let statRun = null, btnRun = null;
     for (const v of m.verbs) {
       const node = verbEl(v);
       if (!node) continue;
       if (node.classList.contains('ac-stat')) {
+        btnRun = null;
         if (!statRun) { statRun = h('div', { class: 'ac-stats' }); body.append(statRun); }
         statRun.append(node);
-      } else { statRun = null; body.append(node); }
+      } else if (node.classList.contains('ac-btn-wrap') && !node.classList.contains('wide') && !node.querySelector('.ac-note')) {
+        statRun = null;
+        if (!btnRun) { btnRun = h('div', { class: 'ac-btns' }); body.append(btnRun); }
+        btnRun.append(node);
+        btnRun.classList.toggle('tri', btnRun.children.length === 3);
+      } else { statRun = btnRun = null; body.append(node); }
     }
     // Why? and Details are written twice and shown once: in the header on a phone (where a row of their own would
     // be a strip of wasted sheet) and at the foot on a desktop.
@@ -232,6 +239,25 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       }
       actionable.push({ el: b, run: () => b.click(), focus: () => b.focus() });
       return wrap;
+    }
+    if (v.type === 'dye') {
+      // A press injects for a few seconds; held, it goes on until let go.
+      const lbl = h('span', { class: 'ac-bl' }, v.label);
+      const b = h('button', { class: 'ac-btn ac-dye', title: 'Tap to inject for a few seconds; hold to go on longer' }, v.icon ? svgIcon(v.icon, 'ac-ic') : null, lbl);
+      let pressed = false;
+      const up = () => { if (pressed) { pressed = false; v.release(); } };
+      b.addEventListener('pointerdown', (e) => { if (e.button > 0) return; pressed = true; b.setPointerCapture?.(e.pointerId); v.run({ hold: true }); });
+      for (const t of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(t, up);
+      b.addEventListener('click', (e) => { if (e.detail === 0) v.run({}); });   // keyboard
+      b.addEventListener('contextmenu', (e) => e.preventDefault());
+      live.push(() => {
+        const on = !!v.busy();
+        b.classList.toggle('on', on);
+        const t = on ? 'Injecting\u2026' : v.label;
+        if (lbl.textContent !== t) lbl.textContent = t;
+      });
+      actionable.push({ el: b, run: () => v.run({}), focus: () => b.focus() });
+      return h('div', { class: 'ac-btn-wrap' }, b);
     }
     if (v.type === 'drain') {
       const dis = locked(v);
