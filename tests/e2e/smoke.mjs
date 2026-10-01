@@ -92,7 +92,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const read = () => page.evaluate(() => {
       const c = document.querySelector('.action-card'), r = c.getBoundingClientRect(), sv = document.querySelector('#stageView').getBoundingClientRect(), sc = c.querySelector('.ac-scroll');
       const link = c.querySelector('.ac-foot.in-head .link');
-      return { covers: r.bottom > sv.bottom + 20, peek: c.classList.contains('peek'), docked: c.classList.contains('docked'), top: r.top - sv.top, h: r.height, stageH: sv.height, scrolls: sc.scrollHeight - sc.clientHeight, links: !!link && link.getBoundingClientRect().height > 0, foot: getComputedStyle(c.querySelector('.ac-foot.at-foot')).display !== 'none' };
+      // The figure fills the screen; the sheet rises from the bottom edge, over the vitals dock.
+      return { covers: r.bottom >= innerHeight - 2 && r.top < document.querySelector('#vdock').getBoundingClientRect().top, peek: c.classList.contains('peek'), docked: c.classList.contains('docked'), top: r.top - sv.top, h: r.height, stageH: sv.height, scrolls: sc.scrollHeight - sc.clientHeight, links: !!link && link.getBoundingClientRect().height > 0, foot: getComputedStyle(c.querySelector('.ac-foot.at-foot')).display !== 'none' };
     });
     const swipe = async (dy) => {
       const box = await (await page.$('.ac-top')).boundingBox();
@@ -105,7 +106,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     let s = await read();
     if (!s.docked || s.peek) throw new Error('the card should open as a docked sheet, not as the strip');
     if (s.h > s.stageH * 0.36) throw new Error(`the sheet covers ${Math.round((100 * s.h) / s.stageH)} % of the figure`);
-    if (!s.covers) throw new Error('the sheet should reach the bottom of the figure column, over the play row');
+    if (!s.covers) throw new Error('the sheet should rise from the bottom of the screen, over the vitals dock');
     if (s.scrolls > 2) throw new Error(`the portal vein card scrolls by ${s.scrolls} px: everything should show at once`);
     if (!s.links || s.foot) throw new Error('Why? and Details should be in the header, with no row of their own at the foot');
     const anchorY = await page.evaluate(() => { const a = window.pps.stage.anchorFor({ type: 'edge', id: 'PV_TRUNK' }); return a && a.y; });
@@ -289,6 +290,28 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (await page.evaluate(() => window.pps.store.get().selection?.type === 'lobule')) throw new Error('the lobule card stayed open after leaving');
   });
 
+  await check(device, 'floating layout: figure fills the screen, Treat card, findings badge', async (page) => {
+    await open(page, '?preset=cirr-decomp');
+    await page.waitForTimeout(800);
+    const fill = await page.evaluate(() => { const r = document.querySelector('#stageView').getBoundingClientRect(); return (r.width * r.height) / (innerWidth * innerHeight); });
+    if (fill < 0.97) throw new Error(`the figure covers only ${Math.round(fill * 100)} % of the screen`);
+    if (await page.evaluate(() => document.querySelector('#app').classList.contains('panel-open'))) throw new Error('the patient chart should start closed');
+    const n = await page.$eval('#findBadge', (el) => parseInt(el.textContent, 10));
+    if (!(n > 0)) throw new Error('decompensated cirrhosis shows no findings on the badge');
+    await page.click('#btnInspector');
+    await page.waitForFunction(() => document.querySelector('#app').classList.contains('panel-open'));
+    // The model runs, so a finding can come or go between two reads: compare them in one frame.
+    await page.waitForFunction(() => parseInt(document.querySelector('#findBadge').textContent, 10) === document.querySelectorAll('#panel .finding').length, null, { timeout: 5000 })
+      .catch(() => { throw new Error('the badge and the chart disagree on the number of findings'); });
+    await page.click('#panelClose');
+    await page.click('#btnTreat');
+    await page.waitForSelector('#treatCard:not([hidden]) .order-chip');
+    await page.locator('#treatCard .order-chip', { hasText: 'Carvedilol' }).click();
+    await page.waitForFunction(() => window.pps.store.get().params.drugs.carvedilol);
+    await shot(page, `${device}-treat`);
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('#treatCard', { state: 'hidden' });
+  });
   await check(device, 'dark theme', async (page) => {
     await page.emulateMedia({ colorScheme: 'dark' });
     await open(page, '?preset=budd-chiari');
@@ -304,13 +327,16 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const dock = document.querySelector('#dock').getBoundingClientRect();
       const stage = document.querySelector('#stageView').getBoundingClientRect();
       const panel = document.querySelector('#panel');
-      return { stageH: stage.height, stageBottom: stage.bottom, dockTop: dock.top,
+      // The workspace floats over the bottom of the full-screen figure: between it and the top bar
+      // the anatomy must still have room.
+      const top = document.querySelector('#topbar').getBoundingClientRect().bottom;
+      return { stageH: stage.height, free: dock.top - top, dockTop: dock.top,
         dockRight: dock.right, width: innerWidth,
         scrim: getComputedStyle(document.querySelector('#panelScrim')).visibility,
         panel: getComputedStyle(panel).visibility };
     });
     let g = await geometry();
-    if (g.stageH < 50 || g.stageBottom > g.dockTop + 1) throw new Error('workspace overlays or hides the anatomy');
+    if (g.stageH < 50 || g.free < 120) throw new Error(`workspace leaves the anatomy ${Math.round(g.free)} px`);
     if (g.dockRight > g.width + 1) throw new Error('workspace extends off screen');
     if (device === 'phone' && (g.scrim === 'visible' || g.panel === 'visible')) throw new Error('opening instruments also opens a patient overlay');
     const before = await page.evaluate(() => window.pps.store.get().frame.t);
@@ -366,8 +392,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await page.click('.workspace-expand');
       await page.setViewportSize({ width: 390, height: 844 });
     } else {
-      await page.click('#btnInspector');
-      await page.waitForTimeout(500);
+      // The patient chart starts closed, so the workspace has the full width for two instruments.
+      if (await page.evaluate(() => document.querySelector('#app').classList.contains('panel-open'))) throw new Error('the patient chart should start closed');
       await page.click('.dock-second');
       await page.click('.instrument-option[data-instrument="doppler"]');
       await page.waitForSelector('#dockBody.split');

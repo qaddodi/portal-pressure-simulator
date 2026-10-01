@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **The figure fills the screen.** The side panel, the readout strip and the separate bars above and below
+  the figure are gone; everything floats over the anatomy instead, and Fit frames it in the space left free.
+  - *Top:* small floating pills: the logo and patient; the view, Blood, lens and Figure controls; and
+    Findings, Treat, Measure, Search, Share, Settings and Help. On a wide screen (1600 px+) this is one row.
+  - *Bottom:* a vitals dock with the play bar and the four key readouts (HVPG, portal pressure, portal flow,
+    varix wall). Abnormal values are tinted amber or red and flash once when they cross into a worse band;
+    the chevron opens every readout group.
+  - *Findings:* a badge with the number of findings in the color of the worst (a check when nothing is
+    abnormal). It opens the patient chart, a card on the right; lessons, cases and a vessel's Details open it too.
+  - *Treat (T):* drugs, fluids and blood, and procedures in a card of their own.
+  - *Measure:* the instrument workspace floats over the bottom of the figure, which re-fits above it.
+  - While the figure is dragged, pinched or scrolled, the floating pieces fade back.
+  - *Phones:* the chart and Treat are bottom sheets with three heights; drag the handle, or below the lowest
+    to close. A lesson's step card sits under the top bar.
 - **Lobule is a view of its own.** *Anatomy · Circuit · Lobule* in the view switch. The lobule opens over the
   anatomy and closes only from the switch (or A): zooming or pinching out stops at 1× instead of dropping back to
   the liver, and Fit inside it shows the whole lobule. The Abdomen › Liver › Lobule zoom trail is gone; the

@@ -167,7 +167,12 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         x.cmp.className = 'cmp ' + (same ? 'same' : d > 0 ? 'up' : 'down');
         x.st.hidden = true;
       } else if (x.cmp.textContent) { x.cmp.textContent = ''; x.st.hidden = false; }
-      if (sev !== x.sev) { el.dataset.sev = sev; x.sev = sev; }
+      if (sev !== x.sev) {
+        // A value crossing into a worse band flashes once, so a change is noticed without every number on screen.
+        const RANKS = { none: -1, ok: 0, caution: 1, danger: 2, critical: 3 };
+        if (x.sev && RANKS[sev] > RANKS[x.sev]) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+        el.dataset.sev = sev; x.sev = sev;
+      }
       const aria = `${t.title || t.k}: ${v == null ? 'not measured' : `${fmt(v, t.d)} ${t.u}${t.ux || ''}, ${s}`}${x.trend ? `, ${x.trend === 'up' ? 'rising' : 'falling'}` : ''}`;
       if (aria !== x.ariaTxt) { x.ariaTxt = aria; el.setAttribute('aria-label', aria); }
     }
@@ -271,7 +276,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     resizeFrame = requestAnimationFrame(() => { resizeFrame = 0; refresh(); });
   }
   function updateSize() {
-    const max = stageWrap.clientHeight;
+    // The workspace floats between the top bar and the vitals dock.
+    const css = getComputedStyle(app);
+    const max = stageWrap.clientHeight - (parseFloat(css.getPropertyValue('--top-safe')) || 0) - (parseFloat(css.getPropertyValue('--vdock-h')) || 0) + 110;
     const ratio = heightRatio ?? (matchMedia('(max-width: 767px)').matches ? 0.56 : 0.46);
     const height = Math.min(max - 150, Math.max(180, max * ratio));
     workspace.style.setProperty('--instrument-h', `${Math.max(140, height)}px`);

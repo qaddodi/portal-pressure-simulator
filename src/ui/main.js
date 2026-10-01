@@ -3,16 +3,16 @@
 
 import { startHost, host } from './host.js?v=d292ccefe8';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=f9424489c6';
-import { createStage } from './stage.js?v=b2205d4c99';
+import { createStage } from './stage.js?v=e5d35dce8b';
 import { createInspector } from './inspector.js?v=208b6a3592';
-import { createDock, CUTOFFS } from './dock.js?v=fe557607ec';
+import { createDock, CUTOFFS } from './dock.js?v=2d1add443f';
 import { createWhy } from './why.js?v=bf0f24a7a5';
 import { createTimeline } from './timeline.js?v=7bf66ab2fb';
 import { createLearn } from './learn.js?v=a48578b939';
 import { createCases } from './cases.js?v=02646abf69';
 import { createCompare } from './compare.js?v=730844b101';
 import { createCard } from './card.js?v=18ef0b42c9';
-import { createChart } from './chart.js?v=b2470c50bf';
+import { createChart, computeFindings } from './chart.js?v=cc86ff5c45';
 import { createHome } from './home.js?v=5538efbe12';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=e7e5c98a1c';
@@ -28,7 +28,6 @@ const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const app = $('#app');
 const view = $('#stageView');
 const isPhone = () => matchMedia('(max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape)').matches;
-const isNarrow = () => matchMedia('(max-width: 1279px)').matches;
 const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
@@ -172,6 +171,7 @@ async function main() {
   renderPaintHint();
   buildHud();
   wireTopbar();
+  wireFloating();
   // iOS scrolls the whole page to reveal a focused field, which pushes the top bar up under the
   // status bar of an installed app; the page itself never scrolls, so put it back.
   addEventListener('scroll', () => { if (scrollX || scrollY) scrollTo(0, 0); }, { passive: true });
@@ -261,6 +261,7 @@ function onFrame(f) {
   const txt = f.day > 0 ? `Day ${f.day}` : `${fmt(f.t, 0)} s`;
   if (txt !== lastClockTxt) { lastClockTxt = txt; stageClock.textContent = txt; }
   updateBleedBanner(f);
+  updateFindBadge(f);
   if (projector) updateProjector(f);
   sonifyFrame(f);
   if (now - lastDesc > 3000) { lastDesc = now; $('#stage').setAttribute('aria-description', describe(f)); }
@@ -673,11 +674,11 @@ function wireTopbar() {
   ], { align: 'end' }));
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnHelp').addEventListener('click', (e) => openHelpMenu(e.currentTarget));
-  $('#btnInspector').addEventListener('click', () => (panelShown() ? closePanel() : openPanel()));
-  for (const [id, side] of [['#btnPalette', 'bottom'], ['#btnShare', 'bottom'], ['#btnSettings', 'bottom'], ['#btnHelp', 'bottom']]) {
+  $('#btnInspector').addEventListener('click', () => { if (panelShown() && !store.get().details) closePanel(); else { store.set({ details: null }); openPanel(); } });
+  $('#btnTreat').addEventListener('click', () => (treatOpen() ? closeTreat() : openTreat()));
+  for (const [id, side] of [['#btnPalette', 'bottom'], ['#btnShare', 'bottom'], ['#btnSettings', 'bottom'], ['#btnHelp', 'bottom'], ['#btnTreat', 'bottom'], ['#btnInspector', 'bottom']]) {
     const b = $(id); tooltipFor(b, b.title, side); b.removeAttribute('title');
   }
-  tooltipFor($('#btnInspector'), () => (panelShown() ? t('top.panel.hide') : t('top.panel.show')), 'bottom');
 }
 // Two menus with one job each: Settings (how the simulator looks and reads) and Help (how to
 // use it, what it is, and who made it). The role ("I am a…") lives on Home, where a session starts.
@@ -736,13 +737,11 @@ function applyTheme(t, clear) {
   syncStatusBar();
 }
 // The browser's and the installed app's status bar take the color of whatever sits under it: the
-// top bar, the figure when the top bar is hidden, or the start screen when it is open. The theme can differ from the system's, so the
+// figure (the top bar floats over it), or the start screen when it is open. The theme can differ from the system's, so the
 // color comes from the page, not from a media query.
 function syncStatusBar() {
   const homeEl = document.getElementById('home');
-  const appEl = document.getElementById('app');
-  const el = homeEl && !homeEl.hidden ? homeEl
-    : appEl.classList.contains('figure-mode') || appEl.classList.contains('projector') ? document.getElementById('stageWrap') : document.querySelector('.topbar');
+  const el = homeEl && !homeEl.hidden ? homeEl : document.getElementById('stageWrap');
   const c = el && getComputedStyle(el).backgroundColor;
   if (!c || c === 'rgba(0, 0, 0, 0)') return;
   let m = document.querySelector('meta[name="theme-color"]:not([media])');
@@ -757,29 +756,27 @@ new MutationObserver(() => syncStatusBar()).observe(document.getElementById('hom
 // (again once the figure's background has finished its .5 s fade)
 new MutationObserver(() => { syncStatusBar(); setTimeout(syncStatusBar, 600); }).observe(document.getElementById('app'), { attributes: true, attributeFilter: ['class'] });
 function readLS(k) { try { return localStorage.getItem(k); } catch { return null; } }
-// ── Patient panel and independent instrument workspace ─
-// Beside the figure on a wide screen; below 1280 px it slides over the figure from the right
-// (with a scrim on a phone) and the top bar's side-panel button opens it.
-function panelShown() { return !app.classList.contains('instrument-focus') && (isNarrow() ? app.classList.contains('panel-open') : !app.classList.contains('panel-collapsed')); }
+// ── Patient chart, Treat card and instrument workspace ─
+// The chart is a card floating over the right of the figure (a bottom sheet on a phone), opened
+// from Findings, by a lesson or a case, or by a vessel's Details. It starts closed: the figure
+// has the screen until something is asked for.
+function panelShown() { return !app.classList.contains('instrument-focus') && app.classList.contains('panel-open'); }
 function syncPanelToggle() {
   const on = panelShown();
   $('#btnInspector').setAttribute('aria-pressed', String(on));
-  $('#btnInspector').setAttribute('aria-label', on ? t('top.panel.hide') : t('top.panel.show'));
   if (on) $('#btnInspector').classList.remove('ping');
   setTimeout(() => stage?.relayout(), 320);
 }
-/** Opens the side panel; on the patient chart unless a tab is named. */
+/** Opens the patient chart; or the instruments when named. */
 function openPanel(tab = 'chart') {
-  if (tab === 'instruments') {
-    setPanelTab('instruments');
-    if (isNarrow()) closePanel();
-    return;
-  }
+  if (tab === 'instruments') { setPanelTab('instruments'); if (isPhone()) closePanel(); return; }
   if (app.classList.contains('instrument-focus')) dock.setState('open');
-  app.classList.remove('panel-collapsed'); app.classList.add('panel-open');
+  if (isPhone()) closeTreat();
+  app.classList.add('panel-open');
+  panelSheet?.open();
   syncPanelToggle();
 }
-function closePanel() { if (isNarrow()) app.classList.remove('panel-open'); else app.classList.add('panel-collapsed'); syncPanelToggle(); }
+function closePanel() { app.classList.remove('panel-open'); panelSheet?.closed(); syncPanelToggle(); }
 function setPanelTab(tab) {
   const instr = tab === 'instruments';
   if (instr) dock.ensure();
@@ -792,6 +789,125 @@ function setPanelTab(tab) {
     const f = store.get().frame; if (f && instr) requestAnimationFrame(() => dock.update(f, true));
     setTimeout(() => dispatchEvent(new Event('resize')), 320);
   }
+}
+
+// ── Floating pieces ─────────────────────────────────
+// The top bar and the vitals dock publish their heights (--top-safe, --vdock-h), so the cards,
+// the Fit button and the toasts keep clear of them; Fit itself reads data-safe (stage.js).
+let panelSheet = null, treatSheet = null;
+function wireFloating() {
+  const publish = () => {
+    app.style.setProperty('--top-safe', `${$('#topbar').offsetHeight}px`);
+    app.style.setProperty('--vdock-h', `${$('#vdock').offsetHeight}px`);
+  };
+  const ro = new ResizeObserver(publish);
+  ro.observe($('#topbar')); ro.observe($('#vdock'));
+  publish();
+  panelSheet = sheetBehaviour($('#panel'), { handle: h('button', { class: 'panel-grab', 'aria-label': 'Resize the patient chart' }), drag: '.panel-head', onClose: closePanel });
+  treatSheet = sheetBehaviour($('#treatCard'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the Treat card' }), drag: '.tc-head', onClose: closeTreat });
+  // Focus: dragging, pinching or scrolling the figure fades the floating pieces until it stops.
+  let busyT = 0, down = null;
+  const busy = (ms) => { app.classList.add('stage-busy'); clearTimeout(busyT); busyT = setTimeout(() => app.classList.remove('stage-busy'), ms); };
+  view.addEventListener('pointerdown', (e) => { down = [e.clientX, e.clientY]; });
+  view.addEventListener('pointermove', (e) => { if (down && e.buttons && Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 8) busy(5000); });
+  addEventListener('pointerup', () => { if (down) { down = null; if (app.classList.contains('stage-busy')) busy(600); } });
+  addEventListener('pointercancel', () => { down = null; busy(300); });
+  view.addEventListener('wheel', () => busy(800), { passive: true });
+  // A tap outside the Treat card (but not on its button) puts it away, as a menu would be.
+  addEventListener('pointerdown', (e) => {
+    if (!treatOpen() || isPhone()) return;
+    if (e.target.closest('#treatCard, #btnTreat, .popover, .tooltip, .modal-back, .toast-wrap')) return;
+    closeTreat();
+  }, true);
+}
+// Phone: the chart and Treat are bottom sheets with three heights; a drag on the handle (or the
+// head) moves between them, and below the lowest closes the sheet. Wider: the head drags the card
+// aside, and it returns to its place when it closes.
+function sheetBehaviour(el, { handle, drag, onClose }) {
+  const SIZES = [0.32, 0.56, 0.9];
+  let size = 1;
+  el.prepend(handle);
+  const apply = () => el.style.setProperty('--sheet-size', `${Math.round(SIZES[size] * 100)}%`);
+  apply();
+  handle.addEventListener('click', () => { if (!isPhone()) return; size = (size + 1) % SIZES.length; apply(); });
+  let start = null;
+  const grabbed = (e) => e.target === handle || (e.target.closest(drag) && !e.target.closest('button, a, input, select, [role="tab"]'));
+  el.addEventListener('pointerdown', (e) => {
+    if (!grabbed(e) || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    const r = el.getBoundingClientRect(), mv = (el.style.translate || '0px 0px').split(' ').map(parseFloat);
+    start = { x: e.clientX, y: e.clientY, h: r.height, H: app.clientHeight, tx: mv[0] || 0, ty: mv[1] || 0, moved: false };
+    el.setPointerCapture?.(e.pointerId);
+  });
+  el.addEventListener('pointermove', (e) => {
+    if (!start) return;
+    const dx = e.clientX - start.x, dy = e.clientY - start.y;
+    if (!start.moved && Math.hypot(dx, dy) < 6) return;
+    start.moved = true;
+    el.classList.add('dragging');
+    if (isPhone()) el.style.height = `${Math.max(60, start.h - dy)}px`;
+    else el.style.translate = `${start.tx + dx}px ${start.ty + dy}px`;
+  });
+  const end = () => {
+    if (!start) return;
+    const s0 = start; start = null;
+    el.classList.remove('dragging');
+    if (!s0.moved || !isPhone()) return;
+    const frac = el.getBoundingClientRect().height / s0.H;
+    el.style.height = '';
+    if (frac < SIZES[0] * 0.7) { onClose(); return; }
+    size = SIZES.reduce((best, v, i) => (Math.abs(v - frac) < Math.abs(SIZES[best] - frac) ? i : best), 0);
+    apply();
+  };
+  el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+  return { open: () => { if (isPhone()) { size = 1; apply(); } }, closed: () => { el.style.translate = ''; el.style.height = ''; } };
+}
+// The findings badge: a check when nothing is abnormal, else how many findings, in the color of the worst.
+let lastFindKey = '', lastFindN = 0;
+function updateFindBadge(f) {
+  // In a case where pressures are unmeasured, a check would claim more than is known.
+  const unknown = !!store.get().imaging;
+  const found = unknown ? [] : computeFindings(f.metrics, store.get().hiddenReadouts);
+  const sev = unknown ? 'none' : found[0]?.sev || 'ok', n = found.length, key = `${n}|${sev}`;
+  if (key === lastFindKey) return;
+  lastFindKey = key;
+  const el = $('#findBadge');
+  el.dataset.sev = sev;
+  el.replaceChildren(unknown ? '–' : n ? String(n) : svgIcon('check'));
+  if (n > lastFindN) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+  lastFindN = n;
+  $('#btnInspector').setAttribute('aria-label', unknown ? 'Patient chart' : n ? `Patient chart: ${n} finding${n > 1 ? 's' : ''}` : 'Patient chart: nothing abnormal');
+}
+// ── Treat card ──────────────────────────────────────
+let treatOff = null;
+const treatOpen = () => !$('#treatCard').hidden;
+function openTreat() {
+  const el = $('#treatCard');
+  if (isPhone()) closePanel();
+  closePopover();
+  const sync = [];
+  const count = h('span', { class: 'tc-active' });
+  const paintCount = () => { const n = chart.treatCount(store.get().params); count.textContent = n ? `${n} running` : ''; };
+  sync.push(paintCount);
+  const body = h('div', { class: 'tc-body' }, chart.treatBody(sync, () => { if (isPhone()) closeTreat(); }));
+  const grab = el.querySelector('.sheet-grab');
+  el.replaceChildren(...[grab, h('div', { class: 'tc-head' }, h('h2', {}, svgIcon('pill'), 'Treat'), count,
+    h('button', { class: 'ib', 'aria-label': 'Close Treat', title: 'Close (Esc)', onclick: () => closeTreat() }, icon('close'))), body].filter(Boolean));
+  paintCount();
+  treatOff?.();
+  treatOff = store.on('params', () => { for (const fn of sync) fn(); });
+  el.hidden = false;
+  treatSheet?.open();
+  $('#btnTreat').setAttribute('aria-expanded', 'true');
+  requestAnimationFrame(() => stage.relayout());
+}
+function closeTreat() {
+  const el = $('#treatCard');
+  if (el.hidden) return;
+  el.hidden = true;
+  treatOff?.(); treatOff = null;
+  treatSheet?.closed();
+  $('#btnTreat').setAttribute('aria-expanded', 'false');
+  requestAnimationFrame(() => stage.relayout());
 }
 
 // ── Modes ───────────────────────────────────────────
@@ -825,6 +941,7 @@ function wireKeyboard() {
       else if (app.classList.contains('figure-mode')) toggleFigure(false);
       else if (projector) toggleProjector();
       else if (app.classList.contains('instrument-focus')) dock.setState('open');
+      else if (treatOpen()) closeTreat();
       else if (stage.isShunting()) stage.cancelShunt();
       else if (store.get().tool !== 'select') setTool('select');
       else store.set({ selection: null });
@@ -856,6 +973,7 @@ function wireKeyboard() {
     if (e.key === 'F' && e.shiftKey) { toggleProjector(); return; }
     if (k === 'f' && !e.shiftKey) { toggleFigure(); return; }
     if (k === 'i') { dock.toggle(); return; }
+    if (k === 't') { if (treatOpen()) closeTreat(); else openTreat(); return; }
     if (k === 'p') { timeline.togglePin(); return; }
     if (k === 'j' && !store.get().imaging) { if (!e.repeat) injectDye({ hold: true }); return; }
     if (k === 'd') { const d = describe(store.get().frame); announce(d); toast(d); return; }
@@ -911,8 +1029,6 @@ function wirePanel() {
   $('#tabInstruments').addEventListener('click', () => dock.toggle());
   $('#panelClose').addEventListener('click', closePanel);
   $('#panelScrim').addEventListener('click', closePanel);
-  // Below 1280 px the panel starts closed so the figure has the room; wider, it is open.
-  if (isNarrow()) app.classList.remove('panel-open');
   setPanelTab('chart');
   syncPanelToggle();
 }
@@ -926,7 +1042,7 @@ function brandMark() {
 function openHelp(section) {
   const rows = [
     ['Space', 'Play / pause'], ['[ ]', 'Slower / faster'], ['.', 'Step'], ['Z', 'Settle to equilibrium'], ['A', 'Anatomy ⇄ circuit'],
-    ['F', 'Figure view'], ['I', 'Open / close Measure'], ['L', 'Next color lens (Shift: previous)'],
+    ['F', 'Figure view'], ['I', 'Open / close Measure'], ['T', 'Open / close Treat'], ['L', 'Next color lens (Shift: previous)'],
     ['Click', 'Open the actions for a vessel or organ'], ['1 – 9', 'Run an action on the open card'],
     ['Ctrl/⌘ Z', 'Back one change on the timeline (Shift: forward)'], ['P', 'Compare from here / stop comparing'], ['Esc', 'Cancel · close the card · close'], ['Shift F', 'Projector mode'], ['?', 'This guide'],
     ['Tab · Enter', 'Reach a vessel, open its actions'], ['← →', 'Walk vessels along the flow'], ['Ctrl/⌘ K or /', 'Search'],

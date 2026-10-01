@@ -795,6 +795,41 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // centered on the portal vein and liver, and the learner pans sideways to the beds or heart.
   // The esophagus and the great veins run on above the plate and fade out; Fit stops where they fade.
   const FIT_TOP = -40;
+  // The figure fills the window and the rest of the interface floats over it. Each floating piece
+  // says which edge it holds (data-safe="top|bottom|left|right"); the default framing keeps the
+  // figure in the space they leave. Side cards count only on a wide screen (on a phone they are
+  // sheets over the figure), and the figure never shrinks to a sliver for them.
+  function safeInsets() {
+    const wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height;
+    const ins = { t: 0, b: 0, l: 0, r: 0, W, H };
+    if (!W || !H) return ins;
+    for (const el of document.querySelectorAll('[data-safe]')) {
+      if (el.hidden || el.closest('[hidden]')) continue;
+      if (el.checkVisibility ? !el.checkVisibility({ visibilityProperty: true }) : getComputedStyle(el).visibility === 'hidden') continue;
+      const q = el.getBoundingClientRect();
+      if (!q.width || !q.height) continue;
+      const x0 = q.left - wr.left, y0 = q.top - wr.top, x1 = q.right - wr.left, y1 = q.bottom - wr.top;
+      if (x1 <= 0 || y1 <= 0 || x0 >= W || y0 >= H) continue;
+      const edge = el.dataset.safe;
+      if (edge === 'top') ins.t = Math.max(ins.t, y1);
+      else if (edge === 'bottom') ins.b = Math.max(ins.b, H - y0);
+      else if (W >= 768 && edge === 'right') ins.r = Math.max(ins.r, W - x0);
+      else if (W >= 768 && edge === 'left') ins.l = Math.max(ins.l, x1);
+    }
+    if (W - ins.l - ins.r < W * 0.5) ins.l = ins.r = 0;
+    if (H - ins.t - ins.b < H * 0.35) { const k = (H * 0.65) / (ins.t + ins.b); ins.t *= k; ins.b *= k; }
+    return ins;
+  }
+  // A framing computed for the whole stage, moved and scaled into the free space.
+  function insetVT(v, vbArr) {
+    const ins = safeInsets(), { W, H } = ins;
+    if (!W || !H) return v;
+    const [vx, vy, vw, vh] = vbArr, s0 = Math.min(W / vw, H / vh);
+    const f = Math.min((W - ins.l - ins.r) / W, (H - ins.t - ins.b) / H);
+    const cx = vx + vw / 2, cy = vy + vh / 2, ox = (ins.l - ins.r) / 2 / s0, oy = (ins.t - ins.b) / 2 / s0;
+    return { k: v.k * f, x: cx + ox + f * (v.x - cx), y: cy + oy + f * (v.y - cy) };
+  }
+  const circVB = () => (rotTarget ? VB_CIRC_R : VB_CIRC);
   function defaultVT(circuit) {
     if (!circuit) {
       // Fit frames everything the plate draws: the heart and the veins above it, the organs, the
@@ -810,21 +845,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       y0 = Math.max(y0, FIT_TOP) - 8; y1 += 8;
       // The svg shows its viewBox scaled to fit (meet), and the spare room on the other axis is
-      // visible too: fit the box into that whole visible area.
+      // visible too: fit the box into that whole visible area, less what the floating pieces cover.
+      const ins = safeInsets();
       const s0 = Math.min(r.width / VB_ANAT[2], r.height / VB_ANAT[3]);
-      const k = Math.min(1, r.width / s0 / (x1 - x0), r.height / s0 / (y1 - y0));
-      const cx = VB_ANAT[0] + VB_ANAT[2] / 2, cy = VB_ANAT[1] + VB_ANAT[3] / 2;
+      const fw = Math.max(40, r.width - ins.l - ins.r), fh = Math.max(40, r.height - ins.t - ins.b);
+      const k = Math.min(1.15, fw / s0 / (x1 - x0), fh / s0 / (y1 - y0));
+      const cx = VB_ANAT[0] + VB_ANAT[2] / 2 + (ins.l - ins.r) / 2 / s0, cy = VB_ANAT[1] + VB_ANAT[3] / 2 + (ins.t - ins.b) / 2 / s0;
       return { k, x: cx - k * ((x0 + x1) / 2), y: cy - k * ((y0 + y1) / 2) };
     }
     // Turned upright, the map is tall and fills the height of the stage as it is.
-    if (rotTarget) return { k: 1, x: 0, y: 0 };
-    const W = wrap.clientWidth, H = wrap.clientHeight;
+    if (rotTarget) return insetVT({ k: 1, x: 0, y: 0 }, circVB());
+    const ins = safeInsets();
+    const W = ins.W - ins.l - ins.r, H = ins.H - ins.t - ins.b;
     const s0 = Math.min(W / VB_CIRC[2], H / VB_CIRC[3]);
-    if (VB_CIRC[3] * s0 > 0.62 * H) return { k: 1, x: 0, y: 0 };
+    if (VB_CIRC[3] * s0 > 0.62 * H) return insetVT({ k: 1, x: 0, y: 0 }, VB_CIRC);
     const k = clamp((0.94 * H) / (VB_CIRC[3] * s0), 1, 3);
     const cx = VB_CIRC[0] + VB_CIRC[2] / 2, cy = VB_CIRC[1] + VB_CIRC[3] / 2;
     const fx = 640, fy = cy;
-    return { k, x: cx - k * fx, y: cy - k * fy };
+    return insetVT({ k, x: cx - k * fx, y: cy - k * fy }, VB_CIRC);
   }
   // Fit shows the whole figure. On a narrow screen the circuit opens as a close-up of the portal vein
   // and liver (see defaultVT), which is not a fit: there Fit shows the entire map, and tapping it
@@ -832,7 +870,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const fit = () => {
     // In the lobule view, Fit shows the whole lobule again (it never leaves the view).
     if (lobuleOn) { lz.resetView(); return; }
-    const circuit = morphTarget === 1, focus = defaultVT(circuit), whole = { k: 1, x: 0, y: 0 };
+    const circuit = morphTarget === 1, focus = defaultVT(circuit), whole = circuit ? insetVT({ k: 1, x: 0, y: 0 }, circVB()) : { k: 1, x: 0, y: 0 };
     const near = (a, b) => Math.abs(a.k - b.k) < 0.02 && Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1;
     vt = circuit && !near(focus, whole) ? (near(vt, whole) ? focus : whole) : focus;
     if (!circuit) homeAt = vtTarget = vt;
@@ -859,7 +897,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!sel || lobuleOn || lz?.isOpen()) return;
     const a = anchorFor(sel);
     if (!a) return;
-    const W = wrap.clientWidth, H = wrap.clientHeight, top = 44, bottom = H - insetBottom - 18, side = 18;
+    const ins = safeInsets();
+    const W = wrap.clientWidth, H = wrap.clientHeight, top = Math.max(44, ins.t + 12), bottom = H - Math.max(insetBottom, ins.b) - 18, side = 18;
     if (bottom - top < 80) return;
     const inside = a.y >= top && a.y <= bottom && a.x >= side && a.x <= W - side;
     if (inside) return;
@@ -3308,8 +3347,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       syncSemantic();
       // Zoomed out (or fitted) in the anatomy, the circuit opens zoomed out too: the whole map, not
       // the close-up it opens with on a phone. From a zoomed-in view it takes its usual framing.
-      const wasOut = target === 1 && vt.k <= 1.001;   // the whole plate (or less) is showing
-      const d = wasOut ? { k: 1, x: 0, y: 0 } : defaultVT(target === 1);
+      const wasOut = target === 1 && (vt.k <= 1.001 || (homeAt && sameView(vt, homeAt)));   // the whole plate (or less) is showing
+      const d = wasOut ? insetVT({ k: 1, x: 0, y: 0 }, circVB()) : defaultVT(target === 1);
       if (target === 0) homeAt = d;   // back to the anatomy: always its home framing
       if (d.k !== vt.k || d.x !== vt.x || d.y !== vt.y) animateVT(d, 600);
     },
