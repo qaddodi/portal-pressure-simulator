@@ -70,9 +70,19 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         timeout-minutes: 4
         run: npx playwright install chromium
+      # The runner image usually has every library Chromium needs already; apt (the slow,
+      # mirror-dependent part) runs only when ldd reports one missing.
       - name: Install Chromium system packages
         timeout-minutes: 4
-        run: npx playwright install-deps chromium
+        run: |
+          missing=$(find ~/.cache/ms-playwright -type f \( -name chrome -o -name headless_shell -o -name chrome-headless-shell \) \
+            -exec ldd {} + | grep 'not found' | sort -u || true)
+          if [ -n "$missing" ]; then
+            echo "Missing libraries:"; echo "$missing"
+            npx playwright install-deps chromium
+          else
+            echo "All Chromium libraries present; skipping apt."
+          fi
       # Pages serves the repository root, so the browser checks run against it. The
       # production-build pass (npm run smoke:dist, for the SCORM package) stays in npm run check.
       - name: Browser checks
