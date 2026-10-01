@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **Moving blood, polished.** Parcels are now bright beads with a soft glow on dark lumens (deep beads on pale
+  ones), so the blood reads at a glance. At every junction the blood and the dye pass from one vessel into the
+  next: near a join both vessels' streams are cross-faded over about a radius, and each stream runs on past its
+  vessel's end, instead of stopping at a seam and reappearing beyond it. Dye now mixes visibly at a confluence.
+- **Inject dye from a vessel's card.** Tap a vessel and use *Inject dye*: a press injects for 6 seconds (it was 2),
+  a second press extends it, and holding the button (or J) goes on injecting until let go (up to 30 s).
+- **Circuit fixes.** The circuit no longer shows the anatomy's tributaries (the mesenteric fan, the azygos and
+  lumbar branches, the umbilical/epigastric network) at their anatomic places, and its lanes no longer wash out
+  where an organ lies in the anatomy. The brief Δ-pressure rings no longer appear when a patient is loaded, and
+  are cleared when the view changes, so no stray "+17" tags sit over the labels.
 - **Moving blood, rebuilt from scratch on the GPU.** The arrows, streaks, dashes and dots are gone. Each lumen now
   carries fine parcels of blood, a quiet tint of the vessel's own color, drawn on the GPU inside the vessel (so they
   pass under organs and nearer vessels exactly as the vessel does). What they show is kept true: direction; which

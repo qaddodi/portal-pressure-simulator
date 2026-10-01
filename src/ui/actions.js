@@ -117,6 +117,12 @@ export function cardFor(selIn, ctx) {
     if (shunt) verbs.push(shunt);
     if (id === 'SV_CONF' || id === 'V_SPL') verbs.push({ type: 'link', label: 'Spleen', run: () => ctx.select({ type: 'organ', id: 'spleen' }) });
   }
+  // Dye into this vessel, beside Doppler: a few seconds a press, or as long as it is held.
+  if (ctx.injectDye) {
+    const dye = { type: 'dye', id: 'dye', label: 'Inject dye', icon: 'drop', run: (o) => ctx.injectDye(id, o), release: () => ctx.releaseDye(), busy: () => ctx.dyeInjecting(), showIf: () => ctx.canDye?.() !== false };
+    const at = verbs.indexOf(doppler);
+    if (at >= 0) verbs.splice(at + 1, 0, dye); else verbs.push(dye);
+  }
   return {
     key: 'e:' + id, sel, kicker, title: e.label, why, edge: id, verbs,
     value: (f, lens, ref) => edgeValue(e, f, lens, ref),

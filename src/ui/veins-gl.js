@@ -25,13 +25,14 @@
 //
 // createVeinsGL(canvas) returns null only when WebGL2 is unavailable altogether.
 
-import { SLOT, DYE_BINS } from './blood.js?v=8e6a070d0a';
+import { SLOT, DYE_BINS } from './blood.js?v=1680c237fa';
 
 export const N_SAMPLES = 64;
 export const FLOW_TEXELS = 3;          // per-vessel blood: see stage.js (syncBlood)
 const SLOT_W = SLOT;
 export const TUBE_TEXELS = 8;          // texels of per-vessel attributes (see the layout below)
 export const MAX_TIERS = 20;
+const S_OFF = 96;                      // arc length is stored offset by this, so it can run on past a vessel's start
 const CELL = 16;                       // cell size, world units
 const ENT_W = 2048;                    // texels per row of the entry texture
 const QUAD = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]);
@@ -77,6 +78,7 @@ uniform highp sampler2D tube;
 uniform sampler2D organ;               // organ covers (alpha), world space
 uniform vec4 organRect;                // world x, y, w, h of the organ texture
 uniform int useOrgan;
+uniform float organK;                  // how much the organ covers fade the tiers behind them (none in the circuit)
 uniform float px;                      // world units per device pixel
 uniform float reachU;                  // how far from a lumen anything is drawn (world)
 uniform vec2 shOff;                    // contact shadow offset (world)
@@ -92,12 +94,14 @@ uniform int heat;                      // 1: congestion glow
 uniform float tierAlpha[${MAX_TIERS}];
 uniform int tierGroup[${MAX_TIERS}];   // 0 behind the organs, 1 the network, 2 lifted
 layout(location=0) out vec4 outColor;
-layout(location=1) out uvec4 outFlow;  // the lumen in front: vessel row + 1, 16 × arc length, across (0–65535), visibility
+layout(location=1) out uvec4 outFlow;  // the lumen in front: vessel row + 1, 16 × (arc length + S_OFF), across (0–65535), visibility
+layout(location=2) out uvec4 outFlow2; // near a join, the lumen it joins: row + 1, 16 × (arc + S_OFF), across, its share (0–65535)
 
 #define MAXS 8
 #define MAXJ 6
 #define ENT_W ${ENT_W}
 const float LAST = ${N_SAMPLES - 1}.0;
+const float S_OFF = ${S_OFF}.0;
 
 vec4 E(int e, int k) { int t = e * 2 + k; return texelFetch(ent, ivec2(t % ENT_W, t / ENT_W), 0); }
 vec4 T(int id, int k) { return texelFetch(tube, ivec2(k, id), 0); }
@@ -118,7 +122,9 @@ void main() {
   float sd[MAXS], sh[MAXS], sr[MAXS], su[MAXS], sx[MAXS];
   vec2 sg[MAXS];
   int cur = -1;
-  float bd = 1e9, bs = 1e9, br = 0.0, bu = 0.0, bx = 1.0;
+  // bx: signed distance across the nearest segment's line (the lumen's across coordinate, also
+  // past the vessel's ends); bu: how far along (0–1), running on past either end.
+  float bd = 1e9, bs = 1e9, br = 0.0, bu = 0.0, bx = 0.0;
   vec2 bg = vec2(0.0);
   vec4 clip = vec4(0.0, 1.0, 1.0, 0.0);
   bool dotted = false;
@@ -148,10 +154,12 @@ void main() {
     vec2 a = mix(A.xy, A.zw, t0), b = mix(A.xy, A.zw, t1), ba = b - a;
     float L2 = max(dot(ba, ba), 1e-8);
     vec2 rr = texelFetch(rad, ivec2(int(i + 0.5), id), 0).rg;
-    float h = clamp(dot(p - a, ba) / L2, 0.0, 1.0);
+    float hr = dot(p - a, ba) / L2, h = clamp(hr, 0.0, 1.0);
     float hh = mix(t0, t1, h);
     vec2 q = p - a - ba * h;
     float dist = length(q), r = mix(rr.x, rr.y, hh);
+    // Along the course, carried on straight past the drawn ends (the blood runs on into a join).
+    float he = (u0 <= clip.x && hr < 0.0) || (u1 >= clip.y && hr > 1.0) ? hr : h;
     float d = dist - r;
     if (dotted) {
       // A closed potential collateral: round dots 1.5 long every 6 units, as the SVG dashes.
@@ -159,7 +167,7 @@ void main() {
       float along = m < 3.75 ? max(0.0, m - 1.5) : 6.0 - m;
       d = length(vec2(dist, along)) - r;
     }
-    if (d < bd) { bd = d; bg = dist > 1e-5 ? q / dist : vec2(0.0); br = r; bu = (i + hh) / LAST; bx = ba.x * q.y - ba.y * q.x < 0.0 ? -1.0 : 1.0; }
+    if (d < bd) { bd = d; bg = dist > 1e-5 ? q / dist : vec2(0.0); br = r; bu = (i + mix(t0, t1, he)) / LAST; bx = (ba.x * (p - a).y - ba.y * (p - a).x) * inversesqrt(L2); }
     float hs = clamp(dot(ps - a, ba) / L2, 0.0, 1.0);
     bs = min(bs, length(ps - a - ba * hs) - mix(rr.x, rr.y, mix(t0, t1, hs)));
   }
@@ -187,7 +195,7 @@ void main() {
   // ── Per-vessel attributes ──
   float stier[MAXS], sz[MAXS], sflag[MAXS], sa[MAXS], swall[MAXS], sheat[MAXS];
   vec3 scol[MAXS], shcol[MAXS];
-  float occl = useOrgan == 1 ? texture(organ, (p - organRect.xy) / organRect.zw).a * 0.66 : 0.0;
+  float occl = useOrgan == 1 ? texture(organ, (p - organRect.xy) / organRect.zw).a * 0.66 * organK : 0.0;
   for (int s = 0; s < MAXS; s++) {
     if (s >= n) break;
     vec4 t0 = T(sid[s], 0), t1 = T(sid[s], 1), t2 = T(sid[s], 2), t3 = T(sid[s], 3), t4 = T(sid[s], 4);
@@ -219,8 +227,8 @@ void main() {
   vec4 accB = vec4(0.0), accN = vec4(0.0), accT = vec4(0.0);
   float last = -1.0;
   // The frontmost lumen (for the blood drawn in it later) and how much of it shows.
-  uint gId = 0u;
-  float gS = 0.0, gY = 0.0, gW = 0.0;
+  uint gId = 0u, gId2 = 0u;
+  float gS = 0.0, gY = 0.0, gW = 0.0, gS2 = 0.0, gY2 = 0.0, gB = 0.0;
   for (int it = 0; it < MAXS; it++) {
     float tt = 1e9;
     for (int s = 0; s < MAXS; s++) if (s < n && stier[s] > last && stier[s] < tt) tt = stier[s];
@@ -331,7 +339,22 @@ void main() {
     float lumA = aL * alpha * tierAlpha[ti] * gf;
     if (lumA > 0.02 && (flags & ${F_DOTTED}) == 0) {
       int id = sid[ow];
-      gId = uint(id + 1); gS = su[ow] * T(id, 5).z; gY = rho * sx[ow]; gW = lumA;
+      gId = uint(id + 1); gS = su[ow] * T(id, 5).z; gY = clamp(sx[ow] / max(sr[ow], 1e-3), -1.0, 1.0); gW = lumA;
+      // Near a join, the vessel it joins and its share of the blood shown here: equal where the two
+      // lumens meet and fading over about a radius, so the stream and the dye pass from one vessel
+      // into the next instead of stopping at a seam. A vessel's share also fades past its own end.
+      gId2 = 0u; gB = 0.0;
+      float tb = max(0.45 * sr[ow], 1.2), best = 0.0;
+      int o2 = -1;
+      for (int s = 0; s < MAXS; s++) {
+        if ((conn & (1 << s)) == 0 || s == ow || (int(sflag[s] + 0.5) & ${F_DOTTED}) != 0) continue;
+        float L2 = max(T(sid[s], 5).z, 1.0), ext = max(0.0, max(-su[s], su[s] - 1.0)) * L2;
+        float wv = exp(-max(sd[s] - sd[ow], 0.0) / tb) * pres[s] * (1.0 - smoothstep(0.0, 1.6 * sr[s] + 2.0, ext));
+        if (wv > best) { best = wv; o2 = s; }
+      }
+      if (o2 >= 0 && best > 0.01) {
+        gId2 = uint(sid[o2] + 1); gS2 = su[o2] * T(sid[o2], 5).z; gY2 = clamp(sx[o2] / max(sr[o2], 1e-3), -1.0, 1.0); gB = best / (1.0 + best);
+      }
     } else gW *= 1.0 - c.a * gf;
     if (grp == 0) { c *= 1.0 - occl; accB = over(c, accB); }
     else if (grp == 1) accN = over(c, accN);
@@ -340,8 +363,12 @@ void main() {
   vec4 o = over(accT, over(accN * netAlpha, over(glow, accB)));
   if (o.a < 0.002) discard;
   outColor = o;
-  outFlow = gId > 0u && gW > 0.01
-    ? uvec4(gId, uint(clamp(gS * 16.0, 0.0, 65535.0)), uint(clamp((gY + 1.0) * 32767.5, 0.0, 65535.0)), uint(clamp(gW, 0.0, 1.0) * 65535.0))
+  bool fl = gId > 0u && gW > 0.01;
+  outFlow = fl
+    ? uvec4(gId, uint(clamp((gS + S_OFF) * 16.0, 0.0, 65535.0)), uint(clamp((gY + 1.0) * 32767.5, 0.0, 65535.0)), uint(clamp(gW, 0.0, 1.0) * 65535.0))
+    : uvec4(0u);
+  outFlow2 = fl && gId2 > 0u
+    ? uvec4(gId2, uint(clamp((gS2 + S_OFF) * 16.0, 0.0, 65535.0)), uint(clamp((gY2 + 1.0) * 32767.5, 0.0, 65535.0)), uint(clamp(gB, 0.0, 1.0) * 65535.0))
     : uvec4(0u);
 }`;
 
@@ -379,6 +406,7 @@ precision highp int;
 precision highp usampler2D;
 uniform sampler2D base;                // the vessel layer (premultiplied)
 uniform usampler2D gbuf;               // its frontmost lumen per pixel
+uniform usampler2D gbuf2;              // near a join, the lumen it joins and its share
 uniform highp sampler2D flow;          // per vessel: FLOW_TEXELS texels
 uniform highp sampler2D rad;
 uniform highp sampler2D tube;
@@ -406,6 +434,7 @@ out vec4 outColor;
 
 const float SLOT = ${SLOT_W}.0;
 const float BINS = ${DYE_BINS}.0;
+const float S_OFF = ${S_OFF}.0;
 
 uint hsh(uint x) { x ^= x >> 16; x *= 0x7feb352du; x ^= x >> 15; x *= 0x846ca68bu; x ^= x >> 16; return x; }
 float h01(uint x) { return float(hsh(x) & 0xffffffu) / 16777216.0; }
@@ -420,6 +449,116 @@ float vnoise(vec2 q, uint seed, int period) {
   float a = h01(seed ^ (uint(x0) * 73856093u) ^ (y0 * 19349663u)), b = h01(seed ^ (uint(x1) * 73856093u) ^ (y0 * 19349663u));
   float c = h01(seed ^ (uint(x0) * 73856093u) ^ (y1 * 19349663u)), d = h01(seed ^ (uint(x1) * 73856093u) ^ (y1 * 19349663u));
   return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+// Moving blood in one lumen at arc length s (world, may run past either end) and across y (−1 … 1):
+// the parcels' color and coverage, to be laid over the lumen color col.
+vec4 bloodAt(int id, float s, float y, vec3 col) {
+  vec4 f0 = texelFetch(flow, ivec2(0, id), 0), f1 = texelFetch(flow, ivec2(1, id), 0);
+  if (f1.z <= 0.0) return vec4(0.0);
+  float len = max(texelFetch(tube, ivec2(5, id), 0).z, 1.0);
+  float R = max(texelFetch(rad, ivec2(clamp(int(clamp(s / len, 0.0, 1.0) * ${N_SAMPLES - 1}.0 + 0.5), 0, ${N_SAMPLES - 1}), id), 0).r, 0.3);
+  float D = f0.x, vd = f0.y, flux = f0.z, stasis = f0.w;
+  float dir = vd < 0.0 ? -1.0 : 1.0;
+  // Lanes ~5 device pixels apart (more when zoomed in), parcels at least ~8 apart along a lane.
+  float Lg = max(2.6, 5.0 * pxW);
+  int n = clamp(int(1.7 * R / Lg), 1, 7);
+  float s0 = SLOT * (pxW * 8.0 > SLOT * 2.0 ? 4.0 : pxW * 8.0 > SLOT ? 2.0 : 1.0);
+  float sumK = 0.0;
+  for (int i = 0; i < 7; i++) { if (i >= n) break; float yl = n == 1 ? 0.0 : ((float(i) + 0.5) / float(n) * 2.0 - 1.0) * 0.8; sumK += n == 1 ? 1.0 : max(2.0, floor(16.0 * (1.0 - yl * yl) + 0.5)) / 8.0; }
+  float p = min(1.0, flux * s0 / (max(abs(vd), 2.0) * sumK));
+  p = max(p, 0.45 * stasis);
+  float ends = min(f1.x > 0.5 ? smoothstep(0.0, 1.5 * s0, s) : 1.0, f1.y > 0.5 ? smoothstep(0.0, 1.5 * s0, len - s) : 1.0);
+  float lum = dot(col, vec3(0.299, 0.587, 0.114));
+  bool pale = lum > 0.62;
+  // Parcels read as bright beads with a soft glow on a dark lumen, deep beads on a pale one.
+  vec3 core = pale ? mix(col, inkDark, 0.62) : mix(col, inkLight, 0.86);
+  vec3 halo = pale ? mix(col, inkDark, 0.3) : mix(col, inkLight, 0.45);
+  float laneW = 1.6 * R / float(n);
+  if (look == 0) {
+    // Beads with a short tail behind them (longer where faster), scattered within their lane so
+    // the stream reads as a suspension, not a string of beads.
+    int lc = n == 1 ? 0 : clamp(int(floor((y / 0.8 + 1.0) * 0.5 * float(n))), 0, n - 1);
+    float rd = max(0.26 * laneW, 1.35 * pxW) * (1.0 + 0.6 * stasis);
+    rd = min(rd, 0.45 * R);
+    float TL = rd * (1.6 + 4.0 * clamp(abs(vd) / 60.0, 0.0, 1.0)) * (1.0 - stasis);
+    float aa = 0.75 * pxW + stasis * 0.8 * rd;
+    float period = 256.0 * s0;
+    float cov = 0.0, glow = 0.0;
+    vec3 pc = core, ph = halo;
+    for (int dl = -1; dl <= 1; dl++) {
+      int li = lc + dl;
+      if (li < 0 || li >= n) continue;
+      float yl = n == 1 ? 0.0 : ((float(li) + 0.5) / float(n) * 2.0 - 1.0) * 0.8;
+      float k = n == 1 ? 8.0 : max(2.0, floor(16.0 * (1.0 - yl * yl) + 0.5));
+      uint lseed = uint(id) * 7919u + uint(li) * 131u;
+      float laneD = mod(D * k / 8.0 + h01(lseed) * period, period);
+      float q = (s - laneD) / s0;
+      // This slot and the nearer neighbour (a bead's jitter and tail reach at most one slot over).
+      for (int j = 0; j < 2; j++) {
+        float slot = floor(q) + (j == 0 ? 0.0 : fract(q) < 0.5 ? -1.0 : 1.0);
+        uint seed = lseed ^ (uint(int(slot) & 255) * 2654435761u);
+        float hv = h01(seed);
+        float pp = p;
+        if (stasis > 0.0) pp *= mix(1.0, 0.25 + 1.5 * vnoise(vec2((slot * s0 + laneD) / 40.0 + clock * 0.04, float(li)), uint(id) * 977u, 1 << 20), stasis);
+        float on = clamp((pp - hv) / 0.06, 0.0, 1.0);
+        if (on <= 0.0) continue;
+        float ja = (h01(seed + 1u) - 0.5) * 0.7 * s0 + stasis * 0.32 * s0 * sin(clock * 0.55 + hv * 40.0);
+        float jy = (h01(seed + 2u) - 0.5) * 0.8 * laneW + stasis * 0.3 * laneW * cos(clock * 0.4 + hv * 23.0);
+        float ax = ((q - slot - 0.5) * s0 - ja) * dir, dy = (y - yl) * R - jy;
+        float d, fade = 1.0;
+        if (ax >= 0.0 || TL <= 0.0) d = length(vec2(ax, dy)) - rd;
+        else {
+          float t = -ax / TL;
+          d = t > 1.0 ? 1e3 : abs(dy) - rd * (1.0 - 0.75 * t);
+          fade = (1.0 - t) * (1.0 - t);
+        }
+        float w = on * (0.8 + 0.2 * h01(seed + 4u));
+        float c = (1.0 - smoothstep(-aa, aa, d)) * fade * w;
+        // A soft glow just around the bead (none on its tail), so it stands off the lumen.
+        float gl = (1.0 - smoothstep(0.0, 1.3 * rd + pxW, max(d, 0.0))) * (ax >= 0.0 ? 1.0 : fade) * w;
+        if (c > cov || gl > glow) {
+          vec3 oc = core, oh = halo;
+          if (origin == 1) {
+            float hc = h01(seed + 3u);
+            vec4 f2 = texelFetch(flow, ivec2(2, id), 0);
+            oc = hc < f2.x ? originCol[0] : hc < f2.x + f2.y ? originCol[1] : hc < f2.x + f2.y + f2.z ? originCol[2] : originCol[3];
+            oh = mix(col, oc, 0.6);
+          }
+          if (c > cov) { cov = c; pc = oc; }
+          if (gl > glow) { glow = gl; ph = oh; }
+        }
+      }
+    }
+    float strength = ends * f1.z * mix(1.0, 0.5, stasis);
+    float ga = glow * 0.38 * strength, ca = cov * (origin == 1 ? 1.0 : 0.94) * strength;
+    // The bead over its glow.
+    vec3 rgb = mix(ph, pc, ca / max(ca + ga * (1.0 - ca), 1e-4));
+    return vec4(rgb, ca + ga * (1.0 - ca));
+  }
+  // Shimmer: a soft texture carried by the same laminar speeds, brighter where more blood passes.
+  float ay = clamp(abs(y), 0.0, 1.0) * 0.8;
+  float k8 = max(2.0, 16.0 * (1.0 - ay * ay));
+  float k0 = floor(k8), t = k8 - k0, period = 256.0 * s0;
+  float sh0 = s - mod(D * k0 / 8.0, period), sh1 = s - mod(D * (k0 + 1.0) / 8.0, period);
+  float cell = 1.6 * s0;
+  int per = int(period / cell + 0.5);
+  vec2 qa = vec2(sh0 / cell, y * R / max(laneW, 1.0) * 0.8), qb = vec2(sh1 / cell, qa.y);
+  float nz = mix(vnoise(qa, uint(id) * 31u, per), vnoise(qb, uint(id) * 31u, per), t);
+  float dens = sqrt(clamp(p, 0.0, 1.0));
+  float a = smoothstep(0.62 - 0.22 * dens, 0.92, nz) * (0.35 + 0.6 * dens) * ends * f1.z;
+  return vec4(mix(halo, core, 0.6), a);
+}
+// Dye concentration in one lumen: the column's front is bullet-shaped, the axis ahead of the wall
+// (laminar flow).
+float dyeAt(int id, float s, float y) {
+  float vd = texelFetch(flow, ivec2(0, id), 0).y;
+  float len = max(texelFetch(tube, ivec2(5, id), 0).z, 1.0);
+  float R = max(texelFetch(rad, ivec2(clamp(int(clamp(s / len, 0.0, 1.0) * ${N_SAMPLES - 1}.0 + 0.5), 0, ${N_SAMPLES - 1}), id), 0).r, 0.3);
+  float dir = vd < 0.0 ? -1.0 : 1.0;
+  float sp = s - dir * (2.0 * (1.0 - y * y) - 1.0) * 1.4 * R;
+  float u = clamp(sp / len, 0.0, 1.0);
+  return texture(dye, vec2((u * (BINS - 1.0) + 0.5) / BINS, (float(id) + 0.5) / rows)).r;
 }
 
 void main() {
@@ -440,101 +579,24 @@ void main() {
   vec4 v = texelFetch(base, ip, 0);
   uvec4 g = texelFetch(gbuf, ip, 0);
   if ((blood == 1 || dyeOn == 1) && g.x > 0u && v.a > 0.01) {
-    int id = int(g.x) - 1;
-    float s = float(g.y) / 16.0, y = float(g.z) / 32767.5 - 1.0, vis = float(g.w) / 65535.0;
-    vec4 f0 = texelFetch(flow, ivec2(0, id), 0), f1 = texelFetch(flow, ivec2(1, id), 0);
-    float len = max(texelFetch(tube, ivec2(5, id), 0).z, 1.0);
-    float R = max(texelFetch(rad, ivec2(clamp(int(s / len * ${N_SAMPLES - 1}.0 + 0.5), 0, ${N_SAMPLES - 1}), id), 0).r, 0.3);
     vec3 col = v.rgb / v.a;
-    float D = f0.x, vd = f0.y, flux = f0.z, stasis = f0.w;
-    float dir = vd < 0.0 ? -1.0 : 1.0;
-    if (blood == 1 && f1.z > 0.0) {
-      // Lanes and slot spacing for this zoom: lanes at least ~7 device pixels apart, parcels ~10.
-      // Lanes ~5 device pixels apart (more when zoomed in), parcels at least ~8 apart along a lane.
-      float Lg = max(2.6, 5.0 * pxW);
-      int n = clamp(int(1.7 * R / Lg), 1, 7);
-      float s0 = SLOT * (pxW * 8.0 > SLOT * 2.0 ? 4.0 : pxW * 8.0 > SLOT ? 2.0 : 1.0);
-      float sumK = 0.0;
-      for (int i = 0; i < 7; i++) { if (i >= n) break; float yl = n == 1 ? 0.0 : ((float(i) + 0.5) / float(n) * 2.0 - 1.0) * 0.8; sumK += n == 1 ? 1.0 : max(2.0, floor(16.0 * (1.0 - yl * yl) + 0.5)) / 8.0; }
-      float p = min(1.0, flux * s0 / (max(abs(vd), 2.0) * sumK));
-      p = max(p, 0.45 * stasis);
-      float ends = min(f1.x > 0.5 ? smoothstep(0.0, 1.5 * s0, s) : 1.0, f1.y > 0.5 ? smoothstep(0.0, 1.5 * s0, len - s) : 1.0);
-      float lum = dot(col, vec3(0.299, 0.587, 0.114));
-      // Parcels are a quieter tint of their own lumen: lighter on a dark vessel, darker on a pale one.
-      vec3 ink = lum > 0.62 ? mix(col, inkDark, 0.36) : mix(col, inkLight, 0.52);
-      float laneW = 1.6 * R / float(n);
-      if (look == 0) {
-        // Fine specks with a short tail behind them (longer where faster), scattered within their
-        // lane so the stream reads as a suspension, not a string of beads.
-        int lc = n == 1 ? 0 : clamp(int(floor((y / 0.8 + 1.0) * 0.5 * float(n))), 0, n - 1);
-        float rd = max(0.2 * laneW, 1.05 * pxW) * (1.0 + 0.6 * stasis);
-        rd = min(rd, 0.45 * R);
-        float TL = rd * (1.5 + 4.0 * clamp(abs(vd) / 60.0, 0.0, 1.0)) * (1.0 - stasis);
-        float aa = 0.75 * pxW + stasis * 0.8 * rd;
-        float period = 256.0 * s0;
-        float cov = 0.0;
-        vec3 pc = ink;
-        for (int dl = -1; dl <= 1; dl++) {
-          int li = lc + dl;
-          if (li < 0 || li >= n) continue;
-          float yl = n == 1 ? 0.0 : ((float(li) + 0.5) / float(n) * 2.0 - 1.0) * 0.8;
-          float k = n == 1 ? 8.0 : max(2.0, floor(16.0 * (1.0 - yl * yl) + 0.5));
-          uint lseed = uint(id) * 7919u + uint(li) * 131u;
-          float laneD = mod(D * k / 8.0 + h01(lseed) * period, period);
-          float q = (s - laneD) / s0;
-          // This slot and the nearer neighbour (a speck's jitter and tail reach at most one slot over).
-          for (int j = 0; j < 2; j++) {
-            float slot = floor(q) + (j == 0 ? 0.0 : fract(q) < 0.5 ? -1.0 : 1.0);
-            uint seed = lseed ^ (uint(int(slot) & 255) * 2654435761u);
-            float hv = h01(seed);
-            float pp = p;
-            if (stasis > 0.0) pp *= mix(1.0, 0.25 + 1.5 * vnoise(vec2((slot * s0 + laneD) / 40.0 + clock * 0.04, float(li)), uint(id) * 977u, 1 << 20), stasis);
-            float on = clamp((pp - hv) / 0.06, 0.0, 1.0);
-            if (on <= 0.0) continue;
-            float ja = (h01(seed + 1u) - 0.5) * 0.7 * s0 + stasis * 0.32 * s0 * sin(clock * 0.55 + hv * 40.0);
-            float jy = (h01(seed + 2u) - 0.5) * 0.8 * laneW + stasis * 0.3 * laneW * cos(clock * 0.4 + hv * 23.0);
-            float ax = ((q - slot - 0.5) * s0 - ja) * dir, dy = (y - yl) * R - jy;
-            float d, fade = 1.0;
-            if (ax >= 0.0 || TL <= 0.0) d = length(vec2(ax, dy)) - rd;
-            else {
-              float t = -ax / TL;
-              d = t > 1.0 ? 1e3 : abs(dy) - rd * (1.0 - 0.75 * t);
-              fade = (1.0 - t) * (1.0 - t);
-            }
-            float c = (1.0 - smoothstep(-aa, aa, d)) * fade * on * (0.75 + 0.25 * h01(seed + 4u));
-            if (c > cov) {
-              cov = c;
-              if (origin == 1) {
-                float hc = h01(seed + 3u);
-                vec4 f2 = texelFetch(flow, ivec2(2, id), 0);
-                pc = hc < f2.x ? originCol[0] : hc < f2.x + f2.y ? originCol[1] : hc < f2.x + f2.y + f2.z ? originCol[2] : originCol[3];
-              }
-            }
-          }
-        }
-        float a = cov * ends * f1.z * mix(origin == 1 ? 0.95 : 0.72, 0.45, stasis) * clamp(vis / max(v.a, 1e-3), 0.0, 1.0);
-        col = mix(col, pc, a);
-      } else {
-        // Shimmer: a soft texture carried by the same laminar speeds, brighter where more blood passes.
-        float ay = clamp(abs(y), 0.0, 1.0) * 0.8;
-        float k8 = max(2.0, 16.0 * (1.0 - ay * ay));
-        float k0 = floor(k8), t = k8 - k0, period = 256.0 * s0;
-        float sh0 = s - mod(D * k0 / 8.0, period), sh1 = s - mod(D * (k0 + 1.0) / 8.0, period);
-        float cell = 1.6 * s0;
-        int per = int(period / cell + 0.5);
-        vec2 qa = vec2(sh0 / cell, y * R / max(laneW, 1.0) * 0.8), qb = vec2(sh1 / cell, qa.y);
-        float nz = mix(vnoise(qa, uint(id) * 31u, per), vnoise(qb, uint(id) * 31u, per), t);
-        float dens = sqrt(clamp(p, 0.0, 1.0));
-        float a = smoothstep(0.62 - 0.22 * dens, 0.92, nz) * (0.25 + 0.6 * dens) * ends * f1.z * clamp(vis / max(v.a, 1e-3), 0.0, 1.0);
-        col = mix(col, ink, a);
-      }
+    float vis = clamp(float(g.w) / 65535.0 / max(v.a, 1e-3), 0.0, 1.0);
+    // This lumen, and near a join the one it joins, cross-faded by its share.
+    uvec4 g2 = texelFetch(gbuf2, ip, 0);
+    float b = g2.x > 0u ? float(g2.w) / 65535.0 : 0.0;
+    int id1 = int(g.x) - 1, id2 = int(g2.x) - 1;
+    float s1 = float(g.y) / 16.0 - S_OFF, y1 = float(g.z) / 32767.5 - 1.0;
+    float s2 = float(g2.y) / 16.0 - S_OFF, y2 = float(g2.z) / 32767.5 - 1.0;
+    if (blood == 1) {
+      vec4 A = bloodAt(id1, s1, y1, col);
+      vec4 B = b > 0.004 ? bloodAt(id2, s2, y2, col) : vec4(0.0);
+      float a = A.a * (1.0 - b) + B.a * b;
+      if (a > 0.0) col = mix(col, (A.rgb * A.a * (1.0 - b) + B.rgb * B.a * b) / a, clamp(a * vis, 0.0, 1.0));
     }
     if (dyeOn == 1) {
-      // Dye: the column's front is bullet-shaped, the axis ahead of the wall (laminar flow).
-      float sp = s - dir * (2.0 * (1.0 - y * y) - 1.0) * 1.4 * R;
-      float u = clamp(sp / len, 0.0, 1.0);
-      float c = texture(dye, vec2((u * (BINS - 1.0) + 0.5) / BINS, (float(id) + 0.5) / rows)).r;
-      col = mix(col, dyeCol, clamp(c, 0.0, 1.0) * 0.88 * clamp(vis / max(v.a, 1e-3), 0.0, 1.0));
+      float c = dyeAt(id1, s1, y1) * (1.0 - b) + (b > 0.004 ? dyeAt(id2, s2, y2) * b : 0.0);
+      // A rich, slightly glowing column: the dye tints the lumen and lifts it a little.
+      col = mix(col, dyeCol, clamp(c, 0.0, 1.0) * 0.9 * vis);
     }
     v = vec4(col * v.a, v.a);
   }
@@ -706,7 +768,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, DYE_BINS, nTubes, 0, gl.RED, gl.FLOAT, new Float32Array(DYE_BINS * nTubes));
   // The vessel layer, rendered when something changes: its color, and the lumen buffer.
   const fbo = gl.createFramebuffer();
-  const baseTex = dataTex(gl), gTex = dataTex(gl);
+  const baseTex = dataTex(gl), gTex = dataTex(gl), gTex2 = dataTex(gl);
   let fboW = 0, fboH = 0, baseM = null, dyeAny = false, wasBleeding = false;
   function ensureFBO() {
     if (fboW === canvas.width && fboH === canvas.height) return;
@@ -715,10 +777,13 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, fboW, fboH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
     gl.bindTexture(gl.TEXTURE_2D, gTex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16UI, fboW, fboH, 0, gl.RGBA_INTEGER, gl.UNSIGNED_SHORT, null);
+    gl.bindTexture(gl.TEXTURE_2D, gTex2);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16UI, fboW, fboH, 0, gl.RGBA_INTEGER, gl.UNSIGNED_SHORT, null);
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, baseTex, 0);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, gTex, 0);
-    gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT2, gl.TEXTURE_2D, gTex2, 0);
+    gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2]);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
 
@@ -786,6 +851,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.viewport(0, 0, fboW, fboH);
       gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
       gl.clearBufferuiv(gl.COLOR, 1, [0, 0, 0, 0]);
+      gl.clearBufferuiv(gl.COLOR, 2, [0, 0, 0, 0]);
       gl.disable(gl.BLEND);
       baseM = m;
       if (nCells) {
@@ -808,7 +874,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
         gl.uniform1i(u.heat, look.heat ? 1 : 0);
         gl.uniform1fv(u.tierAlpha, look.tierAlpha);
         gl.uniform1iv(u.tierGroup, look.tierGroup);
-        gl.uniform1i(u.useOrgan, look.organs && organRect ? 1 : 0);
+        gl.uniform1i(u.useOrgan, look.organs > 0 && organRect ? 1 : 0);
+        gl.uniform1f(u.organK, +look.organs || 0);
         if (organRect) gl.uniform4f(u.organRect, ...organRect);
         gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, entTex); gl.uniform1i(u.ent, 0);
         gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, radTex); gl.uniform1i(u.rad, 1);
@@ -874,7 +941,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.uniform1i(U.bleedN, Math.min(10, bl.length));
       const bind = (unit, tex, name) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(U[name], unit); };
       bind(0, baseTex, 'base'); bind(1, gTex, 'gbuf'); bind(2, flowTex, 'flow'); bind(3, radTex, 'rad'); bind(4, tubeTex, 'tube');
-      bind(5, dyeTex, 'dye'); bind(6, plates[0]?.tex || baseTex, 'plate0'); bind(7, plates[1]?.tex || baseTex, 'plate1');
+      bind(5, dyeTex, 'dye'); bind(6, plates[0]?.tex || baseTex, 'plate0'); bind(7, plates[1]?.tex || baseTex, 'plate1'); bind(8, gTex2, 'gbuf2');
       if (full) {
         gl.bindVertexArray(compVAO);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);

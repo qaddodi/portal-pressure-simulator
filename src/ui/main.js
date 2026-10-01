@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=d292ccefe8';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=bd000286b2';
-import { createStage } from './stage.js?v=7f4e49079b';
+import { createStage } from './stage.js?v=db597cf539';
 import { createInspector } from './inspector.js?v=e3d3f7d518';
 import { createDock, CUTOFFS } from './dock.js?v=43db7d2997';
 import { createWhy } from './why.js?v=bf0f24a7a5';
@@ -11,14 +11,14 @@ import { createTimeline } from './timeline.js?v=972b545713';
 import { createLearn } from './learn.js?v=d09f336c92';
 import { createCases } from './cases.js?v=789c6dc5cd';
 import { createCompare } from './compare.js?v=66796f9b88';
-import { createCard } from './card.js?v=766eb84c48';
-import { createChart } from './chart.js?v=40ebbfa619';
+import { createCard } from './card.js?v=6ec0cc5756';
+import { createChart } from './chart.js?v=15b27e3b99';
 import { createHome } from './home.js?v=d615d976b2';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=0457b367b9';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=5c437d740e';
 import { startLMS } from './lms.js?v=4511ed56b8';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=e41256ffcb';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=d7c701277b';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=29d10ad9ef';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, units, popover, closePopover, menuItem, svgIcon } from './util.js?v=fe164f31f1';
@@ -37,7 +37,7 @@ const PAINT = {
   fibrosis: { icon: 'fibrosis', label: 'Fibrosis brush', hint: 'Press and hold on a liver lobe to lay down fibrosis in the chosen zone. Hold Shift to remove it.', zones: true },
   thrombus: { icon: 'clot', label: 'Paint clot', hint: 'Press and hold on a vein to grow a clot; drag along to spread it. Hold Shift to dissolve it.' },
 };
-import { ORIGINS } from './blood.js?v=8e6a070d0a';
+import { ORIGINS, DYE_SECONDS } from './blood.js?v=1680c237fa';
 
 // Color lenses: [title, what it shows, legend swatch].
 const LENSES = {
@@ -165,6 +165,8 @@ async function main() {
       action: doAction, showPane: (id) => dock.show(id, { reveal: true }), probe: (id) => host.send({ type: 'probe', id }),
       startShunt: (id) => stage.startShunt(id), canShunt: (id) => shuntable(id), select: (sel) => store.set({ selection: sel }),
       zoomLobule: (lobe) => zoomLobule(lobe), paneApi: (id) => dock.pane(id),
+      injectDye: (id, o) => stage.injectDye(id, o), releaseDye: () => stage.releaseDye(), dyeInjecting: () => stage.dyeInjecting(),
+      canDye: () => !store.get().imaging,
     },
   });
 
@@ -542,7 +544,7 @@ function openLegend(anchor) {
   popover(anchor, [h('div', { class: 'menu-title' }, 'How to read the figure'),
     h('div', { style: { padding: '2px 10px 8px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: 'var(--fs-13)', lineHeight: 1.5, color: 'var(--text-2)', maxWidth: '340px' } },
       rows.map(([k, v]) => h('div', {}, h('b', { style: { color: 'var(--text)' } }, k + '. '), v)),
-      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Moving blood. '), 'Each dot is a parcel of blood moving the way the model\u2019s flow goes. The number passing a point each second is proportional to flow, so what enters a junction leaves it. Lanes near the axis run faster than those near the wall (laminar flow: the centre at twice the mean). Time is slowed and speed compressed (it grows with \u221Avelocity), so the order of speeds is right but not their ratio. Drifting smoke marks slow flow (under ~5 cm/s) in a large vein, where clots can form. Pause and reduced motion hold the blood still; the Direction lens gives a static cue. The Blood menu above the figure colors parcels by origin, adds breathing and heartbeat, or injects dye.'),
+      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Moving blood. '), 'Each dot is a parcel of blood moving the way the model\u2019s flow goes. The number passing a point each second is proportional to flow, so what enters a junction leaves it. Lanes near the axis run faster than those near the wall (laminar flow: the centre at twice the mean). Time is slowed and speed compressed (it grows with \u221Avelocity), so the order of speeds is right but not their ratio. Drifting smoke marks slow flow (under ~5 cm/s) in a large vein, where clots can form. Pause and reduced motion hold the blood still; the Direction lens gives a static cue. The Blood menu above the figure colors parcels by origin, adds breathing and heartbeat, or injects dye; a vessel\u2019s card injects dye into that vessel (hold to go on).'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Notation. '), 'Dotted vessels are closed potential collaterals. In Flow volume, line width represents flow rate (square-root scale); in other lenses it follows vessel diameter (compressed). Faint lines crossing an organ run behind it. ▲ / ▼ on a label: change in mmHg from healthy, shown once it reaches 5 mmHg (while comparing, every change from the moment you compare from).'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Organs. '), 'Organs are drawn as in an anatomy plate, lit from the upper left. On the liver, texture means disease: nodules for cirrhosis, mottling for congestion (nutmeg liver), a darker vignette as sinusoidal pressure rises. The spleen grows with splenomegaly.'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Varix ring. '), 'The ring around the esophageal varices closes as their wall tension (pressure × radius ÷ wall thickness) approaches the rupture threshold: amber from 70 %, red from 90 %.'))], { align: 'end', cls: 'legend-pop' });
@@ -571,11 +573,11 @@ function renderBloodKey() {
   if (!el) { el = h('div', { id: 'bloodKey', class: 'blood-key', role: 'note', 'aria-label': 'Blood colored by where it came from' }); $('#stageView').append(el); }
   el.replaceChildren(h('b', {}, 'Blood from'), ...ORIGINS.map(([, title], i) => h('span', {}, h('i', { style: { background: ORIGIN_CSS[i] } }), title)));
 }
-function injectDye() {
+function injectDye({ hold = false } = {}) {
   const sel = store.get().selection;
-  stage.injectDye(sel?.type === 'edge' ? sel.id : null);
+  stage.injectDye(sel?.type === 'edge' ? sel.id : null, { hold });
   const name = sel?.type === 'edge' ? (EDGES.find((e) => e.id === sel.id)?.label || 'the vessel') : 'the gut\u2019s veins';
-  toast(`Dye injected into ${name}`);
+  toast(`Injecting dye into ${name}`);
 }
 function openBlood(anchor) {
   const st = store.get(), b = st.blood || {};
@@ -601,8 +603,8 @@ function openBlood(anchor) {
     toggle(!!b.phasic, 'Breathing and heartbeat', 'Flow speeds and slows with each breath and beat (×2)', (on) => setBlood({ phasic: on })),
     h('div', { class: 'menu-sep' }),
     menuItem('Inject dye', { icon: 'drop', kb: 'J', onClick: () => { closePopover(); injectDye(); } }),
-    h('p', { class: 'blood-note' }, st.selection?.type === 'edge' ? 'Into the selected vessel. ' : 'Into the gut\u2019s veins; select a vessel to inject there. ',
-      'It splits at junctions and is diluted where undyed blood joins.'),
+    h('p', { class: 'blood-note' }, st.selection?.type === 'edge' ? 'Into the selected vessel. ' : 'Into the gut\u2019s veins; or tap a vessel and use Inject dye on its card. ',
+      `A ${DYE_SECONDS}-second injection (hold J to go on longer). It splits at junctions and is diluted where undyed blood joins.`),
     h('div', { class: 'menu-sep' }),
     h('p', { class: 'blood-note' }, h('b', {}, 'What is true: '), 'direction; which vessel is faster; parcels passing a point each second are proportional to flow; centre lanes run at twice the mean (laminar flow). ',
       h('b', {}, 'Exaggerated: '), 'time is slowed and speed compressed (speed grows with √velocity). Smoke marks slow flow (under ~5 cm/s) in a large vein.'),
@@ -860,6 +862,9 @@ function onMode(mode) {
 
 // ── Keyboard (§8.5) ─────────────────────────────────
 function wireKeyboard() {
+  // J injects dye for as long as it is held (at least a few seconds).
+  addEventListener('keyup', (e) => { if (e.key.toLowerCase() === 'j') stage.releaseDye(); });
+  addEventListener('blur', () => stage.releaseDye());
   addEventListener('keydown', (e) => {
     const tag = (e.target.tagName || '').toLowerCase();
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); palette.isOpen() ? palette.close() : palette.open(); return; }
@@ -903,7 +908,7 @@ function wireKeyboard() {
     if (k === 'f' && !e.shiftKey) { toggleFigure(); return; }
     if (k === 'i') { dock.toggle(); return; }
     if (k === 'p') { timeline.togglePin(); return; }
-    if (k === 'j' && !store.get().imaging) { injectDye(); return; }
+    if (k === 'j' && !store.get().imaging) { if (!e.repeat) injectDye({ hold: true }); return; }
     if (k === 'd') { const d = describe(store.get().frame); announce(d); toast(d); return; }
   });
 }
@@ -988,7 +993,7 @@ function openHelp(section) {
     h('h3', {}, 'Reading the figure'),
     h('ul', {},
       h('li', {}, 'Veins are colored by mean pressure on a perceptually uniform scale (0–30 mmHg). Labels give the value in mmHg; ▲ / ▼ is the change from healthy, shown from 5 mmHg. Arteries are thinner, in a fixed red.'),
-      h('li', {}, 'Parcels of blood move downstream: more of them pass each second where flow is greater, faster where velocity is higher, fastest along the axis (laminar flow). Smoke marks stagnant blood in a large vein. The Blood menu shows where blood comes from (gut, spleen, hepatic artery), adds breathing and heartbeat, or injects dye (J) to watch it travel and split. Dotted vessel outlines are closed potential collaterals.'),
+      h('li', {}, 'Parcels of blood move downstream: more of them pass each second where flow is greater, faster where velocity is higher, fastest along the axis (laminar flow). Smoke marks stagnant blood in a large vein. The Blood menu shows where blood comes from (gut, spleen, hepatic artery), adds breathing and heartbeat, or injects dye (J; hold for longer) to watch it travel and split. Tap a vessel and use Inject dye on its card to inject there. Dotted vessel outlines are closed potential collaterals.'),
       h('li', {}, 'Line width follows vessel diameter (compressed, so the cavae don’t drown the portal tree). Watch collaterals and varices swell.'),
       h('li', {}, 'The circuit view is a transit map: pressure falls from left to right; collaterals and shunts run in their own lanes as bypasses.')),
     h('h3', {}, 'Thresholds & references'),

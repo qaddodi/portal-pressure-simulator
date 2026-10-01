@@ -1174,6 +1174,8 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .ac-btn.on { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent-ink); }
 .ac-btn.on .ac-ic { color: var(--accent-ink); }
 .ac-btn.danger { color: var(--danger); }
+.ac-dye { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.ac-dye.on .ac-ic { color: #7fae16; }
 .ac-btn.danger .ac-ic { color: currentColor; }
 .ac-bl, .ac-tl { flex: 1; min-width: 0; }
 [data-key]::after { content: attr(data-key); font: 500 var(--fs-11) var(--font-mono); color: var(--text-3); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; line-height: 15px; }
@@ -1185,6 +1187,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .ac-toggle[data-key]::after { order: 3; }
 .ac-note { font-size: var(--fs-12); color: var(--text-2); line-height: 1.45; padding: 4px 2px 0; }
 .ac-btn-wrap { display: flex; flex-direction: column; }
+.ac-btns { display: contents; }
 .ac-stats { display: contents; }
 .ac-stat { display: flex; justify-content: space-between; gap: 12px; font-size: var(--fs-12); color: var(--text-2); padding: 2px 1px; }
 .ac-stat b { color: var(--text); font-weight: 600; }
@@ -1231,6 +1234,10 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .action-card.docked .ac-body > .ac-slider, .action-card.docked .ac-body > .ac-row, .action-card.docked .ac-body > .ac-link, .action-card.docked .ac-body > .ac-btn-wrap.wide,
 .action-card.docked .ac-body > .ac-drain, .action-card.docked .ac-body > .ac-btn-wrap:has(.ac-note:not([hidden])) { grid-column: 1 / -1; }
 .action-card.docked .ac-btn, .action-card.docked .ac-toggle { min-height: 34px; padding: 3px 10px; }
+/* Three buttons in a row share it as compact tiles: the icon over the name. */
+.action-card.docked .ac-body > .ac-btns.tri { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+.action-card.docked .ac-btns.tri .ac-btn { flex-direction: column; justify-content: center; gap: 1px; min-height: 42px; padding: 3px 4px; font-size: var(--fs-12); text-align: center; }
+.action-card.docked .ac-btns.tri .ac-bl { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .action-card.docked .ac-toggle .ac-tl { line-height: 1.2; }
 .action-card.docked .ac-seg button { padding: 4px 6px; }
 .action-card.docked .ac-row { gap: 3px; }

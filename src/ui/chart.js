@@ -13,7 +13,7 @@ import { h, fmt, icon, svgIcon, toast } from './util.js?v=fe164f31f1';
 import { DRUGS } from '../engine/scenario.js?v=8fc90f782f';
 import { TILES, VITALS, readoutValue } from './dock.js?v=43db7d2997';
 import { activeInterventions } from './inspector.js?v=e3d3f7d518';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=e41256ffcb';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=d7c701277b';
 import { fmtClock } from './timeline.js?v=972b545713';
 
 // Where each readout is measured, so a click can show it on the figure.

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Engine } from '../src/engine/engine.js';
 import { EDGES, NODES } from '../src/engine/topology.js';
-import { displaySpeed, lanes, occupancy, advanceStream, originFractions, createBolus, KAPPA, PERIOD, DYE_BINS } from '../src/ui/blood.js';
+import { displaySpeed, lanes, occupancy, advanceStream, originFractions, createBolus, KAPPA, PERIOD, DYE_BINS, DYE_SECONDS, DYE_MAX_HOLD } from '../src/ui/blood.js';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 
@@ -101,4 +101,27 @@ test('dye bolus: travels downstream, keeps concentration through a split, dilute
   assert.ok(r > 0 && Math.abs(r - l) < 0.25 * r, 'same blood on both sides of the split');
   for (let i = 0; i < 2000; i++) b.step(1 / 10, net);
   assert.ok(!b.active, 'washes out');
+});
+
+test('dye injection: lasts DYE_SECONDS, a second press extends it, a hold goes on until released', () => {
+  const e = new Engine(); e.settle();
+  const net = { Q: e.Q, vd: EDGES.map(() => 40), len: EDGES.map(() => 40) };
+  const b = createBolus(EDGES, NODES);
+  b.inject(EI.SMV_CONF, 0);
+  for (let i = 0; i < (DYE_SECONDS - 1) * 10; i++) b.step(1 / 10, net);
+  assert.ok(b.injecting, 'still injecting before DYE_SECONDS');
+  b.inject(EI.SMV_CONF, 0);
+  for (let i = 0; i < 30; i++) b.step(1 / 10, net);
+  assert.ok(b.injecting, 'a second press extends the injection');
+  for (let i = 0; i < DYE_SECONDS * 10; i++) b.step(1 / 10, net);
+  assert.ok(!b.injecting, 'and then it stops');
+  b.inject(EI.SMV_CONF, 0, { hold: true });
+  for (let i = 0; i < (DYE_SECONDS + 5) * 10; i++) b.step(1 / 10, net);
+  assert.ok(b.injecting, 'held: goes on past DYE_SECONDS');
+  b.release();
+  b.step(1 / 10, net);
+  assert.ok(!b.injecting, 'released after the minimum: stops');
+  b.inject(EI.SMV_CONF, 0, { hold: true });
+  for (let i = 0; i < (DYE_MAX_HOLD + 1) * 10; i++) b.step(1 / 10, net);
+  assert.ok(!b.injecting, 'a hold never runs past DYE_MAX_HOLD');
 });

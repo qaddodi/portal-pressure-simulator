@@ -114,11 +114,13 @@ export function originFractions(edges, nodes, Q, P) {
 }
 
 // ── Dye bolus ──────────────────────────────────────────
-// A short injection (2 s) released as a train of packets. Each moves at its vessel's display
-// speed; at a node it continues into every outflow. Concentration is kept through a split (the
-// same blood) and diluted at a merge, by this inflow's share of the node's total inflow.
+// An injection (DYE_SECONDS, or for as long as it is held, up to DYE_MAX_HOLD) released as a train
+// of packets. Each moves at its vessel's display speed; at a node it continues into every outflow.
+// Concentration is kept through a split (the same blood) and diluted at a merge, by this inflow's
+// share of the node's total inflow.
 export const DYE_BINS = 48;
-const EMIT_EVERY = 0.12, EMIT_FOR = 2, MIN_C = 0.04, HIDDEN_S = 1;
+export const DYE_SECONDS = 6, DYE_MAX_HOLD = 30;
+const EMIT_EVERY = 0.12, MIN_C = 0.04, HIDDEN_S = 1;
 
 export function createBolus(edges, nodes) {
   const NI = new Map(nodes.map((n, i) => [n.id, i]));
@@ -149,10 +151,22 @@ export function createBolus(edges, nodes) {
   }
 
   return {
-    /** Starts an injection into edge `k` at `at` (0–1 along the flow). */
-    inject(k, at = 0) { emitters.push({ k, at, left: EMIT_FOR, acc: EMIT_EVERY }); },
+    /**
+     * Starts an injection into edge `k` at `at` (0–1 along the flow) lasting `seconds`; injecting
+     * into the same vessel again extends the one running. With `hold` it goes on until release()
+     * (and at least `seconds`), up to DYE_MAX_HOLD.
+     */
+    inject(k, at = 0, { seconds = DYE_SECONDS, hold = false } = {}) {
+      const em = emitters.find((x) => x.k === k);
+      if (em) { em.left = Math.max(em.left, seconds); em.hold = em.hold || hold; return; }
+      emitters.push({ k, at, left: seconds, acc: EMIT_EVERY, hold, held: 0 });
+    },
+    /** Ends a held injection (it still runs out its minimum). */
+    release() { for (const em of emitters) em.hold = false; },
     clear() { packets = []; emitters = []; },
     get active() { return packets.length > 0 || emitters.length > 0; },
+    /** Whether dye is being injected now. */
+    get injecting() { return emitters.length > 0; },
     get count() { return packets.length; },
     /**
      * Advances by `dt` seconds. `net`: { Q (signed, per edge), vd (display speed, |world/s|),
@@ -160,10 +174,11 @@ export function createBolus(edges, nodes) {
      */
     step(dt, net) {
       for (const em of emitters) {
-        em.left -= dt; em.acc += dt;
+        em.left -= dt; em.acc += dt; em.held += dt;
+        if (em.held >= DYE_MAX_HOLD) em.hold = false;
         while (em.acc >= EMIT_EVERY) { em.acc -= EMIT_EVERY; packets.push({ e: em.k, x: em.at * net.len[em.k], c: 1, age: 0 }); }
       }
-      emitters = emitters.filter((em) => em.left > 0);
+      emitters = emitters.filter((em) => em.left > 0 || em.hold);
       const next = [];
       for (const p of packets) {
         p.x += net.vd[p.e] * dt; p.age += dt;

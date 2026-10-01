@@ -8,8 +8,8 @@ import { store, updateParams } from './store.js?v=bd000286b2';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=fe164f31f1';
 import { createLobuleZoom } from './lobule-zoom.js?v=6d29acbeed';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC } from './veins-gl.js?v=b4de667aa2';
-import { advanceStream, originFractions, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=8e6a070d0a';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC } from './veins-gl.js?v=ad5b63023d';
+import { advanceStream, originFractions, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=1680c237fa';
 
 const N_SAMPLES = 64;
 // Displayed width grows sub-linearly with diameter so the cavae don't swamp the portal tree,
@@ -1484,14 +1484,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   /** Whether the GPU draws the vessels (always, except while an SVG export is built). */
   const glWanted = () => !!veins && !veins.lost && !svgForce;
 
-  // What the GPU draws this frame: each vessel on screen, its strands and its tributaries.
+  // What the GPU draws this frame: each vessel on screen, its strands and its tributaries. Strands
+  // and tributaries lie where the anatomy has them, so the circuit leaves them out (as the SVG did).
   function glItems() {
     const items = [];
+    const anat = morph < 0.5;
     for (const x of Object.values(E)) {
       const pts = geo[x.e.id].cur;
       if (!x.vis || !pts || (!x.isArt && !x.rOf)) continue;
       items.push({ x, obj: x, row: x.row, pts, kind: 'v' });
-      if (x.isArt || x.g.classList.contains('coll-ghost')) continue;
+      if (!anat || x.isArt || x.g.classList.contains('coll-ghost')) continue;
       for (const sd of x.strands || []) if (sd.cur && (sd.live ?? 1) > 0.02) items.push({ x, obj: sd, row: sd.row, pts: sd.cur, kind: 's' });
       for (const fd of x.feeders || []) if ((fd.live ?? 1) > 0.02 && fd.w) items.push({ x, obj: fd, row: fd.row, pts: fd.cur, kind: 'f' });
     }
@@ -1628,7 +1630,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // Coloring the blood by origin: the lumen steps back to a quiet grey so the parcels' colors read.
         if (originMode) { c0 = mix3(c0, ORIGIN_LUMEN, 0.82); c1 = mix3(c1, ORIGIN_LUMEN, 0.82); }
       }
-      let alpha = x.isArt ? 0.85 : kind === 's' ? (obj.live ?? 1) : kind === 'f' ? (obj.live ?? 1) : 1;
+      let alpha = x.isArt ? 0.85 : kind === 's' || kind === 'f' ? (obj.live ?? 1) * clamp(1 - 2 * T0, 0, 1) : 1;
       if (x.back) {
         if (hovering && !hl) alpha *= CONTEXT_EDGES.has(id) ? 0.12 : 0.22;
         if (hasSel && !figure && !sel && !hl) alpha *= 0.42;
@@ -1650,6 +1652,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       } else if (x.tipFade) { const L = x.tipFade.line; fade = [L[0], L[1], L[2], L[3], 0, x.tipFade.joined ? 1 : T0, 1, 1]; }
       else if (FADE_DOWN_Y[id]) { const [y0, y1] = FADE_DOWN_Y[id]; fade = [0, y0, 0, y1, 0, 1, 0, 1]; }
       else if (FADE_IN[id] && kind === 'v') { const [x1, y1, x2, y2, of] = FADE_IN[id]; fade = [x1, y1, x2, y2, of, 1, 0.3, 1]; }
+      // The fades are drawn in the anatomy's coordinates: they let go as the circuit takes over.
+      // (The tip fade already does: it is cleared in the circuit.)
+      if (fade && T0 > 0 && !(kind !== 'f' && x.tipFade)) { fade[5] += (1 - fade[5]) * T0; fade[6] += (1 - fade[6]) * T0; }
       if (fade) tubeData.set(fade, o + 12);
       // The drawn stretch: a vessel drawing on (or retracting) grows along its flow.
       let lo = 0, hi = 1;
@@ -1661,7 +1666,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     veins.setTubes(tubeData);
     vLook = {
-      shOff: [1.4, 2.8], light: LIGHT, reach: heat ? 40 : 11, heat, organs: true,
+      shOff: [1.4, 2.8], light: LIGHT, reach: heat ? 40 : 11, heat, organs: 1 - T0,
       casing: [...cssTriplet(cs, '--casing-rgb'), cssNum(cs, '--casing-a', 0.56)],
       shadow: [...cssTriplet(cs, '--shadow-rgb'), cssNum(cs, '--shadow-a', 0.15)],
       sheen: [...toRGB('var(--light-ink)', cs), cssNum(cs, '--tube-sheen', 0.42)],
@@ -1897,6 +1902,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     clearTimeout(haloBase.timer);
     haloBase.timer = setTimeout(() => { if (F && haloBase) { haloBase.t = 0; stepHalos(F, easeInOut(morph)); } }, 1200);
   });
+  // Loading a patient (or going back to one) is not a change to explain: no halos, and none left
+  // over in a view they no longer mark.
+  function dropHalos() {
+    if (haloBase) clearTimeout(haloBase.timer);
+    haloBase = null;
+    clearTimeout(haloTimer);
+    gHalo.replaceChildren();
+  }
+  store.on('presetId', dropHalos);
+  store.on('view', dropHalos);
   function stepHalos(f, t) {
     if (!haloBase || performance.now() - haloBase.t < 1100) return;
     const base = haloBase.P; haloBase = null;
@@ -2860,10 +2875,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       veins.setDye(dyeData); dyeShown = true;
     } else if (dyeShown) { veins.setDye(null); dyeShown = false; }
   }
-  /** Starts a dye injection: into vessel `id` (default: the gut's veins, as in mesenteric portography). */
-  function injectDye(id) {
+  /**
+   * Starts a dye injection: into vessel `id` (default: the gut's veins, as in mesenteric
+   * portography). `hold`: it goes on until releaseDye().
+   */
+  function injectDye(id, { hold = false } = {}) {
     const e = EDGES[EI[id]] ? id : 'V_INT';
-    bolus.inject(EI[e], id && EDGES[EI[id]] ? 0.15 : 0);
+    bolus.inject(EI[e], id && EDGES[EI[id]] ? 0.15 : 0, { hold });
     if (!store.get().running) store.set({ running: true });
   }
   // Colors for the blood (theme independent: they sit on the lumen, not on the page).
@@ -3394,8 +3412,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return { q: (F.Qf || F.Q)[k], vd: sm.vd, D: sm.D, stasis: sm.stasis, dir: Math.sign(sm.vd) };
     },
     injectDye,
+    releaseDye: () => bolus.release(),
     clearDye: () => bolus.clear(),
     dyeActive: () => bolus.active,
+    dyeInjecting: () => bolus.injecting,
     svg,
     worldToLocal: (x, y) => { refreshCTM(); return worldToLocal(x, y); },
     anchorPos(anchor) {
