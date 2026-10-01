@@ -25,7 +25,7 @@
 //
 // createVeinsGL(canvas) returns null only when WebGL2 is unavailable altogether.
 
-import { SLOT, DYE_BINS } from './blood.js?v=1680c237fa';
+import { SLOT, DYE_BINS } from './blood.js?v=87995085c7';
 
 export const N_SAMPLES = 64;
 export const FLOW_TEXELS = 3;          // per-vessel blood: see stage.js (syncBlood)
@@ -564,8 +564,8 @@ vec4 bloodAt(int id, float s, float y, vec3 col) {
   float a = clamp(streak * (0.5 + 0.38 * dens) + glowCore, 0.0, 0.9) * wall * ends * f1.z * mix(1.0, 0.6, stasis);
   return vec4(mix(halo, core, smoothstep(0.0, 0.7, streak)), a);
 }
-// Where a lumen's blood comes from, as streams side by side (laminar flow keeps them apart): gut,
-// spleen, hepatic artery, then the rest of the body, each as wide as its share of the flow.
+// Where a lumen's blood comes from, as streams side by side (laminar flow keeps them apart): SMV,
+// IMV, splenic vein, then the rest of the body, each as wide as its share of the flow.
 vec3 originAt(int id, float y, float R) {
   vec4 f2 = texelFetch(flow, ivec2(2, id), 0);
   float u = clamp((y + 1.0) * 0.5, 0.0, 1.0), e = clamp(0.6 * pxW / max(R, 0.3), 0.01, 0.12);
@@ -582,12 +582,14 @@ vec2 chevAt(int id, float s, float y) {
   vec4 f0 = texelFetch(flow, ivec2(0, id), 0), f1 = texelFetch(flow, ivec2(1, id), 0);
   if (f1.z <= 0.0) return vec2(0.0);
   float len = max(texelFetch(tube, ivec2(5, id), 0).z, 1.0);
-  float R = max(texelFetch(rad, ivec2(clamp(int(clamp(s / len, 0.0, 1.0) * ${N_SAMPLES - 1}.0 + 0.5), 0, ${N_SAMPLES - 1}), id), 0).r, 0.3);
+  // One size and one spacing for the whole vessel (from its caliber midway), so every head is the
+  // same shape and they keep an even distance; they move at the vessel's own speed.
+  float R = max(texelFetch(rad, ivec2(N_LAST / 2, id), 0).r, 0.3);
   if (R < 1.6 * pxW) return vec2(0.0);
   float vd = f0.y, dir = vd < 0.0 ? -1.0 : 1.0;
   // Spacing a power-of-two multiple of 28 world units, so it divides the stream's period (no jump on wrap).
   float P = 28.0 * exp2(max(0.0, ceil(log2(max(4.0 * R, 34.0 * pxW) / 28.0))));
-  float u = (mod(s - f0.x, P) - 0.5 * P) * dir, ay = abs(y * R);
+  float x = mod(s - f0.x, P) - 0.5 * P, u = x * dir, ay = abs(y) * R;
   float hw = min(0.6 * R, 0.2 * P), L = 1.5 * hw;          // half width, length
   float tip = 0.55 * L, back = -0.45 * L, notch = 0.32 * L;
   // Inside when behind both slanted sides and ahead of the notched back.
@@ -595,6 +597,9 @@ vec2 chevAt(int id, float s, float y) {
   float side = (u - tip + ay * k) / sqrt(1.0 + k * k);
   float rear = back + notch * (1.0 - clamp(ay / hw, 0.0, 1.0)) - u;
   float d = max(max(side, rear), ay - hw);
+  // A head whose centre is within its length of either end is left out, never cut by a join.
+  float sc = s - x;
+  if (sc < L || sc > len - L) return vec2(0.0);
   float fade = smoothstep(0.5, 3.0, abs(vd)) * f1.z;
   float c = 1.0 - smoothstep(-0.7 * pxW, 0.7 * pxW, d);
   float rim = (1.0 - smoothstep(0.0, 1.6 * pxW + 0.08 * hw, d)) * (1.0 - c);
@@ -630,7 +635,7 @@ void main() {
   vec4 v = texelFetch(base, ip, 0);
   uvec4 g = texelFetch(gbuf, ip, 0);
   float vis = g.x > 0u ? clamp(float(g.w) / 65535.0 / max(v.a, 1e-3), 0.0, 1.0) : 0.0;
-  if ((blood == 1 || dyeOn == 1 || chev == 1) && vis > 0.03 && v.a > 0.01) {
+  if ((blood == 1 || dyeOn == 1 || chev == 1 || origin == 1) && vis > 0.03 && v.a > 0.01) {
     vec3 col = v.rgb / v.a;
     // This lumen, and near a join the one it joins, cross-faded by its share.
     uvec4 g2 = texelFetch(gbuf2, ip, 0);
@@ -638,7 +643,7 @@ void main() {
     int id1 = int(g.x) - 1, id2 = int(g2.x) - 1;
     float s1 = float(g.y) / 16.0 - S_OFF, y1 = float(g.z) / 32767.5 - 1.0;
     float s2 = float(g2.y) / 16.0 - S_OFF, y2 = float(g2.z) / 32767.5 - 1.0;
-    if (blood == 1 && origin == 1) {
+    if (origin == 1) {
       // The lumen is drawn a neutral grey; its light and dark lines are kept as a ratio of that grey.
       float shade = clamp(dot(col, vec3(0.299, 0.587, 0.114)) / ORIGIN_GREY, 0.55, 1.45);
       vec3 oc = originAt(id1, y1, max(texelFetch(rad, ivec2(N_LAST / 2, id1), 0).r, 0.3));

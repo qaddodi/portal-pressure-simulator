@@ -2108,8 +2108,4 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .blood-sample.shimmer { background-image: linear-gradient(90deg, transparent 10%, rgba(255, 255, 255, .55) 30%, transparent 50%, rgba(255, 255, 255, .4) 75%, transparent 90%); }
 .blood-note { margin: 2px 10px 6px; color: var(--text-2); font-size: var(--fs-12); line-height: 1.45; }
 .blood-note b { color: var(--text); font-weight: 600; }
-.blood-key { position: absolute; left: 12px; bottom: 12px; z-index: var(--z-hud); display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; max-width: calc(100% - 90px); padding: 7px 11px; border-radius: 10px; background: color-mix(in srgb, var(--surface) 88%, transparent); border: 1px solid var(--border); box-shadow: var(--shadow-1); font-size: var(--fs-12); color: var(--text-2); pointer-events: none; }
-.blood-key b { color: var(--text); font-weight: 600; }
-.blood-key span { display: inline-flex; align-items: center; gap: 5px; }
-.blood-key i { width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0, 0, 0, .25); }
 @media (max-width: 600px) { #btnBlood > span, #btnBlood .chev { display: none; } }

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Blood origin is a lens.** It moved from the Blood menu to the color dropdown (beside pressure, velocity,
+  direction, flow), and now separates the **SMV** (amber; the coronary vein shares it), the **IMV** (teal), the
+  **splenic vein** (violet) and **systemic** blood (slate blue, hepatic artery included), as streams side by side.
+  The legend names the four.
+- **Arrowheads keep one shape.** Each vessel's heads are one size (from its caliber), evenly spaced along it and
+  moving at its own speed; none is cut at a junction.
 - **Flow chevrons are back, as an option.** Blood menu › *Chevrons*: slim arrowheads (a notched back and a soft light rim) along each vessel's axis that point
   and move with the mean flow, dark, and orange where flow is reversed, drawn on top of the streaks. *Streaks*
   and *Chevrons* switch on and off independently: streaks, chevrons, or both.

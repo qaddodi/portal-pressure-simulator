@@ -194,8 +194,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (!fits) throw new Error('Blood button is clipped');
     await page.click('#btnBlood');
     await page.click('.blood-pop .blood-look:nth-of-type(2)').catch(() => page.evaluate(() => window.pps.store.set({ blood: { ...window.pps.store.get().blood, look: 'shimmer' } })));
-    await page.evaluate(() => window.pps.store.set({ blood: { look: 'parcels', origin: true, phasic: true } }));
-    await page.waitForSelector('#bloodKey');
+    await page.evaluate(() => window.pps.store.set({ colorMode: 'origin', blood: { look: 'parcels', phasic: true, chevrons: true } }));
+    await page.waitForFunction(() => document.querySelector('#legend').textContent.includes('Splenic vein'));
     await page.evaluate(() => window.pps.host.send({ type: 'run', running: true }));
     await page.keyboard.press('j');
     if (!(await page.evaluate(() => window.pps.stage.dyeActive()))) throw new Error('J did not inject dye');
@@ -203,7 +203,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForTimeout(900);
     if (!(await page.evaluate(() => document.querySelector('#stageView').classList.contains('gl-on')))) throw new Error('the circuit is not drawn on the GPU');
     await shot(page, `${device}-blood-circuit`);
-    await page.evaluate(() => window.pps.store.set({ view: 'anatomic', blood: { look: 'parcels', origin: false, phasic: false } }));
+    await page.evaluate(() => window.pps.store.set({ view: 'anatomic', colorMode: 'pressure', blood: { look: 'parcels', phasic: false, chevrons: false } }));
     await page.waitForTimeout(900);
     await shot(page, `${device}-blood`);
   });

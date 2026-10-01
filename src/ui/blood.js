@@ -71,20 +71,22 @@ export function advanceStream(st, vMean, vNow, dt, { phasic = false, speed = 1, 
   return st;
 }
 
-// ── Where the blood comes from ─────────────────────────
-// The arteries that feed each bed name its blood: gut (intestine, colon, stomach), spleen, hepatic
-// artery; anything else is systemic. Composition mixes at each node, weighted by inflow.
+// ── Where the blood comes from ─────────────────────
+// The veins that drain each bed name its blood: the superior mesenteric vein (small bowel; the
+// coronary, left gastric, vein shares its color), the inferior mesenteric vein, the splenic vein;
+// everything else (the hepatic artery's blood included) is systemic. Composition mixes at each
+// node, weighted by inflow.
 export const ORIGINS = [
-  ['gut', 'Gut', 'Intestine, colon and stomach'],
-  ['spleen', 'Spleen', 'Splenic blood'],
-  ['artery', 'Hepatic artery', 'Arterial blood through the liver'],
-  ['systemic', 'Systemic', 'Blood from the rest of the body'],
+  ['smv', 'SMV', 'Superior mesenteric vein (and the coronary vein)'],
+  ['imv', 'IMV', 'Inferior mesenteric vein'],
+  ['spleen', 'Splenic vein', 'Splenic blood'],
+  ['systemic', 'Systemic', 'Everything else, hepatic artery included'],
 ];
-const SOURCE = { A_SMA: 0, A_IMA: 0, A_LGA: 0, A_SPL: 1, A_HEP: 2 };
+const SOURCE = { A_SMA: 0, A_LGA: 0, A_IMA: 1, A_SPL: 2 };
 
 /**
- * Per edge, the fraction of its blood from the gut, the spleen and the hepatic artery (the rest
- * is systemic), as a Float32Array of 3 × edges. Nodes are visited from high pressure to low, the
+ * Per edge, the fraction of its blood from the SMV, the IMV and the splenic vein (the rest is
+ * systemic), as a Float32Array of 3 × edges. Nodes are visited from high pressure to low, the
  * order blood flows in, so one pass mixes every junction from its already-mixed inflows.
  */
 export function originFractions(edges, nodes, Q, P) {
