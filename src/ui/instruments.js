@@ -3,9 +3,9 @@
 
 import { NODES } from '../engine/topology.js?v=29d10ad9ef';
 import { pressureColor } from './colormap.js?v=6d64a94345';
-import { store, updateParams } from './store.js?v=4bf5a96a9d';
+import { store, updateParams } from './store.js?v=3027cbe316';
 import { h, fmt, fitCanvas, cssVar, clamp, toast, icon } from './util.js?v=fe164f31f1';
-import { FONT } from './charts.js?v=3d94dc67f5';
+import { FONT } from './charts.js?v=f1067a99c5';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 

@@ -1,5 +1,5 @@
 // Flow marks on the GPU (WebGL2). The same picture as the Canvas2D renderer in stage.js, drawn
-// as one instanced batch per frame: each arrowhead and bleed droplet is a quad (the trail kind is kept but unused)
+// as one instanced batch per frame: each tracer and bleed droplet is a quad
 // whose shape (a signed distance field) is cut in the fragment shader, antialiased at any zoom.
 //
 // Occlusion (a mark sliding under an organ or a nearer vessel) comes from a mask texture the
@@ -16,7 +16,7 @@ const MARK_VS = `#version 300 es
 layout(location=0) in vec2 corner;
 layout(location=1) in vec2 pos;
 layout(location=2) in vec2 dir;
-layout(location=3) in vec4 geo;    // size, kind (0 dart, 1 trail, 2 ellipse), p1, p2
+layout(location=3) in vec4 geo;    // size, kind (0 legacy dart, 1 capsule, 2 ellipse, 3 tapered streak), p1, p2
 layout(location=4) in vec4 fill;
 layout(location=5) in vec4 halo;
 layout(location=6) in vec4 misc;   // halo width, depth, alpha, -
@@ -31,7 +31,8 @@ void main() {
   float m = pad + misc.x;
   if (kind < 0.5) { lo = vec2(-0.45 * s, -0.45 * s); hi = vec2(0.55 * s, 0.45 * s); }
   else if (kind < 1.5) { float r = 0.15 * s; lo = vec2(-geo.w - r, -r); hi = vec2(-geo.z + r, r); }
-  else { lo = -geo.zw; hi = geo.zw; }
+  else if (kind < 2.5) { lo = -geo.zw; hi = geo.zw; }
+  else { lo = vec2(-0.8 * s, -0.2 * s); hi = vec2(0.2 * s, 0.2 * s); }
   vec2 local = mix(lo - m, hi + m, corner * 0.5 + 0.5);
   vec2 n = vec2(-dir.y, dir.x);
   vec2 w = pos + dir * local.x + n * local.y;
@@ -73,17 +74,22 @@ void main() {
     // The halo is stroked first and the fill drawn over it (premultiplied "over").
     col = vec4(vFill.rgb * fa, fa) + vec4(vHalo.rgb * ha, ha) * (1.0 - fa);
   } else {
-    float d;
+    float d, opacity = 1.0;
     if (kind < 1.5) {
       vec2 a = vec2(-vGeo.z, 0.0), b = vec2(-vGeo.w, 0.0), pa = vLocal - a, ba = b - a;
       float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-6), 0.0, 1.0);
       d = length(pa - ba * h) - 0.15 * s;
-    } else {
+    } else if (kind < 2.5) {
       vec2 r = vGeo.zw;
       d = (length(vLocal / r) - 1.0) * min(r.x, r.y);
+    } else {
+      float tail = 0.8 * s, r = 0.18 * s;
+      float k = clamp(-vLocal.x / tail, 0.0, 1.0);
+      d = vLocal.x >= 0.0 ? length(vLocal) - r : max(abs(vLocal.y) - r * (1.0 - 0.8 * k), -vLocal.x - tail);
+      opacity = vLocal.x >= 0.0 ? 1.0 : (1.0 - k) * (1.0 - k);
     }
     float aa = max(fwidth(d), 1e-4);
-    float fa = clamp(0.5 - d / aa, 0.0, 1.0) * vFill.a;
+    float fa = clamp(0.5 - d / aa, 0.0, 1.0) * vFill.a * opacity;
     col = vec4(vFill.rgb * fa, fa);
   }
   col *= vMisc.z;

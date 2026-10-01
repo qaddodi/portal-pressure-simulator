@@ -2,23 +2,23 @@
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
 import { startHost, host } from './host.js?v=d292ccefe8';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=4bf5a96a9d';
-import { createStage } from './stage.js?v=eaa2e6ace0';
-import { createInspector } from './inspector.js?v=d987f64f8e';
-import { createDock, CUTOFFS } from './dock.js?v=0b89aa4f33';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=3027cbe316';
+import { createStage } from './stage.js?v=c969b02eac';
+import { createInspector } from './inspector.js?v=9c60b62419';
+import { createDock, CUTOFFS } from './dock.js?v=58a85e8d6a';
 import { createWhy } from './why.js?v=bf0f24a7a5';
-import { createTimeline } from './timeline.js?v=fa921ac5bf';
-import { createLearn } from './learn.js?v=7b91811503';
-import { createCases } from './cases.js?v=4c63b9b8bd';
-import { createCompare } from './compare.js?v=ace33fc9f4';
-import { createCard } from './card.js?v=1219f62f4d';
-import { createChart } from './chart.js?v=3b79b75158';
-import { createHome } from './home.js?v=333b62beb1';
+import { createTimeline } from './timeline.js?v=bdee89a154';
+import { createLearn } from './learn.js?v=c07d33eccd';
+import { createCases } from './cases.js?v=8424a917ef';
+import { createCompare } from './compare.js?v=74536eadfe';
+import { createCard } from './card.js?v=571b333ecc';
+import { createChart } from './chart.js?v=3b1f442e58';
+import { createHome } from './home.js?v=69ee23bd52';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=0457b367b9';
-import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=eb8ef6048f';
+import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=cbace986ad';
 import { startLMS } from './lms.js?v=4511ed56b8';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=749e19086d';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=b55a3b2c6d';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=29d10ad9ef';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, units, popover, closePopover, menuItem, svgIcon } from './util.js?v=fe164f31f1';
@@ -37,6 +37,8 @@ const PAINT = {
   fibrosis: { icon: 'fibrosis', label: 'Fibrosis brush', hint: 'Press and hold on a liver lobe to lay down fibrosis in the chosen zone. Hold Shift to remove it.', zones: true },
   thrombus: { icon: 'clot', label: 'Paint clot', hint: 'Press and hold on a vein to grow a clot; drag along to spread it. Hold Shift to dissolve it.' },
 };
+import { FLOW_STYLES } from './flow-motion.js?v=f3ae229141';
+
 // Color lenses: [title, what it shows, legend swatch].
 const LENSES = {
   pressure: ['Pressure', 'Venous pressure in each vessel', () => gradientCss('to right', 30)],
@@ -135,7 +137,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=a3d96e3547'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=fe5221ab7c'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -147,7 +149,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=3ebb51ec3e'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=8e0feb34ae'), ({ createPalette }) => createPalette({ ctx: {
     select: (sel) => store.set({ selection: sel }), action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     wedge: () => { store.set({ selection: { type: 'edge', id: 'RHV_IVC' } }); setTimeout(() => card.trigger(3), 60); },
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
@@ -155,7 +157,7 @@ async function main() {
     loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); toast(store.get().presetList.find((p) => p.id === id)?.label); },
     lesson: (id) => startLesson(id), caseStart: (id) => startCase(id), home: () => home.open(), theme: () => toggleTheme(), help: () => openHelp(), share, restart: () => restartPatient(), reset: () => resetEverything(),
   } }));
-  figureL = lazy(() => import('./figure.js?v=5324ac14ef'), ({ createFigure }) => createFigure({ app, stage, onClose: () => toggleFigure(false) }));
+  figureL = lazy(() => import('./figure.js?v=5295abe3fe'), ({ createFigure }) => createFigure({ app, stage, onClose: () => toggleFigure(false) }));
   card = createCard({
     view, stage, onWhy: (m, el) => why.open(m, el),
     onDetails: (sel) => { store.set({ details: normalizeSel(sel) || sel }); openPanel(); },
@@ -435,6 +437,19 @@ function zoomLobule(lobe = 'R') { if (app.classList.contains('figure-mode')) tog
 // ── Figure header: view, color, legend; banners ─────
 let bleedEl, tipEl, stageClock;
 function buildHud() {
+  let savedStyle;
+  try { savedStyle = localStorage.getItem('pps.flowStyle'); } catch { /* storage unavailable */ }
+  const requested = new URLSearchParams(location.search).get('flow');
+  const style = requested === 'streaks-only' ? 'streaks' : requested;
+  store.set({ flowStyle: Object.hasOwn(FLOW_STYLES, style) ? style : Object.hasOwn(FLOW_STYLES, savedStyle) ? savedStyle : 'streaks' });
+  const flowSelect = $('#flowStyle');
+  flowSelect.value = store.get().flowStyle;
+  flowSelect.onchange = () => store.set({ flowStyle: flowSelect.value });
+  store.on('flowStyle', (v) => {
+    flowSelect.value = v;
+    try { localStorage.setItem('pps.flowStyle', v); } catch { /* storage unavailable */ }
+    redraw();
+  });
   renderLegend();
   store.on('colorMode', () => { $('#colorModeLabel').textContent = COLOR_MODES[store.get().colorMode]; });
   bleedEl = $('#bleedPill');
@@ -520,8 +535,8 @@ function openLegend(anchor) {
   popover(anchor, [h('div', { class: 'menu-title' }, 'How to read the figure'),
     h('div', { style: { padding: '2px 10px 8px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: 'var(--fs-13)', lineHeight: 1.5, color: 'var(--text-2)', maxWidth: '340px' } },
       rows.map(([k, v]) => h('div', {}, h('b', { style: { color: 'var(--text)' } }, k + '. '), v)),
-      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Flow. '), 'Arrowheads inside each vessel point and move downstream; their speed follows blood velocity, and a vessel without flow has none. Reversed flow turns them orange and runs them the other way. Paused, they hold still and keep their direction.'),
-      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Notation. '), 'Dotted vessels are closed potential collaterals. Line width follows vessel diameter (compressed). Faint lines crossing an organ run behind it. ▲ / ▼ on a label: change in mmHg from healthy, shown once it reaches 5 mmHg (while comparing, every change from the moment you compare from).'),
+      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Motion. '), 'Streaks, dashes or dots move with the blood. Motion shows direction and smoothed mean velocity on a compressed scale; it is not a transit-time measurement. Near stasis, the marks stop. Pause and reduced motion hold them still; use the Direction lens for a static direction cue. Choose the style with the flow selector above the figure.'),
+      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Notation. '), 'Dotted vessels are closed potential collaterals. In Flow volume, line width represents flow rate (square-root scale); in other lenses it follows vessel diameter (compressed). Faint lines crossing an organ run behind it. ▲ / ▼ on a label: change in mmHg from healthy, shown once it reaches 5 mmHg (while comparing, every change from the moment you compare from).'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Organs. '), 'Organs are drawn as in an anatomy plate, lit from the upper left. On the liver, texture means disease: nodules for cirrhosis, mottling for congestion (nutmeg liver), a darker vignette as sinusoidal pressure rises. The spleen grows with splenomegaly.'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Varix ring. '), 'The ring around the esophageal varices closes as their wall tension (pressure × radius ÷ wall thickness) approaches the rupture threshold: amber from 70 %, red from 90 %.'))], { align: 'end', cls: 'legend-pop' });
 }
@@ -550,8 +565,14 @@ function openLayers(anchor) {
     h('div', { class: 'lens-grid' }, Object.keys(LENSES).map(lens)),
     s0.imaging ? h('div', { class: 'ctl-sub', style: { padding: '2px 10px 6px' } }, 'This case shows anatomy only until you measure.') : null,
     h('div', { class: 'menu-sep' }),
+    h('div', { class: 'menu-title' }, 'Flow motion'),
+    ...Object.entries(FLOW_STYLES).map(([value, [title, description]]) => h('button', {
+      class: 'menu-item', role: 'menuitemradio', 'aria-checked': String(s0.flowStyle === value),
+      onclick: () => { store.set({ flowStyle: value }); closePopover(); },
+    }, h('span', { class: 'flow-sample ' + value, 'aria-hidden': 'true' }), h('span', {}, title, h('small', { class: 'flow-description' }, description)))),
+    h('div', { class: 'menu-sep' }),
     h('div', { class: 'menu-title' }, 'Show'),
-    cb('flow', 'Flow arrows'), cb('chips', 'Pressure values on labels'), cb('collaterals', 'Potential collaterals (dotted)'), cb('labels', 'Organ names'),
+    cb('flow', 'Flow motion'), cb('chips', 'Pressure values on labels'), cb('collaterals', 'Potential collaterals (dotted)'), cb('labels', 'Organ names'),
     h('div', { class: 'menu-sep' }),
     h('div', { class: 'menu-title' }, t('menu.units')),
     h('div', { style: { display: 'flex', gap: '6px', padding: '2px 10px 6px' } }, unitSel('pressure', ['mmHg', 'cmH2O', 'kPa']), unitSel('flow', ['L/min', 'mL/min'])),
@@ -904,7 +925,7 @@ function openHelp(section) {
     h('h3', {}, 'Reading the figure'),
     h('ul', {},
       h('li', {}, 'Veins are colored by mean pressure on a perceptually uniform scale (0–30 mmHg). Labels give the value in mmHg; ▲ / ▼ is the change from healthy, shown from 5 mmHg. Arteries are thinner, in a fixed red.'),
-      h('li', {}, 'Chevrons inside each vessel show the blood itself: they point and move downstream, faster where blood moves faster, and there are none where it is still. Reversed flow simply runs the other way. Thin vessels carry small arrowheads. Dotted vessels are closed potential collaterals.'),
+      h('li', {}, 'Flow tracers move downstream, faster where mean velocity is higher, with steady brightness and smooth motion. Choose soft streaks, short dashes or small dots above the figure. Still tracers indicate stasis or paused motion; the Direction lens distinguishes normal and reversed flow without animation. Dotted vessel outlines are closed potential collaterals.'),
       h('li', {}, 'Line width follows vessel diameter (compressed, so the cavae don’t drown the portal tree). Watch collaterals and varices swell.'),
       h('li', {}, 'The circuit view is a transit map: pressure falls from left to right; collaterals and shunts run in their own lanes as bypasses.')),
     h('h3', {}, 'Thresholds & references'),

@@ -179,6 +179,18 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await open(page, '?preset=cirr-hepatofugal');
     const kind = await page.evaluate(() => document.querySelector('#stageView').dataset.flow);
     if (kind !== 'webgl2') throw new Error(`expected the WebGL2 flow renderer, got ${kind}`);
+    await page.evaluate(() => window.pps.host.send({ type: 'run', running: false }));
+    await page.waitForFunction(() => window.pps.store.get().running === false);
+    const before = await page.evaluate(() => window.pps.stage.flowDir('PV_TRUNK'));
+    for (const style of ['streaks', 'dashes', 'dots']) {
+      await page.selectOption('#flowStyle', style);
+      await page.waitForTimeout(100);
+      const after = await page.evaluate(() => ({ style: window.pps.store.get().flowStyle, trace: window.pps.stage.flowDir('PV_TRUNK') }));
+      if (after.style !== style || after.trace.phase !== before.phase || after.trace.spacing !== before.spacing) throw new Error('changing flow style moved the paused stream');
+    }
+    const fits = await page.$eval('#flowStyle', (el) => { const r = el.getBoundingClientRect(); return r.width >= 50 && r.left >= 0 && r.right <= innerWidth; });
+    if (!fits) throw new Error('flow selector is clipped');
+    await page.evaluate(() => window.pps.host.send({ type: 'run', running: true }));
     await page.evaluate(() => window.pps.store.set({ view: 'circuit' }));
     await page.waitForTimeout(900);
     await page.evaluate(() => window.pps.store.set({ view: 'anatomic' }));
@@ -349,6 +361,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
 const SLOW = ['responsive instrument workspace', 'pressure over time and Doppler', 'action card is a compact sheet that keeps the vessel in view', 'circuit view, selection card, lenses'];
 const weight = (name) => { const i = SLOW.indexOf(name); return i < 0 ? 0 : SLOW.length - i; };
 queue.sort((a, b) => weight(b[1]) - weight(a[1]));
+if (process.env.SMOKE_MATCH) { const match = new RegExp(process.env.SMOKE_MATCH, 'i'); for (let i = queue.length - 1; i >= 0; i--) if (!match.test(queue[i][1])) queue.splice(i, 1); }
 const [shard, shards] = (process.env.SMOKE_SHARD || '1/1').split('/').map(Number);
 for (let i = queue.length - 1; i >= 0; i--) if (i % shards !== shard - 1) queue.splice(i, 1);
 const WORKERS = Number(process.env.SMOKE_WORKERS) || 4;

@@ -2089,3 +2089,13 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 @container (max-width: 649px) {
   .instrument-workspace .instrument-view .chart-box.perf-donut { height: 250px; }
 }
+
+/* Quiet flow styles: an immediate choice beside the lens, also in its menu. */
+.flow-choice { display: flex; align-items: center; gap: 5px; color: var(--text-2); font-size: var(--fs-12); }
+.flow-choice select { color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 7px 4px; min-height: 36px; font: inherit; cursor: pointer; }
+.flow-choice select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.flow-description { display: block; color: var(--text-2); font-size: var(--fs-12); line-height: 1.4; margin-top: 3px; }
+.flow-sample { display: inline-block; flex: 0 0 24px; height: 4px; background: var(--text-2); border-radius: 4px; }
+.flow-sample.streaks { background: linear-gradient(to right, transparent, var(--text-2)); }
+.flow-sample.dots { flex-basis: 5px; height: 5px; margin: 0 10px; }
+@media (max-width: 600px) { .flow-choice > span { display: none; } .flow-choice select { min-height: 40px; max-width: 76px; } }

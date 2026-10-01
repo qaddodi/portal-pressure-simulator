@@ -3,9 +3,9 @@
 // exported file is built from the live SVG layers with every style resolved inline, so it opens
 // the same in a vector editor, a slide or a manuscript.
 
-import { store } from './store.js?v=4bf5a96a9d';
+import { store } from './store.js?v=3027cbe316';
 import { h, fmt, fmtFlow, icon, toast } from './util.js?v=fe164f31f1';
-import { measurementRows, MEASURE_TITLE } from './measures.js?v=c4dde065f7';
+import { measurementRows, MEASURE_TITLE } from './measures.js?v=0f08a18dc1';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { pressureColor, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 

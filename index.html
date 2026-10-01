@@ -19,7 +19,7 @@
   <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="fonts/fonts.css" />
   <link rel="stylesheet" href="styles/tokens.css?v=f1a68f1a5b" />
-  <link rel="stylesheet" href="styles/app.css?v=abb03b6ae4" />
+  <link rel="stylesheet" href="styles/app.css?v=db097454ac" />
 </head>
 <body>
   <!-- Icon set: 24px grid, 1.6px stroke, round caps (blueprint §5.6). -->
@@ -129,6 +129,7 @@
         </div>
         <div class="sb-center stage-blocker" id="stageCenter"><span class="bleed-pill" id="bleedPill" role="status" hidden></span><div class="sb-banner" id="stageBanner"></div></div>
         <div class="sb-right">
+          <label class="flow-choice" title="Choose how moving blood is shown"><span>Flow</span><select id="flowStyle" aria-label="Flow motion style"><option value="streaks">Streaks</option><option value="dashes">Dashes</option><option value="dots">Dots</option></select></label>
           <div class="lens-btn" id="btnLayers" role="button" tabindex="0" aria-haspopup="dialog" title="Color the vessels by… (L cycles)"><span class="lens-name" id="colorModeLabel">Pressure</span><div class="legend" id="legend" role="img" aria-label="Color legend"></div><svg class="chev"><use href="#i-chev-down"/></svg></div>
           <button class="chip-btn" id="btnFigure" title="Figure view: a clean, labeled plate to present or export (F)"><svg><use href="#i-camera"/></svg><span data-i18n="bar.figure">Figure</span></button>
         </div>
@@ -177,17 +178,17 @@
   <div class="toast-wrap" id="toasts"></div>
   <div class="sr-only" aria-live="polite" id="live"></div>
 
-  <link rel="modulepreload" href="src/ui/stage.js?v=eaa2e6ace0" />
+  <link rel="modulepreload" href="src/ui/stage.js?v=c969b02eac" />
   <link rel="modulepreload" href="src/ui/anatomy.js?v=6728d01049" />
   <link rel="modulepreload" href="src/ui/util.js?v=fe164f31f1" />
-  <link rel="modulepreload" href="src/ui/store.js?v=4bf5a96a9d" />
+  <link rel="modulepreload" href="src/ui/store.js?v=3027cbe316" />
   <link rel="modulepreload" href="src/ui/colormap.js?v=6d64a94345" />
-  <link rel="modulepreload" href="src/ui/inspector.js?v=d987f64f8e" />
-  <link rel="modulepreload" href="src/ui/dock.js?v=0b89aa4f33" />
-  <link rel="modulepreload" href="src/ui/charts.js?v=3d94dc67f5" />
-  <link rel="modulepreload" href="src/ui/instruments.js?v=80bbb89e31" />
-  <link rel="modulepreload" href="src/ui/timeline.js?v=fa921ac5bf" />
+  <link rel="modulepreload" href="src/ui/inspector.js?v=9c60b62419" />
+  <link rel="modulepreload" href="src/ui/dock.js?v=58a85e8d6a" />
+  <link rel="modulepreload" href="src/ui/charts.js?v=f1067a99c5" />
+  <link rel="modulepreload" href="src/ui/instruments.js?v=deb59a9f33" />
+  <link rel="modulepreload" href="src/ui/timeline.js?v=bdee89a154" />
   <link rel="modulepreload" href="src/engine/topology.js?v=29d10ad9ef" />
-  <script type="module" src="src/ui/main.js?v=e9ec4d53c5"></script>
+  <script type="module" src="src/ui/main.js?v=246eb76441"></script>
 </body>
 </html>
