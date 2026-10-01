@@ -2,11 +2,19 @@
 
 ## Unreleased
 
-- **Chevrons flow through the whole network.** Blood-flow chevrons no longer stop short of every junction and
-  restart on the next vessel: every vessel passes the same number of chevrons a second, and each vessel's stream
-  picks up where the one feeding it leaves off, so they run continuously from vessel to vessel. Their speed still
-  follows each vessel's flow (faster vessels have faster, more widely spaced chevrons). They fade out only where
-  the stream really ends, or where two streams merge out of step.
+- **Moving blood, rebuilt from scratch on the GPU.** The arrows, streaks, dashes and dots are gone. Each lumen now
+  carries fine parcels of blood, a quiet tint of the vessel's own color, drawn on the GPU inside the vessel (so they
+  pass under organs and nearer vessels exactly as the vessel does). What they show is kept true: direction; which
+  vessel is faster; the number of parcels passing a point each second is proportional to flow, so what enters a
+  junction leaves it; lanes near the axis run faster than those near the wall (laminar flow, the centre at twice the
+  mean). Time is slowed and speed compressed (speed grows with √velocity), and the menu says so. Slow flow (under
+  ~5 cm/s) in a large vein drifts and clumps like the "smoke" seen on ultrasound. A new **Blood** menu above the
+  figure: *Parcels* or *Shimmer* (a soft sheen carried by the same flow), *Color by origin* (gut, spleen, hepatic
+  artery or the rest of the body, mixed at every junction by flow: watch gut blood reach the cava in hepatofugal
+  flow), *Breathing and heartbeat* (the model's phasic flow, amplified ×2), and *Inject dye* (J): a short bolus
+  into the selected vessel, or the gut's veins, that travels the network, keeps its concentration through a split
+  and is diluted where undyed blood joins, with the bullet-shaped front of laminar flow. Per frame only the blood is
+  redrawn, over the vessels' tiles; the vessel layer is redrawn only when it changes.
 - **The anatomy is drawn on the GPU.** Where the device has a GPU with WebGL2, every vessel in the anatomy (the
   portal tree, the veins behind the organs, the translucent context veins and collaterals, the arteries, the
   cavernoma strands, the tributaries, closed collaterals and vessels drawing on) is drawn by one WebGL2 layer from
@@ -15,9 +23,8 @@
   Vessels are drawn as on a textbook plate: a flat pressure color with a thin light line along the lit side and a
   thin dark line along the other, and only a faint contact shadow where one passes over another. The organs and the ascites are drawn by the same layer from a raster of
   the plate (sharpened once a pan or zoom settles), so panning and zooming no longer repaint the SVG; the
-  congestion glow is drawn there too, without the SVG blur filter. The circuit stays SVG. An exported PNG is the
-  GPU's picture; an exported SVG keeps vector tubes. `?veins=svg` shows the SVG drawing, as does a device
-  without a GPU.
+  congestion glow is drawn there too, without the SVG blur filter. The circuit is drawn on the GPU too. An
+  exported PNG is the GPU's picture; an exported SVG keeps vector tubes.
 - **Smooth joins between vessels.** Where a vein ends on a vessel drawn in a fainter or deeper layer (the
   inferior vena cava at the renal veins and at the right atrium, a splenorenal shunt at the renal vein), its
   round end and outline no longer sit on top of the other vessel as a ringed disc: the end now dissolves into

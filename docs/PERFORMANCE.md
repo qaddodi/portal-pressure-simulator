@@ -12,16 +12,16 @@ Measured with `npm run perf` (Chromium, CPU throttled; busy patient: decompensat
 
 What changed:
 
-- **Flow marks on the GPU** (`src/ui/flow-gl.js`): one instanced WebGL2 draw per frame; each
-  arrowhead, trail and bleed droplet is a quad cut by a signed distance field. Occlusion under
-  organs and nearer vessels comes from a mask the GPU renders only when the layout changes
-  (vessel centerlines as round-capped segments, organs from a world-space bitmap made once).
-  Used only with hardware acceleration (`failIfMajorPerformanceCaveat`); otherwise the Canvas2D
-  renderer runs. `window.PPS_FLOW_GL = true` / `PPS_FLOW_2D = true` force either (tests use both).
+- **Moving blood on the GPU** (`src/ui/veins-gl.js`, `src/ui/blood.js`): the vessel shader, run
+  only when the vessels change (a model frame, a pan or zoom), also writes a small per-pixel lumen
+  buffer (which vessel, how far along, where across). Each animation frame then runs one cheap
+  pass over just the vessel tiles that reads that buffer and draws the parcels, the dye and any
+  bleed; the canvas keeps everything else (`preserveDrawingBuffer`). The per-frame CPU work is a
+  few floats per vessel.
 - **Adaptive detail.** A governor watches frame pacing while the model runs; below ~22 frames a
-  second the flow layer steps down (24 then 15 redraws a second, fewer pixels, no trails) and
-  steps back up with headroom. The level is remembered per device (`pps.quality`). The stage
-  exposes `data-flow` and `data-quality` for diagnosis.
+  second the moving blood steps down (24 then 15 redraws a second, fewer pixels) and steps back
+  up with headroom. The level is remembered per device (`pps.quality`). The stage exposes
+  `data-veins` and `data-quality` for diagnosis.
 - **No work on the heartbeat.** Vessel colors follow the beat-filtered mean pressure in
   0.5 mmHg steps; widths, wall thickness and varix geometry change only once past a hysteresis
   band. Gradients, tube outlines and varix beads were being rebuilt several times a second by
@@ -39,7 +39,6 @@ The simulation timestep and physiological equations are unchanged by the perform
 - Running model frames are still published approximately ten times per second. Explicit actions publish immediately, including while paused.
 - Paused and hidden pages stop the simulation timer. Returning to the page resumes without integrating time spent hidden. Long jobs already in progress finish in command order.
 - Flow drawing is capped at approximately 30 frames per second, independent of display refresh rate. Elapsed time still controls flow speed and anatomy/circuit transitions.
-- Flow marks hidden under organs or nearer vessels are erased only in the 32 px canvas tiles that hold marks, not across the whole canvas. The result is pixel-identical to erasing the full canvas.
 - SVG labels retain their text elements when only values, widths or colors change. The vessel-density grid used for label placement is cached until geometry, visibility or the viewport transform changes. Label positions themselves are still evaluated to preserve collision handling.
 - Preset preparation, time jumps, prerolls and counterfactuals yield between batches. Commands remain serialized and timer ticks do not run inside partially completed jobs. A batch targets 8 ms, but an individual solver/day operation can exceed that budget. This is cooperative scheduling, not a hard latency guarantee.
 - A timed-out worker is terminated before fallback. The app element exposes `data-engine="worker"` or `data-engine="main"` for diagnosis.

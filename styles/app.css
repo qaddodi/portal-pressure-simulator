@@ -125,8 +125,6 @@ svg { flex: none; }
 .stage-view svg#stage, .stage-view svg#stageOver, .stage-view canvas, .stage-view svg#labels { position: absolute; inset: 0; width: 100%; height: 100%; }
 /* Vessels on the GPU (veins-gl.js): in the anatomy the WebGL2 layer draws the tubes; their SVG hit strokes stay. */
 .stage-view svg#stageOver { pointer-events: none; }
-.veins-tag { position: absolute; left: 10px; top: 10px; z-index: var(--z-hud); font: 600 12px/1 var(--font-ui); padding: 7px 10px; border-radius: 999px; border: 0; color: #fff; background: #5A6478; box-shadow: var(--shadow-1); cursor: pointer; }
-.veins-tag[data-on="gl"] { background: #1F8A5B; }
 /* The plate (backdrop, organs, ascites) is drawn by the GPU from a raster; the SVG stays for picking and exports. */
 .stage-view.gl-plate :is(#backdrop, #organs, #ascites, #ghosts) { visibility: hidden; }
 .stage-view.gl-on #world :is(.v-shadow, .v-wallP, .v-lumenP, .v-wall, .v-lumen, .v-shade, .v-sheen, .v-select, .v-artery, .v-strand, .v-strand-wall, .v-heat) { display: none; }
@@ -1562,7 +1560,7 @@ button.finding:hover { background: var(--surface-2); }
 .zoom-crumbs button { border: 0; background: none; font: 500 var(--fs-12) var(--font-ui); color: var(--text-2); padding: 4px 12px; border-radius: var(--r-pill); cursor: pointer; }
 .zoom-crumbs button + button::before { content: '›'; margin-right: 12px; color: var(--text-3); }
 .zoom-crumbs button.cur { color: var(--text); font-weight: 650; background: var(--surface-2, rgba(0,0,0,.05)); }
-.stage-view.in-lobule #labels, .stage-view.in-lobule #particles, .stage-view.in-lobule #veins, .stage-view.in-lobule #stageOver, .stage-view.in-lobule #overlay { visibility: hidden; }
+.stage-view.in-lobule #labels, .stage-view.in-lobule #veins, .stage-view.in-lobule #stageOver, .stage-view.in-lobule #overlay { visibility: hidden; }
 @media (max-width: 720px) { .lz-side { left: 12px; right: 12px; top: auto; bottom: 12px; width: auto; } .lz-legend { display: none; } }
 @media (max-width: 720px) {
   .lz-top { top: 50px; left: 12px; transform: none; }
@@ -2090,12 +2088,21 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   .instrument-workspace .instrument-view .chart-box.perf-donut { height: 250px; }
 }
 
-/* Quiet flow styles: an immediate choice beside the lens, also in its menu. */
-.flow-choice { display: flex; align-items: center; gap: 5px; color: var(--text-2); font-size: var(--fs-12); }
-.flow-choice select { color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 7px 4px; min-height: 36px; font: inherit; cursor: pointer; }
-.flow-choice select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.flow-description { display: block; color: var(--text-2); font-size: var(--fs-12); line-height: 1.4; margin-top: 3px; }
-.flow-sample { display: inline-block; flex: 0 0 24px; height: 4px; background: var(--text-2); border-radius: 4px; }
-.flow-sample.streaks { background: linear-gradient(to right, transparent, var(--text-2)); }
-.flow-sample.dots { flex-basis: 5px; height: 5px; margin: 0 10px; }
-@media (max-width: 600px) { .flow-choice > span { display: none; } .flow-choice select { min-height: 40px; max-width: 76px; } }
+/* Moving blood: the Blood menu beside the lens, and the origin key in the figure. */
+#btnBlood.off svg:first-child { color: var(--text-3); }
+#btnBlood.off span { color: var(--text-3); text-decoration: line-through; text-decoration-thickness: 1px; }
+.blood-pop { width: min(340px, calc(100vw - 24px)); }
+.blood-pop .menu-item small, .blood-look small { display: block; color: var(--text-2); font-size: var(--fs-12); line-height: 1.4; margin-top: 2px; font-weight: 400; }
+.blood-opt { align-items: flex-start; }
+.blood-opt input { margin-top: 3px; }
+.blood-look { align-items: center; }
+.blood-sample { flex: 0 0 34px; height: 12px; border-radius: 6px; background: #8E3A86; position: relative; overflow: hidden; }
+.blood-sample.parcels { background-image: radial-gradient(circle at center, rgba(255, 255, 255, .95) 0 1.6px, transparent 2.2px); background-size: 8px 6px; }
+.blood-sample.shimmer { background-image: linear-gradient(90deg, transparent 10%, rgba(255, 255, 255, .55) 30%, transparent 50%, rgba(255, 255, 255, .4) 75%, transparent 90%); }
+.blood-note { margin: 2px 10px 6px; color: var(--text-2); font-size: var(--fs-12); line-height: 1.45; }
+.blood-note b { color: var(--text); font-weight: 600; }
+.blood-key { position: absolute; left: 12px; bottom: 12px; z-index: var(--z-hud); display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; max-width: calc(100% - 90px); padding: 7px 11px; border-radius: 10px; background: color-mix(in srgb, var(--surface) 88%, transparent); border: 1px solid var(--border); box-shadow: var(--shadow-1); font-size: var(--fs-12); color: var(--text-2); pointer-events: none; }
+.blood-key b { color: var(--text); font-weight: 600; }
+.blood-key span { display: inline-flex; align-items: center; gap: 5px; }
+.blood-key i { width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0, 0, 0, .25); }
+@media (max-width: 600px) { #btnBlood > span, #btnBlood .chev { display: none; } }

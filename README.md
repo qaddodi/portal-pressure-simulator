@@ -119,7 +119,7 @@ as a map of the disease: grouped by where the resistance sits, each with its pre
 |------|----------|
 | `src/engine/` | The model, with no DOM: topology, physiology (tube law, compliance, Frank–Starling), implicit solver, reflexes, hepatic arterial buffer, collaterals, varices, ascites, bleeding, two clocks, metrics, events, "Why?" attribution, presets and drugs |
 | `src/worker-core.js`, `src/worker.js` | Simulation host (Web Worker, main-thread fallback): frames at 30 Hz, snapshots, pre-roll and counterfactual replays |
-| `src/ui/` | Stage (SVG anatomy, flow marks, labels, anatomy⇄circuit morph, semantic zoom), action card, timeline, chart, instruments, lessons, cases, presenter, records, LMS bridge, accessibility |
+| `src/ui/` | Stage (GPU figure and moving blood over the SVG scene, labels, anatomy⇄circuit morph, semantic zoom), action card, timeline, chart, instruments, lessons, cases, presenter, records, LMS bridge, accessibility |
 | `src/i18n/` | Interface strings per language |
 | `styles/` | Design tokens (light and dark) and layout |
 | `fonts/`, `brand/` | Self-hosted fonts (SIL OFL); brand mark, lockup and app icons |

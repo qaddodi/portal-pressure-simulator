@@ -3,9 +3,9 @@
 // exported file is built from the live SVG layers with every style resolved inline, so it opens
 // the same in a vector editor, a slide or a manuscript.
 
-import { store } from './store.js?v=3027cbe316';
+import { store } from './store.js?v=bd000286b2';
 import { h, fmt, fmtFlow, icon, toast } from './util.js?v=fe164f31f1';
-import { measurementRows, MEASURE_TITLE } from './measures.js?v=0f08a18dc1';
+import { measurementRows, MEASURE_TITLE } from './measures.js?v=96ee5b742e';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { pressureColor, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 
@@ -189,15 +189,6 @@ export function createFigure({ app, stage, onClose }) {
     const src = stage.svg;
     const clone = src.cloneNode(true);
     inlineStyles(src, clone);
-    // The live flow layer is a canvas; the export carries the same arrows as vector paths, each
-    // depth in its own layer so marks pass under organs and nearer vessels as they do live.
-    if (!raster) {
-      const [back, mid, front] = stage.flowSVG();
-      clone.querySelector('#backEdges')?.insertAdjacentHTML('beforeend', back);
-      const edges = clone.querySelector('#edges'), firstFront = edges?.querySelector('[data-front]');
-      if (firstFront) firstFront.insertAdjacentHTML('beforebegin', mid); else edges?.insertAdjacentHTML('beforeend', mid);
-      clone.querySelector('#world')?.insertAdjacentHTML('beforeend', front);
-    }
     // The layer drawn over the GPU's (lesions, stents, halos), in the same frame as the figure.
     const osrc = stage.overLayer?.();
     let over = '';
@@ -271,7 +262,7 @@ export function createFigure({ app, stage, onClose }) {
     if (gpu) {
       // The page, then the GPU's plate and vessels and the flow marks, then everything drawn over them.
       ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
-      for (const src of [gpu.veins, gpu.flow]) if (src) ctx.drawImage(await loadImg(src), ...view);
+      if (gpu.veins) ctx.drawImage(await loadImg(gpu.veins), ...view);
     }
     ctx.drawImage(img, 0, 0);
     URL.revokeObjectURL(url);

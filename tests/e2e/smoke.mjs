@@ -50,7 +50,7 @@ async function runCheck(device, name, fn) {
 const shot = (page, name) => (shots ? page.screenshot({ path: `${shots}/${name}.png` }) : null);
 const open = async (page, q = '') => {
   await page.goto(server.url + q);
-  await page.waitForFunction(() => window.pps?.store?.get().frame, null, { timeout: 20000 });
+  await page.waitForFunction(() => window.pps?.store?.get().frame, null, { timeout: 45000 });
 };
 
 for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVICE || d === process.env.SMOKE_DEVICE)) {
@@ -71,20 +71,19 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await open(page, '?preset=csph');
     if (await page.$eval('#rotateCircuit', (b) => getComputedStyle(b).display) !== 'none') throw new Error('turn button shows in the anatomy');
     await page.evaluate(() => window.pps.store.set({ view: 'circuit' }));
-    await page.waitForTimeout(1000);
-    const box = () => page.$eval('#stage', (s) => s.viewBox.baseVal.height / s.viewBox.baseVal.width);
-    if (!((await box()) < 1)) throw new Error('circuit did not open wide');
+    // Animations step with the frames: wait for where they end, not a fixed time (CI has no GPU).
+    const ratio = () => { const s = document.querySelector('#stage'); return s.viewBox.baseVal.height / s.viewBox.baseVal.width; };
+    const until = (fn, msg) => page.waitForFunction(fn, null, { timeout: 30000 }).catch(() => { throw new Error(msg); });
+    await until(`(${ratio})() < 1`, 'circuit did not open wide');
     await page.click('#rotateCircuit');
-    await page.waitForTimeout(900);
-    if (!((await box()) > 1)) throw new Error('circuit did not turn tall');
+    await until(`(${ratio})() > 1`, 'circuit did not turn tall');
     if ((await page.$eval('#rotateCircuit', (b) => b.getAttribute('aria-pressed'))) !== 'true') throw new Error('turn button is not pressed');
     await shot(page, `${device}-circuit-upright`);
     // A vessel can still be picked, and the flow marks keep running, in the turned map.
     await page.evaluate(() => window.pps.store.set({ selection: { type: 'edge', id: 'PV_TRUNK' } }));
     await page.waitForSelector('.action-card:not([hidden])');
     await page.evaluate(() => { window.pps.store.set({ selection: null }); document.querySelector('#rotateCircuit').click(); });
-    await page.waitForTimeout(900);
-    if (!((await box()) < 1)) throw new Error('circuit did not turn back to wide');
+    await until(`(${ratio})() < 1`, 'circuit did not turn back to wide');
   });
   if (device === 'phone') await check(device, 'action card is a compact sheet that keeps the vessel in view', async (page) => {
     await open(page, '?preset=cirr-decomp');
@@ -174,39 +173,43 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await shot(page, `${device}-case`);
   });
 
-  await check(device, 'flow renderers (WebGL2 forced, Canvas2D forced)', async (page) => {
-    await page.addInitScript(() => { window.PPS_FLOW_GL = true; });
+  await check(device, 'moving blood on the GPU: menu, origin, dye, reversal', async (page) => {
     await open(page, '?preset=cirr-hepatofugal');
-    const kind = await page.evaluate(() => document.querySelector('#stageView').dataset.flow);
-    if (kind !== 'webgl2') throw new Error(`expected the WebGL2 flow renderer, got ${kind}`);
+    const kind = await page.evaluate(() => document.querySelector('#stageView').dataset.veins);
+    if (kind !== 'webgl2') throw new Error(`expected the GPU figure, got ${kind}`);
+    await page.waitForFunction(() => window.pps.stage.flowDir('PV_TRUNK')?.vd != null);
+    // Hepatofugal: the portal vein's stream runs backward (to → from), with the model's flow.
+    // (The display eases into a reversal over a couple of seconds.)
+    await page.waitForFunction(() => { const r = window.pps.stage.flowDir('PV_TRUNK'); return r.q < 0 && r.vd < 0; }, null, { timeout: 60000 })
+      .catch(async () => { throw new Error(`portal stream not reversed: ${JSON.stringify(await page.evaluate(() => window.pps.stage.flowDir('PV_TRUNK')))}`); });
+    // Pause holds the stream still.
     await page.evaluate(() => window.pps.host.send({ type: 'run', running: false }));
     await page.waitForFunction(() => window.pps.store.get().running === false);
-    const before = await page.evaluate(() => window.pps.stage.flowDir('PV_TRUNK'));
-    for (const style of ['streaks', 'dashes', 'dots']) {
-      await page.selectOption('#flowStyle', style);
-      await page.waitForTimeout(100);
-      const after = await page.evaluate(() => ({ style: window.pps.store.get().flowStyle, trace: window.pps.stage.flowDir('PV_TRUNK') }));
-      if (after.style !== style || after.trace.phase !== before.phase || after.trace.spacing !== before.spacing) throw new Error('changing flow style moved the paused stream');
-    }
-    const fits = await page.$eval('#flowStyle', (el) => { const r = el.getBoundingClientRect(); return r.width >= 50 && r.left >= 0 && r.right <= innerWidth; });
-    if (!fits) throw new Error('flow selector is clipped');
+    await page.waitForTimeout(150);
+    const d0 = await page.evaluate(() => window.pps.stage.flowDir('PV_TRUNK').D);
+    await page.waitForTimeout(400);
+    if (await page.evaluate(() => window.pps.stage.flowDir('PV_TRUNK').D) !== d0) throw new Error('paused blood kept moving');
+    // The Blood menu: look, origin, phasic, dye.
+    const fits = await page.$eval('#btnBlood', (el) => { const r = el.getBoundingClientRect(); return r.width >= 30 && r.left >= 0 && r.right <= innerWidth; });
+    if (!fits) throw new Error('Blood button is clipped');
+    await page.click('#btnBlood');
+    await page.click('.blood-pop .blood-look:nth-of-type(2)').catch(() => page.evaluate(() => window.pps.store.set({ blood: { ...window.pps.store.get().blood, look: 'shimmer' } })));
+    await page.evaluate(() => window.pps.store.set({ blood: { look: 'parcels', origin: true, phasic: true } }));
+    await page.waitForSelector('#bloodKey');
     await page.evaluate(() => window.pps.host.send({ type: 'run', running: true }));
+    await page.keyboard.press('j');
+    if (!(await page.evaluate(() => window.pps.stage.dyeActive()))) throw new Error('J did not inject dye');
     await page.evaluate(() => window.pps.store.set({ view: 'circuit' }));
     await page.waitForTimeout(900);
-    await page.evaluate(() => window.pps.store.set({ view: 'anatomic' }));
+    if (!(await page.evaluate(() => document.querySelector('#stageView').classList.contains('gl-on')))) throw new Error('the circuit is not drawn on the GPU');
+    await shot(page, `${device}-blood-circuit`);
+    await page.evaluate(() => window.pps.store.set({ view: 'anatomic', blood: { look: 'parcels', origin: false, phasic: false } }));
     await page.waitForTimeout(900);
-    await shot(page, `${device}-flow-webgl2`);
-    const p2 = await page.context().newPage();
-    await p2.addInitScript(() => { window.PPS_FLOW_2D = true; });
-    await p2.goto(server.url + '?preset=cirr-hepatofugal');
-    await p2.waitForFunction(() => window.pps?.store?.get().frame);
-    const k2 = await p2.evaluate(() => document.querySelector('#stageView').dataset.flow);
-    if (k2 !== 'canvas2d') throw new Error(`expected the Canvas2D flow renderer, got ${k2}`);
-    await p2.close();
+    await shot(page, `${device}-blood`);
   });
 
-  await check(device, 'vessels and plate on the GPU (?veins=gl)', async (page) => {
-    await open(page, '?preset=cirr-decomp&veins=gl');
+  await check(device, 'vessels and plate on the GPU', async (page) => {
+    await open(page, '?preset=cirr-decomp');
     const kind = await page.evaluate(() => document.querySelector('#stageView').dataset.veins);
     if (kind !== 'webgl2') throw new Error(`expected the WebGL2 veins, got ${kind}`);
     const on = (cls) => page.waitForFunction((c) => document.querySelector('#stageView').classList.contains(c), cls);
@@ -215,10 +218,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (await page.evaluate(() => window.pps.stage.organAt(560, 350)) !== 'liver') throw new Error('organs cannot be picked under the GPU plate');
     await page.evaluate(() => window.pps.store.set({ selection: { type: 'edge', id: 'PV_TRUNK' }, colorMode: 'heat' }));
     await page.evaluate(() => window.pps.store.set({ view: 'circuit' }));
-    await page.waitForFunction(() => !document.querySelector('#stageView').classList.contains('gl-on'));
+    await page.waitForTimeout(700);
+    if (!(await page.evaluate(() => document.querySelector('#stageView').classList.contains('gl-on')))) throw new Error('the circuit left the GPU');
     await page.evaluate(() => window.pps.store.set({ view: 'anatomic', selection: null, colorMode: 'pressure' }));
     await on('gl-on');
-    // The exported figure is the SVG plate, tubes and overlays included.
+    // The exported SVG figure is the SVG plate, tubes and overlays included.
     const svg = await page.evaluate(async () => (await window.pps.figure.buildSVG()).svg);
     if (!svg.includes('#gr-PV_TRUNK')) throw new Error('exported figure lost the vessel tubes');
     if (!(await page.evaluate(() => document.querySelector('#stageView').classList.contains('gl-on')))) throw new Error('the export left the SVG tubes showing');

@@ -20,9 +20,16 @@
 // Geometry (the entries) is uploaded when the layout changes; radii when a vessel's width
 // changes; colors, tiers and flags on every model frame (a few kilobytes).
 //
-// createVeinsGL(canvas) returns null when WebGL2 is unavailable; stage.js keeps the SVG tubes.
+// The moving blood (see blood.js) is drawn by the composite pass further down, from a lumen buffer
+// this shader writes beside the color.
+//
+// createVeinsGL(canvas) returns null only when WebGL2 is unavailable altogether.
+
+import { SLOT, DYE_BINS } from './blood.js?v=8e6a070d0a';
 
 export const N_SAMPLES = 64;
+export const FLOW_TEXELS = 3;          // per-vessel blood: see stage.js (syncBlood)
+const SLOT_W = SLOT;
 export const TUBE_TEXELS = 8;          // texels of per-vessel attributes (see the layout below)
 export const MAX_TIERS = 20;
 const CELL = 16;                       // cell size, world units
@@ -82,11 +89,10 @@ uniform vec2 light;                    // unit direction toward the light (world
 uniform float netAlpha;                // the network group's opacity (dimmed while a vessel is focused)
 uniform int fx;                        // 1: shading and shadows (off in the figure view)
 uniform int heat;                      // 1: congestion glow
-uniform int streaks;                   // 1: flow streaks in the lumen
-uniform float clock;                   // flow clock (spacings passed since the start)
 uniform float tierAlpha[${MAX_TIERS}];
 uniform int tierGroup[${MAX_TIERS}];   // 0 behind the organs, 1 the network, 2 lifted
-out vec4 outColor;
+layout(location=0) out vec4 outColor;
+layout(location=1) out uvec4 outFlow;  // the lumen in front: vessel row + 1, 16 × arc length, across (0–65535), visibility
 
 #define MAXS 8
 #define MAXJ 6
@@ -212,6 +218,9 @@ void main() {
   // ── Tiers, back to front ──
   vec4 accB = vec4(0.0), accN = vec4(0.0), accT = vec4(0.0);
   float last = -1.0;
+  // The frontmost lumen (for the blood drawn in it later) and how much of it shows.
+  uint gId = 0u;
+  float gS = 0.0, gY = 0.0, gW = 0.0;
   for (int it = 0; it < MAXS; it++) {
     float tt = 1e9;
     for (int s = 0; s < MAXS; s++) if (s < n && stier[s] > last && stier[s] < tt) tt = stier[s];
@@ -300,31 +309,6 @@ void main() {
     c = over(vec4(casing.rgb, 1.0) * (casing.a * cA * aC), c);
     vec3 lum = col;
     float rho = clamp((R + D) / max(R, 1e-3), 0.0, 1.0);
-    if (streaks == 1 && aL > 0.0 && rho < 0.8) {
-      // Flow streaks: soft, lighter teardrops gliding downstream along the centreline, like dye
-      // in the vessel (a round head, a tail that tapers and fades upstream). The owner's stream
-      // phase: chained so a streak leaving one vessel runs on into the next.
-      int id = sid[ow];
-      vec4 fl = T(id, 7);
-      if (fl.w > 0.0) {
-        float Ls = T(id, 6).w, sp = max(fl.y, 1.0);
-        int sf = int(T(id, 5).w + 0.5);
-        float s = (fl.z >= 0.0 ? su[ow] : 1.0 - su[ow]) * Ls;
-        float f = fl.x + s / sp - clock, n = floor(f + 0.5);
-        float x = (f - n) * sp;                              // along, + ahead of the head
-        float hsh = fract(sin(float(id) * 12.9898 + n * 78.233) * 43758.5453);
-        float lat = (rho * sx[ow] - (hsh - 0.5) * 0.28) * R; // across, with a slight jitter
-        float hr = 0.3 * R + 0.25 * aa, TL = min(0.7 * sp, 5.0 * R + 5.0);
-        float k = clamp(-x / TL, 0.0, 1.0);
-        float hw = x > 0.0 ? sqrt(max(hr * hr - x * x, 0.0)) : hr * (1.0 - 0.75 * k);
-        float soft = 0.35 * hr + aa;
-        float v = (1.0 - smoothstep(hw - soft, hw + soft, abs(lat))) * (x > 0.0 ? 1.0 : pow(1.0 - k, 1.6));
-        float ends = min((sf & ${F_UP}) != 0 ? 1.0 : smoothstep(0.0, 0.8 * sp, s), (sf & ${F_DN}) != 0 ? 1.0 : smoothstep(0.0, 0.8 * sp, Ls - s));
-        v *= fl.w * ends * smoothstep(0.9, 2.0, R / aa);
-        vec3 tint = (sf & ${F_REV}) != 0 ? vec3(1.0, 0.6, 0.22) : mix(lum, vec3(1.0), 0.5);
-        lum = mix(lum, tint, clamp(v, 0.0, 1.0) * 0.8);
-      }
-    }
     if (fx == 1 && (flags & ${F_DIFFUSE}) != 0 && aL > 0.0) {
       // A textbook plate, not a rendered tube: a flat lumen with one thin light line along the
       // side toward the light and one thin dark line along the other. The across-tube
@@ -343,6 +327,12 @@ void main() {
     if (sel && grp == 2) lum = min(lum * 1.12, vec3(1.0));
     c = over(vec4(lum, 1.0) * aL, c);
     c *= alpha * tierAlpha[ti];
+    float gf = grp == 0 ? 1.0 - occl : grp == 1 ? netAlpha : 1.0;
+    float lumA = aL * alpha * tierAlpha[ti] * gf;
+    if (lumA > 0.02 && (flags & ${F_DOTTED}) == 0) {
+      int id = sid[ow];
+      gId = uint(id + 1); gS = su[ow] * T(id, 5).z; gY = rho * sx[ow]; gW = lumA;
+    } else gW *= 1.0 - c.a * gf;
     if (grp == 0) { c *= 1.0 - occl; accB = over(c, accB); }
     else if (grp == 1) accN = over(c, accN);
     else accT = over(c, accT);
@@ -350,31 +340,213 @@ void main() {
   vec4 o = over(accT, over(accN * netAlpha, over(glow, accB)));
   if (o.a < 0.002) discard;
   outColor = o;
+  outFlow = gId > 0u && gW > 0.01
+    ? uvec4(gId, uint(clamp(gS * 16.0, 0.0, 65535.0)), uint(clamp((gY + 1.0) * 32767.5, 0.0, 65535.0)), uint(clamp(gW, 0.0, 1.0) * 65535.0))
+    : uvec4(0u);
 }`;
 
-// The plate (backdrop, organs, ascites): SVG rasterized to textures, drawn under the vessels. The
-// selection and data-layer dimming (CSS filters on the SVG) are applied here, so they cost no raster.
-const PLATE_VS = `#version 300 es
+// ── Composite: the picture on screen, every frame ──
+// One full-screen pass over the vessel layer (rendered above into a texture when something
+// changes): the plate under it, the vessels, the blood moving in each lumen, the dye, and an
+// active bleed. Only this pass runs per animation frame, so the cost of moving blood is a few
+// texture reads per pixel, not the vessel shader.
+//
+// Blood, per lumen pixel (from the vessel layer's second target: which vessel, how far along it,
+// where across it): the lumen is cut into laminar lanes (more when zoomed in), each running at its
+// Poiseuille speed (2× the mean at the axis) in eighths of the mean, so one stream distance D per
+// vessel moves every lane (D is kept modulo a period that is a multiple of all of them). Each lane
+// is a row of slots; a slot holds a parcel when its hash is under the occupancy that makes the
+// parcels crossing a section each second proportional to flow (see blood.js). Stagnant blood
+// drifts and clumps (smoke); with `origin` each parcel is colored by where its blood came from.
+const COMP_VS = `#version 300 es
 layout(location=0) in vec2 corner;
+void main() { gl_Position = vec4(corner * 2.0 - 1.0, 0.0, 1.0); }`;
+// The same pass over just the vessel cells (what moves between full redraws): the canvas keeps
+// the rest of the picture (preserveDrawingBuffer), so a frame repaints only around the vessels.
+const COMP_CELL_VS = `#version 300 es
+layout(location=0) in vec2 corner;
+layout(location=1) in vec2 org;
 uniform mat3 world;
 uniform vec2 size;
-uniform vec4 rect;
-out vec2 vUV;
+uniform float cell;
 void main() {
-  vec3 d = world * vec3(rect.xy + corner * rect.zw, 1.0);
+  vec3 d = world * vec3(org + corner * cell, 1.0);
   gl_Position = vec4(d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0, 0.0, 1.0);
-  vUV = corner;
 }`;
-const PLATE_FS = `#version 300 es
+const COMP_FS = `#version 300 es
 precision highp float;
-in vec2 vUV;
-uniform sampler2D tex;
-uniform float alpha, sat;
+precision highp int;
+precision highp usampler2D;
+uniform sampler2D base;                // the vessel layer (premultiplied)
+uniform usampler2D gbuf;               // its frontmost lumen per pixel
+uniform highp sampler2D flow;          // per vessel: FLOW_TEXELS texels
+uniform highp sampler2D rad;
+uniform highp sampler2D tube;
+uniform sampler2D dye;                 // per vessel: dye concentration along the course
+uniform sampler2D plate0, plate1;
+uniform vec4 plateRect0, plateRect1;
+uniform int plates;                    // bit 0: whole plate, bit 1: sharp view
+uniform float plateAlpha, plateSat;
+uniform mat3 inv;                      // device pixels → world
+uniform float H;                       // canvas height, device pixels
+uniform float pxW;                     // world units per device pixel
+uniform int blood;                     // 1: draw the blood
+uniform int look;                      // 0 parcels, 1 shimmer
+uniform int origin;                    // 1: color parcels by where their blood came from
+uniform int dyeOn;
+uniform float clock;                   // seconds (wrapped), for the drift of stagnant blood
+uniform vec3 originCol[4];
+uniform vec3 dyeCol;
+uniform vec3 inkLight, inkDark;
+uniform vec4 bleedE[10];               // world ellipses: center, radii
+uniform float bleedA[10];
+uniform int bleedN;
+uniform float rows;
 out vec4 outColor;
+
+const float SLOT = ${SLOT_W}.0;
+const float BINS = ${DYE_BINS}.0;
+
+uint hsh(uint x) { x ^= x >> 16; x *= 0x7feb352du; x ^= x >> 15; x *= 0x846ca68bu; x ^= x >> 16; return x; }
+float h01(uint x) { return float(hsh(x) & 0xffffffu) / 16777216.0; }
+vec4 over(vec4 top, vec4 under) { return top + under * (1.0 - top.a); }
+// Value noise along a periodic lattice (period cells), smooth across.
+float vnoise(vec2 q, uint seed, int period) {
+  vec2 i = floor(q), f = fract(q);
+  f = f * f * (3.0 - 2.0 * f);
+  int x0 = int(i.x) % period; if (x0 < 0) x0 += period;
+  int x1 = (x0 + 1) % period;
+  uint y0 = uint(int(i.y) + 4096), y1 = y0 + 1u;
+  float a = h01(seed ^ (uint(x0) * 73856093u) ^ (y0 * 19349663u)), b = h01(seed ^ (uint(x1) * 73856093u) ^ (y0 * 19349663u));
+  float c = h01(seed ^ (uint(x0) * 73856093u) ^ (y1 * 19349663u)), d = h01(seed ^ (uint(x1) * 73856093u) ^ (y1 * 19349663u));
+  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
 void main() {
-  vec4 c = texture(tex, vUV);
-  float l = dot(c.rgb, vec3(0.299, 0.587, 0.114));
-  outColor = vec4(mix(vec3(l), c.rgb, sat), c.a) * alpha;
+  ivec2 ip = ivec2(gl_FragCoord.xy);
+  vec2 w = (inv * vec3(gl_FragCoord.x, H - gl_FragCoord.y, 1.0)).xy;
+  // The plate: the sharp view raster where it lies, else the whole-plate one.
+  vec4 pl = vec4(0.0);
+  if ((plates & 2) != 0) {
+    vec2 uv = (w - plateRect1.xy) / plateRect1.zw;
+    if (all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)))) pl = texture(plate1, uv);
+    else if ((plates & 1) != 0) pl = texture(plate0, (w - plateRect0.xy) / plateRect0.zw);
+  } else if ((plates & 1) != 0) {
+    vec2 uv = (w - plateRect0.xy) / plateRect0.zw;
+    if (all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)))) pl = texture(plate0, uv);
+  }
+  if (pl.a > 0.0) { float l = dot(pl.rgb / pl.a, vec3(0.299, 0.587, 0.114)); pl = vec4(mix(vec3(l) * pl.a, pl.rgb, plateSat), pl.a) * plateAlpha; }
+
+  vec4 v = texelFetch(base, ip, 0);
+  uvec4 g = texelFetch(gbuf, ip, 0);
+  if ((blood == 1 || dyeOn == 1) && g.x > 0u && v.a > 0.01) {
+    int id = int(g.x) - 1;
+    float s = float(g.y) / 16.0, y = float(g.z) / 32767.5 - 1.0, vis = float(g.w) / 65535.0;
+    vec4 f0 = texelFetch(flow, ivec2(0, id), 0), f1 = texelFetch(flow, ivec2(1, id), 0);
+    float len = max(texelFetch(tube, ivec2(5, id), 0).z, 1.0);
+    float R = max(texelFetch(rad, ivec2(clamp(int(s / len * ${N_SAMPLES - 1}.0 + 0.5), 0, ${N_SAMPLES - 1}), id), 0).r, 0.3);
+    vec3 col = v.rgb / v.a;
+    float D = f0.x, vd = f0.y, flux = f0.z, stasis = f0.w;
+    float dir = vd < 0.0 ? -1.0 : 1.0;
+    if (blood == 1 && f1.z > 0.0) {
+      // Lanes and slot spacing for this zoom: lanes at least ~7 device pixels apart, parcels ~10.
+      // Lanes ~5 device pixels apart (more when zoomed in), parcels at least ~8 apart along a lane.
+      float Lg = max(2.6, 5.0 * pxW);
+      int n = clamp(int(1.7 * R / Lg), 1, 7);
+      float s0 = SLOT * (pxW * 8.0 > SLOT * 2.0 ? 4.0 : pxW * 8.0 > SLOT ? 2.0 : 1.0);
+      float sumK = 0.0;
+      for (int i = 0; i < 7; i++) { if (i >= n) break; float yl = n == 1 ? 0.0 : ((float(i) + 0.5) / float(n) * 2.0 - 1.0) * 0.8; sumK += n == 1 ? 1.0 : max(2.0, floor(16.0 * (1.0 - yl * yl) + 0.5)) / 8.0; }
+      float p = min(1.0, flux * s0 / (max(abs(vd), 2.0) * sumK));
+      p = max(p, 0.45 * stasis);
+      float ends = min(f1.x > 0.5 ? smoothstep(0.0, 1.5 * s0, s) : 1.0, f1.y > 0.5 ? smoothstep(0.0, 1.5 * s0, len - s) : 1.0);
+      float lum = dot(col, vec3(0.299, 0.587, 0.114));
+      // Parcels are a quieter tint of their own lumen: lighter on a dark vessel, darker on a pale one.
+      vec3 ink = lum > 0.62 ? mix(col, inkDark, 0.36) : mix(col, inkLight, 0.52);
+      float laneW = 1.6 * R / float(n);
+      if (look == 0) {
+        // Fine specks with a short tail behind them (longer where faster), scattered within their
+        // lane so the stream reads as a suspension, not a string of beads.
+        int lc = n == 1 ? 0 : clamp(int(floor((y / 0.8 + 1.0) * 0.5 * float(n))), 0, n - 1);
+        float rd = max(0.2 * laneW, 1.05 * pxW) * (1.0 + 0.6 * stasis);
+        rd = min(rd, 0.45 * R);
+        float TL = rd * (1.5 + 4.0 * clamp(abs(vd) / 60.0, 0.0, 1.0)) * (1.0 - stasis);
+        float aa = 0.75 * pxW + stasis * 0.8 * rd;
+        float period = 256.0 * s0;
+        float cov = 0.0;
+        vec3 pc = ink;
+        for (int dl = -1; dl <= 1; dl++) {
+          int li = lc + dl;
+          if (li < 0 || li >= n) continue;
+          float yl = n == 1 ? 0.0 : ((float(li) + 0.5) / float(n) * 2.0 - 1.0) * 0.8;
+          float k = n == 1 ? 8.0 : max(2.0, floor(16.0 * (1.0 - yl * yl) + 0.5));
+          uint lseed = uint(id) * 7919u + uint(li) * 131u;
+          float laneD = mod(D * k / 8.0 + h01(lseed) * period, period);
+          float q = (s - laneD) / s0;
+          // This slot and the nearer neighbour (a speck's jitter and tail reach at most one slot over).
+          for (int j = 0; j < 2; j++) {
+            float slot = floor(q) + (j == 0 ? 0.0 : fract(q) < 0.5 ? -1.0 : 1.0);
+            uint seed = lseed ^ (uint(int(slot) & 255) * 2654435761u);
+            float hv = h01(seed);
+            float pp = p;
+            if (stasis > 0.0) pp *= mix(1.0, 0.25 + 1.5 * vnoise(vec2((slot * s0 + laneD) / 40.0 + clock * 0.04, float(li)), uint(id) * 977u, 1 << 20), stasis);
+            float on = clamp((pp - hv) / 0.06, 0.0, 1.0);
+            if (on <= 0.0) continue;
+            float ja = (h01(seed + 1u) - 0.5) * 0.7 * s0 + stasis * 0.32 * s0 * sin(clock * 0.55 + hv * 40.0);
+            float jy = (h01(seed + 2u) - 0.5) * 0.8 * laneW + stasis * 0.3 * laneW * cos(clock * 0.4 + hv * 23.0);
+            float ax = ((q - slot - 0.5) * s0 - ja) * dir, dy = (y - yl) * R - jy;
+            float d, fade = 1.0;
+            if (ax >= 0.0 || TL <= 0.0) d = length(vec2(ax, dy)) - rd;
+            else {
+              float t = -ax / TL;
+              d = t > 1.0 ? 1e3 : abs(dy) - rd * (1.0 - 0.75 * t);
+              fade = (1.0 - t) * (1.0 - t);
+            }
+            float c = (1.0 - smoothstep(-aa, aa, d)) * fade * on * (0.75 + 0.25 * h01(seed + 4u));
+            if (c > cov) {
+              cov = c;
+              if (origin == 1) {
+                float hc = h01(seed + 3u);
+                vec4 f2 = texelFetch(flow, ivec2(2, id), 0);
+                pc = hc < f2.x ? originCol[0] : hc < f2.x + f2.y ? originCol[1] : hc < f2.x + f2.y + f2.z ? originCol[2] : originCol[3];
+              }
+            }
+          }
+        }
+        float a = cov * ends * f1.z * mix(origin == 1 ? 0.95 : 0.72, 0.45, stasis) * clamp(vis / max(v.a, 1e-3), 0.0, 1.0);
+        col = mix(col, pc, a);
+      } else {
+        // Shimmer: a soft texture carried by the same laminar speeds, brighter where more blood passes.
+        float ay = clamp(abs(y), 0.0, 1.0) * 0.8;
+        float k8 = max(2.0, 16.0 * (1.0 - ay * ay));
+        float k0 = floor(k8), t = k8 - k0, period = 256.0 * s0;
+        float sh0 = s - mod(D * k0 / 8.0, period), sh1 = s - mod(D * (k0 + 1.0) / 8.0, period);
+        float cell = 1.6 * s0;
+        int per = int(period / cell + 0.5);
+        vec2 qa = vec2(sh0 / cell, y * R / max(laneW, 1.0) * 0.8), qb = vec2(sh1 / cell, qa.y);
+        float nz = mix(vnoise(qa, uint(id) * 31u, per), vnoise(qb, uint(id) * 31u, per), t);
+        float dens = sqrt(clamp(p, 0.0, 1.0));
+        float a = smoothstep(0.62 - 0.22 * dens, 0.92, nz) * (0.25 + 0.6 * dens) * ends * f1.z * clamp(vis / max(v.a, 1e-3), 0.0, 1.0);
+        col = mix(col, ink, a);
+      }
+    }
+    if (dyeOn == 1) {
+      // Dye: the column's front is bullet-shaped, the axis ahead of the wall (laminar flow).
+      float sp = s - dir * (2.0 * (1.0 - y * y) - 1.0) * 1.4 * R;
+      float u = clamp(sp / len, 0.0, 1.0);
+      float c = texture(dye, vec2((u * (BINS - 1.0) + 0.5) / BINS, (float(id) + 0.5) / rows)).r;
+      col = mix(col, dyeCol, clamp(c, 0.0, 1.0) * 0.88 * clamp(vis / max(v.a, 1e-3), 0.0, 1.0));
+    }
+    v = vec4(col * v.a, v.a);
+  }
+  vec4 o = over(v, pl);
+  for (int i = 0; i < 10; i++) {
+    if (i >= bleedN) break;
+    vec2 d = (w - bleedE[i].xy) / max(bleedE[i].zw, vec2(1e-3));
+    float r = length(d), aa = pxW / max(min(bleedE[i].z, bleedE[i].w), 1e-3);
+    float a = (1.0 - smoothstep(1.0 - aa, 1.0 + aa, r)) * bleedA[i];
+    o = over(vec4(vec3(150.0, 14.0, 34.0) / 255.0 * a, a), o);
+  }
+  outColor = o;
 }`;
 
 function compile(gl, vs, fs) {
@@ -491,14 +663,13 @@ export function binVeins(tubes, joins) {
 
 export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   let gl = null;
-  // Only on a real GPU unless asked for (?veins=gl): with software rendering the SVG tubes are cheaper.
-  try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: false, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
+  try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: true, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
   if (!gl) return null;
   let prog;
   try { prog = compile(gl, VS, FS); } catch (e) { console.warn('Veins renderer: WebGL2 shaders failed, keeping the SVG tubes.', e); return null; }
   const { p, u } = prog;
-  let plate;
-  try { plate = compile(gl, PLATE_VS, PLATE_FS); } catch (e) { console.warn('Veins renderer: plate shader failed.', e); return null; }
+  let comp, compCell;
+  try { comp = compile(gl, COMP_VS, COMP_FS); compCell = compile(gl, COMP_CELL_VS, COMP_FS); } catch (e) { console.warn('Veins renderer: composite shader failed.', e); return null; }
   const plates = [null, null];   // [whole plate, sharp view] : { tex, rect }
 
   const quad = gl.createBuffer();
@@ -513,8 +684,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 24, 0); gl.vertexAttribDivisor(1, 1);
   gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 4, gl.FLOAT, false, 24, 8); gl.vertexAttribDivisor(2, 1);
   gl.bindVertexArray(null);
-  const plateVAO = gl.createVertexArray();
-  gl.bindVertexArray(plateVAO);
+  const compVAO = gl.createVertexArray();
+  gl.bindVertexArray(compVAO);
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
   gl.bindVertexArray(null);
@@ -527,6 +698,29 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   gl.bindTexture(gl.TEXTURE_2D, organTex);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));
   const radRow = new Float32Array(N_SAMPLES * 2);
+  // Per-vessel blood (FLOW_TEXELS texels a row) and dye (DYE_BINS along the course).
+  const flowTex = dataTex(gl), dyeTex = dataTex(gl, gl.LINEAR);
+  gl.bindTexture(gl.TEXTURE_2D, flowTex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, FLOW_TEXELS, nTubes, 0, gl.RGBA, gl.FLOAT, null);
+  gl.bindTexture(gl.TEXTURE_2D, dyeTex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, DYE_BINS, nTubes, 0, gl.RED, gl.FLOAT, new Float32Array(DYE_BINS * nTubes));
+  // The vessel layer, rendered when something changes: its color, and the lumen buffer.
+  const fbo = gl.createFramebuffer();
+  const baseTex = dataTex(gl), gTex = dataTex(gl);
+  let fboW = 0, fboH = 0, baseM = null, dyeAny = false, wasBleeding = false;
+  function ensureFBO() {
+    if (fboW === canvas.width && fboH === canvas.height) return;
+    fboW = canvas.width; fboH = canvas.height;
+    gl.bindTexture(gl.TEXTURE_2D, baseTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, fboW, fboH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.bindTexture(gl.TEXTURE_2D, gTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16UI, fboW, fboH, 0, gl.RGBA_INTEGER, gl.UNSIGNED_SHORT, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, baseTex, 0);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, gTex, 0);
+    gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
 
   let nCells = 0, lost = false, organRect = null;
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; });
@@ -570,74 +764,127 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     },
     dropPlate(slot) { if (plates[slot]) { gl.deleteTexture(plates[slot].tex); plates[slot] = null; } },
     hasPlate: (slot) => !!plates[slot],
+    /** Per-vessel blood: nTubes × FLOW_TEXELS × 4 floats (see stage.js). */
+    setFlow(data) {
+      gl.bindTexture(gl.TEXTURE_2D, flowTex);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, FLOW_TEXELS, nTubes, gl.RGBA, gl.FLOAT, data);
+    },
+    /** Dye along each vessel: nTubes × DYE_BINS floats, or null when there is none. */
+    setDye(data) {
+      dyeAny = !!data;
+      if (!data) return;
+      gl.bindTexture(gl.TEXTURE_2D, dyeTex);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, DYE_BINS, nTubes, gl.RED, gl.FLOAT, data);
+    },
     /**
-     * Clears and draws. `m`: world → device-pixel transform [a, b, c, d, e, f]; `look`: the
-     * theme's inks and the per-tier opacity and group.
+     * Renders the vessel layer (offscreen) and then the picture. `m`: world → device-pixel
+     * transform [a, b, c, d, e, f]; `look`: the theme's inks and the per-tier opacity and group.
      */
-    draw(m, look) {
+    draw(m, look, blood) {
+      ensureFBO();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.viewport(0, 0, fboW, fboH);
+      gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
+      gl.clearBufferuiv(gl.COLOR, 1, [0, 0, 0, 0]);
+      gl.disable(gl.BLEND);
+      baseM = m;
+      if (nCells) {
+        const M = new Float32Array([m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]);
+        gl.useProgram(p);
+        gl.uniformMatrix3fv(u.world, false, M);
+        gl.uniform2f(u.size, canvas.width, canvas.height);
+        gl.uniform1f(u.cell, CELL);
+        gl.uniform1f(u.px, 1 / Math.max(1e-6, Math.hypot(m[0], m[1])));
+        gl.uniform1f(u.reachU, look.reach);
+        gl.uniform2f(u.shOff, ...look.shOff);
+        gl.uniform4f(u.casing, ...look.casing);
+        gl.uniform4f(u.shadow, ...look.shadow);
+        gl.uniform4f(u.sheenInk, ...look.sheen);
+        gl.uniform4f(u.shadeInk, ...look.shade);
+        gl.uniform4f(u.ring, ...look.ring);
+        gl.uniform2f(u.light, ...look.light);
+        gl.uniform1f(u.netAlpha, look.netAlpha);
+        gl.uniform1i(u.fx, look.fx ? 1 : 0);
+        gl.uniform1i(u.heat, look.heat ? 1 : 0);
+        gl.uniform1fv(u.tierAlpha, look.tierAlpha);
+        gl.uniform1iv(u.tierGroup, look.tierGroup);
+        gl.uniform1i(u.useOrgan, look.organs && organRect ? 1 : 0);
+        if (organRect) gl.uniform4f(u.organRect, ...organRect);
+        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, entTex); gl.uniform1i(u.ent, 0);
+        gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, radTex); gl.uniform1i(u.rad, 1);
+        gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, tubeTex); gl.uniform1i(u.tube, 2);
+        gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, organTex); gl.uniform1i(u.organ, 3);
+        gl.bindVertexArray(vao);
+        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nCells);
+        gl.bindVertexArray(null);
+      }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      this.composite(look, blood, true);
+    },
+    /**
+     * The picture from the last vessel layer: plate, vessels, blood, dye, bleed. Cheap; runs
+     * every animation frame. `blood`: { on, look, origin, clock, originCol, dyeCol, inkLight,
+     * inkDark, bleed: [[x, y, rx, ry, alpha]] }.
+     */
+    composite(look, blood = {}, full = false) {
+      if (!baseM || fboW !== canvas.width || fboH !== canvas.height) return;
+      // A bleed sprays outside the vessels: the whole picture is repainted while it lasts, and once after.
+      const bleeding = !!blood.bleed?.length;
+      if (bleeding || wasBleeding) full = true;
+      wasBleeding = bleeding;
+      if (!full && !nCells) return;
+      const m = baseM, det = m[0] * m[3] - m[1] * m[2] || 1e-9;
+      // device → world: the inverse of [a c e; b d f].
+      const ia = m[3] / det, ib = -m[1] / det, ic = -m[2] / det, id = m[0] / det;
+      const ie = -(ia * m[4] + ic * m[5]), iff = -(ib * m[4] + id * m[5]);
       gl.viewport(0, 0, canvas.width, canvas.height);
-      gl.clearColor(0, 0, 0, 0);
-      gl.clear(gl.COLOR_BUFFER_BIT);
-      const M = new Float32Array([m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]);
-      gl.enable(gl.BLEND);
-      gl.blendEquation(gl.FUNC_ADD);
-      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-      if (look.plate) {
-        gl.useProgram(plate.p);
-        gl.uniformMatrix3fv(plate.u.world, false, M);
-        gl.uniform2f(plate.u.size, canvas.width, canvas.height);
-        gl.uniform1f(plate.u.alpha, look.plate.alpha);
-        gl.uniform1f(plate.u.sat, look.plate.sat);
-        gl.activeTexture(gl.TEXTURE0); gl.uniform1i(plate.u.tex, 0);
-        gl.bindVertexArray(plateVAO);
-        for (const pl of plates) {
-          if (!pl) continue;
-          // The sharp view raster replaces the whole-plate one where it lies: clear under it first.
-          gl.bindTexture(gl.TEXTURE_2D, pl.tex);
-          gl.uniform4f(plate.u.rect, ...pl.rect);
-          if (pl === plates[1] && plates[0]) {
-            const a = [pl.rect[0], pl.rect[1]], b = [pl.rect[0] + pl.rect[2], pl.rect[1] + pl.rect[3]];
-            const X = (q) => m[0] * q[0] + m[2] * q[1] + m[4], Y = (q) => m[1] * q[0] + m[3] * q[1] + m[5];
-            const x0 = Math.max(0, Math.ceil(Math.min(X(a), X(b)))), x1 = Math.min(canvas.width, Math.floor(Math.max(X(a), X(b))));
-            const y0 = Math.max(0, Math.ceil(Math.min(Y(a), Y(b)))), y1 = Math.min(canvas.height, Math.floor(Math.max(Y(a), Y(b))));
-            if (x1 > x0 && y1 > y0) { gl.enable(gl.SCISSOR_TEST); gl.scissor(x0, canvas.height - y1, x1 - x0, y1 - y0); gl.clear(gl.COLOR_BUFFER_BIT); gl.disable(gl.SCISSOR_TEST); }
-          }
-          gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-        }
+      gl.disable(gl.BLEND);
+      const prg = full ? comp : compCell;
+      gl.useProgram(prg.p);
+      const U = prg.u;
+      if (!full) {
+        gl.uniformMatrix3fv(U.world, false, new Float32Array([m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]));
+        gl.uniform2f(U.size, canvas.width, canvas.height);
+        gl.uniform1f(U.cell, CELL);
+      }
+      gl.uniformMatrix3fv(U.inv, false, new Float32Array([ia, ib, 0, ic, id, 0, ie, iff, 1]));
+      gl.uniform1f(U.H, canvas.height);
+      gl.uniform1f(U.pxW, 1 / Math.max(1e-6, Math.hypot(m[0], m[1])));
+      const pm = (look.plate ? (plates[0] ? 1 : 0) | (plates[1] ? 2 : 0) : 0);
+      gl.uniform1i(U.plates, pm);
+      gl.uniform1f(U.plateAlpha, look.plate?.alpha ?? 0);
+      gl.uniform1f(U.plateSat, look.plate?.sat ?? 1);
+      gl.uniform4f(U.plateRect0, ...(plates[0]?.rect || [0, 0, 1, 1]));
+      gl.uniform4f(U.plateRect1, ...(plates[1]?.rect || [0, 0, 1, 1]));
+      gl.uniform1i(U.blood, blood.on ? 1 : 0);
+      gl.uniform1i(U.look, blood.look === 'shimmer' ? 1 : 0);
+      gl.uniform1i(U.origin, blood.origin ? 1 : 0);
+      gl.uniform1i(U.dyeOn, dyeAny && blood.dye !== false ? 1 : 0);
+      gl.uniform1f(U.clock, blood.clock || 0);
+      gl.uniform1f(U.rows, nTubes);
+      gl.uniform3fv(U.originCol, new Float32Array((blood.originCol || [[1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]]).flat()));
+      gl.uniform3f(U.dyeCol, ...(blood.dyeCol || [0.8, 0.95, 0.2]));
+      gl.uniform3f(U.inkLight, ...(blood.inkLight || [1, 1, 1]));
+      gl.uniform3f(U.inkDark, ...(blood.inkDark || [0.1, 0.1, 0.16]));
+      const bl = blood.bleed || [];
+      const be = new Float32Array(40), ba = new Float32Array(10);
+      bl.slice(0, 10).forEach((b, i) => { be.set(b.slice(0, 4), i * 4); ba[i] = b[4]; });
+      gl.uniform4fv(U.bleedE, be);
+      gl.uniform1fv(U.bleedA, ba);
+      gl.uniform1i(U.bleedN, Math.min(10, bl.length));
+      const bind = (unit, tex, name) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(U[name], unit); };
+      bind(0, baseTex, 'base'); bind(1, gTex, 'gbuf'); bind(2, flowTex, 'flow'); bind(3, radTex, 'rad'); bind(4, tubeTex, 'tube');
+      bind(5, dyeTex, 'dye'); bind(6, plates[0]?.tex || baseTex, 'plate0'); bind(7, plates[1]?.tex || baseTex, 'plate1');
+      if (full) {
+        gl.bindVertexArray(compVAO);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      } else {
+        gl.bindVertexArray(vao);
+        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nCells);
       }
       gl.bindVertexArray(null);
-      if (!nCells) return;
-      gl.useProgram(p);
-      gl.uniformMatrix3fv(u.world, false, M);
-      gl.uniform2f(u.size, canvas.width, canvas.height);
-      gl.uniform1f(u.cell, CELL);
-      gl.uniform1f(u.px, 1 / Math.max(1e-6, Math.hypot(m[0], m[1])));
-      gl.uniform1f(u.reachU, look.reach);
-      gl.uniform2f(u.shOff, ...look.shOff);
-      gl.uniform4f(u.casing, ...look.casing);
-      gl.uniform4f(u.shadow, ...look.shadow);
-      gl.uniform4f(u.sheenInk, ...look.sheen);
-      gl.uniform4f(u.shadeInk, ...look.shade);
-      gl.uniform4f(u.ring, ...look.ring);
-      gl.uniform2f(u.light, ...look.light);
-      gl.uniform1f(u.netAlpha, look.netAlpha);
-      gl.uniform1i(u.fx, look.fx ? 1 : 0);
-      gl.uniform1i(u.heat, look.heat ? 1 : 0);
-      gl.uniform1i(u.streaks, look.streaks ? 1 : 0);
-      gl.uniform1f(u.clock, look.clock || 0);
-      gl.uniform1fv(u.tierAlpha, look.tierAlpha);
-      gl.uniform1iv(u.tierGroup, look.tierGroup);
-      gl.uniform1i(u.useOrgan, look.organs && organRect ? 1 : 0);
-      if (organRect) gl.uniform4f(u.organRect, ...organRect);
-      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, entTex); gl.uniform1i(u.ent, 0);
-      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, radTex); gl.uniform1i(u.rad, 1);
-      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, tubeTex); gl.uniform1i(u.tube, 2);
-      gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, organTex); gl.uniform1i(u.organ, 3);
-      gl.bindVertexArray(vao);
-      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nCells);
-      gl.bindVertexArray(null);
     },
-    clear() { gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = 0; },
+    clear() { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = 0; baseM = null; },
     /** The current picture as a PNG data URL (call right after draw, in the same task). */
     snapshot() { return canvas.toDataURL('image/png'); },
   };

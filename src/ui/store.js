@@ -12,7 +12,7 @@ const state = {
   allowedVerbs: null,         // verbs a lesson or case step allows (null = all)
   shunting: null,             // { src, only } while a shunt waits for its drop target
   layers: { flow: true, chips: true, collaterals: false, organs: true, labels: true, grid: false },
-  flowStyle: 'streaks',        // streaks | dashes | dots
+  blood: { look: 'parcels', origin: false, phasic: false },   // look: parcels | shimmer
   colorMode: 'pressure',      // pressure | delta | heat | drop | flow | velocity | direction
   params: defaultParams(),
   frame: null,
