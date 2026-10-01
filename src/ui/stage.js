@@ -816,7 +816,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       else if (W >= 768 && edge === 'right') ins.r = Math.max(ins.r, W - x0);
       else if (W >= 768 && edge === 'left') ins.l = Math.max(ins.l, x1);
     }
-    if (W - ins.l - ins.r < W * 0.5) ins.l = ins.r = 0;
+    if (W - ins.l - ins.r < Math.min(W * 0.5, 360)) ins.l = ins.r = 0;
     if (H - ins.t - ins.b < H * 0.35) { const k = (H * 0.65) / (ins.t + ins.b); ins.t *= k; ins.b *= k; }
     return ins;
   }

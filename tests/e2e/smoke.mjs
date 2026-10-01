@@ -312,6 +312,38 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.keyboard.press('Escape');
     await page.waitForSelector('#treatCard', { state: 'hidden' });
   });
+  // Nothing that floats over the figure may cover another floating piece, or leave the screen, at the
+  // sizes the owner tests on (laptop, iPad both ways, iPhone both ways), in Explore, with the
+  // instruments, with the patient chart and the instruments together, and in a case.
+  await check(device, 'floating pieces never overlap', async (page) => {
+    const sizes = device === 'desktop' ? [[1440, 900], [1180, 820], [820, 1180]] : [[390, 844], [844, 390]];
+    const states = [['?preset=cirr-decomp', null], ['?preset=cirr-decomp', 'measure'], ['?preset=cirr-decomp', 'both'], ['?preset=cirr-decomp', 'card'], ['?case=bleed', null]];
+    for (const [w, hgt] of sizes) for (const [q, act] of states) {
+      await page.setViewportSize({ width: w, height: hgt });
+      await open(page, q);
+      if (act === 'measure' || act === 'both') { await page.click('#tabInstruments'); await page.waitForSelector('#dockBody .dock-pane.active'); }
+      if (act === 'both') await page.evaluate(() => document.querySelector('#btnInspector').click());
+      if (act === 'card') { await page.evaluate(() => window.pps.store.set({ selection: { type: 'edge', id: 'PV_TRUNK' } })); await page.waitForSelector('.action-card:not([hidden])'); }
+      await page.waitForTimeout(700);
+      const bad = await page.evaluate(() => {
+        const SEL = ['.tb-id', '.top-right', '#viewSeg', '.topbar .sb-right', '.sb-center.float-ui', '#vdock', '#panel', '#treatCard:not([hidden])', '#dock', '#zoomPill', '.action-card:not([hidden])', '.coach:not(:empty)'];
+        const vis = (el) => { const st = getComputedStyle(el), r = el.getBoundingClientRect(); return st.display !== 'none' && st.visibility !== 'hidden' && +st.opacity > 0.05 && r.width > 2 && r.height > 2; };
+        // On a phone the chart, Treat and a vessel's card are sheets that rise over the dock by design.
+        const sheet = (el) => el.classList.contains('docked') || (matchMedia('(max-width: 767px), (max-width: 1023px) and (max-height: 500px)').matches && (el.id === 'panel' || el.id === 'treatCard'));
+        const items = SEL.flatMap((s) => [...document.querySelectorAll(s)].filter(vis).map((el) => [s, el.getBoundingClientRect(), el]));
+        const out = [];
+        for (let i = 0; i < items.length; i++) for (let j = i + 1; j < items.length; j++) {
+          const [a, A, ea] = items[i], [c, C, ec] = items[j];
+          if ((sheet(ea) || sheet(ec)) && [a, c].some((x) => x === '#vdock' || x === '#zoomPill')) continue;
+          const x = Math.min(A.right, C.right) - Math.max(A.left, C.left), y = Math.min(A.bottom, C.bottom) - Math.max(A.top, C.top);
+          if (x > 1 && y > 1) out.push(`${a} covers ${c}`);
+        }
+        for (const [s, r] of items) if (r.right > innerWidth + 1 || r.left < -1 || r.bottom > innerHeight + 1 || r.top < -1) out.push(`${s} is off screen`);
+        return out;
+      });
+      if (bad.length) throw new Error(`${w}×${hgt} ${q}${act ? ' + ' + act : ''}: ${bad.join('; ')}`);
+    }
+  });
   await check(device, 'dark theme', async (page) => {
     await page.emulateMedia({ colorScheme: 'dark' });
     await open(page, '?preset=budd-chiari');
@@ -323,6 +355,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.click('#tabInstruments');
     await page.waitForSelector('#dockBody .dock-pane.active');
     await page.waitForTimeout(400);
+    // The card slides in: measure where it settles, not where it is on the way.
+    const settled = () => page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === 'running' && a.effect?.target?.id === 'dock'), null, { timeout: 5000 });
+    await settled();
     const geometry = () => page.evaluate(() => {
       const dock = document.querySelector('#dock').getBoundingClientRect();
       const stage = document.querySelector('#stageView').getBoundingClientRect();
@@ -330,13 +365,17 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       // The workspace floats over the bottom of the full-screen figure: between it and the top bar
       // the anatomy must still have room.
       const top = document.querySelector('#topbar').getBoundingClientRect().bottom;
-      return { stageH: stage.height, free: dock.top - top, dockTop: dock.top,
+      // On a wide landscape screen the card is on the right (the figure keeps the width to its left);
+      // otherwise it is a sheet (the figure keeps the height above it).
+      const side = document.querySelector('#dock').classList.contains('side');
+      return { stageH: stage.height, free: side ? dock.left : dock.top - top, side, dockTop: dock.top,
         dockRight: dock.right, width: innerWidth,
         scrim: getComputedStyle(document.querySelector('#panelScrim')).visibility,
         panel: getComputedStyle(panel).visibility };
     });
     let g = await geometry();
-    if (g.stageH < 50 || g.free < 120) throw new Error(`workspace leaves the anatomy ${Math.round(g.free)} px`);
+    if (g.stageH < 50 || g.free < (g.side ? 300 : 120)) throw new Error(`workspace leaves the anatomy ${Math.round(g.free)} px`);
+    if (device === 'desktop' && !g.side) throw new Error('on a laptop the instruments should be a card on the right');
     if (g.dockRight > g.width + 1) throw new Error('workspace extends off screen');
     if (device === 'phone' && (g.scrim === 'visible' || g.panel === 'visible')) throw new Error('opening instruments also opens a patient overlay');
     const before = await page.evaluate(() => window.pps.store.get().frame.t);
@@ -349,10 +388,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction(() => !!window.pps.store.get().compareSnap);
     await page.click('.workspace-expand');
     await page.waitForSelector('.workspace-comparison:not([hidden])');
+    // One tap on a tab chooses an instrument; each tab carries its live reading.
+    if (await page.locator('.instr-tab').count() !== 8) throw new Error('the tabs must offer eight distinct instruments');
     const choose = async (id) => {
-      await page.click('#dockHead .dock-title');
-      if (await page.locator('.instrument-option').count() !== 8) throw new Error('chooser must offer eight distinct instruments');
-      await page.click(`.instrument-option[data-instrument="${id}"]`);
+      await page.click(`.instr-tab[data-instrument="${id}"]`);
+      await page.waitForFunction((id) => document.querySelector(`.instr-tab[data-instrument="${id}"]`).getAttribute('aria-selected') === 'true', id);
       await page.waitForTimeout(250);
     };
     for (const id of ['scope', 'flow', 'perfusion', 'hvpg', 'doppler', 'endoscopy', 'abdomen', 'profile']) {
@@ -372,6 +412,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.click('.workspace-run');
     await page.waitForFunction(() => !window.pps.store.get().running);
     await page.waitForTimeout(250);
+    await settled();
     const square = await page.$eval('#pane-endoscopy .chart-box.square', (el) => { const r = el.getBoundingClientRect(); return Math.abs(r.width - r.height); });
     if (square > 2) throw new Error('endoscopy loses its square aspect ratio');
     await page.$eval('#pane-endoscopy', (el) => { el.scrollTop = 0; });
@@ -395,7 +436,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       // The patient chart starts closed, so the workspace has the full width for two instruments.
       if (await page.evaluate(() => document.querySelector('#app').classList.contains('panel-open'))) throw new Error('the patient chart should start closed');
       await page.click('.dock-second');
-      await page.click('.instrument-option[data-instrument="doppler"]');
+      await page.click('.instr-tab[data-instrument="doppler"]');
       await page.waitForSelector('#dockBody.split');
       await shot(page, 'desktop-workspace-two-instruments');
       await page.setViewportSize({ width: 768, height: 1024 });

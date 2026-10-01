@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- **A menu you can see.** The logo is now a *Menu* button named after the current mode (Explore, Lesson, Case,
+  Presenter). It opens Explore, Lessons, Cases and Presenter as four large choices, the Home page, Share and
+  export (link, Figure view, PNG, SVG, print, projector), Settings and Help. Share, Settings and Help left the
+  top bar.
+- **A calmer top bar.** One row of pills when it fits (main.js measures it), two otherwise: menu and patient ·
+  view · Blood and legend · Findings, Treat, Measure, Search. In a lesson or case its bar takes the patient's
+  place in the first pill. Active bleeding is a status line in the vitals dock; the compare switch floats
+  under the top bar.
+- **Instruments, reworked.** A tab per instrument with its live reading replaces the chooser screen; the header
+  names the instrument and says what it shows, with *Two at once*, *Full screen*, Minimise and Close. On a wide
+  landscape screen it is a tall card on the right (resizable from its left edge), so the anatomy keeps its
+  size; on a phone or portrait tablet a sheet. It slides in, and remembers its instruments and size.
+- **Nothing overlaps.** Cards on the right stack side by side; a vessel's card, the zoom buttons (now one pill
+  with zoom in, zoom out, Fit and turn) and a lesson's card keep to the free space; a phone shows one sheet at
+  a time, and in landscape keeps the four readouts beside the play bar. A new browser check fails if any
+  floating piece covers another or leaves the screen at laptop, iPad and iPhone sizes, in Explore, with the
+  instruments and the chart, with a vessel's card, and in a case.
 - **The figure fills the screen.** The side panel, the readout strip and the separate bars above and below
   the figure are gone; everything floats over the anatomy instead, and Fit frames it in the space left free.
   - *Top:* small floating pills: the logo and patient; the view, Blood, lens and Figure controls; and

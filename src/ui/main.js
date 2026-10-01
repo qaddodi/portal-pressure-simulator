@@ -3,16 +3,16 @@
 
 import { startHost, host } from './host.js?v=d292ccefe8';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=f9424489c6';
-import { createStage } from './stage.js?v=e5d35dce8b';
+import { createStage } from './stage.js?v=770374d3cc';
 import { createInspector } from './inspector.js?v=208b6a3592';
-import { createDock, CUTOFFS } from './dock.js?v=2d1add443f';
+import { createDock, CUTOFFS } from './dock.js?v=5b0c48da50';
 import { createWhy } from './why.js?v=bf0f24a7a5';
 import { createTimeline } from './timeline.js?v=7bf66ab2fb';
 import { createLearn } from './learn.js?v=a48578b939';
 import { createCases } from './cases.js?v=02646abf69';
 import { createCompare } from './compare.js?v=730844b101';
-import { createCard } from './card.js?v=18ef0b42c9';
-import { createChart, computeFindings } from './chart.js?v=cc86ff5c45';
+import { createCard } from './card.js?v=ff81853324';
+import { createChart, computeFindings } from './chart.js?v=a455fd2964';
 import { createHome } from './home.js?v=5538efbe12';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=e7e5c98a1c';
@@ -262,6 +262,7 @@ function onFrame(f) {
   if (txt !== lastClockTxt) { lastClockTxt = txt; stageClock.textContent = txt; }
   updateBleedBanner(f);
   updateFindBadge(f);
+  syncModeName();
   if (projector) updateProjector(f);
   sonifyFrame(f);
   if (now - lastDesc > 3000) { lastDesc = now; $('#stage').setAttribute('aria-description', describe(f)); }
@@ -440,6 +441,8 @@ function buildHud() {
   stageClock = h('div', { class: 'stage-clock', 'aria-hidden': 'true' });
   view.append(stageClock);
   $('#zoomFit').onclick = () => stage.fit();
+  $('#zoomIn').onclick = () => stage.zoomIn();
+  $('#zoomOut').onclick = () => stage.zoomOut();
   const rotateBtn = $('#rotateCircuit');
   const syncRotate = () => rotateBtn.setAttribute('aria-pressed', String(stage.circuitRotated()));
   rotateBtn.onclick = () => { stage.setCircuitRotated(!stage.circuitRotated()); syncRotate(); };
@@ -448,7 +451,6 @@ function buildHud() {
   // The legend is the lens switcher: it shows what the colors mean and changes what they show.
   $('#btnLayers').addEventListener('click', (e) => openLayers(e.currentTarget));
   $('#btnLayers').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); openLayers(e.currentTarget); } });
-  $('#btnFigure').addEventListener('click', () => toggleFigure(true));
   new ResizeObserver(() => stage.relayout()).observe(view);
 }
 function legendModel() {
@@ -659,26 +661,48 @@ function renderBanner() {
 
 // ── Top bar & transport ─────────────────────────────
 function wireTopbar() {
-  $('#brandBtn').addEventListener('click', (e) => { e.preventDefault(); home.open(); });
+  $('#btnMenu').addEventListener('click', (e) => openMainMenu(e.currentTarget));
   $('#scenarioBtn').addEventListener('click', (e) => openScenarios(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());
-  $('#btnShare').addEventListener('click', (e) => popover(e.currentTarget, [
+  $('#btnInspector').addEventListener('click', () => { if (panelShown() && !store.get().details) closePanel(); else { store.set({ details: null }); openPanel(); } });
+  $('#btnTreat').addEventListener('click', () => (treatOpen() ? closeTreat() : openTreat()));
+  for (const [id, side] of [['#btnPalette', 'bottom'], ['#btnTreat', 'bottom'], ['#btnInspector', 'bottom'], ['#zoomIn', 'left'], ['#zoomOut', 'left'], ['#zoomFit', 'left'], ['#rotateCircuit', 'left']]) {
+    const b = $(id); tooltipFor(b, b.title, side); b.removeAttribute('title');
+  }
+}
+// The main menu (the button at the top left, named after the current mode): where to go (Explore,
+// Lessons, Cases, Presenter, Home), what to do with the figure (share, export, present), and the
+// settings and help. It replaces the logo (which gave no sign it was a menu) and three icons.
+const MODE_NAME = { explore: 'Explore', learn: 'Lesson', cases: 'Case', compare: 'Explore' };
+function syncModeName() {
+  const n = presenter.active() ? 'Presenter' : MODE_NAME[store.get().mode] || 'Explore', el = $('#modeName');
+  if (el.textContent !== n) el.textContent = n;
+}
+function openMainMenu(anchor) {
+  const mode = store.get().mode;
+  const go = (tab) => () => { closePopover(); home.open(tab); };
+  const sub = (label, ic, fn, d) => { const b = menuItem(label, { icon: ic, onClick: () => { closePopover(); fn(); } }); if (d) b.append(h('small', { class: 'mi-d' }, d)); return b; };
+  const modeItem = (id, tab, ic, label, d) => { const b = sub(label, ic, go(tab), d); b.classList.add('mm-mode'); if (mode === id) b.setAttribute('aria-current', 'true'); return b; };
+  popover(anchor, [
+    h('div', { class: 'mm-head' }, brandMark(), h('div', {}, h('b', {}, 'Portal Pressure Simulator'), h('small', {}, 'Choose what to do'))),
+    h('div', { class: 'mm-modes' },
+      modeItem('explore', 'explore', 'explore', 'Explore a patient', 'Any of the patients, from healthy to Budd–Chiari'),
+      modeItem('learn', 'learn', 'book', 'Lessons', 'Predict, observe, explain'),
+      modeItem('cases', 'cases', 'case', 'Cases', 'A bleed at 3 a.m. and diagnostic puzzles'),
+      modeItem('present', 'present', 'projector', 'Presenter', 'Step through a live model with a class')),
+    menuItem('Home page', { icon: 'grid', onClick: () => { closePopover(); home.open(); } }),
+    h('div', { class: 'menu-sep' }),
     h('div', { class: 'menu-title' }, 'Share & export'),
     menuItem('Copy a link to this exact state', { icon: 'share', onClick: () => { closePopover(); share(); } }),
     menuItem('Figure view', { icon: 'camera', kb: 'F', onClick: () => { closePopover(); toggleFigure(true); } }),
     menuItem('Export PNG (2×)', { icon: 'download', onClick: () => { closePopover(); toggleFigure(true); setTimeout(() => figure.exportFile('png'), 400); } }),
     menuItem('Export SVG (editable)', { icon: 'download', onClick: () => { closePopover(); toggleFigure(true); setTimeout(() => figure.exportFile('svg'), 400); } }),
     menuItem('Print', { icon: 'print', onClick: () => { closePopover(); toggleFigure(true); setTimeout(() => print(), 400); } }),
-    h('div', { class: 'menu-sep' }),
     menuItem('Projector mode', { icon: 'projector', kb: 'Shift F', onClick: () => { closePopover(); toggleProjector(); } }),
-  ], { align: 'end' }));
-  $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
-  $('#btnHelp').addEventListener('click', (e) => openHelpMenu(e.currentTarget));
-  $('#btnInspector').addEventListener('click', () => { if (panelShown() && !store.get().details) closePanel(); else { store.set({ details: null }); openPanel(); } });
-  $('#btnTreat').addEventListener('click', () => (treatOpen() ? closeTreat() : openTreat()));
-  for (const [id, side] of [['#btnPalette', 'bottom'], ['#btnShare', 'bottom'], ['#btnSettings', 'bottom'], ['#btnHelp', 'bottom'], ['#btnTreat', 'bottom'], ['#btnInspector', 'bottom']]) {
-    const b = $(id); tooltipFor(b, b.title, side); b.removeAttribute('title');
-  }
+    h('div', { class: 'menu-sep' }),
+    menuItem(t('menu.settings') + '…', { icon: 'gear', onClick: () => { closePopover(); setTimeout(() => openSettings(anchor), 0); } }),
+    menuItem(t('menu.help') + '…', { icon: 'help', kb: '?', onClick: () => { closePopover(); setTimeout(() => openHelpMenu(anchor), 0); } }),
+  ], { cls: 'main-menu', align: 'start' });
 }
 // Two menus with one job each: Settings (how the simulator looks and reads) and Help (how to
 // use it, what it is, and who made it). The role ("I am a…") lives on Home, where a session starts.
@@ -707,7 +731,7 @@ function openSettings(anchor) {
     menuItem(t('menu.sonify'), { icon: 'activity', checked: sonifying(), onClick: () => { closePopover(); setSonify(!sonifying()); toast(sonifying() ? 'Sonification on: pitch follows the pressure of the selected vessel (or the portal vein).' : 'Sonification off.'); } }),
     h('div', { class: 'menu-sep' }),
     menuItem(t('menu.reset'), { icon: 'reset', onClick: () => resetEverything() }),
-  ], { align: 'end', cls: 'app-menu' });
+  ], { align: 'start', cls: 'app-menu' });
 }
 function openHelpMenu(anchor) {
   popover(anchor, [
@@ -720,7 +744,7 @@ function openHelpMenu(anchor) {
     h('div', { class: 'menu-sep' }),
     h('a', { class: 'menu-credit', href: AUTHOR_URL, target: '_blank', rel: 'noopener', onclick: () => closePopover() },
       h('span', {}, 'Created by ', h('b', {}, AUTHOR)), h('span', { class: 'mc-link' }, 'All my tools ', icon('chev-right'))),
-  ], { align: 'end', cls: 'app-menu' });
+  ], { align: 'start', cls: 'app-menu' });
 }
 function doUndo() { timeline.undo(); }
 function doRedo() { timeline.redo(); }
@@ -769,9 +793,10 @@ function syncPanelToggle() {
 }
 /** Opens the patient chart; or the instruments when named. */
 function openPanel(tab = 'chart') {
-  if (tab === 'instruments') { setPanelTab('instruments'); if (isPhone()) closePanel(); return; }
+  if (tab === 'instruments') { setPanelTab('instruments'); if (isPhone()) { closePanel(); closeTreat(); } return; }
   if (app.classList.contains('instrument-focus')) dock.setState('open');
-  if (isPhone()) closeTreat();
+  // A phone has room for one sheet at a time: the chart puts Treat and the instruments away.
+  if (isPhone()) { closeTreat(); if (app.classList.contains('dock-open')) setPanelTab('chart'); }
   app.classList.add('panel-open');
   panelSheet?.open();
   syncPanelToggle();
@@ -796,12 +821,43 @@ function setPanelTab(tab) {
 // the Fit button and the toasts keep clear of them; Fit itself reads data-safe (stage.js).
 let panelSheet = null, treatSheet = null;
 function wireFloating() {
+  // Besides the two heights: how much of the right edge the open cards take (--panel-occ for the
+  // chart, --instr-occ for the instruments, --right-occ for all of them with Treat) and how much of the
+  // bottom (--bot-occ: the vitals dock, or a sheet of instruments above it). The cards stack from the
+  // right without covering each other; the zoom buttons and a vessel's card keep clear of them all.
+  const px = (v) => `${Math.max(0, Math.round(v))}px`;
+  let pubRaf = 0;
   const publish = () => {
-    app.style.setProperty('--top-safe', `${$('#topbar').offsetHeight}px`);
-    app.style.setProperty('--vdock-h', `${$('#vdock').offsetHeight}px`);
+    pubRaf = 0;
+    const gap = isPhone() ? 8 : 12;
+    const vdock = $('#vdock').offsetHeight, wide = !isPhone();
+    // The top bar keeps one row when everything fits at its natural width (with a little to spare,
+    // so it does not flip back and forth), else the view and legend move to a second row.
+    const tb = $('#topbar'), cs = getComputedStyle(tb);
+    const need = $('.tb-id').scrollWidth + $('#viewSeg').offsetWidth + $('.topbar .sb-right').offsetWidth + $('.top-right').scrollWidth + 6 * 8 + 16;
+    const avail = tb.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const two = tb.classList.contains('two-rows') ? need > avail - 24 : need > avail;
+    if (two !== tb.classList.contains('two-rows')) tb.classList.toggle('two-rows', two);
+    app.style.setProperty('--top-safe', px($('#topbar').offsetHeight));
+    app.style.setProperty('--vdock-h', px(vdock));
+    const ws = $('#dock'), wsOn = app.classList.contains('dock-open') && !app.classList.contains('instrument-focus');
+    const panelOcc = wide && app.classList.contains('panel-open') ? $('#panel').offsetWidth + gap : 0;
+    const instrOcc = wsOn && ws.classList.contains('side') ? ws.offsetWidth + gap : 0;
+    const tc = $('#treatCard'), treatOcc = wide && !tc.hidden ? tc.offsetWidth + gap : 0;
+    app.style.setProperty('--panel-occ', px(panelOcc));
+    app.style.setProperty('--instr-occ', px(instrOcc));
+    app.style.setProperty('--right-occ', px(panelOcc + instrOcc + treatOcc));
+    const sheet = wsOn && !ws.classList.contains('side') && ws.dataset.state !== 'peek' ? ws.offsetHeight + gap : 0;
+    app.style.setProperty('--bot-occ', px(vdock + gap + sheet));
+    dispatchEvent(new Event('pps:occ'));
   };
-  const ro = new ResizeObserver(publish);
-  ro.observe($('#topbar')); ro.observe($('#vdock'));
+  const soon = () => { if (!pubRaf) pubRaf = requestAnimationFrame(publish); };
+  const ro = new ResizeObserver(soon);
+  for (const id of ['#topbar', '#vdock', '#dock', '#panel', '#treatCard', '.tb-id', '.top-right', '.topbar .sb-right', '#viewSeg']) ro.observe($(id));
+  new MutationObserver(soon).observe(app, { attributes: true, attributeFilter: ['class'] });
+  new MutationObserver(soon).observe($('#treatCard'), { attributes: true, attributeFilter: ['hidden'] });
+  new MutationObserver(soon).observe($('#dock'), { attributes: true, attributeFilter: ['class', 'data-state'] });
+  addEventListener('resize', soon);
   publish();
   panelSheet = sheetBehaviour($('#panel'), { handle: h('button', { class: 'panel-grab', 'aria-label': 'Resize the patient chart' }), drag: '.panel-head', onClose: closePanel });
   treatSheet = sheetBehaviour($('#treatCard'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the Treat card' }), drag: '.tc-head', onClose: closeTreat });
@@ -882,7 +938,7 @@ let treatOff = null;
 const treatOpen = () => !$('#treatCard').hidden;
 function openTreat() {
   const el = $('#treatCard');
-  if (isPhone()) closePanel();
+  if (isPhone()) { closePanel(); if (app.classList.contains('dock-open')) setPanelTab('chart'); }
   closePopover();
   const sync = [];
   const count = h('span', { class: 'tc-active' });
@@ -913,6 +969,7 @@ function closeTreat() {
 // ── Modes ───────────────────────────────────────────
 function onMode(mode) {
   app.dataset.mode = mode;
+  syncModeName();
   if (mode !== 'cases' && cases?.active()) cases.exit();
   if (mode !== 'learn' && learn?.active()) learn.stop();
   if (mode !== 'learn' && mode !== 'cases') { bannerInfo = null; store.set({ focus: null }); }
@@ -1036,7 +1093,7 @@ function wirePanel() {
 // ── Help & first run ────────────────────────────────
 function brandMark() {
   const s = document.querySelector('.brand-mark').cloneNode(true);
-  s.removeAttribute('class');
+  s.removeAttribute('class'); s.removeAttribute('hidden');
   return s;
 }
 function openHelp(section) {

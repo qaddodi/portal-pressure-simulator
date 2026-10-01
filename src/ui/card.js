@@ -29,6 +29,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   // The phone sheet lives in the whole figure column, not in the figure itself: it reaches the bottom of the column,
   // over the play and timeline row, and stops just above the readout strip.
   const dockHost = view.closest('.stage-wrap') || view;
+  const appStyle = document.getElementById('app').style;
   // A card with more controls than fit scrolls, and fades at the bottom while there is more to see.
   function syncMore() {
     const sc = el.querySelector('.ac-scroll');
@@ -42,7 +43,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   function liftButtons(px) {
     if (px === liftedBy) return;
     liftedBy = px;
-    lift ||= [...view.querySelectorAll('.stage-fit, .stage-rotate, .stage-clock')];
+    lift ||= [...view.querySelectorAll('.zoom-pill, .stage-clock')];
     for (const b of lift) b.style.setProperty('--sheet-h', px);
   }
   function reveal() {
@@ -312,12 +313,16 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     // a layout every frame while the card is open.
     const W = sizes.vw, H = sizes.vh;
     const w = sizes.w || 288, hh = sizes.h || 240;
+    // The figure fills the window: the card stays in the part the top bar, the vitals dock and the
+    // cards on the right leave free (published on #app by main.js).
+    const css = (k) => parseFloat(appStyle.getPropertyValue(k)) || 0;
+    const top = css('--top-safe') + 8, bottom = H - (css('--bot-occ') || 0) - 8, right = W - css('--right-occ') - 8;
     const pts = a.path || [[a.x, a.y]];
     const gap = 22;
     const cands = [[a.x + gap, a.y - hh / 2], [a.x - gap - w, a.y - hh / 2], [a.x - w / 2, a.y + gap], [a.x - w / 2, a.y - gap - hh], [a.x + gap, a.y - 30], [a.x - gap - w, a.y - 30]];
     let best = null;
     cands.forEach(([x, y], i) => {
-      const cx = clamp(x, 8, W - w - 8), cy = clamp(y, 8, H - hh - 8);
+      const cx = clamp(x, 8, Math.max(8, right - w)), cy = clamp(y, top, Math.max(top, bottom - hh));
       let cover = 0;
       for (const [px, py] of pts) if (px > cx - 6 && px < cx + w + 6 && py > cy - 6 && py < cy + hh + 6) cover++;
       const shift = Math.abs(cx - x) + Math.abs(cy - y);
@@ -330,6 +335,8 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     el.style.left = best.x + 'px'; el.style.top = best.y + 'px';
   }
 
+  // The floating pieces moved (a card opened on the right, the dock grew): place the card again.
+  addEventListener('pps:occ', () => { placedFor = ''; lastLayout = ''; position(); });
   store.on('selection', () => render());
   store.on('shunting', () => render());
   store.on('allowedVerbs', () => render());
