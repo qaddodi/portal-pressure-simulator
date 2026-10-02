@@ -184,7 +184,7 @@ svg { flex: none; }
 #labels text { font-family: var(--font-ui); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--label-halo); stroke-width: 3px; stroke-linejoin: round; }
 #labels .lb.tag text, #labels .lb.focus text { stroke: none; }
 #labels .lb-bg { fill: var(--glass); stroke: var(--hairline); stroke-width: 1; }
-.lb.tag .lb-bg { fill: var(--tag-bg); stroke: var(--tag-line); rx: 7px; filter: drop-shadow(0 1px 2px rgba(20, 22, 30, .12)); }
+.lb.tag .lb-bg { fill: var(--tag-bg); stroke: var(--tag-line); rx: 7px; }
 .lb-name { fill: var(--text-2); }
 .lb-val { fill: var(--text); }
 .lb-unit { fill: var(--text-3); }

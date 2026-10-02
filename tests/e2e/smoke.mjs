@@ -423,9 +423,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (!((await page.evaluate(() => window.pps.store.get().frame.t)) > before)) throw new Error('opening instruments paused simulation');
     await page.click('.workspace-divider');
     await page.keyboard.press('ArrowUp');
-    await page.click('.workspace-expand');
+    // Compare lives on the play bar now: pin a moment, then the full-screen toggle goes there and back.
     await page.click('.tl-pin');
     await page.waitForFunction(() => !!window.pps.store.get().compareSnap);
+    await page.click('.workspace-expand');
     await page.click('.workspace-expand');
     await page.waitForSelector('.workspace-comparison:not([hidden])');
     // One tap on a tab chooses an instrument; each tab carries its live reading.
@@ -448,8 +449,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (!(await page.$eval('.wall-details', (d) => d.open))) throw new Error('legacy varixwall route does not open mechanics');
     await page.click('.workspace-expand');
     await page.waitForFunction(() => document.querySelector('#app').classList.contains('instrument-focus'));
-    // Run and Compare live in the header only while the instrument has the whole screen.
-    await page.click('.workspace-run');
+    // Play and pause stay on the play bar while the instrument has the whole screen.
+    await page.click('#timeline .play');
     await page.waitForFunction(() => !window.pps.store.get().running);
     await page.waitForTimeout(250);
     await settled();
