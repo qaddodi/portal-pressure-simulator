@@ -238,8 +238,7 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
       h('div', { class: 'home-grid' }, all().map(card)),
       h('div', { class: 'btn-row', style: { marginTop: '16px' } },
         h('button', { class: 'btn', onclick: newScript }, 'New script from the current model'),
-        h('button', { class: 'btn', onclick: importFile }, 'Import a script'),
-        h('button', { class: 'btn ghost', onclick: () => { closeHome?.(); projectorOn(); } }, 'Projector mode only')),
+        h('button', { class: 'btn', onclick: importFile }, 'Import a script')),
       h('p', { class: 'ctl-sub' }, 'While presenting: → or Page Down for the next step, ← to go back, N opens speaker notes in a second window, L is a laser pointer, Esc stops.'));
   }
 

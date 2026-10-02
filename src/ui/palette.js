@@ -61,10 +61,6 @@ export function createPalette({ ctx }) {
     add('View', 'Anatomy view', () => store.set({ view: 'anatomic' }), { kw: 'anatomic' });
     add('View', 'Circuit view', () => store.set({ view: 'circuit' }), { kw: 'schematic map' });
     add('View', 'Lobule view', () => ctx.zoomLobule(), { kw: 'microcirculation sinusoid lobule zoom' });
-    add('View', 'Figure view', () => ctx.figure(), { kw: 'export plate' });
-    add('View', 'Export PNG', () => ctx.exportFile('png'), { kw: 'image save download' });
-    add('View', 'Export SVG', () => ctx.exportFile('svg'), { kw: 'vector save download' });
-    add('View', 'Projector mode', () => ctx.projector(), { kw: 'present lecture' });
     add('View', 'Measure', () => ctx.instruments(), { kw: 'instruments charts dock' });
     // Go to a structure
     for (const e of EDGES) if (!HIDDEN_EDGES.has(e.id) && e.kind !== 'wedge' && e.kind !== 'shunt' && e.label) add('Go to', e.label, () => ctx.select({ type: 'edge', id: e.id }), { kw: 'select vessel' });

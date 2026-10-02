@@ -15,15 +15,21 @@
 ## Decisions
 
 1. Phone: labels under the action icons in the top bar (no bottom tab bar).
-2. Blood merges into the color menu as one **View** menu (Color by · Show · blood style).
-3. Export folds into one **Export…** item that opens Figure view (PNG, SVG, Print).
+2. ~~Blood merges into the color menu~~ (revised after step 1): the color menu holds only *Color vessels
+   by*; the Blood menu holds the moving blood and the *Show on the figure* switches.
+3. ~~Export folds into Figure view~~ (revised after step 1): Figure view is removed everywhere, with the
+   PNG, SVG and Print exports it carried. Projector mode has no entry point (Presenter still uses its
+   look while presenting). Units are fixed (mmHg, L/min): no unit menus.
 4. Home's "I am a… Student / Instructor / Researcher" stays for now.
 5. The serif stays where it is; to be decided later.
 
 ## Steps (one preview each)
 
 1. **Foundations:** tokens, type and icon normalization, the guard. *Done.*
-2. **Menus:** one menu style; the View merge; the Menu as a compact list with icons (same wording as Home); one Export item; no duplicates (Figure view and Projector only in the Menu; one lens shortcut, L).
+   Follow-up (owner's phone testing): Fit clears the dock on an iPhone; the instruments rest on the
+   dock as one panel on a phone; the color and Blood menus simplified; Figure view, exports, projector
+   entry and units removed; Fit glides.
+2. **Menus:** one menu style; the Menu as a compact list with icons (same wording as Home); no duplicates.
 3. **Vessel card:** one layout on desktop and phone; one-line description with *More*; a "What you changed" list with a reset per change; keep clear of its own labels; no key hints on touch.
 4. **Treat, Measure, patient chart** on the shared card: icons for every drug, fluid and procedure (TIPS and surgical shunt distinct), drugs grouped by class; Measure's tabs with icons and labels, sub-modes inside each instrument.
 5. **Top bar, timeline, phone:** labels under the phone's action icons and the Findings count; one *Skip ahead* control; *Compare* with an icon; patient name and legend never cut off; a first-visit hint "Tap any vessel".

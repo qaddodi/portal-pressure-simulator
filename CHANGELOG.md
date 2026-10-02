@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **Simpler menus.** The color menu only colors the vessels (the eight lenses; L cycles them). The Blood
+  menu holds the moving blood (streaks, chevrons) and what the figure shows (pressure values, potential
+  collaterals, organ names). The unit menus are gone (mmHg and L/min), and so is *How to read the figure*.
+- **Figure view is gone**, with its PNG, SVG and Print exports, its F key and its search entries. Projector
+  mode no longer has a menu item, key (Shift F) or button; Presenter still uses its look while presenting.
+- **Fit glides** to its framing, as the zoom buttons do, instead of jumping.
+- **iPhone:** Fit (and everything placed above the vitals dock) keeps clear of the dock when the dock sits
+  above the home indicator; the readouts lose an empty strip the height of the home indicator.
+- **Phone:** an open instrument (Doppler, pressure, …) rests on the vitals dock as one panel, with no gap
+  and its content fading out where it meets the dock; the run clock steps aside while it is open.
 - **One type scale, one icon scale (menus and cards overhaul, step 1).** The interface now uses five
   sizes (12 small labels · 14 body and buttons · 16 titles · 20 key numbers · 28 big readouts) and three
   weights (400 · 500 · 600), down from 24 sizes and 6 weights; small labels are sentence case ("Menu",

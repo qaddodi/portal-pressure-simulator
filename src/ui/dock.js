@@ -7,7 +7,7 @@ import { createProfile, createSankey, createPerfusion } from './charts.js?v=e86c
 import { createPressureTime } from './pressure-time.js?v=fd13f7846b';
 import { createDoppler } from './doppler.js?v=7fd5e50831';
 import { createHVPG, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=eabac6e4f2';
-import { createLandscape } from './landscape.js?v=13d7c7a7b0';
+import { createLandscape } from './landscape.js?v=503f49e074';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic

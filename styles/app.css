@@ -46,7 +46,6 @@ svg { flex: none; }
   grid-template-areas: "stage";
   background: var(--stage-bg);
 }
-.app.figure-mode, .app.projector { padding-top: var(--safe-top); }
 /* Charts need a little more width than the patient chart. */
 
 
@@ -297,35 +296,6 @@ svg { flex: none; }
 .hover-tip .r b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
 .glass { background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); border-radius: var(--r-card); }
 .stage-clock { display: none; }
-
-/* ── Figure mode: a clean plate with title, key and caption ─────────── */
-.fig-head, .fig-foot { display: none; }
-.app.figure-mode { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); grid-template-areas: "stage"; }
-.app.figure-mode .topbar, .app.figure-mode .panel, .app.figure-mode .dock, .app.figure-mode .vdock, .app.figure-mode .treat-card, .app.figure-mode .coach,
-.app.figure-mode .stage-bar, .app.figure-mode .tool-card, .app.figure-mode .hud, .app.figure-mode .hover-tip { display: none; }
-.app.figure-mode .fig-head { display: flex; }
-.app.figure-mode .fig-foot { display: grid; }
-.fig-head { flex: none; align-items: flex-start; gap: 16px; padding: 24px 28px 8px; background: var(--stage-bg); }
-.fig-head .fh-text { flex: 1; min-width: 0; }
-.fig-head .fh-k { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); }
-.fig-head h1 { margin: 4px 0 2px; font-size: var(--fs-28); font-weight: 600; letter-spacing: -.018em; line-height: 1.2; }
-.fig-head .fh-sub { font-size: var(--fs-14); color: var(--text-2); line-height: 1.5; }
-.fig-head .fh-sub b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
-.fig-head .fh-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-.fig-foot { flex: none; grid-template-columns: auto auto minmax(0, 1fr); gap: 12px 28px; align-items: start; padding: 12px 28px 20px; background: var(--stage-bg); border-top: 1px solid var(--hairline); }
-.fig-key { display: flex; flex-direction: column; gap: 8px; font-size: var(--fs-12); color: var(--text-2); }
-.fig-key .fk-t { font-size: var(--fs-12); font-weight: 600; color: var(--text); }
-.fig-key .fk-row { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-.fig-key svg { width: 26px; height: 12px; flex: none; }
-.fig-cap { font-size: var(--fs-12); color: var(--text-3); line-height: 1.55; max-width: 72ch; }
-.fig-cap b { color: var(--text-2); font-weight: 600; }
-.fig-foot .fig-meas { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; padding-top: 10px; border-top: 1px solid var(--hairline); }
-.fig-meas .fk-t { font-size: var(--fs-12); font-weight: 600; color: var(--text); }
-.fig-meas .fm-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 24px; }
-.fig-meas .fm-row { margin: 0; max-width: none; }
-.lg-full { display: flex; flex-direction: column; gap: 8px; }
-.lg-full .lg-scale { width: 240px; height: 42px; }
-.lg-full .lg-ann { position: absolute; top: 28px; transform: translateX(-50%); font-size: var(--fs-12); color: var(--text-3); white-space: nowrap; }
 
 /* ── Readouts: the live monitor under the figure ─────
    One fixed set in teaching order: pressure → flow → consequences → systemic. Nothing joins or
@@ -587,8 +557,6 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .stage-view.has-sel #backEdges .vg:not(.is-sel):not(.hl) { filter: opacity(.42); }
 .stage-view.has-sel #organs > g, .stage-view.has-sel #backdrop { filter: opacity(.72); }
 .stage-view.has-sel .vg.is-sel .v-lumen, .stage-view.has-sel .vg.is-sel .v-lumenP { filter: brightness(1.12) saturate(1.1); }
-.app.figure-mode .stage-view.has-sel #backEdges .vg, .app.figure-mode .stage-view.has-sel #organs > g, .app.figure-mode .stage-view.has-sel #backdrop { filter: none; }
-.app.figure-mode .stage-view.has-sel #net, .app.figure-mode .stage-view.hovering #net { opacity: 1; }
 .stage-view.hovering #backEdges .vg.ctx:not(.hl) { opacity: .12; }
 
 .v-wall { fill: none; stroke: rgb(var(--casing-rgb)); stroke-linecap: round; stroke-linejoin: round; }
@@ -624,7 +592,6 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .organ-heart-ra { color: color-mix(in srgb, var(--organ-heart) 80%, var(--shade-ink)); }
 .org-heart-flow { fill: color-mix(in srgb, var(--organ-heart) 70%, var(--shade-ink)); fill-opacity: .55; stroke: none; }
 /* The figure is a clean plate: flat lumens (color is the value), no texture or cast shadows. */
-.app.figure-mode .bead-glint, .app.figure-mode .ascites-glint, .app.figure-mode .v-shade, .app.figure-mode .v-sheen, .app.figure-mode .v-shadow, .app.figure-mode .org-tex, .app.figure-mode .org-cast, .app.figure-mode .band-cast, .app.figure-mode .band-sheen { display: none; }
 /* Data layers: the anatomy steps back so the network carries the reading. */
 .stage-view.data-layer #organs, .stage-view.data-layer #backdrop { filter: saturate(.12) opacity(.72); }
 #heatGlow { display: none; pointer-events: none; }
@@ -887,6 +854,15 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .lens-sw { height: 6px; border-radius: 3px; margin-bottom: 4px; }
 .lens-t { font-size: var(--fs-14); font-weight: 600; }
 .lens-d { font-size: var(--fs-12); line-height: 1.35; color: var(--text-2); }
+/* A phone lists the lenses in one column, one compact row each: the color bar, the name, and the
+   description on one line under it. */
+@media (max-width: 767px) {
+  .lens-grid { grid-template-columns: minmax(0, 1fr); gap: 2px; padding: 0 4px 4px; }
+  .lens { grid-template-columns: 36px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 12px; row-gap: 0; align-items: center; padding: 6px 8px; border-color: transparent; background: transparent; }
+  .lens.on { box-shadow: none; }
+  .lens-sw { grid-row: 1 / 3; margin: 0; }
+  .lens-d { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
 .menu-item[aria-checked="true"] .mi-check { opacity: 1; }
 .menu-item .kb { margin-left: auto; font-size: var(--fs-12); color: var(--text-3); }
 .menu-sep { height: 1px; background: var(--hairline); margin: 4px 4px; }
@@ -1049,7 +1025,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   .transport { gap: 4px; }
   .transport .play { width: 40px; height: 40px; }
   .clock-readout { display: none; }
-  .stage-clock { display: block; position: absolute; left: 10px; bottom: 8px; z-index: var(--z-hud); font-size: var(--fs-12); font-weight: 600; color: var(--text-3); font-variant-numeric: tabular-nums; pointer-events: none; }
+  .stage-clock { display: block; position: absolute; left: 10px; bottom: calc(var(--vdock-top, 0px) + 8px); z-index: var(--z-hud); font-size: var(--fs-12); font-weight: 600; color: var(--text-3); font-variant-numeric: tabular-nums; pointer-events: none; }
   #btnTime { width: 40px; height: 40px; }
   .toolbar { justify-self: end; padding: 4px; gap: 2px; }
   .tb-btn { height: 40px; min-width: 42px; padding: 0 12px; justify-content: center; }
@@ -1059,9 +1035,8 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   .tool-card { left: 8px; bottom: 8px; width: calc(100% - 16px); }
   .stage-bar .lg-note { display: none; }
   .toolbar.few .tb-btn:not(:first-child) .tb-l { display: inline; max-width: 92px; overflow: hidden; text-overflow: ellipsis; }
-  .app.figure-mode .stage-clock { display: none; }
 
-  .readouts { border-top: 1px solid var(--hairline); padding-bottom: env(safe-area-inset-bottom); }
+  .readouts { border-top: 1px solid var(--hairline); }
   .app .panel, .app.dock-open .panel { width: min(440px, 100vw - 44px); padding-bottom: env(safe-area-inset-bottom); }
   .panel-tabs { height: 48px; }
   .panel-tabs [role="tab"] { font-size: var(--fs-14); padding: 0 16px; }
@@ -1083,11 +1058,6 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   input[type=range]::-webkit-slider-thumb { width: 22px; height: 22px; margin-top: -8px; }
   .range-wrap, input[type=range] { height: 28px; }
   .section > summary { padding: 16px 0; min-height: 48px; }
-  .app.figure-mode .fig-head { padding: 16px 16px 4px; flex-direction: column; gap: 8px; }
-  .app.figure-mode .fig-head h1 { font-size: var(--fs-16); }
-  .app.figure-mode .fig-foot { grid-template-columns: 1fr; padding: 8px 16px 16px; gap: 8px; }
-  .fig-meas .fm-grid { grid-template-columns: 1fr; }
-  .app.figure-mode .fig-key { flex-direction: row; flex-wrap: wrap; gap: 8px 16px; }
 }
 /* Phone in landscape: the figure fills the screen; the side panel slides over it */
 @media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
@@ -1124,10 +1094,8 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 
 @media print {
   .app { position: static; display: block; height: auto; }
-  .topbar, .panel, .dock, .readouts, .stage-bar, .hud, .tool-card, .fig-head .fh-actions { display: none !important; }
+  .topbar, .panel, .dock, .readouts, .stage-bar, .hud, .tool-card { display: none !important; }
   .stage-wrap { position: fixed; inset: 0; }
-  .fig-head { display: flex !important; }
-  .fig-foot { display: grid !important; }
 }
 
 /* ── Action card (object → verb) ─────────────────── */
@@ -1274,14 +1242,12 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .action-card.docked .ac-scroll.more { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent); }
 /* The figure's own buttons (Fit, turn) ride above the sheet instead of under it. */
 .stage-fit, .stage-rotate, .stage-clock { translate: 0 calc(-1 * var(--sheet-h, 0px)); transition: translate .2s var(--ease); }
-.app.figure-mode .action-card { display: none; }
 .hover-tip .hint { margin-top: 4px; font-size: var(--fs-12); color: var(--text-3); }
 
 /* Selection feedback on organs and sites */
 .org-sel-line { fill: none; stroke: var(--accent); stroke-width: 2.4; stroke-opacity: .55; stroke-linejoin: round; pointer-events: none; }
 .org-sel-ring { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 2; stroke-opacity: .6; stroke-dasharray: 5 4; pointer-events: none; }
 #organSel { pointer-events: none; }
-.app.figure-mode #organSel { display: none; }
 
 /* Shunt gesture: the source and every valid target glow */
 .stage-view.shunting #stage { cursor: crosshair; }
@@ -1935,7 +1901,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .workspace-comparison > span { display: inline-flex; gap: 8px; }
 .workspace-comparison b { color: var(--text); font-variant-numeric: tabular-nums; }
 .workspace-comparison .comparison-label { color: var(--accent-ink); font-weight: 600; }
-.app.instrument-focus .stage-view, .app.instrument-focus #stageTop, .app.instrument-focus #coach, .app.instrument-focus .fig-head, .app.instrument-focus .fig-foot { display: none; }
+.app.instrument-focus .stage-view, .app.instrument-focus #stageTop, .app.instrument-focus #coach { display: none; }
 .app.instrument-focus .instrument-workspace { height: auto; flex: 1; }
 .app.instrument-focus .panel { display: none; }
 .app.instrument-focus { grid-template-columns: minmax(0, 1fr) 0; }
@@ -2304,7 +2270,12 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   .panel-grab, .sheet-grab { display: block; flex: none; height: 18px; width: 100%; border: 0; background: none; cursor: grab; touch-action: none; position: relative; }
   .panel-grab::before, .sheet-grab::before { content: ''; position: absolute; left: 50%; top: 6px; width: 40px; height: 4px; border-radius: 2px; background: var(--border-strong); transform: translateX(-50%); }
   .panel .panel-tabs { touch-action: none; }
-  .instrument-workspace.float-ui { left: 6px; right: 6px; bottom: calc(var(--vdock-h) + 14px); }
+  /* The instruments rest on the vitals dock as one panel: no gap, square corners where they meet, and
+     the sheet's shadow kept off the dock. */
+  .instrument-workspace.float-ui:not(.side) { left: 6px; right: 6px; bottom: calc(var(--vdock-top, 136px) - 1px); border-radius: var(--r-sheet) var(--r-sheet) 0 0; clip-path: inset(-40px -40px 0 -40px); }
+  .instrument-workspace.float-ui:not(.side) .dock-body { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent); }
+  .app.dock-open .stage-clock { display: none; }
+  .app.dock-open:not(.instrument-focus):has(.instrument-workspace:not(.side)) .vdock { border-top-left-radius: 0; border-top-right-radius: 0; background: var(--surface); }
   .app.panel-open .instrument-workspace.float-ui { right: 6px; }
 }
 @media (min-width: 768px) { .sheet-grab { display: none; } }
@@ -2398,7 +2369,6 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .cmap .zoom-pill .stage-rotate { display: inline-grid; }
 .app.stage-busy .zoom-pill { opacity: .28; }
 .zoom-pill.no-room { visibility: hidden; }
-.app.figure-mode .zoom-pill, .app.presenting .zoom-pill, .app.instrument-focus .zoom-pill { display: none; }
 
 /* A vessel's card stays between the top bar and the dock. */
 .action-card:not(.docked) { max-height: calc(100% - var(--top-safe) - var(--bot-occ, 120px) - 16px); }

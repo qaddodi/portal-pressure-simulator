@@ -158,7 +158,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (await page.locator('.action-card').isVisible()) throw new Error('the card stays open after Doppler');
   });
 
-  await check(device, 'home, palette, figure, presenter, instruments', async (page) => {
+  await check(device, 'home, palette, presenter, instruments', async (page) => {
     await open(page, '?home=explore');
     await page.waitForSelector('#home:not([hidden])');
     await shot(page, `${device}-home`);
@@ -168,9 +168,6 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.evaluate(() => window.pps.palette.open());
     await page.waitForSelector('.pal-back:not([hidden])');
     await page.keyboard.press('Escape');
-    await page.evaluate(() => window.pps.toggleFigure(true));
-    await page.waitForFunction(() => document.querySelector('#figHead')?.textContent.includes('Portal circulation'));
-    await page.evaluate(() => window.pps.toggleFigure(false));
     await page.evaluate(() => window.pps.dock.show('profile', { reveal: true }));
     await page.waitForTimeout(500);
     await shot(page, `${device}-instruments`);
@@ -203,11 +200,12 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const d0 = await page.evaluate(() => window.pps.stage.flowDir('PV_TRUNK').D);
     await page.waitForTimeout(400);
     if (await page.evaluate(() => window.pps.stage.flowDir('PV_TRUNK').D) !== d0) throw new Error('paused blood kept moving');
-    // The Blood menu (streaks, chevrons), the Blood origin lens, dye.
+    // The Blood menu (streaks, chevrons; what the figure shows), the Blood origin lens, dye.
     const fits = await page.$eval('#btnBlood', (el) => { const r = el.getBoundingClientRect(); return r.width >= 30 && r.left >= 0 && r.right <= innerWidth; });
     if (!fits) throw new Error('Blood button is clipped');
     await page.click('#btnBlood');
-    if ((await page.$$('.blood-pop .blood-opt')).length !== 2) throw new Error('the Blood menu should offer streaks and chevrons only');
+    const opts = await page.$$eval('.blood-pop .blood-opt', (els) => els.map((e) => e.querySelector('span').firstChild.textContent));
+    if (opts.join('|') !== 'Streaks|Chevrons|Pressure values|Potential collaterals|Organ names') throw new Error(`the Blood menu offers ${opts.join(', ')}`);
     await page.keyboard.press('Escape');
     await page.evaluate(() => window.pps.store.set({ colorMode: 'origin', blood: { look: 'shimmer', chevrons: true } }));
     await page.waitForFunction(() => /Splenic vein|SV/.test(document.querySelector('#legend').textContent));
@@ -237,12 +235,6 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (!(await page.evaluate(() => document.querySelector('#stageView').classList.contains('gl-on')))) throw new Error('the circuit left the GPU');
     await page.evaluate(() => window.pps.store.set({ view: 'anatomic', selection: null, colorMode: 'pressure' }));
     await on('gl-on');
-    // The exported SVG figure is the SVG plate, tubes and overlays included.
-    const svg = await page.evaluate(async () => (await window.pps.figure.buildSVG()).svg);
-    if (!svg.includes('#gr-PV_TRUNK')) throw new Error('exported figure lost the vessel tubes');
-    if (!(await page.evaluate(() => document.querySelector('#stageView').classList.contains('gl-on')))) throw new Error('the export left the SVG tubes showing');
-    const png = await page.evaluate(() => window.pps.stage.rasterLayers(1));
-    if (!png?.veins?.startsWith('data:image/png')) throw new Error('no GPU picture for the PNG export');
     await shot(page, `${device}-veins-gl`);
   });
 

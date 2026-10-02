@@ -75,7 +75,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   function render({ keepFocus = false } = {}) {
     const st = store.get();
     const sel = st.selection;
-    if (!sel || st.shunting || document.getElementById('app').classList.contains('figure-mode')) { hide(); return; }
+    if (!sel || st.shunting) { hide(); return; }
     const m = cardFor(sel, ctx);
     if (!m) { hide(); return; }
     const focusedIdx = keepFocus ? actionable.findIndex((a) => a.el.contains(document.activeElement)) : -1;

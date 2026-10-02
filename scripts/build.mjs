@@ -4,8 +4,8 @@
 // `npm start` runs it). This script writes an optimized copy to dist/ for hosts that can serve a
 // build output, and for the SCORM package:
 //
-//   - one module graph per entry (the app, the engine worker), split so the command palette,
-//     the figure plate and the presenter stay separate chunks loaded on first use;
+//   - one module graph per entry (the app, the engine worker), split so the command palette
+//     and the presenter stay separate chunks loaded on first use;
 //   - CSS (fonts, tokens, layout) in one minified, hashed file; fonts hashed;
 //   - every file name carries its content hash, so caches can keep them forever;
 //   - a service worker that precaches the whole app for offline use.
