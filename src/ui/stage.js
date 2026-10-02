@@ -2,11 +2,11 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, edgePresent, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=29d10ad9ef';
-import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders } from './anatomy.js?v=6728d01049';
+import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders } from './anatomy.js?v=6728d01049';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=f9424489c6';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=fe164f31f1';
-import { createLobuleZoom } from './lobule-zoom.js?v=6c1e61d9ef';
+import { createLobuleZoom } from './lobule-zoom.js?v=d62520c125';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=63596bcd73';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -744,15 +744,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     viewRaf = 0;
     if (!F || lz?.isOpen()) return;
     refreshCTM();
-    // The labels step aside while the camera moves and come back, laid out once, a moment after it stops.
-    if (camBusy()) { wrap.classList.add('cam-moving'); clearTimeout(settleT); settleT = setTimeout(settleView, 120); onViewChange?.(); return; }
     updateLabels(F);
     onViewChange?.();
-  }
-  function settleView() {
-    if (camBusy()) { settleT = setTimeout(settleView, 100); return; }
-    wrap.classList.remove('cam-moving');
-    if (F && !lz?.isOpen()) { refreshCTM(); updateLabels(F); onViewChange?.(); }
   }
   applyVT();
   // The figure's screen transform, computed from the viewBox, the zoom state and the stage box.
@@ -788,39 +781,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function freeCentre() { const ins = safeInsets(), b = stageBox(); return [b.left + (ins.l + ins.W - ins.r) / 2, b.top + (ins.t + ins.H - ins.b) / 2]; }
   // A zoom step by the buttons glides there instead of jumping.
-  // ── The camera ──
-  // Every way of zooming (the wheel, the + and − buttons, a double tap) only moves a target; the view eases toward it
-  // at a rate that does not depend on the frame rate, keeping the point under the cursor (or the middle of the free
-  // space) where it is. Rapid input folds into one smooth move. Fit, going home and the dive are timed flights
-  // (animateVT); a drag, a pinch or a flight takes the camera over from the target. While the camera moves the labels
-  // step aside and are laid out once when it settles, so a zoom costs a frame of drawing, not of drawing and layout.
-  const CAM_TAU = 80;   // ms: how quickly the view closes on its target
-  let camT = null, camRaf = 0, camLast = 0, flying = false, settleT = 0;
-  const camBusy = () => !!(camT || flying);
-  function camStop() { camT = null; cancelAnimationFrame(camRaf); camRaf = 0; }
-  function camStep(now) {
-    camRaf = 0;
-    if (!camT) return;
-    const dt = clamp(now - camLast, 0, 64); camLast = now;
-    const k = vt.k + (camT.k - vt.k) * (1 - Math.exp(-dt / CAM_TAU));
-    const done = Math.abs(camT.k / k - 1) < 0.003, kk = done ? camT.k : k;
-    vt = { k: kk, x: camT.vx - camT.wx * kk, y: camT.vy - camT.wy * kk };
-    if (done) camT = null;
-    applyVT(); CTM = null;
-    if (!done) camRaf = requestAnimationFrame(camStep);
-  }
-  function camZoom(cx, cy, factor) {
+  function animZoomAt(cx, cy, factor) {
     if (lobuleOn) return;
-    const [vx, vy] = clientToVB(cx, cy);
-    cancelAnimationFrame(vtAnim); flying = false;
-    const k = clamp((camT ? camT.k : vt.k) * factor, 0.6, 6);
-    camT = { k, vx, vy, wx: (vx - vt.x) / vt.k, wy: (vy - vt.y) / vt.k };
-    if (reduceMotion.matches) { vt = { k, x: vx - camT.wx * k, y: vy - camT.wy * k }; camT = null; applyVT(); return; }
-    camLast = performance.now();
-    if (!camRaf) camRaf = requestAnimationFrame(camStep);
+    const [vx, vy] = clientToVB(cx, cy), base = vtTarget && vtAnim ? vtTarget : vt;
+    const k = clamp(base.k * factor, 0.6, 6), wx = (vx - vt.x) / vt.k, wy = (vy - vt.y) / vt.k;
+    animateVT({ k, x: vx - wx * k, y: vy - wy * k }, 260);
   }
-  const animZoomAt = camZoom;
-
+  function zoomAt(cx, cy, factor) {
+    if (lobuleOn) return;   // the lobule view has its own zoom
+    const [vx, vy] = clientToVB(cx, cy);
+    const wx = (vx - vt.x) / vt.k, wy = (vy - vt.y) / vt.k;
+    vt.k = clamp(vt.k * factor, 0.6, 6);
+    vt.x = vx - wx * vt.k; vt.y = vy - wy * vt.k;
+    applyVT(); CTM = null;
+  }
   // Default framing. The circuit is a wide map (≈ 1.9 : 1); in a squarish or tall viewport,
   // fitting its width would shrink every station to a dot, so it opens zoomed to fill the height,
   // centered on the portal vein and liver, and the learner pans sideways to the beds or heart.
@@ -973,54 +947,39 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // liver's card, the palette, a presenter step) and cross-fades over the plate.
   let liverBB = null;
   let lobuleOn = false, lobU = 0, lobAnim = 0;
-  // Into the lobule. From the anatomy it is a journey through scales (2.6 s): the camera flies into the liver, its tissue resolves
-  // into a lattice of tiny lobules, and the lobule you land on grows out of it until it fills the view (lobule-zoom.js draws the
-  // lattice and the landing). Out, the same journey backwards: the lobule shrinks into the lattice, the lattice dissolves back into
-  // the liver and the camera pulls out to the framing it had. From the circuit there is nothing to fly into: a plain cross-fade.
-  // One number, lobU (0 to 1), says how far along the journey is; the camera, the lattice and the lobule are all functions of it,
-  // so a reversal part-way simply runs it back.
-  let preLobule = null, diveTo = null, lobFromCircuit = false;
-  const DIVE_MS = 2600, FADE_MS = 520;
+  // Into the lobule, a dive (0.9 s): the camera flies into the liver while, over its second half, the
+  // lobule grows out of that spot and the liver's surface dissolves into it. Out, the reverse: the
+  // lobule shrinks back into the liver and the camera pulls out to the framing it had.
+  let preLobule = null, diveAt = null;
+  const DIVE_MS = 900;
   function diveTarget() {
     const lb = liverBox();
     if (!lb) return null;
     const b = svg.viewBox.baseVal, wx = lb.x + lb.w * 0.42, wy = lb.y + lb.h * 0.5;
-    const k = clamp(Math.min(b.width / lb.w, b.height / lb.h) * 1.7, 2.6, 5.5);
-    // That spot of the liver is brought to where the lobule will land.
-    const c = lz.frameCentre?.(), bx = stageBox();
-    if (c) { const [vx, vy] = clientToVBFast(bx.left + c[0], bx.top + c[1]); return { w: [wx, wy], vt: { k, x: vx - wx * k, y: vy - wy * k } }; }
-    return { w: [wx, wy], vt: vtFor(wx, wy, k) };
-  }
-  // The camera as a function of the journey: it does all its flying in the first half of it.
-  function cameraAt(p) {
-    const from = preLobule, to = diveTo?.vt;
-    if (!from || !to) return;
-    const u = easeInOut(clamp(p / 0.55, 0, 1));
-    const k = from.k * Math.pow(to.k / from.k, u), a = (k - from.k) / ((to.k - from.k) || 1);
-    vt = { k, x: from.x + (to.x - from.x) * (to.k === from.k ? u : a), y: from.y + (to.y - from.y) * (to.k === from.k ? u : a) };
-    applyVT(); CTM = null;
+    return { w: [wx, wy], vt: vtFor(wx, wy, clamp(Math.min(b.width / lb.w, b.height / lb.h) * 1.7, 2.6, 5.5)) };
   }
   function setLobule(on) {
+    if (on && morphTarget !== 0) return;
     if (lobuleOn === on && (lobU === (on ? 1 : 0))) return;
     lobuleOn = on;
-    cancelAnimationFrame(lobAnim); cancelAnimationFrame(vtAnim); camStop(); flying = false;
+    cancelAnimationFrame(lobAnim);
+    const ms = reduceMotion.matches ? 0 : DIVE_MS, from = lobU, t0 = performance.now();
     if (on) {
-      lobFromCircuit = morphTarget === 1;
-      if (!lobFromCircuit) {
-        if (lobU === 0) preLobule = { ...vt };
-        diveTo = diveTarget();
-      }
-    } else if (!lobFromCircuit) {
-      // (A lobule opened by a link has no framing to go back to: the anatomy's home.)
-      if (!preLobule || sameView(preLobule, { k: 1, x: 0, y: 0 })) preLobule = homeAt || defaultVT(false);
-      if (!diveTo) diveTo = diveTarget() || { vt: { ...vt } };
+      if (lobU === 0) preLobule = { ...vt };
+      const d = diveTarget();
+      diveAt = d?.w || null;
+      if (d && ms) animateVT(d.vt, ms); else if (d) { vt = d.vt; applyVT(); CTM = null; }
+    } else if (ms) {
+      // Pull out a moment after the lobule starts to shrink, back to where the anatomy was.
+      const back = preLobule && !sameView(preLobule, { k: 1, x: 0, y: 0 }) ? preLobule : (homeAt || defaultVT(false));
+      setTimeout(() => { if (!lobuleOn) animateVT(back, ms * 0.85); }, ms * 0.15);
     }
-    const circuit = lobFromCircuit, ms = reduceMotion.matches ? 0 : circuit ? FADE_MS : DIVE_MS;
-    const from = lobU, to = on ? 1 : 0, t0 = performance.now();
     const step = (now) => {
-      const e = ms ? clamp((now - t0) / ms, 0, 1) : 1, q = e * e * (3 - 2 * e);
-      lobU = from + (to - from) * q;
-      if (!circuit) cameraAt(lobU);
+      const e = ms ? clamp((now - t0) / ms, 0, 1) : 1;
+      // In: the lobule appears over the second half of the flight. Out: it is gone in the first half.
+      const u = on ? clamp((e - 0.42) / 0.58, 0, 1) : clamp(1 - e / 0.5, 0, 1);
+      lobU = on ? Math.max(from, easeInOut(u)) : Math.min(from, easeInOut(u));
+      if (diveAt) { refreshCTM(); const [x, y] = worldToLocal(diveAt[0], diveAt[1]); lz.setOrigin?.(x, y); }
       syncSemantic();
       if (e < 1) lobAnim = requestAnimationFrame(step);
       else if (!on) { lobU = 0; syncSemantic(); }
@@ -1034,28 +993,27 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function vbCenter() { const b = svg.viewBox.baseVal; return [b.x + b.width / 2, b.y + b.height / 2]; }
   function syncSemantic() {
     if (!lz) return;
-    // Turning to the circuit from a lobule that was entered over the anatomy: it fades out as the map comes in.
-    if (lobuleOn && morphTarget !== 0 && !lobFromCircuit) { lobFromCircuit = true; if (store.get().lobule) store.set({ lobule: false }); else setLobule(false); }
-    const u = morphTarget === 0 || lobFromCircuit ? lobU : 0;
+    // Turning to the circuit closes the lobule view.
+    if (lobuleOn && morphTarget !== 0) { lobuleOn = false; lobU = 0; cancelAnimationFrame(lobAnim); if (store.get().lobule) store.set({ lobule: false }); }
+    const u = morphTarget === 0 ? lobU : 0;
     const wasOpen = lz.isOpen();
-    lz.setFade(u, { circuit: lobFromCircuit });
+    lz.setFade(u);
     if (wasOpen && !lz.isOpen() && F && !inUpdate) update(F);
     wrap.classList.toggle('in-lobule', u > 0.98);
   }
   let vtAnim = 0;
   let vtTarget = null;   // where the last animated move was headed
   function animateVT(to, ms = 700) {
-    cancelAnimationFrame(vtAnim); camStop();
-    vtTarget = to; flying = true;
+    cancelAnimationFrame(vtAnim);
+    vtTarget = to;
     const from = { ...vt }, t0 = performance.now();
-    if (reduceMotion.matches) { vt = to; flying = false; applyVT(); CTM = null; return; }
+    if (reduceMotion.matches) { vt = to; applyVT(); CTM = null; return; }
     const step = (now) => {
       const u = easeInOut(clamp((now - t0) / ms, 0, 1));
       // Interpolate the zoom geometrically so the approach feels even at every scale.
       const k = from.k * Math.pow(to.k / from.k, u);
       const a = (k - from.k) / ((to.k - from.k) || 1);
       vt = { k, x: from.x + (to.x - from.x) * (to.k === from.k ? u : a), y: from.y + (to.y - from.y) * (to.k === from.k ? u : a) };
-      if (u >= 1) flying = false;
       applyVT(); CTM = null;
       if (u < 1) vtAnim = requestAnimationFrame(step);
     };
@@ -1075,8 +1033,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The lobule is a view of its own (Anatomy · Circuit · Lobule): it opens over the figure and closes
   // only from the view switch, never by zooming out. The anatomy underneath keeps its framing.
   function openLobule(tries = 0) {
-    // Over the anatomy it needs the liver laid out to fly into; over the circuit it is a plain fade.
-    if (morphTarget === 0 && (!liverBox() || morph > 0.02)) { if (tries < 40) setTimeout(() => { if (store.get().lobule) openLobule(tries + 1); }, 120); return; }
+    if (morphTarget !== 0) store.set({ view: 'anatomic' });
+    // Right after loading the liver may not be laid out yet: try again shortly.
+    // From the circuit, ease into the anatomy first, then dive.
+    if (!liverBox() || morphTarget !== 0 || morph > 0.02) { if (tries < 40) setTimeout(() => { if (store.get().lobule) openLobule(tries + 1); }, 120); return; }
     // The anatomy's card (the liver's, usually) would sit over the lobule: the lobule's parts have their own.
     if (store.get().selection && store.get().selection.type !== 'lobule') store.set({ selection: null });
     setLobule(true);
@@ -2428,14 +2388,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     b.seen = frameNo;
     // Text and pressure colors change far more often than label structure.
     // Retain the text nodes (and keyboard focus) across numeric updates.
-    const sig = JSON.stringify([it.lines.map((line) => line.map(({ t, ...style }) => style)), it.align, !!it.swatch, it.bg, it.cls, labelK, !!it.hit]);
+    const sig = JSON.stringify([it.lines.map((line) => line.map(({ t, ...style }) => style)), it.align, !!it.swatch, it.bg, it.cls, labelK]);
     if (sig !== b.sig) {
       b.sig = sig;
       const kids = [];
       b.spans = [];
       b.textLines = [];
       if (it.bg) kids.push(s('rect', { class: 'lb-bg', x: -it.padX, y: -it.padY, width: it.w + 2 * it.padX, height: it.h + 2 * it.padY, rx: 6 }));
-      else if (it.hit) kids.push(s('rect', { class: 'lb-hit', x: -it.padX, y: -it.padY, width: it.w + 2 * it.padX, height: it.h + 2 * it.padY }));
       let y = 0;
       const tx = it.swatch ? (it.align === 'end' ? it.w - 7 : 7) : 0;
       for (const line of it.lines) {
@@ -2456,7 +2415,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (it.swatch) kids.unshift(s('rect', { class: 'lb-sw', x: it.align === 'end' ? it.w - 3 : 0, y: 1, width: 3, height: Math.max(8, it.h - 2), rx: 1.5 }));
       b.g.replaceChildren(...kids);
       b.sw = it.swatch ? b.g.querySelector('.lb-sw') : null;
-      b.bg = b.g.querySelector('.lb-bg, .lb-hit');
+      b.bg = b.g.querySelector('.lb-bg');
     }
     let i = 0;
     for (const line of it.lines) for (const r of line) {
@@ -2537,12 +2496,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function pressureRuns(P, id, compact) {
     if (!store.get().layers.chips || isImaging()) return null;
     const [v, u] = fp(P);
-    const runs = [{ t: v, size: compact ? 12 : 13, weight: 700, cls: 'lb-val' }, { t: u, size: compact ? 9.5 : 10, weight: 600, cls: 'lb-unit', gap: 2.5 }];
+    const runs = [{ t: v, size: compact ? 12.5 : 14, weight: 650, cls: 'lb-val' }, { t: u, size: compact ? 9.5 : 10, weight: 500, cls: 'lb-unit', gap: 2.5 }];
     // A change from healthy is shown only once it matters clinically (5 mmHg, the upper limit
     // of a normal HVPG); while comparing, every change from the pinned moment is shown. Deltas
     // are neutral ink: red is kept for crossed thresholds.
     const ref = REF()?.[NI[id]], cmp = !!store.get().compareSnap;
-    if (ref != null && badge((cmp ? 'pc:' : 'p:') + id, Math.abs(P - ref), cmp ? 1 : DELTA_MIN, cmp ? 0.7 : DELTA_MIN - 1)) runs.push({ t: `${P > ref ? '▲' : '▼'} ${fmt(Math.abs(P - ref), 0)}`, size: compact ? 9 : 10, weight: 600, cls: 'lb-delta ' + (P > ref ? 'up' : 'down'), gap: 6 });
+    if (ref != null && badge((cmp ? 'pc:' : 'p:') + id, Math.abs(P - ref), cmp ? 1 : DELTA_MIN, cmp ? 0.7 : DELTA_MIN - 1)) runs.push({ t: `${P > ref ? '▲' : '▼'} ${fmt(Math.abs(P - ref), 0)}`, size: compact ? 9.5 : 10.5, weight: 650, cls: 'lb-delta ' + (P > ref ? 'up' : 'down'), gap: 6 });
     return runs;
   }
 
@@ -2552,14 +2511,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const lm = layerMode();
     if (lm !== 'flow' && lm !== 'velocity') return null;
     if (!store.get().layers.chips) return null;
-    const big = { size: compact ? 12 : 13, weight: 700, cls: 'lb-val' }, unit = { size: compact ? 9.5 : 10, weight: 600, cls: 'lb-unit', gap: 2.5 };
+    const big = { size: compact ? 12.5 : 14, weight: 650, cls: 'lb-val' }, unit = { size: compact ? 9.5 : 10, weight: 500, cls: 'lb-unit', gap: 2.5 };
     if (lm === 'flow') {
       const v = throughput(f.Qf || f.Q, id);
       const runs = [{ ...big, t: fmtFlow(v) }, { ...unit, t: 'L/min' }];
       const refQ = store.get().healthy?.Q;
       if (refQ && !store.get().compareSnap) {
         const r = throughput(refQ, id);
-        if (r > 0.02 && badge('q:' + id, Math.abs(v - r) / r, 0.3, 0.25)) runs.push({ t: `${v > r ? '▲' : '▼'} ${Math.round(Math.abs(v - r) / r * 100)}%`, size: compact ? 9 : 10, weight: 600, cls: 'lb-delta ' + (v > r ? 'up' : 'down'), gap: 6 });
+        if (r > 0.02 && badge('q:' + id, Math.abs(v - r) / r, 0.3, 0.25)) runs.push({ t: `${v > r ? '▲' : '▼'} ${Math.round(Math.abs(v - r) / r * 100)}%`, size: compact ? 9.5 : 10.5, weight: 650, cls: 'lb-delta ' + (v > r ? 'up' : 'down'), gap: 6 });
       }
       return { runs, color: flowColor(v) };
     }
@@ -2580,39 +2539,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return { runs, color: velocityColor(best) };
   }
 
-  // One label for every station, in every view, set the way a figure in a journal is: the name in a quiet ink, the value
-  // beside it a little larger and bolder, one line, no box. A thin leader joins it to a small dot in the pressure's color
-  // when the text cannot sit right against its station. Names, values and units share one size and weight everywhere.
-  function nodeItem(id, f, compact) {
+  function nodeItem(id, f, mode, compact) {
     const st = store.get();
     const meta = ATLAS_LABELS[id];
     const P = (f.Pf || f.P)[NI[id]];
-    const name = compact ? (SHORT[id] || id) : (meta?.name || NODES[NI[id]].label);
-    const lines = [[{ t: name, size: compact ? 10.5 : 11.5, weight: 600, cls: 'lb-name' }]];
+    const name = mode === 'atlas' ? (meta?.name || NODES[NI[id]].label) : (SHORT[id] || id);
+    // On a small screen an inline label is one quiet line (name, value) on a text halo, not a
+    // two-line card: it covers as little of the anatomy as it can.
+    const one = mode === 'inline';   // one line, no box, on every screen (as on a phone)
+    const lines = [[{ t: name, size: compact ? 10.5 : 11.5, weight: one ? 600 : 500, cls: 'lb-name' }]];
     const lr = isImaging() ? null : layerRuns(f, id, compact);
     const pr = lr ? lr.runs : pressureRuns(P, id, compact);
-    if (pr) lines[0].push(...pr.map((r, i) => (i === 0 ? { ...r, gap: 6 } : r)));
-    const w = Math.max(...lines.map(lineW));
+    // (The unit is in the legend right above the figure.)
+    if (pr && one) lines[0].push(...pr.filter((r) => r.cls !== 'lb-unit').map((r, i) => (i ? r : { ...r, gap: 4 })));
+    else if (pr) lines.push(pr);
+    const w = Math.max(...lines.map(lineW)) + (mode === 'atlas' ? 7 : 0);
     const hh = lines.reduce((a, l) => a + LINE_H(l), 0);
     const sel = st.selection?.type === 'node' && st.selection.id === id;
-    return { key: 'n:' + id, node: id, cls: 'node tag', lines, w, h: hh, sel, align: 'start', hit: true, label: `${NODES[NI[id]].label}${lr ? `: ${lr.runs.map((r) => r.t).join(' ')}` : pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}`,
-      dot: pr ? (lr ? lr.color : layerMode() === 'heat' ? heatColor(P - (REF()?.[NI[id]] ?? P)) : pressureColor(P)) : null, padX: 3, padY: 2 };
-  }
-  // The leader from a station to its label: it ends a hair short of the text, level with its middle when the text is beside
-  // the station, and is not drawn at all when the text is that close. The station is a small dot in the pressure's color.
-  function calloutSvg(it, dot = true) {
-    const cy = it.y + it.h / 2, side = it.ax < it.x - 1 ? 'r' : it.ax > it.x + it.w + 1 ? 'l' : it.ay < cy ? 't' : 'b';
-    const ex = side === 'r' ? it.x - 3 : side === 'l' ? it.x + it.w + 3 : clamp(it.ax, it.x, it.x + it.w);
-    const ey = side === 't' ? it.y - 2 : side === 'b' ? it.y + it.h + 2 : cy;
-    const len = Math.hypot(ex - it.ax, ey - it.ay);
-    let out = '';
-    if (len > 9) {
-      // Start at the dot's edge, not its centre.
-      const ux = (ex - it.ax) / len, uy = (ey - it.ay) / len;
-      out += `<path class="leader${it.sel ? ' hl' : ''}" d="M${(it.ax + ux * 3.5).toFixed(1)} ${(it.ay + uy * 3.5).toFixed(1)} L${ex.toFixed(1)} ${ey.toFixed(1)}"/>`;
-    }
-    if (dot) out += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="3"${it.dot ? ` style="fill:${it.dot}"` : ''}/>`;
-    return out;
+    return { key: 'n:' + id, node: id, cls: 'node ' + mode + (one ? ' bare' : ''), lines, w, h: hh, sel, label: `${NODES[NI[id]].label}${lr ? `: ${lr.runs.map((r) => r.t).join(' ')}` : pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}`,
+      swatch: mode === 'atlas' && pr ? (lr ? lr.color : layerMode() === 'heat' ? heatColor(P - (REF()?.[NI[id]] ?? P)) : pressureColor(P)) : null, bg: mode === 'inline' && !one, padX: mode === 'inline' && !one ? 6 : 3, padY: mode === 'inline' && !one ? 3 : 2 };
   }
 
   const ANAT_PRI = { CONF: 10, VAR: 9, SIN_R: 9, RHV: 8, RA: 8, SV: 7, SMV: 7, GV: 7, IVCS: 6, W_R: 12, W_M: 12, W_L: 12 };
@@ -2750,25 +2695,64 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (st.selection?.type === 'node') show.add(st.selection.id);
       const cath = (f.viewParams || st.params).catheter;
       if (cath.vein && cath.wedged) show.add('W_' + cath.vein);
+      const [lx] = worldToLocal(ATLAS_COLUMNS[0], 500), [rx] = worldToLocal(ATLAS_COLUMNS[1], 500);
+      const colW = 150;
+      const atlas = lx - 8 > colW && W - rx - 8 > colW;
       const items = [];
       for (const id of show) {
         if (!NODE_POS[id]) continue;
         const { ax, ay, mid, w: vw } = labelAnchor(id, t);
         if (ax < -20 || ax > W + 20 || ay < -20 || ay > H + 20) continue;
-        const it = nodeItem(id, f, compact);
+        const it = nodeItem(id, f, atlas ? 'atlas' : 'inline', compact);
         it.ax = ax; it.ay = ay; it.vw = mid ? vw * CTM.sc : 0; it.pri = it.sel ? 100 : ANAT_PRI[id] || 5;
         it.side = ATLAS_LABELS[id]?.side || (NODE_POS[id][0][0] < 700 ? 'L' : 'R');
         items.push(it);
       }
-      // Tags sit beside their station with a short leader (never more than a few dozen pixels), most important first.
-      buildLines();
-      for (const it of items) placed.push({ x0: it.ax - 4, y0: it.ay - 4, x1: it.ax + 4, y1: it.ay + 4 });
-      for (const it of items.sort((a, b) => b.pri - a.pri)) {
-        const dirs = it.side === 'L' ? ['W', 'NW', 'SW', 'E', 'NE', 'SE', 'N', 'S'] : ['E', 'NE', 'SE', 'W', 'NW', 'SW', 'N', 'S'];
-        if (place(it, dirs, [9 + it.vw / 2, 20 + it.vw / 2, 34 + it.vw / 2, 52 + it.vw / 2], true)) continue;
-        if (it.sel) { place(it, ['C'], 0, false) || (out.push(Object.assign(it, { x: it.ax + 8, y: it.ay - it.h / 2 })), true); }
+      if (atlas) {
+        for (const side of ['L', 'R']) {
+          const col = items.filter((it) => it.side === side).sort((a, b) => a.ay - b.ay);
+          const cx0 = side === 'L' ? lx - colW : rx, cx1 = side === 'L' ? lx : rx + colW;
+          let top = 10, bottom = H - 10;
+          for (const b of blockers) {
+            if (b.x1 < cx0 || b.x0 > cx1) continue;
+            if (b.y0 < H / 2) top = Math.max(top, b.y1 + 8); else bottom = Math.min(bottom, b.y0 - 8);
+          }
+          const gap = 8;
+          const need = col.reduce((sum, it) => sum + it.h + gap, 0);
+          if (bottom - top < need) { top = 10; bottom = Math.max(top + need, H - 10); }
+          for (let i = 0; i < col.length; i++) col[i].y = Math.max(col[i].ay - col[i].h / 2, i ? col[i - 1].y + col[i - 1].h + gap : top);
+          for (let i = col.length - 1; i >= 0; i--) col[i].y = Math.min(col[i].y, i < col.length - 1 ? col[i + 1].y - col[i].h - gap : bottom - col[i].h);
+          const elbow = side === 'L' ? lx + 12 : rx - 12;
+          for (const it of col) {
+            it.x = side === 'L' ? lx - 8 - it.w : rx + 8;
+            // A floating card over the column hides the labels it covers rather than sitting on them.
+            if (blockers.some((b) => hits(rectOf(it), b))) continue;
+            it.align = side === 'L' ? 'end' : 'start';
+            const ly = it.y + Math.min(it.h / 2, 16);
+            const x0 = side === 'L' ? lx - 4 : rx + 4;
+            leaders += `<path class="leader${it.sel ? ' hl' : ''}" d="M${x0.toFixed(1)} ${ly.toFixed(1)} L${elbow.toFixed(1)} ${ly.toFixed(1)} L${it.ax.toFixed(1)} ${it.ay.toFixed(1)}"/><circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
+            placed.push(rectOf(it));
+            out.push(it);
+          }
+        }
+      } else {
+        // Inline: dots on the anatomy, labels nearby with short leaders, most important first.
+        buildLines();
+        for (const it of items) placed.push({ x0: it.ax - 4, y0: it.ay - 4, x1: it.ax + 4, y1: it.ay + 4 });
+        for (const it of items.sort((a, b) => b.pri - a.pri)) {
+          it.align = 'start';
+          const dirs = it.side === 'L' ? ['NW', 'W', 'SW', 'N', 'S', 'NE', 'E', 'SE'] : ['NE', 'E', 'SE', 'N', 'S', 'NW', 'W', 'SW'];
+          if (place(it, dirs, 12 + it.vw / 2, true) || place(it, dirs, 30 + it.vw / 2, true)) continue;
+          if (it.sel) { place(it, ['C'], 0, false) || (out.push(Object.assign(it, { x: it.ax + 8, y: it.ay - it.h / 2 })), true); }
+        }
+        for (const it of out) {
+          if (!it.leader) continue;
+          const r = rectOf(it);
+          const px = clamp(it.ax, r.x0, r.x1), py = clamp(it.ay, r.y0, r.y1);
+          if (Math.hypot(px - it.ax, py - it.ay) > 5) leaders += `<path class="leader${it.sel ? ' hl' : ''}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}"/>`;
+          leaders += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
+        }
       }
-      for (const it of out) if (it.node) leaders += calloutSvg(it);
       // Organ names: fixed inside their organ, dropped where a label needs the room.
       if (st.layers.labels && t < 0.3) {
         for (const [txt, x, y] of ORGAN_LABELS) {
@@ -2813,8 +2797,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const [sx, sy] = worldToLocal(...nodePos(n.id, t));
         placed.push({ x0: sx - 5, y0: sy - 5, x1: sx + 5, y1: sy + 5 });
         if (mid) placed.push({ x0: ax - 4, y0: ay - 4, x1: ax + 4, y1: ay + 4 });
-        const it = nodeItem(n.id, f, compact);
-        it.ax = ax; it.ay = ay; it.mid = mid; it.tan = tan; it.vw = vw * CTM.sc; it.pri = it.sel ? 100 : CIRCUIT_LABELS[n.id].pri;
+        const it = nodeItem(n.id, f, 'station', compact);
+        it.align = 'middle'; it.ax = ax; it.ay = ay; it.mid = mid; it.tan = tan; it.vw = vw * CTM.sc; it.pri = it.sel ? 100 : CIRCUIT_LABELS[n.id].pri;
         nodes.push(it);
       }
       for (const it of nodes.sort((a, b) => b.pri - a.pri)) {
@@ -2824,7 +2808,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const half = it.vw / 2;
         if (!place(it, dirs, [7 + half, 18 + half, 30 + half], false) && it.sel) place(it, dirs, 40 + half, true);
       }
-      for (const it of nodes) if (out.includes(it)) leaders += calloutSvg(it, it.mid);
+      for (const it of nodes) {
+        if (!out.includes(it)) continue;
+        if (it.leader) {
+          const r = rectOf(it);
+          leaders += `<path class="leader" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${clamp(it.ax, r.x0, r.x1).toFixed(1)} ${clamp(it.ay, r.y0, r.y1).toFixed(1)}"/>`;
+        }
+        if (it.mid) leaders += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
+      }
       // Collateral and shunt lanes, captioned along their run.
       for (const [id, cap] of Object.entries(LANE_CAPTIONS)) {
         const x = E[id];
@@ -3167,7 +3158,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (shunt) shuntMove(ev);
   });
 
-  svg.addEventListener('wheel', (ev) => { ev.preventDefault(); camZoom(ev.clientX, ev.clientY, Math.exp(-(ev.deltaMode === 1 ? ev.deltaY * 16 : ev.deltaY) * 0.0018)); }, { passive: false });
+  svg.addEventListener('wheel', (ev) => { ev.preventDefault(); zoomAt(ev.clientX, ev.clientY, Math.exp(-ev.deltaY * 0.0015)); }, { passive: false });
 
   // Touch: every finger is captured by the figure, so a finger that lifts over a label or the
   // card still ends here (an uncaptured finger used to linger in `pointers` and turn the next
@@ -3178,9 +3169,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const b = stageBox(), vb = svg.viewBox.baseVal, s = Math.min(b.sw / vb.width, b.sh / vb.height);
     return [(cx - b.left - b.sx - (b.sw - vb.width * s) / 2) / s + vb.x, (cy - b.top - b.sy - (b.sh - vb.height * s) / 2) / s + vb.y];
   }
-  const startPan = (x, y, id, moved = false) => (camStop(), { type: 'pan', x, y, vx: vt.x, vy: vt.y, s0: vbScale(), moved, id });
+  const startPan = (x, y, id, moved = false) => ({ type: 'pan', x, y, vx: vt.x, vy: vt.y, s0: vbScale(), moved, id });
   function startPinch() {
-    camStop();
     const [a, b] = [...pointers.values()];
     const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, [vx, vy] = clientToVBFast(mx, my);
     return { type: 'pinchzoom', d0: Math.max(1, Math.hypot(a[0] - b[0], a[1] - b[1])), k0: vt.k, wx: (vx - vt.x) / vt.k, wy: (vy - vt.y) / vt.k, out: false };
@@ -3409,8 +3399,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const target = v === 'circuit' ? 1 : 0;
       if (target === morphTarget) return;
       morphTarget = target;
-      // To the circuit from inside the lobule: what is left of the dive becomes a fade, and the camera is the map's again.
-      if (target === 1 && lobU > 0 && !lobFromCircuit) { lobFromCircuit = true; setLobule(false); }
       syncSemantic();
       // Zoomed out (or fitted) in the anatomy, the circuit opens zoomed out too: the whole map, not
       // the close-up it opens with on a phone. From a zoomed-in view it takes its usual framing.
@@ -3475,12 +3463,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setCircuitRotated,
     circuitRotated: () => rotTarget === 1,
     zoomToBox,
-    lobulePanel: () => lz.panel,
     zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(), lobuleViewKey: () => lz?.viewKey(),
     /** On-screen scale, px per world unit (for the tests: turning the circuit keeps it). */
     zoomLevel: () => { refreshCTM(); return CTM.sc; },
-    // The zoom as a share of the home framing, for the readout beside the buttons.
-    zoomRel: () => (lobuleOn ? lz.zoomRel() : vt.k / ((morphTarget === 1 ? defaultVT(true) : homeAt || defaultVT(false)).k || 1)),
     focusEdge(id) { E[id]?.hit.focus(); },
     startShunt, cancelShunt, isShunting: () => !!shunt, anchorFor, organAt,
     /** Briefly glow the given vessels (where a readout is measured). */

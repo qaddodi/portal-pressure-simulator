@@ -5,7 +5,7 @@
 
 import { store, updateParams } from './store.js?v=f9424489c6';
 import { h, icon, svgIcon, fmt, clamp, tooltipFor } from './util.js?v=fe164f31f1';
-import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=94b2ea9eff';
+import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=455d2754a5';
 
 const LOCK_TIP = 'Not available in this step of the lesson or case';
 
@@ -234,7 +234,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     if (v.type === 'button') {
       const dis = locked(v);
       const lbl = h('span', { class: 'ac-bl' }, v.label);
-      const b = h('button', { class: 'ac-btn' + (v.danger ? ' danger' : ''), disabled: dis, title: dis ? LOCK_TIP : v.title || null }, v.icon ? svgIcon(v.icon, 'ac-ic') : null, lbl);
+      const b = h('button', { class: 'ac-btn' + (v.danger ? ' danger' : ''), disabled: dis, title: dis ? LOCK_TIP : null }, v.icon ? svgIcon(v.icon, 'ac-ic') : null, lbl);
       b.addEventListener('click', () => { v.run(); setTimeout(() => render({ keepFocus: true }), 30); });
       const wrap = h('div', { class: 'ac-btn-wrap' + (v.label.length > 15 ? ' wide' : '') }, b);   // a long name takes the whole row on a phone
       if (v.note || v.on || v.labelFor) {
@@ -316,8 +316,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     // The figure fills the window: the card stays in the part the top bar, the vitals dock and the
     // cards on the right leave free (published on #app by main.js).
     const css = (k) => parseFloat(appStyle.getPropertyValue(k)) || 0;
-    // (the strip above the dock holds the zoom buttons, at the left)
-    const top = css('--top-safe') + 8, bottom = H - (css('--bot-occ') || 0) - 8 - 52, right = W - css('--right-occ') - 8;
+    const top = css('--top-safe') + 8, bottom = H - (css('--bot-occ') || 0) - 8, right = W - css('--right-occ') - 8;
     const pts = a.path || [[a.x, a.y]];
     const gap = 22;
     const cands = [[a.x + gap, a.y - hh / 2], [a.x - gap - w, a.y - hh / 2], [a.x - w / 2, a.y + gap], [a.x - w / 2, a.y - gap - hh], [a.x + gap, a.y - 30], [a.x - gap - w, a.y - 30]];

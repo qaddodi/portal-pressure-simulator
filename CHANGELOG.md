@@ -2,39 +2,6 @@
 
 ## Unreleased
 
-- **Labels, redone.** Station labels read like a journal figure: name, value and unit (`Portal vein 23.5 mmHg ▲16`) on one
-  line in bold ink with a clear outline, no box. A small dot in the pressure's color and a thin leader appear only when the text
-  cannot sit against its station. The same labels in the anatomy, the circuit and the lobule.
-- **One camera.** The wheel, the + and − buttons and Fit all move a target the view eases toward, whatever the frame rate; the
-  labels step aside while it moves. The zoom controls (− 100 % + · Fit · Turn) moved to the bottom left, with words.
-- **Measure.** A picker names the instrument (nine of them, grouped, with what each shows); the pressure profile and the flow
-  chart open with a compact reading. The drawer is 348 px wide, and its own tabs replace the top bar's Findings/Treat/Measure
-  while it is open. The Lobule is an instrument of the drawer (its Readings button opens it on a phone), replacing the floating card.
-- **Into the lobule.** From the circuit: a fade. From the anatomy: the camera flies into the liver, its tissue resolves into a
-  lattice of tiny lobules, and the one you land on grows out of it (2.6 s); leaving runs it backwards.
-- Zones, Lymph, Key and Readings sit beside the zoom controls; the vitals dock, the top bar and the drawer share one margin.
-- **One pressure tag everywhere.** Anatomy, circuit and lobule label a station the same way: a small frosted
-  tag, one line, a bar in the pressure's color, the name, the value and (past 5 mmHg) the change from healthy.
-  Readable over the figure and over the lobule's tissue, in light and dark. The long callout lines and the side
-  columns of the anatomy are gone: a tag sits beside its station with a short leader (none when it touches).
-  The lobule's tags sit a short step from their station instead of at the edge of the screen.
-- **Fewer legends, more icons.** The lens control shows its name and a sliver of the color scale (no numbers: the
-  tags carry them; the full key is under *How to read the figure*); categorical lenses show colored dots. The
-  Blood button is gone: streaks, chevrons and label options live in the same *Display* menu. The lobule's key
-  box is an icon beside Zones and Lymph (all three are icons; the pressed one names itself). The instruments are
-  eight icons, and the play bar keeps play, the timeline, the time, and two icons (time menu, compare).
-- **One drawer.** Patient, Treat and Measure are tabs of one place on the right (a bottom sheet on a phone), one
-  open at a time, with the same bar, width, radius and shadow. The instrument card lost its duplicate Run,
-  Compare and live-reading controls, and the tab descriptions moved to tooltips.
-- **One tile for every order**: drugs, fluids and procedures share size, shape and type (a drug is lit while on).
-- **The vessel card** stays a floating card on a desktop but is calmer: a name and a reading, the sliders, three
-  icon tiles, a two-line explanation (tap for more), Why? and Details; shortcut numbers are not drawn.
-- **The lobule card** is the same card (eyebrow, Inter title, a chevron to fold); the HVPG row is gone.
-- **Cases:** the bedside monitor uses the standard tiles and ink instead of a black screen with neon numbers,
-  and the clinical time shows once (in the top bar).
-- **Type:** Inter in every card and menu; the serif stays in lesson prose. Shapes: 16 px surfaces, 10 px controls.
-  Added `styles/system.css`, loaded after `app.css`, for the shared tokens and rules.
-
 - **Into the lobule, a dive.** Choosing *Lobule* flies the camera into the liver (0.9 s) while the lobule grows out of
   that spot and the liver dissolves into it; leaving, it shrinks back into the liver and the camera pulls out to
   where the anatomy was. From the circuit it eases into the anatomy first. Reduced motion: a plain cross-fade.

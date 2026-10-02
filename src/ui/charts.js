@@ -43,13 +43,12 @@ export function createProfile() {
     const path = PROFILE_PATHS.find((p) => p.id === pathId);
     const stations = path.nodes;
     const slot0 = (w - 56) / stations.length;
-    // Labels go on one row, two or three: whatever keeps neighbours from touching at this width.
-    const rows = slot0 < 50 ? 3 : slot0 < 74 ? 2 : 1, stagger = rows > 1;
+    const stagger = slot0 < 74;
     // Arterial stations sit far above the venous scale: they are drawn in a band above a broken
     // axis (//) with their true value, never clipped.
     const hasArt = stations.some((n) => ARTERIAL.has(n));
     const roomy = hh > 230;
-    const L = 40, R = 16, T = hasArt ? (roomy ? 58 : 34) : 16, B = rows === 3 ? 58 : stagger ? (roomy ? 44 : 38) : 26;
+    const L = 40, R = 16, T = hasArt ? (roomy ? 58 : 34) : 16, B = stagger ? (roomy ? 44 : 38) : 26;
     const slot = (w - L - R) / stations.length;
     const vals = F ? stations.map((n) => F.P[NI[n]]) : [];
     const venous = vals.filter((_, i) => !ARTERIAL.has(stations[i]));
@@ -57,7 +56,7 @@ export function createProfile() {
     const y = (p) => T + (hh - T - B) * (1 - clamp(p, -2, maxP) / maxP);
     const x = (i) => L + slot * (i + 0.5);
     const artY = roomy ? T - 24 : T - 20;
-    return { w, hh, stations, L, R, T, B, slot, maxP, x, y, stagger, rows, hasArt, artY, roomy };
+    return { w, hh, stations, L, R, T, B, slot, maxP, x, y, stagger, hasArt, artY, roomy };
   }
 
   function draw() {
@@ -65,7 +64,7 @@ export function createProfile() {
     const c = theme();
     const { ctx } = fitCanvas(cv);
     const g = geometry();
-    const { w, hh, stations, L, R, T, B, slot, maxP, x, y, stagger, rows, hasArt, artY, roomy } = g;
+    const { w, hh, stations, L, R, T, B, slot, maxP, x, y, stagger, hasArt, artY, roomy } = g;
     ctx.clearRect(0, 0, w, hh);
     ctx.font = FONT(500, 11);
     // grid (solid hairlines): absolute pressure has no clinical threshold, so none is drawn
@@ -80,8 +79,8 @@ export function createProfile() {
     // station labels: horizontal, staggered over two rows when the stations are close together
     ctx.fillStyle = c.muted; ctx.textAlign = 'center'; ctx.font = FONT(500, 11);
     stations.forEach((n, i) => {
-      const row = stagger ? i % rows : 0;
-      if (row) { ctx.strokeStyle = c.border; ctx.beginPath(); ctx.moveTo(x(i) + 0.5, hh - B + 4); ctx.lineTo(x(i) + 0.5, hh - B + 5 + row * 15); ctx.stroke(); }
+      const row = stagger && i % 2 ? 1 : 0;
+      if (row) { ctx.strokeStyle = c.border; ctx.beginPath(); ctx.moveTo(x(i) + 0.5, hh - B + 4); ctx.lineTo(x(i) + 0.5, hh - B + 18); ctx.stroke(); }
       ctx.fillText(SHORT[n] || n, x(i), hh - B + 16 + row * 15);
     });
     // broken axis for arterial stations
@@ -232,24 +231,25 @@ export function createSankey() {
         ['Liver → portal (reversed)', Math.max(0, -q('PRE_R')) + Math.max(0, -q('PRE_L')), c.rev],
         ['GI lumen (bleeding)', (m.bleeding?.rate || 0) / 1000, c.danger],
       ].filter(([, v], i) => i < 2 || v > 0.005);
-      el.classList.add('bars');
-      // The reading above says how much bypasses the liver; the bars say where the blood goes.
-      box.style.height = `${Math.max(150, 20 + routes.length * 44)}px`;
+      box.style.height = `${Math.max(230, 90 + routes.length * 48)}px`;
+      ctx.fillStyle = c.text; ctx.font = FONT(600, 14); ctx.textAlign = 'left';
+      ctx.fillText('Where gut blood goes', 12, 24);
+      ctx.fillStyle = c.muted; ctx.font = FONT(500, 11.5);
+      ctx.fillText(`${Math.round(m.shuntFraction * 100)}% bypasses the liver · flow in L/min`, 12, 46);
       const max = Math.max(0.2, ...routes.map(([, v]) => v));
       for (let i = 0; i < routes.length; i++) {
-        const [label, v, color] = routes[i], y = 22 + i * 44;
-        ctx.fillStyle = c.muted; ctx.textAlign = 'left'; ctx.font = FONT(500, 11.5);
-        ctx.fillText(label, 2, y);
-        ctx.fillStyle = c.text; ctx.textAlign = 'right'; ctx.font = FONT(600, 11.5); ctx.fillText(`${fmtFlow(v)} L/min`, w - 2, y);
-        ctx.fillStyle = c.border; ctx.fillRect(2, y + 8, w - 4, 5);
-        ctx.fillStyle = color; ctx.fillRect(2, y + 8, (w - 4) * Math.max(0, v) / max, 5);
+        const [label, v, color] = routes[i], y = 76 + i * 48;
+        ctx.fillStyle = c.text; ctx.textAlign = 'left'; ctx.font = FONT(500, 11);
+        ctx.fillText(label, 12, y);
+        ctx.textAlign = 'right'; ctx.font = FONT(600, 11); ctx.fillText(fmtFlow(v), w - 12, y);
+        ctx.fillStyle = c.border; ctx.fillRect(12, y + 8, w - 24, 8);
+        ctx.fillStyle = color; ctx.fillRect(12, y + 8, (w - 24) * Math.max(0, v) / max, 8);
       }
       el.querySelector('#sankeyStats').replaceChildren(
         h('dt', {}, 'Gut & spleen inflow'), h('dd', {}, `${fmtFlow(m.splanchnicIn)} L/min`),
         h('dt', {}, 'Liver perfusion'), h('dd', {}, `${Math.round(m.liverPerfPct)} % of baseline`));
       return;
     }
-    el.classList.remove('bars');
     box.style.height = '';
     const portalToLiver = Math.max(0, q('PRE_R')) + Math.max(0, q('PRE_L'));
     const liverToPortal = Math.max(0, -q('PRE_R')) + Math.max(0, -q('PRE_L'));

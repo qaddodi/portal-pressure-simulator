@@ -1,12 +1,12 @@
 // The timeline: time, history, events and comparison on one strip under the figure.
 //
-//  ▶  |●──◆────◆──▲──────◆───●|  Day 142 · 0:14   [time ▾] [compare]
+//  ▶ ↺ 1×  |●──◆────◆──▲──────◆───●|  Day 142 · 0:14   [+1 wk][+1 mo][+6 mo]   Compare from here
 //
 // Every change the learner makes is a marker (◆) carrying a full snapshot of the model; clicking
 // one goes back to that moment (the model, its clock and its remodeling), and later markers stay
 // ahead, faded, until something new happens. Threshold events (▲) are markers too, with their
-// detail and a Why?. The time menu holds the jumps (+1 wk / +1 mo / +6 mo, which advance the disease clock in one
-// step), the speed and restart. "Compare from here" (an icon) freezes the current moment as A for comparison. It replaces play/speed, the Seconds/Months
+// detail and a Why?. Jumps (+1 wk / +1 mo / +6 mo) advance the disease clock in one step. "Compare
+// from here" freezes the current moment as A for comparison. It replaces play/speed, the Seconds/Months
 // switch, undo/redo/reset, the Findings list, the Log instrument and Compare mode.
 
 import { store, replaceParams, onParamChange } from './store.js?v=f9424489c6';
@@ -43,6 +43,11 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   // ── DOM ───────────────────────────────────────────
   const playBtn = h('button', { class: 'ib play', 'aria-label': 'Pause', title: 'Play / pause (Space)' }, icon('pause'));
   playBtn.addEventListener('click', () => onPlay());
+  // Restart: the same patient from its first moment, every change and the clock cleared.
+  const restartBtn = h('button', { class: 'ib tl-restart', 'aria-label': 'Restart this patient' }, icon('reset'));
+  restartBtn.addEventListener('click', () => onRestart?.());
+  const speedBtn = h('button', { class: 'tl-speed', title: 'Playback speed ([ and ])', 'aria-label': 'Playback speed' }, '1×');
+  speedBtn.addEventListener('click', () => { const i = SPEEDS.indexOf(store.get().speed); onSpeed(SPEEDS[(i + 1) % SPEEDS.length]); });
   const rail = h('div', { class: 'tl-rail' });
   const fill = h('div', { class: 'tl-fill' });
   const bleedBand = h('div', { class: 'tl-bleed', hidden: true });
@@ -50,24 +55,26 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   const nowEl = h('div', { class: 'tl-now', 'aria-hidden': 'true' });
   const track = h('div', { class: 'tl-track' }, rail, bleedBand, fill, marks, nowEl);
   const timeEl = h('span', { class: 'tl-time', 'aria-live': 'off' }, '0:00');
-  // One button for everything about time besides play: skipping ahead, settling, the speed, starting over.
-  const timeBtn = h('button', { class: 'tl-act tl-more', 'aria-label': 'Time: skip ahead, speed, restart', 'aria-haspopup': 'menu', title: 'Time: skip ahead, speed, restart' }, svgIcon('ff'), h('span', {}, 'Time'), svgIcon('chev-down', 'tl-chev'));
-  timeBtn.addEventListener('click', (e) => popover(e.currentTarget, [
-    h('div', { class: 'menu-title' }, 'Skip ahead'),
-    h('div', { class: 'seg full', style: { margin: '2px 6px 6px' } }, JUMPS.map(([d, l, long]) => { const b = h('button', { title: `Jump ${long} ahead on the disease clock` }, l); b.addEventListener('click', () => { closePopover(); jump(d, long); }); return b; })),
+  const jumpBtns = JUMPS.map(([d, l, long]) => {
+    const b = h('button', { class: 'tl-jump', title: `Jump ${long} ahead on the disease clock` }, l);
+    b.addEventListener('click', () => jump(d, long));
+    return b;
+  });
+  const moreBtn = h('button', { class: 'ib tl-more', 'aria-label': 'More time options', title: 'More' }, icon('more'));
+  moreBtn.addEventListener('click', (e) => popover(e.currentTarget, [
+    h('div', { class: 'menu-title' }, 'Time'),
     menuBtn('Until something happens', () => jump('event', 'until the next event')),
     menuBtn('Settle to equilibrium', () => { host.send({ type: 'settle' }); toast('Settled to equilibrium.'); }),
+    menuBtn('Restart this patient', () => onRestart?.()),
     h('div', { class: 'menu-sep' }),
     h('div', { class: 'menu-title' }, 'Playback speed'),
     h('div', { class: 'seg full', style: { margin: '2px 6px 6px' } }, [0.25, ...SPEEDS, 8].map((v) => { const b = h('button', { 'aria-pressed': String(store.get().speed === v) }, `${v}×`); b.addEventListener('click', () => { closePopover(); onSpeed(v); }); return b; })),
-    h('div', { class: 'menu-sep' }),
-    menuBtn('Restart this patient', () => onRestart?.()),
   ], { place: 'above', align: 'end', cls: 'time-pop' }));
-  // Comparing is an icon (its name is the tooltip); pressed while a moment is pinned.
-  const pinBtn = h('button', { class: 'tl-act tl-pin', 'aria-pressed': 'false', title: 'Compare from here: freeze this moment and compare the live model with it (P)' }, svgIcon('compare'), h('span', {}, 'Compare'));
+  const pinBtn = h('button', { class: 'tl-pin', 'aria-pressed': 'false', title: 'Freeze this moment and compare the live model with it (P)' }, svgIcon('compare', 'mi-ic'), h('span', {}, 'Compare from here'));
   pinBtn.addEventListener('click', () => togglePin());
-  root.replaceChildren(h('div', { class: 'tl-left' }, playBtn), track, timeEl, h('div', { class: 'tl-jumps' }, timeBtn, pinBtn));
+  root.replaceChildren(h('div', { class: 'tl-left' }, playBtn, restartBtn, speedBtn), track, timeEl, h('div', { class: 'tl-jumps' }, jumpBtns, moreBtn), pinBtn);
   tooltipFor(playBtn, 'Play / pause · Space', 'top');
+  tooltipFor(restartBtn, 'Restart this patient', 'top');
   function menuBtn(label, fn) { const b = h('button', { class: 'menu-item' }, label); b.addEventListener('click', () => { closePopover(); fn(); }); return b; }
 
   // ── Recording ─────────────────────────────────────
@@ -279,13 +286,15 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   let pulseT = null;
   function pulseLatest() { track.classList.add('pulse'); clearTimeout(pulseT); pulseT = setTimeout(() => track.classList.remove('pulse'), 1400); }
 
-  let lastTime = '', lastRun = null, lastBleed = null;
+  let lastTime = '', lastRun = null, lastSpeed = null, lastBleed = null;
   function update(f) {
     if (!track.classList.contains('ff')) {
       const t = fmtClock(f.t, f.day);
       if (t !== lastTime) { lastTime = t; timeEl.textContent = t; }
     }
     if (f.running !== lastRun) { lastRun = f.running; playBtn.replaceChildren(icon(f.running ? 'pause' : 'play')); playBtn.setAttribute('aria-label', f.running ? 'Pause' : 'Play'); }
+    const sp = store.get().speed;
+    if (sp !== lastSpeed) { lastSpeed = sp; speedBtn.textContent = `${sp}×`; }
     // Active bleeding: a steady red band from the rupture to now.
     const bleeding = !!f.metrics.bleeding;
     if (bleeding !== lastBleed || bleeding) {
@@ -303,8 +312,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   }
   store.on('compareSnap', (s) => {
     pinBtn.setAttribute('aria-pressed', String(!!s));
-    const name = s ? 'Stop comparing' : 'Compare from here';
-    pinBtn.querySelector('span').textContent = s ? 'Comparing' : 'Compare'; pinBtn.setAttribute('aria-label', name); pinBtn.title = s ? 'Stop comparing with the pinned moment (P)' : 'Compare from here: freeze this moment and compare the live model with it (P)';
+    pinBtn.querySelector('span').textContent = s ? 'Stop comparing' : 'Compare from here';
   });
   onParamChange(({ label, history }) => { if (history || pending) noteParamChange(label); });
   new ResizeObserver(() => render(true)).observe(track);

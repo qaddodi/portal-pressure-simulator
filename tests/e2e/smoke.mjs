@@ -204,10 +204,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForTimeout(400);
     if (await page.evaluate(() => window.pps.stage.flowDir('PV_TRUNK').D) !== d0) throw new Error('paused blood kept moving');
     // The Blood menu (streaks, chevrons), the Blood origin lens, dye.
-    const fits = await page.$eval('#btnLayers', (el) => { const r = el.getBoundingClientRect(); return r.width >= 30 && r.left >= 0 && r.right <= innerWidth; });
-    if (!fits) throw new Error('Display button is clipped');
-    await page.click('#btnLayers');
-    if ((await page.$$('.layers-pop .blood-opt')).length !== 2) throw new Error('the Display menu should offer streaks and chevrons for the blood');
+    const fits = await page.$eval('#btnBlood', (el) => { const r = el.getBoundingClientRect(); return r.width >= 30 && r.left >= 0 && r.right <= innerWidth; });
+    if (!fits) throw new Error('Blood button is clipped');
+    await page.click('#btnBlood');
+    if ((await page.$$('.blood-pop .blood-opt')).length !== 2) throw new Error('the Blood menu should offer streaks and chevrons only');
     await page.keyboard.press('Escape');
     await page.evaluate(() => window.pps.store.set({ colorMode: 'origin', blood: { look: 'shimmer', chevrons: true } }));
     await page.waitForFunction(() => /Splenic vein|SV/.test(document.querySelector('#legend').textContent));
@@ -310,6 +310,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     // Zooming out never leaves the lobule view.
     if (device === 'desktop') { for (let i = 0; i < 4; i++) await page.mouse.wheel(0, 600); await page.waitForTimeout(600); }
     if (!(await page.evaluate(() => window.pps.stage.lobuleOpen()))) throw new Error('zooming out left the lobule');
+    if (device === 'phone') await page.click('.lz-more');
     await page.click('.lz-tg.zones');
     await page.waitForFunction(() => document.querySelectorAll('.lz-zone').length === 3, null, { timeout: 5000 }).catch(() => { throw new Error('zones did not show'); });
     await page.click('.lz-tg.lymph');
@@ -422,16 +423,14 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (!((await page.evaluate(() => window.pps.store.get().frame.t)) > before)) throw new Error('opening instruments paused simulation');
     await page.click('.workspace-divider');
     await page.keyboard.press('ArrowUp');
-    // Compare lives on the play bar now: pin a moment, then the full-screen toggle goes there and back.
-    await page.click('.tl-pin');
+    await page.click('.workspace-expand');
+    await page.click('.workspace-compare');
     await page.waitForFunction(() => !!window.pps.store.get().compareSnap);
     await page.click('.workspace-expand');
-    await page.click('.workspace-expand');
     await page.waitForSelector('.workspace-comparison:not([hidden])');
-    // The picker lists the instruments; one tap chooses one.
-    if (await page.locator('.instr-tab').count() !== 9) throw new Error('the picker must offer nine distinct instruments');
+    // One tap on a tab chooses an instrument; each tab carries its live reading.
+    if (await page.locator('.instr-tab').count() !== 8) throw new Error('the tabs must offer eight distinct instruments');
     const choose = async (id) => {
-      await page.click('.instr-pick');
       await page.click(`.instr-tab[data-instrument="${id}"]`);
       await page.waitForFunction((id) => document.querySelector(`.instr-tab[data-instrument="${id}"]`).getAttribute('aria-selected') === 'true', id);
       await page.waitForTimeout(250);
@@ -449,8 +448,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (!(await page.$eval('.wall-details', (d) => d.open))) throw new Error('legacy varixwall route does not open mechanics');
     await page.click('.workspace-expand');
     await page.waitForFunction(() => document.querySelector('#app').classList.contains('instrument-focus'));
-    // Play and pause stay on the play bar while the instrument has the whole screen.
-    await page.click('#timeline .play');
+    // Run and Compare live in the header only while the instrument has the whole screen.
+    await page.click('.workspace-run');
     await page.waitForFunction(() => !window.pps.store.get().running);
     await page.waitForTimeout(250);
     await settled();
@@ -477,7 +476,6 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       // The patient chart starts closed, so the workspace has the full width for two instruments.
       if (await page.evaluate(() => document.querySelector('#app').classList.contains('panel-open'))) throw new Error('the patient chart should start closed');
       await page.click('.dock-second');
-      await page.click('.instr-pick');
       await page.click('.instr-tab[data-instrument="doppler"]');
       await page.waitForSelector('#dockBody.split');
       await shot(page, 'desktop-workspace-two-instruments');

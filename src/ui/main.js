@@ -3,23 +3,22 @@
 
 import { startHost, host } from './host.js?v=d292ccefe8';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=f9424489c6';
-import { createStage } from './stage.js?v=f4426d71ad';
+import { createStage } from './stage.js?v=abc676313a';
 import { createInspector } from './inspector.js?v=208b6a3592';
-import { createDock, CUTOFFS } from './dock.js?v=1e45074bdc';
+import { createDock, CUTOFFS } from './dock.js?v=3d7d80691a';
 import { createWhy } from './why.js?v=bf0f24a7a5';
-import { createTimeline } from './timeline.js?v=14c4467d38';
-import { createLearn } from './learn.js?v=8717bb0731';
-import { createCases } from './cases.js?v=4961dcd419';
+import { createTimeline } from './timeline.js?v=7bf66ab2fb';
+import { createLearn } from './learn.js?v=a48578b939';
+import { createCases } from './cases.js?v=02646abf69';
 import { createCompare } from './compare.js?v=730844b101';
-import { createCard } from './card.js?v=a425fd64b1';
-import { drawerBar } from './drawer.js?v=a40cfc5c21';
-import { createChart, computeFindings } from './chart.js?v=a14708929f';
-import { createHome } from './home.js?v=aa2d27c535';
+import { createCard } from './card.js?v=ff81853324';
+import { createChart, computeFindings } from './chart.js?v=4a51ff6198';
+import { createHome } from './home.js?v=5538efbe12';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=e7e5c98a1c';
 import { startLMS } from './lms.js?v=4511ed56b8';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=94b2ea9eff';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=455d2754a5';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=29d10ad9ef';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, units, popover, closePopover, menuItem, svgIcon } from './util.js?v=fe164f31f1';
@@ -108,7 +107,7 @@ async function main() {
     onAction: doAction,
     onOpenTab: (id) => dock.show(id, { reveal: 'soft' }),
     onHoverInfo: hoverInfo,
-    onViewChange: () => { card?.position(); syncZoomLevel(); },
+    onViewChange: () => card?.position(),
   });
   compare = createCompare();
   timeline = createTimeline({
@@ -128,7 +127,7 @@ async function main() {
     onWhy: (m, el) => why.open(m, el), onAction: doAction, onOpenTab: (id) => dock.show(id, { reveal: true }),
     onScenarios: () => openScenarios($('#scenarioBtn')), onMode: (m) => store.set({ mode: m }), chart,
   });
-  dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => host.send({ type: 'probe', id }), onReveal: revealDock, onLobule: () => zoomLobule('R'), lobulePanel: () => stage.lobulePanel(),
+  dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => host.send({ type: 'probe', id }), onReveal: revealDock, onLobule: () => zoomLobule('R'), onCompare: () => timeline.togglePin(), onRun: () => host.send({ type: 'run', running: !store.get().running }),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: (on) => { dockBeat = on; sendBeat(); } });
   const api = { beginSession, endSession, onEnd: () => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); }, muteEvents: () => {}, loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), openPanel, setBanner, select: (sel) => store.set({ selection: sel }) };
@@ -148,7 +147,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=b81346dcd4'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=7cedcafea1'), ({ createPalette }) => createPalette({ ctx: {
     select: (sel) => store.set({ selection: sel }), action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     wedge: () => { store.set({ selection: { type: 'edge', id: 'RHV_IVC' } }); setTimeout(() => card.trigger(3), 60); },
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
@@ -185,7 +184,6 @@ async function main() {
   const syncViewSeg = () => { const st = store.get(), cur = st.lobule ? 'lobule' : st.view; $$('#viewSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === cur))); };
   store.on('view', (v) => { stage.setView(v); syncViewSeg(); });
   store.on('lobule', syncViewSeg);
-  store.on('lobule', (on) => dock.syncLobule(on));
   store.on('tool', (t) => {
     for (const c of [...view.classList]) if (c.startsWith('tool-')) view.classList.remove(c);
     view.classList.add('tool-' + t);
@@ -193,7 +191,7 @@ async function main() {
   });
   store.on('shunting', renderPaintHint);
   store.on('mode', onMode);
-  store.on('layers', () => { app.classList.toggle('chips-off', !store.get().layers.chips); redraw(); });
+  store.on('layers', () => { app.classList.toggle('chips-off', !store.get().layers.chips); syncBloodBtn(); redraw(); });
   store.on('presetId', (id) => { $('#scenarioName').textContent = $('#panelName').textContent = presets.find((p) => p.id === id)?.label || 'Custom'; });
   store.on('role', (r) => { try { localStorage.setItem('pps.role', r); } catch { /* storage unavailable */ } app.dataset.role = r; card.render(); });
   app.dataset.role = store.get().role;
@@ -245,9 +243,7 @@ function viewFrame(f) {
 // are repainted at most ~10×/s (the chevrons animate separately). Repainting the whole SVG plate
 // on every tick kept the main thread busy and the laptop warm for no visible gain.
 let lastPaint = 0, lastDesc = 0, homeStale = false;
-addEventListener('pps:lobule-readings', () => dock.openLobule());
 function onFrame(f) {
-  syncZoomLevel();
   if (f.params) replaceParams(f.params);
   if (f.events?.length) { const hid = store.get().hiddenEvents; const ev = hid ? f.events.filter((e) => !hid.has(e.id)) : f.events; if (ev.length) timeline.addEvents(ev); }
   const now = performance.now();
@@ -432,9 +428,11 @@ function buildHud() {
   store.set({ blood });
   store.on('blood', (v) => {
     try { localStorage.setItem('pps.blood', JSON.stringify(v)); } catch { /* storage unavailable */ }
-    sendBeat();
+    sendBeat(); syncBloodBtn();
     redraw();
   });
+  $('#btnBlood').onclick = (e) => openBlood(e.currentTarget);
+  syncBloodBtn();
   renderLegend();
   store.on('colorMode', () => { $('#colorModeLabel').textContent = COLOR_MODES[store.get().colorMode]; });
   bleedEl = $('#bleedPill');
@@ -454,18 +452,6 @@ function buildHud() {
   $('#btnLayers').addEventListener('click', (e) => openLayers(e.currentTarget));
   $('#btnLayers').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); openLayers(e.currentTarget); } });
   new ResizeObserver(() => stage.relayout()).observe(view);
-}
-// The zoom as a share of the home framing, beside the zoom buttons ("Lobule" names the view in the liver's microcirculation).
-let zoomLevelTxt = '', zoomLevelT = 0;
-function syncZoomLevel() {
-  if (zoomLevelT) return;
-  zoomLevelT = setTimeout(() => {
-    zoomLevelT = 0;
-    const el = $('#zoomLevel');
-    if (!el || !stage) return;
-    const t = `${store.get().lobule ? 'Lobule · ' : ''}${Math.round(stage.zoomRel() * 100)}%`;
-    if (t !== zoomLevelTxt) { zoomLevelTxt = t; el.textContent = t; }
-  }, 90);
 }
 function legendModel() {
   const st = store.get();
@@ -536,7 +522,7 @@ function openLegend(anchor) {
   popover(anchor, [h('div', { class: 'menu-title' }, 'How to read the figure'),
     h('div', { style: { padding: '2px 10px 8px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: 'var(--fs-13)', lineHeight: 1.5, color: 'var(--text-2)', maxWidth: '340px' } },
       rows.map(([k, v]) => h('div', {}, h('b', { style: { color: 'var(--text)' } }, k + '. '), v)),
-      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Moving blood. '), 'Blood moves the way the model\u2019s flow goes, as silky streaks, brighter where more blood passes. Lanes near the axis run faster than those near the wall (laminar flow: the centre at twice the mean). Time is slowed and speed compressed (it grows with \u221Avelocity), so the order of speeds is right but not their ratio. Where flow runs backwards (against its healthy direction) the moving blood turns orange. Drifting smoke marks slow flow (under ~5 cm/s) in a large vein, where clots can form. Pause and reduced motion hold the blood still; the Direction lens gives a static cue. The Display menu above the figure switches the streaks and the chevrons (arrowheads) on or off. The Blood origin lens colors the blood by where it comes from (SMV, IMV, splenic vein, hepatic artery, systemic). A vessel\u2019s card injects dye into that vessel (hold to go on).'),
+      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Moving blood. '), 'Blood moves the way the model\u2019s flow goes, as silky streaks, brighter where more blood passes. Lanes near the axis run faster than those near the wall (laminar flow: the centre at twice the mean). Time is slowed and speed compressed (it grows with \u221Avelocity), so the order of speeds is right but not their ratio. Where flow runs backwards (against its healthy direction) the moving blood turns orange. Drifting smoke marks slow flow (under ~5 cm/s) in a large vein, where clots can form. Pause and reduced motion hold the blood still; the Direction lens gives a static cue. The Blood menu above the figure switches the streaks and the chevrons (arrowheads) on or off. The Blood origin lens colors the blood by where it comes from (SMV, IMV, splenic vein, hepatic artery, systemic). A vessel\u2019s card injects dye into that vessel (hold to go on).'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Notation. '), 'Dotted vessels are closed potential collaterals. In Flow volume, line width represents flow rate (square-root scale); in other lenses it follows vessel diameter (compressed). Faint lines crossing an organ run behind it. ▲ / ▼ on a label: change in mmHg from healthy, shown once it reaches 5 mmHg (while comparing, every change from the moment you compare from).'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Organs. '), 'Organs are drawn as in an anatomy plate, lit from the upper left. On the liver, texture means disease: nodules for cirrhosis, mottling for congestion (nutmeg liver), a darker vignette as sinusoidal pressure rises. The spleen grows with splenomegaly.'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Varix ring. '), 'The ring around the esophageal varices closes as their wall tension (pressure × radius ÷ wall thickness) approaches the rupture threshold: amber from 70 %, red from 90 %.'))], { align: 'end', cls: 'legend-pop' });
@@ -550,11 +536,31 @@ function sendBeat() {
   if (on !== beatSent) { beatSent = on; host.send({ type: 'beat', on }); }
 }
 const setBlood = (patch) => store.set({ blood: { ...store.get().blood, ...patch } });
+function syncBloodBtn() {
+  const b = $('#btnBlood');
+  if (!b) return;
+  const on = store.get().layers.flow !== false;
+  b.classList.toggle('off', !on);
+}
 function injectDye({ hold = false } = {}) {
   const sel = store.get().selection;
   stage.injectDye(sel?.type === 'edge' ? sel.id : null, { hold });
   const name = sel?.type === 'edge' ? (EDGES.find((e) => e.id === sel.id)?.label || 'the vessel') : 'the gut\u2019s veins';
   toast(`Injecting dye into ${name}`);
+}
+function openBlood(anchor) {
+  const st = store.get(), b = st.blood || {};
+  const flowOn = st.layers.flow !== false;
+  const toggle = (checked, label, sub, onChange) => {
+    const c = h('input', { type: 'checkbox', checked });
+    c.addEventListener('change', () => onChange(c.checked));
+    return h('label', { class: 'menu-item blood-opt' }, c, h('span', {}, label, h('small', {}, sub)));
+  };
+  popover(anchor, [
+    h('div', { class: 'menu-title' }, 'Moving blood'),
+    toggle(flowOn, 'Streaks', 'Silky streaks carried by the flow', (on) => { store.set({ layers: { ...store.get().layers, flow: on } }); syncBloodBtn(); }),
+    toggle(!!b.chevrons, 'Chevrons', 'Arrowheads moving with the flow; orange where it runs backwards', (on) => setBlood({ chevrons: on })),
+  ], { cls: 'blood-pop' });
 }
 function openLayers(anchor) {
   const s0 = store.get();
@@ -562,11 +568,6 @@ function openLayers(anchor) {
     const c = h('input', { type: 'checkbox', checked: s0.layers[key] !== false });
     c.addEventListener('change', () => store.set({ layers: { ...store.get().layers, [key]: c.checked } }));
     return h('label', { class: 'menu-item' }, c, label);
-  };
-  const toggle = (checked, label, sub, onChange) => {
-    const c = h('input', { type: 'checkbox', checked });
-    c.addEventListener('change', () => onChange(c.checked));
-    return h('label', { class: 'menu-item blood-opt' }, c, h('span', {}, label, h('small', {}, sub)));
   };
   const cur = store.get().colorMode;
   const lens = (v) => {
@@ -586,12 +587,8 @@ function openLayers(anchor) {
     h('div', { class: 'lens-grid' }, Object.keys(LENSES).map(lens)),
     s0.imaging ? h('div', { class: 'ctl-sub', style: { padding: '2px 10px 6px' } }, 'This case shows anatomy only until you measure.') : null,
     h('div', { class: 'menu-sep' }),
-    h('div', { class: 'menu-title' }, 'Moving blood'),
-    toggle(s0.layers.flow !== false, 'Streaks', 'Silky streaks carried by the flow', (on) => store.set({ layers: { ...store.get().layers, flow: on } })),
-    toggle(!!(s0.blood || {}).chevrons, 'Chevrons', 'Arrowheads; orange where flow runs backwards', (on) => setBlood({ chevrons: on })),
-    h('div', { class: 'menu-sep' }),
-    h('div', { class: 'menu-title' }, 'Labels'),
-    cb('chips', 'Pressure values on labels'), cb('labels', 'Organ names'), cb('collaterals', 'Potential collaterals (dotted)'),
+    h('div', { class: 'menu-title' }, 'Show'),
+    cb('flow', 'Moving blood'), cb('chips', 'Pressure values on labels'), cb('collaterals', 'Potential collaterals (dotted)'), cb('labels', 'Organ names'),
     h('div', { class: 'menu-sep' }),
     h('div', { class: 'menu-title' }, t('menu.units')),
     h('div', { style: { display: 'flex', gap: '6px', padding: '2px 10px 6px' } }, unitSel('pressure', ['mmHg', 'cmH2O', 'kPa']), unitSel('flow', ['L/min', 'mL/min'])),
@@ -599,7 +596,7 @@ function openLayers(anchor) {
     menuItem('How to read the figure', { icon: 'info', onClick: () => { const a = $('#btnLayers'); closePopover(); openLegend(a); } }),
     menuItem('Figure view (export)', { icon: 'camera', kb: 'F', onClick: () => { closePopover(); toggleFigure(true); } }),
     menuItem('Projector mode', { icon: 'projector', kb: 'Shift F', onClick: () => { closePopover(); toggleProjector(); } }),
-  ], { cls: 'layers-pop blood-pop' });
+  ], { cls: 'layers-pop' });
 }
 // Active bleeding is a state, not an alarm: a steady status in the figure header.
 let lastBleed = '';
@@ -694,7 +691,6 @@ function openMainMenu(anchor) {
       modeItem('cases', 'cases', 'case', 'Cases', 'A bleed at 3 a.m. and diagnostic puzzles'),
       modeItem('present', 'present', 'projector', 'Presenter', 'Step through a live model with a class')),
     menuItem('Home page', { icon: 'grid', onClick: () => { closePopover(); home.open(); } }),
-    menuItem('Search…', { icon: 'search', kb: 'Ctrl K', onClick: () => { closePopover(); setTimeout(() => palette.open(), 0); } }),
     h('div', { class: 'menu-sep' }),
     h('div', { class: 'menu-title' }, 'Share & export'),
     menuItem('Copy a link to this exact state', { icon: 'share', onClick: () => { closePopover(); share(); } }),
@@ -795,21 +791,15 @@ function syncPanelToggle() {
   if (on) $('#btnInspector').classList.remove('ping');
   setTimeout(() => stage?.relayout(), 320);
 }
-/** Opens the patient chart; or the instruments when named. One drawer is open at a time: Patient, Treat or Measure. */
+/** Opens the patient chart; or the instruments when named. */
 function openPanel(tab = 'chart') {
-  if (tab === 'instruments') { setPanelTab('instruments'); closePanel(); closeTreat(); return; }
+  if (tab === 'instruments') { setPanelTab('instruments'); if (isPhone()) { closePanel(); closeTreat(); } return; }
   if (app.classList.contains('instrument-focus')) dock.setState('open');
-  closeTreat();
-  if (app.classList.contains('dock-open')) setPanelTab('chart');
+  // A phone has room for one sheet at a time: the chart puts Treat and the instruments away.
+  if (isPhone()) { closeTreat(); if (app.classList.contains('dock-open')) setPanelTab('chart'); }
   app.classList.add('panel-open');
   panelSheet?.open();
   syncPanelToggle();
-}
-/** The three tabs of the drawer. */
-function showDrawer(id) {
-  if (id === 'treat') openTreat();
-  else if (id === 'measure') { if (!app.classList.contains('dock-open')) dock.toggle(); }
-  else { store.set({ details: null }); openPanel(); }
 }
 function closePanel() { app.classList.remove('panel-open'); panelSheet?.closed(); syncPanelToggle(); }
 function setPanelTab(tab) {
@@ -928,8 +918,7 @@ function sheetBehaviour(el, { handle, drag, onClose }) {
   return { open: () => { if (isPhone()) { size = 1; apply(); } }, closed: () => { el.style.translate = ''; el.style.height = ''; } };
 }
 // The findings badge: a check when nothing is abnormal, else how many findings, in the color of the worst.
-let lastFindKey = '', lastFindN = 0, lastFindSev = 'ok', lastFindShown = 0;
-function syncDwN() { document.querySelectorAll('.dw-n').forEach((d) => { d.dataset.sev = lastFindSev; d.textContent = lastFindShown ? String(lastFindShown) : ''; }); }
+let lastFindKey = '', lastFindN = 0;
 function updateFindBadge(f) {
   // In a case where pressures are unmeasured, a check would claim more than is known.
   const unknown = !!store.get().imaging;
@@ -939,7 +928,6 @@ function updateFindBadge(f) {
   lastFindKey = key;
   const el = $('#findBadge');
   el.dataset.sev = sev;
-  lastFindSev = sev; lastFindShown = n && !unknown ? n : 0; syncDwN();
   el.replaceChildren(unknown ? '–' : n ? String(n) : svgIcon('check'));
   if (n > lastFindN) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
   lastFindN = n;
@@ -950,16 +938,17 @@ let treatOff = null;
 const treatOpen = () => !$('#treatCard').hidden;
 function openTreat() {
   const el = $('#treatCard');
-  closePanel(); if (app.classList.contains('dock-open')) setPanelTab('chart');
+  if (isPhone()) { closePanel(); if (app.classList.contains('dock-open')) setPanelTab('chart'); }
   closePopover();
   const sync = [];
   const count = h('span', { class: 'tc-active' });
-  const paintCount = () => { const n = chart.treatCount(store.get().params); count.textContent = n ? String(n) : ''; count.title = n ? `${n} running` : ''; };
+  const paintCount = () => { const n = chart.treatCount(store.get().params); count.textContent = n ? `${n} running` : ''; };
   sync.push(paintCount);
   const body = h('div', { class: 'tc-body' }, chart.treatBody(sync, () => { if (isPhone()) closeTreat(); }));
   const grab = el.querySelector('.sheet-grab');
-  el.replaceChildren(...[grab, h('div', { class: 'tc-head' }, drawerBar('treat', { go: showDrawer, close: () => closeTreat(), closeLabel: 'Close Treat', badges: { treat: count } })), body].filter(Boolean));
-  paintCount(); syncDwN();
+  el.replaceChildren(...[grab, h('div', { class: 'tc-head' }, h('h2', {}, svgIcon('pill'), 'Treat'), count,
+    h('button', { class: 'ib', 'aria-label': 'Close Treat', title: 'Close (Esc)', onclick: () => closeTreat() }, icon('close'))), body].filter(Boolean));
+  paintCount();
   treatOff?.();
   treatOff = store.on('params', () => { for (const fn of sync) fn(); });
   el.hidden = false;
@@ -1085,11 +1074,17 @@ function revealDock(mode) {
   openPanel('instruments');
 }
 function wirePanel() {
-  // The patient chart's bar is the drawer's: the three tabs and the close button.
-  const head = $('.panel-head'), x = $('#panelClose');
-  head.prepend(drawerBar('chart', { go: showDrawer, close: closePanel, closeEl: x }));
-  $('#dockHead').prepend(drawerBar('measure', { go: showDrawer, close: () => dock.toggle(), closeLabel: 'Close Measure' }));
+  const tabs = $$('.panel-tabs [role="tab"]');
+  tabs.forEach((b, i) => {
+    b.addEventListener('click', () => openPanel(b.dataset.ptab));
+    b.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const n = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+      n.focus(); openPanel(n.dataset.ptab);
+    });
+  });
   $('#tabInstruments').addEventListener('click', () => dock.toggle());
+  $('#panelClose').addEventListener('click', closePanel);
   $('#panelScrim').addEventListener('click', closePanel);
   setPanelTab('chart');
   syncPanelToggle();
@@ -1120,7 +1115,7 @@ function openHelp(section) {
     h('h3', {}, 'Reading the figure'),
     h('ul', {},
       h('li', {}, 'Veins are colored by mean pressure on a perceptually uniform scale (0–30 mmHg). Labels give the value in mmHg; ▲ / ▼ is the change from healthy, shown from 5 mmHg. Arteries are thinner, in a fixed red.'),
-      h('li', {}, 'Streaks of blood move downstream, brighter where flow is greater, faster where velocity is higher, fastest along the axis (laminar flow); chevrons (Display menu) point the way. Smoke marks stagnant blood in a large vein. The Blood origin lens shows where blood comes from. Tap a vessel and use Inject dye on its card (or press J; hold for longer) to watch dye travel and split. Dotted vessel outlines are closed potential collaterals.'),
+      h('li', {}, 'Streaks of blood move downstream, brighter where flow is greater, faster where velocity is higher, fastest along the axis (laminar flow); chevrons (Blood menu) point the way. Smoke marks stagnant blood in a large vein. The Blood origin lens shows where blood comes from. Tap a vessel and use Inject dye on its card (or press J; hold for longer) to watch dye travel and split. Dotted vessel outlines are closed potential collaterals.'),
       h('li', {}, 'Line width follows vessel diameter (compressed, so the cavae don’t drown the portal tree). Watch collaterals and varices swell.'),
       h('li', {}, 'The circuit view is a transit map: pressure falls from left to right; collaterals and shunts run in their own lanes as bypasses.')),
     h('h3', {}, 'Thresholds & references'),
