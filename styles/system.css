@@ -275,3 +275,8 @@
 @media (max-width: 767px) { .lz-top { left: calc(env(safe-area-inset-left) + var(--gap)); bottom: calc(var(--bot-occ, 120px) + 60px); } }
 .dw-tab { gap: 5px; padding: 0 6px; }
 .dw-tab .dw-n, .dw-tab .tc-active { min-width: 16px; height: 16px; padding: 0 4px; font-size: 10px; line-height: 16px; flex: none; }
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+  .readouts:not(.all) .metric .v { font-size: 16px; gap: 2px; flex-wrap: nowrap; }
+  .readouts:not(.all) .metric .unit { font-size: 9.5px; margin-left: 0; white-space: nowrap; }
+  .readouts:not(.all) .metric .tr { display: none; }
+}
