@@ -276,6 +276,37 @@ export const CIRCUIT_PATH = {
   C9: route([[1120, 478], [1175, 478], [1175, 250], [1130, 205], [1120, 205]]),
 };
 
+// Circuit view: inside the liver the portal venules divide toward the sinusoids (one channel, then
+// three, then seven, evenly spaced), and the sinusoids gather back the same way, mirrored, into the
+// central vein that becomes the hepatic vein. They are drawn branches of the one modeled vessel: each
+// takes the vessel's color where it lies along it, and its moving blood; the vessel itself runs on as
+// the middle channel. Each branch is a path in the direction of flow, with its caliber as a fraction
+// of the vessel's.
+function liverTree([x0, cy], [x1], divide) {
+  const L = x1 - x0, X = (u) => (divide ? x0 + u * L : x1 - u * L), f = (v) => v.toFixed(1);
+  const out = [];
+  // A branch leaves its parent's course at `s`, reaches its own offset over 18 % of the span, and
+  // runs on to the end of the span.
+  const branch = (s, p, c, k) => {
+    const a = X(s), b = X(s + 0.18), m = (a + b) / 2, z = X(1);
+    out.push({ k, d: divide
+      ? `M${f(a)} ${cy + p} C ${f(m)} ${cy + p} ${f(m)} ${cy + c} ${f(b)} ${cy + c} L ${f(z)} ${cy + c}`
+      : `M${f(z)} ${cy + c} L ${f(b)} ${cy + c} C ${f(m)} ${cy + c} ${f(m)} ${cy + p} ${f(a)} ${cy + p}` });
+  };
+  for (const side of [-1, 1]) {
+    branch(0.08, 0, 20 * side, 0.45);
+    branch(0.42, 20 * side, 10 * side, 0.32);
+    branch(0.42, 20 * side, 30 * side, 0.32);
+  }
+  return out;
+}
+export const CIRCUIT_TREES = {
+  PRE_R: liverTree(NODE_POS.RPV[1], NODE_POS.SIN_R[1], true),
+  PRE_L: liverTree(NODE_POS.LPV[1], NODE_POS.SIN_L[1], true),
+  SIN_RR: liverTree(NODE_POS.SIN_R[1], NODE_POS.CV_R[1], false),
+  SIN_LL: liverTree(NODE_POS.SIN_L[1], NODE_POS.CV_L[1], false),
+};
+
 /** 45° transit-map route between two circuit points: horizontal run, then a diagonal, then vertical. */
 export function metroPath([x1, y1], [x2, y2]) {
   const dx = x2 - x1, dy = y2 - y1;

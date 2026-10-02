@@ -209,6 +209,10 @@ svg { flex: none; }
 .leader-dot { fill: var(--stage-bg); stroke: var(--text-2); stroke-width: 1.3; }
 .chips-off .lb-val { display: none; }
 .lb.module { pointer-events: auto; cursor: pointer; outline: none; }
+.lb.zonecap.link { pointer-events: auto; cursor: pointer; outline: none; }
+.lb-hit { fill: transparent; }
+.lb.zonecap.link:hover .lb-zone, .lb.zonecap.link.sel .lb-zone { fill: var(--accent-ink); }
+.lb.zonecap.link:focus-visible .lb-hit { stroke: var(--focus); stroke-width: 2; }
 /* The liver card is frosted glass: a translucent pane that blurs the vessels under it (an HTML element, since
    backdrop-filter does not work on SVG); its own rect is left clear. */
 #labels .lb.module .lb-bg { fill: transparent; stroke: var(--module-line); }

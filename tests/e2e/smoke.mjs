@@ -143,6 +143,12 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.evaluate(() => window.pps.store.set({ view: 'circuit' }));
     await page.waitForTimeout(1200);
     await shot(page, `${device}-circuit`);
+    // The liver's title opens the liver's card (there is no organ to click in the circuit).
+    await page.locator('#labels .lb.zonecap.link', { hasText: 'LIVER' }).click();
+    await page.waitForFunction(() => { const s = window.pps.store.get().selection; return s?.type === 'organ' && s.id === 'liver'; }, null, { timeout: 5000 })
+      .catch(() => { throw new Error('the LIVER title did not open the liver card'); });
+    await page.waitForSelector('.action-card:not([hidden])');
+    await page.evaluate(() => window.pps.store.set({ selection: null }));
     await page.evaluate(() => window.pps.store.set({ view: 'anatomic' }));
     for (const m of ['delta', 'heat', 'drop', 'flow', 'velocity', 'direction', 'pressure']) {
       await page.evaluate((m) => window.pps.store.set({ colorMode: m }), m);

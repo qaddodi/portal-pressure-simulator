@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Circuit: the liver's titles open cards.** In the circuit, the LIVER and HEART column titles are
+  buttons that open the liver's and the right heart's cards (with their parameters).
+- **Circuit: the liver branches.** Inside the liver the portal venules divide (one channel, then three,
+  then seven) toward the sinusoids, and the sinusoids gather back the same way into the central veins
+  that become the hepatic veins. Drawn branches of the same modeled vessels, in their colors, with
+  their moving blood.
 - **Simpler menus.** The color menu only colors the vessels (the eight lenses; L cycles them). The Blood
   menu holds the moving blood (streaks, chevrons) and what the figure shows (pressure values, potential
   collaterals, organ names). The unit menus are gone (mmHg and L/min), and so is *How to read the figure*.
