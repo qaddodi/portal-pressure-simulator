@@ -126,37 +126,16 @@ export function createLobuleZoom({ host }) {
   cirIn.addEventListener('keydown', () => { cirFresh = true; });
   cirIn.addEventListener('input', () => { const v = parseFloat(cirIn.value); paintCir(v); updateParams((pp) => { pp.cirrhosis = v; return pp; }, { history: cirFresh, label: 'Cirrhosis' }); cirFresh = false; });
   const legend = h('div', { class: 'lz-legend' });
-  const sub = h('div', { class: 'lz-sub' });
-  // The card floats on the right (a sheet on a phone) and the lobule frames itself beside it. Its chevron
-  // folds it to the header and the verdict; on a phone the header's Details opens the rest.
-  const more = h('button', { class: 'lz-more', 'aria-expanded': 'true', title: 'Show or hide the details' }, h('span', { class: 'lz-more-l' }, 'Details'), svgIcon('chev-down', 'lz-chev'));
-  const grab = h('span', { class: 'lz-grab', 'aria-hidden': 'true' });
-  const head = h('div', { class: 'lz-head' }, grab, h('div', { class: 'lz-ttl' }, sub, h('div', { class: 'lz-title' }, 'Hepatic lobule')), more);
-  const side = h('div', { class: 'lz-side open' }, head, ladder, verdict, cirBox, stats);
+  // The lobule's reading (the ladder, what it says, the cirrhosis control, the flows) is the Lobule instrument of the
+  // Measure drawer (see dock.js): it is built here, where the model's numbers are, and the drawer takes it in.
+  const panelEl = h('div', { class: 'lz-panel' },
+    h('div', { class: 'lz-sec' }, h('div', { class: 'lz-sec-h' }, 'Pressure from the portal tract to the vein'), ladder),
+    verdict, cirBox, stats);
   const phoneMQ = matchMedia('(max-width: 720px)');
-  const setOpen = (o) => { side.classList.toggle('open', o); more.setAttribute('aria-expanded', String(o)); if (!o) side.scrollTop = 0; requestAnimationFrame(refit); };
-  more.addEventListener('click', () => setOpen(!side.classList.contains('open')));
   const key = h('div', { class: 'lz-key', hidden: true }, legend);
-  // Phone: the sheet follows a swipe on its header, up to open and down to fold; a tap on the header flips it.
-  {
-    let y0 = null, moved = false;
-    const move = (e) => { if (y0 != null && Math.abs(e.clientY - y0) > 8) moved = true; };
-    const stop = () => { y0 = null; removeEventListener('pointermove', move); removeEventListener('pointerup', up); removeEventListener('pointercancel', stop); };
-    const up = (e) => {
-      const dy = e.clientY - y0, tap = !moved && !e.target.closest?.('button');
-      stop();
-      if (dy < -30) setOpen(true); else if (dy > 30) setOpen(false); else if (tap) setOpen(!side.classList.contains('open'));
-    };
-    head.addEventListener('pointerdown', (e) => {
-      if (!matchMedia('(max-width: 720px)').matches || e.target.closest('button')) return;
-      y0 = e.clientY; moved = false;
-      addEventListener('pointermove', move); addEventListener('pointerup', up); addEventListener('pointercancel', stop);
-    });
-  }
   const el = h('div', { class: 'lz', 'aria-hidden': 'true' },
     tissue, glCv, fx, leaders, labels,
-    h('div', { class: 'lz-top' }, h('div', { class: 'lz-tgs' }, zonesBtn, lymphBtn, keyBtn), key),
-    side);
+    h('div', { class: 'lz-top' }, h('div', { class: 'lz-tgs' }, zonesBtn, lymphBtn, keyBtn), key));
   host.append(el);
 
   // ── The view: the lobule framed in the space the floating pieces leave (top bar, dock, cards and
@@ -170,8 +149,6 @@ export function createLobuleZoom({ host }) {
     const W = geo.W, H = geo.H, phone = phoneMQ.matches;
     const top = el.querySelector('.lz-top');
     let t = cssN('--top-safe') + (top ? top.offsetHeight + 16 : 8), b = H - (cssN('--bot-occ') || 100) - 8 - (phone ? 0 : 52), l = 12, r = W - cssN('--right-occ') - 12;
-    // The card's layout box (offsetLeft/Top ignore the grow-in transform).
-    if (!side.hidden && side.offsetWidth) { if (phone) b = Math.min(b, side.offsetTop - 10); else r = Math.min(r, side.offsetLeft - 16); }
     return { l, t, r: Math.max(l + 80, r), b: Math.max(t + 80, b) };
   }
   // The lobule and its labels' places, in world units.
@@ -509,7 +486,6 @@ export function createLobuleZoom({ host }) {
 
   function panel() {
     const m = model;
-    sub.textContent = 'Liver · microcirculation';
     // The pressure ladder: where along the lobule the pressure is lost, against the healthy ladder.
     const P = [m.P1, m.P2, m.P3, m.P4, m.P5], P0 = m.H, names = ['Portal venule', 'Sinusoids', 'Central vein', 'Hepatic vein', 'IVC'], short = ['PV', 'Sin', 'CV', 'HV', 'IVC'];
     const drops = [0, 1, 2, 3].map((i) => P[i] - P[i + 1]), drops0 = [0, 1, 2, 3].map((i) => (P0[i] ?? P[i]) - (P0[i + 1] ?? P[i + 1]));
@@ -1082,8 +1058,8 @@ export function createLobuleZoom({ host }) {
       el.style.transform = fade < 1 ? `scale(${(0.2 + 0.8 * e).toFixed(4)})` : '';
       el.classList.toggle('on', fade > 0.98);
       el.setAttribute('aria-hidden', String(fade < 0.98));
-      // Entering: the card opens (on a phone, compact) and the lobule is framed beside it.
-      if (fade > 0 && was === 0) { setOpen(!phoneMQ.matches); resetView(); if (F) update(F); }
+      // Entering: the lobule is framed in the space the drawer leaves.
+      if (fade > 0 && was === 0) { resetView(); if (F) update(F); }
       // Leaving the lobule closes a part's card, so it is not waiting next time.
       if (was > 0.98 && fade <= 0.98) { if (store.get().selection?.type === 'lobule') store.set({ selection: null }); }
       if (fade === 0) { cancelAnimationFrame(raf); raf = 0; last = 0; }
@@ -1097,6 +1073,8 @@ export function createLobuleZoom({ host }) {
       return { x, y, path: [[x, y]] };
     },
     resetView,
+    /** The Lobule instrument's content, for the Measure drawer. */
+    panel: panelEl,
     /** The zoom buttons: in or out about the middle of the free space, and Fit. */
     zoomBy, fitView, zoomRel: () => V.k / (kFit || 1),
     viewKey: () => `${V.k.toFixed(3)},${V.x.toFixed(1)},${V.y.toFixed(1)}|${geoKey}`,

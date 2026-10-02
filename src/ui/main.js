@@ -3,9 +3,9 @@
 
 import { startHost, host } from './host.js?v=d292ccefe8';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=f9424489c6';
-import { createStage } from './stage.js?v=44defcee95';
+import { createStage } from './stage.js?v=daea9faa78';
 import { createInspector } from './inspector.js?v=208b6a3592';
-import { createDock, CUTOFFS } from './dock.js?v=5a106c177d';
+import { createDock, CUTOFFS } from './dock.js?v=c4cb6d7763';
 import { createWhy } from './why.js?v=bf0f24a7a5';
 import { createTimeline } from './timeline.js?v=14c4467d38';
 import { createLearn } from './learn.js?v=8717bb0731';
@@ -13,7 +13,7 @@ import { createCases } from './cases.js?v=4961dcd419';
 import { createCompare } from './compare.js?v=730844b101';
 import { createCard } from './card.js?v=a425fd64b1';
 import { drawerBar } from './drawer.js?v=8e6ebb5d79';
-import { createChart, computeFindings } from './chart.js?v=a7188d2497';
+import { createChart, computeFindings } from './chart.js?v=2d32bd1043';
 import { createHome } from './home.js?v=aa2d27c535';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=e7e5c98a1c';
@@ -128,7 +128,7 @@ async function main() {
     onWhy: (m, el) => why.open(m, el), onAction: doAction, onOpenTab: (id) => dock.show(id, { reveal: true }),
     onScenarios: () => openScenarios($('#scenarioBtn')), onMode: (m) => store.set({ mode: m }), chart,
   });
-  dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => host.send({ type: 'probe', id }), onReveal: revealDock, onLobule: () => zoomLobule('R'),
+  dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => host.send({ type: 'probe', id }), onReveal: revealDock, onLobule: () => zoomLobule('R'), lobulePanel: () => stage.lobulePanel(),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: (on) => { dockBeat = on; sendBeat(); } });
   const api = { beginSession, endSession, onEnd: () => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); }, muteEvents: () => {}, loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), openPanel, setBanner, select: (sel) => store.set({ selection: sel }) };
@@ -185,6 +185,7 @@ async function main() {
   const syncViewSeg = () => { const st = store.get(), cur = st.lobule ? 'lobule' : st.view; $$('#viewSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === cur))); };
   store.on('view', (v) => { stage.setView(v); syncViewSeg(); });
   store.on('lobule', syncViewSeg);
+  store.on('lobule', (on) => dock.syncLobule(on));
   store.on('tool', (t) => {
     for (const c of [...view.classList]) if (c.startsWith('tool-')) view.classList.remove(c);
     view.classList.add('tool-' + t);

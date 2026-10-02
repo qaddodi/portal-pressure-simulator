@@ -85,7 +85,7 @@ export function readoutValue(t, m, hidden) {
   return meas ? meas.hvpg : null;
 }
 
-export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onLobule, onOpen, onClose, isVisible, marks, onBeat }) {
+export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onLobule, onLeaveLobule, lobulePanel, onOpen, onClose, isVisible, marks, onBeat }) {
   // ── Readout strip ─────────────────────────────────
   const tileEls = {};
   const row = h('div', { class: 'ro-row' });
@@ -226,6 +226,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     p.el.classList.remove('dock-pane'); p.el.classList.add('instrument-view');
     return { ...p, el: h('section', { class: 'dock-pane', 'data-pane': p.id }, p.el) };
   });
+  // The lobule's reading (built by the lobule view, where the model's numbers are) is one more instrument.
+  panes.push({ id: 'lobule', label: 'Lobule', el: h('section', { class: 'dock-pane', 'data-pane': 'lobule' }, lobulePanel?.() || h('div')), update() {}, redraw() {} });
   const byId = Object.fromEntries(panes.map((p) => [p.id, p]));
   // ── The Instruments card ──────────────────────────
   // On a wide landscape screen it is a tall card on the right (the anatomy is tall, so it keeps its
@@ -241,9 +243,45 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     doppler: ['doppler', 'Direction, velocity and waveform in any portal, hepatic or shunt vessel.', (f) => `${fmt(Math.abs(f.metrics.pvVel), 0)} cm/s`],
     endoscopy: ['endoscope', 'Inspect and band varices; open their wall mechanics.', (f) => (f.metrics.varix.d < 2.5 ? 'No varices' : `Grade ${f.metrics.varix.grade.code}`)],
     abdomen: ['needle', 'Inspect ascites and drain fluid, with or without albumin.', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],
+    lobule: ['liver', 'Inside the liver: where along a lobule the pressure is lost, and how a block changes it.', () => ''],
   };
-  const SHORT = { profile: 'Pressure', scope: 'Over time', flow: 'Flow', perfusion: 'Perfusion', hvpg: 'HVPG', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites' };
-  const ORDER = ['profile', 'scope', 'flow', 'perfusion', 'hvpg', 'doppler', 'endoscopy', 'abdomen'];
+  const SHORT = { profile: 'Pressure', scope: 'Over time', flow: 'Flow', perfusion: 'Perfusion', hvpg: 'HVPG', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites', lobule: 'Lobule' };
+  const ORDER = ['profile', 'scope', 'flow', 'perfusion', 'hvpg', 'lobule', 'doppler', 'endoscopy', 'abdomen'];
+  // The picker's groups: where each instrument looks.
+  const GROUPS_OF = [['Hemodynamics', ['profile', 'scope', 'flow', 'perfusion', 'hvpg']], ['Microanatomy', ['lobule']], ['Bedside', ['doppler', 'endoscopy', 'abdomen']]];
+  // Every instrument opens with the same reading, as the Doppler's does: a status dot and word, the big number, a few
+  // supporting numbers, and a line on what the instrument tells you. Each is drawn from a readout of the strip, so the
+  // number, the word and the color are the ones the vitals dock shows.
+  const READ = {
+    profile: ['pv', ['hvpg', 'ppg', 'pvflow']], scope: ['hvpg', ['pv', 'ppg', 'pvflow']], flow: ['shunt', ['pvflow', 'liver']],
+    perfusion: ['liver', ['pvflow', 'shunt']], hvpg: ['hvpg', ['ppg', 'pv']], endoscopy: ['varix', ['pv', 'ppg']], abdomen: ['ascites', ['pv', 'spleen']],
+  };
+  const WHAT = { pv: 'portal vein pressure', hvpg: 'HVPG, wedged minus free', shunt: 'of gut blood bypasses the liver', liver: 'of normal liver flow', varix: 'of the rupture tension', ascites: 'free fluid in the abdomen' };
+  const tileOf = Object.fromEntries(TILES.map((t) => [t.id, t]));
+  const readingEls = {};
+  for (const [id, [hero, sup]] of Object.entries(READ)) {
+    const t = tileOf[hero];
+    const word = h('div', { class: 'rd-word' }), num = h('b', { class: 'rd-num' }), unit = h('span', { class: 'rd-unit' }), what = h('small', { class: 'rd-what' }, WHAT[hero]);
+    const stats = sup.map((sid) => { const st = tileOf[sid], v = h('b', {}); return { st, v, el: h('div', { class: 'rd-stat' }, h('small', {}, st.k === 'Portal vein' && st.id === 'pvflow' ? 'Portal flow' : st.k === 'Portal vein' ? 'Portal pressure' : st.k), v) }; });
+    const el = h('div', { class: 'rd', 'data-for': id },
+      h('div', { class: 'rd-main' }, h('span', { class: 'rd-dot', 'aria-hidden': 'true' }), h('div', {}, word, h('div', { class: 'rd-big' }, num, unit, what))),
+      h('div', { class: 'rd-stats' }, stats.map((x) => x.el)),
+      h('p', { class: 'rd-meaning' }, INFO[id][1]));
+    readingEls[id] = { el, t, word, num, unit, stats };
+    byId[id].el.prepend(el);
+  }
+  function updateReading(id, f) {
+    const r = readingEls[id];
+    if (!r) return;
+    const m = f.metrics, hidden = store.get().hiddenReadouts;
+    const show = (t, vEl) => { const v = readoutValue(t, m, hidden); vEl.textContent = v == null ? '—' : `${fmt(v, t.d)} ${t.u}${t.ux || ''}`; return v; };
+    const v = readoutValue(r.t, m, hidden);
+    r.el.dataset.sev = v == null ? 'none' : r.t.st(v, m);
+    r.word.textContent = v == null ? (r.t.id === 'hvpg' ? 'Not measured yet' : 'Not measured') : r.t.s(v, m);
+    r.num.textContent = v == null ? '—' : fmt(v, r.t.d);
+    r.unit.textContent = v == null ? '' : ` ${r.t.u}${r.t.ux || ''}`;
+    for (const x of r.stats) show(x.st, x.v);
+  }
   const saved = (() => { try { return JSON.parse(localStorage.getItem('pps.instruments') || 'null') || {}; } catch { return {}; } })();
   let open = Array.isArray(saved.open) && saved.open.every((id) => byId[id]) && saved.open.length ? saved.open.slice(0, 2) : ['profile'];
   let frame = null, state = 'open', resizeFrame = 0, picking = false;
@@ -255,7 +293,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
 
   const live = h('span', { class: 'workspace-live', 'aria-live': 'off' });
   const titleIc = h('span', { class: 'dt-ic' });
-  const titleEl = h('h2', { class: 'dock-title' }, titleIc, h('span', { class: 'dt-l' }, 'Pressure'));
+  const titleEl = h('button', { class: 'dock-title instr-pick', type: 'button', 'aria-haspopup': 'listbox', 'aria-expanded': 'false', title: 'Choose an instrument' }, titleIc, h('span', { class: 'dt-l' }, 'Pressure'), svgIcon('chev-down', 'ip-chev'));
   const desc = h('p', { class: 'instr-desc' });
   const tbtn = (cls, ic, label, onclick) => h('button', { class: `wbtn ${cls}`, title: label, 'aria-label': label, onclick }, svgIcon(ic), h('span', { class: 'wb-l' }, label));
   const second = tbtn('dock-second', 'compare', 'Two at once', () => toggleSecond());
@@ -264,23 +302,29 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const divider = h('div', { class: 'workspace-divider', role: 'separator', tabindex: '0', 'aria-label': 'Instruments size' }, h('span'));
   workspace.prepend(divider);
   head.append(h('div', { class: 'dock-row' }, titleEl, live, h('span', { class: 'sp' }), second, expand, fold), desc);
-  // The tabs: one per instrument, with its live reading.
+  // The picker: a button naming the instrument opens the list of all of them, grouped by where they look, each with
+  // its icon, its name and what it shows. One tap chooses; the list closes.
   const tabEls = {};
-  const tabs = h('div', { class: 'instr-tabs', role: 'tablist', 'aria-label': 'Instruments' }, ORDER.map((id) => {
-    const val = h('small', { class: 'it-v' });
+  const mkTab = (id) => {
+    const val = h('small', { class: 'it-v' }, INFO[id][1]);
     const b = h('button', { class: 'instr-tab', role: 'tab', 'data-instrument': id, 'aria-selected': 'false', 'aria-controls': 'pane-' + id },
       svgIcon(INFO[id][0]), h('span', { class: 'it-t' }, h('b', {}, SHORT[id] || byId[id].label), val));
-    b.title = `${byId[id].label}: ${INFO[id][1]}`;
-    b.addEventListener('click', () => pick(id));
+    b.addEventListener('click', () => { closePicker(); pick(id); });
     tabEls[id] = { b, val };
     return b;
-  }));
+  };
+  const tabs = h('div', { class: 'instr-tabs', role: 'tablist', 'aria-label': 'Instruments' },
+    GROUPS_OF.flatMap(([g, ids]) => [h('div', { class: 'instr-grp', role: 'presentation' }, g), ...ids.map(mkTab)]));
+  function closePicker() { tabs.classList.remove('open'); titleEl.setAttribute('aria-expanded', 'false'); }
+  titleEl.addEventListener('click', (e) => { e.stopPropagation(); const on = tabs.classList.toggle('open'); titleEl.setAttribute('aria-expanded', String(on)); if (on) tabEls[open[0]].b.focus(); });
+  addEventListener('pointerdown', (e) => { if (tabs.classList.contains('open') && !e.target.closest('.instr-tabs, .instr-pick')) closePicker(); }, true);
   tabs.addEventListener('keydown', (e) => {
-    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+    if (e.key === 'Escape') { closePicker(); titleEl.focus(); e.stopPropagation(); return; }
+    if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) return;
     e.preventDefault();
     const i = ORDER.indexOf(e.target.closest('.instr-tab')?.dataset.instrument);
-    const j = e.key === 'Home' ? 0 : e.key === 'End' ? ORDER.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : ORDER.length - 1)) % ORDER.length;
-    tabEls[ORDER[j]].b.focus(); pick(ORDER[j]);
+    const j = e.key === 'Home' ? 0 : e.key === 'End' ? ORDER.length - 1 : (i + (e.key === 'ArrowDown' ? 1 : ORDER.length - 1)) % ORDER.length;
+    tabEls[ORDER[j]].b.focus();
   });
   const pickHint = h('div', { class: 'instr-hint', hidden: true }, 'Pick a second instrument to show with ', h('b'), '.');
   head.after(tabs, pickHint);
@@ -302,6 +346,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       const p = byId[id];
       // live instruments keep their own history and only redraw; the rest draw from the frame
       if (id === 'scope' || id === 'doppler') p.redraw(); else p.update(frame);
+      updateReading(id, frame);
       if (id === 'endoscopy' && wallDetails.open) wall.update(frame);
     }
   }
@@ -383,6 +428,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     tabs.querySelector(`.instr-tab:not([data-instrument="${open[0]}"])`)?.focus();
   }
   function pick(id) {
+    if (id === 'lobule') onLobule?.();   // the lobule view opens with it (see syncLobule)
     if (picking && id !== open[0]) { open = [open[0], id]; endPick(); layout(); return; }
     endPick();
     // A tab of a pair shows that instrument alone.
@@ -420,6 +466,23 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     endPick(); app.classList.remove('instrument-focus');
     onClose();
     document.getElementById('tabInstruments')?.focus();
+  }
+  // The lobule view opens the drawer on its instrument (and, if it opened the drawer, closes it again on the way out).
+  let drawerForLobule = false;
+  function syncLobule(on) {
+    if (on) {
+      endPick();
+      drawerForLobule = !isVisible();
+      open = ['lobule'];
+      if (drawerForLobule) onOpen();
+      if (state === 'peek') setState('open');
+      layout(); queueRefresh();
+    } else if (open.includes('lobule')) {
+      open = open.filter((i) => i !== 'lobule'); if (!open.length) open = ['profile'];
+      if (drawerForLobule && isVisible()) onClose();
+      drawerForLobule = false;
+      layout();
+    }
   }
   function ensure() { updateSize(); layout(); workspace.classList.remove('entering'); void workspace.offsetWidth; workspace.classList.add('entering'); }
   function toggle() {
@@ -490,11 +553,6 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       : frame.clock === 'disease' ? `${st.running ? 'Live' : 'Paused'} · Day ${frame.day}` : st.running ? 'Live' : 'Paused';
     if (live.textContent !== txt) live.textContent = txt;
     live.dataset.state = state === 'peek' ? 'summary' : st.running ? 'live' : 'paused';
-    // Each tab carries its instrument's reading (not in a case, where the numbers are to be found).
-    if (frame && isVisible()) for (const id of ORDER) {
-      const v = st.imaging ? '' : INFO[id][2](frame);
-      if (tabEls[id].val.textContent !== v) tabEls[id].val.textContent = v;
-    }
   }
   // The heartbeat (the model's pulsatile mode) runs while a waveform instrument is on screen.
   let beat = null;
@@ -513,7 +571,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   addEventListener('resize', () => { updateSize(); layout(); });
   setState('open'); updateSize(); layout();
   return {
-    update, show, toggle, close, ensure, openGrid, profile,
+    update, show, toggle, close, ensure, openGrid, profile, syncLobule,
     pane: (id) => id === 'landscape' ? landscape : id === 'varixwall' ? wall : byId[id],
     isOpen: (id) => isVisible() && open.includes(id === 'landscape' ? 'profile' : id === 'varixwall' ? 'endoscopy' : id),
     setState,
