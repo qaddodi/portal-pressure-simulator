@@ -2,11 +2,11 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, edgePresent, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=29d10ad9ef';
-import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders } from './anatomy.js?v=6728d01049';
+import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders } from './anatomy.js?v=6728d01049';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=f9424489c6';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=fe164f31f1';
-import { createLobuleZoom } from './lobule-zoom.js?v=d62520c125';
+import { createLobuleZoom } from './lobule-zoom.js?v=f448d9ab00';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=63596bcd73';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -2539,25 +2539,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return { runs, color: velocityColor(best) };
   }
 
-  function nodeItem(id, f, mode, compact) {
+  // One label for every station, in every view: a small frosted tag, one line, with a bar in the
+  // pressure's color at its left (name, value, and the change from healthy once it matters).
+  function nodeItem(id, f, compact) {
     const st = store.get();
     const meta = ATLAS_LABELS[id];
     const P = (f.Pf || f.P)[NI[id]];
-    const name = mode === 'atlas' ? (meta?.name || NODES[NI[id]].label) : (SHORT[id] || id);
-    // On a small screen an inline label is one quiet line (name, value) on a text halo, not a
-    // two-line card: it covers as little of the anatomy as it can.
-    const one = mode === 'inline';   // one line, no box, on every screen (as on a phone)
-    const lines = [[{ t: name, size: compact ? 10.5 : 11.5, weight: one ? 600 : 500, cls: 'lb-name' }]];
+    const name = compact ? (SHORT[id] || id) : (meta?.name || NODES[NI[id]].label);
+    const lines = [[{ t: name, size: compact ? 10.5 : 11.5, weight: 600, cls: 'lb-name' }]];
     const lr = isImaging() ? null : layerRuns(f, id, compact);
     const pr = lr ? lr.runs : pressureRuns(P, id, compact);
-    // (The unit is in the legend right above the figure.)
-    if (pr && one) lines[0].push(...pr.filter((r) => r.cls !== 'lb-unit').map((r, i) => (i ? r : { ...r, gap: 4 })));
-    else if (pr) lines.push(pr);
-    const w = Math.max(...lines.map(lineW)) + (mode === 'atlas' ? 7 : 0);
+    // (The unit is in the lens menu and the key; a tag carries the number and nothing else.)
+    if (pr) lines[0].push(...pr.filter((r) => r.cls !== 'lb-unit').map((r, i) => (i ? r : { ...r, gap: 5 })));
+    const w = Math.max(...lines.map(lineW)) + 7;
     const hh = lines.reduce((a, l) => a + LINE_H(l), 0);
     const sel = st.selection?.type === 'node' && st.selection.id === id;
-    return { key: 'n:' + id, node: id, cls: 'node ' + mode + (one ? ' bare' : ''), lines, w, h: hh, sel, label: `${NODES[NI[id]].label}${lr ? `: ${lr.runs.map((r) => r.t).join(' ')}` : pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}`,
-      swatch: mode === 'atlas' && pr ? (lr ? lr.color : layerMode() === 'heat' ? heatColor(P - (REF()?.[NI[id]] ?? P)) : pressureColor(P)) : null, bg: mode === 'inline' && !one, padX: mode === 'inline' && !one ? 6 : 3, padY: mode === 'inline' && !one ? 3 : 2 };
+    return { key: 'n:' + id, node: id, cls: 'node tag', lines, w, h: hh, sel, align: 'start', label: `${NODES[NI[id]].label}${lr ? `: ${lr.runs.map((r) => r.t).join(' ')}` : pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}`,
+      swatch: pr ? (lr ? lr.color : layerMode() === 'heat' ? heatColor(P - (REF()?.[NI[id]] ?? P)) : pressureColor(P)) : null, bg: true, padX: 7, padY: 3 };
   }
 
   const ANAT_PRI = { CONF: 10, VAR: 9, SIN_R: 9, RHV: 8, RA: 8, SV: 7, SMV: 7, GV: 7, IVCS: 6, W_R: 12, W_M: 12, W_L: 12 };
@@ -2695,63 +2693,30 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (st.selection?.type === 'node') show.add(st.selection.id);
       const cath = (f.viewParams || st.params).catheter;
       if (cath.vein && cath.wedged) show.add('W_' + cath.vein);
-      const [lx] = worldToLocal(ATLAS_COLUMNS[0], 500), [rx] = worldToLocal(ATLAS_COLUMNS[1], 500);
-      const colW = 150;
-      const atlas = lx - 8 > colW && W - rx - 8 > colW;
       const items = [];
       for (const id of show) {
         if (!NODE_POS[id]) continue;
         const { ax, ay, mid, w: vw } = labelAnchor(id, t);
         if (ax < -20 || ax > W + 20 || ay < -20 || ay > H + 20) continue;
-        const it = nodeItem(id, f, atlas ? 'atlas' : 'inline', compact);
+        const it = nodeItem(id, f, compact);
         it.ax = ax; it.ay = ay; it.vw = mid ? vw * CTM.sc : 0; it.pri = it.sel ? 100 : ANAT_PRI[id] || 5;
         it.side = ATLAS_LABELS[id]?.side || (NODE_POS[id][0][0] < 700 ? 'L' : 'R');
         items.push(it);
       }
-      if (atlas) {
-        for (const side of ['L', 'R']) {
-          const col = items.filter((it) => it.side === side).sort((a, b) => a.ay - b.ay);
-          const cx0 = side === 'L' ? lx - colW : rx, cx1 = side === 'L' ? lx : rx + colW;
-          let top = 10, bottom = H - 10;
-          for (const b of blockers) {
-            if (b.x1 < cx0 || b.x0 > cx1) continue;
-            if (b.y0 < H / 2) top = Math.max(top, b.y1 + 8); else bottom = Math.min(bottom, b.y0 - 8);
-          }
-          const gap = 8;
-          const need = col.reduce((sum, it) => sum + it.h + gap, 0);
-          if (bottom - top < need) { top = 10; bottom = Math.max(top + need, H - 10); }
-          for (let i = 0; i < col.length; i++) col[i].y = Math.max(col[i].ay - col[i].h / 2, i ? col[i - 1].y + col[i - 1].h + gap : top);
-          for (let i = col.length - 1; i >= 0; i--) col[i].y = Math.min(col[i].y, i < col.length - 1 ? col[i + 1].y - col[i].h - gap : bottom - col[i].h);
-          const elbow = side === 'L' ? lx + 12 : rx - 12;
-          for (const it of col) {
-            it.x = side === 'L' ? lx - 8 - it.w : rx + 8;
-            // A floating card over the column hides the labels it covers rather than sitting on them.
-            if (blockers.some((b) => hits(rectOf(it), b))) continue;
-            it.align = side === 'L' ? 'end' : 'start';
-            const ly = it.y + Math.min(it.h / 2, 16);
-            const x0 = side === 'L' ? lx - 4 : rx + 4;
-            leaders += `<path class="leader${it.sel ? ' hl' : ''}" d="M${x0.toFixed(1)} ${ly.toFixed(1)} L${elbow.toFixed(1)} ${ly.toFixed(1)} L${it.ax.toFixed(1)} ${it.ay.toFixed(1)}"/><circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
-            placed.push(rectOf(it));
-            out.push(it);
-          }
-        }
-      } else {
-        // Inline: dots on the anatomy, labels nearby with short leaders, most important first.
-        buildLines();
-        for (const it of items) placed.push({ x0: it.ax - 4, y0: it.ay - 4, x1: it.ax + 4, y1: it.ay + 4 });
-        for (const it of items.sort((a, b) => b.pri - a.pri)) {
-          it.align = 'start';
-          const dirs = it.side === 'L' ? ['NW', 'W', 'SW', 'N', 'S', 'NE', 'E', 'SE'] : ['NE', 'E', 'SE', 'N', 'S', 'NW', 'W', 'SW'];
-          if (place(it, dirs, 12 + it.vw / 2, true) || place(it, dirs, 30 + it.vw / 2, true)) continue;
-          if (it.sel) { place(it, ['C'], 0, false) || (out.push(Object.assign(it, { x: it.ax + 8, y: it.ay - it.h / 2 })), true); }
-        }
-        for (const it of out) {
-          if (!it.leader) continue;
-          const r = rectOf(it);
-          const px = clamp(it.ax, r.x0, r.x1), py = clamp(it.ay, r.y0, r.y1);
-          if (Math.hypot(px - it.ax, py - it.ay) > 5) leaders += `<path class="leader${it.sel ? ' hl' : ''}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}"/>`;
-          leaders += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
-        }
+      // Tags sit beside their station with a short leader (never more than a few dozen pixels), most important first.
+      buildLines();
+      for (const it of items) placed.push({ x0: it.ax - 4, y0: it.ay - 4, x1: it.ax + 4, y1: it.ay + 4 });
+      for (const it of items.sort((a, b) => b.pri - a.pri)) {
+        const dirs = it.side === 'L' ? ['W', 'NW', 'SW', 'N', 'S', 'NE', 'E', 'SE'] : ['E', 'NE', 'SE', 'N', 'S', 'NW', 'W', 'SW'];
+        if (place(it, dirs, [8 + it.vw / 2, 22 + it.vw / 2, 38 + it.vw / 2], true)) continue;
+        if (it.sel) { place(it, ['C'], 0, false) || (out.push(Object.assign(it, { x: it.ax + 8, y: it.ay - it.h / 2 })), true); }
+      }
+      for (const it of out) {
+        if (!it.leader) continue;
+        const r = rectOf(it);
+        const px = clamp(it.ax, r.x0, r.x1), py = clamp(it.ay, r.y0, r.y1);
+        if (Math.hypot(px - it.ax, py - it.ay) > 5) leaders += `<path class="leader${it.sel ? ' hl' : ''}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}"/>`;
+        leaders += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
       }
       // Organ names: fixed inside their organ, dropped where a label needs the room.
       if (st.layers.labels && t < 0.3) {
@@ -2797,8 +2762,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const [sx, sy] = worldToLocal(...nodePos(n.id, t));
         placed.push({ x0: sx - 5, y0: sy - 5, x1: sx + 5, y1: sy + 5 });
         if (mid) placed.push({ x0: ax - 4, y0: ay - 4, x1: ax + 4, y1: ay + 4 });
-        const it = nodeItem(n.id, f, 'station', compact);
-        it.align = 'middle'; it.ax = ax; it.ay = ay; it.mid = mid; it.tan = tan; it.vw = vw * CTM.sc; it.pri = it.sel ? 100 : CIRCUIT_LABELS[n.id].pri;
+        const it = nodeItem(n.id, f, compact);
+        it.ax = ax; it.ay = ay; it.mid = mid; it.tan = tan; it.vw = vw * CTM.sc; it.pri = it.sel ? 100 : CIRCUIT_LABELS[n.id].pri;
         nodes.push(it);
       }
       for (const it of nodes.sort((a, b) => b.pri - a.pri)) {

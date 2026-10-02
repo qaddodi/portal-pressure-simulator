@@ -5,7 +5,7 @@
 
 import { store, updateParams } from './store.js?v=f9424489c6';
 import { h, icon, svgIcon, fmt, clamp, tooltipFor } from './util.js?v=fe164f31f1';
-import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=455d2754a5';
+import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=94b2ea9eff';
 
 const LOCK_TIP = 'Not available in this step of the lesson or case';
 
@@ -234,7 +234,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     if (v.type === 'button') {
       const dis = locked(v);
       const lbl = h('span', { class: 'ac-bl' }, v.label);
-      const b = h('button', { class: 'ac-btn' + (v.danger ? ' danger' : ''), disabled: dis, title: dis ? LOCK_TIP : null }, v.icon ? svgIcon(v.icon, 'ac-ic') : null, lbl);
+      const b = h('button', { class: 'ac-btn' + (v.danger ? ' danger' : ''), disabled: dis, title: dis ? LOCK_TIP : v.title || null }, v.icon ? svgIcon(v.icon, 'ac-ic') : null, lbl);
       b.addEventListener('click', () => { v.run(); setTimeout(() => render({ keepFocus: true }), 30); });
       const wrap = h('div', { class: 'ac-btn-wrap' + (v.label.length > 15 ? ' wide' : '') }, b);   // a long name takes the whole row on a phone
       if (v.note || v.on || v.labelFor) {

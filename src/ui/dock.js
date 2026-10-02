@@ -85,7 +85,7 @@ export function readoutValue(t, m, hidden) {
   return meas ? meas.hvpg : null;
 }
 
-export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onCompare, onRun, onLobule, onOpen, onClose, isVisible, marks, onBeat }) {
+export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onLobule, onOpen, onClose, isVisible, marks, onBeat }) {
   // ── Readout strip ─────────────────────────────────
   const tileEls = {};
   const row = h('div', { class: 'ro-row' });
@@ -254,8 +254,6 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const isSide = () => sideMQ.matches;
 
   const live = h('span', { class: 'workspace-live', 'aria-live': 'off' });
-  const run = h('button', { class: 'workspace-run', title: 'Run or pause the simulation', onclick: () => onRun?.() }, svgIcon('play', 'mi-ic'), h('span', {}, 'Pause'));
-  const compareBtn = h('button', { class: 'btn sm workspace-compare', onclick: () => onCompare?.(), 'aria-pressed': 'false' }, svgIcon('compare', 'mi-ic'), h('span', {}, 'Compare'));
   const titleIc = h('span', { class: 'dt-ic' });
   const titleEl = h('h2', { class: 'dock-title' }, titleIc, h('span', { class: 'dt-l' }, 'Pressure'));
   const desc = h('p', { class: 'instr-desc' });
@@ -263,17 +261,16 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const second = tbtn('dock-second', 'compare', 'Two at once', () => toggleSecond());
   const expand = tbtn('workspace-expand', 'fit', 'Full screen', () => setState(state === 'focus' ? 'open' : 'focus'));
   const fold = h('button', { class: 'ib workspace-fold', 'aria-label': 'Minimise', title: 'Minimise', onclick: () => setState(state === 'peek' ? 'open' : 'peek') }, svgIcon('chev-down'));
-  const closeBtn = h('button', { class: 'ib workspace-close', 'aria-label': 'Close instruments', title: 'Close (I)', onclick: close }, svgIcon('close'));
   const divider = h('div', { class: 'workspace-divider', role: 'separator', tabindex: '0', 'aria-label': 'Instruments size' }, h('span'));
   workspace.prepend(divider);
-  head.append(h('div', { class: 'dock-row' }, titleEl, live, h('span', { class: 'sp' }), run, compareBtn, second, expand, fold, closeBtn), desc);
+  head.append(h('div', { class: 'dock-row' }, titleEl, live, h('span', { class: 'sp' }), second, expand, fold), desc);
   // The tabs: one per instrument, with its live reading.
   const tabEls = {};
   const tabs = h('div', { class: 'instr-tabs', role: 'tablist', 'aria-label': 'Instruments' }, ORDER.map((id) => {
     const val = h('small', { class: 'it-v' });
     const b = h('button', { class: 'instr-tab', role: 'tab', 'data-instrument': id, 'aria-selected': 'false', 'aria-controls': 'pane-' + id },
       svgIcon(INFO[id][0]), h('span', { class: 'it-t' }, h('b', {}, SHORT[id] || byId[id].label), val));
-    b.title = byId[id].label;
+    b.title = `${byId[id].label}: ${INFO[id][1]}`;
     b.addEventListener('click', () => pick(id));
     tabEls[id] = { b, val };
     return b;
@@ -480,10 +477,6 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   store.on('compareSnap', () => updateHeader());
   function updateHeader() {
     const st = store.get(), comparing = !!st.compareSnap;
-    compareBtn.setAttribute('aria-pressed', String(comparing));
-    compareBtn.querySelector('span').textContent = comparing ? 'Unpin' : 'Compare';
-    compareBtn.title = comparing ? 'Stop comparing with the pinned moment' : 'Pin this moment and compare before and after';
-    run.querySelector('span').textContent = st.running ? 'Pause' : 'Run';
     comparison.hidden = !comparing || state === 'peek' || st.imaging;
     if (comparing && frame) {
       const a = st.compareSnap.metrics, b = frame.metrics;
@@ -493,7 +486,6 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         !st.hiddenReadouts?.has('model') ? delta('Liver flow', b.liverPerfPct - a.liverPerfPct, 0, 'pp') : null,
         !st.hiddenReadouts?.has('model') ? delta('Shunting', (b.shuntFraction - a.shuntFraction) * 100, 0, 'pp') : null);
     }
-    run.setAttribute('aria-pressed', String(st.running));
     const txt = !frame ? '' : state === 'peek' && !st.imaging ? INFO[open[0]][2](frame)
       : frame.clock === 'disease' ? `${st.running ? 'Live' : 'Paused'} · Day ${frame.day}` : st.running ? 'Live' : 'Paused';
     if (live.textContent !== txt) live.textContent = txt;

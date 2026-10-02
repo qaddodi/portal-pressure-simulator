@@ -204,10 +204,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForTimeout(400);
     if (await page.evaluate(() => window.pps.stage.flowDir('PV_TRUNK').D) !== d0) throw new Error('paused blood kept moving');
     // The Blood menu (streaks, chevrons), the Blood origin lens, dye.
-    const fits = await page.$eval('#btnBlood', (el) => { const r = el.getBoundingClientRect(); return r.width >= 30 && r.left >= 0 && r.right <= innerWidth; });
-    if (!fits) throw new Error('Blood button is clipped');
-    await page.click('#btnBlood');
-    if ((await page.$$('.blood-pop .blood-opt')).length !== 2) throw new Error('the Blood menu should offer streaks and chevrons only');
+    const fits = await page.$eval('#btnLayers', (el) => { const r = el.getBoundingClientRect(); return r.width >= 30 && r.left >= 0 && r.right <= innerWidth; });
+    if (!fits) throw new Error('Display button is clipped');
+    await page.click('#btnLayers');
+    if ((await page.$$('.layers-pop .blood-opt')).length !== 2) throw new Error('the Display menu should offer streaks and chevrons for the blood');
     await page.keyboard.press('Escape');
     await page.evaluate(() => window.pps.store.set({ colorMode: 'origin', blood: { look: 'shimmer', chevrons: true } }));
     await page.waitForFunction(() => /Splenic vein|SV/.test(document.querySelector('#legend').textContent));
@@ -424,7 +424,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.click('.workspace-divider');
     await page.keyboard.press('ArrowUp');
     await page.click('.workspace-expand');
-    await page.click('.workspace-compare');
+    await page.click('.tl-pin');
     await page.waitForFunction(() => !!window.pps.store.get().compareSnap);
     await page.click('.workspace-expand');
     await page.waitForSelector('.workspace-comparison:not([hidden])');

@@ -123,12 +123,12 @@ const rngOf = (seed) => { let x = seed >>> 0; return () => { x = (x * 1664525 + 
 
 // Bedside monitor rows: color and scale like a real monitor.
 const MONITOR = [
-  { k: 'hr', lbl: 'HR', unit: '/min', col: '#3BE37A', v: (m) => m.hr, d: 0, lo: 40, hi: 160, bad: (m) => m.hr > 110 },
-  { k: 'map', lbl: 'MAP', unit: 'mmHg', col: '#FF5566', v: (m) => m.map, d: 0, lo: 30, hi: 120, bad: (m) => m.map < 65 },
-  { k: 'hb', lbl: 'Hb', unit: 'g/dL', col: '#F2F2F2', v: (m) => m.blood.hb, d: 1, lo: 4, hi: 16, bad: (m) => m.blood.hb < 7 },
-  { k: 'cvp', lbl: 'CVP', unit: 'mmHg', col: '#F7D154', v: (m) => m.ra, d: 0, lo: 0, hi: 25, bad: () => false, hideKey: 'ra' },
-  { k: 'loss', lbl: 'Blood loss', unit: 'mL', col: '#FF9A3C', v: (m) => m.blood.lost, d: 0, lo: 0, hi: 3000, bad: (m) => m.blood.shock >= 2 },
-  { k: 'iap', lbl: 'IAP', unit: 'mmHg', col: '#6FC8FF', v: (m) => m.ascites.iap, d: 0, lo: 0, hi: 25, bad: (m) => m.ascites.iap >= 12 },
+  { k: 'hr', lbl: 'HR', unit: '/min', col: '#17A06A', v: (m) => m.hr, d: 0, lo: 40, hi: 160, bad: (m) => m.hr > 110 },
+  { k: 'map', lbl: 'MAP', unit: 'mmHg', col: '#E0483B', v: (m) => m.map, d: 0, lo: 30, hi: 120, bad: (m) => m.map < 65 },
+  { k: 'hb', lbl: 'Hb', unit: 'g/dL', col: '#7B8394', v: (m) => m.blood.hb, d: 1, lo: 4, hi: 16, bad: (m) => m.blood.hb < 7 },
+  { k: 'cvp', lbl: 'CVP', unit: 'mmHg', col: '#C98A0E', v: (m) => m.ra, d: 0, lo: 0, hi: 25, bad: () => false, hideKey: 'ra' },
+  { k: 'loss', lbl: 'Blood loss', unit: 'mL', col: '#E07A1F', v: (m) => m.blood.lost, d: 0, lo: 0, hi: 3000, bad: (m) => m.blood.shock >= 2 },
+  { k: 'iap', lbl: 'IAP', unit: 'mmHg', col: '#3D8BDB', v: (m) => m.ascites.iap, d: 0, lo: 0, hi: 25, bad: (m) => m.ascites.iap >= 12 },
 ];
 
 export function createCases({ root, api }) {

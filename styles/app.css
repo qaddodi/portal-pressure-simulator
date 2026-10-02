@@ -182,9 +182,9 @@ svg { flex: none; }
 
 /* SVG label layer (screen space) */
 #labels text { font-family: var(--font-ui); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--label-halo); stroke-width: 3px; stroke-linejoin: round; }
-#labels .lb.inline text, #labels .lb.focus text { stroke: none; }
+#labels .lb.tag text, #labels .lb.focus text { stroke: none; }
 #labels .lb-bg { fill: var(--glass); stroke: var(--hairline); stroke-width: 1; }
-.lb.inline .lb-bg { filter: drop-shadow(0 1px 1.5px rgba(20, 22, 30, .1)); }
+.lb.tag .lb-bg { fill: var(--tag-bg); stroke: var(--tag-line); rx: 7px; filter: drop-shadow(0 1px 2px rgba(20, 22, 30, .12)); }
 .lb-name { fill: var(--text-2); }
 .lb-val { fill: var(--text); }
 .lb-unit { fill: var(--text-3); }
@@ -194,8 +194,7 @@ svg { flex: none; }
 .lb-zone { fill: var(--text-3); }
 .lb.node { pointer-events: auto; cursor: pointer; outline: none; }
 .lb.node:hover .lb-name, .lb.node.sel .lb-name { fill: var(--accent-ink); }
-.lb.node:focus-visible .lb-bg, .lb.node.sel.inline .lb-bg { stroke: var(--accent); stroke-width: 1.5; }
-.lb.node.atlas:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.lb.node:focus-visible .lb-bg, .lb.node.sel.tag .lb-bg { stroke: var(--accent); stroke-width: 1.5; }
 #labels .lb.focus .lb-bg { fill: var(--accent); stroke: none; }
 #labels .lb.selE .lb-bg { fill: var(--accent-soft); stroke: var(--accent-line); }
 #labels .lb.selE text { stroke: none; }
@@ -1709,7 +1708,6 @@ body.laser-on, body.laser-on * { cursor: none !important; }
    the congested vignette), so a healthy patient looks clean and a sick one visibly changes. */
 .org-cast, .band-cast, .org-rim, .band-sheen, .org-tex { display: none; }
 .org-form { opacity: .55; }
-#labels .lb.inline.bare text { stroke: var(--label-halo); stroke-width: 4px; }
 
 /* ── Home: a map of the disease ───────────────────────────────────────────────── */
 .hp-intro { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; margin: 0 0 20px; }
@@ -2119,13 +2117,10 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 }
 
 /* Moving blood: the Blood menu beside the lens, and the origin key in the figure. */
-#btnBlood.off svg:first-child { color: var(--text-3); }
-#btnBlood.off span { color: var(--text-3); text-decoration: line-through; text-decoration-thickness: 1px; }
 .blood-pop { width: min(340px, calc(100vw - 24px)); }
 .blood-pop .menu-item small { display: block; color: var(--text-2); font-size: var(--fs-12); line-height: 1.4; margin-top: 2px; font-weight: 400; }
 .blood-opt { align-items: flex-start; }
 .blood-opt input { margin-top: 3px; }
-@media (max-width: 600px) { #btnBlood > span, #btnBlood .chev { display: none; } }
 
 
 /* ── Floating layout ───────────────────────────────
@@ -2372,7 +2367,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   .tb-id .scenario-btn { max-width: 210px; }
   .lg-scale { width: 128px; }
 }
-@media (max-width: 1239px) { #btnBlood > span, #btnBlood .chev, .menu-btn .mb-k { display: none; } }
+@media (max-width: 1239px) { .menu-btn .mb-k { display: none; } }
 
 /* The compare switch floats under the top bar, centered. */
 .sb-center.float-ui { position: absolute; z-index: var(--z-hud); top: calc(var(--top-safe) + 6px); left: 50%; transform: translateX(-50%); display: flex; pointer-events: none; }

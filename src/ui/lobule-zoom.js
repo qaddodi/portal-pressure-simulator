@@ -22,7 +22,7 @@
 
 import { store, updateParams } from './store.js?v=f9424489c6';
 import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=913fe4fa3c';
-import { verbEnabled } from './actions.js?v=455d2754a5';
+import { verbEnabled } from './actions.js?v=94b2ea9eff';
 import { h, s, fmt, clamp, svgIcon } from './util.js?v=fe164f31f1';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
@@ -97,15 +97,18 @@ export function createLobuleZoom({ host }) {
   const labels = h('div', { class: 'lz-labels' });
 
   // ── Controls ──
-  let zonesOn = false, lymphOn = false;
+  let zonesOn = false, lymphOn = false, keyOn = false;
   const toggle = (label, title, get, set) => {
-    const b = h('button', { class: 'lz-tg', 'aria-pressed': 'false', title }, h('i', { 'aria-hidden': 'true' }), label);
+    const b = h('button', { class: 'lz-tg', 'aria-pressed': 'false', 'aria-label': label, title }, h('i', { 'aria-hidden': 'true' }), h('span', { class: 'lz-tl' }, label));
     b.addEventListener('click', () => { set(!get()); b.setAttribute('aria-pressed', String(get())); tissueKey = ''; layoutKey = ''; if (F) update(F); });
     return b;
   };
   const zonesBtn = toggle('Zones', 'Show the zones of the acinus (1 periportal, 3 centrilobular)', () => zonesOn, (v) => { zonesOn = v; });
   const lymphBtn = toggle('Lymph', 'Show hepatic lymph forming in the space of Disse', () => lymphOn, (v) => { lymphOn = v; });
   zonesBtn.classList.add('zones'); lymphBtn.classList.add('lymph');
+  // The key to the lobule's parts is one more icon: it opens a small list under the toggles and closes on a second tap.
+  const keyBtn = toggle('Key', 'What the parts of the lobule are', () => keyOn, (v) => { keyOn = v; key.hidden = !v; });
+  keyBtn.classList.add('keyb'); keyBtn.querySelector('i').append(svgIcon('info'));
 
   const ladder = h('div', { class: 'lz-ladder' });
   const verdict = h('p', { class: 'lz-verdict' });
@@ -122,19 +125,18 @@ export function createLobuleZoom({ host }) {
   cirIn.addEventListener('pointerdown', () => { cirFresh = true; });
   cirIn.addEventListener('keydown', () => { cirFresh = true; });
   cirIn.addEventListener('input', () => { const v = parseFloat(cirIn.value); paintCir(v); updateParams((pp) => { pp.cirrhosis = v; return pp; }, { history: cirFresh, label: 'Cirrhosis' }); cirFresh = false; });
-  const legend = h('div', { class: 'lz-legend', 'aria-hidden': 'true' });
+  const legend = h('div', { class: 'lz-legend' });
   const sub = h('div', { class: 'lz-sub' });
   // The card floats on the right (a sheet on a phone) and the lobule frames itself beside it. Its chevron
   // folds it to the header and the verdict; on a phone the header's Details opens the rest.
   const more = h('button', { class: 'lz-more', 'aria-expanded': 'true', title: 'Show or hide the details' }, h('span', { class: 'lz-more-l' }, 'Details'), svgIcon('chev-down', 'lz-chev'));
   const grab = h('span', { class: 'lz-grab', 'aria-hidden': 'true' });
-  const head = h('div', { class: 'lz-head' }, grab, h('div', {}, h('div', { class: 'lz-title' }, 'Hepatic lobule'), sub), more);
+  const head = h('div', { class: 'lz-head' }, grab, h('div', { class: 'lz-ttl' }, sub, h('div', { class: 'lz-title' }, 'Hepatic lobule')), more);
   const side = h('div', { class: 'lz-side open' }, head, ladder, verdict, cirBox, stats);
   const phoneMQ = matchMedia('(max-width: 720px)');
   const setOpen = (o) => { side.classList.toggle('open', o); more.setAttribute('aria-expanded', String(o)); if (!o) side.scrollTop = 0; requestAnimationFrame(refit); };
   more.addEventListener('click', () => setOpen(!side.classList.contains('open')));
-  // The key to the lobule's parts sits beside it, and steps back as you zoom in.
-  const key = h('div', { class: 'lz-key' }, legend);
+  const key = h('div', { class: 'lz-key', hidden: true }, legend);
   // Phone: the sheet follows a swipe on its header, up to open and down to fold; a tap on the header flips it.
   {
     let y0 = null, moved = false;
@@ -153,8 +155,8 @@ export function createLobuleZoom({ host }) {
   }
   const el = h('div', { class: 'lz', 'aria-hidden': 'true' },
     tissue, glCv, fx, leaders, labels,
-    h('div', { class: 'lz-top' }, h('div', { class: 'lz-tgs' }, zonesBtn, lymphBtn)),
-    key, side);
+    h('div', { class: 'lz-top' }, h('div', { class: 'lz-tgs' }, zonesBtn, lymphBtn, keyBtn), key),
+    side);
   host.append(el);
 
   // ── The view: the lobule framed in the space the floating pieces leave (top bar, dock, cards and
@@ -170,8 +172,6 @@ export function createLobuleZoom({ host }) {
     let t = cssN('--top-safe') + (top ? top.offsetHeight + 16 : 8), b = H - (cssN('--bot-occ') || 100) - 8, l = 12, r = W - cssN('--right-occ') - 12;
     // The card's layout box (offsetLeft/Top ignore the grow-in transform).
     if (!side.hidden && side.offsetWidth) { if (phone) b = Math.min(b, side.offsetTop - 10); else r = Math.min(r, side.offsetLeft - 16); }
-    // The key: above the lobule on a phone, under it (bottom left) on a wider screen.
-    if (key.offsetHeight) { if (phone) t += key.offsetHeight + 4; else b = Math.min(b, key.offsetTop - 8); }
     return { l, t, r: Math.max(l + 80, r), b: Math.max(t + 80, b) };
   }
   // The lobule and its labels' places, in world units.
@@ -232,13 +232,11 @@ export function createLobuleZoom({ host }) {
   // When the free space changes (a card opens, the readouts expand), a fitted lobule follows it.
   function refit() { if (!geo) return; const F0 = fitV(); kFit = F0.k; if (atFit) glideTo(F0); else { clampV(); viewChanged(); } }
   addEventListener('pps:occ', () => { if (fade > 0) { layoutKey = ''; refit(); } });
-  const viewChanged = () => { tissueKey = ''; layoutKey = ''; syncKey(); if (!raf && fade > 0) raf = requestAnimationFrame(loop); };
+  const viewChanged = () => { tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); };
   const toWorld = (p) => [(p[0] - V.x) / V.k, (p[1] - V.y) / V.k];
   const toScreen = (p) => [p[0] * V.k + V.x, p[1] * V.k + V.y];
   function resetView() { if (!geo) { V.k = 1; V.x = 0; V.y = 0; return; } atFit = true; const F0 = fitV(); kFit = F0.k; Object.assign(V, F0); viewChanged(); }
   function fitView() { atFit = true; const F0 = fitV(); kFit = F0.k; glideTo(F0); }
-  // The key fades out from 1.25× the framing and is gone by 1.7×.
-  function syncKey() { const z = V.k / (kFit || 1), o = clamp((1.7 - z) / 0.45, 0, 1); key.style.opacity = o.toFixed(2); key.style.visibility = o < 0.02 ? 'hidden' : ''; }
 
   // ── Gestures: wheel and pinch zoom, drag pans, a tap selects; out past 1× returns to the liver ──
   el.addEventListener('wheel', (ev) => {
@@ -491,7 +489,7 @@ export function createLobuleZoom({ host }) {
 
   function panel() {
     const m = model;
-    sub.textContent = 'Live from the model';
+    sub.textContent = 'Liver · microcirculation';
     // The pressure ladder: where along the lobule the pressure is lost, against the healthy ladder.
     const P = [m.P1, m.P2, m.P3, m.P4, m.P5], P0 = m.H, names = ['Portal venule', 'Sinusoids', 'Central vein', 'Hepatic vein', 'IVC'], short = ['PV', 'Sin', 'CV', 'HV', 'IVC'];
     const drops = [0, 1, 2, 3].map((i) => P[i] - P[i + 1]), drops0 = [0, 1, 2, 3].map((i) => (P0[i] ?? P[i]) - (P0[i + 1] ?? P[i + 1]));
@@ -535,7 +533,6 @@ export function createLobuleZoom({ host }) {
       h('dt', {}, 'Sinusoidal flow'), h('dd', {}, pct(m.flow)),
       h('dt', {}, 'Portal inflow'), h('dd', { class: m.portal < 0 ? 'rev' : '' }, m.portal < 0 ? 'Reversed' : pct(m.portal)),
       h('dt', {}, 'Arterial inflow'), h('dd', {}, pct(m.art)),
-      h('dt', {}, 'HVPG'), h('dd', {}, m.hide || m.hvpg == null ? '?' : `${fmt(m.hvpg, 1)} mmHg`),
       h('dt', {}, 'Hepatic lymph'), h('dd', {}, `${fmt(m.lymph, 1)} mL/min`));
     const items = [['lg-pv', 'Portal venule', { background: ink('pv') }], ['lg-ha', 'Hepatic arteriole'], ['lg-bd', 'Bile ductule'], ['lg-cv', 'Central vein', { background: ink('cv') }]];
     if (m.septU > 0 || m.fibPre > 0.05 || m.fibSin > 0.05 || m.fibPost > 0.05) items.push(['lg-col', 'Collagen']);
@@ -584,22 +581,25 @@ export function createLobuleZoom({ host }) {
     if (key === layoutKey) return;
     layoutKey = key;
     leaders.setAttribute('viewBox', `0 0 ${g.W} ${g.H}`);
-    const { R, cx, cy, phone } = g, C = g.lobules[0].corners;
-    const spots = phone
-      ? { triad: [C[5][0] + R * 0.5, C[5][1] - R * 0.05], cv: [cx - R * 0.55, cy + R * 1.08], sin: [cx + R * 0.55, cy + R * 1.08] }
-      : { triad: [C[5][0] + R * 0.12, C[5][1] - R * 0.24], cv: [cx - R * 1.32, cy + R * 0.12], sin: [cx + R * 1.3, cy - R * 0.2] };
+    const { R, cx, cy, phone } = g;
+    // A tag sits a short step from its station, away from the lobule's middle (the central vein's, over the tissue,
+    // up and to the left).
+    const away = (a) => { const dx = a[0] - toScreen([cx, cy])[0], dy = a[1] - toScreen([cx, cy])[1], n = Math.hypot(dx, dy) || 1; return [dx / n, dy / n]; };
     for (const [k, L] of Object.entries(labs)) {
-      const w = L.el.offsetWidth || 100, hh = L.el.offsetHeight || 40;
+      const w = L.el.offsetWidth || 100, hh = L.el.offsetHeight || 26;
       const a = toScreen(anchorOf(k)), off = a[0] < 0 || a[0] > g.W || a[1] < 0 || a[1] > g.H;
-      // Inside the free space, on the side away from its anchor (the color bar faces the vessel).
-      const fr = freeRect(), [px, py] = toScreen(spots[k]);
+      const fr = freeRect();
+      const d = k === 'cv' ? [-0.74, -0.67] : away(a), gap = phone ? 12 : 16;
+      const px = a[0] + d[0] * (w / 2 + gap), py = a[1] + d[1] * (hh / 2 + gap);
       const x = clamp(px, fr.l + w / 2, fr.r - w / 2), y = clamp(py, fr.t + hh / 2, fr.b - hh / 2);
       L.el.style.left = `${x - w / 2}px`; L.el.style.top = `${y - hh / 2}px`;
       L.el.classList.toggle('left', x < a[0]);
       // Hidden when its vessel is out of the free space, or the space is too small to hold it.
       L.el.hidden = off || fr.b - fr.t < hh + 8 || fr.r - fr.l < w + 8 || a[0] < fr.l - 4 || a[0] > fr.r + 4 || a[1] < fr.t - 30 || a[1] > fr.b + 4;
       L.line.style.display = L.dotEl.style.display = L.el.hidden ? 'none' : '';
-      L.line.setAttribute('x1', a[0]); L.line.setAttribute('y1', a[1]); L.line.setAttribute('x2', x); L.line.setAttribute('y2', y);
+      // The leader runs to the tag's nearest edge, not its middle.
+      const ex = clamp(a[0], x - w / 2, x + w / 2), ey = clamp(a[1], y - hh / 2, y + hh / 2);
+      L.line.setAttribute('x1', a[0]); L.line.setAttribute('y1', a[1]); L.line.setAttribute('x2', ex); L.line.setAttribute('y2', ey);
       L.dotEl.setAttribute('cx', a[0]); L.dotEl.setAttribute('cy', a[1]);
     }
     // Zone chips along the radius to the lower-left edge.

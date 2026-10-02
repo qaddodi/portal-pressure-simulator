@@ -1,0 +1,169 @@
+/* The design system layer. Loaded after app.css: one language for every surface that floats over the figure.
+   Type: Inter only (the serif stays in lesson prose). Shape: 16 px surfaces, 10 px controls, pills for chips.
+   One shadow for floating surfaces. A pressure always reads the same way (see "Pressure tag"). */
+
+:root {
+  --tag-bg: color-mix(in srgb, var(--glass) 90%, transparent);
+  --tag-line: var(--hairline);
+  --surface-r: 16px;
+  --ctl-r: 10px;
+  --float-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline);
+}
+
+/* ── Pressure tag ────────────────────────────────────
+   The anatomy, the circuit and the lobule label a station the same way: a small frosted tag, one line,
+   a bar in the pressure's color at its left, the name, the value, and the change from healthy once it
+   matters. A short leader joins it to its station. The unit lives in the lens menu, not on every tag. */
+.lz-lab {
+  display: flex; align-items: baseline; gap: 6px; padding: 3px 9px 3px 8px; border: 1px solid var(--tag-line); border-left: 3px solid var(--sw, var(--border-strong));
+  border-radius: 7px; background: var(--tag-bg); box-shadow: 0 1px 2px rgba(20, 22, 30, .12); text-align: left; line-height: 1.25; white-space: nowrap;
+}
+.lz-lab.left { text-align: left; border-left: 3px solid var(--sw, var(--border-strong)); border-right: 1px solid var(--tag-line); padding: 3px 9px 3px 8px; }
+.lz-lab .n, .lz-lab .v { text-shadow: none; }
+.lz-lab .n { font-size: 11.5px; font-weight: 600; color: var(--text-2); }
+.lz-lab .v { display: inline-flex; align-items: baseline; gap: 4px; font-size: 14px; }
+.lz-lab.left .v { justify-content: flex-start; }
+.lz-lab small { display: none; }
+.lz-lab .d { font-size: 10.5px; margin-left: 2px; }
+.lz-lab:hover, .lz-lab:focus-visible { border-color: var(--accent-line); border-left-color: var(--sw, var(--border-strong)); }
+.lz-lab .n-long { display: inline; } .lz-lab .n-short { display: none; }
+@media (max-width: 720px) {
+  .lz-lab { border: 1px solid var(--tag-line) !important; border-left: 3px solid var(--sw, var(--border-strong)) !important; padding: 2px 7px 2px 6px; }
+  .lz-lab .n-long { display: none; } .lz-lab .n-short { display: inline; }
+  .lz-lab .v { font-size: 12.5px; }
+}
+
+/* ── Display: one control for what the colors show ──────
+   The lens button names the lens and carries a sliver of its color scale (no numbers: the tags carry
+   those). The full key is in the menu's "How to read the figure". Categorical lenses show colored dots. */
+.lens-btn .lens-ic { width: 17px; height: 17px; flex: none; fill: none; stroke: var(--text-2); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.lens-btn .lens-name { display: inline; font: 600 var(--fs-13) var(--font-ui); color: var(--text); margin: 0 4px 0 2px; white-space: nowrap; }
+.lens-btn { gap: 6px; }
+.lens-btn .legend { gap: 0; padding: 0; }
+.lens-btn .lg-title, .lens-btn .lg-num, .lens-btn .lg-tick, .lens-btn .lg-note { display: none; }
+.lens-btn .lg-scale { width: 64px; height: 8px; }
+.lens-btn .lg-bar { top: 0; height: 8px; border-radius: 4px; }
+.lens-btn .lg-cats, .lens-btn .lg-dots { gap: 5px; font-size: 0; }
+.lens-btn .lg-cats span { gap: 0; }
+.lens-btn .lg-cats i { width: 14px; height: 6px; border-radius: 3px; }
+.lens-btn .lg-dots i { width: 9px; height: 9px; border-radius: 50%; }
+.lens-btn .lg-dots b { display: none; }
+@media (max-width: 1239px) { .lens-btn .lens-name { display: none; } }
+@media (max-width: 767px) { .lens-btn .lg-scale { width: 44px; } .lens-btn .lens-ic { width: 16px; height: 16px; } }
+.layers-pop .menu-item small { display: block; color: var(--text-2); font-size: var(--fs-12); line-height: 1.4; margin-top: 2px; font-weight: 400; }
+
+/* ── Lobule toggles are icons; the pressed one says its name; the key opens beneath them ── */
+.lz-top { flex-direction: column; align-items: center; gap: 8px; }
+.lz-tgs { gap: 2px; padding: 3px; border-radius: 12px; }
+.lz-tg { height: 34px; min-width: 34px; padding: 0 9px; border-radius: 9px; justify-content: center; gap: 7px; }
+.lz-tg .lz-tl { display: none; }
+.lz-tg[aria-pressed="true"] .lz-tl { display: inline; }
+.lz-tg.keyb i { width: 17px; height: 17px; border: 0; background: none; }
+.lz-tg.keyb i svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+.lz-tg i { width: 14px; height: 14px; }
+.lz-key { position: static; max-width: min(420px, calc(100vw - 32px)); padding: 10px 14px; border-radius: 12px; background: var(--glass); box-shadow: var(--float-shadow); pointer-events: auto; }
+.lz-key[hidden] { display: none; }
+.lz-key .lz-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: var(--fs-12); }
+
+/* ── The drawer: Patient · Treat · Measure ─────────────
+   One frame, one bar. Whichever tab is open sits in the same place with the same width, radius and shadow. */
+.panel, .treat-card, .instrument-workspace.side { border-radius: var(--surface-r); box-shadow: var(--float-shadow); }
+.panel, .treat-card { width: min(400px, calc(100vw - 2 * var(--gap))); }
+.dw-bar { display: flex; align-items: center; gap: 8px; padding: 8px 8px 6px 10px; flex: none; min-width: 0; }
+.dw-tabs { display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: var(--surface-2); flex: 1; min-width: 0; box-shadow: inset 0 0 0 1px var(--hairline); }
+.dw-tab { flex: 1; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 8px; border: 0; border-radius: 9px; background: transparent; color: var(--text-2); font: 600 var(--fs-13) var(--font-ui); cursor: pointer; white-space: nowrap; transition: background var(--t-fast), color var(--t-fast); }
+.dw-tab svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.dw-tab:hover { color: var(--text); }
+.dw-tab[aria-selected="true"] { background: var(--surface); color: var(--accent-ink); box-shadow: 0 1px 2px rgba(20, 22, 30, .12), inset 0 0 0 1px var(--hairline); }
+.dw-close { flex: none; }
+.dw-bar .tc-active { flex: none; padding: 0 2px; }
+.panel-head { height: auto; padding: 0; border-bottom: 0; }
+.panel-head .ph-title { display: none; }
+.tc-head { padding: 0; }
+.instrument-workspace .dock-head { padding: 0 !important; }
+.instrument-workspace .dock-head .dock-row { padding: 2px 12px 0 16px; }
+.instrument-workspace .dock-head .instr-desc { display: none; }
+.instrument-workspace .instr-tab .it-v { display: none; }
+.instrument-workspace .workspace-live { display: none; }
+.instrument-workspace[data-state="peek"] .workspace-live { display: inline; }
+.instrument-workspace .instr-tab { padding: 8px 9px; }
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+  .dw-bar { padding: 2px 8px 6px 10px; }
+  .dw-tab span { font-size: var(--fs-13); }
+}
+
+/* ── One tile for every order (drugs toggle, fluids and procedures act): same size, shape and type ── */
+.order-chips, .order-grid, .order-grid.three { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.order-chip, .order-btn, .order-grid.three .order-btn {
+  display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 100%; min-height: 38px; height: auto; padding: 6px 12px 6px 10px; border: 1px solid var(--border);
+  border-radius: var(--ctl-r); background: var(--surface); color: var(--text); font: 550 var(--fs-13) var(--font-ui); line-height: 1.25; text-align: left; white-space: normal;
+}
+.order-chip:hover:not(:disabled), .order-btn:hover:not(:disabled) { border-color: var(--border-strong); background: var(--surface-2); }
+.order-chip[aria-pressed="true"] { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent-ink); }
+.order-chip .oc-t, .ob-t { flex: 1; min-width: 0; font: inherit; }
+.order-btn .ac-ic { width: 16px; height: 16px; color: var(--text-2); }
+.order-chips > :last-child:nth-child(odd), .order-grid > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+.subhead, .tc-body .subhead { font-size: var(--fs-11); font-weight: 650; letter-spacing: .07em; text-transform: uppercase; color: var(--text-3); margin-bottom: 0; }
+
+/* ── Measure: the eight instruments are icons (the name is the title below, and a tooltip) ── */
+.instrument-workspace .instr-tabs { grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; padding: 6px 12px 10px; }
+.instrument-workspace .instr-tab { justify-content: center; padding: 0; height: 40px; border-radius: var(--ctl-r); }
+.instrument-workspace .instr-tab .it-t { display: none; }
+.instrument-workspace .instr-tab > svg { width: 20px; height: 20px; }
+@container ws (max-width: 380px) {
+  .instrument-workspace .instr-tabs { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); overflow: visible; }
+}
+
+/* ── Case: the bedside vitals use the same tiles and ink as everything else (a colored dot names each) ── */
+.monitor { background: var(--hairline); border: 0; border-radius: var(--ctl-r); box-shadow: inset 0 0 0 1px var(--hairline); }
+.mon { background: var(--surface-2); color: var(--text); padding: 8px 12px; }
+.mon .ml { color: var(--text-3); opacity: 1; justify-content: flex-start; align-items: center; gap: 6px; font-size: var(--fs-11); }
+.mon .ml::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--mc); flex: none; }
+.mon .ml i { margin-left: auto; opacity: 1; color: var(--text-3); }
+.mon .mv { font: 650 var(--fs-20)/1.15 var(--font-num); font-variant-numeric: tabular-nums; }
+.mon.bad .mv { color: var(--danger); animation: none; }
+.mon-status { background: var(--surface-2); color: var(--text-2); font-weight: 600; border-top: 1px solid var(--hairline); }
+.mon-status.bad { color: var(--danger); }
+.case-clock { background: none; padding: 0; gap: 8px; }
+.case-clock > .overline, .case-clock > b, .case-clock > span:not(.variant) { display: none; }
+.case-clock .variant { margin-left: 0; }
+
+/* ── The vessel card: small, calm, the same on every structure ──
+   Name and reading, then at most the sliders and three icon tiles, one line of explanation (tap for the rest),
+   Why? and Details. The shortcut numbers are not drawn; the keys still work. */
+.action-card { border-radius: var(--surface-r); box-shadow: var(--float-shadow); width: 296px; }
+.action-card:not(.docked) [data-key]::after { display: none; }
+.action-card:not(.docked) .ac-top { padding: 14px 16px 0; }
+.action-card:not(.docked) .ac-kicker { font-size: var(--fs-11); font-weight: 650; letter-spacing: .07em; text-transform: uppercase; }
+.action-card:not(.docked) .ac-head h3 { font-size: var(--fs-16); }
+.action-card:not(.docked) .ac-readout { margin: 6px 0 10px; }
+.action-card:not(.docked) .ac-value b { font-size: var(--fs-24); }
+.action-card:not(.docked) .ac-body { gap: 10px; padding: 12px 0 10px; }
+.action-card:not(.docked) .ac-about:not(.full) { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; line-height: 1.45; }
+.action-card:not(.docked) .ac-about:not(.full) p { display: inline; }
+.action-card:not(.docked) .ac-about:not(.full) p + p::before { content: ' '; }
+.ac-btns { display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 6px; }
+.ac-btns .ac-btn-wrap { min-width: 0; }
+.ac-btns .ac-btn { flex-direction: column; justify-content: center; align-items: center; gap: 3px; min-height: 52px; padding: 6px 4px; font-size: var(--fs-12); text-align: center; border-radius: var(--ctl-r); }
+.ac-btns .ac-btn .ac-ic { width: 18px; height: 18px; }
+.ac-btns .ac-bl { flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.action-card:not(.docked) .ac-foot { padding: 8px 16px 12px; }
+.action-card:not(.docked) .ac-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 12px; }
+.ac-slider .info-i { display: none; }
+.ac-slider:hover .info-i, .ac-slider:focus-within .info-i { display: inline-flex; }
+
+/* ── The lobule card is the same card: eyebrow, title in Inter, a chevron to fold, no HVPG (the dock has it) ── */
+.lz-side { border-radius: var(--surface-r); box-shadow: var(--float-shadow); }
+.lz-ttl { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.lz-sub { margin: 0; font-size: var(--fs-11); font-weight: 650; letter-spacing: .07em; text-transform: uppercase; color: var(--text-3); }
+.lz-title, .modal h2, .dbf-title { font: 650 var(--fs-16)/1.25 var(--font-ui); letter-spacing: -.01em; }
+.lz-more { width: 30px; padding: 0; justify-content: center; }
+.lz-more .lz-more-l { display: none !important; }
+.lz-ladder { margin: 0 -4px; }
+
+/* ── The play bar: play, the timeline, the time, then two icons (time menu, compare) ── */
+.tl-jumps { gap: 4px; }
+.tl-jumps .ib { width: 36px; height: 36px; border: 1px solid var(--border); border-radius: var(--ctl-r); background: var(--surface); color: var(--text-2); }
+.tl-jumps .ib:hover { border-color: var(--border-strong); background: var(--surface-2); color: var(--text); }
+.tl-jumps .ib svg { width: 18px; height: 18px; }
+.tl-jumps .tl-pin[aria-pressed="true"] { background: var(--text); color: var(--stage-bg); border-color: transparent; }
