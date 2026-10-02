@@ -585,7 +585,7 @@ export function createLobuleZoom({ host }) {
       const w = L.el.offsetWidth || 100, hh = L.el.offsetHeight || 26;
       const a = toScreen(anchorOf(k)), off = a[0] < 0 || a[0] > g.W || a[1] < 0 || a[1] > g.H;
       const fr = freeRect();
-      const d = k === 'cv' ? [-0.74, -0.67] : away(a), gap = phone ? 12 : 16;
+      const d = k === 'cv' ? [-0.74, -0.67] : away(a), gap = phone ? 10 : 14;
       const px = a[0] + d[0] * (w / 2 + gap), py = a[1] + d[1] * (hh / 2 + gap);
       const x = clamp(px, fr.l + w / 2, fr.r - w / 2), y = clamp(py, fr.t + hh / 2, fr.b - hh / 2);
       L.el.style.left = `${x - w / 2}px`; L.el.style.top = `${y - hh / 2}px`;
@@ -593,12 +593,14 @@ export function createLobuleZoom({ host }) {
       // Hidden when its vessel is out of the free space, or the space is too small to hold it.
       L.el.hidden = off || fr.b - fr.t < hh + 8 || fr.r - fr.l < w + 8 || a[0] < fr.l - 4 || a[0] > fr.r + 4 || a[1] < fr.t - 30 || a[1] > fr.b + 4;
       L.line.style.display = L.dotEl.style.display = L.el.hidden ? 'none' : '';
-      // The shelf is on the side of the text that faces the station; the leader lands on it.
-      const top = a[1] < y;
-      L.el.classList.toggle('shelf-top', top);
-      const ex = clamp(a[0], x - w / 2, x + w / 2), ey = top ? y - hh / 2 : y + hh / 2;
-      L.line.setAttribute('x1', a[0]); L.line.setAttribute('y1', a[1]); L.line.setAttribute('x2', ex); L.line.setAttribute('y2', ey);
-      L.dotEl.setAttribute('cx', a[0]); L.dotEl.setAttribute('cy', a[1]); L.dotEl.style.stroke = L.col || '';
+      // The leader ends a hair short of the label's nearest edge: level with its middle when it is beside the station.
+      const bx0 = x - w / 2, bx1 = x + w / 2, by0 = y - hh / 2, by1 = y + hh / 2;
+      const beside = a[0] < bx0 - 1 || a[0] > bx1 + 1;
+      const ex = beside ? (a[0] < bx0 ? bx0 - 2 : bx1 + 2) : clamp(a[0], bx0, bx1), ey = beside ? y : a[1] < y ? by0 - 1 : by1 + 1;
+      const len = Math.hypot(ex - a[0], ey - a[1]), ux = (ex - a[0]) / (len || 1), uy = (ey - a[1]) / (len || 1);
+      L.line.style.display = len > 9 && !L.el.hidden ? '' : 'none';
+      L.line.setAttribute('x1', a[0] + ux * 3.5); L.line.setAttribute('y1', a[1] + uy * 3.5); L.line.setAttribute('x2', ex); L.line.setAttribute('y2', ey);
+      L.dotEl.setAttribute('cx', a[0]); L.dotEl.setAttribute('cy', a[1]); L.dotEl.style.fill = L.col || '';
     }
     // Zone chips along the radius to the lower-left edge.
     labels.querySelectorAll('.lz-zone').forEach((z) => z.remove());

@@ -10,7 +10,7 @@ import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { NODE_POS, HIDDEN_EDGES, HIDDEN_NODES, CIRCUIT_ZONES, SHORT } from './anatomy.js?v=6728d01049';
 import { pressureColor, PRESSURE_TICKS } from './colormap.js?v=6d64a94345';
 import { createMeasureCard } from './measures.js?v=2f645fbf5c';
-import { theme, FONT } from './charts.js?v=e86c3a4d4f';
+import { theme, FONT } from './charts.js?v=765fa0d840';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 // The portal pathway, gut to heart, and what a fall across each step means.

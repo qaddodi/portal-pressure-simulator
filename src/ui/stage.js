@@ -6,7 +6,7 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, HIDDEN_EDG
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=f9424489c6';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=fe164f31f1';
-import { createLobuleZoom } from './lobule-zoom.js?v=2eb440dc61';
+import { createLobuleZoom } from './lobule-zoom.js?v=a3e8ff4f7c';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=63596bcd73';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -2415,7 +2415,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     b.seen = frameNo;
     // Text and pressure colors change far more often than label structure.
     // Retain the text nodes (and keyboard focus) across numeric updates.
-    const sig = JSON.stringify([it.lines.map((line) => line.map(({ t, ...style }) => style)), it.align, !!it.swatch, it.bg, it.cls, labelK, !!it.shelf, !!it.hit]);
+    const sig = JSON.stringify([it.lines.map((line) => line.map(({ t, ...style }) => style)), it.align, !!it.swatch, it.bg, it.cls, labelK, !!it.hit]);
     if (sig !== b.sig) {
       b.sig = sig;
       const kids = [];
@@ -2423,7 +2423,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       b.textLines = [];
       if (it.bg) kids.push(s('rect', { class: 'lb-bg', x: -it.padX, y: -it.padY, width: it.w + 2 * it.padX, height: it.h + 2 * it.padY, rx: 6 }));
       else if (it.hit) kids.push(s('rect', { class: 'lb-hit', x: -it.padX, y: -it.padY, width: it.w + 2 * it.padX, height: it.h + 2 * it.padY }));
-      if (it.shelf) kids.push(s('line', { class: 'lb-shelf', x1: 0, x2: it.w }));
       let y = 0;
       const tx = it.swatch ? (it.align === 'end' ? it.w - 7 : 7) : 0;
       for (const line of it.lines) {
@@ -2445,7 +2444,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       b.g.replaceChildren(...kids);
       b.sw = it.swatch ? b.g.querySelector('.lb-sw') : null;
       b.bg = b.g.querySelector('.lb-bg, .lb-hit');
-      b.shelfEl = b.g.querySelector('.lb-shelf');
     }
     let i = 0;
     for (const line of it.lines) for (const r of line) {
@@ -2454,7 +2452,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     for (const text of b.textLines) setA(text, 'x', it.align === 'end' ? it.w - (it.swatch ? 7 : 0) : it.align === 'middle' ? it.w / 2 : it.swatch ? 7 : 0);
     if (b.bg) { setA(b.bg, 'width', it.w + 2 * it.padX); setA(b.bg, 'height', it.h + 2 * it.padY); }
-    if (b.shelfEl) { b.shelfEl.style.display = it.shelfOn ? '' : 'none'; const y = it.shelfTop ? -1 : it.h + 1; setA(b.shelfEl, 'x2', it.w); setA(b.shelfEl, 'y1', y); setA(b.shelfEl, 'y2', y); }
     if (it.label) setA(b.g, 'aria-label', it.label);
     if (b.sw) { setA(b.sw, 'fill', it.swatch); setA(b.sw, 'x', it.align === 'end' ? it.w - 3 : 0); }
     b.g.classList.toggle('sel', !!it.sel);
@@ -2527,12 +2524,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function pressureRuns(P, id, compact) {
     if (!store.get().layers.chips || isImaging()) return null;
     const [v, u] = fp(P);
-    const runs = [{ t: v, size: compact ? 12.5 : 14, weight: 650, cls: 'lb-val' }, { t: u, size: compact ? 9.5 : 10, weight: 500, cls: 'lb-unit', gap: 2.5 }];
+    const runs = [{ t: v, size: compact ? 11.5 : 12.5, weight: 650, cls: 'lb-val' }, { t: u, size: compact ? 9.5 : 10, weight: 500, cls: 'lb-unit', gap: 2.5 }];
     // A change from healthy is shown only once it matters clinically (5 mmHg, the upper limit
     // of a normal HVPG); while comparing, every change from the pinned moment is shown. Deltas
     // are neutral ink: red is kept for crossed thresholds.
     const ref = REF()?.[NI[id]], cmp = !!store.get().compareSnap;
-    if (ref != null && badge((cmp ? 'pc:' : 'p:') + id, Math.abs(P - ref), cmp ? 1 : DELTA_MIN, cmp ? 0.7 : DELTA_MIN - 1)) runs.push({ t: `${P > ref ? '▲' : '▼'} ${fmt(Math.abs(P - ref), 0)}`, size: compact ? 9.5 : 10.5, weight: 650, cls: 'lb-delta ' + (P > ref ? 'up' : 'down'), gap: 6 });
+    if (ref != null && badge((cmp ? 'pc:' : 'p:') + id, Math.abs(P - ref), cmp ? 1 : DELTA_MIN, cmp ? 0.7 : DELTA_MIN - 1)) runs.push({ t: `${P > ref ? '▲' : '▼'} ${fmt(Math.abs(P - ref), 0)}`, size: compact ? 9 : 10, weight: 600, cls: 'lb-delta ' + (P > ref ? 'up' : 'down'), gap: 6 });
     return runs;
   }
 
@@ -2542,14 +2539,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const lm = layerMode();
     if (lm !== 'flow' && lm !== 'velocity') return null;
     if (!store.get().layers.chips) return null;
-    const big = { size: compact ? 12.5 : 14, weight: 650, cls: 'lb-val' }, unit = { size: compact ? 9.5 : 10, weight: 500, cls: 'lb-unit', gap: 2.5 };
+    const big = { size: compact ? 11.5 : 12.5, weight: 650, cls: 'lb-val' }, unit = { size: compact ? 9.5 : 10, weight: 500, cls: 'lb-unit', gap: 2.5 };
     if (lm === 'flow') {
       const v = throughput(f.Qf || f.Q, id);
       const runs = [{ ...big, t: fmtFlow(v) }, { ...unit, t: 'L/min' }];
       const refQ = store.get().healthy?.Q;
       if (refQ && !store.get().compareSnap) {
         const r = throughput(refQ, id);
-        if (r > 0.02 && badge('q:' + id, Math.abs(v - r) / r, 0.3, 0.25)) runs.push({ t: `${v > r ? '▲' : '▼'} ${Math.round(Math.abs(v - r) / r * 100)}%`, size: compact ? 9.5 : 10.5, weight: 650, cls: 'lb-delta ' + (v > r ? 'up' : 'down'), gap: 6 });
+        if (r > 0.02 && badge('q:' + id, Math.abs(v - r) / r, 0.3, 0.25)) runs.push({ t: `${v > r ? '▲' : '▼'} ${Math.round(Math.abs(v - r) / r * 100)}%`, size: compact ? 9 : 10, weight: 600, cls: 'lb-delta ' + (v > r ? 'up' : 'down'), gap: 6 });
       }
       return { runs, color: flowColor(v) };
     }
@@ -2570,35 +2567,39 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return { runs, color: velocityColor(best) };
   }
 
-  // One label for every station, in every view: a callout. The name, the value and (once it matters) the change
-  // from healthy sit on a thin shelf, joined to the station by a short leader that ends in a ring in the pressure's
-  // color. No box behind the text; a hair of outline in the paper's color keeps it legible over tissue and vessels.
+  // One label for every station, in every view, set the way a figure in a journal is: the name in a quiet ink, the value
+  // beside it a little larger and bolder, one line, no box. A thin leader joins it to a small dot in the pressure's color
+  // when the text cannot sit right against its station. Names and values share one size and weight everywhere.
   function nodeItem(id, f, compact) {
     const st = store.get();
     const meta = ATLAS_LABELS[id];
     const P = (f.Pf || f.P)[NI[id]];
     const name = compact ? (SHORT[id] || id) : (meta?.name || NODES[NI[id]].label);
-    const lines = [[{ t: name, size: compact ? 10.5 : 11.5, weight: 600, cls: 'lb-name' }]];
+    const lines = [[{ t: name, size: compact ? 10 : 11, weight: 500, cls: 'lb-name' }]];
     const lr = isImaging() ? null : layerRuns(f, id, compact);
     const pr = lr ? lr.runs : pressureRuns(P, id, compact);
-    // (The unit is in the lens menu and the key; a callout carries the number and nothing else.)
-    if (pr) lines[0].push(...pr.filter((r) => r.cls !== 'lb-unit').map((r, i) => (i ? r : { ...r, gap: 6 })));
+    // (The unit is in the lens menu and the key; a label carries the number and nothing else.)
+    if (pr) lines[0].push(...pr.filter((r) => r.cls !== 'lb-unit').map((r, i) => (i ? r : { ...r, gap: 5 })));
     const w = Math.max(...lines.map(lineW));
     const hh = lines.reduce((a, l) => a + LINE_H(l), 0);
     const sel = st.selection?.type === 'node' && st.selection.id === id;
-    return { key: 'n:' + id, node: id, cls: 'node tag', lines, w, h: hh, sel, align: 'start', shelf: true, hit: true, label: `${NODES[NI[id]].label}${lr ? `: ${lr.runs.map((r) => r.t).join(' ')}` : pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}`,
-      dot: pr ? (lr ? lr.color : layerMode() === 'heat' ? heatColor(P - (REF()?.[NI[id]] ?? P)) : pressureColor(P)) : null, padX: 3, padY: 3 };
+    return { key: 'n:' + id, node: id, cls: 'node tag', lines, w, h: hh, sel, align: 'start', hit: true, label: `${NODES[NI[id]].label}${lr ? `: ${lr.runs.map((r) => r.t).join(' ')}` : pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}`,
+      dot: pr ? (lr ? lr.color : layerMode() === 'heat' ? heatColor(P - (REF()?.[NI[id]] ?? P)) : pressureColor(P)) : null, padX: 3, padY: 2 };
   }
-  // The leader from a station to its callout: it lands on the end of the shelf nearest the station, and the shelf sits
-  // on the side of the text that faces the station, so the line never crosses the words.
+  // The leader from a station to its label: it ends a hair short of the text, level with its middle when the text is beside
+  // the station, and is not drawn at all when the text is that close. The station is a small dot in the pressure's color.
   function calloutSvg(it, dot = true) {
-    it.shelfTop = it.ay < it.y + it.h / 2;
-    const sy = it.shelfTop ? it.y - 1 : it.y + it.h + 1, ex = clamp(it.ax, it.x, it.x + it.w);
+    const cy = it.y + it.h / 2, side = it.ax < it.x - 1 ? 'r' : it.ax > it.x + it.w + 1 ? 'l' : it.ay < cy ? 't' : 'b';
+    const ex = side === 'r' ? it.x - 3 : side === 'l' ? it.x + it.w + 3 : clamp(it.ax, it.x, it.x + it.w);
+    const ey = side === 't' ? it.y - 2 : side === 'b' ? it.y + it.h + 2 : cy;
+    const len = Math.hypot(ex - it.ax, ey - it.ay);
     let out = '';
-    // A callout whose text sits right on its station needs neither a shelf nor a leader.
-    it.shelfOn = Math.hypot(ex - it.ax, sy - it.ay) > 9;
-    if (it.shelfOn) out += `<path class="leader${it.sel ? ' hl' : ''}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${ex.toFixed(1)} ${sy.toFixed(1)}"/>`;
-    if (dot) out += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="3"${it.dot ? ` style="stroke:${it.dot}"` : ''}/>`;
+    if (len > 9) {
+      // Start at the dot's edge, not its centre.
+      const ux = (ex - it.ax) / len, uy = (ey - it.ay) / len;
+      out += `<path class="leader${it.sel ? ' hl' : ''}" d="M${(it.ax + ux * 3.5).toFixed(1)} ${(it.ay + uy * 3.5).toFixed(1)} L${ex.toFixed(1)} ${ey.toFixed(1)}"/>`;
+    }
+    if (dot) out += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="3"${it.dot ? ` style="fill:${it.dot}"` : ''}/>`;
     return out;
   }
 
@@ -2751,8 +2752,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       buildLines();
       for (const it of items) placed.push({ x0: it.ax - 4, y0: it.ay - 4, x1: it.ax + 4, y1: it.ay + 4 });
       for (const it of items.sort((a, b) => b.pri - a.pri)) {
-        const dirs = it.side === 'L' ? ['W', 'NW', 'SW', 'N', 'S', 'NE', 'E', 'SE'] : ['E', 'NE', 'SE', 'N', 'S', 'NW', 'W', 'SW'];
-        if (place(it, dirs, [8 + it.vw / 2, 22 + it.vw / 2, 38 + it.vw / 2], true)) continue;
+        const dirs = it.side === 'L' ? ['W', 'NW', 'SW', 'E', 'NE', 'SE', 'N', 'S'] : ['E', 'NE', 'SE', 'W', 'NW', 'SW', 'N', 'S'];
+        if (place(it, dirs, [9 + it.vw / 2, 20 + it.vw / 2, 34 + it.vw / 2, 52 + it.vw / 2], true)) continue;
         if (it.sel) { place(it, ['C'], 0, false) || (out.push(Object.assign(it, { x: it.ax + 8, y: it.ay - it.h / 2 })), true); }
       }
       for (const it of out) if (it.node) leaders += calloutSvg(it);

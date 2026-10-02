@@ -310,7 +310,6 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     // Zooming out never leaves the lobule view.
     if (device === 'desktop') { for (let i = 0; i < 4; i++) await page.mouse.wheel(0, 600); await page.waitForTimeout(600); }
     if (!(await page.evaluate(() => window.pps.stage.lobuleOpen()))) throw new Error('zooming out left the lobule');
-    if (device === 'phone') await page.click('.lz-more');
     await page.click('.lz-tg.zones');
     await page.waitForFunction(() => document.querySelectorAll('.lz-zone').length === 3, null, { timeout: 5000 }).catch(() => { throw new Error('zones did not show'); });
     await page.click('.lz-tg.lymph');
@@ -429,9 +428,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.click('.workspace-expand');
     await page.click('.workspace-expand');
     await page.waitForSelector('.workspace-comparison:not([hidden])');
-    // One tap on a tab chooses an instrument; each tab carries its live reading.
-    if (await page.locator('.instr-tab').count() !== 8) throw new Error('the tabs must offer eight distinct instruments');
+    // The picker lists the instruments; one tap chooses one.
+    if (await page.locator('.instr-tab').count() !== 9) throw new Error('the picker must offer nine distinct instruments');
     const choose = async (id) => {
+      await page.click('.instr-pick');
       await page.click(`.instr-tab[data-instrument="${id}"]`);
       await page.waitForFunction((id) => document.querySelector(`.instr-tab[data-instrument="${id}"]`).getAttribute('aria-selected') === 'true', id);
       await page.waitForTimeout(250);
@@ -477,6 +477,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       // The patient chart starts closed, so the workspace has the full width for two instruments.
       if (await page.evaluate(() => document.querySelector('#app').classList.contains('panel-open'))) throw new Error('the patient chart should start closed');
       await page.click('.dock-second');
+      await page.click('.instr-pick');
       await page.click('.instr-tab[data-instrument="doppler"]');
       await page.waitForSelector('#dockBody.split');
       await shot(page, 'desktop-workspace-two-instruments');

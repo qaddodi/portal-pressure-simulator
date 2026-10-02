@@ -13,27 +13,21 @@
    the change from healthy on a thin shelf, a short leader to a ring in the pressure's color. No box behind the
    text; a hair of outline in the paper's color keeps it legible over tissue. The unit lives in the lens menu. */
 .lb-hit { fill: transparent; pointer-events: all; }
-.lb-shelf { stroke: var(--leader); stroke-width: 1; }
-.lb.node.sel .lb-shelf { stroke: var(--accent); }
-.lz-lab {
-  display: flex; align-items: baseline; gap: 6px; padding: 3px 2px; border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; line-height: 1.25; white-space: nowrap;
-  border-bottom: 1px solid var(--leader);
-}
-.lz-lab.shelf-top { border-bottom: 0; border-top: 1px solid var(--leader); }
-.lz-lab.left { text-align: left; border-left: 0; border-right: 0; padding: 3px 2px; }
-.lz-lab .n, .lz-lab .v { text-shadow: 0 0 3px var(--label-halo), 0 0 3px var(--label-halo), 0 0 5px var(--label-halo); }
-.lz-lab .n { font-size: 11.5px; font-weight: 600; color: var(--text-2); }
-.lz-lab .v { display: inline-flex; align-items: baseline; gap: 4px; font-size: 14px; }
+.lz-lab { display: flex; align-items: baseline; gap: 5px; padding: 2px 3px; border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; line-height: 1.25; white-space: nowrap; cursor: pointer; }
+.lz-lab .n, .lz-lab .v { text-shadow: 0 0 2px var(--label-halo), 0 0 2px var(--label-halo), 0 0 3px var(--label-halo); }
+.lz-lab .n { font-size: 11px; font-weight: 500; color: var(--text-3); }
+.lz-lab .v { display: inline-flex; align-items: baseline; gap: 4px; font-size: 12.5px; }
+.lz-lab .v b { font-weight: 650; color: var(--text); }
 .lz-lab small { display: none; }
-.lz-lab .d { font-size: 10.5px; margin-left: 2px; }
-.lz-lab:hover, .lz-lab:focus-visible { border-color: var(--accent); outline: none; }
+.lz-lab .d { font-size: 10px; font-weight: 600; color: var(--text-2); margin-left: 1px; }
+.lz-lab:hover .n, .lz-lab:focus-visible .n { color: var(--accent-ink); }
+.lz-lab:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
 .lz-lab .n-long { display: inline; } .lz-lab .n-short { display: none; }
-.lz-leaders .leader-dot { fill: var(--stage-bg); stroke: var(--text-2); stroke-width: 1.4; }
+.lz-leaders .leader { stroke: var(--leader); stroke-width: .8; }
+.lz-leaders .leader-dot { stroke: var(--stage-bg); stroke-width: 1.4; }
 @media (max-width: 720px) {
-  .lz-lab { border: 0 !important; border-bottom: 1px solid var(--leader) !important; padding: 2px 2px; }
-  .lz-lab.shelf-top { border-bottom: 0 !important; border-top: 1px solid var(--leader) !important; }
   .lz-lab .n-long { display: none; } .lz-lab .n-short { display: inline; }
-  .lz-lab .v { font-size: 12.5px; }
+  .lz-lab .v { font-size: 12px; }
 }
 
 /* ── Display: one control for what the colors show ──────
@@ -69,7 +63,7 @@
 /* ── The drawer: Patient · Treat · Measure ─────────────
    One frame, one bar. Whichever tab is open sits in the same place with the same width, radius and shadow. */
 .panel, .treat-card, .instrument-workspace.side { border-radius: var(--surface-r); box-shadow: var(--float-shadow); }
-.panel, .treat-card { width: min(400px, calc(100vw - 2 * var(--gap))); }
+.panel, .treat-card { width: min(348px, calc(100vw - 2 * var(--gap))); }
 .dw-bar { display: flex; align-items: center; gap: 8px; padding: 8px 8px 6px 10px; flex: none; min-width: 0; }
 .dw-tabs { display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: var(--surface-2); flex: 1; min-width: 0; box-shadow: inset 0 0 0 1px var(--hairline); }
 .dw-tab { flex: 1; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 8px; border: 0; border-radius: 9px; background: transparent; color: var(--text-2); font: 600 var(--fs-13) var(--font-ui); cursor: pointer; white-space: nowrap; transition: background var(--t-fast), color var(--t-fast); }
@@ -77,7 +71,8 @@
 .dw-tab:hover { color: var(--text); }
 .dw-tab[aria-selected="true"] { background: var(--surface); color: var(--accent-ink); box-shadow: 0 1px 2px rgba(20, 22, 30, .12), inset 0 0 0 1px var(--hairline); }
 .dw-close { flex: none; }
-.dw-bar .tc-active { flex: none; padding: 0 2px; }
+.dw-tab .tc-active { min-width: 17px; height: 17px; padding: 0 5px; border-radius: 9px; background: var(--accent); color: var(--on-accent); font: 700 10.5px/17px var(--font-ui); text-align: center; }
+.dw-tab .tc-active:empty { display: none; }
 .panel-head { height: auto; padding: 0; border-bottom: 0; }
 .panel-head .ph-title { display: none; }
 .tc-head { padding: 0; }
@@ -195,13 +190,13 @@
    its icon, its name and what it shows). Every pane then starts with the same reading as the Doppler's:
    a status dot and word, the big number, a few supporting numbers and one line of meaning. */
 .instrument-workspace .dock-head .dock-row { padding: 2px 12px 8px 16px; gap: 8px; }
-.instr-pick { display: inline-flex; align-items: center; gap: 10px; height: 40px; padding: 0 10px 0 12px; border: 1px solid var(--border); border-radius: var(--ctl-r); background: var(--surface-2); color: var(--text); font: 650 var(--fs-15, 15px) var(--font-ui); cursor: pointer; flex: 0 1 auto; min-width: 0; }
+.instr-pick { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 8px 0 10px; border: 1px solid var(--border); border-radius: var(--ctl-r); background: var(--surface-2); color: var(--text); font: 650 var(--fs-15, 15px) var(--font-ui); cursor: pointer; flex: 0 1 auto; min-width: 0; }
 .instr-pick:hover, .instr-pick[aria-expanded="true"] { border-color: var(--border-strong); background: var(--surface); }
 .instr-pick .dt-ic { display: inline-grid; place-items: center; }
 .instr-pick .ip-chev { width: 15px; height: 15px; fill: none; stroke: var(--text-3); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; margin-left: 2px; transition: transform .15s var(--ease); }
 .instr-pick[aria-expanded="true"] .ip-chev { transform: rotate(180deg); }
 .instrument-workspace .instr-tabs, .instrument-workspace .instr-tabs[hidden] { display: none; }
-.instrument-workspace .instr-tabs.open { display: block; position: absolute; z-index: 30; top: 104px; left: 12px; right: 12px; max-height: calc(100% - 120px); overflow-y: auto; padding: 6px; border-radius: 14px; background: var(--surface); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--border); }
+.instrument-workspace .instr-tabs.open { display: block; position: absolute; z-index: 30; top: 98px; left: 12px; right: 12px; max-height: calc(100% - 120px); overflow-y: auto; padding: 6px; border-radius: 14px; background: var(--surface); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--border); }
 .instr-grp { padding: 10px 10px 4px; font-size: var(--fs-11); font-weight: 650; letter-spacing: .07em; text-transform: uppercase; color: var(--text-3); }
 .instr-grp:first-child { padding-top: 4px; }
 .instrument-workspace .instr-tab { display: flex; align-items: center; gap: 12px; width: 100%; height: auto; padding: 8px 10px; border: 0; border-radius: var(--ctl-r); background: transparent; text-align: left; }
@@ -213,20 +208,21 @@
 .instrument-workspace .instr-tab .it-v { display: block; white-space: normal; font-size: var(--fs-12); line-height: 1.35; color: var(--text-3); min-height: 0; }
 .instrument-workspace .instr-tab[aria-selected="true"] .it-v { color: color-mix(in srgb, var(--accent-ink) 70%, var(--text-3)); }
 
-.rd { display: grid; gap: 12px; margin: -12px -16px 14px; padding: 16px 16px 14px; border-bottom: 1px solid var(--hairline); background: linear-gradient(var(--surface-2), var(--surface)); }
-.rd-main { display: flex; gap: 10px; align-items: flex-start; }
-.rd-dot { width: 10px; height: 10px; margin-top: 8px; border-radius: 50%; background: var(--text-3); flex: none; }
+.rd { display: grid; gap: 10px; margin: -12px -16px 12px; padding: 14px 16px 12px; border-bottom: 1px solid var(--hairline); background: linear-gradient(var(--surface-2), var(--surface)); }
+.rd-main { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
+.rd-l { min-width: 0; }
+.rd-word-row { display: flex; align-items: center; gap: 8px; }
+.rd-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); flex: none; }
 .rd[data-sev="ok"] .rd-dot { background: var(--ok); } .rd[data-sev="caution"] .rd-dot { background: var(--caution); }
 .rd[data-sev="danger"] .rd-dot { background: var(--danger); } .rd[data-sev="critical"] .rd-dot { background: var(--critical); }
-.rd-word { font: 650 var(--fs-20)/1.25 var(--font-ui); letter-spacing: -.01em; }
-.rd-big { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; margin-top: 2px; }
-.rd-num { font: 650 30px/1.1 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
-.rd-unit { font-size: var(--fs-13); color: var(--text-2); }
-.rd-what { font-size: var(--fs-12); color: var(--text-3); }
-.rd-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px 16px; padding-top: 12px; border-top: 1px solid var(--hairline); }
-.rd-stat small { display: block; font-size: var(--fs-11); color: var(--text-3); margin-bottom: 1px; }
-.rd-stat b { font: 650 var(--fs-14) var(--font-num); font-variant-numeric: tabular-nums; }
-.rd-meaning { margin: 0; font-size: var(--fs-12); line-height: 1.5; color: var(--text-3); }
+.rd-word { font: 650 var(--fs-15, 15px)/1.2 var(--font-ui); letter-spacing: -.01em; }
+.rd-what { display: block; margin: 2px 0 0 16px; font-size: var(--fs-11); color: var(--text-3); }
+.rd-r { display: flex; align-items: baseline; gap: 4px; white-space: nowrap; flex: none; }
+.rd-num { font: 650 24px/1 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.rd-unit { font-size: var(--fs-12); color: var(--text-3); }
+.rd-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 12px; padding-top: 10px; border-top: 1px solid var(--hairline); }
+.rd-stat small { display: block; font-size: var(--fs-11); color: var(--text-3); margin-bottom: 1px; white-space: nowrap; }
+.rd-stat b { font: 600 var(--fs-13) var(--font-num); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* The Lobule instrument: its content is built by the lobule view */
 .lz-panel { display: grid; gap: 16px; }
@@ -236,3 +232,18 @@
 .instrument-workspace .instr-tab { position: relative; cursor: pointer; font: inherit; color: var(--text); }
 .instrument-workspace .instr-tab > svg { fill: none; stroke: var(--text-2); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .instrument-workspace .instr-tab[aria-selected="true"] > svg { stroke: var(--accent); }
+
+/* ── Instrument panes in a narrow drawer: one column, quiet controls, no dead space ── */
+.dop-head { flex-wrap: wrap; gap: 8px; }
+.dop-vessel { flex: 1 1 100%; max-width: none; height: 32px; }
+.dop-btns { flex: 1 1 100%; }
+.dop-tint { height: 28px; flex: 1; justify-content: center; }
+.hv-head { gap: 8px; }
+.hv-veins { flex: 1 1 100%; display: flex; }
+.hv-veins button { flex: 1; min-height: 30px; padding-inline: 6px; }
+.hv-actions { flex: 1 1 100%; }
+.hv-actions .btn { flex: 1; }
+.instrument-workspace .instrument-view.hv .hv-box { height: 140px; min-height: 0; flex: none; }
+.flow-pane .side-title, .bars .side-title, .bars .sub { display: none; }
+.dock-pane .chart-side .side-title { font-size: var(--fs-13); }
+.hv-actions .btn[disabled] { background: var(--surface-2); color: var(--text-3); border-color: var(--border); opacity: 1; }

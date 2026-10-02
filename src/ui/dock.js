@@ -3,11 +3,11 @@
 
 import { store } from './store.js?v=f9424489c6';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=fe164f31f1';
-import { createProfile, createSankey, createPerfusion } from './charts.js?v=e86c3a4d4f';
-import { createPressureTime } from './pressure-time.js?v=fd13f7846b';
-import { createDoppler } from './doppler.js?v=7fd5e50831';
-import { createHVPG, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=eabac6e4f2';
-import { createLandscape } from './landscape.js?v=13d7c7a7b0';
+import { createProfile, createSankey, createPerfusion } from './charts.js?v=765fa0d840';
+import { createPressureTime } from './pressure-time.js?v=026f84373d';
+import { createDoppler } from './doppler.js?v=2e3115530c';
+import { createHVPG, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=32b9404869';
+import { createLandscape } from './landscape.js?v=2842ccd7de';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -249,24 +249,25 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const ORDER = ['profile', 'scope', 'flow', 'perfusion', 'hvpg', 'lobule', 'doppler', 'endoscopy', 'abdomen'];
   // The picker's groups: where each instrument looks.
   const GROUPS_OF = [['Hemodynamics', ['profile', 'scope', 'flow', 'perfusion', 'hvpg']], ['Microanatomy', ['lobule']], ['Bedside', ['doppler', 'endoscopy', 'abdomen']]];
-  // Every instrument opens with the same reading, as the Doppler's does: a status dot and word, the big number, a few
-  // supporting numbers, and a line on what the instrument tells you. Each is drawn from a readout of the strip, so the
+  // The pressure profile and the flow chart open with a reading, as the Doppler's does: a status dot and word, the big number, a few
+  // supporting numbers. Each is drawn from a readout of the strip, so the
   // number, the word and the color are the ones the vitals dock shows.
-  const READ = {
-    profile: ['pv', ['hvpg', 'ppg', 'pvflow']], scope: ['hvpg', ['pv', 'ppg', 'pvflow']], flow: ['shunt', ['pvflow', 'liver']],
-    perfusion: ['liver', ['pvflow', 'shunt']], hvpg: ['hvpg', ['ppg', 'pv']], endoscopy: ['varix', ['pv', 'ppg']], abdomen: ['ascites', ['pv', 'spleen']],
-  };
-  const WHAT = { pv: 'portal vein pressure', hvpg: 'HVPG, wedged minus free', shunt: 'of gut blood bypasses the liver', liver: 'of normal liver flow', varix: 'of the rupture tension', ascites: 'free fluid in the abdomen' };
+  // (The others open with a report of their own: the Doppler's verdict, the over-time gradient, the HVPG steps, the perfusion donut,
+  // the endoscope's grade, the ascites volume. Giving them a second one would say everything twice.)
+  const READ = { profile: ['pv', ['hvpg', 'ppg', 'pvflow']], flow: ['shunt', ['pvflow', 'liver']] };
+  const WHAT = { pv: 'Portal vein pressure', hvpg: 'HVPG, wedged minus free', shunt: 'Gut blood bypassing the liver', liver: 'Liver blood flow, of normal', varix: 'Varix wall tension, of rupture', ascites: 'Free fluid in the abdomen' };
+  const SUPLABEL = { hvpg: 'HVPG', ppg: 'PPG', pv: 'Portal pressure', pvflow: 'Portal flow', liver: 'Liver flow', shunt: 'Shunted', spleen: 'Spleen' };
   const tileOf = Object.fromEntries(TILES.map((t) => [t.id, t]));
   const readingEls = {};
   for (const [id, [hero, sup]] of Object.entries(READ)) {
     const t = tileOf[hero];
-    const word = h('div', { class: 'rd-word' }), num = h('b', { class: 'rd-num' }), unit = h('span', { class: 'rd-unit' }), what = h('small', { class: 'rd-what' }, WHAT[hero]);
-    const stats = sup.map((sid) => { const st = tileOf[sid], v = h('b', {}); return { st, v, el: h('div', { class: 'rd-stat' }, h('small', {}, st.k === 'Portal vein' && st.id === 'pvflow' ? 'Portal flow' : st.k === 'Portal vein' ? 'Portal pressure' : st.k), v) }; });
+    const word = h('div', { class: 'rd-word' }), num = h('b', { class: 'rd-num' }), unit = h('span', { class: 'rd-unit' });
+    const stats = sup.map((sid) => { const st = tileOf[sid], v = h('b', {}); return { st, v, el: h('div', { class: 'rd-stat' }, h('small', {}, SUPLABEL[sid] || st.k), v) }; });
     const el = h('div', { class: 'rd', 'data-for': id },
-      h('div', { class: 'rd-main' }, h('span', { class: 'rd-dot', 'aria-hidden': 'true' }), h('div', {}, word, h('div', { class: 'rd-big' }, num, unit, what))),
-      h('div', { class: 'rd-stats' }, stats.map((x) => x.el)),
-      h('p', { class: 'rd-meaning' }, INFO[id][1]));
+      h('div', { class: 'rd-main' },
+        h('div', { class: 'rd-l' }, h('div', { class: 'rd-word-row' }, h('span', { class: 'rd-dot', 'aria-hidden': 'true' }), word), h('small', { class: 'rd-what' }, WHAT[hero])),
+        h('div', { class: 'rd-r' }, num, unit)),
+      h('div', { class: 'rd-stats' }, stats.map((x) => x.el)));
     readingEls[id] = { el, t, word, num, unit, stats };
     byId[id].el.prepend(el);
   }
@@ -285,9 +286,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const saved = (() => { try { return JSON.parse(localStorage.getItem('pps.instruments') || 'null') || {}; } catch { return {}; } })();
   let open = Array.isArray(saved.open) && saved.open.every((id) => byId[id]) && saved.open.length ? saved.open.slice(0, 2) : ['profile'];
   let frame = null, state = 'open', resizeFrame = 0, picking = false;
-  let heightRatio = typeof saved.h === 'number' ? saved.h : null, widthPx = typeof saved.w === 'number' ? saved.w : null;
+  let heightRatio = typeof saved.h === 'number' ? saved.h : null, widthPx = typeof saved.w === 'number' && saved.v === 3 ? saved.w : null;
   if (saved.view === 'landscape') pressureView = 'landscape';
-  const remember = () => { try { localStorage.setItem('pps.instruments', JSON.stringify({ open, h: heightRatio, w: widthPx, view: pressureView })); } catch { /* storage unavailable */ } };
+  const remember = () => { try { localStorage.setItem('pps.instruments', JSON.stringify({ open, h: heightRatio, w: widthPx, view: pressureView, v: 3 })); } catch { /* storage unavailable */ } };
   const sideMQ = matchMedia('(min-width: 700px) and (orientation: landscape)');
   const isSide = () => sideMQ.matches;
 
@@ -361,7 +362,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     workspace.dataset.safe = side ? 'right' : 'bottom';
     divider.setAttribute('aria-orientation', side ? 'vertical' : 'horizontal');
     if (side) {
-      const W = stageWrap.clientWidth, w = clamp(widthPx ?? Math.max(440, W * 0.38), 360, Math.max(360, W * 0.62));
+      const W = stageWrap.clientWidth, w = clamp(widthPx ?? 348, 320, Math.max(320, W * 0.5));
       workspace.style.setProperty('--instrument-w', `${Math.round(w)}px`);
       divider.setAttribute('aria-valuenow', String(Math.round((w / W) * 100)));
     } else {
@@ -400,8 +401,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     for (const p of panes) p.el.classList.toggle('active', open.includes(p.id));
     body.classList.toggle('split', open.length > 1);
     body.classList.toggle('stack', open.length > 1 && isSide() && state !== 'focus');
-    const first = byId[open[0]];
-    titleEl.querySelector('.dt-l').textContent = open.length > 1 ? `${first.label} + ${byId[open[1]].label}` : first?.label || 'Instruments';
+    titleEl.querySelector('.dt-l').textContent = open.length > 1 ? `${SHORT[open[0]]} + ${SHORT[open[1]]}` : SHORT[open[0]] || 'Instruments';
     titleIc.replaceChildren(svgIcon(INFO[open[0]][0]));
     desc.textContent = open.length > 1 ? 'Two instruments at once. Tap either tab to show it alone.' : INFO[open[0]][1];
     for (const id of ORDER) {

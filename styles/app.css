@@ -183,9 +183,9 @@ svg { flex: none; }
 /* SVG label layer (screen space) */
 #labels text { font-family: var(--font-ui); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--label-halo); stroke-width: 3px; stroke-linejoin: round; }
 #labels .lb.focus text { stroke: none; }
-#labels .lb.tag text { stroke-width: 3.5px; }
+#labels .lb.tag text { stroke-width: 2.4px; stroke-opacity: .8; }
 #labels .lb-bg { fill: var(--glass); stroke: var(--hairline); stroke-width: 1; }
-.lb-name { fill: var(--text-2); }
+.lb-name { fill: var(--text-3); }
 .lb-val { fill: var(--text); }
 .lb-unit { fill: var(--text-3); }
 .lb-delta { fill: var(--text-2); }
@@ -201,10 +201,10 @@ svg { flex: none; }
 .lb-selname { fill: var(--accent-ink); }
 .lb.focus text { fill: var(--on-accent); }
 .lb-sw { stroke: rgba(0, 0, 0, .08); stroke-width: .5; }
-.leader { fill: none; stroke: var(--leader); stroke-width: 1; }
+.leader { fill: none; stroke: var(--leader); stroke-width: .8; }
 .leader.hl { stroke: var(--accent); stroke-width: 1.4; }
 .leader.focus { stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 3 3; }
-.leader-dot { fill: var(--stage-bg); stroke: var(--text-2); stroke-width: 1.3; }
+.leader-dot { fill: var(--text-2); stroke: var(--stage-bg); stroke-width: 1.4; }
 .chips-off .lb-val { display: none; }
 .lb.module { pointer-events: auto; cursor: pointer; outline: none; }
 /* The liver card is frosted glass: a translucent pane that blurs the vessels under it (an HTML element, since
