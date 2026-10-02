@@ -11,7 +11,7 @@ import { createTimeline } from './timeline.js?v=7bf66ab2fb';
 import { createLearn } from './learn.js?v=a48578b939';
 import { createCases } from './cases.js?v=02646abf69';
 import { createCompare } from './compare.js?v=730844b101';
-import { createCard } from './card.js?v=ff81853324';
+import { createCard } from './card.js?v=b4e4866d47';
 import { createChart, computeFindings } from './chart.js?v=4a51ff6198';
 import { createHome } from './home.js?v=5538efbe12';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
@@ -135,7 +135,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=2c2abe207d'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=bb270a7c6c'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -155,7 +155,7 @@ async function main() {
     loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); toast(store.get().presetList.find((p) => p.id === id)?.label); },
     lesson: (id) => startLesson(id), caseStart: (id) => startCase(id), home: () => home.open(), theme: () => toggleTheme(), help: () => openHelp(), share, restart: () => restartPatient(), reset: () => resetEverything(),
   } }));
-  figureL = lazy(() => import('./figure.js?v=7e1f85287a'), ({ createFigure }) => createFigure({ app, stage, onClose: () => toggleFigure(false) }));
+  figureL = lazy(() => import('./figure.js?v=29443541e4'), ({ createFigure }) => createFigure({ app, stage, onClose: () => toggleFigure(false) }));
   card = createCard({
     view, stage, onWhy: (m, el) => why.open(m, el),
     onDetails: (sel) => { store.set({ details: normalizeSel(sel) || sel }); openPanel(); },
@@ -520,7 +520,7 @@ function openLegend(anchor) {
       : m === 'neutral' ? [['Why no pressures?', 'In this case pressures are unmeasured, as at the bedside. Use the catheter, Doppler or endoscope to investigate.']]
         : [['Scale', 'Pressure now minus the reference (healthy, or the moment you compare from). Red higher, blue lower.']];
   popover(anchor, [h('div', { class: 'menu-title' }, 'How to read the figure'),
-    h('div', { style: { padding: '2px 10px 8px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: 'var(--fs-13)', lineHeight: 1.5, color: 'var(--text-2)', maxWidth: '340px' } },
+    h('div', { style: { padding: '2px 10px 8px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: 'var(--fs-14)', lineHeight: 1.5, color: 'var(--text-2)', maxWidth: '340px' } },
       rows.map(([k, v]) => h('div', {}, h('b', { style: { color: 'var(--text)' } }, k + '. '), v)),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Moving blood. '), 'Blood moves the way the model\u2019s flow goes, as silky streaks, brighter where more blood passes. Lanes near the axis run faster than those near the wall (laminar flow: the centre at twice the mean). Time is slowed and speed compressed (it grows with \u221Avelocity), so the order of speeds is right but not their ratio. Where flow runs backwards (against its healthy direction) the moving blood turns orange. Drifting smoke marks slow flow (under ~5 cm/s) in a large vein, where clots can form. Pause and reduced motion hold the blood still; the Direction lens gives a static cue. The Blood menu above the figure switches the streaks and the chevrons (arrowheads) on or off. The Blood origin lens colors the blood by where it comes from (SMV, IMV, splenic vein, hepatic artery, systemic). A vessel\u2019s card injects dye into that vessel (hold to go on).'),
       h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Notation. '), 'Dotted vessels are closed potential collaterals. In Flow volume, line width represents flow rate (square-root scale); in other lenses it follows vessel diameter (compressed). Faint lines crossing an organ run behind it. ▲ / ▼ on a label: change in mmHg from healthy, shown once it reaches 5 mmHg (while comparing, every change from the moment you compare from).'),
@@ -578,7 +578,7 @@ function openLayers(anchor) {
     return b;
   };
   const unitSel = (kind, opts) => {
-    const s = h('select', { class: 'select', style: { height: '30px', fontSize: 'var(--fs-13)' }, 'aria-label': kind === 'pressure' ? 'Pressure unit' : 'Flow unit' }, opts.map((u) => h('option', { value: u, selected: units[kind] === u }, u)));
+    const s = h('select', { class: 'select', style: { height: '30px', fontSize: 'var(--fs-14)' }, 'aria-label': kind === 'pressure' ? 'Pressure unit' : 'Flow unit' }, opts.map((u) => h('option', { value: u, selected: units[kind] === u }, u)));
     s.addEventListener('change', () => { units[kind] = s.value; inspector.render(); redraw(); });
     return s;
   };

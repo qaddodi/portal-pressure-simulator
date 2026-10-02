@@ -365,7 +365,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       }
       if (act === 'card') { await page.evaluate(() => window.pps.store.set({ selection: { type: 'edge', id: 'PV_TRUNK' } })); await page.waitForSelector('.action-card:not([hidden])'); }
       await page.waitForTimeout(700);
-      const bad = await page.evaluate(() => {
+      // The floating pieces follow each other's sizes a frame later (main.js publishes them on the next
+      // animation frame), and the model keeps changing them (a bleed adds a line to the dock): an overlap
+      // counts only if it is still there a few frames later.
+      const frames = () => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(r)))));
+      const measure = () => page.evaluate(() => {
         const SEL = ['.tb-id', '.top-right', '#viewSeg', '.topbar .sb-right', '.sb-center.float-ui', '#vdock', '#panel', '#treatCard:not([hidden])', '#dock', '#zoomPill', '.action-card:not([hidden])', '.coach:not(:empty)', '.lz.on .lz-side', '.lz.on .lz-key', '.lz.on .lz-top'];
         const vis = (el) => { const st = getComputedStyle(el), r = el.getBoundingClientRect(); return st.display !== 'none' && st.visibility !== 'hidden' && +st.opacity > 0.05 && r.width > 2 && r.height > 2; };
         // On a phone the chart, Treat and a vessel's card are sheets that rise over the dock by design.
@@ -381,8 +385,58 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         for (const [s, r] of items) if (r.right > innerWidth + 1 || r.left < -1 || r.bottom > innerHeight + 1 || r.top < -1) out.push(`${s} is off screen`);
         return out;
       });
+      let bad = await measure();
+      if (bad.length) { await frames(); bad = await measure(); }
       if (bad.length) throw new Error(`${w}×${hgt} ${q}${act ? ' + ' + act : ''}: ${bad.join('; ')}`);
     }
+  });
+  // One type scale and one icon scale (styles/tokens.css): every menu, card and sheet the owner can
+  // open uses only the five interface sizes and three weights, icons come in 16, 20 and 24 (12 for a
+  // check mark in a dot), and every button has a name. Figure artwork (the anatomy's labels, the
+  // lobule's labels, the bedside monitor, charts drawn in SVG or on a canvas) has its own sizes.
+  await check(device, 'one type and icon scale in every menu and card', async (page) => {
+    const surfaces = [
+      ['explore', null], ['menu', '#btnMenu'], ['patients', '#scenarioBtn'], ['blood', '#btnBlood'], ['colors', '#btnLayers'],
+      ['findings', '#btnInspector'], ['treat', '#btnTreat'], ['measure', '#tabInstruments'], ['search', '#btnPalette'],
+      ['vessel card', { type: 'edge', id: 'PV_TRUNK' }], ['liver card', { type: 'organ', id: 'liver' }], ['all readouts', '#strip .ro-more'],
+      ['help', '?'], ['home', 'home'],
+    ];
+    const bad = new Set();
+    await open(page, '?preset=cirr-decomp');
+    for (const [name, how] of surfaces) {
+      // one load for all of them: close whatever the last one opened
+      await page.keyboard.press('Escape'); await page.keyboard.press('Escape');
+      await page.evaluate(() => { window.pps.store.set({ selection: null }); if (document.querySelector('#app').classList.contains('panel-open')) document.querySelector('#panelClose').click(); });
+      if (how === 'home') await open(page, '?home=explore');
+      if (typeof how === 'string' && how.startsWith('#')) await page.evaluate((s) => document.querySelector(s)?.click(), how);
+      else if (how === '?') await page.keyboard.press('?');
+      else if (how && typeof how === 'object') await page.evaluate((sel) => window.pps.store.set({ selection: sel }), how);
+      await page.waitForTimeout(500);
+      const found = await page.evaluate(() => {
+        const ART = '#stage, #labels, .lz-lab, .lz-zone, .mon, .legend, svg';
+        const DISPLAY = '.home-head h1, .presenter-title, .big-overlay';
+        const SIZES = [12, 14, 16, 20, 28], WEIGHTS = [400, 500, 600], ICONS = [16, 20, 24];
+        const shown = (el) => { const r = el.getBoundingClientRect(), st = getComputedStyle(el); return r.width > 0 && r.height > 0 && st.visibility !== 'hidden'; };
+        const who = (el) => { const c = (e) => e ? e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (typeof e.className === 'string' && e.className ? '.' + e.className.trim().split(/\s+/)[0] : '') : ''; return `${c(el.parentElement)} > ${c(el)}`; };
+        const out = [];
+        for (const el of document.querySelectorAll('body *')) {
+          if (!shown(el) || el.closest('.lz:not(.on)')) continue;
+          if (!el.closest(ART) && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) {
+            const st = getComputedStyle(el), fs = parseFloat(st.fontSize), fw = +st.fontWeight;
+            if (!SIZES.includes(fs) && !el.closest(DISPLAY)) out.push(`${who(el)}: ${fs}px`);
+            if (!WEIGHTS.includes(fw)) out.push(`${who(el)}: weight ${fw}`);
+          }
+          if (el.matches('svg') && el.querySelector(':scope > use[href^="#i-"]') && !el.closest('#stage, #labels')) {
+            const w = Math.round(el.getBoundingClientRect().width), mark = el.querySelector('use').getAttribute('href') === '#i-check' && w === 12;
+            if (!ICONS.includes(w) && !mark) out.push(`${who(el)} icon ${el.querySelector('use').getAttribute('href')}: ${w}px`);
+          }
+          if (el.matches('button, [role="button"]') && !(el.textContent.trim() || el.getAttribute('aria-label') || el.getAttribute('title') || el.getAttribute('aria-labelledby'))) out.push(`${who(el)}: button without a name`);
+        }
+        return out;
+      });
+      for (const f of found) bad.add(`${name}: ${f}`);
+    }
+    if (bad.size) throw new Error(`${bad.size} off-scale: ${[...bad].slice(0, 40).join(' | ')}`);
   });
   await check(device, 'dark theme', async (page) => {
     await page.emulateMedia({ colorScheme: 'dark' });

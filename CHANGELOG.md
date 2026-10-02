@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **One type scale, one icon scale (menus and cards overhaul, step 1).** The interface now uses five
+  sizes (12 small labels · 14 body and buttons · 16 titles · 20 key numbers · 28 big readouts) and three
+  weights (400 · 500 · 600), down from 24 sizes and 6 weights; small labels are sentence case ("Menu",
+  "Patient") instead of spaced capitals. Icons come in 16, 20 and 24 (12 for a check mark in a dot),
+  down from 17 sizes; corners use the three radius tokens. The lobule card's title is no longer serif.
+  A new browser check opens every menu and card and fails on any other size, weight or icon size, or
+  a button without a name. Plan: [docs/MENUS_AND_CARDS_PLAN.md](docs/MENUS_AND_CARDS_PLAN.md).
+- On a phone held sideways, the zoom buttons step aside when a vessel's card leaves no room for them
+  under the top bar.
 - **Into the lobule, a dive.** Choosing *Lobule* flies the camera into the liver (0.9 s) while the lobule grows out of
   that spot and the liver dissolves into it; leaving, it shrinks back into the liver and the camera pulls out to
   where the anatomy was. From the circuit it eases into the anatomy first. Reduced motion: a plain cross-fade.

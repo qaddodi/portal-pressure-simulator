@@ -108,8 +108,14 @@
   --shadow-3: var(--shadow-dialog);
   /* shape: three radii by hierarchy, and a pill for chips */
   --r-control: 6px; --r-card: 10px; --r-sheet: 16px; --r-pill: 999px;
-  /* type ramp (px), the only sizes in use: 11 · 12 · 13 · 14 · 16 · 20 · 24 · 32 · 48 */
-  --fs-11: 11px; --fs-12: 12px; --fs-13: 13px; --fs-14: 14px; --fs-16: 16px; --fs-20: 20px; --fs-24: 24px; --fs-32: 32px; --fs-48: 48px;
+  /* type: five sizes for the interface (12 small labels · 14 body and buttons · 16 titles · 20 key
+     numbers · 28 big readouts), and two display sizes for the Home and presenter titles only.
+     Weights: 400 · 500 · 600. Small labels are sentence case, never spaced capitals.
+     tests/e2e/smoke.mjs fails on any other size or weight in the interface. */
+  --fs-12: 12px; --fs-14: 14px; --fs-16: 16px; --fs-20: 20px; --fs-28: 28px; --fs-32: 32px; --fs-48: 48px;
+  /* icons: three sizes (16 in lists and chips, 20 on buttons and the top bar, 24 on tiles and tabs),
+     and 12 for a check mark inside a dot or badge. */
+  --ic-s: 16px; --ic-m: 20px; --ic-l: 24px; --ic-mark: 12px;
   /* spacing (4-pt grid) */
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-6: 24px; --sp-8: 32px; --sp-12: 48px;
   /* layers: six named z-indices */
