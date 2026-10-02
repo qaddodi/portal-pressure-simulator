@@ -8,7 +8,7 @@ const TABS = [['chart', 'Patient', 'activity'], ['treat', 'Treat', 'pill'], ['me
 /** The bar: the tabs (the active one marked), then `trailing` nodes, then the close button. */
 export function drawerBar(active, { go, close, closeLabel = 'Close', trailing = [], closeEl = null, badges = {} }) {
   const tabs = h('div', { class: 'dw-tabs', role: 'tablist', 'aria-label': 'Patient, Treat or Measure' }, TABS.map(([id, label, ic]) => {
-    const b = h('button', { class: 'dw-tab', role: 'tab', 'aria-selected': String(id === active), 'data-drawer': id }, svgIcon(ic), h('span', {}, label), badges[id] || null);
+    const b = h('button', { class: 'dw-tab', role: 'tab', 'aria-selected': String(id === active), 'data-drawer': id }, svgIcon(ic), h('span', {}, label), badges[id] || (id === 'chart' ? h('span', { class: 'dw-n', 'aria-label': 'findings' }) : null));
     b.addEventListener('click', () => { if (id !== active) go(id); });
     return b;
   }));

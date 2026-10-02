@@ -109,6 +109,9 @@ export function createLobuleZoom({ host }) {
   // The key to the lobule's parts is one more icon: it opens a small list under the toggles and closes on a second tap.
   const keyBtn = toggle('Key', 'What the parts of the lobule are', () => keyOn, (v) => { keyOn = v; key.hidden = !v; });
   keyBtn.classList.add('keyb'); keyBtn.querySelector('i').append(svgIcon('info'));
+  // The readings (the pressure ladder, what it says, the cirrhosis control) are the Lobule instrument of the Measure drawer.
+  const readBtn = toggle('Readings', 'Open the lobule\'s readings in the Measure drawer', () => false, () => dispatchEvent(new Event('pps:lobule-readings')));
+  readBtn.classList.add('readb'); readBtn.querySelector('i').append(svgIcon('gauge'));
 
   const ladder = h('div', { class: 'lz-ladder' });
   const verdict = h('p', { class: 'lz-verdict' });
@@ -135,8 +138,11 @@ export function createLobuleZoom({ host }) {
   const key = h('div', { class: 'lz-key', hidden: true }, legend);
   const el = h('div', { class: 'lz', 'aria-hidden': 'true' },
     tissue, glCv, fx, leaders, labels,
-    h('div', { class: 'lz-top' }, h('div', { class: 'lz-tgs' }, zonesBtn, lymphBtn, keyBtn), key));
-  host.append(el);
+    h('div', { class: 'lz-top' }, h('div', { class: 'lz-tgs' }, zonesBtn, lymphBtn, keyBtn, readBtn), key));
+  // The lattice: while the camera dives into the liver, its tissue resolves into a field of tiny lobules (a hex lattice), and
+  // the lobule you land on grows out of it. It sits just under the lobule view and is drawn only during the dive.
+  const lat = h('canvas', { class: 'lz-lattice', 'aria-hidden': 'true' });
+  host.append(lat, el);
 
   // ── The view: the lobule framed in the space the floating pieces leave (top bar, dock, cards and
   // its own card), free zoom up to 5× that, the pan held to this lobule. Zooming out stops at the framing.
@@ -147,8 +153,7 @@ export function createLobuleZoom({ host }) {
   const cssN = (k) => parseFloat(appStyle?.getPropertyValue(k)) || 0;
   function freeRect() {
     const W = geo.W, H = geo.H, phone = phoneMQ.matches;
-    const top = el.querySelector('.lz-top');
-    let t = cssN('--top-safe') + (top ? top.offsetHeight + 16 : 8), b = H - (cssN('--bot-occ') || 100) - 8 - (phone ? 0 : 52), l = 12, r = W - cssN('--right-occ') - 12;
+    let t = cssN('--top-safe') + 8, b = H - (cssN('--bot-occ') || 100) - 8 - 52 - (phone ? 48 : 0), l = 12, r = W - cssN('--right-occ') - 12;
     return { l, t, r: Math.max(l + 80, r), b: Math.max(t + 80, b) };
   }
   // The lobule and its labels' places, in world units.
@@ -628,11 +633,62 @@ export function createLobuleZoom({ host }) {
     raf = requestAnimationFrame(loop);
   }
 
-  function draw(dt) {
+  // ── The dive's lattice ──
+  const LAT_R0 = 0.07;
+  /** Where the lobule sits on screen when framed (centre, circumradius), whatever the view is doing now. */
+  function frame() { const F0 = fitV(); return { x: geo.cx * F0.k + F0.x, y: geo.cy * F0.k + F0.y, R: geo.R * F0.k }; }
+  function drawLattice(cxs, cys, Rs, alpha) {
+    lat.style.opacity = alpha.toFixed(3);
+    if (alpha < 0.005) return;
+    const rect = host.getBoundingClientRect(), W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height)), dpr = Math.min(2, devicePixelRatio || 1);
+    if (lat.width !== W * dpr || lat.height !== H * dpr) { lat.width = W * dpr; lat.height = H * dpr; }
+    const c = lat.getContext('2d');
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const cs = getComputedStyle(host), dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+    const v = (n, d) => cs.getPropertyValue(n).trim() || d;
+    const tissue = v('--og-liver-1', dark ? '#85514F' : '#E9C3B6'), gap = rgb01(v('--og-liver-2', dark ? '#5A3440' : '#C98E7E'));
+    c.fillStyle = tissue; c.fillRect(0, 0, W, H);
+    // Cells are laid out from the lobule you land on: neighbours at 30°, 90°… at √3 R.
+    const e1x = 1.5 * Rs, e1y = 0.866 * Rs, e2y = 1.7321 * Rs;
+    let a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;
+    for (const [px, py] of [[0, 0], [W, 0], [0, H], [W, H]]) {
+      const dx = px - cxs, dy = py - cys, a = dx / e1x, b = (dy - a * e1y) / e2y;
+      a0 = Math.min(a0, a); a1 = Math.max(a1, a); b0 = Math.min(b0, b); b1 = Math.max(b1, b);
+    }
+    const cells = [];
+    for (let a = Math.floor(a0) - 1; a <= Math.ceil(a1) + 1; a++) for (let b = Math.floor(b0) - 2; b <= Math.ceil(b1) + 2; b++) {
+      const x = cxs + a * e1x, y = cys + a * e1y + b * e2y;
+      if (x > -Rs * 2 && x < W + Rs * 2 && y > -Rs * 2 && y < H + Rs * 2) cells.push([x, y]);
+    }
+    const corner = (x, y, i) => [x + Math.cos((i * Math.PI) / 3) * Rs, y + Math.sin((i * Math.PI) / 3) * Rs];
+    // Hepatocyte plates, as a hint of radial lines, once the cells are big enough to show them.
+    if (Rs > 22) {
+      c.strokeStyle = css(gap, 0.42); c.lineWidth = Math.max(0.6, Rs * 0.012); c.beginPath();
+      for (const [x, y] of cells) for (let i = 0; i < 18; i++) { const a = (i * TAU) / 18 + 0.09; c.moveTo(x + Math.cos(a) * Rs * 0.14, y + Math.sin(a) * Rs * 0.14); c.lineTo(x + Math.cos(a) * Rs * 0.93, y + Math.sin(a) * Rs * 0.93); }
+      c.stroke();
+    }
+    // The septa between lobules, in collagen's cream.
+    c.strokeStyle = css(dark ? [0.78, 0.73, 0.6] : [0.93, 0.87, 0.73], 1); c.lineWidth = Math.max(1, Rs * 0.07); c.lineJoin = 'round'; c.beginPath();
+    for (const [x, y] of cells) for (let i = 0; i < 6; i++) { const [px, py] = corner(x, y, i); if (i) c.lineTo(px, py); else c.moveTo(px, py); if (i === 5) c.closePath(); }
+    c.stroke();
+    // Central veins (blue) and portal tracts at the corners (magenta).
+    c.fillStyle = css(rgb01(ink('cv')), 0.9); c.beginPath();
+    for (const [x, y] of cells) { c.moveTo(x + Rs * 0.1, y); c.arc(x, y, Math.max(1.3, Rs * 0.1), 0, TAU); }
+    c.fill();
+    c.fillStyle = css(rgb01(ink('pv')), 0.95); c.beginPath();
+    for (const [x, y] of cells) for (let i = 0; i < 3; i++) { const [px, py] = corner(x, y, i); const r = Math.max(1.2, Rs * 0.085); c.moveTo(px + r, py); c.arc(px, py, r, 0, TAU); }
+    c.fill();
+  }
+
+  function ensureGeo() {
     const rect = host.getBoundingClientRect();
     const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
     const key = W + 'x' + H;
     if (key !== geoKey) { geo = build(W, H); geoKey = key; binKey = ''; radKey = []; radAll = ''; tissueKey = ''; layoutKey = ''; if (atFit) resetView(); else clampV(); }
+    return [W, H];
+  }
+  function draw(dt) {
+    const [W, H] = ensureGeo();
     const dpr = Math.min(2, devicePixelRatio || 1);
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
     const cs = getComputedStyle(host);
@@ -1050,24 +1106,43 @@ export function createLobuleZoom({ host }) {
   return {
     el,
     update,
-    /** 0 = hidden, 1 = fully in the lobule. The lobule grows out of the liver as it fades in. */
-    setFade(u) {
+    /**
+     * How far into the lobule the view is, 0 to 1. Over the anatomy it is a journey through scales: the liver's tissue resolves
+     * into a lattice of tiny lobules, which grows (about the lobule you land on) until one fills the view and the lobule's own
+     * drawing takes over; leaving runs it backwards. Over the circuit (`circuit`) there is nothing to fly into: a plain cross-fade.
+     */
+    setFade(u, { circuit = false } = {}) {
       const was = fade;
       fade = clamp(u, 0, 1);
-      el.style.opacity = fade.toFixed(3);
-      // It grows out of the spot the camera dives into (setOrigin), from a fifth of its size.
-      const e = 1 - (1 - fade) ** 3;
-      el.style.transform = fade < 1 ? `scale(${(0.2 + 0.8 * e).toFixed(4)})` : '';
+      if (fade > 0 && was === 0) { ensureGeo(); resetView(); if (F) update(F); }
       el.classList.toggle('on', fade > 0.98);
       el.setAttribute('aria-hidden', String(fade < 0.98));
-      // Entering: the lobule is framed in the space the drawer leaves.
-      if (fade > 0 && was === 0) { resetView(); if (F) update(F); }
+      const top = el.querySelector('.lz-top');
+      if (circuit || fade >= 1 || fade === 0) {
+        el.style.opacity = circuit ? fade.toFixed(3) : fade > 0 ? '1' : '0';
+        el.style.transform = ''; el.style.maskImage = el.style.webkitMaskImage = '';
+        lat.style.opacity = '0';
+        if (top) top.style.opacity = '';
+      } else {
+        // The scale of the lobule you land on, as a share of its final size, grows exponentially from a small lattice cell.
+        const tau = clamp((fade - 0.45) / 0.55, 0, 1), e = tau < 0.5 ? 4 * tau ** 3 : 1 - (-2 * tau + 2) ** 3 / 2;
+        const sc = LAT_R0 ** (1 - e), fr = frame();
+        const ss = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+        el.style.transformOrigin = `${fr.x.toFixed(1)}px ${fr.y.toFixed(1)}px`;
+        el.style.transform = `scale(${sc.toFixed(4)})`;
+        el.style.opacity = ss(0.24, 0.55, sc).toFixed(3);
+        // Its edge melts into the lattice: a soft disc about a lobule and a ring of neighbours.
+        const mask = `radial-gradient(circle at ${fr.x.toFixed(1)}px ${fr.y.toFixed(1)}px, #000 ${(fr.R * 1.0).toFixed(1)}px, transparent ${(fr.R * 1.9).toFixed(1)}px)`;
+        el.style.maskImage = el.style.webkitMaskImage = mask;
+        if (top) top.style.opacity = ss(0.92, 1, fade).toFixed(2);
+        drawLattice(fr.x, fr.y, fr.R * sc, ss(0.04, 0.4, fade) * (1 - ss(0.94, 1, sc)));
+      }
       // Leaving the lobule closes a part's card, so it is not waiting next time.
       if (was > 0.98 && fade <= 0.98) { if (store.get().selection?.type === 'lobule') store.set({ selection: null }); }
-      if (fade === 0) { cancelAnimationFrame(raf); raf = 0; last = 0; }
+      if (fade === 0) { cancelAnimationFrame(raf); raf = 0; last = 0; lat.style.opacity = '0'; }
     },
-    /** The point (stage px) the lobule grows out of and shrinks back into. */
-    setOrigin(x, y) { el.style.transformOrigin = `${x.toFixed(1)}px ${y.toFixed(1)}px`; },
+    /** Where the lobule lands (stage px) and how big it is there, so the camera can bring the right part of the liver to it. */
+    frameCentre() { ensureGeo(); const fr = frame(); return [fr.x, fr.y]; },
     /** Where a lobule selection is on screen (for the action card), as the stage's anchorFor. */
     anchorFor(sl) {
       if (!geo || sl?.type !== 'lobule') return null;

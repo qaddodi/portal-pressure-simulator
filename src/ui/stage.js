@@ -6,7 +6,7 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, HIDDEN_EDG
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=f9424489c6';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=fe164f31f1';
-import { createLobuleZoom } from './lobule-zoom.js?v=a3e8ff4f7c';
+import { createLobuleZoom } from './lobule-zoom.js?v=6c1e61d9ef';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=63596bcd73';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -973,39 +973,54 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // liver's card, the palette, a presenter step) and cross-fades over the plate.
   let liverBB = null;
   let lobuleOn = false, lobU = 0, lobAnim = 0;
-  // Into the lobule, a dive (0.9 s): the camera flies into the liver while, over its second half, the
-  // lobule grows out of that spot and the liver's surface dissolves into it. Out, the reverse: the
-  // lobule shrinks back into the liver and the camera pulls out to the framing it had.
-  let preLobule = null, diveAt = null;
-  const DIVE_MS = 900;
+  // Into the lobule. From the anatomy it is a journey through scales (2.6 s): the camera flies into the liver, its tissue resolves
+  // into a lattice of tiny lobules, and the lobule you land on grows out of it until it fills the view (lobule-zoom.js draws the
+  // lattice and the landing). Out, the same journey backwards: the lobule shrinks into the lattice, the lattice dissolves back into
+  // the liver and the camera pulls out to the framing it had. From the circuit there is nothing to fly into: a plain cross-fade.
+  // One number, lobU (0 to 1), says how far along the journey is; the camera, the lattice and the lobule are all functions of it,
+  // so a reversal part-way simply runs it back.
+  let preLobule = null, diveTo = null, lobFromCircuit = false;
+  const DIVE_MS = 2600, FADE_MS = 520;
   function diveTarget() {
     const lb = liverBox();
     if (!lb) return null;
     const b = svg.viewBox.baseVal, wx = lb.x + lb.w * 0.42, wy = lb.y + lb.h * 0.5;
-    return { w: [wx, wy], vt: vtFor(wx, wy, clamp(Math.min(b.width / lb.w, b.height / lb.h) * 1.7, 2.6, 5.5)) };
+    const k = clamp(Math.min(b.width / lb.w, b.height / lb.h) * 1.7, 2.6, 5.5);
+    // That spot of the liver is brought to where the lobule will land.
+    const c = lz.frameCentre?.(), bx = stageBox();
+    if (c) { const [vx, vy] = clientToVBFast(bx.left + c[0], bx.top + c[1]); return { w: [wx, wy], vt: { k, x: vx - wx * k, y: vy - wy * k } }; }
+    return { w: [wx, wy], vt: vtFor(wx, wy, k) };
+  }
+  // The camera as a function of the journey: it does all its flying in the first half of it.
+  function cameraAt(p) {
+    const from = preLobule, to = diveTo?.vt;
+    if (!from || !to) return;
+    const u = easeInOut(clamp(p / 0.55, 0, 1));
+    const k = from.k * Math.pow(to.k / from.k, u), a = (k - from.k) / ((to.k - from.k) || 1);
+    vt = { k, x: from.x + (to.x - from.x) * (to.k === from.k ? u : a), y: from.y + (to.y - from.y) * (to.k === from.k ? u : a) };
+    applyVT(); CTM = null;
   }
   function setLobule(on) {
-    if (on && morphTarget !== 0) return;
     if (lobuleOn === on && (lobU === (on ? 1 : 0))) return;
     lobuleOn = on;
-    cancelAnimationFrame(lobAnim);
-    const ms = reduceMotion.matches ? 0 : DIVE_MS, from = lobU, t0 = performance.now();
+    cancelAnimationFrame(lobAnim); cancelAnimationFrame(vtAnim); camStop(); flying = false;
     if (on) {
-      if (lobU === 0) preLobule = { ...vt };
-      const d = diveTarget();
-      diveAt = d?.w || null;
-      if (d && ms) animateVT(d.vt, ms); else if (d) { vt = d.vt; applyVT(); CTM = null; }
-    } else if (ms) {
-      // Pull out a moment after the lobule starts to shrink, back to where the anatomy was.
-      const back = preLobule && !sameView(preLobule, { k: 1, x: 0, y: 0 }) ? preLobule : (homeAt || defaultVT(false));
-      setTimeout(() => { if (!lobuleOn) animateVT(back, ms * 0.85); }, ms * 0.15);
+      lobFromCircuit = morphTarget === 1;
+      if (!lobFromCircuit) {
+        if (lobU === 0) preLobule = { ...vt };
+        diveTo = diveTarget();
+      }
+    } else if (!lobFromCircuit) {
+      // (A lobule opened by a link has no framing to go back to: the anatomy's home.)
+      if (!preLobule || sameView(preLobule, { k: 1, x: 0, y: 0 })) preLobule = homeAt || defaultVT(false);
+      if (!diveTo) diveTo = diveTarget() || { vt: { ...vt } };
     }
+    const circuit = lobFromCircuit, ms = reduceMotion.matches ? 0 : circuit ? FADE_MS : DIVE_MS;
+    const from = lobU, to = on ? 1 : 0, t0 = performance.now();
     const step = (now) => {
-      const e = ms ? clamp((now - t0) / ms, 0, 1) : 1;
-      // In: the lobule appears over the second half of the flight. Out: it is gone in the first half.
-      const u = on ? clamp((e - 0.42) / 0.58, 0, 1) : clamp(1 - e / 0.5, 0, 1);
-      lobU = on ? Math.max(from, easeInOut(u)) : Math.min(from, easeInOut(u));
-      if (diveAt) { refreshCTM(); const [x, y] = worldToLocal(diveAt[0], diveAt[1]); lz.setOrigin?.(x, y); }
+      const e = ms ? clamp((now - t0) / ms, 0, 1) : 1, q = e * e * (3 - 2 * e);
+      lobU = from + (to - from) * q;
+      if (!circuit) cameraAt(lobU);
       syncSemantic();
       if (e < 1) lobAnim = requestAnimationFrame(step);
       else if (!on) { lobU = 0; syncSemantic(); }
@@ -1019,11 +1034,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function vbCenter() { const b = svg.viewBox.baseVal; return [b.x + b.width / 2, b.y + b.height / 2]; }
   function syncSemantic() {
     if (!lz) return;
-    // Turning to the circuit closes the lobule view.
-    if (lobuleOn && morphTarget !== 0) { lobuleOn = false; lobU = 0; cancelAnimationFrame(lobAnim); if (store.get().lobule) store.set({ lobule: false }); }
-    const u = morphTarget === 0 ? lobU : 0;
+    // Turning to the circuit from a lobule that was entered over the anatomy: it fades out as the map comes in.
+    if (lobuleOn && morphTarget !== 0 && !lobFromCircuit) { lobFromCircuit = true; if (store.get().lobule) store.set({ lobule: false }); else setLobule(false); }
+    const u = morphTarget === 0 || lobFromCircuit ? lobU : 0;
     const wasOpen = lz.isOpen();
-    lz.setFade(u);
+    lz.setFade(u, { circuit: lobFromCircuit });
     if (wasOpen && !lz.isOpen() && F && !inUpdate) update(F);
     wrap.classList.toggle('in-lobule', u > 0.98);
   }
@@ -1060,10 +1075,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The lobule is a view of its own (Anatomy · Circuit · Lobule): it opens over the figure and closes
   // only from the view switch, never by zooming out. The anatomy underneath keeps its framing.
   function openLobule(tries = 0) {
-    if (morphTarget !== 0) store.set({ view: 'anatomic' });
-    // Right after loading the liver may not be laid out yet: try again shortly.
-    // From the circuit, ease into the anatomy first, then dive.
-    if (!liverBox() || morphTarget !== 0 || morph > 0.02) { if (tries < 40) setTimeout(() => { if (store.get().lobule) openLobule(tries + 1); }, 120); return; }
+    // Over the anatomy it needs the liver laid out to fly into; over the circuit it is a plain fade.
+    if (morphTarget === 0 && (!liverBox() || morph > 0.02)) { if (tries < 40) setTimeout(() => { if (store.get().lobule) openLobule(tries + 1); }, 120); return; }
     // The anatomy's card (the liver's, usually) would sit over the lobule: the lobule's parts have their own.
     if (store.get().selection && store.get().selection.type !== 'lobule') store.set({ selection: null });
     setLobule(true);
@@ -2524,7 +2537,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function pressureRuns(P, id, compact) {
     if (!store.get().layers.chips || isImaging()) return null;
     const [v, u] = fp(P);
-    const runs = [{ t: v, size: compact ? 11.5 : 12.5, weight: 650, cls: 'lb-val' }, { t: u, size: compact ? 9.5 : 10, weight: 500, cls: 'lb-unit', gap: 2.5 }];
+    const runs = [{ t: v, size: compact ? 12 : 13, weight: 700, cls: 'lb-val' }, { t: u, size: compact ? 9.5 : 10, weight: 600, cls: 'lb-unit', gap: 2.5 }];
     // A change from healthy is shown only once it matters clinically (5 mmHg, the upper limit
     // of a normal HVPG); while comparing, every change from the pinned moment is shown. Deltas
     // are neutral ink: red is kept for crossed thresholds.
@@ -2539,7 +2552,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const lm = layerMode();
     if (lm !== 'flow' && lm !== 'velocity') return null;
     if (!store.get().layers.chips) return null;
-    const big = { size: compact ? 11.5 : 12.5, weight: 650, cls: 'lb-val' }, unit = { size: compact ? 9.5 : 10, weight: 500, cls: 'lb-unit', gap: 2.5 };
+    const big = { size: compact ? 12 : 13, weight: 700, cls: 'lb-val' }, unit = { size: compact ? 9.5 : 10, weight: 600, cls: 'lb-unit', gap: 2.5 };
     if (lm === 'flow') {
       const v = throughput(f.Qf || f.Q, id);
       const runs = [{ ...big, t: fmtFlow(v) }, { ...unit, t: 'L/min' }];
@@ -2569,17 +2582,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   // One label for every station, in every view, set the way a figure in a journal is: the name in a quiet ink, the value
   // beside it a little larger and bolder, one line, no box. A thin leader joins it to a small dot in the pressure's color
-  // when the text cannot sit right against its station. Names and values share one size and weight everywhere.
+  // when the text cannot sit right against its station. Names, values and units share one size and weight everywhere.
   function nodeItem(id, f, compact) {
     const st = store.get();
     const meta = ATLAS_LABELS[id];
     const P = (f.Pf || f.P)[NI[id]];
     const name = compact ? (SHORT[id] || id) : (meta?.name || NODES[NI[id]].label);
-    const lines = [[{ t: name, size: compact ? 10 : 11, weight: 500, cls: 'lb-name' }]];
+    const lines = [[{ t: name, size: compact ? 10.5 : 11.5, weight: 600, cls: 'lb-name' }]];
     const lr = isImaging() ? null : layerRuns(f, id, compact);
     const pr = lr ? lr.runs : pressureRuns(P, id, compact);
-    // (The unit is in the lens menu and the key; a label carries the number and nothing else.)
-    if (pr) lines[0].push(...pr.filter((r) => r.cls !== 'lb-unit').map((r, i) => (i ? r : { ...r, gap: 5 })));
+    if (pr) lines[0].push(...pr.map((r, i) => (i === 0 ? { ...r, gap: 6 } : r)));
     const w = Math.max(...lines.map(lineW));
     const hh = lines.reduce((a, l) => a + LINE_H(l), 0);
     const sel = st.selection?.type === 'node' && st.selection.id === id;
@@ -3397,6 +3409,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const target = v === 'circuit' ? 1 : 0;
       if (target === morphTarget) return;
       morphTarget = target;
+      // To the circuit from inside the lobule: what is left of the dive becomes a fade, and the camera is the map's again.
+      if (target === 1 && lobU > 0 && !lobFromCircuit) { lobFromCircuit = true; setLobule(false); }
       syncSemantic();
       // Zoomed out (or fitted) in the anatomy, the circuit opens zoomed out too: the whole map, not
       // the close-up it opens with on a phone. From a zoomed-in view it takes its usual framing.

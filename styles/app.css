@@ -183,11 +183,11 @@ svg { flex: none; }
 /* SVG label layer (screen space) */
 #labels text { font-family: var(--font-ui); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--label-halo); stroke-width: 3px; stroke-linejoin: round; }
 #labels .lb.focus text { stroke: none; }
-#labels .lb.tag text { stroke-width: 2.4px; stroke-opacity: .8; }
+#labels .lb.tag text { stroke-width: 3.6px; stroke-opacity: 1; }
 #labels .lb-bg { fill: var(--glass); stroke: var(--hairline); stroke-width: 1; }
-.lb-name { fill: var(--text-3); }
+.lb-name { fill: var(--text-2); }
 .lb-val { fill: var(--text); }
-.lb-unit { fill: var(--text-3); }
+.lb-unit { fill: var(--text-2); }
 .lb-delta { fill: var(--text-2); }
 .lb-alert { fill: var(--danger); }
 .lb-organ { fill: var(--text-3); }

@@ -3,17 +3,17 @@
 
 import { startHost, host } from './host.js?v=d292ccefe8';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=f9424489c6';
-import { createStage } from './stage.js?v=46846c3795';
+import { createStage } from './stage.js?v=f4426d71ad';
 import { createInspector } from './inspector.js?v=208b6a3592';
-import { createDock, CUTOFFS } from './dock.js?v=85ce640b8c';
+import { createDock, CUTOFFS } from './dock.js?v=ea2ceaffac';
 import { createWhy } from './why.js?v=bf0f24a7a5';
 import { createTimeline } from './timeline.js?v=14c4467d38';
 import { createLearn } from './learn.js?v=8717bb0731';
 import { createCases } from './cases.js?v=4961dcd419';
 import { createCompare } from './compare.js?v=730844b101';
 import { createCard } from './card.js?v=a425fd64b1';
-import { drawerBar } from './drawer.js?v=afc184c526';
-import { createChart, computeFindings } from './chart.js?v=43d02be5fc';
+import { drawerBar } from './drawer.js?v=a40cfc5c21';
+import { createChart, computeFindings } from './chart.js?v=ab609fbb16';
 import { createHome } from './home.js?v=aa2d27c535';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=e7e5c98a1c';
@@ -245,6 +245,7 @@ function viewFrame(f) {
 // are repainted at most ~10×/s (the chevrons animate separately). Repainting the whole SVG plate
 // on every tick kept the main thread busy and the laptop warm for no visible gain.
 let lastPaint = 0, lastDesc = 0, homeStale = false;
+addEventListener('pps:lobule-readings', () => dock.openLobule());
 function onFrame(f) {
   syncZoomLevel();
   if (f.params) replaceParams(f.params);
@@ -927,7 +928,8 @@ function sheetBehaviour(el, { handle, drag, onClose }) {
   return { open: () => { if (isPhone()) { size = 1; apply(); } }, closed: () => { el.style.translate = ''; el.style.height = ''; } };
 }
 // The findings badge: a check when nothing is abnormal, else how many findings, in the color of the worst.
-let lastFindKey = '', lastFindN = 0;
+let lastFindKey = '', lastFindN = 0, lastFindSev = 'ok', lastFindShown = 0;
+function syncDwN() { document.querySelectorAll('.dw-n').forEach((d) => { d.dataset.sev = lastFindSev; d.textContent = lastFindShown ? String(lastFindShown) : ''; }); }
 function updateFindBadge(f) {
   // In a case where pressures are unmeasured, a check would claim more than is known.
   const unknown = !!store.get().imaging;
@@ -937,6 +939,7 @@ function updateFindBadge(f) {
   lastFindKey = key;
   const el = $('#findBadge');
   el.dataset.sev = sev;
+  lastFindSev = sev; lastFindShown = n && !unknown ? n : 0; syncDwN();
   el.replaceChildren(unknown ? '–' : n ? String(n) : svgIcon('check'));
   if (n > lastFindN) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
   lastFindN = n;
@@ -956,7 +959,7 @@ function openTreat() {
   const body = h('div', { class: 'tc-body' }, chart.treatBody(sync, () => { if (isPhone()) closeTreat(); }));
   const grab = el.querySelector('.sheet-grab');
   el.replaceChildren(...[grab, h('div', { class: 'tc-head' }, drawerBar('treat', { go: showDrawer, close: () => closeTreat(), closeLabel: 'Close Treat', badges: { treat: count } })), body].filter(Boolean));
-  paintCount();
+  paintCount(); syncDwN();
   treatOff?.();
   treatOff = store.on('params', () => { for (const fn of sync) fn(); });
   el.hidden = false;

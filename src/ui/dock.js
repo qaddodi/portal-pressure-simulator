@@ -472,7 +472,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   function syncLobule(on) {
     if (on) {
       endPick();
-      drawerForLobule = !isVisible();
+      // A phone keeps the lobule clear: its readings open from the Readings button.
+      drawerForLobule = !isVisible() && !matchMedia('(max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape)').matches;
       open = ['lobule'];
       if (drawerForLobule) onOpen();
       if (state === 'peek') setState('open');
@@ -572,6 +573,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   setState('open'); updateSize(); layout();
   return {
     update, show, toggle, close, ensure, openGrid, profile, syncLobule,
+    openLobule() { endPick(); open = ['lobule']; if (!isVisible()) { onOpen(); setState('open'); ensure(); } else if (state === 'peek') setState('open'); layout(); queueRefresh(); },
     pane: (id) => id === 'landscape' ? landscape : id === 'varixwall' ? wall : byId[id],
     isOpen: (id) => isVisible() && open.includes(id === 'landscape' ? 'profile' : id === 'varixwall' ? 'endoscopy' : id),
     setState,

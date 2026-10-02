@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Labels, redone.** Station labels read like a journal figure: name, value and unit (`Portal vein 23.5 mmHg ▲16`) on one
+  line in bold ink with a clear outline, no box. A small dot in the pressure's color and a thin leader appear only when the text
+  cannot sit against its station. The same labels in the anatomy, the circuit and the lobule.
+- **One camera.** The wheel, the + and − buttons and Fit all move a target the view eases toward, whatever the frame rate; the
+  labels step aside while it moves. The zoom controls (− 100 % + · Fit · Turn) moved to the bottom left, with words.
+- **Measure.** A picker names the instrument (nine of them, grouped, with what each shows); the pressure profile and the flow
+  chart open with a compact reading. The drawer is 348 px wide, and its own tabs replace the top bar's Findings/Treat/Measure
+  while it is open. The Lobule is an instrument of the drawer (its Readings button opens it on a phone), replacing the floating card.
+- **Into the lobule.** From the circuit: a fade. From the anatomy: the camera flies into the liver, its tissue resolves into a
+  lattice of tiny lobules, and the one you land on grows out of it (2.6 s); leaving runs it backwards.
+- Zones, Lymph, Key and Readings sit beside the zoom controls; the vitals dock, the top bar and the drawer share one margin.
 - **One pressure tag everywhere.** Anatomy, circuit and lobule label a station the same way: a small frosted
   tag, one line, a bar in the pressure's color, the name, the value and (past 5 mmHg) the change from healthy.
   Readable over the figure and over the lobule's tissue, in light and dark. The long callout lines and the side

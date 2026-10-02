@@ -14,12 +14,12 @@
    text; a hair of outline in the paper's color keeps it legible over tissue. The unit lives in the lens menu. */
 .lb-hit { fill: transparent; pointer-events: all; }
 .lz-lab { display: flex; align-items: baseline; gap: 5px; padding: 2px 3px; border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; line-height: 1.25; white-space: nowrap; cursor: pointer; }
-.lz-lab .n, .lz-lab .v { text-shadow: 0 0 2px var(--label-halo), 0 0 2px var(--label-halo), 0 0 3px var(--label-halo); }
-.lz-lab .n { font-size: 11px; font-weight: 500; color: var(--text-3); }
-.lz-lab .v { display: inline-flex; align-items: baseline; gap: 4px; font-size: 12.5px; }
-.lz-lab .v b { font-weight: 650; color: var(--text); }
-.lz-lab small { display: none; }
-.lz-lab .d { font-size: 10px; font-weight: 600; color: var(--text-2); margin-left: 1px; }
+.lz-lab .n, .lz-lab .v { -webkit-text-stroke: 3.4px var(--label-halo); paint-order: stroke fill; }
+.lz-lab .n { font-size: 11.5px; font-weight: 600; color: var(--text-2); }
+.lz-lab .v { display: inline-flex; align-items: baseline; gap: 3px; font-size: 13px; }
+.lz-lab .v b { font-weight: 700; color: var(--text); }
+.lz-lab small { display: inline; font-size: 10px; font-weight: 600; color: var(--text-2); }
+.lz-lab .d { font-size: 10px; font-weight: 600; color: var(--text-2); margin-left: 3px; }
 .lz-lab:hover .n, .lz-lab:focus-visible .n { color: var(--accent-ink); }
 .lz-lab:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
 .lz-lab .n-long { display: inline; } .lz-lab .n-short { display: none; }
@@ -53,8 +53,8 @@
 .lz-top { flex-direction: column; align-items: center; gap: 8px; }
 .lz-tgs { gap: 2px; padding: 3px; border-radius: 12px; }
 .lz-tg { height: 34px; min-width: 34px; padding: 0 9px; border-radius: 9px; justify-content: center; gap: 7px; }
-.lz-tg.keyb i { width: 17px; height: 17px; border: 0; background: none; }
-.lz-tg.keyb i svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+.lz-tg.keyb i, .lz-tg.readb i { width: 17px; height: 17px; border: 0; background: none; }
+.lz-tg.keyb i svg, .lz-tg.readb i svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
 .lz-tg i { width: 14px; height: 14px; }
 .lz-key { position: static; max-width: min(420px, calc(100vw - 32px)); padding: 10px 14px; border-radius: 12px; background: var(--glass); box-shadow: var(--float-shadow); pointer-events: auto; }
 .lz-key[hidden] { display: none; }
@@ -247,3 +247,31 @@
 .flow-pane .side-title, .bars .side-title, .bars .sub { display: none; }
 .dock-pane .chart-side .side-title { font-size: var(--fs-13); }
 .hv-actions .btn[disabled] { background: var(--surface-2); color: var(--text-3); border-color: var(--border); opacity: 1; }
+
+/* ── The dive into the lobule: a lattice of tiny lobules under the lobule view ── */
+.lz-lattice { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0; }
+
+@media (max-width: 720px) { .lz-lab small { display: inline; } }
+
+/* ── Alignment: every floating piece shares one margin ──
+   The vitals dock spans the same width as the top bar and the drawer, so their edges line up. */
+.vdock { left: calc(env(safe-area-inset-left) + var(--gap)); right: calc(env(safe-area-inset-right) + var(--gap)); width: auto; transform: none; bottom: calc(env(safe-area-inset-bottom) + var(--gap)); }
+.zoom-pill { left: calc(env(safe-area-inset-left) + var(--gap)); }
+.panel, .treat-card, .instrument-workspace.side { top: calc(var(--top-safe) + 8px); bottom: calc(var(--vdock-h) + var(--gap) + 8px); }
+
+/* ── One set of tabs: while the drawer is open its own tabs (Patient · Treat · Measure) do the job of the top bar's
+   Findings, Treat and Measure, so those step out of the way and are not shown twice. ── */
+.app:is(.panel-open, .dock-open):not(.instrument-focus) .top-right > :is(.find-badge, .tb-act, .tb-sep),
+.app:has(#treatCard:not([hidden])) .top-right > :is(.find-badge, .tb-act, .tb-sep) { display: none; }
+.dw-n { min-width: 17px; height: 17px; padding: 0 5px; border-radius: 9px; font: 700 10.5px/17px var(--font-ui); text-align: center; background: var(--ok); color: #fff; }
+.dw-n[data-sev="caution"] { background: var(--caution); color: var(--on-caution); }
+.dw-n[data-sev="danger"], .dw-n[data-sev="critical"] { background: var(--critical); color: var(--on-status); }
+.dw-n:empty, .dw-n[data-sev="ok"], .dw-n[data-sev="none"] { display: none; }
+
+/* ── Lobule: Zones · Lymph · Key · Readings sit with the zoom, along the bottom of the figure ── */
+.lz-top { top: auto; left: calc(env(safe-area-inset-left) + var(--gap) + 246px); bottom: calc(var(--bot-occ, 120px) + 8px); transform: none; flex-direction: column-reverse; align-items: flex-start; }
+.lz-top .lz-tgs { box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); background: var(--glass); padding: 4px; }
+.lz-tg { height: 36px; }
+@media (max-width: 767px) { .lz-top { left: calc(env(safe-area-inset-left) + var(--gap)); bottom: calc(var(--bot-occ, 120px) + 60px); } }
+.dw-tab { gap: 5px; padding: 0 6px; }
+.dw-tab .dw-n, .dw-tab .tc-active { min-width: 16px; height: 16px; padding: 0 4px; font-size: 10px; line-height: 16px; flex: none; }
