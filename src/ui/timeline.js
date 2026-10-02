@@ -51,7 +51,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   const track = h('div', { class: 'tl-track' }, rail, bleedBand, fill, marks, nowEl);
   const timeEl = h('span', { class: 'tl-time', 'aria-live': 'off' }, '0:00');
   // One button for everything about time besides play: skipping ahead, settling, the speed, starting over.
-  const timeBtn = h('button', { class: 'ib tl-more', 'aria-label': 'Time: skip ahead, speed, restart', 'aria-haspopup': 'menu', title: 'Time: skip ahead, speed, restart' }, svgIcon('ff'));
+  const timeBtn = h('button', { class: 'tl-act tl-more', 'aria-label': 'Time: skip ahead, speed, restart', 'aria-haspopup': 'menu', title: 'Time: skip ahead, speed, restart' }, svgIcon('ff'), h('span', {}, 'Time'), svgIcon('chev-down', 'tl-chev'));
   timeBtn.addEventListener('click', (e) => popover(e.currentTarget, [
     h('div', { class: 'menu-title' }, 'Skip ahead'),
     h('div', { class: 'seg full', style: { margin: '2px 6px 6px' } }, JUMPS.map(([d, l, long]) => { const b = h('button', { title: `Jump ${long} ahead on the disease clock` }, l); b.addEventListener('click', () => { closePopover(); jump(d, long); }); return b; })),
@@ -64,7 +64,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
     menuBtn('Restart this patient', () => onRestart?.()),
   ], { place: 'above', align: 'end', cls: 'time-pop' }));
   // Comparing is an icon (its name is the tooltip); pressed while a moment is pinned.
-  const pinBtn = h('button', { class: 'ib tl-pin', 'aria-pressed': 'false', 'aria-label': 'Compare from here', title: 'Compare from here: freeze this moment and compare the live model with it (P)' }, svgIcon('compare'));
+  const pinBtn = h('button', { class: 'tl-act tl-pin', 'aria-pressed': 'false', title: 'Compare from here: freeze this moment and compare the live model with it (P)' }, svgIcon('compare'), h('span', {}, 'Compare'));
   pinBtn.addEventListener('click', () => togglePin());
   root.replaceChildren(h('div', { class: 'tl-left' }, playBtn), track, timeEl, h('div', { class: 'tl-jumps' }, timeBtn, pinBtn));
   tooltipFor(playBtn, 'Play / pause · Space', 'top');
@@ -304,7 +304,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   store.on('compareSnap', (s) => {
     pinBtn.setAttribute('aria-pressed', String(!!s));
     const name = s ? 'Stop comparing' : 'Compare from here';
-    pinBtn.setAttribute('aria-label', name); pinBtn.title = s ? 'Stop comparing with the pinned moment (P)' : 'Compare from here: freeze this moment and compare the live model with it (P)';
+    pinBtn.querySelector('span').textContent = s ? 'Comparing' : 'Compare'; pinBtn.setAttribute('aria-label', name); pinBtn.title = s ? 'Stop comparing with the pinned moment (P)' : 'Compare from here: freeze this moment and compare the live model with it (P)';
   });
   onParamChange(({ label, history }) => { if (history || pending) noteParamChange(label); });
   new ResizeObserver(() => render(true)).observe(track);

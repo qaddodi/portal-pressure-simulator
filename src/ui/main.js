@@ -3,17 +3,17 @@
 
 import { startHost, host } from './host.js?v=d292ccefe8';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=f9424489c6';
-import { createStage } from './stage.js?v=04695e2e35';
+import { createStage } from './stage.js?v=44defcee95';
 import { createInspector } from './inspector.js?v=208b6a3592';
 import { createDock, CUTOFFS } from './dock.js?v=5a106c177d';
 import { createWhy } from './why.js?v=bf0f24a7a5';
-import { createTimeline } from './timeline.js?v=fcbcf297e2';
+import { createTimeline } from './timeline.js?v=14c4467d38';
 import { createLearn } from './learn.js?v=8717bb0731';
 import { createCases } from './cases.js?v=4961dcd419';
 import { createCompare } from './compare.js?v=730844b101';
-import { createCard } from './card.js?v=ef9ee2ff38';
+import { createCard } from './card.js?v=a425fd64b1';
 import { drawerBar } from './drawer.js?v=8e6ebb5d79';
-import { createChart, computeFindings } from './chart.js?v=2ad5d6754d';
+import { createChart, computeFindings } from './chart.js?v=a7188d2497';
 import { createHome } from './home.js?v=aa2d27c535';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=e7e5c98a1c';
@@ -108,7 +108,7 @@ async function main() {
     onAction: doAction,
     onOpenTab: (id) => dock.show(id, { reveal: 'soft' }),
     onHoverInfo: hoverInfo,
-    onViewChange: () => card?.position(),
+    onViewChange: () => { card?.position(); syncZoomLevel(); },
   });
   compare = createCompare();
   timeline = createTimeline({
@@ -245,6 +245,7 @@ function viewFrame(f) {
 // on every tick kept the main thread busy and the laptop warm for no visible gain.
 let lastPaint = 0, lastDesc = 0, homeStale = false;
 function onFrame(f) {
+  syncZoomLevel();
   if (f.params) replaceParams(f.params);
   if (f.events?.length) { const hid = store.get().hiddenEvents; const ev = hid ? f.events.filter((e) => !hid.has(e.id)) : f.events; if (ev.length) timeline.addEvents(ev); }
   const now = performance.now();
@@ -451,6 +452,18 @@ function buildHud() {
   $('#btnLayers').addEventListener('click', (e) => openLayers(e.currentTarget));
   $('#btnLayers').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); openLayers(e.currentTarget); } });
   new ResizeObserver(() => stage.relayout()).observe(view);
+}
+// The zoom as a share of the home framing, beside the zoom buttons ("Lobule" names the view in the liver's microcirculation).
+let zoomLevelTxt = '', zoomLevelT = 0;
+function syncZoomLevel() {
+  if (zoomLevelT) return;
+  zoomLevelT = setTimeout(() => {
+    zoomLevelT = 0;
+    const el = $('#zoomLevel');
+    if (!el || !stage) return;
+    const t = `${store.get().lobule ? 'Lobule · ' : ''}${Math.round(stage.zoomRel() * 100)}%`;
+    if (t !== zoomLevelTxt) { zoomLevelTxt = t; el.textContent = t; }
+  }, 90);
 }
 function legendModel() {
   const st = store.get();
@@ -679,6 +692,7 @@ function openMainMenu(anchor) {
       modeItem('cases', 'cases', 'case', 'Cases', 'A bleed at 3 a.m. and diagnostic puzzles'),
       modeItem('present', 'present', 'projector', 'Presenter', 'Step through a live model with a class')),
     menuItem('Home page', { icon: 'grid', onClick: () => { closePopover(); home.open(); } }),
+    menuItem('Search…', { icon: 'search', kb: 'Ctrl K', onClick: () => { closePopover(); setTimeout(() => palette.open(), 0); } }),
     h('div', { class: 'menu-sep' }),
     h('div', { class: 'menu-title' }, 'Share & export'),
     menuItem('Copy a link to this exact state', { icon: 'share', onClick: () => { closePopover(); share(); } }),

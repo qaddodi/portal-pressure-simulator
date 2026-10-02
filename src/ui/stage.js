@@ -6,7 +6,7 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, HIDDEN_EDG
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=f9424489c6';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=fe164f31f1';
-import { createLobuleZoom } from './lobule-zoom.js?v=f448d9ab00';
+import { createLobuleZoom } from './lobule-zoom.js?v=cec01d9c10';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=63596bcd73';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -744,8 +744,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     viewRaf = 0;
     if (!F || lz?.isOpen()) return;
     refreshCTM();
+    // The labels step aside while the camera moves and come back, laid out once, a moment after it stops.
+    if (camBusy()) { wrap.classList.add('cam-moving'); clearTimeout(settleT); settleT = setTimeout(settleView, 120); onViewChange?.(); return; }
     updateLabels(F);
     onViewChange?.();
+  }
+  function settleView() {
+    if (camBusy()) { settleT = setTimeout(settleView, 100); return; }
+    wrap.classList.remove('cam-moving');
+    if (F && !lz?.isOpen()) { refreshCTM(); updateLabels(F); onViewChange?.(); }
   }
   applyVT();
   // The figure's screen transform, computed from the viewBox, the zoom state and the stage box.
@@ -781,20 +788,39 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function freeCentre() { const ins = safeInsets(), b = stageBox(); return [b.left + (ins.l + ins.W - ins.r) / 2, b.top + (ins.t + ins.H - ins.b) / 2]; }
   // A zoom step by the buttons glides there instead of jumping.
-  function animZoomAt(cx, cy, factor) {
-    if (lobuleOn) return;
-    const [vx, vy] = clientToVB(cx, cy), base = vtTarget && vtAnim ? vtTarget : vt;
-    const k = clamp(base.k * factor, 0.6, 6), wx = (vx - vt.x) / vt.k, wy = (vy - vt.y) / vt.k;
-    animateVT({ k, x: vx - wx * k, y: vy - wy * k }, 260);
-  }
-  function zoomAt(cx, cy, factor) {
-    if (lobuleOn) return;   // the lobule view has its own zoom
-    const [vx, vy] = clientToVB(cx, cy);
-    const wx = (vx - vt.x) / vt.k, wy = (vy - vt.y) / vt.k;
-    vt.k = clamp(vt.k * factor, 0.6, 6);
-    vt.x = vx - wx * vt.k; vt.y = vy - wy * vt.k;
+  // ── The camera ──
+  // Every way of zooming (the wheel, the + and − buttons, a double tap) only moves a target; the view eases toward it
+  // at a rate that does not depend on the frame rate, keeping the point under the cursor (or the middle of the free
+  // space) where it is. Rapid input folds into one smooth move. Fit, going home and the dive are timed flights
+  // (animateVT); a drag, a pinch or a flight takes the camera over from the target. While the camera moves the labels
+  // step aside and are laid out once when it settles, so a zoom costs a frame of drawing, not of drawing and layout.
+  const CAM_TAU = 80;   // ms: how quickly the view closes on its target
+  let camT = null, camRaf = 0, camLast = 0, flying = false, settleT = 0;
+  const camBusy = () => !!(camT || flying);
+  function camStop() { camT = null; cancelAnimationFrame(camRaf); camRaf = 0; }
+  function camStep(now) {
+    camRaf = 0;
+    if (!camT) return;
+    const dt = clamp(now - camLast, 0, 64); camLast = now;
+    const k = vt.k + (camT.k - vt.k) * (1 - Math.exp(-dt / CAM_TAU));
+    const done = Math.abs(camT.k / k - 1) < 0.003, kk = done ? camT.k : k;
+    vt = { k: kk, x: camT.vx - camT.wx * kk, y: camT.vy - camT.wy * kk };
+    if (done) camT = null;
     applyVT(); CTM = null;
+    if (!done) camRaf = requestAnimationFrame(camStep);
   }
+  function camZoom(cx, cy, factor) {
+    if (lobuleOn) return;
+    const [vx, vy] = clientToVB(cx, cy);
+    cancelAnimationFrame(vtAnim); flying = false;
+    const k = clamp((camT ? camT.k : vt.k) * factor, 0.6, 6);
+    camT = { k, vx, vy, wx: (vx - vt.x) / vt.k, wy: (vy - vt.y) / vt.k };
+    if (reduceMotion.matches) { vt = { k, x: vx - camT.wx * k, y: vy - camT.wy * k }; camT = null; applyVT(); return; }
+    camLast = performance.now();
+    if (!camRaf) camRaf = requestAnimationFrame(camStep);
+  }
+  const animZoomAt = camZoom;
+
   // Default framing. The circuit is a wide map (≈ 1.9 : 1); in a squarish or tall viewport,
   // fitting its width would shrink every station to a dot, so it opens zoomed to fill the height,
   // centered on the portal vein and liver, and the learner pans sideways to the beds or heart.
@@ -1004,16 +1030,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let vtAnim = 0;
   let vtTarget = null;   // where the last animated move was headed
   function animateVT(to, ms = 700) {
-    cancelAnimationFrame(vtAnim);
-    vtTarget = to;
+    cancelAnimationFrame(vtAnim); camStop();
+    vtTarget = to; flying = true;
     const from = { ...vt }, t0 = performance.now();
-    if (reduceMotion.matches) { vt = to; applyVT(); CTM = null; return; }
+    if (reduceMotion.matches) { vt = to; flying = false; applyVT(); CTM = null; return; }
     const step = (now) => {
       const u = easeInOut(clamp((now - t0) / ms, 0, 1));
       // Interpolate the zoom geometrically so the approach feels even at every scale.
       const k = from.k * Math.pow(to.k / from.k, u);
       const a = (k - from.k) / ((to.k - from.k) || 1);
       vt = { k, x: from.x + (to.x - from.x) * (to.k === from.k ? u : a), y: from.y + (to.y - from.y) * (to.k === from.k ? u : a) };
+      if (u >= 1) flying = false;
       applyVT(); CTM = null;
       if (u < 1) vtAnim = requestAnimationFrame(step);
     };
@@ -2388,13 +2415,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     b.seen = frameNo;
     // Text and pressure colors change far more often than label structure.
     // Retain the text nodes (and keyboard focus) across numeric updates.
-    const sig = JSON.stringify([it.lines.map((line) => line.map(({ t, ...style }) => style)), it.align, !!it.swatch, it.bg, it.cls, labelK]);
+    const sig = JSON.stringify([it.lines.map((line) => line.map(({ t, ...style }) => style)), it.align, !!it.swatch, it.bg, it.cls, labelK, !!it.shelf, !!it.hit]);
     if (sig !== b.sig) {
       b.sig = sig;
       const kids = [];
       b.spans = [];
       b.textLines = [];
       if (it.bg) kids.push(s('rect', { class: 'lb-bg', x: -it.padX, y: -it.padY, width: it.w + 2 * it.padX, height: it.h + 2 * it.padY, rx: 6 }));
+      else if (it.hit) kids.push(s('rect', { class: 'lb-hit', x: -it.padX, y: -it.padY, width: it.w + 2 * it.padX, height: it.h + 2 * it.padY }));
+      if (it.shelf) kids.push(s('line', { class: 'lb-shelf', x1: 0, x2: it.w }));
       let y = 0;
       const tx = it.swatch ? (it.align === 'end' ? it.w - 7 : 7) : 0;
       for (const line of it.lines) {
@@ -2415,7 +2444,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (it.swatch) kids.unshift(s('rect', { class: 'lb-sw', x: it.align === 'end' ? it.w - 3 : 0, y: 1, width: 3, height: Math.max(8, it.h - 2), rx: 1.5 }));
       b.g.replaceChildren(...kids);
       b.sw = it.swatch ? b.g.querySelector('.lb-sw') : null;
-      b.bg = b.g.querySelector('.lb-bg');
+      b.bg = b.g.querySelector('.lb-bg, .lb-hit');
+      b.shelfEl = b.g.querySelector('.lb-shelf');
     }
     let i = 0;
     for (const line of it.lines) for (const r of line) {
@@ -2424,6 +2454,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     for (const text of b.textLines) setA(text, 'x', it.align === 'end' ? it.w - (it.swatch ? 7 : 0) : it.align === 'middle' ? it.w / 2 : it.swatch ? 7 : 0);
     if (b.bg) { setA(b.bg, 'width', it.w + 2 * it.padX); setA(b.bg, 'height', it.h + 2 * it.padY); }
+    if (b.shelfEl) { b.shelfEl.style.display = it.shelfOn ? '' : 'none'; const y = it.shelfTop ? -1 : it.h + 1; setA(b.shelfEl, 'x2', it.w); setA(b.shelfEl, 'y1', y); setA(b.shelfEl, 'y2', y); }
     if (it.label) setA(b.g, 'aria-label', it.label);
     if (b.sw) { setA(b.sw, 'fill', it.swatch); setA(b.sw, 'x', it.align === 'end' ? it.w - 3 : 0); }
     b.g.classList.toggle('sel', !!it.sel);
@@ -2539,8 +2570,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return { runs, color: velocityColor(best) };
   }
 
-  // One label for every station, in every view: a small frosted tag, one line, with a bar in the
-  // pressure's color at its left (name, value, and the change from healthy once it matters).
+  // One label for every station, in every view: a callout. The name, the value and (once it matters) the change
+  // from healthy sit on a thin shelf, joined to the station by a short leader that ends in a ring in the pressure's
+  // color. No box behind the text; a hair of outline in the paper's color keeps it legible over tissue and vessels.
   function nodeItem(id, f, compact) {
     const st = store.get();
     const meta = ATLAS_LABELS[id];
@@ -2549,13 +2581,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const lines = [[{ t: name, size: compact ? 10.5 : 11.5, weight: 600, cls: 'lb-name' }]];
     const lr = isImaging() ? null : layerRuns(f, id, compact);
     const pr = lr ? lr.runs : pressureRuns(P, id, compact);
-    // (The unit is in the lens menu and the key; a tag carries the number and nothing else.)
-    if (pr) lines[0].push(...pr.filter((r) => r.cls !== 'lb-unit').map((r, i) => (i ? r : { ...r, gap: 5 })));
-    const w = Math.max(...lines.map(lineW)) + 7;
+    // (The unit is in the lens menu and the key; a callout carries the number and nothing else.)
+    if (pr) lines[0].push(...pr.filter((r) => r.cls !== 'lb-unit').map((r, i) => (i ? r : { ...r, gap: 6 })));
+    const w = Math.max(...lines.map(lineW));
     const hh = lines.reduce((a, l) => a + LINE_H(l), 0);
     const sel = st.selection?.type === 'node' && st.selection.id === id;
-    return { key: 'n:' + id, node: id, cls: 'node tag', lines, w, h: hh, sel, align: 'start', label: `${NODES[NI[id]].label}${lr ? `: ${lr.runs.map((r) => r.t).join(' ')}` : pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}`,
-      swatch: pr ? (lr ? lr.color : layerMode() === 'heat' ? heatColor(P - (REF()?.[NI[id]] ?? P)) : pressureColor(P)) : null, bg: true, padX: 7, padY: 3 };
+    return { key: 'n:' + id, node: id, cls: 'node tag', lines, w, h: hh, sel, align: 'start', shelf: true, hit: true, label: `${NODES[NI[id]].label}${lr ? `: ${lr.runs.map((r) => r.t).join(' ')}` : pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}`,
+      dot: pr ? (lr ? lr.color : layerMode() === 'heat' ? heatColor(P - (REF()?.[NI[id]] ?? P)) : pressureColor(P)) : null, padX: 3, padY: 3 };
+  }
+  // The leader from a station to its callout: it lands on the end of the shelf nearest the station, and the shelf sits
+  // on the side of the text that faces the station, so the line never crosses the words.
+  function calloutSvg(it, dot = true) {
+    it.shelfTop = it.ay < it.y + it.h / 2;
+    const sy = it.shelfTop ? it.y - 1 : it.y + it.h + 1, ex = clamp(it.ax, it.x, it.x + it.w);
+    let out = '';
+    // A callout whose text sits right on its station needs neither a shelf nor a leader.
+    it.shelfOn = Math.hypot(ex - it.ax, sy - it.ay) > 9;
+    if (it.shelfOn) out += `<path class="leader${it.sel ? ' hl' : ''}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${ex.toFixed(1)} ${sy.toFixed(1)}"/>`;
+    if (dot) out += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="3"${it.dot ? ` style="stroke:${it.dot}"` : ''}/>`;
+    return out;
   }
 
   const ANAT_PRI = { CONF: 10, VAR: 9, SIN_R: 9, RHV: 8, RA: 8, SV: 7, SMV: 7, GV: 7, IVCS: 6, W_R: 12, W_M: 12, W_L: 12 };
@@ -2711,13 +2755,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (place(it, dirs, [8 + it.vw / 2, 22 + it.vw / 2, 38 + it.vw / 2], true)) continue;
         if (it.sel) { place(it, ['C'], 0, false) || (out.push(Object.assign(it, { x: it.ax + 8, y: it.ay - it.h / 2 })), true); }
       }
-      for (const it of out) {
-        if (!it.leader) continue;
-        const r = rectOf(it);
-        const px = clamp(it.ax, r.x0, r.x1), py = clamp(it.ay, r.y0, r.y1);
-        if (Math.hypot(px - it.ax, py - it.ay) > 5) leaders += `<path class="leader${it.sel ? ' hl' : ''}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}"/>`;
-        leaders += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
-      }
+      for (const it of out) if (it.node) leaders += calloutSvg(it);
       // Organ names: fixed inside their organ, dropped where a label needs the room.
       if (st.layers.labels && t < 0.3) {
         for (const [txt, x, y] of ORGAN_LABELS) {
@@ -2773,14 +2811,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const half = it.vw / 2;
         if (!place(it, dirs, [7 + half, 18 + half, 30 + half], false) && it.sel) place(it, dirs, 40 + half, true);
       }
-      for (const it of nodes) {
-        if (!out.includes(it)) continue;
-        if (it.leader) {
-          const r = rectOf(it);
-          leaders += `<path class="leader" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${clamp(it.ax, r.x0, r.x1).toFixed(1)} ${clamp(it.ay, r.y0, r.y1).toFixed(1)}"/>`;
-        }
-        if (it.mid) leaders += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
-      }
+      for (const it of nodes) if (out.includes(it)) leaders += calloutSvg(it, it.mid);
       // Collateral and shunt lanes, captioned along their run.
       for (const [id, cap] of Object.entries(LANE_CAPTIONS)) {
         const x = E[id];
@@ -3123,7 +3154,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (shunt) shuntMove(ev);
   });
 
-  svg.addEventListener('wheel', (ev) => { ev.preventDefault(); zoomAt(ev.clientX, ev.clientY, Math.exp(-ev.deltaY * 0.0015)); }, { passive: false });
+  svg.addEventListener('wheel', (ev) => { ev.preventDefault(); camZoom(ev.clientX, ev.clientY, Math.exp(-(ev.deltaMode === 1 ? ev.deltaY * 16 : ev.deltaY) * 0.0018)); }, { passive: false });
 
   // Touch: every finger is captured by the figure, so a finger that lifts over a label or the
   // card still ends here (an uncaptured finger used to linger in `pointers` and turn the next
@@ -3134,8 +3165,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const b = stageBox(), vb = svg.viewBox.baseVal, s = Math.min(b.sw / vb.width, b.sh / vb.height);
     return [(cx - b.left - b.sx - (b.sw - vb.width * s) / 2) / s + vb.x, (cy - b.top - b.sy - (b.sh - vb.height * s) / 2) / s + vb.y];
   }
-  const startPan = (x, y, id, moved = false) => ({ type: 'pan', x, y, vx: vt.x, vy: vt.y, s0: vbScale(), moved, id });
+  const startPan = (x, y, id, moved = false) => (camStop(), { type: 'pan', x, y, vx: vt.x, vy: vt.y, s0: vbScale(), moved, id });
   function startPinch() {
+    camStop();
     const [a, b] = [...pointers.values()];
     const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, [vx, vy] = clientToVBFast(mx, my);
     return { type: 'pinchzoom', d0: Math.max(1, Math.hypot(a[0] - b[0], a[1] - b[1])), k0: vt.k, wx: (vx - vt.x) / vt.k, wy: (vy - vt.y) / vt.k, out: false };
@@ -3431,6 +3463,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(), lobuleViewKey: () => lz?.viewKey(),
     /** On-screen scale, px per world unit (for the tests: turning the circuit keeps it). */
     zoomLevel: () => { refreshCTM(); return CTM.sc; },
+    // The zoom as a share of the home framing, for the readout beside the buttons.
+    zoomRel: () => (lobuleOn ? lz.zoomRel() : vt.k / ((morphTarget === 1 ? defaultVT(true) : homeAt || defaultVT(false)).k || 1)),
     focusEdge(id) { E[id]?.hit.focus(); },
     startShunt, cancelShunt, isShunting: () => !!shunt, anchorFor, organAt,
     /** Briefly glow the given vessels (where a readout is measured). */

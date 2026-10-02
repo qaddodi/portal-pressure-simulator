@@ -169,7 +169,7 @@ export function createLobuleZoom({ host }) {
   function freeRect() {
     const W = geo.W, H = geo.H, phone = phoneMQ.matches;
     const top = el.querySelector('.lz-top');
-    let t = cssN('--top-safe') + (top ? top.offsetHeight + 16 : 8), b = H - (cssN('--bot-occ') || 100) - 8, l = 12, r = W - cssN('--right-occ') - 12;
+    let t = cssN('--top-safe') + (top ? top.offsetHeight + 16 : 8), b = H - (cssN('--bot-occ') || 100) - 8 - (phone ? 0 : 52), l = 12, r = W - cssN('--right-occ') - 12;
     // The card's layout box (offsetLeft/Top ignore the grow-in transform).
     if (!side.hidden && side.offsetWidth) { if (phone) b = Math.min(b, side.offsetTop - 10); else r = Math.min(r, side.offsetLeft - 16); }
     return { l, t, r: Math.max(l + 80, r), b: Math.max(t + 80, b) };
@@ -206,10 +206,32 @@ export function createLobuleZoom({ host }) {
     V.x = px - (px - V.x) * r; V.y = py - (py - V.y) * r; V.k = k;
     clampV(); viewChanged();
   }
+  // The wheel and the buttons move a target and the view eases toward it (the same camera as the anatomy's): rapid
+  // input folds into one smooth move, whatever the frame rate.
+  let ZT = null, zraf = 0, zlast = 0;
+  function zoomSmooth(px, py, factor) {
+    cancelAnimationFrame(glide);
+    const k = clamp((ZT ? ZT.k : V.k) * factor, kFit, kFit * KMAX);
+    ZT = { k, px, py, wx: (px - V.x) / V.k, wy: (py - V.y) / V.k };
+    if (reduce.matches) { V.k = k; V.x = px - ZT.wx * k; V.y = py - ZT.wy * k; ZT = null; clampV(); viewChanged(); return; }
+    zlast = performance.now();
+    if (!zraf) zraf = requestAnimationFrame(zStep);
+  }
+  function zStep(now) {
+    zraf = 0;
+    if (!ZT) return;
+    const dt = clamp(now - zlast, 0, 64); zlast = now;
+    const k = V.k + (ZT.k - V.k) * (1 - Math.exp(-dt / 80)), done = Math.abs(ZT.k / k - 1) < 0.002;
+    V.k = done ? ZT.k : k; V.x = ZT.px - ZT.wx * V.k; V.y = ZT.py - ZT.wy * V.k;
+    if (done) ZT = null;
+    clampV(); viewChanged();
+    if (!done) zraf = requestAnimationFrame(zStep);
+  }
+  const zStop = () => { ZT = null; cancelAnimationFrame(zraf); zraf = 0; };
   // A short glide between framings (the buttons, Fit, a card opening).
   let glide = 0;
   function glideTo(to, ms = 260) {
-    cancelAnimationFrame(glide);
+    cancelAnimationFrame(glide); zStop();
     const from = { ...V }, t0 = performance.now();
     if (reduce.matches || !fade) { Object.assign(V, to); viewChanged(); return; }
     const step = (now) => {
@@ -223,11 +245,8 @@ export function createLobuleZoom({ host }) {
   }
   function zoomBy(factor) {
     if (!geo) return;
-    const f = freeRect(), px = (f.l + f.r) / 2, py = (f.t + f.b) / 2;
-    const k = clamp(V.k * factor, kFit, kFit * KMAX), r = k / V.k;
-    const to = { k, x: px - (px - V.x) * r, y: py - (py - V.y) * r };
-    const saved = { ...V }; Object.assign(V, to); clampV(); const target = { ...V }; Object.assign(V, saved);
-    glideTo(target);
+    const f = freeRect();
+    zoomSmooth((f.l + f.r) / 2, (f.t + f.b) / 2, factor);
   }
   // When the free space changes (a card opens, the readouts expand), a fitted lobule follows it.
   function refit() { if (!geo) return; const F0 = fitV(); kFit = F0.k; if (atFit) glideTo(F0); else { clampV(); viewChanged(); } }
@@ -241,10 +260,10 @@ export function createLobuleZoom({ host }) {
   // ── Gestures: wheel and pinch zoom, drag pans, a tap selects; out past 1× returns to the liver ──
   el.addEventListener('wheel', (ev) => {
     ev.preventDefault();
-    const f = Math.exp(-ev.deltaY * 0.0015);
-    if (V.k <= kFit * 1.001 && f < 1) return;   // the lobule is a view of its own: zooming out stops at its framing
+    const f = Math.exp(-(ev.deltaMode === 1 ? ev.deltaY * 16 : ev.deltaY) * 0.0018);
+    if ((ZT ? ZT.k : V.k) <= kFit * 1.001 && f < 1) return;   // the lobule is a view of its own: zooming out stops at its framing
     const p = local(ev);
-    zoomAround(p[0], p[1], f);
+    zoomSmooth(p[0], p[1], f);
   }, { passive: false });
   const touches = new Map();
   let pinch = null, down = null, drag = null;
@@ -253,6 +272,7 @@ export function createLobuleZoom({ host }) {
   el.addEventListener('pointerdown', (ev) => {
     if (!onScene(ev)) return;
     if (ev.isPrimary) touches.clear();
+    zStop();
     touches.set(ev.pointerId, local(ev));
     if (touches.size === 2) {
       const [a, b] = pts2();
@@ -561,7 +581,7 @@ export function createLobuleZoom({ host }) {
     const txt = `${name}|${v}|${u}|${d}|${col}`;
     if (L.txt !== txt) {
       L.txt = txt;
-      L.el.style.setProperty('--sw', col || 'var(--border-strong)');
+      L.el.style.setProperty('--sw', col || 'var(--border-strong)'); L.col = col;
       L.el.replaceChildren(h('span', { class: 'n' }, h('span', { class: 'n-long' }, name), h('span', { class: 'n-short' }, short)),
         h('span', { class: 'v' }, h('b', {}, v), u ? h('small', {}, u) : null, d ? h('span', { class: 'd' }, d) : null));
       L.el.setAttribute('aria-label', `${name} ${v} ${u}${d ? `, ${d.slice(2)} from healthy` : ''}. Show details`);
@@ -597,10 +617,12 @@ export function createLobuleZoom({ host }) {
       // Hidden when its vessel is out of the free space, or the space is too small to hold it.
       L.el.hidden = off || fr.b - fr.t < hh + 8 || fr.r - fr.l < w + 8 || a[0] < fr.l - 4 || a[0] > fr.r + 4 || a[1] < fr.t - 30 || a[1] > fr.b + 4;
       L.line.style.display = L.dotEl.style.display = L.el.hidden ? 'none' : '';
-      // The leader runs to the tag's nearest edge, not its middle.
-      const ex = clamp(a[0], x - w / 2, x + w / 2), ey = clamp(a[1], y - hh / 2, y + hh / 2);
+      // The shelf is on the side of the text that faces the station; the leader lands on it.
+      const top = a[1] < y;
+      L.el.classList.toggle('shelf-top', top);
+      const ex = clamp(a[0], x - w / 2, x + w / 2), ey = top ? y - hh / 2 : y + hh / 2;
       L.line.setAttribute('x1', a[0]); L.line.setAttribute('y1', a[1]); L.line.setAttribute('x2', ex); L.line.setAttribute('y2', ey);
-      L.dotEl.setAttribute('cx', a[0]); L.dotEl.setAttribute('cy', a[1]);
+      L.dotEl.setAttribute('cx', a[0]); L.dotEl.setAttribute('cy', a[1]); L.dotEl.style.stroke = L.col || '';
     }
     // Zone chips along the radius to the lower-left edge.
     labels.querySelectorAll('.lz-zone').forEach((z) => z.remove());
@@ -1076,7 +1098,7 @@ export function createLobuleZoom({ host }) {
     },
     resetView,
     /** The zoom buttons: in or out about the middle of the free space, and Fit. */
-    zoomBy, fitView,
+    zoomBy, fitView, zoomRel: () => V.k / (kFit || 1),
     viewKey: () => `${V.k.toFixed(3)},${V.x.toFixed(1)},${V.y.toFixed(1)}|${geoKey}`,
     isOpen: () => fade > 0.98,
     setLobe,

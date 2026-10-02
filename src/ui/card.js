@@ -316,7 +316,8 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     // The figure fills the window: the card stays in the part the top bar, the vitals dock and the
     // cards on the right leave free (published on #app by main.js).
     const css = (k) => parseFloat(appStyle.getPropertyValue(k)) || 0;
-    const top = css('--top-safe') + 8, bottom = H - (css('--bot-occ') || 0) - 8, right = W - css('--right-occ') - 8;
+    // (the strip above the dock holds the zoom buttons, at the left)
+    const top = css('--top-safe') + 8, bottom = H - (css('--bot-occ') || 0) - 8 - 52, right = W - css('--right-occ') - 8;
     const pts = a.path || [[a.x, a.y]];
     const gap = 22;
     const cands = [[a.x + gap, a.y - hh / 2], [a.x - gap - w, a.y - hh / 2], [a.x - w / 2, a.y + gap], [a.x - w / 2, a.y - gap - hh], [a.x + gap, a.y - 30], [a.x - gap - w, a.y - 30]];

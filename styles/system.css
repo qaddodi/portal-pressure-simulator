@@ -3,32 +3,35 @@
    One shadow for floating surfaces. A pressure always reads the same way (see "Pressure tag"). */
 
 :root {
-  --tag-bg: color-mix(in srgb, var(--glass) 90%, transparent);
-  --tag-line: var(--hairline);
   --surface-r: 16px;
   --ctl-r: 10px;
   --float-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline);
 }
 
-/* ── Pressure tag ────────────────────────────────────
-   The anatomy, the circuit and the lobule label a station the same way: a small frosted tag, one line,
-   a bar in the pressure's color at its left, the name, the value, and the change from healthy once it
-   matters. A short leader joins it to its station. The unit lives in the lens menu, not on every tag. */
+/* ── Pressure callout ───────────────────────────────
+   The anatomy, the circuit and the lobule label a station the same way: the name, the value and (once it matters)
+   the change from healthy on a thin shelf, a short leader to a ring in the pressure's color. No box behind the
+   text; a hair of outline in the paper's color keeps it legible over tissue. The unit lives in the lens menu. */
+.lb-hit { fill: transparent; pointer-events: all; }
+.lb-shelf { stroke: var(--leader); stroke-width: 1; }
+.lb.node.sel .lb-shelf { stroke: var(--accent); }
 .lz-lab {
-  display: flex; align-items: baseline; gap: 6px; padding: 3px 9px 3px 8px; border: 1px solid var(--tag-line); border-left: 3px solid var(--sw, var(--border-strong));
-  border-radius: 7px; background: var(--tag-bg); box-shadow: 0 1px 2px rgba(20, 22, 30, .12); text-align: left; line-height: 1.25; white-space: nowrap;
+  display: flex; align-items: baseline; gap: 6px; padding: 3px 2px; border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; line-height: 1.25; white-space: nowrap;
+  border-bottom: 1px solid var(--leader);
 }
-.lz-lab.left { text-align: left; border-left: 3px solid var(--sw, var(--border-strong)); border-right: 1px solid var(--tag-line); padding: 3px 9px 3px 8px; }
-.lz-lab .n, .lz-lab .v { text-shadow: none; }
+.lz-lab.shelf-top { border-bottom: 0; border-top: 1px solid var(--leader); }
+.lz-lab.left { text-align: left; border-left: 0; border-right: 0; padding: 3px 2px; }
+.lz-lab .n, .lz-lab .v { text-shadow: 0 0 3px var(--label-halo), 0 0 3px var(--label-halo), 0 0 5px var(--label-halo); }
 .lz-lab .n { font-size: 11.5px; font-weight: 600; color: var(--text-2); }
 .lz-lab .v { display: inline-flex; align-items: baseline; gap: 4px; font-size: 14px; }
-.lz-lab.left .v { justify-content: flex-start; }
 .lz-lab small { display: none; }
 .lz-lab .d { font-size: 10.5px; margin-left: 2px; }
-.lz-lab:hover, .lz-lab:focus-visible { border-color: var(--accent-line); border-left-color: var(--sw, var(--border-strong)); }
+.lz-lab:hover, .lz-lab:focus-visible { border-color: var(--accent); outline: none; }
 .lz-lab .n-long { display: inline; } .lz-lab .n-short { display: none; }
+.lz-leaders .leader-dot { fill: var(--stage-bg); stroke: var(--text-2); stroke-width: 1.4; }
 @media (max-width: 720px) {
-  .lz-lab { border: 1px solid var(--tag-line) !important; border-left: 3px solid var(--sw, var(--border-strong)) !important; padding: 2px 7px 2px 6px; }
+  .lz-lab { border: 0 !important; border-bottom: 1px solid var(--leader) !important; padding: 2px 2px; }
+  .lz-lab.shelf-top { border-bottom: 0 !important; border-top: 1px solid var(--leader) !important; }
   .lz-lab .n-long { display: none; } .lz-lab .n-short { display: inline; }
   .lz-lab .v { font-size: 12.5px; }
 }
@@ -48,7 +51,7 @@
 .lens-btn .lg-cats i { width: 14px; height: 6px; border-radius: 3px; }
 .lens-btn .lg-dots i { width: 9px; height: 9px; border-radius: 50%; }
 .lens-btn .lg-dots b { display: none; }
-@media (max-width: 1239px) { .lens-btn .lens-name { display: none; } }
+#btnLayers #colorModeLabel { display: inline; }
 @media (max-width: 767px) { .lens-btn .lg-scale { width: 44px; } .lens-btn .lens-ic { width: 16px; height: 16px; } }
 .layers-pop .menu-item small { display: block; color: var(--text-2); font-size: var(--fs-12); line-height: 1.4; margin-top: 2px; font-weight: 400; }
 
@@ -56,8 +59,6 @@
 .lz-top { flex-direction: column; align-items: center; gap: 8px; }
 .lz-tgs { gap: 2px; padding: 3px; border-radius: 12px; }
 .lz-tg { height: 34px; min-width: 34px; padding: 0 9px; border-radius: 9px; justify-content: center; gap: 7px; }
-.lz-tg .lz-tl { display: none; }
-.lz-tg[aria-pressed="true"] .lz-tl { display: inline; }
 .lz-tg.keyb i { width: 17px; height: 17px; border: 0; background: none; }
 .lz-tg.keyb i svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
 .lz-tg i { width: 14px; height: 14px; }
@@ -161,9 +162,39 @@
 .lz-more .lz-more-l { display: none !important; }
 .lz-ladder { margin: 0 -4px; }
 
-/* ── The play bar: play, the timeline, the time, then two icons (time menu, compare) ── */
-.tl-jumps { gap: 4px; }
-.tl-jumps .ib { width: 36px; height: 36px; border: 1px solid var(--border); border-radius: var(--ctl-r); background: var(--surface); color: var(--text-2); }
-.tl-jumps .ib:hover { border-color: var(--border-strong); background: var(--surface-2); color: var(--text); }
-.tl-jumps .ib svg { width: 18px; height: 18px; }
-.tl-jumps .tl-pin[aria-pressed="true"] { background: var(--text); color: var(--stage-bg); border-color: transparent; }
+/* ── The play bar: play, the timeline, the time, then two buttons that say what they do ── */
+.tl-jumps { gap: 6px; flex: none; min-width: max-content; }
+.tl-act { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px 0 10px; border: 1px solid var(--border); border-radius: var(--ctl-r); background: var(--surface); color: var(--text-2); font: 600 var(--fs-13) var(--font-ui); cursor: pointer; white-space: nowrap; }
+.tl-act:hover { border-color: var(--border-strong); background: var(--surface-2); color: var(--text); }
+.tl-act svg { width: 17px; height: 17px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.tl-act .tl-chev { width: 13px; height: 13px; color: var(--text-3); margin-left: -2px; }
+.tl-act[aria-pressed="true"] { background: var(--text); color: var(--stage-bg); border-color: transparent; }
+@media (max-width: 767px) { .tl-act { padding: 0 8px; gap: 4px; font-size: var(--fs-12); } .tl-act .tl-chev { display: none; } .tl-track { min-width: 40px; } .tl-time { display: none; } }
+@media (max-width: 1100px) { .tl-pin span { display: inline; } }
+
+/* ── A phone's top bar keeps its words: icon over a short caption ── */
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+  .top-right .tb-act, .top-right .find-badge { flex-direction: column; justify-content: center; gap: 1px; height: 42px; min-width: 52px; padding: 0 4px; position: relative; font-size: 10.5px; font-weight: 600; }
+  .top-right .tb-act > span, .top-right .find-badge .fb-l { display: block; line-height: 1.1; }
+  .top-right .find-badge .fb-n { position: absolute; top: 1px; right: 6px; min-width: 16px; height: 16px; padding: 0 4px; font-size: 10px; }
+  .top-right .pal-btn { display: none; }
+}
+
+/* ── Zoom: one row at the figure's bottom left, with words ──
+   The drawer is on the right, so nothing ever covers or moves it. − 100% + · Fit · Turn (in the circuit). */
+.zoom-pill { flex-direction: row; align-items: center; gap: 2px; padding: 4px; border-radius: 14px; right: auto; left: calc(env(safe-area-inset-left) + var(--gap) + 2px); bottom: calc(var(--bot-occ, 120px) + 8px); }
+.zp-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; color: var(--text-2); font: 600 var(--fs-13) var(--font-ui); cursor: pointer; white-space: nowrap; position: static; translate: none; box-shadow: none; }
+.zp-btn:hover { background: var(--surface-3); color: var(--text); }
+.zp-btn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.zp-step { width: 36px; padding: 0; }
+.zp-level { min-width: 64px; text-align: center; font: 600 var(--fs-12) var(--font-ui); color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.zp-sep { width: 1px; height: 22px; background: var(--hairline); margin: 0 4px; }
+.zoom-pill .stage-fit, .zoom-pill .stage-rotate { position: static; width: auto; height: 36px; right: auto; bottom: auto; }
+.zoom-pill .stage-rotate { display: none; }
+.cmap .zoom-pill .stage-rotate { display: inline-flex; }
+.stage-view.in-lobule .zoom-pill { right: auto; }
+@media (min-width: 721px) { .stage-view.in-lobule .zoom-pill { right: auto; } }
+@media (max-width: 767px) { .zp-level { min-width: 52px; } .zp-btn { padding: 0 8px; } .zp-step { width: 34px; } .zoom-pill { left: 8px; } }
+/* The labels step aside while the camera moves and return, laid out once, when it settles. */
+#labels { transition: opacity .22s var(--ease); }
+.stage-view.cam-moving #labels, .stage-view.cam-moving .lb-glass { opacity: 0; transition-duration: .1s; }
