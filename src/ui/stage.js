@@ -1034,7 +1034,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (!diveOrig) {
       const [ox, oy] = diveAt;
-      diveOrig = diveEls().map((el) => [el, `${(ox - el.offsetLeft).toFixed(1)}px ${(oy - el.offsetTop).toFixed(1)}px`]);
+      // From the boxes, not offsetLeft/Top: an SVG has none, and its origin would fall back to its own
+      // centre, so the overlays (stents, the Doppler's glow) drifted from the anatomy as it zoomed.
+      const w0 = wrap.getBoundingClientRect();
+      diveOrig = diveEls().map((el) => { const r = el.getBoundingClientRect(); return [el, `${(ox - (r.left - w0.left)).toFixed(1)}px ${(oy - (r.top - w0.top)).toFixed(1)}px`]; });
       for (const [el, o] of diveOrig) { el.style.willChange = 'transform'; el.style.transformOrigin = o; }
     }
     const tf = `scale(${k.toFixed(4)})`;
