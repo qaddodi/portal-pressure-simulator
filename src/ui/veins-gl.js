@@ -586,24 +586,30 @@ vec2 chevAt(int id, float s, float y) {
   if (f1.z <= 0.0) return vec2(0.0);
   float len = max(texelFetch(tube, ivec2(5, id), 0).z, 1.0);
   // One size and one spacing for the whole vessel (from its caliber midway), so every head is the
-  // same shape and they keep an even distance; they move at the vessel's own speed.
+  // same shape and they keep an even distance; they move at the vessel's own speed, whatever the zoom.
   float R = max(texelFetch(rad, ivec2(N_LAST / 2, id), 0).r, 0.3);
-  if (R < 1.6 * pxW) return vec2(0.0);
+  if (R < 1.3 * pxW) return vec2(0.0);
   float vd = f0.y, dir = vd < 0.0 ? -1.0 : 1.0;
-  // Spacing a power-of-two multiple of 28 world units, so it divides the stream's period (no jump on wrap).
-  float P = 28.0 * exp2(max(0.0, ceil(log2(max(3.6 * R, 44.0 * pxW) / 28.0))));
-  float x = mod(s - f0.x, P) - 0.5 * P, u = x * dir, ay = abs(y) * R;
-  float hw = min(0.78 * R, 0.24 * P), L = 1.45 * hw;          // half width, length
+  // Spacing: a power-of-two multiple of 28 world units (it divides the stream's period: no jump on
+  // wrap), at least ~60 px on screen. Zooming out, every other head fades away before the spacing
+  // doubles (the coarser heads are a subset of the finer ones), so nothing jumps or pops.
+  float lv = max(0.0, log2(max(3.6 * R, 60.0 * pxW) / 28.0)), n = floor(lv), fr = lv - n;
+  float P = 28.0 * exp2(n), Pc = 28.0 * exp2(lv);
+  float x = mod(s - f0.x + 0.5 * P, P) - 0.5 * P, u = x * dir, ay = abs(y) * R;
+  float sc = s - x;
+  float odd = mod(floor((sc - f0.x) / P + 0.5), 2.0);
+  float keep = odd > 0.5 ? 1.0 - smoothstep(0.15, 0.85, fr) : 1.0;
+  float hw = min(0.86 * R, 0.2 * Pc), L = 1.6 * hw;            // half width, length
   float tip = 0.55 * L, back = -0.45 * L, notch = 0.32 * L;
   // Inside when behind both slanted sides and ahead of the notched back.
   float k = L / hw;
   float side = (u - tip + ay * k) / sqrt(1.0 + k * k);
   float rear = back + notch * (1.0 - clamp(ay / hw, 0.0, 1.0)) - u;
   float d = max(max(side, rear), ay - hw);
-  // A head whose centre is within its length of either end is left out, never cut by a join.
-  float sc = s - x;
-  if (sc < L || sc > len - L) return vec2(0.0);
-  float fade = smoothstep(0.5, 3.0, abs(vd)) * f1.z;
+  // Toward either end a head fades out (and the next vessel's fade in), never cut by a join.
+  float e = min(sc, len - sc);
+  if (e < 0.6 * L) return vec2(0.0);
+  float fade = smoothstep(0.5, 3.0, abs(vd)) * f1.z * keep * smoothstep(0.6 * L, 0.6 * L + max(2.0 * L, 0.3 * Pc), e) * smoothstep(1.3 * pxW, 2.4 * pxW, R);
   float c = 1.0 - smoothstep(-0.7 * pxW, 0.7 * pxW, d);
   float rim = (1.0 - smoothstep(0.0, 1.8 * pxW + 0.1 * hw, d)) * (1.0 - c);
   return vec2(c, rim) * fade;
