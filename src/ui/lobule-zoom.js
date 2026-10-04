@@ -1316,19 +1316,29 @@ export function createLobuleZoom({ host }) {
     // starts, when they activate. A spindle-shaped body lying along the sinusoid, with long thin
     // processes hugging its wall; activated (myofibroblasts), they grow, darken and lay down collagen.
     if (m.act > 0.08) {
-      const a = m.act, L = G.rs0 * (2.6 + 1.6 * a), Wb = G.rs0 * (0.55 + 0.25 * a);
-      c.lineCap = 'round';
+      const a = m.act, L = G.rs0 * (2.4 + 1.4 * a), Wb = G.rs0 * (0.42 + 0.2 * a);
+      const body = `rgba(150, 96, 62, ${(0.22 + 0.3 * a).toFixed(3)})`, nuc = `rgba(96, 54, 40, ${(0.3 + 0.3 * a).toFixed(3)})`;
+      // A tapered strand: from (x0, y0) along the wall, bowing toward the sinusoid, width w0 → 0.
+      const strand = (k, x0, y0, sgn, len, w0, bow) => {
+        const ux = Math.cos(k.a) * sgn, uy = Math.sin(k.a) * sgn, n = 10, Pq = [];
+        for (let i = 0; i <= n; i++) { const u = i / n, b = bow * Math.sin(Math.PI * u * 0.8) * G.rs0; Pq.push([x0 + ux * len * u - k.nx * b, y0 + uy * len * u - k.ny * b, w0 * (1 - u) ** 1.3]); }
+        c.moveTo(Pq[0][0] + k.nx * Pq[0][2], Pq[0][1] + k.ny * Pq[0][2]);
+        for (const [x, y, w] of Pq) c.lineTo(x + k.nx * w, y + k.ny * w);
+        for (let i = n; i >= 0; i--) c.lineTo(Pq[i][0] - k.nx * Pq[i][2], Pq[i][1] - k.ny * Pq[i][2]);
+        c.closePath();
+      };
       for (const k of G.hsc) {
-        const ux = Math.cos(k.a), uy = Math.sin(k.a), col = `rgba(168, 98, 44, ${0.3 + 0.4 * a})`;
-        c.strokeStyle = col; c.lineWidth = Math.max(0.6, G.rs0 * 0.18);
-        c.beginPath();
-        for (const sgn of [-1, 1]) {   // processes along the wall, curving in toward the sinusoid
-          const ex = k.x + ux * sgn * L * 2.2 - k.nx * G.rs0 * 0.5, ey = k.y + uy * sgn * L * 2.2 - k.ny * G.rs0 * 0.5;
-          c.moveTo(k.x + ux * sgn * L * 0.6, k.y + uy * sgn * L * 0.6); c.quadraticCurveTo(k.x + ux * sgn * L * 1.5, k.y + uy * sgn * L * 1.5, ex, ey);
+        const ux = Math.cos(k.a), uy = Math.sin(k.a);
+        c.fillStyle = body; c.beginPath();
+        // Body: a slender spindle, its ends drawn out into the processes along the sinusoid.
+        c.ellipse(k.x, k.y, L * 0.6, Wb, k.a, 0, TAU);
+        for (const sgn of [-1, 1]) {
+          const x0 = k.x + ux * sgn * L * 0.45, y0 = k.y + uy * sgn * L * 0.45;
+          strand(k, x0, y0, sgn, L * (2 + 0.6 * a), Wb * 0.55, 0.45);
+          strand(k, x0, y0, sgn, L * (1.1 + 0.4 * a), Wb * 0.35, -0.25);   // a finer branch on the plate side
         }
-        c.stroke();
-        c.fillStyle = col; c.beginPath(); c.ellipse(k.x, k.y, L * 0.75, Wb, k.a, 0, TAU); c.fill();
-        c.fillStyle = `rgba(110, 58, 30, ${0.35 + 0.35 * a})`; c.beginPath(); c.ellipse(k.x, k.y, L * 0.32, Wb * 0.55, k.a, 0, TAU); c.fill();   // nucleus
+        c.fill();
+        c.fillStyle = nuc; c.beginPath(); c.ellipse(k.x, k.y, L * 0.26, Wb * 0.5, k.a, 0, TAU); c.fill();
       }
     }
     c.restore();
