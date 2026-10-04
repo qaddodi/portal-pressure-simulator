@@ -54,7 +54,10 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     // buttons: then they step aside rather than slide under the top bar.
     const pill = lift.find((b) => b.classList.contains('zoom-pill'));
     if (pill) pill.classList.toggle('under-sheet', isDocked() && parseFloat(px) > 0);
-    if (pill) {
+    // Hidden (a phone's instrument sheet is up) it has no box to measure: a reading then would leave it
+    // stepped aside for good once it shows again.
+    if (pill && !pill.getClientRects().length) pill.classList.remove('no-room');
+    else if (pill) {
       const shift = parseFloat(getComputedStyle(pill).translate.split(' ')[1]) || 0;   // where the lift has got to
       const restTop = pill.getBoundingClientRect().top - shift;
       const barBottom = document.getElementById('topbar').getBoundingClientRect().bottom;
