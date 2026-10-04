@@ -116,7 +116,7 @@ export function createLobuleZoom({ host }) {
   const cirBox = h('div', { class: 'lz-cir ac-slider' },
     h('div', { class: 'ctl-top' }, h('span', { class: 'ac-label' }, 'Cirrhosis'), cirVal),
     h('div', { class: 'range-wrap' }, cirIn),
-    h('div', { class: 'ctl-sub' }, 'Tap the triad, a sinusoid or the central vein to add fibrosis there.'));
+    h('div', { class: 'ctl-sub' }, 'Tap the portal venule, a sinusoid or the central venule to add fibrosis there.'));
   const paintCir = (v) => { cirIn.value = v; cirVal.textContent = `${Math.round(v * 100)} %`; cirIn.style.setProperty('--pct', `${v * 100}%`); };
   let cirFresh = true;
   cirIn.addEventListener('pointerdown', () => { cirFresh = true; });
@@ -133,7 +133,7 @@ export function createLobuleZoom({ host }) {
   const phoneMQ = matchMedia('(max-width: 720px)');
   const setOpen = (o) => { side.classList.toggle('open', o); more.setAttribute('aria-expanded', String(o)); if (!o) side.scrollTop = 0; requestAnimationFrame(refit); };
   more.addEventListener('click', () => setOpen(!side.classList.contains('open')));
-  // The key to the lobule's parts sits beside it, and steps back as you zoom in.
+  // The key to the lobule's parts is not shown (the colours speak for themselves); it stays detached.
   const key = h('div', { class: 'lz-key' }, legend);
   // Phone: the sheet follows a swipe on its header, up to open and down to fold; a tap on the header flips it.
   {
@@ -154,7 +154,7 @@ export function createLobuleZoom({ host }) {
   const el = h('div', { class: 'lz', 'aria-hidden': 'true' },
     tissue, glCv, fx, leaders, labels,
     h('div', { class: 'lz-top' }, h('div', { class: 'lz-tgs' }, zonesBtn, lymphBtn)),
-    key, side);
+    side);
   host.append(el);
 
   // ── The view: the lobule framed in the space the floating pieces leave (top bar, dock, cards and
@@ -544,13 +544,13 @@ export function createLobuleZoom({ host }) {
     if (lymphOn) items.push(['lg-ly', 'Lymph']);
     legend.replaceChildren(items.map(([c, t, st]) => h('span', {}, h('i', { class: c, style: st }), t)));
     tissue.setAttribute('aria-label', m.hide ? 'Liver lobule. Pressures not measured.'
-      : `Liver lobule: portal venule ${fmt(m.P1, 1)}, sinusoids ${fmt(m.P2, 1)}, central vein ${fmt(m.P3, 1)} millimeters of mercury; sinusoidal flow ${Math.round(m.flow * 100)} percent of normal. ${why}`);
+      : `Liver lobule: portal venule ${fmt(m.P1, 1)}, sinusoids ${fmt(m.P2, 1)}, central venule ${fmt(m.P3, 1)} millimeters of mercury; sinusoidal flow ${Math.round(m.flow * 100)} percent of normal. ${why}`);
     // Station cards on the figure.
     // Labels as in the anatomy: the station, its pressure, and the change from healthy once it reaches 5 mmHg.
     const mv = (v, h0) => (m.hide ? ['?', '', '', null] : [fmt(v, 1), 'mmHg', h0 != null && Math.abs(v - h0) >= 5 ? `${v > h0 ? '▲' : '▼'} ${Math.round(Math.abs(v - h0))}` : '', pc(v)]);
-    setLab('triad', 'Portal triad', 'Triad', ...mv(m.P1, m.H[0]));
+    setLab('triad', 'Portal venule', 'Portal venule', ...mv(m.P1, m.H[0]));
     setLab('sin', 'Sinusoids', 'Sinusoids', ...mv(m.P2, m.H[1]));
-    setLab('cv', 'Central vein', 'Central v.', ...mv(m.P3, m.H[2]));
+    setLab('cv', 'Central venule', 'Central venule', ...mv(m.P3, m.H[2]));
   }
 
   // ── Station labels (HTML, styled as the anatomy's) with leaders ──
@@ -585,22 +585,27 @@ export function createLobuleZoom({ host }) {
     if (key === layoutKey) return;
     layoutKey = key;
     leaders.setAttribute('viewBox', `0 0 ${g.W} ${g.H}`);
-    const { R, cx, cy, phone } = g, C = g.lobules[0].corners;
-    const spots = phone
-      ? { triad: [C[5][0] + R * 0.5, C[5][1] - R * 0.05], cv: [cx - R * 0.55, cy + R * 1.08], sin: [cx + R * 0.55, cy + R * 1.08] }
-      : { triad: [C[5][0] + R * 0.12, C[5][1] - R * 0.24], cv: [cx - R * 1.32, cy + R * 0.12], sin: [cx + R * 1.3, cy - R * 0.2] };
+    const { R, cx, cy } = g;
+    // Each label sits just beside its vessel, on the side away from the lobule's centre (the central
+    // venule's, up and to the left of it), with a short leader; it stays inside the free space.
+    const c0 = toScreen([cx, cy]);
     for (const [k, L] of Object.entries(labs)) {
       const w = L.el.offsetWidth || 100, hh = L.el.offsetHeight || 40;
       const a = toScreen(anchorOf(k)), off = a[0] < 0 || a[0] > g.W || a[1] < 0 || a[1] > g.H;
-      // Inside the free space, on the side away from its anchor (the color bar faces the vessel).
-      const fr = freeRect(), [px, py] = toScreen(spots[k]);
-      const x = clamp(px, fr.l + w / 2, fr.r - w / 2), y = clamp(py, fr.t + hh / 2, fr.b - hh / 2);
+      let dx = a[0] - c0[0], dy = a[1] - c0[1], n = Math.hypot(dx, dy);
+      if (k === 'cv' || n < 1) { dx = -0.8; dy = -0.6; n = 1; }
+      dx /= n; dy /= n;
+      const gap = 18 + Math.abs(dx) * w / 2 + Math.abs(dy) * hh / 2;
+      const fr = freeRect();
+      const x = clamp(a[0] + dx * gap, fr.l + w / 2, fr.r - w / 2), y = clamp(a[1] + dy * gap, fr.t + hh / 2, fr.b - hh / 2);
       L.el.style.left = `${x - w / 2}px`; L.el.style.top = `${y - hh / 2}px`;
       L.el.classList.toggle('left', x < a[0]);
       // Hidden when its vessel is out of the free space, or the space is too small to hold it.
       L.el.hidden = off || fr.b - fr.t < hh + 8 || fr.r - fr.l < w + 8 || a[0] < fr.l - 4 || a[0] > fr.r + 4 || a[1] < fr.t - 30 || a[1] > fr.b + 4;
       L.line.style.display = L.dotEl.style.display = L.el.hidden ? 'none' : '';
-      L.line.setAttribute('x1', a[0]); L.line.setAttribute('y1', a[1]); L.line.setAttribute('x2', x); L.line.setAttribute('y2', y);
+      // The leader ends at the label's near edge (its colour bar).
+      const ex = x < a[0] ? x + w / 2 : x - w / 2;
+      L.line.setAttribute('x1', a[0]); L.line.setAttribute('y1', a[1]); L.line.setAttribute('x2', ex); L.line.setAttribute('y2', y);
       L.dotEl.setAttribute('cx', a[0]); L.dotEl.setAttribute('cy', a[1]);
     }
     // Zone chips along the radius to the lower-left edge.

@@ -2526,7 +2526,11 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   .lz-more .lz-more-l { display: inline; }
 }
 @media (min-width: 721px) { .stage-view.in-lobule .zoom-pill { right: calc(env(safe-area-inset-right) + var(--gap) * 2 + var(--right-occ, 0px) + 300px); } }
-@media (max-width: 720px) { .stage-view.in-lobule .zoom-pill { display: none; } }
+/* Phone: the lobule's zoom in, zoom out and fit sit top right, beside its Zones and Lymph switches. */
+@media (max-width: 720px) {
+  .stage-view.in-lobule .zoom-pill { top: calc(var(--top-safe) + 8px); bottom: auto; right: calc(env(safe-area-inset-right) + 12px); translate: none; flex-direction: row; }
+  .stage-view.in-lobule .zoom-pill #zoomIn, .stage-view.in-lobule .zoom-pill #zoomOut { display: inline-grid; }
+}
 /* In the tall Instruments card the trace chips wrap instead of scrolling sideways. */
 .instrument-workspace.side .pt-chips { flex-wrap: wrap; overflow: visible; -webkit-mask-image: none; mask-image: none; padding-right: 0; }
 /* The lobule's key keeps clear of the zoom buttons beside the lobule card. */
