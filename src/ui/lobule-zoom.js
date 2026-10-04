@@ -14,8 +14,8 @@
 // disease brings them, collagen (portal tract, space of Disse, central vein, bridging septa that cut
 // the lobule into nodules in cirrhosis), activated stellate cells, and zone-3 congestion and cell dropout ("nutmeg") when the outflow backs up.
 //
-// Teaching layers: Rappaport zones (toggle), hepatic lymph leaving the space of Disse for the portal
-// tract (toggle, rate from the model), a pressure ladder (portal venule → sinusoids → central vein →
+// Teaching layers: Rappaport zones (toggle), hepatic lymph running out along the space of Disse to the portal
+// tract's lymphatic (toggle, rate from the model), a pressure ladder (portal venule → sinusoids → central vein →
 // hepatic vein → IVC, against the healthy ladder) that names where the resistance is, and a card for
 // anything tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
@@ -32,7 +32,7 @@ import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=3acf4e936e
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const TAU = Math.PI * 2;
 const N = N_SAMPLES;
-const MAXT = 240;                       // GPU rows: the lobule has ~170 vessels
+const MAXT = 300;                       // GPU rows: the lobule has ~170 vessels, ~270 with the lymphatics
 const LIGHT = (() => { const n = Math.hypot(-0.42, -0.91); return [-0.42 / n, -0.91 / n]; })();
 const BLOOD = {
   originCol: [[0.9, 0.6, 0.16], [0.09, 0.62, 0.55], [0.49, 0.36, 0.86], [0.84, 0.2, 0.28], [0.44, 0.56, 0.75]],
@@ -558,6 +558,32 @@ export function createLobuleZoom({ host }) {
     // Lymph droplets: start deep in the lobule, drift to the nearest triad.
     // Lymph shimmer: each streak rises deep in the lobule and drifts out through the tissue to the nearest triad.
     const lymph = Array.from({ length: 140 }, () => ({ ph: r(), a: r() * TAU, r0: 0.1 + r() * 0.4, sp: 0.7 + r() * 0.6, w: r() * TAU, len: 0.07 + r() * 0.06 }));
+    // Lymphatics (shown with the Lymph toggle): plasma filtered into the space of Disse runs out along
+    // each sinusoid (a thin channel beside it, between the sinusoid and its plate), against the blood,
+    // to the edge of the lobule; there terminal lymphatics carry it along the limiting plate to the
+    // lymphatic vessel in each portal tract.
+    for (const tr of triads) { const a = Math.atan2(tr.y - cy, tr.x - cx), d = rt * 0.55; tr.lvP = [tr.x + Math.cos(a) * d * 1.25, tr.y + Math.sin(a) * d * 1.25]; tr.lv = add('lv', dot(...tr.lvP), { tri: tr.i, lymph: true }); }
+    const lyOff = rs0 * 2.1;
+    const beside = (t) => t.pts.map((q, i) => { const a = t.pts[Math.max(0, i - 1)], b = t.pts[Math.min(N - 1, i + 1)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [q[0] - ((b[1] - a[1]) / L) * lyOff, q[1] + ((b[0] - a[0]) / L) * lyOff]; });
+    // Along each edge, from its midpoint to the triad at either end, on the limiting plate.
+    const lt = [];
+    for (let i = 0; i < 6; i++) for (const dir of [1, -1]) {
+      const A = C[i], B = C[(i + dir + 6) % 6], tr = triads[i], M = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], ex = (B[0] - A[0]) / R, ey = (B[1] - A[1]) / R, nx = (cx - M[0]) / (R * 0.866), ny = (cy - M[1]) / (R * 0.866);
+      const o = R * 0.012, P0 = [M[0] + nx * o, M[1] + ny * o], P1 = [A[0] + ex * rt * 0.9 + nx * o, A[1] + ey * rt * 0.9 + ny * o];
+      const t = add('lt', curve((u) => (u < 0.85 ? [lerp(P0[0], P1[0], u / 0.85), lerp(P0[1], P1[1], u / 0.85)] : [lerp(P1[0], tr.lvP[0], (u - 0.85) / 0.15), lerp(P1[1], tr.lvP[1], (u - 0.85) / 0.15)])), { tri: i, lymph: true, line: [P0, P1] });
+      lt[i * 2 + (dir > 0 ? 0 : 1)] = t;
+      join(tr.lvP[0], tr.lvP[1], [t, tr.lv], R * 0.008);
+    }
+    for (let e = 0; e < 6; e++) { const a = lt[e * 2], b = lt[((e + 1) % 6) * 2 + 1], q = a.pts[0]; join(q[0], q[1], [a, b], R * 0.006); }
+    // The space of Disse beside each sinusoid; the first generation's reaches the limiting plate.
+    for (const t of L0) {
+      const P = beside(t), side = t.tri === t.edge ? lt[t.edge * 2] : lt[((t.edge + 1) % 6) * 2 + 1], [p0, p1] = side.line;
+      const dx = p1[0] - p0[0], dy = p1[1] - p0[1], L2 = dx * dx + dy * dy, w = clamp(((P[0][0] - p0[0]) * dx + (P[0][1] - p0[1]) * dy) / L2, 0, 1), E = [p0[0] + dx * w, p0[1] + dy * w];
+      const poly = [E, ...P];
+      const d = add('ly', curve((u) => at(poly, u)), { lymph: true, lvl: 0 });
+      join(E[0], E[1], [side, d], R * 0.004);
+    }
+    for (const t of L1) add('ly', curve((u) => at(beside(t), u)), { lymph: true, lvl: 1 });
     return { W, H, phone, R, cx, cy, rt, rs0, rcv0, lobules, tubes, joins, triads, inlets, L0, L1, L2, cv, septaPC, cells, hsc, lymph };
   }
   function hexFrac(x, y, cx, cy, R) {
@@ -982,10 +1008,13 @@ export function createLobuleZoom({ host }) {
       case 'cv': return R * (0.07 + 0.05 * m.congU) * (1 - 0.3 * m.fibPost);
       case 'ha': return Math.max(1.6, R * 0.014 * clamp(m.art, 0.6, 2.2) ** 0.3);
       case 'tw': return Math.max(1.1, R * 0.0055 * clamp(m.art, 0.6, 2.2) ** 0.3);
+      case 'ly': return Math.max(1.1, g.rs0 * 0.5);
+      case 'lt': return Math.max(1.5, R * 0.0075);
+      case 'lv': return R * 0.02;
       default: return rs;
     }
   }
-  const WALL = { s0: 0.8, s1: 0.85, s2: 0.9, an: 0.7, in: 1.1, pv: 1.5, cv: 1.6, sh: 1.1, ha: 0, tw: 0 };
+  const WALL = { s0: 0.8, s1: 0.85, s2: 0.9, an: 0.7, in: 1.1, pv: 1.5, cv: 1.6, sh: 1.1, ha: 0, tw: 0, ly: 0.5, lt: 0.8, lv: 1.1 };
   // Weight of the inlet's value at a radius along the sinusoids (1 at the lobule's edge, 0 at the central vein).
   const sinW = (rho) => clamp((rho - 0.075) / (0.92 - 0.075), 0, 1) ** 0.8;
   const qP = (v) => Math.round(v * 2) / 2;
@@ -1027,7 +1056,7 @@ export function createLobuleZoom({ host }) {
     const res = g.software ? 0.5 : 1, k = dpr * res;
     const cw = Math.max(1, Math.round(W * k)), ch = Math.max(1, Math.round(H * k));
     if (glCv.width !== cw || glCv.height !== ch) { glCv.width = cw; glCv.height = ch; glDirty = true; }
-    const live = G.tubes;
+    const live = lymphOn ? G.tubes : G.tubes.filter((t) => !t.lymph);
     // Radii, re-sent when a tube's caliber changed (they follow only these few model values).
     let reachGrew = false;
     const rk0 = [m.zone.sin, m.congU, m.fibPre, m.fibPost, m.art].map((x) => x.toFixed(3)).join('|') + '|' + G.W + 'x' + G.H;
@@ -1051,19 +1080,20 @@ export function createLobuleZoom({ host }) {
     const origin = originOn();
     const selIdsN = selIds();
     const inks = new Map(live.map((t) => [t.id, [tubeInk(t, 0), tubeInk(t, 1)]]));
-    const ak = [m.mode, [...inks.values()].flat().join(','), m.hide, origin, [...selIdsN].join('.'), dark, cs.getPropertyValue('--artery')].join('|');
+    const ak = [m.mode, [...inks.values()].flat().join(','), m.hide, origin, lymphOn, [...selIdsN].join('.'), dark, cs.getPropertyValue('--artery')].join('|');
     if (ak !== attrKey) {
       attrKey = ak; glDirty = true;
       tubeData.fill(0);
       const art = rgb01(cs.getPropertyValue('--artery').trim() || '#C8414D'), grey = [ORIGIN_GREY, ORIGIN_GREY, ORIGIN_GREY];
+      const LY = dark ? [0.88, 0.8, 0.5] : [0.97, 0.88, 0.52];   // lymph: clear, faintly straw
       for (const t of live) {
         const o = t.id * TUBE_TEXELS * 4, isArt = t.kind === 'ha' || t.kind === 'tw';
         const [i0, i1] = inks.get(t.id);
-        const c0 = isArt ? art : origin ? grey : rgb01(i0), c1 = isArt ? art : origin ? grey : rgb01(i1);
+        const c0 = isArt ? art : t.lymph ? LY : origin ? grey : rgb01(i0), c1 = isArt ? art : t.lymph ? LY : origin ? grey : rgb01(i1);
         const alpha = (isArt ? 0.9 : 1) * (selIdsN.size && !selIdsN.has(t.id) ? 0.55 : 1);
         const big = t.kind === 'pv' || t.kind === 'cv' || t.kind === 'in';
         const flags = (selIdsN.has(t.id) ? F_SEL : 0) | (isArt ? F_NOCASE : F_DIFFUSE | F_SHADOW | (big ? F_SPEC : 0));
-        const z = { s0: 0.1, s1: 0.11, s2: 0.12, an: 0.09, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.45, sh: 0.5, tw: 0.6, ly: 0.62, ha: 0.7 }[t.kind];
+        const z = { s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.13, an: 0.09, lt: 0.32, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.45, sh: 0.5, tw: 0.6, ha: 0.7 }[t.kind];
         tubeData.set([...c0, isArt ? 0 : WALL[t.kind], ...c1, alpha, 1, z, flags, 0], o);
         tubeData.set([0, 1, t.len, 0], o + 20);
       }
@@ -1081,7 +1111,7 @@ export function createLobuleZoom({ host }) {
     };
     const ease = -Math.expm1(-dt / 0.5);
     const fr = Math.max(0, m.flow), pr = m.portal, ar = Math.max(0, m.art);
-    const vS = 15 * Math.sqrt(fr);
+    const vS = 15 * Math.sqrt(fr), lyR = clamp(lymphRate(m), 0.2, 6);
     flowData.fill(0);
     if (bloodOn || chev || origin) for (const t of live) {
       let v, occ, oe, f0 = 0, f1 = 0, strength = 1, rev = 0, stasis = 0;
@@ -1092,6 +1122,8 @@ export function createLobuleZoom({ host }) {
       } else if (lv === 'an') { v = 0.35 * vS * t.sign; occ = 0.25 * clamp(fr, 0.2, 1.5); strength = 0.6; oe = LOBE.q; }
       else if (lv === 'in') { v = 24 * Math.sign(pr) * Math.sqrt(Math.abs(pr)); occ = clamp(0.55 * Math.abs(pr) ** 0.6, 0.05, 0.95); f0 = 1; f1 = 1; rev = pr < -0.02 ? 1 : 0; oe = LOBE.pre; }
       else if (lv === 'tw') { v = 30 * Math.sqrt(ar); occ = clamp(0.5 * ar ** 0.6, 0.05, 0.95); f0 = 1; oe = LOBE.a; }
+      // Lymph runs out against the blood (the space of Disse is drawn from the edge inward), faster as more forms.
+      else if (lv === 'ly' || lv === 'lt') { v = (lv === 'ly' ? -1 : 1) * (lv === 'ly' ? 5 : 9) * Math.sqrt(lyR); occ = clamp(0.3 * lyR ** 0.6, 0.08, 0.9); f0 = 1; f1 = 1; oe = LOBE.q; }
       else continue;   // vessels seen end-on carry no streaks
       const sm = t.stream || (t.stream = { D: (t.id * 977) % PERIOD, rev: rev });
       sm.D = (((sm.D + v * dt) % PERIOD) + PERIOD) % PERIOD;
@@ -1284,8 +1316,8 @@ export function createLobuleZoom({ host }) {
     c.clearRect(0, 0, W, H);
     c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y);
     const G = geo, m = model;
-    if (lymphOn) {
-      // Hepatic lymph as shimmer: plasma filtered into the space of Disse drifts out through the tissue
+    if (lymphOn && flat) {
+      // Without WebGL2, hepatic lymph as shimmer: plasma filtered into the space of Disse drifts out through the tissue
       // to the portal tract (space of Mall), where it leaves in the lymphatics. More sinusoidal pressure,
       // more lymph: the streaks grow denser, brighter and faster (and so does ascites).
       const rate = lymphRate(m), n = clamp(Math.round(22 * rate), 10, G.lymph.length), speed = 0.07 * Math.sqrt(clamp(rate, 0.3, 6));
