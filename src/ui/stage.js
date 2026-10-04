@@ -2,7 +2,7 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, edgePresent, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=29d10ad9ef';
-import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders } from './anatomy.js?v=6728d01049';
+import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=b3ecbae45c';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=f9424489c6';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=fe164f31f1';
@@ -118,6 +118,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const list = [...(fd.fan ? fanFeeders(fd.fan).map((x) => ({ ...x, fan: true, when: fd.fan.when, out: !!fd.fan.out })) : []), ...(fd.paths || []).map((d, i) => ({ d, k: 1, when: fd.when, src: fd.from?.[i] }))];
     feedGeo[id] = list.map(({ d, k, fan, when, src, out }, i) => { const pts = sample(d); const shaped = fan ? wiggle(pts, (2.2 + 1.2 * k) * (fd.fan.wig ?? 1), i * 2.3 + 1) : fd.wig ? wiggle(pts, fd.wig, i * 2.3 + 1) : meander(pts, id + i); return { k, fan, when, src, out, pts: out ? shaped.slice().reverse() : shaped }; });
   }
+  // The liver's branches in the circuit (circuit only), sampled once.
+  const treeGeo = {};
+  for (const [id, list] of Object.entries(CIRCUIT_TREES)) treeGeo[id] = list.map(({ d, k }) => ({ pts: sample(d), k }));
   scratchG.remove();
   // Where to caption each circuit lane: the middle of its longest horizontal run.
   const laneU = {};
@@ -340,7 +343,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // moving blood. The SVG below keeps the organ artwork (rasterized for the GPU), invisible hit
   // targets and focus for each vessel, and what is drawn above the vessels (lesions, stents,
   // halos, guides), which moves to a second SVG above the GPU layer, with the same view box.
-  const GL_ROWS = ALL_EDGES.length + ALL_EDGES.reduce((n, e) => n + (STRANDS[e.id]?.length || 0) + (feedGeo[e.id]?.length || 0), 0);
+  const GL_ROWS = ALL_EDGES.length + ALL_EDGES.reduce((n, e) => n + (STRANDS[e.id]?.length || 0) + (feedGeo[e.id]?.length || 0) + (treeGeo[e.id]?.length || 0), 0);
   let veins = null, svgOver = null, worldOver = null;
   const vCanvas = document.createElement('canvas');
   vCanvas.id = 'veins'; vCanvas.setAttribute('aria-hidden', 'true');
@@ -877,9 +880,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (lobuleOn) { lz.fitView(); return; }
     const circuit = morphTarget === 1, focus = defaultVT(circuit), whole = circuit ? insetVT({ k: 1, x: 0, y: 0 }, circVB()) : { k: 1, x: 0, y: 0 };
     const near = (a, b) => Math.abs(a.k - b.k) < 0.02 && Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1;
-    vt = circuit && !near(focus, whole) ? (near(vt, whole) ? focus : whole) : focus;
-    if (!circuit) homeAt = vtTarget = vt;
-    applyVT(); CTM = null;
+    // Judged from where a glide in progress is going, so a second tap toggles as expected.
+    const at = vtGliding ? vtTarget : vt;
+    const to = circuit && !near(focus, whole) ? (near(at, whole) ? focus : whole) : focus;
+    if (!circuit) homeAt = to;
+    // It glides there, as the zoom buttons do (reduced motion: at once).
+    animateVT(to, 420);
   };
 
   // Turn the circuit upright (flow bottom to top) or back to wide. Shown whole, it stays whole (fitted
@@ -899,6 +905,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     on = on ? 1 : 0;
     try { localStorage.setItem('pps.circuitRot', String(on)); } catch { /* storage unavailable */ }
     if (on === rotTarget) return;
+    // Mid-glide (Fit, a zoom button), the turn starts from where the glide was going.
+    if (vtGliding) { cancelAnimationFrame(vtAnim); vtGliding = false; vt = { ...vtTarget }; applyVT(); CTM = null; }
     const whole = morphTarget !== 1 || vt.k <= 1.001 || sameView(vt, insetVT({ k: 1, x: 0, y: 0 }, circVB()));
     rotHold = null;
     if (!whole) {
@@ -1001,13 +1009,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (wasOpen && !lz.isOpen() && F && !inUpdate) update(F);
     wrap.classList.toggle('in-lobule', u > 0.98);
   }
-  let vtAnim = 0;
+  let vtAnim = 0, vtGliding = false;
   let vtTarget = null;   // where the last animated move was headed
   function animateVT(to, ms = 700) {
     cancelAnimationFrame(vtAnim);
     vtTarget = to;
     const from = { ...vt }, t0 = performance.now();
-    if (reduceMotion.matches) { vt = to; applyVT(); CTM = null; return; }
+    if (reduceMotion.matches) { vtGliding = false; vt = to; applyVT(); CTM = null; return; }
+    vtGliding = true;
     const step = (now) => {
       const u = easeInOut(clamp((now - t0) / ms, 0, 1));
       // Interpolate the zoom geometrically so the approach feels even at every scale.
@@ -1015,7 +1024,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const a = (k - from.k) / ((to.k - from.k) || 1);
       vt = { k, x: from.x + (to.x - from.x) * (to.k === from.k ? u : a), y: from.y + (to.y - from.y) * (to.k === from.k ? u : a) };
       applyVT(); CTM = null;
-      if (u < 1) vtAnim = requestAnimationFrame(step);
+      if (u < 1) vtAnim = requestAnimationFrame(step); else vtGliding = false;
     };
     vtAnim = requestAnimationFrame(step);
   }
@@ -1279,6 +1288,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const wallPx = x.wallPx;
       setA(x.wall, 'stroke-width', (w + 2 * wallPx).toFixed(1));
       setA(x.lumen, 'stroke-width', w.toFixed(1));
+      if (x.cbr) for (const cb of x.cbr) cb.w = Math.max(1.2, w * cb.k);
       if (x.strands) x.strands.forEach((sd, i) => {
         setA(sd.lumen, 'stroke-width', Math.max(1.6, w * sd.k).toFixed(1)); setA(sd.wall, 'stroke-width', (Math.max(1.6, w * sd.k) + 2 * wallPx).toFixed(1));
         sd.live = e.code === 'C1' ? clamp(i + 1 - (f.bands || 0), 0, 1) : 1;
@@ -1357,7 +1367,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     trackChanges(f, p);
     stepReveals(performance.now());
     for (const x of Object.values(E)) if (x.vis && !x.isArt) renderTube(x, p, t, J);
-    lastJ = J;
     if (glWanted(t)) clearJoins(); else updateJoins(t);
     // A selected vessel stays bright while the rest of the network recedes.
     wrap.classList.toggle('has-sel', st.selection?.type === 'edge' && !!E[st.selection.id]?.vis);
@@ -1545,18 +1554,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (l >= 1) return x.back ? TIER_BACK : x.front ? TIER_FRONT : TIER_NET;
     return (x.back ? TIER_BACK0 : TIER_MID0) + Math.max(0, LEVELS.indexOf(l));
   };
-  // Rows of the per-vessel textures: the model's vessels, then every strand and tributary.
+  // Rows of the per-vessel textures: the model's vessels, then every strand, tributary and liver branch.
   {
+    for (const [id, list] of Object.entries(treeGeo)) if (E[id]) E[id].cbr = list.map(({ pts, k }) => ({ cur: pts, k, w: 0 }));
     let row = ALL_EDGES.length;
     for (const e of ALL_EDGES) {
       const x = E[e.id];
       for (const sd of x.strands || []) sd.row = row++;
       for (const fd of x.feeders || []) fd.row = row++;
+      for (const cb of x.cbr || []) cb.row = row++;
     }
   }
   const tubeData = veins ? new Float32Array(GL_ROWS * TUBE_TEXELS * 4) : null;
   const ORIGIN_LUMEN = [ORIGIN_GREY, ORIGIN_GREY, ORIGIN_GREY];   // the lumen while the blood is colored by origin (the GPU paints the streams on it)
-  let vBinKey = '', vBinReach = new Map(), veinsDirty = true, veinsDrawKey = '', vLook = null, svgForce = false, lastJ = {}, glOrgans = false;
+  let vBinKey = '', vBinReach = new Map(), veinsDirty = true, veinsDrawKey = '', vLook = null, glOrgans = false;
   const colorCtx = veins ? document.createElement('canvas').getContext('2d') : null;
   const rgbCache = new Map();
   // Any CSS color (rgb(), #hex, a named var) as [r, g, b] in 0–1.
@@ -1576,7 +1587,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const cssNum = (cs, name, dflt) => { const v = parseFloat(cs.getPropertyValue(name)); return Number.isFinite(v) ? v : dflt; };
   const cssTriplet = (cs, name) => { const k = cs.getPropertyValue(name).trim().split(/[\s,/]+/).map(Number); return k.length >= 3 && k.every(Number.isFinite) ? k.slice(0, 3).map((v) => v / 255) : [0, 0, 0]; };
   /** Whether the GPU draws the vessels (always, except while an SVG export is built). */
-  const glWanted = () => !!veins && !veins.lost && !svgForce;
+  const glWanted = () => !!veins && !veins.lost;
 
   // What the GPU draws this frame: each vessel on screen, its strands and its tributaries. Strands
   // and tributaries lie where the anatomy has them, so the circuit leaves them out (as the SVG did).
@@ -1587,6 +1598,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const pts = geo[x.e.id].cur;
       if (!x.vis || !pts || (!x.isArt && !x.rOf)) continue;
       items.push({ x, obj: x, row: x.row, pts, kind: 'v' });
+      // The liver's branches lie where the circuit has them, so the anatomy leaves them out.
+      if (!anat && x.cbr) for (const cb of x.cbr) if (cb.w) items.push({ x, obj: cb, row: cb.row, pts: cb.cur, kind: 'c' });
       if (!anat || x.isArt || x.g.classList.contains('coll-ghost')) continue;
       for (const sd of x.strands || []) if (sd.cur && (sd.live ?? 1) > 0.02) items.push({ x, obj: sd, row: sd.row, pts: sd.cur, kind: 's' });
       for (const fd of x.feeders || []) if ((fd.live ?? 1) > 0.02 && fd.w) items.push({ x, obj: fd, row: fd.row, pts: fd.cur, kind: 'f' });
@@ -1700,7 +1713,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Attributes, every frame.
     const T0 = easeInOut(morph), now = performance.now();
     const hovering = wrap.classList.contains('hovering'), hasSel = wrap.classList.contains('has-sel');
-    const figure = !!appEl?.classList.contains('figure-mode');
     const artery = toRGB('var(--artery)', cs);
     const originMode = originOn();
     tubeData.fill(0);
@@ -1712,7 +1724,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (x.isArt) c0 = c1 = artery;
       else {
         const [a, b] = (x.col || ['#888', '#888']).map((c) => toRGB(c, cs));
-        if (kind === 'f') {
+        if (kind === 'f' || kind === 'c') {
           if (obj.col) [c0, c1] = obj.col.map((c) => toRGB(c, cs));
           else {
             // A tributary takes its trunk's gradient where it lies along the trunk's chord.
@@ -1724,14 +1736,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // Coloring the blood by origin: the lumen steps back to a quiet grey so the parcels' colors read.
         if (originMode) c0 = c1 = ORIGIN_LUMEN;
       }
-      let alpha = x.isArt ? 0.85 : kind === 's' || kind === 'f' ? (obj.live ?? 1) * clamp(1 - 2 * T0, 0, 1) : 1;
+      let alpha = x.isArt ? 0.85 : kind === 'c' ? clamp(2 * T0 - 1, 0, 1) : kind === 's' || kind === 'f' ? (obj.live ?? 1) * clamp(1 - 2 * T0, 0, 1) : 1;
       if (x.back) {
         if (hovering && !hl) alpha *= CONTEXT_EDGES.has(id) ? 0.12 : 0.22;
-        if (hasSel && !figure && !sel && !hl) alpha *= 0.42;
+        if (hasSel && !sel && !hl) alpha *= 0.42;
       }
       const tier = x.lifted && !x.back ? TIER_LIFT : x.isArt ? TIER_ART : levelTier(x);
       const shade = !x.isArt && !ghost;
-      const spec = shade && kind !== 'f' && !CONTEXT_EDGES.has(id) && !x.back && x.width >= 3.4;
+      const spec = shade && kind !== 'f' && kind !== 'c' && !CONTEXT_EDGES.has(id) && !x.back && x.width >= 3.4;
       const flags = (sel && kind === 'v' ? F_SEL : 0) | (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt ? F_NOCASE : 0);
       const z = (kind === 'v' ? x.row + 0.5 : x.row) / GL_ROWS;
       const heatA = kind === 'v' && heat ? (x.heatA || 0) : 0;
@@ -1752,7 +1764,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (fade) tubeData.set(fade, o + 12);
       // The drawn stretch: a vessel drawing on (or retracting) grows along its flow.
       let lo = 0, hi = 1;
-      if (x.reveal && kind !== 'f') {
+      if (x.reveal && kind !== 'f' && kind !== 'c') {
         const r = x.reveal, u = clamp((now - r.t0) / r.dur, 0, 1), off = r.out ? easeInOut(u) : 1 - easeInOut(u);
         if (r.dir > 0) hi = 1 - off; else lo = off;
       }
@@ -1766,8 +1778,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       sheen: [...toRGB('var(--light-ink)', cs), cssNum(cs, '--tube-sheen', 0.42)],
       shade: [...toRGB('var(--tube-shade-ink)', cs), cssNum(cs, '--tube-shade', 0.2)],
       ring: [...toRGB('var(--accent)', cs), 0.34],
-      netAlpha: figure ? 1 : hovering ? 0.22 : hasSel ? 0.42 : 1,
-      fx: !figure,
+      netAlpha: hovering ? 0.22 : hasSel ? 0.42 : 1,
+      fx: true,
       tierAlpha: TIER_ALPHA, tierGroup: TIER_GROUP,
     };
     syncPlateLook();
@@ -1785,27 +1797,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     veinsDirty = false; veinsDrawKey = key;
     veins.draw(T, vLook, bloodLook());
     return true;
-  }
-  // Exported figures are serialized SVG: for the export, the SVG tubes are built and shown, and
-  // the overlay layer is put back in place (synchronously, so nothing is painted in between).
-  function withSVGVeins(fn) {
-    if (!veins || !wrap.classList.contains('gl-on')) return fn();
-    const kids = [...worldOver.childNodes], t = easeInOut(morph), p = F?.viewParams || store.get().params;
-    svgForce = true;
-    for (const x of Object.values(E)) { x.shadeKey = ''; if (x.vis && !x.isArt) renderTube(x, p, t, lastJ); }
-    updateJoins(t);
-    const plate = plateOn();
-    wrap.classList.remove('gl-on', 'veins-gl', 'gl-plate');
-    gHeat.before(gFocus);
-    gTop.after(...kids.filter((k) => k !== gFocus));
-    try { return fn(); } finally {
-      worldOver.append(...kids);
-      wrap.classList.add('gl-on', 'veins-gl');
-      if (plate) wrap.classList.add('gl-plate');
-      svgForce = false;
-      for (const x of Object.values(E)) { x.shadeKey = ''; if (x.vis && !x.isArt) renderTube(x, p, t, lastJ); }
-      clearJoins();
-    }
   }
   function clearJoins() {
     for (const x of Object.values(E)) if (x.joinKey) { x.joinKey = ''; for (const g of x.groups) g.removeAttribute('mask'); }
@@ -1861,7 +1852,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return [liverKey, organG.liver.getAttribute('transform'), organG.spleen.getAttribute('transform')?.replace(/(\d\.\d\d)\d*/g, '$1'),
       Math.round((parseFloat(liverTint.style.opacity) || 0) * 40), liverNutmeg.getAttribute('opacity'), liverNodules.getAttribute('opacity'),
       organG.bowel.getAttribute('transform'), (ascitesPath.getAttribute('d') || '').slice(0, 48), (flank.getAttribute('d') || '').slice(0, 24), selOKey,
-      cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), wrap.classList.contains('imaging'), !!appEl?.classList.contains('figure-mode')].join('|');
+      cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), wrap.classList.contains('imaging')].join('|');
   }
   function platePoke() {
     if (!veins || veins.lost || !glWanted(easeInOut(morph))) return;
@@ -1915,8 +1906,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function syncPlateLook() {
     if (!vLook) return;
-    const t = easeInOut(morph), dataLayer = wrap.classList.contains('data-layer'), figure = !!appEl?.classList.contains('figure-mode');
-    const dim = (wrap.classList.contains('has-sel') && !figure ? 0.72 : 1) * (dataLayer ? 0.72 : 1);
+    const t = easeInOut(morph), dataLayer = wrap.classList.contains('data-layer');
+    const dim = (wrap.classList.contains('has-sel') ? 0.72 : 1) * (dataLayer ? 0.72 : 1);
     vLook.plate = plateOn() ? { alpha: (1 - t) * dim, sat: dataLayer ? 0.12 : 1 } : null;
   }
 
@@ -1934,7 +1925,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // reduced motion or in the figure view.
   const track = {};
   const appEl = document.getElementById('app');
-  const quietFx = () => reduceMotion.matches || !!appEl?.classList.contains('figure-mode') || isImaging();
+  const quietFx = () => reduceMotion.matches || isImaging();
   function trackChanges(f) {
     const now = performance.now();
     const quiet = quietFx();
@@ -2388,13 +2379,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     b.seen = frameNo;
     // Text and pressure colors change far more often than label structure.
     // Retain the text nodes (and keyboard focus) across numeric updates.
-    const sig = JSON.stringify([it.lines.map((line) => line.map(({ t, ...style }) => style)), it.align, !!it.swatch, it.bg, it.cls, labelK]);
+    const sig = JSON.stringify([it.lines.map((line) => line.map(({ t, ...style }) => style)), it.align, !!it.swatch, it.bg, !!it.hit, it.cls, labelK]);
     if (sig !== b.sig) {
       b.sig = sig;
       const kids = [];
       b.spans = [];
       b.textLines = [];
       if (it.bg) kids.push(s('rect', { class: 'lb-bg', x: -it.padX, y: -it.padY, width: it.w + 2 * it.padX, height: it.h + 2 * it.padY, rx: 6 }));
+      // A clickable caption is a larger target than its small letters.
+      if (it.hit) kids.push(s('rect', { class: 'lb-hit', x: -10, y: -8, width: it.w + 20, height: it.h + 16, rx: 8 }));
       let y = 0;
       const tx = it.swatch ? (it.align === 'end' ? it.w - 7 : 7) : 0;
       for (const line of it.lines) {
@@ -2769,7 +2762,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const turned = rotU > 0.5, dirOf = (d) => (turned ? TURN_DIR[d] : d);
       for (const [txt, x0, x1] of CIRCUIT_ZONES) {
         const [a, ay0] = worldToLocal(x0, 60), [b, by] = worldToLocal(x1, 60);
-        const it = { key: 'z:' + txt, cls: 'zonecap', lines: [[{ t: txt.toUpperCase(), size: compact ? 8.5 : 9.5, weight: 650, cls: 'lb-zone', track: 0.1 }]], align: 'middle', padX: 2, padY: 2 };
+        // The liver's and the heart's titles open their cards (there is no organ to click in the circuit).
+        const organ = { Liver: 'liver', Heart: 'heart' }[txt];
+        const it = { key: 'z:' + txt, cls: organ ? 'zonecap link' : 'zonecap', lines: [[{ t: txt.toUpperCase(), size: compact ? 8.5 : 9.5, weight: 650, cls: 'lb-zone', track: 0.1 }]], align: 'middle', padX: 2, padY: 2 };
+        if (organ) {
+          it.onClick = () => onSelect({ type: 'organ', id: organ });
+          it.label = `${txt}: open its card`; it.hit = true;
+          it.sel = st.selection?.type === 'organ' && st.selection.id === organ;
+        }
         it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
         if (turned) {
           // Upright, a zone is a horizontal band: its title runs up the map's left edge (text turned to read
@@ -2933,6 +2933,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const sd of strands) put(sd.row, k, q * sd.k * sd.k / area, true, true, 1);
       // Tributaries drawn into a trunk: a share of its flow by caliber.
       if (morph < 0.5) for (const fd of x.feeders || []) if ((fd.live ?? 1) >= 0.5 && fd.w) put(fd.row, k, q * 0.5 * (fd.w / Math.max(1, x.width)) ** 2, true, false, 1);
+      // The liver's branches in the circuit: a share of the vessel's flow by caliber.
+      if (morph >= 0.5) for (const cb of x.cbr || []) if (cb.w) put(cb.row, k, q * 0.5 * (cb.w / Math.max(1, x.width)) ** 2, true, true, 1);
     }
     veins.setFlow(flowData);
     // The dye bolus, through every vessel (hidden ones take a second each).
@@ -3179,7 +3181,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The first finger of a new gesture: nothing else can still be down.
     if (ev.isPrimary) pointers.clear();
     pointers.set(ev.pointerId, [ev.clientX, ev.clientY]);
-    cancelAnimationFrame(vtAnim);
+    cancelAnimationFrame(vtAnim); vtGliding = false;
     try { svg.setPointerCapture(ev.pointerId); } catch { /* pointer already gone */ }
     if (pointers.size >= 2) {
       if (drag?.type === 'pan') wrap.classList.remove('panning');
@@ -3416,24 +3418,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     },
     setProjection(on) { projecting = !!on; if (F) updateLabels(F); },
     labelLayer: () => labelSvg,
-    withSVGVeins,
     /** The layer the GPU's picture lies under (lesions, stents, halos), when the GPU draws. */
     overLayer: () => (veins && wrap.classList.contains('gl-on') ? svgOver : null),
-    /**
-     * The GPU's layers (plate and vessels; flow marks) as PNG data URLs at `scale` pixels per CSS
-     * pixel, for an exported PNG, or null when the SVG draws the vessels.
-     */
-    rasterLayers(scale = 2) {
-      if (!veins || veins.lost || !vLook || !wrap.classList.contains('gl-on')) return null;
-      const r = wrap.getBoundingClientRect(), w0 = vCanvas.width, h0 = vCanvas.height;
-      vCanvas.width = Math.round(r.width * scale); vCanvas.height = Math.round(r.height * scale);
-      refreshCTM();
-      const m = CTM;
-      veins.draw([scale * m.a, scale * m.b, scale * m.c, scale * m.d, scale * (m.e - wrapRect.left), scale * (m.f - wrapRect.top)], vLook, bloodLook());
-      const out = { veins: veins.snapshot(), flow: null };
-      vCanvas.width = w0; vCanvas.height = h0; veinsDrawKey = ''; drawVeins();
-      return out;
-    },
     /** A vessel's stream (for tests): flow, display speed, stream distance, stasis. */
     flowDir(id) {
       const k = EI[id], sm = streams[k];

@@ -3,16 +3,16 @@
 
 import { startHost, host } from './host.js?v=d292ccefe8';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=f9424489c6';
-import { createStage } from './stage.js?v=abc676313a';
+import { createStage } from './stage.js?v=26b410d58b';
 import { createInspector } from './inspector.js?v=208b6a3592';
-import { createDock, CUTOFFS } from './dock.js?v=3d7d80691a';
+import { createDock, CUTOFFS } from './dock.js?v=1ccd5cbfe3';
 import { createWhy } from './why.js?v=bf0f24a7a5';
 import { createTimeline } from './timeline.js?v=7bf66ab2fb';
 import { createLearn } from './learn.js?v=a48578b939';
 import { createCases } from './cases.js?v=02646abf69';
 import { createCompare } from './compare.js?v=730844b101';
-import { createCard } from './card.js?v=ff81853324';
-import { createChart, computeFindings } from './chart.js?v=4a51ff6198';
+import { createCard } from './card.js?v=08f4834bec';
+import { createChart, computeFindings } from './chart.js?v=25524d37c8';
 import { createHome } from './home.js?v=5538efbe12';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=e7e5c98a1c';
@@ -21,7 +21,7 @@ import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL 
 import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=455d2754a5';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=29d10ad9ef';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, units, popover, closePopover, menuItem, svgIcon } from './util.js?v=fe164f31f1';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon } from './util.js?v=fe164f31f1';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -52,7 +52,7 @@ const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoida
 
 let stage, inspector, dock, why, timeline, learn, cases, compare, card, chart, home;
 
-// Surfaces most sessions never open (the command palette, the figure plate, the presenter) load
+// Surfaces most sessions never open (the command palette, the presenter) load
 // on first use, so the first paint only waits for the model, the figure and the chart.
 function lazy(load, make) {
   let inst = null, pending = null;
@@ -61,18 +61,11 @@ function lazy(load, make) {
   // offline use and makes the first open instant.
   return { get, now: () => inst, warm: () => load().catch(() => {}) };
 }
-let paletteL, figureL, presenterL;
+let paletteL, presenterL;
 const palette = {
   open: () => paletteL.get().then((p) => p.open()),
   close: () => paletteL.now()?.close(),
   isOpen: () => !!paletteL.now()?.isOpen(),
-};
-const figure = {
-  open: () => figureL.get().then((f) => { if (app.classList.contains('figure-mode')) { f.open(); const fr = store.get().frame; if (fr) f.update(fr); } }),
-  close: () => figureL.now()?.close(),
-  update: (f) => figureL.now()?.update(f),
-  exportFile: (k) => figureL.get().then((f) => f.exportFile(k)),
-  buildSVG: (...a) => figureL.get().then((f) => f.buildSVG(...a)),
 };
 const presenter = {
   home: () => presenterL.now()?.home() ?? (presenterL.get().then(() => { if (home.isOpen()) home.render(); }), h('div', { class: 'home-loading' }, 'Loading…')),
@@ -135,7 +128,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=2c2abe207d'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=d8fe81b4a1'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -147,15 +140,14 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=7cedcafea1'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=d673b16214'), ({ createPalette }) => createPalette({ ctx: {
     select: (sel) => store.set({ selection: sel }), action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     wedge: () => { store.set({ selection: { type: 'edge', id: 'RHV_IVC' } }); setTimeout(() => card.trigger(3), 60); },
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
-    zoomLobule: () => zoomLobule('R'), figure: () => toggleFigure(true), exportFile: (k) => { toggleFigure(true); setTimeout(() => figure.exportFile(k), 400); }, projector: () => toggleProjector(), instruments: () => dock.toggle(),
+    zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
     loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); toast(store.get().presetList.find((p) => p.id === id)?.label); },
     lesson: (id) => startLesson(id), caseStart: (id) => startCase(id), home: () => home.open(), theme: () => toggleTheme(), help: () => openHelp(), share, restart: () => restartPatient(), reset: () => resetEverything(),
   } }));
-  figureL = lazy(() => import('./figure.js?v=7e1f85287a'), ({ createFigure }) => createFigure({ app, stage, onClose: () => toggleFigure(false) }));
   card = createCard({
     view, stage, onWhy: (m, el) => why.open(m, el),
     onDetails: (sel) => { store.set({ details: normalizeSel(sel) || sel }); openPanel(); },
@@ -201,14 +193,14 @@ async function main() {
   store.on('selection', redraw);
 
   // Console handle for educators preparing a class (and for automated screenshots).
-  window.pps = { loadPreset, store, updateParams, setTool, dock, stage, host, toggleFigure, figure, card, timeline, home, palette, startLesson, startCase, presenter };
+  window.pps = { loadPreset, store, updateParams, setTool, dock, stage, host, card, timeline, home, palette, startLesson, startCase, presenter };
   if (await presenter.readLink()) home.open('present');
   const shared = readShare();
   if (shared) await loadShared(shared); else timeline.reset();
   inspector.render();
   if (!(await openDeepLink())) firstRun();
   const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
-  setTimeout(() => idle(() => { paletteL.warm(); figureL.warm(); presenterL.warm(); }), 3000);
+  setTimeout(() => idle(() => { paletteL.warm(); presenterL.warm(); }), 3000);
   addEventListener('pps:lang', () => { if (home.isOpen()) home.render(); });
   if (readLS('pps.sonify') === '1') addEventListener('pointerdown', () => setSonify(true), { once: true });
 }
@@ -233,7 +225,7 @@ async function openDeepLink() {
 const redraw = () => { const f = store.get().frame; if (f) stage.update(viewFrame(f)); };
 
 // ── Frames ──────────────────────────────────────────
-let lastClockTxt = '', lastFig = 0;
+let lastClockTxt = '';
 function viewFrame(f) {
   const st = store.get();
   if (st.compareSnap && st.compareView === 'A') return st.compareSnap.frame;
@@ -266,7 +258,6 @@ function onFrame(f) {
   if (projector) updateProjector(f);
   sonifyFrame(f);
   if (now - lastDesc > 3000) { lastDesc = now; $('#stage').setAttribute('aria-description', describe(f)); }
-  if (app.classList.contains('figure-mode') && performance.now() - lastFig > 500) { lastFig = performance.now(); figure.update(f); }
 }
 
 // ── Scenarios & share ───────────────────────────────
@@ -322,7 +313,7 @@ async function share() {
 // ── Restart & reset ─────────────────────────────────
 // Restart: the current patient from its first moment (during a lesson or case, its own start).
 // Reset: everything back to a fresh start, as on a first visit but keeping the preferences
-// (theme, units, language, role, progress): the page reloads without its links or state.
+// (theme, language, role, progress): the page reloads without its links or state.
 async function restartPatient() {
   const mode = store.get().mode;
   if (mode === 'cases') { toast('A case runs once. Exit the case to restart the patient.'); return; }
@@ -412,7 +403,7 @@ function renderPaintHint() {
   redraw();
 }
 // The Lobule view: a view of its own beside Anatomy and Circuit.
-function zoomLobule() { if (app.classList.contains('figure-mode')) toggleFigure(false); store.set({ lobule: true }); }
+function zoomLobule() { store.set({ lobule: true }); }
 
 // ── Figure header: view, color, legend; banners ─────
 let bleedEl, tipEl, stageClock;
@@ -507,26 +498,6 @@ function renderLegend() {
   $('#colorModeLabel').textContent = m === 'neutral' ? 'Anatomy' : m === 'delta' && st().compareSnap ? 'Change since then' : COLOR_MODES[m];
 }
 const st = () => store.get();
-function openLegend(anchor) {
-  const { m, ref } = legendModel();
-  const rows = m === 'pressure' ? [
-    ['Scale', 'Mean venous pressure, perceptually uniform (OKLab) from 0 to 30 mmHg.'],
-    ['Not a threshold', 'The color is the absolute pressure at that vessel, with numeric ticks only. Clinical thresholds apply to gradients, which are different measurements: HVPG (wedged − free hepatic venous pressure) and the direct portal–systemic gradient (portal vein − suprahepatic IVC). They are read in their own readouts, and compared side by side in the Pressure landscape and the Figure view.'],
-  ] : m === 'drop' ? [['Scale', 'Pressure lost across each vessel (upstream − downstream). Bright segments are where the resistance sits.']]
-    : m === 'flow' ? [['Scale', 'Blood flow through each vessel in L/min, log scale; line width also grows with flow (∝ √flow), like traffic volume on a city map. Labels give the flow into each station and its change from healthy.']]
-    : m === 'velocity' ? [['Scale', 'Mean velocity (flow ÷ lumen area). Dark red below ~5 cm/s is near-stasis, where thrombosis is likely (e.g. portal vein thrombosis in advanced cirrhosis); green is free-flowing. The liver microcirculation is grey: it is a bed, not a single tube.']]
-    : m === 'heat' ? [['Scale', `Congestion: how far pressure has risen above ${ref}. Grey is unchanged; the glow marks the territories under the most back-pressure.`]]
-    : m === 'direction' ? [['Scale', 'Teal: flow in the physiological direction. Orange: reversed (e.g. hepatofugal portal flow).']]
-      : m === 'neutral' ? [['Why no pressures?', 'In this case pressures are unmeasured, as at the bedside. Use the catheter, Doppler or endoscope to investigate.']]
-        : [['Scale', 'Pressure now minus the reference (healthy, or the moment you compare from). Red higher, blue lower.']];
-  popover(anchor, [h('div', { class: 'menu-title' }, 'How to read the figure'),
-    h('div', { style: { padding: '2px 10px 8px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: 'var(--fs-13)', lineHeight: 1.5, color: 'var(--text-2)', maxWidth: '340px' } },
-      rows.map(([k, v]) => h('div', {}, h('b', { style: { color: 'var(--text)' } }, k + '. '), v)),
-      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Moving blood. '), 'Blood moves the way the model\u2019s flow goes, as silky streaks, brighter where more blood passes. Lanes near the axis run faster than those near the wall (laminar flow: the centre at twice the mean). Time is slowed and speed compressed (it grows with \u221Avelocity), so the order of speeds is right but not their ratio. Where flow runs backwards (against its healthy direction) the moving blood turns orange. Drifting smoke marks slow flow (under ~5 cm/s) in a large vein, where clots can form. Pause and reduced motion hold the blood still; the Direction lens gives a static cue. The Blood menu above the figure switches the streaks and the chevrons (arrowheads) on or off. The Blood origin lens colors the blood by where it comes from (SMV, IMV, splenic vein, hepatic artery, systemic). A vessel\u2019s card injects dye into that vessel (hold to go on).'),
-      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Notation. '), 'Dotted vessels are closed potential collaterals. In Flow volume, line width represents flow rate (square-root scale); in other lenses it follows vessel diameter (compressed). Faint lines crossing an organ run behind it. ▲ / ▼ on a label: change in mmHg from healthy, shown once it reaches 5 mmHg (while comparing, every change from the moment you compare from).'),
-      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Organs. '), 'Organs are drawn as in an anatomy plate, lit from the upper left. On the liver, texture means disease: nodules for cirrhosis, mottling for congestion (nutmeg liver), a darker vignette as sinusoidal pressure rises. The spleen grows with splenomegaly.'),
-      h('div', {}, h('b', { style: { color: 'var(--text)' } }, 'Varix ring. '), 'The ring around the esophageal varices closes as their wall tension (pressure × radius ÷ wall thickness) approaches the rupture threshold: amber from 70 %, red from 90 %.'))], { align: 'end', cls: 'legend-pop' });
-}
 // ── Moving blood ─────────────────────────────────────
 // The heartbeat (the model's pulsatile mode) runs while a waveform instrument is open, or while
 // the blood is shown breathing and beating.
@@ -554,21 +525,22 @@ function openBlood(anchor) {
   const toggle = (checked, label, sub, onChange) => {
     const c = h('input', { type: 'checkbox', checked });
     c.addEventListener('change', () => onChange(c.checked));
-    return h('label', { class: 'menu-item blood-opt' }, c, h('span', {}, label, h('small', {}, sub)));
+    return h('label', { class: 'menu-item blood-opt' }, c, h('span', {}, label, sub ? h('small', {}, sub) : null));
   };
+  const layer = (key, label, sub) => toggle(st.layers[key] !== false, label, sub, (on) => store.set({ layers: { ...store.get().layers, [key]: on } }));
   popover(anchor, [
     h('div', { class: 'menu-title' }, 'Moving blood'),
     toggle(flowOn, 'Streaks', 'Silky streaks carried by the flow', (on) => { store.set({ layers: { ...store.get().layers, flow: on } }); syncBloodBtn(); }),
     toggle(!!b.chevrons, 'Chevrons', 'Arrowheads moving with the flow; orange where it runs backwards', (on) => setBlood({ chevrons: on })),
+    h('div', { class: 'menu-sep' }),
+    h('div', { class: 'menu-title' }, 'Show on the figure'),
+    layer('chips', 'Pressure values', 'The number beside each vessel\u2019s name'),
+    layer('collaterals', 'Potential collaterals', 'Dotted routes that open as pressure rises'),
+    layer('labels', 'Organ names'),
   ], { cls: 'blood-pop' });
 }
 function openLayers(anchor) {
   const s0 = store.get();
-  const cb = (key, label) => {
-    const c = h('input', { type: 'checkbox', checked: s0.layers[key] !== false });
-    c.addEventListener('change', () => store.set({ layers: { ...store.get().layers, [key]: c.checked } }));
-    return h('label', { class: 'menu-item' }, c, label);
-  };
   const cur = store.get().colorMode;
   const lens = (v) => {
     const [title, desc, sw] = LENSES[v];
@@ -577,25 +549,10 @@ function openLayers(anchor) {
       h('span', { class: 'lens-t' }, title), h('span', { class: 'lens-d' }, desc));
     return b;
   };
-  const unitSel = (kind, opts) => {
-    const s = h('select', { class: 'select', style: { height: '30px', fontSize: 'var(--fs-13)' }, 'aria-label': kind === 'pressure' ? 'Pressure unit' : 'Flow unit' }, opts.map((u) => h('option', { value: u, selected: units[kind] === u }, u)));
-    s.addEventListener('change', () => { units[kind] = s.value; inspector.render(); redraw(); });
-    return s;
-  };
   popover(anchor, [
-    h('div', { class: 'menu-title' }, 'Color vessels by', h('span', { class: 'kb' }, 'Shift C cycles')),
+    h('div', { class: 'menu-title' }, 'Color vessels by', h('span', { class: 'kb' }, 'L cycles')),
     h('div', { class: 'lens-grid' }, Object.keys(LENSES).map(lens)),
     s0.imaging ? h('div', { class: 'ctl-sub', style: { padding: '2px 10px 6px' } }, 'This case shows anatomy only until you measure.') : null,
-    h('div', { class: 'menu-sep' }),
-    h('div', { class: 'menu-title' }, 'Show'),
-    cb('flow', 'Moving blood'), cb('chips', 'Pressure values on labels'), cb('collaterals', 'Potential collaterals (dotted)'), cb('labels', 'Organ names'),
-    h('div', { class: 'menu-sep' }),
-    h('div', { class: 'menu-title' }, t('menu.units')),
-    h('div', { style: { display: 'flex', gap: '6px', padding: '2px 10px 6px' } }, unitSel('pressure', ['mmHg', 'cmH2O', 'kPa']), unitSel('flow', ['L/min', 'mL/min'])),
-    h('div', { class: 'menu-sep' }),
-    menuItem('How to read the figure', { icon: 'info', onClick: () => { const a = $('#btnLayers'); closePopover(); openLegend(a); } }),
-    menuItem('Figure view (export)', { icon: 'camera', kb: 'F', onClick: () => { closePopover(); toggleFigure(true); } }),
-    menuItem('Projector mode', { icon: 'projector', kb: 'Shift F', onClick: () => { closePopover(); toggleProjector(); } }),
   ], { cls: 'layers-pop' });
 }
 // Active bleeding is a state, not an alarm: a steady status in the figure header.
@@ -692,13 +649,7 @@ function openMainMenu(anchor) {
       modeItem('present', 'present', 'projector', 'Presenter', 'Step through a live model with a class')),
     menuItem('Home page', { icon: 'grid', onClick: () => { closePopover(); home.open(); } }),
     h('div', { class: 'menu-sep' }),
-    h('div', { class: 'menu-title' }, 'Share & export'),
     menuItem('Copy a link to this exact state', { icon: 'share', onClick: () => { closePopover(); share(); } }),
-    menuItem('Figure view', { icon: 'camera', kb: 'F', onClick: () => { closePopover(); toggleFigure(true); } }),
-    menuItem('Export PNG (2×)', { icon: 'download', onClick: () => { closePopover(); toggleFigure(true); setTimeout(() => figure.exportFile('png'), 400); } }),
-    menuItem('Export SVG (editable)', { icon: 'download', onClick: () => { closePopover(); toggleFigure(true); setTimeout(() => figure.exportFile('svg'), 400); } }),
-    menuItem('Print', { icon: 'print', onClick: () => { closePopover(); toggleFigure(true); setTimeout(() => print(), 400); } }),
-    menuItem('Projector mode', { icon: 'projector', kb: 'Shift F', onClick: () => { closePopover(); toggleProjector(); } }),
     h('div', { class: 'menu-sep' }),
     menuItem(t('menu.settings') + '…', { icon: 'gear', onClick: () => { closePopover(); setTimeout(() => openSettings(anchor), 0); } }),
     menuItem(t('menu.help') + '…', { icon: 'help', kb: '?', onClick: () => { closePopover(); setTimeout(() => openHelpMenu(anchor), 0); } }),
@@ -708,11 +659,6 @@ function openMainMenu(anchor) {
 // use it, what it is, and who made it). The role ("I am a…") lives on Home, where a session starts.
 function openSettings(anchor) {
   const cur = document.documentElement.getAttribute('data-theme') || 'system';
-  const unitSel = (kind, opts) => {
-    const sel = h('select', { class: 'select', 'aria-label': kind === 'pressure' ? 'Pressure unit' : 'Flow unit' }, opts.map((u) => h('option', { value: u, selected: units[kind] === u }, u)));
-    sel.addEventListener('change', () => { units[kind] = sel.value; inspector.render(); card.render(); redraw(); });
-    return sel;
-  };
   popover(anchor, [
     h('div', { class: 'menu-title' }, t('menu.appearance')),
     h('div', { class: 'seg full menu-seg' }, [['light', t('menu.light')], ['dark', t('menu.dark')], ['system', t('menu.system')]].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { closePopover(); applyTheme(v === 'system' ? null : v, v === 'system'); }); return b; })),
@@ -722,8 +668,6 @@ function openSettings(anchor) {
       b.addEventListener('click', () => { stage.setLabelScale(v); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); });
       return b;
     })),
-    h('div', { class: 'menu-title' }, t('menu.units')),
-    h('div', { class: 'menu-row' }, unitSel('pressure', ['mmHg', 'cmH2O', 'kPa']), unitSel('flow', ['L/min', 'mL/min'])),
     h('div', { class: 'menu-title' }, t('menu.language')),
     (() => { const sel = h('select', { class: 'select menu-select', 'aria-label': t('menu.language') }, LANGS.map(([v, l]) => h('option', { value: v, selected: currentLang() === v }, l))); sel.addEventListener('change', () => { setLang(sel.value); closePopover(); }); return sel; })(),
     h('div', { class: 'menu-title' }, t('menu.access')),
@@ -830,7 +774,9 @@ function wireFloating() {
   const publish = () => {
     pubRaf = 0;
     const gap = isPhone() ? 8 : 12;
-    const vdock = $('#vdock').offsetHeight, wide = !isPhone();
+    // The dock's height, plus on an iPhone the home indicator's strip under it (the rules that use it add
+    // the gap themselves), so nothing above it is placed behind it.
+    const vd = $('#vdock'), vdock = vd.offsetHeight ? Math.max(vd.offsetHeight, $('#stageView').getBoundingClientRect().bottom - vd.getBoundingClientRect().top - gap) : 0, wide = !isPhone();
     // The top bar keeps one row when everything fits at its natural width (with a little to spare,
     // so it does not flip back and forth), else the view and legend move to a second row.
     const tb = $('#topbar'), cs = getComputedStyle(tb);
@@ -840,6 +786,7 @@ function wireFloating() {
     if (two !== tb.classList.contains('two-rows')) tb.classList.toggle('two-rows', two);
     app.style.setProperty('--top-safe', px($('#topbar').offsetHeight));
     app.style.setProperty('--vdock-h', px(vdock));
+    app.style.setProperty('--vdock-top', px(vd.offsetHeight ? $('#stageView').getBoundingClientRect().bottom - vd.getBoundingClientRect().top : 0));
     const ws = $('#dock'), wsOn = app.classList.contains('dock-open') && !app.classList.contains('instrument-focus');
     const panelOcc = wide && app.classList.contains('panel-open') ? $('#panel').offsetWidth + gap : 0;
     const instrOcc = wsOn && ws.classList.contains('side') ? ws.offsetWidth + gap : 0;
@@ -995,7 +942,6 @@ function wireKeyboard() {
       closePopover();
       if (isModalOpen()) closeModal();
       else if (home.isOpen()) home.close();
-      else if (app.classList.contains('figure-mode')) toggleFigure(false);
       else if (projector) toggleProjector();
       else if (app.classList.contains('instrument-focus')) dock.setState('open');
       else if (treatOpen()) closeTreat();
@@ -1027,8 +973,6 @@ function wireKeyboard() {
     }
     if (k === 'z') { settle(); return; }
     if (e.key === '?') { openHelp(); return; }
-    if (e.key === 'F' && e.shiftKey) { toggleProjector(); return; }
-    if (k === 'f' && !e.shiftKey) { toggleFigure(); return; }
     if (k === 'i') { dock.toggle(); return; }
     if (k === 't') { if (treatOpen()) closeTreat(); else openTreat(); return; }
     if (k === 'p') { timeline.togglePin(); return; }
@@ -1037,15 +981,7 @@ function wireKeyboard() {
   });
 }
 
-// ── Figure view (clean plate to present or export) ──
-function toggleFigure(on = !app.classList.contains('figure-mode')) {
-  closePopover();
-  app.classList.toggle('figure-mode', on);
-  if (on) figure.open(); else figure.close();
-  setTimeout(() => { dispatchEvent(new Event('resize')); stage.relayout(); }, 30);
-}
-
-// ── Projector mode (§4.4) ───────────────────────────
+// ── Projector look while presenting (§4.4) ──────────
 let projector = false, bigEl = null, exitEl = null;
 function toggleProjector() {
   projector = !projector;
@@ -1099,9 +1035,9 @@ function brandMark() {
 function openHelp(section) {
   const rows = [
     ['Space', 'Play / pause'], ['[ ]', 'Slower / faster'], ['.', 'Step'], ['Z', 'Settle to equilibrium'], ['A', 'Anatomy ⇄ circuit'],
-    ['F', 'Figure view'], ['I', 'Open / close Measure'], ['T', 'Open / close Treat'], ['L', 'Next color lens (Shift: previous)'],
+    ['I', 'Open / close Measure'], ['T', 'Open / close Treat'], ['L', 'Next color lens (Shift: previous)'],
     ['Click', 'Open the actions for a vessel or organ'], ['1 – 9', 'Run an action on the open card'],
-    ['Ctrl/⌘ Z', 'Back one change on the timeline (Shift: forward)'], ['P', 'Compare from here / stop comparing'], ['Esc', 'Cancel · close the card · close'], ['Shift F', 'Projector mode'], ['?', 'This guide'],
+    ['Ctrl/⌘ Z', 'Back one change on the timeline (Shift: forward)'], ['P', 'Compare from here / stop comparing'], ['Esc', 'Cancel · close the card · close'], ['?', 'This guide'],
     ['Tab · Enter', 'Reach a vessel, open its actions'], ['← →', 'Walk vessels along the flow'], ['Ctrl/⌘ K or /', 'Search'],
   ];
   openModal('Guide', h('div', {},
@@ -1165,7 +1101,7 @@ function openPrivacy() {
   const keys = (() => { try { return Object.keys(localStorage).filter((k) => k.startsWith('pps.')); } catch { return []; } })();
   openModal('Privacy', h('div', {},
     h('p', {}, 'The simulator runs entirely in your browser. It makes no requests to any other site: no analytics, no trackers, no advertising, no third-party fonts or scripts. There is no account and no server that stores anything about you.'),
-    h('p', {}, 'What stays on this device, in your browser’s storage: your preferences (theme, units, language, role), lesson progress and case scores, your assessment records and the name you type for them, and presenter scripts you create. It leaves the device only when you export it (CSV, xAPI, a shared link or a script file) or when your institution runs the simulator inside its LMS, which then receives your score.'),
+    h('p', {}, 'What stays on this device, in your browser’s storage: your preferences (theme, language, role), lesson progress and case scores, your assessment records and the name you type for them, and presenter scripts you create. It leaves the device only when you export it (CSV, xAPI, a shared link or a script file) or when your institution runs the simulator inside its LMS, which then receives your score.'),
     h('p', {}, 'For institutions: no personal data is processed by the publisher, which supports FERPA and GDPR compliance; the LMS remains the system of record.'),
     h('p', { class: 'sub' }, keys.length ? `Stored now: ${keys.join(', ')}.` : 'Nothing is stored on this device yet.'),
     h('div', { class: 'btn-row' }, h('button', { class: 'btn', onclick: () => { if (!confirm('Delete everything this simulator has stored on this device?')) return; for (const k of keys) { try { localStorage.removeItem(k); } catch { /* storage unavailable */ } } closeModal(); toast('Your data on this device has been cleared.'); } }, 'Clear my data on this device'))));

@@ -6,7 +6,7 @@ import { store, updateParams } from './store.js?v=f9424489c6';
 import { h, svgIcon, toast } from './util.js?v=fe164f31f1';
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { DRUGS } from '../engine/scenario.js?v=8fc90f782f';
-import { HIDDEN_EDGES } from './anatomy.js?v=6728d01049';
+import { HIDDEN_EDGES } from './anatomy.js?v=b3ecbae45c';
 import { LESSONS } from './learn.js?v=a48578b939';
 import { CASES } from './cases.js?v=02646abf69';
 
@@ -61,10 +61,6 @@ export function createPalette({ ctx }) {
     add('View', 'Anatomy view', () => store.set({ view: 'anatomic' }), { kw: 'anatomic' });
     add('View', 'Circuit view', () => store.set({ view: 'circuit' }), { kw: 'schematic map' });
     add('View', 'Lobule view', () => ctx.zoomLobule(), { kw: 'microcirculation sinusoid lobule zoom' });
-    add('View', 'Figure view', () => ctx.figure(), { kw: 'export plate' });
-    add('View', 'Export PNG', () => ctx.exportFile('png'), { kw: 'image save download' });
-    add('View', 'Export SVG', () => ctx.exportFile('svg'), { kw: 'vector save download' });
-    add('View', 'Projector mode', () => ctx.projector(), { kw: 'present lecture' });
     add('View', 'Measure', () => ctx.instruments(), { kw: 'instruments charts dock' });
     // Go to a structure
     for (const e of EDGES) if (!HIDDEN_EDGES.has(e.id) && e.kind !== 'wedge' && e.kind !== 'shunt' && e.label) add('Go to', e.label, () => ctx.select({ type: 'edge', id: e.id }), { kw: 'select vessel' });

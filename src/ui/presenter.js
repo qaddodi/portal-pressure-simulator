@@ -117,7 +117,7 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
     d.body.innerHTML = '';
     const el = (tag, txt, css) => { const e = d.createElement(tag); e.textContent = txt; if (css) e.style.cssText = css; d.body.append(e); };
     el('div', `${script.title} · ${idx + 1} / ${script.steps.length}`, 'font: 600 12px system-ui; letter-spacing: .06em; text-transform: uppercase; color: #6B6F7A');
-    el('h1', st.title, 'font-size: 26px; margin: 8px 0 14px');
+    el('h1', st.title, 'font-size: 28px; margin: 8px 0 14px');
     el('p', st.notes || 'No notes for this step.');
     if (nx) el('p', `Next: ${nx.title}`, 'margin-top: 30px; color: #6B6F7A; font: 14px system-ui');
   }
@@ -238,8 +238,7 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
       h('div', { class: 'home-grid' }, all().map(card)),
       h('div', { class: 'btn-row', style: { marginTop: '16px' } },
         h('button', { class: 'btn', onclick: newScript }, 'New script from the current model'),
-        h('button', { class: 'btn', onclick: importFile }, 'Import a script'),
-        h('button', { class: 'btn ghost', onclick: () => { closeHome?.(); projectorOn(); } }, 'Projector mode only')),
+        h('button', { class: 'btn', onclick: importFile }, 'Import a script')),
       h('p', { class: 'ctl-sub' }, 'While presenting: → or Page Down for the next step, ← to go back, N opens speaker notes in a second window, L is a laser pointer, Esc stops.'));
   }
 

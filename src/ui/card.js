@@ -45,6 +45,15 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     liftedBy = px;
     lift ||= [...view.querySelectorAll('.zoom-pill, .stage-clock')];
     for (const b of lift) b.style.setProperty('--sheet-h', px);
+    // On a phone held sideways the room between the top bar and the sheet can be smaller than the zoom
+    // buttons: then they step aside rather than slide under the top bar.
+    const pill = lift.find((b) => b.classList.contains('zoom-pill'));
+    if (pill) {
+      const shift = parseFloat(getComputedStyle(pill).translate.split(' ')[1]) || 0;   // where the lift has got to
+      const restTop = pill.getBoundingClientRect().top - shift;
+      const barBottom = document.getElementById('topbar').getBoundingClientRect().bottom;
+      pill.classList.toggle('no-room', restTop - parseFloat(px) < barBottom + 4);
+    }
   }
   function reveal() {
     cancelAnimationFrame(revealRaf);
@@ -66,7 +75,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   function render({ keepFocus = false } = {}) {
     const st = store.get();
     const sel = st.selection;
-    if (!sel || st.shunting || document.getElementById('app').classList.contains('figure-mode')) { hide(); return; }
+    if (!sel || st.shunting) { hide(); return; }
     const m = cardFor(sel, ctx);
     if (!m) { hide(); return; }
     const focusedIdx = keepFocus ? actionable.findIndex((a) => a.el.contains(document.activeElement)) : -1;

@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+- **Circuit: the liver's titles open cards.** In the circuit, the LIVER and HEART column titles are
+  buttons that open the liver's and the right heart's cards (with their parameters).
+- **Circuit: the liver branches.** Inside the liver the portal venules divide (one channel, then three,
+  then seven) toward the sinusoids, and the sinusoids gather back the same way into the central veins
+  that become the hepatic veins. Drawn branches of the same modeled vessels, in their colors, with
+  their moving blood.
+- **Simpler menus.** The color menu only colors the vessels (the eight lenses; L cycles them). The Blood
+  menu holds the moving blood (streaks, chevrons) and what the figure shows (pressure values, potential
+  collaterals, organ names). The unit menus are gone (mmHg and L/min), and so is *How to read the figure*.
+- **Figure view is gone**, with its PNG, SVG and Print exports, its F key and its search entries. Projector
+  mode no longer has a menu item, key (Shift F) or button; Presenter still uses its look while presenting.
+- **Fit glides** to its framing, as the zoom buttons do, instead of jumping.
+- **iPhone:** Fit (and everything placed above the vitals dock) keeps clear of the dock when the dock sits
+  above the home indicator; the readouts lose an empty strip the height of the home indicator.
+- **Phone:** an open instrument (Doppler, pressure, …) rests on the vitals dock as one panel, with no gap
+  and its content fading out where it meets the dock; the run clock steps aside while it is open.
+- **One type scale, one icon scale (menus and cards overhaul, step 1).** The interface now uses five
+  sizes (12 small labels · 14 body and buttons · 16 titles · 20 key numbers · 28 big readouts) and three
+  weights (400 · 500 · 600), down from 24 sizes and 6 weights; small labels are sentence case ("Menu",
+  "Patient") instead of spaced capitals. Icons come in 16, 20 and 24 (12 for a check mark in a dot),
+  down from 17 sizes; corners use the three radius tokens. The lobule card's title is no longer serif.
+  A new browser check opens every menu and card and fails on any other size, weight or icon size, or
+  a button without a name. Plan: [docs/MENUS_AND_CARDS_PLAN.md](docs/MENUS_AND_CARDS_PLAN.md).
+- On a phone held sideways, the zoom buttons step aside when a vessel's card leaves no room for them
+  under the top bar.
 - **Into the lobule, a dive.** Choosing *Lobule* flies the camera into the liver (0.9 s) while the lobule grows out of
   that spot and the liver dissolves into it; leaving, it shrinks back into the liver and the camera pulls out to
   where the anatomy was. From the circuit it eases into the anatomy first. Reduced motion: a plain cross-fade.

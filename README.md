@@ -71,10 +71,10 @@ as a map of the disease: grouped by where the resistance sits, each with its pre
 - **The figure fills the screen.** Everything else floats over it: one row of pills at the top
   (the menu and patient · Anatomy/Circuit/Lobule · Blood and the color legend · Findings, Treat,
   Measure, Search; two rows when they do not fit), a vitals dock at the bottom (play bar and the four
-  key readouts; its chevron opens the rest), a zoom pill, and cards that open on demand. Fit frames
-  the anatomy in the space they leave, and nothing floating ever covers anything else.
+  key readouts; its chevron opens the rest), a zoom pill, and cards that open on demand. Fit glides
+  to frame the anatomy in the space they leave, and nothing floating ever covers anything else.
 - **Menu** (top left, named after the current mode). Explore, Lessons, Cases, Presenter, the Home
-  page; share, export and the figure view; settings and help.
+  page; a link to share the exact state; settings and help.
 - **Findings** (top bar badge: a check, or how many findings in the color of the worst). Opens the
   patient chart: what is abnormal in plain words, and the Story of what happened and why. Click
   any readout for a causal **Why?**
@@ -91,9 +91,10 @@ as a map of the disease: grouped by where the resistance sits, each with its pre
   (sinusoids, stellate cells, collagen, congestion). Zooming alone never leaves the anatomy.
 - **Phones.** The same layout; the patient chart and Treat open as bottom sheets with three
   heights (drag the handle; drag below the lowest to close).
-- **Views and lenses.** Anatomy or a transit-map Circuit; color by pressure, change, congestion,
-  pressure drop, flow, velocity or direction.
-- **Figure (F).** A clean labeled plate to present, print or export as SVG or PNG.
+- **Views and lenses.** Anatomy or a transit-map Circuit; the color menu colors the vessels by
+  pressure, change, congestion, pressure drop, flow, velocity, direction or blood origin (L cycles).
+  The Blood menu switches the moving blood (streaks, chevrons) and what the figure shows (pressure
+  values, potential collaterals, organ names).
 - **Search (Ctrl/⌘ K).** Everything, by name.
 - **Restart and reset.** ↺ beside play restarts the patient; Settings › Reset everything reloads
   the simulator clean.
