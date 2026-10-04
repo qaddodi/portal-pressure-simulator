@@ -91,7 +91,7 @@ export function readoutValue(t, m, hidden) {
   return meas ? meas.hvpg : null;
 }
 
-export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onCompare, onRun, onLobule, onOpen, onClose, isVisible, marks, onBeat, onLayout }) {
+export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onLobule, onOpen, onClose, isVisible, marks, onBeat, onLayout }) {
   // ── Readout strip ─────────────────────────────────
   const tileEls = {};
   // A phone's four tiles are narrow: short names and status words where the long ones would be cut off.
@@ -231,14 +231,14 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // ── The Instruments card ──────────────────────────
   // On a wide landscape screen it is a tall card on the right (the anatomy is tall, so it keeps its
   // size); on a phone or a portrait tablet it is a sheet over the bottom of the figure. A row of
-  // tabs, each with its live reading, picks the instrument in one tap; the header names it and says
-  // what it shows. Its size and the instruments open are remembered on this device.
+  // tabs, each with its live reading, picks the instrument in one tap. Its size and the instruments
+  // open are remembered on this device.
   const INFO = {
-    profile: ['activity', 'How pressure falls along a path: the steepest falls are where the resistance sits.', (f) => `${fmt(f.metrics.pv, 1)} mmHg`],
-    scope: ['chart', 'Portal and hepatic pressures beat by beat, over minutes or over months.', (f) => `HVPG ${fmt(f.metrics.hvpg, 1)}`],
-    doppler: ['doppler', 'Direction, velocity and waveform in any portal, hepatic or shunt vessel.', (f) => `${fmt(Math.abs(f.metrics.pvVel), 0)} cm/s`],
-    endoscopy: ['endoscope', 'Inspect and band varices; open their wall mechanics.', (f) => (f.metrics.varix.d < 2.5 ? 'No varices' : `Grade ${f.metrics.varix.grade.code}`)],
-    abdomen: ['needle', 'How much fluid, whether it is building up, what a tap shows, and treatment.', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],
+    profile: ['activity', (f) => `${fmt(f.metrics.pv, 1)} mmHg`],
+    scope: ['chart', (f) => `HVPG ${fmt(f.metrics.hvpg, 1)}`],
+    doppler: ['doppler', (f) => `${fmt(Math.abs(f.metrics.pvVel), 0)} cm/s`],
+    endoscopy: ['endoscope', (f) => (f.metrics.varix.d < 2.5 ? 'No varices' : `Grade ${f.metrics.varix.grade.code}`)],
+    abdomen: ['needle', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],
   };
   const SHORT = { profile: 'Pressure', scope: 'Over time', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites' };
   const ORDER = ['profile', 'scope', 'doppler', 'endoscopy', 'abdomen'];
@@ -251,19 +251,13 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const isSide = () => sideMQ.matches;
 
   const live = h('span', { class: 'workspace-live', 'aria-live': 'off' });
-  const run = h('button', { class: 'workspace-run', title: 'Run or pause the simulation', onclick: () => onRun?.() }, svgIcon('play', 'mi-ic'), h('span', {}, 'Pause'));
-  const compareBtn = h('button', { class: 'btn sm workspace-compare', onclick: () => onCompare?.(), 'aria-pressed': 'false' }, svgIcon('compare', 'mi-ic'), h('span', {}, 'Compare'));
-  const titleIc = h('span', { class: 'dt-ic' });
-  const titleEl = h('h2', { class: 'dock-title' }, titleIc, h('span', { class: 'dt-l' }, 'Pressure'));
-  const desc = h('p', { class: 'instr-desc' });
-  const tbtn = (cls, ic, label, onclick) => h('button', { class: `wbtn ${cls}`, title: label, 'aria-label': label, onclick }, svgIcon(ic), h('span', { class: 'wb-l' }, label));
-  const second = tbtn('dock-second', 'compare', 'Two at once', () => toggleSecond());
-  const expand = tbtn('workspace-expand', 'fit', 'Full screen', () => setState(state === 'focus' ? 'open' : 'focus'));
-  const fold = h('button', { class: 'ib workspace-fold', 'aria-label': 'Minimise', title: 'Minimise', onclick: () => setState(state === 'peek' ? 'open' : 'peek') }, svgIcon('chev-down'));
-  const closeBtn = h('button', { class: 'ib workspace-close', 'aria-label': 'Close instruments', title: 'Close (I)', onclick: close }, svgIcon('close'));
+  // The head is the same as Findings' and Treat's: icon, name, a quiet status, close.
+  const titleEl = h('h2', { class: 'dock-title card-title' }, svgIcon('gauge'), h('span', {}, 'Measure'), h('span', { class: 'dt-l' }));
+  const closeBtn = h('button', { class: 'ib card-close workspace-close', 'aria-label': 'Close Measure', title: 'Close (Esc)', onclick: close }, svgIcon('close'));
   const divider = h('div', { class: 'workspace-divider', role: 'separator', tabindex: '0', 'aria-label': 'Instruments size' }, h('span'));
   workspace.prepend(divider);
-  head.append(h('div', { class: 'dock-row' }, titleEl, live, h('span', { class: 'sp' }), run, compareBtn, second, expand, fold, closeBtn), desc);
+  head.classList.add('card-head');
+  head.append(titleEl, live, closeBtn);
   // The tabs: one per instrument, with its live reading.
   const tabEls = {};
   const tabs = h('div', { class: 'instr-tabs', role: 'tablist', 'aria-label': 'Instruments' }, ORDER.map((id) => {
@@ -328,15 +322,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     state = next;
     workspace.dataset.state = state;
     app.classList.toggle('instrument-focus', state === 'focus' && isVisible());
-    fold.setAttribute('aria-label', state === 'peek' ? 'Restore' : 'Minimise');
-    fold.title = state === 'peek' ? 'Restore' : 'Minimise';
-    expand.querySelector('.wb-l').textContent = state === 'focus' ? 'Back to the figure' : 'Full screen';
-    expand.setAttribute('aria-label', state === 'focus' ? 'Back to the figure' : 'Full screen');
-    expand.title = expand.getAttribute('aria-label');
     divider.hidden = state !== 'open';
     body.hidden = state === 'peek';
     tabs.hidden = state === 'peek';
-    desc.hidden = state === 'peek';
     endPick();
     updateHeader(); layout();
     queueRefresh();
@@ -349,28 +337,21 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     for (const p of panes) p.el.classList.toggle('active', open.includes(p.id));
     body.classList.toggle('split', open.length > 1);
     body.classList.toggle('stack', open.length > 1 && isSide() && state !== 'focus');
-    const first = byId[open[0]];
     paintTitle();
-    titleIc.replaceChildren(svgIcon(INFO[open[0]][0]));
-    desc.textContent = open.length > 1 ? 'Two instruments at once. Tap either tab to show it alone.' : INFO[open[0]][1];
     for (const id of ORDER) {
       const on = open.includes(id);
       tabEls[id].b.setAttribute('aria-selected', String(on));
       tabEls[id].b.tabIndex = id === open[0] ? 0 : -1;
       tabEls[id].b.dataset.slot = on && open.length > 1 ? String(open.indexOf(id) + 1) : '';
     }
-    second.hidden = state === 'peek' || !canSplit();
-    second.setAttribute('aria-pressed', String(open.length > 1 || picking));
-    second.querySelector('.wb-l').textContent = open.length > 1 ? 'Show one' : picking ? 'Cancel' : 'Two at once';
     remember();
     queueRefresh();
     onLayout?.();
   }
-  // The title names the vessel the Doppler reads, beside a green dot: the colour of its glow on the figure.
+  // Beside the name: the vessel the Doppler reads, with a green dot, the colour of its glow on the figure.
   function paintTitle() {
-    const first = byId[open[0]];
     const probe = open.length === 1 && open[0] === 'doppler' && frame?.probe ? EDGES.find((e) => e.id === frame.probe)?.label : null;
-    const txt = open.length > 1 ? `${first.label} + ${byId[open[1]].label}` : probe ? `${first.label} · ${probe}` : first?.label || 'Instruments';
+    const txt = probe || '';
     const l = titleEl.querySelector('.dt-l');
     if (l.textContent !== txt) l.textContent = txt;
     titleEl.classList.toggle('dop-on', !!probe);
@@ -479,10 +460,6 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   store.on('compareSnap', () => updateHeader());
   function updateHeader() {
     const st = store.get(), comparing = !!st.compareSnap;
-    compareBtn.setAttribute('aria-pressed', String(comparing));
-    compareBtn.querySelector('span').textContent = comparing ? 'Unpin' : 'Compare';
-    compareBtn.title = comparing ? 'Stop comparing with the pinned moment' : 'Pin this moment and compare before and after';
-    run.querySelector('span').textContent = st.running ? 'Pause' : 'Run';
     comparison.hidden = !comparing || state === 'peek' || st.imaging;
     if (comparing && frame) {
       const a = st.compareSnap.metrics, b = frame.metrics;
@@ -492,15 +469,14 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         !st.hiddenReadouts?.has('model') ? delta('Liver flow', b.liverPerfPct - a.liverPerfPct, 0, 'pp') : null,
         !st.hiddenReadouts?.has('model') ? delta('Shunting', (b.shuntFraction - a.shuntFraction) * 100, 0, 'pp') : null);
     }
-    run.setAttribute('aria-pressed', String(st.running));
     paintTitle();
-    const txt = !frame ? '' : state === 'peek' && !st.imaging ? INFO[open[0]][2](frame)
+    const txt = !frame ? '' : state === 'peek' && !st.imaging ? INFO[open[0]][1](frame)
       : frame.clock === 'disease' ? `${st.running ? 'Live' : 'Paused'} · Day ${frame.day}` : st.running ? 'Live' : 'Paused';
     if (live.textContent !== txt) live.textContent = txt;
     live.dataset.state = state === 'peek' ? 'summary' : st.running ? 'live' : 'paused';
     // Each tab carries its instrument's reading (not in a case, where the numbers are to be found).
     if (frame && isVisible()) for (const id of ORDER) {
-      const v = st.imaging ? '' : INFO[id][2](frame);
+      const v = st.imaging ? '' : INFO[id][1](frame);
       if (tabEls[id].val.textContent !== v) tabEls[id].val.textContent = v;
     }
   }
