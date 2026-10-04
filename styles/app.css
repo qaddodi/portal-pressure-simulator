@@ -2078,12 +2078,10 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .ab-grade[data-sev="caution"]::before { background: var(--caution); }
 .ab-grade[data-sev="danger"]::before { background: var(--danger); }
 .ab-report .procedure-controls { padding: 10px 12px; gap: 8px; }
-.ab-report .procedure-controls .hv-k, .ab-tap .hv-k { margin-bottom: 2px; }
+.ab-report .procedure-controls .hv-k { margin-bottom: 2px; }
 .ab-note { font-size: var(--fs-12); color: var(--text-3); font-weight: 500; }
 .check-row .ab-note { margin-left: auto; text-align: right; }
 .ab .check-row { flex-wrap: wrap; }
-.ab-tap { padding: 10px 12px; border-radius: var(--r-control); background: var(--surface-2); }
-.ab-tap p { margin: 0; font-size: var(--fs-14); line-height: 1.45; color: var(--text-2); }
 
 .ab-trend { font-size: var(--fs-14); color: var(--text-2); margin-top: -4px; }
 .ab-iap { display: grid; gap: 4px; }
@@ -2098,14 +2096,15 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .ab-iap-scale span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
 .ab-iap-scale span:first-child { transform: none; }
 .ab-iap-scale span:last-child { transform: translateX(-100%); }
-.ab-tap { display: grid; gap: 8px; }
-.ab-tap-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.ab-lab { display: grid; gap: 0; padding: 8px 10px; border-radius: var(--r-control); background: var(--surface); border: 1px solid var(--hairline); }
+.ab-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.ab-tap { display: flex; gap: 6px; flex: none; }
+.ab-tap-line { font-size: var(--fs-14); color: var(--text); font-weight: 500; line-height: 1.4; margin-top: -2px; }
+.ab-tap-line:empty { display: none; }
+.ab-lab { display: grid; gap: 0; padding: 4px 10px; text-align: center; border-radius: var(--r-control); background: var(--surface); border: 1px solid var(--hairline); }
 .ab-lab span { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; }
-.ab-lab b { font-size: var(--fs-28); font-weight: 650; color: var(--text); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.ab-lab b { font-size: var(--fs-20); white-space: nowrap; font-weight: 650; color: var(--text); line-height: 1.1; font-variant-numeric: tabular-nums; }
 .ab-lab small { font-size: var(--fs-12); color: var(--text-3); }
 .ab-lab[data-hi="true"] { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
-.ab-tap p { color: var(--text); font-weight: 500; }
 .ab-report dd[data-sev="caution"] { color: var(--caution); font-weight: 600; }
 .ab-report dd[data-sev="danger"] { color: var(--danger); font-weight: 600; }
 @container (min-width: 620px) {

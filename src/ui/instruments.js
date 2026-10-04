@@ -295,7 +295,8 @@ export function createVarixWall() {
 // abdomen, what a diagnostic tap would show, and the two treatments (diuretics, paracentesis).
 // Tapping the fluid on the figure, the Ascites readout's actions and Treat > Paracentesis all open it.
 const SEV = ['ok', 'caution', 'danger', 'danger'];
-const GRADE = ['None', 'Grade 1 · ultrasound only', 'Grade 2 · moderate', 'Grade 3 · tense'];
+const GRADE = ['None', 'Grade 1', 'Grade 2', 'Grade 3'];
+const GRADE_TIP = ['No free fluid', 'Grade 1: seen on ultrasound only', 'Grade 2: moderate, symmetric distension', 'Grade 3: tense, marked distension'];
 export function createAbdomen({ onAction }) {
   const vol = h('input', { type: 'range', min: 1, max: 10, step: 0.5, value: 5, 'aria-label': 'Volume to drain (L)' });
   const volLbl = h('span', { class: 'ctl-val' }, '5.0 L');
@@ -325,11 +326,12 @@ export function createAbdomen({ onAction }) {
       h('i', { class: 'ab-iap-mark', style: { left: '40%' } }), h('i', { class: 'ab-iap-mark', style: { left: '66.7%' } })),
     h('div', { class: 'ab-iap-scale', 'aria-hidden': 'true' }, h('span', { style: { left: '0%' } }, '0'),
       h('span', { style: { left: '40%' } }, '12 IAH'), h('span', { style: { left: '66.7%' } }, '20 ACS'), h('span', { style: { left: '100%' } }, '30')));
-  const tap = h('div', { class: 'ab-tap' });
+  // The diagnostic tap sits beside the volume, compact; its meaning is one line under the trend.
+  const tap = h('div', { class: 'ab-tap' }), tapLine = h('div', { class: 'ab-tap-line' });
   const extraStats = h('dl', { class: 'kv' });
   const info = h('div', { class: 'ab-report' },
-    h('div', { class: 'hv-k' }, 'Ascites'), h('div', { class: 'hv-num' }, numEl, h('small', {}, 'L'), gradeEl), trendEl, iap,
-    tap,
+    h('div', { class: 'ab-head' }, h('div', {}, h('div', { class: 'hv-k' }, 'Ascites'), h('div', { class: 'hv-num' }, numEl, h('small', {}, 'L'), gradeEl)), tap),
+    trendEl, tapLine, iap,
     h('div', { class: 'ctl' }, h('div', { class: 'ctl-top' }, h('span', { class: 'ctl-label' }, 'Serum albumin'), saLbl), sa),
     h('details', { class: 'instrument-details' }, h('summary', {}, 'Why it forms'), extraStats));
   const treat = h('div', { class: 'ab-report' },
@@ -342,7 +344,7 @@ export function createAbdomen({ onAction }) {
   function update(f) {
     const a = f.metrics.ascites, p = store.get().params;
     numEl.textContent = fmt(a.volume / 1000, 1);
-    gradeEl.textContent = GRADE[a.grade] || a.label;
+    gradeEl.textContent = GRADE[a.grade] || a.label; gradeEl.title = GRADE_TIP[a.grade] || '';
     gradeEl.dataset.sev = SEV[a.grade] || 'danger';
     if (diu.checked !== !!p.diuretics) diu.checked = !!p.diuretics;
     if (document.activeElement !== sa && +sa.value !== p.albumin) { sa.value = p.albumin; paintSa(); }
@@ -355,12 +357,13 @@ export function createAbdomen({ onAction }) {
     iap.querySelector('.ab-iap-bar').setAttribute('aria-label', `Abdominal pressure ${fmt(a.iap, 0)} mmHg`);
     // A diagnostic tap: SAAG ≥ 1.1 g/dL means portal hypertension; the protein then says where the block is.
     const ph = f.metrics.ppg > 6 || f.metrics.whvp > 10;
-    tap.replaceChildren(h('div', { class: 'hv-k' }, 'Diagnostic tap'), ...(a.volume > 150 ? [
-      h('div', { class: 'ab-tap-row' },
-        h('div', { class: 'ab-lab', 'data-hi': String(ph) }, h('span', {}, 'SAAG'), h('b', {}, ph ? '≥ 1.1' : '< 1.1'), h('small', {}, 'g/dL')),
-        h('div', { class: 'ab-lab', 'data-hi': String(!!a.highProtein) }, h('span', {}, 'Protein'), h('b', {}, a.highProtein ? '> 2.5' : '< 2.5'), h('small', {}, 'g/dL'))),
-      h('p', {}, !ph ? 'Not portal hypertension: look for a peritoneal cause.' : a.highProtein ? 'Portal hypertension from an outflow block: heart failure or Budd–Chiari.' : 'Portal hypertension from the sinusoids: the cirrhosis pattern.')]
-      : [h('p', { class: 'ab-note' }, 'Too little fluid to tap.')]));
+    const tapped = a.volume > 150;
+    tap.replaceChildren(...(tapped ? [
+      h('div', { class: 'ab-lab', 'data-hi': String(ph) }, h('span', {}, 'SAAG'), h('b', {}, ph ? '≥ 1.1' : '< 1.1')),
+      h('div', { class: 'ab-lab', 'data-hi': String(!!a.highProtein) }, h('span', {}, 'Protein'), h('b', {}, a.highProtein ? '> 2.5' : '< 2.5'))] : []));
+    tap.title = tapped ? 'Diagnostic tap, g/dL. SAAG ≥ 1.1 means portal hypertension; protein then says where the block is.' : '';
+    tapLine.textContent = !tapped ? '' : !ph ? 'Tap: not portal hypertension, look for a peritoneal cause.'
+      : a.highProtein ? 'Tap: portal hypertension from an outflow block (heart failure, Budd–Chiari).' : 'Tap: portal hypertension from the sinusoids, the cirrhosis pattern.';
     extraStats.replaceChildren(
       h('dt', {}, 'Lymph from the liver'), h('dd', {}, `${fmt(a.hepLymph, 1)} (rises with sinusoidal pressure)`),
       h('dt', {}, 'Lymph from the gut'), h('dd', {}, fmt(a.splLymph, 1)),
