@@ -6,7 +6,7 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=f9424489c6';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=fe164f31f1';
-import { createLobuleZoom } from './lobule-zoom.js?v=ab89dedbaf';
+import { createLobuleZoom } from './lobule-zoom.js?v=3a5f943b51';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=63596bcd73';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -2345,14 +2345,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Label text size: the reader's choice (Menu › Text size), and a larger baseline in the circuit,
   // whose labels are the map's only text. Every run's size and spacing is scaled by labelK.
   const CIRCUIT_LABEL_K = 1.22;
+  const LABEL_MIN = 0.8, LABEL_MAX = 1.3;
   // Where a map direction lands on the screen once the circuit is turned a quarter turn counter-clockwise.
   const TURN_DIR = { N: 'W', W: 'S', S: 'E', E: 'N', NE: 'NW', NW: 'SW', SW: 'SE', SE: 'NE', C: 'C' };
-  let labelScale = (() => { try { return clamp(parseFloat(localStorage.getItem('pps.labelScale')) || 1, 0.8, 1.5); } catch { return 1; } })();
+  let labelScale = (() => { try { return clamp(parseFloat(localStorage.getItem('pps.labelScale')) || 1, LABEL_MIN, LABEL_MAX); } catch { return 1; } })();
+  // Every label on a figure (the lobule's too) reads the same scale.
+  document.documentElement.style.setProperty('--label-k', String(labelScale));
   let labelK = labelScale;
-  // Projection ramp: presenting, or a wide screen (≥ 1600 px) with the Larger text size, sets the
-  // atlas labels at projector sizes (values 28 px, names 23 px), readable from the back of a room.
+  // Projection ramp: presenting sets the atlas labels at projector sizes (values 28 px, names 23 px),
+  // readable from the back of a room.
   let projecting = false;
-  const labelBase = () => (projecting || (innerWidth >= 1600 && labelScale >= 1.3) ? 2 : labelScale);
+  const labelBase = () => (projecting ? 2 : labelScale);
   // A line is a list of runs { t, size, weight, cls, track }. Returns [width, height].
   const LINE_H = (line) => Math.max(...line.map((r) => r.size)) * labelK * 1.24;
   const lineW = (line) => line.reduce((w, r, i) => w + textW(r.t, r.size * labelK, r.weight, r.track || 0) + (i ? (r.gap ?? 3) * labelK : 0), 0);
@@ -3412,8 +3415,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     relayout() { refreshCTM(); if (F) updateLabels(F); },
     labelScale: () => labelScale,
     setLabelScale(v) {
-      labelScale = clamp(v, 0.8, 1.5);
+      labelScale = clamp(Math.round(v * 100) / 100, LABEL_MIN, LABEL_MAX);
       try { localStorage.setItem('pps.labelScale', String(labelScale)); } catch { /* storage unavailable */ }
+      document.documentElement.style.setProperty('--label-k', String(labelScale));
+      dispatchEvent(new Event('pps:labelscale'));
       if (F) updateLabels(F);
     },
     setProjection(on) { projecting = !!on; if (F) updateLabels(F); },

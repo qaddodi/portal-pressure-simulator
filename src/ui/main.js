@@ -3,16 +3,16 @@
 
 import { startHost, host } from './host.js?v=d292ccefe8';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=f9424489c6';
-import { createStage } from './stage.js?v=1294bf8730';
+import { createStage } from './stage.js?v=e23e2b3444';
 import { createInspector } from './inspector.js?v=208b6a3592';
-import { createDock, CUTOFFS } from './dock.js?v=175b3ba957';
+import { createDock, CUTOFFS } from './dock.js?v=e770d7c9dd';
 import { createWhy } from './why.js?v=bf0f24a7a5';
 import { createTimeline } from './timeline.js?v=7bf66ab2fb';
 import { createLearn } from './learn.js?v=4dc71233b5';
 import { createCases } from './cases.js?v=06529aed46';
 import { createCompare } from './compare.js?v=730844b101';
 import { createCard } from './card.js?v=f82fd2404c';
-import { createChart, computeFindings } from './chart.js?v=f72f59006f';
+import { createChart, computeFindings } from './chart.js?v=b6f1cf59c7';
 import { createHome } from './home.js?v=14648d4f71';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=e7e5c98a1c';
@@ -662,11 +662,7 @@ function openSettings(anchor) {
     h('div', { class: 'menu-title' }, t('menu.appearance')),
     h('div', { class: 'seg full menu-seg' }, [['light', t('menu.light')], ['dark', t('menu.dark')], ['system', t('menu.system')]].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { closePopover(); applyTheme(v === 'system' ? null : v, v === 'system'); }); return b; })),
     h('div', { class: 'menu-title' }, 'Text size on the figure'),
-    h('div', { class: 'seg full menu-seg', role: 'group', 'aria-label': 'Text size on the figure' }, [[0.85, 'Small'], [1, 'Default'], [1.15, 'Large'], [1.3, 'Larger']].map(([v, l]) => {
-      const b = h('button', { 'aria-pressed': String(Math.abs(stage.labelScale() - v) < 0.01) }, l);
-      b.addEventListener('click', () => { stage.setLabelScale(v); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); });
-      return b;
-    })),
+    textSizeControl(),
     h('div', { class: 'menu-title' }, t('menu.language')),
     (() => { const sel = h('select', { class: 'select menu-select', 'aria-label': t('menu.language') }, LANGS.map(([v, l]) => h('option', { value: v, selected: currentLang() === v }, l))); sel.addEventListener('change', () => { setLang(sel.value); closePopover(); }); return sel; })(),
     h('div', { class: 'menu-title' }, t('menu.access')),
@@ -675,6 +671,26 @@ function openSettings(anchor) {
     h('div', { class: 'menu-sep' }),
     menuItem(t('menu.reset'), { icon: 'reset', onClick: () => resetEverything() }),
   ], { align: 'start', cls: 'app-menu' });
+}
+// Text size: smaller and larger in even steps, and the middle shows the size and resets it.
+const TEXT_STEPS = [0.8, 0.9, 1, 1.1, 1.2, 1.3];
+function textSizeControl() {
+  const at = () => TEXT_STEPS.reduce((b, v, i) => (Math.abs(v - stage.labelScale()) < Math.abs(TEXT_STEPS[b] - stage.labelScale()) ? i : b), 0);
+  const smaller = h('button', { class: 'ts-a ts-sm', 'aria-label': 'Smaller text', title: 'Smaller text' }, 'A');
+  const reset = h('button', { class: 'ts-reset', 'aria-label': 'Reset text size', title: 'Reset text size' });
+  const larger = h('button', { class: 'ts-a ts-lg', 'aria-label': 'Larger text', title: 'Larger text' }, 'A');
+  const paint = () => {
+    const i = at();
+    smaller.disabled = i === 0; larger.disabled = i === TEXT_STEPS.length - 1;
+    reset.textContent = `${Math.round(stage.labelScale() * 100)}%`;
+    reset.setAttribute('aria-pressed', String(i === TEXT_STEPS.indexOf(1)));
+  };
+  const step = (d) => { stage.setLabelScale(TEXT_STEPS[Math.max(0, Math.min(TEXT_STEPS.length - 1, at() + d))]); paint(); };
+  smaller.addEventListener('click', () => step(-1));
+  larger.addEventListener('click', () => step(1));
+  reset.addEventListener('click', () => { stage.setLabelScale(1); paint(); });
+  paint();
+  return h('div', { class: 'seg full menu-seg text-size', role: 'group', 'aria-label': 'Text size on the figure' }, smaller, reset, larger);
 }
 function openHelpMenu(anchor) {
   popover(anchor, [
@@ -753,6 +769,8 @@ function setPanelTab(tab) {
   $('#tabInstruments').setAttribute('aria-pressed', String(instr));
   if (instr) $('#tabInstruments').classList.remove('ping');
   else app.classList.remove('instrument-focus');
+  if (instr && !was) dockSheet?.open();
+  if (!instr && was) dockSheet?.closed();
   if (was !== instr) {
     const f = store.get().frame; if (f && instr) requestAnimationFrame(() => dock.update(f, true));
     setTimeout(() => dispatchEvent(new Event('resize')), 320);
@@ -762,7 +780,7 @@ function setPanelTab(tab) {
 // ── Floating pieces ─────────────────────────────────
 // The top bar and the vitals dock publish their heights (--top-safe, --vdock-h), so the cards,
 // the Fit button and the toasts keep clear of them; Fit itself reads data-safe (stage.js).
-let panelSheet = null, treatSheet = null;
+let panelSheet = null, treatSheet = null, dockSheet = null;
 function wireFloating() {
   // Besides the two heights: how much of the right edge the open cards take (--panel-occ for the
   // chart, --instr-occ for the instruments, --right-occ for all of them with Treat) and how much of the
@@ -794,7 +812,8 @@ function wireFloating() {
     app.style.setProperty('--instr-occ', px(instrOcc));
     app.style.setProperty('--right-occ', px(panelOcc + instrOcc + treatOcc));
     const sheet = wsOn && !ws.classList.contains('side') && ws.dataset.state !== 'peek' ? ws.offsetHeight + gap : 0;
-    app.style.setProperty('--bot-occ', px(vdock + gap + sheet));
+    // On a phone the instruments sheet rises from the bottom edge, over the vitals dock.
+    app.style.setProperty('--bot-occ', px(isPhone() && sheet ? Math.max(vdock + gap, sheet) : vdock + gap + sheet));
     dispatchEvent(new Event('pps:occ'));
   };
   const soon = () => { if (!pubRaf) pubRaf = requestAnimationFrame(publish); };
@@ -807,6 +826,7 @@ function wireFloating() {
   publish();
   panelSheet = sheetBehaviour($('#panel'), { handle: h('button', { class: 'panel-grab', 'aria-label': 'Resize the patient chart' }), drag: '.panel-head', onClose: closePanel });
   treatSheet = sheetBehaviour($('#treatCard'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the Treat card' }), drag: '.tc-head', onClose: closeTreat });
+  dockSheet = sheetBehaviour($('#dock'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the instruments' }), drag: '.dock-head', onClose: () => dock.close(), active: () => isPhone() && !$('#dock').classList.contains('side') && !app.classList.contains('instrument-focus') });
   // Focus: dragging, pinching or scrolling the figure fades the floating pieces until it stops.
   let busyT = 0, down = null;
   const busy = (ms) => { app.classList.add('stage-busy'); clearTimeout(busyT); busyT = setTimeout(() => app.classList.remove('stage-busy'), ms); };
@@ -825,17 +845,17 @@ function wireFloating() {
 // Phone: the chart and Treat are bottom sheets with three heights; a drag on the handle (or the
 // head) moves between them, and below the lowest closes the sheet. Wider: the head drags the card
 // aside, and it returns to its place when it closes.
-function sheetBehaviour(el, { handle, drag, onClose }) {
+function sheetBehaviour(el, { handle, drag, onClose, active = () => true }) {
   const SIZES = [0.32, 0.56, 0.9];
   let size = 1;
   el.prepend(handle);
   const apply = () => el.style.setProperty('--sheet-size', `${Math.round(SIZES[size] * 100)}%`);
   apply();
-  handle.addEventListener('click', () => { if (!isPhone()) return; size = (size + 1) % SIZES.length; apply(); });
+  handle.addEventListener('click', () => { if (!isPhone() || !active()) return; size = (size + 1) % SIZES.length; apply(); });
   let start = null;
   const grabbed = (e) => e.target === handle || (e.target.closest(drag) && !e.target.closest('button, a, input, select, [role="tab"]'));
   el.addEventListener('pointerdown', (e) => {
-    if (!grabbed(e) || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    if (!grabbed(e) || !active() || (e.pointerType === 'mouse' && e.button !== 0)) return;
     const r = el.getBoundingClientRect(), mv = (el.style.translate || '0px 0px').split(' ').map(parseFloat);
     start = { x: e.clientX, y: e.clientY, h: r.height, H: app.clientHeight, tx: mv[0] || 0, ty: mv[1] || 0, moved: false };
     el.setPointerCapture?.(e.pointerId);

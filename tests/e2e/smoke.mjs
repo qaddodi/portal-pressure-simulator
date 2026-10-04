@@ -177,9 +177,6 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.evaluate(() => window.pps.dock.show('profile', { reveal: true }));
     await page.waitForTimeout(500);
     await shot(page, `${device}-instruments`);
-    await page.evaluate(() => window.pps.dock.show('landscape', { reveal: true }));
-    await page.waitForFunction(() => document.querySelector('.land-verdict')?.textContent.includes('Steepest fall'));
-    await shot(page, `${device}-landscape`);
   });
 
   await check(device, 'lesson and case deep links', async (page) => {
@@ -494,8 +491,6 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const sized = await page.$eval(`#pane-${id}`, (el) => [...el.querySelectorAll('canvas')].filter((c) => c.getBoundingClientRect().height > 0).every((c) => c.width > 1 && c.height > 1));
       if (!sized) throw new Error(`${id} has an unsized visible canvas`);
     }
-    await page.evaluate(() => window.pps.dock.show('landscape', { reveal: true }));
-    await page.waitForSelector('.land-verdict');
     await page.evaluate(() => window.pps.dock.show('varixwall', { reveal: true }));
     if (!(await page.$eval('.wall-details', (d) => d.open))) throw new Error('legacy varixwall route does not open mechanics');
     await page.click('.workspace-expand');

@@ -7,7 +7,6 @@ import { createProfile } from './charts.js?v=2ba1f3a5ed';
 import { createPressureTime } from './pressure-time.js?v=0878c8e5f4';
 import { createDoppler } from './doppler.js?v=6db140bcee';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=b9ff7e0e9d';
-import { createLandscape } from './landscape.js?v=e4c301ad22';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -196,33 +195,19 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const app = document.getElementById('app');
   const workspace = head.closest('.dock');
   const stageWrap = document.getElementById('stageWrap');
-  const profile = createProfile(), landscape = createLandscape(), wall = createVarixWall();
+  const profile = createProfile(), wall = createVarixWall();
   const endoscopy = createEndoscopy({ onAction });
   const wallDetails = h('details', { class: 'instrument-details wall-details' },
     h('summary', {}, 'Wall mechanics', h('span', {}, 'Pressure, radius & wall thickness')), wall.el);
   wall.el.className = 'instrument-view wall-view';
   endoscopy.el.append(wallDetails);
   wallDetails.addEventListener('toggle', () => { if (wallDetails.open && frame) wall.update(frame); });
-  const profileView = profile.el, landscapeView = landscape.el;
-  profileView.className = 'instrument-view';
-  landscapeView.className = 'instrument-view';
-  let pressureView = 'profile';
-  const viewSeg = h('div', { class: 'seg pressure-views', role: 'group', 'aria-label': 'Pressure view' },
-    ['profile', 'landscape'].map((id) => h('button', {
-      'data-view': id, 'aria-pressed': String(id === pressureView),
-      onclick: () => setPressureView(id),
-    }, id === 'profile' ? 'Profile' : 'Landscape')));
-  const pressure = {
-    ...profile, id: 'profile', label: 'Pressure',
-    el: h('section', { class: 'dock-pane', 'data-pane': 'profile' }, viewSeg, profileView, landscapeView),
-    update(f) { (pressureView === 'landscape' ? landscape : profile).update(f); },
-  };
+  const pressure = { ...profile, id: 'profile', label: 'Pressure' };
   const instruments = [
     pressure, createPressureTime({ marks }),
     createDoppler({ onProbe }), endoscopy, createAbdomen({ onAction }),
   ];
   const panes = instruments.map((p) => {
-    if (p === pressure) return p;
     p.el.classList.remove('dock-pane'); p.el.classList.add('instrument-view');
     return { ...p, el: h('section', { class: 'dock-pane', 'data-pane': p.id }, p.el) };
   });
@@ -245,8 +230,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   let open = Array.isArray(saved.open) && saved.open.every((id) => byId[id]) && saved.open.length ? saved.open.slice(0, 2) : ['profile'];
   let frame = null, state = 'open', resizeFrame = 0, picking = false;
   let heightRatio = typeof saved.h === 'number' ? saved.h : null, widthPx = typeof saved.w === 'number' ? saved.w : null;
-  if (saved.view === 'landscape') pressureView = 'landscape';
-  const remember = () => { try { localStorage.setItem('pps.instruments', JSON.stringify({ open, h: heightRatio, w: widthPx, view: pressureView })); } catch { /* storage unavailable */ } };
+  const remember = () => { try { localStorage.setItem('pps.instruments', JSON.stringify({ open, h: heightRatio, w: widthPx })); } catch { /* storage unavailable */ } };
   const sideMQ = matchMedia('(min-width: 700px) and (orientation: landscape)');
   const isSide = () => sideMQ.matches;
 
@@ -290,12 +274,6 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   }
   const comparison = h('div', { class: 'workspace-comparison', hidden: true });
   body.before(comparison);
-  function setPressureView(id) {
-    pressureView = id;
-    profileView.hidden = id !== 'profile'; landscapeView.hidden = id !== 'landscape';
-    viewSeg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === id)));
-    remember(); refresh();
-  }
   function refresh() {
     if (!frame || !isVisible() || state === 'peek' || !workspace.offsetParent) return;
     for (const id of open) {
@@ -368,7 +346,6 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     second.hidden = state === 'peek' || !canSplit();
     second.setAttribute('aria-pressed', String(open.length > 1 || picking));
     second.querySelector('.wb-l').textContent = open.length > 1 ? 'Show one' : picking ? 'Cancel' : 'Two at once';
-    profileView.hidden = pressureView !== 'profile'; landscapeView.hidden = pressureView !== 'landscape';
     remember();
     queueRefresh();
   }
@@ -400,8 +377,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   }
   function show(id, { open: doOpen = true, reveal = false, alongside = false } = {}) {
     if (id === 'lobule') { onLobule?.(); return; }
-    if (id === 'landscape') { pressureView = 'landscape'; id = 'profile'; }
-    else if (id === 'profile') pressureView = 'profile';
+    if (id === 'landscape') id = 'profile';
     const revealWall = id === 'varixwall';
     if (revealWall) { wallDetails.open = true; id = 'endoscopy'; }
     if (!byId[id]) return;
@@ -412,7 +388,6 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     else if (doOpen) onOpen();
     if (state === 'peek') setState('open');
     layout();
-    viewSeg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === pressureView)));
     if (revealWall) requestAnimationFrame(() => wallDetails.scrollIntoView({ block: 'nearest' }));
     queueRefresh();
   }
@@ -517,7 +492,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   setState('open'); updateSize(); layout();
   return {
     update, show, toggle, close, ensure, openGrid, profile,
-    pane: (id) => id === 'landscape' ? landscape : id === 'varixwall' ? wall : byId[id],
+    pane: (id) => id === 'landscape' ? profile : id === 'varixwall' ? wall : byId[id],
     isOpen: (id) => isVisible() && open.includes(id === 'landscape' ? 'profile' : id === 'varixwall' ? 'endoscopy' : id),
     setState,
   };
