@@ -711,80 +711,115 @@ export function createLobuleZoom({ host }) {
   // per theme at sizes a factor of 2 apart, and the one at or just above the size on screen is used,
   // so the zoom stays sharp and never shimmers.
   let tiles = null, tilesKey = '';
-  function fieldTiles(cs, dark) {
+  // The field mirrors the lobule's own state (rounded, so the tiles are redrawn only when it changes
+  // visibly): septa and portal tracts thicken with fibrosis, bridging septa turn the lobules into
+  // nodules in cirrhosis, the sinusoids pale as they capillarize, and congestion darkens zone 3.
+  const fieldState = () => { const m = model || (F ? lobuleState(F, store.get()) : null); const q = (x) => Math.round((x || 0) * 8) / 8; return m ? { su: q(m.septU), pre: q(m.fibPre), post: q(m.fibPost), sin: q(m.fibSin), cong: q(m.congU) } : { su: 0, pre: 0, post: 0, sin: 0, cong: 0 }; };
+  function fieldTile(cs, dark, rd) {
     const v = (n, d) => cs.getPropertyValue(n).trim() || d;
     const cell = v('--og-liver-1', '#E9C3B6'), gap = v('--og-liver-2', '#C98E7E'), cvc = v('--vein-systemic', '#4F8CC9'), pvc = v('--vein-portal', '#7D6FB6');
-    const key = [dark, cell, gap, cvc, pvc].join('|');
-    if (key === tilesKey) return tiles;
-    tilesKey = key;
-    const S3 = Math.sqrt(3);
-    // Tissue, not a diagram: the repeat is two lobules wide and two high, and every corner of the
-    // lattice is nudged by a hash of where it is (the same for the lobules that share it, and the
-    // same across the repeat), so the outlines wander a little. Each lobule is filled warmer toward
-    // its central vein, its septa are soft bands, its sinusoids gently curved, and a triad (venule,
-    // arteriole, ductule) sits at each corner.
+    const fs = fieldState();
+    const key = [dark, cell, gap, cvc, pvc, Object.values(fs).join(',')].join('|');
+    if (key !== tilesKey) { tilesKey = key; tiles = [6, 12, 24, 48, 96, 192, 384].map((R) => ({ R, cv: null })); }
+    const t = tiles.find((q) => q.R >= rd) || tiles[tiles.length - 1];
+    if (!t.cv) drawTile(t, { cell, gap, cvc, pvc, art: v('--artery', '#C8414D'), duct: v('--bile-duct', '#6E9B4E'), dark, fs });
+    return t;
+  }
+  // Tissue, not a diagram: the repeat is two lobules wide and two high, and every corner of the
+  // lattice is nudged by a hash of where it is (the same for the lobules that share it, and the
+  // same across the repeat), so the outlines wander a little. Each lobule is filled warmer toward
+  // its central vein, its septa are soft bands, its sinusoids gently curved, and a triad (venule,
+  // arteriole, ductule) sits at each corner.
+  function drawTile(t, { cell, gap, cvc, pvc, art, duct, dark, fs }) {
+    const S3 = Math.sqrt(3), R = t.R;
     const hash = (i, j) => { let q = (i * 374761393 + j * 668265263) >>> 0; q = ((q ^ (q >>> 13)) * 1274126177) >>> 0; return (q >>> 8) / 16777216; };
-    const art = v('--artery', '#C8414D'), duct = v('--bile-duct', '#6E9B4E');
-    tiles = [6, 12, 24, 48, 96, 192].map((R) => {
-      const TW = 6 * R, TH = 2 * S3 * R;
-      const tw = Math.round(TW), th = Math.round(TH);
-      const cv = document.createElement('canvas'); cv.width = tw; cv.height = th;
-      const c = cv.getContext('2d');
-      c.scale(tw / TW, th / TH);
-      c.fillStyle = gap; c.fillRect(0, 0, TW, TH);
-      // A lattice point, nudged (ix, iy in half-R and half-height steps, wrapped to the repeat).
-      const corner = (x, y) => {
-        const ix = Math.round(x / (R / 2)), iy = Math.round(y / (S3 * R / 2));
-        const u = hash(((ix % 12) + 12) % 12, ((iy % 4) + 4) % 4), w = hash(((ix % 12) + 12) % 12 + 31, ((iy % 4) + 4) % 4 + 17);
-        const a = u * TAU, m = 0.11 * R * (0.4 + 0.6 * w);
-        return [x + Math.cos(a) * m, y + Math.sin(a) * m];
-      };
-      const centres = [];
-      for (let i = -1; i <= 4; i++) for (let j = -1; j <= 2; j++) centres.push([1.5 * R * i, S3 * R * (j + (i & 1 ? 0.5 : 0))]);
-      const lw = Math.max(0.6, R * 0.05);
-      for (const [x, y] of centres) {
-        const P = Array.from({ length: 6 }, (_, i) => corner(x + Math.cos((i * Math.PI) / 3) * R, y + Math.sin((i * Math.PI) / 3) * R));
-        // The plate: rounded corners (the path runs through the edges' midpoints), warmer inside.
-        c.beginPath();
-        for (let i = 0; i < 6; i++) {
-          const A = P[i], B = P[(i + 1) % 6], C = P[(i + 2) % 6];
-          const m1 = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], m2 = [(B[0] + C[0]) / 2, (B[1] + C[1]) / 2];
-          if (!i) c.moveTo(m1[0], m1[1]);
-          c.quadraticCurveTo(B[0], B[1], m2[0], m2[1]);
-        }
-        c.closePath();
-        const g = c.createRadialGradient(x, y, R * 0.05, x, y, R);
-        g.addColorStop(0, gap); g.addColorStop(0.35, cell); g.addColorStop(1, cell);
-        c.globalAlpha = 1; c.fillStyle = g; c.fill();
-        c.save(); c.clip();
-        // Sinusoids: from each edge's portal side toward the central vein, each with a slight bend.
-        c.strokeStyle = gap; c.lineCap = 'round'; c.lineWidth = Math.max(0.5, R * 0.022);
-        for (let i = 0; i < 18; i++) {
-          const k = Math.floor(i / 3), f = (i % 3 + 0.5) / 3, A = P[k], B = P[(k + 1) % 6];
-          const sx = A[0] + (B[0] - A[0]) * f, sy = A[1] + (B[1] - A[1]) * f;
-          const bend = (hash(i + 7, Math.round(x + y)) - 0.5) * 0.35 * R;
-          const mx = (sx + x) / 2 + (y - sy) / R * bend * 0.6, my = (sy + y) / 2 + (sx - x) / R * bend * 0.6;
-          c.globalAlpha = (dark ? 0.4 : 0.28) * (0.6 + 0.4 * hash(i, 3));
-          c.beginPath(); c.moveTo(sx, sy); c.quadraticCurveTo(mx, my, x, y); c.stroke();
-        }
-        c.restore();
-        // Septa: soft bands along the borders.
-        c.globalAlpha = dark ? 0.5 : 0.38; c.strokeStyle = gap; c.lineWidth = lw * 1.6; c.lineJoin = 'round';
-        c.beginPath(); P.forEach((q, i) => c[i ? 'lineTo' : 'moveTo'](q[0], q[1])); c.closePath(); c.stroke();
-        // Central vein, with a soft rim.
-        c.globalAlpha = 0.35; c.fillStyle = cvc; c.beginPath(); c.arc(x, y, R * 0.12, 0, TAU); c.fill();
-        c.globalAlpha = 0.85; c.beginPath(); c.arc(x, y, R * 0.075, 0, TAU); c.fill();
-        // Triads.
-        for (const [px, py] of P) {
-          c.globalAlpha = 0.85; c.fillStyle = pvc; c.beginPath(); c.ellipse(px, py, R * 0.055, R * 0.04, 0.6, 0, TAU); c.fill();
-          c.fillStyle = art; c.beginPath(); c.arc(px + R * 0.06, py - R * 0.035, R * 0.022, 0, TAU); c.fill();
-          c.fillStyle = duct; c.beginPath(); c.arc(px - R * 0.05, py + R * 0.045, R * 0.018, 0, TAU); c.fill();
-        }
-        c.globalAlpha = 1;
+    const COL = dark ? 'rgb(199,186,153)' : 'rgb(237,222,186)';
+    const TW = 6 * R, TH = 2 * S3 * R, tw = Math.round(TW), th = Math.round(TH);
+    const cv = document.createElement('canvas'); cv.width = tw; cv.height = th;
+    const c = cv.getContext('2d');
+    c.scale(tw / TW, th / TH);
+    c.fillStyle = gap; c.fillRect(0, 0, TW, TH);
+    // A lattice point, nudged (ix, iy in half-R and half-height steps, wrapped to the repeat).
+    const corner = (x, y) => {
+      const ix = Math.round(x / (R / 2)), iy = Math.round(y / (S3 * R / 2));
+      const u = hash(((ix % 12) + 12) % 12, ((iy % 4) + 4) % 4), w = hash(((ix % 12) + 12) % 12 + 31, ((iy % 4) + 4) % 4 + 17);
+      const a = u * TAU, m = 0.11 * R * (0.4 + 0.6 * w);
+      return [x + Math.cos(a) * m, y + Math.sin(a) * m];
+    };
+    const centres = [];
+    for (let i = -1; i <= 4; i++) for (let j = -1; j <= 2; j++) centres.push([1.5 * R * i, S3 * R * (j + (i & 1 ? 0.5 : 0))]);
+    const lw = Math.max(0.6, R * 0.05), round = 1 + 0.6 * fs.su;   // nodules: rounder plates
+    for (const [x, y] of centres) {
+      const P = Array.from({ length: 6 }, (_, i) => corner(x + Math.cos((i * Math.PI) / 3) * R, y + Math.sin((i * Math.PI) / 3) * R));
+      // The plate: rounded corners (the path runs through the edges' midpoints), warmer inside.
+      c.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const A = P[i], B = P[(i + 1) % 6], C = P[(i + 2) % 6];
+        const m1 = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], m2 = [(B[0] + C[0]) / 2, (B[1] + C[1]) / 2];
+        const k = Math.min(1, round - 1), bx = B[0] + (x - B[0]) * 0.12 * k, by = B[1] + (y - B[1]) * 0.12 * k;
+        if (!i) c.moveTo(m1[0], m1[1]);
+        c.quadraticCurveTo(bx, by, m2[0], m2[1]);
       }
-      return { R, tw, th, TW, TH, cv, pat: null };
-    });
-    return tiles;
+      c.closePath();
+      const g = c.createRadialGradient(x, y, R * 0.05, x, y, R);
+      g.addColorStop(0, gap); g.addColorStop(0.35, cell); g.addColorStop(1, cell);
+      c.globalAlpha = 1; c.fillStyle = g; c.fill();
+      c.save(); c.clip();
+      // Congestion: zone 3 pooled with blood (nutmeg).
+      if (fs.cong > 0) {
+        const n = c.createRadialGradient(x, y, R * 0.08, x, y, R * (0.35 + 0.25 * fs.cong));
+        n.addColorStop(0, `rgba(140,40,60,${(0.55 * fs.cong).toFixed(3)})`); n.addColorStop(1, 'rgba(140,40,60,0)');
+        c.fillStyle = n; c.fillRect(x - R, y - R, 2 * R, 2 * R);
+      }
+      // Sinusoids: from each edge's portal side toward the central vein, each with a slight bend;
+      // capillarized, they turn pale.
+      c.strokeStyle = fs.sin > 0.2 ? COL : gap; c.lineCap = 'round'; c.lineWidth = Math.max(0.5, R * (0.022 + 0.01 * fs.sin));
+      for (let i = 0; i < 18; i++) {
+        const k = Math.floor(i / 3), f = (i % 3 + 0.5) / 3, A = P[k], B = P[(k + 1) % 6];
+        const sx = A[0] + (B[0] - A[0]) * f, sy = A[1] + (B[1] - A[1]) * f;
+        const bend = (hash(i + 7, Math.round(x + y)) - 0.5) * 0.35 * R;
+        const mx = (sx + x) / 2 + (y - sy) / R * bend * 0.6, my = (sy + y) / 2 + (sx - x) / R * bend * 0.6;
+        c.globalAlpha = (dark ? 0.4 : 0.28) * (0.6 + 0.4 * hash(i, 3)) * (1 + 0.6 * fs.sin);
+        c.beginPath(); c.moveTo(sx, sy); c.quadraticCurveTo(mx, my, x, y); c.stroke();
+      }
+      c.restore();
+      // Septa: soft bands along the borders; in cirrhosis, broad pale bands of collagen.
+      c.lineJoin = 'round';
+      c.globalAlpha = dark ? 0.5 : 0.38; c.strokeStyle = gap; c.lineWidth = lw * 1.6;
+      c.beginPath(); P.forEach((q, i) => c[i ? 'lineTo' : 'moveTo'](q[0], q[1])); c.closePath(); c.stroke();
+      if (fs.su > 0) {
+        c.globalAlpha = 0.45 + 0.4 * fs.su; c.strokeStyle = COL; c.lineWidth = R * (0.02 + 0.05 * fs.su);
+        c.beginPath(); P.forEach((q, i) => c[i ? 'lineTo' : 'moveTo'](q[0], q[1])); c.closePath(); c.stroke();
+        // Portal-central bridges, late in cirrhosis.
+        if (fs.su > 0.35) { c.lineWidth *= 0.7; c.globalAlpha *= 0.6; c.beginPath(); for (const k of [0, 2, 4]) { c.moveTo(P[k][0], P[k][1]); c.lineTo(x, y); } c.stroke(); }
+      }
+      // Central vein, with a soft rim (a collagen cuff with central fibrosis).
+      if (fs.post > 0) { c.globalAlpha = 0.3 + 0.55 * fs.post; c.fillStyle = COL; c.beginPath(); c.arc(x, y, R * 0.075 * (1.5 + fs.post), 0, TAU); c.fill(); }
+      c.globalAlpha = 0.35; c.fillStyle = cvc; c.beginPath(); c.arc(x, y, R * 0.12, 0, TAU); c.fill();
+      c.globalAlpha = 0.85; c.beginPath(); c.arc(x, y, R * 0.075 * (1 + 0.4 * fs.cong), 0, TAU); c.fill();
+      // Triads, in a collagen tract that grows with portal fibrosis.
+      for (const [px, py] of P) {
+        if (fs.pre > 0) { c.globalAlpha = 0.4 + 0.4 * fs.pre; c.fillStyle = COL; c.beginPath(); c.arc(px, py, R * 0.09 * (1 + 0.9 * fs.pre), 0, TAU); c.fill(); }
+        c.globalAlpha = 0.85; c.fillStyle = pvc; c.beginPath(); c.ellipse(px, py, R * 0.055, R * 0.04, 0.6, 0, TAU); c.fill();
+        c.fillStyle = art; c.beginPath(); c.arc(px + R * 0.06, py - R * 0.035, R * 0.022, 0, TAU); c.fill();
+        c.fillStyle = duct; c.beginPath(); c.arc(px - R * 0.05, py + R * 0.045, R * 0.018, 0, TAU); c.fill();
+      }
+      c.globalAlpha = 1;
+    }
+    Object.assign(t, { tw, th, TW, TH, cv, pats: new WeakMap() });
+  }
+  // The field's pattern on context c, with the lobule at the origin centred on x, y (device px), radius rd.
+  function fieldFill(c, t, x, y, rd, w, h) {
+    let pat = t.pats.get(c);
+    if (!pat) { pat = c.createPattern(t.cv, 'repeat'); t.pats.set(c, pat); }
+    pat.setTransform(new DOMMatrix([(t.TW / t.R) * rd / t.tw, 0, 0, (t.TH / t.R) * rd / t.th, x, y]));
+    c.fillStyle = pat; c.fillRect(0, 0, w, h);
+  }
+  // The surround fading into the page with distance from the lobule (q: 0..1, how far it has faded).
+  function fieldFade(c, bg, x, y, rd, q, w, h) {
+    const vg = c.createRadialGradient(x, y, rd * 1.1, x, y, rd * 3.2);
+    vg.addColorStop(0, css(bg, 0)); vg.addColorStop(0.5, css(bg, 0.72 * q)); vg.addColorStop(1, css(bg, q));
+    c.fillStyle = vg; c.fillRect(0, 0, w, h);
   }
   // d: { a: opacity 0..1, x, y: where the settling lobule's centre is (stage px), r: its radius on
   // screen, ox, oy: the point it emerges from, quiet: 0..1, the surround fading into the page as the
@@ -794,22 +829,15 @@ export function createLobuleZoom({ host }) {
     const rect = host.getBoundingClientRect();
     const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
     const dpr = Math.min(1.5, devicePixelRatio || 1);
-    if (field.width !== Math.round(W * dpr) || field.height !== Math.round(H * dpr)) { field.width = Math.round(W * dpr); field.height = Math.round(H * dpr); for (const t of tiles || []) t.pat = null; }
+    if (field.width !== Math.round(W * dpr) || field.height !== Math.round(H * dpr)) { field.width = Math.round(W * dpr); field.height = Math.round(H * dpr); }
     const cs = getComputedStyle(host), dark = isDark();
-    const T = fieldTiles(cs, dark), rd = d.r * dpr;
-    const t = T.find((q) => q.R >= rd) || T[T.length - 1];
+    const rd = d.r * dpr, t = fieldTile(cs, dark, rd);
     const c = field.getContext('2d');
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.globalCompositeOperation = 'source-over';
-    if (!t.pat) t.pat = c.createPattern(t.cv, 'repeat');
-    t.pat.setTransform(new DOMMatrix([(t.TW / t.R) * rd / t.tw, 0, 0, (t.TH / t.R) * rd / t.th, d.x * dpr, d.y * dpr]));
-    c.fillStyle = t.pat; c.fillRect(0, 0, field.width, field.height);
+    fieldFill(c, t, d.x * dpr, d.y * dpr, rd, field.width, field.height);
     const bg = rgb01(cs.getPropertyValue('--stage-bg').trim() || cs.getPropertyValue('--bg').trim() || (dark ? '#0E1422' : '#FBFAF7'));
-    if (d.quiet > 0) {
-      const vg = c.createRadialGradient(d.x * dpr, d.y * dpr, rd * 1.15, d.x * dpr, d.y * dpr, rd * 2.6);
-      vg.addColorStop(0, css(bg, 0)); vg.addColorStop(1, css(bg, 0.75 * d.quiet));
-      c.fillStyle = vg; c.fillRect(0, 0, field.width, field.height);
-    }
+    if (d.quiet > 0) fieldFade(c, bg, d.x * dpr, d.y * dpr, rd, d.quiet, field.width, field.height);
     // Emerging: the field spreads out from the dive point as it fades in.
     if (d.a < 1) {
       const diag = Math.hypot(W, H) * dpr, rho = diag * (0.2 + 1.1 * d.a);
@@ -978,7 +1006,7 @@ export function createLobuleZoom({ host }) {
   function paintTissue(W, H, dpr, dark, cs, flatVessels) {
     const m = model, G = geo;
     const q = (v) => Math.round(v * 2) / 2;
-    const key = [W, H, dpr, dark, ink('pv'), ink('cv'), ink('sin', 0.5), m.zone.pre.toFixed(2), m.zone.sin.toFixed(2), m.zone.post.toFixed(2), m.s.toFixed(2), q(m.cong), m.hide, zonesOn, flatVessels ? [ink('sin', 1), ink('sin', 0), m.art.toFixed(2), [...selIds()].join('.')] : '', cs.getPropertyValue('--bg'), V.k.toFixed(3), V.x.toFixed(1), V.y.toFixed(1)].join('|');
+    const key = [W, H, dpr, dark, ink('pv'), ink('cv'), ink('sin', 0.5), m.zone.pre.toFixed(2), m.zone.sin.toFixed(2), m.zone.post.toFixed(2), m.s.toFixed(2), q(m.cong), m.hide, zonesOn, flatVessels ? [ink('sin', 1), ink('sin', 0), m.art.toFixed(2), [...selIds()].join('.')] : '', cs.getPropertyValue('--bg'), Object.values(fieldState()).join(','), V.k.toFixed(3), V.x.toFixed(1), V.y.toFixed(1)].join('|');
     if (key === tissueKey) return;
     tissueKey = key;
     if (tissue.width !== W * dpr || tissue.height !== H * dpr) { tissue.width = W * dpr; tissue.height = H * dpr; }
@@ -987,8 +1015,16 @@ export function createLobuleZoom({ host }) {
     const v = (n, d) => cs.getPropertyValue(n).trim() || d;
     const bg = v('--stage-bg', v('--bg', dark ? '#0E1422' : '#FBFAF7'));
     c.fillStyle = bg; c.fillRect(0, 0, W, H);
-    c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y);
     const { R, cx, cy, lobules } = G;
+    // The neighbours are the dive's field, carried on: the same tissue, in the same state, fading into
+    // the page with distance from this lobule (so zooming out, they fade away completely).
+    {
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      const [sx, sy] = toScreen([cx, cy]), rd = R * V.k * dpr;
+      fieldFill(c, fieldTile(cs, dark, rd), sx * dpr, sy * dpr, rd, W * dpr, H * dpr);
+    }
+    c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y);
+    { const l = lobules[0]; c.fillStyle = bg; c.beginPath(); l.corners.forEach(([x, y], i) => { const px = l.x + (x - l.x) * 1.03, py = l.y + (y - l.y) * 1.03; if (i) c.lineTo(px, py); else c.moveTo(px, py); }); c.closePath(); c.fill(); }
     const gap = rgb01(v('--og-liver-2', dark ? '#5A3440' : '#C98E7E')), cell = rgb01(v('--og-liver-1', dark ? '#85514F' : '#E9C3B6'));
     const COL = dark ? [0.78, 0.73, 0.6] : [0.93, 0.87, 0.73];
     const col = (a) => css(COL, a);
@@ -998,17 +1034,6 @@ export function createLobuleZoom({ host }) {
       c.beginPath();
       for (let i = 0; i <= n; i++) { const u = i / n, e = amp * Math.sin(Math.PI * u) * Math.sin(3 * Math.PI * u + ph); const x = A[0] + dx * u + nx * e, y = A[1] + dy * u + ny * e; if (i) c.lineTo(x, y); else c.moveTo(x, y); }
     };
-    // Neighbours: quiet hexagons with a hint of their sinusoids and their central vein.
-    for (const l of lobules) {
-      if (l.main) continue;
-      hexPath(l); c.fillStyle = css(gap, dark ? 0.32 : 0.26); c.fill();
-      c.save(); c.clip();
-      c.strokeStyle = css(rgb01(ink('sin', 0.5)), 0.16); c.lineWidth = 1.2;
-      c.beginPath();
-      for (let i = 0; i < 24; i++) { const a = (i * TAU) / 24 + 0.07; c.moveTo(l.x + Math.cos(a) * R * 0.12, l.y + Math.sin(a) * R * 0.12); c.lineTo(l.x + Math.cos(a) * R, l.y + Math.sin(a) * R); }
-      c.stroke(); c.restore();
-      c.fillStyle = css(rgb01(ink('cv')), 0.45); c.beginPath(); c.arc(l.x, l.y, R * (0.06 + 0.04 * m.congU), 0, TAU); c.fill();
-    }
     // The lobule's own plates: hepatocytes in radial cords, one cell thick.
     const main = lobules[0];
     hexPath(main); c.fillStyle = css(gap, dark ? 0.55 : 0.5); c.fill();
@@ -1067,7 +1092,7 @@ export function createLobuleZoom({ host }) {
       c.save();
       c.lineCap = 'round'; c.lineJoin = 'round';
       const paths = [];
-      lobules.forEach((l, li) => l.corners.forEach((A, i) => paths.push([A, l.corners[(i + 1) % 6], li * 7 + i])));
+      lobules[0].corners.forEach((A, i) => paths.push([A, lobules[0].corners[(i + 1) % 6], i]));
       // Nodule bulge: the septa cast a soft shade into the tissue beside them.
       c.shadowColor = dark ? 'rgba(0,0,0,.55)' : 'rgba(110, 50, 50, .35)'; c.shadowBlur = R * 0.07 * su;
       c.strokeStyle = col(0.36 + 0.4 * su); c.lineWidth = w;
@@ -1081,11 +1106,11 @@ export function createLobuleZoom({ host }) {
     } else {
       // Healthy: just the limiting plate, a hairline.
       c.strokeStyle = dark ? 'rgba(255,255,255,.1)' : 'rgba(80,50,50,.14)'; c.lineWidth = 1;
-      for (const l of lobules) { hexPath(l); c.stroke(); }
+      hexPath(lobules[0]); c.stroke();
     }
     // Portal tracts (connective tissue), thicker with portal fibrosis.
     const seen = new Set();
-    for (const l of lobules) for (const [x, y] of l.corners) {
+    for (const [x, y] of lobules[0].corners) {
       const kk = Math.round(x) + ',' + Math.round(y);
       if (seen.has(kk)) continue; seen.add(kk);
       const near = Math.hypot(x - cx, y - cy) < R * 1.05, rt = G.rt * (1 + 0.9 * m.fibPre);
@@ -1102,12 +1127,8 @@ export function createLobuleZoom({ host }) {
     for (const tr of G.triads) { c.beginPath(); c.arc(tr.bd[0], tr.bd[1], G.rt * 0.15, 0, TAU); c.stroke(); }
     // Central vein wall: collagen with post-sinusoidal fibrosis.
     if (m.fibPost > 0.05) { c.fillStyle = col(0.3 + 0.55 * m.fibPost); c.beginPath(); c.arc(cx, cy, G.rcv0 * (1.5 + m.fibPost), 0, TAU); c.fill(); }
-    // Focus: the surround fades into the page.
-    const vg = c.createRadialGradient(cx, cy, R * 1.15, cx, cy, R * 2.6);
-    const bgc = rgb01(bg);
-    vg.addColorStop(0, css(bgc, 0)); vg.addColorStop(1, css(bgc, 0.75));
-    // (Over the whole screen: the canvas is in view units here, so 0…W, 0…H would leave an edge.)
-    c.fillStyle = vg; c.fillRect(-V.x / V.k, -V.y / V.k, W / V.k, H / V.k);
+    // Focus: the surround fades into the page (as the dive's field does at its end).
+    { c.setTransform(1, 0, 0, 1, 0, 0); const [sx, sy] = toScreen([cx, cy]); fieldFade(c, rgb01(bg), sx * dpr, sy * dpr, R * V.k * dpr, 1, W * dpr, H * dpr); c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y); }
     if (flatVessels) paintFlatVessels(c, cs);
   }
   // Without WebGL2: the vessels as plain strokes on the tissue.
@@ -1266,7 +1287,7 @@ export function createLobuleZoom({ host }) {
     /** During the dive: the tissue (not its card) still zooming in, by k (≤ 1) about the stage point x, y. */
     setDiveZoom(k, x, y) {
       // Scaled down, the tissue's own page fill would show as a pale card; a soft round mask keeps only the lobule and its rim.
-      const r = geo ? geo.R * V.k : 0, mask = k >= 0.9999 || !r ? '' : `radial-gradient(circle at ${x.toFixed(1)}px ${y.toFixed(1)}px, #000 ${(r * 1.1).toFixed(1)}px, transparent ${(r * 1.7).toFixed(1)}px)`;
+      const r = geo ? geo.R * V.k : 0, mask = k >= 0.9999 || !r ? '' : `radial-gradient(circle at ${x.toFixed(1)}px ${y.toFixed(1)}px, #000 ${(r * 1.02).toFixed(1)}px, transparent ${(r * 1.2).toFixed(1)}px)`;
       for (const e of [tissue, glCv, fx, leaders, labels]) {
         if (e === tissue || e === glCv) { e.style.maskImage = mask; e.style.webkitMaskImage = mask; }
         if (k >= 0.9999) { e.style.transform = ''; e.style.transformOrigin = ''; continue; }

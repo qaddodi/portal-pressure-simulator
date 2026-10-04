@@ -6,7 +6,7 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=9c069d2ebf';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=d680016625';
-import { createLobuleZoom } from './lobule-zoom.js?v=d1a96951ce';
+import { createLobuleZoom } from './lobule-zoom.js?v=646fdcf9a1';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=3e0076273f';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -1284,13 +1284,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // when ascites fills the pelvis or the spleen grows, home grows with it and the view follows.
   let firstFit = false, homeAt = null, homeCheck = 0, userMoved = false;
   // A patient has arrived and none is on its way (opening one from Home, the first frames are still the last one's).
-  const patientArrived = () => (store.get().historyTick || 0) > 0 && !store.get().presetLoading;
+  const patientArrived = () => ((store.get().historyTick || 0) > 0 || !!store.get().booted) && !store.get().presetLoading;
   let patientReady = patientArrived();
   store.on('historyTick', () => { patientReady = patientArrived(); });
   store.on('presetLoading', () => { patientReady = patientArrived(); });
-  // Closing Home without picking a patient keeps the one already loaded: that counts as arrived too.
-  const homeEl = document.getElementById('home');
-  if (homeEl) new MutationObserver(() => { if (homeEl.hidden && !store.get().presetLoading) { patientReady = true; firstFrame(); } }).observe(homeEl, { attributes: true, attributeFilter: ['hidden'] });
+  store.on('booted', () => { patientReady = patientArrived(); firstFrame(); });
   wrap.classList.add('unframed');
   // The loading screen (index.html) waits for this: the figure framed, faded in and on screen.
   let figureShown = false;

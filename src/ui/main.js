@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=5e522a6bbf';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=9c069d2ebf';
-import { createStage } from './stage.js?v=84bf9f48f3';
+import { createStage } from './stage.js?v=905827410d';
 import { createInspector } from './inspector.js?v=fe8a1a69f1';
 import { createDock, CUTOFFS } from './dock.js?v=ce8d1cf05a';
 import { createWhy } from './why.js?v=19628476d5';
@@ -198,6 +198,8 @@ async function main() {
   if (shared) await loadShared(shared); else timeline.reset();
   inspector.render();
   if (!(await openDeepLink())) firstRun();
+  // Startup has decided who the patient is (a deep link, a shared link, or the default one): the figure may frame itself.
+  store.set({ booted: true });
   const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
   setTimeout(() => idle(() => { paletteL.warm(); presenterL.warm(); }), 3000);
   addEventListener('pps:lang', () => { if (home.isOpen()) home.render(); });
