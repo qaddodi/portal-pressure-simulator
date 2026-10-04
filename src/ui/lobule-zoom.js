@@ -21,9 +21,9 @@
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
 import { store, updateParams } from './store.js?v=9c069d2ebf';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=0e5acd5685';
-import { verbEnabled } from './actions.js?v=b6e5d22a54';
-import { h, s, fmt, clamp, svgIcon, createEaser, axisTop } from './util.js?v=994e190477';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=d67eaedcd8';
+import { verbEnabled } from './actions.js?v=e765c9d0f8';
+import { h, s, fmt, clamp, createEaser, axisTop, systemEdge } from './util.js?v=831ebf143a';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=f7c2445d32';
@@ -190,17 +190,15 @@ export function createLobuleZoom({ host }) {
   cirIn.addEventListener('input', () => { const v = parseFloat(cirIn.value); paintCir(v); updateParams((pp) => { pp.cirrhosis = v; return pp; }, { history: cirFresh, label: 'Cirrhosis' }); cirFresh = false; });
   const legend = h('div', { class: 'lz-legend', 'aria-hidden': 'true' });
   const sub = h('div', { class: 'lz-sub' });
-  // The card floats on the right (a sheet on a phone) and the lobule frames itself beside it. Its chevron
-  // folds it to the header and the verdict; on a phone the header's Details opens the rest.
-  const more = h('button', { class: 'lz-more', 'aria-expanded': 'true', title: 'Show or hide the details' }, h('span', { class: 'lz-more-l' }, 'Details'), svgIcon('chev-down', 'lz-chev'));
+  // The card floats on the right (a sheet on a phone, folded by a swipe or a tap on its header) and the
+  // lobule frames itself beside it.
   const grab = h('span', { class: 'lz-grab', 'aria-hidden': 'true' });
-  const head = h('div', { class: 'lz-head' }, grab, h('div', {}, h('div', { class: 'lz-title' }, 'Hepatic lobule'), sub), more);
+  const head = h('div', { class: 'lz-head' }, grab, h('div', {}, h('div', { class: 'lz-title' }, 'Hepatic lobule'), sub));
   // What to show on the lobule, just under the card's title (so it stays in reach on a phone, folded or not).
   const tgs = h('div', { class: 'lz-tgs', role: 'group', 'aria-label': 'Show on the lobule' }, zonesBtn, lymphBtn);
   const side = h('div', { class: 'lz-side open' }, head, tgs, ladder, nums, verdict, cirBox, statsHead, stats);
   const phoneMQ = matchMedia('(max-width: 720px)');
-  const setOpen = (o) => { side.classList.toggle('open', o); more.setAttribute('aria-expanded', String(o)); if (!o) side.scrollTop = 0; requestAnimationFrame(refit); };
-  more.addEventListener('click', () => setOpen(!side.classList.contains('open')));
+  const setOpen = (o) => { side.classList.toggle('open', o); head.setAttribute('aria-expanded', String(o)); if (!o) side.scrollTop = 0; requestAnimationFrame(refit); };
   // The key to the lobule's parts is not shown (the colours speak for themselves); it stays detached.
   const key = h('div', { class: 'lz-key' }, legend);
   // Phone: the sheet follows a swipe on its header, up to open and down to fold; a tap on the header flips it.
@@ -343,7 +341,7 @@ export function createLobuleZoom({ host }) {
   const pts2 = () => [...touches.values()];
   const onScene = (ev) => ev.target === el || ev.target === fx || ev.target === leaders || ev.target === tissue || ev.target === glCv;
   el.addEventListener('pointerdown', (ev) => {
-    if (!onScene(ev)) return;
+    if (!onScene(ev) || systemEdge(ev)) return;
     if (ev.isPrimary) touches.clear();
     touches.set(ev.pointerId, local(ev));
     cancelAnimationFrame(glide);
@@ -685,12 +683,16 @@ export function createLobuleZoom({ host }) {
     }
     short.forEach((n, i) => { const t = s('text', { x: X(i), y: Hd - 4, class: 'lz-ladN', 'text-anchor': 'middle' }); t.textContent = n; svg.append(t); });
     ladder.replaceChildren(svg);
-    const dTxt = (d, dec = 0) => `${d > 0 ? '▲' : '▼'} ${fmt(Math.abs(d), dec)}`;
-    nums.replaceChildren(...short.map((n, i) => {
-      const v = P[i], d = R[i] != null ? v - R[i] : 0, show = !m.hide && Math.abs(d) >= (m.cmp ? 1 : 2);
-      return h('div', { class: 'lz-num', style: { '--c': m.hide ? 'var(--text-3)' : pc(v) } }, h('span', { class: 'k' }, n), h('b', {}, m.hide ? '?' : fmt(v, 0)),
-        h('span', { class: 'd ' + (show ? (d > 0 ? 'up' : 'down') : 'same') }, show ? dTxt(d) : m.cmp ? 'same' : '·'));
-    }));
+    // The phone's strip: the five pressures in a row, joined by a thin line, the change beneath only when
+    // there is one, and under them the bars that mark where along the lobule the pressure is lost.
+    const dTxt = (d) => `${d > 0 ? '▲' : '▼'} ${fmt(Math.abs(d), 0)}`;
+    nums.replaceChildren(
+      h('div', { class: 'lz-nrow' }, ...short.map((n, i) => {
+        const v = P[i], d = R[i] != null ? v - R[i] : 0, show = !m.hide && Math.abs(d) >= (m.cmp ? 1 : 2);
+        return h('div', { class: 'lz-num', style: { '--c': m.hide ? 'var(--text-3)' : pc(v) } }, h('b', {}, m.hide ? '?' : fmt(v, 0)),
+          h('span', { class: 'd ' + (show ? (d > 0 ? 'up' : 'down') : '') }, show ? dTxt(d) : ''), h('span', { class: 'k' }, n));
+      })),
+      h('div', { class: 'lz-nsegs', 'aria-hidden': 'true' }, [0, 1, 2, 3].map((i) => h('i', { class: i === k || (k === -1 && lifted && i === 3) ? 'on' : '' }))));
     nums.setAttribute('aria-label', m.hide ? 'Pressures: not measured' : 'Pressures in mmHg: ' + names.map((n, i) => `${n} ${fmt(P[i], 0)}`).join(', '));
     const why = m.hide ? 'Pressures are not measured in this case: the lobule shows anatomy and flow only.'
       : k === 0 ? 'The block is pre-sinusoidal (portal tract): portal pressure is high, but the wedged pressure, and so HVPG, stays near normal.'

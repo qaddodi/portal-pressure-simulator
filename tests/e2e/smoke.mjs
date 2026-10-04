@@ -328,7 +328,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     // Zooming out never leaves the lobule view.
     if (device === 'desktop') { for (let i = 0; i < 4; i++) await page.mouse.wheel(0, 600); await page.waitForTimeout(600); }
     if (!(await page.evaluate(() => window.pps.stage.lobuleOpen()))) throw new Error('zooming out left the lobule');
-    if (device === 'phone') await page.click('.lz-more');
+    if (device === 'phone') await page.click('.lz-side .lz-title');   // a tap on the sheet's header unfolds it
     await page.click('.lz-tg.zones');
     await page.waitForFunction(() => document.querySelectorAll('.lz-zone').length === 3, null, { timeout: 5000 }).catch(() => { throw new Error('zones did not show'); });
     await page.click('.lz-tg.lymph');
