@@ -2766,6 +2766,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function readBlockers() {
     const wr = stageBox();
     return [...document.querySelectorAll('.stage-blocker:not([hidden])')].map((el) => {
+      // A closed card can stay in place, invisible (the patient chart does): it hides nothing.
+      if (getComputedStyle(el).visibility === 'hidden') return null;
       const r = el.getBoundingClientRect();
       // A closed card can keep its box while invisible (it waits in place to slide in): not an obstacle.
       if (r.width && getComputedStyle(el).visibility === 'hidden') return null;
