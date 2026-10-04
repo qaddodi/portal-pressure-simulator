@@ -5,8 +5,8 @@
 - **No bleeding by default.** Varices still grow, but they only rupture on their own when *Variceal
   bleeding* is switched on (Simulation settings). The bleeding case still starts with its bleed.
 - **Gestures.** A trackpad's two-finger scroll pans and its pinch zooms; a mouse wheel zooms. A flick keeps the
-  figure gliding; past the zoom limits, or panned off screen, it springs back. Double tap or double click zooms in
-  (Shift: out), a two-finger tap zooms out, a long press on a vessel shows its readings, right-click opens its card.
+  figure gliding; past the zoom limits, or panned off screen, it springs back. Double click zooms in (Shift: out), a long
+  press on a vessel shows its readings, right-click opens its card.
 - **Sliders.** A finger anywhere on a track moves the thumb (iOS); Shift + arrows step ×10; the wheel adjusts a
   focused slider; double click resets it.
 - **Cards.** A vessel's card sits beside the figure rather than on it, with a leader line; on an iPad it is a side
@@ -15,6 +15,9 @@
   buttons step aside under a card sheet; the patient name gets the room in the top bar.
 - **Graphics.** Vessels whose pressure moved glow briefly after a change; ascites shows as a visible pool sooner; softer moving-blood sheen; a light rim on vessels in
   dark mode; quieter stellate cells and septa in the lobule.
+- **Steady framing.** The default framing is measured from the organs, abdomen and ascites only (the vessels morph),
+  and waits for the patient to load; the figure appears once, already framed, and switching views is one glide.
+  On touch, no double tap, two-finger tap or post-pinch glide, so the view only moves when you move it.
 - **Zoom stays where you put it.** The spring-back only pulls the view back when its middle has left the figure, so
   zooming into the spleen or a collateral holds. A pinch or pan that starts on a pressure label now works (the labels
   used to swallow the first finger on a phone); a tap on a label still opens it.

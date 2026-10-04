@@ -892,7 +892,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const r = svg.getBoundingClientRect();
       if (!r.width || !r.height) return { k: 1, x: 0, y: 0 };
       let x0 = VB_ANAT[0], y0 = VB_ANAT[1], x1 = VB_ANAT[0] + VB_ANAT[2], y1 = VB_ANAT[1] + VB_ANAT[3];
-      for (const g of [gBackdrop, gOrgans, gAscites, gNet, gBack]) {
+      // Only what holds still is measured: the abdomen, the organs and the ascites. The vessels morph (to and from
+      // the circuit, and as the first frames lay them out), and measuring them made the framing land in one place
+      // and then glide to another a second later.
+      for (const g of [gBackdrop, gOrgans, gAscites]) {
         let b; try { b = g.getBBox(); } catch { continue; }
         if (!b.width || !b.height) continue;
         x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.width); y1 = Math.max(y1, b.y + b.height);
@@ -1239,13 +1242,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Every zoom out of the anatomy (the first frame, Fit, back from the circuit) goes to the same home
   // framing, measured from what is drawn. While the view is still at home it follows what is drawn:
   // when ascites fills the pelvis or the spleen grows, home grows with it and the view follows.
-  let firstFit = false, homeAt = null, homeCheck = 0;
+  let firstFit = false, homeAt = null, homeCheck = 0, userMoved = false;
+  let patientReady = (store.get().historyTick || 0) > 0;
+  store.on('historyTick', () => { patientReady = true; });
+  wrap.classList.add('unframed');
+  setTimeout(() => wrap.classList.remove('unframed'), 4000);   // never left hidden
   function update(f) {
     inUpdate = true;
     try { updateInner(f); } finally { inUpdate = false; }
-    if (!firstFit && morphTarget === 0) {
+    // The first framing waits for the patient (the first frames are drawn before it has loaded, without its
+    // ascites or spleen), and the figure stays hidden until it is framed, so it appears once, in place.
+    if (!firstFit && (morphTarget === 1 || patientReady)) {
       firstFit = true;
-      requestAnimationFrame(() => { if (morphTarget === 0 && vt.k === 1 && !vt.x && !vt.y) { vt = homeAt = vtTarget = defaultVT(false); applyVT(); CTM = null; } });
+      requestAnimationFrame(() => {
+        if (morphTarget === 0 && !userMoved) { vt = homeAt = vtTarget = defaultVT(false); applyVT(); CTM = null; }
+        wrap.classList.remove('unframed');
+      });
     }
     const now = performance.now();
     // (Not while a move away from home is under way: its first frames still sit at home.)
@@ -3239,7 +3251,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const settleSoon = (ms = 220) => { clearTimeout(settleT); settleT = setTimeout(springBack, ms); };
   svg.addEventListener('wheel', (ev) => {
     ev.preventDefault();
-    stopGlide();
+    stopGlide(); userMoved = true;
     const dx = wheelPx(ev, ev.deltaX), dy = wheelPx(ev, ev.deltaY), now = performance.now();
     if (ev.ctrlKey || ev.metaKey) { zoomAt(ev.clientX, ev.clientY, Math.exp(-clamp(dy, -50, 50) * 0.01), true); settleSoon(); return; }
     if (now - wheelAt > 250) {
@@ -3300,8 +3312,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // card still ends here (an uncaptured finger used to linger in `pointers` and turn the next
   // single touch into a pinch that jumped). Two fingers zoom and pan together: the point of the
   // figure under their midpoint stays under it. Lifting one finger hands over to a pan.
-  // A double tap (or double click) zooms in about the point, Shift zooms out; a quick two-finger
-  // tap zooms out; a long press on a vessel shows its readings without opening its card.
+  // A double click zooms in about the point, Shift zooms out; a long press on a vessel shows its readings
+  // without opening its card.
   const vbScale = () => { const b = stageBox(), vb = svg.viewBox.baseVal; return Math.min(b.sw / vb.width, b.sh / vb.height); };
   function clientToVBFast(cx, cy) {
     const b = stageBox(), vb = svg.viewBox.baseVal, s = Math.min(b.sw / vb.width, b.sh / vb.height);
@@ -3323,6 +3335,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The first finger of a new gesture: nothing else can still be down.
     if (ev.isPrimary) pointers.clear();
     pointers.set(ev.pointerId, [ev.clientX, ev.clientY]);
+    userMoved = true;
     cancelAnimationFrame(vtAnim); vtGliding = false; stopGlide(); clearTimeout(settleT);
     try { svg.setPointerCapture(ev.pointerId); } catch { /* pointer already gone */ }
     clearPress();
@@ -3385,15 +3398,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!drag) return;
     if (drag.type === 'ignore') { if (!pointers.size) { drag = null; springBack(); } return; }
     if (drag.type === 'pinchzoom') {
-      // A quick two-finger tap zooms out; the other finger is then ignored until it lifts.
-      if (!drag.moved && ev.type === 'pointerup' && performance.now() - drag.t0 < 300 && !lobuleOn) {
-        animZoomAt(drag.mx, drag.my, 1 / 2);
-        drag = pointers.size ? { type: 'ignore' } : null;
-        return;
-      }
-      // One finger stays down: it carries on as a pan (never as a click).
+      // One finger stays down: it carries on as a pan (never as a click, never thrown on release).
       const rest = [...pointers.values()][0];
-      drag = rest && pointers.size === 1 ? startPan(rest[0], rest[1], null, true) : pointers.size >= 2 ? startPinch() : null;
+      drag = rest && pointers.size === 1 ? Object.assign(startPan(rest[0], rest[1], null, true), { noFling: true }) : pointers.size >= 2 ? startPinch() : null;
       if (!drag) springBack();
       return;
     }
@@ -3407,7 +3414,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (shunt) { shuntDrop(ev); return; }
         const now = performance.now();
         // The second tap of a double tap zooms (and puts back whatever the first tap selected).
-        if (lastTap && now - lastTap.t < 320 && Math.hypot(ev.clientX - lastTap.x, ev.clientY - lastTap.y) < 30 && !lobuleOn) {
+        // (Not by touch: there the first tap opens a card, whose sheet moves the figure, and the two moves fought.)
+        if (ev.pointerType !== 'touch' && lastTap && now - lastTap.t < 320 && Math.hypot(ev.clientX - lastTap.x, ev.clientY - lastTap.y) < 30 && !lobuleOn) {
           const prev = lastTap.sel;
           lastTap = null;
           animZoomAt(ev.clientX, ev.clientY, ev.shiftKey ? 1 / 2 : 2);
@@ -3419,9 +3427,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         pick(d.id, ev);
         return;
       }
+      // A real flick only: enough of a trail to measure, still moving at release, and capped, so a lift that
+      // jitters never throws the figure.
       const tr = d.trail, a = tr[0], b = tr[tr.length - 1], dt = b[0] - a[0];
-      if (dt > 0 && performance.now() - b[0] < 60) fling((b[1] - a[1]) / dt, (b[2] - a[2]) / dt);
-      else springBack();
+      if (!d.noFling && tr.length >= 3 && dt >= 30 && performance.now() - b[0] < 50) {
+        const vx = (b[1] - a[1]) / dt, vy = (b[2] - a[2]) / dt, sp = Math.hypot(vx, vy), cap = Math.min(1, 2 / (sp || 1));
+        fling(vx * cap, vy * cap);
+      } else springBack();
       return;
     }
     drag = null;

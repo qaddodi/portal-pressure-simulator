@@ -135,6 +135,8 @@ svg { flex: none; }
 #overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .stage-view[class*="tool-"]:not(.tool-select):not(.tool-probe) #stage { cursor: crosshair; }
 .stage-view #stage { cursor: grab; }
+.stage-view > :is(#stage, #stageOver, #labels, canvas) { transition: opacity .25s ease; }
+.stage-view.unframed > :is(#stage, #stageOver, #labels, canvas) { opacity: 0; }
 .stage-view.panning #stage { cursor: grabbing; }
 
 .chip-btn {
