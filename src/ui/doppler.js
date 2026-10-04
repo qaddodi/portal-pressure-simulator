@@ -432,5 +432,6 @@ export function createDoppler({ onProbe }) {
     if (!raf) raf = requestAnimationFrame(loop);
   }
   function update(f) { ingest(f); redraw(); }
-  return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw };
+  function clear() { buf = []; redraw(); }
+  return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear };
 }

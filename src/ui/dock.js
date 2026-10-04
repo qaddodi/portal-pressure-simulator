@@ -5,8 +5,8 @@ import { store } from './store.js?v=9c069d2ebf';
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=994e190477';
 import { createProfile } from './charts.js?v=68470ccdf7';
-import { createPressureTime } from './pressure-time.js?v=7607aedbd6';
-import { createDoppler } from './doppler.js?v=08768baa32';
+import { createPressureTime } from './pressure-time.js?v=8a133df3e6';
+import { createDoppler } from './doppler.js?v=7d435ce5b6';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=f2f85ba94d';
 
 
@@ -487,15 +487,20 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     if (on !== beat) { beat = on; onBeat?.(on); }
   }
   function update(f, force) {
+    // (The traces are fed by main.js as each frame arrives: this frame may be an older, repainted one.)
     frame = f; updateStrip(f); updateHeader(); syncBeat();
-    byId.scope.ingest(f); byId.doppler.ingest(f);
     if (!force && !isVisible()) return;
     refresh();
   }
+  // The Over time and Doppler traces record every frame from the start, open or not (main.js feeds
+  // them even the frames it does not paint), so they already hold data when the learner opens them.
+  // Both keep a fixed window (seconds of samples, two minutes of bins), so memory stays flat.
+  function ingest(f) { byId.scope.ingest(f); byId.doppler.ingest(f); }
+  function clearTraces() { byId.scope.clear(); byId.doppler.clear(); }
   addEventListener('resize', () => { updateSize(); layout(); });
   setState('open'); updateSize(); layout();
   return {
-    update, show, toggle, close, ensure, openGrid, profile,
+    update, ingest, clearTraces, show, toggle, close, ensure, openGrid, profile,
     pane: (id) => id === 'landscape' ? profile : id === 'varixwall' ? wall : byId[id],
     isOpen: (id) => isVisible() && open.includes(id === 'landscape' ? 'profile' : id === 'varixwall' ? 'endoscopy' : id),
     setState,

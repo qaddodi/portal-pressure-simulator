@@ -5,14 +5,14 @@ import { startHost, host } from './host.js?v=5e522a6bbf';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=9c069d2ebf';
 import { createStage } from './stage.js?v=0e8d8f19d9';
 import { createInspector } from './inspector.js?v=dd3545d331';
-import { createDock, CUTOFFS } from './dock.js?v=6e16fb75d8';
+import { createDock, CUTOFFS } from './dock.js?v=7b0f38db91';
 import { createWhy } from './why.js?v=595afb0255';
 import { createTimeline } from './timeline.js?v=68c93f7874';
 import { createLearn } from './learn.js?v=637d52be7c';
 import { createCases } from './cases.js?v=ead1c1a59d';
 import { createCompare } from './compare.js?v=26194fa1a6';
 import { createCard } from './card.js?v=8edc1400aa';
-import { createChart, computeFindings } from './chart.js?v=3b25e87fb8';
+import { createChart, computeFindings } from './chart.js?v=3256b524a5';
 import { createHome } from './home.js?v=3096ba11b7';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=7d8f9bfd5b';
@@ -249,6 +249,7 @@ function syncDoppler(f = store.get().frame) { stage?.setDoppler(f && dock?.isOpe
 function onFrame(f) {
   if (f.params) replaceParams(f.params);
   if (f.events?.length) { const hid = store.get().hiddenEvents; const ev = hid ? f.events.filter((e) => !hid.has(e.id)) : f.events; if (ev.length) timeline.addEvents(ev); }
+  dock?.ingest(f);   // every frame's samples, even one that is not painted (or while Home covers everything)
   const now = performance.now();
   if (!f.changed && !f.params && !f.events?.length && now - lastPaint < 80) return;
   lastPaint = now;
@@ -294,6 +295,7 @@ function openScenarios(anchor) {
 
 async function loadPreset(id, opts = {}) {
   store.set({ presetLoading: true });   // the figure frames itself once the patient has arrived (stage.js)
+  dock?.clearTraces();   // the Over time and Doppler traces start over with the new (or restarted) patient
   const res = await host.request('preset', { id, days: opts.days });
   replaceParams(res.params);
   clearHistory();
