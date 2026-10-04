@@ -705,7 +705,9 @@ export function createLobuleZoom({ host }) {
       h('dt', {}, 'Through the sinusoids'), h('dd', {}, chg(m.flow * 100, T && T.flow * 100, 0, 1), pct(m.flow)),
       h('dt', {}, 'In from the portal vein'), h('dd', { class: m.portal < 0 ? 'rev' : '' }, chg(m.portal * 100, T && T.portal * 100, 0, 1), m.portal < 0 ? 'Reversed' : pct(m.portal)),
       h('dt', {}, 'In from the hepatic artery'), h('dd', {}, chg(m.art * 100, T && T.art * 100, 0, 1), pct(m.art)),
-      h('dt', {}, 'Hepatic lymph'), h('dd', {}, chg(m.lymph, T?.lymph, 1, 0.1), `${fmt(m.lymph, 1)} mL/min`));
+      h('dt', {}, 'Hepatic lymph'), h('dd', {}, chg(m.lymph, T?.lymph, 1, 0.1), `${fmt(m.lymph, 1)} mL/min`),
+      ...(lyOver(m) > 0.05 ? [h('dt', {}, 'Lymph overflow'), h('dd', { class: 'rev' }, 'Weeping into the abdomen (ascites)')] : []),
+      ...(lymphOn ? [h('dt', {}, 'Lymph protein'), h('dd', {}, lyProt(m) > 0.7 ? 'High' : lyProt(m) < 0.25 ? 'Low' : 'Normal')] : []));
     const items = [['lg-pv', 'Portal venule', { background: ink('pv') }], ['lg-ha', 'Hepatic arteriole'], ['lg-bd', 'Bile ductule'], ['lg-cv', 'Central vein', { background: ink('cv') }]];
     if (m.septU > 0 || m.fibPre > 0.05 || m.fibSin > 0.05 || m.fibPost > 0.05) items.push(['lg-col', 'Collagen']);
     if (m.act > 0.08) items.push(['lg-hsc', 'Stellate cell']);
@@ -1030,7 +1032,7 @@ export function createLobuleZoom({ host }) {
       case 'ha': return Math.max(1.6, R * 0.014 * clamp(m.art, 0.6, 2.2) ** 0.3);
       case 'tw': return Math.max(1.1, R * 0.0055 * clamp(m.art, 0.6, 2.2) ** 0.3);
       // Lymphatics widen as drainage rises (capped, so the tract lymphatic never swamps the triad).
-      case 'ly': return Math.max(1.1, g.rs0 * 0.5 * lyW(m, 0.25));
+      case 'ly': return Math.max(1.1, g.rs0 * 0.5 * lyW(m, 0.8));   // the space of Disse fills and widens
       case 'lt': return Math.max(1.5, R * 0.0075 * lyW(m, 0.6));
       case 'lv': return R * 0.02 * lyW(m, 0.6);
       default: return rs;
@@ -1038,6 +1040,16 @@ export function createLobuleZoom({ host }) {
   }
   // Lymphatic caliber against the healthy flow: 1 at a normal rate, up to 1 + k at four times it.
   const lyW = (m, k) => 1 + k * smooth(1, 4, lymphRate(m)) - 0.12 * (1 - smooth(0.3, 1, lymphRate(m)));
+  // Lymph as the sinusoids filter it: f, how hard (0 at the healthy rate, 1 at four times it); over, how far
+  // past what the lymphatics can carry (the rest weeps off the liver: ascites); and its protein, rich
+  // where the fenestrae stay open (congestion behind the sinusoids), thin where collagen lines the
+  // space of Disse (capillarized sinusoids in cirrhosis). Protein shows as the green's depth.
+  const lyF = (m) => smooth(1, 4, lymphRate(m)), lyOver = (m) => smooth(3, 4.5, lymphRate(m));
+  const lyProt = (m) => clamp(0.45 + 0.55 * m.congU - 0.6 * m.fibSin, 0, 1);
+  const lyInk = (m, dark) => {
+    const p = lyProt(m), lo = dark ? [0.74, 0.82, 0.68] : [0.9, 0.95, 0.85], mid = dark ? [0.7, 0.84, 0.62] : [0.85, 0.93, 0.74], hi = dark ? [0.56, 0.8, 0.46] : [0.66, 0.86, 0.54];
+    return p < 0.45 ? lo.map((x, i) => lerp(x, mid[i], p / 0.45)) : mid.map((x, i) => lerp(x, hi[i], (p - 0.45) / 0.55));
+  };
   const WALL = { s0: 0.8, s1: 0.85, s2: 0.9, an: 0.7, in: 1.1, pv: 1.5, cv: 1.6, sh: 1.1, ha: 0, tw: 0, ly: 0.5, lt: 0.8, lv: 1.1 };
   // Weight of the inlet's value at a radius along the sinusoids (1 at the lobule's edge, 0 at the central vein).
   const sinW = (rho) => clamp((rho - 0.075) / (0.92 - 0.075), 0, 1) ** 0.8;
@@ -1104,12 +1116,12 @@ export function createLobuleZoom({ host }) {
     const origin = originOn();
     const selIdsN = selIds();
     const inks = new Map(live.map((t) => [t.id, [tubeInk(t, 0), tubeInk(t, 1)]]));
-    const ak = [m.mode, [...inks.values()].flat().join(','), m.hide, origin, lymphOn, [...selIdsN].join('.'), dark, cs.getPropertyValue('--artery')].join('|');
+    const ak = [m.mode, [...inks.values()].flat().join(','), m.hide, origin, lymphOn, lyProt(m).toFixed(2), [...selIdsN].join('.'), dark, cs.getPropertyValue('--artery')].join('|');
     if (ak !== attrKey) {
       attrKey = ak; glDirty = true;
       tubeData.fill(0);
       const art = rgb01(cs.getPropertyValue('--artery').trim() || '#C8414D'), grey = [ORIGIN_GREY, ORIGIN_GREY, ORIGIN_GREY];
-      const LY = dark ? [0.7, 0.84, 0.62] : [0.85, 0.93, 0.74];   // lymph: clear, a faint green (paler than the bile duct)
+      const LY = lyInk(m, dark);   // lymph: clear, a faint green (paler than the bile duct), deeper with more protein
       for (const t of live) {
         const o = t.id * TUBE_TEXELS * 4, isArt = t.kind === 'ha' || t.kind === 'tw';
         const [i0, i1] = inks.get(t.id);
@@ -1148,7 +1160,7 @@ export function createLobuleZoom({ host }) {
       else if (lv === 'in') { v = 24 * Math.sign(pr) * Math.sqrt(Math.abs(pr)); occ = clamp(0.55 * Math.abs(pr) ** 0.6, 0.05, 0.95); f0 = 1; f1 = 1; rev = pr < -0.02 ? 1 : 0; oe = LOBE.pre; }
       else if (lv === 'tw') { v = 30 * Math.sqrt(ar); occ = clamp(0.5 * ar ** 0.6, 0.05, 0.95); f0 = 1; oe = LOBE.a; }
       // Lymph runs out against the blood (the space of Disse is drawn from the edge inward), faster as more forms.
-      else if (lv === 'ly' || lv === 'lt') { v = (lv === 'ly' ? -1 : 1) * (lv === 'ly' ? 5 : 9) * Math.sqrt(lyR); occ = clamp(0.3 * lyR ** 0.6, 0.08, 0.9); f0 = 1; f1 = 1; oe = LOBE.q; }
+      else if (lv === 'ly' || lv === 'lt') { v = (lv === 'ly' ? -1 : 1) * (lv === 'ly' ? 5 : 9) * Math.sqrt(lyR); occ = clamp(0.3 * lyR ** 0.6, 0.08, 0.9); f0 = 1; f1 = 1; strength = 0.7 + 0.6 * lyF(m); oe = LOBE.q; }
       else continue;   // vessels seen end-on carry no streaks
       const sm = t.stream || (t.stream = { D: (t.id * 977) % PERIOD, rev: rev });
       sm.D = (((sm.D + v * dt) % PERIOD) + PERIOD) % PERIOD;
@@ -1180,7 +1192,7 @@ export function createLobuleZoom({ host }) {
   function paintTissue(W, H, dpr, dark, cs, flatVessels) {
     const m = model, G = geo;
     const q = (v) => Math.round(v * 2) / 2;
-    const key = [W, H, dpr, dark, ink('pv'), ink('cv'), ink('sin', 0.5), m.zone.pre.toFixed(2), m.zone.sin.toFixed(2), m.zone.post.toFixed(2), m.s.toFixed(2), q(m.cong), m.hide, zonesOn, flatVessels ? [ink('sin', 1), ink('sin', 0), m.art.toFixed(2), [...selIds()].join('.')] : '', cs.getPropertyValue('--bg'), Object.values(fieldState()).join(','), V.k.toFixed(3), V.x.toFixed(1), V.y.toFixed(1)].join('|');
+    const key = [W, H, dpr, dark, ink('pv'), ink('cv'), ink('sin', 0.5), m.zone.pre.toFixed(2), m.zone.sin.toFixed(2), m.zone.post.toFixed(2), m.s.toFixed(2), q(m.cong), m.hide, zonesOn, flatVessels ? [ink('sin', 1), ink('sin', 0), m.art.toFixed(2), [...selIds()].join('.')] : '', cs.getPropertyValue('--bg'), Object.values(fieldState()).join(','), lymphOn ? [lyF(m), lyOver(m), lyProt(m)].map((x) => x.toFixed(2)).join(',') : '', V.k.toFixed(3), V.x.toFixed(1), V.y.toFixed(1)].join('|');
     if (key === tissueKey) return;
     tissueKey = key;
     if (tissue.width !== W * dpr || tissue.height !== H * dpr) { tissue.width = W * dpr; tissue.height = H * dpr; }
@@ -1250,6 +1262,23 @@ export function createLobuleZoom({ host }) {
         c.beginPath(); t.pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.stroke();
       }
     }
+    // Filtration (Lymph on): plasma leaving the sinusoids into the space of Disse, a soft green along
+    // each sinusoid that spreads into the gaps beside the plates as sinusoidal pressure drives more out.
+    if (lymphOn) {
+      const f = lyF(m), lc = lyInk(m, dark);
+      if (f > 0.02) {
+        c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = css(lc, 1);
+        for (const [wk, al] of [[1.9, 0.1], [1.2, 0.18]]) {
+          c.globalAlpha = al * (0.4 + 0.6 * f);
+          for (const t of G.tubes) {
+            if (t.kind[0] !== 's') continue;
+            c.lineWidth = 2 * radiusAt(t, N >> 1) + G.rs0 * 2 * wk * (0.8 + 0.7 * f);
+            c.beginPath(); t.pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.stroke();
+          }
+        }
+        c.globalAlpha = 1;
+      }
+    }
     // Stellate cells: shown once fibrosis starts; activated, they become star-shaped myofibroblasts.
     if (m.act > 0.08) {
       // Quiet at the whole-lobule scale (they are a detail, not the story); they read once zoomed in.
@@ -1311,6 +1340,14 @@ export function createLobuleZoom({ host }) {
     for (const tr of G.triads) { c.beginPath(); c.arc(tr.bd[0], tr.bd[1], G.rt * 0.15, 0, TAU); c.stroke(); }
     // Central vein wall: collagen with post-sinusoidal fibrosis.
     if (m.fibPost > 0.05) { c.fillStyle = col(0.3 + 0.55 * m.fibPost); c.beginPath(); c.arc(cx, cy, G.rcv0 * (1.5 + m.fibPost), 0, TAU); c.fill(); }
+    // Overflow: past what the lymphatics carry, lymph pools at the edge of the lobule and weeps away.
+    if (lymphOn && lyOver(m) > 0.02) {
+      const o = lyOver(m), lc = lyInk(m, dark);
+      c.save(); c.lineJoin = 'round'; c.strokeStyle = css(lc, 1);
+      c.shadowColor = css(lc, 0.9); c.shadowBlur = R * 0.06;
+      for (const [k, wk, al] of [[1.04, 0.1, 0.16], [1.015, 0.045, 0.3]]) { c.globalAlpha = al * o; c.lineWidth = R * wk * (0.6 + 0.4 * o); hexPath(main, k); c.stroke(); }
+      c.restore();
+    }
     // Focus: the surround fades into the page (as the dive's field does at its end).
     { c.setTransform(1, 0, 0, 1, 0, 0); const [sx, sy] = toScreen([cx, cy]); fieldFade(c, rgb01(bg), sx * dpr, sy * dpr, R * V.k * dpr, 1, W * dpr, H * dpr); c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y); }
     if (flatVessels) paintFlatVessels(c, cs);
