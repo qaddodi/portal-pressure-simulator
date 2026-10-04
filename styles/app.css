@@ -2835,10 +2835,10 @@ input[type="range"] { touch-action: none; }
   .topbar .lens-btn .chev { display: none; }
   .topbar .lens-btn { padding: 0 4px; }
   .topbar .legend { padding: 0; }
-  /* The five origins on one row: each name in its own colour, no swatch. */
-  .topbar .lg-dots { display: flex; gap: 4px; line-height: 1; }
-  .topbar .lg-dots i { display: none; }
-  .topbar .lg-dots b { color: var(--c); font-weight: 600; }
+  /* The five origins in two compact rows: a round coloured dot and its name. */
+  .topbar .lg-dots { display: grid; grid-template-columns: repeat(3, auto); gap: 1px 6px; line-height: 1.25; }
+  .topbar .lg-dots span { gap: 3px; }
+  .topbar .lg-dots i { flex: none; width: 7px; height: 7px; border-radius: 50%; }
   .topbar #viewSeg button { padding: 6px 5px; }
   .topbar .lens-btn { padding: 0 3px; }
 }
