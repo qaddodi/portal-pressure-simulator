@@ -172,8 +172,10 @@ export function createLobuleZoom({ host }) {
   const ladder = h('div', { class: 'lz-ladder' });
   // A phone shows the ladder as its numbers, in the pressure's colour, with the change beneath.
   const nums = h('div', { class: 'lz-nums' });
-  const verdict = h('p', { class: 'lz-verdict' });
+  // Where the block sits: kept on the element (data-seg) for the figure and the checks, not written out.
+  const verdict = h('p', { class: 'lz-verdict', hidden: true });
   const stats = h('dl', { class: 'lz-stats' });
+  const statsHead = h('p', { class: 'lz-stats-h' }, 'Blood flow, % of normal');
   // Cirrhosis, here as on the liver's card (fibrosis by zone is on the triad, sinusoid and central vein cards).
   const cirIn = h('input', { type: 'range', min: 0, max: 1, step: 0.01, 'aria-label': 'Cirrhosis' });
   const cirVal = h('span', { class: 'ctl-val' });
@@ -195,7 +197,7 @@ export function createLobuleZoom({ host }) {
   const head = h('div', { class: 'lz-head' }, grab, h('div', {}, h('div', { class: 'lz-title' }, 'Hepatic lobule'), sub), more);
   // What to show on the lobule, just under the card's title (so it stays in reach on a phone, folded or not).
   const tgs = h('div', { class: 'lz-tgs', role: 'group', 'aria-label': 'Show on the lobule' }, zonesBtn, lymphBtn);
-  const side = h('div', { class: 'lz-side open' }, head, tgs, ladder, nums, verdict, cirBox, stats);
+  const side = h('div', { class: 'lz-side open' }, head, tgs, ladder, nums, verdict, cirBox, statsHead, stats);
   const phoneMQ = matchMedia('(max-width: 720px)');
   const setOpen = (o) => { side.classList.toggle('open', o); more.setAttribute('aria-expanded', String(o)); if (!o) side.scrollTop = 0; requestAnimationFrame(refit); };
   more.addEventListener('click', () => setOpen(!side.classList.contains('open')));
@@ -231,14 +233,6 @@ export function createLobuleZoom({ host }) {
   let kFit = 1, atFit = true;
   const appStyle = document.getElementById('app')?.style;
   const cssN = (k) => parseFloat(appStyle?.getPropertyValue(k)) || 0;
-  // On a wider screen the card sits centred in the height between the top bar and the dock (from the top when it is too tall).
-  function placeSide() {
-    if (phoneMQ.matches || side.hidden || !geo) { side.style.top = ''; return; }
-    side.style.top = '';
-    const t0 = side.offsetTop, b = geo.H - (cssN('--bot-occ') || 100) - 8, h = side.offsetHeight;
-    side.style.top = `${Math.max(t0, t0 + (b - t0 - h) / 2).toFixed(0)}px`;
-  }
-  if (window.ResizeObserver) new ResizeObserver(() => { if (fade > 0) placeSide(); }).observe(side);
   function freeRect() {
     const W = geo.W, H = geo.H, phone = phoneMQ.matches;
     const top = el.querySelector('.lz-top');
@@ -649,25 +643,21 @@ export function createLobuleZoom({ host }) {
         h('span', { class: 'd ' + (show ? (d > 0 ? 'up' : 'down') : 'same') }, show ? dTxt(d) : m.cmp ? 'same' : '·'));
     }));
     nums.setAttribute('aria-label', m.hide ? 'Pressures: not measured' : 'Pressures in mmHg: ' + names.map((n, i) => `${n} ${fmt(P[i], 0)}`).join(', '));
-    const dropTxt = k >= 0 ? `${fmt(drops[k], 1)} mmHg lost ${['before the sinusoids', 'across the sinusoids', 'at the central veins', 'beyond the lobule'][k]} (normal ${fmt(drops0[k], 1)}).` : '';
     const why = m.hide ? 'Pressures are not measured in this case: the lobule shows anatomy and flow only.'
       : k === 0 ? 'The block is pre-sinusoidal (portal tract): portal pressure is high, but the wedged pressure, and so HVPG, stays near normal.'
         : k === 1 ? 'The block is sinusoidal (as in cirrhosis): the wedged pressure rises with portal pressure, so HVPG measures it.'
           : k === 2 ? 'The block is post-sinusoidal (central veins, as in sinusoidal obstruction): the sinusoids congest from the outflow side; HVPG is raised.'
             : k === 3 || lifted ? 'The block is beyond the lobule (hepatic veins, IVC or heart): the whole ladder is lifted and zone 3 congests. The free hepatic pressure rises too, so HVPG can stay normal.'
               : `Pressure falls gently, ${fmt(tot, 1)} mmHg from portal venule to IVC (normal ${fmt(tot0, 1)}): no block in the lobule.`;
-    verdict.replaceChildren(dropTxt ? h('b', {}, dropTxt + ' ') : null, why);
-    verdict.className = 'lz-verdict' + (k >= 0 || lifted ? ' alert' : '');
     verdict.dataset.seg = k >= 0 ? segNames[k] : lifted ? 'outflow' : 'none';
     const pct = (v) => `${Math.round(v * 100)} %`;
     // While comparing, each figure carries its change since then.
     const st = store.get(), snap = st.compareSnap, T = snap?.frame ? lobuleState(snap.frame, { ...st, compareSnap: null }) : null;
     const chg = (now, then, dec, min) => (T && then != null && Math.abs(now - then) >= min ? h('span', { class: 'lz-chg ' + (now > then ? 'up' : 'down') }, `${now > then ? '+' : '−'}${fmt(Math.abs(now - then), dec)}`) : null);
     stats.replaceChildren(
-      h('dt', {}, 'Sinusoidal flow'), h('dd', {}, chg(m.flow * 100, T && T.flow * 100, 0, 1), pct(m.flow)),
-      h('dt', {}, 'Portal inflow'), h('dd', { class: m.portal < 0 ? 'rev' : '' }, chg(m.portal * 100, T && T.portal * 100, 0, 1), m.portal < 0 ? 'Reversed' : pct(m.portal)),
-      h('dt', {}, 'Arterial inflow'), h('dd', {}, chg(m.art * 100, T && T.art * 100, 0, 1), pct(m.art)),
-      h('dt', {}, 'HVPG'), h('dd', {}, m.hide ? null : chg(m.hvpg ?? 0, T?.hvpg, 1, 0.1), m.hide || m.hvpg == null ? '?' : `${fmt(m.hvpg, 1)} mmHg`),
+      h('dt', {}, 'Through the sinusoids'), h('dd', {}, chg(m.flow * 100, T && T.flow * 100, 0, 1), pct(m.flow)),
+      h('dt', {}, 'In from the portal vein'), h('dd', { class: m.portal < 0 ? 'rev' : '' }, chg(m.portal * 100, T && T.portal * 100, 0, 1), m.portal < 0 ? 'Reversed' : pct(m.portal)),
+      h('dt', {}, 'In from the hepatic artery'), h('dd', {}, chg(m.art * 100, T && T.art * 100, 0, 1), pct(m.art)),
       h('dt', {}, 'Hepatic lymph'), h('dd', {}, chg(m.lymph, T?.lymph, 1, 0.1), `${fmt(m.lymph, 1)} mL/min`));
     const items = [['lg-pv', 'Portal venule', { background: ink('pv') }], ['lg-ha', 'Hepatic arteriole'], ['lg-bd', 'Bile ductule'], ['lg-cv', 'Central vein', { background: ink('cv') }]];
     if (m.septU > 0 || m.fibPre > 0.05 || m.fibSin > 0.05 || m.fibPost > 0.05) items.push(['lg-col', 'Collagen']);
@@ -732,7 +722,6 @@ export function createLobuleZoom({ host }) {
     // Each label sits just beside its vessel, on the side away from the lobule's centre (the central
     // venule's, up and to the left of it), with a short leader; it stays inside the free space.
     const c0 = toScreen([cx, cy]);
-    placeSide();
     for (const [k, L] of Object.entries(labs)) {
       const w = L.el.offsetWidth || 100, hh = L.el.offsetHeight || 40;
       const a = toScreen(anchorOf(k)), off = a[0] < 0 || a[0] > g.W || a[1] < 0 || a[1] > g.H;
