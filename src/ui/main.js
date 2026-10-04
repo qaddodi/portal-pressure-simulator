@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=d292ccefe8';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=f9424489c6';
-import { createStage } from './stage.js?v=e23e2b3444';
+import { createStage } from './stage.js?v=b4eef81dd3';
 import { createInspector } from './inspector.js?v=208b6a3592';
 import { createDock, CUTOFFS } from './dock.js?v=e770d7c9dd';
 import { createWhy } from './why.js?v=bf0f24a7a5';
@@ -673,7 +673,7 @@ function openSettings(anchor) {
   ], { align: 'start', cls: 'app-menu' });
 }
 // Text size: smaller and larger in even steps, and the middle shows the size and resets it.
-const TEXT_STEPS = [0.8, 0.9, 1, 1.1, 1.2, 1.3];
+const TEXT_STEPS = [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5];
 function textSizeControl() {
   const at = () => TEXT_STEPS.reduce((b, v, i) => (Math.abs(v - stage.labelScale()) < Math.abs(TEXT_STEPS[b] - stage.labelScale()) ? i : b), 0);
   const smaller = h('button', { class: 'ts-a ts-sm', 'aria-label': 'Smaller text', title: 'Smaller text' }, 'A');
