@@ -6,7 +6,7 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=9c069d2ebf';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar, systemEdge } from './util.js?v=831ebf143a';
-import { createLobuleZoom } from './lobule-zoom.js?v=060f98e10b';
+import { createLobuleZoom } from './lobule-zoom.js?v=b59a5e5d2f';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=f7c2445d32';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -1024,20 +1024,28 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return [lb.x + lb.w * 0.42, lb.y + lb.h * 0.5];
   }
   const smoothT = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+  // The elements' offsets are read once per dive, before any write: read between writes, each would
+  // make the browser lay the page out again, every frame.
+  let diveOrig = null;
   function setDiveScale(k) {
-    const [ox, oy] = diveAt;
-    for (const el of diveEls()) {
-      if (k <= 1.0001) { el.style.transform = ''; el.style.transformOrigin = ''; el.style.willChange = ''; continue; }
-      el.style.willChange = 'transform';
-      el.style.transformOrigin = `${(ox - el.offsetLeft).toFixed(1)}px ${(oy - el.offsetTop).toFixed(1)}px`;
-      el.style.transform = `scale(${k.toFixed(4)})`;
+    if (k <= 1.0001) {
+      if (diveOrig) for (const [el] of diveOrig) { el.style.transform = ''; el.style.transformOrigin = ''; el.style.willChange = ''; }
+      diveOrig = null; return;
     }
+    if (!diveOrig) {
+      const [ox, oy] = diveAt;
+      diveOrig = diveEls().map((el) => [el, `${(ox - el.offsetLeft).toFixed(1)}px ${(oy - el.offsetTop).toFixed(1)}px`]);
+      for (const [el, o] of diveOrig) { el.style.willChange = 'transform'; el.style.transformOrigin = o; }
+    }
+    const tf = `scale(${k.toFixed(4)})`;
+    for (const [el] of diveOrig) el.style.transform = tf;
   }
   function diveFrame(t) {
     if (diveAt && diveLand) {
       // The whole zoom in one log scale. The lobule's place is read live, so the field settles exactly
       // where the view frames it.
       if (lz.isShown()) diveLand = lz.current();
+      else if (lobuleOn) lz.warm();
       const lt = LC + Math.log(Math.max(RH * 2, diveLand.r) / RH);
       // Eased in and out (smootherstep); the anatomy's part takes the first two fifths of the way.
       const u = clamp(t / 0.84, 0, 1), p = u * u * u * (u * (u * 6 - 15) + 10), P = 0.4;
@@ -1072,6 +1080,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         diveAt = [clamp(x, 0, wrap.clientWidth), clamp(y, 0, wrap.clientHeight)];
       } else diveAt = [wrap.clientWidth / 2, wrap.clientHeight / 2];
       diveLand = lz.landing();
+      lz.prewarm(diveLand.r);
     } else if (!on && diveT >= 1) diveLand = lz.current();
     const ms = reduceMotion.matches ? 0 : on ? DIVE_MS : RISE_MS, from = diveT, to = on ? 1 : 0, t0 = performance.now();
     const step = (now) => {
@@ -3267,7 +3276,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const dt = Math.min(0.1, (now - lastT) / 1000);
     lastT = now;
     // Fully inside the lobule, the plate is covered.
-    if (lz?.isOpen()) { requestAnimationFrame(animate); return; }
+    if (lz?.isOpen() || lz?.covers()) { requestAnimationFrame(animate); return; }
     const st = store.get();
     const still = (!st.running || reduceMotion.matches) && !bolus.active;
     const key = still ? `${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${JSON.stringify(st.blood)}|${vCanvas.width}x${vCanvas.height}` : null;

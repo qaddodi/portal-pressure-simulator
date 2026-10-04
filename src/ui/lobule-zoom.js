@@ -1039,20 +1039,27 @@ export function createLobuleZoom({ host }) {
   // d: { a: opacity 0..1, x, y: where the settling lobule's centre is (stage px), r: its radius on
   // screen, ox, oy: the point it emerges from, quiet: 0..1, the surround fading into the page as the
   // lobule view does }. null hides it.
+  // What a dive's frames share (the stage's size, its styles), read once per dive: reading them each
+  // frame, after the stage's own writes, would make the browser lay out the page again every frame.
+  let diveCtx = null;
   function paintField(d) {
-    if (!d || d.a <= 0.002) { if (field.width) { field.width = 0; field.height = 0; } field.style.opacity = '0'; return; }
-    const rect = host.getBoundingClientRect();
-    const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
+    if (!d) diveCtx = null;
+    if (!d || d.a <= 0.002) { if (field.width) { field.width = 0; field.height = 0; } field.style.opacity = '0'; fieldOp = 0; return; }
+    if (!diveCtx) {
+      const rect = host.getBoundingClientRect(), cs = getComputedStyle(host), dark = isDark();
+      diveCtx = { W: Math.max(1, Math.round(rect.width)), H: Math.max(1, Math.round(rect.height)), cs, dark, bg: rgb01(cs.getPropertyValue('--stage-bg').trim() || cs.getPropertyValue('--bg').trim() || (dark ? '#0E1422' : '#FBFAF7')) };
+    }
+    const { W, H, cs, dark, bg } = diveCtx;
     const dpr = Math.min(1.5, devicePixelRatio || 1);
     if (field.width !== Math.round(W * dpr) || field.height !== Math.round(H * dpr)) { field.width = Math.round(W * dpr); field.height = Math.round(H * dpr); }
-    const cs = getComputedStyle(host), dark = isDark();
-    const rd = d.r * dpr, t = fieldTile(cs, dark, rd);
+    // Half the tile's resolution, as at rest: the field is in motion and behind the lobule.
+    const rd = d.r * dpr, t = fieldTile(cs, dark, rd * 0.55);
     const c = field.getContext('2d');
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.globalCompositeOperation = 'source-over';
     fieldFill(c, t, d.x * dpr, d.y * dpr, rd, field.width, field.height);
-    const bg = rgb01(cs.getPropertyValue('--stage-bg').trim() || cs.getPropertyValue('--bg').trim() || (dark ? '#0E1422' : '#FBFAF7'));
-    if (d.quiet > 0) { fieldQuiet(c, bg, d.quiet, field.width, field.height); fieldFade(c, bg, d.x * dpr, d.y * dpr, rd, d.quiet, field.width, field.height); }
+    // Quieting: the pre-quieted tile laid over the plain one (two pattern fills, not a blend of the whole screen).
+    if (d.quiet > 0) { c.globalAlpha = d.quiet; fieldFill(c, quietTile(t, bg), d.x * dpr, d.y * dpr, rd, field.width, field.height); c.globalAlpha = 1; fieldFade(c, bg, d.x * dpr, d.y * dpr, rd, d.quiet, field.width, field.height); }
     // Emerging: the field spreads out from the dive point as it fades in.
     if (d.a < 1) {
       const diag = Math.hypot(W, H) * dpr, rho = diag * (0.2 + 1.1 * d.a);
@@ -1062,8 +1069,20 @@ export function createLobuleZoom({ host }) {
       c.fillStyle = mg; c.fillRect(0, 0, field.width, field.height);
       c.globalCompositeOperation = 'source-over';
     }
-    field.style.opacity = Math.min(1, d.a * 1.25).toFixed(3);
+    fieldOp = Math.min(1, d.a * 1.25);
+    field.style.opacity = fieldOp.toFixed(3);
   }
+  let fieldOp = 0;
+  // Before a dive: the work its frames would otherwise stall on, done a piece per frame while the
+  // anatomy is still only being magnified (the vessels' WebGL, then the field's tiles up to the size
+  // the dive ends at). warm() does the next piece; true while any is left.
+  let warmQ = [];
+  function prewarm(rEnd) {
+    const cs = getComputedStyle(host), dark = isDark(), dpr = Math.min(1.5, devicePixelRatio || 1);
+    warmQ = [() => ensureGL()];
+    for (let rd = 8; rd < rEnd * dpr * 0.55 * 2; rd *= 2) { const r = rd; warmQ.push(() => fieldTile(cs, dark, r)); }
+  }
+  function warm() { const f = warmQ.shift(); if (f) f(); return warmQ.length > 0; }
 
   // Lumen radius of a tube at sample i (world px), from the model.
   function radiusAt(t, i) {
@@ -1595,6 +1614,9 @@ export function createLobuleZoom({ host }) {
       return { x, y, r: geo.R * V.k };
     },
     setDive: paintField,
+    prewarm, warm,
+    /** True once the dive's field (or the lobule) covers the anatomy, which then need not be drawn. */
+    covers: () => fade > 0.98 || fieldOp >= 0.999,
     /** During the dive: the tissue (not its card) still zooming in, by k (≤ 1) about the stage point x, y. */
     setDiveZoom(k, x, y) {
       // Scaled down, the tissue's own page fill would show as a pale card; a soft round mask keeps only the lobule and its rim.
