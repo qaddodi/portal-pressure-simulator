@@ -5,6 +5,7 @@ import { NODES } from '../engine/topology.js?v=29d10ad9ef';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { h, fmt, fitCanvas, cssVar, clamp, icon } from './util.js?v=d680016625';
 import { FONT } from './charts.js?v=7f6d13aac3';
+import { store, updateParams } from './store.js?v=9c069d2ebf';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
@@ -289,41 +290,63 @@ export function createVarixWall() {
   return { id: 'varixwall', label: 'Varix wall', el, update };
 }
 
-// ── Abdomen (L2c) ───────────────────────────────────
+// ── Ascites (L2c) ───────────────────────────────────
+// The one home for ascites: how much there is, whether it is building up, what it does to the
+// abdomen, what a diagnostic tap would show, and the two treatments (diuretics, paracentesis).
+// Tapping the fluid on the figure, the Ascites readout's actions and Treat > Paracentesis all open it.
+const SEV = ['ok', 'caution', 'danger', 'danger'];
+const GRADE = ['None', 'Grade 1 · ultrasound only', 'Grade 2 · moderate', 'Grade 3 · tense'];
 export function createAbdomen({ onAction }) {
-  const cv = h('canvas', { role: 'img', 'aria-label': 'Abdomen: ascites and spleen' });
+  const cv = h('canvas', { role: 'img', 'aria-label': 'Abdomen with ascites' });
   const box = h('div', { class: 'chart-box ab-box' }, cv);
   const vol = h('input', { type: 'range', min: 1, max: 10, step: 0.5, value: 5, 'aria-label': 'Volume to drain (L)' });
   const volLbl = h('span', { class: 'ctl-val' }, '5.0 L');
-  const paintVol = () => { volLbl.textContent = `${(+vol.value).toFixed(1)} L`; vol.style.setProperty('--pct', `${((+vol.value - 1) / 9) * 100}%`); };
-  vol.addEventListener('input', paintVol); paintVol();
   const alb = h('input', { type: 'checkbox', checked: true });
-  const drain = h('button', { class: 'btn primary block', onclick: () => onAction({ kind: 'paracentesis', mL: +vol.value * 1000, albumin: alb.checked }) }, 'Drain');
+  const albNote = h('span', { class: 'ab-note' });
+  const paintVol = () => {
+    volLbl.textContent = `${(+vol.value).toFixed(1)} L`; vol.style.setProperty('--pct', `${((+vol.value - 1) / 9) * 100}%`);
+    albNote.textContent = +vol.value > 5 ? 'Advised above 5 L: prevents circulatory dysfunction after the tap.' : 'Optional below 5 L.';
+  };
+  vol.addEventListener('input', paintVol); paintVol();
+  const drain = h('button', { class: 'btn primary block', onclick: () => onAction({ kind: 'paracentesis', mL: +vol.value * 1000, albumin: alb.checked }) }, icon('needle'), 'Drain');
+  const diu = h('input', { type: 'checkbox' });
+  diu.addEventListener('change', () => updateParams((p) => { p.diuretics = diu.checked; }, { label: 'Diuretics' }));
   const numEl = h('b', {}, '—'), gradeEl = h('span', { class: 'ab-grade' });
   const stats = h('dl', { class: 'kv' });
+  const tap = h('div', { class: 'ab-tap' });
   const extraStats = h('dl', { class: 'kv' });
   const report = h('div', { class: 'ab-report' },
-    h('div', { class: 'hv-k' }, 'Ascites'), h('div', { class: 'hv-num' }, numEl, h('small', {}, 'L'), gradeEl), stats,
+    h('div', { class: 'hv-k' }, 'Ascites'), h('div', { class: 'hv-num' }, numEl, h('small', {}, 'L'), gradeEl), stats, tap,
     h('div', { class: 'procedure-controls' },
+      h('div', { class: 'hv-k' }, 'Treat'),
+      h('label', { class: 'check-row' }, diu, 'Diuretics', h('span', { class: 'ab-note' }, 'spironolactone + furosemide')),
       h('div', { class: 'ctl' }, h('div', { class: 'ctl-top' }, h('span', { class: 'ctl-label' }, 'Paracentesis'), volLbl), vol),
-      h('label', { class: 'check-row' }, alb, 'Albumin, 8 g per litre removed'), drain),
-    h('details', { class: 'instrument-details' }, h('summary', {}, 'Fluid balance & spleen'), extraStats));
+      h('label', { class: 'check-row' }, alb, 'Albumin, 8 g per litre', albNote), drain),
+    h('details', { class: 'instrument-details' }, h('summary', {}, 'Why it forms'), extraStats));
   const el = h('div', { class: 'ab', 'data-pane': 'abdomen' }, h('div', { class: 'hv-main ab-main' }, box, report));
   function update(f) {
-    const a = f.metrics.ascites, sp = f.metrics.spleen;
+    const a = f.metrics.ascites, sp = f.metrics.spleen, p = store.get().params;
     numEl.textContent = fmt(a.volume / 1000, 1);
-    gradeEl.textContent = a.grade === 0 ? 'None' : `Grade ${a.grade}`;
-    gradeEl.dataset.sev = a.grade === 0 ? 'ok' : a.grade === 1 ? 'caution' : 'danger';
+    gradeEl.textContent = GRADE[a.grade] || a.label;
+    gradeEl.dataset.sev = SEV[a.grade] || 'danger';
+    if (diu.checked !== !!p.diuretics) diu.checked = !!p.diuretics;
+    const r = a.ratePerDay, trend = Math.abs(r) < 20 ? 'steady' : r > 0 ? 'building up' : 'resolving';
+    const iap = a.iap >= 20 ? 'compartment syndrome' : a.iap >= 12 ? 'intra-abdominal hypertension' : 'normal';
     stats.replaceChildren(
-      h('dt', {}, 'Forming'), h('dd', {}, `${fmt(a.ratePerDay, 0)} mL/day`),
-      h('dt', {}, 'Abdominal pressure'), h('dd', {}, `${fmt(a.iap, 1)} mmHg`),
-      h('dt', {}, 'Spleen'), h('dd', {}, `${fmt(sp.length, 1)} cm`));
+      h('dt', {}, 'Over a day'), h('dd', {}, `${r > 0 ? '+' : ''}${fmt(r, 0)} mL · ${trend}`),
+      h('dt', {}, 'Abdominal pressure'), h('dd', { 'data-sev': a.iap >= 20 ? 'danger' : a.iap >= 12 ? 'caution' : null }, `${fmt(a.iap, 0)} mmHg · ${iap}`));
+    // A diagnostic tap: SAAG ≥ 1.1 g/dL means portal hypertension; the protein then says where the block is.
+    const ph = f.metrics.ppg > 6 || f.metrics.whvp > 10;
+    tap.replaceChildren(h('div', { class: 'hv-k' }, 'Diagnostic tap'), a.volume > 150
+      ? h('p', {}, h('b', {}, `SAAG ${ph ? '≥ 1.1' : '< 1.1'} · protein ${a.highProtein ? '> 2.5' : '< 2.5'} g/dL`), ' ',
+        !ph ? 'Not portal hypertension: look for a peritoneal cause.' : a.highProtein ? 'Portal hypertension from an outflow block: heart failure or Budd–Chiari.' : 'Portal hypertension from the sinusoids: the cirrhosis pattern.')
+      : h('p', { class: 'ab-note' }, 'Too little fluid to tap.'));
     extraStats.replaceChildren(
-      h('dt', {}, 'Grade'), h('dd', {}, a.label),
-      h('dt', {}, 'Lymph: liver / gut / capacity'), h('dd', {}, `${fmt(a.hepLymph, 1)} / ${fmt(a.splLymph, 1)} / ${fmt(a.lymphCap, 1)}`),
-      h('dt', {}, 'Ascitic protein'), h('dd', {}, a.volume > 150 ? (a.highProtein ? 'high (> 2.5 g/dL)' : 'low (< 2.5 g/dL)') : '—'),
-      h('dt', {}, 'SAAG'), h('dd', {}, a.volume > 150 ? (f.metrics.ppg > 6 || f.metrics.whvp > 10 ? '≥ 1.1 (portal hypertension)' : '< 1.1') : '—'),
-      h('dt', {}, 'Platelets (illustrative)'), h('dd', {}, `${Math.round(sp.platelets)} ×10⁹/L`));
+      h('dt', {}, 'Lymph from the liver'), h('dd', {}, `${fmt(a.hepLymph, 1)} (rises with sinusoidal pressure)`),
+      h('dt', {}, 'Lymph from the gut'), h('dd', {}, fmt(a.splLymph, 1)),
+      h('dt', {}, 'Lymphatic capacity'), h('dd', {}, fmt(a.lymphCap, 1)),
+      h('dt', {}, 'Serum albumin'), h('dd', {}, `${fmt(p.albumin, 1)} g/dL${p.albumin < 3 ? ' (low: less pull back into vessels)' : ''}`),
+      h('dt', {}, 'Kidneys'), h('dd', {}, p.diuretics ? 'Diuretics: sodium and water lost' : 'Retaining sodium and water'));
     draw(a, sp);
   }
   // A quiet front view: the abdomen from the costal margin to the pelvis, fluid pooling in the

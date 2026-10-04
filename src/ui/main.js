@@ -3,22 +3,22 @@
 
 import { startHost, host } from './host.js?v=511cdcf52a';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=9c069d2ebf';
-import { createStage } from './stage.js?v=c062557acf';
+import { createStage } from './stage.js?v=69f6a1eed7';
 import { createInspector } from './inspector.js?v=fe8a1a69f1';
-import { createDock, CUTOFFS } from './dock.js?v=357e0b8ad4';
+import { createDock, CUTOFFS } from './dock.js?v=843f8c0412';
 import { createWhy } from './why.js?v=57243596d9';
 import { createTimeline } from './timeline.js?v=edf3b6a335';
 import { createLearn } from './learn.js?v=9750a179da';
 import { createCases } from './cases.js?v=4f3eb45a8b';
 import { createCompare } from './compare.js?v=4f34faa4da';
-import { createCard } from './card.js?v=5634f8c73c';
-import { createChart, computeFindings } from './chart.js?v=9207104706';
+import { createCard } from './card.js?v=5dcbfb56f0';
+import { createChart, computeFindings } from './chart.js?v=0a4866955f';
 import { createHome } from './home.js?v=22014b375a';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=c096ddadab';
 import { startLMS } from './lms.js?v=4511ed56b8';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=a0ec30e1a5';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=447ea9cb02';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=29d10ad9ef';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges } from './util.js?v=d680016625';
@@ -96,7 +96,7 @@ async function main() {
   why = createWhy($('#whyPop'));
   stage = createStage({
     wrap: view,
-    onSelect: (sel, opts) => { store.set({ selection: sel }); if (opts?.keyboard) setTimeout(() => card?.focusFirst(), 30); },
+    onSelect: (sel, opts) => { select(sel); if (opts?.keyboard) setTimeout(() => card?.focusFirst(), 30); },
     onAction: doAction,
     onOpenTab: (id) => dock.show(id, { reveal: 'soft' }),
     onHoverInfo: hoverInfo,
@@ -114,7 +114,7 @@ async function main() {
   });
   chart = createChart({
     onWhy: (m, el) => why.open(m, el), flash: (ids) => stage.flash(ids), onScenarios: (el) => openScenarios(el),
-    action: doAction, startShunt: (id, o) => stage.startShunt(id, o), select: (sel) => store.set({ selection: sel }), timeline, pinned: () => compare.section(),
+    action: doAction, startShunt: (id, o) => stage.startShunt(id, o), select, timeline, pinned: () => compare.section(),
   });
   inspector = createInspector($('#inspector'), {
     onWhy: (m, el) => why.open(m, el), onAction: doAction, onOpenTab: (id) => dock.show(id, { reveal: true }),
@@ -140,8 +140,8 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=dcc909d81e'), ({ createPalette }) => createPalette({ ctx: {
-    select: (sel) => store.set({ selection: sel }), action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
+  paletteL = lazy(() => import('./palette.js?v=eca27c7f22'), ({ createPalette }) => createPalette({ ctx: {
+    select, action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
     loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); toast(store.get().presetList.find((p) => p.id === id)?.label); },
@@ -152,7 +152,7 @@ async function main() {
     onDetails: (sel) => { store.set({ details: normalizeSel(sel) || sel }); openPanel(); },
     ctx: {
       action: doAction, showPane: (id) => dock.show(id, { reveal: true }), probe: (id) => host.send({ type: 'probe', id }),
-      startShunt: (id) => stage.startShunt(id), canShunt: (id) => shuntable(id), select: (sel) => store.set({ selection: sel }),
+      startShunt: (id) => stage.startShunt(id), canShunt: (id) => shuntable(id), select,
       zoomLobule: (lobe) => zoomLobule(lobe), paneApi: (id) => dock.pane(id),
       injectDye: (id, o) => stage.injectDye(id, o), releaseDye: () => stage.releaseDye(), dyeInjecting: () => stage.dyeInjecting(),
       canDye: () => !store.get().imaging,
@@ -225,6 +225,14 @@ const redraw = () => { const f = store.get().frame; if (f) stage.update(viewFram
 
 // ── Frames ──────────────────────────────────────────
 let lastClockTxt = '';
+// Ascites has one home, the Ascites instrument: selecting the abdomen (the fluid on the figure, a
+// station, the command palette) opens it instead of a card that would sit over the vessels.
+function select(sel) {
+  const n = normalizeSel(sel);
+  if (n?.type === 'organ' && n.id === 'abdomen') { store.set({ selection: null }); dock.show('abdomen', { reveal: true }); return; }
+  store.set({ selection: sel });
+}
+
 function viewFrame(f) {
   const st = store.get();
   if (st.compareSnap && st.compareView === 'A') return st.compareSnap.frame;

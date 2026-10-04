@@ -6,7 +6,7 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=9c069d2ebf';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=d680016625';
-import { createLobuleZoom } from './lobule-zoom.js?v=6eb82b03ed';
+import { createLobuleZoom } from './lobule-zoom.js?v=26f1dd149e';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=3e0076273f';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -526,6 +526,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const ascitesLine = s('path', { class: 'ascites-line', d: '' });
   const ascitesGlint = s('path', { class: 'ascites-glint', d: '' });
   gAscites.append(ascitesPath, ascitesLine, ascitesGlint);
+  let fluidSurf = null;   // the ascites surface y(x) while there is fluid; a tap below it opens the Ascites view
   gBackdrop.append(flank);
 
   // Edge groups
@@ -2279,11 +2280,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The fluid level rises on a compressed scale (u^0.6), so a grade 1–2 effusion is a visible pool, not a sliver.
     const uv = Math.pow(u, 0.6);
     const hgt = plateOn() ? Math.round(uv * 110) * 3 : uv * 330;
+    fluidSurf = null;
     if (hgt < 3) { ascitesPath.setAttribute('d', ''); ascitesLine.setAttribute('d', ''); ascitesGlint.setAttribute('d', ''); }
     else {
       // On the GPU the plate is a raster: the surface holds still (no ripple) and rises in steps.
       const floor = ABDOMEN_FLOOR + 5, ph = reduceMotion.matches || plateOn() ? 0 : (performance.now() / 1100) % (Math.PI * 2);
       const surf = (x) => { const c = (x - 712) / 400; return floor - hgt * (0.55 + 0.45 * c * c) + Math.sin(x / 38 + ph) * 1.6 * Math.min(1, uv * 4); };
+      fluidSurf = surf;
       let line = '';
       for (let x = 296; x <= 1128; x += 16) line += `${x === 296 ? 'M' : ' L'}${x} ${surf(x).toFixed(1)}`;
       ascitesLine.setAttribute('d', line);
@@ -3208,9 +3211,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return el ? el.getAttribute('data-id') : null;
   }
 
-  // Organs under a point (anatomy only). The varices and fundus are small sites; the abdomen is
-  // whatever lies inside the peritoneal cavity below the stomach.
-  const ORGAN_OF = { liver: 'liver', heart: 'heart', spleen: 'spleen', stomach: 'gastric', esophagus: 'varices', bowel: 'abdomen', colon: 'abdomen', appendix: 'abdomen', duodenum: 'abdomen', 'kidney-l': null, 'kidney-r': null };
+  // Organs under a point (anatomy only). The varices and fundus are small sites. The abdomen is
+  // only the visible fluid itself, so the bowel and its vessels never open the ascites view by accident.
+  const ORGAN_OF = { liver: 'liver', heart: 'heart', spleen: 'spleen', stomach: 'gastric', esophagus: 'varices', bowel: null, colon: null, appendix: null, duodenum: null, 'kidney-l': null, 'kidney-r': null };
   const ptIn = (el, x, y, stroke) => {
     if (!el) return false;
     const pt = svg.createSVGPoint(); pt.x = x; pt.y = y;
@@ -3221,11 +3224,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (insideVarix(wx, wy)) return 'varices';
     if (Math.hypot(wx - SITES.fundus[0], wy - SITES.fundus[1]) < 34) return 'gastric';
     for (const o of [...ORGANS].reverse()) {
-      if (o.deco || !(o.id in ORGAN_OF)) continue;
+      if (o.deco || !ORGAN_OF[o.id]) continue;
       const el = organEls[o.id];
       if (o.band ? ptIn(el, wx, wy, true) : ptIn(el, wx, wy)) return ORGAN_OF[o.id];
     }
-    if (ptIn(abdomenEl, wx, wy) && wy > 560) return 'abdomen';
+    if (fluidSurf && ptIn(abdomenEl, wx, wy) && wy > fluidSurf(wx)) return 'abdomen';
     return null;
   }
   const abdomenEl = s('path', { d: ABDOMEN_CLIP, fill: 'none', stroke: 'none' });

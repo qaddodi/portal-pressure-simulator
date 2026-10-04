@@ -228,19 +228,6 @@ function organCard(sel, ctx) {
       ],
     };
   }
-  if (id === 'abdomen') {
-    return {
-      key: 'o:abdomen', sel, kicker: 'Peritoneum', title: 'Abdomen & ascites', why: 'ascites',
-      value: (f) => ({ v: fmt(f.metrics.ascites.volume / 1000, 1), u: 'L ascites' }),
-      status: (f) => (f.metrics.ascites.iap >= 12 ? ['bad', `IAP ${fmt(f.metrics.ascites.iap, 0)} mmHg`] : f.metrics.ascites.grade ? ['warn', f.metrics.ascites.label] : null),
-      verbs: [
-        { type: 'drain', id: 'paracentesis', label: 'Paracentesis', icon: 'needle' },
-        { type: 'slider', id: 'albumin', key: 'albumin', label: 'Serum albumin', min: 1.5, max: 5, step: 0.1, def: 4, format: (v) => `${v.toFixed(1)} g/dL`, get: (p) => p.albumin, set: (p, v) => { p.albumin = v; }, hist: 'Serum albumin' },
-        { type: 'toggle', id: 'diuretics', key: 'diuretics', label: 'Diuretics', icon: 'drop', get: (p) => !!p.diuretics, set: (p, v) => { p.diuretics = v; }, hist: 'Diuretics' },
-        stat('Formation', (f) => `${fmt(f.metrics.ascites.ratePerDay, 0)} mL/day`),
-      ],
-    };
-  }
   return null;
 }
 
