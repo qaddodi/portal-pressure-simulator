@@ -172,6 +172,9 @@ export function closeModal() {
 export const isModalOpen = () => document.getElementById('modalBack').classList.contains('show');
 
 export const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+/** A touch that starts on the phone's own edge (the home indicator's swipe up, a back swipe): the
+ *  system's gesture, not the figure's. */
+export const systemEdge = (ev) => ev.pointerType === 'touch' && (ev.clientY > innerHeight - 34 || ev.clientX < 12 || ev.clientX > innerWidth - 12);
 export const lerp = (a, b, t) => a + (b - a) * t;
 
 // Theme tokens are read many times per frame by the canvas instruments. getComputedStyle after
