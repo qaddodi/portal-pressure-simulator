@@ -2581,6 +2581,8 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 /* ── Polish pass: play bar, phone chrome, card leader, sheets, sliders ── */
 /* The play bar: the clock sits next to the track it reads, speed looks like a control, Compare is an icon. */
 .tl-time { min-width: 0; text-align: left; }
+.tl-time .tl-t-short { display: none; }
+@media (max-width: 767px) { .vdock .tl-time .tl-t-short { display: inline; } }
 .tl-speed { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
 .tl-speed::after { content: ''; width: 0; height: 0; border-left: 3.5px solid transparent; border-right: 3.5px solid transparent; border-top: 4px solid currentColor; opacity: .55; margin-left: 2px; }
 .tl-speed:hover { border-color: var(--accent-line); color: var(--accent-ink); background: var(--accent-soft); }
@@ -2606,8 +2608,8 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 /* A phone: the clock is in the play bar (short form), not floating over the figure. */
 @media (max-width: 767px) {
   .stage-clock { display: none !important; }
-  .vdock .tl-time { display: inline; font-size: 0; min-width: 0; }
-  .vdock .tl-time::after { content: attr(data-short); font-size: var(--fs-12); }
+  .vdock .tl-time { display: inline; min-width: 0; }
+  .vdock .tl-time .tl-t-long { display: none; }
   /* The menu keeps its icon; the patient's name gets the room (the menu names the mode). */
   .menu-btn .mb-t { display: none; }
   .tb-id .scenario-v { font-size: var(--fs-14); }
@@ -2628,8 +2630,8 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 input[type="range"] { touch-action: none; }
 @media (max-width: 767px) {
   .tl-speed { display: none; }
-  .readouts:not(.all) .metric .v { font-size: var(--fs-18, 18px); }
-  .readouts:not(.all) .metric .v .unit { font-size: 11px; margin-left: 2px; }
+  .readouts:not(.all) .metric .v { font-size: var(--fs-16); }
+  .readouts:not(.all) .metric .v .unit { margin-left: 2px; }
   .vdock .timeline { gap: 6px; }
 }
 

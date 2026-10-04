@@ -54,7 +54,9 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   const marks = h('div', { class: 'tl-marks', role: 'list', 'aria-label': 'Changes and events' });
   const nowEl = h('div', { class: 'tl-now', 'aria-hidden': 'true' });
   const track = h('div', { class: 'tl-track' }, rail, bleedBand, fill, marks, nowEl);
-  const timeEl = h('span', { class: 'tl-time', 'aria-live': 'off' }, '0:00');
+  // The full clock, and a short one (just the day) for a phone's play bar.
+  const timeLong = h('span', { class: 'tl-t-long' }, '0:00'), timeShort = h('span', { class: 'tl-t-short', 'aria-hidden': 'true' }, '0:00');
+  const timeEl = h('span', { class: 'tl-time', 'aria-live': 'off' }, timeLong, timeShort);
   const jumpBtns = JUMPS.map(([d, l, long]) => {
     const b = h('button', { class: 'tl-jump', title: `Jump ${long} ahead on the disease clock` }, l);
     b.addEventListener('click', () => jump(d, long));
@@ -158,7 +160,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
     const t0 = performance.now();
     const tick = (now) => {
       const u = clamp((now - t0) / 900, 0, 1);
-      if (days !== 'event') timeEl.textContent = `Day ${Math.round(d0 + days * (1 - (1 - u) ** 3))}`;
+      if (days !== 'event') timeLong.textContent = timeShort.textContent = `Day ${Math.round(d0 + days * (1 - (1 - u) ** 3))}`;
       if (u < 1) requestAnimationFrame(tick); else track.classList.remove('ff');
     };
     requestAnimationFrame(tick);
@@ -290,7 +292,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   function update(f) {
     if (!track.classList.contains('ff')) {
       const t = fmtClock(f.t, f.day);
-      if (t !== lastTime) { lastTime = t; timeEl.textContent = t; timeEl.dataset.short = f.day > 0 ? `Day ${f.day}` : t; }
+      if (t !== lastTime) { lastTime = t; timeLong.textContent = t; timeShort.textContent = f.day > 0 ? `Day ${f.day}` : t; }
     }
     if (f.running !== lastRun) { lastRun = f.running; playBtn.replaceChildren(icon(f.running ? 'pause' : 'play')); playBtn.setAttribute('aria-label', f.running ? 'Pause' : 'Play'); }
     const sp = store.get().speed;
