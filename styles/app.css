@@ -2674,7 +2674,7 @@ input[type="range"] { touch-action: none; }
    The timeline names its latest event beside the clock and keeps every change and event behind
    History; events stand on the rail as colored flags. The readouts name each value plainly, with
    its unit, and only an abnormal status is spelled out in color. */
-@media (min-width: 1100px) { .vdock .readouts:not(.all) { width: clamp(360px, 31vw, 450px); } }
+@media (min-width: 1100px) { .vdock .readouts:not(.all) { width: clamp(400px, 34vw, 500px); } }
 .tl-latest {
   --sev: var(--info); flex: 0 1 auto; min-width: 0; max-width: 100%; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px;
   border: 0; border-radius: 999px; cursor: pointer; font: 600 var(--fs-12) var(--font-ui); color: var(--text);
@@ -2776,4 +2776,8 @@ input[type="range"] { touch-action: none; }
 @media (pointer: coarse) {
   body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+}
+/* A phone keeps the three pressures in the collapsed strip; portal flow waits behind the chevron. */
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+  .readouts:not(.all) .ro-group[data-group="flow"] { display: none; }
 }
