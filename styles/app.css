@@ -360,7 +360,8 @@ div.vital { cursor: default; }
 button.vital:hover b { text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
 .readouts .ro-more { display: none; flex: none; align-self: center; width: 32px; height: 32px; }
 /* Points up to open the drawer, down to close it. */
-.ro-more svg { transform: rotate(180deg); transition: transform .2s var(--ease); }
+/* A vertical flip, not a turn: the icon keeps its width while it animates. */
+.ro-more svg { transform: scaleY(-1); transition: transform .2s var(--ease); }
 .readouts.all .ro-more svg { transform: none; }
 /* Narrower: the systemic block folds behind the chevron. */
 @container (max-width: 1000px) {
