@@ -172,14 +172,11 @@ svg { flex: none; }
 .lg-dots span { gap: 5px; }
 .lg-dots i { width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0, 0, 0, .18); }
 .lg-dots b { font-weight: 500; }
-.lg-dots .lg-short { display: none; }
 @media (max-width: 760px) {
   /* Five short names in two compact rows, so the key fits beside the Blood button. */
   .lg-dots { display: grid; grid-template-columns: repeat(3, auto); gap: 1px 7px; font-size: var(--fs-12); line-height: 1.25; }
   .lg-dots span { gap: 3px; }
   .lg-dots i { width: 7px; height: 7px; }
-  .lg-dots .lg-long { display: none; }
-  .lg-dots .lg-short { display: inline; }
 }
 .lg-note { color: var(--text-3); font-style: italic; }
 .lg-note svg { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; }
@@ -2818,3 +2815,28 @@ input[type="range"] { touch-action: none; }
 .chg .chg-x { flex: none; width: 28px; height: 28px; margin-right: -6px; color: var(--text-3); }
 .chg .chg-x:hover { color: var(--text); }
 .chg-clear { align-self: flex-start; margin: 6px 0 0; padding: 0; font-size: var(--fs-12); text-align: left; }
+
+/* The top bar keeps one row off a phone: main.js steps data-fit up until it fits. */
+.topbar[data-fit="1"] .tb-id .scenario-btn, .topbar[data-fit="2"] .tb-id .scenario-btn { max-width: 200px; }
+.topbar[data-fit="1"] .top-right .pal-l, .topbar[data-fit="1"] .top-right .pal-btn kbd,
+.topbar[data-fit="2"] .top-right .pal-l, .topbar[data-fit="2"] .top-right .pal-btn kbd,
+.topbar[data-fit="3"] .top-right .pal-l, .topbar[data-fit="3"] .top-right .pal-btn kbd { display: none; }
+.topbar[data-fit="1"] #btnBlood > span, .topbar[data-fit="1"] #btnBlood .chev,
+.topbar[data-fit="2"] #btnBlood > span, .topbar[data-fit="2"] #btnBlood .chev,
+.topbar[data-fit="3"] #btnBlood > span, .topbar[data-fit="3"] #btnBlood .chev { display: none; }
+.topbar[data-fit="2"] .tb-sep, .topbar[data-fit="2"] .find-badge .fb-l, .topbar[data-fit="2"] .tb-act > span,
+.topbar[data-fit="3"] .tb-sep, .topbar[data-fit="3"] .find-badge .fb-l, .topbar[data-fit="3"] .tb-act > span { display: none; }
+.topbar[data-fit="3"] .menu-btn .mb-t { display: none; }
+.topbar[data-fit="3"] .tb-id .scenario-btn { max-width: 160px; }
+.topbar[data-fit="3"] #viewSeg button { padding-left: 10px; padding-right: 10px; }
+.topbar[data-fit="3"] .lg-scale { width: 112px; }
+/* A phone: the lens pill is all key (a tap opens the lenses), so the five origins fit beside Blood. */
+@media (max-width: 767px) {
+  .topbar .lens-btn .chev { display: none; }
+  .topbar .lens-btn { padding: 0 4px; }
+  .topbar .legend { padding: 0; }
+  .topbar .lg-dots { column-gap: 5px; }
+  .topbar .lg-dots span { gap: 3px; }
+  .topbar .lg-dots i { width: 6px; height: 6px; }
+  .topbar #viewSeg button { padding: 6px 6px; }
+}
