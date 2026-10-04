@@ -290,8 +290,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (device === 'desktop') {
       const zk = () => page.evaluate(() => window.pps.stage.lobuleViewKey?.());
       // The framing glides when the free space changes: start from where it settles.
-      let k0 = await zk();
-      for (let i = 0; i < 20; i++) { await page.waitForTimeout(700); const k = await zk(); if (k === k0) break; k0 = k; }
+      // Settled means three readings in a row agree (a busy machine can pause a glide between two).
+      let k0 = await zk(), same = 0;
+      for (let i = 0; i < 30 && same < 2; i++) { await page.waitForTimeout(700); const k = await zk(); same = k === k0 ? same + 1 : 0; k0 = k; }
       await page.click('#zoomIn');
       await page.waitForFunction((k0) => window.pps.stage.lobuleViewKey() !== k0, k0, { timeout: 15000 }).catch(() => { throw new Error('zoom in does nothing in the lobule'); });
       await page.click('#zoomFit');
