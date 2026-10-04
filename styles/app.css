@@ -2600,10 +2600,10 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .tl-pop-row.future { opacity: .5; }
 .tl-history { max-height: min(420px, 60vh); }
 /* Readouts */
-.metric .k { font-size: 13px; font-weight: 600; color: var(--text-2); }
+.metric .k { font-weight: 600; color: var(--text-2); }
 .metric[data-sev="ok"] .status { color: var(--text-3); font-weight: 500; }
 .metric[data-sev="ok"] .status::before { display: none; }
-.metric .tr { font-size: 10px; opacity: .8; }
+.metric .tr { opacity: .8; }
 @media (max-width: 1100px) { .tl-hl { display: none; } }
 /* A phone: the clock moves into the play bar (no loose clock on the figure); Restart is in More. */
 @media (max-width: 767px) {
@@ -2632,16 +2632,15 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   .vdock .vd-status .bleed-pill { font-size: var(--fs-12); padding: 4px 10px 4px 8px; }
   .tl-latest small { display: none; }
   .readouts:not(.all) .metric .v { font-size: var(--fs-16); }
-  .metric .v .unit { font-size: 10px; margin-left: 2px; }
+  .metric .v .unit { margin-left: 2px; }
 }
 @media (max-width: 767px) {
   .vdock .timeline { gap: 6px; }
   .vdock .tl-track { min-width: 80px; }
   .vdock .tl-hist { padding: 0 6px; gap: 4px; }
 }
-@media (max-width: 400px) {
+@media (max-width: 430px) {
   .readouts:not(.all) .metric .v .unit { display: none; }
-  .vdock .timeline .tl-time { font-size: 11px; }
 }
 @media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
   .vdock .readouts:not(.all) .metric .v .unit { display: none; }
