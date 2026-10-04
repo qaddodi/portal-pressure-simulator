@@ -5,8 +5,8 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
-import { h, fmt, fitCanvas, clamp } from './util.js?v=d680016625';
-import { FONT } from './charts.js?v=ab8c64e43d';
+import { h, fmt, fitCanvas, clamp } from './util.js?v=994e190477';
+import { FONT } from './charts.js?v=394a5d2294';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 // kind decides the words for direction and pattern; normal is the usual mean velocity (cm/s).

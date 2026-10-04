@@ -4,7 +4,7 @@ import { NODES } from '../engine/topology.js?v=29d10ad9ef';
 import { PROFILE_PATHS, SHORT } from './anatomy.js?v=b3ecbae45c';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { store } from './store.js?v=9c069d2ebf';
-import { h, fmt, fitCanvas, cssVar, clamp } from './util.js?v=d680016625';
+import { h, fmt, fitCanvas, cssVar, clamp, createEaser, axisTop } from './util.js?v=994e190477';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const ARTERIAL = new Set(['AO', 'HA']);
@@ -58,15 +58,12 @@ export function createProfile() {
   sel.addEventListener('change', () => { pathId = sel.value; draw(); });
   // F is what is drawn: the frame with its pressures eased toward the model's (breath- and
   // beat-filtered) values, so the line, dots and labels glide rather than jump when values change.
-  let F = null, Fraw = null, shown = null, axisMax = 15, lastEase = 0, easeRaf = 0;
+  let F = null, Fraw = null, axisMax = 15, easeRaf = 0;
+  const easeP = createEaser(), easeAxis = createEaser();
   function ease() {
     if (!Fraw) return;
-    const now = performance.now(), dt = lastEase ? Math.min(0.25, (now - lastEase) / 1000) : 1;
-    lastEase = now;
-    const src = Fraw.Pf || Fraw.P, a = 1 - Math.exp(-dt / 0.3);
-    if (!shown || shown.length !== src.length) shown = Float64Array.from(src);
-    let moving = false;
-    for (let i = 0; i < src.length; i++) { const d = src[i] - shown[i]; shown[i] += d * a; if (Math.abs(d) > 0.02) moving = true; }
+    const src = Fraw.Pf || Fraw.P;
+    const { v: shown, moving: mP } = easeP.step(src);
     const path = PROFILE_PATHS.find((p) => p.id === pathId);
     const st = store.get();
     let top = 0;
@@ -74,14 +71,13 @@ export function createProfile() {
       if (ARTERIAL.has(n)) continue;
       top = Math.max(top, src[NI[n]], st.healthy?.P?.[NI[n]] ?? 0, st.compareSnap?.P?.[NI[n]] ?? 0);
     }
-    const target = Math.max(10, Math.ceil((top + 2) / 5) * 5);
-    const dA = target - axisMax;
-    axisMax += dA * a;
-    if (Math.abs(dA) > 0.05) moving = true; else axisMax = target;
+    const { v: ax, moving: mA } = easeAxis.step([axisTop(top)]);
+    axisMax = ax[0];
+    const moving = mP || mA;
     F = { ...Fraw, P: shown };
     draw();
     cancelAnimationFrame(easeRaf);
-    // Keep gliding while paused (no new frames arrive) until the drawing reaches the model.
+    // Model frames arrive about ten times a second; the glide runs every display frame between them.
     if (moving) easeRaf = requestAnimationFrame(() => { if (cv.isConnected && cv.offsetParent) ease(); });
   }
   let predict = null; // { on, values: Map(station → P), done }

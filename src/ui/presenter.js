@@ -5,7 +5,7 @@
 // or a link.
 
 import { store } from './store.js?v=9c069d2ebf';
-import { h, toast, svgIcon, icon } from './util.js?v=d680016625';
+import { h, toast, svgIcon, icon } from './util.js?v=994e190477';
 import { download } from './records.js?v=26ab8fb634';
 
 export const SCRIPTS = [
