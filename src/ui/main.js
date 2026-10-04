@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=7d1803441f';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=f9424489c6';
-import { createStage } from './stage.js?v=b0c83d2014';
+import { createStage } from './stage.js?v=61d22a75b9';
 import { createInspector } from './inspector.js?v=208b6a3592';
 import { createDock, CUTOFFS } from './dock.js?v=55c8d8a23f';
 import { createWhy } from './why.js?v=89054dcfbc';
@@ -11,14 +11,14 @@ import { createTimeline } from './timeline.js?v=04b45ec66b';
 import { createLearn } from './learn.js?v=a33d169cd1';
 import { createCases } from './cases.js?v=448b6139e7';
 import { createCompare } from './compare.js?v=730844b101';
-import { createCard } from './card.js?v=f82fd2404c';
-import { createChart, computeFindings } from './chart.js?v=5b4a3b6983';
+import { createCard } from './card.js?v=b7d3bd74ed';
+import { createChart, computeFindings } from './chart.js?v=a83c869f10';
 import { createHome } from './home.js?v=7c19142846';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=e7e5c98a1c';
 import { startLMS } from './lms.js?v=4511ed56b8';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=34bad803fc';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=7739e2b27e';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=29d10ad9ef';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon } from './util.js?v=fe164f31f1';
@@ -605,6 +605,8 @@ function renderBanner() {
     })));
   }
   el.replaceChildren(...kids);
+  // The switch's height, for views that place their own controls under it (the lobule's).
+  app.style.setProperty('--cmp-h', s0.compareSnap ? `${$('#stageCenter').offsetHeight + 8}px` : '0px');
   const bar = $('#sessionBar');
   const inSession = bannerInfo && (s0.mode === 'learn' || s0.mode === 'cases');
   bar.hidden = !inSession;

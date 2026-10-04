@@ -2648,3 +2648,27 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   .tl-latest small { display: none; }
   .vdock .vd-status { margin-top: 4px; }
 }
+
+/* Comparing: the lobule's own controls and card sit below the Then / Now / Change switch (--cmp-h). */
+.lz-top { top: calc(var(--top-safe) + 8px + var(--cmp-h, 0px)); }
+@media (min-width: 721px) { .lz-side { top: calc(var(--top-safe) + 4px + var(--cmp-h, 0px)); max-height: calc(100% - var(--top-safe) - var(--cmp-h, 0px) - var(--bot-occ, 120px) - 16px); } }
+@media (max-width: 720px) {
+  .lz-key { top: calc(var(--top-safe) + 48px + var(--cmp-h, 0px)); }
+  .stage-view.in-lobule .zoom-pill { top: calc(var(--top-safe) + 8px + var(--cmp-h, 0px)); }
+}
+/* The ladder's numbers (a phone shows these instead of the drawing): each pressure in its colour,
+   its change from healthy (or since then, while comparing) beneath. */
+.lz-nums { display: none; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.lz-num { display: grid; justify-items: center; gap: 1px; padding: 5px 2px 4px; border-radius: 8px; background: color-mix(in srgb, var(--c) 14%, var(--surface)); box-shadow: inset 0 -3px 0 var(--c); font-variant-numeric: tabular-nums; }
+.lz-num .k { font-size: 10.5px; font-weight: 500; color: var(--text-3); }
+.lz-num b { font-size: var(--fs-16); font-weight: 700; line-height: 1.1; color: color-mix(in oklab, var(--c) 70%, var(--text)); }
+.lz-num .d { font-size: 10.5px; font-weight: 650; color: var(--text-3); }
+.lz-num .d.up, .lz-chg.up { color: color-mix(in srgb, var(--danger) 88%, var(--text)); }
+.lz-num .d.down, .lz-chg.down { color: var(--accent-ink); }
+.lz-num .d.same { font-weight: 500; }
+.lz-chg { font-size: 10.5px; font-weight: 650; margin-right: 6px; font-variant-numeric: tabular-nums; }
+@media (max-width: 720px) {
+  .lz-side .lz-ladder { display: none; }
+  .lz-side.open .lz-nums { display: grid; }
+  .lz-stats { gap: 3px 12px; padding-top: 8px; }
+}
