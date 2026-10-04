@@ -3,25 +3,25 @@
 
 import { startHost, host } from './host.js?v=5e522a6bbf';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=9c069d2ebf';
-import { createStage } from './stage.js?v=a0adab5021';
-import { createInspector } from './inspector.js?v=dd3545d331';
-import { createDock, CUTOFFS } from './dock.js?v=6e16fb75d8';
-import { createWhy } from './why.js?v=595afb0255';
-import { createTimeline } from './timeline.js?v=68c93f7874';
-import { createLearn } from './learn.js?v=637d52be7c';
-import { createCases } from './cases.js?v=ead1c1a59d';
-import { createCompare } from './compare.js?v=26194fa1a6';
-import { createCard } from './card.js?v=8edc1400aa';
-import { createChart, computeFindings } from './chart.js?v=3b25e87fb8';
-import { createHome } from './home.js?v=3096ba11b7';
+import { createStage } from './stage.js?v=127ba46c34';
+import { createInspector } from './inspector.js?v=d5eb049d8d';
+import { createDock, CUTOFFS } from './dock.js?v=4f829e3c57';
+import { createWhy } from './why.js?v=548d0adab3';
+import { createTimeline } from './timeline.js?v=fb1c454a3b';
+import { createLearn } from './learn.js?v=171ff8cc74';
+import { createCases } from './cases.js?v=7626c6db67';
+import { createCompare } from './compare.js?v=e139fe114d';
+import { createCard } from './card.js?v=988ef4de38';
+import { createChart, computeFindings } from './chart.js?v=c74f11dc5c';
+import { createHome } from './home.js?v=5c998b7808';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
-import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=7d8f9bfd5b';
+import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=2affcf4be2';
 import { startLMS } from './lms.js?v=4511ed56b8';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=b6e5d22a54';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=e765c9d0f8';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=29d10ad9ef';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges } from './util.js?v=994e190477';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=831ebf143a';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -128,7 +128,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=3de6bef17c'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=3544751f3a'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -140,7 +140,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=c4bbaecff1'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=c866bc27fc'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -877,10 +877,11 @@ function wireFloating() {
   // Focus: dragging, pinching or scrolling the figure fades the floating pieces until it stops.
   let busyT = 0, down = null;
   const busy = (ms) => { app.classList.add('stage-busy'); clearTimeout(busyT); busyT = setTimeout(() => app.classList.remove('stage-busy'), ms); };
-  view.addEventListener('pointerdown', (e) => { down = [e.clientX, e.clientY]; });
+  // Only the figure itself: a swipe on a card (or one from the phone's edge) leaves the rest alone.
+  view.addEventListener('pointerdown', (e) => { down = systemEdge(e) || e.target.closest?.('.lz-side, .stage-blocker, .zoom-pill, button, input, select') ? null : [e.clientX, e.clientY]; });
   view.addEventListener('pointermove', (e) => { if (down && e.buttons && Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 8) busy(5000); });
   addEventListener('pointerup', () => { if (down) { down = null; if (app.classList.contains('stage-busy')) busy(600); } });
-  addEventListener('pointercancel', () => { down = null; busy(300); });
+  addEventListener('pointercancel', () => { if (down) { down = null; busy(300); } });
   view.addEventListener('wheel', () => busy(800), { passive: true });
   // A tap outside the Treat card (but not on its button) puts it away, as a menu would be.
   addEventListener('pointerdown', (e) => {
