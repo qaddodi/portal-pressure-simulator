@@ -20,13 +20,13 @@
 // anything tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
-import { store, updateParams } from './store.js?v=f9424489c6';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=913fe4fa3c';
-import { verbEnabled } from './actions.js?v=34bad803fc';
-import { h, s, fmt, clamp, svgIcon } from './util.js?v=fe164f31f1';
+import { store, updateParams } from './store.js?v=9c069d2ebf';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=42a88c5de1';
+import { verbEnabled } from './actions.js?v=bf598ef91d';
+import { h, s, fmt, clamp, svgIcon } from './util.js?v=d680016625';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
-import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=63596bcd73';
+import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=dbd6a6238d';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=3acf4e936e';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -877,11 +877,12 @@ export function createLobuleZoom({ host }) {
     }
     // Stellate cells: shown once fibrosis starts; activated, they become star-shaped myofibroblasts.
     if (m.act > 0.08) {
-      const a = m.act, rr = R * (0.01 + 0.014 * a);
+      // Quiet at the whole-lobule scale (they are a detail, not the story); they read once zoomed in.
+      const a = m.act, rr = R * (0.0075 + 0.01 * a);
       for (const k of G.hsc) {
-        c.strokeStyle = `rgba(176, 104, 48, ${0.35 + 0.5 * a})`; c.lineWidth = 1.1;
+        c.strokeStyle = `rgba(176, 104, 48, ${0.22 + 0.36 * a})`; c.lineWidth = 0.9;
         c.beginPath(); for (let i = 0; i < 5; i++) { const b = k.a + (i * TAU) / 5; c.moveTo(k.x, k.y); c.lineTo(k.x + Math.cos(b) * rr * 2.2, k.y + Math.sin(b) * rr * 2.2); } c.stroke();
-        c.fillStyle = `rgba(176, 104, 48, ${0.45 + 0.45 * a})`; c.beginPath(); c.arc(k.x, k.y, rr, 0, TAU); c.fill();
+        c.fillStyle = `rgba(176, 104, 48, ${0.3 + 0.36 * a})`; c.beginPath(); c.arc(k.x, k.y, rr, 0, TAU); c.fill();
       }
     }
     c.restore();
@@ -896,7 +897,7 @@ export function createLobuleZoom({ host }) {
       lobules.forEach((l, li) => l.corners.forEach((A, i) => paths.push([A, l.corners[(i + 1) % 6], li * 7 + i])));
       // Nodule bulge: the septa cast a soft shade into the tissue beside them.
       c.shadowColor = dark ? 'rgba(0,0,0,.55)' : 'rgba(110, 50, 50, .35)'; c.shadowBlur = R * 0.07 * su;
-      c.strokeStyle = col(0.45 + 0.45 * su); c.lineWidth = w;
+      c.strokeStyle = col(0.36 + 0.4 * su); c.lineWidth = w;
       for (const [A, B, ph] of paths) { wavy(A, B, R * 0.02, ph); c.stroke(); }
       if (su > 0.35) for (const sp of G.septaPC) { c.lineWidth = w * 0.85; c.beginPath(); sp.pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.stroke(); }
       c.shadowBlur = 0;

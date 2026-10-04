@@ -1,13 +1,13 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
-import { store } from './store.js?v=f9424489c6';
+import { store } from './store.js?v=9c069d2ebf';
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
-import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=fe164f31f1';
-import { createProfile } from './charts.js?v=2ba1f3a5ed';
-import { createPressureTime } from './pressure-time.js?v=0878c8e5f4';
-import { createDoppler } from './doppler.js?v=6db140bcee';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=b9ff7e0e9d';
+import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=d680016625';
+import { createProfile } from './charts.js?v=7f6d13aac3';
+import { createPressureTime } from './pressure-time.js?v=92a9981b8d';
+import { createDoppler } from './doppler.js?v=eee86d92ed';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=0c35e16ff1';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -26,7 +26,7 @@ export const TILES = [
   { id: 'pv', group: 'pressure', k: 'Portal vein', title: 'Portal vein pressure (absolute). Normal ≤ 10 mmHg.', why: 'pv', v: (m) => m.pv, d: 1, u: 'mmHg', hideKey: 'pv',
     scale: [0, 35], ticks: [10, 15],
     st: (v) => (v <= 10 ? 'ok' : v < 15 ? 'caution' : 'danger'), s: (v) => (v <= 10 ? 'Normal' : v < 15 ? 'Raised' : 'High') },
-  { id: 'pvflow', group: 'flow', k: 'Portal vein', title: 'Portal vein blood flow toward the liver (negative = away from it). Normal ≥ 0.9 L/min at ≥ 12 cm/s.', why: 'pvFlow', v: (m) => m.pvFlow, d: 1, u: 'L/min',
+  { id: 'pvflow', group: 'flow', k: 'Portal vein', ks: 'PV flow', title: 'Portal vein blood flow toward the liver (negative = away from it). Normal ≥ 0.9 L/min at ≥ 12 cm/s.', why: 'pvFlow', v: (m) => m.pvFlow, d: 1, u: 'L/min',
     scale: [-0.6, 2], ticks: [0, 0.9],
     st: (v, m) => (v < -0.02 ? 'critical' : Math.abs(m.pvVel) < 5 ? 'danger' : v < 0.9 || Math.abs(m.pvVel) < 12 ? 'caution' : 'ok'),
     s: (v, m) => (v < -0.02 ? 'Reversed' : Math.abs(m.pvVel) < 5 ? 'Stasis' : v < 0.9 ? 'Reduced' : Math.abs(m.pvVel) < 12 ? 'Slow' : 'Normal') },
@@ -36,10 +36,11 @@ export const TILES = [
   { id: 'shunt', group: 'flow', k: 'Shunted', why: 'shunt', hideKey: 'model', v: (m) => m.shuntFraction * 100, d: 0, u: '%', title: 'Share of gut and spleen blood that bypasses the liver through collaterals and shunts.',
     scale: [0, 100], ticks: [10, 30, 60],
     st: (v) => (v < 10 ? 'ok' : v < 30 ? 'caution' : v < 60 ? 'danger' : 'critical'), s: (v) => (v < 10 ? 'Minimal' : v < 30 ? 'Moderate' : v < 60 ? 'Large' : 'Most') },
-  { id: 'varix', group: 'effects', k: 'Varix wall', why: 'varix', hideKey: 'model', v: (m) => m.varix.ratio * 100, d: 0, u: '%', ux: ' of rupture', title: 'Esophageal varix wall tension, as a % of the tension at which it ruptures (Laplace: pressure × radius ÷ wall thickness).',
+  { id: 'varix', group: 'effects', k: 'Varix wall', ks: 'Varix', why: 'varix', hideKey: 'model', v: (m) => m.varix.ratio * 100, d: 0, u: '%', ux: ' of rupture', title: 'Esophageal varix wall tension, as a % of the tension at which it ruptures (Laplace: pressure × radius ÷ wall thickness).',
     scale: [0, 100], ticks: [40, 70, 90],
     st: (v, m) => (m.varix.ratio >= 0.9 ? 'critical' : m.varix.ratio >= 0.7 ? 'danger' : m.varix.ratio >= 0.4 || m.varix.d >= 5 ? 'caution' : 'ok'),
-    s: (v, m) => (m.varix.d < 2.5 ? 'None' : m.varix.redWale ? 'Red wale signs' : { F1: 'Small (F1)', F2: 'Large (F2)', F3: 'Coiled (F3)' }[m.varix.grade.code]) },
+    s: (v, m) => (m.varix.d < 2.5 ? 'None' : m.varix.redWale ? 'Red wale signs' : { F1: 'Small (F1)', F2: 'Large (F2)', F3: 'Coiled (F3)' }[m.varix.grade.code]),
+    ss: (v, m) => (m.varix.d < 2.5 ? 'None' : m.varix.redWale ? 'Red wale' : { F1: 'Small', F2: 'Large', F3: 'Coiled' }[m.varix.grade.code]) },
   { id: 'ascites', group: 'effects', k: 'Ascites', title: 'Free fluid in the abdomen. Grade 1 is seen on ultrasound only, grade 2 is moderate, grade 3 tense.', why: 'ascites', v: (m) => m.ascites.volume / 1000, d: 1, u: 'L',
     scale: [0, 8], ticks: [0.15, 1.5, 5],
     st: (v, m) => (m.ascites.grade === 0 ? 'ok' : m.ascites.grade === 1 ? 'caution' : 'danger'), s: (v, m) => (m.ascites.grade === 0 ? 'None' : `Grade ${m.ascites.grade}`) },
@@ -88,6 +89,8 @@ export function readoutValue(t, m, hidden) {
 export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onCompare, onRun, onLobule, onOpen, onClose, isVisible, marks, onBeat, onLayout }) {
   // ── Readout strip ─────────────────────────────────
   const tileEls = {};
+  // A phone's four tiles are narrow: short names and status words where the long ones would be cut off.
+  const narrow = matchMedia('(max-width: 767px)');
   const row = h('div', { class: 'ro-row' });
   strip.append(row);
   const pos = (t, v) => clamp((v - t.scale[0]) / (t.scale[1] - t.scale[0]), 0, 1) * 100;
@@ -96,7 +99,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const fill = h('i', { class: 'rb-fill' });
     const bar = h('span', { class: 'rb', 'aria-hidden': 'true' }, fill, t.ticks.map((x) => h('i', { class: 'rb-tick', style: { left: pos(t, x) + '%' } })));
     const el = h('button', { class: 'metric' + (PRIMARY.has(t.id) ? ' primary' : ''), 'data-id': t.id },
-      h('span', { class: 'k' }, t.k), h('span', { class: 'v' }, val, shared ? null : h('span', { class: 'unit' }, t.u, t.ux ? h('span', { class: 'u-x' }, t.ux) : null), tr), bar, h('span', { class: 's' }, st, cmp));
+      h('span', { class: 'k' }, t.ks ? [h('span', { class: 'k-l' }, t.k), h('span', { class: 'k-s' }, t.ks)] : t.k), h('span', { class: 'v' }, val, shared ? null : h('span', { class: 'unit' }, t.u, t.ux ? h('span', { class: 'u-x' }, t.ux) : null), tr), bar, h('span', { class: 's' }, st, cmp));
     el.title = `${t.title || t.k}${t.why ? '\nClick for what is driving it.' : ''}`;
     if (t.why) el.addEventListener('click', () => onWhy(t.why, el));
     tileEls[t.id] = { el, t, val, tr, st, cmp, fill, hist: [], sev: null, trend: '', ariaTxt: '' };
@@ -156,7 +159,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       } else {
         const txt = fmt(v, t.d);
         if (x.val.textContent !== txt) x.val.textContent = txt;
-        s = measured ? 'Measured' : t.s(v, m);
+        s = measured ? 'Measured' : (t.ss && narrow.matches ? t.ss : t.s)(v, m);
         sev = t.st(v, m);
         const w = pos(t, v), o = pos(t, clamp(0, t.scale[0], t.scale[1]));
         x.fill.style.left = Math.min(w, o) + '%'; x.fill.style.width = Math.abs(w - o) + '%';

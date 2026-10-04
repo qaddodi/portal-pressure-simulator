@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- **No bleeding by default.** Varices still grow, but they only rupture on their own when *Variceal
+  bleeding* is switched on (Simulation settings). The bleeding case still starts with its bleed.
+- **Gestures.** A trackpad's two-finger scroll pans and its pinch zooms; a mouse wheel zooms. A flick keeps the
+  figure gliding; past the zoom limits, or panned off screen, it springs back. Double tap or double click zooms in
+  (Shift: out), a two-finger tap zooms out, a long press on a vessel shows its readings, right-click opens its card.
+- **Sliders.** A finger anywhere on a track moves the thumb (iOS); Shift + arrows step ×10; the wheel adjusts a
+  focused slider; double click resets it.
+- **Cards.** A vessel's card sits beside the figure rather than on it, with a leader line; on an iPad it is a side
+  panel; on a phone the sheet has a third, full height. Card values match the labels and readouts.
+- **Phone.** The circuit opens upright when held upright; the legend, readout names and clock fit; the zoom
+  buttons step aside under a card sheet; the patient name gets the room in the top bar.
+- **Graphics.** Vessels whose pressure moved glow briefly after a change; varices are drawn as swellings sized by
+  their diameter; ascites shows as a visible pool sooner; softer moving-blood sheen; a light rim on vessels in
+  dark mode; quieter stellate cells and septa in the lobule.
+- **Play bar.** The clock sits by the track, speed looks like a control, Compare is an icon, events stand on the track.
+
 - **Circuit: the liver's titles open cards.** In the circuit, the LIVER and HEART column titles are
   buttons that open the liver's and the right heart's cards (with their parameters).
 - **Circuit: the liver branches.** Inside the liver the portal venules divide (one channel, then three,

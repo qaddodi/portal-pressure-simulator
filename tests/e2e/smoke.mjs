@@ -74,6 +74,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     // Animations step with the frames: wait for where they end, not a fixed time (CI has no GPU).
     const ratio = () => { const s = document.querySelector('#stage'); return s.viewBox.baseVal.height / s.viewBox.baseVal.width; };
     const until = (fn, msg) => page.waitForFunction(fn, null, { timeout: 30000 }).catch(() => { throw new Error(msg); });
+    // A phone held upright opens the circuit upright; turn it wide first.
+    if (device === 'phone') { await until(`(${ratio})() > 1`, 'circuit did not open upright on a phone'); await page.click('#rotateCircuit'); }
     await until(`(${ratio})() < 1`, 'circuit did not open wide');
     await page.click('#rotateCircuit');
     await until(`(${ratio})() > 1`, 'circuit did not turn tall');

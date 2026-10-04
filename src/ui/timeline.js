@@ -9,10 +9,10 @@
 // from here" freezes the current moment as A for comparison. It replaces play/speed, the Seconds/Months
 // switch, undo/redo/reset, the Findings list, the Log instrument and Compare mode.
 
-import { store, replaceParams, onParamChange } from './store.js?v=f9424489c6';
-import { host } from './host.js?v=d292ccefe8';
-import { h, fmt, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=fe164f31f1';
-import { activeInterventions } from './inspector.js?v=208b6a3592';
+import { store, replaceParams, onParamChange } from './store.js?v=9c069d2ebf';
+import { host } from './host.js?v=a3200de5ad';
+import { h, fmt, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=d680016625';
+import { activeInterventions } from './inspector.js?v=fe8a1a69f1';
 
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };
 export const EVENT_WHY = { VARIX_RUPTURE: 'varix', RED_WALE: 'varix', VARIX_LARGE: 'varix', HEPATOFUGAL_PV: 'pvFlow', PV_STASIS: 'pvFlow', CSPH: 'hvpg', BLEED_RISK: 'hvpg', ASCITES_FORMING: 'ascites', TENSE_ASCITES: 'ascites', HIGH_SHUNT: 'shunt', LIVER_HYPOPERFUSION: 'liverPerf', RA_HIGH: 'ra', HYPERDYNAMIC: 'co', SPLENOMEGALY: 'spleen' };
@@ -46,7 +46,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   // Restart: the same patient from its first moment, every change and the clock cleared.
   const restartBtn = h('button', { class: 'ib tl-restart', 'aria-label': 'Restart this patient' }, icon('reset'));
   restartBtn.addEventListener('click', () => onRestart?.());
-  const speedBtn = h('button', { class: 'tl-speed', title: 'Playback speed ([ and ])', 'aria-label': 'Playback speed' }, '1×');
+  const speedBtn = h('button', { class: 'tl-speed', title: 'Playback speed ([ and ]); click for the next speed', 'aria-label': 'Playback speed' }, '1×');
   speedBtn.addEventListener('click', () => { const i = SPEEDS.indexOf(store.get().speed); onSpeed(SPEEDS[(i + 1) % SPEEDS.length]); });
   const rail = h('div', { class: 'tl-rail' });
   const fill = h('div', { class: 'tl-fill' });
@@ -290,7 +290,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   function update(f) {
     if (!track.classList.contains('ff')) {
       const t = fmtClock(f.t, f.day);
-      if (t !== lastTime) { lastTime = t; timeEl.textContent = t; }
+      if (t !== lastTime) { lastTime = t; timeEl.textContent = t; timeEl.dataset.short = f.day > 0 ? `Day ${f.day}` : t; }
     }
     if (f.running !== lastRun) { lastRun = f.running; playBtn.replaceChildren(icon(f.running ? 'pause' : 'play')); playBtn.setAttribute('aria-label', f.running ? 'Pause' : 'Play'); }
     const sp = store.get().speed;

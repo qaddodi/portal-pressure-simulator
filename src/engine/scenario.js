@@ -33,6 +33,7 @@ export function defaultParams() {
     diuretics: false,             // spironolactone + furosemide: renal sodium/water loss offsets ascites
     drugs: { propranolol: false, carvedilol: false, terlipressin: false, octreotide: false },
     catheter: { vein: null, wedged: false },
+    bleeding: false,              // spontaneous variceal rupture (off: varices swell but never tear on their own)
     deterministicRupture: false,
     seed: 1,
   };

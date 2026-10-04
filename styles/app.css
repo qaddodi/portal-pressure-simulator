@@ -134,6 +134,7 @@ svg { flex: none; }
 .stage-view svg#labels { pointer-events: none; overflow: visible; }
 #overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .stage-view[class*="tool-"]:not(.tool-select):not(.tool-probe) #stage { cursor: crosshair; }
+.stage-view #stage { cursor: grab; }
 .stage-view.panning #stage { cursor: grabbing; }
 
 .chip-btn {
@@ -531,12 +532,12 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .liver-tint { transition: opacity .6s var(--ease); }
 .cg-in { stop-color: var(--path-congestion); stop-opacity: 0; } .cg-out { stop-color: var(--path-congestion); stop-opacity: .55; }
 .nutmeg circle { fill: var(--path-nutmeg); fill-opacity: .55; }
-.fl-top { stop-color: var(--ascites); stop-opacity: .1; } .fl-bot { stop-color: var(--ascites); stop-opacity: .3; }
+.fl-top { stop-color: var(--ascites); stop-opacity: .16; } .fl-bot { stop-color: var(--ascites); stop-opacity: .38; }
 .sk-in { stop-color: var(--skin); stop-opacity: .5; } .sk-mid { stop-color: var(--skin); stop-opacity: .3; } .sk-out { stop-color: var(--skin); stop-opacity: 0; }
 .mt-a { stop-color: var(--stent-metal); } .mt-b { stop-color: var(--light-ink); }
 .abd-wall { pointer-events: none; transition: opacity .8s var(--ease); }
 .flank { fill: none; stroke: var(--organ-body-line); stroke-width: 1.4; stroke-opacity: .8; stroke-linecap: round; }
-.ascites-glint { fill: none; stroke: var(--light-ink); stroke-opacity: .35; stroke-width: 1; }
+.ascites-glint { fill: none; stroke: var(--light-ink); stroke-opacity: .55; stroke-width: 1.4; }
 .varix-col-case { fill: none; stroke: var(--vessel-casing); stroke-linecap: round; opacity: .9; }
 .varix-col { fill: none; stroke-linecap: round; }
 .varix-bead { stroke: var(--vessel-casing); stroke-width: .9; }
@@ -1247,6 +1248,9 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 /* The figure's own buttons (Fit, turn) ride above the sheet instead of under it. */
 .stage-fit, .stage-rotate, .stage-clock { translate: 0 calc(-1 * var(--sheet-h, 0px)); transition: translate .2s var(--ease); }
 .hover-tip .hint { margin-top: 4px; font-size: var(--fs-12); color: var(--text-3); }
+.hover-tip.peek { font-size: var(--fs-14); min-width: 200px; padding: 10px 14px; animation: peek-in .14s ease-out; }
+@keyframes peek-in { from { opacity: 0; transform: translateY(6px) scale(.97); } }
+@media (prefers-reduced-motion: reduce) { .hover-tip.peek { animation: none; } }
 
 /* Selection feedback on organs and sites */
 .org-sel-line { fill: none; stroke: var(--accent); stroke-width: 2.4; stroke-opacity: .55; stroke-linejoin: round; pointer-events: none; }
@@ -2567,3 +2571,70 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .dop-glow { fill: none; stroke: var(--doppler); stroke-opacity: .7; stroke-linecap: butt; stroke-linejoin: round; }
 .dop-edge { fill: none; stroke: var(--doppler); stroke-opacity: .95; stroke-linecap: butt; stroke-linejoin: round; }
 .instrument-workspace .dock-title.dop-on .dt-l::before { content: ''; display: inline-block; width: 8px; height: 8px; margin: 0 8px 1px 0; border-radius: 50%; background: var(--doppler); box-shadow: 0 0 0 3px color-mix(in srgb, var(--doppler) 22%, transparent); vertical-align: middle; }
+
+/* ── Polish pass: play bar, phone chrome, card leader, sheets, sliders ── */
+/* The play bar: the clock sits next to the track it reads, speed looks like a control, Compare is an icon. */
+.tl-time { min-width: 0; text-align: left; }
+.tl-speed { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+.tl-speed::after { content: ''; width: 0; height: 0; border-left: 3.5px solid transparent; border-right: 3.5px solid transparent; border-top: 4px solid currentColor; opacity: .55; margin-left: 2px; }
+.tl-speed:hover { border-color: var(--accent-line); color: var(--accent-ink); background: var(--accent-soft); }
+.tl-pin { width: 36px; padding: 0; justify-content: center; }
+.tl-pin span { display: none; }
+/* Events stand on the track: a stem from each triangle down to the rail. */
+.tl-m.ev { top: 6px; }
+.tl-m.ev::after { content: ''; position: absolute; left: 50%; top: 12px; width: 2px; height: 8px; margin-left: -1px; border-radius: 1px; background: var(--sev, var(--info)); opacity: .75; }
+.tl-rail { background: color-mix(in srgb, var(--text) 12%, var(--surface-3)); }
+
+/* Legend: the end numbers stay inside the scale instead of being cut off. */
+.lg-num.start { transform: none; }
+.lg-num.end { transform: translateX(-100%); }
+
+/* Readouts: short names where the tiles are narrow. */
+.metric .k .k-s { display: none; }
+@media (max-width: 767px) {
+  .metric .k .k-l { display: none; }
+  .metric .k .k-s { display: inline; }
+  .readouts:not(.all) .metric .tr { display: none; }
+}
+
+/* A phone: the clock is in the play bar (short form), not floating over the figure. */
+@media (max-width: 767px) {
+  .stage-clock { display: none !important; }
+  .vdock .tl-time { display: inline; font-size: 0; min-width: 0; }
+  .vdock .tl-time::after { content: attr(data-short); font-size: var(--fs-12); }
+  /* The menu keeps its icon; the patient's name gets the room (the menu names the mode). */
+  .menu-btn .mb-t { display: none; }
+  .tb-id .scenario-v { font-size: var(--fs-14); }
+}
+/* The zoom buttons step aside while a card sheet covers the figure (pinch still zooms). */
+.zoom-pill.under-sheet { opacity: 0; pointer-events: none; }
+
+/* The card's leader line to its structure, when the card sits away from it. */
+.ac-leader { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; z-index: calc(var(--z-hud) - 1); }
+.ac-leader path { stroke: var(--text-2); stroke-width: 1.2; stroke-dasharray: 3 3; fill: none; opacity: .8; }
+.ac-leader circle { fill: var(--surface); stroke: var(--accent); stroke-width: 2; }
+.stage-view.in-lobule .ac-leader { display: none; }
+
+/* The phone card sheet's third height: nearly the whole screen. */
+.action-card.docked.full { max-height: calc(100% - var(--top-safe) - 8px); }
+
+/* Sliders follow a finger anywhere on the track (util.js enhanceRanges), so the page must not scroll from them. */
+input[type="range"] { touch-action: none; }
+@media (max-width: 767px) {
+  .tl-speed { display: none; }
+  .readouts:not(.all) .metric .v { font-size: var(--fs-18, 18px); }
+  .readouts:not(.all) .metric .v .unit { font-size: 11px; margin-left: 2px; }
+  .vdock .timeline { gap: 6px; }
+}
+
+/* After a change: the vessels whose pressure moved glow briefly behind their tubes (warm up, cool down). */
+.delta-glow { fill: none; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; opacity: 0; filter: blur(4px); animation: deltaGlow 1.7s var(--ease) forwards; }
+.delta-glow.up { stroke: color-mix(in srgb, #E8633A 70%, transparent); }
+.delta-glow.down { stroke: color-mix(in srgb, #3A8DE8 70%, transparent); }
+@keyframes deltaGlow { 0% { opacity: 0; } 25% { opacity: .6; } 60% { opacity: .45; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .delta-glow { display: none; } }
+
+/* Varices: knobbly swellings on the variceal channels, sized by the varix diameter, in its pressure color. */
+.varix-bead { fill: var(--vx, #B04A7A); stroke: rgb(var(--casing-rgb) / calc(var(--casing-a) * .9)); stroke-width: .8; }
+.varix-lit { fill: var(--light-ink); opacity: .32; pointer-events: none; }
+.varix-wale { fill: #E0303A; opacity: .9; }

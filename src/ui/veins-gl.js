@@ -558,10 +558,12 @@ vec4 bloodAt(int id, float s, float y, vec3 col) {
   float nb = t > 0.0 ? 0.62 * vnoise(qb, sd0, per) + 0.38 * vnoise(qb * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2) : 0.0;
   float nz = mix(na, nb, t);
   float dens = sqrt(clamp(p, 0.0, 1.0));
-  float streak = smoothstep(0.5 - 0.08 * dens, 0.8, nz);
-  float wall = 1.0 - smoothstep(0.78, 1.0, ay);
-  float glowCore = 0.16 * (1.0 - ay * ay);
-  float a = clamp(streak * (0.5 + 0.38 * dens) + glowCore, 0.0, 0.9) * wall * ends * f1.z * mix(1.0, 0.6, stasis);
+  // Soft-edged and subdued, so up close the sheen reads as moving light, not as stripes painted on the tube;
+  // a steady glow along the axis carries most of the brightness.
+  float streak = smoothstep(0.46 - 0.08 * dens, 0.9, nz);
+  float wall = 1.0 - smoothstep(0.7, 1.0, ay);
+  float glowCore = 0.22 * (1.0 - ay * ay) * (1.0 - ay * ay);
+  float a = clamp(streak * (0.32 + 0.26 * dens) + glowCore, 0.0, 0.75) * wall * ends * f1.z * mix(1.0, 0.6, stasis);
   return vec4(mix(halo, core, smoothstep(0.0, 0.7, streak)), a);
 }
 // Where a lumen's blood comes from, as streams side by side (laminar flow keeps them apart): SMV,

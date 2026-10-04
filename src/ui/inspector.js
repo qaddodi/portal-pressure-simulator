@@ -1,9 +1,9 @@
 // Controls panel (blueprint §4.1, §8.4): global parameters in three tabs, or the selected vessel.
 
 import { EDGES, NODES, COLLATERAL_DMIN_RATIO, dMinOf } from '../engine/topology.js?v=29d10ad9ef';
-import { DRUGS } from '../engine/scenario.js?v=8fc90f782f';
-import { store, updateParams, isLocked } from './store.js?v=f9424489c6';
-import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, icon, svgIcon } from './util.js?v=fe164f31f1';
+import { DRUGS } from '../engine/scenario.js?v=304cd180db';
+import { store, updateParams, isLocked } from './store.js?v=9c069d2ebf';
+import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, icon, svgIcon } from './util.js?v=d680016625';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -55,6 +55,7 @@ export const CONTROLS = {
   pulsatile: { type: 'toggle', key: 'pulsatile', label: 'Pulsatile (beat-to-beat)', ...prop('pulsatile'), info: 'Adds the right-atrial waveform (a, x, v, y). Needed for Doppler pulsatility.' },
   respiration: { type: 'toggle', key: 'respiration', label: 'Respiration', ...prop('respiration') },
   respDepth: { type: 'slider', key: 'respDepth', label: 'Breath depth', min: 0, max: 3, step: 0.1, ...prop('respDepth'), format: mult, def: 1 },
+  bleeding: { type: 'toggle', key: 'bleeding', label: 'Variceal bleeding', ...prop('bleeding'), info: 'Off: varices grow but never rupture on their own. On: a varix can tear once its wall tension passes the critical value.' },
   detRupture: { type: 'toggle', key: 'deterministicRupture', label: 'Deterministic rupture', ...prop('deterministicRupture'), info: 'Rupture exactly when wall tension exceeds the critical value, instead of a random hazard.' },
 };
 for (const k of Object.keys(DRUGS)) CONTROLS['drug:' + k] = { type: 'drug', key: 'drugs', lockKey: 'drug:' + k, drug: k };
@@ -75,7 +76,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
   function infoI(text) { const b = h('button', { class: 'info-i', type: 'button', 'aria-label': text }, icon('info')); tooltipFor(b, text); return b; }
   function slider(c) {
     const { key, label, min, max, step, get, set, format, normal, info, sub, lockKey, def } = c;
-    const input = h('input', { type: 'range', min, max, step, 'aria-label': label });
+    const input = h('input', { type: 'range', min, max, step, 'aria-label': label, 'data-def': def ?? null });
     const val = h('span', { class: 'ctl-val' });
     const reset = h('button', { class: 'reset-btn', title: 'Reset', 'aria-label': `Reset ${label}` }, icon('reset'));
     const wrap = h('div', { class: 'ctl' },
@@ -199,7 +200,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
         section('inflow', 'Inflow & vascular tone', 'activity', changedCount(['splanchnicTone', 'systemicTone']), build('splanchnicTone'), build('systemicTone')),
         section('hepatic', 'Hepatic circulation', 'liver', changedCount(['habr', 'apShunt']), build('habr'), build('apShunt')),
         section('anatomy', 'Anatomical variants', null, changedCount(['grShunt', 'geComm', 'srShunt']), build('grShunt'), build('geComm'), build('srShunt')),
-        section('env', 'Simulation', 'settle', null, build('pulsatile'), build('respiration'), build('respDepth'), build('detRupture'),
+        section('env', 'Simulation', 'settle', null, build('pulsatile'), build('respiration'), build('respDepth'), build('bleeding'), build('detRupture'),
           h('div', { class: 'action-grid' },
             h('button', { class: 'btn', onclick: () => onAction({ kind: 'valsalva' }) }, 'Valsalva'),
             h('button', { class: 'btn danger', onclick: () => onAction({ kind: 'rupture', site: 'VAR', tear: 0.6 }) }, 'Rupture a varix'))),
