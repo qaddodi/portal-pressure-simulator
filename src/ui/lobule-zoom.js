@@ -131,7 +131,9 @@ export function createLobuleZoom({ host }) {
   const more = h('button', { class: 'lz-more', 'aria-expanded': 'true', title: 'Show or hide the details' }, h('span', { class: 'lz-more-l' }, 'Details'), svgIcon('chev-down', 'lz-chev'));
   const grab = h('span', { class: 'lz-grab', 'aria-hidden': 'true' });
   const head = h('div', { class: 'lz-head' }, grab, h('div', {}, h('div', { class: 'lz-title' }, 'Hepatic lobule'), sub), more);
-  const side = h('div', { class: 'lz-side open' }, head, ladder, nums, verdict, cirBox, stats);
+  // What to show on the lobule, just under the card's title (so it stays in reach on a phone, folded or not).
+  const tgs = h('div', { class: 'lz-tgs', role: 'group', 'aria-label': 'Show on the lobule' }, zonesBtn, lymphBtn);
+  const side = h('div', { class: 'lz-side open' }, head, tgs, ladder, nums, verdict, cirBox, stats);
   const phoneMQ = matchMedia('(max-width: 720px)');
   const setOpen = (o) => { side.classList.toggle('open', o); more.setAttribute('aria-expanded', String(o)); if (!o) side.scrollTop = 0; requestAnimationFrame(refit); };
   more.addEventListener('click', () => setOpen(!side.classList.contains('open')));
@@ -155,7 +157,6 @@ export function createLobuleZoom({ host }) {
   }
   const el = h('div', { class: 'lz', 'aria-hidden': 'true' },
     tissue, glCv, fx, leaders, labels,
-    h('div', { class: 'lz-top' }, h('div', { class: 'lz-tgs' }, zonesBtn, lymphBtn)),
     side);
   // The dive's field (below the view): the liver's lobules, many and small, that the camera falls through.
   const field = h('canvas', { class: 'lz-canvas lz-field', 'aria-hidden': 'true' });
@@ -186,9 +187,10 @@ export function createLobuleZoom({ host }) {
     if (key.offsetHeight) { if (phone) t += key.offsetHeight + 4; else b = Math.min(b, key.offsetTop - 8); }
     // The zoom buttons: on a phone they sit top right beside the Zones and Lymph switches, so the labels start below them.
     const zp = phone && document.getElementById('zoomPill');
-    if (zp && zp.offsetHeight) {
-      const hr = el.getBoundingClientRect(), q = zp.getBoundingClientRect();
-      if (q.top - hr.top < H / 2) t = Math.max(t, q.bottom - hr.top + 14);
+    if (phone) {
+      const hr = el.getBoundingClientRect(), q = zp && zp.offsetHeight ? zp.getBoundingClientRect() : null;
+      // (While the view is still opening they have not moved up yet: keep their row free anyway.)
+      t = q && q.top - hr.top < H / 2 ? Math.max(t, q.bottom - hr.top + 14) : t + 52;
     }
     return { l, t, r: Math.max(l + 80, r), b: Math.max(t + 80, b) };
   }
@@ -652,8 +654,6 @@ export function createLobuleZoom({ host }) {
     // venule's, up and to the left of it), with a short leader; it stays inside the free space.
     const c0 = toScreen([cx, cy]);
     placeSide();
-    // The Zones and Lymph switches stay put, centred over where the fitted lobule sits (on a phone, top left beside the zoom buttons).
-    { const tp = el.querySelector('.lz-top'); if (tp) tp.style.left = phoneMQ.matches ? '' : `${((fr0.l + fr0.r) / 2).toFixed(0)}px`; }
     for (const [k, L] of Object.entries(labs)) {
       const w = L.el.offsetWidth || 100, hh = L.el.offsetHeight || 40;
       const a = toScreen(anchorOf(k)), off = a[0] < 0 || a[0] > g.W || a[1] < 0 || a[1] > g.H;

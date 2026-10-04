@@ -2538,7 +2538,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   padding: 8px 12px; border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); transition: opacity .2s var(--ease); pointer-events: none; }
 .lz-key .lz-legend { border: 0; padding: 0; gap: 4px 14px; }
 .lz-key:has(.lz-legend:empty) { display: none; }
-.lz-top .lz-tgs { box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); border: 0; background: var(--glass); }
+.lz-side .lz-tgs { justify-self: start; padding: 2px; background: var(--surface-2, rgba(0, 0, 0, .04)); border: 0; box-shadow: inset 0 0 0 1px var(--hairline); }
 /* Labels: no box; the station, then its pressure with the unit and the change from healthy; a bar in
    the pressure's color on the side facing the vessel, as on the anatomy. */
 .lz-lab { display: grid; gap: 0; padding: 1px 8px 1px 9px; border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; border-left: 3px solid var(--sw, var(--border-strong)); line-height: 1.2; }
