@@ -7,7 +7,7 @@ import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=d680016625';
 import { createProfile } from './charts.js?v=7f6d13aac3';
 import { createPressureTime } from './pressure-time.js?v=92a9981b8d';
 import { createDoppler } from './doppler.js?v=eee86d92ed';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=0c35e16ff1';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=53dfa4f2ff';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -44,7 +44,7 @@ export const TILES = [
     st: (v, m) => (m.varix.ratio >= 0.9 ? 'critical' : m.varix.ratio >= 0.7 ? 'danger' : m.varix.ratio >= 0.4 || m.varix.d >= 5 ? 'caution' : 'ok'),
     s: (v, m) => (m.varix.d < 2.5 ? 'None' : m.varix.redWale ? 'Red wale signs' : { F1: 'Small (F1)', F2: 'Large (F2)', F3: 'Coiled (F3)' }[m.varix.grade.code]),
     ss: (v, m) => (m.varix.d < 2.5 ? 'None' : m.varix.redWale ? 'Red wale' : { F1: 'Small', F2: 'Large', F3: 'Coiled' }[m.varix.grade.code]) },
-  { id: 'ascites', group: 'effects', k: 'Ascites', title: 'Free fluid in the abdomen. Grade 1 is seen on ultrasound only, grade 2 is moderate, grade 3 tense.', why: 'ascites', v: (m) => m.ascites.volume / 1000, d: 1, u: 'L',
+  { id: 'ascites', group: 'effects', pane: 'abdomen', k: 'Ascites', title: 'Free fluid in the abdomen. Grade 1 is seen on ultrasound only, grade 2 is moderate, grade 3 tense.', why: 'ascites', v: (m) => m.ascites.volume / 1000, d: 1, u: 'L',
     scale: [0, 8], ticks: [0.15, 1.5, 5],
     st: (v, m) => (m.ascites.grade === 0 ? 'ok' : m.ascites.grade === 1 ? 'caution' : 'danger'), s: (v, m) => (m.ascites.grade === 0 ? 'None' : `Grade ${m.ascites.grade}`) },
   { id: 'spleen', group: 'effects', k: 'Spleen', title: 'Spleen length. Splenomegaly > 13 cm; the enlarged spleen traps platelets.', why: 'spleen', v: (m) => m.spleen.length, d: 1, u: 'cm',
@@ -104,8 +104,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const bar = h('span', { class: 'rb', 'aria-hidden': 'true' }, fill, t.ticks.map((x) => h('i', { class: 'rb-tick', style: { left: pos(t, x) + '%' } })));
     const el = h('button', { class: 'metric' + (PRIMARY.has(t.id) ? ' primary' : ''), 'data-id': t.id },
       h('span', { class: 'k' }, t.ks ? [h('span', { class: 'k-l' }, t.k), h('span', { class: 'k-s' }, t.ks)] : t.k), h('span', { class: 'v' }, val, shared ? null : h('span', { class: 'unit' }, t.u, t.ux ? h('span', { class: 'u-x' }, t.ux) : null), tr), bar, h('span', { class: 's' }, st, cmp));
-    el.title = `${t.title || t.k}${t.why ? '\nClick for what is driving it.' : ''}`;
-    if (t.why) el.addEventListener('click', () => onWhy(t.why, el));
+    el.title = `${t.title || t.k}${t.pane ? '\nClick to open the Ascites view.' : t.why ? '\nClick for what is driving it.' : ''}`;
+    // Ascites opens its own instrument (amount, cause, tap, treatment) rather than a second popover.
+    if (t.pane) el.addEventListener('click', () => show(t.pane, { reveal: true }));
+    else if (t.why) el.addEventListener('click', () => onWhy(t.why, el));
     tileEls[t.id] = { el, t, val, tr, st, cmp, fill, hist: [], sev: null, trend: '', ariaTxt: '' };
     return el;
   }
@@ -235,7 +237,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     scope: ['chart', 'Portal and hepatic pressures beat by beat, over minutes or over months.', (f) => `HVPG ${fmt(f.metrics.hvpg, 1)}`],
     doppler: ['doppler', 'Direction, velocity and waveform in any portal, hepatic or shunt vessel.', (f) => `${fmt(Math.abs(f.metrics.pvVel), 0)} cm/s`],
     endoscopy: ['endoscope', 'Inspect and band varices; open their wall mechanics.', (f) => (f.metrics.varix.d < 2.5 ? 'No varices' : `Grade ${f.metrics.varix.grade.code}`)],
-    abdomen: ['needle', 'Inspect ascites and drain fluid, with or without albumin.', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],
+    abdomen: ['needle', 'How much fluid, whether it is building up, what a tap shows, and treatment.', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],
   };
   const SHORT = { profile: 'Pressure', scope: 'Over time', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites' };
   const ORDER = ['profile', 'scope', 'doppler', 'endoscopy', 'abdomen'];
