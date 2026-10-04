@@ -403,6 +403,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         for (const [s, r] of items) if (r.right > innerWidth + 1 || r.left < -1 || r.bottom > innerHeight + 1 || r.top < -1) out.push(`${s} is off screen`);
         return out;
       });
+      // The cards slide in: measure where they settle, not where they are on the way.
+      await page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === 'running' && ['panel', 'treatCard', 'dock'].includes(a.effect?.target?.id)), null, { timeout: 5000 });
       let bad = await measure();
       // On a loaded runner a frame can take long enough that the bleed's dock line lands between two checks.
       for (let k = 0; bad.length && k < 4; k++) { await frames(); await page.waitForTimeout(100); bad = await measure(); }

@@ -1787,7 +1787,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (uniq.length === 2 && uniq.every(([, i]) => i != null)) {
         const dir = ([it, i]) => { const P = it.pts, n = P.length, a = i ? P[n - 1] : P[0], b = i ? P[Math.max(0, n - 4)] : P[Math.min(n - 1, 3)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / L, (b[1] - a[1]) / L]; };
         const [u, v] = uniq.map(dir), dot = u[0] * v[0] + u[1] * v[1];
-        fil = 0.3 + 0.7 * clamp((dot + 0.97) / 0.5, 0, 1);
+        fil = clamp((dot + 0.9) / 0.5, 0, 1);
         if (fil < 1) glStraight.push({ a: uniq[0][0].row, ia: uniq[0][1], b: uniq[1][0].row, ib: uniq[1][1] });
       }
       const reach = spread + 2 * rMax + k + 6;
@@ -1867,10 +1867,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const { a, ia, b, ib } of glStraight) {
         const A = byRow.get(a), B = byRow.get(b);
         if (!A?.glR0 || !B?.glR0) continue;
-        const ra = A.glR0[ia ? N_SAMPLES - 1 : 0], rb = B.glR0[ib ? N_SAMPLES - 1 : 0], mid = (ra + rb) / 2;
-        for (const [O, i, r0] of [[A, ia, ra], [B, ib, rb]]) {
-          const R = eased.get(O) || O.glR0.slice(), E = N_SAMPLES >> 1;   // over half the course: a gentle taper, never a flare
-          for (let s = 0; s < E; s++) { const t = 1 - s / E, w = t * t * (3 - 2 * t), j = i ? N_SAMPLES - 1 - s : s; R[j] += (mid - r0) * w; }
+        const ra = A.glR0[ia ? N_SAMPLES - 1 : 0], rb = B.glR0[ib ? N_SAMPLES - 1 : 0];
+        // One smoothstep from A's caliber (half A's course back) to B's (half B's course on), so the
+        // taper runs steadily through the join: no plateau there, which read as a crease.
+        const E = N_SAMPLES >> 1, S = (u) => u * u * (3 - 2 * u);
+        for (const [O, i, side] of [[A, ia, 0], [B, ib, 1]]) {
+          const R = eased.get(O) || O.glR0.slice();
+          for (let s = 0; s < E; s++) {
+            const u = side ? 0.5 + 0.5 * (s / E) : 0.5 - 0.5 * (s / E), j = i ? N_SAMPLES - 1 - s : s;
+            R[j] += side ? (ra - rb) * (1 - S(u)) : (rb - ra) * S(u);
+          }
           eased.set(O, R);
         }
       }
