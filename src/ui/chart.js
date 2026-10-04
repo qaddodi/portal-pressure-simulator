@@ -1,17 +1,17 @@
-// The patient chart: one card, no tabs, read top to bottom like a bedside chart. The orders
-// (drugs · fluids & blood · procedures) are in the Treat card, built here too (treatBody).
+// Findings: one card, no tabs, read top to bottom. The orders (drugs · fluids & blood ·
+// procedures) are in the Treat card, built here too (treatBody).
 //
-//   Scenario summary                     (the patient's name heads the panel)
 //   [step card of a lesson or case]      (rendered by learn.js / cases.js above this)
 //   [Compared with A]                    (when a moment is pinned)
-//   Findings                             what is abnormal, in words, with its cut-off; Why?
+//   Changes                              what has been set: sliders, drugs, shunts, with values
+//   Abnormal results                     what is abnormal, in words, with its cut-off; Why?
 //   (what has happened lives in the timeline's History, under the figure)
 //   Advanced                             physiology knobs (instructor / researcher)
 
 import { store, updateParams } from './store.js?v=9c069d2ebf';
 import { h, fmt, icon, svgIcon, toast } from './util.js?v=d680016625';
 import { DRUGS } from '../engine/scenario.js?v=304cd180db';
-import { TILES, VITALS, readoutValue } from './dock.js?v=ce8d1cf05a';
+import { TILES, VITALS, readoutValue } from './dock.js?v=080b22d1cc';
 import { activeInterventions } from './inspector.js?v=fe8a1a69f1';
 import { verbEnabled, DRUG_NOTE } from './actions.js?v=447ea9cb02';
 
@@ -67,7 +67,8 @@ export function computeFindings(m, hidden) {
 
 export function createChart({ onWhy, flash, onScenarios, action, startShunt, select, timeline, pinned }) {
   let controls = () => [];
-  const open = new Set(JSON.parse(safeGet('pps.chartOpen2') || '["findings","treat","story"]'));
+  const open = new Set(JSON.parse(safeGet('pps.chartOpen2') || '["findings","changes"]'));
+  open.add('changes');
   let live = [];
 
   function safeGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
@@ -80,6 +81,34 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     if (open.has(id)) d.open = true;
     d.addEventListener('toggle', () => { if (d.open) open.add(id); else open.delete(id); remember(); });
     return d;
+  }
+
+  // ── Changes ───────────────────────────────────────
+  // Everything set away from a healthy adult (by a preset, a slider, a drug or a procedure), with
+  // its value; one tap takes a change back.
+  function changes() {
+    const list = h('div', { class: 'chg-list', role: 'list' });
+    const empty = h('p', { class: 'fd-empty' }, 'Nothing changed yet. Move a slider or treat, and it shows here.');
+    const clear = h('button', { class: 'link chg-clear', onclick: () => updateParams((q) => { for (const a of activeInterventions(q)) a.remove(q); return q; }, { label: 'Clear all changes' }) }, 'Clear all');
+    let key = null, count = null;
+    const paint = () => {
+      const active = activeInterventions(store.get().params), k = active.map((a) => a.label).join('|');
+      if (k === key) return;
+      key = k;
+      list.replaceChildren(...active.map((a) => {
+        const m = /^(.*?)\s+([×\d].*)$/.exec(a.label);
+        return h('div', { class: 'chg', role: 'listitem' },
+          h('span', { class: 'chg-n' }, m ? m[1] : a.label), m ? h('span', { class: 'chg-v' }, m[2]) : null,
+          h('button', { class: 'ib chg-x', 'aria-label': `Undo ${a.label}`, title: 'Undo this change', onclick: () => updateParams((q) => { a.remove(q); return q; }, { label: `Remove ${a.label}` }) }, icon('close')));
+      }));
+      empty.hidden = active.length > 0; clear.hidden = !active.length;
+      if (count) { count.textContent = active.length; count.hidden = !active.length; }
+    };
+    live.push(paint);
+    const sec = section('changes', 'Changes', 'sliders', '0', list, empty, clear);
+    count = sec.querySelector('summary .count');
+    count.classList.add('fd-count');
+    return sec;
   }
 
   // ── Findings ──────────────────────────────────────
@@ -113,7 +142,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       if (count && count.textContent !== String(found.length)) { count.textContent = found.length; count.hidden = !found.length; }
     };
     live.push(paint);
-    const sec = section('findings', 'Findings', 'activity', '0', list, empty);
+    const sec = section('findings', 'Abnormal results', 'activity', '0', list, empty);
     count = sec.querySelector('summary .count');
     count.classList.add('fd-count');
     return sec;
@@ -187,12 +216,8 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
   function render(ctl) {
     if (ctl) controls = ctl;
     live = [];
-    const st = store.get();
-    const pr = st.presetList?.find((p) => p.id === st.presetId);
-    // The patient's name heads the panel; the chart opens on what the patient has.
-    const head = pr?.summary ? h('div', { class: 'p-head chart-head' }, h('p', { class: 'chart-sum' }, pr.summary)) : null;
-    // Treat has a card of its own (the Treat button), so the chart keeps to what the patient has.
-    const kids = [head, pinned(), h('div', { class: 'p-body chart-body' }, findings(), advanced())];
+    // Treat has a card of its own (the Treat button), so the chart keeps to what has been done and what it does.
+    const kids = [pinned(), h('div', { class: 'p-body chart-body' }, changes(), findings(), advanced())];
     update(store.get().frame, true);
     return kids;
   }

@@ -495,10 +495,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (!((await page.evaluate(() => window.pps.store.get().frame.t)) > before)) throw new Error('opening instruments paused simulation');
     // A laptop or tablet resizes the card with its divider; a phone's sheet uses its handle instead.
     if (device !== 'phone') { await page.click('.workspace-divider'); await page.keyboard.press('ArrowUp'); }
-    await page.click('.workspace-expand');
-    await page.click('.workspace-compare');
+    await page.evaluate(() => window.pps.timeline.togglePin());
     await page.waitForFunction(() => !!window.pps.store.get().compareSnap);
-    await page.click('.workspace-expand');
     await page.waitForSelector('.workspace-comparison:not([hidden])');
     // One tap on a tab chooses an instrument; each tab carries its live reading.
     if (await page.locator('.instr-tab').count() !== 5) throw new Error('the tabs must offer five distinct instruments');
@@ -516,10 +514,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     }
     await page.evaluate(() => window.pps.dock.show('varixwall', { reveal: true }));
     if (!(await page.$eval('.wall-details', (d) => d.open))) throw new Error('legacy varixwall route does not open mechanics');
-    await page.click('.workspace-expand');
-    await page.waitForFunction(() => document.querySelector('#app').classList.contains('instrument-focus'));
-    // Run and Compare live in the header only while the instrument has the whole screen.
-    await page.click('.workspace-run');
+    await page.evaluate(() => window.pps.host.send({ type: 'run', running: false }));
     await page.waitForFunction(() => !window.pps.store.get().running);
     await page.waitForTimeout(250);
     await settled();
@@ -527,7 +522,6 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (square > 2) throw new Error('endoscopy loses its square aspect ratio');
     await page.$eval('#pane-endoscopy', (el) => { el.scrollTop = 0; });
     await shot(page, `${device}-workspace-endoscopy`);
-    await page.click('.workspace-expand');
     if (device === 'phone') {
       // A phone's instruments are a bottom sheet: no minimise; a drag down on the handle closes them.
       await page.evaluate(() => window.pps.dock.setState('open'));
@@ -536,10 +530,6 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await page.mouse.move(g[0], g[1]); await page.mouse.down(); await page.mouse.move(g[0], (page.viewportSize().height - 4), { steps: 8 }); await page.mouse.up();
       await page.waitForFunction(() => !document.querySelector('#app').classList.contains('dock-open')).catch(async () => { throw new Error('drag down did not close: ' + JSON.stringify(await page.evaluate(() => [document.querySelector('#app').className, document.querySelector('#dock').dataset.state, document.elementFromPoint(195, document.querySelector('#dock .sheet-grab').getBoundingClientRect().y + 9)?.className, document.querySelector('#dock').getBoundingClientRect().height])) + JSON.stringify(g)); });
       await page.evaluate(() => window.pps.dock.show('endoscopy', { reveal: true }));
-    } else {
-      await page.click('.workspace-fold');
-      await page.waitForFunction(() => document.querySelector('#dock').dataset.state === 'peek');
-      await page.click('.workspace-fold');
     }
     if (device === 'phone') {
       await page.setViewportSize({ width: 844, height: 390 });
@@ -548,15 +538,12 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         const dock = document.querySelector('#dock').getBoundingClientRect(), stage = document.querySelector('#stageView').getBoundingClientRect();
         return dock.right <= innerWidth + 1 && stage.height >= 20;
       }, null, { timeout: 10000 }).catch(() => { throw new Error('rotation makes workspace unusable'); });
-      await page.click('.workspace-expand');
       await shot(page, 'phone-workspace-landscape');
-      await page.click('.workspace-expand');
       await page.setViewportSize({ width: 390, height: 844 });
     } else {
       // The patient chart starts closed, so the workspace has the full width for two instruments.
       if (await page.evaluate(() => document.querySelector('#app').classList.contains('panel-open'))) throw new Error('the patient chart should start closed');
-      await page.click('.dock-second');
-      await page.click('.instr-tab[data-instrument="doppler"]');
+      await page.evaluate(() => window.pps.dock.show('doppler', { alongside: true }));
       await page.waitForSelector('#dockBody.split');
       await shot(page, 'desktop-workspace-two-instruments');
       await page.setViewportSize({ width: 768, height: 1024 });

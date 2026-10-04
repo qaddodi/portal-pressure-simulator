@@ -2781,3 +2781,40 @@ input[type="range"] { touch-action: none; }
 @media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
   .readouts:not(.all) .ro-group[data-group="flow"] { display: none; }
 }
+
+/* ── Findings, Treat and Measure: one card ───────────
+   The same head (icon, name, a quiet status, close) and the same way in and out: a short slide
+   from the right on wider screens, up from the bottom edge as a phone sheet; closing reverses it. */
+.card-head.card-head { display: flex; flex-direction: row; align-items: center; gap: 8px; flex: none; height: auto !important; min-height: 52px; padding: 8px 8px 4px 16px !important; border: 0; background: transparent; flex-wrap: nowrap !important; }
+.card-head .card-title { margin: 0; flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; font: 600 var(--fs-16)/1.2 var(--font-ui) !important; color: var(--text); white-space: nowrap; overflow: hidden; cursor: default; padding: 0 !important; }
+.card-head .card-title > svg { flex: none; width: var(--ic-m) !important; height: var(--ic-m) !important; fill: none; stroke: currentColor !important; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; color: var(--text-2); }
+.card-head .card-title .dt-l { font: 500 var(--fs-12) var(--font-ui); color: var(--text-3); overflow: hidden; text-overflow: ellipsis; }
+.card-title .dt-l:empty { display: none; }
+.card-meta, .card-head .workspace-live { flex: 0 1 auto; font: 600 var(--fs-12) var(--font-ui); color: var(--text-3); white-space: nowrap; }
+.card-head .card-close.card-close { display: inline-grid; place-items: center; flex: none; width: 36px; height: 36px; margin: 0; }
+.panel .panel-head { border-radius: var(--r-sheet) var(--r-sheet) 0 0; }
+
+.panel, .treat-card, .instrument-workspace.float-ui { --card-in: cardInRight; --card-out: cardOutRight; --card-t: .22s; }
+@keyframes cardOutRight { to { opacity: 0; transform: translateX(16px); } }
+@keyframes sheetDown { to { transform: translateY(100%); } }
+.panel { transform: none; transition: none; }
+.app.panel-open .panel { visibility: visible; animation: var(--card-in) var(--card-t) var(--ease); }
+.treat-card { animation: var(--card-in) var(--card-t) var(--ease); }
+.instrument-workspace.float-ui.entering, .instrument-workspace.float-ui.side.entering { animation: var(--card-in) var(--card-t) var(--ease); }
+#panel.card-leaving, #treatCard.card-leaving, #dock.card-leaving { display: flex !important; visibility: visible !important; pointer-events: none; animation: var(--card-out) .18s var(--ease) forwards !important; }
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+  .panel, .treat-card, .instrument-workspace.float-ui:not(.side) { --card-in: sheetUp; --card-out: sheetDown; --card-t: .28s; }
+  .panel, .treat-card { transform: none; transition: height .22s var(--ease); }
+  .panel .panel-head { touch-action: none; border-radius: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .app.panel-open .panel, .treat-card, .instrument-workspace.float-ui.entering, #panel.card-leaving, #treatCard.card-leaving, #dock.card-leaving { animation: none !important; } }
+
+/* Findings: what has been changed, with its value; a tap on × takes it back. */
+.chg-list { display: flex; flex-direction: column; }
+.chg { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 2px 0; font-size: var(--fs-14); }
+.chg + .chg { border-top: 1px solid var(--hairline); }
+.chg-n { flex: 1; min-width: 0; color: var(--text); }
+.chg-v { flex: none; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
+.chg .chg-x { flex: none; width: 28px; height: 28px; margin-right: -6px; color: var(--text-3); }
+.chg .chg-x:hover { color: var(--text); }
+.chg-clear { align-self: flex-start; margin: 6px 0 0; padding: 0; font-size: var(--fs-12); text-align: left; }
