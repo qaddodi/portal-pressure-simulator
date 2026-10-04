@@ -6,7 +6,7 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=9c069d2ebf';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=d680016625';
-import { createLobuleZoom } from './lobule-zoom.js?v=1503fb230e';
+import { createLobuleZoom } from './lobule-zoom.js?v=cd44d59bd6';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=3e0076273f';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -1004,15 +1004,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // liver's card, the palette, a presenter step) and cross-fades over the plate.
   let liverBB = null;
   let lobuleOn = false, lobU = 0, lobAnim = 0;
-  // Into the lobule, a dive (1.3 s): one continuous zoom from the spot in the liver, quick to start and
-  // slow to settle. The anatomy is magnified as it stands (a compositor transform: nothing is redrawn),
-  // its surface gives way to a field of lobules, many and small, the zoom goes on through them and
-  // eases onto one, where the lobule view fades in, in place. Out, the same in reverse, quicker.
+  // Into the lobule, a dive (1.6 s): one continuous zoom from a spot in the liver, gentle at both ends.
+  // The anatomy is magnified as it stands (a compositor transform: nothing is redrawn); a field of
+  // lobules, many and small, blooms out from that spot over it; the zoom goes on through them and
+  // settles onto one, where the lobule's tissue fades in, in place, and then its labels and card.
+  // Out, the same in reverse, quicker.
   // The anatomy's own framing is never touched. diveT is the dive's clock, 0 (anatomy) to 1 (lobule).
   let diveAt = null, diveLand = null, diveT = 0;
-  const DIVE_MS = 1300, RISE_MS = 850;
+  const DIVE_MS = 1600, RISE_MS = 1000;
   const RH = 11;   // a lobule's size on screen (px) as the liver's surface gives way to the field
-  const LC = Math.log(4);   // the anatomy's share of the zoom (×4), the field's the rest
+  const LC = Math.log(5);   // the anatomy's share of the zoom (×5), the field's the rest
   const diveEls = () => [svg, wrap.querySelector('#stageOver'), wrap.querySelector('#labels'), vCanvas].filter(Boolean);
   function diveTarget() {
     const lb = liverBox();
@@ -1035,18 +1036,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // where the view frames it.
       if (lz.isShown()) diveLand = lz.current();
       const lt = LC + Math.log(Math.max(RH * 2, diveLand.r) / RH);
-      // Eased out (brisk, then settling); the anatomy's part takes the first two fifths of the way.
-      const u = clamp(t / 0.8, 0, 1), p = 1 - (1 - u) ** 2, P = 0.4;
+      // Eased in and out (smootherstep); the anatomy's part takes the first two fifths of the way.
+      const u = clamp(t / 0.84, 0, 1), p = u * u * u * (u * (u * 6 - 15) + 10), P = 0.4;
       const z = p < P ? LC * p / P : LC + (lt - LC) * (p - P) / (1 - P);
-      setDiveScale(t >= 1 ? 1 : Math.exp(Math.min(z, LC + 0.3)));
+      setDiveScale(t >= 1 ? 1 : Math.exp(Math.min(z, LC + 0.4)));
       const [ox, oy] = diveAt;
       const g = smoothT(LC - 0.5, lt, z);   // the zoom's centre drifts from the dive point to the lobule's place
       lz.setDive(t <= 0 || t >= 1 ? null : {
-        a: smoothT(LC - 0.6, LC + 0.15, z), x: lerp(ox, diveLand.x, g), y: lerp(oy, diveLand.y, g),
-        r: RH * Math.exp(z - LC), ox, oy, quiet: smoothT(0.5, 0.8, t),
+        a: smoothT(LC * 0.45, LC + 0.3, z), x: lerp(ox, diveLand.x, g), y: lerp(oy, diveLand.y, g),
+        r: RH * Math.exp(z - LC), ox, oy, quiet: smoothT(0.55, 0.85, t),
       });
     }
-    lobU = easeInOut(clamp((t - 0.62) / 0.38, 0, 1));
+    lobU = easeInOut(clamp((t - 0.66) / 0.34, 0, 1));
     syncSemantic();
   }
   function setLobule(on) {
@@ -1281,7 +1282,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   store.on('historyTick', () => { patientReady = patientArrived(); });
   store.on('presetLoading', () => { patientReady = patientArrived(); });
   wrap.classList.add('unframed');
-  setTimeout(() => wrap.classList.remove('unframed'), 4000);   // never left hidden
+  // The loading screen (index.html) waits for this: the figure framed, faded in and on screen.
+  let figureShown = false;
+  const showFigure = () => {
+    wrap.classList.remove('unframed');
+    if (figureShown) return;
+    figureShown = true;
+    requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => { window.ppsFigureReady = true; dispatchEvent(new Event('pps:figure-ready')); }, 260)));
+  };
+  setTimeout(showFigure, 4000);   // never left hidden
   function update(f) {
     inUpdate = true;
     try { updateInner(f); } finally { inUpdate = false; }
@@ -1291,7 +1300,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       firstFit = true;
       requestAnimationFrame(() => {
         if (morphTarget === 0 && !userMoved) { vt = homeAt = vtTarget = defaultVT(false); applyVT(); CTM = null; }
-        wrap.classList.remove('unframed');
+        showFigure();
       });
     }
     const now = performance.now();

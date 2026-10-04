@@ -1193,6 +1193,9 @@ export function createLobuleZoom({ host }) {
       const was = fade;
       fade = clamp(u, 0, 1);
       el.style.opacity = fade.toFixed(3);
+      // The tissue first, then its labels and card (and on the way out, those go first).
+      const ch = clamp((fade - 0.55) / 0.45, 0, 1);
+      el.style.setProperty('--lz-chrome', (ch * ch * (3 - 2 * ch)).toFixed(3));
       el.classList.toggle('on', fade > 0.98);
       el.setAttribute('aria-hidden', String(fade < 0.98));
       // Entering: the card opens (on a phone, compact) and the lobule is framed beside it.
