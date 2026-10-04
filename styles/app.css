@@ -170,11 +170,11 @@ svg { flex: none; }
 .lg-cats i { width: 18px; height: 4px; border-radius: 2px; }
 .lg-dots { gap: 10px; }
 .lg-dots span { gap: 5px; }
-.lg-dots i { width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0, 0, 0, .18); }
+.lg-dots i { flex: none; width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0, 0, 0, .18); }
 .lg-dots b { font-weight: 500; }
 @media (max-width: 760px) {
-  /* Five short names in two compact rows, so the key fits beside the Blood button. */
-  .lg-dots { display: grid; grid-template-columns: repeat(3, auto); gap: 1px 7px; font-size: var(--fs-12); line-height: 1.25; }
+  /* Smaller dots on a narrow screen. */
+  .lg-dots { gap: 6px; }
   .lg-dots span { gap: 3px; }
   .lg-dots i { width: 7px; height: 7px; }
 }
@@ -2835,8 +2835,11 @@ input[type="range"] { touch-action: none; }
   .topbar .lens-btn .chev { display: none; }
   .topbar .lens-btn { padding: 0 4px; }
   .topbar .legend { padding: 0; }
-  .topbar .lg-dots { column-gap: 5px; }
-  .topbar .lg-dots span { gap: 3px; }
-  .topbar .lg-dots i { width: 6px; height: 6px; }
-  .topbar #viewSeg button { padding: 6px 6px; }
+  /* The five origins on one row: each name in its own colour, no swatch. */
+  .topbar .lg-dots { display: flex; gap: 4px; line-height: 1; }
+  .topbar .lg-dots i { display: none; }
+  .topbar .lg-dots b { color: var(--c); font-weight: 600; }
+  .topbar #viewSeg button { padding: 6px 5px; }
+  .topbar .lens-btn { padding: 0 3px; }
 }
+@media (max-width: 380px) { .topbar #viewSeg button { padding: 6px 3px; } }

@@ -498,7 +498,7 @@ function renderLegend() {
     el.setAttribute('aria-label', 'Legend: teal is physiological flow direction, orange is reversed');
   } else if (m === 'origin') {
     // Dots and the short names (SMV, IMV, SV, Sys, HA), so the key always fits in the top bar.
-    el.replaceChildren(h('div', { class: 'lg-cats lg-dots' }, ...[0, 1, 2, 4, 3].map((i) => h('span', { title: ORIGINS[i][3] }, h('i', { style: { background: ORIGIN_CSS[i] } }), h('b', {}, ORIGINS[i][2])))));
+    el.replaceChildren(h('div', { class: 'lg-cats lg-dots' }, ...[0, 1, 2, 4, 3].map((i) => h('span', { title: ORIGINS[i][3], style: { '--c': ORIGIN_CSS[i] } }, h('i', { style: { background: ORIGIN_CSS[i] } }), h('b', {}, ORIGINS[i][2])))));
     el.setAttribute('aria-label', 'Legend: blood colored by where it comes from, as streams side by side: amber SMV (with the coronary vein), teal IMV, violet SV (splenic vein), slate blue Sys (systemic), crimson HA (hepatic artery)');
   } else if (m === 'neutral') {
     el.replaceChildren(h('div', { class: 'lg-cats' }, h('span', {}, h('i', { style: { background: 'var(--vein-portal)' } }), 'Portal veins'), h('span', {}, h('i', { style: { background: 'var(--vein-systemic)' } }), 'Systemic veins'),
