@@ -14,7 +14,7 @@ export const LOBE = { pv: 'RPV', sin: 'SIN_R', cv: 'CV_R', hv: 'RHV', q: 'SIN_RR
 
 /** The lobule's state for frame `f` (store state `st` gives the healthy reference and the case). */
 export function lobuleState(f, st) {
-  const S = LOBE, p = f.params || st.params, H = st.healthy;
+  const S = LOBE, p = f.params || f.viewParams || st.params, H = st.healthy;
   const Pn = (id) => f.P[NI[id]], Hn = (id) => H?.P?.[NI[id]];
   const Q = f.Qf || f.Q, Qe = (id) => Q[EI[id]], He = (id) => H?.Q?.[EI[id]];
   const ratio = (id) => { const q = Qe(id), q0 = He(id) || Math.abs(q) || 1; return q / q0; };
@@ -32,6 +32,10 @@ export function lobuleState(f, st) {
   // What the vessel color encodes, as in the anatomy (the lens, a comparison, or a case's neutral view).
   m.mode = m.hide ? 'neutral' : st.compareSnap && st.compareView === 'D' ? 'delta' : st.colorMode;
   const ref = st.compareSnap ? st.compareSnap.P : H?.P;
+  // The reference the labels and the card measure change against: the pinned moment while
+  // comparing (as the anatomy does), otherwise the healthy patient.
+  m.cmp = !!st.compareSnap;
+  m.R = m.cmp ? [S.pv, S.sin, S.cv, S.hv, 'IVCS'].map((id) => ref[NI[id]]) : m.H;
   const dOf = (id) => (ref ? Pn(id) - ref[NI[id]] : 0);
   m.dP = [dOf(S.pv), dOf(S.sin), dOf(S.cv)];
   m.Qs = { pre: Qe(S.pre), sin: Qe(S.q), post: Qe(S.post) };

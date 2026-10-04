@@ -15,6 +15,7 @@ import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.j
 // listed in CUTOFFS below and in About the model: green is normal, amber borderline, red past a
 // clinical threshold, dark red past the highest one where a readout has one. `scale` and `ticks`
 // draw the bar under each value: where the value sits between the cut-offs.
+const vel = (m) => m.pvVelMean ?? m.pvVel;
 export const TILES = [
   { id: 'hvpg', group: 'pressure', k: 'HVPG', title: 'Hepatic venous pressure gradient: wedged − free hepatic venous pressure. Estimates the sinusoidal gradient; normal < 5, clinically significant ≥ 10 mmHg.', why: 'hvpg', v: (m) => m.hvpg, d: 1, u: 'mmHg', hideKey: 'trueHVPG', measured: () => store.get().lastHVPG,
     scale: [0, 25], ticks: [5, 10],
@@ -23,20 +24,22 @@ export const TILES = [
   { id: 'ppg', group: 'pressure', k: 'PPG', title: 'Portosystemic pressure gradient: portal vein − inferior vena cava, measured directly. Unlike HVPG it also includes a block before the liver (presinusoidal or prehepatic). Normal < 6 mmHg.', why: 'ppg', hideKey: 'pv', v: (m) => m.ppg, d: 1, u: 'mmHg',
     scale: [0, 25], ticks: [6],
     st: (v) => (v < 6 ? 'ok' : 'caution'), s: (v) => (v < 6 ? 'Normal' : 'Raised') },
-  { id: 'pv', group: 'pressure', k: 'Portal vein', title: 'Portal vein pressure (absolute). Normal ≤ 10 mmHg.', why: 'pv', v: (m) => m.pv, d: 1, u: 'mmHg', hideKey: 'pv',
+  { id: 'pv', group: 'pressure', k: 'Portal pressure', title: 'Portal vein pressure (absolute). Normal ≤ 10 mmHg.', why: 'pv', v: (m) => m.pv, d: 1, u: 'mmHg', hideKey: 'pv',
     scale: [0, 35], ticks: [10, 15],
     st: (v) => (v <= 10 ? 'ok' : v < 15 ? 'caution' : 'danger'), s: (v) => (v <= 10 ? 'Normal' : v < 15 ? 'Raised' : 'High') },
-  { id: 'pvflow', group: 'flow', k: 'Portal vein', title: 'Portal vein blood flow toward the liver (negative = away from it). Normal ≥ 0.9 L/min at ≥ 12 cm/s.', why: 'pvFlow', v: (m) => m.pvFlow, d: 1, u: 'L/min',
+  // Flow and velocity averaged over a few breaths (pvFlowMean, pvVelMean): breathing swings the
+  // instantaneous velocity across the 12 cm/s cut-off even in a healthy patient.
+  { id: 'pvflow', group: 'flow', k: 'Portal flow', title: 'Portal vein blood flow toward the liver, averaged over a few breaths (negative = away from it). Normal ≥ 0.9 L/min at ≥ 12 cm/s.', why: 'pvFlow', v: (m) => m.pvFlowMean ?? m.pvFlow, d: 1, u: 'L/min',
     scale: [-0.6, 2], ticks: [0, 0.9],
-    st: (v, m) => (v < -0.02 ? 'critical' : Math.abs(m.pvVel) < 5 ? 'danger' : v < 0.9 || Math.abs(m.pvVel) < 12 ? 'caution' : 'ok'),
-    s: (v, m) => (v < -0.02 ? 'Reversed' : Math.abs(m.pvVel) < 5 ? 'Stasis' : v < 0.9 ? 'Reduced' : Math.abs(m.pvVel) < 12 ? 'Slow' : 'Normal') },
+    st: (v, m) => (v < -0.02 ? 'critical' : Math.abs(vel(m)) < 5 ? 'danger' : v < 0.9 || Math.abs(vel(m)) < 12 ? 'caution' : 'ok'),
+    s: (v, m) => (v < -0.02 ? 'Reversed' : Math.abs(vel(m)) < 5 ? 'Stasis' : v < 0.9 ? 'Reduced' : Math.abs(vel(m)) < 12 ? 'Slow' : 'Normal') },
   { id: 'liver', group: 'flow', hideKey: 'model', k: 'Liver', title: 'Total blood flow through the liver sinusoids, % of normal (portal + hepatic artery).', why: 'liverPerf', v: (m) => m.liverPerfPct, d: 0, u: '%',
     scale: [0, 150], ticks: [55, 75],
     st: (v) => (v > 75 ? 'ok' : v > 55 ? 'caution' : 'danger'), s: (v) => (v > 75 ? 'Normal' : v > 55 ? 'Reduced' : 'Low') },
   { id: 'shunt', group: 'flow', k: 'Shunted', why: 'shunt', hideKey: 'model', v: (m) => m.shuntFraction * 100, d: 0, u: '%', title: 'Share of gut and spleen blood that bypasses the liver through collaterals and shunts.',
     scale: [0, 100], ticks: [10, 30, 60],
     st: (v) => (v < 10 ? 'ok' : v < 30 ? 'caution' : v < 60 ? 'danger' : 'critical'), s: (v) => (v < 10 ? 'Minimal' : v < 30 ? 'Moderate' : v < 60 ? 'Large' : 'Most') },
-  { id: 'varix', group: 'effects', k: 'Varix wall', why: 'varix', hideKey: 'model', v: (m) => m.varix.ratio * 100, d: 0, u: '%', ux: ' of rupture', title: 'Esophageal varix wall tension, as a % of the tension at which it ruptures (Laplace: pressure × radius ÷ wall thickness).',
+  { id: 'varix', group: 'effects', k: 'Varix tension', why: 'varix', hideKey: 'model', v: (m) => m.varix.ratio * 100, d: 0, u: '%', ux: ' of rupture', title: 'Esophageal varix wall tension, as a % of the tension at which it ruptures (Laplace: pressure × radius ÷ wall thickness).',
     scale: [0, 100], ticks: [40, 70, 90],
     st: (v, m) => (m.varix.ratio >= 0.9 ? 'critical' : m.varix.ratio >= 0.7 ? 'danger' : m.varix.ratio >= 0.4 || m.varix.d >= 5 ? 'caution' : 'ok'),
     s: (v, m) => (m.varix.d < 2.5 ? 'None' : m.varix.redWale ? 'Red wale signs' : { F1: 'Small (F1)', F2: 'Large (F2)', F3: 'Coiled (F3)' }[m.varix.grade.code]) },
@@ -48,7 +51,7 @@ export const TILES = [
     st: (v) => (v <= 13 ? 'ok' : v <= 16 ? 'caution' : 'danger'), s: (v) => (v <= 13 ? 'Normal' : v <= 16 ? 'Enlarged' : 'Large') },
 ];
 // A group whose readouts share a unit names it once, in its caption, so the tiles stay narrow.
-export const GROUPS = [['pressure', 'Pressure', 'mmHg'], ['flow', 'Flow'], ['effects', 'Consequences']];
+export const GROUPS = [['pressure', 'Pressure'], ['flow', 'Flow'], ['effects', 'Consequences']];
 // The cut-offs behind each status, as About the model lists them: [readout, normal, amber, red, dark red].
 export const CUTOFFS = [
   ['HVPG (wedged − free)', '< 5 mmHg', '5–9 (subclinical)', '≥ 10 (CSPH in cirrhosis)', '—'],
@@ -72,7 +75,8 @@ export const VITALS = [
 ];
 
 // The key readouts: the only ones on a phone until the strip is expanded.
-export const PRIMARY = new Set(['hvpg', 'pv', 'pvflow', 'varix']);
+// One per question: how high is the pressure, where does the blood go, what has it done.
+export const PRIMARY = new Set(['hvpg', 'pvflow', 'varix', 'ascites']);
 
 // A trend arrow marks a sustained change (over TREND_S seconds, larger than TREND_FRAC of the
 // bar's range), so the heartbeat and breathing never make it flicker.
@@ -102,10 +106,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     tileEls[t.id] = { el, t, val, tr, st, cmp, fill, hist: [], sev: null, trend: '', ariaTxt: '' };
     return el;
   }
-  for (const [g, label, unit] of GROUPS) {
+  for (const [g, label] of GROUPS) {
     const ts = TILES.filter((t) => t.group === g);
     row.append(h('div', { class: 'ro-group', 'data-group': g, role: 'group', 'aria-label': label },
-      h('span', { class: 'ro-cap', 'aria-hidden': 'true' }, label, unit ? h('span', { class: 'ro-unit' }, ` · ${unit}`) : null), h('div', { class: 'ro-tiles' }, ts.map((t) => tile(t, !!unit)))));
+      h('span', { class: 'ro-cap', 'aria-hidden': 'true' }, label), h('div', { class: 'ro-tiles' }, ts.map((t) => tile(t, false)))));
   }
   const vitEls = VITALS.map((v) => {
     const val = h('b', {}, '—');
@@ -162,7 +166,6 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         x.fill.style.left = Math.min(w, o) + '%'; x.fill.style.width = Math.abs(w - o) + '%';
       }
       el.classList.toggle('hidden-val', v == null);
-      if (x.st.textContent !== s) x.st.textContent = s;
       const trend = v == null || measured ? '' : trendOf(x, v, now);
       if (trend !== x.trend) { x.trend = trend; x.tr.textContent = trend === 'up' ? '▲' : trend === 'down' ? '▼' : ''; }
       // Compare: each tile reports its change from the pinned moment in place of the status word.
@@ -173,12 +176,18 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         x.cmp.className = 'cmp ' + (same ? 'same' : d > 0 ? 'up' : 'down');
         x.st.hidden = true;
       } else if (x.cmp.textContent) { x.cmp.textContent = ''; x.st.hidden = false; }
+      // A new band must hold for a moment before the tile takes it, so a value hovering on a
+      // cut-off does not flicker between two colors.
       if (sev !== x.sev) {
-        // A value crossing into a worse band flashes once, so a change is noticed without every number on screen.
-        const RANKS = { none: -1, ok: 0, caution: 1, danger: 2, critical: 3 };
-        if (x.sev && RANKS[sev] > RANKS[x.sev]) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
-        el.dataset.sev = sev; x.sev = sev;
-      }
+        if (x.sevNext !== sev) { x.sevNext = sev; x.sevSince = now; }
+        if (!x.sev || sev === 'none' || now - x.sevSince > 1500) {
+          // A value crossing into a worse band flashes once, so a change is noticed without every number on screen.
+          const RANKS = { none: -1, ok: 0, caution: 1, danger: 2, critical: 3 };
+          if (x.sev && RANKS[sev] > RANKS[x.sev]) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+          el.dataset.sev = sev; x.sev = sev;
+        }
+      } else x.sevNext = null;
+      if (sev === x.sev && x.st.textContent !== s) x.st.textContent = s;
       const aria = `${t.title || t.k}: ${v == null ? 'not measured' : `${fmt(v, t.d)} ${t.u}${t.ux || ''}, ${s}`}${x.trend ? `, ${x.trend === 'up' ? 'rising' : 'falling'}` : ''}`;
       if (aria !== x.ariaTxt) { x.ariaTxt = aria; el.setAttribute('aria-label', aria); }
     }

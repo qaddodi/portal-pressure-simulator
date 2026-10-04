@@ -4,8 +4,8 @@
 
 import { store } from './store.js?v=f9424489c6';
 import { h, svgIcon, icon } from './util.js?v=fe164f31f1';
-import { LESSONS } from './learn.js?v=4dc71233b5';
-import { CASES } from './cases.js?v=06529aed46';
+import { LESSONS } from './learn.js?v=a33d169cd1';
+import { CASES } from './cases.js?v=448b6139e7';
 import { t } from '../i18n/i18n.js?v=1ad6d8253b';
 import { exportCSV, exportXAPI, learnerName, setLearnerName, records } from './records.js?v=26ab8fb634';
 import { SNAPSHOTS, PATH } from './snapshots.js?v=85ffc8d0f9';

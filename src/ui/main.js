@@ -1,24 +1,24 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=d292ccefe8';
+import { startHost, host } from './host.js?v=7d1803441f';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=f9424489c6';
-import { createStage } from './stage.js?v=88805ca65d';
+import { createStage } from './stage.js?v=ce9af54123';
 import { createInspector } from './inspector.js?v=208b6a3592';
-import { createDock, CUTOFFS } from './dock.js?v=24f309245b';
-import { createWhy } from './why.js?v=bf0f24a7a5';
-import { createTimeline } from './timeline.js?v=7bf66ab2fb';
-import { createLearn } from './learn.js?v=4dc71233b5';
-import { createCases } from './cases.js?v=06529aed46';
+import { createDock, CUTOFFS } from './dock.js?v=55c8d8a23f';
+import { createWhy } from './why.js?v=89054dcfbc';
+import { createTimeline } from './timeline.js?v=04b45ec66b';
+import { createLearn } from './learn.js?v=a33d169cd1';
+import { createCases } from './cases.js?v=448b6139e7';
 import { createCompare } from './compare.js?v=730844b101';
-import { createCard } from './card.js?v=f82fd2404c';
-import { createChart, computeFindings } from './chart.js?v=8e9f59198b';
-import { createHome } from './home.js?v=14648d4f71';
+import { createCard } from './card.js?v=b7d3bd74ed';
+import { createChart, computeFindings } from './chart.js?v=a83c869f10';
+import { createHome } from './home.js?v=7c19142846';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=e7e5c98a1c';
 import { startLMS } from './lms.js?v=4511ed56b8';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=34bad803fc';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=7739e2b27e';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=29d10ad9ef';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon } from './util.js?v=fe164f31f1';
@@ -140,7 +140,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=beab375cfb'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=4ecf2f9e16'), ({ createPalette }) => createPalette({ ctx: {
     select: (sel) => store.set({ selection: sel }), action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -605,6 +605,8 @@ function renderBanner() {
     })));
   }
   el.replaceChildren(...kids);
+  // The switch's height, for views that place their own controls under it (the lobule's).
+  app.style.setProperty('--cmp-h', s0.compareSnap ? `${$('#stageCenter').offsetHeight + 8}px` : '0px');
   const bar = $('#sessionBar');
   const inSession = bannerInfo && (s0.mode === 'learn' || s0.mode === 'cases');
   bar.hidden = !inSession;

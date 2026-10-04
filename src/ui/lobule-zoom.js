@@ -21,8 +21,8 @@
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
 import { store, updateParams } from './store.js?v=f9424489c6';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=913fe4fa3c';
-import { verbEnabled } from './actions.js?v=34bad803fc';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=bf0ab9ee15';
+import { verbEnabled } from './actions.js?v=7739e2b27e';
 import { h, s, fmt, clamp, svgIcon } from './util.js?v=fe164f31f1';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
@@ -108,6 +108,8 @@ export function createLobuleZoom({ host }) {
   zonesBtn.classList.add('zones'); lymphBtn.classList.add('lymph');
 
   const ladder = h('div', { class: 'lz-ladder' });
+  // A phone shows the ladder as its numbers, in the pressure's colour, with the change beneath.
+  const nums = h('div', { class: 'lz-nums' });
   const verdict = h('p', { class: 'lz-verdict' });
   const stats = h('dl', { class: 'lz-stats' });
   // Cirrhosis, here as on the liver's card (fibrosis by zone is on the triad, sinusoid and central vein cards).
@@ -129,7 +131,7 @@ export function createLobuleZoom({ host }) {
   const more = h('button', { class: 'lz-more', 'aria-expanded': 'true', title: 'Show or hide the details' }, h('span', { class: 'lz-more-l' }, 'Details'), svgIcon('chev-down', 'lz-chev'));
   const grab = h('span', { class: 'lz-grab', 'aria-hidden': 'true' });
   const head = h('div', { class: 'lz-head' }, grab, h('div', {}, h('div', { class: 'lz-title' }, 'Hepatic lobule'), sub), more);
-  const side = h('div', { class: 'lz-side open' }, head, ladder, verdict, cirBox, stats);
+  const side = h('div', { class: 'lz-side open' }, head, ladder, nums, verdict, cirBox, stats);
   const phoneMQ = matchMedia('(max-width: 720px)');
   const setOpen = (o) => { side.classList.toggle('open', o); more.setAttribute('aria-expanded', String(o)); if (!o) side.scrollTop = 0; requestAnimationFrame(refit); };
   more.addEventListener('click', () => setOpen(!side.classList.contains('open')));
@@ -169,11 +171,14 @@ export function createLobuleZoom({ host }) {
   function freeRect() {
     const W = geo.W, H = geo.H, phone = phoneMQ.matches;
     const top = el.querySelector('.lz-top');
-    let t = cssN('--top-safe') + (top ? top.offsetHeight + 16 : 8), b = H - (cssN('--bot-occ') || 100) - 8, l = 12, r = W - cssN('--right-occ') - 12;
+    let t = cssN('--top-safe') + cssN('--cmp-h') + (top ? top.offsetHeight + 16 : 8), b = H - (cssN('--bot-occ') || 100) - 8, l = 12, r = W - cssN('--right-occ') - 12;
     // The card's layout box (offsetLeft/Top ignore the grow-in transform).
     if (!side.hidden && side.offsetWidth) { if (phone) b = Math.min(b, side.offsetTop - 10); else r = Math.min(r, side.offsetLeft - 16); }
     // The key: above the lobule on a phone, under it (bottom left) on a wider screen.
     if (key.offsetHeight) { if (phone) t += key.offsetHeight + 4; else b = Math.min(b, key.offsetTop - 8); }
+    // A phone's zoom buttons sit top right, beside the switches, and can be the taller of the two.
+    const zp = phone && document.querySelector('.stage-view.in-lobule .zoom-pill');
+    if (zp?.offsetHeight) t = Math.max(t, zp.getBoundingClientRect().bottom - el.getBoundingClientRect().top + 12);
     return { l, t, r: Math.max(l + 80, r), b: Math.max(t + 80, b) };
   }
   // The lobule and its labels' places, in world units.
@@ -314,6 +319,8 @@ export function createLobuleZoom({ host }) {
     return selIdsC;
   }
   store.on('selection', () => { attrKey = ''; tissueKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); });
+  // Pinning a moment puts the Then / Now / Change switch over the top: the lobule frames itself below it.
+  store.on('compareSnap', () => requestAnimationFrame(() => { if (geo && fade > 0) { layoutKey = ''; refit(); } }));
 
   // ── State ──
   let F = null, fade = 0, raf = 0, last = 0, lastPaint = 0;
@@ -496,7 +503,7 @@ export function createLobuleZoom({ host }) {
     const m = model;
     sub.textContent = 'Live from the model';
     // The pressure ladder: where along the lobule the pressure is lost, against the healthy ladder.
-    const P = [m.P1, m.P2, m.P3, m.P4, m.P5], P0 = m.H, names = ['Portal venule', 'Sinusoids', 'Central vein', 'Hepatic vein', 'IVC'], short = ['PV', 'Sin', 'CV', 'HV', 'IVC'];
+    const P = [m.P1, m.P2, m.P3, m.P4, m.P5], P0 = m.H, R = m.R, names = ['Portal venule', 'Sinusoids', 'Central vein', 'Hepatic vein', 'IVC'], short = ['PV', 'Sin', 'CV', 'HV', 'IVC'];
     const drops = [0, 1, 2, 3].map((i) => P[i] - P[i + 1]), drops0 = [0, 1, 2, 3].map((i) => (P0[i] ?? P[i]) - (P0[i + 1] ?? P[i + 1]));
     const excess = drops.map((d, i) => d - drops0[i]);
     const tot = P[0] - P[4], tot0 = (P0[0] ?? P[0]) - (P0[4] ?? P[4]);
@@ -506,7 +513,7 @@ export function createLobuleZoom({ host }) {
     if (excess[k] < 1.5 && !lifted) k = -1;
     const segNames = ['pre-sinusoidal', 'sinusoidal', 'post-sinusoidal', 'outflow'];
     const Wd = 232, Hd = 104, x0 = 14, x1 = Wd - 14, y0 = 12, y1 = Hd - 26;
-    const top = Math.max(15, ...P, ...P0.filter((v) => v != null)) * 1.08;
+    const top = Math.max(15, ...P, ...P0.filter((v) => v != null), ...R.filter((v) => v != null)) * 1.08;
     const X = (i) => x0 + ((x1 - x0) * i) / 4, Y = (v) => y1 - ((y1 - y0) * clamp(v, 0, top)) / top;
     const svg = s('svg', { viewBox: `0 0 ${Wd} ${Hd}`, class: 'lz-lad', role: 'img', 'aria-label': m.hide ? 'Pressure ladder: not measured' : 'Pressure ladder: ' + names.map((n, i) => `${n} ${fmt(P[i], 1)}`).join(', ') + ' mmHg' });
     for (let i = 0; i < 4; i++) {
@@ -514,7 +521,11 @@ export function createLobuleZoom({ host }) {
       svg.append(s('rect', { x: X(i) + 2, y: y1 + 6, width: X(i + 1) - X(i) - 4, height: 4, rx: 2, class: 'lz-seg' + (on ? ' on' : '') }));
     }
     if (!m.hide) {
-      if (P0.every((v) => v != null)) svg.append(s('polyline', { points: P0.map((v, i) => `${X(i)},${Y(v)}`).join(' '), class: 'lz-lad0' }));
+      // The dotted ladder is the reference: the pinned moment while comparing, else the healthy patient.
+      if (R.every((v) => v != null)) {
+        svg.append(s('polyline', { points: R.map((v, i) => `${X(i)},${Y(v)}`).join(' '), class: 'lz-lad0' }));
+        const t = s('text', { x: x1, y: 8, class: 'lz-ladN', 'text-anchor': 'end' }); t.textContent = `┄ ${m.cmp ? 'then' : 'healthy'}`; svg.append(t);
+      }
       svg.append(s('polyline', { points: P.map((v, i) => `${X(i)},${Y(v)}`).join(' '), class: 'lz-lad1' }));
       P.forEach((v, i) => {
         svg.append(s('circle', { cx: X(i), cy: Y(v), r: 4.2, fill: pc(v), class: 'lz-ladDot' }));
@@ -523,6 +534,13 @@ export function createLobuleZoom({ host }) {
     }
     short.forEach((n, i) => { const t = s('text', { x: X(i), y: Hd - 4, class: 'lz-ladN', 'text-anchor': 'middle' }); t.textContent = n; svg.append(t); });
     ladder.replaceChildren(svg);
+    const dTxt = (d, dec = 0) => `${d > 0 ? '▲' : '▼'} ${fmt(Math.abs(d), dec)}`;
+    nums.replaceChildren(...short.map((n, i) => {
+      const v = P[i], d = R[i] != null ? v - R[i] : 0, show = !m.hide && Math.abs(d) >= (m.cmp ? 1 : 2);
+      return h('div', { class: 'lz-num', style: { '--c': m.hide ? 'var(--text-3)' : pc(v) } }, h('span', { class: 'k' }, n), h('b', {}, m.hide ? '?' : fmt(v, 0)),
+        h('span', { class: 'd ' + (show ? (d > 0 ? 'up' : 'down') : 'same') }, show ? dTxt(d) : m.cmp ? 'same' : '·'));
+    }));
+    nums.setAttribute('aria-label', m.hide ? 'Pressures: not measured' : 'Pressures in mmHg: ' + names.map((n, i) => `${n} ${fmt(P[i], 0)}`).join(', '));
     const dropTxt = k >= 0 ? `${fmt(drops[k], 1)} mmHg lost ${['before the sinusoids', 'across the sinusoids', 'at the central veins', 'beyond the lobule'][k]} (normal ${fmt(drops0[k], 1)}).` : '';
     const why = m.hide ? 'Pressures are not measured in this case: the lobule shows anatomy and flow only.'
       : k === 0 ? 'The block is pre-sinusoidal (portal tract): portal pressure is high, but the wedged pressure, and so HVPG, stays near normal.'
@@ -534,12 +552,15 @@ export function createLobuleZoom({ host }) {
     verdict.className = 'lz-verdict' + (k >= 0 || lifted ? ' alert' : '');
     verdict.dataset.seg = k >= 0 ? segNames[k] : lifted ? 'outflow' : 'none';
     const pct = (v) => `${Math.round(v * 100)} %`;
+    // While comparing, each figure carries its change since then.
+    const st = store.get(), snap = st.compareSnap, T = snap?.frame ? lobuleState(snap.frame, { ...st, compareSnap: null }) : null;
+    const chg = (now, then, dec, min) => (T && then != null && Math.abs(now - then) >= min ? h('span', { class: 'lz-chg ' + (now > then ? 'up' : 'down') }, `${now > then ? '+' : '−'}${fmt(Math.abs(now - then), dec)}`) : null);
     stats.replaceChildren(
-      h('dt', {}, 'Sinusoidal flow'), h('dd', {}, pct(m.flow)),
-      h('dt', {}, 'Portal inflow'), h('dd', { class: m.portal < 0 ? 'rev' : '' }, m.portal < 0 ? 'Reversed' : pct(m.portal)),
-      h('dt', {}, 'Arterial inflow'), h('dd', {}, pct(m.art)),
-      h('dt', {}, 'HVPG'), h('dd', {}, m.hide || m.hvpg == null ? '?' : `${fmt(m.hvpg, 1)} mmHg`),
-      h('dt', {}, 'Hepatic lymph'), h('dd', {}, `${fmt(m.lymph, 1)} mL/min`));
+      h('dt', {}, 'Sinusoidal flow'), h('dd', {}, chg(m.flow * 100, T && T.flow * 100, 0, 1), pct(m.flow)),
+      h('dt', {}, 'Portal inflow'), h('dd', { class: m.portal < 0 ? 'rev' : '' }, chg(m.portal * 100, T && T.portal * 100, 0, 1), m.portal < 0 ? 'Reversed' : pct(m.portal)),
+      h('dt', {}, 'Arterial inflow'), h('dd', {}, chg(m.art * 100, T && T.art * 100, 0, 1), pct(m.art)),
+      h('dt', {}, 'HVPG'), h('dd', {}, m.hide ? null : chg(m.hvpg ?? 0, T?.hvpg, 1, 0.1), m.hide || m.hvpg == null ? '?' : `${fmt(m.hvpg, 1)} mmHg`),
+      h('dt', {}, 'Hepatic lymph'), h('dd', {}, chg(m.lymph, T?.lymph, 1, 0.1), `${fmt(m.lymph, 1)} mL/min`));
     const items = [['lg-pv', 'Portal venule', { background: ink('pv') }], ['lg-ha', 'Hepatic arteriole'], ['lg-bd', 'Bile ductule'], ['lg-cv', 'Central vein', { background: ink('cv') }]];
     if (m.septU > 0 || m.fibPre > 0.05 || m.fibSin > 0.05 || m.fibPost > 0.05) items.push(['lg-col', 'Collagen']);
     if (m.act > 0.08) items.push(['lg-hsc', 'Stellate cell']);
@@ -548,15 +569,23 @@ export function createLobuleZoom({ host }) {
     tissue.setAttribute('aria-label', m.hide ? 'Liver lobule. Pressures not measured.'
       : `Liver lobule: portal venule ${fmt(m.P1, 1)}, sinusoids ${fmt(m.P2, 1)}, central venule ${fmt(m.P3, 1)} millimeters of mercury; sinusoidal flow ${Math.round(m.flow * 100)} percent of normal. ${why}`);
     // Station cards on the figure.
-    // Labels as in the anatomy: the station, its pressure, and the change from healthy once it reaches 5 mmHg.
-    const mv = (v, h0) => (m.hide ? ['?', '', '', null] : [fmt(v, 1), 'mmHg', h0 != null && Math.abs(v - h0) >= 5 ? `${v > h0 ? '▲' : '▼'} ${Math.round(Math.abs(v - h0))}` : '', pc(v)]);
-    setLab('triad', 'Portal venule', 'Portal venule', ...mv(m.P1, m.H[0]));
-    setLab('sin', 'Sinusoids', 'Sinusoids', ...mv(m.P2, m.H[1]));
-    setLab('cv', 'Central venule', 'Central venule', ...mv(m.P3, m.H[2]));
+    // Labels as in the anatomy: the station, its pressure, and the change from healthy once it reaches
+    // 5 mmHg; while comparing, every change from the pinned moment (shown at 1, dropped below 0.7).
+    // In the Change view the bar takes the change's colour, as the vessels do.
+    const mv = (key, v, r) => {
+      if (m.hide) return ['?', '', '', null];
+      const d = r != null ? v - r : 0, on = m.cmp ? 1 : 5, off = m.cmp ? 0.7 : 4;
+      const shown = Math.abs(d) >= on || (badges[key] === m.cmp && Math.abs(d) >= off);
+      badges[key] = shown ? m.cmp : null;
+      return [fmt(v, 1), 'mmHg', shown ? `${d > 0 ? '▲' : '▼'} ${fmt(Math.abs(d), 0)}` : '', m.mode === 'delta' ? deltaColor(qP(d)) : pc(v)];
+    };
+    setLab('triad', 'Portal venule', 'Portal venule', ...mv('triad', m.P1, m.R[0]));
+    setLab('sin', 'Sinusoids', 'Sinusoids', ...mv('sin', m.P2, m.R[1]));
+    setLab('cv', 'Central venule', 'Central venule', ...mv('cv', m.P3, m.R[2]));
   }
 
   // ── Station labels (HTML, styled as the anatomy's) with leaders ──
-  const labs = {};
+  const labs = {}, badges = {};
   function setLab(key, name, short, v, u, d, col) {
     let L = labs[key];
     if (!L) {
@@ -570,7 +599,7 @@ export function createLobuleZoom({ host }) {
       L.el.style.setProperty('--sw', col || 'var(--border-strong)');
       L.el.replaceChildren(h('span', { class: 'n' }, h('span', { class: 'n-long' }, name), h('span', { class: 'n-short' }, short)),
         h('span', { class: 'v' }, h('b', {}, v), u ? h('small', {}, u) : null, d ? h('span', { class: 'd' }, d) : null));
-      L.el.setAttribute('aria-label', `${name} ${v} ${u}${d ? `, ${d.slice(2)} from healthy` : ''}. Show details`);
+      L.el.setAttribute('aria-label', `${name} ${v} ${u}${d ? `, ${d.startsWith('▲') ? 'up' : 'down'} ${d.slice(2)} ${model?.cmp ? 'since then' : 'from healthy'}` : ''}. Show details`);
       layoutKey = '';
     }
   }
