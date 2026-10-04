@@ -15,6 +15,11 @@
   buttons step aside under a card sheet; the patient name gets the room in the top bar.
 - **Graphics.** Vessels whose pressure moved glow briefly after a change; ascites shows as a visible pool sooner; softer moving-blood sheen; a light rim on vessels in
   dark mode; quieter stellate cells and septa in the lobule.
+- **Zoom stays where you put it.** The spring-back only pulls the view back when its middle has left the figure, so
+  zooming into the spleen or a collateral holds. A pinch or pan that starts on a pressure label now works (the labels
+  used to swallow the first finger on a phone); a tap on a label still opens it.
+- **Lobule.** On a phone the labels keep clear of the zoom buttons. The zones are named inside their bands, in quiet
+  capitals in each zone's color, instead of chips.
 - **Play bar.** The clock sits by the track, speed looks like a control, Compare is an icon, events stand on the track.
 
 - **Circuit: the liver's titles open cards.** In the circuit, the LIVER and HEART column titles are

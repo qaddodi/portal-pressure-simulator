@@ -6,7 +6,7 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=9c069d2ebf';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=d680016625';
-import { createLobuleZoom } from './lobule-zoom.js?v=6fc30ee1cb';
+import { createLobuleZoom } from './lobule-zoom.js?v=e185044f3b';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=dbd6a6238d';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -3269,10 +3269,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const [cx, cy] = freeCentre(), [vx, vy] = clientToVB(cx, cy);
       to = { k, x: vx - ((vx - vt.x) / vt.k) * k, y: vy - ((vy - vt.y) / vt.k) * k };
     }
+    // Lost means the middle of the view has left the figure: only then is it pulled back, and only as far as the
+    // figure's edge. Zoomed in on any part (the spleen, a collateral), the view stays exactly where it was put.
     const c = morphTarget === 1 ? circVB() : VB_ANAT, vis = visibleVB();
-    const mx = (c[0] + c[2] / 2) * to.k + to.x, my = (c[1] + c[3] / 2) * to.k + to.y;
-    const nx = clamp(mx, vis.x + vis.w * 0.1, vis.x + vis.w * 0.9), ny = clamp(my, vis.y + vis.h * 0.1, vis.y + vis.h * 0.9);
-    to.x += nx - mx; to.y += ny - my;
+    const x0 = c[0] * to.k + to.x, x1 = (c[0] + c[2]) * to.k + to.x, y0 = c[1] * to.k + to.y, y1 = (c[1] + c[3]) * to.k + to.y;
+    const vx = vis.x + vis.w / 2, vy = vis.y + vis.h / 2;
+    to.x += vx < x0 ? vx - x0 : vx > x1 ? vx - x1 : 0;
+    to.y += vy < y0 ? vy - y0 : vy > y1 ? vy - y1 : 0;
     if (!sameView(to, vt)) animateVT(to, 380);
   }
   // A flick keeps the figure moving and slows it down, as a map does.
@@ -3312,7 +3315,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   let pressT = 0, lastTap = null;
   const clearPress = () => { clearTimeout(pressT); pressT = 0; };
-  svg.addEventListener('pointerdown', (ev) => {
+  // A finger (or the mouse) that lands on a label starts the same gesture as one on the figure: the labels cover
+  // much of a phone's figure, and a pinch that began on one used to go unnoticed. A tap on a label still opens it.
+  labelSvg.addEventListener('pointerdown', (ev) => { const lb = ev.target.closest?.('.lb'); if (lb) onDown(ev, lb); });
+  svg.addEventListener('pointerdown', (ev) => onDown(ev, null));
+  function onDown(ev, label) {
     // The first finger of a new gesture: nothing else can still be down.
     if (ev.isPrimary) pointers.clear();
     pointers.set(ev.pointerId, [ev.clientX, ev.clientY]);
@@ -3327,9 +3334,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return;
     }
     if (ev.button === 2) return;   // the context menu opens the card instead
-    drag = startPan(ev.clientX, ev.clientY, edgeFromEvent(ev));
+    drag = startPan(ev.clientX, ev.clientY, label ? null : edgeFromEvent(ev));
+    drag.label = label;
     wrap.classList.add('panning');
-    if (ev.pointerType === 'touch' && !shunt) {
+    if (ev.pointerType === 'touch' && !shunt && !label) {
       const d = drag, x = ev.clientX, y = ev.clientY;
       pressT = setTimeout(() => {
         if (drag !== d || d.moved || pointers.size !== 1) return;
@@ -3341,7 +3349,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         navigator.vibrate?.(8);
       }, 480);
     }
-  });
+  }
   svg.addEventListener('pointermove', (ev) => {
     if (!pointers.has(ev.pointerId)) return;
     pointers.set(ev.pointerId, [ev.clientX, ev.clientY]);
@@ -3407,6 +3415,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           return;
         }
         lastTap = { t: now, x: ev.clientX, y: ev.clientY, sel: store.get().selection };
+        if (d.label) { d.label.dispatchEvent(new MouseEvent('click', { bubbles: true })); return; }
         pick(d.id, ev);
         return;
       }

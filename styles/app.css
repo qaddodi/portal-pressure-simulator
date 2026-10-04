@@ -1539,9 +1539,15 @@ button.finding:hover { background: var(--surface-2); }
 .lz-lab small { font-size: 10px; font-weight: 500; color: var(--text-3); }
 .lz-lab[hidden] { display: none; }
 .lz-lab:hover, .lz-lab:focus-visible { border-color: var(--accent); outline: none; }
-.lz-zone { position: absolute; transform: translate(-50%, -50%); padding: 2px 8px; border-radius: var(--r-pill); background: var(--glass); border: 1px solid var(--hairline); font: 500 calc(12px * var(--label-k, 1)) var(--font-ui); color: var(--text-2); white-space: nowrap; box-shadow: 0 1px 1.5px rgba(20, 22, 30, .1); }
-.lz-zone b { font-weight: 600; color: var(--text); }
-.lz-zone.z1 b { color: rgb(200, 72, 52); } .lz-zone.z2 b { color: rgb(170, 116, 40); } .lz-zone.z3 b { color: rgb(104, 78, 196); }
+/* Zone names: no chip, just letters in the band, as the organs are named (small capitals on a soft halo). */
+.lz-zone { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 0; pointer-events: none; white-space: nowrap; line-height: 1.15;
+  font: 650 calc(10px * var(--label-k, 1)) var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--zc); opacity: .85;
+  text-shadow: 0 0 3px var(--label-halo), 0 0 6px var(--label-halo); }
+.lz-zone b { font-weight: 700; }
+.lz-zone span { font-size: calc(8.5px * var(--label-k, 1)); font-weight: 600; letter-spacing: .08em; opacity: .8; }
+.lz-zone.z1 { --zc: rgb(186, 66, 48); } .lz-zone.z2 { --zc: rgb(150, 100, 32); } .lz-zone.z3 { --zc: rgb(96, 72, 182); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lz-zone.z1 { --zc: rgb(246, 140, 120); } :root:not([data-theme="light"]) .lz-zone.z2 { --zc: rgb(232, 186, 112); } :root:not([data-theme="light"]) .lz-zone.z3 { --zc: rgb(170, 150, 246); } }
+:root[data-theme="dark"] .lz-zone.z1 { --zc: rgb(246, 140, 120); } :root[data-theme="dark"] .lz-zone.z2 { --zc: rgb(232, 186, 112); } :root[data-theme="dark"] .lz-zone.z3 { --zc: rgb(170, 150, 246); }
 .lz-top { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; }
 .lz-tgs { display: flex; gap: 4px; padding: 3px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-pill); box-shadow: var(--shadow-1); }
 .lz-tg { display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; font: 500 var(--fs-12) var(--font-ui); color: var(--text-2); padding: 4px 10px; border-radius: var(--r-pill); cursor: pointer; }

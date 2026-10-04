@@ -172,6 +172,12 @@ export function createLobuleZoom({ host }) {
     if (!side.hidden && side.offsetWidth) { if (phone) b = Math.min(b, side.offsetTop - 10); else r = Math.min(r, side.offsetLeft - 16); }
     // The key: above the lobule on a phone, under it (bottom left) on a wider screen.
     if (key.offsetHeight) { if (phone) t += key.offsetHeight + 4; else b = Math.min(b, key.offsetTop - 8); }
+    // The zoom buttons: on a phone they sit top right beside the Zones and Lymph switches, so the labels start below them.
+    const zp = phone && document.getElementById('zoomPill');
+    if (zp && zp.offsetHeight) {
+      const hr = el.getBoundingClientRect(), q = zp.getBoundingClientRect();
+      if (q.top - hr.top < H / 2) t = Math.max(t, q.bottom - hr.top + 14);
+    }
     return { l, t, r: Math.max(l + 80, r), b: Math.max(t + 80, b) };
   }
   // The lobule and its labels' places, in world units.
@@ -608,12 +614,13 @@ export function createLobuleZoom({ host }) {
       L.line.setAttribute('x1', a[0]); L.line.setAttribute('y1', a[1]); L.line.setAttribute('x2', ex); L.line.setAttribute('y2', y);
       L.dotEl.setAttribute('cx', a[0]); L.dotEl.setAttribute('cy', a[1]);
     }
-    // Zone chips along the radius to the lower-left edge.
+    // Zone names written in the bands themselves, as the organs are named on the anatomy: quiet capitals in each
+    // zone's color, on the radius to the flat bottom edge, so each name runs along its band.
     labels.querySelectorAll('.lz-zone').forEach((z) => z.remove());
     if (zonesOn) {
-      const a = (2 * Math.PI) / 3 + Math.PI / 6, ap = R * 0.866;
-      [[0.83, 'Zone 1', 'periportal'], [0.51, 'Zone 2', ''], [0.2, 'Zone 3', 'centrilobular']].forEach(([q, t, d], i) => {
-        const z = h('div', { class: 'lz-zone z' + (i + 1) }, h('b', {}, t), d ? ' ' + d : '');
+      const a = Math.PI / 2, ap = R * 0.866;
+      [[0.83, 'Zone 1', 'periportal'], [0.51, 'Zone 2', 'midzonal'], [0.2, 'Zone 3', 'centrilobular']].forEach(([q, t, d], i) => {
+        const z = h('div', { class: 'lz-zone z' + (i + 1), 'aria-hidden': 'true' }, h('b', {}, t), h('span', {}, d));
         const [zx, zy] = toScreen([cx + Math.cos(a) * ap * q, cy + Math.sin(a) * ap * q]);
         z.style.left = `${zx}px`; z.style.top = `${zy}px`;
         labels.append(z);
