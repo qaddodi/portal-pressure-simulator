@@ -339,22 +339,26 @@ void main() {
     float gf = grp == 0 ? 1.0 - occl : grp == 1 ? netAlpha : 1.0;
     float lumA = aL * alpha * tierAlpha[ti] * gf;
     if (lumA > 0.02 && (flags & ${F_DOTTED}) == 0) {
-      int id = sid[ow];
-      gId = uint(id + 1); gS = su[ow] * T(id, 5).z; gY = clamp(sx[ow] / max(sr[ow], 1e-3), -1.0, 1.0); gW = lumA;
-      // Near a join, the vessel it joins and its share of the blood shown here: equal where the two
-      // lumens meet and fading over about a radius, so the stream and the dye pass from one vessel
-      // into the next instead of stopping at a seam. A vessel's share also fades past its own end.
-      gId2 = 0u; gB = 0.0;
-      float tb = max(0.45 * sr[ow], 1.2), best = 0.0;
-      int o2 = -1;
+      // The stream shown here: the two joined lumens with the largest share, by nearness and by how
+      // far past its own end each one runs (a vessel's streaks fade out beyond its end, so at a fork
+      // the trunk's hand over to each branch along its own course instead of running on straight
+      // across it). Equal where two lumens meet, fading over about a radius, so the stream and the
+      // dye pass from one vessel into the next instead of stopping at a seam.
+      float tb = max(0.7 * sr[ow], 1.5), w1 = 0.0, w2 = 0.0;
+      int o1 = -1, o2 = -1;
       for (int s = 0; s < MAXS; s++) {
-        if ((conn & (1 << s)) == 0 || s == ow || (int(sflag[s] + 0.5) & ${F_DOTTED}) != 0) continue;
+        if ((conn & (1 << s)) == 0 || (int(sflag[s] + 0.5) & ${F_DOTTED}) != 0) continue;
         float L2 = max(T(sid[s], 5).z, 1.0), ext = max(0.0, max(-su[s], su[s] - 1.0)) * L2;
-        float wv = exp(-max(sd[s] - sd[ow], 0.0) / tb) * pres[s] * (1.0 - smoothstep(0.0, 1.6 * sr[s] + 2.0, ext));
-        if (wv > best) { best = wv; o2 = s; }
+        float wv = exp(-max(sd[s] - sd[ow], 0.0) / tb) * (s == ow ? 1.0 : pres[s]) * (1.0 - smoothstep(0.0, 1.1 * sr[s] + 1.5, ext)) + 1e-4;
+        if (wv > w1) { w2 = w1; o2 = o1; w1 = wv; o1 = s; }
+        else if (wv > w2) { w2 = wv; o2 = s; }
       }
-      if (o2 >= 0 && best > 0.01) {
-        gId2 = uint(sid[o2] + 1); gS2 = su[o2] * T(sid[o2], 5).z; gY2 = clamp(sx[o2] / max(sr[o2], 1e-3), -1.0, 1.0); gB = best / (1.0 + best);
+      if (o1 < 0) { o1 = ow; o2 = -1; }
+      int id = sid[o1];
+      gId = uint(id + 1); gS = su[o1] * T(id, 5).z; gY = clamp(sx[o1] / max(sr[o1], 1e-3), -1.0, 1.0); gW = lumA;
+      gId2 = 0u; gB = 0.0;
+      if (o2 >= 0 && w2 > 0.01 * w1) {
+        gId2 = uint(sid[o2] + 1); gS2 = su[o2] * T(sid[o2], 5).z; gY2 = clamp(sx[o2] / max(sr[o2], 1e-3), -1.0, 1.0); gB = w2 / (w1 + w2);
       }
     } else gW *= 1.0 - c.a * gf;
     if (grp == 0) { c *= 1.0 - occl; accB = over(c, accB); }
