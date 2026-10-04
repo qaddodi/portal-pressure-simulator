@@ -585,7 +585,7 @@ export function createLobuleZoom({ host }) {
     const eased = easeP.step(f.Pf || f.P);
     model = lobuleState({ ...f, P: eased.v }, st);
     cancelAnimationFrame(easeRaf);
-    if (eased.moving) easeRaf = requestAnimationFrame(() => { if (F && fade > 0) update(F); });
+    if (eased.moving) easeRaf = requestAnimationFrame(glideP);
     const hs = getComputedStyle(host), cv = (n, d) => hs.getPropertyValue(n).trim() || d;
     model.inks = { normal: cv('--flow-normal', '#16988F'), reversed: cv('--flow-reversed', '#EC7424'), portal: cv('--vein-portal', '#7B6FC4'), systemic: cv('--vein-systemic', '#4F8CC9') };
     if (originOn() && originsF !== f) { origins = originFractions(EDGES, NODES, f.Qf || f.Q, f.Pf || f.P); originsF = f; }
@@ -596,6 +596,16 @@ export function createLobuleZoom({ host }) {
     if (!raf) raf = requestAnimationFrame(loop);
   }
   const originOn = () => !store.get().imaging && store.get().colorMode === 'origin';
+  // Between model frames only the pressures move: re-ease them and redraw the panel, nothing else.
+  function glideP() {
+    if (!F || fade <= 0 || !model) return;
+    const eased = easeP.step(F.Pf || F.P);
+    const inks = model.inks;
+    model = lobuleState({ ...F, P: eased.v }, store.get());
+    model.inks = inks;
+    panel();
+    if (eased.moving) easeRaf = requestAnimationFrame(glideP);
+  }
 
   function panel() {
     const m = model;
