@@ -381,7 +381,8 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
   .readouts:not(.all) .ro-cap { display: none; }
   .readouts:not(.all) .metric:not(.primary) { display: none; }
   .readouts:not(.all) .ro-group { --n: 1; padding-top: 8px; }
-  .readouts:not(.all) .ro-group[data-group="effects"] { --n: 2; }
+  .readouts:not(.all) .ro-group[data-group="pressure"] { --n: 3; }
+.readouts:not(.all) .ro-group:not(:has(.metric.primary)) { display: none; }
   .readouts.all .ro-group { flex: 1 1 100%; }
   .readouts.all .ro-group + .ro-group { border-top: 1px solid var(--hairline); }
   .readouts.all .ro-group + .ro-group::before { display: none; }
@@ -2203,7 +2204,8 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 /* Four key readouts until the chevron opens the rest. */
 .readouts:not(.all) .ro-cap, .readouts:not(.all) .metric:not(.primary), .readouts:not(.all) .ro-systemic { display: none; }
 .readouts:not(.all) .ro-group { --n: 1; padding: 7px 2px 6px; }
-.readouts:not(.all) .ro-group[data-group="effects"] { --n: 2; }
+.readouts:not(.all) .ro-group[data-group="pressure"] { --n: 3; }
+.readouts:not(.all) .ro-group:not(:has(.metric.primary)) { display: none; }
 .readouts:not(.all) .ro-row { padding-right: 2px; }
 .readouts .ro-more { display: inline-grid; }
 .readouts:not(.all) .u-x { display: none; }
@@ -2738,9 +2740,6 @@ input[type="range"] { touch-action: none; }
   .vdock .timeline { gap: 6px; }
   .vdock .tl-track { min-width: 80px; }
   .vdock .tl-hist { padding: 0 6px; gap: 4px; }
-}
-@media (max-width: 430px) {
-  .readouts:not(.all) .metric .v .unit { display: none; }
 }
 @media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
   .vdock .readouts:not(.all) .metric .v .unit { display: none; }

@@ -63,7 +63,8 @@ export function createProfile() {
   function geometry() {
     const { w, h: hh } = fitCanvas(cv);
     const path = PROFILE_PATHS.find((p) => p.id === pathId);
-    const stations = path.nodes;
+    // Venous stations only: the arterial pressure sits far off the portal scale and says little here.
+    const stations = path.nodes.filter((n) => !ARTERIAL.has(n));
     const slot0 = (w - 56) / stations.length;
     const stagger = slot0 < 74;
     // Arterial stations sit far above the venous scale: they are drawn in a band above a broken
