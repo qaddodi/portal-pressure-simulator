@@ -168,6 +168,14 @@ export function createLobuleZoom({ host }) {
   let kFit = 1, atFit = true;
   const appStyle = document.getElementById('app')?.style;
   const cssN = (k) => parseFloat(appStyle?.getPropertyValue(k)) || 0;
+  // On a wider screen the card sits centred in the height between the top bar and the dock (from the top when it is too tall).
+  function placeSide() {
+    if (phoneMQ.matches || side.hidden || !geo) { side.style.top = ''; return; }
+    side.style.top = '';
+    const t0 = side.offsetTop, b = geo.H - (cssN('--bot-occ') || 100) - 8, h = side.offsetHeight;
+    side.style.top = `${Math.max(t0, t0 + (b - t0 - h) / 2).toFixed(0)}px`;
+  }
+  if (window.ResizeObserver) new ResizeObserver(() => { if (fade > 0) placeSide(); }).observe(side);
   function freeRect() {
     const W = geo.W, H = geo.H, phone = phoneMQ.matches;
     const top = el.querySelector('.lz-top');
@@ -624,12 +632,16 @@ export function createLobuleZoom({ host }) {
   }
   const anchorOf = (key) => {
     const g = geo, C = g.lobules[0].corners;
-    if (key === 'triad') return C[5];
+    if (key === 'triad') return C[3];
     if (key === 'cv') return [g.cx, g.cy];
-    const t = g.L1[Math.round(g.L1.length * 0.08)] || g.L1[0];
-    return at(t.pts, 0.45);
+    return at(sinTube().pts, 0.45);
   };
-  const hitKind = (key) => (key === 'triad' ? { part: 'triad', tri: 5 } : key === 'cv' ? { part: 'cv' } : { part: 'sin', tube: (geo.L1[Math.round(geo.L1.length * 0.08)] || geo.L1[0]).id });
+  // The labelled vessels sit on the left: the left portal venule, and the sinusoid just below the middle of the left side.
+  const sinTube = () => {
+    const g = geo, ang = (t) => { const [x, y] = at(t.pts, 0.45); return Math.abs(Math.atan2(y - g.cy, x - g.cx) - 2.75); };
+    return g.L1.reduce((b, t) => (ang(t) < ang(b) ? t : b), g.L1[0]);
+  };
+  const hitKind = (key) => (key === 'triad' ? { part: 'triad', tri: 3 } : key === 'cv' ? { part: 'cv' } : { part: 'sin', tube: sinTube().id });
   function layoutLabels() {
     const fr0 = freeRect(), g = geo, key = `${g.W}x${g.H}|${Object.values(labs).map((l) => l.txt).join('|')}|${zonesOn}|${lymphOn}|${V.k},${V.x},${V.y}|${fr0.t},${fr0.b},${fr0.l},${fr0.r}`;
     if (key === layoutKey) return;
@@ -639,6 +651,9 @@ export function createLobuleZoom({ host }) {
     // Each label sits just beside its vessel, on the side away from the lobule's centre (the central
     // venule's, up and to the left of it), with a short leader; it stays inside the free space.
     const c0 = toScreen([cx, cy]);
+    // The Zones and Lymph switches sit centred over the lobule (on a phone, top left beside the zoom buttons).
+    placeSide();
+    { const tp = el.querySelector('.lz-top'); if (tp) tp.style.left = phoneMQ.matches ? '' : `${clamp(c0[0], tp.offsetWidth / 2 + 12, g.W - tp.offsetWidth / 2 - 12).toFixed(0)}px`; }
     for (const [k, L] of Object.entries(labs)) {
       const w = L.el.offsetWidth || 100, hh = L.el.offsetHeight || 40;
       const a = toScreen(anchorOf(k)), off = a[0] < 0 || a[0] > g.W || a[1] < 0 || a[1] > g.H;
@@ -815,6 +830,11 @@ export function createLobuleZoom({ host }) {
     pat.setTransform(new DOMMatrix([(t.TW / t.R) * rd / t.tw, 0, 0, (t.TH / t.R) * rd / t.th, x, y]));
     c.fillStyle = pat; c.fillRect(0, 0, w, h);
   }
+  // Behind the lobule the field steps back: most of its colour drained and its contrast lowered (q: 0..1).
+  function fieldQuiet(c, bg, q, w, h) {
+    c.globalCompositeOperation = 'saturation'; c.fillStyle = `rgba(128,128,128,${(0.8 * q).toFixed(3)})`; c.fillRect(0, 0, w, h);
+    c.globalCompositeOperation = 'source-over'; c.fillStyle = css(bg, 0.5 * q); c.fillRect(0, 0, w, h);
+  }
   // The surround fading into the page with distance from the lobule (q: 0..1, how far it has faded).
   function fieldFade(c, bg, x, y, rd, q, w, h) {
     const vg = c.createRadialGradient(x, y, rd * 1.1, x, y, rd * 3.2);
@@ -837,7 +857,7 @@ export function createLobuleZoom({ host }) {
     c.globalCompositeOperation = 'source-over';
     fieldFill(c, t, d.x * dpr, d.y * dpr, rd, field.width, field.height);
     const bg = rgb01(cs.getPropertyValue('--stage-bg').trim() || cs.getPropertyValue('--bg').trim() || (dark ? '#0E1422' : '#FBFAF7'));
-    if (d.quiet > 0) fieldFade(c, bg, d.x * dpr, d.y * dpr, rd, d.quiet, field.width, field.height);
+    if (d.quiet > 0) { fieldQuiet(c, bg, d.quiet, field.width, field.height); fieldFade(c, bg, d.x * dpr, d.y * dpr, rd, d.quiet, field.width, field.height); }
     // Emerging: the field spreads out from the dive point as it fades in.
     if (d.a < 1) {
       const diag = Math.hypot(W, H) * dpr, rho = diag * (0.2 + 1.1 * d.a);
@@ -1022,9 +1042,10 @@ export function createLobuleZoom({ host }) {
       c.setTransform(1, 0, 0, 1, 0, 0);
       const [sx, sy] = toScreen([cx, cy]), rd = R * V.k * dpr;
       fieldFill(c, fieldTile(cs, dark, rd), sx * dpr, sy * dpr, rd, W * dpr, H * dpr);
+      fieldQuiet(c, rgb01(bg), 1, W * dpr, H * dpr);
     }
     c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y);
-    { const l = lobules[0]; c.fillStyle = bg; c.beginPath(); l.corners.forEach(([x, y], i) => { const px = l.x + (x - l.x) * 1.03, py = l.y + (y - l.y) * 1.03; if (i) c.lineTo(px, py); else c.moveTo(px, py); }); c.closePath(); c.fill(); }
+    { const l = lobules[0], bq = rgb01(bg); c.fillStyle = css(rgb01(v('--og-liver-2', dark ? '#5A3440' : '#C98E7E')).map((x, i) => lerp(bq[i], x, 0.55)), 1); c.beginPath(); l.corners.forEach(([x, y], i) => { const px = l.x + (x - l.x) * 1.015, py = l.y + (y - l.y) * 1.015; if (i) c.lineTo(px, py); else c.moveTo(px, py); }); c.closePath(); c.fill(); }
     const gap = rgb01(v('--og-liver-2', dark ? '#5A3440' : '#C98E7E')), cell = rgb01(v('--og-liver-1', dark ? '#85514F' : '#E9C3B6'));
     const COL = dark ? [0.78, 0.73, 0.6] : [0.93, 0.87, 0.73];
     const col = (a) => css(COL, a);
