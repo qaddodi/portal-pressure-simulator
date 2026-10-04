@@ -814,7 +814,7 @@ export function createLobuleZoom({ host }) {
       c.globalAlpha = 0.85; c.beginPath(); c.arc(x, y, R * 0.075 * (1 + 0.4 * fs.cong), 0, TAU); c.fill();
       // Triads, in a collagen tract that grows with portal fibrosis.
       for (const [px, py] of P) {
-        if (fs.pre > 0) { c.globalAlpha = 0.4 + 0.4 * fs.pre; c.fillStyle = COL; c.beginPath(); c.arc(px, py, R * 0.09 * (1 + 0.9 * fs.pre), 0, TAU); c.fill(); }
+        if (fs.pre > 0) { c.globalAlpha = 0.25 + 0.35 * fs.pre; c.fillStyle = COL; c.beginPath(); c.arc(px, py, R * 0.09 * (1 + 0.9 * fs.pre), 0, TAU); c.fill(); }
         c.globalAlpha = 0.85; c.fillStyle = pvc; c.beginPath(); c.ellipse(px, py, R * 0.055, R * 0.04, 0.6, 0, TAU); c.fill();
         c.fillStyle = art; c.beginPath(); c.arc(px + R * 0.06, py - R * 0.035, R * 0.022, 0, TAU); c.fill();
         c.fillStyle = duct; c.beginPath(); c.arc(px - R * 0.05, py + R * 0.045, R * 0.018, 0, TAU); c.fill();
@@ -832,8 +832,8 @@ export function createLobuleZoom({ host }) {
   }
   // Behind the lobule the field steps back: most of its colour drained and its contrast lowered (q: 0..1).
   function fieldQuiet(c, bg, q, w, h) {
-    c.globalCompositeOperation = 'saturation'; c.fillStyle = `rgba(128,128,128,${(0.8 * q).toFixed(3)})`; c.fillRect(0, 0, w, h);
-    c.globalCompositeOperation = 'source-over'; c.fillStyle = css(bg, 0.5 * q); c.fillRect(0, 0, w, h);
+    c.globalCompositeOperation = 'saturation'; c.fillStyle = `rgba(128,128,128,${(0.45 * q).toFixed(3)})`; c.fillRect(0, 0, w, h);
+    c.globalCompositeOperation = 'source-over'; c.fillStyle = css(bg, 0.42 * q); c.fillRect(0, 0, w, h);
   }
   // The surround fading into the page with distance from the lobule (q: 0..1, how far it has faded).
   function fieldFade(c, bg, x, y, rd, q, w, h) {
@@ -1136,8 +1136,10 @@ export function createLobuleZoom({ host }) {
       if (seen.has(kk)) continue; seen.add(kk);
       const near = Math.hypot(x - cx, y - cy) < R * 1.05, rt = G.rt * (1 + 0.9 * m.fibPre);
       c.globalAlpha = near ? 1 : 0.5;
-      c.fillStyle = col(dark ? 0.22 + 0.4 * m.fibPre : 0.5 + 0.4 * m.fibPre); c.beginPath(); c.arc(x, y, rt, 0, TAU); c.fill();
-      if (m.fibPre > 0.1) { c.strokeStyle = dark ? 'rgba(160,150,120,.5)' : 'rgba(176,158,118,.6)'; c.lineWidth = 0.8; for (const f of [0.7, 0.85]) { c.beginPath(); c.arc(x, y, rt * f, 0, TAU); c.stroke(); } }
+      // Tissue-coloured, turning to collagen only as portal fibrosis builds, with a soft edge (no ring).
+      { const tc = gap.map((g0, i) => lerp(g0, COL[i], 0.25 + 0.6 * m.fibPre)), a0 = dark ? 0.35 + 0.35 * m.fibPre : 0.45 + 0.4 * m.fibPre;
+        const tg = c.createRadialGradient(x, y, rt * 0.3, x, y, rt); tg.addColorStop(0, css(tc, a0)); tg.addColorStop(0.7, css(tc, a0 * 0.8)); tg.addColorStop(1, css(tc, 0));
+        c.fillStyle = tg; c.beginPath(); c.arc(x, y, rt, 0, TAU); c.fill(); }
       if (!near) {   // the neighbours' triads, drawn flat
         c.fillStyle = css(rgb01(ink('pv')), 0.55); c.beginPath(); c.ellipse(x, y, G.rt * 0.42, G.rt * 0.32, 0.4, 0, TAU); c.fill();
       }
