@@ -1510,9 +1510,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const lim = x.e.kind === 'collateral' ? 1.3 : 1.7;
     // A large shunt tapers into the smaller vein it drains into instead of butting onto it.
     const lo = x.e.spontaneous ? 0.4 : 0.5;
-    // On the GPU every vessel is a tube (one drawing on too), so its ends always ease to the junction.
+    // On the GPU each vessel keeps its own caliber to its ends: the fillet rounds a fork, and where one
+    // vessel runs on into the next both ends ease to meet (see smoothRunOn), so no tube swells or pinches
+    // beside a join. The SVG tubes ease their ends to the junction width instead.
     const gpu = glWanted(t);
-    const endW = (n) => (J[n] && (!stroked || gpu) ? clamp(J[n], w * lo, w * lim) : w);
+    const endW = (n) => (J[n] && !stroked && !gpu ? clamp(J[n], w * lo, w * lim) : w);
     const a = endW(x.e.from), b = endW(x.e.to);
     const key = `${w.toFixed(1)},${a.toFixed(1)},${b.toFixed(1)}|${wallPx.toFixed(2)}|${sten ? v.toFixed(3) + '@' + (stenosisAt[id] ?? 0.5) : ''}|${lastMorph}|${stroked}|${gpu}`;
     if (key === x.shadeKey) return;
@@ -1734,7 +1736,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // samples either side are redrawn as one smooth curve (a cubic through the join, following each
   // course's own direction), so the tube bends through the join instead of kinking.
   function smoothRunOn(items) {
-    const out = new Map(), byRow = new Map(items.map((it) => [it.row, it])), E = 6;
+    const out = new Map(), byRow = new Map(items.map((it) => [it.row, it])), E = 10;
     const pt = (P, i, end) => (end ? P[P.length - 1 - i] : P[i]);   // i samples in from that end
     for (const { a, ia, b, ib } of glStraight) {
       const A = byRow.get(a), B = byRow.get(b);
@@ -1783,7 +1785,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (uniq.length === 2 && uniq.every(([, i]) => i != null)) {
         const dir = ([it, i]) => { const P = it.pts, n = P.length, a = i ? P[n - 1] : P[0], b = i ? P[Math.max(0, n - 4)] : P[Math.min(n - 1, 3)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / L, (b[1] - a[1]) / L]; };
         const [u, v] = uniq.map(dir), dot = u[0] * v[0] + u[1] * v[1];
-        fil = 0.15 + 0.85 * clamp((dot + 0.97) / 0.5, 0, 1);
+        fil = 0.3 + 0.7 * clamp((dot + 0.97) / 0.5, 0, 1);
         if (fil < 1) glStraight.push({ a: uniq[0][0].row, ia: uniq[0][1], b: uniq[1][0].row, ib: uniq[1][1] });
       }
       const reach = spread + 2 * rMax + k + 6;
@@ -1865,7 +1867,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (!A?.glR0 || !B?.glR0) continue;
         const ra = A.glR0[ia ? N_SAMPLES - 1 : 0], rb = B.glR0[ib ? N_SAMPLES - 1 : 0], mid = (ra + rb) / 2;
         for (const [O, i, r0] of [[A, ia, ra], [B, ib, rb]]) {
-          const R = eased.get(O) || O.glR0.slice(), E = 10;
+          const R = eased.get(O) || O.glR0.slice(), E = N_SAMPLES >> 1;   // over half the course: a gentle taper, never a flare
           for (let s = 0; s < E; s++) { const t = 1 - s / E, w = t * t * (3 - 2 * t), j = i ? N_SAMPLES - 1 - s : s; R[j] += (mid - r0) * w; }
           eased.set(O, R);
         }
