@@ -2427,7 +2427,6 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   .topbar .sb-right { padding: 0 2px; }
   .zoom-pill { flex-direction: row; right: calc(env(safe-area-inset-right) + 8px); }
   .zoom-pill .ib { width: 36px; height: 36px; }
-  .zoom-pill #zoomIn, .zoom-pill #zoomOut { display: none; }
   .main-menu { width: min(340px, calc(100vw - 16px)); }
   .session-bar .b-text { display: none; }
 }
@@ -2565,6 +2564,6 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 
 /* The Doppler's vessel on the figure: a steady green glow and a thin green edge. */
 .dop-mark { pointer-events: none; }
-.dop-glow { fill: none; stroke: var(--doppler); stroke-opacity: .55; stroke-linecap: round; stroke-linejoin: round; }
-.dop-edge { fill: none; stroke: var(--doppler); stroke-opacity: .95; stroke-linecap: round; stroke-linejoin: round; }
+.dop-glow { fill: none; stroke: var(--doppler); stroke-opacity: .7; stroke-linecap: butt; stroke-linejoin: round; }
+.dop-edge { fill: none; stroke: var(--doppler); stroke-opacity: .95; stroke-linecap: butt; stroke-linejoin: round; }
 .instrument-workspace .dock-title.dop-on .dt-l::before { content: ''; display: inline-block; width: 8px; height: 8px; margin: 0 8px 1px 0; border-radius: 50%; background: var(--doppler); box-shadow: 0 0 0 3px color-mix(in srgb, var(--doppler) 22%, transparent); vertical-align: middle; }

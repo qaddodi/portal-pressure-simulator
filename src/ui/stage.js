@@ -718,19 +718,42 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (the GPU draws the vessels under this layer).
   const dop = (() => {
     const g = s('g', { class: 'dop-mark', 'aria-hidden': 'true' });
-    const knock = s('path', { fill: 'none', stroke: '#000', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
+    const BIG = { x: -4000, y: -4000, width: 12000, height: 12000 };
+    // The mask: a wide band along the vessel that fades in from each end (open ends, no caps), with
+    // the vessel itself cut out so its pressure colour shows through.
+    const fade = s('linearGradient', { id: 'dop-fade', gradientUnits: 'userSpaceOnUse' });
+    for (const [o, a] of [[0, 0], [0.18, 1], [0.82, 1], [1, 0]]) fade.append(s('stop', { offset: o, 'stop-color': '#fff', 'stop-opacity': a }));
+    const band = s('path', { fill: 'none', stroke: 'url(#dop-fade)', 'stroke-linecap': 'butt', 'stroke-linejoin': 'round' });
+    const knock = s('path', { fill: 'none', stroke: '#000', 'stroke-linecap': 'butt', 'stroke-linejoin': 'round' });
+    const mask = s('mask', { id: 'dop-knock', maskUnits: 'userSpaceOnUse', ...BIG });
+    mask.append(band, knock);
+    // The blur works in user space: a straight vessel's own box has no height, which would clip it.
+    const blur = s('filter', { id: 'dop-blur', filterUnits: 'userSpaceOnUse', ...BIG });
+    blur.append(s('feGaussianBlur', { stdDeviation: 5 }));
     const defs = s('defs');
-    const mask = s('mask', { id: 'dop-knock', maskUnits: 'userSpaceOnUse', x: -4000, y: -4000, width: 12000, height: 12000 });
-    mask.append(s('rect', { x: -4000, y: -4000, width: 12000, height: 12000, fill: '#fff' }), knock);
-    const blur = s('filter', { id: 'dop-blur', x: '-50%', y: '-50%', width: '200%', height: '200%' });
-    blur.append(s('feGaussianBlur', { stdDeviation: 4 }));
-    defs.append(mask, blur);
-    const glow = s('path', { class: 'dop-glow', filter: 'url(#dop-blur)', mask: 'url(#dop-knock)' });
-    const edge = s('path', { class: 'dop-edge', mask: 'url(#dop-knock)' });
-    g.append(defs, glow, edge);
+    defs.append(fade, mask, blur);
+    const glow = s('path', { class: 'dop-glow', filter: 'url(#dop-blur)' });
+    const glowG = s('g', { mask: 'url(#dop-knock)' });
+    const edge = s('path', { class: 'dop-edge' });
+    glowG.append(glow, edge);
+    g.append(defs, glowG);
     g.style.display = 'none';
     gOver.prepend(g);
-    return { id: null, g, paint(d, w) { for (const el of [knock, glow, edge]) el.setAttribute('d', d); knock.setAttribute('stroke-width', (w + 0.5).toFixed(1)); edge.setAttribute('stroke-width', (w + 5).toFixed(1)); glow.setAttribute('stroke-width', (w + 16).toFixed(1)); } };
+    return {
+      id: null, g,
+      paint(d, w) {
+        for (const el of [band, knock, glow, edge]) el.setAttribute('d', d);
+        const n = d.match(/-?\d*\.?\d+(?:e-?\d+)?/g);
+        if (n && n.length >= 4) {
+          fade.setAttribute('x1', n[0]); fade.setAttribute('y1', n[1]);
+          fade.setAttribute('x2', n[n.length - 2]); fade.setAttribute('y2', n[n.length - 1]);
+        }
+        band.setAttribute('stroke-width', (w + 60).toFixed(1));
+        knock.setAttribute('stroke-width', (w + 0.5).toFixed(1));
+        edge.setAttribute('stroke-width', (w + 5).toFixed(1));
+        glow.setAttribute('stroke-width', (w + 18).toFixed(1));
+      },
+    };
   })();
 
   // ── View transform (pan / zoom) ───────────────────
