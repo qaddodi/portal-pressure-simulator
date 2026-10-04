@@ -2,12 +2,12 @@
 // Instruments card (blueprint §9.1, §9.2).
 
 import { store } from './store.js?v=f9424489c6';
+import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=fe164f31f1';
-import { createProfile, createSankey, createPerfusion } from './charts.js?v=445eb99a70';
-import { createPressureTime } from './pressure-time.js?v=cabe3d7908';
-import { createDoppler } from './doppler.js?v=8f90160316';
-import { createHVPG, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=230546b4ba';
-import { createLandscape } from './landscape.js?v=21bdd5d2a2';
+import { createProfile } from './charts.js?v=2ba1f3a5ed';
+import { createPressureTime } from './pressure-time.js?v=0878c8e5f4';
+import { createDoppler } from './doppler.js?v=6db140bcee';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=b9ff7e0e9d';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -85,7 +85,7 @@ export function readoutValue(t, m, hidden) {
   return meas ? meas.hvpg : null;
 }
 
-export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onCompare, onRun, onLobule, onOpen, onClose, isVisible, marks, onBeat }) {
+export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onCompare, onRun, onLobule, onOpen, onClose, isVisible, marks, onBeat, onLayout }) {
   // ── Readout strip ─────────────────────────────────
   const tileEls = {};
   const row = h('div', { class: 'ro-row' });
@@ -150,7 +150,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       let sev, s;
       if (v == null) {
         if (x.val.textContent !== '?') x.val.textContent = '?';
-        s = t.id === 'hvpg' ? 'Use the catheter' : 'Not measured';
+        s = 'Not measured';
         sev = 'none';
         x.hist.length = 0;
       } else {
@@ -196,33 +196,19 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const app = document.getElementById('app');
   const workspace = head.closest('.dock');
   const stageWrap = document.getElementById('stageWrap');
-  const profile = createProfile(), landscape = createLandscape(), wall = createVarixWall();
+  const profile = createProfile(), wall = createVarixWall();
   const endoscopy = createEndoscopy({ onAction });
   const wallDetails = h('details', { class: 'instrument-details wall-details' },
     h('summary', {}, 'Wall mechanics', h('span', {}, 'Pressure, radius & wall thickness')), wall.el);
   wall.el.className = 'instrument-view wall-view';
   endoscopy.el.append(wallDetails);
   wallDetails.addEventListener('toggle', () => { if (wallDetails.open && frame) wall.update(frame); });
-  const profileView = profile.el, landscapeView = landscape.el;
-  profileView.className = 'instrument-view';
-  landscapeView.className = 'instrument-view';
-  let pressureView = 'profile';
-  const viewSeg = h('div', { class: 'seg pressure-views', role: 'group', 'aria-label': 'Pressure view' },
-    ['profile', 'landscape'].map((id) => h('button', {
-      'data-view': id, 'aria-pressed': String(id === pressureView),
-      onclick: () => setPressureView(id),
-    }, id === 'profile' ? 'Profile' : 'Landscape')));
-  const pressure = {
-    ...profile, id: 'profile', label: 'Pressure',
-    el: h('section', { class: 'dock-pane', 'data-pane': 'profile' }, viewSeg, profileView, landscapeView),
-    update(f) { (pressureView === 'landscape' ? landscape : profile).update(f); },
-  };
+  const pressure = { ...profile, id: 'profile', label: 'Pressure' };
   const instruments = [
-    pressure, createPressureTime({ marks }), createSankey(), createPerfusion(), createHVPG(),
+    pressure, createPressureTime({ marks }),
     createDoppler({ onProbe }), endoscopy, createAbdomen({ onAction }),
   ];
   const panes = instruments.map((p) => {
-    if (p === pressure) return p;
     p.el.classList.remove('dock-pane'); p.el.classList.add('instrument-view');
     return { ...p, el: h('section', { class: 'dock-pane', 'data-pane': p.id }, p.el) };
   });
@@ -233,23 +219,19 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // tabs, each with its live reading, picks the instrument in one tap; the header names it and says
   // what it shows. Its size and the instruments open are remembered on this device.
   const INFO = {
-    profile: ['activity', 'Where the pressure falls along a path: each step down is a resistance.', (f) => `${fmt(f.metrics.pv, 1)} mmHg`],
+    profile: ['activity', 'How pressure falls along a path: the steepest falls are where the resistance sits.', (f) => `${fmt(f.metrics.pv, 1)} mmHg`],
     scope: ['chart', 'Portal and hepatic pressures beat by beat, over minutes or over months.', (f) => `HVPG ${fmt(f.metrics.hvpg, 1)}`],
-    flow: ['vessel', 'Follow blood through the liver, collaterals and shunts.', (f) => `${Math.round(f.metrics.shuntFraction * 100)}% bypass`],
-    perfusion: ['liver', 'Portal supply, arterial buffering and liver resistance.', (f) => `${Math.round(f.metrics.liverPerfPct)}% perfused`],
-    hvpg: ['catheter', 'Place a catheter in a hepatic vein: wedged minus free pressure.', () => { const m = store.get().lastHVPG; return m ? `${fmt(m.hvpg, 1)} mmHg` : 'Not measured'; }],
     doppler: ['doppler', 'Direction, velocity and waveform in any portal, hepatic or shunt vessel.', (f) => `${fmt(Math.abs(f.metrics.pvVel), 0)} cm/s`],
     endoscopy: ['endoscope', 'Inspect and band varices; open their wall mechanics.', (f) => (f.metrics.varix.d < 2.5 ? 'No varices' : `Grade ${f.metrics.varix.grade.code}`)],
     abdomen: ['needle', 'Inspect ascites and drain fluid, with or without albumin.', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],
   };
-  const SHORT = { profile: 'Pressure', scope: 'Over time', flow: 'Flow', perfusion: 'Perfusion', hvpg: 'HVPG', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites' };
-  const ORDER = ['profile', 'scope', 'flow', 'perfusion', 'hvpg', 'doppler', 'endoscopy', 'abdomen'];
+  const SHORT = { profile: 'Pressure', scope: 'Over time', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites' };
+  const ORDER = ['profile', 'scope', 'doppler', 'endoscopy', 'abdomen'];
   const saved = (() => { try { return JSON.parse(localStorage.getItem('pps.instruments') || 'null') || {}; } catch { return {}; } })();
   let open = Array.isArray(saved.open) && saved.open.every((id) => byId[id]) && saved.open.length ? saved.open.slice(0, 2) : ['profile'];
   let frame = null, state = 'open', resizeFrame = 0, picking = false;
   let heightRatio = typeof saved.h === 'number' ? saved.h : null, widthPx = typeof saved.w === 'number' ? saved.w : null;
-  if (saved.view === 'landscape') pressureView = 'landscape';
-  const remember = () => { try { localStorage.setItem('pps.instruments', JSON.stringify({ open, h: heightRatio, w: widthPx, view: pressureView })); } catch { /* storage unavailable */ } };
+  const remember = () => { try { localStorage.setItem('pps.instruments', JSON.stringify({ open, h: heightRatio, w: widthPx })); } catch { /* storage unavailable */ } };
   const sideMQ = matchMedia('(min-width: 700px) and (orientation: landscape)');
   const isSide = () => sideMQ.matches;
 
@@ -293,12 +275,6 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   }
   const comparison = h('div', { class: 'workspace-comparison', hidden: true });
   body.before(comparison);
-  function setPressureView(id) {
-    pressureView = id;
-    profileView.hidden = id !== 'profile'; landscapeView.hidden = id !== 'landscape';
-    viewSeg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === id)));
-    remember(); refresh();
-  }
   function refresh() {
     if (!frame || !isVisible() || state === 'peek' || !workspace.offsetParent) return;
     for (const id of open) {
@@ -359,7 +335,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     body.classList.toggle('split', open.length > 1);
     body.classList.toggle('stack', open.length > 1 && isSide() && state !== 'focus');
     const first = byId[open[0]];
-    titleEl.querySelector('.dt-l').textContent = open.length > 1 ? `${first.label} + ${byId[open[1]].label}` : first?.label || 'Instruments';
+    paintTitle();
     titleIc.replaceChildren(svgIcon(INFO[open[0]][0]));
     desc.textContent = open.length > 1 ? 'Two instruments at once. Tap either tab to show it alone.' : INFO[open[0]][1];
     for (const id of ORDER) {
@@ -371,9 +347,18 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     second.hidden = state === 'peek' || !canSplit();
     second.setAttribute('aria-pressed', String(open.length > 1 || picking));
     second.querySelector('.wb-l').textContent = open.length > 1 ? 'Show one' : picking ? 'Cancel' : 'Two at once';
-    profileView.hidden = pressureView !== 'profile'; landscapeView.hidden = pressureView !== 'landscape';
     remember();
     queueRefresh();
+    onLayout?.();
+  }
+  // The title names the vessel the Doppler reads, beside a green dot: the colour of its glow on the figure.
+  function paintTitle() {
+    const first = byId[open[0]];
+    const probe = open.length === 1 && open[0] === 'doppler' && frame?.probe ? EDGES.find((e) => e.id === frame.probe)?.label : null;
+    const txt = open.length > 1 ? `${first.label} + ${byId[open[1]].label}` : probe ? `${first.label} · ${probe}` : first?.label || 'Instruments';
+    const l = titleEl.querySelector('.dt-l');
+    if (l.textContent !== txt) l.textContent = txt;
+    titleEl.classList.toggle('dop-on', !!probe);
   }
   function endPick() { picking = false; pickHint.hidden = true; workspace.classList.remove('picking'); }
   function toggleSecond() {
@@ -403,8 +388,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   }
   function show(id, { open: doOpen = true, reveal = false, alongside = false } = {}) {
     if (id === 'lobule') { onLobule?.(); return; }
-    if (id === 'landscape') { pressureView = 'landscape'; id = 'profile'; }
-    else if (id === 'profile') pressureView = 'profile';
+    if (id === 'landscape') id = 'profile';
     const revealWall = id === 'varixwall';
     if (revealWall) { wallDetails.open = true; id = 'endoscopy'; }
     if (!byId[id]) return;
@@ -415,13 +399,13 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     else if (doOpen) onOpen();
     if (state === 'peek') setState('open');
     layout();
-    viewSeg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === pressureView)));
     if (revealWall) requestAnimationFrame(() => wallDetails.scrollIntoView({ block: 'nearest' }));
     queueRefresh();
   }
   function close() {
     endPick(); app.classList.remove('instrument-focus');
     onClose();
+    onLayout?.();
     document.getElementById('tabInstruments')?.focus();
   }
   function ensure() { updateSize(); layout(); workspace.classList.remove('entering'); void workspace.offsetWidth; workspace.classList.add('entering'); }
@@ -494,6 +478,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         !st.hiddenReadouts?.has('model') ? delta('Shunting', (b.shuntFraction - a.shuntFraction) * 100, 0, 'pp') : null);
     }
     run.setAttribute('aria-pressed', String(st.running));
+    paintTitle();
     const txt = !frame ? '' : state === 'peek' && !st.imaging ? INFO[open[0]][2](frame)
       : frame.clock === 'disease' ? `${st.running ? 'Live' : 'Paused'} · Day ${frame.day}` : st.running ? 'Live' : 'Paused';
     if (live.textContent !== txt) live.textContent = txt;
@@ -513,8 +498,6 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   function update(f, force) {
     frame = f; updateStrip(f); updateHeader(); syncBeat();
     byId.scope.ingest(f); byId.doppler.ingest(f);
-    const cath = (f.params || store.get().params).catheter;
-    if (cath?.vein && (!isVisible() || state === 'peek' || !open.includes('hvpg'))) byId.hvpg.update(f);
     if (!force && !isVisible()) return;
     refresh();
   }
@@ -522,7 +505,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   setState('open'); updateSize(); layout();
   return {
     update, show, toggle, close, ensure, openGrid, profile,
-    pane: (id) => id === 'landscape' ? landscape : id === 'varixwall' ? wall : byId[id],
+    pane: (id) => id === 'landscape' ? profile : id === 'varixwall' ? wall : byId[id],
     isOpen: (id) => isVisible() && open.includes(id === 'landscape' ? 'profile' : id === 'varixwall' ? 'endoscopy' : id),
     setState,
   };

@@ -7,7 +7,7 @@
 
 import { store } from './store.js?v=f9424489c6';
 import { h, fmt, fitCanvas, cssVar, clamp } from './util.js?v=fe164f31f1';
-import { FONT } from './charts.js?v=445eb99a70';
+import { FONT } from './charts.js?v=2ba1f3a5ed';
 
 // hide: the readout a case can keep unmeasured (store.hiddenReadouts); day: the value on the
 // disease clock (null where the model keeps no daily value).
@@ -430,7 +430,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
     if (hidden.has('trueHVPG')) {
       const meas = store.get().lastHVPG;
       heroVal.textContent = meas ? fmt(meas.hvpg, 1) : '—';
-      heroSev.textContent = meas ? 'Measured' : 'Not measured · use the catheter';
+      heroSev.textContent = meas ? 'Measured' : 'Not measured';
       heroSev.dataset.sev = meas ? sevOf(meas.hvpg) : 'none';
       heroDelta.textContent = '';
       return;

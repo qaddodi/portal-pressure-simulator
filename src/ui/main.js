@@ -3,22 +3,22 @@
 
 import { startHost, host } from './host.js?v=d292ccefe8';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=f9424489c6';
-import { createStage } from './stage.js?v=26b410d58b';
+import { createStage } from './stage.js?v=b0c83d2014';
 import { createInspector } from './inspector.js?v=208b6a3592';
-import { createDock, CUTOFFS } from './dock.js?v=1ccd5cbfe3';
+import { createDock, CUTOFFS } from './dock.js?v=24f309245b';
 import { createWhy } from './why.js?v=bf0f24a7a5';
 import { createTimeline } from './timeline.js?v=7bf66ab2fb';
-import { createLearn } from './learn.js?v=a48578b939';
-import { createCases } from './cases.js?v=02646abf69';
+import { createLearn } from './learn.js?v=4dc71233b5';
+import { createCases } from './cases.js?v=06529aed46';
 import { createCompare } from './compare.js?v=730844b101';
-import { createCard } from './card.js?v=08f4834bec';
-import { createChart, computeFindings } from './chart.js?v=25524d37c8';
-import { createHome } from './home.js?v=5538efbe12';
+import { createCard } from './card.js?v=f82fd2404c';
+import { createChart, computeFindings } from './chart.js?v=8e9f59198b';
+import { createHome } from './home.js?v=14648d4f71';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=e7e5c98a1c';
 import { startLMS } from './lms.js?v=4511ed56b8';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=455d2754a5';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=34bad803fc';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=29d10ad9ef';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon } from './util.js?v=fe164f31f1';
@@ -121,7 +121,7 @@ async function main() {
     onScenarios: () => openScenarios($('#scenarioBtn')), onMode: (m) => store.set({ mode: m }), chart,
   });
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => host.send({ type: 'probe', id }), onReveal: revealDock, onLobule: () => zoomLobule('R'), onCompare: () => timeline.togglePin(), onRun: () => host.send({ type: 'run', running: !store.get().running }),
-    onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), isVisible: () => app.classList.contains('dock-open'),
+    onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: (on) => { dockBeat = on; sendBeat(); } });
   const api = { beginSession, endSession, onEnd: () => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); }, muteEvents: () => {}, loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), openPanel, setBanner, select: (sel) => store.set({ selection: sel }) };
   // A lesson keeps its card in view where the panel covers the figure: instruments it opens are
@@ -140,9 +140,8 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=d673b16214'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=beab375cfb'), ({ createPalette }) => createPalette({ ctx: {
     select: (sel) => store.set({ selection: sel }), action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
-    wedge: () => { store.set({ selection: { type: 'edge', id: 'RHV_IVC' } }); setTimeout(() => card.trigger(3), 60); },
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
     loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); toast(store.get().presetList.find((p) => p.id === id)?.label); },
@@ -235,6 +234,8 @@ function viewFrame(f) {
 // are repainted at most ~10×/s (the chevrons animate separately). Repainting the whole SVG plate
 // on every tick kept the main thread busy and the laptop warm for no visible gain.
 let lastPaint = 0, lastDesc = 0, homeStale = false;
+// The Doppler's vessel glows on the figure while the Doppler instrument is open.
+function syncDoppler(f = store.get().frame) { stage?.setDoppler(f && dock?.isOpen('doppler') ? f.probe : null); }
 function onFrame(f) {
   if (f.params) replaceParams(f.params);
   if (f.events?.length) { const hid = store.get().hiddenEvents; const ev = hid ? f.events.filter((e) => !hid.has(e.id)) : f.events; if (ev.length) timeline.addEvents(ev); }
@@ -247,6 +248,7 @@ function onFrame(f) {
   stage.update(viewFrame(f));
   card.update(f);
   dock.update(f);
+  syncDoppler(f);
   inspector.update(f);
   compare.update(f);
   timeline.update(f);
@@ -663,11 +665,7 @@ function openSettings(anchor) {
     h('div', { class: 'menu-title' }, t('menu.appearance')),
     h('div', { class: 'seg full menu-seg' }, [['light', t('menu.light')], ['dark', t('menu.dark')], ['system', t('menu.system')]].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { closePopover(); applyTheme(v === 'system' ? null : v, v === 'system'); }); return b; })),
     h('div', { class: 'menu-title' }, 'Text size on the figure'),
-    h('div', { class: 'seg full menu-seg', role: 'group', 'aria-label': 'Text size on the figure' }, [[0.85, 'Small'], [1, 'Default'], [1.15, 'Large'], [1.3, 'Larger']].map(([v, l]) => {
-      const b = h('button', { 'aria-pressed': String(Math.abs(stage.labelScale() - v) < 0.01) }, l);
-      b.addEventListener('click', () => { stage.setLabelScale(v); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); });
-      return b;
-    })),
+    textSizeControl(),
     h('div', { class: 'menu-title' }, t('menu.language')),
     (() => { const sel = h('select', { class: 'select menu-select', 'aria-label': t('menu.language') }, LANGS.map(([v, l]) => h('option', { value: v, selected: currentLang() === v }, l))); sel.addEventListener('change', () => { setLang(sel.value); closePopover(); }); return sel; })(),
     h('div', { class: 'menu-title' }, t('menu.access')),
@@ -676,6 +674,26 @@ function openSettings(anchor) {
     h('div', { class: 'menu-sep' }),
     menuItem(t('menu.reset'), { icon: 'reset', onClick: () => resetEverything() }),
   ], { align: 'start', cls: 'app-menu' });
+}
+// Text size: smaller and larger in even steps, and the middle shows the size and resets it.
+const TEXT_STEPS = [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5];
+function textSizeControl() {
+  const at = () => TEXT_STEPS.reduce((b, v, i) => (Math.abs(v - stage.labelScale()) < Math.abs(TEXT_STEPS[b] - stage.labelScale()) ? i : b), 0);
+  const smaller = h('button', { class: 'ts-a ts-sm', 'aria-label': 'Smaller text', title: 'Smaller text' }, 'A');
+  const reset = h('button', { class: 'ts-reset', 'aria-label': 'Reset text size', title: 'Reset text size' });
+  const larger = h('button', { class: 'ts-a ts-lg', 'aria-label': 'Larger text', title: 'Larger text' }, 'A');
+  const paint = () => {
+    const i = at();
+    smaller.disabled = i === 0; larger.disabled = i === TEXT_STEPS.length - 1;
+    reset.textContent = `${Math.round(stage.labelScale() * 100)}%`;
+    reset.setAttribute('aria-pressed', String(i === TEXT_STEPS.indexOf(1)));
+  };
+  const step = (d) => { stage.setLabelScale(TEXT_STEPS[Math.max(0, Math.min(TEXT_STEPS.length - 1, at() + d))]); paint(); };
+  smaller.addEventListener('click', () => step(-1));
+  larger.addEventListener('click', () => step(1));
+  reset.addEventListener('click', () => { stage.setLabelScale(1); paint(); });
+  paint();
+  return h('div', { class: 'seg full menu-seg text-size', role: 'group', 'aria-label': 'Text size on the figure' }, smaller, reset, larger);
 }
 function openHelpMenu(anchor) {
   popover(anchor, [
@@ -754,6 +772,8 @@ function setPanelTab(tab) {
   $('#tabInstruments').setAttribute('aria-pressed', String(instr));
   if (instr) $('#tabInstruments').classList.remove('ping');
   else app.classList.remove('instrument-focus');
+  if (instr && !was) dockSheet?.open();
+  if (!instr && was) dockSheet?.closed();
   if (was !== instr) {
     const f = store.get().frame; if (f && instr) requestAnimationFrame(() => dock.update(f, true));
     setTimeout(() => dispatchEvent(new Event('resize')), 320);
@@ -763,7 +783,7 @@ function setPanelTab(tab) {
 // ── Floating pieces ─────────────────────────────────
 // The top bar and the vitals dock publish their heights (--top-safe, --vdock-h), so the cards,
 // the Fit button and the toasts keep clear of them; Fit itself reads data-safe (stage.js).
-let panelSheet = null, treatSheet = null;
+let panelSheet = null, treatSheet = null, dockSheet = null;
 function wireFloating() {
   // Besides the two heights: how much of the right edge the open cards take (--panel-occ for the
   // chart, --instr-occ for the instruments, --right-occ for all of them with Treat) and how much of the
@@ -795,7 +815,8 @@ function wireFloating() {
     app.style.setProperty('--instr-occ', px(instrOcc));
     app.style.setProperty('--right-occ', px(panelOcc + instrOcc + treatOcc));
     const sheet = wsOn && !ws.classList.contains('side') && ws.dataset.state !== 'peek' ? ws.offsetHeight + gap : 0;
-    app.style.setProperty('--bot-occ', px(vdock + gap + sheet));
+    // On a phone the instruments sheet rises from the bottom edge, over the vitals dock.
+    app.style.setProperty('--bot-occ', px(isPhone() && sheet ? Math.max(vdock + gap, sheet) : vdock + gap + sheet));
     dispatchEvent(new Event('pps:occ'));
   };
   const soon = () => { if (!pubRaf) pubRaf = requestAnimationFrame(publish); };
@@ -808,6 +829,7 @@ function wireFloating() {
   publish();
   panelSheet = sheetBehaviour($('#panel'), { handle: h('button', { class: 'panel-grab', 'aria-label': 'Resize the patient chart' }), drag: '.panel-head', onClose: closePanel });
   treatSheet = sheetBehaviour($('#treatCard'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the Treat card' }), drag: '.tc-head', onClose: closeTreat });
+  dockSheet = sheetBehaviour($('#dock'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the instruments' }), drag: '.dock-head', onClose: () => dock.close(), active: () => isPhone() && !$('#dock').classList.contains('side') && !app.classList.contains('instrument-focus') });
   // Focus: dragging, pinching or scrolling the figure fades the floating pieces until it stops.
   let busyT = 0, down = null;
   const busy = (ms) => { app.classList.add('stage-busy'); clearTimeout(busyT); busyT = setTimeout(() => app.classList.remove('stage-busy'), ms); };
@@ -826,17 +848,17 @@ function wireFloating() {
 // Phone: the chart and Treat are bottom sheets with three heights; a drag on the handle (or the
 // head) moves between them, and below the lowest closes the sheet. Wider: the head drags the card
 // aside, and it returns to its place when it closes.
-function sheetBehaviour(el, { handle, drag, onClose }) {
+function sheetBehaviour(el, { handle, drag, onClose, active = () => true }) {
   const SIZES = [0.32, 0.56, 0.9];
   let size = 1;
   el.prepend(handle);
   const apply = () => el.style.setProperty('--sheet-size', `${Math.round(SIZES[size] * 100)}%`);
   apply();
-  handle.addEventListener('click', () => { if (!isPhone()) return; size = (size + 1) % SIZES.length; apply(); });
+  handle.addEventListener('click', () => { if (!isPhone() || !active()) return; size = (size + 1) % SIZES.length; apply(); });
   let start = null;
   const grabbed = (e) => e.target === handle || (e.target.closest(drag) && !e.target.closest('button, a, input, select, [role="tab"]'));
   el.addEventListener('pointerdown', (e) => {
-    if (!grabbed(e) || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    if (!grabbed(e) || !active() || (e.pointerType === 'mouse' && e.button !== 0)) return;
     const r = el.getBoundingClientRect(), mv = (el.style.translate || '0px 0px').split(' ').map(parseFloat);
     start = { x: e.clientX, y: e.clientY, h: r.height, H: app.clientHeight, tx: mv[0] || 0, ty: mv[1] || 0, moved: false };
     el.setPointerCapture?.(e.pointerId);
@@ -1043,7 +1065,7 @@ function openHelp(section) {
   openModal('Guide', h('div', {},
     h('p', {}, 'A living model of the portal circulation. Every pressure, flow, collateral and varix comes out of one lumped-parameter hemodynamic model. Nothing is scripted: change a resistance and watch the consequences propagate.'),
     h('div', { class: 'entry-grid' },
-      [['explore', 'Act on the anatomy', 'Click any vessel or organ. A card opens beside it with what you can do there: narrow or clot a vein, make the liver cirrhotic, band varices, wedge a catheter, start a shunt.'],
+      [['explore', 'Act on the anatomy', 'Click any vessel or organ. A card opens beside it with what you can do there: narrow or clot a vein, make the liver cirrhotic, band varices, start a shunt.'],
         ['settle', 'One timeline', 'Play runs the heartbeat-scale model; +1 wk, +1 mo and +6 mo jump the disease ahead. Every change is a marker you can go back to, or compare from.'],
         ['bulb', 'Ask “Why?”', 'Click any readout for a causal breakdown of what is driving it, change by change.']].map(([ic, t, d]) => h('div', { class: 'entry', style: { cursor: 'default' } }, h('span', { class: 'eic' }, icon(ic)), h('span', { class: 't' }, t), h('span', { class: 'd' }, d)))),
     h('h3', { 'data-sec': 'keys' }, 'Keyboard'),

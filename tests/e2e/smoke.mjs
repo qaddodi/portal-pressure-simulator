@@ -42,7 +42,7 @@ async function runCheck(device, name, fn) {
     console.log(`ok   ${device.padEnd(7)} ${name} (${Date.now() - t0} ms)`);
   } catch (e) {
     failed++;
-    console.log(`FAIL ${device.padEnd(7)} ${name}: ${e.message.split('\n')[0]}`);
+    console.log(`FAIL ${device.padEnd(7)} ${name}: ${e.message.split('\n')[0]}`); if (process.env.SMOKE_STACK) console.log(e.stack);
     if (shots) await page.screenshot({ path: `${shots}/FAIL-${device}-${name.replace(/\W+/g, '-')}.png` }).catch(() => {});
   }
   await ctx.close();
@@ -177,13 +177,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.evaluate(() => window.pps.dock.show('profile', { reveal: true }));
     await page.waitForTimeout(500);
     await shot(page, `${device}-instruments`);
-    await page.evaluate(() => window.pps.dock.show('landscape', { reveal: true }));
-    await page.waitForFunction(() => document.querySelector('.land-verdict')?.textContent.includes('Steepest fall'));
-    await shot(page, `${device}-landscape`);
   });
 
   await check(device, 'lesson and case deep links', async (page) => {
-    await open(page, '?lesson=hvpg');
+    await open(page, '?lesson=valveless');
     await page.waitForFunction(() => (document.querySelector('#coach')?.textContent.length > 20) || (document.querySelector('#panelLesson')?.textContent.length > 20));
     await open(page, '?case=bleed');
     await page.waitForFunction(() => document.querySelector('#panelCase')?.textContent.length > 20);
@@ -293,8 +290,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (device === 'desktop') {
       const zk = () => page.evaluate(() => window.pps.stage.lobuleViewKey?.());
       // The framing glides when the free space changes: start from where it settles.
-      let k0 = await zk();
-      for (let i = 0; i < 20; i++) { await page.waitForTimeout(700); const k = await zk(); if (k === k0) break; k0 = k; }
+      // Settled means three readings in a row agree (a busy machine can pause a glide between two).
+      let k0 = await zk(), same = 0;
+      for (let i = 0; i < 30 && same < 2; i++) { await page.waitForTimeout(700); const k = await zk(); same = k === k0 ? same + 1 : 0; k0 = k; }
       await page.click('#zoomIn');
       await page.waitForFunction((k0) => window.pps.stage.lobuleViewKey() !== k0, k0, { timeout: 15000 }).catch(() => { throw new Error('zoom in does nothing in the lobule'); });
       await page.click('#zoomFit');
@@ -370,8 +368,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const measure = () => page.evaluate(() => {
         const SEL = ['.tb-id', '.top-right', '#viewSeg', '.topbar .sb-right', '.sb-center.float-ui', '#vdock', '#panel', '#treatCard:not([hidden])', '#dock', '#zoomPill', '.action-card:not([hidden])', '.coach:not(:empty)', '.lz.on .lz-side', '.lz.on .lz-key', '.lz.on .lz-top'];
         const vis = (el) => { const st = getComputedStyle(el), r = el.getBoundingClientRect(); return st.display !== 'none' && st.visibility !== 'hidden' && +st.opacity > 0.05 && r.width > 2 && r.height > 2; };
-        // On a phone the chart, Treat and a vessel's card are sheets that rise over the dock by design.
-        const sheet = (el) => el.classList.contains('docked') || (matchMedia('(max-width: 767px), (max-width: 1023px) and (max-height: 500px)').matches && (el.id === 'panel' || el.id === 'treatCard'));
+        // On a phone the chart, Treat, the instruments and a vessel's card are sheets that rise over the dock by design.
+        const sheet = (el) => el.classList.contains('docked') || (matchMedia('(max-width: 767px), (max-width: 1023px) and (max-height: 500px)').matches && (el.id === 'panel' || el.id === 'treatCard' || (el.id === 'dock' && !el.classList.contains('side'))));
         const items = SEL.flatMap((s) => [...document.querySelectorAll(s)].filter(vis).map((el) => [s, el.getBoundingClientRect(), el]));
         const out = [];
         for (let i = 0; i < items.length; i++) for (let j = i + 1; j < items.length; j++) {
@@ -473,29 +471,27 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const before = await page.evaluate(() => window.pps.store.get().frame.t);
     await page.waitForTimeout(500);
     if (!((await page.evaluate(() => window.pps.store.get().frame.t)) > before)) throw new Error('opening instruments paused simulation');
-    await page.click('.workspace-divider');
-    await page.keyboard.press('ArrowUp');
+    // A laptop or tablet resizes the card with its divider; a phone's sheet uses its handle instead.
+    if (device !== 'phone') { await page.click('.workspace-divider'); await page.keyboard.press('ArrowUp'); }
     await page.click('.workspace-expand');
     await page.click('.workspace-compare');
     await page.waitForFunction(() => !!window.pps.store.get().compareSnap);
     await page.click('.workspace-expand');
     await page.waitForSelector('.workspace-comparison:not([hidden])');
     // One tap on a tab chooses an instrument; each tab carries its live reading.
-    if (await page.locator('.instr-tab').count() !== 8) throw new Error('the tabs must offer eight distinct instruments');
+    if (await page.locator('.instr-tab').count() !== 5) throw new Error('the tabs must offer five distinct instruments');
     const choose = async (id) => {
       await page.click(`.instr-tab[data-instrument="${id}"]`);
       await page.waitForFunction((id) => document.querySelector(`.instr-tab[data-instrument="${id}"]`).getAttribute('aria-selected') === 'true', id);
       await page.waitForTimeout(250);
     };
-    for (const id of ['scope', 'flow', 'perfusion', 'hvpg', 'doppler', 'endoscopy', 'abdomen', 'profile']) {
+    for (const id of ['scope', 'doppler', 'endoscopy', 'abdomen', 'profile']) {
       await choose(id);
       const overflow = await page.$eval(`#pane-${id}`, (el) => el.scrollWidth - el.clientWidth);
       if (overflow > 2) throw new Error(`${id} has horizontal overflow (${overflow}px)`);
       const sized = await page.$eval(`#pane-${id}`, (el) => [...el.querySelectorAll('canvas')].filter((c) => c.getBoundingClientRect().height > 0).every((c) => c.width > 1 && c.height > 1));
       if (!sized) throw new Error(`${id} has an unsized visible canvas`);
     }
-    await page.evaluate(() => window.pps.dock.show('landscape', { reveal: true }));
-    await page.waitForSelector('.land-verdict');
     await page.evaluate(() => window.pps.dock.show('varixwall', { reveal: true }));
     if (!(await page.$eval('.wall-details', (d) => d.open))) throw new Error('legacy varixwall route does not open mechanics');
     await page.click('.workspace-expand');
@@ -510,9 +506,19 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.$eval('#pane-endoscopy', (el) => { el.scrollTop = 0; });
     await shot(page, `${device}-workspace-endoscopy`);
     await page.click('.workspace-expand');
-    await page.click('.workspace-fold');
-    await page.waitForFunction(() => document.querySelector('#dock').dataset.state === 'peek');
-    await page.click('.workspace-fold');
+    if (device === 'phone') {
+      // A phone's instruments are a bottom sheet: no minimise; a drag down on the handle closes them.
+      await page.evaluate(() => window.pps.dock.setState('open'));
+      await page.waitForTimeout(300);
+      const g = await page.$eval('#dock .sheet-grab', (e) => { const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
+      await page.mouse.move(g[0], g[1]); await page.mouse.down(); await page.mouse.move(g[0], (page.viewportSize().height - 4), { steps: 8 }); await page.mouse.up();
+      await page.waitForFunction(() => !document.querySelector('#app').classList.contains('dock-open')).catch(async () => { throw new Error('drag down did not close: ' + JSON.stringify(await page.evaluate(() => [document.querySelector('#app').className, document.querySelector('#dock').dataset.state, document.elementFromPoint(195, document.querySelector('#dock .sheet-grab').getBoundingClientRect().y + 9)?.className, document.querySelector('#dock').getBoundingClientRect().height])) + JSON.stringify(g)); });
+      await page.evaluate(() => window.pps.dock.show('endoscopy', { reveal: true }));
+    } else {
+      await page.click('.workspace-fold');
+      await page.waitForFunction(() => document.querySelector('#dock').dataset.state === 'peek');
+      await page.click('.workspace-fold');
+    }
     if (device === 'phone') {
       await page.setViewportSize({ width: 844, height: 390 });
       // As on a tablet: the relayout follows the resize event, so wait for it (up to 10 s).

@@ -119,7 +119,6 @@ export function cardFor(selIn, ctx) {
     if (HEP_VEIN[id]) { kicker = 'Hepatic vein'; why = 'hvpg'; }
     if (['PV_TRUNK', 'SMV_CONF', 'SV_CONF', 'PVH_R', 'PVH_L'].includes(id)) why = 'pvFlow';
     verbs.push(narrow, clot);
-    if (HEP_VEIN[id]) verbs.push(wedgeVerb(HEP_VEIN[id], ctx));
     verbs.push(doppler);
     if (shunt) verbs.push(shunt);
     if (id === 'SV_CONF' || id === 'V_SPL') verbs.push({ type: 'link', label: 'Spleen', run: () => ctx.select({ type: 'organ', id: 'spleen' }) });
@@ -158,29 +157,6 @@ function edgeValue(e, f, lens, ref) {
   if (lens === 'drop') return { v: fmt(P1 - P2, 1), u: 'mmHg drop' };
   const r = ref ? (ref[NI[e.from]] + ref[NI[e.to]]) / 2 : null;
   return { v: fmt(P, 1), u: 'mmHg', d: r != null && Math.abs(P - r) >= 1 ? `${P > r ? '▲' : '▼'} ${fmt(Math.abs(P - r), 0)}` : null, up: r != null && P > r };
-}
-
-function wedgeVerb(vein, ctx) {
-  return {
-    type: 'button', id: 'wedge', key: 'catheter', label: 'Wedge → HVPG', icon: 'catheter',
-    on: (p) => p.catheter.vein === vein,
-    labelFor: (p) => (p.catheter.vein !== vein ? 'Wedge → HVPG' : p.catheter.wedged ? 'Remove catheter' : 'Inflate balloon'),
-    note: (f, p) => {
-      if (p.catheter.vein !== vein) return 'Transjugular catheter: free pressure, then wedged. HVPG = WHVP − FHVP.';
-      const m = store.get().lastHVPG;
-      if (m && m.vein === vein) return `HVPG ${fmt(m.hvpg, 1)} mmHg (WHVP ${fmt(m.whvp, 1)} − FHVP ${fmt(m.fhvp, 1)})`;
-      return p.catheter.wedged ? 'Balloon inflated: waiting for the wedged plateau…' : 'Free hepatic venous pressure; the balloon inflates in a moment.';
-    },
-    run: () => {
-      const c = store.get().params.catheter;
-      if (c.vein === vein && c.wedged) { updateParams({ catheter: { vein: null, wedged: false } }, { label: 'Remove catheter' }); return; }
-      if (c.vein === vein) { updateParams({ catheter: { vein, wedged: true } }, { label: 'Wedge catheter' }); return; }
-      updateParams({ catheter: { vein, wedged: false } }, { label: `Catheter in ${vein}HV` });
-      ctx.showPane('hvpg');
-      // The procedure runs itself: free pressure first, then the balloon.
-      setTimeout(() => { const cc = store.get().params.catheter; if (cc.vein === vein && !cc.wedged) updateParams({ catheter: { vein, wedged: true } }, { label: 'Wedge catheter', history: false }); }, 3500);
-    },
-  };
 }
 
 function varixVerbs(site, ctx) {

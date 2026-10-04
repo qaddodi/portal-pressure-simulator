@@ -6,7 +6,7 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=f9424489c6';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=fe164f31f1';
-import { createLobuleZoom } from './lobule-zoom.js?v=d62520c125';
+import { createLobuleZoom } from './lobule-zoom.js?v=e66d158620';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=63596bcd73';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -713,6 +713,48 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     balloons: s('g'), catheter: s('g'), bands: s('g'),
   };
   Object.values(ov).forEach((g) => gOver.append(g));
+  // The Doppler's vessel: a steady green glow and a thin green edge around it while the Doppler
+  // instrument is open. The vessel's middle is masked out, so its pressure colour shows through
+  // (the GPU draws the vessels under this layer).
+  const dop = (() => {
+    const g = s('g', { class: 'dop-mark', 'aria-hidden': 'true' });
+    const BIG = { x: -4000, y: -4000, width: 12000, height: 12000 };
+    // The mask: a wide band along the vessel that fades in from each end (open ends, no caps), with
+    // the vessel itself cut out so its pressure colour shows through.
+    const fade = s('linearGradient', { id: 'dop-fade', gradientUnits: 'userSpaceOnUse' });
+    for (const [o, a] of [[0, 0], [0.18, 1], [0.82, 1], [1, 0]]) fade.append(s('stop', { offset: o, 'stop-color': '#fff', 'stop-opacity': a }));
+    const band = s('path', { fill: 'none', stroke: 'url(#dop-fade)', 'stroke-linecap': 'butt', 'stroke-linejoin': 'round' });
+    const knock = s('path', { fill: 'none', stroke: '#000', 'stroke-linecap': 'butt', 'stroke-linejoin': 'round' });
+    const mask = s('mask', { id: 'dop-knock', maskUnits: 'userSpaceOnUse', ...BIG });
+    mask.append(band, knock);
+    // The blur works in user space: a straight vessel's own box has no height, which would clip it.
+    const blur = s('filter', { id: 'dop-blur', filterUnits: 'userSpaceOnUse', ...BIG });
+    blur.append(s('feGaussianBlur', { stdDeviation: 5 }));
+    const defs = s('defs');
+    defs.append(fade, mask, blur);
+    const glow = s('path', { class: 'dop-glow', filter: 'url(#dop-blur)' });
+    const glowG = s('g', { mask: 'url(#dop-knock)' });
+    const edge = s('path', { class: 'dop-edge' });
+    glowG.append(glow, edge);
+    g.append(defs, glowG);
+    g.style.display = 'none';
+    gOver.prepend(g);
+    return {
+      id: null, g,
+      paint(d, w) {
+        for (const el of [band, knock, glow, edge]) el.setAttribute('d', d);
+        const n = d.match(/-?\d*\.?\d+(?:e-?\d+)?/g);
+        if (n && n.length >= 4) {
+          fade.setAttribute('x1', n[0]); fade.setAttribute('y1', n[1]);
+          fade.setAttribute('x2', n[n.length - 2]); fade.setAttribute('y2', n[n.length - 1]);
+        }
+        band.setAttribute('stroke-width', (w + 60).toFixed(1));
+        knock.setAttribute('stroke-width', (w + 0.5).toFixed(1));
+        edge.setAttribute('stroke-width', (w + 5).toFixed(1));
+        glow.setAttribute('stroke-width', (w + 18).toFixed(1));
+      },
+    };
+  })();
 
   // ── View transform (pan / zoom) ───────────────────
   let vt = { k: 1, x: 0, y: 0 };
@@ -1148,6 +1190,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       g.len = arcLen(pts);
       const d = t === 1 ? g.dC : polyD(pts);
       x.halo.setAttribute('d', d); x.sel.setAttribute('d', d); x.wall.setAttribute('d', d); x.hit.setAttribute('d', d);
+      if (dop.id === x.e.id) dop.paint(d, x.dopW || 8);
       x.shadow.setAttribute('d', d);
       if (x.heat) x.heat.setAttribute('d', d);
       if (x.lumen) x.lumen.setAttribute('d', d);
@@ -1352,6 +1395,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       x.sel.classList.toggle('on', selOn);
       cls(x, 'is-sel', selOn);
       if (selOn) setA(x.sel, 'stroke-width', (w + 12).toFixed(1));
+      x.dopW = w;
+      if (dop.id === e.id) { const d = x.wall.getAttribute('d'); if (d) dop.paint(d, w); dop.g.style.display = x.vis ? '' : 'none'; }
     }
     // Junction widths: where vessels meet, the largest narrows to the second largest and the
     // others widen toward it, so calibers change smoothly through every junction.
@@ -2345,14 +2390,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Label text size: the reader's choice (Menu › Text size), and a larger baseline in the circuit,
   // whose labels are the map's only text. Every run's size and spacing is scaled by labelK.
   const CIRCUIT_LABEL_K = 1.22;
+  const LABEL_MIN = 0.5, LABEL_MAX = 1.5;
   // Where a map direction lands on the screen once the circuit is turned a quarter turn counter-clockwise.
   const TURN_DIR = { N: 'W', W: 'S', S: 'E', E: 'N', NE: 'NW', NW: 'SW', SW: 'SE', SE: 'NE', C: 'C' };
-  let labelScale = (() => { try { return clamp(parseFloat(localStorage.getItem('pps.labelScale')) || 1, 0.8, 1.5); } catch { return 1; } })();
+  let labelScale = (() => { try { return clamp(parseFloat(localStorage.getItem('pps.labelScale')) || 1, LABEL_MIN, LABEL_MAX); } catch { return 1; } })();
+  // Every label on a figure (the lobule's too) reads the same scale.
+  document.documentElement.style.setProperty('--label-k', String(labelScale));
   let labelK = labelScale;
-  // Projection ramp: presenting, or a wide screen (≥ 1600 px) with the Larger text size, sets the
-  // atlas labels at projector sizes (values 28 px, names 23 px), readable from the back of a room.
+  // Projection ramp: presenting sets the atlas labels at projector sizes (values 28 px, names 23 px),
+  // readable from the back of a room.
   let projecting = false;
-  const labelBase = () => (projecting || (innerWidth >= 1600 && labelScale >= 1.3) ? 2 : labelScale);
+  const labelBase = () => (projecting ? 2 : labelScale);
   // A line is a list of runs { t, size, weight, cls, track }. Returns [width, height].
   const LINE_H = (line) => Math.max(...line.map((r) => r.size)) * labelK * 1.24;
   const lineW = (line) => line.reduce((w, r, i) => w + textW(r.t, r.size * labelK, r.weight, r.track || 0) + (i ? (r.gap ?? 3) * labelK : 0), 0);
@@ -3411,9 +3459,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     },
     relayout() { refreshCTM(); if (F) updateLabels(F); },
     labelScale: () => labelScale,
+    /** The vessel the Doppler is reading, glowing green while the Doppler instrument is open (null: none). */
+    setDoppler(id) {
+      if (id && !E[id]) id = null;
+      if (id === dop.id) return;
+      dop.id = id;
+      dop.g.style.display = id ? '' : 'none';
+      if (id) { const x = E[id], d = x.wall.getAttribute('d'); if (d) dop.paint(d, x.dopW || 8); }
+    },
     setLabelScale(v) {
-      labelScale = clamp(v, 0.8, 1.5);
+      labelScale = clamp(Math.round(v * 100) / 100, LABEL_MIN, LABEL_MAX);
       try { localStorage.setItem('pps.labelScale', String(labelScale)); } catch { /* storage unavailable */ }
+      document.documentElement.style.setProperty('--label-k', String(labelScale));
+      dispatchEvent(new Event('pps:labelscale'));
       if (F) updateLabels(F);
     },
     setProjection(on) { projecting = !!on; if (F) updateLabels(F); },

@@ -1535,7 +1535,7 @@ button.finding:hover { background: var(--surface-2); }
 .lz-lab small { font-size: 10px; font-weight: 500; color: var(--text-3); }
 .lz-lab[hidden] { display: none; }
 .lz-lab:hover, .lz-lab:focus-visible { border-color: var(--accent); outline: none; }
-.lz-zone { position: absolute; transform: translate(-50%, -50%); padding: 2px 8px; border-radius: var(--r-pill); background: var(--glass); border: 1px solid var(--hairline); font: 500 var(--fs-12) var(--font-ui); color: var(--text-2); white-space: nowrap; box-shadow: 0 1px 1.5px rgba(20, 22, 30, .1); }
+.lz-zone { position: absolute; transform: translate(-50%, -50%); padding: 2px 8px; border-radius: var(--r-pill); background: var(--glass); border: 1px solid var(--hairline); font: 500 calc(12px * var(--label-k, 1)) var(--font-ui); color: var(--text-2); white-space: nowrap; box-shadow: 0 1px 1.5px rgba(20, 22, 30, .1); }
 .lz-zone b { font-weight: 600; color: var(--text); }
 .lz-zone.z1 b { color: rgb(200, 72, 52); } .lz-zone.z2 b { color: rgb(170, 116, 40); } .lz-zone.z3 b { color: rgb(104, 78, 196); }
 .lz-top { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; }
@@ -1733,9 +1733,6 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   .stage-view svg#stage, .stage-view svg#stageOver { left: 12px; width: calc(100% - 24px); overflow: visible; }
 }
 
-/* Pressure landscape */
-.land-box canvas { cursor: grab; }
-.land-box canvas:active { cursor: grabbing; }
 /* Three measurements card: vessel pressure, HVPG, direct gradient */
 .mcard { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: var(--r-card); background: var(--surface-2); }
 .mc-t { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); }
@@ -1747,11 +1744,6 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .mc-d { font-size: var(--fs-12); color: var(--text-2); line-height: 1.45; }
 .mc-f { font-size: var(--fs-12); color: var(--text); line-height: 1.45; font-weight: 600; }
 .mc-a { font-size: var(--fs-12); color: var(--text-3); line-height: 1.45; }
-.land-verdict { margin-top: 12px; padding: 12px 12px; border-radius: var(--r-card); background: var(--surface-2); }
-.lv-k { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); }
-.lv-v { font-size: var(--fs-14); font-weight: 600; margin-top: 2px; }
-.lv-v b { color: var(--danger); font-variant-numeric: tabular-nums; }
-.lv-d { font-size: var(--fs-12); color: var(--text-2); margin-top: 2px; line-height: 1.45; }
 
 /* Motion: things arrive, they do not pop. (Reduced motion turns all of it off, above.) */
 .dock-pane.active { animation: lift .28s var(--ease); }
@@ -1889,8 +1881,6 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .instrument-view .kv { margin: 0; }
 .instrument-view .side-title { font-size: var(--fs-14); }
 .instrument-view .ctl-sub { line-height: 1.5; }
-.pressure-views { align-self: flex-start; flex: none; }
-.pressure-views button { min-height: 32px; padding-inline: 14px; }
 .instrument-details { min-width: 0; border-top: 1px solid var(--hairline); padding-top: 10px; font-size: var(--fs-14); }
 .instrument-details > summary { display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; color: var(--text); font-weight: 600; min-height: 34px; }
 .instrument-details > summary::-webkit-details-marker { display: none; }
@@ -1935,7 +1925,6 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   .workspace-run > span { font-size: var(--fs-12); }
   .workspace-compare { min-height: 32px; padding-inline: 7px; font-size: var(--fs-12); }
   .workspace-compare > svg { display: none; }
-  .workspace-close { display: none !important; }
   .instrument-workspace[data-state="peek"] { height: 70px; }
   .instrument-workspace[data-state="peek"] .dock-head { height: 70px; }
   .instrument-workspace .dock-pane { padding: 12px 14px calc(16px + env(safe-area-inset-bottom)); }
@@ -2274,12 +2263,19 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   .panel-grab, .sheet-grab { display: block; flex: none; height: 18px; width: 100%; border: 0; background: none; cursor: grab; touch-action: none; position: relative; }
   .panel-grab::before, .sheet-grab::before { content: ''; position: absolute; left: 50%; top: 6px; width: 40px; height: 4px; border-radius: 2px; background: var(--border-strong); transform: translateX(-50%); }
   .panel .panel-tabs { touch-action: none; }
-  /* The instruments rest on the vitals dock as one panel: no gap, square corners where they meet, and
-     the sheet's shadow kept off the dock. */
-  .instrument-workspace.float-ui:not(.side) { left: 6px; right: 6px; bottom: calc(var(--vdock-top, 136px) - 1px); border-radius: var(--r-sheet) var(--r-sheet) 0 0; clip-path: inset(-40px -40px 0 -40px); }
-  .instrument-workspace.float-ui:not(.side) .dock-body { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent); }
+  /* The instruments are a bottom sheet like the chart and Treat: they rise from the bottom edge,
+     the handle (or the head) drags them between three heights, and a drag down closes them. */
+  .instrument-workspace.float-ui:not(.side) {
+    left: 0; right: 0; bottom: 0; top: auto; height: var(--sheet-size, 56%); border-radius: var(--r-sheet) var(--r-sheet) 0 0;
+    padding-bottom: env(safe-area-inset-bottom); z-index: calc(var(--z-panel) + 2); transition: height .22s var(--ease);
+  }
+  .instrument-workspace.float-ui:not(.side).entering { animation: sheetUp .28s var(--ease); }
+  .instrument-workspace.float-ui:not(.side).dragging { transition: none; }
+  .instrument-workspace:not(.side) .workspace-divider, .instrument-workspace:not(.side) .workspace-fold { display: none !important; }
+  .instrument-workspace.side .sheet-grab { display: none; }
+  .instrument-workspace .dock-head { touch-action: none; }
+  .app.instrument-focus .instrument-workspace.float-ui:not(.side) { top: calc(var(--top-safe) + 4px); bottom: 0; height: auto; }
   .app.dock-open .stage-clock { display: none; }
-  .app.dock-open:not(.instrument-focus):has(.instrument-workspace:not(.side)) .vdock { border-top-left-radius: 0; border-top-right-radius: 0; background: var(--surface); }
   .app.panel-open .instrument-workspace.float-ui { right: 6px; }
 }
 @media (min-width: 768px) { .sheet-grab { display: none; } }
@@ -2300,6 +2296,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .app { --pill-h: 46px; --ctl-h: 40px; }
 @keyframes cardInRight { from { opacity: 0; transform: translateX(16px); } }
 @keyframes cardInUp { from { opacity: 0; transform: translateY(16px); } }
+@keyframes sheetUp { from { transform: translateY(100%); } }
 @keyframes paneIn { from { opacity: 0; transform: translateY(4px); } }
 
 /* The main menu: the first thing in the top bar, named after the current mode. */
@@ -2408,35 +2405,15 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .wbtn[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-ink); border-color: transparent; }
 .wbtn svg { width: var(--ic-s); height: var(--ic-s); fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .instrument-workspace .dock-head .ib { width: 32px; height: 32px; }
-.instr-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 2px 12px 12px; flex: none; }
-.instr-tabs[hidden] { display: none; }
-.instr-tab { position: relative; display: flex; align-items: center; gap: 8px; min-width: 0; padding: 7px 9px; border: 1px solid var(--hairline); border-radius: var(--r-card); background: var(--surface-2); color: var(--text); text-align: left; cursor: pointer; font: inherit; transition: background .15s, border-color .15s, transform .08s; }
-.instr-tab:hover { border-color: var(--border-strong); background: var(--surface); }
-.instr-tab:active { transform: scale(.98); }
-.instr-tab > svg { width: var(--ic-m); height: var(--ic-m); flex: none; fill: none; stroke: var(--text-2); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.it-t { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
-.it-t b { font-size: var(--fs-12); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.it-v { font-size: var(--fs-12); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; min-height: 1.25em; }
-.instr-tab[aria-selected="true"] { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 35%, transparent); color: var(--accent-ink); }
-.instr-tab[aria-selected="true"] > svg { stroke: var(--accent); }
-.instr-tab[aria-selected="true"] .it-v { color: color-mix(in srgb, var(--accent-ink) 70%, transparent); }
-.instr-tab[data-slot="1"]::after, .instr-tab[data-slot="2"]::after { content: attr(data-slot); position: absolute; top: -6px; right: -4px; width: 17px; height: 17px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font: 600 var(--fs-12)/17px var(--font-ui); text-align: center; }
-.picking .instr-tab:not([aria-selected="true"]) { border-style: dashed; border-color: var(--accent); }
 .instr-hint { margin: -4px 12px 10px; padding: 6px 10px; border-radius: var(--r-card); background: var(--accent-soft); color: var(--accent-ink); font-size: var(--fs-12); }
 .instrument-workspace .dock-body { border-top: 1px solid var(--hairline); }
 .instrument-workspace .dock-body.stack { grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(2, minmax(0, 1fr)); }
 .instrument-workspace .dock-body.stack .dock-pane + .dock-pane { border-left: 0; border-top: 1px solid var(--hairline); }
 .instrument-workspace .dock-pane.active { animation: paneIn .18s var(--ease); }
-@container ws (min-width: 900px) { .instr-tabs { grid-template-columns: repeat(8, minmax(0, 1fr)); } }
 @container ws (max-width: 560px) {
   .wbtn .wb-l { display: none; }
   .wbtn { width: 32px; padding: 0; justify-content: center; }
   .workspace-live { display: none; }
-}
-@container ws (max-width: 380px) {
-  .instr-tabs { display: flex; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; padding-bottom: 10px; }
-  .instr-tabs::-webkit-scrollbar { display: none; }
-  .instr-tab { flex: 0 0 auto; max-width: 150px; scroll-snap-align: start; }
 }
 @media (prefers-reduced-motion: reduce) { .instrument-workspace.float-ui.entering, .instrument-workspace .dock-pane.active, .treat-card, .app.panel-open .panel { animation: none; } }
 
@@ -2450,7 +2427,6 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   .topbar .sb-right { padding: 0 2px; }
   .zoom-pill { flex-direction: row; right: calc(env(safe-area-inset-right) + 8px); }
   .zoom-pill .ib { width: 36px; height: 36px; }
-  .zoom-pill #zoomIn, .zoom-pill #zoomOut { display: none; }
   .main-menu { width: min(340px, calc(100vw - 16px)); }
   .session-bar .b-text { display: none; }
 }
@@ -2497,19 +2473,11 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   .topbar .legend { min-width: 0; overflow: hidden; }
 }
 .topbar .stage-bar.top .sb-left { flex: none; }
-/* A narrow Instruments card: each tab stacks its icon, name and reading. */
-@container ws (max-width: 560px) {
-  .instr-tabs { gap: 4px; padding-inline: 10px; }
-  .instr-tab { flex-direction: column; align-items: center; text-align: center; gap: 2px; padding: 6px 3px; }
-  .instr-tab .it-t { align-items: center; max-width: 100%; }
-  .instr-tab > svg { width: var(--ic-m); height: var(--ic-m); }
-}
 @container ws (max-height: 340px) { .instr-desc { display: none; } }
 /* A phone in landscape: the Instruments card on the right is narrower. */
 @media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
   .instrument-workspace.side { top: calc(var(--top-safe) + 2px); bottom: calc(var(--vdock-h) + 14px); }
   .instrument-workspace.side .instr-desc { display: none; }
-  .instrument-workspace.side .instr-tab .it-v { display: none; }
 }
 @media (max-width: 767px) { .coach { max-height: 34%; } }
 
@@ -2532,13 +2500,14 @@ body.laser-on, body.laser-on * { cursor: none !important; }
    the pressure's color on the side facing the vessel, as on the anatomy. */
 .lz-lab { display: grid; gap: 0; padding: 1px 8px 1px 9px; border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; border-left: 3px solid var(--sw, var(--border-strong)); line-height: 1.2; }
 .lz-lab.left { text-align: right; border-left: 0; border-right: 3px solid var(--sw, var(--border-strong)); padding: 1px 9px 1px 8px; }
-.lz-lab .n, .lz-lab .v { text-shadow: 0 0 3px var(--label-halo), 0 0 3px var(--label-halo), 0 0 6px var(--label-halo); }
-.lz-lab .n { font-size: 12px; font-weight: 500; color: var(--text-2); }
-.lz-lab .v { display: flex; align-items: baseline; gap: 3px; font-size: 15px; }
+/* The anatomy's halo: a solid outline around each letter (a ring of shadows), so the labels read over the tissue. */
+.lz-lab .n, .lz-lab .v { text-shadow: 2px 0px 0 var(--label-halo), -2px 0px 0 var(--label-halo), 0px 2px 0 var(--label-halo), 0px -2px 0 var(--label-halo), 1.4px 1.4px 0 var(--label-halo), -1.4px 1.4px 0 var(--label-halo), 1.4px -1.4px 0 var(--label-halo), -1.4px -1.4px 0 var(--label-halo), 0 0 4px var(--label-halo); }
+.lz-lab .n { font-size: calc(11.5px * var(--label-k, 1)); font-weight: 500; color: var(--text-2); }
+.lz-lab .v { display: flex; align-items: baseline; gap: 2.5px; font-size: calc(14px * var(--label-k, 1)); }
 .lz-lab.left .v { justify-content: flex-end; }
-.lz-lab .v b { font-weight: 600; color: var(--text); }
-.lz-lab small { font-size: 10.5px; color: var(--text-3); }
-.lz-lab .d { font-size: 11px; font-weight: 600; color: var(--text-2); margin-left: 4px; }
+.lz-lab .v b { font-weight: 650; color: var(--text); }
+.lz-lab small { font-size: calc(10px * var(--label-k, 1)); color: var(--text-3); }
+.lz-lab .d { font-size: calc(10.5px * var(--label-k, 1)); font-weight: 650; color: var(--text-2); margin-left: 4px; }
 .lz-lab .n-short { display: none; }
 .lz-lab:hover .n, .lz-lab:focus-visible .n { color: var(--accent-ink); }
 .lz-lab:hover, .lz-lab:focus-visible { border-color: var(--accent); outline: none; }
@@ -2546,7 +2515,9 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 @media (max-width: 720px) {
   .lz-lab { display: flex; align-items: baseline; gap: 4px; border: 0 !important; padding: 0 2px; }
   .lz-lab .n-long { display: none; } .lz-lab .n-short { display: inline; }
-  .lz-lab .v { font-size: 14px; }
+  .lz-lab .n { font-size: calc(10.5px * var(--label-k, 1)); }
+  .lz-lab .v { font-size: calc(12.5px * var(--label-k, 1)); }
+  .lz-lab .d { font-size: calc(9.5px * var(--label-k, 1)); }
   .lz-lab small { display: none; }
   .lz-side { left: 8px; right: 8px; width: auto; top: auto; bottom: calc(var(--vdock-h) + 14px); max-height: 56%; }
   .lz-key { left: 8px; right: 8px; bottom: auto; top: calc(var(--top-safe) + 48px); max-width: none; padding: 6px 10px; }
@@ -2554,9 +2525,45 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   .lz-more .lz-more-l { display: inline; }
 }
 @media (min-width: 721px) { .stage-view.in-lobule .zoom-pill { right: calc(env(safe-area-inset-right) + var(--gap) * 2 + var(--right-occ, 0px) + 300px); } }
-@media (max-width: 720px) { .stage-view.in-lobule .zoom-pill { display: none; } }
+/* Phone: the lobule's zoom in, zoom out and fit sit top right, beside its Zones and Lymph switches. */
+@media (max-width: 720px) {
+  .stage-view.in-lobule .zoom-pill { top: calc(var(--top-safe) + 8px); bottom: auto; right: calc(env(safe-area-inset-right) + 12px); translate: none; flex-direction: row; }
+  .stage-view.in-lobule .zoom-pill #zoomIn, .stage-view.in-lobule .zoom-pill #zoomOut { display: inline-grid; }
+}
 /* In the tall Instruments card the trace chips wrap instead of scrolling sideways. */
 .instrument-workspace.side .pt-chips { flex-wrap: wrap; overflow: visible; -webkit-mask-image: none; mask-image: none; padding-right: 0; }
 /* The lobule's key keeps clear of the zoom buttons beside the lobule card. */
 @media (min-width: 721px) { .lz-key { max-width: min(560px, calc(100% - 2 * var(--gap) - var(--right-occ, 0px) - 400px)); } }
 @media (max-width: 720px) { .lz-side { max-height: min(56%, calc(100% - var(--top-safe) - var(--bot-occ, 120px) - 120px)); } }
+
+/* Instrument tabs: one slim segmented bar; the chosen instrument is a raised chip. */
+.instr-tabs { display: flex; gap: 2px; margin: 2px 12px 10px; padding: 3px; flex: none; border-radius: 10px; background: var(--surface-2); overflow-x: auto; scrollbar-width: none; }
+.instr-tabs::-webkit-scrollbar { display: none; }
+.instr-tabs[hidden] { display: none; }
+.instr-tab { position: relative; flex: 1 1 0; display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; height: 30px; padding: 0 8px; border: 0; border-radius: 7px; background: none; color: var(--text-2); cursor: pointer; font: 600 var(--fs-12) var(--font-ui); white-space: nowrap; transition: background .15s, color .15s, box-shadow .15s; }
+.instr-tab:hover { color: var(--text); }
+.instr-tab > svg { width: var(--ic-s); height: var(--ic-s); flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.it-t { display: flex; min-width: 0; }
+.it-t b { font-weight: inherit; overflow: hidden; text-overflow: ellipsis; }
+.it-v { display: none; }
+.instr-tab[aria-selected="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(20, 22, 30, .12), 0 0 0 .5px var(--hairline); }
+.instr-tab[aria-selected="true"] > svg { stroke: var(--accent); }
+.instr-tab[data-slot="1"]::after, .instr-tab[data-slot="2"]::after { content: attr(data-slot); position: absolute; top: -4px; right: -2px; width: 15px; height: 15px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font: 600 10px/15px var(--font-ui); text-align: center; }
+.picking .instr-tab:not([aria-selected="true"]) { box-shadow: inset 0 0 0 1px var(--accent); }
+/* Narrow: the name under a small icon, so all five fit in one row. */
+@container ws (max-width: 560px) {
+  .instr-tab { flex-direction: column; gap: 1px; height: 40px; padding: 0 2px; }
+}
+
+/* Text size: smaller A, the size (tap to reset), larger A. */
+.text-size button { font-variant-numeric: tabular-nums; }
+.text-size .ts-a { font-family: var(--font-ui); font-weight: 600; flex: 0 0 52px; }
+.text-size .ts-sm { font-size: 12px; } .text-size .ts-lg { font-size: 18px; }
+.text-size .ts-reset { flex: 1; font-size: var(--fs-12); color: var(--text-2); }
+.text-size button:disabled { opacity: .35; cursor: default; }
+
+/* The Doppler's vessel on the figure: a steady green glow and a thin green edge. */
+.dop-mark { pointer-events: none; }
+.dop-glow { fill: none; stroke: var(--doppler); stroke-opacity: .7; stroke-linecap: butt; stroke-linejoin: round; }
+.dop-edge { fill: none; stroke: var(--doppler); stroke-opacity: .95; stroke-linecap: butt; stroke-linejoin: round; }
+.instrument-workspace .dock-title.dop-on .dt-l::before { content: ''; display: inline-block; width: 8px; height: 8px; margin: 0 8px 1px 0; border-radius: 50%; background: var(--doppler); box-shadow: 0 0 0 3px color-mix(in srgb, var(--doppler) 22%, transparent); vertical-align: middle; }

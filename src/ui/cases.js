@@ -22,7 +22,6 @@ const ACTIONS = {
   carvedilol: { label: 'Carvedilol', toggle: (p) => p.drugs.carvedilol, run: () => updateParams((p) => { p.drugs.carvedilol = !p.drugs.carvedilol; return p; }, { label: 'Carvedilol' }) },
   echo: { label: 'Echocardiogram', once: true, run: (a) => { const s = store.get().hiddenReadouts; s?.delete('ra'); store.set({ hiddenReadouts: new Set(s || []) }); const f = store.get().frame; toast(`Echo: RA pressure ≈ ${fmt(f.metrics.ra, 0)} mmHg${store.get().params.tr > 0.3 ? ', severe tricuspid regurgitation' : ''}.`); } },
   doppler: { label: 'Doppler ultrasound', run: (a) => { a.showPane('doppler'); toast('Click a vessel and choose Doppler, or pick the vessel in the Doppler instrument.'); } },
-  hvpg: { label: 'Hepatic vein catheterization', run: (a) => { a.showPane('hvpg'); a.select?.({ type: 'edge', id: 'RHV_IVC' }); toast('Choose Wedge → HVPG on the hepatic vein card.'); } },
   endoscopy: { label: 'Endoscopy', run: (a) => { a.showPane('endoscopy'); } },
   ascitic: { label: 'Diagnostic paracentesis', once: true, run: () => { const m = store.get().frame.metrics; toast(m.ascites.volume > 150 ? `Ascitic fluid: SAAG ${m.ppg > 6 || m.whvp > 10 ? '≥ 1.1' : '< 1.1'}, protein ${m.ascites.highProtein ? '> 2.5' : '< 2.5'} g/dL.` : 'No tappable ascites.'); } },
 };
@@ -55,39 +54,20 @@ export const CASES = [
   {
     id: 'gastric', title: 'Isolated gastric varices', level: 'Diagnosis',
     summary: 'A 46-year-old with recurrent pancreatitis has melena. Endoscopy shows fundal varices, but no esophageal varices. Liver tests are normal.',
-    preset: 'svt', speed: 1, hidden: ['trueHVPG', 'pv'], tools: ['select', 'doppler', 'catheter', 'endoscope'],
-    actions: ['doppler', 'hvpg', 'endoscopy'],
+    preset: 'svt', speed: 1, hidden: ['trueHVPG', 'pv'], tools: ['select', 'doppler', 'endoscope'],
+    actions: ['doppler', 'endoscopy'],
     refs: ['Köklü S, et al. Left-sided portal hypertension. Dig Dis Sci 2007;52:1141–9.', 'de Franchis R, et al. Baveno VII. J Hepatol 2022;76:959–74.'],
     quiz: [
       { q: 'What is the most likely cause?', options: ['Cirrhosis', 'Splenic vein thrombosis (sinistral portal hypertension)', 'Budd–Chiari syndrome', 'Right heart failure'], answer: 1 },
       { q: 'Best definitive treatment?', options: ['TIPS', 'Splenectomy or splenic artery embolization', 'Liver transplant', 'Propranolol alone'], answer: 1 },
     ],
     objectives: [
-      { id: 'look', text: 'Investigate with Doppler or HVPG', check: (c) => (c.first('doppler', 'hvpg') != null ? 'met' : null) },
+      { id: 'look', text: 'Investigate with Doppler', check: (c) => (c.first('doppler') != null ? 'met' : null) },
       { id: 'dx', text: 'Make the diagnosis', check: (c) => c.quizState(0) },
       { id: 'rx', text: 'Choose the treatment', check: (c) => c.quizState(1) },
     ],
     end: (c) => (c.quizDone() ? 'success' : null),
     debrief: () => 'Splenic vein thrombosis isolates the splenic territory: the spleen drains through the short gastric veins into the fundus. Portal pressure and HVPG are normal. The Doppler shows an occluded splenic vein with normal portal flow. Removing the splenic inflow (splenectomy or splenic artery embolization) cures it; TIPS would not help.',
-  },
-  {
-    id: 'cardiac', title: 'New ascites, normal HVPG', level: 'Diagnosis',
-    summary: 'A 68-year-old with previous rheumatic fever has leg swelling and new ascites. The liver is enlarged and pulsatile.',
-    preset: 'rhf', speed: 1, hidden: ['trueHVPG', 'pv', 'ra'], tools: ['select', 'doppler', 'catheter'], params: { pulsatile: true },
-    actions: ['doppler', 'hvpg', 'ascitic', 'echo'],
-    refs: ['Møller S, Bernardi M. Interactions of the heart and the liver. Eur Heart J 2013;34:2804–11.', 'Runyon BA, et al. The serum-ascites albumin gradient is superior to the exudate-transudate concept. Ann Intern Med 1992;117:215–20.'],
-    quiz: [
-      { q: 'Which pattern fits?', options: ['High HVPG, low-protein ascites', 'Normal HVPG with high WHVP & FHVP, protein-rich ascites', 'Normal WHVP, high portal pressure'], answer: 1 },
-      { q: 'Diagnosis?', options: ['Cirrhosis', 'Congestive hepatopathy from right heart failure / TR', 'Portal vein thrombosis'], answer: 1 },
-    ],
-    objectives: [
-      { id: 'hvpg', text: 'Measure the HVPG', check: () => (store.get().lastHVPG ? 'met' : null) },
-      { id: 'tap', text: 'Analyze the ascitic fluid', check: (c) => (c.first('ascitic') != null ? 'met' : null) },
-      { id: 'dx', text: 'Interpret the pattern', check: (c) => c.quizState(0) },
-      { id: 'dx2', text: 'Make the diagnosis', check: (c) => c.quizState(1) },
-    ],
-    end: (c) => (c.quizDone() ? 'success' : null),
-    debrief: () => 'Right-sided pressure transmits backward: FHVP and WHVP rise together, so the HVPG stays normal. The leaky, congested sinusoids make a protein-rich ascites (SAAG ≥ 1.1, protein > 2.5 g/dL). The portal vein Doppler becomes pulsatile or to-and-fro. Treat the heart.',
   },
   {
     id: 'refractory', title: 'Refractory ascites: TIPS or not?', level: 'Management',
