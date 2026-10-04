@@ -12,6 +12,8 @@ import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
 
 const N_SAMPLES = 64;
+// Shorter circuit zone titles, tried in turn when the full one is wider than its zone.
+const ZONE_SHORT = { 'Splanchnic beds': ['Gut & spleen'], 'Portal veins': ['Portal'], 'Hepatic veins · IVC': ['Hep. veins · IVC', 'IVC'] };
 // Displayed width grows sub-linearly with diameter so the cavae don't swamp the portal tree,
 // while distension of small veins and collaterals stays visible.
 // Drawn caliber (px) for a vessel diameter. The 1.3 lifts the baseline so the veins read at a
@@ -2757,6 +2759,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const wr = stageBox();
     return [...document.querySelectorAll('.stage-blocker:not([hidden])')].map((el) => {
       const r = el.getBoundingClientRect();
+      // A closed card can keep its box while invisible (it waits in place to slide in): not an obstacle.
+      if (r.width && getComputedStyle(el).visibility === 'hidden') return null;
       return r.width ? { x0: r.left - wr.left - 4, y0: r.top - wr.top - 4, x1: r.right - wr.left + 4, y1: r.bottom - wr.top + 4 } : null;
     }).filter(Boolean);
   }
@@ -2977,6 +2981,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           continue;
         }
         it.ax = (a + b) / 2; it.ay = Math.max(14, by);
+        // A narrow zone (a zoomed-out circuit) takes a shorter title rather than none.
+        for (const alt of ZONE_SHORT[txt] || []) {
+          if (b - a > it.w + 6) break;
+          it.lines = [[{ ...it.lines[0][0], t: alt.toUpperCase() }]]; it.w = lineW(it.lines[0]);
+        }
         if (b - a > it.w + 6) place(it, ['C'], 0, false);
       }
       buildLines();
