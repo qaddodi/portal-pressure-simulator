@@ -205,28 +205,32 @@ export function createLobuleZoom({ host }) {
   const tgs = h('div', { class: 'lz-tgs', role: 'group', 'aria-label': 'Show on the lobule' }, zonesBtn, lymphBtn);
   const side = h('div', { class: 'lz-side open' }, head, tgs, ladder, nums, verdict, cirBox, statsHead, stats);
   const phoneMQ = matchMedia('(max-width: 720px)');
-  // Folded on a phone, the five numbers sit at the right of the header; opening the sheet lets each fall
-  // into its place on the strip (and folding lifts them back), the rest of the strip fading in after.
+  // Folded on a phone, the strip sits small at the right of the card; opening the sheet lets each number
+  // fall into its place (and folding lifts them back), the changes fading in after.
   const setOpen = (o) => {
     const flip = phoneMQ.matches && !reduce.matches && o !== side.classList.contains('open') && side.isConnected;
     // Measured against the sheet, which itself jumps as it grows, so the numbers fall within the card.
-    const s0 = flip && side.getBoundingClientRect(), was = flip && numEls.map(({ b }) => [b.getBoundingClientRect(), parseFloat(getComputedStyle(b).fontSize)]);
+    const s0 = flip && side.getBoundingClientRect(), segs = nums.querySelector('.lz-nsegs');
+    const parts = flip && [...numEls.map(({ el, b }) => [el, b]), [segs, null]];
+    const was = flip && parts.map(([e, b]) => [e.getBoundingClientRect(), b && parseFloat(getComputedStyle(b).fontSize)]);
     side.classList.toggle('open', o); head.setAttribute('aria-expanded', String(o)); if (!o) side.scrollTop = 0;
     if (was) {
       const s1 = side.getBoundingClientRect(), dx = s0.left - s1.left, dy = s0.top - s1.top;
       nums.classList.add('flying');
       let left = 0;
-      numEls.forEach(({ b }, i) => {
-        const a = b.getBoundingClientRect(), [r, fs] = was[i];
+      parts.forEach(([e, b], i) => {
+        const a = e.getBoundingClientRect(), [r, fs] = was[i];
         if (!a.width || !r.width) return;
-        const k = fs / parseFloat(getComputedStyle(b).fontSize);
-        b.animate([{ transform: `translate(${r.left - a.left - dx}px, ${r.top - a.top - dy}px) scale(${k})` }, { transform: 'none' }],
-          { duration: 420, delay: (o ? i : 4 - i) * 30, easing: 'cubic-bezier(.2, .9, .25, 1)', fill: 'backwards' })
+        // A number scales by its type size; the bars stretch to their new width.
+        const k = b ? `scale(${fs / parseFloat(getComputedStyle(b).fontSize)})` : `scale(${r.width / a.width}, ${r.height / a.height})`;
+        const tx = r.left + r.width / 2 - (a.left + a.width / 2) - dx, ty = r.top - a.top - dy;
+        e.animate([{ transform: `translate(${tx}px, ${ty}px) ${k}` }, { transform: 'none' }],
+          { duration: 420, delay: (o ? i : 5 - i) * 30, easing: 'cubic-bezier(.2, .9, .25, 1)', fill: 'backwards' })
           .finished.catch(() => {}).finally(() => { if (--left === 0) nums.classList.remove('flying'); });
         left++;
       });
       if (!left) nums.classList.remove('flying');
-      if (o) nums.querySelectorAll('.d, .k, .lz-nsegs').forEach((e) => e.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, delay: 260, fill: 'backwards' }));
+      if (o) nums.querySelectorAll('.d').forEach((e) => e.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, delay: 260, fill: 'backwards' }));
     }
     requestAnimationFrame(refit);
   };
