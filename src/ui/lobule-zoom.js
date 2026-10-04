@@ -536,16 +536,37 @@ export function createLobuleZoom({ host }) {
       const [x, y] = C[i], ph = r() * TAU, nx = -(cy - y) / R, ny = (cx - x) / R;
       return curve((u) => { const e = R * 0.05 * Math.sin(Math.PI * u) * Math.sin(1.5 * TAU * u + ph); return [lerp(x, cx, u * 0.82) + nx * e, lerp(y, cy, u * 0.82) + ny * e]; });
     });
-    // Hepatocytes: plates one cell thick, radial cords in rings (a polar grid, clipped to the hexagon).
+    // Hepatocytes: plates one cell thick, running from the central vein out to the portal tracts between
+    // the sinusoids, with the space of Disse a thin gap on both sides. Ring by ring, each gap between
+    // neighbouring sinusoids holds a plate (two side by side where the sinusoids are far apart, near
+    // their forks); along a plate the cells stack outward like beads on a cord.
     const cells = [];
-    const cl = R * 0.055, cw = R * 0.048;
-    for (let rr = rcv0 * 1.45; rr < R * 1.02; rr += cl) {
-      const n = Math.max(6, Math.round((TAU * rr) / cw)), off = r() * TAU;
-      for (let j = 0; j < n; j++) {
-        const a = off + (j * TAU) / n, x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr;
-        const q = hexFrac(x, y, cx, cy, R);
-        if (q > 0.985) continue;
-        cells.push({ x, y, a, l: cl * (0.8 + r() * 0.1), w: cw * (0.72 + r() * 0.12), tone: r(), nu: (r() - 0.5) * 0.3, q, drop: r() });
+    const sinP = [...L0, ...L1, ...L2].map((t) => ({ rs: rs0 * (t.kind === 's0' ? 1 : t.kind === 's1' ? 1.15 : 1.3), P: t.pts.map(([x, y]) => polar(x, y)) }));
+    const crossAt = (rr) => {
+      const out = [];
+      for (const { rs, P } of sinP) for (let i = 0; i < P.length - 1; i++) {
+        const [r1, a1] = P[i], [r2, b2] = P[i + 1];
+        if ((r1 - rr) * (r2 - rr) > 0 || r1 === r2) continue;
+        const a2 = unwrap(b2, a1), a = a1 + (a2 - a1) * ((rr - r1) / (r2 - r1));
+        out.push({ a: Math.atan2(Math.sin(a), Math.cos(a)), rs }); break;
+      }
+      return out.sort((p, q) => p.a - q.a);
+    };
+    const cl = R * 0.052, dg = rs0 * 1.7, wT = R * 0.08;
+    for (let rr = rcv0 * 1.55; rr < R * 1.02; rr += cl) {
+      const X = crossAt(rr);
+      if (X.length < 2) continue;
+      for (let j = 0; j < X.length; j++) {
+        const A = X[j], B = X[(j + 1) % X.length], gA = (j + 1 === X.length ? B.a + TAU : B.a) - A.a;
+        const use = rr * gA - A.rs - B.rs - 2 * dg;
+        if (use < R * 0.02) continue;
+        const n = Math.max(1, Math.round(use / wT)), w = use / n;
+        for (let c = 0; c < n; c++) {
+          const a = A.a + (A.rs + dg + (c + 0.5) * w) / rr, x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr;
+          const q = hexFrac(x, y, cx, cy, R);
+          if (q > 0.975) continue;
+          cells.push({ x, y, a, l: cl * (0.84 + r() * 0.08), w: w * (n > 1 ? 0.86 : 0.94), tone: r(), nu: (r() - 0.5) * 0.3, q, drop: r(), jx: r() - 0.5, jy: r() - 0.5, ja: r() - 0.5 });
+        }
       }
     }
     // Stellate cells in the space of Disse, beside sinusoids.
@@ -1198,10 +1219,12 @@ export function createLobuleZoom({ host }) {
       const t = 0.88 + 0.12 * k.tone;
       const base = dark ? cell.map((x, i) => lerp(gap[i], x, 0.28)) : cell;
       const fill = dead ? (dark ? [0.42, 0.33, 0.3] : [0.93, 0.86, 0.72]) : base.map((x) => x * t + (1 - t) * (dark ? 0.15 : 1) * 0.3);
-      c.save(); c.translate(k.x, k.y); c.rotate(k.a);
-      const lw = dead ? k.l * 0.7 : k.l, ww = dead ? k.w * 0.7 : k.w;
+      // In cirrhosis the plates thicken and lose their order (regenerating nodules).
+      const sj = m.septU, dz = sj * Math.min(k.l, k.w) * 0.45;
+      c.save(); c.translate(k.x + k.jx * dz, k.y + k.jy * dz); c.rotate(k.a + k.ja * sj * 0.9);
+      const lw = (dead ? k.l * 0.7 : k.l) * (1 + 0.12 * sj), ww = (dead ? k.w * 0.7 : k.w) * (1 + 0.3 * sj);
       c.fillStyle = css(fill, dead ? 0.6 : dark ? 0.8 : 0.92);
-      c.beginPath(); c.roundRect(-lw / 2, -ww / 2, lw, ww, Math.min(lw, ww) * 0.3); c.fill();
+      c.beginPath(); c.roundRect(-lw / 2, -ww / 2, lw, ww, Math.min(lw, ww) * 0.38); c.fill();
       if (!dead) { c.fillStyle = dark ? 'rgba(30,14,28,.22)' : 'rgba(110,60,84,.22)'; c.beginPath(); c.arc(k.nu * lw, 0, Math.max(0.9, ww * 0.16), 0, TAU); c.fill(); }
       c.restore();
     }
