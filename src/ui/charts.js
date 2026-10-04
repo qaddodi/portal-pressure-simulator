@@ -56,7 +56,34 @@ export function createProfile() {
   el.append(box, side);
   let pathId = 'main';
   sel.addEventListener('change', () => { pathId = sel.value; draw(); });
-  let F = null;
+  // F is what is drawn: the frame with its pressures eased toward the model's (breath- and
+  // beat-filtered) values, so the line, dots and labels glide rather than jump when values change.
+  let F = null, Fraw = null, shown = null, axisMax = 15, lastEase = 0, easeRaf = 0;
+  function ease() {
+    if (!Fraw) return;
+    const now = performance.now(), dt = lastEase ? Math.min(0.25, (now - lastEase) / 1000) : 1;
+    lastEase = now;
+    const src = Fraw.Pf || Fraw.P, a = 1 - Math.exp(-dt / 0.3);
+    if (!shown || shown.length !== src.length) shown = Float64Array.from(src);
+    let moving = false;
+    for (let i = 0; i < src.length; i++) { const d = src[i] - shown[i]; shown[i] += d * a; if (Math.abs(d) > 0.02) moving = true; }
+    const path = PROFILE_PATHS.find((p) => p.id === pathId);
+    const st = store.get();
+    let top = 0;
+    for (const n of path.nodes) {
+      if (ARTERIAL.has(n)) continue;
+      top = Math.max(top, src[NI[n]], st.healthy?.P?.[NI[n]] ?? 0, st.compareSnap?.P?.[NI[n]] ?? 0);
+    }
+    const target = Math.max(10, Math.ceil((top + 2) / 5) * 5);
+    const dA = target - axisMax;
+    axisMax += dA * a;
+    if (Math.abs(dA) > 0.05) moving = true; else axisMax = target;
+    F = { ...Fraw, P: shown };
+    draw();
+    cancelAnimationFrame(easeRaf);
+    // Keep gliding while paused (no new frames arrive) until the drawing reaches the model.
+    if (moving) easeRaf = requestAnimationFrame(() => { if (cv.isConnected && cv.offsetParent) ease(); });
+  }
   let predict = null; // { on, values: Map(station → P), done }
   let dragging = false;
 
@@ -71,11 +98,10 @@ export function createProfile() {
     // axis (//) with their true value, never clipped.
     const hasArt = stations.some((n) => ARTERIAL.has(n));
     const roomy = hh > 230;
-    const L = 40, R = 16, T = hasArt ? (roomy ? 58 : 34) : 16, B = stagger ? (roomy ? 44 : 38) : 26;
+    const L = 40, R = 16, T = hasArt ? (roomy ? 58 : 34) : 28, B = stagger ? (roomy ? 44 : 38) : 26;
     const slot = (w - L - R) / stations.length;
-    const vals = F ? stations.map((n) => F.P[NI[n]]) : [];
-    const venous = vals.filter((_, i) => !ARTERIAL.has(stations[i]));
-    const maxP = Math.max(30, ...venous.map((v) => v + 4));
+    // The axis follows the highest point (now, healthy or the compared moment), eased, not fixed at 30.
+    const maxP = axisMax;
     const y = (p) => T + (hh - T - B) * (1 - clamp(p, -2, maxP) / maxP);
     const x = (i) => L + slot * (i + 0.5);
     const artY = roomy ? T - 24 : T - 20;
@@ -247,16 +273,16 @@ export function createProfile() {
 
   return {
     id: 'profile', label: 'Pressure profile', el,
-    update(f) { F = f; draw(); },
+    update(f) { Fraw = f; ease(); },
     redraw: draw,
     setPath(id) { pathId = id; sel.value = id; draw(); },
     startPredict(onChange) { predict = { on: true, values: new Map(), onChange }; draw(); },
     endPredict(reveal = true) { if (predict) { predict.on = false; predict.reveal = reveal; } draw(); return predict; },
     clearPredict() { predict = null; draw(); },
     predictionError() {
-      if (!predict || !F) return null;
+      if (!predict || !Fraw) return null;
       let s = 0, n = 0;
-      for (const [k, v] of predict.values) { s += Math.abs(v - F.P[NI[k]]); n++; }
+      for (const [k, v] of predict.values) { s += Math.abs(v - Fraw.P[NI[k]]); n++; }
       return n ? s / n : null;
     },
   };
