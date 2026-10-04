@@ -13,8 +13,7 @@
   panel; on a phone the sheet has a third, full height. Card values match the labels and readouts.
 - **Phone.** The circuit opens upright when held upright; the legend, readout names and clock fit; the zoom
   buttons step aside under a card sheet; the patient name gets the room in the top bar.
-- **Graphics.** Vessels whose pressure moved glow briefly after a change; varices are drawn as swellings sized by
-  their diameter; ascites shows as a visible pool sooner; softer moving-blood sheen; a light rim on vessels in
+- **Graphics.** Vessels whose pressure moved glow briefly after a change; ascites shows as a visible pool sooner; softer moving-blood sheen; a light rim on vessels in
   dark mode; quieter stellate cells and septa in the lobule.
 - **Play bar.** The clock sits by the track, speed looks like a control, Compare is an icon, events stand on the track.
 

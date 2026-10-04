@@ -2356,41 +2356,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // STRANDS in anatomy.js), which swell as they are recruited; here only the bands, fitted at
     // ligation, are drawn over the lower esophagus.
     ov.varices.innerHTML = ''; ov.gvarices.innerHTML = ''; ov.bands.innerHTML = '';
-    if (anat && !isImaging()) {
-      const m = f.metrics;
-      // The varices as swellings on those channels: knobbly beads whose size follows the varix
-      // diameter (grade), in the varix's own pressure color; red wale spots above 70 % of the
-      // rupture tension. Bands shrink the esophageal ones as they shrink the channels.
-      // A bulge: an oval along the channel, overlapping its neighbours so a column reads as one knobbly vein.
-      const bead = (g, x, y, r, wale, rot = 0) => {
-        const tr = `rotate(${rot.toFixed(0)} ${x.toFixed(1)} ${y.toFixed(1)})`;
-        g.append(s('ellipse', { class: 'varix-bead', cx: x.toFixed(1), cy: y.toFixed(1), rx: (r * 0.95).toFixed(2), ry: (r * 1.45).toFixed(2), transform: tr }),
-          s('ellipse', { class: 'varix-lit', cx: (x - r * 0.3).toFixed(1), cy: (y - r * 0.45).toFixed(1), rx: (r * 0.3).toFixed(2), ry: (r * 0.5).toFixed(2), transform: tr }));
-        if (wale) g.append(s('circle', { class: 'varix-wale', cx: (x + r * 0.2).toFixed(1), cy: (y + r * 0.3).toFixed(1), r: Math.max(0.7, r * 0.24).toFixed(2) }));
-      };
-      const vd = hold('vd', m.varix.d, 0.5), gd = hold('gd', m.gastricVarix.d, 0.5);
-      if (vd >= 2.5) {
-        const r = clamp(0.42 * vd, 1.3, 4.6) * (1 - 0.12 * Math.min(4, Math.round(f.bands || 0)));
-        const wale = m.varix.ratio > 0.7, top = 258 - clamp((vd - 2.5) * 11, 26, 80), cx = (y) => SITES.varix[0] + (y - SITES.varix[1]) * 0.066;
-        ov.varices.style.opacity = clamp((vd - 2.5) / 1.5, 0.4, 1).toFixed(2);
-        [-4.2, 0.4, 4.6].forEach((dx, c) => {
-          let i = 0;
-          for (let y = 258 - (c % 2) * r * 1.1; y > top; y -= r * 2.1, i++) {
-            const j = Math.sin(y * 1.3 + c * 2.1);
-            bead(ov.varices, cx(y) + dx + j * 0.9, y, r * (0.8 + 0.25 * Math.abs(j)), wale && (i + c) % 3 === 1, j * 12);
-          }
-        });
-      }
-      if (gd >= 2.5) {
-        const r = clamp(0.5 * gd, 1.8, 6), [fx, fy] = SITES.fundus;
-        ov.gvarices.style.opacity = clamp((gd - 2.5) / 1.5, 0.4, 1).toFixed(2);
-        const n = gd >= 8 ? 9 : gd >= 5 ? 7 : 5;
-        for (let i = n - 1; i >= 0; i--) {
-          const a = i * 2.39996, rr = i ? r * (0.9 + 0.55 * Math.sqrt(i)) : 0;
-          bead(ov.gvarices, fx + Math.cos(a) * rr, fy + Math.sin(a) * rr * 0.8, r * (i ? 0.8 : 1), m.gastricVarix.ratio > 0.7 && i % 3 === 1, (a * 57.3) % 180);
-        }
-      }
-    }
     if (anat) {
       const eso = (y) => 789 + (y - 24) * 0.066;
       const nb = Math.round(f.bands || 0);

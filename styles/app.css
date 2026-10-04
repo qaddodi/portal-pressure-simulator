@@ -2633,8 +2633,3 @@ input[type="range"] { touch-action: none; }
 .delta-glow.down { stroke: color-mix(in srgb, #3A8DE8 70%, transparent); }
 @keyframes deltaGlow { 0% { opacity: 0; } 25% { opacity: .6; } 60% { opacity: .45; } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .delta-glow { display: none; } }
-
-/* Varices: knobbly swellings on the variceal channels, sized by the varix diameter, in its pressure color. */
-.varix-bead { fill: var(--vx, #B04A7A); stroke: rgb(var(--casing-rgb) / calc(var(--casing-a) * .9)); stroke-width: .8; }
-.varix-lit { fill: var(--light-ink); opacity: .32; pointer-events: none; }
-.varix-wale { fill: #E0303A; opacity: .9; }
