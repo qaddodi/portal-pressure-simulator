@@ -618,6 +618,8 @@ export function createLobuleZoom({ host }) {
     // each sinusoid (a thin channel beside it, between the sinusoid and its plate), against the blood,
     // to the edge of the lobule; there terminal lymphatics carry it along the limiting plate to the
     // lymphatic vessel in each portal tract.
+    // The portal tract's own lymphatic, end-on beside the venule (on its outer side, away from the arteriole and ductule).
+    for (const tr of triads) { const a = Math.atan2(tr.y - cy, tr.x - cx), d = rt * 0.62; tr.lv = add('lv', dot(tr.x + Math.cos(a) * d, tr.y + Math.sin(a) * d), { tri: tr.i, lymph: true }); }
     const lyOff = rs0 * 2.1;
     const beside = (t) => t.pts.map((q, i) => { const a = t.pts[Math.max(0, i - 1)], b = t.pts[Math.min(N - 1, i + 1)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [q[0] - ((b[1] - a[1]) / L) * lyOff, q[1] + ((b[0] - a[0]) / L) * lyOff]; });
     // Along each edge, from its midpoint to the triad at either end, on the limiting plate.
@@ -788,22 +790,51 @@ export function createLobuleZoom({ host }) {
       layoutKey = '';
     }
   }
+  // Which portal venule and which sinusoid carry the label: at first the left portal venule and the
+  // sinusoid just below the middle of the left side; as the view is zoomed or panned, the label stays
+  // on its vessel while that is comfortably in view, and otherwise moves to the one in view nearest
+  // the middle of the free space (so it does not jump about).
+  const pick = { triad: 3, sin: null, geo: null };
+  const sinAt = (t) => at(t.pts, 0.45);
   const anchorOf = (key) => {
     const g = geo, C = g.lobules[0].corners;
-    if (key === 'triad') return C[3];
+    if (key === 'triad') return C[pick.triad];
     if (key === 'cv') return [g.cx, g.cy];
-    return at(sinTube().pts, 0.45);
+    return sinAt(sinTube());
   };
-  // The labelled vessels sit on the left: the left portal venule, and the sinusoid just below the middle of the left side.
   const sinTube = () => {
-    const g = geo, ang = (t) => { const [x, y] = at(t.pts, 0.45); return Math.abs(Math.atan2(y - g.cy, x - g.cx) - 2.75); };
-    return g.L1.reduce((b, t) => (ang(t) < ang(b) ? t : b), g.L1[0]);
+    const g = geo;
+    if (pick.geo !== g) {   // a new lobule (or size): back to the left side
+      const ang = (t) => { const [x, y] = sinAt(t); return Math.abs(Math.atan2(y - g.cy, x - g.cx) - 2.75); };
+      pick.geo = g; pick.triad = 3; pick.sin = g.L1.reduce((b, t) => (ang(t) < ang(b) ? t : b), g.L1[0]).id;
+    }
+    return g.tubes[pick.sin] || g.L1[0];
   };
-  const hitKind = (key) => (key === 'triad' ? { part: 'triad', tri: 3 } : key === 'cv' ? { part: 'cv' } : { part: 'sin', tube: sinTube().id });
+  function pickAnchors(fr) {
+    const g = geo, C = g.lobules[0].corners;
+    sinTube();
+    const inside = (p, m) => { const [x, y] = toScreen(p); return x > fr.l + m && x < fr.r - m && y > fr.t + m && y < fr.b - m; };
+    const mx = (fr.l + fr.r) / 2, my = (fr.t + fr.b) / 2, far = (p) => { const [x, y] = toScreen(p); return Math.hypot(x - mx, y - my); };
+    const best = (cands, posOf, avoid) => {
+      let b = null, bs = Infinity;
+      for (const c of cands) {
+        const p = posOf(c);
+        if (!inside(p, 72)) continue;
+        // Kept clear of the other labelled vessels, so the labels do not crowd each other.
+        const sc = far(p) + avoid.reduce((a, q) => { const [x0, y0] = toScreen(p), [x1, y1] = toScreen(q), d = Math.hypot(x1 - x0, y1 - y0); return a + Math.max(0, 110 - d) * 3; }, 0);
+        if (sc < bs) { bs = sc; b = c; }
+      }
+      return b;
+    };
+    if (!inside(C[pick.triad], 36)) { const i = best([0, 1, 2, 3, 4, 5], (i) => C[i], [[g.cx, g.cy]]); if (i != null) pick.triad = i; }
+    if (!inside(sinAt(sinTube()), 36)) { const t = best([...g.L0, ...g.L1, ...g.L2], sinAt, [[g.cx, g.cy], C[pick.triad]]); if (t) pick.sin = t.id; }
+  }
+  const hitKind = (key) => (key === 'triad' ? { part: 'triad', tri: pick.triad } : key === 'cv' ? { part: 'cv' } : { part: 'sin', tube: sinTube().id });
   function layoutLabels() {
     const fr0 = freeRect(), g = geo, key = `${g.W}x${g.H}|${Object.values(labs).map((l) => l.txt).join('|')}|${zonesOn}|${lymphOn}|${V.k},${V.x},${V.y}|${fr0.t},${fr0.b},${fr0.l},${fr0.r}`;
     if (key === layoutKey) return;
     layoutKey = key;
+    pickAnchors(fr0);
     leaders.setAttribute('viewBox', `0 0 ${g.W} ${g.H}`);
     const { R, cx, cy } = g;
     // Each label sits just beside its vessel, on the side away from the lobule's centre (the central
@@ -821,7 +852,7 @@ export function createLobuleZoom({ host }) {
       L.el.style.left = `${x - w / 2}px`; L.el.style.top = `${y - hh / 2}px`;
       L.el.classList.toggle('left', x < a[0]);
       // Hidden when its vessel is out of the free space, or the space is too small to hold it.
-      L.el.hidden = off || fr.b - fr.t < hh + 8 || fr.r - fr.l < w + 8 || a[0] < fr.l - 4 || a[0] > fr.r + 4 || a[1] < fr.t - 30 || a[1] > fr.b + 4;
+      L.el.hidden = off || fr.b - fr.t < hh + 8 || fr.r - fr.l < w + 8 || a[0] < fr.l - 4 || a[0] > fr.r + 4 || a[1] < fr.t - (k === 'cv' ? 4 : 30) || a[1] > fr.b + 4;
       L.line.style.display = L.dotEl.style.display = L.el.hidden ? 'none' : '';
       // The leader ends at the label's near edge (its colour bar).
       const ex = x < a[0] ? x + w / 2 : x - w / 2;
@@ -1102,7 +1133,7 @@ export function createLobuleZoom({ host }) {
       // Lymphatics widen as drainage rises (capped, so the tract lymphatic never swamps the triad).
       case 'ly': return Math.max(1.1, g.rs0 * 0.5 * lyW(m, 0.45));   // the space of Disse fills and widens
       case 'lt': return Math.max(1.5, R * 0.0075 * lyW(m, 0.4));
-      case 'lv': return R * 0.014 * lyW(m, 0.4);
+      case 'lv': return R * 0.016 * lyW(m, 0.4);
       default: return rs;
     }
   }
@@ -1265,7 +1296,7 @@ export function createLobuleZoom({ host }) {
     // Pressure colors enter only coarsely (they move every frame while the model glides).
     const qi = (s) => s.replace(/\d+/g, (n) => (n >> 4) << 4);
     const sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2), 3600 / (2.6 * G.R));
-    const wk = [G.W, G.H, sc.toFixed(3), dark, qi(ink('pv')), m.zone.pre.toFixed(2), m.zone.sin.toFixed(2), m.zone.post.toFixed(2), m.s.toFixed(2), q(m.cong), m.hide, zonesOn, cs.getPropertyValue('--bg'), lymphOn ? [lyF(m), lyOver(m), lyProt(m)].map((x) => x.toFixed(2)).join(',') : ''].join('|');
+    const wk = [G.W, G.H, sc.toFixed(3), dark, qi(ink('pv')), m.zone.pre.toFixed(2), m.zone.sin.toFixed(2), m.zone.post.toFixed(2), m.s.toFixed(2), q(m.cong), m.hide, zonesOn, cs.getPropertyValue('--bg')].join('|');
     const key = [W, H, dpr, wk, flatVessels ? [ink('sin', 1), ink('sin', 0), ink('pv'), ink('cv'), m.art.toFixed(2), [...selIds()].join('.')] : '', Object.values(fieldState()).join(','), V.k.toFixed(3), V.x.toFixed(1), V.y.toFixed(1)].join('|');
     if (key === tissueKey) return;
     tissueKey = key;
@@ -1348,23 +1379,6 @@ export function createLobuleZoom({ host }) {
         c.beginPath(); t.pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.stroke();
       }
     }
-    // Filtration (Lymph on): plasma leaving the sinusoids into the space of Disse, a soft green along
-    // each sinusoid that spreads into the gaps beside the plates as sinusoidal pressure drives more out.
-    if (lymphOn) {
-      const f = 0.2 + 0.8 * lyF(m), lc = lyInk(m, dark);   // a faint film even in health, where filtration is normal
-      {
-        c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = css(lc, 1);
-        for (const [wk, al] of [[1.9, 0.05], [1.2, 0.09]]) {
-          c.globalAlpha = al * (0.4 + 0.6 * f);
-          for (const t of G.tubes) {
-            if (t.kind[0] !== 's') continue;
-            c.lineWidth = 2 * radiusAt(t, N >> 1) + G.rs0 * 2 * wk * (0.8 + 0.7 * f);
-            c.beginPath(); t.pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.stroke();
-          }
-        }
-        c.globalAlpha = 1;
-      }
-    }
     // Stellate (Ito) cells, in the space of Disse between a plate and its sinusoid: shown once fibrosis
     // starts, when they activate. A spindle-shaped body lying along the sinusoid, with long thin
     // processes hugging its wall; activated (myofibroblasts), they grow, darken and lay down collagen.
@@ -1445,21 +1459,6 @@ export function createLobuleZoom({ host }) {
     for (const tr of G.triads) { c.beginPath(); c.arc(tr.bd[0], tr.bd[1], G.rt * 0.15, 0, TAU); c.stroke(); }
     // Central vein wall: collagen with post-sinusoidal fibrosis.
     if (m.fibPost > 0.05) { c.fillStyle = col(0.3 + 0.55 * m.fibPost); c.beginPath(); c.arc(cx, cy, G.rcv0 * (1.5 + m.fibPost), 0, TAU); c.fill(); }
-    // Overflow: past what the lymphatics carry, lymph pools at the edge of the lobule and weeps away.
-    if (lymphOn && lyOver(m) > 0.02) {
-      const o = lyOver(m), lc = lyInk(m, dark);
-      c.save(); c.lineCap = 'round'; c.strokeStyle = css(lc, 1);
-      const cs6 = main.corners;   // along the middle of each edge only, clear of the triads at the corners
-      for (const [k, wk, al] of [[1.03, 0.07, 0.08], [1.012, 0.035, 0.14]]) {
-        c.globalAlpha = al * o; c.lineWidth = R * wk * (0.6 + 0.4 * o); c.beginPath();
-        cs6.forEach(([x0, y0], i) => {
-          const [x1, y1] = cs6[(i + 1) % cs6.length], P = (u) => [main.x + (lerp(x0, x1, u) - main.x) * k, main.y + (lerp(y0, y1, u) - main.y) * k];
-          c.moveTo(...P(0.25)); c.lineTo(...P(0.75));
-        });
-        c.stroke();
-      }
-      c.restore();
-    }
   }
   // Without WebGL2: the vessels as plain strokes on the tissue.
   function paintFlatVessels(c, cs) {

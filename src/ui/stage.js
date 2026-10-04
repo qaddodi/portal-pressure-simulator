@@ -6,7 +6,7 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=9c069d2ebf';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar, systemEdge } from './util.js?v=831ebf143a';
-import { createLobuleZoom } from './lobule-zoom.js?v=b59a5e5d2f';
+import { createLobuleZoom } from './lobule-zoom.js?v=7ebcf6f9b1';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=f7c2445d32';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -1034,7 +1034,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (!diveOrig) {
       const [ox, oy] = diveAt;
-      diveOrig = diveEls().map((el) => [el, `${(ox - el.offsetLeft).toFixed(1)}px ${(oy - el.offsetTop).toFixed(1)}px`]);
+      // From the boxes, not offsetLeft/Top: an SVG has none, and its origin would fall back to its own
+      // centre, so the overlays (stents, the Doppler's glow) drifted from the anatomy as it zoomed.
+      const w0 = wrap.getBoundingClientRect();
+      diveOrig = diveEls().map((el) => { const r = el.getBoundingClientRect(); return [el, `${(ox - (r.left - w0.left)).toFixed(1)}px ${(oy - (r.top - w0.top)).toFixed(1)}px`]; });
       for (const [el, o] of diveOrig) { el.style.willChange = 'transform'; el.style.transformOrigin = o; }
     }
     const tf = `scale(${k.toFixed(4)})`;
