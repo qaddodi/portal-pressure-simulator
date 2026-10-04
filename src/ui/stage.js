@@ -6,7 +6,7 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=9c069d2ebf';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=d680016625';
-import { createLobuleZoom } from './lobule-zoom.js?v=e185044f3b';
+import { createLobuleZoom } from './lobule-zoom.js?v=19b660b347';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=dbd6a6238d';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -1029,7 +1029,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     } else if (ms) {
       // Pull out a moment after the lobule starts to shrink, back to where the anatomy was.
       const back = preLobule && !sameView(preLobule, { k: 1, x: 0, y: 0 }) ? preLobule : (homeAt || defaultVT(false));
-      setTimeout(() => { if (!lobuleOn) animateVT(back, ms * 0.85); }, ms * 0.15);
+      // (Only if the anatomy is still the view: leaving the lobule for the circuit takes the circuit's own framing.)
+      setTimeout(() => { if (!lobuleOn && morphTarget === 0) animateVT(back, ms * 0.85); }, ms * 0.15);
     }
     const step = (now) => {
       const e = ms ? clamp((now - t0) / ms, 0, 1) : 1;
@@ -1243,8 +1244,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // framing, measured from what is drawn. While the view is still at home it follows what is drawn:
   // when ascites fills the pelvis or the spleen grows, home grows with it and the view follows.
   let firstFit = false, homeAt = null, homeCheck = 0, userMoved = false;
-  let patientReady = (store.get().historyTick || 0) > 0;
-  store.on('historyTick', () => { patientReady = true; });
+  // A patient has arrived and none is on its way (opening one from Home, the first frames are still the last one's).
+  const patientArrived = () => (store.get().historyTick || 0) > 0 && !store.get().presetLoading;
+  let patientReady = patientArrived();
+  store.on('historyTick', () => { patientReady = patientArrived(); });
+  store.on('presetLoading', () => { patientReady = patientArrived(); });
   wrap.classList.add('unframed');
   setTimeout(() => wrap.classList.remove('unframed'), 4000);   // never left hidden
   function update(f) {
@@ -3611,11 +3615,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setView(v) {
       const target = v === 'circuit' ? 1 : 0;
       if (target === morphTarget) return;
+      // From the lobule, the anatomy's view is the one it dived from, not the dive.
+      const fromLobule = lobuleOn || lobU > 0, at = fromLobule && preLobule ? preLobule : vt;
       morphTarget = target;
       syncSemantic();
       // Zoomed out (or fitted) in the anatomy, the circuit opens zoomed out too: the whole map, not
       // the close-up it opens with on a phone. From a zoomed-in view it takes its usual framing.
-      const wasOut = target === 1 && (vt.k <= 1.001 || (homeAt && sameView(vt, homeAt)));   // the whole plate (or less) is showing
+      const wasOut = target === 1 && (fromLobule || at.k <= 1.001 || (homeAt && sameView(at, homeAt)));   // the whole plate (or less) is showing
       const d = wasOut ? insetVT({ k: 1, x: 0, y: 0 }, circVB()) : defaultVT(target === 1);
       if (target === 0) homeAt = d;   // back to the anatomy: always its home framing
       if (d.k !== vt.k || d.x !== vt.x || d.y !== vt.y) animateVT(d, 600);

@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=a3200de5ad';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=9c069d2ebf';
-import { createStage } from './stage.js?v=53eaedfe94';
+import { createStage } from './stage.js?v=56edde1fcd';
 import { createInspector } from './inspector.js?v=fe8a1a69f1';
 import { createDock, CUTOFFS } from './dock.js?v=7b41415d4a';
 import { createWhy } from './why.js?v=ad41be34f6';
@@ -283,10 +283,11 @@ function openScenarios(anchor) {
 }
 
 async function loadPreset(id, opts = {}) {
+  store.set({ presetLoading: true });   // the figure frames itself once the patient has arrived (stage.js)
   const res = await host.request('preset', { id, days: opts.days });
   replaceParams(res.params);
   clearHistory();
-  store.set({ presetId: id, lastHVPG: null, selection: store.get().mode === 'cases' ? null : store.get().selection, historyTick: (store.get().historyTick || 0) + 1 });
+  store.set({ presetLoading: false, presetId: id, lastHVPG: null, selection: store.get().mode === 'cases' ? null : store.get().selection, historyTick: (store.get().historyTick || 0) + 1 });
   timeline?.reset(store.get().presetList?.find((x) => x.id === id)?.label);
 }
 

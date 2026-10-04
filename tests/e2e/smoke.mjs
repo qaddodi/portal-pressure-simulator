@@ -67,6 +67,26 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await shot(page, `${device}-anatomy`);
   });
 
+  await check(device, 'leaving the lobule frames the next view, not the dive', async (page) => {
+    await open(page, '?preset=cirr-decomp');
+    const T = () => page.evaluate(() => (document.querySelector('#world').getAttribute('transform') || '').replace(/-?\d+\.\d+/g, (n) => (+n).toFixed(1)));
+    // A software renderer draws a frame a second or two apart: wait until the transform holds for a while.
+    const steady = async () => { let a = await T(), same = 0; for (let i = 0; i < 80 && same < 5; i++) { await page.waitForTimeout(300); const c = await T(); same = c === a ? same + 1 : 0; a = c; } return a; };
+    const home = await steady();
+    await page.click('#viewSeg [data-view="lobule"]', { force: true });
+    await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 30000 });
+    await page.click('#viewSeg [data-view="circuit"]', { force: true });
+    const inCircuit = await steady();
+    await page.evaluate(() => window.pps.stage.fit());
+    const f1 = await steady();
+    await page.evaluate(() => window.pps.stage.fit());
+    const f2 = await steady();
+    if (inCircuit !== f1 && inCircuit !== f2) throw new Error(`circuit opened at ${inCircuit}, not at a fit framing (${f1} / ${f2})`);
+    await page.click('#viewSeg [data-view="anatomic"]', { force: true });
+    const back = await steady();
+    if (back !== home) throw new Error(`the anatomy came back at ${back}, not at its framing ${home}`);
+  });
+
   await check(device, 'circuit turns upright and back', async (page) => {
     await open(page, '?preset=csph');
     if (await page.$eval('#rotateCircuit', (b) => getComputedStyle(b).display) !== 'none') throw new Error('turn button shows in the anatomy');

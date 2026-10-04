@@ -18,6 +18,10 @@
 - **Steady framing.** The default framing is measured from the organs, abdomen and ascites only (the vessels morph),
   and waits for the patient to load; the figure appears once, already framed, and switching views is one glide.
   On touch, no double tap, two-finger tap or post-pinch glide, so the view only moves when you move it.
+- **View changes land where they should.** Leaving the lobule for the circuit opens the circuit's own framing (a
+  delayed return to the anatomy's framing used to fire in the circuit). Opening a patient from Home frames that
+  patient, not the one before. The lobule zooms and pans as the anatomy does (mouse wheel zooms, trackpad scroll
+  pans, pinch zooms), its drag no longer drops over labels, and the room to pan opens sooner.
 - **Zoom stays where you put it.** The spring-back only pulls the view back when its middle has left the figure, so
   zooming into the spleen or a collateral holds. A pinch or pan that starts on a pressure label now works (the labels
   used to swallow the first finger on a phone); a tap on a label still opens it.

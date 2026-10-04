@@ -200,7 +200,8 @@ export function createLobuleZoom({ host }) {
     V.k = Math.min(V.k, kFit * KMAX);
     const { cx, cy, R } = geo, f = freeRect(), mx = (f.l + f.r) / 2, my = (f.t + f.b) / 2;
     // The free space's centre stays over the lobule; fitted, it is the framing.
-    const t = clamp(V.k / kFit - 1, 0, 1);
+    // (The room to pan opens quickly: fully by a third past the framing, so a small zoom can already be moved.)
+    const t = clamp((V.k / kFit - 1) * 3, 0, 1);
     const fc = [(mx - F0.x) / F0.k, (my - F0.y) / F0.k];
     const wx = (mx - V.x) / V.k, wy = (my - V.y) / V.k;
     const x0 = lerp(fc[0], cx - R * 1.05, t), x1 = lerp(fc[0], cx + R * 1.05, t), y0 = lerp(fc[1], cy - R * 0.95, t), y1 = lerp(fc[1], cy + R * 0.95, t);
@@ -248,9 +249,21 @@ export function createLobuleZoom({ host }) {
   function syncKey() { const z = V.k / (kFit || 1), o = clamp((1.7 - z) / 0.45, 0, 1); key.style.opacity = o.toFixed(2); key.style.visibility = o < 0.02 ? 'hidden' : ''; }
 
   // ── Gestures: wheel and pinch zoom, drag pans, a tap selects; out past 1× returns to the liver ──
+  // As on the anatomy: a mouse wheel zooms about the pointer; a trackpad's two-finger scroll pans (once zoomed in)
+  // and its pinch (ctrlKey) zooms; Ctrl/⌘ + wheel always zooms. A gesture is classified once, as it starts.
+  let wheelKind = null, wheelAt = 0;
   el.addEventListener('wheel', (ev) => {
     ev.preventDefault();
-    const f = Math.exp(-ev.deltaY * 0.0015);
+    cancelAnimationFrame(glide);   // a button's glide never fights the hand
+    const u = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? el.clientHeight : 1, dx = ev.deltaX * u, dy = ev.deltaY * u, now = performance.now();
+    if (now - wheelAt > 250) wheelKind = ev.ctrlKey || ev.metaKey ? 'pinch' : ev.deltaMode === 0 && (dx !== 0 || ev.wheelDeltaY == null || Math.abs(Math.abs(ev.wheelDeltaY) - Math.abs(ev.deltaY) * 3) < 1) ? 'pad' : 'wheel';
+    wheelAt = now;
+    if (wheelKind === 'pad' && !ev.ctrlKey && !ev.metaKey) {
+      if (V.k <= kFit * 1.001) return;   // at its framing there is nothing to pan to
+      V.x -= dx; V.y -= dy; atFit = false; clampV(); viewChanged();
+      return;
+    }
+    const f = ev.ctrlKey || ev.metaKey ? Math.exp(-clamp(dy, -50, 50) * 0.01) : Math.exp(-clamp(dy, -120, 120) * 0.0015);
     if (V.k <= kFit * 1.001 && f < 1) return;   // the lobule is a view of its own: zooming out stops at its framing
     const p = local(ev);
     zoomAround(p[0], p[1], f);
@@ -263,6 +276,9 @@ export function createLobuleZoom({ host }) {
     if (!onScene(ev)) return;
     if (ev.isPrimary) touches.clear();
     touches.set(ev.pointerId, local(ev));
+    cancelAnimationFrame(glide);
+    // Captured, so a drag keeps going over the labels, the card or past the edge.
+    try { el.setPointerCapture(ev.pointerId); } catch { /* gone */ }
     if (touches.size === 2) {
       const [a, b] = pts2();
       pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, k: V.k, m: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] };
@@ -293,7 +309,7 @@ export function createLobuleZoom({ host }) {
     }
     down = null;
   });
-  for (const t of ['pointerup', 'pointercancel', 'pointerleave']) el.addEventListener(t, (ev) => { touches.delete(ev.pointerId); if (touches.size < 2) pinch = null; if (!touches.size) { drag = null; el.classList.remove('lz-drag'); } });
+  for (const t of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(t, (ev) => { touches.delete(ev.pointerId); if (touches.size < 2) pinch = null; if (!touches.size) { drag = null; el.classList.remove('lz-drag'); } });
   el.addEventListener('dblclick', (ev) => { if (!onScene(ev)) return; const p = local(ev); zoomAround(p[0], p[1], V.k < kFit * KMAX * 0.98 ? 2 : 1 / KMAX); });
   const local = (ev) => { const r = el.getBoundingClientRect(); return [ev.clientX - r.left, ev.clientY - r.top]; };
 
