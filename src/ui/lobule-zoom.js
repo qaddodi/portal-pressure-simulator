@@ -1019,12 +1019,15 @@ export function createLobuleZoom({ host }) {
       case 'cv': return R * (0.07 + 0.05 * m.congU) * (1 - 0.3 * m.fibPost);
       case 'ha': return Math.max(1.6, R * 0.014 * clamp(m.art, 0.6, 2.2) ** 0.3);
       case 'tw': return Math.max(1.1, R * 0.0055 * clamp(m.art, 0.6, 2.2) ** 0.3);
-      case 'ly': return Math.max(1.1, g.rs0 * 0.5);
-      case 'lt': return Math.max(1.5, R * 0.0075);
-      case 'lv': return R * 0.02;
+      // Lymphatics widen as drainage rises (capped, so the tract lymphatic never swamps the triad).
+      case 'ly': return Math.max(1.1, g.rs0 * 0.5 * lyW(m, 0.25));
+      case 'lt': return Math.max(1.5, R * 0.0075 * lyW(m, 0.6));
+      case 'lv': return R * 0.02 * lyW(m, 0.6);
       default: return rs;
     }
   }
+  // Lymphatic caliber against the healthy flow: 1 at a normal rate, up to 1 + k at four times it.
+  const lyW = (m, k) => 1 + k * smooth(1, 4, lymphRate(m)) - 0.12 * (1 - smooth(0.3, 1, lymphRate(m)));
   const WALL = { s0: 0.8, s1: 0.85, s2: 0.9, an: 0.7, in: 1.1, pv: 1.5, cv: 1.6, sh: 1.1, ha: 0, tw: 0, ly: 0.5, lt: 0.8, lv: 1.1 };
   // Weight of the inlet's value at a radius along the sinusoids (1 at the lobule's edge, 0 at the central vein).
   const sinW = (rho) => clamp((rho - 0.075) / (0.92 - 0.075), 0, 1) ** 0.8;
@@ -1070,7 +1073,7 @@ export function createLobuleZoom({ host }) {
     const live = lymphOn ? G.tubes : G.tubes.filter((t) => !t.lymph);
     // Radii, re-sent when a tube's caliber changed (they follow only these few model values).
     let reachGrew = false;
-    const rk0 = [m.zone.sin, m.congU, m.fibPre, m.fibPost, m.art].map((x) => x.toFixed(3)).join('|') + '|' + G.W + 'x' + G.H;
+    const rk0 = [m.zone.sin, m.congU, m.fibPre, m.fibPost, m.art, lymphRate(m)].map((x) => x.toFixed(3)).join('|') + '|' + G.W + 'x' + G.H;
     if (rk0 !== radAll) for (const t of live) {
       const r = Array.from({ length: N }, (_, i) => radiusAt(t, i)), rk = r.map((v) => v.toFixed(2)).join(',');
       t.maxR = Math.max(...r);
@@ -1096,7 +1099,7 @@ export function createLobuleZoom({ host }) {
       attrKey = ak; glDirty = true;
       tubeData.fill(0);
       const art = rgb01(cs.getPropertyValue('--artery').trim() || '#C8414D'), grey = [ORIGIN_GREY, ORIGIN_GREY, ORIGIN_GREY];
-      const LY = dark ? [0.88, 0.8, 0.5] : [0.97, 0.88, 0.52];   // lymph: clear, faintly straw
+      const LY = dark ? [0.7, 0.84, 0.62] : [0.85, 0.93, 0.74];   // lymph: clear, a faint green (paler than the bile duct)
       for (const t of live) {
         const o = t.id * TUBE_TEXELS * 4, isArt = t.kind === 'ha' || t.kind === 'tw';
         const [i0, i1] = inks.get(t.id);
