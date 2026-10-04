@@ -583,17 +583,15 @@ export function createLobuleZoom({ host }) {
     // each sinusoid (a thin channel beside it, between the sinusoid and its plate), against the blood,
     // to the edge of the lobule; there terminal lymphatics carry it along the limiting plate to the
     // lymphatic vessel in each portal tract.
-    for (const tr of triads) { const a = Math.atan2(tr.y - cy, tr.x - cx), d = rt * 0.55; tr.lvP = [tr.x + Math.cos(a) * d * 1.25, tr.y + Math.sin(a) * d * 1.25]; tr.lv = add('lv', dot(...tr.lvP), { tri: tr.i, lymph: true }); }
     const lyOff = rs0 * 2.1;
     const beside = (t) => t.pts.map((q, i) => { const a = t.pts[Math.max(0, i - 1)], b = t.pts[Math.min(N - 1, i + 1)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [q[0] - ((b[1] - a[1]) / L) * lyOff, q[1] + ((b[0] - a[0]) / L) * lyOff]; });
     // Along each edge, from its midpoint to the triad at either end, on the limiting plate.
     const lt = [];
     for (let i = 0; i < 6; i++) for (const dir of [1, -1]) {
-      const A = C[i], B = C[(i + dir + 6) % 6], tr = triads[i], M = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], ex = (B[0] - A[0]) / R, ey = (B[1] - A[1]) / R, nx = (cx - M[0]) / (R * 0.866), ny = (cy - M[1]) / (R * 0.866);
-      const o = R * 0.012, P0 = [M[0] + nx * o, M[1] + ny * o], P1 = [A[0] + ex * rt * 0.9 + nx * o, A[1] + ey * rt * 0.9 + ny * o];
-      const t = add('lt', curve((u) => (u < 0.85 ? [lerp(P0[0], P1[0], u / 0.85), lerp(P0[1], P1[1], u / 0.85)] : [lerp(P1[0], tr.lvP[0], (u - 0.85) / 0.15), lerp(P1[1], tr.lvP[1], (u - 0.85) / 0.15)])), { tri: i, lymph: true, line: [P0, P1] });
+      const A = C[i], B = C[(i + dir + 6) % 6], M = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], ex = (B[0] - A[0]) / R, ey = (B[1] - A[1]) / R, nx = (cx - M[0]) / (R * 0.866), ny = (cy - M[1]) / (R * 0.866);
+      const o = R * 0.012, P0 = [M[0] + nx * o, M[1] + ny * o], P1 = [A[0] + ex * rt * 0.75 + nx * o, A[1] + ey * rt * 0.75 + ny * o];   // ends at the tract's edge, not wrapped round it
+      const t = add('lt', curve((u) => [lerp(P0[0], P1[0], u), lerp(P0[1], P1[1], u)]), { tri: i, lymph: true, line: [P0, P1] });
       lt[i * 2 + (dir > 0 ? 0 : 1)] = t;
-      join(tr.lvP[0], tr.lvP[1], [t, tr.lv], R * 0.008);
     }
     for (let e = 0; e < 6; e++) { const a = lt[e * 2], b = lt[((e + 1) % 6) * 2 + 1], q = a.pts[0]; join(q[0], q[1], [a, b], R * 0.006); }
     // The space of Disse beside each sinusoid; the first generation's reaches the limiting plate.
@@ -1047,9 +1045,9 @@ export function createLobuleZoom({ host }) {
       case 'ha': return Math.max(1.6, R * 0.014 * clamp(m.art, 0.6, 2.2) ** 0.3);
       case 'tw': return Math.max(1.1, R * 0.0055 * clamp(m.art, 0.6, 2.2) ** 0.3);
       // Lymphatics widen as drainage rises (capped, so the tract lymphatic never swamps the triad).
-      case 'ly': return Math.max(1.1, g.rs0 * 0.5 * lyW(m, 0.8));   // the space of Disse fills and widens
-      case 'lt': return Math.max(1.5, R * 0.0075 * lyW(m, 0.6));
-      case 'lv': return R * 0.02 * lyW(m, 0.6);
+      case 'ly': return Math.max(1.1, g.rs0 * 0.5 * lyW(m, 0.45));   // the space of Disse fills and widens
+      case 'lt': return Math.max(1.5, R * 0.0075 * lyW(m, 0.4));
+      case 'lv': return R * 0.014 * lyW(m, 0.4);
       default: return rs;
     }
   }
@@ -1062,7 +1060,7 @@ export function createLobuleZoom({ host }) {
   const lyF = (m) => smooth(1, 4, lymphRate(m)), lyOver = (m) => smooth(3, 4.5, lymphRate(m));
   const lyProt = (m) => clamp(0.45 + 0.55 * m.congU - 0.6 * m.fibSin, 0, 1);
   const lyInk = (m, dark) => {
-    const p = lyProt(m), lo = dark ? [0.74, 0.82, 0.68] : [0.9, 0.95, 0.85], mid = dark ? [0.7, 0.84, 0.62] : [0.85, 0.93, 0.74], hi = dark ? [0.56, 0.8, 0.46] : [0.66, 0.86, 0.54];
+    const p = lyProt(m), lo = dark ? [0.72, 0.76, 0.69] : [0.92, 0.94, 0.88], mid = dark ? [0.7, 0.77, 0.66] : [0.88, 0.92, 0.82], hi = dark ? [0.64, 0.75, 0.58] : [0.82, 0.89, 0.74];
     return p < 0.45 ? lo.map((x, i) => lerp(x, mid[i], p / 0.45)) : mid.map((x, i) => lerp(x, hi[i], (p - 0.45) / 0.55));
   };
   const WALL = { s0: 0.8, s1: 0.85, s2: 0.9, an: 0.7, in: 1.1, pv: 1.5, cv: 1.6, sh: 1.1, ha: 0, tw: 0, ly: 0.5, lt: 0.8, lv: 1.1 };
@@ -1298,10 +1296,10 @@ export function createLobuleZoom({ host }) {
     // Filtration (Lymph on): plasma leaving the sinusoids into the space of Disse, a soft green along
     // each sinusoid that spreads into the gaps beside the plates as sinusoidal pressure drives more out.
     if (lymphOn) {
-      const f = lyF(m), lc = lyInk(m, dark);
-      if (f > 0.02) {
+      const f = 0.2 + 0.8 * lyF(m), lc = lyInk(m, dark);   // a faint film even in health, where filtration is normal
+      {
         c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = css(lc, 1);
-        for (const [wk, al] of [[1.9, 0.1], [1.2, 0.18]]) {
+        for (const [wk, al] of [[1.9, 0.05], [1.2, 0.09]]) {
           c.globalAlpha = al * (0.4 + 0.6 * f);
           for (const t of G.tubes) {
             if (t.kind[0] !== 's') continue;
@@ -1395,9 +1393,16 @@ export function createLobuleZoom({ host }) {
     // Overflow: past what the lymphatics carry, lymph pools at the edge of the lobule and weeps away.
     if (lymphOn && lyOver(m) > 0.02) {
       const o = lyOver(m), lc = lyInk(m, dark);
-      c.save(); c.lineJoin = 'round'; c.strokeStyle = css(lc, 1);
-      c.shadowColor = css(lc, 0.9); c.shadowBlur = R * 0.06;
-      for (const [k, wk, al] of [[1.04, 0.1, 0.16], [1.015, 0.045, 0.3]]) { c.globalAlpha = al * o; c.lineWidth = R * wk * (0.6 + 0.4 * o); hexPath(main, k); c.stroke(); }
+      c.save(); c.lineCap = 'round'; c.strokeStyle = css(lc, 1);
+      const cs6 = main.corners;   // along the middle of each edge only, clear of the triads at the corners
+      for (const [k, wk, al] of [[1.03, 0.07, 0.08], [1.012, 0.035, 0.14]]) {
+        c.globalAlpha = al * o; c.lineWidth = R * wk * (0.6 + 0.4 * o); c.beginPath();
+        cs6.forEach(([x0, y0], i) => {
+          const [x1, y1] = cs6[(i + 1) % cs6.length], P = (u) => [main.x + (lerp(x0, x1, u) - main.x) * k, main.y + (lerp(y0, y1, u) - main.y) * k];
+          c.moveTo(...P(0.25)); c.lineTo(...P(0.75));
+        });
+        c.stroke();
+      }
       c.restore();
     }
   }
