@@ -1004,43 +1004,49 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // liver's card, the palette, a presenter step) and cross-fades over the plate.
   let liverBB = null;
   let lobuleOn = false, lobU = 0, lobAnim = 0;
-  // Into the lobule, a dive: one continuous zoom, slow to start and slow to settle. The camera falls
-  // deep into the liver; its surface gives way to a field of lobules, many and small, spreading out
-  // from that spot; the zoom goes on through them and eases onto one, where the lobule view fades in,
-  // in place. Out, the same in reverse, quicker. diveT is the dive's clock, 0 (anatomy) to 1 (lobule).
-  let preLobule = null, diveAt = null, diveFrom = null, diveDeep = null, diveLand = null, diveT = 0;
-  const DIVE_MS = 3200, RISE_MS = 1800;
+  // Into the lobule, a dive (1.3 s): one continuous zoom from the spot in the liver, quick to start and
+  // slow to settle. The anatomy is magnified as it stands (a compositor transform: nothing is redrawn),
+  // its surface gives way to a field of lobules, many and small, the zoom goes on through them and
+  // eases onto one, where the lobule view fades in, in place. Out, the same in reverse, quicker.
+  // The anatomy's own framing is never touched. diveT is the dive's clock, 0 (anatomy) to 1 (lobule).
+  let diveAt = null, diveLand = null, diveT = 0;
+  const DIVE_MS = 1300, RISE_MS = 850;
   const RH = 11;   // a lobule's size on screen (px) as the liver's surface gives way to the field
+  const LC = Math.log(4);   // the anatomy's share of the zoom (×4), the field's the rest
+  const diveEls = () => [svg, wrap.querySelector('#stageOver'), wrap.querySelector('#labels'), vCanvas].filter(Boolean);
   function diveTarget() {
     const lb = liverBox();
     if (!lb) return null;
-    const b = svg.viewBox.baseVal, wx = lb.x + lb.w * 0.42, wy = lb.y + lb.h * 0.5;
-    return { w: [wx, wy], vt: vtFor(wx, wy, clamp(Math.min(b.width / lb.w, b.height / lb.h) * 2.2, 3, 7)) };
+    return [lb.x + lb.w * 0.42, lb.y + lb.h * 0.5];
   }
   const smoothT = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
-  function diveFrame(t) {
-    if (diveFrom && diveDeep) {
-      // The whole zoom in one log scale, slow to start and slow to settle: the camera's part (a little
-      // over two fifths of the way) first, then the field's. The lobule's place is read live, so the
-      // field settles exactly where the view frames it.
-      if (lz.isShown()) diveLand = lz.current();
-      const lc = Math.max(1.1, Math.log(diveDeep.k / diveFrom.k));
-      const lt = lc + Math.log(Math.max(RH * 2, diveLand?.r || 200) / RH);
-      const p = 0.5 - 0.5 * Math.cos(Math.PI * clamp(t / 0.82, 0, 1)), P = 0.42;
-      const z = p < P ? lc * p / P : lc + (lt - lc) * (p - P) / (1 - P);
-      // (Only while the anatomy is the view: leaving the lobule for the circuit takes the circuit's own framing.)
-      if (morphTarget === 0) { cancelAnimationFrame(vtAnim); vtGliding = false; vt = lerpVT(diveFrom, diveDeep, clamp(z / lc, 0, 1)); applyVT(); CTM = null; }
-      if (diveLand && diveAt) {
-        refreshCTM();
-        const [ox, oy] = worldToLocal(diveAt[0], diveAt[1]);
-        const g = smoothT(lc - 0.6, lt, z);   // the zoom's centre drifts from the dive point to the lobule's place
-        lz.setDive(t <= 0 || t >= 1 ? null : {
-          a: smoothT(lc - 0.6, lc + 0.2, z), x: lerp(ox, diveLand.x, g), y: lerp(oy, diveLand.y, g),
-          r: RH * Math.exp(z - lc), ox, oy, quiet: smoothT(0.55, 0.85, t),
-        });
-      }
+  function setDiveScale(k) {
+    const [ox, oy] = diveAt;
+    for (const el of diveEls()) {
+      if (k <= 1.0001) { el.style.transform = ''; el.style.transformOrigin = ''; el.style.willChange = ''; continue; }
+      el.style.willChange = 'transform';
+      el.style.transformOrigin = `${(ox - el.offsetLeft).toFixed(1)}px ${(oy - el.offsetTop).toFixed(1)}px`;
+      el.style.transform = `scale(${k.toFixed(4)})`;
     }
-    lobU = easeInOut(clamp((t - 0.7) / 0.3, 0, 1));
+  }
+  function diveFrame(t) {
+    if (diveAt && diveLand) {
+      // The whole zoom in one log scale. The lobule's place is read live, so the field settles exactly
+      // where the view frames it.
+      if (lz.isShown()) diveLand = lz.current();
+      const lt = LC + Math.log(Math.max(RH * 2, diveLand.r) / RH);
+      // Eased out (brisk, then settling); the anatomy's part takes the first two fifths of the way.
+      const u = clamp(t / 0.8, 0, 1), p = 1 - (1 - u) ** 2, P = 0.4;
+      const z = p < P ? LC * p / P : LC + (lt - LC) * (p - P) / (1 - P);
+      setDiveScale(t >= 1 ? 1 : Math.exp(Math.min(z, LC + 0.3)));
+      const [ox, oy] = diveAt;
+      const g = smoothT(LC - 0.5, lt, z);   // the zoom's centre drifts from the dive point to the lobule's place
+      lz.setDive(t <= 0 || t >= 1 ? null : {
+        a: smoothT(LC - 0.6, LC + 0.15, z), x: lerp(ox, diveLand.x, g), y: lerp(oy, diveLand.y, g),
+        r: RH * Math.exp(z - LC), ox, oy, quiet: smoothT(0.5, 0.8, t),
+      });
+    }
+    lobU = easeInOut(clamp((t - 0.62) / 0.38, 0, 1));
     syncSemantic();
   }
   function setLobule(on) {
@@ -1049,27 +1055,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lobuleOn = on;
     cancelAnimationFrame(lobAnim);
     if (on && diveT === 0) {
-      preLobule = { ...vt };
-      const d = diveTarget();
-      diveAt = d?.w || null;
-      diveFrom = { ...vt };
-      diveDeep = d ? d.vt : null;
-      // Already zoomed in past the dive's depth: go deeper from there.
-      if (d && diveDeep.k < vt.k * 1.5) diveDeep = vtFor(d.w[0], d.w[1], vt.k * 2.5);
+      const w = diveTarget();
+      if (w) {
+        refreshCTM();
+        const [x, y] = worldToLocal(w[0], w[1]);
+        diveAt = [clamp(x, 0, wrap.clientWidth), clamp(y, 0, wrap.clientHeight)];
+      } else diveAt = [wrap.clientWidth / 2, wrap.clientHeight / 2];
       diveLand = lz.landing();
-    } else if (!on) {
-      // Back to where the anatomy was, from where the lobule is now (it may be zoomed).
-      diveFrom = preLobule && !sameView(preLobule, { k: 1, x: 0, y: 0 }) ? preLobule : (homeAt || defaultVT(false));
-      if (!diveDeep) diveDeep = { ...vt };
-      if (diveT >= 1) diveLand = lz.current();
-    }
+    } else if (!on && diveT >= 1) diveLand = lz.current();
     const ms = reduceMotion.matches ? 0 : on ? DIVE_MS : RISE_MS, from = diveT, to = on ? 1 : 0, t0 = performance.now();
     const step = (now) => {
       const e = ms ? clamp((now - t0) / (ms * Math.abs(to - from) || 1), 0, 1) : 1;
       diveT = from + (to - from) * e;
       diveFrame(diveT);
       if (e < 1) lobAnim = requestAnimationFrame(step);
-      else if (!on) { diveDeep = null; diveLand = null; }
+      else if (!on) { setDiveScale(1); diveLand = null; }
     };
     step(t0);
   }
@@ -1081,7 +1081,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function syncSemantic() {
     if (!lz) return;
     // Turning to the circuit closes the lobule view.
-    if (lobuleOn && morphTarget !== 0) { lobuleOn = false; lobU = 0; diveT = 0; diveDeep = diveLand = null; lz.setDive(null); cancelAnimationFrame(lobAnim); if (store.get().lobule) store.set({ lobule: false }); }
+    if (lobuleOn && morphTarget !== 0) { lobuleOn = false; lobU = 0; diveT = 0; diveLand = null; lz.setDive(null); if (diveAt) setDiveScale(1); cancelAnimationFrame(lobAnim); if (store.get().lobule) store.set({ lobule: false }); }
     const u = morphTarget === 0 ? lobU : 0;
     const wasOpen = lz.isOpen();
     lz.setFade(u);
@@ -3646,8 +3646,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setView(v) {
       const target = v === 'circuit' ? 1 : 0;
       if (target === morphTarget) return;
-      // From the lobule, the anatomy's view is the one it dived from, not the dive.
-      const fromLobule = lobuleOn || lobU > 0, at = fromLobule && preLobule ? preLobule : vt;
+      // (The dive into the lobule never moves the anatomy's own framing.)
+      const fromLobule = lobuleOn || lobU > 0, at = vt;
       morphTarget = target;
       syncSemantic();
       // Zoomed out (or fitted) in the anatomy, the circuit opens zoomed out too: the whole map, not
