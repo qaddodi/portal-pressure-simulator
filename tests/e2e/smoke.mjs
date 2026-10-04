@@ -481,7 +481,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.click('.workspace-expand');
     await page.waitForSelector('.workspace-comparison:not([hidden])');
     // One tap on a tab chooses an instrument; each tab carries its live reading.
-    if (await page.locator('.instr-tab').count() !== 8) throw new Error('the tabs must offer eight distinct instruments');
+    if (await page.locator('.instr-tab').count() !== 5) throw new Error('the tabs must offer five distinct instruments');
     const choose = async (id) => {
       await page.click(`.instr-tab[data-instrument="${id}"]`);
       await page.waitForFunction((id) => document.querySelector(`.instr-tab[data-instrument="${id}"]`).getAttribute('aria-selected') === 'true', id);
