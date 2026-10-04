@@ -678,10 +678,12 @@ export function createLobuleZoom({ host }) {
     labels.querySelectorAll('.lz-zone').forEach((z) => z.remove());
     if (zonesOn) {
       const a = Math.PI / 2, ap = R * 0.866;
+      // In proportion to the lobule on screen (within limits, so they stay legible and never shout).
+      const zk = clamp((R * V.k) / 300, 0.66, 1.15).toFixed(3);
       [[0.83, 'Zone 1', 'periportal'], [0.51, 'Zone 2', 'midzonal'], [0.2, 'Zone 3', 'centrilobular']].forEach(([q, t, d], i) => {
         const z = h('div', { class: 'lz-zone z' + (i + 1), 'aria-hidden': 'true' }, h('b', {}, t), h('span', {}, d));
         const [zx, zy] = toScreen([cx + Math.cos(a) * ap * q, cy + Math.sin(a) * ap * q]);
-        z.style.left = `${zx}px`; z.style.top = `${zy}px`;
+        z.style.left = `${zx}px`; z.style.top = `${zy}px`; z.style.setProperty('--zk', zk);
         labels.append(z);
       });
     }
@@ -754,9 +756,14 @@ export function createLobuleZoom({ host }) {
     const c = cv.getContext('2d');
     c.scale(tw / TW, th / TH);
     c.fillStyle = gap; c.fillRect(0, 0, TW, TH);
+    // The corners of the lobule at the pattern's origin (where the lobule view draws its own lobule) stay
+    // on the regular lattice, and their triads are the view's own, so none is drawn twice.
+    const HOME = new Set(['2,0', '1,1', '11,1', '10,0', '11,3', '1,3']);
+    const home = (ix, iy) => HOME.has(`${((ix % 12) + 12) % 12},${((iy % 4) + 4) % 4}`);
     // A lattice point, nudged (ix, iy in half-R and half-height steps, wrapped to the repeat).
     const corner = (x, y) => {
       const ix = Math.round(x / (R / 2)), iy = Math.round(y / (S3 * R / 2));
+      if (home(ix, iy)) return [x, y];
       const u = hash(((ix % 12) + 12) % 12, ((iy % 4) + 4) % 4), w = hash(((ix % 12) + 12) % 12 + 31, ((iy % 4) + 4) % 4 + 17);
       const a = u * TAU, m = 0.11 * R * (0.4 + 0.6 * w);
       return [x + Math.cos(a) * m, y + Math.sin(a) * m];
@@ -814,6 +821,7 @@ export function createLobuleZoom({ host }) {
       c.globalAlpha = 0.85; c.beginPath(); c.arc(x, y, R * 0.075 * (1 + 0.4 * fs.cong), 0, TAU); c.fill();
       // Triads, in a collagen tract that grows with portal fibrosis.
       for (const [px, py] of P) {
+        if (home(Math.round(px / (R / 2)), Math.round(py / (S3 * R / 2)))) continue;
         if (fs.pre > 0) { c.globalAlpha = 0.25 + 0.35 * fs.pre; c.fillStyle = COL; c.beginPath(); c.arc(px, py, R * 0.09 * (1 + 0.9 * fs.pre), 0, TAU); c.fill(); }
         c.globalAlpha = 0.85; c.fillStyle = pvc; c.beginPath(); c.ellipse(px, py, R * 0.055, R * 0.04, 0.6, 0, TAU); c.fill();
         c.fillStyle = art; c.beginPath(); c.arc(px + R * 0.06, py - R * 0.035, R * 0.022, 0, TAU); c.fill();
@@ -1137,7 +1145,7 @@ export function createLobuleZoom({ host }) {
       const near = Math.hypot(x - cx, y - cy) < R * 1.05, rt = G.rt * (1 + 0.9 * m.fibPre);
       c.globalAlpha = near ? 1 : 0.5;
       // Tissue-coloured, turning to collagen only as portal fibrosis builds, with a soft edge (no ring).
-      { const tc = gap.map((g0, i) => lerp(g0, COL[i], 0.25 + 0.6 * m.fibPre)), a0 = dark ? 0.35 + 0.35 * m.fibPre : 0.45 + 0.4 * m.fibPre;
+      if (m.fibPre > 0.03) { const tc = gap.map((g0, k) => lerp(g0, COL[k], 0.3 + 0.6 * m.fibPre)), a0 = 0.7 * m.fibPre;
         const tg = c.createRadialGradient(x, y, rt * 0.3, x, y, rt); tg.addColorStop(0, css(tc, a0)); tg.addColorStop(0.7, css(tc, a0 * 0.8)); tg.addColorStop(1, css(tc, 0));
         c.fillStyle = tg; c.beginPath(); c.arc(x, y, rt, 0, TAU); c.fill(); }
       if (!near) {   // the neighbours' triads, drawn flat
