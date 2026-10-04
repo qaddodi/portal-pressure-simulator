@@ -2762,14 +2762,15 @@ input[type="range"] { touch-action: none; }
 @media (max-width: 720px) {
   .lz-side .lz-ladder { display: none; }
   .lz-side.open .lz-nums { display: grid; }
-  /* Folded, the numbers ride at the right of the header, small, on the same thin line. */
-  .lz-side:not(.open) .lz-head { padding-right: 168px; }
-  .lz-side:not(.open) .lz-nums { display: block; position: absolute; z-index: 2; top: 13px; right: 10px; pointer-events: none; }
-  .lz-side:not(.open) .lz-nrow { display: flex; gap: 2px; }
-  .lz-side:not(.open) .lz-nrow::before { left: 10px; right: 10px; top: 10px; }
-  .lz-side:not(.open) .lz-num b { padding: 0 4px; font-size: var(--fs-14); line-height: 20px; }
-  .lz-side:not(.open) .lz-num :is(.d, .k), .lz-side:not(.open) .lz-nsegs { display: none; }
-  .lz-num b { transform-origin: 0 0; }
+  /* Folded, the strip rides on the right of the card beside the title and toggles: numbers, names and bars. */
+  .lz-side:not(.open) .lz-head { padding-right: 50%; }
+  .lz-side:not(.open) .lz-nums { display: grid; gap: 5px; position: absolute; z-index: 2; left: 50%; right: 6px; top: 50%; translate: 0 -50%; pointer-events: none; }
+  .lz-side:not(.open) .lz-nrow::before { top: 11px; }
+  .lz-side:not(.open) .lz-num b { padding: 0 3px; font-size: 18px; line-height: 22px; }
+  .lz-side:not(.open) .lz-num .d { display: none; }
+  .lz-side:not(.open) .lz-num .k { font-size: 11px; }
+  .lz-side:not(.open) .lz-nsegs i { height: 3px; }
+  .lz-num, .lz-nsegs { transform-origin: 50% 0; }
   .lz-nums.flying { position: relative; z-index: 2; }
   .lz-side:not(.open) .lz-nums.flying { position: absolute; }
   /* The sheet rises with the lobule and sinks as it leaves, as the other sheets do; a swipe on it is its own. */
