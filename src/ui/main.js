@@ -5,14 +5,14 @@ import { startHost, host } from './host.js?v=5e522a6bbf';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=9c069d2ebf';
 import { createStage } from './stage.js?v=d3ed08e399';
 import { createInspector } from './inspector.js?v=dd3545d331';
-import { createDock, CUTOFFS } from './dock.js?v=3166c04484';
+import { createDock, CUTOFFS } from './dock.js?v=8447174893';
 import { createWhy } from './why.js?v=595afb0255';
 import { createTimeline } from './timeline.js?v=68c93f7874';
 import { createLearn } from './learn.js?v=637d52be7c';
 import { createCases } from './cases.js?v=ead1c1a59d';
 import { createCompare } from './compare.js?v=26194fa1a6';
 import { createCard } from './card.js?v=17e3cf638f';
-import { createChart, computeFindings } from './chart.js?v=376eb90e3b';
+import { createChart, computeFindings } from './chart.js?v=da7238ffe3';
 import { createHome } from './home.js?v=3096ba11b7';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=7d8f9bfd5b';
@@ -120,7 +120,7 @@ async function main() {
     onWhy: (m, el) => why.open(m, el), onAction: doAction, onOpenTab: (id) => dock.show(id, { reveal: true }),
     onScenarios: () => openScenarios($('#scenarioBtn')), onMode: (m) => store.set({ mode: m }), chart,
   });
-  dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => host.send({ type: 'probe', id }), onReveal: revealDock, onLobule: () => zoomLobule('R'), onCompare: () => timeline.togglePin(), onRun: () => host.send({ type: 'run', running: !store.get().running }),
+  dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => host.send({ type: 'probe', id }), onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
   const api = { beginSession, endSession, onEnd: () => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); }, muteEvents: () => {}, loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), openPanel, setBanner, select: (sel) => store.set({ selection: sel }) };
@@ -183,7 +183,7 @@ async function main() {
   store.on('shunting', renderPaintHint);
   store.on('mode', onMode);
   store.on('layers', () => { app.classList.toggle('chips-off', !store.get().layers.chips); syncBloodBtn(); redraw(); });
-  store.on('presetId', (id) => { $('#scenarioName').textContent = $('#panelName').textContent = presets.find((p) => p.id === id)?.label || 'Custom'; });
+  store.on('presetId', (id) => { $('#scenarioName').textContent = presets.find((p) => p.id === id)?.label || 'Custom'; });
   store.on('role', (r) => { try { localStorage.setItem('pps.role', r); } catch { /* storage unavailable */ } app.dataset.role = r; card.render(); });
   app.dataset.role = store.get().role;
   for (const k of ['compareSnap', 'compareView', 'colorMode', 'imaging']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
@@ -768,6 +768,17 @@ function readLS(k) { try { return localStorage.getItem(k); } catch { return null
 // The chart is a card floating over the right of the figure (a bottom sheet on a phone), opened
 // from Findings, by a lesson or a case, or by a vessel's Details. It starts closed: the figure
 // has the screen until something is asked for.
+// Findings, Treat and Measure close the same way: the card plays its way out (CSS .card-leaving)
+// while the layout already treats it as closed.
+function leave(el) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  el.classList.remove('card-leaving'); void el.offsetWidth;
+  el.classList.add('card-leaving');
+  const done = (e) => { if (e && e.target !== el) return; el.classList.remove('card-leaving'); el.removeEventListener('animationend', done); };
+  el.addEventListener('animationend', done);
+  setTimeout(done, 400);
+}
+const arrive = (el) => el.classList.remove('card-leaving');
 function panelShown() { return !app.classList.contains('instrument-focus') && app.classList.contains('panel-open'); }
 function syncPanelToggle() {
   const on = panelShown();
@@ -781,15 +792,17 @@ function openPanel(tab = 'chart') {
   if (app.classList.contains('instrument-focus')) dock.setState('open');
   // A phone has room for one sheet at a time: the chart puts Treat and the instruments away.
   if (isPhone()) { closeTreat(); if (app.classList.contains('dock-open')) setPanelTab('chart'); }
+  arrive($('#panel'));
   app.classList.add('panel-open');
   panelSheet?.open();
   syncPanelToggle();
 }
-function closePanel() { app.classList.remove('panel-open'); panelSheet?.closed(); syncPanelToggle(); }
+function closePanel() { if (panelShown()) leave($('#panel')); app.classList.remove('panel-open'); panelSheet?.closed(); syncPanelToggle(); }
 function setPanelTab(tab) {
   const instr = tab === 'instruments';
   if (instr) dock.ensure();
   const was = app.classList.contains('dock-open');
+  if (instr) arrive($('#dock')); else if (was && !app.classList.contains('instrument-focus')) leave($('#dock'));
   app.classList.toggle('dock-open', instr);
   $('#tabInstruments').setAttribute('aria-pressed', String(instr));
   if (instr) $('#tabInstruments').classList.remove('ping');
@@ -932,16 +945,17 @@ function openTreat() {
   if (isPhone()) { closePanel(); if (app.classList.contains('dock-open')) setPanelTab('chart'); }
   closePopover();
   const sync = [];
-  const count = h('span', { class: 'tc-active' });
+  const count = h('span', { class: 'card-meta' });
   const paintCount = () => { const n = chart.treatCount(store.get().params); count.textContent = n ? `${n} running` : ''; };
   sync.push(paintCount);
   const body = h('div', { class: 'tc-body' }, chart.treatBody(sync, () => { if (isPhone()) closeTreat(); }));
   const grab = el.querySelector('.sheet-grab');
-  el.replaceChildren(...[grab, h('div', { class: 'tc-head' }, h('h2', {}, svgIcon('pill'), 'Treat'), count,
-    h('button', { class: 'ib', 'aria-label': 'Close Treat', title: 'Close (Esc)', onclick: () => closeTreat() }, icon('close'))), body].filter(Boolean));
+  el.replaceChildren(...[grab, h('div', { class: 'tc-head card-head' }, h('h2', { class: 'card-title' }, svgIcon('pill'), h('span', {}, 'Treat')), count,
+    h('button', { class: 'ib card-close', 'aria-label': 'Close Treat', title: 'Close (Esc)', onclick: () => closeTreat() }, icon('close'))), body].filter(Boolean));
   paintCount();
   treatOff?.();
   treatOff = store.on('params', () => { for (const fn of sync) fn(); });
+  arrive(el);
   el.hidden = false;
   treatSheet?.open();
   $('#btnTreat').setAttribute('aria-expanded', 'true');
@@ -950,6 +964,7 @@ function openTreat() {
 function closeTreat() {
   const el = $('#treatCard');
   if (el.hidden) return;
+  leave(el);
   el.hidden = true;
   treatOff?.(); treatOff = null;
   treatSheet?.closed();

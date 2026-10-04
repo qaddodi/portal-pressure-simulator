@@ -19,7 +19,7 @@
   <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="fonts/fonts.css" />
   <link rel="stylesheet" href="styles/tokens.css?v=96d9ac961c" />
-  <link rel="stylesheet" href="styles/app.css?v=38da8b9e34" />
+  <link rel="stylesheet" href="styles/app.css?v=60c52918af" />
   <style>
     #boot { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; height: 100lvh; z-index: 2147483647; display: grid; place-items: center; background: var(--bg, #FBFAF7); transition: opacity .45s ease, visibility .45s; }
     #boot.done { opacity: 0; visibility: hidden; pointer-events: none; }
@@ -178,11 +178,11 @@
     </main>
 
     <div class="panel-scrim" id="panelScrim" aria-hidden="true"></div>
-    <aside class="panel float-ui stage-blocker" id="panel" aria-label="Patient chart" data-safe="right">
+    <aside class="panel float-ui stage-blocker" id="panel" aria-label="Findings" data-safe="right">
       <div class="lesson-rail" id="panelLesson" aria-label="Lesson"></div>
-      <div class="panel-tabs panel-head">
-        <h2 class="ph-title" id="panelTitle"><span class="ph-k" data-i18n="tabs.chart">Patient</span><span class="ph-name" id="panelName">Healthy</span></h2>
-        <button class="ib panel-close" id="panelClose" aria-label="Close the patient chart" title="Close"><svg><use href="#i-close"/></svg></button>
+      <div class="panel-head card-head">
+        <h2 class="card-title" id="panelTitle"><svg><use href="#i-activity"/></svg><span>Findings</span></h2>
+        <button class="ib card-close" id="panelClose" aria-label="Close Findings" title="Close (Esc)"><svg><use href="#i-close"/></svg></button>
       </div>
       <div class="panel-page" id="panelChart" role="region" aria-labelledby="panelTitle">
         <div id="panelCase"></div>
@@ -205,11 +205,11 @@
   <link rel="modulepreload" href="src/ui/store.js?v=9c069d2ebf" />
   <link rel="modulepreload" href="src/ui/colormap.js?v=6d64a94345" />
   <link rel="modulepreload" href="src/ui/inspector.js?v=dd3545d331" />
-  <link rel="modulepreload" href="src/ui/dock.js?v=3166c04484" />
+  <link rel="modulepreload" href="src/ui/dock.js?v=8447174893" />
   <link rel="modulepreload" href="src/ui/charts.js?v=394a5d2294" />
   <link rel="modulepreload" href="src/ui/instruments.js?v=bdbaa16d40" />
   <link rel="modulepreload" href="src/ui/timeline.js?v=68c93f7874" />
   <link rel="modulepreload" href="src/engine/topology.js?v=29d10ad9ef" />
-  <script type="module" src="src/ui/main.js?v=afe5b076d4"></script>
+  <script type="module" src="src/ui/main.js?v=8f1b97f874"></script>
 </body>
 </html>
