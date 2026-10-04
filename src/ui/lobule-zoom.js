@@ -22,7 +22,7 @@
 
 import { store, updateParams } from './store.js?v=f9424489c6';
 import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=913fe4fa3c';
-import { verbEnabled } from './actions.js?v=455d2754a5';
+import { verbEnabled } from './actions.js?v=34bad803fc';
 import { h, s, fmt, clamp, svgIcon } from './util.js?v=fe164f31f1';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';

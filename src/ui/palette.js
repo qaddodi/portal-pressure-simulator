@@ -7,8 +7,8 @@ import { h, svgIcon, toast } from './util.js?v=fe164f31f1';
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { DRUGS } from '../engine/scenario.js?v=8fc90f782f';
 import { HIDDEN_EDGES } from './anatomy.js?v=b3ecbae45c';
-import { LESSONS } from './learn.js?v=a48578b939';
-import { CASES } from './cases.js?v=02646abf69';
+import { LESSONS } from './learn.js?v=4dc71233b5';
+import { CASES } from './cases.js?v=06529aed46';
 
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9+ ]/g, ' ');
 
@@ -47,7 +47,6 @@ export function createPalette({ ctx }) {
     add('Treat', '1 unit PRBC', () => ctx.action({ kind: 'infuse', fluid: 'prbc' }), { kw: 'transfuse blood' });
     add('Treat', 'BRTO', () => updateParams((p) => { p.occluded.C5 = true; return p; }, { label: 'BRTO' }), { kw: 'occlude gastrorenal' });
     add('Treat', 'Esophageal balloon', () => updateParams((p) => { p.balloonEso = !p.balloonEso; return p; }, { label: 'Esophageal balloon' }), { kw: 'tamponade sengstaken' });
-    add('Measure', 'Measure HVPG', () => ctx.wedge(), { kw: 'wedge catheter hepatic vein' });
     add('Measure', 'Doppler of the portal vein', () => { ctx.probe('PV_TRUNK'); ctx.showPane('doppler'); }, { kw: 'ultrasound velocity' });
     add('Measure', 'Endoscopy', () => ctx.showPane('endoscopy'), { kw: 'scope varices' });
     // Time

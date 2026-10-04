@@ -51,28 +51,10 @@ export const LESSONS = [
     ],
   },
   {
-    id: 'hvpg', title: 'Measuring HVPG (and its traps)', minutes: 7,
-    summary: 'Transjugular wedge pressure, and why HVPG is normal in presinusoidal and cardiac disease.',
-    steps: [
-      { type: 'frame', preset: 'csph', tools: ['select', 'catheter'], tab: 'hvpg', hide: ['trueHVPG', 'pv'],
-        text: 'HVPG = **wedged** (WHVP) − **free** (FHVP) hepatic venous pressure. The wedged balloon stops flow, so the stagnant column reads the pressure of the sinusoids behind it.' },
-      { type: 'do', focus: ['RHV_IVC'], focusLabel: 'Right hepatic vein', text: 'Click the **right hepatic vein** and choose **Wedge → HVPG**. The catheter reads the free pressure, then inflates its balloon; wait for the plateau.', goal: () => !!store.get().lastHVPG, hint: 'The HVPG instrument shows the pressure trace.' },
-      { type: 'observe', seconds: 2, text: 'Your measurement is in the HVPG tab. In cirrhosis, WHVP ≈ portal pressure because the diseased sinusoids no longer communicate.' },
-      { type: 'predict', preset: 'schisto', q: 'New patient: schistosomiasis (presinusoidal fibrosis). The portal pressure is ~19 mmHg. What will the HVPG be?', options: ['High (≥ 10)', 'Normal (< 5)', 'Negative'], answer: 1,
-        why: 'The block is upstream of the sinusoids. The stagnant column behind the balloon only reaches normal sinusoids.' },
-      { type: 'do', focus: ['RHV_IVC'], focusLabel: 'Right hepatic vein', text: 'Measure the HVPG in this patient.', goal: () => store.get().presetId === 'schisto' && !!store.get().lastHVPG, hint: 'Click a hepatic vein, then Wedge → HVPG.' },
-      { type: 'explain', metric: 'pv', text: 'Presinusoidal portal hypertension: high portal pressure, normal HVPG. HVPG underestimates it.' },
-      { type: 'check', quiz: [
-        { q: 'Right heart failure: RA 18 mmHg, FHVP 19, WHVP 21. The HVPG is…', options: ['21 mmHg: severe portal hypertension', '2 mmHg: normal, because both rise together', 'Cannot be calculated'], answer: 1 },
-        { q: 'Which condition gives a normal HVPG despite varices?', options: ['Alcoholic cirrhosis', 'Portal vein thrombosis', 'Sinusoidal obstruction syndrome'], answer: 1 },
-      ] },
-    ],
-  },
-  {
     id: 'forward', title: 'Forward flow matters', minutes: 4,
     summary: 'Splanchnic vasodilation and the hyperdynamic circulation, and what β-blockers do.',
     steps: [
-      { type: 'frame', preset: 'csph', tools: ['select'], tab: 'perfusion',
+      { type: 'frame', preset: 'csph', tools: ['select'], tab: 'profile',
         text: 'Portal hypertension is not only “backward” resistance. Nitric-oxide–mediated **splanchnic vasodilation** increases portal inflow (the forward-flow theory).' },
       { type: 'predict', q: 'Dilating the splanchnic arterioles (tone ×0.6) will make portal pressure…', options: ['Rise', 'Fall', 'Not change: resistance is in the liver'], answer: 0 },
       { type: 'do', text: 'Set **Splanchnic arteriolar tone** to ≤ 0.6 (below).', goal: (f, p) => p.splanchnicTone <= 0.6, controls: ['splanchnicTone'] },
@@ -153,7 +135,7 @@ export const LESSONS = [
     id: 'costs', title: 'Every fix has a cost', minutes: 6,
     summary: 'TIPS and encephalopathy; BRTO and rising portal pressure.',
     steps: [
-      { type: 'frame', preset: 'cirr-decomp', tools: ['select', 'stent', 'occlude'], tab: 'flow',
+      { type: 'frame', preset: 'cirr-decomp', tools: ['select', 'stent', 'occlude'], tab: 'profile',
         text: 'A TIPS decompresses the portal system by bypassing the liver. Watch where the gut blood goes.' },
       { type: 'do', focus: ['PVH_R', 'RHV_IVC'], focusLabel: 'Right portal → right hepatic vein', text: 'Click the **right portal vein**, choose **Create shunt…**, then click the right hepatic vein.', goal: (f, p) => p.tips.on },
       { type: 'observe', seconds: 8, text: 'Portosystemic gradient falls below 12, varices decompress, but the shunt fraction rises, liver perfusion falls, and the intrahepatic portal branches reverse toward the stent.' },
@@ -168,7 +150,7 @@ export const LESSONS = [
     id: 'heart', title: 'The heart is downstream', minutes: 5,
     summary: 'Right heart failure: normal HVPG, pulsatile portal vein, protein-rich ascites.',
     steps: [
-      { type: 'frame', preset: 'rhf', tools: ['select', 'doppler', 'catheter'], tab: 'doppler', probe: 'PV_TRUNK', params: { pulsatile: true },
+      { type: 'frame', preset: 'rhf', tools: ['select', 'doppler'], tab: 'doppler', probe: 'PV_TRUNK', params: { pulsatile: true },
         text: 'Pressure transmits backward from a failing right heart through the IVC and hepatic veins into a stiff, congested liver.' },
       { type: 'predict', q: 'In severe tricuspid regurgitation, the portal vein Doppler becomes…', options: ['Flat and continuous', 'Pulsatile, even to-and-fro', 'Absent'], answer: 1 },
       { type: 'observe', seconds: 8, text: 'Large v-waves reach the portal vein: pulsatility > 50 %.' },

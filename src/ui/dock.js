@@ -3,11 +3,11 @@
 
 import { store } from './store.js?v=f9424489c6';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=fe164f31f1';
-import { createProfile, createSankey, createPerfusion } from './charts.js?v=445eb99a70';
-import { createPressureTime } from './pressure-time.js?v=cabe3d7908';
-import { createDoppler } from './doppler.js?v=8f90160316';
-import { createHVPG, createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=230546b4ba';
-import { createLandscape } from './landscape.js?v=21bdd5d2a2';
+import { createProfile } from './charts.js?v=2ba1f3a5ed';
+import { createPressureTime } from './pressure-time.js?v=0878c8e5f4';
+import { createDoppler } from './doppler.js?v=6db140bcee';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=b9ff7e0e9d';
+import { createLandscape } from './landscape.js?v=e4c301ad22';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -150,7 +150,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       let sev, s;
       if (v == null) {
         if (x.val.textContent !== '?') x.val.textContent = '?';
-        s = t.id === 'hvpg' ? 'Use the catheter' : 'Not measured';
+        s = 'Not measured';
         sev = 'none';
         x.hist.length = 0;
       } else {
@@ -218,7 +218,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     update(f) { (pressureView === 'landscape' ? landscape : profile).update(f); },
   };
   const instruments = [
-    pressure, createPressureTime({ marks }), createSankey(), createPerfusion(), createHVPG(),
+    pressure, createPressureTime({ marks }),
     createDoppler({ onProbe }), endoscopy, createAbdomen({ onAction }),
   ];
   const panes = instruments.map((p) => {
@@ -233,17 +233,14 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // tabs, each with its live reading, picks the instrument in one tap; the header names it and says
   // what it shows. Its size and the instruments open are remembered on this device.
   const INFO = {
-    profile: ['activity', 'Where the pressure falls along a path: each step down is a resistance.', (f) => `${fmt(f.metrics.pv, 1)} mmHg`],
+    profile: ['activity', 'How pressure falls along a path: the steepest falls are where the resistance sits.', (f) => `${fmt(f.metrics.pv, 1)} mmHg`],
     scope: ['chart', 'Portal and hepatic pressures beat by beat, over minutes or over months.', (f) => `HVPG ${fmt(f.metrics.hvpg, 1)}`],
-    flow: ['vessel', 'Follow blood through the liver, collaterals and shunts.', (f) => `${Math.round(f.metrics.shuntFraction * 100)}% bypass`],
-    perfusion: ['liver', 'Portal supply, arterial buffering and liver resistance.', (f) => `${Math.round(f.metrics.liverPerfPct)}% perfused`],
-    hvpg: ['catheter', 'Place a catheter in a hepatic vein: wedged minus free pressure.', () => { const m = store.get().lastHVPG; return m ? `${fmt(m.hvpg, 1)} mmHg` : 'Not measured'; }],
     doppler: ['doppler', 'Direction, velocity and waveform in any portal, hepatic or shunt vessel.', (f) => `${fmt(Math.abs(f.metrics.pvVel), 0)} cm/s`],
     endoscopy: ['endoscope', 'Inspect and band varices; open their wall mechanics.', (f) => (f.metrics.varix.d < 2.5 ? 'No varices' : `Grade ${f.metrics.varix.grade.code}`)],
     abdomen: ['needle', 'Inspect ascites and drain fluid, with or without albumin.', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],
   };
-  const SHORT = { profile: 'Pressure', scope: 'Over time', flow: 'Flow', perfusion: 'Perfusion', hvpg: 'HVPG', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites' };
-  const ORDER = ['profile', 'scope', 'flow', 'perfusion', 'hvpg', 'doppler', 'endoscopy', 'abdomen'];
+  const SHORT = { profile: 'Pressure', scope: 'Over time', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites' };
+  const ORDER = ['profile', 'scope', 'doppler', 'endoscopy', 'abdomen'];
   const saved = (() => { try { return JSON.parse(localStorage.getItem('pps.instruments') || 'null') || {}; } catch { return {}; } })();
   let open = Array.isArray(saved.open) && saved.open.every((id) => byId[id]) && saved.open.length ? saved.open.slice(0, 2) : ['profile'];
   let frame = null, state = 'open', resizeFrame = 0, picking = false;
@@ -513,8 +510,6 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   function update(f, force) {
     frame = f; updateStrip(f); updateHeader(); syncBeat();
     byId.scope.ingest(f); byId.doppler.ingest(f);
-    const cath = (f.params || store.get().params).catheter;
-    if (cath?.vein && (!isVisible() || state === 'peek' || !open.includes('hvpg'))) byId.hvpg.update(f);
     if (!force && !isVisible()) return;
     refresh();
   }

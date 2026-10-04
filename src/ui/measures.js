@@ -50,7 +50,7 @@ export function measurementRows(f) {
     { id: 'vessel', name: 'Vessel pressure', value: pvHidden ? '?' : at.p.map((v) => fmt(v, 1)).join(' → ') + ' mmHg',
       def: `Mean pressure at ${at.name.toLowerCase()}${at.p.length > 1 ? ' (upstream → downstream)' : ''}. Drawn as vessel color and a numeric label.`, note: '' },
     { id: 'hvpg', name: 'HVPG', value: hvHidden ? '?' : mmHg(hv.hvpg),
-      def: hvHidden ? 'Wedged − free hepatic venous pressure. Use the catheter to measure it.' : `Wedged − free hepatic venous pressure: ${fmt(hv.whvp, 1)} − ${fmt(hv.fhvp, 1)}.`, note: NOTE.hvpg },
+      def: hvHidden ? 'Wedged − free hepatic venous pressure. Hidden in this case.' : `Wedged − free hepatic venous pressure: ${fmt(hv.whvp, 1)} − ${fmt(hv.fhvp, 1)}.`, note: NOTE.hvpg },
     { id: 'direct', name: 'Direct portal–systemic gradient', value: pvHidden ? '?' : mmHg(m.ppg),
       def: pvHidden ? `Portal vein − ${SYSTEMIC_REFERENCE.name}.` : `Portal vein − ${SYSTEMIC_REFERENCE.name}: ${fmt(m.pv, 1)} − ${fmt(m.ivc, 1)}.`, note: NOTE.direct,
       flag: !pvHidden && !hvHidden && diff >= 5 ? `Here the direct gradient is ${fmt(diff, 1)} mmHg above HVPG: the resistance lies before the sinusoids.` : '' },

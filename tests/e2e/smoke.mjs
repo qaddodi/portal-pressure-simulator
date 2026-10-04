@@ -183,7 +183,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   });
 
   await check(device, 'lesson and case deep links', async (page) => {
-    await open(page, '?lesson=hvpg');
+    await open(page, '?lesson=valveless');
     await page.waitForFunction(() => (document.querySelector('#coach')?.textContent.length > 20) || (document.querySelector('#panelLesson')?.textContent.length > 20));
     await open(page, '?case=bleed');
     await page.waitForFunction(() => document.querySelector('#panelCase')?.textContent.length > 20);
@@ -487,7 +487,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await page.waitForFunction((id) => document.querySelector(`.instr-tab[data-instrument="${id}"]`).getAttribute('aria-selected') === 'true', id);
       await page.waitForTimeout(250);
     };
-    for (const id of ['scope', 'flow', 'perfusion', 'hvpg', 'doppler', 'endoscopy', 'abdomen', 'profile']) {
+    for (const id of ['scope', 'doppler', 'endoscopy', 'abdomen', 'profile']) {
       await choose(id);
       const overflow = await page.$eval(`#pane-${id}`, (el) => el.scrollWidth - el.clientWidth);
       if (overflow > 2) throw new Error(`${id} has horizontal overflow (${overflow}px)`);
