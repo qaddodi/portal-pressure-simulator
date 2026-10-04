@@ -1064,7 +1064,8 @@ export function createLobuleZoom({ host }) {
     const vg = c.createRadialGradient(cx, cy, R * 1.15, cx, cy, R * 2.6);
     const bgc = rgb01(bg);
     vg.addColorStop(0, css(bgc, 0)); vg.addColorStop(1, css(bgc, 0.75));
-    c.fillStyle = vg; c.fillRect(0, 0, W, H);
+    // (Over the whole screen: the canvas is in view units here, so 0…W, 0…H would leave an edge.)
+    c.fillStyle = vg; c.fillRect(-V.x / V.k, -V.y / V.k, W / V.k, H / V.k);
     if (flatVessels) paintFlatVessels(c, cs);
   }
   // Without WebGL2: the vessels as plain strokes on the tissue.
