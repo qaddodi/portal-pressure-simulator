@@ -718,29 +718,71 @@ export function createLobuleZoom({ host }) {
     if (key === tilesKey) return tiles;
     tilesKey = key;
     const S3 = Math.sqrt(3);
-    tiles = [6, 12, 24, 48, 96, 192, 384].map((R) => {
-      const tw = Math.round(3 * R), th = Math.round(S3 * R);
+    // Tissue, not a diagram: the repeat is two lobules wide and two high, and every corner of the
+    // lattice is nudged by a hash of where it is (the same for the lobules that share it, and the
+    // same across the repeat), so the outlines wander a little. Each lobule is filled warmer toward
+    // its central vein, its septa are soft bands, its sinusoids gently curved, and a triad (venule,
+    // arteriole, ductule) sits at each corner.
+    const hash = (i, j) => { let q = (i * 374761393 + j * 668265263) >>> 0; q = ((q ^ (q >>> 13)) * 1274126177) >>> 0; return (q >>> 8) / 16777216; };
+    const art = v('--artery', '#C8414D'), duct = v('--bile-duct', '#6E9B4E');
+    tiles = [6, 12, 24, 48, 96, 192].map((R) => {
+      const TW = 6 * R, TH = 2 * S3 * R;
+      const tw = Math.round(TW), th = Math.round(TH);
       const cv = document.createElement('canvas'); cv.width = tw; cv.height = th;
       const c = cv.getContext('2d');
-      c.scale(tw / (3 * R), th / (S3 * R));
-      c.fillStyle = gap; c.fillRect(0, 0, 3 * R, S3 * R);
-      const centres = [[0, 0], [3 * R, 0], [0, S3 * R], [3 * R, S3 * R], [1.5 * R, S3 * R / 2], [1.5 * R, -S3 * R / 2], [1.5 * R, 1.5 * S3 * R]];
-      const hex = (x, y, k) => { c.beginPath(); for (let i = 0; i < 6; i++) { const a = (i * Math.PI) / 3; c[i ? 'lineTo' : 'moveTo'](x + Math.cos(a) * R * k, y + Math.sin(a) * R * k); } c.closePath(); };
+      c.scale(tw / TW, th / TH);
+      c.fillStyle = gap; c.fillRect(0, 0, TW, TH);
+      // A lattice point, nudged (ix, iy in half-R and half-height steps, wrapped to the repeat).
+      const corner = (x, y) => {
+        const ix = Math.round(x / (R / 2)), iy = Math.round(y / (S3 * R / 2));
+        const u = hash(((ix % 12) + 12) % 12, ((iy % 4) + 4) % 4), w = hash(((ix % 12) + 12) % 12 + 31, ((iy % 4) + 4) % 4 + 17);
+        const a = u * TAU, m = 0.11 * R * (0.4 + 0.6 * w);
+        return [x + Math.cos(a) * m, y + Math.sin(a) * m];
+      };
+      const centres = [];
+      for (let i = -1; i <= 4; i++) for (let j = -1; j <= 2; j++) centres.push([1.5 * R * i, S3 * R * (j + (i & 1 ? 0.5 : 0))]);
+      const lw = Math.max(0.6, R * 0.05);
       for (const [x, y] of centres) {
-        hex(x, y, 0.97); c.fillStyle = cell; c.fill();
-        // The sinusoids: faint spokes from the portal edge to the central vein.
-        c.save(); c.clip();
-        c.strokeStyle = gap; c.globalAlpha = dark ? 0.45 : 0.32; c.lineWidth = Math.max(0.5, R * 0.025);
+        const P = Array.from({ length: 6 }, (_, i) => corner(x + Math.cos((i * Math.PI) / 3) * R, y + Math.sin((i * Math.PI) / 3) * R));
+        // The plate: rounded corners (the path runs through the edges' midpoints), warmer inside.
         c.beginPath();
-        for (let i = 0; i < 24; i++) { const a = (i * TAU) / 24 + 0.07; c.moveTo(x + Math.cos(a) * R * 0.12, y + Math.sin(a) * R * 0.12); c.lineTo(x + Math.cos(a) * R, y + Math.sin(a) * R); }
-        c.stroke(); c.restore();
-        c.globalAlpha = 0.8; c.fillStyle = cvc; c.beginPath(); c.arc(x, y, R * 0.08, 0, TAU); c.fill();
-        // A portal triad at every corner.
-        c.fillStyle = pvc;
-        for (let i = 0; i < 6; i++) { const a = (i * Math.PI) / 3; c.beginPath(); c.arc(x + Math.cos(a) * R, y + Math.sin(a) * R, R * 0.06, 0, TAU); c.fill(); }
+        for (let i = 0; i < 6; i++) {
+          const A = P[i], B = P[(i + 1) % 6], C = P[(i + 2) % 6];
+          const m1 = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], m2 = [(B[0] + C[0]) / 2, (B[1] + C[1]) / 2];
+          if (!i) c.moveTo(m1[0], m1[1]);
+          c.quadraticCurveTo(B[0], B[1], m2[0], m2[1]);
+        }
+        c.closePath();
+        const g = c.createRadialGradient(x, y, R * 0.05, x, y, R);
+        g.addColorStop(0, gap); g.addColorStop(0.35, cell); g.addColorStop(1, cell);
+        c.globalAlpha = 1; c.fillStyle = g; c.fill();
+        c.save(); c.clip();
+        // Sinusoids: from each edge's portal side toward the central vein, each with a slight bend.
+        c.strokeStyle = gap; c.lineCap = 'round'; c.lineWidth = Math.max(0.5, R * 0.022);
+        for (let i = 0; i < 18; i++) {
+          const k = Math.floor(i / 3), f = (i % 3 + 0.5) / 3, A = P[k], B = P[(k + 1) % 6];
+          const sx = A[0] + (B[0] - A[0]) * f, sy = A[1] + (B[1] - A[1]) * f;
+          const bend = (hash(i + 7, Math.round(x + y)) - 0.5) * 0.35 * R;
+          const mx = (sx + x) / 2 + (y - sy) / R * bend * 0.6, my = (sy + y) / 2 + (sx - x) / R * bend * 0.6;
+          c.globalAlpha = (dark ? 0.4 : 0.28) * (0.6 + 0.4 * hash(i, 3));
+          c.beginPath(); c.moveTo(sx, sy); c.quadraticCurveTo(mx, my, x, y); c.stroke();
+        }
+        c.restore();
+        // Septa: soft bands along the borders.
+        c.globalAlpha = dark ? 0.5 : 0.38; c.strokeStyle = gap; c.lineWidth = lw * 1.6; c.lineJoin = 'round';
+        c.beginPath(); P.forEach((q, i) => c[i ? 'lineTo' : 'moveTo'](q[0], q[1])); c.closePath(); c.stroke();
+        // Central vein, with a soft rim.
+        c.globalAlpha = 0.35; c.fillStyle = cvc; c.beginPath(); c.arc(x, y, R * 0.12, 0, TAU); c.fill();
+        c.globalAlpha = 0.85; c.beginPath(); c.arc(x, y, R * 0.075, 0, TAU); c.fill();
+        // Triads.
+        for (const [px, py] of P) {
+          c.globalAlpha = 0.85; c.fillStyle = pvc; c.beginPath(); c.ellipse(px, py, R * 0.055, R * 0.04, 0.6, 0, TAU); c.fill();
+          c.fillStyle = art; c.beginPath(); c.arc(px + R * 0.06, py - R * 0.035, R * 0.022, 0, TAU); c.fill();
+          c.fillStyle = duct; c.beginPath(); c.arc(px - R * 0.05, py + R * 0.045, R * 0.018, 0, TAU); c.fill();
+        }
         c.globalAlpha = 1;
       }
-      return { R, tw, th, cv, pat: null };
+      return { R, tw, th, TW, TH, cv, pat: null };
     });
     return tiles;
   }
@@ -760,7 +802,7 @@ export function createLobuleZoom({ host }) {
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.globalCompositeOperation = 'source-over';
     if (!t.pat) t.pat = c.createPattern(t.cv, 'repeat');
-    t.pat.setTransform(new DOMMatrix([(3 * rd) / t.tw, 0, 0, (Math.sqrt(3) * rd) / t.th, d.x * dpr, d.y * dpr]));
+    t.pat.setTransform(new DOMMatrix([(t.TW / t.R) * rd / t.tw, 0, 0, (t.TH / t.R) * rd / t.th, d.x * dpr, d.y * dpr]));
     c.fillStyle = t.pat; c.fillRect(0, 0, field.width, field.height);
     const bg = rgb01(cs.getPropertyValue('--stage-bg').trim() || cs.getPropertyValue('--bg').trim() || (dark ? '#0E1422' : '#FBFAF7'));
     if (d.quiet > 0) {
@@ -1221,6 +1263,17 @@ export function createLobuleZoom({ host }) {
       return { x, y, r: geo.R * V.k };
     },
     setDive: paintField,
+    /** During the dive: the tissue (not its card) still zooming in, by k (≤ 1) about the stage point x, y. */
+    setDiveZoom(k, x, y) {
+      // Scaled down, the tissue's own page fill would show as a pale card; a soft round mask keeps only the lobule and its rim.
+      const r = geo ? geo.R * V.k : 0, mask = k >= 0.9999 || !r ? '' : `radial-gradient(circle at ${x.toFixed(1)}px ${y.toFixed(1)}px, #000 ${(r * 1.1).toFixed(1)}px, transparent ${(r * 1.7).toFixed(1)}px)`;
+      for (const e of [tissue, glCv, fx, leaders, labels]) {
+        if (e === tissue || e === glCv) { e.style.maskImage = mask; e.style.webkitMaskImage = mask; }
+        if (k >= 0.9999) { e.style.transform = ''; e.style.transformOrigin = ''; continue; }
+        e.style.transformOrigin = `${x.toFixed(1)}px ${y.toFixed(1)}px`;
+        e.style.transform = `scale(${k.toFixed(4)})`;
+      }
+    },
     /** Where a lobule selection is on screen (for the action card), as the stage's anchorFor. */
     anchorFor(sl) {
       if (!geo || sl?.type !== 'lobule') return null;

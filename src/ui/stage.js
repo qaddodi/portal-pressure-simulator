@@ -6,7 +6,7 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=9c069d2ebf';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=d680016625';
-import { createLobuleZoom } from './lobule-zoom.js?v=26f1dd149e';
+import { createLobuleZoom } from './lobule-zoom.js?v=d1a96951ce';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=3e0076273f';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -1041,14 +1041,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const u = clamp(t / 0.84, 0, 1), p = u * u * u * (u * (u * 6 - 15) + 10), P = 0.4;
       const z = p < P ? LC * p / P : LC + (lt - LC) * (p - P) / (1 - P);
       setDiveScale(t >= 1 ? 1 : Math.exp(Math.min(z, LC + 0.4)));
+      // The anatomy's labels leave as the zoom starts.
+      const lab = wrap.querySelector('#labels');
+      if (lab) lab.style.opacity = t <= 0 ? '' : (1 - smoothT(0, 0.12, t)).toFixed(3);
+      // The detailed lobule comes in while the zoom is still settling, zooming with the field.
+      const r = RH * Math.exp(z - LC);
+      lz.setDiveZoom(t >= 1 ? 1 : clamp(r / diveLand.r, 0.05, 1), diveLand.x, diveLand.y);
       const [ox, oy] = diveAt;
       const g = smoothT(LC - 0.5, lt, z);   // the zoom's centre drifts from the dive point to the lobule's place
       lz.setDive(t <= 0 || t >= 1 ? null : {
         a: smoothT(LC * 0.45, LC + 0.3, z), x: lerp(ox, diveLand.x, g), y: lerp(oy, diveLand.y, g),
-        r: RH * Math.exp(z - LC), ox, oy, quiet: smoothT(0.55, 0.85, t),
+        r, ox, oy, quiet: smoothT(0.45, 0.8, t),
       });
     }
-    lobU = easeInOut(clamp((t - 0.66) / 0.34, 0, 1));
+    lobU = easeInOut(clamp((t - 0.48) / 0.4, 0, 1));
     syncSemantic();
   }
   function setLobule(on) {
@@ -1071,7 +1077,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       diveT = from + (to - from) * e;
       diveFrame(diveT);
       if (e < 1) lobAnim = requestAnimationFrame(step);
-      else if (!on) { setDiveScale(1); diveLand = null; }
+      else if (!on) { setDiveScale(1); lz.setDiveZoom(1, 0, 0); diveLand = null; }
     };
     step(t0);
   }
@@ -1083,7 +1089,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function syncSemantic() {
     if (!lz) return;
     // Turning to the circuit closes the lobule view.
-    if (lobuleOn && morphTarget !== 0) { lobuleOn = false; lobU = 0; diveT = 0; diveLand = null; lz.setDive(null); if (diveAt) setDiveScale(1); cancelAnimationFrame(lobAnim); if (store.get().lobule) store.set({ lobule: false }); }
+    if (lobuleOn && morphTarget !== 0) { lobuleOn = false; lobU = 0; diveT = 0; diveLand = null; lz.setDive(null); lz.setDiveZoom(1, 0, 0); if (diveAt) setDiveScale(1); { const lab = wrap.querySelector('#labels'); if (lab) lab.style.opacity = ''; } cancelAnimationFrame(lobAnim); if (store.get().lobule) store.set({ lobule: false }); }
     const u = morphTarget === 0 ? lobU : 0;
     const wasOpen = lz.isOpen();
     lz.setFade(u);
