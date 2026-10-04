@@ -1969,7 +1969,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .pt-range button { min-height: 30px; padding-inline: 12px; }
 .instrument-workspace .instrument-view.pt .pt-box { flex: 1 1 0; height: auto; min-height: 180px; }
 .pt-box canvas { touch-action: pan-y; cursor: crosshair; }
-.pt-chips { display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; flex: none; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); padding-right: 28px; }
+.pt-chips { display: flex; gap: 6px; flex-wrap: wrap; flex: none; }
 .pt-chips::-webkit-scrollbar { display: none; }
 .pt-chip { --chip: var(--text-3); display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 11px 0 9px; border-radius: var(--r-pill); border: 1px solid var(--border); background: transparent; color: var(--text-3); font: 500 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast); }
 .pt-chip i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--chip); box-sizing: border-box; }
@@ -1980,7 +1980,6 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   .pt-num { font-size: var(--fs-28); }
   .pt-hero { flex-basis: 100%; }
   .pt-range button { min-height: 28px; padding-inline: 10px; }
-  .pt-chips { margin-inline: -14px; padding-left: 14px; }
 }
 
 /* ── Doppler ────────────────────────────────────── */
