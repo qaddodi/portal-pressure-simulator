@@ -410,7 +410,8 @@ export function createLobuleZoom({ host }) {
   // ── State ──
   let F = null, fade = 0, raf = 0, last = 0, lastPaint = 0;
   let geo = null, geoKey = '', model = null;
-  let gl = null, glTried = false, binKey = '', binReach = [], radKey = [], radAll = '', attrKey = '', drawKey = '', glDirty = true, tissueKey = '', layoutKey = '';
+  let gl = null, glTried = false, binKey = '', binReach = [], radKey = [], radAll = '', attrKey = '', drawKey = '', glDirty = true, tissueKey = '', worldKey = '', layoutKey = '';
+  const worldCv = document.createElement('canvas');   // the lobule's tissue in world space (see paintTissue)
   const tubeData = new Float32Array(MAXT * TUBE_TEXELS * 4), flowData = new Float32Array(MAXT * FLOW_TEXELS * 4);
   let clock = 0, origins = null, originsF = null;
   const pc = (p) => (model?.hide ? '#A0939C' : pressureColor(p));
@@ -574,7 +575,8 @@ export function createLobuleZoom({ host }) {
     for (let i = 0; i < (R > 190 ? 22 : 14); i++) {
       const t = [...L0, ...L1][Math.floor(r() * (L0.length + L1.length))], u = 0.15 + r() * 0.7, [x, y] = at(t.pts, u), [x2, y2] = at(t.pts, u + 0.02);
       const dx = x2 - x, dy = y2 - y, l = Math.hypot(dx, dy) || 1, sd = r() < 0.5 ? -1 : 1;
-      hsc.push({ x: x - (dy / l) * sd * (rs0 + 3), y: y + (dx / l) * sd * (rs0 + 3), a: r() * TAU });
+      r();   // (keeps the seeded sequence)
+      hsc.push({ x: x - (dy / l) * sd * rs0 * 1.9, y: y + (dx / l) * sd * rs0 * 1.9, a: Math.atan2(dy, dx), nx: (-dy / l) * sd, ny: (dx / l) * sd });
     }
     // Lymph droplets: start deep in the lobule, drift to the nearest triad.
     // Lymph shimmer: each streak rises deep in the lobule and drifts out through the tissue to the nearest triad.
@@ -844,7 +846,7 @@ export function createLobuleZoom({ host }) {
   // its six neighbours, land where the view draws them), as a repeating pattern. The tile is drawn once
   // per theme at sizes a factor of 2 apart, and the one at or just above the size on screen is used,
   // so the zoom stays sharp and never shimmers.
-  let tiles = null, tilesKey = '';
+  const tileSets = new Map();   // field state → its tiles (a few kept, so a value hovering at a step does not redraw them)
   // The field mirrors the lobule's own state (rounded, so the tiles are redrawn only when it changes
   // visibly): septa and portal tracts thicken with fibrosis, bridging septa turn the lobules into
   // nodules in cirrhosis, the sinusoids pale as they capillarize, and congestion darkens zone 3.
@@ -854,7 +856,9 @@ export function createLobuleZoom({ host }) {
     const cell = v('--og-liver-1', '#E9C3B6'), gap = v('--og-liver-2', '#C98E7E'), cvc = v('--vein-systemic', '#4F8CC9'), pvc = v('--vein-portal', '#7D6FB6');
     const fs = fieldState();
     const key = [dark, cell, gap, cvc, pvc, Object.values(fs).join(',')].join('|');
-    if (key !== tilesKey) { tilesKey = key; tiles = [6, 12, 24, 48, 96, 192, 384].map((R) => ({ R, cv: null })); }
+    let tiles = tileSets.get(key);
+    if (!tiles) { tiles = [6, 12, 24, 48, 96, 192, 384].map((R) => ({ R, cv: null })); tileSets.set(key, tiles); if (tileSets.size > 3) tileSets.delete(tileSets.keys().next().value); }
+    else { tileSets.delete(key); tileSets.set(key, tiles); }
     const t = tiles.find((q) => q.R >= rd) || tiles[tiles.length - 1];
     if (!t.cv) drawTile(t, { cell, gap, cvc, pvc, art: v('--artery', '#C8414D'), duct: v('--bile-duct', '#6E9B4E'), dark, fs });
     return t;
@@ -980,6 +984,15 @@ export function createLobuleZoom({ host }) {
   function fieldQuiet(c, bg, q, w, h) {
     c.globalCompositeOperation = 'saturation'; c.fillStyle = `rgba(128,128,128,${(0.45 * q).toFixed(3)})`; c.fillRect(0, 0, w, h);
     c.globalCompositeOperation = 'source-over'; c.fillStyle = css(bg, 0.42 * q); c.fillRect(0, 0, w, h);
+  }
+  // A tile with fieldQuiet already applied (the lobule view's resting state), so panning and zooming
+  // there fill one pattern instead of blending the whole screen each frame.
+  function quietTile(t, bg) {
+    const k = bg.join(',');
+    if (t.quiet?.k === k) return t.quiet;
+    const cv = document.createElement('canvas'); cv.width = t.tw; cv.height = t.th;
+    const c = cv.getContext('2d'); c.drawImage(t.cv, 0, 0); fieldQuiet(c, bg, 1, t.tw, t.th);
+    return (t.quiet = { k, R: t.R, tw: t.tw, th: t.th, TW: t.TW, TH: t.TH, cv, pats: new WeakMap() });
   }
   // The surround fading into the page with distance from the lobule (q: 0..1, how far it has faded).
   function fieldFade(c, bg, x, y, rd, q, w, h) {
@@ -1192,7 +1205,13 @@ export function createLobuleZoom({ host }) {
   function paintTissue(W, H, dpr, dark, cs, flatVessels) {
     const m = model, G = geo;
     const q = (v) => Math.round(v * 2) / 2;
-    const key = [W, H, dpr, dark, ink('pv'), ink('cv'), ink('sin', 0.5), m.zone.pre.toFixed(2), m.zone.sin.toFixed(2), m.zone.post.toFixed(2), m.s.toFixed(2), q(m.cong), m.hide, zonesOn, flatVessels ? [ink('sin', 1), ink('sin', 0), m.art.toFixed(2), [...selIds()].join('.')] : '', cs.getPropertyValue('--bg'), Object.values(fieldState()).join(','), lymphOn ? [lyF(m), lyOver(m), lyProt(m)].map((x) => x.toFixed(2)).join(',') : '', V.k.toFixed(3), V.x.toFixed(1), V.y.toFixed(1)].join('|');
+    // The lobule itself is drawn once into a world-space bitmap (at a scale stepped in √2, never below
+    // the screen's), redrawn only when the tissue's state changes; panning and zooming just place it.
+    // Pressure colors enter only coarsely (they move every frame while the model glides).
+    const qi = (s) => s.replace(/\d+/g, (n) => (n >> 4) << 4);
+    const sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2), 3600 / (2.6 * G.R));
+    const wk = [G.W, G.H, sc.toFixed(3), dark, qi(ink('pv')), m.zone.pre.toFixed(2), m.zone.sin.toFixed(2), m.zone.post.toFixed(2), m.s.toFixed(2), q(m.cong), m.hide, zonesOn, cs.getPropertyValue('--bg'), lymphOn ? [lyF(m), lyOver(m), lyProt(m)].map((x) => x.toFixed(2)).join(',') : ''].join('|');
+    const key = [W, H, dpr, wk, flatVessels ? [ink('sin', 1), ink('sin', 0), ink('pv'), ink('cv'), m.art.toFixed(2), [...selIds()].join('.')] : '', Object.values(fieldState()).join(','), V.k.toFixed(3), V.x.toFixed(1), V.y.toFixed(1)].join('|');
     if (key === tissueKey) return;
     tissueKey = key;
     if (tissue.width !== W * dpr || tissue.height !== H * dpr) { tissue.width = W * dpr; tissue.height = H * dpr; }
@@ -1201,26 +1220,38 @@ export function createLobuleZoom({ host }) {
     const v = (n, d) => cs.getPropertyValue(n).trim() || d;
     const bg = v('--stage-bg', v('--bg', dark ? '#0E1422' : '#FBFAF7'));
     c.fillStyle = bg; c.fillRect(0, 0, W, H);
-    const { R, cx, cy, lobules } = G;
+    const { R, cx, cy } = G;
     // The neighbours are the dive's field, carried on: the same tissue, in the same state, fading into
     // the page with distance from this lobule (so zooming out, they fade away completely).
     {
       c.setTransform(1, 0, 0, 1, 0, 0);
       const [sx, sy] = toScreen([cx, cy]), rd = R * V.k * dpr;
-      fieldFill(c, fieldTile(cs, dark, rd), sx * dpr, sy * dpr, rd, W * dpr, H * dpr);
-      fieldQuiet(c, rgb01(bg), 1, W * dpr, H * dpr);
+      fieldFill(c, quietTile(fieldTile(cs, dark, rd * 0.55), rgb01(bg)), sx * dpr, sy * dpr, rd, W * dpr, H * dpr);   // half resolution is plenty for the quiet surround
     }
-    c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y);
+    const B = 1.3 * R, bx = cx - B, by = cy - B;
+    if (wk !== worldKey) {
+      worldKey = wk;
+      const n = Math.ceil(2 * B * sc);
+      if (worldCv.width !== n || worldCv.height !== n) { worldCv.width = n; worldCv.height = n; }
+      const w = worldCv.getContext('2d');
+      w.setTransform(1, 0, 0, 1, 0, 0); w.clearRect(0, 0, n, n);
+      w.setTransform(sc, 0, 0, sc, -bx * sc, -by * sc);
+      paintLobule(w, m, G, dark, cs, bg, v);
+    }
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    { const [sx, sy] = toScreen([bx, by]); c.drawImage(worldCv, sx * dpr, sy * dpr, 2 * B * V.k * dpr, 2 * B * V.k * dpr); }
+    // Focus: the surround fades into the page (as the dive's field does at its end).
+    { c.setTransform(1, 0, 0, 1, 0, 0); const [sx, sy] = toScreen([cx, cy]); fieldFade(c, rgb01(bg), sx * dpr, sy * dpr, R * V.k * dpr, 1, W * dpr, H * dpr); c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y); }
+    if (flatVessels) paintFlatVessels(c, cs);
+  }
+  // The lobule in world space (plates, septa, tracts, lymph): drawn into the cached bitmap.
+  function paintLobule(c, m, G, dark, cs, bg, v) {
+    const { R, cx, cy, lobules } = G;
     { const l = lobules[0], bq = rgb01(bg); c.fillStyle = css(rgb01(v('--og-liver-2', dark ? '#5A3440' : '#C98E7E')).map((x, i) => lerp(bq[i], x, 0.55)), 1); c.beginPath(); l.corners.forEach(([x, y], i) => { const px = l.x + (x - l.x) * 1.015, py = l.y + (y - l.y) * 1.015; if (i) c.lineTo(px, py); else c.moveTo(px, py); }); c.closePath(); c.fill(); }
     const gap = rgb01(v('--og-liver-2', dark ? '#5A3440' : '#C98E7E')), cell = rgb01(v('--og-liver-1', dark ? '#85514F' : '#E9C3B6'));
     const COL = dark ? [0.78, 0.73, 0.6] : [0.93, 0.87, 0.73];
     const col = (a) => css(COL, a);
     const hexPath = (l, k = 1) => { c.beginPath(); l.corners.forEach(([x, y], i) => { const px = l.x + (x - l.x) * k, py = l.y + (y - l.y) * k; if (i) c.lineTo(px, py); else c.moveTo(px, py); }); c.closePath(); };
-    const wavy = (A, B, amp, ph) => {
-      const n = 18, dx = B[0] - A[0], dy = B[1] - A[1], L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
-      c.beginPath();
-      for (let i = 0; i <= n; i++) { const u = i / n, e = amp * Math.sin(Math.PI * u) * Math.sin(3 * Math.PI * u + ph); const x = A[0] + dx * u + nx * e, y = A[1] + dy * u + ny * e; if (i) c.lineTo(x, y); else c.moveTo(x, y); }
-    };
     // The lobule's own plates: hepatocytes in radial cords, one cell thick.
     const main = lobules[0];
     hexPath(main); c.fillStyle = css(gap, dark ? 0.55 : 0.5); c.fill();
@@ -1279,14 +1310,23 @@ export function createLobuleZoom({ host }) {
         c.globalAlpha = 1;
       }
     }
-    // Stellate cells: shown once fibrosis starts; activated, they become star-shaped myofibroblasts.
+    // Stellate (Ito) cells, in the space of Disse between a plate and its sinusoid: shown once fibrosis
+    // starts, when they activate. A spindle-shaped body lying along the sinusoid, with long thin
+    // processes hugging its wall; activated (myofibroblasts), they grow, darken and lay down collagen.
     if (m.act > 0.08) {
-      // Quiet at the whole-lobule scale (they are a detail, not the story); they read once zoomed in.
-      const a = m.act, rr = R * (0.0075 + 0.01 * a);
+      const a = m.act, L = G.rs0 * (2.6 + 1.6 * a), Wb = G.rs0 * (0.55 + 0.25 * a);
+      c.lineCap = 'round';
       for (const k of G.hsc) {
-        c.strokeStyle = `rgba(176, 104, 48, ${0.22 + 0.36 * a})`; c.lineWidth = 0.9;
-        c.beginPath(); for (let i = 0; i < 5; i++) { const b = k.a + (i * TAU) / 5; c.moveTo(k.x, k.y); c.lineTo(k.x + Math.cos(b) * rr * 2.2, k.y + Math.sin(b) * rr * 2.2); } c.stroke();
-        c.fillStyle = `rgba(176, 104, 48, ${0.3 + 0.36 * a})`; c.beginPath(); c.arc(k.x, k.y, rr, 0, TAU); c.fill();
+        const ux = Math.cos(k.a), uy = Math.sin(k.a), col = `rgba(168, 98, 44, ${0.3 + 0.4 * a})`;
+        c.strokeStyle = col; c.lineWidth = Math.max(0.6, G.rs0 * 0.18);
+        c.beginPath();
+        for (const sgn of [-1, 1]) {   // processes along the wall, curving in toward the sinusoid
+          const ex = k.x + ux * sgn * L * 2.2 - k.nx * G.rs0 * 0.5, ey = k.y + uy * sgn * L * 2.2 - k.ny * G.rs0 * 0.5;
+          c.moveTo(k.x + ux * sgn * L * 0.6, k.y + uy * sgn * L * 0.6); c.quadraticCurveTo(k.x + ux * sgn * L * 1.5, k.y + uy * sgn * L * 1.5, ex, ey);
+        }
+        c.stroke();
+        c.fillStyle = col; c.beginPath(); c.ellipse(k.x, k.y, L * 0.75, Wb, k.a, 0, TAU); c.fill();
+        c.fillStyle = `rgba(110, 58, 30, ${0.35 + 0.35 * a})`; c.beginPath(); c.ellipse(k.x, k.y, L * 0.32, Wb * 0.55, k.a, 0, TAU); c.fill();   // nucleus
       }
     }
     c.restore();
@@ -1348,9 +1388,6 @@ export function createLobuleZoom({ host }) {
       for (const [k, wk, al] of [[1.04, 0.1, 0.16], [1.015, 0.045, 0.3]]) { c.globalAlpha = al * o; c.lineWidth = R * wk * (0.6 + 0.4 * o); hexPath(main, k); c.stroke(); }
       c.restore();
     }
-    // Focus: the surround fades into the page (as the dive's field does at its end).
-    { c.setTransform(1, 0, 0, 1, 0, 0); const [sx, sy] = toScreen([cx, cy]); fieldFade(c, rgb01(bg), sx * dpr, sy * dpr, R * V.k * dpr, 1, W * dpr, H * dpr); c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y); }
-    if (flatVessels) paintFlatVessels(c, cs);
   }
   // Without WebGL2: the vessels as plain strokes on the tissue.
   function paintFlatVessels(c, cs) {
