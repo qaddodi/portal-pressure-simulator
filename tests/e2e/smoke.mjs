@@ -570,11 +570,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
 
   await check(device, 'pressure over time and Doppler', async (page) => {
     await open(page, '?preset=cirr-decomp');
-    if (await page.evaluate(() => window.pps.store.get().frame.pulsing)) throw new Error('heartbeat runs before a waveform instrument is open');
+    // The heartbeat always runs, so the trace is beat to beat before any instrument opens, and it
+    // never touches the patient's parameters.
+    await page.waitForFunction(() => window.pps.store.get().frame.pulsing, null, { timeout: 5000 });
     await page.click('#tabInstruments');
     await page.evaluate(() => window.pps.dock.show('scope'));
-    // The heartbeat switches on while a waveform instrument is on screen, without touching the patient's parameters.
-    await page.waitForFunction(() => window.pps.store.get().frame.pulsing, null, { timeout: 5000 });
     if (await page.evaluate(() => window.pps.store.get().params.pulsatile)) throw new Error('opening an instrument changed the patient parameters');
     await page.waitForTimeout(2500);
     const hero = await page.$eval('#pane-scope .pt-num', (el) => parseFloat(el.textContent));
@@ -605,7 +605,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (!/phasic/i.test(pattern)) throw new Error(`hepatic vein pattern is "${pattern}"`);
     await shot(page, `${device}-doppler`);
     await page.evaluate(() => window.pps.dock.close());
-    await page.waitForFunction(() => !window.pps.store.get().frame.pulsing, null, { timeout: 5000 });
+    await page.waitForTimeout(800);
+    if (!(await page.evaluate(() => window.pps.store.get().frame.pulsing))) throw new Error('the heartbeat stopped when the instruments closed');
   });
 }
 // the slowest first, so they do not end up alone at the end (and shards share them out evenly)
