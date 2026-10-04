@@ -88,6 +88,68 @@ function rgb01(c) {
 }
 const css = (a, al = 1) => `rgba(${Math.round(a[0] * 255)},${Math.round(a[1] * 255)},${Math.round(a[2] * 255)},${al})`;
 
+// A fibrous septum, the way it looks under the microscope: a band of pale collagen, uneven in
+// width, soft at its edges, swelling where it leaves a portal tract, with wavy fibres running along
+// it and a few spindle-shaped fibroblast nuclei. Drawn once into a cached canvas, never per frame.
+// A, B: ends; w: mean width; e0, e1: width at each end (1.5 at a tract, ~0.2 for a septum that
+// stops in the parenchyma); seed: a fixed number so the same septum always looks the same;
+// detail: 0 … 1, fewer fibres and no nuclei when small on screen.
+const fibHash = (i) => { let q = (i * 374761393 + 668265263) >>> 0; q = ((q ^ (q >>> 13)) * 1274126177) >>> 0; return (q >>> 8) / 16777216; };
+function fibrousBand(c, A, B, { w, rgb, a = 1, seed = 0, e0 = 1.5, e1 = 1.5, amp = 0, detail = 1, path = null }) {
+  const n = 26, P = [], N = [], Wd = [];
+  const ph = fibHash(seed) * TAU, ph2 = fibHash(seed + 9) * TAU;
+  const dx = B[0] - A[0], dy = B[1] - A[1], L0 = Math.hypot(dx, dy) || 1;
+  for (let i = 0; i <= n; i++) {
+    const u = i / n;
+    if (path) P.push(path(u));
+    else { const e = amp * Math.sin(Math.PI * u) * (0.75 * Math.sin(3 * Math.PI * u + ph) + 0.25 * Math.sin(7 * Math.PI * u + ph2)); P.push([A[0] + dx * u - (dy / L0) * e, A[1] + dy * u + (dx / L0) * e]); }
+  }
+  for (let i = 0; i <= n; i++) {
+    const p = P[Math.max(0, i - 1)], q = P[Math.min(n, i + 1)], ex = q[0] - p[0], ey = q[1] - p[1], L = Math.hypot(ex, ey) || 1, u = i / n;
+    N.push([-ey / L, ex / L]);
+    const lump = 0.78 + 0.22 * Math.sin(TAU * 1.4 * u + ph) + 0.14 * Math.sin(TAU * 3.3 * u + ph2);
+    const end = 1 + (e0 - 1) * Math.max(0, 1 - u * 3) ** 2 + (e1 - 1) * Math.max(0, u * 3 - 2) ** 2;
+    Wd.push(Math.max(0, w * lump * end));
+  }
+  const outline = (k, o = 0) => {
+    c.beginPath();
+    for (let i = 0; i <= n; i++) { const h = Wd[i] * (k / 2 + o); c[i ? 'lineTo' : 'moveTo'](P[i][0] + N[i][0] * h, P[i][1] + N[i][1] * h); }
+    for (let i = n; i >= 0; i--) { const h = Wd[i] * (k / 2 - o); c.lineTo(P[i][0] - N[i][0] * h, P[i][1] - N[i][1] * h); }
+    c.closePath();
+  };
+  // Soft edges: the band laid down in three passes, wide and faint to narrow and dense.
+  const sb = c.shadowBlur;   // a shade (set by the caller) is cast by the faint outer pass only
+  for (const [k, al] of [[2.1, 0.12], [1.45, 0.24], [1, 0.5]]) { c.fillStyle = css(rgb, al * a); outline(k); c.fill(); c.shadowBlur = 0; }
+  c.shadowBlur = sb;
+  if (detail <= 0 || w < 1.2) return;
+  // Fibres: thin wavy strands along the band, some brighter, some deeper.
+  const lite = rgb.map((x) => x + (1 - x) * 0.45), deep = rgb.map((x, j) => x * [0.78, 0.74, 0.7][j]);
+  const nf = Math.round((3 + Math.min(7, w / 1.6)) * detail);
+  c.lineCap = 'round'; c.shadowBlur = 0;
+  for (let f = 0; f < nf; f++) {
+    const off = (fibHash(seed * 31 + f) - 0.5) * 0.9, fp = fibHash(seed * 17 + f) * TAU, wav = 0.05 + 0.08 * fibHash(seed * 7 + f);
+    const u0 = fibHash(seed * 13 + f) * 0.25, u1 = 1 - fibHash(seed * 19 + f) * 0.25;
+    c.strokeStyle = css(f % 3 === 0 ? deep : lite, (f % 3 === 0 ? 0.32 : 0.55) * a);
+    c.lineWidth = Math.max(0.45, w * (0.035 + 0.03 * fibHash(seed * 5 + f)));
+    c.beginPath();
+    for (let i = Math.floor(u0 * n); i <= Math.ceil(u1 * n); i++) {
+      const u = i / n, h = Wd[i] * (off + wav * Math.sin(TAU * 4 * u + fp));
+      c[i === Math.floor(u0 * n) ? 'moveTo' : 'lineTo'](P[i][0] + N[i][0] * h, P[i][1] + N[i][1] * h);
+    }
+    c.stroke();
+  }
+  if (detail < 0.6 || w < 3) { c.shadowBlur = sb; return; }
+  // Fibroblast nuclei: small dark spindles lying along the fibres.
+  const nn = Math.round((L0 / (w * 2.6)) * detail);
+  c.fillStyle = `rgba(96, 58, 92, ${0.32 * a})`;
+  for (let k = 0; k < nn; k++) {
+    const i = Math.min(n - 1, Math.max(1, Math.round(fibHash(seed * 41 + k) * n))), h = Wd[i] * (fibHash(seed * 43 + k) - 0.5) * 0.7;
+    const x = P[i][0] + N[i][0] * h, y = P[i][1] + N[i][1] * h;
+    c.beginPath(); c.ellipse(x, y, Math.max(0.8, w * 0.16), Math.max(0.35, w * 0.045), Math.atan2(N[i][0], -N[i][1]), 0, TAU); c.fill();
+  }
+  c.shadowBlur = sb;
+}
+
 export function createLobuleZoom({ host }) {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   const tissue = h('canvas', { class: 'lz-canvas', role: 'img', 'aria-label': 'Liver lobule microcirculation' });
@@ -757,7 +819,7 @@ export function createLobuleZoom({ host }) {
   function drawTile(t, { cell, gap, cvc, pvc, art, duct, dark, fs }) {
     const S3 = Math.sqrt(3), R = t.R;
     const hash = (i, j) => { let q = (i * 374761393 + j * 668265263) >>> 0; q = ((q ^ (q >>> 13)) * 1274126177) >>> 0; return (q >>> 8) / 16777216; };
-    const COL = dark ? 'rgb(199,186,153)' : 'rgb(237,222,186)';
+    const COL = dark ? 'rgb(199,186,153)' : 'rgb(237,222,186)', COLa = dark ? [0.78, 0.73, 0.6] : [0.93, 0.87, 0.73], edges = new Set();
     const TW = 6 * R, TH = 2 * S3 * R, tw = Math.round(TW), th = Math.round(TH);
     const cv = document.createElement('canvas'); cv.width = tw; cv.height = th;
     const c = cv.getContext('2d');
@@ -775,11 +837,14 @@ export function createLobuleZoom({ host }) {
       const a = u * TAU, m = 0.11 * R * (0.4 + 0.6 * w);
       return [x + Math.cos(a) * m, y + Math.sin(a) * m];
     };
+    const lat = (q) => (((Math.round(q[0] / (R / 2)) % 12) + 12) % 12) * 4 + (((Math.round(q[1] / (S3 * R / 2)) % 4) + 4) % 4);   // wrapped lattice index
     const centres = [];
     for (let i = -1; i <= 4; i++) for (let j = -1; j <= 2; j++) centres.push([1.5 * R * i, S3 * R * (j + (i & 1 ? 0.5 : 0))]);
     const lw = Math.max(0.6, R * 0.05), round = 1 + 0.6 * fs.su;   // nodules: rounder plates
-    for (const [x, y] of centres) {
-      const P = Array.from({ length: 6 }, (_, i) => corner(x + Math.cos((i * Math.PI) / 3) * R, y + Math.sin((i * Math.PI) / 3) * R));
+    const Ps = centres.map(([x, y]) => Array.from({ length: 6 }, (_, i) => corner(x + Math.cos((i * Math.PI) / 3) * R, y + Math.sin((i * Math.PI) / 3) * R)));
+    // In three passes, so the septa lie over every plate and the triads and veins over the septa.
+    for (const [ci, [x, y]] of centres.entries()) {
+      const P = Ps[ci];
       // The plate: rounded corners (the path runs through the edges' midpoints), warmer inside.
       c.beginPath();
       for (let i = 0; i < 6; i++) {
@@ -816,12 +881,30 @@ export function createLobuleZoom({ host }) {
       c.lineJoin = 'round';
       c.globalAlpha = dark ? 0.5 : 0.38; c.strokeStyle = gap; c.lineWidth = lw * 1.6;
       c.beginPath(); P.forEach((q, i) => c[i ? 'lineTo' : 'moveTo'](q[0], q[1])); c.closePath(); c.stroke();
-      if (fs.su > 0) {
-        c.globalAlpha = 0.45 + 0.4 * fs.su; c.strokeStyle = COL; c.lineWidth = R * (0.02 + 0.05 * fs.su);
-        c.beginPath(); P.forEach((q, i) => c[i ? 'lineTo' : 'moveTo'](q[0], q[1])); c.closePath(); c.stroke();
+    }
+    c.globalAlpha = 1;
+    if (fs.su > 0) for (const [ci, [x, y]] of centres.entries()) {
+      const P = Ps[ci];
+      {
+        // Each border is shared by two lobules: drawn once, the same from either side.
+        const bw = R * (0.045 + 0.075 * fs.su), reach = Math.min(1, 0.3 + 2.4 * fs.su), det = R < 40 ? 0 : R < 120 ? 0.5 : 1;
+        for (let k = 0; k < 6; k++) {
+          let A = P[k], B = P[(k + 1) % 6], ka = lat(A), kb = lat(B);
+          const key = Math.round(A[0] + B[0]) + ',' + Math.round(A[1] + B[1]);
+          if (edges.has(key)) continue; edges.add(key);
+          // Seeded and oriented by the wrapped lattice, so a band crossing the repeat matches its copy.
+          if (ka > kb) { [A, B] = [B, A]; [ka, kb] = [kb, ka]; }
+          const sd = ka * 48 + kb, o = { w: bw, rgb: COLa, a: 0.5 + 0.4 * fs.su, amp: R * 0.025, seed: sd, detail: det };
+          if (reach >= 1) fibrousBand(c, A, B, o);
+          else { const M = (t, U, Q) => [lerp(U[0], Q[0], t), lerp(U[1], Q[1], t)]; fibrousBand(c, A, M(reach / 2, A, B), { ...o, e1: 0.2 }); fibrousBand(c, B, M(reach / 2, B, A), { ...o, e1: 0.2, seed: sd + 1 }); }
+        }
         // Portal-central bridges, late in cirrhosis.
-        if (fs.su > 0.35) { c.lineWidth *= 0.7; c.globalAlpha *= 0.6; c.beginPath(); for (const k of [0, 2, 4]) { c.moveTo(P[k][0], P[k][1]); c.lineTo(x, y); } c.stroke(); }
+        if (fs.su > 0.18) { const g = Math.min(1, (fs.su - 0.18) / 0.4);
+          for (const k of [0, 2, 4]) fibrousBand(c, P[k], [lerp(P[k][0], x, 0.82), lerp(P[k][1], y, 0.82)], { w: bw * (0.6 + 0.3 * g), rgb: COLa, a: 0.4 + 0.45 * g, e1: 0.35, amp: R * 0.04, seed: 5000 + k * 97 + lat([x, y]), detail: det }); }
       }
+    }
+    for (const [ci, [x, y]] of centres.entries()) {
+      const P = Ps[ci];
       // Central vein, with a soft rim (a collagen cuff with central fibrosis).
       if (fs.post > 0) { c.globalAlpha = 0.3 + 0.55 * fs.post; c.fillStyle = COL; c.beginPath(); c.arc(x, y, R * 0.075 * (1.5 + fs.post), 0, TAU); c.fill(); }
       c.globalAlpha = 0.35; c.fillStyle = cvc; c.beginPath(); c.arc(x, y, R * 0.12, 0, TAU); c.fill();
@@ -1124,20 +1207,25 @@ export function createLobuleZoom({ host }) {
     // the triads to the central vein (portal-central), cutting the lobule into rounded nodules.
     const su = m.septU;
     if (su > 0) {
-      const w = R * (0.02 + 0.05 * su);
+      const w = R * (0.045 + 0.075 * su), crn = lobules[0].corners;
+      // Early: incomplete septa reaching out from the tracts; then complete portal-portal bridges.
+      const reach = Math.min(1, 0.3 + 2.4 * su);
       c.save();
-      c.lineCap = 'round'; c.lineJoin = 'round';
-      const paths = [];
-      lobules[0].corners.forEach((A, i) => paths.push([A, lobules[0].corners[(i + 1) % 6], i]));
-      // Nodule bulge: the septa cast a soft shade into the tissue beside them.
-      c.shadowColor = dark ? 'rgba(0,0,0,.55)' : 'rgba(110, 50, 50, .35)'; c.shadowBlur = R * 0.07 * su;
-      c.strokeStyle = col(0.36 + 0.4 * su); c.lineWidth = w;
-      for (const [A, B, ph] of paths) { wavy(A, B, R * 0.02, ph); c.stroke(); }
-      if (su > 0.35) for (const sp of G.septaPC) { c.lineWidth = w * 0.85; c.beginPath(); sp.pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.stroke(); }
-      c.shadowBlur = 0;
-      // Fibres along each band.
-      c.strokeStyle = dark ? 'rgba(120,110,90,.55)' : 'rgba(176, 158, 118, .55)'; c.lineWidth = 0.8;
-      for (const [A, B, ph] of paths) for (const o of [-0.25, 0.25]) { wavy([A[0] + o * w * 0.6, A[1] + o * w * 0.6], [B[0] + o * w * 0.6, B[1] + o * w * 0.6], R * 0.02, ph + o); c.stroke(); }
+      c.shadowColor = dark ? 'rgba(0,0,0,.5)' : 'rgba(110, 50, 50, .3)'; c.shadowBlur = R * 0.06 * su;   // nodules bulge beside the bands
+      crn.forEach((A, i) => {
+        const B = crn[(i + 1) % 6], o = { w, rgb: COL, a: 0.55 + 0.45 * su, amp: R * 0.025, seed: 11 + i };
+        if (reach >= 1) fibrousBand(c, A, B, o);
+        else { const M = (t, P, Q) => [lerp(P[0], Q[0], t), lerp(P[1], Q[1], t)], h = reach / 2;
+          fibrousBand(c, A, M(h, A, B), { ...o, e1: 0.2, seed: 11 + i }); fibrousBand(c, B, M(h, B, A), { ...o, e1: 0.2, seed: 61 + i }); }
+      });
+      // Portal-central bridges (advanced): from three tracts to the central vein, then spurs from the others.
+      if (su > 0.18) {
+        const g = Math.min(1, (su - 0.18) / 0.4);
+        G.septaPC.forEach((sp, k) => { const P = sp.pts, q = P.length - 1;
+          fibrousBand(c, P[0], P[q], { w: w * (0.6 + 0.3 * g), rgb: COL, a: 0.45 + 0.5 * g, e1: 0.35, seed: 31 + k, path: (u) => P[Math.round(u * q)] }); });
+        if (su > 0.6) [1, 3, 5].forEach((i, k) => { const A = crn[i], t = 0.25 + 0.3 * Math.min(1, (su - 0.6) / 0.3);
+          fibrousBand(c, A, [lerp(A[0], cx, t), lerp(A[1], cy, t)], { w: w * 0.55, rgb: COL, a: 0.6, e1: 0.15, amp: R * 0.03, seed: 41 + k }); });
+      }
       c.restore();
     } else {
       // Healthy: just the limiting plate, a hairline.
@@ -1272,7 +1360,7 @@ export function createLobuleZoom({ host }) {
     if (m.septU > 0.1) {
       const C = G.lobules[0].corners, w = G.R * (0.02 + 0.05 * m.septU) / 2 + 4;
       for (let i = 0; i < 6; i++) { const A = C[i], B = C[(i + 1) % 6], dx = B[0] - A[0], dy = B[1] - A[1], L2 = dx * dx + dy * dy, t = clamp(((x - A[0]) * dx + (y - A[1]) * dy) / L2, 0, 1); if (Math.hypot(A[0] + dx * t - x, A[1] + dy * t - y) < w) return { part: 'septum' }; }
-      if (m.septU > 0.35) for (const sp of G.septaPC) if (distTo(sp.pts, x, y)[0] < w) return { part: 'septum' };
+      if (m.septU > 0.18) for (const sp of G.septaPC) if (distTo(sp.pts, x, y)[0] < w) return { part: 'septum' };
     }
     const q = hexFrac(x, y, G.cx, G.cy, G.R);
     if (q < 1) return { part: 'hep', zone: zoneOf(q) };
