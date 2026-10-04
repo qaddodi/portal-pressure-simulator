@@ -171,7 +171,14 @@ export function createLobuleZoom({ host }) {
 
   const ladder = h('div', { class: 'lz-ladder' });
   // A phone shows the ladder as its numbers, in the pressure's colour, with the change beneath.
-  const nums = h('div', { class: 'lz-nums' });
+  // Built once and updated in place, so a number can glide between the folded header and the open strip.
+  const numEls = ['PV', 'Sin', 'CV', 'HV', 'IVC'].map((n) => {
+    const b = h('b'), d = h('span', { class: 'd' });
+    return { el: h('div', { class: 'lz-num' }, b, d, h('span', { class: 'k' }, n)), b, d };
+  });
+  const segEls = [0, 1, 2, 3].map(() => h('i'));
+  const nums = h('div', { class: 'lz-nums' }, h('div', { class: 'lz-nrow' }, ...numEls.map((x) => x.el)),
+    h('div', { class: 'lz-nsegs', 'aria-hidden': 'true' }, ...segEls));
   // Where the block sits: kept on the element (data-seg) for the figure and the checks, not written out.
   const verdict = h('p', { class: 'lz-verdict', hidden: true });
   const stats = h('dl', { class: 'lz-stats' });
@@ -198,7 +205,31 @@ export function createLobuleZoom({ host }) {
   const tgs = h('div', { class: 'lz-tgs', role: 'group', 'aria-label': 'Show on the lobule' }, zonesBtn, lymphBtn);
   const side = h('div', { class: 'lz-side open' }, head, tgs, ladder, nums, verdict, cirBox, statsHead, stats);
   const phoneMQ = matchMedia('(max-width: 720px)');
-  const setOpen = (o) => { side.classList.toggle('open', o); head.setAttribute('aria-expanded', String(o)); if (!o) side.scrollTop = 0; requestAnimationFrame(refit); };
+  // Folded on a phone, the five numbers sit at the right of the header; opening the sheet lets each fall
+  // into its place on the strip (and folding lifts them back), the rest of the strip fading in after.
+  const setOpen = (o) => {
+    const flip = phoneMQ.matches && !reduce.matches && o !== side.classList.contains('open') && side.isConnected;
+    // Measured against the sheet, which itself jumps as it grows, so the numbers fall within the card.
+    const s0 = flip && side.getBoundingClientRect(), was = flip && numEls.map(({ b }) => [b.getBoundingClientRect(), parseFloat(getComputedStyle(b).fontSize)]);
+    side.classList.toggle('open', o); head.setAttribute('aria-expanded', String(o)); if (!o) side.scrollTop = 0;
+    if (was) {
+      const s1 = side.getBoundingClientRect(), dx = s0.left - s1.left, dy = s0.top - s1.top;
+      nums.classList.add('flying');
+      let left = 0;
+      numEls.forEach(({ b }, i) => {
+        const a = b.getBoundingClientRect(), [r, fs] = was[i];
+        if (!a.width || !r.width) return;
+        const k = fs / parseFloat(getComputedStyle(b).fontSize);
+        b.animate([{ transform: `translate(${r.left - a.left - dx}px, ${r.top - a.top - dy}px) scale(${k})` }, { transform: 'none' }],
+          { duration: 420, delay: (o ? i : 4 - i) * 30, easing: 'cubic-bezier(.2, .9, .25, 1)', fill: 'backwards' })
+          .finished.catch(() => {}).finally(() => { if (--left === 0) nums.classList.remove('flying'); });
+        left++;
+      });
+      if (!left) nums.classList.remove('flying');
+      if (o) nums.querySelectorAll('.d, .k, .lz-nsegs').forEach((e) => e.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, delay: 260, fill: 'backwards' }));
+    }
+    requestAnimationFrame(refit);
+  };
   // The key to the lobule's parts is not shown (the colours speak for themselves); it stays detached.
   const key = h('div', { class: 'lz-key' }, legend);
   // Phone: the sheet follows a swipe on its header, up to open and down to fold; a tap on the header flips it.
@@ -686,13 +717,14 @@ export function createLobuleZoom({ host }) {
     // The phone's strip: the five pressures in a row, joined by a thin line, the change beneath only when
     // there is one, and under them the bars that mark where along the lobule the pressure is lost.
     const dTxt = (d) => `${d > 0 ? '▲' : '▼'} ${fmt(Math.abs(d), 0)}`;
-    nums.replaceChildren(
-      h('div', { class: 'lz-nrow' }, ...short.map((n, i) => {
-        const v = P[i], d = R[i] != null ? v - R[i] : 0, show = !m.hide && Math.abs(d) >= (m.cmp ? 1 : 2);
-        return h('div', { class: 'lz-num', style: { '--c': m.hide ? 'var(--text-3)' : pc(v) } }, h('b', {}, m.hide ? '?' : fmt(v, 0)),
-          h('span', { class: 'd ' + (show ? (d > 0 ? 'up' : 'down') : '') }, show ? dTxt(d) : ''), h('span', { class: 'k' }, n));
-      })),
-      h('div', { class: 'lz-nsegs', 'aria-hidden': 'true' }, [0, 1, 2, 3].map((i) => h('i', { class: i === k || (k === -1 && lifted && i === 3) ? 'on' : '' }))));
+    numEls.forEach(({ el, b, d: de }, i) => {
+      const v = P[i], d = R[i] != null ? v - R[i] : 0, show = !m.hide && Math.abs(d) >= (m.cmp ? 1 : 2);
+      el.style.setProperty('--c', m.hide ? 'var(--text-3)' : pc(v));
+      b.textContent = m.hide ? '?' : fmt(v, 0);
+      de.className = 'd ' + (show ? (d > 0 ? 'up' : 'down') : '');
+      de.textContent = show ? dTxt(d) : '';
+    });
+    segEls.forEach((e, i) => { e.className = i === k || (k === -1 && lifted && i === 3) ? 'on' : ''; });
     nums.setAttribute('aria-label', m.hide ? 'Pressures: not measured' : 'Pressures in mmHg: ' + names.map((n, i) => `${n} ${fmt(P[i], 0)}`).join(', '));
     const why = m.hide ? 'Pressures are not measured in this case: the lobule shows anatomy and flow only.'
       : k === 0 ? 'The block is pre-sinusoidal (portal tract): portal pressure is high, but the wedged pressure, and so HVPG, stays near normal.'
