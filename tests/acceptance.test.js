@@ -239,3 +239,16 @@ test('Wedged catheter reads sinusoidal pressure', () => {
   assert.ok(Math.abs(m.measured.whvp - m.whvp) < 0.6, `measured ${m.measured.whvp} vs estimate ${m.whvp}`);
   assert.ok(VARIX.Tcrit > 0);
 });
+
+test('Varices never rupture on their own unless bleeding is switched on', () => {
+  const off = preset('cirr-hepatofugal');
+  patch(off, { deterministicRupture: true });
+  off.advanceDays(60, { silent: true });
+  for (let i = 0; i < 200; i++) off.step(0.5);
+  assert.ok(!off.bleed.active, 'no spontaneous bleed by default');
+  const on = preset('cirr-hepatofugal');
+  patch(on, { bleeding: true, deterministicRupture: true });
+  on.advanceDays(60, { silent: true });
+  for (let i = 0; i < 200; i++) on.step(0.5);
+  if (M(on).varix.ratio > 1 || M(on).gastricVarix.ratio > 1 || on.bleed.total > 0) assert.ok(on.bleed.active || on.bleed.total > 0, 'switched on, a varix over the limit tears');
+});

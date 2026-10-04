@@ -6,7 +6,7 @@ import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=8b006eefeb';
-import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=8fc90f782f';
+import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=304cd180db';
 import { detectEvents } from './events.js?v=e467ec8aaf';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
@@ -477,7 +477,7 @@ export class Engine {
       const ptm = this.P[i] - this.ext[i];
       if (ptm < 9) this.bleed.clot += dt; else this.bleed.clot = Math.max(0, this.bleed.clot - dt * 0.5);
       if (this.bleed.clot > 45) this.stopBleed('clot');
-    } else {
+    } else if (p.bleeding) {
       for (const site of ['VAR', 'GV']) {
         const x = this.varix(site).ratio;
         if (x <= 1) continue;
@@ -531,7 +531,7 @@ export class Engine {
       this.slowStep(1);
       this.day += 1;
       if (!silent) detectEvents(this);
-      if (!noRupture && !this.bleed.active) {
+      if (!noRupture && this.params.bleeding && !this.bleed.active) {
         for (const site of ['VAR', 'GV']) {
           const x = this.varix(site).ratio;
           if (x <= 1) continue;

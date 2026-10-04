@@ -134,6 +134,9 @@ svg { flex: none; }
 .stage-view svg#labels { pointer-events: none; overflow: visible; }
 #overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .stage-view[class*="tool-"]:not(.tool-select):not(.tool-probe) #stage { cursor: crosshair; }
+.stage-view #stage { cursor: grab; }
+.stage-view > :is(#stage, #stageOver, #labels, canvas) { transition: opacity .25s ease; }
+.stage-view.unframed > :is(#stage, #stageOver, #labels, canvas) { opacity: 0; }
 .stage-view.panning #stage { cursor: grabbing; }
 
 .chip-btn {
@@ -532,12 +535,12 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .liver-tint { transition: opacity .6s var(--ease); }
 .cg-in { stop-color: var(--path-congestion); stop-opacity: 0; } .cg-out { stop-color: var(--path-congestion); stop-opacity: .55; }
 .nutmeg circle { fill: var(--path-nutmeg); fill-opacity: .55; }
-.fl-top { stop-color: var(--ascites); stop-opacity: .1; } .fl-bot { stop-color: var(--ascites); stop-opacity: .3; }
+.fl-top { stop-color: var(--ascites); stop-opacity: .16; } .fl-bot { stop-color: var(--ascites); stop-opacity: .38; }
 .sk-in { stop-color: var(--skin); stop-opacity: .5; } .sk-mid { stop-color: var(--skin); stop-opacity: .3; } .sk-out { stop-color: var(--skin); stop-opacity: 0; }
 .mt-a { stop-color: var(--stent-metal); } .mt-b { stop-color: var(--light-ink); }
 .abd-wall { pointer-events: none; transition: opacity .8s var(--ease); }
 .flank { fill: none; stroke: var(--organ-body-line); stroke-width: 1.4; stroke-opacity: .8; stroke-linecap: round; }
-.ascites-glint { fill: none; stroke: var(--light-ink); stroke-opacity: .35; stroke-width: 1; }
+.ascites-glint { fill: none; stroke: var(--light-ink); stroke-opacity: .55; stroke-width: 1.4; }
 .varix-col-case { fill: none; stroke: var(--vessel-casing); stroke-linecap: round; opacity: .9; }
 .varix-col { fill: none; stroke-linecap: round; }
 .varix-bead { stroke: var(--vessel-casing); stroke-width: .9; }
@@ -1248,6 +1251,9 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 /* The figure's own buttons (Fit, turn) ride above the sheet instead of under it. */
 .stage-fit, .stage-rotate, .stage-clock { translate: 0 calc(-1 * var(--sheet-h, 0px)); transition: translate .2s var(--ease); }
 .hover-tip .hint { margin-top: 4px; font-size: var(--fs-12); color: var(--text-3); }
+.hover-tip.peek { font-size: var(--fs-14); min-width: 200px; padding: 10px 14px; animation: peek-in .14s ease-out; }
+@keyframes peek-in { from { opacity: 0; transform: translateY(6px) scale(.97); } }
+@media (prefers-reduced-motion: reduce) { .hover-tip.peek { animation: none; } }
 
 /* Selection feedback on organs and sites */
 .org-sel-line { fill: none; stroke: var(--accent); stroke-width: 2.4; stroke-opacity: .55; stroke-linejoin: round; pointer-events: none; }
@@ -1537,9 +1543,15 @@ button.finding:hover { background: var(--surface-2); }
 .lz-lab small { font-size: 10px; font-weight: 500; color: var(--text-3); }
 .lz-lab[hidden] { display: none; }
 .lz-lab:hover, .lz-lab:focus-visible { border-color: var(--accent); outline: none; }
-.lz-zone { position: absolute; transform: translate(-50%, -50%); padding: 2px 8px; border-radius: var(--r-pill); background: var(--glass); border: 1px solid var(--hairline); font: 500 calc(12px * var(--label-k, 1)) var(--font-ui); color: var(--text-2); white-space: nowrap; box-shadow: 0 1px 1.5px rgba(20, 22, 30, .1); }
-.lz-zone b { font-weight: 600; color: var(--text); }
-.lz-zone.z1 b { color: rgb(200, 72, 52); } .lz-zone.z2 b { color: rgb(170, 116, 40); } .lz-zone.z3 b { color: rgb(104, 78, 196); }
+/* Zone names: no chip, just letters in the band, as the organs are named (small capitals on a soft halo). */
+.lz-zone { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 0; pointer-events: none; white-space: nowrap; line-height: 1.15;
+  font: 650 calc(10px * var(--label-k, 1)) var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--zc); opacity: .85;
+  text-shadow: 0 0 3px var(--label-halo), 0 0 6px var(--label-halo); }
+.lz-zone b { font-weight: 700; }
+.lz-zone span { font-size: calc(8.5px * var(--label-k, 1)); font-weight: 600; letter-spacing: .08em; opacity: .8; }
+.lz-zone.z1 { --zc: rgb(186, 66, 48); } .lz-zone.z2 { --zc: rgb(150, 100, 32); } .lz-zone.z3 { --zc: rgb(96, 72, 182); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lz-zone.z1 { --zc: rgb(246, 140, 120); } :root:not([data-theme="light"]) .lz-zone.z2 { --zc: rgb(232, 186, 112); } :root:not([data-theme="light"]) .lz-zone.z3 { --zc: rgb(170, 150, 246); } }
+:root[data-theme="dark"] .lz-zone.z1 { --zc: rgb(246, 140, 120); } :root[data-theme="dark"] .lz-zone.z2 { --zc: rgb(232, 186, 112); } :root[data-theme="dark"] .lz-zone.z3 { --zc: rgb(170, 150, 246); }
 .lz-top { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; }
 .lz-tgs { display: flex; gap: 4px; padding: 3px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-pill); box-shadow: var(--shadow-1); }
 .lz-tg { display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; font: 500 var(--fs-12) var(--font-ui); color: var(--text-2); padding: 4px 10px; border-radius: var(--r-pill); cursor: pointer; }
@@ -2570,6 +2582,65 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .dop-edge { fill: none; stroke: var(--doppler); stroke-opacity: .95; stroke-linecap: butt; stroke-linejoin: round; }
 .instrument-workspace .dock-title.dop-on .dt-l::before { content: ''; display: inline-block; width: 8px; height: 8px; margin: 0 8px 1px 0; border-radius: 50%; background: var(--doppler); box-shadow: 0 0 0 3px color-mix(in srgb, var(--doppler) 22%, transparent); vertical-align: middle; }
 
+/* ── Polish pass: play bar, phone chrome, card leader, sheets, sliders ── */
+/* The play bar: the clock sits next to the track it reads, speed looks like a control, Compare is an icon. */
+.tl-time { min-width: 0; text-align: left; }
+.tl-time .tl-t-short { display: none; }
+@media (max-width: 767px) { .vdock .tl-time .tl-t-short { display: inline; } }
+.tl-speed { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+.tl-speed::after { content: ''; width: 0; height: 0; border-left: 3.5px solid transparent; border-right: 3.5px solid transparent; border-top: 4px solid currentColor; opacity: .55; margin-left: 2px; }
+.tl-speed:hover { border-color: var(--accent-line); color: var(--accent-ink); background: var(--accent-soft); }
+.tl-rail { background: color-mix(in srgb, var(--text) 12%, var(--surface-3)); }
+
+/* Legend: the end numbers stay inside the scale instead of being cut off. */
+.lg-num.start { transform: none; }
+.lg-num.end { transform: translateX(-100%); }
+
+/* Readouts: short names where the tiles are narrow. */
+.metric .k .k-s { display: none; }
+@media (max-width: 767px) {
+  .metric .k .k-l { display: none; }
+  .metric .k .k-s { display: inline; }
+  .readouts:not(.all) .metric .tr { display: none; }
+}
+
+/* A phone: the clock is in the play bar (short form), not floating over the figure. */
+@media (max-width: 767px) {
+  .stage-clock { display: none !important; }
+  .vdock .tl-time { display: inline; min-width: 0; }
+  .vdock .tl-time .tl-t-long { display: none; }
+  /* The menu keeps its icon; the patient's name gets the room (the menu names the mode). */
+  .menu-btn .mb-t { display: none; }
+  .tb-id .scenario-v { font-size: var(--fs-14); }
+}
+/* The zoom buttons step aside while a card sheet covers the figure (pinch still zooms). */
+.zoom-pill.under-sheet { opacity: 0; pointer-events: none; }
+
+/* The card's leader line to its structure, when the card sits away from it. */
+.ac-leader { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; z-index: calc(var(--z-hud) - 1); }
+.ac-leader path { stroke: var(--text-2); stroke-width: 1.2; stroke-dasharray: 3 3; fill: none; opacity: .8; }
+.ac-leader circle { fill: var(--surface); stroke: var(--accent); stroke-width: 2; }
+.stage-view.in-lobule .ac-leader { display: none; }
+
+/* The phone card sheet's third height: nearly the whole screen. */
+.action-card.docked.full { max-height: calc(100% - var(--top-safe) - 8px); }
+
+/* Sliders follow a finger anywhere on the track (util.js enhanceRanges), so the page must not scroll from them. */
+input[type="range"] { touch-action: none; }
+@media (max-width: 767px) {
+  .tl-speed { display: none; }
+  .readouts:not(.all) .metric .v { font-size: var(--fs-16); }
+  .readouts:not(.all) .metric .v .unit { margin-left: 2px; }
+  .vdock .timeline { gap: 6px; }
+}
+
+/* After a change: the vessels whose pressure moved glow briefly behind their tubes (warm up, cool down). */
+.delta-glow { fill: none; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; opacity: 0; filter: blur(4px); animation: deltaGlow 1.7s var(--ease) forwards; }
+.delta-glow.up { stroke: color-mix(in srgb, #E8633A 70%, transparent); }
+.delta-glow.down { stroke: color-mix(in srgb, #3A8DE8 70%, transparent); }
+@keyframes deltaGlow { 0% { opacity: 0; } 25% { opacity: .6; } 60% { opacity: .45; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .delta-glow { display: none; } }
+
 /* ── Timeline and readouts, readable at a glance ──────────────────
    The timeline names its latest event beside the clock and keeps every change and event behind
    History; events stand on the rail as colored flags. The readouts name each value plainly, with
@@ -2672,4 +2743,11 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   .lz-side .lz-ladder { display: none; }
   .lz-side.open .lz-nums { display: grid; }
   .lz-stats { gap: 3px 12px; padding-top: 8px; }
+}
+
+/* Touch screens: a long press is a gesture here (hold to inspect, drag, pinch), not a text selection;
+   fields that take typing still select. */
+@media (pointer: coarse) {
+  body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
 }

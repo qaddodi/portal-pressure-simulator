@@ -11,10 +11,10 @@
 // from here" freezes the current moment as A for comparison. It replaces play/speed, the Seconds/Months
 // switch, undo/redo/reset, the Findings list, the Log instrument and Compare mode.
 
-import { store, replaceParams, onParamChange } from './store.js?v=f9424489c6';
-import { host } from './host.js?v=7d1803441f';
-import { h, fmt, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=fe164f31f1';
-import { activeInterventions } from './inspector.js?v=208b6a3592';
+import { store, replaceParams, onParamChange } from './store.js?v=9c069d2ebf';
+import { host } from './host.js?v=511cdcf52a';
+import { h, fmt, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=d680016625';
+import { activeInterventions } from './inspector.js?v=fe8a1a69f1';
 
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };
 export const EVENT_WHY = { VARIX_RUPTURE: 'varix', RED_WALE: 'varix', VARIX_LARGE: 'varix', HEPATOFUGAL_PV: 'pvFlow', PV_STASIS: 'pvFlow', CSPH: 'hvpg', BLEED_RISK: 'hvpg', ASCITES_FORMING: 'ascites', TENSE_ASCITES: 'ascites', HIGH_SHUNT: 'shunt', LIVER_HYPOPERFUSION: 'liverPerf', RA_HIGH: 'ra', HYPERDYNAMIC: 'co', SPLENOMEGALY: 'spleen' };
@@ -48,7 +48,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   // Restart: the same patient from its first moment, every change and the clock cleared.
   const restartBtn = h('button', { class: 'ib tl-restart', 'aria-label': 'Restart this patient' }, icon('reset'));
   restartBtn.addEventListener('click', () => onRestart?.());
-  const speedBtn = h('button', { class: 'tl-speed', title: 'Playback speed ([ and ])', 'aria-label': 'Playback speed' }, '1×');
+  const speedBtn = h('button', { class: 'tl-speed', title: 'Playback speed ([ and ]); click for the next speed', 'aria-label': 'Playback speed' }, '1×');
   speedBtn.addEventListener('click', () => { const i = SPEEDS.indexOf(store.get().speed); onSpeed(SPEEDS[(i + 1) % SPEEDS.length]); });
   const rail = h('div', { class: 'tl-rail' });
   const fill = h('div', { class: 'tl-fill' });
@@ -56,7 +56,9 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   const marks = h('div', { class: 'tl-marks', role: 'list', 'aria-label': 'Changes and events' });
   const nowEl = h('div', { class: 'tl-now', 'aria-hidden': 'true' });
   const track = h('div', { class: 'tl-track' }, rail, bleedBand, fill, marks, nowEl);
-  const timeEl = h('span', { class: 'tl-time', 'aria-live': 'off' }, '0:00');
+  // The full clock, and a short one (just the day) for a phone's play bar.
+  const timeLong = h('span', { class: 'tl-t-long' }, '0:00'), timeShort = h('span', { class: 'tl-t-short', 'aria-hidden': 'true' }, '0:00');
+  const timeEl = h('span', { class: 'tl-time', 'aria-live': 'off' }, timeLong, timeShort);
   // The latest event, named beside the clock; a click opens it like its marker.
   const latestEl = h('button', { class: 'tl-latest', hidden: true });
   latestEl.addEventListener('click', (e) => { const i = latestEventIndex(); if (i >= 0) openMarker(e.currentTarget, [i]); });
@@ -172,7 +174,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
     const t0 = performance.now();
     const tick = (now) => {
       const u = clamp((now - t0) / 900, 0, 1);
-      if (days !== 'event') timeEl.textContent = `Day ${Math.round(d0 + days * (1 - (1 - u) ** 3))}`;
+      if (days !== 'event') timeLong.textContent = timeShort.textContent = `Day ${Math.round(d0 + days * (1 - (1 - u) ** 3))}`;
       if (u < 1) requestAnimationFrame(tick); else track.classList.remove('ff');
     };
     requestAnimationFrame(tick);
@@ -342,7 +344,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   function update(f) {
     if (!track.classList.contains('ff')) {
       const t = fmtClock(f.t, f.day);
-      if (t !== lastTime) { lastTime = t; timeEl.textContent = t; }
+      if (t !== lastTime) { lastTime = t; timeLong.textContent = t; timeShort.textContent = f.day > 0 ? `Day ${f.day}` : t; }
     }
     if (f.running !== lastRun) { lastRun = f.running; playBtn.replaceChildren(icon(f.running ? 'pause' : 'play')); playBtn.setAttribute('aria-label', f.running ? 'Pause' : 'Play'); }
     const sp = store.get().speed;

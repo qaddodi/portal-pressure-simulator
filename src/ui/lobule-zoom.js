@@ -20,13 +20,13 @@
 // anything tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
-import { store, updateParams } from './store.js?v=f9424489c6';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=bf0ab9ee15';
-import { verbEnabled } from './actions.js?v=7739e2b27e';
-import { h, s, fmt, clamp, svgIcon } from './util.js?v=fe164f31f1';
+import { store, updateParams } from './store.js?v=9c069d2ebf';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=36cd6472b7';
+import { verbEnabled } from './actions.js?v=a0ec30e1a5';
+import { h, s, fmt, clamp, svgIcon } from './util.js?v=d680016625';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
-import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=63596bcd73';
+import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=dbd6a6238d';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=3acf4e936e';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -176,9 +176,12 @@ export function createLobuleZoom({ host }) {
     if (!side.hidden && side.offsetWidth) { if (phone) b = Math.min(b, side.offsetTop - 10); else r = Math.min(r, side.offsetLeft - 16); }
     // The key: above the lobule on a phone, under it (bottom left) on a wider screen.
     if (key.offsetHeight) { if (phone) t += key.offsetHeight + 4; else b = Math.min(b, key.offsetTop - 8); }
-    // A phone's zoom buttons sit top right, beside the switches, and can be the taller of the two.
-    const zp = phone && document.querySelector('.stage-view.in-lobule .zoom-pill');
-    if (zp?.offsetHeight) t = Math.max(t, zp.getBoundingClientRect().bottom - el.getBoundingClientRect().top + 12);
+    // The zoom buttons: on a phone they sit top right beside the Zones and Lymph switches, so the labels start below them.
+    const zp = phone && document.getElementById('zoomPill');
+    if (zp && zp.offsetHeight) {
+      const hr = el.getBoundingClientRect(), q = zp.getBoundingClientRect();
+      if (q.top - hr.top < H / 2) t = Math.max(t, q.bottom - hr.top + 14);
+    }
     return { l, t, r: Math.max(l + 80, r), b: Math.max(t + 80, b) };
   }
   // The lobule and its labels' places, in world units.
@@ -201,7 +204,8 @@ export function createLobuleZoom({ host }) {
     V.k = Math.min(V.k, kFit * KMAX);
     const { cx, cy, R } = geo, f = freeRect(), mx = (f.l + f.r) / 2, my = (f.t + f.b) / 2;
     // The free space's centre stays over the lobule; fitted, it is the framing.
-    const t = clamp(V.k / kFit - 1, 0, 1);
+    // (The room to pan opens quickly: fully by a third past the framing, so a small zoom can already be moved.)
+    const t = clamp((V.k / kFit - 1) * 3, 0, 1);
     const fc = [(mx - F0.x) / F0.k, (my - F0.y) / F0.k];
     const wx = (mx - V.x) / V.k, wy = (my - V.y) / V.k;
     const x0 = lerp(fc[0], cx - R * 1.05, t), x1 = lerp(fc[0], cx + R * 1.05, t), y0 = lerp(fc[1], cy - R * 0.95, t), y1 = lerp(fc[1], cy + R * 0.95, t);
@@ -249,9 +253,21 @@ export function createLobuleZoom({ host }) {
   function syncKey() { const z = V.k / (kFit || 1), o = clamp((1.7 - z) / 0.45, 0, 1); key.style.opacity = o.toFixed(2); key.style.visibility = o < 0.02 ? 'hidden' : ''; }
 
   // ── Gestures: wheel and pinch zoom, drag pans, a tap selects; out past 1× returns to the liver ──
+  // As on the anatomy: a mouse wheel zooms about the pointer; a trackpad's two-finger scroll pans (once zoomed in)
+  // and its pinch (ctrlKey) zooms; Ctrl/⌘ + wheel always zooms. A gesture is classified once, as it starts.
+  let wheelKind = null, wheelAt = 0;
   el.addEventListener('wheel', (ev) => {
     ev.preventDefault();
-    const f = Math.exp(-ev.deltaY * 0.0015);
+    cancelAnimationFrame(glide);   // a button's glide never fights the hand
+    const u = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? el.clientHeight : 1, dx = ev.deltaX * u, dy = ev.deltaY * u, now = performance.now();
+    if (now - wheelAt > 250) wheelKind = ev.ctrlKey || ev.metaKey ? 'pinch' : ev.deltaMode === 0 && (dx !== 0 || ev.wheelDeltaY == null || Math.abs(Math.abs(ev.wheelDeltaY) - Math.abs(ev.deltaY) * 3) < 1) ? 'pad' : 'wheel';
+    wheelAt = now;
+    if (wheelKind === 'pad' && !ev.ctrlKey && !ev.metaKey) {
+      if (V.k <= kFit * 1.001) return;   // at its framing there is nothing to pan to
+      V.x -= dx; V.y -= dy; atFit = false; clampV(); viewChanged();
+      return;
+    }
+    const f = ev.ctrlKey || ev.metaKey ? Math.exp(-clamp(dy, -50, 50) * 0.01) : Math.exp(-clamp(dy, -120, 120) * 0.0015);
     if (V.k <= kFit * 1.001 && f < 1) return;   // the lobule is a view of its own: zooming out stops at its framing
     const p = local(ev);
     zoomAround(p[0], p[1], f);
@@ -264,6 +280,9 @@ export function createLobuleZoom({ host }) {
     if (!onScene(ev)) return;
     if (ev.isPrimary) touches.clear();
     touches.set(ev.pointerId, local(ev));
+    cancelAnimationFrame(glide);
+    // Captured, so a drag keeps going over the labels, the card or past the edge.
+    try { el.setPointerCapture(ev.pointerId); } catch { /* gone */ }
     if (touches.size === 2) {
       const [a, b] = pts2();
       pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, k: V.k, m: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] };
@@ -294,7 +313,7 @@ export function createLobuleZoom({ host }) {
     }
     down = null;
   });
-  for (const t of ['pointerup', 'pointercancel', 'pointerleave']) el.addEventListener(t, (ev) => { touches.delete(ev.pointerId); if (touches.size < 2) pinch = null; if (!touches.size) { drag = null; el.classList.remove('lz-drag'); } });
+  for (const t of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(t, (ev) => { touches.delete(ev.pointerId); if (touches.size < 2) pinch = null; if (!touches.size) { drag = null; el.classList.remove('lz-drag'); } });
   el.addEventListener('dblclick', (ev) => { if (!onScene(ev)) return; const p = local(ev); zoomAround(p[0], p[1], V.k < kFit * KMAX * 0.98 ? 2 : 1 / KMAX); });
   const local = (ev) => { const r = el.getBoundingClientRect(); return [ev.clientX - r.left, ev.clientY - r.top]; };
 
@@ -639,12 +658,13 @@ export function createLobuleZoom({ host }) {
       L.line.setAttribute('x1', a[0]); L.line.setAttribute('y1', a[1]); L.line.setAttribute('x2', ex); L.line.setAttribute('y2', y);
       L.dotEl.setAttribute('cx', a[0]); L.dotEl.setAttribute('cy', a[1]);
     }
-    // Zone chips along the radius to the lower-left edge.
+    // Zone names written in the bands themselves, as the organs are named on the anatomy: quiet capitals in each
+    // zone's color, on the radius to the flat bottom edge, so each name runs along its band.
     labels.querySelectorAll('.lz-zone').forEach((z) => z.remove());
     if (zonesOn) {
-      const a = (2 * Math.PI) / 3 + Math.PI / 6, ap = R * 0.866;
-      [[0.83, 'Zone 1', 'periportal'], [0.51, 'Zone 2', ''], [0.2, 'Zone 3', 'centrilobular']].forEach(([q, t, d], i) => {
-        const z = h('div', { class: 'lz-zone z' + (i + 1) }, h('b', {}, t), d ? ' ' + d : '');
+      const a = Math.PI / 2, ap = R * 0.866;
+      [[0.83, 'Zone 1', 'periportal'], [0.51, 'Zone 2', 'midzonal'], [0.2, 'Zone 3', 'centrilobular']].forEach(([q, t, d], i) => {
+        const z = h('div', { class: 'lz-zone z' + (i + 1), 'aria-hidden': 'true' }, h('b', {}, t), h('span', {}, d));
         const [zx, zy] = toScreen([cx + Math.cos(a) * ap * q, cy + Math.sin(a) * ap * q]);
         z.style.left = `${zx}px`; z.style.top = `${zy}px`;
         labels.append(z);
@@ -988,11 +1008,12 @@ export function createLobuleZoom({ host }) {
     }
     // Stellate cells: shown once fibrosis starts; activated, they become star-shaped myofibroblasts.
     if (m.act > 0.08) {
-      const a = m.act, rr = R * (0.01 + 0.014 * a);
+      // Quiet at the whole-lobule scale (they are a detail, not the story); they read once zoomed in.
+      const a = m.act, rr = R * (0.0075 + 0.01 * a);
       for (const k of G.hsc) {
-        c.strokeStyle = `rgba(176, 104, 48, ${0.35 + 0.5 * a})`; c.lineWidth = 1.1;
+        c.strokeStyle = `rgba(176, 104, 48, ${0.22 + 0.36 * a})`; c.lineWidth = 0.9;
         c.beginPath(); for (let i = 0; i < 5; i++) { const b = k.a + (i * TAU) / 5; c.moveTo(k.x, k.y); c.lineTo(k.x + Math.cos(b) * rr * 2.2, k.y + Math.sin(b) * rr * 2.2); } c.stroke();
-        c.fillStyle = `rgba(176, 104, 48, ${0.45 + 0.45 * a})`; c.beginPath(); c.arc(k.x, k.y, rr, 0, TAU); c.fill();
+        c.fillStyle = `rgba(176, 104, 48, ${0.3 + 0.36 * a})`; c.beginPath(); c.arc(k.x, k.y, rr, 0, TAU); c.fill();
       }
     }
     c.restore();
@@ -1007,7 +1028,7 @@ export function createLobuleZoom({ host }) {
       lobules.forEach((l, li) => l.corners.forEach((A, i) => paths.push([A, l.corners[(i + 1) % 6], li * 7 + i])));
       // Nodule bulge: the septa cast a soft shade into the tissue beside them.
       c.shadowColor = dark ? 'rgba(0,0,0,.55)' : 'rgba(110, 50, 50, .35)'; c.shadowBlur = R * 0.07 * su;
-      c.strokeStyle = col(0.45 + 0.45 * su); c.lineWidth = w;
+      c.strokeStyle = col(0.36 + 0.4 * su); c.lineWidth = w;
       for (const [A, B, ph] of paths) { wavy(A, B, R * 0.02, ph); c.stroke(); }
       if (su > 0.35) for (const sp of G.septaPC) { c.lineWidth = w * 0.85; c.beginPath(); sp.pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.stroke(); }
       c.shadowBlur = 0;

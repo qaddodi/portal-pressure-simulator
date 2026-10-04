@@ -4,11 +4,11 @@
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, edgePresent, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=29d10ad9ef';
 import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=b3ecbae45c';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
-import { store, updateParams } from './store.js?v=f9424489c6';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=fe164f31f1';
-import { createLobuleZoom } from './lobule-zoom.js?v=56450163d5';
+import { store, updateParams } from './store.js?v=9c069d2ebf';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=d680016625';
+import { createLobuleZoom } from './lobule-zoom.js?v=2fddd7f563';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=63596bcd73';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=dbd6a6238d';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
 
 const N_SAMPLES = 64;
@@ -764,7 +764,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // 0 to 1; the anatomy is never turned. The turn is part of the world transform and of the view
   // box (which swaps its width and height with it), so pan, zoom and every screen-space layer
   // keep working in the frame they already use.
-  let rotTarget = (() => { try { return localStorage.getItem('pps.circuitRot') === '1' ? 1 : 0; } catch { return 0; } })();
+  // With no saved choice, a phone held upright opens the circuit upright (the wide map would be a strip).
+  const portraitPhone = () => innerWidth < 700 && innerHeight > innerWidth * 1.15;
+  let rotTarget = (() => { try { const v = localStorage.getItem('pps.circuitRot'); return v == null ? (portraitPhone() ? 1 : 0) : v === '1' ? 1 : 0; } catch { return portraitPhone() ? 1 : 0; } })();
   let rotU = rotTarget;
   const rotEase = (u) => u * u * (3 - 2 * u);
   const CIRC_C = [VB_CIRC[0] + VB_CIRC[2] / 2, VB_CIRC[1] + VB_CIRC[3] / 2];
@@ -773,6 +775,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const rotDeg = () => -90 * rotEase(rotU) * Math.max(0, lastMorph);
   let lz = null;   // the lobule view's layer
   let geometryVersion = 0;
+  let netBox = null, netBoxFor = -1;
   // Everything drawn in screen space (labels, leaders, organ names, the flow marks, the action
   // card) follows the artwork on the very next frame of a pan or zoom, not on the next model
   // update: a view change schedules one coalesced sync per animation frame.
@@ -832,11 +835,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const k = clamp(base.k * factor, 0.6, 6), wx = (vx - vt.x) / vt.k, wy = (vy - vt.y) / vt.k;
     animateVT({ k, x: vx - wx * k, y: vy - wy * k }, 260);
   }
-  function zoomAt(cx, cy, factor) {
+  // A trackpad pinch may stretch a little past the limits (it springs back when it ends).
+  function zoomAt(cx, cy, factor, stretch = false) {
     if (lobuleOn) return;   // the lobule view has its own zoom
     const [vx, vy] = clientToVB(cx, cy);
     const wx = (vx - vt.x) / vt.k, wy = (vy - vt.y) / vt.k;
-    vt.k = clamp(vt.k * factor, 0.6, 6);
+    vt.k = stretch ? clamp(vt.k * factor, 0.5, 7.2) : clamp(vt.k * factor, 0.6, 6);
     vt.x = vx - wx * vt.k; vt.y = vy - wy * vt.k;
     applyVT(); CTM = null;
   }
@@ -888,7 +892,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const r = svg.getBoundingClientRect();
       if (!r.width || !r.height) return { k: 1, x: 0, y: 0 };
       let x0 = VB_ANAT[0], y0 = VB_ANAT[1], x1 = VB_ANAT[0] + VB_ANAT[2], y1 = VB_ANAT[1] + VB_ANAT[3];
-      for (const g of [gBackdrop, gOrgans, gAscites, gNet, gBack]) {
+      // Only what holds still is measured: the abdomen, the organs and the ascites. The vessels morph (to and from
+      // the circuit, and as the first frames lay them out), and measuring them made the framing land in one place
+      // and then glide to another a second later.
+      for (const g of [gBackdrop, gOrgans, gAscites]) {
         let b; try { b = g.getBBox(); } catch { continue; }
         if (!b.width || !b.height) continue;
         x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.width); y1 = Math.max(y1, b.y + b.height);
@@ -1021,8 +1028,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const lt = lc + Math.log(Math.max(RH * 2, diveLand?.r || 200) / RH);
       const p = 0.5 - 0.5 * Math.cos(Math.PI * clamp(t / 0.82, 0, 1)), P = 0.42;
       const z = p < P ? lc * p / P : lc + (lt - lc) * (p - P) / (1 - P);
-      cancelAnimationFrame(vtAnim); vtGliding = false;
-      vt = lerpVT(diveFrom, diveDeep, clamp(z / lc, 0, 1)); applyVT(); CTM = null;
+      // (Only while the anatomy is the view: leaving the lobule for the circuit takes the circuit's own framing.)
+      if (morphTarget === 0) { cancelAnimationFrame(vtAnim); vtGliding = false; vt = lerpVT(diveFrom, diveDeep, clamp(z / lc, 0, 1)); applyVT(); CTM = null; }
       if (diveLand && diveAt) {
         refreshCTM();
         const [ox, oy] = worldToLocal(diveAt[0], diveAt[1]);
@@ -1267,13 +1274,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Every zoom out of the anatomy (the first frame, Fit, back from the circuit) goes to the same home
   // framing, measured from what is drawn. While the view is still at home it follows what is drawn:
   // when ascites fills the pelvis or the spleen grows, home grows with it and the view follows.
-  let firstFit = false, homeAt = null, homeCheck = 0;
+  let firstFit = false, homeAt = null, homeCheck = 0, userMoved = false;
+  // A patient has arrived and none is on its way (opening one from Home, the first frames are still the last one's).
+  const patientArrived = () => (store.get().historyTick || 0) > 0 && !store.get().presetLoading;
+  let patientReady = patientArrived();
+  store.on('historyTick', () => { patientReady = patientArrived(); });
+  store.on('presetLoading', () => { patientReady = patientArrived(); });
+  wrap.classList.add('unframed');
+  setTimeout(() => wrap.classList.remove('unframed'), 4000);   // never left hidden
   function update(f) {
     inUpdate = true;
     try { updateInner(f); } finally { inUpdate = false; }
-    if (!firstFit && morphTarget === 0) {
+    // The first framing waits for the patient (the first frames are drawn before it has loaded, without its
+    // ascites or spleen), and the figure stays hidden until it is framed, so it appears once, in place.
+    if (!firstFit && (morphTarget === 1 || patientReady)) {
       firstFit = true;
-      requestAnimationFrame(() => { if (morphTarget === 0 && vt.k === 1 && !vt.x && !vt.y) { vt = homeAt = vtTarget = defaultVT(false); applyVT(); CTM = null; } });
+      requestAnimationFrame(() => {
+        if (morphTarget === 0 && !userMoved) { vt = homeAt = vtTarget = defaultVT(false); applyVT(); CTM = null; }
+        wrap.classList.remove('unframed');
+      });
     }
     const now = performance.now();
     // (Not while a move away from home is under way: its first frames still sit at home.)
@@ -2056,6 +2075,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // without a sweep across the whole figure.
   const gHalo = s('g', { id: 'halos', 'aria-hidden': 'true' });
   gOver.after(gHalo);
+  const gGlow = s('g', { id: 'deltaGlow', 'aria-hidden': 'true' });
+  gFocus.after(gGlow);
   let haloBase = null, haloTimer = 0;
   store.on('params', () => {
     if (!F || quietFx()) return;
@@ -2069,7 +2090,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (haloBase) clearTimeout(haloBase.timer);
     haloBase = null;
     clearTimeout(haloTimer);
-    gHalo.replaceChildren();
+    gHalo.replaceChildren(); gGlow.replaceChildren();
   }
   store.on('presetId', dropHalos);
   store.on('view', dropHalos);
@@ -2085,12 +2106,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     cand.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
     clearTimeout(haloTimer);
+    // The vessels whose pressure moved by 2 mmHg or more glow briefly (warm: up, cool: down), so the
+    // reach of a change shows along the network, not only at the three rings.
+    const glows = [];
+    for (const e of EDGES) {
+      const x = E[e.id];
+      if (!x?.vis || x.isArt || e.kind === 'wedge' || x.g.classList.contains('coll-ghost')) continue;
+      const d = (f.P[NI[e.from]] + f.P[NI[e.to]] - base[NI[e.from]] - base[NI[e.to]]) / 2;
+      if (Math.abs(d) >= 2) glows.push([x, d]);
+    }
+    glows.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+    gGlow.replaceChildren(...glows.slice(0, 16).map(([x, d]) => s('path', { class: 'delta-glow ' + (d > 0 ? 'up' : 'down'), d: x.wall.getAttribute('d'), 'stroke-width': ((x.width || 6) + 14).toFixed(1) })));
     gHalo.replaceChildren(...cand.slice(0, 3).map(([id, d]) => {
       const [x, y] = nodePos(id, t);
       return s('g', { class: 'halo ' + (d > 0 ? 'up' : 'down'), transform: `translate(${x.toFixed(1)} ${y.toFixed(1)})` },
         s('circle', { r: 16 }), s('text', { y: -24, 'text-anchor': 'middle' }, `${d > 0 ? '+' : '−'}${Math.abs(d).toFixed(Math.abs(d) < 10 ? 1 : 0)}`));
     }));
-    haloTimer = setTimeout(() => gHalo.replaceChildren(), 1500);
+    haloTimer = setTimeout(() => { gHalo.replaceChildren(); gGlow.replaceChildren(); }, 1700);
   }
 
   // A selected organ keeps a quiet outline; a selected site (varices, fundus, abdomen) a ring.
@@ -2235,12 +2267,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const bulge = u * 34;
     flank.setAttribute('d', u < 0.04 ? '' : `M336 470 C ${324 - bulge} 610 ${330 - bulge} 780 ${372 - bulge * 0.4} 954 M1088 470 C ${1100 + bulge} 610 ${1094 + bulge} 780 ${1052 + bulge * 0.4} 954 M${372 - bulge * 0.4} 954 C 470 1012 970 1012 ${1052 + bulge * 0.4} 954`);
     organG.bowel.setAttribute('transform', `translate(0 ${(-u * 26).toFixed(1)})`);
-    const hgt = plateOn() ? Math.round(u * 110) * 3 : u * 330;
+    // The fluid level rises on a compressed scale (u^0.6), so a grade 1–2 effusion is a visible pool, not a sliver.
+    const uv = Math.pow(u, 0.6);
+    const hgt = plateOn() ? Math.round(uv * 110) * 3 : uv * 330;
     if (hgt < 3) { ascitesPath.setAttribute('d', ''); ascitesLine.setAttribute('d', ''); ascitesGlint.setAttribute('d', ''); }
     else {
       // On the GPU the plate is a raster: the surface holds still (no ripple) and rises in steps.
       const floor = ABDOMEN_FLOOR + 5, ph = reduceMotion.matches || plateOn() ? 0 : (performance.now() / 1100) % (Math.PI * 2);
-      const surf = (x) => { const c = (x - 712) / 400; return floor - hgt * (0.55 + 0.45 * c * c) + Math.sin(x / 38 + ph) * 1.6 * Math.min(1, u * 4); };
+      const surf = (x) => { const c = (x - 712) / 400; return floor - hgt * (0.55 + 0.45 * c * c) + Math.sin(x / 38 + ph) * 1.6 * Math.min(1, uv * 4); };
       let line = '';
       for (let x = 296; x <= 1128; x += 16) line += `${x === 296 ? 'M' : ' L'}${x} ${surf(x).toFixed(1)}`;
       ascitesLine.setAttribute('d', line);
@@ -3229,86 +3263,212 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
 
   svg.addEventListener('pointerover', (ev) => {
+    if (ev.pointerType === 'touch') return;
     const id = edgeFromEvent(ev);
     if (id && EI[id] != null) setHover(id);
   });
   svg.addEventListener('pointerout', (ev) => { if (edgeFromEvent(ev)) { setHover(null); onHoverInfo(null); } });
   svg.addEventListener('pointermove', (ev) => {
+    if (shunt) shuntMove(ev);
+    if (ev.pointerType === 'touch') return;   // a finger has no hover (a long press peeks instead)
     const id = edgeFromEvent(ev);
     if (id && EI[id] != null && F && !shunt) onHoverInfo({ id, x: ev.clientX - wrap.getBoundingClientRect().left, y: ev.clientY - wrap.getBoundingClientRect().top });
     else if (!drag) onHoverInfo(null);
-    if (shunt) shuntMove(ev);
   });
 
-  svg.addEventListener('wheel', (ev) => { ev.preventDefault(); zoomAt(ev.clientX, ev.clientY, Math.exp(-ev.deltaY * 0.0015)); }, { passive: false });
+  // ── Gestures: wheel, trackpad, mouse and touch ──
+  // A mouse wheel zooms about the pointer. A trackpad's two-finger scroll pans and its pinch (a
+  // wheel event with ctrlKey) zooms, as in maps and drawing apps; Ctrl/⌘ + wheel always zooms.
+  // Trackpad scrolls are told from wheel notches once per gesture: Chrome and Safari report a
+  // trackpad's legacy wheelDelta as exactly three times its delta, Firefox reports notches in lines.
+  let wheelKind = null, wheelAt = 0, settleT = 0;
+  const wheelPx = (ev, d) => d * (ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? stageBox().height : 1);
+  const settleSoon = (ms = 220) => { clearTimeout(settleT); settleT = setTimeout(springBack, ms); };
+  svg.addEventListener('wheel', (ev) => {
+    ev.preventDefault();
+    stopGlide(); userMoved = true;
+    const dx = wheelPx(ev, ev.deltaX), dy = wheelPx(ev, ev.deltaY), now = performance.now();
+    if (ev.ctrlKey || ev.metaKey) { zoomAt(ev.clientX, ev.clientY, Math.exp(-clamp(dy, -50, 50) * 0.01), true); settleSoon(); return; }
+    if (now - wheelAt > 250) {
+      const pad = ev.deltaMode === 0 && (dx !== 0 || ev.wheelDeltaY == null || Math.abs(Math.abs(ev.wheelDeltaY) - Math.abs(ev.deltaY) * 3) < 1);
+      wheelKind = pad ? 'pad' : 'wheel';
+    }
+    wheelAt = now;
+    if (wheelKind === 'wheel' || lobuleOn) { zoomAt(ev.clientX, ev.clientY, Math.exp(-clamp(dy, -120, 120) * 0.0015)); return; }
+    const s = vbScale();
+    vt = { k: vt.k, x: vt.x - dx / s, y: vt.y - dy / s };
+    applyVT(); CTM = null; settleSoon();
+  }, { passive: false });
+
+  // The figure never gets lost: past the zoom limits, or panned until its middle leaves the
+  // view, it springs back once the gesture ends. During a pinch the limits stretch a little.
+  const K_MIN = 0.6, K_MAX = 6;
+  const softK = (k) => (k > K_MAX ? K_MAX * Math.pow(k / K_MAX, 0.3) : k < K_MIN ? K_MIN * Math.pow(k / K_MIN, 0.3) : k);
+  function visibleVB() {
+    const b = stageBox(), vb = svg.viewBox.baseVal, s = Math.min(b.sw / vb.width, b.sh / vb.height);
+    return { x: vb.x - (b.sw - vb.width * s) / 2 / s, y: vb.y - (b.sh - vb.height * s) / 2 / s, w: b.sw / s, h: b.sh / s };
+  }
+  function springBack() {
+    if (lobuleOn || vtGliding || drag || glide) return;
+    let to = { ...vt };
+    const k = clamp(vt.k, K_MIN, K_MAX);
+    if (k !== vt.k) {
+      const [cx, cy] = freeCentre(), [vx, vy] = clientToVB(cx, cy);
+      to = { k, x: vx - ((vx - vt.x) / vt.k) * k, y: vy - ((vy - vt.y) / vt.k) * k };
+    }
+    // Lost means the middle of the view has left the figure: only then is it pulled back, and only as far as the
+    // figure's edge. Zoomed in on any part (the spleen, a collateral), the view stays exactly where it was put.
+    const c = morphTarget === 1 ? circVB() : VB_ANAT, vis = visibleVB();
+    const x0 = c[0] * to.k + to.x, x1 = (c[0] + c[2]) * to.k + to.x, y0 = c[1] * to.k + to.y, y1 = (c[1] + c[3]) * to.k + to.y;
+    const vx = vis.x + vis.w / 2, vy = vis.y + vis.h / 2;
+    to.x += vx < x0 ? vx - x0 : vx > x1 ? vx - x1 : 0;
+    to.y += vy < y0 ? vy - y0 : vy > y1 ? vy - y1 : 0;
+    if (!sameView(to, vt)) animateVT(to, 380);
+  }
+  // A flick keeps the figure moving and slows it down, as a map does.
+  let glide = 0;
+  function stopGlide() { if (glide) { cancelAnimationFrame(glide); glide = 0; } }
+  function fling(vx, vy) {
+    if (reduceMotion.matches || Math.hypot(vx, vy) < 0.25) { springBack(); return; }
+    const s0 = vbScale();
+    let last = performance.now();
+    const step = (now) => {
+      const dt = Math.min(34, now - last), decay = Math.pow(0.9955, dt);
+      last = now; vx *= decay; vy *= decay;
+      vt = { k: vt.k, x: vt.x + (vx * dt) / s0, y: vt.y + (vy * dt) / s0 };
+      applyVT(); CTM = null;
+      if (Math.hypot(vx, vy) > 0.03) glide = requestAnimationFrame(step);
+      else { glide = 0; springBack(); }
+    };
+    glide = requestAnimationFrame(step);
+  }
 
   // Touch: every finger is captured by the figure, so a finger that lifts over a label or the
   // card still ends here (an uncaptured finger used to linger in `pointers` and turn the next
   // single touch into a pinch that jumped). Two fingers zoom and pan together: the point of the
   // figure under their midpoint stays under it. Lifting one finger hands over to a pan.
+  // A double click zooms in about the point, Shift zooms out; a long press on a vessel shows its readings
+  // without opening its card.
   const vbScale = () => { const b = stageBox(), vb = svg.viewBox.baseVal; return Math.min(b.sw / vb.width, b.sh / vb.height); };
   function clientToVBFast(cx, cy) {
     const b = stageBox(), vb = svg.viewBox.baseVal, s = Math.min(b.sw / vb.width, b.sh / vb.height);
     return [(cx - b.left - b.sx - (b.sw - vb.width * s) / 2) / s + vb.x, (cy - b.top - b.sy - (b.sh - vb.height * s) / 2) / s + vb.y];
   }
-  const startPan = (x, y, id, moved = false) => ({ type: 'pan', x, y, vx: vt.x, vy: vt.y, s0: vbScale(), moved, id });
+  const startPan = (x, y, id, moved = false) => ({ type: 'pan', x, y, vx: vt.x, vy: vt.y, s0: vbScale(), moved, id, trail: [[performance.now(), x, y]] });
   function startPinch() {
     const [a, b] = [...pointers.values()];
     const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, [vx, vy] = clientToVBFast(mx, my);
-    return { type: 'pinchzoom', d0: Math.max(1, Math.hypot(a[0] - b[0], a[1] - b[1])), k0: vt.k, wx: (vx - vt.x) / vt.k, wy: (vy - vt.y) / vt.k, out: false };
+    return { type: 'pinchzoom', d0: Math.max(1, Math.hypot(a[0] - b[0], a[1] - b[1])), k0: vt.k, wx: (vx - vt.x) / vt.k, wy: (vy - vt.y) / vt.k, mx, my, t0: performance.now(), moved: false };
   }
-  svg.addEventListener('pointerdown', (ev) => {
+  let pressT = 0, lastTap = null;
+  const clearPress = () => { clearTimeout(pressT); pressT = 0; };
+  // A finger (or the mouse) that lands on a label starts the same gesture as one on the figure: the labels cover
+  // much of a phone's figure, and a pinch that began on one used to go unnoticed. A tap on a label still opens it.
+  labelSvg.addEventListener('pointerdown', (ev) => { const lb = ev.target.closest?.('.lb'); if (lb) onDown(ev, lb); });
+  svg.addEventListener('pointerdown', (ev) => onDown(ev, null));
+  function onDown(ev, label) {
     // The first finger of a new gesture: nothing else can still be down.
     if (ev.isPrimary) pointers.clear();
     pointers.set(ev.pointerId, [ev.clientX, ev.clientY]);
-    cancelAnimationFrame(vtAnim); vtGliding = false;
+    userMoved = true;
+    cancelAnimationFrame(vtAnim); vtGliding = false; stopGlide(); clearTimeout(settleT);
     try { svg.setPointerCapture(ev.pointerId); } catch { /* pointer already gone */ }
+    clearPress();
     if (pointers.size >= 2) {
       if (drag?.type === 'pan') wrap.classList.remove('panning');
+      if (drag?.peeked) onHoverInfo(null);
       if (drag && drag.type !== 'pan' && drag.type !== 'pinchzoom') gGuides.innerHTML = '';
       drag = pointers.size === 2 ? startPinch() : drag;
       return;
     }
-    drag = startPan(ev.clientX, ev.clientY, edgeFromEvent(ev));
+    if (ev.button === 2) return;   // the context menu opens the card instead
+    drag = startPan(ev.clientX, ev.clientY, label ? null : edgeFromEvent(ev));
+    drag.label = label;
     wrap.classList.add('panning');
-  });
+    if (ev.pointerType === 'touch' && !shunt && !label) {
+      const d = drag, x = ev.clientX, y = ev.clientY;
+      pressT = setTimeout(() => {
+        if (drag !== d || d.moved || pointers.size !== 1) return;
+        const id = d.id && EI[d.id] != null ? d.id : nearbyEdge({ clientX: x, clientY: y, pointerType: 'touch' });
+        if (!id) return;
+        d.peeked = true;
+        const r = wrap.getBoundingClientRect();
+        onHoverInfo({ id, x: x - r.left, y: y - r.top, peek: true });
+        navigator.vibrate?.(8);
+      }, 480);
+    }
+  }
   svg.addEventListener('pointermove', (ev) => {
     if (!pointers.has(ev.pointerId)) return;
     pointers.set(ev.pointerId, [ev.clientX, ev.clientY]);
-    if (!drag) return;
+    if (!drag || drag.type === 'ignore') return;
     if (drag.type === 'pinchzoom') {
       if (pointers.size !== 2) return;
       const [a, b] = [...pointers.values()];
-      const d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+      const d = Math.hypot(a[0] - b[0], a[1] - b[1]), mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+      if (Math.abs(d - drag.d0) > 10 || Math.hypot(mx - drag.mx, my - drag.my) > 10) drag.moved = true;
       if (lobuleOn) return;
-      const k = clamp(drag.k0 * d / drag.d0, 0.6, 6);
-      const [vx, vy] = clientToVBFast((a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+      const k = softK(drag.k0 * d / drag.d0);
+      const [vx, vy] = clientToVBFast(mx, my);
       vt = { k, x: vx - drag.wx * k, y: vy - drag.wy * k };
       applyVT(); CTM = null;
       return;
     }
     if (drag.type === 'pan') {
-      if (Math.abs(ev.clientX - drag.x) + Math.abs(ev.clientY - drag.y) > 4) drag.moved = true;
-      if (drag.moved) { vt.x = drag.vx + (ev.clientX - drag.x) / drag.s0; vt.y = drag.vy + (ev.clientY - drag.y) / drag.s0; applyVT(); CTM = null; }
+      if (Math.abs(ev.clientX - drag.x) + Math.abs(ev.clientY - drag.y) > (ev.pointerType === 'touch' ? 8 : 4)) { drag.moved = true; clearPress(); }
+      if (drag.peeked) return;
+      if (drag.moved) {
+        vt = { k: vt.k, x: drag.vx + (ev.clientX - drag.x) / drag.s0, y: drag.vy + (ev.clientY - drag.y) / drag.s0 };
+        applyVT(); CTM = null;
+        const now = performance.now();
+        drag.trail.push([now, ev.clientX, ev.clientY]);
+        while (drag.trail.length > 2 && now - drag.trail[0][0] > 90) drag.trail.shift();
+      }
       return;
     }
   });
   const endPointer = (ev) => {
     if (!pointers.delete(ev.pointerId)) return;
+    clearPress();
     if (!drag) return;
+    if (drag.type === 'ignore') { if (!pointers.size) { drag = null; springBack(); } return; }
     if (drag.type === 'pinchzoom') {
-      // One finger stays down: it carries on as a pan (never as a click).
+      // One finger stays down: it carries on as a pan (never as a click, never thrown on release).
       const rest = [...pointers.values()][0];
-      drag = rest && pointers.size === 1 ? startPan(rest[0], rest[1], null, true) : pointers.size >= 2 ? startPinch() : null;
+      drag = rest && pointers.size === 1 ? Object.assign(startPan(rest[0], rest[1], null, true), { noFling: true }) : pointers.size >= 2 ? startPinch() : null;
+      if (!drag) springBack();
       return;
     }
     if (drag.type === 'pan') {
       wrap.classList.remove('panning');
-      if (!drag.moved) {
-        if (shunt) shuntDrop(ev);
-        else pick(drag.id, ev);
-      }
+      const d = drag;
       drag = null;
+      if (d.peeked) { onHoverInfo(null); return; }
+      if (!d.moved) {
+        if (ev.type !== 'pointerup') return;
+        if (shunt) { shuntDrop(ev); return; }
+        const now = performance.now();
+        // The second tap of a double tap zooms (and puts back whatever the first tap selected).
+        // (Not by touch: there the first tap opens a card, whose sheet moves the figure, and the two moves fought.)
+        if (ev.pointerType !== 'touch' && lastTap && now - lastTap.t < 320 && Math.hypot(ev.clientX - lastTap.x, ev.clientY - lastTap.y) < 30 && !lobuleOn) {
+          const prev = lastTap.sel;
+          lastTap = null;
+          animZoomAt(ev.clientX, ev.clientY, ev.shiftKey ? 1 / 2 : 2);
+          if (store.get().selection !== prev) onSelect(prev, { quiet: true });
+          return;
+        }
+        lastTap = { t: now, x: ev.clientX, y: ev.clientY, sel: store.get().selection };
+        if (d.label) { d.label.dispatchEvent(new MouseEvent('click', { bubbles: true })); return; }
+        pick(d.id, ev);
+        return;
+      }
+      // A real flick only: enough of a trail to measure, still moving at release, and capped, so a lift that
+      // jitters never throws the figure.
+      const tr = d.trail, a = tr[0], b = tr[tr.length - 1], dt = b[0] - a[0];
+      if (!d.noFling && tr.length >= 3 && dt >= 30 && performance.now() - b[0] < 50) {
+        const vx = (b[1] - a[1]) / dt, vy = (b[2] - a[2]) / dt, sp = Math.hypot(vx, vy), cap = Math.min(1, 2 / (sp || 1));
+        fling(vx * cap, vy * cap);
+      } else springBack();
       return;
     }
     drag = null;
@@ -3317,6 +3477,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   svg.addEventListener('pointerup', endPointer);
   svg.addEventListener('pointercancel', endPointer);
   svg.addEventListener('lostpointercapture', endPointer);
+  // Right-click opens the card of what is under the pointer.
+  svg.addEventListener('contextmenu', (ev) => {
+    if (shunt || lobuleOn) return;
+    ev.preventDefault();
+    pick(edgeFromEvent(ev), ev);
+  });
 
   // A tap that just misses a thin vessel still picks it: look around the point (out to ~14 px,
   // more on touch) for a vessel before falling back to the organ or the abdomen under it.
@@ -3480,11 +3646,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setView(v) {
       const target = v === 'circuit' ? 1 : 0;
       if (target === morphTarget) return;
+      // From the lobule, the anatomy's view is the one it dived from, not the dive.
+      const fromLobule = lobuleOn || lobU > 0, at = fromLobule && preLobule ? preLobule : vt;
       morphTarget = target;
       syncSemantic();
       // Zoomed out (or fitted) in the anatomy, the circuit opens zoomed out too: the whole map, not
       // the close-up it opens with on a phone. From a zoomed-in view it takes its usual framing.
-      const wasOut = target === 1 && (vt.k <= 1.001 || (homeAt && sameView(vt, homeAt)));   // the whole plate (or less) is showing
+      const wasOut = target === 1 && (fromLobule || at.k <= 1.001 || (homeAt && sameView(at, homeAt)));   // the whole plate (or less) is showing
       const d = wasOut ? insetVT({ k: 1, x: 0, y: 0 }, circVB()) : defaultVT(target === 1);
       if (target === 0) homeAt = d;   // back to the anatomy: always its home framing
       if (d.k !== vt.k || d.x !== vt.x || d.y !== vt.y) animateVT(d, 600);
@@ -3552,6 +3720,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       setTimeout(() => g.remove(), 1700);
     },
     edgeMid: (id) => (geo[id] ? pointAt(geo[id].cur, 0.5) : null),
+    /** The drawn network's box on screen (px, in the figure), for placing cards beside it. */
+    contentRect() {
+      if (netBoxFor !== geometryVersion) { try { netBox = gNet.getBBox(); } catch { netBox = null; } netBoxFor = geometryVersion; }
+      if (!netBox?.width) return null;
+      refreshCTM();
+      const c = [[netBox.x, netBox.y], [netBox.x + netBox.width, netBox.y], [netBox.x, netBox.y + netBox.height], [netBox.x + netBox.width, netBox.y + netBox.height]].map(([x, y]) => worldToLocal(x, y));
+      const xs = c.map((p) => p[0]), ys = c.map((p) => p[1]);
+      return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
+    },
     isVisible: (id) => E[id]?.vis,
   };
 }

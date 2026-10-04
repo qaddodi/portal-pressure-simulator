@@ -18,14 +18,14 @@
   <meta name="apple-mobile-web-app-title" content="Portal Sim" />
   <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="fonts/fonts.css" />
-  <link rel="stylesheet" href="styles/tokens.css?v=5f662a1795" />
-  <link rel="stylesheet" href="styles/app.css?v=fe0a035be3" />
+  <link rel="stylesheet" href="styles/tokens.css?v=96d9ac961c" />
+  <link rel="stylesheet" href="styles/app.css?v=acd47de538" />
   <style>
     #boot { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; height: 100lvh; z-index: 2147483647; display: grid; place-items: center; background: var(--bg, #FBFAF7); transition: opacity .45s ease, visibility .45s; }
     #boot.done { opacity: 0; visibility: hidden; pointer-events: none; }
     #boot .boot-in { display: flex; flex-direction: column; align-items: center; gap: 18px; }
     #boot svg { width: 64px; height: 64px; animation: boot-pulse 1.6s ease-in-out infinite; }
-    #boot .boot-name { font: 600 15px var(--font-ui, system-ui, sans-serif); letter-spacing: .02em; color: var(--text-2, #555); }
+    #boot .boot-name { font: 600 var(--fs-14, 14px) var(--font-ui, system-ui, sans-serif); letter-spacing: .02em; color: var(--text-2, #555); }
     #boot .boot-bar { width: 140px; height: 3px; border-radius: 3px; overflow: hidden; background: var(--hairline, rgba(0,0,0,.08)); }
     #boot .boot-bar i { display: block; width: 40%; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #4FA9D6, #7A86E0, #D2448A); animation: boot-slide 1.2s ease-in-out infinite; }
     @keyframes boot-pulse { 50% { transform: scale(.92); opacity: .75; } }
@@ -199,17 +199,17 @@
   <div class="toast-wrap" id="toasts"></div>
   <div class="sr-only" aria-live="polite" id="live"></div>
 
-  <link rel="modulepreload" href="src/ui/stage.js?v=ce9af54123" />
+  <link rel="modulepreload" href="src/ui/stage.js?v=6a547c1498" />
   <link rel="modulepreload" href="src/ui/anatomy.js?v=b3ecbae45c" />
-  <link rel="modulepreload" href="src/ui/util.js?v=fe164f31f1" />
-  <link rel="modulepreload" href="src/ui/store.js?v=f9424489c6" />
+  <link rel="modulepreload" href="src/ui/util.js?v=d680016625" />
+  <link rel="modulepreload" href="src/ui/store.js?v=9c069d2ebf" />
   <link rel="modulepreload" href="src/ui/colormap.js?v=6d64a94345" />
-  <link rel="modulepreload" href="src/ui/inspector.js?v=208b6a3592" />
-  <link rel="modulepreload" href="src/ui/dock.js?v=55c8d8a23f" />
-  <link rel="modulepreload" href="src/ui/charts.js?v=2ba1f3a5ed" />
-  <link rel="modulepreload" href="src/ui/instruments.js?v=b9ff7e0e9d" />
-  <link rel="modulepreload" href="src/ui/timeline.js?v=04b45ec66b" />
+  <link rel="modulepreload" href="src/ui/inspector.js?v=fe8a1a69f1" />
+  <link rel="modulepreload" href="src/ui/dock.js?v=357e0b8ad4" />
+  <link rel="modulepreload" href="src/ui/charts.js?v=7f6d13aac3" />
+  <link rel="modulepreload" href="src/ui/instruments.js?v=0c35e16ff1" />
+  <link rel="modulepreload" href="src/ui/timeline.js?v=edf3b6a335" />
   <link rel="modulepreload" href="src/engine/topology.js?v=29d10ad9ef" />
-  <script type="module" src="src/ui/main.js?v=3e5e043a01"></script>
+  <script type="module" src="src/ui/main.js?v=89e56c95c6"></script>
 </body>
 </html>

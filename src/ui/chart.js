@@ -8,12 +8,12 @@
 //   (what has happened lives in the timeline's History, under the figure)
 //   Advanced                             physiology knobs (instructor / researcher)
 
-import { store, updateParams } from './store.js?v=f9424489c6';
-import { h, fmt, icon, svgIcon, toast } from './util.js?v=fe164f31f1';
-import { DRUGS } from '../engine/scenario.js?v=8fc90f782f';
-import { TILES, VITALS, readoutValue } from './dock.js?v=55c8d8a23f';
-import { activeInterventions } from './inspector.js?v=208b6a3592';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=7739e2b27e';
+import { store, updateParams } from './store.js?v=9c069d2ebf';
+import { h, fmt, icon, svgIcon, toast } from './util.js?v=d680016625';
+import { DRUGS } from '../engine/scenario.js?v=304cd180db';
+import { TILES, VITALS, readoutValue } from './dock.js?v=357e0b8ad4';
+import { activeInterventions } from './inspector.js?v=fe8a1a69f1';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=a0ec30e1a5';
 
 // Where each readout is measured, so a click can show it on the figure.
 const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS'], spleen: ['V_SPL', 'SV_CONF'], ra: ['IVCS_RA'] };
@@ -181,7 +181,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       h('div', { class: 'subhead' }, 'Inflow & vascular tone'), controls(['splanchnicTone', 'systemicTone']),
       h('div', { class: 'subhead' }, 'Hepatic circulation'), controls(['habr', 'apShunt']),
       h('div', { class: 'subhead' }, 'Anatomical variants'), controls(['grShunt', 'geComm', 'srShunt']),
-      h('div', { class: 'subhead' }, 'Simulation'), controls(['pulsatile', 'respiration', 'respDepth', 'detRupture']), acts);
+      h('div', { class: 'subhead' }, 'Simulation'), controls(['pulsatile', 'respiration', 'respDepth', 'bleeding', 'detRupture']), acts);
   }
 
   function render(ctl) {

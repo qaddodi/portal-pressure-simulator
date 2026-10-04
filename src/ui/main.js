@@ -1,27 +1,27 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=7d1803441f';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=f9424489c6';
-import { createStage } from './stage.js?v=ce9af54123';
-import { createInspector } from './inspector.js?v=208b6a3592';
-import { createDock, CUTOFFS } from './dock.js?v=55c8d8a23f';
-import { createWhy } from './why.js?v=89054dcfbc';
-import { createTimeline } from './timeline.js?v=04b45ec66b';
-import { createLearn } from './learn.js?v=a33d169cd1';
-import { createCases } from './cases.js?v=448b6139e7';
-import { createCompare } from './compare.js?v=730844b101';
-import { createCard } from './card.js?v=b7d3bd74ed';
-import { createChart, computeFindings } from './chart.js?v=a83c869f10';
-import { createHome } from './home.js?v=7c19142846';
+import { startHost, host } from './host.js?v=511cdcf52a';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=9c069d2ebf';
+import { createStage } from './stage.js?v=6a547c1498';
+import { createInspector } from './inspector.js?v=fe8a1a69f1';
+import { createDock, CUTOFFS } from './dock.js?v=357e0b8ad4';
+import { createWhy } from './why.js?v=57243596d9';
+import { createTimeline } from './timeline.js?v=edf3b6a335';
+import { createLearn } from './learn.js?v=9750a179da';
+import { createCases } from './cases.js?v=4f3eb45a8b';
+import { createCompare } from './compare.js?v=4f34faa4da';
+import { createCard } from './card.js?v=5634f8c73c';
+import { createChart, computeFindings } from './chart.js?v=9207104706';
+import { createHome } from './home.js?v=22014b375a';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
-import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=e7e5c98a1c';
+import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=c096ddadab';
 import { startLMS } from './lms.js?v=4511ed56b8';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=7739e2b27e';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=a0ec30e1a5';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=29d10ad9ef';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon } from './util.js?v=fe164f31f1';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges } from './util.js?v=d680016625';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -128,7 +128,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=d8fe81b4a1'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=04dffc1fd4'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -140,7 +140,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=4ecf2f9e16'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=dcc909d81e'), ({ createPalette }) => createPalette({ ctx: {
     select: (sel) => store.set({ selection: sel }), action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -283,10 +283,11 @@ function openScenarios(anchor) {
 }
 
 async function loadPreset(id, opts = {}) {
+  store.set({ presetLoading: true });   // the figure frames itself once the patient has arrived (stage.js)
   const res = await host.request('preset', { id, days: opts.days });
   replaceParams(res.params);
   clearHistory();
-  store.set({ presetId: id, lastHVPG: null, selection: store.get().mode === 'cases' ? null : store.get().selection, historyTick: (store.get().historyTick || 0) + 1 });
+  store.set({ presetLoading: false, presetId: id, lastHVPG: null, selection: store.get().mode === 'cases' ? null : store.get().selection, historyTick: (store.get().historyTick || 0) + 1 });
   timeline?.reset(store.get().presetList?.find((x) => x.id === id)?.label);
 }
 
@@ -429,6 +430,7 @@ function buildHud() {
   renderLegend();
   store.on('colorMode', () => { $('#colorModeLabel').textContent = COLOR_MODES[store.get().colorMode]; });
   bleedEl = $('#bleedPill');
+  enhanceRanges();
   tipEl = h('div', { class: 'hover-tip', style: { display: 'none' } });
   view.append(tipEl);
   stageClock = h('div', { class: 'stage-clock', 'aria-hidden': 'true' });
@@ -459,7 +461,7 @@ function renderLegend() {
   const el = $('#legend');
   const scale = (grad, nums, ticks = []) => h('div', { class: 'lg-scale' }, h('div', { class: 'lg-bar', style: { background: grad } }),
     ticks.map((p) => h('span', { class: 'lg-tick', style: { left: p + '%' } })),
-    nums.map(([p, t]) => h('span', { class: 'lg-num', style: { left: p + '%' } }, t)));
+    nums.map(([p, t]) => h('span', { class: 'lg-num' + (p >= 99 ? ' end' : p <= 1 ? ' start' : ''), style: { left: p + '%' } }, t)));
   if (m === 'pressure' || m === 'drop') {
     const max = 30, at = (p) => (p / max) * 100;
     el.replaceChildren(h('div', { class: 'lg-title' }, m === 'pressure' ? 'Mean venous pressure' : 'Pressure drop', h('small', {}, 'mmHg')),
@@ -574,18 +576,26 @@ function updateBleedBanner(f) {
 function hoverInfo(info) {
   const f = store.get().frame;
   const tool = store.get().tool;
-  if (!info || !f || tool !== 'select' || store.get().shunting || isPhone() || store.get().imaging) { tipEl.style.display = 'none'; return; }
+  // A long press (info.peek) shows the readings on any screen, above the finger; hovering only where there is a pointer.
+  if (!info || !f || tool !== 'select' || store.get().shunting || (isPhone() && !info.peek) || store.get().imaging) { tipEl.style.display = 'none'; tipEl.classList.remove('peek'); return; }
   const e = EDGES[EI[info.id]], k = EI[info.id];
   const D = Math.max(0.5, f.D[k]) / 10;
   const v = f.Q[k] / (Math.PI * D * D / 4);
   const r = (a, b) => h('div', { class: 'r' }, a, h('b', {}, b));
   tipEl.replaceChildren(h('div', { class: 't' }, e.label),
     r('Pressure', `${fmt(f.P[NI[e.from]], 1)} → ${fmt(f.P[NI[e.to]], 1)} mmHg`), r('Flow', `${fmtFlow(f.Q[k] * 0.06)} L/min`),
-    r('Velocity', `${fmt(v, 1)} cm/s`), r('Diameter', `${fmt(f.D[k], 1)} mm`), h('div', { class: 'hint' }, 'Click for actions'));
+    r('Velocity', `${fmt(v, 1)} cm/s`), r('Diameter', `${fmt(f.D[k], 1)} mm`), h('div', { class: 'hint' }, info.peek ? 'Tap for actions' : 'Click or right-click for actions'));
   tipEl.style.display = '';
-  const W = view.clientWidth, H = view.clientHeight;
-  tipEl.style.left = Math.max(8, Math.min(W - 200, info.x + 16)) + 'px';
-  tipEl.style.top = Math.max(8, Math.min(H - tipEl.offsetHeight - 8, info.y + 16)) + 'px';
+  tipEl.classList.toggle('peek', !!info.peek);
+  const W = view.clientWidth, H = view.clientHeight, th = tipEl.offsetHeight, tw = tipEl.offsetWidth || 200;
+  if (info.peek) {
+    // Above the finger, so the finger doesn't hide it; below it only when there is no room above.
+    tipEl.style.left = Math.max(8, Math.min(W - tw - 8, info.x - tw / 2)) + 'px';
+    tipEl.style.top = (info.y - th - 44 >= 8 ? info.y - th - 44 : Math.min(H - th - 8, info.y + 44)) + 'px';
+    return;
+  }
+  tipEl.style.left = Math.max(8, Math.min(W - tw - 8, info.x + 16)) + 'px';
+  tipEl.style.top = Math.max(8, Math.min(H - th - 8, info.y + 16)) + 'px';
 }
 
 // The figure header carries the Then / Now / Change switch when a moment is pinned; a lesson or
