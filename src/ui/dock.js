@@ -4,10 +4,10 @@
 import { store } from './store.js?v=9c069d2ebf';
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=d680016625';
-import { createProfile } from './charts.js?v=7f6d13aac3';
-import { createPressureTime } from './pressure-time.js?v=92a9981b8d';
-import { createDoppler } from './doppler.js?v=eee86d92ed';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=fa4beb0203';
+import { createProfile } from './charts.js?v=c09f23922b';
+import { createPressureTime } from './pressure-time.js?v=5dabf2dd04';
+import { createDoppler } from './doppler.js?v=0d5099a0dd';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=11323df68d';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -76,8 +76,8 @@ export const VITALS = [
 ];
 
 // The key readouts: the only ones on a phone until the strip is expanded.
-// One per question: how high is the pressure, where does the blood go, what has it done.
-export const PRIMARY = new Set(['hvpg', 'pvflow', 'varix', 'ascites']);
+// Collapsed, the strip shows the pressures: HVPG, the portosystemic gradient and portal pressure.
+export const PRIMARY = new Set(['hvpg', 'ppg', 'pv']);
 
 // A trend arrow marks a sustained change (over TREND_S seconds, larger than TREND_FRAC of the
 // bar's range), so the heartbeat and breathing never make it flicker.

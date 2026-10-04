@@ -1,19 +1,19 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=511cdcf52a';
+import { startHost, host } from './host.js?v=5e522a6bbf';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=9c069d2ebf';
 import { createStage } from './stage.js?v=84bf9f48f3';
 import { createInspector } from './inspector.js?v=fe8a1a69f1';
-import { createDock, CUTOFFS } from './dock.js?v=9a24864c88';
-import { createWhy } from './why.js?v=57243596d9';
-import { createTimeline } from './timeline.js?v=edf3b6a335';
-import { createLearn } from './learn.js?v=9750a179da';
-import { createCases } from './cases.js?v=4f3eb45a8b';
+import { createDock, CUTOFFS } from './dock.js?v=f312991aff';
+import { createWhy } from './why.js?v=19628476d5';
+import { createTimeline } from './timeline.js?v=20dc5ff9a9';
+import { createLearn } from './learn.js?v=aa2a050e88';
+import { createCases } from './cases.js?v=9e400127a2';
 import { createCompare } from './compare.js?v=4f34faa4da';
 import { createCard } from './card.js?v=5dcbfb56f0';
-import { createChart, computeFindings } from './chart.js?v=8600adfd06';
-import { createHome } from './home.js?v=22014b375a';
+import { createChart, computeFindings } from './chart.js?v=b43cdb314a';
+import { createHome } from './home.js?v=80b14bc806';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=c096ddadab';
 import { startLMS } from './lms.js?v=4511ed56b8';
@@ -122,7 +122,7 @@ async function main() {
   });
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => host.send({ type: 'probe', id }), onReveal: revealDock, onLobule: () => zoomLobule('R'), onCompare: () => timeline.togglePin(), onRun: () => host.send({ type: 'run', running: !store.get().running }),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
-    marks: () => timeline.entries(), onBeat: (on) => { dockBeat = on; sendBeat(); } });
+    marks: () => timeline.entries(), onBeat: () => sendBeat() });
   const api = { beginSession, endSession, onEnd: () => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); }, muteEvents: () => {}, loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), openPanel, setBanner, select: (sel) => store.set({ selection: sel }) };
   // A lesson keeps its card in view where the panel covers the figure: instruments it opens are
   // flagged, not forced.
@@ -140,7 +140,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=eca27c7f22'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=b061691547'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -513,11 +513,11 @@ function renderLegend() {
 }
 const st = () => store.get();
 // ── Moving blood ─────────────────────────────────────
-// The heartbeat (the model's pulsatile mode) runs while a waveform instrument is open, or while
-// the blood is shown breathing and beating.
-let dockBeat = false, beatSent = null;
+// The heartbeat (the model's pulsatile mode) always runs, so the Over time trace is beat to beat
+// from the first moment rather than smooth until a waveform instrument opens.
+let beatSent = null;
 function sendBeat() {
-  const on = dockBeat || !!store.get().blood?.phasic;
+  const on = true;
   if (on !== beatSent) { beatSent = on; host.send({ type: 'beat', on }); }
 }
 const setBlood = (patch) => store.set({ blood: { ...store.get().blood, ...patch } });

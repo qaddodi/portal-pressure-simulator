@@ -22,7 +22,7 @@ export function createCore(post) {
   let frameDirty = true;
   let paramsDirty = true;
   let samples = null;
-  let beat = false;
+  let beat = true; // the heartbeat always runs (the Over time trace is beat to beat from the start)
   const newSamples = () => ({ t: [], vel: [], pvVel: [], hvVel: [], whvp: [], hvpg: [], ...Object.fromEntries(SAMPLE_NODES.map((n) => [n, []])) });
 
   function sample() {
