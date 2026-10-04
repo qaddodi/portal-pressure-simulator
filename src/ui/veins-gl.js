@@ -659,9 +659,10 @@ void main() {
     if (origin == 1) {
       // The lumen is drawn a neutral grey; its light and dark lines are kept as a ratio of that grey.
       float shade = clamp(dot(col, vec3(0.299, 0.587, 0.114)) / ORIGIN_GREY, 0.55, 1.45);
-      vec3 oc = originAt(id1, y1, max(texelFetch(rad, ivec2(N_LAST / 2, id1), 0).r, 0.3));
-      if (b > 0.004) oc = mix(oc, originAt(id2, y2, max(texelFetch(rad, ivec2(N_LAST / 2, id2), 0).r, 0.3)), b);
-      col = mix(col, min(oc * shade, vec3(1.0)), vis);
+      // A vessel that carries no blood (origin fractions marked −1, e.g. a lymphatic) keeps its own color.
+      vec3 oc = texelFetch(flow, ivec2(2, id1), 0).x < -0.5 ? col : min(originAt(id1, y1, max(texelFetch(rad, ivec2(N_LAST / 2, id1), 0).r, 0.3)) * shade, vec3(1.0));
+      if (b > 0.004) oc = mix(oc, texelFetch(flow, ivec2(2, id2), 0).x < -0.5 ? col : min(originAt(id2, y2, max(texelFetch(rad, ivec2(N_LAST / 2, id2), 0).r, 0.3)) * shade, vec3(1.0)), b);
+      col = mix(col, oc, vis);
     }
     if (blood == 1) {
       vec4 A = bloodAt(id1, s1, y1, col);
