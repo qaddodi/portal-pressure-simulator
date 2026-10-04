@@ -76,8 +76,9 @@ export const VITALS = [
 ];
 
 // The key readouts: the only ones on a phone until the strip is expanded.
-// Collapsed, the strip shows the pressures: HVPG, the portosystemic gradient and portal pressure.
-export const PRIMARY = new Set(['hvpg', 'ppg', 'pv']);
+// Collapsed, the strip shows the pressures (HVPG, the portosystemic gradient, portal pressure) and,
+// where there is room (not on a phone), portal flow: where the pressure sends the blood.
+export const PRIMARY = new Set(['hvpg', 'ppg', 'pv', 'pvflow']);
 
 // A trend arrow marks a sustained change (over TREND_S seconds, larger than TREND_FRAC of the
 // bar's range), so the heartbeat and breathing never make it flicker.
