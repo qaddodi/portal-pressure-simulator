@@ -651,8 +651,8 @@ export function createLobuleZoom({ host }) {
     // Each label sits just beside its vessel, on the side away from the lobule's centre (the central
     // venule's, up and to the left of it), with a short leader; it stays inside the free space.
     const c0 = toScreen([cx, cy]);
-    // The Zones and Lymph switches stay put, centred over where the fitted lobule sits (on a phone, top left beside the zoom buttons).
     placeSide();
+    // The Zones and Lymph switches stay put, centred over where the fitted lobule sits (on a phone, top left beside the zoom buttons).
     { const tp = el.querySelector('.lz-top'); if (tp) tp.style.left = phoneMQ.matches ? '' : `${((fr0.l + fr0.r) / 2).toFixed(0)}px`; }
     for (const [k, L] of Object.entries(labs)) {
       const w = L.el.offsetWidth || 100, hh = L.el.offsetHeight || 40;
