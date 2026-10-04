@@ -2,11 +2,11 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, edgePresent, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=29d10ad9ef';
-import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=b3ecbae45c';
+import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=c4953196b7';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=9c069d2ebf';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=994e190477';
-import { createLobuleZoom } from './lobule-zoom.js?v=3669d56c33';
+import { createLobuleZoom } from './lobule-zoom.js?v=ec934d0d55';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=4cd85bcfcf';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -2754,7 +2754,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       swatch: mode === 'atlas' && pr ? (lr ? lr.color : layerMode() === 'heat' ? heatColor(P - (REF()?.[NI[id]] ?? P)) : pressureColor(P)) : null, bg: mode === 'inline' && !one, padX: mode === 'inline' && !one ? 6 : 3, padY: mode === 'inline' && !one ? 3 : 2 };
   }
 
-  const ANAT_PRI = { CONF: 10, VAR: 9, SIN_R: 9, RHV: 8, RA: 8, SV: 7, SMV: 7, GV: 7, IVCS: 6, W_R: 12, W_M: 12, W_L: 12 };
+  const ANAT_PRI = { CONF: 10, VAR: 9, SIN_R: 9, RHV: 8, RA: 8, SV: 7, SMV: 7, GV: 7, IVCS: 6, MHV: 5, LHV: 5, RPV: 5, LPV: 5, SIN_L: 5, IMV: 4, LGV: 4, PVH: 4, W_R: 12, W_M: 12, W_L: 12 };
+  // Stations labelled only when zoomed in enough to give them room, in this order (see updateLabels).
+  const ANAT_EXTRA = ['MHV', 'LHV', 'RPV', 'LPV', 'SIN_L', 'IMV', 'LGV', 'PVH'];
 
   let blockerBoxes = null;
   function readBlockers() {
@@ -2900,11 +2902,30 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const id of show) {
         if (!NODE_POS[id]) continue;
         const { ax, ay, mid, w: vw } = labelAnchor(id, t);
-        if (ax < -20 || ax > W + 20 || ay < -20 || ay > H + 20) continue;
+        // A station off screen, or under a floating card, has no label (it would point at nothing).
+        const sel = st.selection?.type === 'node' && st.selection.id === id;
+        if (!sel && (ax < 4 || ax > W - 4 || ay < 4 || ay > H - 4 || blockers.some((b) => ax > b.x0 && ax < b.x1 && ay > b.y0 && ay < b.y1))) continue;
         const it = nodeItem(id, f, atlas ? 'atlas' : 'inline', compact);
         it.ax = ax; it.ay = ay; it.vw = mid ? vw * CTM.sc : 0; it.pri = it.sel ? 100 : ANAT_PRI[id] || 5;
         it.side = ATLAS_LABELS[id]?.side || (NODE_POS[id][0][0] < 700 ? 'L' : 'R');
         items.push(it);
+      }
+      // Zoomed in, the other stations in view get their pressure too (hepatic veins, portal branches,
+      // the left sinusoids...), each only where it stands clear of the labels already there, so they
+      // appear as the zoom makes room and the overview stays uncluttered.
+      if (!atlas && vt.k > 1.35) {
+        const room = compact ? 64 : 80;
+        for (const id of ANAT_EXTRA) {
+          if (show.has(id) || !NODE_POS[id] || !(NI[id] >= 0)) continue;
+          const { ax, ay, mid, w: vw } = labelAnchor(id, t);
+          if (ax < B.x0 + 20 || ax > B.x1 - 20 || ay < B.y0 + 20 || ay > B.y1 - 20) continue;
+          if (blockers.some((b) => ax > b.x0 && ax < b.x1 && ay > b.y0 && ay < b.y1)) continue;
+          if (items.some((o) => Math.hypot(o.ax - ax, o.ay - ay) < room)) continue;
+          const it = nodeItem(id, f, 'inline', compact);
+          it.ax = ax; it.ay = ay; it.vw = mid ? vw * CTM.sc : 0; it.pri = ANAT_PRI[id] || 4;
+          it.side = ATLAS_LABELS[id]?.side || (NODE_POS[id][0][0] < 700 ? 'L' : 'R');
+          items.push(it);
+        }
       }
       if (atlas) {
         for (const side of ['L', 'R']) {

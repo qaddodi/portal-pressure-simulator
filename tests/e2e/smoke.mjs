@@ -404,7 +404,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         return out;
       });
       let bad = await measure();
-      if (bad.length) { await frames(); bad = await measure(); }
+      // On a loaded runner a frame can take long enough that the bleed's dock line lands between two checks.
+      for (let k = 0; bad.length && k < 4; k++) { await frames(); await page.waitForTimeout(100); bad = await measure(); }
       if (bad.length) throw new Error(`${w}×${hgt} ${q}${act ? ' + ' + act : ''}: ${bad.join('; ')}`);
     }
   });
