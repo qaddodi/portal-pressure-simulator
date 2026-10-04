@@ -297,8 +297,6 @@ export function createVarixWall() {
 const SEV = ['ok', 'caution', 'danger', 'danger'];
 const GRADE = ['None', 'Grade 1 · ultrasound only', 'Grade 2 · moderate', 'Grade 3 · tense'];
 export function createAbdomen({ onAction }) {
-  const cv = h('canvas', { role: 'img', 'aria-label': 'Abdomen with ascites' });
-  const box = h('div', { class: 'chart-box ab-box' }, cv);
   const vol = h('input', { type: 'range', min: 1, max: 10, step: 0.5, value: 5, 'aria-label': 'Volume to drain (L)' });
   const volLbl = h('span', { class: 'ctl-val' }, '5.0 L');
   const alb = h('input', { type: 'checkbox', checked: true });
@@ -310,123 +308,65 @@ export function createAbdomen({ onAction }) {
   vol.addEventListener('input', paintVol); paintVol();
   const drain = h('button', { class: 'btn primary block', onclick: () => onAction({ kind: 'paracentesis', mL: +vol.value * 1000, albumin: alb.checked }) }, icon('needle'), 'Drain');
   const diu = h('input', { type: 'checkbox' });
-  diu.addEventListener('change', () => updateParams((p) => { p.diuretics = diu.checked; }, { label: 'Diuretics' }));
+  diu.addEventListener('change', () => updateParams((p) => { p.diuretics = diu.checked; return p; }, { label: 'Diuretics' }));
   // Serum albumin is a patient input that drives ascites (oncotic pull back into the vessels), so it is set here.
   const sa = h('input', { type: 'range', min: 1.5, max: 5, step: 0.1, value: 4, 'aria-label': 'Serum albumin (g/dL)' });
   const saLbl = h('span', { class: 'ctl-val' });
   const paintSa = () => { saLbl.textContent = `${(+sa.value).toFixed(1)} g/dL${+sa.value < 3.5 ? ' · low' : ''}`; sa.style.setProperty('--pct', `${((+sa.value - 1.5) / 3.5) * 100}%`); };
   sa.addEventListener('input', paintSa); paintSa();
-  sa.addEventListener('change', () => updateParams((p) => { p.albumin = +(+sa.value).toFixed(1); }, { label: 'Serum albumin' }));
+  sa.addEventListener('change', () => updateParams((p) => { p.albumin = +(+sa.value).toFixed(1); return p; }, { label: 'Serum albumin' }));
   const numEl = h('b', {}, '—'), gradeEl = h('span', { class: 'ab-grade' });
-  const stats = h('dl', { class: 'kv' });
+  const trendEl = h('div', { class: 'ab-trend' });
+  // Abdominal pressure as a horizontal bar, 0–30 mmHg, with the 12 (IAH) and 20 (ACS) thresholds.
+  const iapFill = h('i', { class: 'ab-iap-fill' }), iapVal = h('span', { class: 'ctl-val' });
+  const iap = h('div', { class: 'ab-iap' },
+    h('div', { class: 'ctl-top' }, h('span', { class: 'ctl-label' }, 'Abdominal pressure'), iapVal),
+    h('div', { class: 'ab-iap-bar', role: 'img' }, iapFill,
+      h('i', { class: 'ab-iap-mark', style: { left: '40%' } }), h('i', { class: 'ab-iap-mark', style: { left: '66.7%' } })),
+    h('div', { class: 'ab-iap-scale', 'aria-hidden': 'true' }, h('span', { style: { left: '0%' } }, '0'),
+      h('span', { style: { left: '40%' } }, '12 IAH'), h('span', { style: { left: '66.7%' } }, '20 ACS'), h('span', { style: { left: '100%' } }, '30')));
   const tap = h('div', { class: 'ab-tap' });
   const extraStats = h('dl', { class: 'kv' });
-  const report = h('div', { class: 'ab-report' },
-    h('div', { class: 'hv-k' }, 'Ascites'), h('div', { class: 'hv-num' }, numEl, h('small', {}, 'L'), gradeEl), stats,
-    h('div', { class: 'ctl' }, h('div', { class: 'ctl-top' }, h('span', { class: 'ctl-label' }, 'Serum albumin'), saLbl), sa), tap,
+  const info = h('div', { class: 'ab-report' },
+    h('div', { class: 'hv-k' }, 'Ascites'), h('div', { class: 'hv-num' }, numEl, h('small', {}, 'L'), gradeEl), trendEl, iap,
+    tap,
+    h('div', { class: 'ctl' }, h('div', { class: 'ctl-top' }, h('span', { class: 'ctl-label' }, 'Serum albumin'), saLbl), sa),
+    h('details', { class: 'instrument-details' }, h('summary', {}, 'Why it forms'), extraStats));
+  const treat = h('div', { class: 'ab-report' },
     h('div', { class: 'procedure-controls' },
       h('div', { class: 'hv-k' }, 'Treat'),
       h('label', { class: 'check-row' }, diu, 'Diuretics', h('span', { class: 'ab-note' }, 'spironolactone + furosemide')),
       h('div', { class: 'ctl' }, h('div', { class: 'ctl-top' }, h('span', { class: 'ctl-label' }, 'Paracentesis'), volLbl), vol),
-      h('label', { class: 'check-row' }, alb, 'Albumin, 8 g per litre', albNote), drain),
-    h('details', { class: 'instrument-details' }, h('summary', {}, 'Why it forms'), extraStats));
-  const el = h('div', { class: 'ab', 'data-pane': 'abdomen' }, h('div', { class: 'hv-main ab-main' }, box, report));
+      h('label', { class: 'check-row' }, alb, 'Albumin, 8 g per litre', albNote), drain));
+  const el = h('div', { class: 'ab', 'data-pane': 'abdomen' }, h('div', { class: 'hv-main ab-main' }, info, treat));
   function update(f) {
-    const a = f.metrics.ascites, sp = f.metrics.spleen, p = store.get().params;
+    const a = f.metrics.ascites, p = store.get().params;
     numEl.textContent = fmt(a.volume / 1000, 1);
     gradeEl.textContent = GRADE[a.grade] || a.label;
     gradeEl.dataset.sev = SEV[a.grade] || 'danger';
     if (diu.checked !== !!p.diuretics) diu.checked = !!p.diuretics;
     if (document.activeElement !== sa && +sa.value !== p.albumin) { sa.value = p.albumin; paintSa(); }
     const r = a.ratePerDay, trend = Math.abs(r) < 20 ? 'steady' : r > 0 ? 'building up' : 'resolving';
-    const iap = a.iap >= 20 ? 'compartment syndrome' : a.iap >= 12 ? 'intra-abdominal hypertension' : 'normal';
-    stats.replaceChildren(
-      h('dt', {}, 'Over a day'), h('dd', {}, `${r > 0 ? '+' : ''}${fmt(r, 0)} mL · ${trend}`),
-      h('dt', {}, 'Abdominal pressure'), h('dd', { 'data-sev': a.iap >= 20 ? 'danger' : a.iap >= 12 ? 'caution' : null }, `${fmt(a.iap, 0)} mmHg · ${iap}`));
+    trendEl.textContent = `${r > 0 ? '+' : ''}${fmt(r, 0)} mL a day · ${trend}`;
+    const sev = a.iap >= 20 ? 'danger' : a.iap >= 12 ? 'caution' : 'ok';
+    iapVal.textContent = `${fmt(a.iap, 0)} mmHg · ${a.iap >= 20 ? 'compartment syndrome' : a.iap >= 12 ? 'intra-abdominal hypertension' : 'normal'}`;
+    iapVal.dataset.sev = sev; iapFill.dataset.sev = sev;
+    iapFill.style.width = `${clamp(a.iap / 30, 0, 1) * 100}%`;
+    iap.querySelector('.ab-iap-bar').setAttribute('aria-label', `Abdominal pressure ${fmt(a.iap, 0)} mmHg`);
     // A diagnostic tap: SAAG ≥ 1.1 g/dL means portal hypertension; the protein then says where the block is.
     const ph = f.metrics.ppg > 6 || f.metrics.whvp > 10;
-    tap.replaceChildren(h('div', { class: 'hv-k' }, 'Diagnostic tap'), a.volume > 150
-      ? h('p', {}, h('b', {}, `SAAG ${ph ? '≥ 1.1' : '< 1.1'} · protein ${a.highProtein ? '> 2.5' : '< 2.5'} g/dL`), ' ',
-        !ph ? 'Not portal hypertension: look for a peritoneal cause.' : a.highProtein ? 'Portal hypertension from an outflow block: heart failure or Budd–Chiari.' : 'Portal hypertension from the sinusoids: the cirrhosis pattern.')
-      : h('p', { class: 'ab-note' }, 'Too little fluid to tap.'));
+    tap.replaceChildren(h('div', { class: 'hv-k' }, 'Diagnostic tap'), ...(a.volume > 150 ? [
+      h('div', { class: 'ab-tap-row' },
+        h('div', { class: 'ab-lab', 'data-hi': String(ph) }, h('span', {}, 'SAAG'), h('b', {}, ph ? '≥ 1.1' : '< 1.1'), h('small', {}, 'g/dL')),
+        h('div', { class: 'ab-lab', 'data-hi': String(!!a.highProtein) }, h('span', {}, 'Protein'), h('b', {}, a.highProtein ? '> 2.5' : '< 2.5'), h('small', {}, 'g/dL'))),
+      h('p', {}, !ph ? 'Not portal hypertension: look for a peritoneal cause.' : a.highProtein ? 'Portal hypertension from an outflow block: heart failure or Budd–Chiari.' : 'Portal hypertension from the sinusoids: the cirrhosis pattern.')]
+      : [h('p', { class: 'ab-note' }, 'Too little fluid to tap.')]));
     extraStats.replaceChildren(
       h('dt', {}, 'Lymph from the liver'), h('dd', {}, `${fmt(a.hepLymph, 1)} (rises with sinusoidal pressure)`),
       h('dt', {}, 'Lymph from the gut'), h('dd', {}, fmt(a.splLymph, 1)),
       h('dt', {}, 'Lymphatic capacity'), h('dd', {}, fmt(a.lymphCap, 1)),
       h('dt', {}, 'Serum albumin'), h('dd', {}, `${fmt(p.albumin, 1)} g/dL${p.albumin < 3 ? ' (low: less pull back into vessels)' : ''}`),
       h('dt', {}, 'Kidneys'), h('dd', {}, p.diuretics ? 'Diuretics: sodium and water lost' : 'Retaining sodium and water'));
-    draw(a, sp);
-  }
-  // A quiet front view: the abdomen from the costal margin to the pelvis, fluid pooling in the
-  // flanks and pelvis, the spleen against its normal size (dashed), and the abdominal pressure.
-  function draw(a, sp) {
-    const { ctx, w, h: hh } = fitCanvas(cv);
-    ctx.clearRect(0, 0, w, hh);
-    const gaugeW = 70;
-    const sz = Math.min(w - gaugeW - 20, hh - 24, 300);
-    if (sz < 60) return;
-    const cx = (w - gaugeW) / 2, top = 12, bot = top + sz, H = sz;
-    const fill = clamp(a.volume / 12000, 0, 1);
-    const bulge = fill * sz * 0.1;
-    const halfTop = sz * 0.27, halfWaist = sz * 0.36 + bulge, halfHip = sz * 0.32 + bulge * 0.6, halfBot = sz * 0.15;
-    const body = new Path2D();
-    body.moveTo(cx - halfTop, top);
-    body.bezierCurveTo(cx - halfTop - sz * 0.04, top + H * 0.25, cx - halfWaist - bulge * 0.4, top + H * 0.42, cx - halfWaist, top + H * 0.58);
-    body.bezierCurveTo(cx - halfWaist + sz * 0.01, top + H * 0.74, cx - halfHip, top + H * 0.86, cx - halfBot, bot);
-    body.lineTo(cx + halfBot, bot);
-    body.bezierCurveTo(cx + halfHip, top + H * 0.86, cx + halfWaist - sz * 0.01, top + H * 0.74, cx + halfWaist, top + H * 0.58);
-    body.bezierCurveTo(cx + halfWaist + bulge * 0.4, top + H * 0.42, cx + halfTop + sz * 0.04, top + H * 0.25, cx + halfTop, top);
-    body.closePath();
-    ctx.fillStyle = cssVar('--og-gut-1'); ctx.globalAlpha = 0.35; ctx.fill(body); ctx.globalAlpha = 1;
-    // fluid
-    ctx.save(); ctx.clip(body);
-    if (a.volume > 60) {
-      const level = bot - H * (0.06 + 0.62 * Math.pow(fill, 0.8));
-      const g = ctx.createLinearGradient(0, level, 0, bot);
-      g.addColorStop(0, cssVar('--ascites')); g.addColorStop(1, cssVar('--ascites'));
-      ctx.fillStyle = g; ctx.globalAlpha = 0.32;
-      ctx.beginPath(); ctx.moveTo(cx - sz, bot + 2);
-      for (let x = -sz; x <= sz; x += 6) ctx.lineTo(cx + x, level + Math.sin(x / 14) * 1.6);
-      ctx.lineTo(cx + sz, bot + 2); ctx.closePath(); ctx.fill();
-      ctx.globalAlpha = 0.8; ctx.strokeStyle = cssVar('--ascites'); ctx.lineWidth = 1.5; ctx.beginPath();
-      for (let x = -sz; x <= sz; x += 6) ctx[x === -sz ? 'moveTo' : 'lineTo'](cx + x, level + Math.sin(x / 14) * 1.6);
-      ctx.stroke(); ctx.globalAlpha = 1;
-      ctx.fillStyle = cssVar('--text-2'); ctx.font = FONT(600, 12); ctx.textAlign = 'center';
-      if (bot - level > 26) ctx.fillText(`${fmt(a.volume / 1000, 1)} L`, cx, (level + bot) / 2 + 8);
-    }
-    ctx.restore();
-    ctx.strokeStyle = cssVar('--og-gut-3'); ctx.globalAlpha = 0.55; ctx.lineWidth = 1.5; ctx.stroke(body); ctx.globalAlpha = 1;
-    // costal margins and umbilicus
-    ctx.strokeStyle = cssVar('--og-gut-3'); ctx.globalAlpha = 0.35; ctx.lineWidth = 1.25;
-    ctx.beginPath(); ctx.moveTo(cx - halfTop + 4, top + 4); ctx.quadraticCurveTo(cx - sz * 0.12, top + H * 0.24, cx, top + H * 0.12);
-    ctx.quadraticCurveTo(cx + sz * 0.12, top + H * 0.24, cx + halfTop - 4, top + 4); ctx.stroke();
-    ctx.beginPath(); ctx.arc(cx, top + H * 0.52, 3, 0, 7); ctx.stroke(); ctx.globalAlpha = 1;
-    // spleen, in the left upper quadrant (the viewer's right), with its normal size dashed
-    const spleen = (len) => {
-      const k = len / 11 * sz * 0.075;
-      const x = cx + halfTop * 0.62, y = top + H * 0.22;
-      const p = new Path2D();
-      p.ellipse(x, y + k * 0.3, k * 0.62, k * 1.15, -0.5, 0, Math.PI * 2);
-      return p;
-    };
-    ctx.setLineDash([3, 3]); ctx.strokeStyle = cssVar('--og-spleen-3'); ctx.globalAlpha = 0.45; ctx.lineWidth = 1; ctx.stroke(spleen(11)); ctx.setLineDash([]);
-    ctx.globalAlpha = 0.85; ctx.fillStyle = cssVar('--og-spleen-1'); ctx.fill(spleen(sp.length));
-    ctx.strokeStyle = cssVar('--og-spleen-3'); ctx.globalAlpha = 0.7; ctx.stroke(spleen(sp.length)); ctx.globalAlpha = 1;
-    // abdominal pressure gauge
-    const gx = cx + sz / 2 + 18, gy = top + 4, gh = sz - 20, gw = 6, max = 30;
-    const Y = (v) => gy + gh - clamp(v / max, 0, 1) * gh;
-    ctx.fillStyle = cssVar('--surface-3'); ctx.beginPath(); ctx.roundRect ? ctx.roundRect(gx, gy, gw, gh, 3) : ctx.rect(gx, gy, gw, gh); ctx.fill();
-    const iapCol = a.iap >= 20 ? cssVar('--danger') : a.iap >= 12 ? cssVar('--caution') : cssVar('--ok');
-    ctx.fillStyle = iapCol; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(gx, Y(a.iap), gw, gy + gh - Y(a.iap), 3) : ctx.rect(gx, Y(a.iap), gw, gy + gh - Y(a.iap)); ctx.fill();
-    ctx.font = FONT(500, 10); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    for (const [v, label] of [[12, 'IAH'], [20, 'ACS']]) {
-      ctx.fillStyle = cssVar('--text-3'); ctx.fillRect(gx + gw + 2, Math.round(Y(v)), 5, 1); ctx.fillText(`${v} ${label}`, gx + gw + 10, Y(v));
-    }
-    ctx.fillStyle = cssVar('--text'); ctx.font = FONT(650, 12); ctx.textAlign = 'right';
-    ctx.fillText(fmt(a.iap, 0), gx - 6, Y(a.iap));
-    ctx.fillStyle = cssVar('--text-3'); ctx.font = FONT(500, 10); ctx.textAlign = 'center'; ctx.fillText('IAP mmHg', gx + gw / 2, gy + gh + 12);
-    ctx.textBaseline = 'alphabetic';
-    cv.setAttribute('aria-label', `Abdomen: ${fmt(a.volume / 1000, 1)} L of ascites, abdominal pressure ${fmt(a.iap, 0)} mmHg, spleen ${fmt(sp.length, 1)} cm.`);
   }
   return { id: 'abdomen', label: 'Ascites & paracentesis', el, update };
 }

@@ -2074,7 +2074,6 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 
 /* ── Ascites ────────────────────────────────────── */
 .instrument-view.ab { display: flex; flex-direction: column; align-items: stretch; min-height: 100%; }
-.instrument-workspace .instrument-view.ab .ab-box { height: auto; min-height: 220px; }
 .ab-report { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .ab-report .hv-num { margin-top: -4px; }
 .ab-grade { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-12); font-weight: 600; color: var(--text-2); margin-left: 4px; }
@@ -2086,16 +2085,35 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .ab-report .procedure-controls .hv-k, .ab-tap .hv-k { margin-bottom: 2px; }
 .ab-note { font-size: var(--fs-12); color: var(--text-3); font-weight: 500; }
 .check-row .ab-note { margin-left: auto; text-align: right; }
-.ab-tap { padding: 8px 12px; border-radius: var(--r-control); background: var(--surface-2); }
+.ab .check-row { flex-wrap: wrap; }
+.ab-tap { padding: 10px 12px; border-radius: var(--r-control); background: var(--surface-2); }
 .ab-tap p { margin: 0; font-size: var(--fs-14); line-height: 1.45; color: var(--text-2); }
-.ab-tap b { color: var(--text); font-weight: 650; }
+
+.ab-trend { font-size: var(--fs-14); color: var(--text-2); margin-top: -4px; }
+.ab-iap { display: grid; gap: 4px; }
+.ab-iap .ctl-val[data-sev="caution"] { color: var(--caution); }
+.ab-iap .ctl-val[data-sev="danger"] { color: var(--danger); }
+.ab-iap-bar { position: relative; height: 10px; border-radius: 5px; background: var(--surface-3); overflow: hidden; }
+.ab-iap-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; background: var(--ok); transition: width .4s var(--ease); }
+.ab-iap-fill[data-sev="caution"] { background: var(--caution); }
+.ab-iap-fill[data-sev="danger"] { background: var(--danger); }
+.ab-iap-mark { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--stage-bg); opacity: .9; }
+.ab-iap-scale { position: relative; height: 14px; font-size: var(--fs-12); color: var(--text-3); }
+.ab-iap-scale span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.ab-iap-scale span:first-child { transform: none; }
+.ab-iap-scale span:last-child { transform: translateX(-100%); }
+.ab-tap { display: grid; gap: 8px; }
+.ab-tap-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ab-lab { display: grid; gap: 0; padding: 8px 10px; border-radius: var(--r-control); background: var(--surface); border: 1px solid var(--hairline); }
+.ab-lab span { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; }
+.ab-lab b { font-size: var(--fs-28); font-weight: 650; color: var(--text); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.ab-lab small { font-size: var(--fs-12); color: var(--text-3); }
+.ab-lab[data-hi="true"] { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.ab-tap p { color: var(--text); font-weight: 500; }
 .ab-report dd[data-sev="caution"] { color: var(--caution); font-weight: 600; }
 .ab-report dd[data-sev="danger"] { color: var(--danger); font-weight: 600; }
 @container (min-width: 620px) {
   .ab-main { grid-template-columns: minmax(0, 1fr) 260px; }
-}
-@container (max-width: 619px) {
-  .instrument-workspace .instrument-view.ab .ab-box { height: clamp(200px, 32vh, 280px); flex: none; }
 }
 .instrument-workspace .instrument-view .chart-box.perf-donut { height: min(var(--plot-h), 300px); }
 @container (max-width: 649px) {
