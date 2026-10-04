@@ -311,12 +311,19 @@ export function createAbdomen({ onAction }) {
   const drain = h('button', { class: 'btn primary block', onclick: () => onAction({ kind: 'paracentesis', mL: +vol.value * 1000, albumin: alb.checked }) }, icon('needle'), 'Drain');
   const diu = h('input', { type: 'checkbox' });
   diu.addEventListener('change', () => updateParams((p) => { p.diuretics = diu.checked; }, { label: 'Diuretics' }));
+  // Serum albumin is a patient input that drives ascites (oncotic pull back into the vessels), so it is set here.
+  const sa = h('input', { type: 'range', min: 1.5, max: 5, step: 0.1, value: 4, 'aria-label': 'Serum albumin (g/dL)' });
+  const saLbl = h('span', { class: 'ctl-val' });
+  const paintSa = () => { saLbl.textContent = `${(+sa.value).toFixed(1)} g/dL${+sa.value < 3.5 ? ' · low' : ''}`; sa.style.setProperty('--pct', `${((+sa.value - 1.5) / 3.5) * 100}%`); };
+  sa.addEventListener('input', paintSa); paintSa();
+  sa.addEventListener('change', () => updateParams((p) => { p.albumin = +(+sa.value).toFixed(1); }, { label: 'Serum albumin' }));
   const numEl = h('b', {}, '—'), gradeEl = h('span', { class: 'ab-grade' });
   const stats = h('dl', { class: 'kv' });
   const tap = h('div', { class: 'ab-tap' });
   const extraStats = h('dl', { class: 'kv' });
   const report = h('div', { class: 'ab-report' },
-    h('div', { class: 'hv-k' }, 'Ascites'), h('div', { class: 'hv-num' }, numEl, h('small', {}, 'L'), gradeEl), stats, tap,
+    h('div', { class: 'hv-k' }, 'Ascites'), h('div', { class: 'hv-num' }, numEl, h('small', {}, 'L'), gradeEl), stats,
+    h('div', { class: 'ctl' }, h('div', { class: 'ctl-top' }, h('span', { class: 'ctl-label' }, 'Serum albumin'), saLbl), sa), tap,
     h('div', { class: 'procedure-controls' },
       h('div', { class: 'hv-k' }, 'Treat'),
       h('label', { class: 'check-row' }, diu, 'Diuretics', h('span', { class: 'ab-note' }, 'spironolactone + furosemide')),
@@ -330,6 +337,7 @@ export function createAbdomen({ onAction }) {
     gradeEl.textContent = GRADE[a.grade] || a.label;
     gradeEl.dataset.sev = SEV[a.grade] || 'danger';
     if (diu.checked !== !!p.diuretics) diu.checked = !!p.diuretics;
+    if (document.activeElement !== sa && +sa.value !== p.albumin) { sa.value = p.albumin; paintSa(); }
     const r = a.ratePerDay, trend = Math.abs(r) < 20 ? 'steady' : r > 0 ? 'building up' : 'resolving';
     const iap = a.iap >= 20 ? 'compartment syndrome' : a.iap >= 12 ? 'intra-abdominal hypertension' : 'normal';
     stats.replaceChildren(
