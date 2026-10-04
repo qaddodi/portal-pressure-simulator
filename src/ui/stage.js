@@ -1288,6 +1288,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let patientReady = patientArrived();
   store.on('historyTick', () => { patientReady = patientArrived(); });
   store.on('presetLoading', () => { patientReady = patientArrived(); });
+  // Closing Home without picking a patient keeps the one already loaded: that counts as arrived too.
+  const homeEl = document.getElementById('home');
+  if (homeEl) new MutationObserver(() => { if (homeEl.hidden && !store.get().presetLoading) { patientReady = true; firstFrame(); } }).observe(homeEl, { attributes: true, attributeFilter: ['hidden'] });
   wrap.classList.add('unframed');
   // The loading screen (index.html) waits for this: the figure framed, faded in and on screen.
   let figureShown = false;
@@ -1298,18 +1301,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => { window.ppsFigureReady = true; dispatchEvent(new Event('pps:figure-ready')); }, 260)));
   };
   setTimeout(showFigure, 4000);   // never left hidden
+  function firstFrame() {
+    if (firstFit || !F || !(morphTarget === 1 || patientReady)) return;
+    firstFit = true;
+    requestAnimationFrame(() => {
+      if (morphTarget === 0 && !userMoved) { vt = homeAt = vtTarget = defaultVT(false); applyVT(); CTM = null; }
+      showFigure();
+    });
+  }
   function update(f) {
     inUpdate = true;
     try { updateInner(f); } finally { inUpdate = false; }
     // The first framing waits for the patient (the first frames are drawn before it has loaded, without its
     // ascites or spleen), and the figure stays hidden until it is framed, so it appears once, in place.
-    if (!firstFit && (morphTarget === 1 || patientReady)) {
-      firstFit = true;
-      requestAnimationFrame(() => {
-        if (morphTarget === 0 && !userMoved) { vt = homeAt = vtTarget = defaultVT(false); applyVT(); CTM = null; }
-        showFigure();
-      });
-    }
+    firstFrame();
     const now = performance.now();
     // (Not while a move away from home is under way: its first frames still sit at home.)
     if (homeAt && morphTarget === 0 && !lobuleOn && now - homeCheck > 500 && sameView(vt, homeAt) && (!vtTarget || sameView(vtTarget, homeAt))) {
