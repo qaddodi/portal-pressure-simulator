@@ -1284,13 +1284,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // when ascites fills the pelvis or the spleen grows, home grows with it and the view follows.
   let firstFit = false, homeAt = null, homeCheck = 0, userMoved = false;
   // A patient has arrived and none is on its way (opening one from Home, the first frames are still the last one's).
-  const patientArrived = () => (store.get().historyTick || 0) > 0 && !store.get().presetLoading;
+  const patientArrived = () => ((store.get().historyTick || 0) > 0 || !!store.get().booted) && !store.get().presetLoading;
   let patientReady = patientArrived();
   store.on('historyTick', () => { patientReady = patientArrived(); });
   store.on('presetLoading', () => { patientReady = patientArrived(); });
-  // Closing Home without picking a patient keeps the one already loaded: that counts as arrived too.
-  const homeEl = document.getElementById('home');
-  if (homeEl) new MutationObserver(() => { if (homeEl.hidden && !store.get().presetLoading) { patientReady = true; firstFrame(); } }).observe(homeEl, { attributes: true, attributeFilter: ['hidden'] });
+  store.on('booted', () => { patientReady = patientArrived(); firstFrame(); });
   wrap.classList.add('unframed');
   // The loading screen (index.html) waits for this: the figure framed, faded in and on screen.
   let figureShown = false;

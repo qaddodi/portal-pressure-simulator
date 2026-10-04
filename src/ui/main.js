@@ -198,6 +198,8 @@ async function main() {
   if (shared) await loadShared(shared); else timeline.reset();
   inspector.render();
   if (!(await openDeepLink())) firstRun();
+  // Startup has decided who the patient is (a deep link, a shared link, or the default one): the figure may frame itself.
+  store.set({ booted: true });
   const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
   setTimeout(() => idle(() => { paletteL.warm(); presenterL.warm(); }), 3000);
   addEventListener('pps:lang', () => { if (home.isOpen()) home.render(); });
