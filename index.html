@@ -19,7 +19,7 @@
   <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="fonts/fonts.css" />
   <link rel="stylesheet" href="styles/tokens.css?v=5f662a1795" />
-  <link rel="stylesheet" href="styles/app.css?v=72e663f444" />
+  <link rel="stylesheet" href="styles/app.css?v=271dea5603" />
 </head>
 <body>
   <!-- Icon set: 24px grid, 1.6px stroke, round caps (blueprint §5.6). -->
@@ -127,7 +127,7 @@
         </div>
       </div>
       <div class="top-right float-pill">
-        <button class="find-badge" id="btnInspector" aria-pressed="false" aria-haspopup="dialog" aria-controls="panel" title="Patient chart: findings, story and details"><svg><use href="#i-activity"/></svg><span class="fb-l">Findings</span><span class="fb-n" id="findBadge" data-sev="ok"><svg><use href="#i-check"/></svg></span></button>
+        <button class="find-badge" id="btnInspector" aria-pressed="false" aria-haspopup="dialog" aria-controls="panel" title="Patient chart: what is abnormal and why"><svg><use href="#i-activity"/></svg><span class="fb-l">Findings</span><span class="fb-n" id="findBadge" data-sev="ok"><svg><use href="#i-check"/></svg></span></button>
         <button class="tb-act" id="btnTreat" aria-haspopup="dialog" aria-expanded="false" aria-controls="treatCard" title="Treat: drugs, fluids and procedures (T)"><svg><use href="#i-pill"/></svg><span>Treat</span></button>
         <button class="measure-launch tb-act" id="tabInstruments" aria-pressed="false" aria-controls="dock" title="Open instrument workspace (I)"><svg><use href="#i-gauge"/></svg><span data-i18n="tabs.instruments">Measure</span></button>
         <span class="tb-sep" aria-hidden="true"></span>
@@ -151,7 +151,7 @@
       <div class="sb-center float-ui stage-blocker" id="stageCenter" data-safe="top"><div class="sb-banner" id="stageBanner"></div></div>
       <div class="coach float-ui stage-blocker" id="coach" aria-live="polite" data-safe="top"></div>
       <div class="vdock float-ui stage-blocker" id="vdock" data-safe="bottom">
-        <span class="bleed-pill" id="bleedPill" role="status" hidden></span>
+        <div class="vd-status" id="vdStatus"><span class="bleed-pill" id="bleedPill" role="status" hidden></span></div>
         <div class="stage-bar bottom" id="stageBottom">
           <div class="timeline" id="timeline" role="group" aria-label="Timeline"></div>
         </div>
@@ -191,11 +191,11 @@
   <link rel="modulepreload" href="src/ui/store.js?v=f9424489c6" />
   <link rel="modulepreload" href="src/ui/colormap.js?v=6d64a94345" />
   <link rel="modulepreload" href="src/ui/inspector.js?v=208b6a3592" />
-  <link rel="modulepreload" href="src/ui/dock.js?v=24f309245b" />
+  <link rel="modulepreload" href="src/ui/dock.js?v=55c8d8a23f" />
   <link rel="modulepreload" href="src/ui/charts.js?v=2ba1f3a5ed" />
   <link rel="modulepreload" href="src/ui/instruments.js?v=b9ff7e0e9d" />
-  <link rel="modulepreload" href="src/ui/timeline.js?v=7bf66ab2fb" />
+  <link rel="modulepreload" href="src/ui/timeline.js?v=04b45ec66b" />
   <link rel="modulepreload" href="src/engine/topology.js?v=29d10ad9ef" />
-  <script type="module" src="src/ui/main.js?v=86e4e82522"></script>
+  <script type="module" src="src/ui/main.js?v=3a4a9ca2f3"></script>
 </body>
 </html>
