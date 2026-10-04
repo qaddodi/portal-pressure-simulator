@@ -3,16 +3,16 @@
 
 import { startHost, host } from './host.js?v=5e522a6bbf';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=9c069d2ebf';
-import { createStage } from './stage.js?v=0059953829';
+import { createStage } from './stage.js?v=9f81169fc1';
 import { createInspector } from './inspector.js?v=d5eb049d8d';
-import { createDock, CUTOFFS } from './dock.js?v=184ceb0d6b';
+import { createDock, CUTOFFS } from './dock.js?v=4ff10771ed';
 import { createWhy } from './why.js?v=548d0adab3';
 import { createTimeline } from './timeline.js?v=fb1c454a3b';
 import { createLearn } from './learn.js?v=171ff8cc74';
 import { createCases } from './cases.js?v=7626c6db67';
 import { createCompare } from './compare.js?v=e139fe114d';
 import { createCard } from './card.js?v=15bc6f7c3c';
-import { createChart, computeFindings } from './chart.js?v=6aba322ea2';
+import { createChart, computeFindings } from './chart.js?v=4eb4803857';
 import { createHome } from './home.js?v=5c998b7808';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=2affcf4be2';
