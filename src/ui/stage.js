@@ -6,9 +6,9 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=9c069d2ebf';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=994e190477';
-import { createLobuleZoom } from './lobule-zoom.js?v=0d5a5b6c5d';
+import { createLobuleZoom } from './lobule-zoom.js?v=d089cc3d51';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=3e0076273f';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=4cd85bcfcf';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
 
 const N_SAMPLES = 64;
@@ -1728,11 +1728,42 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const r = kind === 'v' ? Math.max(0.5, x.width / 2) : kind === 's' ? Math.max(1.6, x.width * it.obj.k) / 2 : it.obj.w / 2;
     return [r.toFixed(2), () => r];
   }
+  // Vessels that run on into each other (from veinJoins): their calibers are eased to meet at the join.
+  let glStraight = [], glRadDirty = true;
+  // Where one vessel runs on into the next, the two courses meet at a slight corner: the last few
+  // samples either side are redrawn as one smooth curve (a cubic through the join, following each
+  // course's own direction), so the tube bends through the join instead of kinking.
+  function smoothRunOn(items) {
+    const out = new Map(), byRow = new Map(items.map((it) => [it.row, it])), E = 6;
+    const pt = (P, i, end) => (end ? P[P.length - 1 - i] : P[i]);   // i samples in from that end
+    for (const { a, ia, b, ib } of glStraight) {
+      const A = byRow.get(a), B = byRow.get(b);
+      if (!A || !B) continue;
+      const PA = out.get(a) || A.pts.map((q) => q.slice()), PB = out.get(b) || B.pts.map((q) => q.slice());
+      if (PA.length < 2 * E + 2 || PB.length < 2 * E + 2) continue;
+      // From E samples into A, through the join, to E samples into B.
+      const p0 = pt(PA, E, ia), p0b = pt(PA, E + 1, ia), p3 = pt(PB, E, ib), p3b = pt(PB, E + 1, ib);
+      const L = Math.hypot(p3[0] - p0[0], p3[1] - p0[1]) / 3;
+      const ta = [p0[0] - p0b[0], p0[1] - p0b[1]], tb = [p3[0] - p3b[0], p3[1] - p3b[1]];
+      const na = Math.hypot(...ta) || 1, nb = Math.hypot(...tb) || 1;
+      const p1 = [p0[0] + (ta[0] / na) * L, p0[1] + (ta[1] / na) * L], p2 = [p3[0] + (tb[0] / nb) * L, p3[1] + (tb[1] / nb) * L];
+      const bez = (t) => { const u = 1 - t; return [u * u * u * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * p3[0], u * u * u * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * p3[1]]; };
+      // A's samples E … 0 (toward its end) take t 0 … 0.5, B's 0 … E take 0.5 … 1.
+      for (let i = 0; i <= E; i++) {
+        const qa = bez(0.5 * (1 - i / E)), qb = bez(0.5 + 0.5 * (i / E));
+        const ja = ia ? PA.length - 1 - i : i, jb = ib ? PB.length - 1 - i : i;
+        PA[ja] = qa; PB[jb] = qb;
+      }
+      out.set(a, PA); out.set(b, PB);
+    }
+    return out;
+  }
   // Junctions: ends that meet at a model node (clustered by where the drawn courses actually
   // end), and ends that lie on another vessel's course (a tributary on its trunk, a vein drawn
   // onto the side of another). Arteries join only arteries.
   function veinJoins(items) {
     const joins = [], pairs = new Set();
+    glStraight = []; glRadDirty = true;
     const pairKey = (a, b) => Math.min(a.row, b.row) + ':' + Math.max(a.row, b.row);
     const endOf = (it, i) => (i ? it.pts[it.pts.length - 1] : it.pts[0]);
     const rEnd = (it, i) => it.obj.glR[i ? N_SAMPLES - 1 : 0];
@@ -1746,11 +1777,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         rMin = Math.min(rMin, r); rMax = Math.max(rMax, r);
       }
       const k = clamp(1.2 * rMin + 1.2, 1.5, 11);
+      let fil = 1;
+      // One vessel running on into the next (two ends meeting nearly head on) needs no fillet: the
+      // smooth union of two overlapping ends swells the tube there, a bump at every join.
+      if (uniq.length === 2 && uniq.every(([, i]) => i != null)) {
+        const dir = ([it, i]) => { const P = it.pts, n = P.length, a = i ? P[n - 1] : P[0], b = i ? P[Math.max(0, n - 4)] : P[Math.min(n - 1, 3)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / L, (b[1] - a[1]) / L]; };
+        const [u, v] = uniq.map(dir), dot = u[0] * v[0] + u[1] * v[1];
+        fil = 0.15 + 0.85 * clamp((dot + 0.97) / 0.5, 0, 1);
+        if (fil < 1) glStraight.push({ a: uniq[0][0].row, ia: uniq[0][1], b: uniq[1][0].row, ib: uniq[1][1] });
+      }
       const reach = spread + 2 * rMax + k + 6;
       const rows = uniq.map(([it]) => it);
       for (let a = 0; a < rows.length; a++) for (let b = a + 1; b < rows.length; b++) pairs.add(pairKey(rows[a], rows[b]));
       const groups = rows.length <= 4 ? [rows] : rows.flatMap((r, a) => rows.slice(a + 1).map((q) => [r, q]));
-      for (const g of groups) joins.push({ x: c[0], y: c[1], reach, k, members: g.map((it) => it.row) });
+      for (const g of groups) joins.push({ x: c[0], y: c[1], reach, k, fillet: fil, members: g.map((it) => it.row) });
     };
     const byNode = new Map();
     for (const it of items) {
@@ -1811,19 +1851,41 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Radii: re-sent only when a tube changed.
     for (const it of items) {
       const [key, rOf] = itemRadii(it), o = it.obj;
-      if (o.glRadKey === key && o.glR) continue;
-      o.glRadKey = key;
-      o.glR = Array.from({ length: N_SAMPLES }, (_, i) => rOf(i));
-      o.glMaxR = Math.max(...o.glR);
-      veins.setRadii(it.row, o.glR);
+      if (o.glRadKey === key && o.glR0) continue;
+      o.glRadKey = key; glRadDirty = true;
+      o.glR0 = Array.from({ length: N_SAMPLES }, (_, i) => rOf(i));
     }
+    // Where one vessel runs on into the next, both ends ease to the same caliber, so the tube is one
+    // smooth course (no step and no swelling at the join).
+    const eased = new Map();
+    if (glRadDirty && glStraight.length) {
+      const byRow = new Map(items.map((it) => [it.row, it.obj]));
+      for (const { a, ia, b, ib } of glStraight) {
+        const A = byRow.get(a), B = byRow.get(b);
+        if (!A?.glR0 || !B?.glR0) continue;
+        const ra = A.glR0[ia ? N_SAMPLES - 1 : 0], rb = B.glR0[ib ? N_SAMPLES - 1 : 0], mid = (ra + rb) / 2;
+        for (const [O, i, r0] of [[A, ia, ra], [B, ib, rb]]) {
+          const R = eased.get(O) || O.glR0.slice(), E = 10;
+          for (let s = 0; s < E; s++) { const t = 1 - s / E, w = t * t * (3 - 2 * t), j = i ? N_SAMPLES - 1 - s : s; R[j] += (mid - r0) * w; }
+          eased.set(O, R);
+        }
+      }
+    }
+    if (glRadDirty) for (const it of items) {
+      const o = it.obj, R = eased.get(o) || o.glR0, k = R.join(',');
+      if (o.glRSent === k) continue;
+      o.glRSent = k; o.glR = R; o.glMaxR = Math.max(...R);
+      veins.setRadii(it.row, R);
+    }
+    glRadDirty = false;
     // Geometry: re-binned when the layout, the set of vessels or a vessel's reach grows.
     const reachOf = (it) => Math.ceil((it.obj.glMaxR + (it.x.wallPx || 1) + 9 + (heat ? 30 : 0)) / 2) * 2;
     const key = `${geometryVersion}|${heat}|` + items.map((it) => it.row).join(',');
     if (key !== vBinKey || items.some((it) => reachOf(it) > (vBinReach.get(it.row) || 0))) {
       vBinKey = key;
       vBinReach = new Map(items.map((it) => [it.row, reachOf(it)]));
-      veins.setGeometry(binVeins(items.map((it) => ({ id: it.row, pts: it.pts, reach: vBinReach.get(it.row) })), veinJoins(items)));
+      const J = veinJoins(items), smooth = smoothRunOn(items);
+      veins.setGeometry(binVeins(items.map((it) => ({ id: it.row, pts: smooth.get(it.row) || it.pts, reach: vBinReach.get(it.row) })), J));
     }
     // Attributes, every frame.
     const T0 = easeInOut(morph), now = performance.now();

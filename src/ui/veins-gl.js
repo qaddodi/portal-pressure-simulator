@@ -177,7 +177,7 @@ void main() {
   // ── Junctions: which of these vessels are joined here, and how widely ──
   int jn = 0;
   int jm[MAXJ];
-  float jk[MAXJ], jf[MAXJ];
+  float jk[MAXJ], jf[MAXJ], js[MAXJ];
   for (int k = 0; k < min(vR.w, 64); k++) {
     if (jn == MAXJ) break;
     vec4 A = E(vR.z + k, 0), B = E(vR.z + k, 1);
@@ -190,7 +190,7 @@ void main() {
       for (int s = 0; s < MAXS; s++) if (s < n && sid[s] == id && (mask & (1 << s)) == 0) { mask |= 1 << s; c++; }
     }
     if (c < 2) continue;
-    jm[jn] = mask; jk[jn] = A.w * (1.0 - smoothstep(0.55 * A.z, A.z, dc)); jf[jn] = 1.0 - smoothstep(0.3 * A.z, 0.85 * A.z, dc); jn++;
+    jm[jn] = mask; js[jn] = fract(A.w) / 0.99; jk[jn] = floor(A.w) * 0.01 * (1.0 - smoothstep(0.55 * A.z, A.z, dc)); jf[jn] = 1.0 - smoothstep(0.3 * A.z, 0.85 * A.z, dc); jn++;
   }
 
   // ── Per-vessel attributes ──
@@ -267,8 +267,8 @@ void main() {
         if ((jj & (1 << a)) == 0) continue;
         for (int b = a + 1; b < MAXS; b++) {
           if ((jj & (1 << b)) == 0) continue;
-          D = min(D, smin(sd[a], sd[b], jk[j]));
-          Ds = min(Ds, smin(sh[a], sh[b], jk[j]));
+          D = min(D, smin(sd[a], sd[b], jk[j] * js[j]));
+          Ds = min(Ds, smin(sh[a], sh[b], jk[j] * js[j]));
         }
       }
     }
@@ -794,7 +794,7 @@ export function binVeins(tubes, joins) {
     const c = jCell[k];
     if (!segCount[c]) continue;
     const e = fillJ[c]++, j = joins[jCell[k + 1]], q = e * 8;
-    ent[q] = j.x; ent[q + 1] = j.y; ent[q + 2] = j.reach; ent[q + 3] = j.k;
+    ent[q] = j.x; ent[q + 1] = j.y; ent[q + 2] = j.reach; ent[q + 3] = Math.round(j.k * 100) + 0.99 * Math.min(1, Math.max(0, j.fillet ?? 1));   // the blend width, and (as the fraction) how much of it rounds the shape
     for (let m = 0; m < 4; m++) ent[q + 4 + m] = j.members[m] ?? -1;
   }
   const cells = new Float32Array(nCells * 6);
