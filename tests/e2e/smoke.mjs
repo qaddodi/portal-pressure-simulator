@@ -403,8 +403,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         for (const [s, r] of items) if (r.right > innerWidth + 1 || r.left < -1 || r.bottom > innerHeight + 1 || r.top < -1) out.push(`${s} is off screen`);
         return out;
       });
+      // The cards slide in: measure where they settle, not where they are on the way.
+      await page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === 'running' && ['panel', 'treatCard', 'dock'].includes(a.effect?.target?.id)), null, { timeout: 5000 });
       let bad = await measure();
-      if (bad.length) { await frames(); bad = await measure(); }
+      // A slow machine can take several frames to follow a change in size (a bleed adds a line to the dock).
+      for (let i = 0; i < 4 && bad.length; i++) { await frames(); bad = await measure(); }
       if (bad.length) throw new Error(`${w}×${hgt} ${q}${act ? ' + ' + act : ''}: ${bad.join('; ')}`);
     }
   });
