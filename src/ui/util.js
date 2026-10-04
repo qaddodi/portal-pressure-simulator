@@ -260,3 +260,28 @@ export function enhanceRanges(root = document) {
     setTo(input, +input.dataset.def, true);
   });
 }
+
+/**
+ * Eases an array of values toward a target, frame-rate independent (time constant `tau` seconds),
+ * so a chart's line, dots, labels and axis glide rather than jump when the model changes. The
+ * Pressure card and the lobule's pressure ladder share it. step(target) → { v, moving }.
+ */
+export function createEaser(tau = 0.3) {
+  let v = null, last = 0;
+  return {
+    step(target) {
+      const now = performance.now(), dt = last ? Math.min(0.25, (now - last) / 1000) : 1;
+      last = now;
+      if (!v || v.length !== target.length) v = Float64Array.from(target);
+      const a = 1 - Math.exp(-dt / tau);
+      let moving = false;
+      for (let i = 0; i < target.length; i++) {
+        const d = target[i] - v[i];
+        if (Math.abs(d) > 0.02) { v[i] += d * a; moving = true; } else v[i] = target[i];
+      }
+      return { v, moving };
+    },
+  };
+}
+/** A rounded axis top just above `max` (multiples of 5 mmHg, at least `min`). */
+export const axisTop = (max, min = 10) => Math.max(min, Math.ceil((max + 2) / 5) * 5);

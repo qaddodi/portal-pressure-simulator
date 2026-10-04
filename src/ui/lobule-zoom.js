@@ -21,9 +21,9 @@
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
 import { store, updateParams } from './store.js?v=9c069d2ebf';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=36cd6472b7';
-import { verbEnabled } from './actions.js?v=447ea9cb02';
-import { h, s, fmt, clamp, svgIcon } from './util.js?v=d680016625';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=0e5acd5685';
+import { verbEnabled } from './actions.js?v=6b483f98c1';
+import { h, s, fmt, clamp, svgIcon, createEaser, axisTop } from './util.js?v=994e190477';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=3e0076273f';
@@ -510,11 +510,18 @@ export function createLobuleZoom({ host }) {
   const zoneOf = (q) => (q > 0.66 ? 1 : q > 0.36 ? 2 : 3);
 
   // ── Model → lobule ──
+  const easeP = createEaser(), easeTop = createEaser();
+  let easeRaf = 0;
   function update(f) {
     F = f;
     if (fade <= 0) return;
     const st = store.get();
-    model = lobuleState(f, st);
+    // Pressures ease toward the model's beat-filtered values (shared with the Pressure card), so the
+    // ladder, labels and colors glide rather than jump, every display frame between model frames.
+    const eased = easeP.step(f.Pf || f.P);
+    model = lobuleState({ ...f, P: eased.v }, st);
+    cancelAnimationFrame(easeRaf);
+    if (eased.moving) easeRaf = requestAnimationFrame(() => { if (F && fade > 0) update(F); });
     const hs = getComputedStyle(host), cv = (n, d) => hs.getPropertyValue(n).trim() || d;
     model.inks = { normal: cv('--flow-normal', '#16988F'), reversed: cv('--flow-reversed', '#EC7424'), portal: cv('--vein-portal', '#7B6FC4'), systemic: cv('--vein-systemic', '#4F8CC9') };
     if (originOn() && originsF !== f) { origins = originFractions(EDGES, NODES, f.Qf || f.Q, f.Pf || f.P); originsF = f; }
@@ -540,7 +547,7 @@ export function createLobuleZoom({ host }) {
     if (excess[k] < 1.5 && !lifted) k = -1;
     const segNames = ['pre-sinusoidal', 'sinusoidal', 'post-sinusoidal', 'outflow'];
     const Wd = 232, Hd = 104, x0 = 14, x1 = Wd - 14, y0 = 12, y1 = Hd - 26;
-    const top = Math.max(15, ...P, ...P0.filter((v) => v != null), ...R.filter((v) => v != null)) * 1.08;
+    const top = easeTop.step([axisTop(Math.max(...P, ...P0.filter((v) => v != null), ...R.filter((v) => v != null)))]).v[0] * 1.08;
     const X = (i) => x0 + ((x1 - x0) * i) / 4, Y = (v) => y1 - ((y1 - y0) * clamp(v, 0, top)) / top;
     const svg = s('svg', { viewBox: `0 0 ${Wd} ${Hd}`, class: 'lz-lad', role: 'img', 'aria-label': m.hide ? 'Pressure ladder: not measured' : 'Pressure ladder: ' + names.map((n, i) => `${n} ${fmt(P[i], 1)}`).join(', ') + ' mmHg' });
     for (let i = 0; i < 4; i++) {
