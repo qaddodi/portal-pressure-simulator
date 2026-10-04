@@ -497,9 +497,9 @@ function renderLegend() {
     el.replaceChildren(h('div', { class: 'lg-cats' }, h('span', {}, h('i', { style: { background: 'var(--flow-normal)' } }), 'Physiological'), h('span', {}, h('i', { style: { background: 'var(--flow-reversed)' } }), 'Reversed')));
     el.setAttribute('aria-label', 'Legend: teal is physiological flow direction, orange is reversed');
   } else if (m === 'origin') {
-    // Dots, and on a narrow screen the short names (SMV, IMV, SV, HA, Sys), so the five fit.
-    el.replaceChildren(h('div', { class: 'lg-cats lg-dots' }, ...ORIGINS.map(([, title, short], i) => h('span', { title }, h('i', { style: { background: ORIGIN_CSS[i] } }), h('b', { class: 'lg-long' }, title), h('b', { class: 'lg-short' }, short)))));
-    el.setAttribute('aria-label', 'Legend: blood colored by where it comes from, as streams side by side: amber SMV (with the coronary vein), teal IMV, violet splenic vein, crimson hepatic artery, slate blue systemic');
+    // Dots and the short names (SMV, IMV, SV, Sys, HA), so the key always fits in the top bar.
+    el.replaceChildren(h('div', { class: 'lg-cats lg-dots' }, ...[0, 1, 2, 4, 3].map((i) => h('span', { title: ORIGINS[i][3] }, h('i', { style: { background: ORIGIN_CSS[i] } }), h('b', {}, ORIGINS[i][2])))));
+    el.setAttribute('aria-label', 'Legend: blood colored by where it comes from, as streams side by side: amber SMV (with the coronary vein), teal IMV, violet SV (splenic vein), slate blue Sys (systemic), crimson HA (hepatic artery)');
   } else if (m === 'neutral') {
     el.replaceChildren(h('div', { class: 'lg-cats' }, h('span', {}, h('i', { style: { background: 'var(--vein-portal)' } }), 'Portal veins'), h('span', {}, h('i', { style: { background: 'var(--vein-systemic)' } }), 'Systemic veins'),
       h('span', { class: 'lg-note' }, svgIcon('info'), 'Pressures unmeasured')));
@@ -834,11 +834,20 @@ function wireFloating() {
     const vd = $('#vdock'), vdock = vd.offsetHeight ? Math.max(vd.offsetHeight, $('#stageView').getBoundingClientRect().bottom - vd.getBoundingClientRect().top - gap) : 0, wide = !isPhone();
     // The top bar keeps one row when everything fits at its natural width (with a little to spare,
     // so it does not flip back and forth), else the view and legend move to a second row.
+    // Off a phone the bar first compacts step by step (data-fit 1-3: shorter patient name, icon-only
+    // buttons), so the view and the lens stay on the one row; two rows only if even that fails.
     const tb = $('#topbar'), cs = getComputedStyle(tb);
-    const need = $('.tb-id').scrollWidth + $('#viewSeg').offsetWidth + $('.topbar .sb-right').offsetWidth + $('.top-right').scrollWidth + 6 * 8 + 16;
+    const need = () => $('.tb-id').scrollWidth + $('#viewSeg').offsetWidth + $('.topbar .sb-right').offsetWidth + $('.top-right').scrollWidth + 6 * 8 + 16;
     const avail = tb.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-    const two = tb.classList.contains('two-rows') ? need > avail - 24 : need > avail;
-    if (two !== tb.classList.contains('two-rows')) tb.classList.toggle('two-rows', two);
+    const was = +(tb.dataset.fit || 0) + (tb.classList.contains('two-rows') ? 1 : 0);
+    tb.classList.remove('two-rows');
+    let fit = 0;
+    const steps = wide ? 3 : 0;
+    for (; fit <= steps; fit++) {
+      tb.dataset.fit = String(fit);
+      if (need() <= avail - (fit < was ? 24 : 0)) break;
+    }
+    if (fit > steps) { tb.dataset.fit = String(steps); tb.classList.add('two-rows'); }
     app.style.setProperty('--top-safe', px($('#topbar').offsetHeight));
     app.style.setProperty('--vdock-h', px(vdock));
     app.style.setProperty('--vdock-top', px(vd.offsetHeight ? $('#stageView').getBoundingClientRect().bottom - vd.getBoundingClientRect().top : 0));
