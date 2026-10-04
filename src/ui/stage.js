@@ -6,7 +6,7 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=f9424489c6';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar } from './util.js?v=fe164f31f1';
-import { createLobuleZoom } from './lobule-zoom.js?v=e66d158620';
+import { createLobuleZoom } from './lobule-zoom.js?v=ccc90f4342';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=63596bcd73';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -997,44 +997,74 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // liver's card, the palette, a presenter step) and cross-fades over the plate.
   let liverBB = null;
   let lobuleOn = false, lobU = 0, lobAnim = 0;
-  // Into the lobule, a dive (0.9 s): the camera flies into the liver while, over its second half, the
-  // lobule grows out of that spot and the liver's surface dissolves into it. Out, the reverse: the
-  // lobule shrinks back into the liver and the camera pulls out to the framing it had.
-  let preLobule = null, diveAt = null;
-  const DIVE_MS = 900;
+  // Into the lobule, a dive: one continuous zoom, slow to start and slow to settle. The camera falls
+  // deep into the liver; its surface gives way to a field of lobules, many and small, spreading out
+  // from that spot; the zoom goes on through them and eases onto one, where the lobule view fades in,
+  // in place. Out, the same in reverse, quicker. diveT is the dive's clock, 0 (anatomy) to 1 (lobule).
+  let preLobule = null, diveAt = null, diveFrom = null, diveDeep = null, diveLand = null, diveT = 0;
+  const DIVE_MS = 3200, RISE_MS = 1800;
+  const RH = 11;   // a lobule's size on screen (px) as the liver's surface gives way to the field
   function diveTarget() {
     const lb = liverBox();
     if (!lb) return null;
     const b = svg.viewBox.baseVal, wx = lb.x + lb.w * 0.42, wy = lb.y + lb.h * 0.5;
-    return { w: [wx, wy], vt: vtFor(wx, wy, clamp(Math.min(b.width / lb.w, b.height / lb.h) * 1.7, 2.6, 5.5)) };
+    return { w: [wx, wy], vt: vtFor(wx, wy, clamp(Math.min(b.width / lb.w, b.height / lb.h) * 2.2, 3, 7)) };
+  }
+  const smoothT = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+  function diveFrame(t) {
+    if (diveFrom && diveDeep) {
+      // The whole zoom in one log scale, slow to start and slow to settle: the camera's part (a little
+      // over two fifths of the way) first, then the field's. The lobule's place is read live, so the
+      // field settles exactly where the view frames it.
+      if (lz.isShown()) diveLand = lz.current();
+      const lc = Math.max(1.1, Math.log(diveDeep.k / diveFrom.k));
+      const lt = lc + Math.log(Math.max(RH * 2, diveLand?.r || 200) / RH);
+      const p = 0.5 - 0.5 * Math.cos(Math.PI * clamp(t / 0.82, 0, 1)), P = 0.42;
+      const z = p < P ? lc * p / P : lc + (lt - lc) * (p - P) / (1 - P);
+      cancelAnimationFrame(vtAnim); vtGliding = false;
+      vt = lerpVT(diveFrom, diveDeep, clamp(z / lc, 0, 1)); applyVT(); CTM = null;
+      if (diveLand && diveAt) {
+        refreshCTM();
+        const [ox, oy] = worldToLocal(diveAt[0], diveAt[1]);
+        const g = smoothT(lc - 0.6, lt, z);   // the zoom's centre drifts from the dive point to the lobule's place
+        lz.setDive(t <= 0 || t >= 1 ? null : {
+          a: smoothT(lc - 0.6, lc + 0.2, z), x: lerp(ox, diveLand.x, g), y: lerp(oy, diveLand.y, g),
+          r: RH * Math.exp(z - lc), ox, oy, quiet: smoothT(0.55, 0.85, t),
+        });
+      }
+    }
+    lobU = easeInOut(clamp((t - 0.7) / 0.3, 0, 1));
+    syncSemantic();
   }
   function setLobule(on) {
     if (on && morphTarget !== 0) return;
-    if (lobuleOn === on && (lobU === (on ? 1 : 0))) return;
+    if (lobuleOn === on && diveT === (on ? 1 : 0)) return;
     lobuleOn = on;
     cancelAnimationFrame(lobAnim);
-    const ms = reduceMotion.matches ? 0 : DIVE_MS, from = lobU, t0 = performance.now();
-    if (on) {
-      if (lobU === 0) preLobule = { ...vt };
+    if (on && diveT === 0) {
+      preLobule = { ...vt };
       const d = diveTarget();
       diveAt = d?.w || null;
-      if (d && ms) animateVT(d.vt, ms); else if (d) { vt = d.vt; applyVT(); CTM = null; }
-    } else if (ms) {
-      // Pull out a moment after the lobule starts to shrink, back to where the anatomy was.
-      const back = preLobule && !sameView(preLobule, { k: 1, x: 0, y: 0 }) ? preLobule : (homeAt || defaultVT(false));
-      setTimeout(() => { if (!lobuleOn) animateVT(back, ms * 0.85); }, ms * 0.15);
+      diveFrom = { ...vt };
+      diveDeep = d ? d.vt : null;
+      // Already zoomed in past the dive's depth: go deeper from there.
+      if (d && diveDeep.k < vt.k * 1.5) diveDeep = vtFor(d.w[0], d.w[1], vt.k * 2.5);
+      diveLand = lz.landing();
+    } else if (!on) {
+      // Back to where the anatomy was, from where the lobule is now (it may be zoomed).
+      diveFrom = preLobule && !sameView(preLobule, { k: 1, x: 0, y: 0 }) ? preLobule : (homeAt || defaultVT(false));
+      if (!diveDeep) diveDeep = { ...vt };
+      if (diveT >= 1) diveLand = lz.current();
     }
+    const ms = reduceMotion.matches ? 0 : on ? DIVE_MS : RISE_MS, from = diveT, to = on ? 1 : 0, t0 = performance.now();
     const step = (now) => {
-      const e = ms ? clamp((now - t0) / ms, 0, 1) : 1;
-      // In: the lobule appears over the second half of the flight. Out: it is gone in the first half.
-      const u = on ? clamp((e - 0.42) / 0.58, 0, 1) : clamp(1 - e / 0.5, 0, 1);
-      lobU = on ? Math.max(from, easeInOut(u)) : Math.min(from, easeInOut(u));
-      if (diveAt) { refreshCTM(); const [x, y] = worldToLocal(diveAt[0], diveAt[1]); lz.setOrigin?.(x, y); }
-      syncSemantic();
+      const e = ms ? clamp((now - t0) / (ms * Math.abs(to - from) || 1), 0, 1) : 1;
+      diveT = from + (to - from) * e;
+      diveFrame(diveT);
       if (e < 1) lobAnim = requestAnimationFrame(step);
-      else if (!on) { lobU = 0; syncSemantic(); }
+      else if (!on) { diveDeep = null; diveLand = null; }
     };
-    step(performance.now());
+    step(t0);
   }
   function liverBox() {
     if (!liverBB && organEls.liver) { try { const b = organEls.liver.getBBox(); if (b.width) liverBB = { x: b.x, y: b.y, w: b.width, h: b.height }; } catch { /* not rendered yet */ } }
@@ -1044,7 +1074,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function syncSemantic() {
     if (!lz) return;
     // Turning to the circuit closes the lobule view.
-    if (lobuleOn && morphTarget !== 0) { lobuleOn = false; lobU = 0; cancelAnimationFrame(lobAnim); if (store.get().lobule) store.set({ lobule: false }); }
+    if (lobuleOn && morphTarget !== 0) { lobuleOn = false; lobU = 0; diveT = 0; diveDeep = diveLand = null; lz.setDive(null); cancelAnimationFrame(lobAnim); if (store.get().lobule) store.set({ lobule: false }); }
     const u = morphTarget === 0 ? lobU : 0;
     const wasOpen = lz.isOpen();
     lz.setFade(u);
@@ -1061,14 +1091,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     vtGliding = true;
     const step = (now) => {
       const u = easeInOut(clamp((now - t0) / ms, 0, 1));
-      // Interpolate the zoom geometrically so the approach feels even at every scale.
-      const k = from.k * Math.pow(to.k / from.k, u);
-      const a = (k - from.k) / ((to.k - from.k) || 1);
-      vt = { k, x: from.x + (to.x - from.x) * (to.k === from.k ? u : a), y: from.y + (to.y - from.y) * (to.k === from.k ? u : a) };
+      vt = lerpVT(from, to, u);
       applyVT(); CTM = null;
       if (u < 1) vtAnim = requestAnimationFrame(step); else vtGliding = false;
     };
     vtAnim = requestAnimationFrame(step);
+  }
+  // Interpolate the zoom geometrically so the approach feels even at every scale.
+  function lerpVT(from, to, u) {
+    const k = from.k * Math.pow(to.k / from.k, u), a = to.k === from.k ? u : (k - from.k) / (to.k - from.k);
+    return { k, x: from.x + (to.x - from.x) * a, y: from.y + (to.y - from.y) * a };
   }
   function zoomToBox(x0, y0, x1, y1) {
     const k = clamp(Math.min(VIEW.w / (x1 - x0), VIEW.h / (y1 - y0)) * 0.9, 1, 5);

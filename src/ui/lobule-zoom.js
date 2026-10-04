@@ -155,7 +155,9 @@ export function createLobuleZoom({ host }) {
     tissue, glCv, fx, leaders, labels,
     h('div', { class: 'lz-top' }, h('div', { class: 'lz-tgs' }, zonesBtn, lymphBtn)),
     side);
-  host.append(el);
+  // The dive's field (below the view): the liver's lobules, many and small, that the camera falls through.
+  const field = h('canvas', { class: 'lz-canvas lz-field', 'aria-hidden': 'true' });
+  host.append(field, el);
 
   // ── The view: the lobule framed in the space the floating pieces leave (top bar, dock, cards and
   // its own card), free zoom up to 5× that, the pan held to this lobule. Zooming out stops at the framing.
@@ -637,8 +639,7 @@ export function createLobuleZoom({ host }) {
   function draw(dt) {
     const rect = host.getBoundingClientRect();
     const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
-    const key = W + 'x' + H;
-    if (key !== geoKey) { geo = build(W, H); geoKey = key; binKey = ''; radKey = []; radAll = ''; tissueKey = ''; layoutKey = ''; if (atFit) resetView(); else clampV(); }
+    ensureGeo(W, H);
     const dpr = Math.min(2, devicePixelRatio || 1);
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
     const cs = getComputedStyle(host);
@@ -647,6 +648,87 @@ export function createLobuleZoom({ host }) {
     layoutLabels();
     if (g && !g.lost) drawGL(W, H, dpr, dark, cs, dt);
     paintFx(W, H, dpr, dark, dt, !g || g.lost);
+  }
+
+  function ensureGeo(W, H) {
+    const key = W + 'x' + H;
+    if (key !== geoKey) { geo = build(W, H); geoKey = key; binKey = ''; radKey = []; radAll = ''; tissueKey = ''; layoutKey = ''; if (atFit) resetView(); else clampV(); }
+  }
+  const isDark = () => document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+
+  // ── The dive's field ──
+  // A flat-topped hexagonal tiling with the lobule view's own spacing (so the lobule it settles on, and
+  // its six neighbours, land where the view draws them), as a repeating pattern. The tile is drawn once
+  // per theme at sizes a factor of 2 apart, and the one at or just above the size on screen is used,
+  // so the zoom stays sharp and never shimmers.
+  let tiles = null, tilesKey = '';
+  function fieldTiles(cs, dark) {
+    const v = (n, d) => cs.getPropertyValue(n).trim() || d;
+    const cell = v('--og-liver-1', '#E9C3B6'), gap = v('--og-liver-2', '#C98E7E'), cvc = v('--vein-systemic', '#4F8CC9'), pvc = v('--vein-portal', '#7D6FB6');
+    const key = [dark, cell, gap, cvc, pvc].join('|');
+    if (key === tilesKey) return tiles;
+    tilesKey = key;
+    const S3 = Math.sqrt(3);
+    tiles = [6, 12, 24, 48, 96, 192, 384].map((R) => {
+      const tw = Math.round(3 * R), th = Math.round(S3 * R);
+      const cv = document.createElement('canvas'); cv.width = tw; cv.height = th;
+      const c = cv.getContext('2d');
+      c.scale(tw / (3 * R), th / (S3 * R));
+      c.fillStyle = gap; c.fillRect(0, 0, 3 * R, S3 * R);
+      const centres = [[0, 0], [3 * R, 0], [0, S3 * R], [3 * R, S3 * R], [1.5 * R, S3 * R / 2], [1.5 * R, -S3 * R / 2], [1.5 * R, 1.5 * S3 * R]];
+      const hex = (x, y, k) => { c.beginPath(); for (let i = 0; i < 6; i++) { const a = (i * Math.PI) / 3; c[i ? 'lineTo' : 'moveTo'](x + Math.cos(a) * R * k, y + Math.sin(a) * R * k); } c.closePath(); };
+      for (const [x, y] of centres) {
+        hex(x, y, 0.97); c.fillStyle = cell; c.fill();
+        // The sinusoids: faint spokes from the portal edge to the central vein.
+        c.save(); c.clip();
+        c.strokeStyle = gap; c.globalAlpha = dark ? 0.45 : 0.32; c.lineWidth = Math.max(0.5, R * 0.025);
+        c.beginPath();
+        for (let i = 0; i < 24; i++) { const a = (i * TAU) / 24 + 0.07; c.moveTo(x + Math.cos(a) * R * 0.12, y + Math.sin(a) * R * 0.12); c.lineTo(x + Math.cos(a) * R, y + Math.sin(a) * R); }
+        c.stroke(); c.restore();
+        c.globalAlpha = 0.8; c.fillStyle = cvc; c.beginPath(); c.arc(x, y, R * 0.08, 0, TAU); c.fill();
+        // A portal triad at every corner.
+        c.fillStyle = pvc;
+        for (let i = 0; i < 6; i++) { const a = (i * Math.PI) / 3; c.beginPath(); c.arc(x + Math.cos(a) * R, y + Math.sin(a) * R, R * 0.06, 0, TAU); c.fill(); }
+        c.globalAlpha = 1;
+      }
+      return { R, tw, th, cv, pat: null };
+    });
+    return tiles;
+  }
+  // d: { a: opacity 0..1, x, y: where the settling lobule's centre is (stage px), r: its radius on
+  // screen, ox, oy: the point it emerges from, quiet: 0..1, the surround fading into the page as the
+  // lobule view does }. null hides it.
+  function paintField(d) {
+    if (!d || d.a <= 0.002) { if (field.width) { field.width = 0; field.height = 0; } field.style.opacity = '0'; return; }
+    const rect = host.getBoundingClientRect();
+    const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
+    const dpr = Math.min(1.5, devicePixelRatio || 1);
+    if (field.width !== Math.round(W * dpr) || field.height !== Math.round(H * dpr)) { field.width = Math.round(W * dpr); field.height = Math.round(H * dpr); for (const t of tiles || []) t.pat = null; }
+    const cs = getComputedStyle(host), dark = isDark();
+    const T = fieldTiles(cs, dark), rd = d.r * dpr;
+    const t = T.find((q) => q.R >= rd) || T[T.length - 1];
+    const c = field.getContext('2d');
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.globalCompositeOperation = 'source-over';
+    if (!t.pat) t.pat = c.createPattern(t.cv, 'repeat');
+    t.pat.setTransform(new DOMMatrix([(3 * rd) / t.tw, 0, 0, (Math.sqrt(3) * rd) / t.th, d.x * dpr, d.y * dpr]));
+    c.fillStyle = t.pat; c.fillRect(0, 0, field.width, field.height);
+    const bg = rgb01(cs.getPropertyValue('--stage-bg').trim() || cs.getPropertyValue('--bg').trim() || (dark ? '#0E1422' : '#FBFAF7'));
+    if (d.quiet > 0) {
+      const vg = c.createRadialGradient(d.x * dpr, d.y * dpr, rd * 1.15, d.x * dpr, d.y * dpr, rd * 2.6);
+      vg.addColorStop(0, css(bg, 0)); vg.addColorStop(1, css(bg, 0.75 * d.quiet));
+      c.fillStyle = vg; c.fillRect(0, 0, field.width, field.height);
+    }
+    // Emerging: the field spreads out from the dive point as it fades in.
+    if (d.a < 1) {
+      const diag = Math.hypot(W, H) * dpr, rho = diag * (0.2 + 1.1 * d.a);
+      const mg = c.createRadialGradient(d.ox * dpr, d.oy * dpr, rho * 0.35, d.ox * dpr, d.oy * dpr, rho);
+      mg.addColorStop(0, 'rgba(0,0,0,1)'); mg.addColorStop(1, 'rgba(0,0,0,0)');
+      c.globalCompositeOperation = 'destination-in';
+      c.fillStyle = mg; c.fillRect(0, 0, field.width, field.height);
+      c.globalCompositeOperation = 'source-over';
+    }
+    field.style.opacity = Math.min(1, d.a * 1.25).toFixed(3);
   }
 
   // Lumen radius of a tube at sample i (world px), from the model.
@@ -1056,14 +1138,11 @@ export function createLobuleZoom({ host }) {
   return {
     el,
     update,
-    /** 0 = hidden, 1 = fully in the lobule. The lobule grows out of the liver as it fades in. */
+    /** 0 = hidden, 1 = fully in the lobule. It fades in where it stands, over the dive's field. */
     setFade(u) {
       const was = fade;
       fade = clamp(u, 0, 1);
       el.style.opacity = fade.toFixed(3);
-      // It grows out of the spot the camera dives into (setOrigin), from a fifth of its size.
-      const e = 1 - (1 - fade) ** 3;
-      el.style.transform = fade < 1 ? `scale(${(0.2 + 0.8 * e).toFixed(4)})` : '';
       el.classList.toggle('on', fade > 0.98);
       el.setAttribute('aria-hidden', String(fade < 0.98));
       // Entering: the card opens (on a phone, compact) and the lobule is framed beside it.
@@ -1072,8 +1151,22 @@ export function createLobuleZoom({ host }) {
       if (was > 0.98 && fade <= 0.98) { if (store.get().selection?.type === 'lobule') store.set({ selection: null }); }
       if (fade === 0) { cancelAnimationFrame(raf); raf = 0; last = 0; }
     },
-    /** The point (stage px) the lobule grows out of and shrinks back into. */
-    setOrigin(x, y) { el.style.transformOrigin = `${x.toFixed(1)}px ${y.toFixed(1)}px`; },
+    /** Where the lobule will sit once open (stage px): its centre and radius, framed as it opens. */
+    landing() {
+      const rect = host.getBoundingClientRect();
+      ensureGeo(Math.max(1, Math.round(rect.width)), Math.max(1, Math.round(rect.height)));
+      if (fade === 0) setOpen(!phoneMQ.matches);
+      resetView();
+      const [x, y] = toScreen([geo.cx, geo.cy]);
+      return { x, y, r: geo.R * V.k };
+    },
+    /** Where the lobule is now (it may be zoomed or panned), for the way out. */
+    current() {
+      if (!geo) return this.landing();
+      const [x, y] = toScreen([geo.cx, geo.cy]);
+      return { x, y, r: geo.R * V.k };
+    },
+    setDive: paintField,
     /** Where a lobule selection is on screen (for the action card), as the stage's anchorFor. */
     anchorFor(sl) {
       if (!geo || sl?.type !== 'lobule') return null;
@@ -1085,6 +1178,7 @@ export function createLobuleZoom({ host }) {
     zoomBy, fitView,
     viewKey: () => `${V.k.toFixed(3)},${V.x.toFixed(1)},${V.y.toFixed(1)}|${geoKey}`,
     isOpen: () => fade > 0.98,
+    isShown: () => fade > 0,
     setLobe,
   };
 }
