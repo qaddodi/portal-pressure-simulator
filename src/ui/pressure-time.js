@@ -464,7 +464,9 @@ export function createPressureTime({ marks = () => [] } = {}) {
   function update(f) { ingest(f); redraw(); }
   function redraw() { if (!frame) return; updateHero(); draw(); }
   store.on('hiddenReadouts', () => { yr.pressure = yr.hvpg = null; });
-  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw };
+  // A new patient (or the same one restarted) starts with empty traces.
+  function clear() { clearHemo(); days = []; redraw(); }
+  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear };
 }
 
 // Thin a series to about two points per pixel column (a pulsatile trace has thousands of samples).
