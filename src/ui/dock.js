@@ -2,6 +2,7 @@
 // Instruments card (blueprint §9.1, §9.2).
 
 import { store } from './store.js?v=f9424489c6';
+import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=fe164f31f1';
 import { createProfile } from './charts.js?v=2ba1f3a5ed';
 import { createPressureTime } from './pressure-time.js?v=0878c8e5f4';
@@ -84,7 +85,7 @@ export function readoutValue(t, m, hidden) {
   return meas ? meas.hvpg : null;
 }
 
-export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onCompare, onRun, onLobule, onOpen, onClose, isVisible, marks, onBeat }) {
+export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onCompare, onRun, onLobule, onOpen, onClose, isVisible, marks, onBeat, onLayout }) {
   // ── Readout strip ─────────────────────────────────
   const tileEls = {};
   const row = h('div', { class: 'ro-row' });
@@ -334,7 +335,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     body.classList.toggle('split', open.length > 1);
     body.classList.toggle('stack', open.length > 1 && isSide() && state !== 'focus');
     const first = byId[open[0]];
-    titleEl.querySelector('.dt-l').textContent = open.length > 1 ? `${first.label} + ${byId[open[1]].label}` : first?.label || 'Instruments';
+    paintTitle();
     titleIc.replaceChildren(svgIcon(INFO[open[0]][0]));
     desc.textContent = open.length > 1 ? 'Two instruments at once. Tap either tab to show it alone.' : INFO[open[0]][1];
     for (const id of ORDER) {
@@ -348,6 +349,16 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     second.querySelector('.wb-l').textContent = open.length > 1 ? 'Show one' : picking ? 'Cancel' : 'Two at once';
     remember();
     queueRefresh();
+    onLayout?.();
+  }
+  // The title names the vessel the Doppler reads, beside a green dot: the colour of its glow on the figure.
+  function paintTitle() {
+    const first = byId[open[0]];
+    const probe = open.length === 1 && open[0] === 'doppler' && frame?.probe ? EDGES.find((e) => e.id === frame.probe)?.label : null;
+    const txt = open.length > 1 ? `${first.label} + ${byId[open[1]].label}` : probe ? `${first.label} · ${probe}` : first?.label || 'Instruments';
+    const l = titleEl.querySelector('.dt-l');
+    if (l.textContent !== txt) l.textContent = txt;
+    titleEl.classList.toggle('dop-on', !!probe);
   }
   function endPick() { picking = false; pickHint.hidden = true; workspace.classList.remove('picking'); }
   function toggleSecond() {
@@ -394,6 +405,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   function close() {
     endPick(); app.classList.remove('instrument-focus');
     onClose();
+    onLayout?.();
     document.getElementById('tabInstruments')?.focus();
   }
   function ensure() { updateSize(); layout(); workspace.classList.remove('entering'); void workspace.offsetWidth; workspace.classList.add('entering'); }
@@ -466,6 +478,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         !st.hiddenReadouts?.has('model') ? delta('Shunting', (b.shuntFraction - a.shuntFraction) * 100, 0, 'pp') : null);
     }
     run.setAttribute('aria-pressed', String(st.running));
+    paintTitle();
     const txt = !frame ? '' : state === 'peek' && !st.imaging ? INFO[open[0]][2](frame)
       : frame.clock === 'disease' ? `${st.running ? 'Live' : 'Paused'} · Day ${frame.day}` : st.running ? 'Live' : 'Paused';
     if (live.textContent !== txt) live.textContent = txt;

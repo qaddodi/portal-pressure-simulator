@@ -713,6 +713,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     balloons: s('g'), catheter: s('g'), bands: s('g'),
   };
   Object.values(ov).forEach((g) => gOver.append(g));
+  // The Doppler's vessel: a steady green glow and a thin green edge around it while the Doppler
+  // instrument is open. The vessel's middle is masked out, so its pressure colour shows through
+  // (the GPU draws the vessels under this layer).
+  const dop = (() => {
+    const g = s('g', { class: 'dop-mark', 'aria-hidden': 'true' });
+    const knock = s('path', { fill: 'none', stroke: '#000', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
+    const defs = s('defs');
+    const mask = s('mask', { id: 'dop-knock', maskUnits: 'userSpaceOnUse', x: -4000, y: -4000, width: 12000, height: 12000 });
+    mask.append(s('rect', { x: -4000, y: -4000, width: 12000, height: 12000, fill: '#fff' }), knock);
+    const blur = s('filter', { id: 'dop-blur', x: '-50%', y: '-50%', width: '200%', height: '200%' });
+    blur.append(s('feGaussianBlur', { stdDeviation: 4 }));
+    defs.append(mask, blur);
+    const glow = s('path', { class: 'dop-glow', filter: 'url(#dop-blur)', mask: 'url(#dop-knock)' });
+    const edge = s('path', { class: 'dop-edge', mask: 'url(#dop-knock)' });
+    g.append(defs, glow, edge);
+    g.style.display = 'none';
+    gOver.prepend(g);
+    return { id: null, g, paint(d, w) { for (const el of [knock, glow, edge]) el.setAttribute('d', d); knock.setAttribute('stroke-width', (w + 0.5).toFixed(1)); edge.setAttribute('stroke-width', (w + 5).toFixed(1)); glow.setAttribute('stroke-width', (w + 16).toFixed(1)); } };
+  })();
 
   // ── View transform (pan / zoom) ───────────────────
   let vt = { k: 1, x: 0, y: 0 };
@@ -1148,6 +1167,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       g.len = arcLen(pts);
       const d = t === 1 ? g.dC : polyD(pts);
       x.halo.setAttribute('d', d); x.sel.setAttribute('d', d); x.wall.setAttribute('d', d); x.hit.setAttribute('d', d);
+      if (dop.id === x.e.id) dop.paint(d, x.dopW || 8);
       x.shadow.setAttribute('d', d);
       if (x.heat) x.heat.setAttribute('d', d);
       if (x.lumen) x.lumen.setAttribute('d', d);
@@ -1352,6 +1372,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       x.sel.classList.toggle('on', selOn);
       cls(x, 'is-sel', selOn);
       if (selOn) setA(x.sel, 'stroke-width', (w + 12).toFixed(1));
+      x.dopW = w;
+      if (dop.id === e.id) { const d = x.wall.getAttribute('d'); if (d) dop.paint(d, w); dop.g.style.display = x.vis ? '' : 'none'; }
     }
     // Junction widths: where vessels meet, the largest narrows to the second largest and the
     // others widen toward it, so calibers change smoothly through every junction.
@@ -3414,6 +3436,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     },
     relayout() { refreshCTM(); if (F) updateLabels(F); },
     labelScale: () => labelScale,
+    /** The vessel the Doppler is reading, glowing green while the Doppler instrument is open (null: none). */
+    setDoppler(id) {
+      if (id && !E[id]) id = null;
+      if (id === dop.id) return;
+      dop.id = id;
+      dop.g.style.display = id ? '' : 'none';
+      if (id) { const x = E[id], d = x.wall.getAttribute('d'); if (d) dop.paint(d, x.dopW || 8); }
+    },
     setLabelScale(v) {
       labelScale = clamp(Math.round(v * 100) / 100, LABEL_MIN, LABEL_MAX);
       try { localStorage.setItem('pps.labelScale', String(labelScale)); } catch { /* storage unavailable */ }
