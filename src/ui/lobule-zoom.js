@@ -26,7 +26,7 @@ import { verbEnabled } from './actions.js?v=b6e5d22a54';
 import { h, s, fmt, clamp, svgIcon, createEaser, axisTop } from './util.js?v=994e190477';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
-import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=4cd85bcfcf';
+import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=f7c2445d32';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=3acf4e936e';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -1116,6 +1116,7 @@ export function createLobuleZoom({ host }) {
     const fr = Math.max(0, m.flow), pr = m.portal, ar = Math.max(0, m.art);
     const vS = 15 * Math.sqrt(fr), lyR = clamp(lymphRate(m), 0.2, 6);
     flowData.fill(0);
+    for (const t of live) if (t.lymph) flowData[t.id * FLOW_TEXELS * 4 + 8] = -1;   // lymph carries no blood origin
     if (bloodOn || chev || origin) for (const t of live) {
       let v, occ, oe, f0 = 0, f1 = 0, strength = 1, rev = 0, stasis = 0;
       const lv = t.kind;
@@ -1134,7 +1135,7 @@ export function createLobuleZoom({ host }) {
       const o = t.id * FLOW_TEXELS * 4, Rm = t.maxR || G.rs0;
       flowData[o] = sm.D; flowData[o + 1] = v; flowData[o + 2] = (occ * Math.max(Math.abs(v), 2) * sumK(Rm)) / s0; flowData[o + 3] = stasis;
       flowData[o + 4] = f0; flowData[o + 5] = f1; flowData[o + 6] = strength; flowData[o + 7] = sm.rev;
-      if (origin && origins) { const kk = EI[oe]; for (let c = 0; c < ORIGIN_N; c++) flowData[o + 8 + c] = origins[kk * ORIGIN_N + c]; }
+      if (origin && origins && !t.lymph) { const kk = EI[oe]; for (let c = 0; c < ORIGIN_N; c++) flowData[o + 8 + c] = origins[kk * ORIGIN_N + c]; }
     }
     g.setFlow(flowData);
     const look = {

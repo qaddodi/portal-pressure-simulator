@@ -1556,9 +1556,9 @@ button.finding:hover { background: var(--surface-2); }
 .lz-tg { display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; font: 500 var(--fs-12) var(--font-ui); color: var(--text-2); padding: 4px 10px; border-radius: var(--r-pill); cursor: pointer; }
 .lz-tg i { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid currentColor; }
 .lz-tg.zones i { background: conic-gradient(rgb(232, 104, 84) 0 33%, rgb(214, 160, 92) 0 66%, rgb(124, 98, 206) 0); border: 0; }
-.lz-tg.lymph i { border-color: var(--text-3); background: #fff; }
+.lz-tg.lymph i { border-color: rgb(150, 186, 122); background: rgb(217, 237, 189); }   /* the lymphatics' green */
 .lz-tg[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-ink, var(--accent)); font-weight: 600; }
-.lz-tg.lymph[aria-pressed="true"] i { background: #fff; border-color: var(--accent); box-shadow: 0 0 4px rgba(255, 255, 255, .9); }
+.lz-tg.lymph[aria-pressed="true"] i { background: rgb(217, 237, 189); border-color: rgb(120, 166, 92); box-shadow: 0 0 4px rgba(190, 228, 160, .9); }
 .lz-side { position: absolute; right: 16px; top: 64px; width: 264px; max-height: calc(100% - 132px); overflow-y: auto; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card); box-shadow: var(--shadow-2); display: grid; gap: 12px; }
 .lz-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; position: sticky; top: -16px; z-index: 1; margin: -16px -16px 0; padding: 16px 16px 4px; background: var(--surface); }
 .lz-grab { display: none; }
@@ -1590,7 +1590,7 @@ button.finding:hover { background: var(--surface-2); }
 .lz-legend .lg-ha { background: var(--artery); } .lz-legend .lg-bd { border: 2px solid var(--bile-duct); box-shadow: none; }
 .lz-legend .lg-hsc { background: rgb(176, 104, 48); } .lz-legend .lg-col { background: rgb(236, 222, 186); }
 .lz-legend .lg-sh { background: linear-gradient(90deg, #9b3c86, #6fa6da); border-radius: 3px; height: 6px; }
-.lz-legend .lg-ly { background: #fff; box-shadow: inset 0 0 0 1px var(--border-strong); }
+.lz-legend .lg-ly { background: rgb(217, 237, 189); box-shadow: inset 0 0 0 1px rgb(150, 186, 122); }
 .stage-view.in-lobule #labels, .stage-view.in-lobule #veins, .stage-view.in-lobule #stageOver, .stage-view.in-lobule #overlay { visibility: hidden; }
 /* Phone: controls under the zoom trail, the panel as a compact sheet that opens for details */
 @media (max-width: 720px) {
