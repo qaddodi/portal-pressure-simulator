@@ -43,10 +43,10 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   const labelsOf = (p) => new Map(activeInterventions(p).map((a) => [a.key, a.label]));
 
   // ── DOM ───────────────────────────────────────────
-  const playBtn = h('button', { class: 'ib play', 'aria-label': 'Pause', title: 'Play / pause (Space). Hold to change speed' }, icon('pause'));
+  const playBtn = h('button', { class: 'ib play', 'aria-label': 'Pause', title: 'Play / pause (Space)' }, icon('pause'));
   // Click toggles play/pause; press and hold opens the speed menu.
   let holdTimer = 0, held = false;
-  const openSpeed = () => popover(playBtn, [
+  const openSpeed = () => popover(speedBtn, [
     h('div', { class: 'menu-title' }, 'Playback speed'),
     ...SPEEDS.map((v) => { const it = menuBtn(`${v}×`, () => onSpeed(v)); it.setAttribute('aria-pressed', String(store.get().speed === v)); return it; }),
   ], { place: 'above', align: 'start', cls: 'time-pop' });
@@ -57,6 +57,8 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   // Restart: the same patient from its first moment, every change and the clock cleared.
   const restartBtn = h('button', { class: 'ib tl-restart', 'aria-label': 'Restart this patient' }, icon('reset'));
   restartBtn.addEventListener('click', () => onRestart?.());
+  const speedBtn = h('button', { class: 'tl-speed', 'aria-haspopup': 'menu', title: 'Playback speed', 'aria-label': 'Playback speed' }, '1×');
+  speedBtn.addEventListener('click', () => openSpeed());
   const rail = h('div', { class: 'tl-rail' });
   const fill = h('div', { class: 'tl-fill' });
   const bleedBand = h('div', { class: 'tl-bleed', hidden: true });
@@ -74,25 +76,18 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   histBtn.addEventListener('click', (e) => openHistory(e.currentTarget));
   // The latest event sits in the dock's status row (with the bleed), above the play bar, on every screen.
   (document.getElementById('vdStatus') || root).append(latestEl);
-  const ffBtn = h('button', { class: 'ib tl-ff', 'aria-label': 'Jump ahead', 'aria-haspopup': 'menu', title: 'Jump ahead in time' }, icon('ffwd'));
+  const ffBtn = h('button', { class: 'ib tl-ff', 'aria-label': 'Jump ahead', 'aria-haspopup': 'menu', title: 'Fast forward' }, icon('ffwd'));
   ffBtn.addEventListener('click', (e) => popover(e.currentTarget, [
     h('div', { class: 'menu-title' }, 'Jump ahead'),
-    ...JUMPS.map(([d, l, long]) => menuBtn(l.replace('+', '+ '), () => jump(d, long))),
-  ], { place: 'above', align: 'end', cls: 'time-pop' }));
-  const moreBtn = h('button', { class: 'ib tl-more', 'aria-label': 'More time options', title: 'More' }, icon('more'));
-  moreBtn.addEventListener('click', (e) => popover(e.currentTarget, [
-    h('div', { class: 'menu-title' }, 'Time'),
-    // A phone keeps the jumps and Compare here, so its play bar has room for the timeline.
-    ...JUMPS.map(([d, , long]) => { const it = menuBtn(`Jump ${long} ahead`, () => jump(d, long)); it.classList.add('tl-phone-only'); return it; }),
-    (() => { const it = menuBtn(store.get().compareSnap ? 'Stop comparing' : 'Compare from here', () => togglePin()); it.classList.add('tl-phone-only'); return it; })(),
+    ...JUMPS.map(([d, , long]) => menuBtn(`Jump ${long} ahead`, () => jump(d, long))),
     menuBtn('Until something happens', () => jump('event', 'until the next event')),
     menuBtn('Settle to equilibrium', () => { host.send({ type: 'settle' }); toast('Settled to equilibrium.'); }),
-    menuBtn('Restart this patient', () => onRestart?.()),
+    (() => { const it = menuBtn(store.get().compareSnap ? 'Stop comparing' : 'Compare from here', () => togglePin()); it.classList.add('tl-phone-only'); return it; })(),
   ], { place: 'above', align: 'end', cls: 'time-pop' }));
   const pinBtn = h('button', { class: 'tl-pin', 'aria-pressed': 'false', 'aria-label': 'Compare from here', title: 'Freeze this moment and compare the live model with it (P)' }, svgIcon('compare', 'mi-ic'), h('span', {}, 'Compare'));
   // Restart lives in More; the jumps share one segmented control.
   pinBtn.addEventListener('click', () => togglePin());
-  root.replaceChildren(h('div', { class: 'tl-left' }, playBtn, restartBtn), track, timeEl, h('div', { class: 'tl-jumps' }, ffBtn, moreBtn), histBtn, pinBtn);
+  root.replaceChildren(h('div', { class: 'tl-left' }, playBtn, speedBtn, restartBtn), track, timeEl, h('div', { class: 'tl-jumps' }, ffBtn), histBtn, pinBtn);
   tooltipFor(playBtn, 'Play / pause · Space', 'top');
   tooltipFor(restartBtn, 'Restart this patient', 'top');
   function menuBtn(label, fn) { const b = h('button', { class: 'menu-item' }, label); b.addEventListener('click', () => { closePopover(); fn(); }); return b; }
@@ -275,6 +270,13 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
       if (g && at[i] - g.x < 11) { g.items.push(i); g.x = (g.x * (g.items.length - 1) + at[i]) / g.items.length; }
       else groups.push({ lane, x: at[i], items: [i] });
     });
+    // Events alternate above/below the line, whichever side has more room.
+    const lastSide = { up: -1e9, down: -1e9 };
+    for (const g of groups) {
+      if (g.lane !== 'ev') continue;
+      g.side = g.x - lastSide.up >= g.x - lastSide.down ? 'up' : 'down';
+      lastSide[g.side] = g.x;
+    }
     const cur = currentIndex();
     marks.replaceChildren(...groups.map((g) => {
       const es = g.items.map((i) => entries[i]);
@@ -282,11 +284,14 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
       const future = cursor >= 0 && g.items[0] > cursor;
       const isCur = g.items.includes(cur) && g.lane === 'ch';
       const sev = g.lane === 'ev' ? es.reduce((a, e) => (['info', 'caution', 'danger', 'critical'].indexOf(e.sev) > ['info', 'caution', 'danger', 'critical'].indexOf(a) ? e.sev : a), 'info') : null;
-      const b = h('button', { class: `tl-m ${g.lane === 'ev' ? 'ev' : top.kind}${future ? ' future' : ''}${isCur && cursor >= 0 ? ' cur' : ''}`, role: 'listitem', style: { left: `${g.x}px`, '--sev': sev ? SEV[sev] : '' },
+      const b = h('button', { class: `tl-m ${g.lane === 'ev' ? 'ev' : top.kind}${g.side === 'down' ? ' below' : ''}${future ? ' future' : ''}${isCur && cursor >= 0 ? ' cur' : ''}`, role: 'listitem', style: { left: `${g.x}px`, '--sev': sev ? SEV[sev] : '' },
         'aria-label': es.map((e) => `${e.kind === 'event' ? 'Event' : e.kind === 'start' ? 'Start' : 'Change'} at ${fmtClock(e.t, e.day)}: ${e.label}`).join('; ') },
       g.items.length > 1 ? h('span', { class: 'tl-count' }, String(g.items.length)) : null);
-      tooltipFor(b, () => (es.length === 1 ? `${fmtClock(top.t, top.day)} · ${top.label}` : `${es.length} ${g.lane === 'ev' ? 'events' : 'changes'} · latest: ${top.label}`), 'top');
-      b.addEventListener('click', (ev) => openMarker(ev.currentTarget, g.items));
+      if (!(g.items.length === 1 && top.kind === 'start')) tooltipFor(b, () => (es.length === 1 ? `${fmtClock(top.t, top.day)} · ${top.label}` : `${es.length} ${g.lane === 'ev' ? 'events' : 'changes'} · latest: ${top.label}`), 'top');
+      if (g.items.length === 1 && top.kind === 'start') {
+        b.title = 'Restart this patient';
+        b.addEventListener('click', (ev) => popover(ev.currentTarget, [menuBtn('Restart this patient', () => onRestart?.())], { place: 'above', align: 'start', cls: 'time-pop' }));
+      } else b.addEventListener('click', (ev) => openMarker(ev.currentTarget, g.items));
       return b;
     }));
   }
@@ -352,7 +357,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
     }
     if (f.running !== lastRun) { lastRun = f.running; playBtn.replaceChildren(icon(f.running ? 'pause' : 'play')); playBtn.setAttribute('aria-label', f.running ? 'Pause' : 'Play'); }
     const sp = store.get().speed;
-    if (sp !== lastSpeed) { lastSpeed = sp; if (sp === 1) playBtn.removeAttribute('data-speed'); else playBtn.setAttribute('data-speed', `${sp}×`); }
+    if (sp !== lastSpeed) { lastSpeed = sp; speedBtn.textContent = `${sp}×`; }
     // Active bleeding: a steady red band from the rupture to now.
     const bleeding = !!f.metrics.bleeding;
     if (bleeding !== lastBleed || bleeding) {

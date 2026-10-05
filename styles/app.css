@@ -2820,9 +2820,15 @@ input[type="range"] { touch-action: none; }
 /* Labels participate in the figure's gestures without text selection or native touch scrolling. */
 .lz-lab, .lb { touch-action: none; user-select: none; -webkit-user-select: none; }
 
-/* Play button: a caret hints at hold-for-speed; a badge shows a non-1× speed. */
-.ib.play { position: relative; }
-.ib.play::after { content: ''; position: absolute; right: 4px; bottom: 5px; border-left: 3px solid transparent; border-right: 3px solid transparent; border-top: 4px solid currentColor; opacity: .5; }
-.ib.play[data-speed]::before { content: attr(data-speed); position: absolute; top: -3px; right: -3px; padding: 0 4px; border-radius: 999px; background: var(--accent); color: #fff; font: 700 9px/14px var(--font-ui); }
-.tl-ff { width: 34px; }
+/* Timeline centred: a 44px track with the line at its middle; events alternate above and below. */
+.tl-track { height: 44px; }
+.tl-rail, .tl-fill { top: 20px; }
+.tl-bleed { top: 18px; }
+.tl-now { top: 14px; }
+.tl-m.change, .tl-m.start, .tl-m.jump { top: 14px; }
+.tl-m.ev.below { top: 22px; }
+.tl-m.ev.below::before { align-self: end; margin-top: 0; margin-bottom: 1px; }
+.tl-m.ev.below::after { top: 0; bottom: 12px; }
+.tl-m.ev.below .tl-count { top: auto; bottom: -6px; }
+.tl-left .tl-speed, .vdock .tl-left .tl-speed { display: inline-flex; height: 28px; min-width: 34px; margin-left: -2px; border-radius: 999px; }
 .time-pop .menu-item[aria-pressed="true"] { color: var(--accent-ink); font-weight: 600; }
