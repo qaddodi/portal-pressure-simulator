@@ -2489,6 +2489,15 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   .lz-lab .d { font-size: calc(9.5px * var(--label-k, 1)); }
   .lz-lab small { display: none; }
 }
+/* Dark lobule labels: white names, values, units and zones on a black letter outline. */
+:root[data-theme="dark"] .lz { --label-halo: #000; }
+:root[data-theme="dark"] .lz :is(.lz-lab, .lz-lab .n, .lz-lab .v, .lz-lab .v b, .lz-lab small, .lz-lab .d, .lz-zone) { color: #fff; }
+:root[data-theme="dark"] .lz-zone span { opacity: 1; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .lz { --label-halo: #000; }
+  :root:not([data-theme="light"]) .lz :is(.lz-lab, .lz-lab .n, .lz-lab .v, .lz-lab .v b, .lz-lab small, .lz-lab .d, .lz-zone) { color: #fff; }
+  :root:not([data-theme="light"]) .lz-zone span { opacity: 1; }
+}
 /* Phone: the lobule's zoom in, zoom out and fit sit top right, under the toolbar. */
 @media (max-width: 720px) {
   .stage-view.in-lobule .zoom-pill { top: calc(var(--top-safe) + 8px); bottom: auto; right: calc(env(safe-area-inset-right) + 12px); translate: none; flex-direction: row; }
