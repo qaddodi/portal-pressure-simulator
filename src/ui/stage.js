@@ -2028,6 +2028,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const artery = toRGB('var(--artery)', cs);
     const originMode = originOn();
     tubeData.fill(0);
+    // Hovering or selecting any part of the IVC shows it whole: no veil, and no fades on it or on the tributaries joining it.
+    let ivcOn = false;
+    for (const id of IVC_EDGES) { const g = E[id]?.g; if (g && (g.classList.contains('is-sel') || g.classList.contains('hl'))) ivcOn = true; }
     for (const it of items) {
       const { x, kind, obj } = it, id = x.e.id, o = it.row * TUBE_TEXELS * 4;
       const ghost = x.g.classList.contains('coll-ghost');
@@ -2053,9 +2056,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (hovering && !hl) alpha *= CONTEXT_EDGES.has(id) ? 0.12 : 0.22;
         if (hasSel && !sel && !hl) alpha *= 0.42;
       }
-      const tier = x.lifted && !x.back ? (x.front ? TIER_LIFT_FRONT : TIER_LIFT) : x.isArt ? TIER_ART : levelTier(x);
+      const tier = ivcOn && IVC_EDGES.has(id) ? TIER_LIFT : x.lifted && !x.back ? (x.front ? TIER_LIFT_FRONT : TIER_LIFT) : x.isArt ? TIER_ART : levelTier(x);
       const shade = !x.isArt && !ghost;
-      const veil = IVC_EDGES.has(id);
+      const veil = IVC_EDGES.has(id) && !ivcOn;
       const spec = shade && !veil && kind !== 'f' && kind !== 'c' && !CONTEXT_EDGES.has(id) && !x.back && x.width >= 3.4;
       const flags = (sel && kind === 'v' ? F_SEL : 0) | (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt ? F_NOCASE : 0) | (veil ? F_VEIL : 0);
       const z = (kind === 'v' ? x.row + 0.5 : x.row) / GL_ROWS;
@@ -2069,9 +2072,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (obj.fadeMask && !x.feedJoined) { const [y0, y1] = FEEDER_FADE_Y[id]; fade = [0, y0, 0, y1, 0, 1, 0, 1]; }
         else if (obj.fan && cfg.fan) { const { at, len, levels, fade: fr = [0.7, 0.4] } = cfg.fan; fade = [at[0], at[1], len * (levels ? 2.7 : 1.35), 0, 0, fr[0], fr[1], 2]; }
       } else if (x.tipFade) { const L = x.tipFade.line; fade = [L[0], L[1], L[2], L[3], 0, x.tipFade.joined ? 1 : T0, 1, 1]; }
-      else if (kind === 'v' && IVC_JOIN[id]) fade = [...IVC_JOIN[id]];
-      else if (IVC_SEAM[id]) fade = [...IVC_SEAM[id]];
-      else if (FADE_DOWN_Y[id]) { const [y0, y1] = FADE_DOWN_Y[id]; fade = [0, y0, 0, y1, 0, 1, 0, 1]; }
+      else if (kind === 'v' && IVC_JOIN[id]) { if (!ivcOn) fade = [...IVC_JOIN[id]]; }
+      else if (IVC_SEAM[id]) { if (!ivcOn) fade = [...IVC_SEAM[id]]; }
+      else if (FADE_DOWN_Y[id] && !(ivcOn && IVC_EDGES.has(id))) { const [y0, y1] = FADE_DOWN_Y[id]; fade = [0, y0, 0, y1, 0, 1, 0, 1]; }
       else if (FADE_IN[id] && kind === 'v') { const [x1, y1, x2, y2, of] = FADE_IN[id]; fade = [x1, y1, x2, y2, of, 1, 0.3, 1]; }
       // The fades are drawn in the anatomy's coordinates: they let go as the circuit takes over.
       // (The tip fade already does: it is cleared in the circuit.)
