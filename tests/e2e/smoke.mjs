@@ -263,7 +263,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await shot(page, `${device}-veins-gl`);
   });
 
-  await check(device, 'liver lobule: GPU vessels, ladder, cards, zones', async (page) => {
+  await check(device, 'liver lobule: GPU vessels, pressure drops, caption, cards, zones', async (page) => {
     await open(page, '?preset=cirr-decomp');
     // The lobule is a view of its own, beside Anatomy and Circuit.
     await page.click('#viewSeg [data-view="lobule"]');
@@ -285,9 +285,17 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     });
     if (lit < 300) throw new Error(`the lobule's vessel layer is nearly empty (${lit} px)`);
     if ((await page.locator('.lz-lab').count()) !== 3) throw new Error('station cards missing');
-    if ((await page.locator('.lz-lad .lz-ladDot').count()) !== 5) throw new Error('pressure ladder incomplete');
-    const seg = await page.evaluate(() => document.querySelector('.lz-verdict').dataset.seg);
+    // The pressure drops are drawn on the lobule, the block lit, and the caption names it.
+    await page.waitForSelector('.lz-drop.hot:not([hidden])', { timeout: 10000 }).catch(() => { throw new Error('no pressure drop is lit on the lobule'); });
+    if ((await page.locator('.lz-drop:not([hidden])').count()) < 2) throw new Error('the pressure drops are missing from the lobule');
+    const seg = await page.evaluate(() => document.querySelector('.lz-cap').dataset.seg);
     if (seg !== 'sinusoidal') throw new Error(`cirrhosis should read as a sinusoidal block, got ${seg}`);
+    if (!(await page.locator('.lz-cap').innerText()).includes('mmHg lost across the sinusoids')) throw new Error('the caption does not say where the pressure is lost');
+    // The card is gone: nothing floats beside the lobule but the slider, the caption and the labels.
+    if (await page.locator('.lz-side').count()) throw new Error('the lobule still has its card');
+    // The strip reads the lobule's flows here.
+    const tiles = await page.evaluate(() => [...document.querySelectorAll('#strip .metric.primary')].filter((e) => e.offsetWidth).map((e) => e.dataset.id).join());
+    if (tiles !== 'lz-sin,lz-pv,lz-art,lz-ly') throw new Error(`the strip should show the lobule's flows, got ${tiles}`);
     // A part of the lobule opens the same action card as the anatomy, with its fibrosis slider.
     await page.locator('.lz-lab').nth(1).click();
     await page.waitForSelector('.action-card:not([hidden])');
@@ -328,10 +336,21 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     // Zooming out never leaves the lobule view.
     if (device === 'desktop') { for (let i = 0; i < 4; i++) await page.mouse.wheel(0, 600); await page.waitForTimeout(600); }
     if (!(await page.evaluate(() => window.pps.stage.lobuleOpen()))) throw new Error('zooming out left the lobule');
-    if (device === 'phone') await page.click('.lz-side .lz-title');   // a tap on the sheet's header unfolds it
-    await page.click('.lz-tg.zones');
+    // Zones and Lymph are in the toolbar's Layers menu, which is there only on the lobule.
+    await page.click('#btnLobuleLayers');
+    await page.click('.menu .menu-item:has-text("Zones")');
     await page.waitForFunction(() => document.querySelectorAll('.lz-zone').length === 3, null, { timeout: 5000 }).catch(() => { throw new Error('zones did not show'); });
-    await page.click('.lz-tg.lymph');
+    await page.click('.menu .menu-item:has-text("Lymph")');
+    await page.keyboard.press('Escape');
+    // A tap on the caption opens the rest; its cross puts it away, and the Layers menu brings it back.
+    await page.click('.lz-cap-main');
+    if (await page.getAttribute('.lz-cap-main', 'aria-expanded') !== 'true') throw new Error('the caption did not open');
+    await page.click('.lz-cap-x');
+    await page.waitForSelector('.lz-cap', { state: 'hidden' });
+    await page.click('#btnLobuleLayers');
+    await page.click('.menu .menu-item:has-text("Explanation")');
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.lz-cap', { state: 'visible' });
     await page.waitForTimeout(500);
     await shot(page, `${device}-lobule`);
     // Leaving the lobule closes its card.
@@ -388,7 +407,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       // counts only if it is still there a few frames later.
       const frames = () => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(r)))));
       const measure = () => page.evaluate(() => {
-        const SEL = ['.tb-id', '.top-right', '#viewSeg', '.topbar .sb-right', '.sb-center.float-ui', '#vdock', '#panel', '#treatCard:not([hidden])', '#dock', '#zoomPill', '.action-card:not([hidden])', '.coach:not(:empty)', '.lz.on .lz-side', '.lz.on .lz-key', '.lz.on .lz-top'];
+        const SEL = ['.tb-id', '.top-right', '#viewSeg', '.topbar .sb-right', '.sb-center.float-ui', '#vdock', '#panel', '#treatCard:not([hidden])', '#dock', '#zoomPill', '.action-card:not([hidden])', '.coach:not(:empty)', '.lz.on .lz-cir', '.lz.on .lz-cap', '.lz.on .lz-key'];
         const vis = (el) => { const st = getComputedStyle(el), r = el.getBoundingClientRect(); return st.display !== 'none' && st.visibility !== 'hidden' && +st.opacity > 0.05 && r.width > 2 && r.height > 2; };
         // On a phone the chart, Treat, the instruments and a vessel's card are sheets that rise over the dock by design.
         const sheet = (el) => el.classList.contains('docked') || (matchMedia('(max-width: 767px), (max-width: 1023px) and (max-height: 500px)').matches && (el.id === 'panel' || el.id === 'treatCard' || (el.id === 'dock' && !el.classList.contains('side'))));

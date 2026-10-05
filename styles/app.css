@@ -1532,7 +1532,7 @@ button.finding:hover { background: var(--surface-2); }
 .lz.lz-drag { cursor: grabbing; }
 .lz-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .lz-field { z-index: var(--z-figure); pointer-events: none; opacity: 0; }
-.lz :is(.lz-labels, .lz-leaders, .lz-top, .lz-side) { opacity: var(--lz-chrome, 1); }
+.lz :is(.lz-labels, .lz-leaders, .lz-drops, .lz-cir, .lz-cap) { opacity: var(--lz-chrome, 1); }
 .lz-leaders { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 .lz-labels { position: absolute; inset: 0; pointer-events: none; }
 /* Station cards: the anatomy's label style, as buttons that open the station's card */
@@ -1551,38 +1551,6 @@ button.finding:hover { background: var(--surface-2); }
 .lz-zone.z1 { --zc: rgb(186, 66, 48); } .lz-zone.z2 { --zc: rgb(150, 100, 32); } .lz-zone.z3 { --zc: rgb(96, 72, 182); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lz-zone.z1 { --zc: rgb(246, 140, 120); } :root:not([data-theme="light"]) .lz-zone.z2 { --zc: rgb(232, 186, 112); } :root:not([data-theme="light"]) .lz-zone.z3 { --zc: rgb(170, 150, 246); } }
 :root[data-theme="dark"] .lz-zone.z1 { --zc: rgb(246, 140, 120); } :root[data-theme="dark"] .lz-zone.z2 { --zc: rgb(232, 186, 112); } :root[data-theme="dark"] .lz-zone.z3 { --zc: rgb(170, 150, 246); }
-.lz-top { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; }
-.lz-tgs { display: flex; gap: 4px; padding: 3px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-pill); box-shadow: var(--shadow-1); }
-.lz-tg { display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; font: 500 var(--fs-12) var(--font-ui); color: var(--text-2); padding: 4px 10px; border-radius: var(--r-pill); cursor: pointer; }
-.lz-tg i { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid currentColor; }
-.lz-tg.zones i { background: conic-gradient(rgb(232, 104, 84) 0 33%, rgb(214, 160, 92) 0 66%, rgb(124, 98, 206) 0); border: 0; }
-.lz-tg.lymph i { border-color: rgb(168, 182, 156); background: rgb(226, 233, 216); }   /* the lymphatics' green */
-.lz-tg[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-ink, var(--accent)); font-weight: 600; }
-.lz-tg.lymph[aria-pressed="true"] i { background: rgb(226, 233, 216); border-color: rgb(140, 160, 124); box-shadow: 0 0 4px rgba(214, 226, 200, .9); }
-.lz-side { position: absolute; right: 16px; top: 64px; width: 264px; max-height: calc(100% - 132px); overflow-y: auto; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card); box-shadow: var(--shadow-2); display: grid; gap: 12px; }
-.lz-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; position: sticky; top: -16px; z-index: 1; margin: -16px -16px 0; padding: 16px 16px 4px; background: var(--surface); }
-.lz-grab { display: none; }
-.lz-cir { padding-top: 12px; border-top: 1px solid var(--border); }
-.lz-title { font: 600 var(--fs-16)/1.2 var(--font-ui); }
-.lz-sub { font-size: var(--fs-12); color: var(--text-3); margin-top: 2px; }
-.lz-lad { width: 100%; height: auto; display: block; overflow: visible; }
-.lz-lad0 { fill: none; stroke: var(--text-3); stroke-width: 1.2; stroke-dasharray: 3 3; opacity: .7; }
-.lz-lad1 { fill: none; stroke: var(--text-2); stroke-width: 1.6; stroke-linejoin: round; }
-.lz-ladDot { stroke: var(--surface); stroke-width: 1.5; }
-.lz-ladV { font: 650 10px var(--font-ui); fill: var(--text); font-variant-numeric: tabular-nums; }
-.lz-ladN { font: 500 10px var(--font-ui); fill: var(--text-3); }
-.lz-seg { fill: var(--hairline); }
-.lz-seg.on { fill: var(--danger); }
-.lz-verdict { margin: -4px 0 0; font-size: var(--fs-12); line-height: 1.45; color: var(--text-2); }
-.lz-verdict b { color: var(--text); font-weight: 600; }
-.lz-verdict.alert b { color: var(--danger); }
-.lz-stats { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: var(--fs-12); border-top: 1px solid var(--border); padding-top: 12px; }
-.lz-stats dt { color: var(--text-2); } .lz-stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
-.lz-stats dd.rev { color: var(--flow-reversed); }
-.lz-res { display: inline-block; margin-left: 6px; font-weight: 600; }
-.lz-res:first-child { margin-left: 0; }
-.lz-fib { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.lz-k { width: 100%; font-size: var(--fs-12); color: var(--text-3); font-weight: 600; }
 .lz-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: var(--fs-12); color: var(--text-2); border-top: 1px solid var(--border); padding-top: 12px; }
 .lz-legend span { display: inline-flex; gap: 8px; align-items: center; }
 .lz-legend i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .15); }
@@ -1591,15 +1559,8 @@ button.finding:hover { background: var(--surface-2); }
 .lz-legend .lg-sh { background: linear-gradient(90deg, #9b3c86, #6fa6da); border-radius: 3px; height: 6px; }
 .lz-legend .lg-ly { background: rgb(226, 233, 216); box-shadow: inset 0 0 0 1px rgb(168, 182, 156); }
 .stage-view.in-lobule #labels, .stage-view.in-lobule #veins, .stage-view.in-lobule #stageOver, .stage-view.in-lobule #overlay { visibility: hidden; }
-/* Phone: controls under the zoom trail, the panel as a compact sheet that opens for details */
+/* Phone: labels one size smaller */
 @media (max-width: 720px) {
-  .lz-top { top: 12px; left: 12px; transform: none; }
-  .lz-side { left: 12px; right: 64px; top: auto; bottom: 12px; width: auto; max-height: 62%; padding: 8px 12px; gap: 8px; }
-  .lz-head { top: -8px; margin: -8px -12px 0; padding: 14px 12px 4px; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; flex-wrap: wrap; }
-  .lz-grab { display: block; position: absolute; left: 50%; top: 5px; width: 36px; height: 4px; border-radius: 2px; background: var(--border-strong); transform: translateX(-50%); }
-  .lz-title { font-size: var(--fs-14); }
-  .lz-side:not(.open) .lz-ladder, .lz-side:not(.open) .lz-stats, .lz-side:not(.open) .lz-cir, .lz-side:not(.open) .lz-legend { display: none; }
-  .lz-side:not(.open) .lz-verdict { margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .lz-lab { padding: 3px 7px 4px; }
   .stage-view.in-lobule .stage-clock { display: none; }
   .lz-lab .n { font-size: 10.5px; } .lz-lab .v { font-size: 12.5px; }
@@ -1847,7 +1808,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .action-card.docked [data-key]::after, .action-card.docked .ac-slider[data-key]::after { display: none; }   /* no number-key hints on a phone */
 
 /* Every live number uses tabular figures, so digits hold still as the model runs. */
-.metric, .vital, .fd-d, .kv dd, .tl-time, .stage-clock, .big-overlay, .cmp-table, .cut-table, .hp-chip, .mon, .lz-side,
+.metric, .vital, .fd-d, .kv dd, .tl-time, .stage-clock, .big-overlay, .cmp-table, .cut-table, .hp-chip, .mon,
 .ctl-val, .event-log, .pb-n, .pt-n, .scn .d, #labels text, .ic-live, .tl-pop .when, .story .st-when, .bleed-pill { font-variant-numeric: tabular-nums; }
 
 /* ── Live instrument workspace ─────────────────────
@@ -2319,14 +2280,6 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 /* A phone keeps one row of pills: Share is a search away (Ctrl K / the search button). */
 @media (max-width: 479px) { #btnShare { display: none; } .find-badge .fb-n { min-width: 20px; height: 20px; } }
 
-/* The lobule view's own controls keep clear of the top bar and the vitals dock. */
-.lz-top { top: calc(var(--top-safe) + 8px); }
-.lz-side { top: calc(var(--top-safe) + 60px); max-height: calc(100% - var(--top-safe) - var(--vdock-h) - 96px); }
-@media (max-width: 720px) {
-  .lz-top { top: calc(var(--top-safe) + 8px); }
-  .lz-side { top: auto; bottom: calc(var(--vdock-h) + 14px); max-height: calc(100% - var(--top-safe) - var(--vdock-h) - 80px); }
-}
-
 /* ── Floating layout, second pass ─────────────────────
    One system for every floating piece: pills 12 px round, cards 16 px, the same shadow, controls
    40 px high (36 on a phone), and the same short slide when a card opens. */
@@ -2384,7 +2337,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   .tb-id .scenario-btn { max-width: 240px; }
   .lg-scale { width: 128px; }
 }
-@media (max-width: 1239px) { #btnBlood > span, #btnBlood .chev, .menu-btn .mb-k { display: none; } }
+@media (max-width: 1239px) { #btnBlood > span, #btnBlood .chev, #btnLobuleLayers > span, #btnLobuleLayers .chev, .menu-btn .mb-k { display: none; } }
 
 /* The compare switch floats under the top bar, centered. */
 .sb-center.float-ui { position: absolute; z-index: var(--z-hud); top: calc(var(--top-safe) + 6px); left: 50%; transform: translateX(-50%); display: flex; pointer-events: none; }
@@ -2518,17 +2471,11 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 }
 @media (max-width: 767px) { .coach { max-height: 34%; } }
 
-/* ── Lobule: a card on the right, the key beside the lobule, labels as in the anatomy ── */
-.lz-side { top: calc(var(--top-safe) + 4px); right: calc(env(safe-area-inset-right) + var(--gap) + var(--right-occ, 0px)); width: 300px; max-height: calc(100% - var(--top-safe) - var(--bot-occ, 120px) - 16px);
-  border: 0; border-radius: var(--r-sheet); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); padding: 14px 16px 16px; }
-.lz-head { margin: -14px -16px 0; padding: 14px 10px 4px 16px; align-items: center; }
-.lz-side:not(.open) .lz-ladder, .lz-side:not(.open) .lz-stats, .lz-side:not(.open) .lz-cir { display: none; }
-.lz-side:not(.open) .lz-verdict { margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+/* ── Lobule: labels as in the anatomy ── */
 .lz-key { position: absolute; left: calc(env(safe-area-inset-left) + var(--gap)); bottom: calc(var(--bot-occ, 120px) + 8px); max-width: min(560px, calc(100% - 2 * var(--gap) - var(--right-occ, 0px) - 320px));
   padding: 8px 12px; border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); transition: opacity .2s var(--ease); pointer-events: none; }
 .lz-key .lz-legend { border: 0; padding: 0; gap: 4px 14px; }
 .lz-key:has(.lz-legend:empty) { display: none; }
-.lz-side .lz-tgs { justify-self: start; padding: 2px; background: var(--surface-2, rgba(0, 0, 0, .04)); border: 0; box-shadow: inset 0 0 0 1px var(--hairline); }
 /* Labels: no box; the station, then its pressure with the unit and the change from healthy; a bar in
    the pressure's color on the side facing the vessel, as on the anatomy. */
 .lz-lab { display: grid; gap: 0; padding: 1px 8px 1px 9px; border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; border-left: 3px solid var(--sw, var(--border-strong)); line-height: 1.2; }
@@ -2552,21 +2499,16 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   .lz-lab .v { font-size: calc(12.5px * var(--label-k, 1)); }
   .lz-lab .d { font-size: calc(9.5px * var(--label-k, 1)); }
   .lz-lab small { display: none; }
-  .lz-side { left: 8px; right: 8px; width: auto; top: auto; bottom: calc(var(--vdock-h) + 14px); max-height: 56%; }
   .lz-key { left: 8px; right: 8px; bottom: auto; top: calc(var(--top-safe) + 48px); max-width: none; padding: 6px 10px; }
   .lz-key .lz-legend { font-size: var(--fs-12); gap: 2px 10px; }
 }
-@media (min-width: 721px) { .stage-view.in-lobule .zoom-pill { right: calc(env(safe-area-inset-right) + var(--gap) * 2 + var(--right-occ, 0px) + 300px); } }
-/* Phone: the lobule's zoom in, zoom out and fit sit top right, beside its Zones and Lymph switches. */
+/* Phone: the lobule's zoom in, zoom out and fit sit top right, under the toolbar. */
 @media (max-width: 720px) {
   .stage-view.in-lobule .zoom-pill { top: calc(var(--top-safe) + 8px); bottom: auto; right: calc(env(safe-area-inset-right) + 12px); translate: none; flex-direction: row; }
   .stage-view.in-lobule .zoom-pill #zoomIn, .stage-view.in-lobule .zoom-pill #zoomOut { display: inline-grid; }
 }
 /* In the tall Instruments card the trace chips wrap instead of scrolling sideways. */
 .instrument-workspace.side .pt-chips { flex-wrap: wrap; overflow: visible; -webkit-mask-image: none; mask-image: none; padding-right: 0; }
-/* The lobule's key keeps clear of the zoom buttons beside the lobule card. */
-@media (min-width: 721px) { .lz-key { max-width: min(560px, calc(100% - 2 * var(--gap) - var(--right-occ, 0px) - 400px)); } }
-@media (max-width: 720px) { .lz-side { max-height: min(56%, calc(100% - var(--top-safe) - var(--bot-occ, 120px) - 120px)); } }
 
 /* Instrument tabs: one slim segmented bar; the chosen instrument is a raised chip. */
 .instr-tabs { display: flex; gap: 2px; margin: 2px 12px 10px; padding: 3px; flex: none; border-radius: 10px; background: var(--surface-2); overflow-x: auto; scrollbar-width: none; }
@@ -2736,46 +2678,10 @@ input[type="range"] { touch-action: none; }
   .vdock .vd-status { margin-top: 4px; }
 }
 
-/* Comparing: the lobule's own controls and card sit below the Then / Now / Change switch (--cmp-h). */
-.lz-top { top: calc(var(--top-safe) + 8px + var(--cmp-h, 0px)); }
-@media (min-width: 721px) { .lz-side { top: calc(var(--top-safe) + 4px + var(--cmp-h, 0px)); max-height: calc(100% - var(--top-safe) - var(--cmp-h, 0px) - var(--bot-occ, 120px) - 16px); } }
+/* Comparing: the lobule's controls sit below the Then / Now / Change switch (--cmp-h). */
 @media (max-width: 720px) {
   .lz-key { top: calc(var(--top-safe) + 48px + var(--cmp-h, 0px)); }
   .stage-view.in-lobule .zoom-pill { top: calc(var(--top-safe) + 8px + var(--cmp-h, 0px)); }
-}
-/* The ladder's numbers (a phone shows these instead of the drawing): the five pressures in a row, joined
-   by a thin line, in their colour; the change beneath only when there is one; under them, the bars that
-   mark where the pressure is lost. */
-.lz-nums { display: none; gap: 6px; }
-.lz-nrow { position: relative; display: grid; grid-template-columns: repeat(5, 1fr); }
-.lz-nrow::before { content: ''; position: absolute; left: 10%; right: 10%; top: 12px; height: 1px; background: var(--border-strong); }
-.lz-num { position: relative; display: grid; justify-items: center; font-variant-numeric: tabular-nums; }
-.lz-num b { padding: 0 6px; background: var(--surface); font-size: var(--fs-20); font-weight: 700; line-height: 24px; color: color-mix(in oklab, var(--c) 75%, var(--text)); }
-.lz-num .d { min-height: 14px; font-size: 10.5px; font-weight: 650; line-height: 14px; }
-.lz-num .k { font-size: var(--fs-12); font-weight: 500; color: var(--text-3); }
-.lz-num .d.up, .lz-chg.up { color: color-mix(in srgb, var(--danger) 88%, var(--text)); }
-.lz-num .d.down, .lz-chg.down { color: var(--accent-ink); }
-.lz-nsegs { display: flex; gap: 4px; margin: 0 10%; }
-.lz-nsegs i { flex: 1; height: 4px; border-radius: 2px; background: var(--hairline); }
-.lz-nsegs i.on { background: var(--danger); }
-.lz-chg { font-size: 10.5px; font-weight: 650; margin-right: 6px; font-variant-numeric: tabular-nums; }
-@media (max-width: 720px) {
-  .lz-side .lz-ladder { display: none; }
-  .lz-side.open .lz-nums { display: grid; }
-  /* Folded, the strip rides on the right of the card beside the title and toggles: numbers, names and bars. */
-  .lz-side:not(.open) .lz-head { padding-right: 50%; }
-  .lz-side:not(.open) .lz-nums { display: grid; gap: 5px; position: absolute; z-index: 2; left: 50%; right: 6px; top: 50%; translate: 0 -50%; pointer-events: none; }
-  .lz-side:not(.open) .lz-nrow::before { top: 11px; }
-  .lz-side:not(.open) .lz-num b { padding: 0 3px; font-size: 18px; line-height: 22px; }
-  .lz-side:not(.open) .lz-num .d { display: none; }
-  .lz-side:not(.open) .lz-num .k { font-size: 11px; }
-  .lz-side:not(.open) .lz-nsegs i { height: 3px; }
-  .lz-num, .lz-nsegs { transform-origin: 50% 0; }
-  .lz-nums.flying { position: relative; z-index: 2; }
-  .lz-side:not(.open) .lz-nums.flying { position: absolute; }
-  /* The sheet rises with the lobule and sinks as it leaves, as the other sheets do; a swipe on it is its own. */
-  .lz .lz-side { opacity: 1; translate: 0 calc((1 - var(--lz-chrome, 1)) * 110%); touch-action: pan-y; }
-  .lz-stats { gap: 3px 12px; padding-top: 8px; }
 }
 
 /* Touch screens: a long press is a gesture here (hold to inspect, drag, pinch), not a text selection;
@@ -2831,9 +2737,9 @@ input[type="range"] { touch-action: none; }
 .topbar[data-fit="1"] .top-right .pal-l, .topbar[data-fit="1"] .top-right .pal-btn kbd,
 .topbar[data-fit="2"] .top-right .pal-l, .topbar[data-fit="2"] .top-right .pal-btn kbd,
 .topbar[data-fit="3"] .top-right .pal-l, .topbar[data-fit="3"] .top-right .pal-btn kbd { display: none; }
-.topbar[data-fit="1"] #btnBlood > span, .topbar[data-fit="1"] #btnBlood .chev,
-.topbar[data-fit="2"] #btnBlood > span, .topbar[data-fit="2"] #btnBlood .chev,
-.topbar[data-fit="3"] #btnBlood > span, .topbar[data-fit="3"] #btnBlood .chev { display: none; }
+.topbar[data-fit="1"] #btnBlood > span, .topbar[data-fit="1"] #btnBlood .chev, .topbar[data-fit="1"] #btnLobuleLayers > span, .topbar[data-fit="1"] #btnLobuleLayers .chev,
+.topbar[data-fit="2"] #btnBlood > span, .topbar[data-fit="2"] #btnBlood .chev, .topbar[data-fit="2"] #btnLobuleLayers > span, .topbar[data-fit="2"] #btnLobuleLayers .chev,
+.topbar[data-fit="3"] #btnBlood > span, .topbar[data-fit="3"] #btnBlood .chev, .topbar[data-fit="3"] #btnLobuleLayers > span, .topbar[data-fit="3"] #btnLobuleLayers .chev { display: none; }
 .topbar[data-fit="2"] .tb-sep, .topbar[data-fit="2"] .find-badge .fb-l, .topbar[data-fit="2"] .tb-act > span,
 .topbar[data-fit="3"] .tb-sep, .topbar[data-fit="3"] .find-badge .fb-l, .topbar[data-fit="3"] .tb-act > span { display: none; }
 .topbar[data-fit="3"] .menu-btn .mb-t { display: none; }
@@ -2853,7 +2759,67 @@ input[type="range"] { touch-action: none; }
   .topbar .lens-btn { padding: 0 3px; }
 }
 @media (max-width: 380px) { .topbar #viewSeg button { padding: 6px 3px; } }
-/* The lobule card's flows are a share of the healthy liver's. */
-.lz-stats-h { margin: 0 0 -6px; padding-top: 12px; border-top: 1px solid var(--border); font-size: var(--fs-12); font-weight: 600; color: var(--text-3); }
-.lz-stats-h + .lz-stats { border-top: 0; padding-top: 0; }
-.lz-side:not(.open) .lz-stats-h { display: none; }
+
+/* ── The lobule without its card ─────────────────────────────────────────────────────────────────
+   The pressure drops sit on the figure itself (a pill on each stretch between the stations, the one that
+   carries the block lit); the explanation is a caption on the lower edge; the cirrhosis slider is a small
+   pill by the top edge; Zones, Lymph and the caption's switch are the toolbar's Layers menu. */
+.chip-btn[hidden] { display: none; }
+.lz-drops { position: absolute; inset: 0; pointer-events: none; }
+.lz-conn { fill: none; stroke: var(--text-3); stroke-width: 1.4; stroke-dasharray: 1.5 5; stroke-linecap: round; opacity: .8; }
+.lz-conn.hot { stroke: var(--danger); stroke-width: 2.6; stroke-dasharray: 6 5; opacity: .95; filter: drop-shadow(0 0 3px color-mix(in srgb, var(--danger) 40%, transparent)); }
+.lz-drop { position: absolute; transform: translate(-50%, -50%); display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 0 3px; padding: 1px 8px 2px; border-radius: var(--r-pill);
+  background: var(--glass); box-shadow: 0 1px 2px rgba(20, 22, 30, .14), inset 0 0 0 1px var(--hairline); font-family: var(--font-ui); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lz-drop[hidden] { display: none; }
+.lz-drop b { font-size: calc(12px * var(--label-k, 1)); font-weight: 650; color: var(--text-2); }
+.lz-drop small { font-size: calc(10px * var(--label-k, 1)); color: var(--text-3); }
+.lz-drop .n { flex-basis: 100%; text-align: center; font-size: calc(10.5px * var(--label-k, 1)); font-weight: 500; color: var(--text-2); }
+.lz-drop.hot { padding: 2px 10px 3px; box-shadow: 0 1px 3px rgba(20, 22, 30, .2), inset 0 0 0 1.5px color-mix(in srgb, var(--danger) 60%, transparent); }
+.lz-drop.hot b { font-size: calc(15px * var(--label-k, 1)); color: var(--danger); }
+.lz-drop.hot .n { color: color-mix(in srgb, var(--danger) 75%, var(--text)); font-weight: 600; }
+
+.lz-cir { position: absolute; z-index: 2; top: calc(var(--top-safe) + var(--cmp-h, 0px) + 8px); left: calc(env(safe-area-inset-left) + var(--gap, 12px)); display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 14px;
+  border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); font: 500 var(--fs-12) var(--font-ui); color: var(--text-2); }
+.lz-cir .range-wrap { width: 150px; flex: none; }
+.lz-cir .ctl-val { min-width: 3.2em; text-align: right; }
+.lz-cir:has(input:disabled) { opacity: .55; }
+/* A laptop has room to say how the slider's partners work: under the pill, in the figure's halo type. */
+.lz-cir-hint { position: absolute; left: 4px; top: calc(100% + 6px); width: 270px; font-size: var(--fs-12); font-weight: 400; line-height: 1.4; color: var(--text-2); pointer-events: none;
+  text-shadow: 0 0 3px var(--label-halo), 0 0 3px var(--label-halo), 0 0 6px var(--label-halo); }
+
+.lz-cap { position: absolute; z-index: 2; left: calc((100% - var(--right-occ, 0px)) / 2); translate: -50% 0; bottom: calc(var(--bot-occ, 120px) + 8px); width: min(680px, calc(100% - var(--right-occ, 0px) - 2 * var(--gap, 12px) - 90px));
+  display: flex; align-items: flex-start; border-radius: var(--r-sheet); background: color-mix(in srgb, var(--glass) 86%, transparent); box-shadow: 0 1px 3px rgba(20, 22, 30, .12), inset 0 0 0 1px var(--hairline);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); font-family: var(--font-ui); }
+.lz-cap[hidden] { display: none; }
+.lz-cap-main { flex: 1; min-width: 0; min-height: 52px; display: flex; gap: 10px; align-items: flex-start; text-align: left; border: 0; background: none; padding: 9px 2px 9px 12px; border-radius: var(--r-sheet); cursor: pointer; color: var(--text-2); font: 400 var(--fs-12)/1.45 var(--font-ui); }
+.lz-cap-i { flex: none; width: var(--ic-s); height: var(--ic-s); margin-top: 1px; fill: none; stroke: var(--text-3); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.lz-cap[data-seg="sinusoidal"] .lz-cap-i, .lz-cap[data-seg="pre-sinusoidal"] .lz-cap-i, .lz-cap[data-seg="post-sinusoidal"] .lz-cap-i { stroke: var(--danger); }
+.lz-cap-tx { flex: 1; min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.lz-cap-tx b { color: var(--text); font-weight: 600; }
+.lz-cap[data-seg="sinusoidal"] .lz-cap-tx b, .lz-cap[data-seg="pre-sinusoidal"] .lz-cap-tx b, .lz-cap[data-seg="post-sinusoidal"] .lz-cap-tx b { color: var(--danger); }
+.lz-cap-more { display: none; }
+.lz-cap-more span { display: block; margin-top: 4px; color: var(--text-3); }
+.lz-cap.open .lz-cap-tx { display: block; overflow: visible; }
+.lz-cap.open .lz-cap-more { display: block; }
+.lz-cap-chev { flex: none; width: var(--ic-s); height: var(--ic-s); margin-top: 1px; fill: none; stroke: var(--text-3); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s var(--ease); }
+.lz-cap.open .lz-cap-chev { transform: rotate(180deg); }
+.lz-cap-x { flex: none; width: 32px; height: 32px; margin: 5px 5px 0 0; display: inline-grid; place-items: center; border: 0; border-radius: var(--r-card); background: none; color: var(--text-3); cursor: pointer; }
+.lz-cap-x:hover { background: var(--surface-3); color: var(--text); }
+.lz-cap-x svg { width: var(--ic-s); height: var(--ic-s); fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.lz-cap.open { z-index: 3; }
+
+@media (max-width: 720px) {
+  .lz-cir { top: calc(var(--top-safe) + 8px + var(--cmp-h, 0px)); left: calc(env(safe-area-inset-left) + 8px); max-width: calc(100% - 156px - 2 * 8px); gap: 8px; padding: 0 12px; }
+  .lz-cir .range-wrap { width: auto; flex: 1 1 70px; min-width: 60px; }
+  .lz-cir-hint { display: none; }
+  .lz-cap { left: 8px; right: 8px; width: auto; translate: none; }
+  .lz-drop { padding: 0 7px 1px; }
+  .lz-drop.hot { padding: 1px 8px 2px; }
+  .lz-drop.hot b { font-size: calc(13px * var(--label-k, 1)); }
+  .lz-drop:not(.hot) small, .lz-drop .n { display: none; }
+}
+
+/* The Lobule view's readouts (the strip's lobule group): the lobule's flows replace the key readouts. */
+.readouts:not(.lob) .ro-group[data-group="lobule"] { display: none; }
+.readouts.lob:not(.all) .ro-group[data-group="lobule"] { --n: 4; }
+.readouts.lob.all .ro-group[data-group="lobule"] { order: -1; }

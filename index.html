@@ -19,7 +19,7 @@
   <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="fonts/fonts.css" />
   <link rel="stylesheet" href="styles/tokens.css?v=96d9ac961c" />
-  <link rel="stylesheet" href="styles/app.css?v=03d4d78d5f" />
+  <link rel="stylesheet" href="styles/app.css?v=32b3fc56be" />
   <style>
     #boot { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; height: 100lvh; z-index: 2147483647; display: grid; place-items: center; background: var(--bg, #FBFAF7); transition: opacity .45s ease, visibility .45s; }
     #boot.done { opacity: 0; visibility: hidden; pointer-events: none; }
@@ -107,7 +107,7 @@
       <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></symbol>
       <symbol id="i-print" viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7" rx="1"/></symbol>
       <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
-      <symbol id="i-activity" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol><symbol id="i-streaks" viewBox="0 0 24 24"><path d="M3 7.5c3-2 6 2 9 0s6-2 9 0M3 12.5c3-2 6 2 9 0s6-2 9 0M3 17.5c3-2 6 2 9 0s6-2 9 0"/></symbol><symbol id="i-chevrons" viewBox="0 0 24 24"><path d="M5 6l6 6-6 6M13 6l6 6-6 6"/></symbol><symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12.2V4a1 1 0 0 1 1-1h8.2a1 1 0 0 1 .7.3l8 8a1 1 0 0 1 0 1.4l-8.2 8.2a1 1 0 0 1-1.4 0l-8-8a1 1 0 0 1-.3-.7z"/><circle cx="7.5" cy="7.5" r="1.5"/></symbol><symbol id="i-route" viewBox="0 0 24 24"><path d="M6.5 18.5C13 18.5 9 5.5 17.5 5.5" stroke-dasharray="2.2 2.6"/><circle cx="4.5" cy="18.5" r="2.2"/><circle cx="19.5" cy="5.5" r="2.2"/></symbol>
+      <symbol id="i-activity" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol><symbol id="i-streaks" viewBox="0 0 24 24"><path d="M3 7.5c3-2 6 2 9 0s6-2 9 0M3 12.5c3-2 6 2 9 0s6-2 9 0M3 17.5c3-2 6 2 9 0s6-2 9 0"/></symbol><symbol id="i-chevrons" viewBox="0 0 24 24"><path d="M5 6l6 6-6 6M13 6l6 6-6 6"/></symbol><symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12.2V4a1 1 0 0 1 1-1h8.2a1 1 0 0 1 .7.3l8 8a1 1 0 0 1 0 1.4l-8.2 8.2a1 1 0 0 1-1.4 0l-8-8a1 1 0 0 1-.3-.7z"/><circle cx="7.5" cy="7.5" r="1.5"/></symbol><symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3 2.5 8 12 13l9.5-5z"/><path d="M2.5 12.2 12 17.2l9.5-5M2.5 16.4 12 21.4l9.5-5"/></symbol><symbol id="i-zones" viewBox="0 0 24 24"><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z"/><path d="M12 8 16 10.2v3.6L12 16l-4-2.2v-3.6z"/></symbol><symbol id="i-lymph" viewBox="0 0 24 24"><path d="M12 3c2.7 3.3 5 5.8 5 8.8a5 5 0 0 1-10 0C7 8.8 9.3 6.3 12 3z"/><path d="M4 20.5c2.700-1.400 5.300 1.400 8 0s5.300-1.400 8 0"/></symbol><symbol id="i-route" viewBox="0 0 24 24"><path d="M6.5 18.5C13 18.5 9 5.5 17.5 5.5" stroke-dasharray="2.2 2.6"/><circle cx="4.5" cy="18.5" r="2.2"/><circle cx="19.5" cy="5.5" r="2.2"/></symbol>
     </defs>
   </svg>
 
@@ -136,6 +136,7 @@
           </div>
         </div>
         <div class="sb-right">
+          <button class="chip-btn" id="btnLobuleLayers" aria-haspopup="menu" title="Layers: what to show on the lobule" hidden><svg><use href="#i-layers"/></svg><span>Layers</span><svg class="chev"><use href="#i-chev-down"/></svg></button>
           <button class="chip-btn" id="btnBlood" aria-haspopup="menu" title="Moving blood: streaks and chevrons"><svg><use href="#i-drop"/></svg><span>Blood</span><svg class="chev"><use href="#i-chev-down"/></svg></button>
           <div class="lens-btn" id="btnLayers" role="button" tabindex="0" aria-haspopup="dialog" title="Color the vessels by… (L cycles)"><span class="lens-name" id="colorModeLabel">Pressure</span><div class="legend" id="legend" role="img" aria-label="Color legend"></div><svg class="chev"><use href="#i-chev-down"/></svg></div>
         </div>
@@ -199,17 +200,17 @@
   <div class="toast-wrap" id="toasts"></div>
   <div class="sr-only" aria-live="polite" id="live"></div>
 
-  <link rel="modulepreload" href="src/ui/stage.js?v=ed14af60e5" />
+  <link rel="modulepreload" href="src/ui/stage.js?v=ac2df5a3da" />
   <link rel="modulepreload" href="src/ui/anatomy.js?v=c4953196b7" />
   <link rel="modulepreload" href="src/ui/util.js?v=831ebf143a" />
-  <link rel="modulepreload" href="src/ui/store.js?v=9c069d2ebf" />
+  <link rel="modulepreload" href="src/ui/store.js?v=bf24fe8d3e" />
   <link rel="modulepreload" href="src/ui/colormap.js?v=6d64a94345" />
-  <link rel="modulepreload" href="src/ui/inspector.js?v=d5eb049d8d" />
-  <link rel="modulepreload" href="src/ui/dock.js?v=0865bd166b" />
-  <link rel="modulepreload" href="src/ui/charts.js?v=7d4d0419f5" />
-  <link rel="modulepreload" href="src/ui/instruments.js?v=1eeb009ca2" />
-  <link rel="modulepreload" href="src/ui/timeline.js?v=fb1c454a3b" />
+  <link rel="modulepreload" href="src/ui/inspector.js?v=11ade9d6ef" />
+  <link rel="modulepreload" href="src/ui/dock.js?v=493e34a399" />
+  <link rel="modulepreload" href="src/ui/charts.js?v=5900d28387" />
+  <link rel="modulepreload" href="src/ui/instruments.js?v=d56a30048e" />
+  <link rel="modulepreload" href="src/ui/timeline.js?v=736fdf9abe" />
   <link rel="modulepreload" href="src/engine/topology.js?v=29d10ad9ef" />
-  <script type="module" src="src/ui/main.js?v=52057368f0"></script>
+  <script type="module" src="src/ui/main.js?v=4e6b3a037d"></script>
 </body>
 </html>
