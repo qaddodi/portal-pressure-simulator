@@ -116,9 +116,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const k = Math.min(IVC_JOIN_LEN, d) / d;
     IVC_JOIN[e.id] = [bx - (bx - ax) * k, by - (by - ay) * k, bx, by, 0, 1, 0, 1];
   }
-  // The two halves of the IVC meet at the hepatic confluence: each fades out toward it, so neither
-  // shows an end cap and the translucent layers never stack there ([x1, y1, x2, y2, offset, alpha at start, alpha at end, mode]).
-  const IVC_SEAM = { IVC_IS: [620, 222, 620, 190, 0, 1, 0, 1], IVCS_RA: [620, 190, 620, 162, 0, 0, 1, 1] };
+  // The two halves of the IVC meet at the hepatic confluence: the upper half fades in from the lower one, which stays solid (two translucent layers
+  // in different tiers cannot sum to a full wall, so fading both leaves a hole) ([x1, y1, x2, y2, offset, alpha at start, alpha at end, mode]).
+  const IVC_SEAM = { IVCS_RA: [620, 192, 620, 160, 0, 0, 1, 1] };
   const FADE_DOWN_Y = { C4: [892, 928], EPI_ILI: [870, 925], ILI_IVC: [850, 925], V_UP: [38, 4] };
   // The azygos trunk fades out toward its lower end unless the ascending lumbar collateral (C9) is
   // open and carries it on down to the cava: [y where the fade starts, y where it is gone].
