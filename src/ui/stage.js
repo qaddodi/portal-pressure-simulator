@@ -682,6 +682,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const on = x.g.classList.contains('is-sel') || x.g.classList.contains('hl');
       if (on !== !!x.lifted) { x.lifted = on; place(x); }
     }
+    // Within the focus tier the portal tree stays in front (as in the resting order), so a
+    // lifted collateral (paraumbilical) never draws over a lifted portal vein.
+    for (const x of Object.values(E)) if (x.lifted && x.front && !x.isArt && !x.back) { gTopS.append(x.gs); gTopC.append(x.gc); gTopL.append(x.g); gTopH.append(x.gh); }
   }
   const cls = (x, c, on) => { for (const g of x.groups) g.classList.toggle(c, on); };
   const setStyle = (x, k, v) => { if (x['_s' + k] === v) return; x['_s' + k] = v; for (const g of x.groups) g.style[k] = v; };
