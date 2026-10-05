@@ -3561,6 +3561,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (lobuleOn || vtGliding || drag || glide) return;
     let to = { ...vt };
     const k = clamp(vt.k, K_MIN, K_MAX);
+    if (vt.k < K_MIN) { const d = defaultVT(morphTarget === 1); if (!sameView(d, vt)) animateVT(d, 420); return; }   // pinched out past the minimum: back to the fit view
     if (k !== vt.k) {
       const [cx, cy] = freeCentre(), [vx, vy] = clientToVB(cx, cy);
       to = { k, x: vx - ((vx - vt.x) / vt.k) * k, y: vy - ((vy - vt.y) / vt.k) * k };
