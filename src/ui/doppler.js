@@ -7,7 +7,7 @@
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { h, fmt, fitCanvas, clamp, icon } from './util.js?v=d90a6074b7';
 import { FONT } from './charts.js?v=ec5db0ba37';
-import { DOPPLER_MODES, isDirectional, dopplerColor, legendGradient, varianceGradient } from './dopplerColor.js?v=0e8d6f93e0';
+import { DOPPLER_MODES, dopplerColor, shadeColor, legendColor, swatchGradient } from './dopplerColor.js?v=a3c48b0674';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 // kind decides the words for direction and pattern; normal is the usual mean velocity (cm/s).
@@ -58,30 +58,14 @@ export function createDoppler({ onProbe }) {
   let invert = false;
   const invBtn = h('button', { class: 'dop-tint dop-inv', 'aria-pressed': 'false', title: 'Invert the display: show flow away from the probe above the baseline' }, h('i', { 'aria-hidden': 'true' }, '⇅'), 'Invert');
   invBtn.addEventListener('click', () => { invert = !invert; invBtn.setAttribute('aria-pressed', String(invert)); sync(); });
-  // The legend: a small colour bar over the trace in the colour modes.
-  // (Variance has two rows: toward and away, laminar to turbulent.)
-  const legBar = h('i'), legLo = h('span'), legHi = h('span');
-  const dirRow = h('div', { class: 'lg-row' }, legLo, legBar, legHi);
-  const vBars = [h('i'), h('i')];
-  const varBox = h('div', { class: 'lg-var' }, h('span', {}, 'toward'), vBars[0], h('span', {}, 'away'), vBars[1],
-    h('span'), h('em', {}, h('span', {}, 'laminar'), h('span', {}, 'turbulent')));
-  const legend = h('div', { class: 'dop-legend', hidden: true, 'aria-hidden': 'true' }, dirRow, varBox);
   function sync() {
     const m = DOPPLER_MODES.find((x) => x.id === mode);
     modeTxt.textContent = m.short;
     modeBtn.title = `Doppler display: ${m.label}. Tap to change.`;
     modeBtn.setAttribute('aria-label', `Doppler display mode: ${m.label}. Activate to change.`);
     modeBtn.setAttribute('aria-pressed', String(mode !== 'spectrum'));
-    modeSw.style.background = mode === 'spectrum' ? '' : legendGradient('velocity', invert && isDirectional(mode));
+    modeSw.style.background = mode === 'spectrum' ? '' : swatchGradient(mode);
     invBtn.title = 'Invert the display: show flow away from the probe above the baseline; swaps the toward/away colors';
-    legend.hidden = mode === 'spectrum';
-    if (mode !== 'spectrum') {
-      const vmode = mode === 'variance';
-      dirRow.hidden = vmode; varBox.hidden = !vmode;
-      if (vmode) { vBars[0].style.background = varianceGradient(1, invert); vBars[1].style.background = varianceGradient(-1, invert); }
-      else legBar.style.background = legendGradient(mode, invert && isDirectional(mode));
-      legLo.textContent = 'away'; legHi.textContent = 'toward';
-    }
     if (frame) draw();
   }
   const sweepIcon = icon('clock');
@@ -115,7 +99,7 @@ export function createDoppler({ onProbe }) {
   }));
   const report = h('div', { class: 'dop-report' }, dirEl, h('div', { class: 'dop-velrow' }, velEl, rangeEl), patternEl, stats, noteEl);
   const el = h('div', { class: 'dop', 'data-pane': 'doppler' },
-    h('div', { class: 'dop-head' }, probeSel, h('div', { class: 'dop-btns' }, modeBtn, invBtn, sweepBtn)), h('div', { class: 'dop-main' }, h('div', { class: 'dop-boxwrap' }, box, legend), report));
+    h('div', { class: 'dop-head' }, probeSel, h('div', { class: 'dop-btns' }, modeBtn, invBtn, sweepBtn)), h('div', { class: 'dop-main' }, box, report));
 
   // ── Samples ───────────────────────────────────────
   let buf = [];
@@ -250,7 +234,7 @@ export function createDoppler({ onProbe }) {
   let floor = null, noiseAt = 0, nx = 0, ny = 0;
   let ringKey = '', lastCol = null, jit = 0, lineGain = 0, spk = null;
   const STEPS = [10, 15, 20, 30, 40, 60, 80, 100, 150, 200, 300];
-  const cc = [0, 0, 0, 0];          // scratch: one pixel's colour
+  const cc = [0, 0, 0, 0], sc = [0, 0, 0];   // scratch: one pixel's colour
   const A_SIG = 10 ** 2.8;          // signal power over the noise floor (≈ 28 dB)
   const FLOOR_DB = 4.5, RANGE_DB = 30;  // log compression: the grey map spans 4.5–34.5 dB
   const LN10_10 = 10 / Math.LN10;
@@ -371,15 +355,47 @@ export function createDoppler({ onProbe }) {
       const q = (ry * RW + x) * 4;
       let r = 236 * GAIN * I, gg = 240 * GAIN * I, bl = 250 * GAIN * I;
       if (col && I > 0) {
-        // flat colours, exactly as the legend shows them: Velocity by the sign above or below the baseline,
-        // Variance also by the variance; the sign above or below the
+        // the map's colours as a tinted spectrum, exactly as the legend shows them: Velocity by the sign above or
+        // below the baseline, Variance also by the variance; the sign above or below the
         // baseline decides toward or away (Invert has already flipped the trace, and with it the colors)
         const ff = P > L ? clamp((vel * s - L) / (P - L), 0, 1) : 1;
         dopplerColor(mode, { u: clamp(vel * uK, -1, 1), s: clamp(lineS + 0.45 * (1 - ff) * (1 - ff), 0, 1) }, false, cc);
-        const k = cc[3] * clamp((I - 0.05) / 0.3, 0, 1) / 255;
-        r = cc[0] * k * 255; gg = cc[1] * k * 255; bl = cc[2] * k * 255;
+        const t = Math.min(1, I * GAIN), cover = cc[3] * clamp((I - 0.02) / 0.2, 0, 1);
+        shadeColor(cc, t, cover, sc);
+        r = sc[0]; gg = sc[1]; bl = sc[2];
       }
       D[q] = r; D[q + 1] = gg; D[q + 2] = bl; D[q + 3] = 255;
+    }
+  }
+
+  // The legend: a slim vertical bar in the left margin, zero (the black band) on the baseline, flow
+  // above it and below it as the trace colours them. Variance reads laminar → turbulent across.
+  function drawLegend(ctx, lg, padT, H, baseY) {
+    const x0 = 4, bw = lg - 16, gap = 5, yz = padT + baseY, vmode = mode === 'variance';
+    const fillRow = (y0, y1, above) => {
+      if (y1 <= y0) return;
+      if (vmode) {
+        const gr = ctx.createLinearGradient(x0, 0, x0 + bw, 0);
+        gr.addColorStop(0, legendColor(mode, above, 0)); gr.addColorStop(1, legendColor(mode, above, 1));
+        ctx.fillStyle = gr;
+      } else ctx.fillStyle = legendColor(mode, above);
+      ctx.fillRect(x0, y0, bw, y1 - y0);
+    };
+    fillRow(padT, yz - gap, true); fillRow(yz + gap, padT + H, false);
+    ctx.fillStyle = '#000'; ctx.fillRect(x0, yz - gap, bw, 2 * gap);
+    ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 1; ctx.strokeRect(x0 - 0.5, padT - 0.5, bw + 1, H + 1);
+    ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.font = FONT(500, 9.5); ctx.textBaseline = 'middle';
+    // Invert flips the trace about the baseline, so what lies above it is then flow away from the probe
+    const [top, bot] = invert ? ['away', 'toward'] : ['toward', 'away'];
+    const side = (text, y0, y1) => {
+      if (y1 - y0 < ctx.measureText(text).width + 6) return;
+      ctx.save(); ctx.translate(x0 + bw + 8, (y0 + y1) / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = 'center'; ctx.fillText(text, 0, 0); ctx.restore();
+    };
+    side(top, padT, yz - gap); side(bot, yz + gap, padT + H);
+    if (vmode) {
+      ctx.font = FONT(500, 8.5); ctx.textBaseline = 'alphabetic';
+      ctx.textAlign = 'left'; ctx.fillText('lam', x0, padT - 4);
+      ctx.textAlign = 'right'; ctx.fillText('turb', x0 + bw, padT - 4);
     }
   }
 
@@ -389,15 +405,17 @@ export function createDoppler({ onProbe }) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cv.width, cv.height);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const padL = 12, padR = 46, padT = 26, padB = 20;
+    // the colour modes keep their legend in a left margin, outside the trace, on its toward/away axis
+    const lg = mode === 'spectrum' ? 0 : mode === 'variance' ? 40 : 24;
+    const padL = 12 + lg, padR = 46, padT = 26, padB = 20;
     const W = Math.max(1, Math.round(w - padL - padR)), H = Math.max(1, Math.round(hh - padT - padB));
     if (w < 60 || hh < 60) return;
     const label = probe ? EDGES[EI[probe]].label : '';
     ctx.font = FONT(600, 11); ctx.fillStyle = 'rgba(255,255,255,.86)'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText(label, padL, 13);
+    ctx.fillText(label, 12, 13);
     const lw = ctx.measureText(label).width;
     ctx.font = FONT(500, 11); ctx.fillStyle = 'rgba(255,255,255,.5)';
-    ctx.fillText(`${mode === 'spectrum' ? 'PW' : 'PW + CD'}  ·  θ 60°  ·  SV 3 mm  ·  ${sweepSeconds} s`, padL + lw + 12, 13);
+    ctx.fillText(`${mode === 'spectrum' ? 'PW' : 'PW + CD'}  ·  θ 60°  ·  SV 3 mm  ·  ${sweepSeconds} s`, 12 + lw + 12, 13);
     if (buf.length < 2) {
       tDisp = null;
       ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.55)';
@@ -472,6 +490,7 @@ export function createDoppler({ onProbe }) {
 
     // Baseline
     ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillRect(padL, padT + baseY, W, 1);
+    if (lg) drawLegend(ctx, lg, padT, H, baseY);
     // Velocity scale on the right
     ctx.font = FONT(500, 10.5); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     const step = scale > 120 ? 50 : scale > 60 ? 20 : scale > 30 ? 10 : 5;

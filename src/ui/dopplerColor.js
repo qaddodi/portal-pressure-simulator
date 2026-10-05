@@ -42,16 +42,34 @@ export function dopplerColor(mode, { u = 0, s = 0 }, invert = false, out = [0, 0
   return out;
 }
 
-const rgb = (c) => `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`;
+// The trace is a tinted spectrum, not flat paint: the map's colour is softened a little and then
+// modulated by the pixel's own signal brightness, with the brightest cores pulling toward the
+// spectrum's own near-white. The legend is painted with the same function, so it shows what the
+// trace shows.
+const SOFT = 0.28;                       // how far the map colour is pulled toward its own grey
+const WHITE = [236, 240, 250];           // the spectrum's bright end
+export const LEGEND_T = 0.8;             // the nominal brightness the legend shows
 
-/** The Velocity legend as a CSS gradient: away (left), no shift (black), toward (right), in flat bands. */
-export function legendGradient(mode, invert = false) {
-  const a = rgb(invert ? TOWARD : AWAY), t = rgb(invert ? AWAY : TOWARD);
-  return `linear-gradient(90deg,${a} 0 42%,#000 42% 58%,${t} 58% 100%)`;
+/** Softened, brightness-modulated colour: c is a map colour, t the pixel's signal brightness 0..1, cover how much of it to show. */
+export function shadeColor(c, t, cover, out = [0, 0, 0]) {
+  const l = 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2];
+  const b = (0.3 + 0.7 * t) * cover, hl = 0.2 * t * t * Math.sqrt(t) * cover;
+  for (let k = 0; k < 3; k++) { const v = (c[k] * (1 - SOFT) + l * SOFT) * b + WHITE[k] * hl; out[k] = v > 255 ? 255 : v; }
+  return out;
 }
 
-/** One row of the Variance legend: laminar (left) to turbulent (right) for flow toward (u > 0) or away (u < 0). */
-export function varianceGradient(u, invert = false) {
-  const toward = (invert ? -u : u) >= 0, [a, b] = toward ? VAR_TOWARD : VAR_AWAY;
-  return `linear-gradient(90deg,${rgb(a)},${rgb(b)})`;
+const css = (c) => `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`;
+const shown = (mode, u, s) => css(shadeColor(dopplerColor(mode, { u, s }), LEGEND_T, 1));
+
+/**
+ * The legend colour as the trace shows it, by display position (above the baseline u > 0, below
+ * u < 0) and, for Variance, x from laminar 0 to turbulent 1. The colours follow the trace's
+ * position about the baseline, so Invert (which flips the trace) needs no change here.
+ */
+export const legendColor = (mode, above, x = 0) => shown(mode, above ? 1 : -1, x);
+
+/** The pill's little swatch: toward | away (Variance: laminar to turbulent in each). */
+export function swatchGradient(mode) {
+  if (mode === 'variance') return `linear-gradient(90deg,${legendColor(mode, true, 0)},${legendColor(mode, true, 1)} 50%,${legendColor(mode, false, 0)} 50%,${legendColor(mode, false, 1)})`;
+  return `linear-gradient(90deg,${legendColor(mode, true)} 50%,${legendColor(mode, false)} 50%)`;
 }
