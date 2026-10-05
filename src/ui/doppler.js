@@ -7,7 +7,7 @@
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { h, fmt, fitCanvas, clamp, icon } from './util.js?v=d90a6074b7';
 import { FONT } from './charts.js?v=ec5db0ba37';
-import { DOPPLER_MODES, isDirectional, dopplerColor, legendGradient, powerIndex } from './dopplerColor.js?v=4911238c8b';
+import { DOPPLER_MODES, isDirectional, dopplerColor, legendGradient, drawVarianceLegend, powerIndex } from './dopplerColor.js?v=d0d662d044';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 // kind decides the words for direction and pattern; normal is the usual mean velocity (cm/s).
@@ -59,21 +59,25 @@ export function createDoppler({ onProbe }) {
   const invBtn = h('button', { class: 'dop-tint dop-inv', 'aria-pressed': 'false', title: 'Invert the display: show flow away from the probe above the baseline' }, h('i', { 'aria-hidden': 'true' }, '⇅'), 'Invert');
   invBtn.addEventListener('click', () => { invert = !invert; invBtn.setAttribute('aria-pressed', String(invert)); sync(); });
   // The legend: a small colour bar over the trace in the colour modes.
+  // (Variance is a 2D map: direction across, variance up, painted from the trace's own map.)
   const legBar = h('i'), legLo = h('span'), legHi = h('span');
-  const legend = h('div', { class: 'dop-legend', hidden: true, 'aria-hidden': 'true' }, legLo, legBar, legHi);
+  const legMap = h('canvas', { width: 72, height: 30 }), legAx = h('em', {}, h('span', {}, 'turbulent'), h('span', {}, 'steady'));
+  const legend = h('div', { class: 'dop-legend', hidden: true, 'aria-hidden': 'true' }, legLo, legBar, legMap, legHi, legAx);
   function sync() {
     const m = DOPPLER_MODES.find((x) => x.id === mode);
     modeTxt.textContent = m.short;
     modeBtn.title = `Doppler display: ${m.label}. Tap to change.`;
     modeBtn.setAttribute('aria-label', `Doppler display mode: ${m.label}. Activate to change.`);
     modeBtn.setAttribute('aria-pressed', String(mode !== 'spectrum'));
-    modeSw.style.background = mode === 'spectrum' ? '' : legendGradient(mode, invert && isDirectional(mode));
+    modeSw.style.background = mode === 'spectrum' ? '' : legendGradient(mode === 'variance' ? 'dirpower' : mode, invert && isDirectional(mode));
     invBtn.disabled = mode === 'power';
     invBtn.title = mode === 'power' ? 'Power Doppler has no direction, so Invert is off' : 'Invert the display: show flow away from the probe above the baseline; swaps the toward/away colors';
     legend.hidden = mode === 'spectrum';
     if (mode !== 'spectrum') {
-      legBar.style.background = legendGradient(mode, invert && isDirectional(mode));
-      legLo.textContent = mode === 'variance' ? 'steady' : 'away'; legHi.textContent = mode === 'variance' ? 'turbulent' : 'toward';
+      const vmode = mode === 'variance';
+      legBar.hidden = vmode; legMap.hidden = !vmode; legAx.hidden = !vmode;
+      if (vmode) drawVarianceLegend(legMap, invert); else legBar.style.background = legendGradient(mode, invert && isDirectional(mode));
+      legLo.textContent = 'away'; legHi.textContent = 'toward';
     }
     if (frame) draw();
   }

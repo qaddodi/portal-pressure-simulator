@@ -82,3 +82,15 @@ export function legendGradient(mode, invert = false) {
   }
   return `linear-gradient(90deg,${out.join(',')})`;
 }
+
+/** Paints the Variance legend on a canvas: direction across (away to toward), variance up (steady to turbulent). */
+export function drawVarianceLegend(cv, invert = false) {
+  const ctx = cv.getContext('2d'), { width: W, height: H } = cv, im = ctx.createImageData(W, H), c = [0, 0, 0, 0];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const u = ((x + 0.5) / W * 2 - 1) * 0.9, s = 1 - (y + 0.5) / H;
+    dopplerColor('variance', { u: Math.abs(u) < 0.2 ? Math.sign(u || 1) * 0.2 : u, s }, invert, c);
+    const q = (y * W + x) * 4;
+    im.data[q] = c[0]; im.data[q + 1] = c[1]; im.data[q + 2] = c[2]; im.data[q + 3] = 255;
+  }
+  ctx.putImageData(im, 0, 0);
+}

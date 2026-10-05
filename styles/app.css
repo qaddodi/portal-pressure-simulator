@@ -1951,6 +1951,9 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .dop-boxwrap > .dop-box { flex: 1 1 auto; }
 .dop-legend { position: absolute; left: 14px; bottom: 26px; display: flex; align-items: center; gap: 6px; font: 500 10px var(--font-ui); color: rgba(255,255,255,.7); pointer-events: none; }
 .dop-legend[hidden] { display: none; }
+.dop-legend canvas { display: block; width: 72px; height: 30px; border-radius: 3px; box-shadow: 0 0 0 1px rgba(255,255,255,.2); }
+.dop-legend em { display: flex; flex-direction: column; justify-content: space-between; align-self: stretch; font-style: normal; }
+.dop-legend [hidden] { display: none; }
 .dop-legend i { display: block; width: 64px; height: 6px; border-radius: 3px; box-shadow: 0 0 0 1px rgba(255,255,255,.2); }
 .dop-vessel { min-width: 0; max-width: 220px; flex: 0 1 220px; height: 34px; font-weight: 600; }
 .dop-tint { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px 0 10px; border-radius: var(--r-pill); border: 1px solid var(--border); background: transparent; color: var(--text-2); font: 500 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; }
