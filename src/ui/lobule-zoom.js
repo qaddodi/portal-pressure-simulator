@@ -318,9 +318,11 @@ export function createLobuleZoom({ host }) {
   }
   // A short glide between framings (the buttons, Fit, a card opening).
   let glide = 0;
-  function glideTo(to, ms = 260) {
+  // The time grows with the distance in doublings (a log scale), so a button press and Fit feel as even as the dive.
+  function glideTo(to, ms) {
     cancelAnimationFrame(glide);
     const from = { ...V }, t0 = performance.now();
+    ms ??= clamp(200 + 380 * Math.abs(Math.log2(to.k / from.k)), 240, 900);
     if (reduce.matches || !fade) { Object.assign(V, to); viewChanged(); return; }
     const step = (now) => {
       const u = clamp((now - t0) / ms, 0, 1), e = u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2;
@@ -924,7 +926,7 @@ export function createLobuleZoom({ host }) {
     const fs = fieldState();
     const key = [dark, cell, gap, cvc, pvc, Object.values(fs).join(',')].join('|');
     let tiles = tileSets.get(key);
-    if (!tiles) { tiles = [6, 12, 24, 48, 96, 192, 384].map((R) => ({ R, cv: null })); tileSets.set(key, tiles); if (tileSets.size > 3) tileSets.delete(tileSets.keys().next().value); }
+    if (!tiles) { tiles = [3, 6, 12, 24, 48, 96, 192, 384].map((R) => ({ R, cv: null })); tileSets.set(key, tiles); if (tileSets.size > 3) tileSets.delete(tileSets.keys().next().value); }
     else { tileSets.delete(key); tileSets.set(key, tiles); }
     const t = tiles.find((q) => q.R >= rd) || tiles[tiles.length - 1];
     if (!t.cv) drawTile(t, { cell, gap, cvc, pvc, art: v('--artery', '#C8414D'), duct: v('--bile-duct', '#6E9B4E'), dark, fs });
@@ -1111,7 +1113,7 @@ export function createLobuleZoom({ host }) {
   function prewarm(rEnd) {
     const cs = getComputedStyle(host), dark = isDark(), dpr = Math.min(1.5, devicePixelRatio || 1);
     warmQ = [() => ensureGL()];
-    for (let rd = 8; rd < rEnd * dpr * 0.55 * 2; rd *= 2) { const r = rd; warmQ.push(() => fieldTile(cs, dark, r)); }
+    for (let rd = 3; rd < rEnd * dpr * 0.55 * 2; rd *= 2) { const r = rd; warmQ.push(() => fieldTile(cs, dark, r)); }
   }
   function warm() { const f = warmQ.shift(); if (f) f(); return warmQ.length > 0; }
 
@@ -1641,14 +1643,16 @@ export function createLobuleZoom({ host }) {
     /** True once the dive's field (or the lobule) covers the anatomy, which then need not be drawn. */
     covers: () => fade > 0.98 || fieldOp >= 0.999,
     /** During the dive: the tissue (not its card) still zooming in, by k (≤ 1) about the stage point x, y. */
-    setDiveZoom(k, x, y) {
+    setDiveZoom(k, x, y, ax = x, ay = y) {
       // Scaled down, the tissue's own page fill would show as a pale card; a soft round mask keeps only the lobule and its rim.
+      // (x, y: where the full-size lobule sits; ax, ay: where the zoom has it now, which is where it is carried to.)
       const r = geo ? geo.R * V.k : 0, mask = k >= 0.9999 || !r ? '' : `radial-gradient(circle at ${x.toFixed(1)}px ${y.toFixed(1)}px, #000 ${(r * 1.02).toFixed(1)}px, transparent ${(r * 1.2).toFixed(1)}px)`;
+      const tf = `translate(${(ax - x).toFixed(1)}px, ${(ay - y).toFixed(1)}px) scale(${k.toFixed(4)})`;
       for (const e of [tissue, glCv, fx, leaders, labels]) {
         if (e === tissue || e === glCv) { e.style.maskImage = mask; e.style.webkitMaskImage = mask; }
         if (k >= 0.9999) { e.style.transform = ''; e.style.transformOrigin = ''; continue; }
         e.style.transformOrigin = `${x.toFixed(1)}px ${y.toFixed(1)}px`;
-        e.style.transform = `scale(${k.toFixed(4)})`;
+        e.style.transform = tf;
       }
     },
     /** Where a lobule selection is on screen (for the action card), as the stage's anchorFor. */
