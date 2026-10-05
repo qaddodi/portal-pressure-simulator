@@ -1518,6 +1518,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!settled || x.width == null || Math.abs(w - x.width) >= 0.5) x.width = w;
       w = x.width;
       x.wMode = mode;
+      // The hit stroke is never thinner than the drawn tube (the IVC is wide, behind the liver) and never under ~10 px on screen.
+      { const narrow = CONTEXT_EDGES.has(e.id) || BACK_EDGES.has(e.id), hw = Math.round(Math.max(narrow ? 8 : 20, w + 6, 10 / ((CTM && CTM.sc) || 1))); if (x.hitW !== hw) { x.hitW = hw; x.hit.style.strokeWidth = hw; } }
       if (x.isArt) { setA(x.wall, 'stroke-width', w.toFixed(1)); continue; }
       x.pmid = (P1 + P2) / 2;
       const baseD = e.d || (e.dMax ? dMinOf(e) : 3);
@@ -3592,6 +3594,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!shunt && !drag && !lobuleOn && store.get().tool === 'select') {
       const [wx, wy] = clientToWorld(ev.clientX, ev.clientY), o = organAt(wx, wy);
       const sel = store.get().selection;
+      const near = o ? nearbyEdge(ev) : null;   // a click here would pick this vessel, so the organ must not light
+      if (near && EI[near] != null && F) { setHover(near); setOrganHover(null); return; }
       if (o && !(sel?.type === 'organ' && sel.id === o)) setOrganHover(o, o === 'liver' ? (wx < LIVER_SPLIT_X ? 'R' : 'L') : '');
       else setOrganHover(null);
     } else setOrganHover(null);
