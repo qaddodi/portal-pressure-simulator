@@ -32,6 +32,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=b509aa0a68';
 import { ORIGINS } from './blood.js?v=3acf4e936e';
 
 // Color lenses: [title, what it shows, legend swatch].
@@ -583,7 +584,6 @@ function openLayers(anchor) {
     return b;
   };
   popover(anchor, [
-    h('div', { class: 'menu-title' }, 'Color vessels by', h('span', { class: 'kb' }, 'L cycles')),
     h('div', { class: 'lens-grid' }, Object.keys(LENSES).map(lens)),
     s0.imaging ? h('div', { class: 'ctl-sub', style: { padding: '2px 10px 6px' } }, 'This case shows anatomy only until you measure.') : null,
   ], { cls: 'layers-pop' });
@@ -661,6 +661,7 @@ function renderBanner() {
 
 // ── Top bar & transport ─────────────────────────────
 function wireTopbar() {
+  initDebug(() => stage.zoomLevel());
   $('#btnMenu').addEventListener('click', (e) => openMainMenu(e.currentTarget));
   $('#scenarioBtn').addEventListener('click', (e) => openScenarios(e.currentTarget));
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
@@ -712,6 +713,8 @@ function openSettings(anchor) {
     h('div', { class: 'menu-title' }, t('menu.access')),
     menuItem(t('menu.describe'), { icon: 'info', kb: 'D', onClick: () => { closePopover(); const d = describe(store.get().frame); announce(d); toast(d); } }),
     menuItem(t('menu.sonify'), { icon: 'activity', checked: sonifying(), onClick: (e) => { setSonify(!sonifying()); e?.currentTarget?.setAttribute('aria-checked', String(sonifying())); toast(sonifying() ? 'Sonification on: pitch follows the pressure of the selected vessel (or the portal vein).' : 'Sonification off.'); } }),
+    h('div', { class: 'menu-title' }, 'Debug'),
+    ...debugOptions().map(([k, l]) => menuToggle(debugOn(k), 'activity', l, null, (on) => setDebug(k, on))),
     h('div', { class: 'menu-sep' }),
     menuItem(t('menu.reset'), { icon: 'reset', onClick: () => resetEverything() }),
   ], { align: 'start', cls: 'app-menu' });
