@@ -152,6 +152,32 @@ function fibrousBand(c, A, B, { w, rgb, a = 1, seed = 0, e0 = 1.5, e1 = 1.5, amp
   c.shadowBlur = sb;
 }
 
+// Perivenular collagen: overlapping curved bundles rather than a smooth, solid disc.
+// Like the bridging bands, this texture is painted only into the cached tissue bitmap.
+function fibrousCuff(c, cx, cy, inner, outer, rgb, fibrosis) {
+  const annulus = () => {
+    c.beginPath();
+    for (let i = 0; i <= 80; i++) {
+      const a = TAU * i / 80, r = outer * (1 + 0.035 * Math.sin(3 * a) + 0.025 * Math.sin(7 * a + 0.8));
+      c[i ? 'lineTo' : 'moveTo'](cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+    }
+    c.closePath(); c.moveTo(cx + inner, cy); c.arc(cx, cy, inner, 0, TAU); c.closePath();
+  };
+  c.save();
+  annulus(); c.fillStyle = css(rgb, 0.18 + 0.25 * fibrosis); c.fill('evenodd'); c.clip('evenodd');
+  const thickness = outer - inner;
+  for (let ring = 0; ring < 3; ring++) for (let k = 0; k < 6; k++) {
+    const seed = 211 + ring * 17 + k, a0 = TAU * k / 6 + ring * 0.27;
+    const span = TAU / 6 * (1.2 + 0.5 * fibHash(seed)), r0 = inner + thickness * (0.18 + ring * 0.3);
+    const path = (u) => {
+      const a = a0 + span * u, r = r0 + thickness * 0.1 * Math.sin(a * 5 + fibHash(seed + 5) * TAU);
+      return [cx + Math.cos(a) * r, cy + Math.sin(a) * r];
+    };
+    fibrousBand(c, path(0), path(1), { w: thickness * 0.42, rgb, a: 0.65 + 0.3 * fibrosis, e0: 0.45, e1: 0.5, seed, path });
+  }
+  c.restore();
+}
+
 export function createLobuleZoom({ host }) {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   const tissue = h('canvas', { class: 'lz-canvas', role: 'img', 'aria-label': 'Liver lobule microcirculation' });
@@ -482,11 +508,11 @@ export function createLobuleZoom({ host }) {
       const t = add('tw', curve((u) => [(1 - u) ** 2 * A[0] + 2 * u * (1 - u) * cxp + u * u * q[0], (1 - u) ** 2 * A[1] + 2 * u * (1 - u) * cyp + u * u * q[1]]), { tri: tr.i });
       join(A[0], A[1], [tr.haT, t], 1.2); join(q[0], q[1], [target, t], 1.6);
     }
-    // Portal-central septa (advanced cirrhosis): from three triads toward the central vein, wavy, stopping
-    // short of it, so the lobule is cut into three rounded nodules.
+    // Portal-central septa (advanced cirrhosis): from three triads into the central vein's
+    // collagen cuff, so the bridges meet the venule and cut the lobule into three nodules.
     const septaPC = [0, 2, 4].map((i) => {
       const [x, y] = C[i], ph = r() * TAU, nx = -(cy - y) / R, ny = (cx - x) / R;
-      return curve((u) => { const e = R * 0.05 * Math.sin(Math.PI * u) * Math.sin(1.5 * TAU * u + ph); return [lerp(x, cx, u * 0.82) + nx * e, lerp(y, cy, u * 0.82) + ny * e]; });
+      return curve((u) => { const e = R * 0.05 * Math.sin(Math.PI * u) * Math.sin(1.5 * TAU * u + ph); return [lerp(x, cx, u * 0.94) + nx * e, lerp(y, cy, u * 0.94) + ny * e]; });
     });
     // Hepatocytes: plates one cell thick, running from the central vein out to the portal tracts between
     // the sinusoids, with the space of Disse a thin gap on both sides. Ring by ring, each gap between
@@ -1311,7 +1337,7 @@ export function createLobuleZoom({ host }) {
       if (su > 0.18) {
         const g = Math.min(1, (su - 0.18) / 0.4);
         G.septaPC.forEach((sp, k) => { const P = sp.pts, q = P.length - 1;
-          fibrousBand(c, P[0], P[q], { w: w * (0.6 + 0.3 * g), rgb: COL, a: 0.45 + 0.5 * g, e1: 0.35, seed: 31 + k, path: (u) => P[Math.round(u * q)] }); });
+          fibrousBand(c, P[0], P[q], { w: w * (0.6 + 0.3 * g), rgb: COL, a: 0.45 + 0.5 * g, e1: 0.9, seed: 31 + k, path: (u) => at(P, u) }); });
         if (su > 0.6) [1, 3, 5].forEach((i, k) => { const A = crn[i], t = 0.25 + 0.3 * Math.min(1, (su - 0.6) / 0.3);
           fibrousBand(c, A, [lerp(A[0], cx, t), lerp(A[1], cy, t)], { w: w * 0.55, rgb: COL, a: 0.6, e1: 0.15, amp: R * 0.03, seed: 41 + k }); });
       }
@@ -1337,8 +1363,11 @@ export function createLobuleZoom({ host }) {
       }
       c.globalAlpha = 1;
     }
-    // Central vein wall: collagen with post-sinusoidal fibrosis.
-    if (m.fibPost > 0.05) { c.fillStyle = col(0.3 + 0.55 * m.fibPost); c.beginPath(); c.arc(cx, cy, G.rcv0 * (1.5 + m.fibPost), 0, TAU); c.fill(); }
+    // Central vein wall: wavy collagen bundles, continuous with the portal-central bridges.
+    if (m.fibPost > 0.05) {
+      const inner = radiusAt(G.cv, 0), outer = Math.max(inner * 1.2, G.rcv0 * (1.5 + m.fibPost));
+      fibrousCuff(c, cx, cy, inner, outer, COL, m.fibPost);
+    }
   }
   // Without WebGL2: the vessels as plain strokes on the tissue.
   function paintFlatVessels(c, cs) {
