@@ -875,7 +875,12 @@ export function createLobuleZoom({ host }) {
     raf = requestAnimationFrame(loop);
   }
 
+  // While the dive magnifies the lobule's layers (a compositor scale), they are drawn once and then left
+  // alone: redrawing the WebGL vessels, the effects and the labels each frame, at full size, is what lagged.
+  let diveScaled = false, diveDrawn = false;
   function draw(dt) {
+    if (diveScaled && diveDrawn) return;
+    diveDrawn = diveScaled;
     const rect = host.getBoundingClientRect();
     const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
     ensureGeo(W, H);
@@ -1671,6 +1676,7 @@ export function createLobuleZoom({ host }) {
     covers: () => fade > 0.98 || fieldOp >= 0.999,
     /** During the dive: the tissue (not its card) still zooming in, by k (≤ 1) about the stage point x, y. */
     setDiveZoom(k, x, y) {
+      diveScaled = k < 0.9999; if (!diveScaled) diveDrawn = false;
       // Scaled down, the tissue's own page fill would show as a pale card; a soft round mask keeps only the lobule and its rim.
       const r = geo ? geo.R * V.k : 0, mask = k >= 0.9999 || !r ? '' : `radial-gradient(circle at ${x.toFixed(1)}px ${y.toFixed(1)}px, #000 ${(r * 1.02).toFixed(1)}px, transparent ${(r * 1.2).toFixed(1)}px)`;
       for (const e of [tissue, glCv, fx, leaders, labels]) {
