@@ -5,7 +5,7 @@
 // Only the last two are differences, so only they carry clinical annotations. Absolute
 // pressure at a vessel has no threshold. Used by the pressure landscape.
 
-import { store } from './store.js?v=bf24fe8d3e';
+import { store } from './store.js?v=23552bd900';
 import { h, fmt } from './util.js?v=831ebf143a';
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
 

@@ -15,16 +15,13 @@
 // the lobule into nodules in cirrhosis), activated stellate cells, and zone-3 congestion and cell dropout ("nutmeg") when the outflow backs up.
 //
 // Teaching layers: Rappaport zones and hepatic lymph running out along the space of Disse to the portal
-// tract's lymphatic (both from the toolbar's Layers menu, rate from the model); the pressure lost between
-// portal venule, sinusoids and central venule, drawn between the stations with the block lit; a caption that
-// says where the block is; a cirrhosis slider; and a card for anything tapped (triad, inlet venule,
-// sinusoid, arteriole, central vein, septum, hepatocytes).
+// tract's lymphatic (both from the toolbar's Layers menu, rate from the model); and a card for anything
+// tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
-import { store, updateParams } from './store.js?v=bf24fe8d3e';
+import { store } from './store.js?v=23552bd900';
 import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=7d1a8d3c8b';
-import { verbEnabled } from './actions.js?v=7780386f90';
-import { h, s, fmt, clamp, createEaser, svgIcon, systemEdge } from './util.js?v=831ebf143a';
+import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=831ebf143a';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_NOCASE, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=0acbe74771';
@@ -163,57 +160,20 @@ export function createLobuleZoom({ host }) {
   const labels = h('div', { class: 'lz-labels' });
 
   // ── What sits on the lobule ──
-  // Zones, Lymph and the explanation are layers (the toolbar's Layers menu keeps them in the store);
-  // the pressure drops are drawn between the stations; the explanation is a caption on the lower edge;
-  // the cirrhosis slider is a small pill by the top edge. Nothing floats in a card.
-  let zonesOn = false, lymphOn = false, noteOn = true;
+  // Zones and Lymph are layers (the toolbar's Layers menu keeps them in the store). Nothing floats in a card.
+  let zonesOn = false, lymphOn = false;
   const syncLayers = () => {
     const l = store.get().lobuleLayers || {};
-    if (!!l.zones === zonesOn && !!l.lymph === lymphOn && (l.note !== false) === noteOn) return;
-    zonesOn = !!l.zones; lymphOn = !!l.lymph; noteOn = l.note !== false;
-    capEl.hidden = !noteOn;
+    if (!!l.zones === zonesOn && !!l.lymph === lymphOn) return;
+    zonesOn = !!l.zones; lymphOn = !!l.lymph;
     tissueKey = ''; layoutKey = ''; attrKey = '';
     if (F) update(F);
     requestAnimationFrame(refit);
   };
   store.on('lobuleLayers', () => syncLayers());
 
-  // Cirrhosis, here as on the liver's card (fibrosis by zone is on the triad, sinusoid and central vein cards).
-  const hintTxt = 'Tap the portal venule, a sinusoid or the central venule to add fibrosis there.';
-  const cirIn = h('input', { type: 'range', min: 0, max: 1, step: 0.01, 'aria-label': 'Cirrhosis', title: hintTxt });
-  const cirVal = h('span', { class: 'ctl-val' });
-  const cirBox = h('div', { class: 'lz-cir', title: hintTxt },
-    h('span', { class: 'lz-cir-l' }, 'Cirrhosis'), h('div', { class: 'range-wrap' }, cirIn), cirVal,
-    h('span', { class: 'lz-cir-hint' }, hintTxt));
-  const paintCir = (v) => { cirIn.value = v; cirVal.textContent = `${Math.round(v * 100)} %`; cirIn.style.setProperty('--pct', `${v * 100}%`); };
-  let cirFresh = true;
-  cirIn.addEventListener('pointerdown', () => { cirFresh = true; });
-  cirIn.addEventListener('keydown', () => { cirFresh = true; });
-  cirIn.addEventListener('input', () => { const v = parseFloat(cirIn.value); paintCir(v); updateParams((pp) => { pp.cirrhosis = v; return pp; }, { history: cirFresh, label: 'Cirrhosis' }); cirFresh = false; });
-  const legend = h('div', { class: 'lz-legend', 'aria-hidden': 'true' });
-
-  // The explanation: one short caption on the lower edge, in the scenario's own words. A tap opens the rest
-  // (and the hint for the slider); the cross puts it away until the explanation changes or Layers brings it back.
-  const capB = h('b'), capT = h('span', { class: 'lz-cap-t' }), capMore = h('span', { class: 'lz-cap-more' });
-  const capMain = h('button', { class: 'lz-cap-main', type: 'button', 'aria-expanded': 'false', title: 'Show more or less' },
-    svgIcon('bulb', 'lz-cap-i'), h('span', { class: 'lz-cap-tx' }, capB, ' ', capT, capMore), svgIcon('chev-down', 'lz-cap-chev'));
-  const capX = h('button', { class: 'lz-cap-x', type: 'button', 'aria-label': 'Hide this note', title: 'Hide this note (Layers brings it back)' }, svgIcon('close'));
-  const capEl = h('div', { class: 'lz-cap', 'data-seg': 'none' }, capMain, capX);
-  let capOpen = false, capSeg = null, capTxt = '';
-  const setCapOpen = (o) => { capOpen = o; capEl.classList.toggle('open', o); capMain.setAttribute('aria-expanded', String(o)); };
-  capMain.addEventListener('click', () => setCapOpen(!capOpen));
-  capX.addEventListener('click', () => { setCapOpen(false); store.set({ lobuleLayers: { ...store.get().lobuleLayers, note: false } }); });
-  // The pressure drops between the stations, drawn on the lobule: a quiet pill on each stretch, the one
-  // that carries the block lit in red.
-  const drops = h('div', { class: 'lz-drops' });
-  const dropEls = [0, 1, 2].map(() => { const e = h('div', { class: 'lz-drop', hidden: true }); drops.append(e); return e; });
-  const dropLines = [0, 1, 2].map(() => s('line', { class: 'lz-conn' }));
-  leaders.prepend(...dropLines);
   const phoneMQ = matchMedia('(max-width: 720px)');
-  // The key to the lobule's parts is not shown (the colours speak for themselves); it stays detached.
-  const key = h('div', { class: 'lz-key' }, legend);
-  const el = h('div', { class: 'lz', 'aria-hidden': 'true' },
-    tissue, glCv, fx, leaders, drops, labels, cirBox, capEl);
+  const el = h('div', { class: 'lz', 'aria-hidden': 'true' }, tissue, glCv, fx, leaders, labels);
   // The dive's field (below the view): the liver's lobules, many and small, that the camera falls through.
   const field = h('canvas', { class: 'lz-canvas lz-field', 'aria-hidden': 'true' });
   host.append(field, el);
@@ -222,16 +182,12 @@ export function createLobuleZoom({ host }) {
   // its own card), free zoom up to 5× that, the pan held to this lobule. Zooming out stops at the framing.
   const V = { k: 1, x: 0, y: 0 };
   const KMAX = 5;
-  let kFit = 1, atFit = true, capH = 0;
+  let kFit = 1, atFit = true;
   const appStyle = document.getElementById('app')?.style;
   const cssN = (k) => parseFloat(appStyle?.getPropertyValue(k)) || 0;
   function freeRect() {
     const W = geo.W, H = geo.H, phone = phoneMQ.matches;
     let t = cssN('--top-safe') + cssN('--cmp-h') + 8, b = H - (cssN('--bot-occ') || 100) - 8, l = 12, r = W - cssN('--right-occ') - 12;
-    // The caption on the lower edge (its folded height: opened, it overlays the lobule rather than moving it).
-    if (!capEl.hidden) { if (!capOpen) capH = capEl.offsetHeight; if (capH) b -= capH + 8; }
-    // The key: above the lobule on a phone, under it (bottom left) on a wider screen.
-    if (key.offsetHeight) { if (phone) t += key.offsetHeight + 4; else b = Math.min(b, key.offsetTop - 8); }
     // The zoom buttons: on a phone they sit top right beside the Zones and Lymph switches, so the labels start below them.
     const zp = phone && document.getElementById('zoomPill');
     if (phone) {
@@ -301,13 +257,11 @@ export function createLobuleZoom({ host }) {
   function refit() { if (!geo) return; const F0 = fitV(); kFit = F0.k; if (atFit) glideTo(F0); else { clampV(); viewChanged(); } }
   addEventListener('pps:occ', () => { if (fade > 0) { layoutKey = ''; refit(); } });
   addEventListener('pps:labelscale', () => { layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); });
-  const viewChanged = () => { tissueKey = ''; layoutKey = ''; syncKey(); if (!raf && fade > 0) raf = requestAnimationFrame(loop); };
+  const viewChanged = () => { tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); };
   const toWorld = (p) => [(p[0] - V.x) / V.k, (p[1] - V.y) / V.k];
   const toScreen = (p) => [p[0] * V.k + V.x, p[1] * V.k + V.y];
   function resetView() { if (!geo) { V.k = 1; V.x = 0; V.y = 0; return; } atFit = true; const F0 = fitV(); kFit = F0.k; Object.assign(V, F0); viewChanged(); }
   function fitView() { atFit = true; const F0 = fitV(); kFit = F0.k; glideTo(F0); }
-  // The key fades out from 1.25× the framing and is gone by 1.7×.
-  function syncKey() { const z = V.k / (kFit || 1), o = clamp((1.7 - z) / 0.45, 0, 1); key.style.opacity = o.toFixed(2); key.style.visibility = o < 0.02 ? 'hidden' : ''; }
 
   // ── Gestures: wheel and pinch zoom, drag pans, a tap selects; out past 1× returns to the liver ──
   // As on the anatomy: a mouse wheel zooms about the pointer; a trackpad's two-finger scroll pans (once zoomed in)
@@ -633,9 +587,6 @@ export function createLobuleZoom({ host }) {
     model.inks = { normal: cv('--flow-normal', '#16988F'), reversed: cv('--flow-reversed', '#EC7424'), portal: cv('--vein-portal', '#7B6FC4'), systemic: cv('--vein-systemic', '#4F8CC9') };
     if (originOn() && originsF !== f) { origins = originFractions(EDGES, NODES, f.Qf || f.Q, f.Pf || f.P); originsF = f; }
     panel();
-    const p = st.params;
-    if (document.activeElement !== cirIn) paintCir(p.cirrhosis);
-    cirIn.disabled = !verbEnabled('cirrhosis', 'cirrhosis');
     if (!raf) raf = requestAnimationFrame(loop);
   }
   const originOn = () => !store.get().imaging && store.get().colorMode === 'origin';
@@ -652,50 +603,8 @@ export function createLobuleZoom({ host }) {
 
   function panel() {
     const m = model;
-    // Where along the lobule the pressure is lost, against the healthy patient (or the pinned moment).
-    const P = [m.P1, m.P2, m.P3, m.P4, m.P5], P0 = m.H;
-    const lost = [0, 1, 2, 3].map((i) => P[i] - P[i + 1]), lost0 = [0, 1, 2, 3].map((i) => (P0[i] ?? P[i]) - (P0[i + 1] ?? P[i + 1]));
-    const excess = lost.map((d, i) => d - lost0[i]);
-    const tot = P[0] - P[4], tot0 = (P0[0] ?? P[0]) - (P0[4] ?? P[4]);
-    let k = excess.indexOf(Math.max(...excess));
-    // A raised outflow lifts the whole ladder without a steeper step: the block is beyond the lobule.
-    const lifted = P[4] - (P0[4] ?? P[4]) > 3 || (P[3] - (P0[3] ?? P[3]) > 5 && excess[3] < 1.5);
-    if (excess[k] < 1.5 && !lifted) k = -1;
-    const segNames = ['pre-sinusoidal', 'sinusoidal', 'post-sinusoidal', 'outflow'];
-    const seg = k >= 0 ? segNames[k] : lifted ? 'outflow' : 'none';
-    // The drops on the figure: the stretch that carries the block is lit (the central vein's own, to the
-    // hepatic vein, appears only when it is the block; a block past the lobule is told in the caption).
-    const dn = (d) => `−${fmt(Math.abs(d), Math.abs(d) < 10 ? 1 : 0)}`;
-    const dropKey = m.hide ? '' : [0, 1, 2].map((i) => `${dn(lost[i])}${k === i ? '!' : ''}`).join('|') + (m.cmp ? 'c' : '');
-    if (dropKey !== drop.key) { drop.key = dropKey; drop.v = lost.slice(0, 3); drop.hot = k; drop.hide = m.hide; drop.txt = lost.slice(0, 3).map((d) => dn(d)); layoutKey = ''; }
-    // The caption: what the drops say, in the scenario's own words.
-    const f1 = (v) => fmt(v, 1);
-    const [head, body] = m.hide ? ['Pressures are not measured in this case.', 'The lobule shows anatomy and flow only.']
-      : k === 0 ? [`${f1(lost[0])} mmHg lost before the sinusoids (normal ${f1(lost0[0])}).`, 'The block is pre-sinusoidal (portal tract): portal pressure is high, but the wedged pressure, and so HVPG, stays near normal.']
-        : k === 1 ? [`${f1(lost[1])} mmHg lost across the sinusoids (normal ${f1(lost0[1])}).`, 'The block is sinusoidal (as in cirrhosis): the wedged pressure rises with portal pressure, so HVPG measures it.']
-          : k === 2 ? [`${f1(lost[2])} mmHg lost leaving the central veins (normal ${f1(lost0[2])}).`, 'The block is post-sinusoidal (central veins, as in sinusoidal obstruction): the sinusoids congest from the outflow side; HVPG is raised.']
-            : k === 3 || lifted ? ['The block is beyond the lobule (hepatic veins, IVC or heart).', 'The whole ladder is lifted and zone 3 congests. The free hepatic pressure rises too, so HVPG can stay normal.']
-              : ['No block in the lobule.', `Pressure falls gently, ${f1(tot)} mmHg from portal venule to IVC (normal ${f1(tot0)}).`];
-    const more = [hintTxt, ...(lymphOn ? [`Lymph protein: ${lyProt(m) > 0.7 ? 'high' : lyProt(m) < 0.25 ? 'low' : 'normal'}.${lyOver(m) > 0.05 ? ' The lymph overflows: it weeps into the abdomen (ascites).' : ''}`] : [])];
-    const txt = [head, body, ...more].join('|');
-    if (txt !== capTxt) {
-      capTxt = txt;
-      capB.textContent = head; capT.textContent = body;
-      capMore.replaceChildren(...more.map((t) => h('span', {}, t)));
-      capEl.dataset.seg = seg;
-      // A new explanation (the block moved) comes back even if the last one was put away.
-      if (capSeg !== null && seg !== capSeg && store.get().lobuleLayers?.note === false) store.set({ lobuleLayers: { ...store.get().lobuleLayers, note: true } });
-      capSeg = seg;
-      layoutKey = '';
-    }
-    const why = `${head} ${body}`;
-    const items = [['lg-pv', 'Portal venule', { background: ink('pv') }], ['lg-ha', 'Hepatic arteriole'], ['lg-bd', 'Bile ductule'], ['lg-cv', 'Central vein', { background: ink('cv') }]];
-    if (m.septU > 0 || m.fibPre > 0.05 || m.fibSin > 0.05 || m.fibPost > 0.05) items.push(['lg-col', 'Collagen']);
-    if (m.act > 0.08) items.push(['lg-hsc', 'Stellate cell']);
-    if (lymphOn) items.push(['lg-ly', 'Lymph']);
-    legend.replaceChildren(items.map(([c, t, st]) => h('span', {}, h('i', { class: c, style: st }), t)));
     tissue.setAttribute('aria-label', m.hide ? 'Liver lobule. Pressures not measured.'
-      : `Liver lobule: portal venule ${fmt(m.P1, 1)}, sinusoids ${fmt(m.P2, 1)}, central venule ${fmt(m.P3, 1)} millimeters of mercury; sinusoidal flow ${Math.round(m.flow * 100)} percent of normal. ${why}`);
+      : `Liver lobule: portal venule ${fmt(m.P1, 1)}, sinusoids ${fmt(m.P2, 1)}, central venule ${fmt(m.P3, 1)} millimeters of mercury; sinusoidal flow ${Math.round(m.flow * 100)} percent of normal.`);
     // Station cards on the figure.
     // Labels as in the anatomy: the station, its pressure, and the change from healthy once it reaches
     // 5 mmHg; while comparing, every change from the pinned moment (shown at 1, dropped below 0.7).
@@ -713,7 +622,7 @@ export function createLobuleZoom({ host }) {
   }
 
   // ── Station labels (HTML, styled as the anatomy's) with leaders ──
-  const labs = {}, badges = {}, drop = { key: '', v: [], hot: -1, hide: true, txt: [] };
+  const labs = {}, badges = {};
   function setLab(key, name, short, v, u, d, col) {
     let L = labs[key];
     if (!L) {
@@ -774,7 +683,7 @@ export function createLobuleZoom({ host }) {
   }
   const hitKind = (key) => (key === 'triad' ? { part: 'triad', tri: pick.triad } : key === 'cv' ? { part: 'cv' } : { part: 'sin', tube: sinTube().id });
   function layoutLabels() {
-    const fr0 = freeRect(), g = geo, key = `${g.W}x${g.H}|${Object.values(labs).map((l) => l.txt).join('|')}|${zonesOn}|${lymphOn}|${drop.key}|${V.k},${V.x},${V.y}|${fr0.t},${fr0.b},${fr0.l},${fr0.r}`;
+    const fr0 = freeRect(), g = geo, key = `${g.W}x${g.H}|${Object.values(labs).map((l) => l.txt).join('|')}|${zonesOn}|${lymphOn}|${V.k},${V.x},${V.y}|${fr0.t},${fr0.b},${fr0.l},${fr0.r}`;
     if (key === layoutKey) return;
     layoutKey = key;
     pickAnchors(fr0);
@@ -802,24 +711,6 @@ export function createLobuleZoom({ host }) {
       L.line.setAttribute('x1', a[0]); L.line.setAttribute('y1', a[1]); L.line.setAttribute('x2', ex); L.line.setAttribute('y2', y);
       L.dotEl.setAttribute('cx', a[0]); L.dotEl.setAttribute('cy', a[1]);
     }
-    // The pressure drops: a pill and a dashed stretch between the stations (portal venule → sinusoid → central
-    // venule), and past the central venule when the block is there. Both ends must be in view.
-    const A = [anchorOf('triad'), anchorOf('sin'), anchorOf('cv')].map(toScreen);
-    const stretch = (i, p, q) => {
-      const e = dropEls[i], ln = dropLines[i];
-      const hot = drop.hot === i, ends = i === 2 ? [A[2], [c0[0] + 46, c0[1] + 40]] : [p, q];
-      const ok = !drop.hide && (i < 2 ? !labs[i === 0 ? 'triad' : 'sin'].el.hidden && !labs[i === 0 ? 'sin' : 'cv'].el.hidden : hot);
-      e.hidden = !ok || !drop.txt[i]; ln.style.display = e.hidden ? 'none' : '';
-      if (e.hidden) return;
-      const [x0, y0] = ends[0], [x1, y1] = ends[1];
-      ln.setAttribute('x1', x0); ln.setAttribute('y1', y0); ln.setAttribute('x2', x1); ln.setAttribute('y2', y1);
-      ln.classList.toggle('hot', hot);
-      e.className = 'lz-drop' + (hot ? ' hot' : '');
-      e.replaceChildren(h('b', {}, drop.txt[i]), h('small', {}, 'mmHg'), hot ? h('span', { class: 'n' }, ['before the sinusoids', 'across the sinusoids', 'leaving the central vein'][i]) : null);
-      e.style.left = `${(x0 + x1) / 2}px`; e.style.top = `${(y0 + y1) / 2}px`;
-      e.setAttribute('aria-hidden', 'true');
-    };
-    stretch(0, A[0], A[1]); stretch(1, A[1], A[2]); stretch(2, null, null);
     // Zone names written in the bands themselves, as the organs are named on the anatomy: quiet capitals in each
     // zone's color, on the radius to the flat bottom edge, so each name runs along its band.
     labels.querySelectorAll('.lz-zone').forEach((z) => z.remove());
@@ -1105,7 +996,7 @@ export function createLobuleZoom({ host }) {
   // past what the lymphatics can carry (the rest weeps off the liver: ascites); and its protein, rich
   // where the fenestrae stay open (congestion behind the sinusoids), thin where collagen lines the
   // space of Disse (capillarized sinusoids in cirrhosis). Protein shows as the green's depth.
-  const lyF = (m) => smooth(1, 4, lymphRate(m)), lyOver = (m) => smooth(3, 4.5, lymphRate(m));
+  const lyF = (m) => smooth(1, 4, lymphRate(m));
   const lyProt = (m) => clamp(0.45 + 0.55 * m.congU - 0.6 * m.fibSin, 0, 1);
   const lyInk = (m, dark) => {
     const p = lyProt(m), lo = dark ? [0.72, 0.76, 0.69] : [0.92, 0.94, 0.88], mid = dark ? [0.7, 0.77, 0.66] : [0.88, 0.92, 0.82], hi = dark ? [0.64, 0.75, 0.58] : [0.82, 0.89, 0.74];
@@ -1579,8 +1470,8 @@ export function createLobuleZoom({ host }) {
       el.style.setProperty('--lz-chrome', (ch * ch * (3 - 2 * ch)).toFixed(3));
       el.classList.toggle('on', fade > 0.98);
       el.setAttribute('aria-hidden', String(fade < 0.98));
-      // Entering: the caption starts folded and the lobule is framed above it.
-      if (fade > 0 && was === 0) { setCapOpen(false); resetView(); if (F) update(F); }
+      // Entering: the lobule is framed.
+      if (fade > 0 && was === 0) { resetView(); if (F) update(F); }
       // Leaving the lobule closes a part's card, so it is not waiting next time.
       if (was > 0.98 && fade <= 0.98) { if (store.get().selection?.type === 'lobule') store.set({ selection: null }); }
       if (fade === 0) { cancelAnimationFrame(raf); raf = 0; last = 0; }
@@ -1589,7 +1480,7 @@ export function createLobuleZoom({ host }) {
     landing() {
       const rect = host.getBoundingClientRect();
       ensureGeo(Math.max(1, Math.round(rect.width)), Math.max(1, Math.round(rect.height)));
-      if (fade === 0) setCapOpen(false);
+
       resetView();
       const [x, y] = toScreen([geo.cx, geo.cy]);
       return { x, y, r: geo.R * V.k };
