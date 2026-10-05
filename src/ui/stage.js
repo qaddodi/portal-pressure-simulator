@@ -1032,6 +1032,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // The transform goes first and the layer hint a frame later: dropping both at once can leave the
       // browser showing the last zoomed picture while clicks already land on the unzoomed figure.
       if (diveOrig) { const els = diveOrig.map(([el]) => el); for (const el of els) { el.style.transform = 'none'; el.style.transformOrigin = ''; } requestAnimationFrame(() => { if (!diveOrig) for (const el of els) { el.style.willChange = ''; el.style.transform = ''; } }); }
+      // The stage's measured box (and so the drawing transform) may have been taken while the dive's zoom
+      // was on, which would keep the canvas drawn zoomed in after it ends: measure again.
+      if (diveOrig) { box = null; CTM = null; }
       diveOrig = null; return;
     }
     if (!diveOrig) {
