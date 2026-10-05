@@ -2677,7 +2677,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Label text size: the reader's choice (Menu › Text size), and a larger baseline in the circuit,
   // whose labels are the map's only text. Every run's size and spacing is scaled by labelK.
   const CIRCUIT_LABEL_K = 1.22;
-  const LABEL_MIN = 0.5, LABEL_MAX = 1.5;
+  const LABEL_MIN = 0.5, LABEL_MAX = 2;
   // Where a map direction lands on the screen once the circuit is turned a quarter turn counter-clockwise.
   const TURN_DIR = { N: 'W', W: 'S', S: 'E', E: 'N', NE: 'NW', NW: 'SW', SW: 'SE', SE: 'NE', C: 'C' };
   let labelScale = (() => { try { return clamp(parseFloat(localStorage.getItem('pps.labelScale')) || 1, LABEL_MIN, LABEL_MAX); } catch { return 1; } })();
