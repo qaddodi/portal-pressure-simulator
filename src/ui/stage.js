@@ -1360,6 +1360,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         sd.u0 = u0;
         const d = polyD(sp);
         sd.wall.setAttribute('d', d); sd.lumen.setAttribute('d', d);
+        if (!sd.hit) { sd.hit = s('path', { class: 'v-hit', 'data-id': x.e.id, 'aria-hidden': 'true' }); sd.hit.style.strokeWidth = 12; x.g.append(sd.hit); }   // each strand of a varix is part of its vessel
+        sd.hit.setAttribute('d', d); sd.hit.style.display = (sd.live ?? 1) >= 0.5 && morph < 0.5 ? '' : 'none';
         sd.cur = sp; sd.len = arcLen(sp);
       }
       g.cur = pts;
@@ -2391,8 +2393,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       cg.append(selFluid.fill, selFluid.line); gSelO.append(cg); syncSelFluid();
       return;
     }
-    const at = { varices: [SITES.varix[0], SITES.varix[1] + 20, 26, 62], gastric: [SITES.fundus[0], SITES.fundus[1], 34, 30] }[o];
-    if (at) gSelO.append(s('ellipse', { cx: at[0], cy: at[1], rx: at[2], ry: at[3], class: 'org-sel-ring' }));
+    
   }
 
   // Circuit bridges: where two lines cross without meeting, the one drawn later hops over the
@@ -3496,7 +3497,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   // Organs under a point (anatomy only). The varices and fundus are small sites. The abdomen is
   // only the visible fluid itself, so the bowel and its vessels never open the ascites view by accident.
-  const ORGAN_OF = { liver: 'liver', heart: 'heart', spleen: 'spleen', stomach: 'gastric', esophagus: 'varices', bowel: null, colon: null, appendix: null, duodenum: null, 'kidney-l': null, 'kidney-r': null };
+  const ORGAN_OF = { liver: 'liver', heart: 'heart', spleen: 'spleen', stomach: null, esophagus: null, bowel: null, colon: null, appendix: null, duodenum: null, 'kidney-l': null, 'kidney-r': null };
   const ptIn = (el, x, y, stroke) => {
     if (!el) return false;
     const pt = svg.createSVGPoint(); pt.x = x; pt.y = y;
@@ -3504,8 +3505,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   };
   function organAt(wx, wy) {
     if (morph > 0.5) return null;
-    if (insideVarix(wx, wy)) return 'varices';
-    if (Math.hypot(wx - SITES.fundus[0], wy - SITES.fundus[1]) < 34) return 'gastric';
     for (const o of [...ORGANS].reverse()) {
       if (o.deco || !ORGAN_OF[o.id]) continue;
       const el = organEls[o.id];
@@ -3584,8 +3583,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       gHovO.append(cg);
       return;
     }
-    const at = { varices: [SITES.varix[0], SITES.varix[1] + 20, 26, 62], gastric: [SITES.fundus[0], SITES.fundus[1], 34, 30] }[o];
-    if (at) gHovO.append(s('ellipse', { cx: at[0], cy: at[1], rx: at[2], ry: at[3], class: 'org-hov-ring' }));
+    
   }
   // Nothing stays lit once the pointer is gone, cancelled or lifted (a finger has no hover).
   function clearHover() { setHover(null); setOrganHover(null); onHoverInfo(null); }
@@ -3980,7 +3978,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     onSelect({ type: 'edge', id: r.key === 'tips' ? 'TIPS' : r.key === 'custom' ? r.id : { portocaval: 'S_PC', dsrs: 'S_DSR', mesocaval: 'S_MC' }[r.key] });
   }
 
-  const insideVarix = (x, y) => x > 772 && x < 826 && y > 50 && y < 292;
   // ── Anchors for the action card ───────────────────
   const ORGAN_ANCHOR = { liver: [470, 360], heart: [650, 118], spleen: [1052, 362], varices: SITES.varix, gastric: SITES.fundus, abdomen: [720, 770] };
   function anchorFor(sel) {
