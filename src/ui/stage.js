@@ -613,6 +613,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (feeders) {
         for (const fd of feeders) { const d = polyD(fd.cur); fd.wall.setAttribute('d', d); fd.lumen.setAttribute('d', d); }
         gc.prepend(...feeders.map((fd) => fd.wall)); g.prepend(...feeders.map((fd) => fd.lumen));
+        // A drawn trunk (the azygos) is part of its vessel: it takes hover and clicks, not only the short arch path.
+        for (const fd of feeders) if (!fd.fan) { const fh = s('path', { class: 'v-hit', 'data-id': e.id, d: polyD(fd.cur), 'aria-hidden': 'true' }); fh.style.strokeWidth = 12; g.append(fh); }
       }
       gShadowL.append(gs); gCaseL.append(gc); gEdges.append(g); gHiMid.append(gh);
     }
