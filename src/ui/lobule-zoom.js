@@ -383,7 +383,7 @@ export function createLobuleZoom({ host }) {
         rubber = true; atFit = false;
         V.x = F0.x + bandOffset(bx - dx, Lx); V.y = F0.y + bandOffset(by - dy, Ly); viewChanged();
         clearTimeout(rubberT);
-        rubberT = setTimeout(() => { rubber = false; const G0 = fitV(); glideTo(G0, 380); atFit = true; }, 150);
+        rubberT = setTimeout(() => { rubber = false; const G0 = fitV(); glideTo(G0, 380); atFit = true; }, 220);
         return;
       }
       V.x -= dx; V.y -= dy; atFit = false; clampV(); viewChanged();
@@ -461,7 +461,7 @@ export function createLobuleZoom({ host }) {
     if (touches.size < 2) pinch = null;
     if (!touches.size) { rubber = false; rawK = 0; }
     if (!touches.size && geo && V.k <= kFit * 1.001) { const F0 = fitV(); if (Math.abs(V.x - F0.x) + Math.abs(V.y - F0.y) + Math.abs(V.k - F0.k) * 100 > 0.5) { glideTo(F0, 380); atFit = true; } }
-    if (ev.type === 'pointerup' && ev.pointerType === 'touch' && !touches.size && finished) {
+    if (ev.type === 'pointerup' && !touches.size && finished) {   // every pointer type flicks the same way
       const tr = finished.trail, a = tr[0], b = tr[tr.length - 1], dt = b[0] - a[0];
       if (tr.length >= 3 && dt >= 30 && performance.now() - b[0] < 50 && V.k > kFit * 1.001) {
         const vx = (b[1] - a[1]) / dt, vy = (b[2] - a[2]) / dt;
