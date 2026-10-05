@@ -7,7 +7,7 @@ import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=d90a6074b7';
 import { lobuleFlows } from './lobule-model.js?v=7d74747a69';
 import { createProfile } from './charts.js?v=ec5db0ba37';
 import { createPressureTime } from './pressure-time.js?v=1d82b047f7';
-import { createDoppler } from './doppler.js?v=7621b6bdba';
+import { createDoppler } from './doppler.js?v=3d81ba83ea';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=1c9835f18b';
 
 
@@ -113,7 +113,7 @@ export function readoutValue(t, m, hidden) {
   return meas ? meas.hvpg : null;
 }
 
-export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onLobule, onOpen, onClose, isVisible, marks, onBeat, onLayout }) {
+export function createDock({ strip, head, body, onWhy, onAction, onProbe, onDopplerColor, onReveal, onLobule, onOpen, onClose, isVisible, marks, onBeat, onLayout }) {
   // ── Readout strip ─────────────────────────────────
   const tileEls = {};
   // A phone's four tiles are narrow: short names and status words where the long ones would be cut off.
@@ -294,7 +294,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const pressure = { ...profile, id: 'profile', label: 'Pressure' };
   const instruments = [
     pressure, createPressureTime({ marks }),
-    createDoppler({ onProbe }), endoscopy, createAbdomen({ onAction }),
+    createDoppler({ onProbe, onColor: onDopplerColor }), endoscopy, createAbdomen({ onAction }),
   ];
   const panes = instruments.map((p) => {
     p.el.classList.remove('dock-pane'); p.el.classList.add('instrument-view');

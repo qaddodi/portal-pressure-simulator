@@ -1943,7 +1943,14 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 
 /* ── Doppler ────────────────────────────────────── */
 .instrument-view.dop { display: flex; flex-direction: column; align-items: stretch; gap: 10px; min-height: 100%; }
-.dop-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex: none; }
+.dop-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 8px; flex: none; }
+.dop-mode { height: 30px; flex: 0 1 auto; min-width: 0; max-width: 156px; padding: 0 24px 0 12px; border-radius: var(--r-pill); font-size: var(--fs-12); font-weight: 500; color: var(--text-2); background-color: transparent; background-position: right 6px center; }
+.dop-tint:disabled { opacity: .4; cursor: default; }
+.dop-boxwrap { position: relative; min-width: 0; display: flex; flex-direction: column; }
+.dop-boxwrap > .dop-box { flex: 1 1 auto; }
+.dop-legend { position: absolute; left: 14px; bottom: 26px; display: flex; align-items: center; gap: 6px; font: 500 10px var(--font-ui); color: rgba(255,255,255,.7); pointer-events: none; }
+.dop-legend[hidden] { display: none; }
+.dop-legend i { display: block; width: 64px; height: 6px; border-radius: 3px; box-shadow: 0 0 0 1px rgba(255,255,255,.2); }
 .dop-vessel { min-width: 0; max-width: 220px; flex: 0 1 220px; height: 34px; font-weight: 600; }
 .dop-tint { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px 0 10px; border-radius: var(--r-pill); border: 1px solid var(--border); background: transparent; color: var(--text-2); font: 500 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; }
 .dop-tint i { width: 14px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #d8413a 50%, #3f78d8 50%); opacity: .35; transition: opacity var(--t-fast); }
