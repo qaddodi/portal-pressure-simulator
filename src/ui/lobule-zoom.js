@@ -397,7 +397,7 @@ export function createLobuleZoom({ host }) {
     }
     const f = ev.ctrlKey || ev.metaKey ? Math.exp(-clamp(dy, -50, 50) * 0.01) : Math.exp(-clamp(dy, -120, 120) * 0.0015);
     if (V.k <= kFit * 1.001 && f < 1) {
-      if (wheelOutOK) { outHandler?.(f); return; }   // a new zoom-out at its framing hands over to the stage, which scrubs the dive back
+      if (wheelOutOK && outHandler) { outHandler(f); return; }   // a new zoom-out at its framing hands over to the stage, which scrubs the dive back
       const p = local(ev); stretchBy(p[0], p[1], f); clearTimeout(stretchT); stretchT = setTimeout(endStretch, 220); return;   // one that arrived from deeper in stretches and springs back
     }
     if (rawK && f > 1) { const p = local(ev); stretchBy(p[0], p[1], f); clearTimeout(stretchT); stretchT = setTimeout(endStretch, 220); return; }
@@ -430,8 +430,8 @@ export function createLobuleZoom({ host }) {
         const [a, b] = pts2(), d = Math.hypot(a[0] - b[0], a[1] - b[1]), m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
         V.x += m[0] - pinch.m[0]; V.y += m[1] - pinch.m[1]; pinch.m = m;
         const dl = pinch.dl || pinch.d; pinch.dl = d;
-        if (rawK || (V.k <= kFit * 1.001 && d < dl && outHandler)) {
-          if (pinch.atFit && !rawK) outHandler(d / dl); else stretchBy(m[0], m[1], d / dl);
+        if (rawK || (V.k <= kFit * 1.001 && d < dl)) {
+          if (pinch.atFit && !rawK && outHandler) outHandler(d / dl); else stretchBy(m[0], m[1], d / dl);
           return;
         }
         zoomAround(m[0], m[1], (pinch.k * d / pinch.d) / V.k);

@@ -6,7 +6,7 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=23552bd900';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar, systemEdge } from './util.js?v=d90a6074b7';
-import { createLobuleZoom } from './lobule-zoom.js?v=ff8b3b7577';
+import { createLobuleZoom } from './lobule-zoom.js?v=e6d7e85992';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=e424ed9ef2';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -1220,10 +1220,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Zoom-driven dive: normal zoom carries on into the liver; past SCRUB_K over the liver the camera and pan
   // lock and each further zoom step scrubs the dive (scrubS 0..1, the same frames the timed dive plays).
   // Zooming back out reverses it, down to the liver again. Taps and the Lobule step still play it timed.
+  const SCRUB_ON = false;   // the lobule opens and closes only from the view buttons: manual zoom never dives into it
   const SCRUB_K = 5.8,   // the anatomy zoom is free up to its 6× maximum; the pan locks and the dive begins only at it
      SCRUB_SPAN = Math.log(7), SCRUB_DONE = 0.88;   // the dive has fully landed by 0.88, so the view switches there
   let scrubS = 0, quietLobule = false, scrubAnim = 0;
   function canScrub(factor) {
+    if (!SCRUB_ON) return false;
     if (lobuleOn || factor <= 1 || morphTarget !== 0 || morph > 0.02 || vt.k < SCRUB_K || reduceMotion.matches) return false;
     const w = diveTarget(); if (!w) return false;
     refreshCTM();
@@ -1274,17 +1276,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const zoomLobule = () => store.set({ lobule: true });
   lz = createLobuleZoom({ host: wrap });
   // Out of the lobule view by zooming out: the view hands the dive back to the scrub, which carries on reversing it.
-  lz.onZoomOut((factor, glide) => {
-    if (morphTarget !== 0 || (!lobuleOn && scrubS === 0)) return;
-    if (lobuleOn) {
-      // The view hands the dive back to the scrub; the lobule view's layers stay under the fingers until they fade, so later steps arrive here too.
-      cancelAnimationFrame(lobAnim); clearTimeout(lobEnd);
-      diveLand = lz.current(); lobuleOn = false; scrubS = diveT = SCRUB_DONE - 0.001;
-      quietLobule = true; store.set({ lobule: false }); quietLobule = false;
-      if (!diveAt) diveAt = [wrap.clientWidth / 2, wrap.clientHeight / 2];
-    }
-    if (glide) scrubGlide(factor); else scrubBy(factor);
-  });
 
   // ── Detail ────────────────────────────────────────
   // Adaptive detail: when the device cannot keep up (frames arriving slower than ~22 a second
