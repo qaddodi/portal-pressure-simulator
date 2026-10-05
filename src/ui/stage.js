@@ -2911,8 +2911,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const lines = [[{ t: name, size: compact ? 10.5 : 11.5, weight: one ? 600 : 500, cls: 'lb-name' }]];
     const lr = isImaging() ? null : layerRuns(f, id, compact);
     const pr = lr ? lr.runs : pressureRuns(P, id, compact);
-    // (The unit is in the legend right above the figure.)
-    if (pr && one) lines[0].push(...pr.filter((r) => r.cls !== 'lb-unit').map((r, i) => (i ? r : { ...r, gap: 4 })));
+    if (pr && one) lines[0].push(...pr.map((r, i) => (i ? r : { ...r, gap: 4 })));
     else if (pr) lines.push(pr);
     const w = Math.max(...lines.map(lineW)) + (mode === 'atlas' ? 7 : 0);
     const hh = lines.reduce((a, l) => a + LINE_H(l), 0);
