@@ -4,7 +4,7 @@
 import { store } from './store.js?v=23552bd900';
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=d90a6074b7';
-import { lobuleFlows } from './lobule-model.js?v=eae4864387';
+import { lobuleFlows } from './lobule-model.js?v=c424ebf32b';
 import { createProfile } from './charts.js?v=412797aba2';
 import { createPressureTime } from './pressure-time.js?v=23babe1537';
 import { createDoppler } from './doppler.js?v=8db333f86a';

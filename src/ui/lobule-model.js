@@ -40,6 +40,7 @@ export function lobuleState(f, st) {
   // The reference the labels and the card measure change against: the pinned moment while
   // comparing (as the anatomy does), otherwise the healthy patient.
   m.cmp = !!st.compareSnap;
+  m.lymphRef = m.cmp ? (st.compareSnap.metrics?.ascites?.hepLymph ?? m.lymph0) : m.lymph0;
   m.R = m.cmp ? [S.pv, S.sin, S.cv, S.hv, 'IVCS'].map((id) => ref[NI[id]]) : m.H;
   const dOf = (id) => (ref ? Pn(id) - ref[NI[id]] : 0);
   m.dP = [dOf(S.pv), dOf(S.sin), dOf(S.cv)];
