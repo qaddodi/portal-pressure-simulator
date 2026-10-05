@@ -20,6 +20,7 @@
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
 import { store } from './store.js?v=23552bd900';
+import { radiiChanged } from './lobule-render-cache.js?v=07951b5935';
 import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=7d1a8d3c8b';
 import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=831ebf143a';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
@@ -256,8 +257,8 @@ export function createLobuleZoom({ host }) {
   // When the free space changes (a card opens, the readouts expand), a fitted lobule follows it.
   function refit() { if (!geo) return; const F0 = fitV(); kFit = F0.k; if (atFit) glideTo(F0); else { clampV(); viewChanged(); } }
   addEventListener('pps:occ', () => { if (fade > 0) { layoutKey = ''; refit(); } });
-  addEventListener('pps:labelscale', () => { layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); });
-  const viewChanged = () => { tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); };
+  addEventListener('pps:labelscale', () => { drawVersion++; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); });
+  const viewChanged = () => { drawVersion++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); };
   const toWorld = (p) => [(p[0] - V.x) / V.k, (p[1] - V.y) / V.k];
   const toScreen = (p) => [p[0] * V.k + V.x, p[1] * V.k + V.y];
   function resetView() { if (!geo) { V.k = 1; V.x = 0; V.y = 0; return; } atFit = true; const F0 = fitV(); kFit = F0.k; Object.assign(V, F0); viewChanged(); }
@@ -356,6 +357,9 @@ export function createLobuleZoom({ host }) {
   // ── State ──
   let F = null, fade = 0, raf = 0, last = 0, lastPaint = 0;
   let geo = null, geoKey = '', model = null;
+  let drawVersion = 0, idleDrawn = '', lastSurface = 0;
+  const binCache = new Map();
+  store.on('*', () => { drawVersion++; });
   let gl = null, glTried = false, binKey = '', binReach = [], radKey = [], radAll = '', attrKey = '', drawKey = '', glDirty = true, tissueKey = '', worldKey = '', layoutKey = '';
   const worldCv = document.createElement('canvas');   // the lobule's tissue in world space (see paintTissue)
   const tubeData = new Float32Array(MAXT * TUBE_TEXELS * 4), flowData = new Float32Array(MAXT * FLOW_TEXELS * 4);
@@ -561,7 +565,7 @@ export function createLobuleZoom({ host }) {
       join(E[0], E[1], [side, d], R * 0.004);
     }
     for (const t of L1) add('ly', curve((u) => at(beside(t), u)), { lymph: true, lvl: 1 });
-    return { W, H, phone, R, cx, cy, rt, rs0, rcv0, lobules, tubes, joins, triads, inlets, L0, L1, L2, cv, septaPC, cells, hsc, lymph };
+    return { W, H, phone, R, cx, cy, rt, rs0, rcv0, lobules, tubes, bloodTubes: tubes.filter((t) => !t.lymph), joins, triads, inlets, L0, L1, L2, cv, septaPC, cells, hsc, lymph };
   }
   function hexFrac(x, y, cx, cy, R) {
     let m = 0;
@@ -574,6 +578,7 @@ export function createLobuleZoom({ host }) {
   const easeP = createEaser();
   let easeRaf = 0;
   function update(f) {
+    drawVersion++;
     F = f;
     if (fade <= 0) return;
     const st = store.get();
@@ -595,6 +600,7 @@ export function createLobuleZoom({ host }) {
     if (!F || fade <= 0 || !model) return;
     const eased = easeP.step(F.Pf || F.P);
     const inks = model.inks;
+    drawVersion++;
     model = lobuleState({ ...F, P: eased.v }, store.get());
     model.inks = inks;
     panel();
@@ -746,6 +752,10 @@ export function createLobuleZoom({ host }) {
     ensureGeo(W, H);
     const dpr = Math.min(2, devicePixelRatio || 1);
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+    // Keep watching for view/theme/size changes, but leave a settled paused picture alone.
+    const idleKey = [W, H, dpr, dark, V.k, V.x, V.y, drawVersion].join('|');
+    if (dt === 0 && idleKey === idleDrawn) return;
+    idleDrawn = dt === 0 ? idleKey : '';
     const cs = getComputedStyle(host);
     const g = ensureGL();
     paintTissue(W, H, dpr, dark, cs, !g);
@@ -756,7 +766,7 @@ export function createLobuleZoom({ host }) {
 
   function ensureGeo(W, H) {
     const key = W + 'x' + H;
-    if (key !== geoKey) { geo = build(W, H); geoKey = key; binKey = ''; radKey = []; radAll = ''; tissueKey = ''; layoutKey = ''; if (atFit) resetView(); else clampV(); }
+    if (key !== geoKey) { geo = build(W, H); geoKey = key; binKey = ''; binReach = []; binCache.clear(); radKey = []; radAll = ''; tissueKey = ''; layoutKey = ''; if (atFit) resetView(); else clampV(); }
   }
   const isDark = () => document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
 
@@ -1016,9 +1026,9 @@ export function createLobuleZoom({ host }) {
   function ink(seg, w = 0) {
     const m = model, M = m.mode;
     if (M === 'pressure' || M === 'delta' || M === 'heat') {
-      const V = M === 'pressure' ? [m.P1, m.P2, m.P3] : m.dP;
+      const V = M === 'pressure' ? [m.P1, m.P2, m.P3].map(qP) : m.dP;
       const v = seg === 'pv' ? V[0] : seg === 'in' ? lerp(V[0], V[1], 0.6 * w) : seg === 'cv' ? V[2] : V[2] + (V[1] - V[2]) * w;
-      return M === 'pressure' ? pressureColor(v) : M === 'delta' ? deltaColor(qP(v)) : heatColor(qP(v));
+      return M === 'pressure' ? pressureColor(qP(v)) : M === 'delta' ? deltaColor(qP(v)) : heatColor(qP(v));
     }
     const e = seg === 'sin' ? 'sin' : seg === 'cv' ? 'post' : 'pre';
     switch (M) {
@@ -1046,54 +1056,68 @@ export function createLobuleZoom({ host }) {
     const res = g.software ? 0.5 : 1, k = dpr * res;
     const cw = Math.max(1, Math.round(W * k)), ch = Math.max(1, Math.round(H * k));
     if (glCv.width !== cw || glCv.height !== ch) { glCv.width = cw; glCv.height = ch; glDirty = true; }
-    const live = lymphOn ? G.tubes : G.tubes.filter((t) => !t.lymph);
-    // Radii, re-sent when a tube's caliber changed (they follow only these few model values).
-    let reachGrew = false;
-    const rk0 = [m.zone.sin, m.congU, m.fibPre, m.fibPost, m.art, lymphRate(m)].map((x) => x.toFixed(3)).join('|') + '|' + G.W + 'x' + G.H;
-    if (rk0 !== radAll) for (const t of live) {
-      const r = Array.from({ length: N }, (_, i) => radiusAt(t, i)), rk = r.map((v) => v.toFixed(2)).join(',');
-      t.maxR = Math.max(...r);
-      if (radKey[t.id] !== rk) { radKey[t.id] = rk; g.setRadii(t.id, r); glDirty = true; }
-      const reach = Math.ceil((t.maxR + (WALL[t.kind] || 0) + 10) / 2) * 2;
-      if (reach > (binReach[t.id] || 0)) reachGrew = true;
-    }
-    radAll = rk0;
-    const bk = live.map((t) => t.id).join(',');
-    if (bk !== binKey || reachGrew) {
-      binKey = bk;
-      for (const t of live) binReach[t.id] = Math.max(binReach[t.id] || 0, Math.ceil((t.maxR * 1.6 + (WALL[t.kind] || 0) + 10) / 2) * 2);
-      const ids = new Set(live.map((t) => t.id));
-      g.setGeometry(binVeins(live.map((t) => ({ id: t.id, pts: t.pts, reach: binReach[t.id] })), G.joins.filter((j) => j.members.every((id) => ids.has(id)))));
-      glDirty = true;
-    }
-    // Attributes, re-sent when they change (pressures in half-mmHg steps).
+    const live = lymphOn ? G.tubes : G.bloodTubes;
+    const T = [k * V.k, 0, 0, k * V.k, k * V.x, k * V.y];
+    const dk = `${cw}x${ch}|${T.map((x) => x.toFixed(2)).join(',')}`;
+    const bk = lymphOn ? 'lymph' : 'blood';
+    const now = performance.now();
     const origin = originOn();
-    const selIdsN = selIds();
-    const inks = new Map(live.map((t) => [t.id, [tubeInk(t, 0), tubeInk(t, 1)]]));
-    const ak = [m.mode, [...inks.values()].flat().join(','), m.hide, origin, lymphOn, lyProt(m).toFixed(2), lyF(m).toFixed(2), [...selIdsN].join('.'), dark, cs.getPropertyValue('--artery')].join('|');
-    if (ak !== attrKey) {
-      attrKey = ak; glDirty = true;
-      tubeData.fill(0);
-      const art = rgb01(cs.getPropertyValue('--artery').trim() || '#C8414D'), grey = [ORIGIN_GREY, ORIGIN_GREY, ORIGIN_GREY];
-      const LY = lyInk(m, dark);   // lymph: clear, a faint green (paler than the bile duct), deeper with more protein
-      // The space of Disse fills as filtration rises: its tint deepens a little (it already widens).
-      const deep = dark ? [0.62, 0.7, 0.58] : [0.79, 0.86, 0.74], LYd = LY.map((x, i) => lerp(x, deep[i], 0.45 * lyF(m)));
-      for (const t of live) {
-        const o = t.id * TUBE_TEXELS * 4, isArt = t.kind === 'ha' || t.kind === 'tw', isBd = t.kind === 'bd';
-        const [i0, i1] = inks.get(t.id);
-        const LYt = t.kind === 'ly' ? LYd : LY;
-        const c0 = isBd ? BD_FILL : isArt ? art : t.lymph ? LYt : origin ? grey : rgb01(i0), c1 = isBd ? BD_FILL : isArt ? art : t.lymph ? LYt : origin ? grey : rgb01(i1);
-        const alpha = (isArt ? 0.9 : 1) * (selIdsN.size && !selIdsN.has(t.id) ? 0.55 : 1);
-        const big = t.kind === 'pv' || t.kind === 'cv' || t.kind === 'in';
-        // The triad's three vessels carry a dark outline of their own colour; the rest the common casing.
-        const edge = EDGE[t.kind];
-        const flags = (selIdsN.has(t.id) ? F_SEL : 0) | (edge ? F_EDGE : 0) | (isArt || isBd ? 0 : F_DIFFUSE | F_SHADOW | (big ? F_SPEC : 0));
-        const z = { s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.13, an: 0.09, lt: 0.25, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.45, sh: 0.5, bd: 0.55, tw: 0.6, ha: 0.7 }[t.kind];
-        tubeData.set([...c0, WALL[t.kind], ...c1, alpha, 1, z, flags, 0], o);
-        tubeData.set([0, 1, t.len, 0], o + 20);
-        if (edge) tubeData.set([...edge, 0], o + 24);
+    // The flow pass stays at display speed. Shapes and colors need at most 12.5 updates/s;
+    // interactions and newly enabled layers refresh immediately.
+    if (dt === 0 || !attrKey || !radAll || bk !== binKey || dk !== drawKey || now - lastSurface >= 80) {
+      lastSurface = now;
+      // Radii, re-sent when a tube's caliber changed (they follow only these few model values).
+      let reachGrew = false;
+      const rk0 = [m.zone.sin, m.congU, m.fibPre, m.fibPost, m.art, lymphRate(m)].map((x) => x.toFixed(3)).join('|') + '|' + G.W + 'x' + G.H + '|' + lymphOn + '|' + (k * V.k).toFixed(3);
+      if (rk0 !== radAll) for (const t of live) {
+        const r = Array.from({ length: N }, (_, i) => radiusAt(t, i));
+        t.maxR = Math.max(...r);
+        if (radiiChanged(radKey[t.id], r, 0.35 / (k * V.k))) { radKey[t.id] = r; g.setRadii(t.id, r); glDirty = true; }
+        const reach = Math.ceil((t.maxR + (WALL[t.kind] || 0) + 10) / 2) * 2;
+        if (reach > (binReach[t.id] || 0)) reachGrew = true;
       }
-      g.setTubes(tubeData);
+      radAll = rk0;
+      if (reachGrew) binCache.clear();
+      if (bk !== binKey || reachGrew) {
+        binKey = bk;
+        for (const t of live) binReach[t.id] = Math.max(binReach[t.id] || 0, Math.ceil((t.maxR * 1.6 + (WALL[t.kind] || 0) + 10) / 2) * 2);
+        const ids = new Set(live.map((t) => t.id));
+        let bins = binCache.get(bk);
+        if (!bins) {
+          bins = binVeins(live.map((t) => ({ id: t.id, pts: t.pts, reach: binReach[t.id] })), G.joins.filter((j) => j.members.every((id) => ids.has(id))));
+          binCache.set(bk, bins);
+        }
+        g.setGeometry(bins);
+        glDirty = true;
+      }
+      // Attributes, re-sent when they change (pressures in half-mmHg steps).
+      const selIdsN = selIds();
+      const inks = new Map(live.map((t) => [t.id, [tubeInk(t, 0), tubeInk(t, 1)]]));
+      const ak = [m.mode, [...inks.values()].flat().join(','), m.hide, origin, lymphOn, lyProt(m).toFixed(2), lyF(m).toFixed(2), [...selIdsN].join('.'), dark, cs.getPropertyValue('--artery')].join('|');
+      if (ak !== attrKey) {
+        attrKey = ak; glDirty = true;
+        tubeData.fill(0);
+        const art = rgb01(cs.getPropertyValue('--artery').trim() || '#C8414D'), grey = [ORIGIN_GREY, ORIGIN_GREY, ORIGIN_GREY];
+        const LY = lyInk(m, dark);   // lymph: clear, a faint green (paler than the bile duct), deeper with more protein
+        // The space of Disse fills as filtration rises: its tint deepens a little (it already widens).
+        const deep = dark ? [0.62, 0.7, 0.58] : [0.79, 0.86, 0.74], LYd = LY.map((x, i) => lerp(x, deep[i], 0.45 * lyF(m)));
+        for (const t of live) {
+          const o = t.id * TUBE_TEXELS * 4, isArt = t.kind === 'ha' || t.kind === 'tw', isBd = t.kind === 'bd';
+          const [i0, i1] = inks.get(t.id);
+          const LYt = t.kind === 'ly' ? LYd : LY;
+          const c0 = isBd ? BD_FILL : isArt ? art : t.lymph ? LYt : origin ? grey : rgb01(i0), c1 = isBd ? BD_FILL : isArt ? art : t.lymph ? LYt : origin ? grey : rgb01(i1);
+          const alpha = (isArt ? 0.9 : 1) * (selIdsN.size && !selIdsN.has(t.id) ? 0.55 : 1);
+          const big = t.kind === 'pv' || t.kind === 'cv' || t.kind === 'in';
+          // The triad's three vessels carry a dark outline of their own colour; the rest the common casing.
+          const edge = EDGE[t.kind];
+          const flags = (selIdsN.has(t.id) ? F_SEL : 0) | (edge ? F_EDGE : 0) | (isArt || isBd ? 0 : F_DIFFUSE | F_SHADOW | (big ? F_SPEC : 0));
+          const z = { s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.13, an: 0.09, lt: 0.25, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.45, sh: 0.5, bd: 0.55, tw: 0.6, ha: 0.7 }[t.kind];
+          tubeData.set([...c0, WALL[t.kind], ...c1, alpha, 1, z, flags, 0], o);
+          tubeData.set([0, 1, t.len, 0], o + 20);
+          if (edge) tubeData.set([...edge, 0], o + 24);
+        }
+        g.setTubes(tubeData);
+      }
     }
     // Blood: each vessel's stream advances at a display speed from the model's flows.
     const st = store.get(), b = st.blood || {};
@@ -1141,8 +1165,6 @@ export function createLobuleZoom({ host }) {
       netAlpha: 1, fx: true, tierAlpha: Array(MAX_TIERS).fill(1), tierGroup: Array(MAX_TIERS).fill(1),
     };
     const blood = { on: bloodOn, chev, look: b.look || 'shimmer', origin, clock, dye: false, bleed: [], ...BLOOD };
-    const T = [k * V.k, 0, 0, k * V.k, k * V.x, k * V.y];
-    const dk = `${cw}x${ch}|${T.map((x) => x.toFixed(2)).join(',')}`;
     if (glDirty || dk !== drawKey) { glDirty = false; drawKey = dk; g.draw(T, look, blood); } else g.composite(look, blood);
   }
   const num = (cs, n, d) => { const v = parseFloat(cs.getPropertyValue(n)); return Number.isFinite(v) ? v : d; };
