@@ -751,26 +751,53 @@ export function createLobuleZoom({ host }) {
     pickAnchors(fr0);
     leaders.setAttribute('viewBox', `0 0 ${g.W} ${g.H}`);
     const { R, cx, cy } = g;
-    // Each label sits just beside its vessel, on the side away from the lobule's centre (the central
-    // venule's, up and to the left of it), with a short leader; it stays inside the free space.
-    const c0 = toScreen([cx, cy]);
-    for (const [k, L] of Object.entries(labs)) {
+    // Direct labels for the portal venule and sinusoids. Only the central venule
+    // needs a leader; its endpoint is the label's centre, behind the text halo.
+    // Score nearby placements together so zooming, panning and narrow screens do not stack labels.
+    const fr = fr0, placed = [];
+    const overlap = (a, b) => Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l))
+      * Math.max(0, Math.min(a.b, b.b) - Math.max(a.t, b.t));
+    if (zonesOn) {
+      const ap = R * 0.866, zk = clamp((R * V.k) / 300, 0.66, 1.15);
+      for (const q of [0.83, 0.51, 0.2]) {
+        const [x, y] = toScreen([cx, cy + ap * q]);
+        placed.push({ l: x - 46 * zk, r: x + 46 * zk, t: y - 18 * zk, b: y + 18 * zk });
+      }
+    }
+    for (const k of ['cv', 'sin', 'triad']) {
+      const L = labs[k];
+      if (!L) continue;
+      L.el.hidden = false;
       const w = L.el.offsetWidth || 100, hh = L.el.offsetHeight || 40;
-      const a = toScreen(anchorOf(k)), off = a[0] < 0 || a[0] > g.W || a[1] < 0 || a[1] > g.H;
-      let dx = a[0] - c0[0], dy = a[1] - c0[1], n = Math.hypot(dx, dy);
-      if (k === 'cv' || n < 1) { dx = -0.8; dy = -0.6; n = 1; }
-      dx /= n; dy /= n;
-      const gap = 18 + Math.abs(dx) * w / 2 + Math.abs(dy) * hh / 2;
-      const fr = freeRect();
-      const x = clamp(a[0] + dx * gap, fr.l + w / 2, fr.r - w / 2), y = clamp(a[1] + dy * gap, fr.t + hh / 2, fr.b - hh / 2);
+      const a = toScreen(anchorOf(k));
+      const outside = a[0] < fr.l - 4 || a[0] > fr.r + 4 || a[1] < fr.t - 4 || a[1] > fr.b + 4;
+      L.el.hidden = outside || fr.r - fr.l < w + 16 || fr.b - fr.t < hh + 16;
+      if (L.el.hidden) { L.line.style.display = L.dotEl.style.display = 'none'; continue; }
+      const pad = 8, step = hh + 12;
+      const preferred = k === 'cv' ? [a[0], a[1] - g.rcv0 * V.k - hh / 2 - 12]
+        : k === 'triad' ? [a[0], a[1] + hh / 2 + 12] : a;
+      const candidates = [preferred,
+        [preferred[0], preferred[1] - step], [preferred[0], preferred[1] + step],
+        [preferred[0] - w / 2 - 12, preferred[1]], [preferred[0] + w / 2 + 12, preferred[1]],
+        [preferred[0], preferred[1] - 2 * step], [preferred[0], preferred[1] + 2 * step]];
+      let best = null;
+      for (const [px, py] of candidates) {
+        const x = clamp(px, fr.l + w / 2 + pad, fr.r - w / 2 - pad);
+        const y = clamp(py, fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
+        const box = { l: x - w / 2 - 6, r: x + w / 2 + 6, t: y - hh / 2 - 6, b: y + hh / 2 + 6 };
+        const cost = placed.reduce((sum, other) => sum + overlap(box, other) * 100, 0)
+          + Math.hypot(x - preferred[0], y - preferred[1]);
+        if (!best || cost < best.cost) best = { x, y, box, cost };
+      }
+      const { x, y, box } = best;
+      placed.push(box);
       L.el.style.left = `${x - w / 2}px`; L.el.style.top = `${y - hh / 2}px`;
-      L.el.classList.toggle('left', x < a[0]);
-      // Hidden when its vessel is out of the free space, or the space is too small to hold it.
-      L.el.hidden = off || fr.b - fr.t < hh + 8 || fr.r - fr.l < w + 8 || a[0] < fr.l - 4 || a[0] > fr.r + 4 || a[1] < fr.t - (k === 'cv' ? 4 : 30) || a[1] > fr.b + 4;
-      L.line.style.display = L.dotEl.style.display = L.el.hidden ? 'none' : '';
-      // The leader ends at the label's near edge (its colour bar).
-      const ex = x < a[0] ? x + w / 2 : x - w / 2;
-      L.line.setAttribute('x1', a[0]); L.line.setAttribute('y1', a[1]); L.line.setAttribute('x2', ex); L.line.setAttribute('y2', y);
+      L.el.classList.toggle('direct', k !== 'cv');
+      L.el.classList.remove('left');
+      const leaderOn = k === 'cv';
+      L.line.style.display = L.dotEl.style.display = leaderOn ? '' : 'none';
+      L.line.setAttribute('x1', a[0]); L.line.setAttribute('y1', a[1]);
+      L.line.setAttribute('x2', x); L.line.setAttribute('y2', y);
       L.dotEl.setAttribute('cx', a[0]); L.dotEl.setAttribute('cy', a[1]);
     }
     // Zone names written in the bands themselves, as the organs are named on the anatomy: quiet capitals in each
