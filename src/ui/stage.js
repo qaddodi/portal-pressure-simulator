@@ -2189,7 +2189,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         }
       } catch (e) { console.warn('Plate raster failed; the SVG plate stays.', e); }
       plateBusy = false;
-      if (plateAgain) { plateAgain = false; platePoke(); }
+      // The liver tint eases in over .6s; a raster taken mid-fade would keep the half-faded colour until the next click.
+      const mid = Math.abs((parseFloat(getComputedStyle(liverTint).opacity) || 0) - (parseFloat(liverTint.style.opacity) || 0)) > 0.01;
+      if (mid) { plateAgain = false; plateKey = ''; clearTimeout(plateTimer); plateTimer = 0; setTimeout(platePoke, 700); }
+      else if (plateAgain) { plateAgain = false; platePoke(); }
     }, wait);
   }
   // After a pan or zoom settles, a raster of the view at the screen's resolution (when the
