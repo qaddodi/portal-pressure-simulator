@@ -3594,6 +3594,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!shunt && !drag && !lobuleOn && store.get().tool === 'select') {
       const [wx, wy] = clientToWorld(ev.clientX, ev.clientY), o = organAt(wx, wy);
       const sel = store.get().selection;
+      const near = o ? nearbyEdge(ev) : null;   // a click here would pick this vessel, so the organ must not light
+      if (near && EI[near] != null && F) { setHover(near); setOrganHover(null); return; }
       if (o && !(sel?.type === 'organ' && sel.id === o)) setOrganHover(o, o === 'liver' ? (wx < LIVER_SPLIT_X ? 'R' : 'L') : '');
       else setOrganHover(null);
     } else setOrganHover(null);
