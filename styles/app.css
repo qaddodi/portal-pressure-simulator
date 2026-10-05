@@ -2752,3 +2752,47 @@ input[type="range"] { touch-action: none; }
 .readouts:not(.lob) .ro-group[data-group="lobule"] { display: none; }
 .readouts.lob:not(.all) .ro-group[data-group="lobule"] { --n: 4; }
 .readouts.lob.all .ro-group[data-group="lobule"] { order: -1; }
+
+
+/* Phone selection inspector: float above the vitals, with readable controls and a fixed header. */
+.action-card.docked {
+  left: calc(env(safe-area-inset-left) + 8px) !important;
+  right: calc(env(safe-area-inset-right) + 8px);
+  bottom: var(--bot-occ, 130px);
+  max-height: min(56%, calc(100% - var(--top-safe) - var(--bot-occ, 130px) - 16px));
+  border-radius: var(--r-sheet);
+}
+.action-card.docked.full { max-height: calc(100% - var(--top-safe) - var(--bot-occ, 130px) - 16px); }
+.action-card.docked .ac-top { display: flex; flex-direction: column; align-items: stretch; padding: 0 16px; gap: 0; }
+.action-card.docked .ac-grab { height: 44px; text-align: right; padding: 0 0 0 48px; font: 600 var(--fs-12) var(--font-ui); color: var(--text-2); }
+.action-card.docked .ac-grab::before { top: 20px; }
+.action-card.docked .ac-head { display: flex; align-items: flex-start; gap: 12px; }
+.action-card.docked .ac-titles { display: block; flex: 1; min-width: 0; }
+.action-card.docked .ac-head h3 { font-size: var(--fs-16); line-height: 1.35; margin: 4px 0 0; padding: 0; }
+.action-card.docked .ac-kicker { white-space: normal; }
+.action-card.docked .ac-top:has(.ac-status:not(:empty)) .ac-kicker { display: block; }
+.action-card.docked .ac-close { width: 44px; height: 44px; margin: -4px -8px 0 0; flex: none; }
+.action-card.docked .ac-readout { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.action-card.docked .ac-value { justify-self: auto; flex-wrap: wrap; }
+.action-card.docked .ac-foot.in-head { display: none; }
+.action-card.docked .ac-foot.at-foot { display: flex; padding: 0 16px; }
+.action-card.docked .ac-foot .link { min-height: 44px; }
+.action-card.docked.peek .ac-foot.at-foot { display: none; }
+.action-card.docked.peek .ac-top { padding-bottom: 0; }
+.action-card.docked .ac-scroll { padding: 0 16px 12px; }
+.action-card.docked .ac-body { display: flex; flex-direction: column; gap: 14px; padding: 14px 0 0; }
+.action-card.docked .ac-about:not(.full) { display: block; line-height: 1.5; cursor: default; }
+.action-card.docked .ac-about:not(.full) p { display: block; }
+.action-card.docked .ac-about:not(.full) p + p::before { content: none; }
+.action-card.docked .ac-btn, .action-card.docked .ac-toggle,
+.action-card.docked .ac-btns.tri .ac-btn { min-height: 44px; padding: 10px 12px; font-size: var(--fs-14); text-align: left; flex-direction: row; gap: 8px; }
+.action-card.docked .ac-body > .ac-btns.tri { display: flex; flex-direction: column; gap: 10px; }
+.action-card.docked .ac-btns.tri .ac-bl { white-space: normal; }
+.action-card.docked .ac-row { gap: 8px; }
+.action-card.docked .ac-seg { display: flex; flex-wrap: wrap; }
+.action-card.docked .ac-seg button { min-height: 44px; padding: 8px 10px; }
+.action-card.docked .ac-slider:not(.long), .action-card.docked .ac-slider.long { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+.action-card.docked .ac-slider:not(.long) .ctl-top { display: flex; }
+.action-card.docked .range-wrap, .action-card.docked input[type=range] { height: 44px; }
+.action-card.docked .ac-slider .ctl-sub { display: block; line-height: 1.5; }
+.action-card.docked .ac-stat { padding: 6px 0; }
