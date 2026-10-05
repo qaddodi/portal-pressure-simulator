@@ -38,6 +38,8 @@ export const ANAT_HIDDEN = new Set([]);
 export const ANAT_HIDDEN_NODES = new Set(['ILI']);
 // Drawn only once the paraumbilical collateral has opened.
 export const NEEDS_C3 = new Set(['EPI_ILI', 'EPI_SVC']);
+// The IVC, drawn faded along its whole length, as the stretch behind the liver is.
+export const IVC_EDGES = new Set(['ILI_IVC', 'IVC_IS', 'IVCS_RA']);
 // Retroperitoneal vessels, drawn behind the organs (the liver and bowel veil them).
 export const BACK_EDGES = new Set(['IVC_IS', 'ILI_IVC', 'LRV_IVC', 'V_KID_L', 'C7', 'C9', 'S_MC', 'C1b']);
 
