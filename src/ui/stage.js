@@ -3734,7 +3734,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let cancelFlick = null;
   function fling(vx, vy) {
     if (reduceMotion.matches || Math.hypot(vx, vy) < FLICK.minSpeed) { springBack(); return; }
-    const s0 = vbScale(), k = vt.k;
+    const s0 = vbScale(), k = vt.k, h0 = hardPan(vt);
+    // Let go past the bounds (always so at the fit zoom, where the drag rides the wide band): nothing to carry, so it eases home from
+    // exactly where it is, as the lobule does at its framing. A flick would restart the stretch from a narrower band and jump.
+    if (Math.abs(vt.x - h0.x) * s0 > 0.5 || Math.abs(vt.y - h0.y) * s0 > 0.5) { springBack(); return; }
     glide = 1;
     cancelFlick = runFlick({   // the lobule's flick, in screen pixels, bounded by the figure
       x: vt.x * s0, y: vt.y * s0, vx: vx, vy: vy,
