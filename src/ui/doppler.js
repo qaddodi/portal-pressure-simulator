@@ -7,7 +7,7 @@
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { h, fmt, fitCanvas, clamp, icon } from './util.js?v=d90a6074b7';
 import { FONT } from './charts.js?v=ec5db0ba37';
-import { DOPPLER_MODES, isDirectional, dopplerColor, legendGradient, drawVarianceLegend, powerIndex } from './dopplerColor.js?v=d0d662d044';
+import { DOPPLER_MODES, isDirectional, dopplerColor, legendGradient, varianceGradient, powerIndex } from './dopplerColor.js?v=93177f25f6';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 // kind decides the words for direction and pattern; normal is the usual mean velocity (cm/s).
@@ -61,8 +61,11 @@ export function createDoppler({ onProbe }) {
   // The legend: a small colour bar over the trace in the colour modes.
   // (Variance is a 2D map: direction across, variance up, painted from the trace's own map.)
   const legBar = h('i'), legLo = h('span'), legHi = h('span');
-  const legMap = h('canvas', { width: 72, height: 30 }), legAx = h('em', {}, h('span', {}, 'turbulent'), h('span', {}, 'steady'));
-  const legend = h('div', { class: 'dop-legend', hidden: true, 'aria-hidden': 'true' }, legLo, legBar, legMap, legHi, legAx);
+  const dirRow = h('div', { class: 'lg-row' }, legLo, legBar, legHi);
+  const vBars = [h('i'), h('i')];
+  const varBox = h('div', { class: 'lg-var' }, h('span', {}, 'toward'), vBars[0], h('span', {}, 'away'), vBars[1],
+    h('span'), h('em', {}, h('span', {}, 'steady'), h('span', {}, 'turbulent')));
+  const legend = h('div', { class: 'dop-legend', hidden: true, 'aria-hidden': 'true' }, dirRow, varBox);
   function sync() {
     const m = DOPPLER_MODES.find((x) => x.id === mode);
     modeTxt.textContent = m.short;
@@ -75,8 +78,9 @@ export function createDoppler({ onProbe }) {
     legend.hidden = mode === 'spectrum';
     if (mode !== 'spectrum') {
       const vmode = mode === 'variance';
-      legBar.hidden = vmode; legMap.hidden = !vmode; legAx.hidden = !vmode;
-      if (vmode) drawVarianceLegend(legMap, invert); else legBar.style.background = legendGradient(mode, invert && isDirectional(mode));
+      dirRow.hidden = vmode; varBox.hidden = !vmode;
+      if (vmode) { vBars[0].style.background = varianceGradient(1, invert); vBars[1].style.background = varianceGradient(-1, invert); }
+      else legBar.style.background = legendGradient(mode, invert && isDirectional(mode));
       legLo.textContent = 'away'; legHi.textContent = 'toward';
     }
     if (frame) draw();

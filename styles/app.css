@@ -1949,12 +1949,13 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .dop-tint:disabled { opacity: .4; cursor: default; }
 .dop-boxwrap { position: relative; min-width: 0; display: flex; flex-direction: column; }
 .dop-boxwrap > .dop-box { flex: 1 1 auto; }
-.dop-legend { position: absolute; left: 14px; bottom: 26px; display: flex; align-items: center; gap: 6px; font: 500 10px var(--font-ui); color: rgba(255,255,255,.7); pointer-events: none; }
-.dop-legend[hidden] { display: none; }
-.dop-legend canvas { display: block; width: 72px; height: 30px; border-radius: 3px; box-shadow: 0 0 0 1px rgba(255,255,255,.2); }
-.dop-legend em { display: flex; flex-direction: column; justify-content: space-between; align-self: stretch; font-style: normal; }
-.dop-legend [hidden] { display: none; }
-.dop-legend i { display: block; width: 64px; height: 6px; border-radius: 3px; box-shadow: 0 0 0 1px rgba(255,255,255,.2); }
+.dop-legend { position: absolute; left: 12px; bottom: 26px; font: 600 11px var(--font-ui); color: rgba(255,255,255,.85); text-shadow: 0 0 3px #000, 0 0 3px #000; pointer-events: none; }
+.dop-legend .lg-row { display: flex; align-items: center; gap: 6px; }
+.dop-legend .lg-var { display: grid; grid-template-columns: auto 92px; align-items: center; gap: 3px 6px; }
+.dop-legend .lg-var em { display: flex; justify-content: space-between; font-style: normal; font-weight: 500; font-size: 10px; }
+.dop-legend i { display: block; width: 72px; height: 8px; border-radius: 4px; box-shadow: 0 0 0 1px rgba(255,255,255,.3); }
+.dop-legend .lg-var i { width: auto; height: 10px; }
+.dop-legend[hidden], .dop-legend [hidden] { display: none; }
 .dop-vessel { min-width: 0; max-width: 220px; flex: 0 1 220px; height: 34px; font-weight: 600; }
 .dop-tint { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px 0 10px; border-radius: var(--r-pill); border: 1px solid var(--border); background: transparent; color: var(--text-2); font: 500 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; }
 .dop-tint i { width: 14px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #d8413a 50%, #3f78d8 50%); opacity: .35; transition: opacity var(--t-fast); }

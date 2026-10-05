@@ -39,6 +39,7 @@ const POWER = bake([[0, 90, 0, 0], [0.3, 190, 30, 10], [0.6, 250, 120, 10], [0.8
 const VAR_TOWARD = bake([[0, 0, 0, 0], [0.4, 255, 220, 40], [0.75, 60, 215, 80], [1, 170, 245, 110]]);
 const VAR_AWAY = bake([[0, 0, 0, 0], [0.4, 40, 210, 230], [0.75, 60, 215, 80], [1, 170, 245, 110]]);
 
+const VAR_BASE = 0.6;   // the Variance map's base shade (position on the direction map)
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const smooth = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); };
 const at = (out, lut, x) => { const i = Math.round(clamp01(x) * 255) * 3; out[0] = lut[i]; out[1] = lut[i + 1]; out[2] = lut[i + 2]; return out; };
@@ -51,7 +52,8 @@ export function dopplerColor(mode, { u = 0, p = 0, s = 0 }, invert = false, out 
   const a = Math.abs(u);
   if (mode === 'dirpower') { at(out, toward ? TOWARD : AWAY, p); out[3] = smooth(0.02, 0.12, p) * smooth(0.03, 0.12, a); return out; }
   if (mode === 'direction' || mode === 'variance') {
-    at(out, toward ? TOWARD : AWAY, a);
+    // Variance: the base is one fixed shade per direction, so the map is direction × variance only
+    at(out, toward ? TOWARD : AWAY, mode === 'variance' ? VAR_BASE : a);
     if (mode === 'variance') {
       const f = smooth(0.04, 0.4, s);
       if (f > 0) { at(tmp, toward ? VAR_TOWARD : VAR_AWAY, s); for (let c = 0; c < 3; c++) out[c] += (tmp[c] - out[c]) * f; }
@@ -76,21 +78,20 @@ export function legendGradient(mode, invert = false) {
   for (let i = 0; i < n; i++) {
     const x = i / (n - 1), u = 2 * x - 1 || 0.001;
     const c = mode === 'dirpower' ? dopplerColor('dirpower', { u, p: Math.abs(u) }, invert)
-      : dopplerColor('variance', { u: 0.6, s: x }, invert);
+      : dopplerColor('variance', { u: VAR_BASE, s: x }, invert);
     const k = c[3] < 0.5 ? [0, 0, 0] : c;
     out.push(`rgb(${k[0] | 0},${k[1] | 0},${k[2] | 0}) ${(x * 100).toFixed(0)}%`);
   }
   return `linear-gradient(90deg,${out.join(',')})`;
 }
 
-/** Paints the Variance legend on a canvas: direction across (away to toward), variance up (steady to turbulent). */
-export function drawVarianceLegend(cv, invert = false) {
-  const ctx = cv.getContext('2d'), { width: W, height: H } = cv, im = ctx.createImageData(W, H), c = [0, 0, 0, 0];
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const u = ((x + 0.5) / W * 2 - 1) * 0.9, s = 1 - (y + 0.5) / H;
-    dopplerColor('variance', { u: Math.abs(u) < 0.2 ? Math.sign(u || 1) * 0.2 : u, s }, invert, c);
-    const q = (y * W + x) * 4;
-    im.data[q] = c[0]; im.data[q + 1] = c[1]; im.data[q + 2] = c[2]; im.data[q + 3] = 255;
+/** One row of the Variance legend: steady (left) to turbulent (right) for flow toward (u > 0) or away (u < 0). */
+export function varianceGradient(u, invert = false) {
+  const n = 11, out = [], c = [0, 0, 0, 0];
+  for (let i = 0; i < n; i++) {
+    const x = i / (n - 1);
+    dopplerColor('variance', { u, s: x }, invert, c);
+    out.push(`rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0}) ${(x * 100).toFixed(0)}%`);
   }
-  ctx.putImageData(im, 0, 0);
+  return `linear-gradient(90deg,${out.join(',')})`;
 }
