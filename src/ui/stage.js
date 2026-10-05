@@ -3090,20 +3090,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         it.side = ATLAS_LABELS[id]?.side || (NODE_POS[id][0][0] < 700 ? 'L' : 'R');
         items.push(it);
       }
-      // A TIPS shunt gets its own callout: pressure at its portal end and the velocity through it.
+      // A TIPS shunt gets its own callout: the velocity through it (cm/s).
       if (E.TIPS?.vis && EI.TIPS >= 0) {
         const { ax, ay, mid, w: vw } = labelAnchor('TIPS', t);
         if (ax > 4 && ax < W - 4 && ay > 4 && ay < H - 4 && !blockers.some((b) => ax > b.x0 && ax < b.x1 && ay > b.y0 && ay < b.y1)) {
           const it = nodeItem('RPV', f, atlas ? 'atlas' : 'inline', compact);
           const vel = Math.abs(edgeVel(f, EI.TIPS));
           const unit = { size: compact ? 9.5 : 10, weight: 500, cls: 'lb-unit', gap: 2.5 };
-          const nm = it.lines[0][0];
-          nm.t = 'TIPS';
-          const vr = [{ t: fmt(vel, 0), size: compact ? 12.5 : 14, weight: 650, cls: 'lb-val', gap: atlas ? 0 : 8 }, { ...unit, t: 'cm/s' }];
+          it.lines[0][0].t = 'TIPS';
+          it.lines.length = 1; it.lines[0].length = 1;
+          const vr = [{ t: fmt(vel, 0), size: compact ? 12.5 : 14, weight: 650, cls: 'lb-val', gap: atlas ? 0 : 4 }, { ...unit, t: 'cm/s' }];
           if (atlas) it.lines.push(vr); else it.lines[0].push(...vr);
-          it.key = 'n:TIPS'; it.node = undefined; it.sel = false;
+          it.key = 'n:TIPS'; it.node = undefined; it.sel = false; it.swatch = null;
           it.w = Math.max(...it.lines.map(lineW)) + (atlas ? 7 : 0); it.h = it.lines.reduce((a, l) => a + LINE_H(l), 0);
-          it.label = `TIPS: ${fmt((f.Pf || f.P)[NI.RPV], 1)} millimeters of mercury, ${fmt(vel, 0)} centimeters per second`;
+          it.label = `TIPS: ${fmt(vel, 0)} centimeters per second`;
           it.ax = ax; it.ay = ay; it.vw = mid ? vw * CTM.sc : 0; it.pri = 9; it.side = 'R';
           items.push(it);
         }
