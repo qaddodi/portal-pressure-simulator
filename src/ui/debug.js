@@ -27,10 +27,10 @@ function sync() {
 }
 function tick(t) {
   raf = requestAnimationFrame(tick);
-  hist.push(t - last); if (hist.length > 120) hist.shift();
   acc += t - last; last = t; n++;
   if (acc < 500) return;
   ms = acc / n; fps = 1000 / ms; acc = 0; n = 0;
+  hist.push(fps); if (hist.length > 60) hist.shift();
   const L = [];
   if (st.fps) L.push(`${fps.toFixed(0)} fps · ${ms.toFixed(1)} ms`);
   if (st.zoom) { let z = ''; try { z = getZoom ? Number(getZoom()).toFixed(2) : ''; } catch { /* no stage yet */ } L.push(`zoom ${z}×`); }
@@ -41,10 +41,13 @@ function tick(t) {
     tn.nodeValue = L.join('\n');
   }
   if (cv) {
-    const g = cv.getContext('2d'); g.clearRect(0, 0, 240, 40);
-    g.strokeStyle = 'rgba(255,255,255,.25)'; g.beginPath(); g.moveTo(0, 40 - 16.7 * 1.2); g.lineTo(240, 40 - 16.7 * 1.2); g.stroke();
-    g.strokeStyle = '#7dd3fc'; g.beginPath();
-    hist.forEach((v, i) => { const x = (i / 119) * 240, y = 40 - Math.min(v, 33.4) * 1.2; i ? g.lineTo(x, y) : g.moveTo(x, y); });
+    const g = cv.getContext('2d'), Y = (f) => 40 - Math.min(f, 60) * (38 / 60) - 1;
+    g.clearRect(0, 0, 240, 40);
+    g.strokeStyle = 'rgba(255,255,255,.25)'; g.lineWidth = 1; g.beginPath();
+    for (const f of [30, 60]) { g.moveTo(0, Y(f)); g.lineTo(240, Y(f)); }
+    g.stroke();
+    g.strokeStyle = '#7dd3fc'; g.lineWidth = 1.5; g.beginPath();
+    hist.forEach((v, i) => { const x = (i / 59) * 240; i ? g.lineTo(x, Y(v)) : g.moveTo(x, Y(v)); });
     g.stroke();
   }
 }
