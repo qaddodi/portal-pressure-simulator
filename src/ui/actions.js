@@ -8,7 +8,7 @@ import { DRUGS } from '../engine/scenario.js?v=304cd180db';
 import { store, updateParams } from './store.js?v=23552bd900';
 import { fmt, fmtFlow, clamp, toast } from './util.js?v=d90a6074b7';
 import { aboutVessel, aboutOrgan } from './about.js?v=8214f717c4';
-import { lobuleState } from './lobule-model.js?v=c424ebf32b';
+import { lobuleState } from './lobule-model.js?v=29aedf833b';
 import { LABEL_VESSEL } from './anatomy.js?v=5836089b84';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
