@@ -309,8 +309,6 @@ export function createLobuleZoom({ host }) {
     const k = clamp(V.k * factor, kFit, kFit * KMAX), r = k / V.k;
     V.x = px - (px - V.x) * r; V.y = py - (py - V.y) * r; V.k = k;
     clampV(); viewChanged();
-    // Zooming out past the framing: the rest of the step goes to the stage, which scrubs the dive back.
-    if (factor < 1 && outHandler && V.k * factor / r < kFit * 0.9999 && V.k <= kFit * 1.001) outHandler(V.k * factor / r / kFit);
   }
   // A short glide between framings (the buttons, Fit, a card opening).
   let glide = 0;
@@ -332,7 +330,6 @@ export function createLobuleZoom({ host }) {
   function zoomBy(factor) {
     if (!geo) return;
     if (factor < 1 && V.k <= kFit * 1.001 && outHandler) { outHandler(factor, true); return; }
-    if (factor < 1 && V.k * factor < kFit && outHandler) { const rest = V.k * factor / kFit; factor = kFit / V.k; outHandler(rest, true); }
     const f = freeRect(), px = (f.l + f.r) / 2, py = (f.t + f.b) / 2;
     const k = clamp(V.k * factor, kFit, kFit * KMAX), r = k / V.k;
     const to = { k, x: px - (px - V.x) * r, y: py - (py - V.y) * r };
@@ -352,12 +349,14 @@ export function createLobuleZoom({ host }) {
   // ── Gestures: wheel and pinch zoom, drag pans, a tap selects; out past 1× returns to the liver ──
   // As on the anatomy: a mouse wheel zooms about the pointer; a trackpad's two-finger scroll pans (once zoomed in)
   // and its pinch (ctrlKey) zooms; Ctrl/⌘ + wheel always zooms. A gesture is classified once, as it starts.
-  let wheelKind = null, wheelAt = 0;
+  let wheelKind = null, wheelAt = 0, wheelOutOK = false, wheelDir = 0;
   el.addEventListener('wheel', (ev) => {
     ev.preventDefault();
     stopInertia();
     cancelAnimationFrame(glide);   // a button's glide never fights the hand
     const u = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? el.clientHeight : 1, dx = ev.deltaX * u, dy = ev.deltaY * u, now = performance.now();
+    if (now - wheelAt > 250 || Math.sign(dy) !== wheelDir) wheelOutOK = V.k <= kFit * 1.001;
+    wheelDir = Math.sign(dy);   // only a gesture that begins at the framing may carry on out to the anatomy
     if (now - wheelAt > 250) wheelKind = ev.ctrlKey || ev.metaKey ? 'pinch' : ev.deltaMode === 0 && (dx !== 0 || ev.wheelDeltaY == null || Math.abs(Math.abs(ev.wheelDeltaY) - Math.abs(ev.deltaY) * 3) < 1) ? 'pad' : 'wheel';
     wheelAt = now;
     if (wheelKind === 'pad' && !ev.ctrlKey && !ev.metaKey) {
@@ -366,7 +365,7 @@ export function createLobuleZoom({ host }) {
       return;
     }
     const f = ev.ctrlKey || ev.metaKey ? Math.exp(-clamp(dy, -50, 50) * 0.01) : Math.exp(-clamp(dy, -120, 120) * 0.0015);
-    if (V.k <= kFit * 1.001 && f < 1) { outHandler?.(f); return; }   // zooming out past its framing hands over to the stage, which scrubs the dive back
+    if (V.k <= kFit * 1.001 && f < 1) { if (wheelOutOK) outHandler?.(f); return; }   // a new zoom-out at its framing hands over to the stage, which scrubs the dive back; one that arrived from deeper in stops here
     const p = local(ev);
     zoomAround(p[0], p[1], f);
   }, { passive: false });
@@ -385,7 +384,7 @@ export function createLobuleZoom({ host }) {
     try { el.setPointerCapture(ev.pointerId); } catch { /* gone */ }
     if (touches.size === 2) {
       const [a, b] = pts2();
-      pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, k: V.k, m: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] };
+      pinch = { atFit: V.k <= kFit * 1.001, d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, k: V.k, m: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] };
       down = null; drag = null;
     } else { down = { x: ev.clientX, y: ev.clientY, t: performance.now(), label: labelOf(ev) }; drag = { p: local(ev), trail: [[performance.now(), V.x, V.y]] }; }
   });
@@ -396,7 +395,7 @@ export function createLobuleZoom({ host }) {
         const [a, b] = pts2(), d = Math.hypot(a[0] - b[0], a[1] - b[1]), m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
         V.x += m[0] - pinch.m[0]; V.y += m[1] - pinch.m[1]; pinch.m = m;
         const dl = pinch.dl || pinch.d; pinch.dl = d;
-        if (V.k <= kFit * 1.001 && d < dl && outHandler) { outHandler(d / dl); return; }
+        if (V.k <= kFit * 1.001 && d < dl && outHandler) { if (pinch.atFit) outHandler(d / dl); return; }
         zoomAround(m[0], m[1], (pinch.k * d / pinch.d) / V.k);
       } else if (touches.size === 1 && drag && (ev.buttons || ev.pointerType !== 'mouse')) {
         const p = local(ev);
