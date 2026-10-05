@@ -3,7 +3,7 @@ const KEY = 'pps.debug';
 const OPTS = [['fps', 'FPS and frame time'], ['zoom', 'Zoom level and scale'], ['res', 'Render resolution scale'], ['graph', 'Frame graph']];
 let st = {};
 try { st = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch { st = {}; }
-let cv = null, hist = [], el = null, raf = 0, last = 0, acc = 0, n = 0, fps = 0, ms = 0, getZoom = null;
+let stamps = [], cv = null, hist = [], el = null, raf = 0, last = 0, fps = 0, ms = 0, getZoom = null;
 const any = () => OPTS.some(([k]) => st[k]);
 export const debugOptions = () => OPTS;
 export const debugOn = (k) => !!st[k];
@@ -27,10 +27,12 @@ function sync() {
 }
 function tick(t) {
   raf = requestAnimationFrame(tick);
-  acc += t - last; last = t; n++;
-  if (acc < 500) return;
-  ms = acc / n; fps = 1000 / ms; acc = 0; n = 0;
-  hist.push(fps); if (hist.length > 60) hist.shift();
+  stamps.push(t);
+  while (stamps[0] < t - 1000) stamps.shift();
+  if (t - last < 100) return;
+  last = t;
+  fps = stamps.length > 1 ? ((stamps.length - 1) * 1000) / (t - stamps[0]) : 0; ms = fps ? 1000 / fps : 0;
+  hist.push(fps); if (hist.length > 150) hist.shift();
   const L = [];
   if (st.fps) L.push(`${fps.toFixed(0)} fps · ${ms.toFixed(1)} ms`);
   if (st.zoom) { let z = ''; try { z = getZoom ? Number(getZoom()).toFixed(2) : ''; } catch { /* no stage yet */ } L.push(`zoom ${z}×`); }
@@ -47,7 +49,7 @@ function tick(t) {
     for (const f of [30, 60]) { g.moveTo(0, Y(f)); g.lineTo(240, Y(f)); }
     g.stroke();
     g.strokeStyle = '#7dd3fc'; g.lineWidth = 1.5; g.beginPath();
-    hist.forEach((v, i) => { const x = (i / 59) * 240; i ? g.lineTo(x, Y(v)) : g.moveTo(x, Y(v)); });
+    hist.forEach((v, i) => { const x = (i / 149) * 240; i ? g.lineTo(x, Y(v)) : g.moveTo(x, Y(v)); });
     g.stroke();
   }
 }
