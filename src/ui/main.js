@@ -540,9 +540,11 @@ function injectDye({ hold = false } = {}) {
 }
 // A row of a Blood or Layers menu: an icon, a name, a line under it, and a checkbox.
 function menuToggle(checked, ic, label, sub, onChange) {
-  const c = h('input', { type: 'checkbox', checked });
-  c.addEventListener('change', () => onChange(c.checked));
-  return h('label', { class: 'menu-item blood-opt' }, c, svgIcon(ic, 'bo-ic'), h('span', {}, label, sub ? h('small', {}, sub) : null));
+  let on = !!checked;
+  const b = h('button', { class: 'lens lens-opt' + (on ? ' on' : ''), role: 'menuitemcheckbox', 'aria-checked': String(on) },
+    svgIcon(ic, 'bo-ic'), h('span', { class: 'lens-t' }, label), sub ? h('span', { class: 'lens-d' }, sub) : null);
+  b.addEventListener('click', () => { on = !on; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); onChange(on); });
+  return b;
 }
 function openBlood(anchor) {
   const st = store.get(), b = st.blood || {};
