@@ -425,7 +425,8 @@ export const ORGAN_LABELS = [
 // Atlas labels: node → caption and which margin column it hangs from.
 export const ATLAS_LABELS = {
   RA: { name: 'Right atrium', side: 'L' },
-  IVCS: { name: 'Inferior vena cava', side: 'L' },
+  IVCS: { name: 'IVC (hepatic)', side: 'L' },
+  IVCI: { name: 'IVC (renal level)', side: 'L' },
   RHV: { name: 'Hepatic vein (FHVP)', side: 'L' },
   SIN_R: { name: 'Sinusoids', side: 'L' },
   W_R: { name: 'Wedged catheter (R)', side: 'L' }, W_M: { name: 'Wedged catheter (M)', side: 'L' }, W_L: { name: 'Wedged catheter (L)', side: 'L' },
@@ -487,7 +488,7 @@ export const SHORT = {
 };
 
 // Chips shown by default (major vessels)
-export const CHIP_NODES = ['CONF', 'SV', 'SMV', 'SIN_R', 'RHV', 'IVCS', 'RA', 'VAR'];
+export const CHIP_NODES = ['CONF', 'SV', 'SMV', 'SIN_R', 'RHV', 'IVCS', 'IVCI', 'RA', 'VAR'];
 
 /** Tributary fan → [{ d, k }] (path from the tip to the vessel; k = caliber relative to `k`). */
 export function fanFeeders({ at, dir, spread, len, n, seed = 1, levels = 0 }) {
