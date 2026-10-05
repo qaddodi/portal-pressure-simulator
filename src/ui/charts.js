@@ -89,12 +89,15 @@ export function createProfile() {
     // Venous stations only: the arterial pressure sits far off the portal scale and says little here.
     const stations = path.nodes.filter((n) => !ARTERIAL.has(n));
     const slot0 = (w - 56) / stations.length;
+    // Close together, the station names turn 45° on one row (each ending under its point).
     const stagger = slot0 < 74;
+    let tilt = 0;
+    if (stagger) { const m = cv.getContext('2d'); m.font = FONT(500, 11); tilt = Math.max(...stations.map((n) => m.measureText(SHORT[n] || n).width)) * Math.SQRT1_2; }
     // Arterial stations sit far above the venous scale: they are drawn in a band above a broken
     // axis (//) with their true value, never clipped.
     const hasArt = stations.some((n) => ARTERIAL.has(n));
     const roomy = hh > 230;
-    const L = 40, R = 16, T = hasArt ? (roomy ? 58 : 34) : 28, B = stagger ? (roomy ? 44 : 38) : 26;
+    const L = 40, R = 16, T = hasArt ? (roomy ? 58 : 34) : 28, B = stagger ? Math.ceil(tilt) + 20 : 26;
     const slot = (w - L - R) / stations.length;
     // The axis follows the highest point (now, healthy or the compared moment), eased, not fixed at 30.
     const maxP = axisMax;
@@ -121,13 +124,15 @@ export function createProfile() {
     }
     ctx.strokeStyle = c.axis; ctx.beginPath(); ctx.moveTo(L, Math.round(y(0)) + 0.5); ctx.lineTo(w - R, Math.round(y(0)) + 0.5); ctx.stroke();
     if (roomy || !hasArt) { ctx.textAlign = 'left'; ctx.fillText('mmHg', 6, 12); } else { ctx.textAlign = 'right'; ctx.fillText('mmHg', w - R, artY + 4); }
-    // station labels: horizontal, staggered over two rows when the stations are close together
-    ctx.fillStyle = c.muted; ctx.textAlign = 'center'; ctx.font = FONT(500, 11);
+    // station labels: horizontal, or turned 45° (ending under their point) when close together
+    ctx.fillStyle = c.muted; ctx.font = FONT(500, 11);
     stations.forEach((n, i) => {
-      const row = stagger && i % 2 ? 1 : 0;
-      if (row) { ctx.strokeStyle = c.border; ctx.beginPath(); ctx.moveTo(x(i) + 0.5, hh - B + 4); ctx.lineTo(x(i) + 0.5, hh - B + 18); ctx.stroke(); }
-      ctx.fillText(SHORT[n] || n, x(i), hh - B + 16 + row * 15);
+      if (!stagger) { ctx.textAlign = 'center'; ctx.fillText(SHORT[n] || n, x(i), hh - B + 16); return; }
+      ctx.save(); ctx.translate(x(i) + 3, hh - B + 10); ctx.rotate(-Math.PI / 4);
+      ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillText(SHORT[n] || n, 0, 0);
+      ctx.restore();
     });
+    ctx.textBaseline = 'alphabetic';
     // broken axis for arterial stations
     if (hasArt) {
       ctx.strokeStyle = c.axis; ctx.lineWidth = 1.2;
