@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=5e522a6bbf';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=23552bd900';
-import { createStage } from './stage.js?v=b45cb5770a';
+import { createStage } from './stage.js?v=e2f6ea524e';
 import { createInspector } from './inspector.js?v=661dfd7392';
 import { createDock, CUTOFFS } from './dock.js?v=85f0174aae';
 import { createWhy } from './why.js?v=802bd21a0e';
@@ -540,9 +540,11 @@ function injectDye({ hold = false } = {}) {
 }
 // A row of a Blood or Layers menu: an icon, a name, a line under it, and a checkbox.
 function menuToggle(checked, ic, label, sub, onChange) {
-  const c = h('input', { type: 'checkbox', checked });
-  c.addEventListener('change', () => onChange(c.checked));
-  return h('label', { class: 'menu-item blood-opt' }, c, svgIcon(ic, 'bo-ic'), h('span', {}, label, sub ? h('small', {}, sub) : null));
+  let on = !!checked;
+  const b = h('button', { class: 'lens lens-opt' + (on ? ' on' : ''), role: 'menuitemcheckbox', 'aria-checked': String(on) },
+    svgIcon(ic, 'bo-ic'), h('span', { class: 'lens-t' }, label), sub ? h('span', { class: 'lens-d' }, sub) : null);
+  b.addEventListener('click', () => { on = !on; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); onChange(on); });
+  return b;
 }
 function openBlood(anchor) {
   const st = store.get(), b = st.blood || {};
@@ -1023,6 +1025,10 @@ function wireKeyboard() {
   addEventListener('keydown', (e) => {
     const tag = (e.target.tagName || '').toLowerCase();
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); palette.isOpen() ? palette.close() : palette.open(); return; }
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && tag !== 'input' && tag !== 'textarea' && tag !== 'select') {
+      const z = e.key === '=' || e.key === '+' ? 'in' : e.key === '-' || e.key === '_' ? 'out' : e.key === '0' ? 'fit' : null;
+      if (z) { e.preventDefault(); if (z === 'in') stage.zoomIn(); else if (z === 'out') stage.zoomOut(); else stage.fit(); return; }
+    }
     if (tag === 'input' || tag === 'select' || tag === 'textarea') { if (e.key === 'Escape') e.target.blur(); return; }
     if (e.key === 'Escape') {
       closePopover();

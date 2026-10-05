@@ -2849,3 +2849,11 @@ input[type="range"] { touch-action: none; }
 
 /* Concentric corners: inside a 16px pill with 3px padding, inner highlights are 13px. */
 .topbar .float-pill > .menu-btn, .topbar .float-pill > .scenario-btn, .topbar .float-pill > .tb-act, .topbar .float-pill > .find-badge, .topbar .float-pill > .pal-btn, .topbar .float-pill > .ib, .topbar #viewSeg button { border-radius: calc(var(--r-sheet) - 3px); }
+
+/* Display-option rows: the same selectable card as the lenses, one per row, icon at the left. */
+.lens-opt { grid-template-columns: 22px 1fr; column-gap: 10px; align-items: center; margin: 0 8px; }
+.lens-opt .bo-ic { grid-row: 1 / 3; width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--text-2); }
+.lens-opt:not(:has(.lens-d)) .bo-ic { grid-row: 1; }
+.lens-opt .lens-d { grid-column: 2; }
+.lens-opt.on .bo-ic { color: var(--accent-ink); }
+.blood-pop .menu-title { text-align: center; }

@@ -309,6 +309,8 @@ export function createLobuleZoom({ host }) {
     const k = clamp(V.k * factor, kFit, kFit * KMAX), r = k / V.k;
     V.x = px - (px - V.x) * r; V.y = py - (py - V.y) * r; V.k = k;
     clampV(); viewChanged();
+    // Zooming out past the framing: the rest of the step goes to the stage, which scrubs the dive back.
+    if (factor < 1 && outHandler && V.k * factor / r < kFit * 0.9999 && V.k <= kFit * 1.001) outHandler(V.k * factor / r / kFit);
   }
   // A short glide between framings (the buttons, Fit, a card opening).
   let glide = 0;
@@ -326,8 +328,11 @@ export function createLobuleZoom({ host }) {
     };
     glide = requestAnimationFrame(step);
   }
+  let outHandler = null;
   function zoomBy(factor) {
     if (!geo) return;
+    if (factor < 1 && V.k <= kFit * 1.001 && outHandler) { outHandler(factor, true); return; }
+    if (factor < 1 && V.k * factor < kFit && outHandler) { const rest = V.k * factor / kFit; factor = kFit / V.k; outHandler(rest, true); }
     const f = freeRect(), px = (f.l + f.r) / 2, py = (f.t + f.b) / 2;
     const k = clamp(V.k * factor, kFit, kFit * KMAX), r = k / V.k;
     const to = { k, x: px - (px - V.x) * r, y: py - (py - V.y) * r };
@@ -361,7 +366,7 @@ export function createLobuleZoom({ host }) {
       return;
     }
     const f = ev.ctrlKey || ev.metaKey ? Math.exp(-clamp(dy, -50, 50) * 0.01) : Math.exp(-clamp(dy, -120, 120) * 0.0015);
-    if (V.k <= kFit * 1.001 && f < 1) return;   // the lobule is a view of its own: zooming out stops at its framing
+    if (V.k <= kFit * 1.001 && f < 1) { outHandler?.(f); return; }   // zooming out past its framing hands over to the stage, which scrubs the dive back
     const p = local(ev);
     zoomAround(p[0], p[1], f);
   }, { passive: false });
@@ -390,6 +395,8 @@ export function createLobuleZoom({ host }) {
       if (touches.size === 2 && pinch) {
         const [a, b] = pts2(), d = Math.hypot(a[0] - b[0], a[1] - b[1]), m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
         V.x += m[0] - pinch.m[0]; V.y += m[1] - pinch.m[1]; pinch.m = m;
+        const dl = pinch.dl || pinch.d; pinch.dl = d;
+        if (V.k <= kFit * 1.001 && d < dl && outHandler) { outHandler(d / dl); return; }
         zoomAround(m[0], m[1], (pinch.k * d / pinch.d) / V.k);
       } else if (touches.size === 1 && drag && (ev.buttons || ev.pointerType !== 'mouse')) {
         const p = local(ev);
@@ -1671,19 +1678,21 @@ export function createLobuleZoom({ host }) {
       return { x, y, r: geo.R * V.k };
     },
     setDive: paintField,
+    onZoomOut(fn) { outHandler = fn; },
     prewarm, warm,
     /** True once the dive's field (or the lobule) covers the anatomy, which then need not be drawn. */
     covers: () => fade > 0.98 || fieldOp >= 0.999,
     /** During the dive: the tissue (not its card) still zooming in, by k (≤ 1) about the stage point x, y. */
-    setDiveZoom(k, x, y) {
+    setDiveZoom(k, x, y, tx = x, ty = y) {
       diveScaled = k < 0.9999; if (!diveScaled) diveDrawn = false;
       // Scaled down, the tissue's own page fill would show as a pale card; a soft round mask keeps only the lobule and its rim.
       const r = geo ? geo.R * V.k : 0, mask = k >= 0.9999 || !r ? '' : `radial-gradient(circle at ${x.toFixed(1)}px ${y.toFixed(1)}px, #000 ${(r * 1.02).toFixed(1)}px, transparent ${(r * 1.2).toFixed(1)}px)`;
       for (const e of [tissue, glCv, fx, leaders, labels]) {
         if (e === tissue || e === glCv) { e.style.maskImage = mask; e.style.webkitMaskImage = mask; }
         if (k >= 0.9999) { e.style.transform = ''; e.style.transformOrigin = ''; continue; }
+        // Scaled about its own centre, which sits where the field's lobule at the dive's focus is (tx, ty), so it morphs out of that one.
         e.style.transformOrigin = `${x.toFixed(1)}px ${y.toFixed(1)}px`;
-        e.style.transform = `scale(${k.toFixed(4)})`;
+        e.style.transform = `translate(${(tx - x).toFixed(1)}px, ${(ty - y).toFixed(1)}px) scale(${k.toFixed(4)})`;
       }
     },
     /** Where a lobule selection is on screen (for the action card), as the stage's anchorFor. */

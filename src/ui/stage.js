@@ -6,7 +6,7 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=23552bd900';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar, systemEdge } from './util.js?v=f4c2603e25';
-import { createLobuleZoom } from './lobule-zoom.js?v=f33ab2faab';
+import { createLobuleZoom } from './lobule-zoom.js?v=337a4a5f41';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=799c94c026';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -116,6 +116,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const k = Math.min(IVC_JOIN_LEN, d) / d;
     IVC_JOIN[e.id] = [bx - (bx - ax) * k, by - (by - ay) * k, bx, by, 0, 1, 0, 1];
   }
+  // The two halves of the IVC meet at the hepatic confluence: the upper half fades in from the lower one, which stays solid (two translucent layers
+  // in different tiers cannot sum to a full wall, so fading both leaves a hole) ([x1, y1, x2, y2, offset, alpha at start, alpha at end, mode]).
+  const IVC_SEAM = { IVCS_RA: [620, 192, 620, 160, 0, 0, 1, 1] };
   const FADE_DOWN_Y = { C4: [892, 928], EPI_ILI: [870, 925], ILI_IVC: [850, 925], V_UP: [38, 4] };
   // The azygos trunk fades out toward its lower end unless the ascending lumbar collateral (C9) is
   // open and carries it on down to the cava: [y where the fade starts, y where it is gone].
@@ -375,7 +378,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   gBack.append(gBackS, gBackC, gBackL, gBackH);
 
   // Circuit view: quiet bands for each pressure zone (captioned by the label layer).
-  gGrid.append(s('rect', { x: 30, y: 30, width: 1340, height: 700, fill: 'url(#mapGrid)', class: 'map-grid' }));
+  // The dots run on past the figure in every direction and fade out in steps: concentric frames of
+  // the pattern at falling opacity (no mask, so nothing repaints on pan or zoom).
+  const GRID_STEPS = [[0, 0.9], [200, 0.7], [450, 0.5], [750, 0.3], [1100, 0.15], [1500, 0.06]];
+  const frame = (e) => `M${30 - e} ${30 - e}h${1340 + 2 * e}v${700 + 2 * e}h${-1340 - 2 * e}z`;
+  GRID_STEPS.forEach(([e, op], i) => {
+    gGrid.append(s('path', { d: i ? frame(e) + frame(GRID_STEPS[i - 1][0]) : frame(e), 'fill-rule': 'evenodd', fill: 'url(#mapGrid)', class: 'map-grid', style: `opacity:${op}` }));
+  });
   CIRCUIT_ZONES.forEach(([, x0, x1], i) => {
     gGrid.append(s('rect', { x: x0, y: 40, width: x1 - x0, height: 690, class: 'zone' + (i % 2 ? ' alt' : '') }));
   });
@@ -850,6 +859,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A zoom step by the buttons glides there instead of jumping.
   function animZoomAt(cx, cy, factor) {
     if (lobuleOn) return;
+    if (scrubS > 0 || canScrub(factor)) { scrubGlide(factor); return; }
     const [vx, vy] = clientToVB(cx, cy), base = vtTarget && vtAnim ? vtTarget : vt;
     const k = clamp(base.k * factor, 0.6, 6), wx = (vx - vt.x) / vt.k, wy = (vy - vt.y) / vt.k;
     animateVT({ k, x: vx - wx * k, y: vy - wy * k }, 260);
@@ -857,6 +867,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A trackpad pinch may stretch a little past the limits (it springs back when it ends).
   function zoomAt(cx, cy, factor, stretch = false) {
     if (lobuleOn) return;   // the lobule view has its own zoom
+    if (scrubBy(factor)) return;
     const [vx, vy] = clientToVB(cx, cy);
     const wx = (vx - vt.x) / vt.k, wy = (vy - vt.y) / vt.k;
     vt.k = stretch ? clamp(vt.k * factor, 0.5, 7.2) : clamp(vt.k * factor, 0.6, 6);
@@ -1080,11 +1091,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (lab) lab.style.opacity = t <= 0 ? '' : (1 - smoothT(0, 0.12, t)).toFixed(3);
       // The detailed lobule comes in while the zoom is still settling, zooming with the field.
       const r = RH * Math.exp(z - LC);
-      lz.setDiveZoom(t >= 1 ? 1 : clamp(r / diveLand.r, 0.05, 1), diveLand.x, diveLand.y);
       const [ox, oy] = diveAt;
       const g = smoothT(LC - 0.5, lt, z);   // the zoom's centre drifts from the dive point to the lobule's place
+      const px = lerp(ox, diveLand.x, g), py = lerp(oy, diveLand.y, g);
+      // The detailed lobule rides on the field's own lobule at that centre, so it grows out of it.
+      lz.setDiveZoom(t >= 1 ? 1 : clamp(r / diveLand.r, 0.05, 1), diveLand.x, diveLand.y, px, py);
       lz.setDive(t <= 0 || t >= 1 ? null : {
-        a: smoothT(LC * 0.45, LC + 0.3, z), x: lerp(ox, diveLand.x, g), y: lerp(oy, diveLand.y, g),
+        a: smoothT(LC * 0.45, LC + 0.3, z), x: px, y: py,
         r, ox, oy, quiet: smoothT(0.45, 0.8, t),
       });
     }
@@ -1093,6 +1106,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function setLobule(on) {
     if (on && morphTarget !== 0) return;
+    scrubS = 0; cancelAnimationFrame(scrubAnim);
     if (lobuleOn === on && diveT === (on ? 1 : 0)) return;
     lobuleOn = on;
     cancelAnimationFrame(lobAnim);
@@ -1133,7 +1147,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function syncSemantic() {
     if (!lz) return;
     // Turning to the circuit closes the lobule view.
-    if (lobuleOn && morphTarget !== 0) { lobuleOn = false; lobU = 0; diveT = 0; diveLand = null; lz.setDive(null); lz.setDiveZoom(1, 0, 0); if (diveAt) setDiveScale(1); { const lab = wrap.querySelector('#labels'); if (lab) lab.style.opacity = ''; } cancelAnimationFrame(lobAnim); if (store.get().lobule) store.set({ lobule: false }); }
+    if ((lobuleOn || scrubS > 0) && morphTarget !== 0) { scrubS = 0; lobuleOn = false; lobU = 0; diveT = 0; diveLand = null; lz.setDive(null); lz.setDiveZoom(1, 0, 0); if (diveAt) setDiveScale(1); { const lab = wrap.querySelector('#labels'); if (lab) lab.style.opacity = ''; } cancelAnimationFrame(lobAnim); if (store.get().lobule) store.set({ lobule: false }); }
     const u = morphTarget === 0 ? lobU : 0;
     const wasOpen = lz.isOpen();
     lz.setFade(u);
@@ -1184,9 +1198,72 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setLobule(true);
   }
   function closeLobule() { setLobule(false); }
-  store.on('lobule', (on) => (on ? openLobule() : closeLobule()));
+  // Zoom-driven dive: normal zoom carries on into the liver; past SCRUB_K over the liver the camera and pan
+  // lock and each further zoom step scrubs the dive (scrubS 0..1, the same frames the timed dive plays).
+  // Zooming back out reverses it, down to the liver again. Taps and the Lobule step still play it timed.
+  const SCRUB_K = 2.6, SCRUB_SPAN = Math.log(7), SCRUB_DONE = 0.88;   // the dive has fully landed by 0.88, so the view switches there
+  let scrubS = 0, quietLobule = false, scrubAnim = 0;
+  function canScrub(factor) {
+    if (lobuleOn || factor <= 1 || morphTarget !== 0 || morph > 0.02 || vt.k < SCRUB_K || reduceMotion.matches) return false;
+    const w = diveTarget(); if (!w) return false;
+    refreshCTM();
+    const [x, y] = worldToLocal(w[0], w[1]);
+    return x > 0 && y > 0 && x < wrap.clientWidth && y < wrap.clientHeight;   // the liver is in view
+  }
+  function startScrub() {
+    const w = diveTarget();
+    refreshCTM();
+    const [x, y] = w ? worldToLocal(w[0], w[1]) : [wrap.clientWidth / 2, wrap.clientHeight / 2];
+    diveAt = [clamp(x, 0, wrap.clientWidth), clamp(y, 0, wrap.clientHeight)];
+    diveLand = lz.landing();
+    lz.prewarm(diveLand.r);
+    cancelAnimationFrame(vtAnim); vtGliding = false;
+    if (store.get().selection && store.get().selection.type !== 'lobule') store.set({ selection: null });
+  }
+  function scrubBy(factor) {
+    if (factor === 1 || morphTarget !== 0) return false;
+    if (scrubS === 0 && !lobuleOn && !canScrub(factor)) return false;
+    if (scrubS === 0 && !lobuleOn) startScrub();
+    scrubS = clamp(scrubS + Math.log(factor) / SCRUB_SPAN, 0, 1);
+    diveT = scrubS;
+    if (scrubS >= SCRUB_DONE) {
+      scrubS = 0; diveT = 1; lobuleOn = true;
+      diveFrame(1);
+      quietLobule = true; store.set({ lobule: true }); quietLobule = false;
+      return true;
+    }
+    if (scrubS === 0) { diveFrame(0); setDiveScale(1); lz.setDiveZoom(1, 0, 0); diveLand = null; return factor < 1 ? true : false; }
+    lz.warm();
+    diveFrame(diveT);
+    return true;
+  }
+  // A button step: the same scrub, spread over a short glide.
+  function scrubGlide(factor) {
+    cancelAnimationFrame(scrubAnim);
+    const t0 = performance.now(), ms = 320; let done = 0;
+    const step = (now) => {
+      const u = easeInOut(clamp((now - t0) / ms, 0, 1));
+      const f = Math.pow(factor, u - done); done = u;
+      scrubBy(f);
+      if (u < 1 && (scrubS > 0 || canScrub(f))) scrubAnim = requestAnimationFrame(step);
+    };
+    scrubAnim = requestAnimationFrame(step);
+  }
+  store.on('lobule', (on) => { if (!quietLobule) (on ? openLobule() : closeLobule()); });
   const zoomLobule = () => store.set({ lobule: true });
   lz = createLobuleZoom({ host: wrap });
+  // Out of the lobule view by zooming out: the view hands the dive back to the scrub, which carries on reversing it.
+  lz.onZoomOut((factor, glide) => {
+    if (morphTarget !== 0 || (!lobuleOn && scrubS === 0)) return;
+    if (lobuleOn) {
+      // The view hands the dive back to the scrub; the lobule view's layers stay under the fingers until they fade, so later steps arrive here too.
+      cancelAnimationFrame(lobAnim); clearTimeout(lobEnd);
+      diveLand = lz.current(); lobuleOn = false; scrubS = diveT = SCRUB_DONE - 0.001;
+      quietLobule = true; store.set({ lobule: false }); quietLobule = false;
+      if (!diveAt) diveAt = [wrap.clientWidth / 2, wrap.clientHeight / 2];
+    }
+    if (glide) scrubGlide(factor); else scrubBy(factor);
+  });
 
   // ── Detail ────────────────────────────────────────
   // Adaptive detail: when the device cannot keep up (frames arriving slower than ~22 a second
@@ -1987,6 +2064,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         else if (obj.fan && cfg.fan) { const { at, len, levels, fade: fr = [0.7, 0.4] } = cfg.fan; fade = [at[0], at[1], len * (levels ? 2.7 : 1.35), 0, 0, fr[0], fr[1], 2]; }
       } else if (x.tipFade) { const L = x.tipFade.line; fade = [L[0], L[1], L[2], L[3], 0, x.tipFade.joined ? 1 : T0, 1, 1]; }
       else if (kind === 'v' && IVC_JOIN[id]) fade = [...IVC_JOIN[id]];
+      else if (IVC_SEAM[id]) fade = [...IVC_SEAM[id]];
       else if (FADE_DOWN_Y[id]) { const [y0, y1] = FADE_DOWN_Y[id]; fade = [0, y0, 0, y1, 0, 1, 0, 1]; }
       else if (FADE_IN[id] && kind === 'v') { const [x1, y1, x2, y2, of] = FADE_IN[id]; fade = [x1, y1, x2, y2, of, 1, 0.3, 1]; }
       // The fades are drawn in the anatomy's coordinates: they let go as the circuit takes over.
@@ -3462,6 +3540,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     wheelAt = now;
     if (wheelKind === 'wheel' || lobuleOn) { zoomAt(ev.clientX, ev.clientY, Math.exp(-clamp(dy, -120, 120) * 0.0015)); return; }
+    if (scrubS > 0) return;   // panning is locked onto the lobule while the dive is under the fingers
     const s = vbScale();
     vt = { k: vt.k, x: vt.x - dx / s, y: vt.y - dy / s };
     applyVT(); CTM = null; settleSoon();
@@ -3578,6 +3657,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const d = Math.hypot(a[0] - b[0], a[1] - b[1]), mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
       if (Math.abs(d - drag.d0) > 10 || Math.hypot(mx - drag.mx, my - drag.my) > 10) drag.moved = true;
       if (lobuleOn) return;
+      const dl = drag.dl || d; drag.dl = d;
+      if (d !== dl && scrubBy(d / dl)) {   // past the liver zoom the pinch scrubs the dive; the camera is rebased for when it ends
+        drag.d0 = d; drag.k0 = vt.k; const [sx, sy] = clientToVBFast(mx, my); drag.wx = (sx - vt.x) / vt.k; drag.wy = (sy - vt.y) / vt.k;
+        return;
+      }
       const k = softK(drag.k0 * d / drag.d0);
       const [vx, vy] = clientToVBFast(mx, my);
       vt = { k, x: vx - drag.wx * k, y: vy - drag.wy * k };
@@ -3587,7 +3671,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (drag.type === 'pan') {
       if (Math.abs(ev.clientX - drag.x) + Math.abs(ev.clientY - drag.y) > (ev.pointerType === 'touch' ? 8 : 4)) { drag.moved = true; clearPress(); }
       if (drag.peeked) return;
-      if (drag.moved) {
+      if (drag.moved && scrubS === 0) {
         vt = { k: vt.k, x: drag.vx + (ev.clientX - drag.x) / drag.s0, y: drag.vy + (ev.clientY - drag.y) / drag.s0 };
         applyVT(); CTM = null;
         const now = performance.now();
