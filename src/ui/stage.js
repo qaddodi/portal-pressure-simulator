@@ -1126,7 +1126,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       } else diveAt = [wrap.clientWidth / 2, wrap.clientHeight / 2];
       diveLand = lz.landing();
       lz.prewarm(diveLand.r);
-    } else if (!on && diveT >= 1) diveLand = lz.current();
+    } else if (!on && diveT >= 1) {
+      diveLand = lz.current();
+      // The anatomy is covered by the lobule at this point: take it to its fit framing now, unseen, so the way out is one
+      // continuous zoom from the lobule's fit to the anatomy's fit, with no correction after it lands.
+      if (morphTarget === 0 && liverBox()) {
+        cancelAnimationFrame(vtAnim); vtGliding = false;
+        const d = defaultVT(false); vt = { ...d }; homeAt = d; applyVT(); CTM = null; refreshCTM();
+        const w = diveTarget(); if (w) { const [x, y] = worldToLocal(w[0], w[1]); diveAt = [clamp(x, 0, wrap.clientWidth), clamp(y, 0, wrap.clientHeight)]; }
+        diveOrig = null;
+      }
+    }
     const ms = reduceMotion.matches ? 0 : on ? DIVE_MS : RISE_MS, from = diveT, to = on ? 1 : 0, t0 = performance.now();
     const step = (now) => {
       const e = ms ? clamp((now - t0) / (ms * Math.abs(to - from) || 1), 0, 1) : 1;
