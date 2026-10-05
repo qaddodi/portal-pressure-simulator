@@ -19,6 +19,7 @@
 // tapped (triad, inlet venule, sinusoid, arteriole, central vein, septum, hepatocytes).
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
+import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { store } from './store.js?v=23552bd900';
 import { radiiChanged } from './lobule-render-cache.js?v=07951b5935';
 import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=7d74747a69';
@@ -301,25 +302,18 @@ export function createLobuleZoom({ host }) {
   }
   // Match the anatomy's flick decay, measured in screen pixels per millisecond.
   let inertia = 0;
-  function stopInertia() { cancelAnimationFrame(inertia); inertia = 0; }
+  function stopInertia() { cancelFlick?.(); cancelFlick = null; inertia = 0; }
+  let cancelFlick = null;
   function fling(vx, vy) {
     stopInertia();
-    if (reduce.matches || fade < 0.98 || Math.hypot(vx, vy) < 0.25) return;
-    let last = performance.now();
-    const step = (now) => {
-      inertia = 0;
-      if (reduce.matches || fade < 0.98) return;
-      const dt = Math.min(34, now - last), decay = Math.pow(0.9955, dt);
-      last = now; vx *= decay; vy *= decay;
-      const x = V.x + vx * dt, y = V.y + vy * dt;
-      V.x = x; V.y = y; clampV();
-      // Stop the blocked axis at a boundary while the other can continue gliding.
-      if (Math.abs(V.x - x) > 0.01) vx = 0;
-      if (Math.abs(V.y - y) > 0.01) vy = 0;
-      viewChanged();
-      if (Math.hypot(vx, vy) > 0.03) inertia = requestAnimationFrame(step);
-    };
-    inertia = requestAnimationFrame(step);
+    if (reduce.matches || fade < 0.98 || Math.hypot(vx, vy) < FLICK.minSpeed) return;
+    inertia = 1;
+    cancelFlick = runFlick({
+      x: V.x, y: V.y, vx, vy,
+      hard: (x, y) => { const sx = V.x, sy = V.y; V.x = x; V.y = y; clampV(); const r = [V.x, V.y]; V.x = sx; V.y = sy; return r; },
+      apply: (x, y) => { V.x = x; V.y = y; viewChanged(); },
+      done: () => { inertia = 0; cancelFlick = null; },
+    });
   }
   function zoomAround(px, py, factor) {
     stopInertia();
@@ -391,7 +385,7 @@ export function createLobuleZoom({ host }) {
     }
     const f = ev.ctrlKey || ev.metaKey ? Math.exp(-clamp(dy, -50, 50) * 0.01) : Math.exp(-clamp(dy, -120, 120) * 0.0015);
     if (V.k <= kFit * 1.001 && f < 1) {
-      if (wheelOutOK) { outHandler?.(f); return; }   // a new zoom-out at its framing hands over to the stage, which scrubs the dive back
+      if (wheelOutOK && outHandler) { outHandler(f); return; }   // a new zoom-out at its framing hands over to the stage, which scrubs the dive back
       const p = local(ev); stretchBy(p[0], p[1], f); clearTimeout(stretchT); stretchT = setTimeout(endStretch, 220); return;   // one that arrived from deeper in stretches and springs back
     }
     if (rawK && f > 1) { const p = local(ev); stretchBy(p[0], p[1], f); clearTimeout(stretchT); stretchT = setTimeout(endStretch, 220); return; }
@@ -424,8 +418,8 @@ export function createLobuleZoom({ host }) {
         const [a, b] = pts2(), d = Math.hypot(a[0] - b[0], a[1] - b[1]), m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
         V.x += m[0] - pinch.m[0]; V.y += m[1] - pinch.m[1]; pinch.m = m;
         const dl = pinch.dl || pinch.d; pinch.dl = d;
-        if (rawK || (V.k <= kFit * 1.001 && d < dl && outHandler)) {
-          if (pinch.atFit && !rawK) outHandler(d / dl); else stretchBy(m[0], m[1], d / dl);
+        if (rawK || (V.k <= kFit * 1.001 && d < dl)) {
+          if (pinch.atFit && !rawK && outHandler) outHandler(d / dl); else stretchBy(m[0], m[1], d / dl);
           return;
         }
         zoomAround(m[0], m[1], (pinch.k * d / pinch.d) / V.k);
@@ -808,13 +802,13 @@ export function createLobuleZoom({ host }) {
   // sinusoid just below the middle of the left side; as the view is zoomed or panned, the label stays
   // on its vessel while that is comfortably in view, and otherwise moves to the one in view nearest
   // the middle of the free space (so it does not jump about).
-  const pick = { triad: 3, sin: null, geo: null };
+  const pick = { triad: 3, lt: null, sin: null, geo: null };
   const sinAt = (t) => at(t.pts, 0.45);
   const anchorOf = (key) => {
     const g = geo, C = g.lobules[0].corners;
     if (key === 'triad') return C[pick.triad];
     if (key === 'cv') return [g.cx, g.cy];
-    if (key === 'lymph') return g.triads[pick.triad].lv.pts[0];
+    if (key === 'lymph') return g.triads[pick.lt ?? pick.triad].lv.pts[0];
     return sinAt(sinTube());
   };
   const sinTube = () => {
@@ -846,7 +840,7 @@ export function createLobuleZoom({ host }) {
     if (!inside(C[pick.triad], keep)) { const i = best([0, 1, 2, 3, 4, 5], (i) => C[i], [[g.cx, g.cy]]); if (i != null) pick.triad = i; }
     if (!inside(sinAt(sinTube()), keep)) { const t = best([...g.L0, ...g.L1, ...g.L2], sinAt, [[g.cx, g.cy], C[pick.triad]]); if (t) pick.sin = t.id; }
   }
-  const hitKind = (key) => (key === 'triad' ? { part: 'triad', tri: pick.triad } : key === 'cv' ? { part: 'cv' } : key === 'lymph' ? { part: 'lv', tri: pick.triad } : { part: 'sin', tube: sinTube().id });
+  const hitKind = (key) => (key === 'triad' ? { part: 'triad', tri: pick.triad } : key === 'cv' ? { part: 'cv' } : key === 'lymph' ? { part: 'lv', tri: pick.lt ?? pick.triad } : { part: 'sin', tube: sinTube().id });
   function layoutLabels() {
     const fr0 = freeRect(), g = geo, key = `${g.W}x${g.H}|${Object.values(labs).map((l) => l.txt).join('|')}|${zonesOn}|${lymphOn}|${V.k},${V.x},${V.y}|${fr0.t},${fr0.b},${fr0.l},${fr0.r}`;
     if (key === layoutKey) return;
@@ -867,6 +861,14 @@ export function createLobuleZoom({ host }) {
         placed.push({ l: x - 46 * zk, r: x + 46 * zk, t: y - 18 * zk, b: y + 18 * zk });
       }
     }
+    if (lymphOn) {
+      // The lymph label follows whichever lymphatic is in view (the picked triad's first, else the one nearest the middle).
+      const mx = (fr0.l + fr0.r) / 2, my = (fr0.t + fr0.b) / 2, edge = (p) => { const [x, y] = toScreen(p); return x > 0 && x < g.W && y > 0 && y < g.H; };
+      const dist = (i) => { const [x, y] = toScreen(g.triads[i].lv.pts[0]); return Math.hypot(x - mx, y - my); };
+      const vis = [0, 1, 2, 3, 4, 5].filter((i) => edge(g.triads[i].lv.pts[0]));
+      pick.lt = vis.includes(pick.lt ?? pick.triad) ? (pick.lt ?? pick.triad) : vis.sort((a, b) => dist(a) - dist(b))[0] ?? null;
+      if (pick.lt == null) pick.lt = pick.triad;
+    }
     for (const k of ['cv', 'sin', 'triad', 'lymph']) {
       const L = labs[k];
       if (!L) continue;
@@ -874,7 +876,7 @@ export function createLobuleZoom({ host }) {
       L.el.hidden = false;
       const w = L.el.offsetWidth || 100, hh = L.el.offsetHeight || 40;
       const a = toScreen(anchorOf(k));
-      const outside = a[0] < fr.l - 4 || a[0] > fr.r + 4 || a[1] < fr.t - 4 || a[1] > fr.b + 4;
+      const outside = k === 'lymph' ? a[0] < 0 || a[0] > g.W || a[1] < 0 || a[1] > g.H : a[0] < fr.l - 4 || a[0] > fr.r + 4 || a[1] < fr.t - 4 || a[1] > fr.b + 4;
       L.el.hidden = outside || fr.r - fr.l < w + 16 || fr.b - fr.t < hh + 16;
       if (L.el.hidden) { L.line.style.display = L.dotEl.style.display = 'none'; continue; }
       const pad = 8, step = hh + 12;

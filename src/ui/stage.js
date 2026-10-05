@@ -2,11 +2,12 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, edgePresent, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=29d10ad9ef';
-import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=5836089b84';
+import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=dbe096be7b';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=23552bd900';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar, systemEdge } from './util.js?v=d90a6074b7';
-import { createLobuleZoom } from './lobule-zoom.js?v=5c4c813e0f';
+import { createLobuleZoom } from './lobule-zoom.js?v=f59e4804a4';
+import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=e424ed9ef2';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -1047,7 +1048,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // settles onto one, where the lobule's tissue fades in, in place, and then its labels and card.
   // Out, the same in reverse, quicker.
   // The anatomy's own framing is never touched. diveT is the dive's clock, 0 (anatomy) to 1 (lobule).
-  let diveAt = null, diveLand = null, diveT = 0;
+  let diveAt = null, diveLand = null, diveT = 0, diveOut = false;
   const DIVE_MS = 1600, RISE_MS = 1000;
   const RH = 11;   // a lobule's size on screen (px) as the liver's surface gives way to the field
   const LC = Math.log(5);   // the anatomy's share of the zoom (×5), the field's the rest
@@ -1095,7 +1096,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       setDiveScale(t >= 1 ? 1 : Math.exp(Math.min(z, LC + 0.4)));
       // The anatomy's labels leave as the zoom starts.
       const lab = wrap.querySelector('#labels');
-      if (lab) lab.style.opacity = t <= 0 ? '' : (1 - smoothT(0, 0.12, t)).toFixed(3);
+      // (Going out they come back over the last half of the zoom, in place, rather than at the very end.)
+      if (lab) lab.style.opacity = t <= 0 ? '' : (1 - smoothT(0, diveOut ? 0.55 : 0.12, t)).toFixed(3);
       // The detailed lobule comes in while the zoom is still settling, zooming with the field.
       const r = RH * Math.exp(z - LC);
       const [ox, oy] = diveAt;
@@ -1113,7 +1115,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function setLobule(on) {
     if (on && morphTarget !== 0) return;
-    scrubS = 0; cancelAnimationFrame(scrubAnim);
+    scrubS = 0; cancelAnimationFrame(scrubAnim); diveOut = !on;
     if (lobuleOn === on && diveT === (on ? 1 : 0)) return;
     lobuleOn = on;
     cancelAnimationFrame(lobAnim);
@@ -1135,6 +1137,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const d = defaultVT(false); vt = { ...d }; homeAt = d; applyVT(); CTM = null; refreshCTM();
         const w = diveTarget(); if (w) { const [x, y] = worldToLocal(w[0], w[1]); diveAt = [clamp(x, 0, wrap.clientWidth), clamp(y, 0, wrap.clientHeight)]; }
         diveOrig = null;
+        if (F) updateLabels(F);   // the labels are laid out for the final framing now, so they come in where they will stay
       }
     }
     const ms = reduceMotion.matches ? 0 : on ? DIVE_MS : RISE_MS, from = diveT, to = on ? 1 : 0, t0 = performance.now();
@@ -1218,10 +1221,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Zoom-driven dive: normal zoom carries on into the liver; past SCRUB_K over the liver the camera and pan
   // lock and each further zoom step scrubs the dive (scrubS 0..1, the same frames the timed dive plays).
   // Zooming back out reverses it, down to the liver again. Taps and the Lobule step still play it timed.
+  const SCRUB_ON = false;   // the lobule opens and closes only from the view buttons: manual zoom never dives into it
   const SCRUB_K = 5.8,   // the anatomy zoom is free up to its 6× maximum; the pan locks and the dive begins only at it
      SCRUB_SPAN = Math.log(7), SCRUB_DONE = 0.88;   // the dive has fully landed by 0.88, so the view switches there
   let scrubS = 0, quietLobule = false, scrubAnim = 0;
   function canScrub(factor) {
+    if (!SCRUB_ON) return false;
     if (lobuleOn || factor <= 1 || morphTarget !== 0 || morph > 0.02 || vt.k < SCRUB_K || reduceMotion.matches) return false;
     const w = diveTarget(); if (!w) return false;
     refreshCTM();
@@ -1242,6 +1247,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (factor === 1 || morphTarget !== 0) return false;
     if (scrubS === 0 && !lobuleOn && !canScrub(factor)) return false;
     if (scrubS === 0 && !lobuleOn) startScrub();
+    diveOut = factor < 1;
     scrubS = clamp(scrubS + Math.log(factor) / SCRUB_SPAN, 0, 1);
     diveT = scrubS;
     if (scrubS >= SCRUB_DONE) {
@@ -1271,17 +1277,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const zoomLobule = () => store.set({ lobule: true });
   lz = createLobuleZoom({ host: wrap });
   // Out of the lobule view by zooming out: the view hands the dive back to the scrub, which carries on reversing it.
-  lz.onZoomOut((factor, glide) => {
-    if (morphTarget !== 0 || (!lobuleOn && scrubS === 0)) return;
-    if (lobuleOn) {
-      // The view hands the dive back to the scrub; the lobule view's layers stay under the fingers until they fade, so later steps arrive here too.
-      cancelAnimationFrame(lobAnim); clearTimeout(lobEnd);
-      diveLand = lz.current(); lobuleOn = false; scrubS = diveT = SCRUB_DONE - 0.001;
-      quietLobule = true; store.set({ lobule: false }); quietLobule = false;
-      if (!diveAt) diveAt = [wrap.clientWidth / 2, wrap.clientHeight / 2];
-    }
-    if (glide) scrubGlide(factor); else scrubBy(factor);
-  });
 
   // ── Detail ────────────────────────────────────────
   // Adaptive detail: when the device cannot keep up (frames arriving slower than ~22 a second
@@ -2078,7 +2073,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const spec = shade && !veil && kind !== 'f' && kind !== 'c' && !CONTEXT_EDGES.has(id) && !x.back && x.width >= 3.4;
       const flags = (sel && kind === 'v' ? F_SEL : 0) | (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt ? F_NOCASE : 0) | (veil ? F_VEIL : 0);
       const z = (kind === 'v' ? x.row + 0.5 : x.row) / GL_ROWS;
-      const heatA = kind === 'v' && heat ? (x.heatA || 0) : 0;
+      // No congestion halo on the IVC itself: its wide halo would spill onto the bowel beside it.
+      const heatA = kind === 'v' && heat && !IVC_EDGES.has(id) ? (x.heatA || 0) : 0;
       tubeData.set([...c0, x.isArt ? 0 : x.wallPx, ...c1, alpha, tier, z, flags, heatA], o);
       // Fades, as the SVG masks: into an organ (TIP_FADE), out of the plate, into a deeper vein,
       // tributaries toward the bowel they drain.
@@ -2887,7 +2883,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const x of Object.values(E)) {
       if (!x.vis || x.isArt || (x.e.from !== id && x.e.to !== id)) continue;
       if (x.e.kind === 'liver') { bed = true; continue; }
-      if (x.g.classList.contains('coll-ghost')) continue;
+      if (x.g.classList.contains('coll-ghost') || x.e.id === 'TIPS') continue;   // the TIPS shunt has its own velocity label
       tubes++;
       const v = Math.abs(edgeVel(f, EI[x.e.id]));
       if (v > best) best = v;
@@ -2911,8 +2907,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const lines = [[{ t: name, size: compact ? 10.5 : 11.5, weight: one ? 600 : 500, cls: 'lb-name' }]];
     const lr = isImaging() ? null : layerRuns(f, id, compact);
     const pr = lr ? lr.runs : pressureRuns(P, id, compact);
-    // (The unit is in the legend right above the figure.)
-    if (pr && one) lines[0].push(...pr.filter((r) => r.cls !== 'lb-unit').map((r, i) => (i ? r : { ...r, gap: 4 })));
+    if (pr && one) lines[0].push(...pr.map((r, i) => (i ? r : { ...r, gap: 4 })));
     else if (pr) lines.push(pr);
     const w = Math.max(...lines.map(lineW)) + (mode === 'atlas' ? 7 : 0);
     const hh = lines.reduce((a, l) => a + LINE_H(l), 0);
@@ -2956,6 +2951,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const sel = store.get().selection;
     if (sel?.type === 'node' && sel.id === id) return true;
     return (id === 'VAR' ? f.metrics.varix.d : f.metrics.gastricVarix.d) >= 2.5;
+  }
+  // Where a leader meets its label: the middle of the label's left edge or of its top or bottom edge,
+  // whichever is nearest the station. Never the right edge, so the line does not run across the text.
+  function leaderEnd(r, ax, ay) {
+    const cx = (r.x0 + r.x1) / 2, cy = (r.y0 + r.y1) / 2;
+    let best = null;
+    for (const [x, y] of [[r.x0, cy], [cx, r.y0], [cx, r.y1]]) {
+      const d = Math.hypot(x - ax, y - ay);
+      if (!best || d < best.d) best = { d, x, y };
+    }
+    return best;
   }
   let labelGridKey = '', labelGrid = new Map();
   const labelMem = new Map();
@@ -3077,6 +3083,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         it.side = ATLAS_LABELS[id]?.side || (NODE_POS[id][0][0] < 700 ? 'L' : 'R');
         items.push(it);
       }
+      // A TIPS shunt gets its own callout: the velocity through it (cm/s).
+      if (E.TIPS?.vis && EI.TIPS >= 0) {
+        const { ax, ay, mid, w: vw } = labelAnchor('TIPS', t);
+        if (ax > 4 && ax < W - 4 && ay > 4 && ay < H - 4 && !blockers.some((b) => ax > b.x0 && ax < b.x1 && ay > b.y0 && ay < b.y1)) {
+          const it = nodeItem('RPV', f, atlas ? 'atlas' : 'inline', compact);
+          const vel = Math.abs(edgeVel(f, EI.TIPS));
+          const unit = { size: compact ? 9.5 : 10, weight: 500, cls: 'lb-unit', gap: 2.5 };
+          it.lines[0][0].t = 'TIPS';
+          it.lines.length = 1; it.lines[0].length = 1;
+          const vr = [{ t: fmt(vel, 0), size: compact ? 12.5 : 14, weight: 650, cls: 'lb-val', gap: atlas ? 0 : 4 }, { ...unit, t: 'cm/s' }];
+          if (atlas) it.lines.push(vr); else it.lines[0].push(...vr);
+          it.key = 'n:TIPS'; it.node = undefined; it.sel = false; it.swatch = null;
+          it.w = Math.max(...it.lines.map(lineW)) + (atlas ? 7 : 0); it.h = it.lines.reduce((a, l) => a + LINE_H(l), 0);
+          it.label = `TIPS: ${fmt(vel, 0)} centimeters per second`;
+          it.ax = ax; it.ay = ay; it.vw = mid ? vw * CTM.sc : 0; it.pri = 9; it.side = 'R';
+          items.push(it);
+        }
+      }
       // Zoomed in, the other stations in view get their pressure too (hepatic veins, portal branches,
       // the left sinusoids...), each only where it stands clear of the labels already there, so they
       // appear as the zoom makes room and the overview stays uncluttered.
@@ -3114,8 +3138,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
             // A floating card over the column hides the labels it covers rather than sitting on them.
             if (blockers.some((b) => hits(rectOf(it), b))) continue;
             it.align = side === 'L' ? 'end' : 'start';
-            const ly = it.y + Math.min(it.h / 2, 16);
-            const x0 = side === 'L' ? lx - 4 : rx + 4;
+            // Left column: the line starts at the label's left edge, under the text, so it never ends at the right.
+            const ly = side === 'L' ? it.y + it.h : it.y + Math.min(it.h / 2, 16);
+            const x0 = side === 'L' ? it.x : rx + 4;
             leaders += `<path class="leader${it.sel ? ' hl' : ''}" d="M${x0.toFixed(1)} ${ly.toFixed(1)} L${elbow.toFixed(1)} ${ly.toFixed(1)} L${it.ax.toFixed(1)} ${it.ay.toFixed(1)}"/><circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
             placed.push(rectOf(it));
             out.push(it);
@@ -3134,7 +3159,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         for (const it of out) {
           if (!it.leader) continue;
           const r = rectOf(it);
-          const px = clamp(it.ax, r.x0, r.x1), py = clamp(it.ay, r.y0, r.y1);
+          const { x: px, y: py } = leaderEnd(r, it.ax, it.ay);
           if (Math.hypot(px - it.ax, py - it.ay) > 5) leaders += `<path class="leader${it.sel ? ' hl' : ''}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}"/>`;
           leaders += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
         }
@@ -3209,8 +3234,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const it of nodes) {
         if (!out.includes(it)) continue;
         if (it.leader) {
-          const r = rectOf(it);
-          leaders += `<path class="leader" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${clamp(it.ax, r.x0, r.x1).toFixed(1)} ${clamp(it.ay, r.y0, r.y1).toFixed(1)}"/>`;
+          const r = rectOf(it), le = leaderEnd(r, it.ax, it.ay);
+          leaders += `<path class="leader" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}"/>`;
         }
         if (it.mid) leaders += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
       }
@@ -3240,8 +3265,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const it = { key: 'focus', cls: 'focus', lines: [[{ t: foc.label || 'Here', size: 11.5, weight: 650, cls: 'lb-focus' }]], align: 'start', bg: true, padX: 8, padY: 4, ax, ay };
       it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
       if (place(it, ['E', 'W', 'NE', 'SE', 'N', 'S'], 18 + (E[foc.edges[0]].width || 4), true)) {
-        const r = rectOf(it);
-        leaders += `<path class="leader focus" d="M${ax.toFixed(1)} ${ay.toFixed(1)} L${clamp(ax, r.x0, r.x1).toFixed(1)} ${clamp(ay, r.y0, r.y1).toFixed(1)}"/>`;
+        const r = rectOf(it), fe = leaderEnd(r, ax, ay);
+        leaders += `<path class="leader focus" d="M${ax.toFixed(1)} ${ay.toFixed(1)} L${fe.x.toFixed(1)} ${fe.y.toFixed(1)}"/>`;
       }
     }
 
@@ -3652,7 +3677,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (wheelKind === 'wheel' || lobuleOn) { zoomAt(ev.clientX, ev.clientY, Math.exp(-clamp(dy, -120, 120) * 0.0015)); return; }
     if (scrubS > 0) return;   // panning is locked onto the lobule while the dive is under the fingers
     const s = vbScale();
-    vt = softPan({ k: vt.k, x: vt.x - dx / s, y: vt.y - dy / s });
+    const u0 = unsoftPan(vt);
+    vt = softPan({ k: vt.k, x: u0.x - dx / s, y: u0.y - dy / s });
     applyVT(); CTM = null; settleSoon();
   };
   svg.addEventListener('wheel', onWheel, { passive: false });
@@ -3666,23 +3692,29 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const b = stageBox(), vb = svg.viewBox.baseVal, s = Math.min(b.sw / vb.width, b.sh / vb.height);
     return { x: vb.x - (b.sw - vb.width * s) / 2 / s, y: vb.y - (b.sh - vb.height * s) / 2 / s, w: b.sw / s, h: b.sh / s };
   }
-  // Panning past the figure meets rising resistance (a rubber band): the middle of the view can leave the
-  // figure's bounds by about a fifth of its width at most, however far the hand goes; springBack then pulls it in.
-  function softPan(v) {
+  // Panning past the figure meets rising resistance, the lobule view's rubber band: a tanh band easing toward
+  // 40% of the view, measured from where the middle of the view meets the figure's edge (at the fit zoom, from the fit framing).
+  // hardPan is the nearest resting place; softPan puts a raw pan on the band, unsoftPan takes a banded pan back to raw.
+  function hardPan(v) {
+    const d = defaultVT(morphTarget === 1);
+    if (v.k <= d.k * 1.001) return { k: v.k, x: d.x, y: d.y };   // at the fit zoom the bounds are the fit position itself, as the lobule at its framing
     const c = morphTarget === 1 ? circVB() : VB_ANAT, vis = visibleVB();
     const x0 = c[0] * v.k + v.x, x1 = (c[0] + c[2]) * v.k + v.x, y0 = c[1] * v.k + v.y, y1 = (c[1] + c[3]) * v.k + v.y;
-    const vx = vis.x + vis.w / 2, vy = vis.y + vis.h / 2, Lx = 0.2 * (x1 - x0), Ly = 0.2 * (y1 - y0);
-    const soft = (o, L) => L * (1 - Math.exp(-o / L));
-    let { x, y } = v;
-    if (vx < x0) x -= (x0 - vx) - soft(x0 - vx, Lx); else if (vx > x1) x += (vx - x1) - soft(vx - x1, Lx);
-    if (vy < y0) y -= (y0 - vy) - soft(y0 - vy, Ly); else if (vy > y1) y += (vy - y1) - soft(vy - y1, Ly);
-    return { k: v.k, x, y };
+    const vx = vis.x + vis.w / 2, vy = vis.y + vis.h / 2;
+    return { k: v.k, x: v.x + (vx < x0 ? vx - x0 : vx > x1 ? vx - x1 : 0), y: v.y + (vy < y0 ? vy - y0 : vy > y1 ? vy - y1 : 0) };
   }
+  function bandPan(v, inv) {
+    const h = hardPan(v), vis = visibleVB(), Lx = 0.4 * vis.w, Ly = 0.4 * vis.h;
+    const f = (o, L) => (inv ? Math.atanh(clamp(o / L, -0.999, 0.999)) * L : L * Math.tanh(o / L));
+    return { k: v.k, x: h.x + f(v.x - h.x, Lx), y: h.y + f(v.y - h.y, Ly) };
+  }
+  const softPan = (v) => bandPan(v, false), unsoftPan = (v) => bandPan(v, true);
   function springBack() {
     if (lobuleOn || vtGliding || drag || glide) return;
     let to = { ...vt };
     const k = clamp(vt.k, K_MIN, K_MAX);
-    if (vt.k < K_MIN) { const d = defaultVT(morphTarget === 1); if (!sameView(d, vt)) animateVT(d, 420); return; }   // pinched out past the minimum: back to the fit view
+    // At or past the fit zoom (zoomed out, or panned about at the fit), the view springs back to the fit framing, as in the lobule view.
+    { const d = defaultVT(morphTarget === 1); if (vt.k <= d.k * 1.001) { if (!sameView(d, vt)) animateVT(d, 420); return; } }
     if (k !== vt.k) {
       const [cx, cy] = freeCentre(), [vx, vy] = clientToVB(cx, cy);
       to = { k, x: vx - ((vx - vt.x) / vt.k) * k, y: vy - ((vy - vt.y) / vt.k) * k };
@@ -3698,20 +3730,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // A flick keeps the figure moving and slows it down, as a map does.
   let glide = 0;
-  function stopGlide() { if (glide) { cancelAnimationFrame(glide); glide = 0; } }
+  function stopGlide() { cancelFlick?.(); cancelFlick = null; glide = 0; }
+  let cancelFlick = null;
   function fling(vx, vy) {
-    if (reduceMotion.matches || Math.hypot(vx, vy) < 0.25) { springBack(); return; }
-    const s0 = vbScale();
-    let last = performance.now();
-    const step = (now) => {
-      const dt = Math.min(34, now - last), decay = Math.pow(0.9955, dt);
-      last = now; vx *= decay; vy *= decay;
-      vt = softPan({ k: vt.k, x: vt.x + (vx * dt) / s0, y: vt.y + (vy * dt) / s0 });
-      applyVT(); CTM = null;
-      if (Math.hypot(vx, vy) > 0.03) glide = requestAnimationFrame(step);
-      else { glide = 0; springBack(); }
-    };
-    glide = requestAnimationFrame(step);
+    if (reduceMotion.matches || Math.hypot(vx, vy) < FLICK.minSpeed) { springBack(); return; }
+    const s0 = vbScale(), k = vt.k, h0 = hardPan(vt);
+    // Let go past the bounds (always so at the fit zoom, where the drag rides the wide band): nothing to carry, so it eases home from
+    // exactly where it is, as the lobule does at its framing. A flick would restart the stretch from a narrower band and jump.
+    if (Math.abs(vt.x - h0.x) * s0 > 0.5 || Math.abs(vt.y - h0.y) * s0 > 0.5) { springBack(); return; }
+    glide = 1;
+    cancelFlick = runFlick({   // the lobule's flick, in screen pixels, bounded by the figure
+      x: vt.x * s0, y: vt.y * s0, vx: vx, vy: vy,
+      hard: (x, y) => { const h = hardPan({ k, x: x / s0, y: y / s0 }); return [h.x * s0, h.y * s0]; },
+      apply: (x, y) => { vt = { k, x: x / s0, y: y / s0 }; applyVT(); CTM = null; },
+      done: () => { glide = 0; cancelFlick = null; springBack(); },
+    });
   }
 
   // Touch: every finger is captured by the figure, so a finger that lifts over a label or the
@@ -4083,6 +4116,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setCircuitRotated,
     circuitRotated: () => rotTarget === 1,
     zoomToBox,
+    cameraKey: () => `${vt.k.toFixed(3)}|${vt.x.toFixed(1)}|${vt.y.toFixed(1)}`,
     zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(), lobuleViewKey: () => lz?.viewKey(),
     /** On-screen scale, px per world unit (for the tests: turning the circuit keeps it). */
     zoomLevel: () => { refreshCTM(); return CTM.sc; },

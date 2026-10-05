@@ -5,10 +5,10 @@ import { store } from './store.js?v=23552bd900';
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=d90a6074b7';
 import { lobuleFlows } from './lobule-model.js?v=7d74747a69';
-import { createProfile } from './charts.js?v=412797aba2';
-import { createPressureTime } from './pressure-time.js?v=23babe1537';
-import { createDoppler } from './doppler.js?v=8db333f86a';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=8ade9be68f';
+import { createProfile } from './charts.js?v=ec5db0ba37';
+import { createPressureTime } from './pressure-time.js?v=1d82b047f7';
+import { createDoppler } from './doppler.js?v=7621b6bdba';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=1c9835f18b';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -151,12 +151,56 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   row.append(h('div', { class: 'ro-group ro-systemic', 'data-group': 'systemic', role: 'group', 'aria-label': 'Systemic' },
     h('span', { class: 'ro-cap', 'aria-hidden': 'true' }, 'Systemic'), h('div', { class: 'vb-grid' }, vitEls.map((x) => x.el))));
   const moreBtn = h('button', { class: 'ib ro-more', 'aria-expanded': 'false', 'aria-label': 'Show all readouts', title: 'All readouts' }, svgIcon('chev-down'));
-  moreBtn.addEventListener('click', () => {
-    const on = strip.classList.toggle('all');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  // Open or close the rest of the readouts; the strip grows upward from the bottom edge, so its height
+  // animates between the two sizes.
+  const setAll = (on, animate) => {
+    if (strip.classList.contains('all') === on) return;
+    const h0 = strip.offsetHeight;
+    strip.classList.toggle('all', on);
     moreBtn.setAttribute('aria-expanded', String(on));
     moreBtn.setAttribute('aria-label', on ? 'Show fewer readouts' : 'Show all readouts');
+    const h1 = strip.offsetHeight;
+    if (animate && !reduce.matches && h0 !== h1 && strip.animate) {
+      strip.animate({ height: [`${h0}px`, `${h1}px`] }, { duration: 280, easing: 'cubic-bezier(.2,.8,.2,1)' }).onfinish = () => dispatchEvent(new Event('resize'));
+      strip.style.overflow = 'hidden'; setTimeout(() => { strip.style.overflow = ''; }, 300);
+    }
     setTimeout(() => dispatchEvent(new Event('resize')), 30);
+  };
+  moreBtn.addEventListener('click', () => setAll(!strip.classList.contains('all'), true));
+  // Drag the strip up to open it, down to close it (touch only; where the chevron is shown). It follows
+  // the finger, then settles open or closed by speed or by how far it got.
+  let flick = null;
+  const sizes = () => { const h = strip.offsetHeight, was = strip.classList.contains('all'); strip.classList.toggle('all', !was); const o = strip.offsetHeight; strip.classList.toggle('all', was); return was ? [o, h] : [h, o]; };
+  strip.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' || getComputedStyle(moreBtn).display === 'none') return;
+    flick = { id: e.pointerId, y: e.clientY, t: performance.now(), on: false, v: 0, ly: e.clientY, lt: performance.now() };
   });
+  strip.addEventListener('pointermove', (e) => {
+    if (!flick || e.pointerId !== flick.id) return;
+    const dy = e.clientY - flick.y, now = performance.now();
+    if (!flick.on) {
+      if (Math.abs(dy) < 8) return;
+      flick.on = true; flick.wasAll = strip.classList.contains('all');
+      [flick.lo, flick.hi] = sizes();
+      strip.classList.add('all'); strip.style.overflow = 'hidden';
+      try { strip.setPointerCapture(e.pointerId); } catch {}
+    }
+    e.stopPropagation();
+    flick.h = Math.max(flick.lo, Math.min(flick.hi, (flick.wasAll ? flick.hi : flick.lo) - dy));
+    strip.style.height = `${flick.h}px`;
+    if (now - flick.lt > 30) { flick.v = (e.clientY - flick.ly) / (now - flick.lt); flick.ly = e.clientY; flick.lt = now; }
+  });
+  const endFlick = () => {
+    const f = flick; flick = null;
+    if (!f || !f.on) return;
+    const open = Math.abs(f.v) > 0.3 ? f.v < 0 : f.h > (f.lo + f.hi) / 2, to = open ? f.hi : f.lo;
+    const finish = () => { strip.style.height = ''; strip.style.overflow = ''; strip.classList.toggle('all', open); moreBtn.setAttribute('aria-expanded', String(open)); moreBtn.setAttribute('aria-label', open ? 'Show fewer readouts' : 'Show all readouts'); dispatchEvent(new Event('resize')); };
+    if (reduce.matches || !strip.animate) return finish();
+    const an = strip.animate({ height: [`${f.h}px`, `${to}px`] }, { duration: 220, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    strip.style.height = `${to}px`; an.onfinish = finish; an.oncancel = finish;
+  };
+  strip.addEventListener('pointerup', endFlick); strip.addEventListener('pointercancel', endFlick);
   row.append(moreBtn);
   // A phone held sideways has no room for every readout: it keeps the four key ones.
   const sideways = matchMedia('(max-width: 1023px) and (max-height: 500px) and (orientation: landscape)');

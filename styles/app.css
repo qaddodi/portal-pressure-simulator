@@ -87,7 +87,7 @@ svg { flex: none; }
 .ib.panel-toggle[aria-pressed="true"] { background: var(--surface-3); color: var(--text); }
 
 /* ── Figure (stage) ─────────────────────────────── */
-.stage-wrap { grid-area: stage; position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--stage-bg); color: var(--text); overflow: hidden; transition: background-color .5s var(--ease); }
+.stage-wrap { grid-area: stage; position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--stage-bg); color: var(--text); overflow: hidden; }
 /* Organ texture patterns take their organ's hue. */
 #texLiver { color: var(--organ-liver); } #texRugae { color: var(--organ-stomach); } #texLobules { color: var(--organ-pancreas); } #texMuscle { color: var(--organ-heart); } #texFine { color: var(--organ-spleen); }
 .stage-bar { flex: none; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: var(--stage-bg); position: relative; z-index: var(--z-hud); min-width: 0; }
@@ -305,7 +305,7 @@ svg { flex: none; }
    One fixed set in teaching order: pressure → flow → consequences → systemic. Nothing joins or
    leaves as values change; narrower screens fold whole groups behind the chevron. Each value has
    a bar: where it sits between its clinical cut-offs (the ticks). */
-.readouts { container-type: inline-size; min-width: 0; position: relative; }
+.readouts { container-type: inline-size; min-width: 0; position: relative; touch-action: pan-x; }
 .ro-row { display: flex; align-items: stretch; padding: 0 4px; }
 .ro-group { flex: var(--n, 3) 1 0; min-width: 0; display: flex; flex-direction: column; padding: 6px 4px 8px; position: relative; }
 .ro-group + .ro-group::before { content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; width: 1px; background: var(--hairline); }
@@ -382,7 +382,7 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .readouts:not(.all) .ro-group:not(:has(.metric.primary)) { display: none; }
   .readouts.all .ro-group { flex: 1 1 100%; }
   .readouts.all .ro-group + .ro-group { border-top: 1px solid var(--hairline); }
-  .readouts.all .ro-group + .ro-group::before { display: none; }
+  .ro-group + .ro-group::before { display: none; }   /* hidden groups still count as siblings: no stray divider at the left */
   .readouts.all .vb-grid { grid-template-columns: repeat(3, auto); }
   .metric { padding: 2px 6px; }
   .metric .v { font-size: var(--fs-16); }
@@ -2500,7 +2500,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   .lz-lab .n { font-size: calc(10.5px * var(--label-k, 1)); }
   .lz-lab .v { font-size: calc(12.5px * var(--label-k, 1)); }
   .lz-lab .d { font-size: calc(9.5px * var(--label-k, 1)); }
-  .lz-lab small { display: none; }
+  .lz-lab small { font-size: calc(9.5px * var(--label-k, 1)); }
 }
 /* Dark lobule labels: white names, values, units and zones on a black letter outline. */
 :root[data-theme="dark"] .lz { --label-halo: #000; }
@@ -2511,9 +2511,8 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   :root:not([data-theme="light"]) .lz :is(.lz-lab, .lz-lab .n, .lz-lab .v, .lz-lab .v b, .lz-lab small, .lz-lab .d, .lz-zone) { color: #fff; }
   :root:not([data-theme="light"]) .lz-zone span { opacity: 1; }
 }
-/* Phone: the lobule's zoom in, zoom out and fit sit top right, under the toolbar. */
+/* Phone: the lobule keeps the zoom controls where the anatomy view has them. */
 @media (max-width: 720px) {
-  .stage-view.in-lobule .zoom-pill { top: calc(var(--top-safe) + 8px); bottom: auto; right: calc(env(safe-area-inset-right) + 12px); translate: none; flex-direction: row; }
   .stage-view.in-lobule .zoom-pill #zoomIn, .stage-view.in-lobule .zoom-pill #zoomOut { display: inline-grid; }
 }
 /* In the tall Instruments card the trace chips wrap instead of scrolling sideways. */
@@ -2690,10 +2689,6 @@ input[type="range"] { touch-action: none; }
   .vdock .vd-status { margin-top: 4px; }
 }
 
-/* Comparing: the lobule's controls sit below the Then / Now / Change switch (--cmp-h). */
-@media (max-width: 720px) {
-  .stage-view.in-lobule .zoom-pill { top: calc(var(--top-safe) + 8px + var(--cmp-h, 0px)); }
-}
 
 /* Touch screens: a long press is a gesture here (hold to inspect, drag, pinch), not a text selection;
    fields that take typing still select. */
@@ -2870,3 +2865,21 @@ input[type="range"] { touch-action: none; }
 .toast-x { flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--text-2); cursor: pointer; }
 .toast-x:hover { background: var(--surface-3); color: var(--text); }
 .toast-x svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; }
+
+/* Concentric corners: a control inside a rounded container uses (container radius - inset), the same on
+   every end, so hover, pressed and selected fills sit evenly inside their container. */
+.zoom-pill { --inset: 3px; }
+.float-pill, .toolbar { --inset: 4px; }
+.top-right.float-pill { --inset: 3px; }
+.zoom-pill > *, .float-pill > .ib, .float-pill > .tb-act, .float-pill > .menu-btn, .float-pill > .scenario-btn, .float-pill > .find-badge, .float-pill > .pal-btn, .toolbar > .tb-btn, .toolbar > .ib { border-radius: max(var(--r-control), calc(var(--r-sheet) - var(--inset, 4px))); }
+.topbar .float-pill > .menu-btn, .topbar .float-pill > .scenario-btn, .topbar .float-pill > .tb-act, .topbar .float-pill > .find-badge, .topbar .float-pill > .pal-btn, .topbar .float-pill > .ib, .topbar #viewSeg button { border-radius: max(var(--r-control), calc(var(--r-sheet) - var(--inset, 4px))); }
+.zoom-pill .ib, .zoom-pill .stage-fit, .zoom-pill .stage-rotate { border-radius: calc(var(--r-sheet) - 3px); }
+/* The lobule group is hidden outside the lobule view; the group after it must not draw a divider above itself. */
+.readouts:not(.lob) .ro-group[data-group="lobule"] + .ro-group { border-top: 0 !important; }
+.topbar #viewSeg { --inset: 4px; }
+
+/* Play/speed split: the play button is an inset rounded rectangle, concentric with its container
+   (container radius - padding - border), not a fill clipped to the edge. */
+.tl-split { --split-r: var(--r-card); --inset: 3px; height: 40px; padding: var(--inset); gap: 2px; border-radius: var(--split-r); overflow: visible; box-sizing: border-box; }
+.timeline .tl-split .ib.play, .vdock .tl-split .ib.play { height: 100%; border-radius: calc(var(--split-r) - var(--inset) - 1px); }
+.tl-left .tl-split .tl-speed, .vdock .tl-left .tl-split .tl-speed { border-radius: calc(var(--split-r) - var(--inset) - 1px); }

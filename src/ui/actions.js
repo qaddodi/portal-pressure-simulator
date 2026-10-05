@@ -9,7 +9,7 @@ import { store, updateParams } from './store.js?v=23552bd900';
 import { fmt, fmtFlow, clamp, toast } from './util.js?v=d90a6074b7';
 import { aboutVessel, aboutOrgan } from './about.js?v=8214f717c4';
 import { lobuleState } from './lobule-model.js?v=7d74747a69';
-import { LABEL_VESSEL } from './anatomy.js?v=5836089b84';
+import { LABEL_VESSEL } from './anatomy.js?v=dbe096be7b';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
