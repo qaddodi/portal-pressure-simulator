@@ -1,10 +1,10 @@
 // Dock charts (blueprint §9.2): the pressure profile.
 
 import { NODES } from '../engine/topology.js?v=29d10ad9ef';
-import { PROFILE_PATHS, SHORT } from './anatomy.js?v=b3ecbae45c';
+import { PROFILE_PATHS, SHORT } from './anatomy.js?v=c4953196b7';
 import { pressureColor } from './colormap.js?v=6d64a94345';
-import { store } from './store.js?v=f9424489c6';
-import { h, fmt, fitCanvas, cssVar, clamp } from './util.js?v=fe164f31f1';
+import { store } from './store.js?v=23552bd900';
+import { h, fmt, fitCanvas, cssVar, clamp, createEaser, axisTop } from './util.js?v=831ebf143a';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const ARTERIAL = new Set(['AO', 'HA']);
@@ -56,25 +56,51 @@ export function createProfile() {
   el.append(box, side);
   let pathId = 'main';
   sel.addEventListener('change', () => { pathId = sel.value; draw(); });
-  let F = null;
+  // F is what is drawn: the frame with its pressures eased toward the model's (breath- and
+  // beat-filtered) values, so the line, dots and labels glide rather than jump when values change.
+  let F = null, Fraw = null, axisMax = 15, easeRaf = 0;
+  const easeP = createEaser(), easeAxis = createEaser();
+  function ease() {
+    if (!Fraw) return;
+    const src = Fraw.Pf || Fraw.P;
+    const { v: shown, moving: mP } = easeP.step(src);
+    const path = PROFILE_PATHS.find((p) => p.id === pathId);
+    const st = store.get();
+    let top = 0;
+    for (const n of path.nodes) {
+      if (ARTERIAL.has(n)) continue;
+      top = Math.max(top, src[NI[n]], st.healthy?.P?.[NI[n]] ?? 0, st.compareSnap?.P?.[NI[n]] ?? 0);
+    }
+    const { v: ax, moving: mA } = easeAxis.step([axisTop(top)]);
+    axisMax = ax[0];
+    const moving = mP || mA;
+    F = { ...Fraw, P: shown };
+    draw();
+    cancelAnimationFrame(easeRaf);
+    // Model frames arrive about ten times a second; the glide runs every display frame between them.
+    if (moving) easeRaf = requestAnimationFrame(() => { if (cv.isConnected && cv.offsetParent) ease(); });
+  }
   let predict = null; // { on, values: Map(station → P), done }
   let dragging = false;
 
   function geometry() {
     const { w, h: hh } = fitCanvas(cv);
     const path = PROFILE_PATHS.find((p) => p.id === pathId);
-    const stations = path.nodes;
+    // Venous stations only: the arterial pressure sits far off the portal scale and says little here.
+    const stations = path.nodes.filter((n) => !ARTERIAL.has(n));
     const slot0 = (w - 56) / stations.length;
+    // Close together, the station names turn 45° on one row (each ending under its point).
     const stagger = slot0 < 74;
+    let tilt = 0;
+    if (stagger) { const m = cv.getContext('2d'); m.font = FONT(500, 11); tilt = Math.max(...stations.map((n) => m.measureText(SHORT[n] || n).width)) * Math.SQRT1_2; }
     // Arterial stations sit far above the venous scale: they are drawn in a band above a broken
     // axis (//) with their true value, never clipped.
     const hasArt = stations.some((n) => ARTERIAL.has(n));
     const roomy = hh > 230;
-    const L = 40, R = 16, T = hasArt ? (roomy ? 58 : 34) : 16, B = stagger ? (roomy ? 44 : 38) : 26;
+    const L = 40, R = 16, T = hasArt ? (roomy ? 58 : 34) : 28, B = stagger ? Math.ceil(tilt) + 20 : 26;
     const slot = (w - L - R) / stations.length;
-    const vals = F ? stations.map((n) => F.P[NI[n]]) : [];
-    const venous = vals.filter((_, i) => !ARTERIAL.has(stations[i]));
-    const maxP = Math.max(30, ...venous.map((v) => v + 4));
+    // The axis follows the highest point (now, healthy or the compared moment), eased, not fixed at 30.
+    const maxP = axisMax;
     const y = (p) => T + (hh - T - B) * (1 - clamp(p, -2, maxP) / maxP);
     const x = (i) => L + slot * (i + 0.5);
     const artY = roomy ? T - 24 : T - 20;
@@ -98,13 +124,15 @@ export function createProfile() {
     }
     ctx.strokeStyle = c.axis; ctx.beginPath(); ctx.moveTo(L, Math.round(y(0)) + 0.5); ctx.lineTo(w - R, Math.round(y(0)) + 0.5); ctx.stroke();
     if (roomy || !hasArt) { ctx.textAlign = 'left'; ctx.fillText('mmHg', 6, 12); } else { ctx.textAlign = 'right'; ctx.fillText('mmHg', w - R, artY + 4); }
-    // station labels: horizontal, staggered over two rows when the stations are close together
-    ctx.fillStyle = c.muted; ctx.textAlign = 'center'; ctx.font = FONT(500, 11);
+    // station labels: horizontal, or turned 45° (ending under their point) when close together
+    ctx.fillStyle = c.muted; ctx.font = FONT(500, 11);
     stations.forEach((n, i) => {
-      const row = stagger && i % 2 ? 1 : 0;
-      if (row) { ctx.strokeStyle = c.border; ctx.beginPath(); ctx.moveTo(x(i) + 0.5, hh - B + 4); ctx.lineTo(x(i) + 0.5, hh - B + 18); ctx.stroke(); }
-      ctx.fillText(SHORT[n] || n, x(i), hh - B + 16 + row * 15);
+      if (!stagger) { ctx.textAlign = 'center'; ctx.fillText(SHORT[n] || n, x(i), hh - B + 16); return; }
+      ctx.save(); ctx.translate(x(i) + 3, hh - B + 10); ctx.rotate(-Math.PI / 4);
+      ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillText(SHORT[n] || n, 0, 0);
+      ctx.restore();
     });
+    ctx.textBaseline = 'alphabetic';
     // broken axis for arterial stations
     if (hasArt) {
       ctx.strokeStyle = c.axis; ctx.lineWidth = 1.2;
@@ -246,16 +274,16 @@ export function createProfile() {
 
   return {
     id: 'profile', label: 'Pressure profile', el,
-    update(f) { F = f; draw(); },
+    update(f) { Fraw = f; ease(); },
     redraw: draw,
     setPath(id) { pathId = id; sel.value = id; draw(); },
     startPredict(onChange) { predict = { on: true, values: new Map(), onChange }; draw(); },
     endPredict(reveal = true) { if (predict) { predict.on = false; predict.reveal = reveal; } draw(); return predict; },
     clearPredict() { predict = null; draw(); },
     predictionError() {
-      if (!predict || !F) return null;
+      if (!predict || !Fraw) return null;
       let s = 0, n = 0;
-      for (const [k, v] of predict.values) { s += Math.abs(v - F.P[NI[k]]); n++; }
+      for (const [k, v] of predict.values) { s += Math.abs(v - Fraw.P[NI[k]]); n++; }
       return n ? s / n : null;
     },
   };

@@ -4,11 +4,12 @@
 // in the timeline as one entry.
 
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=29d10ad9ef';
-import { DRUGS } from '../engine/scenario.js?v=8fc90f782f';
-import { store, updateParams } from './store.js?v=f9424489c6';
-import { fmt, fmtFlow, clamp, toast } from './util.js?v=fe164f31f1';
-import { aboutVessel, aboutOrgan } from './about.js?v=a7b8c7edc2';
-import { lobuleState } from './lobule-model.js?v=913fe4fa3c';
+import { DRUGS } from '../engine/scenario.js?v=304cd180db';
+import { store, updateParams } from './store.js?v=23552bd900';
+import { fmt, fmtFlow, clamp, toast } from './util.js?v=831ebf143a';
+import { aboutVessel, aboutOrgan } from './about.js?v=f406909ec7';
+import { lobuleState } from './lobule-model.js?v=7d1a8d3c8b';
+import { LABEL_VESSEL } from './anatomy.js?v=c4953196b7';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -144,9 +145,13 @@ export function cardFor(selIn, ctx) {
   };
 }
 
+// A vessel that names a station on the figure (the portal vein names the confluence) reads that
+// station's pressure, as its label and the readouts do; any other vessel reads the mean of its ends.
+// Both use the breath-smoothed pressures the labels show, so the card never disagrees with them.
+const STATION_OF = Object.fromEntries(Object.entries(LABEL_VESSEL).map(([n, e]) => [e, n]));
 function edgeValue(e, f, lens, ref) {
-  const k = EI[e.id];
-  const P1 = f.P[NI[e.from]], P2 = f.P[NI[e.to]], P = (P1 + P2) / 2;
+  const k = EI[e.id], PF = f.Pf || f.P, st = STATION_OF[e.id];
+  const P1 = PF[NI[e.from]], P2 = PF[NI[e.to]], P = st ? PF[NI[st]] : (P1 + P2) / 2;
   const q = (f.Qf ? f.Qf[k] : f.Q[k]) * 0.06;
   if (lens === 'flow') {
     const r = store.get().healthy?.Q?.[k];
@@ -155,7 +160,7 @@ function edgeValue(e, f, lens, ref) {
   }
   if (lens === 'velocity') { const D = Math.max(0.5, f.D[k]) / 10; return { v: fmt(Math.abs((q / 0.06) / (Math.PI * D * D / 4)), 0), u: 'cm/s' }; }
   if (lens === 'drop') return { v: fmt(P1 - P2, 1), u: 'mmHg drop' };
-  const r = ref ? (ref[NI[e.from]] + ref[NI[e.to]]) / 2 : null;
+  const r = ref ? (st ? ref[NI[st]] : (ref[NI[e.from]] + ref[NI[e.to]]) / 2) : null;
   return { v: fmt(P, 1), u: 'mmHg', d: r != null && Math.abs(P - r) >= 1 ? `${P > r ? '▲' : '▼'} ${fmt(Math.abs(P - r), 0)}` : null, up: r != null && P > r };
 }
 
@@ -175,7 +180,7 @@ function organCard(sel, ctx) {
   if (id === 'liver') {
     return {
       key: 'o:liver', sel, kicker: 'Organ', title: 'Liver', why: 'hvpg',
-      value: (f, lens, ref) => { const P = f.P[NI.SIN_R]; const r = ref?.[NI.SIN_R]; return { v: fmt(P, 1), u: 'mmHg sinusoids', d: r != null && Math.abs(P - r) >= 1 ? `${P > r ? '▲' : '▼'} ${fmt(Math.abs(P - r), 0)}` : null, up: r != null && P > r }; },
+      value: (f, lens, ref) => { const P = (f.Pf || f.P)[NI.SIN_R]; const r = ref?.[NI.SIN_R]; return { v: fmt(P, 1), u: 'mmHg sinusoids', d: r != null && Math.abs(P - r) >= 1 ? `${P > r ? '▲' : '▼'} ${fmt(Math.abs(P - r), 0)}` : null, up: r != null && P > r }; },
       verbs: [
         { type: 'slider', id: 'cirrhosis', key: 'cirrhosis', label: 'Cirrhosis', icon: 'liver', min: 0, max: 1, step: 0.01, def: 0, format: pct, get: (p) => p.cirrhosis, set: (p, v) => { p.cirrhosis = v; }, hist: 'Cirrhosis',
           sub: '40 % compensated · 60 % CSPH · 85 % decompensated', info: 'Sinusoidal fibrosis, capillarization, a stiffer liver and arterioportal shunting. Jump months ahead on the timeline to watch collaterals open.' },
@@ -188,7 +193,7 @@ function organCard(sel, ctx) {
     const sl = (vid, key, label, min, max, def, info) => ({ type: 'slider', id: vid, key, label, min, max, step: 0.01, def, format: pct, get: (p) => p[key], set: (p, v) => { p[key] = v; }, hist: label, info });
     return {
       key: 'o:heart', sel, kicker: 'Organ', title: 'Right heart', why: 'ra',
-      value: (f, lens, ref) => { const P = f.P[NI.RA]; const r = ref?.[NI.RA]; return { v: fmt(P, 1), u: 'mmHg RA', d: r != null && Math.abs(P - r) >= 1 ? `${P > r ? '▲' : '▼'} ${fmt(Math.abs(P - r), 0)}` : null, up: r != null && P > r }; },
+      value: (f, lens, ref) => { const P = (f.Pf || f.P)[NI.RA]; const r = ref?.[NI.RA]; return { v: fmt(P, 1), u: 'mmHg RA', d: r != null && Math.abs(P - r) >= 1 ? `${P > r ? '▲' : '▼'} ${fmt(Math.abs(P - r), 0)}` : null, up: r != null && P > r }; },
       verbs: [
         sl('contractility', 'contractility', 'Contractility', 0.15, 1.6, 1, 'Right-ventricular pump strength (Frank–Starling).'),
         sl('tr', 'tr', 'Tricuspid regurgitation', 0, 1, 0, 'Systolic backflow into the right atrium: large v-waves reach the liver.'),
@@ -207,7 +212,7 @@ function organCard(sel, ctx) {
     else verbs.push({ type: 'link', label: 'Short gastric veins', run: () => ctx.select({ type: 'edge', id: 'C2' }) });
     return {
       key: 'o:' + id, sel, kicker: 'Collateral bed', title: eso ? 'Esophageal varices' : 'Fundal varices', why: 'varix', verbs,
-      value: (f, lens, ref) => { const n = NI[eso ? 'VAR' : 'GV']; const P = f.P[n]; const r = ref?.[n]; return { v: fmt(P, 1), u: 'mmHg', d: r != null && Math.abs(P - r) >= 1 ? `${P > r ? '▲' : '▼'} ${fmt(Math.abs(P - r), 0)}` : null, up: r != null && P > r }; },
+      value: (f, lens, ref) => { const n = NI[eso ? 'VAR' : 'GV']; const P = (f.Pf || f.P)[n]; const r = ref?.[n]; return { v: fmt(P, 1), u: 'mmHg', d: r != null && Math.abs(P - r) >= 1 ? `${P > r ? '▲' : '▼'} ${fmt(Math.abs(P - r), 0)}` : null, up: r != null && P > r }; },
       status: (f) => (f.metrics.bleeding && (f.metrics.bleeding.site === 'GV') === !eso ? ['bad', 'Bleeding'] : vx(f).redWale ? ['warn', 'Red wale signs'] : null),
     };
   }
@@ -220,19 +225,6 @@ function organCard(sel, ctx) {
         { type: 'slider', id: 'clot', key: 'thrombus', label: 'Clot the splenic vein', icon: 'clot', min: 0, max: 1, step: 0.01, def: 0, format: pct, get: (p) => p.thrombus.SV_CONF || 0,
           set: (p, v) => { if (v <= 0.004) delete p.thrombus.SV_CONF; else p.thrombus.SV_CONF = +v.toFixed(2); }, hist: 'Splenic vein thrombus', info: 'Sinistral (left-sided) portal hypertension: the spleen drains through the short gastric veins.' },
         { type: 'link', label: 'Splenic vein', run: () => ctx.select({ type: 'edge', id: 'SV_CONF' }) },
-      ],
-    };
-  }
-  if (id === 'abdomen') {
-    return {
-      key: 'o:abdomen', sel, kicker: 'Peritoneum', title: 'Abdomen & ascites', why: 'ascites',
-      value: (f) => ({ v: fmt(f.metrics.ascites.volume / 1000, 1), u: 'L ascites' }),
-      status: (f) => (f.metrics.ascites.iap >= 12 ? ['bad', `IAP ${fmt(f.metrics.ascites.iap, 0)} mmHg`] : f.metrics.ascites.grade ? ['warn', f.metrics.ascites.label] : null),
-      verbs: [
-        { type: 'drain', id: 'paracentesis', label: 'Paracentesis', icon: 'needle' },
-        { type: 'slider', id: 'albumin', key: 'albumin', label: 'Serum albumin', min: 1.5, max: 5, step: 0.1, def: 4, format: (v) => `${v.toFixed(1)} g/dL`, get: (p) => p.albumin, set: (p, v) => { p.albumin = v; }, hist: 'Serum albumin' },
-        { type: 'toggle', id: 'diuretics', key: 'diuretics', label: 'Diuretics', icon: 'drop', get: (p) => !!p.diuretics, set: (p, v) => { p.diuretics = v; }, hist: 'Diuretics' },
-        stat('Formation', (f) => `${fmt(f.metrics.ascites.ratePerDay, 0)} mL/day`),
       ],
     };
   }

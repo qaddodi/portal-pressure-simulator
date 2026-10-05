@@ -1,6 +1,8 @@
-// The timeline: time, history, events and comparison on one strip under the figure.
+// The timeline: time, history, events and comparison on one strip under the figure. It is the
+// one place for what has happened: the latest event is named beside the clock, and History lists
+// every change and event (it replaces the chart's old Story section).
 //
-//  ▶ ↺ 1×  |●──◆────◆──▲──────◆───●|  Day 142 · 0:14   [+1 wk][+1 mo][+6 mo]   Compare from here
+//  ▶ ↺ 1×  |●──◆────◆──●──────◆───●|  Day 142 · 0:14  ● Large varices  [+1 wk][+1 mo][+6 mo] ⋯  History 5  Compare
 //
 // Every change the learner makes is a marker (◆) carrying a full snapshot of the model; clicking
 // one goes back to that moment (the model, its clock and its remodeling), and later markers stay
@@ -9,10 +11,10 @@
 // from here" freezes the current moment as A for comparison. It replaces play/speed, the Seconds/Months
 // switch, undo/redo/reset, the Findings list, the Log instrument and Compare mode.
 
-import { store, replaceParams, onParamChange } from './store.js?v=f9424489c6';
-import { host } from './host.js?v=d292ccefe8';
-import { h, fmt, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=fe164f31f1';
-import { activeInterventions } from './inspector.js?v=208b6a3592';
+import { store, replaceParams, onParamChange } from './store.js?v=23552bd900';
+import { host } from './host.js?v=5e522a6bbf';
+import { h, fmt, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=831ebf143a';
+import { activeInterventions } from './inspector.js?v=16c4f8a329';
 
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };
 export const EVENT_WHY = { VARIX_RUPTURE: 'varix', RED_WALE: 'varix', VARIX_LARGE: 'varix', HEPATOFUGAL_PV: 'pvFlow', PV_STASIS: 'pvFlow', CSPH: 'hvpg', BLEED_RISK: 'hvpg', ASCITES_FORMING: 'ascites', TENSE_ASCITES: 'ascites', HIGH_SHUNT: 'shunt', LIVER_HYPOPERFUSION: 'liverPerf', RA_HIGH: 'ra', HYPERDYNAMIC: 'co', SPLENOMEGALY: 'spleen' };
@@ -46,7 +48,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   // Restart: the same patient from its first moment, every change and the clock cleared.
   const restartBtn = h('button', { class: 'ib tl-restart', 'aria-label': 'Restart this patient' }, icon('reset'));
   restartBtn.addEventListener('click', () => onRestart?.());
-  const speedBtn = h('button', { class: 'tl-speed', title: 'Playback speed ([ and ])', 'aria-label': 'Playback speed' }, '1×');
+  const speedBtn = h('button', { class: 'tl-speed', title: 'Playback speed ([ and ]); click for the next speed', 'aria-label': 'Playback speed' }, '1×');
   speedBtn.addEventListener('click', () => { const i = SPEEDS.indexOf(store.get().speed); onSpeed(SPEEDS[(i + 1) % SPEEDS.length]); });
   const rail = h('div', { class: 'tl-rail' });
   const fill = h('div', { class: 'tl-fill' });
@@ -54,7 +56,17 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   const marks = h('div', { class: 'tl-marks', role: 'list', 'aria-label': 'Changes and events' });
   const nowEl = h('div', { class: 'tl-now', 'aria-hidden': 'true' });
   const track = h('div', { class: 'tl-track' }, rail, bleedBand, fill, marks, nowEl);
-  const timeEl = h('span', { class: 'tl-time', 'aria-live': 'off' }, '0:00');
+  // The full clock, and a short one (just the day) for a phone's play bar.
+  const timeLong = h('span', { class: 'tl-t-long' }, '0:00'), timeShort = h('span', { class: 'tl-t-short', 'aria-hidden': 'true' }, '0:00');
+  const timeEl = h('span', { class: 'tl-time', 'aria-live': 'off' }, timeLong, timeShort);
+  // The latest event, named beside the clock; a click opens it like its marker.
+  const latestEl = h('button', { class: 'tl-latest', hidden: true });
+  latestEl.addEventListener('click', (e) => { const i = latestEventIndex(); if (i >= 0) openMarker(e.currentTarget, [i]); });
+  const histCount = h('span', { class: 'tl-hc' });
+  const histBtn = h('button', { class: 'tl-hist', 'aria-haspopup': 'dialog', title: 'History: every change and event, with a way back to each' }, svgIcon('menu', 'mi-ic'), h('span', { class: 'tl-hl' }, 'History'), histCount);
+  histBtn.addEventListener('click', (e) => openHistory(e.currentTarget));
+  // The latest event sits in the dock's status row (with the bleed), above the play bar, on every screen.
+  (document.getElementById('vdStatus') || root).append(latestEl);
   const jumpBtns = JUMPS.map(([d, l, long]) => {
     const b = h('button', { class: 'tl-jump', title: `Jump ${long} ahead on the disease clock` }, l);
     b.addEventListener('click', () => jump(d, long));
@@ -63,6 +75,9 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   const moreBtn = h('button', { class: 'ib tl-more', 'aria-label': 'More time options', title: 'More' }, icon('more'));
   moreBtn.addEventListener('click', (e) => popover(e.currentTarget, [
     h('div', { class: 'menu-title' }, 'Time'),
+    // A phone keeps the jumps and Compare here, so its play bar has room for the timeline.
+    ...JUMPS.map(([d, , long]) => { const it = menuBtn(`Jump ${long} ahead`, () => jump(d, long)); it.classList.add('tl-phone-only'); return it; }),
+    (() => { const it = menuBtn(store.get().compareSnap ? 'Stop comparing' : 'Compare from here', () => togglePin()); it.classList.add('tl-phone-only'); return it; })(),
     menuBtn('Until something happens', () => jump('event', 'until the next event')),
     menuBtn('Settle to equilibrium', () => { host.send({ type: 'settle' }); toast('Settled to equilibrium.'); }),
     menuBtn('Restart this patient', () => onRestart?.()),
@@ -70,9 +85,10 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
     h('div', { class: 'menu-title' }, 'Playback speed'),
     h('div', { class: 'seg full', style: { margin: '2px 6px 6px' } }, [0.25, ...SPEEDS, 8].map((v) => { const b = h('button', { 'aria-pressed': String(store.get().speed === v) }, `${v}×`); b.addEventListener('click', () => { closePopover(); onSpeed(v); }); return b; })),
   ], { place: 'above', align: 'end', cls: 'time-pop' }));
-  const pinBtn = h('button', { class: 'tl-pin', 'aria-pressed': 'false', title: 'Freeze this moment and compare the live model with it (P)' }, svgIcon('compare', 'mi-ic'), h('span', {}, 'Compare from here'));
+  const pinBtn = h('button', { class: 'tl-pin', 'aria-pressed': 'false', 'aria-label': 'Compare from here', title: 'Freeze this moment and compare the live model with it (P)' }, svgIcon('compare', 'mi-ic'), h('span', {}, 'Compare'));
+  // Restart lives in More; the jumps share one segmented control.
   pinBtn.addEventListener('click', () => togglePin());
-  root.replaceChildren(h('div', { class: 'tl-left' }, playBtn, restartBtn, speedBtn), track, timeEl, h('div', { class: 'tl-jumps' }, jumpBtns, moreBtn), pinBtn);
+  root.replaceChildren(h('div', { class: 'tl-left' }, playBtn, restartBtn, speedBtn), track, timeEl, h('div', { class: 'tl-jumps' }, h('div', { class: 'tl-jseg' }, jumpBtns), moreBtn), histBtn, pinBtn);
   tooltipFor(playBtn, 'Play / pause · Space', 'top');
   tooltipFor(restartBtn, 'Restart this patient', 'top');
   function menuBtn(label, fn) { const b = h('button', { class: 'menu-item' }, label); b.addEventListener('click', () => { closePopover(); fn(); }); return b; }
@@ -158,7 +174,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
     const t0 = performance.now();
     const tick = (now) => {
       const u = clamp((now - t0) / 900, 0, 1);
-      if (days !== 'event') timeEl.textContent = `Day ${Math.round(d0 + days * (1 - (1 - u) ** 3))}`;
+      if (days !== 'event') timeLong.textContent = timeShort.textContent = `Day ${Math.round(d0 + days * (1 - (1 - u) ** 3))}`;
       if (u < 1) requestAnimationFrame(tick); else track.classList.remove('ff');
     };
     requestAnimationFrame(tick);
@@ -246,6 +262,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
     const t = performance.now();
     if (!force && key === lastRenderKey && t - lastMarksAt < 1000) return;
     lastRenderKey = key; lastMarksAt = t;
+    paintLatest();
     // Group markers that would overlap into one, with a count.
     const groups = [];
     entries.forEach((e, i) => {
@@ -269,19 +286,56 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
       return b;
     }));
   }
+  function latestEventIndex() {
+    const end = cursor >= 0 ? cursor : entries.length - 1;
+    for (let i = end; i >= 0; i--) if (entries[i].kind === 'event') return i;
+    return -1;
+  }
+  let lastLatest = null;
+  function paintLatest() {
+    const i = latestEventIndex(), e = entries[i];
+    const k = e ? `${e.id}` : '';
+    if (k !== lastLatest) {
+      lastLatest = k;
+      latestEl.hidden = !e;
+      if (e) {
+        latestEl.style.setProperty('--sev', SEV[e.sev] || SEV.info);
+        latestEl.replaceChildren(h('i', { class: 'tl-ld', 'aria-hidden': 'true' }), h('span', {}, e.label), h('small', {}, e.kind === 'start' ? '' : fmtClock(e.t, e.day)));
+        latestEl.setAttribute('aria-label', `Latest event at ${fmtClock(e.t, e.day)}: ${e.label}`);
+        latestEl.title = `${fmtClock(e.t, e.day)} · ${e.label}${e.detail ? `\n${e.detail}` : ''}`;
+      }
+    }
+    const n = entries.filter((x) => x.kind !== 'start').length;
+    if (histCount.textContent !== (n ? String(n) : '')) histCount.textContent = n ? String(n) : '';
+  }
+  function openHistory(anchor) {
+    const items = entries.map((_, i) => i);
+    const copy = h('button', { class: 'link st-act', title: 'Copy the history as text' }, 'Copy');
+    copy.addEventListener('click', async () => { try { await navigator.clipboard.writeText(historyText()); toast('History copied.'); } catch { toast('Copy is not available here.'); } });
+    const head = h('div', { class: 'tl-pop-top' }, h('b', {}, 'History'), h('span', { class: 'sp' }), copy);
+    const body = items.length > 1 ? markerRows(items)
+      : [h('p', { class: 'tl-pop-empty' }, 'Nothing has happened yet. Change something on the figure, or jump ahead in time.')];
+    popover(anchor, h('div', { class: 'tl-pop tl-history' }, head, body), { place: 'above', align: 'end' });
+  }
+  function historyText() {
+    return entries.map((e) => `${e.kind === 'start' ? 'Start' : fmtClock(e.t, e.day)}  ${e.kind === 'start' ? 'Patient: ' : ''}${e.label}${e.detail ? ': ' + e.detail : ''}`).join('\n');
+  }
   function openMarker(anchor, items) {
-    const rows = items.slice().reverse().map((i) => {
+    popover(anchor, h('div', { class: 'tl-pop' }, markerRows(items)), { place: 'above', align: 'center' });
+  }
+  function markerRows(items) {
+    return items.slice().reverse().map((i) => {
       const e = entries[i];
       const acts = [];
       if (e.snap && canRevert()) acts.push(h('button', { class: 'btn sm', onclick: () => { closePopover(); goTo(i); } }, icon('undo'), i === liveIndex() && cursor < 0 ? 'Back to this moment' : 'Go back here'));
       if (e.frame) acts.push(h('button', { class: 'btn sm', onclick: () => { closePopover(); pinFrom(e.frame, e.label, fmtClock(e.t, e.day)); toast(`Comparing with ${fmtClock(e.t, e.day)}: ${e.label}.`); } }, svgIcon('camera', 'mi-ic'), 'Compare with now'));
       if (e.why) acts.push(h('button', { class: 'btn sm', onclick: (ev) => onWhy(e.why, ev.currentTarget) }, svgIcon('bulb', 'mi-ic'), 'Why?'));
-      return h('div', { class: 'tl-pop-row' },
-        h('div', { class: 'tl-pop-head' }, h('i', { class: `tl-dot ${e.kind}`, style: { background: e.kind === 'event' ? SEV[e.sev] || SEV.info : '' } }), h('b', {}, e.label), h('span', { class: 'when' }, fmtClock(e.t, e.day))),
+      const future = cursor >= 0 && i > cursor;
+      return h('div', { class: `tl-pop-row${future ? ' future' : ''}` },
+        h('div', { class: 'tl-pop-head' }, h('i', { class: `tl-dot ${e.kind}`, style: { background: e.kind === 'event' ? SEV[e.sev] || SEV.info : '' } }), h('b', {}, e.kind === 'start' ? `Patient: ${e.label}` : e.label), h('span', { class: 'when' }, e.kind === 'start' ? 'Start' : fmtClock(e.t, e.day))),
         e.detail ? h('div', { class: 'tl-pop-d' }, e.detail) : null,
         acts.length ? h('div', { class: 'btn-row' }, acts) : null);
     });
-    popover(anchor, h('div', { class: 'tl-pop' }, rows), { place: 'above', align: 'center' });
   }
   let pulseT = null;
   function pulseLatest() { track.classList.add('pulse'); clearTimeout(pulseT); pulseT = setTimeout(() => track.classList.remove('pulse'), 1400); }
@@ -290,7 +344,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   function update(f) {
     if (!track.classList.contains('ff')) {
       const t = fmtClock(f.t, f.day);
-      if (t !== lastTime) { lastTime = t; timeEl.textContent = t; }
+      if (t !== lastTime) { lastTime = t; timeLong.textContent = t; timeShort.textContent = f.day > 0 ? `Day ${f.day}` : t; }
     }
     if (f.running !== lastRun) { lastRun = f.running; playBtn.replaceChildren(icon(f.running ? 'pause' : 'play')); playBtn.setAttribute('aria-label', f.running ? 'Pause' : 'Play'); }
     const sp = store.get().speed;
@@ -312,7 +366,8 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   }
   store.on('compareSnap', (s) => {
     pinBtn.setAttribute('aria-pressed', String(!!s));
-    pinBtn.querySelector('span').textContent = s ? 'Stop comparing' : 'Compare from here';
+    pinBtn.querySelector('span').textContent = s ? 'Stop' : 'Compare';
+    pinBtn.setAttribute('aria-label', s ? 'Stop comparing' : 'Compare from here');
   });
   onParamChange(({ label, history }) => { if (history || pending) noteParamChange(label); });
   new ResizeObserver(() => render(true)).observe(track);

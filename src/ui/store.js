@@ -1,6 +1,6 @@
 // Tiny observable store + parameter history (undo/redo, blueprint §3).
 
-import { defaultParams, deepMerge } from '../engine/scenario.js?v=8fc90f782f';
+import { defaultParams, deepMerge } from '../engine/scenario.js?v=304cd180db';
 
 const listeners = new Map();
 const state = {
@@ -13,6 +13,7 @@ const state = {
   allowedVerbs: null,         // verbs a lesson or case step allows (null = all)
   shunting: null,             // { src, only } while a shunt waits for its drop target
   layers: { flow: true, chips: true, collaterals: false, organs: true, labels: true, grid: false },
+  lobuleLayers: { zones: false, lymph: false },   // the Lobule view's own layers (toolbar Layers menu): zone bands, hepatic lymph
   blood: { look: 'shimmer', phasic: false, chevrons: false },   // look: parcels | shimmer
   colorMode: 'pressure',      // pressure | delta | heat | drop | flow | velocity | direction
   params: defaultParams(),

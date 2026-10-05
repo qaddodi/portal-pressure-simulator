@@ -41,7 +41,7 @@ const QUAD = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]);
 // Flags (tube texel 2, z).
 // Stream flags (tube texel 5, w): the stream runs on at the upstream / downstream end; reversed flow.
 export const F_UP = 1, F_DN = 2, F_REV = 4;
-export const F_SEL = 1, F_DIFFUSE = 2, F_SHADOW = 4, F_DOTTED = 8, F_NOCASE = 16, F_SPEC = 32;
+export const F_SEL = 1, F_DIFFUSE = 2, F_SHADOW = 4, F_DOTTED = 8, F_NOCASE = 16, F_SPEC = 32, F_EDGE = 64;   // F_EDGE: the casing takes its own color (texel 6) and is opaque
 
 const VS = `#version 300 es
 layout(location=0) in vec2 corner;
@@ -177,7 +177,7 @@ void main() {
   // ── Junctions: which of these vessels are joined here, and how widely ──
   int jn = 0;
   int jm[MAXJ];
-  float jk[MAXJ], jf[MAXJ];
+  float jk[MAXJ], jf[MAXJ], js[MAXJ];
   for (int k = 0; k < min(vR.w, 64); k++) {
     if (jn == MAXJ) break;
     vec4 A = E(vR.z + k, 0), B = E(vR.z + k, 1);
@@ -190,12 +190,12 @@ void main() {
       for (int s = 0; s < MAXS; s++) if (s < n && sid[s] == id && (mask & (1 << s)) == 0) { mask |= 1 << s; c++; }
     }
     if (c < 2) continue;
-    jm[jn] = mask; jk[jn] = A.w * (1.0 - smoothstep(0.55 * A.z, A.z, dc)); jf[jn] = 1.0 - smoothstep(0.3 * A.z, 0.85 * A.z, dc); jn++;
+    jm[jn] = mask; js[jn] = fract(A.w) / 0.99; jk[jn] = floor(A.w) * 0.01 * (1.0 - smoothstep(0.55 * A.z, A.z, dc)); jf[jn] = 1.0 - smoothstep(0.3 * A.z, 0.85 * A.z, dc); jn++;
   }
 
   // ── Per-vessel attributes ──
   float stier[MAXS], sz[MAXS], sflag[MAXS], sa[MAXS], swall[MAXS], sheat[MAXS];
-  vec3 scol[MAXS], shcol[MAXS];
+  vec3 scol[MAXS], shcol[MAXS], sedge[MAXS];
   float occl = useOrgan == 1 ? texture(organ, (p - organRect.xy) / organRect.zw).a * 0.66 * organK : 0.0;
   for (int s = 0; s < MAXS; s++) {
     if (s >= n) break;
@@ -203,6 +203,7 @@ void main() {
     stier[s] = t2.x; sz[s] = t2.y; sflag[s] = t2.z; swall[s] = t0.w; sheat[s] = t2.w;
     scol[s] = mix(t0.rgb, t1.rgb, clamp(su[s], 0.0, 1.0));
     shcol[s] = t2.w > 0.0 ? T(sid[s], 6).rgb : vec3(0.0);
+    sedge[s] = (int(t2.z + 0.5) & ${F_EDGE}) != 0 ? T(sid[s], 6).rgb : vec3(0.0);
     float a = t1.w;
     if (t4.w > 1.5) {
       float v = length(p - t3.xy) / max(t3.z, 1e-3);
@@ -267,8 +268,8 @@ void main() {
         if ((jj & (1 << a)) == 0) continue;
         for (int b = a + 1; b < MAXS; b++) {
           if ((jj & (1 << b)) == 0) continue;
-          D = min(D, smin(sd[a], sd[b], jk[j]));
-          Ds = min(Ds, smin(sh[a], sh[b], jk[j]));
+          D = min(D, smin(sd[a], sd[b], jk[j] * js[j]));
+          Ds = min(Ds, smin(sh[a], sh[b], jk[j] * js[j]));
         }
       }
     }
@@ -315,7 +316,7 @@ void main() {
       c = vec4(shadow.rgb * as, as);
     }
     if (sel) { float ar = ring.a * clamp(0.5 - (D - wall - 4.0) / aa, 0.0, 1.0); c = over(vec4(ring.rgb * ar, ar), c); }
-    c = over(vec4(casing.rgb, 1.0) * (casing.a * cA * aC), c);
+    c = (flags & ${F_EDGE}) != 0 ? over(vec4(sedge[ow], 1.0) * (0.92 * aC), c) : over(vec4(casing.rgb, 1.0) * (casing.a * cA * aC), c);
     vec3 lum = col;
     float rho = clamp((R + D) / max(R, 1e-3), 0.0, 1.0);
     if (fx == 1 && (flags & ${F_DIFFUSE}) != 0 && aL > 0.0) {
@@ -339,22 +340,26 @@ void main() {
     float gf = grp == 0 ? 1.0 - occl : grp == 1 ? netAlpha : 1.0;
     float lumA = aL * alpha * tierAlpha[ti] * gf;
     if (lumA > 0.02 && (flags & ${F_DOTTED}) == 0) {
-      int id = sid[ow];
-      gId = uint(id + 1); gS = su[ow] * T(id, 5).z; gY = clamp(sx[ow] / max(sr[ow], 1e-3), -1.0, 1.0); gW = lumA;
-      // Near a join, the vessel it joins and its share of the blood shown here: equal where the two
-      // lumens meet and fading over about a radius, so the stream and the dye pass from one vessel
-      // into the next instead of stopping at a seam. A vessel's share also fades past its own end.
-      gId2 = 0u; gB = 0.0;
-      float tb = max(0.45 * sr[ow], 1.2), best = 0.0;
-      int o2 = -1;
+      // The stream shown here: the two joined lumens with the largest share, by nearness and by how
+      // far past its own end each one runs (a vessel's streaks fade out beyond its end, so at a fork
+      // the trunk's hand over to each branch along its own course instead of running on straight
+      // across it). Equal where two lumens meet, fading over about a radius, so the stream and the
+      // dye pass from one vessel into the next instead of stopping at a seam.
+      float tb = max(0.7 * sr[ow], 1.5), w1 = 0.0, w2 = 0.0;
+      int o1 = -1, o2 = -1;
       for (int s = 0; s < MAXS; s++) {
-        if ((conn & (1 << s)) == 0 || s == ow || (int(sflag[s] + 0.5) & ${F_DOTTED}) != 0) continue;
+        if ((conn & (1 << s)) == 0 || (int(sflag[s] + 0.5) & ${F_DOTTED}) != 0) continue;
         float L2 = max(T(sid[s], 5).z, 1.0), ext = max(0.0, max(-su[s], su[s] - 1.0)) * L2;
-        float wv = exp(-max(sd[s] - sd[ow], 0.0) / tb) * pres[s] * (1.0 - smoothstep(0.0, 1.6 * sr[s] + 2.0, ext));
-        if (wv > best) { best = wv; o2 = s; }
+        float wv = exp(-max(sd[s] - sd[ow], 0.0) / tb) * (s == ow ? 1.0 : pres[s]) * (1.0 - smoothstep(0.0, 1.1 * sr[s] + 1.5, ext)) + 1e-4;
+        if (wv > w1) { w2 = w1; o2 = o1; w1 = wv; o1 = s; }
+        else if (wv > w2) { w2 = wv; o2 = s; }
       }
-      if (o2 >= 0 && best > 0.01) {
-        gId2 = uint(sid[o2] + 1); gS2 = su[o2] * T(sid[o2], 5).z; gY2 = clamp(sx[o2] / max(sr[o2], 1e-3), -1.0, 1.0); gB = best / (1.0 + best);
+      if (o1 < 0) { o1 = ow; o2 = -1; }
+      int id = sid[o1];
+      gId = uint(id + 1); gS = su[o1] * T(id, 5).z; gY = clamp(sx[o1] / max(sr[o1], 1e-3), -1.0, 1.0); gW = lumA;
+      gId2 = 0u; gB = 0.0;
+      if (o2 >= 0 && w2 > 0.01 * w1) {
+        gId2 = uint(sid[o2] + 1); gS2 = su[o2] * T(sid[o2], 5).z; gY2 = clamp(sx[o2] / max(sr[o2], 1e-3), -1.0, 1.0); gB = w2 / (w1 + w2);
       }
     } else gW *= 1.0 - c.a * gf;
     if (grp == 0) { c *= 1.0 - occl; accB = over(c, accB); }
@@ -558,10 +563,12 @@ vec4 bloodAt(int id, float s, float y, vec3 col) {
   float nb = t > 0.0 ? 0.62 * vnoise(qb, sd0, per) + 0.38 * vnoise(qb * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2) : 0.0;
   float nz = mix(na, nb, t);
   float dens = sqrt(clamp(p, 0.0, 1.0));
-  float streak = smoothstep(0.5 - 0.08 * dens, 0.8, nz);
-  float wall = 1.0 - smoothstep(0.78, 1.0, ay);
-  float glowCore = 0.16 * (1.0 - ay * ay);
-  float a = clamp(streak * (0.5 + 0.38 * dens) + glowCore, 0.0, 0.9) * wall * ends * f1.z * mix(1.0, 0.6, stasis);
+  // Soft-edged and subdued, so up close the sheen reads as moving light, not as stripes painted on the tube;
+  // a steady glow along the axis carries most of the brightness.
+  float streak = smoothstep(0.46 - 0.08 * dens, 0.9, nz);
+  float wall = 1.0 - smoothstep(0.7, 1.0, ay);
+  float glowCore = 0.22 * (1.0 - ay * ay) * (1.0 - ay * ay);
+  float a = clamp(streak * (0.32 + 0.26 * dens) + glowCore, 0.0, 0.75) * wall * ends * f1.z * mix(1.0, 0.6, stasis);
   return vec4(mix(halo, core, smoothstep(0.0, 0.7, streak)), a);
 }
 // Where a lumen's blood comes from, as streams side by side (laminar flow keeps them apart): SMV,
@@ -584,24 +591,30 @@ vec2 chevAt(int id, float s, float y) {
   if (f1.z <= 0.0) return vec2(0.0);
   float len = max(texelFetch(tube, ivec2(5, id), 0).z, 1.0);
   // One size and one spacing for the whole vessel (from its caliber midway), so every head is the
-  // same shape and they keep an even distance; they move at the vessel's own speed.
+  // same shape and they keep an even distance; they move at the vessel's own speed, whatever the zoom.
   float R = max(texelFetch(rad, ivec2(N_LAST / 2, id), 0).r, 0.3);
-  if (R < 1.6 * pxW) return vec2(0.0);
+  if (R < 1.3 * pxW) return vec2(0.0);
   float vd = f0.y, dir = vd < 0.0 ? -1.0 : 1.0;
-  // Spacing a power-of-two multiple of 28 world units, so it divides the stream's period (no jump on wrap).
-  float P = 28.0 * exp2(max(0.0, ceil(log2(max(3.6 * R, 44.0 * pxW) / 28.0))));
-  float x = mod(s - f0.x, P) - 0.5 * P, u = x * dir, ay = abs(y) * R;
-  float hw = min(0.78 * R, 0.24 * P), L = 1.45 * hw;          // half width, length
+  // Spacing: a power-of-two multiple of 28 world units (it divides the stream's period: no jump on
+  // wrap), at least ~60 px on screen. Zooming out, every other head fades away before the spacing
+  // doubles (the coarser heads are a subset of the finer ones), so nothing jumps or pops.
+  float lv = max(0.0, log2(max(3.6 * R, 60.0 * pxW) / 28.0)), n = floor(lv), fr = lv - n;
+  float P = 28.0 * exp2(n), Pc = 28.0 * exp2(lv);
+  float x = mod(s - f0.x + 0.5 * P, P) - 0.5 * P, u = x * dir, ay = abs(y) * R;
+  float sc = s - x;
+  float odd = mod(floor((sc - f0.x) / P + 0.5), 2.0);
+  float keep = odd > 0.5 ? 1.0 - smoothstep(0.15, 0.85, fr) : 1.0;
+  float hw = min(0.86 * R, 0.2 * Pc), L = 1.6 * hw;            // half width, length
   float tip = 0.55 * L, back = -0.45 * L, notch = 0.32 * L;
   // Inside when behind both slanted sides and ahead of the notched back.
   float k = L / hw;
   float side = (u - tip + ay * k) / sqrt(1.0 + k * k);
   float rear = back + notch * (1.0 - clamp(ay / hw, 0.0, 1.0)) - u;
   float d = max(max(side, rear), ay - hw);
-  // A head whose centre is within its length of either end is left out, never cut by a join.
-  float sc = s - x;
-  if (sc < L || sc > len - L) return vec2(0.0);
-  float fade = smoothstep(0.5, 3.0, abs(vd)) * f1.z;
+  // Toward either end a head fades out (and the next vessel's fade in), never cut by a join.
+  float e = min(sc, len - sc);
+  if (e < 0.6 * L) return vec2(0.0);
+  float fade = smoothstep(0.5, 3.0, abs(vd)) * f1.z * keep * smoothstep(0.6 * L, 0.6 * L + max(2.0 * L, 0.3 * Pc), e) * smoothstep(1.3 * pxW, 2.4 * pxW, R);
   float c = 1.0 - smoothstep(-0.7 * pxW, 0.7 * pxW, d);
   float rim = (1.0 - smoothstep(0.0, 1.8 * pxW + 0.1 * hw, d)) * (1.0 - c);
   return vec2(c, rim) * fade;
@@ -647,9 +660,10 @@ void main() {
     if (origin == 1) {
       // The lumen is drawn a neutral grey; its light and dark lines are kept as a ratio of that grey.
       float shade = clamp(dot(col, vec3(0.299, 0.587, 0.114)) / ORIGIN_GREY, 0.55, 1.45);
-      vec3 oc = originAt(id1, y1, max(texelFetch(rad, ivec2(N_LAST / 2, id1), 0).r, 0.3));
-      if (b > 0.004) oc = mix(oc, originAt(id2, y2, max(texelFetch(rad, ivec2(N_LAST / 2, id2), 0).r, 0.3)), b);
-      col = mix(col, min(oc * shade, vec3(1.0)), vis);
+      // A vessel that carries no blood (origin fractions marked −1, e.g. a lymphatic) keeps its own color.
+      vec3 oc = texelFetch(flow, ivec2(2, id1), 0).x < -0.5 ? col : min(originAt(id1, y1, max(texelFetch(rad, ivec2(N_LAST / 2, id1), 0).r, 0.3)) * shade, vec3(1.0));
+      if (b > 0.004) oc = mix(oc, texelFetch(flow, ivec2(2, id2), 0).x < -0.5 ? col : min(originAt(id2, y2, max(texelFetch(rad, ivec2(N_LAST / 2, id2), 0).r, 0.3)) * shade, vec3(1.0)), b);
+      col = mix(col, oc, vis);
     }
     if (blood == 1) {
       vec4 A = bloodAt(id1, s1, y1, col);
@@ -782,7 +796,7 @@ export function binVeins(tubes, joins) {
     const c = jCell[k];
     if (!segCount[c]) continue;
     const e = fillJ[c]++, j = joins[jCell[k + 1]], q = e * 8;
-    ent[q] = j.x; ent[q + 1] = j.y; ent[q + 2] = j.reach; ent[q + 3] = j.k;
+    ent[q] = j.x; ent[q + 1] = j.y; ent[q + 2] = j.reach; ent[q + 3] = Math.round(j.k * 100) + 0.99 * Math.min(1, Math.max(0, j.fillet ?? 1));   // the blend width, and (as the fraction) how much of it rounds the shape
     for (let m = 0; m < 4; m++) ent[q + 4 + m] = j.members[m] ?? -1;
   }
   const cells = new Float32Array(nCells * 6);

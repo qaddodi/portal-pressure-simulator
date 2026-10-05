@@ -134,6 +134,9 @@ svg { flex: none; }
 .stage-view svg#labels { pointer-events: none; overflow: visible; }
 #overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .stage-view[class*="tool-"]:not(.tool-select):not(.tool-probe) #stage { cursor: crosshair; }
+.stage-view #stage { cursor: grab; }
+.stage-view > :is(#stage, #stageOver, #labels, canvas) { transition: opacity .25s ease; }
+.stage-view.unframed > :is(#stage, #stageOver, #labels, canvas) { opacity: 0; }
 .stage-view.panning #stage { cursor: grabbing; }
 
 .chip-btn {
@@ -167,16 +170,13 @@ svg { flex: none; }
 .lg-cats i { width: 18px; height: 4px; border-radius: 2px; }
 .lg-dots { gap: 10px; }
 .lg-dots span { gap: 5px; }
-.lg-dots i { width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0, 0, 0, .18); }
+.lg-dots i { flex: none; width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0, 0, 0, .18); }
 .lg-dots b { font-weight: 500; }
-.lg-dots .lg-short { display: none; }
 @media (max-width: 760px) {
-  /* Five short names in two compact rows, so the key fits beside the Blood button. */
-  .lg-dots { display: grid; grid-template-columns: repeat(3, auto); gap: 1px 7px; font-size: var(--fs-12); line-height: 1.25; }
+  /* Smaller dots on a narrow screen. */
+  .lg-dots { gap: 6px; }
   .lg-dots span { gap: 3px; }
   .lg-dots i { width: 7px; height: 7px; }
-  .lg-dots .lg-long { display: none; }
-  .lg-dots .lg-short { display: inline; }
 }
 .lg-note { color: var(--text-3); font-style: italic; }
 .lg-note svg { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; }
@@ -360,7 +360,8 @@ div.vital { cursor: default; }
 button.vital:hover b { text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
 .readouts .ro-more { display: none; flex: none; align-self: center; width: 32px; height: 32px; }
 /* Points up to open the drawer, down to close it. */
-.ro-more svg { transform: rotate(180deg); transition: transform .2s var(--ease); }
+/* A vertical flip, not a turn: the icon keeps its width while it animates. */
+.ro-more svg { transform: scaleY(-1); transition: transform .2s var(--ease); }
 .readouts.all .ro-more svg { transform: none; }
 /* Narrower: the systemic block folds behind the chevron. */
 @container (max-width: 1000px) {
@@ -377,7 +378,8 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
   .readouts:not(.all) .ro-cap { display: none; }
   .readouts:not(.all) .metric:not(.primary) { display: none; }
   .readouts:not(.all) .ro-group { --n: 1; padding-top: 8px; }
-  .readouts:not(.all) .ro-group[data-group="pressure"] { --n: 2; }
+  .readouts:not(.all) .ro-group[data-group="pressure"] { --n: 3; }
+.readouts:not(.all) .ro-group:not(:has(.metric.primary)) { display: none; }
   .readouts.all .ro-group { flex: 1 1 100%; }
   .readouts.all .ro-group + .ro-group { border-top: 1px solid var(--hairline); }
   .readouts.all .ro-group + .ro-group::before { display: none; }
@@ -531,12 +533,12 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .liver-tint { transition: opacity .6s var(--ease); }
 .cg-in { stop-color: var(--path-congestion); stop-opacity: 0; } .cg-out { stop-color: var(--path-congestion); stop-opacity: .55; }
 .nutmeg circle { fill: var(--path-nutmeg); fill-opacity: .55; }
-.fl-top { stop-color: var(--ascites); stop-opacity: .1; } .fl-bot { stop-color: var(--ascites); stop-opacity: .3; }
+.fl-top { stop-color: var(--ascites); stop-opacity: .16; } .fl-bot { stop-color: var(--ascites); stop-opacity: .38; }
 .sk-in { stop-color: var(--skin); stop-opacity: .5; } .sk-mid { stop-color: var(--skin); stop-opacity: .3; } .sk-out { stop-color: var(--skin); stop-opacity: 0; }
 .mt-a { stop-color: var(--stent-metal); } .mt-b { stop-color: var(--light-ink); }
 .abd-wall { pointer-events: none; transition: opacity .8s var(--ease); }
 .flank { fill: none; stroke: var(--organ-body-line); stroke-width: 1.4; stroke-opacity: .8; stroke-linecap: round; }
-.ascites-glint { fill: none; stroke: var(--light-ink); stroke-opacity: .35; stroke-width: 1; }
+.ascites-glint { fill: none; stroke: var(--light-ink); stroke-opacity: .55; stroke-width: 1.4; }
 .varix-col-case { fill: none; stroke: var(--vessel-casing); stroke-linecap: round; opacity: .9; }
 .varix-col { fill: none; stroke-linecap: round; }
 .varix-bead { stroke: var(--vessel-casing); stroke-width: .9; }
@@ -1247,6 +1249,9 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 /* The figure's own buttons (Fit, turn) ride above the sheet instead of under it. */
 .stage-fit, .stage-rotate, .stage-clock { translate: 0 calc(-1 * var(--sheet-h, 0px)); transition: translate .2s var(--ease); }
 .hover-tip .hint { margin-top: 4px; font-size: var(--fs-12); color: var(--text-3); }
+.hover-tip.peek { font-size: var(--fs-14); min-width: 200px; padding: 10px 14px; animation: peek-in .14s ease-out; }
+@keyframes peek-in { from { opacity: 0; transform: translateY(6px) scale(.97); } }
+@media (prefers-reduced-motion: reduce) { .hover-tip.peek { animation: none; } }
 
 /* Selection feedback on organs and sites */
 .org-sel-line { fill: none; stroke: var(--accent); stroke-width: 2.4; stroke-opacity: .55; stroke-linejoin: round; pointer-events: none; }
@@ -1526,6 +1531,8 @@ button.finding:hover { background: var(--surface-2); }
 .lz.lz-hot { cursor: pointer; }
 .lz.lz-drag { cursor: grabbing; }
 .lz-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.lz-field { z-index: var(--z-figure); pointer-events: none; opacity: 0; }
+.lz :is(.lz-labels, .lz-leaders) { opacity: var(--lz-chrome, 1); }
 .lz-leaders { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 .lz-labels { position: absolute; inset: 0; pointer-events: none; }
 /* Station cards: the anatomy's label style, as buttons that open the station's card */
@@ -1535,60 +1542,18 @@ button.finding:hover { background: var(--surface-2); }
 .lz-lab small { font-size: 10px; font-weight: 500; color: var(--text-3); }
 .lz-lab[hidden] { display: none; }
 .lz-lab:hover, .lz-lab:focus-visible { border-color: var(--accent); outline: none; }
-.lz-zone { position: absolute; transform: translate(-50%, -50%); padding: 2px 8px; border-radius: var(--r-pill); background: var(--glass); border: 1px solid var(--hairline); font: 500 calc(12px * var(--label-k, 1)) var(--font-ui); color: var(--text-2); white-space: nowrap; box-shadow: 0 1px 1.5px rgba(20, 22, 30, .1); }
-.lz-zone b { font-weight: 600; color: var(--text); }
-.lz-zone.z1 b { color: rgb(200, 72, 52); } .lz-zone.z2 b { color: rgb(170, 116, 40); } .lz-zone.z3 b { color: rgb(104, 78, 196); }
-.lz-top { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; }
-.lz-tgs { display: flex; gap: 4px; padding: 3px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-pill); box-shadow: var(--shadow-1); }
-.lz-tg { display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; font: 500 var(--fs-12) var(--font-ui); color: var(--text-2); padding: 4px 10px; border-radius: var(--r-pill); cursor: pointer; }
-.lz-tg i { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid currentColor; }
-.lz-tg.zones i { background: conic-gradient(rgb(232, 104, 84) 0 33%, rgb(214, 160, 92) 0 66%, rgb(124, 98, 206) 0); border: 0; }
-.lz-tg.lymph i { border-color: var(--text-3); background: #fff; }
-.lz-tg[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-ink, var(--accent)); font-weight: 600; }
-.lz-tg.lymph[aria-pressed="true"] i { background: #fff; border-color: var(--accent); box-shadow: 0 0 4px rgba(255, 255, 255, .9); }
-.lz-side { position: absolute; right: 16px; top: 64px; width: 264px; max-height: calc(100% - 132px); overflow-y: auto; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card); box-shadow: var(--shadow-2); display: grid; gap: 12px; }
-.lz-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; position: sticky; top: -16px; z-index: 1; margin: -16px -16px 0; padding: 16px 16px 4px; background: var(--surface); }
-.lz-grab { display: none; }
-.lz-cir { padding-top: 12px; border-top: 1px solid var(--border); }
-.lz-title { font: 600 var(--fs-16)/1.2 var(--font-ui); }
-.lz-sub { font-size: var(--fs-12); color: var(--text-3); margin-top: 2px; }
-.lz-more { display: none; }
-.lz-lad { width: 100%; height: auto; display: block; overflow: visible; }
-.lz-lad0 { fill: none; stroke: var(--text-3); stroke-width: 1.2; stroke-dasharray: 3 3; opacity: .7; }
-.lz-lad1 { fill: none; stroke: var(--text-2); stroke-width: 1.6; stroke-linejoin: round; }
-.lz-ladDot { stroke: var(--surface); stroke-width: 1.5; }
-.lz-ladV { font: 650 10px var(--font-ui); fill: var(--text); font-variant-numeric: tabular-nums; }
-.lz-ladN { font: 500 10px var(--font-ui); fill: var(--text-3); }
-.lz-seg { fill: var(--hairline); }
-.lz-seg.on { fill: var(--danger); }
-.lz-verdict { margin: -4px 0 0; font-size: var(--fs-12); line-height: 1.45; color: var(--text-2); }
-.lz-verdict b { color: var(--text); font-weight: 600; }
-.lz-verdict.alert b { color: var(--danger); }
-.lz-stats { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; font-size: var(--fs-12); border-top: 1px solid var(--border); padding-top: 12px; }
-.lz-stats dt { color: var(--text-2); } .lz-stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
-.lz-stats dd.rev { color: var(--flow-reversed); }
-.lz-res { display: inline-block; margin-left: 6px; font-weight: 600; }
-.lz-res:first-child { margin-left: 0; }
-.lz-fib { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.lz-k { width: 100%; font-size: var(--fs-12); color: var(--text-3); font-weight: 600; }
-.lz-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: var(--fs-12); color: var(--text-2); border-top: 1px solid var(--border); padding-top: 12px; }
-.lz-legend span { display: inline-flex; gap: 8px; align-items: center; }
-.lz-legend i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .15); }
-.lz-legend .lg-ha { background: var(--artery); } .lz-legend .lg-bd { border: 2px solid var(--bile-duct); box-shadow: none; }
-.lz-legend .lg-hsc { background: rgb(176, 104, 48); } .lz-legend .lg-col { background: rgb(236, 222, 186); }
-.lz-legend .lg-sh { background: linear-gradient(90deg, #9b3c86, #6fa6da); border-radius: 3px; height: 6px; }
-.lz-legend .lg-ly { background: #fff; box-shadow: inset 0 0 0 1px var(--border-strong); }
+/* Zone names: no chip, just letters in the band, as the organs are named (small capitals on a soft halo). */
+.lz-zone { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 0; pointer-events: none; white-space: nowrap; line-height: 1.15;
+  font: 650 calc(10px * var(--label-k, 1) * var(--zk, 1)) var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--zc);
+  text-shadow: 1.6px 0 0 var(--label-halo), -1.6px 0 0 var(--label-halo), 0 1.6px 0 var(--label-halo), 0 -1.6px 0 var(--label-halo), 1.1px 1.1px 0 var(--label-halo), -1.1px 1.1px 0 var(--label-halo), 1.1px -1.1px 0 var(--label-halo), -1.1px -1.1px 0 var(--label-halo), 0 0 3px var(--label-halo); }
+.lz-zone b { font-weight: 700; }
+.lz-zone span { font-size: calc(8.5px * var(--label-k, 1) * var(--zk, 1)); font-weight: 600; letter-spacing: .08em; opacity: .8; }
+.lz-zone.z1 { --zc: rgb(186, 66, 48); } .lz-zone.z2 { --zc: rgb(150, 100, 32); } .lz-zone.z3 { --zc: rgb(96, 72, 182); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lz-zone.z1 { --zc: rgb(246, 140, 120); } :root:not([data-theme="light"]) .lz-zone.z2 { --zc: rgb(232, 186, 112); } :root:not([data-theme="light"]) .lz-zone.z3 { --zc: rgb(170, 150, 246); } }
+:root[data-theme="dark"] .lz-zone.z1 { --zc: rgb(246, 140, 120); } :root[data-theme="dark"] .lz-zone.z2 { --zc: rgb(232, 186, 112); } :root[data-theme="dark"] .lz-zone.z3 { --zc: rgb(170, 150, 246); }
 .stage-view.in-lobule #labels, .stage-view.in-lobule #veins, .stage-view.in-lobule #stageOver, .stage-view.in-lobule #overlay { visibility: hidden; }
-/* Phone: controls under the zoom trail, the panel as a compact sheet that opens for details */
+/* Phone: labels one size smaller */
 @media (max-width: 720px) {
-  .lz-top { top: 12px; left: 12px; transform: none; }
-  .lz-side { left: 12px; right: 64px; top: auto; bottom: 12px; width: auto; max-height: 62%; padding: 8px 12px; gap: 8px; }
-  .lz-head { top: -8px; margin: -8px -12px 0; padding: 14px 12px 4px; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; flex-wrap: wrap; }
-  .lz-grab { display: block; position: absolute; left: 50%; top: 5px; width: 36px; height: 4px; border-radius: 2px; background: var(--border-strong); transform: translateX(-50%); }
-  .lz-more { display: inline-flex; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font: 600 var(--fs-12) var(--font-ui); padding: 4px 10px; border-radius: var(--r-pill); cursor: pointer; }
-  .lz-title { font-size: var(--fs-14); }
-  .lz-side:not(.open) .lz-ladder, .lz-side:not(.open) .lz-stats, .lz-side:not(.open) .lz-cir, .lz-side:not(.open) .lz-legend { display: none; }
-  .lz-side:not(.open) .lz-verdict { margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .lz-lab { padding: 3px 7px 4px; }
   .stage-view.in-lobule .stage-clock { display: none; }
   .lz-lab .n { font-size: 10.5px; } .lz-lab .v { font-size: 12.5px; }
@@ -1836,7 +1801,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .action-card.docked [data-key]::after, .action-card.docked .ac-slider[data-key]::after { display: none; }   /* no number-key hints on a phone */
 
 /* Every live number uses tabular figures, so digits hold still as the model runs. */
-.metric, .vital, .fd-d, .kv dd, .tl-time, .stage-clock, .big-overlay, .cmp-table, .cut-table, .hp-chip, .mon, .lz-side,
+.metric, .vital, .fd-d, .kv dd, .tl-time, .stage-clock, .big-overlay, .cmp-table, .cut-table, .hp-chip, .mon,
 .ctl-val, .event-log, .pb-n, .pt-n, .scn .d, #labels text, .ic-live, .tl-pop .when, .story .st-when, .bleed-pill { font-variant-numeric: tabular-nums; }
 
 /* ── Live instrument workspace ─────────────────────
@@ -1958,7 +1923,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .pt-range button { min-height: 30px; padding-inline: 12px; }
 .instrument-workspace .instrument-view.pt .pt-box { flex: 1 1 0; height: auto; min-height: 180px; }
 .pt-box canvas { touch-action: pan-y; cursor: crosshair; }
-.pt-chips { display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; flex: none; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); padding-right: 28px; }
+.pt-chips { display: flex; gap: 6px; flex-wrap: wrap; flex: none; }
 .pt-chips::-webkit-scrollbar { display: none; }
 .pt-chip { --chip: var(--text-3); display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 11px 0 9px; border-radius: var(--r-pill); border: 1px solid var(--border); background: transparent; color: var(--text-3); font: 500 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast); }
 .pt-chip i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--chip); box-sizing: border-box; }
@@ -1969,7 +1934,6 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   .pt-num { font-size: var(--fs-28); }
   .pt-hero { flex-basis: 100%; }
   .pt-range button { min-height: 28px; padding-inline: 10px; }
-  .pt-chips { margin-inline: -14px; padding-left: 14px; }
 }
 
 /* ── Doppler ────────────────────────────────────── */
@@ -2059,7 +2023,6 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 
 /* ── Ascites ────────────────────────────────────── */
 .instrument-view.ab { display: flex; flex-direction: column; align-items: stretch; min-height: 100%; }
-.instrument-workspace .instrument-view.ab .ab-box { height: auto; min-height: 220px; }
 .ab-report { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .ab-report .hv-num { margin-top: -4px; }
 .ab-grade { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-12); font-weight: 600; color: var(--text-2); margin-left: 4px; }
@@ -2068,11 +2031,37 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .ab-grade[data-sev="caution"]::before { background: var(--caution); }
 .ab-grade[data-sev="danger"]::before { background: var(--danger); }
 .ab-report .procedure-controls { padding: 10px 12px; gap: 8px; }
+.ab-report .procedure-controls .hv-k { margin-bottom: 2px; }
+.ab-note { font-size: var(--fs-12); color: var(--text-3); font-weight: 500; }
+.check-row .ab-note { margin-left: auto; text-align: right; }
+.ab .check-row { flex-wrap: wrap; }
+
+.ab-trend { font-size: var(--fs-14); color: var(--text-2); margin-top: -4px; }
+.ab-iap { display: grid; gap: 4px; }
+.ab-iap .ctl-val[data-sev="caution"] { color: var(--caution); }
+.ab-iap .ctl-val[data-sev="danger"] { color: var(--danger); }
+.ab-iap-bar { position: relative; height: 10px; border-radius: 5px; background: var(--surface-3); overflow: hidden; }
+.ab-iap-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; background: var(--ok); transition: width .4s var(--ease); }
+.ab-iap-fill[data-sev="caution"] { background: var(--caution); }
+.ab-iap-fill[data-sev="danger"] { background: var(--danger); }
+.ab-iap-mark { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--stage-bg); opacity: .9; }
+.ab-iap-scale { position: relative; height: 14px; font-size: var(--fs-12); color: var(--text-3); }
+.ab-iap-scale span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.ab-iap-scale span:first-child { transform: none; }
+.ab-iap-scale span:last-child { transform: translateX(-100%); }
+.ab-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.ab-tap { display: flex; gap: 6px; flex: none; }
+.ab-tap-line { font-size: var(--fs-14); color: var(--text); font-weight: 500; line-height: 1.4; margin-top: -2px; }
+.ab-tap-line:empty { display: none; }
+.ab-lab { display: grid; gap: 0; padding: 4px 10px; text-align: center; border-radius: var(--r-control); background: var(--surface); border: 1px solid var(--hairline); }
+.ab-lab span { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; }
+.ab-lab b { font-size: var(--fs-20); white-space: nowrap; font-weight: 650; color: var(--text); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.ab-lab small { font-size: var(--fs-12); color: var(--text-3); }
+.ab-lab[data-hi="true"] { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.ab-report dd[data-sev="caution"] { color: var(--caution); font-weight: 600; }
+.ab-report dd[data-sev="danger"] { color: var(--danger); font-weight: 600; }
 @container (min-width: 620px) {
   .ab-main { grid-template-columns: minmax(0, 1fr) 260px; }
-}
-@container (max-width: 619px) {
-  .instrument-workspace .instrument-view.ab .ab-box { height: clamp(200px, 32vh, 280px); flex: none; }
 }
 .instrument-workspace .instrument-view .chart-box.perf-donut { height: min(var(--plot-h), 300px); }
 @container (max-width: 649px) {
@@ -2086,6 +2075,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .blood-pop .menu-item small { display: block; color: var(--text-2); font-size: var(--fs-12); line-height: 1.4; margin-top: 2px; font-weight: 400; }
 .blood-opt { align-items: flex-start; }
 .blood-opt input { margin-top: 3px; }
+.blood-opt .bo-ic { flex: none; width: 20px; height: 20px; margin-top: 0; fill: none; stroke: var(--text-2); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 @media (max-width: 600px) { #btnBlood > span, #btnBlood .chev { display: none; } }
 
 
@@ -2162,7 +2152,8 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 /* Four key readouts until the chevron opens the rest. */
 .readouts:not(.all) .ro-cap, .readouts:not(.all) .metric:not(.primary), .readouts:not(.all) .ro-systemic { display: none; }
 .readouts:not(.all) .ro-group { --n: 1; padding: 7px 2px 6px; }
-.readouts:not(.all) .ro-group[data-group="pressure"] { --n: 2; }
+.readouts:not(.all) .ro-group[data-group="pressure"] { --n: 3; }
+.readouts:not(.all) .ro-group:not(:has(.metric.primary)) { display: none; }
 .readouts:not(.all) .ro-row { padding-right: 2px; }
 .readouts .ro-more { display: inline-grid; }
 .readouts:not(.all) .u-x { display: none; }
@@ -2282,14 +2273,6 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 /* A phone keeps one row of pills: Share is a search away (Ctrl K / the search button). */
 @media (max-width: 479px) { #btnShare { display: none; } .find-badge .fb-n { min-width: 20px; height: 20px; } }
 
-/* The lobule view's own controls keep clear of the top bar and the vitals dock. */
-.lz-top { top: calc(var(--top-safe) + 8px); }
-.lz-side { top: calc(var(--top-safe) + 60px); max-height: calc(100% - var(--top-safe) - var(--vdock-h) - 96px); }
-@media (max-width: 720px) {
-  .lz-top { top: calc(var(--top-safe) + 8px); }
-  .lz-side { top: auto; bottom: calc(var(--vdock-h) + 14px); max-height: calc(100% - var(--top-safe) - var(--vdock-h) - 80px); }
-}
-
 /* ── Floating layout, second pass ─────────────────────
    One system for every floating piece: pills 12 px round, cards 16 px, the same shadow, controls
    40 px high (36 on a phone), and the same short slide when a card opens. */
@@ -2347,7 +2330,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   .tb-id .scenario-btn { max-width: 240px; }
   .lg-scale { width: 128px; }
 }
-@media (max-width: 1239px) { #btnBlood > span, #btnBlood .chev, .menu-btn .mb-k { display: none; } }
+@media (max-width: 1239px) { #btnBlood > span, #btnBlood .chev, #btnLobuleLayers > span, #btnLobuleLayers .chev, .menu-btn .mb-k { display: none; } }
 
 /* The compare switch floats under the top bar, centered. */
 .sb-center.float-ui { position: absolute; z-index: var(--z-hud); top: calc(var(--top-safe) + 6px); left: 50%; transform: translateX(-50%); display: flex; pointer-events: none; }
@@ -2481,21 +2464,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 }
 @media (max-width: 767px) { .coach { max-height: 34%; } }
 
-/* ── Lobule: a card on the right, the key beside the lobule, labels as in the anatomy ── */
-.lz-side { top: calc(var(--top-safe) + 4px); right: calc(env(safe-area-inset-right) + var(--gap) + var(--right-occ, 0px)); width: 300px; max-height: calc(100% - var(--top-safe) - var(--bot-occ, 120px) - 16px);
-  border: 0; border-radius: var(--r-sheet); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); padding: 14px 16px 16px; }
-.lz-head { margin: -14px -16px 0; padding: 14px 10px 4px 16px; align-items: center; }
-.lz-more { display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 6px 0 10px; border: 1px solid var(--border); border-radius: var(--r-card); background: var(--surface); color: var(--text-2); font: 600 var(--fs-12) var(--font-ui); cursor: pointer; }
-.lz-more:hover { border-color: var(--border-strong); color: var(--text); }
-.lz-more .lz-chev { width: var(--ic-s); height: var(--ic-s); fill: none; stroke: currentColor; stroke-width: 2; transition: transform .2s var(--ease); }
-.lz-side.open .lz-more .lz-chev { transform: rotate(180deg); }
-.lz-side:not(.open) .lz-ladder, .lz-side:not(.open) .lz-stats, .lz-side:not(.open) .lz-cir { display: none; }
-.lz-side:not(.open) .lz-verdict { margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.lz-key { position: absolute; left: calc(env(safe-area-inset-left) + var(--gap)); bottom: calc(var(--bot-occ, 120px) + 8px); max-width: min(560px, calc(100% - 2 * var(--gap) - var(--right-occ, 0px) - 320px));
-  padding: 8px 12px; border-radius: var(--r-sheet); background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); transition: opacity .2s var(--ease); pointer-events: none; }
-.lz-key .lz-legend { border: 0; padding: 0; gap: 4px 14px; }
-.lz-key:has(.lz-legend:empty) { display: none; }
-.lz-top .lz-tgs { box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); border: 0; background: var(--glass); }
+/* ── Lobule: labels as in the anatomy ── */
 /* Labels: no box; the station, then its pressure with the unit and the change from healthy; a bar in
    the pressure's color on the side facing the vessel, as on the anatomy. */
 .lz-lab { display: grid; gap: 0; padding: 1px 8px 1px 9px; border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; border-left: 3px solid var(--sw, var(--border-strong)); line-height: 1.2; }
@@ -2519,22 +2488,14 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   .lz-lab .v { font-size: calc(12.5px * var(--label-k, 1)); }
   .lz-lab .d { font-size: calc(9.5px * var(--label-k, 1)); }
   .lz-lab small { display: none; }
-  .lz-side { left: 8px; right: 8px; width: auto; top: auto; bottom: calc(var(--vdock-h) + 14px); max-height: 56%; }
-  .lz-key { left: 8px; right: 8px; bottom: auto; top: calc(var(--top-safe) + 48px); max-width: none; padding: 6px 10px; }
-  .lz-key .lz-legend { font-size: var(--fs-12); gap: 2px 10px; }
-  .lz-more .lz-more-l { display: inline; }
 }
-@media (min-width: 721px) { .stage-view.in-lobule .zoom-pill { right: calc(env(safe-area-inset-right) + var(--gap) * 2 + var(--right-occ, 0px) + 300px); } }
-/* Phone: the lobule's zoom in, zoom out and fit sit top right, beside its Zones and Lymph switches. */
+/* Phone: the lobule's zoom in, zoom out and fit sit top right, under the toolbar. */
 @media (max-width: 720px) {
   .stage-view.in-lobule .zoom-pill { top: calc(var(--top-safe) + 8px); bottom: auto; right: calc(env(safe-area-inset-right) + 12px); translate: none; flex-direction: row; }
   .stage-view.in-lobule .zoom-pill #zoomIn, .stage-view.in-lobule .zoom-pill #zoomOut { display: inline-grid; }
 }
 /* In the tall Instruments card the trace chips wrap instead of scrolling sideways. */
 .instrument-workspace.side .pt-chips { flex-wrap: wrap; overflow: visible; -webkit-mask-image: none; mask-image: none; padding-right: 0; }
-/* The lobule's key keeps clear of the zoom buttons beside the lobule card. */
-@media (min-width: 721px) { .lz-key { max-width: min(560px, calc(100% - 2 * var(--gap) - var(--right-occ, 0px) - 400px)); } }
-@media (max-width: 720px) { .lz-side { max-height: min(56%, calc(100% - var(--top-safe) - var(--bot-occ, 120px) - 120px)); } }
 
 /* Instrument tabs: one slim segmented bar; the chosen instrument is a raised chip. */
 .instr-tabs { display: flex; gap: 2px; margin: 2px 12px 10px; padding: 3px; flex: none; border-radius: 10px; background: var(--surface-2); overflow-x: auto; scrollbar-width: none; }
@@ -2567,3 +2528,227 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .dop-glow { fill: none; stroke: var(--doppler); stroke-opacity: .7; stroke-linecap: butt; stroke-linejoin: round; }
 .dop-edge { fill: none; stroke: var(--doppler); stroke-opacity: .95; stroke-linecap: butt; stroke-linejoin: round; }
 .instrument-workspace .dock-title.dop-on .dt-l::before { content: ''; display: inline-block; width: 8px; height: 8px; margin: 0 8px 1px 0; border-radius: 50%; background: var(--doppler); box-shadow: 0 0 0 3px color-mix(in srgb, var(--doppler) 22%, transparent); vertical-align: middle; }
+
+/* ── Polish pass: play bar, phone chrome, card leader, sheets, sliders ── */
+/* The play bar: the clock sits next to the track it reads, speed looks like a control, Compare is an icon. */
+.tl-time { min-width: 0; text-align: left; }
+.tl-time .tl-t-short { display: none; }
+@media (max-width: 767px) { .vdock .tl-time .tl-t-short { display: inline; } }
+.tl-speed { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+.tl-speed::after { content: ''; width: 0; height: 0; border-left: 3.5px solid transparent; border-right: 3.5px solid transparent; border-top: 4px solid currentColor; opacity: .55; margin-left: 2px; }
+.tl-speed:hover { border-color: var(--accent-line); color: var(--accent-ink); background: var(--accent-soft); }
+.tl-rail { background: color-mix(in srgb, var(--text) 12%, var(--surface-3)); }
+
+/* Legend: the end numbers stay inside the scale instead of being cut off. */
+.lg-num.start { transform: none; }
+.lg-num.end { transform: translateX(-100%); }
+
+/* Readouts: short names where the tiles are narrow. */
+.metric .k .k-s { display: none; }
+@media (max-width: 767px) {
+  .metric .k .k-l { display: none; }
+  .metric .k .k-s { display: inline; }
+  .readouts:not(.all) .metric .tr { display: none; }
+}
+
+/* A phone: the clock is in the play bar (short form), not floating over the figure. */
+@media (max-width: 767px) {
+  .stage-clock { display: none !important; }
+  .vdock .tl-time { display: inline; min-width: 0; }
+  .vdock .tl-time .tl-t-long { display: none; }
+  /* The menu keeps its icon; the patient's name gets the room (the menu names the mode). */
+  .menu-btn .mb-t { display: none; }
+  .tb-id .scenario-v { font-size: var(--fs-14); }
+}
+/* The zoom buttons step aside while a card sheet covers the figure (pinch still zooms). */
+.zoom-pill.under-sheet { opacity: 0; pointer-events: none; }
+
+/* The card's leader line to its structure, when the card sits away from it. */
+.ac-leader { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; z-index: calc(var(--z-hud) - 1); }
+.ac-leader path { stroke: var(--text-2); stroke-width: 1.2; stroke-dasharray: 3 3; fill: none; opacity: .8; }
+.ac-leader circle { fill: var(--surface); stroke: var(--accent); stroke-width: 2; }
+.stage-view.in-lobule .ac-leader { display: none; }
+
+/* The phone card sheet's third height: nearly the whole screen. */
+.action-card.docked.full { max-height: calc(100% - var(--top-safe) - 8px); }
+
+/* Sliders follow a finger anywhere on the track (util.js enhanceRanges), so the page must not scroll from them. */
+input[type="range"] { touch-action: none; }
+@media (max-width: 767px) {
+  .tl-speed { display: none; }
+  .readouts:not(.all) .metric .v { font-size: var(--fs-16); }
+  .readouts:not(.all) .metric .v .unit { margin-left: 2px; }
+  .vdock .timeline { gap: 6px; }
+}
+
+/* After a change: the vessels whose pressure moved glow briefly behind their tubes (warm up, cool down). */
+.delta-glow { fill: none; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; opacity: 0; filter: blur(4px); animation: deltaGlow 1.7s var(--ease) forwards; }
+.delta-glow.up { stroke: color-mix(in srgb, #E8633A 70%, transparent); }
+.delta-glow.down { stroke: color-mix(in srgb, #3A8DE8 70%, transparent); }
+@keyframes deltaGlow { 0% { opacity: 0; } 25% { opacity: .6; } 60% { opacity: .45; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .delta-glow { display: none; } }
+
+/* ── Timeline and readouts, readable at a glance ──────────────────
+   The timeline names its latest event beside the clock and keeps every change and event behind
+   History; events stand on the rail as colored flags. The readouts name each value plainly, with
+   its unit, and only an abnormal status is spelled out in color. */
+@media (min-width: 1100px) { .vdock .readouts:not(.all) { width: clamp(400px, 34vw, 500px); } }
+.tl-latest {
+  --sev: var(--info); flex: 0 1 auto; min-width: 0; max-width: 100%; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px;
+  border: 0; border-radius: 999px; cursor: pointer; font: 600 var(--fs-12) var(--font-ui); color: var(--text);
+  background: color-mix(in srgb, var(--sev) 12%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sev) 35%, transparent);
+}
+.tl-latest small { font-size: var(--fs-12); font-weight: 500; color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tl-latest span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tl-latest:hover { background: color-mix(in srgb, var(--sev) 20%, var(--surface)); }
+.tl-ld { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--sev); }
+.tl-hist {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r-card);
+  background: var(--surface); color: var(--text); font: 600 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap;
+}
+.tl-hist:hover { border-color: var(--border-strong); background: var(--surface-2); }
+.tl-hc:not(:empty) { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--surface-3); color: var(--text-2); display: inline-grid; place-items: center; font-variant-numeric: tabular-nums; }
+.tl-pin { font-size: var(--fs-12); padding: 0 10px; gap: 6px; }
+/* Events: a colored flag standing on the rail, so they read apart from the learner's changes. */
+.tl-m.ev { top: 2px; width: 18px; height: 22px; }
+.tl-m.ev::before { width: 10px; height: 10px; border: 0; border-radius: 50%; background: var(--sev, var(--info)); box-shadow: 0 0 0 2px var(--surface); align-self: start; margin-top: 1px; }
+.tl-m.ev::after { content: ''; position: absolute; left: 50%; top: 12px; bottom: 0; width: 2px; margin-left: -1px; border-radius: 1px; background: color-mix(in srgb, var(--sev, var(--info)) 60%, transparent); }
+.tl-m.ev:hover::before, .tl-m.ev:focus-visible::before { transform: scale(1.3); }
+.tl-pop-top { display: flex; align-items: center; gap: 8px; padding: 6px 8px 8px; border-bottom: 1px solid var(--hairline); font-size: var(--fs-14); }
+.tl-pop-top .sp { flex: 1; }
+.tl-pop-empty { margin: 0; padding: 12px 8px; font-size: var(--fs-14); color: var(--text-2); }
+.tl-pop-row.future { opacity: .5; }
+.tl-history { max-height: min(420px, 60vh); }
+/* Readouts */
+.metric .k { font-weight: 600; color: var(--text-2); }
+.metric[data-sev="ok"] .status { color: var(--text-3); font-weight: 500; }
+.metric[data-sev="ok"] .status::before { display: none; }
+.metric .tr { opacity: .8; }
+@media (max-width: 1100px) { .tl-hl { display: none; } }
+/* A phone: the clock moves into the play bar (no loose clock on the figure); Restart is in More. */
+@media (max-width: 767px) {
+  .stage-clock { display: none !important; }
+  .vdock .timeline .tl-time { display: inline; font-size: var(--fs-12); color: var(--text-2); }
+  .timeline .tl-restart { display: none; }
+  .tl-hist { padding: 0 8px; height: 38px; border-radius: var(--r-card); }
+  .tl-pin { height: 38px; }
+  .metric .k { font-size: var(--fs-12); }
+}
+/* The status row above the play bar: an active bleed and the latest event. */
+.vdock .vd-status { grid-area: st; display: flex; align-items: center; gap: 8px; min-width: 0; margin: 8px 12px 0; }
+.vdock .vd-status:not(:has(> :not([hidden]))) { display: none; }
+.vdock .vd-status .bleed-pill { margin: 0; }
+.vdock .tl-time { font-size: var(--fs-14); color: var(--text); min-width: 0; }
+.tl-jseg { display: flex; border: 1px solid var(--border); border-radius: var(--r-control); overflow: hidden; background: var(--surface); }
+.tl-jseg .tl-jump { border: 0; border-radius: 0; height: 28px; padding: 0 8px; background: transparent; }
+.tl-jseg .tl-jump + .tl-jump { border-left: 1px solid var(--hairline); }
+.timeline .tl-restart { display: none; }
+@media (max-width: 1599px) { .vdock .tl-pin span { display: none; } .vdock .tl-pin { padding: 0 8px; } }
+@media (max-width: 767px) { .vdock .vd-status { margin: 6px 8px 0; } .tl-latest { height: 26px; } }
+@media (min-width: 768px) { .tl-phone-only { display: none !important; } }
+@media (max-width: 767px) {
+  .vdock .tl-jseg, .vdock .tl-pin { display: none; }
+  .vdock .vd-status > * { flex: 0 1 auto; min-width: 0; }
+  .vdock .vd-status .bleed-pill { font-size: var(--fs-12); padding: 4px 10px 4px 8px; }
+  .tl-latest small { display: none; }
+  .readouts:not(.all) .metric .v { font-size: var(--fs-16); }
+  .metric .v .unit { margin-left: 2px; }
+}
+@media (max-width: 767px) {
+  .vdock .timeline { gap: 6px; }
+  .vdock .tl-track { min-width: 80px; }
+  .vdock .tl-hist { padding: 0 6px; gap: 4px; }
+}
+@media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+  .vdock .readouts:not(.all) .metric .v .unit { display: none; }
+  .tl-latest small { display: none; }
+  .vdock .vd-status { margin-top: 4px; }
+}
+
+/* Comparing: the lobule's controls sit below the Then / Now / Change switch (--cmp-h). */
+@media (max-width: 720px) {
+  .stage-view.in-lobule .zoom-pill { top: calc(var(--top-safe) + 8px + var(--cmp-h, 0px)); }
+}
+
+/* Touch screens: a long press is a gesture here (hold to inspect, drag, pinch), not a text selection;
+   fields that take typing still select. */
+@media (pointer: coarse) {
+  body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+}
+/* A phone keeps the three pressures in the collapsed strip; portal flow waits behind the chevron. */
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+  .readouts:not(.all) .ro-group[data-group="flow"] { display: none; }
+}
+
+/* ── Findings, Treat and Measure: one card ───────────
+   The same head (icon, name, a quiet status, close) and the same way in and out: a short slide
+   from the right on wider screens, up from the bottom edge as a phone sheet; closing reverses it. */
+.card-head.card-head { display: flex; flex-direction: row; align-items: center; gap: 8px; flex: none; height: auto !important; min-height: 52px; padding: 8px 8px 4px 16px !important; border: 0; background: transparent; flex-wrap: nowrap !important; }
+.card-head .card-title { margin: 0; flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; font: 600 var(--fs-16)/1.2 var(--font-ui) !important; color: var(--text); white-space: nowrap; overflow: hidden; cursor: default; padding: 0 !important; }
+.card-head .card-title > svg { flex: none; width: var(--ic-m) !important; height: var(--ic-m) !important; fill: none; stroke: currentColor !important; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; color: var(--text-2); }
+.card-head .card-title .dt-l { font: 500 var(--fs-12) var(--font-ui); color: var(--text-3); overflow: hidden; text-overflow: ellipsis; }
+.card-title .dt-l:empty { display: none; }
+.card-meta, .card-head .workspace-live { flex: 0 1 auto; font: 600 var(--fs-12) var(--font-ui); color: var(--text-3); white-space: nowrap; }
+.card-head .card-close.card-close { display: inline-grid; place-items: center; flex: none; width: 36px; height: 36px; margin: 0; }
+.panel .panel-head { border-radius: var(--r-sheet) var(--r-sheet) 0 0; }
+
+.panel, .treat-card, .instrument-workspace.float-ui { --card-in: cardInRight; --card-out: cardOutRight; --card-t: .22s; }
+@keyframes cardOutRight { to { opacity: 0; transform: translateX(16px); } }
+@keyframes sheetDown { to { transform: translateY(100%); } }
+.panel { transform: none; transition: none; }
+.app.panel-open .panel { visibility: visible; animation: var(--card-in) var(--card-t) var(--ease); }
+.treat-card { animation: var(--card-in) var(--card-t) var(--ease); }
+.instrument-workspace.float-ui.entering, .instrument-workspace.float-ui.side.entering { animation: var(--card-in) var(--card-t) var(--ease); }
+#panel.card-leaving, #treatCard.card-leaving, #dock.card-leaving { display: flex !important; visibility: visible !important; pointer-events: none; animation: var(--card-out) .18s var(--ease) forwards !important; }
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+  .panel, .treat-card, .instrument-workspace.float-ui:not(.side) { --card-in: sheetUp; --card-out: sheetDown; --card-t: .28s; }
+  .panel, .treat-card { transform: none; transition: height .22s var(--ease); }
+  .panel .panel-head { touch-action: none; border-radius: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .app.panel-open .panel, .treat-card, .instrument-workspace.float-ui.entering, #panel.card-leaving, #treatCard.card-leaving, #dock.card-leaving { animation: none !important; } }
+
+/* Findings: what has been changed, with its value; a tap on × takes it back. */
+.chg-list { display: flex; flex-direction: column; }
+.chg { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 2px 0; font-size: var(--fs-14); }
+.chg + .chg { border-top: 1px solid var(--hairline); }
+.chg-n { flex: 1; min-width: 0; color: var(--text); }
+.chg-v { flex: none; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
+.chg .chg-x { flex: none; width: 28px; height: 28px; margin-right: -6px; color: var(--text-3); }
+.chg .chg-x:hover { color: var(--text); }
+.chg-clear { align-self: flex-start; margin: 6px 0 0; padding: 0; font-size: var(--fs-12); text-align: left; }
+
+/* The top bar keeps one row off a phone: main.js steps data-fit up until it fits. */
+.topbar[data-fit="1"] .tb-id .scenario-btn, .topbar[data-fit="2"] .tb-id .scenario-btn { max-width: 200px; }
+.topbar[data-fit="1"] .top-right .pal-l, .topbar[data-fit="1"] .top-right .pal-btn kbd,
+.topbar[data-fit="2"] .top-right .pal-l, .topbar[data-fit="2"] .top-right .pal-btn kbd,
+.topbar[data-fit="3"] .top-right .pal-l, .topbar[data-fit="3"] .top-right .pal-btn kbd { display: none; }
+.topbar[data-fit="1"] #btnBlood > span, .topbar[data-fit="1"] #btnBlood .chev, .topbar[data-fit="1"] #btnLobuleLayers > span, .topbar[data-fit="1"] #btnLobuleLayers .chev,
+.topbar[data-fit="2"] #btnBlood > span, .topbar[data-fit="2"] #btnBlood .chev, .topbar[data-fit="2"] #btnLobuleLayers > span, .topbar[data-fit="2"] #btnLobuleLayers .chev,
+.topbar[data-fit="3"] #btnBlood > span, .topbar[data-fit="3"] #btnBlood .chev, .topbar[data-fit="3"] #btnLobuleLayers > span, .topbar[data-fit="3"] #btnLobuleLayers .chev { display: none; }
+.topbar[data-fit="2"] .tb-sep, .topbar[data-fit="2"] .find-badge .fb-l, .topbar[data-fit="2"] .tb-act > span,
+.topbar[data-fit="3"] .tb-sep, .topbar[data-fit="3"] .find-badge .fb-l, .topbar[data-fit="3"] .tb-act > span { display: none; }
+.topbar[data-fit="3"] .menu-btn .mb-t { display: none; }
+.topbar[data-fit="3"] .tb-id .scenario-btn { max-width: 160px; }
+.topbar[data-fit="3"] #viewSeg button { padding-left: 10px; padding-right: 10px; }
+.topbar[data-fit="3"] .lg-scale { width: 112px; }
+/* A phone: the lens pill is all key (a tap opens the lenses), so the five origins fit beside Blood. */
+@media (max-width: 767px) {
+  .topbar .lens-btn .chev { display: none; }
+  .topbar .lens-btn { padding: 0 4px; }
+  .topbar .legend { padding: 0; }
+  /* The five origins in two compact rows: a round coloured dot and its name. */
+  .topbar .lg-dots { display: grid; grid-template-columns: repeat(3, auto); gap: 1px 6px; line-height: 1.25; }
+  .topbar .lg-dots span { gap: 3px; }
+  .topbar .lg-dots i { flex: none; width: 7px; height: 7px; border-radius: 50%; }
+  .topbar #viewSeg button { padding: 6px 5px; }
+  .topbar .lens-btn { padding: 0 3px; }
+}
+@media (max-width: 380px) { .topbar #viewSeg button { padding: 6px 3px; } }
+
+.chip-btn[hidden] { display: none; }
+
+/* The Lobule view's readouts (the strip's lobule group): the lobule's flows replace the key readouts. */
+.readouts:not(.lob) .ro-group[data-group="lobule"] { display: none; }
+.readouts.lob:not(.all) .ro-group[data-group="lobule"] { --n: 4; }
+.readouts.lob.all .ro-group[data-group="lobule"] { order: -1; }

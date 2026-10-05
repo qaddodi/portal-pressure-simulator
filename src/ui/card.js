@@ -3,15 +3,20 @@
 // sliders that used to live in the side panel. Every verb takes effect at once and becomes one
 // entry in the timeline; nothing stays "armed".
 
-import { store, updateParams } from './store.js?v=f9424489c6';
-import { h, icon, svgIcon, fmt, clamp, tooltipFor } from './util.js?v=fe164f31f1';
-import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=34bad803fc';
+import { store, updateParams } from './store.js?v=23552bd900';
+import { h, icon, svgIcon, fmt, clamp, tooltipFor } from './util.js?v=831ebf143a';
+import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=5975cb2d8f';
 
 const LOCK_TIP = 'Not available in this step of the lesson or case';
 
 export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   const el = h('section', { class: 'action-card stage-blocker', role: 'dialog', 'aria-label': 'Actions', hidden: true });
   view.append(el);
+  // A thin line from the card's nearest edge to the structure, with a dot on it, when they are apart.
+  const leader = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  leader.setAttribute('class', 'ac-leader'); leader.setAttribute('aria-hidden', 'true');
+  view.append(leader);
+  const tabletTouch = matchMedia('(pointer: coarse) and (min-width: 768px) and (max-width: 1366px)');
   const sizes = { vw: view.clientWidth, vh: view.clientHeight, w: 0, h: 0 };
   new ResizeObserver(() => { sizes.vw = view.clientWidth; sizes.vh = view.clientHeight; placedFor = ''; lastLayout = ''; position(); if (isDocked()) reveal(); }).observe(view);
   new ResizeObserver(() => { sizes.w = el.offsetWidth; sizes.h = el.offsetHeight; placedFor = ''; lastLayout = ''; position(); syncMore(); if (isDocked()) reveal(); }).observe(el);
@@ -48,7 +53,11 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     // On a phone held sideways the room between the top bar and the sheet can be smaller than the zoom
     // buttons: then they step aside rather than slide under the top bar.
     const pill = lift.find((b) => b.classList.contains('zoom-pill'));
-    if (pill) {
+    if (pill) pill.classList.toggle('under-sheet', isDocked() && parseFloat(px) > 0);
+    // Hidden (a phone's instrument sheet is up) it has no box to measure: a reading then would leave it
+    // stepped aside for good once it shows again.
+    if (pill && !pill.getClientRects().length) pill.classList.remove('no-room');
+    else if (pill) {
       const shift = parseFloat(getComputedStyle(pill).translate.split(' ')[1]) || 0;   // where the lift has got to
       const restTop = pill.getBoundingClientRect().top - shift;
       const barBottom = document.getElementById('topbar').getBoundingClientRect().bottom;
@@ -67,6 +76,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   }
   function hide() {
     el.hidden = true; model = null; live = []; syncs = []; actionable = [];
+    leader.replaceChildren(); placedFor = '';
     liftButtons('0px');
     stage.unreveal?.();
     relayoutSoon();
@@ -132,6 +142,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     scroller.addEventListener('scroll', syncMore, { passive: true });
     el.replaceChildren(top, scroller, foot);
     el.classList.toggle('peek', sheetState === 'peek');
+    el.classList.toggle('full', sheetState === 'full');
     el.setAttribute('aria-label', `${m.title}: actions`);
     el.hidden = false;
     // Number keys trigger the verbs in order; show the number beside each.
@@ -151,6 +162,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   function setSheet(s) {
     sheetState = s;
     el.classList.toggle('peek', s === 'peek');
+    el.classList.toggle('full', s === 'full');
     el.querySelector('.ac-grab')?.setAttribute('aria-expanded', String(s !== 'peek'));
     relayoutSoon();
     reveal();
@@ -165,8 +177,9 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     const up = (e) => {
       const dy = e.clientY - y0, tap = !moved && !e.target.closest?.('button');
       stop();
-      if (dy > 40) { if (sheetState === 'peek') store.set({ selection: null }); else setSheet('peek'); }
-      else if (dy < -40) setSheet('open');
+      // Three heights: a strip, the sheet, nearly the whole screen. A swipe moves one step; a swipe down from the strip closes.
+      if (dy > 40) { if (sheetState === 'peek') store.set({ selection: null }); else setSheet(sheetState === 'full' && dy < 220 ? 'open' : 'peek'); }
+      else if (dy < -40) setSheet(sheetState === 'peek' && dy > -220 ? 'open' : 'full');
       else if (tap) setSheet(sheetState === 'peek' ? 'open' : 'peek');
     };
     top.addEventListener('pointerdown', (e) => {
@@ -207,7 +220,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     }
     if (v.type === 'slider') {
       const lab = typeof v.label === 'function' ? v.label() : v.label;
-      const input = h('input', { type: 'range', min: v.min, max: v.max, step: v.step, 'aria-label': lab });
+      const input = h('input', { type: 'range', min: v.min, max: v.max, step: v.step, 'aria-label': lab, 'data-def': v.def ?? null });
       const val = h('span', { class: 'ctl-val' });
       const dis = locked(v);
       if (dis) input.disabled = true;
@@ -308,7 +321,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     if (!model || el.hidden) return;
     if (matchMedia('(max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape)').matches) {
       if (el.parentNode !== dockHost) dockHost.append(el);
-      el.style.left = ''; el.style.top = ''; el.classList.add('docked'); return;
+      el.style.left = ''; el.style.top = ''; el.classList.add('docked'); leader.replaceChildren(); return;
     }
     if (el.parentNode !== view) view.append(el);
     el.classList.remove('docked');
@@ -328,20 +341,40 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     const top = css('--top-safe') + 8, bottom = H - (css('--bot-occ') || 0) - 8, right = W - css('--right-occ') - 8;
     const pts = a.path || [[a.x, a.y]];
     const gap = 22;
+    // Beside the structure first; failing that, in the empty margin beside the figure (with a leader
+    // line back to it), so the card covers as little of the anatomy as it can.
+    const fig = stage.contentRect?.();
     const cands = [[a.x + gap, a.y - hh / 2], [a.x - gap - w, a.y - hh / 2], [a.x - w / 2, a.y + gap], [a.x - w / 2, a.y - gap - hh], [a.x + gap, a.y - 30], [a.x - gap - w, a.y - 30]];
+    if (fig) cands.push([fig.x1 + 16, a.y - hh / 2], [fig.x0 - 16 - w, a.y - hh / 2]);
     let best = null;
-    cands.forEach(([x, y], i) => {
+    // A touch tablet (an iPad): the card is a side panel on the right, under the top bar, with a leader to its structure,
+    // so it never lands under the hand working the figure.
+    if (tabletTouch.matches) best = { cost: 0, x: Math.max(8, right - w), y: top };
+    if (!best) cands.forEach(([x, y], i) => {
       const cx = clamp(x, 8, Math.max(8, right - w)), cy = clamp(y, top, Math.max(top, bottom - hh));
       let cover = 0;
       for (const [px, py] of pts) if (px > cx - 6 && px < cx + w + 6 && py > cy - 6 && py < cy + hh + 6) cover++;
       const shift = Math.abs(cx - x) + Math.abs(cy - y);
-      const cost = cover * 40 + shift * 0.5 + i * 3;
+      // The share of the card lying over the drawn figure.
+      const over = fig ? Math.max(0, Math.min(cx + w, fig.x1) - Math.max(cx, fig.x0)) * Math.max(0, Math.min(cy + hh, fig.y1) - Math.max(cy, fig.y0)) / (w * hh) : 0;
+      const far = Math.max(0, Math.hypot(cx + w / 2 - a.x, cy + hh / 2 - a.y) - (w + hh) / 2);
+      const cost = cover * 40 + over * 140 + shift * 0.5 + far * 0.15 + i * 3;
       if (!best || cost < best.cost) best = { cost, x: cx, y: cy };
     });
-    const key = `${Math.round(best.x)},${Math.round(best.y)}`;
+    const key = `${Math.round(best.x)},${Math.round(best.y)}|${Math.round(a.x)},${Math.round(a.y)}`;
     if (key === placedFor) return;
     placedFor = key;
     el.style.left = best.x + 'px'; el.style.top = best.y + 'px';
+    drawLeader(best.x, best.y, w, hh, a);
+  }
+  function drawLeader(x, y, w, hh, a) {
+    const ex = clamp(a.x, x, x + w), ey = clamp(a.y, y, y + hh);
+    const d = Math.hypot(ex - a.x, ey - a.y);
+    if (d < 30 || isDocked()) { leader.replaceChildren(); return; }
+    const ns = 'http://www.w3.org/2000/svg', line = document.createElementNS(ns, 'path'), dot = document.createElementNS(ns, 'circle');
+    line.setAttribute('d', `M${ex.toFixed(1)} ${ey.toFixed(1)} L${a.x.toFixed(1)} ${a.y.toFixed(1)}`);
+    dot.setAttribute('cx', a.x.toFixed(1)); dot.setAttribute('cy', a.y.toFixed(1)); dot.setAttribute('r', '4');
+    leader.replaceChildren(line, dot);
   }
 
   // The floating pieces moved (a card opened on the right, the dock grew): place the card again.

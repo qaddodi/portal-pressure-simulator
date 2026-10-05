@@ -1,20 +1,19 @@
-// The patient chart: one card, no tabs, read top to bottom like a bedside chart. The orders
-// (drugs · fluids & blood · procedures) are in the Treat card, built here too (treatBody).
+// Findings: one card, no tabs, read top to bottom. The orders (drugs · fluids & blood ·
+// procedures) are in the Treat card, built here too (treatBody).
 //
-//   Scenario summary                     (the patient's name heads the panel)
 //   [step card of a lesson or case]      (rendered by learn.js / cases.js above this)
 //   [Compared with A]                    (when a moment is pinned)
-//   Findings                             what is abnormal, in words, with its cut-off; Why?
-//   Story                                what has happened, in plain language, with ✕ to undo
+//   Changes                              what has been set: sliders, drugs, shunts, with values
+//   Abnormal results                     what is abnormal, in words, with its cut-off; Why?
+//   (what has happened lives in the timeline's History, under the figure)
 //   Advanced                             physiology knobs (instructor / researcher)
 
-import { store, updateParams } from './store.js?v=f9424489c6';
-import { h, fmt, icon, svgIcon, toast } from './util.js?v=fe164f31f1';
-import { DRUGS } from '../engine/scenario.js?v=8fc90f782f';
-import { TILES, VITALS, readoutValue } from './dock.js?v=24f309245b';
-import { activeInterventions } from './inspector.js?v=208b6a3592';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=34bad803fc';
-import { fmtClock } from './timeline.js?v=7bf66ab2fb';
+import { store, updateParams } from './store.js?v=23552bd900';
+import { h, fmt, icon, svgIcon, toast } from './util.js?v=831ebf143a';
+import { DRUGS } from '../engine/scenario.js?v=304cd180db';
+import { TILES, VITALS, readoutValue } from './dock.js?v=9e9eca76ac';
+import { activeInterventions } from './inspector.js?v=16c4f8a329';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=5975cb2d8f';
 
 // Where each readout is measured, so a click can show it on the figure.
 const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS'], spleen: ['V_SPL', 'SV_CONF'], ra: ['IVCS_RA'] };
@@ -33,8 +32,8 @@ const FIND = {
   pvflow: (v, m, sev) => sev === 'critical'
     ? ['Portal flow reversed (hepatofugal)', `${fmt(Math.abs(v), 1)} L/min flows away from the liver, out through collaterals.`]
     : sev === 'danger'
-      ? ['Portal flow near stasis', `${n0(Math.abs(m.pvVel))} cm/s (normal ≥ 12). Slow flow favors portal vein thrombosis.`]
-      : ['Portal flow reduced', `${fmt(v, 1)} L/min at ${n0(Math.abs(m.pvVel))} cm/s (normal ≥ 0.9 L/min, ≥ 12 cm/s).`],
+      ? ['Portal flow near stasis', `${n0(Math.abs(m.pvVelMean ?? m.pvVel))} cm/s (normal ≥ 12). Slow flow favors portal vein thrombosis.`]
+      : ['Portal flow reduced', `${fmt(v, 1)} L/min at ${n0(Math.abs(m.pvVelMean ?? m.pvVel))} cm/s (normal ≥ 0.9 L/min, ≥ 12 cm/s).`],
   liver: (v, m) => ['Liver perfusion reduced', `${n0(v)} % of normal. The hepatic artery has risen ×${fmt(m.habr, 1)} to buffer the loss of portal flow.`],
   shunt: (v, m) => ['Portosystemic shunting', `${n0(v)} % of gut blood bypasses the liver. Encephalopathy risk ${m.heRisk.label.toLowerCase()}.`],
   varix: (v, m, sev) => [m.varix.d < 2.5 ? 'Varix wall under strain' : sev === 'critical' ? 'Varices close to rupture' : `Esophageal varices, ${m.varix.grade.label.toLowerCase()}`,
@@ -68,8 +67,8 @@ export function computeFindings(m, hidden) {
 
 export function createChart({ onWhy, flash, onScenarios, action, startShunt, select, timeline, pinned }) {
   let controls = () => [];
-  let storyPaint = null;
-  const open = new Set(JSON.parse(safeGet('pps.chartOpen2') || '["findings","treat","story"]'));
+  const open = new Set(JSON.parse(safeGet('pps.chartOpen2') || '["findings","changes"]'));
+  open.add('changes');
   let live = [];
 
   function safeGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
@@ -82,6 +81,34 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     if (open.has(id)) d.open = true;
     d.addEventListener('toggle', () => { if (d.open) open.add(id); else open.delete(id); remember(); });
     return d;
+  }
+
+  // ── Changes ───────────────────────────────────────
+  // Everything set away from a healthy adult (by a preset, a slider, a drug or a procedure), with
+  // its value; one tap takes a change back.
+  function changes() {
+    const list = h('div', { class: 'chg-list', role: 'list' });
+    const empty = h('p', { class: 'fd-empty' }, 'Nothing changed yet. Move a slider or treat, and it shows here.');
+    const clear = h('button', { class: 'link chg-clear', onclick: () => updateParams((q) => { for (const a of activeInterventions(q)) a.remove(q); return q; }, { label: 'Clear all changes' }) }, 'Clear all');
+    let key = null, count = null;
+    const paint = () => {
+      const active = activeInterventions(store.get().params), k = active.map((a) => a.label).join('|');
+      if (k === key) return;
+      key = k;
+      list.replaceChildren(...active.map((a) => {
+        const m = /^(.*?)\s+([×\d].*)$/.exec(a.label);
+        return h('div', { class: 'chg', role: 'listitem' },
+          h('span', { class: 'chg-n' }, m ? m[1] : a.label), m ? h('span', { class: 'chg-v' }, m[2]) : null,
+          h('button', { class: 'ib chg-x', 'aria-label': `Undo ${a.label}`, title: 'Undo this change', onclick: () => updateParams((q) => { a.remove(q); return q; }, { label: `Remove ${a.label}` }) }, icon('close')));
+      }));
+      empty.hidden = active.length > 0; clear.hidden = !active.length;
+      if (count) { count.textContent = active.length; count.hidden = !active.length; }
+    };
+    live.push(paint);
+    const sec = section('changes', 'Changes', 'sliders', '0', list, empty, clear);
+    count = sec.querySelector('summary .count');
+    count.classList.add('fd-count');
+    return sec;
   }
 
   // ── Findings ──────────────────────────────────────
@@ -115,7 +142,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       if (count && count.textContent !== String(found.length)) { count.textContent = found.length; count.hidden = !found.length; }
     };
     live.push(paint);
-    const sec = section('findings', 'Findings', 'activity', '0', list, empty);
+    const sec = section('findings', 'Abnormal results', 'activity', '0', list, empty);
     count = sec.querySelector('summary .count');
     count.classList.add('fd-count');
     return sec;
@@ -170,39 +197,6 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     return activeInterventions(p).filter((a) => a.key.startsWith('drug:') || ['anticoag', 'diuretics', 'tips', 'balloonEso', 'balloonGas', 'portocaval', 'dsrs', 'mesocaval', 'occ:C5'].includes(a.key)).length;
   }
 
-  // ── Story ─────────────────────────────────────────
-  function story() {
-    const list = h('ol', { class: 'story' });
-    const copy = h('button', { class: 'link st-act', title: 'Copy the story as text' }, 'Copy');
-    const print = h('button', { class: 'link st-act', title: 'Print the story' }, 'Print');
-    const paint = () => {
-      const es = timeline.entries();
-      const active = new Map(activeInterventions(store.get().params).map((a) => [a.key, a]));
-      const cur = timeline.cursor();
-      const items = es.map((e, i) => {
-        if (e.kind === 'event' && e.sev === 'info' && es.length > 24) return null;
-        const when = h('span', { class: 'st-when' }, e.kind === 'start' ? 'Start' : fmtClock(e.t, e.day));
-        const dot = (t) => (/[.!?]$/.test(t) ? t : t + '.');
-        const text = e.kind === 'start' ? `Patient: ${e.label}.` : e.kind === 'jump' ? `${e.label[0].toUpperCase()}${e.label.slice(1)} passed.` : e.kind === 'event' ? dot(`${e.label}${e.detail ? `: ${e.detail}` : ''}`) : dot(e.label);
-        const undoKeys = (e.keys || []).filter((k) => active.has(k));
-        const x = e.kind === 'change' && undoKeys.length && store.get().mode !== 'cases'
-          ? h('button', { class: 'st-x', 'aria-label': `Undo: ${e.label}`, title: 'Remove this change' }, icon('close')) : null;
-        x?.addEventListener('click', () => updateParams((q) => { for (const k of undoKeys) active.get(k)?.remove(q); return q; }, { label: `Removed ${e.label}` }));
-        return h('li', { class: `st-${e.kind}${cur >= 0 && i > cur ? ' future' : ''}` }, when, h('span', { class: 'st-t' }, text), x);
-      }).filter(Boolean);
-      list.replaceChildren(...(items.length ? items : [h('li', { class: 'st-empty' }, 'Nothing has happened yet. Click the anatomy to change something, or jump ahead in time.')]));
-    };
-    copy.addEventListener('click', async () => { try { await navigator.clipboard.writeText(storyText()); toast('Story copied.'); } catch { toast('Copy is not available here.'); } });
-    print.addEventListener('click', () => { const w = window.open('', '_blank'); if (!w) return; w.document.write(`<title>Story</title><pre style="font:14px/1.6 system-ui;white-space:pre-wrap;padding:24px">${storyText().replace(/</g, '&lt;')}</pre>`); w.document.close(); w.print(); });
-    storyPaint = () => { if (list.isConnected) paint(); };
-    live.push(() => { if (list.isConnected && list._n !== timeline.entries().length) { list._n = timeline.entries().length; paint(); } });
-    paint();
-    return section('story', 'Story', 'book', null, list, h('div', { class: 'st-actions' }, copy, print));
-  }
-  function storyText() {
-    return timeline.entries().map((e) => `${e.kind === 'start' ? 'Start' : fmtClock(e.t, e.day)}  ${e.kind === 'start' ? 'Patient: ' : ''}${e.label}${e.detail ? ': ' + e.detail : ''}`).join('\n');
-  }
-
   // ── Advanced ──────────────────────────────────────
   function advanced() {
     const role = store.get().role || 'student';
@@ -216,18 +210,14 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       h('div', { class: 'subhead' }, 'Inflow & vascular tone'), controls(['splanchnicTone', 'systemicTone']),
       h('div', { class: 'subhead' }, 'Hepatic circulation'), controls(['habr', 'apShunt']),
       h('div', { class: 'subhead' }, 'Anatomical variants'), controls(['grShunt', 'geComm', 'srShunt']),
-      h('div', { class: 'subhead' }, 'Simulation'), controls(['pulsatile', 'respiration', 'respDepth', 'detRupture']), acts);
+      h('div', { class: 'subhead' }, 'Simulation'), controls(['pulsatile', 'respiration', 'respDepth', 'bleeding', 'detRupture']), acts);
   }
 
   function render(ctl) {
     if (ctl) controls = ctl;
     live = [];
-    const st = store.get();
-    const pr = st.presetList?.find((p) => p.id === st.presetId);
-    // The patient's name heads the panel; the chart opens on what the patient has.
-    const head = pr?.summary ? h('div', { class: 'p-head chart-head' }, h('p', { class: 'chart-sum' }, pr.summary)) : null;
-    // Treat has a card of its own (the Treat button), so the chart keeps to what the patient has.
-    const kids = [head, pinned(), h('div', { class: 'p-body chart-body' }, findings(), story(), advanced())];
+    // Treat has a card of its own (the Treat button), so the chart keeps to what has been done and what it does.
+    const kids = [pinned(), h('div', { class: 'p-body chart-body' }, changes(), findings(), advanced())];
     update(store.get().frame, true);
     return kids;
   }
@@ -236,6 +226,5 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     if (!f) return;
     for (const fn of live) fn();
   }
-  timeline.onChange(() => storyPaint?.());
   return { render, update, treatBody, treatCount };
 }

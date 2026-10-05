@@ -1,11 +1,11 @@
 // Simulation host: owns the Engine, runs the clocks, streams frames (blueprint §13.4).
 // Used inside a Web Worker (src/worker.js) or on the main thread as a fallback.
 
-import { Engine } from './engine/engine.js?v=53dc060c19';
-import { computeMetrics } from './engine/metrics.js?v=e158b6012e';
-import { detectEvents } from './engine/events.js?v=43a445d2bd';
-import { explain } from './engine/explain.js?v=8c15209ece';
-import { defaultParams, deepMerge, PRESETS } from './engine/scenario.js?v=8fc90f782f';
+import { Engine } from './engine/engine.js?v=0c8fb75505';
+import { computeMetrics } from './engine/metrics.js?v=fe571781de';
+import { detectEvents } from './engine/events.js?v=e467ec8aaf';
+import { explain } from './engine/explain.js?v=4895d7d1a4';
+import { defaultParams, deepMerge, PRESETS } from './engine/scenario.js?v=304cd180db';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
 
@@ -22,7 +22,7 @@ export function createCore(post) {
   let frameDirty = true;
   let paramsDirty = true;
   let samples = null;
-  let beat = false;
+  let beat = true; // the heartbeat always runs (the Over time trace is beat to beat from the start)
   const newSamples = () => ({ t: [], vel: [], pvVel: [], hvVel: [], whvp: [], hvpg: [], ...Object.fromEntries(SAMPLE_NODES.map((n) => [n, []])) });
 
   function sample() {

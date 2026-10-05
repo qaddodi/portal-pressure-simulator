@@ -1,27 +1,27 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=d292ccefe8';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=f9424489c6';
-import { createStage } from './stage.js?v=b0c83d2014';
-import { createInspector } from './inspector.js?v=208b6a3592';
-import { createDock, CUTOFFS } from './dock.js?v=24f309245b';
-import { createWhy } from './why.js?v=bf0f24a7a5';
-import { createTimeline } from './timeline.js?v=7bf66ab2fb';
-import { createLearn } from './learn.js?v=4dc71233b5';
-import { createCases } from './cases.js?v=06529aed46';
-import { createCompare } from './compare.js?v=730844b101';
-import { createCard } from './card.js?v=f82fd2404c';
-import { createChart, computeFindings } from './chart.js?v=8e9f59198b';
-import { createHome } from './home.js?v=14648d4f71';
+import { startHost, host } from './host.js?v=5e522a6bbf';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=23552bd900';
+import { createStage } from './stage.js?v=71de0d714c';
+import { createInspector } from './inspector.js?v=16c4f8a329';
+import { createDock, CUTOFFS } from './dock.js?v=9e9eca76ac';
+import { createWhy } from './why.js?v=548d0adab3';
+import { createTimeline } from './timeline.js?v=470ced89d1';
+import { createLearn } from './learn.js?v=0c9a4ef0d8';
+import { createCases } from './cases.js?v=0846edf742';
+import { createCompare } from './compare.js?v=69714e3491';
+import { createCard } from './card.js?v=8e819e69cd';
+import { createChart, computeFindings } from './chart.js?v=ca2a55a464';
+import { createHome } from './home.js?v=c5078d0a19';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
-import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=e7e5c98a1c';
+import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=35d80f59c4';
 import { startLMS } from './lms.js?v=4511ed56b8';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=34bad803fc';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=5975cb2d8f';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=29d10ad9ef';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon } from './util.js?v=fe164f31f1';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=831ebf143a';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -96,7 +96,7 @@ async function main() {
   why = createWhy($('#whyPop'));
   stage = createStage({
     wrap: view,
-    onSelect: (sel, opts) => { store.set({ selection: sel }); if (opts?.keyboard) setTimeout(() => card?.focusFirst(), 30); },
+    onSelect: (sel, opts) => { select(sel); if (opts?.keyboard) setTimeout(() => card?.focusFirst(), 30); },
     onAction: doAction,
     onOpenTab: (id) => dock.show(id, { reveal: 'soft' }),
     onHoverInfo: hoverInfo,
@@ -114,21 +114,21 @@ async function main() {
   });
   chart = createChart({
     onWhy: (m, el) => why.open(m, el), flash: (ids) => stage.flash(ids), onScenarios: (el) => openScenarios(el),
-    action: doAction, startShunt: (id, o) => stage.startShunt(id, o), select: (sel) => store.set({ selection: sel }), timeline, pinned: () => compare.section(),
+    action: doAction, startShunt: (id, o) => stage.startShunt(id, o), select, timeline, pinned: () => compare.section(),
   });
   inspector = createInspector($('#inspector'), {
     onWhy: (m, el) => why.open(m, el), onAction: doAction, onOpenTab: (id) => dock.show(id, { reveal: true }),
     onScenarios: () => openScenarios($('#scenarioBtn')), onMode: (m) => store.set({ mode: m }), chart,
   });
-  dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => host.send({ type: 'probe', id }), onReveal: revealDock, onLobule: () => zoomLobule('R'), onCompare: () => timeline.togglePin(), onRun: () => host.send({ type: 'run', running: !store.get().running }),
+  dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => host.send({ type: 'probe', id }), onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
-    marks: () => timeline.entries(), onBeat: (on) => { dockBeat = on; sendBeat(); } });
+    marks: () => timeline.entries(), onBeat: () => sendBeat() });
   const api = { beginSession, endSession, onEnd: () => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); }, muteEvents: () => {}, loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), openPanel, setBanner, select: (sel) => store.set({ selection: sel }) };
   // A lesson keeps its card in view where the panel covers the figure: instruments it opens are
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=d8fe81b4a1'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=e4a8beb3ba'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -140,8 +140,8 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=beab375cfb'), ({ createPalette }) => createPalette({ ctx: {
-    select: (sel) => store.set({ selection: sel }), action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
+  paletteL = lazy(() => import('./palette.js?v=354bef9029'), ({ createPalette }) => createPalette({ ctx: {
+    select, action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
     loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); toast(store.get().presetList.find((p) => p.id === id)?.label); },
@@ -152,7 +152,7 @@ async function main() {
     onDetails: (sel) => { store.set({ details: normalizeSel(sel) || sel }); openPanel(); },
     ctx: {
       action: doAction, showPane: (id) => dock.show(id, { reveal: true }), probe: (id) => host.send({ type: 'probe', id }),
-      startShunt: (id) => stage.startShunt(id), canShunt: (id) => shuntable(id), select: (sel) => store.set({ selection: sel }),
+      startShunt: (id) => stage.startShunt(id), canShunt: (id) => shuntable(id), select,
       zoomLobule: (lobe) => zoomLobule(lobe), paneApi: (id) => dock.pane(id),
       injectDye: (id, o) => stage.injectDye(id, o), releaseDye: () => stage.releaseDye(), dyeInjecting: () => stage.dyeInjecting(),
       canDye: () => !store.get().imaging,
@@ -183,7 +183,7 @@ async function main() {
   store.on('shunting', renderPaintHint);
   store.on('mode', onMode);
   store.on('layers', () => { app.classList.toggle('chips-off', !store.get().layers.chips); syncBloodBtn(); redraw(); });
-  store.on('presetId', (id) => { $('#scenarioName').textContent = $('#panelName').textContent = presets.find((p) => p.id === id)?.label || 'Custom'; });
+  store.on('presetId', (id) => { $('#scenarioName').textContent = presets.find((p) => p.id === id)?.label || 'Custom'; });
   store.on('role', (r) => { try { localStorage.setItem('pps.role', r); } catch { /* storage unavailable */ } app.dataset.role = r; card.render(); });
   app.dataset.role = store.get().role;
   for (const k of ['compareSnap', 'compareView', 'colorMode', 'imaging']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
@@ -198,6 +198,8 @@ async function main() {
   if (shared) await loadShared(shared); else timeline.reset();
   inspector.render();
   if (!(await openDeepLink())) firstRun();
+  // Startup has decided who the patient is (a deep link, a shared link, or the default one): the figure may frame itself.
+  store.set({ booted: true });
   const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
   setTimeout(() => idle(() => { paletteL.warm(); presenterL.warm(); }), 3000);
   addEventListener('pps:lang', () => { if (home.isOpen()) home.render(); });
@@ -225,6 +227,14 @@ const redraw = () => { const f = store.get().frame; if (f) stage.update(viewFram
 
 // ── Frames ──────────────────────────────────────────
 let lastClockTxt = '';
+// Ascites has one home, the Ascites instrument: selecting the abdomen (the fluid on the figure, a
+// station, the command palette) opens it instead of a card that would sit over the vessels.
+function select(sel) {
+  const n = normalizeSel(sel);
+  if (n?.type === 'organ' && n.id === 'abdomen') { store.set({ selection: null }); dock.show('abdomen', { reveal: true }); return; }
+  store.set({ selection: sel });
+}
+
 function viewFrame(f) {
   const st = store.get();
   if (st.compareSnap && st.compareView === 'A') return st.compareSnap.frame;
@@ -239,6 +249,7 @@ function syncDoppler(f = store.get().frame) { stage?.setDoppler(f && dock?.isOpe
 function onFrame(f) {
   if (f.params) replaceParams(f.params);
   if (f.events?.length) { const hid = store.get().hiddenEvents; const ev = hid ? f.events.filter((e) => !hid.has(e.id)) : f.events; if (ev.length) timeline.addEvents(ev); }
+  dock?.ingest(f);   // every frame's samples, even one that is not painted (or while Home covers everything)
   const now = performance.now();
   if (!f.changed && !f.params && !f.events?.length && now - lastPaint < 80) return;
   lastPaint = now;
@@ -283,10 +294,12 @@ function openScenarios(anchor) {
 }
 
 async function loadPreset(id, opts = {}) {
+  store.set({ presetLoading: true });   // the figure frames itself once the patient has arrived (stage.js)
+  dock?.clearTraces();   // the Over time and Doppler traces start over with the new (or restarted) patient
   const res = await host.request('preset', { id, days: opts.days });
   replaceParams(res.params);
   clearHistory();
-  store.set({ presetId: id, lastHVPG: null, selection: store.get().mode === 'cases' ? null : store.get().selection, historyTick: (store.get().historyTick || 0) + 1 });
+  store.set({ presetLoading: false, presetId: id, lastHVPG: null, selection: store.get().mode === 'cases' ? null : store.get().selection, historyTick: (store.get().historyTick || 0) + 1 });
   timeline?.reset(store.get().presetList?.find((x) => x.id === id)?.label);
 }
 
@@ -412,23 +425,27 @@ let bleedEl, tipEl, stageClock;
 function buildHud() {
   // Moving blood: chevrons are remembered per device; ?blood=chevrons turns them on for a link.
   let saved = null;
-  try { saved = JSON.parse(localStorage.getItem('pps.blood') || 'null'); } catch { /* storage unavailable */ }
-  const blood = { look: 'shimmer', phasic: false, chevrons: false, ...(saved && typeof saved === 'object' ? saved : {}) };
+  // (pps.blood2: chevrons became the default, so a choice saved under the old default starts over.)
+  try { saved = JSON.parse(localStorage.getItem('pps.blood2') || 'null'); } catch { /* storage unavailable */ }
+  const blood = { look: 'shimmer', phasic: false, chevrons: true, ...(saved && typeof saved === 'object' ? saved : {}) };
   delete blood.origin;   // now the Blood origin lens
   const asked = (new URLSearchParams(location.search).get('blood') || '').split(',');
   if (asked.includes('chevrons')) blood.chevrons = true;
   blood.look = 'shimmer'; blood.phasic = false;   // the Blood menu offers streaks and chevrons only
   store.set({ blood });
   store.on('blood', (v) => {
-    try { localStorage.setItem('pps.blood', JSON.stringify(v)); } catch { /* storage unavailable */ }
+    try { localStorage.setItem('pps.blood2', JSON.stringify(v)); } catch { /* storage unavailable */ }
     sendBeat(); syncBloodBtn();
     redraw();
   });
   $('#btnBlood').onclick = (e) => openBlood(e.currentTarget);
+  $('#btnLobuleLayers').onclick = (e) => openLobuleLayers(e.currentTarget);
+  store.on('lobule', (on) => { $('#btnLobuleLayers').hidden = !on; if (!on) closePopover(); });
   syncBloodBtn();
   renderLegend();
   store.on('colorMode', () => { $('#colorModeLabel').textContent = COLOR_MODES[store.get().colorMode]; });
   bleedEl = $('#bleedPill');
+  enhanceRanges();
   tipEl = h('div', { class: 'hover-tip', style: { display: 'none' } });
   view.append(tipEl);
   stageClock = h('div', { class: 'stage-clock', 'aria-hidden': 'true' });
@@ -459,7 +476,7 @@ function renderLegend() {
   const el = $('#legend');
   const scale = (grad, nums, ticks = []) => h('div', { class: 'lg-scale' }, h('div', { class: 'lg-bar', style: { background: grad } }),
     ticks.map((p) => h('span', { class: 'lg-tick', style: { left: p + '%' } })),
-    nums.map(([p, t]) => h('span', { class: 'lg-num', style: { left: p + '%' } }, t)));
+    nums.map(([p, t]) => h('span', { class: 'lg-num' + (p >= 99 ? ' end' : p <= 1 ? ' start' : ''), style: { left: p + '%' } }, t)));
   if (m === 'pressure' || m === 'drop') {
     const max = 30, at = (p) => (p / max) * 100;
     el.replaceChildren(h('div', { class: 'lg-title' }, m === 'pressure' ? 'Mean venous pressure' : 'Pressure drop', h('small', {}, 'mmHg')),
@@ -485,9 +502,9 @@ function renderLegend() {
     el.replaceChildren(h('div', { class: 'lg-cats' }, h('span', {}, h('i', { style: { background: 'var(--flow-normal)' } }), 'Physiological'), h('span', {}, h('i', { style: { background: 'var(--flow-reversed)' } }), 'Reversed')));
     el.setAttribute('aria-label', 'Legend: teal is physiological flow direction, orange is reversed');
   } else if (m === 'origin') {
-    // Dots, and on a narrow screen the short names (SMV, IMV, SV, HA, Sys), so the five fit.
-    el.replaceChildren(h('div', { class: 'lg-cats lg-dots' }, ...ORIGINS.map(([, title, short], i) => h('span', { title }, h('i', { style: { background: ORIGIN_CSS[i] } }), h('b', { class: 'lg-long' }, title), h('b', { class: 'lg-short' }, short)))));
-    el.setAttribute('aria-label', 'Legend: blood colored by where it comes from, as streams side by side: amber SMV (with the coronary vein), teal IMV, violet splenic vein, crimson hepatic artery, slate blue systemic');
+    // Dots and the short names (SMV, IMV, SV, Sys, HA), so the key always fits in the top bar.
+    el.replaceChildren(h('div', { class: 'lg-cats lg-dots' }, ...[0, 1, 2, 4, 3].map((i) => h('span', { title: ORIGINS[i][3] }, h('i', { style: { background: ORIGIN_CSS[i] } }), h('b', {}, ORIGINS[i][2])))));
+    el.setAttribute('aria-label', 'Legend: blood colored by where it comes from, as streams side by side: amber SMV (with the coronary vein), teal IMV, violet SV (splenic vein), slate blue Sys (systemic), crimson HA (hepatic artery)');
   } else if (m === 'neutral') {
     el.replaceChildren(h('div', { class: 'lg-cats' }, h('span', {}, h('i', { style: { background: 'var(--vein-portal)' } }), 'Portal veins'), h('span', {}, h('i', { style: { background: 'var(--vein-systemic)' } }), 'Systemic veins'),
       h('span', { class: 'lg-note' }, svgIcon('info'), 'Pressures unmeasured')));
@@ -501,11 +518,11 @@ function renderLegend() {
 }
 const st = () => store.get();
 // ── Moving blood ─────────────────────────────────────
-// The heartbeat (the model's pulsatile mode) runs while a waveform instrument is open, or while
-// the blood is shown breathing and beating.
-let dockBeat = false, beatSent = null;
+// The heartbeat (the model's pulsatile mode) always runs, so the Over time trace is beat to beat
+// from the first moment rather than smooth until a waveform instrument opens.
+let beatSent = null;
 function sendBeat() {
-  const on = dockBeat || !!store.get().blood?.phasic;
+  const on = true;
   if (on !== beatSent) { beatSent = on; host.send({ type: 'beat', on }); }
 }
 const setBlood = (patch) => store.set({ blood: { ...store.get().blood, ...patch } });
@@ -521,24 +538,36 @@ function injectDye({ hold = false } = {}) {
   const name = sel?.type === 'edge' ? (EDGES.find((e) => e.id === sel.id)?.label || 'the vessel') : 'the gut\u2019s veins';
   toast(`Injecting dye into ${name}`);
 }
+// A row of a Blood or Layers menu: an icon, a name, a line under it, and a checkbox.
+function menuToggle(checked, ic, label, sub, onChange) {
+  const c = h('input', { type: 'checkbox', checked });
+  c.addEventListener('change', () => onChange(c.checked));
+  return h('label', { class: 'menu-item blood-opt' }, c, svgIcon(ic, 'bo-ic'), h('span', {}, label, sub ? h('small', {}, sub) : null));
+}
 function openBlood(anchor) {
   const st = store.get(), b = st.blood || {};
   const flowOn = st.layers.flow !== false;
-  const toggle = (checked, label, sub, onChange) => {
-    const c = h('input', { type: 'checkbox', checked });
-    c.addEventListener('change', () => onChange(c.checked));
-    return h('label', { class: 'menu-item blood-opt' }, c, h('span', {}, label, sub ? h('small', {}, sub) : null));
-  };
-  const layer = (key, label, sub) => toggle(st.layers[key] !== false, label, sub, (on) => store.set({ layers: { ...store.get().layers, [key]: on } }));
+  const toggle = menuToggle;
+  const layer = (key, ic, label, sub) => toggle(st.layers[key] !== false, ic, label, sub, (on) => store.set({ layers: { ...store.get().layers, [key]: on } }));
   popover(anchor, [
     h('div', { class: 'menu-title' }, 'Moving blood'),
-    toggle(flowOn, 'Streaks', 'Silky streaks carried by the flow', (on) => { store.set({ layers: { ...store.get().layers, flow: on } }); syncBloodBtn(); }),
-    toggle(!!b.chevrons, 'Chevrons', 'Arrowheads moving with the flow; orange where it runs backwards', (on) => setBlood({ chevrons: on })),
+    toggle(flowOn, 'streaks', 'Streaks', 'Silky streaks carried by the flow', (on) => { store.set({ layers: { ...store.get().layers, flow: on } }); syncBloodBtn(); }),
+    toggle(!!b.chevrons, 'chevrons', 'Chevrons', 'Arrowheads moving with the flow; orange where it runs backwards', (on) => setBlood({ chevrons: on })),
     h('div', { class: 'menu-sep' }),
     h('div', { class: 'menu-title' }, 'Show on the figure'),
-    layer('chips', 'Pressure values', 'The number beside each vessel\u2019s name'),
-    layer('collaterals', 'Potential collaterals', 'Dotted routes that open as pressure rises'),
-    layer('labels', 'Organ names'),
+    layer('chips', 'tag', 'Pressure values', 'The number beside each vessel\u2019s name'),
+    layer('collaterals', 'route', 'Potential collaterals', 'Dotted routes that open as pressure rises'),
+    layer('labels', 'liver', 'Organ names'),
+  ], { cls: 'blood-pop' });
+}
+// The Lobule view's layers, in the same kind of menu: the zone bands and the lymph.
+function openLobuleLayers(anchor) {
+  const l = store.get().lobuleLayers || {};
+  const set = (patch) => store.set({ lobuleLayers: { ...store.get().lobuleLayers, ...patch } });
+  popover(anchor, [
+    h('div', { class: 'menu-title' }, 'Show on the lobule'),
+    menuToggle(!!l.zones, 'zones', 'Zones', 'Rappaport zones: 1 periportal (oxygen-rich) to 3 centrilobular', (on) => set({ zones: on })),
+    menuToggle(!!l.lymph, 'lymph', 'Lymph', 'Lymph forming in the space of Disse and draining to the portal tract', (on) => set({ lymph: on })),
   ], { cls: 'blood-pop' });
 }
 function openLayers(anchor) {
@@ -574,18 +603,26 @@ function updateBleedBanner(f) {
 function hoverInfo(info) {
   const f = store.get().frame;
   const tool = store.get().tool;
-  if (!info || !f || tool !== 'select' || store.get().shunting || isPhone() || store.get().imaging) { tipEl.style.display = 'none'; return; }
+  // A long press (info.peek) shows the readings on any screen, above the finger; hovering only where there is a pointer.
+  if (!info || !f || tool !== 'select' || store.get().shunting || (isPhone() && !info.peek) || store.get().imaging) { tipEl.style.display = 'none'; tipEl.classList.remove('peek'); return; }
   const e = EDGES[EI[info.id]], k = EI[info.id];
   const D = Math.max(0.5, f.D[k]) / 10;
   const v = f.Q[k] / (Math.PI * D * D / 4);
   const r = (a, b) => h('div', { class: 'r' }, a, h('b', {}, b));
   tipEl.replaceChildren(h('div', { class: 't' }, e.label),
     r('Pressure', `${fmt(f.P[NI[e.from]], 1)} → ${fmt(f.P[NI[e.to]], 1)} mmHg`), r('Flow', `${fmtFlow(f.Q[k] * 0.06)} L/min`),
-    r('Velocity', `${fmt(v, 1)} cm/s`), r('Diameter', `${fmt(f.D[k], 1)} mm`), h('div', { class: 'hint' }, 'Click for actions'));
+    r('Velocity', `${fmt(v, 1)} cm/s`), r('Diameter', `${fmt(f.D[k], 1)} mm`), h('div', { class: 'hint' }, info.peek ? 'Tap for actions' : 'Click or right-click for actions'));
   tipEl.style.display = '';
-  const W = view.clientWidth, H = view.clientHeight;
-  tipEl.style.left = Math.max(8, Math.min(W - 200, info.x + 16)) + 'px';
-  tipEl.style.top = Math.max(8, Math.min(H - tipEl.offsetHeight - 8, info.y + 16)) + 'px';
+  tipEl.classList.toggle('peek', !!info.peek);
+  const W = view.clientWidth, H = view.clientHeight, th = tipEl.offsetHeight, tw = tipEl.offsetWidth || 200;
+  if (info.peek) {
+    // Above the finger, so the finger doesn't hide it; below it only when there is no room above.
+    tipEl.style.left = Math.max(8, Math.min(W - tw - 8, info.x - tw / 2)) + 'px';
+    tipEl.style.top = (info.y - th - 44 >= 8 ? info.y - th - 44 : Math.min(H - th - 8, info.y + 44)) + 'px';
+    return;
+  }
+  tipEl.style.left = Math.max(8, Math.min(W - tw - 8, info.x + 16)) + 'px';
+  tipEl.style.top = Math.max(8, Math.min(H - th - 8, info.y + 16)) + 'px';
 }
 
 // The figure header carries the Then / Now / Change switch when a moment is pinned; a lesson or
@@ -605,6 +642,8 @@ function renderBanner() {
     })));
   }
   el.replaceChildren(...kids);
+  // The switch's height, for views that place their own controls under it (the lobule's).
+  app.style.setProperty('--cmp-h', s0.compareSnap ? `${$('#stageCenter').offsetHeight + 8}px` : '0px');
   const bar = $('#sessionBar');
   const inSession = bannerInfo && (s0.mode === 'learn' || s0.mode === 'cases');
   bar.hidden = !inSession;
@@ -746,6 +785,17 @@ function readLS(k) { try { return localStorage.getItem(k); } catch { return null
 // The chart is a card floating over the right of the figure (a bottom sheet on a phone), opened
 // from Findings, by a lesson or a case, or by a vessel's Details. It starts closed: the figure
 // has the screen until something is asked for.
+// Findings, Treat and Measure close the same way: the card plays its way out (CSS .card-leaving)
+// while the layout already treats it as closed.
+function leave(el) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  el.classList.remove('card-leaving'); void el.offsetWidth;
+  el.classList.add('card-leaving');
+  const done = (e) => { if (e && e.target !== el) return; el.classList.remove('card-leaving'); el.removeEventListener('animationend', done); };
+  el.addEventListener('animationend', done);
+  setTimeout(done, 400);
+}
+const arrive = (el) => el.classList.remove('card-leaving');
 function panelShown() { return !app.classList.contains('instrument-focus') && app.classList.contains('panel-open'); }
 function syncPanelToggle() {
   const on = panelShown();
@@ -759,15 +809,17 @@ function openPanel(tab = 'chart') {
   if (app.classList.contains('instrument-focus')) dock.setState('open');
   // A phone has room for one sheet at a time: the chart puts Treat and the instruments away.
   if (isPhone()) { closeTreat(); if (app.classList.contains('dock-open')) setPanelTab('chart'); }
+  arrive($('#panel'));
   app.classList.add('panel-open');
   panelSheet?.open();
   syncPanelToggle();
 }
-function closePanel() { app.classList.remove('panel-open'); panelSheet?.closed(); syncPanelToggle(); }
+function closePanel() { if (panelShown()) leave($('#panel')); app.classList.remove('panel-open'); panelSheet?.closed(); syncPanelToggle(); }
 function setPanelTab(tab) {
   const instr = tab === 'instruments';
   if (instr) dock.ensure();
   const was = app.classList.contains('dock-open');
+  if (instr) arrive($('#dock')); else if (was && !app.classList.contains('instrument-focus')) leave($('#dock'));
   app.classList.toggle('dock-open', instr);
   $('#tabInstruments').setAttribute('aria-pressed', String(instr));
   if (instr) $('#tabInstruments').classList.remove('ping');
@@ -799,11 +851,20 @@ function wireFloating() {
     const vd = $('#vdock'), vdock = vd.offsetHeight ? Math.max(vd.offsetHeight, $('#stageView').getBoundingClientRect().bottom - vd.getBoundingClientRect().top - gap) : 0, wide = !isPhone();
     // The top bar keeps one row when everything fits at its natural width (with a little to spare,
     // so it does not flip back and forth), else the view and legend move to a second row.
+    // Off a phone the bar first compacts step by step (data-fit 1-3: shorter patient name, icon-only
+    // buttons), so the view and the lens stay on the one row; two rows only if even that fails.
     const tb = $('#topbar'), cs = getComputedStyle(tb);
-    const need = $('.tb-id').scrollWidth + $('#viewSeg').offsetWidth + $('.topbar .sb-right').offsetWidth + $('.top-right').scrollWidth + 6 * 8 + 16;
+    const need = () => $('.tb-id').scrollWidth + $('#viewSeg').offsetWidth + $('.topbar .sb-right').offsetWidth + $('.top-right').scrollWidth + 6 * 8 + 16;
     const avail = tb.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-    const two = tb.classList.contains('two-rows') ? need > avail - 24 : need > avail;
-    if (two !== tb.classList.contains('two-rows')) tb.classList.toggle('two-rows', two);
+    const was = +(tb.dataset.fit || 0) + (tb.classList.contains('two-rows') ? 1 : 0);
+    tb.classList.remove('two-rows');
+    let fit = 0;
+    const steps = wide ? 3 : 0;
+    for (; fit <= steps; fit++) {
+      tb.dataset.fit = String(fit);
+      if (need() <= avail - (fit < was ? 24 : 0)) break;
+    }
+    if (fit > steps) { tb.dataset.fit = String(steps); tb.classList.add('two-rows'); }
     app.style.setProperty('--top-safe', px($('#topbar').offsetHeight));
     app.style.setProperty('--vdock-h', px(vdock));
     app.style.setProperty('--vdock-top', px(vd.offsetHeight ? $('#stageView').getBoundingClientRect().bottom - vd.getBoundingClientRect().top : 0));
@@ -833,10 +894,11 @@ function wireFloating() {
   // Focus: dragging, pinching or scrolling the figure fades the floating pieces until it stops.
   let busyT = 0, down = null;
   const busy = (ms) => { app.classList.add('stage-busy'); clearTimeout(busyT); busyT = setTimeout(() => app.classList.remove('stage-busy'), ms); };
-  view.addEventListener('pointerdown', (e) => { down = [e.clientX, e.clientY]; });
+  // Only the figure itself: a swipe on a card (or one from the phone's edge) leaves the rest alone.
+  view.addEventListener('pointerdown', (e) => { down = systemEdge(e) || e.target.closest?.('.stage-blocker, .zoom-pill, button, input, select') ? null : [e.clientX, e.clientY]; });
   view.addEventListener('pointermove', (e) => { if (down && e.buttons && Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 8) busy(5000); });
   addEventListener('pointerup', () => { if (down) { down = null; if (app.classList.contains('stage-busy')) busy(600); } });
-  addEventListener('pointercancel', () => { down = null; busy(300); });
+  addEventListener('pointercancel', () => { if (down) { down = null; busy(300); } });
   view.addEventListener('wheel', () => busy(800), { passive: true });
   // A tap outside the Treat card (but not on its button) puts it away, as a menu would be.
   addEventListener('pointerdown', (e) => {
@@ -910,16 +972,17 @@ function openTreat() {
   if (isPhone()) { closePanel(); if (app.classList.contains('dock-open')) setPanelTab('chart'); }
   closePopover();
   const sync = [];
-  const count = h('span', { class: 'tc-active' });
+  const count = h('span', { class: 'card-meta' });
   const paintCount = () => { const n = chart.treatCount(store.get().params); count.textContent = n ? `${n} running` : ''; };
   sync.push(paintCount);
   const body = h('div', { class: 'tc-body' }, chart.treatBody(sync, () => { if (isPhone()) closeTreat(); }));
   const grab = el.querySelector('.sheet-grab');
-  el.replaceChildren(...[grab, h('div', { class: 'tc-head' }, h('h2', {}, svgIcon('pill'), 'Treat'), count,
-    h('button', { class: 'ib', 'aria-label': 'Close Treat', title: 'Close (Esc)', onclick: () => closeTreat() }, icon('close'))), body].filter(Boolean));
+  el.replaceChildren(...[grab, h('div', { class: 'tc-head card-head' }, h('h2', { class: 'card-title' }, svgIcon('pill'), h('span', {}, 'Treat')), count,
+    h('button', { class: 'ib card-close', 'aria-label': 'Close Treat', title: 'Close (Esc)', onclick: () => closeTreat() }, icon('close'))), body].filter(Boolean));
   paintCount();
   treatOff?.();
   treatOff = store.on('params', () => { for (const fn of sync) fn(); });
+  arrive(el);
   el.hidden = false;
   treatSheet?.open();
   $('#btnTreat').setAttribute('aria-expanded', 'true');
@@ -928,6 +991,7 @@ function openTreat() {
 function closeTreat() {
   const el = $('#treatCard');
   if (el.hidden) return;
+  leave(el);
   el.hidden = true;
   treatOff?.(); treatOff = null;
   treatSheet?.closed();

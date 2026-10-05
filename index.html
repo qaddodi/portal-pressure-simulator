@@ -18,10 +18,24 @@
   <meta name="apple-mobile-web-app-title" content="Portal Sim" />
   <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="fonts/fonts.css" />
-  <link rel="stylesheet" href="styles/tokens.css?v=5f662a1795" />
-  <link rel="stylesheet" href="styles/app.css?v=72e663f444" />
+  <link rel="stylesheet" href="styles/tokens.css?v=96d9ac961c" />
+  <link rel="stylesheet" href="styles/app.css?v=7a6d0632de" />
+  <style>
+    #boot { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; height: 100lvh; z-index: 2147483647; display: grid; place-items: center; background: var(--bg, #FBFAF7); transition: opacity .45s ease, visibility .45s; }
+    #boot.done { opacity: 0; visibility: hidden; pointer-events: none; }
+    #boot .boot-in { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+    #boot svg { width: 64px; height: 64px; animation: boot-pulse 1.6s ease-in-out infinite; }
+    #boot .boot-name { font: 600 var(--fs-14, 14px) var(--font-ui, system-ui, sans-serif); letter-spacing: .02em; color: var(--text-2, #555); }
+    #boot .boot-bar { width: 140px; height: 3px; border-radius: 3px; overflow: hidden; background: var(--hairline, rgba(0,0,0,.08)); }
+    #boot .boot-bar i { display: block; width: 40%; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #4FA9D6, #7A86E0, #D2448A); animation: boot-slide 1.2s ease-in-out infinite; }
+    @keyframes boot-pulse { 50% { transform: scale(.92); opacity: .75; } }
+    @keyframes boot-slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+    @media (prefers-reduced-motion: reduce) { #boot svg, #boot .boot-bar i { animation: none; } }
+  </style>
 </head>
 <body>
+  <div id="boot" role="status" aria-live="polite"><div class="boot-in"><svg aria-hidden="true"><image href="brand/mark.svg" width="64" height="64"/></svg><div class="boot-name">Portal Pressure Simulator</div><div class="boot-bar"><i></i></div><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Loading…</span></div></div>
+  <script>(function(){var MIN=1600;function hide(){var b=document.getElementById('boot');if(!b)return;b.classList.add('done');setTimeout(function(){b.remove()},600)}function ready(){var hm=document.getElementById('home');return window.ppsFigureReady||(hm&&!hm.hidden&&hm.querySelector('.home-inner'))}function wait(){if(ready())setTimeout(hide,Math.max(0,MIN-performance.now()));else requestAnimationFrame(wait)}addEventListener('load',function(){requestAnimationFrame(wait)});setTimeout(hide,15000)})();</script>
   <!-- Icon set: 24px grid, 1.6px stroke, round caps (blueprint §5.6). -->
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
     <defs>
@@ -93,7 +107,7 @@
       <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></symbol>
       <symbol id="i-print" viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7" rx="1"/></symbol>
       <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
-      <symbol id="i-activity" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+      <symbol id="i-activity" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol><symbol id="i-streaks" viewBox="0 0 24 24"><path d="M3 7.5c3-2 6 2 9 0s6-2 9 0M3 12.5c3-2 6 2 9 0s6-2 9 0M3 17.5c3-2 6 2 9 0s6-2 9 0"/></symbol><symbol id="i-chevrons" viewBox="0 0 24 24"><path d="M5 6l6 6-6 6M13 6l6 6-6 6"/></symbol><symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12.2V4a1 1 0 0 1 1-1h8.2a1 1 0 0 1 .7.3l8 8a1 1 0 0 1 0 1.4l-8.2 8.2a1 1 0 0 1-1.4 0l-8-8a1 1 0 0 1-.3-.7z"/><circle cx="7.5" cy="7.5" r="1.5"/></symbol><symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3 2.5 8 12 13l9.5-5z"/><path d="M2.5 12.2 12 17.2l9.5-5M2.5 16.4 12 21.4l9.5-5"/></symbol><symbol id="i-zones" viewBox="0 0 24 24"><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z"/><path d="M12 8 16 10.2v3.6L12 16l-4-2.2v-3.6z"/></symbol><symbol id="i-lymph" viewBox="0 0 24 24"><path d="M12 3c2.7 3.3 5 5.8 5 8.8a5 5 0 0 1-10 0C7 8.8 9.3 6.3 12 3z"/><path d="M4 20.5c2.700-1.400 5.300 1.400 8 0s5.300-1.400 8 0"/></symbol><symbol id="i-route" viewBox="0 0 24 24"><path d="M6.5 18.5C13 18.5 9 5.5 17.5 5.5" stroke-dasharray="2.2 2.6"/><circle cx="4.5" cy="18.5" r="2.2"/><circle cx="19.5" cy="5.5" r="2.2"/></symbol>
     </defs>
   </svg>
 
@@ -122,12 +136,13 @@
           </div>
         </div>
         <div class="sb-right">
+          <button class="chip-btn" id="btnLobuleLayers" aria-haspopup="menu" title="Layers: what to show on the lobule" hidden><svg><use href="#i-layers"/></svg><span>Layers</span><svg class="chev"><use href="#i-chev-down"/></svg></button>
           <button class="chip-btn" id="btnBlood" aria-haspopup="menu" title="Moving blood: streaks and chevrons"><svg><use href="#i-drop"/></svg><span>Blood</span><svg class="chev"><use href="#i-chev-down"/></svg></button>
           <div class="lens-btn" id="btnLayers" role="button" tabindex="0" aria-haspopup="dialog" title="Color the vessels by… (L cycles)"><span class="lens-name" id="colorModeLabel">Pressure</span><div class="legend" id="legend" role="img" aria-label="Color legend"></div><svg class="chev"><use href="#i-chev-down"/></svg></div>
         </div>
       </div>
       <div class="top-right float-pill">
-        <button class="find-badge" id="btnInspector" aria-pressed="false" aria-haspopup="dialog" aria-controls="panel" title="Patient chart: findings, story and details"><svg><use href="#i-activity"/></svg><span class="fb-l">Findings</span><span class="fb-n" id="findBadge" data-sev="ok"><svg><use href="#i-check"/></svg></span></button>
+        <button class="find-badge" id="btnInspector" aria-pressed="false" aria-haspopup="dialog" aria-controls="panel" title="Patient chart: what is abnormal and why"><svg><use href="#i-activity"/></svg><span class="fb-l">Findings</span><span class="fb-n" id="findBadge" data-sev="ok"><svg><use href="#i-check"/></svg></span></button>
         <button class="tb-act" id="btnTreat" aria-haspopup="dialog" aria-expanded="false" aria-controls="treatCard" title="Treat: drugs, fluids and procedures (T)"><svg><use href="#i-pill"/></svg><span>Treat</span></button>
         <button class="measure-launch tb-act" id="tabInstruments" aria-pressed="false" aria-controls="dock" title="Open instrument workspace (I)"><svg><use href="#i-gauge"/></svg><span data-i18n="tabs.instruments">Measure</span></button>
         <span class="tb-sep" aria-hidden="true"></span>
@@ -141,7 +156,7 @@
         <svg id="labels" aria-label="Pressure labels"></svg>
         <div id="overlay"></div>
         <div class="tool-card stage-blocker" id="toolHint" role="status" hidden></div>
-        <div class="zoom-pill float-ui" id="zoomPill" role="group" aria-label="Zoom">
+        <div class="zoom-pill float-ui stage-blocker" id="zoomPill" role="group" aria-label="Zoom">
           <button class="ib" id="zoomIn" aria-label="Zoom in" title="Zoom in (or scroll / pinch)"><svg><use href="#i-plus"/></svg></button>
           <button class="ib" id="zoomOut" aria-label="Zoom out" title="Zoom out"><svg><use href="#i-minus"/></svg></button>
           <button class="ib stage-fit" id="zoomFit" aria-label="Fit the figure to the view" title="Fit (drag to pan)"><svg><use href="#i-fit"/></svg></button>
@@ -151,7 +166,7 @@
       <div class="sb-center float-ui stage-blocker" id="stageCenter" data-safe="top"><div class="sb-banner" id="stageBanner"></div></div>
       <div class="coach float-ui stage-blocker" id="coach" aria-live="polite" data-safe="top"></div>
       <div class="vdock float-ui stage-blocker" id="vdock" data-safe="bottom">
-        <span class="bleed-pill" id="bleedPill" role="status" hidden></span>
+        <div class="vd-status" id="vdStatus"><span class="bleed-pill" id="bleedPill" role="status" hidden></span></div>
         <div class="stage-bar bottom" id="stageBottom">
           <div class="timeline" id="timeline" role="group" aria-label="Timeline"></div>
         </div>
@@ -164,11 +179,11 @@
     </main>
 
     <div class="panel-scrim" id="panelScrim" aria-hidden="true"></div>
-    <aside class="panel float-ui stage-blocker" id="panel" aria-label="Patient chart" data-safe="right">
+    <aside class="panel float-ui stage-blocker" id="panel" aria-label="Findings" data-safe="right">
       <div class="lesson-rail" id="panelLesson" aria-label="Lesson"></div>
-      <div class="panel-tabs panel-head">
-        <h2 class="ph-title" id="panelTitle"><span class="ph-k" data-i18n="tabs.chart">Patient</span><span class="ph-name" id="panelName">Healthy</span></h2>
-        <button class="ib panel-close" id="panelClose" aria-label="Close the patient chart" title="Close"><svg><use href="#i-close"/></svg></button>
+      <div class="panel-head card-head">
+        <h2 class="card-title" id="panelTitle"><svg><use href="#i-activity"/></svg><span>Findings</span></h2>
+        <button class="ib card-close" id="panelClose" aria-label="Close Findings" title="Close (Esc)"><svg><use href="#i-close"/></svg></button>
       </div>
       <div class="panel-page" id="panelChart" role="region" aria-labelledby="panelTitle">
         <div id="panelCase"></div>
@@ -185,17 +200,17 @@
   <div class="toast-wrap" id="toasts"></div>
   <div class="sr-only" aria-live="polite" id="live"></div>
 
-  <link rel="modulepreload" href="src/ui/stage.js?v=b0c83d2014" />
-  <link rel="modulepreload" href="src/ui/anatomy.js?v=b3ecbae45c" />
-  <link rel="modulepreload" href="src/ui/util.js?v=fe164f31f1" />
-  <link rel="modulepreload" href="src/ui/store.js?v=f9424489c6" />
+  <link rel="modulepreload" href="src/ui/stage.js?v=71de0d714c" />
+  <link rel="modulepreload" href="src/ui/anatomy.js?v=c4953196b7" />
+  <link rel="modulepreload" href="src/ui/util.js?v=831ebf143a" />
+  <link rel="modulepreload" href="src/ui/store.js?v=23552bd900" />
   <link rel="modulepreload" href="src/ui/colormap.js?v=6d64a94345" />
-  <link rel="modulepreload" href="src/ui/inspector.js?v=208b6a3592" />
-  <link rel="modulepreload" href="src/ui/dock.js?v=24f309245b" />
-  <link rel="modulepreload" href="src/ui/charts.js?v=2ba1f3a5ed" />
-  <link rel="modulepreload" href="src/ui/instruments.js?v=b9ff7e0e9d" />
-  <link rel="modulepreload" href="src/ui/timeline.js?v=7bf66ab2fb" />
+  <link rel="modulepreload" href="src/ui/inspector.js?v=16c4f8a329" />
+  <link rel="modulepreload" href="src/ui/dock.js?v=9e9eca76ac" />
+  <link rel="modulepreload" href="src/ui/charts.js?v=336dccf20d" />
+  <link rel="modulepreload" href="src/ui/instruments.js?v=eff43259c9" />
+  <link rel="modulepreload" href="src/ui/timeline.js?v=470ced89d1" />
   <link rel="modulepreload" href="src/engine/topology.js?v=29d10ad9ef" />
-  <script type="module" src="src/ui/main.js?v=86e4e82522"></script>
+  <script type="module" src="src/ui/main.js?v=dd71770850"></script>
 </body>
 </html>

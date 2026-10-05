@@ -5,21 +5,21 @@
 // per day). Changes the learner makes and threshold events are marked where they happened, and
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
-import { store } from './store.js?v=f9424489c6';
-import { h, fmt, fitCanvas, cssVar, clamp } from './util.js?v=fe164f31f1';
-import { FONT } from './charts.js?v=2ba1f3a5ed';
+import { store } from './store.js?v=23552bd900';
+import { h, fmt, fitCanvas, cssVar, clamp } from './util.js?v=831ebf143a';
+import { FONT } from './charts.js?v=336dccf20d';
 
 // hide: the readout a case can keep unmeasured (store.hiddenReadouts); day: the value on the
 // disease clock (null where the model keeps no daily value).
 const TRACES = [
-  { id: 'CONF', label: 'Portal vein', short: 'Portal', c: '--tr-pv', hide: 'pv', on: true, day: (m) => m.pv },
-  { id: 'whvp', label: 'Wedged hepatic (WHVP)', short: 'Wedged', c: '--tr-wedge', hide: 'trueHVPG', on: true, day: (m) => m.whvp },
-  { id: 'RHV', label: 'Free hepatic (FHVP)', short: 'Free', c: '--tr-hv', hide: 'trueHVPG', on: true, day: (m) => m.fhvp },
-  { id: 'RA', label: 'Right atrium', short: 'RA', c: '--tr-ra', hide: 'ra', on: false, day: (m) => m.ra },
-  { id: 'IVCS', label: 'IVC', short: 'IVC', c: '--tr-ivc', hide: 'ra', on: false, day: (m) => m.ivc },
-  { id: 'VAR', label: 'Esophageal varix', short: 'Varix', c: '--tr-var', hide: 'pv', on: false, day: null },
-  { id: 'SV', label: 'Splenic vein', short: 'Splenic', c: '--tr-sv', hide: 'pv', on: false, day: (m) => m.sv },
-  { id: 'SMV', label: 'Superior mesenteric vein', short: 'SMV', c: '--tr-smv', hide: 'pv', on: false, day: null },
+  { id: 'CONF', label: 'Portal vein', abbr: 'PV', short: 'Portal', c: '--tr-pv', hide: 'pv', on: true, day: (m) => m.pv },
+  { id: 'whvp', label: 'Wedged hepatic (WHVP)', abbr: 'WHVP', short: 'Wedged', c: '--tr-wedge', hide: 'trueHVPG', on: true, day: (m) => m.whvp },
+  { id: 'RHV', label: 'Free hepatic (FHVP)', abbr: 'FHVP', short: 'Free', c: '--tr-hv', hide: 'trueHVPG', on: true, day: (m) => m.fhvp },
+  { id: 'RA', label: 'Right atrium', abbr: 'RA', short: 'RA', c: '--tr-ra', hide: 'ra', on: false, day: (m) => m.ra },
+  { id: 'IVCS', label: 'IVC', abbr: 'IVC', short: 'IVC', c: '--tr-ivc', hide: 'ra', on: false, day: (m) => m.ivc },
+  { id: 'VAR', label: 'Esophageal varix', abbr: 'Varix', short: 'Varix', c: '--tr-var', hide: 'pv', on: false, day: null },
+  { id: 'SV', label: 'Splenic vein', abbr: 'SV', short: 'Splenic', c: '--tr-sv', hide: 'pv', on: false, day: (m) => m.sv },
+  { id: 'SMV', label: 'Superior mesenteric vein', abbr: 'SMV', short: 'SMV', c: '--tr-smv', hide: 'pv', on: false, day: null },
 ];
 const KEYS = [...TRACES.map((t) => t.id), 'hvpg'];
 const RANGES = [['beats', '10 s', 10], ['minutes', '2 min', 120], ['days', 'Days', null]];
@@ -43,7 +43,8 @@ export function createPressureTime({ marks = () => [] } = {}) {
   const box = h('div', { class: 'chart-box pt-box' }, cv);
   const chosen = new Set(TRACES.filter((t) => t.on).map((t) => t.id));
   const chips = h('div', { class: 'pt-chips', role: 'group', 'aria-label': 'Traces' }, TRACES.map((t) => {
-    const b = h('button', { class: 'pt-chip', 'data-trace': t.id, 'aria-pressed': String(chosen.has(t.id)), style: { '--chip': `var(${t.c})` } }, h('i'), t.label);
+    // Short names, so every chip fits; the full name is the tooltip and what a screen reader says.
+    const b = h('button', { class: 'pt-chip', 'data-trace': t.id, 'aria-pressed': String(chosen.has(t.id)), title: t.label, 'aria-label': t.label, style: { '--chip': `var(${t.c})` } }, h('i'), t.abbr);
     b.addEventListener('click', () => {
       if (chosen.has(t.id)) chosen.delete(t.id); else chosen.add(t.id);
       b.setAttribute('aria-pressed', String(chosen.has(t.id)));
@@ -177,7 +178,8 @@ export function createPressureTime({ marks = () => [] } = {}) {
     const showHvpg = !hidden.has('trueHVPG');
     const traces = TRACES.filter((t) => chosen.has(t.id) && !hidden.has(t.hide) && (range !== 'days' || t.day));
     const narrow = w < 460;
-    const L = 34, R = narrow ? 58 : 104, T = 30, B = 22, GAP = 16;
+    const L = 34, R = narrow ? 90 : 104, B = 22, GAP = 16;
+    let T = 30;
     const plotW = w - L - R;
 
     // x range
@@ -206,6 +208,9 @@ export function createPressureTime({ marks = () => [] } = {}) {
       return;
     }
 
+    // Marker labels stack in up to three rows, so each stays readable; the plot starts below them.
+    const markLayout = layoutMarkers(markers(x0, x1), X, L + plotW + R - 4);
+    T = Math.max(T, 24 + markLayout.rows * ROW);
     // lanes
     const avail = hh - T - B;
     const lanes = [];
@@ -313,7 +318,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
           if (s.lo) band(ctx, s, X, Y, c, 0.16);
           line(ctx, s, X, Y, c, t.id === 'CONF' ? 2 : 1.75, plotW);
           if (range === 'days' && s.x.length < 60) dots(ctx, s, X, Y, c, surface);
-          const e = recent(s); ends.push({ y: Y(e), v: e, label: t.short, c, lane });
+          const e = recent(s); ends.push({ y: Y(e), v: e, label: t.abbr, c, lane });
         }
       }
       ctx.restore();
@@ -325,30 +330,10 @@ export function createPressureTime({ marks = () => [] } = {}) {
       }
     }
 
-    ctx.font = FONT(500, 10); ctx.fillStyle = faint; ctx.textAlign = 'left'; ctx.fillText('mmHg', 4, 11);
+    ctx.font = FONT(500, 10); ctx.fillStyle = faint; ctx.textAlign = 'left'; ctx.fillText('mmHg', 4, T - 12);
 
     // markers: learner changes and events, where they happened
-    const ms = markers(x0, x1);
-    let lastLabelX = -Infinity;
-    const xs = ms.map((mk) => X(mk.x));
-    const allTop = lanes[0].top - 12, allBot = lanes[lanes.length - 1].bot;
-    ms.forEach((mk, i) => {
-      const xx = Math.round(xs[i]) + 0.5;
-      const c = mk.sev ? col(`--${mk.sev}`) : col('--accent');
-      ctx.strokeStyle = c; ctx.globalAlpha = 0.55; ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
-      ctx.beginPath(); ctx.moveTo(xx, allTop + 4); ctx.lineTo(xx, allBot); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
-      ctx.fillStyle = c; ctx.beginPath(); ctx.arc(xx, allTop, 3, 0, 7); ctx.fill();
-      // each label fits between its marker and the next one, or is left out
-      ctx.font = FONT(600, 10.5);
-      const lx = xx + 7;
-      const room = Math.min((xs[i + 1] ?? L + plotW + R) - lx - 10, L + plotW + R - lx - 4);
-      let lab = mk.label;
-      while (lab.length > 3 && ctx.measureText(lab).width > room) lab = lab.slice(0, -2).trimEnd() + '…';
-      if (lx > lastLabelX + 6 && ctx.measureText(lab).width <= room && lab.length > 3) {
-        ctx.fillStyle = muted; ctx.textAlign = 'left'; ctx.fillText(lab, lx, allTop + 4);
-        lastLabelX = lx + ctx.measureText(lab).width;
-      }
-    });
+    const allBot = drawMarkers(markLayout, lanes);
 
     // live values at the right edge, nudged apart where they would collide (per lane)
     for (const lane of lanes) {
@@ -363,7 +348,8 @@ export function createPressureTime({ marks = () => [] } = {}) {
         ctx.font = FONT(650, 12.5); ctx.fillStyle = text;
         const vt = fmt(e.v, 1);
         ctx.fillText(vt, L + plotW + 17, yy);
-        if (!narrow) { const vw = ctx.measureText(vt).width; ctx.font = FONT(500, 11); ctx.fillStyle = muted; ctx.fillText(e.label, L + plotW + 21 + vw, yy); }
+        // Each line is named at its end (PV, WHVP, FHVP, HVPG), on every screen.
+        const vw = ctx.measureText(vt).width; ctx.font = FONT(600, 11); ctx.fillStyle = e.c === text ? muted : e.c; ctx.fillText(e.label, L + plotW + 20 + vw, yy);
         ctx.textBaseline = 'alphabetic';
       }
     }
@@ -410,6 +396,63 @@ export function createPressureTime({ marks = () => [] } = {}) {
     }
   }
 
+  // Markers a few pixels apart (several changes made at once) share one dot and one label ("… +2").
+  // Each label takes the highest row where it clears the labels already placed, right of its dot or
+  // else left of it. Labels are drawn on a halo, so the dotted lines of other markers pass behind
+  // them. With no row free the marker keeps its line and a dot at the top of the plot, unlabelled.
+  const ROW = 13, MAX_ROWS = 4;
+  function layoutMarkers(ms, X, right) {
+    const ctx = cv.getContext('2d');
+    ctx.font = FONT(600, 10.5);
+    const groups = [];
+    for (const mk of ms) {
+      const xx = Math.round(X(mk.x)) + 0.5, g = groups[groups.length - 1];
+      if (g && xx - g.xx < 6) { g.n++; if (!g.sev && mk.sev) g.sev = mk.sev; continue; }
+      groups.push({ xx, label: mk.label, sev: mk.sev, n: 1, row: -1, text: '' });
+    }
+    const spans = [];   // placed labels: { x0, x1, row }
+    const maxW = Math.min(170, (right - 40) * 0.6);
+    for (const g of groups) {
+      let lab = g.label ? g.label + (g.n > 1 ? ` +${g.n - 1}` : '') : g.n > 1 ? `${g.n} changes` : '';
+      while (lab.length > 4 && ctx.measureText(lab).width > maxW) lab = lab.slice(0, -2).trimEnd() + '…';
+      if (!lab) continue;
+      const tw = ctx.measureText(lab).width;
+      place: for (let r = 0; r < MAX_ROWS; r++) for (const toRight of [true, false]) {
+        const x0 = toRight ? g.xx - 4 : g.xx - 11 - tw, x1 = toRight ? g.xx + 7 + tw : g.xx + 4;
+        if (x1 > right || x0 < 2) continue;
+        if (spans.some((sp) => sp.row === r && x0 < sp.x1 + 8 && x1 > sp.x0 - 8)) continue;
+        g.row = r; g.text = lab; g.toRight = toRight;
+        spans.push({ x0, x1, row: r });
+        break place;
+      }
+    }
+    const rows = Math.max(groups.length ? 1 : 0, ...groups.map((g) => g.row + 1));
+    return { groups, rows };
+  }
+  function drawMarkers({ groups }, lanes) {
+    const ctx = cv.getContext('2d');
+    const top = lanes[0].top, allBot = lanes[lanes.length - 1].bot;
+    const muted = cssVar('--text-2'), halo = cssVar('--surface');
+    const colOf = (g) => cssVar(g.sev ? `--${g.sev}` : '--accent');
+    const yOf = (g) => (g.row >= 0 ? 8 + g.row * ROW : top - 8);
+    for (const g of groups) {
+      ctx.strokeStyle = colOf(g); ctx.globalAlpha = 0.55; ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
+      ctx.beginPath(); ctx.moveTo(g.xx, yOf(g) + 4); ctx.lineTo(g.xx, allBot); ctx.stroke();
+    }
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
+    ctx.font = FONT(600, 10.5); ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+    for (const g of groups) {
+      const y = yOf(g);
+      ctx.fillStyle = colOf(g); ctx.beginPath(); ctx.arc(g.xx, y, 3, 0, 7); ctx.fill();
+      if (!g.text) continue;
+      ctx.textAlign = g.toRight ? 'left' : 'right';
+      const tx = g.toRight ? g.xx + 7 : g.xx - 7;
+      ctx.strokeStyle = halo; ctx.lineWidth = 4; ctx.strokeText(g.text, tx, y + 0.5);
+      ctx.fillStyle = muted; ctx.fillText(g.text, tx, y + 0.5);
+    }
+    ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left'; ctx.lineWidth = 1;
+    return allBot;
+  }
   function markers(x0, x1) {
     const out = [];
     for (const e of marks()) {
@@ -464,7 +507,9 @@ export function createPressureTime({ marks = () => [] } = {}) {
   function update(f) { ingest(f); redraw(); }
   function redraw() { if (!frame) return; updateHero(); draw(); }
   store.on('hiddenReadouts', () => { yr.pressure = yr.hvpg = null; });
-  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw };
+  // A new patient (or the same one restarted) starts with empty traces.
+  function clear() { clearHemo(); days = []; redraw(); }
+  return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear };
 }
 
 // Thin a series to about two points per pixel column (a pulsatile trace has thousands of samples).

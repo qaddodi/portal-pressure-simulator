@@ -2,13 +2,13 @@
 // chart, so every command lands in the timeline like any other change. A number in the query is
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
-import { store, updateParams } from './store.js?v=f9424489c6';
-import { h, svgIcon, toast } from './util.js?v=fe164f31f1';
+import { store, updateParams } from './store.js?v=23552bd900';
+import { h, svgIcon, toast } from './util.js?v=831ebf143a';
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
-import { DRUGS } from '../engine/scenario.js?v=8fc90f782f';
-import { HIDDEN_EDGES } from './anatomy.js?v=b3ecbae45c';
-import { LESSONS } from './learn.js?v=4dc71233b5';
-import { CASES } from './cases.js?v=06529aed46';
+import { DRUGS } from '../engine/scenario.js?v=304cd180db';
+import { HIDDEN_EDGES } from './anatomy.js?v=c4953196b7';
+import { LESSONS } from './learn.js?v=0c9a4ef0d8';
+import { CASES } from './cases.js?v=0846edf742';
 
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9+ ]/g, ' ');
 
@@ -63,7 +63,7 @@ export function createPalette({ ctx }) {
     add('View', 'Measure', () => ctx.instruments(), { kw: 'instruments charts dock' });
     // Go to a structure
     for (const e of EDGES) if (!HIDDEN_EDGES.has(e.id) && e.kind !== 'wedge' && e.kind !== 'shunt' && e.label) add('Go to', e.label, () => ctx.select({ type: 'edge', id: e.id }), { kw: 'select vessel' });
-    for (const [id, t] of [['liver', 'Liver'], ['heart', 'Right heart'], ['varices', 'Esophageal varices'], ['gastric', 'Fundal varices'], ['spleen', 'Spleen'], ['abdomen', 'Abdomen & ascites']]) add('Go to', t, () => ctx.select({ type: 'organ', id }), { kw: 'organ select' });
+    for (const [id, t] of [['liver', 'Liver'], ['heart', 'Right heart'], ['varices', 'Esophageal varices'], ['gastric', 'Fundal varices'], ['spleen', 'Spleen'], ['abdomen', 'Ascites']]) add('Go to', t, () => ctx.select({ type: 'organ', id }), { kw: 'organ select' });
     // Sessions and scenarios
     for (const p of st.presetList || []) add('Patient', p.label, () => ctx.loadPreset(p.id), { kw: `scenario preset ${p.group}` });
     for (const l of LESSONS) add('Lesson', l.title, () => ctx.lesson(l.id), { kw: 'learn ' + l.summary });

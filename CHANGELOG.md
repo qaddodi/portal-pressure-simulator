@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+- **No bleeding by default.** Varices still grow, but they only rupture on their own when *Variceal
+  bleeding* is switched on (Simulation settings). The bleeding case still starts with its bleed.
+- **Gestures.** A trackpad's two-finger scroll pans and its pinch zooms; a mouse wheel zooms. A flick keeps the
+  figure gliding; past the zoom limits, or panned off screen, it springs back. Double click zooms in (Shift: out), a long
+  press on a vessel shows its readings, right-click opens its card.
+- **Sliders.** A finger anywhere on a track moves the thumb (iOS); Shift + arrows step ×10; the wheel adjusts a
+  focused slider; double click resets it.
+- **Cards.** A vessel's card sits beside the figure rather than on it, with a leader line; on an iPad it is a side
+  panel; on a phone the sheet has a third, full height. Card values match the labels and readouts.
+- **Phone.** The circuit opens upright when held upright; the legend, readout names and clock fit; the zoom
+  buttons step aside under a card sheet; the patient name gets the room in the top bar.
+- **Graphics.** Vessels whose pressure moved glow briefly after a change; ascites shows as a visible pool sooner; softer moving-blood sheen; a light rim on vessels in
+  dark mode; quieter stellate cells and septa in the lobule.
+- **Steady framing.** The default framing is measured from the organs, abdomen and ascites only (the vessels morph),
+  and waits for the patient to load; the figure appears once, already framed, and switching views is one glide.
+  On touch, no double tap, two-finger tap or post-pinch glide, so the view only moves when you move it.
+- **View changes land where they should.** Leaving the lobule for the circuit opens the circuit's own framing (a
+  delayed return to the anatomy's framing used to fire in the circuit). Opening a patient from Home frames that
+  patient, not the one before. The lobule zooms and pans as the anatomy does (mouse wheel zooms, trackpad scroll
+  pans, pinch zooms), its drag no longer drops over labels, and the room to pan opens sooner.
+- **Zoom stays where you put it.** The spring-back only pulls the view back when its middle has left the figure, so
+  zooming into the spleen or a collateral holds. A pinch or pan that starts on a pressure label now works (the labels
+  used to swallow the first finger on a phone); a tap on a label still opens it.
+- **Lobule.** On a phone the labels keep clear of the zoom buttons. The zones are named inside their bands, in quiet
+  capitals in each zone's color, instead of chips.
+- **Play bar.** The clock sits by the track, speed looks like a control, Compare is an icon, events stand on the track.
+
 - **Circuit: the liver's titles open cards.** In the circuit, the LIVER and HEART column titles are
   buttons that open the liver's and the right heart's cards (with their parameters).
 - **Circuit: the liver branches.** Inside the liver the portal venules divide (one channel, then three,

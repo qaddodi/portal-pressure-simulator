@@ -67,6 +67,26 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await shot(page, `${device}-anatomy`);
   });
 
+  await check(device, 'leaving the lobule frames the next view, not the dive', async (page) => {
+    await open(page, '?preset=cirr-decomp');
+    const T = () => page.evaluate(() => (document.querySelector('#world').getAttribute('transform') || '').replace(/-?\d+\.\d+/g, (n) => (+n).toFixed(1)));
+    // A software renderer draws a frame a second or two apart: wait until the transform holds for a while.
+    const steady = async () => { let a = await T(), same = 0; for (let i = 0; i < 80 && same < 5; i++) { await page.waitForTimeout(300); const c = await T(); same = c === a ? same + 1 : 0; a = c; } return a; };
+    const home = await steady();
+    await page.click('#viewSeg [data-view="lobule"]', { force: true });
+    await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 30000 });
+    await page.click('#viewSeg [data-view="circuit"]', { force: true });
+    const inCircuit = await steady();
+    await page.evaluate(() => window.pps.stage.fit());
+    const f1 = await steady();
+    await page.evaluate(() => window.pps.stage.fit());
+    const f2 = await steady();
+    if (inCircuit !== f1 && inCircuit !== f2) throw new Error(`circuit opened at ${inCircuit}, not at a fit framing (${f1} / ${f2})`);
+    await page.click('#viewSeg [data-view="anatomic"]', { force: true });
+    const back = await steady();
+    if (back !== home) throw new Error(`the anatomy came back at ${back}, not at its framing ${home}`);
+  });
+
   await check(device, 'circuit turns upright and back', async (page) => {
     await open(page, '?preset=csph');
     if (await page.$eval('#rotateCircuit', (b) => getComputedStyle(b).display) !== 'none') throw new Error('turn button shows in the anatomy');
@@ -74,6 +94,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     // Animations step with the frames: wait for where they end, not a fixed time (CI has no GPU).
     const ratio = () => { const s = document.querySelector('#stage'); return s.viewBox.baseVal.height / s.viewBox.baseVal.width; };
     const until = (fn, msg) => page.waitForFunction(fn, null, { timeout: 30000 }).catch(() => { throw new Error(msg); });
+    // A phone held upright opens the circuit upright; turn it wide first.
+    if (device === 'phone') { await until(`(${ratio})() > 1`, 'circuit did not open upright on a phone'); await page.click('#rotateCircuit'); }
     await until(`(${ratio})() < 1`, 'circuit did not open wide');
     await page.click('#rotateCircuit');
     await until(`(${ratio})() > 1`, 'circuit did not turn tall');
@@ -241,7 +263,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await shot(page, `${device}-veins-gl`);
   });
 
-  await check(device, 'liver lobule: GPU vessels, ladder, cards, zones', async (page) => {
+  await check(device, 'liver lobule: GPU vessels, pressure drops, caption, cards, zones', async (page) => {
     await open(page, '?preset=cirr-decomp');
     // The lobule is a view of its own, beside Anatomy and Circuit.
     await page.click('#viewSeg [data-view="lobule"]');
@@ -263,9 +285,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     });
     if (lit < 300) throw new Error(`the lobule's vessel layer is nearly empty (${lit} px)`);
     if ((await page.locator('.lz-lab').count()) !== 3) throw new Error('station cards missing');
-    if ((await page.locator('.lz-lad .lz-ladDot').count()) !== 5) throw new Error('pressure ladder incomplete');
-    const seg = await page.evaluate(() => document.querySelector('.lz-verdict').dataset.seg);
-    if (seg !== 'sinusoidal') throw new Error(`cirrhosis should read as a sinusoidal block, got ${seg}`);
+    // The card is gone: nothing floats beside the lobule but its labels.
+    if (await page.locator('.lz-side').count()) throw new Error('the lobule still has its card');
+    // The strip reads the lobule's flows here.
+    const tiles = await page.evaluate(() => [...document.querySelectorAll('#strip .metric.primary')].filter((e) => e.offsetWidth).map((e) => e.dataset.id).join());
+    if (tiles !== 'lz-sin,lz-pv,lz-art,lz-ly') throw new Error(`the strip should show the lobule's flows, got ${tiles}`);
     // A part of the lobule opens the same action card as the anatomy, with its fibrosis slider.
     await page.locator('.lz-lab').nth(1).click();
     await page.waitForSelector('.action-card:not([hidden])');
@@ -274,8 +298,6 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (!(await page.locator('.action-card input[aria-label^="Fibrosis"]').count())) throw new Error('no fibrosis slider on the sinusoid card');
     await page.keyboard.press('Escape');
     await page.waitForSelector('.action-card', { state: 'hidden' });
-    // The liver's own card no longer carries fibrosis by zone; the lobule's panel has cirrhosis.
-    if (!(await page.locator('.lz-cir input').count())) throw new Error('no cirrhosis slider in the lobule');
     // Framed in the free space: the lobule's bottom corner is above the vitals dock, also with every readout open.
     for (const all of [false, true]) {
       if (all) await page.click('#strip .ro-more');
@@ -306,10 +328,12 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     // Zooming out never leaves the lobule view.
     if (device === 'desktop') { for (let i = 0; i < 4; i++) await page.mouse.wheel(0, 600); await page.waitForTimeout(600); }
     if (!(await page.evaluate(() => window.pps.stage.lobuleOpen()))) throw new Error('zooming out left the lobule');
-    if (device === 'phone') await page.click('.lz-more');
-    await page.click('.lz-tg.zones');
+    // Zones and Lymph are in the toolbar's Layers menu, which is there only on the lobule.
+    await page.click('#btnLobuleLayers');
+    await page.click('.menu .menu-item:has-text("Zones")');
     await page.waitForFunction(() => document.querySelectorAll('.lz-zone').length === 3, null, { timeout: 5000 }).catch(() => { throw new Error('zones did not show'); });
-    await page.click('.lz-tg.lymph');
+    await page.click('.menu .menu-item:has-text("Lymph")');
+    await page.keyboard.press('Escape');
     await page.waitForTimeout(500);
     await shot(page, `${device}-lobule`);
     // Leaving the lobule closes its card.
@@ -366,7 +390,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       // counts only if it is still there a few frames later.
       const frames = () => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(r)))));
       const measure = () => page.evaluate(() => {
-        const SEL = ['.tb-id', '.top-right', '#viewSeg', '.topbar .sb-right', '.sb-center.float-ui', '#vdock', '#panel', '#treatCard:not([hidden])', '#dock', '#zoomPill', '.action-card:not([hidden])', '.coach:not(:empty)', '.lz.on .lz-side', '.lz.on .lz-key', '.lz.on .lz-top'];
+        const SEL = ['.tb-id', '.top-right', '#viewSeg', '.topbar .sb-right', '.sb-center.float-ui', '#vdock', '#panel', '#treatCard:not([hidden])', '#dock', '#zoomPill', '.action-card:not([hidden])', '.coach:not(:empty)'];
         const vis = (el) => { const st = getComputedStyle(el), r = el.getBoundingClientRect(); return st.display !== 'none' && st.visibility !== 'hidden' && +st.opacity > 0.05 && r.width > 2 && r.height > 2; };
         // On a phone the chart, Treat, the instruments and a vessel's card are sheets that rise over the dock by design.
         const sheet = (el) => el.classList.contains('docked') || (matchMedia('(max-width: 767px), (max-width: 1023px) and (max-height: 500px)').matches && (el.id === 'panel' || el.id === 'treatCard' || (el.id === 'dock' && !el.classList.contains('side'))));
@@ -381,8 +405,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         for (const [s, r] of items) if (r.right > innerWidth + 1 || r.left < -1 || r.bottom > innerHeight + 1 || r.top < -1) out.push(`${s} is off screen`);
         return out;
       });
+      // The cards slide in: measure where they settle, not where they are on the way.
+      await page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === 'running' && ['panel', 'treatCard', 'dock'].includes(a.effect?.target?.id)), null, { timeout: 5000 });
       let bad = await measure();
-      if (bad.length) { await frames(); bad = await measure(); }
+      // A slow machine can take several frames to follow a change in size (a bleed adds a line to the dock).
+      for (let i = 0; i < 4 && bad.length; i++) { await frames(); bad = await measure(); }
       if (bad.length) throw new Error(`${w}×${hgt} ${q}${act ? ' + ' + act : ''}: ${bad.join('; ')}`);
     }
   });
@@ -473,10 +500,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (!((await page.evaluate(() => window.pps.store.get().frame.t)) > before)) throw new Error('opening instruments paused simulation');
     // A laptop or tablet resizes the card with its divider; a phone's sheet uses its handle instead.
     if (device !== 'phone') { await page.click('.workspace-divider'); await page.keyboard.press('ArrowUp'); }
-    await page.click('.workspace-expand');
-    await page.click('.workspace-compare');
+    await page.evaluate(() => window.pps.timeline.togglePin());
     await page.waitForFunction(() => !!window.pps.store.get().compareSnap);
-    await page.click('.workspace-expand');
     await page.waitForSelector('.workspace-comparison:not([hidden])');
     // One tap on a tab chooses an instrument; each tab carries its live reading.
     if (await page.locator('.instr-tab').count() !== 5) throw new Error('the tabs must offer five distinct instruments');
@@ -494,10 +519,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     }
     await page.evaluate(() => window.pps.dock.show('varixwall', { reveal: true }));
     if (!(await page.$eval('.wall-details', (d) => d.open))) throw new Error('legacy varixwall route does not open mechanics');
-    await page.click('.workspace-expand');
-    await page.waitForFunction(() => document.querySelector('#app').classList.contains('instrument-focus'));
-    // Run and Compare live in the header only while the instrument has the whole screen.
-    await page.click('.workspace-run');
+    await page.evaluate(() => window.pps.host.send({ type: 'run', running: false }));
     await page.waitForFunction(() => !window.pps.store.get().running);
     await page.waitForTimeout(250);
     await settled();
@@ -505,7 +527,6 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (square > 2) throw new Error('endoscopy loses its square aspect ratio');
     await page.$eval('#pane-endoscopy', (el) => { el.scrollTop = 0; });
     await shot(page, `${device}-workspace-endoscopy`);
-    await page.click('.workspace-expand');
     if (device === 'phone') {
       // A phone's instruments are a bottom sheet: no minimise; a drag down on the handle closes them.
       await page.evaluate(() => window.pps.dock.setState('open'));
@@ -514,10 +535,6 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await page.mouse.move(g[0], g[1]); await page.mouse.down(); await page.mouse.move(g[0], (page.viewportSize().height - 4), { steps: 8 }); await page.mouse.up();
       await page.waitForFunction(() => !document.querySelector('#app').classList.contains('dock-open')).catch(async () => { throw new Error('drag down did not close: ' + JSON.stringify(await page.evaluate(() => [document.querySelector('#app').className, document.querySelector('#dock').dataset.state, document.elementFromPoint(195, document.querySelector('#dock .sheet-grab').getBoundingClientRect().y + 9)?.className, document.querySelector('#dock').getBoundingClientRect().height])) + JSON.stringify(g)); });
       await page.evaluate(() => window.pps.dock.show('endoscopy', { reveal: true }));
-    } else {
-      await page.click('.workspace-fold');
-      await page.waitForFunction(() => document.querySelector('#dock').dataset.state === 'peek');
-      await page.click('.workspace-fold');
     }
     if (device === 'phone') {
       await page.setViewportSize({ width: 844, height: 390 });
@@ -526,15 +543,12 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         const dock = document.querySelector('#dock').getBoundingClientRect(), stage = document.querySelector('#stageView').getBoundingClientRect();
         return dock.right <= innerWidth + 1 && stage.height >= 20;
       }, null, { timeout: 10000 }).catch(() => { throw new Error('rotation makes workspace unusable'); });
-      await page.click('.workspace-expand');
       await shot(page, 'phone-workspace-landscape');
-      await page.click('.workspace-expand');
       await page.setViewportSize({ width: 390, height: 844 });
     } else {
       // The patient chart starts closed, so the workspace has the full width for two instruments.
       if (await page.evaluate(() => document.querySelector('#app').classList.contains('panel-open'))) throw new Error('the patient chart should start closed');
-      await page.click('.dock-second');
-      await page.click('.instr-tab[data-instrument="doppler"]');
+      await page.evaluate(() => window.pps.dock.show('doppler', { alongside: true }));
       await page.waitForSelector('#dockBody.split');
       await shot(page, 'desktop-workspace-two-instruments');
       await page.setViewportSize({ width: 768, height: 1024 });
@@ -548,11 +562,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
 
   await check(device, 'pressure over time and Doppler', async (page) => {
     await open(page, '?preset=cirr-decomp');
-    if (await page.evaluate(() => window.pps.store.get().frame.pulsing)) throw new Error('heartbeat runs before a waveform instrument is open');
+    // The heartbeat always runs, so the trace is beat to beat before any instrument opens, and it
+    // never touches the patient's parameters.
+    await page.waitForFunction(() => window.pps.store.get().frame.pulsing, null, { timeout: 5000 });
     await page.click('#tabInstruments');
     await page.evaluate(() => window.pps.dock.show('scope'));
-    // The heartbeat switches on while a waveform instrument is on screen, without touching the patient's parameters.
-    await page.waitForFunction(() => window.pps.store.get().frame.pulsing, null, { timeout: 5000 });
     if (await page.evaluate(() => window.pps.store.get().params.pulsatile)) throw new Error('opening an instrument changed the patient parameters');
     await page.waitForTimeout(2500);
     const hero = await page.$eval('#pane-scope .pt-num', (el) => parseFloat(el.textContent));
@@ -583,7 +597,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (!/phasic/i.test(pattern)) throw new Error(`hepatic vein pattern is "${pattern}"`);
     await shot(page, `${device}-doppler`);
     await page.evaluate(() => window.pps.dock.close());
-    await page.waitForFunction(() => !window.pps.store.get().frame.pulsing, null, { timeout: 5000 });
+    await page.waitForTimeout(800);
+    if (!(await page.evaluate(() => window.pps.store.get().frame.pulsing))) throw new Error('the heartbeat stopped when the instruments closed');
   });
 }
 // the slowest first, so they do not end up alone at the end (and shards share them out evenly)

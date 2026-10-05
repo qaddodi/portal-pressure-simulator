@@ -41,7 +41,9 @@ export const icon = (id) => {
 
 export function fmt(v, d = 1) {
   if (v == null || !Number.isFinite(v)) return '—';
-  return v.toFixed(d).replace('-', '−');
+  const t = v.toFixed(d);
+  // A value that rounds to zero has no sign ("−0" reads as an error).
+  return /^-0(\.0+)?$/.test(t) ? t.slice(1) : t.replace('-', '−');
 }
 /** A flow rate in L/min to one decimal. A small but real flow reads "< 0.1" rather than 0.0, so
  *  a trickle through a collateral never looks like none. */
@@ -170,6 +172,9 @@ export function closeModal() {
 export const isModalOpen = () => document.getElementById('modalBack').classList.contains('show');
 
 export const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+/** A touch that starts on the phone's own edge (the home indicator's swipe up, a back swipe): the
+ *  system's gesture, not the figure's. */
+export const systemEdge = (ev) => ev.pointerType === 'touch' && (ev.clientY > innerHeight - 34 || ev.clientX < 12 || ev.clientX > innerWidth - 12);
 export const lerp = (a, b, t) => a + (b - a) * t;
 
 // Theme tokens are read many times per frame by the canvas instruments. getComputedStyle after
@@ -202,3 +207,84 @@ export function fitCanvas(canvas) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   return { ctx, w: r.width, h: r.height };
 }
+
+/** Every range slider in the app, at once (call once):
+ *  - a finger anywhere on the track moves the thumb there and drags it (iOS only lets the thumb itself be dragged);
+ *  - Shift + arrow keys step ten times as far; the wheel adjusts a slider that has focus;
+ *  - a double click puts a slider back to its default (data-def). */
+export function enhanceRanges(root = document) {
+  const isRange = (t) => t?.matches?.('input[type="range"]:not(:disabled)');
+  const setTo = (input, x, commit) => {
+    const min = +input.min || 0, max = +(input.max || 100), step = input.step === 'any' ? 0 : +input.step || 1;
+    let v = clamp(x, min, max);
+    if (step) v = Math.round((v - min) / step) * step + min;
+    v = +v.toFixed(6);
+    if (+input.value === v && !commit) return;
+    input.value = String(v);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    if (commit) input.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  const fromX = (input, cx) => {
+    const r = input.getBoundingClientRect(), min = +input.min || 0, max = +(input.max || 100), th = 22;
+    return min + clamp((cx - r.left - th / 2) / Math.max(1, r.width - th), 0, 1) * (max - min);
+  };
+  root.addEventListener('pointerdown', (e) => {
+    const input = e.target;
+    if (e.pointerType !== 'touch' || !isRange(input)) return;
+    e.preventDefault();
+    input.focus({ preventScroll: true });
+    setTo(input, fromX(input, e.clientX));
+    try { input.setPointerCapture(e.pointerId); } catch { /* gone */ }
+    const move = (ev) => { if (ev.pointerId === e.pointerId) setTo(input, fromX(input, ev.clientX)); };
+    const up = (ev) => {
+      if (ev.pointerId !== e.pointerId) return;
+      input.removeEventListener('pointermove', move); input.removeEventListener('pointerup', up); input.removeEventListener('pointercancel', up);
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    input.addEventListener('pointermove', move); input.addEventListener('pointerup', up); input.addEventListener('pointercancel', up);
+  }, { capture: true });
+  root.addEventListener('keydown', (e) => {
+    const input = e.target;
+    if (!e.shiftKey || !isRange(input) || !/^Arrow(Left|Right|Up|Down)$/.test(e.key)) return;
+    e.preventDefault();
+    const step = input.step === 'any' ? ((+input.max - +input.min) / 100) : +input.step || 1;
+    setTo(input, +input.value + (e.key === 'ArrowRight' || e.key === 'ArrowUp' ? 10 : -10) * step, true);
+  });
+  root.addEventListener('wheel', (e) => {
+    const input = e.target;
+    if (!isRange(input) || document.activeElement !== input) return;
+    e.preventDefault();
+    const step = input.step === 'any' ? ((+input.max - +input.min) / 100) : +input.step || 1;
+    setTo(input, +input.value + (e.deltaY < 0 || e.deltaX > 0 ? 1 : -1) * step * (e.shiftKey ? 10 : 1), true);
+  }, { passive: false });
+  root.addEventListener('dblclick', (e) => {
+    const input = e.target;
+    if (!isRange(input) || input.dataset.def == null || input.dataset.def === '') return;
+    setTo(input, +input.dataset.def, true);
+  });
+}
+
+/**
+ * Eases an array of values toward a target, frame-rate independent (time constant `tau` seconds),
+ * so a chart's line, dots, labels and axis glide rather than jump when the model changes. The
+ * Pressure card and the lobule's pressure ladder share it. step(target) → { v, moving }.
+ */
+export function createEaser(tau = 0.3) {
+  let v = null, last = 0;
+  return {
+    step(target) {
+      const now = performance.now(), dt = last ? Math.min(0.25, (now - last) / 1000) : 1;
+      last = now;
+      if (!v || v.length !== target.length) v = Float64Array.from(target);
+      const a = 1 - Math.exp(-dt / tau);
+      let moving = false;
+      for (let i = 0; i < target.length; i++) {
+        const d = target[i] - v[i];
+        if (Math.abs(d) > 0.02) { v[i] += d * a; moving = true; } else v[i] = target[i];
+      }
+      return { v, moving };
+    },
+  };
+}
+/** A rounded axis top just above `max` (multiples of 5 mmHg, at least `min`). */
+export const axisTop = (max, min = 10) => Math.max(min, Math.ceil((max + 2) / 5) * 5);

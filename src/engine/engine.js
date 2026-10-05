@@ -6,8 +6,8 @@ import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=8b006eefeb';
-import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=8fc90f782f';
-import { detectEvents } from './events.js?v=43a445d2bd';
+import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=304cd180db';
+import { detectEvents } from './events.js?v=e467ec8aaf';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -442,6 +442,11 @@ export class Engine {
     const a = Math.min(1, dt / 1.5);
     if (!this.Qf) this.Qf = Float64Array.from(this.Q);
     for (let k = 0; k < this.E; k++) this.Qf[k] += (this.Q[k] - this.Qf[k]) * a;
+    // Portal flow and velocity averaged over a few breaths, so the readout's status does not
+    // flicker as breathing swings the instantaneous velocity across a cut-off.
+    const av = Math.min(1, dt / 6), kPV = this.ei.PV_TRUNK;
+    this.pvQm = (this.pvQm ?? this.Q[kPV]) + (this.Q[kPV] - (this.pvQm ?? this.Q[kPV])) * av;
+    this.pvVm = (this.pvVm ?? this.velocity('PV_TRUNK')) + (this.velocity('PV_TRUNK') - (this.pvVm ?? this.velocity('PV_TRUNK'))) * av;
     // Display-filtered pressures (removes respiratory / cardiac ripple from readouts)
     if (!this.Pf) this.Pf = Float64Array.from(this.P);
     const ap = Math.min(1, dt / 2.5);
@@ -472,7 +477,7 @@ export class Engine {
       const ptm = this.P[i] - this.ext[i];
       if (ptm < 9) this.bleed.clot += dt; else this.bleed.clot = Math.max(0, this.bleed.clot - dt * 0.5);
       if (this.bleed.clot > 45) this.stopBleed('clot');
-    } else {
+    } else if (p.bleeding) {
       for (const site of ['VAR', 'GV']) {
         const x = this.varix(site).ratio;
         if (x <= 1) continue;
@@ -526,7 +531,7 @@ export class Engine {
       this.slowStep(1);
       this.day += 1;
       if (!silent) detectEvents(this);
-      if (!noRupture && !this.bleed.active) {
+      if (!noRupture && this.params.bleeding && !this.bleed.active) {
         for (const site of ['VAR', 'GV']) {
           const x = this.varix(site).ratio;
           if (x <= 1) continue;
@@ -777,6 +782,7 @@ export class Engine {
     this.rng.setState(c.rng);
     this.Pf = Float64Array.from(this.P);
     this.Qf = Float64Array.from(this.Q);
+    this.pvQm = this.pvVm = undefined;
     this._drug = this.drugEffects();
     this.computeExt(this.t);
     this.computeG(this.P);
