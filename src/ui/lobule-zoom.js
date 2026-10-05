@@ -1631,9 +1631,9 @@ export function createLobuleZoom({ host }) {
     if (!m.hide) {
       // The bile ductule is lined all round by a simple cuboidal epithelium: wedge-shaped cells side by side
       // around an open lumen, each with a darker round nucleus.
-      const dk = dark, cellFill = dk ? '#8E9150' : '#A3A55F', cellEdge = dk ? 'rgba(36, 38, 16, .9)' : 'rgba(66, 68, 28, .85)', nuc = dk ? '#3E4120' : '#5A5D2A', lumen = dk ? '#2C2F16' : '#6B6E36';
+      const dk = dark, cellFill = dk ? '#8E9150' : '#A3A55F', cellEdge = dk ? 'rgba(36, 38, 16, .55)' : 'rgba(66, 68, 28, .5)', nuc = dk ? '#3E4120' : '#5A5D2A', lumen = dk ? '#2C2F16' : '#6B6E36';
       const NC = 16, TAU2 = Math.PI * 2;
-      c.lineWidth = Math.max(0.3, G.R * 0.0013); c.strokeStyle = cellEdge;
+      c.lineWidth = Math.max(0.3, G.R * 0.0013); c.strokeStyle = cellEdge; c.globalAlpha = 0.72;   // a little faded, so the ductule sits back in the tract
       for (const tr of G.triads) {
         // One ring of NC cuboidal cells: as deep as they are wide, so each nucleus has room (a third of the cell's width).
         const r = Math.max(radiusAt(tr.bdT, N >> 1), G.R * 0.008), rm = r * 1.35, hw = Math.PI * rm / NC, rin = rm - hw, rout = rm + hw, x = tr.bd[0], y = tr.bd[1];
@@ -1648,6 +1648,7 @@ export function createLobuleZoom({ host }) {
         for (let i = 0; i < NC; i++) { const a = ((i + 0.5) / NC) * TAU2 + tr.i, nx = x + Math.cos(a) * rn, ny = y + Math.sin(a) * rn; c.moveTo(nx + nr, ny); c.arc(nx, ny, nr, 0, TAU2); }
         c.fill();
       }
+      c.globalAlpha = 1;
     }
     if (lymphOn && flat) {
       // Without WebGL2, hepatic lymph as shimmer: plasma filtered into the space of Disse drifts out through the tissue
