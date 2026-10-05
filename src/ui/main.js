@@ -3,22 +3,22 @@
 
 import { startHost, host } from './host.js?v=5e522a6bbf';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=23552bd900';
-import { createStage } from './stage.js?v=9c29aae562';
+import { createStage } from './stage.js?v=b94d0f31b0';
 import { createInspector } from './inspector.js?v=a533f8f517';
-import { createDock, CUTOFFS } from './dock.js?v=d2b6f58614';
+import { createDock, CUTOFFS } from './dock.js?v=a1994f1895';
 import { createWhy } from './why.js?v=ab81d9e40f';
 import { createTimeline } from './timeline.js?v=bd3e6e6491';
 import { createLearn } from './learn.js?v=763627268d';
 import { createCases } from './cases.js?v=5035b727a9';
 import { createCompare } from './compare.js?v=d2e254ec43';
-import { createCard } from './card.js?v=a03bd6f115';
-import { createChart, computeFindings } from './chart.js?v=cff9bdb90b';
+import { createCard } from './card.js?v=74835ec4a7';
+import { createChart, computeFindings } from './chart.js?v=9246cb21c2';
 import { createHome } from './home.js?v=7c6857666e';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=245f731ed8';
 import { startLMS } from './lms.js?v=4511ed56b8';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=67c3f1e8c5';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=033bdb97ec';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=29d10ad9ef';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=d90a6074b7';
