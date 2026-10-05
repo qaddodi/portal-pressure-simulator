@@ -575,7 +575,7 @@ function openLayers(anchor) {
   const cur = store.get().colorMode;
   const lens = (v) => {
     const [title, desc, sw] = LENSES[v];
-    const b = h('button', { class: 'lens' + (cur === v ? ' on' : ''), role: 'menuitemradio', 'aria-checked': String(cur === v), onclick: () => { store.set({ colorMode: v }); closePopover(); } },
+    const b = h('button', { class: 'lens' + (cur === v ? ' on' : ''), role: 'menuitemradio', 'aria-checked': String(cur === v), onclick: (e) => { store.set({ colorMode: v }); const g = e.currentTarget.parentElement; g.querySelectorAll('.lens').forEach((x) => { const on = x === e.currentTarget; x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on)); }); } },
       h('span', { class: 'lens-sw', style: { background: sw() } }),
       h('span', { class: 'lens-t' }, title), h('span', { class: 'lens-d' }, desc));
     return b;
@@ -702,14 +702,14 @@ function openSettings(anchor) {
   const cur = document.documentElement.getAttribute('data-theme') || 'system';
   popover(anchor, [
     h('div', { class: 'menu-title' }, t('menu.appearance')),
-    h('div', { class: 'seg full menu-seg' }, [['light', t('menu.light')], ['dark', t('menu.dark')], ['system', t('menu.system')]].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { closePopover(); applyTheme(v === 'system' ? null : v, v === 'system'); }); return b; })),
+    h('div', { class: 'seg full menu-seg' }, [['light', t('menu.light')], ['dark', t('menu.dark')], ['system', t('menu.system')]].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { applyTheme(v === 'system' ? null : v, v === 'system'); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; })),
     h('div', { class: 'menu-title' }, 'Text size on the figure'),
     textSizeControl(),
     h('div', { class: 'menu-title' }, t('menu.language')),
-    (() => { const sel = h('select', { class: 'select menu-select', 'aria-label': t('menu.language') }, LANGS.map(([v, l]) => h('option', { value: v, selected: currentLang() === v }, l))); sel.addEventListener('change', () => { setLang(sel.value); closePopover(); }); return sel; })(),
+    (() => { const sel = h('select', { class: 'select menu-select', 'aria-label': t('menu.language') }, LANGS.map(([v, l]) => h('option', { value: v, selected: currentLang() === v }, l))); sel.addEventListener('change', () => { setLang(sel.value); }); return sel; })(),
     h('div', { class: 'menu-title' }, t('menu.access')),
     menuItem(t('menu.describe'), { icon: 'info', kb: 'D', onClick: () => { closePopover(); const d = describe(store.get().frame); announce(d); toast(d); } }),
-    menuItem(t('menu.sonify'), { icon: 'activity', checked: sonifying(), onClick: () => { closePopover(); setSonify(!sonifying()); toast(sonifying() ? 'Sonification on: pitch follows the pressure of the selected vessel (or the portal vein).' : 'Sonification off.'); } }),
+    menuItem(t('menu.sonify'), { icon: 'activity', checked: sonifying(), onClick: (e) => { setSonify(!sonifying()); e?.currentTarget?.setAttribute('aria-checked', String(sonifying())); toast(sonifying() ? 'Sonification on: pitch follows the pressure of the selected vessel (or the portal vein).' : 'Sonification off.'); } }),
     h('div', { class: 'menu-sep' }),
     menuItem(t('menu.reset'), { icon: 'reset', onClick: () => resetEverything() }),
   ], { align: 'start', cls: 'app-menu' });
