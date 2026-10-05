@@ -2072,7 +2072,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const spec = shade && !veil && kind !== 'f' && kind !== 'c' && !CONTEXT_EDGES.has(id) && !x.back && x.width >= 3.4;
       const flags = (sel && kind === 'v' ? F_SEL : 0) | (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt ? F_NOCASE : 0) | (veil ? F_VEIL : 0);
       const z = (kind === 'v' ? x.row + 0.5 : x.row) / GL_ROWS;
-      const heatA = kind === 'v' && heat ? (x.heatA || 0) : 0;
+      // No congestion halo on the IVC itself: its wide halo would spill onto the bowel beside it.
+      const heatA = kind === 'v' && heat && !IVC_EDGES.has(id) ? (x.heatA || 0) : 0;
       tubeData.set([...c0, x.isArt ? 0 : x.wallPx, ...c1, alpha, tier, z, flags, heatA], o);
       // Fades, as the SVG masks: into an organ (TIP_FADE), out of the plate, into a deeper vein,
       // tributaries toward the bowel they drain.
