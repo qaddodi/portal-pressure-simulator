@@ -15,18 +15,21 @@ const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 // above the baseline. Hepatic veins and the IVC drain away from a subcostal or intercostal probe,
 // so their forward flow is below the baseline (away) and the a-wave reversal above it.
 const PROBES = [
-  { id: 'PV_TRUNK', kind: 'portal', normal: [15, 40] },
-  { id: 'PVH_R', kind: 'portal', normal: [12, 35] },
-  { id: 'PVH_L', kind: 'portal', normal: [12, 35] },
-  { id: 'SV_CONF', kind: 'portal', normal: [10, 30] },
-  { id: 'SMV_CONF', kind: 'portal', normal: [10, 30] },
-  { id: 'RHV_IVC', kind: 'hepatic', normal: [10, 40], away: true },
-  { id: 'MHV_IVC', kind: 'hepatic', normal: [10, 40], away: true },
-  { id: 'IVCS_RA', kind: 'ivc', normal: [10, 50], away: true },
-  { id: 'A_HEP', kind: 'artery', normal: [30, 100] },
-  { id: 'TIPS', kind: 'tips', normal: [90, 190] },
-  { id: 'C1b', kind: 'collateral', normal: null },
-  { id: 'C3', kind: 'collateral', normal: null },
+  { id: 'PV_TRUNK', short: 'MPV', kind: 'portal', normal: [15, 40] },
+  { id: 'PVH_R', short: 'RPV', kind: 'portal', normal: [12, 35] },
+  { id: 'PVH_L', short: 'LPV', kind: 'portal', normal: [12, 35] },
+  { id: 'SMV_CONF', short: 'SMV Prox', kind: 'portal', normal: [10, 30] },
+  { id: 'V_INT', short: 'SMV Dist', kind: 'portal', normal: [10, 30] },
+  { id: 'SV_CONF', short: 'SV Prox', kind: 'portal', normal: [10, 30] },
+  { id: 'V_SPL', short: 'SV Dist', kind: 'portal', normal: [10, 30] },
+  { id: 'RHV_IVC', short: 'RHV', kind: 'hepatic', normal: [10, 40], away: true },
+  { id: 'MHV_IVC', short: 'MHV', kind: 'hepatic', normal: [10, 40], away: true },
+  { id: 'LHV_IVC', short: 'LHV', kind: 'hepatic', normal: [10, 40], away: true },
+  { id: 'IVCS_RA', short: 'IVC', kind: 'ivc', normal: [10, 50], away: true },
+  { id: 'A_HEP', short: 'HA', kind: 'artery', normal: [30, 100] },
+  { id: 'TIPS', short: 'TIPS', kind: 'tips', normal: [90, 190] },
+  { id: 'C1b', short: 'Varix C1', kind: 'collateral', normal: null },
+  { id: 'C3', short: 'Paraumb. C3', kind: 'collateral', normal: null },
 ];
 const SWEEP_SECONDS = [6, 3, 12]; // Start at 6 s; first tap shortens the visible window.
 const KEEP = 16;                 // Retain enough samples for the 12 s sweep and display lag.
@@ -37,7 +40,7 @@ export function createDoppler({ onProbe }) {
   let sweepIndex = 0;
   let sweepSeconds = SWEEP_SECONDS[sweepIndex];
   const probeSel = h('select', { class: 'select dop-vessel', 'aria-label': 'Vessel' },
-    PROBES.map((p) => h('option', { value: p.id }, EDGES[EI[p.id]].label)));
+    PROBES.map((p) => h('option', { value: p.id, title: EDGES[EI[p.id]].label }, p.short)));
   probeSel.addEventListener('change', () => onProbe(probeSel.value));
   let tint = false;
   const tintBtn = h('button', { class: 'dop-tint', 'aria-pressed': 'false', title: 'Color the spectrum by direction: red toward the probe, blue away' }, h('i'), 'Direction color');
