@@ -3749,6 +3749,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       glide = requestAnimationFrame(step);
       return;
     }
+    let last = performance.now(), rx = vt.x, ry = vt.y;
     // The lobule view's flick: carried past the edge the glide is braked hard (the velocity halves each frame), the overshoot
     // shows only as a short stretch, and it returns to the edge within a few frames.
     const step = (now) => {
