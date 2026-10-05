@@ -13,8 +13,6 @@ export const COS_THETA = Math.cos(THETA * Math.PI / 180);
 
 export const DOPPLER_MODES = [
   { id: 'spectrum', label: 'Spectrum', short: 'Spectrum' },
-  { id: 'direction', label: 'Direction', short: 'Direction' },
-  { id: 'power', label: 'Power', short: 'Power' },
   { id: 'dirpower', label: 'Directional Power', short: 'Dir. power' },
   { id: 'variance', label: 'Variance', short: 'Variance' },
 ];

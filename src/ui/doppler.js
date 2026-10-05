@@ -7,7 +7,7 @@
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { h, fmt, fitCanvas, clamp, icon } from './util.js?v=d90a6074b7';
 import { FONT } from './charts.js?v=ec5db0ba37';
-import { DOPPLER_MODES, isDirectional, dopplerColor, legendGradient } from './dopplerColor.js?v=ddbbdd64fa';
+import { DOPPLER_MODES, isDirectional, dopplerColor, legendGradient } from './dopplerColor.js?v=d2a7a12279';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 // kind decides the words for direction and pattern; normal is the usual mean velocity (cm/s).

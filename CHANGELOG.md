@@ -2,9 +2,9 @@
 
 ## Unreleased
 
-- **Doppler display modes.** Measure → Doppler replaces “Direction color” with a pill that cycles Spectrum, Direction, Power,
-  Directional Power, Variance. The spectral trace is drawn in the mode's colors (red toward the probe, blue away, from the
-  flow along the beam, v·cos θ). Invert swaps toward/away colors; Power has no direction. Nothing is drawn on the figure.
+- **Doppler display modes.** Measure → Doppler replaces “Direction color” with a pill that cycles Spectrum, Directional Power,
+  Variance. The spectral trace is drawn in the mode's colors (red toward the probe, blue away, from the
+  flow along the beam, v·cos θ). Invert swaps toward/away colors. Nothing is drawn on the figure.
 - **No bleeding by default.** Varices still grow, but they only rupture on their own when *Variceal
   bleeding* is switched on (Simulation settings). The bleeding case still starts with its bleed.
 - **Gestures.** A trackpad's two-finger scroll pans and its pinch zooms; a mouse wheel zooms. A flick keeps the
