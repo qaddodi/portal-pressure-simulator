@@ -282,7 +282,30 @@ export function createLobuleZoom({ host }) {
     const cxw = clamp(wx, Math.min(x0, x1), Math.max(x0, x1)), cyw = clamp(wy, Math.min(y0, y1), Math.max(y0, y1));
     V.x = mx - cxw * V.k; V.y = my - cyw * V.k;
   }
+  // Match the anatomy's flick decay, measured in screen pixels per millisecond.
+  let inertia = 0;
+  function stopInertia() { cancelAnimationFrame(inertia); inertia = 0; }
+  function fling(vx, vy) {
+    stopInertia();
+    if (reduce.matches || fade < 0.98 || Math.hypot(vx, vy) < 0.25) return;
+    let last = performance.now();
+    const step = (now) => {
+      inertia = 0;
+      if (reduce.matches || fade < 0.98) return;
+      const dt = Math.min(34, now - last), decay = Math.pow(0.9955, dt);
+      last = now; vx *= decay; vy *= decay;
+      const x = V.x + vx * dt, y = V.y + vy * dt;
+      V.x = x; V.y = y; clampV();
+      // Stop the blocked axis at a boundary while the other can continue gliding.
+      if (Math.abs(V.x - x) > 0.01) vx = 0;
+      if (Math.abs(V.y - y) > 0.01) vy = 0;
+      viewChanged();
+      if (Math.hypot(vx, vy) > 0.03) inertia = requestAnimationFrame(step);
+    };
+    inertia = requestAnimationFrame(step);
+  }
   function zoomAround(px, py, factor) {
+    stopInertia();
     const k = clamp(V.k * factor, kFit, kFit * KMAX), r = k / V.k;
     V.x = px - (px - V.x) * r; V.y = py - (py - V.y) * r; V.k = k;
     clampV(); viewChanged();
@@ -290,6 +313,7 @@ export function createLobuleZoom({ host }) {
   // A short glide between framings (the buttons, Fit, a card opening).
   let glide = 0;
   function glideTo(to, ms = 260) {
+    stopInertia();
     cancelAnimationFrame(glide);
     const from = { ...V }, t0 = performance.now();
     if (reduce.matches || !fade) { Object.assign(V, to); viewChanged(); return; }
@@ -317,7 +341,7 @@ export function createLobuleZoom({ host }) {
   const viewChanged = () => { drawVersion++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); };
   const toWorld = (p) => [(p[0] - V.x) / V.k, (p[1] - V.y) / V.k];
   const toScreen = (p) => [p[0] * V.k + V.x, p[1] * V.k + V.y];
-  function resetView() { if (!geo) { V.k = 1; V.x = 0; V.y = 0; return; } atFit = true; const F0 = fitV(); kFit = F0.k; Object.assign(V, F0); viewChanged(); }
+  function resetView() { stopInertia(); if (!geo) { V.k = 1; V.x = 0; V.y = 0; return; } atFit = true; const F0 = fitV(); kFit = F0.k; Object.assign(V, F0); viewChanged(); }
   function fitView() { atFit = true; const F0 = fitV(); kFit = F0.k; glideTo(F0); }
 
   // ── Gestures: wheel and pinch zoom, drag pans, a tap selects; out past 1× returns to the liver ──
@@ -326,6 +350,7 @@ export function createLobuleZoom({ host }) {
   let wheelKind = null, wheelAt = 0;
   el.addEventListener('wheel', (ev) => {
     ev.preventDefault();
+    stopInertia();
     cancelAnimationFrame(glide);   // a button's glide never fights the hand
     const u = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? el.clientHeight : 1, dx = ev.deltaX * u, dy = ev.deltaY * u, now = performance.now();
     if (now - wheelAt > 250) wheelKind = ev.ctrlKey || ev.metaKey ? 'pinch' : ev.deltaMode === 0 && (dx !== 0 || ev.wheelDeltaY == null || Math.abs(Math.abs(ev.wheelDeltaY) - Math.abs(ev.deltaY) * 3) < 1) ? 'pad' : 'wheel';
@@ -347,6 +372,7 @@ export function createLobuleZoom({ host }) {
   const onScene = (ev) => !!ev.target.closest?.('.lz-lab') || ev.target === el || ev.target === fx || ev.target === leaders || ev.target === tissue || ev.target === glCv;
   el.addEventListener('pointerdown', (ev) => {
     if (!onScene(ev) || systemEdge(ev)) return;
+    stopInertia();
     if (ev.isPrimary) touches.clear();
     touches.set(ev.pointerId, local(ev));
     cancelAnimationFrame(glide);
@@ -356,7 +382,7 @@ export function createLobuleZoom({ host }) {
       const [a, b] = pts2();
       pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, k: V.k, m: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] };
       down = null; drag = null;
-    } else { down = { x: ev.clientX, y: ev.clientY, t: performance.now(), label: labelOf(ev) }; drag = { p: local(ev) }; }
+    } else { down = { x: ev.clientX, y: ev.clientY, t: performance.now(), label: labelOf(ev) }; drag = { p: local(ev), trail: [[performance.now(), V.x, V.y]] }; }
   });
   el.addEventListener('pointermove', (ev) => {
     if (touches.has(ev.pointerId)) {
@@ -371,6 +397,9 @@ export function createLobuleZoom({ host }) {
         down = null;
         if (V.k > kFit * 1.001) { V.x += p[0] - drag.p[0]; V.y += p[1] - drag.p[1]; clampV(); viewChanged(); el.classList.add('lz-drag'); }
         drag.p = p;
+        const now = performance.now();
+        drag.trail.push([now, V.x, V.y]);
+        while (drag.trail.length > 2 && now - drag.trail[0][0] > 90) drag.trail.shift();
       }
     }
     if (ev.pointerType === 'mouse' && !ev.buttons && geo && onScene(ev)) { const w = toWorld(local(ev)); el.classList.toggle('lz-hot', !!hit(w[0], w[1])); }
@@ -384,10 +413,19 @@ export function createLobuleZoom({ host }) {
   });
   for (const t of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(t, (ev) => {
     if (!touches.delete(ev.pointerId)) return;
+    const finished = drag;
     down = null;
     if (touches.size < 2) pinch = null;
+    if (ev.type === 'pointerup' && ev.pointerType === 'touch' && !touches.size && finished) {
+      const tr = finished.trail, a = tr[0], b = tr[tr.length - 1], dt = b[0] - a[0];
+      if (tr.length >= 3 && dt >= 30 && performance.now() - b[0] < 50) {
+        const vx = (b[1] - a[1]) / dt, vy = (b[2] - a[2]) / dt;
+        const cap = Math.min(1, 2 / (Math.hypot(vx, vy) || 1));
+        fling(vx * cap, vy * cap);
+      }
+    }
     // Rebase the remaining finger after a pinch so it can carry on panning without a jump.
-    drag = touches.size === 1 ? { p: pts2()[0] } : null;
+    drag = touches.size === 1 ? { p: pts2()[0], trail: [[performance.now(), V.x, V.y]] } : null;
     if (!touches.size) el.classList.remove('lz-drag');
   });
   el.addEventListener('dblclick', (ev) => { if (!onScene(ev)) return; const p = local(ev); zoomAround(p[0], p[1], V.k < kFit * KMAX * 0.98 ? 2 : 1 / KMAX); });
@@ -1598,7 +1636,7 @@ export function createLobuleZoom({ host }) {
       // Entering: the lobule is framed.
       if (fade > 0 && was === 0) { resetView(); if (F) update(F); }
       // Leaving the lobule closes a part's card, so it is not waiting next time.
-      if (was > 0.98 && fade <= 0.98) { if (store.get().selection?.type === 'lobule') store.set({ selection: null }); }
+      if (was > 0.98 && fade <= 0.98) { stopInertia(); if (store.get().selection?.type === 'lobule') store.set({ selection: null }); }
       if (fade === 0) { cancelAnimationFrame(raf); raf = 0; last = 0; }
     },
     /** Where the lobule will sit once open (stage px): its centre and radius, framed as it opens. */
