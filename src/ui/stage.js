@@ -308,9 +308,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     <pattern id="texLobules" width="14" height="12" patternUnits="userSpaceOnUse"><path class="tex" d="M1 6a6 5 0 0 1 12 0M-6 12a6 5 0 0 1 12 0M8 12a6 5 0 0 1 12 0"/></pattern>
     <pattern id="texMuscle" width="30" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(24)"><path class="tex" d="M0 5c8-3 22 3 30 0"/></pattern>
     <filter id="heatBlur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="10"/></filter>
-    <pattern id="mapGrid" width="20" height="20" patternUnits="userSpaceOnUse"><circle class="map-dot" cx="10" cy="10" r=".9"/></pattern>
-    <radialGradient id="mapGridFade" gradientUnits="userSpaceOnUse" cx="700" cy="380" r="1300" gradientTransform="translate(700 380) scale(1.25 0.8) translate(-700 -380)"><stop offset=".42" stop-color="#fff"/><stop offset="1" stop-color="#000"/></radialGradient>
-    <mask id="mapGridMask" maskUnits="userSpaceOnUse" x="-3000" y="-3000" width="7400" height="7400"><rect x="-3000" y="-3000" width="7400" height="7400" fill="url(#mapGridFade)"/></mask>`;
+    <pattern id="mapGrid" width="20" height="20" patternUnits="userSpaceOnUse"><circle class="map-dot" cx="10" cy="10" r=".9"/></pattern>`;
   svg.append(defs);
   const world = s('g', { id: 'world' });
   svg.append(world);
@@ -380,8 +378,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   gBack.append(gBackS, gBackC, gBackL, gBackH);
 
   // Circuit view: quiet bands for each pressure zone (captioned by the label layer).
-  // The dots run on past the figure in every direction and fade out with distance (a soft radial mask).
-  gGrid.append(s('rect', { x: -3000, y: -3000, width: 7400, height: 7400, fill: 'url(#mapGrid)', class: 'map-grid', mask: 'url(#mapGridMask)' }));
+  // The dots run on past the figure in every direction and fade out in steps: concentric frames of
+  // the pattern at falling opacity (no mask, so nothing repaints on pan or zoom).
+  const GRID_STEPS = [[0, 0.9], [200, 0.7], [450, 0.5], [750, 0.3], [1100, 0.15], [1500, 0.06]];
+  const frame = (e) => `M${30 - e} ${30 - e}h${1340 + 2 * e}v${700 + 2 * e}h${-1340 - 2 * e}z`;
+  GRID_STEPS.forEach(([e, op], i) => {
+    gGrid.append(s('path', { d: i ? frame(e) + frame(GRID_STEPS[i - 1][0]) : frame(e), 'fill-rule': 'evenodd', fill: 'url(#mapGrid)', class: 'map-grid', style: `opacity:${op}` }));
+  });
   CIRCUIT_ZONES.forEach(([, x0, x1], i) => {
     gGrid.append(s('rect', { x: x0, y: 40, width: x1 - x0, height: 690, class: 'zone' + (i % 2 ? ' alt' : '') }));
   });
