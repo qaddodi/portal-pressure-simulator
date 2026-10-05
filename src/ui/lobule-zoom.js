@@ -343,7 +343,7 @@ export function createLobuleZoom({ host }) {
   function refit() { if (!geo) return; const F0 = fitV(); kFit = F0.k; if (atFit) glideTo(F0); else { clampV(); viewChanged(); } }
   addEventListener('pps:occ', () => { if (fade > 0) { layoutKey = ''; refit(); } });
   addEventListener('pps:labelscale', () => { drawVersion++; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); });
-  const viewChanged = () => { lastMove = performance.now(); drawVersion++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); };
+  const viewChanged = () => { drawVersion++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); };
   const toWorld = (p) => [(p[0] - V.x) / V.k, (p[1] - V.y) / V.k];
   const toScreen = (p) => [p[0] * V.k + V.x, p[1] * V.k + V.y];
   function resetView() { stopInertia(); if (!geo) { V.k = 1; V.x = 0; V.y = 0; return; } atFit = true; const F0 = fitV(); kFit = F0.k; Object.assign(V, F0); viewChanged(); }
@@ -908,40 +908,40 @@ export function createLobuleZoom({ host }) {
     // Resolution follows the frame time: when frames that redraw arrive late the lobule is drawn smaller (a step at a
     // time, not more often than every half second) and it grows back once there is room.
     if (drew && prevDrew && !soft && dt < 0.1) {
-      gapAvg += (dt * 1000 - gapAvg) * 0.2;
-      if (now - resCheck > 500) {
-        resCheck = now;
-        if (gapAvg > 21 && lzRes > 0.6) { lzRes = Math.max(0.6, lzRes - 0.1); idleDrawn = ''; }
-        else if (gapAvg < 15.5 && lzRes < 1) { lzRes = Math.min(1, lzRes + 0.1); idleDrawn = ''; }
+      // Hysteresis: a sustained trend of about a second before the scale moves, and then not more than once a second.
+      gapAvg += (dt * 1000 - gapAvg) * 0.1;
+      slowMs = gapAvg > 21 ? slowMs + dt * 1000 : 0; fastMs = gapAvg < 14.5 ? fastMs + dt * 1000 : 0;
+      if (now - resCheck > 1000) {
+        if (slowMs > 1000 && lzRes > 0.6) { lzRes = Math.max(0.6, lzRes - 0.1); resCheck = now; slowMs = 0; idleDrawn = ''; }
+        else if (fastMs > 2500 && lzRes < 1) { lzRes = Math.min(1, lzRes + 0.1); resCheck = now; fastMs = 0; idleDrawn = ''; }
       }
     }
     prevDrew = drew;
     raf = requestAnimationFrame(loop);
   }
-  // The flow marks (shimmer and chevrons) are off while the lobule fades in or out or the view is moving, and fade back in once it is still.
-  let flowA = 1, lastMove = 0, flowT = 0, panF = 1;
+  // The flow marks (shimmer and chevrons) fade out as the dive starts and back in once the lobule has landed, over about
+  // 0.3 s each way. Ordinary panning and zooming inside the lobule view leave them alone.
+  let flowA = 1, flowT = 0;
   function stepFlowA() {
     const now = performance.now(), dtm = Math.min(100, now - (flowT || now)); flowT = now;
-    const still = fade > 0.98 && !diveScaled && now - lastMove > 150;
-    flowA = still ? Math.min(1, flowA + dtm / 300) : 0;
+    const open = fade > 0.98 && !diveScaled;
+    flowA = open ? Math.min(1, flowA + dtm / 300) : Math.max(0, flowA - dtm / 300);
   }
-  let lzRes = 1, gapAvg = 16.7, resCheck = 0, prevDrew = false;
+  let lzRes = 1, gapAvg = 16.7, resCheck = 0, prevDrew = false, slowMs = 0, fastMs = 0;
 
   // While the dive magnifies the lobule's layers (a compositor scale), they are drawn once and then left
   // alone: redrawing the WebGL vessels, the effects and the labels each frame, at full size, is what lagged.
   let diveScaled = false, diveDrawn = false;
   function draw(dt) {
-    if (diveScaled && diveDrawn) return false;
+    stepFlowA();
+    if (diveScaled && diveDrawn && flowA <= 0) return false;   // magnified by the compositor: nothing is redrawn once the marks have faded
     diveDrawn = diveScaled;
     const rect = host.getBoundingClientRect();
     const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
     ensureGeo(W, H);
-    // While the view is being panned or zoomed the layers are drawn smaller (fill cost falls with the square); a sharp redraw follows once it is still.
-    panF = performance.now() - lastMove < 160 ? 0.6 : 1;
-    const dpr = Math.min(2, devicePixelRatio || 1) * lzRes * panF;
+    const dpr = Math.min(2, devicePixelRatio || 1) * lzRes;
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
     // Keep watching for view/theme/size changes, but leave a settled paused picture alone.
-    stepFlowA();
     const idleKey = [W, H, dpr, dark, V.k, V.x, V.y, drawVersion, flowA.toFixed(2)].join('|');
     if (dt === 0 && idleKey === idleDrawn) return false;
     idleDrawn = dt === 0 ? idleKey : '';
@@ -1386,7 +1386,7 @@ export function createLobuleZoom({ host }) {
     // the screen's), redrawn only when the tissue's state changes; panning and zooming just place it.
     // Pressure colors enter only coarsely (they move every frame while the model glides).
     const qi = (s) => s.replace(/\d+/g, (n) => (n >> 4) << 4);
-    const sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, (dpr / panF) * V.k)) * 2) / 2), 3600 / (2.6 * G.R));
+    const sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2), 3600 / (2.6 * G.R));
     const wk = [G.W, G.H, sc.toFixed(3), dark, qi(ink('pv')), m.zone.pre.toFixed(2), m.zone.sin.toFixed(2), m.zone.post.toFixed(2), m.s.toFixed(2), q(m.cong), m.hide, zonesOn, cs.getPropertyValue('--bg')].join('|');
     const key = [W, H, dpr, wk, flatVessels ? [ink('sin', 1), ink('sin', 0), ink('pv'), ink('cv'), m.art.toFixed(2), [...selIds()].join('.')] : '', Object.values(fieldState()).join(','), V.k.toFixed(3), V.x.toFixed(1), V.y.toFixed(1)].join('|');
     if (key === tissueKey) return;
