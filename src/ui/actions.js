@@ -6,9 +6,9 @@
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=29d10ad9ef';
 import { DRUGS } from '../engine/scenario.js?v=304cd180db';
 import { store, updateParams } from './store.js?v=23552bd900';
-import { fmt, fmtFlow, clamp, toast } from './util.js?v=f4c2603e25';
-import { aboutVessel, aboutOrgan } from './about.js?v=1c93ed307c';
-import { lobuleState } from './lobule-model.js?v=a446251de8';
+import { fmt, fmtFlow, clamp, toast } from './util.js?v=d90a6074b7';
+import { aboutVessel, aboutOrgan } from './about.js?v=8214f717c4';
+import { lobuleState } from './lobule-model.js?v=7d74747a69';
 import { LABEL_VESSEL } from './anatomy.js?v=5836089b84';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -274,6 +274,11 @@ function lobuleCard(sel, ctx) {
       verbs: [about((m) => ['Oxygen-rich blood that empties into the first stretch of the sinusoids (zone 1).', m.art > 1.15 ? `Hepatic arterial buffer response: with less portal flow, less adenosine is washed out and the arteriole dilates (arterial flow ×${fmt(m.art, 1)}).` : ''].filter(Boolean))] };
     case 'bd': return { ...base, title: 'Bile ductule', value: () => ({ v: 'Bile', u: 'flows out to the triad' }),
       verbs: [about(() => ['Bile made by hepatocytes flows in canaliculi between them, toward the triad: against the blood. Not part of the circulation, but it marks the portal tract.'])] };
+    case 'lv': return { ...base, title: 'Lymphatic', value: (f) => { const m = L(f), d = m.lymph - m.lymphRef; return { v: fmt(m.lymph, 1), u: 'mL/min (whole liver)', d: m.lymphRef > 0 && Math.abs(d) / m.lymphRef >= 0.1 ? `${d > 0 ? '▲' : '▼'} ${Math.round(Math.abs(d) / m.lymphRef * 100)}%` : null, up: d > 0 }; },
+      verbs: [about((m) => ['Lymph is plasma that leaks from the sinusoids into the space of Disse, drains out through the tissue to the portal tract and leaves the liver in its lymphatics. It carries the protein that escapes the sinusoids, and returns the fluid to the blood through the thoracic duct.',
+        m.lymph > m.lymphRef * 1.25 ? 'Higher sinusoidal pressure forces more fluid out: lymph flow rises to compensate. Past the lymphatics’ capacity the rest weeps off the liver surface as ascites.' : '',
+        m.lymph < m.lymphRef * 0.75 ? 'Less filtration than the comparison: lymph flow has fallen.' : ''].filter(Boolean)),
+        stat('Hepatic lymph', (m) => `${fmt(m.lymph, 1)} mL/min`), stat('Healthy', (m) => `${fmt(m.lymph0, 1)} mL/min`)] };
     case 'septum': return { ...base, title: 'Fibrous septum', value: (f) => ({ v: pc(L(f).s), u: 'cirrhosis' }),
       verbs: [about(() => ['Bands of collagen laid down by activated stellate cells bridge triad to triad and triad to central vein, cutting the lobules into regenerative nodules and distorting the vessels.']), CIRRHOSIS] };
     case 'hep': default: {

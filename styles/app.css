@@ -1255,6 +1255,10 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 
 /* Selection feedback on organs and sites */
 .org-sel-line { fill: none; stroke: var(--accent); stroke-width: 2.4; stroke-opacity: .55; stroke-linejoin: round; pointer-events: none; }
+.org-hov-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-opacity: .4; stroke-linejoin: round; pointer-events: none; }
+.org-hov-fluid { fill: var(--accent-soft); stroke: none; pointer-events: none; }
+.org-hov-ring { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; stroke-opacity: .45; stroke-dasharray: 5 4; pointer-events: none; }
+.org-sel-fluid { fill: var(--accent-soft); stroke: none; pointer-events: none; }
 .org-sel-ring { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 2; stroke-opacity: .6; stroke-dasharray: 5 4; pointer-events: none; }
 #organSel { pointer-events: none; }
 
@@ -1537,6 +1541,7 @@ button.finding:hover { background: var(--surface-2); }
 .lz-labels { position: absolute; inset: 0; pointer-events: none; }
 /* Station cards: the anatomy's label style, as buttons that open the station's card */
 .lz-lab { position: absolute; pointer-events: auto; display: grid; gap: 1px; text-align: left; padding: 4px 8px 5px; border-radius: var(--r-control); border: 1px solid var(--hairline); background: var(--glass); box-shadow: 0 1px 1.5px rgba(20, 22, 30, .1); cursor: pointer; color: var(--text); font-family: var(--font-ui); }
+.lz:not(.on) .lz-lab { pointer-events: none; }   /* labels of a hidden or still-diving lobule view are not clickable */
 .lz-lab .n { font-size: 11.5px; font-weight: 500; color: var(--text-2); white-space: nowrap; }
 .lz-lab .v { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .lz-lab small { font-size: 10px; font-weight: 500; color: var(--text-3); }
@@ -1546,7 +1551,7 @@ button.finding:hover { background: var(--surface-2); }
 .lz-zone { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 0; pointer-events: none; white-space: nowrap; line-height: 1.15;
   font: 650 calc(10px * var(--label-k, 1) * var(--zk, 1)) var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--zc);
   text-shadow: 1.6px 0 0 var(--label-halo), -1.6px 0 0 var(--label-halo), 0 1.6px 0 var(--label-halo), 0 -1.6px 0 var(--label-halo), 1.1px 1.1px 0 var(--label-halo), -1.1px 1.1px 0 var(--label-halo), 1.1px -1.1px 0 var(--label-halo), -1.1px -1.1px 0 var(--label-halo), 0 0 3px var(--label-halo); }
-.lz-zone b { font-weight: 700; }
+:root[data-theme="dark"] .lz-zone b { font-weight: 700; }
 .lz-zone span { font-size: calc(8.5px * var(--label-k, 1) * var(--zk, 1)); font-weight: 600; letter-spacing: .08em; opacity: .8; }
 .lz-zone.z1 { --zc: rgb(186, 66, 48); } .lz-zone.z2 { --zc: rgb(150, 100, 32); } .lz-zone.z3 { --zc: rgb(96, 72, 182); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lz-zone.z1 { --zc: rgb(246, 140, 120); } :root:not([data-theme="light"]) .lz-zone.z2 { --zc: rgb(232, 186, 112); } :root:not([data-theme="light"]) .lz-zone.z3 { --zc: rgb(170, 150, 246); } }
@@ -2475,10 +2480,10 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 /* ── Lobule: labels as in the anatomy ── */
 /* Labels: no box; the station, then its pressure with the unit and the change from healthy; a bar in
    the pressure's color on the side facing the vessel, as on the anatomy. */
-.lz-lab { display: grid; gap: 0; padding: 1px 8px 1px 9px; border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; border-left: 3px solid var(--sw, var(--border-strong)); line-height: 1.2; }
-.lz-lab.left { text-align: right; border-left: 0; border-right: 3px solid var(--sw, var(--border-strong)); padding: 1px 9px 1px 8px; }
+.lz-lab { display: grid; gap: 0; padding: 1px 8px; border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; line-height: 1.2; }
+.lz-lab.left { text-align: right; border-left: 0; padding: 1px 9px 1px 8px; }
 /* The anatomy's halo: a solid outline around each letter (a ring of shadows), so the labels read over the tissue. */
-.lz-lab .n, .lz-lab .v { text-shadow: 2px 0px 0 var(--label-halo), -2px 0px 0 var(--label-halo), 0px 2px 0 var(--label-halo), 0px -2px 0 var(--label-halo), 1.4px 1.4px 0 var(--label-halo), -1.4px 1.4px 0 var(--label-halo), 1.4px -1.4px 0 var(--label-halo), -1.4px -1.4px 0 var(--label-halo), 0 0 4px var(--label-halo); }
+.lz-lab .n, .lz-lab .v { -webkit-text-stroke: 4.5px color-mix(in srgb, var(--label-halo) 65%, transparent); paint-order: stroke fill; stroke-linejoin: round; stroke-linecap: round; }
 .lz-lab .n { font-size: calc(11.5px * var(--label-k, 1)); font-weight: 500; color: var(--text-2); }
 .lz-lab .v { display: flex; align-items: baseline; gap: 2.5px; font-size: calc(14px * var(--label-k, 1)); }
 .lz-lab.left .v { justify-content: flex-end; }
@@ -2821,7 +2826,7 @@ input[type="range"] { touch-action: none; }
 
 
 /* Lobule station labels share a centred anchor; leaders terminate behind the text. */
-.lz-lab { text-align: center; border-left: 0; border-bottom: 2px solid var(--sw, var(--border-strong)); padding: 2px 5px 4px; }
+.lz-lab { text-align: center; border-left: 0; padding: 2px 5px 4px; }
 .lz-lab .v { justify-content: center; }
 @media (max-width: 720px) { .lz-lab { padding: 2px 3px; } }
 
@@ -2838,5 +2843,30 @@ input[type="range"] { touch-action: none; }
 .tl-m.ev.below::before { align-self: end; margin-top: 0; margin-bottom: 1px; }
 .tl-m.ev.below::after { top: 0; bottom: 12px; }
 .tl-m.ev.below .tl-count { top: auto; bottom: -6px; }
-.tl-left .tl-speed, .vdock .tl-left .tl-speed { display: inline-flex; height: 28px; min-width: 34px; margin-left: -2px; border-radius: 999px; }
+/* Split button: one bordered control, play/pause about 2/3 and the speed about 1/3, with a short divider. */
+.tl-split { display: flex; align-items: stretch; height: 34px; border: 1px solid var(--border); border-radius: var(--r-control); background: var(--surface); overflow: hidden; }
+.tl-left .tl-split .tl-speed, .vdock .tl-left .tl-split .tl-speed { position: relative; display: inline-flex; align-items: center; justify-content: center; height: auto; width: 30px; min-width: 0; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--text-2); }
+.tl-split .tl-speed::after { content: ""; position: absolute; right: 1px; top: 9px; bottom: 9px; width: 1px; height: auto; margin: 0; border: 0; opacity: 1; background: color-mix(in srgb, var(--text) 28%, transparent); }
+.timeline .tl-split .ib.play, .vdock .tl-split .ib.play { width: 46px; height: 100%; min-height: 0; align-self: stretch; border-radius: 0; }
+.tl-split .ib.play svg { display: block; }
+.tl-split .tl-speed:hover { background: var(--accent-soft); color: var(--accent-ink); }
 .time-pop .menu-item[aria-pressed="true"] { color: var(--accent-ink); font-weight: 600; }
+
+/* Concentric corners: inside a 16px pill with 3px padding, inner highlights are 13px. */
+.topbar .float-pill > .menu-btn, .topbar .float-pill > .scenario-btn, .topbar .float-pill > .tb-act, .topbar .float-pill > .find-badge, .topbar .float-pill > .pal-btn, .topbar .float-pill > .ib, .topbar #viewSeg button { border-radius: calc(var(--r-sheet) - 3px); }
+
+/* Display-option rows: the same selectable card as the lenses, one per row, icon at the left. */
+.lens-opt { grid-template-columns: 22px 1fr; column-gap: 10px; align-items: center; margin: 0 8px; }
+.lens-opt .bo-ic { grid-row: 1 / 3; width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--text-2); }
+.lens-opt:not(:has(.lens-d)) .bo-ic { grid-row: 1; }
+.lens-opt .lens-d { grid-column: 2; }
+.lens-opt.on .bo-ic { color: var(--accent-ink); }
+.blood-pop .menu-title { text-align: center; }
+
+/* Change messages: a light, translucent pill above the play bar; click, swipe or x to dismiss. */
+.toast-wrap { transform: translateX(-50%); }
+.toast { display: flex; align-items: center; gap: 8px; padding: 5px 6px 5px 12px; background: var(--glass); color: var(--text); border-radius: var(--r-sheet); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); font-size: var(--fs-12); line-height: 1.4; max-width: min(440px, 92vw); pointer-events: auto; cursor: pointer; touch-action: pan-x; }
+.toast.bad { background: var(--glass); color: var(--danger); }
+.toast-x { flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--text-2); cursor: pointer; }
+.toast-x:hover { background: var(--surface-3); color: var(--text); }
+.toast-x svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; }

@@ -3,25 +3,25 @@
 
 import { startHost, host } from './host.js?v=5e522a6bbf';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=23552bd900';
-import { createStage } from './stage.js?v=53785da1a8';
-import { createInspector } from './inspector.js?v=661dfd7392';
-import { createDock, CUTOFFS } from './dock.js?v=85f0174aae';
-import { createWhy } from './why.js?v=802bd21a0e';
-import { createTimeline } from './timeline.js?v=e14c90250e';
-import { createLearn } from './learn.js?v=f6c2239d22';
-import { createCases } from './cases.js?v=133069cab3';
-import { createCompare } from './compare.js?v=02ef56b6a1';
-import { createCard } from './card.js?v=f37085cb04';
-import { createChart, computeFindings } from './chart.js?v=b3527da3e9';
-import { createHome } from './home.js?v=0fbb0cc9aa';
+import { createStage } from './stage.js?v=c0167c1064';
+import { createInspector } from './inspector.js?v=a533f8f517';
+import { createDock, CUTOFFS } from './dock.js?v=65a76ac627';
+import { createWhy } from './why.js?v=ab81d9e40f';
+import { createTimeline } from './timeline.js?v=bd3e6e6491';
+import { createLearn } from './learn.js?v=763627268d';
+import { createCases } from './cases.js?v=5035b727a9';
+import { createCompare } from './compare.js?v=d2e254ec43';
+import { createCard } from './card.js?v=ecc333fc9e';
+import { createChart, computeFindings } from './chart.js?v=be42128097';
+import { createHome } from './home.js?v=7c6857666e';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
-import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=9d2cf68fa4';
+import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=245f731ed8';
 import { startLMS } from './lms.js?v=4511ed56b8';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=723057f441';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=3fbe9fb0b5';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=29d10ad9ef';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=f4c2603e25';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=d90a6074b7';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -32,6 +32,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
+import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=0166e06ffb';
 import { ORIGINS } from './blood.js?v=3acf4e936e';
 
 // Color lenses: [title, what it shows, legend swatch].
@@ -128,7 +129,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=e42aa36131'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=e2a0af00f2'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -140,7 +141,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=b392e64ce7'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=0729830890'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -540,9 +541,11 @@ function injectDye({ hold = false } = {}) {
 }
 // A row of a Blood or Layers menu: an icon, a name, a line under it, and a checkbox.
 function menuToggle(checked, ic, label, sub, onChange) {
-  const c = h('input', { type: 'checkbox', checked });
-  c.addEventListener('change', () => onChange(c.checked));
-  return h('label', { class: 'menu-item blood-opt' }, c, svgIcon(ic, 'bo-ic'), h('span', {}, label, sub ? h('small', {}, sub) : null));
+  let on = !!checked;
+  const b = h('button', { class: 'lens lens-opt' + (on ? ' on' : ''), role: 'menuitemcheckbox', 'aria-checked': String(on) },
+    svgIcon(ic, 'bo-ic'), h('span', { class: 'lens-t' }, label), sub ? h('span', { class: 'lens-d' }, sub) : null);
+  b.addEventListener('click', () => { on = !on; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); onChange(on); });
+  return b;
 }
 function openBlood(anchor) {
   const st = store.get(), b = st.blood || {};
@@ -581,7 +584,6 @@ function openLayers(anchor) {
     return b;
   };
   popover(anchor, [
-    h('div', { class: 'menu-title' }, 'Color vessels by', h('span', { class: 'kb' }, 'L cycles')),
     h('div', { class: 'lens-grid' }, Object.keys(LENSES).map(lens)),
     s0.imaging ? h('div', { class: 'ctl-sub', style: { padding: '2px 10px 6px' } }, 'This case shows anatomy only until you measure.') : null,
   ], { cls: 'layers-pop' });
@@ -659,6 +661,7 @@ function renderBanner() {
 
 // ── Top bar & transport ─────────────────────────────
 function wireTopbar() {
+  initDebug(() => stage.zoomLevel());
   $('#btnMenu').addEventListener('click', (e) => openMainMenu(e.currentTarget));
   $('#scenarioBtn').addEventListener('click', (e) => openScenarios(e.currentTarget));
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
@@ -710,12 +713,14 @@ function openSettings(anchor) {
     h('div', { class: 'menu-title' }, t('menu.access')),
     menuItem(t('menu.describe'), { icon: 'info', kb: 'D', onClick: () => { closePopover(); const d = describe(store.get().frame); announce(d); toast(d); } }),
     menuItem(t('menu.sonify'), { icon: 'activity', checked: sonifying(), onClick: (e) => { setSonify(!sonifying()); e?.currentTarget?.setAttribute('aria-checked', String(sonifying())); toast(sonifying() ? 'Sonification on: pitch follows the pressure of the selected vessel (or the portal vein).' : 'Sonification off.'); } }),
+    h('div', { class: 'menu-title' }, 'Debug'),
+    ...debugOptions().map(([k, l]) => menuToggle(debugOn(k), 'activity', l, null, (on) => setDebug(k, on))),
     h('div', { class: 'menu-sep' }),
     menuItem(t('menu.reset'), { icon: 'reset', onClick: () => resetEverything() }),
   ], { align: 'start', cls: 'app-menu' });
 }
 // Text size: smaller and larger in even steps, and the middle shows the size and resets it.
-const TEXT_STEPS = [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5];
+const TEXT_STEPS = [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.75, 2];
 function textSizeControl() {
   const at = () => TEXT_STEPS.reduce((b, v, i) => (Math.abs(v - stage.labelScale()) < Math.abs(TEXT_STEPS[b] - stage.labelScale()) ? i : b), 0);
   const smaller = h('button', { class: 'ts-a ts-sm', 'aria-label': 'Smaller text', title: 'Smaller text' }, 'A');
@@ -1023,6 +1028,10 @@ function wireKeyboard() {
   addEventListener('keydown', (e) => {
     const tag = (e.target.tagName || '').toLowerCase();
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); palette.isOpen() ? palette.close() : palette.open(); return; }
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && tag !== 'input' && tag !== 'textarea' && tag !== 'select') {
+      const z = e.key === '=' || e.key === '+' ? 'in' : e.key === '-' || e.key === '_' ? 'out' : e.key === '0' ? 'fit' : null;
+      if (z) { e.preventDefault(); if (z === 'in') stage.zoomIn(); else if (z === 'out') stage.zoomOut(); else stage.fit(); return; }
+    }
     if (tag === 'input' || tag === 'select' || tag === 'textarea') { if (e.key === 'Escape') e.target.blur(); return; }
     if (e.key === 'Escape') {
       closePopover();

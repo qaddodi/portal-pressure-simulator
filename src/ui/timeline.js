@@ -13,8 +13,8 @@
 
 import { store, replaceParams, onParamChange } from './store.js?v=23552bd900';
 import { host } from './host.js?v=5e522a6bbf';
-import { h, fmt, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=f4c2603e25';
-import { activeInterventions } from './inspector.js?v=661dfd7392';
+import { h, fmt, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=d90a6074b7';
+import { activeInterventions } from './inspector.js?v=a533f8f517';
 
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };
 export const EVENT_WHY = { VARIX_RUPTURE: 'varix', RED_WALE: 'varix', VARIX_LARGE: 'varix', HEPATOFUGAL_PV: 'pvFlow', PV_STASIS: 'pvFlow', CSPH: 'hvpg', BLEED_RISK: 'hvpg', ASCITES_FORMING: 'ascites', TENSE_ASCITES: 'ascites', HIGH_SHUNT: 'shunt', LIVER_HYPOPERFUSION: 'liverPerf', RA_HIGH: 'ra', HYPERDYNAMIC: 'co', SPLENOMEGALY: 'spleen' };
@@ -87,7 +87,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   const pinBtn = h('button', { class: 'tl-pin', 'aria-pressed': 'false', 'aria-label': 'Compare from here', title: 'Freeze this moment and compare the live model with it (P)' }, svgIcon('compare', 'mi-ic'), h('span', {}, 'Compare'));
   // Restart lives in More; the jumps share one segmented control.
   pinBtn.addEventListener('click', () => togglePin());
-  root.replaceChildren(h('div', { class: 'tl-left' }, playBtn, speedBtn, restartBtn), track, timeEl, h('div', { class: 'tl-jumps' }, ffBtn), histBtn, pinBtn);
+  root.replaceChildren(h('div', { class: 'tl-left' }, h('div', { class: 'tl-split' }, speedBtn, playBtn), restartBtn), track, timeEl, h('div', { class: 'tl-jumps' }, ffBtn), histBtn, pinBtn);
   tooltipFor(playBtn, 'Play / pause · Space', 'top');
   tooltipFor(restartBtn, 'Restart this patient', 'top');
   function menuBtn(label, fn) { const b = h('button', { class: 'menu-item' }, label); b.addEventListener('click', () => { closePopover(); fn(); }); return b; }

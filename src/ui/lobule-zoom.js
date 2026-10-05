@@ -21,11 +21,11 @@
 
 import { store } from './store.js?v=23552bd900';
 import { radiiChanged } from './lobule-render-cache.js?v=07951b5935';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=a446251de8';
-import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=f4c2603e25';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=7d74747a69';
+import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=d90a6074b7';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
-import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_NOCASE, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=799c94c026';
+import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_NOCASE, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=e424ed9ef2';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=3acf4e936e';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -153,7 +153,7 @@ function fibrousBand(c, A, B, { w, rgb, a = 1, seed = 0, e0 = 1.5, e1 = 1.5, amp
 }
 
 // Visual scar growth is eased independently of the physiology and stays close to the vessels.
-const scarGrowth = (fibrosis) => clamp(fibrosis, 0, 1) ** 1.8;
+const scarGrowth = (fibrosis) => clamp(fibrosis, 0, 1) ** 1.1;
 
 // Portal fibrosis has a compact circular footprint with interwoven collagen inside.
 // Cached with the tissue; fixed seeds keep the texture still as pressure changes.
@@ -162,7 +162,7 @@ function fibrousTract(c, x, y, radius, angle, rgb, fibrosis, seed, detail = 1) {
   const rx = radius, ry = radius;
   const phase = fibHash(seed) * TAU;
   c.beginPath(); c.arc(0, 0, radius, 0, TAU);
-  c.fillStyle = css(rgb, fibrosis * 0.14); c.fill(); c.clip();
+  c.fillStyle = css(rgb, fibrosis * 0.24); c.fill(); c.clip();
   // Broken curving bundles cross each other instead of forming a circular halo.
   const count = Math.round(10 * detail);
   for (let k = 0; k < count; k++) {
@@ -174,8 +174,8 @@ function fibrousTract(c, x, y, radius, angle, rgb, fibrosis, seed, detail = 1) {
       return [Math.cos(a) * rx * r, Math.sin(a) * ry * r];
     };
     fibrousBand(c, path(0), path(1), {
-      w: radius * (0.065 + 0.045 * fibrosis) * (0.7 + fibHash(sd + 3)),
-      rgb, a: fibrosis * (0.55 + 0.35 * fibHash(sd + 4)),
+      w: radius * (0.08 + 0.085 * fibrosis) * (0.7 + fibHash(sd + 3)),
+      rgb, a: Math.min(1, fibrosis * (0.75 + 0.35 * fibHash(sd + 4))),
       e0: 0.2, e1: 0.25, seed: sd, path, detail,
     });
   }
@@ -194,7 +194,7 @@ function fibrousCuff(c, cx, cy, inner, outer, rgb, fibrosis) {
     c.closePath(); c.moveTo(cx + inner, cy); c.arc(cx, cy, inner, 0, TAU); c.closePath();
   };
   c.save();
-  annulus(); c.fillStyle = css(rgb, 0.28 * fibrosis); c.fill('evenodd'); c.clip('evenodd');
+  annulus(); c.fillStyle = css(rgb, 0.4 * fibrosis); c.fill('evenodd'); c.clip('evenodd');
   const thickness = outer - inner;
   for (let ring = 0; ring < 3; ring++) for (let k = 0; k < 6; k++) {
     const seed = 211 + ring * 17 + k, a0 = TAU * k / 6 + ring * 0.27;
@@ -203,7 +203,7 @@ function fibrousCuff(c, cx, cy, inner, outer, rgb, fibrosis) {
       const a = a0 + span * u, r = r0 + thickness * 0.1 * Math.sin(a * 5 + fibHash(seed + 5) * TAU);
       return [cx + Math.cos(a) * r, cy + Math.sin(a) * r];
     };
-    fibrousBand(c, path(0), path(1), { w: thickness * 0.28, rgb, a: 0.8 * fibrosis, e0: 0.45, e1: 0.5, seed, path });
+    fibrousBand(c, path(0), path(1), { w: thickness * 0.34, rgb, a: Math.min(1, 1.0 * fibrosis), e0: 0.45, e1: 0.5, seed, path });
   }
   c.restore();
 }
@@ -265,8 +265,25 @@ export function createLobuleZoom({ host }) {
     const k = clamp(Math.min((f.r - f.l) / (x1 - x0), (f.b - f.t) / (y1 - y0)), 0.3, 1.8);
     return { k, x: (f.l + f.r) / 2 - k * (x0 + x1) / 2, y: (f.t + f.b) / 2 - k * (y0 + y1) / 2 };
   }
-  function clampV() {
+  // While the lobule is being dragged about at its framing (rubber band), nothing may snap it back to fit.
+  let rubber = false, rubberT = 0;
+  const bandOffset = (o, L) => L * Math.tanh(o / L);
+  // Zooming out past the framing stretches with resistance (as the anatomy's pinch-out does: softK, a 0.3 power) and
+  // glides back to the framing once the gesture ends. rawK is the unresisted scale while stretched, 0 when not.
+  let rawK = 0, stretchT = 0;
+  function stretchBy(px, py, f) {
     if (!geo) return;
+    if (!rawK) rawK = kFit;
+    rawK = Math.max(kFit * 0.5, rawK * f);   // as the anatomy: the unresisted scale stops at half the framing
+    stopInertia(); cancelAnimationFrame(glide); rubber = true; atFit = false;
+    const F0 = fitV();
+    if (rawK >= kFit) { rawK = 0; rubber = false; Object.assign(V, F0); atFit = true; viewChanged(); return; }
+    const k = kFit * Math.pow(rawK / kFit, 0.3), r = k / V.k;
+    V.x = px - (px - V.x) * r; V.y = py - (py - V.y) * r; V.k = k; viewChanged();
+  }
+  function endStretch() { if (!rawK) return; rawK = 0; rubber = false; glideTo(fitV(), 380); atFit = true; }
+  function clampV() {
+    if (!geo || rubber) return;
     const F0 = fitV();
     kFit = F0.k;
     if (V.k <= kFit * 1.001) { Object.assign(V, F0); atFit = true; return; }
@@ -326,8 +343,10 @@ export function createLobuleZoom({ host }) {
     };
     glide = requestAnimationFrame(step);
   }
+  let outHandler = null;
   function zoomBy(factor) {
     if (!geo) return;
+    if (factor < 1 && V.k <= kFit * 1.001 && outHandler) { outHandler(factor, true); return; }
     const f = freeRect(), px = (f.l + f.r) / 2, py = (f.t + f.b) / 2;
     const k = clamp(V.k * factor, kFit, kFit * KMAX), r = k / V.k;
     const to = { k, x: px - (px - V.x) * r, y: py - (py - V.y) * r };
@@ -335,7 +354,7 @@ export function createLobuleZoom({ host }) {
     glideTo(target);
   }
   // When the free space changes (a card opens, the readouts expand), a fitted lobule follows it.
-  function refit() { if (!geo) return; const F0 = fitV(); kFit = F0.k; if (atFit) glideTo(F0); else { clampV(); viewChanged(); } }
+  function refit() { if (!geo || rubber) return; const F0 = fitV(); kFit = F0.k; if (atFit) glideTo(F0); else { clampV(); viewChanged(); } }
   addEventListener('pps:occ', () => { if (fade > 0) { layoutKey = ''; refit(); } });
   addEventListener('pps:labelscale', () => { drawVersion++; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); });
   const viewChanged = () => { drawVersion++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); };
@@ -347,21 +366,35 @@ export function createLobuleZoom({ host }) {
   // ── Gestures: wheel and pinch zoom, drag pans, a tap selects; out past 1× returns to the liver ──
   // As on the anatomy: a mouse wheel zooms about the pointer; a trackpad's two-finger scroll pans (once zoomed in)
   // and its pinch (ctrlKey) zooms; Ctrl/⌘ + wheel always zooms. A gesture is classified once, as it starts.
-  let wheelKind = null, wheelAt = 0;
+  let wheelKind = null, wheelAt = 0, wheelOutOK = false, wheelDir = 0;
   el.addEventListener('wheel', (ev) => {
     ev.preventDefault();
     stopInertia();
     cancelAnimationFrame(glide);   // a button's glide never fights the hand
     const u = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? el.clientHeight : 1, dx = ev.deltaX * u, dy = ev.deltaY * u, now = performance.now();
+    if (now - wheelAt > 250 || Math.sign(dy) !== wheelDir) wheelOutOK = V.k <= kFit * 1.001;
+    wheelDir = Math.sign(dy);   // only a gesture that begins at the framing may carry on out to the anatomy
     if (now - wheelAt > 250) wheelKind = ev.ctrlKey || ev.metaKey ? 'pinch' : ev.deltaMode === 0 && (dx !== 0 || ev.wheelDeltaY == null || Math.abs(Math.abs(ev.wheelDeltaY) - Math.abs(ev.deltaY) * 3) < 1) ? 'pad' : 'wheel';
     wheelAt = now;
     if (wheelKind === 'pad' && !ev.ctrlKey && !ev.metaKey) {
-      if (V.k <= kFit * 1.001) return;   // at its framing there is nothing to pan to
+      if (V.k <= kFit * 1.001 && geo) {   // at its framing the lobule follows the scroll on a rubber band, and springs back when it stops
+        const F0 = fitV(), Lx = 0.4 * (el.clientWidth || 800), Ly = 0.4 * (el.clientHeight || 600);
+        const bx = rubber ? Math.atanh(clamp((V.x - F0.x) / Lx, -0.999, 0.999)) * Lx : 0, by = rubber ? Math.atanh(clamp((V.y - F0.y) / Ly, -0.999, 0.999)) * Ly : 0;
+        rubber = true; atFit = false;
+        V.x = F0.x + bandOffset(bx - dx, Lx); V.y = F0.y + bandOffset(by - dy, Ly); viewChanged();
+        clearTimeout(rubberT);
+        rubberT = setTimeout(() => { rubber = false; const G0 = fitV(); glideTo(G0, 380); atFit = true; }, 220);
+        return;
+      }
       V.x -= dx; V.y -= dy; atFit = false; clampV(); viewChanged();
       return;
     }
     const f = ev.ctrlKey || ev.metaKey ? Math.exp(-clamp(dy, -50, 50) * 0.01) : Math.exp(-clamp(dy, -120, 120) * 0.0015);
-    if (V.k <= kFit * 1.001 && f < 1) return;   // the lobule is a view of its own: zooming out stops at its framing
+    if (V.k <= kFit * 1.001 && f < 1) {
+      if (wheelOutOK) { outHandler?.(f); return; }   // a new zoom-out at its framing hands over to the stage, which scrubs the dive back
+      const p = local(ev); stretchBy(p[0], p[1], f); clearTimeout(stretchT); stretchT = setTimeout(endStretch, 220); return;   // one that arrived from deeper in stretches and springs back
+    }
+    if (rawK && f > 1) { const p = local(ev); stretchBy(p[0], p[1], f); clearTimeout(stretchT); stretchT = setTimeout(endStretch, 220); return; }
     const p = local(ev);
     zoomAround(p[0], p[1], f);
   }, { passive: false });
@@ -380,7 +413,7 @@ export function createLobuleZoom({ host }) {
     try { el.setPointerCapture(ev.pointerId); } catch { /* gone */ }
     if (touches.size === 2) {
       const [a, b] = pts2();
-      pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, k: V.k, m: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] };
+      pinch = { atFit: V.k <= kFit * 1.001, d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, k: V.k, m: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] };
       down = null; drag = null;
     } else { down = { x: ev.clientX, y: ev.clientY, t: performance.now(), label: labelOf(ev) }; drag = { p: local(ev), trail: [[performance.now(), V.x, V.y]] }; }
   });
@@ -390,12 +423,22 @@ export function createLobuleZoom({ host }) {
       if (touches.size === 2 && pinch) {
         const [a, b] = pts2(), d = Math.hypot(a[0] - b[0], a[1] - b[1]), m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
         V.x += m[0] - pinch.m[0]; V.y += m[1] - pinch.m[1]; pinch.m = m;
+        const dl = pinch.dl || pinch.d; pinch.dl = d;
+        if (rawK || (V.k <= kFit * 1.001 && d < dl && outHandler)) {
+          if (pinch.atFit && !rawK) outHandler(d / dl); else stretchBy(m[0], m[1], d / dl);
+          return;
+        }
         zoomAround(m[0], m[1], (pinch.k * d / pinch.d) / V.k);
       } else if (touches.size === 1 && drag && (ev.buttons || ev.pointerType !== 'mouse')) {
         const p = local(ev);
         if (down && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) < 8) return;
         down = null;
         if (V.k > kFit * 1.001) { V.x += p[0] - drag.p[0]; V.y += p[1] - drag.p[1]; clampV(); viewChanged(); el.classList.add('lz-drag'); }
+        else if (geo) {   // at its framing there is nowhere to go: the lobule follows the hand on a rubber band and springs back on release
+          const F0 = fitV(), o = drag.o || (drag.o = [0, 0]), Lx = 0.4 * (el.clientWidth || 800), Ly = 0.4 * (el.clientHeight || 600);   // near-free travel, easing toward 40% of the view
+          cancelAnimationFrame(glide); rubber = true; o[0] += p[0] - drag.p[0]; o[1] += p[1] - drag.p[1];
+          V.x = F0.x + Lx * Math.tanh(o[0] / Lx); V.y = F0.y + Ly * Math.tanh(o[1] / Ly); atFit = false; viewChanged(); el.classList.add('lz-drag');
+        }
         drag.p = p;
         const now = performance.now();
         drag.trail.push([now, V.x, V.y]);
@@ -416,9 +459,11 @@ export function createLobuleZoom({ host }) {
     const finished = drag;
     down = null;
     if (touches.size < 2) pinch = null;
-    if (ev.type === 'pointerup' && ev.pointerType === 'touch' && !touches.size && finished) {
+    if (!touches.size) { rubber = false; rawK = 0; }
+    if (!touches.size && geo && V.k <= kFit * 1.001) { const F0 = fitV(); if (Math.abs(V.x - F0.x) + Math.abs(V.y - F0.y) + Math.abs(V.k - F0.k) * 100 > 0.5) { glideTo(F0, 380); atFit = true; } }
+    if (ev.type === 'pointerup' && !touches.size && finished) {   // every pointer type flicks the same way
       const tr = finished.trail, a = tr[0], b = tr[tr.length - 1], dt = b[0] - a[0];
-      if (tr.length >= 3 && dt >= 30 && performance.now() - b[0] < 50) {
+      if (tr.length >= 3 && dt >= 30 && performance.now() - b[0] < 50 && V.k > kFit * 1.001) {
         const vx = (b[1] - a[1]) / dt, vy = (b[2] - a[2]) / dt;
         const cap = Math.min(1, 2 / (Math.hypot(vx, vy) || 1));
         fling(vx * cap, vy * cap);
@@ -436,20 +481,25 @@ export function createLobuleZoom({ host }) {
     if (!hv) { if (store.get().selection?.type === 'lobule') store.set({ selection: null }); return; }
     store.set({ selection: { type: 'lobule', ...hv, at } });
   }
+  const idsFor = (sl) => {
+    const G = geo;
+    if (!G || sl?.type !== 'lobule') return new Set();
+    const tr = sl.tri != null ? G.triads[sl.tri] : null;
+    if (sl.part === 'triad' && tr) return new Set([tr.pv.id, G.inlets[tr.i * 2].id, G.inlets[tr.i * 2 + 1].id]);
+    if (sl.part === 'sin' && sl.tube != null) return chainOf(sl.tube);
+    if (sl.part === 'ha' && tr) return new Set([tr.haT.id, ...G.tubes.filter((t) => t.kind === 'tw' && t.tri === tr.i).map((t) => t.id)]);
+    if (sl.part === 'bd' && tr) return new Set([tr.bdT.id]);
+    if (sl.part === 'lv' && sl.tube != null) return chainOf(sl.tube);
+    if (sl.part === 'lv' && tr) return new Set([tr.lv.id]);
+    if (sl.part === 'cv') return new Set([G.cv.id]);
+    if (sl.tube != null) return new Set([sl.tube]);
+    return new Set();
+  };
   let selFor = null, selIdsC = new Set();
   function selIds() {
     const sl = store.get().selection;
     if (sl === selFor) return selIdsC;
-    selFor = sl; selIdsC = new Set();
-    const G = geo;
-    if (!G || sl?.type !== 'lobule') return selIdsC;
-    const tr = sl.tri != null ? G.triads[sl.tri] : null;
-    if (sl.part === 'triad' && tr) selIdsC = new Set([tr.pv.id, G.inlets[tr.i * 2].id, G.inlets[tr.i * 2 + 1].id]);
-    else if (sl.part === 'sin' && sl.tube != null) selIdsC = chainOf(sl.tube);
-    else if (sl.part === 'ha' && tr) selIdsC = new Set([tr.haT.id, ...G.tubes.filter((t) => t.kind === 'tw' && t.tri === tr.i).map((t) => t.id)]);
-    else if (sl.part === 'bd' && tr) selIdsC = new Set([tr.bdT.id]);
-    else if (sl.part === 'cv') selIdsC = new Set([G.cv.id]);
-    else if (sl.tube != null) selIdsC = new Set([sl.tube]);
+    selFor = sl; selIdsC = idsFor(sl);
     return selIdsC;
   }
   store.on('selection', () => { attrKey = ''; tissueKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); });
@@ -727,6 +777,12 @@ export function createLobuleZoom({ host }) {
     setLab('triad', 'Portal venule', 'Portal venule', ...mv('triad', m.P1, m.R[0]));
     setLab('sin', 'Sinusoids', 'Sinusoids', ...mv('sin', m.P2, m.R[1]));
     setLab('cv', 'Central venule', 'Central venule', ...mv('cv', m.P3, m.R[2]));
+    // Lymph (Lymph layer on): the whole liver's rate, with the change from healthy (or from the pinned moment).
+    const dl = m.lymph - m.lymphRef, ly = m.lymphRef > 0 ? dl / m.lymphRef : 0, lon = m.cmp ? 0.1 : 0.25, loff = m.cmp ? 0.07 : 0.2;
+    const lshown = Math.abs(ly) >= lon || (badges.lymph === m.cmp && Math.abs(ly) >= loff);
+    badges.lymph = lshown ? m.cmp : null;
+    if (m.hide) setLab('lymph', 'Lymphatic', 'Lymph', '?', '', '', null);
+    else setLab('lymph', 'Lymphatic', 'Lymph', fmt(m.lymph, 1), 'mL/min', lshown ? `${dl > 0 ? '▲' : '▼'} ${Math.round(Math.abs(ly) * 100)}%` : '', null);
   }
 
   // ── Station labels (HTML, styled as the anatomy's) with leaders ──
@@ -758,6 +814,7 @@ export function createLobuleZoom({ host }) {
     const g = geo, C = g.lobules[0].corners;
     if (key === 'triad') return C[pick.triad];
     if (key === 'cv') return [g.cx, g.cy];
+    if (key === 'lymph') return g.triads[pick.triad].lv.pts[0];
     return sinAt(sinTube());
   };
   const sinTube = () => {
@@ -789,7 +846,7 @@ export function createLobuleZoom({ host }) {
     if (!inside(C[pick.triad], keep)) { const i = best([0, 1, 2, 3, 4, 5], (i) => C[i], [[g.cx, g.cy]]); if (i != null) pick.triad = i; }
     if (!inside(sinAt(sinTube()), keep)) { const t = best([...g.L0, ...g.L1, ...g.L2], sinAt, [[g.cx, g.cy], C[pick.triad]]); if (t) pick.sin = t.id; }
   }
-  const hitKind = (key) => (key === 'triad' ? { part: 'triad', tri: pick.triad } : key === 'cv' ? { part: 'cv' } : { part: 'sin', tube: sinTube().id });
+  const hitKind = (key) => (key === 'triad' ? { part: 'triad', tri: pick.triad } : key === 'cv' ? { part: 'cv' } : key === 'lymph' ? { part: 'lv', tri: pick.triad } : { part: 'sin', tube: sinTube().id });
   function layoutLabels() {
     const fr0 = freeRect(), g = geo, key = `${g.W}x${g.H}|${Object.values(labs).map((l) => l.txt).join('|')}|${zonesOn}|${lymphOn}|${V.k},${V.x},${V.y}|${fr0.t},${fr0.b},${fr0.l},${fr0.r}`;
     if (key === layoutKey) return;
@@ -810,9 +867,10 @@ export function createLobuleZoom({ host }) {
         placed.push({ l: x - 46 * zk, r: x + 46 * zk, t: y - 18 * zk, b: y + 18 * zk });
       }
     }
-    for (const k of ['cv', 'sin', 'triad']) {
+    for (const k of ['cv', 'sin', 'triad', 'lymph']) {
       const L = labs[k];
       if (!L) continue;
+      if (k === 'lymph' && !lymphOn) { L.el.hidden = true; L.line.style.display = L.dotEl.style.display = 'none'; continue; }
       L.el.hidden = false;
       const w = L.el.offsetWidth || 100, hh = L.el.offsetHeight || 40;
       const a = toScreen(anchorOf(k));
@@ -821,7 +879,7 @@ export function createLobuleZoom({ host }) {
       if (L.el.hidden) { L.line.style.display = L.dotEl.style.display = 'none'; continue; }
       const pad = 8, step = hh + 12;
       const preferred = k === 'cv' ? [a[0], a[1] - g.rcv0 * V.k - hh / 2 - 12]
-        : k === 'triad' ? [a[0], a[1] + hh / 2 + 12] : a;
+        : k === 'triad' ? [a[0], a[1] + hh / 2 + 12] : k === 'lymph' ? [a[0], a[1] - hh / 2 - 14] : a;
       const candidates = [preferred,
         [preferred[0], preferred[1] - step], [preferred[0], preferred[1] + step],
         [preferred[0] - w / 2 - 12, preferred[1]], [preferred[0] + w / 2 + 12, preferred[1]],
@@ -838,9 +896,9 @@ export function createLobuleZoom({ host }) {
       const { x, y, box } = best;
       placed.push(box);
       L.el.style.left = `${x - w / 2}px`; L.el.style.top = `${y - hh / 2}px`;
-      L.el.classList.toggle('direct', k !== 'cv');
+      L.el.classList.toggle('direct', k !== 'cv' && k !== 'lymph');
       L.el.classList.remove('left');
-      const leaderOn = k === 'cv';
+      const leaderOn = k === 'cv' || k === 'lymph';
       L.line.style.display = L.dotEl.style.display = leaderOn ? '' : 'none';
       L.line.setAttribute('x1', a[0]); L.line.setAttribute('y1', a[1]);
       L.line.setAttribute('x2', x); L.line.setAttribute('y2', y);
@@ -855,7 +913,18 @@ export function createLobuleZoom({ host }) {
       const zk = clamp((R * V.k) / 300, 0.66, 1.15).toFixed(3);
       [[0.83, 'Zone 1', 'periportal'], [0.51, 'Zone 2', 'midzonal'], [0.2, 'Zone 3', 'centrilobular']].forEach(([q, t, d], i) => {
         const z = h('div', { class: 'lz-zone z' + (i + 1), 'aria-hidden': 'true' }, h('b', {}, t), h('span', {}, d));
-        const [zx, zy] = toScreen([cx + Math.cos(a) * ap * q, cy + Math.sin(a) * ap * q]);
+        // Its usual spot (on the radius to the flat bottom edge); if that is out of view, the nearest in-view spot
+        // of the same zone (the same ring, at the other five sides and corners), else clamped to the free edge.
+        const ring = [];
+        for (let k = 0; k < 6; k++) { const th = a + k * Math.PI / 3; ring.push([cx + Math.cos(th) * ap * q, cy + Math.sin(th) * ap * q], [cx + Math.cos(th + Math.PI / 6) * R * q * 0.95, cy + Math.sin(th + Math.PI / 6) * R * q * 0.95]);
+        }
+        const inV = ([x, y]) => x > fr0.l + 40 && x < fr0.r - 40 && y > fr0.t + 20 && y < fr0.b - 20;
+        const mid = [(fr0.l + fr0.r) / 2, (fr0.t + fr0.b) / 2];
+        let [zx, zy] = toScreen(ring[0]);
+        if (!inV([zx, zy])) {
+          const ok = ring.map(toScreen).filter(inV).sort((u, v) => Math.hypot(u[0] - mid[0], u[1] - mid[1]) - Math.hypot(v[0] - mid[0], v[1] - mid[1]))[0];
+          if (ok) [zx, zy] = ok; else { zx = clamp(zx, fr0.l + 40, fr0.r - 40); zy = clamp(zy, fr0.t + 20, fr0.b - 20); }
+        }
         z.style.left = `${zx}px`; z.style.top = `${zy}px`; z.style.setProperty('--zk', zk);
         labels.append(z);
       });
@@ -871,19 +940,46 @@ export function createLobuleZoom({ host }) {
     const dt = Math.min(0.1, (now - (last || now)) / 1000); last = now; lastPaint = now;
     const st = store.get(), moving = st.running && !reduce.matches;
     if (moving) clock = (clock + dt) % 10000;
-    draw(moving ? dt : 0);
+    const drew = draw(moving ? dt : 0);
+    // Resolution follows the frame time: when frames that redraw arrive late the lobule is drawn smaller (a step at a
+    // time, not more often than every half second) and it grows back once there is room.
+    if (drew && prevDrew && !soft && dt < 0.1) {
+      // Hysteresis: a sustained trend of about a second before the scale moves, and then not more than once a second.
+      gapAvg += (dt * 1000 - gapAvg) * 0.1;
+      slowMs = gapAvg > 21 ? slowMs + dt * 1000 : 0; fastMs = gapAvg < 14.5 ? fastMs + dt * 1000 : 0;
+      if (now - resCheck > 1000) {
+        if (slowMs > 1000 && lzRes > 0.6) { lzRes = Math.max(0.6, lzRes - 0.1); resCheck = now; slowMs = 0; idleDrawn = ''; }
+        else if (fastMs > 2500 && lzRes < 1) { lzRes = Math.min(1, lzRes + 0.1); resCheck = now; fastMs = 0; idleDrawn = ''; }
+      }
+    }
+    prevDrew = drew;
     raf = requestAnimationFrame(loop);
   }
+  // The flow marks (shimmer and chevrons) fade out as the dive starts and back in once the lobule has landed, over about
+  // 0.3 s each way. Ordinary panning and zooming inside the lobule view leave them alone.
+  let flowA = 1, flowT = 0;
+  function stepFlowA() {
+    const now = performance.now(), dtm = Math.min(100, now - (flowT || now)); flowT = now;
+    const open = fade > 0.98 && !diveScaled;
+    flowA = open ? Math.min(1, flowA + dtm / 300) : Math.max(0, flowA - dtm / 300);
+  }
+  let lzRes = 1, gapAvg = 16.7, resCheck = 0, prevDrew = false, slowMs = 0, fastMs = 0;
 
+  // While the dive magnifies the lobule's layers (a compositor scale), they are drawn once and then left
+  // alone: redrawing the WebGL vessels, the effects and the labels each frame, at full size, is what lagged.
+  let diveScaled = false, diveDrawn = false;
   function draw(dt) {
+    stepFlowA();
+    if (diveScaled && diveDrawn && flowA <= 0) return false;   // magnified by the compositor: nothing is redrawn once the marks have faded
+    diveDrawn = diveScaled;
     const rect = host.getBoundingClientRect();
     const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
     ensureGeo(W, H);
-    const dpr = Math.min(2, devicePixelRatio || 1);
+    const dpr = Math.min(2, devicePixelRatio || 1) * lzRes;
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
     // Keep watching for view/theme/size changes, but leave a settled paused picture alone.
-    const idleKey = [W, H, dpr, dark, V.k, V.x, V.y, drawVersion].join('|');
-    if (dt === 0 && idleKey === idleDrawn) return;
+    const idleKey = [W, H, dpr, dark, V.k, V.x, V.y, drawVersion, flowA.toFixed(2)].join('|');
+    if (dt === 0 && idleKey === idleDrawn) return false;
     idleDrawn = dt === 0 ? idleKey : '';
     const cs = getComputedStyle(host);
     const g = ensureGL();
@@ -891,6 +987,7 @@ export function createLobuleZoom({ host }) {
     layoutLabels();
     if (g && !g.lost) drawGL(W, H, dpr, dark, cs, dt);
     paintFx(W, H, dpr, dark, dt, !g || g.lost);
+    return true;
   }
 
   function ensureGeo(W, H) {
@@ -1019,7 +1116,7 @@ export function createLobuleZoom({ host }) {
       if (fs.post > 0) {
         const growth = scarGrowth(fs.post), inner = R * 0.075 * (1 + 0.4 * fs.cong);
         c.globalAlpha = 1;
-        fibrousCuff(c, x, y, inner, inner + R * 0.07 * (0.08 + 0.5 * growth), COLa, growth);
+        fibrousCuff(c, x, y, inner, inner + R * 0.07 * (0.1 + 0.85 * growth), COLa, growth);
       }
       c.globalAlpha = 0.35; c.fillStyle = cvc; c.beginPath(); c.arc(x, y, R * 0.12, 0, TAU); c.fill();
       c.globalAlpha = 0.85; c.beginPath(); c.arc(x, y, R * 0.075 * (1 + 0.4 * fs.cong), 0, TAU); c.fill();
@@ -1080,7 +1177,7 @@ export function createLobuleZoom({ host }) {
       diveCtx = { W: Math.max(1, Math.round(rect.width)), H: Math.max(1, Math.round(rect.height)), cs, dark, bg: rgb01(cs.getPropertyValue('--stage-bg').trim() || cs.getPropertyValue('--bg').trim() || (dark ? '#0E1422' : '#FBFAF7')) };
     }
     const { W, H, cs, dark, bg } = diveCtx;
-    const dpr = Math.min(1.5, devicePixelRatio || 1);
+    const dpr = Math.min(1, devicePixelRatio || 1) * 0.8;   // in motion and behind the lobule: a modest resolution is plenty
     if (field.width !== Math.round(W * dpr) || field.height !== Math.round(H * dpr)) { field.width = Math.round(W * dpr); field.height = Math.round(H * dpr); }
     // Half the tile's resolution, as at rest: the field is in motion and behind the lobule.
     const rd = d.r * dpr, t = fieldTile(cs, dark, rd * 0.55);
@@ -1160,7 +1257,7 @@ export function createLobuleZoom({ host }) {
     return p < 0.45 ? lo.map((x, i) => lerp(x, mid[i], p / 0.45)) : mid.map((x, i) => lerp(x, hi[i], (p - 0.45) / 0.55));
   };
   // The triad's outlines: dark blue, red and green (the venule, arteriole and ductule), against the common casing.
-  const EDGE = { pv: [0.12, 0.27, 0.58], in: [0.12, 0.27, 0.58], ha: [0.55, 0.1, 0.16], tw: [0.55, 0.1, 0.16], bd: [0.2, 0.42, 0.18] }, BD_FILL = [0.8, 0.92, 0.68];
+  const EDGE = { pv: [0.12, 0.27, 0.58], in: [0.12, 0.27, 0.58], ha: [0.55, 0.1, 0.16], tw: [0.55, 0.1, 0.16], bd: [0.27, 0.29, 0.12] }, BD_FILL = [0.48, 0.5, 0.24];   // bile: a dark, dull olive
   const WALL = { s0: 0.8, s1: 0.85, s2: 0.9, an: 0.7, in: 1.5, pv: 2, cv: 1.6, sh: 1.1, ha: 1.7, bd: 1.8, tw: 0.9, ly: 0.5, lt: 0.8, lv: 1.1 };
   // Weight of the inlet's value at a radius along the sinusoids (1 at the lobule's edge, 0 at the central vein).
   const sinW = (rho) => clamp((rho - 0.075) / (0.92 - 0.075), 0, 1) ** 0.8;
@@ -1258,7 +1355,7 @@ export function createLobuleZoom({ host }) {
           // The triad's three vessels carry a dark outline of their own colour; the rest the common casing.
           const edge = EDGE[t.kind];
           const flags = (selIdsN.has(t.id) ? F_SEL : 0) | (edge ? F_EDGE : 0) | (isArt || isBd ? 0 : F_DIFFUSE | F_SHADOW | (big ? F_SPEC : 0));
-          const z = { s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.13, an: 0.09, lt: 0.25, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.45, sh: 0.5, bd: 0.55, tw: 0.6, ha: 0.7 }[t.kind];
+          const z = { s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.13, an: 0.09, lt: 0.25, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.8, sh: 0.5, bd: 0.55, tw: 0.6, ha: 0.7 }[t.kind];
           tubeData.set([...c0, WALL[t.kind], ...c1, alpha, 1, z, flags, 0], o);
           tubeData.set([0, 1, t.len, 0], o + 20);
           if (edge) tubeData.set([...edge, 0], o + 24);
@@ -1311,7 +1408,7 @@ export function createLobuleZoom({ host }) {
       ring: [...rgb01(cs.getPropertyValue('--accent').trim() || '#3b6cf6'), 0.4],
       netAlpha: 1, fx: true, tierAlpha: Array(MAX_TIERS).fill(1), tierGroup: Array(MAX_TIERS).fill(1),
     };
-    const blood = { on: bloodOn, chev, look: b.look || 'shimmer', origin, clock, dye: false, bleed: [], ...BLOOD };
+    const blood = { alpha: flowA, on: bloodOn && flowA > 0.002, chev: chev && flowA > 0.002, look: b.look || 'shimmer', origin, clock, dye: false, bleed: [], ...BLOOD };
     if (glDirty || dk !== drawKey) { glDirty = false; drawKey = dk; g.draw(T, look, blood); } else g.composite(look, blood);
   }
   const num = (cs, n, d) => { const v = parseFloat(cs.getPropertyValue(n)); return Number.isFinite(v) ? v : d; };
@@ -1473,7 +1570,7 @@ export function createLobuleZoom({ host }) {
     for (const [x, y] of lobules[0].corners) {
       const kk = Math.round(x) + ',' + Math.round(y);
       if (seen.has(kk)) continue; seen.add(kk);
-      const near = Math.hypot(x - cx, y - cy) < R * 1.05, rt = G.rt * (0.8 + 0.18 * scarGrowth(m.fibPre));
+      const near = Math.hypot(x - cx, y - cy) < R * 1.05, rt = G.rt * (0.8 + 0.45 * scarGrowth(m.fibPre));
       c.globalAlpha = near ? 1 : 0.5;
       // Collagen expands asymmetrically around all three structures, continuous with the septa.
       if (m.fibPre > 0.03) {
@@ -1488,7 +1585,7 @@ export function createLobuleZoom({ host }) {
     // Central vein wall: wavy collagen bundles, continuous with the portal-central bridges.
     if (m.fibPost > 0.05) {
       const growth = scarGrowth(m.fibPost), inner = radiusAt(G.cv, 0);
-      const outer = inner + G.rcv0 * (0.08 + 0.5 * growth);
+      const outer = inner + G.rcv0 * (0.1 + 0.85 * growth);
       fibrousCuff(c, cx, cy, inner, outer, COL, growth);
     }
   }
@@ -1498,7 +1595,7 @@ export function createLobuleZoom({ host }) {
     c.lineCap = 'round'; c.lineJoin = 'round';
     for (const t of G.tubes) {
       const r = radiusAt(t, N >> 1), isArt = t.kind === 'ha' || t.kind === 'tw', disc = t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || t.kind === 'bd';
-      const color = isArt ? art : t.kind === 'bd' ? '#CCEBAE' : tubeInk(t, 0), rim = EDGE[t.kind];
+      const color = isArt ? art : t.kind === 'bd' ? '#7A7D3C' : tubeInk(t, 0), rim = EDGE[t.kind];
       const [x0, y0] = t.pts[0];
       if (disc) {
         c.fillStyle = rim ? `rgb(${rim.map((q) => Math.round(q * 255))})` : casing; c.beginPath(); c.arc(x0, y0, r + (rim ? 1.8 : 1.2), 0, TAU); c.fill();
@@ -1520,6 +1617,28 @@ export function createLobuleZoom({ host }) {
     c.clearRect(0, 0, W, H);
     c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y);
     const G = geo, m = model;
+    if (!m.hide) {
+      // The bile ductule is lined all round by a simple cuboidal epithelium: wedge-shaped cells side by side
+      // around an open lumen, each with a darker round nucleus.
+      const dk = dark, cellFill = dk ? '#8E9150' : '#A3A55F', cellEdge = dk ? 'rgba(36, 38, 16, .55)' : 'rgba(66, 68, 28, .5)', nuc = dk ? '#3E4120' : '#5A5D2A', lumen = dk ? '#2C2F16' : '#6B6E36';
+      const NC = 16, TAU2 = Math.PI * 2;
+      c.lineWidth = Math.max(0.3, G.R * 0.0013); c.strokeStyle = cellEdge; c.globalAlpha = 0.72;   // a little faded, so the ductule sits back in the tract
+      for (const tr of G.triads) {
+        // One ring of NC cuboidal cells: as deep as they are wide, so each nucleus has room (a third of the cell's width).
+        const r = Math.max(radiusAt(tr.bdT, N >> 1), G.R * 0.008), rm = r * 1.35, hw = Math.PI * rm / NC, rin = rm - hw, rout = rm + hw, x = tr.bd[0], y = tr.bd[1];
+        c.fillStyle = lumen; c.beginPath(); c.arc(x, y, rin, 0, TAU2); c.fill();
+        c.fillStyle = cellFill;
+        for (let i = 0; i < NC; i++) {
+          const a0 = (i / NC) * TAU2 + tr.i, a1 = ((i + 1) / NC) * TAU2 + tr.i;
+          c.beginPath(); c.arc(x, y, rin, a0, a1); c.arc(x, y, rout, a1, a0, true); c.closePath(); c.fill(); c.stroke();
+        }
+        c.fillStyle = nuc; c.beginPath();
+        const rn = rm, nr = hw * 0.34;   // diameter about a third of the cell's width
+        for (let i = 0; i < NC; i++) { const a = ((i + 0.5) / NC) * TAU2 + tr.i, nx = x + Math.cos(a) * rn, ny = y + Math.sin(a) * rn; c.moveTo(nx + nr, ny); c.arc(nx, ny, nr, 0, TAU2); }
+        c.fill();
+      }
+      c.globalAlpha = 1;
+    }
     if (lymphOn && flat) {
       // Without WebGL2, hepatic lymph as shimmer: plasma filtered into the space of Disse drifts out through the tissue
       // to the portal tract (space of Mall), where it leaves in the lymphatics. More sinusoidal pressure,
@@ -1600,19 +1719,20 @@ export function createLobuleZoom({ host }) {
     const G = geo, m = model;
     if (!G || !m) return null;
     for (const tr of G.triads) if (Math.hypot(x - tr.x, y - tr.y) < G.rt * 1.2) {
-      if (Math.hypot(x - tr.ha[0], y - tr.ha[1]) < G.R * 0.03) return { part: 'ha', tri: tr.i };
-      if (Math.hypot(x - tr.bd[0], y - tr.bd[1]) < G.R * 0.03) return { part: 'bd', tri: tr.i };
+      if (Math.hypot(x - tr.ha[0], y - tr.ha[1]) < Math.max(G.R * 0.03, 10 / V.k)) return { part: 'ha', tri: tr.i };
+      if (Math.hypot(x - tr.bd[0], y - tr.bd[1]) < Math.max(G.R * 0.03, 10 / V.k)) return { part: 'bd', tri: tr.i };
+      if (lymphOn && Math.hypot(x - tr.lv.pts[0][0], y - tr.lv.pts[0][1]) < Math.max(G.R * 0.03, 10 / V.k)) return { part: 'lv', tri: tr.i };
       return { part: 'triad', tri: tr.i };
     }
     if (Math.hypot(x - G.cx, y - G.cy) < radiusAt(G.cv, 0) + 4) return { part: 'cv' };
     let best = null, bd = Infinity;
     for (const t of G.tubes) {
-      if (t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || t.kind === 'bd') continue;
-      const [d] = distTo(t.pts, x, y), r = radiusAt(t, N >> 1), tol = r + (t.kind === 'tw' ? 6 : 5);
+      if (t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || t.kind === 'bd' || (t.lymph && !lymphOn)) continue;
+      const [d] = distTo(t.pts, x, y), r = radiusAt(t, N >> 1), tol = Math.max(r + (t.kind === 'tw' ? 6 : 5), 10 / V.k);
       const score = d - r - (t.kind === 'tw' ? 2 : 0);
       if (d < tol && score < bd) { bd = score; best = t; }
     }
-    if (best) return { part: best.kind === 'tw' ? 'ha' : best.kind[0] === 's' ? 'sin' : best.kind, tube: best.id, tri: best.tri };
+    if (best) return { part: best.kind === 'tw' ? 'ha' : best.lymph ? 'lv' : best.kind[0] === 's' ? 'sin' : best.kind, tube: best.id, tri: best.tri };
     if (m.septU > 0.1) {
       const C = G.lobules[0].corners, w = G.R * (0.02 + 0.05 * m.septU) / 2 + 4;
       for (let i = 0; i < 6; i++) { const A = C[i], B = C[(i + 1) % 6], dx = B[0] - A[0], dy = B[1] - A[1], L2 = dx * dx + dy * dy, t = clamp(((x - A[0]) * dx + (y - A[1]) * dy) / L2, 0, 1); if (Math.hypot(A[0] + dx * t - x, A[1] + dy * t - y) < w) return { part: 'septum' }; }
@@ -1666,18 +1786,21 @@ export function createLobuleZoom({ host }) {
       return { x, y, r: geo.R * V.k };
     },
     setDive: paintField,
+    onZoomOut(fn) { outHandler = fn; },
     prewarm, warm,
     /** True once the dive's field (or the lobule) covers the anatomy, which then need not be drawn. */
     covers: () => fade > 0.98 || fieldOp >= 0.999,
     /** During the dive: the tissue (not its card) still zooming in, by k (≤ 1) about the stage point x, y. */
-    setDiveZoom(k, x, y) {
+    setDiveZoom(k, x, y, tx = x, ty = y) {
+      diveScaled = k < 0.9999; if (!diveScaled) diveDrawn = false;
       // Scaled down, the tissue's own page fill would show as a pale card; a soft round mask keeps only the lobule and its rim.
       const r = geo ? geo.R * V.k : 0, mask = k >= 0.9999 || !r ? '' : `radial-gradient(circle at ${x.toFixed(1)}px ${y.toFixed(1)}px, #000 ${(r * 1.02).toFixed(1)}px, transparent ${(r * 1.2).toFixed(1)}px)`;
       for (const e of [tissue, glCv, fx, leaders, labels]) {
         if (e === tissue || e === glCv) { e.style.maskImage = mask; e.style.webkitMaskImage = mask; }
         if (k >= 0.9999) { e.style.transform = ''; e.style.transformOrigin = ''; continue; }
+        // Scaled about its own centre, which sits where the field's lobule at the dive's focus is (tx, ty), so it morphs out of that one.
         e.style.transformOrigin = `${x.toFixed(1)}px ${y.toFixed(1)}px`;
-        e.style.transform = `scale(${k.toFixed(4)})`;
+        e.style.transform = `translate(${(tx - x).toFixed(1)}px, ${(ty - y).toFixed(1)}px) scale(${k.toFixed(4)})`;
       }
     },
     /** Where a lobule selection is on screen (for the action card), as the stage's anchorFor. */

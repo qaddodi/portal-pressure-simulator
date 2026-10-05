@@ -7,7 +7,9 @@ Work happens in the cloud; previews are published to GitHub Pages.
 
 - **Live site:** https://qaddodi.github.io/portal-pressure-simulator/ (tip of `main`)
 - **Preview:** https://qaddodi.github.io/portal-pressure-simulator/preview/
-  Pushing any `claude/**` branch triggers `.github/workflows/pages.yml`, which republishes
+  Only `main` and the integration branch `claude/settings-topbar-icon-flvft1` publish; other
+  `claude/**` pushes are checked but leave the preview alone, so merge into the integration
+  branch to preview. Pushing it triggers `.github/workflows/pages.yml`, which republishes
   the live site at `/` and that branch at `/preview/` (about a minute or two).
   Pushing `main` republishes both from `main`, so after a merge `/preview/` equals the live site.
   `/preview/preview-info.txt` shows which branch and commit the preview was built from.

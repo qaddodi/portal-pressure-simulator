@@ -99,8 +99,11 @@ jobs:
           path: workspace-shots/
           if-no-files-found: ignore
 
+  # Only main and the one integration branch publish. Other claude/** branches are still checked,
+  # but their pushes no longer replace /preview/.
   deploy:
     needs: validate
+    if: github.ref_name == 'main' || github.ref_name == 'claude/settings-topbar-icon-flvft1'
     runs-on: ubuntu-latest
     concurrency:
       group: pages

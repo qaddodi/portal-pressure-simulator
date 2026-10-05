@@ -6,7 +6,7 @@
 // liver's flow).
 
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
-import { clamp } from './util.js?v=f4c2603e25';
+import { clamp } from './util.js?v=d90a6074b7';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -30,7 +30,7 @@ export function lobuleState(f, st) {
   const m = {
     P1: Pn(S.pv), P2: Pn(S.sin), P3, P4: Pn(S.hv), P5: Pn('IVCS'), H: [Hn(S.pv), Hn(S.sin), Hn(S.cv), Hn(S.hv), Hn('IVCS')],
     ...lobuleFlows(f, H), zone, s: sc, cong, hide: !!st.imaging, fib, hvpg: f.metrics?.hvpg,
-    fibSin: clamp(Math.log(zone.sin) / 3.2, 0, 1), fibPre: clamp(Math.log(zone.pre) / 2.4, 0, 1), fibPost: clamp(Math.log(zone.post) / 2.4, 0, 1),
+    fibSin: clamp(Math.log(zone.sin) / 3.2, 0, 1), fibPre: clamp(Math.log(zone.pre) / 5.4, 0, 1) ** 0.6, fibPost: clamp(Math.log(zone.post) / 4.8, 0, 1) ** 0.6,
     congU: clamp(cong / 12, 0, 1), shuntU: clamp((sc - 0.45) / 0.35, 0, 1), septU: clamp((sc - 0.3) / 0.5, 0, 1),
   };
   m.act = clamp(Math.max(m.fibSin, sc * 0.9), 0, 1);
@@ -40,6 +40,7 @@ export function lobuleState(f, st) {
   // The reference the labels and the card measure change against: the pinned moment while
   // comparing (as the anatomy does), otherwise the healthy patient.
   m.cmp = !!st.compareSnap;
+  m.lymphRef = m.cmp ? (st.compareSnap.metrics?.ascites?.hepLymph ?? m.lymph0) : m.lymph0;
   m.R = m.cmp ? [S.pv, S.sin, S.cv, S.hv, 'IVCS'].map((id) => ref[NI[id]]) : m.H;
   const dOf = (id) => (ref ? Pn(id) - ref[NI[id]] : 0);
   m.dP = [dOf(S.pv), dOf(S.sin), dOf(S.cv)];

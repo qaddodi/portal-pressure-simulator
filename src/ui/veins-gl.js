@@ -433,6 +433,7 @@ uniform float pxW;                     // world units per device pixel
 uniform int blood;                     // 1: draw the blood
 uniform int chev;                      // 1: flow chevrons on top (dark; orange where flow is reversed)
 uniform vec3 chevInk;
+uniform float flowA;                   // 0..1: how visible the moving blood and chevrons are (they fade in once the view is still)
 uniform int look;                      // 0 parcels, 1 shimmer
 uniform int origin;                    // 1: color parcels by where their blood came from
 uniform int dyeOn;
@@ -565,8 +566,10 @@ vec4 bloodAt(int id, float s, float y, vec3 col) {
   vec2 qb = vec2((s - mod(D * (k0 + 1.0) / 8.0, period)) / cellA + drift, qy);
   uint sd0 = uint(id) * 31u, sd1 = uint(id) * 57u + 11u;
   // Between two lane speeds the two fields are blended; most pixels need only one.
-  float na = t < 1.0 ? 0.62 * vnoise(qa, sd0, per) + 0.38 * vnoise(qa * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2) : 0.0;
-  float nb = t > 0.0 ? 0.62 * vnoise(qb, sd0, per) + 0.38 * vnoise(qb * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2) : 0.0;
+  // The fine octave is left out where its features are under a pixel and a half (replaced by its mean, so the level holds).
+  bool fine = cellA * 0.5 > 1.5 * pxW;
+  float na = t < 1.0 ? 0.62 * vnoise(qa, sd0, per) + 0.38 * (fine ? vnoise(qa * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2) : 0.5) : 0.0;
+  float nb = t > 0.0 ? 0.62 * vnoise(qb, sd0, per) + 0.38 * (fine ? vnoise(qb * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2) : 0.5) : 0.0;
   float nz = mix(na, nb, t);
   float dens = sqrt(clamp(p, 0.0, 1.0));
   // Soft-edged and subdued, so up close the sheen reads as moving light, not as stripes painted on the tube;
@@ -675,7 +678,7 @@ void main() {
       vec4 A = bloodAt(id1, s1, y1, col);
       vec4 B = b > 0.004 ? bloodAt(id2, s2, y2, col) : vec4(0.0);
       float a = A.a * (1.0 - b) + B.a * b;
-      if (a > 0.0) col = mix(col, (A.rgb * A.a * (1.0 - b) + B.rgb * B.a * b) / a, clamp(a * vis, 0.0, 1.0));
+      if (a > 0.0) col = mix(col, (A.rgb * A.a * (1.0 - b) + B.rgb * B.a * b) / a, clamp(a * vis * flowA, 0.0, 1.0));
     }
     if (dyeOn == 1) {
       float c = dyeAt(id1, s1, y1) * (1.0 - b) + (b > 0.004 ? dyeAt(id2, s2, y2) * b : 0.0);
@@ -687,8 +690,8 @@ void main() {
       if (c.x + c.y > 0.0) {
         float rv = texelFetch(flow, ivec2(1, id1), 0).w;
         // A faint light rim lifts the head off the lumen; the head itself dark, or orange if reversed.
-        col = mix(col, inkLight, c.y * 0.75 * vis);
-        col = mix(col, mix(chevInk, revCol, rv), c.x * vis);
+        col = mix(col, inkLight, c.y * 0.75 * vis * flowA);
+        col = mix(col, mix(chevInk, revCol, rv), c.x * vis * flowA);
       }
     }
     v = vec4(col * v.a, v.a);
@@ -1027,6 +1030,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.uniform4f(U.plateRect1, ...(plates[1]?.rect || [0, 0, 1, 1]));
       gl.uniform1i(U.blood, blood.on ? 1 : 0);
       gl.uniform1i(U.chev, blood.chev ? 1 : 0);
+      gl.uniform1f(U.flowA, blood.alpha ?? 1);
       gl.uniform3f(U.chevInk, ...(blood.chevInk || [0.08, 0.08, 0.1]));
       gl.uniform1i(U.look, blood.look === 'shimmer' ? 1 : 0);
       gl.uniform1i(U.origin, blood.origin ? 1 : 0);
