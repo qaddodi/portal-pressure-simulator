@@ -1586,7 +1586,7 @@ button.finding:hover { background: var(--surface-2); }
 .lz-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: var(--fs-12); color: var(--text-2); border-top: 1px solid var(--border); padding-top: 12px; }
 .lz-legend span { display: inline-flex; gap: 8px; align-items: center; }
 .lz-legend i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .15); }
-.lz-legend .lg-ha { background: var(--artery); } .lz-legend .lg-bd { border: 2px solid var(--bile-duct); box-shadow: none; }
+.lz-legend .lg-ha { background: var(--artery); } .lz-legend .lg-bd { background: #CCEBAE; box-shadow: inset 0 0 0 2px #335F2E; }
 .lz-legend .lg-hsc { background: rgb(176, 104, 48); } .lz-legend .lg-col { background: rgb(236, 222, 186); }
 .lz-legend .lg-sh { background: linear-gradient(90deg, #9b3c86, #6fa6da); border-radius: 3px; height: 6px; }
 .lz-legend .lg-ly { background: rgb(226, 233, 216); box-shadow: inset 0 0 0 1px rgb(168, 182, 156); }

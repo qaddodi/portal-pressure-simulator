@@ -41,7 +41,7 @@ const QUAD = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]);
 // Flags (tube texel 2, z).
 // Stream flags (tube texel 5, w): the stream runs on at the upstream / downstream end; reversed flow.
 export const F_UP = 1, F_DN = 2, F_REV = 4;
-export const F_SEL = 1, F_DIFFUSE = 2, F_SHADOW = 4, F_DOTTED = 8, F_NOCASE = 16, F_SPEC = 32;
+export const F_SEL = 1, F_DIFFUSE = 2, F_SHADOW = 4, F_DOTTED = 8, F_NOCASE = 16, F_SPEC = 32, F_EDGE = 64;   // F_EDGE: the casing takes its own color (texel 6) and is opaque
 
 const VS = `#version 300 es
 layout(location=0) in vec2 corner;
@@ -195,7 +195,7 @@ void main() {
 
   // ── Per-vessel attributes ──
   float stier[MAXS], sz[MAXS], sflag[MAXS], sa[MAXS], swall[MAXS], sheat[MAXS];
-  vec3 scol[MAXS], shcol[MAXS];
+  vec3 scol[MAXS], shcol[MAXS], sedge[MAXS];
   float occl = useOrgan == 1 ? texture(organ, (p - organRect.xy) / organRect.zw).a * 0.66 * organK : 0.0;
   for (int s = 0; s < MAXS; s++) {
     if (s >= n) break;
@@ -203,6 +203,7 @@ void main() {
     stier[s] = t2.x; sz[s] = t2.y; sflag[s] = t2.z; swall[s] = t0.w; sheat[s] = t2.w;
     scol[s] = mix(t0.rgb, t1.rgb, clamp(su[s], 0.0, 1.0));
     shcol[s] = t2.w > 0.0 ? T(sid[s], 6).rgb : vec3(0.0);
+    sedge[s] = (int(t2.z + 0.5) & ${F_EDGE}) != 0 ? T(sid[s], 6).rgb : vec3(0.0);
     float a = t1.w;
     if (t4.w > 1.5) {
       float v = length(p - t3.xy) / max(t3.z, 1e-3);
@@ -315,7 +316,7 @@ void main() {
       c = vec4(shadow.rgb * as, as);
     }
     if (sel) { float ar = ring.a * clamp(0.5 - (D - wall - 4.0) / aa, 0.0, 1.0); c = over(vec4(ring.rgb * ar, ar), c); }
-    c = over(vec4(casing.rgb, 1.0) * (casing.a * cA * aC), c);
+    c = (flags & ${F_EDGE}) != 0 ? over(vec4(sedge[ow], 1.0) * (0.92 * aC), c) : over(vec4(casing.rgb, 1.0) * (casing.a * cA * aC), c);
     vec3 lum = col;
     float rho = clamp((R + D) / max(R, 1e-3), 0.0, 1.0);
     if (fx == 1 && (flags & ${F_DIFFUSE}) != 0 && aL > 0.0) {
