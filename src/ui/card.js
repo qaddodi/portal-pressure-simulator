@@ -50,26 +50,17 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     liftedBy = px;
     lift ||= [...view.querySelectorAll('.zoom-pill, .stage-clock')];
     for (const b of lift) b.style.setProperty('--sheet-h', px);
-    // On a phone held sideways the room between the top bar and the sheet can be smaller than the zoom
-    // buttons: then they step aside rather than slide under the top bar.
+    // Keep the zoom and Fit pill above the card; hide only if it would reach the top bar.
     const pill = lift.find((b) => b.classList.contains('zoom-pill'));
     if (pill) pill.classList.toggle('under-sheet', isDocked() && parseFloat(px) > 0);
-    // Hidden (a phone's instrument sheet is up) it has no box to measure: a reading then would leave it
-    // stepped aside for good once it shows again.
-    if (pill && !pill.getClientRects().length) pill.classList.remove('no-room');
-    else if (pill) {
-      const shift = parseFloat(getComputedStyle(pill).translate.split(' ')[1]) || 0;   // where the lift has got to
-      const restTop = pill.getBoundingClientRect().top - shift;
-      const barBottom = document.getElementById('topbar').getBoundingClientRect().bottom;
-      pill.classList.toggle('no-room', restTop - parseFloat(px) < barBottom + 4);
-    }
+    if (pill) pill.classList.remove('no-room');
   }
   function reveal() {
     cancelAnimationFrame(revealRaf);
     revealRaf = requestAnimationFrame(() => {
       const open = model && !el.hidden && isDocked();
       // How much of the figure the sheet covers (it also covers the row below the figure).
-      const covered = open ? Math.max(0, view.getBoundingClientRect().bottom - el.getBoundingClientRect().top) : 0;
+      const covered = open ? Math.max(0, view.getBoundingClientRect().bottom - (dockHost.getBoundingClientRect().top + el.offsetTop)) : 0;
       liftButtons(open ? `${covered + 6}px` : '0px');
       if (open) stage.reveal?.(normalizeSel(selRef) || selRef, covered);
     });
@@ -142,11 +133,10 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       m.noDetails ? null : h('button', { class: 'link', 'aria-label': 'Details', title: 'Details', onclick: () => onDetails(selRef) }, h('span', { class: 'ac-link-text' }, 'Details'), svgIcon('chev-right', 'mi-ic')));
     const foot = mkFoot('at-foot');
     // One compact phone sheet: drag the header down to dismiss.
-    const grab = h('button', { class: 'ac-grab', 'aria-label': 'Close card', title: 'Swipe down to close' });
-    const top = h('div', { class: 'ac-top' }, grab,
+    const top = h('div', { class: 'ac-top' },
       h('header', { class: 'ac-head' }, h('div', { class: 'ac-titles' }, h('span', { class: 'ac-kicker' }, m.kicker), h('h3', {}, m.title)), mkFoot('in-head'), close),
       h('div', { class: 'ac-readout' }, valEl, pillEl));
-    wireSheet(top, grab);
+    wireSheet(top);
     const scroller = h('div', { class: 'ac-scroll' }, body);
     scroller.addEventListener('scroll', syncMore, { passive: true });
     el.replaceChildren(top, scroller, foot);
@@ -164,8 +154,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   }
 
   // Track swipes outside the header too; release all listeners on close or selection change.
-  function wireSheet(top, grab) {
-    grab.addEventListener('click', () => { if (isDocked()) store.set({ selection: null }); });
+  function wireSheet(top) {
     let y0 = null;
     const stop = () => {
       y0 = null;
@@ -375,7 +364,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   }
 
   // The floating pieces moved (a card opened on the right, the dock grew): place the card again.
-  addEventListener('pps:occ', () => { placedFor = ''; lastLayout = ''; position(); });
+  addEventListener('pps:occ', () => { placedFor = ''; lastLayout = ''; position(); if (isDocked()) reveal(); });
   store.on('selection', () => render());
   store.on('shunting', () => render());
   store.on('allowedVerbs', () => render());
