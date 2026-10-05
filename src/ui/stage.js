@@ -116,6 +116,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const k = Math.min(IVC_JOIN_LEN, d) / d;
     IVC_JOIN[e.id] = [bx - (bx - ax) * k, by - (by - ay) * k, bx, by, 0, 1, 0, 1];
   }
+  // The two halves of the IVC meet at the hepatic confluence: the upper half fades in from the lower one, which stays solid (two translucent layers
+  // in different tiers cannot sum to a full wall, so fading both leaves a hole) ([x1, y1, x2, y2, offset, alpha at start, alpha at end, mode]).
+  const IVC_SEAM = { IVCS_RA: [620, 192, 620, 160, 0, 0, 1, 1] };
   const FADE_DOWN_Y = { C4: [892, 928], EPI_ILI: [870, 925], ILI_IVC: [850, 925], V_UP: [38, 4] };
   // The azygos trunk fades out toward its lower end unless the ascending lumbar collateral (C9) is
   // open and carries it on down to the cava: [y where the fade starts, y where it is gone].
@@ -305,7 +308,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     <pattern id="texLobules" width="14" height="12" patternUnits="userSpaceOnUse"><path class="tex" d="M1 6a6 5 0 0 1 12 0M-6 12a6 5 0 0 1 12 0M8 12a6 5 0 0 1 12 0"/></pattern>
     <pattern id="texMuscle" width="30" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(24)"><path class="tex" d="M0 5c8-3 22 3 30 0"/></pattern>
     <filter id="heatBlur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="10"/></filter>
-    <pattern id="mapGrid" width="20" height="20" patternUnits="userSpaceOnUse"><circle class="map-dot" cx="10" cy="10" r=".9"/></pattern>`;
+    <pattern id="mapGrid" width="20" height="20" patternUnits="userSpaceOnUse"><circle class="map-dot" cx="10" cy="10" r=".9"/></pattern>
+    <radialGradient id="mapGridFade" gradientUnits="userSpaceOnUse" cx="700" cy="380" r="1300" gradientTransform="translate(700 380) scale(1.25 0.8) translate(-700 -380)"><stop offset=".42" stop-color="#fff"/><stop offset="1" stop-color="#000"/></radialGradient>
+    <mask id="mapGridMask" maskUnits="userSpaceOnUse" x="-3000" y="-3000" width="7400" height="7400"><rect x="-3000" y="-3000" width="7400" height="7400" fill="url(#mapGridFade)"/></mask>`;
   svg.append(defs);
   const world = s('g', { id: 'world' });
   svg.append(world);
@@ -375,7 +380,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   gBack.append(gBackS, gBackC, gBackL, gBackH);
 
   // Circuit view: quiet bands for each pressure zone (captioned by the label layer).
-  gGrid.append(s('rect', { x: 30, y: 30, width: 1340, height: 700, fill: 'url(#mapGrid)', class: 'map-grid' }));
+  // The dots run on past the figure in every direction and fade out with distance (a soft radial mask).
+  gGrid.append(s('rect', { x: -3000, y: -3000, width: 7400, height: 7400, fill: 'url(#mapGrid)', class: 'map-grid', mask: 'url(#mapGridMask)' }));
   CIRCUIT_ZONES.forEach(([, x0, x1], i) => {
     gGrid.append(s('rect', { x: x0, y: 40, width: x1 - x0, height: 690, class: 'zone' + (i % 2 ? ' alt' : '') }));
   });
@@ -2050,6 +2056,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         else if (obj.fan && cfg.fan) { const { at, len, levels, fade: fr = [0.7, 0.4] } = cfg.fan; fade = [at[0], at[1], len * (levels ? 2.7 : 1.35), 0, 0, fr[0], fr[1], 2]; }
       } else if (x.tipFade) { const L = x.tipFade.line; fade = [L[0], L[1], L[2], L[3], 0, x.tipFade.joined ? 1 : T0, 1, 1]; }
       else if (kind === 'v' && IVC_JOIN[id]) fade = [...IVC_JOIN[id]];
+      else if (IVC_SEAM[id]) fade = [...IVC_SEAM[id]];
       else if (FADE_DOWN_Y[id]) { const [y0, y1] = FADE_DOWN_Y[id]; fade = [0, y0, 0, y1, 0, 1, 0, 1]; }
       else if (FADE_IN[id] && kind === 'v') { const [x1, y1, x2, y2, of] = FADE_IN[id]; fade = [x1, y1, x2, y2, of, 1, 0.3, 1]; }
       // The fades are drawn in the anatomy's coordinates: they let go as the circuit takes over.
