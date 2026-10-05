@@ -584,7 +584,6 @@ function openLayers(anchor) {
     return b;
   };
   popover(anchor, [
-    h('div', { class: 'menu-title' }, 'Color vessels by', h('span', { class: 'kb' }, 'L cycles')),
     h('div', { class: 'lens-grid' }, Object.keys(LENSES).map(lens)),
     s0.imaging ? h('div', { class: 'ctl-sub', style: { padding: '2px 10px 6px' } }, 'This case shows anatomy only until you measure.') : null,
   ], { cls: 'layers-pop' });
