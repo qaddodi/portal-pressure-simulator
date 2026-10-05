@@ -30,7 +30,7 @@ export function lobuleState(f, st) {
   const m = {
     P1: Pn(S.pv), P2: Pn(S.sin), P3, P4: Pn(S.hv), P5: Pn('IVCS'), H: [Hn(S.pv), Hn(S.sin), Hn(S.cv), Hn(S.hv), Hn('IVCS')],
     ...lobuleFlows(f, H), zone, s: sc, cong, hide: !!st.imaging, fib, hvpg: f.metrics?.hvpg,
-    fibSin: clamp(Math.log(zone.sin) / 3.2, 0, 1), fibPre: clamp(Math.log(zone.pre) / 5.4, 0, 1), fibPost: clamp(Math.log(zone.post) / 4.8, 0, 1),
+    fibSin: clamp(Math.log(zone.sin) / 3.2, 0, 1), fibPre: clamp(Math.log(zone.pre) / 5.4, 0, 1) ** 0.6, fibPost: clamp(Math.log(zone.post) / 4.8, 0, 1) ** 0.6,
     congU: clamp(cong / 12, 0, 1), shuntU: clamp((sc - 0.45) / 0.35, 0, 1), septU: clamp((sc - 0.3) / 0.5, 0, 1),
   };
   m.act = clamp(Math.max(m.fibSin, sc * 0.9), 0, 1);
