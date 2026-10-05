@@ -87,7 +87,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   const pinBtn = h('button', { class: 'tl-pin', 'aria-pressed': 'false', 'aria-label': 'Compare from here', title: 'Freeze this moment and compare the live model with it (P)' }, svgIcon('compare', 'mi-ic'), h('span', {}, 'Compare'));
   // Restart lives in More; the jumps share one segmented control.
   pinBtn.addEventListener('click', () => togglePin());
-  root.replaceChildren(h('div', { class: 'tl-left' }, playBtn, speedBtn, restartBtn), track, timeEl, h('div', { class: 'tl-jumps' }, ffBtn), histBtn, pinBtn);
+  root.replaceChildren(h('div', { class: 'tl-left' }, h('div', { class: 'tl-split' }, speedBtn, playBtn), restartBtn), track, timeEl, h('div', { class: 'tl-jumps' }, ffBtn), histBtn, pinBtn);
   tooltipFor(playBtn, 'Play / pause · Space', 'top');
   tooltipFor(restartBtn, 'Restart this patient', 'top');
   function menuBtn(label, fn) { const b = h('button', { class: 'menu-item' }, label); b.addEventListener('click', () => { closePopover(); fn(); }); return b; }
