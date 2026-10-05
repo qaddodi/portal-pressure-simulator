@@ -1047,7 +1047,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // settles onto one, where the lobule's tissue fades in, in place, and then its labels and card.
   // Out, the same in reverse, quicker.
   // The anatomy's own framing is never touched. diveT is the dive's clock, 0 (anatomy) to 1 (lobule).
-  let diveAt = null, diveLand = null, diveT = 0;
+  let diveAt = null, diveLand = null, diveT = 0, diveOut = false;
   const DIVE_MS = 1600, RISE_MS = 1000;
   const RH = 11;   // a lobule's size on screen (px) as the liver's surface gives way to the field
   const LC = Math.log(5);   // the anatomy's share of the zoom (×5), the field's the rest
@@ -1095,7 +1095,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       setDiveScale(t >= 1 ? 1 : Math.exp(Math.min(z, LC + 0.4)));
       // The anatomy's labels leave as the zoom starts.
       const lab = wrap.querySelector('#labels');
-      if (lab) lab.style.opacity = t <= 0 ? '' : (1 - smoothT(0, 0.12, t)).toFixed(3);
+      // (Going out they come back over the last half of the zoom, in place, rather than at the very end.)
+      if (lab) lab.style.opacity = t <= 0 ? '' : (1 - smoothT(0, diveOut ? 0.55 : 0.12, t)).toFixed(3);
       // The detailed lobule comes in while the zoom is still settling, zooming with the field.
       const r = RH * Math.exp(z - LC);
       const [ox, oy] = diveAt;
@@ -1113,7 +1114,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function setLobule(on) {
     if (on && morphTarget !== 0) return;
-    scrubS = 0; cancelAnimationFrame(scrubAnim);
+    scrubS = 0; cancelAnimationFrame(scrubAnim); diveOut = !on;
     if (lobuleOn === on && diveT === (on ? 1 : 0)) return;
     lobuleOn = on;
     cancelAnimationFrame(lobAnim);
@@ -1135,6 +1136,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const d = defaultVT(false); vt = { ...d }; homeAt = d; applyVT(); CTM = null; refreshCTM();
         const w = diveTarget(); if (w) { const [x, y] = worldToLocal(w[0], w[1]); diveAt = [clamp(x, 0, wrap.clientWidth), clamp(y, 0, wrap.clientHeight)]; }
         diveOrig = null;
+        if (F) updateLabels(F);   // the labels are laid out for the final framing now, so they come in where they will stay
       }
     }
     const ms = reduceMotion.matches ? 0 : on ? DIVE_MS : RISE_MS, from = diveT, to = on ? 1 : 0, t0 = performance.now();
@@ -1242,6 +1244,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (factor === 1 || morphTarget !== 0) return false;
     if (scrubS === 0 && !lobuleOn && !canScrub(factor)) return false;
     if (scrubS === 0 && !lobuleOn) startScrub();
+    diveOut = factor < 1;
     scrubS = clamp(scrubS + Math.log(factor) / SCRUB_SPAN, 0, 1);
     diveT = scrubS;
     if (scrubS >= SCRUB_DONE) {
