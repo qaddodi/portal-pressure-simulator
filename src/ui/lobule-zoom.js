@@ -265,8 +265,11 @@ export function createLobuleZoom({ host }) {
     const k = clamp(Math.min((f.r - f.l) / (x1 - x0), (f.b - f.t) / (y1 - y0)), 0.3, 1.8);
     return { k, x: (f.l + f.r) / 2 - k * (x0 + x1) / 2, y: (f.t + f.b) / 2 - k * (y0 + y1) / 2 };
   }
+  // While the lobule is being dragged about at its framing (rubber band), nothing may snap it back to fit.
+  let rubber = false, rubberT = 0;
+  const bandOffset = (o, L) => L * Math.tanh(o / L);
   function clampV() {
-    if (!geo) return;
+    if (!geo || rubber) return;
     const F0 = fitV();
     kFit = F0.k;
     if (V.k <= kFit * 1.001) { Object.assign(V, F0); atFit = true; return; }
@@ -337,7 +340,7 @@ export function createLobuleZoom({ host }) {
     glideTo(target);
   }
   // When the free space changes (a card opens, the readouts expand), a fitted lobule follows it.
-  function refit() { if (!geo) return; const F0 = fitV(); kFit = F0.k; if (atFit) glideTo(F0); else { clampV(); viewChanged(); } }
+  function refit() { if (!geo || rubber) return; const F0 = fitV(); kFit = F0.k; if (atFit) glideTo(F0); else { clampV(); viewChanged(); } }
   addEventListener('pps:occ', () => { if (fade > 0) { layoutKey = ''; refit(); } });
   addEventListener('pps:labelscale', () => { drawVersion++; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); });
   const viewChanged = () => { drawVersion++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); };
@@ -360,7 +363,15 @@ export function createLobuleZoom({ host }) {
     if (now - wheelAt > 250) wheelKind = ev.ctrlKey || ev.metaKey ? 'pinch' : ev.deltaMode === 0 && (dx !== 0 || ev.wheelDeltaY == null || Math.abs(Math.abs(ev.wheelDeltaY) - Math.abs(ev.deltaY) * 3) < 1) ? 'pad' : 'wheel';
     wheelAt = now;
     if (wheelKind === 'pad' && !ev.ctrlKey && !ev.metaKey) {
-      if (V.k <= kFit * 1.001) return;   // at its framing there is nothing to pan to
+      if (V.k <= kFit * 1.001 && geo) {   // at its framing the lobule follows the scroll on a rubber band, and springs back when it stops
+        const F0 = fitV(), Lx = 0.4 * (el.clientWidth || 800), Ly = 0.4 * (el.clientHeight || 600);
+        const bx = rubber ? Math.atanh(clamp((V.x - F0.x) / Lx, -0.999, 0.999)) * Lx : 0, by = rubber ? Math.atanh(clamp((V.y - F0.y) / Ly, -0.999, 0.999)) * Ly : 0;
+        rubber = true; atFit = false;
+        V.x = F0.x + bandOffset(bx - dx, Lx); V.y = F0.y + bandOffset(by - dy, Ly); viewChanged();
+        clearTimeout(rubberT);
+        rubberT = setTimeout(() => { rubber = false; const G0 = fitV(); glideTo(G0, 380); atFit = true; }, 150);
+        return;
+      }
       V.x -= dx; V.y -= dy; atFit = false; clampV(); viewChanged();
       return;
     }
@@ -404,7 +415,7 @@ export function createLobuleZoom({ host }) {
         if (V.k > kFit * 1.001) { V.x += p[0] - drag.p[0]; V.y += p[1] - drag.p[1]; clampV(); viewChanged(); el.classList.add('lz-drag'); }
         else if (geo) {   // at its framing there is nowhere to go: the lobule follows the hand on a rubber band and springs back on release
           const F0 = fitV(), o = drag.o || (drag.o = [0, 0]), Lx = 0.4 * (el.clientWidth || 800), Ly = 0.4 * (el.clientHeight || 600);   // near-free travel, easing toward 40% of the view
-          cancelAnimationFrame(glide); o[0] += p[0] - drag.p[0]; o[1] += p[1] - drag.p[1];
+          cancelAnimationFrame(glide); rubber = true; o[0] += p[0] - drag.p[0]; o[1] += p[1] - drag.p[1];
           V.x = F0.x + Lx * Math.tanh(o[0] / Lx); V.y = F0.y + Ly * Math.tanh(o[1] / Ly); atFit = false; viewChanged(); el.classList.add('lz-drag');
         }
         drag.p = p;
@@ -427,6 +438,7 @@ export function createLobuleZoom({ host }) {
     const finished = drag;
     down = null;
     if (touches.size < 2) pinch = null;
+    if (!touches.size) rubber = false;
     if (!touches.size && geo && V.k <= kFit * 1.001) { const F0 = fitV(); if (Math.abs(V.x - F0.x) + Math.abs(V.y - F0.y) > 0.5) { glideTo(F0, 380); atFit = true; } }
     if (ev.type === 'pointerup' && ev.pointerType === 'touch' && !touches.size && finished) {
       const tr = finished.trail, a = tr[0], b = tr[tr.length - 1], dt = b[0] - a[0];
