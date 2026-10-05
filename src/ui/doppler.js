@@ -28,12 +28,14 @@ const PROBES = [
   { id: 'C1b', kind: 'collateral', normal: null },
   { id: 'C3', kind: 'collateral', normal: null },
 ];
-const WINDOW = 6;       // seconds across the display
-const KEEP = 8;         // seconds kept
+const SWEEP_SECONDS = [6, 3, 12]; // Start at 6 s; first tap shortens the visible window.
+const KEEP = 16;                 // Retain enough samples for the 12 s sweep and display lag.
 const MINUS = '−';
 const num = (v, d = 0) => (v < 0 ? MINUS : '') + fmt(Math.abs(v), d);
 
 export function createDoppler({ onProbe }) {
+  let sweepIndex = 0;
+  let sweepSeconds = SWEEP_SECONDS[sweepIndex];
   const probeSel = h('select', { class: 'select dop-vessel', 'aria-label': 'Vessel' },
     PROBES.map((p) => h('option', { value: p.id }, EDGES[EI[p.id]].label)));
   probeSel.addEventListener('change', () => onProbe(probeSel.value));
@@ -44,6 +46,20 @@ export function createDoppler({ onProbe }) {
   let invert = false;
   const invBtn = h('button', { class: 'dop-tint dop-inv', 'aria-pressed': 'false', title: 'Invert the display: show flow away from the probe above the baseline' }, h('i', { 'aria-hidden': 'true' }, '⇅'), 'Invert');
   invBtn.addEventListener('click', () => { invert = !invert; invBtn.setAttribute('aria-pressed', String(invert)); if (frame) draw(); });
+  const sweepBtn = h('button', {
+    class: 'dop-tint dop-sweep',
+    title: `Sweep window: ${sweepSeconds} seconds. Tap to cycle.`,
+    'aria-label': `Doppler sweep duration: ${sweepSeconds} seconds. Activate to cycle.`,
+  }, h('i', { 'aria-hidden': 'true' }, '↻'), `${sweepSeconds} s`);
+  sweepBtn.addEventListener('click', () => {
+    sweepIndex = (sweepIndex + 1) % SWEEP_SECONDS.length;
+    sweepSeconds = SWEEP_SECONDS[sweepIndex];
+    sweepBtn.lastChild.textContent = `${sweepSeconds} s`;
+    sweepBtn.title = `Sweep window: ${sweepSeconds} seconds. Tap to cycle.`;
+    sweepBtn.setAttribute('aria-label', `Doppler sweep duration: ${sweepSeconds} seconds. Activate to cycle.`);
+    ringKey = '';
+    if (frame) draw();
+  });
   const cv = h('canvas', { role: 'img', 'aria-label': 'Spectral Doppler' });
   const box = h('div', { class: 'chart-box dark dop-box' }, cv);
 
@@ -59,7 +75,7 @@ export function createDoppler({ onProbe }) {
   }));
   const report = h('div', { class: 'dop-report' }, dirEl, h('div', { class: 'dop-velrow' }, velEl, rangeEl), patternEl, stats, noteEl);
   const el = h('div', { class: 'dop', 'data-pane': 'doppler' },
-    h('div', { class: 'dop-head' }, probeSel, h('div', { class: 'dop-btns' }, tintBtn, invBtn)), h('div', { class: 'dop-main' }, box, report));
+    h('div', { class: 'dop-head' }, probeSel, h('div', { class: 'dop-btns' }, tintBtn, invBtn, sweepBtn)), h('div', { class: 'dop-main' }, box, report));
 
   // ── Samples ───────────────────────────────────────
   let buf = [];
@@ -335,7 +351,7 @@ export function createDoppler({ onProbe }) {
     const tNow = clockNow(now);
     let pos = 0, neg = 0;
     const sgn = pol();
-    for (const [t, v0] of buf) if (t >= tNow - WINDOW && t <= tNow) { const v = sgn * v0; if (v > pos) pos = v; if (-v > neg) neg = -v; }
+    for (const [t, v0] of buf) if (t >= tNow - sweepSeconds && t <= tNow) { const v = sgn * v0; if (v > pos) pos = v; if (-v > neg) neg = -v; }
     pos *= 1.3; neg *= 1.3;
     const need = Math.max(pos, neg, 8) / 0.55;
     const target = STEPS.find((x) => x >= need) || STEPS[STEPS.length - 1];
@@ -351,9 +367,9 @@ export function createDoppler({ onProbe }) {
 
     // Spectrum, at device resolution, newest line at the right edge.
     const RW = Math.max(1, Math.round(W * dpr)), RH = Math.max(1, Math.round(H * dpr));
-    const g = { RW, RH, rBase: baseY * dpr, rPxPerV: pxPerV * dpr, cps: RW / WINDOW, binPx: Math.max(1.5, RH / 200), spkPx: Math.max(2, RH / 110), spkMix: clamp(1 - 1 / dpr, 0.3, 0.65), pol: sgn, venous: meta().kind !== 'artery' && meta().kind !== 'tips' };
+    const g = { RW, RH, rBase: baseY * dpr, rPxPerV: pxPerV * dpr, cps: RW / sweepSeconds, binPx: Math.max(1.5, RH / 200), spkPx: Math.max(2, RH / 110), spkMix: clamp(1 - 1 / dpr, 0.3, 0.65), pol: sgn, venous: meta().kind !== 'artery' && meta().kind !== 'tips' };
     const cNow = Math.floor(tNow * g.cps);
-    const key = `${RW}x${RH}|${scale}|${baseF}|${tint}|${probe}|${sgn}`;
+    const key = `${RW}x${RH}|${scale}|${baseF}|${tint}|${probe}|${sgn}|${sweepSeconds}`;
     if (!img || img.width !== RW || img.height !== RH) {
       img = new ImageData(RW, RH);
       off = mk(RW, RH);
@@ -409,7 +425,7 @@ export function createDoppler({ onProbe }) {
     ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.textAlign = 'right'; ctx.fillText('cm/s', w - 6, 13);
     // One tick a second along the bottom, scrolling with the trace
     ctx.fillStyle = 'rgba(255,255,255,.4)';
-    for (let sec = Math.ceil(tNow - WINDOW); sec <= tNow; sec++) {
+    for (let sec = Math.ceil(tNow - sweepSeconds); sec <= tNow; sec++) {
       const x = (RW - 1 - (cNow - Math.floor(sec * g.cps))) / dpr;
       ctx.fillRect(Math.round(padL + x), padT + H + 5, 1, 4);
     }
