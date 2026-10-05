@@ -425,15 +425,16 @@ let bleedEl, tipEl, stageClock;
 function buildHud() {
   // Moving blood: chevrons are remembered per device; ?blood=chevrons turns them on for a link.
   let saved = null;
-  try { saved = JSON.parse(localStorage.getItem('pps.blood') || 'null'); } catch { /* storage unavailable */ }
-  const blood = { look: 'shimmer', phasic: false, chevrons: false, ...(saved && typeof saved === 'object' ? saved : {}) };
+  // (pps.blood2: chevrons became the default, so a choice saved under the old default starts over.)
+  try { saved = JSON.parse(localStorage.getItem('pps.blood2') || 'null'); } catch { /* storage unavailable */ }
+  const blood = { look: 'shimmer', phasic: false, chevrons: true, ...(saved && typeof saved === 'object' ? saved : {}) };
   delete blood.origin;   // now the Blood origin lens
   const asked = (new URLSearchParams(location.search).get('blood') || '').split(',');
   if (asked.includes('chevrons')) blood.chevrons = true;
   blood.look = 'shimmer'; blood.phasic = false;   // the Blood menu offers streaks and chevrons only
   store.set({ blood });
   store.on('blood', (v) => {
-    try { localStorage.setItem('pps.blood', JSON.stringify(v)); } catch { /* storage unavailable */ }
+    try { localStorage.setItem('pps.blood2', JSON.stringify(v)); } catch { /* storage unavailable */ }
     sendBeat(); syncBloodBtn();
     redraw();
   });
@@ -538,21 +539,21 @@ function injectDye({ hold = false } = {}) {
 function openBlood(anchor) {
   const st = store.get(), b = st.blood || {};
   const flowOn = st.layers.flow !== false;
-  const toggle = (checked, label, sub, onChange) => {
+  const toggle = (checked, ic, label, sub, onChange) => {
     const c = h('input', { type: 'checkbox', checked });
     c.addEventListener('change', () => onChange(c.checked));
-    return h('label', { class: 'menu-item blood-opt' }, c, h('span', {}, label, sub ? h('small', {}, sub) : null));
+    return h('label', { class: 'menu-item blood-opt' }, c, svgIcon(ic, 'bo-ic'), h('span', {}, label, sub ? h('small', {}, sub) : null));
   };
-  const layer = (key, label, sub) => toggle(st.layers[key] !== false, label, sub, (on) => store.set({ layers: { ...store.get().layers, [key]: on } }));
+  const layer = (key, ic, label, sub) => toggle(st.layers[key] !== false, ic, label, sub, (on) => store.set({ layers: { ...store.get().layers, [key]: on } }));
   popover(anchor, [
     h('div', { class: 'menu-title' }, 'Moving blood'),
-    toggle(flowOn, 'Streaks', 'Silky streaks carried by the flow', (on) => { store.set({ layers: { ...store.get().layers, flow: on } }); syncBloodBtn(); }),
-    toggle(!!b.chevrons, 'Chevrons', 'Arrowheads moving with the flow; orange where it runs backwards', (on) => setBlood({ chevrons: on })),
+    toggle(flowOn, 'streaks', 'Streaks', 'Silky streaks carried by the flow', (on) => { store.set({ layers: { ...store.get().layers, flow: on } }); syncBloodBtn(); }),
+    toggle(!!b.chevrons, 'chevrons', 'Chevrons', 'Arrowheads moving with the flow; orange where it runs backwards', (on) => setBlood({ chevrons: on })),
     h('div', { class: 'menu-sep' }),
     h('div', { class: 'menu-title' }, 'Show on the figure'),
-    layer('chips', 'Pressure values', 'The number beside each vessel\u2019s name'),
-    layer('collaterals', 'Potential collaterals', 'Dotted routes that open as pressure rises'),
-    layer('labels', 'Organ names'),
+    layer('chips', 'tag', 'Pressure values', 'The number beside each vessel\u2019s name'),
+    layer('collaterals', 'route', 'Potential collaterals', 'Dotted routes that open as pressure rises'),
+    layer('labels', 'liver', 'Organ names'),
   ], { cls: 'blood-pop' });
 }
 function openLayers(anchor) {

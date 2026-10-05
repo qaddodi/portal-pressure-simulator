@@ -2121,6 +2121,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .blood-pop .menu-item small { display: block; color: var(--text-2); font-size: var(--fs-12); line-height: 1.4; margin-top: 2px; font-weight: 400; }
 .blood-opt { align-items: flex-start; }
 .blood-opt input { margin-top: 3px; }
+.blood-opt .bo-ic { flex: none; width: 20px; height: 20px; margin-top: 0; fill: none; stroke: var(--text-2); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 @media (max-width: 600px) { #btnBlood > span, #btnBlood .chev { display: none; } }
 
 
