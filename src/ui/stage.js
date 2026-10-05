@@ -1201,7 +1201,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Zoom-driven dive: normal zoom carries on into the liver; past SCRUB_K over the liver the camera and pan
   // lock and each further zoom step scrubs the dive (scrubS 0..1, the same frames the timed dive plays).
   // Zooming back out reverses it, down to the liver again. Taps and the Lobule step still play it timed.
-  const SCRUB_K = 2.6, SCRUB_SPAN = Math.log(7);
+  const SCRUB_K = 2.6, SCRUB_SPAN = Math.log(7), SCRUB_DONE = 0.88;   // the dive has fully landed by 0.88, so the view switches there
   let scrubS = 0, quietLobule = false, scrubAnim = 0;
   function canScrub(factor) {
     if (lobuleOn || factor <= 1 || morphTarget !== 0 || morph > 0.02 || vt.k < SCRUB_K || reduceMotion.matches) return false;
@@ -1226,7 +1226,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (scrubS === 0 && !lobuleOn) startScrub();
     scrubS = clamp(scrubS + Math.log(factor) / SCRUB_SPAN, 0, 1);
     diveT = scrubS;
-    if (scrubS >= 0.9995) {
+    if (scrubS >= SCRUB_DONE) {
       scrubS = 0; diveT = 1; lobuleOn = true;
       diveFrame(1);
       quietLobule = true; store.set({ lobule: true }); quietLobule = false;
@@ -1256,7 +1256,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   lz.onZoomOut((factor, glide) => {
     if (!lobuleOn || morphTarget !== 0) return;
     cancelAnimationFrame(lobAnim); clearTimeout(lobEnd);
-    diveLand = lz.current(); lobuleOn = false; scrubS = diveT = 0.9995;
+    diveLand = lz.current(); lobuleOn = false; scrubS = diveT = SCRUB_DONE - 0.001;
     quietLobule = true; store.set({ lobule: false }); quietLobule = false;
     if (!diveAt) diveAt = [wrap.clientWidth / 2, wrap.clientHeight / 2];
     if (glide) scrubGlide(factor); else scrubBy(factor);
