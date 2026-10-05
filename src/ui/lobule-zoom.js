@@ -460,6 +460,7 @@ export function createLobuleZoom({ host }) {
     else if (sl.part === 'sin' && sl.tube != null) selIdsC = chainOf(sl.tube);
     else if (sl.part === 'ha' && tr) selIdsC = new Set([tr.haT.id, ...G.tubes.filter((t) => t.kind === 'tw' && t.tri === tr.i).map((t) => t.id)]);
     else if (sl.part === 'bd' && tr) selIdsC = new Set([tr.bdT.id]);
+    else if (sl.part === 'lv' && sl.tube != null) selIdsC = chainOf(sl.tube);
     else if (sl.part === 'lv' && tr) selIdsC = new Set([tr.lv.id]);
     else if (sl.part === 'cv') selIdsC = new Set([G.cv.id]);
     else if (sl.tube != null) selIdsC = new Set([sl.tube]);
@@ -1318,7 +1319,7 @@ export function createLobuleZoom({ host }) {
           // The triad's three vessels carry a dark outline of their own colour; the rest the common casing.
           const edge = EDGE[t.kind];
           const flags = (selIdsN.has(t.id) ? F_SEL : 0) | (edge ? F_EDGE : 0) | (isArt || isBd ? 0 : F_DIFFUSE | F_SHADOW | (big ? F_SPEC : 0));
-          const z = { s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.13, an: 0.09, lt: 0.25, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.45, sh: 0.5, bd: 0.55, tw: 0.6, ha: 0.7 }[t.kind];
+          const z = { s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.13, an: 0.09, lt: 0.25, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.8, sh: 0.5, bd: 0.55, tw: 0.6, ha: 0.7 }[t.kind];
           tubeData.set([...c0, WALL[t.kind], ...c1, alpha, 1, z, flags, 0], o);
           tubeData.set([0, 1, t.len, 0], o + 20);
           if (edge) tubeData.set([...edge, 0], o + 24);
