@@ -844,7 +844,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   display: flex; flex-direction: column; gap: 1px; animation: pop .16s var(--ease);
 }
 .menu-title { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); padding: 8px 12px 4px; }
-.menu-item { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: var(--r-control); border: 0; background: transparent; cursor: pointer; font-size: var(--fs-14); text-align: left; color: var(--text); }
+.menu-item { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: var(--r-pill); border: 0; background: transparent; cursor: pointer; font-size: var(--fs-14); text-align: left; color: var(--text); }
 .menu-item:hover { background: var(--surface-2); }
 .menu-item[aria-checked="true"] { font-weight: 600; }
 .menu-item svg { width: var(--ic-s); height: var(--ic-s); flex: none; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--text-2); }
