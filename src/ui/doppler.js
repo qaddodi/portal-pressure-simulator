@@ -58,7 +58,7 @@ export function createDoppler({ onProbe }) {
     sweepBtn.title = `Sweep window: ${sweepSeconds} seconds. Tap to cycle.`;
     sweepBtn.setAttribute('aria-label', `Doppler sweep duration: ${sweepSeconds} seconds. Activate to cycle.`);
     ringKey = '';
-    if (frame) draw();
+    if (frame) { updateReport(); draw(); }
   });
   const cv = h('canvas', { role: 'img', 'aria-label': 'Spectral Doppler' });
   const box = h('div', { class: 'chart-box dark dop-box' }, cv);
@@ -183,7 +183,7 @@ export function createDoppler({ onProbe }) {
       set(statEls.CI.dd, Math.abs(r.mean) > 0.5 ? `${fmt(area / Math.abs(r.mean), 2)} cm·s` : '—');
     }
     set(noteEl, it.note);
-    const aria = `Spectral Doppler, ${EDGES[EI[probe]].label}: ${it.dir}, mean ${num(r.mean, 0)} centimeters per second, ${it.pattern}.`;
+    const aria = `Spectral Doppler, ${EDGES[EI[probe]].label}, ${sweepSeconds}-second sweep: ${it.dir}, mean ${num(r.mean, 0)} centimeters per second, ${it.pattern}.`;
     if (cv.getAttribute('aria-label') !== aria) cv.setAttribute('aria-label', aria);
   }
 
@@ -422,7 +422,9 @@ export function createDoppler({ onProbe }) {
       ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fillRect(padL + W + 3, Math.round(y), major ? 6 : 3, 1);
       if (major) { ctx.fillStyle = 'rgba(255,255,255,.72)'; ctx.fillText(v === 0 ? '0' : num(v), padL + W + 13, y); }
     }
-    ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.textAlign = 'right'; ctx.fillText('cm/s', w - 6, 13);
+    ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.textAlign = 'right';
+    ctx.fillText(`${sweepSeconds} s`, w - 44, 13);
+    ctx.fillText('cm/s', w - 6, 13);
     // One tick a second along the bottom, scrolling with the trace
     ctx.fillStyle = 'rgba(255,255,255,.4)';
     for (let sec = Math.ceil(tNow - sweepSeconds); sec <= tNow; sec++) {
