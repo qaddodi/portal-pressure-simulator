@@ -624,19 +624,26 @@ export function createLobuleZoom({ host }) {
     for (const tr of triads) { const a = Math.atan2(tr.y - cy, tr.x - cx), d = rt * 0.62; tr.lv = add('lv', dot(tr.x + Math.cos(a) * d, tr.y + Math.sin(a) * d), { tri: tr.i, lymph: true }); }
     const lyOff = rs0 * 2.1;
     const beside = (t) => t.pts.map((q, i) => { const a = t.pts[Math.max(0, i - 1)], b = t.pts[Math.min(N - 1, i + 1)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [q[0] - ((b[1] - a[1]) / L) * lyOff, q[1] + ((b[0] - a[0]) / L) * lyOff]; });
-    // Along each edge, from its midpoint to the triad at either end, on the limiting plate.
+    // Along each edge, from its midpoint to the triad at either end, in the portal tract just outside
+    // the inlet venule: its course offset outward (so the venule stays in view, the lymph beneath it),
+    // curving at the end into the tract's lymphatic.
     const lt = [];
     for (let i = 0; i < 6; i++) for (const dir of [1, -1]) {
-      const A = C[i], B = C[(i + dir + 6) % 6], M = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], ex = (B[0] - A[0]) / R, ey = (B[1] - A[1]) / R, nx = (cx - M[0]) / (R * 0.866), ny = (cy - M[1]) / (R * 0.866);
-      const o = R * 0.012, P0 = [M[0] + nx * o, M[1] + ny * o], P1 = [A[0] + ex * rt * 0.75 + nx * o, A[1] + ey * rt * 0.75 + ny * o];   // ends at the tract's edge, not wrapped round it
-      const t = add('lt', curve((u) => [lerp(P0[0], P1[0], u), lerp(P0[1], P1[1], u)]), { tri: i, lymph: true, line: [P0, P1] });
+      const A = C[i], B = C[(i + dir + 6) % 6], mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2, nl = Math.hypot(cx - mx, cy - my);
+      const nx = (mx - cx) / nl, ny = (my - cy) / nl, f = inlets[i * 2 + (dir > 0 ? 0 : 1)].f, lv = triads[i].lv.pts[0];
+      const t = add('lt', curve((u) => {
+        const q = f(1 - u), o = R * lerp(0.04, 0.025, 1 - u), e = smooth(0.78, 1, u), px = q[0] + nx * o, py = q[1] + ny * o;
+        return [lerp(px, lv[0], e), lerp(py, lv[1], e)];
+      }), { tri: i, lymph: true });
       lt[i * 2 + (dir > 0 ? 0 : 1)] = t;
     }
+    for (const tr of triads) { const a = lt[tr.i * 2], b = lt[tr.i * 2 + 1], q = tr.lv.pts[0]; join(q[0], q[1], [a, b, tr.lv], R * 0.008); }
     for (let e = 0; e < 6; e++) { const a = lt[e * 2], b = lt[((e + 1) % 6) * 2 + 1], q = a.pts[0]; join(q[0], q[1], [a, b], R * 0.006); }
     // The space of Disse beside each sinusoid; the first generation's reaches the limiting plate.
     for (const t of L0) {
-      const P = beside(t), side = t.tri === t.edge ? lt[t.edge * 2] : lt[((t.edge + 1) % 6) * 2 + 1], [p0, p1] = side.line;
-      const dx = p1[0] - p0[0], dy = p1[1] - p0[1], L2 = dx * dx + dy * dy, w = clamp(((P[0][0] - p0[0]) * dx + (P[0][1] - p0[1]) * dy) / L2, 0, 1), E = [p0[0] + dx * w, p0[1] + dy * w];
+      const P = beside(t), side = t.tri === t.edge ? lt[t.edge * 2] : lt[((t.edge + 1) % 6) * 2 + 1];
+      let E = side.pts[0], bd = Infinity;
+      for (const q of side.pts) { const d = Math.hypot(q[0] - P[0][0], q[1] - P[0][1]); if (d < bd) { bd = d; E = q; } }
       const poly = [E, ...P];
       const d = add('ly', curve((u) => at(poly, u)), { lymph: true, lvl: 0 });
       join(E[0], E[1], [side, d], R * 0.004);
@@ -1233,7 +1240,7 @@ export function createLobuleZoom({ host }) {
         const alpha = (isArt ? 0.9 : 1) * (selIdsN.size && !selIdsN.has(t.id) ? 0.55 : 1);
         const big = t.kind === 'pv' || t.kind === 'cv' || t.kind === 'in';
         const flags = (selIdsN.has(t.id) ? F_SEL : 0) | (isArt ? F_NOCASE : F_DIFFUSE | F_SHADOW | (big ? F_SPEC : 0));
-        const z = { s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.13, an: 0.09, lt: 0.32, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.45, sh: 0.5, tw: 0.6, ha: 0.7 }[t.kind];
+        const z = { s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.13, an: 0.09, lt: 0.25, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.45, sh: 0.5, tw: 0.6, ha: 0.7 }[t.kind];
         tubeData.set([...c0, isArt ? 0 : WALL[t.kind], ...c1, alpha, 1, z, flags, 0], o);
         tubeData.set([0, 1, t.len, 0], o + 20);
       }
