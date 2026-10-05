@@ -2483,7 +2483,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .lz-lab { display: grid; gap: 0; padding: 1px 8px; border: 0; border-radius: 0; background: none; box-shadow: none; text-align: left; line-height: 1.2; }
 .lz-lab.left { text-align: right; border-left: 0; padding: 1px 9px 1px 8px; }
 /* The anatomy's halo: a solid outline around each letter (a ring of shadows), so the labels read over the tissue. */
-.lz-lab .n, .lz-lab .v { text-shadow: 3px 0 0 var(--label-halo), -3px 0 0 var(--label-halo), 0 3px 0 var(--label-halo), 0 -3px 0 var(--label-halo), 2.2px 2.2px 0 var(--label-halo), -2.2px 2.2px 0 var(--label-halo), 2.2px -2.2px 0 var(--label-halo), -2.2px -2.2px 0 var(--label-halo), 0 0 6px var(--label-halo), 0 0 9px var(--label-halo), 0 0 12px var(--label-halo); }
+.lz-lab .n, .lz-lab .v { -webkit-text-stroke: 6px var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; stroke-linecap: round; text-shadow: 0 0 3px var(--label-halo); }
 .lz-lab .n { font-size: calc(11.5px * var(--label-k, 1)); font-weight: 500; color: var(--text-2); }
 .lz-lab .v { display: flex; align-items: baseline; gap: 2.5px; font-size: calc(14px * var(--label-k, 1)); }
 .lz-lab.left .v { justify-content: flex-end; }

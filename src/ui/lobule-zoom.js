@@ -445,7 +445,7 @@ export function createLobuleZoom({ host }) {
         while (drag.trail.length > 2 && now - drag.trail[0][0] > 90) drag.trail.shift();
       }
     }
-    if (ev.pointerType === 'mouse' && !ev.buttons && geo && onScene(ev)) { const w = toWorld(local(ev)), hv = hit(w[0], w[1]); el.classList.toggle('lz-hot', !!hv); setHover(hv); }
+    if (ev.pointerType === 'mouse' && !ev.buttons && geo && onScene(ev)) { const w = toWorld(local(ev)); el.classList.toggle('lz-hot', !!hit(w[0], w[1])); }
   });
   el.addEventListener('pointerup', (ev) => {
     if (down && touches.size <= 1 && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) < 8 && performance.now() - down.t < 600 && onScene(ev)) {
@@ -502,17 +502,6 @@ export function createLobuleZoom({ host }) {
     selFor = sl; selIdsC = idsFor(sl);
     return selIdsC;
   }
-  // Hover: a light highlight of what the pointer is over (no dimming of the rest), apart from the click selection.
-  let hovKey = '', hovIdsC = new Set();
-  const hovIds = () => hovIdsC;
-  function setHover(hv) {
-    const k = hv ? `${hv.part}|${hv.tri ?? ''}|${hv.tube ?? ''}` : '';
-    if (k === hovKey) return;
-    hovKey = k; hovIdsC = hv ? idsFor({ type: 'lobule', ...hv }) : new Set();
-    attrKey = ''; tissueKey = '';
-    if (!raf && fade > 0) raf = requestAnimationFrame(loop);
-  }
-  el.addEventListener('pointerleave', () => setHover(null));
   store.on('selection', () => { attrKey = ''; tissueKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); });
   // Pinning a moment puts the Then / Now / Change switch over the top: the lobule frames itself below it.
   store.on('compareSnap', () => requestAnimationFrame(() => { if (geo && fade > 0) { layoutKey = ''; refit(); } }));
@@ -1348,7 +1337,7 @@ export function createLobuleZoom({ host }) {
       // Attributes, re-sent when they change (pressures in half-mmHg steps).
       const selIdsN = selIds();
       const inks = new Map(live.map((t) => [t.id, [tubeInk(t, 0), tubeInk(t, 1)]]));
-      const ak = [m.mode, [...inks.values()].flat().join(','), m.hide, origin, lymphOn, lyProt(m).toFixed(2), lyF(m).toFixed(2), [...selIdsN].join('.'), [...hovIds()].join('.'), dark, cs.getPropertyValue('--artery')].join('|');
+      const ak = [m.mode, [...inks.values()].flat().join(','), m.hide, origin, lymphOn, lyProt(m).toFixed(2), lyF(m).toFixed(2), [...selIdsN].join('.'), dark, cs.getPropertyValue('--artery')].join('|');
       if (ak !== attrKey) {
         attrKey = ak; glDirty = true;
         tubeData.fill(0);
@@ -1365,7 +1354,7 @@ export function createLobuleZoom({ host }) {
           const big = t.kind === 'pv' || t.kind === 'cv' || t.kind === 'in';
           // The triad's three vessels carry a dark outline of their own colour; the rest the common casing.
           const edge = EDGE[t.kind];
-          const flags = (selIdsN.has(t.id) || hovIds().has(t.id) ? F_SEL : 0) | (edge ? F_EDGE : 0) | (isArt || isBd ? 0 : F_DIFFUSE | F_SHADOW | (big ? F_SPEC : 0));
+          const flags = (selIdsN.has(t.id) ? F_SEL : 0) | (edge ? F_EDGE : 0) | (isArt || isBd ? 0 : F_DIFFUSE | F_SHADOW | (big ? F_SPEC : 0));
           const z = { s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.13, an: 0.09, lt: 0.25, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.8, sh: 0.5, bd: 0.55, tw: 0.6, ha: 0.7 }[t.kind];
           tubeData.set([...c0, WALL[t.kind], ...c1, alpha, 1, z, flags, 0], o);
           tubeData.set([0, 1, t.len, 0], o + 20);
@@ -1435,7 +1424,7 @@ export function createLobuleZoom({ host }) {
     const qi = (s) => s.replace(/\d+/g, (n) => (n >> 4) << 4);
     const sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2), 3600 / (2.6 * G.R));
     const wk = [G.W, G.H, sc.toFixed(3), dark, qi(ink('pv')), m.zone.pre.toFixed(2), m.zone.sin.toFixed(2), m.zone.post.toFixed(2), m.s.toFixed(2), q(m.cong), m.hide, zonesOn, cs.getPropertyValue('--bg')].join('|');
-    const key = [W, H, dpr, wk, flatVessels ? [ink('sin', 1), ink('sin', 0), ink('pv'), ink('cv'), m.art.toFixed(2), [...selIds()].join('.'), [...hovIds()].join('.')] : '', Object.values(fieldState()).join(','), V.k.toFixed(3), V.x.toFixed(1), V.y.toFixed(1)].join('|');
+    const key = [W, H, dpr, wk, flatVessels ? [ink('sin', 1), ink('sin', 0), ink('pv'), ink('cv'), m.art.toFixed(2), [...selIds()].join('.')] : '', Object.values(fieldState()).join(','), V.k.toFixed(3), V.x.toFixed(1), V.y.toFixed(1)].join('|');
     if (key === tissueKey) return;
     tissueKey = key;
     if (tissue.width !== W * dpr || tissue.height !== H * dpr) { tissue.width = W * dpr; tissue.height = H * dpr; }
@@ -1614,7 +1603,7 @@ export function createLobuleZoom({ host }) {
         continue;
       }
       const path = () => { c.beginPath(); t.pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); };
-      if (selIds().has(t.id) || hovIds().has(t.id)) { c.strokeStyle = 'rgba(59, 108, 246, .45)'; c.lineWidth = 2 * r + 7; path(); c.stroke(); }
+      if (selIds().has(t.id)) { c.strokeStyle = 'rgba(59, 108, 246, .45)'; c.lineWidth = 2 * r + 7; path(); c.stroke(); }
       if (!isArt) { c.strokeStyle = casing; c.lineWidth = 2 * r + 2; path(); c.stroke(); }
       c.strokeStyle = color; c.lineWidth = 2 * r; path(); c.stroke();
     }
