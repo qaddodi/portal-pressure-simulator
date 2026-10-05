@@ -25,7 +25,7 @@ import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=c424ebf32b';
 import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=d90a6074b7';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
-import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_NOCASE, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=799c94c026';
+import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_NOCASE, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=44a3cb4b39';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=3acf4e936e';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -343,7 +343,7 @@ export function createLobuleZoom({ host }) {
   function refit() { if (!geo) return; const F0 = fitV(); kFit = F0.k; if (atFit) glideTo(F0); else { clampV(); viewChanged(); } }
   addEventListener('pps:occ', () => { if (fade > 0) { layoutKey = ''; refit(); } });
   addEventListener('pps:labelscale', () => { drawVersion++; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); });
-  const viewChanged = () => { drawVersion++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); };
+  const viewChanged = () => { lastMove = performance.now(); drawVersion++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); };
   const toWorld = (p) => [(p[0] - V.x) / V.k, (p[1] - V.y) / V.k];
   const toScreen = (p) => [p[0] * V.k + V.x, p[1] * V.k + V.y];
   function resetView() { stopInertia(); if (!geo) { V.k = 1; V.x = 0; V.y = 0; return; } atFit = true; const F0 = fitV(); kFit = F0.k; Object.assign(V, F0); viewChanged(); }
@@ -893,24 +893,44 @@ export function createLobuleZoom({ host }) {
     const dt = Math.min(0.1, (now - (last || now)) / 1000); last = now; lastPaint = now;
     const st = store.get(), moving = st.running && !reduce.matches;
     if (moving) clock = (clock + dt) % 10000;
-    draw(moving ? dt : 0);
+    const drew = draw(moving ? dt : 0);
+    // Resolution follows the frame time: when frames that redraw arrive late the lobule is drawn smaller (a step at a
+    // time, not more often than every half second) and it grows back once there is room.
+    if (drew && prevDrew && !soft && dt < 0.1) {
+      gapAvg += (dt * 1000 - gapAvg) * 0.2;
+      if (now - resCheck > 500) {
+        resCheck = now;
+        if (gapAvg > 21 && lzRes > 0.6) { lzRes = Math.max(0.6, lzRes - 0.1); idleDrawn = ''; }
+        else if (gapAvg < 15.5 && lzRes < 1) { lzRes = Math.min(1, lzRes + 0.1); idleDrawn = ''; }
+      }
+    }
+    prevDrew = drew;
     raf = requestAnimationFrame(loop);
   }
+  // The flow marks (shimmer and chevrons) are off while the lobule fades in or out or the view is moving, and fade back in once it is still.
+  let flowA = 1, lastMove = 0, flowT = 0;
+  function stepFlowA() {
+    const now = performance.now(), dtm = Math.min(100, now - (flowT || now)); flowT = now;
+    const still = fade > 0.98 && !diveScaled && now - lastMove > 150;
+    flowA = still ? Math.min(1, flowA + dtm / 300) : 0;
+  }
+  let lzRes = 1, gapAvg = 16.7, resCheck = 0, prevDrew = false;
 
   // While the dive magnifies the lobule's layers (a compositor scale), they are drawn once and then left
   // alone: redrawing the WebGL vessels, the effects and the labels each frame, at full size, is what lagged.
   let diveScaled = false, diveDrawn = false;
   function draw(dt) {
-    if (diveScaled && diveDrawn) return;
+    if (diveScaled && diveDrawn) return false;
     diveDrawn = diveScaled;
     const rect = host.getBoundingClientRect();
     const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
     ensureGeo(W, H);
-    const dpr = Math.min(2, devicePixelRatio || 1);
+    const dpr = Math.min(2, devicePixelRatio || 1) * lzRes;
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
     // Keep watching for view/theme/size changes, but leave a settled paused picture alone.
-    const idleKey = [W, H, dpr, dark, V.k, V.x, V.y, drawVersion].join('|');
-    if (dt === 0 && idleKey === idleDrawn) return;
+    stepFlowA();
+    const idleKey = [W, H, dpr, dark, V.k, V.x, V.y, drawVersion, flowA.toFixed(2)].join('|');
+    if (dt === 0 && idleKey === idleDrawn) return false;
     idleDrawn = dt === 0 ? idleKey : '';
     const cs = getComputedStyle(host);
     const g = ensureGL();
@@ -918,6 +938,7 @@ export function createLobuleZoom({ host }) {
     layoutLabels();
     if (g && !g.lost) drawGL(W, H, dpr, dark, cs, dt);
     paintFx(W, H, dpr, dark, dt, !g || g.lost);
+    return true;
   }
 
   function ensureGeo(W, H) {
@@ -1107,7 +1128,7 @@ export function createLobuleZoom({ host }) {
       diveCtx = { W: Math.max(1, Math.round(rect.width)), H: Math.max(1, Math.round(rect.height)), cs, dark, bg: rgb01(cs.getPropertyValue('--stage-bg').trim() || cs.getPropertyValue('--bg').trim() || (dark ? '#0E1422' : '#FBFAF7')) };
     }
     const { W, H, cs, dark, bg } = diveCtx;
-    const dpr = Math.min(1.5, devicePixelRatio || 1);
+    const dpr = Math.min(1, devicePixelRatio || 1) * 0.8;   // in motion and behind the lobule: a modest resolution is plenty
     if (field.width !== Math.round(W * dpr) || field.height !== Math.round(H * dpr)) { field.width = Math.round(W * dpr); field.height = Math.round(H * dpr); }
     // Half the tile's resolution, as at rest: the field is in motion and behind the lobule.
     const rd = d.r * dpr, t = fieldTile(cs, dark, rd * 0.55);
@@ -1338,7 +1359,7 @@ export function createLobuleZoom({ host }) {
       ring: [...rgb01(cs.getPropertyValue('--accent').trim() || '#3b6cf6'), 0.4],
       netAlpha: 1, fx: true, tierAlpha: Array(MAX_TIERS).fill(1), tierGroup: Array(MAX_TIERS).fill(1),
     };
-    const blood = { on: bloodOn, chev, look: b.look || 'shimmer', origin, clock, dye: false, bleed: [], ...BLOOD };
+    const blood = { alpha: flowA, on: bloodOn, chev, look: b.look || 'shimmer', origin, clock, dye: false, bleed: [], ...BLOOD };
     if (glDirty || dk !== drawKey) { glDirty = false; drawKey = dk; g.draw(T, look, blood); } else g.composite(look, blood);
   }
   const num = (cs, n, d) => { const v = parseFloat(cs.getPropertyValue(n)); return Number.isFinite(v) ? v : d; };
