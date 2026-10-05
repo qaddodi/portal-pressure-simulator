@@ -2838,12 +2838,15 @@ input[type="range"] { touch-action: none; }
 .tl-m.ev.below::before { align-self: end; margin-top: 0; margin-bottom: 1px; }
 .tl-m.ev.below::after { top: 0; bottom: 12px; }
 .tl-m.ev.below .tl-count { top: auto; bottom: -6px; }
-/* Split button: a small speed segment attached to the left of a larger play/pause segment. */
-.tl-split { display: flex; align-items: stretch; height: 34px; border: 1px solid var(--border); border-radius: var(--r-control); background: var(--surface); overflow: hidden; }
-.tl-left .tl-split .tl-speed, .vdock .tl-left .tl-split .tl-speed { display: inline-flex; height: auto; min-width: 0; margin: 0; padding: 0 8px; border: 0; border-radius: 0; background: transparent; color: var(--text-2); }
-.tl-split .tl-speed::after { display: none; }
-.tl-split .ib.play { width: 42px; height: auto; border-radius: 0; border-left: 1px solid var(--hairline); }
-.tl-split .tl-speed:hover, .tl-split .ib.play:hover { background: var(--accent-soft); color: var(--accent-ink); }
+/* Split button: one pill (same surface, hairline and radius as the other pills); both segments are
+   transparent on it, with a short hairline divider and a concentric hover highlight. */
+.tl-split { position: relative; display: flex; align-items: center; gap: 2px; height: 36px; padding: 3px; border-radius: var(--r-card); background: var(--surface); box-shadow: inset 0 0 0 1px var(--hairline); flex: none; }
+.tl-left .tl-split .tl-speed, .vdock .tl-left .tl-split .tl-speed { display: inline-flex; align-items: center; gap: 3px; height: 100%; width: 34px; min-width: 0; margin: 0; padding: 0; justify-content: center; border: 0; border-radius: calc(var(--r-card) - 3px); background: transparent; color: var(--text-2); font: 600 var(--fs-11, 11px) var(--font-ui); }
+.tl-split .tl-speed::after { display: block; margin: 0; opacity: .5; }
+.timeline .tl-split .ib.play { width: 56px; height: 100%; border-radius: calc(var(--r-card) - 3px); background: transparent; color: var(--accent); opacity: 1; }
+.tl-split .tl-speed:hover, .timeline .tl-split .ib.play:hover { background: var(--surface-3); color: var(--text); opacity: 1; }
+.timeline .tl-split .ib.play:hover { color: var(--accent); }
+.tl-split::after { content: ''; position: absolute; left: 38px; top: 11px; bottom: 11px; width: 1px; background: var(--hairline); }
 .time-pop .menu-item[aria-pressed="true"] { color: var(--accent-ink); font-weight: 600; }
 
 /* Concentric corners: inside a 16px pill with 3px padding, inner highlights are 13px. */
