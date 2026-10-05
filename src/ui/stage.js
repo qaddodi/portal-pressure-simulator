@@ -804,7 +804,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // card) follows the artwork on the very next frame of a pan or zoom, not on the next model
   // update: a view change schedules one coalesced sync per animation frame.
   let viewRaf = 0, viewVersion = 0, CTM = null, wrapRect = null;
+  // Zoomed far in, the vessels fill the screen and the vessel shader runs on most of its pixels: the picture is
+  // drawn at a lower resolution there (in steps, so the canvas is not resized on every wheel notch).
+  let zoomRes = 1, resizeReady = false;
   const applyVT = () => {
+    const zr = vt.k > 4 ? 0.65 : vt.k > 2.5 ? 0.8 : 1;
+    if (zr !== zoomRes) { zoomRes = zr; if (resizeReady) resizeCanvas(); }
     const deg = rotDeg();
     world.setAttribute('transform', `translate(${vt.x} ${vt.y}) scale(${vt.k})${deg ? ` rotate(${deg.toFixed(3)} ${CIRC_C[0]} ${CIRC_C[1]})` : ''}`);
     worldOver?.setAttribute('transform', world.getAttribute('transform'));
@@ -1286,13 +1291,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let vdpr = 1;
   function resizeCanvas() {
     const r = wrap.getBoundingClientRect();
-    vdpr = Math.min(2, devicePixelRatio || 1) * QUALITY[quality].res;
+    vdpr = Math.min(2, devicePixelRatio || 1) * QUALITY[quality].res * zoomRes;
     vCanvas.width = Math.max(1, Math.round(r.width * vdpr)); vCanvas.height = Math.max(1, Math.round(r.height * vdpr));
     wrap.classList.toggle('compact', r.height < 600);
     CTM = null;
   }
   new ResizeObserver(resizeCanvas).observe(wrap);
-  resizeCanvas();
+  resizeCanvas(); resizeReady = true;
 
   // ── Frame state ───────────────────────────────────
   let F = null;            // latest frame
