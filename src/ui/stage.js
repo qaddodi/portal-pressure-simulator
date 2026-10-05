@@ -2890,7 +2890,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const x of Object.values(E)) {
       if (!x.vis || x.isArt || (x.e.from !== id && x.e.to !== id)) continue;
       if (x.e.kind === 'liver') { bed = true; continue; }
-      if (x.g.classList.contains('coll-ghost')) continue;
+      if (x.g.classList.contains('coll-ghost') || x.e.id === 'TIPS') continue;   // the TIPS shunt has its own velocity label
       tubes++;
       const v = Math.abs(edgeVel(f, EI[x.e.id]));
       if (v > best) best = v;
