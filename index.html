@@ -19,7 +19,7 @@
   <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="fonts/fonts.css" />
   <link rel="stylesheet" href="styles/tokens.css?v=96d9ac961c" />
-  <link rel="stylesheet" href="styles/app.css?v=785e5ce224" />
+  <link rel="stylesheet" href="styles/app.css?v=8b62782ef7" />
   <style>
     #boot { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; height: 100lvh; z-index: 2147483647; display: grid; place-items: center; background: var(--bg, #FBFAF7); transition: opacity .45s ease, visibility .45s; }
     #boot.done { opacity: 0; visibility: hidden; pointer-events: none; }
@@ -57,6 +57,7 @@
       <symbol id="i-needle" viewBox="0 0 24 24"><path d="m18 2 4 4M17 7l3-3M19 9 8.7 19.3c-1 1-2.5 1-3.4 0l-.6-.6c-1-1-1-2.5 0-3.4L15 5M9 11l4 4M5 19l-3 3M14 4l6 6"/></symbol>
       <!-- transport -->
       <symbol id="i-play" viewBox="0 0 24 24"><path d="M7.5 4.8v14.4a.8.8 0 0 0 1.2.7l11.4-7.2a.8.8 0 0 0 0-1.4L8.7 4.1a.8.8 0 0 0-1.2.7z" fill="currentColor" stroke="none"/></symbol>
+      <symbol id="i-ffwd" viewBox="0 0 24 24"><path d="M4 5.5v13l8-6.5zM12 5.5v13l8-6.5z" fill="currentColor" stroke="none"/></symbol>
       <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4.5" width="4" height="15" rx="1.2" fill="currentColor" stroke="none"/><rect x="14" y="4.5" width="4" height="15" rx="1.2" fill="currentColor" stroke="none"/></symbol>
       <symbol id="i-settle" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 2.7-6.4L3 8.3"/><path d="M3 3.5v4.8h4.8"/><path d="M12 7.5V12l3 2"/></symbol>
       <symbol id="i-ff" viewBox="0 0 24 24"><path d="M3.5 6.2v11.6a.7.7 0 0 0 1.1.6l7.9-5.8a.7.7 0 0 0 0-1.2L4.6 5.6a.7.7 0 0 0-1.1.6zM12 6.2v11.6a.7.7 0 0 0 1.1.6l7.9-5.8a.7.7 0 0 0 0-1.2l-7.9-5.8a.7.7 0 0 0-1.1.6z" fill="currentColor" stroke="none"/></symbol>
@@ -68,6 +69,7 @@
       <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.2a2.9 2.9 0 0 1 5.6 1c0 1.9-2.8 2.4-2.8 4"/><circle cx="12" cy="17.3" r=".6" fill="currentColor"/></symbol>
       <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12.8 2.7a2 2 0 0 0-1.6 0L3 6.4a.8.8 0 0 0 0 1.5l8.2 3.7a2 2 0 0 0 1.6 0L21 7.9a.8.8 0 0 0 0-1.5z"/><path d="m3 12 8.2 3.7a2 2 0 0 0 1.6 0L21 12"/><path d="m3 16.8 8.2 3.7a2 2 0 0 0 1.6 0l8.2-3.7"/></symbol>
       <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3" y="3.5" width="18" height="17" rx="2.5"/><path d="M15 3.5v17"/></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.8"/><path d="M12 7v5l3.2 2"/></symbol>
       <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
       <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.9-3.9"/></symbol>
       <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1.5 14h5M9.5 8h5M17.5 16h5"/></symbol>
@@ -114,7 +116,7 @@
   <div class="app" id="app" data-mode="explore">
     <header class="topbar float-ui stage-blocker" id="topbar" data-safe="top">
       <div class="float-pill tb-id">
-        <button class="menu-btn" id="btnMenu" aria-haspopup="menu" aria-expanded="false" title="Menu: explore, lessons, cases, presenter, share, settings, help">
+        <button class="menu-btn" id="btnMenu" aria-haspopup="menu" aria-expanded="false" title="Menu: explore, lessons, cases, presenter, share, help">
           <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7.5" class="brand-bg"/><path d="M3.2 11C3.2 6.9 7.4 4.6 13.8 4.6C20.2 4.6 25.9 5.2 29 6.6C29.6 6.9 29.4 7.7 28.8 8.1C26.2 9.9 22.8 11.9 20.2 13.9C18.4 15.3 16.8 16.9 15 17.8C14.2 18.2 13.5 17.6 12.8 17.9C11.6 18.5 11.2 19.4 9.6 19.6C7.4 19.9 5.2 18.8 4.2 16.8C3.5 15.3 3.2 13.3 3.2 11Z" fill="#F4E4E1"/><path d="M13.3 16.2C11.6 14.2 9.2 12.9 6.3 12.5M13.3 16.2C15.4 13.8 18.4 11.6 22 10" stroke="url(#pvGrad)" stroke-width="1.9" stroke-linecap="round" fill="none"/><path d="M17.4 29.3V23.4M28.6 22.3C24.8 23.4 20.8 23.6 17.4 23.4M17.4 23.4C15.8 21 14.6 19 13.3 16.2" stroke="url(#pvGrad)" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
           <span class="mb-t"><span class="mb-k">Menu</span><span class="mb-mode" id="modeName">Explore</span></span>
           <svg class="chev"><use href="#i-chev-down"/></svg>
@@ -146,6 +148,7 @@
         <button class="tb-act" id="btnTreat" aria-haspopup="dialog" aria-expanded="false" aria-controls="treatCard" title="Treat: drugs, fluids and procedures (T)"><svg><use href="#i-pill"/></svg><span>Treat</span></button>
         <button class="measure-launch tb-act" id="tabInstruments" aria-pressed="false" aria-controls="dock" title="Open instrument workspace (I)"><svg><use href="#i-gauge"/></svg><span data-i18n="tabs.instruments">Measure</span></button>
         <span class="tb-sep" aria-hidden="true"></span>
+        <button class="ib" id="btnSettings" aria-haspopup="dialog" aria-label="Settings" title="Settings"><svg><use href="#i-gear"/></svg></button>
         <button class="pal-btn" id="btnPalette" title="Search (Ctrl K)" aria-label="Search" data-i18n-attr="aria-label:top.search"><svg><use href="#i-search"/></svg><span class="pal-l" data-i18n="top.search">Search</span><kbd>Ctrl K</kbd></button>
       </div>
     </header>
@@ -200,17 +203,17 @@
   <div class="toast-wrap" id="toasts"></div>
   <div class="sr-only" aria-live="polite" id="live"></div>
 
-  <link rel="modulepreload" href="src/ui/stage.js?v=a368c80c7b" />
+  <link rel="modulepreload" href="src/ui/stage.js?v=53785da1a8" />
   <link rel="modulepreload" href="src/ui/anatomy.js?v=5836089b84" />
-  <link rel="modulepreload" href="src/ui/util.js?v=831ebf143a" />
+  <link rel="modulepreload" href="src/ui/util.js?v=f4c2603e25" />
   <link rel="modulepreload" href="src/ui/store.js?v=23552bd900" />
   <link rel="modulepreload" href="src/ui/colormap.js?v=6d64a94345" />
-  <link rel="modulepreload" href="src/ui/inspector.js?v=16c4f8a329" />
-  <link rel="modulepreload" href="src/ui/dock.js?v=5e8fb5db95" />
-  <link rel="modulepreload" href="src/ui/charts.js?v=af9b30cd82" />
-  <link rel="modulepreload" href="src/ui/instruments.js?v=2eab6b2be8" />
-  <link rel="modulepreload" href="src/ui/timeline.js?v=470ced89d1" />
+  <link rel="modulepreload" href="src/ui/inspector.js?v=661dfd7392" />
+  <link rel="modulepreload" href="src/ui/dock.js?v=85f0174aae" />
+  <link rel="modulepreload" href="src/ui/charts.js?v=609089e834" />
+  <link rel="modulepreload" href="src/ui/instruments.js?v=3cae47e65c" />
+  <link rel="modulepreload" href="src/ui/timeline.js?v=e14c90250e" />
   <link rel="modulepreload" href="src/engine/topology.js?v=29d10ad9ef" />
-  <script type="module" src="src/ui/main.js?v=dcf606ebdb"></script>
+  <script type="module" src="src/ui/main.js?v=464e4115a4"></script>
 </body>
 </html>

@@ -5,8 +5,8 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
-import { h, fmt, fitCanvas, clamp } from './util.js?v=831ebf143a';
-import { FONT } from './charts.js?v=af9b30cd82';
+import { h, fmt, fitCanvas, clamp, icon } from './util.js?v=f4c2603e25';
+import { FONT } from './charts.js?v=609089e834';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 // kind decides the words for direction and pattern; normal is the usual mean velocity (cm/s).
@@ -15,27 +15,32 @@ const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 // above the baseline. Hepatic veins and the IVC drain away from a subcostal or intercostal probe,
 // so their forward flow is below the baseline (away) and the a-wave reversal above it.
 const PROBES = [
-  { id: 'PV_TRUNK', kind: 'portal', normal: [15, 40] },
-  { id: 'PVH_R', kind: 'portal', normal: [12, 35] },
-  { id: 'PVH_L', kind: 'portal', normal: [12, 35] },
-  { id: 'SV_CONF', kind: 'portal', normal: [10, 30] },
-  { id: 'SMV_CONF', kind: 'portal', normal: [10, 30] },
-  { id: 'RHV_IVC', kind: 'hepatic', normal: [10, 40], away: true },
-  { id: 'MHV_IVC', kind: 'hepatic', normal: [10, 40], away: true },
-  { id: 'IVCS_RA', kind: 'ivc', normal: [10, 50], away: true },
-  { id: 'A_HEP', kind: 'artery', normal: [30, 100] },
-  { id: 'TIPS', kind: 'tips', normal: [90, 190] },
-  { id: 'C1b', kind: 'collateral', normal: null },
-  { id: 'C3', kind: 'collateral', normal: null },
+  { id: 'PV_TRUNK', short: 'MPV', kind: 'portal', normal: [15, 40] },
+  { id: 'PVH_R', short: 'RPV', kind: 'portal', normal: [12, 35] },
+  { id: 'PVH_L', short: 'LPV', kind: 'portal', normal: [12, 35] },
+  { id: 'SMV_CONF', short: 'SMV Prox', kind: 'portal', normal: [10, 30] },
+  { id: 'V_INT', short: 'SMV Dist', kind: 'portal', normal: [10, 30] },
+  { id: 'SV_CONF', short: 'SV Prox', kind: 'portal', normal: [10, 30] },
+  { id: 'V_SPL', short: 'SV Dist', kind: 'portal', normal: [10, 30] },
+  { id: 'RHV_IVC', short: 'RHV', kind: 'hepatic', normal: [10, 40], away: true },
+  { id: 'MHV_IVC', short: 'MHV', kind: 'hepatic', normal: [10, 40], away: true },
+  { id: 'LHV_IVC', short: 'LHV', kind: 'hepatic', normal: [10, 40], away: true },
+  { id: 'IVCS_RA', short: 'IVC', kind: 'ivc', normal: [10, 50], away: true },
+  { id: 'A_HEP', short: 'HA', kind: 'artery', normal: [30, 100] },
+  { id: 'TIPS', short: 'TIPS', kind: 'tips', normal: [90, 190] },
+  { id: 'C1b', short: 'Varix C1', kind: 'collateral', normal: null },
+  { id: 'C3', short: 'Paraumb. C3', kind: 'collateral', normal: null },
 ];
-const WINDOW = 6;       // seconds across the display
-const KEEP = 8;         // seconds kept
+const SWEEP_SECONDS = [6, 3, 12]; // Start at 6 s; first tap shortens the visible window.
+const KEEP = 16;                 // Retain enough samples for the 12 s sweep and display lag.
 const MINUS = '−';
 const num = (v, d = 0) => (v < 0 ? MINUS : '') + fmt(Math.abs(v), d);
 
 export function createDoppler({ onProbe }) {
+  let sweepIndex = 0;
+  let sweepSeconds = SWEEP_SECONDS[sweepIndex];
   const probeSel = h('select', { class: 'select dop-vessel', 'aria-label': 'Vessel' },
-    PROBES.map((p) => h('option', { value: p.id }, EDGES[EI[p.id]].label)));
+    PROBES.map((p) => h('option', { value: p.id, title: EDGES[EI[p.id]].label }, p.short)));
   probeSel.addEventListener('change', () => onProbe(probeSel.value));
   let tint = false;
   const tintBtn = h('button', { class: 'dop-tint', 'aria-pressed': 'false', title: 'Color the spectrum by direction: red toward the probe, blue away' }, h('i'), 'Direction color');
@@ -44,6 +49,22 @@ export function createDoppler({ onProbe }) {
   let invert = false;
   const invBtn = h('button', { class: 'dop-tint dop-inv', 'aria-pressed': 'false', title: 'Invert the display: show flow away from the probe above the baseline' }, h('i', { 'aria-hidden': 'true' }, '⇅'), 'Invert');
   invBtn.addEventListener('click', () => { invert = !invert; invBtn.setAttribute('aria-pressed', String(invert)); if (frame) draw(); });
+  const sweepIcon = icon('clock');
+  sweepIcon.setAttribute('aria-hidden', 'true');
+  const sweepBtn = h('button', {
+    class: 'dop-tint dop-sweep',
+    title: `Sweep window: ${sweepSeconds} seconds. Tap to cycle.`,
+    'aria-label': `Doppler sweep duration: ${sweepSeconds} seconds. Activate to cycle.`,
+  }, sweepIcon, h('span', { class: 'dop-sweep-label' }, `${sweepSeconds} s`));
+  sweepBtn.addEventListener('click', () => {
+    sweepIndex = (sweepIndex + 1) % SWEEP_SECONDS.length;
+    sweepSeconds = SWEEP_SECONDS[sweepIndex];
+    sweepBtn.lastChild.textContent = `${sweepSeconds} s`;
+    sweepBtn.title = `Sweep window: ${sweepSeconds} seconds. Tap to cycle.`;
+    sweepBtn.setAttribute('aria-label', `Doppler sweep duration: ${sweepSeconds} seconds. Activate to cycle.`);
+    ringKey = '';
+    if (frame) { updateReport(); draw(); }
+  });
   const cv = h('canvas', { role: 'img', 'aria-label': 'Spectral Doppler' });
   const box = h('div', { class: 'chart-box dark dop-box' }, cv);
 
@@ -59,7 +80,7 @@ export function createDoppler({ onProbe }) {
   }));
   const report = h('div', { class: 'dop-report' }, dirEl, h('div', { class: 'dop-velrow' }, velEl, rangeEl), patternEl, stats, noteEl);
   const el = h('div', { class: 'dop', 'data-pane': 'doppler' },
-    h('div', { class: 'dop-head' }, probeSel, h('div', { class: 'dop-btns' }, tintBtn, invBtn)), h('div', { class: 'dop-main' }, box, report));
+    h('div', { class: 'dop-head' }, probeSel, h('div', { class: 'dop-btns' }, tintBtn, invBtn, sweepBtn)), h('div', { class: 'dop-main' }, box, report));
 
   // ── Samples ───────────────────────────────────────
   let buf = [];
@@ -167,7 +188,7 @@ export function createDoppler({ onProbe }) {
       set(statEls.CI.dd, Math.abs(r.mean) > 0.5 ? `${fmt(area / Math.abs(r.mean), 2)} cm·s` : '—');
     }
     set(noteEl, it.note);
-    const aria = `Spectral Doppler, ${EDGES[EI[probe]].label}: ${it.dir}, mean ${num(r.mean, 0)} centimeters per second, ${it.pattern}.`;
+    const aria = `Spectral Doppler, ${EDGES[EI[probe]].label}, ${sweepSeconds}-second sweep: ${it.dir}, mean ${num(r.mean, 0)} centimeters per second, ${it.pattern}.`;
     if (cv.getAttribute('aria-label') !== aria) cv.setAttribute('aria-label', aria);
   }
 
@@ -322,7 +343,7 @@ export function createDoppler({ onProbe }) {
     ctx.fillText(label, padL, 13);
     const lw = ctx.measureText(label).width;
     ctx.font = FONT(500, 11); ctx.fillStyle = 'rgba(255,255,255,.5)';
-    ctx.fillText('PW  ·  θ 60°  ·  SV 3 mm', padL + lw + 12, 13);
+    ctx.fillText(`PW  ·  θ 60°  ·  SV 3 mm  ·  ${sweepSeconds} s`, padL + lw + 12, 13);
     if (buf.length < 2) {
       tDisp = null;
       ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.55)';
@@ -335,7 +356,7 @@ export function createDoppler({ onProbe }) {
     const tNow = clockNow(now);
     let pos = 0, neg = 0;
     const sgn = pol();
-    for (const [t, v0] of buf) if (t >= tNow - WINDOW && t <= tNow) { const v = sgn * v0; if (v > pos) pos = v; if (-v > neg) neg = -v; }
+    for (const [t, v0] of buf) if (t >= tNow - sweepSeconds && t <= tNow) { const v = sgn * v0; if (v > pos) pos = v; if (-v > neg) neg = -v; }
     pos *= 1.3; neg *= 1.3;
     const need = Math.max(pos, neg, 8) / 0.55;
     const target = STEPS.find((x) => x >= need) || STEPS[STEPS.length - 1];
@@ -351,9 +372,9 @@ export function createDoppler({ onProbe }) {
 
     // Spectrum, at device resolution, newest line at the right edge.
     const RW = Math.max(1, Math.round(W * dpr)), RH = Math.max(1, Math.round(H * dpr));
-    const g = { RW, RH, rBase: baseY * dpr, rPxPerV: pxPerV * dpr, cps: RW / WINDOW, binPx: Math.max(1.5, RH / 200), spkPx: Math.max(2, RH / 110), spkMix: clamp(1 - 1 / dpr, 0.3, 0.65), pol: sgn, venous: meta().kind !== 'artery' && meta().kind !== 'tips' };
+    const g = { RW, RH, rBase: baseY * dpr, rPxPerV: pxPerV * dpr, cps: RW / sweepSeconds, binPx: Math.max(1.5, RH / 200), spkPx: Math.max(2, RH / 110), spkMix: clamp(1 - 1 / dpr, 0.3, 0.65), pol: sgn, venous: meta().kind !== 'artery' && meta().kind !== 'tips' };
     const cNow = Math.floor(tNow * g.cps);
-    const key = `${RW}x${RH}|${scale}|${baseF}|${tint}|${probe}|${sgn}`;
+    const key = `${RW}x${RH}|${scale}|${baseF}|${tint}|${probe}|${sgn}|${sweepSeconds}`;
     if (!img || img.width !== RW || img.height !== RH) {
       img = new ImageData(RW, RH);
       off = mk(RW, RH);
@@ -409,7 +430,7 @@ export function createDoppler({ onProbe }) {
     ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.textAlign = 'right'; ctx.fillText('cm/s', w - 6, 13);
     // One tick a second along the bottom, scrolling with the trace
     ctx.fillStyle = 'rgba(255,255,255,.4)';
-    for (let sec = Math.ceil(tNow - WINDOW); sec <= tNow; sec++) {
+    for (let sec = Math.ceil(tNow - sweepSeconds); sec <= tNow; sec++) {
       const x = (RW - 1 - (cNow - Math.floor(sec * g.cps))) / dpr;
       ctx.fillRect(Math.round(padL + x), padT + H + 5, 1, 4);
     }

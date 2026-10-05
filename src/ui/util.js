@@ -142,7 +142,7 @@ export function menuItem(label, { checked, onClick, kb, icon: ic } = {}) {
   const b = h('button', { class: 'menu-item', role: toggle ? 'menuitemcheckbox' : checked != null ? 'menuitemradio' : 'menuitem', 'aria-checked': checked != null ? String(!!checked) : null },
     toggle ? svgIcon(ic, 'mi-ic') : checked != null ? svgIcon('check', 'mi-check') : ic ? svgIcon(ic, 'mi-ic') : null, h('span', {}, label), kb ? h('span', { class: 'kb' }, kb) : null,
     toggle ? svgIcon('check', 'mi-check mi-trail') : null);
-  b.addEventListener('click', () => { onClick?.(); });
+  b.addEventListener('click', (e) => { onClick?.(e); });
   return b;
 }
 export function svgIcon(id, cls = '') {
