@@ -213,6 +213,12 @@ void main() {
       float v = dot(p - t3.xy, dd) / max(dot(dd, dd), 1e-6);
       a *= mix(t4.y, t4.z, clamp((v - t4.x) / max(1.0 - t4.x, 1e-4), 0.0, 1.0));
     }
+    // A veiled vessel is faded all along its course, as much as an organ covering it would (behind
+    // an organ, by no more than that). In its alpha, so the fade blends across its joins.
+    if ((int(t2.z + 0.5) & ${F_VEIL}) != 0 && useOrgan == 1) {
+      float v = 1.0 - 0.66 * organK;
+      a *= tierGroup[int(t2.x + 0.5)] == 0 ? min(1.0, v / max(1.0 - occl, 1e-3)) : v;
+    }
     sa[s] = a;
   }
 
@@ -303,8 +309,6 @@ void main() {
     g = length(g) > 1e-5 ? normalize(g) : vec2(0.0);
     int flags = int(sflag[ow] + 0.5);
     bool sel = (flags & ${F_SEL}) != 0;
-    // A veiled vessel is faded all along its course, as much as an organ covering it would.
-    float veil = (flags & ${F_VEIL}) != 0 ? (useOrgan == 1 ? 0.66 * organK : 0.0) : grp == 0 ? occl : 0.0;
     float cA = (flags & ${F_NOCASE}) != 0 ? 0.0 : (flags & ${F_DOTTED}) != 0 ? 0.35 : 1.0;
 
     float aa = px;
@@ -339,7 +343,7 @@ void main() {
     if (sel && grp == 2) lum = min(lum * 1.12, vec3(1.0));
     c = over(vec4(lum, 1.0) * aL, c);
     c *= alpha * tierAlpha[ti];
-    float gf = (grp == 1 ? netAlpha : 1.0) * (1.0 - veil);
+    float gf = grp == 0 ? 1.0 - occl : grp == 1 ? netAlpha : 1.0;
     float lumA = aL * alpha * tierAlpha[ti] * gf;
     if (lumA > 0.02 && (flags & ${F_DOTTED}) == 0) {
       // The stream shown here: the two joined lumens with the largest share, by nearness and by how
@@ -364,8 +368,7 @@ void main() {
         gId2 = uint(sid[o2] + 1); gS2 = su[o2] * T(sid[o2], 5).z; gY2 = clamp(sx[o2] / max(sr[o2], 1e-3), -1.0, 1.0); gB = w2 / (w1 + w2);
       }
     } else gW *= 1.0 - c.a * gf;
-    c *= 1.0 - veil;
-    if (grp == 0) accB = over(c, accB);
+    if (grp == 0) { c *= 1.0 - occl; accB = over(c, accB); }
     else if (grp == 1) accN = over(c, accN);
     else accT = over(c, accT);
   }
