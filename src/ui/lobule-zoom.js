@@ -309,6 +309,8 @@ export function createLobuleZoom({ host }) {
     const k = clamp(V.k * factor, kFit, kFit * KMAX), r = k / V.k;
     V.x = px - (px - V.x) * r; V.y = py - (py - V.y) * r; V.k = k;
     clampV(); viewChanged();
+    // Zooming out past the framing: the rest of the step goes to the stage, which scrubs the dive back.
+    if (factor < 1 && outHandler && V.k * factor / r < kFit * 0.9999 && V.k <= kFit * 1.001) outHandler(V.k * factor / r / kFit);
   }
   // A short glide between framings (the buttons, Fit, a card opening).
   let glide = 0;
@@ -330,6 +332,7 @@ export function createLobuleZoom({ host }) {
   function zoomBy(factor) {
     if (!geo) return;
     if (factor < 1 && V.k <= kFit * 1.001 && outHandler) { outHandler(factor, true); return; }
+    if (factor < 1 && V.k * factor < kFit && outHandler) { const rest = V.k * factor / kFit; factor = kFit / V.k; outHandler(rest, true); }
     const f = freeRect(), px = (f.l + f.r) / 2, py = (f.t + f.b) / 2;
     const k = clamp(V.k * factor, kFit, kFit * KMAX), r = k / V.k;
     const to = { k, x: px - (px - V.x) * r, y: py - (py - V.y) * r };
