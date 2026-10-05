@@ -4,7 +4,7 @@
 
 import { store, updateParams } from './store.js?v=23552bd900';
 import { host } from './host.js?v=5e522a6bbf';
-import { h, fmt, openModal, closeModal, toast, svgIcon } from './util.js?v=831ebf143a';
+import { h, fmt, openModal, closeModal, toast, svgIcon } from './util.js?v=f4c2603e25';
 import { addRecord, exportCSV, exportXAPI } from './records.js?v=26ab8fb634';
 
 const ACTIONS = {
