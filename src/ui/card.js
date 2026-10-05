@@ -31,7 +31,8 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   let relayoutRaf = 0;
   const relayoutSoon = () => { if (!relayoutRaf) relayoutRaf = requestAnimationFrame(() => { relayoutRaf = 0; stage.relayout?.(); }); };
   const isDocked = () => el.classList.contains('docked');
-  // The phone inspector lives in the whole figure column and floats above the vitals dock.
+  // The phone sheet lives in the whole figure column, not in the figure itself: it reaches the bottom of the column,
+  // over the play and timeline row, and stops just above the readout strip.
   const dockHost = view.closest('.stage-wrap') || view;
   const appStyle = document.getElementById('app').style;
   // A card with more controls than fit scrolls, and fades at the bottom while there is more to see.
@@ -85,7 +86,6 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     const st = store.get();
     const sel = st.selection;
     if (!sel || st.shunting) { hide(); return; }
-    if (sel !== selRef) sheetState = 'open';
     const m = cardFor(sel, ctx);
     if (!m) { hide(); return; }
     const focusedIdx = keepFocus ? actionable.findIndex((a) => a.el.contains(document.activeElement)) : -1;
@@ -127,12 +127,13 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     // Why? and Details are written twice and shown once: in the header on a phone (where a row of their own would
     // be a strip of wasted sheet) and at the foot on a desktop.
     const mkFoot = (where) => h('div', { class: 'ac-foot ' + where },
-      h('button', { class: 'link', onclick: (e) => onWhy(m.why, e.currentTarget) }, svgIcon('bulb', 'mi-ic'), 'Why?'),
-      m.noDetails ? null : h('button', { class: 'link', onclick: () => onDetails(selRef) }, 'Details', svgIcon('chev-right', 'mi-ic')));
+      h('button', { class: 'link', 'aria-label': 'Why?', title: 'Why?', onclick: (e) => onWhy(m.why, e.currentTarget) }, svgIcon('bulb', 'mi-ic'), h('span', { class: 'ac-link-text' }, 'Why?')),
+      m.noDetails ? null : h('button', { class: 'link', 'aria-label': 'Details', title: 'Details', onclick: () => onDetails(selRef) }, h('span', { class: 'ac-link-text' }, 'Details'), svgIcon('chev-right', 'mi-ic')));
     const foot = mkFoot('at-foot');
-    // On a phone the inspector has three heights: reading, controls, and expanded.
-    // The labelled handle expands it; header taps and swipes also collapse it.
-    const grab = h('button', { class: 'ac-grab', 'aria-label': 'Collapse or expand the card', 'aria-expanded': String(sheetState !== 'peek') }, sheetState === 'peek' ? 'Show controls' : sheetState === 'full' ? 'Collapse' : 'Expand');
+    // On a phone the card is a bottom sheet with two heights: everything at once, or a strip with just the reading.
+    // Tapping the handle or the top flips between them; a swipe down from the strip closes. The desktop card has the
+    // same parts: header, controls, and the links at the foot.
+    const grab = h('button', { class: 'ac-grab', 'aria-label': 'Collapse or expand the card', 'aria-expanded': String(sheetState !== 'peek') });
     const top = h('div', { class: 'ac-top' }, grab,
       h('header', { class: 'ac-head' }, h('div', { class: 'ac-titles' }, h('span', { class: 'ac-kicker' }, m.kicker), h('h3', {}, m.title)), mkFoot('in-head'), close),
       h('div', { class: 'ac-readout' }, valEl, pillEl));
@@ -157,21 +158,17 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
 
   // Bottom-sheet gestures (phone only): a tap on the handle or the top flips between the open sheet and the strip;
   // a swipe up opens it, a swipe down from the open sheet makes it the strip, and a swipe down from the strip closes
-  // it. A newly selected structure starts with its controls open.
+  // it. The height carries over to the next card, so a learner who wants the figure clear keeps it clear.
   function setSheet(s) {
     sheetState = s;
     el.classList.toggle('peek', s === 'peek');
     el.classList.toggle('full', s === 'full');
-    const grab = el.querySelector('.ac-grab');
-    if (grab) {
-      grab.setAttribute('aria-expanded', String(s !== 'peek'));
-      grab.textContent = s === 'peek' ? 'Show controls' : s === 'full' ? 'Collapse' : 'Expand';
-    }
+    el.querySelector('.ac-grab')?.setAttribute('aria-expanded', String(s !== 'peek'));
     relayoutSoon();
     reveal();
   }
   function wireSheet(top, grab) {
-    grab.addEventListener('click', () => setSheet(sheetState === 'peek' ? 'open' : sheetState === 'open' ? 'full' : 'open'));
+    grab.addEventListener('click', () => setSheet(sheetState === 'peek' ? 'open' : 'peek'));
     let y0 = null, moved = false;
     // The swipe is followed on the window, so it may leave the top of the sheet; nothing is captured, so the handle,
     // the links and the close button still get their own clicks.

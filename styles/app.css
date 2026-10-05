@@ -2754,45 +2754,41 @@ input[type="range"] { touch-action: none; }
 .readouts.lob.all .ro-group[data-group="lobule"] { order: -1; }
 
 
-/* Phone selection inspector: float above the vitals, with readable controls and a fixed header. */
+/* Compact phone inspector: one identity row, one reading row, and short control rows.
+   Explanations stay in Why/Details; swiping up restores captions in the full sheet. */
 .action-card.docked {
-  left: calc(env(safe-area-inset-left) + 8px) !important;
-  right: calc(env(safe-area-inset-right) + 8px);
-  bottom: var(--bot-occ, 130px);
-  max-height: min(56%, calc(100% - var(--top-safe) - var(--bot-occ, 130px) - 16px));
+  left: calc(env(safe-area-inset-left) + 6px) !important;
+  right: calc(env(safe-area-inset-right) + 6px);
+  bottom: calc(env(safe-area-inset-bottom) + 6px);
+  max-height: min(38%, 280px);
   border-radius: var(--r-sheet);
 }
-.action-card.docked.full { max-height: calc(100% - var(--top-safe) - var(--bot-occ, 130px) - 16px); }
-.action-card.docked .ac-top { display: flex; flex-direction: column; align-items: stretch; padding: 0 16px; gap: 0; }
-.action-card.docked .ac-grab { height: 44px; text-align: right; padding: 0 0 0 48px; font: 600 var(--fs-12) var(--font-ui); color: var(--text-2); }
-.action-card.docked .ac-grab::before { top: 20px; }
-.action-card.docked .ac-head { display: flex; align-items: flex-start; gap: 12px; }
-.action-card.docked .ac-titles { display: block; flex: 1; min-width: 0; }
-.action-card.docked .ac-head h3 { font-size: var(--fs-16); line-height: 1.35; margin: 4px 0 0; padding: 0; }
-.action-card.docked .ac-kicker { white-space: normal; }
-.action-card.docked .ac-top:has(.ac-status:not(:empty)) .ac-kicker { display: block; }
-.action-card.docked .ac-close { width: 44px; height: 44px; margin: -4px -8px 0 0; flex: none; }
-.action-card.docked .ac-readout { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
-.action-card.docked .ac-value { justify-self: auto; flex-wrap: wrap; }
-.action-card.docked .ac-foot.in-head { display: none; }
-.action-card.docked .ac-foot.at-foot { display: flex; padding: 0 16px; }
-.action-card.docked .ac-foot .link { min-height: 44px; }
-.action-card.docked.peek .ac-foot.at-foot { display: none; }
-.action-card.docked.peek .ac-top { padding-bottom: 0; }
-.action-card.docked .ac-scroll { padding: 0 16px 12px; }
-.action-card.docked .ac-body { display: flex; flex-direction: column; gap: 14px; padding: 14px 0 0; }
-.action-card.docked .ac-about:not(.full) { display: block; line-height: 1.5; cursor: default; }
-.action-card.docked .ac-about:not(.full) p { display: block; }
-.action-card.docked .ac-about:not(.full) p + p::before { content: none; }
-.action-card.docked .ac-btn, .action-card.docked .ac-toggle,
-.action-card.docked .ac-btns.tri .ac-btn { min-height: 44px; padding: 10px 12px; font-size: var(--fs-14); text-align: left; flex-direction: row; gap: 8px; }
-.action-card.docked .ac-body > .ac-btns.tri { display: flex; flex-direction: column; gap: 10px; }
-.action-card.docked .ac-btns.tri .ac-bl { white-space: normal; }
-.action-card.docked .ac-row { gap: 8px; }
+.action-card.docked .ac-top {
+  grid-template-columns: minmax(0, 1fr) auto 36px;
+  column-gap: 6px; row-gap: 2px; padding: 0 12px 8px;
+}
+.action-card.docked .ac-grab { height: 16px; }
+.action-card.docked .ac-grab::before { top: 6px; width: 28px; height: 3px; }
+.action-card.docked .ac-kicker { display: none; }
+.action-card.docked .ac-head h3 {
+  grid-column: 1; grid-row: 2; padding: 0; font-size: var(--fs-14); line-height: 1.3;
+}
+.action-card.docked .ac-foot.in-head { grid-column: 2; grid-row: 2; gap: 2px; }
+.action-card.docked .ac-foot.in-head .link { width: 36px; min-height: 36px; padding: 0; justify-content: center; border-radius: var(--r-card); }
+.action-card.docked .ac-foot.in-head .ac-link-text { display: none; }
+.action-card.docked .ac-close { grid-column: 3; grid-row: 2; width: 36px; height: 36px; margin: 0; }
+.action-card.docked .ac-value { grid-column: 1; grid-row: 3; justify-self: start; min-width: 0; flex-wrap: wrap; }
+.action-card.docked .ac-value b { font-size: var(--fs-16); }
+.action-card.docked .ac-status { grid-column: 2 / -1; grid-row: 3; justify-self: end; max-width: 100%; }
+.action-card.docked .ac-status .pill { font-size: var(--fs-12); padding: 2px 6px; }
+.action-card.docked .ac-scroll { padding: 0 12px 8px; }
+.action-card.docked .ac-body { gap: 6px; padding: 8px 0 0; }
+.action-card.docked .ac-btn, .action-card.docked .ac-toggle { min-height: 36px; padding: 5px 8px; font-size: var(--fs-12); }
+.action-card.docked:not(.full) .ac-about,
+.action-card.docked:not(.full) .ac-slider .ctl-sub { display: none; }
+.action-card.docked.full .ac-slider .ctl-sub { display: block; }
+.action-card.docked .ac-body > .ac-stats { column-gap: 12px; row-gap: 4px; }
+.action-card.docked .ac-note { line-height: 1.35; }
 .action-card.docked .ac-seg { display: flex; flex-wrap: wrap; }
-.action-card.docked .ac-seg button { min-height: 44px; padding: 8px 10px; }
-.action-card.docked .ac-slider:not(.long), .action-card.docked .ac-slider.long { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
-.action-card.docked .ac-slider:not(.long) .ctl-top { display: flex; }
-.action-card.docked .range-wrap, .action-card.docked input[type=range] { height: 44px; }
-.action-card.docked .ac-slider .ctl-sub { display: block; line-height: 1.5; }
-.action-card.docked .ac-stat { padding: 6px 0; }
+.action-card.docked .ac-seg button { min-height: 32px; }
+.action-card.docked.peek .ac-top { padding-bottom: 8px; }
