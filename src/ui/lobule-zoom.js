@@ -1682,20 +1682,20 @@ export function createLobuleZoom({ host }) {
     const G = geo, m = model;
     if (!G || !m) return null;
     for (const tr of G.triads) if (Math.hypot(x - tr.x, y - tr.y) < G.rt * 1.2) {
-      if (Math.hypot(x - tr.ha[0], y - tr.ha[1]) < G.R * 0.03) return { part: 'ha', tri: tr.i };
-      if (Math.hypot(x - tr.bd[0], y - tr.bd[1]) < G.R * 0.03) return { part: 'bd', tri: tr.i };
-      if (lymphOn && Math.hypot(x - tr.lv.pts[0][0], y - tr.lv.pts[0][1]) < G.R * 0.03) return { part: 'lv', tri: tr.i };
+      if (Math.hypot(x - tr.ha[0], y - tr.ha[1]) < Math.max(G.R * 0.03, 10 / V.k)) return { part: 'ha', tri: tr.i };
+      if (Math.hypot(x - tr.bd[0], y - tr.bd[1]) < Math.max(G.R * 0.03, 10 / V.k)) return { part: 'bd', tri: tr.i };
+      if (lymphOn && Math.hypot(x - tr.lv.pts[0][0], y - tr.lv.pts[0][1]) < Math.max(G.R * 0.03, 10 / V.k)) return { part: 'lv', tri: tr.i };
       return { part: 'triad', tri: tr.i };
     }
     if (Math.hypot(x - G.cx, y - G.cy) < radiusAt(G.cv, 0) + 4) return { part: 'cv' };
     let best = null, bd = Infinity;
     for (const t of G.tubes) {
-      if (t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || t.kind === 'bd') continue;
-      const [d] = distTo(t.pts, x, y), r = radiusAt(t, N >> 1), tol = r + (t.kind === 'tw' ? 6 : 5);
+      if (t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || t.kind === 'bd' || (t.lymph && !lymphOn)) continue;
+      const [d] = distTo(t.pts, x, y), r = radiusAt(t, N >> 1), tol = Math.max(r + (t.kind === 'tw' ? 6 : 5), 10 / V.k);
       const score = d - r - (t.kind === 'tw' ? 2 : 0);
       if (d < tol && score < bd) { bd = score; best = t; }
     }
-    if (best) return { part: best.kind === 'tw' ? 'ha' : best.kind[0] === 's' ? 'sin' : best.kind, tube: best.id, tri: best.tri };
+    if (best) return { part: best.kind === 'tw' ? 'ha' : best.lymph ? 'lv' : best.kind[0] === 's' ? 'sin' : best.kind, tube: best.id, tri: best.tri };
     if (m.septU > 0.1) {
       const C = G.lobules[0].corners, w = G.R * (0.02 + 0.05 * m.septU) / 2 + 4;
       for (let i = 0; i < 6; i++) { const A = C[i], B = C[(i + 1) % 6], dx = B[0] - A[0], dy = B[1] - A[1], L2 = dx * dx + dy * dy, t = clamp(((x - A[0]) * dx + (y - A[1]) * dy) / L2, 0, 1); if (Math.hypot(A[0] + dx * t - x, A[1] + dy * t - y) < w) return { part: 'septum' }; }
