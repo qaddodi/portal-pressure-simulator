@@ -1254,11 +1254,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   lz = createLobuleZoom({ host: wrap });
   // Out of the lobule view by zooming out: the view hands the dive back to the scrub, which carries on reversing it.
   lz.onZoomOut((factor, glide) => {
-    if (!lobuleOn || morphTarget !== 0) return;
-    cancelAnimationFrame(lobAnim); clearTimeout(lobEnd);
-    diveLand = lz.current(); lobuleOn = false; scrubS = diveT = SCRUB_DONE - 0.001;
-    quietLobule = true; store.set({ lobule: false }); quietLobule = false;
-    if (!diveAt) diveAt = [wrap.clientWidth / 2, wrap.clientHeight / 2];
+    if (morphTarget !== 0 || (!lobuleOn && scrubS === 0)) return;
+    if (lobuleOn) {
+      // The view hands the dive back to the scrub; the lobule view's layers stay under the fingers until they fade, so later steps arrive here too.
+      cancelAnimationFrame(lobAnim); clearTimeout(lobEnd);
+      diveLand = lz.current(); lobuleOn = false; scrubS = diveT = SCRUB_DONE - 0.001;
+      quietLobule = true; store.set({ lobule: false }); quietLobule = false;
+      if (!diveAt) diveAt = [wrap.clientWidth / 2, wrap.clientHeight / 2];
+    }
     if (glide) scrubGlide(factor); else scrubBy(factor);
   });
 
