@@ -1091,7 +1091,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       diveT = from + (to - from) * e;
       diveFrame(diveT);
       if (e < 1) lobAnim = requestAnimationFrame(step);
-      else if (!on) { setDiveScale(1); lz.setDiveZoom(1, 0, 0); diveLand = null; }
+      else if (!on) {
+        setDiveScale(1); lz.setDiveZoom(1, 0, 0); diveLand = null;
+        // Out of the lobule the anatomy always ends on its full fit, not where the dive began (often the liver close-up).
+        if (morphTarget === 0) { const d = defaultVT(false); homeAt = d; if (!sameView(vt, d)) animateVT(d, 450); }
+      }
     };
     step(t0);
   }
