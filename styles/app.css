@@ -2877,3 +2877,9 @@ input[type="range"] { touch-action: none; }
 /* The lobule group is hidden outside the lobule view; the group after it must not draw a divider above itself. */
 .readouts:not(.lob) .ro-group[data-group="lobule"] + .ro-group { border-top: 0 !important; }
 .topbar #viewSeg { --inset: 4px; }
+
+/* Play/speed split: the play button is an inset rounded rectangle, concentric with its container
+   (container radius - padding - border), not a fill clipped to the edge. */
+.tl-split { --split-r: var(--r-card); --inset: 3px; height: 40px; padding: var(--inset); gap: 2px; border-radius: var(--split-r); overflow: visible; box-sizing: border-box; }
+.timeline .tl-split .ib.play, .vdock .tl-split .ib.play { height: 100%; border-radius: calc(var(--split-r) - var(--inset) - 1px); }
+.tl-left .tl-split .tl-speed, .vdock .tl-left .tl-split .tl-speed { border-radius: calc(var(--split-r) - var(--inset) - 1px); }
