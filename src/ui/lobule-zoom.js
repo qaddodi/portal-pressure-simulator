@@ -893,24 +893,36 @@ export function createLobuleZoom({ host }) {
     const dt = Math.min(0.1, (now - (last || now)) / 1000); last = now; lastPaint = now;
     const st = store.get(), moving = st.running && !reduce.matches;
     if (moving) clock = (clock + dt) % 10000;
-    draw(moving ? dt : 0);
+    const drew = draw(moving ? dt : 0);
+    // Resolution follows the frame time: when frames that redraw arrive late the lobule is drawn smaller (a step at a
+    // time, not more often than every half second) and it grows back once there is room.
+    if (drew && prevDrew && !soft && dt < 0.1) {
+      gapAvg += (dt * 1000 - gapAvg) * 0.2;
+      if (now - resCheck > 500) {
+        resCheck = now;
+        if (gapAvg > 21 && lzRes > 0.6) { lzRes = Math.max(0.6, lzRes - 0.1); idleDrawn = ''; }
+        else if (gapAvg < 15.5 && lzRes < 1) { lzRes = Math.min(1, lzRes + 0.1); idleDrawn = ''; }
+      }
+    }
+    prevDrew = drew;
     raf = requestAnimationFrame(loop);
   }
+  let lzRes = 1, gapAvg = 16.7, resCheck = 0, prevDrew = false;
 
   // While the dive magnifies the lobule's layers (a compositor scale), they are drawn once and then left
   // alone: redrawing the WebGL vessels, the effects and the labels each frame, at full size, is what lagged.
   let diveScaled = false, diveDrawn = false;
   function draw(dt) {
-    if (diveScaled && diveDrawn) return;
+    if (diveScaled && diveDrawn) return false;
     diveDrawn = diveScaled;
     const rect = host.getBoundingClientRect();
     const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
     ensureGeo(W, H);
-    const dpr = Math.min(2, devicePixelRatio || 1);
+    const dpr = Math.min(2, devicePixelRatio || 1) * lzRes;
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
     // Keep watching for view/theme/size changes, but leave a settled paused picture alone.
     const idleKey = [W, H, dpr, dark, V.k, V.x, V.y, drawVersion].join('|');
-    if (dt === 0 && idleKey === idleDrawn) return;
+    if (dt === 0 && idleKey === idleDrawn) return false;
     idleDrawn = dt === 0 ? idleKey : '';
     const cs = getComputedStyle(host);
     const g = ensureGL();
@@ -918,6 +930,7 @@ export function createLobuleZoom({ host }) {
     layoutLabels();
     if (g && !g.lost) drawGL(W, H, dpr, dark, cs, dt);
     paintFx(W, H, dpr, dark, dt, !g || g.lost);
+    return true;
   }
 
   function ensureGeo(W, H) {
@@ -1107,7 +1120,7 @@ export function createLobuleZoom({ host }) {
       diveCtx = { W: Math.max(1, Math.round(rect.width)), H: Math.max(1, Math.round(rect.height)), cs, dark, bg: rgb01(cs.getPropertyValue('--stage-bg').trim() || cs.getPropertyValue('--bg').trim() || (dark ? '#0E1422' : '#FBFAF7')) };
     }
     const { W, H, cs, dark, bg } = diveCtx;
-    const dpr = Math.min(1.5, devicePixelRatio || 1);
+    const dpr = Math.min(1, devicePixelRatio || 1) * 0.8;   // in motion and behind the lobule: a modest resolution is plenty
     if (field.width !== Math.round(W * dpr) || field.height !== Math.round(H * dpr)) { field.width = Math.round(W * dpr); field.height = Math.round(H * dpr); }
     // Half the tile's resolution, as at rest: the field is in motion and behind the lobule.
     const rd = d.r * dpr, t = fieldTile(cs, dark, rd * 0.55);

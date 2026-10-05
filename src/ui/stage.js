@@ -6,7 +6,7 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=23552bd900';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar, systemEdge } from './util.js?v=d90a6074b7';
-import { createLobuleZoom } from './lobule-zoom.js?v=3bf99f1b4b';
+import { createLobuleZoom } from './lobule-zoom.js?v=444d99ca1c';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=799c94c026';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -806,7 +806,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let viewRaf = 0, viewVersion = 0, CTM = null, wrapRect = null;
   // Zoomed far in, the vessels fill the screen and the vessel shader runs on most of its pixels: the picture is
   // drawn at a lower resolution there (in steps, so the canvas is not resized on every wheel notch).
-  let zoomRes = 1, resizeReady = false;
+  let zoomRes = 1, dynRes = 1, resizeReady = false;
   const applyVT = () => {
     const zr = vt.k > 4 ? 0.65 : vt.k > 2.5 ? 0.8 : 1;
     if (zr !== zoomRes) { zoomRes = zr; if (resizeReady) resizeCanvas(); }
@@ -1291,7 +1291,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let vdpr = 1;
   function resizeCanvas() {
     const r = wrap.getBoundingClientRect();
-    vdpr = Math.min(2, devicePixelRatio || 1) * QUALITY[quality].res * zoomRes;
+    vdpr = Math.min(2, devicePixelRatio || 1) * QUALITY[quality].res * zoomRes * dynRes;
     vCanvas.width = Math.max(1, Math.round(r.width * vdpr)); vCanvas.height = Math.max(1, Math.round(r.height * vdpr));
     wrap.classList.toggle('compact', r.height < 600);
     CTM = null;
@@ -3380,12 +3380,29 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     try { localStorage.setItem('pps.quality', String(quality)); } catch { /* storage unavailable */ }
     resizeCanvas();
   }
+  // The vessel canvas follows the frame time: when frames that redraw it arrive late (over 21 ms) it is drawn at a
+  // smaller size, a step at a time and not more than twice a second; it grows back once frames fit in 15.5 ms.
+  let resGap = 16.7, resCheck = 0, resGood = 0, resPrev = 0;
+  function governRes(now, drawing) {
+    const gap = resPrev ? now - resPrev : 16.7;
+    resPrev = drawing ? now : 0;
+    if (SOFTWARE || !drawing || gap > 100) return;
+    resGap += (gap - resGap) * 0.2;
+    if (now - resCheck < 500) return;
+    resCheck = now;
+    let n = dynRes;
+    if (resGap > 21 && dynRes > 0.5) { n = Math.max(0.5, dynRes - 0.1); resGood = 0; }
+    else if (resGap < 15.5 && dynRes < 1 && ++resGood >= 3) { n = Math.min(1, dynRes + 0.1); resGood = 0; }
+    if (Math.abs(n - dynRes) > 0.01) { dynRes = n; resizeCanvas(); }
+  }
   let flowGate = lastT;
   function animate(now) {
     // High-refresh screens need not redraw the blood at their refresh rate. Elapsed time is kept
     // intact so speeds and transitions stay correct.
     if (document.hidden || appEl?.classList.contains('home-open')) { lastT = flowGate = now; lastRaf = 0; requestAnimationFrame(animate); return; }
     governQuality(now);
+    // The dive magnifies the figure as it stands (a compositor scale): nothing under it is redrawn until it lands.
+    if (diveT > 0 && diveT < 1) { lastT = flowGate = now; requestAnimationFrame(animate); return; }
     const interval = 1000 / QUALITY[quality].fps;
     // A pan or zoom redraws at once (the picture must stay under the pointer); only the model's
     // own motion is paced.
@@ -3415,6 +3432,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The vessel layer is redrawn only when something in it changed; the blood every frame.
     if (!drawVeins() && veins && !veins.lost && vLook && F) veins.composite(vLook, bloodLook());
     drawnView = viewVersion;
+    governRes(now, viewMoved || st.running);
     lastDrawKey = key; lastDrawF = F; lastDrawCTM = CTM;
     requestAnimationFrame(animate);
   }
