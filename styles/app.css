@@ -2838,5 +2838,16 @@ input[type="range"] { touch-action: none; }
 .tl-m.ev.below::before { align-self: end; margin-top: 0; margin-bottom: 1px; }
 .tl-m.ev.below::after { top: 0; bottom: 12px; }
 .tl-m.ev.below .tl-count { top: auto; bottom: -6px; }
-.tl-left .tl-speed, .vdock .tl-left .tl-speed { display: inline-flex; height: 28px; min-width: 34px; margin-left: -2px; border-radius: 999px; }
+/* Split button: ONE tonal button. A narrow speed segment sits attached on the left of a wider play/pause
+   segment, separated by a short hairline; hover and press tint only the segment under the pointer. */
+.tl-split { position: relative; display: flex; align-items: stretch; height: 34px; padding: 0; gap: 0; border-radius: var(--r-card); background: var(--surface-3); box-shadow: none; overflow: hidden; flex: none; }
+.tl-left .tl-split .tl-speed, .vdock .tl-left .tl-split .tl-speed { display: inline-flex; align-items: center; justify-content: center; gap: 2px; height: auto; width: 40px; min-width: 0; margin: 0; padding: 0 0 0 2px; border: 0; border-radius: 0; background: transparent; color: var(--text-2); font: 600 var(--fs-12) var(--font-ui); }
+.tl-split .tl-speed::after { display: block; margin: 0; opacity: .55; }
+.timeline .tl-split .ib.play { width: 56px; height: auto; border-radius: 0; background: transparent; color: var(--text); opacity: 1; }
+.tl-split::after { content: ''; position: absolute; left: 40px; top: 9px; bottom: 9px; width: 1px; background: color-mix(in srgb, var(--text) 18%, transparent); pointer-events: none; }
+.tl-split .tl-speed:hover, .timeline .tl-split .ib.play:hover { background: color-mix(in srgb, var(--text) 8%, transparent); opacity: 1; color: var(--text); }
+.tl-split .tl-speed:active, .timeline .tl-split .ib.play:active { background: color-mix(in srgb, var(--text) 14%, transparent); }
 .time-pop .menu-item[aria-pressed="true"] { color: var(--accent-ink); font-weight: 600; }
+
+/* Concentric corners: inside a 16px pill with 3px padding, inner highlights are 13px. */
+.topbar .float-pill > .menu-btn, .topbar .float-pill > .scenario-btn, .topbar .float-pill > .tb-act, .topbar .float-pill > .find-badge, .topbar .float-pill > .pal-btn, .topbar .float-pill > .ib, .topbar #viewSeg button { border-radius: calc(var(--r-sheet) - 3px); }
