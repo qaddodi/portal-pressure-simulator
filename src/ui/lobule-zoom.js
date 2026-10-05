@@ -751,7 +751,6 @@ export function createLobuleZoom({ host }) {
 
   // ── Station labels (HTML, styled as the anatomy's) with leaders ──
   const labs = {}, badges = {};
-  let zoneChip = null;
   function setLab(key, name, short, v, u, d, col) {
     let L = labs[key];
     if (!L) {
@@ -817,16 +816,6 @@ export function createLobuleZoom({ host }) {
     if (key === layoutKey) return;
     layoutKey = key;
     pickAnchors(fr0);
-    // Zoomed in: a small chip names the zone under the middle of the free space, so you always know where you are.
-    if (!zoneChip) { zoneChip = h('div', { class: 'lz-zonechip', 'aria-hidden': 'true' }); labels.append(zoneChip); }
-    const [wx, wy] = toWorld([(fr0.l + fr0.r) / 2, (fr0.t + fr0.b) / 2]), qc = hexFrac(wx, wy, g.cx, g.cy, g.R);
-    zoneChip.hidden = atFit || qc >= 1;
-    if (!zoneChip.hidden) {
-      const z = zoneOf(qc);
-      zoneChip.className = 'lz-zonechip z' + z;
-      zoneChip.textContent = ['Zone 1 · periportal', 'Zone 2 · midzonal', 'Zone 3 · centrilobular'][z - 1];
-      zoneChip.style.left = `${(fr0.l + fr0.r) / 2}px`; zoneChip.style.top = `${fr0.t + 4}px`;
-    }
     leaders.setAttribute('viewBox', `0 0 ${g.W} ${g.H}`);
     const { R, cx, cy } = g;
     // Direct labels for the portal venule and sinusoids. Only the central venule
@@ -888,7 +877,18 @@ export function createLobuleZoom({ host }) {
       const zk = clamp((R * V.k) / 300, 0.66, 1.15).toFixed(3);
       [[0.83, 'Zone 1', 'periportal'], [0.51, 'Zone 2', 'midzonal'], [0.2, 'Zone 3', 'centrilobular']].forEach(([q, t, d], i) => {
         const z = h('div', { class: 'lz-zone z' + (i + 1), 'aria-hidden': 'true' }, h('b', {}, t), h('span', {}, d));
-        const [zx, zy] = toScreen([cx + Math.cos(a) * ap * q, cy + Math.sin(a) * ap * q]);
+        // Its usual spot (on the radius to the flat bottom edge); if that is out of view, the nearest in-view spot
+        // of the same zone (the same ring, at the other five sides and corners), else clamped to the free edge.
+        const ring = [];
+        for (let k = 0; k < 6; k++) { const th = a + k * Math.PI / 3; ring.push([cx + Math.cos(th) * ap * q, cy + Math.sin(th) * ap * q], [cx + Math.cos(th + Math.PI / 6) * R * q * 0.95, cy + Math.sin(th + Math.PI / 6) * R * q * 0.95]);
+        }
+        const inV = ([x, y]) => x > fr0.l + 40 && x < fr0.r - 40 && y > fr0.t + 20 && y < fr0.b - 20;
+        const mid = [(fr0.l + fr0.r) / 2, (fr0.t + fr0.b) / 2];
+        let [zx, zy] = toScreen(ring[0]);
+        if (!inV([zx, zy])) {
+          const ok = ring.map(toScreen).filter(inV).sort((u, v) => Math.hypot(u[0] - mid[0], u[1] - mid[1]) - Math.hypot(v[0] - mid[0], v[1] - mid[1]))[0];
+          if (ok) [zx, zy] = ok; else { zx = clamp(zx, fr0.l + 40, fr0.r - 40); zy = clamp(zy, fr0.t + 20, fr0.b - 20); }
+        }
         z.style.left = `${zx}px`; z.style.top = `${zy}px`; z.style.setProperty('--zk', zk);
         labels.append(z);
       });
@@ -1588,7 +1588,8 @@ export function createLobuleZoom({ host }) {
       const NC = 16, TAU2 = Math.PI * 2;
       c.lineWidth = Math.max(0.3, G.R * 0.0013); c.strokeStyle = cellEdge;
       for (const tr of G.triads) {
-        const r = Math.max(radiusAt(tr.bdT, N >> 1), G.R * 0.008), rin = r * 0.5, rout = r * 1.5, x = tr.bd[0], y = tr.bd[1];
+        // One ring of NC cuboidal cells: as deep as they are wide, so each nucleus has room (a third of the cell's width).
+        const r = Math.max(radiusAt(tr.bdT, N >> 1), G.R * 0.008), rm = r * 1.35, hw = Math.PI * rm / NC, rin = rm - hw, rout = rm + hw, x = tr.bd[0], y = tr.bd[1];
         c.fillStyle = lumen; c.beginPath(); c.arc(x, y, rin, 0, TAU2); c.fill();
         c.fillStyle = cellFill;
         for (let i = 0; i < NC; i++) {
@@ -1596,7 +1597,7 @@ export function createLobuleZoom({ host }) {
           c.beginPath(); c.arc(x, y, rin, a0, a1); c.arc(x, y, rout, a1, a0, true); c.closePath(); c.fill(); c.stroke();
         }
         c.fillStyle = nuc; c.beginPath();
-        const rn = (rin + rout) / 2, nr = (rout - rin) * 0.27;
+        const rn = rm, nr = hw * 0.34;   // diameter about a third of the cell's width
         for (let i = 0; i < NC; i++) { const a = ((i + 0.5) / NC) * TAU2 + tr.i, nx = x + Math.cos(a) * rn, ny = y + Math.sin(a) * rn; c.moveTo(nx + nr, ny); c.arc(nx, ny, nr, 0, TAU2); }
         c.fill();
       }
