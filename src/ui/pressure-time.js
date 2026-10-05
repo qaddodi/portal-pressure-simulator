@@ -178,7 +178,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
     const showHvpg = !hidden.has('trueHVPG');
     const traces = TRACES.filter((t) => chosen.has(t.id) && !hidden.has(t.hide) && (range !== 'days' || t.day));
     const narrow = w < 460;
-    const L = 34, R = narrow ? 58 : 104, B = 22, GAP = 16;
+    const L = 34, R = narrow ? 90 : 104, B = 22, GAP = 16;
     let T = 30;
     const plotW = w - L - R;
 
@@ -318,7 +318,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
           if (s.lo) band(ctx, s, X, Y, c, 0.16);
           line(ctx, s, X, Y, c, t.id === 'CONF' ? 2 : 1.75, plotW);
           if (range === 'days' && s.x.length < 60) dots(ctx, s, X, Y, c, surface);
-          const e = recent(s); ends.push({ y: Y(e), v: e, label: t.short, c, lane });
+          const e = recent(s); ends.push({ y: Y(e), v: e, label: t.abbr, c, lane });
         }
       }
       ctx.restore();
@@ -348,7 +348,8 @@ export function createPressureTime({ marks = () => [] } = {}) {
         ctx.font = FONT(650, 12.5); ctx.fillStyle = text;
         const vt = fmt(e.v, 1);
         ctx.fillText(vt, L + plotW + 17, yy);
-        if (!narrow) { const vw = ctx.measureText(vt).width; ctx.font = FONT(500, 11); ctx.fillStyle = muted; ctx.fillText(e.label, L + plotW + 21 + vw, yy); }
+        // Each line is named at its end (PV, WHVP, FHVP, HVPG), on every screen.
+        const vw = ctx.measureText(vt).width; ctx.font = FONT(600, 11); ctx.fillStyle = e.c === text ? muted : e.c; ctx.fillText(e.label, L + plotW + 20 + vw, yy);
         ctx.textBaseline = 'alphabetic';
       }
     }
