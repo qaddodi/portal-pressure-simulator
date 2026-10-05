@@ -1707,7 +1707,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // only for an exported SVG figure (or where WebGL2 is missing altogether).
   // Tiers, back to front: the retroperitoneal stacks and opaque layer (behind the organs), the
   // arteries, the translucent stacks, the opaque network, the portal tree in front, the focus.
-  const TIER_BACK0 = 0, TIER_BACK = 7, TIER_ART = 8, TIER_MID0 = 9, TIER_NET = 16, TIER_FRONT = 17, TIER_LIFT = 18;
+  const TIER_BACK0 = 0, TIER_BACK = 7, TIER_ART = 8, TIER_MID0 = 9, TIER_NET = 16, TIER_FRONT = 17, TIER_LIFT = 18, TIER_LIFT_FRONT = 19;
   const TIER_GROUP = Array.from({ length: MAX_TIERS }, (_, i) => (i <= TIER_BACK ? 0 : i < TIER_LIFT ? 1 : 2));
   const TIER_ALPHA = Array.from({ length: MAX_TIERS }, (_, i) => (i < TIER_BACK ? LEVELS[i] : i >= TIER_MID0 && i < TIER_NET ? LEVELS[i - TIER_MID0] : 1));
   const levelTier = (x) => {
@@ -1970,7 +1970,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (hovering && !hl) alpha *= CONTEXT_EDGES.has(id) ? 0.12 : 0.22;
         if (hasSel && !sel && !hl) alpha *= 0.42;
       }
-      const tier = x.lifted && !x.back ? TIER_LIFT : x.isArt ? TIER_ART : levelTier(x);
+      const tier = x.lifted && !x.back ? (x.front ? TIER_LIFT_FRONT : TIER_LIFT) : x.isArt ? TIER_ART : levelTier(x);
       const shade = !x.isArt && !ghost;
       const veil = IVC_EDGES.has(id);
       const spec = shade && !veil && kind !== 'f' && kind !== 'c' && !CONTEXT_EDGES.has(id) && !x.back && x.width >= 3.4;
