@@ -3732,7 +3732,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function fling(vx, vy) {
     if (reduceMotion.matches || Math.hypot(vx, vy) < 0.25) { springBack(); return; }
     const s0 = vbScale(), L = 36 / s0;
-    let last = performance.now(), rx = vt.x, ry = vt.y;
+    // At the fit zoom there is no room to glide in (the pan range is zero), so the flick carries on into the same wide band the
+    // drag uses, loses speed as it stretches, and the spring-back runs once the momentum has gone, as the lobule's drag at its framing.
+    if (vt.k <= defaultVT(morphTarget === 1).k * 1.001) {
+      let last = performance.now(), rx = vt.x, ry = vt.y;
+      const step = (now) => {
+        glide = 0;
+        const dt = Math.min(34, now - last), f16 = dt / 16, h = hardPan(vt), vis = visibleVB();
+        last = now;
+        const stretch = Math.hypot((rx - h.x) / (0.4 * vis.w), (ry - h.y) / (0.4 * vis.h)), decay = Math.pow(0.9955, dt) * Math.pow(0.93, f16 * Math.min(1, stretch * 2));
+        vx *= decay; vy *= decay;
+        rx += (vx * dt) / s0; ry += (vy * dt) / s0;
+        vt = softPan({ k: vt.k, x: rx, y: ry }); applyVT(); CTM = null;
+        if (Math.hypot(vx, vy) > 0.03) glide = requestAnimationFrame(step); else springBack();
+      };
+      glide = requestAnimationFrame(step);
+      return;
+    }
     // The lobule view's flick: carried past the edge the glide is braked hard (the velocity halves each frame), the overshoot
     // shows only as a short stretch, and it returns to the edge within a few frames.
     const step = (now) => {
@@ -4122,6 +4138,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setCircuitRotated,
     circuitRotated: () => rotTarget === 1,
     zoomToBox,
+    cameraKey: () => `${vt.k.toFixed(3)}|${vt.x.toFixed(1)}|${vt.y.toFixed(1)}`,
     zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(), lobuleViewKey: () => lz?.viewKey(),
     /** On-screen scale, px per world unit (for the tests: turning the circuit keeps it). */
     zoomLevel: () => { refreshCTM(); return CTM.sc; },
