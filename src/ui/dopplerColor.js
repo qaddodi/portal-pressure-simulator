@@ -12,11 +12,11 @@ export const THETA = 60;                               // beam-to-flow angle in 
 export const COS_THETA = Math.cos(THETA * Math.PI / 180);
 
 export const DOPPLER_MODES = [
-  { id: 'spectrum', label: 'Spectrum' },
-  { id: 'direction', label: 'Direction' },
-  { id: 'power', label: 'Power' },
-  { id: 'dirpower', label: 'Directional Power' },
-  { id: 'variance', label: 'Variance' },
+  { id: 'spectrum', label: 'Spectrum', short: 'Spectrum' },
+  { id: 'direction', label: 'Direction', short: 'Direction' },
+  { id: 'power', label: 'Power', short: 'Power' },
+  { id: 'dirpower', label: 'Directional Power', short: 'Dir. power' },
+  { id: 'variance', label: 'Variance', short: 'Variance' },
 ];
 /** Power Doppler carries no direction, so Invert does nothing there. */
 export const isDirectional = (mode) => mode === 'direction' || mode === 'dirpower' || mode === 'variance';
@@ -43,24 +43,26 @@ const VAR_AWAY = bake([[0, 0, 0, 0], [0.4, 40, 210, 230], [0.75, 60, 215, 80], [
 
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const smooth = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); };
-const at = (lut, x) => { const i = Math.round(clamp01(x) * 255) * 3; return [lut[i], lut[i + 1], lut[i + 2]]; };
-const lerp = (c, d, f) => [c[0] + (d[0] - c[0]) * f, c[1] + (d[1] - c[1]) * f, c[2] + (d[2] - c[2]) * f];
+const at = (out, lut, x) => { const i = Math.round(clamp01(x) * 255) * 3; out[0] = lut[i]; out[1] = lut[i + 1]; out[2] = lut[i + 2]; return out; };
+const tmp = [0, 0, 0];
 
-/** Colour for one instant. invert swaps toward and away colours (the physiology is untouched). */
-export function dopplerColor(mode, { u = 0, p = 0, s = 0 }, invert = false) {
-  if (mode === 'power') return [...at(POWER, p), smooth(0.02, 0.12, p)];
+/** Colour for one instant, written into out ([r, g, b, a]; a of 0: nothing to draw). invert swaps toward and away. */
+export function dopplerColor(mode, { u = 0, p = 0, s = 0 }, invert = false, out = [0, 0, 0, 0]) {
+  if (mode === 'power') { at(out, POWER, p); out[3] = smooth(0.02, 0.12, p); return out; }
   const toward = (invert ? -u : u) >= 0;
   const a = Math.abs(u);
-  if (mode === 'dirpower') return [...at(toward ? TOWARD : AWAY, p), smooth(0.02, 0.12, p) * smooth(0.03, 0.12, a)];
+  if (mode === 'dirpower') { at(out, toward ? TOWARD : AWAY, p); out[3] = smooth(0.02, 0.12, p) * smooth(0.03, 0.12, a); return out; }
   if (mode === 'direction' || mode === 'variance') {
-    let c = at(toward ? TOWARD : AWAY, a);
+    at(out, toward ? TOWARD : AWAY, a);
     if (mode === 'variance') {
-      const v = at(toward ? VAR_TOWARD : VAR_AWAY, s);
-      c = lerp(c, v, smooth(0.04, 0.4, s));
+      const f = smooth(0.04, 0.4, s);
+      if (f > 0) { at(tmp, toward ? VAR_TOWARD : VAR_AWAY, s); for (let c = 0; c < 3; c++) out[c] += (tmp[c] - out[c]) * f; }
     }
-    return [...c, smooth(0.03, 0.12, a)];
+    out[3] = smooth(0.03, 0.12, a);
+    return out;
   }
-  return [0, 0, 0, 0];
+  out[0] = out[1] = out[2] = out[3] = 0;
+  return out;
 }
 
 /** A CSS gradient of the colour map for the legend: away (left) to toward (right), or weak to strong for Power. */

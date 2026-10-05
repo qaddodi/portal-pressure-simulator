@@ -763,17 +763,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const glowG = s('g', { mask: 'url(#dop-knock)' });
     const edge = s('path', { class: 'dop-edge' });
     glowG.append(glow, edge);
-    // Colour Doppler: the vessel's lumen painted in the Doppler colour (set by setDopplerColor).
-    const tint = s('path', { class: 'dop-tint-fill', fill: 'none', 'stroke-linecap': 'butt', 'stroke-linejoin': 'round' });
-    tint.style.display = 'none';
-    g.append(defs, glowG, tint);
+    g.append(defs, glowG);
     g.style.display = 'none';
     gOver.prepend(g);
     return {
-      id: null, g, tint,
+      id: null, g,
       paint(d, w) {
-        for (const el of [band, knock, glow, edge, tint]) el.setAttribute('d', d);
-        tint.setAttribute('stroke-width', Math.max(1, w - 1).toFixed(1));
+        for (const el of [band, knock, glow, edge]) el.setAttribute('d', d);
         const n = d.match(/-?\d*\.?\d+(?:e-?\d+)?/g);
         if (n && n.length >= 4) {
           fade.setAttribute('x1', n[0]); fade.setAttribute('y1', n[1]);
@@ -4083,12 +4079,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       dop.id = id;
       dop.g.style.display = id ? '' : 'none';
       if (id) { const x = E[id], d = x.wall.getAttribute('d'); if (d) dop.paint(d, x.dopW || 8); }
-    },
-    /** Colour Doppler on the Doppler's vessel: {rgb, alpha} paints its lumen, null clears it. */
-    setDopplerColor(c) {
-      const t = dop.tint;
-      if (!c || !c.alpha) { t.style.display = 'none'; return; }
-      t.style.display = ''; t.setAttribute('stroke', c.rgb); t.setAttribute('stroke-opacity', (0.88 * c.alpha).toFixed(2));
     },
     setLabelScale(v) {
       labelScale = clamp(Math.round(v * 100) / 100, LABEL_MIN, LABEL_MAX);
