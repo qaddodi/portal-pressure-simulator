@@ -87,7 +87,7 @@ svg { flex: none; }
 .ib.panel-toggle[aria-pressed="true"] { background: var(--surface-3); color: var(--text); }
 
 /* ── Figure (stage) ─────────────────────────────── */
-.stage-wrap { grid-area: stage; position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--stage-bg); color: var(--text); overflow: hidden; transition: background-color .5s var(--ease); }
+.stage-wrap { grid-area: stage; position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--stage-bg); color: var(--text); overflow: hidden; }
 /* Organ texture patterns take their organ's hue. */
 #texLiver { color: var(--organ-liver); } #texRugae { color: var(--organ-stomach); } #texLobules { color: var(--organ-pancreas); } #texMuscle { color: var(--organ-heart); } #texFine { color: var(--organ-spleen); }
 .stage-bar { flex: none; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: var(--stage-bg); position: relative; z-index: var(--z-hud); min-width: 0; }
