@@ -1025,6 +1025,10 @@ function wireKeyboard() {
   addEventListener('keydown', (e) => {
     const tag = (e.target.tagName || '').toLowerCase();
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); palette.isOpen() ? palette.close() : palette.open(); return; }
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && tag !== 'input' && tag !== 'textarea' && tag !== 'select') {
+      const z = e.key === '=' || e.key === '+' ? 'in' : e.key === '-' || e.key === '_' ? 'out' : e.key === '0' ? 'fit' : null;
+      if (z) { e.preventDefault(); if (z === 'in') stage.zoomIn(); else if (z === 'out') stage.zoomOut(); else stage.fit(); return; }
+    }
     if (tag === 'input' || tag === 'select' || tag === 'textarea') { if (e.key === 'Escape') e.target.blur(); return; }
     if (e.key === 'Escape') {
       closePopover();
