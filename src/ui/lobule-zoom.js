@@ -343,7 +343,8 @@ export function createLobuleZoom({ host }) {
   const touches = new Map();
   let pinch = null, down = null, drag = null;
   const pts2 = () => [...touches.values()];
-  const onScene = (ev) => ev.target === el || ev.target === fx || ev.target === leaders || ev.target === tissue || ev.target === glCv;
+  const labelOf = (ev) => Object.entries(labs).find(([, L]) => L.el.contains(ev.target))?.[0];
+  const onScene = (ev) => !!ev.target.closest?.('.lz-lab') || ev.target === el || ev.target === fx || ev.target === leaders || ev.target === tissue || ev.target === glCv;
   el.addEventListener('pointerdown', (ev) => {
     if (!onScene(ev) || systemEdge(ev)) return;
     if (ev.isPrimary) touches.clear();
@@ -355,7 +356,7 @@ export function createLobuleZoom({ host }) {
       const [a, b] = pts2();
       pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, k: V.k, m: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] };
       down = null; drag = null;
-    } else { down = { x: ev.clientX, y: ev.clientY, t: performance.now() }; drag = { p: local(ev) }; }
+    } else { down = { x: ev.clientX, y: ev.clientY, t: performance.now(), label: labelOf(ev) }; drag = { p: local(ev) }; }
   });
   el.addEventListener('pointermove', (ev) => {
     if (touches.has(ev.pointerId)) {
@@ -376,12 +377,19 @@ export function createLobuleZoom({ host }) {
   });
   el.addEventListener('pointerup', (ev) => {
     if (down && touches.size <= 1 && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) < 8 && performance.now() - down.t < 600 && onScene(ev)) {
-      const w = toWorld(local(ev));
-      select(hit(w[0], w[1]), w);
+      const w = down.label ? anchorOf(down.label) : toWorld(local(ev));
+      select(down.label ? hitKind(down.label) : hit(w[0], w[1]), w);
     }
     down = null;
   });
-  for (const t of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(t, (ev) => { touches.delete(ev.pointerId); if (touches.size < 2) pinch = null; if (!touches.size) { drag = null; el.classList.remove('lz-drag'); } });
+  for (const t of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(t, (ev) => {
+    if (!touches.delete(ev.pointerId)) return;
+    down = null;
+    if (touches.size < 2) pinch = null;
+    // Rebase the remaining finger after a pinch so it can carry on panning without a jump.
+    drag = touches.size === 1 ? { p: pts2()[0] } : null;
+    if (!touches.size) el.classList.remove('lz-drag');
+  });
   el.addEventListener('dblclick', (ev) => { if (!onScene(ev)) return; const p = local(ev); zoomAround(p[0], p[1], V.k < kFit * KMAX * 0.98 ? 2 : 1 / KMAX); });
   const local = (ev) => { const r = el.getBoundingClientRect(); return [ev.clientX - r.left, ev.clientY - r.top]; };
 
@@ -689,7 +697,7 @@ export function createLobuleZoom({ host }) {
     let L = labs[key];
     if (!L) {
       L = labs[key] = { el: h('button', { class: 'lz-lab', type: 'button' }), line: s('line', { class: 'leader' }), dotEl: s('circle', { class: 'leader-dot', r: 3 }) };
-      L.el.addEventListener('click', () => { if (!geo) return; const q = anchorOf(key); select(hitKind(key), [q[0], q[1]]); });
+      L.el.addEventListener('click', (ev) => { if (!geo || ev.detail !== 0) return; const q = anchorOf(key); select(hitKind(key), [q[0], q[1]]); });
       labels.append(L.el); leaders.append(L.line, L.dotEl);
     }
     const txt = `${name}|${v}|${u}|${d}|${col}`;

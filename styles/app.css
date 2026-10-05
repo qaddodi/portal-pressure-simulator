@@ -2816,3 +2816,6 @@ input[type="range"] { touch-action: none; }
 .lz-lab { text-align: center; border-left: 0; border-bottom: 2px solid var(--sw, var(--border-strong)); padding: 2px 5px 4px; }
 .lz-lab .v { justify-content: center; }
 @media (max-width: 720px) { .lz-lab { padding: 2px 3px; } }
+
+/* Labels participate in the figure's gestures without text selection or native touch scrolling. */
+.lz-lab, .lb { touch-action: none; user-select: none; -webkit-user-select: none; }
