@@ -6,7 +6,7 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=23552bd900';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar, systemEdge } from './util.js?v=d90a6074b7';
-import { createLobuleZoom } from './lobule-zoom.js?v=26bae4de10';
+import { createLobuleZoom } from './lobule-zoom.js?v=2fbe27183b';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=44a3cb4b39';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -2192,7 +2192,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         }
       } catch (e) { console.warn('Plate raster failed; the SVG plate stays.', e); }
       plateBusy = false;
-      if (plateAgain) { plateAgain = false; platePoke(); }
+      // The liver tint eases in over .6s; a raster taken mid-fade would keep the half-faded colour until the next click.
+      const mid = Math.abs((parseFloat(getComputedStyle(liverTint).opacity) || 0) - (parseFloat(liverTint.style.opacity) || 0)) > 0.01;
+      if (mid) { plateAgain = false; plateKey = ''; clearTimeout(plateTimer); plateTimer = 0; setTimeout(platePoke, 700); }
+      else if (plateAgain) { plateAgain = false; platePoke(); }
     }, wait);
   }
   // After a pan or zoom settles, a raster of the view at the screen's resolution (when the

@@ -751,7 +751,6 @@ export function createLobuleZoom({ host }) {
 
   // ── Station labels (HTML, styled as the anatomy's) with leaders ──
   const labs = {}, badges = {};
-  let zoneChip = null;
   function setLab(key, name, short, v, u, d, col) {
     let L = labs[key];
     if (!L) {
@@ -817,16 +816,6 @@ export function createLobuleZoom({ host }) {
     if (key === layoutKey) return;
     layoutKey = key;
     pickAnchors(fr0);
-    // Zoomed in: a small chip names the zone under the middle of the free space, so you always know where you are.
-    if (!zoneChip) { zoneChip = h('div', { class: 'lz-zonechip', 'aria-hidden': 'true' }); labels.append(zoneChip); }
-    const [wx, wy] = toWorld([(fr0.l + fr0.r) / 2, (fr0.t + fr0.b) / 2]), qc = hexFrac(wx, wy, g.cx, g.cy, g.R);
-    zoneChip.hidden = atFit || qc >= 1;
-    if (!zoneChip.hidden) {
-      const z = zoneOf(qc);
-      zoneChip.className = 'lz-zonechip z' + z;
-      zoneChip.textContent = ['Zone 1 · periportal', 'Zone 2 · midzonal', 'Zone 3 · centrilobular'][z - 1];
-      zoneChip.style.left = `${(fr0.l + fr0.r) / 2}px`; zoneChip.style.top = `${fr0.t + 4}px`;
-    }
     leaders.setAttribute('viewBox', `0 0 ${g.W} ${g.H}`);
     const { R, cx, cy } = g;
     // Direct labels for the portal venule and sinusoids. Only the central venule
@@ -888,7 +877,18 @@ export function createLobuleZoom({ host }) {
       const zk = clamp((R * V.k) / 300, 0.66, 1.15).toFixed(3);
       [[0.83, 'Zone 1', 'periportal'], [0.51, 'Zone 2', 'midzonal'], [0.2, 'Zone 3', 'centrilobular']].forEach(([q, t, d], i) => {
         const z = h('div', { class: 'lz-zone z' + (i + 1), 'aria-hidden': 'true' }, h('b', {}, t), h('span', {}, d));
-        const [zx, zy] = toScreen([cx + Math.cos(a) * ap * q, cy + Math.sin(a) * ap * q]);
+        // Its usual spot (on the radius to the flat bottom edge); if that is out of view, the nearest in-view spot
+        // of the same zone (the same ring, at the other five sides and corners), else clamped to the free edge.
+        const ring = [];
+        for (let k = 0; k < 6; k++) { const th = a + k * Math.PI / 3; ring.push([cx + Math.cos(th) * ap * q, cy + Math.sin(th) * ap * q], [cx + Math.cos(th + Math.PI / 6) * R * q * 0.95, cy + Math.sin(th + Math.PI / 6) * R * q * 0.95]);
+        }
+        const inV = ([x, y]) => x > fr0.l + 40 && x < fr0.r - 40 && y > fr0.t + 20 && y < fr0.b - 20;
+        const mid = [(fr0.l + fr0.r) / 2, (fr0.t + fr0.b) / 2];
+        let [zx, zy] = toScreen(ring[0]);
+        if (!inV([zx, zy])) {
+          const ok = ring.map(toScreen).filter(inV).sort((u, v) => Math.hypot(u[0] - mid[0], u[1] - mid[1]) - Math.hypot(v[0] - mid[0], v[1] - mid[1]))[0];
+          if (ok) [zx, zy] = ok; else { zx = clamp(zx, fr0.l + 40, fr0.r - 40); zy = clamp(zy, fr0.t + 20, fr0.b - 20); }
+        }
         z.style.left = `${zx}px`; z.style.top = `${zy}px`; z.style.setProperty('--zk', zk);
         labels.append(z);
       });
