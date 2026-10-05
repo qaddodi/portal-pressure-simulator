@@ -2871,8 +2871,9 @@ input[type="range"] { touch-action: none; }
 .zoom-pill { --inset: 3px; }
 .float-pill, .toolbar { --inset: 4px; }
 .top-right.float-pill { --inset: 3px; }
-.zoom-pill > *, .float-pill > .ib, .float-pill > .tb-act, .float-pill > .menu-btn, .float-pill > .scenario-btn, .float-pill > .find-badge, .float-pill > .pal-btn, .toolbar > .tb-btn, .toolbar > .ib { border-radius: max(var(--r-control), calc(var(--r-sheet) - var(--inset))); }
-.topbar .float-pill > .menu-btn, .topbar .float-pill > .scenario-btn, .topbar .float-pill > .tb-act, .topbar .float-pill > .find-badge, .topbar .float-pill > .pal-btn, .topbar .float-pill > .ib, .topbar #viewSeg button { border-radius: max(var(--r-control), calc(var(--r-sheet) - var(--inset))); }
+.zoom-pill > *, .float-pill > .ib, .float-pill > .tb-act, .float-pill > .menu-btn, .float-pill > .scenario-btn, .float-pill > .find-badge, .float-pill > .pal-btn, .toolbar > .tb-btn, .toolbar > .ib { border-radius: max(var(--r-control), calc(var(--r-sheet) - var(--inset, 4px))); }
+.topbar .float-pill > .menu-btn, .topbar .float-pill > .scenario-btn, .topbar .float-pill > .tb-act, .topbar .float-pill > .find-badge, .topbar .float-pill > .pal-btn, .topbar .float-pill > .ib, .topbar #viewSeg button { border-radius: max(var(--r-control), calc(var(--r-sheet) - var(--inset, 4px))); }
 .zoom-pill .ib, .zoom-pill .stage-fit, .zoom-pill .stage-rotate { border-radius: calc(var(--r-sheet) - 3px); }
 /* The lobule group is hidden outside the lobule view; the group after it must not draw a divider above itself. */
 .readouts:not(.lob) .ro-group[data-group="lobule"] + .ro-group { border-top: 0 !important; }
+.topbar #viewSeg { --inset: 4px; }
