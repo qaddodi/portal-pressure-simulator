@@ -404,9 +404,9 @@ export function createLobuleZoom({ host }) {
         down = null;
         if (V.k > kFit * 1.001) { V.x += p[0] - drag.p[0]; V.y += p[1] - drag.p[1]; clampV(); viewChanged(); el.classList.add('lz-drag'); }
         else if (geo) {   // at its framing there is nowhere to go: the lobule follows the hand on a rubber band and springs back on release
-          const F0 = fitV(), o = drag.o || (drag.o = [0, 0]), soft = (d) => 70 * Math.tanh(d / 70);
+          const F0 = fitV(), o = drag.o || (drag.o = [0, 0]), Lx = 0.4 * (el.clientWidth || 800), Ly = 0.4 * (el.clientHeight || 600);   // near-free travel, easing toward 40% of the view
           cancelAnimationFrame(glide); o[0] += p[0] - drag.p[0]; o[1] += p[1] - drag.p[1];
-          V.x = F0.x + soft(o[0]); V.y = F0.y + soft(o[1]); atFit = false; viewChanged(); el.classList.add('lz-drag');
+          V.x = F0.x + Lx * Math.tanh(o[0] / Lx); V.y = F0.y + Ly * Math.tanh(o[1] / Ly); atFit = false; viewChanged(); el.classList.add('lz-drag');
         }
         drag.p = p;
         const now = performance.now();
@@ -1569,16 +1569,23 @@ export function createLobuleZoom({ host }) {
     c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y);
     const G = geo, m = model;
     if (!m.hide) {
-      // The bile ductule is lined by a ring of small cuboidal cells, a necklace of rounded squares around its lumen.
-      const cellFill = dark ? '#8E9150' : '#9FA25C', cellEdge = dark ? 'rgba(40, 42, 18, .85)' : 'rgba(70, 72, 30, .8)';
-      c.lineWidth = Math.max(0.35, G.R * 0.0016); c.fillStyle = cellFill; c.strokeStyle = cellEdge;
+      // The bile ductule is lined all round by a simple cuboidal epithelium: wedge-shaped cells side by side
+      // around an open lumen, each with a darker round nucleus.
+      const dk = dark, cellFill = dk ? '#8E9150' : '#A3A55F', cellEdge = dk ? 'rgba(36, 38, 16, .9)' : 'rgba(66, 68, 28, .85)', nuc = dk ? '#3E4120' : '#5A5D2A', lumen = dk ? '#2C2F16' : '#6B6E36';
+      const NC = 16, TAU2 = Math.PI * 2;
+      c.lineWidth = Math.max(0.3, G.R * 0.0013); c.strokeStyle = cellEdge;
       for (const tr of G.triads) {
-        const r = Math.max(radiusAt(tr.bdT, N >> 1), G.R * 0.008), n = 9, ring = r * 1.12, s = Math.PI * 2 * ring / n * 0.86;
-        for (let i = 0; i < n; i++) {
-          const a = (i / n) * Math.PI * 2 + tr.i, x = tr.bd[0] + Math.cos(a) * (ring + s * 0.35), y = tr.bd[1] + Math.sin(a) * (ring + s * 0.35);
-          c.save(); c.translate(x, y); c.rotate(a + Math.PI / 2);
-          c.beginPath(); c.roundRect(-s / 2, -s * 0.38, s, s * 0.76, s * 0.22); c.fill(); c.stroke(); c.restore();
+        const r = Math.max(radiusAt(tr.bdT, N >> 1), G.R * 0.008), rin = r * 0.5, rout = r * 1.5, x = tr.bd[0], y = tr.bd[1];
+        c.fillStyle = lumen; c.beginPath(); c.arc(x, y, rin, 0, TAU2); c.fill();
+        c.fillStyle = cellFill;
+        for (let i = 0; i < NC; i++) {
+          const a0 = (i / NC) * TAU2 + tr.i, a1 = ((i + 1) / NC) * TAU2 + tr.i;
+          c.beginPath(); c.arc(x, y, rin, a0, a1); c.arc(x, y, rout, a1, a0, true); c.closePath(); c.fill(); c.stroke();
         }
+        c.fillStyle = nuc; c.beginPath();
+        const rn = (rin + rout) / 2, nr = (rout - rin) * 0.27;
+        for (let i = 0; i < NC; i++) { const a = ((i + 0.5) / NC) * TAU2 + tr.i, nx = x + Math.cos(a) * rn, ny = y + Math.sin(a) * rn; c.moveTo(nx + nr, ny); c.arc(nx, ny, nr, 0, TAU2); }
+        c.fill();
       }
     }
     if (lymphOn && flat) {
