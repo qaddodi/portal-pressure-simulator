@@ -1215,16 +1215,19 @@ export function createLobuleZoom({ host }) {
     const origin = originOn();
     const selIdsN = selIds();
     const inks = new Map(live.map((t) => [t.id, [tubeInk(t, 0), tubeInk(t, 1)]]));
-    const ak = [m.mode, [...inks.values()].flat().join(','), m.hide, origin, lymphOn, lyProt(m).toFixed(2), [...selIdsN].join('.'), dark, cs.getPropertyValue('--artery')].join('|');
+    const ak = [m.mode, [...inks.values()].flat().join(','), m.hide, origin, lymphOn, lyProt(m).toFixed(2), lyF(m).toFixed(2), [...selIdsN].join('.'), dark, cs.getPropertyValue('--artery')].join('|');
     if (ak !== attrKey) {
       attrKey = ak; glDirty = true;
       tubeData.fill(0);
       const art = rgb01(cs.getPropertyValue('--artery').trim() || '#C8414D'), grey = [ORIGIN_GREY, ORIGIN_GREY, ORIGIN_GREY];
       const LY = lyInk(m, dark);   // lymph: clear, a faint green (paler than the bile duct), deeper with more protein
+      // The space of Disse fills as filtration rises: its tint deepens a little (it already widens).
+      const deep = dark ? [0.62, 0.7, 0.58] : [0.79, 0.86, 0.74], LYd = LY.map((x, i) => lerp(x, deep[i], 0.45 * lyF(m)));
       for (const t of live) {
         const o = t.id * TUBE_TEXELS * 4, isArt = t.kind === 'ha' || t.kind === 'tw';
         const [i0, i1] = inks.get(t.id);
-        const c0 = isArt ? art : t.lymph ? LY : origin ? grey : rgb01(i0), c1 = isArt ? art : t.lymph ? LY : origin ? grey : rgb01(i1);
+        const LYt = t.kind === 'ly' ? LYd : LY;
+        const c0 = isArt ? art : t.lymph ? LYt : origin ? grey : rgb01(i0), c1 = isArt ? art : t.lymph ? LYt : origin ? grey : rgb01(i1);
         const alpha = (isArt ? 0.9 : 1) * (selIdsN.size && !selIdsN.has(t.id) ? 0.55 : 1);
         const big = t.kind === 'pv' || t.kind === 'cv' || t.kind === 'in';
         const flags = (selIdsN.has(t.id) ? F_SEL : 0) | (isArt ? F_NOCASE : F_DIFFUSE | F_SHADOW | (big ? F_SPEC : 0));
@@ -1527,6 +1530,27 @@ export function createLobuleZoom({ host }) {
         c.fillStyle = rg; c.beginPath(); c.arc(tr.x, tr.y, G.rt * 1.1, 0, TAU); c.fill();
       }
       c.restore();
+    }
+    if (lymphOn && !flat && !m.hide) {
+      // Lymph as fine drops drifting along the space of Disse and the terminal lymphatics to the portal
+      // tract: more of them, and faster, as more lymph forms. One path, no blur.
+      const lyR = clamp(lymphRate(m), 0.2, 6), f = lyF(m), still = reduce.matches;
+      const gapW = G.R * 0.07 / (0.75 + 0.6 * f), vW = G.R * 0.035 * Math.sqrt(lyR), minR = 1.1 / V.k;
+      c.fillStyle = dark ? 'rgba(226, 240, 214, .8)' : 'rgba(108, 140, 96, .55)';
+      c.beginPath();
+      for (const t of G.tubes) {
+        if (t.kind !== 'ly' && t.kind !== 'lt') continue;
+        const L = t.len || 1, n = Math.max(1, Math.round(L / gapW)), dir = t.kind === 'ly' ? -1 : 1;   // the space of Disse is drawn from the edge inward
+        t.lu = ((t.lu ?? (t.id * 0.371) % 1) + (still ? 0 : dir * dt * vW / L) + 1) % 1;
+        const r = Math.max(minR, radiusAt(t, N >> 1) * 0.7);
+        for (let i = 0; i < n; i++) {
+          const u = (t.lu + i / n) % 1, e = Math.min(u, 1 - u) * n;   // fading in and out at the ends
+          if (e < 0.25) continue;
+          const [x, y] = at(t.pts, u), rr = r * Math.min(1, e);
+          c.moveTo(x + rr, y); c.arc(x, y, rr, 0, TAU);
+        }
+      }
+      c.fill();
     }
     if (flat && !m.hide && store.get().layers?.flow !== false) {
       // Red cells along the sinusoids at the model's flow.
