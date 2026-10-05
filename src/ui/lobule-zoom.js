@@ -152,22 +152,25 @@ function fibrousBand(c, A, B, { w, rgb, a = 1, seed = 0, e0 = 1.5, e1 = 1.5, amp
   c.shadowBlur = sb;
 }
 
+// Visual scar growth is eased independently of the physiology and stays close to the vessels.
+const scarGrowth = (fibrosis) => clamp(fibrosis, 0, 1) ** 1.8;
+
 // Portal fibrosis expands the whole tract with irregular, interwoven collagen bundles.
 // Cached with the tissue; fixed seeds keep the texture still as pressure changes.
 function fibrousTract(c, x, y, radius, angle, rgb, fibrosis, seed, detail = 1) {
   c.save(); c.translate(x, y); c.rotate(angle);
-  const rx = radius * (1.15 + 0.35 * fibrosis), ry = radius * (0.8 + 0.18 * fibrosis);
+  const rx = radius * 1.08, ry = radius * 0.82;
   const phase = fibHash(seed) * TAU;
   c.beginPath();
   for (let i = 0; i <= 64; i++) {
     const a = TAU * i / 64;
-    const edge = 1 + 0.13 * Math.sin(3 * a + phase) + 0.08 * Math.sin(7 * a - phase);
+    const edge = 1 + 0.07 * Math.sin(3 * a + phase) + 0.04 * Math.sin(7 * a - phase);
     const px = Math.cos(a) * rx * edge + radius * 0.2, py = Math.sin(a) * ry * edge;
     c[i ? 'lineTo' : 'moveTo'](px, py);
   }
-  c.closePath(); c.fillStyle = css(rgb, fibrosis * 0.24); c.fill(); c.clip();
+  c.closePath(); c.fillStyle = css(rgb, fibrosis * 0.14); c.fill(); c.clip();
   // Broken curving bundles cross each other instead of forming a circular halo.
-  const count = Math.round((7 + 8 * fibrosis) * detail);
+  const count = Math.round(10 * detail);
   for (let k = 0; k < count; k++) {
     const sd = seed + k * 37, a0 = fibHash(sd) * TAU;
     const span = 1.2 + 2 * fibHash(sd + 1), r0 = 0.25 + 0.65 * fibHash(sd + 2);
@@ -177,7 +180,7 @@ function fibrousTract(c, x, y, radius, angle, rgb, fibrosis, seed, detail = 1) {
       return [radius * 0.2 + Math.cos(a) * rx * r, Math.sin(a) * ry * r];
     };
     fibrousBand(c, path(0), path(1), {
-      w: radius * (0.12 + 0.16 * fibrosis) * (0.7 + fibHash(sd + 3)),
+      w: radius * (0.065 + 0.045 * fibrosis) * (0.7 + fibHash(sd + 3)),
       rgb, a: fibrosis * (0.55 + 0.35 * fibHash(sd + 4)),
       e0: 0.2, e1: 0.25, seed: sd, path, detail,
     });
@@ -197,7 +200,7 @@ function fibrousCuff(c, cx, cy, inner, outer, rgb, fibrosis) {
     c.closePath(); c.moveTo(cx + inner, cy); c.arc(cx, cy, inner, 0, TAU); c.closePath();
   };
   c.save();
-  annulus(); c.fillStyle = css(rgb, 0.18 + 0.25 * fibrosis); c.fill('evenodd'); c.clip('evenodd');
+  annulus(); c.fillStyle = css(rgb, 0.28 * fibrosis); c.fill('evenodd'); c.clip('evenodd');
   const thickness = outer - inner;
   for (let ring = 0; ring < 3; ring++) for (let k = 0; k < 6; k++) {
     const seed = 211 + ring * 17 + k, a0 = TAU * k / 6 + ring * 0.27;
@@ -206,7 +209,7 @@ function fibrousCuff(c, cx, cy, inner, outer, rgb, fibrosis) {
       const a = a0 + span * u, r = r0 + thickness * 0.1 * Math.sin(a * 5 + fibHash(seed + 5) * TAU);
       return [cx + Math.cos(a) * r, cy + Math.sin(a) * r];
     };
-    fibrousBand(c, path(0), path(1), { w: thickness * 0.42, rgb, a: 0.65 + 0.3 * fibrosis, e0: 0.45, e1: 0.5, seed, path });
+    fibrousBand(c, path(0), path(1), { w: thickness * 0.28, rgb, a: 0.8 * fibrosis, e0: 0.45, e1: 0.5, seed, path });
   }
   c.restore();
 }
@@ -946,7 +949,11 @@ export function createLobuleZoom({ host }) {
     for (const [ci, [x, y]] of centres.entries()) {
       const P = Ps[ci];
       // Central vein, with a soft rim (a collagen cuff with central fibrosis).
-      if (fs.post > 0) { c.globalAlpha = 0.3 + 0.55 * fs.post; c.fillStyle = COL; c.beginPath(); c.arc(x, y, R * 0.075 * (1.5 + fs.post), 0, TAU); c.fill(); }
+      if (fs.post > 0) {
+        const growth = scarGrowth(fs.post), inner = R * 0.075 * (1 + 0.4 * fs.cong);
+        c.globalAlpha = 1;
+        fibrousCuff(c, x, y, inner, inner + R * 0.07 * (0.04 + 0.24 * growth), COLa, growth);
+      }
       c.globalAlpha = 0.35; c.fillStyle = cvc; c.beginPath(); c.arc(x, y, R * 0.12, 0, TAU); c.fill();
       c.globalAlpha = 0.85; c.beginPath(); c.arc(x, y, R * 0.075 * (1 + 0.4 * fs.cong), 0, TAU); c.fill();
       // Triads, in a collagen tract that grows with portal fibrosis.
@@ -954,7 +961,7 @@ export function createLobuleZoom({ host }) {
         if (home(Math.round(px / (R / 2)), Math.round(py / (S3 * R / 2)))) continue;
         if (fs.pre > 0) {
           c.globalAlpha = 1;
-          fibrousTract(c, px, py, R * 0.09 * (1 + 0.9 * fs.pre), Math.atan2(py - y, px - x), COLa, fs.pre, 700 + lat([px, py]), 0.35);
+          fibrousTract(c, px, py, R * 0.09 * (0.8 + 0.18 * scarGrowth(fs.pre)), Math.atan2(py - y, px - x), COLa, scarGrowth(fs.pre), 700 + lat([px, py]), 0.35);
         }
         c.globalAlpha = 0.85; c.fillStyle = pvc; c.beginPath(); c.ellipse(px, py, R * 0.055, R * 0.04, 0.6, 0, TAU); c.fill();
         c.fillStyle = art; c.beginPath(); c.arc(px + R * 0.06, py - R * 0.035, R * 0.022, 0, TAU); c.fill();
@@ -1388,11 +1395,11 @@ export function createLobuleZoom({ host }) {
     for (const [x, y] of lobules[0].corners) {
       const kk = Math.round(x) + ',' + Math.round(y);
       if (seen.has(kk)) continue; seen.add(kk);
-      const near = Math.hypot(x - cx, y - cy) < R * 1.05, rt = G.rt * (1 + 0.9 * m.fibPre);
+      const near = Math.hypot(x - cx, y - cy) < R * 1.05, rt = G.rt * (0.8 + 0.18 * scarGrowth(m.fibPre));
       c.globalAlpha = near ? 1 : 0.5;
       // Collagen expands asymmetrically around all three structures, continuous with the septa.
       if (m.fibPre > 0.03) {
-        fibrousTract(c, x, y, rt, Math.atan2(y - cy, x - cx), COL, m.fibPre,
+        fibrousTract(c, x, y, rt, Math.atan2(y - cy, x - cx), COL, scarGrowth(m.fibPre),
           900 + lobules[0].corners.findIndex((p) => p[0] === x && p[1] === y) * 71);
       }
       if (!near) {   // the neighbours' triads, drawn flat
@@ -1402,8 +1409,9 @@ export function createLobuleZoom({ host }) {
     }
     // Central vein wall: wavy collagen bundles, continuous with the portal-central bridges.
     if (m.fibPost > 0.05) {
-      const inner = radiusAt(G.cv, 0), outer = Math.max(inner * 1.2, G.rcv0 * (1.5 + m.fibPost));
-      fibrousCuff(c, cx, cy, inner, outer, COL, m.fibPost);
+      const growth = scarGrowth(m.fibPost), inner = radiusAt(G.cv, 0);
+      const outer = inner + G.rcv0 * (0.04 + 0.24 * growth);
+      fibrousCuff(c, cx, cy, inner, outer, COL, growth);
     }
   }
   // Without WebGL2: the vessels as plain strokes on the tissue.
