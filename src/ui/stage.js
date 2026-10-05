@@ -6,7 +6,7 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=9c069d2ebf';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar, systemEdge } from './util.js?v=831ebf143a';
-import { createLobuleZoom } from './lobule-zoom.js?v=af5808cf01';
+import { createLobuleZoom } from './lobule-zoom.js?v=dadc453270';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=f7c2445d32';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -1093,6 +1093,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (on && morphTarget !== 0) return;
     if (lobuleOn === on && diveT === (on ? 1 : 0)) return;
     lobuleOn = on;
+    if (on) fitAfterRise = false;
     cancelAnimationFrame(lobAnim);
     if (on && diveT === 0) {
       const w = diveTarget();
@@ -1112,7 +1113,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       diveT = from + (to - from) * e;
       diveFrame(diveT);
       if (e < 1) lobAnim = requestAnimationFrame(step);
-      else if (!on) { setDiveScale(1); lz.setDiveZoom(1, 0, 0); diveLand = null; paintScaleBar(0, 0); }
+      else if (!on) {
+        setDiveScale(1); lz.setDiveZoom(1, 0, 0); diveLand = null; paintScaleBar(0, 0);
+        if (fitAfterRise) { fitAfterRise = false; if (morphTarget === 0) { homeAt = defaultVT(false); animateVT(homeAt, 420); } }
+      }
     };
     step(t0);
   }
@@ -1124,7 +1128,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function syncSemantic() {
     if (!lz) return;
     // Turning to the circuit closes the lobule view.
-    if (lobuleOn && morphTarget !== 0) { lobuleOn = false; lobU = 0; diveT = 0; diveLand = null; lz.setDive(null); lz.setDiveZoom(1, 0, 0); paintScaleBar(0, 0); if (diveAt) setDiveScale(1); { const lab = wrap.querySelector('#labels'); if (lab) lab.style.opacity = ''; } cancelAnimationFrame(lobAnim); if (store.get().lobule) store.set({ lobule: false }); }
+    if (lobuleOn && morphTarget !== 0) { lobuleOn = false; fitAfterRise = false; lobU = 0; diveT = 0; diveLand = null; lz.setDive(null); lz.setDiveZoom(1, 0, 0); paintScaleBar(0, 0); if (diveAt) setDiveScale(1); { const lab = wrap.querySelector('#labels'); if (lab) lab.style.opacity = ''; } cancelAnimationFrame(lobAnim); if (store.get().lobule) store.set({ lobule: false }); }
     const u = morphTarget === 0 ? lobU : 0;
     const wasOpen = lz.isOpen();
     lz.setFade(u);
@@ -1177,7 +1181,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function closeLobule() { setLobule(false); }
   store.on('lobule', (on) => (on ? openLobule() : closeLobule()));
   const zoomLobule = () => store.set({ lobule: true });
-  lz = createLobuleZoom({ host: wrap });
+  // Zooming out of the lobule goes on out to the whole anatomy: the rise, then the anatomy's own Fit.
+  let fitAfterRise = false;
+  lz = createLobuleZoom({ host: wrap, onExit: () => { if (!lobuleOn || diveT < 1) return; fitAfterRise = true; store.set({ lobule: false }); } });
   wrap.append(scaleBar);
 
   // ── Detail ────────────────────────────────────────
