@@ -128,7 +128,7 @@
   /* pathology and devices on the plate */
   --path-congestion: #6B2432; --path-nutmeg: #5A2230; --skin: #E9C9B4;
   --thrombus: #4E1420; --thrombus-line: #2E0A12; --thrombus-lam: #C77A6E; --thrombus-channel: #C45B7A;
-  --red-wale: #D0192E; --balloon: #F2E3A6; --balloon-line: #B69A2C; --bile-duct: #6E9B4E; --laser: #FF2B3A;
+  --red-wale: #D0192E; --balloon: #F2E3A6; --balloon-line: #B69A2C; --bile-duct: #7C8040; --laser: #FF2B3A;
   /* instruments drawn as their machines are, dark in both themes */
   --scope-bg: #05070D; --mon-bg: #07090C; --mon-grid: #1C2128; --mon-line: #2A3038; --mon-text: #9AA4B2; --mon-alarm: #FF7A85;
   --hit: 36px; /* minimum pointer target; 44px on touch */

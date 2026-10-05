@@ -1178,7 +1178,7 @@ export function createLobuleZoom({ host }) {
     return p < 0.45 ? lo.map((x, i) => lerp(x, mid[i], p / 0.45)) : mid.map((x, i) => lerp(x, hi[i], (p - 0.45) / 0.55));
   };
   // The triad's outlines: dark blue, red and green (the venule, arteriole and ductule), against the common casing.
-  const EDGE = { pv: [0.12, 0.27, 0.58], in: [0.12, 0.27, 0.58], ha: [0.55, 0.1, 0.16], tw: [0.55, 0.1, 0.16], bd: [0.2, 0.42, 0.18] }, BD_FILL = [0.8, 0.92, 0.68];
+  const EDGE = { pv: [0.12, 0.27, 0.58], in: [0.12, 0.27, 0.58], ha: [0.55, 0.1, 0.16], tw: [0.55, 0.1, 0.16], bd: [0.27, 0.29, 0.12] }, BD_FILL = [0.48, 0.5, 0.24];   // bile: a dark, dull olive
   const WALL = { s0: 0.8, s1: 0.85, s2: 0.9, an: 0.7, in: 1.5, pv: 2, cv: 1.6, sh: 1.1, ha: 1.7, bd: 1.8, tw: 0.9, ly: 0.5, lt: 0.8, lv: 1.1 };
   // Weight of the inlet's value at a radius along the sinusoids (1 at the lobule's edge, 0 at the central vein).
   const sinW = (rho) => clamp((rho - 0.075) / (0.92 - 0.075), 0, 1) ** 0.8;
@@ -1516,7 +1516,7 @@ export function createLobuleZoom({ host }) {
     c.lineCap = 'round'; c.lineJoin = 'round';
     for (const t of G.tubes) {
       const r = radiusAt(t, N >> 1), isArt = t.kind === 'ha' || t.kind === 'tw', disc = t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || t.kind === 'bd';
-      const color = isArt ? art : t.kind === 'bd' ? '#CCEBAE' : tubeInk(t, 0), rim = EDGE[t.kind];
+      const color = isArt ? art : t.kind === 'bd' ? '#7A7D3C' : tubeInk(t, 0), rim = EDGE[t.kind];
       const [x0, y0] = t.pts[0];
       if (disc) {
         c.fillStyle = rim ? `rgb(${rim.map((q) => Math.round(q * 255))})` : casing; c.beginPath(); c.arc(x0, y0, r + (rim ? 1.8 : 1.2), 0, TAU); c.fill();
@@ -1538,6 +1538,19 @@ export function createLobuleZoom({ host }) {
     c.clearRect(0, 0, W, H);
     c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y);
     const G = geo, m = model;
+    if (!m.hide) {
+      // The bile ductule is lined by a ring of small cuboidal cells, a necklace of rounded squares around its lumen.
+      const cellFill = dark ? '#8E9150' : '#9FA25C', cellEdge = dark ? 'rgba(40, 42, 18, .85)' : 'rgba(70, 72, 30, .8)';
+      c.lineWidth = Math.max(0.35, G.R * 0.0016); c.fillStyle = cellFill; c.strokeStyle = cellEdge;
+      for (const tr of G.triads) {
+        const r = Math.max(radiusAt(tr.bdT, N >> 1), G.R * 0.008), n = 9, ring = r * 1.12, s = Math.PI * 2 * ring / n * 0.86;
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2 + tr.i, x = tr.bd[0] + Math.cos(a) * (ring + s * 0.35), y = tr.bd[1] + Math.sin(a) * (ring + s * 0.35);
+          c.save(); c.translate(x, y); c.rotate(a + Math.PI / 2);
+          c.beginPath(); c.roundRect(-s / 2, -s * 0.38, s, s * 0.76, s * 0.22); c.fill(); c.stroke(); c.restore();
+        }
+      }
+    }
     if (lymphOn && flat) {
       // Without WebGL2, hepatic lymph as shimmer: plasma filtered into the space of Disse drifts out through the tissue
       // to the portal tract (space of Mall), where it leaves in the lymphatics. More sinusoidal pressure,
