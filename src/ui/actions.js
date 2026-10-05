@@ -5,10 +5,10 @@
 
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=29d10ad9ef';
 import { DRUGS } from '../engine/scenario.js?v=304cd180db';
-import { store, updateParams } from './store.js?v=9c069d2ebf';
+import { store, updateParams } from './store.js?v=bf24fe8d3e';
 import { fmt, fmtFlow, clamp, toast } from './util.js?v=831ebf143a';
 import { aboutVessel, aboutOrgan } from './about.js?v=f406909ec7';
-import { lobuleState } from './lobule-model.js?v=d67eaedcd8';
+import { lobuleState } from './lobule-model.js?v=7d1a8d3c8b';
 import { LABEL_VESSEL } from './anatomy.js?v=c4953196b7';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
