@@ -382,7 +382,7 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .readouts:not(.all) .ro-group:not(:has(.metric.primary)) { display: none; }
   .readouts.all .ro-group { flex: 1 1 100%; }
   .readouts.all .ro-group + .ro-group { border-top: 1px solid var(--hairline); }
-  .readouts.all .ro-group + .ro-group::before { display: none; }
+  .ro-group + .ro-group::before { display: none; }   /* hidden groups still count as siblings: no stray divider at the left */
   .readouts.all .vb-grid { grid-template-columns: repeat(3, auto); }
   .metric { padding: 2px 6px; }
   .metric .v { font-size: var(--fs-16); }
