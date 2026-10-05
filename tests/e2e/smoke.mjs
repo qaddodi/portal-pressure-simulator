@@ -273,7 +273,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const kind = await page.evaluate(() => document.querySelector('.lz').dataset.vessels);
     if (kind !== 'webgl2') throw new Error(`expected the lobule's vessels on the GPU, got ${kind}`);
     // The vessel layer actually holds a picture.
-    const lit = await page.evaluate(() => {
+    const vesselPixels = () => {
       const g = document.querySelector('.lz-gl'), c = document.createElement('canvas');
       c.width = 160; c.height = 100;
       const x = c.getContext('2d');
@@ -282,7 +282,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       let n = 0;
       for (let i = 3; i < d.length; i += 4) if (d[i] > 40) n++;
       return n;
-    });
+    };
+    const lit = await page.evaluate(vesselPixels);
     if (lit < 300) throw new Error(`the lobule's vessel layer is nearly empty (${lit} px)`);
     if ((await page.locator('.lz-lab').count()) !== 3) throw new Error('station cards missing');
     // The card is gone: nothing floats beside the lobule but its labels.
@@ -329,12 +330,20 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (device === 'desktop') { for (let i = 0; i < 4; i++) await page.mouse.wheel(0, 600); await page.waitForTimeout(600); }
     if (!(await page.evaluate(() => window.pps.stage.lobuleOpen()))) throw new Error('zooming out left the lobule');
     // Zones and Lymph are in the toolbar's Layers menu, which is there only on the lobule.
+    // First enabling lymph with a settled, paused model must initialize its radii;
+    // otherwise invalid reaches empty the geometry bins and erase the vessel layer.
+    await page.evaluate(() => window.pps.host.send({ type: 'run', running: false }));
+    await page.waitForFunction(() => !window.pps.store.get().running);
+    await page.waitForTimeout(1500);
     await page.click('#btnLobuleLayers');
     await page.click('.menu .menu-item:has-text("Zones")');
     await page.waitForFunction(() => document.querySelectorAll('.lz-zone').length === 3, null, { timeout: 5000 }).catch(() => { throw new Error('zones did not show'); });
     await page.click('.menu .menu-item:has-text("Lymph")');
     await page.keyboard.press('Escape');
     await page.waitForTimeout(500);
+    const lymphLit = await page.evaluate(vesselPixels);
+    if (lymphLit < 300) throw new Error(`enabling lymph while paused erased the vessel layer (${lymphLit} px)`);
+    await page.evaluate(() => window.pps.host.send({ type: 'run', running: true }));
     await shot(page, `${device}-lobule`);
     // Leaving the lobule closes its card.
     await page.evaluate(() => document.querySelector('.lz-lab:not([hidden])').click());   // its value updates live, so it never holds still for a pointer click
