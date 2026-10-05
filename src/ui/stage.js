@@ -6,7 +6,8 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=23552bd900';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar, systemEdge } from './util.js?v=d90a6074b7';
-import { createLobuleZoom } from './lobule-zoom.js?v=e6d7e85992';
+import { createLobuleZoom } from './lobule-zoom.js?v=f59e4804a4';
+import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=e424ed9ef2';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -3694,9 +3695,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Panning past the figure meets rising resistance, the lobule view's rubber band: a tanh band easing toward
   // 40% of the view, measured from where the middle of the view meets the figure's edge (at the fit zoom, from the fit framing).
   // hardPan is the nearest resting place; softPan puts a raw pan on the band, unsoftPan takes a banded pan back to raw.
-  function hardPan(v) {
+  function hardPan(v, flick = false) {
     const d = defaultVT(morphTarget === 1);
-    if (v.k <= d.k * 1.001) return { k: v.k, x: d.x, y: d.y };
+    if (!flick && v.k <= d.k * 1.001) return { k: v.k, x: d.x, y: d.y };   // a flick has the figure's whole extent to carry over, then springBack settles it at the fit
     const c = morphTarget === 1 ? circVB() : VB_ANAT, vis = visibleVB();
     const x0 = c[0] * v.k + v.x, x1 = (c[0] + c[2]) * v.k + v.x, y0 = c[1] * v.k + v.y, y1 = (c[1] + c[3]) * v.k + v.y;
     const vx = vis.x + vis.w / 2, vy = vis.y + vis.h / 2;
@@ -3729,46 +3730,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // A flick keeps the figure moving and slows it down, as a map does.
   let glide = 0;
-  function stopGlide() { if (glide) { cancelAnimationFrame(glide); glide = 0; } }
+  function stopGlide() { cancelFlick?.(); cancelFlick = null; glide = 0; }
+  let cancelFlick = null;
   function fling(vx, vy) {
-    if (reduceMotion.matches || Math.hypot(vx, vy) < 0.25) { springBack(); return; }
-    const s0 = vbScale(), L = 36 / s0;
-    // At the fit zoom there is no room to glide in (the pan range is zero), so the flick carries on into the same wide band the
-    // drag uses, loses speed as it stretches, and the spring-back runs once the momentum has gone, as the lobule's drag at its framing.
-    if (vt.k <= defaultVT(morphTarget === 1).k * 1.001) {
-      let last = performance.now(), rx = vt.x, ry = vt.y;
-      const step = (now) => {
-        glide = 0;
-        const dt = Math.min(34, now - last), f16 = dt / 16, h = hardPan(vt), vis = visibleVB();
-        last = now;
-        const stretch = Math.hypot((rx - h.x) / (0.4 * vis.w), (ry - h.y) / (0.4 * vis.h)), decay = Math.pow(0.9955, dt) * Math.pow(0.93, f16 * Math.min(1, stretch * 2));
-        vx *= decay; vy *= decay;
-        rx += (vx * dt) / s0; ry += (vy * dt) / s0;
-        vt = softPan({ k: vt.k, x: rx, y: ry }); applyVT(); CTM = null;
-        if (Math.hypot(vx, vy) > 0.03) glide = requestAnimationFrame(step); else springBack();
-      };
-      glide = requestAnimationFrame(step);
-      return;
-    }
-    let last = performance.now(), rx = vt.x, ry = vt.y;
-    // The lobule view's flick: carried past the edge the glide is braked hard (the velocity halves each frame), the overshoot
-    // shows only as a short stretch, and it returns to the edge within a few frames.
-    const step = (now) => {
-      glide = 0;
-      const dt = Math.min(34, now - last), decay = Math.pow(0.9955, dt), f16 = dt / 16;
-      last = now; vx *= decay; vy *= decay;
-      rx += (vx * dt) / s0; ry += (vy * dt) / s0;
-      const h = hardPan({ k: vt.k, x: rx, y: ry });
-      let ox = rx - h.x, oy = ry - h.y;
-      if (ox) { vx *= Math.pow(0.5, f16); ox *= Math.pow(0.78, f16); }
-      if (oy) { vy *= Math.pow(0.5, f16); oy *= Math.pow(0.78, f16); }
-      rx = h.x + ox; ry = h.y + oy;
-      vt = { k: vt.k, x: h.x + (ox ? L * Math.tanh(ox / L) : 0), y: h.y + (oy ? L * Math.tanh(oy / L) : 0) };
-      applyVT(); CTM = null;
-      if (Math.hypot(vx, vy) > 0.03 || Math.abs(ox) * s0 > 0.5 || Math.abs(oy) * s0 > 0.5) glide = requestAnimationFrame(step);
-      else { vt = { k: vt.k, x: h.x, y: h.y }; applyVT(); CTM = null; springBack(); }
-    };
-    glide = requestAnimationFrame(step);
+    if (reduceMotion.matches || Math.hypot(vx, vy) < FLICK.minSpeed) { springBack(); return; }
+    const s0 = vbScale(), k = vt.k;
+    glide = 1;
+    cancelFlick = runFlick({   // the lobule's flick, in screen pixels, bounded by the figure
+      x: vt.x * s0, y: vt.y * s0, vx: vx, vy: vy,
+      hard: (x, y) => { const h = hardPan({ k, x: x / s0, y: y / s0 }, true); return [h.x * s0, h.y * s0]; },
+      apply: (x, y) => { vt = { k, x: x / s0, y: y / s0 }; applyVT(); CTM = null; },
+      done: () => { glide = 0; cancelFlick = null; springBack(); },
+    });
   }
 
   // Touch: every finger is captured by the figure, so a finger that lifts over a label or the
