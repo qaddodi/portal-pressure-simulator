@@ -4,8 +4,8 @@
 // entry in the timeline; nothing stays "armed".
 
 import { store, updateParams } from './store.js?v=23552bd900';
-import { h, icon, svgIcon, fmt, clamp, tooltipFor } from './util.js?v=831ebf143a';
-import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=5975cb2d8f';
+import { h, icon, svgIcon, fmt, clamp, tooltipFor } from './util.js?v=f4c2603e25';
+import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=23e7c9262e';
 
 const LOCK_TIP = 'Not available in this step of the lesson or case';
 
