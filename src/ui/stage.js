@@ -804,7 +804,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // updated forces a synchronous style + layout pass over thousands of elements, every frame;
   // the arithmetic is exact and free. The stage box is cached and kept current by observers.
   let box = null;
-  const measureBox = () => { const r = wrap.getBoundingClientRect(), q = svg.getBoundingClientRect(); box = { left: r.left, top: r.top, width: r.width, height: r.height, right: r.right, bottom: r.bottom, sx: q.left - r.left, sy: q.top - r.top, sw: q.width, sh: q.height }; };
+  const measureBox = () => {
+    // Measured without the lobule dive's zoom (a CSS scale on the svg), or the vessels would be drawn zoomed twice.
+    const tf = svg.style.transform; if (tf) svg.style.transform = '';
+    const r = wrap.getBoundingClientRect(), q = svg.getBoundingClientRect();
+    if (tf) svg.style.transform = tf; box = { left: r.left, top: r.top, width: r.width, height: r.height, right: r.right, bottom: r.bottom, sx: q.left - r.left, sy: q.top - r.top, sw: q.width, sh: q.height }; };
   const stageBox = () => { if (!box) measureBox(); return box; };
   new ResizeObserver(() => { box = null; CTM = null; }).observe(wrap);
   addEventListener('resize', () => { box = null; CTM = null; });
