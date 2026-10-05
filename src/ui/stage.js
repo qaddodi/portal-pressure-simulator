@@ -1201,7 +1201,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Zoom-driven dive: normal zoom carries on into the liver; past SCRUB_K over the liver the camera and pan
   // lock and each further zoom step scrubs the dive (scrubS 0..1, the same frames the timed dive plays).
   // Zooming back out reverses it, down to the liver again. Taps and the Lobule step still play it timed.
-  const SCRUB_K = 2.6, SCRUB_SPAN = Math.log(7), SCRUB_DONE = 0.88;   // the dive has fully landed by 0.88, so the view switches there
+  const SCRUB_K = 5.8,   // the anatomy zoom is free up to its 6× maximum; the pan locks and the dive begins only at it
+     SCRUB_SPAN = Math.log(7), SCRUB_DONE = 0.88;   // the dive has fully landed by 0.88, so the view switches there
   let scrubS = 0, quietLobule = false, scrubAnim = 0;
   function canScrub(factor) {
     if (lobuleOn || factor <= 1 || morphTarget !== 0 || morph > 0.02 || vt.k < SCRUB_K || reduceMotion.matches) return false;
