@@ -25,7 +25,7 @@ import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=7d1a8d3c8b';
 import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=831ebf143a';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
-import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_NOCASE, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=0acbe74771';
+import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_NOCASE, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=d69acb69d3';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=3acf4e936e';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

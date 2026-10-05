@@ -41,7 +41,7 @@ const QUAD = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]);
 // Flags (tube texel 2, z).
 // Stream flags (tube texel 5, w): the stream runs on at the upstream / downstream end; reversed flow.
 export const F_UP = 1, F_DN = 2, F_REV = 4;
-export const F_SEL = 1, F_DIFFUSE = 2, F_SHADOW = 4, F_DOTTED = 8, F_NOCASE = 16, F_SPEC = 32, F_EDGE = 64;   // F_EDGE: the casing takes its own color (texel 6) and is opaque
+export const F_SEL = 1, F_DIFFUSE = 2, F_SHADOW = 4, F_DOTTED = 8, F_NOCASE = 16, F_SPEC = 32, F_EDGE = 64, F_VEIL = 128;   // F_EDGE: the casing takes its own color (texel 6) and is opaque; F_VEIL: faded along its whole course as if behind an organ
 
 const VS = `#version 300 es
 layout(location=0) in vec2 corner;
@@ -303,6 +303,8 @@ void main() {
     g = length(g) > 1e-5 ? normalize(g) : vec2(0.0);
     int flags = int(sflag[ow] + 0.5);
     bool sel = (flags & ${F_SEL}) != 0;
+    // A veiled vessel is faded all along its course, as much as an organ covering it would.
+    float veil = (flags & ${F_VEIL}) != 0 ? (useOrgan == 1 ? 0.66 * organK : 0.0) : grp == 0 ? occl : 0.0;
     float cA = (flags & ${F_NOCASE}) != 0 ? 0.0 : (flags & ${F_DOTTED}) != 0 ? 0.35 : 1.0;
 
     float aa = px;
@@ -337,7 +339,7 @@ void main() {
     if (sel && grp == 2) lum = min(lum * 1.12, vec3(1.0));
     c = over(vec4(lum, 1.0) * aL, c);
     c *= alpha * tierAlpha[ti];
-    float gf = grp == 0 ? 1.0 - occl : grp == 1 ? netAlpha : 1.0;
+    float gf = (grp == 1 ? netAlpha : 1.0) * (1.0 - veil);
     float lumA = aL * alpha * tierAlpha[ti] * gf;
     if (lumA > 0.02 && (flags & ${F_DOTTED}) == 0) {
       // The stream shown here: the two joined lumens with the largest share, by nearness and by how
@@ -362,7 +364,8 @@ void main() {
         gId2 = uint(sid[o2] + 1); gS2 = su[o2] * T(sid[o2], 5).z; gY2 = clamp(sx[o2] / max(sr[o2], 1e-3), -1.0, 1.0); gB = w2 / (w1 + w2);
       }
     } else gW *= 1.0 - c.a * gf;
-    if (grp == 0) { c *= 1.0 - occl; accB = over(c, accB); }
+    c *= 1.0 - veil;
+    if (grp == 0) accB = over(c, accB);
     else if (grp == 1) accN = over(c, accN);
     else accT = over(c, accT);
   }
