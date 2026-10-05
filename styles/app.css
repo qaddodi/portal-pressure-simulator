@@ -2865,3 +2865,12 @@ input[type="range"] { touch-action: none; }
 .toast-x { flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--text-2); cursor: pointer; }
 .toast-x:hover { background: var(--surface-3); color: var(--text); }
 .toast-x svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; }
+
+/* Concentric corners: a control inside a rounded container uses (container radius - inset), the same on
+   every end, so hover, pressed and selected fills sit evenly inside their container. */
+.zoom-pill { --inset: 3px; }
+.float-pill, .toolbar { --inset: 4px; }
+.top-right.float-pill { --inset: 3px; }
+.zoom-pill > *, .float-pill > .ib, .float-pill > .tb-act, .float-pill > .menu-btn, .float-pill > .scenario-btn, .float-pill > .find-badge, .float-pill > .pal-btn, .toolbar > .tb-btn, .toolbar > .ib { border-radius: max(var(--r-control), calc(var(--r-sheet) - var(--inset))); }
+.topbar .float-pill > .menu-btn, .topbar .float-pill > .scenario-btn, .topbar .float-pill > .tb-act, .topbar .float-pill > .find-badge, .topbar .float-pill > .pal-btn, .topbar .float-pill > .ib, .topbar #viewSeg button { border-radius: max(var(--r-control), calc(var(--r-sheet) - var(--inset))); }
+.zoom-pill .ib, .zoom-pill .stage-fit, .zoom-pill .stage-rotate { border-radius: calc(var(--r-sheet) - 3px); }
