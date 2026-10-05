@@ -155,20 +155,14 @@ function fibrousBand(c, A, B, { w, rgb, a = 1, seed = 0, e0 = 1.5, e1 = 1.5, amp
 // Visual scar growth is eased independently of the physiology and stays close to the vessels.
 const scarGrowth = (fibrosis) => clamp(fibrosis, 0, 1) ** 1.8;
 
-// Portal fibrosis expands the whole tract with irregular, interwoven collagen bundles.
+// Portal fibrosis has a compact circular footprint with interwoven collagen inside.
 // Cached with the tissue; fixed seeds keep the texture still as pressure changes.
 function fibrousTract(c, x, y, radius, angle, rgb, fibrosis, seed, detail = 1) {
   c.save(); c.translate(x, y); c.rotate(angle);
-  const rx = radius * 1.08, ry = radius * 0.82;
+  const rx = radius, ry = radius;
   const phase = fibHash(seed) * TAU;
-  c.beginPath();
-  for (let i = 0; i <= 64; i++) {
-    const a = TAU * i / 64;
-    const edge = 1 + 0.07 * Math.sin(3 * a + phase) + 0.04 * Math.sin(7 * a - phase);
-    const px = Math.cos(a) * rx * edge + radius * 0.2, py = Math.sin(a) * ry * edge;
-    c[i ? 'lineTo' : 'moveTo'](px, py);
-  }
-  c.closePath(); c.fillStyle = css(rgb, fibrosis * 0.14); c.fill(); c.clip();
+  c.beginPath(); c.arc(0, 0, radius, 0, TAU);
+  c.fillStyle = css(rgb, fibrosis * 0.14); c.fill(); c.clip();
   // Broken curving bundles cross each other instead of forming a circular halo.
   const count = Math.round(10 * detail);
   for (let k = 0; k < count; k++) {
@@ -177,7 +171,7 @@ function fibrousTract(c, x, y, radius, angle, rgb, fibrosis, seed, detail = 1) {
     const path = (u) => {
       const a = a0 + span * u;
       const r = r0 + 0.09 * Math.sin(5 * a + phase) + 0.12 * Math.sin(Math.PI * u);
-      return [radius * 0.2 + Math.cos(a) * rx * r, Math.sin(a) * ry * r];
+      return [Math.cos(a) * rx * r, Math.sin(a) * ry * r];
     };
     fibrousBand(c, path(0), path(1), {
       w: radius * (0.065 + 0.045 * fibrosis) * (0.7 + fibHash(sd + 3)),
@@ -952,7 +946,7 @@ export function createLobuleZoom({ host }) {
       if (fs.post > 0) {
         const growth = scarGrowth(fs.post), inner = R * 0.075 * (1 + 0.4 * fs.cong);
         c.globalAlpha = 1;
-        fibrousCuff(c, x, y, inner, inner + R * 0.07 * (0.04 + 0.24 * growth), COLa, growth);
+        fibrousCuff(c, x, y, inner, inner + R * 0.07 * (0.08 + 0.5 * growth), COLa, growth);
       }
       c.globalAlpha = 0.35; c.fillStyle = cvc; c.beginPath(); c.arc(x, y, R * 0.12, 0, TAU); c.fill();
       c.globalAlpha = 0.85; c.beginPath(); c.arc(x, y, R * 0.075 * (1 + 0.4 * fs.cong), 0, TAU); c.fill();
@@ -1410,7 +1404,7 @@ export function createLobuleZoom({ host }) {
     // Central vein wall: wavy collagen bundles, continuous with the portal-central bridges.
     if (m.fibPost > 0.05) {
       const growth = scarGrowth(m.fibPost), inner = radiusAt(G.cv, 0);
-      const outer = inner + G.rcv0 * (0.04 + 0.24 * growth);
+      const outer = inner + G.rcv0 * (0.08 + 0.5 * growth);
       fibrousCuff(c, cx, cy, inner, outer, COL, growth);
     }
   }
