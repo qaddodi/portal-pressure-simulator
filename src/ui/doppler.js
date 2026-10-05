@@ -7,7 +7,7 @@
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { h, fmt, fitCanvas, clamp, icon } from './util.js?v=d90a6074b7';
 import { FONT } from './charts.js?v=ec5db0ba37';
-import { DOPPLER_MODES, isDirectional, dopplerColor, legendGradient } from './dopplerColor.js?v=d2a7a12279';
+import { DOPPLER_MODES, isDirectional, dopplerColor, legendGradient, powerIndex } from './dopplerColor.js?v=4911238c8b';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 // kind decides the words for direction and pattern; normal is the usual mean velocity (cm/s).
@@ -73,7 +73,7 @@ export function createDoppler({ onProbe }) {
     legend.hidden = mode === 'spectrum';
     if (mode !== 'spectrum') {
       legBar.style.background = legendGradient(mode, invert && isDirectional(mode));
-      legLo.textContent = mode === 'power' ? 'weak' : 'away'; legHi.textContent = mode === 'power' ? 'strong' : 'toward';
+      legLo.textContent = mode === 'variance' ? 'steady' : 'away'; legHi.textContent = mode === 'variance' ? 'turbulent' : 'toward';
     }
     if (frame) draw();
   }
@@ -364,12 +364,12 @@ export function createDoppler({ onProbe }) {
       const q = (ry * RW + x) * 4;
       let r = 236 * GAIN * I, gg = 240 * GAIN * I, bl = 250 * GAIN * I;
       if (col && I > 0) {
-        // the colour is chosen by the velocity at this height (Direction, Variance), by the signal
-        // strength (Power, Directional Power) and by the variance; the sign above or below the
+        // the colour is chosen by the signal strength (Directional Power) or by the velocity at this
+        // height and the variance (Variance), exactly as the legend shows it; the sign above or below the
         // baseline decides toward or away (Invert has already flipped the trace, and with it the colors)
         const ff = P > L ? clamp((vel * s - L) / (P - L), 0, 1) : 1;
-        dopplerColor(mode, { u: clamp(vel * uK, -1, 1), p: I, s: clamp(lineS + 0.45 * (1 - ff) * (1 - ff), 0, 1) }, false, cc);
-        const k = cc[3] * (shaded ? Math.min(1, I * GAIN) : 1) / 255;
+        dopplerColor(mode, { u: clamp(vel * uK, -1, 1), p: powerIndex(I), s: clamp(lineS + 0.45 * (1 - ff) * (1 - ff), 0, 1) }, false, cc);
+        const k = cc[3] * (shaded ? clamp((I - 0.05) / 0.3, 0, 1) : 1) / 255;
         r = cc[0] * k * 255; gg = cc[1] * k * 255; bl = cc[2] * k * 255;
       }
       D[q] = r; D[q + 1] = gg; D[q + 2] = bl; D[q + 3] = 255;

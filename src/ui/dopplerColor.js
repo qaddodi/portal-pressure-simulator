@@ -63,14 +63,20 @@ export function dopplerColor(mode, { u = 0, p = 0, s = 0 }, invert = false, out 
   return out;
 }
 
-/** A CSS gradient of the colour map for the legend: away (left) to toward (right), or weak to strong for Power. */
+/** The trace's power index: the pixel's signal strength, stretched so strong cores reach orange and yellow. */
+export const powerIndex = (I) => (I * 1.25 > 1 ? 1 : I * 1.25);
+
+/**
+ * A CSS gradient of exactly the map the trace is drawn with, for the legend and the pill's swatch.
+ * Directional Power: away (left) to toward (right), weak at the middle and strong at the ends.
+ * Variance: steady flow to turbulent flow, in the toward color.
+ */
 export function legendGradient(mode, invert = false) {
-  const n = 9, out = [];
+  const n = 11, out = [];
   for (let i = 0; i < n; i++) {
     const x = i / (n - 1), u = 2 * x - 1 || 0.001;
-    const c = mode === 'power' ? dopplerColor('power', { p: x })
-      : mode === 'dirpower' ? dopplerColor('dirpower', { u, p: 0.85 }, invert)
-      : dopplerColor('direction', { u }, invert);
+    const c = mode === 'dirpower' ? dopplerColor('dirpower', { u, p: Math.abs(u) }, invert)
+      : dopplerColor('variance', { u: 0.6, s: x }, invert);
     const k = c[3] < 0.5 ? [0, 0, 0] : c;
     out.push(`rgb(${k[0] | 0},${k[1] | 0},${k[2] | 0}) ${(x * 100).toFixed(0)}%`);
   }
