@@ -6,7 +6,7 @@
 // pressure at a vessel has no threshold. Used by the pressure landscape.
 
 import { store } from './store.js?v=23552bd900';
-import { h, fmt } from './util.js?v=f4c2603e25';
+import { h, fmt } from './util.js?v=d90a6074b7';
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

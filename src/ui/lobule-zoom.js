@@ -21,8 +21,8 @@
 
 import { store } from './store.js?v=23552bd900';
 import { radiiChanged } from './lobule-render-cache.js?v=07951b5935';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=a446251de8';
-import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=f4c2603e25';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=eae4864387';
+import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=d90a6074b7';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_NOCASE, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=799c94c026';
@@ -403,6 +403,11 @@ export function createLobuleZoom({ host }) {
         if (down && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) < 8) return;
         down = null;
         if (V.k > kFit * 1.001) { V.x += p[0] - drag.p[0]; V.y += p[1] - drag.p[1]; clampV(); viewChanged(); el.classList.add('lz-drag'); }
+        else if (geo) {   // at its framing there is nowhere to go: the lobule follows the hand on a rubber band and springs back on release
+          const F0 = fitV(), o = drag.o || (drag.o = [0, 0]), soft = (d) => 70 * Math.tanh(d / 70);
+          cancelAnimationFrame(glide); o[0] += p[0] - drag.p[0]; o[1] += p[1] - drag.p[1];
+          V.x = F0.x + soft(o[0]); V.y = F0.y + soft(o[1]); atFit = false; viewChanged(); el.classList.add('lz-drag');
+        }
         drag.p = p;
         const now = performance.now();
         drag.trail.push([now, V.x, V.y]);
@@ -423,9 +428,10 @@ export function createLobuleZoom({ host }) {
     const finished = drag;
     down = null;
     if (touches.size < 2) pinch = null;
+    if (!touches.size && geo && V.k <= kFit * 1.001) { const F0 = fitV(); if (Math.abs(V.x - F0.x) + Math.abs(V.y - F0.y) > 0.5) { glideTo(F0, 380); atFit = true; } }
     if (ev.type === 'pointerup' && ev.pointerType === 'touch' && !touches.size && finished) {
       const tr = finished.trail, a = tr[0], b = tr[tr.length - 1], dt = b[0] - a[0];
-      if (tr.length >= 3 && dt >= 30 && performance.now() - b[0] < 50) {
+      if (tr.length >= 3 && dt >= 30 && performance.now() - b[0] < 50 && V.k > kFit * 1.001) {
         const vx = (b[1] - a[1]) / dt, vy = (b[2] - a[2]) / dt;
         const cap = Math.min(1, 2 / (Math.hypot(vx, vy) || 1));
         fling(vx * cap, vy * cap);

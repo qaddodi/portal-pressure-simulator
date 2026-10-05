@@ -72,9 +72,23 @@ export function toast(msg, kind = '') {
   const wrap = document.getElementById('toasts');
   // One message at a time reads calmer than a growing stack.
   while (wrap.children.length >= 2) wrap.firstChild.remove();
-  const t = h('div', { class: 'toast ' + kind, role: 'status' }, msg);
+  // Anchor just above the play bar, centred on it, so a message never covers the figure.
+  const anchor = document.querySelector('.vdock') || document.querySelector('.timeline');
+  const r = anchor?.getBoundingClientRect();
+  if (r && r.width) { wrap.style.left = `${r.left + r.width / 2}px`; wrap.style.bottom = `${Math.max(8, innerHeight - r.top + 8)}px`; }
+  const t = h('div', { class: 'toast ' + kind, role: 'status' }, h('span', { class: 'toast-msg' }, msg));
+  let timer = 0;
+  const close = () => { clearTimeout(timer); t.classList.add('leaving'); setTimeout(() => t.remove(), 220); };
+  const x = h('button', { class: 'toast-x', 'aria-label': 'Dismiss' }, icon('close'));
+  x.addEventListener('click', (e) => { e.stopPropagation(); close(); });
+  t.append(x);
+  t.addEventListener('click', close);
+  // Swipe down (or sideways) to dismiss.
+  let sx = 0, sy = 0;
+  t.addEventListener('pointerdown', (e) => { sx = e.clientX; sy = e.clientY; });
+  t.addEventListener('pointerup', (e) => { if (Math.abs(e.clientY - sy) > 18 || Math.abs(e.clientX - sx) > 40) close(); });
   wrap.append(t);
-  setTimeout(() => { t.classList.add('leaving'); setTimeout(() => t.remove(), 220); }, 3600);
+  timer = setTimeout(close, 4200);
 }
 
 let liveLast = 0;

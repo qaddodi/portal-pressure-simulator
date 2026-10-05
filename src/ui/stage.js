@@ -5,8 +5,8 @@ import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, edgePres
 import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=5836089b84';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=23552bd900';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar, systemEdge } from './util.js?v=f4c2603e25';
-import { createLobuleZoom } from './lobule-zoom.js?v=337a4a5f41';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar, systemEdge } from './util.js?v=d90a6074b7';
+import { createLobuleZoom } from './lobule-zoom.js?v=0638e7f953';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=799c94c026';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -804,7 +804,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // card) follows the artwork on the very next frame of a pan or zoom, not on the next model
   // update: a view change schedules one coalesced sync per animation frame.
   let viewRaf = 0, viewVersion = 0, CTM = null, wrapRect = null;
+  // Zoomed far in, the vessels fill the screen and the vessel shader runs on most of its pixels: the picture is
+  // drawn at a lower resolution there (in steps, so the canvas is not resized on every wheel notch).
+  let zoomRes = 1, resizeReady = false;
   const applyVT = () => {
+    const zr = vt.k > 4 ? 0.65 : vt.k > 2.5 ? 0.8 : 1;
+    if (zr !== zoomRes) { zoomRes = zr; if (resizeReady) resizeCanvas(); }
     const deg = rotDeg();
     world.setAttribute('transform', `translate(${vt.x} ${vt.y}) scale(${vt.k})${deg ? ` rotate(${deg.toFixed(3)} ${CIRC_C[0]} ${CIRC_C[1]})` : ''}`);
     worldOver?.setAttribute('transform', world.getAttribute('transform'));
@@ -1286,13 +1291,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let vdpr = 1;
   function resizeCanvas() {
     const r = wrap.getBoundingClientRect();
-    vdpr = Math.min(2, devicePixelRatio || 1) * QUALITY[quality].res;
+    vdpr = Math.min(2, devicePixelRatio || 1) * QUALITY[quality].res * zoomRes;
     vCanvas.width = Math.max(1, Math.round(r.width * vdpr)); vCanvas.height = Math.max(1, Math.round(r.height * vdpr));
     wrap.classList.toggle('compact', r.height < 600);
     CTM = null;
   }
   new ResizeObserver(resizeCanvas).observe(wrap);
-  resizeCanvas();
+  resizeCanvas(); resizeReady = true;
 
   // ── Frame state ───────────────────────────────────
   let F = null;            // latest frame

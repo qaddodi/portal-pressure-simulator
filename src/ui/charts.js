@@ -4,7 +4,7 @@ import { NODES } from '../engine/topology.js?v=29d10ad9ef';
 import { PROFILE_PATHS, SHORT } from './anatomy.js?v=5836089b84';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { store } from './store.js?v=23552bd900';
-import { h, fmt, fitCanvas, cssVar, clamp, createEaser, axisTop } from './util.js?v=f4c2603e25';
+import { h, fmt, fitCanvas, cssVar, clamp, createEaser, axisTop } from './util.js?v=d90a6074b7';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const ARTERIAL = new Set(['AO', 'HA']);
