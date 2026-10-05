@@ -1089,7 +1089,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const step = (now) => {
       const e = ms ? clamp((now - t0) / (ms * Math.abs(to - from) || 1), 0, 1) : 1;
       diveT = from + (to - from) * e;
-      diveFrame(diveT);
+      // A frame that throws must not leave the anatomy stuck mid-zoom: the glide always goes on to its end.
+      try { diveFrame(diveT); } catch (err) { if (e < 1) console.error(err); }
       if (e < 1) lobAnim = requestAnimationFrame(step);
       else if (!on) {
         setDiveScale(1); lz.setDiveZoom(1, 0, 0); diveLand = null;
@@ -1098,7 +1099,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
     };
     step(t0);
+    // Backstop: if the frames stop (a throttled or dropped frame loop), land on the end state anyway.
+    clearTimeout(lobEnd);
+    lobEnd = setTimeout(() => { if (lobuleOn === on && diveT !== to) { cancelAnimationFrame(lobAnim); step(t0 + ms * 2 + 1); } }, ms * Math.abs(to - from) + 250);
   }
+  let lobEnd = 0;
   function liverBox() {
     if (!liverBB && organEls.liver) { try { const b = organEls.liver.getBBox(); if (b.width) liverBB = { x: b.x, y: b.y, w: b.width, h: b.height }; } catch { /* not rendered yet */ } }
     return liverBB;
