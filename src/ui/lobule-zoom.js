@@ -908,7 +908,7 @@ export function createLobuleZoom({ host }) {
     raf = requestAnimationFrame(loop);
   }
   // The flow marks (shimmer and chevrons) are off while the lobule fades in or out or the view is moving, and fade back in once it is still.
-  let flowA = 1, lastMove = 0, flowT = 0;
+  let flowA = 1, lastMove = 0, flowT = 0, panF = 1;
   function stepFlowA() {
     const now = performance.now(), dtm = Math.min(100, now - (flowT || now)); flowT = now;
     const still = fade > 0.98 && !diveScaled && now - lastMove > 150;
@@ -925,7 +925,9 @@ export function createLobuleZoom({ host }) {
     const rect = host.getBoundingClientRect();
     const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
     ensureGeo(W, H);
-    const dpr = Math.min(2, devicePixelRatio || 1) * lzRes;
+    // While the view is being panned or zoomed the layers are drawn smaller (fill cost falls with the square); a sharp redraw follows once it is still.
+    panF = performance.now() - lastMove < 160 ? 0.6 : 1;
+    const dpr = Math.min(2, devicePixelRatio || 1) * lzRes * panF;
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
     // Keep watching for view/theme/size changes, but leave a settled paused picture alone.
     stepFlowA();
@@ -1373,7 +1375,7 @@ export function createLobuleZoom({ host }) {
     // the screen's), redrawn only when the tissue's state changes; panning and zooming just place it.
     // Pressure colors enter only coarsely (they move every frame while the model glides).
     const qi = (s) => s.replace(/\d+/g, (n) => (n >> 4) << 4);
-    const sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, dpr * V.k)) * 2) / 2), 3600 / (2.6 * G.R));
+    const sc = Math.min(2 ** (Math.ceil(Math.log2(Math.max(0.05, (dpr / panF) * V.k)) * 2) / 2), 3600 / (2.6 * G.R));
     const wk = [G.W, G.H, sc.toFixed(3), dark, qi(ink('pv')), m.zone.pre.toFixed(2), m.zone.sin.toFixed(2), m.zone.post.toFixed(2), m.s.toFixed(2), q(m.cong), m.hide, zonesOn, cs.getPropertyValue('--bg')].join('|');
     const key = [W, H, dpr, wk, flatVessels ? [ink('sin', 1), ink('sin', 0), ink('pv'), ink('cv'), m.art.toFixed(2), [...selIds()].join('.')] : '', Object.values(fieldState()).join(','), V.k.toFixed(3), V.x.toFixed(1), V.y.toFixed(1)].join('|');
     if (key === tissueKey) return;
