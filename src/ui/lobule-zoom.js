@@ -343,7 +343,7 @@ export function createLobuleZoom({ host }) {
   function refit() { if (!geo) return; const F0 = fitV(); kFit = F0.k; if (atFit) glideTo(F0); else { clampV(); viewChanged(); } }
   addEventListener('pps:occ', () => { if (fade > 0) { layoutKey = ''; refit(); } });
   addEventListener('pps:labelscale', () => { drawVersion++; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); });
-  const viewChanged = () => { drawVersion++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); };
+  const viewChanged = () => { lastMove = performance.now(); drawVersion++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); };
   const toWorld = (p) => [(p[0] - V.x) / V.k, (p[1] - V.y) / V.k];
   const toScreen = (p) => [p[0] * V.k + V.x, p[1] * V.k + V.y];
   function resetView() { stopInertia(); if (!geo) { V.k = 1; V.x = 0; V.y = 0; return; } atFit = true; const F0 = fitV(); kFit = F0.k; Object.assign(V, F0); viewChanged(); }
@@ -907,6 +907,13 @@ export function createLobuleZoom({ host }) {
     prevDrew = drew;
     raf = requestAnimationFrame(loop);
   }
+  // The flow marks (shimmer and chevrons) are off while the lobule fades in or out or the view is moving, and fade back in once it is still.
+  let flowA = 1, lastMove = 0, flowT = 0;
+  function stepFlowA() {
+    const now = performance.now(), dtm = Math.min(100, now - (flowT || now)); flowT = now;
+    const still = fade > 0.98 && !diveScaled && now - lastMove > 150;
+    flowA = still ? Math.min(1, flowA + dtm / 300) : 0;
+  }
   let lzRes = 1, gapAvg = 16.7, resCheck = 0, prevDrew = false;
 
   // While the dive magnifies the lobule's layers (a compositor scale), they are drawn once and then left
@@ -921,7 +928,8 @@ export function createLobuleZoom({ host }) {
     const dpr = Math.min(2, devicePixelRatio || 1) * lzRes;
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
     // Keep watching for view/theme/size changes, but leave a settled paused picture alone.
-    const idleKey = [W, H, dpr, dark, V.k, V.x, V.y, drawVersion].join('|');
+    stepFlowA();
+    const idleKey = [W, H, dpr, dark, V.k, V.x, V.y, drawVersion, flowA.toFixed(2)].join('|');
     if (dt === 0 && idleKey === idleDrawn) return false;
     idleDrawn = dt === 0 ? idleKey : '';
     const cs = getComputedStyle(host);
@@ -1351,7 +1359,7 @@ export function createLobuleZoom({ host }) {
       ring: [...rgb01(cs.getPropertyValue('--accent').trim() || '#3b6cf6'), 0.4],
       netAlpha: 1, fx: true, tierAlpha: Array(MAX_TIERS).fill(1), tierGroup: Array(MAX_TIERS).fill(1),
     };
-    const blood = { on: bloodOn, chev, look: b.look || 'shimmer', origin, clock, dye: false, bleed: [], ...BLOOD };
+    const blood = { alpha: flowA, on: bloodOn, chev, look: b.look || 'shimmer', origin, clock, dye: false, bleed: [], ...BLOOD };
     if (glDirty || dk !== drawKey) { glDirty = false; drawKey = dk; g.draw(T, look, blood); } else g.composite(look, blood);
   }
   const num = (cs, n, d) => { const v = parseFloat(cs.getPropertyValue(n)); return Number.isFinite(v) ? v : d; };

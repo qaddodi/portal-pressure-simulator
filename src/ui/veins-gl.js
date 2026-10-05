@@ -433,6 +433,7 @@ uniform float pxW;                     // world units per device pixel
 uniform int blood;                     // 1: draw the blood
 uniform int chev;                      // 1: flow chevrons on top (dark; orange where flow is reversed)
 uniform vec3 chevInk;
+uniform float flowA;                   // 0..1: how visible the moving blood and chevrons are (they fade in once the view is still)
 uniform int look;                      // 0 parcels, 1 shimmer
 uniform int origin;                    // 1: color parcels by where their blood came from
 uniform int dyeOn;
@@ -675,7 +676,7 @@ void main() {
       vec4 A = bloodAt(id1, s1, y1, col);
       vec4 B = b > 0.004 ? bloodAt(id2, s2, y2, col) : vec4(0.0);
       float a = A.a * (1.0 - b) + B.a * b;
-      if (a > 0.0) col = mix(col, (A.rgb * A.a * (1.0 - b) + B.rgb * B.a * b) / a, clamp(a * vis, 0.0, 1.0));
+      if (a > 0.0) col = mix(col, (A.rgb * A.a * (1.0 - b) + B.rgb * B.a * b) / a, clamp(a * vis * flowA, 0.0, 1.0));
     }
     if (dyeOn == 1) {
       float c = dyeAt(id1, s1, y1) * (1.0 - b) + (b > 0.004 ? dyeAt(id2, s2, y2) * b : 0.0);
@@ -687,8 +688,8 @@ void main() {
       if (c.x + c.y > 0.0) {
         float rv = texelFetch(flow, ivec2(1, id1), 0).w;
         // A faint light rim lifts the head off the lumen; the head itself dark, or orange if reversed.
-        col = mix(col, inkLight, c.y * 0.75 * vis);
-        col = mix(col, mix(chevInk, revCol, rv), c.x * vis);
+        col = mix(col, inkLight, c.y * 0.75 * vis * flowA);
+        col = mix(col, mix(chevInk, revCol, rv), c.x * vis * flowA);
       }
     }
     v = vec4(col * v.a, v.a);
@@ -1027,6 +1028,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.uniform4f(U.plateRect1, ...(plates[1]?.rect || [0, 0, 1, 1]));
       gl.uniform1i(U.blood, blood.on ? 1 : 0);
       gl.uniform1i(U.chev, blood.chev ? 1 : 0);
+      gl.uniform1f(U.flowA, blood.alpha ?? 1);
       gl.uniform3f(U.chevInk, ...(blood.chevInk || [0.08, 0.08, 0.1]));
       gl.uniform1i(U.look, blood.look === 'shimmer' ? 1 : 0);
       gl.uniform1i(U.origin, blood.origin ? 1 : 0);
