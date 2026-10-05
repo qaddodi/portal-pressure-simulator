@@ -2856,3 +2856,4 @@ input[type="range"] { touch-action: none; }
 .lens-opt:not(:has(.lens-d)) .bo-ic { grid-row: 1; }
 .lens-opt .lens-d { grid-column: 2; }
 .lens-opt.on .bo-ic { color: var(--accent-ink); }
+.blood-pop .menu-title { text-align: center; }
