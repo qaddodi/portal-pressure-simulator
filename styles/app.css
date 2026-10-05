@@ -2500,7 +2500,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   .lz-lab .n { font-size: calc(10.5px * var(--label-k, 1)); }
   .lz-lab .v { font-size: calc(12.5px * var(--label-k, 1)); }
   .lz-lab .d { font-size: calc(9.5px * var(--label-k, 1)); }
-  .lz-lab small { display: none; }
+  .lz-lab small { font-size: calc(9.5px * var(--label-k, 1)); }
 }
 /* Dark lobule labels: white names, values, units and zones on a black letter outline. */
 :root[data-theme="dark"] .lz { --label-halo: #000; }
