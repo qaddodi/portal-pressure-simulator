@@ -268,6 +268,20 @@ export function createLobuleZoom({ host }) {
   // While the lobule is being dragged about at its framing (rubber band), nothing may snap it back to fit.
   let rubber = false, rubberT = 0;
   const bandOffset = (o, L) => L * Math.tanh(o / L);
+  // Zooming out past the framing stretches with resistance (as the anatomy's pinch-out does: softK, a 0.3 power) and
+  // glides back to the framing once the gesture ends. rawK is the unresisted scale while stretched, 0 when not.
+  let rawK = 0, stretchT = 0;
+  function stretchBy(px, py, f) {
+    if (!geo) return;
+    if (!rawK) rawK = kFit;
+    rawK = Math.max(kFit * 0.5, rawK * f);   // as the anatomy: the unresisted scale stops at half the framing
+    stopInertia(); cancelAnimationFrame(glide); rubber = true; atFit = false;
+    const F0 = fitV();
+    if (rawK >= kFit) { rawK = 0; rubber = false; Object.assign(V, F0); atFit = true; viewChanged(); return; }
+    const k = kFit * Math.pow(rawK / kFit, 0.3), r = k / V.k;
+    V.x = px - (px - V.x) * r; V.y = py - (py - V.y) * r; V.k = k; viewChanged();
+  }
+  function endStretch() { if (!rawK) return; rawK = 0; rubber = false; glideTo(fitV(), 380); atFit = true; }
   function clampV() {
     if (!geo || rubber) return;
     const F0 = fitV();
@@ -376,7 +390,11 @@ export function createLobuleZoom({ host }) {
       return;
     }
     const f = ev.ctrlKey || ev.metaKey ? Math.exp(-clamp(dy, -50, 50) * 0.01) : Math.exp(-clamp(dy, -120, 120) * 0.0015);
-    if (V.k <= kFit * 1.001 && f < 1) { if (wheelOutOK) outHandler?.(f); return; }   // a new zoom-out at its framing hands over to the stage, which scrubs the dive back; one that arrived from deeper in stops here
+    if (V.k <= kFit * 1.001 && f < 1) {
+      if (wheelOutOK) { outHandler?.(f); return; }   // a new zoom-out at its framing hands over to the stage, which scrubs the dive back
+      const p = local(ev); stretchBy(p[0], p[1], f); clearTimeout(stretchT); stretchT = setTimeout(endStretch, 220); return;   // one that arrived from deeper in stretches and springs back
+    }
+    if (rawK && f > 1) { const p = local(ev); stretchBy(p[0], p[1], f); clearTimeout(stretchT); stretchT = setTimeout(endStretch, 220); return; }
     const p = local(ev);
     zoomAround(p[0], p[1], f);
   }, { passive: false });
@@ -406,7 +424,10 @@ export function createLobuleZoom({ host }) {
         const [a, b] = pts2(), d = Math.hypot(a[0] - b[0], a[1] - b[1]), m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
         V.x += m[0] - pinch.m[0]; V.y += m[1] - pinch.m[1]; pinch.m = m;
         const dl = pinch.dl || pinch.d; pinch.dl = d;
-        if (V.k <= kFit * 1.001 && d < dl && outHandler) { if (pinch.atFit) outHandler(d / dl); return; }
+        if (rawK || (V.k <= kFit * 1.001 && d < dl && outHandler)) {
+          if (pinch.atFit && !rawK) outHandler(d / dl); else stretchBy(m[0], m[1], d / dl);
+          return;
+        }
         zoomAround(m[0], m[1], (pinch.k * d / pinch.d) / V.k);
       } else if (touches.size === 1 && drag && (ev.buttons || ev.pointerType !== 'mouse')) {
         const p = local(ev);
@@ -438,8 +459,8 @@ export function createLobuleZoom({ host }) {
     const finished = drag;
     down = null;
     if (touches.size < 2) pinch = null;
-    if (!touches.size) rubber = false;
-    if (!touches.size && geo && V.k <= kFit * 1.001) { const F0 = fitV(); if (Math.abs(V.x - F0.x) + Math.abs(V.y - F0.y) > 0.5) { glideTo(F0, 380); atFit = true; } }
+    if (!touches.size) { rubber = false; rawK = 0; }
+    if (!touches.size && geo && V.k <= kFit * 1.001) { const F0 = fitV(); if (Math.abs(V.x - F0.x) + Math.abs(V.y - F0.y) + Math.abs(V.k - F0.k) * 100 > 0.5) { glideTo(F0, 380); atFit = true; } }
     if (ev.type === 'pointerup' && ev.pointerType === 'touch' && !touches.size && finished) {
       const tr = finished.trail, a = tr[0], b = tr[tr.length - 1], dt = b[0] - a[0];
       if (tr.length >= 3 && dt >= 30 && performance.now() - b[0] < 50 && V.k > kFit * 1.001) {
