@@ -55,7 +55,7 @@ export function createDoppler({ onProbe }) {
     class: 'dop-tint dop-sweep',
     title: `Sweep window: ${sweepSeconds} seconds. Tap to cycle.`,
     'aria-label': `Doppler sweep duration: ${sweepSeconds} seconds. Activate to cycle.`,
-  }, sweepIcon, `${sweepSeconds} s`);
+  }, sweepIcon, h('span', { class: 'dop-sweep-label' }, `${sweepSeconds} s`));
   sweepBtn.addEventListener('click', () => {
     sweepIndex = (sweepIndex + 1) % SWEEP_SECONDS.length;
     sweepSeconds = SWEEP_SECONDS[sweepIndex];
