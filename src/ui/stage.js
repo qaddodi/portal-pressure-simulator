@@ -3695,9 +3695,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Panning past the figure meets rising resistance, the lobule view's rubber band: a tanh band easing toward
   // 40% of the view, measured from where the middle of the view meets the figure's edge (at the fit zoom, from the fit framing).
   // hardPan is the nearest resting place; softPan puts a raw pan on the band, unsoftPan takes a banded pan back to raw.
-  function hardPan(v, flick = false) {
+  function hardPan(v) {
     const d = defaultVT(morphTarget === 1);
-    if (!flick && v.k <= d.k * 1.001) return { k: v.k, x: d.x, y: d.y };   // a flick has the figure's whole extent to carry over, then springBack settles it at the fit
+    if (v.k <= d.k * 1.001) return { k: v.k, x: d.x, y: d.y };   // at the fit zoom the bounds are the fit position itself, as the lobule at its framing
     const c = morphTarget === 1 ? circVB() : VB_ANAT, vis = visibleVB();
     const x0 = c[0] * v.k + v.x, x1 = (c[0] + c[2]) * v.k + v.x, y0 = c[1] * v.k + v.y, y1 = (c[1] + c[3]) * v.k + v.y;
     const vx = vis.x + vis.w / 2, vy = vis.y + vis.h / 2;
@@ -3738,7 +3738,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     glide = 1;
     cancelFlick = runFlick({   // the lobule's flick, in screen pixels, bounded by the figure
       x: vt.x * s0, y: vt.y * s0, vx: vx, vy: vy,
-      hard: (x, y) => { const h = hardPan({ k, x: x / s0, y: y / s0 }, true); return [h.x * s0, h.y * s0]; },
+      hard: (x, y) => { const h = hardPan({ k, x: x / s0, y: y / s0 }); return [h.x * s0, h.y * s0]; },
       apply: (x, y) => { vt = { k, x: x / s0, y: y / s0 }; applyVT(); CTM = null; },
       done: () => { glide = 0; cancelFlick = null; springBack(); },
     });
