@@ -151,12 +151,36 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   row.append(h('div', { class: 'ro-group ro-systemic', 'data-group': 'systemic', role: 'group', 'aria-label': 'Systemic' },
     h('span', { class: 'ro-cap', 'aria-hidden': 'true' }, 'Systemic'), h('div', { class: 'vb-grid' }, vitEls.map((x) => x.el))));
   const moreBtn = h('button', { class: 'ib ro-more', 'aria-expanded': 'false', 'aria-label': 'Show all readouts', title: 'All readouts' }, svgIcon('chev-down'));
-  moreBtn.addEventListener('click', () => {
-    const on = strip.classList.toggle('all');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  // Open or close the rest of the readouts; the strip grows upward from the bottom edge, so its height
+  // animates between the two sizes.
+  const setAll = (on, animate) => {
+    if (strip.classList.contains('all') === on) return;
+    const h0 = strip.offsetHeight;
+    strip.classList.toggle('all', on);
     moreBtn.setAttribute('aria-expanded', String(on));
     moreBtn.setAttribute('aria-label', on ? 'Show fewer readouts' : 'Show all readouts');
+    const h1 = strip.offsetHeight;
+    if (animate && !reduce.matches && h0 !== h1 && strip.animate) {
+      strip.animate({ height: [`${h0}px`, `${h1}px`] }, { duration: 280, easing: 'cubic-bezier(.2,.8,.2,1)' }).onfinish = () => dispatchEvent(new Event('resize'));
+      strip.style.overflow = 'hidden'; setTimeout(() => { strip.style.overflow = ''; }, 300);
+    }
     setTimeout(() => dispatchEvent(new Event('resize')), 30);
+  };
+  moreBtn.addEventListener('click', () => setAll(!strip.classList.contains('all'), true));
+  // Flick the strip up to open it, down to close it (touch only; where the chevron is shown).
+  let flick = null;
+  strip.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' || getComputedStyle(moreBtn).display === 'none') return;
+    flick = { id: e.pointerId, y: e.clientY, t: performance.now(), done: false };
   });
+  strip.addEventListener('pointermove', (e) => {
+    if (!flick || e.pointerId !== flick.id || flick.done) return;
+    const dy = e.clientY - flick.y, v = Math.abs(dy) / Math.max(1, performance.now() - flick.t);
+    if (Math.abs(dy) > 28 || (Math.abs(dy) > 12 && v > 0.5)) { flick.done = true; e.stopPropagation(); setAll(dy < 0, true); }
+  });
+  const endDrag = () => { flick = null; };
+  strip.addEventListener('pointerup', endDrag); strip.addEventListener('pointercancel', endDrag);
   row.append(moreBtn);
   // A phone held sideways has no room for every readout: it keeps the four key ones.
   const sideways = matchMedia('(max-width: 1023px) and (max-height: 500px) and (orientation: landscape)');
