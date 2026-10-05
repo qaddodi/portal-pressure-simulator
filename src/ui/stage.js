@@ -2357,7 +2357,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A selected organ keeps a quiet outline; a selected site (varices, fundus, abdomen) a ring.
   const gSelO = s('g', { id: 'organSel' });
   gOver.after(gSelO);
-  let selOKey = '', selLine = null;
+  let selOKey = '', selLine = null, selFluid = null;
+  function syncSelFluid() {
+    if (!selFluid) return;
+    selFluid.fill.setAttribute('d', ascitesPath.getAttribute('d') || '');
+    selFluid.line.setAttribute('d', ascitesLine.getAttribute('d') || '');
+  }
   function syncSelLine() {
     if (!selLine) return;
     const d = organEls[selLine.id].getAttribute('d'), tr = organG[selLine.id].getAttribute('transform');
@@ -2370,7 +2375,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (key === selOKey) return;
     selOKey = key;
     for (const g of Object.values(organG)) g.classList.remove('org-sel');
-    gSelO.replaceChildren(); selLine = null;
+    gSelO.replaceChildren(); selLine = null; selFluid = null;
     if (!o) return;
     const byOrgan = { liver: ['liver'], heart: ['heart'], spleen: ['spleen'] }[o];
     if (byOrgan) {
@@ -2380,7 +2385,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (organEls[byOrgan[0]]?.getAttribute('d')) { selLine = { id: byOrgan[0], el: s('path', { class: 'org-sel-line' }) }; syncSelLine(); gSelO.append(selLine.el); }
       return;
     }
-    const at = { varices: [SITES.varix[0], SITES.varix[1] + 20, 26, 62], gastric: [SITES.fundus[0], SITES.fundus[1], 34, 30], abdomen: [720, 790, 230, 110] }[o];
+    if (o === 'abdomen') {   // the fluid as drawn; it follows the volume (see syncSelFluid)
+      const cg = s('g', { 'clip-path': 'url(#abdomenClip)' });
+      selFluid = { fill: s('path', { class: 'org-sel-fluid' }), line: s('path', { class: 'org-sel-line' }) };
+      cg.append(selFluid.fill, selFluid.line); gSelO.append(cg); syncSelFluid();
+      return;
+    }
+    const at = { varices: [SITES.varix[0], SITES.varix[1] + 20, 26, 62], gastric: [SITES.fundus[0], SITES.fundus[1], 34, 30] }[o];
     if (at) gSelO.append(s('ellipse', { cx: at[0], cy: at[1], rx: at[2], ry: at[3], class: 'org-sel-ring' }));
   }
 
@@ -2514,6 +2525,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (let x = 470; x <= 950; x += 16) glint += `${x === 470 ? 'M' : ' L'}${x} ${(surf(x) + 5).toFixed(1)}`;
       ascitesGlint.setAttribute('d', glint);
     }
+    syncSelFluid();
     platePoke();
   }
 

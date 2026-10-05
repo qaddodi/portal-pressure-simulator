@@ -1258,6 +1258,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .org-hov-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-opacity: .4; stroke-linejoin: round; pointer-events: none; }
 .org-hov-fluid { fill: var(--accent-soft); stroke: none; pointer-events: none; }
 .org-hov-ring { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; stroke-opacity: .45; stroke-dasharray: 5 4; pointer-events: none; }
+.org-sel-fluid { fill: var(--accent-soft); stroke: none; pointer-events: none; }
 .org-sel-ring { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 2; stroke-opacity: .6; stroke-dasharray: 5 4; pointer-events: none; }
 #organSel { pointer-events: none; }
 
