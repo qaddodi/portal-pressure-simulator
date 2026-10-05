@@ -2858,3 +2858,11 @@ input[type="range"] { touch-action: none; }
 .lens-opt .lens-d { grid-column: 2; }
 .lens-opt.on .bo-ic { color: var(--accent-ink); }
 .blood-pop .menu-title { text-align: center; }
+
+/* Change messages: a light, translucent pill above the play bar; click, swipe or x to dismiss. */
+.toast-wrap { transform: translateX(-50%); }
+.toast { display: flex; align-items: center; gap: 8px; padding: 5px 6px 5px 12px; background: var(--glass); color: var(--text); border-radius: var(--r-sheet); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); font-size: var(--fs-12); line-height: 1.4; max-width: min(440px, 92vw); pointer-events: auto; cursor: pointer; touch-action: pan-x; }
+.toast.bad { background: var(--glass); color: var(--danger); }
+.toast-x { flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--text-2); cursor: pointer; }
+.toast-x:hover { background: var(--surface-3); color: var(--text); }
+.toast-x svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; }

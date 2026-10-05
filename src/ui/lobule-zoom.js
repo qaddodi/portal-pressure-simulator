@@ -21,8 +21,8 @@
 
 import { store } from './store.js?v=23552bd900';
 import { radiiChanged } from './lobule-render-cache.js?v=07951b5935';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=a446251de8';
-import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=f4c2603e25';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=eae4864387';
+import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=d90a6074b7';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_NOCASE, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=799c94c026';
