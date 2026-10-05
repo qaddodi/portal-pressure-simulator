@@ -661,6 +661,7 @@ function renderBanner() {
 function wireTopbar() {
   $('#btnMenu').addEventListener('click', (e) => openMainMenu(e.currentTarget));
   $('#scenarioBtn').addEventListener('click', (e) => openScenarios(e.currentTarget));
+  $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());
   $('#btnInspector').addEventListener('click', () => { if (panelShown() && !store.get().details) closePanel(); else { store.set({ details: null }); openPanel(); } });
   $('#btnTreat').addEventListener('click', () => (treatOpen() ? closeTreat() : openTreat()));
