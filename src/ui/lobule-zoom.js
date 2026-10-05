@@ -21,7 +21,7 @@
 
 import { store } from './store.js?v=23552bd900';
 import { radiiChanged } from './lobule-render-cache.js?v=07951b5935';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=eae4864387';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=c424ebf32b';
 import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=d90a6074b7';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
@@ -461,6 +461,7 @@ export function createLobuleZoom({ host }) {
     else if (sl.part === 'sin' && sl.tube != null) selIdsC = chainOf(sl.tube);
     else if (sl.part === 'ha' && tr) selIdsC = new Set([tr.haT.id, ...G.tubes.filter((t) => t.kind === 'tw' && t.tri === tr.i).map((t) => t.id)]);
     else if (sl.part === 'bd' && tr) selIdsC = new Set([tr.bdT.id]);
+    else if (sl.part === 'lv' && tr) selIdsC = new Set([tr.lv.id]);
     else if (sl.part === 'cv') selIdsC = new Set([G.cv.id]);
     else if (sl.tube != null) selIdsC = new Set([sl.tube]);
     return selIdsC;
@@ -740,6 +741,12 @@ export function createLobuleZoom({ host }) {
     setLab('triad', 'Portal venule', 'Portal venule', ...mv('triad', m.P1, m.R[0]));
     setLab('sin', 'Sinusoids', 'Sinusoids', ...mv('sin', m.P2, m.R[1]));
     setLab('cv', 'Central venule', 'Central venule', ...mv('cv', m.P3, m.R[2]));
+    // Lymph (Lymph layer on): the whole liver's rate, with the change from healthy (or from the pinned moment).
+    const dl = m.lymph - m.lymphRef, ly = m.lymphRef > 0 ? dl / m.lymphRef : 0, lon = m.cmp ? 0.1 : 0.25, loff = m.cmp ? 0.07 : 0.2;
+    const lshown = Math.abs(ly) >= lon || (badges.lymph === m.cmp && Math.abs(ly) >= loff);
+    badges.lymph = lshown ? m.cmp : null;
+    if (m.hide) setLab('lymph', 'Lymphatic', 'Lymph', '?', '', '', null);
+    else setLab('lymph', 'Lymphatic', 'Lymph', fmt(m.lymph, 1), 'mL/min', lshown ? `${dl > 0 ? '▲' : '▼'} ${Math.round(Math.abs(ly) * 100)}%` : '', null);
   }
 
   // ── Station labels (HTML, styled as the anatomy's) with leaders ──
@@ -771,6 +778,7 @@ export function createLobuleZoom({ host }) {
     const g = geo, C = g.lobules[0].corners;
     if (key === 'triad') return C[pick.triad];
     if (key === 'cv') return [g.cx, g.cy];
+    if (key === 'lymph') return g.triads[pick.triad].lv.pts[0];
     return sinAt(sinTube());
   };
   const sinTube = () => {
@@ -802,7 +810,7 @@ export function createLobuleZoom({ host }) {
     if (!inside(C[pick.triad], keep)) { const i = best([0, 1, 2, 3, 4, 5], (i) => C[i], [[g.cx, g.cy]]); if (i != null) pick.triad = i; }
     if (!inside(sinAt(sinTube()), keep)) { const t = best([...g.L0, ...g.L1, ...g.L2], sinAt, [[g.cx, g.cy], C[pick.triad]]); if (t) pick.sin = t.id; }
   }
-  const hitKind = (key) => (key === 'triad' ? { part: 'triad', tri: pick.triad } : key === 'cv' ? { part: 'cv' } : { part: 'sin', tube: sinTube().id });
+  const hitKind = (key) => (key === 'triad' ? { part: 'triad', tri: pick.triad } : key === 'cv' ? { part: 'cv' } : key === 'lymph' ? { part: 'lv', tri: pick.triad } : { part: 'sin', tube: sinTube().id });
   function layoutLabels() {
     const fr0 = freeRect(), g = geo, key = `${g.W}x${g.H}|${Object.values(labs).map((l) => l.txt).join('|')}|${zonesOn}|${lymphOn}|${V.k},${V.x},${V.y}|${fr0.t},${fr0.b},${fr0.l},${fr0.r}`;
     if (key === layoutKey) return;
@@ -823,9 +831,10 @@ export function createLobuleZoom({ host }) {
         placed.push({ l: x - 46 * zk, r: x + 46 * zk, t: y - 18 * zk, b: y + 18 * zk });
       }
     }
-    for (const k of ['cv', 'sin', 'triad']) {
+    for (const k of ['cv', 'sin', 'triad', 'lymph']) {
       const L = labs[k];
       if (!L) continue;
+      if (k === 'lymph' && !lymphOn) { L.el.hidden = true; L.line.style.display = L.dotEl.style.display = 'none'; continue; }
       L.el.hidden = false;
       const w = L.el.offsetWidth || 100, hh = L.el.offsetHeight || 40;
       const a = toScreen(anchorOf(k));
@@ -834,7 +843,7 @@ export function createLobuleZoom({ host }) {
       if (L.el.hidden) { L.line.style.display = L.dotEl.style.display = 'none'; continue; }
       const pad = 8, step = hh + 12;
       const preferred = k === 'cv' ? [a[0], a[1] - g.rcv0 * V.k - hh / 2 - 12]
-        : k === 'triad' ? [a[0], a[1] + hh / 2 + 12] : a;
+        : k === 'triad' ? [a[0], a[1] + hh / 2 + 12] : k === 'lymph' ? [a[0], a[1] - hh / 2 - 14] : a;
       const candidates = [preferred,
         [preferred[0], preferred[1] - step], [preferred[0], preferred[1] + step],
         [preferred[0] - w / 2 - 12, preferred[1]], [preferred[0] + w / 2 + 12, preferred[1]],
@@ -851,9 +860,9 @@ export function createLobuleZoom({ host }) {
       const { x, y, box } = best;
       placed.push(box);
       L.el.style.left = `${x - w / 2}px`; L.el.style.top = `${y - hh / 2}px`;
-      L.el.classList.toggle('direct', k !== 'cv');
+      L.el.classList.toggle('direct', k !== 'cv' && k !== 'lymph');
       L.el.classList.remove('left');
-      const leaderOn = k === 'cv';
+      const leaderOn = k === 'cv' || k === 'lymph';
       L.line.style.display = L.dotEl.style.display = leaderOn ? '' : 'none';
       L.line.setAttribute('x1', a[0]); L.line.setAttribute('y1', a[1]);
       L.line.setAttribute('x2', x); L.line.setAttribute('y2', y);
@@ -1633,6 +1642,7 @@ export function createLobuleZoom({ host }) {
     for (const tr of G.triads) if (Math.hypot(x - tr.x, y - tr.y) < G.rt * 1.2) {
       if (Math.hypot(x - tr.ha[0], y - tr.ha[1]) < G.R * 0.03) return { part: 'ha', tri: tr.i };
       if (Math.hypot(x - tr.bd[0], y - tr.bd[1]) < G.R * 0.03) return { part: 'bd', tri: tr.i };
+      if (lymphOn && Math.hypot(x - tr.lv.pts[0][0], y - tr.lv.pts[0][1]) < G.R * 0.03) return { part: 'lv', tri: tr.i };
       return { part: 'triad', tri: tr.i };
     }
     if (Math.hypot(x - G.cx, y - G.cy) < radiusAt(G.cv, 0) + 4) return { part: 'cv' };
