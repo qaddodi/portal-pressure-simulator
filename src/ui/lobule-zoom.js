@@ -326,8 +326,10 @@ export function createLobuleZoom({ host }) {
     };
     glide = requestAnimationFrame(step);
   }
+  let outHandler = null;
   function zoomBy(factor) {
     if (!geo) return;
+    if (factor < 1 && V.k <= kFit * 1.001 && outHandler) { outHandler(factor, true); return; }
     const f = freeRect(), px = (f.l + f.r) / 2, py = (f.t + f.b) / 2;
     const k = clamp(V.k * factor, kFit, kFit * KMAX), r = k / V.k;
     const to = { k, x: px - (px - V.x) * r, y: py - (py - V.y) * r };
@@ -361,7 +363,7 @@ export function createLobuleZoom({ host }) {
       return;
     }
     const f = ev.ctrlKey || ev.metaKey ? Math.exp(-clamp(dy, -50, 50) * 0.01) : Math.exp(-clamp(dy, -120, 120) * 0.0015);
-    if (V.k <= kFit * 1.001 && f < 1) return;   // the lobule is a view of its own: zooming out stops at its framing
+    if (V.k <= kFit * 1.001 && f < 1) { outHandler?.(f); return; }   // zooming out past its framing hands over to the stage, which scrubs the dive back
     const p = local(ev);
     zoomAround(p[0], p[1], f);
   }, { passive: false });
@@ -390,6 +392,8 @@ export function createLobuleZoom({ host }) {
       if (touches.size === 2 && pinch) {
         const [a, b] = pts2(), d = Math.hypot(a[0] - b[0], a[1] - b[1]), m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
         V.x += m[0] - pinch.m[0]; V.y += m[1] - pinch.m[1]; pinch.m = m;
+        const dl = pinch.dl || pinch.d; pinch.dl = d;
+        if (V.k <= kFit * 1.001 && d < dl && outHandler) { outHandler(d / dl); return; }
         zoomAround(m[0], m[1], (pinch.k * d / pinch.d) / V.k);
       } else if (touches.size === 1 && drag && (ev.buttons || ev.pointerType !== 'mouse')) {
         const p = local(ev);
@@ -1671,6 +1675,7 @@ export function createLobuleZoom({ host }) {
       return { x, y, r: geo.R * V.k };
     },
     setDive: paintField,
+    onZoomOut(fn) { outHandler = fn; },
     prewarm, warm,
     /** True once the dive's field (or the lobule) covers the anatomy, which then need not be drawn. */
     covers: () => fade > 0.98 || fieldOp >= 0.999,
