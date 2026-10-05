@@ -1,13 +1,14 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
-import { store } from './store.js?v=9c069d2ebf';
+import { store } from './store.js?v=bf24fe8d3e';
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=831ebf143a';
-import { createProfile } from './charts.js?v=7d4d0419f5';
-import { createPressureTime } from './pressure-time.js?v=2b0c8b7b09';
-import { createDoppler } from './doppler.js?v=59773c99a4';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=1eeb009ca2';
+import { lobuleFlows } from './lobule-model.js?v=7d1a8d3c8b';
+import { createProfile } from './charts.js?v=5900d28387';
+import { createPressureTime } from './pressure-time.js?v=0eb4026ca2';
+import { createDoppler } from './doppler.js?v=7766a3d04f';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=d56a30048e';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -51,6 +52,27 @@ export const TILES = [
     scale: [8, 22], ticks: [13],
     st: (v) => (v <= 13 ? 'ok' : v <= 16 ? 'caution' : 'danger'), s: (v) => (v <= 13 ? 'Normal' : v <= 16 ? 'Enlarged' : 'Large') },
 ];
+// On the Lobule view the strip reads the lobule's own flows instead (what the card beside the lobule used to
+// list): through the sinusoids, in from the portal vein and the hepatic artery, and the lymph the liver
+// makes. They are not findings, so they stay out of TILES. `v` reads the frame and the store, as the lobule does.
+const lobuleVal = (key) => (f, st) => lobuleFlows(f, st.healthy)[key];
+export const LOBULE_TILES = [
+  { id: 'lz-sin', group: 'lobule', k: 'Sinusoidal flow', ks: 'Sinusoids', title: 'Blood through the sinusoids, % of normal (portal + hepatic artery).', why: 'liverPerf', v: (f, st) => lobuleVal('flow')(f, st) * 100, d: 0, u: '%',
+    scale: [0, 150], ticks: [55, 75],
+    st: (v) => (v > 75 ? 'ok' : v > 55 ? 'caution' : 'danger'), s: (v) => (v > 75 ? 'Normal' : v > 55 ? 'Reduced' : 'Low') },
+  { id: 'lz-pv', group: 'lobule', k: 'Portal inflow', ks: 'Portal in', title: 'Blood entering the lobule from the portal venule, % of normal (negative = flowing out of the liver).', why: 'pvFlow', v: (f, st) => lobuleVal('portal')(f, st) * 100, d: 0, u: '%',
+    scale: [-60, 150], ticks: [0, 50],
+    st: (v) => (v < -2 ? 'critical' : v < 50 ? 'danger' : v < 75 ? 'caution' : 'ok'), s: (v) => (v < -2 ? 'Reversed' : v < 50 ? 'Low' : v < 75 ? 'Reduced' : 'Normal') },
+  { id: 'lz-art', group: 'lobule', k: 'Arterial inflow', ks: 'Artery in', title: 'Blood entering the lobule from the hepatic arteriole, % of normal. It rises when the portal inflow falls (the arterial buffer response).', v: (f, st) => lobuleVal('art')(f, st) * 100, d: 0, u: '%',
+    scale: [0, 200], ticks: [60, 130],
+    st: (v) => (v < 60 ? 'danger' : v > 130 ? 'caution' : 'ok'), s: (v) => (v < 60 ? 'Low' : v > 130 ? 'Compensating' : 'Normal'), ss: (v) => (v < 60 ? 'Low' : v > 130 ? 'Raised' : 'Normal') },
+  { id: 'lz-ly', group: 'lobule', k: 'Hepatic lymph', ks: 'Lymph', title: 'Lymph the liver forms in the space of Disse and drains to the portal tract. Normal is about 0.8 mL/min; past about three times that it overflows into the abdomen (ascites).', why: 'ascites', v: (f, st) => lobuleVal('lymph')(f, st), d: 1, u: 'mL/min',
+    scale: [0, 5], ticks: [1.2, 2.4],
+    st: (v, f, st) => { const r = v / lobuleFlows(f, st.healthy).lymph0; return r >= 3 ? 'danger' : r >= 1.5 ? 'caution' : 'ok'; },
+    s: (v, f, st) => { const r = v / lobuleFlows(f, st.healthy).lymph0; return r >= 3 ? 'Overflow' : r >= 1.5 ? 'Raised' : 'Normal'; } },
+];
+export const LOBULE_PRIMARY = new Set(LOBULE_TILES.map((t) => t.id));
+
 // A group whose readouts share a unit names it once, in its caption, so the tiles stay narrow.
 export const GROUPS = [['pressure', 'Pressure'], ['flow', 'Flow'], ['effects', 'Consequences']];
 // The cut-offs behind each status, as About the model lists them: [readout, normal, amber, red, dark red].
@@ -103,7 +125,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const val = h('span', { class: 'val' }, '—'), tr = h('span', { class: 'tr', 'aria-hidden': 'true' }), st = h('span', { class: 'status' }), cmp = h('span', { class: 'cmp' });
     const fill = h('i', { class: 'rb-fill' });
     const bar = h('span', { class: 'rb', 'aria-hidden': 'true' }, fill, t.ticks.map((x) => h('i', { class: 'rb-tick', style: { left: pos(t, x) + '%' } })));
-    const el = h('button', { class: 'metric' + (PRIMARY.has(t.id) ? ' primary' : ''), 'data-id': t.id },
+    const el = h('button', { class: 'metric' + (PRIMARY.has(t.id) || LOBULE_PRIMARY.has(t.id) ? ' primary' : ''), 'data-id': t.id },
       h('span', { class: 'k' }, t.ks ? [h('span', { class: 'k-l' }, t.k), h('span', { class: 'k-s' }, t.ks)] : t.k), h('span', { class: 'v' }, val, shared ? null : h('span', { class: 'unit' }, t.u, t.ux ? h('span', { class: 'u-x' }, t.ux) : null), tr), bar, h('span', { class: 's' }, st, cmp));
     el.title = `${t.title || t.k}${t.pane ? '\nClick to open the Ascites view.' : t.why ? '\nClick for what is driving it.' : ''}`;
     // Ascites opens its own instrument (amount, cause, tap, treatment) rather than a second popover.
@@ -112,11 +134,14 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     tileEls[t.id] = { el, t, val, tr, st, cmp, fill, hist: [], sev: null, trend: '', ariaTxt: '' };
     return el;
   }
-  for (const [g, label] of GROUPS) {
-    const ts = TILES.filter((t) => t.group === g);
+  for (const [g, label] of [['lobule', 'Lobule, % of normal'], ...GROUPS]) {
+    const ts = [...TILES, ...LOBULE_TILES].filter((t) => t.group === g);
     row.append(h('div', { class: 'ro-group', 'data-group': g, role: 'group', 'aria-label': label },
       h('span', { class: 'ro-cap', 'aria-hidden': 'true' }, label), h('div', { class: 'ro-tiles' }, ts.map((t) => tile(t, false)))));
   }
+  // The Lobule view swaps the key readouts for the lobule's flows (the group is hidden elsewhere, by CSS).
+  const syncLobule = () => { const on = !!store.get().lobule; strip.classList.toggle('lob', on); for (const x of Object.values(tileEls)) x.el.classList.toggle('primary', on ? LOBULE_PRIMARY.has(x.t.id) : PRIMARY.has(x.t.id)); };
+  store.on('lobule', () => { syncLobule(); setTimeout(() => dispatchEvent(new Event('resize')), 30); });
   const vitEls = VITALS.map((v) => {
     const val = h('b', {}, '—');
     const el = h(v.why ? 'button' : 'div', { class: 'vital', title: `${v.title} (${v.u})${v.why ? '\nClick for what is driving it.' : ''}` }, h('span', {}, v.k), val);
@@ -150,13 +175,16 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   function updateStrip(f) {
     const m = f.metrics;
     const st0 = store.get();
+    if (strip.classList.contains('lob') !== !!st0.lobule) syncLobule();
     const hidden = st0.hiddenReadouts;
     const A = st0.compareSnap?.metrics || null;
     const now = performance.now();
     for (const x of Object.values(tileEls)) {
       const { el, t } = x;
-      const v = readoutValue(t, m, hidden);
-      const measured = v != null && hidden?.has(t.hideKey);
+      const lz = t.group === 'lobule';
+      if (lz && !st0.lobule) continue;
+      const v = lz ? (st0.imaging ? null : t.v(f, st0)) : readoutValue(t, m, hidden);
+      const measured = !lz && v != null && hidden?.has(t.hideKey);
       let sev, s;
       if (v == null) {
         if (x.val.textContent !== '?') x.val.textContent = '?';
@@ -166,8 +194,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       } else {
         const txt = fmt(v, t.d);
         if (x.val.textContent !== txt) x.val.textContent = txt;
-        s = measured ? 'Measured' : (t.ss && narrow.matches ? t.ss : t.s)(v, m);
-        sev = t.st(v, m);
+        const a = lz ? [f, st0] : [m];
+        s = measured ? 'Measured' : (t.ss && narrow.matches ? t.ss : t.s)(v, ...a);
+        sev = t.st(v, ...a);
         const w = pos(t, v), o = pos(t, clamp(0, t.scale[0], t.scale[1]));
         x.fill.style.left = Math.min(w, o) + '%'; x.fill.style.width = Math.abs(w - o) + '%';
       }
@@ -176,7 +205,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       if (trend !== x.trend) { x.trend = trend; x.tr.textContent = trend === 'up' ? '▲' : trend === 'down' ? '▼' : ''; }
       // Compare: each tile reports its change from the pinned moment in place of the status word.
       if (A && v != null && !measured) {
-        const d = v - t.v(A);
+        const d = v - (lz ? (st0.compareSnap.frame ? t.v(st0.compareSnap.frame, st0) : v) : t.v(A));
         const same = Math.abs(d) < Math.pow(10, -t.d) * 0.5;
         x.cmp.textContent = same ? 'same as then' : `${d > 0 ? '+' : '−'}${fmt(Math.abs(d), t.d)} vs then`;
         x.cmp.className = 'cmp ' + (same ? 'same' : d > 0 ? 'up' : 'down');

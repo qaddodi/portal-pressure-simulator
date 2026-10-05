@@ -2,23 +2,23 @@
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
 import { startHost, host } from './host.js?v=5e522a6bbf';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=9c069d2ebf';
-import { createStage } from './stage.js?v=1a9ac2c034';
-import { createInspector } from './inspector.js?v=d5eb049d8d';
-import { createDock, CUTOFFS } from './dock.js?v=0865bd166b';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=bf24fe8d3e';
+import { createStage } from './stage.js?v=c905f87e5d';
+import { createInspector } from './inspector.js?v=11ade9d6ef';
+import { createDock, CUTOFFS } from './dock.js?v=493e34a399';
 import { createWhy } from './why.js?v=548d0adab3';
-import { createTimeline } from './timeline.js?v=fb1c454a3b';
-import { createLearn } from './learn.js?v=171ff8cc74';
-import { createCases } from './cases.js?v=7626c6db67';
-import { createCompare } from './compare.js?v=e139fe114d';
-import { createCard } from './card.js?v=15bc6f7c3c';
-import { createChart, computeFindings } from './chart.js?v=22bd79513e';
-import { createHome } from './home.js?v=5c998b7808';
+import { createTimeline } from './timeline.js?v=736fdf9abe';
+import { createLearn } from './learn.js?v=ef67d4f5d9';
+import { createCases } from './cases.js?v=b85781117b';
+import { createCompare } from './compare.js?v=1b0dfd73d5';
+import { createCard } from './card.js?v=b3f19dbd36';
+import { createChart, computeFindings } from './chart.js?v=6d4aa10ce9';
+import { createHome } from './home.js?v=4178edf0bb';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
-import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=2affcf4be2';
+import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=a175f2a280';
 import { startLMS } from './lms.js?v=4511ed56b8';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=e765c9d0f8';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=7780386f90';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=29d10ad9ef';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=831ebf143a';
@@ -128,7 +128,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=3544751f3a'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=8ad91c7e20'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -140,7 +140,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=c866bc27fc'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=afd2f56b5f'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -439,6 +439,8 @@ function buildHud() {
     redraw();
   });
   $('#btnBlood').onclick = (e) => openBlood(e.currentTarget);
+  $('#btnLobuleLayers').onclick = (e) => openLobuleLayers(e.currentTarget);
+  store.on('lobule', (on) => { $('#btnLobuleLayers').hidden = !on; if (!on) closePopover(); });
   syncBloodBtn();
   renderLegend();
   store.on('colorMode', () => { $('#colorModeLabel').textContent = COLOR_MODES[store.get().colorMode]; });
@@ -536,14 +538,16 @@ function injectDye({ hold = false } = {}) {
   const name = sel?.type === 'edge' ? (EDGES.find((e) => e.id === sel.id)?.label || 'the vessel') : 'the gut\u2019s veins';
   toast(`Injecting dye into ${name}`);
 }
+// A row of a Blood or Layers menu: an icon, a name, a line under it, and a checkbox.
+function menuToggle(checked, ic, label, sub, onChange) {
+  const c = h('input', { type: 'checkbox', checked });
+  c.addEventListener('change', () => onChange(c.checked));
+  return h('label', { class: 'menu-item blood-opt' }, c, svgIcon(ic, 'bo-ic'), h('span', {}, label, sub ? h('small', {}, sub) : null));
+}
 function openBlood(anchor) {
   const st = store.get(), b = st.blood || {};
   const flowOn = st.layers.flow !== false;
-  const toggle = (checked, ic, label, sub, onChange) => {
-    const c = h('input', { type: 'checkbox', checked });
-    c.addEventListener('change', () => onChange(c.checked));
-    return h('label', { class: 'menu-item blood-opt' }, c, svgIcon(ic, 'bo-ic'), h('span', {}, label, sub ? h('small', {}, sub) : null));
-  };
+  const toggle = menuToggle;
   const layer = (key, ic, label, sub) => toggle(st.layers[key] !== false, ic, label, sub, (on) => store.set({ layers: { ...store.get().layers, [key]: on } }));
   popover(anchor, [
     h('div', { class: 'menu-title' }, 'Moving blood'),
@@ -554,6 +558,17 @@ function openBlood(anchor) {
     layer('chips', 'tag', 'Pressure values', 'The number beside each vessel\u2019s name'),
     layer('collaterals', 'route', 'Potential collaterals', 'Dotted routes that open as pressure rises'),
     layer('labels', 'liver', 'Organ names'),
+  ], { cls: 'blood-pop' });
+}
+// The Lobule view's layers, in the same kind of menu: the zone bands, the lymph, and the explanation caption.
+function openLobuleLayers(anchor) {
+  const l = store.get().lobuleLayers || {};
+  const set = (patch) => store.set({ lobuleLayers: { ...store.get().lobuleLayers, ...patch } });
+  popover(anchor, [
+    h('div', { class: 'menu-title' }, 'Show on the lobule'),
+    menuToggle(!!l.zones, 'zones', 'Zones', 'Rappaport zones: 1 periportal (oxygen-rich) to 3 centrilobular', (on) => set({ zones: on })),
+    menuToggle(!!l.lymph, 'lymph', 'Lymph', 'Lymph forming in the space of Disse and draining to the portal tract', (on) => set({ lymph: on })),
+    menuToggle(l.note !== false, 'bulb', 'Explanation', 'Where the pressure is lost, and what that means for HVPG', (on) => set({ note: on })),
   ], { cls: 'blood-pop' });
 }
 function openLayers(anchor) {
@@ -881,7 +896,7 @@ function wireFloating() {
   let busyT = 0, down = null;
   const busy = (ms) => { app.classList.add('stage-busy'); clearTimeout(busyT); busyT = setTimeout(() => app.classList.remove('stage-busy'), ms); };
   // Only the figure itself: a swipe on a card (or one from the phone's edge) leaves the rest alone.
-  view.addEventListener('pointerdown', (e) => { down = systemEdge(e) || e.target.closest?.('.lz-side, .stage-blocker, .zoom-pill, button, input, select') ? null : [e.clientX, e.clientY]; });
+  view.addEventListener('pointerdown', (e) => { down = systemEdge(e) || e.target.closest?.('.lz-cir, .lz-cap, .stage-blocker, .zoom-pill, button, input, select') ? null : [e.clientX, e.clientY]; });
   view.addEventListener('pointermove', (e) => { if (down && e.buttons && Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 8) busy(5000); });
   addEventListener('pointerup', () => { if (down) { down = null; if (app.classList.contains('stage-busy')) busy(600); } });
   addEventListener('pointercancel', () => { if (down) { down = null; busy(300); } });

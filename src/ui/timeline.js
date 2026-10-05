@@ -11,10 +11,10 @@
 // from here" freezes the current moment as A for comparison. It replaces play/speed, the Seconds/Months
 // switch, undo/redo/reset, the Findings list, the Log instrument and Compare mode.
 
-import { store, replaceParams, onParamChange } from './store.js?v=9c069d2ebf';
+import { store, replaceParams, onParamChange } from './store.js?v=bf24fe8d3e';
 import { host } from './host.js?v=5e522a6bbf';
 import { h, fmt, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=831ebf143a';
-import { activeInterventions } from './inspector.js?v=d5eb049d8d';
+import { activeInterventions } from './inspector.js?v=11ade9d6ef';
 
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };
 export const EVENT_WHY = { VARIX_RUPTURE: 'varix', RED_WALE: 'varix', VARIX_LARGE: 'varix', HEPATOFUGAL_PV: 'pvFlow', PV_STASIS: 'pvFlow', CSPH: 'hvpg', BLEED_RISK: 'hvpg', ASCITES_FORMING: 'ascites', TENSE_ASCITES: 'ascites', HIGH_SHUNT: 'shunt', LIVER_HYPOPERFUSION: 'liverPerf', RA_HIGH: 'ra', HYPERDYNAMIC: 'co', SPLENOMEGALY: 'spleen' };
