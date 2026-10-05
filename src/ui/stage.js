@@ -6,7 +6,7 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=bf24fe8d3e';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar, systemEdge } from './util.js?v=831ebf143a';
-import { createLobuleZoom } from './lobule-zoom.js?v=5f811b7780';
+import { createLobuleZoom } from './lobule-zoom.js?v=867c3aa2ca';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=f7c2445d32';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -1007,16 +1007,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // liver's card, the palette, a presenter step) and cross-fades over the plate.
   let liverBB = null;
   let lobuleOn = false, lobU = 0, lobAnim = 0;
-  // Into the lobule, a dive (1.6 s): one continuous zoom from a spot in the liver, gentle at both ends.
-  // The anatomy is magnified as it stands (a compositor transform: nothing is redrawn); a field of
-  // lobules, many and small, blooms out from that spot over it; the zoom goes on through them and
-  // settles onto one, where the lobule's tissue fades in, in place, and then its labels and card.
-  // Out, the same in reverse, quicker.
+  // Into the lobule, a dive: one continuous zoom from a spot in the liver, at one even pace through the
+  // scales (each doubling takes the same time, as in Powers of Ten), eased only at its two ends.
+  // It goes as deep as the real thing: a liver is about 17 cm across and a lobule about 1.7 mm, a
+  // hundred to one, so the lobule on arrival is a hundredth of the liver's width the zoom began with.
+  // In stages, so every frame stays cheap: the anatomy is magnified as it stands (a compositor
+  // transform: nothing is redrawn) up to about ×6; a cached texture of many small hexagonal lobules
+  // fades in over it and the zoom goes on through the texture (a repeating pattern, drawn once); only
+  // in the last doublings does the one lobule it settles on fade in, in full detail, in place, and then
+  // its labels and card. A scale bar names the size on the way. Out, the same in reverse, quicker.
   // The anatomy's own framing is never touched. diveT is the dive's clock, 0 (anatomy) to 1 (lobule).
-  let diveAt = null, diveLand = null, diveT = 0;
-  const DIVE_MS = 1600, RISE_MS = 1000;
-  const RH = 11;   // a lobule's size on screen (px) as the liver's surface gives way to the field
-  const LC = Math.log(5);   // the anatomy's share of the zoom (×5), the field's the rest
+  let diveAt = null, diveLand = null, diveT = 0, diveLiverPx = 0;
+  const LIVER_MM = 170, LIVER_LOBULES = 100;   // a liver ~17 cm across; about a hundred lobules across it
+  const LN_ANAT = Math.log(6);   // the anatomy's share of the zoom (×6); the texture's the rest
+  const diveMs = (Z, out) => { const n = Z / Math.LN2; return Math.round(clamp(out ? 250 + 230 * n : 400 + 400 * n, out ? 1200 : 2400, out ? 2200 : 4200)); };
+  // Speed constant through the middle, eased over the first and last tenth: progress 0…1 for time 0…1.
+  const paceP = (t) => { const a = 0.1, k = 1 / (1 - a); return t <= 0 ? 0 : t >= 1 ? 1 : t < a ? (k * t * t) / (2 * a) : t > 1 - a ? 1 - (k * (1 - t) ** 2) / (2 * a) : k * (a / 2 + t - a); };
   const diveEls = () => [svg, wrap.querySelector('#stageOver'), wrap.querySelector('#labels'), vCanvas].filter(Boolean);
   function diveTarget() {
     const lb = liverBox();
@@ -1024,6 +1030,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return [lb.x + lb.w * 0.42, lb.y + lb.h * 0.5];
   }
   const smoothT = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+  // The scale bar: the real length a bar of about 60–130 px stands for, at the scale the zoom is at.
+  const NICE_MM = [100, 50, 20, 10, 5, 2, 1, 0.5, 0.2, 0.1, 0.05];
+  const scaleBar = h('div', { class: 'dive-scale', 'aria-hidden': 'true' }, h('i'), h('span'));
+  const scaleBarLine = scaleBar.firstChild, scaleBarText = scaleBar.lastChild;
+  let scaleBarLabel = '';
+  function paintScaleBar(z, vis) {
+    scaleBar.style.opacity = vis.toFixed(3);
+    if (vis <= 0.001 || !diveLiverPx) return;
+    const mmPerPx = LIVER_MM / (diveLiverPx * Math.exp(z)), mm = NICE_MM.find((v) => v / mmPerPx <= 130) || NICE_MM[NICE_MM.length - 1];
+    scaleBarLine.style.width = `${(mm / mmPerPx).toFixed(1)}px`;
+    const label = mm >= 10 ? `${mm / 10} cm` : mm >= 1 ? `${mm} mm` : `${Math.round(mm * 1000)} µm`;
+    if (label !== scaleBarLabel) { scaleBarLabel = label; scaleBarText.textContent = label; }
+  }
   // The elements' offsets are read once per dive, before any write: read between writes, each would
   // make the browser lay the page out again, every frame.
   let diveOrig = null;
@@ -1045,31 +1064,31 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function diveFrame(t) {
     if (diveAt && diveLand) {
-      // The whole zoom in one log scale. The lobule's place is read live, so the field settles exactly
-      // where the view frames it.
+      // The whole zoom in one log scale: z = ln of the magnification, 0 (the anatomy as it is) to Z (the
+      // lobule as it is framed). The lobule's place is read live, so the zoom settles exactly where the view frames it.
       if (lz.isShown()) diveLand = lz.current();
       else if (lobuleOn) lz.warm();
-      const lt = LC + Math.log(Math.max(RH * 2, diveLand.r) / RH);
-      // Eased in and out (smootherstep); the anatomy's part takes the first two fifths of the way.
-      const u = clamp(t / 0.84, 0, 1), p = u * u * u * (u * (u * 6 - 15) + 10), P = 0.4;
-      const z = p < P ? LC * p / P : LC + (lt - LC) * (p - P) / (1 - P);
-      setDiveScale(t >= 1 ? 1 : Math.exp(Math.min(z, LC + 0.4)));
+      const Z = Math.max(Math.log(12), Math.log(diveLand.r / Math.max(0.5, diveR0())));
+      const z = paceP(t) * Z, k = Math.exp(z - Z);   // k: the lobule's size now, as a share of its size on arrival
+      setDiveScale(t >= 1 ? 1 : Math.exp(Math.min(z, LN_ANAT)));
       // The anatomy's labels leave as the zoom starts.
       const lab = wrap.querySelector('#labels');
-      if (lab) lab.style.opacity = t <= 0 ? '' : (1 - smoothT(0, 0.12, t)).toFixed(3);
-      // The detailed lobule comes in while the zoom is still settling, zooming with the field.
-      const r = RH * Math.exp(z - LC);
-      lz.setDiveZoom(t >= 1 ? 1 : clamp(r / diveLand.r, 0.05, 1), diveLand.x, diveLand.y);
-      const [ox, oy] = diveAt;
-      const g = smoothT(LC - 0.5, lt, z);   // the zoom's centre drifts from the dive point to the lobule's place
+      if (lab) lab.style.opacity = t <= 0 ? '' : (1 - smoothT(0, 0.4, z)).toFixed(3);
+      // A true zoom about the dive point: the lobule it ends on starts beside that point and is carried
+      // to its place as it grows, in proportion to its size.
+      const [ox, oy] = diveAt, ax = lerp(ox, diveLand.x, k), ay = lerp(oy, diveLand.y, k);
+      lz.setDiveZoom(t >= 1 ? 1 : clamp(k, 0.02, 1), diveLand.x, diveLand.y, ax, ay);
       lz.setDive(t <= 0 || t >= 1 ? null : {
-        a: smoothT(LC * 0.45, LC + 0.3, z), x: lerp(ox, diveLand.x, g), y: lerp(oy, diveLand.y, g),
-        r, ox, oy, quiet: smoothT(0.45, 0.8, t),
+        a: smoothT(Math.log(1.8), Math.log(4.5), z), x: ax, y: ay,
+        r: diveLand.r * k, ox, oy, quiet: smoothT(0.25, 0.7, k),
       });
+      paintScaleBar(z, t <= 0 || t >= 1 ? 0 : smoothT(0, 0.3, z) * (1 - smoothT(0.55, 0.95, k)));
+      lobU = t >= 1 ? 1 : smoothT(0.15, 0.9, k);
     }
-    lobU = easeInOut(clamp((t - 0.48) / 0.4, 0, 1));
     syncSemantic();
   }
+  // The lobule's radius on screen at the start of the zoom: a hundredth of the liver's width, halved.
+  const diveR0 = () => diveLiverPx / (2 * LIVER_LOBULES);
   function setLobule(on) {
     if (on && morphTarget !== 0) return;
     if (lobuleOn === on && diveT === (on ? 1 : 0)) return;
@@ -1079,19 +1098,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const w = diveTarget();
       if (w) {
         refreshCTM();
-        const [x, y] = worldToLocal(w[0], w[1]);
+        const [x, y] = worldToLocal(w[0], w[1]), lb = liverBox();
         diveAt = [clamp(x, 0, wrap.clientWidth), clamp(y, 0, wrap.clientHeight)];
-      } else diveAt = [wrap.clientWidth / 2, wrap.clientHeight / 2];
+        diveLiverPx = Math.abs(worldToLocal(lb.x + lb.w, lb.y)[0] - worldToLocal(lb.x, lb.y)[0]);
+      } else { diveAt = [wrap.clientWidth / 2, wrap.clientHeight / 2]; diveLiverPx = wrap.clientWidth * 0.3; }
       diveLand = lz.landing();
       lz.prewarm(diveLand.r);
     } else if (!on && diveT >= 1) diveLand = lz.current();
-    const ms = reduceMotion.matches ? 0 : on ? DIVE_MS : RISE_MS, from = diveT, to = on ? 1 : 0, t0 = performance.now();
+    const Z = Math.max(Math.log(12), Math.log((diveLand?.r || 200) / Math.max(0.5, diveR0())));
+    const ms = reduceMotion.matches ? 0 : diveMs(Z, !on), from = diveT, to = on ? 1 : 0, t0 = performance.now();
     const step = (now) => {
       const e = ms ? clamp((now - t0) / (ms * Math.abs(to - from) || 1), 0, 1) : 1;
       diveT = from + (to - from) * e;
       diveFrame(diveT);
       if (e < 1) lobAnim = requestAnimationFrame(step);
-      else if (!on) { setDiveScale(1); lz.setDiveZoom(1, 0, 0); diveLand = null; }
+      else if (!on) { setDiveScale(1); lz.setDiveZoom(1, 0, 0); diveLand = null; paintScaleBar(0, 0); }
     };
     step(t0);
   }
@@ -1103,7 +1124,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function syncSemantic() {
     if (!lz) return;
     // Turning to the circuit closes the lobule view.
-    if (lobuleOn && morphTarget !== 0) { lobuleOn = false; lobU = 0; diveT = 0; diveLand = null; lz.setDive(null); lz.setDiveZoom(1, 0, 0); if (diveAt) setDiveScale(1); { const lab = wrap.querySelector('#labels'); if (lab) lab.style.opacity = ''; } cancelAnimationFrame(lobAnim); if (store.get().lobule) store.set({ lobule: false }); }
+    if (lobuleOn && morphTarget !== 0) { lobuleOn = false; lobU = 0; diveT = 0; diveLand = null; lz.setDive(null); lz.setDiveZoom(1, 0, 0); paintScaleBar(0, 0); if (diveAt) setDiveScale(1); { const lab = wrap.querySelector('#labels'); if (lab) lab.style.opacity = ''; } cancelAnimationFrame(lobAnim); if (store.get().lobule) store.set({ lobule: false }); }
     const u = morphTarget === 0 ? lobU : 0;
     const wasOpen = lz.isOpen();
     lz.setFade(u);
@@ -1157,6 +1178,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   store.on('lobule', (on) => (on ? openLobule() : closeLobule()));
   const zoomLobule = () => store.set({ lobule: true });
   lz = createLobuleZoom({ host: wrap });
+  wrap.append(scaleBar);
 
   // ── Detail ────────────────────────────────────────
   // Adaptive detail: when the device cannot keep up (frames arriving slower than ~22 a second
