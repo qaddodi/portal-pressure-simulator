@@ -751,6 +751,7 @@ export function createLobuleZoom({ host }) {
 
   // ── Station labels (HTML, styled as the anatomy's) with leaders ──
   const labs = {}, badges = {};
+  let zoneChip = null;
   function setLab(key, name, short, v, u, d, col) {
     let L = labs[key];
     if (!L) {
@@ -816,6 +817,16 @@ export function createLobuleZoom({ host }) {
     if (key === layoutKey) return;
     layoutKey = key;
     pickAnchors(fr0);
+    // Zoomed in: a small chip names the zone under the middle of the free space, so you always know where you are.
+    if (!zoneChip) { zoneChip = h('div', { class: 'lz-zonechip', 'aria-hidden': 'true' }); labels.append(zoneChip); }
+    const [wx, wy] = toWorld([(fr0.l + fr0.r) / 2, (fr0.t + fr0.b) / 2]), qc = hexFrac(wx, wy, g.cx, g.cy, g.R);
+    zoneChip.hidden = atFit || qc >= 1;
+    if (!zoneChip.hidden) {
+      const z = zoneOf(qc);
+      zoneChip.className = 'lz-zonechip z' + z;
+      zoneChip.textContent = ['Zone 1 · periportal', 'Zone 2 · midzonal', 'Zone 3 · centrilobular'][z - 1];
+      zoneChip.style.left = `${(fr0.l + fr0.r) / 2}px`; zoneChip.style.top = `${fr0.t + 4}px`;
+    }
     leaders.setAttribute('viewBox', `0 0 ${g.W} ${g.H}`);
     const { R, cx, cy } = g;
     // Direct labels for the portal venule and sinusoids. Only the central venule
