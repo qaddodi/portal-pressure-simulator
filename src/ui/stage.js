@@ -3675,7 +3675,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (wheelKind === 'wheel' || lobuleOn) { zoomAt(ev.clientX, ev.clientY, Math.exp(-clamp(dy, -120, 120) * 0.0015)); return; }
     if (scrubS > 0) return;   // panning is locked onto the lobule while the dive is under the fingers
     const s = vbScale();
-    vt = softPan({ k: vt.k, x: vt.x - dx / s, y: vt.y - dy / s });
+    const u0 = unsoftPan(vt);
+    vt = softPan({ k: vt.k, x: u0.x - dx / s, y: u0.y - dy / s });
     applyVT(); CTM = null; settleSoon();
   };
   svg.addEventListener('wheel', onWheel, { passive: false });
@@ -3689,18 +3690,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const b = stageBox(), vb = svg.viewBox.baseVal, s = Math.min(b.sw / vb.width, b.sh / vb.height);
     return { x: vb.x - (b.sw - vb.width * s) / 2 / s, y: vb.y - (b.sh - vb.height * s) / 2 / s, w: b.sw / s, h: b.sh / s };
   }
-  // Panning past the figure meets rising resistance (a rubber band): the middle of the view can leave the
-  // figure's bounds by about a fifth of its width at most, however far the hand goes; springBack then pulls it in.
-  function softPan(v) {
+  // Panning past the figure meets rising resistance, the lobule view's rubber band: a tanh band easing toward
+  // 40% of the view, measured from where the middle of the view meets the figure's edge (at the fit zoom, from the fit framing).
+  // hardPan is the nearest resting place; softPan puts a raw pan on the band, unsoftPan takes a banded pan back to raw.
+  function hardPan(v) {
+    const d = defaultVT(morphTarget === 1);
+    if (v.k <= d.k * 1.001) return { k: v.k, x: d.x, y: d.y };
     const c = morphTarget === 1 ? circVB() : VB_ANAT, vis = visibleVB();
     const x0 = c[0] * v.k + v.x, x1 = (c[0] + c[2]) * v.k + v.x, y0 = c[1] * v.k + v.y, y1 = (c[1] + c[3]) * v.k + v.y;
-    const vx = vis.x + vis.w / 2, vy = vis.y + vis.h / 2, Lx = 0.2 * (x1 - x0), Ly = 0.2 * (y1 - y0);
-    const soft = (o, L) => L * (1 - Math.exp(-o / L));
-    let { x, y } = v;
-    if (vx < x0) x -= (x0 - vx) - soft(x0 - vx, Lx); else if (vx > x1) x += (vx - x1) - soft(vx - x1, Lx);
-    if (vy < y0) y -= (y0 - vy) - soft(y0 - vy, Ly); else if (vy > y1) y += (vy - y1) - soft(vy - y1, Ly);
-    return { k: v.k, x, y };
+    const vx = vis.x + vis.w / 2, vy = vis.y + vis.h / 2;
+    return { k: v.k, x: v.x + (vx < x0 ? vx - x0 : vx > x1 ? vx - x1 : 0), y: v.y + (vy < y0 ? vy - y0 : vy > y1 ? vy - y1 : 0) };
   }
+  function bandPan(v, inv) {
+    const h = hardPan(v), vis = visibleVB(), Lx = 0.4 * vis.w, Ly = 0.4 * vis.h;
+    const f = (o, L) => (inv ? Math.atanh(clamp(o / L, -0.999, 0.999)) * L : L * Math.tanh(o / L));
+    return { k: v.k, x: h.x + f(v.x - h.x, Lx), y: h.y + f(v.y - h.y, Ly) };
+  }
+  const softPan = (v) => bandPan(v, false), unsoftPan = (v) => bandPan(v, true);
   function springBack() {
     if (lobuleOn || vtGliding || drag || glide) return;
     let to = { ...vt };
@@ -3725,15 +3731,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function stopGlide() { if (glide) { cancelAnimationFrame(glide); glide = 0; } }
   function fling(vx, vy) {
     if (reduceMotion.matches || Math.hypot(vx, vy) < 0.25) { springBack(); return; }
-    const s0 = vbScale();
-    let last = performance.now();
+    const s0 = vbScale(), L = 36 / s0;
+    let last = performance.now(), rx = vt.x, ry = vt.y;
+    // The lobule view's flick: carried past the edge the glide is braked hard (the velocity halves each frame), the overshoot
+    // shows only as a short stretch, and it returns to the edge within a few frames.
     const step = (now) => {
-      const dt = Math.min(34, now - last), decay = Math.pow(0.9955, dt);
+      glide = 0;
+      const dt = Math.min(34, now - last), decay = Math.pow(0.9955, dt), f16 = dt / 16;
       last = now; vx *= decay; vy *= decay;
-      vt = softPan({ k: vt.k, x: vt.x + (vx * dt) / s0, y: vt.y + (vy * dt) / s0 });
+      rx += (vx * dt) / s0; ry += (vy * dt) / s0;
+      const h = hardPan({ k: vt.k, x: rx, y: ry });
+      let ox = rx - h.x, oy = ry - h.y;
+      if (ox) { vx *= Math.pow(0.5, f16); ox *= Math.pow(0.78, f16); }
+      if (oy) { vy *= Math.pow(0.5, f16); oy *= Math.pow(0.78, f16); }
+      rx = h.x + ox; ry = h.y + oy;
+      vt = { k: vt.k, x: h.x + (ox ? L * Math.tanh(ox / L) : 0), y: h.y + (oy ? L * Math.tanh(oy / L) : 0) };
       applyVT(); CTM = null;
-      if (Math.hypot(vx, vy) > 0.03) glide = requestAnimationFrame(step);
-      else { glide = 0; springBack(); }
+      if (Math.hypot(vx, vy) > 0.03 || Math.abs(ox) * s0 > 0.5 || Math.abs(oy) * s0 > 0.5) glide = requestAnimationFrame(step);
+      else { vt = { k: vt.k, x: h.x, y: h.y }; applyVT(); CTM = null; springBack(); }
     };
     glide = requestAnimationFrame(step);
   }
