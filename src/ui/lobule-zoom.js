@@ -305,19 +305,25 @@ export function createLobuleZoom({ host }) {
   function fling(vx, vy) {
     stopInertia();
     if (reduce.matches || fade < 0.98 || Math.hypot(vx, vy) < 0.25) return;
-    let last = performance.now();
+    let last = performance.now(), rx = V.x, ry = V.y;
+    // Like a scroll view: carried past the edge the glide is braked hard (the velocity halves each frame), the overshoot
+    // shows only as a short stretch, and it returns to the edge within a few frames.
     const step = (now) => {
       inertia = 0;
       if (reduce.matches || fade < 0.98) return;
-      const dt = Math.min(34, now - last), decay = Math.pow(0.9955, dt);
+      const dt = Math.min(34, now - last), decay = Math.pow(0.9955, dt), f16 = dt / 16;
       last = now; vx *= decay; vy *= decay;
-      const x = V.x + vx * dt, y = V.y + vy * dt;
-      V.x = x; V.y = y; clampV();
-      // Stop the blocked axis at a boundary while the other can continue gliding.
-      if (Math.abs(V.x - x) > 0.01) vx = 0;
-      if (Math.abs(V.y - y) > 0.01) vy = 0;
+      rx += vx * dt; ry += vy * dt;
+      V.x = rx; V.y = ry; clampV();
+      const cx = V.x, cy = V.y;
+      let ox = rx - cx, oy = ry - cy;
+      if (ox) { vx *= Math.pow(0.5, f16); ox *= Math.pow(0.78, f16); rx = cx + ox; }
+      if (oy) { vy *= Math.pow(0.5, f16); oy *= Math.pow(0.78, f16); ry = cy + oy; }
+      const L = 36;
+      V.x = cx + (ox ? L * Math.tanh(ox / L) : 0); V.y = cy + (oy ? L * Math.tanh(oy / L) : 0);
       viewChanged();
-      if (Math.hypot(vx, vy) > 0.03) inertia = requestAnimationFrame(step);
+      if (Math.hypot(vx, vy) > 0.03 || Math.abs(ox) > 0.5 || Math.abs(oy) > 0.5) inertia = requestAnimationFrame(step);
+      else { V.x = cx; V.y = cy; viewChanged(); }
     };
     inertia = requestAnimationFrame(step);
   }
