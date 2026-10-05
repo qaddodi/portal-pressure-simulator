@@ -1,97 +1,57 @@
 // Colour Doppler display: the modes and their colour maps, in one place.
 //
-// The display takes three plain numbers per instant, none of them from a vessel's name:
+// The maps are the scanner's own "map 1" pair: velocity in flat bands (toward the transducer
+// orange-red, away blue, black where there is no shift) and variance (toward orange → yellow,
+// away blue-purple → green, laminar to turbulent, black where there is no shift).
+//
+// The display takes plain numbers per instant, none of them from a vessel's name:
 //   u  signed Doppler velocity as a fraction of the colour scale, from −1 to 1; positive is flow
-//      toward the transducer (the beam), negative away. It is the flow velocity along the beam:
-//      v · cos θ, then divided by the scale.
-//   p  Doppler signal power from 0 to 1 (how much blood is moving, whichever way and however fast)
-//   s  velocity variance from 0 to 1 (how disturbed the flow is)
-// and returns [r, g, b, a] (a of 0: nothing to draw). The Spectrum mode has no colour.
+//      toward the transducer (the beam), negative away: v · cos θ over the scale
+//   s  velocity variance from 0 (laminar) to 1 (turbulent)
+// and returns [r, g, b, a] (a of 0: black, nothing to draw). The Spectrum mode has no colour.
 
 export const THETA = 60;                               // beam-to-flow angle in degrees (the spectral header's θ)
 export const COS_THETA = Math.cos(THETA * Math.PI / 180);
 
 export const DOPPLER_MODES = [
   { id: 'spectrum', label: 'Spectrum', short: 'Spectrum' },
-  { id: 'dirpower', label: 'Directional Power', short: 'Dir. power' },
+  { id: 'velocity', label: 'Velocity', short: 'VEL' },
   { id: 'variance', label: 'Variance', short: 'Variance' },
 ];
-/** Power Doppler carries no direction, so Invert does nothing there. */
-export const isDirectional = (mode) => mode === 'direction' || mode === 'dirpower' || mode === 'variance';
+export const isDirectional = (mode) => mode === 'velocity' || mode === 'variance';
 
-// A map is a list of [position, r, g, b] stops, baked into a 256-step table.
-const bake = (stops) => {
-  const t = new Uint8ClampedArray(256 * 3);
-  for (let i = 0; i < 256; i++) {
-    const x = i / 255;
-    let k = 1; while (k < stops.length - 1 && stops[k][0] < x) k++;
-    const a = stops[k - 1], b = stops[k], f = Math.min(1, Math.max(0, (x - a[0]) / (b[0] - a[0])));
-    for (let c = 0; c < 3; c++) t[i * 3 + c] = a[c + 1] + (b[c + 1] - a[c + 1]) * f;
-  }
-  return t;
-};
-// Toward the transducer: dark red, red, orange, yellow. Away: dark blue, blue, light blue, cyan.
-const TOWARD = bake([[0, 70, 0, 0], [0.25, 150, 10, 10], [0.55, 235, 30, 20], [0.8, 255, 125, 20], [1, 255, 225, 95]]);
-const AWAY = bake([[0, 0, 0, 70], [0.25, 10, 25, 150], [0.55, 25, 90, 235], [0.8, 20, 170, 255], [1, 110, 235, 255]]);
-// Power Doppler: dim red through orange to yellow, whatever the direction.
-const POWER = bake([[0, 90, 0, 0], [0.3, 190, 30, 10], [0.6, 250, 120, 10], [0.85, 255, 200, 30], [1, 255, 245, 145]]);
-// Variance: the directional colour is mixed toward yellow (toward) or cyan (away), then green, then lime.
-const VAR_TOWARD = bake([[0, 0, 0, 0], [0.4, 255, 220, 40], [0.75, 60, 215, 80], [1, 170, 245, 110]]);
-const VAR_AWAY = bake([[0, 0, 0, 0], [0.4, 40, 210, 230], [0.75, 60, 215, 80], [1, 170, 245, 110]]);
+const TOWARD = [224, 90, 48], AWAY = [58, 75, 168];                    // velocity map 1
+const VAR_TOWARD = [[240, 138, 40], [255, 232, 48]];                   // variance map 1: laminar → turbulent
+const VAR_AWAY = [[107, 88, 168], [46, 154, 92]];
 
-const VAR_BASE = 0.6;   // the Variance map's base shade (position on the direction map)
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const smooth = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); };
-const at = (out, lut, x) => { const i = Math.round(clamp01(x) * 255) * 3; out[0] = lut[i]; out[1] = lut[i + 1]; out[2] = lut[i + 2]; return out; };
-const tmp = [0, 0, 0];
 
 /** Colour for one instant, written into out ([r, g, b, a]; a of 0: nothing to draw). invert swaps toward and away. */
-export function dopplerColor(mode, { u = 0, p = 0, s = 0 }, invert = false, out = [0, 0, 0, 0]) {
-  if (mode === 'power') { at(out, POWER, p); out[3] = smooth(0.02, 0.12, p); return out; }
+export function dopplerColor(mode, { u = 0, s = 0 }, invert = false, out = [0, 0, 0, 0]) {
+  if (mode !== 'velocity' && mode !== 'variance') { out[0] = out[1] = out[2] = out[3] = 0; return out; }
   const toward = (invert ? -u : u) >= 0;
-  const a = Math.abs(u);
-  if (mode === 'dirpower') { at(out, toward ? TOWARD : AWAY, p); out[3] = smooth(0.02, 0.12, p) * smooth(0.03, 0.12, a); return out; }
-  if (mode === 'direction' || mode === 'variance') {
-    // Variance: the base is one fixed shade per direction, so the map is direction × variance only
-    at(out, toward ? TOWARD : AWAY, mode === 'variance' ? VAR_BASE : a);
-    if (mode === 'variance') {
-      const f = smooth(0.04, 0.4, s);
-      if (f > 0) { at(tmp, toward ? VAR_TOWARD : VAR_AWAY, s); for (let c = 0; c < 3; c++) out[c] += (tmp[c] - out[c]) * f; }
-    }
-    out[3] = smooth(0.03, 0.12, a);
-    return out;
+  let c;
+  if (mode === 'velocity') c = toward ? TOWARD : AWAY;
+  else {
+    const [a, b] = toward ? VAR_TOWARD : VAR_AWAY, f = clamp01(s);
+    out[0] = a[0] + (b[0] - a[0]) * f; out[1] = a[1] + (b[1] - a[1]) * f; out[2] = a[2] + (b[2] - a[2]) * f;
   }
-  out[0] = out[1] = out[2] = out[3] = 0;
+  if (c) { out[0] = c[0]; out[1] = c[1]; out[2] = c[2]; }
+  out[3] = smooth(0.03, 0.12, Math.abs(u));
   return out;
 }
 
-/** The trace's power index: the pixel's signal strength, stretched so strong cores reach orange and yellow. */
-export const powerIndex = (I) => (I * 1.25 > 1 ? 1 : I * 1.25);
+const rgb = (c) => `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`;
 
-/**
- * A CSS gradient of exactly the map the trace is drawn with, for the legend and the pill's swatch.
- * Directional Power: away (left) to toward (right), weak at the middle and strong at the ends.
- * Variance: steady flow to turbulent flow, in the toward color.
- */
+/** The Velocity legend as a CSS gradient: away (left), no shift (black), toward (right), in flat bands. */
 export function legendGradient(mode, invert = false) {
-  const n = 11, out = [];
-  for (let i = 0; i < n; i++) {
-    const x = i / (n - 1), u = 2 * x - 1 || 0.001;
-    const c = mode === 'dirpower' ? dopplerColor('dirpower', { u, p: Math.abs(u) }, invert)
-      : dopplerColor('variance', { u: VAR_BASE, s: x }, invert);
-    const k = c[3] < 0.5 ? [0, 0, 0] : c;
-    out.push(`rgb(${k[0] | 0},${k[1] | 0},${k[2] | 0}) ${(x * 100).toFixed(0)}%`);
-  }
-  return `linear-gradient(90deg,${out.join(',')})`;
+  const a = rgb(invert ? TOWARD : AWAY), t = rgb(invert ? AWAY : TOWARD);
+  return `linear-gradient(90deg,${a} 0 42%,#000 42% 58%,${t} 58% 100%)`;
 }
 
-/** One row of the Variance legend: steady (left) to turbulent (right) for flow toward (u > 0) or away (u < 0). */
+/** One row of the Variance legend: laminar (left) to turbulent (right) for flow toward (u > 0) or away (u < 0). */
 export function varianceGradient(u, invert = false) {
-  const n = 11, out = [], c = [0, 0, 0, 0];
-  for (let i = 0; i < n; i++) {
-    const x = i / (n - 1);
-    dopplerColor('variance', { u, s: x }, invert, c);
-    out.push(`rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0}) ${(x * 100).toFixed(0)}%`);
-  }
-  return `linear-gradient(90deg,${out.join(',')})`;
+  const toward = (invert ? -u : u) >= 0, [a, b] = toward ? VAR_TOWARD : VAR_AWAY;
+  return `linear-gradient(90deg,${rgb(a)},${rgb(b)})`;
 }

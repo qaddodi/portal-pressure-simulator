@@ -7,7 +7,7 @@
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { h, fmt, fitCanvas, clamp, icon } from './util.js?v=d90a6074b7';
 import { FONT } from './charts.js?v=ec5db0ba37';
-import { DOPPLER_MODES, isDirectional, dopplerColor, legendGradient, varianceGradient, powerIndex } from './dopplerColor.js?v=93177f25f6';
+import { DOPPLER_MODES, isDirectional, dopplerColor, legendGradient, varianceGradient } from './dopplerColor.js?v=0e8d6f93e0';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 // kind decides the words for direction and pattern; normal is the usual mean velocity (cm/s).
@@ -59,12 +59,12 @@ export function createDoppler({ onProbe }) {
   const invBtn = h('button', { class: 'dop-tint dop-inv', 'aria-pressed': 'false', title: 'Invert the display: show flow away from the probe above the baseline' }, h('i', { 'aria-hidden': 'true' }, '⇅'), 'Invert');
   invBtn.addEventListener('click', () => { invert = !invert; invBtn.setAttribute('aria-pressed', String(invert)); sync(); });
   // The legend: a small colour bar over the trace in the colour modes.
-  // (Variance is a 2D map: direction across, variance up, painted from the trace's own map.)
+  // (Variance has two rows: toward and away, laminar to turbulent.)
   const legBar = h('i'), legLo = h('span'), legHi = h('span');
   const dirRow = h('div', { class: 'lg-row' }, legLo, legBar, legHi);
   const vBars = [h('i'), h('i')];
   const varBox = h('div', { class: 'lg-var' }, h('span', {}, 'toward'), vBars[0], h('span', {}, 'away'), vBars[1],
-    h('span'), h('em', {}, h('span', {}, 'steady'), h('span', {}, 'turbulent')));
+    h('span'), h('em', {}, h('span', {}, 'laminar'), h('span', {}, 'turbulent')));
   const legend = h('div', { class: 'dop-legend', hidden: true, 'aria-hidden': 'true' }, dirRow, varBox);
   function sync() {
     const m = DOPPLER_MODES.find((x) => x.id === mode);
@@ -72,9 +72,8 @@ export function createDoppler({ onProbe }) {
     modeBtn.title = `Doppler display: ${m.label}. Tap to change.`;
     modeBtn.setAttribute('aria-label', `Doppler display mode: ${m.label}. Activate to change.`);
     modeBtn.setAttribute('aria-pressed', String(mode !== 'spectrum'));
-    modeSw.style.background = mode === 'spectrum' ? '' : legendGradient(mode === 'variance' ? 'dirpower' : mode, invert && isDirectional(mode));
-    invBtn.disabled = mode === 'power';
-    invBtn.title = mode === 'power' ? 'Power Doppler has no direction, so Invert is off' : 'Invert the display: show flow away from the probe above the baseline; swaps the toward/away colors';
+    modeSw.style.background = mode === 'spectrum' ? '' : legendGradient('velocity', invert && isDirectional(mode));
+    invBtn.title = 'Invert the display: show flow away from the probe above the baseline; swaps the toward/away colors';
     legend.hidden = mode === 'spectrum';
     if (mode !== 'spectrum') {
       const vmode = mode === 'variance';
@@ -149,7 +148,7 @@ export function createDoppler({ onProbe }) {
   }
   const meta = () => PROBES.find((p) => p.id === probe) || PROBES[0];
   // +1 when the vessel's forward flow is drawn above the baseline, −1 when below
-  const effInvert = () => invert && mode !== 'power';
+  const effInvert = () => invert;
   const pol = () => (!meta().away !== !effInvert() ? -1 : 1);
 
   function interpret(r) {
@@ -340,7 +339,7 @@ export function createDoppler({ onProbe }) {
     for (let b = 0; b < nb; b++) spk[b] = g.spkMix * spk[b] + (1 - g.spkMix) * expo();
     // Colour modes: this line's variance (how fast the velocity is changing, plus turbulence at high
     // velocity); each pixel adds spectral broadening, more toward the slow edge of the band.
-    const col = mode !== 'spectrum', shaded = mode === 'direction' || mode === 'variance', uK = 1 / (0.7 * scale);
+    const col = mode !== 'spectrum', uK = 1 / (0.7 * scale);
     let lineS = 0;
     if (col && has) {
       const vp = velAt(c / g.cps - 0.3, g);
@@ -372,12 +371,12 @@ export function createDoppler({ onProbe }) {
       const q = (ry * RW + x) * 4;
       let r = 236 * GAIN * I, gg = 240 * GAIN * I, bl = 250 * GAIN * I;
       if (col && I > 0) {
-        // the colour is chosen by the signal strength (Directional Power) or by the velocity at this
-        // height and the variance (Variance), exactly as the legend shows it; the sign above or below the
+        // flat colours, exactly as the legend shows them: Velocity by the sign above or below the baseline,
+        // Variance also by the variance; the sign above or below the
         // baseline decides toward or away (Invert has already flipped the trace, and with it the colors)
         const ff = P > L ? clamp((vel * s - L) / (P - L), 0, 1) : 1;
-        dopplerColor(mode, { u: clamp(vel * uK, -1, 1), p: powerIndex(I), s: clamp(lineS + 0.45 * (1 - ff) * (1 - ff), 0, 1) }, false, cc);
-        const k = cc[3] * (shaded ? clamp((I - 0.05) / 0.3, 0, 1) : 1) / 255;
+        dopplerColor(mode, { u: clamp(vel * uK, -1, 1), s: clamp(lineS + 0.45 * (1 - ff) * (1 - ff), 0, 1) }, false, cc);
+        const k = cc[3] * clamp((I - 0.05) / 0.3, 0, 1) / 255;
         r = cc[0] * k * 255; gg = cc[1] * k * 255; bl = cc[2] * k * 255;
       }
       D[q] = r; D[q + 1] = gg; D[q + 2] = bl; D[q + 3] = 255;
