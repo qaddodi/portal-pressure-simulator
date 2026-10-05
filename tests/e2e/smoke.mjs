@@ -333,9 +333,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.5);
     if (device === 'desktop') { await page.mouse.wheel(0, -400); await page.waitForTimeout(300); }
     if (!(await page.evaluate(() => window.pps.stage.lobuleOpen()))) throw new Error('zooming in left the lobule');
-    // Zooming out stops at the lobule's framing; only a further push out leaves it for the anatomy.
-    if (device === 'desktop') { await page.mouse.wheel(0, 300); await page.waitForTimeout(600); }
-    if (!(await page.evaluate(() => window.pps.stage.lobuleOpen()))) throw new Error('zooming out to the framing left the lobule');
+    // Zooming out never leaves the lobule view.
+    if (device === 'desktop') { for (let i = 0; i < 4; i++) await page.mouse.wheel(0, 600); await page.waitForTimeout(600); }
+    if (!(await page.evaluate(() => window.pps.stage.lobuleOpen()))) throw new Error('zooming out left the lobule');
     // Zones and Lymph are in the toolbar's Layers menu, which is there only on the lobule.
     await page.click('#btnLobuleLayers');
     await page.click('.menu .menu-item:has-text("Zones")');

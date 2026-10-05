@@ -1093,7 +1093,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (on && morphTarget !== 0) return;
     if (lobuleOn === on && diveT === (on ? 1 : 0)) return;
     lobuleOn = on;
-    if (on) fitAfterRise = false;
     cancelAnimationFrame(lobAnim);
     if (on && diveT === 0) {
       const w = diveTarget();
@@ -1113,10 +1112,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       diveT = from + (to - from) * e;
       diveFrame(diveT);
       if (e < 1) lobAnim = requestAnimationFrame(step);
-      else if (!on) {
-        setDiveScale(1); lz.setDiveZoom(1, 0, 0); diveLand = null; paintScaleBar(0, 0);
-        if (fitAfterRise) { fitAfterRise = false; if (morphTarget === 0) { homeAt = defaultVT(false); animateVT(homeAt, 420); } }
-      }
+      else if (!on) { setDiveScale(1); lz.setDiveZoom(1, 0, 0); diveLand = null; paintScaleBar(0, 0); }
     };
     step(t0);
   }
@@ -1128,7 +1124,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function syncSemantic() {
     if (!lz) return;
     // Turning to the circuit closes the lobule view.
-    if (lobuleOn && morphTarget !== 0) { lobuleOn = false; fitAfterRise = false; lobU = 0; diveT = 0; diveLand = null; lz.setDive(null); lz.setDiveZoom(1, 0, 0); paintScaleBar(0, 0); if (diveAt) setDiveScale(1); { const lab = wrap.querySelector('#labels'); if (lab) lab.style.opacity = ''; } cancelAnimationFrame(lobAnim); if (store.get().lobule) store.set({ lobule: false }); }
+    if (lobuleOn && morphTarget !== 0) { lobuleOn = false; lobU = 0; diveT = 0; diveLand = null; lz.setDive(null); lz.setDiveZoom(1, 0, 0); paintScaleBar(0, 0); if (diveAt) setDiveScale(1); { const lab = wrap.querySelector('#labels'); if (lab) lab.style.opacity = ''; } cancelAnimationFrame(lobAnim); if (store.get().lobule) store.set({ lobule: false }); }
     const u = morphTarget === 0 ? lobU : 0;
     const wasOpen = lz.isOpen();
     lz.setFade(u);
@@ -1181,9 +1177,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function closeLobule() { setLobule(false); }
   store.on('lobule', (on) => (on ? openLobule() : closeLobule()));
   const zoomLobule = () => store.set({ lobule: true });
-  // Zooming out of the lobule goes on out to the whole anatomy: the rise, then the anatomy's own Fit.
-  let fitAfterRise = false;
-  lz = createLobuleZoom({ host: wrap, onExit: () => { if (!lobuleOn || diveT < 1) return; fitAfterRise = true; store.set({ lobule: false }); } });
+  lz = createLobuleZoom({ host: wrap });
   wrap.append(scaleBar);
 
   // ── Detail ────────────────────────────────────────

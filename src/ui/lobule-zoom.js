@@ -154,7 +154,7 @@ function fibrousBand(c, A, B, { w, rgb, a = 1, seed = 0, e0 = 1.5, e1 = 1.5, amp
   c.shadowBlur = sb;
 }
 
-export function createLobuleZoom({ host, onExit = () => {} }) {
+export function createLobuleZoom({ host }) {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   const tissue = h('canvas', { class: 'lz-canvas', role: 'img', 'aria-label': 'Liver lobule microcirculation' });
   const glCv = h('canvas', { class: 'lz-canvas lz-gl', 'aria-hidden': 'true' });
@@ -221,7 +221,7 @@ export function createLobuleZoom({ host, onExit = () => {} }) {
   // ── The view: the lobule framed in the space the floating pieces leave (top bar, dock, cards and
   // its own card), free zoom up to 5× that, the pan held to this lobule. Zooming out stops at the framing.
   const V = { k: 1, x: 0, y: 0 };
-  const KMAX = 12;
+  const KMAX = 5;
   let kFit = 1, atFit = true, capH = 0;
   const appStyle = document.getElementById('app')?.style;
   const cssN = (k) => parseFloat(appStyle?.getPropertyValue(k)) || 0;
@@ -293,7 +293,6 @@ export function createLobuleZoom({ host, onExit = () => {} }) {
   }
   function zoomBy(factor) {
     if (!geo) return;
-    if (factor < 1 && V.k <= kFit * 1.001) { onExit(); return; }   // out from the framing: back to the whole anatomy
     const f = freeRect(), px = (f.l + f.r) / 2, py = (f.t + f.b) / 2;
     const k = clamp(V.k * factor, kFit, kFit * KMAX), r = k / V.k;
     const to = { k, x: px - (px - V.x) * r, y: py - (py - V.y) * r };
@@ -315,7 +314,7 @@ export function createLobuleZoom({ host, onExit = () => {} }) {
   // ── Gestures: wheel and pinch zoom, drag pans, a tap selects; out past 1× returns to the liver ──
   // As on the anatomy: a mouse wheel zooms about the pointer; a trackpad's two-finger scroll pans (once zoomed in)
   // and its pinch (ctrlKey) zooms; Ctrl/⌘ + wheel always zooms. A gesture is classified once, as it starts.
-  let wheelKind = null, wheelAt = 0, outAcc = 0, outAt = 0;
+  let wheelKind = null, wheelAt = 0;
   el.addEventListener('wheel', (ev) => {
     ev.preventDefault();
     cancelAnimationFrame(glide);   // a button's glide never fights the hand
@@ -328,11 +327,7 @@ export function createLobuleZoom({ host, onExit = () => {} }) {
       return;
     }
     const f = ev.ctrlKey || ev.metaKey ? Math.exp(-clamp(dy, -50, 50) * 0.01) : Math.exp(-clamp(dy, -120, 120) * 0.0015);
-    // Zooming out past the framing carries on out to the whole anatomy: a few notches of overshoot (so a
-    // wheel that merely reaches the framing does not leave), then the lobule steps back out.
-    if (now - outAt > 400) outAcc = 0;
-    if (V.k <= kFit * 1.001 && f < 1) { outAt = now; outAcc -= Math.log(f); if (outAcc > 0.3) { outAcc = 0; onExit(); } return; }
-    outAcc = 0;
+    if (V.k <= kFit * 1.001 && f < 1) return;   // the lobule is a view of its own: zooming out stops at its framing
     const p = local(ev);
     zoomAround(p[0], p[1], f);
   }, { passive: false });
@@ -359,9 +354,7 @@ export function createLobuleZoom({ host, onExit = () => {} }) {
       if (touches.size === 2 && pinch) {
         const [a, b] = pts2(), d = Math.hypot(a[0] - b[0], a[1] - b[1]), m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
         V.x += m[0] - pinch.m[0]; V.y += m[1] - pinch.m[1]; pinch.m = m;
-        const want = pinch.k * d / pinch.d;
-        if (want < kFit * 0.8 && V.k <= kFit * 1.001) { pinch = null; touches.clear(); onExit(); return; }
-        zoomAround(m[0], m[1], want / V.k);
+        zoomAround(m[0], m[1], (pinch.k * d / pinch.d) / V.k);
       } else if (touches.size === 1 && drag && (ev.buttons || ev.pointerType !== 'mouse')) {
         const p = local(ev);
         if (down && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) < 8) return;
@@ -1043,8 +1036,6 @@ export function createLobuleZoom({ host, onExit = () => {} }) {
   // What a dive's frames share (the stage's size, its styles), read once per dive: reading them each
   // frame, after the stage's own writes, would make the browser lay out the page again every frame.
   let diveCtx = null;
-  // The field is in motion behind the lobule: a phone draws it at one pixel per CSS pixel (a third of the pixels at 3×).
-  const fieldDpr = () => (phoneMQ.matches ? 1 : Math.min(1.5, devicePixelRatio || 1));
   function paintField(d) {
     if (!d) diveCtx = null;
     if (!d || d.a <= 0.002) { if (field.width) { field.width = 0; field.height = 0; } field.style.opacity = '0'; fieldOp = 0; return; }
@@ -1053,7 +1044,7 @@ export function createLobuleZoom({ host, onExit = () => {} }) {
       diveCtx = { W: Math.max(1, Math.round(rect.width)), H: Math.max(1, Math.round(rect.height)), cs, dark, bg: rgb01(cs.getPropertyValue('--stage-bg').trim() || cs.getPropertyValue('--bg').trim() || (dark ? '#0E1422' : '#FBFAF7')) };
     }
     const { W, H, cs, dark, bg } = diveCtx;
-    const dpr = fieldDpr();
+    const dpr = Math.min(1.5, devicePixelRatio || 1);
     if (field.width !== Math.round(W * dpr) || field.height !== Math.round(H * dpr)) { field.width = Math.round(W * dpr); field.height = Math.round(H * dpr); }
     // Half the tile's resolution, as at rest: the field is in motion and behind the lobule.
     const rd = d.r * dpr, t = fieldTile(cs, dark, rd * 0.55);
@@ -1081,7 +1072,7 @@ export function createLobuleZoom({ host, onExit = () => {} }) {
   // the dive ends at). warm() does the next piece; true while any is left.
   let warmQ = [];
   function prewarm(rEnd) {
-    const cs = getComputedStyle(host), dark = isDark(), dpr = fieldDpr();
+    const cs = getComputedStyle(host), dark = isDark(), dpr = Math.min(1.5, devicePixelRatio || 1);
     warmQ = [() => ensureGL()];
     for (let rd = 3; rd < rEnd * dpr * 0.55 * 2; rd *= 2) { const r = rd; warmQ.push(() => fieldTile(cs, dark, r)); }
   }
