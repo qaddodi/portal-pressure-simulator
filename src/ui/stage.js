@@ -2914,8 +2914,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const lines = [[{ t: name, size: compact ? 10.5 : 11.5, weight: one ? 600 : 500, cls: 'lb-name' }]];
     const lr = isImaging() ? null : layerRuns(f, id, compact);
     const pr = lr ? lr.runs : pressureRuns(P, id, compact);
-    // (The unit is in the legend right above the figure.)
-    if (pr && one) lines[0].push(...pr.filter((r) => r.cls !== 'lb-unit').map((r, i) => (i ? r : { ...r, gap: 4 })));
+    if (pr && one) lines[0].push(...pr.map((r, i) => (i ? r : { ...r, gap: 4 })));
     else if (pr) lines.push(pr);
     const w = Math.max(...lines.map(lineW)) + (mode === 'atlas' ? 7 : 0);
     const hh = lines.reduce((a, l) => a + LINE_H(l), 0);
@@ -3685,7 +3684,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (lobuleOn || vtGliding || drag || glide) return;
     let to = { ...vt };
     const k = clamp(vt.k, K_MIN, K_MAX);
-    if (vt.k < K_MIN) { const d = defaultVT(morphTarget === 1); if (!sameView(d, vt)) animateVT(d, 420); return; }   // pinched out past the minimum: back to the fit view
+    // At or past the fit zoom (zoomed out, or panned about at the fit), the view springs back to the fit framing, as in the lobule view.
+    { const d = defaultVT(morphTarget === 1); if (vt.k <= d.k * 1.001) { if (!sameView(d, vt)) animateVT(d, 420); return; } }
     if (k !== vt.k) {
       const [cx, cy] = freeCentre(), [vx, vy] = clientToVB(cx, cy);
       to = { k, x: vx - ((vx - vt.x) / vt.k) * k, y: vy - ((vy - vt.y) / vt.k) * k };
