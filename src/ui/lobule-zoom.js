@@ -1588,7 +1588,8 @@ export function createLobuleZoom({ host }) {
       const NC = 16, TAU2 = Math.PI * 2;
       c.lineWidth = Math.max(0.3, G.R * 0.0013); c.strokeStyle = cellEdge;
       for (const tr of G.triads) {
-        const r = Math.max(radiusAt(tr.bdT, N >> 1), G.R * 0.008), rin = r * 0.5, rout = r * 1.5, x = tr.bd[0], y = tr.bd[1];
+        // One ring of NC cuboidal cells: as deep as they are wide, so each nucleus has room (a third of the cell's width).
+        const r = Math.max(radiusAt(tr.bdT, N >> 1), G.R * 0.008), rm = r * 1.35, hw = Math.PI * rm / NC, rin = rm - hw, rout = rm + hw, x = tr.bd[0], y = tr.bd[1];
         c.fillStyle = lumen; c.beginPath(); c.arc(x, y, rin, 0, TAU2); c.fill();
         c.fillStyle = cellFill;
         for (let i = 0; i < NC; i++) {
@@ -1596,7 +1597,7 @@ export function createLobuleZoom({ host }) {
           c.beginPath(); c.arc(x, y, rin, a0, a1); c.arc(x, y, rout, a1, a0, true); c.closePath(); c.fill(); c.stroke();
         }
         c.fillStyle = nuc; c.beginPath();
-        const rn = (rin + rout) / 2, nr = (rout - rin) * 0.27;
+        const rn = rm, nr = hw * 0.34;   // diameter about a third of the cell's width
         for (let i = 0; i < NC; i++) { const a = ((i + 0.5) / NC) * TAU2 + tr.i, nx = x + Math.cos(a) * rn, ny = y + Math.sin(a) * rn; c.moveTo(nx + nr, ny); c.arc(nx, ny, nr, 0, TAU2); }
         c.fill();
       }
