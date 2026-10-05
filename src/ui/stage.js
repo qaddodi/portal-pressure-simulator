@@ -6,7 +6,7 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=23552bd900';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar, systemEdge } from './util.js?v=d90a6074b7';
-import { createLobuleZoom } from './lobule-zoom.js?v=e7de555771';
+import { createLobuleZoom } from './lobule-zoom.js?v=177c86e0f1';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=44a3cb4b39';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -3390,18 +3390,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // The vessel canvas follows the frame time: when frames that redraw it arrive late (over 21 ms) it is drawn at a
   // smaller size, a step at a time and not more than twice a second; it grows back once frames fit in 15.5 ms.
-  let resGap = 16.7, resCheck = 0, resGood = 0, resPrev = 0;
+  let resGap = 16.7, resCheck = 0, slowMs = 0, fastMs = 0, resPrev = 0;
   function governRes(now, drawing) {
     const gap = resPrev ? now - resPrev : 16.7;
     resPrev = drawing ? now : 0;
     if (SOFTWARE || !drawing || gap > 100 || now < 4000) return;   // not while the page is still starting up
-    resGap += (gap - resGap) * 0.2;
-    if (now - resCheck < 500) return;
-    resCheck = now;
+    resGap += (gap - resGap) * 0.1;
+    // Hysteresis: a sustained trend (a second to shrink, two and a half to grow back), and a change at most once a second.
+    slowMs = resGap > 21 ? slowMs + gap : 0; fastMs = resGap < 14.5 ? fastMs + gap : 0;
+    if (now - resCheck < 1000) return;
     let n = dynRes;
-    if (resGap > 21 && dynRes > 0.5) { n = Math.max(0.5, dynRes - 0.1); resGood = 0; }
-    else if (resGap < 15.5 && dynRes < 1 && ++resGood >= 3) { n = Math.min(1, dynRes + 0.1); resGood = 0; }
-    if (Math.abs(n - dynRes) > 0.01) pendingRes = n;   // applied at the start of the next frame, which then redraws
+    if (slowMs > 1000 && dynRes > 0.6) n = Math.max(0.6, dynRes - 0.1);
+    else if (fastMs > 2500 && dynRes < 1) n = Math.min(1, dynRes + 0.1);
+    if (Math.abs(n - dynRes) > 0.01) { pendingRes = n; resCheck = now; slowMs = fastMs = 0; }   // applied at the start of the next frame, which then redraws
   }
   let pendingRes = 0;
   let flowGate = lastT;
