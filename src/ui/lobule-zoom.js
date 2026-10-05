@@ -26,7 +26,7 @@ import { verbEnabled } from './actions.js?v=e765c9d0f8';
 import { h, s, fmt, clamp, createEaser, axisTop, systemEdge } from './util.js?v=831ebf143a';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
-import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=f7c2445d32';
+import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_NOCASE, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=0acbe74771';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=3acf4e936e';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -60,6 +60,9 @@ function curve(f, m = 160) {
   }
   return { pts, len };
 }
+// The triad's layout, from the venule: the other three sit this far out (of R), the arteriole and ductule this
+// far round either side of the outward direction, and the lymphatic straight out.
+const TRIAD_D = 0.09, TRIAD_A = 0.98;
 const dot = (x, y) => curve((u) => [x + (u - 0.5) * 0.6, y], 4);   // a vessel seen end-on: a disc
 function at(pts, u) {
   const f = clamp(u, 0, 1) * (pts.length - 1), i = Math.min(pts.length - 2, Math.floor(f)), t = f - i;
@@ -441,6 +444,7 @@ export function createLobuleZoom({ host, onExit = () => {} }) {
     if (sl.part === 'triad' && tr) selIdsC = new Set([tr.pv.id, G.inlets[tr.i * 2].id, G.inlets[tr.i * 2 + 1].id]);
     else if (sl.part === 'sin' && sl.tube != null) selIdsC = chainOf(sl.tube);
     else if (sl.part === 'ha' && tr) selIdsC = new Set([tr.haT.id, ...G.tubes.filter((t) => t.kind === 'tw' && t.tri === tr.i).map((t) => t.id)]);
+    else if (sl.part === 'bd' && tr) selIdsC = new Set([tr.bdT.id]);
     else if (sl.part === 'cv') selIdsC = new Set([G.cv.id]);
     else if (sl.tube != null) selIdsC = new Set([sl.tube]);
     return selIdsC;
@@ -501,11 +505,12 @@ export function createLobuleZoom({ host, onExit = () => {} }) {
     // Portal triads at the six corners: venule (end-on), arteriole, bile ductule.
     const rt = R * 0.1;
     const triads = C.map(([x, y], i) => {
-      // Arteriole and ductule beside the venule, inside the portal tract, between the two inlet venules' courses.
-      const a = Math.atan2(y - cy, x - cx), d = rt * 0.62;
-      const ha = [x + Math.cos(a + 1.15) * d, y + Math.sin(a + 1.15) * d];
-      const bd = [x + Math.cos(a - 1.15) * d, y + Math.sin(a - 1.15) * d];
-      return { i, x, y, ha, bd, pv: add('pv', dot(x, y), { tri: i }), haT: add('ha', dot(...ha), { tri: i }) };
+      // Arteriole, lymphatic and ductule side by side on an arc outside the venule, in the portal tract between
+      // the two inlet venules' courses; each far enough out that none touches the venule or another.
+      const a = Math.atan2(y - cy, x - cx), d = R * TRIAD_D;
+      const ha = [x + Math.cos(a + TRIAD_A) * d, y + Math.sin(a + TRIAD_A) * d];
+      const bd = [x + Math.cos(a - TRIAD_A) * d, y + Math.sin(a - TRIAD_A) * d];
+      return { i, x, y, a, ha, bd, pv: add('pv', dot(x, y), { tri: i }), haT: add('ha', dot(...ha), { tri: i }), bdT: add('bd', dot(...bd), { tri: i }) };
     });
     // Inlet venules: from each triad along both of its edges, a little inside the lobule.
     const inletF = (i, dir) => {
@@ -628,7 +633,7 @@ export function createLobuleZoom({ host, onExit = () => {} }) {
     // to the edge of the lobule; there terminal lymphatics carry it along the limiting plate to the
     // lymphatic vessel in each portal tract.
     // The portal tract's own lymphatic, end-on beside the venule (on its outer side, away from the arteriole and ductule).
-    for (const tr of triads) { const a = Math.atan2(tr.y - cy, tr.x - cx), d = rt * 0.62; tr.lv = add('lv', dot(tr.x + Math.cos(a) * d, tr.y + Math.sin(a) * d), { tri: tr.i, lymph: true }); }
+    for (const tr of triads) { const d = R * TRIAD_D; tr.lv = add('lv', dot(tr.x + Math.cos(tr.a) * d, tr.y + Math.sin(tr.a) * d), { tri: tr.i, lymph: true }); }
     const lyOff = rs0 * 2.1;
     const beside = (t) => t.pts.map((q, i) => { const a = t.pts[Math.max(0, i - 1)], b = t.pts[Math.min(N - 1, i + 1)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [q[0] - ((b[1] - a[1]) / L) * lyOff, q[1] + ((b[0] - a[0]) / L) * lyOff]; });
     // Along each edge, from its midpoint to the triad at either end, in the portal tract just outside
@@ -1147,6 +1152,7 @@ export function createLobuleZoom({ host, onExit = () => {} }) {
       case 'pv': return R * 0.042 / (1 + 0.35 * m.fibPre);
       case 'cv': return R * (0.07 + 0.05 * m.congU) * (1 - 0.3 * m.fibPost);
       case 'ha': return Math.max(1.6, R * 0.014 * clamp(m.art, 0.6, 2.2) ** 0.3);
+      case 'bd': return Math.max(1.6, R * 0.0145);
       case 'tw': return Math.max(1.1, R * 0.0055 * clamp(m.art, 0.6, 2.2) ** 0.3);
       // Lymphatics widen as drainage rises (capped, so the tract lymphatic never swamps the triad).
       case 'ly': return Math.max(1.1, g.rs0 * 0.5 * lyW(m, 0.45));   // the space of Disse fills and widens
@@ -1167,7 +1173,9 @@ export function createLobuleZoom({ host, onExit = () => {} }) {
     const p = lyProt(m), lo = dark ? [0.72, 0.76, 0.69] : [0.92, 0.94, 0.88], mid = dark ? [0.7, 0.77, 0.66] : [0.88, 0.92, 0.82], hi = dark ? [0.64, 0.75, 0.58] : [0.82, 0.89, 0.74];
     return p < 0.45 ? lo.map((x, i) => lerp(x, mid[i], p / 0.45)) : mid.map((x, i) => lerp(x, hi[i], (p - 0.45) / 0.55));
   };
-  const WALL = { s0: 0.8, s1: 0.85, s2: 0.9, an: 0.7, in: 1.1, pv: 1.5, cv: 1.6, sh: 1.1, ha: 0, tw: 0, ly: 0.5, lt: 0.8, lv: 1.1 };
+  // The triad's outlines: dark blue, red and green (the venule, arteriole and ductule), against the common casing.
+  const EDGE = { pv: [0.12, 0.27, 0.58], in: [0.12, 0.27, 0.58], ha: [0.55, 0.1, 0.16], tw: [0.55, 0.1, 0.16], bd: [0.2, 0.42, 0.18] }, BD_FILL = [0.8, 0.92, 0.68];
+  const WALL = { s0: 0.8, s1: 0.85, s2: 0.9, an: 0.7, in: 1.5, pv: 2, cv: 1.6, sh: 1.1, ha: 1.7, bd: 1.8, tw: 0.9, ly: 0.5, lt: 0.8, lv: 1.1 };
   // Weight of the inlet's value at a radius along the sinusoids (1 at the lobule's edge, 0 at the central vein).
   const sinW = (rho) => clamp((rho - 0.075) / (0.92 - 0.075), 0, 1) ** 0.8;
   const qP = (v) => Math.round(v * 2) / 2;
@@ -1242,16 +1250,19 @@ export function createLobuleZoom({ host, onExit = () => {} }) {
       // The space of Disse fills as filtration rises: its tint deepens a little (it already widens).
       const deep = dark ? [0.62, 0.7, 0.58] : [0.79, 0.86, 0.74], LYd = LY.map((x, i) => lerp(x, deep[i], 0.45 * lyF(m)));
       for (const t of live) {
-        const o = t.id * TUBE_TEXELS * 4, isArt = t.kind === 'ha' || t.kind === 'tw';
+        const o = t.id * TUBE_TEXELS * 4, isArt = t.kind === 'ha' || t.kind === 'tw', isBd = t.kind === 'bd';
         const [i0, i1] = inks.get(t.id);
         const LYt = t.kind === 'ly' ? LYd : LY;
-        const c0 = isArt ? art : t.lymph ? LYt : origin ? grey : rgb01(i0), c1 = isArt ? art : t.lymph ? LYt : origin ? grey : rgb01(i1);
+        const c0 = isBd ? BD_FILL : isArt ? art : t.lymph ? LYt : origin ? grey : rgb01(i0), c1 = isBd ? BD_FILL : isArt ? art : t.lymph ? LYt : origin ? grey : rgb01(i1);
         const alpha = (isArt ? 0.9 : 1) * (selIdsN.size && !selIdsN.has(t.id) ? 0.55 : 1);
         const big = t.kind === 'pv' || t.kind === 'cv' || t.kind === 'in';
-        const flags = (selIdsN.has(t.id) ? F_SEL : 0) | (isArt ? F_NOCASE : F_DIFFUSE | F_SHADOW | (big ? F_SPEC : 0));
-        const z = { s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.13, an: 0.09, lt: 0.25, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.45, sh: 0.5, tw: 0.6, ha: 0.7 }[t.kind];
-        tubeData.set([...c0, isArt ? 0 : WALL[t.kind], ...c1, alpha, 1, z, flags, 0], o);
+        // The triad's three vessels carry a dark outline of their own colour; the rest the common casing.
+        const edge = EDGE[t.kind];
+        const flags = (selIdsN.has(t.id) ? F_SEL : 0) | (edge ? F_EDGE : 0) | (isArt || isBd ? 0 : F_DIFFUSE | F_SHADOW | (big ? F_SPEC : 0));
+        const z = { s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.13, an: 0.09, lt: 0.25, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.45, sh: 0.5, bd: 0.55, tw: 0.6, ha: 0.7 }[t.kind];
+        tubeData.set([...c0, WALL[t.kind], ...c1, alpha, 1, z, flags, 0], o);
         tubeData.set([0, 1, t.len, 0], o + 20);
+        if (edge) tubeData.set([...edge, 0], o + 24);
       }
       g.setTubes(tubeData);
     }
@@ -1475,9 +1486,6 @@ export function createLobuleZoom({ host, onExit = () => {} }) {
       }
       c.globalAlpha = 1;
     }
-    // Bile ductules beside the arterioles (bile flows the other way: out to the triad).
-    c.strokeStyle = v('--bile-duct', '#6E9B4E'); c.lineWidth = 1.6;
-    for (const tr of G.triads) { c.beginPath(); c.arc(tr.bd[0], tr.bd[1], G.rt * 0.15, 0, TAU); c.stroke(); }
     // Central vein wall: collagen with post-sinusoidal fibrosis.
     if (m.fibPost > 0.05) { c.fillStyle = col(0.3 + 0.55 * m.fibPost); c.beginPath(); c.arc(cx, cy, G.rcv0 * (1.5 + m.fibPost), 0, TAU); c.fill(); }
   }
@@ -1486,11 +1494,11 @@ export function createLobuleZoom({ host, onExit = () => {} }) {
     const G = geo, art = cs.getPropertyValue('--artery').trim() || '#C8414D', casing = 'rgba(30, 24, 40, .45)';
     c.lineCap = 'round'; c.lineJoin = 'round';
     for (const t of G.tubes) {
-      const r = radiusAt(t, N >> 1), isArt = t.kind === 'ha' || t.kind === 'tw', disc = t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha';
-      const color = isArt ? art : tubeInk(t, 0);
+      const r = radiusAt(t, N >> 1), isArt = t.kind === 'ha' || t.kind === 'tw', disc = t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || t.kind === 'bd';
+      const color = isArt ? art : t.kind === 'bd' ? '#CCEBAE' : tubeInk(t, 0), rim = EDGE[t.kind];
       const [x0, y0] = t.pts[0];
       if (disc) {
-        if (!isArt) { c.fillStyle = casing; c.beginPath(); c.arc(x0, y0, r + 1.2, 0, TAU); c.fill(); }
+        c.fillStyle = rim ? `rgb(${rim.map((q) => Math.round(q * 255))})` : casing; c.beginPath(); c.arc(x0, y0, r + (rim ? 1.8 : 1.2), 0, TAU); c.fill();
         c.fillStyle = color; c.beginPath(); c.arc(x0, y0, r, 0, TAU); c.fill();
         continue;
       }
@@ -1589,14 +1597,14 @@ export function createLobuleZoom({ host, onExit = () => {} }) {
     const G = geo, m = model;
     if (!G || !m) return null;
     for (const tr of G.triads) if (Math.hypot(x - tr.x, y - tr.y) < G.rt * 1.2) {
-      if (Math.hypot(x - tr.ha[0], y - tr.ha[1]) < G.rt * 0.25) return { part: 'ha', tri: tr.i };
-      if (Math.hypot(x - tr.bd[0], y - tr.bd[1]) < G.rt * 0.25) return { part: 'bd', tri: tr.i };
+      if (Math.hypot(x - tr.ha[0], y - tr.ha[1]) < G.R * 0.03) return { part: 'ha', tri: tr.i };
+      if (Math.hypot(x - tr.bd[0], y - tr.bd[1]) < G.R * 0.03) return { part: 'bd', tri: tr.i };
       return { part: 'triad', tri: tr.i };
     }
     if (Math.hypot(x - G.cx, y - G.cy) < radiusAt(G.cv, 0) + 4) return { part: 'cv' };
     let best = null, bd = Infinity;
     for (const t of G.tubes) {
-      if (t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha') continue;
+      if (t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || t.kind === 'bd') continue;
       const [d] = distTo(t.pts, x, y), r = radiusAt(t, N >> 1), tol = r + (t.kind === 'tw' ? 6 : 5);
       const score = d - r - (t.kind === 'tw' ? 2 : 0);
       if (d < tol && score < bd) { bd = score; best = t; }
