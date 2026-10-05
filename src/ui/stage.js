@@ -3513,18 +3513,60 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     syncVeins(easeInOut(morph));
   }
 
+  // Organ and site hover: a soft version of the selection outline, never kept once the pointer is away.
+  const gHovO = s('g', { id: 'organHover', 'aria-hidden': 'true' });
+  gSelO.after(gHovO);
+  let hovO = '';
+  function setOrganHover(o, lobe) {
+    const key = o ? o + (lobe || '') : '';
+    if (key === hovO) return;
+    hovO = key;
+    gHovO.replaceChildren();
+    if (!o) return;
+    const byOrgan = { liver: 'liver', heart: 'heart', spleen: 'spleen' }[o];
+    if (byOrgan) {
+      const d = organEls[byOrgan]?.getAttribute('d');
+      if (!d) return;
+      const el = s('path', { class: 'org-hov-line', d }), tr = organG[byOrgan].getAttribute('transform');
+      if (tr) el.setAttribute('transform', tr);
+      gHovO.append(el);
+      return;
+    }
+    const at = { varices: [SITES.varix[0], SITES.varix[1] + 20, 26, 62], gastric: [SITES.fundus[0], SITES.fundus[1], 34, 30], abdomen: [720, 790, 230, 110] }[o];
+    if (at) gHovO.append(s('ellipse', { cx: at[0], cy: at[1], rx: at[2], ry: at[3], class: 'org-hov-ring' }));
+  }
+  // Nothing stays lit once the pointer is gone, cancelled or lifted (a finger has no hover).
+  function clearHover() { setHover(null); setOrganHover(null); onHoverInfo(null); }
   svg.addEventListener('pointerover', (ev) => {
     if (ev.pointerType === 'touch') return;
     const id = edgeFromEvent(ev);
     if (id && EI[id] != null) setHover(id);
   });
   svg.addEventListener('pointerout', (ev) => { if (edgeFromEvent(ev)) { setHover(null); onHoverInfo(null); } });
+  svg.addEventListener('pointerleave', clearHover);
+  svg.addEventListener('pointercancel', clearHover);
+  svg.addEventListener('pointerup', (ev) => { if (ev.pointerType === 'touch') clearHover(); });
+  svg.addEventListener('touchend', clearHover, { passive: true });
+  svg.addEventListener('touchcancel', clearHover, { passive: true });
+  document.documentElement.addEventListener('mouseleave', clearHover);
+  window.addEventListener('blur', clearHover);
   svg.addEventListener('pointermove', (ev) => {
     if (shunt) shuntMove(ev);
     if (ev.pointerType === 'touch') return;   // a finger has no hover (a long press peeks instead)
     const id = edgeFromEvent(ev);
-    if (id && EI[id] != null && F && !shunt) onHoverInfo({ id, x: ev.clientX - wrap.getBoundingClientRect().left, y: ev.clientY - wrap.getBoundingClientRect().top });
-    else if (!drag) onHoverInfo(null);
+    if (id && EI[id] != null && F && !shunt) {
+      onHoverInfo({ id, x: ev.clientX - wrap.getBoundingClientRect().left, y: ev.clientY - wrap.getBoundingClientRect().top });
+      setHover(id); setOrganHover(null);
+      return;
+    }
+    if (hoverId) setHover(null);   // the pointer is over no vessel any more (also after a captured drag)
+    if (!drag) onHoverInfo(null);
+    if (!shunt && !drag && !lobuleOn && store.get().tool === 'select') {
+      const [wx, wy] = clientToWorld(ev.clientX, ev.clientY), o = organAt(wx, wy);
+      const sel = store.get().selection;
+      if (o && !(sel?.type === 'organ' && sel.id === o)) setOrganHover(o, o === 'liver' ? (wx < LIVER_SPLIT_X ? 'R' : 'L') : '');
+      else setOrganHover(null);
+    } else setOrganHover(null);
   });
 
   // ── Gestures: wheel, trackpad, mouse and touch ──
