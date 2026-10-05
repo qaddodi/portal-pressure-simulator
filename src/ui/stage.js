@@ -1029,7 +1029,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let diveOrig = null;
   function setDiveScale(k) {
     if (k <= 1.0001) {
-      if (diveOrig) for (const [el] of diveOrig) { el.style.transform = ''; el.style.transformOrigin = ''; el.style.willChange = ''; }
+      // The transform goes first and the layer hint a frame later: dropping both at once can leave the
+      // browser showing the last zoomed picture while clicks already land on the unzoomed figure.
+      if (diveOrig) { const els = diveOrig.map(([el]) => el); for (const el of els) { el.style.transform = 'none'; el.style.transformOrigin = ''; } requestAnimationFrame(() => { if (!diveOrig) for (const el of els) { el.style.willChange = ''; el.style.transform = ''; } }); }
       diveOrig = null; return;
     }
     if (!diveOrig) {
