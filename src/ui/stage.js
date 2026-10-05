@@ -3543,7 +3543,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (wheelKind === 'wheel' || lobuleOn) { zoomAt(ev.clientX, ev.clientY, Math.exp(-clamp(dy, -120, 120) * 0.0015)); return; }
     if (scrubS > 0) return;   // panning is locked onto the lobule while the dive is under the fingers
     const s = vbScale();
-    vt = { k: vt.k, x: vt.x - dx / s, y: vt.y - dy / s };
+    vt = softPan({ k: vt.k, x: vt.x - dx / s, y: vt.y - dy / s });
     applyVT(); CTM = null; settleSoon();
   };
   svg.addEventListener('wheel', onWheel, { passive: false });
@@ -3556,6 +3556,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function visibleVB() {
     const b = stageBox(), vb = svg.viewBox.baseVal, s = Math.min(b.sw / vb.width, b.sh / vb.height);
     return { x: vb.x - (b.sw - vb.width * s) / 2 / s, y: vb.y - (b.sh - vb.height * s) / 2 / s, w: b.sw / s, h: b.sh / s };
+  }
+  // Panning past the figure meets rising resistance (a rubber band): the middle of the view can leave the
+  // figure's bounds by about a fifth of its width at most, however far the hand goes; springBack then pulls it in.
+  function softPan(v) {
+    const c = morphTarget === 1 ? circVB() : VB_ANAT, vis = visibleVB();
+    const x0 = c[0] * v.k + v.x, x1 = (c[0] + c[2]) * v.k + v.x, y0 = c[1] * v.k + v.y, y1 = (c[1] + c[3]) * v.k + v.y;
+    const vx = vis.x + vis.w / 2, vy = vis.y + vis.h / 2, Lx = 0.2 * (x1 - x0), Ly = 0.2 * (y1 - y0);
+    const soft = (o, L) => L * (1 - Math.exp(-o / L));
+    let { x, y } = v;
+    if (vx < x0) x -= (x0 - vx) - soft(x0 - vx, Lx); else if (vx > x1) x += (vx - x1) - soft(vx - x1, Lx);
+    if (vy < y0) y -= (y0 - vy) - soft(y0 - vy, Ly); else if (vy > y1) y += (vy - y1) - soft(vy - y1, Ly);
+    return { k: v.k, x, y };
   }
   function springBack() {
     if (lobuleOn || vtGliding || drag || glide) return;
@@ -3585,7 +3597,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const step = (now) => {
       const dt = Math.min(34, now - last), decay = Math.pow(0.9955, dt);
       last = now; vx *= decay; vy *= decay;
-      vt = { k: vt.k, x: vt.x + (vx * dt) / s0, y: vt.y + (vy * dt) / s0 };
+      vt = softPan({ k: vt.k, x: vt.x + (vx * dt) / s0, y: vt.y + (vy * dt) / s0 });
       applyVT(); CTM = null;
       if (Math.hypot(vx, vy) > 0.03) glide = requestAnimationFrame(step);
       else { glide = 0; springBack(); }
@@ -3674,7 +3686,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (Math.abs(ev.clientX - drag.x) + Math.abs(ev.clientY - drag.y) > (ev.pointerType === 'touch' ? 8 : 4)) { drag.moved = true; clearPress(); }
       if (drag.peeked) return;
       if (drag.moved && scrubS === 0) {
-        vt = { k: vt.k, x: drag.vx + (ev.clientX - drag.x) / drag.s0, y: drag.vy + (ev.clientY - drag.y) / drag.s0 };
+        vt = softPan({ k: vt.k, x: drag.vx + (ev.clientX - drag.x) / drag.s0, y: drag.vy + (ev.clientY - drag.y) / drag.s0 });
         applyVT(); CTM = null;
         const now = performance.now();
         drag.trail.push([now, ev.clientX, ev.clientY]);
