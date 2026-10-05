@@ -338,7 +338,7 @@ export function createDoppler({ onProbe }) {
     ctx.fillText(label, padL, 13);
     const lw = ctx.measureText(label).width;
     ctx.font = FONT(500, 11); ctx.fillStyle = 'rgba(255,255,255,.5)';
-    ctx.fillText('PW  ·  θ 60°  ·  SV 3 mm', padL + lw + 12, 13);
+    ctx.fillText(`PW  ·  θ 60°  ·  SV 3 mm  ·  ${sweepSeconds} s`, padL + lw + 12, 13);
     if (buf.length < 2) {
       tDisp = null;
       ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.55)';
@@ -422,9 +422,7 @@ export function createDoppler({ onProbe }) {
       ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fillRect(padL + W + 3, Math.round(y), major ? 6 : 3, 1);
       if (major) { ctx.fillStyle = 'rgba(255,255,255,.72)'; ctx.fillText(v === 0 ? '0' : num(v), padL + W + 13, y); }
     }
-    ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.textAlign = 'right';
-    ctx.fillText(`${sweepSeconds} s`, w - 44, 13);
-    ctx.fillText('cm/s', w - 6, 13);
+    ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.textAlign = 'right'; ctx.fillText('cm/s', w - 6, 13);
     // One tick a second along the bottom, scrolling with the trace
     ctx.fillStyle = 'rgba(255,255,255,.4)';
     for (let sec = Math.ceil(tNow - sweepSeconds); sec <= tNow; sec++) {
