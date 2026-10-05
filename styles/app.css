@@ -2511,9 +2511,8 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   :root:not([data-theme="light"]) .lz :is(.lz-lab, .lz-lab .n, .lz-lab .v, .lz-lab .v b, .lz-lab small, .lz-lab .d, .lz-zone) { color: #fff; }
   :root:not([data-theme="light"]) .lz-zone span { opacity: 1; }
 }
-/* Phone: the lobule's zoom in, zoom out and fit sit top right, under the toolbar. */
+/* Phone: the lobule keeps the zoom controls where the anatomy view has them. */
 @media (max-width: 720px) {
-  .stage-view.in-lobule .zoom-pill { top: calc(var(--top-safe) + 8px); bottom: auto; right: calc(env(safe-area-inset-right) + 12px); translate: none; flex-direction: row; }
   .stage-view.in-lobule .zoom-pill #zoomIn, .stage-view.in-lobule .zoom-pill #zoomOut { display: inline-grid; }
 }
 /* In the tall Instruments card the trace chips wrap instead of scrolling sideways. */
@@ -2690,10 +2689,6 @@ input[type="range"] { touch-action: none; }
   .vdock .vd-status { margin-top: 4px; }
 }
 
-/* Comparing: the lobule's controls sit below the Then / Now / Change switch (--cmp-h). */
-@media (max-width: 720px) {
-  .stage-view.in-lobule .zoom-pill { top: calc(var(--top-safe) + 8px + var(--cmp-h, 0px)); }
-}
 
 /* Touch screens: a long press is a gesture here (hold to inspect, drag, pinch), not a text selection;
    fields that take typing still select. */

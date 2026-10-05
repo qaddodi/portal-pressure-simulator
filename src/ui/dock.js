@@ -168,19 +168,39 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     setTimeout(() => dispatchEvent(new Event('resize')), 30);
   };
   moreBtn.addEventListener('click', () => setAll(!strip.classList.contains('all'), true));
-  // Flick the strip up to open it, down to close it (touch only; where the chevron is shown).
+  // Drag the strip up to open it, down to close it (touch only; where the chevron is shown). It follows
+  // the finger, then settles open or closed by speed or by how far it got.
   let flick = null;
+  const sizes = () => { const h = strip.offsetHeight, was = strip.classList.contains('all'); strip.classList.toggle('all', !was); const o = strip.offsetHeight; strip.classList.toggle('all', was); return was ? [o, h] : [h, o]; };
   strip.addEventListener('pointerdown', (e) => {
     if (e.pointerType === 'mouse' || getComputedStyle(moreBtn).display === 'none') return;
-    flick = { id: e.pointerId, y: e.clientY, t: performance.now(), done: false };
+    flick = { id: e.pointerId, y: e.clientY, t: performance.now(), on: false, v: 0, ly: e.clientY, lt: performance.now() };
   });
   strip.addEventListener('pointermove', (e) => {
-    if (!flick || e.pointerId !== flick.id || flick.done) return;
-    const dy = e.clientY - flick.y, v = Math.abs(dy) / Math.max(1, performance.now() - flick.t);
-    if (Math.abs(dy) > 28 || (Math.abs(dy) > 12 && v > 0.5)) { flick.done = true; e.stopPropagation(); setAll(dy < 0, true); }
+    if (!flick || e.pointerId !== flick.id) return;
+    const dy = e.clientY - flick.y, now = performance.now();
+    if (!flick.on) {
+      if (Math.abs(dy) < 8) return;
+      flick.on = true; flick.wasAll = strip.classList.contains('all');
+      [flick.lo, flick.hi] = sizes();
+      strip.classList.add('all'); strip.style.overflow = 'hidden';
+      try { strip.setPointerCapture(e.pointerId); } catch {}
+    }
+    e.stopPropagation();
+    flick.h = Math.max(flick.lo, Math.min(flick.hi, (flick.wasAll ? flick.hi : flick.lo) - dy));
+    strip.style.height = `${flick.h}px`;
+    if (now - flick.lt > 30) { flick.v = (e.clientY - flick.ly) / (now - flick.lt); flick.ly = e.clientY; flick.lt = now; }
   });
-  const endDrag = () => { flick = null; };
-  strip.addEventListener('pointerup', endDrag); strip.addEventListener('pointercancel', endDrag);
+  const endFlick = () => {
+    const f = flick; flick = null;
+    if (!f || !f.on) return;
+    const open = Math.abs(f.v) > 0.3 ? f.v < 0 : f.h > (f.lo + f.hi) / 2, to = open ? f.hi : f.lo;
+    const finish = () => { strip.style.height = ''; strip.style.overflow = ''; strip.classList.toggle('all', open); moreBtn.setAttribute('aria-expanded', String(open)); moreBtn.setAttribute('aria-label', open ? 'Show fewer readouts' : 'Show all readouts'); dispatchEvent(new Event('resize')); };
+    if (reduce.matches || !strip.animate) return finish();
+    const an = strip.animate({ height: [`${f.h}px`, `${to}px`] }, { duration: 220, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    strip.style.height = `${to}px`; an.onfinish = finish; an.oncancel = finish;
+  };
+  strip.addEventListener('pointerup', endFlick); strip.addEventListener('pointercancel', endFlick);
   row.append(moreBtn);
   // A phone held sideways has no room for every readout: it keeps the four key ones.
   const sideways = matchMedia('(max-width: 1023px) and (max-height: 500px) and (orientation: landscape)');
