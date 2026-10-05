@@ -343,7 +343,7 @@ export const LABEL_VESSEL = {
   CONF: 'PV_TRUNK', SMV: 'SMV_CONF', SV: 'V_SPL', IMV: 'V_IMV', LGV: 'LGV_CONF', RPV: 'PVH_R', LPV: 'PVH_L',
   SIN_R: 'SIN_RR', SIN_L: 'SIN_LL',
   RHV: 'RHV_IVC', MHV: 'MHV_IVC', LHV: 'LHV_IVC', IVCS: 'IVCS_RA', IVCI: 'IVC_IS', SVC: 'SVC_RA', AZY: 'AZY_SVC',
-  LRV: 'LRV_IVC', ILI: 'ILI_IVC', VAR: 'C1a',
+  LRV: 'LRV_IVC', ILI: 'ILI_IVC', VAR: 'C1a', TIPS: 'TIPS',
 };
 
 // Organ artwork (anatomic view only): a frontal plate drawn back to front, as a medical

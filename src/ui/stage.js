@@ -2,7 +2,7 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, COLLATERAL_DMIN_RATIO, dMinOf, edgePresent, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=29d10ad9ef';
-import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=5836089b84';
+import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=29e0915392';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=23552bd900';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar, systemEdge } from './util.js?v=d90a6074b7';
@@ -2959,6 +2959,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (sel?.type === 'node' && sel.id === id) return true;
     return (id === 'VAR' ? f.metrics.varix.d : f.metrics.gastricVarix.d) >= 2.5;
   }
+  // Where a leader meets its label: the middle of the label's left edge or of its top or bottom edge,
+  // whichever is nearest the station. Never the right edge, so the line does not run across the text.
+  function leaderEnd(r, ax, ay) {
+    const cx = (r.x0 + r.x1) / 2, cy = (r.y0 + r.y1) / 2;
+    let best = null;
+    for (const [x, y] of [[r.x0, cy], [cx, r.y0], [cx, r.y1]]) {
+      const d = Math.hypot(x - ax, y - ay);
+      if (!best || d < best.d) best = { d, x, y };
+    }
+    return best;
+  }
   let labelGridKey = '', labelGrid = new Map();
   const labelMem = new Map();
   let labelTurned = false;   // labels remember their side; turning the circuit changes which side is right
@@ -3079,6 +3090,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         it.side = ATLAS_LABELS[id]?.side || (NODE_POS[id][0][0] < 700 ? 'L' : 'R');
         items.push(it);
       }
+      // A TIPS shunt gets its own callout: pressure at its portal end and the velocity through it.
+      if (E.TIPS?.vis && EI.TIPS >= 0) {
+        const { ax, ay, mid, w: vw } = labelAnchor('TIPS', t);
+        if (ax > 4 && ax < W - 4 && ay > 4 && ay < H - 4 && !blockers.some((b) => ax > b.x0 && ax < b.x1 && ay > b.y0 && ay < b.y1)) {
+          const it = nodeItem('RPV', f, atlas ? 'atlas' : 'inline', compact);
+          const vel = Math.abs(edgeVel(f, EI.TIPS));
+          const unit = { size: compact ? 9.5 : 10, weight: 500, cls: 'lb-unit', gap: 2.5 };
+          const nm = it.lines[0][0];
+          nm.t = 'TIPS';
+          const vr = [{ t: fmt(vel, 0), size: compact ? 12.5 : 14, weight: 650, cls: 'lb-val', gap: atlas ? 0 : 8 }, { ...unit, t: 'cm/s' }];
+          if (atlas) it.lines.push(vr); else it.lines[0].push(...vr);
+          it.key = 'n:TIPS'; it.node = undefined; it.sel = false;
+          it.w = Math.max(...it.lines.map(lineW)) + (atlas ? 7 : 0); it.h = it.lines.reduce((a, l) => a + LINE_H(l), 0);
+          it.label = `TIPS: ${fmt((f.Pf || f.P)[NI.RPV], 1)} millimeters of mercury, ${fmt(vel, 0)} centimeters per second`;
+          it.ax = ax; it.ay = ay; it.vw = mid ? vw * CTM.sc : 0; it.pri = 9; it.side = 'R';
+          items.push(it);
+        }
+      }
       // Zoomed in, the other stations in view get their pressure too (hepatic veins, portal branches,
       // the left sinusoids...), each only where it stands clear of the labels already there, so they
       // appear as the zoom makes room and the overview stays uncluttered.
@@ -3116,8 +3145,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
             // A floating card over the column hides the labels it covers rather than sitting on them.
             if (blockers.some((b) => hits(rectOf(it), b))) continue;
             it.align = side === 'L' ? 'end' : 'start';
-            const ly = it.y + Math.min(it.h / 2, 16);
-            const x0 = side === 'L' ? lx - 4 : rx + 4;
+            // Left column: the line starts at the label's left edge, under the text, so it never ends at the right.
+            const ly = side === 'L' ? it.y + it.h : it.y + Math.min(it.h / 2, 16);
+            const x0 = side === 'L' ? it.x : rx + 4;
             leaders += `<path class="leader${it.sel ? ' hl' : ''}" d="M${x0.toFixed(1)} ${ly.toFixed(1)} L${elbow.toFixed(1)} ${ly.toFixed(1)} L${it.ax.toFixed(1)} ${it.ay.toFixed(1)}"/><circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
             placed.push(rectOf(it));
             out.push(it);
@@ -3136,7 +3166,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         for (const it of out) {
           if (!it.leader) continue;
           const r = rectOf(it);
-          const px = clamp(it.ax, r.x0, r.x1), py = clamp(it.ay, r.y0, r.y1);
+          const { x: px, y: py } = leaderEnd(r, it.ax, it.ay);
           if (Math.hypot(px - it.ax, py - it.ay) > 5) leaders += `<path class="leader${it.sel ? ' hl' : ''}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}"/>`;
           leaders += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
         }
@@ -3211,8 +3241,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const it of nodes) {
         if (!out.includes(it)) continue;
         if (it.leader) {
-          const r = rectOf(it);
-          leaders += `<path class="leader" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${clamp(it.ax, r.x0, r.x1).toFixed(1)} ${clamp(it.ay, r.y0, r.y1).toFixed(1)}"/>`;
+          const r = rectOf(it), le = leaderEnd(r, it.ax, it.ay);
+          leaders += `<path class="leader" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}"/>`;
         }
         if (it.mid) leaders += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
       }
@@ -3242,8 +3272,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const it = { key: 'focus', cls: 'focus', lines: [[{ t: foc.label || 'Here', size: 11.5, weight: 650, cls: 'lb-focus' }]], align: 'start', bg: true, padX: 8, padY: 4, ax, ay };
       it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
       if (place(it, ['E', 'W', 'NE', 'SE', 'N', 'S'], 18 + (E[foc.edges[0]].width || 4), true)) {
-        const r = rectOf(it);
-        leaders += `<path class="leader focus" d="M${ax.toFixed(1)} ${ay.toFixed(1)} L${clamp(ax, r.x0, r.x1).toFixed(1)} ${clamp(ay, r.y0, r.y1).toFixed(1)}"/>`;
+        const r = rectOf(it), fe = leaderEnd(r, ax, ay);
+        leaders += `<path class="leader focus" d="M${ax.toFixed(1)} ${ay.toFixed(1)} L${fe.x.toFixed(1)} ${fe.y.toFixed(1)}"/>`;
       }
     }
 
