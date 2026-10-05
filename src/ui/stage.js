@@ -6,7 +6,7 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=23552bd900';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar, systemEdge } from './util.js?v=d90a6074b7';
-import { createLobuleZoom } from './lobule-zoom.js?v=b65df02444';
+import { createLobuleZoom } from './lobule-zoom.js?v=7642d68869';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=e424ed9ef2';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -613,6 +613,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (feeders) {
         for (const fd of feeders) { const d = polyD(fd.cur); fd.wall.setAttribute('d', d); fd.lumen.setAttribute('d', d); }
         gc.prepend(...feeders.map((fd) => fd.wall)); g.prepend(...feeders.map((fd) => fd.lumen));
+        // A drawn trunk (the azygos) is part of its vessel: it takes hover and clicks, not only the short arch path.
+        for (const fd of feeders) if (!fd.fan) { const fh = s('path', { class: 'v-hit', 'data-id': e.id, d: polyD(fd.cur), 'aria-hidden': 'true' }); fh.style.strokeWidth = 12; g.append(fh); }
       }
       gShadowL.append(gs); gCaseL.append(gc); gEdges.append(g); gHiMid.append(gh);
     }
@@ -2355,7 +2357,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A selected organ keeps a quiet outline; a selected site (varices, fundus, abdomen) a ring.
   const gSelO = s('g', { id: 'organSel' });
   gOver.after(gSelO);
-  let selOKey = '', selLine = null;
+  let selOKey = '', selLine = null, selFluid = null;
+  function syncSelFluid() {
+    if (!selFluid) return;
+    selFluid.fill.setAttribute('d', ascitesPath.getAttribute('d') || '');
+    selFluid.line.setAttribute('d', ascitesLine.getAttribute('d') || '');
+  }
   function syncSelLine() {
     if (!selLine) return;
     const d = organEls[selLine.id].getAttribute('d'), tr = organG[selLine.id].getAttribute('transform');
@@ -2368,7 +2375,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (key === selOKey) return;
     selOKey = key;
     for (const g of Object.values(organG)) g.classList.remove('org-sel');
-    gSelO.replaceChildren(); selLine = null;
+    gSelO.replaceChildren(); selLine = null; selFluid = null;
     if (!o) return;
     const byOrgan = { liver: ['liver'], heart: ['heart'], spleen: ['spleen'] }[o];
     if (byOrgan) {
@@ -2378,7 +2385,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (organEls[byOrgan[0]]?.getAttribute('d')) { selLine = { id: byOrgan[0], el: s('path', { class: 'org-sel-line' }) }; syncSelLine(); gSelO.append(selLine.el); }
       return;
     }
-    const at = { varices: [SITES.varix[0], SITES.varix[1] + 20, 26, 62], gastric: [SITES.fundus[0], SITES.fundus[1], 34, 30], abdomen: [720, 790, 230, 110] }[o];
+    if (o === 'abdomen') {   // the fluid as drawn; it follows the volume (see syncSelFluid)
+      const cg = s('g', { 'clip-path': 'url(#abdomenClip)' });
+      selFluid = { fill: s('path', { class: 'org-sel-fluid' }), line: s('path', { class: 'org-sel-line' }) };
+      cg.append(selFluid.fill, selFluid.line); gSelO.append(cg); syncSelFluid();
+      return;
+    }
+    const at = { varices: [SITES.varix[0], SITES.varix[1] + 20, 26, 62], gastric: [SITES.fundus[0], SITES.fundus[1], 34, 30] }[o];
     if (at) gSelO.append(s('ellipse', { cx: at[0], cy: at[1], rx: at[2], ry: at[3], class: 'org-sel-ring' }));
   }
 
@@ -2512,6 +2525,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (let x = 470; x <= 950; x += 16) glint += `${x === 470 ? 'M' : ' L'}${x} ${(surf(x) + 5).toFixed(1)}`;
       ascitesGlint.setAttribute('d', glint);
     }
+    syncSelFluid();
     platePoke();
   }
 
@@ -3562,7 +3576,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       gHovO.append(el);
       return;
     }
-    const at = { varices: [SITES.varix[0], SITES.varix[1] + 20, 26, 62], gastric: [SITES.fundus[0], SITES.fundus[1], 34, 30], abdomen: [720, 790, 230, 110] }[o];
+    if (o === 'abdomen') {   // the fluid itself, clipped as it is drawn, so it grows with the ascites
+      const fd = ascitesPath.getAttribute('d');
+      if (!fd) return;
+      const cg = s('g', { 'clip-path': 'url(#abdomenClip)' });
+      cg.append(s('path', { class: 'org-hov-fluid', d: fd }), s('path', { class: 'org-hov-line', d: ascitesLine.getAttribute('d') || '' }));
+      gHovO.append(cg);
+      return;
+    }
+    const at = { varices: [SITES.varix[0], SITES.varix[1] + 20, 26, 62], gastric: [SITES.fundus[0], SITES.fundus[1], 34, 30] }[o];
     if (at) gHovO.append(s('ellipse', { cx: at[0], cy: at[1], rx: at[2], ry: at[3], class: 'org-hov-ring' }));
   }
   // Nothing stays lit once the pointer is gone, cancelled or lifted (a finger has no hover).
