@@ -806,7 +806,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let viewRaf = 0, viewVersion = 0, CTM = null, wrapRect = null;
   // Zoomed far in, the vessels fill the screen and the vessel shader runs on most of its pixels: the picture is
   // drawn at a lower resolution there (in steps, so the canvas is not resized on every wheel notch).
-  let zoomRes = 1, dynRes = 1, resizeReady = false;
+  let zoomRes = 1, dynRes = 1, resizeReady = false, forceDraw = false;   // forceDraw: the vessel canvas was just resized (and so cleared): the next frame draws it at once
   const applyVT = () => {
     const zr = vt.k > 4 ? 0.65 : vt.k > 2.5 ? 0.8 : 1;
     if (zr !== zoomRes) { zoomRes = zr; if (resizeReady) resizeCanvas(); }
@@ -1294,7 +1294,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     vdpr = Math.min(2, devicePixelRatio || 1) * QUALITY[quality].res * zoomRes * dynRes;
     vCanvas.width = Math.max(1, Math.round(r.width * vdpr)); vCanvas.height = Math.max(1, Math.round(r.height * vdpr));
     wrap.classList.toggle('compact', r.height < 600);
-    CTM = null;
+    CTM = null; forceDraw = true;
   }
   new ResizeObserver(resizeCanvas).observe(wrap);
   resizeCanvas(); resizeReady = true;
@@ -3389,29 +3389,32 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function governRes(now, drawing) {
     const gap = resPrev ? now - resPrev : 16.7;
     resPrev = drawing ? now : 0;
-    if (SOFTWARE || !drawing || gap > 100) return;
+    if (SOFTWARE || !drawing || gap > 100 || now < 4000) return;   // not while the page is still starting up
     resGap += (gap - resGap) * 0.2;
     if (now - resCheck < 500) return;
     resCheck = now;
     let n = dynRes;
     if (resGap > 21 && dynRes > 0.5) { n = Math.max(0.5, dynRes - 0.1); resGood = 0; }
     else if (resGap < 15.5 && dynRes < 1 && ++resGood >= 3) { n = Math.min(1, dynRes + 0.1); resGood = 0; }
-    if (Math.abs(n - dynRes) > 0.01) { dynRes = n; resizeCanvas(); }
+    if (Math.abs(n - dynRes) > 0.01) pendingRes = n;   // applied at the start of the next frame, which then redraws
   }
+  let pendingRes = 0;
   let flowGate = lastT;
   function animate(now) {
     // High-refresh screens need not redraw the blood at their refresh rate. Elapsed time is kept
     // intact so speeds and transitions stay correct.
     if (document.hidden || appEl?.classList.contains('home-open')) { lastT = flowGate = now; lastRaf = 0; requestAnimationFrame(animate); return; }
     governQuality(now);
+    if (pendingRes) { dynRes = pendingRes; pendingRes = 0; resizeCanvas(); }
     // The dive magnifies the figure as it stands (a compositor scale): nothing under it is redrawn until it lands.
     if (diveT > 0 && diveT < 1) { lastT = flowGate = now; requestAnimationFrame(animate); return; }
     const interval = 1000 / QUALITY[quality].fps;
     // A pan or zoom redraws at once (the picture must stay under the pointer); only the model's
     // own motion is paced.
     const viewMoved = viewVersion !== drawnView;
-    if (!viewMoved && now - flowGate < interval) { requestAnimationFrame(animate); return; }
+    if (!viewMoved && !forceDraw && now - flowGate < interval) { requestAnimationFrame(animate); return; }
     flowGate = now - ((now - flowGate) % interval);
+    forceDraw = false;
     const dt = Math.min(0.1, (now - lastT) / 1000);
     lastT = now;
     // Fully inside the lobule, the plate is covered.
