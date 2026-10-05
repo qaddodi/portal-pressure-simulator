@@ -1055,6 +1055,7 @@ export function createLobuleZoom({ host }) {
   function quietTile(t, bg) {
     const k = bg.join(',');
     if (t.quiet?.k === k) return t.quiet;
+    // (the cache holds one tone at a time; the dive's liver tone is kept apart, see paintField)
     const cv = document.createElement('canvas'); cv.width = t.tw; cv.height = t.th;
     const c = cv.getContext('2d'); c.drawImage(t.cv, 0, 0); fieldQuiet(c, bg, 1, t.tw, t.th);
     return (t.quiet = { k, R: t.R, tw: t.tw, th: t.th, TW: t.TW, TH: t.TH, cv, pats: new WeakMap() });
@@ -1086,7 +1087,17 @@ export function createLobuleZoom({ host }) {
     const c = field.getContext('2d');
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.globalCompositeOperation = 'source-over';
-    fieldFill(c, t, d.x * dpr, d.y * dpr, rd, field.width, field.height);
+    // The surrounding lobules start drained and tinted like the liver being zoomed into (its fill, in
+    // whichever theme), so the dive reads as one tissue; the lobule's own colours come in over it.
+    const lv = rgb01(cs.getPropertyValue('--og-liver-2').trim() || (dark ? '#5A3440' : '#C98E7E'));
+    const tone = bg.map((x, i) => lerp(x, lv[i], 0.6));
+    const tk = tone.map((x) => x.toFixed(2)).join(',');
+    if (!t.liverQ || t.liverQ.k !== tk) {
+      const cv = document.createElement('canvas'); cv.width = t.tw; cv.height = t.th;
+      const cc = cv.getContext('2d'); cc.drawImage(t.cv, 0, 0); fieldQuiet(cc, tone, 1, t.tw, t.th);
+      t.liverQ = { k: tk, R: t.R, tw: t.tw, th: t.th, TW: t.TW, TH: t.TH, cv, pats: new WeakMap() };
+    }
+    fieldFill(c, t.liverQ, d.x * dpr, d.y * dpr, rd, field.width, field.height);
     // Quieting: the pre-quieted tile laid over the plain one (two pattern fills, not a blend of the whole screen).
     if (d.quiet > 0) { c.globalAlpha = d.quiet; fieldFill(c, quietTile(t, bg), d.x * dpr, d.y * dpr, rd, field.width, field.height); c.globalAlpha = 1; fieldFade(c, bg, d.x * dpr, d.y * dpr, rd, d.quiet, field.width, field.height); }
     // Emerging: the field spreads out from the dive point as it fades in.
