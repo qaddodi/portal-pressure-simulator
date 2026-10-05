@@ -18,7 +18,7 @@ import { activeInterventions } from './inspector.js?v=661dfd7392';
 
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };
 export const EVENT_WHY = { VARIX_RUPTURE: 'varix', RED_WALE: 'varix', VARIX_LARGE: 'varix', HEPATOFUGAL_PV: 'pvFlow', PV_STASIS: 'pvFlow', CSPH: 'hvpg', BLEED_RISK: 'hvpg', ASCITES_FORMING: 'ascites', TENSE_ASCITES: 'ascites', HIGH_SHUNT: 'shunt', LIVER_HYPOPERFUSION: 'liverPerf', RA_HIGH: 'ra', HYPERDYNAMIC: 'co', SPLENOMEGALY: 'spleen' };
-const SPEEDS = [0.5, 1, 2, 4];
+const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 const JUMPS = [[7, '+1 wk', '1 week'], [30, '+1 mo', '1 month'], [180, '+6 mo', '6 months']];
 
 /** A frozen, self-contained copy of a frame (for pinning A and for markers). */
@@ -43,13 +43,20 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   const labelsOf = (p) => new Map(activeInterventions(p).map((a) => [a.key, a.label]));
 
   // ── DOM ───────────────────────────────────────────
-  const playBtn = h('button', { class: 'ib play', 'aria-label': 'Pause', title: 'Play / pause (Space)' }, icon('pause'));
-  playBtn.addEventListener('click', () => onPlay());
+  const playBtn = h('button', { class: 'ib play', 'aria-label': 'Pause', title: 'Play / pause (Space). Hold to change speed' }, icon('pause'));
+  // Click toggles play/pause; press and hold opens the speed menu.
+  let holdTimer = 0, held = false;
+  const openSpeed = () => popover(playBtn, [
+    h('div', { class: 'menu-title' }, 'Playback speed'),
+    ...SPEEDS.map((v) => { const it = menuBtn(`${v}×`, () => onSpeed(v)); it.setAttribute('aria-pressed', String(store.get().speed === v)); return it; }),
+  ], { place: 'above', align: 'start', cls: 'time-pop' });
+  playBtn.addEventListener('pointerdown', () => { held = false; clearTimeout(holdTimer); holdTimer = setTimeout(() => { held = true; openSpeed(); }, 450); });
+  for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) playBtn.addEventListener(ev, () => clearTimeout(holdTimer));
+  playBtn.addEventListener('contextmenu', (e) => e.preventDefault());
+  playBtn.addEventListener('click', () => { if (held) { held = false; return; } onPlay(); });
   // Restart: the same patient from its first moment, every change and the clock cleared.
   const restartBtn = h('button', { class: 'ib tl-restart', 'aria-label': 'Restart this patient' }, icon('reset'));
   restartBtn.addEventListener('click', () => onRestart?.());
-  const speedBtn = h('button', { class: 'tl-speed', title: 'Playback speed ([ and ]); click for the next speed', 'aria-label': 'Playback speed' }, '1×');
-  speedBtn.addEventListener('click', () => { const i = SPEEDS.indexOf(store.get().speed); onSpeed(SPEEDS[(i + 1) % SPEEDS.length]); });
   const rail = h('div', { class: 'tl-rail' });
   const fill = h('div', { class: 'tl-fill' });
   const bleedBand = h('div', { class: 'tl-bleed', hidden: true });
@@ -67,11 +74,11 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   histBtn.addEventListener('click', (e) => openHistory(e.currentTarget));
   // The latest event sits in the dock's status row (with the bleed), above the play bar, on every screen.
   (document.getElementById('vdStatus') || root).append(latestEl);
-  const jumpBtns = JUMPS.map(([d, l, long]) => {
-    const b = h('button', { class: 'tl-jump', title: `Jump ${long} ahead on the disease clock` }, l);
-    b.addEventListener('click', () => jump(d, long));
-    return b;
-  });
+  const ffBtn = h('button', { class: 'ib tl-ff', 'aria-label': 'Jump ahead', 'aria-haspopup': 'menu', title: 'Jump ahead in time' }, icon('ffwd'));
+  ffBtn.addEventListener('click', (e) => popover(e.currentTarget, [
+    h('div', { class: 'menu-title' }, 'Jump ahead'),
+    ...JUMPS.map(([d, l, long]) => menuBtn(l.replace('+', '+ '), () => jump(d, long))),
+  ], { place: 'above', align: 'end', cls: 'time-pop' }));
   const moreBtn = h('button', { class: 'ib tl-more', 'aria-label': 'More time options', title: 'More' }, icon('more'));
   moreBtn.addEventListener('click', (e) => popover(e.currentTarget, [
     h('div', { class: 'menu-title' }, 'Time'),
@@ -81,14 +88,11 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
     menuBtn('Until something happens', () => jump('event', 'until the next event')),
     menuBtn('Settle to equilibrium', () => { host.send({ type: 'settle' }); toast('Settled to equilibrium.'); }),
     menuBtn('Restart this patient', () => onRestart?.()),
-    h('div', { class: 'menu-sep' }),
-    h('div', { class: 'menu-title' }, 'Playback speed'),
-    h('div', { class: 'seg full', style: { margin: '2px 6px 6px' } }, [0.25, ...SPEEDS, 8].map((v) => { const b = h('button', { 'aria-pressed': String(store.get().speed === v) }, `${v}×`); b.addEventListener('click', () => { closePopover(); onSpeed(v); }); return b; })),
   ], { place: 'above', align: 'end', cls: 'time-pop' }));
   const pinBtn = h('button', { class: 'tl-pin', 'aria-pressed': 'false', 'aria-label': 'Compare from here', title: 'Freeze this moment and compare the live model with it (P)' }, svgIcon('compare', 'mi-ic'), h('span', {}, 'Compare'));
   // Restart lives in More; the jumps share one segmented control.
   pinBtn.addEventListener('click', () => togglePin());
-  root.replaceChildren(h('div', { class: 'tl-left' }, playBtn, restartBtn, speedBtn), track, timeEl, h('div', { class: 'tl-jumps' }, h('div', { class: 'tl-jseg' }, jumpBtns), moreBtn), histBtn, pinBtn);
+  root.replaceChildren(h('div', { class: 'tl-left' }, playBtn, restartBtn), track, timeEl, h('div', { class: 'tl-jumps' }, ffBtn, moreBtn), histBtn, pinBtn);
   tooltipFor(playBtn, 'Play / pause · Space', 'top');
   tooltipFor(restartBtn, 'Restart this patient', 'top');
   function menuBtn(label, fn) { const b = h('button', { class: 'menu-item' }, label); b.addEventListener('click', () => { closePopover(); fn(); }); return b; }
@@ -348,7 +352,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
     }
     if (f.running !== lastRun) { lastRun = f.running; playBtn.replaceChildren(icon(f.running ? 'pause' : 'play')); playBtn.setAttribute('aria-label', f.running ? 'Pause' : 'Play'); }
     const sp = store.get().speed;
-    if (sp !== lastSpeed) { lastSpeed = sp; speedBtn.textContent = `${sp}×`; }
+    if (sp !== lastSpeed) { lastSpeed = sp; if (sp === 1) playBtn.removeAttribute('data-speed'); else playBtn.setAttribute('data-speed', `${sp}×`); }
     // Active bleeding: a steady red band from the rupture to now.
     const bleeding = !!f.metrics.bleeding;
     if (bleeding !== lastBleed || bleeding) {
