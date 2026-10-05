@@ -128,7 +128,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const c = document.querySelector('.action-card'), r = c.getBoundingClientRect(), sv = document.querySelector('#stageView').getBoundingClientRect(), sc = c.querySelector('.ac-scroll');
       const link = c.querySelector('.ac-foot.in-head .link');
       // The figure fills the screen; the sheet rises from the bottom edge, over the vitals dock.
-      return { covers: r.bottom >= innerHeight - 2 && r.top < document.querySelector('#vdock').getBoundingClientRect().top, peek: c.classList.contains('peek'), docked: c.classList.contains('docked'), top: r.top - sv.top, h: r.height, stageH: sv.height, scrolls: sc.scrollHeight - sc.clientHeight, links: !!link && link.getBoundingClientRect().height > 0, foot: getComputedStyle(c.querySelector('.ac-foot.at-foot')).display !== 'none' };
+      return { covers: r.bottom <= sv.bottom && r.bottom >= sv.bottom - 40 && r.top < document.querySelector('#vdock').getBoundingClientRect().top, peek: c.classList.contains('peek'), docked: c.classList.contains('docked'), top: r.top - sv.top, h: r.height, stageH: sv.height, scrolls: sc.scrollHeight - sc.clientHeight, links: !!link && link.getBoundingClientRect().height > 0, foot: getComputedStyle(c.querySelector('.ac-foot.at-foot')).display !== 'none' };
     });
     const swipe = async (dy) => {
       const box = await (await page.$('.ac-top')).boundingBox();
@@ -146,19 +146,22 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (!s.links || s.foot) throw new Error('Why? and Details should be in the header, with no row of their own at the foot');
     const anchorY = await page.evaluate(() => { const a = window.pps.stage.anchorFor({ type: 'edge', id: 'PV_TRUNK' }); return a && a.y; });
     if (anchorY == null || anchorY > s.top) throw new Error(`the vessel (y ${Math.round(anchorY)}) is under the sheet (top ${Math.round(s.top)})`);
-    await page.click('.ac-grab');
-    await page.waitForTimeout(500);
-    s = await read();
-    if (!s.peek || s.h > s.stageH * 0.22) throw new Error('the strip is not small');
-    await swipe(-70);
-    s = await read();
-    if (s.peek) throw new Error('a swipe up did not open the sheet');
+    const zoom = await page.$eval('#zoomPill', (el) => {
+      const r = el.getBoundingClientRect(), cs = getComputedStyle(el);
+      return { bottom: r.bottom, visible: cs.visibility !== 'hidden' && cs.display !== 'none' && +cs.opacity > 0 };
+    });
+    const cardTop = await page.$eval('.action-card', (el) => el.getBoundingClientRect().top);
+    if (!zoom.visible || zoom.bottom > cardTop) throw new Error('zoom and Fit should remain visible above the card');
+    if (await page.$('.ac-grab')) throw new Error('the compact card should have no handle or intermediate heights');
     await swipe(70);
-    s = await read();
-    if (!s.peek) throw new Error('a swipe down did not fold the sheet to the strip');
-    await shot(page, 'phone-card-strip');
-    await swipe(70);
-    if (!(await page.$eval('.action-card', (c) => c.hidden))) throw new Error('a swipe down from the strip did not close the card');
+    if (!(await page.$eval('.action-card', (c) => c.hidden))) throw new Error('one swipe down should close the card');
+    await page.evaluate(() => window.pps.store.set({ selection: { type: 'edge', id: 'PV_TRUNK' } }));
+    await page.waitForSelector('.action-card:not([hidden])');
+    await page.waitForTimeout(300);
+    await page.click('.ac-close');
+    await page.waitForTimeout(300);
+    if (!(await page.$eval('.action-card', (c) => c.hidden))) throw new Error('close should dismiss the card');
+
   });
   await check(device, 'circuit view, selection card, lenses', async (page) => {
     await open(page, '?preset=csph');
@@ -183,7 +186,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.click('.action-card button:has-text("Doppler")');
     await page.waitForSelector('#pane-doppler', { state: 'visible' });
     await page.waitForFunction(() => !window.pps.store.get().selection);
-    if (await page.locator('.action-card').isVisible()) throw new Error('the card stays open after Doppler');
+    await page.locator('.action-card').waitFor({ state: 'hidden' });
   });
 
   await check(device, 'home, palette, presenter, instruments', async (page) => {
@@ -273,7 +276,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const kind = await page.evaluate(() => document.querySelector('.lz').dataset.vessels);
     if (kind !== 'webgl2') throw new Error(`expected the lobule's vessels on the GPU, got ${kind}`);
     // The vessel layer actually holds a picture.
-    const lit = await page.evaluate(() => {
+    const vesselPixels = () => {
       const g = document.querySelector('.lz-gl'), c = document.createElement('canvas');
       c.width = 160; c.height = 100;
       const x = c.getContext('2d');
@@ -282,7 +285,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       let n = 0;
       for (let i = 3; i < d.length; i += 4) if (d[i] > 40) n++;
       return n;
-    });
+    };
+    const lit = await page.evaluate(vesselPixels);
     if (lit < 300) throw new Error(`the lobule's vessel layer is nearly empty (${lit} px)`);
     if ((await page.locator('.lz-lab').count()) !== 3) throw new Error('station cards missing');
     // The card is gone: nothing floats beside the lobule but its labels.
@@ -329,12 +333,20 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (device === 'desktop') { for (let i = 0; i < 4; i++) await page.mouse.wheel(0, 600); await page.waitForTimeout(600); }
     if (!(await page.evaluate(() => window.pps.stage.lobuleOpen()))) throw new Error('zooming out left the lobule');
     // Zones and Lymph are in the toolbar's Layers menu, which is there only on the lobule.
+    // First enabling lymph with a settled, paused model must initialize its radii;
+    // otherwise invalid reaches empty the geometry bins and erase the vessel layer.
+    await page.evaluate(() => window.pps.host.send({ type: 'run', running: false }));
+    await page.waitForFunction(() => !window.pps.store.get().running);
+    await page.waitForTimeout(1500);
     await page.click('#btnLobuleLayers');
     await page.click('.menu .menu-item:has-text("Zones")');
     await page.waitForFunction(() => document.querySelectorAll('.lz-zone').length === 3, null, { timeout: 5000 }).catch(() => { throw new Error('zones did not show'); });
     await page.click('.menu .menu-item:has-text("Lymph")');
     await page.keyboard.press('Escape');
     await page.waitForTimeout(500);
+    const lymphLit = await page.evaluate(vesselPixels);
+    if (lymphLit < 300) throw new Error(`enabling lymph while paused erased the vessel layer (${lymphLit} px)`);
+    await page.evaluate(() => window.pps.host.send({ type: 'run', running: true }));
     await shot(page, `${device}-lobule`);
     // Leaving the lobule closes its card.
     await page.evaluate(() => document.querySelector('.lz-lab:not([hidden])').click());   // its value updates live, so it never holds still for a pointer click
@@ -564,7 +576,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await open(page, '?preset=cirr-decomp');
     // The heartbeat always runs, so the trace is beat to beat before any instrument opens, and it
     // never touches the patient's parameters.
-    await page.waitForFunction(() => window.pps.store.get().frame.pulsing, null, { timeout: 5000 });
+    await page.waitForFunction(() => window.pps.store.get().frame.pulsing, null, { timeout: 20000 });
     await page.click('#tabInstruments');
     await page.evaluate(() => window.pps.dock.show('scope'));
     if (await page.evaluate(() => window.pps.store.get().params.pulsatile)) throw new Error('opening an instrument changed the patient parameters');

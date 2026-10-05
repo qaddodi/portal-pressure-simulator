@@ -6,7 +6,7 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=23552bd900';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar, systemEdge } from './util.js?v=831ebf143a';
-import { createLobuleZoom } from './lobule-zoom.js?v=e777ae8cc4';
+import { createLobuleZoom } from './lobule-zoom.js?v=2e5eab730c';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, ORIGIN_GREY } from './veins-gl.js?v=0acbe74771';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
@@ -3437,7 +3437,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let wheelKind = null, wheelAt = 0, settleT = 0;
   const wheelPx = (ev, d) => d * (ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? stageBox().height : 1);
   const settleSoon = (ms = 220) => { clearTimeout(settleT); settleT = setTimeout(springBack, ms); };
-  svg.addEventListener('wheel', (ev) => {
+  const onWheel = (ev) => {
     ev.preventDefault();
     stopGlide(); userMoved = true;
     const dx = wheelPx(ev, ev.deltaX), dy = wheelPx(ev, ev.deltaY), now = performance.now();
@@ -3451,7 +3451,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const s = vbScale();
     vt = { k: vt.k, x: vt.x - dx / s, y: vt.y - dy / s };
     applyVT(); CTM = null; settleSoon();
-  }, { passive: false });
+  };
+  svg.addEventListener('wheel', onWheel, { passive: false });
+  labelSvg.addEventListener('wheel', onWheel, { passive: false });
 
   // The figure never gets lost: past the zoom limits, or panned until its middle leaves the
   // view, it springs back once the gesture ends. During a pinch the limits stretch a little.

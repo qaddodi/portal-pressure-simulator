@@ -22,7 +22,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   new ResizeObserver(() => { sizes.w = el.offsetWidth; sizes.h = el.offsetHeight; placedFor = ''; lastLayout = ''; position(); syncMore(); if (isDocked()) reveal(); }).observe(el);
   const uiState = {};
   ctx.ui = (key, def) => (uiState[key] ||= def);
-  let model = null, live = [], syncs = [], actionable = [], selRef = null, placedFor = '', lastLayout = '', sheetState = 'open';
+  let model = null, live = [], syncs = [], actionable = [], selRef = null, placedFor = '', lastLayout = '';
 
   const refP = () => { const st = store.get(); return st.compareSnap ? st.compareSnap.P : st.healthy?.P; };
   const lens = () => (store.get().imaging ? 'neutral' : store.get().colorMode);
@@ -50,32 +50,31 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     liftedBy = px;
     lift ||= [...view.querySelectorAll('.zoom-pill, .stage-clock')];
     for (const b of lift) b.style.setProperty('--sheet-h', px);
-    // On a phone held sideways the room between the top bar and the sheet can be smaller than the zoom
-    // buttons: then they step aside rather than slide under the top bar.
+    // Keep the zoom and Fit pill above the card; hide only if it would reach the top bar.
     const pill = lift.find((b) => b.classList.contains('zoom-pill'));
     if (pill) pill.classList.toggle('under-sheet', isDocked() && parseFloat(px) > 0);
-    // Hidden (a phone's instrument sheet is up) it has no box to measure: a reading then would leave it
-    // stepped aside for good once it shows again.
-    if (pill && !pill.getClientRects().length) pill.classList.remove('no-room');
-    else if (pill) {
-      const shift = parseFloat(getComputedStyle(pill).translate.split(' ')[1]) || 0;   // where the lift has got to
-      const restTop = pill.getBoundingClientRect().top - shift;
-      const barBottom = document.getElementById('topbar').getBoundingClientRect().bottom;
-      pill.classList.toggle('no-room', restTop - parseFloat(px) < barBottom + 4);
-    }
+    if (pill) pill.classList.remove('no-room');
   }
   function reveal() {
     cancelAnimationFrame(revealRaf);
     revealRaf = requestAnimationFrame(() => {
       const open = model && !el.hidden && isDocked();
       // How much of the figure the sheet covers (it also covers the row below the figure).
-      const covered = open ? Math.max(0, view.getBoundingClientRect().bottom - el.getBoundingClientRect().top) : 0;
+      const covered = open ? Math.max(0, view.getBoundingClientRect().bottom - (dockHost.getBoundingClientRect().top + el.offsetTop)) : 0;
       liftButtons(open ? `${covered + 6}px` : '0px');
       if (open) stage.reveal?.(normalizeSel(selRef) || selRef, covered);
     });
   }
+  let closeTimer = 0, stopSheetGesture = () => {};
   function hide() {
-    el.hidden = true; model = null; live = []; syncs = []; actionable = [];
+    stopSheetGesture();
+    if (!el.hidden && !el.classList.contains('ac-leaving')) {
+      if (isDocked() && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        el.classList.add('ac-leaving');
+        closeTimer = setTimeout(() => { el.hidden = true; el.classList.remove('ac-leaving'); }, 180);
+      } else el.hidden = true;
+    }
+    model = null; live = []; syncs = []; actionable = [];
     leader.replaceChildren(); placedFor = '';
     liftButtons('0px');
     stage.unreveal?.();
@@ -88,6 +87,9 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     if (!sel || st.shunting) { hide(); return; }
     const m = cardFor(sel, ctx);
     if (!m) { hide(); return; }
+    stopSheetGesture();
+    clearTimeout(closeTimer);
+    el.classList.remove('ac-leaving');
     const focusedIdx = keepFocus ? actionable.findIndex((a) => a.el.contains(document.activeElement)) : -1;
     model = m; selRef = sel; live = []; syncs = []; actionable = [];
     const close = h('button', { class: 'ib ac-close', 'aria-label': 'Close', title: 'Close (Esc)', onclick: () => store.set({ selection: null }) }, icon('close'));
@@ -127,22 +129,17 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     // Why? and Details are written twice and shown once: in the header on a phone (where a row of their own would
     // be a strip of wasted sheet) and at the foot on a desktop.
     const mkFoot = (where) => h('div', { class: 'ac-foot ' + where },
-      h('button', { class: 'link', onclick: (e) => onWhy(m.why, e.currentTarget) }, svgIcon('bulb', 'mi-ic'), 'Why?'),
-      m.noDetails ? null : h('button', { class: 'link', onclick: () => onDetails(selRef) }, 'Details', svgIcon('chev-right', 'mi-ic')));
+      h('button', { class: 'link', 'aria-label': 'Why?', title: 'Why?', onclick: (e) => onWhy(m.why, e.currentTarget) }, svgIcon('bulb', 'mi-ic'), h('span', { class: 'ac-link-text' }, 'Why?')),
+      m.noDetails ? null : h('button', { class: 'link', 'aria-label': 'Details', title: 'Details', onclick: () => onDetails(selRef) }, h('span', { class: 'ac-link-text' }, 'Details'), svgIcon('chev-right', 'mi-ic')));
     const foot = mkFoot('at-foot');
-    // On a phone the card is a bottom sheet with two heights: everything at once, or a strip with just the reading.
-    // Tapping the handle or the top flips between them; a swipe down from the strip closes. The desktop card has the
-    // same parts: header, controls, and the links at the foot.
-    const grab = h('button', { class: 'ac-grab', 'aria-label': 'Collapse or expand the card', 'aria-expanded': String(sheetState !== 'peek') });
-    const top = h('div', { class: 'ac-top' }, grab,
+    // One compact phone sheet: drag the header down to dismiss.
+    const top = h('div', { class: 'ac-top' },
       h('header', { class: 'ac-head' }, h('div', { class: 'ac-titles' }, h('span', { class: 'ac-kicker' }, m.kicker), h('h3', {}, m.title)), mkFoot('in-head'), close),
       h('div', { class: 'ac-readout' }, valEl, pillEl));
-    wireSheet(top, grab);
+    wireSheet(top);
     const scroller = h('div', { class: 'ac-scroll' }, body);
     scroller.addEventListener('scroll', syncMore, { passive: true });
     el.replaceChildren(top, scroller, foot);
-    el.classList.toggle('peek', sheetState === 'peek');
-    el.classList.toggle('full', sheetState === 'full');
     el.setAttribute('aria-label', `${m.title}: actions`);
     el.hidden = false;
     // Number keys trigger the verbs in order; show the number beside each.
@@ -156,36 +153,25 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     requestAnimationFrame(syncMore);
   }
 
-  // Bottom-sheet gestures (phone only): a tap on the handle or the top flips between the open sheet and the strip;
-  // a swipe up opens it, a swipe down from the open sheet makes it the strip, and a swipe down from the strip closes
-  // it. The height carries over to the next card, so a learner who wants the figure clear keeps it clear.
-  function setSheet(s) {
-    sheetState = s;
-    el.classList.toggle('peek', s === 'peek');
-    el.classList.toggle('full', s === 'full');
-    el.querySelector('.ac-grab')?.setAttribute('aria-expanded', String(s !== 'peek'));
-    relayoutSoon();
-    reveal();
-  }
-  function wireSheet(top, grab) {
-    grab.addEventListener('click', () => setSheet(sheetState === 'peek' ? 'open' : 'peek'));
-    let y0 = null, moved = false;
-    // The swipe is followed on the window, so it may leave the top of the sheet; nothing is captured, so the handle,
-    // the links and the close button still get their own clicks.
-    const move = (e) => { if (y0 != null && Math.abs(e.clientY - y0) > 8) moved = true; };
-    const stop = () => { y0 = null; removeEventListener('pointermove', move); removeEventListener('pointerup', up); removeEventListener('pointercancel', stop); };
-    const up = (e) => {
-      const dy = e.clientY - y0, tap = !moved && !e.target.closest?.('button');
-      stop();
-      // Three heights: a strip, the sheet, nearly the whole screen. A swipe moves one step; a swipe down from the strip closes.
-      if (dy > 40) { if (sheetState === 'peek') store.set({ selection: null }); else setSheet(sheetState === 'full' && dy < 220 ? 'open' : 'peek'); }
-      else if (dy < -40) setSheet(sheetState === 'peek' && dy > -220 ? 'open' : 'full');
-      else if (tap) setSheet(sheetState === 'peek' ? 'open' : 'peek');
+  // Track swipes outside the header too; release all listeners on close or selection change.
+  function wireSheet(top) {
+    let y0 = null;
+    const stop = () => {
+      y0 = null;
+      removeEventListener('pointerup', up);
+      removeEventListener('pointercancel', stop);
     };
+    const up = (e) => {
+      const dy = e.clientY - y0;
+      stop();
+      if (dy > 40) store.set({ selection: null });
+    };
+    stopSheetGesture = stop;
     top.addEventListener('pointerdown', (e) => {
-      if (!isDocked() || e.target.closest('.ac-close, .ac-foot')) return;
-      y0 = e.clientY; moved = false;
-      addEventListener('pointermove', move); addEventListener('pointerup', up); addEventListener('pointercancel', stop);
+      if (!isDocked() || !e.isPrimary || e.button !== 0 || e.target.closest('.ac-close, .ac-foot')) return;
+      y0 = e.clientY;
+      addEventListener('pointerup', up);
+      addEventListener('pointercancel', stop);
     });
   }
 
@@ -378,7 +364,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   }
 
   // The floating pieces moved (a card opened on the right, the dock grew): place the card again.
-  addEventListener('pps:occ', () => { placedFor = ''; lastLayout = ''; position(); });
+  addEventListener('pps:occ', () => { placedFor = ''; lastLayout = ''; position(); if (isDocked()) reveal(); });
   store.on('selection', () => render());
   store.on('shunting', () => render());
   store.on('allowedVerbs', () => render());
