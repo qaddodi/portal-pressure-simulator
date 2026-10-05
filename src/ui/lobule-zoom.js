@@ -404,9 +404,9 @@ export function createLobuleZoom({ host }) {
         down = null;
         if (V.k > kFit * 1.001) { V.x += p[0] - drag.p[0]; V.y += p[1] - drag.p[1]; clampV(); viewChanged(); el.classList.add('lz-drag'); }
         else if (geo) {   // at its framing there is nowhere to go: the lobule follows the hand on a rubber band and springs back on release
-          const F0 = fitV(), o = drag.o || (drag.o = [0, 0]), soft = (d) => 70 * Math.tanh(d / 70);
+          const F0 = fitV(), o = drag.o || (drag.o = [0, 0]), Lx = 0.4 * (el.clientWidth || 800), Ly = 0.4 * (el.clientHeight || 600);   // near-free travel, easing toward 40% of the view
           cancelAnimationFrame(glide); o[0] += p[0] - drag.p[0]; o[1] += p[1] - drag.p[1];
-          V.x = F0.x + soft(o[0]); V.y = F0.y + soft(o[1]); atFit = false; viewChanged(); el.classList.add('lz-drag');
+          V.x = F0.x + Lx * Math.tanh(o[0] / Lx); V.y = F0.y + Ly * Math.tanh(o[1] / Ly); atFit = false; viewChanged(); el.classList.add('lz-drag');
         }
         drag.p = p;
         const now = performance.now();
