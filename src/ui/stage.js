@@ -2319,8 +2319,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const gGlow = s('g', { id: 'deltaGlow', 'aria-hidden': 'true' });
   gFocus.after(gGlow);
   let haloBase = null, haloTimer = 0;
+  // Opening or resuming the app restores parameters and the model settles; that is not a change to explain.
+  let resumedAt = 0;
+  document.addEventListener('visibilitychange', () => { resumedAt = performance.now(); });
+  addEventListener('pageshow', () => { resumedAt = performance.now(); });
   store.on('params', () => {
-    if (!F || quietFx()) return;
+    if (!F || quietFx() || performance.now() < 5000 || performance.now() - resumedAt < 4000) return;
     if (!haloBase) haloBase = { P: Float64Array.from(F.P), t: performance.now() };
     clearTimeout(haloBase.timer);
     haloBase.timer = setTimeout(() => { if (F && haloBase) { haloBase.t = 0; stepHalos(F, easeInOut(morph)); } }, 1200);

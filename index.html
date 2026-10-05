@@ -18,7 +18,7 @@
   <meta name="apple-mobile-web-app-title" content="Portal Sim" />
   <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="fonts/fonts.css" />
-  <script>try{var t=localStorage.getItem('pps.theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <script>try{var t=localStorage.getItem('pps.theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);var d=t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);if(d){document.documentElement.style.background='#0E1422';document.documentElement.style.colorScheme='dark'}}catch(e){}</script>
   <link rel="stylesheet" href="styles/tokens.css?v=3be33c49f7" />
   <link rel="stylesheet" href="styles/app.css?v=b1135be9d5" />
   <style>
@@ -204,7 +204,7 @@
   <div class="toast-wrap" id="toasts"></div>
   <div class="sr-only" aria-live="polite" id="live"></div>
 
-  <link rel="modulepreload" href="src/ui/stage.js?v=29f012ca82" />
+  <link rel="modulepreload" href="src/ui/stage.js?v=6ee04bcf61" />
   <link rel="modulepreload" href="src/ui/anatomy.js?v=dbe096be7b" />
   <link rel="modulepreload" href="src/ui/util.js?v=d90a6074b7" />
   <link rel="modulepreload" href="src/ui/store.js?v=23552bd900" />
@@ -215,6 +215,6 @@
   <link rel="modulepreload" href="src/ui/instruments.js?v=1c9835f18b" />
   <link rel="modulepreload" href="src/ui/timeline.js?v=bd3e6e6491" />
   <link rel="modulepreload" href="src/engine/topology.js?v=29d10ad9ef" />
-  <script type="module" src="src/ui/main.js?v=09b8f4063a"></script>
+  <script type="module" src="src/ui/main.js?v=d94f2b8f82"></script>
 </body>
 </html>
