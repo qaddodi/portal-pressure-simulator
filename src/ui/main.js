@@ -693,7 +693,6 @@ function openMainMenu(anchor) {
     h('div', { class: 'menu-sep' }),
     menuItem('Copy a link to this exact state', { icon: 'share', onClick: () => { closePopover(); share(); } }),
     h('div', { class: 'menu-sep' }),
-    menuItem(t('menu.settings') + '…', { icon: 'gear', onClick: () => { closePopover(); setTimeout(() => openSettings(anchor), 0); } }),
     menuItem(t('menu.help') + '…', { icon: 'help', kb: '?', onClick: () => { closePopover(); setTimeout(() => openHelpMenu(anchor), 0); } }),
   ], { cls: 'main-menu', align: 'start' });
 }
