@@ -5,7 +5,7 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
-import { h, fmt, fitCanvas, clamp } from './util.js?v=831ebf143a';
+import { h, fmt, fitCanvas, clamp, icon } from './util.js?v=831ebf143a';
 import { FONT } from './charts.js?v=336dccf20d';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -46,11 +46,13 @@ export function createDoppler({ onProbe }) {
   let invert = false;
   const invBtn = h('button', { class: 'dop-tint dop-inv', 'aria-pressed': 'false', title: 'Invert the display: show flow away from the probe above the baseline' }, h('i', { 'aria-hidden': 'true' }, '⇅'), 'Invert');
   invBtn.addEventListener('click', () => { invert = !invert; invBtn.setAttribute('aria-pressed', String(invert)); if (frame) draw(); });
+  const sweepIcon = icon('clock');
+  sweepIcon.setAttribute('aria-hidden', 'true');
   const sweepBtn = h('button', {
     class: 'dop-tint dop-sweep',
     title: `Sweep window: ${sweepSeconds} seconds. Tap to cycle.`,
     'aria-label': `Doppler sweep duration: ${sweepSeconds} seconds. Activate to cycle.`,
-  }, h('i', { 'aria-hidden': 'true' }, '↻'), `${sweepSeconds} s`);
+  }, sweepIcon, `${sweepSeconds} s`);
   sweepBtn.addEventListener('click', () => {
     sweepIndex = (sweepIndex + 1) % SWEEP_SECONDS.length;
     sweepSeconds = SWEEP_SECONDS[sweepIndex];
