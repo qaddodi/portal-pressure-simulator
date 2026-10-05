@@ -3564,7 +3564,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       gHovO.append(el);
       return;
     }
-    const at = { varices: [SITES.varix[0], SITES.varix[1] + 20, 26, 62], gastric: [SITES.fundus[0], SITES.fundus[1], 34, 30], abdomen: [720, 790, 230, 110] }[o];
+    if (o === 'abdomen') {   // the fluid itself, clipped as it is drawn, so it grows with the ascites
+      const fd = ascitesPath.getAttribute('d');
+      if (!fd) return;
+      const cg = s('g', { 'clip-path': 'url(#abdomenClip)' });
+      cg.append(s('path', { class: 'org-hov-fluid', d: fd }), s('path', { class: 'org-hov-line', d: ascitesLine.getAttribute('d') || '' }));
+      gHovO.append(cg);
+      return;
+    }
+    const at = { varices: [SITES.varix[0], SITES.varix[1] + 20, 26, 62], gastric: [SITES.fundus[0], SITES.fundus[1], 34, 30] }[o];
     if (at) gHovO.append(s('ellipse', { cx: at[0], cy: at[1], rx: at[2], ry: at[3], class: 'org-hov-ring' }));
   }
   // Nothing stays lit once the pointer is gone, cancelled or lifted (a finger has no hover).
