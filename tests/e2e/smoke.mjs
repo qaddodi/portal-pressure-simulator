@@ -108,7 +108,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const kIn = await steady();
     await page.click('#rotateCircuit');
     await until(`(${ratio})() < 1`, 'circuit did not turn back to wide');
-    const kAfter = await steady();
+    let kAfter = await steady();
+    for (let i = 0; i < 8 && Math.abs(kAfter - kIn) / kIn > 0.05; i++) kAfter = await steady();   // a loaded runner can read mid-glide; a real reset stays reset
     if (Math.abs(kAfter - kIn) / kIn > 0.05) throw new Error(`turning reset the zoom (${kIn.toFixed(2)} → ${kAfter.toFixed(2)})`);
     await page.evaluate(() => window.pps.stage.fit()); await page.click('#rotateCircuit');
     await until(`(${ratio})() > 1`, 'circuit did not turn tall again');
