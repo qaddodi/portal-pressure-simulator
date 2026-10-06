@@ -3041,10 +3041,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           const n = Math.max(1, Math.ceil(Math.hypot(cur[0] - prev[0], cur[1] - prev[1]) / (CELL / 2)));
           for (let j = 0; j <= n; j++) {
             const sx = prev[0] + ((cur[0] - prev[0]) * j) / n, sy = prev[1] + ((cur[1] - prev[1]) * j) / n;
-            const k = Math.floor(sx / CELL) * 4096 + Math.floor(sy / CELL);
-            if (seen.has(k)) continue;
-            seen.add(k);
-            lines.set(k, (lines.get(k) || 0) + 1);
+            // A vessel has width: mark the cells either side of its centreline too.
+            const cx = Math.floor(sx / CELL), cy = Math.floor(sy / CELL);
+            for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) {
+              const k = (cx + ox) * 4096 + cy + oy;
+              if (seen.has(k)) continue;
+              seen.add(k);
+              lines.set(k, (lines.get(k) || 0) + 1);
+            }
           }
           prev = cur;
         }
@@ -3057,7 +3061,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Labels are steady: each keeps the slot it had while that slot stays free, and reserves a
     // width that only grows (a value ticking from 9.9 to 10.0, or a change gaining a digit, would
     // otherwise tip it to another side of its station and back, frame after frame).
-    const place = (it, dirs, gap, leader) => {
+    const place = (it, dirs, gap, leader, clear) => {
       let best = null;
       const mem = labelMem.get(it.key);
       const wRes = mem && it.w <= mem.w && it.w > mem.w - 28 ? mem.w : it.w;
@@ -3068,6 +3072,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const x = it.ax + dx, y = it.ay + dy;
         const r = rectOf({ ...probe, x, y });
         if (!within(r, B) || placed.some((p) => hits(r, p))) return;
+        if (clear && useLines && lineCost(r) > 0) return;
         const cost = (useLines ? lineCost(r) * 12 : 0) + i + gi * 6 - (mem && mem.dir === dir && mem.gi === gi ? 1e4 : 0);
         if (!best || cost < best.cost) best = { cost, x, y, r, dir, gi, far: gi > 0 };
       }));
@@ -3177,6 +3182,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         for (const it of items.sort((a, b) => b.pri - a.pri)) {
           it.align = 'start';
           const dirs = it.side === 'L' ? ['NW', 'W', 'SW', 'N', 'S', 'NE', 'E', 'SE'] : ['NE', 'E', 'SE', 'N', 'S', 'NW', 'W', 'SW'];
+          // Prefer a spot touching no vessel at all, near first; only then accept one that crosses a vessel.
+          if (place(it, dirs, 8 + it.vw / 2, false, true) || place(it, dirs, 24 + it.vw / 2, true, true)) continue;
           if (place(it, dirs, 8 + it.vw / 2, false) || place(it, dirs, 24 + it.vw / 2, true)) continue;
           if (it.sel) { place(it, ['C'], 0, false) || (out.push(Object.assign(it, { x: it.ax + 8, y: it.ay - it.h / 2 })), true); }
         }

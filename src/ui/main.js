@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=7006816208';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=6fc014de20';
-import { createStage } from './stage.js?v=b3bb8ecd4c';
+import { createStage } from './stage.js?v=4b072246ea';
 import { createInspector } from './inspector.js?v=101b9f4312';
 import { createDock, CUTOFFS } from './dock.js?v=34d0ba2c5a';
 import { createWhy } from './why.js?v=a050bc90db';
