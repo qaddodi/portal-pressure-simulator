@@ -145,4 +145,6 @@ For preparing a class, `window.pps` in the browser console exposes `loadPreset`,
 
 ## License
 
-Code: MIT. Fonts: SIL Open Font License.
+© 2026 Mohammad Qaddodi. All rights reserved. No permission is granted to copy, modify or redistribute the application code without written consent.
+
+Fonts (Inter, JetBrains Mono, Source Serif 4) are third-party and used under the SIL Open Font License.
