@@ -148,7 +148,7 @@ export const EDGES = [
   // Fundal varices (gastric fundus) drain through the gastrorenal shunt (C5), never through the coronary vein.
   { id: 'C3', from: 'LPV', to: 'EPI', kind: 'collateral', route: ['LPV', 'ILI'], dMax: 8, Ropen: 0.6, label: 'Paraumbilical vein', code: 'C3' },
   { id: 'C4', from: 'IMV', to: 'ILI', kind: 'collateral', route: ['IMV', 'ILI'], dMax: 5, Ropen: 1.0, label: 'Superior ↔ middle/inferior rectal veins', code: 'C4' },
-  { id: 'C5', from: 'GV', to: 'LRV', kind: 'collateral', route: ['SV', 'IVCI'], dMax: 7, Ropen: 1.0, label: 'Gastrorenal shunt', code: 'C5', spontaneous: true },
+  { id: 'C5', from: 'GV', to: 'LRV', kind: 'collateral', route: ['SV', 'IVCI'], dMax: 7, Ropen: 1.0, open: 10, label: 'Gastrorenal shunt', code: 'C5', variant: true },
   { id: 'C6', from: 'SV', to: 'LRV', kind: 'collateral', route: ['SV', 'IVCI'], dMax: 12, Ropen: 0.1, label: 'Spontaneous splenorenal shunt', code: 'C6', spontaneous: true },
   { id: 'C7', from: 'SMV', to: 'IVCI', kind: 'collateral', route: ['SMV', 'IVCI'], dMax: 4, Ropen: 1.5, label: 'Retroperitoneal (Retzius) veins', code: 'C7' },
   { id: 'C9', from: 'IVCI', to: 'AZY', kind: 'collateral', route: ['IVCI', 'SVC'], dMax: 10, Ropen: 0.2, label: 'Ascending lumbar → azygos (caval collateral)', code: 'C9', systemic: true },
@@ -184,7 +184,7 @@ export const COLLATERAL_DMIN_RATIO = 1 / 4;
 export const dMinOf = (e) => e.dMax * (e.dMinRatio ?? COLLATERAL_DMIN_RATIO);
 /** Whether a collateral exists in this patient: a spontaneous shunt only when present, an
  *  anatomical variant unless absent, any other collateral always. */
-export const edgePresent = (e, p) => (e.spontaneous ? !!p.spontaneous?.[e.id] : e.variant ? p.spontaneous?.[e.id] !== false : true);
+export const edgePresent = (e, p) => (e.spontaneous ? !!p.spontaneous?.[e.id] : e.variant ? p.spontaneous?.[e.id] !== false : e.id === 'C2' ? p.spontaneous?.C5 !== false : true);
 
 export const TARGETS = {
   MAP: 93, CO_Lmin: 5.0, RA: 3, IVC: 3.5, FHVP: 4, HVPG: 3, PV: 7.5,

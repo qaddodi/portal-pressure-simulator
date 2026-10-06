@@ -3,11 +3,11 @@
 // palette, lessons and cases all call these same verbs, so each change is made one way and lands
 // in the timeline as one entry.
 
-import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=f405e352de';
-import { store, updateParams } from './store.js?v=10d53abf18';
+import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=9948c309db';
+import { store, updateParams } from './store.js?v=4c0e1f79a3';
 import { fmt, fmtFlow, clamp, toast } from './util.js?v=8aa5e5cdf1';
-import { aboutVessel, aboutOrgan } from './about.js?v=fd884410c2';
-import { lobuleState } from './lobule-model.js?v=d42cd96ce8';
+import { aboutVessel, aboutOrgan } from './about.js?v=c05ce674a3';
+import { lobuleState } from './lobule-model.js?v=b5efa4bf61';
 import { LABEL_VESSEL } from './anatomy.js?v=bf7e57c024';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -205,7 +205,7 @@ function organCard(sel, ctx) {
     const eso = id === 'varices';
     const vx = (f) => (eso ? f.metrics.varix : f.metrics.gastricVarix);
     const verbs = varixVerbs(eso ? 'eso' : 'gas', ctx);
-    if (!eso) verbs.push({ type: 'toggle', id: 'occlude', key: 'occluded', label: 'Occlude the gastrorenal shunt (BRTO)', icon: 'occlude', showIf: (p) => !!p.spontaneous.C5, get: (p) => !!p.occluded.C5, set: (p, v) => { if (v) p.occluded.C5 = true; else delete p.occluded.C5; }, hist: 'BRTO' });
+    if (!eso) verbs.push({ type: 'toggle', id: 'occlude', key: 'occluded', label: 'Occlude the gastrorenal shunt (BRTO)', icon: 'occlude', showIf: (p) => p.spontaneous.C5 !== false, get: (p) => !!p.occluded.C5, set: (p, v) => { if (v) p.occluded.C5 = true; else delete p.occluded.C5; }, hist: 'BRTO' });
     verbs.push(stat('Grade', (f) => { const v = vx(f); return v.d < 2.4 ? 'none' : `${v.grade.code} · ${fmt(v.d, 1)} mm`; }), stat('Wall tension', (f) => `${Math.round(vx(f).ratio * 100)} % of rupture`));
     if (eso) verbs.push({ type: 'link', label: 'Coronary vein', run: () => ctx.select({ type: 'edge', id: 'LGV_CONF' }) });
     else verbs.push({ type: 'link', label: 'Short gastric veins', run: () => ctx.select({ type: 'edge', id: 'C2' }) });
