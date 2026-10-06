@@ -1,13 +1,13 @@
 // Lumped-parameter hemodynamic engine (blueprint §7).
 // Pure JS, no DOM: runs in a Web Worker, on the main thread, or in Node tests.
 
-import { NODES, EDGES, dMinOf, edgePresent, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=f405e352de';
+import { NODES, EDGES, dMinOf, edgePresent, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=9948c309db';
 import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=8b006eefeb';
-import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=022265ce51';
-import { detectEvents } from './events.js?v=6d5de9646e';
+import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=270c735e25';
+import { detectEvents } from './events.js?v=7450d4e266';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -556,7 +556,7 @@ export class Engine {
       let driver = this.routeExcess(e.route);
       if (p.occluded[e.id]) driver = 0;
       const dMin = dMinOf(e);
-      const frac = clamp((driver - COLLATERAL.open) / COLLATERAL.span, 0, 1);
+      const frac = clamp((driver - (e.open ?? COLLATERAL.open)) / COLLATERAL.span, 0, 1);
       const target = dMin + (e.dMax - dMin) * Math.sqrt(frac);
       const d = s.d[e.id];
       const tau = target > d ? COLLATERAL.tauGrow : COLLATERAL.tauRegress;
@@ -565,7 +565,9 @@ export class Engine {
     // Varix baseline radius relaxes toward a transmural-pressure target (remodeling)
     for (const site of ['VAR', 'GV']) {
       const ex = this.routeExcess(site === 'VAR' ? ['LGV', 'AZY'] : ['SV', 'IVCI']);
-      const target = clamp(VARIX.r0Healthy + (site === 'GV' ? VARIX.kGV : VARIX.k) * Math.max(0, ex - VARIX.open), VARIX.r0Healthy, VARIX.rMax);
+      // Fundal varices exist only where a gastrorenal shunt can drain them.
+      const ex0 = site === 'GV' && p.spontaneous.C5 === false ? -1e9 : ex;
+      const target = clamp(VARIX.r0Healthy + (site === 'GV' ? VARIX.kGV : VARIX.k) * Math.max(0, ex0 - VARIX.open), VARIX.r0Healthy, VARIX.rMax);
       const r = s.r0[site];
       const tau = target > r ? 8 : 40;
       s.r0[site] = r + (target - r) * Math.min(1, days / tau);
@@ -607,13 +609,17 @@ export class Engine {
    */
   collateralD(e) {
     let d = this.slow.d[e.id];
-    // A gastrorenal shunt drains fundal varices fed by the short/posterior gastric veins: where
-    // it is present, that feeding channel is patent too.
-    if (e.spontaneous || (e.id === 'C2' && this.params.spontaneous.C5)) d = e.dMax;
+    if (e.spontaneous) d = e.dMax;
     else if (this.refP) {
       const dMin = dMinOf(e);
-      const frac = clamp((this.routeExcess(e.route) - COLLATERAL.open) / COLLATERAL.span, 0, 1);
+      const frac = clamp((this.routeExcess(e.route) - (e.open ?? COLLATERAL.open)) / COLLATERAL.span, 0, 1);
       d = Math.max(d, dMin + (e.dMax - dMin) * COLLATERAL.acute * Math.sqrt(frac));
+    }
+    // The short/posterior gastric veins feed the fundal varices that the gastrorenal shunt
+    // drains: this feeder is only as open as the shunt is.
+    if (e.id === 'C2') {
+      const g = EDGES[this.ei.C5], gMin = dMinOf(g), gd = Math.max(this.slow.d.C5, (this.slow.dEff || {}).C5 ?? 0);
+      d = Math.max(d, dMinOf(e) + (e.dMax - dMinOf(e)) * clamp((gd - gMin) / (g.dMax - gMin), 0, 1));
     }
     (this.slow.dEff ||= {})[e.id] = d;
     return d;

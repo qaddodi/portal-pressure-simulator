@@ -8,12 +8,12 @@
 //   (what has happened lives in the timeline's History, under the figure)
 //   Advanced                             physiology knobs (instructor / researcher)
 
-import { store, updateParams } from './store.js?v=10d53abf18';
+import { store, updateParams } from './store.js?v=4c0e1f79a3';
 import { h, fmt, icon, svgIcon, toast } from './util.js?v=8aa5e5cdf1';
-import { DRUGS } from '../engine/scenario.js?v=022265ce51';
-import { TILES, VITALS, readoutValue } from './dock.js?v=893b7963f4';
-import { activeInterventions } from './inspector.js?v=a01dd4954d';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=19ceda3af2';
+import { DRUGS } from '../engine/scenario.js?v=270c735e25';
+import { TILES, VITALS, readoutValue } from './dock.js?v=2901b04889';
+import { activeInterventions } from './inspector.js?v=ed77b9e1db';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=7d3ec9f13b';
 
 // Where each readout is measured, so a click can show it on the figure.
 const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS'], spleen: ['V_SPL', 'SV_CONF'], ra: ['IVCS_RA'] };
@@ -185,7 +185,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
         toast(on ? 'The TIPS is already in place.' : 'TIPS placed: right portal vein → right hepatic vein.');
       }),
       proc('stent', 'Surgical shunt', 'portocaval, Warren, mesocaval', 'shunt', () => { select(null); if (startShunt('PV_TRUNK')) toast('Click the systemic vein to connect the portal vein to.'); }),
-      proc('occlude', 'BRTO', 'occlude the gastrorenal shunt', 'occlude', () => { select({ type: 'organ', id: 'gastric' }); if (!store.get().params.spontaneous.C5) toast('This patient has no gastrorenal shunt (see Advanced › anatomical variants).'); }),
+      proc('occlude', 'BRTO', 'occlude the gastrorenal shunt', 'occlude', () => { select({ type: 'organ', id: 'gastric' }); if (store.get().params.spontaneous.C5 === false) toast('This patient has no gastrorenal shunt (see Advanced › anatomical variants).'); }),
       proc('needle', 'Paracentesis', 'drain ascites', 'paracentesis', () => select({ type: 'organ', id: 'abdomen' })));
     for (const b of procs.querySelectorAll('button')) b.addEventListener('click', () => onDone?.());
     return [h('div', { class: 'subhead' }, 'Drugs'), drugs,

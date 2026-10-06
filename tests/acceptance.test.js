@@ -136,10 +136,13 @@ test('T11 hemorrhage lowers portal pressure; over-transfusion raises it above pr
   assert.ok(M(e).pv > pv0, `over-transfused PV ${M(e).pv} vs ${pv0}`);
 });
 
-test('T12 BRTO of the gastrorenal shunt raises portal pressure ≥ 2 mmHg', () => {
+test('T12 BRTO of a fully developed gastrorenal shunt raises portal pressure ≥ 2 mmHg', () => {
   const e = preset('gastric-varix');
+  e.slow.d.C5 = 7;   // the shunt is small by default and only dilates under a high gradient
+  e.settleQuick();
   const pv0 = M(e).pv;
-  patch(e, { occluded: { C5: true } });
+  e.setParams(deepMerge(e.params, { occluded: { C5: true } }));
+  e.settleQuick();
   assert.ok(M(e).pv - pv0 >= 2, `ΔPV ${M(e).pv - pv0}`);
 });
 
