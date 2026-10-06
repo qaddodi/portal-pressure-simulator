@@ -233,7 +233,7 @@ export function createDoppler({ onProbe }) {
   let img = null, off = null, octx = null;
   let floor = null, noiseAt = 0, nx = 0, ny = 0;
   let ringKey = '', lastCol = null, jit = 0, lineGain = 0, spk = null;
-  const STEPS = [10, 15, 20, 30, 40, 60, 80, 100, 150, 200, 300];
+  const STEPS = [8, 10, 12, 15, 20, 25, 30, 40, 50, 60, 80, 100, 120, 150, 200, 300];
   const cc = [0, 0, 0, 0], sc = [0, 0, 0];   // scratch: one pixel's colour
   const A_SIG = 10 ** 2.8;          // signal power over the noise floor (≈ 28 dB)
   const FLOOR_DB = 4.5, RANGE_DB = 30;  // log compression: the grey map spans 4.5–34.5 dB
@@ -424,7 +424,7 @@ export function createDoppler({ onProbe }) {
       ctx.fillText(frame?.clock === 'disease' ? 'Doppler samples at the bedside: return to the seconds clock.' : 'Acquiring…', w / 2, hh / 2);
       return;
     }
-    // Scale: the peak fills about half of its side, on the scanner's own velocity steps. Like a
+    // Scale: the peak fills about three quarters of its side, on the scanner's own velocity steps. Like a
     // sonographer, the display changes scale or baseline only when the signal would clip or has
     // stayed small for a few seconds, never continuously (a moving scale would smear the picture).
     const tNow = clockNow(now);
@@ -432,9 +432,9 @@ export function createDoppler({ onProbe }) {
     const sgn = pol();
     for (const [t, v0] of buf) if (t >= tNow - sweepSeconds && t <= tNow) { const v = sgn * v0; if (v > pos) pos = v; if (-v > neg) neg = -v; }
     pos *= 1.3; neg *= 1.3;
-    const need = Math.max(pos, neg, 8) / 0.55;
+    const need = Math.max(pos, neg, 8) / 0.75;
     const target = STEPS.find((x) => x >= need) || STEPS[STEPS.length - 1];
-    const tbRaw = pos + neg < 1 ? 0.5 : pos > 0 && neg < pos * 0.08 ? 0.78 : neg > 0 && pos < neg * 0.08 ? 0.22 : clamp(0.1 + 0.8 * (pos / (pos + neg)), 0.2, 0.8);
+    const tbRaw = pos + neg < 1 ? 0.5 : pos > 0 && neg < pos * 0.08 ? 0.88 : neg > 0 && pos < neg * 0.08 ? 0.12 : clamp(0.1 + 0.8 * (pos / (pos + neg)), 0.12, 0.88);
     const tbF = Math.round(tbRaw * 10) / 10;
     const fits = scale != null && need <= scale && (pos >= neg) === (baseF >= 0.5 || baseF == null);
     if (scale == null || !fits) { scale = target; baseF = tbF; settleAt = tNow; }
