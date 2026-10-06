@@ -617,7 +617,7 @@ vec2 chevAt(int id, float s, float y) {
   float keep = odd > 0.5 ? 1.0 - smoothstep(0.15, 0.85, fr) : 1.0;
   // Sized to the lumen where the head sits, so none overhangs a narrowing vessel.
   float Rl = max(texelFetch(rad, ivec2(clamp(int(clamp(sc / len, 0.0, 1.0) * ${N_SAMPLES - 1}.0 + 0.5), 0, N_LAST), id), 0).r, 0.3);
-  float hw = min(0.86 * min(R, Rl), 0.2 * Pc), L = 1.6 * hw;   // half width, length
+  float hw = min(0.86 * R, 0.2 * Pc), L = 1.6 * hw;            // half width, length: one fixed shape per vessel, never stretched
   float tip = 0.55 * L, back = -0.45 * L, notch = 0.32 * L;
   // Inside when behind both slanted sides and ahead of the notched back.
   float k = L / hw;
@@ -628,6 +628,8 @@ vec2 chevAt(int id, float s, float y) {
   float e = min(sc, len - sc);
   if (e < 0.6 * L) return vec2(0.0);
   float fade = smoothstep(0.5, 3.0, abs(vd)) * f1.z * keep * smoothstep(0.6 * L, 0.6 * L + max(2.0 * L, 0.3 * Pc), e) * smoothstep(1.3 * pxW, 2.4 * pxW, R);
+  // Where the lumen is narrower than the head, the head fades out instead of squeezing to fit.
+  fade *= smoothstep(0.85 * hw, 1.15 * hw, Rl);
   float c = 1.0 - smoothstep(-0.7 * pxW, 0.7 * pxW, d);
   float rim = (1.0 - smoothstep(0.0, 1.8 * pxW + 0.1 * hw, d)) * (1.0 - c);
   return vec2(c, rim) * fade;
