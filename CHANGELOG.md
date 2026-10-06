@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- **Doppler display modes.** Measure → Doppler replaces “Direction color” with a pill that cycles Spectrum, VEL and
-  Variance. The spectral trace is drawn in the scanner's map 1: VEL in flat bands (orange toward the probe, blue away),
+- **Doppler display modes.** Measure → Doppler replaces “Direction color” with a pill that cycles Spectrum, Color and
+  Variance. The spectral trace is drawn in the scanner's map 1: Color in flat bands (orange toward the probe, blue away),
   Variance orange → yellow (toward) or purple → green (away) from laminar to turbulent. Invert swaps toward/away.
   Nothing is drawn on the figure.
 - **No bleeding by default.** Varices still grow, but they only rupture on their own when *Variceal
