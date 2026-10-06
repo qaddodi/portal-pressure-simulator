@@ -145,14 +145,10 @@ export const EDGES = [
   { id: 'C1a', from: 'LGV', to: 'VAR', kind: 'collateral', route: ['LGV', 'AZY'], dMax: 6, Ropen: 0.0133, dMinRatio: 0.12, label: 'Coronary vein → esophageal varices', code: 'C1' },
   { id: 'C1b', from: 'VAR', to: 'AZY', kind: 'collateral', route: ['LGV', 'AZY'], dMax: 6, Ropen: 0.0265, dMinRatio: 0.12, label: 'Esophageal varices → azygos', code: 'C1' },
   { id: 'C2', from: 'SV', to: 'GV', kind: 'collateral', route: ['SV', 'IVCI'], dMax: 6, Ropen: 0.3, label: 'Short / posterior gastric veins', code: 'C2' },
-  // Gastroesophageal communication: fundal varices that continue into the cardia and the
-  // esophageal varices (GOV2) drain partly through the coronary vein. Isolated fundal varices
-  // (IGV1) usually lack it and drain through a gastrorenal shunt, so it is an anatomical variant,
-  // present unless a patient says otherwise (params.spontaneous.C2b === false).
-  { id: 'C2b', from: 'GV', to: 'LGV', kind: 'collateral', route: ['SV', 'AZY'], dMax: 5, Ropen: 0.4, label: 'Gastroesophageal communication (fundus → coronary vein)', code: 'C2', variant: true },
+  // Fundal varices (gastric fundus) drain through the gastrorenal shunt (C5), never through the coronary vein.
   { id: 'C3', from: 'LPV', to: 'EPI', kind: 'collateral', route: ['LPV', 'ILI'], dMax: 8, Ropen: 0.6, label: 'Paraumbilical vein', code: 'C3' },
   { id: 'C4', from: 'IMV', to: 'ILI', kind: 'collateral', route: ['IMV', 'ILI'], dMax: 5, Ropen: 1.0, label: 'Superior ↔ middle/inferior rectal veins', code: 'C4' },
-  { id: 'C5', from: 'GV', to: 'LRV', kind: 'collateral', route: ['SV', 'IVCI'], dMax: 12, Ropen: 0.12, label: 'Gastrorenal shunt', code: 'C5', spontaneous: true },
+  { id: 'C5', from: 'GV', to: 'LRV', kind: 'collateral', route: ['SV', 'IVCI'], dMax: 7, Ropen: 1.0, label: 'Gastrorenal shunt', code: 'C5', spontaneous: true },
   { id: 'C6', from: 'SV', to: 'LRV', kind: 'collateral', route: ['SV', 'IVCI'], dMax: 12, Ropen: 0.1, label: 'Spontaneous splenorenal shunt', code: 'C6', spontaneous: true },
   { id: 'C7', from: 'SMV', to: 'IVCI', kind: 'collateral', route: ['SMV', 'IVCI'], dMax: 4, Ropen: 1.5, label: 'Retroperitoneal (Retzius) veins', code: 'C7' },
   { id: 'C9', from: 'IVCI', to: 'AZY', kind: 'collateral', route: ['IVCI', 'SVC'], dMax: 10, Ropen: 0.2, label: 'Ascending lumbar → azygos (caval collateral)', code: 'C9', systemic: true },
