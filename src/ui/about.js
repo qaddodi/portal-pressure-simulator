@@ -2,7 +2,7 @@
 // is happening to it in this patient right now (reversed flow, a clot, a collateral opening). The
 // first sentence is fixed; the rest is read from the live model.
 
-import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=29d10ad9ef';
+import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=c9c36d1829';
 import { fmt, clamp } from './util.js?v=8aa5e5cdf1';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -39,7 +39,6 @@ const VESSEL = {
   C1a: 'The coronary vein running up into the esophageal wall: in portal hypertension it fills the esophageal varices.',
   C1b: 'Esophageal varices draining into the azygos system: the classic portosystemic route, and the one that bleeds.',
   C2: 'Short and posterior gastric veins from the spleen to the fundus: they feed fundal varices, alone in splenic vein thrombosis.',
-  C2b: 'Connects fundal varices to the coronary vein.',
   C3: 'The paraumbilical vein: a remnant reopened from the left portal vein to the abdominal wall (caput medusae). It decompresses the liver, not the varices.',
   C4: 'Rectal veins joining the portal (superior) and systemic (middle and inferior) sides: anorectal varices.',
   C5: 'A spontaneous gastrorenal shunt from fundal varices to the left renal vein; BRTO plugs it.',

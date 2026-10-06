@@ -1,26 +1,26 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=7006816208';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=6fc014de20';
-import { createStage } from './stage.js?v=a02d24d5c2';
-import { createInspector } from './inspector.js?v=101b9f4312';
-import { createDock, CUTOFFS } from './dock.js?v=34d0ba2c5a';
-import { createWhy } from './why.js?v=a050bc90db';
-import { createTimeline } from './timeline.js?v=63bbf7f6f5';
-import { createLearn } from './learn.js?v=548b631cb2';
-import { createCases } from './cases.js?v=0c3d7d5457';
-import { createCompare } from './compare.js?v=10070b6fba';
-import { createCard } from './card.js?v=696c6cf7fd';
-import { createChart, computeFindings } from './chart.js?v=20d2d62a8d';
-import { createHome } from './home.js?v=f05dffda3a';
+import { startHost, host } from './host.js?v=8e0caa073f';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=4c0e1f79a3';
+import { createStage } from './stage.js?v=e9b432c142';
+import { createInspector } from './inspector.js?v=e26b85bceb';
+import { createDock, CUTOFFS } from './dock.js?v=215f0a3909';
+import { createWhy } from './why.js?v=3082724ec1';
+import { createTimeline } from './timeline.js?v=1c4b9d7a4d';
+import { createLearn } from './learn.js?v=0c7ba63e2e';
+import { createCases } from './cases.js?v=a07a06d1fc';
+import { createCompare } from './compare.js?v=65d1171f73';
+import { createCard } from './card.js?v=d5655f1541';
+import { createChart, computeFindings } from './chart.js?v=70add9a33d';
+import { createHome } from './home.js?v=a454e6617a';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
-import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=4311ba9892';
+import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=b68eec4b43';
 import { startLMS } from './lms.js?v=073b0aea9a';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=aa2577f907';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=6fa3beac68';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
-import { EDGES, NODES } from '../engine/topology.js?v=29d10ad9ef';
+import { EDGES, NODES } from '../engine/topology.js?v=c9c36d1829';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=8aa5e5cdf1';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -129,7 +129,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=dd8f5152dd'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=59a7def360'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -141,7 +141,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=32355c54eb'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=443078c232'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -805,7 +805,15 @@ function leave(el) {
 }
 const arrive = (el) => el.classList.remove('card-leaving');
 function panelShown() { return !app.classList.contains('instrument-focus') && app.classList.contains('panel-open'); }
+// The figure re-fits to the space the open cards leave (once as the card starts, again when its sheet has settled).
+let refitT = 0;
+function refitStage() {
+  clearTimeout(refitT);
+  requestAnimationFrame(() => stage?.refit());
+  refitT = setTimeout(() => stage?.refit(), 380);
+}
 function syncPanelToggle() {
+  refitStage();
   const on = panelShown();
   $('#btnInspector').setAttribute('aria-pressed', String(on));
   if (on) $('#btnInspector').classList.remove('ping');
@@ -835,6 +843,7 @@ function setPanelTab(tab) {
   if (instr && !was) dockSheet?.open();
   if (!instr && was) dockSheet?.closed();
   if (was !== instr) {
+    refitStage();
     const f = store.get().frame; if (f && instr) requestAnimationFrame(() => dock.update(f, true));
     setTimeout(() => dispatchEvent(new Event('resize')), 320);
   }
@@ -908,12 +917,6 @@ function wireFloating() {
   addEventListener('pointerup', () => { if (down) { down = null; if (app.classList.contains('stage-busy')) busy(600); } });
   addEventListener('pointercancel', () => { if (down) { down = null; busy(300); } });
   view.addEventListener('wheel', () => busy(800), { passive: true });
-  // A tap outside the Treat card (but not on its button) puts it away, as a menu would be.
-  addEventListener('pointerdown', (e) => {
-    if (!treatOpen() || isPhone()) return;
-    if (e.target.closest('#treatCard, #btnTreat, .popover, .tooltip, .modal-back, .toast-wrap')) return;
-    closeTreat();
-  }, true);
 }
 // Phone: the chart and Treat are bottom sheets with three heights; a drag on the handle (or the
 // head) moves between them, and below the lowest closes the sheet. Wider: the head drags the card
@@ -983,7 +986,7 @@ function openTreat() {
   const count = h('span', { class: 'card-meta' });
   const paintCount = () => { const n = chart.treatCount(store.get().params); count.textContent = n ? `${n} running` : ''; };
   sync.push(paintCount);
-  const body = h('div', { class: 'tc-body' }, chart.treatBody(sync, () => { if (isPhone()) closeTreat(); }));
+  const body = h('div', { class: 'tc-body' }, chart.treatBody(sync, () => {}));
   const grab = el.querySelector('.sheet-grab');
   el.replaceChildren(...[grab, h('div', { class: 'tc-head card-head' }, h('h2', { class: 'card-title' }, svgIcon('pill'), h('span', {}, 'Treat')), count,
     h('button', { class: 'ib card-close', 'aria-label': 'Close Treat', title: 'Close (Esc)', onclick: () => closeTreat() }, icon('close'))), body].filter(Boolean));
@@ -994,6 +997,7 @@ function openTreat() {
   el.hidden = false;
   treatSheet?.open();
   $('#btnTreat').setAttribute('aria-expanded', 'true');
+  refitStage();
   requestAnimationFrame(() => stage.relayout());
 }
 function closeTreat() {
@@ -1004,6 +1008,7 @@ function closeTreat() {
   treatOff?.(); treatOff = null;
   treatSheet?.closed();
   $('#btnTreat').setAttribute('aria-expanded', 'false');
+  refitStage();
   requestAnimationFrame(() => stage.relayout());
 }
 

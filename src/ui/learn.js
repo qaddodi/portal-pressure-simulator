@@ -1,10 +1,10 @@
 // Learn mode (blueprint §11): lessons as step sequences with Predict → Observe → Explain.
 
-import { store, updateParams } from './store.js?v=6fc014de20';
-import { host } from './host.js?v=7006816208';
+import { store, updateParams } from './store.js?v=4c0e1f79a3';
+import { host } from './host.js?v=8e0caa073f';
 import { h, fmt, toast, svgIcon } from './util.js?v=8aa5e5cdf1';
 import { addRecord } from './records.js?v=39559a8813';
-import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
+import { EDGES } from '../engine/topology.js?v=c9c36d1829';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 

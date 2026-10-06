@@ -1,12 +1,12 @@
 // Anatomical stage (blueprint §6): the figure drawn on the GPU (plate, vessels, moving blood),
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
-import { EDGES, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=29d10ad9ef';
-import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=39b5c27859';
+import { EDGES, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=c9c36d1829';
+import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=bf7e57c024';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
-import { store, updateParams } from './store.js?v=6fc014de20';
+import { store, updateParams } from './store.js?v=4c0e1f79a3';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=8aa5e5cdf1';
-import { createLobuleZoom } from './lobule-zoom.js?v=b3edbf57bb';
+import { createLobuleZoom } from './lobule-zoom.js?v=236d6cbe81';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=e9ab279262';
@@ -893,7 +893,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // sheets over the figure), and the figure never shrinks to a sliver for them.
   function safeInsets() {
     const wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height;
-    const ins = { t: 0, b: 0, l: 0, r: 0, W, H };
+    const ins = { t: 0, b: 0, l: 0, r: 0, W, H }, cards = [];
     if (!W || !H) return ins;
     for (const el of document.querySelectorAll('[data-safe]')) {
       if (el.hidden || el.closest('[hidden]')) continue;
@@ -902,11 +902,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!q.width || !q.height) continue;
       const x0 = q.left - wr.left, y0 = q.top - wr.top, x1 = q.right - wr.left, y1 = q.bottom - wr.top;
       if (x1 <= 0 || y1 <= 0 || x0 >= W || y0 >= H) continue;
-      const edge = el.dataset.safe;
+      let edge = el.dataset.safe;
+      if (edge === 'right' && W < 768) edge = 'bottom';   // a phone's cards are sheets over the bottom
+      else if (edge === 'bottom' && el.classList.contains('side')) edge = 'right';   // the instruments docked at the side
       if (edge === 'top') ins.t = Math.max(ins.t, y1);
       else if (edge === 'bottom') ins.b = Math.max(ins.b, H - y0);
-      else if (W >= 768 && edge === 'right') ins.r = Math.max(ins.r, W - x0);
+      else if (W >= 768 && edge === 'right') { ins.r = Math.max(ins.r, W - x0); cards.push([y0, y1]); }
       else if (W >= 768 && edge === 'left') ins.l = Math.max(ins.l, x1);
+    }
+    // Where the side cards would leave under 60% of the width (a tablet held upright), a short card is cleared
+    // above (or below) instead, so the figure keeps the full width rather than shrinking into a strip.
+    if (ins.r && W - ins.l - ins.r < W * 0.6) {
+      const top = Math.min(...cards.map((c) => c[0])), bot = Math.max(...cards.map((c) => c[1]));
+      if (top > H * 0.45) { ins.b = Math.max(ins.b, H - top + 8); ins.r = 0; }
+      else if (bot <= H * 0.62) { ins.t = Math.max(ins.t, bot + 8); ins.r = 0; }
     }
     if (W - ins.l - ins.r < Math.min(W * 0.5, 360)) ins.l = ins.r = 0;
     if (H - ins.t - ins.b < H * 0.35) { const k = (H * 0.65) / (ins.t + ins.b); ins.t *= k; ins.b *= k; }
@@ -954,7 +963,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const ins = safeInsets();
     const W = ins.W - ins.l - ins.r, H = ins.H - ins.t - ins.b;
     const s0 = Math.min(W / VB_CIRC[2], H / VB_CIRC[3]);
-    if (VB_CIRC[3] * s0 > 0.62 * H) return insetVT({ k: 1, x: 0, y: 0 }, VB_CIRC);
+    // (With a card at the side the whole map is shown: the close-up is for a narrow screen with nothing over it.)
+    if (ins.l || ins.r || VB_CIRC[3] * s0 > 0.62 * H) return insetVT({ k: 1, x: 0, y: 0 }, VB_CIRC);
     const k = clamp((0.94 * H) / (VB_CIRC[3] * s0), 1, 3);
     const cx = VB_CIRC[0] + VB_CIRC[2] / 2, cy = VB_CIRC[1] + VB_CIRC[3] / 2;
     const fx = 640, fy = cy;
@@ -975,6 +985,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // It glides there, as the zoom buttons do (reduced motion: at once).
     animateVT(to, 420);
   };
+
+  // A card or sheet opened or closed: glide to the framing for the space that is now free (not in the lobule, which refits itself).
+  function refit() {
+    if (lobuleOn) return;
+    const to = defaultVT(morphTarget === 1);
+    if (morphTarget !== 1) homeAt = to;
+    if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, 420);
+  }
 
   // Turn the circuit upright (flow bottom to top) or back to wide. Shown whole, it stays whole (fitted
   // to the new shape); zoomed in, it keeps the zoom and turns about the point at the middle of the
@@ -1603,7 +1621,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const openNow = collOpen(e.id, f);
         if (!openNow && wasDrawn && !x.g.classList.contains('coll-ghost') && !x.reveal && !quietFx()) startExit(x, f);
         cls(x, 'coll-ghost', !openNow && !x.reveal?.out);
-        x.opa = p.occluded[e.id] ? 0.45 : 0.3 + 0.7 * Math.min(1, Math.max(fr * 2.5, qa / 1.5));
+        x.opa = isOccluded(p, e.id) ? 0.45 : 0.3 + 0.7 * Math.min(1, Math.max(fr * 2.5, qa / 1.5));
         setLevel(x, nearestLevel(x.opa));
       }
       x.rev = REVERSAL_WATCH.has(e.id) && isReversed(e, f);
@@ -2655,8 +2673,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!E[id].vis || E[id].reveal) continue;
       if (id === 'TIPS' || id.startsWith('X_')) stentMesh(id); else anastomoses(id);
     }
-    for (const id of Object.keys(p.occluded)) {
-      if (!p.occluded[id] || !E[id] || !E[id].vis) continue;
+    for (const id of new Set([...Object.keys(p.occluded), ...(p.occluded.C5 ? ['C2'] : [])])) {
+      if (!isOccluded(p, id) || !E[id] || !E[id].vis) continue;
       const [x, y] = pointAt(geo[id].cur, 0.5);
       ov.plugs.append(s('circle', { cx: x, cy: y, r: 7, fill: 'var(--surface)', stroke: 'var(--danger)', 'stroke-width': 2 }),
         s('path', { d: `M${x - 4} ${y - 4} L ${x + 4} ${y + 4} M${x + 4} ${y - 4} L ${x - 4} ${y + 4}`, stroke: 'var(--danger)', 'stroke-width': 2 }));
@@ -2962,6 +2980,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // or the learner has selected that station.
   function hasVarices(id, f) {
     const sel = store.get().selection;
+    if (id === 'GV' && f.metrics.gastricVarix.d <= 0) return false;   // no gastrorenal shunt: no fundal varices
     if (sel?.type === 'node' && sel.id === id) return true;
     return (id === 'VAR' ? f.metrics.varix.d : f.metrics.gastricVarix.d) >= 2.5;
   }
@@ -3031,10 +3050,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           const n = Math.max(1, Math.ceil(Math.hypot(cur[0] - prev[0], cur[1] - prev[1]) / (CELL / 2)));
           for (let j = 0; j <= n; j++) {
             const sx = prev[0] + ((cur[0] - prev[0]) * j) / n, sy = prev[1] + ((cur[1] - prev[1]) * j) / n;
-            const k = Math.floor(sx / CELL) * 4096 + Math.floor(sy / CELL);
-            if (seen.has(k)) continue;
-            seen.add(k);
-            lines.set(k, (lines.get(k) || 0) + 1);
+            // A vessel has width: mark the cells either side of its centreline too.
+            const cx = Math.floor(sx / CELL), cy = Math.floor(sy / CELL);
+            for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) {
+              const k = (cx + ox) * 4096 + cy + oy;
+              if (seen.has(k)) continue;
+              seen.add(k);
+              lines.set(k, (lines.get(k) || 0) + 1);
+            }
           }
           prev = cur;
         }
@@ -3047,7 +3070,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Labels are steady: each keeps the slot it had while that slot stays free, and reserves a
     // width that only grows (a value ticking from 9.9 to 10.0, or a change gaining a digit, would
     // otherwise tip it to another side of its station and back, frame after frame).
-    const place = (it, dirs, gap, leader) => {
+    const place = (it, dirs, gap, leader, clear) => {
       let best = null;
       const mem = labelMem.get(it.key);
       const wRes = mem && it.w <= mem.w && it.w > mem.w - 28 ? mem.w : it.w;
@@ -3058,6 +3081,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const x = it.ax + dx, y = it.ay + dy;
         const r = rectOf({ ...probe, x, y });
         if (!within(r, B) || placed.some((p) => hits(r, p))) return;
+        if (clear && useLines && lineCost(r) > 0) return;
         const cost = (useLines ? lineCost(r) * 12 : 0) + i + gi * 6 - (mem && mem.dir === dir && mem.gi === gi ? 1e4 : 0);
         if (!best || cost < best.cost) best = { cost, x, y, r, dir, gi, far: gi > 0 };
       }));
@@ -3167,6 +3191,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         for (const it of items.sort((a, b) => b.pri - a.pri)) {
           it.align = 'start';
           const dirs = it.side === 'L' ? ['NW', 'W', 'SW', 'N', 'S', 'NE', 'E', 'SE'] : ['NE', 'E', 'SE', 'N', 'S', 'NW', 'W', 'SW'];
+          // Prefer a spot touching no vessel at all, near first; only then accept one that crosses a vessel.
+          if (place(it, dirs, 8 + it.vw / 2, false, true) || place(it, dirs, 24 + it.vw / 2, true, true)) continue;
           if (place(it, dirs, 8 + it.vw / 2, false) || place(it, dirs, 24 + it.vw / 2, true)) continue;
           if (it.sel) { place(it, ['C'], 0, false) || (out.push(Object.assign(it, { x: it.ax + 8, y: it.ay - it.h / 2 })), true); }
         }
@@ -4152,7 +4178,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The zoom buttons zoom about the middle of the free space; in the lobule they drive its own view.
     zoomIn: () => { if (lobuleOn) { lz.zoomBy(1.4); return; } const c = freeCentre(); animZoomAt(c[0], c[1], 1.4); },
     zoomOut: () => { if (lobuleOn) { lz.zoomBy(1 / 1.4); return; } const c = freeCentre(); animZoomAt(c[0], c[1], 1 / 1.4); },
-    fit,
+    fit, refit,
     reveal, unreveal,
     /** Changes whenever what is drawn where changes (a pan, a zoom, the morph): a cheap key for "did anything move". */
     layoutKey: () => `${viewVersion}|${geometryVersion}` + (lz?.isOpen() ? '|' + lz.viewKey() : ''),

@@ -1,19 +1,19 @@
 // Lumped-parameter hemodynamic engine (blueprint §7).
 // Pure JS, no DOM: runs in a Web Worker, on the main thread, or in Node tests.
 
-import { NODES, EDGES, dMinOf, edgePresent, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=29d10ad9ef';
+import { NODES, EDGES, dMinOf, edgePresent, isOccluded, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=c9c36d1829';
 import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=8b006eefeb';
-import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=5eb04c5fb1';
-import { detectEvents } from './events.js?v=5006f09794';
+import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=270c735e25';
+import { detectEvents } from './events.js?v=313ca654d5';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
 const EXT_OVERRIDE = { IVC_IS: 'abd', CAUD: 'none' };
 
-export const VARIX = { Tcrit: 120, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 3.5, k: 0.22 };
+export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 13.5, k: 0.35, kGV: 0.3, openGV: 3.5 };
 /** Rupture hazard per day as a function of T/Tcrit (§7.5). */
 const ruptureHazardPerDay = (x) => (x <= 1 ? 0 : 0.01 * Math.pow((x - 1) / 0.25, 3));
 const COLLATERAL = { open: 7.5, span: 14, tauGrow: 50, tauRegress: 120, acute: 0.4 };
@@ -284,7 +284,7 @@ export class Engine {
         }
         case 'collateral': {
           const present = edgePresent(e, p);
-          if (!present || p.occluded[e.id]) { this.G[k] = 0; continue; }
+          if (!present || isOccluded(p, e.id)) { this.G[k] = 0; continue; }
           const dd = this.collateralD(e);
           // Collaterals cross compartments (e.g. the diaphragm): each end sees its own surroundings.
           R = e.Ropen * Math.pow(e.dMax / dd, 4) * tubeResistanceFactor(P[f] - this.ext[f], P[t] - this.ext[t], this.refP ? this.refP[f] : this.Pbase[f], this.refP ? this.refP[t] : this.Pbase[t], KD.collateral);
@@ -554,9 +554,9 @@ export class Engine {
       const e = EDGES[k];
       const f = this.edgeF[k], t = this.edgeT[k];
       let driver = this.routeExcess(e.route);
-      if (p.occluded[e.id]) driver = 0;
+      if (isOccluded(p, e.id)) driver = 0;
       const dMin = dMinOf(e);
-      const frac = clamp((driver - COLLATERAL.open) / COLLATERAL.span, 0, 1);
+      const frac = clamp((driver - (e.open ?? COLLATERAL.open)) / COLLATERAL.span, 0, 1);
       const target = dMin + (e.dMax - dMin) * Math.sqrt(frac);
       const d = s.d[e.id];
       const tau = target > d ? COLLATERAL.tauGrow : COLLATERAL.tauRegress;
@@ -564,10 +564,16 @@ export class Engine {
     }
     // Varix baseline radius relaxes toward a transmural-pressure target (remodeling)
     for (const site of ['VAR', 'GV']) {
-      const ex = this.routeExcess(site === 'VAR' ? ['LGV', 'AZY'] : ['SV', 'IVCI']);
-      const target = clamp(VARIX.r0Healthy + VARIX.k * Math.max(0, ex - VARIX.open), VARIX.r0Healthy, VARIX.rMax);
+      // Esophageal varices follow their own transmural pressure (no varices below HVPG ~10, large
+      // ones from ~12-14, very large above ~20); the collateral route excess falls as shunts open,
+      // so it cannot drive the size. Gastric varices keep the route-excess drive.
+      const i = this.ni[site];
+      const ex = site === 'VAR' ? P[i] - this.ext[i] : this.routeExcess(['SV', 'IVCI']);
+      // Fundal varices exist only where a gastrorenal shunt can drain them.
+      const ex0 = site === 'GV' && p.spontaneous.C5 === false ? -1e9 : ex;
+      const target = clamp(VARIX.r0Healthy + (site === 'GV' ? VARIX.kGV : VARIX.k) * Math.max(0, ex0 - (site === 'GV' ? VARIX.openGV : VARIX.open)), VARIX.r0Healthy, VARIX.rMax);
       const r = s.r0[site];
-      const tau = target > r ? 60 : 150;
+      const tau = target > r ? 8 : 40;
       s.r0[site] = r + (target - r) * Math.min(1, days / tau);
     }
     if (this.bands > 0) this.bands = Math.max(0, this.bands - 0.02 * days); // bands slough; columns can recur
@@ -607,13 +613,17 @@ export class Engine {
    */
   collateralD(e) {
     let d = this.slow.d[e.id];
-    // A gastrorenal shunt drains fundal varices fed by the short/posterior gastric veins: where
-    // it is present, that feeding channel is patent too.
-    if (e.spontaneous || (e.id === 'C2' && this.params.spontaneous.C5)) d = e.dMax;
+    if (e.spontaneous) d = e.dMax;
     else if (this.refP) {
       const dMin = dMinOf(e);
-      const frac = clamp((this.routeExcess(e.route) - COLLATERAL.open) / COLLATERAL.span, 0, 1);
+      const frac = clamp((this.routeExcess(e.route) - (e.open ?? COLLATERAL.open)) / COLLATERAL.span, 0, 1);
       d = Math.max(d, dMin + (e.dMax - dMin) * COLLATERAL.acute * Math.sqrt(frac));
+    }
+    // The short/posterior gastric veins feed the fundal varices that the gastrorenal shunt
+    // drains: this feeder is only as open as the shunt is.
+    if (e.id === 'C2') {
+      const g = EDGES[this.ei.C5], gMin = dMinOf(g), gd = Math.max(this.slow.d.C5, (this.slow.dEff || {}).C5 ?? 0);
+      d = Math.max(d, dMinOf(e) + (e.dMax - dMinOf(e)) * clamp((gd - gMin) / (g.dMax - gMin), 0, 1));
     }
     (this.slow.dEff ||= {})[e.id] = d;
     return d;
@@ -726,7 +736,7 @@ export class Engine {
       const f = this.edgeF[k], t = this.edgeT[k];
       const a = 0.5 * (tubeArea(this.P[f] - this.ext[f], 0.08) / tubeArea(this.refP[f], 0.08) + tubeArea(this.P[t] - this.ext[t], 0.08) / tubeArea(this.refP[t], 0.08));
       const present = edgePresent(e, this.params);
-      return present && !this.params.occluded[e.id] ? this.collateralD(e) * Math.sqrt(a) : 0;
+      return present && !isOccluded(this.params, e.id) ? this.collateralD(e) * Math.sqrt(a) : 0;
     }
     if (e.kind === 'shunt') {
       if (e.shunt === 'tips') return this.params.tips.on ? this.params.tips.d : 0;

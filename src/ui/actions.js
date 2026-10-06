@@ -3,12 +3,12 @@
 // palette, lessons and cases all call these same verbs, so each change is made one way and lands
 // in the timeline as one entry.
 
-import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=29d10ad9ef';
-import { store, updateParams } from './store.js?v=6fc014de20';
+import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=c9c36d1829';
+import { store, updateParams } from './store.js?v=4c0e1f79a3';
 import { fmt, fmtFlow, clamp, toast } from './util.js?v=8aa5e5cdf1';
-import { aboutVessel, aboutOrgan } from './about.js?v=95bf329ddd';
-import { lobuleState } from './lobule-model.js?v=203ff5bb08';
-import { LABEL_VESSEL } from './anatomy.js?v=39b5c27859';
+import { aboutVessel, aboutOrgan } from './about.js?v=f18a1a7043';
+import { lobuleState } from './lobule-model.js?v=8874b4b7e8';
+import { LABEL_VESSEL } from './anatomy.js?v=bf7e57c024';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -97,7 +97,7 @@ export function cardFor(selIn, ctx) {
       get: (p) => !!p.occluded[id], set: (p, v) => { if (v) p.occluded[id] = true; else delete p.occluded[id]; }, hist: `${e.label}: occlusion` });
     if (e.spontaneous || e.variant) verbs.push({ type: 'toggle', id: 'variant', key: 'spontaneous', label: 'Present in this patient', get: (p) => edgePresent(e, p), set: (p, v) => { p.spontaneous[id] = v; }, hist: `${e.label} present` });
     if (id === 'C1a' || id === 'C1b') verbs.push(...varixVerbs('eso', ctx));
-    if (id === 'C2' || id === 'C2b' || id === 'C5') verbs.push(...varixVerbs('gas', ctx));
+    if (id === 'C2' || id === 'C5') verbs.push(...varixVerbs('gas', ctx));
     verbs.push(doppler);
   } else if (isShunt) {
     kicker = 'Shunt'; why = 'shunt';
@@ -205,7 +205,7 @@ function organCard(sel, ctx) {
     const eso = id === 'varices';
     const vx = (f) => (eso ? f.metrics.varix : f.metrics.gastricVarix);
     const verbs = varixVerbs(eso ? 'eso' : 'gas', ctx);
-    if (!eso) verbs.push({ type: 'toggle', id: 'occlude', key: 'occluded', label: 'Occlude the gastrorenal shunt (BRTO)', icon: 'occlude', showIf: (p) => !!p.spontaneous.C5, get: (p) => !!p.occluded.C5, set: (p, v) => { if (v) p.occluded.C5 = true; else delete p.occluded.C5; }, hist: 'BRTO' });
+    if (!eso) verbs.push({ type: 'toggle', id: 'occlude', key: 'occluded', label: 'Occlude the gastrorenal shunt (BRTO)', icon: 'occlude', showIf: (p) => p.spontaneous.C5 !== false, get: (p) => !!p.occluded.C5, set: (p, v) => { if (v) p.occluded.C5 = true; else delete p.occluded.C5; }, hist: 'BRTO' });
     verbs.push(stat('Grade', (f) => { const v = vx(f); return v.d < 2.4 ? 'none' : `${v.grade.code} · ${fmt(v.d, 1)} mm`; }), stat('Wall tension', (f) => `${Math.round(vx(f).ratio * 100)} % of rupture`));
     if (eso) verbs.push({ type: 'link', label: 'Coronary vein', run: () => ctx.select({ type: 'edge', id: 'LGV_CONF' }) });
     else verbs.push({ type: 'link', label: 'Short gastric veins', run: () => ctx.select({ type: 'edge', id: 'C2' }) });

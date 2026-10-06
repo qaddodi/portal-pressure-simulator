@@ -2,13 +2,13 @@
 // present to a class. It replaces the mode tabs and the first-run welcome; the brand mark
 // brings it back. A lesson or case then runs in the ordinary workspace with a slim banner.
 
-import { store } from './store.js?v=6fc014de20';
+import { store } from './store.js?v=4c0e1f79a3';
 import { h, svgIcon, icon } from './util.js?v=8aa5e5cdf1';
-import { LESSONS } from './learn.js?v=548b631cb2';
-import { CASES } from './cases.js?v=0c3d7d5457';
+import { LESSONS } from './learn.js?v=0c7ba63e2e';
+import { CASES } from './cases.js?v=a07a06d1fc';
 import { t } from '../i18n/i18n.js?v=1ad6d8253b';
 import { exportCSV, exportXAPI, learnerName, setLearnerName, records } from './records.js?v=39559a8813';
-import { SNAPSHOTS, PATH } from './snapshots.js?v=85ffc8d0f9';
+import { SNAPSHOTS, PATH } from './snapshots.js?v=5f4b56fcdc';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 
