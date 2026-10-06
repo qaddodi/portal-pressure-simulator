@@ -3085,12 +3085,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const cost = (useLines ? lineCost(r) * 12 : 0) + i + gi * 6 - (mem && mem.dir === dir && mem.gi === gi ? 1e4 : 0);
         if (!best || cost < best.cost) best = { cost, x, y, r, dir, gi, far: gi > 0 };
       }));
+      // Steady against jitter: a slot that only drifts a few pixels (the vessel breathes, a card
+      // resizes) stays put, and a remembered slot that turns blocked is held for a few frames
+      // before the label moves, so a borderline collision cannot flicker it between two spots.
+      if (mem && mem.x != null) {
+        const md = dirs[mem.di], mgp = (Array.isArray(gap) ? gap : [gap])[mem.gi];
+        if (md && mgp != null) {
+          const [dx, dy] = offset(md, probe, mgp);
+          const mx = it.ax + dx, my = it.ay + dy, mr = rectOf({ ...probe, x: mx, y: my });
+          const ok = within(mr, B) && !placed.some((p) => hits(mr, p));
+          if (best && best.dir === md && best.gi === mem.gi && Math.hypot(best.x - mem.x, best.y - mem.y) <= 4) { const kr = rectOf({ ...probe, x: mem.x, y: mem.y }); if (ok && within(kr, B) && !placed.some((p) => hits(kr, p))) best = { ...best, x: mem.x, y: mem.y, r: kr }; }
+          else if (!ok && within(mr, B) && (mem.hold = (mem.hold || 0) + 1) <= 8) best = { cost: 0, x: mx, y: my, r: mr, dir: md, gi: mem.gi, far: mem.gi > 0, held: true };
+        }
+      }
       if (!best) return false;
       // The text hugs the station side of its reserved box.
       const slack = it.rot ? 0 : wRes - it.w, dir = best.dir;
       it.x = best.x + (dir.includes('W') ? slack : dir.includes('E') ? 0 : slack / 2);
       it.y = best.y; it.dir = dir; it.leader = leader || best.far;
-      labelMem.set(it.key, { dir, gi: best.gi, w: wRes });
+      labelMem.set(it.key, { dir, gi: best.gi, w: wRes, x: best.x, y: best.y, di: dirs.indexOf(dir), hold: best.held ? mem.hold : 0 });
       placed.push(best.r); out.push(it);
       return true;
     };

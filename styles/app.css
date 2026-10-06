@@ -2887,3 +2887,12 @@ input[type="range"] { touch-action: none; }
 .tl-split { --split-r: var(--r-card); --inset: 3px; height: 40px; padding: var(--inset); gap: 2px; border-radius: var(--split-r); overflow: visible; box-sizing: border-box; }
 .timeline .tl-split .ib.play, .vdock .tl-split .ib.play { height: 100%; border-radius: calc(var(--split-r) - var(--inset) - 1px); }
 .tl-left .tl-split .tl-speed, .vdock .tl-left .tl-split .tl-speed { border-radius: calc(var(--split-r) - var(--inset) - 1px); }
+
+/* Cards keep their size as live numbers and notes change: tabular figures, reserved widths and heights. */
+.action-card, .tool-card, .coach, .panel, .hover-tip, .sb-banner { font-variant-numeric: tabular-nums; }
+.ac-readout { min-height: 34px; }
+.ac-value b { display: inline-block; min-width: 3.4ch; text-align: right; }
+.ac-delta { display: inline-block; min-width: 5ch; }
+.ac-stat b { min-width: 5ch; text-align: right; white-space: nowrap; }
+.ac-status { min-height: 22px; }
+.hover-tip .r b { min-width: 5ch; text-align: right; }

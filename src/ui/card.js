@@ -299,6 +299,13 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   function update() {
     if (!model || el.hidden) return;
     for (const fn of live) fn();
+    // The card only ever grows while it is open: text that comes and goes (notes, pills) must not
+    // make it breathe, so its body keeps the tallest height it has needed.
+    const sc = el.querySelector('.ac-scroll');
+    if (sc && !sc.classList.contains('more')) {
+      const need = Math.min(sc.scrollHeight, innerHeight * 0.6);
+      if (need > (sc._h || 0)) { sc._h = need; sc.style.minHeight = need + 'px'; }
+    }
     position();
   }
 
