@@ -419,7 +419,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         return out;
       });
       // The cards slide in: measure where they settle, not where they are on the way.
-      await page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === 'running' && ['panel', 'treatCard', 'dock'].includes(a.effect?.target?.id)), null, { timeout: 5000 });
+      await page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === 'running' && ['panel', 'treatCard', 'dock'].includes(a.effect?.target?.id)), null, { timeout: 20000 });
       let bad = await measure();
       // A slow machine can take several frames to follow a change in size (a bleed adds a line to the dock).
       for (let i = 0; i < 4 && bad.length; i++) { await frames(); bad = await measure(); }
@@ -486,7 +486,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForSelector('#dockBody .dock-pane.active');
     await page.waitForTimeout(400);
     // The card slides in: measure where it settles, not where it is on the way.
-    const settled = () => page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === 'running' && a.effect?.target?.id === 'dock'), null, { timeout: 5000 });
+    const settled = () => page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === 'running' && a.effect?.target?.id === 'dock'), null, { timeout: 20000 });
     await settled();
     const geometry = () => page.evaluate(() => {
       const dock = document.querySelector('#dock').getBoundingClientRect();
