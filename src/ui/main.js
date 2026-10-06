@@ -1,19 +1,19 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=bd66882612';
+import { startHost, host } from './host.js?v=126150d772';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=4c0e1f79a3';
-import { createStage } from './stage.js?v=3b5be72888';
+import { createStage } from './stage.js?v=e54f2b4df1';
 import { createInspector } from './inspector.js?v=ed77b9e1db';
 import { createDock, CUTOFFS } from './dock.js?v=2901b04889';
-import { createWhy } from './why.js?v=411be6844a';
-import { createTimeline } from './timeline.js?v=f435462b66';
-import { createLearn } from './learn.js?v=31b920dc6c';
-import { createCases } from './cases.js?v=a292ab7305';
+import { createWhy } from './why.js?v=040681446a';
+import { createTimeline } from './timeline.js?v=5eec4a98fe';
+import { createLearn } from './learn.js?v=a3e239f087';
+import { createCases } from './cases.js?v=789d8f3ffa';
 import { createCompare } from './compare.js?v=54931b4d8d';
 import { createCard } from './card.js?v=c7c7e166ef';
 import { createChart, computeFindings } from './chart.js?v=87b4bf4ef9';
-import { createHome } from './home.js?v=3b6e906226';
+import { createHome } from './home.js?v=14aca7ef20';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=8d147b3e31';
 import { startLMS } from './lms.js?v=073b0aea9a';
@@ -141,7 +141,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=4aaafb5cef'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=9b8600f01b'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),

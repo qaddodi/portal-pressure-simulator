@@ -42,6 +42,7 @@ export function computeMetrics(eng) {
   const arterialIn = qf('A_HR') + qf('A_HL');
 
   const varE = eng.varix('VAR', P), varG = eng.varix('GV', P);
+  const noGRS = eng.params.spontaneous?.C5 === false;   // no gastrorenal shunt, no fundal varices
   const st = eng.starling();
   const asc = ascitesGrade(eng.slow.ascites);
   const co = (eng.COf ?? 83.3) * 0.06;
@@ -82,7 +83,7 @@ export function computeMetrics(eng) {
     shuntFraction,
     collateralFlows,
     varix: { ...varE, d: 2 * varE.r, grade: varixGrade(2 * varE.r), redWale: varE.ratio > 0.7 },
-    gastricVarix: { ...varG, d: 2 * varG.r, grade: varixGrade(2 * varG.r), redWale: varG.ratio > 0.7 },
+    gastricVarix: noGRS ? { ...varG, d: 0, grade: varixGrade(0), redWale: false } : { ...varG, d: 2 * varG.r, grade: varixGrade(2 * varG.r), redWale: varG.ratio > 0.7 },
     ascites: { volume: eng.slow.ascites, ratePerDay: st.net * 1440, iap: eng.iap ?? 5, ...asc, highProtein: st.highProtein, hepLymph: st.hep, splLymph: st.spl, lymphCap: eng.slow.lymphCap },
     spleen: { length: eng.slow.spleen, platelets: clamp(250 * Math.pow(11 / eng.slow.spleen, 3), 25, 400) },
     map, co, hr: eng.hr, svr: (map - ra) / Math.max(0.5, co),

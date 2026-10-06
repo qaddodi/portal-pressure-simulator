@@ -2980,6 +2980,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // or the learner has selected that station.
   function hasVarices(id, f) {
     const sel = store.get().selection;
+    if (id === 'GV' && f.metrics.gastricVarix.d <= 0) return false;   // no gastrorenal shunt: no fundal varices
     if (sel?.type === 'node' && sel.id === id) return true;
     return (id === 'VAR' ? f.metrics.varix.d : f.metrics.gastricVarix.d) >= 2.5;
   }
