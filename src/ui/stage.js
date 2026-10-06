@@ -2984,16 +2984,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (sel?.type === 'node' && sel.id === id) return true;
     return (id === 'VAR' ? f.metrics.varix.d : f.metrics.gastricVarix.d) >= 2.5;
   }
-  // Where a leader meets its label: the middle of the label's left edge or of its top or bottom edge,
-  // whichever is nearest the station. Never the right edge, so the line does not run across the text.
-  function leaderEnd(r, ax, ay) {
+  // Where a leader stops: it aims at the middle of the label, as if it ran behind the text, and is
+  // cut off abruptly (no fade) at a small padding around the label's box.
+  function leaderEnd(r, ax, ay, pad = 6) {
     const cx = (r.x0 + r.x1) / 2, cy = (r.y0 + r.y1) / 2;
-    let best = null;
-    for (const [x, y] of [[r.x0, cy], [cx, r.y0], [cx, r.y1]]) {
-      const d = Math.hypot(x - ax, y - ay);
-      if (!best || d < best.d) best = { d, x, y };
-    }
-    return best;
+    const hw = (r.x1 - r.x0) / 2 + pad, hh = (r.y1 - r.y0) / 2 + pad;
+    const dx = ax - cx, dy = ay - cy;
+    const t = Math.min(dx ? hw / Math.abs(dx) : Infinity, dy ? hh / Math.abs(dy) : Infinity);
+    return t >= 1 ? { x: ax, y: ay } : { x: cx + dx * t, y: cy + dy * t };
   }
   let labelGridKey = '', labelGrid = new Map();
   const labelMem = new Map();
