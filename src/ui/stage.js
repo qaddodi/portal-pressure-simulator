@@ -2,7 +2,7 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=29d10ad9ef';
-import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=4e52a87734';
+import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=77474dfce5';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=6fc014de20';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=8aa5e5cdf1';
@@ -112,13 +112,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const IVC_JOIN = {};
   for (const e of ALL_EDGES) {
     if (IVC_EDGES.has(e.id) || !IVC_NODES.has(e.to) || !NODE_POS[e.to] || !NODE_POS[e.from]) continue;
-    const [bx, by] = NODE_POS[e.to][0], [ax, ay] = NODE_POS[e.from][0], d = Math.hypot(bx - ax, by - ay) || 1;
+    // To where the drawn course actually ends (on the cava's wall), not to the node.
+    const end = EDGE_PATH[e.id]?.match(/(-?[\d.]+)[ ,]+(-?[\d.]+)\s*$/);
+    const [bx, by] = end ? [+end[1], +end[2]] : NODE_POS[e.to][0], [ax, ay] = NODE_POS[e.from][0], d = Math.hypot(bx - ax, by - ay) || 1;
     const k = Math.min(IVC_JOIN_LEN, d) / d;
-    IVC_JOIN[e.id] = [bx - (bx - ax) * k, by - (by - ay) * k, bx, by, 0, 1, 0, 1];
+    IVC_JOIN[e.id] = [bx - (bx - ax) * k, by - (by - ay) * k, bx, by, 0, 1, 0.3, 1];
   }
-  // The two halves of the IVC meet at the hepatic confluence: the upper half fades in from the lower one, which stays solid (two translucent layers
-  // in different tiers cannot sum to a full wall, so fading both leaves a hole) ([x1, y1, x2, y2, offset, alpha at start, alpha at end, mode]).
-  const IVC_SEAM = { IVCS_RA: [620, 192, 620, 160, 0, 0, 1, 1] };
   const FADE_DOWN_Y = { C4: [892, 928], EPI_ILI: [870, 925], ILI_IVC: [850, 925], V_UP: [38, 4] };
   // The azygos trunk fades out toward its lower end unless the ascending lumbar collateral (C9) is
   // open and carries it on down to the cava: [y where the fade starts, y where it is gone].
@@ -2092,7 +2091,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         else if (obj.fan && cfg.fan) { const { at, len, levels, fade: fr = [0.7, 0.4] } = cfg.fan; fade = [at[0], at[1], len * (levels ? 2.7 : 1.35), 0, 0, fr[0], fr[1], 2]; }
       } else if (x.tipFade) { const L = x.tipFade.line; fade = [L[0], L[1], L[2], L[3], 0, x.tipFade.joined ? 1 : T0, 1, 1]; }
       else if (kind === 'v' && IVC_JOIN[id]) { if (!ivcOn) fade = [...IVC_JOIN[id]]; }
-      else if (IVC_SEAM[id]) { if (!ivcOn) fade = [...IVC_SEAM[id]]; }
       else if (FADE_DOWN_Y[id] && !(ivcOn && IVC_EDGES.has(id))) { const [y0, y1] = FADE_DOWN_Y[id]; fade = [0, y0, 0, y1, 0, 1, 0, 1]; }
       else if (FADE_IN[id] && kind === 'v') { const [x1, y1, x2, y2, of] = FADE_IN[id]; fade = [x1, y1, x2, y2, of, 1, 0.3, 1]; }
       // The fades are drawn in the anatomy's coordinates: they let go as the circuit takes over.

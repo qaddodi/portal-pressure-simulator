@@ -41,7 +41,7 @@ export const NEEDS_C3 = new Set(['EPI_ILI', 'EPI_SVC']);
 // The IVC, drawn faded along its whole length, as the stretch behind the liver is.
 export const IVC_EDGES = new Set(['ILI_IVC', 'IVC_IS', 'IVCS_RA']);
 // Retroperitoneal vessels, drawn behind the organs (the liver and bowel veil them).
-export const BACK_EDGES = new Set(['IVC_IS', 'ILI_IVC', 'LRV_IVC', 'V_KID_L', 'C7', 'C9', 'S_MC', 'C1b']);
+export const BACK_EDGES = new Set(['IVC_IS', 'IVCS_RA', 'ILI_IVC', 'LRV_IVC', 'V_KID_L', 'C7', 'C9', 'S_MC', 'C1b']);
 
 // Node positions: [anatomic, circuit]
 export const NODE_POS = {
@@ -72,7 +72,7 @@ export const NODE_POS = {
   MHV: [[598, 238], [1000, 345]],
   LHV: [[660, 214], [1000, 408]],
   IVCI: [[620, 650], [1120, 478]],
-  IVCS: [[620, 190], [1120, 345]],
+  IVCS: [[620, 166], [1120, 345]],
   RA: [[620, 112], [1250, 345]],
   SVC: [[620, 40], [1250, 205]],
   AZY: [[574, 30], [1120, 205]],
@@ -111,18 +111,19 @@ export const EDGE_PATH = {
   POST_R_RHV: 'M446 296 C 474 270 506 240 540 224',
   POST_R_MHV: 'M446 296 C 496 292 562 276 598 238',
   POST_L_LHV: 'M738 262 C 712 242 686 226 660 214',
-  POST_L_MHV: 'M738 262 C 694 256 640 250 598 238',
+  // The left-lobe tributaries of the middle hepatic vein end on the cava's right wall; they do not cross it.
+  POST_L_MHV: 'M738 262 C 700 258 658 252 626 246',
   // The caudate lobe drains straight into the retrohepatic IVC through its own short hepatic
   // veins: gathered from the lobe's parenchyma (tributaries, see FEEDERS), not from the portal
   // vein, which it does not touch.
   CAUD: 'M566 326 C 588 328 606 338 620 350',
-  // The right and left hepatic veins meet the cava's top as a crown; the middle one joins its wall lower down
-  // (not at the same point, which made a five-way knot).
-  RHV_IVC: 'M540 224 C 568 210 594 198 620 190',
-  MHV_IVC: 'M598 238 C 606 232 614 224 620 214',
-  LHV_IVC: 'M660 214 C 646 204 632 196 620 190',
-  IVC_IS: 'M620 650 L 620 190',
-  IVCS_RA: 'M620 190 L 620 112',
+  // The hepatic veins enter the cava's side wall at three heights, below the node where its two
+  // halves meet, so that join is a clean run-on, not a knot of five ends.
+  RHV_IVC: 'M540 224 C 572 224 598 218 610 208',
+  MHV_IVC: 'M598 238 C 602 238 608 236 610 232',
+  LHV_IVC: 'M660 214 C 650 216 640 216 630 214',
+  IVC_IS: 'M620 650 L 620 166',
+  IVCS_RA: 'M620 166 L 620 112',
   V_UP: 'M620 -40 L 620 40',
   SVC_RA: 'M620 40 L 620 112',
   // The azygos ascends lateral to the cava (drawn clear of the heart; see C9) and arches
