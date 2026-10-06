@@ -13,7 +13,7 @@ const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6],
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
 const EXT_OVERRIDE = { IVC_IS: 'abd', CAUD: 'none' };
 
-export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 3.5, k: 0.4, kGV: 0.3 };
+export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 13.5, k: 0.35, kGV: 0.3, openGV: 3.5 };
 /** Rupture hazard per day as a function of T/Tcrit (§7.5). */
 const ruptureHazardPerDay = (x) => (x <= 1 ? 0 : 0.01 * Math.pow((x - 1) / 0.25, 3));
 const COLLATERAL = { open: 7.5, span: 14, tauGrow: 50, tauRegress: 120, acute: 0.4 };
@@ -564,8 +564,12 @@ export class Engine {
     }
     // Varix baseline radius relaxes toward a transmural-pressure target (remodeling)
     for (const site of ['VAR', 'GV']) {
-      const ex = this.routeExcess(site === 'VAR' ? ['LGV', 'AZY'] : ['SV', 'IVCI']);
-      const target = clamp(VARIX.r0Healthy + (site === 'GV' ? VARIX.kGV : VARIX.k) * Math.max(0, ex - VARIX.open), VARIX.r0Healthy, VARIX.rMax);
+      // Esophageal varices follow their own transmural pressure (no varices below HVPG ~10, large
+      // ones from ~12-14, very large above ~20); the collateral route excess falls as shunts open,
+      // so it cannot drive the size. Gastric varices keep the route-excess drive.
+      const i = this.ni[site];
+      const ex = site === 'VAR' ? P[i] - this.ext[i] : this.routeExcess(['SV', 'IVCI']);
+      const target = clamp(VARIX.r0Healthy + (site === 'GV' ? VARIX.kGV : VARIX.k) * Math.max(0, ex - (site === 'GV' ? VARIX.openGV : VARIX.open)), VARIX.r0Healthy, VARIX.rMax);
       const r = s.r0[site];
       const tau = target > r ? 8 : 40;
       s.r0[site] = r + (target - r) * Math.min(1, days / tau);
