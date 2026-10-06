@@ -902,7 +902,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!q.width || !q.height) continue;
       const x0 = q.left - wr.left, y0 = q.top - wr.top, x1 = q.right - wr.left, y1 = q.bottom - wr.top;
       if (x1 <= 0 || y1 <= 0 || x0 >= W || y0 >= H) continue;
-      const edge = el.dataset.safe;
+      let edge = el.dataset.safe;
+      if (edge === 'right' && W < 768) edge = 'bottom';   // a phone's cards are sheets over the bottom
+      else if (edge === 'bottom' && el.classList.contains('side')) edge = 'right';   // the instruments docked at the side
       if (edge === 'top') ins.t = Math.max(ins.t, y1);
       else if (edge === 'bottom') ins.b = Math.max(ins.b, H - y0);
       else if (W >= 768 && edge === 'right') ins.r = Math.max(ins.r, W - x0);
@@ -975,6 +977,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // It glides there, as the zoom buttons do (reduced motion: at once).
     animateVT(to, 420);
   };
+
+  // A card or sheet opened or closed: glide to the framing for the space that is now free (not in the lobule, which refits itself).
+  function refit() {
+    if (lobuleOn) return;
+    const to = defaultVT(morphTarget === 1);
+    if (morphTarget !== 1) homeAt = to;
+    if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, 420);
+  }
 
   // Turn the circuit upright (flow bottom to top) or back to wide. Shown whole, it stays whole (fitted
   // to the new shape); zoomed in, it keeps the zoom and turns about the point at the middle of the
@@ -4152,7 +4162,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The zoom buttons zoom about the middle of the free space; in the lobule they drive its own view.
     zoomIn: () => { if (lobuleOn) { lz.zoomBy(1.4); return; } const c = freeCentre(); animZoomAt(c[0], c[1], 1.4); },
     zoomOut: () => { if (lobuleOn) { lz.zoomBy(1 / 1.4); return; } const c = freeCentre(); animZoomAt(c[0], c[1], 1 / 1.4); },
-    fit,
+    fit, refit,
     reveal, unreveal,
     /** Changes whenever what is drawn where changes (a pan, a zoom, the morph): a cheap key for "did anything move". */
     layoutKey: () => `${viewVersion}|${geometryVersion}` + (lz?.isOpen() ? '|' + lz.viewKey() : ''),

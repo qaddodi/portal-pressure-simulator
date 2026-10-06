@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=7006816208';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=6fc014de20';
-import { createStage } from './stage.js?v=a02d24d5c2';
+import { createStage } from './stage.js?v=b3bb8ecd4c';
 import { createInspector } from './inspector.js?v=101b9f4312';
 import { createDock, CUTOFFS } from './dock.js?v=34d0ba2c5a';
 import { createWhy } from './why.js?v=a050bc90db';
@@ -805,7 +805,15 @@ function leave(el) {
 }
 const arrive = (el) => el.classList.remove('card-leaving');
 function panelShown() { return !app.classList.contains('instrument-focus') && app.classList.contains('panel-open'); }
+// The figure re-fits to the space the open cards leave (once as the card starts, again when its sheet has settled).
+let refitT = 0;
+function refitStage() {
+  clearTimeout(refitT);
+  requestAnimationFrame(() => stage?.refit());
+  refitT = setTimeout(() => stage?.refit(), 380);
+}
 function syncPanelToggle() {
+  refitStage();
   const on = panelShown();
   $('#btnInspector').setAttribute('aria-pressed', String(on));
   if (on) $('#btnInspector').classList.remove('ping');
@@ -835,6 +843,7 @@ function setPanelTab(tab) {
   if (instr && !was) dockSheet?.open();
   if (!instr && was) dockSheet?.closed();
   if (was !== instr) {
+    refitStage();
     const f = store.get().frame; if (f && instr) requestAnimationFrame(() => dock.update(f, true));
     setTimeout(() => dispatchEvent(new Event('resize')), 320);
   }
@@ -988,6 +997,7 @@ function openTreat() {
   el.hidden = false;
   treatSheet?.open();
   $('#btnTreat').setAttribute('aria-expanded', 'true');
+  refitStage();
   requestAnimationFrame(() => stage.relayout());
 }
 function closeTreat() {
@@ -998,6 +1008,7 @@ function closeTreat() {
   treatOff?.(); treatOff = null;
   treatSheet?.closed();
   $('#btnTreat').setAttribute('aria-expanded', 'false');
+  refitStage();
   requestAnimationFrame(() => stage.relayout());
 }
 
