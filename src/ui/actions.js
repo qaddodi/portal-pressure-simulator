@@ -8,7 +8,7 @@ import { store, updateParams } from './store.js?v=6fc014de20';
 import { fmt, fmtFlow, clamp, toast } from './util.js?v=8aa5e5cdf1';
 import { aboutVessel, aboutOrgan } from './about.js?v=95bf329ddd';
 import { lobuleState } from './lobule-model.js?v=203ff5bb08';
-import { LABEL_VESSEL } from './anatomy.js?v=dbe096be7b';
+import { LABEL_VESSEL } from './anatomy.js?v=39b5c27859';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -31,6 +31,7 @@ export function verbEnabled(id, key) {
 const pct = (v) => `${Math.round(v * 100)} %`;
 const mult = (v) => `×${v.toFixed(v < 10 ? 1 : 0)}`;
 const HEP_VEIN = { RHV_IVC: 'R', POST_R_RHV: 'R', MHV_IVC: 'M', POST_R_MHV: 'M', POST_L_MHV: 'M', LHV_IVC: 'L', POST_L_LHV: 'L' };
+const POST_TO_HV = { POST_R_RHV: 'RHV_IVC', POST_R_MHV: 'MHV_IVC', POST_L_MHV: 'MHV_IVC', POST_L_LHV: 'LHV_IVC' };
 const WEDGE_OF = { W_R: 'RHV_IVC', W_M: 'MHV_IVC', W_L: 'LHV_IVC' };
 
 // A label or station stands for a structure: clicking "Portal vein" opens the portal vein's card.
@@ -52,6 +53,8 @@ export function normalizeSel(sel) {
   if (sel.type === 'edge') {
     const e = EDGES[EI[sel.id]];
     if (!e) return null;
+    // A central vein that runs into a hepatic vein is that hepatic vein to the eye: it opens the vein's card and frames it.
+    if (POST_TO_HV[e.id]) return { type: 'edge', id: POST_TO_HV[e.id] };
     if (e.kind === 'liver') return { type: 'organ', id: 'liver', lobe: e.lobe === 'L' ? 'L' : e.lobe === 'R' ? 'R' : null, zone: e.zone };
   }
   return sel;

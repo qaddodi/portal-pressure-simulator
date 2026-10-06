@@ -34,14 +34,16 @@ export const CONTEXT_EDGES = new Set(['V_UP', 'SVC_RA', 'AZY_SVC', 'ILI_IVC', 'E
 // The iliac confluence is left out of the plate: the infrarenal IVC runs on down and fades out,
 // and the rectal and inferior epigastric veins fade out toward the pelvis instead of joining it
 // (they still drain into it in the model and the circuit).
-export const ANAT_HIDDEN = new Set([]);
+// The left-lobe central veins reach the middle hepatic vein in the model; drawn, they would need a second
+// vein into the cava beside the left hepatic vein, so the plate shows them draining through that one.
+export const ANAT_HIDDEN = new Set(['POST_L_MHV']);
 export const ANAT_HIDDEN_NODES = new Set(['ILI']);
 // Drawn only once the paraumbilical collateral has opened.
 export const NEEDS_C3 = new Set(['EPI_ILI', 'EPI_SVC']);
 // The IVC, drawn faded along its whole length, as the stretch behind the liver is.
 export const IVC_EDGES = new Set(['ILI_IVC', 'IVC_IS', 'IVCS_RA']);
 // Retroperitoneal vessels, drawn behind the organs (the liver and bowel veil them).
-export const BACK_EDGES = new Set(['IVC_IS', 'ILI_IVC', 'LRV_IVC', 'V_KID_L', 'C7', 'C9', 'S_MC', 'C1b']);
+export const BACK_EDGES = new Set(['IVC_IS', 'IVCS_RA', 'ILI_IVC', 'LRV_IVC', 'V_KID_L', 'C7', 'C9', 'S_MC', 'C1b']);
 
 // Node positions: [anatomic, circuit]
 export const NODE_POS = {
@@ -68,11 +70,11 @@ export const NODE_POS = {
   W_R: [[470, 262], [960, 290]],
   W_M: [[560, 272], [960, 346]],
   W_L: [[700, 238], [960, 401]],
-  RHV: [[540, 224], [1000, 282]],
-  MHV: [[598, 238], [1000, 345]],
-  LHV: [[660, 214], [1000, 408]],
+  RHV: [[500, 246], [1000, 282]],
+  MHV: [[548, 282], [1000, 345]],
+  LHV: [[690, 232], [1000, 408]],
   IVCI: [[620, 650], [1120, 478]],
-  IVCS: [[620, 190], [1120, 345]],
+  IVCS: [[620, 166], [1120, 345]],
   RA: [[620, 112], [1250, 345]],
   SVC: [[620, 40], [1250, 205]],
   AZY: [[574, 30], [1120, 205]],
@@ -108,19 +110,22 @@ export const EDGE_PATH = {
   SIN_RR: 'M420 345 C 414 328 424 308 446 296',
   SIN_LL: 'M750 300 C 754 286 750 272 738 262',
   SIN_RL: 'M420 345 C 520 382 664 362 750 300',
-  POST_R_RHV: 'M446 296 C 474 270 506 240 540 224',
-  POST_R_MHV: 'M446 296 C 496 292 562 276 598 238',
-  POST_L_LHV: 'M738 262 C 712 242 686 226 660 214',
-  POST_L_MHV: 'M738 262 C 694 256 640 250 598 238',
+  POST_R_RHV: 'M446 296 C 466 280 484 262 500 246',
+  POST_R_MHV: 'M446 296 C 480 298 516 292 548 282',
+  // Not drawn in the anatomy (ANAT_HIDDEN): its course only serves the morph to the circuit.
+  POST_L_MHV: 'M738 262 C 722 252 706 242 690 232',
+  POST_L_LHV: 'M738 262 C 722 252 706 242 690 232',
   // The caudate lobe drains straight into the retrohepatic IVC through its own short hepatic
   // veins: gathered from the lobe's parenchyma (tributaries, see FEEDERS), not from the portal
   // vein, which it does not touch.
   CAUD: 'M566 326 C 588 328 606 338 620 350',
-  RHV_IVC: 'M540 224 C 568 210 594 198 620 190',
-  MHV_IVC: 'M598 238 C 606 222 613 205 620 190',
-  LHV_IVC: 'M660 214 C 646 204 632 196 620 190',
-  IVC_IS: 'M620 650 L 620 190',
-  IVCS_RA: 'M620 190 L 620 112',
+  // The hepatic veins enter the cava's side wall at three heights, below the node where its two
+  // halves meet, so that join is a clean run-on, not a knot of five ends.
+  RHV_IVC: 'M500 246 C 545 240 590 232 610 208',
+  MHV_IVC: 'M548 282 C 575 272 600 256 610 232',
+  LHV_IVC: 'M690 232 C 664 232 646 226 630 214',
+  IVC_IS: 'M620 650 L 620 166',
+  IVCS_RA: 'M620 166 L 620 112',
   V_UP: 'M620 -40 L 620 40',
   SVC_RA: 'M620 40 L 620 112',
   // The azygos ascends lateral to the cava (drawn clear of the heart; see C9) and arches
@@ -128,7 +133,10 @@ export const EDGE_PATH = {
   // esophageal veins join it.
   AZY_SVC: 'M574 30 C 592 22 612 28 620 40',
   V_KID_L: 'M1005 622 C 960 620 910 618 862 618',
-  LRV_IVC: 'M862 618 C 790 620 700 640 620 650',
+  // The left renal vein enters the cava's side a little above the right one, on the wall, not at the iliac end.
+  LRV_IVC: 'M862 618 C 790 618 700 626 620 626',
+  // The right renal vein enters lower still, so the iliac and renal-level stretches meet head on at the node, with no fork beside it.
+  RRV_IVC: 'M560 625 C 585 632 603 668 620 676',
   ILI_IVC: 'M620 950 L 620 650',
   EPI_ILI: 'M500 800 C 512 850 530 896 546 950',
   EPI_SVC: 'M500 800 C 420 780 340 680 334 520 C 318 410 318 260 360 170 C 400 90 520 52 620 40',
@@ -155,7 +163,7 @@ export const EDGE_PATH = {
 
   AP_R: 'M655 478 C 612 470 552 432 505 398',
   AP_L: 'M655 478 C 668 440 680 405 688 378',
-  TIPS: 'M505 398 C 486 352 552 294 540 224',   // a gentle S through the parenchyma, portal → hepatic vein
+  TIPS: 'M505 398 C 486 352 552 294 540 240',   // a gentle S through the parenchyma, portal → hepatic vein
   S_PC: 'M700 556 C 682 590 652 625 620 650',
   S_DSR: 'M880 505 C 862 548 852 590 862 618',
   S_MC: 'M690 660 C 672 650 645 648 620 650',
@@ -326,7 +334,7 @@ export const CIRCUIT_ZONES = [['Splanchnic beds', 60, 390], ['Portal veins', 390
 export const CIRCUIT_LABELS = {
   INT: { dirs: ['S', 'W', 'N'], pri: 5 }, COL: { dirs: ['W', 'N', 'S'], pri: 3 }, SPL: { dirs: ['W', 'N', 'S'], pri: 5 }, STO: { dirs: ['W', 'N'], pri: 3 },
   SMV: { dirs: ['S', 'SW', 'N'], pri: 8 }, IMV: { dirs: ['N', 'S', 'NE'], pri: 3 }, SV: { dirs: ['NE', 'N', 'SE'], pri: 8 }, LGV: { dirs: ['N', 'NE', 'S'], pri: 5 },
-  CONF: { dirs: ['N', 'NW', 'S'], pri: 10 }, PVH: { dirs: ['N', 'S', 'NE'], pri: 6 }, RPV: { dirs: ['NW', 'N', 'W'], pri: 5 }, LPV: { dirs: ['SW', 'S', 'W'], pri: 5 },
+  CONF: { dirs: ['N', 'NW', 'S'], pri: 10 }, RPV: { dirs: ['NW', 'N', 'W'], pri: 5 }, LPV: { dirs: ['SW', 'S', 'W'], pri: 5 },
   VAR: { dirs: ['N', 'S'], pri: 9 }, GV: { dirs: ['N', 'W', 'S'], pri: 7 },
   SIN_R: { dirs: ['N', 'NE', 'NW'], pri: 9 }, SIN_L: { dirs: ['S', 'SE', 'SW'], pri: 7 }, CV_R: { dirs: ['N', 'NE'], pri: 4 }, CV_L: { dirs: ['S', 'SE'], pri: 4 },
   RHV: { dirs: ['N', 'NE', 'NW'], pri: 8 }, MHV: { dirs: ['E', 'NE', 'SE'], pri: 4 }, LHV: { dirs: ['S', 'SE', 'SW'], pri: 5 },

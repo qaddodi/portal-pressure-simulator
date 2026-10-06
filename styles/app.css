@@ -576,6 +576,7 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 /* Hit priority: the portal tree and hepatic outflow take a wide target; quiet context veins and
    vessels behind the organs only a narrow one, so a click near them rarely lands there by accident. */
 #world .vg.ctx .v-hit, #world #backEdges .v-hit { stroke-width: 8; }
+#world .vg.no-hit .v-hit { pointer-events: none; cursor: auto; }
 .v-halo { display: none; }
 /* Tubes: contact shadow, casing, lumen, then the shading of a cylinder lit from above. */
 .v-shadow { fill: rgb(var(--shadow-rgb)); stroke: none; transform: translate(1.4px, 2.8px); }

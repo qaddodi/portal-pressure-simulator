@@ -4,7 +4,7 @@
 import { NODES } from '../engine/topology.js?v=29d10ad9ef';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { h, fmt, fitCanvas, cssVar, clamp, icon } from './util.js?v=8aa5e5cdf1';
-import { FONT } from './charts.js?v=f6aaa88f66';
+import { FONT } from './charts.js?v=480baae265';
 import { store, updateParams } from './store.js?v=6fc014de20';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

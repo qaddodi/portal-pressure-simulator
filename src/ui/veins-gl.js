@@ -196,7 +196,7 @@ void main() {
   // ── Per-vessel attributes ──
   float stier[MAXS], sz[MAXS], sflag[MAXS], sa[MAXS], swall[MAXS], sheat[MAXS];
   vec3 scol[MAXS], shcol[MAXS], sedge[MAXS];
-  float occl = useOrgan == 1 ? texture(organ, (p - organRect.xy) / organRect.zw).a * 0.66 * organK : 0.0;
+  float occl = useOrgan == 1 ? texture(organ, (p - organRect.xy) / organRect.zw).a * 0.5 * organK : 0.0;
   for (int s = 0; s < MAXS; s++) {
     if (s >= n) break;
     vec4 t0 = T(sid[s], 0), t1 = T(sid[s], 1), t2 = T(sid[s], 2), t3 = T(sid[s], 3), t4 = T(sid[s], 4);
@@ -216,7 +216,7 @@ void main() {
     // A veiled vessel is faded all along its course, as much as an organ covering it would (behind
     // an organ, by no more than that). In its alpha, so the fade blends across its joins.
     if ((int(t2.z + 0.5) & ${F_VEIL}) != 0 && useOrgan == 1) {
-      float v = 1.0 - 0.66 * organK;
+      float v = 1.0 - 0.5 * organK;
       a *= tierGroup[int(t2.x + 0.5)] == 0 ? min(1.0, v / max(1.0 - occl, 1e-3)) : v;
     }
     sa[s] = a;
@@ -609,11 +609,15 @@ vec2 chevAt(int id, float s, float y) {
   // doubles (the coarser heads are a subset of the finer ones), so nothing jumps or pops.
   float lv = max(0.0, log2(max(3.6 * R, 60.0 * pxW) / 28.0)), n = floor(lv), fr = lv - n;
   float P = 28.0 * exp2(n), Pc = 28.0 * exp2(lv);
-  float x = mod(s - f0.x + 0.5 * P, P) - 0.5 * P, u = x * dir, ay = abs(y) * R;
+  float x = mod(s - f0.x + 0.5 * P, P) - 0.5 * P, u = x * dir;
+  float Rs = max(texelFetch(rad, ivec2(clamp(int(clamp(s / len, 0.0, 1.0) * ${N_SAMPLES - 1}.0 + 0.5), 0, N_LAST), id), 0).r, 0.3);
+  float ay = abs(y) * Rs;
   float sc = s - x;
   float odd = mod(floor((sc - f0.x) / P + 0.5), 2.0);
   float keep = odd > 0.5 ? 1.0 - smoothstep(0.15, 0.85, fr) : 1.0;
-  float hw = min(0.86 * R, 0.2 * Pc), L = 1.6 * hw;            // half width, length
+  // Sized to the lumen where the head sits, so none overhangs a narrowing vessel.
+  float Rl = max(texelFetch(rad, ivec2(clamp(int(clamp(sc / len, 0.0, 1.0) * ${N_SAMPLES - 1}.0 + 0.5), 0, N_LAST), id), 0).r, 0.3);
+  float hw = min(0.86 * R, 0.2 * Pc), L = 1.6 * hw;            // half width, length: one fixed shape per vessel, never stretched
   float tip = 0.55 * L, back = -0.45 * L, notch = 0.32 * L;
   // Inside when behind both slanted sides and ahead of the notched back.
   float k = L / hw;
@@ -624,6 +628,8 @@ vec2 chevAt(int id, float s, float y) {
   float e = min(sc, len - sc);
   if (e < 0.6 * L) return vec2(0.0);
   float fade = smoothstep(0.5, 3.0, abs(vd)) * f1.z * keep * smoothstep(0.6 * L, 0.6 * L + max(2.0 * L, 0.3 * Pc), e) * smoothstep(1.3 * pxW, 2.4 * pxW, R);
+  // Where the lumen is narrower than the head, the head fades out instead of squeezing to fit.
+  fade *= smoothstep(0.85 * hw, 1.15 * hw, Rl);
   float c = 1.0 - smoothstep(-0.7 * pxW, 0.7 * pxW, d);
   float rim = (1.0 - smoothstep(0.0, 1.8 * pxW + 0.1 * hw, d)) * (1.0 - c);
   return vec2(c, rim) * fade;
@@ -675,10 +681,10 @@ void main() {
       col = mix(col, oc, vis);
     }
     if (blood == 1) {
+      // One streak field (the dominant lumen's), eased down toward the join, so two patterns never ghost over each other.
       vec4 A = bloodAt(id1, s1, y1, col);
-      vec4 B = b > 0.004 ? bloodAt(id2, s2, y2, col) : vec4(0.0);
-      float a = A.a * (1.0 - b) + B.a * b;
-      if (a > 0.0) col = mix(col, (A.rgb * A.a * (1.0 - b) + B.rgb * B.a * b) / a, clamp(a * vis * flowA, 0.0, 1.0));
+      float a = A.a * (1.0 - 0.6 * smoothstep(0.02, 0.5, b));
+      if (a > 0.0) col = mix(col, A.rgb, clamp(a * vis * flowA, 0.0, 1.0));
     }
     if (dyeOn == 1) {
       float c = dyeAt(id1, s1, y1) * (1.0 - b) + (b > 0.004 ? dyeAt(id2, s2, y2) * b : 0.0);
@@ -687,6 +693,7 @@ void main() {
     }
     if (chev == 1) {
       vec2 c = chevAt(id1, s1, y1);
+      c *= 1.0 - smoothstep(0.02, 0.25, b);   // none where another vessel joins
       if (c.x + c.y > 0.0) {
         float rv = texelFetch(flow, ivec2(1, id1), 0).w;
         // A faint light rim lifts the head off the lumen; the head itself dark, or orange if reversed.

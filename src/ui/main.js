@@ -3,22 +3,22 @@
 
 import { startHost, host } from './host.js?v=7006816208';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=6fc014de20';
-import { createStage } from './stage.js?v=d80d822281';
+import { createStage } from './stage.js?v=a02d24d5c2';
 import { createInspector } from './inspector.js?v=101b9f4312';
-import { createDock, CUTOFFS } from './dock.js?v=40e08ab109';
+import { createDock, CUTOFFS } from './dock.js?v=34d0ba2c5a';
 import { createWhy } from './why.js?v=a050bc90db';
 import { createTimeline } from './timeline.js?v=63bbf7f6f5';
 import { createLearn } from './learn.js?v=548b631cb2';
 import { createCases } from './cases.js?v=0c3d7d5457';
 import { createCompare } from './compare.js?v=10070b6fba';
-import { createCard } from './card.js?v=23d849ba49';
-import { createChart, computeFindings } from './chart.js?v=449af43c48';
+import { createCard } from './card.js?v=696c6cf7fd';
+import { createChart, computeFindings } from './chart.js?v=20d2d62a8d';
 import { createHome } from './home.js?v=f05dffda3a';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=4311ba9892';
 import { startLMS } from './lms.js?v=073b0aea9a';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=07ae47baae';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=aa2577f907';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=29d10ad9ef';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=8aa5e5cdf1';
@@ -141,7 +141,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=cdebe4bdff'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=32355c54eb'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -266,6 +266,7 @@ function onFrame(f) {
   timeline.update(f);
   const txt = f.day > 0 ? `Day ${f.day}` : `${fmt(f.t, 0)} s`;
   if (txt !== lastClockTxt) { lastClockTxt = txt; stageClock.textContent = txt; }
+  if (tipInfo) hoverInfo(tipInfo);   // the readings popup stays live with the sim
   updateBleedBanner(f);
   updateFindBadge(f);
   syncModeName();
@@ -602,7 +603,9 @@ function updateBleedBanner(f) {
   bleedEl.title = b ? `${b.site === 'GV' ? 'Gastric' : 'Esophageal'} variceal bleeding: ${Math.round(b.rate)} mL/min, ${Math.round(f.metrics.blood.lost)} mL lost so far` : '';
   if (changed) redraw();
 }
+let tipInfo = null;
 function hoverInfo(info) {
+  tipInfo = info;
   const f = store.get().frame;
   const tool = store.get().tool;
   // A long press (info.peek) shows the readings on any screen, above the finger; hovering only where there is a pointer.

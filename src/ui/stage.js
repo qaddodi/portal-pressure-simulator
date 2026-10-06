@@ -2,14 +2,14 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=29d10ad9ef';
-import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=dbe096be7b';
+import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=39b5c27859';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=6fc014de20';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=8aa5e5cdf1';
-import { createLobuleZoom } from './lobule-zoom.js?v=98a4186af8';
+import { createLobuleZoom } from './lobule-zoom.js?v=b3edbf57bb';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=e424ed9ef2';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=e9ab279262';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=3acf4e936e';
 
 const N_SAMPLES = 64;
@@ -109,16 +109,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // SVC above the azygos arch (it leaves the top of the plate).
   // Veins that end on the faded IVC fade into it over their last stretch, so the join is seamless.
   const IVC_NODES = new Set(['IVCS', 'IVCI', 'RA']), IVC_JOIN_LEN = 60;
+  const HEPATIC_VEINS = new Set(['RHV_IVC', 'MHV_IVC', 'LHV_IVC']);   // solid to the wall: the big veins that drain the liver
   const IVC_JOIN = {};
   for (const e of ALL_EDGES) {
-    if (IVC_EDGES.has(e.id) || !IVC_NODES.has(e.to) || !NODE_POS[e.to] || !NODE_POS[e.from]) continue;
-    const [bx, by] = NODE_POS[e.to][0], [ax, ay] = NODE_POS[e.from][0], d = Math.hypot(bx - ax, by - ay) || 1;
+    if (IVC_EDGES.has(e.id) || HEPATIC_VEINS.has(e.id) || !IVC_NODES.has(e.to) || !NODE_POS[e.to] || !NODE_POS[e.from]) continue;
+    // To where the drawn course actually ends (on the cava's wall), not to the node.
+    const end = EDGE_PATH[e.id]?.match(/(-?[\d.]+)[ ,]+(-?[\d.]+)\s*$/);
+    const [bx, by] = end ? [+end[1], +end[2]] : NODE_POS[e.to][0], [ax, ay] = NODE_POS[e.from][0], d = Math.hypot(bx - ax, by - ay) || 1;
     const k = Math.min(IVC_JOIN_LEN, d) / d;
-    IVC_JOIN[e.id] = [bx - (bx - ax) * k, by - (by - ay) * k, bx, by, 0, 1, 0, 1];
+    IVC_JOIN[e.id] = [bx - (bx - ax) * k, by - (by - ay) * k, bx, by, 0, 1, 0.3, 1];
   }
-  // The two halves of the IVC meet at the hepatic confluence: the upper half fades in from the lower one, which stays solid (two translucent layers
-  // in different tiers cannot sum to a full wall, so fading both leaves a hole) ([x1, y1, x2, y2, offset, alpha at start, alpha at end, mode]).
-  const IVC_SEAM = { IVCS_RA: [620, 192, 620, 160, 0, 0, 1, 1] };
   const FADE_DOWN_Y = { C4: [892, 928], EPI_ILI: [870, 925], ILI_IVC: [850, 925], V_UP: [38, 4] };
   // The azygos trunk fades out toward its lower end unless the ascending lumbar collateral (C9) is
   // open and carries it on down to the cava: [y where the fade starts, y where it is gone].
@@ -1514,7 +1514,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const P1 = PM[NI[e.from]], P2 = PM[NI[e.to]];
       // Anatomy: width follows diameter (compressed). Circuit: a narrower, more uniform range,
       // as on a transit map, so the lines stay even and legible.
-      const wA = e.kind === 'liver' ? (e.zone === 'sin' || e.zone === 'inter' ? 3.6 : 5.2) : vesselPx(D) * (e.id === 'IVC_IS' || e.id === 'IVCS_RA' || e.id === 'SVC_RA' ? 0.72 : 1);
+      const wA = e.kind === 'liver' ? (e.zone === 'sin' || e.zone === 'inter' || e.zone === 'post' ? 3.6 : 5.2) : vesselPx(IVC_EDGES.has(e.id) ? f.D[EI.IVC_IS] : D) * (IVC_EDGES.has(e.id) || e.id === 'SVC_RA' ? 0.72 : 1);   // the IVC is one tube: one caliber end to end
       const wC = (e.kind === 'liver' ? 8 : clamp(vesselPx(D) * 0.95, 6, 15)) * circBoost;
       let w = lerp(wA, wC, t);
       // Flow layer: width follows flow volume (∝ √Q), like traffic volume on a city map.
@@ -1534,9 +1534,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       x.wMode = mode;
       // The hit stroke is never thinner than the drawn tube (the IVC is wide, behind the liver) and never under ~10 px on screen.
       { const narrow = CONTEXT_EDGES.has(e.id) || BACK_EDGES.has(e.id), hw = Math.round(Math.max(narrow ? 8 : 20, w + 6, 10 / ((CTM && CTM.sc) || 1))); if (x.hitW !== hw) { x.hitW = hw; x.hit.style.strokeWidth = hw; } }
+      // The liver's own small vessels (portal venules, sinusoids, central veins) are the liver to the pointer in the anatomy:
+      // no hover, no tap on them; it falls through to the organ.
+      cls(x, 'no-hit', LIVER_EDGES.has(e.id) && t < 0.5);
       if (x.isArt) { setA(x.wall, 'stroke-width', w.toFixed(1)); continue; }
       x.pmid = (P1 + P2) / 2;
-      const baseD = e.d || (e.dMax ? dMinOf(e) : 3);
+      const baseD = IVC_EDGES.has(e.id) ? E.IVC_IS.e.d : e.d || (e.dMax ? dMinOf(e) : 3);   // one wall thickness along the whole cava
       // The circuit is a map: a slightly wider border (drawn by the GPU, as one shape with filleted
       // joins) gives its lines their weight.
       const wallT = (e.kind === 'liver' ? 0.7 : clamp(0.9 * Math.sqrt(baseD / Math.max(0.3, D)), 0.8, 1.6)) * (1 + 0.45 * t);
@@ -2045,12 +2048,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const originMode = originOn();
     tubeData.fill(0);
     // Hovering or selecting any part of the IVC shows it whole: no veil, and no fades on it or on the tributaries joining it.
-    let ivcOn = false;
-    for (const id of IVC_EDGES) { const g = E[id]?.g; if (g && (g.classList.contains('is-sel') || g.classList.contains('hl'))) ivcOn = true; }
+    let ivcOn = false, ivcSel = false;
+    for (const id of IVC_EDGES) { const g = E[id]?.g; if (g && (g.classList.contains('is-sel') || g.classList.contains('hl'))) ivcOn = true; if (g?.classList.contains('is-sel')) ivcSel = true; }
     for (const it of items) {
       const { x, kind, obj } = it, id = x.e.id, o = it.row * TUBE_TEXELS * 4;
       const ghost = x.g.classList.contains('coll-ghost');
-      const sel = x.g.classList.contains('is-sel'), hl = x.g.classList.contains('hl');
+      // The IVC is one vessel to the eye: hovering or selecting any stretch lights and rings all of it.
+      const whole = ivcOn && IVC_EDGES.has(id);
+      const sel = x.g.classList.contains('is-sel') || (whole && ivcSel), hl = x.g.classList.contains('hl') || whole;
       let c0, c1;
       if (x.isArt) c0 = c1 = artery;
       else {
@@ -2090,7 +2095,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         else if (obj.fan && cfg.fan) { const { at, len, levels, fade: fr = [0.7, 0.4] } = cfg.fan; fade = [at[0], at[1], len * (levels ? 2.7 : 1.35), 0, 0, fr[0], fr[1], 2]; }
       } else if (x.tipFade) { const L = x.tipFade.line; fade = [L[0], L[1], L[2], L[3], 0, x.tipFade.joined ? 1 : T0, 1, 1]; }
       else if (kind === 'v' && IVC_JOIN[id]) { if (!ivcOn) fade = [...IVC_JOIN[id]]; }
-      else if (IVC_SEAM[id]) { if (!ivcOn) fade = [...IVC_SEAM[id]]; }
       else if (FADE_DOWN_Y[id] && !(ivcOn && IVC_EDGES.has(id))) { const [y0, y1] = FADE_DOWN_Y[id]; fade = [0, y0, 0, y1, 0, 1, 0, 1]; }
       else if (FADE_IN[id] && kind === 'v') { const [x1, y1, x2, y2, of] = FADE_IN[id]; fade = [x1, y1, x2, y2, of, 1, 0.3, 1]; }
       // The fades are drawn in the anatomy's coordinates: they let go as the circuit takes over.
@@ -3079,7 +3083,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (cath.vein && cath.wedged) show.add('W_' + cath.vein);
       const [lx] = worldToLocal(ATLAS_COLUMNS[0], 500), [rx] = worldToLocal(ATLAS_COLUMNS[1], 500);
       const colW = 150;
-      const atlas = lx - 8 > colW && W - rx - 8 > colW;
+      // Pressures sit beside their vessels at every size (no margin columns with long leaders).
+      const atlas = false;
       const items = [];
       for (const id of show) {
         if (!NODE_POS[id]) continue;
@@ -3162,14 +3167,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         for (const it of items.sort((a, b) => b.pri - a.pri)) {
           it.align = 'start';
           const dirs = it.side === 'L' ? ['NW', 'W', 'SW', 'N', 'S', 'NE', 'E', 'SE'] : ['NE', 'E', 'SE', 'N', 'S', 'NW', 'W', 'SW'];
-          if (place(it, dirs, 12 + it.vw / 2, true) || place(it, dirs, 30 + it.vw / 2, true)) continue;
+          if (place(it, dirs, 8 + it.vw / 2, false) || place(it, dirs, 24 + it.vw / 2, true)) continue;
           if (it.sel) { place(it, ['C'], 0, false) || (out.push(Object.assign(it, { x: it.ax + 8, y: it.ay - it.h / 2 })), true); }
         }
         for (const it of out) {
-          if (!it.leader) continue;
+          if (it.cls === 'organ') continue;
           const r = rectOf(it);
           const { x: px, y: py } = leaderEnd(r, it.ax, it.ay);
-          if (Math.hypot(px - it.ax, py - it.ay) > 5) leaders += `<path class="leader${it.sel ? ' hl' : ''}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}"/>`;
+          if (it.leader && Math.hypot(px - it.ax, py - it.ay) > 5) leaders += `<path class="leader${it.sel ? ' hl' : ''}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}"/>`;
           leaders += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
         }
       }
@@ -3536,7 +3541,26 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // While the pointer is captured, events retarget to the <svg>: hit-test the real point instead.
     const t = ev.target === svg && ev.clientX != null ? document.elementFromPoint(ev.clientX, ev.clientY) : ev.target;
     const el = t?.closest?.('.v-hit, .ghost-hit');
-    return el ? el.getAttribute('data-id') : null;
+    return el ? el.getAttribute('data-id') : geomEdge(ev);
+  }
+  // Safari does not always report a transparent-stroke vessel as the element under the pointer (it works in Chrome),
+  // so when the browser's own hit test finds no vessel, test the pointer against each vessel's hit stroke ourselves.
+  function geomEdge(ev) {
+    if (ev.clientX == null || ev.pointerType === 'touch' || lobuleOn) return null;
+    let best = null;
+    for (const id of Object.keys(E)) {
+      const h = E[id]?.hit;
+      if (!h || !h.isConnected || h.getAttribute('aria-hidden') === 'true' || !h.hasAttribute('d') || h.parentNode?.classList?.contains('no-hit')) continue;
+      if (best && !(best.compareDocumentPosition(h) & Node.DOCUMENT_POSITION_FOLLOWING)) continue;   // only a vessel drawn above the best so far can beat it
+      try {
+        const m = h.getScreenCTM();
+        if (!m) continue;
+        const pt = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(m.inverse());
+        if (h.isPointInStroke(pt) && getComputedStyle(h.parentNode).display !== 'none' && getComputedStyle(h).pointerEvents !== 'none') best = h;
+      } catch { /* not rendered */ }
+    }
+    if (best) return best.getAttribute('data-id');
+    return null;
   }
 
   // Organs under a point (anatomy only). The varices and fundus are small sites. The abdomen is
@@ -3634,7 +3658,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   svg.addEventListener('pointerover', (ev) => {
     if (ev.pointerType === 'touch') return;
     const id = edgeFromEvent(ev);
-    if (id && EI[id] != null) setHover(id);
+    if (id && EI[id] != null) {
+      setHover(id);
+      // The element under a still pointer can change (the figure redraws): show the readings then too, not only on a move.
+      if (F && !shunt) { const r = wrap.getBoundingClientRect(); onHoverInfo({ id, x: ev.clientX - r.left, y: ev.clientY - r.top }); }
+    }
   });
   svg.addEventListener('pointerout', (ev) => { if (edgeFromEvent(ev)) { setHover(null); onHoverInfo(null); } });
   svg.addEventListener('pointerleave', clearHover);
@@ -3835,7 +3863,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (drag.type === 'pan') {
       if (Math.abs(ev.clientX - drag.x) + Math.abs(ev.clientY - drag.y) > (ev.pointerType === 'touch' ? 8 : 4)) { drag.moved = true; clearPress(); }
-      if (drag.peeked) return;
+      if (drag.peeked) {   // a long press then drag: the popup follows whichever vessel is under the finger
+        const r = wrap.getBoundingClientRect();
+        const id = edgeFromEvent(ev) || nearbyEdge(ev);
+        if (id && EI[id] != null) onHoverInfo({ id, x: ev.clientX - r.left, y: ev.clientY - r.top, peek: true });
+        else onHoverInfo(null);
+        return;
+      }
       if (drag.moved && scrubS === 0) {
         vt = softPan({ k: vt.k, x: drag.vx + (ev.clientX - drag.x) / drag.s0, y: drag.vy + (ev.clientY - drag.y) / drag.s0 });
         applyVT(); CTM = null;
