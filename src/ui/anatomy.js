@@ -68,9 +68,9 @@ export const NODE_POS = {
   W_R: [[470, 262], [960, 290]],
   W_M: [[560, 272], [960, 346]],
   W_L: [[700, 238], [960, 401]],
-  RHV: [[540, 224], [1000, 282]],
-  MHV: [[568, 264], [1000, 345]],
-  LHV: [[660, 214], [1000, 408]],
+  RHV: [[500, 246], [1000, 282]],
+  MHV: [[548, 282], [1000, 345]],
+  LHV: [[690, 232], [1000, 408]],
   IVCI: [[620, 650], [1120, 478]],
   IVCS: [[620, 166], [1120, 345]],
   RA: [[620, 112], [1250, 345]],
@@ -108,9 +108,9 @@ export const EDGE_PATH = {
   SIN_RR: 'M420 345 C 414 328 424 308 446 296',
   SIN_LL: 'M750 300 C 754 286 750 272 738 262',
   SIN_RL: 'M420 345 C 520 382 664 362 750 300',
-  POST_R_RHV: 'M446 296 C 474 270 506 240 540 224',
-  POST_R_MHV: 'M446 296 C 490 298 536 284 568 264',
-  POST_L_LHV: 'M738 262 C 712 242 686 226 660 214',
+  POST_R_RHV: 'M446 296 C 466 280 484 262 500 246',
+  POST_R_MHV: 'M446 296 C 480 298 516 292 548 282',
+  POST_L_LHV: 'M738 262 C 722 252 706 242 690 232',
   // The left-lobe tributaries of the middle hepatic vein end on the cava's right wall; they do not cross it.
   POST_L_MHV: 'M738 262 C 700 258 658 252 626 246',
   // The caudate lobe drains straight into the retrohepatic IVC through its own short hepatic
@@ -119,9 +119,9 @@ export const EDGE_PATH = {
   CAUD: 'M566 326 C 588 328 606 338 620 350',
   // The hepatic veins enter the cava's side wall at three heights, below the node where its two
   // halves meet, so that join is a clean run-on, not a knot of five ends.
-  RHV_IVC: 'M540 224 C 572 224 598 218 610 208',
-  MHV_IVC: 'M568 264 C 584 256 598 248 610 238',
-  LHV_IVC: 'M660 214 C 650 216 640 216 630 214',
+  RHV_IVC: 'M500 246 C 545 240 590 232 610 208',
+  MHV_IVC: 'M548 282 C 575 272 600 256 610 232',
+  LHV_IVC: 'M690 232 C 664 232 646 226 630 214',
   IVC_IS: 'M620 650 L 620 166',
   IVCS_RA: 'M620 166 L 620 112',
   V_UP: 'M620 -40 L 620 40',
