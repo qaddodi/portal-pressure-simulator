@@ -6,7 +6,7 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=23552bd900';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, cssVar, systemEdge } from './util.js?v=d90a6074b7';
-import { createLobuleZoom } from './lobule-zoom.js?v=f59e4804a4';
+import { createLobuleZoom } from './lobule-zoom.js?v=9379334e3a';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=e424ed9ef2';
@@ -927,7 +927,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // Fit frames everything the plate draws: the heart and the veins above it, the organs, the
       // flanks, and with ascites the fluid pooled in the pelvic floor below the default frame. The
       // box is measured, so it follows an enlarged spleen or a growing ascites.
-      const r = svg.getBoundingClientRect();
+      // (The layout size: the svg's drawn rectangle is scaled while the lobule zoom plays, and a fit read from it lands somewhere else.)
+      const r = { width: svg.clientWidth, height: svg.clientHeight };
       if (!r.width || !r.height) return { k: 1, x: 0, y: 0 };
       let x0 = VB_ANAT[0], y0 = VB_ANAT[1], x1 = VB_ANAT[0] + VB_ANAT[2], y1 = VB_ANAT[1] + VB_ANAT[3];
       // Only what holds still is measured: the abdomen, the organs and the ascites. The vessels morph (to and from
@@ -1150,7 +1151,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       else if (!on) {
         setDiveScale(1); lz.setDiveZoom(1, 0, 0); diveLand = null;
         // Out of the lobule the anatomy always ends on its full fit, not where the dive began (often the liver close-up).
-        if (morphTarget === 0) { const d = defaultVT(false); homeAt = d; if (!sameView(vt, d)) animateVT(d, 450); }
+        // (Already taken to its fit when the way out began; measuring it again here read the floating pieces mid-change and sent the view down, then back.)
+        if (morphTarget === 0) { if (liverBox() && sameView(vt, homeAt || vt)) homeAt = { ...vt }; else { const d = defaultVT(false); homeAt = d; if (!sameView(vt, d)) animateVT(d, 450); } }
       }
     };
     step(t0);
@@ -1451,7 +1453,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     firstFrame();
     const now = performance.now();
     // (Not while a move away from home is under way: its first frames still sit at home.)
-    if (homeAt && morphTarget === 0 && !lobuleOn && now - homeCheck > 500 && sameView(vt, homeAt) && (!vtTarget || sameView(vtTarget, homeAt))) {
+    if (homeAt && morphTarget === 0 && !lobuleOn && diveT === 0 && now - homeCheck > 500 && sameView(vt, homeAt) && (!vtTarget || sameView(vtTarget, homeAt))) {
       homeCheck = now;
       const d = defaultVT(false);
       if (!sameView(d, homeAt)) { homeAt = d; animateVT(d, 400); }
