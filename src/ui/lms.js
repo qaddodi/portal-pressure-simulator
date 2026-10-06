@@ -4,7 +4,7 @@
 // xAPI statements are available as an export (records.js); LTI 1.3 needs a server and is not part
 // of this static build.
 
-import { onRecord, learnerName, setLearnerName } from './records.js?v=26ab8fb634';
+import { onRecord, learnerName, setLearnerName } from './records.js?v=39559a8813';
 
 function findAPI(win) {
   for (let i = 0; win && i < 10; i++) {

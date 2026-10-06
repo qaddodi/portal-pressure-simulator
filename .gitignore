@@ -1,3 +1,4 @@
 dist/
 node_modules/
 _*.mjs
+__pycache__/

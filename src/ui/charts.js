@@ -3,8 +3,8 @@
 import { NODES } from '../engine/topology.js?v=29d10ad9ef';
 import { PROFILE_PATHS, SHORT } from './anatomy.js?v=dbe096be7b';
 import { pressureColor } from './colormap.js?v=6d64a94345';
-import { store } from './store.js?v=23552bd900';
-import { h, fmt, fitCanvas, cssVar, clamp, createEaser, axisTop } from './util.js?v=d90a6074b7';
+import { store } from './store.js?v=6fc014de20';
+import { h, fmt, fitCanvas, cssVar, clamp, createEaser, axisTop } from './util.js?v=8aa5e5cdf1';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const ARTERIAL = new Set(['AO', 'HA']);
@@ -18,7 +18,7 @@ export const FONT = (w = 500, px = 11) => `${w} ${px}px Inter, system-ui, -apple
 
 // A smooth curve through the points that never overshoots them (monotone cubic, Fritsch–Carlson),
 // so a pressure that only falls is never drawn rising between two stations.
-export function smoothPath(ctx, pts) {
+function smoothPath(ctx, pts) {
   const n = pts.length;
   if (!n) return;
   ctx.moveTo(pts[0][0], pts[0][1]);

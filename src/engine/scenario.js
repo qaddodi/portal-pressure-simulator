@@ -88,7 +88,7 @@ export const PRESETS = [
     summary: 'Pericardial constraint raises RA pressure; congestive hepatopathy without an HVPG rise.' },
 ];
 
-export function isObj(x) { return x && typeof x === 'object' && !Array.isArray(x); }
+function isObj(x) { return x && typeof x === 'object' && !Array.isArray(x); }
 export function deepMerge(base, patch) {
   const out = structuredClone(base);
   (function merge(o, p) {
@@ -100,7 +100,3 @@ export function deepMerge(base, patch) {
   return out;
 }
 
-export function presetParams(id) {
-  const pr = PRESETS.find((p) => p.id === id) || PRESETS[0];
-  return pr.apply(defaultParams());
-}

@@ -18,8 +18,6 @@ export const DOPPLER_MODES = [
   { id: 'velocity', label: 'Color', short: 'Color' },
   { id: 'variance', label: 'Variance', short: 'Variance' },
 ];
-export const isDirectional = (mode) => mode === 'velocity' || mode === 'variance';
-
 const TOWARD = [224, 90, 48], AWAY = [58, 75, 168];                    // velocity map 1
 const VAR_TOWARD = [[240, 138, 40], [255, 232, 48]];                   // variance map 1: laminar → turbulent
 const VAR_AWAY = [[107, 88, 168], [46, 154, 92]];
@@ -48,7 +46,7 @@ export function dopplerColor(mode, { u = 0, s = 0 }, invert = false, out = [0, 0
 // trace shows.
 const SOFT = 0.28;                       // how far the map colour is pulled toward its own grey
 const WHITE = [236, 240, 250];           // the spectrum's bright end
-export const LEGEND_T = 0.8;             // the nominal brightness the legend shows
+const LEGEND_T = 0.8;             // the nominal brightness the legend shows
 
 /** Softened, brightness-modulated colour: c is a map colour, t the pixel's signal brightness 0..1, cover how much of it to show. */
 export function shadeColor(c, t, cover, out = [0, 0, 0]) {
@@ -66,7 +64,7 @@ const shown = (mode, u, s) => css(shadeColor(dopplerColor(mode, { u, s }), LEGEN
  * u < 0) and, for Variance, x from laminar 0 to turbulent 1. The colours follow the trace's
  * position about the baseline, so Invert (which flips the trace) needs no change here.
  */
-export const legendColor = (mode, above, x = 0) => shown(mode, above ? 1 : -1, x);
+const legendColor = (mode, above, x = 0) => shown(mode, above ? 1 : -1, x);
 
 /** The pill's little swatch: toward | away (Variance: laminar to turbulent in each). */
 export function swatchGradient(mode) {

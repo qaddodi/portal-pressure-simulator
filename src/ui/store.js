@@ -1,6 +1,6 @@
 // Tiny observable store + parameter history (undo/redo, blueprint §3).
 
-import { defaultParams, deepMerge } from '../engine/scenario.js?v=304cd180db';
+import { defaultParams, deepMerge } from '../engine/scenario.js?v=5eb04c5fb1';
 
 const listeners = new Map();
 const state = {
@@ -84,8 +84,6 @@ export function redo() {
   store.set({ historyTick: (state.historyTick || 0) + 1 });
   return h.label || true;
 }
-export const canUndo = () => past.length > 0;
-export const canRedo = () => future.length > 0;
 export function clearHistory() { past.length = 0; future.length = 0; }
 
 export const isLocked = (key) => !!(state.locked && !state.locked.has('*') && !state.locked.has(key)) || !!(state.locked && state.locked.has('!' + key));

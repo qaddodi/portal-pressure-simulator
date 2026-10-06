@@ -3,16 +3,14 @@
 import { PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES, EDGES } from './topology.js?v=29d10ad9ef';
 import { clamp } from './physiology.js?v=8b006eefeb';
 
-export const BASE_HEPATIC_FLOW = 25; // mL/s (≈1.5 L/min), overwritten by engine baseline at first call
-
-export function varixGrade(d) {
+function varixGrade(d) {
   if (d < 2.5) return { code: '—', label: 'None' };
   if (d < 5) return { code: 'F1', label: 'Small' };
   if (d < 10) return { code: 'F2', label: 'Large' };
   return { code: 'F3', label: 'Large, coil-shaped' };
 }
 
-export function ascitesGrade(V) {
+function ascitesGrade(V) {
   if (V < 150) return { grade: 0, label: 'None' };
   if (V < 1500) return { grade: 1, label: 'Grade 1 (ultrasound only)' };
   if (V < 5000) return { grade: 2, label: 'Grade 2 (moderate)' };
@@ -21,7 +19,6 @@ export function ascitesGrade(V) {
 
 export function computeMetrics(eng) {
   const P = eng.Pf || eng.P, Q = eng.Q, ni = eng.ni, ei = eng.ei, p = eng.params;
-  const q = (id) => Q[ei[id]];
   const qf = (id) => (eng.Qf ? eng.Qf[ei[id]] : Q[ei[id]]);
   if (!eng.baseHepFlow) eng.baseHepFlow = eng.refQ ? eng.refQ[ei.SIN_RR] + eng.refQ[ei.SIN_LL] : 25;
 
