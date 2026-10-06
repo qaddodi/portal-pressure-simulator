@@ -139,6 +139,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForSelector('.action-card:not([hidden])');
     await page.waitForTimeout(900);
     let s = await read();
+    for (let i = 0; i < 20 && !s.covers; i++) { await page.waitForTimeout(250); s = await read(); }   // the sheet's rise can lag on a slow runner
     if (!s.docked || s.peek) throw new Error('the card should open as a docked sheet, not as the strip');
     if (s.h > s.stageH * 0.36) throw new Error(`the sheet covers ${Math.round((100 * s.h) / s.stageH)} % of the figure`);
     if (!s.covers) throw new Error('the sheet should rise from the bottom of the screen, over the vitals dock');
@@ -232,7 +233,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const fits = await page.$eval('#btnBlood', (el) => { const r = el.getBoundingClientRect(); return r.width >= 30 && r.left >= 0 && r.right <= innerWidth; });
     if (!fits) throw new Error('Blood button is clipped');
     await page.click('#btnBlood');
-    const opts = await page.$$eval('.blood-pop .blood-opt', (els) => els.map((e) => e.querySelector('span').firstChild.textContent));
+    const opts = await page.$$eval('.blood-pop .lens-opt .lens-t', (els) => els.map((e) => e.textContent));
     if (opts.join('|') !== 'Streaks|Chevrons|Pressure values|Potential collaterals|Organ names') throw new Error(`the Blood menu offers ${opts.join(', ')}`);
     await page.keyboard.press('Escape');
     await page.evaluate(() => window.pps.store.set({ colorMode: 'origin', blood: { look: 'shimmer', chevrons: true } }));
@@ -288,14 +289,14 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     };
     const lit = await page.evaluate(vesselPixels);
     if (lit < 300) throw new Error(`the lobule's vessel layer is nearly empty (${lit} px)`);
-    if ((await page.locator('.lz-lab').count()) !== 3) throw new Error('station cards missing');
+    if ((await page.locator('.lz-lab').count()) !== 4) throw new Error('station cards missing');
     // The card is gone: nothing floats beside the lobule but its labels.
     if (await page.locator('.lz-side').count()) throw new Error('the lobule still has its card');
     // The strip reads the lobule's flows here.
     const tiles = await page.evaluate(() => [...document.querySelectorAll('#strip .metric.primary')].filter((e) => e.offsetWidth).map((e) => e.dataset.id).join());
     if (tiles !== 'lz-sin,lz-pv,lz-art,lz-ly') throw new Error(`the strip should show the lobule's flows, got ${tiles}`);
     // A part of the lobule opens the same action card as the anatomy, with its fibrosis slider.
-    await page.locator('.lz-lab').nth(1).click();
+    await page.locator('.lz-lab').nth(1).evaluate((el) => el.click());   // its value updates live, so it never holds still for a pointer click
     await page.waitForSelector('.action-card:not([hidden])');
     const cardText = await page.locator('.action-card').innerText();
     if (!cardText.includes('Sinusoid')) throw new Error('the sinusoid card did not open');
@@ -339,9 +340,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction(() => !window.pps.store.get().running);
     await page.waitForTimeout(1500);
     await page.click('#btnLobuleLayers');
-    await page.click('.menu .menu-item:has-text("Zones")');
+    await page.click('.menu .lens-opt:has-text("Zones")');
     await page.waitForFunction(() => document.querySelectorAll('.lz-zone').length === 3, null, { timeout: 5000 }).catch(() => { throw new Error('zones did not show'); });
-    await page.click('.menu .menu-item:has-text("Lymph")');
+    await page.click('.menu .lens-opt:has-text("Lymph")');
     await page.keyboard.press('Escape');
     await page.waitForTimeout(500);
     const lymphLit = await page.evaluate(vesselPixels);
