@@ -1137,6 +1137,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (morphTarget === 0 && liverBox()) {
         cancelAnimationFrame(vtAnim); vtGliding = false;
         const d = defaultVT(false); vt = { ...d }; homeAt = d; applyVT(); CTM = null; refreshCTM();
+        // The plate stopped updating under the lobule, so it still holds the old zoom's culling and detail: bring it up to date for the fit now, not when the zoom lands.
+        if (F && !inUpdate) { catchUp = true; try { update(F); } finally { catchUp = false; } }
         const w = diveTarget(); if (w) { const [x, y] = worldToLocal(w[0], w[1]); diveAt = [clamp(x, 0, wrap.clientWidth), clamp(y, 0, wrap.clientHeight)]; }
         diveOrig = null; drawOnce = forceDraw = true;   // the vessel canvas is frozen for the zoom: redraw it now at the fit, not the old camera
         if (F) updateLabels(F);   // the labels are laid out for the final framing now, so they come in where they will stay
@@ -1446,6 +1448,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       showFigure();
     });
   }
+  let catchUp = false;
   function update(f) {
     inUpdate = true;
     try { updateInner(f); } finally { inUpdate = false; }
@@ -1464,7 +1467,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     blockerBoxes = readBlockers();
     F = f;
     lz?.update(f);
-    if (lz?.isOpen()) return;   // the plate is hidden under the lobule; it catches up on the way out
+    if (lz?.isOpen() && !catchUp) return;   // the plate is hidden under the lobule; it catches up on the way out
     const st = store.get();
     const p = f.viewParams || st.params;
     const t = easeInOut(morph);
@@ -3470,18 +3473,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     governQuality(now);
     if (pendingRes) { dynRes = pendingRes; pendingRes = 0; resizeCanvas(); }
     // The dive magnifies the figure as it stands (a compositor scale): nothing under it is redrawn until it lands.
-    if (diveT > 0 && diveT < 1 && !drawOnce) { lastT = flowGate = now; requestAnimationFrame(animate); return; }
+    if (diveT > 0 && diveT < 1 && !drawOnce && !forceDraw) { lastT = flowGate = now; requestAnimationFrame(animate); return; }
     const interval = 1000 / QUALITY[quality].fps;
     // A pan or zoom redraws at once (the picture must stay under the pointer); only the model's
     // own motion is paced.
     const viewMoved = viewVersion !== drawnView;
     if (!viewMoved && !forceDraw && now - flowGate < interval) { requestAnimationFrame(animate); return; }
     flowGate = now - ((now - flowGate) % interval);
-    forceDraw = false; drawOnce = false;
     const dt = Math.min(0.1, (now - lastT) / 1000);
     lastT = now;
-    // Fully inside the lobule, the plate is covered.
+    // Fully inside the lobule, the plate is covered (a pending redraw waits for the frame it can show in).
     if (lz?.isOpen() || lz?.covers()) { requestAnimationFrame(animate); return; }
+    forceDraw = false; drawOnce = false;
     const st = store.get();
     const still = (!st.running || reduceMotion.matches) && !bolus.active;
     const key = still ? `${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${JSON.stringify(st.blood)}|${vCanvas.width}x${vCanvas.height}` : null;
