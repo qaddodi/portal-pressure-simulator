@@ -1534,6 +1534,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       x.wMode = mode;
       // The hit stroke is never thinner than the drawn tube (the IVC is wide, behind the liver) and never under ~10 px on screen.
       { const narrow = CONTEXT_EDGES.has(e.id) || BACK_EDGES.has(e.id), hw = Math.round(Math.max(narrow ? 8 : 20, w + 6, 10 / ((CTM && CTM.sc) || 1))); if (x.hitW !== hw) { x.hitW = hw; x.hit.style.strokeWidth = hw; } }
+      // The liver's own small vessels (portal venules, sinusoids, central veins) are the liver to the pointer in the anatomy:
+      // no hover, no tap on them; it falls through to the organ.
+      cls(x, 'no-hit', LIVER_EDGES.has(e.id) && t < 0.5);
       if (x.isArt) { setA(x.wall, 'stroke-width', w.toFixed(1)); continue; }
       x.pmid = (P1 + P2) / 2;
       const baseD = IVC_EDGES.has(e.id) ? E.IVC_IS.e.d : e.d || (e.dMax ? dMinOf(e) : 3);   // one wall thickness along the whole cava
