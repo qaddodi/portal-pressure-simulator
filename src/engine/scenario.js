@@ -20,7 +20,7 @@ export function defaultParams() {
     respiration: true,
     respDepth: 1,
     pulsatile: false,
-    spontaneous: { C5: false, C6: false, C2b: true },   // C2b: fundal ↔ coronary communication (a variant, usually present)
+    spontaneous: { C5: false, C6: false },
     occluded: {},                 // collateral id → true (BRTO / plug)
     tips: { on: false, d: 10 },
     portocaval: false,
@@ -74,7 +74,7 @@ export const PRESETS = [
     summary: 'HVPG ≥ 16, large varices, ascites, splenomegaly, hyperdynamic circulation.' },
   { id: 'cirr-hepatofugal', group: 'Sinusoidal', label: 'End-stage cirrhosis, hepatofugal flow', apply: P({ cirrhosis: 0.95, apShunt: 1, albumin: 2.6, diuretics: true, spontaneous: { C6: true } }), days: 540,
     summary: 'Very high sinusoidal resistance plus arterioportal shunting: the portal vein reverses and drains the liver into collaterals.' },
-  { id: 'gastric-varix', group: 'Sinusoidal', label: 'Cirrhosis with gastrorenal shunt', apply: P({ cirrhosis: 0.8, albumin: 3.0, diuretics: true, spontaneous: { C5: true, C2b: false } }), days: 450,
+  { id: 'gastric-varix', group: 'Sinusoidal', label: 'Cirrhosis with gastrorenal shunt', apply: P({ cirrhosis: 0.8, albumin: 3.0, diuretics: true, spontaneous: { C5: true } }), days: 450,
     summary: 'Isolated fundal varices (IGV1), fed by the short and posterior gastric veins, decompress into the left renal vein through a gastrorenal shunt (the BRTO target); no communication with the coronary vein.' },
   { id: 'sos', group: 'Postsinusoidal', label: 'Sinusoidal obstruction syndrome', apply: P({ fibrosis: { R: { post: 20 }, L: { post: 20 } } }), days: 21,
     summary: 'Central-vein obstruction: high wedged pressure and HVPG, hepatomegaly, ascites.' },

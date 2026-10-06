@@ -147,7 +147,6 @@ export const EDGE_PATH = {
   // Above them the varices drain over the heart into the azygos arch (crossing behind the SVC).
   C1b: 'M789 66 C 784 44 764 26 736 18 C 700 10 650 12 622 18 C 602 22 586 25 574 30',
   C2: 'M880 505 C 890 462 912 420 922 380 C 930 344 910 308 876 302',
-  C2b: 'M876 302 C 858 300 838 306 821 318',
   C3: 'M688 378 C 668 440 646 520 620 600 C 590 690 540 760 500 800',
   // Superior rectal veins: down beside the sigmoid to the anorectum, where they break up into
   // submucosal anorectal varices (see STRANDS) and fade out toward the pelvis.
@@ -198,8 +197,8 @@ export const STRAND_FROM = { C2: 0.5, C1a: 0.22, C4: 0.68 };
 export const TIP_FADE = { V_SPL: 0.35, V_INT: 0.5, V_COL: 0.5, V_KID_L: 0.45, LGV_CONF: 0.28 };
 // A vessel whose tip fades unless something attaches there: it is drawn solid to its end while any
 // of the listed collaterals is open. The coronary vein's upper end is where the collaterals to the
-// esophageal varices (C1a) and the fundus (C2b) leave it.
-export const TIP_CONNECT = { LGV_CONF: ['C1a', 'C2b'] };
+// esophageal varices (C1a) leave it.
+export const TIP_CONNECT = { LGV_CONF: ['C1a'] };
 
 // A `fan` is generated (see fanFeeders): `n` tortuous tributaries spread over `spread` degrees
 // around `dir` (0 = toward +x, 90 = down), each about `len` long and entering the vessel along
@@ -269,9 +268,6 @@ export const CIRCUIT_PATH = {
   C1a: route([[320, 191], [383, 128], [620, 128]]),
   C1b: route([[620, 128], [1043, 128], [1120, 205]]),
   C2: route([[320, 261], [292, 233], [292, 165], [248, 121], [240, 121]], 12),
-  // Fundal varices → coronary vein drops straight down from the varices before turning, clear of
-  // the short gastric's diagonal (a plain 45° route would run on top of it).
-  C2b: route([[240, 121], [240, 165], [266, 191], [320, 191]], 12),
   // portosystemic shunts, each in its own lane below the spine
   C8: route([[480, 345], [506, 376], [554, 376], [580, 345]], 12),
   S_PC: route([[480, 345], [480, 440], [1050, 440], [1088, 478], [1120, 478]]),
