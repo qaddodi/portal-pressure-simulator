@@ -34,7 +34,9 @@ export const CONTEXT_EDGES = new Set(['V_UP', 'SVC_RA', 'AZY_SVC', 'ILI_IVC', 'E
 // The iliac confluence is left out of the plate: the infrarenal IVC runs on down and fades out,
 // and the rectal and inferior epigastric veins fade out toward the pelvis instead of joining it
 // (they still drain into it in the model and the circuit).
-export const ANAT_HIDDEN = new Set([]);
+// The left-lobe central veins reach the middle hepatic vein in the model; drawn, they would need a second
+// vein into the cava beside the left hepatic vein, so the plate shows them draining through that one.
+export const ANAT_HIDDEN = new Set(['POST_L_MHV']);
 export const ANAT_HIDDEN_NODES = new Set(['ILI']);
 // Drawn only once the paraumbilical collateral has opened.
 export const NEEDS_C3 = new Set(['EPI_ILI', 'EPI_SVC']);
@@ -110,9 +112,9 @@ export const EDGE_PATH = {
   SIN_RL: 'M420 345 C 520 382 664 362 750 300',
   POST_R_RHV: 'M446 296 C 466 280 484 262 500 246',
   POST_R_MHV: 'M446 296 C 480 298 516 292 548 282',
+  // Not drawn in the anatomy (ANAT_HIDDEN): its course only serves the morph to the circuit.
+  POST_L_MHV: 'M738 262 C 722 252 706 242 690 232',
   POST_L_LHV: 'M738 262 C 722 252 706 242 690 232',
-  // The left-lobe tributaries of the middle hepatic vein end on the cava's right wall; they do not cross it.
-  POST_L_MHV: 'M738 262 C 700 258 658 252 626 246',
   // The caudate lobe drains straight into the retrohepatic IVC through its own short hepatic
   // veins: gathered from the lobe's parenchyma (tributaries, see FEEDERS), not from the portal
   // vein, which it does not touch.
