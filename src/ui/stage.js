@@ -3546,17 +3546,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // so when the browser's own hit test finds no vessel, test the pointer against each vessel's hit stroke ourselves.
   function geomEdge(ev) {
     if (ev.clientX == null || ev.pointerType === 'touch' || lobuleOn) return null;
-    const ids = Object.keys(E);
-    for (let i = ids.length - 1; i >= 0; i--) {
-      const x = E[ids[i]], h = x?.hit;
-      if (!h || !h.isConnected || h.getAttribute('aria-hidden') === 'true' || !h.hasAttribute('d') || h.parentNode?.classList?.contains('no-hit') || h.parentNode?.style?.display === 'none') continue;
+    let best = null;
+    for (const id of Object.keys(E)) {
+      const h = E[id]?.hit;
+      if (!h || !h.isConnected || h.getAttribute('aria-hidden') === 'true' || !h.hasAttribute('d') || h.parentNode?.classList?.contains('no-hit')) continue;
+      if (best && !(best.compareDocumentPosition(h) & Node.DOCUMENT_POSITION_FOLLOWING)) continue;   // only a vessel drawn above the best so far can beat it
       try {
         const m = h.getScreenCTM();
         if (!m) continue;
         const pt = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(m.inverse());
-        if (h.isPointInStroke(pt) && getComputedStyle(h.parentNode).display !== 'none' && getComputedStyle(h).pointerEvents !== 'none') return ids[i];
+        if (h.isPointInStroke(pt) && getComputedStyle(h.parentNode).display !== 'none' && getComputedStyle(h).pointerEvents !== 'none') best = h;
       } catch { /* not rendered */ }
     }
+    if (best) return best.getAttribute('data-id');
     return null;
   }
 
@@ -3650,17 +3652,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     
   }
-  // Temporary diagnostic (open the page with ?dbg=1): what is under the pointer and why a card is or is not requested.
-  const DBG = new URLSearchParams(location.search).has('dbg');
-  let dbgEl = null;
-  function dbgHover(ev) {
-    if (!dbgEl) { dbgEl = document.createElement('pre'); dbgEl.style.cssText = 'position:fixed;left:6px;bottom:6px;z-index:99999;margin:0;padding:6px 8px;font:11px/1.35 monospace;background:#000c;color:#9f9;pointer-events:none;white-space:pre'; document.body.append(dbgEl); }
-    const t = ev.target, top = document.elementFromPoint(ev.clientX, ev.clientY), id = edgeFromEvent(ev);
-    const d = (e) => e ? `${e.tagName}.${e.getAttribute?.('class') || ''}#${e.id || ''}/${e.getAttribute?.('data-id') || e.parentNode?.getAttribute?.('data-id') || ''}` : '-';
-    dbgEl.textContent = [`type ${ev.pointerType} dpr ${devicePixelRatio} hoverMedia ${matchMedia('(hover:hover)').matches}`, `target ${d(t)}`, `top ${d(top)}`,
-      `edge ${id} EI ${id ? EI[id] : '-'} F ${!!F} shunt ${!!shunt} drag ${!!drag} tool ${store.get().tool} hoverId ${hoverId}`,
-      `tip ${document.querySelector('.hover-tip')?.style.display === 'none' ? 'hidden' : 'shown'} imaging ${!!store.get().imaging} shunting ${!!store.get().shunting} view ${store.get().view}`, `card ${id && EI[id] != null && F && !shunt && ev.pointerType !== 'touch' ? 'requested' : 'NOT requested'}`].join('\n');
-  }
   // Nothing stays lit once the pointer is gone, cancelled or lifted (a finger has no hover).
   function clearHover() { setHover(null); setOrganHover(null); onHoverInfo(null); }
   svg.addEventListener('pointerover', (ev) => {
@@ -3682,7 +3673,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   window.addEventListener('blur', clearHover);
   svg.addEventListener('pointermove', (ev) => {
     if (shunt) shuntMove(ev);
-    if (DBG) dbgHover(ev);
     if (ev.pointerType === 'touch') return;   // a finger has no hover (a long press peeks instead)
     const id = edgeFromEvent(ev);
     if (id && EI[id] != null && F && !shunt) {
