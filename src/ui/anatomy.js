@@ -69,7 +69,7 @@ export const NODE_POS = {
   W_M: [[560, 272], [960, 346]],
   W_L: [[700, 238], [960, 401]],
   RHV: [[540, 224], [1000, 282]],
-  MHV: [[598, 238], [1000, 345]],
+  MHV: [[568, 264], [1000, 345]],
   LHV: [[660, 214], [1000, 408]],
   IVCI: [[620, 650], [1120, 478]],
   IVCS: [[620, 166], [1120, 345]],
@@ -109,7 +109,7 @@ export const EDGE_PATH = {
   SIN_LL: 'M750 300 C 754 286 750 272 738 262',
   SIN_RL: 'M420 345 C 520 382 664 362 750 300',
   POST_R_RHV: 'M446 296 C 474 270 506 240 540 224',
-  POST_R_MHV: 'M446 296 C 496 292 562 276 598 238',
+  POST_R_MHV: 'M446 296 C 490 298 536 284 568 264',
   POST_L_LHV: 'M738 262 C 712 242 686 226 660 214',
   // The left-lobe tributaries of the middle hepatic vein end on the cava's right wall; they do not cross it.
   POST_L_MHV: 'M738 262 C 700 258 658 252 626 246',
@@ -120,7 +120,7 @@ export const EDGE_PATH = {
   // The hepatic veins enter the cava's side wall at three heights, below the node where its two
   // halves meet, so that join is a clean run-on, not a knot of five ends.
   RHV_IVC: 'M540 224 C 572 224 598 218 610 208',
-  MHV_IVC: 'M598 238 C 602 238 608 236 610 232',
+  MHV_IVC: 'M568 264 C 584 256 598 248 610 238',
   LHV_IVC: 'M660 214 C 650 216 640 216 630 214',
   IVC_IS: 'M620 650 L 620 166',
   IVCS_RA: 'M620 166 L 620 112',
