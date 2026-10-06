@@ -1092,8 +1092,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       else if (lobuleOn) lz.warm();
       const lt = LC + Math.log(Math.max(RH * 2, diveLand.r) / RH);
       // Eased in and out (smootherstep); the anatomy's part takes the first two fifths of the way.
-      // Going out it lands a little before the end (the labels are still fading in) and eases less at the landing, so the figure does not crawl the last few percent into place.
-      const u = diveOut ? clamp((t - 0.06) / 0.78, 0, 1) : clamp(t / 0.84, 0, 1), p = diveOut ? u * u * (3 - 2 * u) : u * u * u * (u * (u * 6 - 15) + 10), P = 0.4;
+      const u = clamp(t / 0.84, 0, 1), p = u * u * u * (u * (u * 6 - 15) + 10), P = 0.4;
       const z = p < P ? LC * p / P : LC + (lt - LC) * (p - P) / (1 - P);
       setDiveScale(t >= 1 ? 1 : Math.exp(Math.min(z, LC + 0.4)));
       // The anatomy's labels leave as the zoom starts.
