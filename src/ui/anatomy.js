@@ -116,8 +116,10 @@ export const EDGE_PATH = {
   // veins: gathered from the lobe's parenchyma (tributaries, see FEEDERS), not from the portal
   // vein, which it does not touch.
   CAUD: 'M566 326 C 588 328 606 338 620 350',
+  // The right and left hepatic veins meet the cava's top as a crown; the middle one joins its wall lower down
+  // (not at the same point, which made a five-way knot).
   RHV_IVC: 'M540 224 C 568 210 594 198 620 190',
-  MHV_IVC: 'M598 238 C 606 222 613 205 620 190',
+  MHV_IVC: 'M598 238 C 606 232 614 224 620 214',
   LHV_IVC: 'M660 214 C 646 204 632 196 620 190',
   IVC_IS: 'M620 650 L 620 190',
   IVCS_RA: 'M620 190 L 620 112',

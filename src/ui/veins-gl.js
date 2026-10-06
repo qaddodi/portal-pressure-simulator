@@ -196,7 +196,7 @@ void main() {
   // ── Per-vessel attributes ──
   float stier[MAXS], sz[MAXS], sflag[MAXS], sa[MAXS], swall[MAXS], sheat[MAXS];
   vec3 scol[MAXS], shcol[MAXS], sedge[MAXS];
-  float occl = useOrgan == 1 ? texture(organ, (p - organRect.xy) / organRect.zw).a * 0.66 * organK : 0.0;
+  float occl = useOrgan == 1 ? texture(organ, (p - organRect.xy) / organRect.zw).a * 0.5 * organK : 0.0;
   for (int s = 0; s < MAXS; s++) {
     if (s >= n) break;
     vec4 t0 = T(sid[s], 0), t1 = T(sid[s], 1), t2 = T(sid[s], 2), t3 = T(sid[s], 3), t4 = T(sid[s], 4);
@@ -216,7 +216,7 @@ void main() {
     // A veiled vessel is faded all along its course, as much as an organ covering it would (behind
     // an organ, by no more than that). In its alpha, so the fade blends across its joins.
     if ((int(t2.z + 0.5) & ${F_VEIL}) != 0 && useOrgan == 1) {
-      float v = 1.0 - 0.66 * organK;
+      float v = 1.0 - 0.5 * organK;
       a *= tierGroup[int(t2.x + 0.5)] == 0 ? min(1.0, v / max(1.0 - occl, 1e-3)) : v;
     }
     sa[s] = a;
