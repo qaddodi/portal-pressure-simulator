@@ -893,7 +893,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // sheets over the figure), and the figure never shrinks to a sliver for them.
   function safeInsets() {
     const wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height;
-    const ins = { t: 0, b: 0, l: 0, r: 0, W, H };
+    const ins = { t: 0, b: 0, l: 0, r: 0, W, H }, cards = [];
     if (!W || !H) return ins;
     for (const el of document.querySelectorAll('[data-safe]')) {
       if (el.hidden || el.closest('[hidden]')) continue;
@@ -907,8 +907,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       else if (edge === 'bottom' && el.classList.contains('side')) edge = 'right';   // the instruments docked at the side
       if (edge === 'top') ins.t = Math.max(ins.t, y1);
       else if (edge === 'bottom') ins.b = Math.max(ins.b, H - y0);
-      else if (W >= 768 && edge === 'right') ins.r = Math.max(ins.r, W - x0);
+      else if (W >= 768 && edge === 'right') { ins.r = Math.max(ins.r, W - x0); cards.push([y0, y1]); }
       else if (W >= 768 && edge === 'left') ins.l = Math.max(ins.l, x1);
+    }
+    // Where the side cards would leave under 60% of the width (a tablet held upright), a short card is cleared
+    // above (or below) instead, so the figure keeps the full width rather than shrinking into a strip.
+    if (ins.r && W - ins.l - ins.r < W * 0.6) {
+      const top = Math.min(...cards.map((c) => c[0])), bot = Math.max(...cards.map((c) => c[1]));
+      if (top > H * 0.45) { ins.b = Math.max(ins.b, H - top + 8); ins.r = 0; }
+      else if (bot <= H * 0.62) { ins.t = Math.max(ins.t, bot + 8); ins.r = 0; }
     }
     if (W - ins.l - ins.r < Math.min(W * 0.5, 360)) ins.l = ins.r = 0;
     if (H - ins.t - ins.b < H * 0.35) { const k = (H * 0.65) / (ins.t + ins.b); ins.t *= k; ins.b *= k; }
@@ -956,7 +963,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const ins = safeInsets();
     const W = ins.W - ins.l - ins.r, H = ins.H - ins.t - ins.b;
     const s0 = Math.min(W / VB_CIRC[2], H / VB_CIRC[3]);
-    if (VB_CIRC[3] * s0 > 0.62 * H) return insetVT({ k: 1, x: 0, y: 0 }, VB_CIRC);
+    // (With a card at the side the whole map is shown: the close-up is for a narrow screen with nothing over it.)
+    if (ins.l || ins.r || VB_CIRC[3] * s0 > 0.62 * H) return insetVT({ k: 1, x: 0, y: 0 }, VB_CIRC);
     const k = clamp((0.94 * H) / (VB_CIRC[3] * s0), 1, 3);
     const cx = VB_CIRC[0] + VB_CIRC[2] / 2, cy = VB_CIRC[1] + VB_CIRC[3] / 2;
     const fx = 640, fy = cy;
