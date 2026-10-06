@@ -7,7 +7,7 @@
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { h, fmt, fitCanvas, clamp, icon } from './util.js?v=d90a6074b7';
 import { FONT } from './charts.js?v=ec5db0ba37';
-import { DOPPLER_MODES, dopplerColor, shadeColor, legendColor, swatchGradient } from './dopplerColor.js?v=f1cb896738';
+import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=f1cb896738';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 // kind decides the words for direction and pattern; normal is the usual mean velocity (cm/s).
@@ -368,63 +368,28 @@ export function createDoppler({ onProbe }) {
     }
   }
 
-  // The legend: a slim vertical bar in the left margin, zero (the black band) on the baseline, flow
-  // above it and below it as the trace colours them. Variance reads laminar → turbulent across.
-  function drawLegend(ctx, lg, padT, H, baseY) {
-    // a fixed size (the same on every screen), centred on the baseline so its black band is the zero line
-    const x0 = 4, bw = mode === 'variance' ? 26 : 8, gap = 4, half = 30, yz = padT + baseY, vmode = mode === 'variance';
-    const yTop = Math.max(padT, yz - gap - half), yBot = Math.min(padT + H, yz + gap + half);
-    const fillRow = (y0, y1, above) => {
-      if (y1 <= y0) return;
-      if (vmode) {
-        const gr = ctx.createLinearGradient(x0, 0, x0 + bw, 0);
-        gr.addColorStop(0, legendColor(mode, above, 0)); gr.addColorStop(1, legendColor(mode, above, 1));
-        ctx.fillStyle = gr;
-      } else ctx.fillStyle = legendColor(mode, above);
-      ctx.fillRect(x0, y0, bw, y1 - y0);
-    };
-    fillRow(yTop, yz - gap, true); fillRow(yz + gap, yBot, false);
-    ctx.fillStyle = '#000'; ctx.fillRect(x0, yz - gap, bw, 2 * gap);
-    ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 1; ctx.strokeRect(x0 - 0.5, yTop - 0.5, bw + 1, yBot - yTop + 1);
-    ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.font = FONT(500, 8.5); ctx.textBaseline = 'middle';
-    // Invert flips the trace about the baseline, so what lies above it is then flow away from the probe
-    const [top, bot] = invert ? ['away', 'toward'] : ['toward', 'away'];
-    const side = (text, y0, y1) => {
-      if (y1 - y0 < ctx.measureText(text).width + 6) return;
-      ctx.save(); ctx.translate(x0 + bw + 8, (y0 + y1) / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = 'center'; ctx.fillText(text, 0, 0); ctx.restore();
-    };
-    side(top, yTop, yz - gap); side(bot, yz + gap, yBot);
-    if (vmode) {
-      ctx.font = FONT(500, 8.5); ctx.textBaseline = 'alphabetic';
-      ctx.textAlign = 'left'; ctx.fillText('lam', x0, yTop - 4);
-      ctx.textAlign = 'right'; ctx.fillText('turb', x0 + bw, yTop - 4);
-    }
-  }
-
   function draw(now = performance.now()) {
     const { ctx, w, h: hh } = fitCanvas(cv);
     const dpr = cv.width / Math.max(1, w);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cv.width, cv.height);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    // the colour modes keep their legend in a left margin, outside the trace, on its toward/away axis
-    const lg = mode === 'spectrum' ? 0 : mode === 'variance' ? 36 : 22;
-    const padL = 12 + lg, padR = 46, padT = 26, padB = 20;
+    const padL = 12, padR = 46, padT = 26, padB = 20;
     const W = Math.max(1, Math.round(w - padL - padR)), H = Math.max(1, Math.round(hh - padT - padB));
     if (w < 60 || hh < 60) return;
     const label = probe ? EDGES[EI[probe]].label : '';
     ctx.font = FONT(600, 11); ctx.fillStyle = 'rgba(255,255,255,.86)'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText(label, 12, 13);
+    ctx.fillText(label, padL, 13);
     const lw = ctx.measureText(label).width;
     ctx.font = FONT(500, 11); ctx.fillStyle = 'rgba(255,255,255,.5)';
-    ctx.fillText(`${mode === 'spectrum' ? 'PW' : 'PW + CD'}  ·  θ 60°  ·  SV 3 mm  ·  ${sweepSeconds} s`, 12 + lw + 12, 13);
+    ctx.fillText(`${mode === 'spectrum' ? 'PW' : 'PW + CD'}  ·  θ 60°  ·  SV 3 mm  ·  ${sweepSeconds} s`, padL + lw + 12, 13);
     if (buf.length < 2) {
       tDisp = null;
       ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.55)';
       ctx.fillText(frame?.clock === 'disease' ? 'Doppler samples at the bedside: return to the seconds clock.' : 'Acquiring…', w / 2, hh / 2);
       return;
     }
-    // Scale: the peak fills about three quarters of its side, on the scanner's own velocity steps. Like a
+    // Scale: the peak fills about 85% of its side, on the scanner's own velocity steps. Like a
     // sonographer, the display changes scale or baseline only when the signal would clip or has
     // stayed small for a few seconds, never continuously (a moving scale would smear the picture).
     const tNow = clockNow(now);
@@ -432,7 +397,7 @@ export function createDoppler({ onProbe }) {
     const sgn = pol();
     for (const [t, v0] of buf) if (t >= tNow - sweepSeconds && t <= tNow) { const v = sgn * v0; if (v > pos) pos = v; if (-v > neg) neg = -v; }
     pos *= 1.3; neg *= 1.3;
-    const need = Math.max(pos, neg, 8) / 0.75;
+    const need = Math.max(pos, neg, 8) / 0.85;
     const target = STEPS.find((x) => x >= need) || STEPS[STEPS.length - 1];
     const tbRaw = pos + neg < 1 ? 0.5 : pos > 0 && neg < pos * 0.08 ? 0.88 : neg > 0 && pos < neg * 0.08 ? 0.12 : clamp(0.1 + 0.8 * (pos / (pos + neg)), 0.12, 0.88);
     const tbF = Math.round(tbRaw * 10) / 10;
@@ -492,16 +457,16 @@ export function createDoppler({ onProbe }) {
 
     // Baseline
     ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillRect(padL, padT + baseY, W, 1);
-    if (lg) drawLegend(ctx, lg, padT, H, baseY);
     // Velocity scale on the right
     ctx.font = FONT(500, 10.5); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    const step = scale > 120 ? 50 : scale > 60 ? 20 : scale > 30 ? 10 : 5;
-    for (let v = -Math.floor(scale / step) * step; v <= scale + 1e-9; v += step) {
-      const y = padT + baseY - v * pxPerV;
+    // ticks: a labelled tick every 1, 2, 5, 10, 20, 50 ... cm/s (the first that gives at most five a side), a half tick between
+    const lab = [1, 2, 5, 10, 20, 50, 100, 200].find((x) => scale / x <= 5) || 100, minor = lab / 2;
+    for (let k = -Math.ceil(scale / minor); k <= Math.ceil(scale / minor); k++) {
+      const v = k * minor, y = padT + baseY - v * pxPerV;
       if (y < padT - 1 || y > padT + H + 1) continue;
-      const major = Math.round(v / step) % 2 === 0;
+      const major = k % 2 === 0;
       ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fillRect(padL + W + 3, Math.round(y), major ? 6 : 3, 1);
-      if (major) { ctx.fillStyle = 'rgba(255,255,255,.72)'; ctx.fillText(v === 0 ? '0' : num(v), padL + W + 13, y); }
+      if (major && y > padT + 5 && y < padT + H - 5) { ctx.fillStyle = 'rgba(255,255,255,.78)'; ctx.fillText(v === 0 ? '0' : num(v), padL + W + 13, y); }
     }
     ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.textAlign = 'right'; ctx.fillText('cm/s', w - 6, 13);
     // One tick a second along the bottom, scrolling with the trace
