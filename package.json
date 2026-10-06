@@ -17,7 +17,7 @@
     "check": "npm run lint && npm test && npm run build && npm run smoke && npm run smoke:dist",
     "scorm": "node scripts/scorm.mjs"
   },
-  "license": "MIT",
+  "license": "UNLICENSED",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "esbuild": "^0.28.2",
