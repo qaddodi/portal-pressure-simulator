@@ -1,12 +1,12 @@
 // Anatomical stage (blueprint §6): the figure drawn on the GPU (plate, vessels, moving blood),
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
-import { EDGES, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=9948c309db';
+import { EDGES, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=c9c36d1829';
 import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=bf7e57c024';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=4c0e1f79a3';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=8aa5e5cdf1';
-import { createLobuleZoom } from './lobule-zoom.js?v=a10bbb5f2b';
+import { createLobuleZoom } from './lobule-zoom.js?v=236d6cbe81';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=e9ab279262';
@@ -1621,7 +1621,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const openNow = collOpen(e.id, f);
         if (!openNow && wasDrawn && !x.g.classList.contains('coll-ghost') && !x.reveal && !quietFx()) startExit(x, f);
         cls(x, 'coll-ghost', !openNow && !x.reveal?.out);
-        x.opa = p.occluded[e.id] ? 0.45 : 0.3 + 0.7 * Math.min(1, Math.max(fr * 2.5, qa / 1.5));
+        x.opa = isOccluded(p, e.id) ? 0.45 : 0.3 + 0.7 * Math.min(1, Math.max(fr * 2.5, qa / 1.5));
         setLevel(x, nearestLevel(x.opa));
       }
       x.rev = REVERSAL_WATCH.has(e.id) && isReversed(e, f);
@@ -2673,8 +2673,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!E[id].vis || E[id].reveal) continue;
       if (id === 'TIPS' || id.startsWith('X_')) stentMesh(id); else anastomoses(id);
     }
-    for (const id of Object.keys(p.occluded)) {
-      if (!p.occluded[id] || !E[id] || !E[id].vis) continue;
+    for (const id of new Set([...Object.keys(p.occluded), ...(p.occluded.C5 ? ['C2'] : [])])) {
+      if (!isOccluded(p, id) || !E[id] || !E[id].vis) continue;
       const [x, y] = pointAt(geo[id].cur, 0.5);
       ov.plugs.append(s('circle', { cx: x, cy: y, r: 7, fill: 'var(--surface)', stroke: 'var(--danger)', 'stroke-width': 2 }),
         s('path', { d: `M${x - 4} ${y - 4} L ${x + 4} ${y + 4} M${x + 4} ${y - 4} L ${x - 4} ${y + 4}`, stroke: 'var(--danger)', 'stroke-width': 2 }));

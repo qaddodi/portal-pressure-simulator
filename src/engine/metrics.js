@@ -1,6 +1,6 @@
 // Clinical readouts derived from engine state (blueprint §9.1).
 
-import { PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES, EDGES } from './topology.js?v=9948c309db';
+import { PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES, EDGES } from './topology.js?v=c9c36d1829';
 import { clamp } from './physiology.js?v=8b006eefeb';
 
 function varixGrade(d) {

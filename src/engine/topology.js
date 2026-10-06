@@ -184,6 +184,8 @@ export const COLLATERAL_DMIN_RATIO = 1 / 4;
 export const dMinOf = (e) => e.dMax * (e.dMinRatio ?? COLLATERAL_DMIN_RATIO);
 /** Whether a collateral exists in this patient: a spontaneous shunt only when present, an
  *  anatomical variant unless absent, any other collateral always. */
+/** BRTO plugs the shunt (outflow) and the short gastric feeder (inflow) of the fundal varices. */
+export const isOccluded = (p, id) => !!p.occluded?.[id] || (id === 'C2' && !!p.occluded?.C5);
 export const edgePresent = (e, p) => (e.spontaneous ? !!p.spontaneous?.[e.id] : e.variant ? p.spontaneous?.[e.id] !== false : e.id === 'C2' ? p.spontaneous?.C5 !== false : true);
 
 export const TARGETS = {

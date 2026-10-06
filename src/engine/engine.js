@@ -1,13 +1,13 @@
 // Lumped-parameter hemodynamic engine (blueprint §7).
 // Pure JS, no DOM: runs in a Web Worker, on the main thread, or in Node tests.
 
-import { NODES, EDGES, dMinOf, edgePresent, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=9948c309db';
+import { NODES, EDGES, dMinOf, edgePresent, isOccluded, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=c9c36d1829';
 import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=8b006eefeb';
 import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=270c735e25';
-import { detectEvents } from './events.js?v=b27d664000';
+import { detectEvents } from './events.js?v=313ca654d5';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -284,7 +284,7 @@ export class Engine {
         }
         case 'collateral': {
           const present = edgePresent(e, p);
-          if (!present || p.occluded[e.id]) { this.G[k] = 0; continue; }
+          if (!present || isOccluded(p, e.id)) { this.G[k] = 0; continue; }
           const dd = this.collateralD(e);
           // Collaterals cross compartments (e.g. the diaphragm): each end sees its own surroundings.
           R = e.Ropen * Math.pow(e.dMax / dd, 4) * tubeResistanceFactor(P[f] - this.ext[f], P[t] - this.ext[t], this.refP ? this.refP[f] : this.Pbase[f], this.refP ? this.refP[t] : this.Pbase[t], KD.collateral);
@@ -554,7 +554,7 @@ export class Engine {
       const e = EDGES[k];
       const f = this.edgeF[k], t = this.edgeT[k];
       let driver = this.routeExcess(e.route);
-      if (p.occluded[e.id]) driver = 0;
+      if (isOccluded(p, e.id)) driver = 0;
       const dMin = dMinOf(e);
       const frac = clamp((driver - (e.open ?? COLLATERAL.open)) / COLLATERAL.span, 0, 1);
       const target = dMin + (e.dMax - dMin) * Math.sqrt(frac);
@@ -736,7 +736,7 @@ export class Engine {
       const f = this.edgeF[k], t = this.edgeT[k];
       const a = 0.5 * (tubeArea(this.P[f] - this.ext[f], 0.08) / tubeArea(this.refP[f], 0.08) + tubeArea(this.P[t] - this.ext[t], 0.08) / tubeArea(this.refP[t], 0.08));
       const present = edgePresent(e, this.params);
-      return present && !this.params.occluded[e.id] ? this.collateralD(e) * Math.sqrt(a) : 0;
+      return present && !isOccluded(this.params, e.id) ? this.collateralD(e) * Math.sqrt(a) : 0;
     }
     if (e.kind === 'shunt') {
       if (e.shunt === 'tips') return this.params.tips.on ? this.params.tips.d : 0;

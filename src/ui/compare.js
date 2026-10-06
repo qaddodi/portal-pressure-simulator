@@ -5,7 +5,7 @@
 
 import { store } from './store.js?v=4c0e1f79a3';
 import { h, fmt, svgIcon } from './util.js?v=8aa5e5cdf1';
-import { activeInterventions } from './inspector.js?v=ed77b9e1db';
+import { activeInterventions } from './inspector.js?v=e26b85bceb';
 
 const ROWS = [
   ['HVPG', (m) => m.hvpg, 1, 'mmHg'], ['Portal pressure', (m) => m.pv, 1, 'mmHg'], ['Direct portal–systemic gradient', (m) => m.ppg, 1, 'mmHg'], ['Portal flow', (m) => m.pvFlow, 1, 'L/min'],
