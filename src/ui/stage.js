@@ -3083,7 +3083,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (cath.vein && cath.wedged) show.add('W_' + cath.vein);
       const [lx] = worldToLocal(ATLAS_COLUMNS[0], 500), [rx] = worldToLocal(ATLAS_COLUMNS[1], 500);
       const colW = 150;
-      const atlas = lx - 8 > colW && W - rx - 8 > colW;
+      // Pressures sit beside their vessels at every size (no margin columns with long leaders).
+      const atlas = false;
       const items = [];
       for (const id of show) {
         if (!NODE_POS[id]) continue;
@@ -3166,14 +3167,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         for (const it of items.sort((a, b) => b.pri - a.pri)) {
           it.align = 'start';
           const dirs = it.side === 'L' ? ['NW', 'W', 'SW', 'N', 'S', 'NE', 'E', 'SE'] : ['NE', 'E', 'SE', 'N', 'S', 'NW', 'W', 'SW'];
-          if (place(it, dirs, 12 + it.vw / 2, true) || place(it, dirs, 30 + it.vw / 2, true)) continue;
+          if (place(it, dirs, 8 + it.vw / 2, false) || place(it, dirs, 24 + it.vw / 2, true)) continue;
           if (it.sel) { place(it, ['C'], 0, false) || (out.push(Object.assign(it, { x: it.ax + 8, y: it.ay - it.h / 2 })), true); }
         }
         for (const it of out) {
-          if (!it.leader) continue;
+          if (it.cls === 'organ') continue;
           const r = rectOf(it);
           const { x: px, y: py } = leaderEnd(r, it.ax, it.ay);
-          if (Math.hypot(px - it.ax, py - it.ay) > 5) leaders += `<path class="leader${it.sel ? ' hl' : ''}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}"/>`;
+          if (it.leader && Math.hypot(px - it.ax, py - it.ay) > 5) leaders += `<path class="leader${it.sel ? ' hl' : ''}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}"/>`;
           leaders += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
         }
       }
