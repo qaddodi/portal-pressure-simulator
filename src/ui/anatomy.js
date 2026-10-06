@@ -128,7 +128,10 @@ export const EDGE_PATH = {
   // esophageal veins join it.
   AZY_SVC: 'M574 30 C 592 22 612 28 620 40',
   V_KID_L: 'M1005 622 C 960 620 910 618 862 618',
-  LRV_IVC: 'M862 618 C 790 620 700 640 620 650',
+  // The left renal vein enters the cava's side a little above the right one, on the wall, not at the iliac end.
+  LRV_IVC: 'M862 618 C 790 618 700 626 620 626',
+  // The right renal vein enters lower still, so the iliac and renal-level stretches meet head on at the node, with no fork beside it.
+  RRV_IVC: 'M560 625 C 585 632 603 668 620 676',
   ILI_IVC: 'M620 950 L 620 650',
   EPI_ILI: 'M500 800 C 512 850 530 896 546 950',
   EPI_SVC: 'M500 800 C 420 780 340 680 334 520 C 318 410 318 260 360 170 C 400 90 520 52 620 40',
