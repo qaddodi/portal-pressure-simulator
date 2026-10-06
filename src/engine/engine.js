@@ -13,7 +13,7 @@ const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6],
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
 const EXT_OVERRIDE = { IVC_IS: 'abd', CAUD: 'none' };
 
-export const VARIX = { Tcrit: 120, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 3.5, k: 0.22 };
+export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 3.5, k: 0.4, kGV: 0.3 };
 /** Rupture hazard per day as a function of T/Tcrit (§7.5). */
 const ruptureHazardPerDay = (x) => (x <= 1 ? 0 : 0.01 * Math.pow((x - 1) / 0.25, 3));
 const COLLATERAL = { open: 7.5, span: 14, tauGrow: 50, tauRegress: 120, acute: 0.4 };
@@ -565,9 +565,9 @@ export class Engine {
     // Varix baseline radius relaxes toward a transmural-pressure target (remodeling)
     for (const site of ['VAR', 'GV']) {
       const ex = this.routeExcess(site === 'VAR' ? ['LGV', 'AZY'] : ['SV', 'IVCI']);
-      const target = clamp(VARIX.r0Healthy + VARIX.k * Math.max(0, ex - VARIX.open), VARIX.r0Healthy, VARIX.rMax);
+      const target = clamp(VARIX.r0Healthy + (site === 'GV' ? VARIX.kGV : VARIX.k) * Math.max(0, ex - VARIX.open), VARIX.r0Healthy, VARIX.rMax);
       const r = s.r0[site];
-      const tau = target > r ? 60 : 150;
+      const tau = target > r ? 8 : 40;
       s.r0[site] = r + (target - r) * Math.min(1, days / tau);
     }
     if (this.bands > 0) this.bands = Math.max(0, this.bands - 0.02 * days); // bands slough; columns can recur
