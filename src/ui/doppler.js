@@ -7,6 +7,7 @@
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
 import { h, fmt, fitCanvas, clamp, icon } from './util.js?v=d90a6074b7';
 import { FONT } from './charts.js?v=ec5db0ba37';
+import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=f1cb896738';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 // kind decides the words for direction and pattern; normal is the usual mean velocity (cm/s).
@@ -42,13 +43,31 @@ export function createDoppler({ onProbe }) {
   const probeSel = h('select', { class: 'select dop-vessel', 'aria-label': 'Vessel' },
     PROBES.map((p) => h('option', { value: p.id, title: EDGES[EI[p.id]].label }, p.short)));
   probeSel.addEventListener('change', () => onProbe(probeSel.value));
-  let tint = false;
-  const tintBtn = h('button', { class: 'dop-tint', 'aria-pressed': 'false', title: 'Color the spectrum by direction: red toward the probe, blue away' }, h('i'), 'Direction color');
-  tintBtn.addEventListener('click', () => { tint = !tint; tintBtn.setAttribute('aria-pressed', String(tint)); if (frame) draw(); });
-  // Invert, as on the scanner: flips the display about the baseline (the report is unchanged).
+  // Display mode: a pill that cycles Spectrum → Direction → Power → Directional Power → Variance,
+  // like Invert. The colour maps live in dopplerColor.js; the trace is drawn through them.
+  let mode = 'spectrum';
+  const modeSw = h('i', { 'aria-hidden': 'true' });
+  const modeTxt = h('span', { class: 'dop-mode-label' });
+  const modeBtn = h('button', { class: 'dop-tint dop-mode', 'aria-pressed': 'false' }, modeSw, modeTxt);
+  modeBtn.addEventListener('click', () => {
+    mode = DOPPLER_MODES[(DOPPLER_MODES.findIndex((m) => m.id === mode) + 1) % DOPPLER_MODES.length].id;
+    sync();
+  });
+  // Invert, as on the scanner: flips the display about the baseline, so the toward/away colors swap
+  // with it (the report and the physiology are unchanged). Power Doppler has no direction.
   let invert = false;
   const invBtn = h('button', { class: 'dop-tint dop-inv', 'aria-pressed': 'false', title: 'Invert the display: show flow away from the probe above the baseline' }, h('i', { 'aria-hidden': 'true' }, '⇅'), 'Invert');
-  invBtn.addEventListener('click', () => { invert = !invert; invBtn.setAttribute('aria-pressed', String(invert)); if (frame) draw(); });
+  invBtn.addEventListener('click', () => { invert = !invert; invBtn.setAttribute('aria-pressed', String(invert)); sync(); });
+  function sync() {
+    const m = DOPPLER_MODES.find((x) => x.id === mode);
+    modeTxt.textContent = m.short;
+    modeBtn.title = `Doppler display: ${m.label}. Tap to change.`;
+    modeBtn.setAttribute('aria-label', `Doppler display mode: ${m.label}. Activate to change.`);
+    modeBtn.setAttribute('aria-pressed', String(mode !== 'spectrum'));
+    modeSw.style.background = mode === 'spectrum' ? '' : swatchGradient(mode);
+    invBtn.title = 'Invert the display: show flow away from the probe above the baseline; swaps the toward/away colors';
+    if (frame) draw();
+  }
   const sweepIcon = icon('clock');
   sweepIcon.setAttribute('aria-hidden', 'true');
   const sweepBtn = h('button', {
@@ -80,11 +99,12 @@ export function createDoppler({ onProbe }) {
   }));
   const report = h('div', { class: 'dop-report' }, dirEl, h('div', { class: 'dop-velrow' }, velEl, rangeEl), patternEl, stats, noteEl);
   const el = h('div', { class: 'dop', 'data-pane': 'doppler' },
-    h('div', { class: 'dop-head' }, probeSel, h('div', { class: 'dop-btns' }, tintBtn, invBtn, sweepBtn)), h('div', { class: 'dop-main' }, box, report));
+    h('div', { class: 'dop-head' }, probeSel, h('div', { class: 'dop-btns' }, modeBtn, invBtn, sweepBtn)), h('div', { class: 'dop-main' }, box, report));
 
   // ── Samples ───────────────────────────────────────
   let buf = [];
   let probe = null, frame = null;
+  sync();
   function ingest(f) {
     frame = f;
     if (f.probe !== probe) { buf = []; probe = f.probe; if (probeSel.value !== probe) probeSel.value = probe; }
@@ -112,7 +132,8 @@ export function createDoppler({ onProbe }) {
   }
   const meta = () => PROBES.find((p) => p.id === probe) || PROBES[0];
   // +1 when the vessel's forward flow is drawn above the baseline, −1 when below
-  const pol = () => (!meta().away !== !invert ? -1 : 1);
+  const effInvert = () => invert;
+  const pol = () => (!meta().away !== !effInvert() ? -1 : 1);
 
   function interpret(r) {
     const p = meta();
@@ -212,7 +233,8 @@ export function createDoppler({ onProbe }) {
   let img = null, off = null, octx = null;
   let floor = null, noiseAt = 0, nx = 0, ny = 0;
   let ringKey = '', lastCol = null, jit = 0, lineGain = 0, spk = null;
-  const STEPS = [10, 15, 20, 30, 40, 60, 80, 100, 150, 200, 300];
+  const STEPS = [8, 10, 12, 15, 20, 25, 30, 40, 50, 60, 80, 100, 120, 150, 200, 300];
+  const cc = [0, 0, 0, 0], sc = [0, 0, 0];   // scratch: one pixel's colour
   const A_SIG = 10 ** 2.8;          // signal power over the noise floor (≈ 28 dB)
   const FLOOR_DB = 4.5, RANGE_DB = 30;  // log compression: the grey map spans 4.5–34.5 dB
   const LN10_10 = 10 / Math.LN10;
@@ -299,6 +321,14 @@ export function createDoppler({ onProbe }) {
     const nb = Math.ceil(RH / g.spkPx) + 2;
     if (!spk || spk.length !== nb) spk = Float32Array.from({ length: nb }, expo);
     for (let b = 0; b < nb; b++) spk[b] = g.spkMix * spk[b] + (1 - g.spkMix) * expo();
+    // Colour modes: this line's variance (how fast the velocity is changing, plus turbulence at high
+    // velocity); each pixel adds spectral broadening, more toward the slow edge of the band.
+    const col = mode !== 'spectrum', uK = 1 / (0.7 * scale);
+    let lineS = 0;
+    if (col && has) {
+      const vp = velAt(c / g.cps - 0.3, g);
+      lineS = (Number.isNaN(vp) ? 0 : Math.abs(v - vp) / (0.45 * scale)) + 0.5 * clamp((av - 80) / 120, 0, 1);
+    }
     const D = img.data;
     for (let ry = 0; ry < RH; ry++) {
       const vel = (rBase - ry) / rPxPerV;
@@ -324,7 +354,16 @@ export function createDoppler({ onProbe }) {
       I = I <= 0 ? 0 : I >= 1 ? 1 : Math.pow(I, 1.2);
       const q = (ry * RW + x) * 4;
       let r = 236 * GAIN * I, gg = 240 * GAIN * I, bl = 250 * GAIN * I;
-      if (tint && S > 0.02) { if (vel >= 0) { gg *= 0.45; bl *= 0.38; } else { r *= 0.35; gg *= 0.6; } }
+      if (col && I > 0) {
+        // the map's colours as a tinted spectrum, exactly as the legend shows them: Velocity by the sign above or
+        // below the baseline, Variance also by the variance; the sign above or below the
+        // baseline decides toward or away (Invert has already flipped the trace, and with it the colors)
+        const ff = P > L ? clamp((vel * s - L) / (P - L), 0, 1) : 1;
+        dopplerColor(mode, { u: clamp(vel * uK, -1, 1), s: clamp(lineS + 0.45 * (1 - ff) * (1 - ff), 0, 1) }, false, cc);
+        const t = Math.min(1, I * GAIN), cover = cc[3] * clamp((I - 0.02) / 0.2, 0, 1);
+        shadeColor(cc, t, cover, sc);
+        r = sc[0]; gg = sc[1]; bl = sc[2];
+      }
       D[q] = r; D[q + 1] = gg; D[q + 2] = bl; D[q + 3] = 255;
     }
   }
@@ -343,14 +382,14 @@ export function createDoppler({ onProbe }) {
     ctx.fillText(label, padL, 13);
     const lw = ctx.measureText(label).width;
     ctx.font = FONT(500, 11); ctx.fillStyle = 'rgba(255,255,255,.5)';
-    ctx.fillText(`PW  ·  θ 60°  ·  SV 3 mm  ·  ${sweepSeconds} s`, padL + lw + 12, 13);
+    ctx.fillText(`${mode === 'spectrum' ? 'PW' : 'PW + CD'}  ·  θ 60°  ·  SV 3 mm  ·  ${sweepSeconds} s`, padL + lw + 12, 13);
     if (buf.length < 2) {
       tDisp = null;
       ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.55)';
       ctx.fillText(frame?.clock === 'disease' ? 'Doppler samples at the bedside: return to the seconds clock.' : 'Acquiring…', w / 2, hh / 2);
       return;
     }
-    // Scale: the peak fills about half of its side, on the scanner's own velocity steps. Like a
+    // Scale: the peak fills about 85% of its side, on the scanner's own velocity steps. Like a
     // sonographer, the display changes scale or baseline only when the signal would clip or has
     // stayed small for a few seconds, never continuously (a moving scale would smear the picture).
     const tNow = clockNow(now);
@@ -358,9 +397,9 @@ export function createDoppler({ onProbe }) {
     const sgn = pol();
     for (const [t, v0] of buf) if (t >= tNow - sweepSeconds && t <= tNow) { const v = sgn * v0; if (v > pos) pos = v; if (-v > neg) neg = -v; }
     pos *= 1.3; neg *= 1.3;
-    const need = Math.max(pos, neg, 8) / 0.55;
+    const need = Math.max(pos, neg, 8) / 0.85;
     const target = STEPS.find((x) => x >= need) || STEPS[STEPS.length - 1];
-    const tbRaw = pos + neg < 1 ? 0.5 : pos > 0 && neg < pos * 0.08 ? 0.78 : neg > 0 && pos < neg * 0.08 ? 0.22 : clamp(0.1 + 0.8 * (pos / (pos + neg)), 0.2, 0.8);
+    const tbRaw = pos + neg < 1 ? 0.5 : pos > 0 && neg < pos * 0.08 ? 0.88 : neg > 0 && pos < neg * 0.08 ? 0.12 : clamp(0.1 + 0.8 * (pos / (pos + neg)), 0.12, 0.88);
     const tbF = Math.round(tbRaw * 10) / 10;
     const fits = scale != null && need <= scale && (pos >= neg) === (baseF >= 0.5 || baseF == null);
     if (scale == null || !fits) { scale = target; baseF = tbF; settleAt = tNow; }
@@ -374,7 +413,7 @@ export function createDoppler({ onProbe }) {
     const RW = Math.max(1, Math.round(W * dpr)), RH = Math.max(1, Math.round(H * dpr));
     const g = { RW, RH, rBase: baseY * dpr, rPxPerV: pxPerV * dpr, cps: RW / sweepSeconds, binPx: Math.max(1.5, RH / 200), spkPx: Math.max(2, RH / 110), spkMix: clamp(1 - 1 / dpr, 0.3, 0.65), pol: sgn, venous: meta().kind !== 'artery' && meta().kind !== 'tips' };
     const cNow = Math.floor(tNow * g.cps);
-    const key = `${RW}x${RH}|${scale}|${baseF}|${tint}|${probe}|${sgn}|${sweepSeconds}`;
+    const key = `${RW}x${RH}|${scale}|${baseF}|${probe}|${sgn}|${sweepSeconds}|${mode}`;
     if (!img || img.width !== RW || img.height !== RH) {
       img = new ImageData(RW, RH);
       off = mk(RW, RH);
@@ -405,8 +444,9 @@ export function createDoppler({ onProbe }) {
     if (floor?.key !== `${RW}x${RH}`) makeNoise(RW, RH, g.binPx, Math.max(1, dpr));
     if (now - noiseAt > 100) { noiseAt = now; nx = (Math.random() * PAD) | 0; ny = (Math.random() * PAD) | 0; }
     ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = mode === 'spectrum' ? 1 : 0.3;
     ctx.drawImage(floor, nx, ny, RW, RH, dx, dy, RW, RH);
-    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
     // the wall filter removes the noise near the baseline as well as the slow signal
     const wfPx = Math.max(1.2, 0.025 * scale) * g.rPxPerV * 1.6, by = dy + g.rBase;
     const wg = ctx.createLinearGradient(0, by - wfPx, 0, by + wfPx);
@@ -419,13 +459,14 @@ export function createDoppler({ onProbe }) {
     ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillRect(padL, padT + baseY, W, 1);
     // Velocity scale on the right
     ctx.font = FONT(500, 10.5); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    const step = scale > 120 ? 50 : scale > 60 ? 20 : scale > 30 ? 10 : 5;
-    for (let v = -Math.floor(scale / step) * step; v <= scale + 1e-9; v += step) {
-      const y = padT + baseY - v * pxPerV;
+    // ticks: a labelled tick every 1, 2, 5, 10, 20, 50 ... cm/s (the first that gives at most five a side), a half tick between
+    const lab = [1, 2, 5, 10, 20, 50, 100, 200].find((x) => scale / x <= 5) || 100, minor = lab / 2;
+    for (let k = -Math.ceil(scale / minor); k <= Math.ceil(scale / minor); k++) {
+      const v = k * minor, y = padT + baseY - v * pxPerV;
       if (y < padT - 1 || y > padT + H + 1) continue;
-      const major = Math.round(v / step) % 2 === 0;
+      const major = k % 2 === 0;
       ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fillRect(padL + W + 3, Math.round(y), major ? 6 : 3, 1);
-      if (major) { ctx.fillStyle = 'rgba(255,255,255,.72)'; ctx.fillText(v === 0 ? '0' : num(v), padL + W + 13, y); }
+      if (major && y > padT + 5 && y < padT + H - 5) { ctx.fillStyle = 'rgba(255,255,255,.78)'; ctx.fillText(v === 0 ? '0' : num(v), padL + W + 13, y); }
     }
     ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.textAlign = 'right'; ctx.fillText('cm/s', w - 6, 13);
     // One tick a second along the bottom, scrolling with the trace

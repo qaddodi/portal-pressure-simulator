@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Doppler display modes.** Measure → Doppler replaces “Direction color” with a pill that cycles Spectrum, Color and
+  Variance. The spectral trace is drawn in the scanner's map 1: Color in flat bands (orange toward the probe, blue away),
+  Variance orange → yellow (toward) or purple → green (away) from laminar to turbulent. Invert swaps toward/away.
+  Nothing is drawn on the figure, and the velocity scale fits the trace more tightly.
 - **No bleeding by default.** Varices still grow, but they only rupture on their own when *Variceal
   bleeding* is switched on (Simulation settings). The bleeding case still starts with its bleed.
 - **Gestures.** A trackpad's two-finger scroll pans and its pinch zooms; a mouse wheel zooms. A flick keeps the
