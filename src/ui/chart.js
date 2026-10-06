@@ -8,12 +8,12 @@
 //   (what has happened lives in the timeline's History, under the figure)
 //   Advanced                             physiology knobs (instructor / researcher)
 
-import { store, updateParams } from './store.js?v=6fc014de20';
+import { store, updateParams } from './store.js?v=10d53abf18';
 import { h, fmt, icon, svgIcon, toast } from './util.js?v=8aa5e5cdf1';
-import { DRUGS } from '../engine/scenario.js?v=5eb04c5fb1';
-import { TILES, VITALS, readoutValue } from './dock.js?v=34d0ba2c5a';
-import { activeInterventions } from './inspector.js?v=101b9f4312';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=aa2577f907';
+import { DRUGS } from '../engine/scenario.js?v=022265ce51';
+import { TILES, VITALS, readoutValue } from './dock.js?v=893b7963f4';
+import { activeInterventions } from './inspector.js?v=a01dd4954d';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=19ceda3af2';
 
 // Where each readout is measured, so a click can show it on the figure.
 const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS'], spleen: ['V_SPL', 'SV_CONF'], ra: ['IVCS_RA'] };
@@ -209,7 +209,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     return section('advanced', 'Advanced physiology', 'sliders', null,
       h('div', { class: 'subhead' }, 'Inflow & vascular tone'), controls(['splanchnicTone', 'systemicTone']),
       h('div', { class: 'subhead' }, 'Hepatic circulation'), controls(['habr', 'apShunt']),
-      h('div', { class: 'subhead' }, 'Anatomical variants'), controls(['grShunt', 'geComm', 'srShunt']),
+      h('div', { class: 'subhead' }, 'Anatomical variants'), controls(['grShunt', 'srShunt']),
       h('div', { class: 'subhead' }, 'Simulation'), controls(['pulsatile', 'respiration', 'respDepth', 'bleeding', 'detRupture']), acts);
   }
 
