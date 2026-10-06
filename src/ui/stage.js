@@ -3638,7 +3638,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   svg.addEventListener('pointerover', (ev) => {
     if (ev.pointerType === 'touch') return;
     const id = edgeFromEvent(ev);
-    if (id && EI[id] != null) setHover(id);
+    if (id && EI[id] != null) {
+      setHover(id);
+      // The element under a still pointer can change (the figure redraws): show the readings then too, not only on a move.
+      if (F && !shunt) { const r = wrap.getBoundingClientRect(); onHoverInfo({ id, x: ev.clientX - r.left, y: ev.clientY - r.top }); }
+    }
   });
   svg.addEventListener('pointerout', (ev) => { if (edgeFromEvent(ev)) { setHover(null); onHoverInfo(null); } });
   svg.addEventListener('pointerleave', clearHover);
