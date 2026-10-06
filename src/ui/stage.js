@@ -3100,9 +3100,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // The text hugs the station side of its reserved box.
       const slack = it.rot ? 0 : wRes - it.w, dir = best.dir;
       it.x = best.x + (dir.includes('W') ? slack : dir.includes('E') ? 0 : slack / 2);
-      it.y = best.y; it.dir = dir; it.leader = leader || best.far;
-      if (best.kept) { mem.w = wRes; if (!best.held) mem.hold = 0; }
-      else labelMem.set(it.key, { dir, gi: best.gi, w: wRes, x: best.x, y: best.y, ax: it.ax, ay: it.ay, ce: cx, cf: cy, ca: CTM.a, cb: CTM.b, far: best.far, hold: 0 });
+      it.y = best.y; it.dir = dir;
+      // A leader line shows only when the label sits clearly away from its station: it appears past
+      // 18 px and goes only below 10 px, so it cannot flicker as the view moves.
+      const rr = best.r, gapPx = Math.hypot(Math.max(rr.x0 - it.ax, 0, it.ax - rr.x1), Math.max(rr.y0 - it.ay, 0, it.ay - rr.y1));
+      const lead = gapPx > 18 || (!!mem?.lead && gapPx >= 10);
+      it.leader = !!leader || lead;
+      if (best.kept) { mem.w = wRes; mem.lead = lead; if (!best.held) mem.hold = 0; }
+      else labelMem.set(it.key, { dir, gi: best.gi, w: wRes, x: best.x, y: best.y, ax: it.ax, ay: it.ay, ce: cx, cf: cy, ca: CTM.a, cb: CTM.b, far: best.far, lead, hold: 0 });
       placed.push(best.r); out.push(it);
       return true;
     };
