@@ -163,7 +163,7 @@ export const EDGE_PATH = {
 
   AP_R: 'M655 478 C 612 470 552 432 505 398',
   AP_L: 'M655 478 C 668 440 680 405 688 378',
-  TIPS: 'M505 398 C 486 352 552 294 540 224',   // a gentle S through the parenchyma, portal → hepatic vein
+  TIPS: 'M505 398 C 486 352 552 294 540 240',   // a gentle S through the parenchyma, portal → hepatic vein
   S_PC: 'M700 556 C 682 590 652 625 620 650',
   S_DSR: 'M880 505 C 862 548 852 590 862 618',
   S_MC: 'M690 660 C 672 650 645 648 620 650',
