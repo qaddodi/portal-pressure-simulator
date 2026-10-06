@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=7006816208';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=6fc014de20';
-import { createStage } from './stage.js?v=d80d822281';
+import { createStage } from './stage.js?v=983c92655b';
 import { createInspector } from './inspector.js?v=101b9f4312';
 import { createDock, CUTOFFS } from './dock.js?v=40e08ab109';
 import { createWhy } from './why.js?v=a050bc90db';
@@ -266,6 +266,7 @@ function onFrame(f) {
   timeline.update(f);
   const txt = f.day > 0 ? `Day ${f.day}` : `${fmt(f.t, 0)} s`;
   if (txt !== lastClockTxt) { lastClockTxt = txt; stageClock.textContent = txt; }
+  if (tipInfo) hoverInfo(tipInfo);   // the readings popup stays live with the sim
   updateBleedBanner(f);
   updateFindBadge(f);
   syncModeName();
@@ -602,7 +603,9 @@ function updateBleedBanner(f) {
   bleedEl.title = b ? `${b.site === 'GV' ? 'Gastric' : 'Esophageal'} variceal bleeding: ${Math.round(b.rate)} mL/min, ${Math.round(f.metrics.blood.lost)} mL lost so far` : '';
   if (changed) redraw();
 }
+let tipInfo = null;
 function hoverInfo(info) {
+  tipInfo = info;
   const f = store.get().frame;
   const tool = store.get().tool;
   // A long press (info.peek) shows the readings on any screen, above the finger; hovering only where there is a pointer.

@@ -3835,7 +3835,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     if (drag.type === 'pan') {
       if (Math.abs(ev.clientX - drag.x) + Math.abs(ev.clientY - drag.y) > (ev.pointerType === 'touch' ? 8 : 4)) { drag.moved = true; clearPress(); }
-      if (drag.peeked) return;
+      if (drag.peeked) {   // a long press then drag: the popup follows whichever vessel is under the finger
+        const r = wrap.getBoundingClientRect();
+        const id = edgeFromEvent(ev) || nearbyEdge(ev);
+        if (id && EI[id] != null) onHoverInfo({ id, x: ev.clientX - r.left, y: ev.clientY - r.top, peek: true });
+        else onHoverInfo(null);
+        return;
+      }
       if (drag.moved && scrubS === 0) {
         vt = softPan({ k: vt.k, x: drag.vx + (ev.clientX - drag.x) / drag.s0, y: drag.vy + (ev.clientY - drag.y) / drag.s0 });
         applyVT(); CTM = null;
