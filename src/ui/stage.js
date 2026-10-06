@@ -2820,15 +2820,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       glass.style.width = `${(it.w + 2 * it.padX).toFixed(1)}px`; glass.style.height = `${(it.h + 2 * it.padY).toFixed(1)}px`;
     }
     // A turned caption reads bottom to top: its box's top-left is (x, y), and its text runs up from the bottom.
-    // Ease toward the target spot instead of snapping, so small drifts and re-placements glide.
-    // The first frame, a long jump (a new layout) or a hidden block lands at once.
-    let px = it.x, py = it.y;
-    if (b.sx != null && b.g.style.display !== 'none') {
-      const dx = it.x - b.sx, dy = it.y - b.sy;
-      if (Math.hypot(dx, dy) < 160) { px = Math.abs(dx) < 0.15 ? it.x : b.sx + dx * 0.2; py = Math.abs(dy) < 0.15 ? it.y : b.sy + dy * 0.2; }
+    // Ease toward the target spot instead of snapping. A target that only drifts a few pixels (a
+    // breathing vessel nudges its anchor) is ignored; a real move glides there. The first frame,
+    // a long jump (a new layout) or a hidden block lands at once.
+    if (b.sx == null || Math.hypot(it.x - b.tx, it.y - b.ty) >= 6) { b.tx = it.x; b.ty = it.y; }
+    let px = b.tx, py = b.ty;
+    if (b.sx != null) {
+      const dx = b.tx - b.sx, dy = b.ty - b.sy, d = Math.hypot(dx, dy);
+      if (d < 160 && d >= 0.3) { px = b.sx + dx * 0.2; py = b.sy + dy * 0.2; }
     }
     b.sx = px; b.sy = py;
-    if (px !== it.x || py !== it.y) easing = true;
+    if (px !== b.tx || py !== b.ty) easing = true;
     setA(b.g, 'transform', it.rot ? `translate(${px.toFixed(1)} ${(py + it.w).toFixed(1)}) rotate(-90)` : `translate(${px.toFixed(1)} ${py.toFixed(1)})`);
     b.g.style.display = '';
   }
@@ -3096,25 +3098,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const cost = (useLines ? lineCost(r) * 12 : 0) + i + gi * 6 - (mem && mem.dir === dir && mem.gi === gi ? 1e4 : 0);
         if (!best || cost < best.cost) best = { cost, x, y, r, dir, gi, far: gi > 0 };
       }));
-      // Steady against jitter: a slot that only drifts a few pixels (the vessel breathes, a card
-      // resizes) stays put, and a remembered slot that turns blocked is held for a few frames
-      // before the label moves, so a borderline collision cannot flicker it between two spots.
-      if (mem && mem.x != null) {
-        const md = dirs[mem.di], mgp = (Array.isArray(gap) ? gap : [gap])[mem.gi];
-        if (md && mgp != null) {
-          const [dx, dy] = offset(md, probe, mgp);
-          const mx = it.ax + dx, my = it.ay + dy, mr = rectOf({ ...probe, x: mx, y: my });
-          const ok = within(mr, B) && !placed.some((p) => hits(mr, p));
-          if (best && best.dir === md && best.gi === mem.gi && Math.hypot(best.x - mem.x, best.y - mem.y) <= 4) { const kr = rectOf({ ...probe, x: mem.x, y: mem.y }); if (ok && within(kr, B) && !placed.some((p) => hits(kr, p))) best = { ...best, x: mem.x, y: mem.y, r: kr }; }
-          else if (!ok && within(mr, B) && (mem.hold = (mem.hold || 0) + 1) <= 8) best = { cost: 0, x: mx, y: my, r: mr, dir: md, gi: mem.gi, far: mem.gi > 0, held: true };
-        }
+      // Steady against jitter: a label keeps its exact spot while its station stays within a few
+      // pixels of where it was (a vessel breathes, its width changes the gap) and the spot is
+      // still free. A spot that turns blocked is held for a few frames before the label moves, so a
+      // borderline collision cannot flicker it between two places.
+      if (mem && mem.x != null && !it.rot && Math.hypot(it.ax - mem.ax, it.ay - mem.ay) < 6) {
+        const kr = rectOf({ ...probe, x: mem.x, y: mem.y });
+        const ok = within(kr, B) && !placed.some((p) => hits(kr, p));
+        if (ok || (within(kr, B) && (mem.hold = (mem.hold || 0) + 1) <= 8)) best = { cost: 0, x: mem.x, y: mem.y, r: kr, dir: mem.dir, gi: mem.gi, far: mem.far, held: !ok };
       }
       if (!best) return false;
       // The text hugs the station side of its reserved box.
       const slack = it.rot ? 0 : wRes - it.w, dir = best.dir;
       it.x = best.x + (dir.includes('W') ? slack : dir.includes('E') ? 0 : slack / 2);
       it.y = best.y; it.dir = dir; it.leader = leader || best.far;
-      labelMem.set(it.key, { dir, gi: best.gi, w: wRes, x: best.x, y: best.y, di: dirs.indexOf(dir), hold: best.held ? mem.hold : 0 });
+      labelMem.set(it.key, { dir, gi: best.gi, w: wRes, x: best.x, y: best.y, ax: best.held || (mem && best.x === mem.x && best.y === mem.y) ? mem.ax : it.ax, ay: best.held || (mem && best.x === mem.x && best.y === mem.y) ? mem.ay : it.ay, far: best.far, hold: best.held ? mem.hold : 0 });
       placed.push(best.r); out.push(it);
       return true;
     };
