@@ -18,6 +18,7 @@ export const VARIX = { Tcrit: 120, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 3.5
 export const ruptureHazardPerDay = (x) => (x <= 1 ? 0 : 0.01 * Math.pow((x - 1) / 0.25, 3));
 export const COLLATERAL = { open: 7.5, span: 14, tauGrow: 50, tauRegress: 120, acute: 0.4 };
 const BLOOD_BASE = 5000, HCT_BASE = 0.42;
+const HR_REST = 60;   // resting heart rate (/min); the contractility reference is scaled to it so cardiac output is unchanged
 export const LYMPH = { base: 2.5, max: 10, adapt: 0.03, kfHep: 0.45, kfSpl: 0.2, adaptFrac: 0.6 };
 
 export class Engine {
@@ -69,7 +70,7 @@ export class Engine {
     this.day = 0;
     this.rng = makeRng(seed);
     this.baro = 1; this.MAPf = 93; this.habr = 1;
-    this.hr = 72;
+    this.hr = HR_REST;
     this.slow = {
       d: Object.fromEntries(this.collaterals.map((k) => [EDGES[k].id, dMinOf(EDGES[k])])),
       r0: { VAR: VARIX.r0Healthy, GV: VARIX.r0Healthy },
@@ -181,9 +182,9 @@ export class Engine {
 
   heartState() {
     const d = this._drug, p = this.params, b = this.baro;
-    const hr = clamp(72 * d.hr * (1 + 0.9 * (b - 1) * d.baroHr), 38, 170);
+    const hr = clamp(HR_REST * d.hr * (1 + 0.9 * (b - 1) * d.baroHr), 38, 170);
     const contr = p.contractility * d.contr * clamp(1 + 0.35 * (b - 1), 0.6, 1.6);
-    const cap = contr * Math.pow(hr / 72, 0.6) * (1 - 0.3 * p.tr);
+    const cap = contr * Math.pow(hr / HR_REST, 0.6) * (1 - 0.3 * p.tr);
     return { hr, cap };
   }
 
