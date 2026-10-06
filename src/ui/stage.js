@@ -2925,9 +2925,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       swatch: mode === 'atlas' && pr ? (lr ? lr.color : layerMode() === 'heat' ? heatColor(P - (REF()?.[NI[id]] ?? P)) : pressureColor(P)) : null, bg: mode === 'inline' && !one, padX: mode === 'inline' && !one ? 6 : 3, padY: mode === 'inline' && !one ? 3 : 2 };
   }
 
-  const ANAT_PRI = { CONF: 10, VAR: 9, SIN_R: 9, RHV: 8, RA: 8, SV: 7, SMV: 7, GV: 7, IVCS: 6, MHV: 5, LHV: 5, RPV: 5, LPV: 5, SIN_L: 5, IMV: 4, LGV: 4, PVH: 4, W_R: 12, W_M: 12, W_L: 12 };
+  const ANAT_PRI = { CONF: 10, VAR: 9, SIN_R: 9, RHV: 8, RA: 8, SV: 7, SMV: 7, GV: 7, IVCS: 6, MHV: 5, LHV: 5, RPV: 5, LPV: 5, SIN_L: 5, IMV: 4, LGV: 4, W_R: 12, W_M: 12, W_L: 12 };
   // Stations labelled only when zoomed in enough to give them room, in this order (see updateLabels).
-  const ANAT_EXTRA = ['MHV', 'LHV', 'RPV', 'LPV', 'SIN_L', 'IMV', 'LGV', 'PVH'];
+  const ANAT_EXTRA = ['MHV', 'LHV', 'RPV', 'LPV', 'SIN_L', 'IMV', 'LGV'];
 
   let blockerBoxes = null;
   function readBlockers() {
