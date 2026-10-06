@@ -2820,7 +2820,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       glass.style.width = `${(it.w + 2 * it.padX).toFixed(1)}px`; glass.style.height = `${(it.h + 2 * it.padY).toFixed(1)}px`;
     }
     // A turned caption reads bottom to top: its box's top-left is (x, y), and its text runs up from the bottom.
-    setA(b.g, 'transform', it.rot ? `translate(${it.x.toFixed(1)} ${(it.y + it.w).toFixed(1)}) rotate(-90)` : `translate(${it.x.toFixed(1)} ${it.y.toFixed(1)})`);
+    // Ease toward the target spot instead of snapping, so small drifts and re-placements glide.
+    // The first frame, a long jump (a new layout) or a hidden block lands at once.
+    let px = it.x, py = it.y;
+    if (b.sx != null && b.g.style.display !== 'none') {
+      const dx = it.x - b.sx, dy = it.y - b.sy;
+      if (Math.hypot(dx, dy) < 160) { px = Math.abs(dx) < 0.15 ? it.x : b.sx + dx * 0.2; py = Math.abs(dy) < 0.15 ? it.y : b.sy + dy * 0.2; }
+    }
+    b.sx = px; b.sy = py;
+    if (px !== it.x || py !== it.y) easing = true;
+    setA(b.g, 'transform', it.rot ? `translate(${px.toFixed(1)} ${(py + it.w).toFixed(1)}) rotate(-90)` : `translate(${px.toFixed(1)} ${py.toFixed(1)})`);
     b.g.style.display = '';
   }
 
@@ -2996,11 +3005,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return best;
   }
   let labelGridKey = '', labelGrid = new Map();
+  let easing = false, easeRaf = 0;   // labels glide to new spots; keep laying out until they arrive
   const labelMem = new Map();
   let labelTurned = false;   // labels remember their side; turning the circuit changes which side is right
   function updateLabels(f) {
     refreshCTM();
     frameNo++;
+    easing = false;
     const st = store.get();
     const t = easeInOut(morph);
     const circuit = t >= 0.5;
@@ -3324,7 +3335,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
 
     for (const it of out) renderBlock(it);
-    for (const [, b] of pool) if (b.seen !== frameNo) b.g.style.display = 'none';
+    for (const [, b] of pool) if (b.seen !== frameNo) { b.g.style.display = 'none'; b.sx = null; }
+    if (easing && !easeRaf) easeRaf = requestAnimationFrame(() => { easeRaf = 0; if (F) updateLabels(F); });
     glass.hidden = !out.some((it) => it.key === 'liver');
     if (gLeaders._last !== leaders) { gLeaders.innerHTML = leaders; gLeaders._last = leaders; }
   }
