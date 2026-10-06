@@ -908,12 +908,6 @@ function wireFloating() {
   addEventListener('pointerup', () => { if (down) { down = null; if (app.classList.contains('stage-busy')) busy(600); } });
   addEventListener('pointercancel', () => { if (down) { down = null; busy(300); } });
   view.addEventListener('wheel', () => busy(800), { passive: true });
-  // A tap outside the Treat card (but not on its button) puts it away, as a menu would be.
-  addEventListener('pointerdown', (e) => {
-    if (!treatOpen() || isPhone()) return;
-    if (e.target.closest('#treatCard, #btnTreat, .popover, .tooltip, .modal-back, .toast-wrap')) return;
-    closeTreat();
-  }, true);
 }
 // Phone: the chart and Treat are bottom sheets with three heights; a drag on the handle (or the
 // head) moves between them, and below the lowest closes the sheet. Wider: the head drags the card
@@ -983,7 +977,7 @@ function openTreat() {
   const count = h('span', { class: 'card-meta' });
   const paintCount = () => { const n = chart.treatCount(store.get().params); count.textContent = n ? `${n} running` : ''; };
   sync.push(paintCount);
-  const body = h('div', { class: 'tc-body' }, chart.treatBody(sync, () => { if (isPhone()) closeTreat(); }));
+  const body = h('div', { class: 'tc-body' }, chart.treatBody(sync, () => {}));
   const grab = el.querySelector('.sheet-grab');
   el.replaceChildren(...[grab, h('div', { class: 'tc-head card-head' }, h('h2', { class: 'card-title' }, svgIcon('pill'), h('span', {}, 'Treat')), count,
     h('button', { class: 'ib card-close', 'aria-label': 'Close Treat', title: 'Close (Esc)', onclick: () => closeTreat() }, icon('close'))), body].filter(Boolean));
