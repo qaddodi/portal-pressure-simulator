@@ -1188,7 +1188,7 @@ function openAbout(section) {
       h('li', {}, 'Lautt WW. Hepatic Circulation: Physiology and Pathophysiology. Morgan & Claypool, 2009.'),
       h('li', {}, 'Guyton AC. Venous return and the systemic filling pressure.')),
     h('h3', {}, 'Licenses'),
-    h('p', { class: 'sub' }, '© 2026 Mohammad Qaddodi. All rights reserved. Fonts: Inter, JetBrains Mono and Source Serif 4 under the SIL Open Font License, served from this site. Anatomy, pathology art and icons were drawn for this project.'),
+    h('p', { class: 'sub' }, '© 2026 Mohammad Almeqdadi. All rights reserved. Fonts: Inter, JetBrains Mono and Source Serif 4 under the SIL Open Font License, served from this site. Anatomy, pathology art and icons were drawn for this project.'),
     h('p', { class: 'disclaimer' }, t('app.disclaimer'))), { wide: true, sub: `Version ${APP_VERSION}` });
   scrollToSection(section);
 }
