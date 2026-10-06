@@ -3540,7 +3540,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // While the pointer is captured, events retarget to the <svg>: hit-test the real point instead.
     const t = ev.target === svg && ev.clientX != null ? document.elementFromPoint(ev.clientX, ev.clientY) : ev.target;
     const el = t?.closest?.('.v-hit, .ghost-hit');
-    return el ? el.getAttribute('data-id') : null;
+    return el ? el.getAttribute('data-id') : geomEdge(ev);
+  }
+  // Safari does not always report a transparent-stroke vessel as the element under the pointer (it works in Chrome),
+  // so when the browser's own hit test finds no vessel, test the pointer against each vessel's hit stroke ourselves.
+  function geomEdge(ev) {
+    if (ev.clientX == null || ev.pointerType === 'touch' || lobuleOn) return null;
+    const ids = Object.keys(E);
+    for (let i = ids.length - 1; i >= 0; i--) {
+      const x = E[ids[i]], h = x?.hit;
+      if (!h || !h.isConnected || h.getAttribute('aria-hidden') === 'true' || !h.hasAttribute('d') || h.parentNode?.classList?.contains('no-hit') || h.parentNode?.style?.display === 'none') continue;
+      try {
+        const m = h.getScreenCTM();
+        if (!m) continue;
+        const pt = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(m.inverse());
+        if (h.isPointInStroke(pt) && getComputedStyle(h.parentNode).display !== 'none' && getComputedStyle(h).pointerEvents !== 'none') return ids[i];
+      } catch { /* not rendered */ }
+    }
+    return null;
   }
 
   // Organs under a point (anatomy only). The varices and fundus are small sites. The abdomen is
