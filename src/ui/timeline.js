@@ -11,10 +11,10 @@
 // from here" freezes the current moment as A for comparison. It replaces play/speed, the Seconds/Months
 // switch, undo/redo/reset, the Findings list, the Log instrument and Compare mode.
 
-import { store, replaceParams, onParamChange } from './store.js?v=23552bd900';
-import { host } from './host.js?v=18687a4fed';
-import { h, fmt, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=d90a6074b7';
-import { activeInterventions } from './inspector.js?v=a533f8f517';
+import { store, replaceParams, onParamChange } from './store.js?v=6fc014de20';
+import { host } from './host.js?v=7006816208';
+import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=8aa5e5cdf1';
+import { activeInterventions } from './inspector.js?v=101b9f4312';
 
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };
 export const EVENT_WHY = { VARIX_RUPTURE: 'varix', RED_WALE: 'varix', VARIX_LARGE: 'varix', HEPATOFUGAL_PV: 'pvFlow', PV_STASIS: 'pvFlow', CSPH: 'hvpg', BLEED_RISK: 'hvpg', ASCITES_FORMING: 'ascites', TENSE_ASCITES: 'ascites', HIGH_SHUNT: 'shunt', LIVER_HYPOPERFUSION: 'liverPerf', RA_HIGH: 'ra', HYPERDYNAMIC: 'co', SPLENOMEGALY: 'spleen' };
@@ -22,7 +22,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 const JUMPS = [[7, '+1 wk', '1 week'], [30, '+1 mo', '1 month'], [180, '+6 mo', '6 months']];
 
 /** A frozen, self-contained copy of a frame (for pinning A and for markers). */
-export function captureFrame(f, params) {
+function captureFrame(f, params) {
   return {
     P: Array.from(f.P), metrics: structuredClone(f.metrics), params: structuredClone(params),
     frame: { ...f, P: Array.from(f.P), Pf: f.Pf ? Array.from(f.Pf) : undefined, Q: Array.from(f.Q), Qf: f.Qf ? Array.from(f.Qf) : undefined, D: Array.from(f.D),

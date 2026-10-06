@@ -53,7 +53,7 @@ export function fmtFlow(v) {
   if (a > 0.0005 && a < 0.05) return (v < 0 ? '−' : '') + '< 0.1';
   return fmt(v, 1);
 }
-export const unitConv = {
+const unitConv = {
   pressure: {
     mmHg: { f: (v) => v, d: 1, u: 'mmHg' },
     cmH2O: { f: (v) => v * 1.36, d: 1, u: 'cmH₂O' },

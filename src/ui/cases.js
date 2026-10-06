@@ -2,10 +2,10 @@
 // a bedside monitor, orders, one visibility map for what the clinician cannot know, randomized
 // variants, and a printable debrief with a counterfactual replayed in a separate engine.
 
-import { store, updateParams } from './store.js?v=23552bd900';
-import { host } from './host.js?v=18687a4fed';
-import { h, fmt, openModal, closeModal, toast, svgIcon } from './util.js?v=d90a6074b7';
-import { addRecord, exportCSV, exportXAPI } from './records.js?v=26ab8fb634';
+import { store, updateParams } from './store.js?v=6fc014de20';
+import { host } from './host.js?v=7006816208';
+import { h, fmt, openModal, closeModal, toast, svgIcon } from './util.js?v=8aa5e5cdf1';
+import { addRecord, exportCSV, exportXAPI } from './records.js?v=39559a8813';
 
 const ACTIONS = {
   crystalloid: { label: '1 L crystalloid', run: (a) => a.action({ kind: 'infuse', fluid: 'crystalloid' }) },
@@ -91,7 +91,7 @@ export const CASES = [
 // story events that would give the answer away (a model-only 'HVPG ≥ 12' in a case where HVPG
 // has to be measured).
 const MODEL_ONLY_EVENTS = ['CSPH', 'BLEED_RISK', 'RED_WALE', 'HIGH_SHUNT', 'LIVER_HYPOPERFUSION', 'INTRAHEPATIC_REVERSAL', 'CAUDATE'];
-export function visibilityOf(cs) {
+function visibilityOf(cs) {
   const hidden = new Set(cs.hidden || []);
   const imaging = hidden.has('pv');
   if (imaging) hidden.add('model');

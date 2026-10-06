@@ -1,13 +1,13 @@
 // Lumped-parameter hemodynamic engine (blueprint §7).
 // Pure JS, no DOM: runs in a Web Worker, on the main thread, or in Node tests.
 
-import { NODES, EDGES, COLLATERAL_DMIN_RATIO, dMinOf, edgePresent, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=29d10ad9ef';
+import { NODES, EDGES, dMinOf, edgePresent, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=29d10ad9ef';
 import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=8b006eefeb';
-import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=304cd180db';
-import { detectEvents } from './events.js?v=e467ec8aaf';
+import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=5eb04c5fb1';
+import { detectEvents } from './events.js?v=5006f09794';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -15,11 +15,11 @@ const EXT_OVERRIDE = { IVC_IS: 'abd', CAUD: 'none' };
 
 export const VARIX = { Tcrit: 120, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 3.5, k: 0.22 };
 /** Rupture hazard per day as a function of T/Tcrit (§7.5). */
-export const ruptureHazardPerDay = (x) => (x <= 1 ? 0 : 0.01 * Math.pow((x - 1) / 0.25, 3));
-export const COLLATERAL = { open: 7.5, span: 14, tauGrow: 50, tauRegress: 120, acute: 0.4 };
+const ruptureHazardPerDay = (x) => (x <= 1 ? 0 : 0.01 * Math.pow((x - 1) / 0.25, 3));
+const COLLATERAL = { open: 7.5, span: 14, tauGrow: 50, tauRegress: 120, acute: 0.4 };
 const BLOOD_BASE = 5000, HCT_BASE = 0.42;
 const HR_REST = 60;   // resting heart rate (/min); the contractility reference is scaled to it so cardiac output is unchanged
-export const LYMPH = { base: 2.5, max: 10, adapt: 0.03, kfHep: 0.45, kfSpl: 0.2, adaptFrac: 0.6 };
+const LYMPH = { base: 2.5, max: 10, adapt: 0.03, kfHep: 0.45, kfSpl: 0.2, adaptFrac: 0.6 };
 
 export class Engine {
   constructor({ params, seed } = {}) {

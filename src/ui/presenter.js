@@ -4,9 +4,9 @@
 // pointer. Instructors build their own scripts from the current model and share them as a file
 // or a link.
 
-import { store } from './store.js?v=23552bd900';
-import { h, toast, svgIcon, icon } from './util.js?v=d90a6074b7';
-import { download } from './records.js?v=26ab8fb634';
+import { store } from './store.js?v=6fc014de20';
+import { h, toast, svgIcon, icon } from './util.js?v=8aa5e5cdf1';
+import { download } from './records.js?v=39559a8813';
 
 export const SCRIPTS = [
   {

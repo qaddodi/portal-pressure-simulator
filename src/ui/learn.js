@@ -1,9 +1,9 @@
 // Learn mode (blueprint §11): lessons as step sequences with Predict → Observe → Explain.
 
-import { store, updateParams } from './store.js?v=23552bd900';
-import { host } from './host.js?v=18687a4fed';
-import { h, fmt, toast, svgIcon } from './util.js?v=d90a6074b7';
-import { addRecord } from './records.js?v=26ab8fb634';
+import { store, updateParams } from './store.js?v=6fc014de20';
+import { host } from './host.js?v=7006816208';
+import { h, fmt, toast, svgIcon } from './util.js?v=8aa5e5cdf1';
+import { addRecord } from './records.js?v=39559a8813';
 import { EDGES } from '../engine/topology.js?v=29d10ad9ef';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -175,14 +175,14 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
   let sheetMin = false;
   const snaps = [];             // starting state of each step, for Replay
   let tally = { right: 0, total: 0 }, t0 = 0, prediction = null, chooser = null;
-  let pollTimer = null, inline = null, showAll = false;
+  let pollTimer = null, inline = null;
 
   function openList() { render(); }
 
   async function start(id) {
     await beginSession?.('lesson');
     lesson = LESSONS.find((l) => l.id === id);
-    idx = 0; state = {}; showAll = false; snaps.length = 0; tally = { right: 0, total: 0 }; t0 = Date.now(); prediction = null;
+    idx = 0; state = {}; snaps.length = 0; tally = { right: 0, total: 0 }; t0 = Date.now(); prediction = null;
     sheetMin = false;
     await enter();
     if (!asSheet.matches) openPanel?.('chart');
@@ -293,15 +293,6 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
   const md = (t) => { const span = h('span'); span.innerHTML = String(t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\*(.+?)\*/g, '<i>$1</i>'); return span; };
   const letter = (i) => h('span', { class: 'letter' }, 'ABCDE'[i]);
 
-  function catalog() {
-    const doneN = LESSONS.filter((l) => saved[l.id]).length;
-    return h('div', { class: 'p-body', style: { paddingTop: '16px' } },
-      h('div', { class: 'p-title', style: { marginBottom: '6px' } }, h('span', { class: 'kicker' }, `Learn · ${doneN} of ${LESSONS.length} complete`), h('h2', {}, 'Guided lessons')),
-      h('p', { class: 'sub', style: { margin: '0 0 14px' } }, 'Each lesson asks you to predict before the model runs, lets you do it on the anatomy, then explains what happened.'),
-      h('div', { class: 'case-list' }, LESSONS.map((l, i) => h('button', { class: 'card' + (saved[l.id] ? ' done' : ''), onclick: () => start(l.id) },
-        h('span', { class: 'meta' }, h('span', { class: 'num-badge' }, saved[l.id] ? svgIcon('check') : i + 1), `${l.minutes} min`, saved[l.id] ? h('span', { class: 'done' }, 'Done') : null),
-        h('span', { class: 't' }, l.title), h('span', { class: 'd' }, l.summary)))));
-  }
 
   function render() {
     inline?.dispose?.(); inline = null;

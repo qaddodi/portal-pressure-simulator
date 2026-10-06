@@ -1,6 +1,6 @@
 // Event detectors with hysteresis (blueprint §10.3). Pure functions of engine state.
 
-import { computeMetrics } from './metrics.js?v=fe571781de';
+import { computeMetrics } from './metrics.js?v=6046002a6e';
 
 const COLLATERAL_NAMES = {
   C1b: ['Esophageal varices', 'VAR'], C3: ['Paraumbilical vein (caput medusae)', 'C3'], C4: ['Anorectal varices', 'C4'],
@@ -77,6 +77,3 @@ export function detectEvents(eng, init = false) {
   return m;
 }
 
-export function activeEvents(eng) {
-  return Object.entries(eng.evState).filter(([, s]) => s.active).map(([id]) => id);
-}

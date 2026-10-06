@@ -20,13 +20,13 @@
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
-import { store } from './store.js?v=23552bd900';
+import { store } from './store.js?v=6fc014de20';
 import { radiiChanged } from './lobule-render-cache.js?v=07951b5935';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=7d74747a69';
-import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=d90a6074b7';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=203ff5bb08';
+import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=8aa5e5cdf1';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { NODES, EDGES } from '../engine/topology.js?v=29d10ad9ef';
-import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_NOCASE, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=e424ed9ef2';
+import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=e424ed9ef2';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=3acf4e936e';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -304,18 +304,16 @@ export function createLobuleZoom({ host }) {
     V.x = mx - cxw * V.k; V.y = my - cyw * V.k;
   }
   // Match the anatomy's flick decay, measured in screen pixels per millisecond.
-  let inertia = 0;
-  function stopInertia() { cancelFlick?.(); cancelFlick = null; inertia = 0; }
+  function stopInertia() { cancelFlick?.(); cancelFlick = null; }
   let cancelFlick = null;
   function fling(vx, vy) {
     stopInertia();
     if (reduce.matches || fade < 0.98 || Math.hypot(vx, vy) < FLICK.minSpeed) return;
-    inertia = 1;
     cancelFlick = runFlick({
       x: V.x, y: V.y, vx, vy,
       hard: (x, y) => { const sx = V.x, sy = V.y; V.x = x; V.y = y; clampV(); const r = [V.x, V.y]; V.x = sx; V.y = sy; return r; },
       apply: (x, y) => { V.x = x; V.y = y; viewChanged(); },
-      done: () => { inertia = 0; cancelFlick = null; },
+      done: () => { cancelFlick = null; },
     });
   }
   function zoomAround(px, py, factor) {

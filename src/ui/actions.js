@@ -4,11 +4,10 @@
 // in the timeline as one entry.
 
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=29d10ad9ef';
-import { DRUGS } from '../engine/scenario.js?v=304cd180db';
-import { store, updateParams } from './store.js?v=23552bd900';
-import { fmt, fmtFlow, clamp, toast } from './util.js?v=d90a6074b7';
-import { aboutVessel, aboutOrgan } from './about.js?v=8214f717c4';
-import { lobuleState } from './lobule-model.js?v=7d74747a69';
+import { store, updateParams } from './store.js?v=6fc014de20';
+import { fmt, fmtFlow, clamp, toast } from './util.js?v=8aa5e5cdf1';
+import { aboutVessel, aboutOrgan } from './about.js?v=95bf329ddd';
+import { lobuleState } from './lobule-model.js?v=203ff5bb08';
 import { LABEL_VESSEL } from './anatomy.js?v=dbe096be7b';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -57,9 +56,6 @@ export function normalizeSel(sel) {
   }
   return sel;
 }
-
-const ORGAN_TITLE = { liver: 'Liver', heart: 'Right heart', varices: 'Esophageal varices', gastric: 'Fundal varices', spleen: 'Spleen', abdomen: 'Abdomen & peritoneum' };
-export const selTitle = (sel) => { const s = normalizeSel(sel); if (!s) return ''; if (s.type === 'lobule') return 'Lobule'; return s.type === 'organ' ? ORGAN_TITLE[s.id] || s.id : EDGES[EI[s.id]]?.label || s.id; };
 
 /**
  * Build the action-card model for a selection.
@@ -236,7 +232,7 @@ const CIRRHOSIS = { type: 'slider', id: 'cirrhosis', key: 'cirrhosis', label: 'C
   sub: '40 % compensated · 60 % CSPH · 85 % decompensated', info: 'Sinusoidal fibrosis, capillarization, a stiffer liver and arterioportal shunting.' };
 const ZONE_NAME = { pre: 'portal tract', sin: 'sinusoids', post: 'central vein' };
 /** Fibrosis in one zone of every lobule (both lobes: one lobule stands for the liver). */
-export const fibrosisVerb = (z) => ({ type: 'slider', id: 'fibrosis', key: 'fibrosis', label: `Fibrosis · ${ZONE_NAME[z]}`, icon: 'fibrosis', min: 1, max: 80, step: 0.5, def: 1, format: mult,
+const fibrosisVerb = (z) => ({ type: 'slider', id: 'fibrosis', key: 'fibrosis', label: `Fibrosis · ${ZONE_NAME[z]}`, icon: 'fibrosis', min: 1, max: 80, step: 0.5, def: 1, format: mult,
   get: (p) => Math.max(p.fibrosis.R[z], p.fibrosis.L[z]), set: (p, v) => { p.fibrosis.R[z] = v; p.fibrosis.L[z] = v; }, hist: `Fibrosis · ${ZONE_NAME[z]}`,
   info: { pre: 'Resistance before the sinusoids, as in schistosomiasis: portal pressure rises, the wedged pressure does not.', sin: 'Collagen in the space of Disse and closing fenestrae: resistance in the sinusoids themselves, read by HVPG.', post: 'Resistance at the central veins, as in sinusoidal obstruction syndrome: the sinusoids congest from the outflow side.' }[z] });
 const ZONE_TEXT = ['Zone 1 (periportal) gets blood first, richest in oxygen and nutrients: the first to regenerate, the last to die in ischemia.', 'Zone 2 lies between: intermediate oxygen.', 'Zone 3 (centrilobular) gets blood last, poorest in oxygen: first to suffer in congestion, shock and drug toxicity (paracetamol).'];
@@ -297,5 +293,4 @@ export function shuntable(id) {
 }
 
 // ── Clinical orders (the Treat section and the command palette) ────────────
-export const DRUG_LIST = Object.keys(DRUGS);
 export const DRUG_NOTE = { propranolol: 'Non-selective β-blocker', carvedilol: 'β-blocker + α1 blockade', terlipressin: 'Vasopressin analogue', octreotide: 'Somatostatin analogue' };

@@ -139,7 +139,6 @@ as a map of the disease: grouped by where the resistance sits, each with its pre
 | `scripts/` | Cache stamping, SCORM packaging |
 | `tests/` | Acceptance tests |
 | `docs/` | Design blueprint and the v2 UI/UX plan ([UI_UX_NEXT_LEVEL.md](docs/UI_UX_NEXT_LEVEL.md)) |
-| `legacy/` | The original single-file prototype, kept for reference |
 
 For preparing a class, `window.pps` in the browser console exposes `loadPreset`,
 `updateParams`, `startLesson`, `startCase`, `presenter` and the store.

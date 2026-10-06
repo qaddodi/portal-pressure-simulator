@@ -20,7 +20,7 @@ export function learnerName() { try { return localStorage.getItem('pps.learner')
 export function setLearnerName(n) { try { localStorage.setItem('pps.learner', n); } catch { /* storage unavailable */ } }
 
 const csvCell = (v) => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
-export function toCSV(list = read()) {
+function toCSV(list = read()) {
   const head = ['date', 'learner', 'kind', 'id', 'title', 'variant', 'score', 'outcome', 'duration_s', 'objectives_met', 'objectives_total', 'details'];
   const rows = list.map((r) => [r.date, learnerName(), r.kind, r.id, r.title, r.variant ?? '', r.score ?? '', r.outcome ?? '', r.duration != null ? Math.round(r.duration) : '', r.met ?? '', r.total ?? '',
     (r.objectives || []).map((o) => `${o.text}: ${o.state}`).concat(r.answers || []).join(' | ')]);
@@ -29,7 +29,7 @@ export function toCSV(list = read()) {
 
 // xAPI 1.0.3 statements. The actor is the name typed on this device; the LMS maps it.
 const BASE = 'https://portal-pressure-simulator.example/xapi';
-export function toXAPI(list = read()) {
+function toXAPI(list = read()) {
   const name = learnerName() || 'Anonymous learner';
   return list.map((r) => ({
     actor: { objectType: 'Agent', name, account: { homePage: BASE, name } },
