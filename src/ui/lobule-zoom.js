@@ -279,6 +279,9 @@ export function createLobuleZoom({ host }) {
     stopInertia(); cancelAnimationFrame(glide); rubber = true; atFit = false;
     const F0 = fitV();
     if (rawK >= kFit) { rawK = 0; rubber = false; Object.assign(V, F0); atFit = true; viewChanged(); return; }
+    // The stretch shrinks about the middle of the free space, not the fingers: the lobule stays where its framing puts it, so zooming
+    // out at the framing never drifts it sideways or down and back.
+    const fr = freeRect(); px = (fr.l + fr.r) / 2; py = (fr.t + fr.b) / 2;
     const k = kFit * Math.pow(rawK / kFit, 0.3), r = k / V.k;
     V.x = px - (px - V.x) * r; V.y = py - (py - V.y) * r; V.k = k; viewChanged();
   }
