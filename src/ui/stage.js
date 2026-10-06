@@ -3085,12 +3085,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const cost = (useLines ? lineCost(r) * 12 : 0) + i + gi * 6 - (mem && mem.dir === dir && mem.gi === gi ? 1e4 : 0);
         if (!best || cost < best.cost) best = { cost, x, y, r, dir, gi, far: gi > 0 };
       }));
+      // A placed label is rigid with the figure: it is remembered relative to the view transform,
+      // so panning carries it along unchanged, and a station that only drifts a few pixels (a vessel
+      // breathes) or a changed number never moves it. It is placed afresh only when the zoom or turn
+      // changes, its station really moves, or its spot stays blocked (held a few frames first).
+      const cx = CTM.e - wr.left, cy = CTM.f - wr.top;
+      if (mem && mem.x != null && !it.rot && Math.abs(CTM.a - mem.ca) < 1e-4 && Math.abs(CTM.b - mem.cb) < 1e-4
+        && Math.hypot(it.ax - (mem.ax + cx - mem.ce), it.ay - (mem.ay + cy - mem.cf)) < 6) {
+        const mx = mem.x + cx - mem.ce, my = mem.y + cy - mem.cf, kr = rectOf({ ...probe, x: mx, y: my });
+        const ok = within(kr, B) && !placed.some((p) => hits(kr, p));
+        if (ok || (within(kr, B) && (mem.hold = (mem.hold || 0) + 1) <= 8)) best = { cost: 0, x: mx, y: my, r: kr, dir: mem.dir, gi: mem.gi, far: mem.far, kept: true, held: !ok };
+      }
       if (!best) return false;
       // The text hugs the station side of its reserved box.
       const slack = it.rot ? 0 : wRes - it.w, dir = best.dir;
       it.x = best.x + (dir.includes('W') ? slack : dir.includes('E') ? 0 : slack / 2);
       it.y = best.y; it.dir = dir; it.leader = leader || best.far;
-      labelMem.set(it.key, { dir, gi: best.gi, w: wRes });
+      if (best.kept) { mem.w = wRes; if (!best.held) mem.hold = 0; }
+      else labelMem.set(it.key, { dir, gi: best.gi, w: wRes, x: best.x, y: best.y, ax: it.ax, ay: it.ay, ce: cx, cf: cy, ca: CTM.a, cb: CTM.b, far: best.far, hold: 0 });
       placed.push(best.r); out.push(it);
       return true;
     };
