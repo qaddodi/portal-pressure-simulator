@@ -8,7 +8,7 @@
 
 export const VIEW = { w: 1400, h: 1000 };
 export const VB_ANAT = [300, 0, 820, 920];
-export const VB_CIRC = [30, 30, 1340, 700];
+export const VB_CIRC = [30, 30, 1360, 700];
 // World x of the margins the atlas labels hang from (left, right).
 export const ATLAS_COLUMNS = [318, 1102];
 
@@ -261,9 +261,10 @@ export const CIRCUIT_PATH = {
   TIPS: route([[680, 303], [680, 246], [1000, 246], [1000, 282]], 14),
   // DIPS: its own lane round the outside of the liver. It leaves the proximal right portal vein at the portal
   // bifurcation (PVH), goes up past the TIPS lane, and runs above it and below the zone captions along the top
-  // (LIVER stops near y 95). It comes down the right of the cava and enters the IVC just above IVCI, below the
-  // hepatic veins. It crosses the AZY → SVC and suprahepatic IVC → RA veins, both at right angles.
-  DIPS: route([[580, 345], [580, 104], [1156, 104], [1156, 384], [1120, 420]], 16),
+  // (LIVER stops near y 95). It runs down the outer right edge, clear of every label, and returns along y 430 to
+  // enter the IVC just above IVCI, below the hepatic veins. Every crossing (C1b, AZY → SVC, epigastric → SVC,
+  // caval → azygos) is at a right angle.
+  DIPS: route([[580, 345], [580, 104], [1356, 104], [1356, 430], [1120, 430]], 16),
   // Branches that leave (or join) one station split right at it, as on a transit map, instead
   // of sharing a stretch of track and forking part-way along.
   PVH_R: route([[580, 345], [622, 303], [680, 303]], 12),
@@ -279,11 +280,11 @@ export const CIRCUIT_PATH = {
   C2: route([[320, 261], [292, 233], [292, 165], [248, 121], [240, 121]], 12),
   // portosystemic shunts, each in its own lane below the spine
   C8: route([[480, 345], [506, 376], [554, 376], [580, 345]], 12),
-  S_PC: route([[480, 345], [480, 440], [1050, 440], [1088, 478], [1120, 478]]),
-  C7: route([[320, 394], [320, 456], [1040, 456], [1062, 478], [1120, 478]]),
-  S_MC: route([[320, 394], [320, 468], [1050, 468], [1060, 478], [1120, 478]]),
-  C6: route([[320, 261], [350, 291], [350, 510], [970, 510], [1000, 540]]),
-  S_DSR: route([[320, 261], [362, 303], [362, 522], [978, 522], [1000, 540]]),
+  S_PC: route([[480, 345], [480, 434], [1050, 434], [1094, 478], [1120, 478]]),
+  C7: route([[320, 394], [320, 458], [1040, 458], [1060, 478], [1120, 478]]),
+  S_MC: route([[320, 394], [320, 482], [1040, 482], [1050, 478], [1120, 478]]),
+  C6: route([[320, 261], [350, 291], [350, 526], [974, 526], [1000, 540]]),
+  S_DSR: route([[320, 261], [380, 321], [380, 504], [962, 504], [998, 540]]),
   C3: route([[680, 387], [680, 580], [710, 610], [1000, 610]]),
   C4: route([[240, 310], [240, 640], [1090, 640], [1120, 610]]),
   C5: route([[240, 121], [70, 121], [70, 670], [870, 670], [1000, 540]]),
