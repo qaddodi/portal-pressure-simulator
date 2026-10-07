@@ -34,15 +34,16 @@ function elastogram(n, c, seed = 0) {
   const ctx = cv.getContext('2d'), img = ctx.createImageData(n, n);
   // Noise sampled in front-aligned coordinates (across the front, along the front), so the blobs are
   // long ribbons parallel to the wave front, as on the report.
-  const f1 = noiseField(n * 2, n * 2, n / 14, 11 + seed * 5), f2 = noiseField(n * 2, n * 2, n / 8, 23 + seed * 7), ph = noiseField(n * 2, n * 2, n / 3, 37 + seed * 3);
+  const f1 = noiseField(n * 2, n * 2, n / 10, 11 + seed * 5), f2 = noiseField(n * 2, n * 2, n / 6, 23 + seed * 7), ph = noiseField(n * 2, n * 2, n / 3, 37 + seed * 3);
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
     const tMs = (x / n) * 80, depth = 30 + (y / n) * 60;
     const s = tMs - WAVE_T0 - (depth - 35) / c; // ms behind the front's first arrival (negative: ahead of it)
-    const across = (s / 80) * n * 1.6 + n * 0.5, along = y * 0.42 + n * 0.3;
+    const across = (s / 80) * n * 1.6 + n * 0.5, along = y * 0.65 + n * 0.3;
     const a = f1(across, along) * 0.6 + f2(across * 1.4, along) * 0.4;
     const w = Math.cos(2 * Math.PI * 0.05 * s + (ph(across, along) - 0.5) * 2.2);
-    const amp = s < -6 ? 0.25 : clamp(1 - s / 75, 0.18, 1) * clamp(1.2 - (depth - 30) / 110, 0.5, 1);
-    const k = clamp(0.62 + w * 0.5 * amp + (a - 0.5) * 0.95, 0, 1) ** 1.5;
+    const amp = s < -6 ? 0.2 : clamp(1 - s / 40, 0.12, 1) * clamp(1.2 - (depth - 30) / 110, 0.5, 1);
+    const band = Math.exp(-(((s + 3.5) / 3.2) ** 2)); // the one dominant dark band the fitted line sits on the edge of
+    const k = clamp(0.76 + w * 0.32 * amp + (a - 0.5) * 1.25 - band * 0.55, 0, 1) ** 1.5;
     const i = (y * n + x) * 4;
     img.data[i] = 22 + 220 * k; img.data[i + 1] = 10 + 128 * k; img.data[i + 2] = 8 + 68 * k; img.data[i + 3] = 255;
   }
