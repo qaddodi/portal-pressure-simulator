@@ -1,6 +1,6 @@
 // Clinical readouts derived from engine state (blueprint §9.1).
 
-import { PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES, EDGES } from './topology.js?v=c9c36d1829';
+import { PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES, EDGES } from './topology.js?v=80b8d861de';
 import { clamp } from './physiology.js?v=8b006eefeb';
 
 function varixGrade(d) {
@@ -27,9 +27,14 @@ export function computeMetrics(eng) {
   const apIn = Math.max(0, qf('AP_R')) + Math.max(0, qf('AP_L'));
   let shunted = 0;
   const collateralFlows = {};
+  const portalIn = Math.max(0, qf('PRE_R')) + Math.max(0, qf('PRE_L'));
   for (const id of PORTOSYSTEMIC_EDGES) {
     const v = qf(id);
-    shunted += Math.max(0, v);
+    // The stent also drains arterial blood that recirculates through the sinusoids, so only the
+    // portal-trunk blood that no longer reaches the sinusoids counts as shunted portal blood.
+    shunted += id === 'TIPS'
+      ? clamp(Math.max(0, qf('PV_TRUNK')) - portalIn - Math.max(0, qf('C3')), 0, Math.max(0, v))
+      : Math.max(0, v);
     collateralFlows[id] = v;
   }
   // Custom shunts the learner has made carry portal blood to systemic veins as well.
@@ -38,7 +43,6 @@ export function computeMetrics(eng) {
   const shuntFraction = clamp(shunted / Math.max(1e-6, splIn + apIn), 0, 1);
 
   const hepFlow = qf('SIN_RR') + qf('SIN_LL') + qf('CAUD') * 0;
-  const portalIn = Math.max(0, qf('PRE_R')) + Math.max(0, qf('PRE_L'));
   const arterialIn = qf('A_HR') + qf('A_HL');
 
   const varE = eng.varix('VAR', P), varG = eng.varix('GV', P);

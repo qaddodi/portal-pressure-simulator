@@ -2,13 +2,13 @@
 // Instruments card (blueprint §9.1, §9.2).
 
 import { store } from './store.js?v=4c0e1f79a3';
-import { EDGES } from '../engine/topology.js?v=c9c36d1829';
+import { EDGES } from '../engine/topology.js?v=80b8d861de';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=8aa5e5cdf1';
-import { lobuleFlows } from './lobule-model.js?v=8874b4b7e8';
-import { createProfile } from './charts.js?v=c47814dd4f';
-import { createPressureTime } from './pressure-time.js?v=6fbdf54c88';
-import { createDoppler } from './doppler.js?v=b0a082fa16';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=c639a58a0a';
+import { lobuleFlows } from './lobule-model.js?v=c4f41a94a3';
+import { createProfile } from './charts.js?v=41b1d9a843';
+import { createPressureTime } from './pressure-time.js?v=9c454c2a5b';
+import { createDoppler } from './doppler.js?v=50565b0233';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=2f94245cbb';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
