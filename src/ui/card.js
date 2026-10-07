@@ -22,7 +22,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   new ResizeObserver(() => { const first = !sizes.w; sizes.w = el.offsetWidth; sizes.h = el.offsetHeight; if (first) { placedFor = ''; lastLayout = ''; pinned = null; } position(); syncMore(); if (isDocked()) reveal(); }).observe(el);
   const uiState = {};
   ctx.ui = (key, def) => (uiState[key] ||= def);
-  let model = null, live = [], syncs = [], actionable = [], selRef = null, placedFor = '', lastLayout = '', pinned = null;
+  let lastSelKey = '', model = null, live = [], syncs = [], actionable = [], selRef = null, placedFor = '', lastLayout = '', pinned = null;
 
   const refP = () => { const st = store.get(); return st.compareSnap ? st.compareSnap.P : st.healthy?.P; };
   const lens = () => (store.get().imaging ? 'neutral' : store.get().colorMode);
@@ -91,6 +91,8 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     clearTimeout(closeTimer);
     el.classList.remove('ac-leaving');
     const focusedIdx = keepFocus ? actionable.findIndex((a) => a.el.contains(document.activeElement)) : -1;
+    const same = !el.hidden && !!model && JSON.stringify(normalizeSel(sel) || sel) === lastSelKey, keepH = same ? (el.querySelector('.ac-scroll')?._h || 0) : 0;
+    lastSelKey = JSON.stringify(normalizeSel(sel) || sel);
     model = m; selRef = sel; live = []; syncs = []; actionable = [];
     const close = h('button', { class: 'ib ac-close', 'aria-label': 'Close', title: 'Close (Esc)', onclick: () => store.set({ selection: null }) }, icon('close'));
     const valEl = h('div', { class: 'ac-value' });
@@ -144,8 +146,10 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     el.hidden = false;
     // Number keys trigger the verbs in order; show the number beside each.
     actionable.forEach((a, i) => { if (i < 9) a.el.dataset.key = String(i + 1); });
+    // The same card rebuilt (a value changed what is allowed): keep its place and its size, so nothing moves under the hand.
+    if (keepH) { scroller._h = keepH; scroller.style.minHeight = keepH + 'px'; }
     update();
-    placedFor = ''; lastLayout = ''; pinned = null;
+    if (!same) { placedFor = ''; lastLayout = ''; pinned = null; }
     position();
     if (focusedIdx >= 0) actionable[focusedIdx]?.focus();
     relayoutSoon();
@@ -295,6 +299,11 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     return null;
   }
   function infoI(text) { const b = h('button', { class: 'info-i', type: 'button', 'aria-label': text }, icon('info')); tooltipFor(b, text); return b; }
+
+  // While a finger or mouse is down inside the card its size is frozen, so a slider never moves out from under the pointer.
+  el.addEventListener('pointerdown', () => { el.style.height = el.offsetHeight + 'px'; });
+  addEventListener('pointerup', () => { el.style.height = ''; }, true);
+  addEventListener('pointercancel', () => { el.style.height = ''; }, true);
 
   function update() {
     if (!model || el.hidden) return;
