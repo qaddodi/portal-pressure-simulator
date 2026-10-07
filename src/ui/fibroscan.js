@@ -118,7 +118,7 @@ export function createFibroScan() {
     const pulse = 0.55 + 0.45 * Math.sin(t * 3), lw = ctx.measureText(narrow ? 'LIVE' : 'LIVE · 50 Hz · estimate from the model').width;
     ctx.fillStyle = `rgba(80,210,130,${pulse})`; ctx.beginPath(); ctx.arc(w - pad - lw - 9, 21, 3, 0, 7); ctx.fill();
     // Map
-    const top = 56 + big, bot = hh - 30, ph = bot - top, ax = pad + 22, ex = ax + 6, ew = w - pad - ex;
+    const top = 56 + big, bot = hh - 36, ph = bot - top, ax = pad + 22, ex = ax + 6, ew = w - pad - ex; // bottom room keeps the tick row inside the canvas on a phone
     if (ph < 50 || ew < 60) return;
     // Sample the map at about half the screen pixels (smooth, never blocky); drop the cap if frames run long.
     const want = clamp(Math.round(Math.max(ew, ph) * (w / cv.clientWidth || 1) * 0.75), 140, cap);
@@ -140,8 +140,9 @@ export function createFibroScan() {
     ctx.textAlign = 'right';
     for (let d = 30; d <= 90; d += 20) { const y = top + ((d - 30) / 60) * ph; ctx.fillText(String(d), ax, Math.min(y + 3, bot)); }
     ctx.textAlign = 'center';
-    for (let m = 0; m <= 80; m += 20) ctx.fillText(String(m), ex + (m / 80) * ew, bot + 14);
-    ctx.textAlign = 'left'; ctx.fillText('mm', pad, top - 6); ctx.textAlign = 'right'; ctx.fillText('ms', w - pad, bot + 26);
+    for (let m = 0; m <= 80; m += 20) ctx.fillText(String(m), ex + (m / 80) * ew, bot + 16);
+    // Units share the tick row: mm beside the depth labels, ms beside the time labels, so nothing needs extra height.
+    ctx.textAlign = 'left'; ctx.fillText('mm', pad, top - 6); ctx.fillText('ms', pad, bot + 16);
   }
   // Runs only while the pane is on screen; update() restarts it when the tab is shown again.
   function loop(now) {

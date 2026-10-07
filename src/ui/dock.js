@@ -8,7 +8,7 @@ import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=8aa5e5cdf1';
 import { lobuleFlows } from './lobule-model.js?v=c4f41a94a3';
 import { createProfile } from './charts.js?v=d6f7ed17ab';
 import { createPressureTime } from './pressure-time.js?v=ccc0ce04b3';
-import { createFibroScan } from './fibroscan.js?v=188104452f';
+import { createFibroScan } from './fibroscan.js?v=854f0225b0';
 import { createDoppler } from './doppler.js?v=1f0621d828';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=a7349a30a0';
 
