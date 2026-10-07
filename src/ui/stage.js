@@ -2,7 +2,7 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=2645418934';
-import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=c326f3613e';
+import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=15ec6695a1';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=7acb60de12';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=8aa5e5cdf1';
@@ -3105,7 +3105,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const r = rectOf({ ...probe, x, y });
         if (!within(r, B) || placed.some((p) => hits(r, p))) return;
         if (clear && useLines && lineCost(r) > 0) return;
-        const cost = (useLines ? lineCost(r) * 12 : 0) + i + gi * 6 - (mem && mem.dir === dir && mem.gi === gi ? 1e4 : 0);
+        // A remembered slot keeps its place only while no vessel has come onto it (a shunt switched on, say).
+        const onLine = useLines ? lineCost(r) : 0;
+        const cost = onLine * 12 + i + gi * 6 - (mem && mem.dir === dir && mem.gi === gi && !onLine ? 1e4 : 0);
         if (!best || cost < best.cost) best = { cost, x, y, r, dir, gi, far: gi > 0 };
       }));
       // A placed label is rigid with the figure: it is remembered relative to the view transform,
@@ -3116,8 +3118,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (mem && mem.x != null && !it.rot && Math.abs(CTM.a - mem.ca) < 1e-4 && Math.abs(CTM.b - mem.cb) < 1e-4
         && Math.hypot(it.ax - (mem.ax + cx - mem.ce), it.ay - (mem.ay + cy - mem.cf)) < 6) {
         const mx = mem.x + cx - mem.ce, my = mem.y + cy - mem.cf, kr = rectOf({ ...probe, x: mx, y: my });
-        const ok = within(kr, B) && !placed.some((p) => hits(kr, p));
-        if (ok || (within(kr, B) && (mem.hold = (mem.hold || 0) + 1) <= 8)) best = { cost: 0, x: mx, y: my, r: kr, dir: mem.dir, gi: mem.gi, far: mem.far, kept: true, held: !ok };
+        // A vessel that has come onto a placed label moves it at once rather than being held.
+        const onLine = useLines && lineCost(kr) > 0;
+        const ok = within(kr, B) && !placed.some((p) => hits(kr, p)) && !onLine;
+        if (ok || (within(kr, B) && !onLine && (mem.hold = (mem.hold || 0) + 1) <= 8)) best = { cost: 0, x: mx, y: my, r: kr, dir: mem.dir, gi: mem.gi, far: mem.far, kept: true, held: !ok };
       }
       if (!best) return false;
       // The text hugs the station side of its reserved box.

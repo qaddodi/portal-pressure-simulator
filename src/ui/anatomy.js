@@ -258,8 +258,11 @@ export const CIRCUIT_PATH = {
   // own (clear of the right lobe's lane and of the right hepatic vein's last stretch, which it
   // used to run on top of) and drops into the right hepatic vein from above.
   TIPS: route([[680, 303], [680, 246], [1000, 246], [1000, 282]], 14),
-  // DIPS: the same stent in the circuit, across the middle of the liver (the caudate) into the IVC between the hepatic veins and the renal level.
-  DIPS: route([[680, 303], [700, 372], [1120, 372]], 14),
+  // DIPS: its own lane round the outside of the liver. It leaves the right portal branch just off the
+  // bifurcation, runs above the TIPS lane and below the zone captions along the top (LIVER stops near y 95),
+  // then comes down the right of the cava and enters its wall below the hepatic vein inflow. It crosses
+  // the AZY → SVC and suprahepatic IVC → RA veins, both at right angles.
+  DIPS: route([[652, 304], [652, 104], [1156, 104], [1156, 384], [1120, 420]], 16),
   // Branches that leave (or join) one station split right at it, as on a transit map, instead
   // of sharing a stretch of track and forking part-way along.
   PVH_R: route([[580, 345], [622, 303], [680, 303]], 12),
@@ -338,7 +341,7 @@ export const CIRCUIT_LABELS = {
   CONF: { dirs: ['N', 'NW', 'S'], pri: 10 }, RPV: { dirs: ['NW', 'N', 'W'], pri: 5 }, LPV: { dirs: ['SW', 'S', 'W'], pri: 5 },
   VAR: { dirs: ['N', 'S'], pri: 9 }, GV: { dirs: ['N', 'W', 'S'], pri: 7 },
   SIN_R: { dirs: ['N', 'NE', 'NW'], pri: 9 }, SIN_L: { dirs: ['S', 'SE', 'SW'], pri: 7 }, CV_R: { dirs: ['N', 'NE'], pri: 4 }, CV_L: { dirs: ['S', 'SE'], pri: 4 },
-  RHV: { dirs: ['N', 'NE', 'NW'], pri: 8 }, MHV: { dirs: ['E', 'NE', 'SE'], pri: 4 }, LHV: { dirs: ['S', 'SE', 'SW'], pri: 5 },
+  RHV: { dirs: ['E', 'NE', 'SE'], pri: 8 }, MHV: { dirs: ['SW', 'W', 'S'], pri: 4 }, LHV: { dirs: ['S', 'SE', 'SW'], pri: 5 },
   IVCI: { dirs: ['E', 'SE', 'NE'], pri: 5 }, IVCS: { dirs: ['NE', 'N', 'SE'], pri: 8 }, RA: { dirs: ['E', 'S', 'N'], pri: 9 }, SVC: { dirs: ['N', 'E'], pri: 4 }, AZY: { dirs: ['N', 'NW', 'W'], pri: 5 },
   ILI: { dirs: ['E', 'SE'], pri: 3 }, EPI: { dirs: ['S', 'SW', 'W'], pri: 3 }, KID_L: { dirs: ['W', 'S', 'N'], pri: 2 }, LRV: { dirs: ['N', 'NE', 'S'], pri: 3 },
   HA: { dirs: ['N', 'NW', 'NE'], pri: 4 },
