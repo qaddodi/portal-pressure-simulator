@@ -18,7 +18,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   view.append(leader);
   const tabletTouch = matchMedia('(pointer: coarse) and (min-width: 768px) and (max-width: 1366px)');
   const sizes = { vw: view.clientWidth, vh: view.clientHeight, w: 0, h: 0 };
-  new ResizeObserver(() => { sizes.vw = view.clientWidth; sizes.vh = view.clientHeight; placedFor = ''; lastLayout = ''; pinned = null; position(); if (isDocked()) reveal(); }).observe(view);
+  new ResizeObserver(() => { const moved = Math.abs(sizes.vw - view.clientWidth) > 2 || !sizes.vh; sizes.vw = view.clientWidth; sizes.vh = view.clientHeight; if (moved) { placedFor = ''; lastLayout = ''; pinned = null; } position(); if (isDocked()) reveal(); }).observe(view);
   new ResizeObserver(() => { const first = !sizes.w; sizes.w = el.offsetWidth; sizes.h = el.offsetHeight; if (first) { placedFor = ''; lastLayout = ''; pinned = null; } position(); syncMore(); if (isDocked()) reveal(); }).observe(el);
   const uiState = {};
   ctx.ui = (key, def) => (uiState[key] ||= def);
@@ -382,7 +382,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   }
 
   // The floating pieces moved (a card opened on the right, the dock grew): place the card again.
-  addEventListener('pps:occ', () => { placedFor = ''; lastLayout = ''; pinned = null; position(); if (isDocked()) reveal(); });
+  addEventListener('pps:occ', () => { if (pinned && !isDocked()) return; placedFor = ''; lastLayout = ''; pinned = null; position(); if (isDocked()) reveal(); });
   store.on('selection', () => render());
   store.on('shunting', () => render());
   store.on('allowedVerbs', () => render());
