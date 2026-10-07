@@ -8,15 +8,15 @@
 //   (what has happened lives in the timeline's History, under the figure)
 //   Advanced                             physiology knobs (instructor / researcher)
 
-import { store, updateParams } from './store.js?v=baa7ba1e7b';
+import { store, updateParams } from './store.js?v=7acb60de12';
 import { h, fmt, icon, svgIcon, toast } from './util.js?v=8aa5e5cdf1';
-import { DRUGS } from '../engine/scenario.js?v=d8076334d5';
-import { TILES, VITALS, readoutValue } from './dock.js?v=dae7401563';
-import { activeInterventions } from './inspector.js?v=4ab7212ba6';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=fa051e3a4e';
+import { DRUGS } from '../engine/scenario.js?v=06164f9b2a';
+import { TILES, VITALS, readoutValue } from './dock.js?v=00d0cfa86e';
+import { activeInterventions } from './inspector.js?v=4a9205a057';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=c6376c5a0b';
 
 // Where each readout is measured, so a click can show it on the figure.
-const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS'], spleen: ['V_SPL', 'SV_CONF'], ra: ['IVCS_RA'] };
+const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS', 'DIPS'], spleen: ['V_SPL', 'SV_CONF'], ra: ['IVCS_RA'] };
 const ALL = [...TILES, ...VITALS];
 const RANK = { critical: 3, danger: 2, caution: 1, ok: 0 };
 const n1 = (v) => fmt(v, 1), n0 = (v) => fmt(v, 0);
@@ -184,6 +184,13 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
         select({ type: 'edge', id: 'TIPS' });
         toast(on ? 'The TIPS is already in place.' : 'TIPS placed: right portal vein → right hepatic vein.');
       }),
+      // A DIPS is always right portal vein → the intrahepatic IVC, so it is placed at once too.
+      proc('stent', 'DIPS', 'right portal vein → intrahepatic IVC', 'shunt', () => {
+        const on = store.get().params.dips.on;
+        if (!on) updateParams({ dips: { on: true, d: store.get().params.dips.d || 8 } }, { label: 'DIPS' });
+        select({ type: 'edge', id: 'DIPS' });
+        toast(on ? 'The DIPS is already in place.' : 'DIPS placed: right portal vein → IVC, through the caudate lobe.');
+      }),
       proc('stent', 'Surgical shunt', 'portocaval, Warren, mesocaval', 'shunt', () => { select(null); if (startShunt('PV_TRUNK')) toast('Click the systemic vein to connect the portal vein to.'); }),
       proc('occlude', 'BRTO', 'occlude the gastrorenal shunt', 'occlude', () => { select({ type: 'organ', id: 'gastric' }); if (store.get().params.spontaneous.C5 === false) toast('This patient has no gastrorenal shunt (see Advanced › anatomical variants).'); }),
       proc('needle', 'Paracentesis', 'drain ascites', 'paracentesis', () => select({ type: 'organ', id: 'abdomen' })));
@@ -194,7 +201,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
   }
   /** How many treatments are running now (drugs, shunts, balloons, BRTO). */
   function treatCount(p) {
-    return activeInterventions(p).filter((a) => a.key.startsWith('drug:') || ['anticoag', 'diuretics', 'tips', 'balloonEso', 'balloonGas', 'portocaval', 'dsrs', 'mesocaval', 'occ:C5'].includes(a.key)).length;
+    return activeInterventions(p).filter((a) => a.key.startsWith('drug:') || ['anticoag', 'diuretics', 'tips', 'dips', 'balloonEso', 'balloonGas', 'portocaval', 'dsrs', 'mesocaval', 'occ:C5'].includes(a.key)).length;
   }
 
   // ── Advanced ──────────────────────────────────────

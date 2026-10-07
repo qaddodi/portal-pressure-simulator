@@ -3,12 +3,12 @@
 // palette, lessons and cases all call these same verbs, so each change is made one way and lands
 // in the timeline as one entry.
 
-import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=80b8d861de';
-import { store, updateParams } from './store.js?v=baa7ba1e7b';
+import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=2645418934';
+import { store, updateParams } from './store.js?v=7acb60de12';
 import { fmt, fmtFlow, clamp, toast } from './util.js?v=8aa5e5cdf1';
-import { aboutVessel, aboutOrgan } from './about.js?v=421024102c';
-import { lobuleState } from './lobule-model.js?v=c4f41a94a3';
-import { LABEL_VESSEL } from './anatomy.js?v=bf7e57c024';
+import { aboutVessel, aboutOrgan } from './about.js?v=3de6881362';
+import { lobuleState } from './lobule-model.js?v=c3672cd6df';
+import { LABEL_VESSEL } from './anatomy.js?v=abac1e2d14';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -101,10 +101,11 @@ export function cardFor(selIn, ctx) {
     verbs.push(doppler);
   } else if (isShunt) {
     kicker = 'Shunt'; why = 'shunt';
-    if (id === 'TIPS') {
-      verbs.push({ type: 'slider', id: 'diameter', key: 'tips', label: 'Stent diameter', min: 6, max: 12, step: 0.5, def: 8, format: (v) => `${v.toFixed(1)} mm`,
-        get: (p) => p.tips.d, set: (p, v) => { p.tips.d = v; }, hist: 'TIPS diameter', info: 'Resistance ∝ 1/d⁴: an 8 mm stent has well under half the conductance of a 10 mm one.' });
-      verbs.push({ type: 'button', id: 'remove', key: 'tips', label: 'Remove TIPS', icon: 'close', danger: true, run: () => { updateParams({ tips: { on: false } }, { label: 'Remove TIPS' }); ctx.select(null); } });
+    if (id === 'TIPS' || id === 'DIPS') {
+      const k = id.toLowerCase();   // the stent's params key: tips or dips
+      verbs.push({ type: 'slider', id: 'diameter', key: k, label: 'Stent diameter', min: 6, max: 12, step: 0.5, def: 8, format: (v) => `${v.toFixed(1)} mm`,
+        get: (p) => p[k].d, set: (p, v) => { p[k].d = v; }, hist: `${id} diameter`, info: 'Resistance ∝ 1/d⁴: an 8 mm stent has well under half the conductance of a 10 mm one.' });
+      verbs.push({ type: 'button', id: 'remove', key: k, label: `Remove ${id}`, icon: 'close', danger: true, run: () => { updateParams({ [k]: { on: false } }, { label: `Remove ${id}` }); ctx.select(null); } });
     } else if (e.shunt === 'custom') {
       verbs.push({ type: 'slider', id: 'diameter', key: 'customShunts', label: 'Shunt diameter', min: 4, max: 16, step: 0.5, def: 10, format: (v) => `${v.toFixed(1)} mm`,
         get: (p) => p.customShunts?.[id] || 10, set: (p, v) => { p.customShunts = { ...(p.customShunts || {}), [id]: v }; }, hist: `${e.label} diameter` });

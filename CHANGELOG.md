@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **DIPS option.** A direct intrahepatic portosystemic shunt sits beside the TIPS in Treat, the Procedures list and the
+  stent tool. It runs from the right portal vein through the caudate lobe into the intrahepatic IVC, below the hepatic
+  veins, so it is the option when the hepatic veins are blocked and the cava is open (Budd–Chiari). The model uses the
+  same stent as a TIPS through a shorter tract: at 8 mm it lowers the HVPG from 16.6 to 9.6 mmHg in the decompensated
+  cirrhosis patient, close to the TIPS (8.7). The stent is drawn from the portal branch across the caudate to the IVC.
+
 - **Lessons and cases, deeper pass.** Liver stiffness is now a model reading (about 21 kPa at an HVPG of 10, higher in a
   congested liver), so a chart's kPa matches the simulation, and cases can order a FibroScan. Scope, Doppler and abdominal
   ultrasound orders open the matching view, and each result has a button to show it again. In 30 questions the right
