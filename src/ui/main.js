@@ -1,22 +1,22 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=bb950163b2';
+import { startHost, host } from './host.js?v=581ca8ab4a';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction } from './store.js?v=b742a09e9e';
-import { createStage } from './stage.js?v=07c19937a1';
+import { createStage } from './stage.js?v=ebc8d67ff7';
 import { createInspector } from './inspector.js?v=174a2f39f7';
-import { createDock, CUTOFFS } from './dock.js?v=c7150d9a36';
-import { createWhy } from './why.js?v=08ca1bfbf9';
-import { createTimeline } from './timeline.js?v=f9ab683f5c';
-import { createLearn } from './learn.js?v=7c6dbff38b';
-import { createCases } from './cases.js?v=70ac312d6f';
+import { createDock, CUTOFFS } from './dock.js?v=363ef2954b';
+import { createWhy } from './why.js?v=5015df8d28';
+import { createTimeline } from './timeline.js?v=2910aa421b';
+import { createLearn } from './learn.js?v=d6bc09a33a';
+import { createCases } from './cases.js?v=a86600396a';
 import { createCompare } from './compare.js?v=92dadf6df1';
 import { createCard } from './card.js?v=1d359196d7';
-import { createChart, computeFindings } from './chart.js?v=237ad65058';
-import { createHome } from './home.js?v=e8c288a326';
+import { createChart, computeFindings } from './chart.js?v=a992dbdc23';
+import { createHome } from './home.js?v=30bbbdfb40';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=889f5fbfda';
-import { startLMS } from './lms.js?v=26c327bbf7';
+import { startLMS } from './lms.js?v=d2bf70eea4';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=3ff6cd8d97';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
@@ -129,7 +129,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=f712262690'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=82bf01a748'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -141,7 +141,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=c33673847f'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=ca03ae6c84'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),

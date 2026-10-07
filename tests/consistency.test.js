@@ -66,3 +66,10 @@ test('ascites lesson: about 4 litres to tap, and it comes back without diuretics
   e.paracentesis(5000, true); run(e.advanceDaySteps(90)); e.settle();
   assert.ok(computeMetrics(e).ascites.volume > 2000, 'fluid returns');
 });
+
+test('liver stiffness estimate: congestion adds about 2 kPa per mmHg and the curve flattens above HVPG 12', () => {
+  const lsm = (hvpg, fhvp) => 5 + 2.2 * Math.max(0, Math.min(hvpg, 12) - 3) + 0.8 * Math.max(0, hvpg - 12) + 2 * Math.max(0, fhvp - 6);
+  assert.ok(lsm(10, 6) > 19 && lsm(10, 6) < 22);
+  assert.ok(Math.abs(lsm(10, 11) - lsm(10, 6) - 10) < 1e-9);
+  assert.ok(lsm(20, 6) - lsm(12, 6) < 0.8 * 8 + 1e-9);
+});

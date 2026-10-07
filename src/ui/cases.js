@@ -10,7 +10,7 @@
 // that must be placed first), `auto` (opens by itself) and `show(c)` (conditional steps).
 
 import { store, updateParams } from './store.js?v=b742a09e9e';
-import { host } from './host.js?v=bb950163b2';
+import { host } from './host.js?v=581ca8ab4a';
 import { h, openModal, closeModal, toast, svgIcon } from './util.js?v=8aa5e5cdf1';
 import { addRecord, exportCSV, exportXAPI } from './records.js?v=50fb9dd463';
 import { scoreCase, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=7f4afcf446';
@@ -42,7 +42,7 @@ const RUN = {
   'abd-us': { pane: 'abdomen', run: (a, o) => { if (!o.silent) a.showPane('abdomen'); } },
   doppler: { pane: 'doppler', derive: (c) => dopplerLines(c.m, c.params), run: (a, o) => { a.setProbe?.('PV_TRUNK'); if (!o.silent) a.showPane('doppler'); } },
   hvpg: { derive: (c) => hvpgItem(c.m, c.params) },
-  fibroscan: { derive: (c) => lsmItem(c.m) },
+  fibroscan: { pane: 'fibroscan', derive: (c) => lsmItem(c.m), run: (a, o) => { if (!o.silent) a.showPane('fibroscan'); } },
   egd: { pane: 'endoscopy', run: (a, o) => { if (!o.silent || o.pane) a.showPane('endoscopy'); } },
   crystalloid: { run: (a) => a.action({ kind: 'infuse', fluid: 'crystalloid' }) },
   prbc: { run: (a) => a.action({ kind: 'infuse', fluid: 'prbc' }) },
@@ -77,10 +77,10 @@ function hvpgItem(m, p) {
 
 function lsmItem(m) {
   const k = m.lsm;
-  return { rows: [['Liver stiffness', `${Math.round(k)} kPa`, k >= 25 ? 'bad' : k >= 15 ? 'warn' : '']],
+  return { rows: [['Liver stiffness', `${k.toFixed(1)} kPa`, k >= 25 ? 'bad' : k >= 15 ? 'warn' : '']],
     note: 'Normal is about 5. Above 25 kPa, clinically significant portal hypertension is near certain; below 15 with platelets of 150 or more, it is unlikely. A congested liver (heart, hepatic veins) is stiff too.' };
 }
-const PANE_LABEL = { endoscopy: 'Show the scope view', doppler: 'Show the Doppler', abdomen: 'Show the ultrasound' };
+const PANE_LABEL = { endoscopy: 'Show the scope view', doppler: 'Show the Doppler', abdomen: 'Show the ultrasound', fibroscan: 'Show the FibroScan' };
 
 // One visibility map per case: what the clinician cannot know is hidden everywhere at once.
 const MODEL_ONLY_EVENTS = ['CSPH', 'BLEED_RISK', 'RED_WALE', 'HIGH_SHUNT', 'LIVER_HYPOPERFUSION', 'INTRAHEPATIC_REVERSAL', 'CAUDATE'];

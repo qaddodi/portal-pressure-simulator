@@ -68,9 +68,11 @@ export function computeMetrics(eng) {
   return {
     t: eng.t, day: eng.day,
     hvpg: hv.hvpg, whvp: hv.whvp, fhvp: hv.fhvp,
-    // Liver stiffness (transient elastography, kPa): rises with the sinusoidal gradient (about 21 kPa at an
-    // HVPG of 10) and with congestion, since a liver full of backed-up blood is stiff too (heart, hepatic veins).
-    lsm: 5 + 2.2 * Math.max(0, hv.hvpg - 3) + 1.2 * Math.max(0, hv.fhvp - 6),
+    // Liver stiffness (transient elastography, kPa), an estimate from the model. It rises with the sinusoidal
+    // gradient (about 20 kPa at an HVPG of 10), flattens above an HVPG of 12 where fibrosis is already
+    // advanced, and with congestion at about 2 kPa per mmHg of free hepatic vein pressure above normal
+    // (heart failure and hepatic outflow block stiffen the liver too).
+    lsm: 5 + 2.2 * Math.max(0, Math.min(hv.hvpg, 12) - 3) + 0.8 * Math.max(0, hv.hvpg - 12) + 2 * Math.max(0, hv.fhvp - 6),
     measured,
     ppg: P[ni.CONF] - P[ni.IVCS],
     pv: P[ni.CONF],
