@@ -8,15 +8,15 @@ import { createInspector } from './inspector.js?v=256ba10112';
 import { createDock, CUTOFFS } from './dock.js?v=67fd084b27';
 import { createWhy } from './why.js?v=b894d33b56';
 import { createTimeline } from './timeline.js?v=874f8bd353';
-import { createLearn } from './learn.js?v=eb39f85abe';
+import { createLearn } from './learn.js?v=dbbd4a6fb7';
 import { createCases } from './cases.js?v=56a5affbf2';
 import { createCompare } from './compare.js?v=b5f2c36ee4';
 import { createCard } from './card.js?v=64372fe2ed';
 import { createChart, computeFindings } from './chart.js?v=29ff357666';
-import { createHome } from './home.js?v=5970196e20';
+import { createHome } from './home.js?v=4a0b7bd5d0';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=c5fa61e184';
-import { startLMS } from './lms.js?v=0dbeb85e21';
+import { startLMS } from './lms.js?v=d08c954801';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=81ab18689b';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
@@ -141,7 +141,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=8593fe5008'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=d9388c254d'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -386,6 +386,7 @@ function doAction(a) {
   if (a.kind === 'probe') { host.send({ type: 'probe', id: a.id }); return; }
   if (a.kind === 'paracentesisPrompt') { dock.show('abdomen', { reveal: true }); toast('Choose the volume in Ascites & paracentesis, then Drain.'); return; }
   host.send({ type: 'action', action: a });
+  logAction('action', a.kind);
   const tl = { infuse: { crystalloid: '1 L crystalloid', prbc: '1 unit PRBC', albumin: 'Albumin infusion' }, hemorrhage: `Hemorrhage ${a.mL} mL`, band: 'Band ligation', valsalva: 'Valsalva', rupture: 'Varix ruptured (manual)', stopBleed: 'Bleeding stopped',
     paracentesis: `Paracentesis ${((a.mL || 0) / 1000).toFixed(1)} L${a.albumin ? ' + albumin' : ''}` }[a.kind];
   const tlLabel = typeof tl === 'object' ? tl[a.fluid] : tl;
