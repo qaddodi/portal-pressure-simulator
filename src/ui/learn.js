@@ -14,7 +14,7 @@ const saved = (() => { try { return JSON.parse(localStorage.getItem('pps.lessons
 const save = () => { try { localStorage.setItem('pps.lessons', JSON.stringify(saved)); } catch { /* storage unavailable */ } };
 
 // Step bindings (all optional): preset/presetDays (native pre-aging), params, afterDays (extra disease days after the patch),
-// tab (pane), probe, invert, endo ('eso'|'fundus'), focus, data (labeled metric row); a do-step goal(frame, params, log)
+// tab (pane), probe, invert, endo ('eso'), focus, data (labeled metric row); a do-step goal(frame, params, log)
 // also receives the actions the learner has taken since the step began (store.logAction).
 // Step types: frame | predict (mcq | draw | direction) | do (goal) | observe (seconds / days) | explain (metric) | check (quiz)
 // A 'direction' prediction is made on the figure: two arrows at the vessel, toward or away from

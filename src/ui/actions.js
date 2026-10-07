@@ -167,7 +167,7 @@ function varixVerbs(site, ctx) {
   const eso = site === 'eso';
   const out = [];
   if (eso) out.push({ type: 'button', id: 'band', label: 'Band', icon: 'band', run: () => { ctx.action({ kind: 'band' }); toast('Band placed on an esophageal varix column.'); }, note: (f) => (f.bands ? `${Math.round(f.bands)} band${f.bands >= 1.5 ? 's' : ''} placed` : null) });
-  out.push({ type: 'button', id: 'endoscope', label: 'Endoscope', icon: 'endoscope', run: () => { ctx.paneApi('endoscopy')?.setView?.(eso ? 'eso' : 'fundus'); ctx.showPane('endoscopy'); } });
+  out.push({ type: 'button', id: 'endoscope', label: 'Endoscope', icon: 'endoscope', run: () => { ctx.paneApi('endoscopy')?.setView?.('eso'); ctx.showPane('endoscopy'); } });
   const key = eso ? 'balloonEso' : 'balloonGas';
   out.push({ type: 'toggle', id: 'balloon', key, label: eso ? 'Esophageal balloon' : 'Gastric balloon', icon: 'balloon', get: (p) => !!p[key], set: (p, v) => { p[key] = v; }, hist: eso ? 'Esophageal balloon' : 'Gastric balloon' });
   return out;
