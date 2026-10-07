@@ -9,7 +9,7 @@ import { FONT } from './charts.js?v=898c42e2f5';
 
 const WAVE_T0 = 8; // ms: the shear wave reaches the top of the window about 8 ms after the push
 const ORANGE = '#f0924a';
-const PANEL = '#0d1014', EDGE = 'rgba(255,255,255,.10)', TICK = '#8b95a3';
+const PANEL = '#0a0c0f', EDGE = 'rgba(255,255,255,.10)', TICK = '#8b95a3';
 const rnd = (seed) => { let x = seed >>> 0; return () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; }; };
 
 /** Shear wave speed (m/s) from stiffness E (kPa): E = 3 ρ c², ρ about 1000 kg/m³. */
@@ -74,8 +74,8 @@ function rrect(ctx, x, y, w, h2, r) {
 export function createFibroScan() {
   const cv = h('canvas', { role: 'img', 'aria-label': 'Simulated FibroScan elastography panel, live' });
   const box = h('div', { class: 'chart-box fibroscan-box' }, cv);
-  const note = h('p', { class: 'ctl-sub' }, 'A simulated FibroScan, live: the slope of the shear wave front gives its speed and so the stiffness. It is an estimate from the model, not a measurement. Normal is about 5 kPa; above 25 kPa with a low platelet count, clinically significant portal hypertension is near certain. A congested liver (heart, hepatic veins) is stiff too.');
-  const el = h('div', { class: 'dock-pane', 'data-pane': 'fibroscan' }, box, note);
+  const note = h('p', { class: 'ctl-sub', style: { color: TICK, margin: '10px 4px 2px' } }, 'A simulated FibroScan, live: the slope of the shear wave front gives its speed and so the stiffness. It is an estimate from the model, not a measurement. Normal is about 5 kPa; above 25 kPa with a low platelet count, clinically significant portal hypertension is near certain. A congested liver (heart, hepatic veins) is stiff too.');
+  const el = h('div', { class: 'dock-pane', 'data-pane': 'fibroscan', style: { color: TICK } }, box, note);
   const off = document.createElement('canvas'); off.width = off.height = N;
   const octx = off.getContext('2d'), img = octx.createImageData(N, N);
   let model = 10, running = false, shown = null, last = 0;
@@ -133,6 +133,8 @@ export function createFibroScan() {
     requestAnimationFrame(loop);
   }
   function update(f) {
+    const wrap = el.parentElement; // the whole tab body is dark, not just the panel
+    if (wrap && !wrap.dataset.dark) { wrap.dataset.dark = '1'; wrap.style.background = PANEL; }
     model = f.metrics.lsm;
     if (!running && cv.offsetParent !== null) { running = true; requestAnimationFrame(loop); }
   }
