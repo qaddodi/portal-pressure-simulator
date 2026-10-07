@@ -22,6 +22,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   new ResizeObserver(() => { const first = !sizes.w; sizes.w = el.offsetWidth; sizes.h = el.offsetHeight; if (first) { placedFor = ''; lastLayout = ''; pinned = null; } position(); syncMore(); if (isDocked()) reveal(); }).observe(el);
   const uiState = {};
   ctx.ui = (key, def) => (uiState[key] ||= def);
+  const tallest = {};
   let lastSelKey = '', model = null, live = [], syncs = [], actionable = [], selRef = null, placedFor = '', lastLayout = '', pinned = null;
 
   const refP = () => { const st = store.get(); return st.compareSnap ? st.compareSnap.P : st.healthy?.P; };
@@ -93,6 +94,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     const focusedIdx = keepFocus ? actionable.findIndex((a) => a.el.contains(document.activeElement)) : -1;
     const same = !el.hidden && !!model && JSON.stringify(normalizeSel(sel) || sel) === lastSelKey, keepH = same ? (el.querySelector('.ac-scroll')?._h || 0) : 0;
     lastSelKey = JSON.stringify(normalizeSel(sel) || sel);
+    if (!same) el.style.minHeight = '';
     model = m; selRef = sel; live = []; syncs = []; actionable = [];
     const close = h('button', { class: 'ib ac-close', 'aria-label': 'Close', title: 'Close (Esc)', onclick: () => store.set({ selection: null }) }, icon('close'));
     const valEl = h('div', { class: 'ac-value' });
@@ -314,6 +316,13 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     if (sc && !sc.classList.contains('more')) {
       const need = Math.min(sc.scrollHeight, innerHeight * 0.6);
       if (need > (sc._h || 0)) { sc._h = need; sc.style.minHeight = need + 'px'; }
+    }
+    // The whole card keeps the tallest size it has needed for this structure (its header text, pills and notes come and go),
+    // so it never breathes as values change; a held pointer freezes it as well.
+    if (!el.style.height) {
+      const hNow = el.offsetHeight, k = lastSelKey + (isDocked() ? '|d' : '');
+      if (hNow > (tallest[k] || 0)) tallest[k] = hNow;
+      el.style.minHeight = (tallest[k] || 0) + 'px';
     }
     position();
   }
