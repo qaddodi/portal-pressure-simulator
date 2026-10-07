@@ -921,6 +921,8 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .cs-cmp-row p { margin: 6px 0 0; color: var(--text-2); }
 .cs-pearls { padding-left: 20px; font-size: var(--fs-14); line-height: 1.55; }
 .cs-inside { font-size: var(--fs-12); }
+.cs-trend { font-weight: 600; color: var(--text-3); }
+.cs-see { margin-top: 8px; }
 @media (max-width: 720px) { .cs-ord-grid { grid-template-columns: 1fr; } .cs-q { font-size: 18px; } }
 .score { display: flex; align-items: center; gap: 20px; padding: 16px; border-radius: var(--r-sheet); background: var(--surface-2); margin-bottom: 16px; }
 .score-ring { width: 76px; height: 76px; flex: none; }
@@ -3079,3 +3081,5 @@ input[type="range"] { touch-action: none; }
   .app.case-deciding .panel { height: 90% !important; }
   .app[data-mode="learn"] #strip { display: none; }
 }
+/* Lesson data rows: where a number started, beside where it is now. */
+.data-row .dr-was { margin-left: 6px; font-size: var(--fs-12); font-weight: 500; color: var(--text-3); white-space: nowrap; }

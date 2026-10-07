@@ -1,6 +1,6 @@
 // C4. Ascites that keeps coming back: the chart plants one contraindication to TIPS, or none.
 
-import { DX_HIDDEN, fill } from './kit.js?v=58f5848647';
+import { DX_HIDDEN, fill } from './kit.js?v=010d07460c';
 
 const PT = { name: 'Linda Park', age: 59, sex: 'F', setting: 'Hepatology day unit', problem: 'Needs a large tap every two weeks.' };
 const HX = ['Alcohol-related cirrhosis. Abstinent for two years.', 'Ascites for 18 months. Takes spironolactone 400 mg and furosemide 160 mg a day, the maximum doses. The dietitian confirms a low-salt diet and a urine sodium check confirms she follows it.', 'Needs a large tap about every two weeks and is back again today.'];
@@ -35,7 +35,7 @@ export const refractory = {
     const steps = [
       { id: 'define', title: 'Is it refractory?',
         q: 'Is this refractory ascites?',
-        options: ['Yes: she needs repeated large taps despite maximum diuretics and a low-salt diet', 'No: the diuretics have not been maximized', 'No: she needs a six-month trial first', 'No: it is a low albumin problem'],
+        options: ['Yes: it returns despite full-dose diuretics and low salt', 'No: her diuretic doses can still be pushed higher', 'No: it needs a six-month trial of diuretics first', 'No: it is a low albumin problem, not pressure'],
         answer: 0, why: 'Refractory means ascites that needs repeated large taps despite maximum diuretics and a low-salt diet she is following.' },
       { id: 'today', title: 'Today',
         q: 'She is tense and uncomfortable. What do you do today?',

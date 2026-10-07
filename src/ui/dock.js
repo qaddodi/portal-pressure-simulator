@@ -8,8 +8,9 @@ import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=8aa5e5cdf1';
 import { lobuleFlows } from './lobule-model.js?v=c4f41a94a3';
 import { createProfile } from './charts.js?v=898c42e2f5';
 import { createPressureTime } from './pressure-time.js?v=42f7819b86';
+import { createFibroScan } from './fibroscan.js?v=633d6a71e2';
 import { createDoppler } from './doppler.js?v=3e54ad90ca';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=994aeb7996';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=5ee66e982e';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -301,7 +302,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   pressure.el.append(measure.el);
   const instruments = [
     pressure, createPressureTime({ marks }),
-    createDoppler({ onProbe }), endoscopy, createAbdomen({ onAction }),
+    createDoppler({ onProbe }), endoscopy, createAbdomen({ onAction }), createFibroScan(),
   ];
   const panes = instruments.map((p) => {
     p.el.classList.remove('dock-pane'); p.el.classList.add('instrument-view');
@@ -319,9 +320,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     doppler: ['doppler', (f) => `${fmt(Math.abs(f.metrics.pvVel), 0)} cm/s`],
     endoscopy: ['endoscope', (f) => (varixSuppressed() ? 'Not modeled' : f.metrics.varix.d < 2.5 ? 'No varices' : `Grade ${f.metrics.varix.grade.code}`)],
     abdomen: ['needle', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],
+    fibroscan: ['gauge', (f) => `${fmt(f.metrics.lsm, 0)} kPa`],
   };
-  const SHORT = { profile: 'Pressure', scope: 'Over time', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites' };
-  const ORDER = ['profile', 'scope', 'doppler', 'endoscopy', 'abdomen'];
+  const SHORT = { profile: 'Pressure', scope: 'Over time', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites', fibroscan: 'FibroScan' };
+  const ORDER = ['profile', 'scope', 'doppler', 'endoscopy', 'abdomen', 'fibroscan'];
   const saved = (() => { try { return JSON.parse(localStorage.getItem('pps.instruments') || 'null') || {}; } catch { return {}; } })();
   let open = Array.isArray(saved.open) && saved.open.every((id) => byId[id]) && saved.open.length ? saved.open.slice(0, 2) : ['profile'];
   let frame = null, state = 'open', resizeFrame = 0, picking = false;

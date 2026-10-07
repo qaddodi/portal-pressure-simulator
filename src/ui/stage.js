@@ -3683,6 +3683,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     hl = null;
     if (id && store.get().tool === 'select' && !shunt) {
       hl = computeHighlight(id);
+      // The flow path runs on into the IVC, but hovering anything else must not light it.
+      if (!IVC_EDGES.has(id)) for (const e of IVC_EDGES) hl.delete(e);
       for (const e of hl) if (E[e]) cls(E[e], 'hl', true);
       wrap.classList.add('hovering');
     } else wrap.classList.remove('hovering');

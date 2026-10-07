@@ -1,7 +1,7 @@
 // C6. Rapid ascites in a young patient: Budd–Chiari, sinusoidal obstruction syndrome or a caval web.
 // The HVPG is the trap in all three. The model shows the pressure change after anticoagulation or stenting.
 
-import { DX_HIDDEN, fill } from './kit.js?v=58f5848647';
+import { DX_HIDDEN, fill } from './kit.js?v=010d07460c';
 
 const BC = {
   vid: 'BC', preset: 'budd-chiari', kind: 'bc',
@@ -62,17 +62,17 @@ export const buddChiari = {
         q: 'Where is the block?', options: LEVELS, answer: { bc: 3, sos: 2, web: 4 }[k],
         why: { bc: 'No hepatic vein flow on Doppler and an enlarged caudate lobe: the large hepatic veins are blocked.', sos: 'The large hepatic veins are open. The injury is in the small veins inside the liver after the conditioning chemotherapy.', web: 'A membrane in the inferior vena cava below the heart, with collateral veins on the abdominal wall.' }[k] },
       { id: 'hvpg', title: 'The HVPG',
-        q: { bc: 'Can you trust an HVPG here?', sos: 'His HVPG is raised, about 9 mmHg. Is it reliable here?', web: 'Her HVPG is normal, yet she has tense ascites. What does that mean?' }[k],
+        q: { bc: 'Can you trust an HVPG here?', sos: 'His HVPG is raised, about 9 mmHg. Is it reliable here?', web: 'Her HVPG is normal, yet she has moderate ascites. What does that mean?' }[k],
         options: { bc: ['Yes: it measures portal pressure in every liver disease', 'No: with the hepatic veins blocked there is no valid wedge reading', 'Only if you wedge in the left hepatic vein'],
-          sos: ['Yes: the large hepatic veins are open, so a raised HVPG is a real sign of the block', 'No: SOS always blocks the hepatic veins', 'It is meaningless after a transplant'],
-          web: ['The gradient hides the problem: the pressure is raised after the liver, so read the absolute hepatic vein pressure', 'Her ascites is not from the liver', 'The measurement was done wrong'] }[k],
+          sos: ['Yes: his large hepatic veins are open, so the wedge works', 'No: SOS always blocks the large hepatic veins', 'No: an HVPG is meaningless after a transplant'],
+          web: ['The block is after the liver, so read the free pressure', 'Her ascites cannot be coming from the liver', 'The catheter was wedged in the wrong place'] }[k],
         answer: k === 'bc' ? 1 : 0,
         why: { bc: 'The wedge reading assumes open hepatic veins. With them blocked, the HVPG cannot be trusted.', sos: 'With open veins the wedge is valid, so a raised HVPG is real evidence of a block inside the liver.', web: 'Both the free and the wedged pressure are raised, so their difference is small. Look at the absolute pressure.' }[k] },
       { id: 'treat', title: 'First treatment',
         q: { bc: 'What do you do first?', sos: 'What do you do first?', web: 'What do you do first?' }[k],
-        options: { bc: [{ t: 'Anticoagulate, stop the contraceptive and look for a clotting disorder', does: ['anticoag'] }, 'TIPS now', 'List for liver transplant now', 'Diuretics alone and review in a month'],
+        options: { bc: [{ t: 'Anticoagulate, stop the pill, screen for a clotting cause', does: ['anticoag'] }, 'Place a TIPS now, before any anticoagulation', 'List her for liver transplant straight away', 'Start diuretics alone and review in a month'],
           sos: ['Supportive care and defibrotide', 'Full anticoagulation with heparin', 'TIPS', 'Aggressive diuresis for the weight gain'],
-          web: ['Angioplasty or a stent across the caval web', 'TIPS', 'Anticoagulation alone', 'Diuretics alone'] }[k],
+          web: ['Angioplasty or a stent across the web', 'A TIPS to bypass the liver', 'Anticoagulation on its own', 'Diuretics on their own'] }[k],
         answer: 0,
         onCommit: async (c, pick) => {
           if (k === 'bc' && pick === 0) { c.story('JAK2 comes back positive: a myeloproliferative neoplasm.'); await c.skip({ label: 'Clinic, 3 months later', days: 90 }); c.snap('Three months of anticoagulation'); }
@@ -82,7 +82,7 @@ export const buddChiari = {
     ];
     if (k === 'bc') steps.push({ id: 'ladder', title: 'If she does not improve',
       q: 'If she had not improved on anticoagulation, what is the stepwise plan?',
-      options: ['Angioplasty or a stent for a short stenosis, then TIPS if that fails, and transplant last', 'TIPS first, then angioplasty, then transplant', 'Transplant first, because she is young', 'Stop the anticoagulant and use diuretics'],
+      options: ['Angioplasty or stent, then TIPS, then transplant', 'TIPS first, then angioplasty, then transplant', 'Transplant first, because she is young and fit', 'Stop the anticoagulant and rely on diuretics'],
       answer: 0, why: 'The ladder runs from the least to the most invasive: anticoagulation, angioplasty or stent, TIPS, then transplant.' });
     const objectives = [
       { id: 'doppler', weight: 15, text: 'Ordered the Doppler first', check: (c) => c.did('doppler') },

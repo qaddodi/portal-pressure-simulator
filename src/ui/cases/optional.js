@@ -1,7 +1,7 @@
 // Optional cases 9 to 11: schistosomiasis varices, reversed portal flow on a routine scan, and
 // confusion after a TIPS.
 
-import { DX_HIDDEN, fill } from './kit.js?v=58f5848647';
+import { DX_HIDDEN, fill } from './kit.js?v=010d07460c';
 
 const LEVELS = ['The portal vein, before the liver', 'Inside the liver, before the sinusoids', 'Inside the liver, in the sinusoids', 'The hepatic veins, after the liver'];
 
@@ -29,11 +29,11 @@ export const schisto = {
         q: 'Large varices, a big spleen and a normal liver. Where is the block?', options: LEVELS, answer: 1,
         why: 'Schistosomiasis scars the small portal branches before the sinusoids. The liver cells keep working, which is why his liver tests are normal.' },
       { id: 'hvpg', title: 'The HVPG', needs: ['hvpg'],
-        q: 'His HVPG is 2 mmHg. Is portal hypertension excluded?', options: ['No: a block before the sinusoids leaves the HVPG low', 'Yes: the HVPG is normal', 'Only if the spleen is normal', 'The HVPG cannot be measured'], answer: 0,
+        q: 'His HVPG is 2 mmHg. Is portal hypertension excluded?', options: ['No: the HVPG misses a block before the sinusoids', 'Yes: a normal HVPG rules it out', 'Only if the spleen is also normal', 'No: the HVPG cannot be measured here'], answer: 0,
         why: 'The wedge sees the sinusoids. A block before them is invisible to the HVPG even when the varices are large.' },
       { id: 'plan', title: 'The plan',
         q: 'What is the plan for Karim?',
-        options: [{ t: 'A banding program and a beta blocker, and treat the infection with praziquantel', does: ['carvedilol', 'evl'] }, 'TIPS now', 'List for transplant', 'No treatment: the HVPG is normal'],
+        options: [{ t: 'Banding, a beta blocker and praziquantel', does: ['carvedilol', 'evl'] }, 'A TIPS now to lower the pressure', 'List him for a liver transplant', 'No treatment: his HVPG is normal'],
         answer: 0,
         onCommit: async (c) => { await c.skip({ label: 'Clinic, 3 months later', days: 90 }); c.snap('Three months of treatment'); },
         why: 'The liver itself is healthy, so banding and a beta blocker are the mainstay. TIPS and transplant are not first steps.' },
@@ -66,18 +66,18 @@ export const hepatofugal = {
     ct: { title: 'CT scan with contrast', lines: ['Portal vein open, no clot. Large spontaneous splenorenal shunts.', 'Nodular liver, no ascites.'] },
     doppler: { title: 'Doppler of the liver vessels', extra: ['No clot seen in the portal vein.'] },
   },
-  orders: ['labs', 'doppler', 'ct', 'hvpg'],
+  orders: ['labs', 'doppler', 'fibroscan', 'ct', 'hvpg'],
   inside: [['Portal pressure', 'pv', 'mmHg'], ['Direction of portal flow', 'pvdir', '']],
   build: () => {
     const steps = [
       { id: 'meaning', title: 'The report',
-        q: 'What does "hepatofugal" mean?', options: ['Blood flows away from the liver: advanced portal hypertension', 'Blood flows toward the liver: normal', 'The portal vein is clotted', 'The Doppler color setting was wrong'], answer: 0,
+        q: 'What does "hepatofugal" mean?', options: ['Flow runs away from the liver: advanced disease', 'Flow runs toward the liver: a normal finding', 'The portal vein is blocked by a clot', 'The Doppler color setting was wrong'], answer: 0,
         why: 'Hepatopetal means toward the liver and is normal. Hepatofugal means away, a sign of advanced disease.' },
       { id: 'check', title: 'What to check', needsAny: ['doppler', 'ct'],
         q: 'What do you check next?', options: ['Look for a clot in the portal vein on Doppler or CT', 'Nothing: it is an incidental finding', 'A liver biopsy', 'Place a TIPS'], answer: 0,
         why: 'Reversed flow is usually advanced disease, but a clot in the portal vein is the treatable thing to exclude.' },
       { id: 'plan', title: 'The plan',
-        q: 'What do you do now?', options: ['Refer for transplant evaluation and optimize her cirrhosis care', 'Reassure her and repeat the scan in a year', 'Place a TIPS', 'Anticoagulate her'], answer: 0,
+        q: 'What do you do now?', options: ['Refer her for transplant assessment', 'Reassure her and repeat the scan in a year', 'Place a TIPS to restore portal flow', 'Anticoagulate her to prevent a clot'], answer: 0,
         why: 'Hepatofugal flow, rising bilirubin and a past episode of confusion mean advanced disease. Start the transplant referral.' },
     ];
     const objectives = [
@@ -113,7 +113,7 @@ export const postTips = {
   build: () => {
     const steps = [
       { id: 'cause', title: 'The cause',
-        q: 'What is the most likely cause of his confusion?', options: ['Hepatic encephalopathy from the shunt, once a trigger has been looked for', 'A stroke', 'Alcohol withdrawal', 'Low blood sugar'], answer: 0,
+        q: 'What is the most likely cause of his confusion?', options: ['Hepatic encephalopathy from the shunt', 'A stroke during the procedure', 'Alcohol withdrawal after admission', 'Low blood sugar from poor intake'], answer: 0,
         why: 'Shunting blood past the liver lets gut toxins reach the brain. Look for a trigger: infection, bleeding, constipation, low potassium, diuretics.' },
       { id: 'treat', title: 'Treatment',
         q: 'How do you treat it?', options: ['Lactulose, then add rifaximin to prevent recurrence', 'Stop the diuretics and restrict protein', 'Remove the TIPS at once', 'A sedative for the agitation'], answer: 0,
