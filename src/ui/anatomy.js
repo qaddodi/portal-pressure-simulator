@@ -162,11 +162,11 @@ export const EDGE_PATH = {
 
   AP_R: 'M655 478 C 612 470 552 432 505 398',
   AP_L: 'M655 478 C 668 440 680 405 688 378',
-  TIPS: 'M505 398 C 486 352 552 294 540 240',   // a gentle S through the parenchyma, portal → hepatic vein
-  // DIPS: a short tract from the portal bifurcation (PVH), up through the caudate lobe, meeting the IVC from the
-  // side just below the hepatic vein confluence. It stops at the IVC's left wall (x 609) and does not run along
-  // the cava or enter its lumen.
-  DIPS: 'M602 442 C 588 404 586 328 597 304 C 601 300 605 300 609 300',
+  TIPS: 'M505 398 C 498 356 536 298 540 240',   // one gentle curve through the parenchyma, portal → hepatic vein
+  // DIPS: a short tract from the portal bifurcation (PVH), up through the caudate lobe in one gentle curve (no
+  // bend sharper than about 15° per stretch), meeting the IVC from the side just below the hepatic vein
+  // confluence. It stops at the IVC's left wall (x 609) and does not run along the cava or enter its lumen.
+  DIPS: 'M602 442 C 582 398 580 332 609 300',
   S_PC: 'M700 556 C 682 590 652 625 620 650',
   S_DSR: 'M880 505 C 862 548 852 590 862 618',
   S_MC: 'M690 660 C 672 650 645 648 620 650',
