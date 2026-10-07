@@ -1,6 +1,6 @@
 // Build a SCORM 1.2 package of the simulator for an LMS (Moodle, Canvas, Blackboard, D2L…).
 // No dependencies: files are stored in a plain ZIP. Inside the LMS, src/ui/lms.js finds the
-// SCORM API, reports the best lesson or case score and marks the activity passed or failed.
+// SCORM API, reports the activity's best attempt (a single-activity package) or the course average over every lesson and case (whole package), marked passed only when mastered (80 %, critical objectives met for cases).
 //
 //   node scripts/scorm.mjs                       whole simulator, opens on Home
 //   node scripts/scorm.mjs --lesson hvpg         straight into one lesson
@@ -39,7 +39,7 @@ const manifest = `<?xml version="1.0" encoding="UTF-8"?>
       <title>${esc(title)}</title>
       <item identifier="item1" identifierref="sco1" isvisible="true" parameters="${esc(params)}">
         <title>${esc(title)}</title>
-        <adlcp:masteryscore>50</adlcp:masteryscore>
+        <adlcp:masteryscore>80</adlcp:masteryscore>
       </item>
     </organization>
   </organizations>

@@ -4,25 +4,43 @@
 // pointer. Instructors build their own scripts from the current model and share them as a file
 // or a link.
 
-import { store } from './store.js?v=4c0e1f79a3';
+import { store } from './store.js?v=18136433f8';
+import { runSequence, restoreSequence } from './sequence.js?v=7bf7fb864e';
 import { h, toast, svgIcon, icon } from './util.js?v=8aa5e5cdf1';
-import { download } from './records.js?v=39559a8813';
+import { download } from './records.js?v=5f3cebd762';
 
+const ask = (q, a) => `\n\nAsk the room: ${q} Expected: ${a}`;
 export const SCRIPTS = [
   {
-    id: 'ph-ten', title: 'Portal hypertension in ten minutes', builtin: true,
-    summary: 'Healthy → cirrhosis → six months on → the lobule → TIPS.',
+    id: 'ph-five', title: 'Portal pressure in five minutes', builtin: true,
+    summary: 'A pressure difference moves blood: sinusoidal, presinusoidal and downstream blocks.',
     steps: [
-      { title: 'A healthy portal circulation', preset: 'healthy', view: 'anatomic', zoom: 'fit', pane: 'profile',
-        notes: 'Portal pressure about 7 mmHg, hepatic veins about 4: an HVPG near 3. The gut and spleen drain through the liver; the profile under the figure shows each resistance as a step.' },
-      { title: 'Cirrhosis at 60 %', params: { cirrhosis: 0.6 },
-        notes: 'Raise sinusoidal resistance. Everything upstream rises together: SMV, splenic vein and portal vein. HVPG crosses 10 mmHg: clinically significant portal hypertension.' },
-      { title: 'Six months later', days: 180,
-        notes: 'The gradient stays high, so collaterals open and remodel: varices at the lower esophagus, a larger spleen. Collaterals decompress the portal system but divert gut blood around the liver.' },
-      { title: 'Inside a lobule', zoom: 'lobule',
-        notes: 'Stellate cells have activated; collagen lines the sinusoids (capillarization) and bridges the lobules. This is where the resistance lives.' },
-      { title: 'A TIPS, 10 mm', zoom: 'fit', params: { tips: { on: true, d: 10 } }, pane: 'flow',
-        notes: 'The stent bypasses the liver: the portosystemic gradient falls below 12, but the shunt fraction rises and liver perfusion falls. Every fix has a cost.' },
+      { title: 'A pressure difference moves blood. (1 min)', preset: 'healthy', view: 'circuit', zoom: 'fit', pane: 'profile',
+        notes: 'Follow blood from the bowel and spleen through the liver to the heart. Across any route, pressure drop equals flow times resistance. Use the difference between two pressures, rather than a single pressure. The portal vein has no valve that guarantees one direction.' + ask('If upstream and downstream pressures become equal, what drives steady flow through this route?', 'No pressure difference remains to drive that flow.') },
+      { title: 'Put resistance in the liver. (1.5 min)', preset: 'csph', view: 'anatomic', zoom: 'lobule', pane: 'profile',
+        notes: 'This is a sinusoidal example. Hepatic venous pressure gradient, or HVPG, is wedged minus free hepatic venous pressure. In sinusoidal cirrhosis it can reflect the upstream pressure problem. Clinically significant portal hypertension in this setting is conventionally defined by HVPG of at least 10 mmHg. The model supplies a wedge surrogate, not an actual catheter procedure.' + ask('Which two pressures form HVPG?', 'Wedged minus free hepatic venous pressure.') },
+      { title: 'Move the obstruction upstream. (1.5 min)', preset: 'schisto', view: 'anatomic', zoom: 'lobule', pane: 'profile',
+        notes: 'This presinusoidal example has high pressure upstream of the sinusoids. A low HVPG does not exclude portal hypertension here. The app’s portal pressure gradient, or PPG, subtracts upper-caval pressure from confluence pressure. It is a direct network readout at those points, not an interchangeable clinical measurement. Compare PPG with HVPG in the Hepatic vein pressures card.' + ask('Does this low HVPG rule out the upstream obstruction?', 'No, the wedge surrogate does not capture all upstream resistance.') },
+      { title: 'Raise the pressure downstream. (1 min)', preset: 'rhf', params: { pulsatile: true }, view: 'anatomic', zoom: 'fit', pane: 'profile',
+        notes: 'Congestion can raise both hepatic venous pressures together. A small difference can coexist with high absolute pressure. Identify the resistance site before choosing a treatment. This model demonstrates backpressure. It does not establish a real patient’s cardiac diagnosis or procedural eligibility. Keep endoscopy closed. Related lessons: valveless, resistance-site, hvpg, heart.' + ask('Which matters here: the small difference alone, or the absolute pressures and their location?', 'Assess both absolute pressures and location.') },
+    ],
+  },
+  {
+    id: 'ph-ten', title: 'From resistance to collateral flow', builtin: true,
+    summary: 'Pressure difference → sinusoidal resistance → inflow → drugs → collaterals → TIPS.',
+    steps: [
+      { title: 'Start with the pressure difference. (1 min)', preset: 'healthy', view: 'circuit', zoom: 'fit', pane: 'profile',
+        notes: 'Use pressure drop = flow × resistance as our starting relationship. It describes a route within a coupled circulation. The whole network can change when we alter one route. A pressure reading without its location and reference is incomplete.' + ask('What must we subtract from upstream pressure to describe a pressure drop?', 'Downstream pressure for the same route.') },
+      { title: 'Add sinusoidal resistance. (2 min)', preset: 'cirr-comp', view: 'anatomic', zoom: 'lobule', pane: 'profile',
+        notes: 'The cirrhosis control is an educational resistance macro. It is not a histologic percentage or a clinical score. This mild state raises the sinusoidal pressure difference. Contrast this profile with a portal-vein obstruction, which puts the largest drop elsewhere.' + ask('Where is the main added resistance in this state?', 'The sinusoidal bed.') },
+      { title: 'Inflow still matters. (2 min)', preset: 'csph', params: { splanchnicTone: 0.6 }, view: 'anatomic', zoom: 'fit', pane: 'profile',
+        notes: 'Compare HVPG and portal flow with the CSPH baseline shown in lesson Forward. Lowering this tone control lowers modeled arterial resistance in the splanchnic bed. More inflow meets the resistant liver. Nonselective beta blockers, or NSBBs, address part of this mechanism. Clinical prevention benefits come from trials, not from the magnitude of this slider response.' + ask('With liver resistance unchanged, can more inflow raise upstream pressure?', 'Yes.') },
+      { title: 'Reduce inflow pharmacologically. (1.5 min)', preset: 'csph', params: { drugs: { carvedilol: true, propranolol: false, terlipressin: false, octreotide: false } }, view: 'anatomic', zoom: 'fit', pane: 'profile',
+        notes: 'Carvedilol represents beta blockade plus a reduction in intrahepatic tone in this model. Propranolol has a different fixed parameter effect. These are mechanism illustrations. They do not compare clinical doses, tolerability or individual response. In compensated cirrhosis with clinically significant portal hypertension, trial evidence supports NSBB prevention of decompensation.' + ask('Why should we watch systemic pressure as well as the portal gradient?', 'An intervention can affect systemic hemodynamics and tolerability.') },
+      { title: 'Let collaterals remodel. (2 min)', preset: 'healthy', params: { cirrhosis: 0.65 }, days: 180, view: 'anatomic', zoom: 'fit', pane: 'profile',
+        notes: 'Alternative routes can carry flow immediately when a gradient exists. Their caliber can also remodel over time. The disease clock is separate from the beat-to-beat clock. Collaterals can decompress one pathway while exposing another tissue to pressure and flow.' + ask('Does opening a collateral guarantee normal pressure or normal liver perfusion?', 'No.') },
+      { title: 'A bypass changes several quantities. (1.5 min)', preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, view: 'anatomic', zoom: 'fit', pane: 'profile',
+        notes: 'Transjugular intrahepatic portosystemic shunt, or TIPS, bypasses part of the liver resistance. It redistributes flow and may increase downstream load. The model’s shunt fraction saturates in this example. It cannot predict encephalopathy, survival or the safest diameter. Selection requires clinical information outside this network. Related lessons: valveless, resistance-site, forward, collaterals, costs.' + ask('Which additional quantities should we inspect after pressure falls?', 'Bypass flow, sinusoidal flow and downstream pressure/load, alongside clinical eligibility.') },
     ],
   },
   {
@@ -41,9 +59,9 @@ export const SCRIPTS = [
     id: 'bleed', title: 'The bleeding patient', builtin: true,
     summary: 'A variceal bleed and its treatment, step by step.',
     steps: [
-      { title: 'Decompensated cirrhosis', preset: 'cirr-decomp', view: 'anatomic', zoom: 'fit', pane: 'endoscopy', notes: 'Large varices with red wale signs: wall tension is close to rupture (Laplace: T = ΔP·r / w).' },
+      { title: 'Decompensated cirrhosis', preset: 'cirr-decomp', view: 'anatomic', zoom: 'fit', pane: 'endoscopy', notes: 'Large varices with red wale signs: modeled wall stress is close to its rupture point (index = ΔP·r / w).' },
       { title: 'The varix ruptures', action: { kind: 'rupture', site: 'VAR', tear: 0.8 }, notes: 'Blood loss lowers portal pressure and the bleeding may pause; over-transfusion would refill the splanchnic veins and restart it.' },
-      { title: 'Terlipressin', params: { drugs: { terlipressin: true } }, pane: 'varixwall', notes: 'Splanchnic vasoconstriction lowers portal inflow within minutes: variceal pressure and wall tension fall.' },
+      { title: 'Terlipressin', params: { drugs: { terlipressin: true } }, pane: 'varixwall', notes: 'Splanchnic vasoconstriction lowers portal inflow within minutes: variceal pressure and modeled wall stress fall.' },
       { title: 'Band ligation', action: { kind: 'band' }, pane: 'endoscopy', notes: 'EVL removes the bleeding source but leaves portal pressure unchanged.' },
       { title: 'The same patient as a circuit', view: 'circuit', notes: 'The circuit shows every route the blood can take; watch the collateral lanes.' },
     ],
@@ -57,27 +75,41 @@ const enc = (o) => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace
 const dec = (s) => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))));
 
 export function createPresenter({ loadPreset, updateParams, host, stage, dock, action, projectorOn, projectorOff, closeHome, rerenderHome }) {
-  let script = null, idx = 0, bar = null, titleEl = null, progEl = null, notesWin = null, laser = null;
+  let script = null, idx = 0, bar = null, titleEl = null, progEl = null, notesEl = null, notesOpen = false, laser = null;
   const all = () => [...SCRIPTS, ...readMine()];
 
-  async function apply(step) {
-    if (step.preset) await loadPreset(step.preset, { days: step.presetDays });
-    else if (step.days) host.send({ type: 'advance', days: step.days });
-    if (step.params) updateParams(step.params, { settle: true, label: step.title });
-    if (step.action) action(step.action);
+  // A slide's model state is a pure function of the slide before it: each is computed once from
+  // the previous slide's canonical snapshot (reset → patch → settle → action → post-patch days →
+  // settle → snapshot, see sequence.js) and cached, so forward, back and jump all show identical
+  // numbers. Step fields: preset + presetDays (native pre-aging), params, action, days (extra
+  // disease days after the patch), then the view bindings below.
+  let slides = [], chain = Promise.resolve();
+  async function resolveSlide(i) {
+    if (slides[i]) return slides[i];
+    if (i > 0) restoreSequence(await resolveSlide(i - 1));
+    const step = script.steps[i];
+    return (slides[i] = await runSequence({ ...step, label: step.title }, { loadPreset, action }));
+  }
+  async function apply(i) {
+    const step = script.steps[i];
+    restoreSequence(await resolveSlide(i));
     if (step.view && step.view !== store.get().view) store.set({ view: step.view });
     if (step.lens) store.set({ colorMode: step.lens });
     if (step.zoom === 'lobule') stage.zoomLobule('R');
     else if (step.zoom === 'liver' || step.zoom === 'fit') { store.set({ lobule: false }); if (step.zoom === 'liver') stage.zoomLiver(); else stage.fit(); }
     if (step.pane) dock.show(step.pane, { reveal: true });
+    if (step.probe) host.send({ type: 'probe', id: step.probe });
+    if (step.invert != null) dock.pane('doppler')?.setInvert?.(step.invert);
+    if (step.endo) dock.pane('endoscopy')?.setView?.(step.endo);
     host.send({ type: 'run', running: true });
   }
   async function go(i) {
     if (!script) return;
     idx = Math.max(0, Math.min(script.steps.length - 1, i));
     renderBar();
-    await apply(script.steps[idx]);
-    writeNotes();
+    const at = idx;
+    chain = chain.then(async () => { if (script && at === idx) { await apply(at); writeNotes(); } });
+    await chain;
   }
   // Presenting is chrome-free: the figure, the hero metric, the slide title and a slim progress
   // bar. The controls appear when the mouse moves and fade after 2 s (clickers and keys work
@@ -85,7 +117,7 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
   function renderBar() {
     if (!bar) return;
     const st = script.steps[idx], n = script.steps.length;
-    titleEl.replaceChildren(h('span', { class: 'pt-n' }, `${idx + 1} / ${n} · ${script.title}`), h('span', { class: 'pt-t' }, st.title));
+    titleEl.replaceChildren(h('span', { class: 'pt-n' }, `${idx + 1} / ${n} · ${script.title}`), h('span', { class: 'pt-t' }, st.title), idx === 0 ? h('span', { class: 'pt-hint' }, '← → or Space: slides · N: speaker notes · L: laser · Esc: exit') : null);
     progEl.firstChild.style.width = `${((idx + 1) / n) * 100}%`;
     progEl.setAttribute('aria-valuenow', String(idx + 1)); progEl.setAttribute('aria-valuemax', String(n));
     bar.replaceChildren(
@@ -93,7 +125,7 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
       h('span', { class: 'pb-n' }, `${idx + 1} / ${n}`),
       h('button', { class: 'ib', 'aria-label': 'Next step', disabled: idx === n - 1, onclick: () => go(idx + 1) }, icon('chev-right')),
       h('span', { class: 'pb-sep' }),
-      h('button', { class: 'btn sm', onclick: openNotes, title: 'Speaker notes in a second window (N)' }, 'Notes'),
+      h('button', { class: 'btn sm', 'aria-pressed': String(notesOpen), onclick: () => toggleNotes(), title: 'Speaker notes (N)' }, 'Notes'),
       h('button', { class: 'btn sm', 'aria-pressed': String(!!laser), onclick: toggleLaser, title: 'Laser pointer (L)' }, 'Laser'),
       h('button', { class: 'ib', 'aria-label': 'Stop presenting', title: 'Stop presenting (Esc)', onclick: stop }, icon('close')));
   }
@@ -104,22 +136,25 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
     clearTimeout(idleT);
     idleT = setTimeout(() => { if (bar && !bar.matches(':hover, :focus-within')) bar.classList.add('idle'); else wake(); }, 2000);
   }
-  function openNotes() {
-    notesWin = window.open('', 'pps-notes', 'width=520,height=640');
-    if (!notesWin) { toast('Allow pop-ups to open the notes window.'); return; }
-    writeNotes();
+  // Speaker notes live in the app: a drawer over the right edge of the figure (N toggles it, so it
+  // also works on a tablet or phone). The room question is split out of the notes and highlighted.
+  function toggleNotes(force) {
+    notesOpen = force ?? !notesOpen;
+    writeNotes(); renderBar();
   }
   function writeNotes() {
-    if (!notesWin || notesWin.closed || !script) return;
-    const d = notesWin.document, st = script.steps[idx], nx = script.steps[idx + 1];
-    d.title = `Notes · ${script.title}`;
-    d.body.style.cssText = 'font: 17px/1.55 Georgia, serif; margin: 28px; color: #16181D; background: #FBFAF7';
-    d.body.innerHTML = '';
-    const el = (tag, txt, css) => { const e = d.createElement(tag); e.textContent = txt; if (css) e.style.cssText = css; d.body.append(e); };
-    el('div', `${script.title} · ${idx + 1} / ${script.steps.length}`, 'font: 600 12px system-ui; letter-spacing: .06em; text-transform: uppercase; color: #6B6F7A');
-    el('h1', st.title, 'font-size: 28px; margin: 8px 0 14px');
-    el('p', st.notes || 'No notes for this step.');
-    if (nx) el('p', `Next: ${nx.title}`, 'margin-top: 30px; color: #6B6F7A; font: 14px system-ui');
+    if (!script || !notesEl) return;
+    notesEl.hidden = !notesOpen;
+    if (!notesOpen) return;
+    const st = script.steps[idx], nx = script.steps[idx + 1];
+    const [text, ask] = String(st.notes || '').split(/\n\nAsk the room: /);
+    const [q, a] = (ask || '').split(' Expected: ');
+    notesEl.replaceChildren(
+      h('div', { class: 'pn-top' }, h('span', { class: 'pn-k' }, `Speaker notes · ${idx + 1} / ${script.steps.length}`), h('button', { class: 'ib', 'aria-label': 'Close notes', onclick: () => toggleNotes(false) }, icon('close'))),
+      h('h2', {}, st.title),
+      h('p', {}, text || 'No notes for this step.'),
+      ask ? h('div', { class: 'pn-ask' }, h('b', {}, 'Ask the room'), h('p', {}, q), a ? h('p', { class: 'pn-a' }, 'Expected: ' + a) : null) : null,
+      nx ? h('p', { class: 'pn-next' }, `Next: ${nx.title}`) : null);
   }
   function toggleLaser() {
     if (laser) { laser.remove(); laser = null; document.body.classList.remove('laser-on'); renderBar(); return; }
@@ -133,6 +168,7 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
   async function start(id) {
     script = typeof id === 'object' ? id : all().find((s) => s.id === id);
     if (!script?.steps?.length) return;
+    slides = []; chain = Promise.resolve();
     closeHome?.();
     if (store.get().mode !== 'explore') store.set({ mode: 'explore' });
     projectorOn();
@@ -140,7 +176,9 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
     bar.addEventListener('focusin', wake);
     titleEl = h('div', { class: 'presenter-title stage-blocker', role: 'status' });
     progEl = h('div', { class: 'presenter-progress', role: 'progressbar', 'aria-label': 'Slide', 'aria-valuemin': '1' }, h('i'));
-    document.getElementById('stageView').append(titleEl, progEl, bar);
+    notesEl = h('aside', { class: 'presenter-notes stage-blocker', 'aria-label': 'Speaker notes', hidden: true });
+    notesOpen = false;
+    document.getElementById('stageView').append(titleEl, progEl, notesEl, bar);
     document.getElementById('app').classList.add('presenting');
     store.set({ selection: null });
     stage.setProjection(true);
@@ -150,7 +188,7 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
   function stop() {
     if (!script) return;
     script = null;
-    bar?.remove(); titleEl?.remove(); progEl?.remove(); bar = titleEl = progEl = null;
+    bar?.remove(); titleEl?.remove(); progEl?.remove(); notesEl?.remove(); bar = titleEl = progEl = notesEl = null;
     clearTimeout(idleT);
     stage.setProjection(false);
     if (laser) toggleLaser();
@@ -166,7 +204,7 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
     else if (k === 'ArrowLeft' || k === 'PageUp') go(idx - 1);
     else if (k === 'Home') go(0);
     else if (k === 'End') go(script.steps.length - 1);
-    else if (k.toLowerCase() === 'n') openNotes();
+    else if (k.toLowerCase() === 'n') toggleNotes();
     else if (k.toLowerCase() === 'l') toggleLaser();
     else if (k === 'Escape') stop();
     else used = false;

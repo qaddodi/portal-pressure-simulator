@@ -3,18 +3,18 @@
 // palette, lessons and cases all call these same verbs, so each change is made one way and lands
 // in the timeline as one entry.
 
-import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=c9c36d1829';
-import { store, updateParams } from './store.js?v=4c0e1f79a3';
+import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=80b8d861de';
+import { store, updateParams } from './store.js?v=18136433f8';
 import { fmt, fmtFlow, clamp, toast } from './util.js?v=8aa5e5cdf1';
-import { aboutVessel, aboutOrgan } from './about.js?v=f18a1a7043';
-import { lobuleState } from './lobule-model.js?v=8874b4b7e8';
+import { aboutVessel, aboutOrgan } from './about.js?v=421024102c';
+import { lobuleState } from './lobule-model.js?v=c4f41a94a3';
 import { LABEL_VESSEL } from './anatomy.js?v=bf7e57c024';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
 // Lessons and cases name the tools a step allows; these are the verbs they unlock.
-const TOOL_VERB = { pinch: 'narrow', thrombus: 'clot', fibrosis: 'fibrosis', stent: 'shunt', band: 'band', occlude: 'occlude', balloon: 'balloon', catheter: 'wedge', doppler: 'doppler', endoscope: 'endoscope', needle: 'paracentesis' };
+const TOOL_VERB = { pinch: 'narrow', thrombus: 'clot', fibrosis: 'fibrosis', stent: 'shunt', band: 'band', occlude: 'occlude', balloon: 'balloon', catheter: 'measure', doppler: 'doppler', endoscope: 'endoscope', needle: 'paracentesis' };
 export const toolsToVerbs = (list) => (list ? [...new Set(list.map((t) => TOOL_VERB[t] || t).filter((v) => v !== 'select' && v !== 'probe'))] : null);
 
 /** Is a verb available now? Lessons and cases restrict verbs; they may also unlock a parameter. */
@@ -102,7 +102,7 @@ export function cardFor(selIn, ctx) {
   } else if (isShunt) {
     kicker = 'Shunt'; why = 'shunt';
     if (id === 'TIPS') {
-      verbs.push({ type: 'slider', id: 'diameter', key: 'tips', label: 'Stent diameter', min: 6, max: 12, step: 0.5, def: 10, format: (v) => `${v.toFixed(1)} mm`,
+      verbs.push({ type: 'slider', id: 'diameter', key: 'tips', label: 'Stent diameter', min: 6, max: 12, step: 0.5, def: 8, format: (v) => `${v.toFixed(1)} mm`,
         get: (p) => p.tips.d, set: (p, v) => { p.tips.d = v; }, hist: 'TIPS diameter', info: 'Resistance ∝ 1/d⁴: an 8 mm stent has well under half the conductance of a 10 mm one.' });
       verbs.push({ type: 'button', id: 'remove', key: 'tips', label: 'Remove TIPS', icon: 'close', danger: true, run: () => { updateParams({ tips: { on: false } }, { label: 'Remove TIPS' }); ctx.select(null); } });
     } else if (e.shunt === 'custom') {
@@ -167,7 +167,7 @@ function varixVerbs(site, ctx) {
   const eso = site === 'eso';
   const out = [];
   if (eso) out.push({ type: 'button', id: 'band', label: 'Band', icon: 'band', run: () => { ctx.action({ kind: 'band' }); toast('Band placed on an esophageal varix column.'); }, note: (f) => (f.bands ? `${Math.round(f.bands)} band${f.bands >= 1.5 ? 's' : ''} placed` : null) });
-  out.push({ type: 'button', id: 'endoscope', label: 'Endoscope', icon: 'endoscope', run: () => { ctx.paneApi('endoscopy')?.setView?.(eso ? 'eso' : 'fundus'); ctx.showPane('endoscopy'); } });
+  out.push({ type: 'button', id: 'endoscope', label: 'Endoscope', icon: 'endoscope', run: () => { ctx.paneApi('endoscopy')?.setView?.('eso'); ctx.showPane('endoscopy'); } });
   const key = eso ? 'balloonEso' : 'balloonGas';
   out.push({ type: 'toggle', id: 'balloon', key, label: eso ? 'Esophageal balloon' : 'Gastric balloon', icon: 'balloon', get: (p) => !!p[key], set: (p, v) => { p[key] = v; }, hist: eso ? 'Esophageal balloon' : 'Gastric balloon' });
   return out;
@@ -206,7 +206,7 @@ function organCard(sel, ctx) {
     const vx = (f) => (eso ? f.metrics.varix : f.metrics.gastricVarix);
     const verbs = varixVerbs(eso ? 'eso' : 'gas', ctx);
     if (!eso) verbs.push({ type: 'toggle', id: 'occlude', key: 'occluded', label: 'Occlude the gastrorenal shunt (BRTO)', icon: 'occlude', showIf: (p) => p.spontaneous.C5 !== false, get: (p) => !!p.occluded.C5, set: (p, v) => { if (v) p.occluded.C5 = true; else delete p.occluded.C5; }, hist: 'BRTO' });
-    verbs.push(stat('Grade', (f) => { const v = vx(f); return v.d < 2.4 ? 'none' : `${v.grade.code} · ${fmt(v.d, 1)} mm`; }), stat('Wall tension', (f) => `${Math.round(vx(f).ratio * 100)} % of rupture`));
+    verbs.push(stat('Grade', (f) => { const v = vx(f); return v.d < 2.4 ? 'none' : `${v.grade.code} · ${fmt(v.d, 1)} mm`; }), stat('Wall stress (model)', (f) => `${Math.round(vx(f).ratio * 100)} % of rupture`));
     if (eso) verbs.push({ type: 'link', label: 'Coronary vein', run: () => ctx.select({ type: 'edge', id: 'LGV_CONF' }) });
     else verbs.push({ type: 'link', label: 'Short gastric veins', run: () => ctx.select({ type: 'edge', id: 'C2' }) });
     return {

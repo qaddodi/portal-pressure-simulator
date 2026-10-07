@@ -1,14 +1,15 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
-import { store } from './store.js?v=4c0e1f79a3';
-import { EDGES } from '../engine/topology.js?v=c9c36d1829';
+import { createMeasureCard } from './measure.js?v=e213ba6cf9';
+import { store, varixSuppressed } from './store.js?v=18136433f8';
+import { EDGES } from '../engine/topology.js?v=80b8d861de';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=8aa5e5cdf1';
-import { lobuleFlows } from './lobule-model.js?v=8874b4b7e8';
-import { createProfile } from './charts.js?v=c47814dd4f';
-import { createPressureTime } from './pressure-time.js?v=6fbdf54c88';
-import { createDoppler } from './doppler.js?v=b0a082fa16';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=c639a58a0a';
+import { lobuleFlows } from './lobule-model.js?v=c4f41a94a3';
+import { createProfile } from './charts.js?v=0630f760fe';
+import { createPressureTime } from './pressure-time.js?v=b3d3258647';
+import { createDoppler } from './doppler.js?v=0d4da37ddd';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=190dd82770';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -22,10 +23,10 @@ export const TILES = [
     scale: [0, 25], ticks: [5, 10],
     st: (v) => (v < 5 ? 'ok' : v < 10 ? 'caution' : 'danger'),
     s: (v) => (v < 5 ? 'Normal' : v < 10 ? 'Subclinical' : 'CSPH') },
-  { id: 'ppg', group: 'pressure', k: 'PPG', title: 'Portosystemic pressure gradient: portal vein − inferior vena cava, measured directly. Unlike HVPG it also includes a block before the liver (presinusoidal or prehepatic). Normal < 6 mmHg.', why: 'ppg', hideKey: 'pv', v: (m) => m.ppg, d: 1, u: 'mmHg',
+  { id: 'ppg', group: 'pressure', k: 'PPG', title: 'Portosystemic pressure gradient: portal confluence − inferior vena cava at the right atrium, directly from the model network. Unlike HVPG it also includes a block before the liver (presinusoidal or prehepatic). Normal < 6 mmHg.', why: 'ppg', hideKey: 'pv', v: (m) => m.ppg, d: 1, u: 'mmHg',
     scale: [0, 25], ticks: [6],
     st: (v) => (v < 6 ? 'ok' : 'caution'), s: (v) => (v < 6 ? 'Normal' : 'Raised') },
-  { id: 'pv', group: 'pressure', k: 'Portal pressure', title: 'Portal vein pressure (absolute). Normal ≤ 10 mmHg.', why: 'pv', v: (m) => m.pv, d: 1, u: 'mmHg', hideKey: 'pv',
+  { id: 'pv', group: 'pressure', k: 'Portal pressure', title: 'Portal vein pressure at the portal confluence, absolute (model value). Normal ≤ 10 mmHg.', why: 'pv', v: (m) => m.pv, d: 1, u: 'mmHg', hideKey: 'pv',
     scale: [0, 35], ticks: [10, 15],
     st: (v) => (v <= 10 ? 'ok' : v < 15 ? 'caution' : 'danger'), s: (v) => (v <= 10 ? 'Normal' : v < 15 ? 'Raised' : 'High') },
   // Flow and velocity averaged over a few breaths (pvFlowMean, pvVelMean): breathing swings the
@@ -34,13 +35,13 @@ export const TILES = [
     scale: [-0.6, 2], ticks: [0, 0.9],
     st: (v, m) => (v < -0.02 ? 'critical' : Math.abs(vel(m)) < 5 ? 'danger' : v < 0.9 || Math.abs(vel(m)) < 12 ? 'caution' : 'ok'),
     s: (v, m) => (v < -0.02 ? 'Reversed' : Math.abs(vel(m)) < 5 ? 'Stasis' : v < 0.9 ? 'Reduced' : Math.abs(vel(m)) < 12 ? 'Slow' : 'Normal') },
-  { id: 'liver', group: 'flow', hideKey: 'model', k: 'Liver', title: 'Total blood flow through the liver sinusoids, % of normal (portal + hepatic artery).', why: 'liverPerf', v: (m) => m.liverPerfPct, d: 0, u: '%',
+  { id: 'liver', group: 'flow', hideKey: 'model', k: 'Sinusoidal flow', ks: 'Sinusoids', title: 'Total blood flow through the liver sinusoids (portal + hepatic artery), % of this model\'s healthy baseline. A model quantity, not liver function.', why: 'liverPerf', v: (m) => m.liverPerfPct, d: 0, u: '%',
     scale: [0, 150], ticks: [55, 75],
     st: (v) => (v > 75 ? 'ok' : v > 55 ? 'caution' : 'danger'), s: (v) => (v > 75 ? 'Normal' : v > 55 ? 'Reduced' : 'Low') },
   { id: 'shunt', group: 'flow', k: 'Shunted', why: 'shunt', hideKey: 'model', v: (m) => m.shuntFraction * 100, d: 0, u: '%', title: 'Share of gut and spleen blood that bypasses the liver through collaterals and shunts.',
     scale: [0, 100], ticks: [10, 30, 60],
     st: (v) => (v < 10 ? 'ok' : v < 30 ? 'caution' : v < 60 ? 'danger' : 'critical'), s: (v) => (v < 10 ? 'Minimal' : v < 30 ? 'Moderate' : v < 60 ? 'Large' : 'Most') },
-  { id: 'varix', group: 'effects', k: 'Varix tension', ks: 'Varix', why: 'varix', hideKey: 'model', v: (m) => m.varix.ratio * 100, d: 0, u: '%', ux: ' of rupture', title: 'Esophageal varix wall tension, as a % of the tension at which it ruptures (Laplace: pressure × radius ÷ wall thickness).',
+  { id: 'varix', group: 'effects', k: 'Varix wall stress', ks: 'Varix', why: 'varix', hideKey: 'model', v: (m) => m.varix.ratio * 100, d: 0, u: '%', ux: ' of rupture', title: 'Modeled esophageal varix wall stress (educational index: pressure × radius ÷ wall thickness, not a measurable force), as a % of the stress at which the model ruptures.',
     scale: [0, 100], ticks: [40, 70, 90],
     st: (v, m) => (m.varix.ratio >= 0.9 ? 'critical' : m.varix.ratio >= 0.7 ? 'danger' : m.varix.ratio >= 0.4 || m.varix.d >= 5 ? 'caution' : 'ok'),
     s: (v, m) => (m.varix.d < 2.5 ? 'None' : m.varix.redWale ? 'Red wale signs' : { F1: 'Small (F1)', F2: 'Large (F2)', F3: 'Coiled (F3)' }[m.varix.grade.code]),
@@ -83,7 +84,7 @@ export const CUTOFFS = [
   ['Portal flow', '≥ 0.9 L/min and ≥ 12 cm/s', '< 0.9 L/min or < 12 cm/s', '< 5 cm/s (stasis)', 'Reversed (hepatofugal)'],
   ['Liver perfusion', '> 75 % of normal', '56–75 %', '≤ 55 %', '—'],
   ['Shunted blood', '< 10 %', '10–29 %', '30–59 %', '≥ 60 %'],
-  ['Varix wall tension', '< 40 % of rupture', '40–69 %, or diameter ≥ 5 mm', '70–89 %', '≥ 90 %'],
+  ['Varix wall stress (model)', '< 40 % of rupture', '40–69 %, or diameter ≥ 5 mm', '70–89 %', '≥ 90 %'],
   ['Ascites', 'None', 'Grade 1', 'Grade 2–3', '—'],
   ['Spleen length', '≤ 13 cm', '13–16 cm', '> 16 cm', '—'],
 ];
@@ -108,10 +109,14 @@ const TREND_S = 5, TREND_FRAC = 0.03;
 
 /** The value a readout shows, or null when a case hides it and it has not been measured. */
 export function readoutValue(t, m, hidden) {
+  if (t.id === 'varix' && varixSuppressed()) return null;
   if (!hidden?.has(t.hideKey)) return t.v(m);
   const meas = t.id === 'hvpg' ? t.measured?.() : null;
   return meas ? meas.hvpg : null;
 }
+
+// Legacy pane names in content: flow and perfusion live in the readout strip, the pressure profile is the closest pane.
+const ALIAS = { flow: 'profile', perfusion: 'profile', hvpg: 'profile', chart: 'profile' };
 
 export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onLobule, onOpen, onClose, isVisible, marks, onBeat, onLayout }) {
   // ── Readout strip ─────────────────────────────────
@@ -232,7 +237,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       let sev, s;
       if (v == null) {
         if (x.val.textContent !== '?') x.val.textContent = '?';
-        s = 'Not measured';
+        s = t.id === 'varix' && varixSuppressed() ? 'Not modeled here' : 'Not measured';
         sev = 'none';
         x.hist.length = 0;
       } else {
@@ -292,6 +297,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   endoscopy.el.append(wallDetails);
   wallDetails.addEventListener('toggle', () => { if (wallDetails.open && frame) wall.update(frame); });
   const pressure = { ...profile, id: 'profile', label: 'Pressure' };
+  const measure = createMeasureCard();
+  pressure.el.append(measure.el);
   const instruments = [
     pressure, createPressureTime({ marks }),
     createDoppler({ onProbe }), endoscopy, createAbdomen({ onAction }),
@@ -310,7 +317,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     profile: ['activity', (f) => `${fmt(f.metrics.pv, 1)} mmHg`],
     scope: ['chart', (f) => `HVPG ${fmt(f.metrics.hvpg, 1)}`],
     doppler: ['doppler', (f) => `${fmt(Math.abs(f.metrics.pvVel), 0)} cm/s`],
-    endoscopy: ['endoscope', (f) => (f.metrics.varix.d < 2.5 ? 'No varices' : `Grade ${f.metrics.varix.grade.code}`)],
+    endoscopy: ['endoscope', (f) => (varixSuppressed() ? 'Not modeled' : f.metrics.varix.d < 2.5 ? 'No varices' : `Grade ${f.metrics.varix.grade.code}`)],
     abdomen: ['needle', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],
   };
   const SHORT = { profile: 'Pressure', scope: 'Over time', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites' };
@@ -363,6 +370,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       const p = byId[id];
       // live instruments keep their own history and only redraw; the rest draw from the frame
       if (id === 'scope' || id === 'doppler') p.redraw(); else p.update(frame);
+      if (id === 'profile') measure.update(frame);
       if (id === 'endoscopy' && wallDetails.open) wall.update(frame);
     }
   }
@@ -457,7 +465,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   }
   function show(id, { open: doOpen = true, reveal = false, alongside = false } = {}) {
     if (id === 'lobule') { onLobule?.(); return; }
-    if (id === 'landscape') id = 'profile';
+    if (id === 'landscape' || ALIAS[id]) id = ALIAS[id] || 'profile';
     const revealWall = id === 'varixwall';
     if (revealWall) { wallDetails.open = true; id = 'endoscopy'; }
     if (!byId[id]) return;

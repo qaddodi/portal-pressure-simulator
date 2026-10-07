@@ -1,13 +1,13 @@
 // Lumped-parameter hemodynamic engine (blueprint §7).
 // Pure JS, no DOM: runs in a Web Worker, on the main thread, or in Node tests.
 
-import { NODES, EDGES, dMinOf, edgePresent, isOccluded, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=c9c36d1829';
+import { NODES, EDGES, dMinOf, edgePresent, isOccluded, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=80b8d861de';
 import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=8b006eefeb';
-import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=270c735e25';
-import { detectEvents } from './events.js?v=313ca654d5';
+import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=f0437de612';
+import { detectEvents } from './events.js?v=5b817750ef';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -17,6 +17,7 @@ export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 13.
 /** Rupture hazard per day as a function of T/Tcrit (§7.5). */
 const ruptureHazardPerDay = (x) => (x <= 1 ? 0 : 0.01 * Math.pow((x - 1) / 0.25, 3));
 const COLLATERAL = { open: 7.5, span: 14, tauGrow: 50, tauRegress: 120, acute: 0.4 };
+const TIPS_R = { tract: 0.12, kin: 5.96 };   // PRU; kin: mmHg per (mL/s ÷ mm²)² (ρ·K/2 with K≈1.5)
 const BLOOD_BASE = 5000, HCT_BASE = 0.42;
 const HR_REST = 60;   // resting heart rate (/min); the contractility reference is scaled to it so cardiac output is unchanged
 const LYMPH = { base: 2.5, max: 10, adapt: 0.03, kfHep: 0.45, kfSpl: 0.2, adaptFrac: 0.6 };
@@ -139,6 +140,9 @@ export class Engine {
     this.settle();
     const n = days ?? pr.days;
     if (n > 0) yield* this.advanceDaySteps(n, { noRupture: true, silent: true });
+    // Day steps relax only roughly; start from a true equilibrium so a before/after comparison
+    // (e.g. closing a shunt) shows the intervention, not leftover relaxation.
+    this.settle();
     this.day = 0;
     this.t = 0;
     this.eventLog = [];
@@ -249,7 +253,7 @@ export class Engine {
           if (e.tone === 'splanchnic') {
             // Venoarteriolar response: marked venous hypertension constricts the feeding arterioles.
             const ex = P[t] - (this.refP ? this.refP[t] : this.Pbase[t]);
-            if (ex > 15) R *= 1 + 0.2 * (ex - 15);
+            if (ex > 15) R *= 1 + 0.06 * (ex - 15);
           }
           break;
         case 'artery':
@@ -294,7 +298,14 @@ export class Engine {
         case 'shunt': {
           let g = 0;
           if (e.shunt === 'ap') g = 0.5 * (0.05 * s * s * s + 0.1 * p.apShunt);
-          else if (e.shunt === 'tips' && p.tips.on) g = 1 / (0.04 * Math.pow(10 / p.tips.d, 4) * visc);
+          else if (e.shunt === 'tips' && p.tips.on) {
+            // Stent in series with a parenchymal tract and the hepatic-vein outlet, which do not
+            // widen with the stent (so large stents plateau), plus an entrance/exit loss ∝ Q²
+            // (lagged one step). Flow then splits against the sinusoids by resistance, so
+            // diameter grades both the shunt fraction and the portosystemic gradient.
+            const A = Math.PI * p.tips.d * p.tips.d / 4;
+            g = 1 / ((TIPS_R.tract + 0.04 * Math.pow(10 / p.tips.d, 4)) * visc + TIPS_R.kin * Math.abs(this.Q[k]) / (A * A));
+          }
           else if (e.shunt === 'portocaval' && p.portocaval) g = 1 / (0.03 * visc);
           else if (e.shunt === 'dsrs' && p.dsrs) g = 1 / (0.08 * visc);
           else if (e.shunt === 'mesocaval' && p.mesocaval) g = 1 / (0.08 * visc);

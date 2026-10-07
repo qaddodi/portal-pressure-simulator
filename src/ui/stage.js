@@ -1,12 +1,12 @@
 // Anatomical stage (blueprint §6): the figure drawn on the GPU (plate, vessels, moving blood),
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
-import { EDGES, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=c9c36d1829';
+import { EDGES, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=80b8d861de';
 import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=bf7e57c024';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
-import { store, updateParams } from './store.js?v=4c0e1f79a3';
+import { store, updateParams } from './store.js?v=18136433f8';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=8aa5e5cdf1';
-import { createLobuleZoom } from './lobule-zoom.js?v=236d6cbe81';
+import { createLobuleZoom } from './lobule-zoom.js?v=a839224340';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=e9ab279262';
@@ -262,7 +262,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return (u) => 1 - v * Math.exp(-(((u - u0) / sig) ** 2));
   }
 
-  const nodePos = (id, t) => { const [a, c] = NODE_POS[id]; return [lerp(a[0], c[0], t), lerp(a[1], c[1], t)]; };
+  // Polyline helpers for the catheter: the drawn centerline (geo[id].cur), cut at a length fraction.
+  const headOf = (pts, f) => {
+    const L = pts.reduce((n, q, i) => n + (i ? Math.hypot(q[0] - pts[i - 1][0], q[1] - pts[i - 1][1]) : 0), 0);
+    let run = 0; const out = [pts[0]];
+    for (let i = 1; i < pts.length; i++) {
+      const seg = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+      if (seg > 0 && run + seg >= f * L) { const u = (f * L - run) / seg; out.push([lerp(pts[i - 1][0], pts[i][0], u), lerp(pts[i - 1][1], pts[i][1], u)]); return out; }
+      run += seg; out.push(pts[i]);
+    }
+    return out;
+  };
+  // The wedge station sits inside the small peripheral hepatic vein branch, on its drawn centerline.
+  const WEDGE_BRANCH = { W_R: 'POST_R_RHV', W_M: 'POST_R_MHV', W_L: 'POST_L_LHV' };
+  const wedgeTip = (id) => { const c = geo[WEDGE_BRANCH[id]]?.cur; return c?.length > 1 ? headOf(c.slice().reverse(), 0.55).at(-1) : null; };
+  const nodePos = (id, t) => { if (WEDGE_BRANCH[id]) { const w = wedgeTip(id); if (w) return w; } const [a, c] = NODE_POS[id]; return [lerp(a[0], c[0], t), lerp(a[1], c[1], t)]; };
   // The point half way along a drawn vessel, by length, and the direction it runs there.
   function arcMid(pts) {
     let total = 0;
@@ -2698,11 +2712,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (p.catheter.vein) {
       const hv = { R: 'RHV', M: 'MHV', L: 'LHV' }[p.catheter.vein];
       const tip = nodePos('W_' + p.catheter.vein, t);
-      const [hx, hy] = nodePos(hv, t);
-      const [ix, iy] = nodePos('IVCS', t);
-      const [rx, ry] = nodePos('RA', t);
-      const [sx, sy] = nodePos('SVC', t);
-      const d = `M${sx} ${sy - 90} L ${sx} ${sy} L ${rx} ${ry} L ${ix} ${iy} L ${hx} ${hy} L ${tip[0]} ${tip[1]}`;
+      // The catheter runs on the drawn centerlines: SVC → right atrium → down the cava to the
+      // junction → out the hepatic vein → into its peripheral branch, ending at the wedge station.
+      const v = p.catheter.vein, rev = (a) => a.slice().reverse();
+      const C = (id) => geo[id]?.cur;
+      const hvE = C({ R: 'RHV_IVC', M: 'MHV_IVC', L: 'LHV_IVC' }[v]), brE = C(WEDGE_BRANCH['W_' + v]), svc = C('SVC_RA'), ra = C('IVCS_RA'), cava = C('IVC_IS');
+      let pts;
+      if (hvE && brE && svc && ra && cava) {
+        const j = hvE.at(-1);
+        let k = 0, best = Infinity;
+        cava.forEach((q, i) => { const dd = Math.hypot(q[0] - j[0], q[1] - j[1]); if (dd < best) { best = dd; k = i; } });
+        pts = [[svc[0][0], svc[0][1] - 90], ...svc, ...rev(ra), ...rev(cava.slice(k)), ...rev(hvE), ...headOf(rev(brE), 0.55)];
+      } else {
+        const [sx, sy] = nodePos('SVC', t), [rx, ry] = nodePos('RA', t), [ix, iy] = nodePos('IVCS', t), [hx, hy] = nodePos(hv);
+        pts = [[sx, sy - 90], [sx, sy], [rx, ry], [ix, iy], [hx, hy], tip];
+      }
+      const d = 'M' + pts.map((q) => `${q[0].toFixed(1)} ${q[1].toFixed(1)}`).join(' L ');
       ov.catheter.append(s('path', { d, class: 'catheter' }));
       ov.catheter.append(s('circle', { cx: tip[0], cy: tip[1], r: p.catheter.wedged ? 7 : 3, class: 'balloon-shape' }));
     }
@@ -4098,7 +4123,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const r = shunt?.targets.get(tgt);
     if (!r) return;
     cancelShunt();
-    if (r.key === 'tips') updateParams({ tips: { on: true, d: store.get().params.tips.d || 10 } }, { label: 'TIPS' });
+    if (r.key === 'tips') updateParams({ tips: { on: true, d: store.get().params.tips.d || 8 } }, { label: 'TIPS' });
     else if (r.key === 'custom') updateParams((p) => { p.customShunts = { ...(p.customShunts || {}), [r.id]: 10 }; return p; }, { label: r.label });
     else updateParams({ [r.key]: true }, { label: r.label });
     toast(`${r.label} created.`);

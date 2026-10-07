@@ -1,6 +1,6 @@
 // Event detectors with hysteresis (blueprint §10.3). Pure functions of engine state.
 
-import { computeMetrics } from './metrics.js?v=1cdba25add';
+import { computeMetrics } from './metrics.js?v=523377c643';
 
 const COLLATERAL_NAMES = {
   C1b: ['Esophageal varices', 'VAR'], C3: ['Paraumbilical vein (caput medusae)', 'C3'], C4: ['Anorectal varices', 'C4'],
@@ -30,7 +30,7 @@ function defs(m, eng) {
     { id: 'VARIX_LARGE', on: m.varix.d >= 5, off: m.varix.d < 4.5, severity: 'caution', anchor: 'VAR',
       title: 'Large esophageal varices', detail: 'Diameter ≥ 5 mm: high-risk varices.' },
     { id: 'RED_WALE', on: m.varix.ratio > 0.7, off: m.varix.ratio < 0.65, severity: 'danger', anchor: 'VAR',
-      title: 'Red wale signs', detail: 'Wall tension is approaching rupture (Laplace: T = ΔP·r / w).' },
+      title: 'Red wale signs', detail: 'Modeled wall stress is approaching its rupture point (index = ΔP·r / w).' },
     { id: 'ASCITES_FORMING', on: m.ascites.ratePerDay > 80 && m.ascites.volume > 150, off: m.ascites.ratePerDay < -50, severity: 'caution', anchor: 'PERITONEUM',
       title: 'Ascites forming', detail: 'Filtration has overwhelmed lymphatic drainage.' },
     { id: 'TENSE_ASCITES', on: m.ascites.iap >= 12, off: m.ascites.iap < 11, severity: 'danger', anchor: 'PERITONEUM',

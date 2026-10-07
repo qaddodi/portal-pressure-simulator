@@ -2,7 +2,7 @@
 // is happening to it in this patient right now (reversed flow, a clot, a collateral opening). The
 // first sentence is fixed; the rest is read from the live model.
 
-import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=c9c36d1829';
+import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=80b8d861de';
 import { fmt, clamp } from './util.js?v=8aa5e5cdf1';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -97,7 +97,7 @@ export function aboutOrgan(id, f, st) {
       return out;
     }
     case 'heart': return ['The right heart receives all venous return; its pressure is the floor every vein drains against. When it rises (failure, tricuspid regurgitation, constriction) the liver congests from behind.'];
-    case 'varices': return ['Dilated submucosal veins in the lower esophagus, fed by the coronary vein and draining to the azygos. Wall tension rises with pressure and diameter: past a threshold they rupture.'];
+    case 'varices': return ['Dilated submucosal veins in the lower esophagus, fed by the coronary vein and draining to the azygos. Modeled wall stress rises with pressure and diameter: past a threshold they rupture.'];
     case 'gastric': return ['Fundal varices, fed by the short and posterior gastric veins and often draining through a gastrorenal shunt. They bleed less often but more heavily than esophageal varices.'];
     case 'spleen': return ['Drains through the splenic vein into the portal system: portal hypertension congests it, it enlarges and traps platelets.', m ? `${fmt(m.spleen.length, 1)} cm long (normal up to 13).` : ''].filter(Boolean);
     case 'abdomen': return ['Ascites forms when sinusoidal pressure pushes more lymph out of the liver than the lymphatics can carry away, with sodium retention and low albumin adding to it.'];

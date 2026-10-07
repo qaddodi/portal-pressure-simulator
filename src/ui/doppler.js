@@ -4,9 +4,10 @@
 // and the waveform pattern. The trace keeps recording while the instrument is closed, so it opens
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
-import { EDGES } from '../engine/topology.js?v=c9c36d1829';
+import { EDGES } from '../engine/topology.js?v=80b8d861de';
 import { h, fmt, fitCanvas, clamp, icon } from './util.js?v=8aa5e5cdf1';
-import { FONT } from './charts.js?v=c47814dd4f';
+import { FONT } from './charts.js?v=0630f760fe';
+import { logAction } from './store.js?v=18136433f8';
 import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=fe9fd40247';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -57,7 +58,8 @@ export function createDoppler({ onProbe }) {
   // with it (the report and the physiology are unchanged). Power Doppler has no direction.
   let invert = false;
   const invBtn = h('button', { class: 'dop-tint dop-inv', 'aria-pressed': 'false', title: 'Invert the display: show flow away from the probe above the baseline' }, h('i', { 'aria-hidden': 'true' }, '⇅'), 'Invert');
-  invBtn.addEventListener('click', () => { invert = !invert; invBtn.setAttribute('aria-pressed', String(invert)); sync(); });
+  const setInvert = (v) => { invert = !!v; invBtn.setAttribute('aria-pressed', String(invert)); sync(); };
+  invBtn.addEventListener('click', () => { setInvert(!invert); logAction('invert', 'doppler', invert); });
   function sync() {
     const m = DOPPLER_MODES.find((x) => x.id === mode);
     modeTxt.textContent = m.short;
@@ -495,5 +497,5 @@ export function createDoppler({ onProbe }) {
   }
   function update(f) { ingest(f); redraw(); }
   function clear() { buf = []; redraw(); }
-  return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear };
+  return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, setInvert };
 }

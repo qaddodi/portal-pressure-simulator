@@ -146,6 +146,26 @@ test('T12 BRTO of a fully developed gastrorenal shunt raises portal pressure ≥
   assert.ok(M(e).pv - pv0 >= 2, `ΔPV ${M(e).pv - pv0}`);
 });
 
+test('T12b BRTO from the default (settled) gastrorenal-shunt state raises portal pressure and HVPG', () => {
+  const e = preset('gastric-varix');
+  const m0 = M(e);
+  patch(e, { occluded: { C5: true } });
+  const m1 = M(e);
+  assert.ok(m1.pv - m0.pv >= 0.3, `ΔPV ${m1.pv - m0.pv}`);
+  assert.ok(m1.hvpg - m0.hvpg >= 0.3, `ΔHVPG ${m1.hvpg - m0.hvpg}`);
+});
+
+test('T9b TIPS diameter grades the gradient, stent flow and shunt fraction (no early saturation)', () => {
+  const e = preset('csph');
+  const out = [4, 6, 8, 10].map((d) => { patch(e, { tips: { on: true, d } }); const m = M(e); return { ppg: m.ppg, sf: m.shuntFraction, q: Q(e, 'TIPS') }; });
+  for (let i = 1; i < out.length; i++) {
+    assert.ok(out[i].ppg < out[i - 1].ppg - 0.5, `PPG ${out.map((o) => o.ppg.toFixed(1))}`);
+    assert.ok(out[i].q > out[i - 1].q, 'stent flow should rise with diameter');
+  }
+  assert.ok(out[1].sf > out[0].sf + 0.15 && out[2].sf > out[1].sf + 0.1, `shunt ${out.map((o) => o.sf.toFixed(2))}`);
+  assert.ok(out[0].sf < 0.6, `4 mm shunt ${out[0].sf}`);
+});
+
 test('T13 NSBBs lower HVPG; carvedilol more than propranolol', () => {
   const base = preset('csph');
   const h0 = M(base).hvpg;

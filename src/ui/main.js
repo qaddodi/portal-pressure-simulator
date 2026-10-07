@@ -1,26 +1,26 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=8e0caa073f';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory } from './store.js?v=4c0e1f79a3';
-import { createStage } from './stage.js?v=0f67c62637';
-import { createInspector } from './inspector.js?v=e26b85bceb';
-import { createDock, CUTOFFS } from './dock.js?v=215f0a3909';
-import { createWhy } from './why.js?v=3082724ec1';
-import { createTimeline } from './timeline.js?v=1c4b9d7a4d';
-import { createLearn } from './learn.js?v=0c7ba63e2e';
-import { createCases } from './cases.js?v=a07a06d1fc';
-import { createCompare } from './compare.js?v=65d1171f73';
-import { createCard } from './card.js?v=8edcb6e0ac';
-import { createChart, computeFindings } from './chart.js?v=70add9a33d';
-import { createHome } from './home.js?v=a454e6617a';
+import { startHost, host } from './host.js?v=7e09ccd8cf';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction } from './store.js?v=18136433f8';
+import { createStage } from './stage.js?v=582deda0e9';
+import { createInspector } from './inspector.js?v=03885e2627';
+import { createDock, CUTOFFS } from './dock.js?v=003544fbf4';
+import { createWhy } from './why.js?v=c4a18b6fa7';
+import { createTimeline } from './timeline.js?v=09687b3571';
+import { createLearn } from './learn.js?v=5bf4c0e1bc';
+import { createCases } from './cases.js?v=ef14e2face';
+import { createCompare } from './compare.js?v=7f52956925';
+import { createCard } from './card.js?v=b12d04d9d2';
+import { createChart, computeFindings } from './chart.js?v=5c64368961';
+import { createHome } from './home.js?v=1f4acf0bd3';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
-import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=b68eec4b43';
-import { startLMS } from './lms.js?v=073b0aea9a';
+import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=4559972273';
+import { startLMS } from './lms.js?v=a62598226c';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=6fa3beac68';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=d458e79194';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
-import { EDGES, NODES } from '../engine/topology.js?v=c9c36d1829';
+import { EDGES, NODES } from '../engine/topology.js?v=80b8d861de';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=8aa5e5cdf1';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -121,7 +121,7 @@ async function main() {
     onWhy: (m, el) => why.open(m, el), onAction: doAction, onOpenTab: (id) => dock.show(id, { reveal: true }),
     onScenarios: () => openScenarios($('#scenarioBtn')), onMode: (m) => store.set({ mode: m }), chart,
   });
-  dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => host.send({ type: 'probe', id }), onReveal: revealDock, onLobule: () => zoomLobule('R'),
+  dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
   const api = { beginSession, endSession, onEnd: () => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); }, muteEvents: () => {}, loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), openPanel, setBanner, select: (sel) => store.set({ selection: sel }) };
@@ -129,7 +129,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=59a7def360'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=9c9d83f657'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -141,8 +141,8 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=443078c232'), ({ createPalette }) => createPalette({ ctx: {
-    select, action: doAction, probe: (id) => host.send({ type: 'probe', id }), showPane: (id) => dock.show(id, { reveal: true }),
+  paletteL = lazy(() => import('./palette.js?v=3ced1a84ee'), ({ createPalette }) => createPalette({ ctx: {
+    select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
     loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); toast(store.get().presetList.find((p) => p.id === id)?.label); },
@@ -152,7 +152,7 @@ async function main() {
     view, stage, onWhy: (m, el) => why.open(m, el),
     onDetails: (sel) => { store.set({ details: normalizeSel(sel) || sel }); openPanel(); },
     ctx: {
-      action: doAction, showPane: (id) => dock.show(id, { reveal: true }), probe: (id) => host.send({ type: 'probe', id }),
+      action: doAction, showPane: (id) => dock.show(id, { reveal: true }), probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); },
       startShunt: (id) => stage.startShunt(id), canShunt: (id) => shuntable(id), select,
       zoomLobule: (lobe) => zoomLobule(lobe), paneApi: (id) => dock.pane(id),
       injectDye: (id, o) => stage.injectDye(id, o), releaseDye: () => stage.releaseDye(), dyeInjecting: () => stage.dyeInjecting(),
@@ -386,6 +386,7 @@ function doAction(a) {
   if (a.kind === 'probe') { host.send({ type: 'probe', id: a.id }); return; }
   if (a.kind === 'paracentesisPrompt') { dock.show('abdomen', { reveal: true }); toast('Choose the volume in Ascites & paracentesis, then Drain.'); return; }
   host.send({ type: 'action', action: a });
+  logAction('action', a.kind);
   const tl = { infuse: { crystalloid: '1 L crystalloid', prbc: '1 unit PRBC', albumin: 'Albumin infusion' }, hemorrhage: `Hemorrhage ${a.mL} mL`, band: 'Band ligation', valsalva: 'Valsalva', rupture: 'Varix ruptured (manual)', stopBleed: 'Bleeding stopped',
     paracentesis: `Paracentesis ${((a.mL || 0) / 1000).toFixed(1)} L${a.albumin ? ' + albumin' : ''}` }[a.kind];
   const tlLabel = typeof tl === 'object' ? tl[a.fluid] : tl;
@@ -693,8 +694,7 @@ function openMainMenu(anchor) {
     h('div', { class: 'mm-modes' },
       modeItem('explore', 'explore', 'explore', 'Explore a patient', 'Any of the patients, from healthy to Budd–Chiari'),
       modeItem('learn', 'learn', 'book', 'Lessons', 'Predict, observe, explain'),
-      modeItem('cases', 'cases', 'case', 'Cases', 'A bleed at 3 a.m. and diagnostic puzzles'),
-      modeItem('present', 'present', 'projector', 'Presenter', 'Step through a live model with a class')),
+      modeItem('cases', 'cases', 'case', 'Cases', 'A bleed at 3 a.m. and diagnostic puzzles')),  // the Presenter entry is shelved (see home.js)
     menuItem('Home page', { icon: 'grid', onClick: () => { closePopover(); home.open(); } }),
     h('div', { class: 'menu-sep' }),
     menuItem('Copy a link to this exact state', { icon: 'share', onClick: () => { closePopover(); share(); } }),

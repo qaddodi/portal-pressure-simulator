@@ -101,10 +101,11 @@ as a map of the disease: grouped by where the resistance sits, each with its pre
 
 ### Teaching
 
-- **Lessons** (11): predict → do → observe → explain → check, with the step card on the figure,
+- **Lessons** (12): predict → do → observe → explain → check, with the step card on the figure,
   predictions made on the figure or the pressure profile, Replay per step, and a score.
-- **Cases** (4): a variceal bleed and three diagnostic puzzles with a bedside monitor, orders,
-  randomized variants, pressures hidden until measured, and a printable debrief with a
+- **Cases** (6): prevention, gastric, cardiac and vascular diagnostic cases, a variceal bleed and a
+  recurrent-ascites decision, each with a bedside monitor, orders, supplied clinical cards,
+  randomized variants, 80 % mastery with critical objectives, pressures hidden until measured, and a printable debrief with a
   counterfactual ("had terlipressin been started at minute 2…") replayed in the same model.
 - **Assessment:** every attempt is recorded on the device and exports as CSV or xAPI.
 - **Presenter:** scripts of model states with speaker notes, stepped with arrow keys or a

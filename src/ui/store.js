@@ -1,6 +1,6 @@
 // Tiny observable store + parameter history (undo/redo, blueprint §3).
 
-import { defaultParams, deepMerge } from '../engine/scenario.js?v=270c735e25';
+import { defaultParams, deepMerge } from '../engine/scenario.js?v=f0437de612';
 
 const listeners = new Map();
 const state = {
@@ -49,6 +49,16 @@ export const store = {
     return () => listeners.set(key, listeners.get(key).filter((f) => f !== fn));
   },
 };
+
+/** Right-heart-failure endoscopy shows an esophageal varix the model produces by artifact (blueprint F4):
+ *  withheld in lessons, cases and presenting, qualified in Explore. */
+export const varixSuppressed = () => state.presetId === 'rhf' && (state.mode !== 'explore' || !!document.getElementById('app')?.classList.contains('presenting'));
+
+/** Learner actions (probe, invert, endoscopy view, focus…), newest last, so a do-step can test a target and value. */
+export function logAction(type, target, value) {
+  const log = (state.actionLog || []).concat({ type, target, value, t: Date.now() }).slice(-60);
+  store.set({ actionLog: log });
+}
 
 // Parameter history
 const past = [], future = [];
