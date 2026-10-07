@@ -18,11 +18,11 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   view.append(leader);
   const tabletTouch = matchMedia('(pointer: coarse) and (min-width: 768px) and (max-width: 1366px)');
   const sizes = { vw: view.clientWidth, vh: view.clientHeight, w: 0, h: 0 };
-  new ResizeObserver(() => { sizes.vw = view.clientWidth; sizes.vh = view.clientHeight; placedFor = ''; lastLayout = ''; position(); if (isDocked()) reveal(); }).observe(view);
-  new ResizeObserver(() => { sizes.w = el.offsetWidth; sizes.h = el.offsetHeight; placedFor = ''; lastLayout = ''; position(); syncMore(); if (isDocked()) reveal(); }).observe(el);
+  new ResizeObserver(() => { sizes.vw = view.clientWidth; sizes.vh = view.clientHeight; placedFor = ''; lastLayout = ''; pinned = null; position(); if (isDocked()) reveal(); }).observe(view);
+  new ResizeObserver(() => { const first = !sizes.w; sizes.w = el.offsetWidth; sizes.h = el.offsetHeight; if (first) { placedFor = ''; lastLayout = ''; pinned = null; } position(); syncMore(); if (isDocked()) reveal(); }).observe(el);
   const uiState = {};
   ctx.ui = (key, def) => (uiState[key] ||= def);
-  let model = null, live = [], syncs = [], actionable = [], selRef = null, placedFor = '', lastLayout = '';
+  let model = null, live = [], syncs = [], actionable = [], selRef = null, placedFor = '', lastLayout = '', pinned = null;
 
   const refP = () => { const st = store.get(); return st.compareSnap ? st.compareSnap.P : st.healthy?.P; };
   const lens = () => (store.get().imaging ? 'neutral' : store.get().colorMode);
@@ -145,7 +145,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     // Number keys trigger the verbs in order; show the number beside each.
     actionable.forEach((a, i) => { if (i < 9) a.el.dataset.key = String(i + 1); });
     update();
-    placedFor = ''; lastLayout = '';
+    placedFor = ''; lastLayout = ''; pinned = null;
     position();
     if (focusedIdx >= 0) actionable[focusedIdx]?.focus();
     relayoutSoon();
@@ -324,6 +324,9 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     lastLayout = lk;
     const a = stage.anchorFor(normalizeSel(selRef) || selRef);
     if (!a) return;
+    // Once placed, the card stays put while its controls are used (the drawn structure shifting as values change must not
+    // move it); only the leader follows. A resize, a new selection or a moved panel places it afresh (placedFor reset).
+    if (placedFor && pinned) { drawLeader(pinned.x, pinned.y, sizes.w || 288, sizes.h || 240, a); return; }
     // Sizes come from ResizeObservers: measuring here, after the frame's DOM writes, would force
     // a layout every frame while the card is open.
     const W = sizes.vw, H = sizes.vh;
@@ -356,7 +359,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     });
     const key = `${Math.round(best.x)},${Math.round(best.y)}|${Math.round(a.x)},${Math.round(a.y)}`;
     if (key === placedFor) return;
-    placedFor = key;
+    placedFor = key; pinned = { x: best.x, y: best.y };
     el.style.left = best.x + 'px'; el.style.top = best.y + 'px';
     drawLeader(best.x, best.y, w, hh, a);
   }
@@ -371,7 +374,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   }
 
   // The floating pieces moved (a card opened on the right, the dock grew): place the card again.
-  addEventListener('pps:occ', () => { placedFor = ''; lastLayout = ''; position(); if (isDocked()) reveal(); });
+  addEventListener('pps:occ', () => { placedFor = ''; lastLayout = ''; pinned = null; position(); if (isDocked()) reveal(); });
   store.on('selection', () => render());
   store.on('shunting', () => render());
   store.on('allowedVerbs', () => render());

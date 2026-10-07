@@ -23,21 +23,45 @@ function noiseField(w, hh, cell, seed) {
   };
 }
 
-/** The elastogram bitmap: orange and dark patches laid along the shear wavefront, so a stiffer liver
- *  (faster wave) gives a steeper front. Time 0-80 ms across, depth 30-90 mm down. */
+/** The elastogram bitmap, as on a real report: the colour is the tissue displacement along the beam,
+ *  time 0-80 ms across, depth 30-90 mm down. A 50 Hz shear wave leaves the probe at t = 0 and travels
+ *  down at c, so the bright and dark bands lie along lines of constant (t - depth / c): the fitted slope
+ *  of the front is the speed (mm per ms = m/s), steeper when the liver is stiffer. Speckle breaks the
+ *  bands up, the wave fades with depth and with time, and before it arrives there is only noise. */
 function elastogram(n, c) {
   const cv = document.createElement('canvas'); cv.width = cv.height = n;
   const ctx = cv.getContext('2d'), img = ctx.createImageData(n, n);
-  const n1 = noiseField(n, n, n / 7, 11), n2 = noiseField(n, n, n / 16, 23);
+  const sp1 = noiseField(n, n, n / 9, 11), sp2 = noiseField(n, n, n / 22, 23), ph = noiseField(n, n, n / 5, 37);
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
     const tMs = (x / n) * 80, depth = 30 + (y / n) * 60;
-    // Distance along the wavefront: constant where tMs - (depth - 35) / c is constant.
-    const u = (tMs - (depth - 35) / c) / 80 * n;
-    const v = n1(u + 40, y * 0.35) * 0.65 + n2(u + 40, y * 0.6) * 0.35;
-    const fade = clamp(1 - Math.max(0, u / n - 0.25) * 1.6, 0.25, 1);
-    const k = clamp((v - 0.3) * 2.2, 0, 1) * fade;
+    const arrive = (depth - 35) / c, phase = 2 * Math.PI * 0.05 * (tMs - arrive) + (ph(x, y) - 0.5) * 1.6;
+    const wave = 0.5 + 0.5 * Math.cos(phase);
+    const reached = clamp((tMs - arrive + 3) / 5, 0, 1);
+    const fade = clamp(1.15 - (depth - 30) / 90, 0.3, 1) * clamp(1.25 - tMs / 110, 0.35, 1);
+    const speck = 0.55 * sp1(x, y) + 0.45 * sp2(x, y);
+    const k = clamp(0.5 + (wave - 0.5) * 1.5 * fade * reached + (speck - 0.5) * 0.9, 0, 1) ** 1.3;
     const i = (y * n + x) * 4;
-    img.data[i] = 20 + 215 * k; img.data[i + 1] = 10 + 125 * k; img.data[i + 2] = 8 + 62 * k; img.data[i + 3] = 255;
+    img.data[i] = 18 + 222 * k; img.data[i + 1] = 8 + 128 * k; img.data[i + 2] = 6 + 66 * k; img.data[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  return cv;
+}
+
+/** The grey M-mode strip: the ultrasound image of the tissue under the probe over the same exam, depth
+ *  down and time across. Fat under the skin is dark with a few echoes, a bright line marks the liver
+ *  capsule, the parenchyma is a fine speckle that dims with depth, and a vessel shows as a dark band. */
+function motionStrip(wp, hp) {
+  const cv = document.createElement('canvas'); cv.width = wp; cv.height = hp;
+  const ctx = cv.getContext('2d'), img = ctx.createImageData(wp, hp);
+  const sp = noiseField(wp, hp, 2, 3), lay = noiseField(wp, hp, 6, 8), r = rnd(4);
+  for (let y = 0; y < hp; y++) {
+    const d = 30 + (y / hp) * 60; // mm
+    const base = d < 38 ? 70 : d < 41 ? 190 : 150 * Math.exp(-(d - 41) / 70) + 30;
+    const vessel = d > 62 && d < 68 ? 0.45 : 1;
+    for (let x = 0; x < wp; x++) {
+      const g = clamp(base * vessel * (0.55 + 0.9 * sp(x * 3, y)) * (0.8 + 0.4 * lay(x, y * 3)) + (r() - 0.5) * 25, 0, 255);
+      const i = (y * wp + x) * 4; img.data[i] = img.data[i + 1] = img.data[i + 2] = g; img.data[i + 3] = 255;
+    }
   }
   ctx.putImageData(img, 0, 0);
   return cv;
@@ -48,7 +72,7 @@ export function createFibroScan() {
   const box = h('div', { class: 'chart-box fibroscan-box' }, cv);
   const note = h('p', { class: 'ctl-sub' }, 'A simulated FibroScan: the median liver stiffness is an estimate from the model, not a measurement. Normal is about 5 kPa; above 25 kPa with a low platelet count, clinically significant portal hypertension is near certain. A congested liver (heart, hepatic veins) is stiff too.');
   const el = h('div', { class: 'dock-pane', 'data-pane': 'fibroscan' }, box, note);
-  let sig = '', img = null;
+  let sig = '', img = null, strip = null;
   function update(f) {
     const k = f.metrics.lsm;
     const { ctx, w, h: hh } = fitCanvas(cv);
@@ -81,15 +105,23 @@ export function createFibroScan() {
     ctx.fillStyle = INK; ctx.font = FONT(500, 10); ctx.textAlign = 'right';
     for (let d = 30; d <= 90; d += 10) ctx.fillText(String(d), ax - 4, top + ((d - 30) / 60) * ph + 3);
     ctx.textAlign = 'left'; ctx.fillText('mm', pad, top - 6);
-    // A-mode grey speckle strip and the green-framed signal trace
-    const r = rnd(5);
-    for (let y = 0; y < ph; y += 2) for (let x = 0; x < aw; x += 2) { const g = 120 + r() * 110; ctx.fillStyle = `rgb(${g},${g},${g})`; ctx.fillRect(ax + x, top + y, 2, 2); }
-    ctx.fillStyle = '#000'; ctx.fillRect(ax + aw + 3, top, aw, ph);
+    // M-mode strip, then the A-mode signal: amplitude (across) against depth (down), strong near the probe
+    // and falling with depth (attenuation), inside a green frame that marks a valid measurement.
+    if (!strip || strip.w !== aw || strip.h !== ph) strip = { w: aw, h: ph, cv: motionStrip(Math.max(8, Math.round(aw / 2)), Math.max(60, Math.round(ph / 2))) };
+    ctx.imageSmoothingEnabled = true; ctx.drawImage(strip.cv, ax, top, aw, ph);
+    const axs = ax + aw + 3;
+    ctx.fillStyle = '#000'; ctx.fillRect(axs, top, aw, ph);
+    const r2 = rnd(9), cx0 = axs + aw / 2;
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.beginPath();
-    const r2 = rnd(9);
-    for (let y = 0; y <= ph; y += 3) { const x = ax + aw + 3 + aw * (0.5 + (r2() - 0.5) * 0.45); y ? ctx.lineTo(x, top + y) : ctx.moveTo(x, top); }
+    for (let y = 0; y <= ph; y += 2) {
+      const d = 30 + (y / ph) * 60, env = d < 38 ? 0.18 : 0.42 * Math.exp(-(d - 41) / 55) + 0.08;
+      const x = cx0 + (r2() - 0.5) * 2 * env * aw * 0.9;
+      y ? ctx.lineTo(x, top + y) : ctx.moveTo(x, top);
+    }
     ctx.stroke();
-    ctx.strokeStyle = '#2bb24c'; ctx.lineWidth = 2; ctx.strokeRect(ax + aw + 3, top, aw, ph);
+    ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 1;
+    for (const d of [35, 75]) { const y = top + ((d - 30) / 60) * ph; ctx.beginPath(); ctx.moveTo(ax, y); ctx.lineTo(axs + aw, y); ctx.stroke(); }
+    ctx.strokeStyle = '#2bb24c'; ctx.lineWidth = 2; ctx.strokeRect(axs, top, aw, ph);
     // elastogram with the measurement window and the wavefront slope line
     ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(img.cv, ex, top, ew, ph);
