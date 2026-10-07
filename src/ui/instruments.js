@@ -4,6 +4,7 @@
 import { NODES } from '../engine/topology.js?v=80b8d861de';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { h, fmt, fitCanvas, cssVar, clamp, icon } from './util.js?v=8aa5e5cdf1';
+import { simTime, isPaused } from './clock.js?v=debc03416c';
 import { createEndoGL } from './endo-gl.js?v=43e05fd596';
 import { renderEndo } from './endo-render.js?v=93154c1b51';
 import { FONT } from './charts.js?v=898c42e2f5';
@@ -57,6 +58,7 @@ export function createEndoscopy({ onAction }) {
     t.cur = t.from + (t.to - t.from) * ease(k); t.v = t.cur;
     return k < 1 && t.cur !== t.to;
   }
+  store.on('running', () => { if (last && !isPaused()) draw(last.f, last.vx); });
   function draw(f, vx) {
     const { ctx, w, h: hh } = fitCanvas(cv);
     if (w < 32 || hh < 32) return; // hidden/reflowing canvas: wait for its measured size
@@ -71,7 +73,7 @@ export function createEndoscopy({ onAction }) {
     peak = bands > 0 ? Math.max(peak, gNow) : gNow;
     const tg = peak, tv = bands > 0 ? 1 : clamp((vx.d - 2.5) / 1.0, 0, 1);
     last = { f, vx };
-    const now = performance.now(), dt = Math.min(0.05, Math.max(0, (now - lastT) / 1000)); lastT = now;
+    const now = simTime() * 1000, dt = Math.min(0.05, Math.max(0, (now - lastT) / 1000)); lastT = now; // sim clock: frozen while paused
     // Targets: each column is deflated and knuckled once banded (the 4 bands fill columns in turn).
     const defT = [0, 0, 0, 0], knT = new Array(16).fill(0);
     for (let c = 0; c < 4; c++) {
@@ -92,7 +94,7 @@ export function createEndoscopy({ onAction }) {
     let busy = an.g !== tg || an.v !== tv;
     for (let c = 0; c < 4; c++) busy = tween(an.def[c], defT[c], now, 1100, 0) || busy;
     for (let i = 0; i < 16; i++) busy = tween(an.kn[i], knT[i], now, 800, knT[i] > an.kn[i].v ? 350 : 0) || busy;
-    if (busy && !raf) raf = requestAnimationFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
+    if (busy && !raf && !isPaused()) raf = requestAnimationFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
     const res = clamp(Math.round(2 * R * (window.devicePixelRatio || 1)), 160, 480);
     let img;
     if (gl) img = gl.render(res, { grow: an.g, vis: an.v, red: !!vx.redWale, def: an.def.map((t) => t.cur), kn: an.kn.map((t) => t.cur) });

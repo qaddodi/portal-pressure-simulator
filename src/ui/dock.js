@@ -10,7 +10,7 @@ import { createProfile } from './charts.js?v=898c42e2f5';
 import { createPressureTime } from './pressure-time.js?v=42f7819b86';
 import { createFibroScan } from './fibroscan.js?v=53fcfb25b8';
 import { createDoppler } from './doppler.js?v=3e54ad90ca';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=42233fd4cd';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=a04bc4d0c8';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
