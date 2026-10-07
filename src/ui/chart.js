@@ -11,9 +11,9 @@
 import { store, updateParams } from './store.js?v=7acb60de12';
 import { h, fmt, icon, svgIcon, toast } from './util.js?v=8aa5e5cdf1';
 import { DRUGS } from '../engine/scenario.js?v=06164f9b2a';
-import { TILES, VITALS, readoutValue } from './dock.js?v=c55691d0f0';
+import { TILES, VITALS, readoutValue } from './dock.js?v=f1011f8e64';
 import { activeInterventions } from './inspector.js?v=920c4310e9';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=b99454da39';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=bc4291ab47';
 
 // Where each readout is measured, so a click can show it on the figure.
 const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS', 'DIPS'], spleen: ['V_SPL', 'SV_CONF'], ra: ['IVCS_RA'] };
