@@ -11,13 +11,8 @@ import { createTimeline } from './timeline.js?v=2910aa421b';
 import { createLearn } from './learn.js?v=d6bc09a33a';
 import { createCases } from './cases.js?v=a86600396a';
 import { createCompare } from './compare.js?v=92dadf6df1';
-<<<<<<< HEAD
 import { createCard } from './card.js?v=a4101687cd';
 import { createChart, computeFindings } from './chart.js?v=4822d96162';
-=======
-import { createCard } from './card.js?v=a4101687cd';
-import { createChart, computeFindings } from './chart.js?v=4822d96162';
->>>>>>> e858ec8 (Cards stay put while controls are used; sliders never scroll the card or page)
 import { createHome } from './home.js?v=30bbbdfb40';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=889f5fbfda';
