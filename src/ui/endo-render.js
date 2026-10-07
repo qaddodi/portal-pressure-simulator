@@ -48,7 +48,10 @@ function makeColumns(grow, bands) {
       amp: 0.03 + 0.28 * grow,
       zb: [],
     };
-    for (let k = 0; k < Math.min(nb, 4); k++) col.zb.push(1.55 + 1.0 * k);
+    for (let k = 0; k < Math.min(nb, 4); k++) col.zb.push(1.5 * Math.pow(1.6, k));
+    // A banded column is strangulated: its own vein deflates (the knuckle stands where it was).
+    col.ampK = col.amp;
+    if (nb > 0) { col.amp *= 0.3; col.w0 *= 0.8; col.vk = 0.45; }
     cols.push(col);
   }
   return cols;
@@ -76,11 +79,12 @@ function field(th, z, cols, grow, beaded, o) {
     }
     // Banded knuckles: dusky domes standing on the column, band ring at the base.
     for (const zb of col.zb) {
-      const dz = z - zb, wp = col.w0 * 1.25 + 0.05, lp = 0.62;
+      // Round on screen: radial extent ~ dz / z^2 and angular extent ~ dtheta / z, so dz scales with z.
+      const dz = z - zb, wp = col.w0 * 1.5 + 0.06, lp = wp * zb * 0.95;
       const dd = wrapPi(th - centre(col, zb));
       const q = (dd / wp) * (dd / wp) + (dz / lp) * (dz / lp);
       if (q < 4) {
-        if (q < 1) hh += (col.amp * 0.9 + 0.07) * Math.pow(1 - q, 0.6);
+        if (q < 1) hh += (col.ampK * 0.9 + 0.07) * Math.pow(1 - q, 0.6);
         if (o) { if (q < o.q) { o.q = q; o.qc = c; o.dd = dd; o.dz = dz; } }
       }
     }
@@ -142,7 +146,7 @@ export function renderEndo(res, p) {
       // The vein under the thin mucosa: blue-purple, strongest where the column is tallest.
       let vein = 0;
       if (present && o.vein > 0.02) {
-        vein = Math.min(1, o.vein * (0.4 + 0.75 * grow));
+        vein = Math.min(1, o.vein * (0.4 + 0.75 * grow) * (o.c >= 0 && cols[o.c].vk ? cols[o.c].vk : 1));
         // Pale, stretched mucosa along the very crest.
         const crest = Math.exp(-Math.pow(Math.abs(o.u) / 0.55, 2));
         const k = vein * 0.72;
@@ -185,7 +189,7 @@ export function renderEndo(res, p) {
 
       const diff = Math.min(1.1, (NL * 0.72 + 0.28)) * atten;
       const sheen = (0.08 + 0.1 * nz(th / TAU * 9, z * 0.7, 9));
-      const spec = (Math.pow(NH, 160) * 0.4 + Math.pow(NL, 14) * 0.035) * gloss * atten * (0.35 + 0.9 * nz(th / TAU * 20, z * 1.4, 20));
+      const spec = (Math.min(0.35, Math.pow(NH, 220) * 0.3 + Math.pow(NL, 14) * 0.02)) * gloss * atten * (0.35 + 0.9 * nz(th / TAU * 20, z * 1.4, 20));
       let rr = (r0 / 255) * diff * ao + spec * 0.9 + sheen * 0.04;
       let gg = (g0 / 255) * diff * ao + spec * 0.86 + sheen * 0.03;
       let bb = (b0 / 255) * diff * ao + spec * 0.82 + sheen * 0.03;

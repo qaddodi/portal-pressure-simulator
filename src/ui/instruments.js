@@ -4,7 +4,7 @@
 import { NODES } from '../engine/topology.js?v=80b8d861de';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { h, fmt, fitCanvas, cssVar, clamp, icon } from './util.js?v=8aa5e5cdf1';
-import { renderEndo } from './endo-render.js?v=d41ee22568';
+import { renderEndo } from './endo-render.js?v=f968ff9d12';
 import { FONT } from './charts.js?v=0630f760fe';
 import { store, updateParams, logAction, varixSuppressed } from './store.js?v=18136433f8';
 
@@ -45,7 +45,7 @@ export function createEndoscopy({ onAction }) {
   // winding varices, drawn once per state into a cached bitmap, so it is perfectly steady. Balloon,
   // bleeding and the scope mask are drawn on top.
   const rnd = (seed) => { let x = seed >>> 0; return () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; }; };
-  let bleedT = 0, cache = { key: '', img: null };
+  let peak = 0, bleedT = 0, cache = { key: '', img: null };
   function draw(f, vx) {
     const { ctx, w, h: hh } = fitCanvas(cv);
     if (w < 32 || hh < 32) return; // hidden/reflowing canvas: wait for its measured size
@@ -54,7 +54,11 @@ export function createEndoscopy({ onAction }) {
     const cx = w / 2, cy = (hh - 16) / 2, R = Math.min(w, hh - 16) / 2 - 6;
     ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
     const bands = Math.round(f.bands || 0);
-    const grow = clamp((vx.d - 2) / 10, 0, 1), present = vx.d >= 2.4 || bands > 0;
+    // Banding deflates the banded columns only. The model's single varix size falls as bands go on,
+    // so unbanded columns keep the size seen before the first band.
+    const gNow = clamp((vx.d - 2) / 10, 0, 1);
+    peak = bands > 0 ? Math.max(peak, gNow) : gNow;
+    const grow = peak, present = vx.d >= 2.4 || bands > 0;
     const res = clamp(Math.round(2 * R * (window.devicePixelRatio || 1)), 160, 300);
     const gq = Math.round(grow * 14) / 14;
     const key = [res, gq.toFixed(3), bands, present ? 1 : 0, vx.redWale ? 1 : 0].join('|');
