@@ -9,6 +9,7 @@ import { addRecord, exportCSV, exportXAPI } from './records.js?v=5f3cebd762';
 import { scoreCase, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=c8570af624';
 import { measureView } from './measure-model.js?v=089f10544e';
 import { EDGES } from '../engine/topology.js?v=80b8d861de';
+import { trustLine, blindOn, blindOff, optionList, compareChip, bindQuestionKeys, MODEL_ONLY_EVENTS } from './learning-kit.js?v=00000000';
 
 const ACTIONS = {
   crystalloid: { label: '1 L crystalloid', run: (a) => a.action({ kind: 'infuse', fluid: 'crystalloid' }) },
@@ -74,6 +75,19 @@ function asciticCard(m) {
 const factsCard = (facts) => resultCard('Supplied clinical assessment', 'Outside the model: supplied clinical information', (facts || []).map((f) => [f, '', '']), ['These facts are authored for the scenario. The simulation does not generate or change them.']);
 
 const fmtClock = (s) => { const m = Math.floor(s / 60); return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min` : `${m} min ${String(Math.floor(s % 60)).padStart(2, '0')} s`; };
+
+// Decision cards. A card is a plain question, or a `decision`: it appears when its `trigger(ctx)` is
+// true (default: as soon as its `requires` orders are placed), pauses the clock, takes over the
+// card and holds all feedback for the debrief. Extra fields on a card (all optional):
+//   multi: true            pick several; `answer` is then an array of indexes
+//   blind: true            hide the pressure numbers while it is open
+//   unsafe(got, ctx)       return { text, apply?(api, ctx) } for a choice that harms the patient: its
+//                          consequence is shown at once and `apply` changes the model before the clock resumes
+//   reveal(got, ctx)       return { showed, ok } to show "You said / The patient showed" after the commit
+const isDecision = (qq) => !!(qq.decision || qq.multi);
+const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
+const isRight = (qq, got) => (got == null ? false : Array.isArray(qq.answer) ? Array.isArray(got) && sameSet(got, qq.answer) : got === qq.answer);
+const labelOf = (qq, i) => (Array.isArray(i) ? i.map((x) => qq.options[x]).join('; ') : qq.options[i]);
 
 const DX_HIDDEN = ['trueHVPG', 'pv', 'ra', 'iap', 'hb', 'bloodLoss'];
 const REQ = ['eligibility'];
@@ -279,7 +293,6 @@ export const CASES = [
 // readouts in the chart and dock, pressure labels and color on the figure, the lobule, and
 // story events that would give the answer away (a model-only 'HVPG ≥ 12' in a case where HVPG
 // has to be measured).
-const MODEL_ONLY_EVENTS = ['CSPH', 'BLEED_RISK', 'RED_WALE', 'HIGH_SHUNT', 'LIVER_HYPOPERFUSION', 'INTRAHEPATIC_REVERSAL', 'CAUDATE'];
 function visibilityOf(cs) {
   const hidden = new Set(cs.hidden || []);
   const imaging = hidden.has('pv');
@@ -301,7 +314,7 @@ const MONITOR = [
 ];
 
 export function createCases({ root, api }) {
-  let cs = null, ctx = null, timer = null;
+  let cs = null, ctx = null, timer = null, decisionHost = null, unbindKeys = null;
   const log = [];
 
   let seed = 0, variant = {}, startSnap = null, trend = {}, wall0 = 0;
@@ -332,6 +345,7 @@ export function createCases({ root, api }) {
     wall0 = Date.now();
     ctx = { t0: null, t: 0, quiz: {}, probed: false, minMap: 999, maxPV: 0, maxHbAfterTx: 0, lowFor: 0, stableFor: 0, obj: {}, ended: false, outcome: null, params0: structuredClone(store.get().params) };
     trend = {};
+    unbindKeys?.(); unbindKeys = bindQuestionKeys(() => root);
     render();
     clearInterval(timer);
     timer = setInterval(tick, 250);
@@ -343,7 +357,7 @@ export function createCases({ root, api }) {
     if (c.t0 == null) c.t0 = f.t;
     c.t = Math.max(0, f.t - c.t0);
     c.first = (...ids) => { const x = log.find((l) => ids.includes(l.id)); return x ? x.t : null; };
-    c.quizState = (i) => (c.quiz[i] == null ? null : c.quiz[i] === cs.quiz[i].answer ? 'met' : 'failed');
+    c.quizState = (i) => (c.quiz[i] == null ? null : isRight(cs.quiz[i], c.quiz[i]) ? 'met' : 'failed');
     c.ansAt = (id) => log.find((l) => l.key === `case:${cs.id}:${id}`)?.t;
     c.count = (id) => log.filter((l) => l.id === id).length;
     c.qid = (id) => { const i = cs.quiz.findIndex((q) => q.id === id); return i < 0 ? null : c.quizState(i); };
@@ -355,6 +369,7 @@ export function createCases({ root, api }) {
     const f = store.get().frame;
     if (!cs || !f || ctx.ended) return;
     const c = makeCtx(f);
+    if (ctx.deciding != null) { renderLive(); return; } // the clock is paused on a decision
     if (cs.probes && !c.probed) c.probed = (store.get().actionLog || []).some((a) => a.type === 'probe' && cs.probes.includes(a.target));
     c.minMap = Math.min(c.minMap, c.m.map);
     c.maxPV = Math.max(c.maxPV, c.m.pv);
@@ -375,6 +390,7 @@ export function createCases({ root, api }) {
     }
     const out = cs.end(c);
     if (out) finish(out);
+    else if (cs.quiz) { const qi = cs.quiz.findIndex((qq, i) => isDecision(qq) && ctx.quiz[i] == null && ready(qq, i, c)); if (qi >= 0) openDecision(qi); }
     renderLive();
   }
 
@@ -403,6 +419,7 @@ export function createCases({ root, api }) {
 
   function finish(outcome) {
     ctx.ended = true; ctx.outcome = outcome;
+    ctx.deciding = null; blindOff(); root.classList.remove('deciding'); decisionHost?.replaceChildren();
     const c = makeCtx(store.get().frame);
     for (const o of cs.objectives) { if (o.final) c.obj[o.id] = o.check(c) === 'met' ? 'met' : 'failed'; else if (!c.obj[o.id]) c.obj[o.id] = o.check(c) || 'failed'; }
     clearInterval(timer);
@@ -453,8 +470,8 @@ export function createCases({ root, api }) {
       h('div', { class: 'score' }, ring, h('div', {}, h('b', {}, cs.title), h('div', { class: 'sub' }, `${met} of ${cs.objectives.length} objectives met · ${res.mastered ? 'mastered' : `not mastered (needs ${MASTERY} %${cs.objectives.some((o) => o.critical) ? ' and every critical objective' : ''})`}${res.failedCritical.length ? ` · critical missed: ${res.failedCritical.map((id) => cs.objectives.find((o) => o.id === id).text).join('; ')}` : ''} · simulated time ${fmtClock(c.t)} · variant ${seed}`))),
       h('h3', {}, 'Objectives'),
       h('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } }, cs.objectives.map((o) => h('div', { class: 'goal' + (c.obj[o.id] === 'met' ? ' met' : c.obj[o.id] === 'failed' ? ' failed' : ''), style: { marginBottom: 0 } }, h('span', { class: 'chk' }, svgIcon(c.obj[o.id] === 'failed' ? 'close' : 'check')), o.text))),
-      cs.quiz ? [h('h3', {}, 'Decision cards'), ...cs.quiz.map((qq, qi) => h('div', { class: 'goal ' + (c.quiz[qi] == null ? '' : c.quiz[qi] === qq.answer ? 'met' : 'failed'), style: { marginBottom: '6px', display: 'block' } },
-        h('b', {}, qq.q), h('div', {}, c.quiz[qi] == null ? 'Not answered.' : `You chose: ${qq.options[c.quiz[qi]]}${c.quiz[qi] === qq.answer ? '' : `. Best answer: ${qq.options[qq.answer]}`}`), qq.why ? h('div', { class: 'sub' }, qq.why) : null))] : null,
+      cs.quiz ? [h('h3', {}, 'Decision cards'), ...cs.quiz.map((qq, qi) => h('div', { class: 'goal ' + (c.quiz[qi] == null ? '' : isRight(qq, c.quiz[qi]) ? 'met' : 'failed'), style: { marginBottom: '6px', display: 'block' } },
+        h('b', {}, qq.q), h('div', {}, c.quiz[qi] == null ? 'Not answered.' : `You chose: ${labelOf(qq, c.quiz[qi])}${isRight(qq, c.quiz[qi]) ? '' : `. Best answer: ${labelOf(qq, qq.answer)}`}`), qq.why ? h('div', { class: 'sub' }, qq.why) : null))] : null,
       h('h3', {}, 'Your decisions'),
       log.length ? h('div', { class: 'event-log' }, log.map((l) => h('div', { class: 'event-row', style: { gridTemplateColumns: '96px 1fr' } }, h('span', { class: 'when' }, fmtClock(l.t)), h('span', {}, ACTIONS[l.id]?.label || l.id)))) : h('p', { class: 'sub' }, 'No actions taken.'),
       cs.counterfactual ? [h('h3', {}, 'Counterfactual'), cfEl] : null,
@@ -474,7 +491,7 @@ export function createCases({ root, api }) {
   function exit() {
     if (!cs) return;
     clearInterval(timer);
-    cs = null; ctx = null;
+    cs = null; ctx = null; blindOff(); unbindKeys?.(); unbindKeys = null; root.classList.remove('deciding');
     store.set({ hiddenReadouts: null, hiddenEvents: null, locked: null, imaging: false });
     api.setAllowedTools(null);
     api.muteEvents?.(false);
@@ -526,25 +543,23 @@ export function createCases({ root, api }) {
     const decisions = h('div', { class: 'case-decisions' });
     const renderDecisions = () => {
       decisions.replaceChildren(...(cs.quiz || []).map((qq, qi) => {
-        const need = qq.requires || [];
-        if (need.some((n) => !log.some((l) => l.id === n))) return null;
-        if (qq.when === 'stable' && !ctx.stable) return null;
-        if (qq.skipIf?.((id) => log.filter((l) => l.id === id).length) && ctx.quiz[qi] == null) return null;
+        if (isDecision(qq) || !available(qq, qi)) return null;
         const done = ctx.quiz[qi] != null;
-        return h('div', { style: { marginTop: '4px' } },
+        return h('div', { class: 'case-q' },
           h('span', { class: 'rc-badge' }, qq.phase === 'sandbox' ? 'Physiology sandbox' : 'Clinical assessment'),
-          h('p', { class: 'q', style: { margin: '4px 0 8px', fontWeight: 600, fontSize: 'var(--fs-14)' } }, qq.q),
-          h('div', { class: 'opts', style: { margin: '0 0 12px' } }, qq.options.map((o, i) => h('button', { class: 'opt' + (ctx.quiz[qi] === i ? ' sel' : ''), disabled: done, 'aria-pressed': String(ctx.quiz[qi] === i),
-            onclick: () => { if (ctx.quiz[qi] != null) return; ctx.quiz[qi] = i; log.push({ id: `Answer ${qi + 1}: ${o}`, t: ctx.t, key: `case:${cs.id}:${qq.id || `q${qi + 1}`}`, correct: i === qq.answer }); renderDecisions(); renderLive(); } },
-          h('span', { class: 'letter' }, 'ABCDE'[i]), h('span', {}, o)))),
+          h('p', { class: 'q' }, qq.q),
+          optionList({ options: qq.options, picked: ctx.quiz[qi], locked: done, onPick: (i) => { if (ctx.quiz[qi] != null) return; recordAnswer(qi, i); renderDecisions(); renderLive(); } }),
           done ? h('p', { class: 'ctl-sub' }, 'Answer submitted. Feedback comes in the debrief.') : null);
       }));
     };
     const quiz = decisions;
     ctx.renderDecisions = renderDecisions;
+    decisionHost = h('div', { class: 'decision-host', 'aria-live': 'polite' });
     root.replaceChildren(
       h('div', { class: 'p-head case-head' }, h('div', { class: 'p-head-row' }, h('div', { class: 'p-title' }, h('span', { class: 'kicker' }, `Case · ${cs.level}`), h('h2', {}, cs.title)), h('button', { class: 'btn sm', onclick: exit }, 'Exit case'))),
+      decisionHost,
       h('div', { class: 'p-body', style: { display: 'flex', flexDirection: 'column', gap: '14px', paddingTop: '14px' } },
+        trustLine(),
         h('p', { class: 'sub', style: { margin: 0, fontSize: 'var(--fs-14)', color: 'var(--text)' } }, cs.summary),
         h('div', { class: 'case-clock' }, h('span', { class: 'overline' }, 'Clinical time'), clock, cs.variant ? h('span', { class: 'variant' }, `Variant ${seed}`) : null),
         vit,
@@ -556,6 +571,65 @@ export function createCases({ root, api }) {
     liveEls = { vit, objs, clock, acts, results, decisions };
     renderDecisions();
     renderLive();
+  }
+
+  // ── Questions and decisions ──────────────────────────────────────────────────
+  const count = (id) => log.filter((l) => l.id === id).length;
+  const available = (qq, qi) => !((qq.requires || []).some((n) => !count(n)) || (qq.when === 'stable' && !ctx.stable) || (qq.skipIf?.(count) && ctx.quiz[qi] == null));
+  const ready = (qq, qi, c) => available(qq, qi) && (!qq.trigger || qq.trigger(c));
+  function recordAnswer(qi, got) {
+    const qq = cs.quiz[qi];
+    ctx.quiz[qi] = got;
+    log.push({ id: `Answer ${qi + 1}: ${labelOf(qq, got)}`, t: ctx.t, key: `case:${cs.id}:${qq.id || `q${qi + 1}`}`, correct: isRight(qq, got) });
+    return log[log.length - 1];
+  }
+  function resume() {
+    if (!ctx || ctx.ended) return;
+    ctx.deciding = null; ctx.draft = null; ctx.note = null;
+    root.classList.remove('deciding'); decisionHost.replaceChildren();
+    if (!ctx.stable) host.send({ type: 'run', running: true, speed: cs.speed, clock: 'hemo' });
+    ctx.renderDecisions?.(); renderLive();
+  }
+  function openDecision(qi) {
+    const qq = cs.quiz[qi];
+    ctx.deciding = qi; ctx.draft = qq.multi ? [] : null; ctx.note = null;
+    host.send({ type: 'run', running: false });
+    if (qq.blind) blindOn();
+    root.classList.add('deciding');
+    renderDecision();
+  }
+  function commitDecision() {
+    const qi = ctx.deciding, qq = cs.quiz[qi], got = qq.multi ? [...ctx.draft].sort((a, b) => a - b) : ctx.draft;
+    const entry = recordAnswer(qi, got);
+    blindOff();
+    const c = makeCtx(store.get().frame);
+    const bad = qq.unsafe?.(got, c);
+    if (bad) {
+      bad.apply?.({ ...api, action: (x) => { entry.action = x; api.action(x); } }, c);
+      entry.params = structuredClone(store.get().params);
+      ctx.note = { unsafe: true, text: bad.text };
+    } else {
+      const r = qq.reveal?.(got, c);
+      if (r) ctx.note = { said: labelOf(qq, got), showed: r.showed, ok: r.ok !== false };
+    }
+    if (ctx.note) renderDecision(); else resume();
+  }
+  function renderDecision() {
+    const qq = cs.quiz[ctx.deciding], n = ctx.note;
+    if (n) {
+      decisionHost.replaceChildren(h('div', { class: 'decision-card' },
+        h('p', { class: 'step-label' }, 'Decision recorded'),
+        n.unsafe ? h('div', { class: 'feedback wrong' }, h('b', {}, 'Unsafe choice. '), n.text) : compareChip({ said: n.said, showed: n.showed, ok: n.ok }),
+        h('button', { class: 'btn primary primary-action', onclick: resume }, n.unsafe ? 'See what happens' : 'Continue', svgIcon('chev-right'))));
+      return;
+    }
+    const picked = ctx.draft, can = qq.multi ? picked.length > 0 : picked != null;
+    decisionHost.replaceChildren(h('div', { class: 'decision-card' },
+      h('p', { class: 'step-label' }, 'Decision · the clock is paused'),
+      h('p', { class: 'q' }, qq.q),
+      qq.multi ? h('p', { class: 'ctl-sub' }, 'Choose all that apply.') : null,
+      optionList({ options: qq.options, picked, multi: !!qq.multi, onPick: (i) => { ctx.draft = qq.multi ? (picked.includes(i) ? picked.filter((x) => x !== i) : [...picked, i]) : i; renderDecision(); } }),
+      h('button', { class: 'btn primary primary-action', disabled: !can, onclick: commitDecision }, 'Commit')));
   }
 
   function renderLive() {
