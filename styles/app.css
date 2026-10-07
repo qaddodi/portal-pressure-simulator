@@ -3090,3 +3090,6 @@ input[type="range"] { touch-action: none; }
 }
 /* Lesson data rows: where a number started, beside where it is now. */
 .data-row .dr-was { margin-left: 6px; font-size: var(--fs-12); font-weight: 500; color: var(--text-3); white-space: nowrap; }
+
+/* Play/pause: looping sim animations freeze with the simulation (see ui/clock.js). */
+body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state: paused; }

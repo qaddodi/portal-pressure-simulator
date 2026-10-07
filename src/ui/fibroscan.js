@@ -6,6 +6,8 @@
 
 import { h, fitCanvas, clamp } from './util.js?v=8aa5e5cdf1';
 import { FONT } from './charts.js?v=898c42e2f5';
+import { simTime, isPaused } from './clock.js?v=debc03416c';
+import { store } from './store.js?v=b742a09e9e';
 
 const WAVE_T0 = 8; // ms: the shear wave reaches the top of the window about 8 ms after the push
 const ORANGE = '#f0924a';
@@ -93,7 +95,7 @@ export function createFibroScan() {
   function paint(now) {
     const { ctx, w, h: hh } = fitCanvas(cv);
     if (w < 80 || hh < 80) return;
-    const t = REDUCED ? 3 : now / 1000, dt = clamp((now - last) / 1000, 0, 0.2); last = now;
+    const st = simTime(now), t = REDUCED ? 3 : st, dt = clamp(st - last, 0, 0.2); last = st;
     // The measured value drifts gently around the model's median; the readout follows it smoothly.
     const kNow = model * (1 + 0.05 * Math.sin(t * 0.8) + 0.03 * Math.sin(t * 1.9 + 1));
     shown = shown === null ? kNow : shown + (kNow - shown) * (1 - Math.exp(-dt * 2.5));
@@ -145,12 +147,13 @@ export function createFibroScan() {
   function loop(now) {
     if (!cv.isConnected || cv.offsetParent === null || document.hidden) { running = false; return; }
     paint(now);
-    if (REDUCED) { running = false; return; }
+    if (REDUCED || isPaused()) { running = false; return; }   // paused: hold this frame; resume restarts the loop
     requestAnimationFrame(loop);
   }
   function update(f) {
     model = f.metrics.lsm;
     if (!running && cv.offsetParent !== null) { running = true; requestAnimationFrame(loop); }
   }
+  store.on('running', (on) => { if (on && !running && cv.offsetParent !== null) { running = true; requestAnimationFrame(loop); } });
   return { id: 'fibroscan', label: 'FibroScan', el, update };
 }
