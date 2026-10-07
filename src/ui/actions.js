@@ -4,7 +4,7 @@
 // in the timeline as one entry.
 
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=80b8d861de';
-import { store, updateParams } from './store.js?v=b8c56c0b3c';
+import { store, updateParams } from './store.js?v=18136433f8';
 import { fmt, fmtFlow, clamp, toast } from './util.js?v=8aa5e5cdf1';
 import { aboutVessel, aboutOrgan } from './about.js?v=421024102c';
 import { lobuleState } from './lobule-model.js?v=c4f41a94a3';
@@ -102,7 +102,7 @@ export function cardFor(selIn, ctx) {
   } else if (isShunt) {
     kicker = 'Shunt'; why = 'shunt';
     if (id === 'TIPS') {
-      verbs.push({ type: 'slider', id: 'diameter', key: 'tips', label: 'Stent diameter', min: 6, max: 12, step: 0.5, def: 10, format: (v) => `${v.toFixed(1)} mm`,
+      verbs.push({ type: 'slider', id: 'diameter', key: 'tips', label: 'Stent diameter', min: 6, max: 12, step: 0.5, def: 8, format: (v) => `${v.toFixed(1)} mm`,
         get: (p) => p.tips.d, set: (p, v) => { p.tips.d = v; }, hist: 'TIPS diameter', info: 'Resistance ∝ 1/d⁴: an 8 mm stent has well under half the conductance of a 10 mm one.' });
       verbs.push({ type: 'button', id: 'remove', key: 'tips', label: 'Remove TIPS', icon: 'close', danger: true, run: () => { updateParams({ tips: { on: false } }, { label: 'Remove TIPS' }); ctx.select(null); } });
     } else if (e.shunt === 'custom') {

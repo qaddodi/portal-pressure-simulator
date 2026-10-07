@@ -22,7 +22,7 @@ export function defaultParams() {
     pulsatile: false,
     spontaneous: { C5: true, C6: false },   // C5: gastrorenal shunt, an anatomical variant present in most patients but small until the gradient is high
     occluded: {},                 // collateral id → true (BRTO / plug)
-    tips: { on: false, d: 10 },
+    tips: { on: false, d: 8 },
     portocaval: false,
     customShunts: {},
     dsrs: false,

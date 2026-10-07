@@ -2,7 +2,7 @@
 // pane, with a free / wedged selector for the right hepatic vein that sends the existing
 // `catheter` parameters. Not opened through an obstructed vein.
 
-import { store, updateParams, logAction } from './store.js?v=b8c56c0b3c';
+import { store, updateParams, logAction } from './store.js?v=18136433f8';
 import { h, fmt } from './util.js?v=8aa5e5cdf1';
 import { measureView, veinBlocked } from './measure-model.js?v=089f10544e';
 
