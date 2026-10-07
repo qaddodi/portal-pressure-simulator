@@ -80,7 +80,7 @@ export function createFibroScan() {
   const box = h('div', { class: 'chart-box fibroscan-box' }, cv);
   const note = h('p', { class: 'ctl-sub' }, 'A simulated FibroScan, live: each shot sends a shear wave down from the probe, the fitted slope of its front gives the speed and so the stiffness, and the median of the shots is the result. It is an estimate from the model, not a measurement. Normal is about 5 kPa; above 25 kPa with a low platelet count, clinically significant portal hypertension is near certain. A congested liver (heart, hepatic veins) is stiff too.');
   const el = h('div', { class: 'dock-pane', 'data-pane': 'fibroscan' }, box, note);
-  let model = 10, running = false, t0 = 0, strip = null, img = null, hist = [], lastShot = -1, shotK = 10, lastModel = null, aSeed = 0, aT = 0;
+  let prev = null, model = 10, running = false, t0 = 0, strip = null, img = null, hist = [], lastShot = -1, shotK = 10, lastModel = null, aSeed = 0, aT = 0;
 
   const shotValue = (i) => model * (1 + (rnd(i * 977 + 13)() - 0.5) * 0.16);
   function paint(now) {
@@ -90,11 +90,13 @@ export function createFibroScan() {
     const p = 1;
     if (idx !== lastShot) {
       if (lastShot >= 0) hist = [...hist, shotK].slice(-10);
-      lastShot = idx; shotK = shotValue(idx); img = null;
+      prev = img && lastShot >= 0 ? { ...img, k: shotK } : null; lastShot = idx; shotK = shotValue(idx); img = null;
     }
     if (REDUCED && !hist.length) hist = [shotK];
-    const c = shearSpeed(shotK);
-    if (!img) img = { cv: elastogram(120, c, idx % 97) };
+    if (!img) img = { cv: elastogram(120, shearSpeed(shotK), idx % 97) };
+    // Smooth crossfade from the last shot's map to this one; the slope eases between them.
+    const ft = REDUCED ? 1 : clamp((el0 - idx * SHOT_MS) / 700, 0, 1), fe = ft * ft * (3 - 2 * ft);
+    const c = shearSpeed(prev && fe < 1 ? prev.k + (shotK - prev.k) * fe : shotK);
     const shown = median(p >= 1 && !hist.includes(shotK) ? [...hist, shotK] : hist.length ? hist : [shotK]);
     ctx.clearRect(0, 0, w, hh);
     ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, hh);
@@ -142,7 +144,10 @@ export function createFibroScan() {
     // Elastogram: built left to right as the wave travels
     ctx.fillStyle = '#16100c'; ctx.fillRect(ex, top, ew, ph);
     ctx.imageSmoothingQuality = 'high';
-    if (p > 0) ctx.drawImage(img.cv, 0, 0, Math.max(1, 120 * p), 120, ex, top, ew * p, ph);
+    // A slow sub-pixel drift keeps the speckle quietly alive between shots.
+    const dx = REDUCED ? 0 : Math.sin(now / 900) * 1.2, dy = REDUCED ? 0 : Math.cos(now / 1100) * 1.2;
+    const put = (im) => ctx.drawImage(im.cv, 2 + dx, 2 + dy, 116, 116, ex, top, ew, ph);
+    if (prev && fe < 1) { put(prev); ctx.globalAlpha = fe; put(img); ctx.globalAlpha = 1; } else put(img);
     ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.setLineDash([2, 3]); ctx.lineWidth = 1;
     for (const d of [35, 75]) { const y = top + ((d - 30) / 60) * ph; ctx.beginPath(); ctx.moveTo(ex, y); ctx.lineTo(ex + ew, y); ctx.stroke(); }
     ctx.setLineDash([]);
