@@ -11,14 +11,9 @@ import { createTimeline } from './timeline.js?v=c8442ea022';
 import { createLearn } from './learn.js?v=ffc41ddf35';
 import { createCases } from './cases.js?v=62a62bbadf';
 import { createCompare } from './compare.js?v=92dadf6df1';
-<<<<<<< HEAD
-import { createCard } from './card.js?v=a4101687cd';
-import { createChart, computeFindings } from './chart.js?v=4822d96162';
-=======
 import { createCard } from './card.js?v=a4101687cd';
 import { createChart, computeFindings } from './chart.js?v=4822d96162';
 import { createHome } from './home.js?v=f3634b5839';
->>>>>>> origin/claude/settings-topbar-icon-flvft1
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=889f5fbfda';
 import { startLMS } from './lms.js?v=f31cc84f75';
