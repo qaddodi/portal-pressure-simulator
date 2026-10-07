@@ -18,11 +18,10 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   view.append(leader);
   const tabletTouch = matchMedia('(pointer: coarse) and (min-width: 768px) and (max-width: 1366px)');
   const sizes = { vw: view.clientWidth, vh: view.clientHeight, w: 0, h: 0 };
-  new ResizeObserver(() => { sizes.vw = view.clientWidth; sizes.vh = view.clientHeight; placedFor = ''; lastLayout = ''; pinned = null; position(); if (isDocked()) reveal(); }).observe(view);
+  new ResizeObserver(() => { const moved = Math.abs(sizes.vw - view.clientWidth) > 2 || !sizes.vh; sizes.vw = view.clientWidth; sizes.vh = view.clientHeight; if (moved) { placedFor = ''; lastLayout = ''; pinned = null; } position(); if (isDocked()) reveal(); }).observe(view);
   new ResizeObserver(() => { const first = !sizes.w; sizes.w = el.offsetWidth; sizes.h = el.offsetHeight; if (first) { placedFor = ''; lastLayout = ''; pinned = null; } position(); syncMore(); if (isDocked()) reveal(); }).observe(el);
   const uiState = {};
   ctx.ui = (key, def) => (uiState[key] ||= def);
-  const tallest = {};
   let lastSelKey = '', model = null, live = [], syncs = [], actionable = [], selRef = null, placedFor = '', lastLayout = '', pinned = null;
 
   const refP = () => { const st = store.get(); return st.compareSnap ? st.compareSnap.P : st.healthy?.P; };
@@ -92,9 +91,9 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     clearTimeout(closeTimer);
     el.classList.remove('ac-leaving');
     const focusedIdx = keepFocus ? actionable.findIndex((a) => a.el.contains(document.activeElement)) : -1;
-    const same = !el.hidden && !!model && JSON.stringify(normalizeSel(sel) || sel) === lastSelKey, keepH = same ? (el.querySelector('.ac-scroll')?._h || 0) : 0;
+    const same = !el.hidden && !!model && JSON.stringify(normalizeSel(sel) || sel) === lastSelKey;
     lastSelKey = JSON.stringify(normalizeSel(sel) || sel);
-    if (!same) el.style.minHeight = '';
+    el.dataset.card = (normalizeSel(sel) || sel).type || 'vessel';
     model = m; selRef = sel; live = []; syncs = []; actionable = [];
     const close = h('button', { class: 'ib ac-close', 'aria-label': 'Close', title: 'Close (Esc)', onclick: () => store.set({ selection: null }) }, icon('close'));
     const valEl = h('div', { class: 'ac-value' });
@@ -149,7 +148,6 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     // Number keys trigger the verbs in order; show the number beside each.
     actionable.forEach((a, i) => { if (i < 9) a.el.dataset.key = String(i + 1); });
     // The same card rebuilt (a value changed what is allowed): keep its place and its size, so nothing moves under the hand.
-    if (keepH) { scroller._h = keepH; scroller.style.minHeight = keepH + 'px'; }
     update();
     if (!same) { placedFor = ''; lastLayout = ''; pinned = null; }
     position();
@@ -302,27 +300,19 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   }
   function infoI(text) { const b = h('button', { class: 'info-i', type: 'button', 'aria-label': text }, icon('info')); tooltipFor(b, text); return b; }
 
-  // While a finger or mouse is down inside the card its size is frozen, so a slider never moves out from under the pointer.
-  el.addEventListener('pointerdown', () => { el.style.height = el.offsetHeight + 'px'; });
-  addEventListener('pointerup', () => { el.style.height = ''; }, true);
-  addEventListener('pointercancel', () => { el.style.height = ''; }, true);
+  let dragEl = null;
+  el.addEventListener('pointerdown', (e) => { dragEl = e.target.closest?.('input[type=range], .ac-btn, .ac-toggle, .seg button') || null; });
+  const dragEnd = () => { dragEl = null; };
+  addEventListener('pointerup', dragEnd, true); addEventListener('pointercancel', dragEnd, true);
 
   function update() {
     if (!model || el.hidden) return;
+    // The control in use stays exactly where it is: if text came or went above it, scroll the card back by the difference.
+    const t0 = dragEl ? dragEl.getBoundingClientRect().top : 0;
     for (const fn of live) fn();
-    // The card only ever grows while it is open: text that comes and goes (notes, pills) must not
-    // make it breathe, so its body keeps the tallest height it has needed.
-    const sc = el.querySelector('.ac-scroll');
-    if (sc && !sc.classList.contains('more')) {
-      const need = Math.min(sc.scrollHeight, innerHeight * 0.6);
-      if (need > (sc._h || 0)) { sc._h = need; sc.style.minHeight = need + 'px'; }
-    }
-    // The whole card keeps the tallest size it has needed for this structure (its header text, pills and notes come and go),
-    // so it never breathes as values change; a held pointer freezes it as well.
-    if (!el.style.height) {
-      const hNow = el.offsetHeight, k = lastSelKey + (isDocked() ? '|d' : '');
-      if (hNow > (tallest[k] || 0)) tallest[k] = hNow;
-      el.style.minHeight = (tallest[k] || 0) + 'px';
+    if (dragEl) {
+      const d = dragEl.getBoundingClientRect().top - t0, sc = el.querySelector('.ac-scroll');
+      if (d && sc) sc.scrollTop += d;
     }
     position();
   }
@@ -392,7 +382,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   }
 
   // The floating pieces moved (a card opened on the right, the dock grew): place the card again.
-  addEventListener('pps:occ', () => { placedFor = ''; lastLayout = ''; pinned = null; position(); if (isDocked()) reveal(); });
+  addEventListener('pps:occ', () => { if (pinned && !isDocked()) return; placedFor = ''; lastLayout = ''; pinned = null; position(); if (isDocked()) reveal(); });
   store.on('selection', () => render());
   store.on('shunting', () => render());
   store.on('allowedVerbs', () => render());

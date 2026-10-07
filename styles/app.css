@@ -1208,6 +1208,10 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline);
   padding: 0; animation: acIn .12s var(--ease); font-size: var(--fs-14); transition: left .18s var(--ease), top .18s var(--ease);
 }
+/* One fixed size per kind of card, whatever text it holds: the header and foot keep their place, the controls scroll inside. */
+.action-card { height: min(600px, calc(100vh - 150px)); max-height: none; }
+.action-card[data-card=organ], .action-card[data-card=lobule] { height: min(570px, calc(100vh - 150px)); }
+.action-card.docked { height: min(46%, 400px); max-height: min(46%, 400px); }
 /* The same three parts on a desktop and on a phone: the top (title, reading) and the foot stay put, the controls scroll. */
 .ac-top { flex: none; padding: 12px 16px 0; }
 .ac-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px; }
@@ -1256,7 +1260,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .ac-toggle[aria-checked="true"] .switch-vis { background: var(--accent); }
 .ac-toggle[aria-checked="true"] .switch-vis i { transform: translateX(12px); }
 .ac-toggle[data-key]::after { order: 3; }
-.ac-about { font-size: var(--fs-12); line-height: 1.5; color: var(--text-2); }
+.ac-about { order: 99; font-size: var(--fs-12); line-height: 1.5; color: var(--text-2); }
 .ac-about p { margin: 0 0 6px; } .ac-about p:last-child { margin-bottom: 0; }
 .ac-about p + p { color: var(--text); }
 .ac-note { font-size: var(--fs-12); color: var(--text-2); line-height: 1.45; padding: 4px 2px 0; }
