@@ -145,7 +145,9 @@ export function createCore(post) {
       if (c !== undefined) { clock = c; diseaseAcc = 0; }
     },
     visibility({ visible: v }) { visible = v; },
-    *advance({ days, untilEvent }) {
+    // restartClock: the days are the patient's past (a case aging its patient), so the clock and
+    // event log start fresh at day 0 afterwards.
+    *advance({ days, untilEvent, restartClock }) {
       const n0 = eng.eventLog.length;
       let done = 0;
       const max = untilEvent ? 730 : days;
@@ -156,6 +158,7 @@ export function createCore(post) {
         if (r.ruptured) { clock = 'hemo'; break; }
         if (untilEvent && eng.eventLog.length > n0) break;
       }
+      if (restartClock) { eng.day = 0; eng.t = 0; eng.eventLog = []; eng.newEvents = []; }
       paramsDirty = true;
     },
     settle() { eng.settle(); },

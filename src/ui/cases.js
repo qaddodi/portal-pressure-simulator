@@ -10,12 +10,12 @@
 // that must be placed first), `auto` (opens by itself) and `show(c)` (conditional steps).
 
 import { store, updateParams } from './store.js?v=b742a09e9e';
-import { host } from './host.js?v=5dfe41663f';
+import { host } from './host.js?v=0adb867212';
 import { h, openModal, closeModal, toast, svgIcon } from './util.js?v=8aa5e5cdf1';
 import { addRecord, exportCSV, exportXAPI } from './records.js?v=50fb9dd463';
 import { scoreCase, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=7f4afcf446';
 import { veinBlocked } from './measure-model.js?v=089f10544e';
-import { CASES, ORDER_META, GROUPS } from './cases/index.js?v=4b8cfe4909';
+import { CASES, ORDER_META, GROUPS } from './cases/index.js?v=34b99dff73';
 import { bpOf, tension, abdomen } from './cases/kit.js?v=58f5848647';
 import { trustLine } from './learning-kit.js?v=6f4b555b70';
 
@@ -94,7 +94,7 @@ export function createCases({ root, api }) {
   function read() {
     const m = frame().metrics, [s, d] = bpOf(m);
     return { hr: Math.round(m.hr), bp: `${s}/${d}`, map: m.map, pv: m.pv, ra: m.ra, lost: m.blood.lost, asc: m.ascites.volume, hepflow: m.hepaticFlow, hvpg: m.hvpg,
-      tension: tension(m.varix?.ratio ?? 0), spleen: m.spleen.length, pvdir: m.pvFlow < -0.05 ? 'away from the liver' : m.pvFlow < 0.03 ? 'no flow' : 'toward the liver' };
+      tension: tension(m.varix?.ratio ?? 0), varix: m.varix?.d ?? 0, spleen: m.spleen.length, pvdir: m.pvFlow < -0.05 ? 'away from the liver' : m.pvFlow < 0.03 ? 'no flow' : 'toward the liver' };
   }
   function vit() {
     const r = read(), o = cs.vitalsFn?.(c) || {};
@@ -118,11 +118,15 @@ export function createCases({ root, api }) {
   async function advance(seconds) { await host.request('preroll', { seconds }); await sleep(180); }
   async function skip({ label, seconds = 0, days = 0, clockAdd = 0 }) {
     if (seconds) await host.request('preroll', { seconds });
+    const before = days && cs.inside ? read() : null;
     if (days) { host.send({ type: 'advance', days }); host.send({ type: 'settle' }); await host.request('snapshot'); }
     ctx.clockAdd += clockAdd + days * 86400; ctx.when = label;
     ctx.story.push({ kind: 'skip', text: label, at: ctx.t + ctx.clockAdd });
+    // After weeks or months, show what changed inside, so the plan's effect is visible at a glance.
+    if (before) { await sleep(200); const now = read(); ctx.story.push({ kind: 'change', rows: cs.inside.map(([lab, k, u]) => [lab, insideVal(k, before[k], u), insideVal(k, now[k], u)]) }); }
     await sleep(250);
   }
+  const insideVal = (k, v, u) => (typeof v === 'number' ? `${k === 'hepflow' ? v.toFixed(2) : k === 'hr' || k === 'asc' || k === 'lost' ? Math.round(v) : v.toFixed(k === 'varix' ? 0 : 1)}${u ? ` ${u}` : ''}` : v ?? '—');
   const whenText = () => (cs.acute ? `${cs.patient.setting} · ${clockText(ctx.t + ctx.clockAdd)}` : ctx.when || cs.patient.setting);
 
   // ───────────── orders ─────────────
@@ -248,7 +252,7 @@ export function createCases({ root, api }) {
     store.set({ hiddenEvents: visibilityOf(cs).events });
     await api.loadPreset(cs.preset, { keepLesson: true, days: cs.days });
     if (cs.prep) updateParams(cs.prep, { history: false });
-    if (cs.afterDays) { host.send({ type: 'advance', days: cs.afterDays }); host.send({ type: 'settle' }); await host.request('snapshot'); }
+    if (cs.afterDays) { host.send({ type: 'advance', days: cs.afterDays, restartClock: true }); host.send({ type: 'settle' }); await host.request('snapshot'); }
     if (cs.params) updateParams(cs.params, { history: false, settle: true });
     const vis = visibilityOf(cs);
     store.set({ hiddenReadouts: vis.hidden, hiddenEvents: vis.events, lastHVPG: null, locked: new Set(['!cirrhosis']), imaging: vis.imaging });
@@ -331,8 +335,11 @@ export function createCases({ root, api }) {
         it.rows?.length ? h('table', { class: 'cs-rows' }, h('tbody', {}, it.rows.map((r) => h('tr', {}, h('td', {}, r[0]), h('td', { class: r[2] || '' }, r[1]))))) : null,
         it.note ? h('p', { class: 'cs-note' }, it.note) : null]);
   }
+  const changeEl = (e) => h('table', { class: 'cs-rows cs-change' }, h('thead', {}, h('tr', {}, h('th', {}, 'Inside the model'), h('th', {}, 'Before'), h('th', {}, 'Now'))),
+    h('tbody', {}, e.rows.map(([a, b, n]) => h('tr', {}, h('td', {}, a), h('td', {}, b), h('td', { class: b === n ? '' : 'chg' }, n)))));
   function storyPane() {
     return h('div', { class: 'cs-story' }, trustLine(), ctx.story.map((e) => (e.kind === 'skip' ? h('div', { class: 'cs-skip' }, h('span', {}, e.text))
+      : e.kind === 'change' ? changeEl(e)
       : e.kind === 'order' ? h('p', { class: 'cs-log' }, `Ordered: ${e.text}`)
       : e.kind === 'decision' ? h('p', { class: 'cs-log you' }, `You decided: ${e.text}`)
       : h('p', {}, cs.acute && e.at ? [h('span', { class: 'cs-at' }, clockText(e.at)), e.text] : e.text))));
@@ -378,6 +385,7 @@ export function createCases({ root, api }) {
     const opts = optionsOf(s);
     return h('div', { class: 'cs-dec' },
       h('span', { class: 'cs-kicker' }, `Decision ${n} of ${vs.length} · ${s.title}`),
+      ctx.story.at(-1)?.kind === 'change' ? changeEl(ctx.story.at(-1)) : null,
       h('p', { class: 'cs-q', role: 'heading', 'aria-level': '3' }, val(s.q, c)),
       s.multi ? h('p', { class: 'cs-hint' }, 'Choose all that apply.') : null,
       h('div', { class: 'cs-opts', role: s.multi ? 'group' : 'radiogroup' }, orderOf(s).map((i, k) => {

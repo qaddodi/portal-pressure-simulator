@@ -26,7 +26,7 @@ export const prevention = {
     ecg: (c) => ({ title: 'ECG', lines: [c.cs.contra === 'block' ? 'Second-degree heart block (Mobitz II).' : 'Sinus rhythm, rate normal. Normal conduction.'] }),
   },
   orders: ['labs', 'ecg', 'hvpg'],
-  inside: [['Portal pressure', 'pv', 'mmHg'], ['Pressure gradient (HVPG)', 'hvpg', 'mmHg'], ['Varix wall tension', 'tension', '']],
+  inside: [['Portal pressure', 'pv', 'mmHg'], ['Pressure gradient (HVPG)', 'hvpg', 'mmHg'], ['Varix size', 'varix', 'mm'], ['Varix wall tension', 'tension', '']],
   build: (v) => {
     const best = v.safe === 'any' ? [0, 1] : [1];
     const steps = [

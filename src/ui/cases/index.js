@@ -1,6 +1,6 @@
 // The cases, in the order the home screen lists them: the eight core cases, then the three optional ones.
 import { bleed } from './bleed.js?v=35280a2815';
-import { prevention } from './prevention.js?v=cf43a8e13e';
+import { prevention } from './prevention.js?v=6771185c65';
 import { newAscites } from './new-ascites.js?v=0e962580e5';
 import { refractory } from './refractory.js?v=e736af0b4a';
 import { gastric } from './gastric.js?v=ec69f734b8';
