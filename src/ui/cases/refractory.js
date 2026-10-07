@@ -1,14 +1,14 @@
 // C4. Ascites that keeps coming back: the chart plants one contraindication to TIPS, or none.
 
-import { DX_HIDDEN } from './kit.js?v=345f74af3d';
+import { DX_HIDDEN, fill } from './kit.js?v=58f5848647';
 
 const PT = { name: 'Linda Park', age: 59, sex: 'F', setting: 'Hepatology day unit', problem: 'Needs a large tap every two weeks.' };
 const HX = ['Alcohol-related cirrhosis. Abstinent for two years.', 'Ascites for 18 months. Takes spironolactone 400 mg and furosemide 160 mg a day, the maximum doses. The dietitian confirms a low-salt diet and a urine sodium check confirms she follows it.', 'Needs a large tap about every two weeks and is back again today.'];
-const LABS = { a: [['Bilirubin', '1.6 mg/dL', ''], ['Albumin', '3.0 g/dL', 'warn'], ['INR', '1.4', 'warn'], ['Sodium', '132 mmol/L', 'warn'], ['Creatinine', '1.2 mg/dL', '']],
+const LABS = { a: [['Bilirubin', '1.6 mg/dL', ''], ['Albumin', '{alb} g/dL', 'warn'], ['INR', '1.4', 'warn'], ['Sodium', '132 mmol/L', 'warn'], ['Creatinine', '1.2 mg/dL', '']],
   d: [['Bilirubin', '6.5 mg/dL', 'bad'], ['Albumin', '2.5 g/dL', 'warn'], ['INR', '1.9', 'warn'], ['Sodium', '129 mmol/L', 'warn'], ['Creatinine', '1.6 mg/dL', 'warn']] };
 const V = {
   a: { hx: HX, labs: LABS.a, echo: 'Normal ejection fraction. Normal right heart. No significant tricuspid regurgitation.', why: 'No heart, brain or bilirubin problem, age 59: TIPS is the right next step.' },
-  b: { hx: HX, labs: LABS.a, echo: 'Severe tricuspid regurgitation. Dilated right atrium. Right ventricular function reduced.', why: 'Severe tricuspid regurgitation: a TIPS sends more blood into a struggling right heart. Keep tapping with albumin and assess the heart.' },
+  b: { hx: HX, labs: LABS.a, params: { tr: 0.8, contractility: 0.7 }, echo: 'Severe tricuspid regurgitation. Dilated right atrium. Right ventricular function reduced.', why: 'Severe tricuspid regurgitation: a TIPS sends more blood into a struggling right heart. Keep tapping with albumin and assess the heart.' },
   c: { hx: [...HX, 'Two admissions for hepatic encephalopathy in the last 8 months. The last one was five weeks ago.'], labs: LABS.a, echo: 'Normal ejection fraction. Normal right heart.', why: 'Recurrent encephalopathy: a TIPS would make it worse. Serial taps with albumin, and refer for transplant evaluation.' },
   d: { hx: HX, labs: LABS.d, echo: 'Normal ejection fraction. Normal right heart.', why: 'A bilirubin of 6.5 means the liver is failing. An elective TIPS would push it over. Refer for transplant evaluation.' },
 };
@@ -24,7 +24,7 @@ export const refractory = {
   intro: () => ['Linda is back in the day unit for her fourth large tap this year. She is uncomfortable and breathless lying flat.', 'She asks: "Is there anything that will stop this coming back?"'],
   chart: (c) => [{ id: 'hx', section: 'History', title: 'Story', lines: c.cs.hx }, { id: 'exam', section: 'Exam', title: 'Today', lines: ['Tense abdomen. Mild ankle edema. Alert and oriented.', 'Weight 71 kg, up 4 kg since the last tap.'] }],
   results: {
-    labs: (c) => ({ title: 'Blood tests', rows: c.cs.labs }),
+    labs: (c) => ({ title: 'Blood tests', rows: fill(c.cs.labs, c) }),
     echo: (c) => ({ title: 'Echocardiogram', lines: [c.cs.echo] }),
     'tap-dx': { title: 'Ascitic fluid', rows: [['SAAG', '1.8 g/dL', 'warn'], ['Ascitic protein', '1.0 g/dL', 'warn'], ['Neutrophils', '60 /mm³', '']], note: 'No infection.' },
   },

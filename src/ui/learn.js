@@ -1,13 +1,13 @@
 // Learn mode (blueprint §11): lessons as step sequences with Predict → Observe → Explain.
 
-import { store, updateParams } from './store.js?v=6209f4be01';
-import { host } from './host.js?v=7e09ccd8cf';
+import { store, updateParams } from './store.js?v=b742a09e9e';
+import { host } from './host.js?v=5dfe41663f';
 import { h, fmt, toast, svgIcon } from './util.js?v=8aa5e5cdf1';
 import { createAnswerSheet, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=7f4afcf446';
 import { addRecord } from './records.js?v=50fb9dd463';
-import { runSequence } from './sequence.js?v=0023ce64b2';
+import { runSequence } from './sequence.js?v=d6b66bfaba';
 import { EDGES } from '../engine/topology.js?v=80b8d861de';
-import { trustLine, teachChip, blindOn, blindOff, isBlind, optionList, compareChip, bindQuestionKeys, mirrorMarker } from './learning-kit.js?v=67bc1e8eae';
+import { trustLine, teachChip, blindOn, blindOff, isBlind, optionList, compareChip, bindQuestionKeys, mirrorMarker } from './learning-kit.js?v=6f4b555b70';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 
@@ -82,7 +82,7 @@ export const LESSONS = [
     steps: [
       { type: 'frame', preset: 'cirr-comp', tools: ['select'], view: 'anatomic', zoom: 'fit', tab: 'profile', focus: ['RHV_IVC', 'PRE_R', 'SIN_RR'], focusLabel: 'Hepatic vein and sinusoids',
         data: [{ label: 'Free pressure', metric: 'fhvp', unit: 'mmHg' }, { label: 'Wedged pressure', metric: 'whvp', unit: 'mmHg' }],
-        text: 'A woman with large varices has a hepatic venous pressure gradient (**HVPG**) of 4 mmHg. Does she have portal hypertension? First, see how the number is made. The gradient is the wedged pressure minus the free pressure in a hepatic vein. Normal is up to 5, clinically significant is 10 or more, and bleeding risk rises from 12.' },
+        text: 'This patient has early cirrhosis. How do you put a number on her portal pressure? The hepatic venous pressure gradient (**HVPG**) is the wedged pressure minus the free pressure in a hepatic vein. Normal is up to 5, clinically significant is 10 or more, and bleeding risk rises from 12.' },
       { type: 'do', tools: ['select', 'catheter'], tab: 'profile', focus: ['RHV_IVC'], focusLabel: 'Right hepatic vein',
         text: 'Measure as a clinician does: in the **Hepatic vein pressures** card take the **free** pressure in the right hepatic vein, then the **wedged** pressure. Compare the two.',
         goal: (f, p, log) => { const i = log.findIndex((a) => a.type === 'catheter' && a.target === 'R' && !a.value); return i >= 0 && log.slice(i).some((a) => a.type === 'catheter' && a.target === 'R' && a.value); },
@@ -135,11 +135,12 @@ export const LESSONS = [
     pearls: ['Size, red signs and Child–Pugh class predict bleeding.', 'Bands treat the varix; drugs treat the pressure.', 'Collaterals take months to grow.'],
     steps: [
       { type: 'frame', preset: 'cirr-decomp', tools: ['select', 'endoscope'], view: 'anatomic', zoom: 'fit', tab: 'endoscopy', focus: ['C1b'], focusLabel: 'Esophageal varix',
-        text: 'Two patients have varices: one has 2 mm cords, the other 10 mm cords with red spots. Who bleeds? Portal blood is rerouted through collateral veins, and the largest ones swell under the lining of the esophagus.' },
+        data: [{ label: 'Varix size', metric: (m) => m.varix.d, fmt: (d) => `${Math.round(d)} mm` }],
+        text: 'Two patients have varices. The scope shows the first: large cords with red marks on them (size below). The second has thin 2 mm cords. Who bleeds? Portal blood is rerouted through collateral veins, and the largest ones swell under the lining of the esophagus.' },
       { type: 'predict', q: 'Which varix is most likely to bleed?', options: ['Small, flat, no red signs, mild liver disease', 'Large, red wale signs, advanced liver disease', 'Large, no red signs, mild liver disease', 'Small with red signs, mild liver disease'], answer: 1,
         why: 'Size, red signs and a sicker liver together carry the highest risk.' },
       { type: 'observe', days: 180, tools: ['select', 'endoscope'], tab: 'endoscopy', focus: ['C1a', 'C1b', 'C3', 'C6'], focusLabel: 'Collateral veins',
-        data: [{ label: 'Varix wall tension', metric: (m) => m.varix.ratio, fmt: (r) => (r < 0.6 ? 'Low' : r < 1 ? 'Moderate' : 'High') }, { label: 'Portal pressure', metric: 'pv', unit: 'mmHg' }],
+        data: [{ label: 'Varix size', metric: (m) => m.varix.d, fmt: (d) => `${Math.round(d)} mm` }, { label: 'Varix wall tension', metric: (m) => m.varix.ratio, fmt: (r) => (r < 0.6 ? 'Low' : r < 1 ? 'Moderate' : 'High') }, { label: 'Portal pressure', metric: 'pv', unit: 'mmHg' }],
         text: 'Six months pass. The collaterals enlarge and the esophageal varix grows. Pressure behind it stays high.' },
       { type: 'do', tools: ['select', 'band', 'endoscope'], tab: 'endoscopy', focus: ['C1b'], focusLabel: 'Esophageal varix',
         text: '**Band** the esophageal varix and watch the endoscopy view and the pressure.',

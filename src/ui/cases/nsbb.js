@@ -1,7 +1,7 @@
 // C8. The beta blocker that became a problem: carvedilol in advanced cirrhosis with low pressure,
 // low sodium and a rising creatinine. The chart has the signs; the learner has to see them.
 
-import { DX_HIDDEN } from './kit.js?v=345f74af3d';
+import { DX_HIDDEN } from './kit.js?v=58f5848647';
 
 const PT = { name: 'George Miller', age: 66, sex: 'M', setting: 'Medical ward', problem: 'Ascites that no longer responds. Light-headed on standing.' };
 
@@ -9,7 +9,7 @@ export const nsbb = {
   id: 'nsbb-problem', title: 'The beta blocker that became a problem', level: 'Management', minutes: 8,
   summary: 'A man with advanced cirrhosis has been on carvedilol for two years. Now his pressure is low and his kidneys are failing. What do you do with the drug, and with his varices?',
   tools: ['select', 'endoscope'], hidden: DX_HIDDEN, speed: 1,
-  preset: 'cirr-decomp', params: { drugs: { carvedilol: true } },
+  preset: 'cirr-decomp', afterDays: 300, prep: (p) => { p.diuretics = false; return p; }, params: { drugs: { carvedilol: true } },
   patient: PT, variants: [{ vid: 'a' }],
   vitals: ['hr', 'bp'],
   vitalsFn: (c) => (c.flag('stopped') ? { hr: '72', bp: '104/62' } : { hr: '58', bp: '86/54' }),
@@ -24,7 +24,7 @@ export const nsbb = {
     'tap-dx': { title: 'Ascitic fluid', rows: [['SAAG', '1.9 g/dL', 'warn'], ['Ascitic protein', '0.9 g/dL', 'warn'], ['Neutrophils', '55 /mm³', '']], note: 'No infection.' },
   },
   orders: ['labs', 'tap-dx', 'lvp-alb', 'carvedilol', 'diuretics', 'evl'],
-  inside: [['Portal pressure', 'pv', 'mmHg'], ['Heart rate', 'hr', '/min']],
+  inside: [['Portal pressure', 'pv', 'mmHg'], ['Ascites', 'asc', 'mL']],
   build: () => {
     const steps = [
       { id: 'drug', title: 'The carvedilol', auto: true,

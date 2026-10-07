@@ -1,6 +1,6 @@
 // C3. New ascites, whose fault? The fluid test is mandatory; the heart variants must not get a TIPS.
 
-import { DX_HIDDEN } from './kit.js?v=345f74af3d';
+import { DX_HIDDEN, fill } from './kit.js?v=58f5848647';
 
 const PT = { name: 'Tom Alvarez', age: 68, sex: 'M', setting: 'Medical admissions unit', problem: 'Six weeks of belly and ankle swelling.' };
 
@@ -10,25 +10,24 @@ const VARIANTS = {
     hx: ['Six weeks of increasing belly swelling and ankle swelling.', 'Heavy drinking for 25 years: about a bottle of wine a day until last year.', 'Takes no regular medicines.'],
     exam: ['Spider naevi and palmar erythema. Firm liver edge, spleen tip palpable.', 'Distended abdomen with shifting dullness. Jugular venous pressure not raised.', 'Ankle edema to the shins.'],
     tap: [['SAAG', '1.6 g/dL', 'warn'], ['Ascitic protein', '1.1 g/dL', 'warn'], ['Neutrophils', '80 /mm³', '']],
-    labs: [['Bilirubin', '2.1 mg/dL', 'warn'], ['Albumin', '2.9 g/dL', 'warn'], ['INR', '1.5', 'warn'], ['Platelets', '92 ×10⁹/L', 'warn'], ['Sodium', '133 mmol/L', ''], ['Creatinine', '1.0 mg/dL', '']],
-    vitalsFn: (c) => ({ hr: String(88 + Math.round(2 * Math.sin(c.t / 30))) }),
-    us: 'Small nodular liver, spleen 15 cm, ascites. Hepatic veins normal.', echo: 'Normal ejection fraction. No significant valve disease. Right atrium and ventricle normal.', dopExtra: ['Hepatic veins open and collapsing normally.'],
+    labs: [['Bilirubin', '2.1 mg/dL', 'warn'], ['Albumin', '{alb} g/dL', 'warn'], ['INR', '1.5', 'warn'], ['Platelets', '{plt} ×10⁹/L', 'warn'], ['Sodium', '133 mmol/L', ''], ['Creatinine', '1.0 mg/dL', '']],
+    us: 'Small nodular liver, spleen {spl} cm, ascites. Hepatic veins normal.', echo: 'Normal ejection fraction. No significant valve disease. Right atrium and ventricle normal.', dopExtra: ['Hepatic veins open and collapsing normally.'],
   },
   tr: {
     preset: 'rhf', params: { pulsatile: true }, heart: true,
     hx: ['Six weeks of increasing belly swelling and ankle swelling.', 'Mitral valve replaced 12 years ago. Short of breath on stairs for months.', 'Takes warfarin and furosemide.'],
     exam: ['Jugular venous pressure up to the angle of the jaw, with large v waves.', 'Pulsatile liver. Systolic murmur at the left sternal edge.', 'Distended abdomen, pitting edema to the thighs.'],
     tap: [['SAAG', '1.7 g/dL', 'warn'], ['Ascitic protein', '3.4 g/dL', 'warn'], ['Neutrophils', '40 /mm³', '']],
-    labs: [['Bilirubin', '1.9 mg/dL', 'warn'], ['Albumin', '3.3 g/dL', ''], ['INR', '2.4 (on warfarin)', ''], ['Platelets', '150 ×10⁹/L', ''], ['Sodium', '136 mmol/L', ''], ['Creatinine', '1.3 mg/dL', 'warn'], ['BNP', '640 pg/mL', 'warn']],
+    labs: [['Bilirubin', '1.9 mg/dL', 'warn'], ['Albumin', '3.3 g/dL', ''], ['INR', '2.4 (on warfarin)', ''], ['Platelets', '{plt} ×10⁹/L', 'warn'], ['Sodium', '136 mmol/L', ''], ['Creatinine', '1.3 mg/dL', 'warn'], ['BNP', '640 pg/mL', 'warn']],
     us: 'Large smooth liver. Dilated hepatic veins and inferior vena cava that do not collapse. Ascites.', echo: 'Severe tricuspid regurgitation. Dilated right atrium and ventricle. Moderately reduced right ventricular function.', dopExtra: ['Portal vein flow is pulsatile, rising and falling with each heartbeat.', 'Hepatic veins and inferior vena cava dilated.'],
   },
   constrict: {
     preset: 'constrictive', heart: true,
     hx: ['Six weeks of increasing belly swelling and ankle swelling.', 'Radiotherapy to the chest for lymphoma at age 40. Breathless on exertion.', 'Takes no regular medicines.'],
-    exam: ['Jugular venous pressure up, and it rises on inspiration.', 'Quiet heart sounds with an early diastolic knock.', 'Distended abdomen, pitting edema to the thighs.'],
+    exam: ['Jugular venous pressure up, and it rises on inspiration.', 'Quiet heart sounds with an early diastolic knock.', 'Mild abdominal fullness with shifting dullness. Pitting edema to the thighs.'],
     tap: [['SAAG', '1.5 g/dL', 'warn'], ['Ascitic protein', '3.1 g/dL', 'warn'], ['Neutrophils', '60 /mm³', '']],
-    labs: [['Bilirubin', '1.2 mg/dL', ''], ['Albumin', '3.5 g/dL', ''], ['INR', '1.2', ''], ['Platelets', '180 ×10⁹/L', ''], ['Sodium', '137 mmol/L', ''], ['Creatinine', '1.1 mg/dL', ''], ['BNP', '480 pg/mL', 'warn']],
-    us: 'Normal-sized liver. Dilated inferior vena cava and hepatic veins. Ascites.', echo: 'Thickened pericardium. Septal bounce with breathing. Dilated inferior vena cava.', dopExtra: ['Dilated inferior vena cava with little change on breathing.'],
+    labs: [['Bilirubin', '1.2 mg/dL', ''], ['Albumin', '3.5 g/dL', ''], ['INR', '1.2', ''], ['Platelets', '{plt} ×10⁹/L', ''], ['Sodium', '137 mmol/L', ''], ['Creatinine', '1.1 mg/dL', ''], ['BNP', '480 pg/mL', 'warn']],
+    us: 'Normal-sized liver. Dilated inferior vena cava and hepatic veins. A small amount of ascites.', echo: 'Thickened pericardium. Septal bounce with breathing. Dilated inferior vena cava.', dopExtra: ['Dilated inferior vena cava with little change on breathing.'],
   },
 };
 const variant = (k) => ({ vid: k, patient: PT, ...VARIANTS[k] });
@@ -40,11 +39,11 @@ export const newAscites = {
   variants: [variant('liver'), variant('tr'), variant('constrict')],
   vitals: ['hr', 'bp'],
   intro: () => ['Tom Alvarez has been sent up from the emergency department with a swollen abdomen and swollen legs. The registrar asks what you want to do first.'],
-  chart: (c) => [{ id: 'hx', section: 'History', title: 'Story', lines: c.cs.hx }, { id: 'exam', section: 'Exam', title: 'On the ward', lines: c.cs.exam }],
+  chart: (c) => [{ id: 'hx', section: 'History', title: 'Story', lines: c.cs.hx }, { id: 'exam', section: 'Exam', title: 'On the ward', lines: fill(c.cs.exam, c) }],
   results: {
-    'tap-dx': (c) => ({ title: 'Ascitic fluid', rows: c.cs.tap, note: 'Clear yellow fluid. No bacteria on the Gram stain.' }),
-    labs: (c) => ({ title: 'Blood tests', rows: c.cs.labs }),
-    'abd-us': (c) => ({ title: 'Ultrasound of the abdomen', lines: [c.cs.us] }),
+    'tap-dx': (c) => ({ title: 'Ascitic fluid', rows: fill(c.cs.tap, c), note: 'Clear yellow fluid. No bacteria on the Gram stain.' }),
+    labs: (c) => ({ title: 'Blood tests', rows: fill(c.cs.labs, c) }),
+    'abd-us': (c) => ({ title: 'Ultrasound of the abdomen', lines: [fill(c.cs.us, c)] }),
     doppler: (c) => ({ title: 'Doppler of the liver vessels', extra: c.cs.dopExtra }),
     echo: (c) => ({ title: 'Echocardiogram', lines: [c.cs.echo] }),
   },

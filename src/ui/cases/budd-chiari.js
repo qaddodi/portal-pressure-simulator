@@ -1,7 +1,7 @@
 // C6. Rapid ascites in a young patient: Budd–Chiari, sinusoidal obstruction syndrome or a caval web.
 // The HVPG is the trap in all three. The model shows the pressure change after anticoagulation or stenting.
 
-import { DX_HIDDEN } from './kit.js?v=345f74af3d';
+import { DX_HIDDEN, fill } from './kit.js?v=58f5848647';
 
 const BC = {
   vid: 'BC', preset: 'budd-chiari', kind: 'bc',
@@ -28,9 +28,9 @@ const SOS = {
 const WEB = {
   vid: 'WEB', preset: 'ivc-web', kind: 'web',
   patient: { name: 'Nadia Khan', age: 36, sex: 'F', setting: 'Hepatology clinic', problem: 'Four months of belly and leg swelling.' },
-  hx: ['Four months of swelling of the belly and both legs. Dizzy on standing.', 'Born in Nepal. No alcohol, no liver disease known.'],
+  hx: ['Four months of swelling of the belly and both legs. Tired and breathless on exertion.', 'Born in Nepal. No alcohol, no liver disease known.'],
   exam: ['Dilated veins across the abdominal wall and flanks, with blood flowing upward.', 'Ascites and pitting edema to the thighs. Jugular venous pressure normal.'],
-  labs: [['Bilirubin', '1.1 mg/dL', ''], ['ALT', '48 U/L', ''], ['INR', '1.3', ''], ['Albumin', '3.2 g/dL', 'warn'], ['Platelets', '120 ×10⁹/L', 'warn']],
+  labs: [['Bilirubin', '1.1 mg/dL', ''], ['ALT', '48 U/L', ''], ['INR', '1.3', ''], ['Albumin', '3.2 g/dL', 'warn'], ['Platelets', '{plt} ×10⁹/L', 'warn']],
   tap: [['SAAG', '1.7 g/dL', 'warn'], ['Ascitic protein', '3.5 g/dL', 'warn']],
   ct: ['A thin membrane narrowing the inferior vena cava just below the right atrium.', 'Hepatic veins open but dilated. Enlarged caudate lobe. Ascites.'],
   dopExtra: ['Inferior vena cava: slow, damped flow below the web.'],
@@ -46,7 +46,7 @@ export const buddChiari = {
   intro: (c) => [`${c.cs.patient.name} has been sent to you with a short story and a lot of fluid. There is no sign of chronic liver disease.`],
   chart: (c) => [{ id: 'hx', section: 'History', title: 'Story', lines: c.cs.hx }, { id: 'exam', section: 'Exam', title: 'Examination', lines: c.cs.exam }],
   results: {
-    labs: (c) => ({ title: 'Blood tests', rows: c.cs.labs }),
+    labs: (c) => ({ title: 'Blood tests', rows: fill(c.cs.labs, c) }),
     'tap-dx': (c) => ({ title: 'Ascitic fluid', rows: c.cs.tap }),
     ct: (c) => ({ title: 'CT scan with contrast', lines: c.cs.ct }),
     doppler: (c) => ({ title: 'Doppler of the liver vessels', extra: c.cs.dopExtra }),

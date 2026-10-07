@@ -1,7 +1,7 @@
 // Optional cases 9 to 11: schistosomiasis varices, reversed portal flow on a routine scan, and
 // confusion after a TIPS.
 
-import { DX_HIDDEN } from './kit.js?v=345f74af3d';
+import { DX_HIDDEN, fill } from './kit.js?v=58f5848647';
 
 const LEVELS = ['The portal vein, before the liver', 'Inside the liver, before the sinusoids', 'Inside the liver, in the sinusoids', 'The hepatic veins, after the liver'];
 
@@ -17,9 +17,9 @@ export const schisto = {
     { id: 'exam', section: 'Exam', title: 'On the ward', lines: ['Well. Spleen palpable 6 cm below the costal margin. No ascites, no jaundice.'] },
   ],
   results: {
-    labs: { title: 'Blood tests', rows: [['Bilirubin', '0.8 mg/dL', ''], ['Albumin', '4.0 g/dL', ''], ['INR', '1.0', ''], ['Platelets', '70 ×10⁹/L', 'warn'], ['Hepatitis B and C', 'negative', ''], ['Schistosoma eggs', 'positive on stool', 'warn']] },
-    doppler: { title: 'Doppler of the liver vessels', extra: ['Thickened, bright tissue around the portal vein branches. Spleen 18 cm.'] },
-    egd: { title: 'Upper endoscopy', lines: ['Large esophageal varices, three bands in place. No red signs now.'] },
+    labs: (c) => ({ title: 'Blood tests', rows: fill([['Bilirubin', '0.8 mg/dL', ''], ['Albumin', '4.0 g/dL', ''], ['INR', '1.0', ''], ['Platelets', '{plt} ×10⁹/L', 'warn'], ['Hepatitis B and C', 'negative', ''], ['Schistosoma eggs', 'positive on stool', 'warn']], c) }),
+    doppler: (c) => ({ title: 'Doppler of the liver vessels', extra: [fill('Thickened, bright tissue around the portal vein branches. Spleen {spl} cm.', c)] }),
+    egd: (c) => ({ title: 'Upper endoscopy', lines: [fill('{eso} left after banding: three bands in place, no red signs now. Large varices in the top of the stomach.', c)] }),
   },
   orders: ['labs', 'doppler', 'hvpg', 'egd', 'carvedilol', 'evl'],
   inside: [['Portal pressure', 'pv', 'mmHg'], ['Measured gradient (HVPG)', 'hvpg', 'mmHg'], ['Spleen size', 'spleen', 'cm']],
@@ -56,14 +56,14 @@ export const hepatofugal = {
   patient: { name: 'Gloria Ruiz', age: 63, sex: 'F', setting: 'Hepatology clinic', problem: 'Routine scan report: hepatofugal portal flow.' }, variants: [{ vid: 'a' }],
   vitals: ['hr', 'bp'],
   intro: () => ['Gloria has come for her six-monthly check. The radiologist\'s report says "hepatofugal flow in the main portal vein" and nothing else.'],
-  chart: () => [
-    { id: 'hx', section: 'History', title: 'Story', lines: ['Cirrhosis from hepatitis C, treated and cured eight years ago.', 'Small ascites controlled on diuretics. One episode of confusion last year.', 'Tired, with a little more jaundice than last time.'] },
-    { id: 'exam', section: 'Exam', title: 'In clinic', lines: ['Mild jaundice. Spleen palpable. Small amount of ascites.'] },
-    { id: 'rep', section: 'Studies', title: 'Report', lines: ['Ultrasound: small nodular liver, spleen 15 cm. Hepatofugal flow in the main portal vein.'] },
+  chart: (c) => [
+    { id: 'hx', section: 'History', title: 'Story', lines: ['Cirrhosis from hepatitis C, treated and cured eight years ago.', 'Ascites in the past, now gone on diuretics. One episode of confusion last year.', 'Tired, with a little more jaundice than last time.'] },
+    { id: 'exam', section: 'Exam', title: 'In clinic', lines: ['Mild jaundice. Spleen palpable. No ascites.'] },
+    { id: 'rep', section: 'Studies', title: 'Report', lines: [fill('Ultrasound: small nodular liver, spleen {spl} cm. Hepatofugal flow in the main portal vein.', c)] },
   ],
   results: {
-    labs: { title: 'Blood tests', rows: [['Bilirubin', '3.1 mg/dL', 'warn'], ['Albumin', '2.6 g/dL', 'warn'], ['INR', '1.7', 'warn'], ['Platelets', '60 ×10⁹/L', 'warn'], ['Creatinine', '1.0 mg/dL', '']] },
-    ct: { title: 'CT scan with contrast', lines: ['Portal vein open, no clot. Large spontaneous splenorenal shunts.', 'Nodular liver, small ascites.'] },
+    labs: (c) => ({ title: 'Blood tests', rows: fill([['Bilirubin', '3.1 mg/dL', 'warn'], ['Albumin', '2.6 g/dL', 'warn'], ['INR', '1.7', 'warn'], ['Platelets', '{plt} ×10⁹/L', 'warn'], ['Creatinine', '1.0 mg/dL', '']], c) }),
+    ct: { title: 'CT scan with contrast', lines: ['Portal vein open, no clot. Large spontaneous splenorenal shunts.', 'Nodular liver, no ascites.'] },
     doppler: { title: 'Doppler of the liver vessels', extra: ['No clot seen in the portal vein.'] },
   },
   orders: ['labs', 'doppler', 'ct', 'hvpg'],

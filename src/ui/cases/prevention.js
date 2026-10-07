@@ -1,15 +1,17 @@
 // C2. Big varices on a screening scope: the learner reads a chart that hides the contraindication
 // (or has none), chooses carvedilol or banding, then follows the patient through a skip-ahead.
 
-import { DX_HIDDEN } from './kit.js?v=345f74af3d';
+import { DX_HIDDEN, pltRow, plt, esoText } from './kit.js?v=58f5848647';
 
-const BASE_HX = ['Compensated cirrhosis from fatty liver disease (MASLD), diagnosed 2 years ago. Never decompensated: no ascites, no confusion, no jaundice.', 'Liver stiffness 32 kPa. Platelets 88.', 'Screening endoscopy today: large esophageal varices with red wale signs. No bleeding.'];
+const BASE_HX = ['Compensated cirrhosis from fatty liver disease (MASLD), diagnosed 2 years ago. Never decompensated: no ascites, no confusion, no jaundice.', 'Liver stiffness 32 kPa. Platelets {plt}.', 'Screening endoscopy today: {eso}. No bleeding.'];
 const PATIENT = { name: 'Aisha Bello', age: 61, sex: 'F', setting: 'Hepatology clinic', problem: 'Large varices on a screening scope. No bleeding yet.' };
 
 export const prevention = {
   id: 'prevention', title: 'Big varices on a screening scope', level: 'Prevention', minutes: 9,
   summary: 'A woman with compensated cirrhosis has large varices on her screening scope. Read the chart, pick the prevention plan, and see what it does three months later.',
   tools: ['select', 'endoscope'], hidden: DX_HIDDEN, speed: 1, preset: 'csph',
+  // Aged to match the story: stiffness 32 kPa, large varices with red wale, no ascites yet.
+  prep: (p) => { p.cirrhosis = 0.8; p.albumin = 4.5; return p; }, afterDays: 270,
   variants: [
     { vid: 'plain', patient: PATIENT, safe: 'any', hx: [...BASE_HX, 'Other conditions: none. Takes no regular medicines.'], contra: null },
     { vid: 'asthma', patient: PATIENT, safe: 'band', hx: [...BASE_HX, 'Other conditions: severe asthma. Uses a steroid and long-acting inhaler twice a day. Two admissions for wheeze last year.'], contra: 'asthma' },
@@ -17,10 +19,10 @@ export const prevention = {
   ],
   vitals: ['hr', 'bp'],
   intro: () => ['Aisha has come to hear her endoscopy result. She would like to know what happens next and whether she needs to be admitted.'],
-  chart: (c) => [{ id: 'hx', section: 'History', title: 'Story', lines: c.cs.hx },
+  chart: (c) => [{ id: 'hx', section: 'History', title: 'Story', lines: c.cs.hx.map((l) => l.replace('{plt}', plt(c.m)).replace('{eso}', esoText(c.m).toLowerCase())) },
     { id: 'exam', section: 'Exam', title: 'Today', lines: ['Well. Normal sclerae, no ascites, spleen tip palpable.', c.cs.contra === 'block' ? 'Pulse 48 and regular.' : c.cs.contra === 'asthma' ? 'Mild expiratory wheeze at the bases.' : 'No other findings.'] }],
   results: {
-    labs: { title: 'Blood tests', rows: [['Platelets', '88 ×10⁹/L', 'warn'], ['Bilirubin', '0.9 mg/dL', ''], ['Albumin', '3.8 g/dL', ''], ['INR', '1.1', ''], ['Sodium', '140 mmol/L', ''], ['Creatinine', '0.8 mg/dL', '']] },
+    labs: (c) => ({ title: 'Blood tests', rows: [pltRow(c.m), ['Bilirubin', '0.9 mg/dL', ''], ['Albumin', `${c.params.albumin.toFixed(1)} g/dL`, ''], ['INR', '1.1', ''], ['Sodium', '140 mmol/L', ''], ['Creatinine', '0.8 mg/dL', '']] }),
     ecg: (c) => ({ title: 'ECG', lines: [c.cs.contra === 'block' ? 'Second-degree heart block (Mobitz II).' : 'Sinus rhythm, rate normal. Normal conduction.'] }),
   },
   orders: ['labs', 'ecg', 'hvpg'],
@@ -30,7 +32,7 @@ export const prevention = {
     const steps = [
       { id: 'csph', title: 'Portal hypertension?',
         q: 'Does Aisha have clinically significant portal hypertension?',
-        options: ['Yes. Large varices, a stiffness of 32 kPa and platelets of 88 make it near certain, so no HVPG is needed', 'Unknown until an HVPG is measured', 'No, because she has never decompensated', 'No, because varices only count after a bleed'],
+        options: ['Yes. Large varices, a stiffness of 32 kPa and a low platelet count make it near certain, so no HVPG is needed', 'Unknown until an HVPG is measured', 'No, because she has never decompensated', 'No, because varices only count after a bleed'],
         answer: 0, why: 'Large varices already prove it. Stiffness above 25 kPa with a low platelet count also makes it near certain without an HVPG.' },
       { id: 'plan', title: 'Prevention plan',
         q: 'What is your plan for Aisha?',

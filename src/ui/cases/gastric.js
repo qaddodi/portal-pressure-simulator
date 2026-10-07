@@ -1,27 +1,29 @@
 // C5. Melena with a big spleen: do not assume cirrhosis. Variant L is a blocked splenic vein with a
 // normal liver (TIPS is wrong); variant G is cirrhosis with a gastrorenal shunt (BRTO or TIPS).
 
-import { DX_HIDDEN } from './kit.js?v=345f74af3d';
+import { DX_HIDDEN, fill } from './kit.js?v=58f5848647';
 
 const L = {
   vid: 'L', preset: 'svt', splenic: true,
   patient: { name: 'Mark Davies', age: 46, sex: 'M', setting: 'Gastroenterology clinic', problem: 'Black stool two days ago. Big spleen. Fundal varices.' },
   hx: ['Two days ago a black, tarry stool with dizziness. It has stopped.', 'Severe acute pancreatitis four years ago, with a pseudocyst. No heavy drinking and no known liver disease.', 'Takes no regular medicines.'],
   exam: ['Pale. Spleen palpable 4 cm below the costal margin.', 'No jaundice, no ascites and no stigmata of chronic liver disease.'],
-  labs: [['Hemoglobin', '9.2 g/dL', 'warn'], ['Platelets', '95 ×10⁹/L', 'warn'], ['Bilirubin', '0.8 mg/dL', ''], ['Albumin', '4.0 g/dL', ''], ['INR', '1.0', '']],
+  labs: [['Hemoglobin', '9.2 g/dL', 'warn'], ['Platelets', '{plt} ×10⁹/L', 'warn'], ['Bilirubin', '0.8 mg/dL', ''], ['Albumin', '4.0 g/dL', ''], ['INR', '1.0', '']],
   egd: ['Isolated fundal varices (IGV1) with a red spot. No esophageal varices.', 'No ulcer.'],
-  ct: ['Occluded splenic vein at the pancreatic tail, with collateral veins around the spleen.', 'Portal vein open. Liver normal in size and outline. Spleen 17 cm.'],
-  us: 'Large spleen, 17 cm. Normal-looking liver. No ascites.', dopExtra: ['Portal flow runs toward the liver.'],
+  ct: ['Occluded splenic vein at the pancreatic tail, with collateral veins around the spleen.', 'Portal vein open. Liver normal in size and outline. Spleen {spl} cm.'],
+  us: 'Large spleen, {spl} cm. Normal-looking liver. No ascites.', dopExtra: ['Portal flow runs toward the liver.'],
 };
 const G = {
   vid: 'G', preset: 'gastric-varix', splenic: false,
+  // Child–Pugh B with small esophageal varices beside the fundal varix: less fibrosis than the preset.
+  prep: (p) => { p.cirrhosis = 0.66; p.albumin = 2.6; return p; }, afterDays: 200,
   patient: { name: 'Rosa Nunez', age: 63, sex: 'F', setting: 'Gastroenterology clinic', problem: 'Black stool three days ago. Cirrhosis. Fundal varices.' },
   hx: ['Three days ago a black stool with dizziness. It has stopped.', 'Cirrhosis from hepatitis C, now cured. Child–Pugh B (8 points).', 'No encephalopathy. Ascites is small and controlled on diuretics.'],
   exam: ['Pale, alert. Spider naevi. Small ascites. Spleen palpable.', 'No confusion.'],
-  labs: [['Hemoglobin', '9.6 g/dL', 'warn'], ['Platelets', '78 ×10⁹/L', 'warn'], ['Bilirubin', '1.9 mg/dL', 'warn'], ['Albumin', '3.1 g/dL', 'warn'], ['INR', '1.4', 'warn'], ['Creatinine', '0.9 mg/dL', '']],
-  egd: ['Large fundal varix (IGV1) with a red spot and recent stigmata. Small esophageal varices.', 'No ulcer.'],
-  ct: ['Large gastrorenal shunt draining the fundal varix to the left renal vein.', 'Splenic and portal veins open. Nodular liver, small ascites. Spleen 16 cm.'],
-  us: 'Nodular liver, spleen 16 cm, a small amount of ascites.', dopExtra: ['Portal flow is slow but runs toward the liver.'],
+  labs: [['Hemoglobin', '9.6 g/dL', 'warn'], ['Platelets', '{plt} ×10⁹/L', 'warn'], ['Bilirubin', '1.9 mg/dL', 'warn'], ['Albumin', '{alb} g/dL', 'warn'], ['INR', '1.4', 'warn'], ['Creatinine', '0.9 mg/dL', '']],
+  egd: ['Large fundal varix (IGV1) with a red spot and recent stigmata. {eso}.', 'No ulcer.'],
+  ct: ['Large gastrorenal shunt draining the fundal varix to the left renal vein.', 'Splenic and portal veins open. Nodular liver, small ascites. Spleen {spl} cm.'],
+  us: 'Nodular liver, spleen {spl} cm, a small amount of ascites.', dopExtra: ['Portal flow runs toward the liver.'],
 };
 
 export const gastric = {
@@ -31,12 +33,12 @@ export const gastric = {
   variants: [L, G],
   vitals: ['hr', 'bp'],
   intro: (c) => [`${c.cs.patient.name} has been sent to clinic after a bleed that has now stopped. The scope in hospital showed fundal varices.`],
-  chart: (c) => [{ id: 'hx', section: 'History', title: 'Story', lines: c.cs.hx }, { id: 'exam', section: 'Exam', title: 'In clinic', lines: c.cs.exam }],
+  chart: (c) => [{ id: 'hx', section: 'History', title: 'Story', lines: fill(c.cs.hx, c) }, { id: 'exam', section: 'Exam', title: 'In clinic', lines: fill(c.cs.exam, c) }],
   results: {
-    labs: (c) => ({ title: 'Blood tests', rows: c.cs.labs }),
-    egd: (c) => ({ title: 'Upper endoscopy', lines: c.cs.egd }),
-    ct: (c) => ({ title: 'CT scan with contrast', lines: c.cs.ct }),
-    'abd-us': (c) => ({ title: 'Ultrasound of the abdomen', lines: [c.cs.us] }),
+    labs: (c) => ({ title: 'Blood tests', rows: fill(c.cs.labs, c) }),
+    egd: (c) => ({ title: 'Upper endoscopy', lines: fill(c.cs.egd, c) }),
+    ct: (c) => ({ title: 'CT scan with contrast', lines: fill(c.cs.ct, c) }),
+    'abd-us': (c) => ({ title: 'Ultrasound of the abdomen', lines: [fill(c.cs.us, c)] }),
     doppler: (c) => ({ title: 'Doppler of the liver vessels', extra: c.cs.dopExtra }),
   },
   orders: ['labs', 'abd-us', 'doppler', 'ct', 'egd', 'brto', 'tips8'],

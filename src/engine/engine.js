@@ -6,7 +6,7 @@ import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=8b006eefeb';
-import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=f0437de612';
+import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=fb15ce0822';
 import { detectEvents } from './events.js?v=5b817750ef';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
@@ -186,9 +186,13 @@ export class Engine {
 
   heartState() {
     const d = this._drug, p = this.params, b = this.baro;
-    const hr = clamp(HR_REST * d.hr * (1 + 0.9 * (b - 1) * d.baroHr), 38, 170);
+    // Chronic sympathetic drive in cirrhosis (tracks the splanchnic vasodilation): a resting heart rate
+    // in the 70s to 80s in decompensated disease, as at the bedside. It sets the rate only, not the
+    // pump capacity, so pressures and flows are unchanged.
+    const symp = 1 + 1.4 * (1 - this.slow.splTone);
+    const hr = clamp(HR_REST * symp * d.hr * (1 + 0.9 * (b - 1) * d.baroHr), 38, 170);
     const contr = p.contractility * d.contr * clamp(1 + 0.35 * (b - 1), 0.6, 1.6);
-    const cap = contr * Math.pow(hr / HR_REST, 0.6) * (1 - 0.3 * p.tr);
+    const cap = contr * Math.pow(hr / (HR_REST * symp), 0.6) * (1 - 0.3 * p.tr);
     return { hr, cap };
   }
 

@@ -46,4 +46,28 @@ export const tension = (ratio) => (ratio < 0.6 ? 'low' : ratio < 1 ? 'moderate' 
 /** Abdomen description from the model's ascites volume (mL). */
 export const abdomen = (mL) => (mL < 300 ? 'flat, no fluid' : mL < 1500 ? 'mild fullness' : mL < 4000 ? 'distended' : 'tense');
 
+/** Chart numbers read from the model, so what the chart says always matches what the figure shows. */
+export const plt = (m) => Math.round(m.spleen.platelets / 2) * 2;
+export const pltRow = (m) => { const n = plt(m); return ['Platelets', `${n} ×10⁹/L`, n < 50 ? 'bad' : n < 150 ? 'warn' : '']; };
+export const spleenCm = (m) => Math.round(m.spleen.length);
+export const hbRow = (m) => { const h = m.blood?.hb ?? 14; return ['Hemoglobin', `${h.toFixed(1)} g/dL`, h < 8 ? 'bad' : h < 12 ? 'warn' : '']; };
+/** Endoscopy wording for the esophageal varices the model has. */
+export function esoText(m) {
+  const g = m.varix.grade.label;
+  if (g === 'None') return 'No esophageal varices';
+  if (g === 'Small') return 'Small esophageal varices';
+  return `Large esophageal varices${m.varix.redWale ? ' with red wale signs' : ''}`;
+}
+/** Ascites wording from the volume (mL), as an examiner would put it. */
+export const ascitesText = (mL) => (mL < 300 ? 'No ascites' : mL < 1500 ? 'Small ascites' : mL < 4000 ? 'Moderate ascites' : 'Tense ascites');
+
+/** Fill model placeholders in authored text: {plt} platelets, {spl} spleen cm, {eso} esophageal
+ *  varices, {alb} albumin. Works on a string, a row array or a list of either. */
+export function fill(x, c) {
+  if (Array.isArray(x)) return x.map((y) => fill(y, c));
+  if (typeof x !== 'string') return x;
+  return x.replace(/\{plt\}/g, plt(c.m)).replace(/\{spl\}/g, spleenCm(c.m)).replace(/\{alb\}/g, c.params.albumin.toFixed(1))
+    .replace(/\{eso\}/g, esoText(c.m)).replace(/\{eso-\}/g, esoText(c.m).toLowerCase());
+}
+
 export const ZERO = 0;

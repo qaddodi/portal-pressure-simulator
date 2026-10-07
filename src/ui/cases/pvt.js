@@ -1,7 +1,7 @@
 // C7. Abdominal pain and a clot: acute portal vein thrombosis (anticoagulate, watch for ischaemia)
 // and chronic cavernoma (treat the varices; an HVPG will be normal and still mislead).
 
-import { DX_HIDDEN } from './kit.js?v=345f74af3d';
+import { DX_HIDDEN, fill } from './kit.js?v=58f5848647';
 
 const A = {
   vid: 'acute', preset: 'pvt-acute', acute: true,
@@ -18,9 +18,9 @@ const C = {
   patient: { name: 'Mei Chen', age: 45, sex: 'F', setting: 'Hepatology clinic', problem: 'Big spleen and low platelets found on a routine check.' },
   hx: ['Found at a routine check: low platelets. No symptoms. No bleeding.', 'No known liver disease. As a newborn she needed an umbilical vein catheter.'],
   exam: ['Spleen 5 cm below the costal margin. No ascites, no jaundice, no spider naevi.'],
-  labs: [['Platelets', '62 ×10⁹/L', 'bad'], ['Hemoglobin', '11.2 g/dL', 'warn'], ['Bilirubin', '0.7 mg/dL', ''], ['Albumin', '4.1 g/dL', ''], ['INR', '1.0', '']],
-  ct: ['The main portal vein is replaced by a tangle of small veins (cavernous transformation).', 'Liver normal in size and outline. Spleen 18 cm.'],
-  egd: ['Large esophageal varices with red wale signs. No bleeding.'],
+  labs: [['Platelets', '{plt} ×10⁹/L', 'warn'], ['Hemoglobin', '11.2 g/dL', 'warn'], ['Bilirubin', '0.7 mg/dL', ''], ['Albumin', '4.1 g/dL', ''], ['INR', '1.0', '']],
+  ct: ['The main portal vein is replaced by a tangle of small veins (cavernous transformation).', 'Liver normal in size and outline. Spleen {spl} cm.'],
+  egd: ['{eso}, and large varices running into the top of the stomach (GOV2). No bleeding.'],
   clot: ['No inherited clotting disorder. JAK2 V617F: negative.'],
 };
 
@@ -33,10 +33,10 @@ export const pvt = {
   intro: (c) => [`${c.cs.patient.name} is in front of you. The liver blood tests are almost normal, which is not what you would expect from cirrhosis.`],
   chart: (c) => [{ id: 'hx', section: 'History', title: 'Story', lines: c.cs.hx }, { id: 'exam', section: 'Exam', title: 'Examination', lines: c.cs.exam }],
   results: {
-    labs: (c) => ({ title: 'Blood tests', rows: c.cs.labs }),
-    ct: (c) => ({ title: 'CT scan with contrast', lines: c.cs.ct }),
+    labs: (c) => ({ title: 'Blood tests', rows: fill(c.cs.labs, c) }),
+    ct: (c) => ({ title: 'CT scan with contrast', lines: fill(c.cs.ct, c) }),
     doppler: (c) => ({ title: 'Doppler of the liver vessels', extra: c.cs.acute ? ['Echogenic material in the main portal vein.'] : ['Hepatopetal flow inside the cavernoma.'] }),
-    egd: (c) => ({ title: 'Upper endoscopy', lines: c.cs.egd }),
+    egd: (c) => ({ title: 'Upper endoscopy', lines: fill(c.cs.egd, c) }),
     'clot-screen': (c) => ({ title: 'Clotting disorder and JAK2 tests', lines: c.cs.clot }),
   },
   orders: ['labs', 'doppler', 'ct', 'egd', 'clot-screen', 'hvpg', 'anticoag', 'carvedilol'],

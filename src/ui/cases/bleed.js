@@ -1,7 +1,7 @@
 // C1. Hematemesis in the emergency department. The one acute case: a real clock, a patient who is
 // actually unstable, and two safety-critical choices whose effect the model shows at once.
 
-import { DX_HIDDEN } from './kit.js?v=345f74af3d';
+import { DX_HIDDEN, pltRow } from './kit.js?v=58f5848647';
 
 const PATIENTS = {
   A: { name: 'Daniel Reyes', age: 54, sex: 'M', setting: 'Emergency department', problem: 'Vomiting blood. Known cirrhosis.' },
@@ -17,8 +17,8 @@ const EXAM = {
   B: ['Anxious and pale, fully alert. Airway protected.', 'No jaundice. A few spider naevi. No ascites. Spleen palpable.'],
 };
 const LABS = {
-  A: { plt: 70, inr: 1.8, bili: 3.4, alb: 2.7, na: 134, cr: 1.1, lac: 3.1, asc: 'Mild, controlled on diuretics', he: 'None' },
-  B: { plt: 105, inr: 1.3, bili: 1.4, alb: 3.4, na: 139, cr: 0.9, lac: 2.4, asc: 'None', he: 'None' },
+  A: { inr: 1.8, bili: 3.4, na: 134, cr: 1.1, lac: 3.1, asc: 'Mild, controlled on diuretics', he: 'None' },
+  B: { inr: 1.3, bili: 1.4, na: 139, cr: 0.9, lac: 2.4, asc: 'None', he: 'None' },
 };
 
 const HB0 = 6.4, HB_PER_UNIT = 0.75;
@@ -31,7 +31,8 @@ export const bleed = {
   // Each attempt differs: the tear size and how long he bled before arrival vary, so the opening vitals match the story.
   variants: [
     { vid: 'A', patient: PATIENTS.A, preset: 'cirr-decomp', plan: 'tips', hx: HX.A, exam: EXAM.A, lab: LABS.A },
-    { vid: 'B', patient: PATIENTS.B, preset: 'cirr-decomp', plan: 'standard', hx: HX.B, exam: EXAM.B, lab: LABS.B },
+    // B is Child A (no ascites, normal albumin), so it starts from compensated cirrhosis aged to large varices.
+    { vid: 'B', patient: PATIENTS.B, preset: 'csph', prep: (p) => { p.cirrhosis = 0.8; p.albumin = 4.5; return p; }, afterDays: 150, plan: 'standard', hx: HX.B, exam: EXAM.B, lab: LABS.B },
     { vid: 'C', patient: { ...PATIENTS.A, name: 'Victor Hale', age: 57 }, preset: 'cirr-decomp', plan: 'rebleed', hx: HX.A.map((s) => s.replace('14 months ago', '9 months ago')), exam: EXAM.A, lab: LABS.A },
   ],
   setup: async (a, c) => { a.action({ kind: 'rupture', site: 'VAR', tear: 0.95 }); await c.advance(330); a.action({ kind: 'rupture', site: 'VAR', tear: 0.9 }); await c.advance(60); },
@@ -44,10 +45,10 @@ export const bleed = {
   results: {
     labs: (c) => ({ title: 'Blood tests', rows: [
       ['Hemoglobin', `${c.hbLab().toFixed(1)} g/dL`, c.hbLab() < 7 ? 'bad' : ''],
-      ['Platelets', `${c.cs.lab.plt} ×10⁹/L`, c.cs.lab.plt < 100 ? 'warn' : ''],
+      pltRow(c.m),
       ['INR', `${c.cs.lab.inr}`, c.cs.lab.inr > 1.5 ? 'warn' : ''],
       ['Bilirubin', `${c.cs.lab.bili} mg/dL`, c.cs.lab.bili > 3 ? 'warn' : ''],
-      ['Albumin', `${c.cs.lab.alb} g/dL`, c.cs.lab.alb < 3 ? 'warn' : ''],
+      ['Albumin', `${c.params.albumin.toFixed(1)} g/dL`, c.params.albumin < 3.5 ? 'warn' : ''],
       ['Sodium', `${c.cs.lab.na} mmol/L`, ''], ['Creatinine', `${c.cs.lab.cr} mg/dL`, ''],
       ['Lactate', `${c.cs.lab.lac} mmol/L`, c.cs.lab.lac > 2 ? 'warn' : ''],
       ['Ascites (exam)', c.cs.lab.asc, ''], ['Confusion (exam)', c.cs.lab.he, ''],
@@ -128,7 +129,7 @@ export const bleed = {
         options: ['Pre-emptive TIPS within 72 hours', 'A beta blocker and a banding program', 'Stop the vasoactive drug and send him home on a proton pump inhibitor', 'Repeat endoscopy only if he bleeds again'],
         answer: v.plan === 'tips' ? 0 : 1,
         onCommit: async (c, pick) => { if (pick === 0) c.order('tips8'); else if (pick === 1) { c.order('carvedilol'); } },
-        why: v.plan === 'tips' ? 'Child–Pugh C (about 11 points) with active bleeding: early TIPS within 72 hours lowers rebleeding and deaths.' : 'Child–Pugh A (6 points): a beta blocker plus banding is the standard. Early TIPS is for Child–Pugh C or high-risk Child–Pugh B.' });
+        why: v.plan === 'tips' ? 'Child–Pugh C (about 11 points) with active bleeding: early TIPS within 72 hours lowers rebleeding and deaths.' : 'Child–Pugh A (5 points): a beta blocker plus banding is the standard. Early TIPS is for Child–Pugh C or high-risk Child–Pugh B.' });
     }
     const last = steps[steps.length - 1].id;
     const objectives = [
