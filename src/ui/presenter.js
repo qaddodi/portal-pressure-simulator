@@ -9,21 +9,38 @@ import { runSequence, restoreSequence } from './sequence.js?v=5245f3910a';
 import { h, toast, svgIcon, icon } from './util.js?v=8aa5e5cdf1';
 import { download } from './records.js?v=379d033371';
 
+const ask = (q, a) => `\n\nAsk the room: ${q} Expected: ${a}`;
 export const SCRIPTS = [
   {
-    id: 'ph-ten', title: 'Portal hypertension in ten minutes', builtin: true,
-    summary: 'Healthy → cirrhosis → six months on → the lobule → TIPS.',
+    id: 'ph-five', title: 'Portal pressure in five minutes', builtin: true,
+    summary: 'A pressure difference moves blood: sinusoidal, presinusoidal and downstream blocks.',
     steps: [
-      { title: 'A healthy portal circulation', preset: 'healthy', view: 'anatomic', zoom: 'fit', pane: 'profile',
-        notes: 'Portal pressure about 7 mmHg, hepatic veins about 4: an HVPG near 3. The gut and spleen drain through the liver; the profile under the figure shows each resistance as a step.' },
-      { title: 'Cirrhosis at 60 %', params: { cirrhosis: 0.6 },
-        notes: 'Raise sinusoidal resistance. Everything upstream rises together: SMV, splenic vein and portal vein. HVPG crosses 10 mmHg: clinically significant portal hypertension.' },
-      { title: 'Six months later', days: 180,
-        notes: 'The gradient stays high, so collaterals open and remodel: varices at the lower esophagus, a larger spleen. Collaterals decompress the portal system but divert gut blood around the liver.' },
-      { title: 'Inside a lobule', zoom: 'lobule',
-        notes: 'Stellate cells have activated; collagen lines the sinusoids (capillarization) and bridges the lobules. This is where the resistance lives.' },
-      { title: 'A TIPS, 10 mm', zoom: 'fit', params: { tips: { on: true, d: 10 } }, pane: 'flow',
-        notes: 'The stent bypasses the liver: the portosystemic gradient falls below 12, but the shunt fraction rises and liver perfusion falls. Every fix has a cost.' },
+      { title: 'A pressure difference moves blood. (1 min)', preset: 'healthy', view: 'circuit', zoom: 'fit', pane: 'profile',
+        notes: 'Follow blood from the bowel and spleen through the liver to the heart. Across any route, pressure drop equals flow times resistance. Use the difference between two pressures, rather than a single pressure. The portal vein has no valve that guarantees one direction.' + ask('If upstream and downstream pressures become equal, what drives steady flow through this route?', 'No pressure difference remains to drive that flow.') },
+      { title: 'Put resistance in the liver. (1.5 min)', preset: 'csph', view: 'anatomic', zoom: 'lobule', pane: 'profile',
+        notes: 'This is a sinusoidal example. Hepatic venous pressure gradient, or HVPG, is wedged minus free hepatic venous pressure. In sinusoidal cirrhosis it can reflect the upstream pressure problem. Clinically significant portal hypertension in this setting is conventionally defined by HVPG of at least 10 mmHg. The model supplies a wedge surrogate, not an actual catheter procedure.' + ask('Which two pressures form HVPG?', 'Wedged minus free hepatic venous pressure.') },
+      { title: 'Move the obstruction upstream. (1.5 min)', preset: 'schisto', view: 'anatomic', zoom: 'lobule', pane: 'profile',
+        notes: 'This presinusoidal example has high pressure upstream of the sinusoids. A low HVPG does not exclude portal hypertension here. The app’s portal pressure gradient, or PPG, subtracts upper-caval pressure from confluence pressure. It is a direct network readout at those points, not an interchangeable clinical measurement. Compare PPG with HVPG in the Hepatic vein pressures card.' + ask('Does this low HVPG rule out the upstream obstruction?', 'No, the wedge surrogate does not capture all upstream resistance.') },
+      { title: 'Raise the pressure downstream. (1 min)', preset: 'rhf', params: { pulsatile: true }, view: 'anatomic', zoom: 'fit', pane: 'profile',
+        notes: 'Congestion can raise both hepatic venous pressures together. A small difference can coexist with high absolute pressure. Identify the resistance site before choosing a treatment. This model demonstrates backpressure. It does not establish a real patient’s cardiac diagnosis or procedural eligibility. Keep endoscopy closed. Related lessons: valveless, resistance-site, hvpg, heart.' + ask('Which matters here: the small difference alone, or the absolute pressures and their location?', 'Assess both absolute pressures and location.') },
+    ],
+  },
+  {
+    id: 'ph-ten', title: 'From resistance to collateral flow', builtin: true,
+    summary: 'Pressure difference → sinusoidal resistance → inflow → drugs → collaterals → TIPS.',
+    steps: [
+      { title: 'Start with the pressure difference. (1 min)', preset: 'healthy', view: 'circuit', zoom: 'fit', pane: 'profile',
+        notes: 'Use pressure drop = flow × resistance as our starting relationship. It describes a route within a coupled circulation. The whole network can change when we alter one route. A pressure reading without its location and reference is incomplete.' + ask('What must we subtract from upstream pressure to describe a pressure drop?', 'Downstream pressure for the same route.') },
+      { title: 'Add sinusoidal resistance. (2 min)', preset: 'cirr-comp', view: 'anatomic', zoom: 'lobule', pane: 'profile',
+        notes: 'The cirrhosis control is an educational resistance macro. It is not a histologic percentage or a clinical score. This mild state raises the sinusoidal pressure difference. Contrast this profile with a portal-vein obstruction, which puts the largest drop elsewhere.' + ask('Where is the main added resistance in this state?', 'The sinusoidal bed.') },
+      { title: 'Inflow still matters. (2 min)', preset: 'csph', params: { splanchnicTone: 0.6 }, view: 'anatomic', zoom: 'fit', pane: 'profile',
+        notes: 'Compare HVPG and portal flow with the CSPH baseline shown in lesson Forward. Lowering this tone control lowers modeled arterial resistance in the splanchnic bed. More inflow meets the resistant liver. Nonselective beta blockers, or NSBBs, address part of this mechanism. Clinical prevention benefits come from trials, not from the magnitude of this slider response.' + ask('With liver resistance unchanged, can more inflow raise upstream pressure?', 'Yes.') },
+      { title: 'Reduce inflow pharmacologically. (1.5 min)', preset: 'csph', params: { drugs: { carvedilol: true, propranolol: false, terlipressin: false, octreotide: false } }, view: 'anatomic', zoom: 'fit', pane: 'profile',
+        notes: 'Carvedilol represents beta blockade plus a reduction in intrahepatic tone in this model. Propranolol has a different fixed parameter effect. These are mechanism illustrations. They do not compare clinical doses, tolerability or individual response. In compensated cirrhosis with clinically significant portal hypertension, trial evidence supports NSBB prevention of decompensation.' + ask('Why should we watch systemic pressure as well as the portal gradient?', 'An intervention can affect systemic hemodynamics and tolerability.') },
+      { title: 'Let collaterals remodel. (2 min)', preset: 'healthy', params: { cirrhosis: 0.65 }, days: 180, view: 'anatomic', zoom: 'fit', pane: 'profile',
+        notes: 'Alternative routes can carry flow immediately when a gradient exists. Their caliber can also remodel over time. The disease clock is separate from the beat-to-beat clock. Collaterals can decompress one pathway while exposing another tissue to pressure and flow.' + ask('Does opening a collateral guarantee normal pressure or normal liver perfusion?', 'No.') },
+      { title: 'A bypass changes several quantities. (1.5 min)', preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, view: 'anatomic', zoom: 'fit', pane: 'profile',
+        notes: 'Transjugular intrahepatic portosystemic shunt, or TIPS, bypasses part of the liver resistance. It redistributes flow and may increase downstream load. The model’s shunt fraction saturates in this example. It cannot predict encephalopathy, survival or the safest diameter. Selection requires clinical information outside this network. Related lessons: valveless, resistance-site, forward, collaterals, costs.' + ask('Which additional quantities should we inspect after pressure falls?', 'Bypass flow, sinusoidal flow and downstream pressure/load, alongside clinical eligibility.') },
     ],
   },
   {

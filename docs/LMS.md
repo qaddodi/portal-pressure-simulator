@@ -10,7 +10,7 @@ Open straight into an activity by adding a query string to the simulator's URL:
 |------|-------|
 | `?lesson=<id>` | a lesson: `valveless`, `resistance-site`, `hvpg`, `forward`, `collaterals`, `laplace`, `hepatofugal`, `starling`, `sinistral`, `costs`, `heart` |
 | `?case=<id>` | a case: `bleed`, `gastric`, `cardiac`, `refractory` |
-| `?script=<id>` | a presenter script: `ph-ten`, `where-block`, `bleed` |
+| `?script=<id>` | a presenter script: `ph-five`, `ph-ten`, `where-block`, `bleed` |
 | `?preset=<id>` | a patient, e.g. `healthy`, `csph`, `cirr-decomp`, `budd-chiari`, `rhf` |
 | `?home=<tab>` | Home on `explore`, `learn`, `cases` or `present` |
 | `?lang=<code>` | interface language: `en`, `es`, `fr`, `pt`, `ar` |
