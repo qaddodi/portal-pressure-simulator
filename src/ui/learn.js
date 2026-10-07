@@ -3,8 +3,8 @@
 import { store, updateParams } from './store.js?v=18136433f8';
 import { host } from './host.js?v=7e09ccd8cf';
 import { h, fmt, toast, svgIcon } from './util.js?v=8aa5e5cdf1';
-import { createAnswerSheet, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=c8570af624';
-import { addRecord } from './records.js?v=5f3cebd762';
+import { createAnswerSheet, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=7f4afcf446';
+import { addRecord } from './records.js?v=50fb9dd463';
 import { runSequence } from './sequence.js?v=7bf7fb864e';
 import { EDGES } from '../engine/topology.js?v=80b8d861de';
 

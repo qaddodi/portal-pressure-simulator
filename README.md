@@ -103,10 +103,13 @@ as a map of the disease: grouped by where the resistance sits, each with its pre
 
 - **Lessons** (12): predict → do → observe → explain → check, with the step card on the figure,
   predictions made on the figure or the pressure profile, Replay per step, and a score.
-- **Cases** (6): prevention, gastric, cardiac and vascular diagnostic cases, a variceal bleed and a
-  recurrent-ascites decision, each with a bedside monitor, orders, supplied clinical cards,
-  randomized variants, 80 % mastery with critical objectives, pressures hidden until measured, and a printable debrief with a
-  counterfactual ("had terlipressin been started at minute 2…") replayed in the same model.
+- **Cases** (11): named patients with an authored chart (history, exam, labs), orders in clinical words, and three or
+  four decision points that pause the clock. Eight core cases (a variceal bleed in the ED, big varices on a screening scope,
+  new ascites, refractory ascites, melena with a big spleen, Budd–Chiari and its relatives, portal vein thrombosis, and the
+  beta blocker that became a problem) plus three optional ones (varices with a normal liver, reversed flow on a routine scan,
+  confusion after a TIPS). Feedback waits for the debrief, except for unsafe choices, whose effect the model shows at once.
+  Randomized variants, 80 % mastery with critical key actions, and a debrief with the expert's choices and an "inside the
+  patient" table.
 - **Assessment:** every attempt is recorded on the device and exports as CSV or xAPI.
 - **Presenter:** scripts of model states with speaker notes, stepped with arrow keys or a
   clicker; notes in a second window; laser pointer. Build scripts from the live model and share

@@ -9,7 +9,7 @@ Open straight into an activity by adding a query string to the simulator's URL:
 | Link | Opens |
 |------|-------|
 | `?lesson=<id>` | a lesson: `valveless`, `resistance-site`, `hvpg`, `forward`, `collaterals`, `laplace`, `hepatofugal`, `starling`, `sinistral`, `heart`, `vascular-patterns`, `costs` |
-| `?case=<id>` | a case: `prevention`, `gastric`, `cardiac`, `vascular`, `bleed`, `refractory` |
+| `?case=<id>` | a case: `bleed`, `prevention`, `new-ascites`, `refractory`, `gastric`, `budd-chiari`, `pvt`, `nsbb-problem`, `schisto`, `hepatofugal`, `post-tips`. Add `&variant=0`, `1`… to pick a variant |
 | `?script=<id>` | a presenter script: `ph-five`, `ph-ten`, `where-block`, `bleed` |
 | `?preset=<id>` | a patient, e.g. `healthy`, `csph`, `cirr-decomp`, `budd-chiari`, `rhf` |
 | `?home=<tab>` | Home on `explore`, `learn`, `cases` or `present` |

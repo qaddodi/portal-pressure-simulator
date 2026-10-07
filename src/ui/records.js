@@ -2,7 +2,7 @@
 // as CSV (for a gradebook) or as xAPI statements (for a learning record store). Nothing is sent
 // anywhere; the student hands the file in, or an LMS integration picks it up.
 
-import { XAPI_BASE as BASE, recordResult } from './assess.js?v=c8570af624';
+import { XAPI_BASE as BASE, recordResult } from './assess.js?v=7f4afcf446';
 
 const KEY = 'pps.records';
 const read = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
