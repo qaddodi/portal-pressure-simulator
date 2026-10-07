@@ -1,24 +1,24 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=7e09ccd8cf';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction } from './store.js?v=18136433f8';
-import { createStage } from './stage.js?v=582deda0e9';
-import { createInspector } from './inspector.js?v=03885e2627';
-import { createDock, CUTOFFS } from './dock.js?v=003544fbf4';
-import { createWhy } from './why.js?v=c4a18b6fa7';
-import { createTimeline } from './timeline.js?v=09687b3571';
-import { createLearn } from './learn.js?v=5bf4c0e1bc';
-import { createCases } from './cases.js?v=ef14e2face';
-import { createCompare } from './compare.js?v=7f52956925';
-import { createCard } from './card.js?v=b12d04d9d2';
-import { createChart, computeFindings } from './chart.js?v=5c64368961';
-import { createHome } from './home.js?v=1f4acf0bd3';
+import { startHost, host } from './host.js?v=021ca58119';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction } from './store.js?v=baa7ba1e7b';
+import { createStage } from './stage.js?v=1a3143d6a6';
+import { createInspector } from './inspector.js?v=4ab7212ba6';
+import { createDock, CUTOFFS } from './dock.js?v=dae7401563';
+import { createWhy } from './why.js?v=19e2bfeacf';
+import { createTimeline } from './timeline.js?v=ac1954ea51';
+import { createLearn } from './learn.js?v=296debef12';
+import { createCases } from './cases.js?v=9992d62129';
+import { createCompare } from './compare.js?v=107f5d13f5';
+import { createCard } from './card.js?v=ef0cf08b27';
+import { createChart, computeFindings } from './chart.js?v=b2655cf057';
+import { createHome } from './home.js?v=0cc47972a0';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
-import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=4559972273';
-import { startLMS } from './lms.js?v=a62598226c';
+import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=e5d9f1f6fb';
+import { startLMS } from './lms.js?v=98e09c3cb8';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=d458e79194';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=fa051e3a4e';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=80b8d861de';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=8aa5e5cdf1';
@@ -129,7 +129,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=9c9d83f657'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=6b038c672a'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -141,7 +141,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=3ced1a84ee'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=974976f8c0'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -249,7 +249,7 @@ let lastPaint = 0, lastDesc = 0, homeStale = false;
 function syncDoppler(f = store.get().frame) { stage?.setDoppler(f && dock?.isOpen('doppler') ? f.probe : null); }
 function onFrame(f) {
   if (f.params) replaceParams(f.params);
-  if (f.events?.length) { const hid = store.get().hiddenEvents; const ev = hid ? f.events.filter((e) => !hid.has(e.id)) : f.events; if (ev.length) timeline.addEvents(ev); }
+  if (f.events?.length) { const hid = store.get().hiddenEvents; const ev = hid ? f.events.filter((e) => !hid.has(e.id) && !(hid.has('COLL_*') && e.id.startsWith('COLL_'))) : f.events; if (ev.length) timeline.addEvents(ev); }
   dock?.ingest(f);   // every frame's samples, even one that is not painted (or while Home covers everything)
   const now = performance.now();
   if (!f.changed && !f.params && !f.events?.length && now - lastPaint < 80) return;
@@ -385,6 +385,10 @@ function startCase(id) { if (store.get().mode === 'learn') learn.stop(); store.s
 function doAction(a) {
   if (a.kind === 'probe') { host.send({ type: 'probe', id: a.id }); return; }
   if (a.kind === 'paracentesisPrompt') { dock.show('abdomen', { reveal: true }); toast('Choose the volume in Ascites & paracentesis, then Drain.'); return; }
+  if (a.kind === 'band') {
+    const vd = store.get().frame?.metrics?.varix?.d;
+    if (vd !== undefined && vd < 2.5 && !(store.get().frame?.bands > 0)) { toast('No varices to band.'); return; }
+  }
   host.send({ type: 'action', action: a });
   logAction('action', a.kind);
   const tl = { infuse: { crystalloid: '1 L crystalloid', prbc: '1 unit PRBC', albumin: 'Albumin infusion' }, hemorrhage: `Hemorrhage ${a.mL} mL`, band: 'Band ligation', valsalva: 'Valsalva', rupture: 'Varix ruptured (manual)', stopBleed: 'Bleeding stopped',
@@ -587,7 +591,7 @@ function openLayers(anchor) {
   };
   popover(anchor, [
     h('div', { class: 'lens-grid' }, Object.keys(LENSES).map(lens)),
-    s0.imaging ? h('div', { class: 'ctl-sub', style: { padding: '2px 10px 6px' } }, 'This case shows anatomy only until you measure.') : null,
+    s0.imaging ? h('div', { class: 'ctl-sub', style: { padding: '2px 10px 6px' } }, s0.blind ? 'The numbers appear once you answer.' : 'This case shows anatomy only until you measure.') : null,
   ], { cls: 'layers-pop' });
 }
 // Active bleeding is a state, not an alarm: a steady status in the figure header.
@@ -1015,6 +1019,7 @@ function closeTreat() {
 // ── Modes ───────────────────────────────────────────
 function onMode(mode) {
   app.dataset.mode = mode;
+  const ptitle = document.querySelector('#panelTitle span'); if (ptitle) ptitle.textContent = mode === 'cases' ? 'Patient' : 'Findings';
   syncModeName();
   if (mode !== 'cases' && cases?.active()) cases.exit();
   if (mode !== 'learn' && learn?.active()) learn.stop();

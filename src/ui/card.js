@@ -3,9 +3,9 @@
 // sliders that used to live in the side panel. Every verb takes effect at once and becomes one
 // entry in the timeline; nothing stays "armed".
 
-import { store, updateParams } from './store.js?v=18136433f8';
+import { store, updateParams } from './store.js?v=baa7ba1e7b';
 import { h, icon, svgIcon, clamp, tooltipFor } from './util.js?v=8aa5e5cdf1';
-import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=d458e79194';
+import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=fa051e3a4e';
 
 const LOCK_TIP = 'Not available in this step of the lesson or case';
 
@@ -18,11 +18,11 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   view.append(leader);
   const tabletTouch = matchMedia('(pointer: coarse) and (min-width: 768px) and (max-width: 1366px)');
   const sizes = { vw: view.clientWidth, vh: view.clientHeight, w: 0, h: 0 };
-  new ResizeObserver(() => { sizes.vw = view.clientWidth; sizes.vh = view.clientHeight; placedFor = ''; lastLayout = ''; position(); if (isDocked()) reveal(); }).observe(view);
-  new ResizeObserver(() => { sizes.w = el.offsetWidth; sizes.h = el.offsetHeight; placedFor = ''; lastLayout = ''; position(); syncMore(); if (isDocked()) reveal(); }).observe(el);
+  new ResizeObserver(() => { const moved = Math.abs(sizes.vw - view.clientWidth) > 2 || !sizes.vh; sizes.vw = view.clientWidth; sizes.vh = view.clientHeight; if (moved) { placedFor = ''; lastLayout = ''; pinned = null; } position(); if (isDocked()) reveal(); }).observe(view);
+  new ResizeObserver(() => { const first = !sizes.w; sizes.w = el.offsetWidth; sizes.h = el.offsetHeight; if (first) { placedFor = ''; lastLayout = ''; pinned = null; } position(); syncMore(); if (isDocked()) reveal(); }).observe(el);
   const uiState = {};
   ctx.ui = (key, def) => (uiState[key] ||= def);
-  let model = null, live = [], syncs = [], actionable = [], selRef = null, placedFor = '', lastLayout = '';
+  let lastSelKey = '', model = null, live = [], syncs = [], actionable = [], selRef = null, placedFor = '', lastLayout = '', pinned = null;
 
   const refP = () => { const st = store.get(); return st.compareSnap ? st.compareSnap.P : st.healthy?.P; };
   const lens = () => (store.get().imaging ? 'neutral' : store.get().colorMode);
@@ -91,6 +91,9 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     clearTimeout(closeTimer);
     el.classList.remove('ac-leaving');
     const focusedIdx = keepFocus ? actionable.findIndex((a) => a.el.contains(document.activeElement)) : -1;
+    const same = !el.hidden && !!model && JSON.stringify(normalizeSel(sel) || sel) === lastSelKey;
+    lastSelKey = JSON.stringify(normalizeSel(sel) || sel);
+    el.dataset.card = (normalizeSel(sel) || sel).type || 'vessel';
     model = m; selRef = sel; live = []; syncs = []; actionable = [];
     const close = h('button', { class: 'ib ac-close', 'aria-label': 'Close', title: 'Close (Esc)', onclick: () => store.set({ selection: null }) }, icon('close'));
     const valEl = h('div', { class: 'ac-value' });
@@ -144,8 +147,9 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     el.hidden = false;
     // Number keys trigger the verbs in order; show the number beside each.
     actionable.forEach((a, i) => { if (i < 9) a.el.dataset.key = String(i + 1); });
+    // The same card rebuilt (a value changed what is allowed): keep its place and its size, so nothing moves under the hand.
     update();
-    placedFor = ''; lastLayout = '';
+    if (!same) { placedFor = ''; lastLayout = ''; pinned = null; }
     position();
     if (focusedIdx >= 0) actionable[focusedIdx]?.focus();
     relayoutSoon();
@@ -296,15 +300,19 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   }
   function infoI(text) { const b = h('button', { class: 'info-i', type: 'button', 'aria-label': text }, icon('info')); tooltipFor(b, text); return b; }
 
+  let dragEl = null;
+  el.addEventListener('pointerdown', (e) => { dragEl = e.target.closest?.('input[type=range], .ac-btn, .ac-toggle, .seg button') || null; });
+  const dragEnd = () => { dragEl = null; };
+  addEventListener('pointerup', dragEnd, true); addEventListener('pointercancel', dragEnd, true);
+
   function update() {
     if (!model || el.hidden) return;
+    // The control in use stays exactly where it is: if text came or went above it, scroll the card back by the difference.
+    const t0 = dragEl ? dragEl.getBoundingClientRect().top : 0;
     for (const fn of live) fn();
-    // The card only ever grows while it is open: text that comes and goes (notes, pills) must not
-    // make it breathe, so its body keeps the tallest height it has needed.
-    const sc = el.querySelector('.ac-scroll');
-    if (sc && !sc.classList.contains('more')) {
-      const need = Math.min(sc.scrollHeight, innerHeight * 0.6);
-      if (need > (sc._h || 0)) { sc._h = need; sc.style.minHeight = need + 'px'; }
+    if (dragEl) {
+      const d = dragEl.getBoundingClientRect().top - t0, sc = el.querySelector('.ac-scroll');
+      if (d && sc) sc.scrollTop += d;
     }
     position();
   }
@@ -324,6 +332,9 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     lastLayout = lk;
     const a = stage.anchorFor(normalizeSel(selRef) || selRef);
     if (!a) return;
+    // Once placed, the card stays put while its controls are used (the drawn structure shifting as values change must not
+    // move it); only the leader follows. A resize, a new selection or a moved panel places it afresh (placedFor reset).
+    if (placedFor && pinned) { drawLeader(pinned.x, pinned.y, sizes.w || 288, sizes.h || 240, a); return; }
     // Sizes come from ResizeObservers: measuring here, after the frame's DOM writes, would force
     // a layout every frame while the card is open.
     const W = sizes.vw, H = sizes.vh;
@@ -356,7 +367,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     });
     const key = `${Math.round(best.x)},${Math.round(best.y)}|${Math.round(a.x)},${Math.round(a.y)}`;
     if (key === placedFor) return;
-    placedFor = key;
+    placedFor = key; pinned = { x: best.x, y: best.y };
     el.style.left = best.x + 'px'; el.style.top = best.y + 'px';
     drawLeader(best.x, best.y, w, hh, a);
   }
@@ -371,7 +382,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   }
 
   // The floating pieces moved (a card opened on the right, the dock grew): place the card again.
-  addEventListener('pps:occ', () => { placedFor = ''; lastLayout = ''; position(); if (isDocked()) reveal(); });
+  addEventListener('pps:occ', () => { if (pinned && !isDocked()) return; placedFor = ''; lastLayout = ''; pinned = null; position(); if (isDocked()) reveal(); });
   store.on('selection', () => render());
   store.on('shunting', () => render());
   store.on('allowedVerbs', () => render());

@@ -1,15 +1,16 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
-import { createMeasureCard } from './measure.js?v=e213ba6cf9';
-import { store, varixSuppressed } from './store.js?v=18136433f8';
+import { createMeasureCard } from './measure.js?v=8ce17296d4';
+import { store, varixSuppressed } from './store.js?v=baa7ba1e7b';
 import { EDGES } from '../engine/topology.js?v=80b8d861de';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=8aa5e5cdf1';
 import { lobuleFlows } from './lobule-model.js?v=c4f41a94a3';
-import { createProfile } from './charts.js?v=0630f760fe';
-import { createPressureTime } from './pressure-time.js?v=b3d3258647';
-import { createDoppler } from './doppler.js?v=0d4da37ddd';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=190dd82770';
+import { createProfile } from './charts.js?v=d6f7ed17ab';
+import { createPressureTime } from './pressure-time.js?v=ccc0ce04b3';
+import { createFibroScan } from './fibroscan.js?v=188104452f';
+import { createDoppler } from './doppler.js?v=1f0621d828';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=a7349a30a0';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -301,7 +302,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   pressure.el.append(measure.el);
   const instruments = [
     pressure, createPressureTime({ marks }),
-    createDoppler({ onProbe }), endoscopy, createAbdomen({ onAction }),
+    createDoppler({ onProbe }), endoscopy, createAbdomen({ onAction }), createFibroScan(),
   ];
   const panes = instruments.map((p) => {
     p.el.classList.remove('dock-pane'); p.el.classList.add('instrument-view');
@@ -319,9 +320,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     doppler: ['doppler', (f) => `${fmt(Math.abs(f.metrics.pvVel), 0)} cm/s`],
     endoscopy: ['endoscope', (f) => (varixSuppressed() ? 'Not modeled' : f.metrics.varix.d < 2.5 ? 'No varices' : `Grade ${f.metrics.varix.grade.code}`)],
     abdomen: ['needle', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],
+    fibroscan: ['gauge', (f) => `${fmt(f.metrics.lsm, 0)} kPa`],
   };
-  const SHORT = { profile: 'Pressure', scope: 'Over time', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites' };
-  const ORDER = ['profile', 'scope', 'doppler', 'endoscopy', 'abdomen'];
+  const SHORT = { profile: 'Pressure', scope: 'Over time', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites', fibroscan: 'FibroScan' };
+  const ORDER = ['profile', 'scope', 'doppler', 'endoscopy', 'abdomen', 'fibroscan'];
   const saved = (() => { try { return JSON.parse(localStorage.getItem('pps.instruments') || 'null') || {}; } catch { return {}; } })();
   let open = Array.isArray(saved.open) && saved.open.every((id) => byId[id]) && saved.open.length ? saved.open.slice(0, 2) : ['profile'];
   let frame = null, state = 'open', resizeFrame = 0, picking = false;
@@ -392,7 +394,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       // The sheet rises from above the vitals dock, at most to just under the top bar.
       // A lesson's step card (under the top bar) keeps its room: the sheet takes what is below it.
       const coach = document.getElementById('coach'), coachH = coach && coach.childElementCount ? coach.offsetHeight + 8 : 0;
-      const max = stageWrap.clientHeight - css('--top-safe') - coachH - css('--vdock-h') - 40;
+      // With a step card above it, a phone keeps about a quarter of the height for the figure itself.
+      const keep = coachH && matchMedia('(max-width: 767px)').matches ? Math.max(40, stageWrap.clientHeight * 0.26) : 40;
+      const max = stageWrap.clientHeight - css('--top-safe') - coachH - css('--vdock-h') - keep;
       const ratio = heightRatio ?? (matchMedia('(max-width: 767px)').matches ? 0.56 : 0.46);
       const height = Math.min(max, Math.max(180, stageWrap.clientHeight * ratio));
       workspace.style.setProperty('--instrument-h', `${Math.max(140, height)}px`);

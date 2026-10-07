@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- **Lessons and cases, deeper pass.** Liver stiffness is now a model reading (about 21 kPa at an HVPG of 10, higher in a
+  congested liver), so a chart's kPa matches the simulation, and cases can order a FibroScan. Scope, Doppler and abdominal
+  ultrasound orders open the matching view, and each result has a button to show it again. In 30 questions the right
+  answer was the longest option; the options are now parallel. Lesson numbers on do and observe steps show where they
+  started (7 mm, up from 4). The varices lesson now starts with thin varices that grow over six months, as the text says,
+  and the ascites lesson starts with about 4 litres to tap. The debrief table marks numbers that rose or fell. The scope's
+  wall stress reads "% of the tear point" and says when it is past it.
+
+- **Cases rebuilt (11).** Every case now has a named patient, an authored chart and orders in clinical words. The old
+  “supplied clinical assessment” cards are gone: the chart holds facts (an asthma history, a bilirubin of 6.5, severe
+  tricuspid regurgitation) and the learner has to notice them. The bleeding patient arrives tachycardic and hypotensive;
+  decisions pause the clock; feedback waits for the debrief, except for unsafe choices (no vasoactive drug, transfusing to
+  10, TIPS in heart disease or a blocked splenic vein, carvedilol with low pressure), whose effect the model shows at once.
+  New: new ascites, Budd–Chiari/SOS/caval web, portal vein thrombosis, the beta blocker problem, varices with a normal
+  liver, reversed flow on a routine scan, and confusion after a TIPS. The debrief lists key actions, your choices against
+  the expert's, an “inside the patient” table and three pearls. Content version 2026.10-c1.
+
 - **Curriculum rewrite, batches 5 to 8.** Lessons *sinistral*, *heart* and *costs* are rewritten and *vascular-patterns* is
   new (12 lessons). Cases: new *prevention*, *vascular*; *gastric* has a local and a cirrhotic variant; *cardiac* is
   restored; *bleed* and *refractory* are rewritten (6 cases). Cases open with the history behind an order, pressures and

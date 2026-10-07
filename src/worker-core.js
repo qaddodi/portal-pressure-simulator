@@ -1,11 +1,11 @@
 // Simulation host: owns the Engine, runs the clocks, streams frames (blueprint §13.4).
 // Used inside a Web Worker (src/worker.js) or on the main thread as a fallback.
 
-import { Engine } from './engine/engine.js?v=6cdd5c3764';
-import { computeMetrics } from './engine/metrics.js?v=523377c643';
-import { detectEvents } from './engine/events.js?v=5b817750ef';
-import { explain } from './engine/explain.js?v=e2e9183036';
-import { defaultParams, deepMerge, PRESETS } from './engine/scenario.js?v=f0437de612';
+import { Engine } from './engine/engine.js?v=522c66b535';
+import { computeMetrics } from './engine/metrics.js?v=aebd90896e';
+import { detectEvents } from './engine/events.js?v=c6e663c4c4';
+import { explain } from './engine/explain.js?v=9d211bdeaf';
+import { defaultParams, deepMerge, PRESETS } from './engine/scenario.js?v=d8076334d5';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
 
@@ -145,7 +145,9 @@ export function createCore(post) {
       if (c !== undefined) { clock = c; diseaseAcc = 0; }
     },
     visibility({ visible: v }) { visible = v; },
-    *advance({ days, untilEvent }) {
+    // restartClock: the days are the patient's past (a case aging its patient), so the clock and
+    // event log start fresh at day 0 afterwards.
+    *advance({ days, untilEvent, restartClock }) {
       const n0 = eng.eventLog.length;
       let done = 0;
       const max = untilEvent ? 730 : days;
@@ -156,6 +158,7 @@ export function createCore(post) {
         if (r.ruptured) { clock = 'hemo'; break; }
         if (untilEvent && eng.eventLog.length > n0) break;
       }
+      if (restartClock) { eng.day = 0; eng.t = 0; eng.eventLog = []; eng.newEvents = []; }
       paramsDirty = true;
     },
     settle() { eng.settle(); },

@@ -4,9 +4,11 @@
 import { NODES } from '../engine/topology.js?v=80b8d861de';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { h, fmt, fitCanvas, cssVar, clamp, icon } from './util.js?v=8aa5e5cdf1';
-import { renderEndo } from './endo-render.js?v=bf2e2c5cc2';
-import { FONT } from './charts.js?v=0630f760fe';
-import { store, updateParams, logAction, varixSuppressed } from './store.js?v=18136433f8';
+import { simTime, isPaused } from './clock.js?v=5a1148530d';
+import { createEndoGL } from './endo-gl.js?v=f27c0841b0';
+import { renderEndo } from './endo-render.js?v=5ad939cd04';
+import { FONT } from './charts.js?v=d6f7ed17ab';
+import { store, updateParams, logAction, varixSuppressed } from './store.js?v=baa7ba1e7b';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
@@ -17,9 +19,10 @@ export function createEndoscopy({ onAction }) {
   const cv = h('canvas', { role: 'img', 'aria-label': 'Endoscopic view' });
   box.append(cv);
   const view = 'eso'; // the esophageal variceal view only
+  const bandBtn = h('button', { class: 'btn primary', onclick: () => onAction({ kind: 'band' }) }, icon('band'), 'Band a column (EVL)');
   const stats = h('dl', { class: 'kv' });
   const side = h('div', { class: 'chart-side' }, stats,
-    h('button', { class: 'btn primary', onclick: () => onAction({ kind: 'band' }) }, icon('band'), 'Band a column (EVL)'),
+    bandBtn,
     h('div', { class: 'ctl-sub' }, 'Drawn from the model. F1 small and straight, F2 enlarged and tortuous, F3 large and beaded; red wale marks mean high modeled wall stress.'));
   el.append(box, side);
   const note = h('p', { class: 'ctl-sub', hidden: true }, '');
@@ -32,11 +35,13 @@ export function createEndoscopy({ onAction }) {
     box.style.visibility = off ? 'hidden' : '';
     if (off) { stats.replaceChildren(h('dt', {}, 'Esophageal varix'), h('dd', {}, 'not modeled')); return; }
     const vx = view === 'eso' ? m.varix : m.gastricVarix;
+    const noVx = vx.d < 2.5 && !(f.bands > 0);
+    bandBtn.disabled = noVx; bandBtn.title = noVx ? 'No varices to band' : '';
     stats.replaceChildren(
       h('dt', {}, 'Grade'), h('dd', {}, `${vx.grade.code} ${vx.grade.label}`),
       h('dt', {}, 'Diameter'), h('dd', {}, `${fmt(vx.d, 1)} mm`),
       h('dt', {}, 'Wall thickness'), h('dd', {}, `${fmt(vx.w, 2)} mm`),
-      h('dt', {}, 'Wall stress (model)'), h('dd', {}, `${Math.round(vx.ratio * 100)} % of rupture`),
+      h('dt', {}, 'Wall stress (model)'), h('dd', {}, vx.ratio >= 1 ? (store.get().params?.bleeding ? 'past the tear point' : 'past the tear point (bleeding is off, so it holds)') : `${Math.round(vx.ratio * 100)} % of the tear point`),
       h('dt', {}, 'Red wale signs'), h('dd', {}, vx.redWale ? 'present' : 'absent'),
       h('dt', {}, 'Bands placed'), h('dd', {}, String(Math.round(f.bands || 0))));
     draw(f, vx);
@@ -45,7 +50,19 @@ export function createEndoscopy({ onAction }) {
   // winding varices, drawn once per state into a cached bitmap, so it is perfectly steady. Balloon,
   // bleeding and the scope mask are drawn on top.
   const rnd = (seed) => { let x = seed >>> 0; return () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; }; };
-  let peak = 0, bleedT = 0, cache = { key: '', img: null };
+  const gl = createEndoGL();
+  let peak = 0, an = null, lastT = 0, last = null, raf = 0, bleedT = 0, cache = { key: '', img: null };
+  // An eased tween toward a target value: cur follows from -> to over dur ms after a delay.
+  const tw = (v) => ({ v, from: v, to: v, t0: 0, dur: 1, delay: 0, cur: v });
+  const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+  function tween(t, target, now, dur, delay) {
+    if (target !== t.to) { t.from = t.cur; t.to = target; t.t0 = now; t.dur = dur; t.delay = delay; }
+    if (t.dur <= 1) { t.cur = t.v = t.to; return false; } // snap
+    const k = Math.min(1, Math.max(0, (now - t.t0 - t.delay) / t.dur));
+    t.cur = t.from + (t.to - t.from) * ease(k); t.v = t.cur;
+    return k < 1 && t.cur !== t.to;
+  }
+  store.on('running', () => { if (last && !isPaused()) draw(last.f, last.vx); });
   function draw(f, vx) {
     const { ctx, w, h: hh } = fitCanvas(cv);
     if (w < 32 || hh < 32) return; // hidden/reflowing canvas: wait for its measured size
@@ -58,13 +75,43 @@ export function createEndoscopy({ onAction }) {
     // so unbanded columns keep the size seen before the first band.
     const gNow = clamp((vx.d - 2) / 10, 0, 1);
     peak = bands > 0 ? Math.max(peak, gNow) : gNow;
-    const grow = peak, present = vx.d >= 2.4 || bands > 0;
-    const res = clamp(Math.round(2 * R * (window.devicePixelRatio || 1)), 160, 300);
-    const gq = Math.round(grow * 14) / 14;
-    const key = [res, gq.toFixed(3), bands, present ? 1 : 0, vx.redWale ? 1 : 0].join('|');
-    if (cache.key !== key) cache = { key, img: renderEndo(res, { grow: gq, bands, present, redWale: !!vx.redWale }) };
+    const tg = peak, tv = bands > 0 ? 1 : clamp((vx.d - 2.5) / 1.0, 0, 1);
+    last = { f, vx };
+    const now = simTime() * 1000, dt = Math.min(0.05, Math.max(0, (now - lastT) / 1000)); lastT = now; // sim clock: frozen while paused
+    // Targets: each column is deflated and knuckled once banded (the 4 bands fill columns in turn).
+    const defT = [0, 0, 0, 0], knT = new Array(16).fill(0);
+    for (let c = 0; c < 4; c++) {
+      const nb = Math.floor(bands / 4) + (c < bands % 4 ? 1 : 0);
+      defT[c] = nb > 0 ? 1 : 0;
+      for (let k = 0; k < Math.min(nb, 4); k++) knT[c * 4 + k] = 1;
+    }
+    if (!an) {
+      an = { g: tg, v: tv, def: defT.map((x) => tw(x)), kn: knT.map((x) => tw(x)) };
+      an.def.forEach((t, i) => { t.v = defT[i]; }); an.kn.forEach((t, i) => { t.v = knT[i]; });
+    }
+    // Size and presence follow the model continuously (critically damped, ~0.2 s); banding plays a
+    // slower eased tween: the vein deflates first, the knuckle and band follow.
+    const kf = 1 - Math.exp(-dt / 0.2);
+    an.g += (tg - an.g) * kf; an.v += (tv - an.v) * kf;
+    if (Math.abs(tg - an.g) < 0.0008) an.g = tg;
+    if (Math.abs(tv - an.v) < 0.0008) an.v = tv;
+    let busy = an.g !== tg || an.v !== tv;
+    // Sequence: the band snaps on instantly, then (after a beat) the vein deflates smoothly.
+    for (let c = 0; c < 4; c++) busy = tween(an.def[c], defT[c], now, 1500, defT[c] > an.def[c].to ? 1000 : 0) || busy;
+    for (let i = 0; i < 16; i++) busy = tween(an.kn[i], knT[i], now, 1, 0) || busy;
+    if (busy && !raf && !isPaused()) raf = requestAnimationFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
+    const res = clamp(Math.round(2 * R * (window.devicePixelRatio || 1)), 160, 480);
+    let img;
+    if (gl) img = gl.render(res, { grow: an.g, vis: an.v, red: !!vx.redWale, def: an.def.map((t) => t.cur), kn: an.kn.map((t) => t.cur) });
+    else {
+      // No WebGL: the CPU renderer draws the target state without transitions.
+      const r2 = Math.min(res, 300), gq = Math.round(tg * 14) / 14;
+      const key = [r2, gq, bands, vx.redWale ? 1 : 0, Math.round(tv * 10)].join('|');
+      if (cache.key !== key) cache = { key, img: renderEndo(r2, { grow: gq, bands, vis: tv, redWale: !!vx.redWale }) };
+      img = cache.img;
+    }
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(cache.img, cx - R, cy - R, 2 * R, 2 * R);
+    ctx.drawImage(img, cx - R, cy - R, 2 * R, 2 * R);
     if (f.params?.balloonEso) {
       const g = ctx.createRadialGradient(cx - R * 0.2, cy - R * 0.2, R * 0.1, cx, cy, R * 0.85);
       g.addColorStop(0, 'rgba(255, 250, 225, .55)'); g.addColorStop(1, 'rgba(235, 215, 160, .35)');

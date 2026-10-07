@@ -508,7 +508,7 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .org-fill { fill: color-mix(in srgb, currentColor var(--organ-tint), var(--stage-bg)); }
 .org-liver.org-fill { fill: color-mix(in srgb, var(--organ-liver) calc(var(--organ-tint) + 3%), var(--stage-bg)); }
 .ghost-layer { opacity: .34; }
-.ghost { pointer-events: none; }
+.ghost:not(.btn) { pointer-events: none; }   /* the figure's ghost layer; never the ghost buttons */
 .org-heart-groove { fill: none; stroke: var(--organ-heart); stroke-opacity: .45; stroke-width: 1; stroke-linecap: round; }
 .org-great.band-edge { stroke: var(--organ-heart); stroke-width: 15; stroke-opacity: .5; }
 .org-great.band-body { stroke: color-mix(in srgb, var(--organ-heart) 26%, var(--stage-bg)); stroke-width: 13; }
@@ -714,8 +714,10 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .reset-btn { width: 18px; height: 18px; border: 0; background: transparent; padding: 0; cursor: pointer; color: var(--accent); display: none; place-items: center; border-radius: 4px; }
 .reset-btn svg { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .ctl.changed .reset-btn { display: grid; }
-.range-wrap { position: relative; height: 20px; display: flex; align-items: center; }
+.range-wrap { touch-action: none; position: relative; height: 20px; display: flex; align-items: center; }
 .range-wrap .normal { position: absolute; top: 50%; height: 10px; transform: translateY(-50%); border-radius: 3px; background: color-mix(in srgb, var(--ok) 16%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 28%, transparent); pointer-events: none; }
+/* Dragging a slider never scrolls the card, panel or page under the finger. */
+.range-wrap, input[type=range] { touch-action: none; }
 input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; background: transparent; height: 20px; margin: 0; position: relative; cursor: pointer; --pct: 0%; }
 input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(to right, var(--accent) var(--pct), var(--surface-3) var(--pct)); }
 input[type=range]::-moz-range-track { height: 4px; border-radius: 2px; background: linear-gradient(to right, var(--accent) var(--pct), var(--surface-3) var(--pct)); }
@@ -834,6 +836,96 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .case-clock b { font-size: var(--fs-28); font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
 .case-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .case-actions .btn { justify-content: flex-start; height: auto; min-height: 34px; padding: 8px 12px; white-space: normal; text-align: left; line-height: 1.3; }
+
+/* cases: content thread (patient header, vitals, Story / Chart / Orders, decision cards) */
+.cs-head { gap: 4px; }
+.cs-who { display: flex; align-items: baseline; gap: 10px; font-family: var(--font-ui); }
+.cs-who b { font-size: var(--fs-20); font-weight: 600; letter-spacing: -.01em; }
+.cs-who span { font-size: var(--fs-14); color: var(--text-2); }
+.cs-prob { margin: 0; font-size: var(--fs-14); color: var(--text); line-height: 1.45; }
+.cs-where { margin: 0; font-size: var(--fs-12); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.cs-body { display: flex; flex-direction: column; gap: 12px; padding-top: 12px; font-family: var(--font-ui); }
+.cs-vitals { display: flex; flex-wrap: wrap; gap: 8px; }
+.cs-v { flex: 1 1 88px; display: grid; gap: 0; padding: 6px 10px; border-radius: var(--r-card); background: var(--surface-2); border: 1px solid transparent; min-width: 0; }
+.cs-v .cs-vl { font-size: var(--fs-12); color: var(--text-3); font-weight: 500; }
+.cs-v b { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.cs-v i { font-style: normal; font-size: var(--fs-12); color: var(--text-3); }
+.cs-v.warn { border-color: color-mix(in srgb, var(--caution) 55%, transparent); background: color-mix(in srgb, var(--caution) 10%, var(--surface)); }
+.cs-v.bad { border-color: color-mix(in srgb, var(--danger) 60%, transparent); background: color-mix(in srgb, var(--danger) 10%, var(--surface)); }
+.cs-v.bad b { color: var(--danger); }
+.cs-v.dim b { font-size: var(--fs-14); color: var(--text-3); font-weight: 500; }
+.cs-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--hairline); }
+.cs-tab { appearance: none; background: none; border: 0; border-bottom: 2px solid transparent; padding: 10px 14px; font: 500 var(--fs-14) var(--font-ui); color: var(--text-2); cursor: pointer; position: relative; min-height: 44px; }
+.cs-tab.on { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+.cs-dot { position: absolute; top: 9px; right: 4px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.cs-pane { display: flex; flex-direction: column; gap: 12px; font-size: var(--fs-16); line-height: 1.5; }
+.cs-story p { margin: 0 0 12px; max-width: 62ch; }
+.cs-at { display: inline-block; min-width: 64px; margin-right: 8px; font-size: var(--fs-12); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.cs-log { font-size: var(--fs-14) !important; color: var(--text-3); margin-bottom: 6px !important; }
+.cs-log.you { color: var(--text-2); }
+.cs-skip { display: flex; align-items: center; gap: 12px; margin: 16px 0; color: var(--text-3); font-size: var(--fs-12); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+.cs-change { width: 100%; margin: 0 0 12px; font-size: var(--fs-14); }
+.cs-change th { text-align: left; font-weight: 600; color: var(--text-3); font-size: var(--fs-12); padding: 2px 6px 4px 0; }
+.cs-change td.chg { font-weight: 700; color: var(--accent); }
+.cs-skip::before, .cs-skip::after { content: ''; flex: 1; height: 1px; background: var(--hairline); }
+.cs-chip { margin: 0; font-size: var(--fs-12); color: var(--text-3); }
+.cs-chart section, .cs-orders section { margin-bottom: 14px; }
+.cs-chart h4, .cs-orders h4 { margin: 0 0 8px; font-size: var(--fs-12); font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .06em; }
+.cs-item { border: 1px solid var(--border); border-radius: var(--r-card); padding: 12px 14px; background: var(--surface); margin-bottom: 8px; font-size: var(--fs-14); line-height: 1.5; }
+.cs-item.pending { opacity: .7; }
+.cs-item-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.cs-item-h b { font-weight: 600; font-size: var(--fs-14); }
+.cs-badge { font-size: var(--fs-12); color: var(--text-3); }
+.cs-badge.new { color: var(--accent); font-weight: 600; }
+.cs-item ul { margin: 4px 0 0; padding-left: 18px; }
+.cs-item li { margin-bottom: 4px; }
+.cs-rows { width: 100%; border-collapse: collapse; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.cs-rows td { padding: 5px 0; border-bottom: 1px solid var(--hairline); vertical-align: top; }
+.cs-rows td:last-child { text-align: right; font-weight: 500; }
+.cs-rows td.warn { color: var(--caution-ink, var(--caution)); }
+.cs-rows td.bad { color: var(--danger); font-weight: 600; }
+.cs-note { margin: 8px 0 0; color: var(--text-3); font-size: var(--fs-12); }
+.cs-ord-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cs-ord { appearance: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; min-height: 48px; padding: 8px 12px; border-radius: var(--r-control); border: 1px solid var(--border); background: var(--surface); color: var(--text); font: 500 var(--fs-14) var(--font-ui); line-height: 1.3; cursor: pointer; }
+.cs-ord:hover:not(:disabled) { border-color: var(--accent-line); }
+.cs-ord.done { color: var(--text-3); }
+.cs-ord.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.cs-ord svg { width: 16px; height: 16px; flex: none; stroke: var(--ok); fill: none; stroke-width: 2.4; }
+.cs-decbar { position: sticky; bottom: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 12px 14px; margin-top: auto; border: 1px solid var(--accent-line); border-radius: var(--r-card); background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
+.cs-decbar > div { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.cs-decbar small { flex-basis: 100%; color: var(--text-3); font-size: var(--fs-12); }
+.cs-kicker { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .06em; }
+.cs-dec { display: flex; flex-direction: column; gap: 12px; }
+.cs-q { margin: 0; font: 600 19px/26px var(--font-ui); max-width: 60ch; }
+.cs-hint { margin: -4px 0 0; font-size: var(--fs-14); color: var(--text-3); }
+.cs-opts { display: flex; flex-direction: column; gap: 8px; }
+.cs-opt { appearance: none; display: flex; align-items: flex-start; gap: 12px; width: 100%; min-height: 48px; padding: 12px 14px; text-align: left; border: 1.5px solid var(--border); border-radius: var(--r-card); background: var(--surface); color: var(--text); font: 400 var(--fs-16)/1.4 var(--font-ui); cursor: pointer; }
+.cs-opt:hover { border-color: var(--accent-line); }
+.cs-opt.sel { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.cs-k { flex: none; width: 22px; height: 22px; border-radius: var(--r-control); background: var(--surface-3); color: var(--text-2); display: grid; place-items: center; font-size: var(--fs-12); font-weight: 600; }
+.cs-opt.sel .cs-k { background: var(--accent); color: var(--on-accent); }
+.cs-dec-actions { position: sticky; bottom: 0; display: flex; justify-content: flex-end; gap: 8px; padding: 12px 0 4px; background: linear-gradient(to top, var(--surface) 70%, transparent); }
+.cs-dec-actions .btn { min-height: 44px; }
+.cs-wait { color: var(--text-3); }
+.cs-cons { border: 1px solid var(--border); border-radius: var(--r-card); padding: 14px 16px; background: var(--surface-2); }
+.cs-cons.unsafe { border-color: color-mix(in srgb, var(--danger) 55%, transparent); background: color-mix(in srgb, var(--danger) 7%, var(--surface)); }
+.cs-cons h3 { margin: 4px 0 6px; font: 600 var(--fs-16) var(--font-ui); }
+.cs-cons p { margin: 0 0 8px; font-size: var(--fs-14); line-height: 1.5; }
+.cs-foot { display: flex; justify-content: center; padding-top: 4px; }
+.cs-keys { display: flex; flex-direction: column; gap: 6px; }
+.cs-crit { margin-left: auto; color: var(--text-3); font-size: var(--fs-12); }
+.cs-cmp { display: flex; flex-direction: column; gap: 8px; }
+.cs-cmp-row { border: 1px solid var(--border); border-left-width: 4px; border-radius: var(--r-card); padding: 10px 14px; font-size: var(--fs-14); }
+.cs-cmp-row.ok { border-left-color: var(--ok); }
+.cs-cmp-row.miss { border-left-color: var(--caution); }
+.cs-cmp-row div { display: flex; gap: 10px; margin-top: 4px; }
+.cs-cmp-row div span { flex: none; width: 48px; color: var(--text-3); font-size: var(--fs-12); font-weight: 600; text-transform: uppercase; padding-top: 2px; }
+.cs-cmp-row p { margin: 6px 0 0; color: var(--text-2); }
+.cs-pearls { padding-left: 20px; font-size: var(--fs-14); line-height: 1.55; }
+.cs-inside { font-size: var(--fs-12); }
+.cs-trend { font-weight: 600; color: var(--text-3); }
+.cs-see { margin-top: 8px; }
+@media (max-width: 720px) { .cs-ord-grid { grid-template-columns: 1fr; } .cs-q { font-size: 18px; } }
 .score { display: flex; align-items: center; gap: 20px; padding: 16px; border-radius: var(--r-sheet); background: var(--surface-2); margin-bottom: 16px; }
 .score-ring { width: 76px; height: 76px; flex: none; }
 .score b { font-size: var(--fs-16); }
@@ -1116,12 +1208,17 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline);
   padding: 0; animation: acIn .12s var(--ease); font-size: var(--fs-14); transition: left .18s var(--ease), top .18s var(--ease);
 }
+/* One fixed size per kind of card, whatever text it holds: the header and foot keep their place, the controls scroll inside. */
+.action-card { height: min(600px, calc(100vh - 150px)); max-height: none; }
+.action-card[data-card=organ], .action-card[data-card=lobule] { height: min(570px, calc(100vh - 150px)); }
+.action-card.docked { height: min(46%, 400px); max-height: min(46%, 400px); }
 /* The same three parts on a desktop and on a phone: the top (title, reading) and the foot stay put, the controls scroll. */
 .ac-top { flex: none; padding: 12px 16px 0; }
 .ac-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px; }
 @keyframes acIn { from { opacity: 0; transform: translateY(4px); } }
 .ac-head { display: flex; align-items: flex-start; gap: 8px; }
 .ac-titles { flex: 1; min-width: 0; }
+.action-card:not(.docked) .ac-status { min-height: 24px; }
 .ac-kicker { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); }
 .ac-head h3 { margin: 1px 0 0; font-size: var(--fs-16); font-weight: 600; letter-spacing: -.01em; line-height: 1.3; }
 .ac-close { width: 28px; height: 28px; margin: -4px -8px 0 0; }
@@ -1163,7 +1260,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .ac-toggle[aria-checked="true"] .switch-vis { background: var(--accent); }
 .ac-toggle[aria-checked="true"] .switch-vis i { transform: translateX(12px); }
 .ac-toggle[data-key]::after { order: 3; }
-.ac-about { font-size: var(--fs-12); line-height: 1.5; color: var(--text-2); }
+.ac-about { order: 99; font-size: var(--fs-12); line-height: 1.5; color: var(--text-2); }
 .ac-about p { margin: 0 0 6px; } .ac-about p:last-child { margin-bottom: 0; }
 .ac-about p + p { color: var(--text); }
 .ac-note { font-size: var(--fs-12); color: var(--text-2); line-height: 1.45; padding: 4px 2px 0; }
@@ -1594,10 +1691,6 @@ button.finding:hover { background: var(--surface-2); }
 .feedback.right { background: color-mix(in srgb, var(--ok) 10%, var(--surface)); }
 .feedback.wrong { background: color-mix(in srgb, var(--danger) 9%, var(--surface)); }
 @keyframes fbPop { 0% { transform: scale(.97); opacity: .4; } 100% { transform: none; opacity: 1; } }
-/* Predict on the figure: arrows at the vessel */
-.dir-chooser { position: absolute; z-index: var(--z-hud); transform: translate(-50%, calc(-100% - 14px)); display: flex; gap: 8px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card); box-shadow: var(--shadow-2); }
-.dir-chip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); border-radius: var(--r-card); padding: 8px 12px; font: 600 var(--fs-12) var(--font-ui); cursor: pointer; }
-.dir-chip[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
 .dir-arrow { display: inline-block; font-size: var(--fs-16); line-height: 1; color: var(--accent-ink, var(--accent)); }
 
 /* Case: bedside monitor */
@@ -2911,3 +3004,92 @@ input[type="range"] { touch-action: none; }
 .ac-stat b { min-width: 5ch; text-align: right; white-space: nowrap; }
 .ac-status { min-height: 22px; }
 .hover-tip .r b { min-width: 5ch; text-align: right; }
+
+/* ── Learning surface: lessons and cases (blueprint §3) ───────────────────────
+   One Inter scale for everything the student reads; the question is the largest text on the card,
+   its answers sit directly under it, and the primary button stays at the bottom of the card. */
+.lesson > h3, .lesson .q, .lesson > p:not([class]), .decision-card .q, .case-q .q { font-family: var(--font-ui); }
+.lesson > h3 { font-size: var(--fs-14); font-weight: 600; letter-spacing: 0; color: var(--text-3); margin-bottom: 12px; }
+.lesson > p:not([class]) { font-size: 16px; line-height: 24px; color: var(--text-2); max-width: 60ch; }
+.lesson .q, .decision-card .q, .case-q .q { color: var(--text); font-weight: 600; font-size: 19px; line-height: 26px; letter-spacing: -.005em; margin: 0 0 12px; max-width: 60ch; }
+.lesson-rail .lesson .pearls ul { margin: 0 0 12px; padding-left: 20px; font-size: 16px; line-height: 24px; color: var(--text); }
+.step-label, .phase-rail span.cur b { font-size: var(--fs-12); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.step-label { margin: 0 0 8px; color: var(--accent-ink); }
+.lesson .opt, .decision-card .opt, .case-q .opt { min-height: 48px; padding: 12px 16px; font-size: 16px; line-height: 22px; align-items: center; font-family: var(--font-ui); }
+.opt .letter { width: 24px; height: 24px; }
+.opts.dir { flex-direction: row; gap: 12px; }
+.opts.dir .opt { flex: 1 1 0; justify-content: center; text-align: center; font-weight: 600; min-height: 56px; }
+.opts.dir .dir-arrow { font-size: 22px; }
+.opt[aria-checked="true"].sel .letter { background: var(--accent); color: var(--on-accent, #fff); }
+.lesson-foot { position: sticky; bottom: 0; z-index: 2; padding: 12px 0 0; margin-top: 8px; background: linear-gradient(180deg, transparent, var(--surface) 28%); }
+.lesson-foot .btn { min-height: 44px; }
+.trust-line { margin: 0 0 12px; font-size: var(--fs-12); line-height: 1.45; color: var(--text-3); }
+.lesson > .trust-line { font-size: var(--fs-12); line-height: 1.45; color: var(--text-3); }
+.teach-chip { display: inline-block; margin: 0 0 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); font-size: 11px; font-weight: 600; letter-spacing: .02em; color: var(--text-3); }
+.cmp-chip { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; margin: 0 0 12px; padding: 12px 16px; border-radius: var(--r-card); font-size: var(--fs-14); line-height: 1.4; background: var(--surface-2); color: var(--text); border-left: 4px solid var(--border-strong); }
+.cmp-chip i { font-style: normal; color: var(--text-3); }
+.cmp-chip .sep { color: var(--text-3); }
+.cmp-chip.right { border-left-color: var(--ok); background: color-mix(in srgb, var(--ok) 9%, var(--surface)); }
+.cmp-chip.wrong { border-left-color: var(--caution, #d98a00); background: color-mix(in srgb, var(--caution, #d98a00) 10%, var(--surface)); }
+.feedback.right, .feedback.wrong { border-left: 4px solid var(--ok); }
+.feedback.wrong { border-left-color: var(--caution, #d98a00); }
+/* The figure mirrors the question */
+.dir-mirror { position: absolute; z-index: var(--z-hud); transform: translate(-50%, -50%); pointer-events: none; display: flex; align-items: center; gap: 6px; }
+.dm-q { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font: 700 16px var(--font-ui); background: var(--accent); color: var(--on-accent, #fff); animation: dmPulse 1.2s ease-in-out infinite; }
+.dm-arrow { font-size: 26px; line-height: 1; text-shadow: 0 0 3px var(--bg, #fff); }
+.dm-pick { color: var(--accent-ink, var(--accent)); }
+.dm-true { color: var(--ok); margin-left: 8px; }
+.dir-mirror.revealed .dm-pick { opacity: .6; }
+@keyframes dmPulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); } 50% { box-shadow: 0 0 0 10px transparent; } }
+@media (prefers-reduced-motion: reduce) { .dm-q { animation: none; } }
+/* One surface: in a lesson the learning card is the only panel; Findings stay out of the way */
+.app[data-mode="learn"] #panel > .panel-head, .app[data-mode="learn"] #panel > .panel-page { display: none; }
+.app[data-mode="learn"] .lesson-rail { max-height: none; flex: 1 1 auto; border-bottom: 0; }
+/* Phone: while a question is open the sheet holds only the question and its answers */
+.coach .lesson.sheet.q-active > p:not(.q):not(.step-label):not(.trust-line), .coach .lesson.sheet.q-active > .data-row, .coach .lesson.sheet.q-active > .teach-chip { display: none; }
+.coach .lesson.sheet .q { font-size: 18px; line-height: 24px; margin-bottom: 8px; }
+.coach .lesson.sheet .opt { min-height: 44px; padding: 8px 12px; }
+.coach .lesson.sheet > p:not([class]) { font-size: 15px; line-height: 22px; }
+.coach { max-height: 56%; }
+/* Case decisions take over the card and pause the clock */
+.case-q { margin-top: 4px; }
+.decision-host:empty { display: none; }
+.decision-card { padding: 16px 20px 20px; background: linear-gradient(180deg, var(--accent-soft), transparent 70%); }
+.decision-card .btn.primary { width: 100%; min-height: 48px; justify-content: center; margin-top: 4px; }
+#panelCase.deciding > .p-body { display: none; }
+/* Review pass (2026-10-07): keep the figure in view and keep model internals out of lessons and cases */
+/* Phone: the step card stays short so the figure keeps its place between it and the instruments */
+.coach .lesson.sheet > h3 { display: none; }
+.coach .lesson.sheet.q-active > .trust-line { display: none; }
+.coach .lesson.sheet .opts.dir .opt { min-height: 48px; padding: 6px 10px; font-size: 15px; }
+.app[data-mode="learn"] .tb-id .scenario-btn { display: none; }
+/* Cases: the model's own sliders, verdicts and readouts would give the answers away */
+.app[data-mode="cases"] #panelCase:not(:empty) ~ #inspector { display: none; }
+.app[data-mode="cases"] #strip { display: none; }
+/* Cases: vitals in one compact row, so a decision and its options fit without scrolling */
+.cs-vitals { flex-wrap: nowrap; gap: 6px; }
+.cs-v { flex: 1 1 0; padding: 5px 8px; display: flex; flex-direction: column; }
+.cs-v .cs-vl { font-size: 11px; line-height: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cs-v b { font-size: 17px; line-height: 22px; }
+.cs-v i { display: none; }
+.cs-body { gap: 10px; }
+.cs-q { font: 600 17px/24px var(--font-ui); }
+.cs-opt { padding: 10px 12px; font-size: 15px; }
+/* Phone lessons: the step card above and the instruments below each take about a third, so the figure keeps the middle */
+@media (max-width: 767px) {
+  .app[data-mode="learn"] .instrument-workspace.float-ui:not(.side):not(.dragging) { height: min(var(--sheet-size, 56%), 40%); }
+  .app[data-mode="learn"] .coach { max-height: 36%; }
+  .coach .lesson.sheet .goal { padding: 6px 10px; margin-bottom: 6px; font-size: 14px; }
+  .coach .lesson.sheet .lesson-foot { padding-top: 6px; margin-top: 4px; }
+  .coach .lesson.sheet .lesson-foot .btn { min-height: 40px; }
+}
+/* Phone cases: a decision lifts the patient sheet so every option is in reach */
+@media (max-width: 767px) {
+  .app.case-deciding .panel { height: 90% !important; }
+  .app[data-mode="learn"] #strip { display: none; }
+}
+/* Lesson data rows: where a number started, beside where it is now. */
+.data-row .dr-was { margin-left: 6px; font-size: var(--fs-12); font-weight: 500; color: var(--text-3); white-space: nowrap; }
+
+/* Play/pause: looping sim animations freeze with the simulation (see ui/clock.js). */
+body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state: paused; }

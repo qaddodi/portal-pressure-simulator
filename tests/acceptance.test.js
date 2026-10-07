@@ -234,7 +234,7 @@ test('T18 stability at slider extremes', () => {
     for (let i = 0; i < 3000; i++) e.step(0.02);
     for (const v of e.P) assert.ok(Number.isFinite(v), `NaN for ${JSON.stringify(x)}`);
     // mean mode, no respiration: late-time swing < 0.5 mmHg
-    e.setParams({ ...e.params, respiration: false });
+    e.setParams({ ...e.params, respiration: false, pulsatile: false });
     for (let i = 0; i < 3000; i++) e.step(0.02);
     const a = Float64Array.from(e.P);
     for (let i = 0; i < 100; i++) e.step(0.02);

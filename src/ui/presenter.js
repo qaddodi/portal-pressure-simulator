@@ -4,10 +4,10 @@
 // pointer. Instructors build their own scripts from the current model and share them as a file
 // or a link.
 
-import { store } from './store.js?v=18136433f8';
-import { runSequence, restoreSequence } from './sequence.js?v=7bf7fb864e';
+import { store } from './store.js?v=baa7ba1e7b';
+import { runSequence, restoreSequence } from './sequence.js?v=3ddd3a7433';
 import { h, toast, svgIcon, icon } from './util.js?v=8aa5e5cdf1';
-import { download } from './records.js?v=5f3cebd762';
+import { download } from './records.js?v=50fb9dd463';
 
 const ask = (q, a) => `\n\nAsk the room: ${q} Expected: ${a}`;
 export const SCRIPTS = [
