@@ -8,15 +8,15 @@ import { createInspector } from './inspector.js?v=256ba10112';
 import { createDock, CUTOFFS } from './dock.js?v=d4e6e020cd';
 import { createWhy } from './why.js?v=b894d33b56';
 import { createTimeline } from './timeline.js?v=874f8bd353';
-import { createLearn } from './learn.js?v=fac56f6f88';
+import { createLearn } from './learn.js?v=8585ee3963';
 import { createCases } from './cases.js?v=56a5affbf2';
 import { createCompare } from './compare.js?v=b5f2c36ee4';
 import { createCard } from './card.js?v=bca222291a';
 import { createChart, computeFindings } from './chart.js?v=355ee131e1';
-import { createHome } from './home.js?v=d7d8219a8f';
+import { createHome } from './home.js?v=b5376d1f66';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=c5fa61e184';
-import { startLMS } from './lms.js?v=29c8c34e36';
+import { startLMS } from './lms.js?v=3da60a2e6c';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=8c676e3070';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
@@ -141,7 +141,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=b2fbe3a3ee'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=2739304e3a'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -386,6 +386,7 @@ function doAction(a) {
   if (a.kind === 'probe') { host.send({ type: 'probe', id: a.id }); return; }
   if (a.kind === 'paracentesisPrompt') { dock.show('abdomen', { reveal: true }); toast('Choose the volume in Ascites & paracentesis, then Drain.'); return; }
   host.send({ type: 'action', action: a });
+  logAction('action', a.kind);
   const tl = { infuse: { crystalloid: '1 L crystalloid', prbc: '1 unit PRBC', albumin: 'Albumin infusion' }, hemorrhage: `Hemorrhage ${a.mL} mL`, band: 'Band ligation', valsalva: 'Valsalva', rupture: 'Varix ruptured (manual)', stopBleed: 'Bleeding stopped',
     paracentesis: `Paracentesis ${((a.mL || 0) / 1000).toFixed(1)} L${a.albumin ? ' + albumin' : ''}` }[a.kind];
   const tlLabel = typeof tl === 'object' ? tl[a.fluid] : tl;
@@ -693,8 +694,7 @@ function openMainMenu(anchor) {
     h('div', { class: 'mm-modes' },
       modeItem('explore', 'explore', 'explore', 'Explore a patient', 'Any of the patients, from healthy to Budd–Chiari'),
       modeItem('learn', 'learn', 'book', 'Lessons', 'Predict, observe, explain'),
-      modeItem('cases', 'cases', 'case', 'Cases', 'A bleed at 3 a.m. and diagnostic puzzles'),
-      modeItem('present', 'present', 'projector', 'Presenter', 'Step through a live model with a class')),
+      modeItem('cases', 'cases', 'case', 'Cases', 'A bleed at 3 a.m. and diagnostic puzzles')),  // the Presenter entry is shelved (see home.js)
     menuItem('Home page', { icon: 'grid', onClick: () => { closePopover(); home.open(); } }),
     h('div', { class: 'menu-sep' }),
     menuItem('Copy a link to this exact state', { icon: 'share', onClick: () => { closePopover(); share(); } }),
