@@ -75,7 +75,7 @@ const enc = (o) => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace
 const dec = (s) => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))));
 
 export function createPresenter({ loadPreset, updateParams, host, stage, dock, action, projectorOn, projectorOff, closeHome, rerenderHome }) {
-  let script = null, idx = 0, bar = null, titleEl = null, progEl = null, notesWin = null, laser = null;
+  let script = null, idx = 0, bar = null, titleEl = null, progEl = null, notesEl = null, notesOpen = false, laser = null;
   const all = () => [...SCRIPTS, ...readMine()];
 
   // A slide's model state is a pure function of the slide before it: each is computed once from
@@ -117,7 +117,7 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
   function renderBar() {
     if (!bar) return;
     const st = script.steps[idx], n = script.steps.length;
-    titleEl.replaceChildren(h('span', { class: 'pt-n' }, `${idx + 1} / ${n} · ${script.title}`), h('span', { class: 'pt-t' }, st.title));
+    titleEl.replaceChildren(h('span', { class: 'pt-n' }, `${idx + 1} / ${n} · ${script.title}`), h('span', { class: 'pt-t' }, st.title), idx === 0 ? h('span', { class: 'pt-hint' }, '← → or Space: slides · N: speaker notes · L: laser · Esc: exit') : null);
     progEl.firstChild.style.width = `${((idx + 1) / n) * 100}%`;
     progEl.setAttribute('aria-valuenow', String(idx + 1)); progEl.setAttribute('aria-valuemax', String(n));
     bar.replaceChildren(
@@ -125,7 +125,7 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
       h('span', { class: 'pb-n' }, `${idx + 1} / ${n}`),
       h('button', { class: 'ib', 'aria-label': 'Next step', disabled: idx === n - 1, onclick: () => go(idx + 1) }, icon('chev-right')),
       h('span', { class: 'pb-sep' }),
-      h('button', { class: 'btn sm', onclick: openNotes, title: 'Speaker notes in a second window (N)' }, 'Notes'),
+      h('button', { class: 'btn sm', 'aria-pressed': String(notesOpen), onclick: () => toggleNotes(), title: 'Speaker notes (N)' }, 'Notes'),
       h('button', { class: 'btn sm', 'aria-pressed': String(!!laser), onclick: toggleLaser, title: 'Laser pointer (L)' }, 'Laser'),
       h('button', { class: 'ib', 'aria-label': 'Stop presenting', title: 'Stop presenting (Esc)', onclick: stop }, icon('close')));
   }
@@ -136,22 +136,25 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
     clearTimeout(idleT);
     idleT = setTimeout(() => { if (bar && !bar.matches(':hover, :focus-within')) bar.classList.add('idle'); else wake(); }, 2000);
   }
-  function openNotes() {
-    notesWin = window.open('', 'pps-notes', 'width=520,height=640');
-    if (!notesWin) { toast('Allow pop-ups to open the notes window.'); return; }
-    writeNotes();
+  // Speaker notes live in the app: a drawer over the right edge of the figure (N toggles it, so it
+  // also works on a tablet or phone). The room question is split out of the notes and highlighted.
+  function toggleNotes(force) {
+    notesOpen = force ?? !notesOpen;
+    writeNotes(); renderBar();
   }
   function writeNotes() {
-    if (!notesWin || notesWin.closed || !script) return;
-    const d = notesWin.document, st = script.steps[idx], nx = script.steps[idx + 1];
-    d.title = `Notes · ${script.title}`;
-    d.body.style.cssText = 'font: 17px/1.55 Georgia, serif; margin: 28px; color: #16181D; background: #FBFAF7';
-    d.body.innerHTML = '';
-    const el = (tag, txt, css) => { const e = d.createElement(tag); e.textContent = txt; if (css) e.style.cssText = css; d.body.append(e); };
-    el('div', `${script.title} · ${idx + 1} / ${script.steps.length}`, 'font: 600 12px system-ui; letter-spacing: .06em; text-transform: uppercase; color: #6B6F7A');
-    el('h1', st.title, 'font-size: 28px; margin: 8px 0 14px');
-    el('p', st.notes || 'No notes for this step.');
-    if (nx) el('p', `Next: ${nx.title}`, 'margin-top: 30px; color: #6B6F7A; font: 14px system-ui');
+    if (!script || !notesEl) return;
+    notesEl.hidden = !notesOpen;
+    if (!notesOpen) return;
+    const st = script.steps[idx], nx = script.steps[idx + 1];
+    const [text, ask] = String(st.notes || '').split(/\n\nAsk the room: /);
+    const [q, a] = (ask || '').split(' Expected: ');
+    notesEl.replaceChildren(
+      h('div', { class: 'pn-top' }, h('span', { class: 'pn-k' }, `Speaker notes · ${idx + 1} / ${script.steps.length}`), h('button', { class: 'ib', 'aria-label': 'Close notes', onclick: () => toggleNotes(false) }, icon('close'))),
+      h('h2', {}, st.title),
+      h('p', {}, text || 'No notes for this step.'),
+      ask ? h('div', { class: 'pn-ask' }, h('b', {}, 'Ask the room'), h('p', {}, q), a ? h('p', { class: 'pn-a' }, 'Expected: ' + a) : null) : null,
+      nx ? h('p', { class: 'pn-next' }, `Next: ${nx.title}`) : null);
   }
   function toggleLaser() {
     if (laser) { laser.remove(); laser = null; document.body.classList.remove('laser-on'); renderBar(); return; }
@@ -173,7 +176,9 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
     bar.addEventListener('focusin', wake);
     titleEl = h('div', { class: 'presenter-title stage-blocker', role: 'status' });
     progEl = h('div', { class: 'presenter-progress', role: 'progressbar', 'aria-label': 'Slide', 'aria-valuemin': '1' }, h('i'));
-    document.getElementById('stageView').append(titleEl, progEl, bar);
+    notesEl = h('aside', { class: 'presenter-notes stage-blocker', 'aria-label': 'Speaker notes', hidden: true });
+    notesOpen = false;
+    document.getElementById('stageView').append(titleEl, progEl, notesEl, bar);
     document.getElementById('app').classList.add('presenting');
     store.set({ selection: null });
     stage.setProjection(true);
@@ -183,7 +188,7 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
   function stop() {
     if (!script) return;
     script = null;
-    bar?.remove(); titleEl?.remove(); progEl?.remove(); bar = titleEl = progEl = null;
+    bar?.remove(); titleEl?.remove(); progEl?.remove(); notesEl?.remove(); bar = titleEl = progEl = notesEl = null;
     clearTimeout(idleT);
     stage.setProjection(false);
     if (laser) toggleLaser();
@@ -199,7 +204,7 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
     else if (k === 'ArrowLeft' || k === 'PageUp') go(idx - 1);
     else if (k === 'Home') go(0);
     else if (k === 'End') go(script.steps.length - 1);
-    else if (k.toLowerCase() === 'n') openNotes();
+    else if (k.toLowerCase() === 'n') toggleNotes();
     else if (k.toLowerCase() === 'l') toggleLaser();
     else if (k === 'Escape') stop();
     else used = false;

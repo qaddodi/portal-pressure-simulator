@@ -52,10 +52,35 @@ export function createEndoscopy({ onAction }) {
   // is seeded, so the view is stable between frames.
   const rnd = (seed) => { let x = seed >>> 0; return () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; }; };
   let bleedT = 0;
+  // Fine mucosal grain: one seeded tile, made once, so the texture never shimmers.
+  let grainTile = null;
+  function grain(ctx, cx, cy, R) {
+    if (!grainTile) {
+      const t = document.createElement('canvas'); t.width = t.height = 128;
+      const g = t.getContext('2d'), im = g.createImageData(128, 128), q = rnd(5);
+      for (let i = 0; i < im.data.length; i += 4) { const v = 118 + Math.floor(q() * 20 + q() * 20); im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 255; }
+      g.putImageData(im, 0, 0); grainTile = t;
+    }
+    ctx.save(); ctx.globalAlpha = 0.5; ctx.globalCompositeOperation = 'soft-light';
+    ctx.fillStyle = ctx.createPattern(grainTile, 'repeat'); ctx.fillRect(cx - R, cy - R, 2 * R, 2 * R);
+    ctx.restore();
+  }
+  // Wet sheen: two broad, soft, fixed highlights on the wall where the scope light glances off.
+  function sheen(ctx, cx, cy, R) {
+    for (const [a, rr, w, al] of [[-2.35, 0.7, 0.34, 0.22], [0.75, 0.76, 0.26, 0.14]]) {
+      const x = cx + Math.cos(a) * R * rr, y = cy + Math.sin(a) * R * rr;
+      ctx.save(); ctx.translate(x, y); ctx.rotate(a + Math.PI / 2); ctx.scale(1, 0.38);
+      const g = ctx.createRadialGradient(0, 0, 0, 0, 0, R * w);
+      g.addColorStop(0, `rgba(255, 244, 236, ${al})`); g.addColorStop(1, 'rgba(255, 244, 236, 0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, R * w, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    }
+  }
   function mucosa(ctx, cx, cy, R, lx, ly, r) {
     const g = ctx.createRadialGradient(lx, ly, R * 0.04, cx, cy, R * 1.02);
     g.addColorStop(0, '#120304'); g.addColorStop(0.16, '#3b0f10'); g.addColorStop(0.42, '#9b4a3f'); g.addColorStop(0.72, '#dc9a86'); g.addColorStop(1, '#f6cdb9');
     ctx.fillStyle = g; ctx.fillRect(cx - R, cy - R, 2 * R, 2 * R);
+    grain(ctx, cx, cy, R);
+    sheen(ctx, cx, cy, R);
     // Capillary lace near the wall.
     ctx.strokeStyle = 'rgba(160, 40, 40, .22)'; ctx.lineWidth = 0.8;
     for (let i = 0; i < 90; i++) {
@@ -70,7 +95,7 @@ export function createEndoscopy({ onAction }) {
     for (let i = 0; i < n; i++) {
       const a = r() * Math.PI * 2, rr = R * (0.45 + 0.5 * r()), x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr;
       const gg = ctx.createRadialGradient(x, y, 0, x, y, R * 0.05);
-      gg.addColorStop(0, 'rgba(255,255,255,.85)'); gg.addColorStop(1, 'rgba(255,255,255,0)');
+      gg.addColorStop(0, 'rgba(255,255,255,.5)'); gg.addColorStop(1, 'rgba(255,255,255,0)');
       ctx.fillStyle = gg; ctx.beginPath(); ctx.ellipse(x, y, R * 0.05, R * 0.02, a + Math.PI / 2, 0, Math.PI * 2); ctx.fill();
     }
   }
@@ -159,13 +184,24 @@ export function createEndoscopy({ onAction }) {
         for (let i = 5 + Math.floor(rw() * 4); i < sp.length * 0.65; i += 8 + Math.floor(rw() * 6)) { const s0 = (i / S) * end; ctx.beginPath(); ctx.arc(...sp[i], Math.max(1.2, depthR(R, s0) * half(s0) * 0.13), 0, Math.PI * 2); ctx.fill(); }
       }
       if (col.banded) {
-        // Ligated: the column is sucked into a purple knuckle and strangled by a black band.
+        // Ligated: the column is sucked into a dusky purple-white polyp, glossy, with a thin dark
+        // elastic band cinched round its base and a faint congested halo of mucosa.
         const rr = depthR(R, end), kc = crest(end), x = lx + Math.cos(kc) * rr, y = ly + Math.sin(kc) * rr;
-        const rb = Math.max(R * 0.07, rr * col.th * 1.4);
-        const g = ctx.createRadialGradient(x - rb * 0.3, y - rb * 0.3, rb * 0.1, x, y, rb);
-        g.addColorStop(0, '#b886a8'); g.addColorStop(1, '#5a2750');
+        const rb = Math.max(R * 0.075, rr * col.th * 1.5);
+        const halo = ctx.createRadialGradient(x, y, rb * 0.8, x, y, rb * 1.7);
+        halo.addColorStop(0, 'rgba(150, 40, 70, .35)'); halo.addColorStop(1, 'rgba(150, 40, 70, 0)');
+        ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(x, y, rb * 1.7, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(40, 6, 14, .35)'; ctx.beginPath(); ctx.ellipse(x + rb * 0.18, y + rb * 0.22, rb * 1.05, rb * 0.95, 0, 0, Math.PI * 2); ctx.fill();
+        const g = ctx.createRadialGradient(x - rb * 0.3, y - rb * 0.35, rb * 0.05, x, y, rb);
+        g.addColorStop(0, '#ecd9e6'); g.addColorStop(0.35, '#b783a9'); g.addColorStop(0.8, '#6d2d62'); g.addColorStop(1, '#3f1740');
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, rb, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = '#111'; ctx.lineWidth = rb * 0.3; ctx.beginPath(); ctx.arc(x, y, rb * 0.74, 0, Math.PI * 2); ctx.stroke();
+        ctx.strokeStyle = 'rgba(20, 8, 14, .92)'; ctx.lineWidth = Math.max(1.5, rb * 0.16);
+        ctx.beginPath(); ctx.ellipse(x, y, rb * 0.82, rb * 0.76, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.strokeStyle = 'rgba(255, 255, 255, .22)'; ctx.lineWidth = Math.max(0.8, rb * 0.04);
+        ctx.beginPath(); ctx.ellipse(x - rb * 0.03, y - rb * 0.05, rb * 0.82, rb * 0.76, 0, Math.PI * 1.1, Math.PI * 1.7); ctx.stroke();
+        const sp = ctx.createRadialGradient(x - rb * 0.35, y - rb * 0.4, 0, x - rb * 0.35, y - rb * 0.4, rb * 0.38);
+        sp.addColorStop(0, 'rgba(255,255,255,.8)'); sp.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = sp; ctx.beginPath(); ctx.ellipse(x - rb * 0.35, y - rb * 0.4, rb * 0.38, rb * 0.24, -0.6, 0, Math.PI * 2); ctx.fill();
       }
     }
   }
@@ -185,29 +221,32 @@ export function createEndoscopy({ onAction }) {
       if (present) esoVarices(ctx, cx, cy, R, lx, ly, vx, grow, bands, r);
       glints(ctx, cx, cy, R, r, 9);
     } else {
-      // Retroflexed view of the fundus: rugal folds, the scope shaft entering the cardia.
+      // Retroflexed view of the fundus: lit from the scope tip, thick shaded rugal folds that
+      // fan from the cardia, gastric varices as smooth bluish cords riding the folds.
       const lx = cx - R * 0.05, ly = cy - R * 0.05;
-      const g = ctx.createRadialGradient(cx, cy, R * 0.1, cx, cy, R);
-      g.addColorStop(0, '#e2a291'); g.addColorStop(0.7, '#c9796a'); g.addColorStop(1, '#6d2a26');
+      const g = ctx.createRadialGradient(lx, ly, R * 0.08, cx, cy, R * 1.05);
+      g.addColorStop(0, '#f0b9a6'); g.addColorStop(0.45, '#d58a78'); g.addColorStop(0.8, '#a94f48'); g.addColorStop(1, '#5a2022');
       ctx.fillStyle = g; ctx.fillRect(cx - R, cy - R, 2 * R, 2 * R);
-      ctx.lineCap = 'round';
-      for (let i = 0; i < 9; i++) {
-        const a = -0.6 + i * 0.42, rr = R * (0.55 + 0.35 * r());
-        ctx.strokeStyle = 'rgba(150, 60, 55, .35)'; ctx.lineWidth = R * 0.05;
-        ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * R * 0.3, cy + Math.sin(a) * R * 0.3);
-        ctx.quadraticCurveTo(cx + Math.cos(a + 0.3) * rr * 0.8, cy + Math.sin(a + 0.3) * rr * 0.8, cx + Math.cos(a + 0.15) * R * 1.05, cy + Math.sin(a + 0.15) * R * 1.05); ctx.stroke();
-        ctx.strokeStyle = 'rgba(255, 220, 205, .25)'; ctx.lineWidth = R * 0.012; ctx.stroke();
+      grain(ctx, cx, cy, R);
+      const ridge = (path, w, c0, c1, hi) => {
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.save(); ctx.translate(w * 0.2, w * 0.26); ctx.strokeStyle = 'rgba(50, 8, 14, .3)'; ctx.lineWidth = w * 1.2; ctx.stroke(path); ctx.restore();
+        ctx.strokeStyle = c0; ctx.lineWidth = w; ctx.stroke(path);
+        ctx.save(); ctx.translate(-w * 0.12, -w * 0.16); ctx.strokeStyle = c1; ctx.lineWidth = w * 0.6; ctx.stroke(path); ctx.restore();
+        ctx.save(); ctx.translate(-w * 0.2, -w * 0.28); ctx.strokeStyle = `rgba(255, 245, 238, ${hi})`; ctx.lineWidth = Math.max(1, w * 0.13); ctx.stroke(path); ctx.restore();
+      };
+      const NF = 8, fold = [];
+      for (let i = 0; i < NF; i++) {
+        const a = -Math.PI * 0.95 + (i / (NF - 1)) * Math.PI * 1.9 + (r() - 0.5) * 0.15, bend = (r() - 0.5) * 0.7, rr = R * (0.95 + 0.1 * r());
+        const p = new Path2D(); p.moveTo(lx + Math.cos(a) * R * 0.2, ly + Math.sin(a) * R * 0.2);
+        p.quadraticCurveTo(lx + Math.cos(a + bend) * rr * 0.6, ly + Math.sin(a + bend) * rr * 0.6, lx + Math.cos(a + bend * 0.6) * rr * 1.1, ly + Math.sin(a + bend * 0.6) * rr * 1.1);
+        fold.push(p);
+        ridge(p, R * (0.11 + 0.04 * r()), '#c4786b', '#e3a595', 0.22);
       }
       if (present) {
-        const n = 6 + Math.round(10 * grow), base = R * (0.05 + 0.1 * grow);
-        for (let i = 0; i < n; i++) {
-          const a = -2.3 + (i / n) * 1.9 + (r() - 0.5) * 0.25, rr = R * (0.26 + 0.2 * r());
-          const x = lx + Math.cos(a) * rr, y = ly + Math.sin(a) * rr, rb = base * (0.7 + 0.5 * r());
-          const gg = ctx.createRadialGradient(x - rb * 0.35, y - rb * 0.35, rb * 0.1, x, y, rb);
-          gg.addColorStop(0, '#cfd3ea'); gg.addColorStop(0.5, '#7b82b2'); gg.addColorStop(1, '#434883');
-          ctx.fillStyle = 'rgba(60, 10, 20, .3)'; ctx.beginPath(); ctx.arc(x + rb * 0.2, y + rb * 0.2, rb, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(x, y, rb, 0, Math.PI * 2); ctx.fill();
-        }
+        // Varices follow the folds: more and thicker with grade.
+        const n = Math.min(NF, 2 + Math.round(5 * grow)), w = R * (0.035 + 0.06 * grow);
+        for (let i = 0; i < n; i++) ridge(fold[(i * 3 + 1) % NF], w * (0.8 + 0.4 * r()), '#6a73a8', '#98a0cf', 0.4);
       }
       // The endoscope itself, coming back through the cardia toward the viewer.
       const sx = lx + R * 0.08, sy = ly + R * 0.06, sr = R * 0.2;
@@ -231,13 +270,13 @@ export function createEndoscopy({ onAction }) {
       const pool = ctx.createRadialGradient(cx, cy + R * 0.8, R * 0.1, cx, cy + R * 0.8, R * 0.75);
       pool.addColorStop(0, 'rgba(95, 0, 12, .95)'); pool.addColorStop(1, 'rgba(120, 0, 20, 0)');
       ctx.fillStyle = pool; ctx.fillRect(cx - R, cy, 2 * R, R);
-      const jr = rnd(bleedT);
+      const jr = rnd(77), sway = 0.1 * Math.sin(bleedT * 0.02);
       ctx.fillStyle = 'rgba(165, 8, 28, .85)';
-      for (let i = 0; i < 70; i++) { const u = jr(), a = -1.9 + (jr() - 0.5) * 0.5; ctx.beginPath(); ctx.arc(jx + Math.cos(a) * u * R * 0.5, jy + Math.sin(a) * u * R * 0.5 + u * u * R * 0.4, 1.2 + 2.2 * (1 - u), 0, Math.PI * 2); ctx.fill(); }
+      for (let i = 0; i < 70; i++) { const u = jr(), a = -1.9 + sway + (jr() - 0.5) * 0.5; ctx.beginPath(); ctx.arc(jx + Math.cos(a) * u * R * 0.5, jy + Math.sin(a) * u * R * 0.5 + u * u * R * 0.4, 1.2 + 2.2 * (1 - u), 0, Math.PI * 2); ctx.fill(); }
     }
     // Scope vignette and a mask like the processor's.
-    const vg = ctx.createRadialGradient(cx, cy, R * 0.7, cx, cy, R);
-    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.55)');
+    const vg = ctx.createRadialGradient(cx, cy, R * 0.55, cx, cy, R);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(0.7, 'rgba(0,0,0,.18)'); vg.addColorStop(1, 'rgba(0,0,0,.68)');
     ctx.fillStyle = vg; ctx.fillRect(cx - R, cy - R, 2 * R, 2 * R);
     ctx.restore();
     ctx.strokeStyle = '#0c0d10'; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();

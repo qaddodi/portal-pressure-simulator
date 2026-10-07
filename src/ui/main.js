@@ -5,14 +5,14 @@ import { startHost, host } from './host.js?v=ca57d2fce6';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction } from './store.js?v=b8c56c0b3c';
 import { createStage } from './stage.js?v=b2ad5c98dd';
 import { createInspector } from './inspector.js?v=256ba10112';
-import { createDock, CUTOFFS } from './dock.js?v=67fd084b27';
+import { createDock, CUTOFFS } from './dock.js?v=63ecf0def0';
 import { createWhy } from './why.js?v=b894d33b56';
 import { createTimeline } from './timeline.js?v=874f8bd353';
 import { createLearn } from './learn.js?v=dbbd4a6fb7';
 import { createCases } from './cases.js?v=56a5affbf2';
 import { createCompare } from './compare.js?v=b5f2c36ee4';
 import { createCard } from './card.js?v=64372fe2ed';
-import { createChart, computeFindings } from './chart.js?v=29ff357666';
+import { createChart, computeFindings } from './chart.js?v=31c2e1c2d8';
 import { createHome } from './home.js?v=4a0b7bd5d0';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=c5fa61e184';
@@ -129,7 +129,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=36c51ce648'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=5e3f99ecc1'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
