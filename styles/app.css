@@ -1210,6 +1210,8 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 }
 /* One fixed size per kind of card, whatever text it holds: the header and foot keep their place, the controls scroll inside. */
 .action-card { height: min(600px, calc(100vh - 150px)); max-height: none; }
+/* On a short desktop window the card leaves room above the vitals dock (a 600 px card ran 4 px into it at 1180x820). */
+@media (min-width: 1024px) { .action-card:not(.docked) { height: min(600px, calc(100vh - 260px)); } }
 .action-card[data-card=organ], .action-card[data-card=lobule] { height: min(570px, calc(100vh - 150px)); }
 .action-card.docked { height: min(46%, 400px); max-height: min(46%, 400px); }
 /* The same three parts on a desktop and on a phone: the top (title, reading) and the foot stay put, the controls scroll. */
