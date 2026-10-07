@@ -125,6 +125,11 @@ export function createEndoscopy({ onAction }) {
       for (let s0 = 0; s0 <= 1.0001; s0 += 0.05) { const rr = depthR(R, s0), k = a + 0.03 * Math.sin(s0 * 9 + wv), x = lx + Math.cos(k) * rr, y = ly + Math.sin(k) * rr; if (s0) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
       ctx.stroke();
     }
+    // Faint circumferential tone bands (the wall's tone ripples with distance), steady.
+    for (const s0 of [0.18, 0.36, 0.56, 0.78]) {
+      ctx.strokeStyle = `rgba(90, 24, 28, ${(0.11 * (1 - s0)).toFixed(3)})`; ctx.lineWidth = Math.max(2, depthR(R, s0) * 0.07);
+      ctx.beginPath(); ctx.arc(lx, ly, depthR(R, s0), 0, Math.PI * 2); ctx.stroke();
+    }
     // Light comes from the scope tip, slightly above: flanks facing up are lit.
     const S = 48, U = 22;
     const litGrad = (alpha, rgbS, floor = 0) => {
@@ -158,6 +163,27 @@ export function createEndoscopy({ onAction }) {
         // Raised mucosa: the flank toward the light brightens, the other darkens.
         if (L > 0) strip(u0, u1, litGrad(relief * 0.26 * L * hgt, '255, 236, 228'));
         else strip(u0, u1, `rgba(50, 8, 14, ${(relief * 0.32 * -L * hgt ** 0.8).toFixed(3)})`);
+      }
+      // A deeper blue-purple core under the crest, then a thin translucent pink mucosal veil over
+      // the whole column, so the vein reads as lying beneath the surface rather than painted on it.
+      const core = edge(0), cl = core.length - 1;
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      for (let i = 0; i < cl * 0.8; i++) {
+        const s0 = (i / S) * end, fade = 1 - s0;
+        ctx.strokeStyle = litGrad((0.12 + 0.3 * grow) * fade, '70, 62, 140', 0.5);
+        ctx.lineWidth = Math.max(0.8, depthR(R, s0) * half(s0) * 0.9);
+        ctx.beginPath(); ctx.moveTo(...core[i]); ctx.lineTo(...core[i + 1]); ctx.stroke();
+      }
+      strip(-1, 1, litGrad(0.16, '238, 160, 150', 0.4));
+      // Soft rim light along both edges, where the mucosa turns away from the scope.
+      for (const u of [-1, 1]) {
+        const rim = edge(u);
+        ctx.strokeStyle = litGrad(u * side < 0 ? 0.28 : 0.12, '255, 205, 195', 0.2);
+        for (let i = 0; i < rim.length * 0.8; i++) {
+          const s0 = (i / S) * end;
+          ctx.lineWidth = Math.max(0.7, depthR(R, s0) * half(s0) * 0.08);
+          ctx.beginPath(); ctx.moveTo(...rim[i]); ctx.lineTo(...rim[i + 1]); ctx.stroke();
+        }
       }
       // A wet glint running along the crest on the lit side, thinning with depth.
       const gl = edge(side * 0.34);
