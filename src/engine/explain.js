@@ -2,7 +2,7 @@
 // Each factor that differs from the healthy state is reverted in isolation on a scratch engine;
 // its contribution is (current − reverted). Contributions are approximate: they need not sum exactly.
 
-import { Engine } from './engine.js?v=1d065723b9';
+import { Engine } from './engine.js?v=acacf1a2c7';
 import { computeMetrics } from './metrics.js?v=1cdba25add';
 import { defaultParams, DRUGS } from './scenario.js?v=270c735e25';
 import { EDGES, dMinOf } from './topology.js?v=c9c36d1829';
@@ -14,7 +14,7 @@ export const METRICS = {
   pvFlow: { label: 'Portal vein flow', unit: 'L/min', get: (m) => m.pvFlow, digits: 2 },
   liverPerf: { label: 'Liver perfusion', unit: '%', get: (m) => m.liverPerfPct, digits: 0 },
   shunt: { label: 'Shunt fraction', unit: '%', get: (m) => m.shuntFraction * 100, digits: 0 },
-  varix: { label: 'Varix wall tension', unit: '% of rupture', get: (m) => m.varix.ratio * 100, digits: 0 },
+  varix: { label: 'Varix wall stress (model)', unit: '% of rupture', get: (m) => m.varix.ratio * 100, digits: 0 },
   ascites: { label: 'Ascites formation', unit: 'mL/day', get: (m) => m.ascites.ratePerDay, digits: 0 },
   ra: { label: 'Right atrial pressure', unit: 'mmHg', get: (m) => m.ra, digits: 1 },
   map: { label: 'Mean arterial pressure', unit: 'mmHg', get: (m) => m.map, digits: 0 },

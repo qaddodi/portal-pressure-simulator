@@ -1,9 +1,10 @@
 // Learn mode (blueprint §11): lessons as step sequences with Predict → Observe → Explain.
 
-import { store, updateParams } from './store.js?v=4c0e1f79a3';
-import { host } from './host.js?v=8e0caa073f';
+import { store, updateParams } from './store.js?v=b8c56c0b3c';
+import { host } from './host.js?v=cd136c77e3';
 import { h, fmt, toast, svgIcon } from './util.js?v=8aa5e5cdf1';
 import { addRecord } from './records.js?v=39559a8813';
+import { runSequence } from './sequence.js?v=3e75f3fa59';
 import { EDGES } from '../engine/topology.js?v=c9c36d1829';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -11,6 +12,9 @@ const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const saved = (() => { try { return JSON.parse(localStorage.getItem('pps.lessons') || '{}'); } catch { return {}; } })();
 const save = () => { try { localStorage.setItem('pps.lessons', JSON.stringify(saved)); } catch { /* storage unavailable */ } };
 
+// Step bindings (all optional): preset/presetDays (native pre-aging), params, afterDays (extra disease days after the patch),
+// tab (pane), probe, invert, endo ('eso'|'fundus'), focus, data (labeled metric row); a do-step goal(frame, params, log)
+// also receives the actions the learner has taken since the step began (store.logAction).
 // Step types: frame | predict (mcq | draw | direction) | do (goal) | observe (seconds / days) | explain (metric) | check (quiz)
 // A 'direction' prediction is made on the figure: two arrows at the vessel, toward or away from
 // the liver; the next observe step compares it with the model.
@@ -166,7 +170,7 @@ const STEP = {
 // Lesson steps name locked-control keys; these are the matching controls to embed in the card.
 const INLINE = { cirrhosis: 'cirrhosis', splanchnicTone: 'splanchnicTone', 'drug:propranolol': 'drug:propranolol', 'drug:terlipressin': 'drug:terlipressin', apShunt: 'apShunt', spontaneous: 'srShunt', diuretics: 'diuretics', brto: 'brto' };
 
-export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector, beginSession, endSession, onEnd, loadPreset, setTool, setAllowedTools, showPane, setProbe, openPanel, setBanner }) {
+export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector, beginSession, endSession, onEnd, loadPreset, action, setTool, setAllowedTools, showPane, setProbe, openPanel, setBanner }) {
   let lesson = null, idx = 0, state = {};
   // The step card never covers the figure. Where the side panel sits beside the figure (wide
   // screens) it heads the panel; below that it is a bottom sheet under the figure, which gives up
@@ -176,6 +180,17 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
   const snaps = [];             // starting state of each step, for Replay
   let tally = { right: 0, total: 0 }, t0 = 0, prediction = null, chooser = null;
   let pollTimer = null, inline = null;
+
+  // A small labeled data row (F2): live paired metrics for a step, each { label, metric, d, unit }.
+  // `metric` is a dotted path into the metrics frame (e.g. 'varix.d') or a function of it.
+  let dataTimer = 0;
+  function dataRow(items) {
+    const val = (it, m) => (typeof it.metric === 'function' ? it.metric(m) : it.metric.split('.').reduce((a, k) => a?.[k], m));
+    const cells = items.map((it) => h('span', { class: 'dr-v' }, '—'));
+    const upd = () => { const m = store.get().frame?.metrics; if (m) items.forEach((it, i) => { const v = val(it, m); cells[i].textContent = v == null ? '—' : `${fmt(v, it.d ?? 1)} ${it.unit || ''}`.trim(); }); };
+    clearInterval(dataTimer); upd(); dataTimer = setInterval(upd, 400);
+    return h('dl', { class: 'kv data-row', 'aria-live': 'off' }, items.flatMap((it, i) => [h('dt', {}, it.label), h('dd', {}, cells[i])]));
+  }
 
   function openList() { render(); }
 
@@ -192,7 +207,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     lesson = null;
     chooser?.remove(); chooser = null;
     coach?.replaceChildren();
-    clearInterval(pollTimer);
+    clearInterval(pollTimer); clearInterval(dataTimer);
     store.set({ locked: null, hiddenReadouts: null });
     setAllowedTools(null);
     dock.profile.clearPredict();
@@ -205,12 +220,16 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
 
   async function enter({ replay = false } = {}) {
     const st = lesson.steps[idx];
-    clearInterval(pollTimer);
+    clearInterval(pollTimer); clearInterval(dataTimer);
     chooser?.remove(); chooser = null;
     state = { answered: null, quizAns: {}, observed: false, met: false };
-    if (st.preset && !replay) await loadPreset(st.preset, { keepLesson: true });
-    if (!replay) { const at = idx; host.request('snapshot').then(({ snap }) => { if (lesson) { snaps[at] = { snap, params: structuredClone(store.get().params) }; if (at === idx) render(); } }); }
-    if (st.params) updateParams(st.params, { history: false });
+    // One executor for the whole step state (sequence.js): reset → patch → settle → snapshot, then
+    // the step is exposed. The snapshot Replay returns to is taken after the worker acknowledged
+    // the patch, so it carries the patch with it.
+    const seq = await runSequence({ preset: st.preset, presetDays: st.presetDays, params: st.params, days: st.afterDays, label: st.title }, { loadPreset, action }, { reset: !replay });
+    if (!lesson || lesson.steps[idx] !== st) return;
+    if (!replay) snaps[idx] = { snap: seq.snap, params: seq.params };
+    state.logStart = store.get().actionLog?.length || 0;
     if (st.tools) setAllowedTools(st.tools);
     if (st.hide) store.set({ hiddenReadouts: new Set(st.hide) });
     store.set({ locked: new Set(st.controls || ['*']) });
@@ -218,6 +237,8 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     if (st.tab) showPane(st.tab);
     if (st.path) dock.profile.setPath(st.path);
     if (st.probe) setProbe(st.probe);
+    if (st.invert != null) dock.pane('doppler')?.setInvert?.(st.invert);
+    if (st.endo) { showPane('endoscopy'); dock.pane('endoscopy')?.setView?.(st.endo); }
     store.set({ focus: st.focus ? { edges: st.focus, label: st.focusLabel } : null });
     if (st.type === 'predict' || st.type === 'frame' || st.type === 'check') host.send({ type: 'run', running: st.type === 'frame' });
     if (st.type === 'predict' && st.mode === 'draw') { dock.profile.startPredict(() => render()); showPane('profile'); }
@@ -226,7 +247,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
       host.send({ type: 'run', running: true });
       pollTimer = setInterval(() => {
         const f = store.get().frame;
-        if (f && st.goal(f, store.get().params)) { state.met = true; clearInterval(pollTimer); render(); setTimeout(() => { if (lesson && lesson.steps[idx] === st) next(); }, 1100); }
+        if (f && st.goal(f, store.get().params, (store.get().actionLog || []).slice(state.logStart))) { state.met = true; clearInterval(pollTimer); render(); setTimeout(() => { if (lesson && lesson.steps[idx] === st) next(); }, 1100); }
       }, 300);
     }
     if (st.type === 'observe') {
@@ -301,6 +322,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     const st = lesson.steps[idx];
     const body = [];
     if (st.text) body.push(h('p', {}, md(st.text)));
+    if (st.data) body.push(dataRow(st.data));
     let canNext = true;
     if (st.type === 'predict' && !st.mode) {
       body.push(h('p', { class: 'q' }, st.q));

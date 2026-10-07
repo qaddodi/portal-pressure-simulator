@@ -2,7 +2,7 @@
 
 import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=c9c36d1829';
 import { DRUGS } from '../engine/scenario.js?v=270c735e25';
-import { store, updateParams, isLocked } from './store.js?v=4c0e1f79a3';
+import { store, updateParams, isLocked } from './store.js?v=b8c56c0b3c';
 import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, icon, svgIcon } from './util.js?v=8aa5e5cdf1';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -298,7 +298,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
     const txt = {
       PV_TRUNK: 'Carries about 75 % of liver blood flow (≈ 1.1 L/min). Normal mean velocity 15–40 cm/s, toward the liver. The portal system has no valves: flow goes wherever the gradient points.',
       C1a: 'The left gastric (coronary) vein feeds the esophageal submucosal plexus: the source of esophageal varices.',
-      C1b: 'Esophageal varices drain to the azygos vein and SVC. Wall tension follows Laplace: T = ΔP · r / w.',
+      C1b: 'Esophageal varices drain to the azygos vein and SVC. Modeled wall stress follows ΔP · r / w (an educational index, not a measured tension).',
       C2: 'Short and posterior gastric veins connect the splenic vein to the fundus: the route of isolated gastric varices in splenic vein thrombosis.',
       C3: 'The recanalized paraumbilical vein runs from the left portal vein along the falciform ligament to the umbilicus (caput medusae, Cruveilhier–Baumgarten murmur).',
       C4: 'Superior rectal (portal) ↔ middle and inferior rectal (systemic) veins: anorectal varices, not hemorrhoids.',

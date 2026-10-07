@@ -4,8 +4,8 @@
 import { NODES } from '../engine/topology.js?v=c9c36d1829';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { h, fmt, fitCanvas, cssVar, clamp, icon } from './util.js?v=8aa5e5cdf1';
-import { FONT } from './charts.js?v=c47814dd4f';
-import { store, updateParams } from './store.js?v=4c0e1f79a3';
+import { FONT } from './charts.js?v=115a432256';
+import { store, updateParams, logAction, varixSuppressed } from './store.js?v=b8c56c0b3c';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
@@ -18,22 +18,29 @@ export function createEndoscopy({ onAction }) {
   let view = 'eso';
   const seg = h('div', { class: 'seg full' }, [['eso', 'Esophagus'], ['fundus', 'Fundus (retroflexed)']].map(([v, l]) => {
     const b = h('button', { 'aria-pressed': String(v === view) }, l);
-    b.addEventListener('click', () => { view = v; seg.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); });
+    b.addEventListener('click', () => { view = v; logAction('endo', v); seg.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); });
     return b;
   }));
   const stats = h('dl', { class: 'kv' });
   const side = h('div', { class: 'chart-side' }, seg, stats,
     h('button', { class: 'btn primary', onclick: () => onAction({ kind: 'band' }) }, icon('band'), 'Band a column (EVL)'),
-    h('div', { class: 'ctl-sub' }, 'Drawn from the model. F1 small and straight, F2 enlarged and tortuous, F3 large and beaded; red wale marks mean high wall tension.'));
+    h('div', { class: 'ctl-sub' }, 'Drawn from the model. F1 small and straight, F2 enlarged and tortuous, F3 large and beaded; red wale marks mean high modeled wall stress.'));
   el.append(box, side);
+  const note = h('p', { class: 'ctl-sub', hidden: true }, '');
+  side.append(note);
   function update(f) {
     const m = f.metrics;
+    const off = view === 'eso' && varixSuppressed(), rhf = view === 'eso' && store.get().presetId === 'rhf';
+    note.hidden = !rhf;
+    note.textContent = off ? 'Not modeled for this patient: the model draws an esophageal varix in right heart failure that the clinical picture does not support.' : 'Caution: in right heart failure the model’s esophageal varix is an artifact, not a clinical finding.';
+    box.style.visibility = off ? 'hidden' : '';
+    if (off) { stats.replaceChildren(h('dt', {}, 'Esophageal varix'), h('dd', {}, 'not modeled')); return; }
     const vx = view === 'eso' ? m.varix : m.gastricVarix;
     stats.replaceChildren(
       h('dt', {}, 'Grade'), h('dd', {}, `${vx.grade.code} ${vx.grade.label}`),
       h('dt', {}, 'Diameter'), h('dd', {}, `${fmt(vx.d, 1)} mm`),
       h('dt', {}, 'Wall thickness'), h('dd', {}, `${fmt(vx.w, 2)} mm`),
-      h('dt', {}, 'Wall tension'), h('dd', {}, `${Math.round(vx.ratio * 100)} % of rupture`),
+      h('dt', {}, 'Wall stress (model)'), h('dd', {}, `${Math.round(vx.ratio * 100)} % of rupture`),
       h('dt', {}, 'Red wale signs'), h('dd', {}, vx.redWale ? 'present' : 'absent'),
       h('dt', {}, 'Bands placed'), h('dd', {}, String(Math.round(f.bands || 0))));
     draw(f, vx);
@@ -248,7 +255,7 @@ export function createVarixWall() {
   box.append(cv);
   const stats = h('dl', { class: 'kv' });
   const side = h('div', { class: 'chart-side' }, h('div', { class: 'side-title' }, 'Laplace’s law'), h('div', { class: 'formula' }, 'T = ΔP · r / w'), stats,
-    h('div', { class: 'ctl-sub' }, 'Big radius, high transmural pressure and a thin wall all raise tension. Remodeling enlarges the varix and thins its wall over months. A balloon raises the luminal (outside) pressure.'));
+    h('div', { class: 'ctl-sub' }, 'Big radius, high transmural pressure and a thin wall all raise the modeled wall stress. Remodeling enlarges the varix and thins its wall over months. A balloon raises the luminal (outside) pressure.'));
   el.append(box, side);
   function update(f) {
     const v = f.metrics.varix;
@@ -256,7 +263,7 @@ export function createVarixWall() {
       h('dt', {}, 'ΔP (transmural)'), h('dd', {}, `${fmt(v.ptm, 1)} mmHg`),
       h('dt', {}, 'Radius r'), h('dd', {}, `${fmt(v.r, 2)} mm`),
       h('dt', {}, 'Wall w'), h('dd', {}, `${fmt(v.w, 2)} mm`),
-      h('dt', {}, 'Tension'), h('dd', {}, `${fmt(v.T, 0)} (${Math.round(v.ratio * 100)} %)`));
+      h('dt', {}, 'Stress index'), h('dd', {}, `${fmt(v.T, 0)} (${Math.round(v.ratio * 100)} %)`));
     const { ctx, w, h: hh } = fitCanvas(cv);
     if (w < 32 || hh < 32) return;
     ctx.clearRect(0, 0, w, hh);
@@ -284,7 +291,7 @@ export function createVarixWall() {
     ctx.beginPath(); ctx.roundRect ? ctx.roundRect(gx, gy, Math.max(14, gw * clamp(v.ratio / 1.5, 0, 1)), 14, 7) : ctx.rect(gx, gy, gw * clamp(v.ratio / 1.5, 0, 1), 14); ctx.fill();
     ctx.strokeStyle = cssVar('--critical'); ctx.lineWidth = 2; const rx = gx + gw / 1.5; ctx.beginPath(); ctx.moveTo(rx, gy - 6); ctx.lineTo(rx, gy + 20); ctx.stroke();
     ctx.fillStyle = cssVar('--text'); ctx.textAlign = 'left'; ctx.font = FONT(600, 12);
-    ctx.fillText(`Wall tension ${Math.round(v.ratio * 100)} % of critical`, gx, gy - 12); ctx.textAlign = 'center'; ctx.font = FONT(500, 11); ctx.fillStyle = cssVar('--text-2'); ctx.fillText('rupture', rx, gy + 34);
+    ctx.fillText(`Wall stress ${Math.round(v.ratio * 100)} % of critical`, gx, gy - 12); ctx.textAlign = 'center'; ctx.font = FONT(500, 11); ctx.fillStyle = cssVar('--text-2'); ctx.fillText('rupture', rx, gy + 34);
   }
   return { id: 'varixwall', label: 'Varix wall', el, update };
 }

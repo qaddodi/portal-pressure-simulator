@@ -4,9 +4,9 @@
 // in the timeline as one entry.
 
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=c9c36d1829';
-import { store, updateParams } from './store.js?v=4c0e1f79a3';
+import { store, updateParams } from './store.js?v=b8c56c0b3c';
 import { fmt, fmtFlow, clamp, toast } from './util.js?v=8aa5e5cdf1';
-import { aboutVessel, aboutOrgan } from './about.js?v=f18a1a7043';
+import { aboutVessel, aboutOrgan } from './about.js?v=5b6a06e6fd';
 import { lobuleState } from './lobule-model.js?v=8874b4b7e8';
 import { LABEL_VESSEL } from './anatomy.js?v=bf7e57c024';
 
@@ -14,7 +14,7 @@ export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
 // Lessons and cases name the tools a step allows; these are the verbs they unlock.
-const TOOL_VERB = { pinch: 'narrow', thrombus: 'clot', fibrosis: 'fibrosis', stent: 'shunt', band: 'band', occlude: 'occlude', balloon: 'balloon', catheter: 'wedge', doppler: 'doppler', endoscope: 'endoscope', needle: 'paracentesis' };
+const TOOL_VERB = { pinch: 'narrow', thrombus: 'clot', fibrosis: 'fibrosis', stent: 'shunt', band: 'band', occlude: 'occlude', balloon: 'balloon', catheter: 'measure', doppler: 'doppler', endoscope: 'endoscope', needle: 'paracentesis' };
 export const toolsToVerbs = (list) => (list ? [...new Set(list.map((t) => TOOL_VERB[t] || t).filter((v) => v !== 'select' && v !== 'probe'))] : null);
 
 /** Is a verb available now? Lessons and cases restrict verbs; they may also unlock a parameter. */
@@ -206,7 +206,7 @@ function organCard(sel, ctx) {
     const vx = (f) => (eso ? f.metrics.varix : f.metrics.gastricVarix);
     const verbs = varixVerbs(eso ? 'eso' : 'gas', ctx);
     if (!eso) verbs.push({ type: 'toggle', id: 'occlude', key: 'occluded', label: 'Occlude the gastrorenal shunt (BRTO)', icon: 'occlude', showIf: (p) => p.spontaneous.C5 !== false, get: (p) => !!p.occluded.C5, set: (p, v) => { if (v) p.occluded.C5 = true; else delete p.occluded.C5; }, hist: 'BRTO' });
-    verbs.push(stat('Grade', (f) => { const v = vx(f); return v.d < 2.4 ? 'none' : `${v.grade.code} · ${fmt(v.d, 1)} mm`; }), stat('Wall tension', (f) => `${Math.round(vx(f).ratio * 100)} % of rupture`));
+    verbs.push(stat('Grade', (f) => { const v = vx(f); return v.d < 2.4 ? 'none' : `${v.grade.code} · ${fmt(v.d, 1)} mm`; }), stat('Wall stress (model)', (f) => `${Math.round(vx(f).ratio * 100)} % of rupture`));
     if (eso) verbs.push({ type: 'link', label: 'Coronary vein', run: () => ctx.select({ type: 'edge', id: 'LGV_CONF' }) });
     else verbs.push({ type: 'link', label: 'Short gastric veins', run: () => ctx.select({ type: 'edge', id: 'C2' }) });
     return {

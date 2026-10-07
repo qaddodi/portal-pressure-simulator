@@ -4,7 +4,8 @@
 // pointer. Instructors build their own scripts from the current model and share them as a file
 // or a link.
 
-import { store } from './store.js?v=4c0e1f79a3';
+import { store } from './store.js?v=b8c56c0b3c';
+import { runSequence, restoreSequence } from './sequence.js?v=3e75f3fa59';
 import { h, toast, svgIcon, icon } from './util.js?v=8aa5e5cdf1';
 import { download } from './records.js?v=39559a8813';
 
@@ -41,9 +42,9 @@ export const SCRIPTS = [
     id: 'bleed', title: 'The bleeding patient', builtin: true,
     summary: 'A variceal bleed and its treatment, step by step.',
     steps: [
-      { title: 'Decompensated cirrhosis', preset: 'cirr-decomp', view: 'anatomic', zoom: 'fit', pane: 'endoscopy', notes: 'Large varices with red wale signs: wall tension is close to rupture (Laplace: T = ΔP·r / w).' },
+      { title: 'Decompensated cirrhosis', preset: 'cirr-decomp', view: 'anatomic', zoom: 'fit', pane: 'endoscopy', notes: 'Large varices with red wale signs: modeled wall stress is close to its rupture point (index = ΔP·r / w).' },
       { title: 'The varix ruptures', action: { kind: 'rupture', site: 'VAR', tear: 0.8 }, notes: 'Blood loss lowers portal pressure and the bleeding may pause; over-transfusion would refill the splanchnic veins and restart it.' },
-      { title: 'Terlipressin', params: { drugs: { terlipressin: true } }, pane: 'varixwall', notes: 'Splanchnic vasoconstriction lowers portal inflow within minutes: variceal pressure and wall tension fall.' },
+      { title: 'Terlipressin', params: { drugs: { terlipressin: true } }, pane: 'varixwall', notes: 'Splanchnic vasoconstriction lowers portal inflow within minutes: variceal pressure and modeled wall stress fall.' },
       { title: 'Band ligation', action: { kind: 'band' }, pane: 'endoscopy', notes: 'EVL removes the bleeding source but leaves portal pressure unchanged.' },
       { title: 'The same patient as a circuit', view: 'circuit', notes: 'The circuit shows every route the blood can take; watch the collateral lanes.' },
     ],
@@ -60,24 +61,38 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
   let script = null, idx = 0, bar = null, titleEl = null, progEl = null, notesWin = null, laser = null;
   const all = () => [...SCRIPTS, ...readMine()];
 
-  async function apply(step) {
-    if (step.preset) await loadPreset(step.preset, { days: step.presetDays });
-    else if (step.days) host.send({ type: 'advance', days: step.days });
-    if (step.params) updateParams(step.params, { settle: true, label: step.title });
-    if (step.action) action(step.action);
+  // A slide's model state is a pure function of the slide before it: each is computed once from
+  // the previous slide's canonical snapshot (reset → patch → settle → action → post-patch days →
+  // settle → snapshot, see sequence.js) and cached, so forward, back and jump all show identical
+  // numbers. Step fields: preset + presetDays (native pre-aging), params, action, days (extra
+  // disease days after the patch), then the view bindings below.
+  let slides = [], chain = Promise.resolve();
+  async function resolveSlide(i) {
+    if (slides[i]) return slides[i];
+    if (i > 0) restoreSequence(await resolveSlide(i - 1));
+    const step = script.steps[i];
+    return (slides[i] = await runSequence({ ...step, label: step.title }, { loadPreset, action }));
+  }
+  async function apply(i) {
+    const step = script.steps[i];
+    restoreSequence(await resolveSlide(i));
     if (step.view && step.view !== store.get().view) store.set({ view: step.view });
     if (step.lens) store.set({ colorMode: step.lens });
     if (step.zoom === 'lobule') stage.zoomLobule('R');
     else if (step.zoom === 'liver' || step.zoom === 'fit') { store.set({ lobule: false }); if (step.zoom === 'liver') stage.zoomLiver(); else stage.fit(); }
     if (step.pane) dock.show(step.pane, { reveal: true });
+    if (step.probe) host.send({ type: 'probe', id: step.probe });
+    if (step.invert != null) dock.pane('doppler')?.setInvert?.(step.invert);
+    if (step.endo) dock.pane('endoscopy')?.setView?.(step.endo);
     host.send({ type: 'run', running: true });
   }
   async function go(i) {
     if (!script) return;
     idx = Math.max(0, Math.min(script.steps.length - 1, i));
     renderBar();
-    await apply(script.steps[idx]);
-    writeNotes();
+    const at = idx;
+    chain = chain.then(async () => { if (script && at === idx) { await apply(at); writeNotes(); } });
+    await chain;
   }
   // Presenting is chrome-free: the figure, the hero metric, the slide title and a slim progress
   // bar. The controls appear when the mouse moves and fade after 2 s (clickers and keys work
@@ -133,6 +148,7 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
   async function start(id) {
     script = typeof id === 'object' ? id : all().find((s) => s.id === id);
     if (!script?.steps?.length) return;
+    slides = []; chain = Promise.resolve();
     closeHome?.();
     if (store.get().mode !== 'explore') store.set({ mode: 'explore' });
     projectorOn();

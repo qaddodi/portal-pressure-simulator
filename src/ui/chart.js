@@ -8,12 +8,12 @@
 //   (what has happened lives in the timeline's History, under the figure)
 //   Advanced                             physiology knobs (instructor / researcher)
 
-import { store, updateParams } from './store.js?v=4c0e1f79a3';
+import { store, updateParams } from './store.js?v=b8c56c0b3c';
 import { h, fmt, icon, svgIcon, toast } from './util.js?v=8aa5e5cdf1';
 import { DRUGS } from '../engine/scenario.js?v=270c735e25';
-import { TILES, VITALS, readoutValue } from './dock.js?v=215f0a3909';
-import { activeInterventions } from './inspector.js?v=e26b85bceb';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=6fa3beac68';
+import { TILES, VITALS, readoutValue } from './dock.js?v=9cc19bed8a';
+import { activeInterventions } from './inspector.js?v=35776d7926';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=fd3fc03c3f';
 
 // Where each readout is measured, so a click can show it on the figure.
 const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS'], spleen: ['V_SPL', 'SV_CONF'], ra: ['IVCS_RA'] };
@@ -34,10 +34,10 @@ const FIND = {
     : sev === 'danger'
       ? ['Portal flow near stasis', `${n0(Math.abs(m.pvVelMean ?? m.pvVel))} cm/s (normal ≥ 12). Slow flow favors portal vein thrombosis.`]
       : ['Portal flow reduced', `${fmt(v, 1)} L/min at ${n0(Math.abs(m.pvVelMean ?? m.pvVel))} cm/s (normal ≥ 0.9 L/min, ≥ 12 cm/s).`],
-  liver: (v, m) => ['Liver perfusion reduced', `${n0(v)} % of normal. The hepatic artery has risen ×${fmt(m.habr, 1)} to buffer the loss of portal flow.`],
-  shunt: (v, m) => ['Portosystemic shunting', `${n0(v)} % of gut blood bypasses the liver. Encephalopathy risk ${m.heRisk.label.toLowerCase()}.`],
+  liver: (v, m) => ['Liver perfusion reduced', `${n0(v)} % of this model’s healthy sinusoidal flow. The hepatic artery has risen ×${fmt(m.habr, 1)} to buffer the loss of portal flow.`],
+  shunt: (v, m) => ['Portosystemic shunting', `${n0(v)} % of gut blood bypasses the liver (a model fraction, capped at 100 %).`],
   varix: (v, m, sev) => [m.varix.d < 2.5 ? 'Varix wall under strain' : sev === 'critical' ? 'Varices close to rupture' : `Esophageal varices, ${m.varix.grade.label.toLowerCase()}`,
-    `${n1(m.varix.d)} mm across; wall tension ${n0(v)} % of the rupture point${m.varix.redWale ? ', with red wale signs' : ''}.`],
+    `${n1(m.varix.d)} mm across; modeled wall stress ${n0(v)} % of the rupture point${m.varix.redWale ? ', with red wale signs' : ''}.`],
   ascites: (v, m) => [`Ascites, grade ${m.ascites.grade}`, `${fmt(v, 1)} L of free fluid in the abdomen.`],
   spleen: (v) => ['Splenomegaly', `Spleen ${n1(v)} cm (normal ≤ 13). An enlarged spleen traps platelets.`],
   map: (v) => ['Hypotension', `Mean arterial pressure ${n0(v)} mmHg (< 65).`],
