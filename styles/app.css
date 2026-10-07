@@ -1209,9 +1209,9 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   padding: 0; animation: acIn .12s var(--ease); font-size: var(--fs-14); transition: left .18s var(--ease), top .18s var(--ease);
 }
 /* One fixed size per kind of card, whatever text it holds: the header and foot keep their place, the controls scroll inside. */
-.action-card { height: min(400px, calc(100% - 16px)); }
-.action-card[data-card=organ], .action-card[data-card=lobule] { height: min(470px, calc(100% - 16px)); }
-.action-card.docked { height: min(42%, 380px); }
+.action-card { height: min(540px, calc(100% - 16px)); }
+.action-card[data-card=organ], .action-card[data-card=lobule] { height: min(660px, calc(100% - 16px)); }
+.action-card.docked { height: min(46%, 400px); }
 /* The same three parts on a desktop and on a phone: the top (title, reading) and the foot stay put, the controls scroll. */
 .ac-top { flex: none; padding: 12px 16px 0; }
 .ac-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px; }
