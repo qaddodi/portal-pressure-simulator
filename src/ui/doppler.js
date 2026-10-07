@@ -6,8 +6,8 @@
 
 import { EDGES } from '../engine/topology.js?v=80b8d861de';
 import { h, fmt, fitCanvas, clamp, icon } from './util.js?v=8aa5e5cdf1';
-import { FONT } from './charts.js?v=898c42e2f5';
-import { logAction } from './store.js?v=b742a09e9e';
+import { FONT } from './charts.js?v=d6f7ed17ab';
+import { logAction } from './store.js?v=baa7ba1e7b';
 import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=fe9fd40247';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

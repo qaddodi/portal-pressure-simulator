@@ -19,7 +19,7 @@ export function defaultParams() {
     apShunt: 0,                   // extra arterioportal shunting 0..1
     respiration: true,
     respDepth: 1,
-    pulsatile: false,
+    pulsatile: true,
     spontaneous: { C5: true, C6: false },   // C5: gastrorenal shunt, an anatomical variant present in most patients but small until the gradient is high
     occluded: {},                 // collateral id → true (BRTO / plug)
     tips: { on: false, d: 8 },
