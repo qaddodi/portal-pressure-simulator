@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { CASES, ORDER_META } from '../src/ui/cases/index.js';
 
-const DERIVED = new Set(['doppler', 'hvpg']);
+const DERIVED = new Set(['fibroscan', 'doppler', 'hvpg']);
 const M = { spleen: { platelets: 100, length: 13 }, varix: { d: 4, ratio: 0.5, redWale: false, grade: { label: 'Small' } }, blood: { hb: 13 }, ascites: { volume: 0 } };
 const fake = (cs) => new Proxy({ cs, m: M, params: { albumin: 3.5 }, hr: '112', bp: '96/58', flag: () => 'nsbb', hbLab: () => 6.4, count: () => 0, did: () => true, read: () => ({}), pick: () => 0 }, { get: (t, k) => (k in t ? t[k] : () => undefined) });
 const val = (x, c) => (typeof x === 'function' ? x(c) : x);

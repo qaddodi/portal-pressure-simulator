@@ -36,7 +36,7 @@ export function createEndoscopy({ onAction }) {
       h('dt', {}, 'Grade'), h('dd', {}, `${vx.grade.code} ${vx.grade.label}`),
       h('dt', {}, 'Diameter'), h('dd', {}, `${fmt(vx.d, 1)} mm`),
       h('dt', {}, 'Wall thickness'), h('dd', {}, `${fmt(vx.w, 2)} mm`),
-      h('dt', {}, 'Wall stress (model)'), h('dd', {}, `${Math.round(vx.ratio * 100)} % of rupture`),
+      h('dt', {}, 'Wall stress (model)'), h('dd', {}, vx.ratio >= 1 ? (store.get().params?.bleeding ? 'past the tear point' : 'past the tear point (bleeding is off, so it holds)') : `${Math.round(vx.ratio * 100)} % of the tear point`),
       h('dt', {}, 'Red wale signs'), h('dd', {}, vx.redWale ? 'present' : 'absent'),
       h('dt', {}, 'Bands placed'), h('dd', {}, String(Math.round(f.bands || 0))));
     draw(f, vx);

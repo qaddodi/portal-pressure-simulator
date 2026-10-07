@@ -1,6 +1,6 @@
 // C3. New ascites, whose fault? The fluid test is mandatory; the heart variants must not get a TIPS.
 
-import { DX_HIDDEN, fill } from './kit.js?v=58f5848647';
+import { DX_HIDDEN, fill } from './kit.js?v=010d07460c';
 
 const PT = { name: 'Tom Alvarez', age: 68, sex: 'M', setting: 'Medical admissions unit', problem: 'Six weeks of belly and ankle swelling.' };
 
@@ -47,18 +47,18 @@ export const newAscites = {
     doppler: (c) => ({ title: 'Doppler of the liver vessels', extra: c.cs.dopExtra }),
     echo: (c) => ({ title: 'Echocardiogram', lines: [c.cs.echo] }),
   },
-  orders: ['tap-dx', 'labs', 'abd-us', 'doppler', 'echo'],
+  orders: ['tap-dx', 'labs', 'abd-us', 'doppler', 'fibroscan', 'echo'],
   inside: [['Portal pressure', 'pv', 'mmHg'], ['Right atrial pressure', 'ra', 'mmHg'], ['Ascites', 'asc', 'mL']],
   build: (v) => {
     const steps = [
       { id: 'fluid', title: 'Read the fluid', needs: ['tap-dx'],
         q: 'The fluid is back. What does it tell you?',
-        options: ['Portal hypertension, and the low protein points to the liver itself', 'Portal hypertension, and the high protein points to a block after the liver, in the heart or hepatic veins', 'Peritoneal cancer, until cytology says otherwise', 'Infection: start broad antibiotics now'],
+        options: ['Portal hypertension, and low protein points to the liver itself', 'Portal hypertension, and high protein points to a block after the liver', 'Peritoneal cancer, until the cytology says otherwise', 'Infection: start broad-spectrum antibiotics now'],
         answer: v.heart ? 1 : 0,
         why: 'A SAAG of 1.1 or more means portal hypertension. The protein says where: low protein, the sinusoids of a cirrhotic liver; high protein, a block after the liver.' },
       { id: 'cause', title: 'The cause',
         q: 'What is the cause of his ascites?',
-        options: ['Cirrhosis', 'The heart: valve disease or the pericardium', 'Budd–Chiari syndrome', 'Peritoneal cancer'],
+        options: ['The liver: cirrhosis', 'The heart: a valve or the pericardium', 'The hepatic veins: Budd–Chiari', 'The peritoneum: cancer'],
         answer: v.heart ? 1 : 0,
         why: v.heart ? 'A raised jugular venous pressure, high-protein fluid and a dilated inferior vena cava point to a cardiac cause. An echo confirms it.' : 'A small nodular liver, spider naevi, low-protein fluid and a normal heart point to cirrhosis.' },
       { id: 'plan', title: 'Plan',

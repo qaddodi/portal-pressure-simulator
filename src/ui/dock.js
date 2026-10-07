@@ -9,7 +9,7 @@ import { lobuleFlows } from './lobule-model.js?v=c4f41a94a3';
 import { createProfile } from './charts.js?v=898c42e2f5';
 import { createPressureTime } from './pressure-time.js?v=42f7819b86';
 import { createDoppler } from './doppler.js?v=3e54ad90ca';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=994aeb7996';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=5ee66e982e';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic

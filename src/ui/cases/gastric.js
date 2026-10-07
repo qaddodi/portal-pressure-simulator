@@ -1,7 +1,7 @@
 // C5. Melena with a big spleen: do not assume cirrhosis. Variant L is a blocked splenic vein with a
 // normal liver (TIPS is wrong); variant G is cirrhosis with a gastrorenal shunt (BRTO or TIPS).
 
-import { DX_HIDDEN, fill } from './kit.js?v=58f5848647';
+import { DX_HIDDEN, fill } from './kit.js?v=010d07460c';
 
 const L = {
   vid: 'L', preset: 'svt', splenic: true,
@@ -54,8 +54,8 @@ export const gastric = {
       { id: 'treat', title: 'Treatment',
         q: L1 ? 'What do you offer him?' : 'What do you offer her?',
         options: L1
-          ? ['Refer for splenectomy or splenic artery embolization', { t: 'TIPS', does: [] }, 'Band the fundal varices', 'Start carvedilol and discharge']
-          : [{ t: 'BRTO to close the gastrorenal shunt', does: ['brto'] }, { t: 'TIPS', does: ['tips8'] }, 'Band the fundal varices', 'Splenectomy'],
+          ? ['Splenectomy or splenic artery embolization', { t: 'A TIPS to lower the portal pressure', does: [] }, 'Band the fundal varices at endoscopy', 'Start carvedilol and discharge him']
+          : [{ t: 'BRTO to close the gastrorenal shunt', does: ['brto'] }, { t: 'A TIPS to lower the portal pressure', does: ['tips8'] }, 'Band the fundal varices at endoscopy', 'Splenectomy to cut the inflow'],
         answer: L1 ? 0 : [0, 1],
         onCommit: async (c, pick) => { if (!L1 && pick === 0) { c.story('BRTO in the interventional radiology suite: the shunt is closed with a balloon and the fundal varix fills with sclerosant.'); c.snap('After BRTO'); } },
         unsafe: L1 ? {
@@ -70,7 +70,7 @@ export const gastric = {
         q: L1 ? 'What is the most likely cause of his blocked splenic vein?' : 'Whichever you chose, what follow-up does she need?',
         options: L1
           ? ['Scarring from his past pancreatitis', 'Alcohol-related cirrhosis', 'A clot in the main portal vein', 'Heart failure']
-          : ['Repeat endoscopy and imaging. Watch for new esophageal varices and ascites after BRTO, and for encephalopathy after TIPS', 'None: fundal varices do not come back', 'Stop the diuretics', 'Repeat the CT every week'],
+          : ['Scopes and imaging: watch for varices, ascites and confusion', 'None: fundal varices do not come back once closed', 'Stop the diuretics now that the varix is treated', 'A CT every week until the varix has gone'],
         answer: 0, why: L1 ? 'Pancreatitis and pancreatic tumors are the usual causes. Fundal varices with a normal liver should make you think of the splenic vein.' : 'Closing the shunt can push pressure into the esophageal varices and raise ascites. A TIPS can cause encephalopathy.' },
     ];
     const objectives = [

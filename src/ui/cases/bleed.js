@@ -1,7 +1,7 @@
 // C1. Hematemesis in the emergency department. The one acute case: a real clock, a patient who is
 // actually unstable, and two safety-critical choices whose effect the model shows at once.
 
-import { DX_HIDDEN, pltRow } from './kit.js?v=58f5848647';
+import { DX_HIDDEN, pltRow } from './kit.js?v=010d07460c';
 
 const PATIENTS = {
   A: { name: 'Daniel Reyes', age: 54, sex: 'M', setting: 'Emergency department', problem: 'Vomiting blood. Known cirrhosis.' },

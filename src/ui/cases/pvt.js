@@ -1,7 +1,7 @@
 // C7. Abdominal pain and a clot: acute portal vein thrombosis (anticoagulate, watch for ischaemia)
 // and chronic cavernoma (treat the varices; an HVPG will be normal and still mislead).
 
-import { DX_HIDDEN, fill } from './kit.js?v=58f5848647';
+import { DX_HIDDEN, fill } from './kit.js?v=010d07460c';
 
 const A = {
   vid: 'acute', preset: 'pvt-acute', acute: true,
@@ -63,16 +63,16 @@ export const pvt = {
     else steps.push(
       { id: 'first', title: 'The varices',
         q: 'What is the best first step for her varices?',
-        options: [{ t: 'Start a beta blocker or band them, as you would in cirrhosis', does: ['carvedilol'] }, 'Anticoagulate and repeat the CT', 'TIPS', 'Observe: the liver is normal'],
+        options: [{ t: 'A beta blocker or banding, as in cirrhosis', does: ['carvedilol'] }, 'Anticoagulate and repeat the CT first', 'A TIPS through the old clot', 'Observe: the liver itself is normal'],
         answer: 0, onCommit: (c) => c.snap('Cavernoma and varices'),
         why: 'Varices from a portal vein block bleed just as in cirrhosis, and they are managed the same way.' },
       { id: 'platelets', title: 'Platelets',
         q: 'Why are her platelets low and her spleen big when her liver is normal?',
-        options: ['Back-pressure from the portal block enlarges the spleen and traps platelets', 'Hidden cirrhosis', 'A bone marrow disease', 'Alcohol'],
+        options: ['A big spleen from back-pressure, trapping them', 'Cirrhosis that the scans have missed', 'A bone marrow disease making too few', 'Alcohol suppressing the marrow'],
         answer: 0, why: 'The pressure behind the block backs up into the spleen. A normal liver does not rule out portal hypertension.' });
     steps.push({ id: 'hvpg', title: 'The HVPG',
       q: (c) => `${c.cs.patient.name}'s HVPG is normal. Does ${acute ? 'he' : 'she'} have portal hypertension?`,
-      options: ['Yes: the block is before the liver, and the HVPG cannot see it', 'No: a normal HVPG excludes portal hypertension', 'Only after 6 months', 'The HVPG cannot be measured in a clot'],
+      options: ['Yes: the HVPG cannot see a block before the liver', 'No: a normal HVPG excludes portal hypertension', 'Only once the clot is 6 months old', 'No: the HVPG cannot be measured with a clot'],
       answer: 0, why: 'The wedge sees the sinusoids. A block before them leaves the HVPG normal while the pressure behind the block is high.' });
     const objectives = [
       { id: 'first', weight: acute ? 30 : 35, critical: true, text: acute ? 'Anticoagulated now' : 'Treated the varices like cirrhosis', check: (c) => c.met('first') },

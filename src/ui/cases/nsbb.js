@@ -1,7 +1,7 @@
 // C8. The beta blocker that became a problem: carvedilol in advanced cirrhosis with low pressure,
 // low sodium and a rising creatinine. The chart has the signs; the learner has to see them.
 
-import { DX_HIDDEN } from './kit.js?v=58f5848647';
+import { DX_HIDDEN } from './kit.js?v=010d07460c';
 
 const PT = { name: 'George Miller', age: 66, sex: 'M', setting: 'Medical ward', problem: 'Ascites that no longer responds. Light-headed on standing.' };
 
@@ -54,7 +54,7 @@ export const nsbb = {
         why: 'Banding protects the varix without touching blood pressure or the kidneys.' },
       { id: 'restart', title: 'Restart?',
         q: 'His creatinine is 1.3 and his blood pressure is 102/60. What about the carvedilol?',
-        options: [{ t: 'Restart at a lower dose, with blood pressure and kidney checks', does: ['carvedilol'] }, 'Restart the original dose', 'Never restart it', 'Switch to propranolol 160 mg'],
+        options: [{ t: 'Restart at a lower dose and recheck the kidneys', does: ['carvedilol'] }, 'Restart the original dose straight away', 'Never restart it: banding alone is enough', 'Switch to propranolol 160 mg a day'],
         answer: 0, why: 'Once blood pressure and kidneys recover, restart at a lower dose, with close checks. Many patients can take it again.' },
     ];
     const objectives = [

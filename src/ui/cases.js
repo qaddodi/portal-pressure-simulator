@@ -10,13 +10,13 @@
 // that must be placed first), `auto` (opens by itself) and `show(c)` (conditional steps).
 
 import { store, updateParams } from './store.js?v=b742a09e9e';
-import { host } from './host.js?v=5dfe41663f';
+import { host } from './host.js?v=bb950163b2';
 import { h, openModal, closeModal, toast, svgIcon } from './util.js?v=8aa5e5cdf1';
 import { addRecord, exportCSV, exportXAPI } from './records.js?v=50fb9dd463';
 import { scoreCase, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=7f4afcf446';
 import { veinBlocked } from './measure-model.js?v=089f10544e';
-import { CASES, ORDER_META, GROUPS } from './cases/index.js?v=4b8cfe4909';
-import { bpOf, tension, abdomen } from './cases/kit.js?v=58f5848647';
+import { CASES, ORDER_META, GROUPS } from './cases/index.js?v=7cb8b1a951';
+import { bpOf, tension, abdomen } from './cases/kit.js?v=010d07460c';
 import { trustLine } from './learning-kit.js?v=6f4b555b70';
 
 export { CASES };
@@ -37,9 +37,13 @@ const clockText = (secs) => {
 const drug = (key, label, exclusive) => ({ toggle: (p) => !!p.drugs[key], run: (a, o, c) => updateParams((p) => { p.drugs[key] = !p.drugs[key]; if (exclusive && p.drugs[key]) p.drugs[exclusive] = false; return p; }, { label, settle: !c.cs.acute }) });
 const flag = (key, label) => ({ toggle: (p) => !!p[key], run: (a, o, c) => updateParams((p) => { p[key] = !p[key]; return p; }, { label, settle: !c.cs.acute }) });
 const RUN = {
-  labs: {}, 'abd-us': {}, ct: {}, echo: {}, ecg: {}, 'tap-dx': {}, 'clot-screen': {},
-  doppler: { derive: (c) => dopplerLines(c.m, c.params) }, hvpg: { derive: (c) => hvpgItem(c.m, c.params) },
-  egd: { run: (a, o) => { if (!o.silent || o.pane) a.showPane('endoscopy'); } },
+  labs: {}, ct: {}, echo: {}, ecg: {}, 'tap-dx': {}, 'clot-screen': {},
+  // Imaging studies open the matching view of the model, so the student sees what the report describes.
+  'abd-us': { pane: 'abdomen', run: (a, o) => { if (!o.silent) a.showPane('abdomen'); } },
+  doppler: { pane: 'doppler', derive: (c) => dopplerLines(c.m, c.params), run: (a, o) => { a.setProbe?.('PV_TRUNK'); if (!o.silent) a.showPane('doppler'); } },
+  hvpg: { derive: (c) => hvpgItem(c.m, c.params) },
+  fibroscan: { derive: (c) => lsmItem(c.m) },
+  egd: { pane: 'endoscopy', run: (a, o) => { if (!o.silent || o.pane) a.showPane('endoscopy'); } },
   crystalloid: { run: (a) => a.action({ kind: 'infuse', fluid: 'crystalloid' }) },
   prbc: { run: (a) => a.action({ kind: 'infuse', fluid: 'prbc' }) },
   vaso: { toggle: (p) => !!p.drugs.terlipressin, run: (a, o, c) => updateParams((p) => { p.drugs.terlipressin = true; p.drugs.octreotide = false; return p; }, { label: 'Terlipressin', settle: !c.cs.acute }) },
@@ -70,6 +74,13 @@ function hvpgItem(m, p) {
   return { rows: [['Free hepatic vein pressure', `${m.fhvp.toFixed(1)} mmHg`, m.fhvp > 6 ? 'warn' : ''], ['Wedged hepatic vein pressure', `${m.whvp.toFixed(1)} mmHg`, m.whvp > 12 ? 'warn' : ''], ['HVPG (wedged minus free)', `${m.hvpg.toFixed(1)} mmHg`, m.hvpg >= 10 ? 'bad' : m.hvpg > 5 ? 'warn' : '']],
     note: 'Normal is up to 5. Clinically significant at 10 or more. Bleeding risk at 12 or more.' };
 }
+
+function lsmItem(m) {
+  const k = m.lsm;
+  return { rows: [['Liver stiffness', `${Math.round(k)} kPa`, k >= 25 ? 'bad' : k >= 15 ? 'warn' : '']],
+    note: 'Normal is about 5. Above 25 kPa, clinically significant portal hypertension is near certain; below 15 with platelets of 150 or more, it is unlikely. A congested liver (heart, hepatic veins) is stiff too.' };
+}
+const PANE_LABEL = { endoscopy: 'Show the scope view', doppler: 'Show the Doppler', abdomen: 'Show the ultrasound' };
 
 // One visibility map per case: what the clinician cannot know is hidden everywhere at once.
 const MODEL_ONLY_EVENTS = ['CSPH', 'BLEED_RISK', 'RED_WALE', 'HIGH_SHUNT', 'LIVER_HYPOPERFUSION', 'INTRAHEPATIC_REVERSAL', 'CAUDATE'];
@@ -137,7 +148,7 @@ export function createCases({ root, api }) {
     if (authored !== undefined || derived) {
       const a = val(authored, c) || {}, d = derived || {};
       const item = { id: `${id}:${log.length}`, section: SECTION[id] || 'Studies', title: a.title || meta.label, lines: [...(d.lines || []), ...(a.lines || []), ...(a.extra || [])],
-        rows: [...(d.rows || []), ...(a.rows || [])], note: a.note || d.note, pending: true, fresh: true };
+        rows: [...(d.rows || []), ...(a.rows || [])], note: a.note || d.note, pane: def.pane, pending: true, fresh: true };
       if (id === 'labs') ctx.hbShown = cs.hbLab?.(c) ?? ctx.hbShown;
       ctx.items.push(item);
       setTimeout(() => { item.pending = false; if (ctx && ctx.tab !== 'chart') ctx.dot = true; if (cs) render(); }, 1100);
@@ -329,7 +340,8 @@ export function createCases({ root, api }) {
       it.pending ? null : [
         it.lines?.length ? h('ul', {}, it.lines.map((l) => h('li', {}, l))) : null,
         it.rows?.length ? h('table', { class: 'cs-rows' }, h('tbody', {}, it.rows.map((r) => h('tr', {}, h('td', {}, r[0]), h('td', { class: r[2] || '' }, r[1]))))) : null,
-        it.note ? h('p', { class: 'cs-note' }, it.note) : null]);
+        it.note ? h('p', { class: 'cs-note' }, it.note) : null,
+        it.pane ? h('button', { class: 'btn ghost sm cs-see', onclick: () => { if (it.pane === 'doppler') api.setProbe?.('PV_TRUNK'); api.showPane(it.pane); } }, PANE_LABEL[it.pane]) : null]);
   }
   function storyPane() {
     return h('div', { class: 'cs-story' }, trustLine(), ctx.story.map((e) => (e.kind === 'skip' ? h('div', { class: 'cs-skip' }, h('span', {}, e.text))
@@ -413,6 +425,15 @@ export function createCases({ root, api }) {
   }
 
   // ───────────── debrief ─────────────
+  // A number in the "inside the patient" table, with an arrow when it moved since the previous moment.
+  const STEP = { hr: 5, asc: 300, lost: 100, hepflow: 0.1 };
+  function insideCell(v, prev, k) {
+    if (typeof v !== 'number') return v ?? '—';
+    const txt0 = k === 'hr' || k === 'asc' || k === 'lost' ? String(Math.round(v)) : v.toFixed(k === 'hepflow' ? 2 : 1);
+    const d = typeof prev === 'number' ? v - prev : 0;
+    if (Math.abs(d) < (STEP[k] ?? 1)) return txt0;
+    return [txt0, ' ', h('span', { class: `cs-trend ${d > 0 ? 'up' : 'down'}`, title: `${d > 0 ? 'Up' : 'Down'} since the previous moment` }, d > 0 ? '↑' : '↓')];
+  }
   function finish(outcome) {
     if (ctx.ended) return;
     ctx.ended = true; ctx.outcome = outcome; ctx.open = null; ctx.busy = false;
@@ -441,7 +462,7 @@ export function createCases({ root, api }) {
     const decided = visible();
     const inside = cs.inside && ctx.snaps.length ? h('div', {}, h('h3', {}, 'Inside the patient'), h('p', { class: 'sub' }, 'What the teaching model shows at the moments you decided.'),
       h('table', { class: 'cmp-table cs-inside' }, h('thead', {}, h('tr', {}, h('th', {}, 'Moment'), cs.inside.map(([l, , u]) => h('th', {}, u ? `${l} (${u})` : l)))),
-        h('tbody', {}, ctx.snaps.map((s) => h('tr', {}, h('td', {}, s.label), cs.inside.map(([, k]) => h('td', {}, typeof s[k] === 'number' ? (k === 'hr' || k === 'asc' || k === 'lost' ? Math.round(s[k]) : s[k].toFixed(k === 'hepflow' ? 2 : 1)) : s[k] ?? '—'))))))) : null;
+        h('tbody', {}, ctx.snaps.map((s, i) => h('tr', {}, h('td', {}, s.label), cs.inside.map(([, k]) => h('td', {}, insideCell(s[k], ctx.snaps[i - 1]?.[k], k)))))))) : null;
     const body = h('div', { class: 'debrief' },
       h('div', { class: 'score' }, ring, h('div', {}, h('b', {}, cs.title), h('div', { class: 'sub' }, `${cs.patient.name}, ${cs.patient.age}${cs.patient.sex} · ${met} of ${cs.objectives.length} key actions · ${res.mastered ? 'mastered' : `not mastered (needs ${MASTERY} %${cs.objectives.some((o) => o.critical) ? ' and every critical action' : ''})`}${res.failedCritical.length ? ` · critical missed: ${res.failedCritical.map((id) => cs.objectives.find((o) => o.id === id).text).join('; ')}` : ''}`))),
       h('h3', {}, 'Key actions'),

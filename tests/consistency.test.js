@@ -25,6 +25,7 @@ const texts = (cs, c) => {
   const add = (x) => { if (!x) return; if (typeof x === 'string') out.push(x); else if (Array.isArray(x)) x.forEach(add); };
   for (const it of cs.chart(c)) { add(it.lines); add(it.rows); }
   for (const r of Object.values(cs.results || {})) { const x = val(r, c) || {}; add(x.lines); add(x.rows); add(x.extra); }
+  for (const st of cs.steps || []) { try { add(val(st.q, c)); } catch { /* a question that needs a flag set mid-case */ } }
   return out.join(' \n ');
 };
 
@@ -42,6 +43,26 @@ for (const base of CASES) for (const v of base.variants || [{}]) {
     if (has(/\bno ascites/i)) assert.ok(asc < 300, `text says no ascites, model has ${Math.round(asc)} mL`);
     if (has(/tense ascites|distended abdomen/i)) assert.ok(asc > 1500, `text says tense/distended, model has ${Math.round(asc)} mL`);
     if (has(/small (amount of )?ascites|mild ascites/i)) assert.ok(asc >= 300 && asc < 3000, `text says small ascites, model has ${Math.round(asc)} mL`);
+    for (const [, n] of txt.matchAll(/stiffness (?:of )?(\d+) kPa/gi)) assert.ok(Math.abs(+n - m.lsm) <= 3, `text says stiffness ${n} kPa, model ${m.lsm.toFixed(0)}`);
     for (const [, n] of txt.matchAll(/spleen (\d+) cm(?! below)/gi)) assert.ok(Math.abs(+n - m.spleen.length) <= 1, `text says spleen ${n} cm, model ${m.spleen.length.toFixed(1)}`);
   });
 }
+
+// Lessons whose text describes a change over time: the model must show it (learn.js).
+test('varices lesson: thin varices grow large with red wale over six months', () => {
+  const e = new Engine(); run(e.loadPresetSteps('csph', {}));
+  assert.equal(computeMetrics(e).varix.grade.label, 'Small');
+  e.setParams(deepMerge(e.params, { cirrhosis: 0.85 })); e.settle();
+  run(e.advanceDaySteps(180)); e.settle();
+  const m = computeMetrics(e);
+  assert.equal(m.varix.grade.label, 'Large'); assert.ok(m.varix.redWale, 'red wale');
+});
+test('ascites lesson: about 4 litres to tap, and it comes back without diuretics', () => {
+  const e = new Engine(); run(e.loadPresetSteps('cirr-decomp', {}));
+  e.setParams(deepMerge(e.params, { diuretics: false })); e.settle();
+  run(e.advanceDaySteps(300)); e.settle();
+  const v = computeMetrics(e).ascites.volume;
+  assert.ok(v > 3500 && v < 5000, `ascites ${Math.round(v)} mL`);
+  e.paracentesis(5000, true); run(e.advanceDaySteps(90)); e.settle();
+  assert.ok(computeMetrics(e).ascites.volume > 2000, 'fluid returns');
+});
