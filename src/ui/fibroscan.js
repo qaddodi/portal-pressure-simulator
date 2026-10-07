@@ -70,7 +70,7 @@ function motionStrip(wp, hp) { // wide enough to scroll
   return cv;
 }
 
-const SHOT_MS = 2400, SWEEP_MS = 1700; // one shot: the wave sweeps 0-80 ms of the panel, then holds
+const SHOT_MS = 1300; // one shot: the whole map is redrawn in place with a new speckle pattern and slope
 const median = (a) => { const b = [...a].sort((x, y) => x - y), m = b.length >> 1; return b.length % 2 ? b[m] : (b[m - 1] + b[m]) / 2; };
 const REDUCED = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -86,7 +86,7 @@ export function createFibroScan() {
     const { ctx, w, h: hh } = fitCanvas(cv);
     if (w < 60 || hh < 60) return;
     const el0 = REDUCED ? SHOT_MS : now - t0, idx = Math.floor(el0 / SHOT_MS);
-    const p = REDUCED ? 1 : clamp((el0 - idx * SHOT_MS) / SWEEP_MS, 0, 1);
+    const p = 1;
     if (idx !== lastShot) {
       if (lastShot >= 0) hist = [...hist, shotK].slice(-10);
       lastShot = idx; shotK = shotValue(idx); img = null;
