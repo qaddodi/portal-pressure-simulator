@@ -19,9 +19,10 @@ export function createEndoscopy({ onAction }) {
   const cv = h('canvas', { role: 'img', 'aria-label': 'Endoscopic view' });
   box.append(cv);
   const view = 'eso'; // the esophageal variceal view only
+  const bandBtn = h('button', { class: 'btn primary', onclick: () => onAction({ kind: 'band' }) }, icon('band'), 'Band a column (EVL)');
   const stats = h('dl', { class: 'kv' });
   const side = h('div', { class: 'chart-side' }, stats,
-    h('button', { class: 'btn primary', onclick: () => onAction({ kind: 'band' }) }, icon('band'), 'Band a column (EVL)'),
+    bandBtn,
     h('div', { class: 'ctl-sub' }, 'Drawn from the model. F1 small and straight, F2 enlarged and tortuous, F3 large and beaded; red wale marks mean high modeled wall stress.'));
   el.append(box, side);
   const note = h('p', { class: 'ctl-sub', hidden: true }, '');
@@ -34,6 +35,8 @@ export function createEndoscopy({ onAction }) {
     box.style.visibility = off ? 'hidden' : '';
     if (off) { stats.replaceChildren(h('dt', {}, 'Esophageal varix'), h('dd', {}, 'not modeled')); return; }
     const vx = view === 'eso' ? m.varix : m.gastricVarix;
+    const noVx = vx.d < 2.5 && !(f.bands > 0);
+    bandBtn.disabled = noVx; bandBtn.title = noVx ? 'No varices to band' : '';
     stats.replaceChildren(
       h('dt', {}, 'Grade'), h('dd', {}, `${vx.grade.code} ${vx.grade.label}`),
       h('dt', {}, 'Diameter'), h('dd', {}, `${fmt(vx.d, 1)} mm`),
@@ -94,7 +97,7 @@ export function createEndoscopy({ onAction }) {
     if (Math.abs(tv - an.v) < 0.0008) an.v = tv;
     let busy = an.g !== tg || an.v !== tv;
     // Sequence: the band snaps on instantly, then (after a beat) the vein deflates smoothly.
-    for (let c = 0; c < 4; c++) busy = tween(an.def[c], defT[c], now, 1200, defT[c] > an.def[c].to ? 350 : 0) || busy;
+    for (let c = 0; c < 4; c++) busy = tween(an.def[c], defT[c], now, 1500, defT[c] > an.def[c].to ? 1000 : 0) || busy;
     for (let i = 0; i < 16; i++) busy = tween(an.kn[i], knT[i], now, 1, 0) || busy;
     if (busy && !raf && !isPaused()) raf = requestAnimationFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
     const res = clamp(Math.round(2 * R * (window.devicePixelRatio || 1)), 160, 480);

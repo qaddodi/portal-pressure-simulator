@@ -5,14 +5,14 @@ import { startHost, host } from './host.js?v=367593423b';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction } from './store.js?v=b742a09e9e';
 import { createStage } from './stage.js?v=ebc8d67ff7';
 import { createInspector } from './inspector.js?v=174a2f39f7';
-import { createDock, CUTOFFS } from './dock.js?v=a880715353';
+import { createDock, CUTOFFS } from './dock.js?v=92b0167680';
 import { createWhy } from './why.js?v=55e1a9db49';
 import { createTimeline } from './timeline.js?v=c8442ea022';
 import { createLearn } from './learn.js?v=ffc41ddf35';
 import { createCases } from './cases.js?v=62a62bbadf';
 import { createCompare } from './compare.js?v=92dadf6df1';
 import { createCard } from './card.js?v=240b3c44fe';
-import { createChart, computeFindings } from './chart.js?v=c6ad245c4f';
+import { createChart, computeFindings } from './chart.js?v=4e6bbb3ed5';
 import { createHome } from './home.js?v=f3634b5839';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=889f5fbfda';
@@ -385,6 +385,10 @@ function startCase(id) { if (store.get().mode === 'learn') learn.stop(); store.s
 function doAction(a) {
   if (a.kind === 'probe') { host.send({ type: 'probe', id: a.id }); return; }
   if (a.kind === 'paracentesisPrompt') { dock.show('abdomen', { reveal: true }); toast('Choose the volume in Ascites & paracentesis, then Drain.'); return; }
+  if (a.kind === 'band') {
+    const vd = store.get().frame?.metrics?.varix?.d;
+    if (vd !== undefined && vd < 2.5 && !(store.get().frame?.bands > 0)) { toast('No varices to band.'); return; }
+  }
   host.send({ type: 'action', action: a });
   logAction('action', a.kind);
   const tl = { infuse: { crystalloid: '1 L crystalloid', prbc: '1 unit PRBC', albumin: 'Albumin infusion' }, hemorrhage: `Hemorrhage ${a.mL} mL`, band: 'Band ligation', valsalva: 'Valsalva', rupture: 'Varix ruptured (manual)', stopBleed: 'Bleeding stopped',
