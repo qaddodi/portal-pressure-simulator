@@ -66,7 +66,8 @@ function drawElastogram(ctx2, img, N, c, t) {
     const jit = (0.5 + (F.p1(across, along) - 0.5) * c3 + (F.p2(across, along) - 0.5) * s3 - 0.5) * 2.2;
     const noise = a * 0.6 + b * 0.4;
     const w = Math.cos(2 * Math.PI * 0.05 * s + jit);
-    const amp = s < -6 ? 0.2 : clamp(1 - s / 40, 0.12, 1) * clamp(1.2 - (depth - 30) / 110, 0.5, 1);
+    const u = clamp((s + 9) / 6, 0, 1), arrive = u * u * (3 - 2 * u); // smooth arrival of the wave: no hard step at the front
+    const amp = (0.2 + 0.8 * arrive) * clamp(1 - Math.max(s, 0) / 40, 0.12, 1) * clamp(1.2 - (depth - 30) / 110, 0.5, 1);
     const band = Math.exp(-(((s + 3.5) / 3.2) ** 2));
     const k = clamp(0.76 + w * 0.32 * amp + (noise - 0.5) * 1.25 - band * 0.55, 0, 1) ** 1.5;
     const i = (y * N + x) * 4;
