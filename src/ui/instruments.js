@@ -4,7 +4,7 @@
 import { NODES } from '../engine/topology.js?v=80b8d861de';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { h, fmt, fitCanvas, cssVar, clamp, icon } from './util.js?v=8aa5e5cdf1';
-import { renderEndo } from './endo-render.js?v=bf2e2c5cc2';
+import { renderEndo } from './endo-render.js?v=93154c1b51';
 import { FONT } from './charts.js?v=898c42e2f5';
 import { store, updateParams, logAction, varixSuppressed } from './store.js?v=b742a09e9e';
 
@@ -45,7 +45,7 @@ export function createEndoscopy({ onAction }) {
   // winding varices, drawn once per state into a cached bitmap, so it is perfectly steady. Balloon,
   // bleeding and the scope mask are drawn on top.
   const rnd = (seed) => { let x = seed >>> 0; return () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; }; };
-  let peak = 0, bleedT = 0, cache = { key: '', img: null };
+  let peak = 0, disp = { g: -1, v: 0 }, last = null, raf = 0, bleedT = 0, cache = { key: '', img: null };
   function draw(f, vx) {
     const { ctx, w, h: hh } = fitCanvas(cv);
     if (w < 32 || hh < 32) return; // hidden/reflowing canvas: wait for its measured size
@@ -58,11 +58,21 @@ export function createEndoscopy({ onAction }) {
     // so unbanded columns keep the size seen before the first band.
     const gNow = clamp((vx.d - 2) / 10, 0, 1);
     peak = bands > 0 ? Math.max(peak, gNow) : gNow;
-    const grow = peak, present = vx.d >= 2.4 || bands > 0;
-    const res = clamp(Math.round(2 * R * (window.devicePixelRatio || 1)), 160, 300);
-    const gq = Math.round(grow * 14) / 14;
-    const key = [res, gq.toFixed(3), bands, present ? 1 : 0, vx.redWale ? 1 : 0].join('|');
-    if (cache.key !== key) cache = { key, img: renderEndo(res, { grow: gq, bands, present, redWale: !!vx.redWale }) };
+    // Varices grow and shrink smoothly: size and visibility ease toward the model's value, drawn at
+    // a lower resolution while moving (sharp once settled).
+    const tg = peak, tv = bands > 0 ? 1 : clamp((vx.d - 2) / 0.8, 0, 1);
+    last = { f, vx };
+    if (disp.g < 0) disp = { g: tg, v: tv };
+    const moving = Math.abs(disp.g - tg) > 0.004 || Math.abs(disp.v - tv) > 0.004;
+    if (moving) {
+      disp = { g: disp.g + (tg - disp.g) * 0.1, v: disp.v + (tv - disp.v) * 0.1 };
+      if (!raf) raf = requestAnimationFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
+    } else disp = { g: tg, v: tv };
+    const full = clamp(Math.round(2 * R * (window.devicePixelRatio || 1)), 160, 300);
+    const res = moving ? Math.min(full, 150) : full;
+    const gq = Math.round(disp.g * (moving ? 60 : 14)) / (moving ? 60 : 14), vq = Math.round(disp.v * 40) / 40;
+    const key = [res, gq.toFixed(3), vq, bands, vx.redWale ? 1 : 0].join('|');
+    if (cache.key !== key) cache = { key, img: renderEndo(res, { grow: gq, bands, vis: vq, redWale: !!vx.redWale }) };
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(cache.img, cx - R, cy - R, 2 * R, 2 * R);
     if (f.params?.balloonEso) {

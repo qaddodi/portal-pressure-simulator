@@ -99,7 +99,8 @@ export function renderEndo(res, p) {
   const present = p.present !== false;
   const cols = makeColumns(present ? grow : 0, bands);
   const beaded = grow > 0.5;
-  if (!present) for (const c of cols) { c.amp = 0; }
+  const vis = Math.min(1, Math.max(0, p.vis ?? (present ? 1 : 0))); // 0 = no varix, grows smoothly into view
+  for (const c of cols) c.amp *= vis;
   const cv = document.createElement('canvas'); cv.width = cv.height = res;
   const ctx = cv.getContext('2d'), img = ctx.createImageData(res, res), D = img.data;
   const half = res / 2, o = {};
@@ -145,8 +146,8 @@ export function renderEndo(res, p) {
 
       // The vein under the thin mucosa: blue-purple, strongest where the column is tallest.
       let vein = 0;
-      if (present && o.vein > 0.02) {
-        vein = Math.min(1, o.vein * (0.4 + 0.75 * grow) * (o.c >= 0 && cols[o.c].vk ? cols[o.c].vk : 1));
+      if (vis > 0.02 && o.vein > 0.02) {
+        vein = Math.min(1, vis * o.vein * (0.4 + 0.75 * grow) * (o.c >= 0 && cols[o.c].vk ? cols[o.c].vk : 1));
         // Pale, stretched mucosa along the very crest.
         const crest = Math.exp(-Math.pow(Math.abs(o.u) / 0.55, 2));
         const k = vein * 0.72;
@@ -162,7 +163,7 @@ export function renderEndo(res, p) {
       }
       // Occlusion in the groove beside a column.
       let ao = 1;
-      if (present && o.vein > 0.005 && o.vein < 0.2) ao = 1 - 0.28 * sstep(0.005, 0.1, o.vein) * (1 - sstep(0.1, 0.2, o.vein));
+      if (vis > 0.02 && o.vein > 0.005 && o.vein < 0.2) ao = 1 - 0.28 * sstep(0.005, 0.1, o.vein) * (1 - sstep(0.1, 0.2, o.vein));
 
       // Banded knuckle.
       let gloss = 1, knuckle = 0;
