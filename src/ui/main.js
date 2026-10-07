@@ -13,7 +13,7 @@ import { createCases } from './cases.js?v=56a5affbf2';
 import { createCompare } from './compare.js?v=b5f2c36ee4';
 import { createCard } from './card.js?v=64372fe2ed';
 import { createChart, computeFindings } from './chart.js?v=29ff357666';
-import { createHome } from './home.js?v=5970196e20';
+import { createHome } from './home.js?v=080e55c461';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=c5fa61e184';
 import { startLMS } from './lms.js?v=0dbeb85e21';
@@ -693,8 +693,7 @@ function openMainMenu(anchor) {
     h('div', { class: 'mm-modes' },
       modeItem('explore', 'explore', 'explore', 'Explore a patient', 'Any of the patients, from healthy to Budd–Chiari'),
       modeItem('learn', 'learn', 'book', 'Lessons', 'Predict, observe, explain'),
-      modeItem('cases', 'cases', 'case', 'Cases', 'A bleed at 3 a.m. and diagnostic puzzles'),
-      modeItem('present', 'present', 'projector', 'Presenter', 'Step through a live model with a class')),
+      modeItem('cases', 'cases', 'case', 'Cases', 'A bleed at 3 a.m. and diagnostic puzzles')),  // the Presenter entry is shelved (see home.js)
     menuItem('Home page', { icon: 'grid', onClick: () => { closePopover(); home.open(); } }),
     h('div', { class: 'menu-sep' }),
     menuItem('Copy a link to this exact state', { icon: 'share', onClick: () => { closePopover(); share(); } }),

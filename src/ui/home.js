@@ -65,6 +65,8 @@ function rolePicker(render) {
 
 const read = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || d); } catch { return JSON.parse(d); } };
 
+const SHOW_PRESENTER = false;
+
 export function createHome({ el, brandMark, onPreset, onLesson, onCase, onPresenter, onClose, onClosed }) {
   let tab = 'explore';
   function render() {
@@ -73,8 +75,9 @@ export function createHome({ el, brandMark, onPreset, onLesson, onCase, onPresen
     const best = read('pps.caseScores', '{}');
     const tabs = [['explore', 'explore', t('home.explore'), t('home.explore.d')],
       ['learn', 'book', t('home.lessons'), `${LESSONS.filter((l) => done[l.id]).length} / ${LESSONS.length} · predict, observe, explain`],
-      ['cases', 'case', t('home.cases'), t('home.cases.d')],
-      ['present', 'projector', t('home.presenter'), t('home.presenter.d')]];
+      ['cases', 'case', t('home.cases'), t('home.cases.d')]];
+    // The presenter is shelved: its door is hidden, but the code, scripts and ?script= links stay.
+    if (SHOW_PRESENTER) tabs.push(['present', 'projector', t('home.presenter'), t('home.presenter.d')]);
     const nav = h('nav', { class: 'home-doors', 'aria-label': 'Start' }, tabs.map(([id, ic, t, d]) => {
       const b = h('button', { class: 'home-door', 'aria-pressed': String(tab === id) }, h('span', { class: 'hd-ic' }, svgIcon(ic)), h('span', { class: 'hd-t' }, t), h('span', { class: 'hd-d' }, d));
       b.addEventListener('click', () => { tab = id; render(); });
