@@ -5,6 +5,7 @@
 import { h, fitCanvas, clamp } from './util.js?v=8aa5e5cdf1';
 import { FONT } from './charts.js?v=898c42e2f5';
 
+const WAVE_T0 = 8; // ms: the shear wave reaches the top of the window about 8 ms after the push
 const ORANGE = '#e8863a', BLUE = '#3a9ec8', INK = '#1d2733';
 const rnd = (seed) => { let x = seed >>> 0; return () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; }; };
 
@@ -31,17 +32,19 @@ function noiseField(w, hh, cell, seed) {
 function elastogram(n, c) {
   const cv = document.createElement('canvas'); cv.width = cv.height = n;
   const ctx = cv.getContext('2d'), img = ctx.createImageData(n, n);
-  const sp1 = noiseField(n, n, n / 9, 11), sp2 = noiseField(n, n, n / 22, 23), ph = noiseField(n, n, n / 5, 37);
+  // Noise sampled in front-aligned coordinates (across the front, along the front), so the blobs are
+  // long ribbons parallel to the wave front, as on the report.
+  const f1 = noiseField(n * 2, n * 2, n / 14, 11), f2 = noiseField(n * 2, n * 2, n / 8, 23), ph = noiseField(n * 2, n * 2, n / 3, 37);
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
     const tMs = (x / n) * 80, depth = 30 + (y / n) * 60;
-    const arrive = (depth - 35) / c, phase = 2 * Math.PI * 0.05 * (tMs - arrive) + (ph(x, y) - 0.5) * 1.6;
-    const wave = 0.5 + 0.5 * Math.cos(phase);
-    const reached = clamp((tMs - arrive + 3) / 5, 0, 1);
-    const fade = clamp(1.15 - (depth - 30) / 90, 0.3, 1) * clamp(1.25 - tMs / 110, 0.35, 1);
-    const speck = 0.55 * sp1(x, y) + 0.45 * sp2(x, y);
-    const k = clamp(0.5 + (wave - 0.5) * 1.5 * fade * reached + (speck - 0.5) * 0.9, 0, 1) ** 1.3;
+    const s = tMs - WAVE_T0 - (depth - 35) / c; // ms behind the front's first arrival (negative: ahead of it)
+    const across = (s / 80) * n * 1.6 + n * 0.5, along = y * 0.42 + n * 0.3;
+    const a = f1(across, along) * 0.6 + f2(across * 1.4, along) * 0.4;
+    const w = Math.cos(2 * Math.PI * 0.05 * s + (ph(across, along) - 0.5) * 2.2);
+    const amp = s < -6 ? 0.25 : clamp(1 - s / 75, 0.18, 1) * clamp(1.2 - (depth - 30) / 110, 0.5, 1);
+    const k = clamp(0.62 + w * 0.5 * amp + (a - 0.5) * 0.95, 0, 1) ** 1.5;
     const i = (y * n + x) * 4;
-    img.data[i] = 18 + 222 * k; img.data[i + 1] = 8 + 128 * k; img.data[i + 2] = 6 + 66 * k; img.data[i + 3] = 255;
+    img.data[i] = 22 + 220 * k; img.data[i + 1] = 10 + 128 * k; img.data[i + 2] = 8 + 68 * k; img.data[i + 3] = 255;
   }
   ctx.putImageData(img, 0, 0);
   return cv;
@@ -53,13 +56,13 @@ function elastogram(n, c) {
 function motionStrip(wp, hp) {
   const cv = document.createElement('canvas'); cv.width = wp; cv.height = hp;
   const ctx = cv.getContext('2d'), img = ctx.createImageData(wp, hp);
-  const sp = noiseField(wp, hp, 2, 3), lay = noiseField(wp, hp, 6, 8), r = rnd(4);
+  const sp = noiseField(wp, hp, 1.5, 3), lay = noiseField(wp, hp, 5, 8), r = rnd(4);
   for (let y = 0; y < hp; y++) {
     const d = 30 + (y / hp) * 60; // mm
-    const base = d < 38 ? 70 : d < 41 ? 190 : 150 * Math.exp(-(d - 41) / 70) + 30;
-    const vessel = d > 62 && d < 68 ? 0.45 : 1;
+    const base = d < 75 ? 150 - (d - 30) * 0.5 : 105;
+    const vessel = 1;
     for (let x = 0; x < wp; x++) {
-      const g = clamp(base * vessel * (0.55 + 0.9 * sp(x * 3, y)) * (0.8 + 0.4 * lay(x, y * 3)) + (r() - 0.5) * 25, 0, 255);
+      const g = clamp(base * vessel * (0.55 + 0.9 * sp(x, y)) * (0.8 + 0.4 * lay(x, y)) + (r() - 0.5) * 25, 0, 255);
       const i = (y * wp + x) * 4; img.data[i] = img.data[i + 1] = img.data[i + 2] = g; img.data[i + 3] = 255;
     }
   }
@@ -95,7 +98,7 @@ export function createFibroScan() {
     ctx.fillStyle = INK; ctx.font = FONT(500, 11); ctx.textAlign = 'right';
     ctx.fillText('FibroScan · Liver · estimate from the model', w - pad, 20);
     // Measurement panel: A-mode strip, then the elastogram
-    const top = 60 + big, bot = hh - 26, ph = bot - top;
+    const top = 74 + big, bot = hh - 26, ph = bot - top;
     if (ph < 60) return;
     const aw = Math.max(26, Math.min(48, w * 0.1)), ax = pad + 30, ex = ax + aw * 2 + 8;
     const ew = Math.min(w - pad - ex, ph * 1.25);
@@ -114,8 +117,8 @@ export function createFibroScan() {
     const r2 = rnd(9), cx0 = axs + aw / 2;
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.beginPath();
     for (let y = 0; y <= ph; y += 2) {
-      const d = 30 + (y / ph) * 60, env = d < 38 ? 0.18 : 0.42 * Math.exp(-(d - 41) / 55) + 0.08;
-      const x = cx0 + (r2() - 0.5) * 2 * env * aw * 0.9;
+      const env = 0.2;
+      const x = cx0 + (r2() - 0.5) * 2 * env * aw * 0.9 + Math.sin(y * 0.11) * aw * 0.06;
       y ? ctx.lineTo(x, top + y) : ctx.moveTo(x, top);
     }
     ctx.stroke();
@@ -127,9 +130,10 @@ export function createFibroScan() {
     ctx.drawImage(img.cv, ex, top, ew, ph);
     ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.setLineDash([2, 3]); ctx.lineWidth = 1;
     for (const d of [35, 75]) { const y = top + ((d - 30) / 60) * ph; ctx.beginPath(); ctx.moveTo(ex, y); ctx.lineTo(ex + ew, y); ctx.stroke(); }
-    ctx.setLineDash([]); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath();
+    ctx.setLineDash([]); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.beginPath();
     const slope = (40 / c) / 80; // fraction of the time axis crossed over the 35-75 mm window
-    ctx.moveTo(ex, top + (5 / 60) * ph); ctx.lineTo(ex + clamp(slope, 0, 1) * ew, top + (45 / 60) * ph); ctx.stroke();
+    const x0 = ex + (WAVE_T0 / 80) * ew;
+    ctx.moveTo(x0, top + (5 / 60) * ph); ctx.lineTo(x0 + clamp(slope, 0, 1) * ew, top + (45 / 60) * ph); ctx.stroke();
     ctx.fillStyle = '#000'; ctx.fillRect(ex, bot - 3, ew, 3);
     // time axis
     ctx.fillStyle = INK; ctx.font = FONT(500, 10); ctx.textAlign = 'center';
