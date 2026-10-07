@@ -3,7 +3,8 @@
 import { store, updateParams } from './store.js?v=b8c56c0b3c';
 import { host } from './host.js?v=ca57d2fce6';
 import { h, fmt, toast, svgIcon } from './util.js?v=8aa5e5cdf1';
-import { addRecord } from './records.js?v=39559a8813';
+import { createAnswerSheet, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=a4326ba599';
+import { addRecord } from './records.js?v=379d033371';
 import { runSequence } from './sequence.js?v=5245f3910a';
 import { EDGES } from '../engine/topology.js?v=80b8d861de';
 
@@ -178,7 +179,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
   const asSheet = matchMedia('(max-width: 1279px)');
   let sheetMin = false;
   const snaps = [];             // starting state of each step, for Replay
-  let tally = { right: 0, total: 0 }, t0 = 0, prediction = null, chooser = null;
+  let answers = createAnswerSheet(), t0 = 0, prediction = null, chooser = null;
   let pollTimer = null, inline = null;
 
   // A small labeled data row (F2): live paired metrics for a step, each { label, metric, d, unit }.
@@ -197,7 +198,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
   async function start(id) {
     await beginSession?.('lesson');
     lesson = LESSONS.find((l) => l.id === id);
-    idx = 0; state = {}; snaps.length = 0; tally = { right: 0, total: 0 }; t0 = Date.now(); prediction = null;
+    idx = 0; state = {}; snaps.length = 0; answers = createAnswerSheet(); t0 = Date.now(); prediction = null;
     sheetMin = false;
     await enter();
     if (!asSheet.matches) openPanel?.('chart');
@@ -267,14 +268,17 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
   function next() {
     if (!lesson) return;
     const st = lesson.steps[idx];
-    if (st.type === 'predict' && st.options && state.answered != null) { tally.total++; if (state.answered === st.answer) tally.right++; }
-    if (st.type === 'check') st.quiz.forEach((qq, qi) => { tally.total++; if (state.quizAns[qi] === qq.answer) tally.right++; });
+    // First answer per stable key only: stepping back and forward again never adds points.
+    const key = (suffix) => `lesson:${lesson.id}:step-${String(idx + 1).padStart(2, '0')}:${suffix}`;
+    if (st.type === 'predict' && st.options && state.answered != null) answers.record(key('q1'), state.answered === st.answer);
+    if (st.type === 'check') st.quiz.forEach((qq, qi) => { if (state.quizAns[qi] != null) answers.record(key(`q${qi + 1}`), state.quizAns[qi] === qq.answer); });
     if (idx < lesson.steps.length - 1) { idx++; enter(); panel.scrollTop = 0; }
     else {
-      const score = tally.total ? Math.round((tally.right / tally.total) * 100) : 100;
+      const { score, right, total, mastered } = answers.score();
       saved[lesson.id] = { score: Math.max(score, saved[lesson.id]?.score || 0), date: new Date().toISOString() }; save();
-      addRecord({ kind: 'lesson', id: lesson.id, title: lesson.title, score, duration: (Date.now() - t0) / 1000, met: tally.right, total: tally.total });
-      toast(`Lesson complete: ${lesson.title} · ${score} %`); stop();
+      addRecord({ kind: 'lesson', id: lesson.id, title: lesson.title, score, assessment: ASSESSMENT_VERSION, contentVersion: CONTENT_VERSION, completed: true, mastered, wallDuration: (Date.now() - t0) / 1000, duration: (Date.now() - t0) / 1000, met: right, total,
+        answers: answers.entries().map(([k, ok]) => `${k}: ${ok ? 'correct' : 'incorrect'}`) });
+      toast(`Lesson complete: ${lesson.title} · ${score} %${mastered ? ' · mastered' : ` · mastery is ${MASTERY} %`}`); stop();
     }
   }
   // Replay: back to the state this step started from (it is also a timeline entry).
@@ -354,7 +358,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
       else if (st.reveal) { const err = dock.profile.predictionError(); if (err != null) body.push(h('div', { class: 'feedback' }, `Your prediction was off by `, h('b', {}, `${fmt(err, 1)} mmHg`), ' on average.')); }
       if (state.observed && prediction) {
         const actual = flowSign(prediction.edge), ok = actual === prediction.dir;
-        if (!state.scoredDir) { state.scoredDir = true; tally.total++; if (ok) tally.right++; }
+        answers.record(`lesson:${lesson.id}:step-${String(idx + 1).padStart(2, '0')}:dir`, ok);
         body.push(h('div', { class: 'feedback pop ' + (ok ? 'right' : 'wrong') }, h('b', {}, ok ? 'Your prediction was right. ' : 'Not what you predicted. '), `The ${EDGES[EI[prediction.edge]].label.toLowerCase()} now runs ${actual > 0 ? 'in its normal direction' : 'backwards'}: follow the chevrons on the figure.`));
         stage?.flash([prediction.edge]);
         prediction = null;

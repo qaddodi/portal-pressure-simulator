@@ -4,7 +4,8 @@
 // xAPI statements are available as an export (records.js); LTI 1.3 needs a server and is not part
 // of this static build.
 
-import { onRecord, learnerName, setLearnerName } from './records.js?v=39559a8813';
+import { onRecord, records, learnerName, setLearnerName } from './records.js?v=379d033371';
+import { lmsReport, MASTERY } from './assess.js?v=a4326ba599';
 
 function findAPI(win) {
   for (let i = 0; win && i < 10; i++) {
@@ -25,16 +26,29 @@ export function startLMS() {
     if (api.LMSGetValue('cmi.core.lesson_status') === 'not attempted') api.LMSSetValue('cmi.core.lesson_status', 'incomplete');
     api.LMSCommit('');
   } catch { return null; }
-  let best = 0;
-  onRecord((r) => {
+  // What this package reports: one activity when launched into it (?lesson= / ?case=), otherwise
+  // the whole course (every lesson and case, by best attempt each, never a maximum across them).
+  // Presentations are ungraded.
+  const q = new URLSearchParams(location.search);
+  const single = q.get('lesson') ? { kind: 'lesson', id: q.get('lesson') } : q.get('case') ? { kind: 'case', id: q.get('case') } : null;
+  let required = single ? [single] : null;
+  const catalog = async () => {
+    if (required) return required;
+    const [{ LESSONS }, { CASES }] = await Promise.all([import('./learn.js?v=e731e3320b'), import('./cases.js?v=56a5affbf2')]);
+    return (required = [...LESSONS.map((l) => ({ kind: 'lesson', id: l.id })), ...CASES.map((c) => ({ kind: 'case', id: c.id }))]);
+  };
+  if (q.get('script')) return api; // presentations are ungraded
+  onRecord(async (r) => {
     if (r.score == null) return;
-    best = Math.max(best, r.score);
     try {
+      const req = await catalog();
+      if (!req.some((x) => x.kind === r.kind && x.id === r.id)) return;
+      const rep = lmsReport(records(), req);
       api.LMSSetValue('cmi.core.score.min', '0');
       api.LMSSetValue('cmi.core.score.max', '100');
-      api.LMSSetValue('cmi.core.score.raw', String(best));
-      api.LMSSetValue('cmi.core.lesson_status', best >= 50 ? 'passed' : 'failed');
-      api.LMSSetValue('cmi.suspend_data', JSON.stringify({ last: { kind: r.kind, id: r.id, score: r.score } }).slice(0, 4000));
+      api.LMSSetValue('cmi.core.score.raw', String(rep.raw));
+      api.LMSSetValue('cmi.core.lesson_status', rep.status === 'incomplete' ? 'incomplete' : rep.status);
+      api.LMSSetValue('cmi.suspend_data', JSON.stringify({ mastery: MASTERY, last: { kind: r.kind, id: r.id, score: r.score, mastered: !!r.mastered } }).slice(0, 4000));
       api.LMSCommit('');
     } catch { /* LMS unavailable */ }
   });

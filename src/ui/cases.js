@@ -5,7 +5,10 @@
 import { store, updateParams } from './store.js?v=b8c56c0b3c';
 import { host } from './host.js?v=ca57d2fce6';
 import { h, fmt, openModal, closeModal, toast, svgIcon } from './util.js?v=8aa5e5cdf1';
-import { addRecord, exportCSV, exportXAPI } from './records.js?v=39559a8813';
+import { addRecord, exportCSV, exportXAPI } from './records.js?v=379d033371';
+import { scoreCase, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=a4326ba599';
+import { measureView } from './measure-model.js?v=089f10544e';
+import { EDGES } from '../engine/topology.js?v=80b8d861de';
 
 const ACTIONS = {
   crystalloid: { label: '1 L crystalloid', run: (a) => a.action({ kind: 'infuse', fluid: 'crystalloid' }) },
@@ -20,11 +23,40 @@ const ACTIONS = {
   paracentesis: { label: 'Paracentesis 5 L + albumin', run: (a) => a.action({ kind: 'paracentesis', mL: 5000, albumin: true }) },
   diuretics: { label: 'Diuretics', toggle: (p) => p.diuretics, run: () => updateParams((p) => { p.diuretics = !p.diuretics; return p; }, { label: 'Diuretics' }) },
   carvedilol: { label: 'Carvedilol', toggle: (p) => p.drugs.carvedilol, run: () => updateParams((p) => { p.drugs.carvedilol = !p.drugs.carvedilol; return p; }, { label: 'Carvedilol' }) },
-  echo: { label: 'Echocardiogram', once: true, run: (a) => { const s = store.get().hiddenReadouts; s?.delete('ra'); store.set({ hiddenReadouts: new Set(s || []) }); const f = store.get().frame; toast(`Echo: RA pressure ≈ ${fmt(f.metrics.ra, 0)} mmHg${store.get().params.tr > 0.3 ? ', severe tricuspid regurgitation' : ''}.`); } },
+  hemodynamics: { label: 'Review supplied catheter pressures', once: true, card: (c) => hemodynamicsCard(c.m, c.params), run: () => {} },
+  'vascular-imaging': { label: 'Review vascular imaging', once: true, card: (c) => vascularCard(c.params), run: () => {} },
+  eligibility: { label: 'Review supplied clinical assessment', once: true, card: (c, cs) => factsCard(cs.facts), run: () => {} },
+  cbc: { label: 'Initial blood count', once: true, card: (c) => resultCard('Blood count', 'Laboratory result · simulated', [['Hemoglobin', `${fmt(c.m.blood.hb, 1)} g/dL`, 'at the time of the order']]), run: () => {} },
+  brto: { label: 'Demonstrate C5 closure', once: true, needs: ['doppler', 'endoscopy'], run: () => updateParams((p) => { p.occluded.C5 = true; return p; }, { label: 'BRTO' }) },
+  'follow-up': { label: 'Advance model follow-up 30 days', max: 2, run: () => host.send({ type: 'advance', days: 30 }) },
+  echo: { label: 'Echocardiogram', once: true, run: (a) => { const s = store.get().hiddenReadouts; s?.delete('ra'); store.set({ hiddenReadouts: new Set(s || []) }); const f = store.get().frame; toast(`Echo (model estimate of filling pressure, not a CVP measurement): RA ≈ ${fmt(f.metrics.ra, 0)} mmHg${store.get().params.tr > 0.3 ? ', severe tricuspid regurgitation' : ''}.`); } },
   doppler: { label: 'Doppler ultrasound', run: (a) => { a.showPane('doppler'); toast('Click a vessel and choose Doppler, or pick the vessel in the Doppler instrument.'); } },
   endoscopy: { label: 'Endoscopy', run: (a) => { a.showPane('endoscopy'); } },
   ascitic: { label: 'Diagnostic paracentesis', once: true, run: () => { const m = store.get().frame.metrics; toast(m.ascites.volume > 150 ? `Ascitic fluid: SAAG ${m.ppg > 6 || m.whvp > 10 ? '≥ 1.1' : '< 1.1'}, protein ${m.ascites.highProtein ? '> 2.5' : '< 2.5'} g/dL.` : 'No tappable ascites.'); } },
 };
+
+// Result cards (F6). A card is a static, immutable snapshot taken when the order is placed:
+// it never updates with the simulation, and it states what it is (a model value, a supplied
+// fact, or a schematic report) so nothing reads as a live sensor or a real imaging test.
+const resultCard = (title, badge, rows, notes = []) => h('div', { class: 'result-card' },
+  h('div', { class: 'rc-head' }, h('b', {}, title), h('span', { class: 'rc-badge' }, badge)),
+  rows.length ? h('table', { class: 'cmp-table' }, h('tbody', {}, rows.map((r) => h('tr', {}, h('td', {}, r[0]), h('td', {}, r[1]), r[2] ? h('td', { class: 'sub' }, r[2]) : null)))) : null,
+  notes.map((n) => h('p', { class: 'ctl-sub' }, n)));
+const edgeLabel = (id) => EDGES.find((e) => e.id === id)?.label || id;
+function hemodynamicsCard(m, p) {
+  // The order supplies catheter and IVC pressures only; portal and PPG values stay unmeasured.
+  const v = measureView(m, p, null);
+  const rows = [...v.model.map(([l, x, u, st]) => [l, `${fmt(x, 1)} ${u}`, st]), ...v.network.filter((r) => r[0].startsWith('IVC')).map(([l, x, u, st]) => [l, `${fmt(x, 0)} ${u}`, st])];
+  return resultCard('Supplied catheter pressures', 'Model value · simulated', rows, v.notes);
+}
+function vascularCard(p) {
+  const rows = [];
+  for (const [id, x] of Object.entries(p.thrombus || {})) if (x >= 0.5) rows.push([edgeLabel(id), x >= 0.95 ? 'Occluded' : 'Partly occluded', 'from preset thrombus']);
+  for (const [id, x] of Object.entries(p.stenosis || {})) if (x >= 0.5) rows.push([edgeLabel(id), 'Narrowed', 'from preset stenosis']);
+  return resultCard('Vascular imaging report', 'Schematic · derived from the preset, not a CT/MRI image', rows.length ? rows : [['Named veins', 'No occlusion or marked narrowing reported', '']],
+    ['Reports patency and routes only. It shows no pressure and does not replace a real imaging study.']);
+}
+const factsCard = (facts) => resultCard('Supplied clinical assessment', 'Outside the model · authored fact', (facts || []).map((f) => [f, '', '']), ['These facts are authored for the scenario. The simulation does not generate or change them.']);
 
 const fmtClock = (s) => { const m = Math.floor(s / 60); return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min` : `${m} min ${String(Math.floor(s % 60)).padStart(2, '0')} s`; };
 
@@ -41,12 +73,12 @@ export const CASES = [
     counterfactual: true,
     refs: ['de Franchis R, et al. Baveno VII: renewing consensus in portal hypertension. J Hepatol 2022;76:959–74.', 'Kaplan DE, et al. AASLD Practice Guidance on risk stratification and management of portal hypertension and varices in cirrhosis. Hepatology 2024;79:1180–1211.', 'Villanueva C, et al. Transfusion strategies for acute upper gastrointestinal bleeding. N Engl J Med 2013;368:11–21.'],
     objectives: [
-      { id: 'vaso', text: 'Start a vasoactive drug within 10 minutes', check: (c) => (c.first('terlipressin', 'octreotide') != null && c.first('terlipressin', 'octreotide') <= 600 ? 'met' : c.t > 600 ? 'failed' : null) },
-      { id: 'abx', text: 'Give antibiotic prophylaxis', check: (c) => (c.first('ceftriaxone') != null ? 'met' : null) },
-      { id: 'map', text: 'Keep MAP ≥ 65 mmHg (after the first 5 minutes)', check: (c) => (c.t > 300 && c.m.map < 60 ? 'failed' : c.ended && !c.failedMap ? 'met' : null) },
-      { id: 'restrict', text: 'Restrictive transfusion: don’t push Hb above 9 g/dL', check: (c) => (c.maxHbAfterTx > 9.5 ? 'failed' : c.ended ? 'met' : null) },
-      { id: 'evl', text: 'Endoscopic therapy within 30 minutes', check: (c) => (c.first('evl') != null && c.first('evl') <= 1800 ? 'met' : c.t > 1800 ? 'failed' : null) },
-      { id: 'stop', text: 'Control the bleeding', check: (c) => (!c.f.bleed.active ? 'met' : null) },
+      { id: 'vaso', weight: 20, text: 'Start a vasoactive drug within 10 minutes', check: (c) => (c.first('terlipressin', 'octreotide') != null && c.first('terlipressin', 'octreotide') <= 600 ? 'met' : c.t > 600 ? 'failed' : null) },
+      { id: 'abx', weight: 10, text: 'Give antibiotic prophylaxis', check: (c) => (c.first('ceftriaxone') != null ? 'met' : null) },
+      { id: 'map', weight: 20, critical: true, text: 'Keep MAP ≥ 65 mmHg (after the first 5 minutes)', check: (c) => (c.t > 300 && c.m.map < 60 ? 'failed' : c.ended && !c.failedMap ? 'met' : null) },
+      { id: 'restrict', weight: 15, text: 'Restrictive transfusion: don’t push Hb above 9 g/dL', check: (c) => (c.maxHbAfterTx > 9.5 ? 'failed' : c.ended ? 'met' : null) },
+      { id: 'evl', weight: 15, text: 'Endoscopic therapy within 30 minutes', check: (c) => (c.first('evl') != null && c.first('evl') <= 1800 ? 'met' : c.t > 1800 ? 'failed' : null) },
+      { id: 'stop', weight: 20, critical: true, final: true, text: 'Control the bleeding', check: (c) => (!c.f.bleed.active ? 'met' : null) },
     ],
     end: (c) => (c.m.map < 45 && c.lowFor > 60 ? 'death' : !c.f.bleed.active && c.stableFor > 300 ? 'success' : c.t > 3600 ? 'timeout' : null),
     debrief: (c) => `Blood lost: ${Math.round(c.f.metrics.blood.lost)} mL. Lowest MAP ${Math.round(c.minMap)} mmHg. Max portal pressure ${fmt(c.maxPV, 1)} mmHg.\n\nKey physiology: variceal bleeding lowers portal pressure (hypovolemia) and the bleeding may pause. Over-transfusion refills the splanchnic veins and raises portal pressure again, which provokes rebleeding. That is why the transfusion target is Hb ~7–8 g/dL. Vasoactive drugs lower portal inflow within minutes. Band ligation removes the bleeding source. Pre-emptive TIPS (≤ 72 h) benefits high-risk patients (Child C < 14 or B > 7 with active bleeding).`,
@@ -58,13 +90,13 @@ export const CASES = [
     actions: ['doppler', 'endoscopy'],
     refs: ['Köklü S, et al. Left-sided portal hypertension. Dig Dis Sci 2007;52:1141–9.', 'de Franchis R, et al. Baveno VII. J Hepatol 2022;76:959–74.'],
     quiz: [
-      { q: 'What is the most likely cause?', options: ['Cirrhosis', 'Splenic vein thrombosis (sinistral portal hypertension)', 'Budd–Chiari syndrome', 'Right heart failure'], answer: 1 },
-      { q: 'Best definitive treatment?', options: ['TIPS', 'Splenectomy or splenic artery embolization', 'Liver transplant', 'Propranolol alone'], answer: 1 },
+      { id: 'dx', why: 'Splenic vein thrombosis isolates the splenic territory; liver tests and HVPG are normal.', q: 'What is the most likely cause?', options: ['Cirrhosis', 'Splenic vein thrombosis (sinistral portal hypertension)', 'Budd–Chiari syndrome', 'Right heart failure'], answer: 1 },
+      { id: 'rx', why: 'Removing splenic inflow cures it; TIPS does not address the splenic block.', q: 'Best definitive treatment?', options: ['TIPS', 'Splenectomy or splenic artery embolization', 'Liver transplant', 'Propranolol alone'], answer: 1 },
     ],
     objectives: [
-      { id: 'look', text: 'Investigate with Doppler', check: (c) => (c.first('doppler') != null ? 'met' : null) },
-      { id: 'dx', text: 'Make the diagnosis', check: (c) => c.quizState(0) },
-      { id: 'rx', text: 'Choose the treatment', check: (c) => c.quizState(1) },
+      { id: 'look', weight: 20, text: 'Investigate with Doppler', check: (c) => (c.first('doppler') != null ? 'met' : null) },
+      { id: 'dx', weight: 40, critical: true, text: 'Make the diagnosis', check: (c) => c.quizState(0) },
+      { id: 'rx', weight: 40, critical: true, text: 'Choose the treatment', check: (c) => c.quizState(1) },
     ],
     end: (c) => (c.quizDone() ? 'success' : null),
     debrief: () => 'Splenic vein thrombosis isolates the splenic territory: the spleen drains through the short gastric veins into the fundus. Portal pressure and HVPG are normal. The Doppler shows an occluded splenic vein with normal portal flow. Removing the splenic inflow (splenectomy or splenic artery embolization) cures it; TIPS would not help.',
@@ -76,10 +108,10 @@ export const CASES = [
     refs: ['Bureau C, et al. Transjugular intrahepatic portosystemic shunts with covered stents increase transplant-free survival of patients with cirrhosis and recurrent ascites. Gastroenterology 2017;152:157–63.', 'Wang Q, et al. Comparison of 8 mm vs 10 mm covered TIPS stents. J Hepatol 2017;67:508–16.'], speed: 1, hidden: ['trueHVPG'], tools: ['select', 'needle', 'stent'],
     actions: ['paracentesis', 'diuretics', 'tips8', 'tips10', 'carvedilol'],
     objectives: [
-      { id: 'iap', text: 'Relieve intra-abdominal hypertension (IAP < 10 mmHg)', check: (c) => (c.m.ascites.iap < 10 ? 'met' : null) },
-      { id: 'ppg', text: 'Bring the direct portal–systemic gradient below 12 mmHg (the usual TIPS target)', check: (c) => (c.m.ppg < 12 ? 'met' : null) },
-      { id: 'he', text: 'Keep the shunt fraction below 70 % (encephalopathy)', check: (c) => (c.m.shuntFraction > 0.7 && c.params.tips.on ? 'failed' : c.ended ? 'met' : null) },
-      { id: 'perf', text: 'Keep liver perfusion above 50 %', check: (c) => (c.m.liverPerfPct < 50 && c.params.tips.on ? 'failed' : c.ended ? 'met' : null) },
+      { id: 'iap', weight: 25, final: true, text: 'Relieve intra-abdominal hypertension (IAP < 10 mmHg)', check: (c) => (c.m.ascites.iap < 10 ? 'met' : null) },
+      { id: 'ppg', weight: 25, final: true, text: 'Bring the direct portal–systemic gradient below 12 mmHg (the usual TIPS target)', check: (c) => (c.m.ppg < 12 ? 'met' : null) },
+      { id: 'he', weight: 25, text: 'Keep the shunt fraction below 70 % (encephalopathy)', check: (c) => (c.m.shuntFraction > 0.7 && c.params.tips.on ? 'failed' : c.ended ? 'met' : null) },
+      { id: 'perf', weight: 25, text: 'Keep liver perfusion above 50 %', check: (c) => (c.m.liverPerfPct < 50 && c.params.tips.on ? 'failed' : c.ended ? 'met' : null) },
     ],
     end: (c) => (c.params.tips.on && c.m.ppg < 12 && c.m.ascites.iap < 10 && c.t > 30 ? 'success' : null),
     debrief: (c) => `Final PPG ${fmt(c.m.ppg, 1)} mmHg, shunt fraction ${Math.round(c.m.shuntFraction * 100)} %, liver perfusion ${Math.round(c.m.liverPerfPct)} %.\n\nSmaller covered stents (8 mm) often reach the PPG target with a lower shunt fraction and less encephalopathy than 10 mm stents. Resistance scales with d⁴, so a 10 mm stent has ~2.4× the conductance of an 8 mm stent. Large-volume paracentesis needs albumin (8 g/L) to prevent circulatory dysfunction.`,
@@ -105,17 +137,17 @@ const rngOf = (seed) => { let x = seed >>> 0; return () => { x = (x * 1664525 + 
 const MONITOR = [
   { k: 'hr', lbl: 'HR', unit: '/min', col: '#3BE37A', v: (m) => m.hr, d: 0, lo: 40, hi: 160, bad: (m) => m.hr > 110 },
   { k: 'map', lbl: 'MAP', unit: 'mmHg', col: '#FF5566', v: (m) => m.map, d: 0, lo: 30, hi: 120, bad: (m) => m.map < 65 },
-  { k: 'hb', lbl: 'Hb', unit: 'g/dL', col: '#F2F2F2', v: (m) => m.blood.hb, d: 1, lo: 4, hi: 16, bad: (m) => m.blood.hb < 7 },
+  { k: 'hb', lbl: 'Hb', unit: 'g/dL', col: '#F2F2F2', v: (m) => m.blood.hb, d: 1, lo: 4, hi: 16, bad: (m) => m.blood.hb < 7, hideKey: 'hb' },
   { k: 'cvp', lbl: 'CVP', unit: 'mmHg', col: '#F7D154', v: (m) => m.ra, d: 0, lo: 0, hi: 25, bad: () => false, hideKey: 'ra' },
-  { k: 'loss', lbl: 'Blood loss', unit: 'mL', col: '#FF9A3C', v: (m) => m.blood.lost, d: 0, lo: 0, hi: 3000, bad: (m) => m.blood.shock >= 2 },
-  { k: 'iap', lbl: 'IAP', unit: 'mmHg', col: '#6FC8FF', v: (m) => m.ascites.iap, d: 0, lo: 0, hi: 25, bad: (m) => m.ascites.iap >= 12 },
+  { k: 'loss', lbl: 'Blood loss', unit: 'mL', col: '#FF9A3C', v: (m) => m.blood.lost, d: 0, lo: 0, hi: 3000, bad: (m) => m.blood.shock >= 2, hideKey: 'bloodLoss' },
+  { k: 'iap', lbl: 'IAP', unit: 'mmHg', col: '#6FC8FF', v: (m) => m.ascites.iap, d: 0, lo: 0, hi: 25, bad: (m) => m.ascites.iap >= 12, hideKey: 'iap' },
 ];
 
 export function createCases({ root, api }) {
   let cs = null, ctx = null, timer = null;
   const log = [];
 
-  let seed = 0, variant = {}, startSnap = null, trend = {};
+  let seed = 0, variant = {}, startSnap = null, trend = {}, wall0 = 0;
   async function start(id, opts = {}) {
     await api.beginSession?.('case');
     cs = CASES.find((c) => c.id === id);
@@ -135,6 +167,7 @@ export function createCases({ root, api }) {
     startSnap = cs.counterfactual ? (await host.request('snapshot')).snap : null;
     host.send({ type: 'run', running: true, speed: cs.speed, clock: 'hemo' });
     store.set({ speed: cs.speed });
+    wall0 = Date.now();
     ctx = { t0: null, t: 0, quiz: {}, minMap: 999, maxPV: 0, maxHbAfterTx: 0, lowFor: 0, stableFor: 0, obj: {}, ended: false, outcome: null, params0: structuredClone(store.get().params) };
     trend = {};
     render();
@@ -164,7 +197,13 @@ export function createCases({ root, api }) {
     c.lowFor = c.m.map < 45 ? c.lowFor + 0.25 * cs.speed : 0;
     c.stableFor = !f.bleed.active && c.m.map > 60 ? c.stableFor + 0.25 * cs.speed : 0;
     if (c.t > 300 && c.m.map < 60) c.failedMap = true;
-    for (const o of cs.objectives) { if (c.obj[o.id] === 'met' || c.obj[o.id] === 'failed') continue; const r = o.check(c); if (r) c.obj[o.id] = r; }
+    // Event objectives latch once met or failed. `final` objectives describe the end state, so a
+    // moment of meeting them never counts: they show their current state and are judged at finish.
+    for (const o of cs.objectives) {
+      if (o.final) { const r = o.check(c); c.obj[o.id] = r === 'met' ? 'met' : null; continue; }
+      if (c.obj[o.id] === 'met' || c.obj[o.id] === 'failed') continue;
+      const r = o.check(c); if (r) c.obj[o.id] = r;
+    }
     const out = cs.end(c);
     if (out) finish(out);
     renderLive();
@@ -196,17 +235,21 @@ export function createCases({ root, api }) {
   function finish(outcome) {
     ctx.ended = true; ctx.outcome = outcome;
     const c = makeCtx(store.get().frame);
-    for (const o of cs.objectives) if (!c.obj[o.id]) c.obj[o.id] = o.check(c) || 'failed';
+    for (const o of cs.objectives) { if (o.final) c.obj[o.id] = o.check(c) === 'met' ? 'met' : 'failed'; else if (!c.obj[o.id]) c.obj[o.id] = o.check(c) || 'failed'; }
     clearInterval(timer);
     host.send({ type: 'run', running: false });
     const met = cs.objectives.filter((o) => c.obj[o.id] === 'met').length;
-    const score = Math.round((met / cs.objectives.length) * 100 * (outcome === 'death' ? 0.4 : outcome === 'timeout' ? 0.8 : 1));
-    const title = { success: 'Case complete', death: 'The patient died', timeout: 'Time is up' }[outcome];
+    // Raw earned points by objective weight; no outcome multiplier. Death and timeout keep what was earned.
+    const res = scoreCase(cs.objectives, c.obj, outcome);
+    const score = res.score;
+    const title = { success: res.mastered ? 'Case mastered' : 'Case completed, not mastered', death: 'The patient died', timeout: 'Time is up' }[outcome];
     try { const best = JSON.parse(localStorage.getItem('pps.caseScores') || '{}'); best[cs.id] = Math.max(best[cs.id] || 0, score); localStorage.setItem('pps.caseScores', JSON.stringify(best)); } catch { /* storage unavailable */ }
-    addRecord({ kind: 'case', id: cs.id, title: cs.title, variant: seed, score, outcome, duration: c.t, met, total: cs.objectives.length,
-      objectives: cs.objectives.map((o) => ({ text: o.text, state: c.obj[o.id] })), answers: log.map((l) => `${fmtClock(l.t)} ${ACTIONS[l.id]?.label || l.id}`) });
+    addRecord({ kind: 'case', id: cs.id, title: cs.title, variant: seed, seed, score, outcome, duration: c.t, wallDuration: (Date.now() - wall0) / 1000, met, total: cs.objectives.length,
+      assessment: ASSESSMENT_VERSION, contentVersion: CONTENT_VERSION, completed: res.completed, mastered: res.mastered, failedCritical: res.failedCritical, weights: res.weights,
+      objectives: cs.objectives.map((o) => ({ id: o.id, text: o.text, state: c.obj[o.id], weight: res.weights[o.id], critical: !!o.critical })),
+      answers: log.map((l) => (l.key ? `${l.key}: ${l.correct ? 'correct' : 'incorrect'}` : `${fmtClock(l.t)} ${ACTIONS[l.id]?.label || l.id}`)) });
     const ring = (() => {
-      const r = 32, cc = 2 * Math.PI * r, col = score >= 80 ? 'var(--ok)' : score >= 50 ? 'var(--caution)' : 'var(--danger)';
+      const r = 32, cc = 2 * Math.PI * r, col = res.mastered ? 'var(--ok)' : score >= 50 ? 'var(--caution)' : 'var(--danger)';
       const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       svg.setAttribute('viewBox', '0 0 76 76'); svg.setAttribute('class', 'score-ring');
       svg.innerHTML = `<circle cx="38" cy="38" r="${r}" fill="none" stroke="var(--surface-3)" stroke-width="6"/><circle cx="38" cy="38" r="${r}" fill="none" stroke="${col}" stroke-width="6" stroke-linecap="round" stroke-dasharray="${(cc * score) / 100} ${cc}" transform="rotate(-90 38 38)"/><text x="38" y="44" text-anchor="middle" font-size="19" font-weight="600" fill="var(--text)" font-family="Inter, system-ui">${score}</text>`;
@@ -238,9 +281,11 @@ export function createCases({ root, api }) {
       });
     } else if (cs.counterfactual) cfEl.append(h('p', { class: 'sub' }, 'Your key decisions were already timely: there is no earlier decision to replay.'));
     const body = h('div', { class: 'debrief' },
-      h('div', { class: 'score' }, ring, h('div', {}, h('b', {}, cs.title), h('div', { class: 'sub' }, `${met} of ${cs.objectives.length} objectives met · clinical time ${fmtClock(c.t)} · variant ${seed}`))),
+      h('div', { class: 'score' }, ring, h('div', {}, h('b', {}, cs.title), h('div', { class: 'sub' }, `${met} of ${cs.objectives.length} objectives met · ${res.mastered ? 'mastered' : `not mastered (needs ${MASTERY} %${cs.objectives.some((o) => o.critical) ? ' and every critical objective' : ''})`}${res.failedCritical.length ? ` · critical missed: ${res.failedCritical.map((id) => cs.objectives.find((o) => o.id === id).text).join('; ')}` : ''} · simulated time ${fmtClock(c.t)} · variant ${seed}`))),
       h('h3', {}, 'Objectives'),
       h('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } }, cs.objectives.map((o) => h('div', { class: 'goal' + (c.obj[o.id] === 'met' ? ' met' : c.obj[o.id] === 'failed' ? ' failed' : ''), style: { marginBottom: 0 } }, h('span', { class: 'chk' }, svgIcon(c.obj[o.id] === 'failed' ? 'close' : 'check')), o.text))),
+      cs.quiz ? [h('h3', {}, 'Decision cards'), ...cs.quiz.map((qq, qi) => h('div', { class: 'goal ' + (c.quiz[qi] == null ? '' : c.quiz[qi] === qq.answer ? 'met' : 'failed'), style: { marginBottom: '6px', display: 'block' } },
+        h('b', {}, qq.q), h('div', {}, c.quiz[qi] == null ? 'Not answered.' : `You chose: ${qq.options[c.quiz[qi]]}${c.quiz[qi] === qq.answer ? '' : `. Best answer: ${qq.options[qq.answer]}`}`), qq.why ? h('div', { class: 'sub' }, qq.why) : null))] : null,
       h('h3', {}, 'Your decisions'),
       log.length ? h('div', { class: 'event-log' }, log.map((l) => h('div', { class: 'event-row', style: { gridTemplateColumns: '96px 1fr' } }, h('span', { class: 'when' }, fmtClock(l.t)), h('span', {}, ACTIONS[l.id]?.label || l.id)))) : h('p', { class: 'sub' }, 'No actions taken.'),
       cs.counterfactual ? [h('h3', {}, 'Counterfactual'), cfEl] : null,
@@ -279,6 +324,7 @@ export function createCases({ root, api }) {
       h('div', { class: 'mon', 'data-k': r.k, style: { '--mc': r.col } }, h('span', { class: 'ml' }, r.lbl, h('i', {}, r.unit)), h('b', { class: 'mv' }, '—'), h('canvas', { class: 'mt', width: 120, height: 26, 'aria-hidden': 'true' }))),
     h('div', { class: 'mon-status' }));
     const objs = h('div', { style: { display: 'flex', flexDirection: 'column', gap: '6px' } });
+    const results = h('div', { class: 'case-results', 'aria-live': 'polite', style: { display: 'flex', flexDirection: 'column', gap: '10px' } });
     const clock = h('b', {}, '0 min');
     const acts = h('div', { class: 'case-actions' }, cs.actions.map((id) => {
       const a = ACTIONS[id];
@@ -286,20 +332,42 @@ export function createCases({ root, api }) {
       b.addEventListener('click', () => {
         if (ctx.ended) return;
         if (a.once && log.some((l) => l.id === id)) return toast('Already done.');
+        if (a.max && log.filter((l) => l.id === id).length >= a.max) return toast(`Limit reached (${a.max}).`);
+        if (a.needs && !a.needs.some((n) => log.some((l) => l.id === n))) return toast('Identify the route first (Doppler or endoscopy).');
         const entry = { id, t: ctx.t };
         log.push(entry);
         a.run({ ...api, action: (x) => { entry.action = x; api.action(x); } });
+        if (a.card) {
+          // The card is a snapshot at order time. It is kept in the case panel and never refreshes.
+          const c = makeCtx(store.get().frame);
+          if (id === 'cbc') ctx.labHb = c.m.blood.hb;
+          liveEls.results.append(a.card(c, cs));
+        }
         entry.params = structuredClone(store.get().params);
+        ctx.renderDecisions?.();
         renderLive();
       });
       return b;
     }));
-    const quiz = cs.quiz ? h('div', {}, cs.quiz.map((qq, qi) => h('div', { style: { marginTop: '4px' } }, h('p', { class: 'q', style: { margin: '0 0 8px', fontWeight: 600, fontSize: 'var(--fs-14)' } }, qq.q),
-      h('div', { class: 'opts', style: { margin: '0 0 12px' } }, qq.options.map((o, i) => {
-        const b = h('button', { class: 'opt' }, h('span', { class: 'letter' }, 'ABCDE'[i]), h('span', {}, o));
-        b.addEventListener('click', () => { if (ctx.quiz[qi] != null) return; ctx.quiz[qi] = i; b.classList.add(i === qq.answer ? 'right' : 'wrong'); if (i !== qq.answer) b.parentElement.children[qq.answer].classList.add('right'); [...b.parentElement.children].forEach((x) => { x.disabled = true; }); log.push({ id: `Answer ${qi + 1}: ${o}`, t: ctx.t }); });
-        return b;
-      }))))) : null;
+    // Decision cards: one best answer each, the first committed answer is kept, and nothing is
+    // marked right or wrong until the debrief. A card may wait for an order (`requires`).
+    const decisions = h('div', { class: 'case-decisions' });
+    const renderDecisions = () => {
+      decisions.replaceChildren(...(cs.quiz || []).map((qq, qi) => {
+        const need = qq.requires || [];
+        if (need.some((n) => !log.some((l) => l.id === n))) return null;
+        const done = ctx.quiz[qi] != null;
+        return h('div', { style: { marginTop: '4px' } },
+          h('span', { class: 'rc-badge' }, qq.phase === 'sandbox' ? 'Physiology sandbox' : 'Clinical assessment'),
+          h('p', { class: 'q', style: { margin: '4px 0 8px', fontWeight: 600, fontSize: 'var(--fs-14)' } }, qq.q),
+          h('div', { class: 'opts', style: { margin: '0 0 12px' } }, qq.options.map((o, i) => h('button', { class: 'opt' + (ctx.quiz[qi] === i ? ' sel' : ''), disabled: done, 'aria-pressed': String(ctx.quiz[qi] === i),
+            onclick: () => { if (ctx.quiz[qi] != null) return; ctx.quiz[qi] = i; log.push({ id: `Answer ${qi + 1}: ${o}`, t: ctx.t, key: `case:${cs.id}:${qq.id || `q${qi + 1}`}`, correct: i === qq.answer }); renderDecisions(); renderLive(); } },
+          h('span', { class: 'letter' }, 'ABCDE'[i]), h('span', {}, o)))),
+          done ? h('p', { class: 'ctl-sub' }, 'Answer submitted. Feedback comes in the debrief.') : null);
+      }));
+    };
+    const quiz = decisions;
+    ctx.renderDecisions = renderDecisions;
     root.replaceChildren(
       h('div', { class: 'p-head case-head' }, h('div', { class: 'p-head-row' }, h('div', { class: 'p-title' }, h('span', { class: 'kicker' }, `Case · ${cs.level}`), h('h2', {}, cs.title)), h('button', { class: 'btn sm', onclick: exit }, 'Exit case'))),
       h('div', { class: 'p-body', style: { display: 'flex', flexDirection: 'column', gap: '14px', paddingTop: '14px' } },
@@ -307,10 +375,12 @@ export function createCases({ root, api }) {
         h('div', { class: 'case-clock' }, h('span', { class: 'overline' }, 'Clinical time'), clock, cs.variant ? h('span', { class: 'variant' }, `Variant ${seed}`) : null),
         vit,
         h('div', { class: 'subhead', style: { marginBottom: '-6px' } }, 'Orders'), acts,
+        results,
         quiz,
         h('div', { class: 'subhead', style: { marginBottom: '-6px' } }, 'Objectives'), objs,
         h('button', { class: 'btn block', onclick: () => finish(ctx.outcome || 'timeout') }, 'End case and debrief')));
-    liveEls = { vit, objs, clock, acts };
+    liveEls = { vit, objs, clock, acts, results, decisions };
+    renderDecisions();
     renderLive();
   }
 
@@ -325,10 +395,12 @@ export function createCases({ root, api }) {
     for (const r of MONITOR) {
       const el = liveEls.vit.querySelector(`[data-k="${r.k}"]`);
       const hide = r.hideKey && hidden?.has(r.hideKey);
-      const val = hide ? '?' : fmt(r.v(m), r.d);
+      const lab = hide && r.k === 'hb' && ctx.labHb != null; // a supplied count stays until re-ordered
+      const val = lab ? fmt(ctx.labHb, 1) : hide ? '?' : fmt(r.v(m), r.d);
       const vEl = el.querySelector('.mv');
       if (vEl.textContent !== val) vEl.textContent = val;
       el.classList.toggle('bad', !hide && r.bad(m));
+      el.classList.toggle('lab', !!lab);
       const cv = el.querySelector('canvas'), g = cv.getContext('2d'), a = hide ? [] : trend[r.k] || [];
       g.clearRect(0, 0, cv.width, cv.height);
       if (a.length > 1) {

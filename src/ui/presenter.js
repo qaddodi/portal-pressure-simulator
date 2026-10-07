@@ -7,7 +7,7 @@
 import { store } from './store.js?v=b8c56c0b3c';
 import { runSequence, restoreSequence } from './sequence.js?v=5245f3910a';
 import { h, toast, svgIcon, icon } from './util.js?v=8aa5e5cdf1';
-import { download } from './records.js?v=39559a8813';
+import { download } from './records.js?v=379d033371';
 
 export const SCRIPTS = [
   {
