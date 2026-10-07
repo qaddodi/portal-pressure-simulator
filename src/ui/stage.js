@@ -2984,16 +2984,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (sel?.type === 'node' && sel.id === id) return true;
     return (id === 'VAR' ? f.metrics.varix.d : f.metrics.gastricVarix.d) >= 2.5;
   }
-  // Where a leader meets its label: the middle of the label's left edge or of its top or bottom edge,
-  // whichever is nearest the station. Never the right edge, so the line does not run across the text.
-  function leaderEnd(r, ax, ay) {
+  // Where a leader stops: it aims at the middle of the label, as if it ran behind the text, and is
+  // cut off abruptly (no fade) at a small padding around the label's box.
+  function leaderEnd(r, ax, ay, pad = 6) {
     const cx = (r.x0 + r.x1) / 2, cy = (r.y0 + r.y1) / 2;
-    let best = null;
-    for (const [x, y] of [[r.x0, cy], [cx, r.y0], [cx, r.y1]]) {
-      const d = Math.hypot(x - ax, y - ay);
-      if (!best || d < best.d) best = { d, x, y };
-    }
-    return best;
+    const hw = (r.x1 - r.x0) / 2 + pad, hh = (r.y1 - r.y0) / 2 + pad;
+    const dx = ax - cx, dy = ay - cy;
+    const t = Math.min(dx ? hw / Math.abs(dx) : Infinity, dy ? hh / Math.abs(dy) : Infinity);
+    return t >= 1 ? { x: ax, y: ay } : { x: cx + dx * t, y: cy + dy * t };
   }
   let labelGridKey = '', labelGrid = new Map();
   const labelMem = new Map();
@@ -3100,9 +3098,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // The text hugs the station side of its reserved box.
       const slack = it.rot ? 0 : wRes - it.w, dir = best.dir;
       it.x = best.x + (dir.includes('W') ? slack : dir.includes('E') ? 0 : slack / 2);
-      it.y = best.y; it.dir = dir; it.leader = leader || best.far;
-      if (best.kept) { mem.w = wRes; if (!best.held) mem.hold = 0; }
-      else labelMem.set(it.key, { dir, gi: best.gi, w: wRes, x: best.x, y: best.y, ax: it.ax, ay: it.ay, ce: cx, cf: cy, ca: CTM.a, cb: CTM.b, far: best.far, hold: 0 });
+      it.y = best.y; it.dir = dir;
+      // A leader line shows only when the label sits clearly away from its station: it appears past
+      // 18 px and goes only below 10 px, so it cannot flicker as the view moves.
+      const rr = best.r, gapPx = Math.hypot(Math.max(rr.x0 - it.ax, 0, it.ax - rr.x1), Math.max(rr.y0 - it.ay, 0, it.ay - rr.y1));
+      const lead = gapPx > 18 || (!!mem?.lead && gapPx >= 10);
+      it.leader = !!leader || lead;
+      if (best.kept) { mem.w = wRes; mem.lead = lead; if (!best.held) mem.hold = 0; }
+      else labelMem.set(it.key, { dir, gi: best.gi, w: wRes, x: best.x, y: best.y, ax: it.ax, ay: it.ay, ce: cx, cf: cy, ca: CTM.a, cb: CTM.b, far: best.far, lead, hold: 0 });
       placed.push(best.r); out.push(it);
       return true;
     };
