@@ -2,10 +2,10 @@
 // Each factor that differs from the healthy state is reverted in isolation on a scratch engine;
 // its contribution is (current − reverted). Contributions are approximate: they need not sum exactly.
 
-import { Engine } from './engine.js?v=9074cedd1e';
-import { computeMetrics } from './metrics.js?v=0fe17172c9';
+import { Engine } from './engine.js?v=ea24545c27';
+import { computeMetrics } from './metrics.js?v=0d5add5e89';
 import { defaultParams, DRUGS } from './scenario.js?v=06164f9b2a';
-import { EDGES, dMinOf } from './topology.js?v=2645418934';
+import { EDGES, dMinOf } from './topology.js?v=dc393aabea';
 
 export const METRICS = {
   pv: { label: 'Portal pressure', unit: 'mmHg', get: (m) => m.pv, digits: 1 },

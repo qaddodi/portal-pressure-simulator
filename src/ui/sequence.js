@@ -6,7 +6,7 @@
 // extra disease days AFTER the patch, and observation seconds belong to the caller (hemodynamic time).
 
 import { store, updateParams, replaceParams } from './store.js?v=7acb60de12';
-import { host } from './host.js?v=b64500bbb7';
+import { host } from './host.js?v=7400e3a4ab';
 
 /**
  * @param step { preset?, presetDays?, params?, action?, days?, label? }

@@ -1,13 +1,13 @@
 // Instruments (blueprint §8.3, §9.4, §9.5, §6.4): endoscopy,
 // varix cross-section, abdomen.
 
-import { NODES } from '../engine/topology.js?v=2645418934';
+import { NODES } from '../engine/topology.js?v=dc393aabea';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { h, fmt, fitCanvas, cssVar, clamp, icon } from './util.js?v=8aa5e5cdf1';
 import { simTime, isPaused } from './clock.js?v=b9499717a6';
 import { createEndoGL } from './endo-gl.js?v=f27c0841b0';
 import { renderEndo } from './endo-render.js?v=5ad939cd04';
-import { FONT } from './charts.js?v=733ee62899';
+import { FONT } from './charts.js?v=d85be298b0';
 import { store, updateParams, logAction, varixSuppressed } from './store.js?v=7acb60de12';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

@@ -1,13 +1,13 @@
 // Lumped-parameter hemodynamic engine (blueprint §7).
 // Pure JS, no DOM: runs in a Web Worker, on the main thread, or in Node tests.
 
-import { NODES, EDGES, dMinOf, edgePresent, isOccluded, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=2645418934';
+import { NODES, EDGES, dMinOf, edgePresent, isOccluded, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=dc393aabea';
 import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=8b006eefeb';
 import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=06164f9b2a';
-import { detectEvents } from './events.js?v=f82ada9059';
+import { detectEvents } from './events.js?v=3d426d34b6';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };

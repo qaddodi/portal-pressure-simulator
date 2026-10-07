@@ -10,7 +10,7 @@
 
 import { store } from './store.js?v=7acb60de12';
 import { fmt, clamp } from './util.js?v=8aa5e5cdf1';
-import { EDGES, NODES } from '../engine/topology.js?v=2645418934';
+import { EDGES, NODES } from '../engine/topology.js?v=dc393aabea';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

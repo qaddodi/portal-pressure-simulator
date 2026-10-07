@@ -160,10 +160,11 @@ export const EDGES = [
 
   // Interventions (off unless enabled)
   { id: 'TIPS', from: 'RPV', to: 'RHV', kind: 'shunt', shunt: 'tips', len: 8, label: 'TIPS' },
-  // DIPS: a direct intrahepatic portosystemic shunt, right portal vein → the intrahepatic IVC, through the
+  // DIPS: a direct intrahepatic portosystemic shunt, from the proximal right portal vein (at the portal
+  // bifurcation, PVH, so it sits upstream of the PVH → RPV segment) → the intrahepatic IVC, through the
   // caudate lobe. It leaves the hepatic veins out altogether, so it is the option when they are blocked
   // (Budd–Chiari) and the cava below them is open. The IVC node is the one below the hepatic veins.
-  { id: 'DIPS', from: 'RPV', to: 'IVCI', kind: 'shunt', shunt: 'dips', label: 'DIPS' },
+  { id: 'DIPS', from: 'PVH', to: 'IVCI', kind: 'shunt', shunt: 'dips', label: 'DIPS' },
   { id: 'S_PC', from: 'CONF', to: 'IVCI', kind: 'shunt', shunt: 'portocaval', d: 14, label: 'Portocaval shunt' },
   { id: 'S_DSR', from: 'SV', to: 'LRV', kind: 'shunt', shunt: 'dsrs', d: 9, label: 'Distal splenorenal (Warren) shunt' },
   { id: 'S_MC', from: 'SMV', to: 'IVCI', kind: 'shunt', shunt: 'mesocaval', d: 10, label: 'Mesocaval shunt' },
@@ -174,7 +175,7 @@ export const EDGES = [
 // opens it; params.customShunts[id] holds its diameter in mm.
 export const SHUNT_PORTAL = ['SMV', 'IMV', 'SV', 'LGV', 'CONF', 'PVH', 'RPV', 'LPV', 'VAR', 'GV'];
 export const SHUNT_SYSTEMIC = ['RHV', 'MHV', 'LHV', 'IVCI', 'IVCS', 'SVC', 'AZY', 'ILI', 'LRV'];
-const NAMED_SHUNTS = new Set(['RPV>RHV', 'RPV>IVCI', 'RPV>IVCS', 'CONF>IVCI', 'SV>LRV', 'SMV>IVCI']);
+const NAMED_SHUNTS = new Set(['RPV>RHV', 'PVH>IVCI', 'RPV>IVCS', 'CONF>IVCI', 'SV>LRV', 'SMV>IVCI']);
 const nodeLabel = (id) => { const n = NODES.find((x) => (Array.isArray(x) ? x[0] : x.id) === id); return Array.isArray(n) ? n[1] : n?.label || id; };
 export const customShuntId = (p, q) => `X_${p}_${q}`;
 for (const p of SHUNT_PORTAL) for (const q of SHUNT_SYSTEMIC) {

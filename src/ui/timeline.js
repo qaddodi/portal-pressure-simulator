@@ -12,9 +12,9 @@
 // switch, undo/redo/reset, the Findings list, the Log instrument and Compare mode.
 
 import { store, replaceParams, onParamChange } from './store.js?v=7acb60de12';
-import { host } from './host.js?v=b64500bbb7';
+import { host } from './host.js?v=7400e3a4ab';
 import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=8aa5e5cdf1';
-import { activeInterventions } from './inspector.js?v=4a9205a057';
+import { activeInterventions } from './inspector.js?v=920c4310e9';
 
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };
 export const EVENT_WHY = { VARIX_RUPTURE: 'varix', RED_WALE: 'varix', VARIX_LARGE: 'varix', HEPATOFUGAL_PV: 'pvFlow', PV_STASIS: 'pvFlow', CSPH: 'hvpg', BLEED_RISK: 'hvpg', ASCITES_FORMING: 'ascites', TENSE_ASCITES: 'ascites', HIGH_SHUNT: 'shunt', LIVER_HYPOPERFUSION: 'liverPerf', RA_HIGH: 'ra', HYPERDYNAMIC: 'co', SPLENOMEGALY: 'spleen' };
