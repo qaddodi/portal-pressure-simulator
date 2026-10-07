@@ -262,7 +262,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return (u) => 1 - v * Math.exp(-(((u - u0) / sig) ** 2));
   }
 
-  const nodePos = (id, t) => { const [a, c] = NODE_POS[id]; return [lerp(a[0], c[0], t), lerp(a[1], c[1], t)]; };
+  // Polyline helpers for the catheter: the drawn centerline (geo[id].cur), cut at a length fraction.
+  const headOf = (pts, f) => {
+    const L = pts.reduce((n, q, i) => n + (i ? Math.hypot(q[0] - pts[i - 1][0], q[1] - pts[i - 1][1]) : 0), 0);
+    let run = 0; const out = [pts[0]];
+    for (let i = 1; i < pts.length; i++) {
+      const seg = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+      if (seg > 0 && run + seg >= f * L) { const u = (f * L - run) / seg; out.push([lerp(pts[i - 1][0], pts[i][0], u), lerp(pts[i - 1][1], pts[i][1], u)]); return out; }
+      run += seg; out.push(pts[i]);
+    }
+    return out;
+  };
+  // The wedge station sits inside the small peripheral hepatic vein branch, on its drawn centerline.
+  const WEDGE_BRANCH = { W_R: 'POST_R_RHV', W_M: 'POST_R_MHV', W_L: 'POST_L_LHV' };
+  const wedgeTip = (id) => { const c = geo[WEDGE_BRANCH[id]]?.cur; return c?.length > 1 ? headOf(c.slice().reverse(), 0.55).at(-1) : null; };
+  const nodePos = (id, t) => { if (WEDGE_BRANCH[id]) { const w = wedgeTip(id); if (w) return w; } const [a, c] = NODE_POS[id]; return [lerp(a[0], c[0], t), lerp(a[1], c[1], t)]; };
   // The point half way along a drawn vessel, by length, and the direction it runs there.
   function arcMid(pts) {
     let total = 0;
@@ -2698,18 +2712,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (p.catheter.vein) {
       const hv = { R: 'RHV', M: 'MHV', L: 'LHV' }[p.catheter.vein];
       const tip = nodePos('W_' + p.catheter.vein, t);
-      // The catheter runs inside the lumen: SVC → right atrium → IVC, then out along the hepatic
-      // vein's own drawn curve (anatomy) or its straight circuit line, blended by the morph t.
-      const N = (id) => nodePos(id, t);
-      const [sx, sy] = N('SVC'), [rx, ry] = N('RA'), [ix, iy] = N('IVCS'), [hx, hy] = N(hv);
-      const bez = (P, u) => { const m = 1 - u; return [0, 1].map((k) => m * m * m * P[0][k] + 3 * m * m * u * P[1][k] + 3 * m * u * u * P[2][k] + u * u * u * P[3][k]); };
-      const HVC = { R: [[[610, 208], [590, 232], [545, 240], [500, 246]], [[500, 246], [484, 262], [466, 280], [446, 296]]],
-        M: [[[610, 232], [600, 256], [575, 272], [548, 282]], [[548, 282], [516, 292], [480, 298], [446, 296]]],
-        L: [[[630, 214], [646, 226], [664, 232], [690, 232]], [[690, 232], [706, 242], [722, 252], [738, 262]]] }[p.catheter.vein];
-      const pts = [[sx, sy - 90], [sx, sy], [rx, ry], [ix, iy]];
-      for (let k = 0; k <= 8; k++) { const u = k / 8, a = bez(HVC[0], u), c = [ix + (hx - ix) * u, iy + (hy - iy) * u]; pts.push([a[0] + (c[0] - a[0]) * t, a[1] + (c[1] - a[1]) * t]); }
-      for (let k = 1; k <= 3; k++) { const u = 0.4 * k / 3, a = bez(HVC[1], u), c = [hx + (tip[0] - hx) * u / 0.4, hy + (tip[1] - hy) * u / 0.4]; pts.push([a[0] + (c[0] - a[0]) * t, a[1] + (c[1] - a[1]) * t]); }
-      pts.push(tip);
+      // The catheter runs on the drawn centerlines: SVC → right atrium → down the cava to the
+      // junction → out the hepatic vein → into its peripheral branch, ending at the wedge station.
+      const v = p.catheter.vein, rev = (a) => a.slice().reverse();
+      const C = (id) => geo[id]?.cur;
+      const hvE = C({ R: 'RHV_IVC', M: 'MHV_IVC', L: 'LHV_IVC' }[v]), brE = C(WEDGE_BRANCH['W_' + v]), svc = C('SVC_RA'), ra = C('IVCS_RA'), cava = C('IVC_IS');
+      let pts;
+      if (hvE && brE && svc && ra && cava) {
+        const j = hvE.at(-1);
+        let k = 0, best = Infinity;
+        cava.forEach((q, i) => { const dd = Math.hypot(q[0] - j[0], q[1] - j[1]); if (dd < best) { best = dd; k = i; } });
+        pts = [[svc[0][0], svc[0][1] - 90], ...svc, ...rev(ra), ...rev(cava.slice(k)), ...rev(hvE), ...headOf(rev(brE), 0.55)];
+      } else {
+        const [sx, sy] = nodePos('SVC', t), [rx, ry] = nodePos('RA', t), [ix, iy] = nodePos('IVCS', t), [hx, hy] = nodePos(hv);
+        pts = [[sx, sy - 90], [sx, sy], [rx, ry], [ix, iy], [hx, hy], tip];
+      }
       const d = 'M' + pts.map((q) => `${q[0].toFixed(1)} ${q[1].toFixed(1)}`).join(' L ');
       ov.catheter.append(s('path', { d, class: 'catheter' }));
       ov.catheter.append(s('circle', { cx: tip[0], cy: tip[1], r: p.catheter.wedged ? 7 : 3, class: 'balloon-shape' }));
