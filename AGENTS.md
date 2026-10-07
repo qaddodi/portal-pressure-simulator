@@ -24,7 +24,11 @@ Work happens in the cloud; previews are published to GitHub Pages.
 
 Loop for every change (fast previews first, full tests before merge):
 1. Make the change and run only `npm run lint && npm test` (seconds). Do not run the browser
-   checks (`npm run smoke`) or `npm run check` locally at this stage.
+   checks (`npm run smoke`) or `npm run check` locally at this stage. For any UI change, also
+   take screenshots of the intended behaviour in the running app before pushing: phone
+   (390x844, deviceScaleFactor 3), iPad and desktop where the change applies. Check them
+   against the request, and do not report a fix as done without that check. Keep the
+   screenshots outside the repo (the scratchpad).
 2. Commit and push to the preview branch. Check the "Pages (live site + preview)" deploy job
    finished (GitHub Actions tools), then tell the owner the preview URL. Do not wait for the
    browser-check job; glance at it later and mention any failure, but it does not block testing.
