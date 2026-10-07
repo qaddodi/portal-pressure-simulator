@@ -163,9 +163,9 @@ export const EDGE_PATH = {
   AP_R: 'M655 478 C 612 470 552 432 505 398',
   AP_L: 'M655 478 C 668 440 680 405 688 378',
   TIPS: 'M505 398 C 486 352 552 294 540 240',   // a gentle S through the parenchyma, portal → hepatic vein
-  // DIPS: a short angled tract from the right portal branch, just off the bifurcation, through the caudate lobe,
+  // DIPS: a short angled tract from the right portal vein, the same inlet as TIPS, through the caudate lobe,
   // ending in the lumen of the IVC (its centreline) below the hepatic vein confluence. Both ends sit in vessels.
-  DIPS: 'M572 429 C 588 402 602 356 620 302',
+  DIPS: 'M505 398 C 548 386 596 352 620 302',
   S_PC: 'M700 556 C 682 590 652 625 620 650',
   S_DSR: 'M880 505 C 862 548 852 590 862 618',
   S_MC: 'M690 660 C 672 650 645 648 620 650',
@@ -258,11 +258,12 @@ export const CIRCUIT_PATH = {
   // own (clear of the right lobe's lane and of the right hepatic vein's last stretch, which it
   // used to run on top of) and drops into the right hepatic vein from above.
   TIPS: route([[680, 303], [680, 246], [1000, 246], [1000, 282]], 14),
-  // DIPS: its own lane round the outside of the liver. It leaves the right portal branch just off the
-  // bifurcation, runs above the TIPS lane and below the zone captions along the top (LIVER stops near y 95),
-  // then comes down the right of the cava and enters its wall below the hepatic vein inflow. It crosses
-  // the AZY → SVC and suprahepatic IVC → RA veins, both at right angles.
-  DIPS: route([[652, 304], [652, 104], [1156, 104], [1156, 384], [1120, 420]], 16),
+  // DIPS: its own lane round the outside of the liver. It leaves the right portal vein at the same node as
+  // TIPS, steps left so it runs apart from the TIPS leg, then goes up and runs above the TIPS lane and below
+  // the zone captions along the top (LIVER stops near y 95). It comes down the right of the cava and enters
+  // the IVC just above IVCI, below the hepatic veins. It crosses the AZY → SVC and suprahepatic IVC → RA veins,
+  // both at right angles.
+  DIPS: route([[680, 303], [652, 303], [652, 104], [1156, 104], [1156, 384], [1120, 420]], 16),
   // Branches that leave (or join) one station split right at it, as on a transit map, instead
   // of sharing a stretch of track and forking part-way along.
   PVH_R: route([[580, 345], [622, 303], [680, 303]], 12),
