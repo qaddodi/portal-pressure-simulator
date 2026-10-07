@@ -207,7 +207,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   });
 
   await check(device, 'lesson and case deep links', async (page) => {
-    await open(page, '?lesson=valveless');
+    await open(page, '?lesson=portal-flow');
     await page.waitForFunction(() => (document.querySelector('#coach')?.textContent.length > 20) || (document.querySelector('#panelLesson')?.textContent.length > 20));
     await open(page, '?case=bleed');
     await page.waitForFunction(() => document.querySelector('#panelCase')?.textContent.length > 20);
