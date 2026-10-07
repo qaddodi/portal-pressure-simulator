@@ -17,12 +17,13 @@ export const shearSpeed = (kpa) => Math.sqrt((kpa * 1000) / 3000);
 
 /** Smooth value noise on a coarse grid, bilinearly sampled. */
 function noiseField(w, hh, cell, seed) {
-  const r = rnd(seed), gw = Math.ceil(w / cell) + 2, gh = Math.ceil(hh / cell) + 2;
+  const r = rnd(seed), gw = Math.ceil(w / cell), gh = Math.ceil(hh / cell); // periodic: any coordinate wraps seamlessly
   const g = Array.from({ length: gw * gh }, r);
   return (x, y) => {
-    const fx = x / cell, fy = y / cell, ix = Math.floor(fx), iy = Math.floor(fy);
-    const tx = fx - ix, ty = fy - iy, sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
-    const a = g[iy * gw + ix], b = g[iy * gw + ix + 1], c = g[(iy + 1) * gw + ix], d = g[(iy + 1) * gw + ix + 1];
+    const fx = x / cell, fy = y / cell, fix = Math.floor(fx), fiy = Math.floor(fy);
+    const tx = fx - fix, ty = fy - fiy, sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+    const ix = ((fix % gw) + gw) % gw, iy = ((fiy % gh) + gh) % gh, jx = (ix + 1) % gw, jy = (iy + 1) % gh;
+    const a = g[iy * gw + ix], b = g[iy * gw + jx], c = g[jy * gw + ix], d = g[jy * gw + jx];
     return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
   };
 }
@@ -40,18 +41,17 @@ function fields() {
   return FIELDS;
 }
 
-/** Draw one frame of the elastogram into `ctx2` for shear speed c (m/s) at time t (s). Noise is mixed
- *  between two fixed fields with slowly turning weights, so the speckle evolves coherently, with no
- *  jumps or fades. Time 0-80 ms across, depth 30-90 mm down; the bands lie along the wave front, with
+/** Draw one frame of the elastogram into `ctx2` for shear speed c (m/s) at time t (s). The speckle streams along the wave front
+ *  and is mixed between fixed fields as it goes, so it evolves coherently: opaque every frame, no fades. Time 0-80 ms across, depth 30-90 mm down; the bands lie along the wave front, with
  *  one dominant dark band whose edge the fitted line follows. */
 function drawElastogram(ctx2, img, c, t) {
-  const F = fields(), th1 = t * 0.45, th2 = t * 0.7 + 1, th3 = t * 0.9 + 2;
+  const F = fields(), th1 = t * 1.3, th2 = t * 1.9 + 1, th3 = t * 2.3 + 2;
   const c1 = Math.cos(th1), s1 = Math.sin(th1), c2 = Math.cos(th2), s2 = Math.sin(th2), c3 = Math.cos(th3), s3 = Math.sin(th3);
-  const d = img.data;
+  const d = img.data, flowY = t * 22, flowX = t * 9; // the speckle streams along the front, so it reads as motion, not a dissolve
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
     const tMs = (x / N) * 80, depth = 30 + (y / N) * 60;
     const s = tMs - WAVE_T0 - (depth - 35) / c;
-    const across = (s / 80) * N * 1.6 + N * 1.7, along = y * 0.65 + N * 0.6;
+    const across = (s / 80) * N * 1.6 + N * 1.7 + flowX, along = y * 0.65 + N * 0.6 + flowY;
     const a = 0.5 + (F.a1(across, along) - 0.5) * c1 + (F.a2(across, along) - 0.5) * s1;
     const b = 0.5 + (F.b1(across * 1.4, along) - 0.5) * c2 + (F.b2(across * 1.4, along) - 0.5) * s2;
     const jit = (0.5 + (F.p1(across, along) - 0.5) * c3 + (F.p2(across, along) - 0.5) * s3 - 0.5) * 2.2;
