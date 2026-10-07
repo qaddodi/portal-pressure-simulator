@@ -13,8 +13,8 @@ import { EDGES } from '../engine/topology.js?v=80b8d861de';
 const ACTIONS = {
   crystalloid: { label: '1 L crystalloid', run: (a) => a.action({ kind: 'infuse', fluid: 'crystalloid' }) },
   prbc: { label: 'Transfuse 1 unit PRBC', run: (a) => a.action({ kind: 'infuse', fluid: 'prbc' }) },
-  terlipressin: { label: 'Terlipressin', toggle: (p) => p.drugs.terlipressin, run: () => updateParams((p) => { p.drugs.terlipressin = !p.drugs.terlipressin; return p; }, { label: 'Terlipressin' }) },
-  octreotide: { label: 'Octreotide', toggle: (p) => p.drugs.octreotide, run: () => updateParams((p) => { p.drugs.octreotide = !p.drugs.octreotide; return p; }, { label: 'Octreotide' }) },
+  terlipressin: { label: 'Terlipressin', toggle: (p) => p.drugs.terlipressin, run: () => updateParams((p) => { p.drugs.terlipressin = !p.drugs.terlipressin; if (p.drugs.terlipressin) p.drugs.octreotide = false; return p; }, { label: 'Terlipressin' }) },
+  octreotide: { label: 'Octreotide', toggle: (p) => p.drugs.octreotide, run: () => updateParams((p) => { p.drugs.octreotide = !p.drugs.octreotide; if (p.drugs.octreotide) p.drugs.terlipressin = false; return p; }, { label: 'Octreotide' }) },
   ceftriaxone: { label: 'Ceftriaxone (prophylaxis)', once: true, run: () => toast('Antibiotic prophylaxis given: reduces infection, rebleeding and mortality.') },
   evl: { label: 'Endoscopy + band ligation', run: (a) => { a.action({ kind: 'band' }); a.showPane('endoscopy'); } },
   balloon: { label: 'Balloon tamponade', toggle: (p) => p.balloonEso, run: () => updateParams((p) => { p.balloonEso = !p.balloonEso; return p; }, { label: 'Balloon' }) },
@@ -26,7 +26,7 @@ const ACTIONS = {
   hemodynamics: { label: 'Review supplied catheter pressures', once: true, card: (c) => hemodynamicsCard(c.m, c.params), run: () => {} },
   'vascular-imaging': { label: 'Review vascular imaging', once: true, card: (c, cs) => vascularCard(c.params, cs), run: () => {} },
   eligibility: { label: 'Review supplied clinical assessment', once: true, card: (c, cs) => factsCard(cs.facts), run: () => {} },
-  cbc: { label: 'Initial blood count', once: true, card: (c) => resultCard('Blood count', 'Laboratory result · simulated', [['Hemoglobin', `${fmt(c.m.blood.hb, 1)} g/dL`, 'at the time of the order']]), run: () => {} },
+  cbc: { label: 'Initial blood count', once: true, card: (c) => resultCard('Blood count', 'Laboratory result · simulated', [['Hemoglobin', `${fmt(c.m.blood.hb, 1)} g/dL`, 'at the time of the order']], ['This is a supplied result, stored once. Early hemoglobin may remain near baseline during acute blood loss.']), run: () => {} },
   brto: { label: 'Demonstrate C5 closure', once: true, needs: ['doppler', 'endoscopy'], run: () => updateParams((p) => { p.occluded.C5 = true; return p; }, { label: 'BRTO' }) },
   'follow-up': { label: 'Advance model follow-up 30 days', max: 2, run: () => host.send({ type: 'advance', days: 30 }) },
   echo: { label: 'Echocardiogram', once: true, card: (c, cs) => echoCard(c.m, c.params, cs), run: () => { const hs = store.get().hiddenReadouts; hs?.delete('ra'); store.set({ hiddenReadouts: new Set(hs || []) }); } },
@@ -209,41 +209,69 @@ export const CASES = [
     debrief: (c) => `The block was ${['prehepatic', 'presinusoidal', 'postsinusoidal (small-vessel outflow)', 'in the hepatic-vein outlets', 'in the caval outlet'][c.cs.loc]}. The decisive study showed: ${c.cs.imaging}\n\nA low HVPG does not exclude a prehepatic or presinusoidal block, and an occluded hepatic vein does not provide a valid clinical wedge measurement. Vascular treatment requires assessment that this simulator does not contain. Variant: ${c.cs.vid}.`,
   },
   {
-    id: 'bleed', title: 'Night shift: hematemesis', level: 'Acute care',
-    summary: 'A 54-year-old with decompensated alcohol-related cirrhosis vomits blood. HR climbing, MAP falling.',
-    preset: 'cirr-decomp', speed: 6, hidden: ['trueHVPG', 'pv'], tools: ['select', 'endoscope', 'balloon'],
-    actions: ['crystalloid', 'prbc', 'terlipressin', 'octreotide', 'ceftriaxone', 'evl', 'balloon', 'tips8'],
+    id: 'bleed', title: 'Night shift: suspected variceal bleeding', level: 'Acute care',
+    summary: 'A 54-year-old with cirrhosis vomits blood. Assess resuscitation needs, start the initial treatment bundle and arrange safe endoscopic control. The bedside data are simulated.',
+    preset: 'cirr-decomp', speed: 6, hidden: DX_HIDDEN, tools: ['select', 'endoscope', 'balloon'],
+    actions: ['eligibility', 'cbc', 'crystalloid', 'prbc', 'terlipressin', 'octreotide', 'ceftriaxone', 'endoscopy', 'evl', 'balloon', 'tips8'],
     // Each attempt is a variant: tear size and how long the patient bled before arrival differ,
-    // so the numbers can't be passed around. The pre-roll makes the opening vitals match the story.
-    variant: (r) => ({ tear: 0.65 + 0.3 * r(), preroll: 120 + Math.round(180 * r()) }),
+    // and the supplied risk card is one of two histories. The pre-roll makes the opening vitals match the story.
+    variant: (r) => ({ tear: 0.65 + 0.3 * r(), preroll: 120 + Math.round(180 * r()), risk: r() < 0.5 ? 'high' : 'standard' }),
     setup: (a, v) => a.action({ kind: 'rupture', site: 'VAR', tear: v.tear ?? 0.8 }),
     counterfactual: true,
+    build: (c, v) => {
+      const high = v.risk === 'high';
+      c.facts = [high ? 'The supplied clinical team assessment is Child-Pugh C, 12 points. This is an authored clinical score, not computed from model values. Review current guidance for pre-emptive treatment after initial control.'
+        : 'The supplied clinical team assessment is Child-Pugh A, 6 points. This is an authored clinical score. A bleeding event alone does not make pre-emptive TIPS obligatory.'];
+      c.esc = high ? 'escalation-high' : 'escalation-standard';
+      return [
+        Q('airway-perfusion', 'What should be addressed immediately in this active hematemesis scenario?', ['Airway assessment, perfusion and the suspected-variceal-bleed bundle', 'Wait for Hb below 7 g/dL before any assessment', 'Treat the falling portal pressure as successful decompression'], 0, 'Clinical instability and ongoing bleeding matter before a count falls. Airway intervention itself is outside the model.'),
+        Q('transfusion', 'For usual variceal-bleed care, which transfusion approach fits the evidence?', ['A restrictive usual Hb target around 7 to 8 g/dL, individualized for ongoing bleeding and clinical circumstances', 'Raise every patient’s Hb above 10 g/dL', 'Never transfuse while active bleeding continues'], 0, 'Restrictive evidence is not an absolute prohibition on urgent resuscitation.'),
+        Q('transfusion-context', 'True or false: early Hb alone does not determine resuscitation needs.', ['True', 'False'], 0, 'Hb can stay near baseline early in acute bleeding.'),
+        { ...(high ? Q('escalation-high', 'After initial control in this supplied high-risk case, what remains to discuss?', ['Pre-emptive TIPS eligibility and timing using current guidance', 'Only rescue therapy if a new bleed occurs', 'No prevention because EVL worked'], 0, 'High-risk patients are considered for early TIPS under current guidance.', REQ)
+          : Q('escalation-standard', 'Which plan fits the supplied standard-risk assessment?', ['Appropriate secondary prevention and further clinical assessment, without automatic pre-emptive TIPS', 'Mandatory pre-emptive TIPS for every controlled bleed', 'No follow-up'], 0, 'A bleed alone does not make pre-emptive TIPS obligatory.', REQ)), when: 'stable' },
+        { ...Q('bridge', 'What role does balloon tamponade have in the model’s acute-care discussion?', ['A temporary bridge while definitive care is arranged', 'A cure of cirrhosis', 'A simulated covered esophageal stent'], 0, 'The newer bridge recommendation is on the shared update card, and the stent is outside the model.'), when: 'stable' },
+      ];
+    },
     refs: ['de Franchis R, et al. Baveno VII: renewing consensus in portal hypertension. J Hepatol 2022;76:959–74.', 'Kaplan DE, et al. AASLD Practice Guidance on risk stratification and management of portal hypertension and varices in cirrhosis. Hepatology 2024;79:1180–1211.', 'Villanueva C, et al. Transfusion strategies for acute upper gastrointestinal bleeding. N Engl J Med 2013;368:11–21.'],
     objectives: [
-      { id: 'vaso', weight: 20, text: 'Start a vasoactive drug within 10 minutes', check: (c) => (c.first('terlipressin', 'octreotide') != null && c.first('terlipressin', 'octreotide') <= 600 ? 'met' : c.t > 600 ? 'failed' : null) },
-      { id: 'abx', weight: 10, text: 'Give antibiotic prophylaxis', check: (c) => (c.first('ceftriaxone') != null ? 'met' : null) },
-      { id: 'map', weight: 20, critical: true, text: 'Keep MAP ≥ 65 mmHg (after the first 5 minutes)', check: (c) => (c.t > 300 && c.m.map < 60 ? 'failed' : c.ended && !c.failedMap ? 'met' : null) },
-      { id: 'restrict', weight: 15, text: 'Restrictive transfusion: don’t push Hb above 9 g/dL', check: (c) => (c.maxHbAfterTx > 9.5 ? 'failed' : c.ended ? 'met' : null) },
-      { id: 'evl', weight: 15, text: 'Endoscopic therapy within 30 minutes', check: (c) => (c.first('evl') != null && c.first('evl') <= 1800 ? 'met' : c.t > 1800 ? 'failed' : null) },
-      { id: 'stop', weight: 20, critical: true, final: true, text: 'Control the bleeding', check: (c) => (!c.f.bleed.active ? 'met' : null) },
+      { id: 'airway-perfusion', weight: 10, text: 'Address airway and perfusion first', check: (c) => c.qid('airway-perfusion') },
+      { id: 'vaso', weight: 20, critical: true, text: 'Start a vasoactive drug within 10 minutes (a gameplay target)', check: (c) => (c.first('terlipressin', 'octreotide') != null && c.first('terlipressin', 'octreotide') <= 600 ? 'met' : c.t > 600 ? 'failed' : null) },
+      { id: 'antibiotic', weight: 15, text: 'Decide on antibiotic prophylaxis within 10 minutes', check: (c) => (c.first('ceftriaxone') != null && c.first('ceftriaxone') <= 600 ? 'met' : c.t > 600 ? 'failed' : null) },
+      { id: 'endoscopic', weight: 20, critical: true, text: 'Endoscopic control by 30 minutes (a gameplay target; guidance allows up to 12 h after resuscitation)', check: (c) => (c.first('evl') != null && c.first('evl') <= 1800 ? 'met' : c.t > 1800 ? 'failed' : null) },
+      { id: 'control', weight: 15, critical: true, final: true, text: 'Control the bleeding with MAP ≥ 65 mmHg held for 5 minutes', check: (c) => (!c.f.bleed.active && c.mapOkFor >= 300 ? 'met' : null) },
+      { id: 'transfusion', weight: 10, text: 'Restrictive transfusion strategy, judged in context', check: (c) => (c.qid('transfusion') === 'met' && c.qid('transfusion-context') === 'met' ? 'met' : c.qid('transfusion') && c.qid('transfusion-context') ? 'failed' : null) },
+      { id: 'escalation', weight: 10, text: 'Plan pre-emptive or standard prevention, and name the balloon as a bridge', check: (c) => (c.qid(c.cs.esc) === 'met' && c.qid('bridge') === 'met' ? 'met' : c.qid(c.cs.esc) && c.qid('bridge') ? 'failed' : null) },
     ],
-    end: (c) => (c.m.map < 45 && c.lowFor > 60 ? 'death' : !c.f.bleed.active && c.stableFor > 300 ? 'success' : c.t > 3600 ? 'timeout' : null),
-    debrief: (c) => `Blood lost: ${Math.round(c.f.metrics.blood.lost)} mL. Lowest MAP ${Math.round(c.minMap)} mmHg. Max portal pressure ${fmt(c.maxPV, 1)} mmHg.\n\nKey physiology: variceal bleeding lowers portal pressure (hypovolemia) and the bleeding may pause. Over-transfusion refills the splanchnic veins and raises portal pressure again, which provokes rebleeding. That is why the transfusion target is Hb ~7–8 g/dL. Vasoactive drugs lower portal inflow within minutes. Band ligation removes the bleeding source. Pre-emptive TIPS (≤ 72 h) benefits high-risk patients (Child C < 14 or B > 7 with active bleeding).`,
+    end: (c) => (c.m.map < 45 && c.lowFor > 60 ? 'death' : c.stable && c.quizDone() ? 'success' : c.t > 3600 ? 'timeout' : null),
+    debrief: (c) => { const t = (id) => { const x = c.first(...id); return x == null ? 'not given' : fmtClock(x); };
+      return `You started vasoactive therapy at ${t(['terlipressin', 'octreotide'])}, antibiotic prophylaxis at ${t(['ceftriaxone'])} and endoscopic control at ${t(['evl'])}. Model blood loss was ${Math.round(c.f.metrics.blood.lost)} mL and the lowest MAP ${Math.round(c.minMap)} mmHg.\n\nPortal pressure can fall during blood loss because circulating volume falls. That is not a successful treatment effect. Banding controlled the local esophageal source in this model.\n\nYour supplied clinical-risk card supported ${c.cs.esc === 'escalation-high' ? 'a pre-emptive TIPS discussion' : 'standard post-bleed prevention'}. The model cannot reproduce the clinical survival benefit of that decision. Gameplay time targets are not guideline thresholds.`; },
   },
   {
-    id: 'refractory', title: 'Refractory ascites: TIPS or not?', level: 'Management',
-    summary: 'Tense ascites despite diuretics, paracenteses every 2 weeks. Decide on decompression without tipping the patient into encephalopathy.',
-    preset: 'cirr-decomp', days: 200, variant: (r) => ({ days: 150 + Math.round(110 * r()) }), prep: (p) => { p.diuretics = false; return p; },
-    refs: ['Bureau C, et al. Transjugular intrahepatic portosystemic shunts with covered stents increase transplant-free survival of patients with cirrhosis and recurrent ascites. Gastroenterology 2017;152:157–63.', 'Wang Q, et al. Comparison of 8 mm vs 10 mm covered TIPS stents. J Hepatol 2017;67:508–16.'], speed: 1, hidden: ['trueHVPG'], tools: ['select', 'needle', 'stent'],
-    actions: ['paracentesis', 'diuretics', 'tips8', 'tips10', 'carvedilol'],
-    objectives: [
-      { id: 'iap', weight: 25, final: true, text: 'Relieve intra-abdominal hypertension (IAP < 10 mmHg)', check: (c) => (c.m.ascites.iap < 10 ? 'met' : null) },
-      { id: 'ppg', weight: 25, final: true, text: 'Bring the direct portal–systemic gradient below 12 mmHg (the usual TIPS target)', check: (c) => (c.m.ppg < 12 ? 'met' : null) },
-      { id: 'he', weight: 25, text: 'Keep the shunt fraction below 70 % (encephalopathy)', check: (c) => (c.m.shuntFraction > 0.7 && c.params.tips.on ? 'failed' : c.ended ? 'met' : null) },
-      { id: 'perf', weight: 25, text: 'Keep liver perfusion above 50 %', check: (c) => (c.m.liverPerfPct < 50 && c.params.tips.on ? 'failed' : c.ended ? 'met' : null) },
+    id: 'refractory', title: 'Recurrent ascites: assess decompression', level: 'Management',
+    summary: 'A 61-year-old needs repeated paracenteses despite attempted medical management. Review the supplied clinical assessment, relieve symptoms and compare a portal bypass with continued fluid management.',
+    preset: 'cirr-decomp', afterDays: 180, prep: (p) => { p.diuretics = false; return p; },
+    refs: ['Bureau C, et al. Transjugular intrahepatic portosystemic shunts with covered stents increase transplant-free survival of patients with cirrhosis and recurrent ascites. Gastroenterology 2017;152:157–63.', 'Wang Q, et al. Comparison of 8 mm vs 10 mm covered TIPS stents. J Hepatol 2017;67:508–16.'], speed: 1, hidden: DX_HIDDEN, tools: ['select', 'needle', 'stent'],
+    actions: ['eligibility', 'cbc', 'ascitic', 'echo', 'paracentesis', 'diuretics', 'tips8', 'tips10', 'follow-up'],
+    gates: { tips8: 'selection', tips10: 'selection', 'follow-up': 'selection' },
+    variants: [
+      { vid: 'evaluate', sel: 0, facts: ['This fictional patient’s clinical team has reviewed cardiac status, renal/liver assessment and baseline cognition, and supports completing elective TIPS evaluation for recurrent ascites. These findings are supplied, not derived from the model. A procedural decision still requires specialist review.'], kind: 'further TIPS evaluation' },
+      { vid: 'defer', sel: 1, facts: ['An external clinical assessment reports severe right-ventricular dysfunction and significant tricuspid regurgitation. Defer elective portal bypass while the cardiac problem is assessed. This supplied clinical study is not the model’s generic echo estimate.'], kind: 'deferral for cardiac assessment' },
     ],
-    end: (c) => (c.params.tips.on && c.m.ppg < 12 && c.m.ascites.iap < 10 && c.t > 30 ? 'success' : null),
-    debrief: (c) => `Final PPG ${fmt(c.m.ppg, 1)} mmHg, shunt fraction ${Math.round(c.m.shuntFraction * 100)} %, liver perfusion ${Math.round(c.m.liverPerfPct)} %.\n\nSmaller covered stents (8 mm) often reach the PPG target with a lower shunt fraction and less encephalopathy than 10 mm stents. Resistance scales with d⁴, so a 10 mm stent has ~2.4× the conductance of an 8 mm stent. Large-volume paracentesis needs albumin (8 g/L) to prevent circulatory dysfunction.`,
+    build: (c) => [
+      Q('selection', 'Which plan fits the supplied clinical assessment?', ['Complete specialist TIPS evaluation alongside ascites management', 'Defer elective TIPS and assess the significant cardiac problem while managing symptoms', 'Choose TIPS solely because the displayed gradient is high'], c.sel, 'Eligibility cannot be inferred from this model’s pressure reduction.', REQ),
+      { ...Q('relief-alternative', 'If you defer the modeled drainage action, what is still needed for distressing recurrent fluid?', ['A documented clinical symptom-management plan and reassessment', 'No symptom plan if TIPS is being discussed', 'Assume high pressure proves fluid was removed'], 0, 'This is an outside-model plan answer, not a claim that symptom relief occurred.'), skipIf: (n) => n('paracentesis') > 0 },
+      Q('comparison', 'Which comparison is appropriate when evaluating a portal bypass?', ['Pressure, flow distribution, downstream load and supplied clinical eligibility together', 'PPG alone, with a universal ascites target below 12 mmHg', 'Shunt fraction as an encephalopathy diagnosis'], 0, 'No single displayed number selects a bypass.'),
+      { ...Q('follow-up', 'How should ascites response be assessed?', ['Over time, with clinical renal and cognitive assessment outside this model', 'From immediate PPG alone', 'From a single wall-stress percentage'], 0, 'Ascites response is longitudinal.'), skipIf: (n) => n('follow-up') > 0 },
+    ],
+    objectives: [
+      { id: 'assessment', weight: 25, critical: true, text: 'Review the supplied clinical assessment before the plan', check: (c) => { const f = c.first('eligibility'), a = c.ansAt('selection'); return f != null && (a == null || f <= a) ? 'met' : a != null ? 'failed' : null; } },
+      { id: 'relief', weight: 20, final: true, text: 'Relieve the fluid (volume falls, IAP no higher), or give a symptom plan', check: (c) => { const e = c.log.find((l) => l.id === 'paracentesis'); return e ? (c.m.ascites.volume < e.pre.vol && c.m.ascites.iap <= e.pre.iap + 0.01 ? 'met' : null) : c.qid('relief-alternative') === 'met' ? 'met' : null; } },
+      { id: 'selection', weight: 25, critical: true, text: 'Choose the plan the supplied assessment supports', check: (c) => c.qid('selection') },
+      { id: 'comparison', weight: 20, text: 'Weigh pressure, flow, downstream load and eligibility together', check: (c) => c.qid('comparison') },
+      { id: 'follow-up', weight: 10, text: 'Review model follow-up, or state that response is longitudinal', check: (c) => (c.first('follow-up') != null || c.qid('follow-up') === 'met' ? 'met' : null) },
+    ],
+    end: (c) => (c.quizDone() ? 'success' : c.t > 1200 ? 'timeout' : null),
+    debrief: (c) => { const e = c.log.find((l) => l.id === 'paracentesis'); return `${e ? `You relieved about ${Math.round(Math.max(0, e.pre.vol - c.m.ascites.volume))} mL of modeled ascites and changed IAP from ${fmt(e.pre.iap, 1)} to ${fmt(c.m.ascites.iap, 1)} mmHg.` : 'You did not drain fluid in the model.'} Your supplied clinical card supported ${c.cs.kind}.\n\nA lower gradient is one physiological effect. It does not establish a safe elective procedure. The displayed shunt fraction and sinusoidal-flow percentage do not diagnose encephalopathy or liver failure. Variant: ${c.cs.vid}.`; },
   },
 ];
 
@@ -287,8 +315,9 @@ export function createCases({ root, api }) {
     variant = cs.variant ? cs.variant(rngOf(seed)) : {};
     await api.loadPreset(cs.preset, { keepLesson: true, days: variant.days ?? cs.days });
     if (cs.prep) updateParams(cs.prep, { history: false });
+    if (cs.afterDays) { host.send({ type: 'advance', days: cs.afterDays }); host.send({ type: 'settle' }); await host.request('snapshot'); }
     if (cs.params) updateParams(cs.params, { history: false });
-    cs.quiz = [...(cs.quiz || []), ...(cs.build?.(cs) || []), ...(cs.quizTail || [])];
+    cs.quiz = [...(cs.quiz || []), ...(cs.build?.(cs, variant) || []), ...(cs.quizTail || [])];
     if (!cs.quiz.length) cs.quiz = undefined;
     const vis = visibilityOf(cs);
     store.set({ hiddenReadouts: vis.hidden, hiddenEvents: vis.events, lastHVPG: null, locked: new Set(['!cirrhosis']), imaging: vis.imaging });
@@ -310,7 +339,7 @@ export function createCases({ root, api }) {
 
   function makeCtx(f) {
     const c = ctx;
-    c.f = f; c.cs = cs; c.m = f.metrics; c.params = store.get().params;
+    c.f = f; c.cs = cs; c.log = log; c.m = f.metrics; c.params = store.get().params;
     if (c.t0 == null) c.t0 = f.t;
     c.t = Math.max(0, f.t - c.t0);
     c.first = (...ids) => { const x = log.find((l) => ids.includes(l.id)); return x ? x.t : null; };
@@ -318,7 +347,7 @@ export function createCases({ root, api }) {
     c.ansAt = (id) => log.find((l) => l.key === `case:${cs.id}:${id}`)?.t;
     c.count = (id) => log.filter((l) => l.id === id).length;
     c.qid = (id) => { const i = cs.quiz.findIndex((q) => q.id === id); return i < 0 ? null : c.quizState(i); };
-    c.quizDone = () => cs.quiz && cs.quiz.every((_, i) => c.quiz[i] != null);
+    c.quizDone = () => cs.quiz && cs.quiz.every((q, i) => c.quiz[i] != null || q.skipIf?.(c.count));
     return c;
   }
 
@@ -334,6 +363,9 @@ export function createCases({ root, api }) {
     c.lowFor = c.m.map < 45 ? c.lowFor + 0.25 * cs.speed : 0;
     c.stableFor = !f.bleed.active && c.m.map > 60 ? c.stableFor + 0.25 * cs.speed : 0;
     if (c.t > 300 && c.m.map < 60) c.failedMap = true;
+    c.mapOkFor = c.m.map >= 65 ? (c.mapOkFor || 0) + 0.25 * cs.speed : 0;
+    // Acute cases: once the bleed is controlled and MAP has held, the physiology freezes and the decision phase opens.
+    if (cs.id === 'bleed' && !c.stable && !f.bleed.active && c.mapOkFor >= 300) { c.stable = true; host.send({ type: 'run', running: false }); ctx.renderDecisions?.(); toast('Bleeding controlled. Physiology is frozen: answer the remaining questions.'); }
     // Event objectives latch once met or failed. `final` objectives describe the end state, so a
     // moment of meeting them never counts: they show their current state and are judged at finish.
     for (const o of cs.objectives) {
@@ -365,7 +397,7 @@ export function createCases({ root, api }) {
       alt.push({ t: 600, action: { kind: 'band' } });
       out.push({ label: 'had the varices been banded at minute 10', alt });
     }
-    if (log.some((l) => l.id === 'prbc') && ctx.maxHbAfterTx > 9) out.push({ label: 'without the transfusions', alt: plan.filter((x) => !(x.action?.kind === 'infuse' && x.action.fluid === 'prbc')) });
+    // Resuscitation orders stay identical in every compared run; no 'without transfusion' alternative is offered.
     return { actual: plan, alts: out };
   }
 
@@ -473,7 +505,8 @@ export function createCases({ root, api }) {
         const gate = cs.gates?.[id];
         if (gate && ctx.quiz[cs.quiz.findIndex((q) => q.id === gate)] == null) return toast('Commit your plan first.');
         if (a.needs && !a.needs.some((n) => log.some((l) => l.id === n))) return toast('Identify the route first (Doppler or endoscopy).');
-        const entry = { id, t: ctx.t };
+        const m0 = store.get().frame?.metrics;
+        const entry = { id, t: ctx.t, pre: m0 ? { vol: m0.ascites.volume, iap: m0.ascites.iap } : null };
         log.push(entry);
         a.run({ ...api, action: (x) => { entry.action = x; api.action(x); } });
         if (a.card) {
@@ -495,6 +528,8 @@ export function createCases({ root, api }) {
       decisions.replaceChildren(...(cs.quiz || []).map((qq, qi) => {
         const need = qq.requires || [];
         if (need.some((n) => !log.some((l) => l.id === n))) return null;
+        if (qq.when === 'stable' && !ctx.stable) return null;
+        if (qq.skipIf?.((id) => log.filter((l) => l.id === id).length) && ctx.quiz[qi] == null) return null;
         const done = ctx.quiz[qi] != null;
         return h('div', { style: { marginTop: '4px' } },
           h('span', { class: 'rc-badge' }, qq.phase === 'sandbox' ? 'Physiology sandbox' : 'Clinical assessment'),
@@ -517,7 +552,7 @@ export function createCases({ root, api }) {
         results,
         quiz,
         h('div', { class: 'subhead', style: { marginBottom: '-6px' } }, 'Objectives'), objs,
-        h('button', { class: 'btn block', onclick: () => finish(ctx.outcome || (cs.quiz?.length && cs.quiz.every((_, i) => ctx.quiz[i] != null) ? 'success' : 'timeout')) }, 'End case and debrief')));
+        h('button', { class: 'btn block', onclick: () => finish(ctx.outcome || (cs.quiz?.length && cs.quiz.every((q, i) => ctx.quiz[i] != null || q.skipIf?.((id) => log.filter((l) => l.id === id).length)) ? 'success' : 'timeout')) }, 'End case and debrief')));
     liveEls = { vit, objs, clock, acts, results, decisions };
     renderDecisions();
     renderLive();

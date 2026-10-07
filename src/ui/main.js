@@ -9,14 +9,14 @@ import { createDock, CUTOFFS } from './dock.js?v=f76000e2db';
 import { createWhy } from './why.js?v=c4a18b6fa7';
 import { createTimeline } from './timeline.js?v=09687b3571';
 import { createLearn } from './learn.js?v=2cce2a3b50';
-import { createCases } from './cases.js?v=3fd3f9e9b7';
+import { createCases } from './cases.js?v=fc247e9226';
 import { createCompare } from './compare.js?v=7f52956925';
 import { createCard } from './card.js?v=b12d04d9d2';
 import { createChart, computeFindings } from './chart.js?v=cc9401e41a';
-import { createHome } from './home.js?v=b97a98463b';
+import { createHome } from './home.js?v=4f5ca8f7e8';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=4559972273';
-import { startLMS } from './lms.js?v=55c2c34f63';
+import { startLMS } from './lms.js?v=99d787925c';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=d458e79194';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
@@ -141,7 +141,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=17dd7671c9'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=14387d347f'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
