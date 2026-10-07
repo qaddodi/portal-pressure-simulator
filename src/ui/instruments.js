@@ -5,8 +5,8 @@ import { NODES } from '../engine/topology.js?v=80b8d861de';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { h, fmt, fitCanvas, cssVar, clamp, icon } from './util.js?v=8aa5e5cdf1';
 import { renderEndo } from './endo-render.js?v=bf2e2c5cc2';
-import { FONT } from './charts.js?v=0630f760fe';
-import { store, updateParams, logAction, varixSuppressed } from './store.js?v=18136433f8';
+import { FONT } from './charts.js?v=4d3388c419';
+import { store, updateParams, logAction, varixSuppressed } from './store.js?v=6209f4be01';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 

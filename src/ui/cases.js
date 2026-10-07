@@ -2,14 +2,14 @@
 // a bedside monitor, orders, one visibility map for what the clinician cannot know, randomized
 // variants, and a printable debrief with a counterfactual replayed in a separate engine.
 
-import { store, updateParams } from './store.js?v=18136433f8';
+import { store, updateParams } from './store.js?v=6209f4be01';
 import { host } from './host.js?v=7e09ccd8cf';
 import { h, fmt, openModal, closeModal, toast, svgIcon } from './util.js?v=8aa5e5cdf1';
 import { addRecord, exportCSV, exportXAPI } from './records.js?v=5f3cebd762';
 import { scoreCase, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=c8570af624';
 import { measureView } from './measure-model.js?v=089f10544e';
 import { EDGES } from '../engine/topology.js?v=80b8d861de';
-import { trustLine, blindOn, blindOff, optionList, compareChip, bindQuestionKeys, MODEL_ONLY_EVENTS } from './learning-kit.js?v=00000000';
+import { trustLine, blindOn, blindOff, optionList, compareChip, bindQuestionKeys, MODEL_ONLY_EVENTS } from './learning-kit.js?v=0a363167b2';
 
 const ACTIONS = {
   crystalloid: { label: '1 L crystalloid', run: (a) => a.action({ kind: 'infuse', fluid: 'crystalloid' }) },

@@ -5,9 +5,9 @@
 // per day). Changes the learner makes and threshold events are marked where they happened, and
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
-import { store } from './store.js?v=18136433f8';
+import { store } from './store.js?v=6209f4be01';
 import { h, fmt, fitCanvas, cssVar, clamp } from './util.js?v=8aa5e5cdf1';
-import { FONT } from './charts.js?v=0630f760fe';
+import { FONT } from './charts.js?v=4d3388c419';
 
 // hide: the readout a case can keep unmeasured (store.hiddenReadouts); day: the value on the
 // disease clock (null where the model keeps no daily value).
