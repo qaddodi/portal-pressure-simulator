@@ -4,6 +4,7 @@
 import { NODES } from '../engine/topology.js?v=80b8d861de';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { h, fmt, fitCanvas, cssVar, clamp, icon } from './util.js?v=8aa5e5cdf1';
+import { createEndoGL } from './endo-gl.js?v=81781fa9ce';
 import { renderEndo } from './endo-render.js?v=93154c1b51';
 import { FONT } from './charts.js?v=898c42e2f5';
 import { store, updateParams, logAction, varixSuppressed } from './store.js?v=b742a09e9e';
@@ -45,7 +46,17 @@ export function createEndoscopy({ onAction }) {
   // winding varices, drawn once per state into a cached bitmap, so it is perfectly steady. Balloon,
   // bleeding and the scope mask are drawn on top.
   const rnd = (seed) => { let x = seed >>> 0; return () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; }; };
-  let peak = 0, disp = { g: -1, v: 0 }, last = null, raf = 0, bleedT = 0, cache = { key: '', img: null };
+  const gl = createEndoGL();
+  let peak = 0, an = null, lastT = 0, last = null, raf = 0, bleedT = 0, cache = { key: '', img: null };
+  // An eased tween toward a target value: cur follows from -> to over dur ms after a delay.
+  const tw = (v) => ({ v, from: v, to: v, t0: 0, dur: 1, delay: 0, cur: v });
+  const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+  function tween(t, target, now, dur, delay) {
+    if (target !== t.to) { t.from = t.cur; t.to = target; t.t0 = now; t.dur = dur; t.delay = delay; }
+    const k = Math.min(1, Math.max(0, (now - t.t0 - t.delay) / t.dur));
+    t.cur = t.from + (t.to - t.from) * ease(k); t.v = t.cur;
+    return k < 1 && t.cur !== t.to;
+  }
   function draw(f, vx) {
     const { ctx, w, h: hh } = fitCanvas(cv);
     if (w < 32 || hh < 32) return; // hidden/reflowing canvas: wait for its measured size
@@ -58,23 +69,42 @@ export function createEndoscopy({ onAction }) {
     // so unbanded columns keep the size seen before the first band.
     const gNow = clamp((vx.d - 2) / 10, 0, 1);
     peak = bands > 0 ? Math.max(peak, gNow) : gNow;
-    // Varices grow and shrink smoothly: size and visibility ease toward the model's value, drawn at
-    // a lower resolution while moving (sharp once settled).
     const tg = peak, tv = bands > 0 ? 1 : clamp((vx.d - 2) / 0.8, 0, 1);
     last = { f, vx };
-    if (disp.g < 0) disp = { g: tg, v: tv };
-    const moving = Math.abs(disp.g - tg) > 0.004 || Math.abs(disp.v - tv) > 0.004;
-    if (moving) {
-      disp = { g: disp.g + (tg - disp.g) * 0.1, v: disp.v + (tv - disp.v) * 0.1 };
-      if (!raf) raf = requestAnimationFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
-    } else disp = { g: tg, v: tv };
-    const full = clamp(Math.round(2 * R * (window.devicePixelRatio || 1)), 160, 300);
-    const res = moving ? Math.min(full, 150) : full;
-    const gq = Math.round(disp.g * (moving ? 60 : 14)) / (moving ? 60 : 14), vq = Math.round(disp.v * 40) / 40;
-    const key = [res, gq.toFixed(3), vq, bands, vx.redWale ? 1 : 0].join('|');
-    if (cache.key !== key) cache = { key, img: renderEndo(res, { grow: gq, bands, vis: vq, redWale: !!vx.redWale }) };
+    const now = performance.now(), dt = Math.min(0.05, Math.max(0, (now - lastT) / 1000)); lastT = now;
+    // Targets: each column is deflated and knuckled once banded (the 4 bands fill columns in turn).
+    const defT = [0, 0, 0, 0], knT = new Array(16).fill(0);
+    for (let c = 0; c < 4; c++) {
+      const nb = Math.floor(bands / 4) + (c < bands % 4 ? 1 : 0);
+      defT[c] = nb > 0 ? 1 : 0;
+      for (let k = 0; k < Math.min(nb, 4); k++) knT[c * 4 + k] = 1;
+    }
+    if (!an) {
+      an = { g: tg, v: tv, def: defT.map((x) => tw(x)), kn: knT.map((x) => tw(x)) };
+      an.def.forEach((t, i) => { t.v = defT[i]; }); an.kn.forEach((t, i) => { t.v = knT[i]; });
+    }
+    // Size and presence follow the model continuously (critically damped, ~0.2 s); banding plays a
+    // slower eased tween: the vein deflates first, the knuckle and band follow.
+    const kf = 1 - Math.exp(-dt / 0.2);
+    an.g += (tg - an.g) * kf; an.v += (tv - an.v) * kf;
+    if (Math.abs(tg - an.g) < 0.0008) an.g = tg;
+    if (Math.abs(tv - an.v) < 0.0008) an.v = tv;
+    let busy = an.g !== tg || an.v !== tv;
+    for (let c = 0; c < 4; c++) busy = tween(an.def[c], defT[c], now, 1100, 0) || busy;
+    for (let i = 0; i < 16; i++) busy = tween(an.kn[i], knT[i], now, 800, knT[i] > an.kn[i].v ? 350 : 0) || busy;
+    if (busy && !raf) raf = requestAnimationFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
+    const res = clamp(Math.round(2 * R * (window.devicePixelRatio || 1)), 160, 480);
+    let img;
+    if (gl) img = gl.render(res, { grow: an.g, vis: an.v, red: !!vx.redWale, def: an.def.map((t) => t.cur), kn: an.kn.map((t) => t.cur) });
+    else {
+      // No WebGL: the CPU renderer draws the target state without transitions.
+      const r2 = Math.min(res, 300), gq = Math.round(tg * 14) / 14;
+      const key = [r2, gq, bands, vx.redWale ? 1 : 0, Math.round(tv * 10)].join('|');
+      if (cache.key !== key) cache = { key, img: renderEndo(r2, { grow: gq, bands, vis: tv, redWale: !!vx.redWale }) };
+      img = cache.img;
+    }
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(cache.img, cx - R, cy - R, 2 * R, 2 * R);
+    ctx.drawImage(img, cx - R, cy - R, 2 * R, 2 * R);
     if (f.params?.balloonEso) {
       const g = ctx.createRadialGradient(cx - R * 0.2, cy - R * 0.2, R * 0.1, cx, cy, R * 0.85);
       g.addColorStop(0, 'rgba(255, 250, 225, .55)'); g.addColorStop(1, 'rgba(235, 215, 160, .35)');
