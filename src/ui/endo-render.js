@@ -48,7 +48,7 @@ function makeColumns(grow, bands) {
       amp: 0.03 + 0.28 * grow,
       zb: [],
     };
-    for (let k = 0; k < Math.min(nb, 4); k++) col.zb.push(2.1 * Math.pow(1.45, k));
+    for (let k = 0; k < Math.min(nb, 4); k++) col.zb.push(2.8 * Math.pow(1.4, k));
     // A banded column is strangulated: its own vein deflates (the knuckle stands where it was).
     col.ampK = col.amp;
     if (nb > 0) { col.amp *= 0.3; col.w0 *= 0.8; col.vk = 0.45; }

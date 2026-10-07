@@ -80,7 +80,7 @@ float field(float th, float z, out float vein, out float uu, out float cc, out f
     for (int k = 0; k < 4; k++) {
       float kn = uKn[c * 4 + k];
       if (kn > 0.001) {
-        float zb = 2.1 * pow(1.45, float(k));
+        float zb = 2.8 * pow(1.4, float(k));
         float wp = w0full * 0.8 * 1.5 + 0.06, lp = wp * zb * 0.95;
         float dd = wrapPi(th - centreOf(c, zb));
         float dz = z - zb;

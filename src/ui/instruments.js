@@ -5,8 +5,8 @@ import { NODES } from '../engine/topology.js?v=80b8d861de';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { h, fmt, fitCanvas, cssVar, clamp, icon } from './util.js?v=8aa5e5cdf1';
 import { simTime, isPaused } from './clock.js?v=debc03416c';
-import { createEndoGL } from './endo-gl.js?v=43e05fd596';
-import { renderEndo } from './endo-render.js?v=93154c1b51';
+import { createEndoGL } from './endo-gl.js?v=f27c0841b0';
+import { renderEndo } from './endo-render.js?v=5ad939cd04';
 import { FONT } from './charts.js?v=898c42e2f5';
 import { store, updateParams, logAction, varixSuppressed } from './store.js?v=b742a09e9e';
 
@@ -54,6 +54,7 @@ export function createEndoscopy({ onAction }) {
   const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
   function tween(t, target, now, dur, delay) {
     if (target !== t.to) { t.from = t.cur; t.to = target; t.t0 = now; t.dur = dur; t.delay = delay; }
+    if (t.dur <= 1) { t.cur = t.v = t.to; return false; } // snap
     const k = Math.min(1, Math.max(0, (now - t.t0 - t.delay) / t.dur));
     t.cur = t.from + (t.to - t.from) * ease(k); t.v = t.cur;
     return k < 1 && t.cur !== t.to;
@@ -92,8 +93,9 @@ export function createEndoscopy({ onAction }) {
     if (Math.abs(tg - an.g) < 0.0008) an.g = tg;
     if (Math.abs(tv - an.v) < 0.0008) an.v = tv;
     let busy = an.g !== tg || an.v !== tv;
-    for (let c = 0; c < 4; c++) busy = tween(an.def[c], defT[c], now, 1100, 0) || busy;
-    for (let i = 0; i < 16; i++) busy = tween(an.kn[i], knT[i], now, 800, knT[i] > an.kn[i].v ? 350 : 0) || busy;
+    // Sequence: the band snaps on instantly, then (after a beat) the vein deflates smoothly.
+    for (let c = 0; c < 4; c++) busy = tween(an.def[c], defT[c], now, 1200, defT[c] > an.def[c].to ? 350 : 0) || busy;
+    for (let i = 0; i < 16; i++) busy = tween(an.kn[i], knT[i], now, 1, 0) || busy;
     if (busy && !raf && !isPaused()) raf = requestAnimationFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
     const res = clamp(Math.round(2 * R * (window.devicePixelRatio || 1)), 160, 480);
     let img;
