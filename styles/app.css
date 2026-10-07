@@ -1260,7 +1260,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .ac-toggle[aria-checked="true"] .switch-vis { background: var(--accent); }
 .ac-toggle[aria-checked="true"] .switch-vis i { transform: translateX(12px); }
 .ac-toggle[data-key]::after { order: 3; }
-.ac-about { font-size: var(--fs-12); line-height: 1.5; color: var(--text-2); }
+.ac-about { order: 99; font-size: var(--fs-12); line-height: 1.5; color: var(--text-2); }
 .ac-about p { margin: 0 0 6px; } .ac-about p:last-child { margin-bottom: 0; }
 .ac-about p + p { color: var(--text); }
 .ac-note { font-size: var(--fs-12); color: var(--text-2); line-height: 1.45; padding: 4px 2px 0; }

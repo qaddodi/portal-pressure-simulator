@@ -300,9 +300,20 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   }
   function infoI(text) { const b = h('button', { class: 'info-i', type: 'button', 'aria-label': text }, icon('info')); tooltipFor(b, text); return b; }
 
+  let dragEl = null;
+  el.addEventListener('pointerdown', (e) => { dragEl = e.target.closest?.('input[type=range], .ac-btn, .ac-toggle, .seg button') || null; });
+  const dragEnd = () => { dragEl = null; };
+  addEventListener('pointerup', dragEnd, true); addEventListener('pointercancel', dragEnd, true);
+
   function update() {
     if (!model || el.hidden) return;
+    // The control in use stays exactly where it is: if text came or went above it, scroll the card back by the difference.
+    const t0 = dragEl ? dragEl.getBoundingClientRect().top : 0;
     for (const fn of live) fn();
+    if (dragEl) {
+      const d = dragEl.getBoundingClientRect().top - t0, sc = el.querySelector('.ac-scroll');
+      if (d && sc) sc.scrollTop += d;
+    }
     position();
   }
 
