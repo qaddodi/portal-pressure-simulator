@@ -2698,11 +2698,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (p.catheter.vein) {
       const hv = { R: 'RHV', M: 'MHV', L: 'LHV' }[p.catheter.vein];
       const tip = nodePos('W_' + p.catheter.vein, t);
-      const [hx, hy] = nodePos(hv, t);
-      const [ix, iy] = nodePos('IVCS', t);
-      const [rx, ry] = nodePos('RA', t);
-      const [sx, sy] = nodePos('SVC', t);
-      const d = `M${sx} ${sy - 90} L ${sx} ${sy} L ${rx} ${ry} L ${ix} ${iy} L ${hx} ${hy} L ${tip[0]} ${tip[1]}`;
+      // The catheter runs inside the lumen: SVC → right atrium → IVC, then out along the hepatic
+      // vein's own drawn curve (anatomy) or its straight circuit line, blended by the morph t.
+      const N = (id) => nodePos(id, t);
+      const [sx, sy] = N('SVC'), [rx, ry] = N('RA'), [ix, iy] = N('IVCS'), [hx, hy] = N(hv);
+      const bez = (P, u) => { const m = 1 - u; return [0, 1].map((k) => m * m * m * P[0][k] + 3 * m * m * u * P[1][k] + 3 * m * u * u * P[2][k] + u * u * u * P[3][k]); };
+      const HVC = { R: [[[610, 208], [590, 232], [545, 240], [500, 246]], [[500, 246], [484, 262], [466, 280], [446, 296]]],
+        M: [[[610, 232], [600, 256], [575, 272], [548, 282]], [[548, 282], [516, 292], [480, 298], [446, 296]]],
+        L: [[[630, 214], [646, 226], [664, 232], [690, 232]], [[690, 232], [706, 242], [722, 252], [738, 262]]] }[p.catheter.vein];
+      const pts = [[sx, sy - 90], [sx, sy], [rx, ry], [ix, iy]];
+      for (let k = 0; k <= 8; k++) { const u = k / 8, a = bez(HVC[0], u), c = [ix + (hx - ix) * u, iy + (hy - iy) * u]; pts.push([a[0] + (c[0] - a[0]) * t, a[1] + (c[1] - a[1]) * t]); }
+      for (let k = 1; k <= 3; k++) { const u = 0.4 * k / 3, a = bez(HVC[1], u), c = [hx + (tip[0] - hx) * u / 0.4, hy + (tip[1] - hy) * u / 0.4]; pts.push([a[0] + (c[0] - a[0]) * t, a[1] + (c[1] - a[1]) * t]); }
+      pts.push(tip);
+      const d = 'M' + pts.map((q) => `${q[0].toFixed(1)} ${q[1].toFixed(1)}`).join(' L ');
       ov.catheter.append(s('path', { d, class: 'catheter' }));
       ov.catheter.append(s('circle', { cx: tip[0], cy: tip[1], r: p.catheter.wedged ? 7 : 3, class: 'balloon-shape' }));
     }
