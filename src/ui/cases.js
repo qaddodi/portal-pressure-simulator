@@ -5,8 +5,8 @@
 import { store, updateParams } from './store.js?v=18136433f8';
 import { host } from './host.js?v=7e09ccd8cf';
 import { h, fmt, openModal, closeModal, toast, svgIcon } from './util.js?v=8aa5e5cdf1';
-import { addRecord, exportCSV, exportXAPI } from './records.js?v=379d033371';
-import { scoreCase, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=a4326ba599';
+import { addRecord, exportCSV, exportXAPI } from './records.js?v=5f3cebd762';
+import { scoreCase, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=c8570af624';
 import { measureView } from './measure-model.js?v=089f10544e';
 import { EDGES } from '../engine/topology.js?v=80b8d861de';
 

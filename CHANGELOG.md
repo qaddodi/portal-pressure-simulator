@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Curriculum rewrite, batches 5 to 8.** Lessons *sinistral*, *heart* and *costs* are rewritten and *vascular-patterns* is
+  new (12 lessons). Cases: new *prevention*, *vascular*; *gastric* has a local and a cirrhotic variant; *cardiac* is
+  restored; *bleed* and *refractory* are rewritten (6 cases). Cases open with the history behind an order, pressures and
+  Hb hidden until ordered, supplied clinical cards labelled outside the model, weighted objectives and 80 % mastery with
+  critical objectives. The bleed replay no longer offers a “without transfusions” alternative. Presenter scripts stay shelved.
 - **Doppler display modes.** Measure → Doppler replaces “Direction color” with a pill that cycles Spectrum, Color and
   Variance. The spectral trace is drawn in the scanner's map 1: Color in flat bands (orange toward the probe, blue away),
   Variance orange → yellow (toward) or purple → green (away) from laminar to turbulent. Invert swaps toward/away.
