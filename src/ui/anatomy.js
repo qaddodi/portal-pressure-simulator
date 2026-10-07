@@ -146,16 +146,16 @@ export const EDGE_PATH = {
   C1a: 'M821 318 C 814 296 804 272 802 250 C 800 220 798 180 795 140 C 793 110 790 86 789 66',
   // Above them the varices drain over the heart into the azygos arch (crossing behind the SVC).
   C1b: 'M789 66 C 784 44 764 26 736 18 C 700 10 650 12 622 18 C 602 22 586 25 574 30',
-  C2: 'M880 505 C 890 462 912 420 922 380 C 930 344 910 308 876 302',
+  C2: 'M880 505 C 890 462 912 420 922 380 C 928 344 912 312 876 302',
   C3: 'M688 378 C 668 440 646 520 620 600 C 590 690 540 760 500 800',
   // Superior rectal veins: down beside the sigmoid to the anorectum, where they break up into
   // submucosal anorectal varices (see STRANDS) and fade out toward the pelvis.
-  C4: 'M932 690 C 944 770 922 828 874 856 C 840 874 810 882 796 898 C 789 907 787 916 786 928',
+  C4: 'M932 690 C 944 770 922 828 874 856 C 840 872 806 886 786 928',
   // Leaves the fundus in a gentle curve and runs down clear of the coronary vein, easing into
   // the left renal vein.
   C5: 'M876 302 C 864 318 854 340 852 380 C 850 460 852 560 858 596 C 860 606 861 612 862 618',
   C6: 'M880 505 C 880 548 874 590 862 618',
-  C7: 'M690 660 C 668 676 640 670 620 650',
+  C7: 'M690 660 C 667 666 640 658 620 650',
   C8: 'M700 556 C 695 520 650 470 602 442',
   // Ascending lumbar veins → the ascending azygos, up to its arch.
   C9: 'M620 650 C 584 604 566 500 564 400 C 562 300 564 230 566 172 C 563 120 561 70 565 50 C 567 40 570 34 574 30',
