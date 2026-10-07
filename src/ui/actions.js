@@ -3,11 +3,11 @@
 // palette, lessons and cases all call these same verbs, so each change is made one way and lands
 // in the timeline as one entry.
 
-import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=c9c36d1829';
+import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=80b8d861de';
 import { store, updateParams } from './store.js?v=b8c56c0b3c';
 import { fmt, fmtFlow, clamp, toast } from './util.js?v=8aa5e5cdf1';
-import { aboutVessel, aboutOrgan } from './about.js?v=5b6a06e6fd';
-import { lobuleState } from './lobule-model.js?v=8874b4b7e8';
+import { aboutVessel, aboutOrgan } from './about.js?v=421024102c';
+import { lobuleState } from './lobule-model.js?v=c4f41a94a3';
 import { LABEL_VESSEL } from './anatomy.js?v=bf7e57c024';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
