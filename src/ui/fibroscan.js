@@ -9,7 +9,16 @@ import { FONT } from './charts.js?v=898c42e2f5';
 
 const WAVE_T0 = 8; // ms: the shear wave reaches the top of the window about 8 ms after the push
 const ORANGE = '#f0924a';
-const PANEL = '#0a0c0f', EDGE = 'rgba(255,255,255,.10)', TICK = '#8b95a3';
+// Colours come from the app's theme tokens (light or dark), re-read about once a second.
+let theme = null, themeAt = 0;
+function colors(now) {
+  if (!theme || now - themeAt > 1000) {
+    const cs = getComputedStyle(document.documentElement), g = (n, d) => cs.getPropertyValue(n).trim() || d;
+    theme = { panel: g('--surface-2', '#1B2438'), edge: g('--border', '#2a3550'), tick: g('--text-3', '#8F99B3'), text: g('--text-2', '#A9B2C7') };
+    themeAt = now;
+  }
+  return theme;
+}
 const rnd = (seed) => { let x = seed >>> 0; return () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; }; };
 
 /** Shear wave speed (m/s) from stiffness E (kPa): E = 3 ρ c², ρ about 1000 kg/m³. */
@@ -74,8 +83,8 @@ function rrect(ctx, x, y, w, h2, r) {
 export function createFibroScan() {
   const cv = h('canvas', { role: 'img', 'aria-label': 'Simulated FibroScan elastography panel, live' });
   const box = h('div', { class: 'chart-box fibroscan-box' }, cv);
-  const note = h('p', { class: 'ctl-sub', style: { color: TICK, margin: '10px 4px 2px' } }, 'A simulated FibroScan, live: the slope of the shear wave front gives its speed and so the stiffness. It is an estimate from the model, not a measurement. Normal is about 5 kPa; above 25 kPa with a low platelet count, clinically significant portal hypertension is near certain. A congested liver (heart, hepatic veins) is stiff too.');
-  const el = h('div', { class: 'dock-pane', 'data-pane': 'fibroscan', style: { color: TICK } }, box, note);
+  const note = h('p', { class: 'ctl-sub' }, 'A simulated FibroScan, live: the slope of the shear wave front gives its speed and so the stiffness. It is an estimate from the model, not a measurement. Normal is about 5 kPa; above 25 kPa with a low platelet count, clinically significant portal hypertension is near certain. A congested liver (heart, hepatic veins) is stiff too.');
+  const el = h('div', { class: 'dock-pane', 'data-pane': 'fibroscan' }, box, note);
   const off = document.createElement('canvas'), octx = off.getContext('2d');
   let N = 0, img = null, cap = 300, ema = 0;
   let model = 10, running = false, shown = null, last = 0;
@@ -88,19 +97,20 @@ export function createFibroScan() {
     const kNow = model * (1 + 0.05 * Math.sin(t * 0.8) + 0.03 * Math.sin(t * 1.9 + 1));
     shown = shown === null ? kNow : shown + (kNow - shown) * (1 - Math.exp(-dt * 2.5));
     const c = shearSpeed(kNow);
+    const th = colors(now);
     ctx.clearRect(0, 0, w, hh);
-    rrect(ctx, 0.5, 0.5, w - 1, hh - 1, 12); ctx.fillStyle = PANEL; ctx.fill(); ctx.strokeStyle = EDGE; ctx.lineWidth = 1; ctx.stroke();
+    rrect(ctx, 0.5, 0.5, w - 1, hh - 1, 12); ctx.fillStyle = th.panel; ctx.fill(); ctx.strokeStyle = th.edge; ctx.lineWidth = 1; ctx.stroke();
     const pad = 14, narrow = w < 380;
     // Readout
-    ctx.textAlign = 'left'; ctx.fillStyle = TICK; ctx.font = FONT(600, 10);
+    ctx.textAlign = 'left'; ctx.fillStyle = th.tick; ctx.font = FONT(600, 10);
     ctx.fillText('LIVER STIFFNESS · MEDIAN', pad, 24);
     const big = Math.round(clamp(Math.min(w * 0.13, hh * 0.13), 30, 52));
     ctx.fillStyle = ORANGE; ctx.font = FONT(600, big);
     const txt = shown.toFixed(1); ctx.fillText(txt, pad, 28 + big);
     const tw = ctx.measureText(txt).width;
-    ctx.fillStyle = TICK; ctx.font = FONT(500, 14); ctx.fillText('kPa', pad + tw + 6, 28 + big);
+    ctx.fillStyle = th.tick; ctx.font = FONT(500, 14); ctx.fillText('kPa', pad + tw + 6, 28 + big);
     // Live badge and caption
-    ctx.textAlign = 'right'; ctx.font = FONT(600, 10); ctx.fillStyle = TICK;
+    ctx.textAlign = 'right'; ctx.font = FONT(600, 10); ctx.fillStyle = th.tick;
     ctx.fillText(narrow ? 'LIVE' : 'LIVE · 50 Hz · estimate from the model', w - pad, 24);
     const pulse = 0.55 + 0.45 * Math.sin(t * 3), lw = ctx.measureText(narrow ? 'LIVE' : 'LIVE · 50 Hz · estimate from the model').width;
     ctx.fillStyle = `rgba(80,210,130,${pulse})`; ctx.beginPath(); ctx.arc(w - pad - lw - 9, 21, 3, 0, 7); ctx.fill();
@@ -121,9 +131,9 @@ export function createFibroScan() {
     const x0 = ex + (WAVE_T0 / 80) * ew, x1 = x0 + clamp((40 / c) / 80, 0, 1) * ew;
     ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 1.25; ctx.beginPath(); ctx.moveTo(x0, top + (5 / 60) * ph); ctx.lineTo(x1, top + (45 / 60) * ph); ctx.stroke();
     ctx.restore();
-    rrect(ctx, ex, top, ew, ph, 8); ctx.strokeStyle = EDGE; ctx.lineWidth = 1; ctx.stroke();
+    rrect(ctx, ex, top, ew, ph, 8); ctx.strokeStyle = th.edge; ctx.lineWidth = 1; ctx.stroke();
     // Axes
-    ctx.fillStyle = TICK; ctx.font = FONT(500, 10); ctx.strokeStyle = 'rgba(255,255,255,.18)';
+    ctx.fillStyle = th.tick; ctx.font = FONT(500, 10); 
     ctx.textAlign = 'right';
     for (let d = 30; d <= 90; d += 20) { const y = top + ((d - 30) / 60) * ph; ctx.fillText(String(d), ax, Math.min(y + 3, bot)); }
     ctx.textAlign = 'center';
@@ -138,8 +148,6 @@ export function createFibroScan() {
     requestAnimationFrame(loop);
   }
   function update(f) {
-    const wrap = el.parentElement; // the whole tab body is dark, not just the panel
-    if (wrap && !wrap.dataset.dark) { wrap.dataset.dark = '1'; wrap.style.background = PANEL; }
     model = f.metrics.lsm;
     if (!running && cv.offsetParent !== null) { running = true; requestAnimationFrame(loop); }
   }
