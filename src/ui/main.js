@@ -1,26 +1,26 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=021ca58119';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction } from './store.js?v=baa7ba1e7b';
-import { createStage } from './stage.js?v=1a3143d6a6';
-import { createInspector } from './inspector.js?v=4ab7212ba6';
-import { createDock, CUTOFFS } from './dock.js?v=c0f983dbfc';
-import { createWhy } from './why.js?v=19e2bfeacf';
-import { createTimeline } from './timeline.js?v=ac1954ea51';
-import { createLearn } from './learn.js?v=296debef12';
-import { createCases } from './cases.js?v=9992d62129';
-import { createCompare } from './compare.js?v=107f5d13f5';
-import { createCard } from './card.js?v=ef0cf08b27';
-import { createChart, computeFindings } from './chart.js?v=9fe27d584b';
-import { createHome } from './home.js?v=0cc47972a0';
+import { startHost, host } from './host.js?v=b64500bbb7';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction } from './store.js?v=7acb60de12';
+import { createStage } from './stage.js?v=40c22b9281';
+import { createInspector } from './inspector.js?v=4a9205a057';
+import { createDock, CUTOFFS } from './dock.js?v=82611e0aec';
+import { createWhy } from './why.js?v=986d694b05';
+import { createTimeline } from './timeline.js?v=545fde0231';
+import { createLearn } from './learn.js?v=3fb7a38872';
+import { createCases } from './cases.js?v=1dc454ad61';
+import { createCompare } from './compare.js?v=0369486a98';
+import { createCard } from './card.js?v=4113b403ec';
+import { createChart, computeFindings } from './chart.js?v=48da3b0d9b';
+import { createHome } from './home.js?v=fed32714c6';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
-import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=e5d9f1f6fb';
-import { startLMS } from './lms.js?v=98e09c3cb8';
+import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=f1e6593b9e';
+import { startLMS } from './lms.js?v=274dfb6aa3';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=fa051e3a4e';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=c6376c5a0b';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
-import { EDGES, NODES } from '../engine/topology.js?v=80b8d861de';
+import { EDGES, NODES } from '../engine/topology.js?v=2645418934';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=8aa5e5cdf1';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -129,7 +129,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=6b038c672a'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=cc38000aba'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -141,7 +141,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=974976f8c0'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=c9705d389d'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -417,7 +417,7 @@ function renderPaintHint() {
     const only = st.shunting.only;
     el.hidden = false;
     el.replaceChildren(h('div', { class: 'tc-title' }, icon('stent'), only === 'tips' ? 'Place the TIPS' : 'Make a shunt', h('span', { class: 'sp' }), done('Cancel', () => stage.cancelShunt())),
-      h('div', {}, only === 'tips' ? 'Click the hepatic vein where the stent should end. Glowing vessels are valid targets.' : 'Click the vein to connect it to. Glowing vessels are valid targets: a portal branch to a hepatic vein makes a TIPS, splenic to left renal a Warren shunt. Esc cancels.'));
+      h('div', {}, only === 'tips' ? 'Click the hepatic vein where the stent should end. Glowing vessels are valid targets.' : 'Click the vein to connect it to. Glowing vessels are valid targets: a portal branch to a hepatic vein makes a TIPS, to the IVC below the hepatic veins a DIPS, splenic to left renal a Warren shunt. Esc cancels.'));
     redraw();
     return;
   }

@@ -2,13 +2,13 @@
 // chart, so every command lands in the timeline like any other change. A number in the query is
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
-import { store, updateParams } from './store.js?v=baa7ba1e7b';
+import { store, updateParams } from './store.js?v=7acb60de12';
 import { h, svgIcon, toast } from './util.js?v=8aa5e5cdf1';
-import { EDGES } from '../engine/topology.js?v=80b8d861de';
-import { DRUGS } from '../engine/scenario.js?v=d8076334d5';
-import { HIDDEN_EDGES } from './anatomy.js?v=bf7e57c024';
-import { LESSONS } from './learn.js?v=296debef12';
-import { CASES } from './cases.js?v=9992d62129';
+import { EDGES } from '../engine/topology.js?v=2645418934';
+import { DRUGS } from '../engine/scenario.js?v=06164f9b2a';
+import { HIDDEN_EDGES } from './anatomy.js?v=abac1e2d14';
+import { LESSONS } from './learn.js?v=3fb7a38872';
+import { CASES } from './cases.js?v=1dc454ad61';
 
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9+ ]/g, ' ');
 
@@ -29,6 +29,8 @@ export function createPalette({ ctx }) {
     add('Change', 'Cirrhosis', (n) => updateParams((p) => { p.cirrhosis = Math.min(1, Math.max(0, (n ?? 60) / 100)); return p; }, { label: 'Cirrhosis' }), { num: '%', kw: 'liver fibrosis', hint: 'cirrhosis 60 → 60 %' });
     add('Treat', 'TIPS', (n) => updateParams({ tips: { on: true, d: Math.min(12, Math.max(6, n ?? 8)) } }, { label: 'TIPS' }), { num: 'mm', kw: 'stent shunt transjugular', hint: 'tips 8 → an 8 mm stent' });
     add('Treat', 'Remove TIPS', () => updateParams({ tips: { on: false } }, { label: 'Remove TIPS' }), { kw: 'take down' });
+    add('Treat', 'DIPS', (n) => updateParams({ dips: { on: true, d: Math.min(12, Math.max(6, n ?? 8)) } }, { label: 'DIPS' }), { num: 'mm', kw: 'stent shunt direct intrahepatic caudate budd chiari', hint: 'dips 8 → an 8 mm stent' });
+    add('Treat', 'Remove DIPS', () => updateParams({ dips: { on: false } }, { label: 'Remove DIPS' }), { kw: 'take down' });
     add('Change', 'Serum albumin', (n) => updateParams({ albumin: Math.min(5, Math.max(1.5, n ?? 3)) }, { label: 'Serum albumin' }), { num: 'g/dL', kw: 'protein oncotic' });
     add('Change', 'Right-heart contractility', (n) => updateParams({ contractility: Math.min(1.6, Math.max(0.15, (n ?? 50) / 100)) }, { label: 'Contractility' }), { num: '%', kw: 'heart failure rv' });
     add('Change', 'Tricuspid regurgitation', (n) => updateParams({ tr: Math.min(1, Math.max(0, (n ?? 80) / 100)) }, { label: 'TR' }), { num: '%', kw: 'tr heart valve' });
