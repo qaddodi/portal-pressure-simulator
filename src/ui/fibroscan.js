@@ -1,6 +1,6 @@
 // FibroScan tab (Measure): one simulated transient-elastography panel in the style of an Echosens
-// report: the median stiffness E (kPa), the A-mode strip and the shear-wave elastogram. The kPa is the
-// model's liver stiffness estimate (metrics.lsm); CAP and IQR are deliberately not shown.
+// report: the median stiffness E (kPa) and the shear-wave elastogram. The kPa is the
+// model's liver stiffness estimate (metrics.lsm). CAP, IQR and the grey M-mode and A-mode strips that go with CAP are left out.
 
 import { h, fitCanvas, clamp } from './util.js?v=8aa5e5cdf1';
 import { FONT } from './charts.js?v=898c42e2f5';
@@ -51,26 +51,6 @@ function elastogram(n, c, seed = 0) {
   return cv;
 }
 
-/** The grey M-mode strip: the ultrasound image of the tissue under the probe over the same exam, depth
- *  down and time across. Fat under the skin is dark with a few echoes, a bright line marks the liver
- *  capsule, the parenchyma is a fine speckle that dims with depth, and a vessel shows as a dark band. */
-function motionStrip(wp, hp) { // wide enough to scroll
-  const cv = document.createElement('canvas'); cv.width = wp; cv.height = hp;
-  const ctx = cv.getContext('2d'), img = ctx.createImageData(wp, hp);
-  const sp = noiseField(wp, hp, 1.5, 3), lay = noiseField(wp, hp, 5, 8), r = rnd(4);
-  for (let y = 0; y < hp; y++) {
-    const d = 30 + (y / hp) * 60; // mm
-    const base = d < 75 ? 150 - (d - 30) * 0.5 : 105;
-    const vessel = 1;
-    for (let x = 0; x < wp; x++) {
-      const g = clamp(base * vessel * (0.55 + 0.9 * sp(x, y)) * (0.8 + 0.4 * lay(x, y)) + (r() - 0.5) * 25, 0, 255);
-      const i = (y * wp + x) * 4; img.data[i] = img.data[i + 1] = img.data[i + 2] = g; img.data[i + 3] = 255;
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-  return cv;
-}
-
 const SHOT_MS = 1300; // one shot: the whole map is redrawn in place with a new speckle pattern and slope
 const median = (a) => { const b = [...a].sort((x, y) => x - y), m = b.length >> 1; return b.length % 2 ? b[m] : (b[m - 1] + b[m]) / 2; };
 const REDUCED = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -78,9 +58,9 @@ const REDUCED = typeof matchMedia === 'function' && matchMedia('(prefers-reduced
 export function createFibroScan() {
   const cv = h('canvas', { role: 'img', 'aria-label': 'Simulated FibroScan elastography panel, live' });
   const box = h('div', { class: 'chart-box fibroscan-box' }, cv);
-  const note = h('p', { class: 'ctl-sub' }, 'A simulated FibroScan, live: each shot sends a shear wave down from the probe, the fitted slope of its front gives the speed and so the stiffness, and the median of the shots is the result. It is an estimate from the model, not a measurement. Normal is about 5 kPa; above 25 kPa with a low platelet count, clinically significant portal hypertension is near certain. A congested liver (heart, hepatic veins) is stiff too.');
+  const note = h('p', { class: 'ctl-sub' }, 'A simulated FibroScan, live: each refresh is one shot: the fitted slope of the shear wave front gives its speed and so the stiffness, and the median of the shots is the result. It is an estimate from the model, not a measurement. Normal is about 5 kPa; above 25 kPa with a low platelet count, clinically significant portal hypertension is near certain. A congested liver (heart, hepatic veins) is stiff too.');
   const el = h('div', { class: 'dock-pane', 'data-pane': 'fibroscan' }, box, note);
-  let prev = null, model = 10, running = false, t0 = 0, strip = null, img = null, hist = [], lastShot = -1, shotK = 10, lastModel = null, aSeed = 0, aT = 0;
+  let prev = null, model = 10, running = false, t0 = 0, img = null, hist = [], lastShot = -1, shotK = 10, lastModel = null;
 
   const shotValue = (i) => model * (1 + (rnd(i * 977 + 13)() - 0.5) * 0.16);
   function paint(now) {
@@ -111,37 +91,12 @@ export function createFibroScan() {
     ctx.fillText(`FibroScan · Liver · estimate from the model · shot ${idx + 1}`, w - pad, 20);
     const top = 74 + big, bot = hh - 26, ph = bot - top;
     if (ph < 60) return;
-    const aw = Math.max(26, Math.min(48, w * 0.1)), ax = pad + 30, ex = ax + aw * 2 + 8;
-    const ew = Math.min(w - pad - ex, ph * 1.25), axs = ax + aw + 3;
+    const ax = pad + 30, ex = ax + 4, ew = Math.min(w - pad - ex, ph * 1.4);
     ctx.fillStyle = ORANGE; ctx.textAlign = 'left'; ctx.font = FONT(600, 12);
     ctx.fillText(p >= 1 ? `${shotK.toFixed(1)} kPa` : 'shot…', ex, top - 6);
     ctx.fillStyle = INK; ctx.font = FONT(500, 10); ctx.textAlign = 'right';
     for (let d = 30; d <= 90; d += 10) ctx.fillText(String(d), ax - 4, top + ((d - 30) / 60) * ph + 3);
     ctx.textAlign = 'left'; ctx.fillText('mm', pad, top - 6);
-    // M-mode strip: scrolls in time, new columns entering from the right
-    if (!strip || strip.h !== ph || strip.aw !== aw) {
-      const tw = Math.max(64, Math.round(aw / 2) * 4);
-      strip = { h: ph, aw, tw, cv: motionStrip(tw, Math.max(60, Math.round(ph / 2))) };
-    }
-    ctx.imageSmoothingEnabled = true;
-    const sx = REDUCED ? 0 : ((now * 0.012) % strip.tw), sw = strip.tw / 4;
-    ctx.save(); ctx.beginPath(); ctx.rect(ax, top, aw, ph); ctx.clip();
-    for (let k = -1; k < 1; k++) ctx.drawImage(strip.cv, 0, 0, strip.tw, strip.cv.height, ax - sx * (aw / sw) / 1 + k * strip.tw * (aw / sw), top, strip.tw * (aw / sw), ph);
-    ctx.restore();
-    // A-mode: a fresh trace a dozen times a second
-    ctx.fillStyle = '#000'; ctx.fillRect(axs, top, aw, ph);
-    if (now - aT > 80) { aT = now; aSeed++; }
-    const r2 = rnd(REDUCED ? 9 : aSeed * 31 + 7), cx0 = axs + aw / 2;
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.beginPath();
-    for (let y = 0; y <= ph; y += 2) {
-      const x = cx0 + (r2() - 0.5) * 0.4 * aw * 0.9 + Math.sin(y * 0.11) * aw * 0.06;
-      y ? ctx.lineTo(x, top + y) : ctx.moveTo(x, top);
-    }
-    ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,255,255,.75)';
-    for (const d of [35, 75]) { const y = top + ((d - 30) / 60) * ph; ctx.beginPath(); ctx.moveTo(ax, y); ctx.lineTo(axs + aw, y); ctx.stroke(); }
-    ctx.strokeStyle = '#2bb24c'; ctx.lineWidth = 2; ctx.strokeRect(axs, top, aw, ph);
-    // Elastogram: built left to right as the wave travels
     ctx.fillStyle = '#16100c'; ctx.fillRect(ex, top, ew, ph);
     ctx.imageSmoothingQuality = 'high';
     // A slow sub-pixel drift keeps the speckle quietly alive between shots.
