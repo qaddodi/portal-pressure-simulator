@@ -2,7 +2,7 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=dc393aabea';
-import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=1687541931';
+import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=fce936f9bb';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams } from './store.js?v=7acb60de12';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=8aa5e5cdf1';
@@ -137,15 +137,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   for (const [id, list] of Object.entries(CIRCUIT_TREES)) treeGeo[id] = list.map(({ d, k }) => ({ pts: sample(d), k }));
   scratchG.remove();
   // Where to caption each circuit lane: the middle of its longest horizontal run.
-  const laneU = {};
+  const laneU = {}, laneAlt = {};
   for (const id of Object.keys(LANE_CAPTIONS)) {
     const C = geo[id]?.C;
     if (!C) continue;
-    let best = [0, 0], run = 0;
-    for (let i = 1; i < C.length; i++) {
-      if (Math.abs(C[i][1] - C[i - 1][1]) < 0.6) { run++; if (run > best[1]) best = [i - run / 2, run]; } else run = 0;
+    // Every straight horizontal run, longest first: the caption goes on the first of them (or the
+    // spot along it) that is free of other vessels.
+    const runs = [];
+    let st = 0;
+    for (let i = 1; i <= C.length; i++) {
+      if (i < C.length && Math.abs(C[i][1] - C[i - 1][1]) < 0.6) continue;
+      if (i - 1 - st >= 3) runs.push([st, i - 1]);
+      st = i;
     }
-    laneU[id] = best[1] ? best[0] / (C.length - 1) : 0.5;
+    runs.sort((p, q) => (q[1] - q[0]) - (p[1] - p[0]));
+    const last = C.length - 1;
+    laneU[id] = runs.length ? (runs[0][0] + runs[0][1]) / 2 / last : 0.5;
+    laneAlt[id] = runs.flatMap(([i0, i1]) => [0.5, 0.3, 0.7, 0.15, 0.85].map((f) => (i0 + (i1 - i0) * f) / last));
   }
 
   const polyD = (pts) => {
@@ -3329,18 +3337,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const [id, cap] of Object.entries(LANE_CAPTIONS)) {
         const x = E[id];
         if (!x?.vis || x.g.classList.contains('coll-ghost')) continue;
-        const [lx, ly] = pointAt(geo[id].cur, laneU[id]);
-        const [ax, ay] = worldToLocal(lx, ly);
-        const it = { key: 'lane:' + id, cls: 'lane', lines: [[{ t: cap, size: compact ? 9 : 10, weight: 550, cls: 'lb-lane' }]], align: 'middle', padX: 2, padY: 1, ax, ay };
+        const it = { key: 'lane:' + id, cls: 'lane', lines: [[{ t: cap, size: compact ? 9 : 10, weight: 550, cls: 'lb-lane' }]], align: 'middle', padX: 2, padY: 1, ax: 0, ay: 0 };
         it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
         // Turned upright, a lane that runs up the screen is captioned along it (text turned to read bottom to top), beside it.
+        const at = (u) => { const [lx, ly] = pointAt(geo[id].cur, u); [it.ax, it.ay] = worldToLocal(lx, ly); };
         let vertical = false;
         if (turned) {
+          at(laneU[id]);
           const [bx, by] = worldToLocal(...pointAt(geo[id].cur, Math.min(1, laneU[id] + 0.03)));
-          vertical = Math.abs(by - ay) > Math.abs(bx - ax) * 1.2;
+          vertical = Math.abs(by - it.ay) > Math.abs(bx - it.ax) * 1.2;
         }
         if (vertical) it.rot = true;
-        place(it, vertical ? ['E', 'W'] : [dirOf('N'), dirOf('S')], [3 + (x.width || 4) / 2, 12 + (x.width || 4) / 2], false);
+        const dirs = vertical ? ['E', 'W'] : [dirOf('N'), dirOf('S')], gaps = [3 + (x.width || 4) / 2, 12 + (x.width || 4) / 2];
+        // Try the spots along the lane that no other vessel touches, then settle for the first.
+        const spots = [laneU[id], ...(laneAlt[id] || [])];
+        if (!spots.some((u) => { at(u); return place(it, dirs, gaps, false, true); })) { at(laneU[id]); place(it, dirs, gaps, false); }
       }
     }
     // Lesson / case focus callout
