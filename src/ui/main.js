@@ -8,15 +8,15 @@ import { createInspector } from './inspector.js?v=03885e2627';
 import { createDock, CUTOFFS } from './dock.js?v=003544fbf4';
 import { createWhy } from './why.js?v=c4a18b6fa7';
 import { createTimeline } from './timeline.js?v=09687b3571';
-import { createLearn } from './learn.js?v=5bf4c0e1bc';
+import { createLearn } from './learn.js?v=81d081e9ba';
 import { createCases } from './cases.js?v=ef14e2face';
 import { createCompare } from './compare.js?v=7f52956925';
 import { createCard } from './card.js?v=b12d04d9d2';
 import { createChart, computeFindings } from './chart.js?v=5c64368961';
-import { createHome } from './home.js?v=1f4acf0bd3';
+import { createHome } from './home.js?v=902a520992';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=4559972273';
-import { startLMS } from './lms.js?v=a62598226c';
+import { startLMS } from './lms.js?v=2976fa3e39';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=d458e79194';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
@@ -141,7 +141,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=3ced1a84ee'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=9c3ef56ec7'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
