@@ -4,7 +4,7 @@
 import { NODES } from '../engine/topology.js?v=80b8d861de';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { h, fmt, fitCanvas, cssVar, clamp, icon } from './util.js?v=8aa5e5cdf1';
-import { createEndoGL } from './endo-gl.js?v=81781fa9ce';
+import { createEndoGL } from './endo-gl.js?v=43e05fd596';
 import { renderEndo } from './endo-render.js?v=93154c1b51';
 import { FONT } from './charts.js?v=898c42e2f5';
 import { store, updateParams, logAction, varixSuppressed } from './store.js?v=b742a09e9e';
@@ -69,7 +69,7 @@ export function createEndoscopy({ onAction }) {
     // so unbanded columns keep the size seen before the first band.
     const gNow = clamp((vx.d - 2) / 10, 0, 1);
     peak = bands > 0 ? Math.max(peak, gNow) : gNow;
-    const tg = peak, tv = bands > 0 ? 1 : clamp((vx.d - 2) / 0.8, 0, 1);
+    const tg = peak, tv = bands > 0 ? 1 : clamp((vx.d - 2.5) / 1.0, 0, 1);
     last = { f, vx };
     const now = performance.now(), dt = Math.min(0.05, Math.max(0, (now - lastT) / 1000)); lastT = now;
     // Targets: each column is deflated and knuckled once banded (the 4 bands fill columns in turn).

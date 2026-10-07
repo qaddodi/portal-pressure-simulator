@@ -66,7 +66,7 @@ float field(float th, float z, out float vein, out float uu, out float cc, out f
     float df = uDef[c];
     float w0full = 0.055 + 0.27 * uGrow + k1.z;
     float w0 = w0full * (1.0 - 0.2 * df);
-    float amp = ampK * uVis * (1.0 - 0.72 * df);
+    float amp = ampK * uVis * uVis * (1.0 - 0.72 * df);
     float ce = centreOf(c, z);
     float d = wrapPi(th - ce);
     float bead = 1.0 + beaded * 0.3 * sin(2.3 * z + k0.w);
@@ -131,7 +131,7 @@ void main() {
   float dfc = 0.0;
   if (cc >= 0.0) for (int i = 0; i < 4; i++) if (float(i) == cc) dfc = uDef[i];
   float vn = 0.0;
-  if (uVis > 0.02 && vein > 0.02) {
+  if (uVis > 0.05 && vein > 0.02) {
     vn = min(1.0, uVis * vein * (0.4 + 0.75 * uGrow));
     float crest = exp(-pow(abs(uu) / 0.55, 2.0));
     float k = vn * 0.72;
@@ -145,7 +145,7 @@ void main() {
     }
   }
   float ao = 1.0;
-  if (uVis > 0.02 && vein > 0.005 && vein < 0.2) ao = 1.0 - 0.28 * sst(0.005, 0.1, vein) * (1.0 - sst(0.1, 0.2, vein));
+  if (uVis > 0.05 && vein > 0.005 && vein < 0.2) ao = 1.0 - 0.28 * uVis * uVis * sst(0.005, 0.1, vein) * (1.0 - sst(0.1, 0.2, vein));
 
   float gloss = 1.0;
   if (qm < 4.0) {
