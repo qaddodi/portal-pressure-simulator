@@ -24,15 +24,15 @@ const ACTIONS = {
   diuretics: { label: 'Diuretics', toggle: (p) => p.diuretics, run: () => updateParams((p) => { p.diuretics = !p.diuretics; return p; }, { label: 'Diuretics' }) },
   carvedilol: { label: 'Carvedilol', toggle: (p) => p.drugs.carvedilol, run: () => updateParams((p) => { p.drugs.carvedilol = !p.drugs.carvedilol; return p; }, { label: 'Carvedilol' }) },
   hemodynamics: { label: 'Review supplied catheter pressures', once: true, card: (c) => hemodynamicsCard(c.m, c.params), run: () => {} },
-  'vascular-imaging': { label: 'Review vascular imaging', once: true, card: (c) => vascularCard(c.params), run: () => {} },
+  'vascular-imaging': { label: 'Review vascular imaging', once: true, card: (c, cs) => vascularCard(c.params, cs), run: () => {} },
   eligibility: { label: 'Review supplied clinical assessment', once: true, card: (c, cs) => factsCard(cs.facts), run: () => {} },
   cbc: { label: 'Initial blood count', once: true, card: (c) => resultCard('Blood count', 'Laboratory result · simulated', [['Hemoglobin', `${fmt(c.m.blood.hb, 1)} g/dL`, 'at the time of the order']]), run: () => {} },
   brto: { label: 'Demonstrate C5 closure', once: true, needs: ['doppler', 'endoscopy'], run: () => updateParams((p) => { p.occluded.C5 = true; return p; }, { label: 'BRTO' }) },
   'follow-up': { label: 'Advance model follow-up 30 days', max: 2, run: () => host.send({ type: 'advance', days: 30 }) },
-  echo: { label: 'Echocardiogram', once: true, run: (a) => { const s = store.get().hiddenReadouts; s?.delete('ra'); store.set({ hiddenReadouts: new Set(s || []) }); const f = store.get().frame; toast(`Echo (model estimate of filling pressure, not a CVP measurement): RA ≈ ${fmt(f.metrics.ra, 0)} mmHg${store.get().params.tr > 0.3 ? ', severe tricuspid regurgitation' : ''}.`); } },
+  echo: { label: 'Echocardiogram', once: true, card: (c, cs) => echoCard(c.m, c.params, cs), run: () => { const hs = store.get().hiddenReadouts; hs?.delete('ra'); store.set({ hiddenReadouts: new Set(hs || []) }); } },
   doppler: { label: 'Doppler ultrasound', run: (a) => { a.showPane('doppler'); toast('Click a vessel and choose Doppler, or pick the vessel in the Doppler instrument.'); } },
   endoscopy: { label: 'Endoscopy', run: (a) => { a.showPane('endoscopy'); } },
-  ascitic: { label: 'Diagnostic paracentesis', once: true, run: () => { const m = store.get().frame.metrics; toast(m.ascites.volume > 150 ? `Ascitic fluid: SAAG ${m.ppg > 6 || m.whvp > 10 ? '≥ 1.1' : '< 1.1'}, protein ${m.ascites.highProtein ? '> 2.5' : '< 2.5'} g/dL.` : 'No tappable ascites.'); } },
+  ascitic: { label: 'Diagnostic paracentesis', once: true, card: (c) => asciticCard(c.m), run: () => {} },
 };
 
 // Result cards (F6). A card is a static, immutable snapshot taken when the order is placed:
@@ -44,23 +44,170 @@ const resultCard = (title, badge, rows, notes = []) => h('div', { class: 'result
   notes.map((n) => h('p', { class: 'ctl-sub' }, n)));
 const edgeLabel = (id) => EDGES.find((e) => e.id === id)?.label || id;
 function hemodynamicsCard(m, p) {
+  if (['RHV_IVC', 'MHV_IVC', 'LHV_IVC'].some((id) => (p.thrombus?.[id] || 0) >= 0.95)) {
+    return resultCard('Supplied catheter pressures', 'Model value · simulated', [['Additional network pressures: IVC', `${fmt(m.ivc, 0)} mmHg`, ''], ['Additional network pressures: right atrium', `${fmt(m.ra, 0)} mmHg`, '']],
+      ['The hepatic-vein outlet is obstructed. A clinical HVPG cannot be interpreted from this simulated path. Review the anatomy and the separately labeled network pressures.']);
+  }
   // The order supplies catheter and IVC pressures only; portal and PPG values stay unmeasured.
   const v = measureView(m, p, null);
   const rows = [...v.model.map(([l, x, u, st]) => [l, `${fmt(x, 1)} ${u}`, st]), ...v.network.filter((r) => r[0].startsWith('IVC')).map(([l, x, u, st]) => [l, `${fmt(x, 0)} ${u}`, st])];
   return resultCard('Supplied catheter pressures', 'Model value · simulated', rows, v.notes);
 }
-function vascularCard(p) {
+function vascularCard(p, cs) {
+  if (cs?.imaging) return resultCard('Vascular imaging report', 'Schematic · derived from the preset, not a CT/MRI image', [[cs.imaging, '', '']], ['Reports patency and routes only. It shows no pressure and does not replace a real imaging study.']);
   const rows = [];
   for (const [id, x] of Object.entries(p.thrombus || {})) if (x >= 0.5) rows.push([edgeLabel(id), x >= 0.95 ? 'Occluded' : 'Partly occluded', 'from preset thrombus']);
   for (const [id, x] of Object.entries(p.stenosis || {})) if (x >= 0.5) rows.push([edgeLabel(id), 'Narrowed', 'from preset stenosis']);
   return resultCard('Vascular imaging report', 'Schematic · derived from the preset, not a CT/MRI image', rows.length ? rows : [['Named veins', 'No occlusion or marked narrowing reported', '']],
     ['Reports patency and routes only. It shows no pressure and does not replace a real imaging study.']);
 }
-const factsCard = (facts) => resultCard('Supplied clinical assessment', 'Outside the model · authored fact', (facts || []).map((f) => [f, '', '']), ['These facts are authored for the scenario. The simulation does not generate or change them.']);
+function echoCard(m, p, cs) {
+  const tr = p.tr > 0.6 ? 'severe tricuspid regurgitation' : p.tr > 0.3 ? 'moderate tricuspid regurgitation' : 'no marked tricuspid regurgitation';
+  return resultCard('Cardiac estimate', 'Model value · simulated', [['Right atrial pressure', `${fmt(m.ra, 0)} mmHg`, 'model estimate, not a CVP measurement'], ['Tricuspid valve', tr, '']],
+    ['This is a model cardiac estimate. It does not render a clinical echocardiogram and does not infer ejection fraction.', ...(cs.echoNote ? [`Outside the model: supplied clinical information. ${cs.echoNote}`] : [])]);
+}
+function asciticCard(m) {
+  if (m.ascites.volume <= 150) return resultCard('Ascitic fluid', 'Model value · simulated', [], ['No tappable ascites in this model state.']);
+  return resultCard('Ascitic fluid', 'Model rule · simulated', [['SAAG category', `${m.ppg > 6 || m.whvp > 10 ? '≥ 1.1' : '< 1.1'} g/dL`, ''], ['Protein category', `${m.ascites.highProtein ? '> 2.5' : '< 2.5'} g/dL`, '']],
+    ['These categories come from model rules, not albumin or protein assays. They support a pattern but do not establish a diagnosis or exclude infection.']);
+}
+const factsCard = (facts) => resultCard('Supplied clinical assessment', 'Outside the model: supplied clinical information', (facts || []).map((f) => [f, '', '']), ['These facts are authored for the scenario. The simulation does not generate or change them.']);
 
 const fmtClock = (s) => { const m = Math.floor(s / 60); return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min` : `${m} min ${String(Math.floor(s % 60)).padStart(2, '0')} s`; };
 
+const DX_HIDDEN = ['trueHVPG', 'pv', 'ra', 'iap', 'hb', 'bloodLoss'];
+const REQ = ['eligibility'];
+const Q = (id, q, options, answer, why, requires) => ({ id, q, options, answer, why, requires });
+const TERR = ['Localized splenic venous obstruction', 'Generalized cirrhotic portal hypertension', 'No pressure-related disease because the varices are fundal'];
+const YN = ['Yes', 'No'];
+const MEAS = {
+  pre: Q('measurement-pre', 'Can a low HVPG exclude a prehepatic or presinusoidal block?', [...YN, 'Only if the Doppler display is blue'], 1, 'The wedge surrogate can stay low with a block before the sinusoids.'),
+  sos: Q('measurement-sos', 'Can raised small-vessel outflow resistance elevate the wedge surrogate?', ['Yes', 'No because the main hepatic veins are patent', 'Only after portal-valve failure'], 0, 'Small-vessel outflow resistance raises sinusoidal and wedged pressure even with patent main veins.'),
+  budd: Q('measurement-budd', 'How should the calculated HVPG be treated across this obstructed hepatic-vein anatomy?', ['As proof of healthy liver outflow', 'As an arithmetic model value, not a valid clinical wedge measurement through this outlet', 'As an INR measurement'], 1, 'An obstructed outlet breaks the assumptions of the wedge.'),
+  web: Q('measurement-web', 'What can the app’s CONF-minus-IVCS PPG miss?', ['The downstream IVCS-to-RA pressure drop', 'All portal pressure by definition', 'Only varix diameter'], 0, 'The PPG subtracts suprahepatic caval pressure, so a caval-to-heart step is invisible to it.'),
+};
+const ADAPT = {
+  acute: Q('adaptation-acute', 'What can partially buffer lost portal inflow?', ['Hepatic arterial flow', 'Portal valves', 'Instant scar removal'], 0, 'The arterial buffer response is partial.'),
+  chronic: Q('adaptation-chronic', 'What does C8 bypass flow indicate?', ['An alternative periportal route', 'Recanalization of the original trunk', 'A hepatic artery'], 0, 'A cavernoma is a collateral bypass.'),
+  pre: Q('adaptation-pre', 'A high upstream pressure with relatively spared sinusoids fits which location?', ['Presinusoidal', 'Right atrium alone', 'Normal flow necessarily'], 0, 'The pressure step lies before the sinusoids.'),
+  sos: Q('adaptation-sos', 'Does the SOS state require thrombosis of all major hepatic-vein outlets?', [...YN, 'Only if ascites exists'], 1, 'The block is in the small vessels.'),
+  budd: Q('adaptation-budd', 'Which alternative outlet is shown?', ['CAUD', 'PV_TRUNK recanalization', 'A new renal artery'], 0, 'The caudate route gives another outlet.'),
+  web: Q('adaptation-web', 'Which paired pressures help locate the web?', ['IVCS and RA', 'Varix diameter and platelet estimate', 'Hb and wall thickness'], 0, 'The pressure step lies between the cava and the right atrium.'),
+};
+
 export const CASES = [
+  {
+    id: 'prevention', title: 'Prevent the next event', level: 'Prevention',
+    summary: 'A 57-year-old attends clinic for prevention planning. Review the history, obtain the relevant findings and choose a strategy.',
+    preset: 'csph', speed: 1, hidden: DX_HIDDEN, tools: ['select', 'doppler', 'endoscope'],
+    actions: ['eligibility', 'endoscopy', 'hemodynamics', 'echo', 'doppler', 'cbc', 'carvedilol', 'evl'],
+    refs: ['Kaplan DE, et al. AASLD Practice Guidance on risk stratification and management of portal hypertension and varices in cirrhosis. Hepatology 2024;79:1180–1211.', 'de Franchis R, et al. Baveno VII. J Hepatol 2022;76:959–74.', 'Lo GH, et al. Endoscopic ligation vs nadolol plus isosorbide mononitrate in the prevention of variceal rebleeding. Hepatology 2000;32:461–5.'],
+    variants: [
+      { vid: 'primary', preset: 'csph', strat: 'strategy-primary', facts: ['This fictional patient has compensated cirrhosis and clinically significant portal hypertension. There has been no prior decompensation or variceal bleeding. Clinical review has not identified an NSBB contraindication.'],
+        quiz: [Q('strategy-primary', 'What is the best prevention plan from these supplied facts?', ['An appropriate NSBB strategy, with clinical monitoring', 'Banding alone to prevent every form of decompensation', 'Immediate TIPS for any HVPG above 10 mmHg'], 0, 'Clinical prevention evidence supports NSBBs in compensated CSPH, and a gradient alone is not a TIPS indication.', REQ)],
+        exec: (c) => c.params.drugs.carvedilol, kind: 'primary prevention of first decompensation' },
+      { vid: 'secondary', preset: 'cirr-decomp', strat: 'strategy-secondary', facts: ['An esophageal-variceal bleed was controlled previously. There is no active hemorrhage now. Clinical review permits NSBB treatment. Plan prevention of recurrence, including follow-up endoscopy.'],
+        quiz: [Q('strategy-secondary', 'What is the usual first-line plan after a controlled esophageal-variceal bleed when NSBBs are tolerated?', ['NSBB therapy plus scheduled EVL', 'EVL once, with no follow-up or portal therapy', 'No prevention because the bleed stopped'], 0, 'Combine portal hemodynamic treatment and local therapy, with follow-up.', REQ)],
+        exec: (c) => c.params.drugs.carvedilol && c.count('evl') >= 1, kind: 'secondary prevention after a controlled bleed' },
+      { vid: 'intolerance', preset: 'cirr-decomp', strat: 'strategy-intolerance', facts: ['This patient has large esophageal varices and no previous variceal bleed. Prior NSBB exposure caused severe bronchospasm. The clinical team advises against NSBB use. Other decompensation care requires separate clinical review.'],
+        quiz: [Q('strategy-intolerance', 'What is appropriate for these large esophageal varices when NSBBs cannot be used?', ['EVL with follow-up and broader clinical care', 'Force carvedilol because the model does not cause bronchospasm', 'Ignore the varices because there is no current bleeding'], 0, 'Supplied contraindications remain meaningful even when the model omits that adverse effect.', REQ)],
+        exec: (c) => c.count('evl') >= 1 && !c.params.drugs.carvedilol, kind: 'prevention when NSBBs are contraindicated' },
+    ],
+    quizTail: [Q('mechanism', 'Why can portal drug therapy and EVL serve different purposes?', ['NSBBs affect portal hemodynamic drive, while EVL treats the varix locally', 'Both dissolve the same liver scar', 'EVL treats systemic vasodilation'], 0, 'Distinct mechanisms support complementary treatment when indicated.', REQ)],
+    objectives: [
+      { id: 'history', weight: 15, text: 'Review the supplied history before committing a plan', check: (c) => (c.first('eligibility') != null ? 'met' : null) },
+      { id: 'findings', weight: 15, text: 'Obtain endoscopy or supplied pressures before the plan', check: (c) => { const f = c.first('endoscopy', 'hemodynamics'), a = c.ansAt(c.cs.strat); return f != null && (a == null || f <= a) ? 'met' : a != null ? 'failed' : null; } },
+      { id: 'strategy', weight: 30, critical: true, text: 'Choose the plan that fits the supplied facts', check: (c) => c.qid(c.cs.strat) },
+      { id: 'execute', weight: 25, final: true, text: 'Carry the plan out with the available orders', check: (c) => (c.cs.exec(c) ? 'met' : null) },
+      { id: 'mechanism', weight: 15, text: 'Explain why drug therapy and banding differ', check: (c) => c.qid('mechanism') },
+    ],
+    end: (c) => (c.quizDone() && c.cs.exec(c) ? 'success' : c.t > 1200 ? 'timeout' : null),
+    debrief: (c) => `Your history identified ${c.cs.kind}. Nonselective beta blockers reduce portal hemodynamic drive. Banding treats an esophageal varix locally. Secondary prophylaxis generally combines both when tolerated.\n\nThis attempt shows a mechanism, not a long-term outcome: the model does not estimate future decompensation, bleeding or survival. Variant: ${c.cs.vid}.`,
+  },
+  {
+    id: 'gastric', title: 'Fundal varices: local or generalized disease?', level: 'Diagnosis',
+    summary: 'A 46-year-old is referred after an episode of melena that has stopped. Fundal varices were noted. Determine the pressure territory and explain a treatment pathway.',
+    preset: 'svt', speed: 1, hidden: DX_HIDDEN, tools: ['select', 'doppler', 'endoscope'],
+    actions: ['eligibility', 'endoscopy', 'doppler', 'vascular-imaging', 'hemodynamics', 'cbc', 'tips8', 'brto'],
+    refs: ['Köklü S, et al. Left-sided portal hypertension. Dig Dis Sci 2007;52:1141–9.', 'de Franchis R, et al. Baveno VII. J Hepatol 2022;76:959–74.'],
+    variants: [
+      { vid: 'local', preset: 'svt', probes: ['SV_CONF'], gates: { tips8: 'plan-local' }, imaging: 'SV_CONF is occluded. The main portal trunk is patent. The short gastric route supplies the fundal bed.',
+        facts: ['There is a history of recurrent pancreatitis. The recent bleeding episode has stopped. No chronic liver disease is known. Review the splenic venous territory and drainage anatomy before recommending treatment.'],
+        quiz: [Q('territory', 'Which pressure territory best explains this case?', TERR, 0, 'Site alone does not identify cause, so combine anatomy and the supplied history.'),
+          Q('plan-local', 'Which next treatment discussion fits the supplied anatomy?', ['Specialist assessment of splenic inflow/outflow and bleeding history', 'Universal TIPS without reviewing the obstruction', 'No assessment because HVPG is low'], 0, 'A main-portal bypass may not address an isolated splenic obstruction. Splenic interventions are outside the model.')],
+        planId: 'plan-local', kind: 'localized splenic-vein obstruction (SV_CONF)' },
+      { vid: 'generalized', preset: 'gastric-varix', probes: ['SV_CONF', 'PV_TRUNK'], gates: { tips8: 'plan-generalized', brto: 'plan-generalized' }, imaging: 'The splenic vein is patent. A C5 gastrorenal drainage route is present. The liver has the preset’s generalized cirrhotic resistance.',
+        facts: ['Cirrhosis is established. The recent bleeding episode has stopped. Assess the portal-hypertension territory and fundal drainage. This is an elective diagnostic discussion, not active gastric hemorrhage.'],
+        quiz: [Q('territory', 'Which pressure territory best explains this case?', TERR, 1, 'Site alone does not identify cause, so combine anatomy and the supplied history.'),
+          Q('plan-generalized', 'What determines a definitive treatment pathway?', ['Bleeding context, drainage anatomy, contraindications and specialist expertise', 'Fundal location always means BRTO first', 'Esophageal banding is sufficient for every gastric varix'], 0, 'Use anatomy and current guidance. The optional model closure is not a complete clinical obliteration.')],
+        planId: 'plan-generalized', kind: 'generalized sinusoidal resistance with a gastrorenal route' },
+    ],
+    quizTail: [Q('interpretation', 'What does C5 flow becoming zero prove?', ['That this modeled route is closed', 'That all varices are eradicated', 'That cirrhosis is cured'], 0, 'Observe the demonstrated route effect without inventing clinical outcomes.'),
+      Q('cause', 'Do fundal varices alone establish isolated splenic-vein obstruction?', ['Yes', 'No', 'Only if HVPG is small'], 1, 'Combine the vessel anatomy with the clinical history.')],
+    objectives: [
+      { id: 'lumen', weight: 10, text: 'Obtain endoscopy before the plan', check: (c) => { const f = c.first('endoscopy'), a = c.ansAt(c.cs.planId); return f != null && (a == null || f <= a) ? 'met' : a != null ? 'failed' : null; } },
+      { id: 'anatomy', weight: 20, text: 'Review the splenic and portal anatomy (Doppler on the vessel, or imaging)', check: (c) => (c.first('vascular-imaging') != null || (c.first('doppler') != null && c.probed) ? 'met' : null) },
+      { id: 'territory', weight: 25, critical: true, text: 'Name the pressure territory', check: (c) => c.qid('territory') },
+      { id: 'plan', weight: 25, text: 'Choose the plan that fits the anatomy', check: (c) => c.qid(c.cs.planId) },
+      { id: 'interpretation', weight: 20, text: 'Separate local from generalized disease, and route closure from cure', check: (c) => (c.qid('cause') === 'met' && c.qid('interpretation') === 'met' ? 'met' : c.qid('cause') && c.qid('interpretation') ? 'failed' : null) },
+    ],
+    end: (c) => (c.quizDone() ? 'success' : c.t > 1200 ? 'timeout' : null),
+    debrief: (c) => `Fundal varices identify a collateral bed, not a unique cause. Your patient’s obstruction was ${c.cs.kind}. Splenic-side and main portal pressures therefore differ between these variants.\n\nThe model does not perform splenectomy, splenic artery embolization or complete varix obliteration. For active gastric hemorrhage, follow the current-guidance card. Variant: ${c.cs.vid}.`,
+  },
+  {
+    id: 'cardiac', title: 'Ascites with a small gradient', level: 'Diagnosis',
+    summary: 'A 68-year-old has abdominal swelling and peripheral edema. The team asks whether the liver is the primary pressure source. Determine the downstream pressure pattern before proposing decompression.',
+    preset: 'rhf', params: { pulsatile: true }, speed: 1, hidden: DX_HIDDEN, tools: ['select', 'doppler'],
+    actions: ['eligibility', 'echo', 'doppler', 'ascitic', 'hemodynamics', 'cbc', 'diuretics', 'paracentesis'],
+    refs: ['Cardiac congestion and the liver: hemodynamic evidence, free and wedged hepatic venous pressures.', 'Portal vein Doppler pulsatility in right heart failure.', 'de Franchis R, et al. Baveno VII. J Hepatol 2022;76:959–74.'],
+    variants: [
+      { vid: 'heart', preset: 'rhf', probes: ['PV_TRUNK', 'RHV_IVC'], dx: 0, facts: ['A 68-year-old with abdominal swelling and peripheral edema.'], echoNote: 'A supplied clinical assessment reports marked right-heart dysfunction and severe tricuspid regurgitation. Consider cardiac congestion in the ascites assessment. Clinical cardiac treatment is outside the simulation.', cardiac: true, planId: 'decision-cardiac' },
+      { vid: 'constrict', preset: 'constrictive', probes: ['PV_TRUNK', 'RHV_IVC'], dx: 0, facts: ['A 68-year-old with abdominal swelling and peripheral edema.'], echoNote: 'The supplied clinical assessment reports findings consistent with pericardial constraint. This is authored clinical information. The model’s generic echo action does not diagnose constrictive pericarditis.', cardiac: true, planId: 'decision-cardiac' },
+      { vid: 'cirrhotic', preset: 'cirr-decomp', probes: ['PV_TRUNK', 'RHV_IVC'], dx: 1, facts: ['A 68-year-old with abdominal swelling and peripheral edema.'], echoNote: 'The supplied assessment supports cirrhosis as the primary liver disease. It has not identified significant cardiac congestion. Elective procedural selection still requires full clinical review.', cardiac: false, planId: 'decision-cirrhotic' },
+    ],
+    // The two plan questions differ by variant; the diagnosis answer index comes from the variant.
+    build: (v) => [Q('diagnosis', 'Which source best explains the combined findings?', ['Downstream cardiac backpressure', 'Sinusoidal cirrhotic resistance', 'Isolated splenic-vein obstruction', 'No relevant disease because the gradient can be small'], v.dx, 'Compare the supplied assessment with the absolute pressures and the waveform.'),
+      v.cardiac ? Q('decision-cardiac', 'What should happen before an elective portal bypass is proposed?', ['Cardiac assessment and management of the downstream problem', 'Immediate TIPS because all ascites comes from sinusoidal cirrhosis', 'No assessment because HVPG is small'], 0, 'Absolute downstream pressures and clinical reserve matter.', REQ)
+        : Q('decision-cirrhotic', 'What follows from a sinusoidal cirrhotic pattern?', ['Consider the appropriate liver/ascites pathway and complete clinical TIPS selection if indicated', 'TIPS is automatically safe', 'Cardiac assessment is never needed'], 0, 'A fluid category or a gradient alone never selects TIPS.', REQ),
+      Q('subtraction', 'Can both free and wedged pressures be high when their difference is small?', ['Yes', 'No', 'Only after EVL'], 0, 'Subtraction can conceal high absolute backpressure.'),
+      Q('fluid', 'How should this model-derived fluid category be used?', ['As supportive information alongside cardiac, vascular and liver assessment', 'As a complete diagnostic test by itself', 'As proof that infection is absent'], 0, 'The categories are heuristic and clinically nonexclusive.')],
+    objectives: [
+      { id: 'cardiac-study', weight: 20, text: 'Order an echo before the plan', check: (c) => { const f = c.first('echo'), a = c.ansAt(c.cs.planId); return f != null && (a == null || f <= a) ? 'met' : a != null ? 'failed' : null; } },
+      { id: 'flow-study', weight: 15, text: 'Examine the portal or hepatic-vein flow with Doppler', check: (c) => (c.first('doppler') != null && c.probed ? 'met' : null) },
+      { id: 'fluid', weight: 15, text: 'Sample the ascites and read the category as supportive', check: (c) => (c.first('ascitic') != null ? c.qid('fluid') : c.qid('fluid') ? 'failed' : null) },
+      { id: 'diagnosis', weight: 25, text: 'Name the pressure source', check: (c) => c.qid('diagnosis') },
+      { id: 'decision', weight: 25, critical: true, text: 'Choose the plan and reject “a low HVPG means no congestion”', check: (c) => (c.qid(c.cs.planId) === 'met' && c.qid('subtraction') === 'met' ? 'met' : c.qid(c.cs.planId) && c.qid('subtraction') ? 'failed' : null) },
+    ],
+    end: (c) => (c.quizDone() ? 'success' : c.t > 1200 ? 'timeout' : null),
+    debrief: (c) => `The pressure source was ${c.cs.cardiac ? 'cardiac' : 'sinusoidal'}. In the cardiac pattern, both free and wedged pressures rise, so subtraction can conceal the high absolute pressure. Protein-rich fluid is supportive, not definitive.\n\nA portal bypass requires assessment of downstream cardiac reserve, which this network cannot fully provide. Variant: ${c.cs.vid}. For a contrast, load the other presets in Explore and compare absolute WHVP, FHVP and the portal waveform.`,
+  },
+  {
+    id: 'vascular', title: 'Locate the vascular obstruction', level: 'Diagnosis',
+    summary: 'A 42-year-old is referred for suspected vascular portal hypertension. The initial report is incomplete. Localize the obstruction and identify the next specialist assessment.',
+    preset: 'pvt-acute', speed: 1, hidden: DX_HIDDEN, tools: ['select', 'doppler'],
+    actions: ['eligibility', 'vascular-imaging', 'doppler', 'hemodynamics', 'echo', 'ascitic', 'cbc'],
+    refs: ['de Franchis R, et al. Baveno VII. J Hepatol 2022;76:959–74.', 'Plessier A, et al. Vascular liver diseases: guidance on measurement and management.', 'Hepatic arterial buffer response after portal vein occlusion.'],
+    variants: [
+      { vid: 'acute-pvt', preset: 'pvt-acute', probes: ['PV_TRUNK'], loc: 0, facts: ['New abdominal pain prompted assessment.'], imaging: 'Main portal trunk occluded, no established chronic cavernomatous report.', m: 'pre', a: 'acute' },
+      { vid: 'chronic-pvt', preset: 'pvt-chronic', probes: ['PV_TRUNK'], loc: 0, facts: ['Portal collateral findings have been noted over time.'], imaging: 'Main portal trunk occluded with C8 periportal bypass.', m: 'pre', a: 'chronic' },
+      { vid: 'presinusoidal', preset: 'schisto', probes: ['PV_TRUNK'], loc: 1, facts: ['Portal collateral findings have been noted over time.'], imaging: 'Main portal and major hepatic-vein routes patent. The preset resistance lies before the sinusoids (schematic interpretation, not histology).', m: 'pre', a: 'pre' },
+      { vid: 'sos', preset: 'sos', probes: ['RHV_IVC'], loc: 2, facts: ['Abdominal swelling prompted assessment.'], imaging: 'Major hepatic-vein routes patent. The preset small-vessel outflow resistance is raised (schematic interpretation, not histology).', m: 'sos', a: 'sos' },
+      { vid: 'budd-chiari', preset: 'budd-chiari', probes: ['RHV_IVC'], loc: 3, facts: ['Abdominal swelling prompted assessment.'], imaging: 'RHV_IVC, MHV_IVC and LHV_IVC occluded. An alternative CAUD outlet is present.', m: 'budd', a: 'budd' },
+      { vid: 'ivc-web', preset: 'ivc-web', probes: ['IVCS_RA'], loc: 4, facts: ['Abdominal swelling prompted assessment.'], imaging: 'IVCS_RA narrowed. Major hepatic-vein outlets patent.', m: 'web', a: 'web' },
+    ],
+    build: (v) => (v.measId = MEAS[v.m].id, v.adaptId = ADAPT[v.a].id, [Q('location', 'Where is the main obstruction in this model?', ['Prehepatic', 'Presinusoidal', 'Postsinusoidal small-vessel outflow', 'Major hepatic-vein outlet', 'Caval outlet', 'Cardiac backpressure'], v.loc, 'Identify the largest added resistance at the shown route, not a disease name from one pressure.'),
+      MEAS[v.m], ADAPT[v.a],
+      Q('next-step', 'What is the appropriate next clinical step?', ['Specialist vascular-liver assessment with imaging and relevant etiologic and clinical workup', 'Universal TIPS from the clot slider alone', 'Exclude disease if HVPG is low'], 0, 'Treatment and bowel-ischemia or thrombophilia assessment require information outside this network.')]),
+    objectives: [
+      { id: 'image', weight: 20, text: 'Obtain imaging, or Doppler on the relevant vessel', check: (c) => (c.first('vascular-imaging') != null || (c.first('doppler') != null && c.probed) ? 'met' : null) },
+      { id: 'location', weight: 30, critical: true, text: 'Localize the obstruction', check: (c) => c.qid('location') },
+      { id: 'measurement', weight: 20, critical: true, text: 'Judge whether HVPG or PPG is valid here', check: (c) => c.qid(c.cs.measId) },
+      { id: 'adaptation', weight: 15, text: 'Explain the adaptation or pressure step', check: (c) => c.qid(c.cs.adaptId) },
+      { id: 'next-step', weight: 15, text: 'Choose specialist assessment rather than a universal treatment', check: (c) => c.qid('next-step') },
+    ],
+    end: (c) => (c.quizDone() ? 'success' : c.t > 1500 ? 'timeout' : null),
+    debrief: (c) => `The block was ${['prehepatic', 'presinusoidal', 'postsinusoidal (small-vessel outflow)', 'in the hepatic-vein outlets', 'in the caval outlet'][c.cs.loc]}. The decisive study showed: ${c.cs.imaging}\n\nA low HVPG does not exclude a prehepatic or presinusoidal block, and an occluded hepatic vein does not provide a valid clinical wedge measurement. Vascular treatment requires assessment that this simulator does not contain. Variant: ${c.cs.vid}.`,
+  },
   {
     id: 'bleed', title: 'Night shift: hematemesis', level: 'Acute care',
     summary: 'A 54-year-old with decompensated alcohol-related cirrhosis vomits blood. HR climbing, MAP falling.',
@@ -82,24 +229,6 @@ export const CASES = [
     ],
     end: (c) => (c.m.map < 45 && c.lowFor > 60 ? 'death' : !c.f.bleed.active && c.stableFor > 300 ? 'success' : c.t > 3600 ? 'timeout' : null),
     debrief: (c) => `Blood lost: ${Math.round(c.f.metrics.blood.lost)} mL. Lowest MAP ${Math.round(c.minMap)} mmHg. Max portal pressure ${fmt(c.maxPV, 1)} mmHg.\n\nKey physiology: variceal bleeding lowers portal pressure (hypovolemia) and the bleeding may pause. Over-transfusion refills the splanchnic veins and raises portal pressure again, which provokes rebleeding. That is why the transfusion target is Hb ~7–8 g/dL. Vasoactive drugs lower portal inflow within minutes. Band ligation removes the bleeding source. Pre-emptive TIPS (≤ 72 h) benefits high-risk patients (Child C < 14 or B > 7 with active bleeding).`,
-  },
-  {
-    id: 'gastric', title: 'Isolated gastric varices', level: 'Diagnosis',
-    summary: 'A 46-year-old with recurrent pancreatitis has melena. Endoscopy shows fundal varices, but no esophageal varices. Liver tests are normal.',
-    preset: 'svt', speed: 1, hidden: ['trueHVPG', 'pv'], tools: ['select', 'doppler', 'endoscope'],
-    actions: ['doppler', 'endoscopy'],
-    refs: ['Köklü S, et al. Left-sided portal hypertension. Dig Dis Sci 2007;52:1141–9.', 'de Franchis R, et al. Baveno VII. J Hepatol 2022;76:959–74.'],
-    quiz: [
-      { id: 'dx', why: 'Splenic vein thrombosis isolates the splenic territory; liver tests and HVPG are normal.', q: 'What is the most likely cause?', options: ['Cirrhosis', 'Splenic vein thrombosis (sinistral portal hypertension)', 'Budd–Chiari syndrome', 'Right heart failure'], answer: 1 },
-      { id: 'rx', why: 'Removing splenic inflow cures it; TIPS does not address the splenic block.', q: 'Best definitive treatment?', options: ['TIPS', 'Splenectomy or splenic artery embolization', 'Liver transplant', 'Propranolol alone'], answer: 1 },
-    ],
-    objectives: [
-      { id: 'look', weight: 20, text: 'Investigate with Doppler', check: (c) => (c.first('doppler') != null ? 'met' : null) },
-      { id: 'dx', weight: 40, critical: true, text: 'Make the diagnosis', check: (c) => c.quizState(0) },
-      { id: 'rx', weight: 40, critical: true, text: 'Choose the treatment', check: (c) => c.quizState(1) },
-    ],
-    end: (c) => (c.quizDone() ? 'success' : null),
-    debrief: () => 'Splenic vein thrombosis isolates the splenic territory: the spleen drains through the short gastric veins into the fundus. Portal pressure and HVPG are normal. The Doppler shows an occluded splenic vein with normal portal flow. Removing the splenic inflow (splenectomy or splenic artery embolization) cures it; TIPS would not help.',
   },
   {
     id: 'refractory', title: 'Refractory ascites: TIPS or not?', level: 'Management',
@@ -153,10 +282,14 @@ export function createCases({ root, api }) {
     cs = CASES.find((c) => c.id === id);
     log.length = 0;
     seed = opts.seed ?? Math.floor(1000 + Math.random() * 9000);
+    // Discrete authored variants: the seed picks one, and its fields override the case's own.
+    cs = { ...cs, ...(cs.variants ? cs.variants[opts.variant ?? Math.floor(rngOf(seed ^ 0x5bd1e995)() * cs.variants.length)] : {}) };
     variant = cs.variant ? cs.variant(rngOf(seed)) : {};
     await api.loadPreset(cs.preset, { keepLesson: true, days: variant.days ?? cs.days });
     if (cs.prep) updateParams(cs.prep, { history: false });
     if (cs.params) updateParams(cs.params, { history: false });
+    cs.quiz = [...(cs.quiz || []), ...(cs.build?.(cs) || []), ...(cs.quizTail || [])];
+    if (!cs.quiz.length) cs.quiz = undefined;
     const vis = visibilityOf(cs);
     store.set({ hiddenReadouts: vis.hidden, hiddenEvents: vis.events, lastHVPG: null, locked: new Set(['!cirrhosis']), imaging: vis.imaging });
     api.setAllowedTools(cs.tools);
@@ -168,7 +301,7 @@ export function createCases({ root, api }) {
     host.send({ type: 'run', running: true, speed: cs.speed, clock: 'hemo' });
     store.set({ speed: cs.speed });
     wall0 = Date.now();
-    ctx = { t0: null, t: 0, quiz: {}, minMap: 999, maxPV: 0, maxHbAfterTx: 0, lowFor: 0, stableFor: 0, obj: {}, ended: false, outcome: null, params0: structuredClone(store.get().params) };
+    ctx = { t0: null, t: 0, quiz: {}, probed: false, minMap: 999, maxPV: 0, maxHbAfterTx: 0, lowFor: 0, stableFor: 0, obj: {}, ended: false, outcome: null, params0: structuredClone(store.get().params) };
     trend = {};
     render();
     clearInterval(timer);
@@ -177,11 +310,14 @@ export function createCases({ root, api }) {
 
   function makeCtx(f) {
     const c = ctx;
-    c.f = f; c.m = f.metrics; c.params = store.get().params;
+    c.f = f; c.cs = cs; c.m = f.metrics; c.params = store.get().params;
     if (c.t0 == null) c.t0 = f.t;
     c.t = Math.max(0, f.t - c.t0);
     c.first = (...ids) => { const x = log.find((l) => ids.includes(l.id)); return x ? x.t : null; };
     c.quizState = (i) => (c.quiz[i] == null ? null : c.quiz[i] === cs.quiz[i].answer ? 'met' : 'failed');
+    c.ansAt = (id) => log.find((l) => l.key === `case:${cs.id}:${id}`)?.t;
+    c.count = (id) => log.filter((l) => l.id === id).length;
+    c.qid = (id) => { const i = cs.quiz.findIndex((q) => q.id === id); return i < 0 ? null : c.quizState(i); };
     c.quizDone = () => cs.quiz && cs.quiz.every((_, i) => c.quiz[i] != null);
     return c;
   }
@@ -190,6 +326,7 @@ export function createCases({ root, api }) {
     const f = store.get().frame;
     if (!cs || !f || ctx.ended) return;
     const c = makeCtx(f);
+    if (cs.probes && !c.probed) c.probed = (store.get().actionLog || []).some((a) => a.type === 'probe' && cs.probes.includes(a.target));
     c.minMap = Math.min(c.minMap, c.m.map);
     c.maxPV = Math.max(c.maxPV, c.m.pv);
     if (log.some((l) => l.id === 'prbc')) c.maxHbAfterTx = Math.max(c.maxHbAfterTx, c.m.blood.hb);
@@ -333,6 +470,8 @@ export function createCases({ root, api }) {
         if (ctx.ended) return;
         if (a.once && log.some((l) => l.id === id)) return toast('Already done.');
         if (a.max && log.filter((l) => l.id === id).length >= a.max) return toast(`Limit reached (${a.max}).`);
+        const gate = cs.gates?.[id];
+        if (gate && ctx.quiz[cs.quiz.findIndex((q) => q.id === gate)] == null) return toast('Commit your plan first.');
         if (a.needs && !a.needs.some((n) => log.some((l) => l.id === n))) return toast('Identify the route first (Doppler or endoscopy).');
         const entry = { id, t: ctx.t };
         log.push(entry);
@@ -378,7 +517,7 @@ export function createCases({ root, api }) {
         results,
         quiz,
         h('div', { class: 'subhead', style: { marginBottom: '-6px' } }, 'Objectives'), objs,
-        h('button', { class: 'btn block', onclick: () => finish(ctx.outcome || 'timeout') }, 'End case and debrief')));
+        h('button', { class: 'btn block', onclick: () => finish(ctx.outcome || (cs.quiz?.length && cs.quiz.every((_, i) => ctx.quiz[i] != null) ? 'success' : 'timeout')) }, 'End case and debrief')));
     liveEls = { vit, objs, clock, acts, results, decisions };
     renderDecisions();
     renderLive();

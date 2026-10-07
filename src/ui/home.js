@@ -5,7 +5,7 @@
 import { store } from './store.js?v=b8c56c0b3c';
 import { h, svgIcon, icon } from './util.js?v=8aa5e5cdf1';
 import { LESSONS } from './learn.js?v=aae6f35b33';
-import { CASES } from './cases.js?v=56a5affbf2';
+import { CASES } from './cases.js?v=ea763f0925';
 import { t } from '../i18n/i18n.js?v=1ad6d8253b';
 import { exportCSV, exportXAPI, learnerName, setLearnerName, records } from './records.js?v=379d033371';
 import { SNAPSHOTS, PATH } from './snapshots.js?v=324e424a9c';
