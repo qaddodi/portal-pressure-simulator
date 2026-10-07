@@ -7,7 +7,7 @@
 import { store } from './store.js?v=6209f4be01';
 import { runSequence, restoreSequence } from './sequence.js?v=0023ce64b2';
 import { h, toast, svgIcon, icon } from './util.js?v=8aa5e5cdf1';
-import { download } from './records.js?v=5f3cebd762';
+import { download } from './records.js?v=50fb9dd463';
 
 const ask = (q, a) => `\n\nAsk the room: ${q} Expected: ${a}`;
 export const SCRIPTS = [

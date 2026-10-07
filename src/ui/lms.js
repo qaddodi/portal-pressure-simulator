@@ -4,8 +4,8 @@
 // xAPI statements are available as an export (records.js); LTI 1.3 needs a server and is not part
 // of this static build.
 
-import { onRecord, records, learnerName, setLearnerName } from './records.js?v=5f3cebd762';
-import { lmsReport, MASTERY } from './assess.js?v=c8570af624';
+import { onRecord, records, learnerName, setLearnerName } from './records.js?v=50fb9dd463';
+import { lmsReport, MASTERY } from './assess.js?v=7f4afcf446';
 
 function findAPI(win) {
   for (let i = 0; win && i < 10; i++) {
@@ -34,7 +34,7 @@ export function startLMS() {
   let required = single ? [single] : null;
   const catalog = async () => {
     if (required) return required;
-    const [{ LESSONS }, { CASES }] = await Promise.all([import('./learn.js?v=cf64cf8405'), import('./cases.js?v=0c1d32cd70')]);
+    const [{ LESSONS }, { CASES }] = await Promise.all([import('./learn.js?v=283853296e'), import('./cases.js?v=9e64a673c6')]);
     return (required = [...LESSONS.map((l) => ({ kind: 'lesson', id: l.id })), ...CASES.map((c) => ({ kind: 'case', id: c.id }))]);
   };
   if (q.get('script')) return api; // presentations are ungraded

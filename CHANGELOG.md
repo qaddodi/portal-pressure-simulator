@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Cases rebuilt (11).** Every case now has a named patient, an authored chart and orders in clinical words. The old
+  “supplied clinical assessment” cards are gone: the chart holds facts (an asthma history, a bilirubin of 6.5, severe
+  tricuspid regurgitation) and the learner has to notice them. The bleeding patient arrives tachycardic and hypotensive;
+  decisions pause the clock; feedback waits for the debrief, except for unsafe choices (no vasoactive drug, transfusing to
+  10, TIPS in heart disease or a blocked splenic vein, carvedilol with low pressure), whose effect the model shows at once.
+  New: new ascites, Budd–Chiari/SOS/caval web, portal vein thrombosis, the beta blocker problem, varices with a normal
+  liver, reversed flow on a routine scan, and confusion after a TIPS. The debrief lists key actions, your choices against
+  the expert's, an “inside the patient” table and three pearls. Content version 2026.10-c1.
+
 - **Curriculum rewrite, batches 5 to 8.** Lessons *sinistral*, *heart* and *costs* are rewritten and *vascular-patterns* is
   new (12 lessons). Cases: new *prevention*, *vascular*; *gastric* has a local and a cirrhotic variant; *cardiac* is
   restored; *bleed* and *refractory* are rewritten (6 cases). Cases open with the history behind an order, pressures and
