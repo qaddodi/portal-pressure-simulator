@@ -7,7 +7,7 @@
 //   - Records store the contract version they were scored under; old records keep their old rule.
 
 export const ASSESSMENT_VERSION = 2;
-export const CONTENT_VERSION = '2026.10-b2';
+export const CONTENT_VERSION = '2026.10-b8';
 export const MASTERY = 80;
 /** Stable activity namespace for xAPI (the live site's own address). */
 export const XAPI_BASE = 'https://qaddodi.github.io/portal-pressure-simulator/xapi';
