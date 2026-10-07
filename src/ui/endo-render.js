@@ -48,7 +48,7 @@ function makeColumns(grow, bands) {
       amp: 0.03 + 0.28 * grow,
       zb: [],
     };
-    for (let k = 0; k < Math.min(nb, 4); k++) col.zb.push(1.5 * Math.pow(1.6, k));
+    for (let k = 0; k < Math.min(nb, 4); k++) col.zb.push(2.1 * Math.pow(1.45, k));
     // A banded column is strangulated: its own vein deflates (the knuckle stands where it was).
     col.ampK = col.amp;
     if (nb > 0) { col.amp *= 0.3; col.w0 *= 0.8; col.vk = 0.45; }
@@ -63,7 +63,7 @@ function centre(col, z) { return col.a0 + col.A1 * Math.sin(col.f1 * z + col.ph)
 function field(th, z, cols, grow, beaded, o) {
   let hh = 0;
   // Faint longitudinal mucosal ripples.
-  hh += 0.012 * Math.sin(th * 9 + 2.2 * nz(th / TAU * 6, z * 0.3, 6)) * sstep(0.5, 1.2, z);
+  hh += 0.017 * Math.sin(th * 9 + 2.2 * nz(th / TAU * 6, z * 0.3, 6)) * sstep(0.5, 1.2, z);
   const near = sstep(0.42, 0.95, z);
   if (o) { o.vein = 0; o.u = 0; o.c = -1; o.dom = 0; o.q = 9; o.qc = -1; o.halo = 0; }
   for (let c = 0; c < NCOL; c++) {
@@ -103,7 +103,7 @@ export function renderEndo(res, p) {
   const cv = document.createElement('canvas'); cv.width = cv.height = res;
   const ctx = cv.getContext('2d'), img = ctx.createImageData(res, res), D = img.data;
   const half = res / 2, o = {};
-  const V = [66, 62, 158], ALB = [236, 172, 154], DEEP = [150, 52, 50];
+  const V = [66, 62, 158], ALB = [236, 167, 152], DEEP = [140, 40, 50];
   const eth = 0.008;
   for (let py = 0; py < res; py++) {
     for (let px = 0; px < res; px++) {
@@ -121,7 +121,7 @@ export function renderEndo(res, p) {
       const nr = 1, nt = hth / rw, nzc = hz, nl = Math.hypot(nr, nt, nzc);
       const d2 = rw * rw + z * z, dd = Math.sqrt(d2);
       const NL = Math.max(0, (rw * nr + nzc * z) / (nl * dd));
-      const atten = 1.7 / (1 + d2 * 0.16);
+      const atten = 1.7 / (1 + d2 * 0.12);
       // Normal in screen axes for the wet highlight from a second, off-axis light.
       const ct = Math.cos(th), st = Math.sin(th);
       const Nx = -(nr * ct - nt * st) / nl, Ny = -(nr * st + nt * ct) / nl, Nz = -nzc / nl;
@@ -190,18 +190,20 @@ export function renderEndo(res, p) {
       const diff = Math.min(1.1, (NL * 0.72 + 0.28)) * atten;
       const sheen = (0.08 + 0.1 * nz(th / TAU * 9, z * 0.7, 9));
       const spec = (Math.min(0.35, Math.pow(NH, 220) * 0.3 + Math.pow(NL, 14) * 0.02)) * gloss * atten * (0.35 + 0.9 * nz(th / TAU * 20, z * 1.4, 20));
-      let rr = (r0 / 255) * diff * ao + spec * 0.9 + sheen * 0.04;
-      let gg = (g0 / 255) * diff * ao + spec * 0.86 + sheen * 0.03;
-      let bb = (b0 / 255) * diff * ao + spec * 0.82 + sheen * 0.03;
+      // Tiny wet glints from saliva films, sparse and fixed.
+      const glint = sstep(0.94, 0.985, nz(th / TAU * 80, z * 7, 80)) * 0.14 * atten * NL;
+      let rr = (r0 / 255) * diff * ao + spec * 0.9 + glint * 0.8 + sheen * 0.04;
+      let gg = (g0 / 255) * diff * ao + spec * 0.9 + glint * 0.8 + sheen * 0.03;
+      let bb = (b0 / 255) * diff * ao + spec * 0.9 + glint * 0.8 + sheen * 0.03;
       // Lumen: fade to a dark red-brown void.
-      const lum = sstep(3.5, 15, z);
+      const lum = sstep(5, 20, z);
       rr = mix(rr, 0.05, lum); gg = mix(gg, 0.012, lum); bb = mix(bb, 0.014, lum);
       // Vignette of the lens.
       const vg = 1 - 0.62 * sstep(0.62, 1.0, rho);
       rr *= vg; gg *= vg; bb *= vg;
       D[i] = Math.min(255, 255 * Math.pow(Math.min(1.2, rr), 0.82));
-      D[i + 1] = Math.min(255, 255 * Math.pow(Math.min(1.2, gg), 0.86));
-      D[i + 2] = Math.min(255, 255 * Math.pow(Math.min(1.2, bb), 0.88));
+      D[i + 1] = Math.min(255, 255 * Math.pow(Math.min(1.2, gg), 0.9));
+      D[i + 2] = Math.min(255, 255 * Math.pow(Math.min(1.2, bb), 0.86));
       D[i + 3] = 255;
     }
   }
