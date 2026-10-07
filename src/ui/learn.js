@@ -7,7 +7,7 @@ import { createAnswerSheet, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from 
 import { addRecord } from './records.js?v=50fb9dd463';
 import { runSequence } from './sequence.js?v=0023ce64b2';
 import { EDGES } from '../engine/topology.js?v=80b8d861de';
-import { trustLine, teachChip, blindOn, blindOff, isBlind, optionList, compareChip, bindQuestionKeys, mirrorMarker } from './learning-kit.js?v=0a363167b2';
+import { trustLine, teachChip, blindOn, blindOff, isBlind, optionList, compareChip, bindQuestionKeys, mirrorMarker } from './learning-kit.js?v=67bc1e8eae';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 
@@ -44,8 +44,8 @@ export const LESSONS = [
         text: 'Pressure piles up on the gut and spleen side of the clot, while the liver side stays low. Blood now searches for other ways out.' },
       { type: 'explain', metric: 'pv', text: 'Portal veins have no valves, so blood goes wherever the pressure is lowest. A block raises pressure behind it, never beyond it. That is why this patient’s spleen enlarged and his platelets fell.' },
       { type: 'check', quiz: [
-        { q: 'A patient’s portal vein is blocked where it enters the liver. Where do you expect the pressure to be highest?', options: ['In the veins of the spleen and bowel', 'In the liver’s sinusoids', 'In the hepatic veins and cava', 'Equally high everywhere'], answer: 0 },
-        { q: 'A woman has a large spleen, platelets of 70 and a normal liver ultrasound. Which finding would best explain the platelets?', options: ['Back-pressure enlarging the spleen, which traps platelets', 'Failure of valves in the portal vein', 'Reduced bile flow', 'Too much blood reaching the liver'], answer: 0 },
+        { q: 'A patient’s portal vein is blocked where it enters the liver. Where do you expect the pressure to be highest?', options: ['In the veins of the spleen and bowel', 'In the liver’s sinusoids', 'In the hepatic veins and cava', 'Equally high everywhere'], answer: 0, why: 'Pressure builds up behind a block, in the veins that drain into it, not beyond it.' },
+        { q: 'A woman has a large spleen, platelets of 70 and a normal liver ultrasound. Which finding would best explain the platelets?', options: ['Back-pressure enlarging the spleen, which traps platelets', 'Failure of valves in the portal vein', 'Reduced bile flow', 'Too much blood reaching the liver'], answer: 0, why: 'Back-pressure enlarges the spleen, and a big spleen holds on to platelets (hypersplenism).' },
       ] },
     ],
   },
@@ -70,8 +70,8 @@ export const LESSONS = [
         text: 'Budd–Chiari: the hepatic veins are blocked, so the whole liver backs up. Ascites is common, and it is protein-rich.' },
       { type: 'explain', metric: 'pv', text: 'Block **before** the liver (portal vein clot): normal liver tests, little ascites. Block **in** the liver before the sinusoids (schistosomiasis): normal liver function, big varices. Block **in** the sinusoids (cirrhosis): sick liver, ascites with low protein. Block **after** the liver (hepatic veins, heart): ascites with high protein.' },
       { type: 'check', quiz: [
-        { q: 'A 30-year-old from Egypt has large varices, normal bilirubin and no ascites. Where is the block most likely?', options: ['Before the sinusoids, in the small portal branches', 'In the sinusoids, from cirrhosis', 'In the hepatic veins', 'In the heart'], answer: 0 },
-        { q: 'A woman has painful hepatomegaly, rapid ascites with high protein, and varices. Where do you look for the block?', options: ['After the liver: hepatic veins and cava', 'In the portal vein', 'In the sinusoids, from cirrhosis', 'In the splenic vein'], answer: 0 },
+        { q: 'A 30-year-old from Egypt has large varices, normal bilirubin and no ascites. Where is the block most likely?', options: ['Before the sinusoids, in the small portal branches', 'In the sinusoids, from cirrhosis', 'In the hepatic veins', 'In the heart'], answer: 0, why: 'Schistosome eggs block the small portal branches. The liver cells are spared, so bilirubin is normal and ascites is unusual.' },
+        { q: 'A woman has painful hepatomegaly, rapid ascites with high protein, and varices. Where do you look for the block?', options: ['After the liver: hepatic veins and cava', 'In the portal vein', 'In the sinusoids, from cirrhosis', 'In the splenic vein'], answer: 0, why: 'Painful liver, fast ascites with high protein: think Budd–Chiari. Doppler the hepatic veins and cava.' },
       ] },
     ],
   },
@@ -82,7 +82,7 @@ export const LESSONS = [
     steps: [
       { type: 'frame', preset: 'cirr-comp', tools: ['select'], view: 'anatomic', zoom: 'fit', tab: 'profile', focus: ['RHV_IVC', 'PRE_R', 'SIN_RR'], focusLabel: 'Hepatic vein and sinusoids',
         data: [{ label: 'Free pressure', metric: 'fhvp', unit: 'mmHg' }, { label: 'Wedged pressure', metric: 'whvp', unit: 'mmHg' }],
-        text: 'Your patient’s hepatic venous pressure gradient (**HVPG**) is 4 mmHg. Does she have portal hypertension? The gradient is the wedged pressure minus the free pressure in a hepatic vein. Normal is up to 5, clinically significant is 10 or more, and bleeding risk rises from 12.' },
+        text: 'A woman with large varices has a hepatic venous pressure gradient (**HVPG**) of 4 mmHg. Does she have portal hypertension? First, see how the number is made. The gradient is the wedged pressure minus the free pressure in a hepatic vein. Normal is up to 5, clinically significant is 10 or more, and bleeding risk rises from 12.' },
       { type: 'do', tools: ['select', 'catheter'], tab: 'profile', focus: ['RHV_IVC'], focusLabel: 'Right hepatic vein',
         text: 'Measure as a clinician does: in the **Hepatic vein pressures** card take the **free** pressure in the right hepatic vein, then the **wedged** pressure. Compare the two.',
         goal: (f, p, log) => { const i = log.findIndex((a) => a.type === 'catheter' && a.target === 'R' && !a.value); return i >= 0 && log.slice(i).some((a) => a.type === 'catheter' && a.target === 'R' && a.value); },
@@ -97,9 +97,9 @@ export const LESSONS = [
         text: 'In right heart failure both pressures are high, so their difference stays small.' },
       { type: 'explain', metric: 'hvpg', text: 'The wedge sees the sinusoids. A block before them is invisible, and a failing heart raises both readings together. A low gradient therefore never excludes portal hypertension.' },
       { type: 'check', quiz: [
-        { q: 'A patient with Budd–Chiari has a low gradient. Can you trust it?', options: ['No, the hepatic veins are blocked, so a valid wedge is not possible', 'Yes, a low number means no portal hypertension', 'Yes, if the free pressure is also low', 'Only if the patient is on a beta blocker'], answer: 0 },
-        { q: 'A patient with cirrhosis has a gradient of 11 mmHg. What does this tell you?', options: ['Clinically significant portal hypertension', 'Normal pressure', 'Portal hypertension is excluded', 'A block after the liver'], answer: 0 },
-        { q: 'A patient with severe tricuspid regurgitation has high free and wedged pressures and a gradient of 3. What is the best explanation?', options: ['Congestion from the failing right heart', 'A normal liver', 'A block before the sinusoids', 'A reversed portal vein'], answer: 0 },
+        { q: 'A patient with Budd–Chiari has a low gradient. Can you trust it?', options: ['No, the hepatic veins are blocked, so a valid wedge is not possible', 'Yes, a low number means no portal hypertension', 'Yes, if the free pressure is also low', 'Only if the patient is on a beta blocker'], answer: 0, why: 'The wedge needs an open hepatic vein to read the sinusoids. With the outflow blocked, the number means nothing.' },
+        { q: 'A patient with cirrhosis has a gradient of 11 mmHg. What does this tell you?', options: ['Clinically significant portal hypertension', 'Normal pressure', 'Portal hypertension is excluded', 'A block after the liver'], answer: 0, why: '10 or more is clinically significant portal hypertension: the threshold for varices, ascites and preventive treatment.' },
+        { q: 'A patient with severe tricuspid regurgitation has high free and wedged pressures and a gradient of 3. What is the best explanation?', options: ['Congestion from the failing right heart', 'A normal liver', 'A block before the sinusoids', 'A reversed portal vein'], answer: 0, why: 'The failing heart raises both pressures together, so their difference stays small even though the liver is congested.' },
       ] },
     ],
   },
@@ -124,8 +124,8 @@ export const LESSONS = [
         text: 'Propranolol on the same patient: it lowers the pressure through slower inflow alone, and a little less than carvedilol.' },
       { type: 'explain', metric: 'hvpg', text: 'Cirrhosis opens the gut’s arteries, so more blood pours into a stiff liver. Beta blockers turn the inflow down. Carvedilol also relaxes the liver, which is why it is preferred.' },
       { type: 'check', quiz: [
-        { q: 'A 58-year-old has compensated cirrhosis, a gradient of 14, no varices that have bled, and no asthma. What is the best next step?', options: ['Start carvedilol', 'Band ligation now', 'Place a TIPS', 'Observe and repeat the scope in 3 years'], answer: 0 },
-        { q: 'A man with decompensated cirrhosis and refractory ascites has a blood pressure of 88/52 on carvedilol. What do you do?', options: ['Reduce or stop the beta blocker', 'Double the dose to protect his varices', 'Add a second beta blocker', 'Continue unchanged because the pressure is expected'], answer: 0 },
+        { q: 'A 58-year-old has compensated cirrhosis, a gradient of 14, no varices that have bled, and no asthma. What is the best next step?', options: ['Start carvedilol', 'Band ligation now', 'Place a TIPS', 'Observe and repeat the scope in 3 years'], answer: 0, why: 'With clinically significant portal hypertension, carvedilol lowers the risk of a first decompensation. Banding is for those who cannot take it.' },
+        { q: 'A man with decompensated cirrhosis and refractory ascites has a blood pressure of 88/52 on carvedilol. What do you do?', options: ['Reduce or stop the beta blocker', 'Double the dose to protect his varices', 'Add a second beta blocker', 'Continue unchanged because the pressure is expected'], answer: 0, why: 'Low blood pressure on a beta blocker puts the kidneys at risk. Reduce or stop it, and protect the varices with banding.' },
       ] },
     ],
   },
@@ -139,19 +139,19 @@ export const LESSONS = [
       { type: 'predict', q: 'Which varix is most likely to bleed?', options: ['Small, flat, no red signs, mild liver disease', 'Large, red wale signs, advanced liver disease', 'Large, no red signs, mild liver disease', 'Small with red signs, mild liver disease'], answer: 1,
         why: 'Size, red signs and a sicker liver together carry the highest risk.' },
       { type: 'observe', days: 180, tools: ['select', 'endoscope'], tab: 'endoscopy', focus: ['C1a', 'C1b', 'C3', 'C6'], focusLabel: 'Collateral veins',
-        data: [{ label: 'Wall tension (teaching estimate)', metric: (m) => m.varix.ratio * 100, d: 0, unit: '%' }, { label: 'Portal pressure', metric: 'pv', unit: 'mmHg' }],
+        data: [{ label: 'Varix wall tension', metric: (m) => m.varix.ratio, fmt: (r) => (r < 0.6 ? 'Low' : r < 1 ? 'Moderate' : 'High') }, { label: 'Portal pressure', metric: 'pv', unit: 'mmHg' }],
         text: 'Six months pass. The collaterals enlarge and the esophageal varix grows. Pressure behind it stays high.' },
       { type: 'do', tools: ['select', 'band', 'endoscope'], tab: 'endoscopy', focus: ['C1b'], focusLabel: 'Esophageal varix',
         text: '**Band** the esophageal varix and watch the endoscopy view and the pressure.',
-        data: [{ label: 'Wall tension (teaching estimate)', metric: (m) => m.varix.ratio * 100, d: 0, unit: '%' }, { label: 'Portal pressure', metric: 'pv', unit: 'mmHg' }],
+        data: [{ label: 'Varix wall tension', metric: (m) => m.varix.ratio, fmt: (r) => (r < 0.6 ? 'Low' : r < 1 ? 'Moderate' : 'High') }, { label: 'Portal pressure', metric: 'pv', unit: 'mmHg' }],
         goal: (f, p, log) => log.some((a) => a.type === 'action' && a.target === 'band') },
       { type: 'observe', seconds: 8, tools: ['select', 'endoscope'], tab: 'endoscopy', focus: ['C1b'], focusLabel: 'Esophageal varix',
-        data: [{ label: 'Wall tension (teaching estimate)', metric: (m) => m.varix.ratio * 100, d: 0, unit: '%' }, { label: 'Portal pressure', metric: 'pv', unit: 'mmHg' }],
+        data: [{ label: 'Varix wall tension', metric: (m) => m.varix.ratio, fmt: (r) => (r < 0.6 ? 'Low' : r < 1 ? 'Moderate' : 'High') }, { label: 'Portal pressure', metric: 'pv', unit: 'mmHg' }],
         text: 'The banded varix is treated, yet the pressure behind it has not changed.' },
       { type: 'explain', metric: 'varix', tools: ['select'], text: 'A big, thin-walled varix under high pressure is a balloon about to pop. Banding removes the balloon but does not lower the pressure that made it.' },
       { type: 'check', quiz: [
-        { q: 'A patient has had banding and the varices are gone. What still needs treatment?', options: ['The portal pressure, with a beta blocker', 'Nothing, banding cures portal hypertension', 'Repeat banding every week for life', 'The platelet count'], answer: 0 },
-        { q: 'During endoscopy you see a varix that is 10 mm across with red wale signs in a Child–Pugh C patient. How do you read this?', options: ['High risk of bleeding: treat now', 'Low risk: observe', 'Risk depends only on bilirubin', 'A bleed is excluded if the stool is normal'], answer: 0 },
+        { q: 'A patient has had banding and the varices are gone. What still needs treatment?', options: ['The portal pressure, with a beta blocker', 'Nothing, banding cures portal hypertension', 'Repeat banding every week for life', 'The platelet count'], answer: 0, why: 'Bands remove the varix, not the pressure. A beta blocker treats the pressure and stops new varices forming.' },
+        { q: 'During endoscopy you see a varix that is 10 mm across with red wale signs in a Child–Pugh C patient. How do you read this?', options: ['High risk of bleeding: treat now', 'Low risk: observe', 'Risk depends only on bilirubin', 'A bleed is excluded if the stool is normal'], answer: 0, why: 'Large size, red signs and Child–Pugh C each raise the risk, and together they make bleeding likely.' },
       ] },
     ],
   },
@@ -177,8 +177,8 @@ export const LESSONS = [
         text: 'Three months later, without diuretics, the fluid has come back. The tap relieved the belly but not the liver.' },
       { type: 'explain', metric: 'ascites', text: 'Draining fluid relieves the belly but does not treat the liver’s resistance. Diuretics and salt restriction keep the fluid from returning, and albumin protects the kidneys during large taps.' },
       { type: 'check', quiz: [
-        { q: 'A patient has a SAAG of 1.6, ascitic protein of 3.2 g/dL and a raised JVP. What is the next test?', options: ['An echocardiogram', 'A repeat tap with cultures', 'A CT of the liver', 'A liver biopsy'], answer: 0 },
-        { q: 'A patient with cirrhosis has 6 litres of ascites tapped, with no albumin. What is the main risk?', options: ['Kidney injury from the fluid shift', 'The fluid never returns', 'Immediate variceal bleeding', 'Low sodium from the diuretics'], answer: 0 },
+        { q: 'A patient has a SAAG of 1.6, ascitic protein of 3.2 g/dL and a raised JVP. What is the next test?', options: ['An echocardiogram', 'A repeat tap with cultures', 'A CT of the liver', 'A liver biopsy'], answer: 0, why: 'High SAAG with high protein means the block is after the liver. A raised JVP points to the heart.' },
+        { q: 'A patient with cirrhosis has 6 litres of ascites tapped, with no albumin. What is the main risk?', options: ['Kidney injury from the fluid shift', 'The fluid never returns', 'Immediate variceal bleeding', 'Low sodium from the diuretics'], answer: 0, why: 'Taking off more than 5 L without albumin can drop the circulating volume and injure the kidneys.' },
       ] },
     ],
   },
@@ -202,8 +202,8 @@ export const LESSONS = [
         text: 'A different patient, with a failing right heart and a leaking tricuspid valve. The portal vein now pulses with every heartbeat.' },
       { type: 'explain', metric: 'pvFlow', text: 'Away from the liver means advanced disease, with a risk of portal vein clot. A pulsatile portal vein is a heart clue. Always name the vessel you are describing.' },
       { type: 'check', quiz: [
-        { q: 'After a TIPS, the left portal branch flows away from the liver. What does this mean?', options: ['Expected: the flow is heading toward the shunt', 'The shunt has failed', 'The main portal vein has reversed', 'The patient has a new clot'], answer: 0 },
-        { q: 'The report calls the portal vein flow hepatofugal and the spectrum appears below the baseline. A colleague says the Doppler is simply inverted. What do you do?', options: ['Check the vessel, the probe and the Invert setting before naming a direction', 'Treat it as reversed flow', 'Ignore the report', 'Repeat the scan only if the patient has ascites'], answer: 0 },
+        { q: 'After a TIPS, the left portal branch flows away from the liver. What does this mean?', options: ['Expected: the flow is heading toward the shunt', 'The shunt has failed', 'The main portal vein has reversed', 'The patient has a new clot'], answer: 0, why: 'Blood heads to the low-pressure shunt, so the branches beside it can reverse. That is expected, not failure.' },
+        { q: 'The report calls the portal vein flow hepatofugal and the spectrum appears below the baseline. A colleague says the Doppler is simply inverted. What do you do?', options: ['Check the vessel, the probe and the Invert setting before naming a direction', 'Treat it as reversed flow', 'Ignore the report', 'Repeat the scan only if the patient has ascites'], answer: 0, why: 'Above or below the baseline depends on the probe angle and the Invert setting. Direction comes from the vessel and the anatomy.' },
       ] },
     ],
   },
@@ -224,8 +224,8 @@ export const LESSONS = [
         text: 'Months later, the spleen drains through the stomach wall, so gastric varices form. The pressure in the main portal vein stays normal.' },
       { type: 'explain', metric: 'pv', text: 'Only the spleen’s side is under pressure. TIPS will not help, because the main portal vein is not under pressure. The fix is at the spleen, with splenectomy or splenic artery embolization, and only if it bleeds.' },
       { type: 'check', quiz: [
-        { q: 'A patient has isolated gastric varices and normal liver tests. Which imaging do you order first?', options: ['A contrast CT to look at the splenic vein', 'A liver biopsy', 'Hepatic venous pressure measurement', 'A repeat scope in 3 months'], answer: 0 },
-        { q: 'A patient with splenic vein thrombosis bleeds from gastric varices. Which treatment is least likely to help?', options: ['TIPS', 'Splenectomy', 'Splenic artery embolization', 'Endoscopic glue'], answer: 0 },
+        { q: 'A patient has isolated gastric varices and normal liver tests. Which imaging do you order first?', options: ['A contrast CT to look at the splenic vein', 'A liver biopsy', 'Hepatic venous pressure measurement', 'A repeat scope in 3 months'], answer: 0, why: 'A contrast CT shows the splenic vein, and a clot there explains varices in the stomach with a healthy liver.' },
+        { q: 'A patient with splenic vein thrombosis bleeds from gastric varices. Which treatment is least likely to help?', options: ['TIPS', 'Splenectomy', 'Splenic artery embolization', 'Endoscopic glue'], answer: 0, why: 'TIPS lowers pressure in the main portal vein, which is already normal. The problem is on the spleen’s side.' },
       ] },
     ],
   },
@@ -252,8 +252,8 @@ export const LESSONS = [
         goal: (f, p) => !!p.occluded.C5, inline: ['brto'] },
       { type: 'explain', metric: 'shunt', text: 'Bands fix the varix, not the pressure. Beta blockers and vasoactive drugs lower inflow, the latter only for an acute bleed. TIPS lowers pressure and treats varices and ascites, but less blood reaches the liver and the heart works harder. Closing a gastric shunt may worsen esophageal varices and ascites.' },
       { type: 'check', quiz: [
-        { q: 'Which patient should NOT receive a TIPS?', options: ['A patient with severe tricuspid regurgitation', 'A 55-year-old with refractory ascites and a bilirubin of 1.5', 'A patient with rebleeding despite bands and a beta blocker', 'A patient who needs a rescue procedure after a bleed'], answer: 0 },
-        { q: 'Which pairing is correct?', options: ['Bands: the varix; vasoactive drug: inflow; TIPS: bypass of the liver', 'Bands: the pressure; vasoactive drug: the clot; TIPS: scarring', 'Bands: inflow; vasoactive drug: the varix; TIPS: the kidney', 'All three lower the portal pressure by the same route'], answer: 0 },
+        { q: 'Which patient should NOT receive a TIPS?', options: ['A patient with severe tricuspid regurgitation', 'A 55-year-old with refractory ascites and a bilirubin of 1.5', 'A patient with rebleeding despite bands and a beta blocker', 'A patient who needs a rescue procedure after a bleed'], answer: 0, why: 'A TIPS returns more blood to the right heart. Severe tricuspid regurgitation or heart failure can decompensate.' },
+        { q: 'Which pairing is correct?', options: ['Bands: the varix; vasoactive drug: inflow; TIPS: bypass of the liver', 'Bands: the pressure; vasoactive drug: the clot; TIPS: scarring', 'Bands: inflow; vasoactive drug: the varix; TIPS: the kidney', 'All three lower the portal pressure by the same route'], answer: 0, why: 'Each tool works on a different part: bands on the varix, drugs on the inflow, TIPS on the route past the liver.' },
       ] },
     ],
   },
@@ -275,6 +275,17 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
   const snaps = [];             // starting state of each step, for Replay
   let answers = createAnswerSheet(), t0 = 0, mirror = null, unbindKeys = null, cardEl = null;
   let pollTimer = null, inline = null;
+  // Options appear in a shuffled order, fixed for the attempt, so the right answer is not always first.
+  let perms = {};
+  const permOf = (key, n) => {
+    if (perms[key]?.length !== n) { const o = [...Array(n).keys()]; for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; } perms[key] = o; }
+    return perms[key];
+  };
+  /** optionList for an authored question, shown shuffled; picks and answers stay in authored indexes. */
+  function shuffledList(key, { options, picked, answer, onPick }) {
+    const o = permOf(key, options.length), at = (i) => (i == null ? null : o.indexOf(i));
+    return optionList({ options: o.map((i) => options[i]), picked: at(picked), answer: at(answer), reveal: picked != null, locked: picked != null, onPick: (k) => onPick(o[k]) });
+  }
 
   // A small labeled data row (F2): live paired metrics for a step, each { label, metric, d, unit }.
   // `metric` is a dotted path into the metrics frame (e.g. 'varix.d') or a function of it.
@@ -282,7 +293,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
   function dataRow(items) {
     const val = (it, m) => (typeof it.metric === 'function' ? it.metric(m) : it.metric.split('.').reduce((a, k) => a?.[k], m));
     const cells = items.map((it) => h('span', { class: 'dr-v' }, '—'));
-    const upd = () => { const m = store.get().frame?.metrics; if (m) items.forEach((it, i) => { const v = val(it, m); cells[i].textContent = v == null ? '—' : `${fmt(v, it.d ?? 1)} ${it.unit || ''}`.trim(); }); };
+    const upd = () => { const m = store.get().frame?.metrics; if (m) items.forEach((it, i) => { const v = val(it, m); cells[i].textContent = v == null ? '—' : it.fmt ? it.fmt(v) : `${fmt(v, it.d ?? 1)} ${it.unit || ''}`.trim(); }); };
     clearInterval(dataTimer); upd(); dataTimer = setInterval(upd, 400);
     return h('dl', { class: 'kv data-row', 'aria-live': 'off' }, items.flatMap((it, i) => [h('dt', {}, it.label), h('dd', {}, cells[i])]));
   }
@@ -292,7 +303,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
   async function start(id) {
     await beginSession?.('lesson');
     lesson = LESSONS.find((l) => l.id === id);
-    idx = 0; state = {}; snaps.length = 0; answers = createAnswerSheet(); t0 = Date.now();
+    idx = 0; state = {}; perms = {}; snaps.length = 0; answers = createAnswerSheet(); t0 = Date.now();
     unbindKeys?.(); unbindKeys = bindQuestionKeys(() => cardEl);
     sheetMin = false;
     await enter();
@@ -336,6 +347,8 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     // One surface: a question never has an instrument open beside it, unless the student has to draw on one.
     const asking = (st.type === 'predict' && st.mode !== 'draw') || st.type === 'check';
     if (asking) dock.close?.(); else if (st.tab) showPane(st.tab);
+    // The figure glides into the space the closed (or opened) instrument leaves.
+    setTimeout(() => { if (lesson?.steps[idx] === st) stage?.refit?.(); }, 380);
     if (st.blind ?? (st.type === 'predict' && st.mode !== 'draw')) blindOn();
     if (st.path) dock.profile.setPath(st.path);
     if (st.probe) setProbe(st.probe);
@@ -398,6 +411,14 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     if (!wrap || !a || lesson?.steps[idx] !== st) return;
     mirror = mirrorMarker(a);
     wrap.append(mirror.el);
+    // The figure may still glide or be panned and zoomed: the marker stays on its vessel.
+    const m0 = mirror, follow = () => {
+      if (mirror !== m0 || !m0.el.isConnected) return;
+      const b = stage?.anchorFor({ type: 'edge', id: st.edge });
+      if (b) { m0.el.style.left = `${b.x}px`; m0.el.style.top = `${b.y}px`; }
+      setTimeout(follow, 100);
+    };
+    setTimeout(follow, 100);
     if (state.answered != null) { mirror.pick(state.answered); mirror.reveal(state.actual); }
   }
   function pickDirection(st, i) {
@@ -436,7 +457,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     if (st.type === 'predict' && !st.mode) {
       body.push(h('p', { class: 'q' }, st.q));
       canNext = state.answered != null; asking = !canNext;
-      body.push(optionList({ options: st.options, picked: state.answered, answer: st.answer, reveal: state.answered != null, locked: state.answered != null, onPick: (i) => { state.answered = i; blindOff(); render(); } }));
+      body.push(shuffledList(`${idx}`, { options: st.options, picked: state.answered, answer: st.answer, onPick: (i) => { state.answered = i; blindOff(); render(); } }));
       if (state.answered != null) body.push(h('div', { class: 'feedback ' + (state.answered === st.answer ? 'right' : 'wrong') }, h('b', {}, state.answered === st.answer ? 'Correct. ' : 'Not quite. '), st.why || 'Now let’s see what the model does.'));
     }
     if (st.type === 'predict' && st.mode === 'draw') body.push(h('div', { class: 'feedback' }, 'Draw on the pressure profile below the anatomy. When you have at least four points, continue.'));
@@ -473,8 +494,8 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
       st.quiz.forEach((qq, qi) => {
         const got = state.quizAns[qi];
         body.push(h('p', { class: 'q' }, qq.q));
-        body.push(optionList({ options: qq.options, picked: got, answer: qq.answer, reveal: got != null, locked: got != null, onPick: (i) => { state.quizAns[qi] = i; render(); } }));
-        if (got != null && qq.why) body.push(h('div', { class: 'feedback ' + (got === qq.answer ? 'right' : 'wrong') }, qq.why));
+        body.push(shuffledList(`${idx}:${qi}`, { options: qq.options, picked: got, answer: qq.answer, onPick: (i) => { state.quizAns[qi] = i; render(); } }));
+        if (got != null) body.push(h('div', { class: 'feedback ' + (got === qq.answer ? 'right' : 'wrong') }, h('b', {}, got === qq.answer ? 'Correct. ' : `Not quite: the answer is “${qq.options[qq.answer]}”. `), qq.why || ''));
       });
     }
     // The takeaways close the lesson: shown on the last step once its questions are answered.
@@ -500,7 +521,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     card.classList.toggle('sheet', !!sheet);
     card.classList.toggle('min', !!sheet && sheetMin);
     // The figure gives up (or takes back) the sheet's height.
-    requestAnimationFrame(() => stage?.relayout());
+    requestAnimationFrame(() => { stage?.relayout(); if (sheet) dispatchEvent(new Event('resize')); });
   }
 
   store.on('mode', (m) => { if (m !== 'learn' && lesson) stop(); render(); });

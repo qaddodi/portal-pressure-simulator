@@ -51,7 +51,7 @@ export function createProfile() {
     h('span', {}, h('i', { style: { borderColor: 'var(--text-3)', borderTopStyle: 'dashed' } }), 'Healthy'),
     h('span', { class: 'lg-compare', style: { display: 'none' } }, h('i', { style: { borderColor: 'var(--s1)', borderTopStyle: 'dotted' } }), 'Snapshot A'),
     h('span', { class: 'lg-pred', style: { display: 'none' } }, h('i', { style: { borderColor: 'var(--accent)', borderTopStyle: 'dashed' } }), 'Your prediction'));
-  const note = h('div', { class: 'sub' }, 'Pressure at each station along the path. Where the line falls steeply, resistance sits there (ΔP = Q × R); the red pill marks the biggest fall.');
+  const note = h('div', { class: 'sub' }, 'Pressure at each station along the path. Where the line drops steeply, that is where the block is; the red pill marks the biggest drop.');
   const side = h('div', { class: 'chart-side' }, sel, legend, note, h('div', { class: 'ctl-sub', id: 'profileOffscale' }));
   el.append(box, side);
   let pathId = 'main';

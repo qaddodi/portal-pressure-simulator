@@ -15,9 +15,9 @@ import { h, openModal, closeModal, toast, svgIcon } from './util.js?v=8aa5e5cdf1
 import { addRecord, exportCSV, exportXAPI } from './records.js?v=50fb9dd463';
 import { scoreCase, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=7f4afcf446';
 import { veinBlocked } from './measure-model.js?v=089f10544e';
-import { CASES, ORDER_META, GROUPS } from './cases/index.js?v=394be526fc';
+import { CASES, ORDER_META, GROUPS } from './cases/index.js?v=17f7dc6070';
 import { bpOf, tension, abdomen } from './cases/kit.js?v=345f74af3d';
-import { trustLine } from './learning-kit.js?v=0a363167b2';
+import { trustLine } from './learning-kit.js?v=67bc1e8eae';
 
 export { CASES };
 
@@ -73,11 +73,14 @@ function hvpgItem(m, p) {
 
 // One visibility map per case: what the clinician cannot know is hidden everywhere at once.
 const MODEL_ONLY_EVENTS = ['CSPH', 'BLEED_RISK', 'RED_WALE', 'HIGH_SHUNT', 'LIVER_HYPOPERFUSION', 'INTRAHEPATIC_REVERSAL', 'CAUDATE'];
+const CASE_HIDDEN_EVENTS = ['COLL_*', 'PV_STASIS', 'SV_REVERSAL', 'SMV_REVERSAL', 'HEPATOFUGAL_PV', 'HYPERDYNAMIC', 'SPLENOMEGALY', 'ASCITES_FORMING', 'VARIX_LARGE', 'TENSE_ASCITES'];
 function visibilityOf(cs) {
   const hidden = new Set(cs.hidden || []);
   const imaging = hidden.has('pv');
   if (imaging) hidden.add('model');
-  const events = new Set(imaging ? MODEL_ONLY_EVENTS : []);
+  // Model-only story events (a recruited collateral, a reversed splenic vein, portal stasis) would
+  // hand the student findings nobody at the bedside sees; a case keeps them for the debrief.
+  const events = new Set([...(imaging ? MODEL_ONLY_EVENTS : []), ...CASE_HIDDEN_EVENTS]);
   if (hidden.has('ra')) events.add('RA_HIGH');
   return { hidden, imaging, events };
 }
@@ -145,6 +148,17 @@ export function createCases({ root, api }) {
   const visible = () => cs.steps.filter((s) => !s.show || s.show(c));
   const nextStep = () => visible().find((s) => ctx.answers[s.id] === undefined);
   const optionsOf = (s) => val(s.options, c);
+  // Options are shown in a shuffled order (fixed for the attempt), so the right answer is not always first.
+  function orderOf(s) {
+    const n = optionsOf(s).length;
+    if (ctx.order[s.id]?.length !== n) {
+      let x = (seed ^ [...s.id].reduce((a, ch) => Math.imul(a, 31) + ch.charCodeAt(0) >>> 0, 7)) >>> 0;
+      const r = () => { x = (x + 0x6D2B79F5) >>> 0; let t = Math.imul(x ^ (x >>> 15), 1 | x); t ^= t + Math.imul(t ^ (t >>> 7), 61 | t); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }, o = [...Array(n).keys()];
+      for (let i = n - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; }
+      ctx.order[s.id] = o;
+    }
+    return ctx.order[s.id];
+  }
   function lockOf(s) {
     const miss = (s.needs || []).filter((id) => !log.some((l) => l.id === id));
     if (miss.length) return `Order first: ${miss.map((id) => ORDER_META[id].label.toLowerCase()).join(', ')}`;
@@ -202,7 +216,7 @@ export function createCases({ root, api }) {
       const s = cs.steps.find((x) => x.id === ctx.open);
       if (e.key === 'Enter') { e.preventDefault(); if (ctx.consequence) closeStep(); else commit(); return; }
       const n = Number(e.key);
-      if (!ctx.consequence && n >= 1 && n <= optionsOf(s).length) { e.preventDefault(); choose(s, n - 1); }
+      if (!ctx.consequence && n >= 1 && n <= optionsOf(s).length) { e.preventDefault(); choose(s, orderOf(s)[n - 1]); }
     };
     document.addEventListener('keydown', fn);
     keyOff = () => document.removeEventListener('keydown', fn);
@@ -227,9 +241,11 @@ export function createCases({ root, api }) {
     cs = { ...base, ...v };
     Object.assign(cs, cs.build?.(cs) || {});
     cs.speed ||= 1;
-    ctx = { t0: null, t: 0, clockAdd: 0, when: null, answers: {}, grades: {}, flags: {}, opened: new Set(), autoed: new Set(), unsafeHit: new Set(), viewed: new Set(['story']),
+    ctx = { t0: null, t: 0, clockAdd: 0, when: null, answers: {}, grades: {}, flags: {}, opened: new Set(), autoed: new Set(), unsafeHit: new Set(), viewed: new Set(['story']), order: {},
       story: [], items: [], snaps: [], tab: 'story', dot: false, open: null, sel: null, consequence: null, busy: true, ended: false, hbShown: null, lowFor: 0 };
     c = makeHandle();
+    // Hide model-only events before the preset ages, so none from the patient's past reach the timeline.
+    store.set({ hiddenEvents: visibilityOf(cs).events });
     await api.loadPreset(cs.preset, { keepLesson: true, days: cs.days });
     if (cs.prep) updateParams(cs.prep, { history: false });
     if (cs.afterDays) { host.send({ type: 'advance', days: cs.afterDays }); host.send({ type: 'settle' }); await host.request('snapshot'); }
@@ -276,6 +292,7 @@ export function createCases({ root, api }) {
     host.send({ type: 'run', running: true, speed: 1 });
     store.set({ speed: 1 });
     root.replaceChildren();
+    root.closest('.app')?.classList.remove('case-deciding');
     api.setBanner?.(null);
     api.endSession?.('case');
     api.onEnd?.();
@@ -283,7 +300,7 @@ export function createCases({ root, api }) {
 
   // ───────────── rendering ─────────────
   let live = null, lastBanner = '';
-  const VITAL_LABEL = { hr: ['Heart rate', '/min'], bp: ['Blood pressure', 'mmHg'], hb: ['Hemoglobin', 'g/dL'], abd: ['Abdomen', ''] };
+  const VITAL_LABEL = { hr: ['Heart rate', '/min'], bp: ['Blood pressure', 'mmHg'], hb: ['Hb (g/dL)', 'g/dL'], abd: ['Abdomen', ''] };
   function vitalCells() {
     const m = frame()?.metrics; if (!m) return [];
     const v = vit(), hr = parseInt(v.hr, 10), sbp = parseInt(v.bp, 10);
@@ -315,7 +332,7 @@ export function createCases({ root, api }) {
         it.note ? h('p', { class: 'cs-note' }, it.note) : null]);
   }
   function storyPane() {
-    return h('div', { class: 'cs-story' }, ctx.story.map((e) => (e.kind === 'skip' ? h('div', { class: 'cs-skip' }, h('span', {}, e.text))
+    return h('div', { class: 'cs-story' }, trustLine(), ctx.story.map((e) => (e.kind === 'skip' ? h('div', { class: 'cs-skip' }, h('span', {}, e.text))
       : e.kind === 'order' ? h('p', { class: 'cs-log' }, `Ordered: ${e.text}`)
       : e.kind === 'decision' ? h('p', { class: 'cs-log you' }, `You decided: ${e.text}`)
       : h('p', {}, cs.acute && e.at ? [h('span', { class: 'cs-at' }, clockText(e.at)), e.text] : e.text))));
@@ -363,10 +380,10 @@ export function createCases({ root, api }) {
       h('span', { class: 'cs-kicker' }, `Decision ${n} of ${vs.length} · ${s.title}`),
       h('p', { class: 'cs-q', role: 'heading', 'aria-level': '3' }, val(s.q, c)),
       s.multi ? h('p', { class: 'cs-hint' }, 'Choose all that apply.') : null,
-      h('div', { class: 'cs-opts', role: s.multi ? 'group' : 'radiogroup' }, opts.map((o, i) => {
-        const on = s.multi ? ctx.sel.has(i) : ctx.sel === i;
+      h('div', { class: 'cs-opts', role: s.multi ? 'group' : 'radiogroup' }, orderOf(s).map((i, k) => {
+        const o = opts[i], on = s.multi ? ctx.sel.has(i) : ctx.sel === i;
         return h('button', { class: 'cs-opt' + (on ? ' sel' : ''), role: s.multi ? 'checkbox' : 'radio', 'aria-checked': String(on), onclick: () => choose(s, i) },
-          h('span', { class: 'cs-k' }, String(i + 1)), h('span', {}, txt(o)));
+          h('span', { class: 'cs-k' }, String(k + 1)), h('span', {}, txt(o)));
       })),
       h('div', { class: 'cs-dec-actions' }, h('button', { class: 'btn ghost', onclick: () => { ctx.open = null; unbindKeys(); resume(); render(); } }, 'Review the chart first'),
         h('button', { class: 'btn primary', disabled: s.multi ? !ctx.sel.size : ctx.sel == null, onclick: commit }, 'Commit')));
@@ -386,10 +403,11 @@ export function createCases({ root, api }) {
       h('div', { class: 'p-head case-head cs-head' },
         h('div', { class: 'cs-who' }, h('b', {}, pt.name), h('span', {}, `${pt.age}${pt.sex}`)), h('p', { class: 'cs-prob' }, pt.problem), h('p', { class: 'cs-where' }, when)),
       h('div', { class: 'p-body cs-body' },
-        vitals, trustLine(),
+        vitals,
         deciding ? decisionCard() : [h('div', { class: 'cs-tabs', role: 'tablist' }, tabs), pane, decisionBar()],
         h('div', { class: 'cs-foot' }, h('button', { class: 'btn ghost sm', disabled: ctx.busy, onclick: () => { if (!ctx.ended) { unbindKeys(); finish('ended'); } } }, 'End case and see the debrief'))));
     live = { vitals, when };
+    root.closest('.app')?.classList.toggle('case-deciding', deciding && !ctx.ended);
     renderLive();
     const np = root.querySelector('.cs-pane'); if (np) np.scrollTop = top;
   }

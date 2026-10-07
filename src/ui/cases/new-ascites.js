@@ -11,6 +11,7 @@ const VARIANTS = {
     exam: ['Spider naevi and palmar erythema. Firm liver edge, spleen tip palpable.', 'Distended abdomen with shifting dullness. Jugular venous pressure not raised.', 'Ankle edema to the shins.'],
     tap: [['SAAG', '1.6 g/dL', 'warn'], ['Ascitic protein', '1.1 g/dL', 'warn'], ['Neutrophils', '80 /mm³', '']],
     labs: [['Bilirubin', '2.1 mg/dL', 'warn'], ['Albumin', '2.9 g/dL', 'warn'], ['INR', '1.5', 'warn'], ['Platelets', '92 ×10⁹/L', 'warn'], ['Sodium', '133 mmol/L', ''], ['Creatinine', '1.0 mg/dL', '']],
+    vitalsFn: (c) => ({ hr: String(88 + Math.round(2 * Math.sin(c.t / 30))) }),
     us: 'Small nodular liver, spleen 15 cm, ascites. Hepatic veins normal.', echo: 'Normal ejection fraction. No significant valve disease. Right atrium and ventricle normal.', dopExtra: ['Hepatic veins open and collapsing normally.'],
   },
   tr: {
@@ -80,7 +81,7 @@ export const newAscites = {
       { id: 'fluid', weight: 20, text: 'Read the fluid correctly: SAAG for portal hypertension, protein for the level', check: (c) => c.met('fluid') },
       { id: 'heart', weight: 10, text: v.heart ? 'Looked at the heart with an echo' : 'Did not need further heart tests', check: (c) => !v.heart || c.did('echo') },
       { id: 'cause', weight: 20, text: 'Named the cause', check: (c) => c.met('cause') },
-      { id: 'plan', weight: 30, critical: true, text: v.heart ? 'No TIPS in the cardiac variant' : 'The right first plan', check: (c) => c.met('plan') },
+      { id: 'plan', weight: 30, critical: true, text: v.heart ? 'Treated the heart and did not place a TIPS' : 'The right first plan', check: (c) => c.met('plan') },
     ];
     return { steps, objectives };
   },

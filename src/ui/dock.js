@@ -6,10 +6,10 @@ import { store, varixSuppressed } from './store.js?v=6209f4be01';
 import { EDGES } from '../engine/topology.js?v=80b8d861de';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=8aa5e5cdf1';
 import { lobuleFlows } from './lobule-model.js?v=c4f41a94a3';
-import { createProfile } from './charts.js?v=4d3388c419';
-import { createPressureTime } from './pressure-time.js?v=9f78e0b686';
-import { createDoppler } from './doppler.js?v=d43e684f72';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=d64192ca6b';
+import { createProfile } from './charts.js?v=9a31d2405d';
+import { createPressureTime } from './pressure-time.js?v=d30ee80268';
+import { createDoppler } from './doppler.js?v=249b326fb3';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=1e0553a4f9';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -392,7 +392,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       // The sheet rises from above the vitals dock, at most to just under the top bar.
       // A lesson's step card (under the top bar) keeps its room: the sheet takes what is below it.
       const coach = document.getElementById('coach'), coachH = coach && coach.childElementCount ? coach.offsetHeight + 8 : 0;
-      const max = stageWrap.clientHeight - css('--top-safe') - coachH - css('--vdock-h') - 40;
+      // With a step card above it, a phone keeps about a quarter of the height for the figure itself.
+      const keep = coachH && matchMedia('(max-width: 767px)').matches ? Math.max(40, stageWrap.clientHeight * 0.26) : 40;
+      const max = stageWrap.clientHeight - css('--top-safe') - coachH - css('--vdock-h') - keep;
       const ratio = heightRatio ?? (matchMedia('(max-width: 767px)').matches ? 0.56 : 0.46);
       const height = Math.min(max, Math.max(180, stageWrap.clientHeight * ratio));
       workspace.style.setProperty('--instrument-h', `${Math.max(140, height)}px`);

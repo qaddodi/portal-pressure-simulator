@@ -21,7 +21,7 @@ export const teachChip = (text = 'Teaching model') => h('span', { class: 'teach-
 // verdict, no readout values); the keys below hide the remaining numeric readouts. blindOff()
 // puts back exactly what a case had set before, so the two never fight.
 const BLIND_KEYS = ['pv', 'trueHVPG', 'ra', 'iap', 'model'];
-export const MODEL_ONLY_EVENTS = ['CSPH', 'BLEED_RISK', 'RED_WALE', 'HIGH_SHUNT', 'LIVER_HYPOPERFUSION', 'INTRAHEPATIC_REVERSAL', 'CAUDATE'];
+export const MODEL_ONLY_EVENTS = ['CSPH', 'BLEED_RISK', 'RED_WALE', 'HIGH_SHUNT', 'LIVER_HYPOPERFUSION', 'INTRAHEPATIC_REVERSAL', 'CAUDATE', 'COLL_*', 'PV_STASIS', 'SV_REVERSAL', 'SMV_REVERSAL', 'HEPATOFUGAL_PV'];
 let before = null;
 export const isBlind = () => !!before;
 export function blindOn() {

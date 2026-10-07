@@ -508,7 +508,7 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .org-fill { fill: color-mix(in srgb, currentColor var(--organ-tint), var(--stage-bg)); }
 .org-liver.org-fill { fill: color-mix(in srgb, var(--organ-liver) calc(var(--organ-tint) + 3%), var(--stage-bg)); }
 .ghost-layer { opacity: .34; }
-.ghost { pointer-events: none; }
+.ghost:not(.btn) { pointer-events: none; }   /* the figure's ghost layer; never the ghost buttons */
 .org-heart-groove { fill: none; stroke: var(--organ-heart); stroke-opacity: .45; stroke-width: 1; stroke-linecap: round; }
 .org-great.band-edge { stroke: var(--organ-heart); stroke-width: 15; stroke-opacity: .5; }
 .org-great.band-body { stroke: color-mix(in srgb, var(--organ-heart) 26%, var(--stage-bg)); stroke-width: 13; }
@@ -3039,10 +3039,40 @@ input[type="range"] { touch-action: none; }
 .coach .lesson.sheet .opt { min-height: 44px; padding: 8px 12px; }
 .coach .lesson.sheet > p:not([class]) { font-size: 15px; line-height: 22px; }
 .coach { max-height: 56%; }
-@media (max-width: 420px) { .opts.dir { flex-direction: column; } }
 /* Case decisions take over the card and pause the clock */
 .case-q { margin-top: 4px; }
 .decision-host:empty { display: none; }
 .decision-card { padding: 16px 20px 20px; background: linear-gradient(180deg, var(--accent-soft), transparent 70%); }
 .decision-card .btn.primary { width: 100%; min-height: 48px; justify-content: center; margin-top: 4px; }
 #panelCase.deciding > .p-body { display: none; }
+/* Review pass (2026-10-07): keep the figure in view and keep model internals out of lessons and cases */
+/* Phone: the step card stays short so the figure keeps its place between it and the instruments */
+.coach .lesson.sheet > h3 { display: none; }
+.coach .lesson.sheet.q-active > .trust-line { display: none; }
+.coach .lesson.sheet .opts.dir .opt { min-height: 48px; padding: 6px 10px; font-size: 15px; }
+.app[data-mode="learn"] .tb-id .scenario-btn { display: none; }
+/* Cases: the model's own sliders, verdicts and readouts would give the answers away */
+.app[data-mode="cases"] #panelCase:not(:empty) ~ #inspector { display: none; }
+.app[data-mode="cases"] #strip { display: none; }
+/* Cases: vitals in one compact row, so a decision and its options fit without scrolling */
+.cs-vitals { flex-wrap: nowrap; gap: 6px; }
+.cs-v { flex: 1 1 0; padding: 5px 8px; display: flex; flex-direction: column; }
+.cs-v .cs-vl { font-size: 11px; line-height: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cs-v b { font-size: 17px; line-height: 22px; }
+.cs-v i { display: none; }
+.cs-body { gap: 10px; }
+.cs-q { font: 600 17px/24px var(--font-ui); }
+.cs-opt { padding: 10px 12px; font-size: 15px; }
+/* Phone lessons: the step card above and the instruments below each take about a third, so the figure keeps the middle */
+@media (max-width: 767px) {
+  .app[data-mode="learn"] .instrument-workspace.float-ui:not(.side):not(.dragging) { height: min(var(--sheet-size, 56%), 40%); }
+  .app[data-mode="learn"] .coach { max-height: 36%; }
+  .coach .lesson.sheet .goal { padding: 6px 10px; margin-bottom: 6px; font-size: 14px; }
+  .coach .lesson.sheet .lesson-foot { padding-top: 6px; margin-top: 4px; }
+  .coach .lesson.sheet .lesson-foot .btn { min-height: 40px; }
+}
+/* Phone cases: a decision lifts the patient sheet so every option is in reach */
+@media (max-width: 767px) {
+  .app.case-deciding .panel { height: 90% !important; }
+  .app[data-mode="learn"] #strip { display: none; }
+}
