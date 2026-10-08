@@ -20,7 +20,7 @@
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
-import { store } from './store.js?v=f876ad06bb';
+import { store } from './store.js?v=f469aaac6e';
 import { radiiChanged } from './lobule-render-cache.js?v=07951b5935';
 import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=f919df1f24';
 import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=86153645a3';
@@ -219,7 +219,8 @@ export function createLobuleZoom({ host }) {
 
   // ── What sits on the lobule ──
   // Zones and Lymph are layers (the toolbar's Layers menu keeps them in the store). Nothing floats in a card.
-  let zonesOn = false, lymphOn = false;
+  const start = store.get().lobuleLayers || {};   // the first frame draws the layers the store starts with (lymph is on)
+  let zonesOn = !!start.zones, lymphOn = !!start.lymph;
   const syncLayers = () => {
     const l = store.get().lobuleLayers || {};
     if (!!l.zones === zonesOn && !!l.lymph === lymphOn) return;

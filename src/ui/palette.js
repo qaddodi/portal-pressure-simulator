@@ -2,13 +2,13 @@
 // chart, so every command lands in the timeline like any other change. A number in the query is
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
-import { store, updateParams } from './store.js?v=f876ad06bb';
+import { store, updateParams } from './store.js?v=f469aaac6e';
 import { h, svgIcon, toast } from './util.js?v=86153645a3';
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
 import { DRUGS } from '../engine/scenario.js?v=d88966abe6';
 import { HIDDEN_EDGES } from './anatomy.js?v=d6c5cddad6';
-import { LESSONS } from './learn.js?v=a04af15b4d';
-import { CASES } from './cases.js?v=898d8668d9';
+import { LESSONS } from './learn.js?v=a1573e90e7';
+import { CASES } from './cases.js?v=0be659c93f';
 
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9+ ]/g, ' ');
 

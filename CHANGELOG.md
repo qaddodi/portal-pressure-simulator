@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Lymph on in the lobule by default.** The lobule opens with its lymph drawn and *Lymph* ticked in the Layers menu.
+  Untick it to hide the lymph; the zone bands still start off.
+
 - **Measure ▸ Pressure: wedge tables removed.** The Hepatic vein pressures card (free and wedged catheter readings,
   FHVP, WHVP, HVPG, and the portal and IVC rows) is gone, with its catheter buttons, the catheter drawn on the figure and
   its entry in the active-settings list. The HVPG and PPG readouts are unchanged, the measuring lesson drops its catheter
