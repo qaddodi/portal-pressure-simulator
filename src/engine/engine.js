@@ -7,7 +7,7 @@ import {
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=8b006eefeb';
 import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=d88966abe6';
-import { detectEvents } from './events.js?v=3b94283762';
+import { detectEvents } from './events.js?v=8af7c31f73';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -28,6 +28,15 @@ const stentConductance = (tract, d, q, visc) => {
 const BLOOD_BASE = 5000, HCT_BASE = 0.42;
 const HR_REST = 60;   // resting heart rate (/min); the contractility reference is scaled to it so cardiac output is unchanged
 const LYMPH = { base: 2.5, max: 10, adapt: 0.03, kfHep: 0.45, kfSpl: 0.2, adaptFrac: 0.6 };
+// Protein in lymph and ascites (Kedem–Katchalsky sieving per bed, then a peritoneal mass balance).
+// From the literature: the sinusoidal reflection coefficient for albumin, low in a fenestrated liver (lymph
+// about 85 % of plasma) and about 0.55 once cirrhosis capillarizes it (lymph about 52 %, PMID 1214504);
+// the gut capillary's, high (0.9). Tuned so the textbook taps come out: PS (diffusive leak, mL/min), the
+// gut's basal lymph, the share of hepatic lymph that weeps off the liver into the peritoneum, and how much
+// protein the diuretic-driven peritoneal reabsorption holds back.
+const PROT = { sigHep0: 0.15, sigHepCirr: 0.45, sigGlob: 0.1, sigGut: 0.9, psHep: 0.8, psGut: 0.3, gutBase: 1, hepWeep: 0.5, sigPerit: 0.3 };
+/** Filtrate-to-plasma ratio across a membrane at steady state: (1 − σ) / (1 − σ·e^(−Pe)), Pe = Jv(1 − σ)/PS. */
+const sieve = (sig, jv, ps) => (1 - sig) / (1 - sig * Math.exp(-Math.max(0, jv) * (1 - sig) / ps));
 
 /** Splenic artery resistance multiplier: none, partial embolization (about 60 % infarct), splenectomy (no inflow). */
 const SPLENIC_RX_R = [1, 2.5, 80];
@@ -90,6 +99,7 @@ export class Engine {
       volExtra: 0,
       lymphCap: LYMPH.base,
       ascites: 0,
+      ascAlb: null, ascGlob: null,   // ascitic albumin and globulin, g/dL (null: no fluid yet)
     };
     this.blood = { rbc: BLOOD_BASE * HCT_BASE, lost: 0, infused: 0 };
     this.bleed = { active: false, site: null, G: 0, clot: 0, total: 0 };
@@ -492,6 +502,7 @@ export class Engine {
     const p = this.params;
     // Ascites (mL/min → per dt)
     const as = this.starling();
+    this.ascitesProtein(as, dt / 60);
     this.slow.ascites = Math.max(0, this.slow.ascites + (as.net * dt) / 60);
     // Bleeding / clot
     if (this.bleed.active) {
@@ -601,6 +612,7 @@ export class Engine {
     // Lymphatics remodel toward (but never fully match) chronic demand.
     const capT = Math.min(LYMPH.max, LYMPH.base + LYMPH.adaptFrac * Math.max(0, demand - LYMPH.base));
     s.lymphCap += (capT - s.lymphCap) * Math.min(1, LYMPH.adapt * days);
+    this.ascitesProtein(st, 1440 * days);
     s.ascites = clamp(s.ascites + st.net * 1440 * days, 0, 18000);
     // Anticoagulation slowly lyses thrombus
     if (p.anticoag) {
@@ -643,7 +655,7 @@ export class Engine {
     return (P[i] - P[j]) - (this.refP[i] - this.refP[j]);
   }
 
-  /** Starling filtration & lymph balance, mL/min. */
+  /** Starling filtration & lymph balance, mL/min; protein in g/dL. */
   starling() {
     const p = this.params, P = this.P, s = p.cirrhosis;
     const iap = this.iap ?? 5;
@@ -655,11 +667,38 @@ export class Engine {
     const hep = 0.5 + LYMPH.kfHep * Math.max(0, (pMid - iap) - sigH * (pic - piH) - 0.75);
     const spl = LYMPH.kfSpl * Math.max(0, (P[this.ni.INT] - iap) - 0.9 * (pic - 10));
     const excess = Math.max(0, hep + spl - this.slow.lymphCap);
-    let reabs = this.slow.ascites > 0 ? Math.min(0.6, this.slow.ascites / 2000) : 0;
-    if (p.diuretics && this.slow.ascites > 0) reabs += Math.min(0.9, this.slow.ascites / 1500);
+    const bulk = this.slow.ascites > 0 ? Math.min(0.6, this.slow.ascites / 2000) : 0;
+    const water = p.diuretics && this.slow.ascites > 0 ? Math.min(0.9, this.slow.ascites / 1500) : 0;
+    const reabs = bulk + water;
     const net = excess - reabs;
-    this.flows = { hep, spl, excess, reabs };
-    return { hep, spl, net, excess, highProtein: sigH < 0.3 && hep > spl };
+    // Protein: what crosses each bed (sieving by the wall's reflection coefficient, more complete the faster
+    // the filtration), then the overflow's mix of liver and gut lymph.
+    const alb = p.albumin, glob = 3 + 0.8 * s;          // plasma, g/dL (globulins rise in cirrhosis)
+    const sA = PROT.sigHep0 + PROT.sigHepCirr * s, sG = Math.min(0.95, sA + PROT.sigGlob);
+    const jg = spl + PROT.gutBase, gA = sieve(PROT.sigGut, jg, PROT.psGut), gG = sieve(Math.min(0.97, PROT.sigGut + 0.05), jg, PROT.psGut);
+    const hA = sieve(sA, hep, PROT.psHep) * alb, hG = sieve(sG, hep, PROT.psHep) * glob;
+    const wH = PROT.hepWeep * hep, wS = jg;
+    const inAlb = (wH * hA + wS * gA * alb) / (wH + wS), inGlob = (wH * hG + wS * gG * glob) / (wH + wS);
+    const prot = { alb, glob, hepAlb: hA, hepTP: hA + hG, lymphProt: (hA + hG) / (alb + glob), inAlb, inGlob };
+    this.flows = { hep, spl, excess, reabs, bulk, water, prot };
+    const ascAlb = this.slow.ascAlb ?? inAlb, ascTP = ascAlb + (this.slow.ascGlob ?? inGlob);
+    return { hep, spl, net, excess, bulk, water, prot, ascAlb, ascTP, saag: alb - ascAlb, highProtein: ascTP >= 2.5 };
+  }
+
+  /**
+   * Peritoneal protein balance over dtMin minutes. Overflow lymph brings protein in; the peritoneal
+   * lymphatics take fluid back whole (no change in concentration), while diuretic-driven reabsorption takes
+   * mostly water. At a steady volume that settles at C = C_in · inflow / (inflow − σ·water); the fluid
+   * relaxes toward it as fast as it turns over (stable on the one-day clock too).
+   */
+  ascitesProtein(st, dtMin) {
+    const s = this.slow, V = s.ascites, { excess: q, water, prot } = st;
+    if (V + q * dtMin < 1) { s.ascAlb = s.ascGlob = null; return; }
+    const conc = q > 0 ? q / Math.max(q - PROT.sigPerit * water, 0.25 * q) : 1 / 0.25;
+    const k = V < 1 ? 1 : Math.min(1, ((q + st.bulk + water) * dtMin) / V);
+    const relax = (c, cin, cap) => { const t = Math.min(cap, cin * conc); return c == null ? t : c + (t - c) * k; };
+    s.ascAlb = relax(s.ascAlb, prot.inAlb, 0.95 * prot.alb);
+    s.ascGlob = relax(s.ascGlob, prot.inGlob, 0.95 * prot.glob);
   }
 
   // ───────────────────────── actions ─────────────────────────

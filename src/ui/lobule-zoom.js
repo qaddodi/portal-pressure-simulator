@@ -22,7 +22,7 @@
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { store } from './store.js?v=f469aaac6e';
 import { radiiChanged } from './lobule-render-cache.js?v=07951b5935';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=f919df1f24';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=6e45ed9029';
 import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=86153645a3';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { NODES, EDGES } from '../engine/topology.js?v=dc393aabea';
@@ -778,7 +778,7 @@ export function createLobuleZoom({ host }) {
     const lshown = Math.abs(ly) >= lon || (badges.lymph === m.cmp && Math.abs(ly) >= loff);
     badges.lymph = lshown ? m.cmp : null;
     if (m.hide) setLab('lymph', 'Lymphatic', 'Lymph', '?', '', '', null);
-    else setLab('lymph', 'Lymphatic', 'Lymph', fmt(m.lymph, 1), 'mL/min', lshown ? `${dl > 0 ? '▲' : '▼'} ${Math.round(Math.abs(ly) * 100)}%` : '', null);
+    else setLab('lymph', 'Lymphatic', 'Lymph', fmt(m.lymph, 1), `mL/min · protein ${Math.round(m.lyProt * 100)}%`, lshown ? `${dl > 0 ? '▲' : '▼'} ${Math.round(Math.abs(ly) * 100)}%` : '', null);
   }
 
   // ── Station labels (HTML, styled as the anatomy's) with leaders ──
@@ -1253,9 +1253,11 @@ export function createLobuleZoom({ host }) {
   // Lymph as the sinusoids filter it: f, how hard (0 at the healthy rate, 1 at four times it); over, how far
   // past what the lymphatics can carry (the rest weeps off the liver: ascites); and its protein, rich
   // where the fenestrae stay open (congestion behind the sinusoids), thin where collagen lines the
-  // space of Disse (capillarized sinusoids in cirrhosis). Protein shows as the green's depth.
+  // space of Disse (capillarized sinusoids in cirrhosis). Protein, from the engine's sieving (lymph about
+  // 88 % of plasma in a normal liver, about 50 % once capillarized), shows as the green's depth, the
+  // albumin beads in each drop and the sinusoid lining (open fenestrae, or a sealed collagen line).
   const lyF = (m) => smooth(1, 4, lymphRate(m));
-  const lyProt = (m) => clamp(0.45 + 0.55 * m.congU - 0.6 * m.fibSin, 0, 1);
+  const lyProt = (m) => clamp((m.lyProt - 0.42) / 0.42, 0, 1);
   const lyInk = (m, dark) => {
     const p = lyProt(m), lo = dark ? [0.72, 0.76, 0.69] : [0.92, 0.94, 0.88], mid = dark ? [0.7, 0.77, 0.66] : [0.88, 0.92, 0.82], hi = dark ? [0.64, 0.75, 0.58] : [0.82, 0.89, 0.74];
     return p < 0.45 ? lo.map((x, i) => lerp(x, mid[i], p / 0.45)) : mid.map((x, i) => lerp(x, hi[i], (p - 0.45) / 0.55));
@@ -1684,12 +1686,33 @@ export function createLobuleZoom({ host }) {
       c.restore();
     }
     if (lymphOn && !flat && !m.hide) {
-      // Lymph as fine drops drifting along the space of Disse and the terminal lymphatics to the portal
-      // tract: more of them, and faster, as more lymph forms. One path, no blur.
-      const lyR = clamp(lymphRate(m), 0.2, 6), f = lyF(m), still = reduce.matches;
-      const gapW = G.R * 0.07 / (0.75 + 0.6 * f), vW = G.R * 0.035 * Math.sqrt(lyR), minR = 1.1 / V.k;
-      c.fillStyle = dark ? 'rgba(226, 240, 214, .8)' : 'rgba(108, 140, 96, .55)';
+      // The sinusoid lining: fenestrated (dashed, the gaps are the pores) where protein crosses freely,
+      // closing into a continuous collagen line as the sinusoids capillarize.
+      const p = lyProt(m), still = reduce.matches, lw = 0.9 / V.k;
+      c.save();
+      c.lineWidth = lw;
+      c.strokeStyle = p > 0.5 ? (dark ? 'rgba(220, 226, 236, .55)' : 'rgba(70, 80, 96, .5)') : (dark ? 'rgba(232, 196, 140, .7)' : 'rgba(150, 104, 40, .6)');
+      c.setLineDash(p > 0.05 ? [3 / V.k, (3.4 * p) / V.k] : []);
       c.beginPath();
+      for (const t of G.tubes) {
+        if (t.kind !== 's0' && t.kind !== 's1' && t.kind !== 's2') continue;
+        for (const side of [-1, 1]) {
+          t.pts.forEach(([x, y], i) => {
+            const [xa, ya] = t.pts[Math.max(0, i - 1)], [xb, yb] = t.pts[Math.min(N - 1, i + 1)], d = Math.hypot(xb - xa, yb - ya) || 1;
+            const o = side * (radiusAt(t, i) + lw);
+            const px = x - ((yb - ya) / d) * o, py = y + ((xb - xa) / d) * o;
+            if (i) c.lineTo(px, py); else c.moveTo(px, py);
+          });
+        }
+      }
+      c.stroke();
+      c.restore();
+      // Lymph as drops drifting along the space of Disse and the terminal lymphatics to the portal tract:
+      // more of them, and faster, as more fluid filters (the volume); each carries albumin beads, as many as
+      // its protein allows (the concentration). One path per ink, no blur.
+      const lyR = clamp(lymphRate(m), 0.2, 6), f = lyF(m), beads = Math.round(1 + 4 * p);
+      const gapW = G.R * 0.07 / (0.75 + 0.6 * f), vW = G.R * 0.035 * Math.sqrt(lyR), minR = 2.6 / V.k;
+      const drops = [];
       for (const t of G.tubes) {
         if (t.kind !== 'ly' && t.kind !== 'lt') continue;
         const L = t.len || 1, n = Math.max(1, Math.round(L / gapW)), dir = t.kind === 'ly' ? -1 : 1;   // the space of Disse is drawn from the edge inward
@@ -1698,8 +1721,21 @@ export function createLobuleZoom({ host }) {
         for (let i = 0; i < n; i++) {
           const u = (t.lu + i / n) % 1, e = Math.min(u, 1 - u) * n;   // fading in and out at the ends
           if (e < 0.25) continue;
-          const [x, y] = at(t.pts, u), rr = r * Math.min(1, e);
-          c.moveTo(x + rr, y); c.arc(x, y, rr, 0, TAU);
+          const [x, y] = at(t.pts, u);
+          drops.push(x, y, r * Math.min(1, e), t.id + i);
+        }
+      }
+      c.fillStyle = dark ? 'rgba(214, 236, 204, .42)' : 'rgba(150, 186, 140, .42)';
+      c.beginPath();
+      for (let j = 0; j < drops.length; j += 4) { const [x, y, rr] = [drops[j], drops[j + 1], drops[j + 2]]; c.moveTo(x + rr, y); c.arc(x, y, rr, 0, TAU); }
+      c.fill();
+      c.fillStyle = dark ? 'rgba(255, 210, 110, .95)' : 'rgba(176, 112, 16, .9)';
+      c.beginPath();
+      for (let j = 0; j < drops.length; j += 4) {
+        const x = drops[j], y = drops[j + 1], rr = drops[j + 2], br = rr * 0.24, a0 = drops[j + 3] * 1.7;
+        for (let b = 0; b < beads; b++) {
+          const a = a0 + (b * TAU) / beads, q = beads === 1 ? 0 : rr * 0.48;
+          c.moveTo(x + Math.cos(a) * q + br, y + Math.sin(a) * q); c.arc(x + Math.cos(a) * q, y + Math.sin(a) * q, br, 0, TAU);
         }
       }
       c.fill();

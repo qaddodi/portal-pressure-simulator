@@ -275,3 +275,22 @@ test('Varices never rupture on their own unless bleeding is switched on', () => 
   for (let i = 0; i < 200; i++) on.step(0.5);
   if (M(on).varix.ratio > 1 || M(on).gastricVarix.ratio > 1 || on.bleed.total > 0) assert.ok(on.bleed.active || on.bleed.total > 0, 'switched on, a varix over the limit tears');
 });
+
+test('Ascitic protein: cirrhosis low (< 2.5), outflow block high (≥ 2.5), SAAG ≥ 1.1 in both', () => {
+  for (const id of ['cirr-decomp', 'gastric-varix']) {
+    const a = M(preset(id)).ascites;
+    assert.ok(a.totalProtein < 2.5, `${id} TP ${a.totalProtein}`);
+    assert.ok(a.saag >= 1.1, `${id} SAAG ${a.saag}`);
+    within(a.lymphProt, 0.4, 0.65, `${id} hepatic lymph protein / plasma`);
+  }
+  for (const id of ['rhf', 'budd-chiari']) {
+    const a = M(preset(id)).ascites;
+    assert.ok(a.totalProtein >= 2.5, `${id} TP ${a.totalProtein}`);
+    assert.ok(a.saag >= 1.1, `${id} SAAG ${a.saag}`);
+    assert.ok(a.lymphProt >= 0.75, `${id} hepatic lymph protein / plasma ${a.lymphProt}`);
+  }
+  // Paracentesis takes the fluid whole: the protein concentration does not change.
+  const e = preset('rhf'), tp = M(e).ascites.totalProtein;
+  e.paracentesis(2000, true);
+  within(M(e).ascites.totalProtein, tp - 0.05, tp + 0.05, 'TP after a tap');
+});

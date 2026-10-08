@@ -243,18 +243,21 @@ export function createAbdomen({ onAction }) {
     iapVal.dataset.sev = sev; iapFill.dataset.sev = sev;
     iapFill.style.width = `${clamp(a.iap / 30, 0, 1) * 100}%`;
     iap.querySelector('.ab-iap-bar').setAttribute('aria-label', `Abdominal pressure ${fmt(a.iap, 0)} mmHg`);
-    // A diagnostic tap: SAAG ≥ 1.1 g/dL means portal hypertension; the protein then says where the block is.
-    const ph = f.metrics.ppg > 6 || f.metrics.whvp > 10;
+    // A diagnostic tap, g/dL, from the model's protein balance: SAAG ≥ 1.1 means portal hypertension;
+    // the total protein then says where the block is.
+    const ph = a.saag >= 1.1, hi = a.totalProtein >= 2.5;
     const tapped = a.volume > 150;
     tap.replaceChildren(...(tapped ? [
-      h('div', { class: 'ab-lab', 'data-hi': String(ph) }, h('span', {}, 'SAAG'), h('b', {}, ph ? '≥ 1.1' : '< 1.1')),
-      h('div', { class: 'ab-lab', 'data-hi': String(!!a.highProtein) }, h('span', {}, 'Protein'), h('b', {}, a.highProtein ? '> 2.5' : '< 2.5'))] : []));
-    tap.title = tapped ? 'Diagnostic tap, g/dL. SAAG ≥ 1.1 means portal hypertension; protein then says where the block is.' : '';
+      h('div', { class: 'ab-lab', 'data-hi': String(ph) }, h('span', {}, 'SAAG'), h('b', {}, fmt(a.saag, 1))),
+      h('div', { class: 'ab-lab', 'data-hi': String(hi) }, h('span', {}, 'Total protein'), h('b', {}, fmt(a.totalProtein, 1))),
+      h('div', { class: 'ab-lab' }, h('span', {}, 'Albumin'), h('b', {}, fmt(a.albumin, 1)))] : []));
+    tap.title = tapped ? 'Diagnostic tap, g/dL. SAAG ≥ 1.1 means portal hypertension; total protein ≥ 2.5 then points after the sinusoids, < 2.5 to cirrhosis.' : '';
     tapLine.textContent = !tapped ? '' : !ph ? 'Tap: not portal hypertension, look for a peritoneal cause.'
-      : a.highProtein ? 'Tap: portal hypertension from an outflow block (heart failure, Budd–Chiari).' : 'Tap: portal hypertension from the sinusoids, the cirrhosis pattern.';
+      : hi ? 'Tap: portal hypertension from an outflow block (heart failure, Budd–Chiari).' : 'Tap: portal hypertension from the sinusoids, the cirrhosis pattern.';
     extraStats.replaceChildren(
       h('dt', {}, 'Lymph from the liver'), h('dd', {}, `${fmt(a.hepLymph, 1)} (rises with sinusoidal pressure)`),
-      h('dt', {}, 'Lymph from the gut'), h('dd', {}, fmt(a.splLymph, 1)),
+      h('dt', {}, 'Liver lymph protein'), h('dd', {}, `${Math.round(a.lymphProt * 100)} % of plasma (${a.lymphProt < 0.7 ? 'capillarized sinusoids hold protein back' : 'open fenestrae let it through'})`),
+      h('dt', {}, 'Lymph from the gut'), h('dd', {}, `${fmt(a.splLymph, 1)} (protein-poor)`),
       h('dt', {}, 'Lymphatic capacity'), h('dd', {}, fmt(a.lymphCap, 1)),
       h('dt', {}, 'Serum albumin'), h('dd', {}, `${fmt(p.albumin, 1)} g/dL${p.albumin < 3 ? ' (low: less pull back into vessels)' : ''}`),
       h('dt', {}, 'Kidneys'), h('dd', {}, p.diuretics ? 'Diuretics: sodium and water lost' : 'Retaining sodium and water'));
