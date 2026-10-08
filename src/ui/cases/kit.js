@@ -29,6 +29,8 @@ export const ORDER_META = {
   tips8: { g: 'procedure', label: 'TIPS with an 8 mm stent' },
   tips10: { g: 'procedure', label: 'TIPS with a 10 mm stent' },
   brto: { g: 'procedure', label: 'BRTO (close the gastrorenal shunt)' },
+  'spl-embo': { g: 'procedure', label: 'Partial splenic embolization' },
+  splenectomy: { g: 'procedure', label: 'Splenectomy' },
   'tips-reduce': { g: 'procedure', label: 'Reduce the TIPS shunt', hidden: true },
 };
 export const GROUPS = [['assess', 'Assess'], ['treat', 'Treat'], ['procedure', 'Procedure and refer']];

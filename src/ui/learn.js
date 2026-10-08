@@ -1,13 +1,13 @@
 // Learn mode (blueprint §11): lessons as step sequences with Predict → Observe → Explain.
 
-import { store, updateParams } from './store.js?v=7acb60de12';
-import { host } from './host.js?v=7400e3a4ab';
-import { h, fmt, toast, svgIcon } from './util.js?v=8aa5e5cdf1';
+import { store, updateParams } from './store.js?v=92c3226cca';
+import { host } from './host.js?v=deac990140';
+import { h, fmt, toast, svgIcon } from './util.js?v=86153645a3';
 import { createAnswerSheet, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=7f4afcf446';
 import { addRecord } from './records.js?v=50fb9dd463';
-import { runSequence } from './sequence.js?v=c04303e49d';
+import { runSequence } from './sequence.js?v=b52c803f4f';
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
-import { trustLine, teachChip, blindOn, blindOff, isBlind, optionList, compareChip, bindQuestionKeys, mirrorMarker } from './learning-kit.js?v=6e39505c1e';
+import { trustLine, teachChip, blindOn, blindOff, isBlind, optionList, compareChip, bindQuestionKeys, mirrorMarker } from './learning-kit.js?v=2de22933e9';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 
@@ -83,10 +83,6 @@ export const LESSONS = [
       { type: 'frame', preset: 'cirr-comp', tools: ['select'], view: 'anatomic', zoom: 'fit', tab: 'profile', focus: ['RHV_IVC', 'PRE_R', 'SIN_RR'], focusLabel: 'Hepatic vein and sinusoids',
         data: [{ label: 'Free pressure', metric: 'fhvp', unit: 'mmHg' }, { label: 'Wedged pressure', metric: 'whvp', unit: 'mmHg' }],
         text: 'This patient has early cirrhosis. How do you put a number on her portal pressure? The hepatic venous pressure gradient (**HVPG**) is the wedged pressure minus the free pressure in a hepatic vein. Normal is up to 5, clinically significant is 10 or more, and bleeding risk rises from 12.' },
-      { type: 'do', tools: ['select', 'catheter'], tab: 'profile', focus: ['RHV_IVC'], focusLabel: 'Right hepatic vein',
-        text: 'Measure as a clinician does: in the **Hepatic vein pressures** card take the **free** pressure in the right hepatic vein, then the **wedged** pressure. Compare the two.',
-        goal: (f, p, log) => { const i = log.findIndex((a) => a.type === 'catheter' && a.target === 'R' && !a.value); return i >= 0 && log.slice(i).some((a) => a.type === 'catheter' && a.target === 'R' && a.value); },
-        hint: 'Free first, then wedged, in the same vein.' },
       { type: 'predict', q: 'A traveller with schistosomiasis has large varices. Will his HVPG be high?', options: ['Yes, large varices mean a high gradient', 'No, it can be normal or only mildly raised', 'It cannot be measured in schistosomiasis', 'Yes, the liver is cirrhotic'], answer: 1,
         why: 'The wedge reads the sinusoids, and in schistosomiasis the block lies before them.' },
       { type: 'observe', seconds: 8, preset: 'schisto', tools: ['select'], tab: 'profile', zoom: 'fit', focus: ['PV_TRUNK', 'PRE_R', 'RHV_IVC'], focusLabel: 'Portal vein and liver outlet',

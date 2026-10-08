@@ -9,6 +9,7 @@ export function defaultParams() {
     },
     stenosis: {},                 // edgeId → 0..1 lumen narrowing
     thrombus: {},                 // edgeId → 0..1 occlusion
+    splenicRx: 0,                 // 0 none · 1 partial splenic artery embolization · 2 splenectomy
     splanchnicTone: 1,            // arteriolar resistance multiplier (<1 = vasodilated)
     systemicTone: 1,
     contractility: 1,

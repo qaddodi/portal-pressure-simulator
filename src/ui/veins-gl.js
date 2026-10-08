@@ -25,7 +25,7 @@
 //
 // createVeinsGL(canvas) returns null only when WebGL2 is unavailable altogether.
 
-import { SLOT, DYE_BINS } from './blood.js?v=3acf4e936e';
+import { SLOT, DYE_BINS } from './blood.js?v=6c39f43ddf';
 
 export const N_SAMPLES = 64;
 export const FLOW_TEXELS = 3;          // per-vessel blood: see stage.js (syncBlood)
@@ -664,7 +664,7 @@ void main() {
   vec4 v = texelFetch(base, ip, 0);
   uvec4 g = texelFetch(gbuf, ip, 0);
   float vis = g.x > 0u ? clamp(float(g.w) / 65535.0 / max(v.a, 1e-3), 0.0, 1.0) : 0.0;
-  if ((blood == 1 || dyeOn == 1 || chev == 1 || origin == 1) && vis > 0.03 && v.a > 0.01) {
+  if ((blood == 1 || dyeOn == 1 || chev == 1 || origin == 1) && (vis > 0.005 || (dyeOn == 1 && g.x > 0u)) && v.a > 0.01) {
     vec3 col = v.rgb / v.a;
     // This lumen, and near a join the one it joins, cross-faded by its share.
     uvec4 g2 = texelFetch(gbuf2, ip, 0);
@@ -689,7 +689,10 @@ void main() {
     if (dyeOn == 1) {
       float c = dyeAt(id1, s1, y1) * (1.0 - b) + (b > 0.004 ? dyeAt(id2, s2, y2) * b : 0.0);
       // A rich, slightly glowing column: the dye tints the lumen and lifts it a little.
-      col = mix(col, dyeCol, clamp(c, 0.0, 1.0) * 0.9 * vis);
+      // The wall line across a join (the end cap of the vessel) knocks vis to zero, which read as a seam; across
+      // the lumen (away from the side walls) the dye fills regardless, and along the walls it follows vis.
+      float inLumen = 1.0 - smoothstep(0.6, 0.85, abs(y1));
+      col = mix(col, dyeCol, clamp(c, 0.0, 1.0) * 0.9 * max(smoothstep(0.0, 0.2, vis), inLumen));
     }
     if (chev == 1) {
       vec2 c = chevAt(id1, s1, y1);

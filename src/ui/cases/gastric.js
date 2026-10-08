@@ -1,7 +1,7 @@
 // C5. Melena with a big spleen: do not assume cirrhosis. Variant L is a blocked splenic vein with a
 // normal liver (TIPS is wrong); variant G is cirrhosis with a gastrorenal shunt (BRTO or TIPS).
 
-import { DX_HIDDEN, fill } from './kit.js?v=010d07460c';
+import { DX_HIDDEN, fill } from './kit.js?v=4021282d5c';
 
 const L = {
   vid: 'L', preset: 'svt', splenic: true,
@@ -41,7 +41,7 @@ export const gastric = {
     'abd-us': (c) => ({ title: 'Ultrasound of the abdomen', lines: [fill(c.cs.us, c)] }),
     doppler: (c) => ({ title: 'Doppler of the liver vessels', extra: c.cs.dopExtra }),
   },
-  orders: ['labs', 'abd-us', 'doppler', 'ct', 'egd', 'brto', 'tips8'],
+  orders: ['labs', 'abd-us', 'doppler', 'ct', 'egd', 'brto', 'spl-embo', 'splenectomy', 'tips8'],
   inside: [['Portal pressure', 'pv', 'mmHg'], ['Fundal varix tension', 'tension', '']],
   build: (v) => {
     const L1 = v.splenic;
@@ -54,8 +54,8 @@ export const gastric = {
       { id: 'treat', title: 'Treatment',
         q: L1 ? 'What do you offer him?' : 'What do you offer her?',
         options: L1
-          ? ['Splenectomy or splenic artery embolization', { t: 'A TIPS to lower the portal pressure', does: [] }, 'Band the fundal varices at endoscopy', 'Start carvedilol and discharge him']
-          : [{ t: 'BRTO to close the gastrorenal shunt', does: ['brto'] }, { t: 'A TIPS to lower the portal pressure', does: ['tips8'] }, 'Band the fundal varices at endoscopy', 'Splenectomy to cut the inflow'],
+          ? [{ t: 'Splenectomy or splenic artery embolization', does: ['spl-embo'] }, { t: 'A TIPS to lower the portal pressure', does: [] }, 'Band the fundal varices at endoscopy', 'Start carvedilol and discharge him']
+          : [{ t: 'BRTO to close the gastrorenal shunt', does: ['brto'] }, { t: 'A TIPS to lower the portal pressure', does: ['tips8'] }, 'Band the fundal varices at endoscopy', { t: 'Splenectomy to cut the inflow', does: ['splenectomy'] }],
         answer: L1 ? 0 : [0, 1],
         onCommit: async (c, pick) => { if (!L1 && pick === 0) { c.story('BRTO in the interventional radiology suite: the shunt is closed with a balloon and the fundal varix fills with sclerosant.'); c.snap('After BRTO'); } },
         unsafe: L1 ? {

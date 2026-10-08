@@ -4,17 +4,17 @@
 // in the timeline as one entry.
 
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=dc393aabea';
-import { store, updateParams } from './store.js?v=7acb60de12';
-import { fmt, fmtFlow, clamp, toast } from './util.js?v=8aa5e5cdf1';
-import { aboutVessel, aboutOrgan } from './about.js?v=dcc746f609';
-import { lobuleState } from './lobule-model.js?v=daf2c88365';
-import { LABEL_VESSEL } from './anatomy.js?v=44e51e3efa';
+import { store, updateParams } from './store.js?v=92c3226cca';
+import { fmt, fmtFlow, clamp, toast } from './util.js?v=86153645a3';
+import { aboutVessel, aboutOrgan } from './about.js?v=7bfd4cc614';
+import { lobuleState } from './lobule-model.js?v=f919df1f24';
+import { LABEL_VESSEL } from './anatomy.js?v=d6c5cddad6';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
 // Lessons and cases name the tools a step allows; these are the verbs they unlock.
-const TOOL_VERB = { pinch: 'narrow', thrombus: 'clot', fibrosis: 'fibrosis', stent: 'shunt', band: 'band', occlude: 'occlude', balloon: 'balloon', catheter: 'measure', doppler: 'doppler', endoscope: 'endoscope', needle: 'paracentesis' };
+const TOOL_VERB = { pinch: 'narrow', thrombus: 'clot', fibrosis: 'fibrosis', stent: 'shunt', band: 'band', occlude: 'occlude', balloon: 'balloon', doppler: 'doppler', endoscope: 'endoscope', needle: 'paracentesis' };
 export const toolsToVerbs = (list) => (list ? [...new Set(list.map((t) => TOOL_VERB[t] || t).filter((v) => v !== 'select' && v !== 'probe'))] : null);
 
 /** Is a verb available now? Lessons and cases restrict verbs; they may also unlock a parameter. */
@@ -219,9 +219,11 @@ function organCard(sel, ctx) {
   if (id === 'spleen') {
     return {
       key: 'o:spleen', sel, kicker: 'Organ', title: 'Spleen', why: 'spleen',
-      value: (f) => ({ v: fmt(f.metrics.spleen.length, 1), u: 'cm long' }),
+      value: (f) => (f.metrics.spleen.length > 0 ? { v: fmt(f.metrics.spleen.length, 1), u: 'cm long' } : { v: 'Removed', u: '' }),
       verbs: [
         stat('Platelets (illustrative)', (f) => `${Math.round(f.metrics.spleen.platelets)} ×10⁹/L`),
+        { type: 'seg', label: 'Treat the spleen', options: [[0, 'None'], [1, 'Embolize'], [2, 'Splenectomy']], get: () => store.get().params.splenicRx | 0, set: (val) => updateParams((p) => { p.splenicRx = val; return p; }, { label: ['Spleen untreated', 'Partial splenic embolization', 'Splenectomy'][val] }) },
+        { type: 'about', text: () => ['Partial embolization closes branches of the splenic artery and infarcts part of the spleen; splenectomy removes it. Both cut splenic inflow, so portal pressure and flow to the varices fall (splenectomy more than embolization).'] },
         { type: 'slider', id: 'clot', key: 'thrombus', label: 'Clot the splenic vein', icon: 'clot', min: 0, max: 1, step: 0.01, def: 0, format: pct, get: (p) => p.thrombus.SV_CONF || 0,
           set: (p, v) => { if (v <= 0.004) delete p.thrombus.SV_CONF; else p.thrombus.SV_CONF = +v.toFixed(2); }, hist: 'Splenic vein thrombus', info: 'Sinistral (left-sided) portal hypertension: the spleen drains through the short gastric veins.' },
         { type: 'link', label: 'Splenic vein', run: () => ctx.select({ type: 'edge', id: 'SV_CONF' }) },

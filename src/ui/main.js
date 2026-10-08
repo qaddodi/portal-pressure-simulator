@@ -1,27 +1,27 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=7400e3a4ab';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction } from './store.js?v=7acb60de12';
-import { createStage } from './stage.js?v=536a3acf8e';
-import { createInspector } from './inspector.js?v=920c4310e9';
-import { createDock, CUTOFFS } from './dock.js?v=a4fe6d326b';
-import { createWhy } from './why.js?v=8f8ba53fad';
-import { createTimeline } from './timeline.js?v=1c99204ccf';
-import { createLearn } from './learn.js?v=a24c3330bc';
-import { createCases } from './cases.js?v=4f49d3cf3d';
-import { createCompare } from './compare.js?v=52b95cda7c';
-import { createCard } from './card.js?v=1d8a0eaf96';
-import { createChart, computeFindings } from './chart.js?v=d64ca812cb';
-import { createHome } from './home.js?v=9c52ee028d';
+import { startHost, host } from './host.js?v=deac990140';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction } from './store.js?v=92c3226cca';
+import { createStage } from './stage.js?v=5ea476645e';
+import { createInspector } from './inspector.js?v=e9e9c1c96c';
+import { createDock, CUTOFFS } from './dock.js?v=4c6f8186c4';
+import { createWhy } from './why.js?v=b8fe49632c';
+import { createTimeline } from './timeline.js?v=55fadbea48';
+import { createLearn } from './learn.js?v=32d5a040af';
+import { createCases } from './cases.js?v=faef9090be';
+import { createCompare } from './compare.js?v=d455a31fa6';
+import { createCard } from './card.js?v=a19eee48c0';
+import { createChart, computeFindings } from './chart.js?v=c08d4a6dfb';
+import { createHome, ROLES } from './home.js?v=fac0cdeef5';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
-import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=956a4d0621';
-import { startLMS } from './lms.js?v=ece0834240';
+import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=12341cb1ab';
+import { startLMS } from './lms.js?v=a3fe661ca1';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=e9ce9aed9a';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=6e06b6c93c';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=dc393aabea';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=8aa5e5cdf1';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=86153645a3';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -33,7 +33,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
 import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=0166e06ffb';
-import { ORIGINS } from './blood.js?v=3acf4e936e';
+import { ORIGINS } from './blood.js?v=6c39f43ddf';
 
 // Color lenses: [title, what it shows, legend swatch].
 // SMV, IMV, splenic vein, hepatic artery, systemic: as stage.js BLOOD_COLORS.
@@ -129,7 +129,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=ef0f949ac6'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=b6a8279d81'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -141,7 +141,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=7efe80d6e4'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=6a7b6fe7ae'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -650,6 +650,8 @@ function renderBanner() {
       b.addEventListener('click', () => store.set({ compareView: v }));
       return b;
     })));
+    const tbl = h('button', { class: 'btn sm cmp-table-btn', title: 'Every value, then and now, in a table', onclick: () => { openPanel(); $('.cmp-section')?.scrollIntoView({ block: 'start' }); } }, 'Differences');
+    kids.push(tbl);
   }
   el.replaceChildren(...kids);
   // The switch's height, for views that place their own controls under it (the lobule's).
@@ -699,6 +701,9 @@ function openMainMenu(anchor) {
       modeItem('explore', 'explore', 'explore', 'Explore a patient', 'Any of the patients, from healthy to Budd–Chiari'),
       modeItem('learn', 'learn', 'book', 'Lessons', 'Predict, observe, explain'),
       modeItem('cases', 'cases', 'case', 'Cases', 'A bleed at 3 a.m. and diagnostic puzzles')),  // the Presenter entry is shelved (see home.js)
+    h('div', { class: 'menu-title' }, t('menu.role')),
+    roleControl(),
+    h('div', { class: 'menu-sep' }),
     menuItem('Home page', { icon: 'grid', onClick: () => { closePopover(); home.open(); } }),
     h('div', { class: 'menu-sep' }),
     menuItem('Copy a link to this exact state', { icon: 'share', onClick: () => { closePopover(); share(); } }),
@@ -706,8 +711,21 @@ function openMainMenu(anchor) {
     menuItem(t('menu.help') + '…', { icon: 'help', kb: '?', onClick: () => { closePopover(); setTimeout(() => openHelpMenu(anchor), 0); } }),
   ], { cls: 'main-menu', align: 'start' });
 }
+// The role ("I am a…") from the main menu, in any mode. It is the same setting Home shows: choosing
+// one sets store.role, and the 'role' listener saves it and redraws the cards and the chart.
+function roleControl() {
+  const cur = () => store.get().role || 'student';
+  const seg = h('div', { class: 'seg full menu-seg', role: 'group', 'aria-label': t('menu.role') }, ROLES.map(([v, l]) => h('button', { 'data-role': v, onclick: () => { store.set({ role: v }); paint(); } }, l)));
+  const note = h('small', { class: 'mm-role-note' });
+  function paint() {
+    seg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.role === cur())));
+    note.textContent = ROLES.find(([v]) => v === cur())?.[2] || '';
+  }
+  paint();
+  return h('div', { class: 'mm-role' }, seg, note);
+}
 // Two menus with one job each: Settings (how the simulator looks and reads) and Help (how to
-// use it, what it is, and who made it). The role ("I am a…") lives on Home, where a session starts.
+// use it, what it is, and who made it). The role also lives on Home, where a session starts.
 function openSettings(anchor) {
   const cur = document.documentElement.getAttribute('data-theme') || 'system';
   popover(anchor, [

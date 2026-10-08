@@ -72,13 +72,17 @@ export function toast(msg, kind = '') {
   const wrap = document.getElementById('toasts');
   // One message at a time reads calmer than a growing stack.
   while (wrap.children.length >= 2) wrap.firstChild.remove();
-  // Anchor just above the play bar, centred on it, so a message never covers the figure.
-  const anchor = document.querySelector('.vdock') || document.querySelector('.timeline');
-  const r = anchor?.getBoundingClientRect();
-  if (r && r.width) { wrap.style.left = `${r.left + r.width / 2}px`; wrap.style.bottom = `${Math.max(8, innerHeight - r.top + 8)}px`; }
+  // A card slides down from behind the top bars and settles just below them (below every row on a phone).
+  const bars = document.getElementById('topbar');
+  const r = document.querySelector('.vdock')?.offsetParent && bars?.getBoundingClientRect();
+  wrap.classList.toggle('docked', !!(r && r.height));
+  if (r && r.height) {
+    const w = Math.min(innerWidth - 24, 560);
+    Object.assign(wrap.style, { left: `${(innerWidth - w) / 2 - 20}px`, width: `${w + 40}px`, top: `${r.bottom}px`, bottom: 'auto', height: '', maxWidth: 'none' });
+  }
   const t = h('div', { class: 'toast ' + kind, role: 'status' }, h('span', { class: 'toast-msg' }, msg));
   let timer = 0;
-  const close = () => { clearTimeout(timer); t.classList.add('leaving'); setTimeout(() => t.remove(), 220); };
+  const close = () => { clearTimeout(timer); t.classList.add('leaving'); setTimeout(() => t.remove(), 340); };
   const x = h('button', { class: 'toast-x', 'aria-label': 'Dismiss' }, icon('close'));
   x.addEventListener('click', (e) => { e.stopPropagation(); close(); });
   t.append(x);
@@ -88,6 +92,13 @@ export function toast(msg, kind = '') {
   t.addEventListener('pointerdown', (e) => { sx = e.clientX; sy = e.clientY; });
   t.addEventListener('pointerup', (e) => { if (Math.abs(e.clientY - sy) > 18 || Math.abs(e.clientX - sx) > 40) close(); });
   wrap.append(t);
+  // Fill the docked card: the largest size that fits, stepping down for longer text, never clipped.
+  if (wrap.classList.contains('docked')) {
+    const m = t.querySelector('.toast-msg');
+    if (msg.length > 60) t.style.height = '84px';
+    let px = msg.length <= 28 ? 20 : msg.length <= 60 ? 17 : 15;
+    for (; px > 12; px--) { m.style.fontSize = `${px}px`; if (m.scrollHeight <= t.clientHeight - 8 && m.scrollWidth <= m.clientWidth) break; }
+  }
   timer = setTimeout(close, 4200);
 }
 

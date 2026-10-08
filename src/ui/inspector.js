@@ -1,9 +1,9 @@
 // Controls panel (blueprint §4.1, §8.4): global parameters in three tabs, or the selected vessel.
 
 import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=dc393aabea';
-import { DRUGS } from '../engine/scenario.js?v=06164f9b2a';
-import { store, updateParams, isLocked } from './store.js?v=7acb60de12';
-import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, icon, svgIcon } from './util.js?v=8aa5e5cdf1';
+import { DRUGS } from '../engine/scenario.js?v=957e836ad6';
+import { store, updateParams, isLocked } from './store.js?v=92c3226cca';
+import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, icon, svgIcon } from './util.js?v=86153645a3';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -44,6 +44,7 @@ export const CONTROLS = {
   balloonEso: { type: 'toggle', key: 'balloonEso', label: 'Esophageal balloon tamponade', ...prop('balloonEso') },
   balloonGas: { type: 'toggle', key: 'balloonGas', label: 'Gastric balloon tamponade', ...prop('balloonGas') },
   brto: { type: 'toggle', key: 'occluded', lockKey: 'brto', label: 'BRTO (occlude the gastrorenal shunt)', get: (p) => !!p.occluded.C5, set: (p, v) => { if (v) p.occluded.C5 = true; else delete p.occluded.C5; }, info: 'Balloon-occluded retrograde transvenous obliteration. Watch what it does to portal pressure.' },
+  splenicRx: { type: 'slider', key: 'splenicRx', label: 'Spleen: embolization / splenectomy', min: 0, max: 2, step: 1, get: (p) => p.splenicRx | 0, set: (p, v) => { p.splenicRx = v; }, format: (v) => ['none', 'partial embolization', 'splenectomy'][v], def: 0, info: 'Cuts splenic artery inflow: partial embolization removes part of the spleen\'s blood supply, splenectomy removes all of it. Less inflow means a lower portal pressure and less flow to the varices.' },
   portocaval: { type: 'toggle', key: 'portocaval', label: 'Portocaval shunt', ...prop('portocaval'), info: 'End-to-side: total diversion; the liver loses all portal perfusion.' },
   dsrs: { type: 'toggle', key: 'dsrs', label: 'Distal splenorenal (Warren)', ...prop('dsrs'), info: 'Selective: decompresses gastroesophageal varices while SMV blood still perfuses the liver.' },
   mesocaval: { type: 'toggle', key: 'mesocaval', label: 'Mesocaval shunt', ...prop('mesocaval') },
@@ -183,12 +184,12 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
       body = [
         h('div', { class: 'callout-note', style: { margin: '14px 0 4px' } }, 'Disease is set on the anatomy: click the liver, a vein, the heart or the varices and use the card beside it.'),
         section('drugs', 'Drugs', 'pill', changedCount([...Object.keys(DRUGS).map((k) => 'drug:' + k), 'anticoag']), h('div', { class: 'drug-grid' }, Object.keys(DRUGS).map((k) => build('drug:' + k))), build('anticoag')),
-        section('procedures', 'Procedures', 'stent', changedCount(['tips', 'dips', 'balloonEso', 'balloonGas', 'brto', 'portocaval', 'dsrs', 'mesocaval']),
+        section('procedures', 'Procedures', 'stent', changedCount(['tips', 'dips', 'balloonEso', 'balloonGas', 'brto', 'splenicRx', 'portocaval', 'dsrs', 'mesocaval']),
           build('tips'), build('tipsD'), build('dips'), build('dipsD'),
           h('div', { class: 'action-grid' },
             h('button', { class: 'btn', onclick: () => onAction({ kind: 'band' }) }, icon('band'), 'Band varices'),
             h('button', { class: 'btn', onclick: () => onAction({ kind: 'paracentesisPrompt' }) }, icon('needle'), 'Paracentesis…')),
-          h('div', { class: 'subhead' }, 'Tamponade & embolization'), build('balloonEso'), build('balloonGas'), build('brto'),
+          h('div', { class: 'subhead' }, 'Tamponade & embolization'), build('balloonEso'), build('balloonGas'), build('brto'), build('splenicRx'),
           h('div', { class: 'subhead' }, 'Surgical shunts'), build('portocaval'), build('dsrs'), build('mesocaval')),
         section('volume', 'Volume & ascites', 'drop', changedCount(['albumin', 'diuretics']),
           h('div', { class: 'stat-grid' },
@@ -367,6 +368,7 @@ export function activeInterventions(p) {
   for (const [id, v] of Object.entries(p.stenosis)) add('sten:' + id, `${lab(id)} narrowed ${Math.round(v * 100)} %`, (q) => { delete q.stenosis[id]; });
   for (const [id, v] of Object.entries(p.thrombus)) add('thr:' + id, `${lab(id)} thrombus ${Math.round(v * 100)} %`, (q) => { delete q.thrombus[id]; });
   for (const [k, on] of Object.entries(p.drugs)) if (on) add('drug:' + k, DRUGS[k].label, (q) => { q.drugs[k] = false; });
+  if (p.splenicRx) add('splenicRx', p.splenicRx === 2 ? 'Splenectomy' : 'Partial splenic embolization', (q) => { q.splenicRx = 0; });
   if (p.tips.on) add('tips', `TIPS ${p.tips.d} mm`, (q) => { q.tips.on = false; });
   if (p.dips.on) add('dips', `DIPS ${p.dips.d} mm`, (q) => { q.dips.on = false; });
   if (p.portocaval) add('portocaval', 'Portocaval shunt', (q) => { q.portocaval = false; });
@@ -388,6 +390,5 @@ export function activeInterventions(p) {
   if (p.anticoag) add('anticoag', 'Anticoagulation', (q) => { q.anticoag = false; });
   if (p.spontaneous.C5 === false) add('C5', 'No gastrorenal shunt (no fundal varices)', (q) => { q.spontaneous.C5 = true; });
   if (p.spontaneous.C6) add('C6', 'Splenorenal shunt', (q) => { q.spontaneous.C6 = false; });
-  if (p.catheter.vein) add('catheter', `Catheter in ${p.catheter.vein}HV${p.catheter.wedged ? ' (wedged)' : ''}`, (q) => { q.catheter = { vein: null, wedged: false }; });
   return out;
 }

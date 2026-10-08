@@ -1,16 +1,15 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
-import { createMeasureCard } from './measure.js?v=65fed65731';
-import { store, varixSuppressed } from './store.js?v=7acb60de12';
+import { store, varixSuppressed } from './store.js?v=92c3226cca';
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
-import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=8aa5e5cdf1';
-import { lobuleFlows } from './lobule-model.js?v=daf2c88365';
-import { createProfile } from './charts.js?v=6af923d592';
-import { createPressureTime } from './pressure-time.js?v=2eac3a3066';
-import { createFibroScan } from './fibroscan.js?v=eced754165';
-import { createDoppler } from './doppler.js?v=631fa7e431';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=473f56b683';
+import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=86153645a3';
+import { lobuleFlows } from './lobule-model.js?v=f919df1f24';
+import { createProfile } from './charts.js?v=970242a427';
+import { createPressureTime } from './pressure-time.js?v=8f404586fd';
+import { createFibroScan } from './fibroscan.js?v=631cac29d2';
+import { createDoppler } from './doppler.js?v=adedaa4699';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=1300f2b5ac';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -298,8 +297,6 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   endoscopy.el.append(wallDetails);
   wallDetails.addEventListener('toggle', () => { if (wallDetails.open && frame) wall.update(frame); });
   const pressure = { ...profile, id: 'profile', label: 'Pressure' };
-  const measure = createMeasureCard();
-  pressure.el.append(measure.el);
   const instruments = [
     pressure, createPressureTime({ marks }),
     createDoppler({ onProbe }), endoscopy, createAbdomen({ onAction }), createFibroScan(),
@@ -372,7 +369,6 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       const p = byId[id];
       // live instruments keep their own history and only redraw; the rest draw from the frame
       if (id === 'scope' || id === 'doppler') p.redraw(); else p.update(frame);
-      if (id === 'profile') measure.update(frame);
       if (id === 'endoscopy' && wallDetails.open) wall.update(frame);
     }
   }

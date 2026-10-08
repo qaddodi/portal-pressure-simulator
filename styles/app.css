@@ -182,6 +182,9 @@ svg { flex: none; }
 .lg-note svg { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; }
 
 /* SVG label layer (screen space) */
+#labels .lb { transition: opacity .15s ease; }
+#labels .lb.lb-off { opacity: 0; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { #labels .lb { transition: none; } }
 #labels text { font-family: var(--font-ui); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--label-halo); stroke-width: 3px; stroke-linejoin: round; }
 #labels .lb.inline text, #labels .lb.focus text { stroke: none; }
 #labels .lb-bg { fill: var(--glass); stroke: var(--hairline); stroke-width: 1; }
@@ -501,7 +504,7 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
    outline); vessels are tubes (dark casing + pressure-colored lumen) drawn over them. */
 .organ-liver { color: var(--organ-liver); } .organ-stomach, .organ-esophagus, .organ-duodenum { color: var(--organ-stomach); }
 .organ-spleen { color: var(--organ-spleen); } .organ-pancreas { color: var(--organ-pancreas); } .organ-kidney-l { color: var(--organ-kidney); }
-.organ-heart, .organ-heart-grooves { color: var(--organ-heart); } .organ-gallbladder { color: var(--organ-gb); } .organ-bowel, .organ-bowel-loops, .organ-colon-a, .organ-colon-t, .organ-colon-d { color: var(--organ-gut); } .organ-kidney-r { color: var(--organ-kidney); } .organ-cecum { color: var(--organ-gut); } .organ-gallbladder { color: var(--organ-gb); }
+.organ-heart, .organ-heart-grooves { color: var(--organ-heart); } .organ-gallbladder { color: var(--organ-gb); } .organ-bowel, .organ-bowel-loops, .organ-colon-a, .organ-colon-t, .organ-colon-d { color: var(--organ-gut); } .organ-cecum { color: var(--organ-gut); } .organ-gallbladder { color: var(--organ-gb); }
 .org-fill { stroke: none; }
 .org-line { fill: none; stroke: color-mix(in srgb, currentColor 80%, var(--shade-ink)); stroke-width: 1.2; stroke-opacity: .6; stroke-linejoin: round; }
 .org-rim { fill: none; stroke: currentColor; stroke-width: 20; stroke-opacity: .26; }
@@ -645,7 +648,6 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .band-ring { fill: none; stroke: var(--text); stroke-width: 2.4; }
 .redwale { stroke: var(--red-wale); stroke-width: 1.3; stroke-linecap: round; }
 .balloon-shape { fill: var(--balloon); fill-opacity: .8; stroke: var(--balloon-line); stroke-width: 1.4; }
-.catheter { fill: none; stroke: var(--text-2); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
 .ascites-fill { stroke: none; }
 .ascites-line { fill: none; stroke: var(--ascites); stroke-opacity: .7; stroke-width: 1.4; }
 .pinch-guide { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 4 3; }
@@ -1575,6 +1577,7 @@ button.finding:hover { background: var(--surface-2); }
 .order-grid.three .order-btn { flex: 1 1 auto; justify-content: center; white-space: nowrap; }
 .order-btn { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 8px; border-radius: var(--r-card); border: 1px solid var(--border); background: var(--surface); cursor: pointer; text-align: left; color: var(--text); }
 .order-btn:hover:not(:disabled) { border-color: var(--accent-line); background: var(--surface-2); }
+.order-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-ink); }
 .order-btn .ac-ic { flex: none; }
 .ob-t { display: flex; flex-direction: column; gap: 1px; font-size: var(--fs-14); font-weight: 600; line-height: 1.3; }
 .ob-t small { font-size: var(--fs-12); font-weight: 500; color: var(--text-3); }
@@ -2435,6 +2438,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .main-menu .mm-mode[aria-current="true"] { border-color: transparent; background: var(--accent-soft); color: var(--accent-ink); }
 .main-menu .mm-mode .mi-d { font-size: var(--fs-12); color: var(--text-3); line-height: 1.35; font-weight: 400; }
 .main-menu .mm-mode[aria-current="true"] .mi-d { color: color-mix(in srgb, var(--accent-ink) 75%, transparent); }
+.mm-role-note { display: block; margin: -4px 12px 8px; font-size: var(--fs-12); color: var(--text-3); line-height: 1.35; }
 .app-menu { max-height: calc(100vh - 80px); overflow-y: auto; }
 
 /* The top row: menu + patient (or the lesson / case) · view · blood and legend · Findings, Treat, Measure, Search. */
@@ -3101,3 +3105,20 @@ input[type="range"] { touch-action: none; }
 
 /* Play/pause: looping sim animations freeze with the simulation (see ui/clock.js). */
 body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state: paused; }
+.cmp-table-btn { white-space: nowrap; }
+@media (max-width: 600px) { .cmp-label { display: none; } }
+
+/* Change messages: a compact card, about the size of a top bar, that slides down from behind the top bars
+   and settles just below them, then slides back up. The clipping wrap hides the part still "behind" the bars.
+   It stays below menus, so a menu is never covered. */
+.toast-wrap.docked { transform: none; z-index: calc(var(--z-popover) - 1); display: block; padding: 0; overflow: hidden; height: 130px; pointer-events: none; }
+.toast-wrap.docked .toast { position: absolute; left: 20px; right: 20px; top: 6px; height: 52px; box-shadow: 0 2px 10px rgba(0,0,0,.14), inset 0 0 0 1px var(--hairline); max-width: none; padding: 4px 40px; justify-content: center; align-items: center; text-align: center; font-weight: 600; line-height: 1.2; border-radius: var(--r-sheet); background: var(--surface); pointer-events: auto; animation: toastDown .35s cubic-bezier(.22, 1, .36, 1) both; }
+.toast-wrap.docked .toast.leaving { animation: toastUp .25s cubic-bezier(.64, 0, .78, 0) forwards; }
+.toast-wrap.docked .toast-msg { flex: 0 1 auto; max-width: 100%; text-align: center; white-space: normal; overflow-wrap: anywhere; overflow: hidden; }
+.toast-wrap.docked .toast-x { position: absolute; top: 50%; right: 8px; margin: -11px 0 0; }
+@keyframes toastDown { from { transform: translateY(calc(-100% - 12px)); } to { transform: none; } }
+@keyframes toastUp { from { transform: none; } to { transform: translateY(calc(-100% - 12px)); } }
+@media (prefers-reduced-motion: reduce) {
+  .toast-wrap.docked .toast { animation: fade .2s both; }
+  .toast-wrap.docked .toast.leaving { animation: fade .2s reverse forwards; }
+}

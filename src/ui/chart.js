@@ -8,12 +8,12 @@
 //   (what has happened lives in the timeline's History, under the figure)
 //   Advanced                             physiology knobs (instructor / researcher)
 
-import { store, updateParams } from './store.js?v=7acb60de12';
-import { h, fmt, icon, svgIcon, toast } from './util.js?v=8aa5e5cdf1';
-import { DRUGS } from '../engine/scenario.js?v=06164f9b2a';
-import { TILES, VITALS, readoutValue } from './dock.js?v=a4fe6d326b';
-import { activeInterventions } from './inspector.js?v=920c4310e9';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=e9ce9aed9a';
+import { store, updateParams } from './store.js?v=92c3226cca';
+import { h, fmt, icon, svgIcon, toast } from './util.js?v=86153645a3';
+import { DRUGS } from '../engine/scenario.js?v=957e836ad6';
+import { TILES, VITALS, readoutValue } from './dock.js?v=4c6f8186c4';
+import { activeInterventions } from './inspector.js?v=e9e9c1c96c';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=6e06b6c93c';
 
 // Where each readout is measured, so a click can show it on the figure.
 const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS', 'DIPS'], spleen: ['V_SPL', 'SV_CONF'], ra: ['IVCS_RA'] };
@@ -193,6 +193,17 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       }),
       proc('stent', 'Surgical shunt', 'portocaval, Warren, mesocaval', 'shunt', () => { select(null); if (startShunt('PV_TRUNK')) toast('Click the systemic vein to connect the portal vein to.'); }),
       proc('occlude', 'BRTO', 'occlude the gastrorenal shunt', 'occlude', () => { select({ type: 'organ', id: 'gastric' }); if (store.get().params.spontaneous.C5 === false) toast('This patient has no gastrorenal shunt (see Advanced › anatomical variants).'); }),
+      // One button cycles the spleen: untreated → partial embolization → splenectomy → untreated.
+      (() => {
+        const NAME = ['Spleen', 'Embolization', 'Splenectomy'], SUB = ['embolization or splenectomy', 'partial splenic artery embolization', 'spleen removed'];
+        const b = proc('occlude', 'Spleen', SUB[0], 'splenic', () => {
+          const v = ((store.get().params.splenicRx | 0) + 1) % 3;
+          updateParams((p) => { p.splenicRx = v; return p; }, { label: ['Spleen untreated', 'Partial splenic embolization', 'Splenectomy'][v] });
+          select({ type: 'organ', id: 'spleen' });
+        });
+        const paint = () => { const v = store.get().params.splenicRx | 0; b.querySelector('.ob-t').textContent = NAME[v]; b.title = `${NAME[v]}: ${SUB[v]} (click to change)`; b.setAttribute('aria-pressed', String(v > 0)); };
+        paint(); live.push(paint); return b;
+      })(),
       proc('needle', 'Paracentesis', 'drain ascites', 'paracentesis', () => select({ type: 'organ', id: 'abdomen' })));
     for (const b of procs.querySelectorAll('button')) b.addEventListener('click', () => onDone?.());
     return [h('div', { class: 'subhead' }, 'Drugs'), drugs,
@@ -201,7 +212,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
   }
   /** How many treatments are running now (drugs, shunts, balloons, BRTO). */
   function treatCount(p) {
-    return activeInterventions(p).filter((a) => a.key.startsWith('drug:') || ['anticoag', 'diuretics', 'tips', 'dips', 'balloonEso', 'balloonGas', 'portocaval', 'dsrs', 'mesocaval', 'occ:C5'].includes(a.key)).length;
+    return activeInterventions(p).filter((a) => a.key.startsWith('drug:') || ['anticoag', 'diuretics', 'tips', 'dips', 'balloonEso', 'balloonGas', 'portocaval', 'dsrs', 'mesocaval', 'occ:C5', 'splenicRx'].includes(a.key)).length;
   }
 
   // ── Advanced ──────────────────────────────────────
