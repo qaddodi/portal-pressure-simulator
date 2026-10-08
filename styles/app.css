@@ -3115,3 +3115,6 @@ body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state
 @keyframes toastDown { from { transform: none; } to { transform: translateY(calc(100% + 60px)); } }
 
 .toast-wrap.docked .toast-msg { flex: 1; min-width: 0; white-space: normal; overflow-wrap: anywhere; overflow: hidden; }
+.toast-wrap.docked .toast { padding: 8px 44px; justify-content: center; align-items: center; text-align: center; }
+.toast-wrap.docked .toast-msg { flex: 0 1 auto; max-width: 100%; text-align: center; }
+.toast-wrap.docked .toast-x { position: absolute; top: 8px; right: 8px; margin: 0; }
