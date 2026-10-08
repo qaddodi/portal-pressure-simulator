@@ -13,7 +13,7 @@ import { createCases } from './cases.js?v=faef9090be';
 import { createCompare } from './compare.js?v=d455a31fa6';
 import { createCard } from './card.js?v=b82defa103';
 import { createChart, computeFindings } from './chart.js?v=e3ef18141c';
-import { createHome } from './home.js?v=fac0cdeef5';
+import { createHome, ROLES } from './home.js?v=fac0cdeef5';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=12341cb1ab';
 import { startLMS } from './lms.js?v=a3fe661ca1';
@@ -701,6 +701,9 @@ function openMainMenu(anchor) {
       modeItem('explore', 'explore', 'explore', 'Explore a patient', 'Any of the patients, from healthy to Budd–Chiari'),
       modeItem('learn', 'learn', 'book', 'Lessons', 'Predict, observe, explain'),
       modeItem('cases', 'cases', 'case', 'Cases', 'A bleed at 3 a.m. and diagnostic puzzles')),  // the Presenter entry is shelved (see home.js)
+    h('div', { class: 'menu-title' }, t('menu.role')),
+    roleControl(),
+    h('div', { class: 'menu-sep' }),
     menuItem('Home page', { icon: 'grid', onClick: () => { closePopover(); home.open(); } }),
     h('div', { class: 'menu-sep' }),
     menuItem('Copy a link to this exact state', { icon: 'share', onClick: () => { closePopover(); share(); } }),
@@ -708,8 +711,21 @@ function openMainMenu(anchor) {
     menuItem(t('menu.help') + '…', { icon: 'help', kb: '?', onClick: () => { closePopover(); setTimeout(() => openHelpMenu(anchor), 0); } }),
   ], { cls: 'main-menu', align: 'start' });
 }
+// The role ("I am a…") from the main menu, in any mode. It is the same setting Home shows: choosing
+// one sets store.role, and the 'role' listener saves it and redraws the cards and the chart.
+function roleControl() {
+  const cur = () => store.get().role || 'student';
+  const seg = h('div', { class: 'seg full menu-seg', role: 'group', 'aria-label': t('menu.role') }, ROLES.map(([v, l]) => h('button', { 'data-role': v, onclick: () => { store.set({ role: v }); paint(); } }, l)));
+  const note = h('small', { class: 'mm-role-note' });
+  function paint() {
+    seg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.role === cur())));
+    note.textContent = ROLES.find(([v]) => v === cur())?.[2] || '';
+  }
+  paint();
+  return h('div', { class: 'mm-role' }, seg, note);
+}
 // Two menus with one job each: Settings (how the simulator looks and reads) and Help (how to
-// use it, what it is, and who made it). The role ("I am a…") lives on Home, where a session starts.
+// use it, what it is, and who made it). The role also lives on Home, where a session starts.
 function openSettings(anchor) {
   const cur = document.documentElement.getAttribute('data-theme') || 'system';
   popover(anchor, [
