@@ -3136,3 +3136,19 @@ body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state
 .tl-track { align-self: center; }
 .tl-lead.mine path { stroke: var(--text-3); stroke-dasharray: 2 2; }
 .tl-lead.mine text { font-weight: 500; font-style: italic; fill: var(--text-2); }
+
+/* The open dock's two tabs: every readout, or a tall labelled timeline in the readouts' room. */
+.ro-tabs { display: none; gap: 2px; padding: 6px 48px 0 8px; }
+.readouts.all .ro-tabs { display: flex; }
+.ro-tab { font: inherit; font-size: var(--fs-12); font-weight: 600; color: var(--text-3); background: transparent; border: 0; border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+.ro-tab:hover { color: var(--text-2); }
+.ro-tab[aria-selected="true"] { color: var(--text); background: var(--hairline); }
+.readouts.tlv .ro-group { display: none !important; }
+.readouts.tlv .ro-tabs { padding-bottom: 6px; }
+.readouts.tlv .ro-more { position: absolute; top: 4px; right: 4px; }
+.vdock.tlv .stage-bar.bottom { height: auto; min-height: calc(var(--tlv-room, 0px) + 60px); }
+.tl-tags.big .tl-lead text { font-size: 11px; }
+/* On the timeline tab the strip gets the full width; the play controls sit in a row beneath it. */
+.vdock.tlv .stage-bar.bottom { padding-top: 6px; padding-bottom: 6px; }
+.vdock.tlv .timeline { flex-wrap: wrap; align-content: center; row-gap: 4px; }
+.vdock.tlv .tl-track { order: -1; flex: 1 1 100%; min-width: 0; margin: 0 8px; }
