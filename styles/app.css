@@ -3103,3 +3103,10 @@ input[type="range"] { touch-action: none; }
 body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state: paused; }
 .cmp-table-btn { white-space: nowrap; }
 @media (max-width: 600px) { .cmp-label { display: none; } }
+
+/* Change messages: a small card that slides up out of the dock's top edge, then back down into it. */
+.toast-wrap.docked { transform: none; align-items: flex-start; z-index: calc(var(--z-popover) - 1); overflow: hidden; padding: 6px 8px 0; justify-content: flex-end; width: max-content; min-width: 0; border-radius: var(--r-sheet) var(--r-sheet) 0 0; }
+.toast-wrap.docked .toast { animation: toastUp .26s var(--ease) both; }
+.toast-wrap.docked .toast.leaving { animation: toastDown .26s var(--ease) forwards; }
+@keyframes toastUp { from { transform: translateY(calc(100% + 8px)); } to { transform: none; } }
+@keyframes toastDown { from { transform: none; } to { transform: translateY(calc(100% + 8px)); } }
