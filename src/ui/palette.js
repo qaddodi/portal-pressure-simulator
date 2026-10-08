@@ -6,7 +6,7 @@ import { store, updateParams } from './store.js?v=baa7ba1e7b';
 import { h, svgIcon, toast } from './util.js?v=8aa5e5cdf1';
 import { EDGES } from '../engine/topology.js?v=80b8d861de';
 import { DRUGS } from '../engine/scenario.js?v=d8076334d5';
-import { HIDDEN_EDGES } from './anatomy.js?v=bf7e57c024';
+import { HIDDEN_EDGES } from './anatomy.js?v=883b3ef2a0';
 import { LESSONS } from './learn.js?v=296debef12';
 import { CASES } from './cases.js?v=9992d62129';
 
