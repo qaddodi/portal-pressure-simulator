@@ -69,16 +69,17 @@ export function fp(v) { const c = unitConv.pressure[units.pressure]; return [fmt
 export function ff(v) { const c = unitConv.flow[units.flow]; return [units.flow === 'L/min' ? fmtFlow(v) : fmt(c.f(v), c.d), c.u]; }
 
 export function toast(msg, kind = '') {
-  const wrap = document.getElementById('toasts');
+  // Messages sit in the vitals dock's status row, so they never float over a menu or a panel.
+  // The floating wrap is only the fallback for screens without the dock.
+  const slot = document.getElementById('vdToasts');
+  const inDock = !!slot?.closest('.vdock')?.offsetParent;
+  const wrap = inDock ? slot : document.getElementById('toasts');
+  slot?.parentElement.classList.toggle('has-toast', inDock);
   // One message at a time reads calmer than a growing stack.
-  while (wrap.children.length >= 2) wrap.firstChild.remove();
-  // Anchor just above the play bar, centred on it, so a message never covers the figure.
-  const anchor = document.querySelector('.vdock') || document.querySelector('.timeline');
-  const r = anchor?.getBoundingClientRect();
-  if (r && r.width) { wrap.style.left = `${r.left + r.width / 2}px`; wrap.style.bottom = `${Math.max(8, innerHeight - r.top + 8)}px`; }
+  while (wrap.children.length >= (inDock ? 1 : 2)) wrap.firstChild.remove();
   const t = h('div', { class: 'toast ' + kind, role: 'status' }, h('span', { class: 'toast-msg' }, msg));
   let timer = 0;
-  const close = () => { clearTimeout(timer); t.classList.add('leaving'); setTimeout(() => t.remove(), 220); };
+  const close = () => { clearTimeout(timer); t.classList.add('leaving'); setTimeout(() => { t.remove(); if (inDock && !wrap.children.length) wrap.parentElement.classList.remove('has-toast'); }, 220); };
   const x = h('button', { class: 'toast-x', 'aria-label': 'Dismiss' }, icon('close'));
   x.addEventListener('click', (e) => { e.stopPropagation(); close(); });
   t.append(x);
