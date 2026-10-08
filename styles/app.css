@@ -2039,6 +2039,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .pt-delta[data-dir="up"] { color: var(--danger); }
 .pt-delta[data-dir="down"] { color: var(--ok); }
 .pt-range { flex: none; }
+.pt-smooth { flex: none; }
 .pt-range button { min-height: 30px; padding-inline: 12px; }
 .instrument-workspace .instrument-view.pt .pt-box { flex: 1 1 0; height: auto; min-height: 180px; }
 .pt-box canvas { touch-action: pan-y; cursor: crosshair; }

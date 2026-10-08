@@ -22,6 +22,7 @@ const TRACES = [
   { id: 'SMV', label: 'Superior mesenteric vein', abbr: 'SMV', short: 'SMV', c: '--tr-smv', hide: 'pv', on: false, day: null },
 ];
 const KEYS = [...TRACES.map((t) => t.id), 'hvpg'];
+const SMOOTH_S = 6; // seconds averaged by the Smooth toggle
 const RANGES = [['beats', '10 s', 10], ['minutes', '2 min', 120], ['days', 'Days', null]];
 const FINE_S = 12, COARSE_S = 130, BIN = 0.25;
 // HVPG cut-offs (Baveno): above normal, clinically significant, variceal bleeding risk.
@@ -52,7 +53,12 @@ export function createPressureTime({ marks = () => [] } = {}) {
     });
     return b;
   }));
-  const el = h('div', { class: 'pt' }, h('div', { class: 'pt-head' }, hero, heroDelta, rangeSeg), box, chips);
+  // Display only: averages away the heartbeat and breathing swings; the simulation is untouched.
+  let smooth = false;
+  const smoothBtn = h('button', { class: 'pt-chip pt-smooth', 'aria-pressed': 'false', title: 'Show the mean: hide beat-to-beat and breathing variation', onclick: () => {
+    smooth = !smooth; smoothBtn.setAttribute('aria-pressed', String(smooth)); draw();
+  } }, 'Smooth');
+  const el = h('div', { class: 'pt' }, h('div', { class: 'pt-head' }, hero, heroDelta, smoothBtn, rangeSeg), box, chips);
 
   function setRange(id) {
     range = id;
@@ -125,6 +131,22 @@ export function createPressureTime({ marks = () => [] } = {}) {
   // ── Series for the current range ──────────────────
   // Each series: { x: [...], mid: [...], lo?: [...], hi?: [...] } in the range's x units.
   function series(key, x0) {
+    const out = rawSeries(key, x0);
+    return smooth && range !== 'days' ? smoothed(out) : out;
+  }
+  // Trailing mean over SMOOTH_S seconds (longer than a breath), without the trough-to-peak band.
+  function smoothed(s) {
+    const out = { x: s.x, mid: new Array(s.x.length) };
+    let j = 0, sum = 0, n = 0;
+    for (let i = 0; i < s.x.length; i++) {
+      const v = s.mid[i];
+      if (!Number.isNaN(v)) { sum += v; n++; }
+      while (s.x[j] < s.x[i] - SMOOTH_S) { if (!Number.isNaN(s.mid[j])) { sum -= s.mid[j]; n--; } j++; }
+      out.mid[i] = n ? sum / n : NaN;
+    }
+    return out;
+  }
+  function rawSeries(key, x0) {
     if (range === 'beats') {
       const out = { x: [], mid: [] };
       for (let i = 0; i < fine.t.length; i++) if (fine.t[i] >= x0 - 0.05) { out.x.push(fine.t[i]); out.mid.push(fine[key][i]); }
