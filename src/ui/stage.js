@@ -3323,7 +3323,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const pref = it.mid ? (Math.abs(it.tan[0]) >= Math.abs(it.tan[1]) ? ['N', 'S'] : ['E', 'W']) : CIRCUIT_LABELS[it.node].dirs.map(dirOf);
         const dirs = [...pref, ...['N', 'S', 'E', 'W', 'NE', 'SE', 'NW', 'SW'].filter((d) => !pref.includes(d))];
         const half = it.vw / 2;
-        if (!place(it, dirs, [7 + half, 18 + half, 30 + half], false) && it.sel) place(it, dirs, 40 + half, true);
+        // A minor station gives way rather than sit on a vessel or crowd its neighbours.
+        if (!place(it, dirs, [7 + half, 18 + half, 30 + half], false, it.pri <= 4 && !it.sel) && it.sel) place(it, dirs, 40 + half, true);
       }
       for (const it of nodes) {
         if (!out.includes(it)) continue;
