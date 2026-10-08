@@ -254,7 +254,8 @@ export function createLobuleZoom({ host }) {
       // (While the view is still opening they have not moved up yet: keep their row free anyway.)
       t = q && q.top - hr.top < H / 2 ? Math.max(t, q.bottom - hr.top + 14) : t + 52;
     }
-    return { l, t, r: Math.max(l + 80, r), b: Math.max(t + 80, b) };
+    // The bottom stays above the vitals dock. With no room left, layoutLabels hides the labels rather than set them under it.
+    return { l, t, r: Math.max(l + 80, r), b };
   }
   // The lobule and its labels' places, in world units.
   const frameBox = () => {
