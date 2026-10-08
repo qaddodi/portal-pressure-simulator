@@ -25,7 +25,7 @@ const KEYS = [...TRACES.map((t) => t.id), 'hvpg'];
 const SMOOTH_S = 6; // seconds averaged by the Smooth toggle
 const RANGES = [['beats', '10 s', 10], ['minutes', '2 min', 120], ['days', 'Days', null]];
 const LAG_S = 0.12; // wall seconds the trace runs behind the newest sample, so it can glide between frames
-const FINE_S = 12, COARSE_S = 130, BIN = 0.25;
+const FINE_S = 22, COARSE_S = 140, BIN = 0.25;
 // HVPG cut-offs (Baveno): above normal, clinically significant, variceal bleeding risk.
 const LIMITS = [[5, ''], [10, 'CSPH 10'], [12, 'Bleeding risk 12']];
 const sevOf = (v) => (v < 5 ? 'ok' : v < 10 ? 'caution' : 'danger');
@@ -132,17 +132,21 @@ export function createPressureTime({ marks = () => [] } = {}) {
   // ── Series for the current range ──────────────────
   // Each series: { x: [...], mid: [...], lo?: [...], hi?: [...] } in the range's x units.
   function series(key, x0, x1 = Infinity) {
-    const out = rawSeries(key, x0, x1);
-    return smooth && range !== 'days' ? smoothed(out) : out;
+    if (!smooth || range === 'days') return rawSeries(key, x0, x1);
+    // Average over the whole retained history (so the left edge is not a short window), twice,
+    // then cut to the view: one pass leaves a ripple of the breathing rhythm at the newest end.
+    const all = smoothed(smoothed(rawSeries(key, -Infinity, x1), SMOOTH_S), SMOOTH_S / 2);
+    let i = 0; while (i < all.x.length && all.x[i] < x0 - 0.05) i++;
+    return { x: all.x.slice(i), mid: all.mid.slice(i) };
   }
-  // Trailing mean over SMOOTH_S seconds (longer than a breath), without the trough-to-peak band.
-  function smoothed(s) {
+  // Trailing mean over w seconds, without the trough-to-peak band.
+  function smoothed(s, w) {
     const out = { x: s.x, mid: new Array(s.x.length) };
     let j = 0, sum = 0, n = 0;
     for (let i = 0; i < s.x.length; i++) {
       const v = s.mid[i];
       if (!Number.isNaN(v)) { sum += v; n++; }
-      while (s.x[j] < s.x[i] - SMOOTH_S) { if (!Number.isNaN(s.mid[j])) { sum -= s.mid[j]; n--; } j++; }
+      while (s.x[j] < s.x[i] - w) { if (!Number.isNaN(s.mid[j])) { sum -= s.mid[j]; n--; } j++; }
       out.mid[i] = n ? sum / n : NaN;
     }
     return out;
