@@ -13,7 +13,7 @@ import { h, fmt, icon, svgIcon, toast } from './util.js?v=8aa5e5cdf1';
 import { DRUGS } from '../engine/scenario.js?v=957e836ad6';
 import { TILES, VITALS, readoutValue } from './dock.js?v=1d8ec41897';
 import { activeInterventions } from './inspector.js?v=c06043d75d';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=f35e0dd8b6';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=df06885364';
 
 // Where each readout is measured, so a click can show it on the figure.
 const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS', 'DIPS'], spleen: ['V_SPL', 'SV_CONF'], ra: ['IVCS_RA'] };
@@ -194,11 +194,17 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       proc('stent', 'Surgical shunt', 'portocaval, Warren, mesocaval', 'shunt', () => { select(null); if (startShunt('PV_TRUNK')) toast('Click the systemic vein to connect the portal vein to.'); }),
       proc('occlude', 'BRTO', 'occlude the gastrorenal shunt', 'occlude', () => { select({ type: 'organ', id: 'gastric' }); if (store.get().params.spontaneous.C5 === false) toast('This patient has no gastrorenal shunt (see Advanced › anatomical variants).'); }),
       proc('needle', 'Paracentesis', 'drain ascites', 'paracentesis', () => select({ type: 'organ', id: 'abdomen' })));
+    const SPL = [[0, 'None', 'untreated spleen'], [1, 'Embolization', 'partial splenic artery embolization'], [2, 'Splenectomy', 'remove the spleen']];
+    const splenic = h('div', { class: 'order-grid three' }, SPL.map(([v, label, sub]) => {
+      const b = btn(null, label, () => { updateParams((p) => { p.splenicRx = v; return p; }, { label: v ? label : 'Spleen untreated' }); select({ type: 'organ', id: 'spleen' }); }, sub);
+      b.dataset.rx = v; b.setAttribute('aria-pressed', String((store.get().params.splenicRx | 0) === v)); live.push(() => b.setAttribute('aria-pressed', String((store.get().params.splenicRx | 0) === v)));
+      if (lock('splenic')) b.disabled = true; return b;
+    }));
     for (const b of procs.querySelectorAll('button')) b.addEventListener('click', () => onDone?.());
     return [h('div', { class: 'subhead' }, 'Drugs'), drugs,
       h('div', { class: 'subhead' }, 'Fluids & blood'), fluids,
       h('div', { class: 'subhead' }, 'Procedures'), procs,
-      h('div', { class: 'subhead' }, 'Spleen'), controls(['splenicRx'])];
+      h('div', { class: 'subhead' }, 'Spleen'), splenic];
   }
   /** How many treatments are running now (drugs, shunts, balloons, BRTO). */
   function treatCount(p) {

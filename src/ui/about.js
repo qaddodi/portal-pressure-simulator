@@ -100,7 +100,7 @@ export function aboutOrgan(id, f, st) {
     case 'heart': return ['The right heart receives all venous return; its pressure is the floor every vein drains against. When it rises (failure, tricuspid regurgitation, constriction) the liver congests from behind.'];
     case 'varices': return ['Dilated submucosal veins in the lower esophagus, fed by the coronary vein and draining to the azygos. Modeled wall stress rises with pressure and diameter: past a threshold they rupture.'];
     case 'gastric': return ['Fundal varices, fed by the short and posterior gastric veins and often draining through a gastrorenal shunt. They bleed less often but more heavily than esophageal varices.'];
-    case 'spleen': return ['Drains through the splenic vein into the portal system: portal hypertension congests it, it enlarges and traps platelets.', m ? `${fmt(m.spleen.length, 1)} cm long (normal up to 13).` : ''].filter(Boolean);
+    case 'spleen': return ['Drains through the splenic vein into the portal system: portal hypertension congests it, it enlarges and traps platelets.', m ? (m.spleen.length > 0 ? `${fmt(m.spleen.length, 1)} cm long (normal up to 13).` : 'Removed (splenectomy).') : ''].filter(Boolean);
     case 'abdomen': return ['Ascites forms when sinusoidal pressure pushes more lymph out of the liver than the lymphatics can carry away, with sodium retention and low albumin adding to it.'];
     default: return [];
   }
