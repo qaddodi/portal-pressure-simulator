@@ -51,16 +51,12 @@ export const store = {
   },
 };
 
-/** Right-heart-failure endoscopy shows an esophageal varix the model produces by artifact (blueprint F4):
- *  withheld in lessons, cases and presenting, qualified in Explore. */
-export const varixSuppressed = () => state.presetId === 'rhf' && (state.mode !== 'explore' || !!document.getElementById('app')?.classList.contains('presenting'));
 /** The one test for "this patient has varices": the model's varix diameter reaches the app's "none" cut-off (2.5 mm), or
  *  banded columns are still on the wall. The endoscopy pane, the figure and the circuit all use it, so they cannot disagree.
  *  site: 'VAR' (esophageal) or 'GV' (fundal). */
 export function varicesPresent(f, site = 'VAR') {
   const m = f?.metrics;
   if (!m) return false;
-  if (site === 'VAR' && varixSuppressed()) return false;
   const vx = site === 'VAR' ? m.varix : m.gastricVarix;
   return vx.d >= 2.5 || (site === 'VAR' && f.bands > 0);
 }
