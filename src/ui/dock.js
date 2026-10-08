@@ -172,27 +172,6 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     setTimeout(() => dispatchEvent(new Event('resize')), 30);
   };
   moreBtn.addEventListener('click', () => setAll(!strip.classList.contains('all'), true));
-  // The open dock has two roTabs: every readout, or the timeline. The timeline tab hides the readouts and
-  // hands their space to a tall, labelled timeline, so the dock keeps its height and the views stay put.
-  const tabBtn = (id, label) => h('button', { class: 'ro-tab', role: 'tab', 'data-tab': id, 'aria-selected': 'false' }, label);
-  const roTabs = h('div', { class: 'ro-roTabs', role: 'tablist', 'aria-label': 'Open dock shows' }, tabBtn('ro', 'Readouts'), tabBtn('tl', 'Timeline'));
-  strip.prepend(roTabs);
-  const vdockEl = () => strip.closest('.vdock');
-  const setTab = (tl) => {
-    const vd = vdockEl();
-    if (tl) {
-      // The readouts' height, measured with them showing, is the room the timeline gets.
-      strip.classList.remove('tlv'); vd?.classList.remove('tlv');
-      const room = Math.max(0, strip.offsetHeight - roTabs.offsetHeight);
-      vd?.style.setProperty('--tlv-room', `${room}px`);
-    }
-    strip.classList.toggle('tlv', tl); vd?.classList.toggle('tlv', tl);
-    for (const b of roTabs.children) b.setAttribute('aria-selected', String((b.dataset.tab === 'tl') === tl));
-    setTimeout(() => dispatchEvent(new Event('resize')), 30);
-  };
-  setTab(false);
-  for (const b of roTabs.children) b.addEventListener('click', () => { if ((b.dataset.tab === 'tl') !== strip.classList.contains('tlv')) setTab(b.dataset.tab === 'tl'); });
-  addEventListener('resize', () => { if (strip.classList.contains('tlv') && !flick) { const vd = vdockEl(); strip.classList.remove('tlv'); const room = Math.max(0, strip.offsetHeight - roTabs.offsetHeight); strip.classList.add('tlv'); if (vd && vd.style.getPropertyValue('--tlv-room') !== `${room}px`) vd.style.setProperty('--tlv-room', `${room}px`); } });
   // Drag the strip up to open it, down to close it (touch only; where the chevron is shown). It follows
   // the finger, then settles open or closed by speed or by how far it got.
   let flick = null;
@@ -229,7 +208,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   row.append(moreBtn);
   // A phone held sideways has no room for every readout: it keeps the four key ones.
   const sideways = matchMedia('(max-width: 1023px) and (max-height: 500px) and (orientation: landscape)');
-  const foldAll = () => { if (!strip.classList.contains('all') && strip.classList.contains('tlv')) setTab(false); if (sideways.matches && strip.classList.contains('all')) { strip.classList.remove('all'); moreBtn.setAttribute('aria-expanded', 'false'); dispatchEvent(new Event('resize')); } };
+  const foldAll = () => { if (sideways.matches && strip.classList.contains('all')) { strip.classList.remove('all'); moreBtn.setAttribute('aria-expanded', 'false'); dispatchEvent(new Event('resize')); } };
   sideways.addEventListener('change', foldAll);
   new MutationObserver(foldAll).observe(strip, { attributes: true, attributeFilter: ['class'] });
 

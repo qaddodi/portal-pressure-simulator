@@ -307,19 +307,13 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   // a stem from each marker out to a shared bus, with the name at the end of the bus. Rows are
   // stacked outward; a label is placed in the first row where it, and the stems that pass
   // through, touch nothing else. Anything that finds no room keeps its tooltip only.
-  const SVGNS = 'http://www.w3.org/2000/svg', CORE = 44, GAP = 110;
+  const SVGNS = 'http://www.w3.org/2000/svg', ROW = 13, CORE = 44, MAXROWS = 4, GAP = 110;
   const svgEl = (n, a, t) => { const e = document.createElementNS(SVGNS, n); for (const k in a) e.setAttribute(k, a[k]); if (t != null) e.textContent = t; return e; };
   const shortLabel = (l) => { const t = String(l).replace(/^Ran until the next event$/, 'Ran to event').split(' · ')[0]; return t.length > 15 ? `${t.slice(0, 14)}…` : t; };
   const dockExpanded = () => !!root.closest('.vdock')?.querySelector('.readouts.all');
   addEventListener('resize', () => render(true));
   function paintTags(groups, W) {
     if (!dockExpanded()) { core.style.top = ''; track.style.height = ''; tagsSvg.replaceChildren(); return; }
-    // The dock's timeline tab: the readouts' room, filled with taller rows of labels on both sides.
-    const vd = root.closest('.vdock'), big = !!vd?.classList.contains('tlv');
-    const room = big ? parseFloat(getComputedStyle(vd).getPropertyValue('--tlv-room')) || 0 : 0;
-    const ROW = big ? 17 : 13, MAXROWS = big ? Math.max(4, Math.min(10, Math.floor((room - 24 - CORE) / 2 / ROW))) : 4;
-    const CW = big ? 6.3 : 5.7, SEP = big ? 8 : 4;
-    tagsSvg.classList.toggle('big', big);
     const bySide = { up: new Map(), down: new Map() };
     for (const g of groups) {
       const top = entries[g.items[g.items.length - 1]];
@@ -357,11 +351,11 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
       const rows = Array.from({ length: MAXROWS }, () => []), stems = Array.from({ length: MAXROWS }, () => []);
       const list = [...bySide[side].values()].sort((a, b) => Math.min(...a.xs) - Math.min(...b.xs));
       for (const t of list) {
-        const x0 = Math.min(...t.xs), x1 = Math.max(...t.xs), w = t.tag.length * CW + 4;
+        const x0 = Math.min(...t.xs), x1 = Math.max(...t.xs), w = t.tag.length * 5.7 + 4;
         // The name goes after the bus, before it, or (on a long bus) in a gap in its middle.
         const modes = [['right', x0 - 5, x1 + 5 + w], ['left', x0 - 5 - w, x1 + 4]];
         if (x1 - x0 >= w + 16) modes.push(['mid', x0 - 3, x1 + 3]);
-        const hit = (a, b, c, d) => a < d + SEP && c < b + SEP;
+        const hit = (a, b, c, d) => a < d + 4 && c < b + 4;
         let done = false;
         for (let r = 0; r < MAXROWS && !done; r++) {
           for (const [mode, lo, hi] of modes) {
@@ -378,9 +372,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
         }
       }
     }
-    let nUp = Math.max(0, ...placed.up.map((t) => t.r + 1)), nDown = Math.max(0, ...placed.down.map((t) => t.r + 1));
-    // On the timeline tab the strip sits in the middle of its room, however few labels there are.
-    if (big) nUp = nDown = Math.max(nUp, nDown, Math.floor((room - 24 - CORE) / 2 / ROW));
+    const nUp = Math.max(0, ...placed.up.map((t) => t.r + 1)), nDown = Math.max(0, ...placed.down.map((t) => t.r + 1));
     const padT = nUp ? nUp * ROW + 4 : 0, padB = nDown ? nDown * ROW + 4 : 0;
     core.style.top = `${padT}px`;
     track.style.height = `${padT + CORE + padB}px`;
