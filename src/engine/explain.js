@@ -2,10 +2,10 @@
 // Each factor that differs from the healthy state is reverted in isolation on a scratch engine;
 // its contribution is (current − reverted). Contributions are approximate: they need not sum exactly.
 
-import { Engine } from './engine.js?v=522c66b535';
-import { computeMetrics } from './metrics.js?v=aebd90896e';
-import { defaultParams, DRUGS } from './scenario.js?v=d8076334d5';
-import { EDGES, dMinOf } from './topology.js?v=80b8d861de';
+import { Engine } from './engine.js?v=ea24545c27';
+import { computeMetrics } from './metrics.js?v=0d5add5e89';
+import { defaultParams, DRUGS } from './scenario.js?v=06164f9b2a';
+import { EDGES, dMinOf } from './topology.js?v=dc393aabea';
 
 export const METRICS = {
   pv: { label: 'Portal pressure', unit: 'mmHg', get: (m) => m.pv, digits: 1 },
@@ -44,6 +44,7 @@ function factors(eng) {
   if (p.apShunt > 0) add('Arterioportal shunting', (e) => { e.params.apShunt = 0; });
   for (const [k, on] of Object.entries(p.drugs)) if (on) add(DRUGS[k].label, (e) => { e.params.drugs[k] = false; });
   if (p.tips.on) add(`TIPS (${p.tips.d} mm)`, (e) => { e.params.tips.on = false; });
+  if (p.dips.on) add(`DIPS (${p.dips.d} mm)`, (e) => { e.params.dips.on = false; });
   if (p.portocaval) add('Portocaval shunt', (e) => { e.params.portocaval = false; });
   if (p.dsrs) add('Distal splenorenal shunt', (e) => { e.params.dsrs = false; });
   if (p.mesocaval) add('Mesocaval shunt', (e) => { e.params.mesocaval = false; });

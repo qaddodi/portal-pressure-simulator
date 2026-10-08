@@ -1,13 +1,13 @@
 // Lumped-parameter hemodynamic engine (blueprint §7).
 // Pure JS, no DOM: runs in a Web Worker, on the main thread, or in Node tests.
 
-import { NODES, EDGES, dMinOf, edgePresent, isOccluded, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=80b8d861de';
+import { NODES, EDGES, dMinOf, edgePresent, isOccluded, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=dc393aabea';
 import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=8b006eefeb';
-import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=d8076334d5';
-import { detectEvents } from './events.js?v=c6e663c4c4';
+import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=06164f9b2a';
+import { detectEvents } from './events.js?v=3d426d34b6';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -18,6 +18,13 @@ export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 13.
 const ruptureHazardPerDay = (x) => (x <= 1 ? 0 : 0.01 * Math.pow((x - 1) / 0.25, 3));
 const COLLATERAL = { open: 7.5, span: 14, tauGrow: 50, tauRegress: 120, acute: 0.4 };
 const TIPS_R = { tract: 0.12, kin: 5.96 };   // PRU; kin: mmHg per (mL/s ÷ mm²)² (ρ·K/2 with K≈1.5)
+const DIPS_R = { tract: 0.07, kin: 5.96 };   // the caudate tract is a few centimetres, shorter than a TIPS tract
+// A stent in series with a parenchymal tract (which does not widen with the stent, so large stents plateau),
+// plus an entrance/exit loss ∝ Q² (lagged one step). Flow then splits against the sinusoids by resistance.
+const stentConductance = (tract, d, q, visc) => {
+  const A = Math.PI * d * d / 4;
+  return 1 / ((tract + 0.04 * Math.pow(10 / d, 4)) * visc + TIPS_R.kin * Math.abs(q) / (A * A));
+};
 const BLOOD_BASE = 5000, HCT_BASE = 0.42;
 const HR_REST = 60;   // resting heart rate (/min); the contractility reference is scaled to it so cardiac output is unchanged
 const LYMPH = { base: 2.5, max: 10, adapt: 0.03, kfHep: 0.45, kfSpl: 0.2, adaptFrac: 0.6 };
@@ -302,14 +309,9 @@ export class Engine {
         case 'shunt': {
           let g = 0;
           if (e.shunt === 'ap') g = 0.5 * (0.05 * s * s * s + 0.1 * p.apShunt);
-          else if (e.shunt === 'tips' && p.tips.on) {
-            // Stent in series with a parenchymal tract and the hepatic-vein outlet, which do not
-            // widen with the stent (so large stents plateau), plus an entrance/exit loss ∝ Q²
-            // (lagged one step). Flow then splits against the sinusoids by resistance, so
-            // diameter grades both the shunt fraction and the portosystemic gradient.
-            const A = Math.PI * p.tips.d * p.tips.d / 4;
-            g = 1 / ((TIPS_R.tract + 0.04 * Math.pow(10 / p.tips.d, 4)) * visc + TIPS_R.kin * Math.abs(this.Q[k]) / (A * A));
-          }
+          // Diameter grades both the shunt fraction and the portosystemic gradient.
+          else if (e.shunt === 'tips' && p.tips.on) g = stentConductance(TIPS_R.tract, p.tips.d, this.Q[k], visc);
+          else if (e.shunt === 'dips' && p.dips.on) g = stentConductance(DIPS_R.tract, p.dips.d, this.Q[k], visc);
           else if (e.shunt === 'portocaval' && p.portocaval) g = 1 / (0.03 * visc);
           else if (e.shunt === 'dsrs' && p.dsrs) g = 1 / (0.08 * visc);
           else if (e.shunt === 'mesocaval' && p.mesocaval) g = 1 / (0.08 * visc);
@@ -755,6 +757,7 @@ export class Engine {
     }
     if (e.kind === 'shunt') {
       if (e.shunt === 'tips') return this.params.tips.on ? this.params.tips.d : 0;
+      if (e.shunt === 'dips') return this.params.dips.on ? this.params.dips.d : 0;
       if (e.shunt === 'custom') return this.params.customShunts?.[e.id] || 0;
       return this.G[k] > 0 ? (e.d || 3) : 0;
     }

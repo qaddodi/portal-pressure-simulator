@@ -545,7 +545,7 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .bead-glint { fill: var(--light-ink); fill-opacity: .55; pointer-events: none; }
 .thrombus-lam { fill: none; stroke: var(--thrombus-lam); stroke-opacity: .5; stroke-width: .7; stroke-linecap: round; }
 .thrombus-channel { fill: none; stroke: var(--thrombus-channel); stroke-opacity: .85; stroke-linecap: round; }
-.stent-rail-glint { fill: none; stroke: var(--light-ink); stroke-opacity: .5; stroke-width: .5; transform: translate(-.4px, -.4px); }
+.stent-rail-glint { fill: none; stroke: var(--light-ink); stroke-opacity: var(--stent-glint, .5); stroke-width: .5; transform: translate(-.4px, -.4px); }
 .nodule circle { fill: color-mix(in srgb, var(--organ-liver) 30%, var(--stage-bg)); fill-opacity: .55; stroke: color-mix(in srgb, var(--organ-liver) 70%, var(--shade-ink)); stroke-opacity: .45; stroke-width: .8; }
 #organs, #ascites, #grid, #overlays, #nodes, #guides, #focus { pointer-events: none; }
 #organs { transition: opacity .5s var(--ease); }
@@ -631,9 +631,9 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .zone.alt { fill-opacity: .028; }
 .coll-ghost .v-lumen { stroke-dasharray: 1.5 4.5; }
 .coll-ghost .v-wall { stroke-opacity: .35; stroke-dasharray: 1.5 4.5; }
-.stent-rail { fill: none; stroke: var(--stent-metal); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
-.stent-strut { fill: none; stroke: var(--stent-metal); stroke-width: 1; stroke-linejoin: miter; stroke-opacity: .95; }
-.stent-mark { fill: none; stroke: var(--stent-marker); stroke-width: 2.8; stroke-linecap: round; }
+.stent-rail { fill: none; stroke: var(--stent-metal); stroke-width: var(--stent-rail-w, 1.4); stroke-linecap: round; stroke-linejoin: round; stroke-opacity: var(--stent-alpha, 1); }
+.stent-strut { fill: none; stroke: var(--stent-metal); stroke-width: var(--stent-strut-w, 1); stroke-linejoin: miter; stroke-opacity: var(--stent-alpha, .95); }
+.stent-mark { fill: none; stroke: var(--stent-marker); stroke-width: 2.8; stroke-linecap: round; stroke-opacity: var(--stent-alpha, 1); }
 .suture { fill: none; stroke: var(--text); stroke-opacity: .7; stroke-width: 1.1; stroke-linecap: round; }
 .clamp { fill: var(--text); fill-opacity: .82; }
 .clamp-label, .guide-label { font: 600 var(--fs-12) var(--font-ui); fill: var(--text); paint-order: stroke; stroke: var(--stage-bg); stroke-width: 4px; stroke-linejoin: round; }
@@ -1210,6 +1210,8 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 }
 /* One fixed size per kind of card, whatever text it holds: the header and foot keep their place, the controls scroll inside. */
 .action-card { height: min(600px, calc(100vh - 150px)); max-height: none; }
+/* On a short desktop window the card leaves room above the vitals dock (a 600 px card ran 4 px into it at 1180x820). */
+@media (min-width: 1024px) { .action-card:not(.docked) { height: min(600px, calc(100vh - 260px)); } }
 .action-card[data-card=organ], .action-card[data-card=lobule] { height: min(570px, calc(100vh - 150px)); }
 .action-card.docked { height: min(46%, 400px); max-height: min(46%, 400px); }
 /* The same three parts on a desktop and on a phone: the top (title, reading) and the foot stay put, the controls scroll. */
@@ -2387,6 +2389,12 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   }
   .instrument-workspace.float-ui:not(.side).entering { animation: sheetUp .28s var(--ease); }
   .instrument-workspace.float-ui:not(.side).dragging { transition: none; }
+  /* FibroScan on the sheet: the map takes the height left under the header and the note (not a fixed height), so its x labels stay inside the sheet. */
+  .instrument-workspace.float-ui:not(.side) .dock-pane[data-pane="fibroscan"] { padding-top: 10px; padding-bottom: 12px; }
+  /* The map fills the sheet's height; the note flows below it and is only seen when the sheet is opened fully (the map stops at 58vh). */
+  .instrument-workspace.float-ui:not(.side) .instrument-view[data-pane="fibroscan"] { display: block; flex: 1 1 0; min-height: 0; }
+  .instrument-workspace.float-ui:not(.side) .instrument-view[data-pane="fibroscan"] .chart-box { height: min(100%, 58vh); min-height: 200px; }
+  .instrument-workspace.float-ui:not(.side) .instrument-view[data-pane="fibroscan"] > .ctl-sub { margin: 10px 0 0; }
   .instrument-workspace:not(.side) .workspace-divider, .instrument-workspace:not(.side) .workspace-fold { display: none !important; }
   .instrument-workspace.side .sheet-grab { display: none; }
   .instrument-workspace .dock-head { touch-action: none; }

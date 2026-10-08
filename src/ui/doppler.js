@@ -4,10 +4,10 @@
 // and the waveform pattern. The trace keeps recording while the instrument is closed, so it opens
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
-import { EDGES } from '../engine/topology.js?v=80b8d861de';
+import { EDGES } from '../engine/topology.js?v=dc393aabea';
 import { h, fmt, fitCanvas, clamp, icon } from './util.js?v=8aa5e5cdf1';
-import { FONT } from './charts.js?v=d6f7ed17ab';
-import { logAction } from './store.js?v=baa7ba1e7b';
+import { FONT } from './charts.js?v=6af923d592';
+import { logAction } from './store.js?v=7acb60de12';
 import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=fe9fd40247';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -30,6 +30,7 @@ const PROBES = [
   { id: 'IVCS_RA', short: 'IVC', kind: 'ivc', normal: [10, 50], away: true },
   { id: 'A_HEP', short: 'HA', kind: 'artery', normal: [30, 100] },
   { id: 'TIPS', short: 'TIPS', kind: 'tips', normal: [90, 190] },
+  { id: 'DIPS', short: 'DIPS', kind: 'tips', normal: [90, 190] },
   { id: 'C1b', short: 'Varix C1', kind: 'collateral', normal: null },
   { id: 'C3', short: 'Paraumb. C3', kind: 'collateral', normal: null },
 ];
@@ -173,7 +174,7 @@ export function createDoppler({ onProbe }) {
       pattern = `Resistive index ${fmt(ri, 2)}`;
       note = 'The hepatic artery buffers falling portal inflow by dilating (the hepatic arterial buffer response).';
     } else if (p.kind === 'tips') {
-      dir = a < 2 ? 'No flow' : r.mean < 0 ? 'Reversed' : 'Portal → hepatic vein'; sev = a < 2 || r.mean < 0 ? 'critical' : a < 50 || a > 250 ? 'caution' : 'ok';
+      dir = a < 2 ? 'No flow' : r.mean < 0 ? 'Reversed' : p.id === 'DIPS' ? 'Portal → IVC' : 'Portal → hepatic vein'; sev = a < 2 || r.mean < 0 ? 'critical' : a < 50 || a > 250 ? 'caution' : 'ok';
       pattern = a < 2 ? 'Occluded' : a < 50 ? 'Low velocity' : a > 250 ? 'High velocity' : 'Patent';
       note = a < 2 ? 'No flow in the stent: occluded.' : 'Shunt velocities under about 50 or over 250 cm/s suggest stenosis.';
     } else if (p.kind === 'ivc') {

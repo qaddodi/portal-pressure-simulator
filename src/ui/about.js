@@ -2,7 +2,7 @@
 // is happening to it in this patient right now (reversed flow, a clot, a collateral opening). The
 // first sentence is fixed; the rest is read from the live model.
 
-import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=80b8d861de';
+import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=dc393aabea';
 import { fmt, clamp } from './util.js?v=8aa5e5cdf1';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -48,6 +48,7 @@ const VESSEL = {
   C8: 'Periportal collaterals that form around a thrombosed portal vein: a cavernoma.',
   AP_R: 'An arterioportal shunt: arterial blood straight into the portal vein, raising its pressure.', AP_L: 'An arterioportal shunt: arterial blood straight into the portal vein, raising its pressure.',
   TIPS: 'A stent through the liver from a portal branch to a hepatic vein: bypasses the sinusoids and lowers portal pressure at once.',
+  DIPS: 'A stent through the caudate lobe from the right portal vein into the intrahepatic IVC, below the hepatic veins. Used when the hepatic veins are blocked and the cava is open.',
   S_PC: 'A surgical portocaval shunt: the portal vein joined to the IVC. Total diversion.',
   S_DSR: 'The Warren distal splenorenal shunt: decompresses the varices through the splenic vein while keeping some portal flow to the liver.',
   S_MC: 'A surgical mesocaval shunt from the superior mesenteric vein to the IVC.',

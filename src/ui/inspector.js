@@ -1,8 +1,8 @@
 // Controls panel (blueprint §4.1, §8.4): global parameters in three tabs, or the selected vessel.
 
-import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=80b8d861de';
-import { DRUGS } from '../engine/scenario.js?v=d8076334d5';
-import { store, updateParams, isLocked } from './store.js?v=baa7ba1e7b';
+import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=dc393aabea';
+import { DRUGS } from '../engine/scenario.js?v=06164f9b2a';
+import { store, updateParams, isLocked } from './store.js?v=7acb60de12';
 import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, icon, svgIcon } from './util.js?v=8aa5e5cdf1';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -39,6 +39,8 @@ export const CONTROLS = {
   srShunt: { type: 'toggle', key: 'spontaneous', label: 'Splenorenal shunt present', get: (p) => p.spontaneous.C6, set: (p, v) => { p.spontaneous.C6 = v; }, info: 'A large spontaneous shunt from the splenic to the left renal vein.' },
   tips: { type: 'toggle', key: 'tips', label: 'TIPS', get: (p) => p.tips.on, set: (p, v) => { p.tips.on = v; }, info: 'Transjugular intrahepatic portosystemic shunt, right portal → right hepatic vein. You can also drag one with the Stent tool.' },
   tipsD: { type: 'slider', key: 'tips', label: 'Stent diameter', min: 6, max: 12, step: 0.5, get: (p) => p.tips.d, set: (p, v) => { p.tips.d = v; }, format: (v) => `${v.toFixed(1)} mm`, def: 8, info: 'Resistance ∝ 1/d⁴ (Poiseuille): small changes in diameter matter a lot.', showIf: (p) => p.tips.on },
+  dips: { type: 'toggle', key: 'dips', label: 'DIPS', get: (p) => p.dips.on, set: (p, v) => { p.dips.on = v; }, info: 'Direct intrahepatic portosystemic shunt, right portal vein → intrahepatic IVC through the caudate lobe, below the hepatic veins. For hepatic vein occlusion with an open cava (Budd–Chiari). You can also drag one with the Stent tool.' },
+  dipsD: { type: 'slider', key: 'dips', label: 'Stent diameter', min: 6, max: 12, step: 0.5, get: (p) => p.dips.d, set: (p, v) => { p.dips.d = v; }, format: (v) => `${v.toFixed(1)} mm`, def: 8, info: 'The same stent as a TIPS, through a shorter tract: the diameter matters as much.', showIf: (p) => p.dips.on },
   balloonEso: { type: 'toggle', key: 'balloonEso', label: 'Esophageal balloon tamponade', ...prop('balloonEso') },
   balloonGas: { type: 'toggle', key: 'balloonGas', label: 'Gastric balloon tamponade', ...prop('balloonGas') },
   brto: { type: 'toggle', key: 'occluded', lockKey: 'brto', label: 'BRTO (occlude the gastrorenal shunt)', get: (p) => !!p.occluded.C5, set: (p, v) => { if (v) p.occluded.C5 = true; else delete p.occluded.C5; }, info: 'Balloon-occluded retrograde transvenous obliteration. Watch what it does to portal pressure.' },
@@ -181,8 +183,8 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
       body = [
         h('div', { class: 'callout-note', style: { margin: '14px 0 4px' } }, 'Disease is set on the anatomy: click the liver, a vein, the heart or the varices and use the card beside it.'),
         section('drugs', 'Drugs', 'pill', changedCount([...Object.keys(DRUGS).map((k) => 'drug:' + k), 'anticoag']), h('div', { class: 'drug-grid' }, Object.keys(DRUGS).map((k) => build('drug:' + k))), build('anticoag')),
-        section('procedures', 'Procedures', 'stent', changedCount(['tips', 'balloonEso', 'balloonGas', 'brto', 'portocaval', 'dsrs', 'mesocaval']),
-          build('tips'), build('tipsD'),
+        section('procedures', 'Procedures', 'stent', changedCount(['tips', 'dips', 'balloonEso', 'balloonGas', 'brto', 'portocaval', 'dsrs', 'mesocaval']),
+          build('tips'), build('tipsD'), build('dips'), build('dipsD'),
           h('div', { class: 'action-grid' },
             h('button', { class: 'btn', onclick: () => onAction({ kind: 'band' }) }, icon('band'), 'Band varices'),
             h('button', { class: 'btn', onclick: () => onAction({ kind: 'paracentesisPrompt' }) }, icon('needle'), 'Paracentesis…')),
@@ -366,6 +368,7 @@ export function activeInterventions(p) {
   for (const [id, v] of Object.entries(p.thrombus)) add('thr:' + id, `${lab(id)} thrombus ${Math.round(v * 100)} %`, (q) => { delete q.thrombus[id]; });
   for (const [k, on] of Object.entries(p.drugs)) if (on) add('drug:' + k, DRUGS[k].label, (q) => { q.drugs[k] = false; });
   if (p.tips.on) add('tips', `TIPS ${p.tips.d} mm`, (q) => { q.tips.on = false; });
+  if (p.dips.on) add('dips', `DIPS ${p.dips.d} mm`, (q) => { q.dips.on = false; });
   if (p.portocaval) add('portocaval', 'Portocaval shunt', (q) => { q.portocaval = false; });
   if (p.dsrs) add('dsrs', 'Distal splenorenal shunt', (q) => { q.dsrs = false; });
   if (p.mesocaval) add('mesocaval', 'Mesocaval shunt', (q) => { q.mesocaval = false; });

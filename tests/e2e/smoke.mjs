@@ -518,7 +518,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction(() => !!window.pps.store.get().compareSnap);
     await page.waitForSelector('.workspace-comparison:not([hidden])');
     // One tap on a tab chooses an instrument; each tab carries its live reading.
-    if (await page.locator('.instr-tab').count() !== 5) throw new Error('the tabs must offer five distinct instruments');
+    if (await page.locator('.instr-tab').count() !== 6) throw new Error('the tabs must offer six distinct instruments');
     const choose = async (id) => {
       await page.click(`.instr-tab[data-instrument="${id}"]`);
       await page.waitForFunction((id) => document.querySelector(`.instr-tab[data-instrument="${id}"]`).getAttribute('aria-selected') === 'true', id);
@@ -579,9 +579,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     // The heartbeat always runs, so the trace is beat to beat before any instrument opens, and it
     // never touches the patient's parameters.
     await page.waitForFunction(() => window.pps.store.get().frame.pulsing, null, { timeout: 20000 });
+    // Pulsatile is on by default, so compare with its value before the instrument opens, not with false.
+    const pulsatileBefore = await page.evaluate(() => window.pps.store.get().params.pulsatile);
     await page.click('#tabInstruments');
     await page.evaluate(() => window.pps.dock.show('scope'));
-    if (await page.evaluate(() => window.pps.store.get().params.pulsatile)) throw new Error('opening an instrument changed the patient parameters');
+    if (await page.evaluate(() => window.pps.store.get().params.pulsatile) !== pulsatileBefore) throw new Error('opening an instrument changed the patient parameters');
     await page.waitForTimeout(2500);
     const hero = await page.$eval('#pane-scope .pt-num', (el) => parseFloat(el.textContent));
     if (!(hero > 12)) throw new Error(`pressure over time shows HVPG ${hero}`);

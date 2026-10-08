@@ -8,7 +8,7 @@
 
 export const VIEW = { w: 1400, h: 1000 };
 export const VB_ANAT = [300, 0, 820, 920];
-export const VB_CIRC = [30, 30, 1340, 700];
+export const VB_CIRC = [30, 30, 1360, 700];
 // World x of the margins the atlas labels hang from (left, right).
 export const ATLAS_COLUMNS = [318, 1102];
 
@@ -146,23 +146,29 @@ export const EDGE_PATH = {
   C1a: 'M821 318 C 814 296 804 272 802 250 C 800 220 798 180 795 140 C 793 110 790 86 789 66',
   // Above them the varices drain over the heart into the azygos arch (crossing behind the SVC).
   C1b: 'M789 66 C 784 44 764 26 736 18 C 700 10 650 12 622 18 C 602 22 586 25 574 30',
-  C2: 'M880 505 C 890 462 912 420 922 380 C 930 344 910 308 876 302',
+  C2: 'M880 505 C 890 462 912 420 922 380 C 928 344 912 312 876 302',
   C3: 'M688 378 C 668 440 646 520 620 600 C 590 690 540 760 500 800',
   // Superior rectal veins: down beside the sigmoid to the anorectum, where they break up into
   // submucosal anorectal varices (see STRANDS) and fade out toward the pelvis.
-  C4: 'M932 690 C 944 770 922 828 874 856 C 840 874 810 882 796 898 C 789 907 787 916 786 928',
+  C4: 'M932 690 C 944 770 922 828 874 856 C 840 872 806 886 786 928',
   // Leaves the fundus in a gentle curve and runs down clear of the coronary vein, easing into
   // the left renal vein.
-  C5: 'M876 302 C 864 318 854 340 852 380 C 850 460 852 560 858 596 C 860 606 861 612 862 618',
+  C5: 'M876 302 C 868 314 854 336 852 380 C 850 460 852 560 858 596 C 860 606 861 612 862 618',
   C6: 'M880 505 C 880 548 874 590 862 618',
-  C7: 'M690 660 C 668 676 640 670 620 650',
+  // The retroperitoneal collateral leaves the SMV well below the mesocaval origin, on the lower trunk,
+  // and runs across to the cava lower down (see STRANDS for its small veins).
+  C7: 'M738 755 C 706 756 664 748 620 745',
   C8: 'M700 556 C 695 520 650 470 602 442',
   // Ascending lumbar veins → the ascending azygos, up to its arch.
-  C9: 'M620 650 C 584 604 566 500 564 400 C 562 300 564 230 566 172 C 563 120 561 70 565 50 C 567 40 570 34 574 30',
+  C9: 'M620 650 C 584 604 566 500 564 400 C 562 300 564 230 566 172 C 568 110 572 70 574 30',
 
   AP_R: 'M655 478 C 612 470 552 432 505 398',
   AP_L: 'M655 478 C 668 440 680 405 688 378',
-  TIPS: 'M505 398 C 486 352 552 294 540 240',   // a gentle S through the parenchyma, portal → hepatic vein
+  TIPS: 'M505 398 C 498 356 536 298 540 240',   // one gentle curve through the parenchyma, portal → hepatic vein
+  // DIPS: a short tract from the portal bifurcation (PVH), up through the caudate lobe in one gentle curve (no
+  // bend sharper than about 15° per stretch), meeting the IVC from the side just below the hepatic vein
+  // confluence. It stops at the IVC's left wall (x 609) and does not run along the cava or enter its lumen.
+  DIPS: 'M602 442 C 582 392 595 318 620 302',
   S_PC: 'M700 556 C 682 590 652 625 620 650',
   S_DSR: 'M880 505 C 862 548 852 590 862 618',
   S_MC: 'M690 660 C 672 650 645 648 620 650',
@@ -181,9 +187,11 @@ export const STRANDS = {
   C1a: [[-9, 0.7, 0.55], [-4.5, 3.3, 0.6], [0.5, 5.1, 0.5], [5, 1.9, 0.6], [9.5, 4.6, 0.5]],
   C2: [[-22, 4.1, 0.45], [-11, 1.4, 0.55], [10, 2.9, 0.55], [21, 0.4, 0.42]],
   C4: [[-9, 0.9, 0.55], [-4.5, 3.6, 0.6], [0.5, 5.3, 0.5], [5, 2.1, 0.6], [9.5, 4.4, 0.5]],
+  // The retroperitoneal veins split into four thin, wavy channels that rejoin the cava.
+  C7: [[-12, 1.2, 0.42], [-6, 3.6, 0.48], [6, 5.0, 0.48], [12, 2.3, 0.4]],
 };
 // Where along the vessel (0–1) the strands leave the main channel; before it the vessel is one.
-export const STRAND_FROM = { C2: 0.5, C1a: 0.22, C4: 0.68 };
+export const STRAND_FROM = { C2: 0.5, C1a: 0.22, C4: 0.68, C7: 0.2 };
 
 // Tributaries and feeders (anatomic view only): named veins are formed by several smaller ones,
 // drawn converging on the vessel so the plate reads as anatomy, not a wiring diagram. They carry
@@ -194,7 +202,7 @@ export const STRAND_FROM = { C2: 0.5, C1a: 0.22, C4: 0.68 };
 // the colon, the left kidney) end as a straight vessel that fades out over the first fraction of its
 // length, rather than as a tree of branches: vessel → fraction of its length (from its first point)
 // over which it fades from nothing to solid. Anatomic view only.
-export const TIP_FADE = { V_SPL: 0.35, V_INT: 0.5, V_COL: 0.5, V_KID_L: 0.45, LGV_CONF: 0.28 };
+export const TIP_FADE = { V_SPL: 0.35, V_INT: 0.2, V_COL: 0.5, V_KID_L: 0.45, LGV_CONF: 0.28 };
 // A vessel whose tip fades unless something attaches there: it is drawn solid to its end while any
 // of the listed collaterals is open. The coronary vein's upper end is where the collaterals to the
 // esophageal varices (C1a) leave it.
@@ -254,7 +262,11 @@ export const CIRCUIT_PATH = {
   // TIPS: leaves the right portal vein straight up, crosses the top of the liver in a lane of its
   // own (clear of the right lobe's lane and of the right hepatic vein's last stretch, which it
   // used to run on top of) and drops into the right hepatic vein from above.
-  TIPS: route([[680, 303], [680, 246], [1000, 246], [1000, 282]], 14),
+  TIPS: route([[680, 303], [680, 246], [1000, 246], [1000, 282]], 36),
+  // DIPS: leaves the proximal right portal vein at the portal bifurcation (PVH), rises to a lane of its own just
+  // above the TIPS lane (below the esophageal route and clear of the SVC), then slants down past the hepatic veins and turns in
+  // to the IVC downstream of them (just above IVCI).
+  DIPS: route([[580, 345], [580, 244], [620, 204], [1060, 204], [1150, 294], [1150, 390], [1120, 420], [1120, 430]], 26),
   // Branches that leave (or join) one station split right at it, as on a transit map, instead
   // of sharing a stretch of track and forking part-way along.
   PVH_R: route([[580, 345], [622, 303], [680, 303]], 12),
@@ -270,11 +282,11 @@ export const CIRCUIT_PATH = {
   C2: route([[320, 261], [292, 233], [292, 165], [248, 121], [240, 121]], 12),
   // portosystemic shunts, each in its own lane below the spine
   C8: route([[480, 345], [506, 376], [554, 376], [580, 345]], 12),
-  S_PC: route([[480, 345], [480, 440], [1050, 440], [1088, 478], [1120, 478]]),
-  C7: route([[320, 394], [320, 456], [1040, 456], [1062, 478], [1120, 478]]),
-  S_MC: route([[320, 394], [320, 468], [1050, 468], [1060, 478], [1120, 478]]),
-  C6: route([[320, 261], [350, 291], [350, 510], [970, 510], [1000, 540]]),
-  S_DSR: route([[320, 261], [362, 303], [362, 522], [978, 522], [1000, 540]]),
+  S_PC: route([[480, 345], [480, 434], [1050, 434], [1094, 478], [1120, 478]], 40),
+  C7: route([[320, 394], [320, 458], [1040, 458], [1060, 478], [1120, 478]], 40),
+  S_MC: route([[320, 394], [320, 482], [1040, 482], [1050, 478], [1120, 478]], 40),
+  C6: route([[320, 261], [350, 291], [350, 526], [974, 526], [1000, 540]], 40),
+  S_DSR: route([[320, 261], [380, 321], [380, 504], [962, 504], [998, 540]], 40),
   C3: route([[680, 387], [680, 580], [710, 610], [1000, 610]]),
   C4: route([[240, 310], [240, 640], [1090, 640], [1120, 610]]),
   C5: route([[240, 121], [70, 121], [70, 670], [870, 670], [1000, 540]]),
@@ -333,7 +345,7 @@ export const CIRCUIT_LABELS = {
   CONF: { dirs: ['N', 'NW', 'S'], pri: 10 }, RPV: { dirs: ['NW', 'N', 'W'], pri: 5 }, LPV: { dirs: ['SW', 'S', 'W'], pri: 5 },
   VAR: { dirs: ['N', 'S'], pri: 9 }, GV: { dirs: ['N', 'W', 'S'], pri: 7 },
   SIN_R: { dirs: ['N', 'NE', 'NW'], pri: 9 }, SIN_L: { dirs: ['S', 'SE', 'SW'], pri: 7 }, CV_R: { dirs: ['N', 'NE'], pri: 4 }, CV_L: { dirs: ['S', 'SE'], pri: 4 },
-  RHV: { dirs: ['N', 'NE', 'NW'], pri: 8 }, MHV: { dirs: ['E', 'NE', 'SE'], pri: 4 }, LHV: { dirs: ['S', 'SE', 'SW'], pri: 5 },
+  RHV: { dirs: ['E', 'NE', 'SE'], pri: 8 }, MHV: { dirs: ['SW', 'W', 'S'], pri: 4 }, LHV: { dirs: ['S', 'SE', 'SW'], pri: 5 },
   IVCI: { dirs: ['E', 'SE', 'NE'], pri: 5 }, IVCS: { dirs: ['NE', 'N', 'SE'], pri: 8 }, RA: { dirs: ['E', 'S', 'N'], pri: 9 }, SVC: { dirs: ['N', 'E'], pri: 4 }, AZY: { dirs: ['N', 'NW', 'W'], pri: 5 },
   ILI: { dirs: ['E', 'SE'], pri: 3 }, EPI: { dirs: ['S', 'SW', 'W'], pri: 3 }, KID_L: { dirs: ['W', 'S', 'N'], pri: 2 }, LRV: { dirs: ['N', 'NE', 'S'], pri: 3 },
   HA: { dirs: ['N', 'NW', 'NE'], pri: 4 },
@@ -347,7 +359,7 @@ export const LABEL_VESSEL = {
   CONF: 'PV_TRUNK', SMV: 'SMV_CONF', SV: 'V_SPL', IMV: 'V_IMV', LGV: 'LGV_CONF', RPV: 'PVH_R', LPV: 'PVH_L',
   SIN_R: 'SIN_RR', SIN_L: 'SIN_LL',
   RHV: 'RHV_IVC', MHV: 'MHV_IVC', LHV: 'LHV_IVC', IVCS: 'IVCS_RA', IVCI: 'IVC_IS', SVC: 'SVC_RA', AZY: 'AZY_SVC',
-  LRV: 'LRV_IVC', ILI: 'ILI_IVC', VAR: 'C1a', TIPS: 'TIPS',
+  LRV: 'LRV_IVC', ILI: 'ILI_IVC', VAR: 'C1a', TIPS: 'TIPS', DIPS: 'DIPS',
 };
 
 // Organ artwork (anatomic view only): a frontal plate drawn back to front, as a medical
@@ -454,13 +466,13 @@ export const MAIN_ROUTE = new Set(['V_INT', 'SMV_CONF', 'V_SPL', 'SV_CONF', 'PV_
 // Collateral and shunt lanes in the circuit, captioned where they run (edge → caption).
 export const LANE_CAPTIONS = {
   C1b: 'Esophageal route → azygos', C2: 'Short gastric', C3: 'Paraumbilical', C4: 'Rectal', C5: 'Gastrorenal shunt', C6: 'Splenorenal shunt',
-  C7: 'Retroperitoneal', C8: 'Periportal', C9: 'Caval → azygos', TIPS: 'TIPS', S_PC: 'Portocaval shunt', S_DSR: 'Distal splenorenal shunt', S_MC: 'Mesocaval shunt',
+  C7: 'Retroperitoneal', C8: 'Periportal', C9: 'Caval → azygos', TIPS: 'TIPS', DIPS: 'DIPS', S_PC: 'Portocaval shunt', S_DSR: 'Distal splenorenal shunt', S_MC: 'Mesocaval shunt',
   EPI_SVC: 'Epigastric → SVC',
 };
 
 // Event anchors
 export const ANCHORS = {
-  PERITONEUM: [720, 860], VAR: [797, 232], GV: [876, 302], TIPS: [522, 310], SPL: [1040, 362], RA: [620, 112],
+  PERITONEUM: [720, 860], VAR: [797, 232], GV: [876, 302], TIPS: [522, 310], DIPS: [598, 366], SPL: [1040, 362], RA: [620, 112],
   AO: [700, 556], CAUD: [592, 332],
 };
 
@@ -480,6 +492,7 @@ export const PROFILE_PATHS = [
   { id: 'eso', label: 'Esophageal collateral route', nodes: ['AO', 'STO', 'LGV', 'VAR', 'AZY', 'SVC', 'RA'] },
   { id: 'gastric', label: 'Gastric varix → gastrorenal', nodes: ['AO', 'SPL', 'SV', 'GV', 'LRV', 'IVCI', 'IVCS', 'RA'] },
   { id: 'tips', label: 'Through a TIPS', nodes: ['AO', 'INT', 'SMV', 'CONF', 'PVH', 'RPV', 'RHV', 'IVCS', 'RA'] },
+  { id: 'dips', label: 'Through a DIPS', nodes: ['AO', 'INT', 'SMV', 'CONF', 'PVH', 'IVCI', 'IVCS', 'RA'] },
   { id: 'umbilical', label: 'Paraumbilical route', nodes: ['AO', 'INT', 'SMV', 'CONF', 'PVH', 'LPV', 'EPI', 'ILI', 'IVCI', 'IVCS', 'RA'] },
 ];
 

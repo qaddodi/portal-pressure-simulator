@@ -89,7 +89,7 @@
   --spine: rgba(124, 150, 255, .09); --map-dot: rgba(160, 182, 255, .11);
   --module-fill: rgba(255, 255, 255, .02); --module-fill-open: rgba(124, 150, 255, .05); --module-line: rgba(150, 172, 255, .3);
   --fx-ink: rgba(22, 24, 29, .88);
-  --stent-metal: #5E6878; --stent-marker: #2A2F38;
+  --stent-metal: #6F7C92; --stent-marker: #7E8BA0; --stent-alpha: .3; --stent-glint: .25; --stent-rail-w: .9; --stent-strut-w: .6;
 
   /* chart series (validated categorical order, light) */
   --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #4a3aa7; --s8: #e34948;
@@ -174,7 +174,7 @@
     --grid: #1F2840; --axis: #34405E;
     --tr-pv: #F0649E; --tr-wedge: #A68CF2; --tr-hv: #5CA4F2; --tr-ra: #A9B2C7; --tr-ivc: #4CC2D6; --tr-var: #F28A56; --tr-sv: #3BC690; --tr-smv: #E0A63A;
     --shadow-1: 0 0 0 1px var(--hairline); --shadow-2: var(--shadow-menu); --shadow-3: var(--shadow-dialog);
-    --shadow-rgb: 0 0 0; --shadow-a: .38; --vessel-shadow: rgb(var(--shadow-rgb) / var(--shadow-a)); --tube-shade: .3; --tube-sheen: .38; --organ-cast: rgba(0, 0, 0, .42); --tex-a: .13; --lit-hi: .2; --lit-lo: .18; --cavity: #141B2E; --fx-ink: rgba(233, 237, 246, .9); --stent-metal: #C3CBD8; --stent-marker: #EEF1F6;
+    --shadow-rgb: 0 0 0; --shadow-a: .38; --vessel-shadow: rgb(var(--shadow-rgb) / var(--shadow-a)); --tube-shade: .3; --tube-sheen: .38; --organ-cast: rgba(0, 0, 0, .42); --tex-a: .13; --lit-hi: .2; --lit-lo: .18; --cavity: #141B2E; --fx-ink: rgba(233, 237, 246, .9); --stent-metal: #7E8BA3; --stent-marker: #8793AA; --stent-alpha: .3; --stent-glint: .12; --stent-rail-w: .9; --stent-strut-w: .6;
     color-scheme: dark;
   }
 }
@@ -209,7 +209,7 @@
   --grid: #1F2840; --axis: #34405E;
   --tr-pv: #F0649E; --tr-wedge: #A68CF2; --tr-hv: #5CA4F2; --tr-ra: #A9B2C7; --tr-ivc: #4CC2D6; --tr-var: #F28A56; --tr-sv: #3BC690; --tr-smv: #E0A63A;
   --shadow-1: 0 0 0 1px var(--hairline); --shadow-2: var(--shadow-menu); --shadow-3: var(--shadow-dialog);
-  --shadow-rgb: 0 0 0; --shadow-a: .38; --vessel-shadow: rgb(var(--shadow-rgb) / var(--shadow-a)); --tube-shade: .3; --tube-sheen: .38; --organ-cast: rgba(0, 0, 0, .42); --tex-a: .13; --lit-hi: .2; --lit-lo: .18; --cavity: #141B2E; --fx-ink: rgba(233, 237, 246, .9); --stent-metal: #C3CBD8; --stent-marker: #EEF1F6;
+  --shadow-rgb: 0 0 0; --shadow-a: .38; --vessel-shadow: rgb(var(--shadow-rgb) / var(--shadow-a)); --tube-shade: .3; --tube-sheen: .38; --organ-cast: rgba(0, 0, 0, .42); --tex-a: .13; --lit-hi: .2; --lit-lo: .18; --cavity: #141B2E; --fx-ink: rgba(233, 237, 246, .9); --stent-metal: #7E8BA3; --stent-marker: #8793AA; --stent-alpha: .3; --stent-glint: .12; --stent-rail-w: .9; --stent-strut-w: .6;
   color-scheme: dark;
 }
 
@@ -227,7 +227,7 @@
   --artery: #E4606C; --casing-rgb: 0 0 0; --casing-a: .72; --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a)); --leader: rgba(200, 212, 240, .42);
   --vein-portal: #9C90DA; --vein-systemic: #6FA6DA; --arrow-ink: rgba(233, 237, 246, .82); --label-halo: rgba(10, 15, 28, .92); --doppler: #3EE0A5;
   --spine: rgba(124, 150, 255, .1); --map-dot: rgba(160, 182, 255, .12);
-  --fx-ink: rgba(233, 237, 246, .9); --stent-metal: #C3CBD8; --stent-marker: #EEF1F6;
+  --fx-ink: rgba(233, 237, 246, .9); --stent-metal: #7E8BA3; --stent-marker: #8793AA; --stent-alpha: .3; --stent-glint: .12; --stent-rail-w: .9; --stent-strut-w: .6;
   --shadow-1: 0 0 0 1px var(--hairline); --shadow-2: var(--shadow-menu);
   color-scheme: dark;
 }
@@ -243,7 +243,7 @@
   --artery: #E4606C; --casing-rgb: 0 0 0; --casing-a: .72; --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a)); --leader: rgba(200, 212, 240, .42);
   --vein-portal: #9C90DA; --vein-systemic: #6FA6DA; --arrow-ink: rgba(233, 237, 246, .82); --label-halo: rgba(10, 15, 28, .92); --doppler: #3EE0A5;
   --spine: rgba(124, 150, 255, .1); --map-dot: rgba(160, 182, 255, .12);
-  --fx-ink: rgba(233, 237, 246, .9); --stent-metal: #C3CBD8; --stent-marker: #EEF1F6;
+  --fx-ink: rgba(233, 237, 246, .9); --stent-metal: #7E8BA3; --stent-marker: #8793AA; --stent-alpha: .3; --stent-glint: .12; --stent-rail-w: .9; --stent-strut-w: .6;
   --shadow-1: 0 0 0 1px var(--hairline); --shadow-2: var(--shadow-menu);
   color-scheme: dark;
 }
