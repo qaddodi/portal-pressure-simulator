@@ -7,7 +7,7 @@ import {
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=8b006eefeb';
 import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=957e836ad6';
-import { detectEvents } from './events.js?v=3b94283762';
+import { detectEvents } from './events.js?v=c244ac639c';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -585,17 +585,7 @@ export class Engine {
     }
     // Varix baseline radius relaxes toward a transmural-pressure target (remodeling)
     for (const site of ['VAR', 'GV']) {
-      // Both kinds of varix follow the portosystemic pressure gradient above its healthy value, the same quantity
-      // that recruits collaterals (see routeExcess): the portal-to-systemic drop for esophageal varices (portal
-      // pressure above the right atrium it drains to; no varices below an HVPG-like gradient of ~10, large ones
-      // from ~12-14, very large above ~20) and splenic vein to IVC for fundal ones. Absolute venous pressure
-      // grows nothing: in right heart failure or constriction the whole bed is high and the gradient is nil.
-      // Portal pressure, not the pressure inside the varix, because the collaterals themselves drop it as they
-      // open and the size must not fall away as they do.
-      const ex = site === 'VAR' ? this.routeExcess(['CONF', 'RA']) : this.routeExcess(['SV', 'IVCI']);
-      // Fundal varices exist only where a gastrorenal shunt can drain them.
-      const ex0 = site === 'GV' && p.spontaneous.C5 === false ? -1e9 : ex;
-      const target = clamp(VARIX.r0Healthy + (site === 'GV' ? VARIX.kGV : VARIX.k) * Math.max(0, ex0 - (site === 'GV' ? VARIX.openGV : VARIX.open)), VARIX.r0Healthy, VARIX.rMax);
+      const target = this.varixTarget(site);
       const r = s.r0[site];
       const tau = target > r ? 8 : 40;
       s.r0[site] = r + (target - r) * Math.min(1, days / tau);
@@ -781,6 +771,22 @@ export class Engine {
     const q = this.Q[this.ei[id]];
     const d = Math.max(0.5, this.diameter(id)) / 10; // cm
     return q / (Math.PI * d * d / 4);
+  }
+
+  /** The radius (mm) a varix remodels toward at the current pressures (see slowStep). */
+  varixTarget(site) {
+    const p = this.params;
+    // Both kinds of varix follow the portosystemic pressure gradient above its healthy value, the same quantity
+    // that recruits collaterals (see routeExcess): the portal-to-systemic drop for esophageal varices (portal
+    // pressure above the right atrium it drains to; no varices below an HVPG-like gradient of ~10, large ones
+    // from ~12-14, very large above ~20) and splenic vein to IVC for fundal ones. Absolute venous pressure
+    // grows nothing: in right heart failure or constriction the whole bed is high and the gradient is nil.
+    // Portal pressure, not the pressure inside the varix, because the collaterals themselves drop it as they
+    // open and the size must not fall away as they do.
+    const ex = site === 'VAR' ? this.routeExcess(['CONF', 'RA']) : this.routeExcess(['SV', 'IVCI']);
+    // Fundal varices exist only where a gastrorenal shunt can drain them.
+    const ex0 = site === 'GV' && p.spontaneous.C5 === false ? -1e9 : ex;
+    return clamp(VARIX.r0Healthy + (site === 'GV' ? VARIX.kGV : VARIX.k) * Math.max(0, ex0 - (site === 'GV' ? VARIX.openGV : VARIX.open)), VARIX.r0Healthy, VARIX.rMax);
   }
 
   varix(site, P = this.P) {

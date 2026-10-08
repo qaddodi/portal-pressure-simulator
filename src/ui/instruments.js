@@ -21,14 +21,19 @@ export function createEndoscopy({ onAction }) {
   const view = 'eso'; // the esophageal variceal view only
   const bandBtn = h('button', { class: 'btn primary', onclick: () => onAction({ kind: 'band' }) }, icon('band'), 'Band a column (EVL)');
   const stats = h('dl', { class: 'kv' });
+  const note = h('p', { class: 'ctl-sub', hidden: true }, '');
   const side = h('div', { class: 'chart-side' }, stats,
     bandBtn,
-    h('div', { class: 'ctl-sub' }, 'Drawn from the model. F1 small and straight, F2 enlarged and tortuous, F3 large and beaded; red wale marks mean high modeled wall stress.'));
+    h('div', { class: 'ctl-sub' }, 'Drawn from the model. F1 small and straight, F2 enlarged and tortuous, F3 large and beaded; red wale marks mean high modeled wall stress.'), note);
   el.append(box, side);
   function update(f) {
     const m = f.metrics;
     const vx = view === 'eso' ? m.varix : m.gastricVarix;
     const noVx = !varicesPresent(f, view === 'eso' ? 'VAR' : 'GV');
+    // A gradient high enough to grow varices that have not had the weeks it takes yet: say so, not just "None".
+    const forming = noVx && vx.target >= 2.5;
+    note.hidden = !forming;
+    if (forming) note.textContent = `The pressure gradient is high enough to grow varices (they would reach about ${fmt(vx.target, 0)} mm), but they remodel over weeks. Advance time (+1 wk or +1 mo) to watch them form.`;
     bandBtn.disabled = noVx; bandBtn.title = noVx ? 'No varices to band' : '';
     stats.replaceChildren(
       h('dt', {}, 'Grade'), h('dd', {}, `${vx.grade.code} ${vx.grade.label}`),

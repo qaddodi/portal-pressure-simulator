@@ -103,3 +103,12 @@ test('esophageal varix size follows the portal-to-right-atrial gradient across e
     if (ex <= 6) assert.ok(d < 2.5, `${pr.id}: gradient excess ${ex.toFixed(1)} but varix ${d.toFixed(1)} mm`);
   }
 });
+
+test('a patient made cirrhotic in the moment has no varices yet; they form with disease time', () => {
+  const e = new Engine(); run(e.loadPresetSteps('healthy', {}));
+  e.setParams(deepMerge(e.params, { cirrhosis: 1 })); e.settle();
+  const m0 = computeMetrics(e).varix;
+  assert.ok(m0.d < 2.6 && m0.target >= 2.5, `target ${m0.target.toFixed(1)}, now ${m0.d.toFixed(1)}`);   // the UI says "forming"
+  run(e.advanceDaySteps(30)); e.settle();
+  assert.ok(computeMetrics(e).varix.d >= 2.5);
+});

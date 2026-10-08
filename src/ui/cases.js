@@ -10,7 +10,7 @@
 // that must be placed first), `auto` (opens by itself) and `show(c)` (conditional steps).
 
 import { store, updateParams } from './store.js?v=a404a360b7';
-import { host } from './host.js?v=503a547fae';
+import { host } from './host.js?v=1542dfddb0';
 import { h, openModal, closeModal, toast, svgIcon } from './util.js?v=86153645a3';
 import { addRecord, exportCSV, exportXAPI } from './records.js?v=50fb9dd463';
 import { scoreCase, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=7f4afcf446';
