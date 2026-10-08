@@ -2840,6 +2840,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (it.label) setA(b.g, 'aria-label', it.label);
     if (b.sw) { setA(b.sw, 'fill', it.swatch); setA(b.sw, 'x', it.align === 'end' ? it.w - 3 : 0); }
     b.g.classList.toggle('sel', !!it.sel);
+    b.g.classList.toggle('lb-off', !!it.hide);
     if (it.key === 'liver') {
       glass.style.transform = `translate(${(it.x - it.padX).toFixed(1)}px, ${(it.y - it.padY).toFixed(1)}px)`;
       glass.style.width = `${(it.w + 2 * it.padX).toFixed(1)}px`; glass.style.height = `${(it.h + 2 * it.padY).toFixed(1)}px`;
@@ -3018,123 +3019,168 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const t = Math.min(dx ? hw / Math.abs(dx) : Infinity, dy ? hh / Math.abs(dy) : Infinity);
     return t >= 1 ? { x: ax, y: ay } : { x: cx + dx * t, y: cy + dy * t };
   }
-  let labelGridKey = '', labelGrid = new Map();
-  const labelMem = new Map();
+  // ── Label placement ──
+  // A label's slot is solved in figure terms and then carried rigidly: it is stored as the figure
+  // point it names (its anchor, in world coordinates) plus a fixed pixel offset to its box. A pan
+  // therefore only translates every label, and a zoom moves each with its anchor. Nothing is
+  // searched again until the layout or the zoom genuinely changes (see labelSig). When it is, the
+  // solve is sticky: a label keeps its slot unless that slot now collides. Screen-fixed things
+  // (panels, cards, the stage edge) never move a label: a label under one is hidden until it clears.
+  let labelSol = new Map();   // key → solved slot { wx, wy, dx, dy, dir, pi, w, h, leader, lead } or { drop }
+  let solvedFor = null;       // { sig, sc, th } the slots were solved for
+  const labelVis = new Map(); // key → shown last frame (hysteresis against blockers)
   let labelTurned = false;   // labels remember their side; turning the circuit changes which side is right
+  const SOLVE_ZOOM = 0.05, SOLVE_TURN = 0.03;   // re-solve after a 5 % zoom change or ~2 degrees of turn
+  function labelSig(f) {
+    const st = store.get(), t = easeInOut(morph);
+    const edges = Object.values(E).filter((x) => x.vis).map((x) => `${x.e.id}${Math.round(x.width || 0)}${x.g.classList.contains('coll-ghost') ? 'g' : ''}`).join(',');
+    return [geometryVersion, t >= 0.5, rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, JSON.stringify((f.viewParams || st.params).stenosis),
+      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], vt.k > 1.35, edges].join('|');
+  }
   function updateLabels(f) {
     refreshCTM();
+    const sc = CTM.sc, th = Math.atan2(CTM.b, CTM.a), sig = labelSig(f);
+    const solve = !solvedFor || solvedFor.sig !== sig || Math.abs(Math.log(sc / solvedFor.sc)) > SOLVE_ZOOM || Math.abs(th - solvedFor.th) > SOLVE_TURN;
+    if (solve || layoutLabels(f, false) === false) { layoutLabels(f, true); solvedFor = { sig, sc, th }; }
+  }
+  // Figure point under a local (stage) pixel.
+  function localToWorld(x, y) {
+    const X = x + wrapRect.left - CTM.e, Y = y + wrapRect.top - CTM.f, det = CTM.a * CTM.d - CTM.b * CTM.c;
+    return [(CTM.d * X - CTM.c * Y) / det, (CTM.a * Y - CTM.b * X) / det];
+  }
+  // Vessel geometry as capsules in screen space, bucketed, so a label can ask exactly which vessels it touches.
+  const SEG_CELL = 64;
+  let segs = [], segGrid = new Map(), segStamp = 0;
+  function buildSegs() {
+    segs = []; segGrid = new Map();
+    for (const x of Object.values(E)) {
+      if (!x.vis) continue;
+      const pts = geo[x.e.id].cur, hw = ((x.width || 4) * CTM.sc) / 2;
+      let prev = worldToLocal(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) {
+        const cur = worldToLocal(pts[i][0], pts[i][1]);
+        const sg = { x0: prev[0], y0: prev[1], x1: cur[0], y1: cur[1], hw, stamp: 0 };
+        segs.push(sg);
+        for (let gx = Math.floor((Math.min(sg.x0, sg.x1) - hw) / SEG_CELL); gx <= Math.floor((Math.max(sg.x0, sg.x1) + hw) / SEG_CELL); gx++) {
+          for (let gy = Math.floor((Math.min(sg.y0, sg.y1) - hw) / SEG_CELL); gy <= Math.floor((Math.max(sg.y0, sg.y1) + hw) / SEG_CELL); gy++) {
+            const k = gx * 4096 + gy;
+            (segGrid.get(k) || segGrid.set(k, []).get(k)).push(sg);
+          }
+        }
+        prev = cur;
+      }
+    }
+  }
+  // Does the segment cross the box (grown by `m`)? Liang-Barsky.
+  function segHitsBox(sg, r, m) {
+    const x0 = r.x0 - m, y0 = r.y0 - m, x1 = r.x1 + m, y1 = r.y1 + m;
+    let t0 = 0, t1 = 1;
+    const dx = sg.x1 - sg.x0, dy = sg.y1 - sg.y0;
+    for (const [p, q] of [[-dx, sg.x0 - x0], [dx, x1 - sg.x0], [-dy, sg.y0 - y0], [dy, y1 - sg.y0]]) {
+      if (p === 0) { if (q < 0) return false; } else { const u = q / p; if (p < 0) { if (u > t1) return false; if (u > t0) t0 = u; } else { if (u < t0) return false; if (u < t1) t1 = u; } }
+    }
+    return true;
+  }
+  // How many vessel segments the box touches, a vessel's own width and `margin` px of air included.
+  function lineHits(r, margin) {
+    let n = 0;
+    const stamp = ++segStamp;
+    for (let gx = Math.floor((r.x0 - margin) / SEG_CELL); gx <= Math.floor((r.x1 + margin) / SEG_CELL); gx++) {
+      for (let gy = Math.floor((r.y0 - margin) / SEG_CELL); gy <= Math.floor((r.y1 + margin) / SEG_CELL); gy++) {
+        const cell = segGrid.get(gx * 4096 + gy);
+        if (!cell) continue;
+        for (const sg of cell) {
+          if (sg.stamp === stamp) continue;
+          sg.stamp = stamp;
+          if (segHitsBox(sg, r, sg.hw + margin)) n++;
+        }
+      }
+    }
+    return n;
+  }
+  // `solve`: search (stickily) and record the slots; otherwise carry the recorded slots. Returns false
+  // when a label turned up that has no slot or no longer fits its slot: the caller then solves.
+  function layoutLabels(f, solve) {
     frameNo++;
     const st = store.get();
     const t = easeInOut(morph);
     const circuit = t >= 0.5;
-    if ((circuit && rotU > 0.5) !== labelTurned) { labelTurned = !labelTurned; labelMem.clear(); }
+    if ((circuit && rotU > 0.5) !== labelTurned) { labelTurned = !labelTurned; labelSol = new Map(); if (!solve) return false; }
     // Zoomed far out (the whole map on a phone), the map's own scale is tiny, so its labels shrink with it
     // (down to 70 %) instead of burying it; from 0.6 px per unit up they are full size.
     labelK = labelBase() * (circuit ? CIRCUIT_LABEL_K * clamp(CTM.sc / 0.6, 0.7, 1) : 1);
     const wr = stageBox();
     const W = wr.width, H = wr.height;
-    const B = { x0: 6, y0: 6, x1: W - 6, y1: H - 6 };
+    // Solving ignores the stage edge and the panels: the slots belong to the figure, so a pan cannot change them.
     const compact = W < 700;
-    // Floating panels over the figure (notifications, hint cards, banners) are obstacles. Their
-    // boxes are read before this frame's SVG changes (see updateInner), while layout is clean.
+    // Floating panels over the figure (notifications, hint cards, banners): a label under one is hidden.
+    // Their boxes are read before this frame's SVG changes (see updateInner), while layout is clean.
     const blockers = blockerBoxes || readBlockers();
-    const placed = [...blockers];
+    const obstacles = [...blockers];   // what can hide a label this frame
+    const placed = [];
+    let stale = false;
+    const prevSol = labelSol, nextSol = solve ? new Map() : labelSol;
     // Stenosis clamps and their percentages are drawn on the figure; keep labels off them.
-    if (!isImaging()) for (const [id, v] of Object.entries((f.viewParams || st.params).stenosis)) {
+    if (solve && !isImaging()) for (const [id, v] of Object.entries((f.viewParams || st.params).stenosis)) {
       if (!(v > 0) || !E[id]?.vis) continue;
       const [sx, sy] = worldToLocal(...pointAt(geo[id].cur, stenosisAt[id] ?? 0.5));
       placed.push({ x0: sx - 26, y0: sy - 22, x1: sx + 60, y1: sy + 22 });
     }
     const out = [];
     let leaders = '';
-    // Vessel geometry as a coarse density grid, so labels prefer positions that cover no lines.
-    const CELL = 10;
-    let lines = labelGrid;
-    const lineCost = (r) => {
-      let c = 0;
-      for (let gx = Math.floor(r.x0 / CELL); gx <= Math.floor(r.x1 / CELL); gx++) for (let gy = Math.floor(r.y0 / CELL); gy <= Math.floor(r.y1 / CELL); gy++) c += lines.get(gx * 4096 + gy) || 0;
-      return c;
-    };
     let useLines = false;
-    const buildLines = () => {
-      useLines = true;
-      const key = `${geometryVersion}|${CTM.a}|${CTM.b}|${CTM.e - wr.left}|${CTM.f - wr.top}|${Object.values(E).filter((x) => x.vis).map((x) => x.e.id).join(',')}`;
-      if (key === labelGridKey) return;
-      labelGridKey = key;
-      lines = labelGrid = new Map();
-      for (const x of Object.values(E)) {
-        if (!x.vis) continue;
-        // Walk every segment in half-cell steps: straight circuit runs have few vertices, and
-        // a label must see the whole line, not just its corners.
-        const pts = geo[x.e.id].cur, seen = new Set();
-        let prev = worldToLocal(pts[0][0], pts[0][1]);
-        for (let i = 1; i < pts.length; i++) {
-          const cur = worldToLocal(pts[i][0], pts[i][1]);
-          const n = Math.max(1, Math.ceil(Math.hypot(cur[0] - prev[0], cur[1] - prev[1]) / (CELL / 2)));
-          for (let j = 0; j <= n; j++) {
-            const sx = prev[0] + ((cur[0] - prev[0]) * j) / n, sy = prev[1] + ((cur[1] - prev[1]) * j) / n;
-            // A vessel has width: mark the cells either side of its centreline too.
-            const cx = Math.floor(sx / CELL), cy = Math.floor(sy / CELL);
-            for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) {
-              const k = (cx + ox) * 4096 + cy + oy;
-              if (seen.has(k)) continue;
-              seen.add(k);
-              lines.set(k, (lines.get(k) || 0) + 1);
-            }
-          }
-          prev = cur;
-        }
+    const buildLines = () => { if (solve && !useLines) { useLines = true; buildSegs(); } };
+    // Slots are searched over every (pass, direction) pair at once: an earlier pass always beats a
+    // later one (nearer, no leader, clear of vessels), then the direction order decides. The slot a
+    // label held before wins as long as it still collides with nothing: no label, no dot, and (in a
+    // clear pass) no vessel. A fresh slot must keep 3 px of air from vessels, the held one needs none.
+    // The width a label reserves only grows (a value ticking from 9.9 to 10.0, or a change gaining a
+    // digit, would otherwise tip it to another side of its station and back).
+    const place = (it, dirs, gap, leader, clear) => placeMulti(it, dirs, (Array.isArray(gap) ? gap : [gap]).map((g, gi) => ({ gap: g, leader, clear, bias: gi * 6 })));
+    const placeMulti = (it, dirs, passes) => {
+      const prev = prevSol.get(it.key);
+      if (!solve) {
+        // Carry: the label goes where it was put, relative to the figure point it names.
+        if (!prev) { stale = true; return false; }
+        if (prev.drop) return false;
+        if (it.w > prev.w + 0.5 || it.h > prev.h + 0.5) { stale = true; return false; }
+        const [ax, ay] = worldToLocal(prev.wx, prev.wy);
+        it.ax = ax; it.ay = ay; it.dir = prev.dir; it.leader = prev.leader;
+        const slack = it.rot ? 0 : prev.w - it.w;
+        it.x = ax + prev.dx + (prev.dir.includes('W') ? slack : prev.dir.includes('E') ? 0 : slack / 2);
+        it.y = ay + prev.dy;
+        placed.push(rectOf(it)); out.push(it);
+        return true;
       }
-    };
-    // Among the candidate positions that collide with nothing already placed, take the one that
-    // covers the least vessel geometry (ties go to the earlier, preferred direction).
-    // `gap` may be a list: nearer rings are preferred, but a label moves further out rather than
-    // sit on a vessel line.
-    // Labels are steady: each keeps the slot it had while that slot stays free, and reserves a
-    // width that only grows (a value ticking from 9.9 to 10.0, or a change gaining a digit, would
-    // otherwise tip it to another side of its station and back, frame after frame).
-    const place = (it, dirs, gap, leader, clear) => {
-      let best = null;
-      const mem = labelMem.get(it.key);
-      const wRes = mem && it.w <= mem.w && it.w > mem.w - 28 ? mem.w : it.w;
+      const wRes = prev && !prev.drop && it.w <= prev.w && it.w > prev.w - 28 ? prev.w : it.w;
       // A turned caption (see renderBlock) takes up a box as wide as its text is tall.
       const probe = it.rot ? { ...it, w: it.h, h: it.w } : { ...it, w: wRes };
-      (Array.isArray(gap) ? gap : [gap]).forEach((gp, gi) => dirs.forEach((dir, i) => {
-        const [dx, dy] = offset(dir, probe, gp);
-        const x = it.ax + dx, y = it.ay + dy;
-        const r = rectOf({ ...probe, x, y });
-        if (!within(r, B) || placed.some((p) => hits(r, p))) return;
-        if (clear && useLines && lineCost(r) > 0) return;
-        // A remembered slot keeps its place only while no vessel has come onto it (a shunt switched on, say).
-        const onLine = useLines ? lineCost(r) : 0;
-        const cost = onLine * 12 + i + gi * 6 - (mem && mem.dir === dir && mem.gi === gi && !onLine ? 1e4 : 0);
-        if (!best || cost < best.cost) best = { cost, x, y, r, dir, gi, far: gi > 0 };
+      let best = null;
+      passes.forEach((ps, pi) => dirs.forEach((dir, i) => {
+        const [dx, dy] = offset(dir, probe, ps.gap);
+        const r = rectOf({ ...probe, x: it.ax + dx, y: it.ay + dy });
+        if (placed.some((p) => hits(r, p))) return;
+        const held = !!prev && !prev.drop && prev.dir === dir && prev.pi === pi;
+        let onLine = 0;
+        if (useLines) {
+          onLine = lineHits(r, 0);
+          if (ps.clear && (held ? onLine : lineHits(r, 3))) return;
+        }
+        const cost = pi * 1e4 + (ps.clear ? 0 : onLine * 12) + i + (ps.bias || 0) - (held ? (ps.clear ? 1e5 : 4) : 0);
+        if (!best || cost < best.cost) best = { cost, dx, dy, r, dir, pi, leader: ps.leader };
       }));
-      // A placed label is rigid with the figure: it is remembered relative to the view transform,
-      // so panning carries it along unchanged, and a station that only drifts a few pixels (a vessel
-      // breathes) or a changed number never moves it. It is placed afresh only when the zoom or turn
-      // changes, its station really moves, or its spot stays blocked (held a few frames first).
-      const cx = CTM.e - wr.left, cy = CTM.f - wr.top;
-      if (mem && mem.x != null && !it.rot && Math.abs(CTM.a - mem.ca) < 1e-4 && Math.abs(CTM.b - mem.cb) < 1e-4
-        && Math.hypot(it.ax - (mem.ax + cx - mem.ce), it.ay - (mem.ay + cy - mem.cf)) < 6) {
-        const mx = mem.x + cx - mem.ce, my = mem.y + cy - mem.cf, kr = rectOf({ ...probe, x: mx, y: my });
-        // A vessel that has come onto a placed label moves it at once rather than being held.
-        const onLine = useLines && lineCost(kr) > 0;
-        const ok = within(kr, B) && !placed.some((p) => hits(kr, p)) && !onLine;
-        if (ok || (within(kr, B) && !onLine && (mem.hold = (mem.hold || 0) + 1) <= 8)) best = { cost: 0, x: mx, y: my, r: kr, dir: mem.dir, gi: mem.gi, far: mem.far, kept: true, held: !ok };
-      }
-      if (!best) return false;
+      if (!best) { nextSol.set(it.key, { drop: true }); return false; }
       // The text hugs the station side of its reserved box.
       const slack = it.rot ? 0 : wRes - it.w, dir = best.dir;
-      it.x = best.x + (dir.includes('W') ? slack : dir.includes('E') ? 0 : slack / 2);
-      it.y = best.y; it.dir = dir;
+      it.x = it.ax + best.dx + (dir.includes('W') ? slack : dir.includes('E') ? 0 : slack / 2);
+      it.y = it.ay + best.dy; it.dir = dir;
       // A leader line shows only when the label sits clearly away from its station: it appears past
       // 18 px and goes only below 10 px, so it cannot flicker as the view moves.
       const rr = best.r, gapPx = Math.hypot(Math.max(rr.x0 - it.ax, 0, it.ax - rr.x1), Math.max(rr.y0 - it.ay, 0, it.ay - rr.y1));
-      const lead = gapPx > 18 || (!!mem?.lead && gapPx >= 10);
-      it.leader = !!leader || lead;
-      if (best.kept) { mem.w = wRes; mem.lead = lead; if (!best.held) mem.hold = 0; }
-      else labelMem.set(it.key, { dir, gi: best.gi, w: wRes, x: best.x, y: best.y, ax: it.ax, ay: it.ay, ce: cx, cf: cy, ca: CTM.a, cb: CTM.b, far: best.far, lead, hold: 0 });
+      const lead = gapPx > 18 || (!!prev?.lead && gapPx >= 10);
+      it.leader = !!best.leader || lead;
+      const [wx, wy] = localToWorld(it.ax, it.ay);
+      nextSol.set(it.key, { wx, wy, dx: best.dx, dy: best.dy, dir, pi: best.pi, w: wRes, h: it.h, leader: it.leader, lead });
       placed.push(best.r); out.push(it);
       return true;
     };
@@ -3155,9 +3201,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const id of show) {
         if (!NODE_POS[id]) continue;
         const { ax, ay, mid, w: vw } = labelAnchor(id, t);
-        // A station off screen, or under a floating card, has no label (it would point at nothing).
-        const sel = st.selection?.type === 'node' && st.selection.id === id;
-        if (!sel && (ax < 4 || ax > W - 4 || ay < 4 || ay > H - 4 || blockers.some((b) => ax > b.x0 && ax < b.x1 && ay > b.y0 && ay < b.y1))) continue;
         const it = nodeItem(id, f, atlas ? 'atlas' : 'inline', compact);
         it.ax = ax; it.ay = ay; it.vw = mid ? vw * CTM.sc : 0; it.pri = it.sel ? 100 : ANAT_PRI[id] || 5;
         it.side = ATLAS_LABELS[id]?.side || (NODE_POS[id][0][0] < 700 ? 'L' : 'R');
@@ -3167,7 +3210,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const sid of ['TIPS', 'DIPS']) {
         if (E[sid]?.vis && EI[sid] >= 0) {
           const { ax, ay, mid, w: vw } = labelAnchor(sid, t);
-          if (ax > 4 && ax < W - 4 && ay > 4 && ay < H - 4 && !blockers.some((b) => ax > b.x0 && ax < b.x1 && ay > b.y0 && ay < b.y1)) {
+          {
             const it = nodeItem('RPV', f, atlas ? 'atlas' : 'inline', compact);
             const vel = Math.abs(edgeVel(f, EI[sid]));
             const unit = { size: compact ? 9.5 : 10, weight: 500, cls: 'lb-unit', gap: 2.5 };
@@ -3191,8 +3234,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         for (const id of ANAT_EXTRA) {
           if (show.has(id) || !NODE_POS[id] || !(NI[id] >= 0)) continue;
           const { ax, ay, mid, w: vw } = labelAnchor(id, t);
-          if (ax < B.x0 + 20 || ax > B.x1 - 20 || ay < B.y0 + 20 || ay > B.y1 - 20) continue;
-          if (blockers.some((b) => ax > b.x0 && ax < b.x1 && ay > b.y0 && ay < b.y1)) continue;
           if (items.some((o) => Math.hypot(o.ax - ax, o.ay - ay) < room)) continue;
           const it = nodeItem(id, f, 'inline', compact);
           it.ax = ax; it.ay = ay; it.vw = mid ? vw * CTM.sc : 0; it.pri = ANAT_PRI[id] || 4;
@@ -3236,16 +3277,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           it.align = 'start';
           const dirs = it.side === 'L' ? ['NW', 'W', 'SW', 'N', 'S', 'NE', 'E', 'SE'] : ['NE', 'E', 'SE', 'N', 'S', 'NW', 'W', 'SW'];
           // Prefer a spot touching no vessel at all, near first; only then accept one that crosses a vessel.
-          if (place(it, dirs, 8 + it.vw / 2, false, true) || place(it, dirs, 24 + it.vw / 2, true, true)) continue;
-          if (place(it, dirs, 8 + it.vw / 2, false) || place(it, dirs, 24 + it.vw / 2, true)) continue;
+          const near = 8 + it.vw / 2, far = 24 + it.vw / 2;
+          if (placeMulti(it, dirs, [{ gap: near, leader: false, clear: true }, { gap: far, leader: true, clear: true }, { gap: near, leader: false }, { gap: far, leader: true }])) continue;
           if (it.sel) { place(it, ['C'], 0, false) || (out.push(Object.assign(it, { x: it.ax + 8, y: it.ay - it.h / 2 })), true); }
-        }
-        for (const it of out) {
-          if (it.cls === 'organ') continue;
-          const r = rectOf(it);
-          const { x: px, y: py } = leaderEnd(r, it.ax, it.ay);
-          if (it.leader && Math.hypot(px - it.ax, py - it.ay) > 5) leaders += `<path class="leader${it.sel ? ' hl' : ''}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}"/>`;
-          leaders += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
         }
       }
       // Organ names: fixed inside their organ, dropped where a label needs the room.
@@ -3273,21 +3307,29 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           it.sel = st.selection?.type === 'organ' && st.selection.id === organ;
         }
         it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
+        // Zone titles are screen furniture (they keep to the map's top or left edge as it pans), so they are
+        // set out every frame rather than solved. Figure labels were placed round their natural spot, and
+        // one that a pan brings under a title is hidden.
+        const zoneAt = (x, y) => { it.live = true; it.ax = x; it.ay = y; const bx = it.rot ? it.h : it.w, by2 = it.rot ? it.w : it.h; it.x = x - bx / 2; it.y = y - by2 / 2; return rectOf({ ...it, x: it.x, y: it.y, w: bx, h: by2 }); };
         if (turned) {
           // Upright, a zone is a horizontal band: its title runs up the map's left edge (text turned to read
           // bottom to top), centred on the band.
           it.rot = true;
-          it.ax = Math.max(it.h / 2 + 8, (a + b) / 2); it.ay = (ay0 + by) / 2;
-          place(it, ['C'], 0, false);
+          if (solve) placed.push(zoneAt((a + b) / 2, (ay0 + by) / 2));
+          const zr = zoneAt(Math.max(it.h / 2 + 8, (a + b) / 2), (ay0 + by) / 2);
+          if (within(zr, { x0: 6, y0: 6, x1: W - 6, y1: H - 6 }) && !blockers.some((o) => hits(zr, o))) { out.push(it); obstacles.push(zr); }
           continue;
         }
-        it.ax = (a + b) / 2; it.ay = Math.max(14, by);
         // A narrow zone (a zoomed-out circuit) takes a shorter title rather than none.
         for (const alt of ZONE_SHORT[txt] || []) {
           if (b - a > it.w + 6) break;
           it.lines = [[{ ...it.lines[0][0], t: alt.toUpperCase() }]]; it.w = lineW(it.lines[0]);
         }
-        if (b - a > it.w + 6) place(it, ['C'], 0, false);
+        if (b - a > it.w + 6) {
+          if (solve) placed.push(zoneAt((a + b) / 2, by));
+          const zr = zoneAt((a + b) / 2, Math.max(14, by));
+          if (within(zr, { x0: 6, y0: 6, x1: W - 6, y1: H - 6 }) && !blockers.some((o) => hits(zr, o))) { out.push(it); obstacles.push(zr); }
+        }
       }
       buildLines();
       // The liver's stations show when zoomed in on it or when one is selected (there is no box to open them).
@@ -3299,7 +3341,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if ((n.id === 'VAR' || n.id === 'GV') && !hasVarices(n.id, f)) continue;
         if (!open && LIVER_INNER.has(n.id) && !(st.selection?.type === 'node' && st.selection.id === n.id)) continue;
         const { ax, ay, mid, tan, w: vw } = labelAnchor(n.id, t);
-        if (ax < -10 || ax > W + 10 || ay < -10 || ay > H + 10) continue;
         // The station dot stays where it is; a callout on a vessel also keeps clear of its own marker.
         const [sx, sy] = worldToLocal(...nodePos(n.id, t));
         placed.push({ x0: sx - 5, y0: sy - 5, x1: sx + 5, y1: sy + 5 });
@@ -3315,14 +3356,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const half = it.vw / 2;
         // A minor station gives way rather than sit on a vessel or crowd its neighbours.
         if (!place(it, dirs, [7 + half, 18 + half, 30 + half], false, it.pri <= 4 && !it.sel) && it.sel) place(it, dirs, 40 + half, true);
-      }
-      for (const it of nodes) {
-        if (!out.includes(it)) continue;
-        if (it.leader) {
-          const r = rectOf(it), le = leaderEnd(r, it.ax, it.ay);
-          leaders += `<path class="leader" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}"/>`;
-        }
-        if (it.mid) leaders += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
       }
       // Collateral and shunt lanes, captioned along their run.
       for (const [id, cap] of Object.entries(LANE_CAPTIONS)) {
@@ -3352,16 +3385,36 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const [ax, ay] = worldToLocal(x, y);
       const it = { key: 'focus', cls: 'focus', lines: [[{ t: foc.label || 'Here', size: 11.5, weight: 650, cls: 'lb-focus' }]], align: 'start', bg: true, padX: 8, padY: 4, ax, ay };
       it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
-      if (place(it, ['E', 'W', 'NE', 'SE', 'N', 'S'], 18 + (E[foc.edges[0]].width || 4), true)) {
-        const r = rectOf(it), fe = leaderEnd(r, ax, ay);
-        leaders += `<path class="leader focus" d="M${ax.toFixed(1)} ${ay.toFixed(1)} L${fe.x.toFixed(1)} ${fe.y.toFixed(1)}"/>`;
-      }
+      if (place(it, ['E', 'W', 'NE', 'SE', 'N', 'S'], 18 + (E[foc.edges[0]].width || 4), true)) it.focusLeader = true;
     }
+    if (stale) return false;
+    if (solve) labelSol = nextSol;
 
+    // Which labels show this frame. A slot never moves for a screen-fixed obstacle: a label whose box a
+    // panel, card or title covers (or that has panned off the stage) is hidden, and shown again once it is
+    // clear of the obstacle by a margin, so it cannot flicker at the edge. A selected label always shows.
+    const stage = { x0: 0, y0: 0, x1: W, y1: H };
+    for (const it of out) {
+      if (it.live || it.sel) { it.hide = false; continue; }
+      const r = rectOf(it), was = labelVis.get(it.key) !== false, m = was ? 0 : 10;
+      it.hide = !hits(r, stage) || obstacles.some((o) => hits(r, { x0: o.x0 - m, y0: o.y0 - m, x1: o.x1 + m, y1: o.y1 + m }));
+      labelVis.set(it.key, !it.hide);
+    }
+    // Leader lines and anchor dots, for the labels showing.
+    for (const it of out) {
+      if (it.hide || it.live || it.cls === 'organ' || it.cls === 'lane') continue;
+      const r = rectOf(it), le = leaderEnd(r, it.ax, it.ay);
+      const far = Math.hypot(le.x - it.ax, le.y - it.ay) > 5;
+      if (it.focusLeader) leaders += `<path class="leader focus" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}"/>`;
+      else if (it.leader && (circuit || far)) leaders += `<path class="leader${it.sel ? ' hl' : ''}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}"/>`;
+      if (it.focusLeader) continue;
+      if (!circuit || it.mid) leaders += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
+    }
     for (const it of out) renderBlock(it);
     for (const [, b] of pool) if (b.seen !== frameNo) b.g.style.display = 'none';
-    glass.hidden = !out.some((it) => it.key === 'liver');
+    glass.hidden = !out.some((it) => it.key === 'liver' && !it.hide);
     if (gLeaders._last !== leaders) { gLeaders.innerHTML = leaders; gLeaders._last = leaders; }
+    return true;
   }
   const nodeVisible = (id) => !(ANAT_HIDDEN_NODES.has(id) && morph < 0.5) && ALL_EDGES.some((e) => (e.from === id || e.to === id) && E[e.id]?.vis);
 
@@ -4189,6 +4242,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (d.k !== vt.k || d.x !== vt.x || d.y !== vt.y) animateVT(d, 600);
     },
     relayout() { refreshCTM(); if (F) updateLabels(F); },
+    // The label slots as solved (key → side and pixel offset from the figure point it names), for tests.
+    labelSlots: () => Object.fromEntries([...labelSol].filter(([, r]) => !r.drop).map(([k, r]) => [k, `${r.dir}/${r.pi}/${Math.round(r.dx)},${Math.round(r.dy)}`])),
     labelScale: () => labelScale,
     /** The vessel the Doppler is reading, glowing green while the Doppler instrument is open (null: none). */
     setDoppler(id) {
