@@ -266,7 +266,7 @@ export const CIRCUIT_PATH = {
   // DIPS: leaves the proximal right portal vein at the portal bifurcation (PVH), rises to a lane of its own just
   // above the TIPS lane (below the esophageal route and clear of the SVC), then slants down past the hepatic veins and turns in
   // to the IVC downstream of them (just above IVCI).
-  DIPS: route([[580, 345], [580, 204], [1060, 204], [1150, 294], [1150, 430], [1120, 430]], 40),
+  DIPS: route([[580, 345], [580, 244], [620, 204], [1060, 204], [1150, 294], [1150, 390], [1120, 420], [1120, 430]], 26),
   // Branches that leave (or join) one station split right at it, as on a transit map, instead
   // of sharing a stretch of track and forking part-way along.
   PVH_R: route([[580, 345], [622, 303], [680, 303]], 12),
