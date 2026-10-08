@@ -3,22 +3,22 @@
 
 import { startHost, host } from './host.js?v=deac990140';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction } from './store.js?v=92c3226cca';
-import { createStage } from './stage.js?v=0fd4206d84';
+import { createStage } from './stage.js?v=ee6bff9e0b';
 import { createInspector } from './inspector.js?v=e9e9c1c96c';
-import { createDock, CUTOFFS } from './dock.js?v=cbb9243e6b';
+import { createDock, CUTOFFS } from './dock.js?v=4c6f8186c4';
 import { createWhy } from './why.js?v=b8fe49632c';
 import { createTimeline } from './timeline.js?v=55fadbea48';
 import { createLearn } from './learn.js?v=32d5a040af';
 import { createCases } from './cases.js?v=faef9090be';
 import { createCompare } from './compare.js?v=d455a31fa6';
-import { createCard } from './card.js?v=b82defa103';
-import { createChart, computeFindings } from './chart.js?v=e3ef18141c';
+import { createCard } from './card.js?v=a19eee48c0';
+import { createChart, computeFindings } from './chart.js?v=c08d4a6dfb';
 import { createHome, ROLES } from './home.js?v=fac0cdeef5';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=12341cb1ab';
 import { startLMS } from './lms.js?v=a3fe661ca1';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=dfc5ffbbeb';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=6e06b6c93c';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=dc393aabea';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=86153645a3';
@@ -141,7 +141,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=e0dad8b41a'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=6a7b6fe7ae'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),

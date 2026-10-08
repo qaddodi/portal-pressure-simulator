@@ -363,15 +363,14 @@ export const LABEL_VESSEL = {
 };
 
 // Organ artwork (anatomic view only): a frontal plate drawn back to front, as a medical
-// illustrator layers it. Retroperitoneal structures first (both kidneys, the right one peeking
-// below the liver), then the heart, the colon framing the small
+// illustrator layers it. Retroperitoneal structures first (the left kidney), then the heart,
+// the colon framing the small
 // bowel (ascending on the viewer's left, transverse slung between the flexures, descending,
 // sigmoid) from the cecum and appendix, the coiled small bowel entering the cecum, spleen,
 // duodenal C-loop, stomach, and the liver in front. The vessel geometry above is fixed; the
 // organs are drawn to sit around it. `band` shapes are stroked tubes; `deco` shapes are line work
 // only; `noCover` shapes never hide the flow marks of vessels behind them.
 export const ORGANS = [
-  { id: 'kidney-r', tone: 'kidney', cls: 'org org-kidney', d: 'M474 578 C 446 586 434 626 440 664 C 446 700 474 720 500 714 C 518 710 522 692 516 676 C 510 662 512 646 518 634 C 524 618 520 596 506 584 C 496 576 484 574 474 578 Z' },
   { id: 'kidney-l', tone: 'kidney', cls: 'org org-kidney', d: 'M1002 556 C 1040 548 1066 584 1064 626 C 1062 672 1034 700 1000 694 C 982 690 984 668 994 654 C 1000 642 998 630 990 620 C 984 606 978 574 1002 556 Z' },
   { id: 'esophagus', tone: 'eso', cls: 'org org-eso', d: 'M775 -90 L 799 -90 L 798 0 C 800 90 805 190 813 251 L 792 251 C 787 190 781 90 776 0 Z' },
   { id: 'heart', tone: 'heart', cls: 'org org-heart', d: 'M618 64 C 607 88 606 128 611 158 C 616 184 632 194 658 194 C 695 194 731 188 753 172 C 762 165 762 150 755 140 C 738 110 716 80 691 64 C 669 51 637 50 618 64 Z' },
@@ -406,7 +405,6 @@ export const ORGAN_DETAIL = {
   ],
   spleen: [['fine', 'M1026 334 C 1034 352 1034 374 1026 396']],
   'kidney-l': [['fine', 'M996 628 C 1010 624 1020 632 1022 644']],
-  'kidney-r': [['fine', 'M518 648 C 506 646 498 654 498 664']],
   heart: [['fine', 'M691 64 C 700 108 722 152 751 176']],
 };
 // Background plane (anatomic view): the posterior wall the organs sit against, drawn quietly
