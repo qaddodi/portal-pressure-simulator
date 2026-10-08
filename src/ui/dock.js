@@ -3,13 +3,13 @@
 
 import { store, varixSuppressed } from './store.js?v=92c3226cca';
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
-import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=8aa5e5cdf1';
-import { lobuleFlows } from './lobule-model.js?v=daf2c88365';
-import { createProfile } from './charts.js?v=e457c6740d';
-import { createPressureTime } from './pressure-time.js?v=64163144a4';
-import { createFibroScan } from './fibroscan.js?v=2dc1eca8eb';
-import { createDoppler } from './doppler.js?v=2438c29dda';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=cb946478ab';
+import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=6190294844';
+import { lobuleFlows } from './lobule-model.js?v=43cc211682';
+import { createProfile } from './charts.js?v=2e8879d1b5';
+import { createPressureTime } from './pressure-time.js?v=517d400cc4';
+import { createFibroScan } from './fibroscan.js?v=f4ea00bc36';
+import { createDoppler } from './doppler.js?v=5db611b280';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=7f29358f2a';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic

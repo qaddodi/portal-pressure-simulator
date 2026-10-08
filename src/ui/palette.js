@@ -3,12 +3,12 @@
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
 import { store, updateParams } from './store.js?v=92c3226cca';
-import { h, svgIcon, toast } from './util.js?v=8aa5e5cdf1';
+import { h, svgIcon, toast } from './util.js?v=6190294844';
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
 import { DRUGS } from '../engine/scenario.js?v=957e836ad6';
 import { HIDDEN_EDGES } from './anatomy.js?v=44e51e3efa';
-import { LESSONS } from './learn.js?v=c7ffcc499a';
-import { CASES } from './cases.js?v=11c681e1cd';
+import { LESSONS } from './learn.js?v=786a2a3284';
+import { CASES } from './cases.js?v=3c4d1ecc3f';
 
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9+ ]/g, ' ');
 

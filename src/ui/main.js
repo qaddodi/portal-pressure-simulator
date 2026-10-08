@@ -3,25 +3,25 @@
 
 import { startHost, host } from './host.js?v=deac990140';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction } from './store.js?v=92c3226cca';
-import { createStage } from './stage.js?v=098beb08c3';
-import { createInspector } from './inspector.js?v=9c87c6019c';
-import { createDock, CUTOFFS } from './dock.js?v=4c9422cbdd';
-import { createWhy } from './why.js?v=017ec8ed16';
-import { createTimeline } from './timeline.js?v=3d2d2264a9';
-import { createLearn } from './learn.js?v=c7ffcc499a';
-import { createCases } from './cases.js?v=11c681e1cd';
-import { createCompare } from './compare.js?v=53e7028b7a';
-import { createCard } from './card.js?v=f2798c7b8f';
-import { createChart, computeFindings } from './chart.js?v=474677cf32';
-import { createHome } from './home.js?v=72c7ba8df4';
+import { createStage } from './stage.js?v=e21cfb7960';
+import { createInspector } from './inspector.js?v=7b65de2e7b';
+import { createDock, CUTOFFS } from './dock.js?v=880de56987';
+import { createWhy } from './why.js?v=16c09951ea';
+import { createTimeline } from './timeline.js?v=7738b84391';
+import { createLearn } from './learn.js?v=786a2a3284';
+import { createCases } from './cases.js?v=3c4d1ecc3f';
+import { createCompare } from './compare.js?v=497e1c2b38';
+import { createCard } from './card.js?v=db4188bb36';
+import { createChart, computeFindings } from './chart.js?v=37f8e9c828';
+import { createHome } from './home.js?v=f5f50f922f';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
-import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=37cae869fe';
-import { startLMS } from './lms.js?v=49b3a7d778';
+import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=d62a25a9fe';
+import { startLMS } from './lms.js?v=c52cbed768';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=b0ef5853ac';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=36004c296b';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=dc393aabea';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=8aa5e5cdf1';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=6190294844';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -129,7 +129,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=59fde79305'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=199458b4f8'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -141,7 +141,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=be62a8da2c'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=962290327e'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
