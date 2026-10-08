@@ -3136,3 +3136,9 @@ body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state
 .tl-track { align-self: center; }
 .tl-lead.mine path { stroke: var(--text-3); stroke-dasharray: 2 2; }
 .tl-lead.mine text { font-weight: 500; font-style: italic; fill: var(--text-2); }
+
+/* Full timeline step: a taller strip with the same labels, more rows and a little more type. */
+.tl-tags.full .tl-lead text { font-size: 11px; }
+.vdock.full .stage-bar.bottom { min-height: 120px; }
+.readouts .ro-more[data-step="all"] svg { transform: scaleY(-1); }
+.readouts .ro-more[data-step="full"] svg { transform: none; }
