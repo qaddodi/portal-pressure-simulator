@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Measure ▸ Pressure: wedge tables removed.** The Hepatic vein pressures card (free and wedged catheter readings,
+  FHVP, WHVP, HVPG, and the portal and IVC rows) is gone, with its catheter buttons, the catheter drawn on the figure and
+  its entry in the active-settings list. The HVPG and PPG readouts are unchanged, the measuring lesson drops its catheter
+  step, and the cases' HVPG study is unchanged. The engine still models the catheter, so the wedge can come back later.
+
 - **DIPS option.** A direct intrahepatic portosystemic shunt sits beside the TIPS in Treat, the Procedures list and the
   stent tool. It runs from the right portal vein through the caudate lobe into the intrahepatic IVC, below the hepatic
   veins, so it is the option when the hepatic veins are blocked and the cava is open (Budd–Chiari). The model uses the

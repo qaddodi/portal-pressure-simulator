@@ -63,7 +63,7 @@ as a map of the disease: grouped by where the resistance sits, each with its pre
 *Lessons*, *Cases* and *Presenter*.
 
 - **Act on the anatomy.** Click any vessel or organ: a card opens beside it with what you can do
-  there (narrow or clot a vein, make the liver cirrhotic, band varices, wedge a catheter, start
+  there (narrow or clot a vein, make the liver cirrhotic, band varices, start
   a shunt, zoom into the lobule). Keys 1–9 run the card's actions.
 - **One timeline.** Play runs the heartbeat-scale model; +1 wk, +1 mo and +6 mo jump the disease
   ahead. Every change and every event is a marker: click one to go back, or compare the live

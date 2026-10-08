@@ -14,7 +14,7 @@ export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
 // Lessons and cases name the tools a step allows; these are the verbs they unlock.
-const TOOL_VERB = { pinch: 'narrow', thrombus: 'clot', fibrosis: 'fibrosis', stent: 'shunt', band: 'band', occlude: 'occlude', balloon: 'balloon', catheter: 'measure', doppler: 'doppler', endoscope: 'endoscope', needle: 'paracentesis' };
+const TOOL_VERB = { pinch: 'narrow', thrombus: 'clot', fibrosis: 'fibrosis', stent: 'shunt', band: 'band', occlude: 'occlude', balloon: 'balloon', doppler: 'doppler', endoscope: 'endoscope', needle: 'paracentesis' };
 export const toolsToVerbs = (list) => (list ? [...new Set(list.map((t) => TOOL_VERB[t] || t).filter((v) => v !== 'select' && v !== 'probe'))] : null);
 
 /** Is a verb available now? Lessons and cases restrict verbs; they may also unlock a parameter. */

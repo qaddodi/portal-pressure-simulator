@@ -1,7 +1,6 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
-import { createMeasureCard } from './measure.js?v=ea20d7bfed';
 import { store, varixSuppressed } from './store.js?v=92c3226cca';
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=8aa5e5cdf1';
@@ -298,8 +297,6 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   endoscopy.el.append(wallDetails);
   wallDetails.addEventListener('toggle', () => { if (wallDetails.open && frame) wall.update(frame); });
   const pressure = { ...profile, id: 'profile', label: 'Pressure' };
-  const measure = createMeasureCard();
-  pressure.el.append(measure.el);
   const instruments = [
     pressure, createPressureTime({ marks }),
     createDoppler({ onProbe }), endoscopy, createAbdomen({ onAction }), createFibroScan(),
@@ -372,7 +369,6 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       const p = byId[id];
       // live instruments keep their own history and only redraw; the rest draw from the frame
       if (id === 'scope' || id === 'doppler') p.redraw(); else p.update(frame);
-      if (id === 'profile') measure.update(frame);
       if (id === 'endoscopy' && wallDetails.open) wall.update(frame);
     }
   }

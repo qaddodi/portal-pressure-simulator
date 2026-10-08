@@ -758,7 +758,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Overlays
   const ov = {
     clamps: s('g'), thrombi: s('g'), stents: s('g'), plugs: s('g'), varices: s('g'), gvarices: s('g'),
-    balloons: s('g'), catheter: s('g'), bands: s('g'),
+    balloons: s('g'), bands: s('g'),
   };
   Object.values(ov).forEach((g) => gOver.append(g));
   // The Doppler's vessel: a steady green glow and a thin green edge around it while the Doppler
@@ -2644,7 +2644,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function overlayInputs(f, p, t) {
     const m = f.metrics;
     const lesions = [...Object.keys(p.stenosis), ...Object.keys(p.thrombus), ...Object.keys(p.occluded), 'TIPS', 'DIPS', 'S_PC', 'S_DSR', 'S_MC', ...Object.keys(p.customShunts || {}), 'C3'];
-    return JSON.stringify([t.toFixed(3), isImaging(), p.stenosis, p.thrombus, p.occluded, p.splenicRx | 0, p.tips, p.dips, p.customShunts, p.balloonEso, p.balloonGas, p.catheter,
+    return JSON.stringify([t.toFixed(3), isImaging(), p.stenosis, p.thrombus, p.occluded, p.splenicRx | 0, p.tips, p.dips, p.customShunts, p.balloonEso, p.balloonGas,
       lesions.map((id) => (E[id] ? [E[id].vis, E[id].width, !!E[id].reveal] : 0)),
       // Varix geometry follows the grade, not the pulse: red wales appear above 70 % of the
       // rupture threshold, in coarse steps.
@@ -2731,30 +2731,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     ov.balloons.innerHTML = '';
     if (anat && p.balloonEso) ov.balloons.append(s('rect', { x: 792, y: 190, width: 20, height: 84, rx: 10, class: 'balloon-shape' }));
     if (anat && p.balloonGas) ov.balloons.append(s('circle', { cx: SITES.fundus[0], cy: SITES.fundus[1], r: 24, class: 'balloon-shape' }));
-    // Catheter
-    ov.catheter.innerHTML = '';
-    if (p.catheter.vein) {
-      const hv = { R: 'RHV', M: 'MHV', L: 'LHV' }[p.catheter.vein];
-      const tip = nodePos('W_' + p.catheter.vein, t);
-      // The catheter runs on the drawn centerlines: SVC → right atrium → down the cava to the
-      // junction → out the hepatic vein → into its peripheral branch, ending at the wedge station.
-      const v = p.catheter.vein, rev = (a) => a.slice().reverse();
-      const C = (id) => geo[id]?.cur;
-      const hvE = C({ R: 'RHV_IVC', M: 'MHV_IVC', L: 'LHV_IVC' }[v]), brE = C(WEDGE_BRANCH['W_' + v]), svc = C('SVC_RA'), ra = C('IVCS_RA'), cava = C('IVC_IS');
-      let pts;
-      if (hvE && brE && svc && ra && cava) {
-        const j = hvE.at(-1);
-        let k = 0, best = Infinity;
-        cava.forEach((q, i) => { const dd = Math.hypot(q[0] - j[0], q[1] - j[1]); if (dd < best) { best = dd; k = i; } });
-        pts = [[svc[0][0], svc[0][1] - 90], ...svc, ...rev(ra), ...rev(cava.slice(k)), ...rev(hvE), ...headOf(rev(brE), 0.55)];
-      } else {
-        const [sx, sy] = nodePos('SVC', t), [rx, ry] = nodePos('RA', t), [ix, iy] = nodePos('IVCS', t), [hx, hy] = nodePos(hv);
-        pts = [[sx, sy - 90], [sx, sy], [rx, ry], [ix, iy], [hx, hy], tip];
-      }
-      const d = 'M' + pts.map((q) => `${q[0].toFixed(1)} ${q[1].toFixed(1)}`).join(' L ');
-      ov.catheter.append(s('path', { d, class: 'catheter' }));
-      ov.catheter.append(s('circle', { cx: tip[0], cy: tip[1], r: p.catheter.wedged ? 7 : 3, class: 'balloon-shape' }));
-    }
   }
 
   // ── Labels: a screen-space layer (SVG) laid out every frame ──
@@ -3171,8 +3147,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!hasVarices('VAR', f)) show.delete('VAR');
       if (hasVarices('GV', f)) show.add('GV');
       if (st.selection?.type === 'node') show.add(st.selection.id);
-      const cath = (f.viewParams || st.params).catheter;
-      if (cath.vein && cath.wedged) show.add('W_' + cath.vein);
       const [lx] = worldToLocal(ATLAS_COLUMNS[0], 500), [rx] = worldToLocal(ATLAS_COLUMNS[1], 500);
       const colW = 150;
       // Pressures sit beside their vessels at every size (no margin columns with long leaders).

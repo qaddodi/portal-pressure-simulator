@@ -390,6 +390,5 @@ export function activeInterventions(p) {
   if (p.anticoag) add('anticoag', 'Anticoagulation', (q) => { q.anticoag = false; });
   if (p.spontaneous.C5 === false) add('C5', 'No gastrorenal shunt (no fundal varices)', (q) => { q.spontaneous.C5 = true; });
   if (p.spontaneous.C6) add('C6', 'Splenorenal shunt', (q) => { q.spontaneous.C6 = false; });
-  if (p.catheter.vein) add('catheter', `Catheter in ${p.catheter.vein}HV${p.catheter.wedged ? ' (wedged)' : ''}`, (q) => { q.catheter = { vein: null, wedged: false }; });
   return out;
 }
