@@ -3,7 +3,7 @@
 // first sentence is fixed; the rest is read from the live model.
 
 import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=dc393aabea';
-import { fmt, clamp } from './util.js?v=5fc7d90a5d';
+import { fmt, clamp } from './util.js?v=16a4c9b619';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

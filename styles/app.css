@@ -3107,9 +3107,11 @@ body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state
 /* Change messages: a card nearly as big as the vitals dock (same radius and glass), rising from below the
    screen over it and sliding back down. It stays below menus, so a menu is never covered. */
 .toast-wrap.docked { transform: none; z-index: calc(var(--z-popover) - 1); display: block; padding: 0; }
-.toast-wrap.docked .toast { position: absolute; inset: 0; max-width: none; padding: 8px 12px 8px 20px; justify-content: space-between; font-size: var(--fs-16); font-weight: 600; border-radius: var(--r-sheet); background: var(--surface); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); animation: toastUp .34s var(--ease) both; }
+.toast-wrap.docked .toast { position: absolute; inset: 0; max-width: none; padding: 8px 12px 8px 20px; justify-content: space-between; font-weight: 600; line-height: 1.2; border-radius: var(--r-sheet); background: var(--surface); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); animation: toastUp .34s var(--ease) both; }
 .toast-wrap.docked .toast.leaving { animation: toastDown .34s var(--ease) forwards; }
 .toast-wrap.docked .toast-x { width: 32px; height: 32px; }
 .toast-wrap.docked .toast-x svg { width: 16px; height: 16px; }
 @keyframes toastUp { from { transform: translateY(calc(100% + 60px)); } to { transform: none; } }
 @keyframes toastDown { from { transform: none; } to { transform: translateY(calc(100% + 60px)); } }
+
+.toast-wrap.docked .toast-msg { flex: 1; min-width: 0; white-space: normal; overflow-wrap: anywhere; overflow: hidden; }

@@ -91,6 +91,12 @@ export function toast(msg, kind = '') {
   t.addEventListener('pointerdown', (e) => { sx = e.clientX; sy = e.clientY; });
   t.addEventListener('pointerup', (e) => { if (Math.abs(e.clientY - sy) > 18 || Math.abs(e.clientX - sx) > 40) close(); });
   wrap.append(t);
+  // Fill the docked card: the largest size that fits, stepping down for longer text, never clipped.
+  if (wrap.classList.contains('docked')) {
+    const m = t.querySelector('.toast-msg');
+    let px = msg.length <= 28 ? 30 : msg.length <= 60 ? 24 : 20;
+    for (; px > 13; px--) { m.style.fontSize = `${px}px`; if (m.scrollHeight <= t.clientHeight - 8 && m.scrollWidth <= m.clientWidth) break; }
+  }
   timer = setTimeout(close, 4200);
 }
 

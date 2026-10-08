@@ -5,8 +5,8 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
-import { h, fmt, fitCanvas, clamp, icon } from './util.js?v=5fc7d90a5d';
-import { FONT } from './charts.js?v=8af79b95ca';
+import { h, fmt, fitCanvas, clamp, icon } from './util.js?v=16a4c9b619';
+import { FONT } from './charts.js?v=9840ed1f42';
 import { logAction } from './store.js?v=92c3226cca';
 import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=fe9fd40247';
 
