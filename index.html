@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="fonts/fonts.css" />
   <script>try{var t=localStorage.getItem('pps.theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);var d=t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);if(d){document.documentElement.style.background='#0E1422';document.documentElement.style.colorScheme='dark'}}catch(e){}</script>
   <link rel="stylesheet" href="styles/tokens.css?v=7dacc636b7" />
-  <link rel="stylesheet" href="styles/app.css?v=e14dd61dc1" />
+  <link rel="stylesheet" href="styles/app.css?v=88a74ad08a" />
   <style>
     #boot { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; height: 100lvh; z-index: 2147483647; display: grid; place-items: center; background: var(--bg, #FBFAF7); transition: opacity .45s ease, visibility .45s; }
     #boot.done { opacity: 0; visibility: hidden; pointer-events: none; }
@@ -58,6 +58,8 @@
       <symbol id="i-needle" viewBox="0 0 24 24"><path d="m18 2 4 4M17 7l3-3M19 9 8.7 19.3c-1 1-2.5 1-3.4 0l-.6-.6c-1-1-1-2.5 0-3.4L15 5M9 11l4 4M5 19l-3 3M14 4l6 6"/></symbol>
       <!-- transport -->
       <symbol id="i-play" viewBox="0 0 24 24"><path d="M7.5 4.8v14.4a.8.8 0 0 0 1.2.7l11.4-7.2a.8.8 0 0 0 0-1.4L8.7 4.1a.8.8 0 0 0-1.2.7z" fill="currentColor" stroke="none"/></symbol>
+      <symbol id="i-playlapse" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 8.3v7.4l6-3.7z" fill="currentColor" stroke="none"/></symbol>
+      <symbol id="i-lapse" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 6.8V12l3.4 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
       <symbol id="i-ffwd" viewBox="0 0 24 24"><path d="M4 5.5v13l8-6.5zM12 5.5v13l8-6.5z" fill="currentColor" stroke="none"/></symbol>
       <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4.5" width="4" height="15" rx="1.2" fill="currentColor" stroke="none"/><rect x="14" y="4.5" width="4" height="15" rx="1.2" fill="currentColor" stroke="none"/></symbol>
       <symbol id="i-settle" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 2.7-6.4L3 8.3"/><path d="M3 3.5v4.8h4.8"/><path d="M12 7.5V12l3 2"/></symbol>
@@ -204,17 +206,17 @@
   <div class="toast-wrap" id="toasts"></div>
   <div class="sr-only" aria-live="polite" id="live"></div>
 
-  <link rel="modulepreload" href="src/ui/stage.js?v=2dd0c75100" />
+  <link rel="modulepreload" href="src/ui/stage.js?v=c8c763d805" />
   <link rel="modulepreload" href="src/ui/anatomy.js?v=d6c5cddad6" />
   <link rel="modulepreload" href="src/ui/util.js?v=86153645a3" />
-  <link rel="modulepreload" href="src/ui/store.js?v=f469aaac6e" />
+  <link rel="modulepreload" href="src/ui/store.js?v=8ab9b37d48" />
   <link rel="modulepreload" href="src/ui/colormap.js?v=6d64a94345" />
-  <link rel="modulepreload" href="src/ui/inspector.js?v=5796f2885b" />
-  <link rel="modulepreload" href="src/ui/dock.js?v=cebda17708" />
-  <link rel="modulepreload" href="src/ui/charts.js?v=170895da21" />
-  <link rel="modulepreload" href="src/ui/instruments.js?v=4bbfb9b997" />
-  <link rel="modulepreload" href="src/ui/timeline.js?v=c04d0bcd3a" />
+  <link rel="modulepreload" href="src/ui/inspector.js?v=5268b7dbbf" />
+  <link rel="modulepreload" href="src/ui/dock.js?v=a2318eb9ef" />
+  <link rel="modulepreload" href="src/ui/charts.js?v=121442ade0" />
+  <link rel="modulepreload" href="src/ui/instruments.js?v=2f424202ef" />
+  <link rel="modulepreload" href="src/ui/timeline.js?v=627f7956ba" />
   <link rel="modulepreload" href="src/engine/topology.js?v=dc393aabea" />
-  <script type="module" src="src/ui/main.js?v=6239ce2c9a"></script>
+  <script type="module" src="src/ui/main.js?v=97a9ec99e9"></script>
 </body>
 </html>

@@ -1,10 +1,10 @@
 // Simulation host: owns the Engine, runs the clocks, streams frames (blueprint §13.4).
 // Used inside a Web Worker (src/worker.js) or on the main thread as a fallback.
 
-import { Engine } from './engine/engine.js?v=2c2565fee3';
+import { Engine } from './engine/engine.js?v=bcbeb0480f';
 import { computeMetrics } from './engine/metrics.js?v=4390b83c37';
 import { detectEvents } from './engine/events.js?v=8af7c31f73';
-import { explain } from './engine/explain.js?v=9a57a2e396';
+import { explain } from './engine/explain.js?v=bf31006836';
 import { defaultParams, deepMerge, PRESETS } from './engine/scenario.js?v=d88966abe6';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
@@ -85,9 +85,18 @@ export function createCore(post) {
           if (i % every === 0) sample();
         }
       } else {
-        diseaseAcc += realDt * speed; // 1× = 1 day per second
-        const days = Math.floor(diseaseAcc);
-        if (days > 0) {
+        diseaseAcc += realDt * speed; // speed = sim days per real second
+        const days = speed < 1 ? 0 : Math.floor(diseaseAcc);
+        if (speed < 1) {
+          // Sub-day rates: advance in fractions of a day (about 12 per sim-day at most) so 1 h/s still moves smoothly.
+          if (diseaseAcc >= 1 / 24 - 1e-9) {
+            const f = diseaseAcc; diseaseAcc = 0;
+            const r = eng.advanceFraction(f);
+            if (r.ruptured) { clock = 'hemo'; speed = 1; }
+            if (eng.params.anticoag) paramsDirty = true;
+            sample();
+          }
+        } else if (days > 0) {
           diseaseAcc -= days;
           const r = eng.advanceDays(days);
           if (r.ruptured) { clock = 'hemo'; speed = 1; }

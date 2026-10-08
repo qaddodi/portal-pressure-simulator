@@ -20,7 +20,7 @@
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
-import { store } from './store.js?v=f469aaac6e';
+import { store } from './store.js?v=8ab9b37d48';
 import { radiiChanged } from './lobule-render-cache.js?v=07951b5935';
 import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=6e45ed9029';
 import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=86153645a3';
