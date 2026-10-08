@@ -316,7 +316,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   function paintTags(groups, W) {
     if (!dockExpanded()) { core.style.top = ''; track.style.height = ''; tagsSvg.replaceChildren(); return; }
     // Full step: taller rows, more of them, and room kept free even when little is labelled.
-    const full = dockFull(), ROW = full ? 18 : 13, MAXROWS = full ? 8 : 4, MINROWS = full ? 2 : 0, CW = full ? 6.3 : 5.7, GAP = full ? 170 : 110, SEP = full ? 8 : 4;
+    const full = dockFull(), ROW = full ? 20 : 13, MAXROWS = full ? 12 : 4, MINROWS = full ? 4 : 0, CW = full ? 6.3 : 5.7, GAP = full ? 170 : 110, SEP = full ? 8 : 4;
     tagsSvg.classList.toggle('full', full);
     const bySide = { up: new Map(), down: new Map() };
     for (const g of groups) {

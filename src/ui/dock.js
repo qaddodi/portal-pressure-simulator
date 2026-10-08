@@ -171,8 +171,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     }
     setTimeout(() => dispatchEvent(new Event('resize')), 30);
   };
-  // Three steps: the small strip; all readouts with the labelled timeline; then a "full" timeline, which
-  // folds the readouts back to the small strip and gives the room to a tall, labelled timeline.
+  // Three steps: the small strip; all readouts with the labelled timeline; then a "full" step, which
+  // keeps every readout and gives the labelled timeline a large share of the screen.
   const vdockEl = () => strip.closest('.vdock');
   const step = () => (vdockEl()?.classList.contains('full') ? 'full' : strip.classList.contains('all') ? 'all' : 'mini');
   const syncStep = () => {
@@ -184,8 +184,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   moreBtn.addEventListener('click', () => {
     const s = step();
     if (s === 'mini') setAll(true, true);
-    else if (s === 'all') { setAll(false, false); vdockEl()?.classList.add('full'); }
-    else vdockEl()?.classList.remove('full');
+    else if (s === 'all') vdockEl()?.classList.add('full');
+    else { vdockEl()?.classList.remove('full'); setAll(false, true); }
     syncStep();
     setTimeout(() => dispatchEvent(new Event('resize')), 30);
   });
@@ -225,7 +225,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   row.append(moreBtn);
   // A phone held sideways has no room for every readout: it keeps the four key ones.
   const sideways = matchMedia('(max-width: 1023px) and (max-height: 500px) and (orientation: landscape)');
-  const foldAll = () => { if (strip.classList.contains('all')) vdockEl()?.classList.remove('full'); syncStep(); if (sideways.matches && strip.classList.contains('all')) { strip.classList.remove('all'); moreBtn.setAttribute('aria-expanded', 'false'); dispatchEvent(new Event('resize')); } };
+  const foldAll = () => { if (!strip.classList.contains('all')) vdockEl()?.classList.remove('full'); syncStep(); if (sideways.matches && strip.classList.contains('all')) { strip.classList.remove('all'); moreBtn.setAttribute('aria-expanded', 'false'); dispatchEvent(new Event('resize')); } };
   sideways.addEventListener('change', foldAll);
   new MutationObserver(foldAll).observe(strip, { attributes: true, attributeFilter: ['class'] });
 
