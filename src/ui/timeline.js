@@ -93,7 +93,27 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   const pinBtn = h('button', { class: 'tl-pin', 'aria-pressed': 'false', 'aria-label': 'Compare from here', title: 'Freeze this moment and compare the live model with it (P)' }, svgIcon('compare', 'mi-ic'), h('span', {}, 'Compare'));
   // Restart lives in More; the jumps share one segmented control.
   pinBtn.addEventListener('click', () => togglePin());
-  root.replaceChildren(h('div', { class: 'tl-left' }, h('div', { class: 'tl-split' }, speedBtn, playBtn), restartBtn), track, timeEl, h('div', { class: 'tl-jumps' }, ffBtn), histBtn, pinBtn);
+  // Expand: the timeline opens as a large card over the views, with roomy labels; X, Esc or a tap outside closes it.
+  const expandBtn = h('button', { class: 'ib tl-expand', 'aria-label': 'Open the large timeline', 'aria-pressed': 'false', title: 'Large timeline' });
+  expandBtn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>';
+  // The bar moves into a card at the page level while open (the dock's transform would otherwise trap it).
+  const scrim = h('div', { class: 'tl-scrim', hidden: true }), card = h('div', { class: 'tl-card', hidden: true });
+  document.body.append(scrim, card);
+  let largeOpen = false, home = null;
+  const setOpen = (on) => {
+    const bar = root.closest('.stage-bar') || root;
+    if (on && !largeOpen) { home = [bar.parentNode, bar.nextSibling]; card.append(bar); }
+    if (!on && largeOpen && home) home[0].insertBefore(bar, home[1]);
+    largeOpen = on; card.hidden = !on; scrim.hidden = !on;
+    expandBtn.setAttribute('aria-pressed', String(on));
+    expandBtn.setAttribute('aria-label', on ? 'Close the large timeline' : 'Open the large timeline');
+    expandBtn.innerHTML = on ? '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>' : '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>';
+    setTimeout(() => dispatchEvent(new Event('resize')), 30);
+  };
+  expandBtn.addEventListener('click', () => setOpen(!dockFull()));
+  scrim.addEventListener('click', () => setOpen(false));
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && dockFull()) setOpen(false); });
+  root.replaceChildren(h('div', { class: 'tl-left' }, h('div', { class: 'tl-split' }, speedBtn, playBtn), restartBtn), track, timeEl, h('div', { class: 'tl-jumps' }, ffBtn), histBtn, pinBtn, expandBtn);
   tooltipFor(playBtn, 'Play / pause · Space', 'top');
   tooltipFor(restartBtn, 'Restart this patient', 'top');
   function menuBtn(label, fn) { const b = h('button', { class: 'menu-item' }, label); b.addEventListener('click', () => { closePopover(); fn(); }); return b; }
@@ -311,12 +331,12 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   const svgEl = (n, a, t) => { const e = document.createElementNS(SVGNS, n); for (const k in a) e.setAttribute(k, a[k]); if (t != null) e.textContent = t; return e; };
   const shortLabel = (l) => { const t = String(l).replace(/^Ran until the next event$/, 'Ran to event').split(' · ')[0]; return t.length > 15 ? `${t.slice(0, 14)}…` : t; };
   const dockExpanded = () => !!root.closest('.vdock')?.querySelector('.readouts.all') || dockFull();
-  const dockFull = () => !!root.closest('.vdock')?.classList.contains('full');
+  const dockFull = () => largeOpen;
   addEventListener('resize', () => render(true));
   function paintTags(groups, W) {
     if (!dockExpanded()) { core.style.top = ''; track.style.height = ''; tagsSvg.replaceChildren(); return; }
     // Full step: taller rows, more of them, and room kept free even when little is labelled.
-    const full = dockFull(), ROW = full ? 20 : 13, MAXROWS = full ? 12 : 4, MINROWS = full ? 4 : 0, CW = full ? 6.3 : 5.7, GAP = full ? 170 : 110, SEP = full ? 8 : 4;
+    const full = dockFull(), ROW = full ? 20 : 13, MAXROWS = full ? 14 : 4, MINROWS = full ? Math.max(2, Math.min(14, Math.floor((innerHeight * 0.6 - 120) / 2 / 20))) : 0, CW = full ? 6.3 : 5.7, GAP = full ? 170 : 110, SEP = full ? 8 : 4;
     tagsSvg.classList.toggle('full', full);
     const bySide = { up: new Map(), down: new Map() };
     for (const g of groups) {
