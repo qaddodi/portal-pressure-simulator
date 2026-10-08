@@ -2558,7 +2558,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     abdWall.setAttribute('opacity', (clamp((c3 - 0.1) / 0.4, 0, 1) * 0.9 * k).toFixed(2));
     const sc = f.slow.spleen / 11;
     organG.spleen.setAttribute('transform', `translate(${SPLEEN_CENTER[0]} ${SPLEEN_CENTER[1]}) scale(${sc.toFixed(3)}) translate(${-SPLEEN_CENTER[0]} ${-SPLEEN_CENTER[1]})`);
-    organG.spleen.setAttribute('opacity', p.splenicRx === 2 ? '0.12' : '1');
+    organG.spleen.style.opacity = p.splenicRx === 2 ? '0.14' : '';
     syncSelLine();
     // Ascites collects in the flanks and the pelvis first (supine patient, frontal view), so its
     // surface is a meniscus: highest at the sides, lowest in the middle. The abdominal wall bulges
@@ -2703,21 +2703,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         s('path', { d: `M${x - 4} ${y - 4} L ${x + 4} ${y + 4} M${x + 4} ${y - 4} L ${x - 4} ${y + 4}`, stroke: 'var(--danger)', 'stroke-width': 2 }));
     }
 
-    // Spleen: embolization leaves pale infarcted patches and a coil at the hilum; after a splenectomy
-    // only a dashed ghost of the organ and the clips on the vascular pedicle remain.
+    // Spleen: embolization leaves pale infarcted patches in the organ; after a splenectomy the organ
+    // fades (see the opacity set with its size) and a cross is drawn on it.
     const rx = p.splenicRx | 0;
     if (anat && rx) {
       const [cx, cy] = SPLEEN_CENTER, sc = f.slow.spleen / 11;
-      const clip = (x, y) => ov.plugs.append(s('circle', { cx: x, cy: y, r: 7, fill: 'var(--surface)', stroke: 'var(--danger)', 'stroke-width': 2 }),
-        s('path', { d: `M${x - 4} ${y - 4} L ${x + 4} ${y + 4} M${x + 4} ${y - 4} L ${x - 4} ${y + 4}`, stroke: 'var(--danger)', 'stroke-width': 2 }));
       if (rx === 1) {
-        for (const [dx, dy, rx_, ry_] of [[8, -34, 15, 20], [14, 6, 13, 18], [4, 44, 12, 15]]) {
-          ov.plugs.append(s('ellipse', { cx: cx + dx * sc, cy: cy + dy * sc, rx: rx_ * sc, ry: ry_ * sc, fill: 'var(--danger)', 'fill-opacity': 0.28, stroke: 'var(--danger)', 'stroke-opacity': 0.55, 'stroke-dasharray': '3 3' }));
+        for (const [dx, dy, rx_, ry_] of [[6, -38, 17, 22], [14, 4, 15, 20], [2, 44, 14, 17]]) {
+          ov.plugs.append(s('ellipse', { cx: cx + dx * sc, cy: cy + dy * sc, rx: rx_ * sc, ry: ry_ * sc, fill: 'var(--surface)', 'fill-opacity': 0.55, stroke: 'var(--danger)', 'stroke-width': 1.5, 'stroke-opacity': 0.7 }));
         }
       } else {
-        ov.plugs.append(s('ellipse', { cx: cx + 6 * sc, cy: cy, rx: 34 * sc, ry: 78 * sc, fill: 'none', stroke: 'var(--danger)', 'stroke-width': 1.5, 'stroke-dasharray': '5 4', 'stroke-opacity': 0.8 }));
+        const x = cx + 12, y = cy + 6;
+        ov.plugs.append(s('circle', { cx: x, cy: y, r: 18, fill: 'var(--surface)', stroke: 'var(--danger)', 'stroke-width': 2.5 }),
+          s('path', { d: `M${x - 8} ${y - 8} L ${x + 8} ${y + 8} M${x + 8} ${y - 8} L ${x - 8} ${y + 8}`, stroke: 'var(--danger)', 'stroke-width': 3, 'stroke-linecap': 'round' }));
       }
-      clip(cx - 30, cy + 12);
     }
     // The varices themselves are shown by the plexus of channels feeding and draining them (see
     // STRANDS in anatomy.js), which swell as they are recruited; here only the bands, fitted at

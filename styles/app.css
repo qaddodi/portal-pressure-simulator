@@ -1575,6 +1575,7 @@ button.finding:hover { background: var(--surface-2); }
 .order-grid.three .order-btn { flex: 1 1 auto; justify-content: center; white-space: nowrap; }
 .order-btn { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 8px; border-radius: var(--r-card); border: 1px solid var(--border); background: var(--surface); cursor: pointer; text-align: left; color: var(--text); }
 .order-btn:hover:not(:disabled) { border-color: var(--accent-line); background: var(--surface-2); }
+.order-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-ink); }
 .order-btn .ac-ic { flex: none; }
 .ob-t { display: flex; flex-direction: column; gap: 1px; font-size: var(--fs-14); font-weight: 600; line-height: 1.3; }
 .ob-t small { font-size: var(--fs-12); font-weight: 500; color: var(--text-3); }

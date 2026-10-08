@@ -193,18 +193,22 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       }),
       proc('stent', 'Surgical shunt', 'portocaval, Warren, mesocaval', 'shunt', () => { select(null); if (startShunt('PV_TRUNK')) toast('Click the systemic vein to connect the portal vein to.'); }),
       proc('occlude', 'BRTO', 'occlude the gastrorenal shunt', 'occlude', () => { select({ type: 'organ', id: 'gastric' }); if (store.get().params.spontaneous.C5 === false) toast('This patient has no gastrorenal shunt (see Advanced › anatomical variants).'); }),
+      // One button cycles the spleen: untreated → partial embolization → splenectomy → untreated.
+      (() => {
+        const NAME = ['Spleen', 'Embolization', 'Splenectomy'], SUB = ['embolization or splenectomy', 'partial splenic artery embolization', 'spleen removed'];
+        const b = proc('occlude', 'Spleen', SUB[0], 'splenic', () => {
+          const v = ((store.get().params.splenicRx | 0) + 1) % 3;
+          updateParams((p) => { p.splenicRx = v; return p; }, { label: ['Spleen untreated', 'Partial splenic embolization', 'Splenectomy'][v] });
+          select({ type: 'organ', id: 'spleen' });
+        });
+        const paint = () => { const v = store.get().params.splenicRx | 0; b.querySelector('.ob-t').textContent = NAME[v]; b.title = `${NAME[v]}: ${SUB[v]} (click to change)`; b.setAttribute('aria-pressed', String(v > 0)); };
+        paint(); live.push(paint); return b;
+      })(),
       proc('needle', 'Paracentesis', 'drain ascites', 'paracentesis', () => select({ type: 'organ', id: 'abdomen' })));
-    const SPL = [[0, 'None', 'untreated spleen'], [1, 'Embolization', 'partial splenic artery embolization'], [2, 'Splenectomy', 'remove the spleen']];
-    const splenic = h('div', { class: 'order-grid three' }, SPL.map(([v, label, sub]) => {
-      const b = btn(null, label, () => { updateParams((p) => { p.splenicRx = v; return p; }, { label: v ? label : 'Spleen untreated' }); select({ type: 'organ', id: 'spleen' }); }, sub);
-      b.dataset.rx = v; b.setAttribute('aria-pressed', String((store.get().params.splenicRx | 0) === v)); live.push(() => b.setAttribute('aria-pressed', String((store.get().params.splenicRx | 0) === v)));
-      if (lock('splenic')) b.disabled = true; return b;
-    }));
     for (const b of procs.querySelectorAll('button')) b.addEventListener('click', () => onDone?.());
     return [h('div', { class: 'subhead' }, 'Drugs'), drugs,
       h('div', { class: 'subhead' }, 'Fluids & blood'), fluids,
-      h('div', { class: 'subhead' }, 'Procedures'), procs,
-      h('div', { class: 'subhead' }, 'Spleen'), splenic];
+      h('div', { class: 'subhead' }, 'Procedures'), procs];
   }
   /** How many treatments are running now (drugs, shunts, balloons, BRTO). */
   function treatCount(p) {
