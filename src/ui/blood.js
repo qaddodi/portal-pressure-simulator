@@ -12,8 +12,8 @@
 // Also computed here: stagnant blood (slow flow in a large vein, shown as drifting "smoke", the
 // spontaneous echo contrast seen on ultrasound), where each vessel's blood comes from (mixing at
 // every junction weighted by flow), the breathing and heartbeat in the flow (optional, amplified),
-// and a dye bolus that travels the network, splitting at junctions and diluting where it merges
-// with undyed blood.
+// and a dye bolus that travels the network, conserved along each vessel and mixed (flow-weighted)
+// only at junctions.
 
 // Display speed, world units per second, for a mean velocity in cm/s.
 export const SPEED_K = 9.5;
@@ -122,41 +122,55 @@ export function originFractions(edges, nodes, Q, P) {
 }
 
 // ── Dye bolus ──────────────────────────────────────────
-// An injection (DYE_SECONDS, or for as long as it is held, up to DYE_MAX_HOLD) released as a train
-// of packets. Each moves at its vessel's display speed; at a node it continues into every outflow.
-// Concentration is kept through a split (the same blood) and diluted at a merge, by this inflow's
-// share of the node's total inflow.
+// An injection (DYE_SECONDS, or for as long as it is held, up to DYE_MAX_HOLD) travelling the
+// network as dye in the blood. Each vessel holds slugs of blood with a concentration (0–1) that
+// move at the vessel's display speed, so concentration is carried unchanged along a vessel (a
+// slug moves exactly, with no smearing). It changes only at junctions: where vessels merge the
+// outflow is the flow-weighted mean of the inflows (undyed inflow counts as zero), and each
+// branch of a split gets the same concentration. The only other loss is a gentle washout.
 export const DYE_BINS = 48;
 export const DYE_SECONDS = 6, DYE_MAX_HOLD = 30;
-const EMIT_EVERY = 0.12, MIN_C = 0.04, HIDDEN_S = 1;
+const MIN_C = 0.02, HIDDEN_S = 1, WASHOUT_S = 30, MAX_STEP = 0.1;
 
 export function createBolus(edges, nodes) {
   const NI = new Map(nodes.map((n, i) => [n.id, i]));
   const from = edges.map((e) => NI.get(e.from)), to = edges.map((e) => NI.get(e.to));
   const touch = nodes.map(() => []);
   edges.forEach((e, k) => { if (e.kind !== 'wedge') { touch[from[k]].push(k); touch[to[k]].push(k); } });
-  let packets = [], emitters = [];
+  // Per edge: slugs {a, b, c} along the flow direction (a < b, in world units from the upstream end),
+  // front first. `dir` is the flow direction they were last laid out for.
+  const st = edges.map(() => ({ dir: 1, s: [] }));
+  let emitters = [];
 
-  // Hand a packet that has run off the downstream end of edge k to the next vessels.
-  function pass(p, net, out, depth = 0) {
-    const k = p.e, q = net.Q[k];
-    const n = q >= 0 ? to[k] : from[k];
-    let qin = 0;
-    const outs = [];
-    for (const j of touch[n]) {
-      const qj = net.Q[j];
-      if (!qj) continue;
-      const into = (qj > 0 && to[j] === n) || (qj < 0 && from[j] === n);
-      if (into) qin += Math.abs(qj); else outs.push(j);
+  const orient = (S, dir, L) => {
+    if (S.dir === dir) return;
+    S.dir = dir;
+    S.s = S.s.map((sl) => ({ a: L - sl.b, b: L - sl.a, c: sl.c })).reverse();
+  };
+  // Join touching slugs of (nearly) the same concentration, conserving the dye in them.
+  const coalesce = (S) => {
+    const out = [];
+    for (const sl of S.s) {
+      const prev = out[out.length - 1];
+      if (prev && Math.abs(prev.a - sl.b) < 1e-6 && Math.abs(prev.c - sl.c) <= 0.03 * Math.max(prev.c, sl.c)) {
+        const l1 = prev.b - prev.a, l2 = sl.b - sl.a;
+        prev.c = (prev.c * l1 + sl.c * l2) / (l1 + l2); prev.a = sl.a;
+      } else out.push(sl);
     }
-    if (!qin || !outs.length) return;
-    const c = p.c * Math.abs(q) / qin;
-    if (c < MIN_C) return;
-    for (const j of outs) {
-      const np = { e: j, x: p.x - net.len[k], c, age: p.age };
-      if (np.x >= net.len[j] && depth < 8) pass(np, net, out, depth + 1); else out.push(np);
+    S.s = out;
+  };
+  // Set the blood between a and b to concentration c.
+  const paint = (S, a, b, c) => {
+    const out = [];
+    for (const sl of S.s) {
+      if (sl.b <= a || sl.a >= b) { out.push(sl); continue; }
+      if (sl.a < a) out.push({ a: sl.a, b: a, c: sl.c });
+      if (sl.b > b) out.push({ a: b, b: sl.b, c: sl.c });
     }
-  }
+    out.push({ a, b, c });
+    out.sort((x, y) => y.a - x.a);
+    S.s = out; coalesce(S);
+  };
 
   return {
     /**
@@ -167,56 +181,97 @@ export function createBolus(edges, nodes) {
     inject(k, at = 0, { seconds = DYE_SECONDS, hold = false } = {}) {
       const em = emitters.find((x) => x.k === k);
       if (em) { em.left = Math.max(em.left, seconds); em.hold = em.hold || hold; return; }
-      emitters.push({ k, at, left: seconds, acc: EMIT_EVERY, hold, held: 0 });
+      emitters.push({ k, at, left: seconds, hold, held: 0 });
     },
     /** Ends a held injection (it still runs out its minimum). */
     release() { for (const em of emitters) em.hold = false; },
-    clear() { packets = []; emitters = []; },
-    get active() { return packets.length > 0 || emitters.length > 0; },
+    clear() { for (const S of st) S.s = []; emitters = []; },
+    get active() { return emitters.length > 0 || st.some((S) => S.s.length > 0); },
     /** Whether dye is being injected now. */
     get injecting() { return emitters.length > 0; },
-    get count() { return packets.length; },
+    get count() { return st.reduce((a, S) => a + S.s.length, 0); },
     /**
      * Advances by `dt` seconds. `net`: { Q (signed, per edge), vd (display speed, |world/s|),
      * len (world units; hidden vessels get a length of one second's travel) }.
      */
     step(dt, net) {
+      if (dt > MAX_STEP) { for (; dt > 1e-9; dt -= MAX_STEP) this.step(Math.min(dt, MAX_STEP), net); return; }
+      const decay = Math.exp(-dt / WASHOUT_S);
+      // 1. Move every slug downstream; what passes the end of a vessel is tallied per junction as
+      //    flow × (the mean concentration that passed).
+      const mix = new Map();
+      for (let k = 0; k < edges.length; k++) {
+        const S = st[k], q = net.Q[k];
+        if (!S.s.length || !q) continue;
+        const L = net.len[k], d = net.vd[k] * dt;
+        orient(S, q > 0 ? 1 : -1, L);
+        const keep = [];
+        let passed = 0;
+        for (const sl of S.s) {
+          sl.a += d; sl.b += d; sl.c *= decay;
+          if (sl.c < MIN_C) continue;
+          if (sl.a >= L) { passed += sl.c * (sl.b - sl.a); continue; }
+          if (sl.b > L) { passed += sl.c * (sl.b - L); sl.b = L; }
+          keep.push(sl);
+        }
+        S.s = keep;
+        if (passed > 0 && d > 0) { const n = q > 0 ? to[k] : from[k]; mix.set(n, (mix.get(n) || 0) + Math.abs(q) * passed / d); }
+      }
+      // 2. At each junction the blood leaving every outflow has the flow-weighted mean concentration
+      //    of everything entering (undyed inflow dilutes it); every branch gets the same.
+      for (const [n, num] of mix) {
+        let qin = 0;
+        const outs = [];
+        for (const j of touch[n]) {
+          const qj = net.Q[j];
+          if (!qj) continue;
+          if ((qj > 0 && to[j] === n) || (qj < 0 && from[j] === n)) qin += Math.abs(qj); else outs.push(j);
+        }
+        const c = qin ? num / qin : 0;
+        if (c < MIN_C) continue;
+        for (const j of outs) {
+          const S = st[j], d = net.vd[j] * dt;
+          if (!(d > 0)) continue;
+          orient(S, net.Q[j] > 0 ? 1 : -1, net.len[j]);
+          const last = S.s[S.s.length - 1];
+          if (last && Math.abs(last.a - d) < 1e-6 && Math.abs(last.c - c) <= 0.03 * Math.max(last.c, c)) {
+            const l1 = last.b - last.a;
+            last.c = (last.c * l1 + c * d) / (l1 + d); last.a = 0;
+          } else S.s.push({ a: 0, b: d, c });
+        }
+      }
+      // 3. The injection: the blood that passes the injection point this step is dyed.
       for (const em of emitters) {
-        em.left -= dt; em.acc += dt; em.held += dt;
+        em.left -= dt; em.held += dt;
         if (em.held >= DYE_MAX_HOLD) em.hold = false;
-        while (em.acc >= EMIT_EVERY) { em.acc -= EMIT_EVERY; packets.push({ e: em.k, x: em.at * net.len[em.k], c: 1, age: 0 }); }
+        const q = net.Q[em.k];
+        if (!q) continue;
+        const L = net.len[em.k], d = net.vd[em.k] * dt, a = Math.min(em.at * L, Math.max(0, L - d));
+        orient(st[em.k], q > 0 ? 1 : -1, L);
+        paint(st[em.k], a, Math.min(L, a + d), 1);
       }
       emitters = emitters.filter((em) => em.left > 0 || em.hold);
-      const next = [];
-      for (const p of packets) {
-        p.x += net.vd[p.e] * dt; p.age += dt;
-        // Washout: dye ages out over about 25 s wherever it is (it mixes into the whole blood volume).
-        p.c *= Math.exp(-dt / 25);
-        if (p.c < MIN_C) continue;
-        if (p.x >= net.len[p.e]) pass(p, net, next); else next.push(p);
-      }
-      packets = next.length > 4000 ? next.slice(-4000) : next;
     },
     /**
-     * Concentration (0–1) along edge k's drawn course from its `from` end, in DYE_BINS bins.
-     * Each packet is a Gaussian as wide as the packet spacing there, widening as it ages
-     * (dispersion), so a train of packets reads as a continuous column.
+     * Concentration (0–1) along edge k's drawn course from its `from` end, in DYE_BINS bins: the
+     * mean over the stretch each bin stands for.
      */
     field(k, net, out) {
       out.fill(0);
-      const L = net.len[k], fwd = net.Q[k] >= 0;
-      let any = false;
-      for (const p of packets) {
-        if (p.e !== k) continue;
-        any = true;
-        const gap = Math.max(2, net.vd[k] * EMIT_EVERY), sg = gap * (1 + 0.12 * p.age);
-        const amp = p.c * 0.3989 * gap / sg;
-        const s = fwd ? p.x : L - p.x;
-        const b0 = Math.max(0, Math.floor((s - 3 * sg) / L * (DYE_BINS - 1))), b1 = Math.min(DYE_BINS - 1, Math.ceil((s + 3 * sg) / L * (DYE_BINS - 1)));
-        for (let b = b0; b <= b1; b++) { const d = (b / (DYE_BINS - 1)) * L - s; out[b] += amp * Math.exp(-0.5 * d * d / (sg * sg)); }
+      const S = st[k];
+      if (!S.s.length) return false;
+      const L = net.len[k], w = L / (DYE_BINS - 1), fwd = S.dir > 0;
+      for (const sl of S.s) {
+        const lo = fwd ? sl.a : L - sl.b, hi = fwd ? sl.b : L - sl.a;
+        const b0 = Math.max(0, Math.floor(lo / w - 0.5)), b1 = Math.min(DYE_BINS - 1, Math.ceil(hi / w + 0.5));
+        for (let b = b0; b <= b1; b++) {
+          const x0 = Math.max(0, (b - 0.5) * w), x1 = Math.min(L, (b + 0.5) * w);
+          const ov = Math.min(hi, x1) - Math.max(lo, x0);
+          if (ov > 0) out[b] += sl.c * ov / (x1 - x0);
+        }
       }
-      if (any) for (let b = 0; b < DYE_BINS; b++) out[b] = Math.min(1, out[b]);
-      return any;
+      for (let b = 0; b < DYE_BINS; b++) out[b] = Math.min(1, out[b]);
+      return true;
     },
   };
 }

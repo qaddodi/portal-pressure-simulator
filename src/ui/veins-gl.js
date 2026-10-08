@@ -25,7 +25,7 @@
 //
 // createVeinsGL(canvas) returns null only when WebGL2 is unavailable altogether.
 
-import { SLOT, DYE_BINS } from './blood.js?v=3acf4e936e';
+import { SLOT, DYE_BINS } from './blood.js?v=6c39f43ddf';
 
 export const N_SAMPLES = 64;
 export const FLOW_TEXELS = 3;          // per-vessel blood: see stage.js (syncBlood)

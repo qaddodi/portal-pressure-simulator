@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=deac990140';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction } from './store.js?v=92c3226cca';
-import { createStage } from './stage.js?v=d36c952090';
+import { createStage } from './stage.js?v=be86eba249';
 import { createInspector } from './inspector.js?v=e9e9c1c96c';
 import { createDock, CUTOFFS } from './dock.js?v=cbb9243e6b';
 import { createWhy } from './why.js?v=b8fe49632c';
@@ -33,7 +33,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
 import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=0166e06ffb';
-import { ORIGINS } from './blood.js?v=3acf4e936e';
+import { ORIGINS } from './blood.js?v=6c39f43ddf';
 
 // Color lenses: [title, what it shows, legend swatch].
 // SMV, IMV, splenic vein, hepatic artery, systemic: as stage.js BLOOD_COLORS.

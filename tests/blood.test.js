@@ -105,6 +105,30 @@ test('dye bolus: travels downstream, keeps concentration through a split, dilute
   assert.ok(!b.active, 'washes out');
 });
 
+test('dye bolus: concentration is conserved along a vessel and mixes flow-weighted at a merge', () => {
+  const e = new Engine(); e.settle();
+  const net = { Q: e.Q, vd: EDGES.map(() => 40), len: EDGES.map(() => 400) };
+  const b = createBolus(EDGES, NODES);
+  const field = new Float32Array(DYE_BINS);
+  b.inject(EI.SMV_CONF, 0, { seconds: 30 });
+  for (let i = 0; i < 30 * 10; i++) b.step(1 / 10, net);
+  b.field(EI.SMV_CONF, net, field);
+  const max = Math.max(...field);
+  assert.ok(max > 0.7, `no dilution along a plain vessel: ${max}`);
+  assert.ok(field[Math.floor(DYE_BINS * 0.9)] > 0.65 * max, 'only the gentle washout along the vessel');
+  // Dye in two of the three inflows to the portal confluence: the outflow is their flow-weighted mean.
+  const run = (ks) => {
+    const bb = createBolus(EDGES, NODES);
+    for (const k of ks) bb.inject(k, 0, { seconds: 30 });
+    for (let i = 0; i < 20 * 10; i++) bb.step(1 / 10, net);
+    bb.field(EI.PV_TRUNK, net, field);
+    return field[Math.floor(DYE_BINS / 2)];
+  };
+  const one = run([EI.SMV_CONF]), two = run([EI.SMV_CONF, EI.SV_CONF]);
+  const want = (e.Q[EI.SMV_CONF] + e.Q[EI.SV_CONF]) / e.Q[EI.SMV_CONF];
+  assert.ok(one > 0 && Math.abs(two / one - want) < 0.1 * want, `flow-weighted merge: ${two / one} vs ${want}`);
+});
+
 test('dye injection: lasts DYE_SECONDS, a second press extends it, a hold goes on until released', () => {
   const e = new Engine(); e.settle();
   const net = { Q: e.Q, vd: EDGES.map(() => 40), len: EDGES.map(() => 40) };
