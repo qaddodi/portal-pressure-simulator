@@ -3125,3 +3125,9 @@ body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state
   .toast-wrap.docked .toast { animation: fade .2s both; }
   .toast-wrap.docked .toast.leaving { animation: fade .2s reverse forwards; }
 }
+
+/* Event tags: a 1-2 word name beside each event marker, tinted by severity; only drawn where there is room. */
+.tl-tag { position: absolute; left: 100%; top: 6px; transform: translateY(-50%); margin-left: -3px; font: 600 10px/1 var(--font-ui); letter-spacing: .01em; white-space: nowrap; color: color-mix(in srgb, var(--sev, var(--info)) 62%, var(--text)); pointer-events: none; }
+.tl-tag.flip { left: auto; right: 100%; margin-left: 0; margin-right: -3px; }
+.tl-m.ev.future .tl-tag { opacity: .6; }
+.tl-m.ev.below .tl-tag { top: 16px; }

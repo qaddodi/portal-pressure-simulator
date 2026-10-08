@@ -18,6 +18,9 @@ import { activeInterventions } from './inspector.js?v=86f083df6c';
 
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };
 export const EVENT_WHY = { VARIX_RUPTURE: 'varix', RED_WALE: 'varix', VARIX_LARGE: 'varix', HEPATOFUGAL_PV: 'pvFlow', PV_STASIS: 'pvFlow', CSPH: 'hvpg', BLEED_RISK: 'hvpg', ASCITES_FORMING: 'ascites', TENSE_ASCITES: 'ascites', HIGH_SHUNT: 'shunt', LIVER_HYPOPERFUSION: 'liverPerf', RA_HIGH: 'ra', HYPERDYNAMIC: 'co', SPLENOMEGALY: 'spleen' };
+/** One-to-two-word tags shown beside each event marker on the strip (full title stays in the tooltip and History). */
+export const EVENT_TAG = { HEPATOFUGAL_PV: 'PV Reversed', SV_REVERSAL: 'SV Reversed', SMV_REVERSAL: 'SMV Reversed', INTRAHEPATIC_REVERSAL: 'IHPV Reversed', PV_STASIS: 'PV Stasis', CSPH: 'CSPH', BLEED_RISK: 'HVPG ≥ 12', VARIX_LARGE: 'Large Varices', RED_WALE: 'Red Wale', VARIX_RUPTURE: 'Varix Rupture', BLEED_STOPPED: 'Bleed Stopped', ASCITES_FORMING: 'Ascites', TENSE_ASCITES: 'Tense Ascites', HYPERDYNAMIC: 'Hyperdynamic', HIGH_SHUNT: 'High Shunt', LIVER_HYPOPERFUSION: 'Liver Hypoperf.', CAUDATE: 'Caudate Spared', RA_HIGH: 'High RAP', SPLENOMEGALY: 'Splenomegaly', SHOCK_2: 'Shock II', SHOCK_3: 'Shock III' };
+export const eventTag = (id) => EVENT_TAG[id] || (id?.startsWith('COLL_') ? 'Collat. Recruited' : '');
 const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 const JUMPS = [[7, '+1 wk', '1 week'], [30, '+1 mo', '1 month'], [180, '+6 mo', '6 months']];
 
@@ -278,6 +281,17 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
       lastSide[g.side] = g.x;
     }
     const cur = currentIndex();
+    // Tags beside event markers: placed greedily per side, and only where they fit without touching.
+    const tagEnd = { up: -1e9, down: -1e9 }, tagFlip = {};
+    for (const g of groups) {
+      if (g.lane !== 'ev') continue;
+      const tag = eventTag(entries[g.items[g.items.length - 1]].evId);
+      if (!tag) continue;
+      const w = tag.length * 5.4 + 6;
+      let a = g.x + 9, b = a + w, flip = false;
+      if (b > W) { flip = true; b = g.x - 9; a = b - w; }
+      if (a >= tagEnd[g.side] + 4 && a >= 0) { tagEnd[g.side] = Math.max(tagEnd[g.side], b); tagFlip[g.items[0]] = { tag, flip }; }
+    }
     marks.replaceChildren(...groups.map((g) => {
       const es = g.items.map((i) => entries[i]);
       const top = es[es.length - 1];
@@ -286,7 +300,8 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
       const sev = g.lane === 'ev' ? es.reduce((a, e) => (['info', 'caution', 'danger', 'critical'].indexOf(e.sev) > ['info', 'caution', 'danger', 'critical'].indexOf(a) ? e.sev : a), 'info') : null;
       const b = h('button', { class: `tl-m ${g.lane === 'ev' ? 'ev' : top.kind}${g.side === 'down' ? ' below' : ''}${future ? ' future' : ''}${isCur && cursor >= 0 ? ' cur' : ''}`, role: 'listitem', style: { left: `${g.x}px`, '--sev': sev ? SEV[sev] : '' },
         'aria-label': es.map((e) => `${e.kind === 'event' ? 'Event' : e.kind === 'start' ? 'Start' : 'Change'} at ${fmtClock(e.t, e.day)}: ${e.label}`).join('; ') },
-      g.items.length > 1 ? h('span', { class: 'tl-count' }, String(g.items.length)) : null);
+      g.items.length > 1 ? h('span', { class: 'tl-count' }, String(g.items.length)) : null,
+      tagFlip[g.items[0]] ? h('span', { class: `tl-tag${tagFlip[g.items[0]].flip ? ' flip' : ''}`, 'aria-hidden': 'true' }, tagFlip[g.items[0]].tag) : null);
       if (!(g.items.length === 1 && top.kind === 'start')) tooltipFor(b, () => (es.length === 1 ? `${fmtClock(top.t, top.day)} · ${top.label}` : `${es.length} ${g.lane === 'ev' ? 'events' : 'changes'} · latest: ${top.label}`), 'top');
       if (g.items.length === 1 && top.kind === 'start') {
         b.title = 'Restart this patient';
