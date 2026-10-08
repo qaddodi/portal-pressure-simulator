@@ -8,12 +8,12 @@
 //   (what has happened lives in the timeline's History, under the figure)
 //   Advanced                             physiology knobs (instructor / researcher)
 
-import { store, updateParams } from './store.js?v=7acb60de12';
+import { store, updateParams } from './store.js?v=92c3226cca';
 import { h, fmt, icon, svgIcon, toast } from './util.js?v=8aa5e5cdf1';
-import { DRUGS } from '../engine/scenario.js?v=06164f9b2a';
-import { TILES, VITALS, readoutValue } from './dock.js?v=a4fe6d326b';
-import { activeInterventions } from './inspector.js?v=920c4310e9';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=e9ce9aed9a';
+import { DRUGS } from '../engine/scenario.js?v=957e836ad6';
+import { TILES, VITALS, readoutValue } from './dock.js?v=1d8ec41897';
+import { activeInterventions } from './inspector.js?v=c06043d75d';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=f35e0dd8b6';
 
 // Where each readout is measured, so a click can show it on the figure.
 const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS', 'DIPS'], spleen: ['V_SPL', 'SV_CONF'], ra: ['IVCS_RA'] };
@@ -197,11 +197,12 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     for (const b of procs.querySelectorAll('button')) b.addEventListener('click', () => onDone?.());
     return [h('div', { class: 'subhead' }, 'Drugs'), drugs,
       h('div', { class: 'subhead' }, 'Fluids & blood'), fluids,
-      h('div', { class: 'subhead' }, 'Procedures'), procs];
+      h('div', { class: 'subhead' }, 'Procedures'), procs,
+      h('div', { class: 'subhead' }, 'Spleen'), controls(['splenicRx'])];
   }
   /** How many treatments are running now (drugs, shunts, balloons, BRTO). */
   function treatCount(p) {
-    return activeInterventions(p).filter((a) => a.key.startsWith('drug:') || ['anticoag', 'diuretics', 'tips', 'dips', 'balloonEso', 'balloonGas', 'portocaval', 'dsrs', 'mesocaval', 'occ:C5'].includes(a.key)).length;
+    return activeInterventions(p).filter((a) => a.key.startsWith('drug:') || ['anticoag', 'diuretics', 'tips', 'dips', 'balloonEso', 'balloonGas', 'portocaval', 'dsrs', 'mesocaval', 'occ:C5', 'splenicRx'].includes(a.key)).length;
   }
 
   // ── Advanced ──────────────────────────────────────

@@ -6,8 +6,8 @@ import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=8b006eefeb';
-import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=06164f9b2a';
-import { detectEvents } from './events.js?v=3d426d34b6';
+import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=957e836ad6';
+import { detectEvents } from './events.js?v=3b94283762';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -28,6 +28,9 @@ const stentConductance = (tract, d, q, visc) => {
 const BLOOD_BASE = 5000, HCT_BASE = 0.42;
 const HR_REST = 60;   // resting heart rate (/min); the contractility reference is scaled to it so cardiac output is unchanged
 const LYMPH = { base: 2.5, max: 10, adapt: 0.03, kfHep: 0.45, kfSpl: 0.2, adaptFrac: 0.6 };
+
+/** Splenic artery resistance multiplier: none, partial embolization (about 60 % infarct), splenectomy (no inflow). */
+const SPLENIC_RX_R = [1, 2.5, 80];
 
 export class Engine {
   constructor({ params, seed } = {}) {
@@ -260,6 +263,7 @@ export class Engine {
       let R = this.Rbase[k];
       switch (e.kind) {
         case 'arteriole':
+          if (e.id === 'A_SPL') R *= SPLENIC_RX_R[p.splenicRx | 0] ?? 1;
           R *= e.tone === 'splanchnic' ? spl : e.tone === 'systemic' ? sys : 1 / this.habr;
           if (e.tone === 'splanchnic') {
             // Venoarteriolar response: marked venous hypertension constricts the feeding arterioles.

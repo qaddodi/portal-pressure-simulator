@@ -1,7 +1,7 @@
 // C6. Rapid ascites in a young patient: Budd–Chiari, sinusoidal obstruction syndrome or a caval web.
 // The HVPG is the trap in all three. The model shows the pressure change after anticoagulation or stenting.
 
-import { DX_HIDDEN, fill } from './kit.js?v=010d07460c';
+import { DX_HIDDEN, fill } from './kit.js?v=4021282d5c';
 
 const BC = {
   vid: 'BC', preset: 'budd-chiari', kind: 'bc',

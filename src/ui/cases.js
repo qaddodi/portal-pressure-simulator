@@ -9,15 +9,15 @@
 // `unsafe: { when(pick, c), run(c) → consequence }`, `onCommit(c, pick)`, `needs`/`needsAny` (orders
 // that must be placed first), `auto` (opens by itself) and `show(c)` (conditional steps).
 
-import { store, updateParams } from './store.js?v=7acb60de12';
-import { host } from './host.js?v=7400e3a4ab';
+import { store, updateParams } from './store.js?v=92c3226cca';
+import { host } from './host.js?v=deac990140';
 import { h, openModal, closeModal, toast, svgIcon } from './util.js?v=8aa5e5cdf1';
 import { addRecord, exportCSV, exportXAPI } from './records.js?v=50fb9dd463';
 import { scoreCase, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=7f4afcf446';
 import { veinBlocked } from './measure-model.js?v=089f10544e';
-import { CASES, ORDER_META, GROUPS } from './cases/index.js?v=f6e3e0af48';
-import { bpOf, tension, abdomen } from './cases/kit.js?v=010d07460c';
-import { trustLine } from './learning-kit.js?v=6e39505c1e';
+import { CASES, ORDER_META, GROUPS } from './cases/index.js?v=4557e796b2';
+import { bpOf, tension, abdomen } from './cases/kit.js?v=4021282d5c';
+import { trustLine } from './learning-kit.js?v=73792ce331';
 
 export { CASES };
 
@@ -58,6 +58,8 @@ const RUN = {
   tips8: { once: true, run: (a, o, c) => updateParams({ tips: { on: true, d: 8 } }, { label: 'TIPS 8 mm', settle: !c.cs.acute }) },
   tips10: { once: true, run: (a, o, c) => updateParams({ tips: { on: true, d: 10 } }, { label: 'TIPS 10 mm', settle: !c.cs.acute }) },
   brto: { once: true, run: (a, o, c) => updateParams((p) => { p.occluded.C5 = true; return p; }, { label: 'BRTO', settle: !c.cs.acute }) },
+  'spl-embo': { once: true, run: (a, o, c) => updateParams({ splenicRx: 1 }, { label: 'Partial splenic embolization', settle: !c.cs.acute }) },
+  splenectomy: { once: true, run: (a, o, c) => updateParams({ splenicRx: 2 }, { label: 'Splenectomy', settle: !c.cs.acute }) },
   'tips-reduce': { once: true, run: (a, o, c) => updateParams({ tips: { on: true, d: 6 } }, { label: 'TIPS reduced', settle: true }) },
 };
 const SECTION = { labs: 'Labs', 'tap-dx': 'Labs', 'clot-screen': 'Labs' };

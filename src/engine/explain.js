@@ -2,9 +2,9 @@
 // Each factor that differs from the healthy state is reverted in isolation on a scratch engine;
 // its contribution is (current − reverted). Contributions are approximate: they need not sum exactly.
 
-import { Engine } from './engine.js?v=ea24545c27';
-import { computeMetrics } from './metrics.js?v=0d5add5e89';
-import { defaultParams, DRUGS } from './scenario.js?v=06164f9b2a';
+import { Engine } from './engine.js?v=0c0320e0b5';
+import { computeMetrics } from './metrics.js?v=6da852fc13';
+import { defaultParams, DRUGS } from './scenario.js?v=957e836ad6';
 import { EDGES, dMinOf } from './topology.js?v=dc393aabea';
 
 export const METRICS = {
@@ -35,6 +35,7 @@ function factors(eng) {
   }
   for (const [id, v] of Object.entries(p.stenosis)) if (v > 0) add(`Stenosis of ${edgeLabel(id)} (${Math.round(v * 100)} %)`, (e) => { delete e.params.stenosis[id]; });
   for (const [id, v] of Object.entries(p.thrombus)) if (v > 0) add(`Thrombus in ${edgeLabel(id)} (${Math.round(v * 100)} %)`, (e) => { delete e.params.thrombus[id]; });
+  if (p.splenicRx) add(p.splenicRx === 2 ? 'Splenectomy' : 'Partial splenic embolization', (e) => { e.params.splenicRx = 0; });
   if (p.splanchnicTone !== 1) add(p.splanchnicTone < 1 ? 'Splanchnic vasodilation (set)' : 'Splanchnic vasoconstriction (set)', (e) => { e.params.splanchnicTone = 1; });
   if (Math.abs(s.splTone - 1) > 0.01) add('Chronic splanchnic vasodilation (NO-mediated)', (e) => { e.slow.splTone = 1; });
   if (p.systemicTone !== 1) add('Systemic arteriolar tone', (e) => { e.params.systemicTone = 1; });

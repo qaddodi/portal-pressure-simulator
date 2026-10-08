@@ -1,6 +1,6 @@
 // C4. Ascites that keeps coming back: the chart plants one contraindication to TIPS, or none.
 
-import { DX_HIDDEN, fill } from './kit.js?v=010d07460c';
+import { DX_HIDDEN, fill } from './kit.js?v=4021282d5c';
 
 const PT = { name: 'Linda Park', age: 59, sex: 'F', setting: 'Hepatology day unit', problem: 'Needs a large tap every two weeks.' };
 const HX = ['Alcohol-related cirrhosis. Abstinent for two years.', 'Ascites for 18 months. Takes spironolactone 400 mg and furosemide 160 mg a day, the maximum doses. The dietitian confirms a low-salt diet and a urine sodium check confirms she follows it.', 'Needs a large tap about every two weeks and is back again today.'];

@@ -1,16 +1,16 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
-import { createMeasureCard } from './measure.js?v=65fed65731';
-import { store, varixSuppressed } from './store.js?v=7acb60de12';
+import { createMeasureCard } from './measure.js?v=ea20d7bfed';
+import { store, varixSuppressed } from './store.js?v=92c3226cca';
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=8aa5e5cdf1';
 import { lobuleFlows } from './lobule-model.js?v=daf2c88365';
-import { createProfile } from './charts.js?v=6af923d592';
-import { createPressureTime } from './pressure-time.js?v=2eac3a3066';
-import { createFibroScan } from './fibroscan.js?v=eced754165';
-import { createDoppler } from './doppler.js?v=631fa7e431';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=473f56b683';
+import { createProfile } from './charts.js?v=e457c6740d';
+import { createPressureTime } from './pressure-time.js?v=64163144a4';
+import { createFibroScan } from './fibroscan.js?v=2dc1eca8eb';
+import { createDoppler } from './doppler.js?v=2438c29dda';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=cb946478ab';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
