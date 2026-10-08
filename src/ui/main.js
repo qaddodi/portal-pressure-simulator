@@ -2,23 +2,23 @@
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
 import { startHost, host } from './host.js?v=deac990140';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent } from './store.js?v=92c3226cca';
-import { createStage } from './stage.js?v=5ea476645e';
-import { createInspector } from './inspector.js?v=e9e9c1c96c';
-import { createDock, CUTOFFS } from './dock.js?v=c716b39f98';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent } from './store.js?v=db51efc76d';
+import { createStage } from './stage.js?v=63e396ddce';
+import { createInspector } from './inspector.js?v=7e6effaf3f';
+import { createDock, CUTOFFS } from './dock.js?v=9a44f3c7d0';
 import { createWhy } from './why.js?v=b8fe49632c';
-import { createTimeline } from './timeline.js?v=55fadbea48';
-import { createLearn } from './learn.js?v=32d5a040af';
-import { createCases } from './cases.js?v=faef9090be';
-import { createCompare } from './compare.js?v=d455a31fa6';
-import { createCard } from './card.js?v=a19eee48c0';
-import { createChart, computeFindings } from './chart.js?v=e96333adc8';
-import { createHome, ROLES } from './home.js?v=fac0cdeef5';
+import { createTimeline } from './timeline.js?v=ee8db33b88';
+import { createLearn } from './learn.js?v=2b6f5f5baa';
+import { createCases } from './cases.js?v=df129bc92f';
+import { createCompare } from './compare.js?v=9ae102f4c4';
+import { createCard } from './card.js?v=c09680ce90';
+import { createChart, computeFindings } from './chart.js?v=7188c7ae8b';
+import { createHome, ROLES } from './home.js?v=36b3374c01';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
-import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=12341cb1ab';
-import { startLMS } from './lms.js?v=a3fe661ca1';
+import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=14f08b37ff';
+import { startLMS } from './lms.js?v=abda0b1a76';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=6e06b6c93c';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=7a8aa73d77';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=dc393aabea';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=86153645a3';
@@ -129,7 +129,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=b6a8279d81'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=8118fc474d'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -141,7 +141,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=6a7b6fe7ae'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=65e1b86527'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
