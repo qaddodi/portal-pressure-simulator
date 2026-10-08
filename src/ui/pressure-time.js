@@ -57,7 +57,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
   // Display only: averages away the heartbeat and breathing swings; the simulation is untouched.
   let smooth = false;
   const smoothBtn = h('button', { class: 'pt-chip pt-smooth', 'aria-pressed': 'false', title: 'Show the mean: hide beat-to-beat and breathing variation', onclick: () => {
-    smooth = !smooth; smoothBtn.setAttribute('aria-pressed', String(smooth)); draw();
+    smooth = !smooth; yr.pressure = yr.hvpg = null; smoothBtn.setAttribute('aria-pressed', String(smooth)); draw();
   } }, 'Smooth');
   const el = h('div', { class: 'pt' }, h('div', { class: 'pt-head' }, hero, heroDelta, smoothBtn, rangeSeg), box, chips);
 
@@ -155,7 +155,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
     }
     if (range === 'minutes') {
       const out = { x: [], mid: [], lo: [], hi: [] };
-      const all = bin ? [...coarse, bin] : coarse;
+      const all = coarse; // the bin still filling has few samples and would wiggle at the tail
       for (const b of all) {
         const s = b.v[key];
         if (!s || b.t < x0 - BIN || b.t + BIN / 2 > x1) continue;
@@ -178,11 +178,15 @@ export function createPressureTime({ marks = () => [] } = {}) {
 
   // ── Drawing ───────────────────────────────────────
   const yr = { pressure: null, hvpg: null }; // eased y ranges, so the axis glides instead of jumping
+  // Sticky range: it only changes when the data leaves it (grow at once) or fills under 55% of it
+  // (shrink), so the scale holds still while the trace scrolls.
   function ease(key, lo, hi) {
     const r = yr[key];
-    if (!r || lo < r[0] || hi > r[1] || hi - lo < (r[1] - r[0]) * 0.5) { yr[key] = [lo, hi]; return yr[key]; }
-    r[0] += (lo - r[0]) * 0.12; r[1] += (hi - r[1]) * 0.12;
-    return r;
+    if (!r || lo < r[0] || hi > r[1] || hi - lo < (r[1] - r[0]) * 0.55) {
+      const m = (hi - lo) * 0.08;
+      yr[key] = [lo - m, hi + m];
+    }
+    return yr[key];
   }
 
   function hiddenSet() {
@@ -282,7 +286,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
       const keys = lane.key === 'pressure' ? traces.map((t) => t.id) : ['hvpg'];
       let mn = Infinity, mx = -Infinity;
       for (const k of keys) {
-        const s = data[k];
+        const s = range === 'days' ? data[k] : series(k, -Infinity, x1);
         for (let i = 0; i < s.x.length; i++) {
           const a = s.lo ? s.lo[i] : s.mid[i], b = s.hi ? s.hi[i] : s.mid[i];
           if (a < mn) mn = a; if (b > mx) mx = b;
