@@ -2780,7 +2780,7 @@ input[type="range"] { touch-action: none; }
 }
 /* The status row above the play bar: an active bleed and the latest event. */
 .vdock .vd-status { grid-area: st; display: flex; align-items: center; gap: 8px; min-width: 0; margin: 8px 12px 0; }
-.vdock .vd-status:not(.has-toast):not(:has(> :not([hidden]):not(.vd-toasts))) { display: none; }
+.vdock .vd-status:not(:has(> :not([hidden]))) { display: none; }
 .vdock .vd-status .bleed-pill { margin: 0; }
 .vdock .tl-time { font-size: var(--fs-14); color: var(--text); min-width: 0; }
 .tl-jseg { display: flex; border: 1px solid var(--border); border-radius: var(--r-control); overflow: hidden; background: var(--surface); }
@@ -3103,13 +3103,3 @@ input[type="range"] { touch-action: none; }
 body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state: paused; }
 .cmp-table-btn { white-space: nowrap; }
 @media (max-width: 600px) { .cmp-label { display: none; } }
-
-/* Change messages live in the dock's status row: an in-flow strip that covers the latest-event chip
-   while it shows, so nothing floats over menus, panels or controls. */
-.vdock .vd-status { position: relative; }
-.vdock .vd-status.has-toast { display: flex; min-height: 30px; }
-.vd-toasts { display: none; }
-.vd-status.has-toast .vd-toasts { display: flex; position: absolute; inset: 0; z-index: 1; align-items: center; background: var(--glass-solid, var(--surface)); border-radius: var(--r-card); }
-.vd-toasts .toast { max-width: 100%; width: 100%; min-width: 0; background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; animation: none; }
-.vd-toasts .toast-msg { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.vd-toasts .toast-x { margin-left: auto; }
