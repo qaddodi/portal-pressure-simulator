@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Role from the menu.** The Menu button has an "I am a…" control with Student, Instructor and Researcher, so the role
+  can change in any mode without going back to Home. It is the same setting Home shows, saved the same way.
+
 - **DIPS option.** A direct intrahepatic portosystemic shunt sits beside the TIPS in Treat, the Procedures list and the
   stent tool. It runs from the right portal vein through the caudate lobe into the intrahepatic IVC, below the hepatic
   veins, so it is the option when the hepatic veins are blocked and the cava is open (Budd–Chiari). The model uses the
