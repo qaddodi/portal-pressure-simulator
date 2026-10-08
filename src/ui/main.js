@@ -650,6 +650,8 @@ function renderBanner() {
       b.addEventListener('click', () => store.set({ compareView: v }));
       return b;
     })));
+    const tbl = h('button', { class: 'btn sm cmp-table-btn', title: 'Every value, then and now, in a table', onclick: () => { openPanel(); $('.cmp-section')?.scrollIntoView({ block: 'start' }); } }, 'Differences');
+    kids.push(tbl);
   }
   el.replaceChildren(...kids);
   // The switch's height, for views that place their own controls under it (the lobule's).

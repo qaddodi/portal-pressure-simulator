@@ -3102,3 +3102,5 @@ input[type="range"] { touch-action: none; }
 
 /* Play/pause: looping sim animations freeze with the simulation (see ui/clock.js). */
 body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state: paused; }
+.cmp-table-btn { white-space: nowrap; }
+@media (max-width: 600px) { .cmp-label { display: none; } }
