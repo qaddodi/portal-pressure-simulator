@@ -3136,15 +3136,3 @@ body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state
 .tl-track { align-self: center; }
 .tl-lead.mine path { stroke: var(--text-3); stroke-dasharray: 2 2; }
 .tl-lead.mine text { font-weight: 500; font-style: italic; fill: var(--text-2); }
-
-/* Large timeline card: opened from the timeline's expand button, over the views; sized to the screen height. */
-.tl-tags.full .tl-lead text { font-size: 11px; }
-.tl-scrim { position: fixed; inset: 0; z-index: 60; background: color-mix(in srgb, #000 28%, transparent); }
-.tl-card { position: fixed; z-index: 61; left: calc(env(safe-area-inset-left) + 12px); right: calc(env(safe-area-inset-right) + 12px); top: 50%; transform: translateY(-50%); max-height: calc(100dvh - 24px); overflow: auto; background: var(--surface); border-radius: var(--r-sheet, 16px); box-shadow: 0 20px 60px rgba(0,0,0,.3); }
-.tl-card[hidden] { display: none; }
-.tl-card .stage-bar.bottom { position: static; display: flex; flex-direction: column; justify-content: center; height: auto; min-height: min(60vh, 560px); padding: 16px; background: transparent; }
-.tl-card .timeline { flex-wrap: wrap; row-gap: 12px; height: auto; width: 100%; }
-.tl-card .tl-track { flex: 1 1 100%; order: -1; }
-.tl-expand { flex: none; }
-.readouts .ro-more[data-step="all"] svg { transform: scaleY(-1); }
-.readouts .ro-more[data-step="full"] svg { transform: none; }
