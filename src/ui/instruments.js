@@ -42,8 +42,8 @@ export function createEndoscopy({ onAction }) {
   // winding varices, drawn once per state into a cached bitmap, so it is perfectly steady. Balloon,
   // bleeding and the scope mask are drawn on top.
   const rnd = (seed) => { let x = seed >>> 0; return () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; }; };
-  const gl = createEndoGL();
-  let peak = 0, an = null, lastT = 0, last = null, raf = 0, bleedT = 0, cache = { key: '', img: null };
+  const gl = createEndoGL(), glOut = document.createElement('canvas');
+  let peak = 0, an = null, lastT = 0, last = null, raf = 0, bleedT = 0, cache = { key: '', img: null }, glKey = '';
   // An eased tween toward a target value: cur follows from -> to over dur ms after a delay.
   const tw = (v) => ({ v, from: v, to: v, t0: 0, dur: 1, delay: 0, cur: v });
   const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -94,8 +94,17 @@ export function createEndoscopy({ onAction }) {
     if (busy && !raf && !isPaused()) raf = requestAnimationFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
     const res = clamp(Math.round(2 * R * (window.devicePixelRatio || 1)), 160, 480);
     let img;
-    if (gl) img = gl.render(res, { grow: an.g, vis: an.v, red: false, def: an.def.map((t) => t.cur), kn: an.kn.map((t) => t.cur) });
-    else {
+    if (gl) {
+      // Drawn once per state and kept as a 2D bitmap: a steady field costs no shader pass or GPU readback.
+      const gk = [res, an.g, an.v, ...an.def.map((t) => t.cur), ...an.kn.map((t) => t.cur)].map((x) => Math.round(x * 32)).join('|');
+      if (gk !== glKey) {
+        glKey = gk;
+        gl.render(res, { grow: an.g, vis: an.v, red: false, def: an.def.map((t) => t.cur), kn: an.kn.map((t) => t.cur) });
+        if (glOut.width !== res) glOut.width = glOut.height = res;
+        glOut.getContext('2d').drawImage(gl.canvas, 0, 0);
+      }
+      img = glOut;
+    } else {
       // No WebGL: the CPU renderer draws the target state without transitions.
       const r2 = Math.min(res, 300), gq = Math.round(tg * 14) / 14;
       const key = [r2, gq, bands, Math.round(tv * 10)].join('|');
