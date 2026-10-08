@@ -259,12 +259,10 @@ export const CIRCUIT_PATH = {
   // own (clear of the right lobe's lane and of the right hepatic vein's last stretch, which it
   // used to run on top of) and drops into the right hepatic vein from above.
   TIPS: route([[680, 303], [680, 246], [1000, 246], [1000, 282]], 36),
-  // DIPS: its own lane round the outside of the liver. It leaves the proximal right portal vein at the portal
-  // bifurcation (PVH), goes up past the TIPS lane, and runs above it and below the zone captions along the top
-  // (LIVER stops near y 95). It runs down the outer right edge, clear of every label, and returns along y 430 to
-  // enter the IVC just above IVCI, below the hepatic veins. Every crossing (C1b, AZY → SVC, epigastric → SVC,
-  // caval → azygos) is at a right angle.
-  DIPS: route([[580, 345], [580, 104], [1356, 104], [1356, 430], [1120, 430]], 70),
+  // DIPS: leaves the proximal right portal vein at the portal bifurcation (PVH), rises to a lane of its own just
+  // above the TIPS lane (below the esophageal route and clear of the SVC), and drops into the horizontal run of the
+  // IVC between the hepatic veins and the heart. It crosses only the caudate vein, at a right angle.
+  DIPS: route([[580, 345], [580, 204], [1056, 204], [1056, 345]], 44),
   // Branches that leave (or join) one station split right at it, as on a transit map, instead
   // of sharing a stretch of track and forking part-way along.
   PVH_R: route([[580, 345], [622, 303], [680, 303]], 12),
