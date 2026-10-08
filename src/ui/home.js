@@ -3,9 +3,9 @@
 // brings it back. A lesson or case then runs in the ordinary workspace with a slim banner.
 
 import { store } from './store.js?v=92c3226cca';
-import { h, svgIcon, icon } from './util.js?v=6190294844';
-import { LESSONS } from './learn.js?v=786a2a3284';
-import { CASES } from './cases.js?v=3c4d1ecc3f';
+import { h, svgIcon, icon } from './util.js?v=5fc7d90a5d';
+import { LESSONS } from './learn.js?v=57e037a9a1';
+import { CASES } from './cases.js?v=e905cc0599';
 import { t } from '../i18n/i18n.js?v=1ad6d8253b';
 import { exportCSV, exportXAPI, learnerName, setLearnerName, records } from './records.js?v=50fb9dd463';
 import { SNAPSHOTS, PATH } from './snapshots.js?v=e8fa5d268f';

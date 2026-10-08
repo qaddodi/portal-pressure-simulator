@@ -72,14 +72,16 @@ export function toast(msg, kind = '') {
   const wrap = document.getElementById('toasts');
   // One message at a time reads calmer than a growing stack.
   while (wrap.children.length >= 2) wrap.firstChild.remove();
-  // A card slides up out of the top edge of the vitals dock, clear of the readouts and any menu.
+  // A card rises from below the screen over the vitals dock, a little smaller than it, then slides away.
   const anchor = document.querySelector('.vdock');
   const r = anchor?.offsetParent && anchor.getBoundingClientRect();
   wrap.classList.toggle('docked', !!(r && r.width));
-  if (r && r.width) { wrap.style.left = `${r.left + 4}px`; wrap.style.bottom = `${Math.max(0, innerHeight - r.top)}px`; wrap.style.maxWidth = `${r.width - 16}px`; }
+  if (r && r.width) {
+    Object.assign(wrap.style, { left: `${r.left + 12}px`, width: `${r.width - 24}px`, height: `${Math.max(56, r.height - 24)}px`, bottom: `${Math.max(0, innerHeight - r.bottom) + 12}px`, maxWidth: 'none' });
+  }
   const t = h('div', { class: 'toast ' + kind, role: 'status' }, h('span', { class: 'toast-msg' }, msg));
   let timer = 0;
-  const close = () => { clearTimeout(timer); t.classList.add('leaving'); setTimeout(() => t.remove(), 260); };
+  const close = () => { clearTimeout(timer); t.classList.add('leaving'); setTimeout(() => t.remove(), 340); };
   const x = h('button', { class: 'toast-x', 'aria-label': 'Dismiss' }, icon('close'));
   x.addEventListener('click', (e) => { e.stopPropagation(); close(); });
   t.append(x);
