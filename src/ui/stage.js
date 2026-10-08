@@ -4,9 +4,9 @@
 import { EDGES, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=dc393aabea';
 import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=d6c5cddad6';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
-import { store, updateParams } from './store.js?v=92c3226cca';
+import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=db51efc76d';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=86153645a3';
-import { createLobuleZoom } from './lobule-zoom.js?v=e0aa5a194d';
+import { createLobuleZoom } from './lobule-zoom.js?v=104f27f281';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=7d7c2490aa';
@@ -1373,7 +1373,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (≥ 0.3 mL/s), so a channel the model is using is never hidden.
   function collOpen(id, f) {
     const k = EI[id];
-    return recruitFrac(id, f) > 0.12 || Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) > 0.3;
+    return shownFrac(id, f) > 0.12 || Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) > 0.3;
+  }
+  // The channels that feed and drain the varices (coronary vein → esophageal varices → azygos; short gastric
+  // veins → fundal varices) are drawn open whenever the varices exist (see varicesPresent), whatever their own
+  // recruitment, so the figure and circuit show the same varices as the endoscopy pane.
+  const VARIX_CHANNELS = { C1a: 'VAR', C1b: 'VAR', C2: 'GV' };
+  function shownFrac(id, f) {
+    const site = VARIX_CHANNELS[id];
+    return site ? Math.max(recruitFrac(id, f), varixGrowth(f, site)) : recruitFrac(id, f);
   }
   function recruitFrac(id, f) {
     const e = EDGES[EI[id]];
@@ -1527,7 +1535,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     let geomDirty = false;
     for (const x of Object.values(E)) {
       if (x.e.kind !== 'collateral' || x.e.spontaneous) continue;
-      const w = recruitFrac(x.e.id, f) > 0.25 ? 1.5 + 3.5 * recruitFrac(x.e.id, f) : 0;
+      const w = shownFrac(x.e.id, f) > 0.25 ? 1.5 + 3.5 * shownFrac(x.e.id, f) : 0;
       if (Math.abs(w - geo[x.e.id].wig) > 0.6) { geo[x.e.id].wig = w; geomDirty = true; }
     }
     updateGeometry(geomDirty);
@@ -1638,7 +1646,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (x.heat && mode === 'heat') { setA(x.heat, 'stroke', c1); setA(x.heat, 'stroke-width', (w + 22).toFixed(1)); const ho = mode === 'heat' && ref ? clamp((x.pmid - (ref[NI[e.from]] + ref[NI[e.to]]) / 2) / 8, 0, 1).toFixed(2) : '0'; if (x.heat._op !== ho) { x.heat._op = ho; x.heat.style.opacity = ho; } }
       x.heatA = x.heat && mode === 'heat' && ref ? clamp((x.pmid - (ref[NI[e.from]] + ref[NI[e.to]]) / 2) / 8, 0, 1) : 0; x.heatCol = c1;
       if (e.kind === 'collateral') {
-        const fr = recruitFrac(e.id, f);
+        const fr = shownFrac(e.id, f);
         const qa = Math.abs(f.Qf ? f.Qf[k] : f.Q[k]);
         const openNow = collOpen(e.id, f);
         if (!openNow && wasDrawn && !x.g.classList.contains('coll-ghost') && !x.reveal && !quietFx()) startExit(x, f);
@@ -3008,7 +3016,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const sel = store.get().selection;
     if (id === 'GV' && f.metrics.gastricVarix.d <= 0) return false;   // no gastrorenal shunt: no fundal varices
     if (sel?.type === 'node' && sel.id === id) return true;
-    return (id === 'VAR' ? f.metrics.varix.d : f.metrics.gastricVarix.d) >= 2.5;
+    return varicesPresent(f, id);
   }
   // Where a leader stops: it aims at the middle of the label, as if it ran behind the text, and is
   // cut off abruptly (no fade) at a small padding around the label's box.

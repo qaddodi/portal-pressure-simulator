@@ -2,7 +2,7 @@
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
 import { startHost, host } from './host.js?v=deac990140';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction } from './store.js?v=92c3226cca';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent } from './store.js?v=92c3226cca';
 import { createStage } from './stage.js?v=5ea476645e';
 import { createInspector } from './inspector.js?v=e9e9c1c96c';
 import { createDock, CUTOFFS } from './dock.js?v=c716b39f98';
@@ -386,8 +386,8 @@ function doAction(a) {
   if (a.kind === 'probe') { host.send({ type: 'probe', id: a.id }); return; }
   if (a.kind === 'paracentesisPrompt') { dock.show('abdomen', { reveal: true }); toast('Choose the volume in Ascites & paracentesis, then Drain.'); return; }
   if (a.kind === 'band') {
-    const vd = store.get().frame?.metrics?.varix?.d;
-    if (vd !== undefined && vd < 2.5 && !(store.get().frame?.bands > 0)) { toast('No varices to band.'); return; }
+    const fr = store.get().frame;
+    if (fr?.metrics && !varicesPresent(fr, 'VAR')) { toast('No varices to band.'); return; }
   }
   host.send({ type: 'action', action: a });
   logAction('action', a.kind);

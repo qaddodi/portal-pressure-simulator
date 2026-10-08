@@ -4,11 +4,11 @@
 import { NODES } from '../engine/topology.js?v=dc393aabea';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { h, fmt, fitCanvas, cssVar, clamp, icon } from './util.js?v=86153645a3';
-import { simTime, isPaused } from './clock.js?v=aba62aedeb';
+import { simTime, isPaused } from './clock.js?v=715feb5dda';
 import { createEndoGL } from './endo-gl.js?v=f27c0841b0';
 import { renderEndo } from './endo-render.js?v=5ad939cd04';
-import { FONT } from './charts.js?v=970242a427';
-import { store, updateParams, logAction, varixSuppressed } from './store.js?v=92c3226cca';
+import { FONT } from './charts.js?v=a43c4eb52c';
+import { store, updateParams, logAction, varixSuppressed, varicesPresent } from './store.js?v=db51efc76d';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
@@ -35,7 +35,7 @@ export function createEndoscopy({ onAction }) {
     box.style.visibility = off ? 'hidden' : '';
     if (off) { stats.replaceChildren(h('dt', {}, 'Esophageal varix'), h('dd', {}, 'not modeled')); return; }
     const vx = view === 'eso' ? m.varix : m.gastricVarix;
-    const noVx = vx.d < 2.5 && !(f.bands > 0);
+    const noVx = !varicesPresent(f, view === 'eso' ? 'VAR' : 'GV');
     bandBtn.disabled = noVx; bandBtn.title = noVx ? 'No varices to band' : '';
     stats.replaceChildren(
       h('dt', {}, 'Grade'), h('dd', {}, `${vx.grade.code} ${vx.grade.label}`),

@@ -73,3 +73,15 @@ test('liver stiffness estimate: congestion adds about 2 kPa per mmHg and the cur
   assert.ok(Math.abs(lsm(10, 11) - lsm(10, 6) - 10) < 1e-9);
   assert.ok(lsm(20, 6) - lsm(12, 6) < 0.8 * 8 + 1e-9);
 });
+
+// One test for "has varices": the figure, circuit and endoscopy pane all call varicesPresent, which must follow the
+// model's varix diameter (the 2.5 mm "none" cut-off) so no view shows varices another hides.
+test('varicesPresent follows the model varix diameter and bands', async () => {
+  globalThis.document ??= { getElementById: () => null };
+  const { varicesPresent } = await import('../src/ui/store.js');
+  const fr = (d, bands = 0) => ({ metrics: { varix: { d }, gastricVarix: { d } }, bands });
+  assert.equal(varicesPresent(fr(2.4)), false);
+  assert.equal(varicesPresent(fr(2.5)), true);
+  assert.equal(varicesPresent(fr(2.0, 2)), true);
+  assert.equal(varicesPresent(fr(2.0, 2), 'GV'), false);
+});
