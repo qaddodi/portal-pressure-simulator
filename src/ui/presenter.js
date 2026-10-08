@@ -5,7 +5,7 @@
 // or a link.
 
 import { store } from './store.js?v=a404a360b7';
-import { runSequence, restoreSequence } from './sequence.js?v=486b39979f';
+import { runSequence, restoreSequence } from './sequence.js?v=391f9c0e0b';
 import { h, toast, svgIcon, icon } from './util.js?v=86153645a3';
 import { download } from './records.js?v=50fb9dd463';
 
