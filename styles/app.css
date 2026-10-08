@@ -3136,3 +3136,11 @@ body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state
 .tl-track { align-self: center; }
 .tl-lead.mine path { stroke: var(--text-3); stroke-dasharray: 2 2; }
 .tl-lead.mine text { font-weight: 500; font-style: italic; fill: var(--text-2); }
+
+/* Time-lapse mode: the play control turns amber so it is obvious the clock is averaged, not beat-by-beat. */
+.tl-split .ib.play.lapse { background: color-mix(in srgb, var(--warn, #d9890b) 22%, var(--surface)); color: var(--warn-ink, #8a5200); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--warn, #d9890b) 70%, transparent); }
+.tl-split .tl-speed.lapse { color: var(--warn-ink, #8a5200); font-weight: 700; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tl-split .ib.play.lapse, :root:not([data-theme="light"]) .tl-split .tl-speed.lapse { color: #f2b45a; } }
+:root[data-theme="dark"] .tl-split .ib.play.lapse, :root[data-theme="dark"] .tl-split .tl-speed.lapse { color: #f2b45a; }
+.tl-split .tl-speed { white-space: nowrap; }
+.tl-left .tl-split .tl-speed.lapse, .vdock .tl-left .tl-split .tl-speed.lapse { width: auto; min-width: 30px; padding: 0 7px; font-size: 11px; }

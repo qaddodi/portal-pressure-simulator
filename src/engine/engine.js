@@ -557,6 +557,29 @@ export class Engine {
     return next.value;
   }
 
+  /** Time-lapse below one day per tick: slow remodeling advances by a fraction of a day; events and rupture risk
+   * are evaluated for the fraction (hazard scaled to it), and the day counter ticks on each whole day. */
+  advanceFraction(f) {
+    const out = { ruptured: false };
+    this.settleQuick();
+    this.slowStep(f);
+    this.dayFrac = (this.dayFrac || 0) + f;
+    while (this.dayFrac >= 1 - 1e-9) { this.dayFrac -= 1; this.day += 1; }
+    detectEvents(this);
+    this.rollRupture(f, out);
+    return out;
+  }
+
+  rollRupture(days, out) {
+    if (!this.params.bleeding || this.bleed.active) return;
+    for (const site of ['VAR', 'GV']) {
+      const x = this.varix(site).ratio;
+      if (x <= 1) continue;
+      const hDay = this.params.deterministicRupture ? Infinity : ruptureHazardPerDay(x);
+      if (this.rng() < 1 - Math.exp(-hDay * days)) { this.rupture(site, 0.4 + 0.5 * this.rng()); out.ruptured = true; break; }
+    }
+  }
+
   *advanceDaySteps(n, { noRupture = false, silent = false } = {}) {
     const out = { ruptured: false };
     for (let d = 0; d < n; d++) {
@@ -564,15 +587,8 @@ export class Engine {
       this.slowStep(1);
       this.day += 1;
       if (!silent) detectEvents(this);
-      if (!noRupture && this.params.bleeding && !this.bleed.active) {
-        for (const site of ['VAR', 'GV']) {
-          const x = this.varix(site).ratio;
-          if (x <= 1) continue;
-          const hDay = this.params.deterministicRupture ? Infinity : ruptureHazardPerDay(x);
-          if (this.rng() < 1 - Math.exp(-hDay)) { this.rupture(site, 0.4 + 0.5 * this.rng()); out.ruptured = true; break; }
-        }
-        if (out.ruptured) break;
-      }
+      if (!noRupture) this.rollRupture(1, out);
+      if (out.ruptured) break;
       yield this.day;
     }
     this.settleQuick();

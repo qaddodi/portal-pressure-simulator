@@ -1,24 +1,24 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=5e48797f55';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent } from './store.js?v=f469aaac6e';
-import { createStage } from './stage.js?v=fe68387e73';
-import { createInspector } from './inspector.js?v=5796f2885b';
-import { createDock, CUTOFFS } from './dock.js?v=0fb5bd5c3a';
-import { createWhy } from './why.js?v=a260cbba79';
-import { createTimeline } from './timeline.js?v=c04d0bcd3a';
-import { createLearn } from './learn.js?v=98b769ede4';
-import { createCases } from './cases.js?v=968f18cde0';
-import { createCompare } from './compare.js?v=20fa37870b';
-import { createCard } from './card.js?v=37fe0ef8ff';
-import { createChart, computeFindings } from './chart.js?v=8b1cc982a9';
-import { createHome, ROLES } from './home.js?v=34fa413e2a';
+import { startHost, host } from './host.js?v=a4965b3124';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent } from './store.js?v=8ab9b37d48';
+import { createStage } from './stage.js?v=c8c763d805';
+import { createInspector } from './inspector.js?v=5268b7dbbf';
+import { createDock, CUTOFFS } from './dock.js?v=01ed50bb29';
+import { createWhy } from './why.js?v=07608a2819';
+import { createTimeline, LAPSES } from './timeline.js?v=627f7956ba';
+import { createLearn } from './learn.js?v=011914ee7f';
+import { createCases } from './cases.js?v=02fad7e990';
+import { createCompare } from './compare.js?v=cf84ae7b62';
+import { createCard } from './card.js?v=522634372b';
+import { createChart, computeFindings } from './chart.js?v=59e07419b6';
+import { createHome, ROLES } from './home.js?v=1a3dedb856';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
-import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=d141918a80';
-import { startLMS } from './lms.js?v=f6b9ed2c34';
+import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=1032fdba74';
+import { startLMS } from './lms.js?v=45fb351216';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=dfaf12a65a';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=eb353d41cf';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=dc393aabea';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=86153645a3';
@@ -107,7 +107,7 @@ async function main() {
   timeline = createTimeline({
     root: $('#timeline'), onWhy: (m, el) => why.open(m, el),
     onPlay: () => host.send({ type: 'run', running: !store.get().running }),
-    onSpeed: (v) => setSpeed(v),
+    onSpeed: (v, lapse) => setSpeed(v, lapse),
     onJump: (d) => host.send(d === 'event' ? { type: 'advance', untilEvent: true } : { type: 'advance', days: d }),
     onRestart: () => restartPatient(),
     canRevert: () => store.get().mode !== 'cases',
@@ -129,7 +129,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=3473661522'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=70920c4ba6'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -141,7 +141,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=ab8a0b77e9'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=59ea7fca4d'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -254,7 +254,7 @@ function onFrame(f) {
   const now = performance.now();
   if (!f.changed && !f.params && !f.events?.length && now - lastPaint < 80) return;
   lastPaint = now;
-  store.set({ frame: f, running: f.running, clock: f.clock });
+  store.set({ frame: f, running: f.running, clock: f.clock, ...(f.clock === 'hemo' && store.get().lapse ? { lapse: 0, speed: f.speed } : {}) });
   // Home covers the whole workspace: keep the latest frame, paint it when Home closes.
   if (home?.isOpen()) { homeStale = true; return; }
   stage.update(viewFrame(f));
@@ -784,7 +784,10 @@ function toggleTheme() {
   applyTheme(cur === 'dark' ? 'light' : 'dark');
 }
 function settle() { host.send({ type: 'settle' }); toast('Settled to equilibrium.'); }
-function setSpeed(v) { store.set({ speed: v }); host.send({ type: 'run', speed: v, clock: 'hemo' }); }
+function setSpeed(v, lapse = false) {
+  if (lapse) { store.set({ lapse: v }); host.send({ type: 'run', speed: v, clock: 'disease' }); }
+  else { store.set({ speed: v, lapse: 0 }); host.send({ type: 'run', speed: v, clock: 'hemo' }); }
+}
 function applyTheme(t, clear) {
   if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme');
   try { if (t) localStorage.setItem('pps.theme', t); else if (clear) localStorage.removeItem('pps.theme'); } catch { /* storage unavailable */ }
@@ -1085,9 +1088,12 @@ function wireKeyboard() {
     if (/^[1-9]$/.test(e.key) && card.isOpen()) { if (card.trigger(+e.key)) e.preventDefault(); return; }
     if (e.key === '.') { host.send({ type: 'run', running: true }); setTimeout(() => host.send({ type: 'run', running: false }), 60); return; }
     if (e.key === '[' || e.key === ']') {
-      const i = SPEEDS.indexOf(store.get().speed);
-      setSpeed(SPEEDS[Math.max(0, Math.min(SPEEDS.length - 1, (i < 0 ? 2 : i) + (e.key === ']' ? 1 : -1)))]);
-      toast(`Speed ${store.get().speed}×`);
+      // One ladder: real-time speeds, then the time-lapse rates.
+      const ladder = [...SPEEDS.map((v) => [v, false]), ...LAPSES.map(([d]) => [d, true])];
+      const cur = store.get().lapse ? ladder.findIndex(([v, l]) => l && v === store.get().lapse) : ladder.findIndex(([v, l]) => !l && v === store.get().speed);
+      const [v, lap] = ladder[Math.max(0, Math.min(ladder.length - 1, (cur < 0 ? 2 : cur) + (e.key === ']' ? 1 : -1)))];
+      setSpeed(v, lap);
+      toast(lap ? `Time-lapse ${LAPSES.find((l) => l[0] === v)[2]}` : `Speed ${v}×`);
       return;
     }
     const k = e.key.toLowerCase();

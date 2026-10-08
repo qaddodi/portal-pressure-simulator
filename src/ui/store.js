@@ -20,6 +20,7 @@ const state = {
   frame: null,
   running: true,
   speed: 1,
+  lapse: 0, // time-lapse rate in sim days per real second (0 = real time)
   clock: 'hemo',
   theme: null,
   fibrosisZone: 'sin',
