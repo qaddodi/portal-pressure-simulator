@@ -21,7 +21,7 @@ export function defaultParams() {
     respiration: true,
     respDepth: 1,
     pulsatile: true,
-    spontaneous: { C5: true, C6: false },   // C5: gastrorenal shunt, an anatomical variant present in most patients but small until the gradient is high
+    spontaneous: { C5: false, C6: false },   // C5: gastrorenal shunt, an anatomical variant: absent by default (a preset or the user adds it); fundal varices need it
     occluded: {},                 // collateral id → true (BRTO / plug)
     tips: { on: false, d: 8 },
     dips: { on: false, d: 8 },
@@ -64,7 +64,7 @@ export const PRESETS = [
     summary: 'Occlusive clot in the main portal vein. Mesenteric congestion; the hepatic artery buffer keeps the liver perfused. HVPG normal.' },
   { id: 'pvt-chronic', group: 'Prehepatic', label: 'Chronic PVT (cavernous transformation)', apply: P({ thrombus: { PV_TRUNK: 1 } }), days: 240,
     summary: 'Months after occlusion: periportal collaterals (cavernoma) carry hepatopetal flow around the clot.' },
-  { id: 'svt', group: 'Prehepatic', label: 'Splenic vein thrombosis (sinistral PH)', apply: P({ thrombus: { SV_CONF: 1 } }), days: 180,
+  { id: 'svt', group: 'Prehepatic', label: 'Splenic vein thrombosis (sinistral PH)', apply: P({ thrombus: { SV_CONF: 1 }, spontaneous: { C5: true } }), days: 180,
     summary: 'Left-sided portal hypertension: isolated fundal varices via short gastric veins with a normal portal pressure.' },
   { id: 'schisto', group: 'Presinusoidal', label: 'Schistosomiasis / NCPH', apply: P({ fibrosis: { R: { pre: 70 }, L: { pre: 70 } } }), days: 365,
     summary: 'Presinusoidal block: high portal pressure but normal wedged pressure, so HVPG is normal. Varices yes, ascites rare.' },

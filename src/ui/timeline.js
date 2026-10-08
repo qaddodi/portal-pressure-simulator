@@ -11,13 +11,16 @@
 // from here" freezes the current moment as A for comparison. It replaces play/speed, the Seconds/Months
 // switch, undo/redo/reset, the Findings list, the Log instrument and Compare mode.
 
-import { store, replaceParams, onParamChange } from './store.js?v=92c3226cca';
-import { host } from './host.js?v=deac990140';
+import { store, replaceParams, onParamChange } from './store.js?v=f876ad06bb';
+import { host } from './host.js?v=cd3938d8f6';
 import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=86153645a3';
-import { activeInterventions } from './inspector.js?v=e9e9c1c96c';
+import { activeInterventions } from './inspector.js?v=86f083df6c';
 
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };
 export const EVENT_WHY = { VARIX_RUPTURE: 'varix', RED_WALE: 'varix', VARIX_LARGE: 'varix', HEPATOFUGAL_PV: 'pvFlow', PV_STASIS: 'pvFlow', CSPH: 'hvpg', BLEED_RISK: 'hvpg', ASCITES_FORMING: 'ascites', TENSE_ASCITES: 'ascites', HIGH_SHUNT: 'shunt', LIVER_HYPOPERFUSION: 'liverPerf', RA_HIGH: 'ra', HYPERDYNAMIC: 'co', SPLENOMEGALY: 'spleen' };
+/** One-to-two-word tags shown beside each event marker on the strip (full title stays in the tooltip and History). */
+export const EVENT_TAG = { HEPATOFUGAL_PV: 'PV Reversed', SV_REVERSAL: 'SV Reversed', SMV_REVERSAL: 'SMV Reversed', INTRAHEPATIC_REVERSAL: 'IHPV Reversed', PV_STASIS: 'PV Stasis', CSPH: 'CSPH', BLEED_RISK: 'HVPG ≥ 12', VARIX_LARGE: 'Large Varices', RED_WALE: 'Red Wale', VARIX_RUPTURE: 'Varix Rupture', BLEED_STOPPED: 'Bleed Stopped', ASCITES_FORMING: 'Ascites', TENSE_ASCITES: 'Tense Ascites', HYPERDYNAMIC: 'Hyperdynamic', HIGH_SHUNT: 'High Shunt', LIVER_HYPOPERFUSION: 'Liver Hypoperf.', CAUDATE: 'Caudate Spared', RA_HIGH: 'High RAP', SPLENOMEGALY: 'Splenomegaly', SHOCK_2: 'Shock II', SHOCK_3: 'Shock III' };
+export const eventTag = (id) => EVENT_TAG[id] || (id?.startsWith('COLL_') ? 'Collat. Recruited' : '');
 const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 const JUMPS = [[7, '+1 wk', '1 week'], [30, '+1 mo', '1 month'], [180, '+6 mo', '6 months']];
 
@@ -64,7 +67,10 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   const bleedBand = h('div', { class: 'tl-bleed', hidden: true });
   const marks = h('div', { class: 'tl-marks', role: 'list', 'aria-label': 'Changes and events' });
   const nowEl = h('div', { class: 'tl-now', 'aria-hidden': 'true' });
-  const track = h('div', { class: 'tl-track' }, rail, bleedBand, fill, marks, nowEl);
+  const core = h('div', { class: 'tl-core' }, rail, bleedBand, fill, marks, nowEl);
+  const tagsSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  tagsSvg.setAttribute('class', 'tl-tags'); tagsSvg.setAttribute('aria-hidden', 'true');
+  const track = h('div', { class: 'tl-track' }, tagsSvg, core);
   // The full clock, and a short one (just the day) for a phone's play bar.
   const timeLong = h('span', { class: 'tl-t-long' }, '0:00'), timeShort = h('span', { class: 'tl-t-short', 'aria-hidden': 'true' }, '0:00');
   const timeEl = h('span', { class: 'tl-time', 'aria-live': 'off' }, timeLong, timeShort);
@@ -294,6 +300,100 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
       } else b.addEventListener('click', (ev) => openMarker(ev.currentTarget, g.items));
       return b;
     }));
+    paintTags(groups, W);
+  }
+
+  // One label per event type and side, joined to every one of its markers by right-angle leaders:
+  // a stem from each marker out to a shared bus, with the name at the end of the bus. Rows are
+  // stacked outward; a label is placed in the first row where it, and the stems that pass
+  // through, touch nothing else. Anything that finds no room keeps its tooltip only.
+  const SVGNS = 'http://www.w3.org/2000/svg', ROW = 13, CORE = 44, MAXROWS = 4, GAP = 110;
+  const svgEl = (n, a, t) => { const e = document.createElementNS(SVGNS, n); for (const k in a) e.setAttribute(k, a[k]); if (t != null) e.textContent = t; return e; };
+  const shortLabel = (l) => { const t = String(l).replace(/^Ran until the next event$/, 'Ran to event').split(' · ')[0]; return t.length > 15 ? `${t.slice(0, 14)}…` : t; };
+  const dockExpanded = () => !!root.closest('.vdock')?.querySelector('.readouts.all');
+  addEventListener('resize', () => render(true));
+  function paintTags(groups, W) {
+    if (!dockExpanded()) { core.style.top = ''; track.style.height = ''; tagsSvg.replaceChildren(); return; }
+    const bySide = { up: new Map(), down: new Map() };
+    for (const g of groups) {
+      const top = entries[g.items[g.items.length - 1]];
+      if (g.lane !== 'ev') {
+        // The learner's own moments (changes, jumps) get a short neutral label under the line.
+        if (top.kind === 'start') continue;
+        const tag = shortLabel(top.label);
+        const k = `C:${tag}`;
+        if (!bySide.down.has(k)) bySide.down.set(k, { tag, sev: null, xs: [], y0: 31, mine: true });
+        bySide.down.get(k).xs.push(g.x);
+        continue;
+      }
+      const tag = eventTag(top.evId);
+      if (!tag) continue;
+      const m = bySide[g.side === 'down' ? 'down' : 'up'];
+      const k = top.evId.startsWith('COLL_') ? 'COLL' : top.evId;
+      if (!m.has(k)) m.set(k, { tag, sev: top.sev, xs: [] });
+      m.get(k).xs.push(g.x);
+    }
+    // Occurrences far apart on the strip are separate stories: each gets its own label.
+    for (const side of ['up', 'down']) {
+      const split = [];
+      for (const t of bySide[side].values()) {
+        const xs = t.xs.slice().sort((a, b) => a - b);
+        let cur = [xs[0]];
+        const out = [];
+        for (let i = 1; i < xs.length; i++) { if (xs[i] - xs[i - 1] > GAP) { out.push(cur); cur = []; } cur.push(xs[i]); }
+        out.push(cur);
+        for (const c of out) split.push({ ...t, xs: c });
+      }
+      bySide[side] = new Map(split.map((t, i) => [i, t]));
+    }
+    const placed = { up: [], down: [] };
+    for (const side of ['up', 'down']) {
+      const rows = Array.from({ length: MAXROWS }, () => []), stems = Array.from({ length: MAXROWS }, () => []);
+      const list = [...bySide[side].values()].sort((a, b) => Math.min(...a.xs) - Math.min(...b.xs));
+      for (const t of list) {
+        const x0 = Math.min(...t.xs), x1 = Math.max(...t.xs), w = t.tag.length * 5.7 + 4;
+        // The name goes after the bus, before it, or (on a long bus) in a gap in its middle.
+        const modes = [['right', x0 - 5, x1 + 5 + w], ['left', x0 - 5 - w, x1 + 4]];
+        if (x1 - x0 >= w + 16) modes.push(['mid', x0 - 3, x1 + 3]);
+        const hit = (a, b, c, d) => a < d + 4 && c < b + 4;
+        let done = false;
+        for (let r = 0; r < MAXROWS && !done; r++) {
+          for (const [mode, lo, hi] of modes) {
+            if (lo < 0 || hi > W + 2) continue;
+            const ok = !rows[r].some(([a, b]) => hit(lo, hi, a, b))
+              && !rows.slice(0, r).some((iv) => iv.some(([a, b]) => t.xs.some((x) => x > a - 3 && x < b + 3)))
+              && !stems.slice(r + 1).some((xs) => xs.some((x) => x > lo - 3 && x < hi + 3));
+            if (!ok) continue;
+            rows[r].push([lo, hi]); stems[r].push(...t.xs);
+            placed[side].push({ ...t, r, x0, x1, mode, w });
+            done = true;
+            break;
+          }
+        }
+      }
+    }
+    const nUp = Math.max(0, ...placed.up.map((t) => t.r + 1)), nDown = Math.max(0, ...placed.down.map((t) => t.r + 1));
+    const padT = nUp ? nUp * ROW + 4 : 0, padB = nDown ? nDown * ROW + 4 : 0;
+    core.style.top = `${padT}px`;
+    track.style.height = `${padT + CORE + padB}px`;
+    const parts = [];
+    for (const side of ['up', 'down']) {
+      for (const t of placed[side]) {
+        const up = side === 'up';
+        const y = up ? padT - 4 - t.r * ROW : padT + CORE + 4 + t.r * ROW;
+        const yStart = up ? padT + 1 : t.y0 ? padT + t.y0 : padT + CORE - 1;
+        const col = t.mine ? 'var(--text-2)' : SEV[t.sev] || SEV.info;
+        const g = svgEl('g', { class: `tl-lead${t.mine ? ' mine' : ''}`, style: `--sev:${col}` });
+        const cx = (t.x0 + t.x1) / 2, hw = t.w / 2 + 2;
+        const bus = t.mode === 'mid' ? `M${t.x0} ${y}H${cx - hw}M${cx + hw} ${y}H${t.x1}` : `M${t.x0} ${y}H${t.x1}`;
+        g.append(svgEl('path', { d: bus + t.xs.map((x) => `M${x} ${yStart}V${y}`).join('') }));
+        const tx = t.mode === 'mid' ? cx : t.mode === 'left' ? t.x0 - 5 : t.x1 + 5;
+        g.append(svgEl('text', { x: tx, y: y + 0.5, 'text-anchor': t.mode === 'mid' ? 'middle' : t.mode === 'left' ? 'end' : 'start', 'dominant-baseline': 'middle' }, t.tag));
+        parts.push(g);
+      }
+    }
+    tagsSvg.setAttribute('height', String(padT + CORE + padB));
+    tagsSvg.replaceChildren(...parts);
   }
   function latestEventIndex() {
     const end = cursor >= 0 ? cursor : entries.length - 1;

@@ -58,12 +58,12 @@ export const hepatofugal = {
   intro: () => ['Gloria has come for her six-monthly check. The radiologist\'s report says "hepatofugal flow in the main portal vein" and nothing else.'],
   chart: (c) => [
     { id: 'hx', section: 'History', title: 'Story', lines: ['Cirrhosis from hepatitis C, treated and cured eight years ago.', 'Ascites in the past, now gone on diuretics. One episode of confusion last year.', 'Tired, with a little more jaundice than last time.'] },
-    { id: 'exam', section: 'Exam', title: 'In clinic', lines: ['Mild jaundice. Spleen palpable. No ascites.'] },
+    { id: 'exam', section: 'Exam', title: 'In clinic', lines: ['Mild jaundice. Spleen palpable. A little ascites.'] },
     { id: 'rep', section: 'Studies', title: 'Report', lines: [fill('Ultrasound: small nodular liver, spleen {spl} cm. Hepatofugal flow in the main portal vein.', c)] },
   ],
   results: {
     labs: (c) => ({ title: 'Blood tests', rows: fill([['Bilirubin', '3.1 mg/dL', 'warn'], ['Albumin', '2.6 g/dL', 'warn'], ['INR', '1.7', 'warn'], ['Platelets', '{plt} ×10⁹/L', 'warn'], ['Creatinine', '1.0 mg/dL', '']], c) }),
-    ct: { title: 'CT scan with contrast', lines: ['Portal vein open, no clot. Large spontaneous splenorenal shunts.', 'Nodular liver, no ascites.'] },
+    ct: { title: 'CT scan with contrast', lines: ['Portal vein open, no clot. Large spontaneous splenorenal shunts.', 'Nodular liver, a little ascites.'] },
     doppler: { title: 'Doppler of the liver vessels', extra: ['No clot seen in the portal vein.'] },
   },
   orders: ['labs', 'doppler', 'fibroscan', 'ct', 'hvpg'],

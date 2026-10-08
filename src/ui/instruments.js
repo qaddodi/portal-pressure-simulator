@@ -4,11 +4,11 @@
 import { NODES } from '../engine/topology.js?v=dc393aabea';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { h, fmt, fitCanvas, cssVar, clamp, icon } from './util.js?v=86153645a3';
-import { simTime, isPaused } from './clock.js?v=aba62aedeb';
+import { simTime, isPaused } from './clock.js?v=77e8f08631';
 import { createEndoGL } from './endo-gl.js?v=f27c0841b0';
 import { renderEndo } from './endo-render.js?v=5ad939cd04';
-import { FONT } from './charts.js?v=970242a427';
-import { store, updateParams, logAction, varixSuppressed } from './store.js?v=92c3226cca';
+import { FONT } from './charts.js?v=b9e9a9eedf';
+import { store, updateParams, logAction, varicesPresent } from './store.js?v=f876ad06bb';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
@@ -20,29 +20,21 @@ export function createEndoscopy({ onAction }) {
   box.append(cv);
   const view = 'eso'; // the esophageal variceal view only
   const bandBtn = h('button', { class: 'btn primary', onclick: () => onAction({ kind: 'band' }) }, icon('band'), 'Band a column (EVL)');
-  const stats = h('dl', { class: 'kv' });
+  const stats = h('dl', { class: 'kv wrap' });
   const side = h('div', { class: 'chart-side' }, stats,
     bandBtn,
-    h('div', { class: 'ctl-sub' }, 'Drawn from the model. F1 small and straight, F2 enlarged and tortuous, F3 large and beaded; red wale marks mean high modeled wall stress.'));
+    h('div', { class: 'ctl-sub' }, 'Drawn from the model. F1 small and straight, F2 enlarged and tortuous, F3 large and beaded.'));
   el.append(box, side);
-  const note = h('p', { class: 'ctl-sub', hidden: true }, '');
-  side.append(note);
   function update(f) {
     const m = f.metrics;
-    const off = view === 'eso' && varixSuppressed(), rhf = view === 'eso' && store.get().presetId === 'rhf';
-    note.hidden = !rhf;
-    note.textContent = off ? 'Not modeled for this patient: the model draws an esophageal varix in right heart failure that the clinical picture does not support.' : 'Caution: in right heart failure the model’s esophageal varix is an artifact, not a clinical finding.';
-    box.style.visibility = off ? 'hidden' : '';
-    if (off) { stats.replaceChildren(h('dt', {}, 'Esophageal varix'), h('dd', {}, 'not modeled')); return; }
     const vx = view === 'eso' ? m.varix : m.gastricVarix;
-    const noVx = vx.d < 2.5 && !(f.bands > 0);
+    const noVx = !varicesPresent(f, view === 'eso' ? 'VAR' : 'GV');
     bandBtn.disabled = noVx; bandBtn.title = noVx ? 'No varices to band' : '';
     stats.replaceChildren(
       h('dt', {}, 'Grade'), h('dd', {}, `${vx.grade.code} ${vx.grade.label}`),
       h('dt', {}, 'Diameter'), h('dd', {}, `${fmt(vx.d, 1)} mm`),
       h('dt', {}, 'Wall thickness'), h('dd', {}, `${fmt(vx.w, 2)} mm`),
       h('dt', {}, 'Wall stress (model)'), h('dd', {}, vx.ratio >= 1 ? (store.get().params?.bleeding ? 'past the tear point' : 'past the tear point (bleeding is off, so it holds)') : `${Math.round(vx.ratio * 100)} % of the tear point`),
-      h('dt', {}, 'Red wale signs'), h('dd', {}, vx.redWale ? 'present' : 'absent'),
       h('dt', {}, 'Bands placed'), h('dd', {}, String(Math.round(f.bands || 0))));
     draw(f, vx);
   }
@@ -96,18 +88,18 @@ export function createEndoscopy({ onAction }) {
     if (Math.abs(tg - an.g) < 0.0008) an.g = tg;
     if (Math.abs(tv - an.v) < 0.0008) an.v = tv;
     let busy = an.g !== tg || an.v !== tv;
-    // Sequence: the band snaps on instantly, then (after a beat) the vein deflates smoothly.
-    for (let c = 0; c < 4; c++) busy = tween(an.def[c], defT[c], now, 1500, defT[c] > an.def[c].to ? 1000 : 0) || busy;
+    // The band snaps on and the banded vein starts deflating at once, in about half a second.
+    for (let c = 0; c < 4; c++) busy = tween(an.def[c], defT[c], now, 500, 0) || busy;
     for (let i = 0; i < 16; i++) busy = tween(an.kn[i], knT[i], now, 1, 0) || busy;
     if (busy && !raf && !isPaused()) raf = requestAnimationFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
     const res = clamp(Math.round(2 * R * (window.devicePixelRatio || 1)), 160, 480);
     let img;
-    if (gl) img = gl.render(res, { grow: an.g, vis: an.v, red: !!vx.redWale, def: an.def.map((t) => t.cur), kn: an.kn.map((t) => t.cur) });
+    if (gl) img = gl.render(res, { grow: an.g, vis: an.v, red: false, def: an.def.map((t) => t.cur), kn: an.kn.map((t) => t.cur) });
     else {
       // No WebGL: the CPU renderer draws the target state without transitions.
       const r2 = Math.min(res, 300), gq = Math.round(tg * 14) / 14;
-      const key = [r2, gq, bands, vx.redWale ? 1 : 0, Math.round(tv * 10)].join('|');
-      if (cache.key !== key) cache = { key, img: renderEndo(r2, { grow: gq, bands, vis: tv, redWale: !!vx.redWale }) };
+      const key = [r2, gq, bands, Math.round(tv * 10)].join('|');
+      if (cache.key !== key) cache = { key, img: renderEndo(r2, { grow: gq, bands, vis: tv, redWale: false }) };
       img = cache.img;
     }
     ctx.imageSmoothingQuality = 'high';

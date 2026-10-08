@@ -6,14 +6,14 @@ import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=8b006eefeb';
-import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=957e836ad6';
+import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=d88966abe6';
 import { detectEvents } from './events.js?v=3b94283762';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
 const EXT_OVERRIDE = { IVC_IS: 'abd', CAUD: 'none' };
 
-export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 13.5, k: 0.35, kGV: 0.3, openGV: 3.5 };
+export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 7.0, k: 0.35, kGV: 0.4, openGV: 5.0 };
 /** Rupture hazard per day as a function of T/Tcrit (§7.5). */
 const ruptureHazardPerDay = (x) => (x <= 1 ? 0 : 0.01 * Math.pow((x - 1) / 0.25, 3));
 const COLLATERAL = { open: 7.5, span: 14, tauGrow: 50, tauRegress: 120, acute: 0.4 };
@@ -583,20 +583,7 @@ export class Engine {
       const tau = target > d ? COLLATERAL.tauGrow : COLLATERAL.tauRegress;
       s.d[e.id] = clamp(d + (target - d) * Math.min(1, days / tau), dMin, e.dMax);
     }
-    // Varix baseline radius relaxes toward a transmural-pressure target (remodeling)
-    for (const site of ['VAR', 'GV']) {
-      // Esophageal varices follow their own transmural pressure (no varices below HVPG ~10, large
-      // ones from ~12-14, very large above ~20); the collateral route excess falls as shunts open,
-      // so it cannot drive the size. Gastric varices keep the route-excess drive.
-      const i = this.ni[site];
-      const ex = site === 'VAR' ? P[i] - this.ext[i] : this.routeExcess(['SV', 'IVCI']);
-      // Fundal varices exist only where a gastrorenal shunt can drain them.
-      const ex0 = site === 'GV' && p.spontaneous.C5 === false ? -1e9 : ex;
-      const target = clamp(VARIX.r0Healthy + (site === 'GV' ? VARIX.kGV : VARIX.k) * Math.max(0, ex0 - (site === 'GV' ? VARIX.openGV : VARIX.open)), VARIX.r0Healthy, VARIX.rMax);
-      const r = s.r0[site];
-      const tau = target > r ? 8 : 40;
-      s.r0[site] = r + (target - r) * Math.min(1, days / tau);
-    }
+    // Varix size is not slow state: it follows the portosystemic gradient as it changes (see varixTarget).
     if (this.bands > 0) this.bands = Math.max(0, this.bands - 0.02 * days); // bands slough; columns can recur
     // Spleen
     const spTarget = clamp(11 + 0.5 * Math.max(0, P[this.ni.SPL] - 12), 9, 22);
@@ -651,9 +638,9 @@ export class Engine {
   }
 
   /** Gradient between two nodes in excess of the healthy gradient (mmHg). */
-  routeExcess([a, b]) {
+  routeExcess([a, b], P = this.P) {
     const i = this.ni[a], j = this.ni[b];
-    return (this.P[i] - this.P[j]) - (this.refP[i] - this.refP[j]);
+    return (P[i] - P[j]) - (this.refP[i] - this.refP[j]);
   }
 
   /** Starling filtration & lymph balance, mL/min. */
@@ -724,7 +711,6 @@ export class Engine {
 
   band() {
     this.bands = Math.min(4, this.bands + 1);
-    this.slow.r0.VAR = Math.max(VARIX.r0Healthy, this.slow.r0.VAR * 0.6);
     if (this.bleed.active && this.bleed.site === 'VAR') this.stopBleed('band');
   }
 
@@ -780,12 +766,35 @@ export class Engine {
     return q / (Math.PI * d * d / 4);
   }
 
+  /** The radius (mm) of a varix at the current gradient. It follows the gradient as it changes (smoothed over a few
+   *  seconds by the display-filtered pressures), not over weeks; banding shrinks it until the bands slough. */
+  varixTarget(site, P = this.Pf || this.P) {
+    const p = this.params;
+    // Both kinds of varix follow the portosystemic pressure gradient above its healthy value, the same quantity
+    // that recruits collaterals (see routeExcess): the portal-to-systemic drop for esophageal varices (portal
+    // pressure above the right atrium it drains to; no varices below an HVPG-like gradient of ~10, large ones
+    // from ~12-14, very large above ~20) and splenic vein to IVC for fundal ones. Absolute venous pressure
+    // grows nothing: in right heart failure or constriction the whole bed is high and the gradient is nil.
+    // Portal pressure, not the pressure inside the varix, because the collaterals themselves drop it as they
+    // open and the size must not fall away as they do.
+    const ex = site === 'VAR' ? this.routeExcess(['CONF', 'RA'], P) : this.routeExcess(['SV', 'IVCI'], P);
+    // Fundal varices exist only where a gastrorenal shunt can drain them.
+    const ex0 = site === 'GV' && p.spontaneous.C5 === false ? -1e9 : ex;
+    const grown = clamp(VARIX.r0Healthy + (site === 'GV' ? VARIX.kGV : VARIX.k) * Math.max(0, ex0 - (site === 'GV' ? VARIX.openGV : VARIX.open)), VARIX.r0Healthy, VARIX.rMax);
+    return site === 'VAR' ? VARIX.r0Healthy + (grown - VARIX.r0Healthy) * Math.pow(0.6, this.bands) : grown;
+  }
+
   varix(site, P = this.P) {
     const i = this.ni[site];
     const ptm = P[i] - this.ext[i];
     const ref = this.refP ? this.refP[i] : this.Pbase[i];
-    const r0 = this.slow.r0[site];
-    const r = r0 * Math.sqrt(tubeArea(ptm, 0.08) / tubeArea(ref, 0.08));
+    const r0 = this.varixTarget(site);
+    // The vein swells with the pressure above its own resting level, not with a rise shared by the whole venous
+    // bed: central venous pressure above its baseline (right heart failure, constriction) lifts every vein
+    // together and is not a varix, so it is taken off the distending pressure. The wall tension below still
+    // uses the full transmural pressure.
+    const ra = this.ni.RA, raRise = Math.max(0, P[ra] - (this.refP ? this.refP[ra] : this.Pbase[ra]));
+    const r = r0 * Math.sqrt(tubeArea(ptm - raRise, 0.08) / tubeArea(ref, 0.08));
     const w = Math.max(0.12, VARIX.w0 / r0) * (site === 'GV' ? 1.4 : 1);
     const T = Math.max(0, ptm) * r / w;
     return { ptm, r, r0, w, T, ratio: T / VARIX.Tcrit };

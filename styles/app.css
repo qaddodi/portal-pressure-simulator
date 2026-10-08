@@ -445,6 +445,8 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .kv dt { color: var(--text-2); padding: 4px 0; border-bottom: 1px solid var(--hairline); }
 .kv dd { margin: 0; font-weight: 600; text-align: right; padding: 4px 0 4px 12px; border-bottom: 1px solid var(--hairline); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .kv > :nth-last-child(-n+2) { border-bottom: 0; }
+.kv.wrap { grid-template-columns: minmax(0, 1fr) auto; }
+.kv.wrap dd { white-space: normal; }   /* long readouts wrap instead of running out of a narrow pane */
 .kv.compact dt, .kv.compact dd { padding: 4px 0; }
 .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--hairline); border-radius: var(--r-card); overflow: hidden; border: 1px solid var(--hairline); }
 .stat { background: var(--surface); padding: 8px 12px; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
@@ -2039,6 +2041,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .pt-delta[data-dir="up"] { color: var(--danger); }
 .pt-delta[data-dir="down"] { color: var(--ok); }
 .pt-range { flex: none; }
+.pt-smooth { flex: none; }
 .pt-range button { min-height: 30px; padding-inline: 12px; }
 .instrument-workspace .instrument-view.pt .pt-box { flex: 1 1 0; height: auto; min-height: 180px; }
 .pt-box canvas { touch-action: pan-y; cursor: crosshair; }
@@ -3122,3 +3125,14 @@ body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state
   .toast-wrap.docked .toast { animation: fade .2s both; }
   .toast-wrap.docked .toast.leaving { animation: fade .2s reverse forwards; }
 }
+
+/* Event tags: one label per event type and side, joined to its markers by right-angle leaders. The track grows to fit them. */
+.tl-core { position: absolute; left: 0; right: 0; top: 0; height: 44px; }
+.tl-tags { position: absolute; left: 0; top: 0; width: 100%; overflow: visible; pointer-events: none; }
+.tl-lead path { fill: none; stroke: color-mix(in srgb, var(--sev) 70%, transparent); stroke-width: 1; shape-rendering: crispEdges; }
+.tl-lead text { font: 600 10px var(--font-ui); fill: color-mix(in srgb, var(--sev) 62%, var(--text)); }
+.vdock .stage-bar.bottom { height: auto; min-height: 60px; }
+.vdock .timeline { height: auto; }
+.tl-track { align-self: center; }
+.tl-lead.mine path { stroke: var(--text-3); stroke-dasharray: 2 2; }
+.tl-lead.mine text { font-weight: 500; font-style: italic; fill: var(--text-2); }

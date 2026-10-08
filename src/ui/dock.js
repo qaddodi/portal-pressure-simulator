@@ -1,15 +1,15 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
-import { store, varixSuppressed } from './store.js?v=92c3226cca';
+import { store } from './store.js?v=f876ad06bb';
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=86153645a3';
 import { lobuleFlows } from './lobule-model.js?v=f919df1f24';
-import { createProfile } from './charts.js?v=970242a427';
-import { createPressureTime } from './pressure-time.js?v=8f404586fd';
-import { createFibroScan } from './fibroscan.js?v=631cac29d2';
-import { createDoppler } from './doppler.js?v=adedaa4699';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=1300f2b5ac';
+import { createProfile } from './charts.js?v=b9e9a9eedf';
+import { createPressureTime } from './pressure-time.js?v=a00d1b764c';
+import { createFibroScan } from './fibroscan.js?v=d45d58361a';
+import { createDoppler } from './doppler.js?v=a49c54b1bc';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=7165b9633f';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -109,7 +109,6 @@ const TREND_S = 5, TREND_FRAC = 0.03;
 
 /** The value a readout shows, or null when a case hides it and it has not been measured. */
 export function readoutValue(t, m, hidden) {
-  if (t.id === 'varix' && varixSuppressed()) return null;
   if (!hidden?.has(t.hideKey)) return t.v(m);
   const meas = t.id === 'hvpg' ? t.measured?.() : null;
   return meas ? meas.hvpg : null;
@@ -237,7 +236,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       let sev, s;
       if (v == null) {
         if (x.val.textContent !== '?') x.val.textContent = '?';
-        s = t.id === 'varix' && varixSuppressed() ? 'Not modeled here' : 'Not measured';
+        s = 'Not measured';
         sev = 'none';
         x.hist.length = 0;
       } else {
@@ -315,7 +314,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     profile: ['activity', (f) => `${fmt(f.metrics.pv, 1)} mmHg`],
     scope: ['chart', (f) => `HVPG ${fmt(f.metrics.hvpg, 1)}`],
     doppler: ['doppler', (f) => `${fmt(Math.abs(f.metrics.pvVel), 0)} cm/s`],
-    endoscopy: ['endoscope', (f) => (varixSuppressed() ? 'Not modeled' : f.metrics.varix.d < 2.5 ? 'No varices' : `Grade ${f.metrics.varix.grade.code}`)],
+    endoscopy: ['endoscope', (f) => (f.metrics.varix.d < 2.5 ? 'No varices' : `Grade ${f.metrics.varix.grade.code}`)],
     abdomen: ['needle', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],
     fibroscan: ['gauge', (f) => `${fmt(f.metrics.lsm, 0)} kPa`],
   };

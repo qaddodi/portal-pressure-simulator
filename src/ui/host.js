@@ -15,7 +15,7 @@ function dispatch(msg) {
 export async function startHost() {
   let w;
   try {
-    w = new Worker(new URL('../worker.js?v=5c95dd0221', import.meta.url), { type: 'module' });
+    w = new Worker(new URL('../worker.js?v=2b4e9a562e', import.meta.url), { type: 'module' });
     await new Promise((resolve, reject) => {
       const t = setTimeout(() => reject(new Error('worker timeout')), 4000);
       w.onmessage = (e) => { clearTimeout(t); w.onmessage = (ev) => dispatch(ev.data); dispatch(e.data); resolve(); };
@@ -28,7 +28,7 @@ export async function startHost() {
     // engine alive, or let its late frames reach the fallback's subscribers.
     if (w) { w.onmessage = null; w.onerror = null; w.terminate(); }
     console.warn('Web Worker unavailable, running engine on main thread.', err);
-    const { createCore } = await import('../worker-core.js?v=d50cbef177');
+    const { createCore } = await import('../worker-core.js?v=56920940a0');
     const core = createCore((m) => setTimeout(() => dispatch(m), 0));
     impl = { post: (m) => core.handle(structuredClone(m)), kind: 'main' };
     impl.post({ type: 'init' });

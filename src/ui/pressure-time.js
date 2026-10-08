@@ -5,9 +5,9 @@
 // per day). Changes the learner makes and threshold events are marked where they happened, and
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
-import { store } from './store.js?v=92c3226cca';
+import { store } from './store.js?v=f876ad06bb';
 import { h, fmt, fitCanvas, cssVar, clamp } from './util.js?v=86153645a3';
-import { FONT } from './charts.js?v=970242a427';
+import { FONT } from './charts.js?v=b9e9a9eedf';
 
 // hide: the readout a case can keep unmeasured (store.hiddenReadouts); day: the value on the
 // disease clock (null where the model keeps no daily value).
@@ -22,8 +22,10 @@ const TRACES = [
   { id: 'SMV', label: 'Superior mesenteric vein', abbr: 'SMV', short: 'SMV', c: '--tr-smv', hide: 'pv', on: false, day: null },
 ];
 const KEYS = [...TRACES.map((t) => t.id), 'hvpg'];
+const SMOOTH_S = 6; // seconds averaged by the Smooth toggle
 const RANGES = [['beats', '10 s', 10], ['minutes', '2 min', 120], ['days', 'Days', null]];
-const FINE_S = 12, COARSE_S = 130, BIN = 0.25;
+const LAG_S = 0.12; // wall seconds the trace runs behind the newest sample, so it can glide between frames
+const FINE_S = 22, COARSE_S = 140, BIN = 0.25;
 // HVPG cut-offs (Baveno): above normal, clinically significant, variceal bleeding risk.
 const LIMITS = [[5, ''], [10, 'CSPH 10'], [12, 'Bleeding risk 12']];
 const sevOf = (v) => (v < 5 ? 'ok' : v < 10 ? 'caution' : 'danger');
@@ -52,7 +54,12 @@ export function createPressureTime({ marks = () => [] } = {}) {
     });
     return b;
   }));
-  const el = h('div', { class: 'pt' }, h('div', { class: 'pt-head' }, hero, heroDelta, rangeSeg), box, chips);
+  // Display only: averages away the heartbeat and breathing swings; the simulation is untouched.
+  let smooth = false;
+  const smoothBtn = h('button', { class: 'pt-chip pt-smooth', 'aria-pressed': 'false', title: 'Show the mean: hide beat-to-beat and breathing variation', onclick: () => {
+    smooth = !smooth; yr.pressure = yr.hvpg = null; smoothBtn.setAttribute('aria-pressed', String(smooth)); draw();
+  } }, 'Smooth');
+  const el = h('div', { class: 'pt' }, h('div', { class: 'pt-head' }, hero, heroDelta, smoothBtn, rangeSeg), box, chips);
 
   function setRange(id) {
     range = id;
@@ -67,14 +74,14 @@ export function createPressureTime({ marks = () => [] } = {}) {
   const fine = { t: [], ...Object.fromEntries(KEYS.map((k) => [k, []])) };
   let coarse = [], bin = null;
   let days = [];
-  let clock = 'hemo', dayNow = 0, lastT = -Infinity, frame = null;
+  let clock = 'hemo', dayNow = 0, lastT = -Infinity, frame = null, wallAt = 0;
 
   function clearHemo() {
     for (const k of Object.keys(fine)) fine[k].length = 0;
     coarse = []; bin = null; lastT = -Infinity;
   }
   function ingest(f) {
-    frame = f;
+    frame = f; wallAt = performance.now();
     if (f.clock !== clock) {
       clock = f.clock;
       // The disease clock is a trend: show it as one while it runs, then return to the learner's range.
@@ -124,18 +131,40 @@ export function createPressureTime({ marks = () => [] } = {}) {
 
   // ── Series for the current range ──────────────────
   // Each series: { x: [...], mid: [...], lo?: [...], hi?: [...] } in the range's x units.
-  function series(key, x0) {
+  function series(key, x0, x1 = Infinity) {
+    if (!smooth || range === 'days') return rawSeries(key, x0, x1);
+    // Average over the whole retained history (so the left edge is not a short window), twice,
+    // then cut to the view: one pass leaves a ripple of the breathing rhythm at the newest end.
+    const all = smoothed(smoothed(rawSeries(key, -Infinity, x1), SMOOTH_S), SMOOTH_S / 2);
+    // Where the oldest samples lack a full window the average is lopsided: draw only from where it is complete.
+    const from = Math.max(x0 - 0.05, (all.x[0] ?? 0) + SMOOTH_S * 1.5);
+    let i = 0; while (i < all.x.length && all.x[i] < from) i++;
+    return { x: all.x.slice(i), mid: all.mid.slice(i) };
+  }
+  // Trailing mean over w seconds, without the trough-to-peak band.
+  function smoothed(s, w) {
+    const out = { x: s.x, mid: new Array(s.x.length) };
+    let j = 0, sum = 0, n = 0;
+    for (let i = 0; i < s.x.length; i++) {
+      const v = s.mid[i];
+      if (!Number.isNaN(v)) { sum += v; n++; }
+      while (s.x[j] < s.x[i] - w) { if (!Number.isNaN(s.mid[j])) { sum -= s.mid[j]; n--; } j++; }
+      out.mid[i] = n ? sum / n : NaN;
+    }
+    return out;
+  }
+  function rawSeries(key, x0, x1) {
     if (range === 'beats') {
       const out = { x: [], mid: [] };
-      for (let i = 0; i < fine.t.length; i++) if (fine.t[i] >= x0 - 0.05) { out.x.push(fine.t[i]); out.mid.push(fine[key][i]); }
+      for (let i = 0; i < fine.t.length; i++) if (fine.t[i] >= x0 - 0.05 && fine.t[i] <= x1) { out.x.push(fine.t[i]); out.mid.push(fine[key][i]); }
       return out;
     }
     if (range === 'minutes') {
       const out = { x: [], mid: [], lo: [], hi: [] };
-      const all = bin ? [...coarse, bin] : coarse;
+      const all = coarse; // the bin still filling has few samples and would wiggle at the tail
       for (const b of all) {
         const s = b.v[key];
-        if (!s || b.t < x0 - BIN) continue;
+        if (!s || b.t < x0 - BIN || b.t + BIN / 2 > x1) continue;
         out.x.push(b.t + BIN / 2); out.mid.push(s[2] / s[3]); out.lo.push(s[0]); out.hi.push(s[1]);
       }
       return out;
@@ -155,11 +184,15 @@ export function createPressureTime({ marks = () => [] } = {}) {
 
   // ── Drawing ───────────────────────────────────────
   const yr = { pressure: null, hvpg: null }; // eased y ranges, so the axis glides instead of jumping
+  // Sticky range: it only changes when the data leaves it (grow at once) or fills under 55% of it
+  // (shrink), so the scale holds still while the trace scrolls.
   function ease(key, lo, hi) {
     const r = yr[key];
-    if (!r || lo < r[0] || hi > r[1] || hi - lo < (r[1] - r[0]) * 0.5) { yr[key] = [lo, hi]; return yr[key]; }
-    r[0] += (lo - r[0]) * 0.12; r[1] += (hi - r[1]) * 0.12;
-    return r;
+    if (!r || lo < r[0] || hi > r[1] || hi - lo < (r[1] - r[0]) * 0.55) {
+      const m = (hi - lo) * 0.08;
+      yr[key] = [lo - m, hi + m];
+    }
+    return yr[key];
   }
 
   function hiddenSet() {
@@ -167,6 +200,20 @@ export function createPressureTime({ marks = () => [] } = {}) {
     if (st.imaging) return new Set(['pv', 'trueHVPG', 'ra']);
     return st.hiddenReadouts || new Set();
   }
+
+  // Frames arrive ~10×/s in bursts; the right edge advances with the wall clock in between
+  // (a little behind the newest sample), so the trace scrolls steadily instead of in steps.
+  function headX() {
+    if (lastT === -Infinity) return frame.t;
+    if (!frame.running || clock === 'disease') return lastT;
+    const rate = frame.speed || 1;
+    return lastT - LAG_S * rate + Math.min((performance.now() - wallAt) / 1000, LAG_S) * rate;
+  }
+  function tickLoop() {
+    requestAnimationFrame(tickLoop);
+    if (frame?.running && range !== 'days' && cv.offsetParent && !document.hidden) draw();
+  }
+  requestAnimationFrame(tickLoop);
 
   function draw() {
     const { ctx, w, h: hh } = fitCanvas(cv);
@@ -197,7 +244,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
       if (x1 - x0 < 14) x0 = x1 - 14;
     } else {
       const span = RANGES.find((r) => r[0] === range)[2];
-      xNow = lastT > -Infinity ? lastT : frame.t;
+      xNow = headX();
       x1 = xNow; x0 = x1 - span;
     }
     const X = (x) => L + ((x - x0) / Math.max(1e-9, x1 - x0)) * plotW;
@@ -219,7 +266,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
       lanes.push({ key: 'pressure', top: T, bot: T + pH }, { key: 'hvpg', top: T + pH + GAP, bot: T + avail });
     } else lanes.push({ key: traces.length ? 'pressure' : 'hvpg', top: T, bot: T + avail });
 
-    const data = Object.fromEntries([...traces.map((t) => t.id), 'hvpg'].map((k) => [k, series(k, x0)]));
+    const data = Object.fromEntries([...traces.map((t) => t.id), 'hvpg'].map((k) => [k, series(k, x0, x1)]));
     const hv = Math.max(0, frame.metrics.hvpg);
     const sevCol = col(`--${sevOf(hv) === 'ok' ? 'ok' : sevOf(hv)}`);
     const ends = [];
@@ -245,7 +292,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
       const keys = lane.key === 'pressure' ? traces.map((t) => t.id) : ['hvpg'];
       let mn = Infinity, mx = -Infinity;
       for (const k of keys) {
-        const s = data[k];
+        const s = range === 'days' ? data[k] : series(k, -Infinity, x1);
         for (let i = 0; i < s.x.length; i++) {
           const a = s.lo ? s.lo[i] : s.mid[i], b = s.hi ? s.hi[i] : s.mid[i];
           if (a < mn) mn = a; if (b > mx) mx = b;

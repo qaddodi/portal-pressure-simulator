@@ -4,9 +4,9 @@
 import { EDGES, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=dc393aabea';
 import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=d6c5cddad6';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
-import { store, updateParams } from './store.js?v=92c3226cca';
+import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=f876ad06bb';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=86153645a3';
-import { createLobuleZoom } from './lobule-zoom.js?v=e0aa5a194d';
+import { createLobuleZoom } from './lobule-zoom.js?v=e255330a7f';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=7d7c2490aa';
@@ -1373,7 +1373,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (≥ 0.3 mL/s), so a channel the model is using is never hidden.
   function collOpen(id, f) {
     const k = EI[id];
-    return recruitFrac(id, f) > 0.12 || Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) > 0.3;
+    return shownFrac(id, f) > 0.12 || Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) > 0.3;
+  }
+  // The channels that feed and drain the varices (coronary vein → esophageal varices → azygos; short gastric
+  // veins → fundal varices) are drawn open whenever the varices exist (see varicesPresent), whatever their own
+  // recruitment, so the figure and circuit show the same varices as the endoscopy pane.
+  const VARIX_CHANNELS = { C1a: 'VAR', C1b: 'VAR', C2: 'GV' };
+  function shownFrac(id, f) {
+    const site = VARIX_CHANNELS[id];
+    return site ? Math.max(recruitFrac(id, f), varixGrowth(f, site)) : recruitFrac(id, f);
   }
   function recruitFrac(id, f) {
     const e = EDGES[EI[id]];
@@ -1527,7 +1535,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     let geomDirty = false;
     for (const x of Object.values(E)) {
       if (x.e.kind !== 'collateral' || x.e.spontaneous) continue;
-      const w = recruitFrac(x.e.id, f) > 0.25 ? 1.5 + 3.5 * recruitFrac(x.e.id, f) : 0;
+      const w = shownFrac(x.e.id, f) > 0.25 ? 1.5 + 3.5 * shownFrac(x.e.id, f) : 0;
       if (Math.abs(w - geo[x.e.id].wig) > 0.6) { geo[x.e.id].wig = w; geomDirty = true; }
     }
     updateGeometry(geomDirty);
@@ -1638,7 +1646,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (x.heat && mode === 'heat') { setA(x.heat, 'stroke', c1); setA(x.heat, 'stroke-width', (w + 22).toFixed(1)); const ho = mode === 'heat' && ref ? clamp((x.pmid - (ref[NI[e.from]] + ref[NI[e.to]]) / 2) / 8, 0, 1).toFixed(2) : '0'; if (x.heat._op !== ho) { x.heat._op = ho; x.heat.style.opacity = ho; } }
       x.heatA = x.heat && mode === 'heat' && ref ? clamp((x.pmid - (ref[NI[e.from]] + ref[NI[e.to]]) / 2) / 8, 0, 1) : 0; x.heatCol = c1;
       if (e.kind === 'collateral') {
-        const fr = recruitFrac(e.id, f);
+        const fr = shownFrac(e.id, f);
         const qa = Math.abs(f.Qf ? f.Qf[k] : f.Q[k]);
         const openNow = collOpen(e.id, f);
         if (!openNow && wasDrawn && !x.g.classList.contains('coll-ghost') && !x.reveal && !quietFx()) startExit(x, f);
@@ -3008,7 +3016,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const sel = store.get().selection;
     if (id === 'GV' && f.metrics.gastricVarix.d <= 0) return false;   // no gastrorenal shunt: no fundal varices
     if (sel?.type === 'node' && sel.id === id) return true;
-    return (id === 'VAR' ? f.metrics.varix.d : f.metrics.gastricVarix.d) >= 2.5;
+    return varicesPresent(f, id);
   }
   // Where a leader stops: it aims at the middle of the label, as if it ran behind the text, and is
   // cut off abruptly (no fade) at a small padding around the label's box.
@@ -3111,7 +3119,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     labelK = labelBase() * (circuit ? CIRCUIT_LABEL_K * clamp(CTM.sc / 0.6, 0.7, 1) : 1);
     const wr = stageBox();
     const W = wr.width, H = wr.height;
-    // Solving ignores the stage edge and the panels: the slots belong to the figure, so a pan cannot change them.
+    // A solve prefers slots that sit inside the stage as it is now, but never depends on the panels, and a pan
+    // alone never searches again. A label a pan later pushes past the edge is pulled back in (see below).
+    const view = { x0: 6, y0: 6, x1: W - 6, y1: H - 6 };
     const compact = W < 700;
     // Floating panels over the figure (notifications, hint cards, banners): a label under one is hidden.
     // Their boxes are read before this frame's SVG changes (see updateInner), while layout is clean.
@@ -3160,13 +3170,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const [dx, dy] = offset(dir, probe, ps.gap);
         const r = rectOf({ ...probe, x: it.ax + dx, y: it.ay + dy });
         if (placed.some((p) => hits(r, p))) return;
-        const held = !!prev && !prev.drop && prev.dir === dir && prev.pi === pi;
+        const inside = within(r, view), held = !!prev && !prev.drop && prev.dir === dir && prev.pi === pi && (inside || !within({ x0: it.ax, y0: it.ay, x1: it.ax, y1: it.ay }, view));
         let onLine = 0;
         if (useLines) {
           onLine = lineHits(r, 0);
           if (ps.clear && (held ? onLine : lineHits(r, 3))) return;
         }
-        const cost = pi * 1e4 + (ps.clear ? 0 : onLine * 12) + i + (ps.bias || 0) - (held ? (ps.clear ? 1e5 : 4) : 0);
+        const cost = pi * 1e4 + (inside ? 0 : 2e3) + (ps.clear ? 0 : onLine * 12) + i + (ps.bias || 0) - (held ? (ps.clear ? 1e5 : 4) : 0);
         if (!best || cost < best.cost) best = { cost, dx, dy, r, dir, pi, leader: ps.leader };
       }));
       if (!best) { nextSol.set(it.key, { drop: true }); return false; }
@@ -3395,7 +3405,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // clear of the obstacle by a margin, so it cannot flicker at the edge. A selected label always shows.
     const stage = { x0: 0, y0: 0, x1: W, y1: H };
     for (const it of out) {
-      if (it.live || it.sel) { it.hide = false; continue; }
+      if (it.live) { it.hide = false; continue; }
+      // A label a pan has pushed over the stage edge is pulled back inside (with a leader to its station)
+      // so it is never cut off; once its station has left the stage the label goes too.
+      const edge = rectOf(it);
+      const cx = Math.max(view.x0 - edge.x0, Math.min(0, view.x1 - edge.x1)), cy = Math.max(view.y0 - edge.y0, Math.min(0, view.y1 - edge.y1));
+      if (cx || cy) { it.x += cx; it.y += cy; if (Math.hypot(cx, cy) > 2) it.leader = true; }
+      if (!it.sel && (it.ax < -8 || it.ax > W + 8 || it.ay < -8 || it.ay > H + 8)) { it.hide = true; labelVis.set(it.key, false); continue; }
+      if (it.sel) { it.hide = false; continue; }
       const r = rectOf(it), was = labelVis.get(it.key) !== false, m = was ? 0 : 10;
       it.hide = !hits(r, stage) || obstacles.some((o) => hits(r, { x0: o.x0 - m, y0: o.y0 - m, x1: o.x1 + m, y1: o.y1 + m }));
       labelVis.set(it.key, !it.hide);
