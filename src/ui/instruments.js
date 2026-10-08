@@ -4,11 +4,11 @@
 import { NODES } from '../engine/topology.js?v=dc393aabea';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { h, fmt, fitCanvas, cssVar, clamp, icon } from './util.js?v=86153645a3';
-import { simTime, isPaused } from './clock.js?v=aba62aedeb';
+import { simTime, isPaused } from './clock.js?v=035c822f5d';
 import { createEndoGL } from './endo-gl.js?v=f27c0841b0';
 import { renderEndo } from './endo-render.js?v=5ad939cd04';
-import { FONT } from './charts.js?v=970242a427';
-import { store, updateParams, logAction, varixSuppressed } from './store.js?v=92c3226cca';
+import { FONT } from './charts.js?v=c48ee4ca87';
+import { store, updateParams, logAction, varicesPresent } from './store.js?v=a404a360b7';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
@@ -25,17 +25,10 @@ export function createEndoscopy({ onAction }) {
     bandBtn,
     h('div', { class: 'ctl-sub' }, 'Drawn from the model. F1 small and straight, F2 enlarged and tortuous, F3 large and beaded; red wale marks mean high modeled wall stress.'));
   el.append(box, side);
-  const note = h('p', { class: 'ctl-sub', hidden: true }, '');
-  side.append(note);
   function update(f) {
     const m = f.metrics;
-    const off = view === 'eso' && varixSuppressed(), rhf = view === 'eso' && store.get().presetId === 'rhf';
-    note.hidden = !rhf;
-    note.textContent = off ? 'Not modeled for this patient: the model draws an esophageal varix in right heart failure that the clinical picture does not support.' : 'Caution: in right heart failure the model’s esophageal varix is an artifact, not a clinical finding.';
-    box.style.visibility = off ? 'hidden' : '';
-    if (off) { stats.replaceChildren(h('dt', {}, 'Esophageal varix'), h('dd', {}, 'not modeled')); return; }
     const vx = view === 'eso' ? m.varix : m.gastricVarix;
-    const noVx = vx.d < 2.5 && !(f.bands > 0);
+    const noVx = !varicesPresent(f, view === 'eso' ? 'VAR' : 'GV');
     bandBtn.disabled = noVx; bandBtn.title = noVx ? 'No varices to band' : '';
     stats.replaceChildren(
       h('dt', {}, 'Grade'), h('dd', {}, `${vx.grade.code} ${vx.grade.label}`),
