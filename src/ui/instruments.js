@@ -23,7 +23,7 @@ export function createEndoscopy({ onAction }) {
   const stats = h('dl', { class: 'kv wrap' });
   const side = h('div', { class: 'chart-side' }, stats,
     bandBtn,
-    h('div', { class: 'ctl-sub' }, 'Drawn from the model. F1 small and straight, F2 enlarged and tortuous, F3 large and beaded; red wale marks mean high modeled wall stress.'));
+    h('div', { class: 'ctl-sub' }, 'Drawn from the model. F1 small and straight, F2 enlarged and tortuous, F3 large and beaded.'));
   el.append(box, side);
   function update(f) {
     const m = f.metrics;
@@ -35,7 +35,6 @@ export function createEndoscopy({ onAction }) {
       h('dt', {}, 'Diameter'), h('dd', {}, `${fmt(vx.d, 1)} mm`),
       h('dt', {}, 'Wall thickness'), h('dd', {}, `${fmt(vx.w, 2)} mm`),
       h('dt', {}, 'Wall stress (model)'), h('dd', {}, vx.ratio >= 1 ? (store.get().params?.bleeding ? 'past the tear point' : 'past the tear point (bleeding is off, so it holds)') : `${Math.round(vx.ratio * 100)} % of the tear point`),
-      h('dt', {}, 'Red wale signs'), h('dd', {}, vx.redWale ? 'present' : 'absent'),
       h('dt', {}, 'Bands placed'), h('dd', {}, String(Math.round(f.bands || 0))));
     draw(f, vx);
   }
@@ -89,18 +88,18 @@ export function createEndoscopy({ onAction }) {
     if (Math.abs(tg - an.g) < 0.0008) an.g = tg;
     if (Math.abs(tv - an.v) < 0.0008) an.v = tv;
     let busy = an.g !== tg || an.v !== tv;
-    // Sequence: the band snaps on instantly, then (after a beat) the vein deflates smoothly.
-    for (let c = 0; c < 4; c++) busy = tween(an.def[c], defT[c], now, 1500, defT[c] > an.def[c].to ? 1000 : 0) || busy;
+    // The band snaps on and the banded vein starts deflating at once, in about half a second.
+    for (let c = 0; c < 4; c++) busy = tween(an.def[c], defT[c], now, 500, 0) || busy;
     for (let i = 0; i < 16; i++) busy = tween(an.kn[i], knT[i], now, 1, 0) || busy;
     if (busy && !raf && !isPaused()) raf = requestAnimationFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
     const res = clamp(Math.round(2 * R * (window.devicePixelRatio || 1)), 160, 480);
     let img;
-    if (gl) img = gl.render(res, { grow: an.g, vis: an.v, red: !!vx.redWale, def: an.def.map((t) => t.cur), kn: an.kn.map((t) => t.cur) });
+    if (gl) img = gl.render(res, { grow: an.g, vis: an.v, red: false, def: an.def.map((t) => t.cur), kn: an.kn.map((t) => t.cur) });
     else {
       // No WebGL: the CPU renderer draws the target state without transitions.
       const r2 = Math.min(res, 300), gq = Math.round(tg * 14) / 14;
-      const key = [r2, gq, bands, vx.redWale ? 1 : 0, Math.round(tv * 10)].join('|');
-      if (cache.key !== key) cache = { key, img: renderEndo(r2, { grow: gq, bands, vis: tv, redWale: !!vx.redWale }) };
+      const key = [r2, gq, bands, Math.round(tv * 10)].join('|');
+      if (cache.key !== key) cache = { key, img: renderEndo(r2, { grow: gq, bands, vis: tv, redWale: false }) };
       img = cache.img;
     }
     ctx.imageSmoothingQuality = 'high';
