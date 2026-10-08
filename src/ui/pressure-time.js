@@ -136,7 +136,9 @@ export function createPressureTime({ marks = () => [] } = {}) {
     // Average over the whole retained history (so the left edge is not a short window), twice,
     // then cut to the view: one pass leaves a ripple of the breathing rhythm at the newest end.
     const all = smoothed(smoothed(rawSeries(key, -Infinity, x1), SMOOTH_S), SMOOTH_S / 2);
-    let i = 0; while (i < all.x.length && all.x[i] < x0 - 0.05) i++;
+    // Where the oldest samples lack a full window the average is lopsided: draw only from where it is complete.
+    const from = Math.max(x0 - 0.05, (all.x[0] ?? 0) + SMOOTH_S * 1.5);
+    let i = 0; while (i < all.x.length && all.x[i] < from) i++;
     return { x: all.x.slice(i), mid: all.mid.slice(i) };
   }
   // Trailing mean over w seconds, without the trough-to-peak band.
