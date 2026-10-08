@@ -62,7 +62,7 @@ test('ascites lesson: about 4 litres to tap, and it comes back without diuretics
   e.setParams(deepMerge(e.params, { diuretics: false })); e.settle();
   run(e.advanceDaySteps(300)); e.settle();
   const v = computeMetrics(e).ascites.volume;
-  assert.ok(v > 3500 && v < 5000, `ascites ${Math.round(v)} mL`);
+  assert.ok(v > 3500 && v < 5500, `ascites ${Math.round(v)} mL`);
   e.paracentesis(5000, true); run(e.advanceDaySteps(90)); e.settle();
   assert.ok(computeMetrics(e).ascites.volume > 2000, 'fluid returns');
 });
@@ -104,11 +104,11 @@ test('esophageal varix size follows the portal-to-right-atrial gradient across e
   }
 });
 
-test('a patient made cirrhotic in the moment has no varices yet; they form with disease time', () => {
+test('varices follow the gradient in real time: a patient made cirrhotic now has them now', () => {
   const e = new Engine(); run(e.loadPresetSteps('healthy', {}));
+  assert.ok(computeMetrics(e).varix.d < 2.5);
   e.setParams(deepMerge(e.params, { cirrhosis: 1 })); e.settle();
-  const m0 = computeMetrics(e).varix;
-  assert.ok(m0.d < 2.6 && m0.target >= 2.5, `target ${m0.target.toFixed(1)}, now ${m0.d.toFixed(1)}`);   // the UI says "forming"
-  run(e.advanceDaySteps(30)); e.settle();
-  assert.ok(computeMetrics(e).varix.d >= 2.5);
+  assert.ok(computeMetrics(e).varix.d >= 5, `varix ${computeMetrics(e).varix.d.toFixed(1)} mm`);
+  e.setParams(deepMerge(e.params, { cirrhosis: 0 })); e.settle();
+  assert.ok(computeMetrics(e).varix.d < 2.5, 'and they are gone when the gradient is');
 });

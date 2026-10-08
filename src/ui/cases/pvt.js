@@ -10,7 +10,7 @@ const A = {
   exam: ['Mild tenderness across the upper abdomen. No guarding, no ascites, spleen not palpable.'],
   labs: [['Bilirubin', '1.0 mg/dL', ''], ['Albumin', '3.8 g/dL', ''], ['INR', '1.1', ''], ['Platelets', '330 ×10⁹/L', 'warn'], ['CRP', '80 mg/L', 'warn'], ['Lactate', '1.4 mmol/L', '']],
   ct: ['Occlusive thrombus in the main portal vein, extending into the superior mesenteric vein.', 'Liver enhances normally. No thickened bowel wall. No ascites.'],
-  egd: ['No varices. Normal stomach.'],
+  egd: ['{eso}. Normal stomach.'],
   clot: ['JAK2 V617F mutation: negative. Other clotting tests pending. Recent surgery and abdominal infection are the likely triggers.'],
 };
 const C = {
