@@ -24,6 +24,7 @@ const TRACES = [
 const KEYS = [...TRACES.map((t) => t.id), 'hvpg'];
 const SMOOTH_S = 6; // seconds averaged by the Smooth toggle
 const RANGES = [['beats', '10 s', 10], ['minutes', '2 min', 120], ['days', 'Days', null]];
+const LAG_S = 0.12; // wall seconds the trace runs behind the newest sample, so it can glide between frames
 const FINE_S = 12, COARSE_S = 130, BIN = 0.25;
 // HVPG cut-offs (Baveno): above normal, clinically significant, variceal bleeding risk.
 const LIMITS = [[5, ''], [10, 'CSPH 10'], [12, 'Bleeding risk 12']];
@@ -73,14 +74,14 @@ export function createPressureTime({ marks = () => [] } = {}) {
   const fine = { t: [], ...Object.fromEntries(KEYS.map((k) => [k, []])) };
   let coarse = [], bin = null;
   let days = [];
-  let clock = 'hemo', dayNow = 0, lastT = -Infinity, frame = null;
+  let clock = 'hemo', dayNow = 0, lastT = -Infinity, frame = null, wallAt = 0;
 
   function clearHemo() {
     for (const k of Object.keys(fine)) fine[k].length = 0;
     coarse = []; bin = null; lastT = -Infinity;
   }
   function ingest(f) {
-    frame = f;
+    frame = f; wallAt = performance.now();
     if (f.clock !== clock) {
       clock = f.clock;
       // The disease clock is a trend: show it as one while it runs, then return to the learner's range.
@@ -130,8 +131,8 @@ export function createPressureTime({ marks = () => [] } = {}) {
 
   // ── Series for the current range ──────────────────
   // Each series: { x: [...], mid: [...], lo?: [...], hi?: [...] } in the range's x units.
-  function series(key, x0) {
-    const out = rawSeries(key, x0);
+  function series(key, x0, x1 = Infinity) {
+    const out = rawSeries(key, x0, x1);
     return smooth && range !== 'days' ? smoothed(out) : out;
   }
   // Trailing mean over SMOOTH_S seconds (longer than a breath), without the trough-to-peak band.
@@ -146,10 +147,10 @@ export function createPressureTime({ marks = () => [] } = {}) {
     }
     return out;
   }
-  function rawSeries(key, x0) {
+  function rawSeries(key, x0, x1) {
     if (range === 'beats') {
       const out = { x: [], mid: [] };
-      for (let i = 0; i < fine.t.length; i++) if (fine.t[i] >= x0 - 0.05) { out.x.push(fine.t[i]); out.mid.push(fine[key][i]); }
+      for (let i = 0; i < fine.t.length; i++) if (fine.t[i] >= x0 - 0.05 && fine.t[i] <= x1) { out.x.push(fine.t[i]); out.mid.push(fine[key][i]); }
       return out;
     }
     if (range === 'minutes') {
@@ -157,7 +158,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
       const all = bin ? [...coarse, bin] : coarse;
       for (const b of all) {
         const s = b.v[key];
-        if (!s || b.t < x0 - BIN) continue;
+        if (!s || b.t < x0 - BIN || b.t + BIN / 2 > x1) continue;
         out.x.push(b.t + BIN / 2); out.mid.push(s[2] / s[3]); out.lo.push(s[0]); out.hi.push(s[1]);
       }
       return out;
@@ -190,6 +191,20 @@ export function createPressureTime({ marks = () => [] } = {}) {
     return st.hiddenReadouts || new Set();
   }
 
+  // Frames arrive ~10×/s in bursts; the right edge advances with the wall clock in between
+  // (a little behind the newest sample), so the trace scrolls steadily instead of in steps.
+  function headX() {
+    if (lastT === -Infinity) return frame.t;
+    if (!frame.running || clock === 'disease') return lastT;
+    const rate = frame.speed || 1;
+    return lastT - LAG_S * rate + Math.min((performance.now() - wallAt) / 1000, LAG_S) * rate;
+  }
+  function tickLoop() {
+    requestAnimationFrame(tickLoop);
+    if (frame?.running && range !== 'days' && cv.offsetParent && !document.hidden) draw();
+  }
+  requestAnimationFrame(tickLoop);
+
   function draw() {
     const { ctx, w, h: hh } = fitCanvas(cv);
     ctx.clearRect(0, 0, w, hh);
@@ -219,7 +234,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
       if (x1 - x0 < 14) x0 = x1 - 14;
     } else {
       const span = RANGES.find((r) => r[0] === range)[2];
-      xNow = lastT > -Infinity ? lastT : frame.t;
+      xNow = headX();
       x1 = xNow; x0 = x1 - span;
     }
     const X = (x) => L + ((x - x0) / Math.max(1e-9, x1 - x0)) * plotW;
@@ -241,7 +256,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
       lanes.push({ key: 'pressure', top: T, bot: T + pH }, { key: 'hvpg', top: T + pH + GAP, bot: T + avail });
     } else lanes.push({ key: traces.length ? 'pressure' : 'hvpg', top: T, bot: T + avail });
 
-    const data = Object.fromEntries([...traces.map((t) => t.id), 'hvpg'].map((k) => [k, series(k, x0)]));
+    const data = Object.fromEntries([...traces.map((t) => t.id), 'hvpg'].map((k) => [k, series(k, x0, x1)]));
     const hv = Math.max(0, frame.metrics.hvpg);
     const sevCol = col(`--${sevOf(hv) === 'ok' ? 'ok' : sevOf(hv)}`);
     const ends = [];
