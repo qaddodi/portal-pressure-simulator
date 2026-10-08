@@ -13,7 +13,7 @@ const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6],
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
 const EXT_OVERRIDE = { IVC_IS: 'abd', CAUD: 'none' };
 
-export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 12.3, k: 0.35, kGV: 0.3, openGV: 3.5 };
+export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 7.0, k: 0.35, kGV: 0.4, openGV: 5.0 };
 /** Rupture hazard per day as a function of T/Tcrit (§7.5). */
 const ruptureHazardPerDay = (x) => (x <= 1 ? 0 : 0.01 * Math.pow((x - 1) / 0.25, 3));
 const COLLATERAL = { open: 7.5, span: 14, tauGrow: 50, tauRegress: 120, acute: 0.4 };
@@ -585,14 +585,14 @@ export class Engine {
     }
     // Varix baseline radius relaxes toward a transmural-pressure target (remodeling)
     for (const site of ['VAR', 'GV']) {
-      // Esophageal varices follow the portosystemic pressure gradient: the pressure in the varix above the
-      // systemic venous (right atrial) pressure it drains to, plus the normal central venous level of 3 mmHg
-      // (no varices below an HVPG-like gradient of ~10, large ones from ~12-14, very large above ~20). Absolute
-      // pressure does not grow varices: in right heart failure or constriction the whole venous bed is high
-      // but the gradient is nil, so none form. The collateral route excess falls as shunts open, so it cannot
-      // drive the size. Gastric varices keep the route-excess drive (itself a gradient, SV to IVC).
-      const i = this.ni[site];
-      const ex = site === 'VAR' ? P[i] - P[this.ni.RA] + 3 : this.routeExcess(['SV', 'IVCI']);
+      // Both kinds of varix follow the portosystemic pressure gradient above its healthy value, the same quantity
+      // that recruits collaterals (see routeExcess): the portal-to-systemic drop for esophageal varices (portal
+      // pressure above the right atrium it drains to; no varices below an HVPG-like gradient of ~10, large ones
+      // from ~12-14, very large above ~20) and splenic vein to IVC for fundal ones. Absolute venous pressure
+      // grows nothing: in right heart failure or constriction the whole bed is high and the gradient is nil.
+      // Portal pressure, not the pressure inside the varix, because the collaterals themselves drop it as they
+      // open and the size must not fall away as they do.
+      const ex = site === 'VAR' ? this.routeExcess(['CONF', 'RA']) : this.routeExcess(['SV', 'IVCI']);
       // Fundal varices exist only where a gastrorenal shunt can drain them.
       const ex0 = site === 'GV' && p.spontaneous.C5 === false ? -1e9 : ex;
       const target = clamp(VARIX.r0Healthy + (site === 'GV' ? VARIX.kGV : VARIX.k) * Math.max(0, ex0 - (site === 'GV' ? VARIX.openGV : VARIX.open)), VARIX.r0Healthy, VARIX.rMax);
