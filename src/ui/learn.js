@@ -2,12 +2,12 @@
 
 import { store, updateParams } from './store.js?v=92c3226cca';
 import { host } from './host.js?v=deac990140';
-import { h, fmt, toast, svgIcon } from './util.js?v=16a4c9b619';
+import { h, fmt, toast, svgIcon } from './util.js?v=86153645a3';
 import { createAnswerSheet, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=7f4afcf446';
 import { addRecord } from './records.js?v=50fb9dd463';
 import { runSequence } from './sequence.js?v=b52c803f4f';
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
-import { trustLine, teachChip, blindOn, blindOff, isBlind, optionList, compareChip, bindQuestionKeys, mirrorMarker } from './learning-kit.js?v=434630315c';
+import { trustLine, teachChip, blindOn, blindOff, isBlind, optionList, compareChip, bindQuestionKeys, mirrorMarker } from './learning-kit.js?v=2de22933e9';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 

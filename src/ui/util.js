@@ -72,12 +72,13 @@ export function toast(msg, kind = '') {
   const wrap = document.getElementById('toasts');
   // One message at a time reads calmer than a growing stack.
   while (wrap.children.length >= 2) wrap.firstChild.remove();
-  // A card rises from below the screen over the vitals dock, a little smaller than it, then slides away.
-  const anchor = document.querySelector('.vdock');
-  const r = anchor?.offsetParent && anchor.getBoundingClientRect();
-  wrap.classList.toggle('docked', !!(r && r.width));
-  if (r && r.width) {
-    Object.assign(wrap.style, { left: `${r.left + 12}px`, width: `${r.width - 24}px`, height: `${Math.max(56, r.height - 24)}px`, bottom: `${Math.max(0, innerHeight - r.bottom) + 12}px`, maxWidth: 'none' });
+  // A card slides down from behind the top bars and settles just below them (below every row on a phone).
+  const bars = document.getElementById('topbar');
+  const r = document.querySelector('.vdock')?.offsetParent && bars?.getBoundingClientRect();
+  wrap.classList.toggle('docked', !!(r && r.height));
+  if (r && r.height) {
+    const w = Math.min(innerWidth - 24, 560);
+    Object.assign(wrap.style, { left: `${(innerWidth - w) / 2 - 20}px`, width: `${w + 40}px`, top: `${r.bottom}px`, bottom: 'auto', height: '', maxWidth: 'none' });
   }
   const t = h('div', { class: 'toast ' + kind, role: 'status' }, h('span', { class: 'toast-msg' }, msg));
   let timer = 0;
@@ -94,8 +95,9 @@ export function toast(msg, kind = '') {
   // Fill the docked card: the largest size that fits, stepping down for longer text, never clipped.
   if (wrap.classList.contains('docked')) {
     const m = t.querySelector('.toast-msg');
-    let px = msg.length <= 28 ? 30 : msg.length <= 60 ? 24 : 20;
-    for (; px > 13; px--) { m.style.fontSize = `${px}px`; if (m.scrollHeight <= t.clientHeight - 8 && m.scrollWidth <= m.clientWidth) break; }
+    if (msg.length > 60) t.style.height = '84px';
+    let px = msg.length <= 28 ? 20 : msg.length <= 60 ? 17 : 15;
+    for (; px > 12; px--) { m.style.fontSize = `${px}px`; if (m.scrollHeight <= t.clientHeight - 8 && m.scrollWidth <= m.clientWidth) break; }
   }
   timer = setTimeout(close, 4200);
 }

@@ -3,11 +3,11 @@
 
 import { NODES } from '../engine/topology.js?v=dc393aabea';
 import { pressureColor } from './colormap.js?v=6d64a94345';
-import { h, fmt, fitCanvas, cssVar, clamp, icon } from './util.js?v=16a4c9b619';
+import { h, fmt, fitCanvas, cssVar, clamp, icon } from './util.js?v=86153645a3';
 import { simTime, isPaused } from './clock.js?v=aba62aedeb';
 import { createEndoGL } from './endo-gl.js?v=f27c0841b0';
 import { renderEndo } from './endo-render.js?v=5ad939cd04';
-import { FONT } from './charts.js?v=9840ed1f42';
+import { FONT } from './charts.js?v=9241b5377d';
 import { store, updateParams, logAction, varixSuppressed } from './store.js?v=92c3226cca';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
