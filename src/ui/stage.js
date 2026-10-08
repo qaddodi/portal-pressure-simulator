@@ -3119,7 +3119,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     labelK = labelBase() * (circuit ? CIRCUIT_LABEL_K * clamp(CTM.sc / 0.6, 0.7, 1) : 1);
     const wr = stageBox();
     const W = wr.width, H = wr.height;
-    // Solving ignores the stage edge and the panels: the slots belong to the figure, so a pan cannot change them.
+    // A solve prefers slots that sit inside the stage as it is now, but never depends on the panels, and a pan
+    // alone never searches again. A label a pan later pushes past the edge is pulled back in (see below).
+    const view = { x0: 6, y0: 6, x1: W - 6, y1: H - 6 };
     const compact = W < 700;
     // Floating panels over the figure (notifications, hint cards, banners): a label under one is hidden.
     // Their boxes are read before this frame's SVG changes (see updateInner), while layout is clean.
@@ -3168,13 +3170,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const [dx, dy] = offset(dir, probe, ps.gap);
         const r = rectOf({ ...probe, x: it.ax + dx, y: it.ay + dy });
         if (placed.some((p) => hits(r, p))) return;
-        const held = !!prev && !prev.drop && prev.dir === dir && prev.pi === pi;
+        const inside = within(r, view), held = !!prev && !prev.drop && prev.dir === dir && prev.pi === pi && (inside || !within({ x0: it.ax, y0: it.ay, x1: it.ax, y1: it.ay }, view));
         let onLine = 0;
         if (useLines) {
           onLine = lineHits(r, 0);
           if (ps.clear && (held ? onLine : lineHits(r, 3))) return;
         }
-        const cost = pi * 1e4 + (ps.clear ? 0 : onLine * 12) + i + (ps.bias || 0) - (held ? (ps.clear ? 1e5 : 4) : 0);
+        const cost = pi * 1e4 + (inside ? 0 : 2e3) + (ps.clear ? 0 : onLine * 12) + i + (ps.bias || 0) - (held ? (ps.clear ? 1e5 : 4) : 0);
         if (!best || cost < best.cost) best = { cost, dx, dy, r, dir, pi, leader: ps.leader };
       }));
       if (!best) { nextSol.set(it.key, { drop: true }); return false; }
@@ -3403,7 +3405,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // clear of the obstacle by a margin, so it cannot flicker at the edge. A selected label always shows.
     const stage = { x0: 0, y0: 0, x1: W, y1: H };
     for (const it of out) {
-      if (it.live || it.sel) { it.hide = false; continue; }
+      if (it.live) { it.hide = false; continue; }
+      // A label a pan has pushed over the stage edge is pulled back inside (with a leader to its station)
+      // so it is never cut off; once its station has left the stage the label goes too.
+      const edge = rectOf(it);
+      const cx = Math.max(view.x0 - edge.x0, Math.min(0, view.x1 - edge.x1)), cy = Math.max(view.y0 - edge.y0, Math.min(0, view.y1 - edge.y1));
+      if (cx || cy) { it.x += cx; it.y += cy; if (Math.hypot(cx, cy) > 2) it.leader = true; }
+      if (!it.sel && (it.ax < -8 || it.ax > W + 8 || it.ay < -8 || it.ay > H + 8)) { it.hide = true; labelVis.set(it.key, false); continue; }
+      if (it.sel) { it.hide = false; continue; }
       const r = rectOf(it), was = labelVis.get(it.key) !== false, m = was ? 0 : 10;
       it.hide = !hits(r, stage) || obstacles.some((o) => hits(r, { x0: o.x0 - m, y0: o.y0 - m, x1: o.x1 + m, y1: o.y1 + m }));
       labelVis.set(it.key, !it.hide);
