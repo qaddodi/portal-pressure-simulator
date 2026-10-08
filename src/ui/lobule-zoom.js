@@ -773,12 +773,9 @@ export function createLobuleZoom({ host }) {
     setLab('triad', 'Portal venule', 'Portal venule', ...mv('triad', m.P1, m.R[0]));
     setLab('sin', 'Sinusoids', 'Sinusoids', ...mv('sin', m.P2, m.R[1]));
     setLab('cv', 'Central venule', 'Central venule', ...mv('cv', m.P3, m.R[2]));
-    // Lymph (Lymph layer on): the whole liver's rate, with the change from healthy (or from the pinned moment).
-    const dl = m.lymph - m.lymphRef, ly = m.lymphRef > 0 ? dl / m.lymphRef : 0, lon = m.cmp ? 0.1 : 0.25, loff = m.cmp ? 0.07 : 0.2;
-    const lshown = Math.abs(ly) >= lon || (badges.lymph === m.cmp && Math.abs(ly) >= loff);
-    badges.lymph = lshown ? m.cmp : null;
+    // Lymph (Lymph layer on): the whole liver's rate and its protein; the change from healthy is on its card.
     if (m.hide) setLab('lymph', 'Lymphatic', 'Lymph', '?', '', '', null);
-    else setLab('lymph', 'Lymphatic', 'Lymph', fmt(m.lymph, 1), `mL/min · protein ${Math.round(m.lyProt * 100)}%`, lshown ? `${dl > 0 ? '▲' : '▼'} ${Math.round(Math.abs(ly) * 100)}%` : '', null);
+    else setLab('lymph', 'Lymphatic', 'Lymph', fmt(m.lymph, 1), `mL/min · protein ${Math.round(m.lyProt * 100)}%`, '', null);
   }
 
   // ── Station labels (HTML, styled as the anatomy's) with leaders ──
