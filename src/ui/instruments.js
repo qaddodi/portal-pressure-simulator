@@ -3,6 +3,7 @@
 
 import { NODES } from '../engine/topology.js?v=dc393aabea';
 import { pressureColor } from './colormap.js?v=6d64a94345';
+import { verbEnabled } from './actions.js?v=c318d652d9';
 import { h, fmt, fitCanvas, cssVar, clamp, icon } from './util.js?v=e803df99cd';
 import { simTime, isPaused } from './clock.js?v=953a5f70a7';
 import { createEndoGL } from './endo-gl.js?v=b10afb7c95';
@@ -230,8 +231,9 @@ export function createAbdomen({ onAction }) {
     drain.disabled = !hasFluid;
   }
   paintVol();
-  const diu = h('input', { type: 'checkbox', role: 'switch', 'aria-label': 'Diuretics' });
-  diu.addEventListener('change', () => updateParams((p) => { p.diuretics = diu.checked; return p; }, { label: 'Diuretics' }));
+  // Diuretics: the same order chip as Treatments, driving the same parameter.
+  const diu = h('button', { class: 'order-chip', 'aria-pressed': 'false', title: 'Spironolactone + furosemide: renal sodium and water loss mobilizes ascites.' }, h('span', { class: 'oc-dot' }, icon('check')), h('span', { class: 'oc-t' }, 'Diuretics'));
+  diu.addEventListener('click', () => updateParams((p) => { p.diuretics = !p.diuretics; return p; }, { label: 'Diuretics' }));
   // Serum albumin is a patient input that drives ascites (oncotic pull back into the vessels) and the SAAG.
   const sa = stepper('Serum albumin', 'g/dL', 1.5, 5, 0.1, 1, 4, (v) => updateParams((p) => { p.albumin = v; return p; }, { label: 'Serum albumin' }));
   const numEl = h('b', {}, '—'), gradeEl = h('span', { class: 'ab-grade' });
@@ -255,11 +257,11 @@ export function createAbdomen({ onAction }) {
   const info = h('div', { class: 'ab-report' },
     h('div', { class: 'ab-head' }, h('div', { class: 'ab-sum' }, h('div', { class: 'hv-k' }, 'Ascites'), h('div', { class: 'hv-num' }, numEl, h('small', {}, 'L')), h('div', { class: 'ab-meta' }, gradeEl, trendEl)), belly),
     iap, tap);
-  // Treat: one card, diuretics as a switch row, then the tap row and a full-width Drain.
+  // Treat: one card, the diuretics order chip, then the tap row and a full-width Drain.
   const treat = h('div', { class: 'ab-report' },
     h('div', { class: 'ab-rx' },
       h('div', { class: 'hv-k' }, 'Treat'),
-      h('label', { class: 'ab-row ab-rx-row' }, h('span', { class: 'ab-rx-txt' }, h('b', {}, 'Diuretics'), h('small', {}, 'spironolactone + furosemide')), h('span', { class: 'switch' }, diu, h('span'))),
+      h('div', { class: 'ab-row ab-rx-row ab-rx-diu' }, diu, h('small', { class: 'ab-note' }, 'spironolactone + furosemide')),
       h('div', { class: 'ab-row ab-rx-row' }, h('span', { class: 'ab-rx-txt' }, h('b', {}, 'Paracentesis'), h('small', {}, 'litres to drain')), vol.el),
       h('div', { class: 'ab-drain-row' }, alb, drain), albNote),
     h('details', { class: 'instrument-details' }, h('summary', {}, 'Why it forms'), extraStats));
@@ -269,7 +271,8 @@ export function createAbdomen({ onAction }) {
     numEl.textContent = fmt(a.volume / 1000, 1);
     gradeEl.textContent = GRADE[a.grade] || a.label; gradeEl.title = GRADE_TIP[a.grade] || '';
     gradeEl.dataset.sev = SEV[a.grade] || 'danger';
-    if (diu.checked !== !!p.diuretics) diu.checked = !!p.diuretics;
+    diu.setAttribute('aria-pressed', String(!!p.diuretics));
+    diu.disabled = !(verbEnabled('drug:diuretics', 'drug:diuretics') || verbEnabled('drugs', 'drugs'));
     if (sa.get() !== p.albumin) sa.set(p.albumin);
     const r = a.ratePerDay, trend = Math.abs(r) < 20 ? 'steady' : r > 0 ? 'building up' : 'resolving';
     trendEl.textContent = `${r > 0 ? '+' : ''}${fmt(r, 0)} mL a day · ${trend}`;

@@ -3511,7 +3511,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .ab-lab { align-content: center; }
 .ab-rx { display: grid; gap: 4px; padding: 10px 12px; border-radius: var(--r-control); background: var(--surface); border: 1px solid var(--hairline); }
 .ab-rx-row { min-height: 44px; }
-label.ab-rx-row { cursor: pointer; border-bottom: 1px solid var(--hairline); }
+.ab-rx-diu { border-bottom: 1px solid var(--hairline); }
 .ab-rx-txt { display: grid; min-width: 0; font-size: var(--fs-14); color: var(--text); line-height: 1.25; }
 .ab-rx-txt b { font-weight: 600; }
 .ab-rx-txt small { font-size: var(--fs-12); color: var(--text-3); }
