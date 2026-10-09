@@ -487,11 +487,13 @@ vec4 bloodAt(int id, float s, float y, vec3 col) {
   float p = min(1.0, flux * s0 / (max(abs(vd), 2.0) * sumK));
   p = max(p, 0.45 * stasis);
   float ends = min(f1.x > 0.5 ? smoothstep(0.0, 1.5 * s0, s) : 1.0, f1.y > 0.5 ? smoothstep(0.0, 1.5 * s0, len - s) : 1.0);
-  float lum = dot(col, vec3(0.299, 0.587, 0.114));
-  bool pale = lum > 0.62 && origin == 0;   // the origin streams always take light ink
+  // Light or dark ink from the vessel's own color (not the shaded pixel, whose highlights would flip a streak
+  // between white and dark as it passes), eased across a range so a vessel near the cut-off never switches.
+  vec3 vc = mix(texelFetch(tube, ivec2(0, id), 0).rgb, texelFetch(tube, ivec2(1, id), 0).rgb, clamp(s / len, 0.0, 1.0));
+  float pale = origin == 0 ? smoothstep(0.58, 0.66, dot(vc, vec3(0.299, 0.587, 0.114))) : 0.0;   // the origin streams always take light ink
   // Parcels read as bright beads with a soft glow on a dark lumen, deep beads on a pale one.
-  vec3 core = pale ? mix(col, inkDark, 0.62) : mix(col, inkLight, 0.86);
-  vec3 halo = pale ? mix(col, inkDark, 0.3) : mix(col, inkLight, 0.45);
+  vec3 core = mix(mix(col, inkLight, 0.86), mix(col, inkDark, 0.62), pale);
+  vec3 halo = mix(mix(col, inkLight, 0.45), mix(col, inkDark, 0.3), pale);
   // Flow running backwards: the moving blood warms to orange (not over the origin streams, whose
   // amber it would be lost in).
   float rev = origin == 1 ? 0.0 : f1.w;
