@@ -1293,6 +1293,11 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 }
 .action-card.docked.peek .ac-scroll { display: none; }
 .action-card.docked.peek .ac-top { padding-bottom: 12px; }
+/* With Measure / Instruments open on a phone the info card does not hide under it: it rises above the sheet as a
+   compact header strip (kind, name, reading, Why?/Details, close) so both can be read at once. */
+.app.dock-open:not(.instrument-focus) .action-card.docked { bottom: var(--bot-occ, 0px); height: auto; max-height: none; border-radius: var(--r-sheet); }
+.app.dock-open:not(.instrument-focus) .action-card.docked .ac-scroll { display: none; }
+.app.dock-open:not(.instrument-focus) .action-card.docked .ac-top { padding-bottom: 10px; }
 .action-card.docked .ac-top { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 2px; align-items: center; padding: 2px 12px 4px; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
 .action-card.docked .ac-head, .action-card.docked .ac-titles, .action-card.docked .ac-readout { display: contents; }
 .action-card.docked .ac-grab { grid-column: 1 / -1; grid-row: 1; display: block; width: 100%; height: 12px; margin: 0; padding: 0; border: 0; background: none; cursor: pointer; position: relative; }
