@@ -21,6 +21,7 @@
 
 import { h, fmt, clamp, lerp } from './util.js?v=e803df99cd';
 import { pressureColor } from './colormap.js?v=6d64a94345';
+import { isPaused } from './clock.js?v=c6de7b1dd0';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
 import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=bbcbeee81b';
 
@@ -71,6 +72,7 @@ export function createSinusoidView({ host }) {
   el.addEventListener('wheel', (ev) => ev.preventDefault(), { passive: false });
 
   // ── State ──
+  let go = 1;   // 1 while the simulation runs, eased to 0 when paused: the flow, lymph, particles and proteins slow to a stop and resume without a jump
   let model = null, shown = 0, open = false, raf = 0, last = 0, dive = null, reveal = 1, drewNow = false;
   const S = {};          // the drawing's state, easing toward sinusoidTargets(model)
   let geo = null, geoKey = '';
@@ -343,7 +345,9 @@ export function createSinusoidView({ host }) {
     ensureGeo(W, H);
     if (dt > 0 || S.lum == null) stepState(dt);
     stepView(dt);
-    if (run && dt > 0) stepMovers(dt);
+    go += ((isPaused() ? 0 : 1) - go) * (dt > 0 ? 1 - Math.exp(-dt / 0.25) : 0);
+    if (go < 0.002) go = 0;
+    if (run && dt > 0 && go > 0) stepMovers(dt * go);
     if (!paint) return;
     const dpr = Math.min(2, devicePixelRatio || 1);
     if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
@@ -394,7 +398,7 @@ export function createSinusoidView({ host }) {
     if (shown <= 0 || !model) return;
     const dt = Math.min(0.1, (now - (last || now)) / 1000); last = now;
     // (While the zoom runs, place() has already drawn this frame in step with the lobule.)
-    draw(dt, !reduce.matches, !drewNow);   // (the wall's traffic keeps going while the clock is paused: it shows the present state)
+    draw(dt, !reduce.matches, !drewNow);   // (the wall's traffic eases to a stop while the clock is paused, and picks up again on resume)
     drewNow = false;
     raf = requestAnimationFrame(loop);
   }

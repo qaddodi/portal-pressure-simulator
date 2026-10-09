@@ -3,8 +3,8 @@
 
 import { startHost, host } from './host.js?v=b54d9b1fcc';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=1d7cd9b00f';
-import { createStage } from './stage.js?v=6370dcd5f2';
-import { sinusoidSupported } from './sinusoid-view.js?v=528cc6cad5';
+import { createStage } from './stage.js?v=c0b905bb73';
+import { sinusoidSupported } from './sinusoid-view.js?v=29d2f84747';
 import { createInspector } from './inspector.js?v=f2a0cd3e9a';
 import { createDock, CUTOFFS } from './dock.js?v=c941fd3065';
 import { setHvpgStage } from './hvpg-proc.js?v=3f37488f0d';
@@ -183,6 +183,10 @@ async function main() {
   store.on('view', (v) => { stage.setView(v); syncViewSeg(); });
   store.on('lobule', syncViewSeg);
   store.on('sinusoid', syncViewSeg);
+  // The sinusoid view hides the timeline, so it gets its own play / pause (Space works too).
+  const sinPlay = $('#btnSinPlay'), syncSinPlay = () => { const on = store.get().running; sinPlay.setAttribute('aria-label', on ? 'Pause' : 'Play'); sinPlay.replaceChildren(icon(on ? 'pause' : 'play')); };
+  sinPlay.addEventListener('click', () => host.send({ type: 'run', running: !store.get().running }));
+  store.on('running', syncSinPlay);
   store.on('tool', (t) => {
     for (const c of [...view.classList]) if (c.startsWith('tool-')) view.classList.remove(c);
     view.classList.add('tool-' + t);
