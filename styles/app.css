@@ -3167,3 +3167,15 @@ body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state
   .instrument-workspace .dock-head { padding: 10px 8px 2px 16px !important; }
   .instrument-workspace .dock-pane { padding-left: 16px; padding-right: 16px; }
 }
+
+/* Measure on desktop (batch B): the caption first, then a slim bar with the path and legend,
+   then the chart, which grows to fill the card instead of leaving a blank strip below. */
+@media (min-width: 1024px) and (pointer: fine) {
+  .instrument-workspace .dock-pane[data-pane="profile"] > .instrument-view { display: flex; flex-direction: column; align-items: stretch; gap: 10px; flex: 1 1 auto; }
+  .instrument-workspace .dock-pane[data-pane="profile"] .chart-side { order: -1; display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+  .dock-pane[data-pane="profile"] .chart-side .sub { order: -1; flex: 1 0 100%; margin: 0; font-size: var(--fs-12); line-height: 1.45; color: var(--text-3); }
+  .dock-pane[data-pane="profile"] .chart-side .select { flex: 0 1 auto; width: auto; min-width: 200px; height: 32px; }
+  .dock-pane[data-pane="profile"] .chart-side .legend-inline { margin: 0 0 0 auto; }
+  .dock-pane[data-pane="profile"] .chart-side .ctl-sub:empty { display: none; }
+  .instrument-workspace .dock-pane[data-pane="profile"] .instrument-view .chart-box { flex: 1 1 auto; height: auto; min-height: 240px; }
+}
