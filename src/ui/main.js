@@ -12,7 +12,7 @@ import { createTimeline, LAPSES } from './timeline.js?v=179a90e883';
 import { createLearn } from './learn.js?v=7593a68df4';
 import { createCases } from './cases.js?v=bee5d39a80';
 import { createCompare } from './compare.js?v=0838b1d3c8';
-import { createCard } from './card.js?v=319ac2fee1';
+import { createCard } from './card.js?v=fd813e0b26';
 import { createChart, computeFindings } from './chart.js?v=d17ed19d66';
 import { createHome, ROLES } from './home.js?v=41227085e4';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=0f0719fa20';
@@ -975,9 +975,6 @@ function wireFloating() {
     let bot = isPhone() && sheet ? Math.max(vdock + gap, sheet) : vdock + gap + sheet;
     if (tour && !tourSide) bot = Math.max(bot, tour.offsetHeight + gap);
     app.style.setProperty('--bot-occ', px(bot));
-    // The copyright credit sits outside the app, above every layer, so it takes its height from the root: just above
-    // the dock or any open sheet.
-    document.documentElement.style.setProperty('--credit-bottom', px(bot + 8));
     dispatchEvent(new Event('pps:occ'));
   };
   const soon = () => { if (!pubRaf) pubRaf = requestAnimationFrame(publish); };
