@@ -3499,40 +3499,32 @@ body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state
 body.hvpg-swap .metric[data-id="hvpg"] > :not(.k), body.hvpg-swap .pt canvas, body.hvpg-swap .pt-hero .pt-v, body.hvpg-swap .pt-hero .pt-sev,
 body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s var(--ease) both; }
 @media (prefers-reduced-motion: reduce) { body.hvpg-swap .metric[data-id="hvpg"] > :not(.k), body.hvpg-swap .pt canvas, body.hvpg-swap .pt-hero .pt-v, body.hvpg-swap .pt-hero .pt-sev, body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: none; } }
-/* Ascites: SAAG leads the diagnostic tap; protein and ascitic albumin support it. */
-.ab-saag { display: grid; gap: 6px; padding: 10px 12px; border-radius: var(--r-control); background: var(--surface); border: 1px solid var(--hairline); transition: border-color .3s var(--ease); }
-.ab-saag[data-state="hi"] { border-color: color-mix(in srgb, var(--danger) 45%, var(--hairline)); }
-.ab-saag[data-state="lo"] { border-color: color-mix(in srgb, var(--ok) 45%, var(--hairline)); }
-.ab-saag-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
-.ab-saag-k { display: grid; font-size: var(--fs-14); font-weight: 700; letter-spacing: .04em; color: var(--text); }
-.ab-saag-k small { font-size: var(--fs-12); font-weight: 500; letter-spacing: 0; color: var(--text-3); }
-.ab-saag-num { display: flex; align-items: baseline; gap: 4px; }
-.ab-saag-num b { font-size: 32px; font-weight: 700; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
-.ab-saag-num small { font-size: var(--fs-12); color: var(--text-3); }
-.ab-saag-bar { position: relative; height: 8px; margin: 4px 0 0; border-radius: 4px; background: linear-gradient(90deg, color-mix(in srgb, var(--ok) 55%, transparent) 0 36.7%, color-mix(in srgb, var(--danger) 55%, transparent) 36.7% 100%); }
-.ab-saag-cut { position: absolute; left: 36.7%; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--text-2); border-radius: 1px; }
-.ab-saag-dot { position: absolute; top: -4px; bottom: -4px; width: 6px; margin-left: -3px; border-radius: 3px; background: var(--text); box-shadow: 0 0 0 2px var(--surface); transition: left .5s var(--ease), opacity .3s var(--ease); }
-.ab-saag[data-state="none"] .ab-saag-dot { opacity: 0; }
-.ab-saag-scale { position: relative; display: flex; justify-content: space-between; height: 14px; font-size: var(--fs-12); color: var(--text-3); }
-.ab-saag-cutlbl { position: absolute; left: 36.7%; transform: translateX(-50%); font-weight: 600; color: var(--text-2); }
-.ab-saag-verdict { font-size: var(--fs-14); font-weight: 600; color: var(--text); }
-.ab-saag[data-state="hi"] .ab-saag-verdict { color: var(--danger); }
-.ab-saag[data-state="lo"] .ab-saag-verdict { color: var(--ok); }
-.ab-saag-calc { font-size: var(--fs-12); color: var(--text-3); font-variant-numeric: tabular-nums; }
-.ab-saag-verdict:empty, .ab-saag-calc:empty { display: none; }
-.ab-subs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.ab-sub { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; padding: 4px 10px; border-radius: var(--r-control); background: var(--surface-2); font-size: var(--fs-12); color: var(--text-3); }
-.ab-sub b { font-size: var(--fs-14); font-weight: 600; color: var(--text-2); font-variant-numeric: tabular-nums; }
-/* Ascites: treatments as two plain cards. */
-.ab-rx { gap: 8px; }
-.ab-rx-card { display: grid; gap: 10px; padding: 10px 12px; border-radius: var(--r-control); background: var(--surface); border: 1px solid var(--hairline); }
-label.ab-rx-card { display: flex; cursor: pointer; }
-.ab-rx-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.ab-rx-txt { display: grid; gap: 2px; min-width: 0; font-size: var(--fs-14); color: var(--text); }
+/* Ascites: compact tap row (SAAG emphasised) and one treatment card with big tap targets. */
+.ab-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.ab-tap .ab-row .ab-note { font-weight: 500; }
+.ab-lab { padding: 6px 8px; gap: 1px; }
+.ab-lab small { font-size: 11px; line-height: 1.2; }
+.ab-lab.ab-key { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+.ab-lab.ab-key span { color: var(--accent); }
+.ab-lab.ab-key b { font-size: 26px; }
+.ab-labs { align-items: stretch; }
+.ab-lab { align-content: center; }
+.ab-rx { display: grid; gap: 4px; padding: 10px 12px; border-radius: var(--r-control); background: var(--surface); border: 1px solid var(--hairline); }
+.ab-rx-row { min-height: 44px; }
+label.ab-rx-row { cursor: pointer; border-bottom: 1px solid var(--hairline); }
+.ab-rx-txt { display: grid; min-width: 0; font-size: var(--fs-14); color: var(--text); line-height: 1.25; }
 .ab-rx-txt b { font-weight: 600; }
-.ab-rx-alb { cursor: pointer; padding-top: 8px; border-top: 1px solid var(--hairline); }
-.ab-rx .ab-note[data-sev="caution"] { color: var(--caution); }
-.ab-step { display: inline-flex; align-items: center; flex: none; border-radius: var(--r-pill); background: var(--surface-3); padding: 2px; }
-.ab-step-btn { width: 32px; height: 32px; border: 0; border-radius: 50%; background: var(--surface); color: var(--text); font-size: 18px; line-height: 1; cursor: pointer; box-shadow: var(--shadow-1); transition: opacity var(--t-fast); }
+.ab-rx-txt small { font-size: var(--fs-12); color: var(--text-3); }
+.ab-step { display: inline-flex; align-items: center; flex: none; border-radius: var(--r-pill); background: var(--surface-3); padding: 3px; }
+.ab-step-btn { width: 36px; height: 36px; border: 0; border-radius: 50%; background: var(--surface); color: var(--text); font-size: 20px; line-height: 1; cursor: pointer; box-shadow: var(--shadow-1); touch-action: manipulation; transition: opacity var(--t-fast); }
 .ab-step-btn:disabled { opacity: .35; cursor: not-allowed; }
-.ab-step-val { min-width: 54px; text-align: center; font-weight: 650; font-size: var(--fs-16, 16px); color: var(--text); font-variant-numeric: tabular-nums; }
+.ab-step-val { min-width: 74px; text-align: center; font-weight: 650; font-size: var(--fs-14); color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ab-drain-row { display: grid; grid-template-columns: auto 1fr; gap: 8px; margin-top: 4px; }
+.ab-drain { min-height: 44px; justify-content: center; }
+.ab-chip { min-height: 44px; padding: 0 14px; border-radius: var(--r-control); border: 1px solid var(--hairline); background: var(--surface-2); color: var(--text-2); font-weight: 600; font-size: var(--fs-14); cursor: pointer; white-space: nowrap; touch-action: manipulation; transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast); }
+.ab-chip::before { content: '○ '; }
+.ab-chip[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); border-color: color-mix(in srgb, var(--accent) 60%, transparent); color: var(--text); }
+.ab-chip[aria-pressed="true"]::before { content: '✓ '; color: var(--accent); }
+.ab-warn { color: var(--caution); }
+.ab-warn:empty { display: none; }
+.ab-iap { gap: 6px; }
