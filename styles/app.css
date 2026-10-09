@@ -3428,7 +3428,8 @@ body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state
   /* Seven tabs: 13px text and 6px sides keep every name whole on a laptop-width card. */
   .instr-tab, .instr-tab[aria-selected="true"] { flex: 0 1 auto; flex-direction: row; height: 36px; padding: 0 6px; border-radius: 0; background: none; box-shadow: none; font-weight: 500; font-size: 13px; color: var(--text-3); }
   .instr-tab:first-child { margin-left: -6px; }
-  .instr-tab > svg { display: none; }
+  .instr-tab, .instr-tab[aria-selected="true"] { gap: 4px; padding: 0 5px; font-size: 12px; }
+  .instr-tab > svg { width: 13px; height: 13px; }
   .instr-tab:hover { color: var(--text); }
   .instr-tab[aria-selected="true"] { color: var(--text); font-weight: 600; }
   .instr-tab[aria-selected="true"]::before { content: ''; position: absolute; left: 6px; right: 6px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent); }
