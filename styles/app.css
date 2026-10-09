@@ -2441,8 +2441,19 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .ab-iap-scale span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
 .ab-iap-scale span:first-child { transform: none; }
 .ab-iap-scale span:last-child { transform: translateX(-100%); }
-.ab-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
-.ab-tap { display: flex; gap: 6px; flex: none; }
+.ab-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ab-grade { margin-left: 0; padding: 2px 8px; border-radius: 99px; background: var(--surface-3); }
+.ab-belly { position: relative; flex: none; width: 76px; height: 76px; border-radius: 50% 50% 44% 44%; border: 2px solid color-mix(in srgb, var(--text-3) 45%, transparent); overflow: hidden; background: var(--surface); }
+.ab-belly-fill { display: block; position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: color-mix(in srgb, #5fa8e6 60%, transparent); transition: height .6s var(--ease); }
+.ab-tap { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid var(--hairline); }
+.ab-tap-title { font-size: var(--fs-14); font-weight: 600; color: var(--text); }
+.ab-grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 4px; }
+.ab-ax { display: flex; align-items: center; justify-content: center; font-size: var(--fs-12); color: var(--text-3); padding: 0 4px; }
+.ab-cell { display: grid; align-content: start; gap: 2px; min-height: 44px; padding: 6px 8px; border-radius: var(--r-control); background: var(--surface-3); color: var(--text-3); font-size: var(--fs-12); transition: background .4s var(--ease), color .4s var(--ease); }
+.ab-cell b { font-weight: 500; }
+.ab-cell small:empty { display: none; }
+.ab-cell.on { background: var(--accent); color: #fff; }
+.ab-cell.on b { font-weight: 650; }
 .ab-tap-line { font-size: var(--fs-14); color: var(--text); font-weight: 500; line-height: 1.4; margin-top: -2px; }
 .ab-tap-line:empty { display: none; }
 .ab-lab { display: grid; gap: 0; padding: 4px 10px; text-align: center; border-radius: var(--r-control); background: var(--surface); border: 1px solid var(--hairline); }

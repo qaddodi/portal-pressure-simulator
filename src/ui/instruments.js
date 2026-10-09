@@ -230,12 +230,22 @@ export function createAbdomen({ onAction }) {
       h('i', { class: 'ab-iap-mark', style: { left: '40%' } }), h('i', { class: 'ab-iap-mark', style: { left: '66.7%' } })),
     h('div', { class: 'ab-iap-scale', 'aria-hidden': 'true' }, h('span', { style: { left: '0%' } }, '0'),
       h('span', { style: { left: '40%' } }, '12 IAH'), h('span', { style: { left: '66.7%' } }, '20 ACS'), h('span', { style: { left: '100%' } }, '30')));
-  // The diagnostic tap sits beside the volume, compact; its meaning is one line under the trend.
-  const tap = h('div', { class: 'ab-tap' }), tapLine = h('div', { class: 'ab-tap-line' });
+  // A small belly that fills with the fluid, beside the volume.
+  const bellyFill = h('i', { class: 'ab-belly-fill' });
+  const belly = h('div', { class: 'ab-belly', 'aria-hidden': 'true' }, bellyFill);
+  // The diagnostic tap as a 2×2 grid, SAAG by total protein, with the matching cause lit.
+  const CELLS = [['ph-lo', 'Cirrhosis'], ['ph-hi', 'Heart failure, Budd–Chiari'], ['np-lo', 'Nephrotic, other'], ['np-hi', 'Peritoneal: TB, cancer']];
+  const cells = Object.fromEntries(CELLS.map(([k, t]) => [k, h('div', { class: 'ab-cell', 'data-k': k }, h('b', {}, t), h('small', {}))]));
+  const tapNote = h('div', { class: 'ab-note' });
+  const tap = h('div', { class: 'ab-tap' },
+    h('div', { class: 'ab-tap-title' }, 'Diagnostic tap'),
+    h('div', { class: 'ab-grid' }, h('span'), h('span', { class: 'ab-ax' }, 'Protein < 2.5'), h('span', { class: 'ab-ax' }, 'Protein ≥ 2.5'),
+      h('span', { class: 'ab-ax' }, 'SAAG ≥ 1.1'), cells['ph-lo'], cells['ph-hi'],
+      h('span', { class: 'ab-ax' }, 'SAAG < 1.1'), cells['np-lo'], cells['np-hi']), tapNote);
   const extraStats = h('dl', { class: 'kv' });
   const info = h('div', { class: 'ab-report' },
-    h('div', { class: 'ab-head' }, h('div', {}, h('div', { class: 'hv-k' }, 'Ascites'), h('div', { class: 'hv-num' }, numEl, h('small', {}, 'L'), gradeEl)), tap),
-    trendEl, tapLine, iap,
+    h('div', { class: 'ab-head' }, h('div', {}, h('div', { class: 'hv-k' }, 'Ascites'), h('div', { class: 'hv-num' }, numEl, h('small', {}, 'L')), gradeEl, trendEl), belly),
+    iap, tap,
     h('div', { class: 'ctl' }, h('div', { class: 'ctl-top' }, h('span', { class: 'ctl-label' }, 'Serum albumin'), saLbl), sa),
     h('details', { class: 'instrument-details' }, h('summary', {}, 'Why it forms'), extraStats));
   const treat = h('div', { class: 'ab-report' },
@@ -262,14 +272,14 @@ export function createAbdomen({ onAction }) {
     // A diagnostic tap, g/dL, from the model's protein balance: SAAG ≥ 1.1 means portal hypertension;
     // the total protein then says where the block is.
     const ph = a.saag >= 1.1, hi = a.totalProtein >= 2.5;
-    const tapped = a.volume > 150;
-    tap.replaceChildren(...(tapped ? [
-      h('div', { class: 'ab-lab', 'data-hi': String(ph) }, h('span', {}, 'SAAG'), h('b', {}, fmt(a.saag, 1))),
-      h('div', { class: 'ab-lab', 'data-hi': String(hi) }, h('span', {}, 'Total protein'), h('b', {}, fmt(a.totalProtein, 1))),
-      h('div', { class: 'ab-lab' }, h('span', {}, 'Albumin'), h('b', {}, fmt(a.albumin, 1)))] : []));
+    const tapped = a.volume > 150, on = tapped ? `${ph ? 'ph' : 'np'}-${hi ? 'hi' : 'lo'}` : '';
+    for (const [k, c] of Object.entries(cells)) {
+      c.classList.toggle('on', k === on);
+      c.lastChild.textContent = k === on ? `SAAG ${fmt(a.saag, 1)} · protein ${fmt(a.totalProtein, 1)} · albumin ${fmt(a.albumin, 1)}` : '';
+    }
     tap.title = tapped ? 'Diagnostic tap, g/dL. SAAG ≥ 1.1 means portal hypertension; total protein ≥ 2.5 then points after the sinusoids, < 2.5 to cirrhosis.' : '';
-    tapLine.textContent = !tapped ? '' : !ph ? 'Tap: not portal hypertension, look for a peritoneal cause.'
-      : hi ? 'Tap: portal hypertension from an outflow block (heart failure, Budd–Chiari).' : 'Tap: portal hypertension from the sinusoids, the cirrhosis pattern.';
+    tapNote.textContent = tapped ? '' : 'Too little fluid to tap.';
+    bellyFill.style.height = `${a.volume > 150 ? 15 + clamp(a.volume / 8000, 0, 1) * 70 : 0}%`;
     extraStats.replaceChildren(
       h('dt', {}, 'Lymph from the liver'), h('dd', {}, `${fmt(a.hepLymph, 1)} (rises with sinusoidal pressure)`),
       h('dt', {}, 'Liver lymph protein'), h('dd', {}, `${Math.round(a.lymphProt * 100)} % of plasma (${a.lymphProt < 0.7 ? 'capillarized sinusoids hold protein back' : 'open fenestrae let it through'})`),
