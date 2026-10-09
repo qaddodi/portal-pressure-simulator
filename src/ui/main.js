@@ -2,25 +2,25 @@
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
 import { startHost, host } from './host.js?v=b54d9b1fcc';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=1d7cd9b00f';
-import { createStage } from './stage.js?v=96edb53099';
-import { sinusoidSupported } from './sinusoid-view.js?v=28c4173e64';
-import { createInspector } from './inspector.js?v=f2a0cd3e9a';
-import { createDock, CUTOFFS } from './dock.js?v=b8dea8ea86';
-import { setHvpgStage } from './hvpg-proc.js?v=3f37488f0d';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=edbdbfb0c8';
+import { createStage } from './stage.js?v=524e250a58';
+import { sinusoidSupported } from './sinusoid-view.js?v=a8f5add8ba';
+import { createInspector } from './inspector.js?v=fbb0750c20';
+import { createDock, CUTOFFS } from './dock.js?v=7e7e805303';
+import { setHvpgStage } from './hvpg-proc.js?v=8210f96ed7';
 import { createWhy } from './why.js?v=6e2456299a';
-import { createTimeline, LAPSES } from './timeline.js?v=6adb97dcda';
-import { createLearn } from './learn.js?v=0f405fa2bb';
-import { createCases } from './cases.js?v=b05c879c01';
-import { createCompare } from './compare.js?v=da5b460b68';
-import { createCard } from './card.js?v=2b4a95cbcb';
-import { createChart, computeFindings } from './chart.js?v=56be77fefd';
-import { createHome, ROLES } from './home.js?v=a2e73d8f59';
+import { createTimeline, LAPSES } from './timeline.js?v=55e9506496';
+import { createLearn } from './learn.js?v=1f6b87c7d2';
+import { createCases } from './cases.js?v=e22b3978f2';
+import { createCompare } from './compare.js?v=96506c9464';
+import { createCard } from './card.js?v=3597b7a412';
+import { createChart, computeFindings } from './chart.js?v=aa7c573fa0';
+import { createHome, ROLES } from './home.js?v=82df67c62d';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=424fa7e848';
-import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=309ffcab35';
-import { startLMS } from './lms.js?v=bee8a437df';
+import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=ee3689fa2e';
+import { startLMS } from './lms.js?v=45983df90a';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=39cb087ac0';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=c318d652d9';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=dc393aabea';
 import { $, $$, h, icon, fmt, fmtFlow, toast, popupsOn, setPopups, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=e803df99cd';
@@ -133,7 +133,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=d603da9611'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=7698699ddc'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -145,7 +145,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=d20c912d62'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=0acb72b298'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -796,6 +796,12 @@ function openSettings(anchor) {
     menuItem(t('menu.describe'), { icon: 'info', kb: 'D', onClick: () => { closePopover(); const d = describe(store.get().frame); announce(d); toast(d); } }),
     menuToggle(narratorOn(), 'info', t('menu.narrator'), 'One line under the figure saying what it shows now', (on) => setNarrator(on)),
     menuToggle(popupsOn(), 'info', 'Pop-up notices', 'Show messages as cards at the top instead of in the line above the timeline', (on) => setPopups(on)),
+    menuToggle(store.get().showHvpg, 'gauge', 'Always show HVPG', 'Show the HVPG without measuring it first (Measure › HVPG)', (on) => {
+      try { localStorage.setItem('pps.showHvpg', on ? '1' : '0'); } catch { /* storage unavailable */ }
+      document.body.classList.remove('hvpg-swap'); void document.body.offsetWidth; document.body.classList.add('hvpg-swap');
+      setTimeout(() => document.body.classList.remove('hvpg-swap'), 600);
+      store.set({ showHvpg: on });
+    }),
     menuItem(t('menu.sonify'), { icon: 'activity', checked: sonifying(), onClick: (e) => { setSonify(!sonifying()); e?.currentTarget?.setAttribute('aria-checked', String(sonifying())); toast(sonifying() ? 'Sonification on: pitch follows the pressure of the selected vessel (or the portal vein).' : 'Sonification off.'); } }),
     h('div', { class: 'menu-title' }, 'Debug'),
     ...debugOptions().map(([k, l]) => menuToggle(debugOn(k), 'activity', l, null, (on) => setDebug(k, on))),

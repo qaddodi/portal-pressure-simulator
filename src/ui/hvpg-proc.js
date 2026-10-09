@@ -9,9 +9,9 @@
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
 import { h, fmt, fitCanvas, clamp, icon, toast } from './util.js?v=e803df99cd';
-import { FONT } from './charts.js?v=8004a4ab4c';
+import { FONT } from './charts.js?v=8e2ff3a43c';
 import { pressureColor } from './colormap.js?v=6d64a94345';
-import { store } from './store.js?v=1d7cd9b00f';
+import { store } from './store.js?v=edbdbfb0c8';
 
 let stageRef = null;
 /** main.js hands over the figure once it exists. */
@@ -181,7 +181,7 @@ export function createHvpgProcedure({ sheet } = {}) {
     const lbl = busy ? 'Measuring…' : result ? 'Measure again' : 'Measure HVPG';
     if (startBtn.lastChild.textContent !== lbl) startBtn.lastChild.textContent = lbl;
     const n = st.mode === 'explore' && !st.presenting
-      ? (st.hvpgMeasured ? 'Measured: the HVPG readouts are live for this patient until a new one.' : 'The HVPG readouts stay hidden until it is measured here.')
+      ? (st.showHvpg ? 'The HVPG readouts are always shown (Settings).' : st.hvpgMeasured ? 'Measured: the HVPG readouts are live for this patient until a new one.' : 'The HVPG readouts stay hidden until it is measured here.')
       : 'The same numbers as the HVPG tile.';
     if (note.textContent !== n) note.textContent = n;
   }

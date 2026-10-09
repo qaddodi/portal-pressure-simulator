@@ -2,7 +2,7 @@
 
 import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=dc393aabea';
 import { DRUGS } from '../engine/scenario.js?v=d88966abe6';
-import { store, updateParams, isLocked, hiddenNow } from './store.js?v=1d7cd9b00f';
+import { store, updateParams, isLocked, hiddenNow } from './store.js?v=edbdbfb0c8';
 import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, icon, svgIcon } from './util.js?v=e803df99cd';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -340,7 +340,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
   store.on('details', render);
   store.on('locked', render);
   document.addEventListener('pps:rerender-panel', render);
-  for (const k of ['presetId', 'role', 'mode', 'allowedVerbs', 'hiddenReadouts']) store.on(k, () => { if (!store.get().details && store.get().mode !== 'cases') render(); });
+  for (const k of ['presetId', 'role', 'mode', 'allowedVerbs', 'hiddenReadouts', 'showHvpg']) store.on(k, () => { if (!store.get().details && store.get().mode !== 'cases') render(); });
   store.on('params', () => { const p = store.get().params; for (const s of syncers) s._sync(p); });
   if (!chart) render();
   return {

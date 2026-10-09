@@ -4,8 +4,8 @@
 // pointer. Instructors build their own scripts from the current model and share them as a file
 // or a link.
 
-import { store } from './store.js?v=1d7cd9b00f';
-import { runSequence, restoreSequence } from './sequence.js?v=8a40629442';
+import { store } from './store.js?v=edbdbfb0c8';
+import { runSequence, restoreSequence } from './sequence.js?v=8bf68f9d07';
 import { h, toast, svgIcon, icon } from './util.js?v=e803df99cd';
 import { download } from './records.js?v=50fb9dd463';
 import { TOUR, createTour } from './tour.js?v=ced777d3a5';

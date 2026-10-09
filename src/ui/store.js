@@ -38,6 +38,7 @@ const state = {
   hiddenReadouts: null,       // Set of hidden metrics (Cases)
   hiddenEvents: null,         // Set of event ids a case keeps out of the story (model-only knowledge)
   hvpgMeasured: false,        // Explore: the HVPG catheter procedure has run for this patient (the live HVPG shows)
+  showHvpg: (() => { try { return localStorage.getItem('pps.showHvpg') === '1'; } catch { return false; } })(),   // Settings: show the HVPG without measuring it
   presenting: false,          // a Presenter script or the tour is running
 };
 
@@ -57,12 +58,12 @@ export const store = {
 };
 
 /** The readouts hidden right now: a case's or lesson's set and, in Explore, the true HVPG (wedged and free hepatic vein
- *  pressures too) until the catheter procedure (Measure › HVPG) has measured it for this patient. A Presenter script or
+ *  pressures too) until the catheter procedure (Measure › HVPG) has measured it for this patient (or Settings › Always show HVPG is on). A Presenter script or
  *  the tour shows it as it is. */
 let hidCache = { base: undefined, set: null };
 export function hiddenNow(st = state) {
   const base = st.hiddenReadouts;
-  if (st.mode !== 'explore' || st.hvpgMeasured || st.presenting || base?.has('trueHVPG')) return base;
+  if (st.mode !== 'explore' || st.hvpgMeasured || st.showHvpg || st.presenting || base?.has('trueHVPG')) return base;
   if (hidCache.base !== base || !hidCache.set) hidCache = { base, set: new Set([...(base || []), 'trueHVPG']) };
   return hidCache.set;
 }
