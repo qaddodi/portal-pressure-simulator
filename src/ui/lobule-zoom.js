@@ -28,7 +28,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=dc393aabea';
 import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, F_NOCASE, ORIGIN_GREY } from './veins-gl.js?v=b6b2dca81e';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
-import { createSinusoidView } from './sinusoid-view.js?v=29d2f84747';
+import { createSinusoidView } from './sinusoid-view.js?v=446cae51b4';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const TAU = Math.PI * 2;
@@ -1844,7 +1844,7 @@ export function createLobuleZoom({ host }) {
   // ── One level deeper: into a sinusoid (sinusoid-view.js) ──
   // "Zoom into the sinusoid" on a sinusoid's card plays one continuous zoom, gentle at both ends: the
   // lobule grows about that sinusoid, turning it to lie along the screen and carrying it to where the
-  // sinusoid view draws its own, and the sinusoid view grows out of it at the same size and angle and
+  // sinusoid view draws its own; as the zoom lands the sinusoid view, at the same size and angle, resolves in and
   // covers it. Zooming out (the zoom buttons, a pinch, the wheel), its back button or Escape reverse it.
   const sv = createSinusoidView({ host });
   let sinU = 0, sinTo = 0, sinRaf = 0, sinDive = null, sinPick = null, quietSin = false;
@@ -1918,12 +1918,10 @@ export function createLobuleZoom({ host }) {
     el.style.transform = rm ? '' : `rotate(${(D.rot * g).toFixed(5)}rad) scale(${(D.Z ** g).toFixed(5)})`;
     el.style.visibility = u >= 1 ? 'hidden' : '';
     el.classList.add('lz-sin');
-    // The sinusoid view: drawn by the GPU on the lobule's sinusoid each frame, the vessel first, then the plates
-    // along it, then the rest, its detail coming in from the middle as it nears.
+    // The sinusoid view: drawn by the GPU on the lobule's sinusoid each frame; it comes in over the lobule as the zoom lands.
     sv.place({
       opacity: (rm ? u : 1) * fade,
       dive: u >= 1 || rm ? null : { g, p: D.p, q: D.q, rot: D.rot, Z: D.Z, run: D.run, k: D.k, ang: D.ang },
-      u: rm ? 1 : u,
       isOpen: u >= 1 && fade > 0.98,
     });
   }

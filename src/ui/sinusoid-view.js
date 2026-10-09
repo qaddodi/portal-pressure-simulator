@@ -73,7 +73,7 @@ export function createSinusoidView({ host }) {
 
   // ── State ──
   let go = 1;   // 1 while the simulation runs, eased to 0 when paused: the flow, lymph, particles and proteins slow to a stop and resume without a jump
-  let model = null, shown = 0, open = false, raf = 0, last = 0, dive = null, reveal = 1, drewNow = false;
+  let model = null, shown = 0, open = false, raf = 0, last = 0, dive = null, drewNow = false;
   const S = {};          // the drawing's state, easing toward sinusoidTargets(model)
   let geo = null, geoKey = '';
 
@@ -364,15 +364,15 @@ export function createSinusoidView({ host }) {
         uLum: UM.lum * S.lum, uPinch: S.pinch, uXs: geo.xs, uXk: geo.xk, uKy: halfW(geo.xk), uHscA: wallIn(geo.xs) + disseW(geo.xs) * 0.5 + 0.8,
         uCol: S.col, uBm: S.bm, uMv: S.mv, uAct: S.act, uPor: S.por, uFlow: flowX, uLym: lymX, uDir: Math.sign(S.v || 1),
       });
-      // The zoom from the lobule (µm along the vessel): first the vessel itself, over the lobule's one and only as far
-      // as that runs straight; then the plates along it; then everything. The detail (fenestrae, microvilli, the
-      // cells, the traffic) comes in from the middle as it nears; until then it is drawn as plainly as the lobule.
-      const r = reveal, R = UM.lum * S.lum, hiC = hepIn(0) + 0.4;
+      // The zoom from the lobule: one camera move. The lobule (magnified by the compositor) carries it most of the way;
+      // the view, already drawn where the lobule's own sinusoid is, comes in over all of it at once as the zoom lands
+      // (no strip that appears and then lengthens), and its detail (fenestrae, microvilli, cells, traffic) resolves last.
+      // Both follow the zoom's eased progress, so Back to Lobule plays the same frames in reverse.
       if (dive) {
-        const grow = smooth(0.22, 0.9, r);
-        u.uRev = [smooth(0, 0.06, r), -lerp(Math.max(3, dive.run[0]) * R, 900, grow), lerp(Math.max(3, dive.run[1]) * R, 900, grow), lerp(hiC, hiC + UM.hep, smooth(0.12, 0.4, r)) + lerp(0, 600, smooth(0.4, 0.85, r) ** 2)];
-        u.uAll = smooth(0.8, 0.96, r);
-        u.uDet = [smooth(0.3, 0.85, r), lerp(8, 500, smooth(0.45, 1, r) ** 1.5)];
+        const g = dive.g;
+        u.uRev = [0, 0, 0, 0];
+        u.uAll = smooth(0.5, 0.88, g);
+        u.uDet = [smooth(0.72, 1, g), 1e5];
       } else { u.uRev = [1, -1e5, 1e5, 1e5]; u.uAll = 1; u.uDet = [1, 1e5]; }
       gpu.draw(u, pts, sprites());
     }
@@ -411,12 +411,11 @@ export function createSinusoidView({ host }) {
      * Placement during the zoom from the lobule (lobule-zoom.js): opacity; the zoom's state, if it is
      * running (`dive`: g, its eased progress; p, the lobule's sinusoid point on screen at rest; q, the zoom's
      * fixed point; rot and Z, the full turn and scale; run, how far the vessel runs straight each way, in
-     * lumen radii), and its raw progress u
-     * (what is shown so far); whether it is fully open (takes input).
+     * lumen radii); whether it is fully open (takes input).
      */
-    place({ opacity, dive: dv = null, u = 1, isOpen = false }) {
+    place({ opacity, dive: dv = null, isOpen = false }) {
       const was = shown;
-      shown = opacity; dive = dv; reveal = u;
+      shown = opacity; dive = dv;
       el.style.opacity = opacity.toFixed(3);
       el.style.visibility = opacity > 0 ? 'visible' : 'hidden';
       open = isOpen;
