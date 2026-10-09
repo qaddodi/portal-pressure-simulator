@@ -235,13 +235,13 @@ export function createAbdomen({ onAction }) {
   const belly = h('div', { class: 'ab-belly', 'aria-hidden': 'true' }, bellyFill);
   // The diagnostic tap as three live readouts, g/dL.
   const lab = (k) => { const v = h('b', {}, '—'); return [h('div', { class: 'ab-lab' }, h('span', {}, k), v), v]; };
-  const [saagEl, saagV] = lab('SAAG'), [tpEl, tpV] = lab('Total protein'), [albEl, albV] = lab('Albumin');
+  const [saagEl, saagV] = lab('SAAG'), [tpEl, tpV] = lab('Protein'), [albEl, albV] = lab('Albumin');
   const tapNote = h('div', { class: 'ab-note' });
   const tap = h('div', { class: 'ab-tap' }, h('div', { class: 'ab-tap-title' }, 'Diagnostic tap'),
     h('div', { class: 'ab-labs' }, saagEl, tpEl, albEl), tapNote);
   const extraStats = h('dl', { class: 'kv' });
   const info = h('div', { class: 'ab-report' },
-    h('div', { class: 'ab-head' }, h('div', {}, h('div', { class: 'hv-k' }, 'Ascites'), h('div', { class: 'hv-num' }, numEl, h('small', {}, 'L')), gradeEl, trendEl), belly),
+    h('div', { class: 'ab-head' }, h('div', { class: 'ab-sum' }, h('div', { class: 'hv-k' }, 'Ascites'), h('div', { class: 'hv-num' }, numEl, h('small', {}, 'L')), h('div', { class: 'ab-meta' }, gradeEl, trendEl)), belly),
     iap, tap,
     h('div', { class: 'ctl' }, h('div', { class: 'ctl-top' }, h('span', { class: 'ctl-label' }, 'Serum albumin'), saLbl), sa),
     h('details', { class: 'instrument-details' }, h('summary', {}, 'Why it forms'), extraStats));
