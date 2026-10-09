@@ -322,9 +322,10 @@ export function createSinusoidView({ host }) {
     if (Math.abs(xc - g.xk) < 30) xc = g.xk + (xc < g.xk ? -30 : 30);
     region('sin', 'Sinusoid', m.hide ? '?' : `${fmt(m.P2, 1)}~mmHg`, xc, 0);
     // The space of Disse, named along its band on the far side from the lymph's label, clear of the stellate cell.
-    let xq = pick(g.vert ? 0.3 : 0.84);
-    if (Math.abs(xq - g.xs) < 40) xq = g.xs + (xq < g.xs ? -40 : 40);
-    region('disse', 'Space of Disse', '', xq, -(wallIn(xq) + disseW(xq) * 0.5));
+    // (On a tall screen it goes on the lymph's side, above its label, where nothing else is.)
+    let xq = pick(g.vert ? 0.24 : 0.84);
+    if (!g.vert && Math.abs(xq - g.xs) < 40) xq = g.xs + (xq < g.xs ? -40 : 40);
+    region('disse', 'Space of Disse', '', xq, (g.vert ? 1 : -1) * (wallIn(xq) + disseW(xq) * 0.5));
     tag('lymph', ['Lymph, back to the portal triad', 'Lymph'], m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min · protein ${Math.round(m.lyProt * 100)}%`, xd, hepIn(xd) - disseW(xd) * 0.5, xd, hepIn(xd) + hep * 0.4);
     // The fenestrae's label points at an open pore near its place (or the wall there, once they have closed).
     const pf = g.pores[0].reduce((b, p) => (poreW(p) > 0.25 && Math.abs(p.x - xf) < Math.abs(b - xf) ? p.x : b), xf);
