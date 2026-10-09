@@ -56,5 +56,14 @@ jobs:
         run: npm run smoke
       - name: Smoke test (production build)
         run: npm run smoke:dist
+      # The look (organ tones and light, vessels, lobule) against tests/visual; on a failure the
+      # current pictures and diffs are kept as an artifact.
+      - name: Visual regression
+        run: npm run visual
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: visual-diff
+          path: test-results/visual
       - name: Performance report
         run: npm run perf -- dist
