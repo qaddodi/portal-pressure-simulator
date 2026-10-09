@@ -250,14 +250,14 @@ export function createProfile() {
       const hv = d.hiM && m[d.hiM] != null ? m[d.hiM] : now[a], lv = d.loM && m[d.loM] != null ? m[d.loM] : now[b];
       const v = d.m && m[d.m] != null ? m[d.m] : hv - lv;
       const col = v >= d.bad ? c.danger : v >= d.warn ? c.caution : c.muted;
-      const yy = y(0) - 8 - (dims.length - 1 - k) * 32, x0 = x(a), x1 = x(b);
+      const yy = y(0) - 12 - (dims.length - 1 - k) * 24, x0 = x(a), x1 = x(b);
       ctx.save();
       ctx.strokeStyle = col; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(x0, yy - 4); ctx.lineTo(x0, yy + 4); ctx.moveTo(x1, yy - 4); ctx.lineTo(x1, yy + 4); ctx.moveTo(x0, yy); ctx.lineTo(x1, yy); ctx.stroke();
       const txt = `${d.k} `, num = fmt(v, 1);
       ctx.font = FONT(600, 10.5); const tw1 = ctx.measureText(txt).width;
       ctx.font = FONT(700, 12.5); const tw2 = ctx.measureText(num).width;
-      const tw = tw1 + tw2 + 12, lx = Math.max(L + 2, Math.min(w - R - tw, x0 - 4)), ly = yy - 14;
+      const tw = tw1 + tw2 + 12, lx = Math.max(L + 2, Math.min(w - R - tw, (x0 + x1) / 2 - tw / 2)), ly = yy;
       ctx.beginPath(); ctx.roundRect ? ctx.roundRect(lx, ly - 8, tw, 16, 8) : ctx.rect(lx, ly - 8, tw, 16);
       ctx.fillStyle = c.surface; ctx.fill(); ctx.strokeStyle = col; ctx.globalAlpha = 0.5; ctx.lineWidth = 1; ctx.stroke(); ctx.globalAlpha = 1;
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
