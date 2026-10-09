@@ -202,7 +202,7 @@ export function svgIcon(id, cls = '') {
  *  small chevron (tap to scroll) on whichever side has hidden items, eased in and out as it scrolls. */
 export function scrollCue(scroller) {
   const step = (dir) => scroller.scrollBy({ left: dir * scroller.clientWidth * 0.6, behavior: 'smooth' });
-  const edge = (cls, dir, id) => h('button', { class: 'cue-edge ' + cls, type: 'button', tabindex: '-1', 'aria-hidden': 'true', onclick: () => step(dir) }, icon(id));
+  const edge = (cls, dir, id) => h('button', { class: 'cue-edge ' + cls, type: 'button', tabindex: '-1', 'aria-hidden': 'true', 'aria-label': dir < 0 ? 'Scroll tabs left' : 'Scroll tabs right', onclick: () => step(dir) }, icon(id));
   const box = h('div', { class: 'tabs-cue' }, scroller, edge('cue-l', -1, 'chev-left'), edge('cue-r', 1, 'chev-right'));
   const update = () => {
     const max = scroller.scrollWidth - scroller.clientWidth;

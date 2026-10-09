@@ -22,13 +22,13 @@
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { store } from './store.js?v=edbdbfb0c8';
 import { radiiChanged } from './lobule-render-cache.js?v=07951b5935';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=883c6a2857';
-import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=159a875f7c';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=64bf651eba';
+import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=a357853926';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { NODES, EDGES } from '../engine/topology.js?v=dc393aabea';
 import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=e944e0d434';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
-import { createSinusoidView } from './sinusoid-view.js?v=620869f8d5';
+import { createSinusoidView } from './sinusoid-view.js?v=7285150aa0';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const TAU = Math.PI * 2;
