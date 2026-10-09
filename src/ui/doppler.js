@@ -6,8 +6,8 @@
 
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
 import { h, fmt, fitCanvas, clamp, icon } from './util.js?v=86153645a3';
-import { FONT } from './charts.js?v=b9e9a9eedf';
-import { logAction } from './store.js?v=f876ad06bb';
+import { FONT } from './charts.js?v=121442ade0';
+import { logAction } from './store.js?v=8ab9b37d48';
 import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=fe9fd40247';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -253,7 +253,7 @@ export function createDoppler({ onProbe }) {
     const tLast = buf[buf.length - 1][0];
     const dt = wallLast ? Math.min(0.1, (now - wallLast) / 1000) : 0;
     wallLast = now;
-    const speed = frame?.speed || 1;
+    const speed = frame?.clock === 'disease' ? 1 : (frame?.speed || 1);
     const target = tLast - 0.16 * speed;
     if (tDisp == null || Math.abs(target - tDisp) > 1.2 * speed) tDisp = live() ? target : tLast;
     else if (live()) { tDisp += dt * speed; tDisp += (target - tDisp) * Math.min(1, dt * 2.5); }

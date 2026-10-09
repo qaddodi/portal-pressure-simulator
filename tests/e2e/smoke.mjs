@@ -335,14 +335,15 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (device === 'desktop') { for (let i = 0; i < 4; i++) await page.mouse.wheel(0, 600); await page.waitForTimeout(600); }
     if (!(await page.evaluate(() => window.pps.stage.lobuleOpen()))) throw new Error('zooming out left the lobule');
     // Zones and Lymph are in the toolbar's Layers menu, which is there only on the lobule.
-    // First enabling lymph with a settled, paused model must initialize its radii;
-    // otherwise invalid reaches empty the geometry bins and erase the vessel layer.
+    // Lymph starts on, so this switches it off and back on: turning it on with a settled, paused
+    // model must initialize its radii; otherwise invalid reaches empty the geometry bins and erase the vessel layer.
     await page.evaluate(() => window.pps.host.send({ type: 'run', running: false }));
     await page.waitForFunction(() => !window.pps.store.get().running);
     await page.waitForTimeout(1500);
     await page.click('#btnLobuleLayers');
     await page.click('.menu .lens-opt:has-text("Zones")');
     await page.waitForFunction(() => document.querySelectorAll('.lz-zone').length === 3, null, { timeout: 5000 }).catch(() => { throw new Error('zones did not show'); });
+    await page.click('.menu .lens-opt:has-text("Lymph")');
     await page.click('.menu .lens-opt:has-text("Lymph")');
     await page.keyboard.press('Escape');
     await page.waitForTimeout(500);

@@ -1293,6 +1293,12 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 }
 .action-card.docked.peek .ac-scroll { display: none; }
 .action-card.docked.peek .ac-top { padding-bottom: 12px; }
+/* With Measure / Instruments open on a phone the info card does not hide under it: it rises above the sheet with its
+   controls (they scroll inside it), and the sheet takes less height while a card is open so both can be used at once. */
+.app.dock-open:not(.instrument-focus) .action-card.docked { bottom: var(--bot-occ, 0px); height: auto; max-height: min(36dvh, calc(100% - var(--bot-occ, 0px) - var(--top-safe, 0px) - 8px)); border-radius: var(--r-sheet); }
+.app.dock-open:not(.instrument-focus) .action-card.docked .ac-top { padding-bottom: 10px; }
+/* The sheet may grow as far as the screen allows with the card above it: its tallest size leaves room for a full card. */
+.app.dock-open:not(.instrument-focus):has(.action-card.docked:not([hidden])) .instrument-workspace.float-ui:not(.side) { max-height: calc(100% - var(--top-safe, 0px) - 36dvh - 8px); }
 .action-card.docked .ac-top { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 2px; align-items: center; padding: 2px 12px 4px; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
 .action-card.docked .ac-head, .action-card.docked .ac-titles, .action-card.docked .ac-readout { display: contents; }
 .action-card.docked .ac-grab { grid-column: 1 / -1; grid-row: 1; display: block; width: 100%; height: 12px; margin: 0; padding: 0; border: 0; background: none; cursor: pointer; position: relative; }
@@ -3136,3 +3142,11 @@ body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state
 .tl-track { align-self: center; }
 .tl-lead.mine path { stroke: var(--text-3); stroke-dasharray: 2 2; }
 .tl-lead.mine text { font-weight: 500; font-style: italic; fill: var(--text-2); }
+
+/* Time-lapse mode: the play control turns amber so it is obvious the clock is averaged, not beat-by-beat. */
+.tl-split .ib.play.lapse { background: color-mix(in srgb, var(--warn, #d9890b) 22%, var(--surface)); color: var(--warn-ink, #8a5200); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--warn, #d9890b) 70%, transparent); }
+.tl-split .tl-speed.lapse { color: var(--warn-ink, #8a5200); font-weight: 700; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tl-split .ib.play.lapse, :root:not([data-theme="light"]) .tl-split .tl-speed.lapse { color: #f2b45a; } }
+:root[data-theme="dark"] .tl-split .ib.play.lapse, :root[data-theme="dark"] .tl-split .tl-speed.lapse { color: #f2b45a; }
+.tl-split .tl-speed { white-space: nowrap; }
+.tl-left .tl-split .tl-speed.lapse, .vdock .tl-left .tl-split .tl-speed.lapse { width: auto; min-width: 30px; padding: 0 7px; font-size: 11px; }

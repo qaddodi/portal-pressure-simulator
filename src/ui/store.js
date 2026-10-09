@@ -13,13 +13,14 @@ const state = {
   allowedVerbs: null,         // verbs a lesson or case step allows (null = all)
   shunting: null,             // { src, only } while a shunt waits for its drop target
   layers: { flow: true, chips: true, collaterals: false, organs: true, labels: true, grid: false },
-  lobuleLayers: { zones: false, lymph: false },   // the Lobule view's own layers (toolbar Layers menu): zone bands, hepatic lymph
+  lobuleLayers: { zones: false, lymph: true },   // the Lobule view's own layers (toolbar Layers menu): zone bands, hepatic lymph
   blood: { look: 'shimmer', phasic: false, chevrons: false },   // look: parcels | shimmer
   colorMode: 'pressure',      // pressure | delta | heat | drop | flow | velocity | direction
   params: defaultParams(),
   frame: null,
   running: true,
   speed: 1,
+  lapse: 0, // time-lapse rate in sim days per real second (0 = real time)
   clock: 'hemo',
   theme: null,
   fibrosisZone: 'sin',

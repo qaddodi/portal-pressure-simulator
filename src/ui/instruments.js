@@ -4,11 +4,11 @@
 import { NODES } from '../engine/topology.js?v=dc393aabea';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { h, fmt, fitCanvas, cssVar, clamp, icon } from './util.js?v=86153645a3';
-import { simTime, isPaused } from './clock.js?v=77e8f08631';
+import { simTime, isPaused } from './clock.js?v=82fce4c276';
 import { createEndoGL } from './endo-gl.js?v=f27c0841b0';
 import { renderEndo } from './endo-render.js?v=5ad939cd04';
-import { FONT } from './charts.js?v=b9e9a9eedf';
-import { store, updateParams, logAction, varicesPresent } from './store.js?v=f876ad06bb';
+import { FONT } from './charts.js?v=121442ade0';
+import { store, updateParams, logAction, varicesPresent } from './store.js?v=8ab9b37d48';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
@@ -42,8 +42,8 @@ export function createEndoscopy({ onAction }) {
   // winding varices, drawn once per state into a cached bitmap, so it is perfectly steady. Balloon,
   // bleeding and the scope mask are drawn on top.
   const rnd = (seed) => { let x = seed >>> 0; return () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; }; };
-  const gl = createEndoGL();
-  let peak = 0, an = null, lastT = 0, last = null, raf = 0, bleedT = 0, cache = { key: '', img: null };
+  const gl = createEndoGL(), glOut = document.createElement('canvas');
+  let peak = 0, an = null, lastT = 0, last = null, raf = 0, bleedT = 0, cache = { key: '', img: null }, glKey = '';
   // An eased tween toward a target value: cur follows from -> to over dur ms after a delay.
   const tw = (v) => ({ v, from: v, to: v, t0: 0, dur: 1, delay: 0, cur: v });
   const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -94,8 +94,17 @@ export function createEndoscopy({ onAction }) {
     if (busy && !raf && !isPaused()) raf = requestAnimationFrame(() => { raf = 0; if (last) draw(last.f, last.vx); });
     const res = clamp(Math.round(2 * R * (window.devicePixelRatio || 1)), 160, 480);
     let img;
-    if (gl) img = gl.render(res, { grow: an.g, vis: an.v, red: false, def: an.def.map((t) => t.cur), kn: an.kn.map((t) => t.cur) });
-    else {
+    if (gl) {
+      // Drawn once per state and kept as a 2D bitmap: a steady field costs no shader pass or GPU readback.
+      const gk = [res, an.g, an.v, ...an.def.map((t) => t.cur), ...an.kn.map((t) => t.cur)].map((x) => Math.round(x * 32)).join('|');
+      if (gk !== glKey) {
+        glKey = gk;
+        gl.render(res, { grow: an.g, vis: an.v, red: false, def: an.def.map((t) => t.cur), kn: an.kn.map((t) => t.cur) });
+        if (glOut.width !== res) glOut.width = glOut.height = res;
+        glOut.getContext('2d').drawImage(gl.canvas, 0, 0);
+      }
+      img = glOut;
+    } else {
       // No WebGL: the CPU renderer draws the target state without transitions.
       const r2 = Math.min(res, 300), gq = Math.round(tg * 14) / 14;
       const key = [r2, gq, bands, Math.round(tv * 10)].join('|');
@@ -243,18 +252,21 @@ export function createAbdomen({ onAction }) {
     iapVal.dataset.sev = sev; iapFill.dataset.sev = sev;
     iapFill.style.width = `${clamp(a.iap / 30, 0, 1) * 100}%`;
     iap.querySelector('.ab-iap-bar').setAttribute('aria-label', `Abdominal pressure ${fmt(a.iap, 0)} mmHg`);
-    // A diagnostic tap: SAAG ≥ 1.1 g/dL means portal hypertension; the protein then says where the block is.
-    const ph = f.metrics.ppg > 6 || f.metrics.whvp > 10;
+    // A diagnostic tap, g/dL, from the model's protein balance: SAAG ≥ 1.1 means portal hypertension;
+    // the total protein then says where the block is.
+    const ph = a.saag >= 1.1, hi = a.totalProtein >= 2.5;
     const tapped = a.volume > 150;
     tap.replaceChildren(...(tapped ? [
-      h('div', { class: 'ab-lab', 'data-hi': String(ph) }, h('span', {}, 'SAAG'), h('b', {}, ph ? '≥ 1.1' : '< 1.1')),
-      h('div', { class: 'ab-lab', 'data-hi': String(!!a.highProtein) }, h('span', {}, 'Protein'), h('b', {}, a.highProtein ? '> 2.5' : '< 2.5'))] : []));
-    tap.title = tapped ? 'Diagnostic tap, g/dL. SAAG ≥ 1.1 means portal hypertension; protein then says where the block is.' : '';
+      h('div', { class: 'ab-lab', 'data-hi': String(ph) }, h('span', {}, 'SAAG'), h('b', {}, fmt(a.saag, 1))),
+      h('div', { class: 'ab-lab', 'data-hi': String(hi) }, h('span', {}, 'Total protein'), h('b', {}, fmt(a.totalProtein, 1))),
+      h('div', { class: 'ab-lab' }, h('span', {}, 'Albumin'), h('b', {}, fmt(a.albumin, 1)))] : []));
+    tap.title = tapped ? 'Diagnostic tap, g/dL. SAAG ≥ 1.1 means portal hypertension; total protein ≥ 2.5 then points after the sinusoids, < 2.5 to cirrhosis.' : '';
     tapLine.textContent = !tapped ? '' : !ph ? 'Tap: not portal hypertension, look for a peritoneal cause.'
-      : a.highProtein ? 'Tap: portal hypertension from an outflow block (heart failure, Budd–Chiari).' : 'Tap: portal hypertension from the sinusoids, the cirrhosis pattern.';
+      : hi ? 'Tap: portal hypertension from an outflow block (heart failure, Budd–Chiari).' : 'Tap: portal hypertension from the sinusoids, the cirrhosis pattern.';
     extraStats.replaceChildren(
       h('dt', {}, 'Lymph from the liver'), h('dd', {}, `${fmt(a.hepLymph, 1)} (rises with sinusoidal pressure)`),
-      h('dt', {}, 'Lymph from the gut'), h('dd', {}, fmt(a.splLymph, 1)),
+      h('dt', {}, 'Liver lymph protein'), h('dd', {}, `${Math.round(a.lymphProt * 100)} % of plasma (${a.lymphProt < 0.7 ? 'capillarized sinusoids hold protein back' : 'open fenestrae let it through'})`),
+      h('dt', {}, 'Lymph from the gut'), h('dd', {}, `${fmt(a.splLymph, 1)} (protein-poor)`),
       h('dt', {}, 'Lymphatic capacity'), h('dd', {}, fmt(a.lymphCap, 1)),
       h('dt', {}, 'Serum albumin'), h('dd', {}, `${fmt(p.albumin, 1)} g/dL${p.albumin < 3 ? ' (low: less pull back into vessels)' : ''}`),
       h('dt', {}, 'Kidneys'), h('dd', {}, p.diuretics ? 'Diuretics: sodium and water lost' : 'Retaining sodium and water'));

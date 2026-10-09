@@ -11,10 +11,10 @@
 // from here" freezes the current moment as A for comparison. It replaces play/speed, the Seconds/Months
 // switch, undo/redo/reset, the Findings list, the Log instrument and Compare mode.
 
-import { store, replaceParams, onParamChange } from './store.js?v=f876ad06bb';
-import { host } from './host.js?v=cd3938d8f6';
+import { store, replaceParams, onParamChange } from './store.js?v=8ab9b37d48';
+import { host } from './host.js?v=a4965b3124';
 import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=86153645a3';
-import { activeInterventions } from './inspector.js?v=86f083df6c';
+import { activeInterventions } from './inspector.js?v=5268b7dbbf';
 
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };
 export const EVENT_WHY = { VARIX_RUPTURE: 'varix', RED_WALE: 'varix', VARIX_LARGE: 'varix', HEPATOFUGAL_PV: 'pvFlow', PV_STASIS: 'pvFlow', CSPH: 'hvpg', BLEED_RISK: 'hvpg', ASCITES_FORMING: 'ascites', TENSE_ASCITES: 'ascites', HIGH_SHUNT: 'shunt', LIVER_HYPOPERFUSION: 'liverPerf', RA_HIGH: 'ra', HYPERDYNAMIC: 'co', SPLENOMEGALY: 'spleen' };
@@ -22,6 +22,8 @@ export const EVENT_WHY = { VARIX_RUPTURE: 'varix', RED_WALE: 'varix', VARIX_LARG
 export const EVENT_TAG = { HEPATOFUGAL_PV: 'PV Reversed', SV_REVERSAL: 'SV Reversed', SMV_REVERSAL: 'SMV Reversed', INTRAHEPATIC_REVERSAL: 'IHPV Reversed', PV_STASIS: 'PV Stasis', CSPH: 'CSPH', BLEED_RISK: 'HVPG ≥ 12', VARIX_LARGE: 'Large Varices', RED_WALE: 'Red Wale', VARIX_RUPTURE: 'Varix Rupture', BLEED_STOPPED: 'Bleed Stopped', ASCITES_FORMING: 'Ascites', TENSE_ASCITES: 'Tense Ascites', HYPERDYNAMIC: 'Hyperdynamic', HIGH_SHUNT: 'High Shunt', LIVER_HYPOPERFUSION: 'Liver Hypoperf.', CAUDATE: 'Caudate Spared', RA_HIGH: 'High RAP', SPLENOMEGALY: 'Splenomegaly', SHOCK_2: 'Shock II', SHOCK_3: 'Shock III' };
 export const eventTag = (id) => EVENT_TAG[id] || (id?.startsWith('COLL_') ? 'Collat. Recruited' : '');
 const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
+/** Time-lapse rates: [sim days per real second, short label, long label]. */
+export const LAPSES = [[1 / 24, '1 h/s', '1 hour per second'], [0.5, '12 h/s', '12 hours per second'], [1, '24 h/s', '1 day per second'], [7, '1 wk/s', '1 week per second']];
 const JUMPS = [[7, '+1 wk', '1 week'], [30, '+1 mo', '1 month'], [180, '+6 mo', '6 months']];
 
 /** A frozen, self-contained copy of a frame (for pinning A and for markers). */
@@ -50,8 +52,10 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   // Click toggles play/pause; press and hold opens the speed menu.
   let holdTimer = 0, held = false;
   const openSpeed = () => popover(speedBtn, [
-    h('div', { class: 'menu-title' }, 'Playback speed'),
-    ...SPEEDS.map((v) => { const it = menuBtn(`${v}×`, () => onSpeed(v)); it.setAttribute('aria-pressed', String(store.get().speed === v)); return it; }),
+    h('div', { class: 'menu-title' }, 'Real time (every heartbeat)'),
+    ...SPEEDS.map((v) => { const it = menuBtn(`${v}×`, () => onSpeed(v)); it.setAttribute('aria-pressed', String(!store.get().lapse && store.get().speed === v)); return it; }),
+    h('div', { class: 'menu-title' }, 'Time-lapse (averaged, no beat)'),
+    ...LAPSES.map(([d, , long]) => { const it = menuBtn(long, () => onSpeed(d, true)); it.setAttribute('aria-pressed', String(store.get().lapse === d)); return it; }),
   ], { place: 'above', align: 'start', cls: 'time-pop' });
   playBtn.addEventListener('pointerdown', () => { held = false; clearTimeout(holdTimer); holdTimer = setTimeout(() => { held = true; openSpeed(); }, 450); });
   for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) playBtn.addEventListener(ev, () => clearTimeout(holdTimer));
@@ -449,15 +453,22 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   let pulseT = null;
   function pulseLatest() { track.classList.add('pulse'); clearTimeout(pulseT); pulseT = setTimeout(() => track.classList.remove('pulse'), 1400); }
 
-  let lastTime = '', lastRun = null, lastSpeed = null, lastBleed = null;
+  let lastTime = '', lastRun = null, lastRunMode = null, lastSpeed = null, lastBleed = null;
   function update(f) {
     if (!track.classList.contains('ff')) {
       const t = fmtClock(f.t, f.day);
       if (t !== lastTime) { lastTime = t; timeLong.textContent = t; timeShort.textContent = f.day > 0 ? `Day ${f.day}` : t; }
     }
-    if (f.running !== lastRun) { lastRun = f.running; playBtn.replaceChildren(icon(f.running ? 'pause' : 'play')); playBtn.setAttribute('aria-label', f.running ? 'Pause' : 'Play'); }
-    const sp = store.get().speed;
-    if (sp !== lastSpeed) { lastSpeed = sp; speedBtn.textContent = `${sp}×`; }
+    if (f.running !== lastRun) { lastRun = f.running; playBtn.setAttribute('aria-label', f.running ? 'Pause' : 'Play'); }
+    const st = store.get(), lp = st.lapse || 0, sp = lp ? `L${lp}` : st.speed;
+    if (sp !== lastSpeed || f.running !== lastRunMode) {
+      lastSpeed = sp; lastRunMode = f.running;
+      const lap = LAPSES.find((l) => l[0] === lp);
+      speedBtn.textContent = lp ? (lap ? lap[1] : `${lp} d/s`) : `${st.speed}×`;
+      for (const el of [playBtn, speedBtn, playBtn.parentElement]) el?.classList.toggle('lapse', !!lp);
+      playBtn.replaceChildren(icon(f.running ? 'pause' : (lp ? 'playlapse' : 'play')));
+      playBtn.title = lp ? 'Play / pause (Space): time-lapse' : 'Play / pause (Space)';
+    }
     // Active bleeding: a steady red band from the rupture to now.
     const bleeding = !!f.metrics.bleeding;
     if (bleeding !== lastBleed || bleeding) {

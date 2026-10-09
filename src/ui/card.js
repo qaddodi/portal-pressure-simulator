@@ -3,9 +3,9 @@
 // sliders that used to live in the side panel. Every verb takes effect at once and becomes one
 // entry in the timeline; nothing stays "armed".
 
-import { store, updateParams } from './store.js?v=f876ad06bb';
+import { store, updateParams } from './store.js?v=8ab9b37d48';
 import { h, icon, svgIcon, clamp, tooltipFor } from './util.js?v=86153645a3';
-import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=959428e564';
+import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=eb353d41cf';
 
 const LOCK_TIP = 'Not available in this step of the lesson or case';
 
@@ -318,6 +318,15 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   }
 
   // Beside the structure, on the side that covers least of it, inside the figure.
+  // The zoom pill is a column above the dock on the right: a card that reaches it ends above it. The dock's
+  // height settles after a card is placed, so this runs again whenever the occupancy changes (pps:occ).
+  function fitAbovePill() {
+    el.style.maxHeight = '';
+    const pill = view.querySelector('.zoom-pill'), box = el.offsetParent;
+    if (el.hidden || el.classList.contains('docked') || !box || !pill || pill.offsetParent !== box || !pill.offsetHeight) return;
+    const pt = pill.offsetTop, pl = pill.offsetLeft, top = el.offsetTop;
+    if (el.offsetLeft < pl + pill.offsetWidth && el.offsetLeft + el.offsetWidth > pl && top + el.offsetHeight > pt - 8) el.style.maxHeight = Math.max(200, pt - 8 - top) + 'px';
+  }
   function position() {
     if (!model || el.hidden) return;
     if (matchMedia('(max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape)').matches) {
@@ -369,6 +378,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     if (key === placedFor) return;
     placedFor = key; pinned = { x: best.x, y: best.y };
     el.style.left = best.x + 'px'; el.style.top = best.y + 'px';
+    fitAbovePill();
     drawLeader(best.x, best.y, w, hh, a);
   }
   function drawLeader(x, y, w, hh, a) {
@@ -382,7 +392,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   }
 
   // The floating pieces moved (a card opened on the right, the dock grew): place the card again.
-  addEventListener('pps:occ', () => { if (pinned && !isDocked()) return; placedFor = ''; lastLayout = ''; pinned = null; position(); if (isDocked()) reveal(); });
+  addEventListener('pps:occ', () => { fitAbovePill(); if (pinned && !isDocked()) return; placedFor = ''; lastLayout = ''; pinned = null; position(); if (isDocked()) reveal(); });
   store.on('selection', () => render());
   store.on('shunting', () => render());
   store.on('allowedVerbs', () => render());
