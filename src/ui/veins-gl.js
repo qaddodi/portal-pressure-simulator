@@ -561,13 +561,30 @@ float vnoise(vec2 q, uint seed, int period) {
   return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
 
+// The shimmer's noise at one parcel scale sx (its slot): two lane speeds blended by t, the fine octave
+// faded out where it would fall under a pixel and a half (replaced by its mean, so the level holds).
+float shimN(int id, float s, float qy, float D, float k0, float t, float sx, float drift) {
+  float period = 256.0 * sx, cellA = 5.12 * sx;   // 50 cells a period: the noise wraps with the stream
+  int per = 50;
+  vec2 qa = vec2((s - mod(D * k0 / 8.0, period)) / cellA + drift, qy);
+  vec2 qb = vec2((s - mod(D * (k0 + 1.0) / 8.0, period)) / cellA + drift, qy);
+  uint sd0 = uint(id) * 31u, sd1 = uint(id) * 57u + 11u;
+  float fw = smoothstep(1.2 * pxW, 2.0 * pxW, cellA * 0.5);
+  bool fine = fw > 0.0;
+  float na = t < 1.0 ? 0.62 * vnoise(qa, sd0, per) + 0.38 * (fine ? mix(0.5, vnoise(qa * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2), fw) : 0.5) : 0.0;
+  float nb = t > 0.0 ? 0.62 * vnoise(qb, sd0, per) + 0.38 * (fine ? mix(0.5, vnoise(qb * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2), fw) : 0.5) : 0.0;
+  return mix(na, nb, t);
+}
 // Moving blood in one lumen at arc length s (world, may run past either end) and across y (−1 … 1):
 // the parcels' color and coverage, to be laid over the lumen color col.
 vec4 bloodAt(int id, float s, float y, vec3 col) {
   vec4 f0 = texelFetch(flow, ivec2(0, id), 0), f1 = texelFetch(flow, ivec2(1, id), 0);
   if (f1.z <= 0.0) return vec4(0.0);
   float len = max(texelFetch(tube, ivec2(5, id), 0).z, 1.0);
-  float R = max(texelFetch(rad, ivec2(clamp(int(clamp(s / len, 0.0, 1.0) * ${N_SAMPLES - 1}.0 + 0.5), 0, ${N_SAMPLES - 1}), id), 0).r, 0.3);
+  // The caliber here, interpolated between its samples (not the nearest one), so nothing scaled by it steps along the vessel.
+  float ui = clamp(s / len, 0.0, 1.0) * ${N_SAMPLES - 1}.0;
+  int i0 = min(int(ui), ${N_SAMPLES - 2});
+  float R = max(mix(texelFetch(rad, ivec2(i0, id), 0).r, texelFetch(rad, ivec2(i0 + 1, id), 0).r, ui - float(i0)), 0.3);
   float D = f0.x, vd = f0.y, flux = f0.z, stasis = f0.w;
   float dir = vd < 0.0 ? -1.0 : 1.0;
   // Lanes ~5 device pixels apart (more when zoomed in), parcels at least ~8 apart along a lane.
@@ -649,22 +666,20 @@ vec4 bloodAt(int id, float s, float y, vec3 col) {
   // along the core. Brighter and denser where more blood passes; stagnant blood barely stirs.
   float ay = clamp(abs(y), 0.0, 1.0), yl = ay * 0.8;
   float k8 = max(2.0, 16.0 * (1.0 - yl * yl));
-  float k0 = floor(k8), t = smoothstep(0.2, 0.8, k8 - k0), period = 256.0 * s0;
-  float cellA = 5.12 * s0;                // 50 cells a period: the noise wraps with the stream
-  int per = 50;
-  float qy = y * R / max(0.55 * laneW, 3.2 * pxW);
+  float k0 = floor(k8), t = smoothstep(0.2, 0.8, k8 - k0);
+  // Its scale follows the zoom without steps: the lane width from a continuous lane count, and the
+  // cell size cross-fading between the parcel scales (1, 2, 4 slots) over a band of zoom, where the beads switch at once.
+  float qy = y * R / max(0.55 * 1.6 * R / clamp(1.7 * R / Lg, 1.0, 7.0), 3.2 * pxW);
   float drift = stasis * clock * 0.06;
-  vec2 qa = vec2((s - mod(D * k0 / 8.0, period)) / cellA + drift, qy);
-  vec2 qb = vec2((s - mod(D * (k0 + 1.0) / 8.0, period)) / cellA + drift, qy);
-  uint sd0 = uint(id) * 31u, sd1 = uint(id) * 57u + 11u;
-  // Between two lane speeds the two fields are blended; most pixels need only one.
-  // The fine octave is left out where its features are under a pixel and a half (replaced by its mean, so the level holds).
-  // It fades out over a range of zoom rather than switching off at one, so the sheen never pops.
-  float fw = smoothstep(1.2 * pxW, 2.0 * pxW, cellA * 0.5);
-  bool fine = fw > 0.0;
-  float na = t < 1.0 ? 0.62 * vnoise(qa, sd0, per) + 0.38 * (fine ? mix(0.5, vnoise(qa * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2), fw) : 0.5) : 0.0;
-  float nb = t > 0.0 ? 0.62 * vnoise(qb, sd0, per) + 0.38 * (fine ? mix(0.5, vnoise(qb * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2), fw) : 0.5) : 0.0;
-  float nz = mix(na, nb, t);
+  float lx = clamp(log2(max(pxW, 1e-4) * 8.0 / SLOT), -1.0, 3.0);
+  float li = smoothstep(-0.2, 0.2, lx) + smoothstep(0.8, 1.2, lx);   // 0 … 2
+  float lb = min(floor(li), 1.0), lf = li - lb;
+  float sA = SLOT * exp2(lb), sB = SLOT * exp2(lb + 1.0);
+  float nz = shimN(id, s, qy, D, k0, t, sA, drift);
+  if (lf > 0.0) nz = mix(nz, shimN(id, s, qy, D, k0, t, sB, drift), lf);
+  float sx = mix(sA, sB, lf);
+  p = max(min(1.0, flux * sx / (max(abs(vd), 2.0) * sumK)), 0.45 * stasis);
+  ends = min(f1.x > 0.5 ? smoothstep(0.0, 1.5 * sx, s) : 1.0, f1.y > 0.5 ? smoothstep(0.0, 1.5 * sx, len - s) : 1.0);
   float dens = sqrt(clamp(p, 0.0, 1.0));
   // Soft-edged and subdued, so up close the sheen reads as moving light, not as stripes painted on the tube;
   // a steady glow along the axis carries most of the brightness.

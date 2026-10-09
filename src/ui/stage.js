@@ -6,10 +6,10 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=1d7cd9b00f';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=e803df99cd';
-import { createLobuleZoom } from './lobule-zoom.js?v=3dd2abcb27';
+import { createLobuleZoom } from './lobule-zoom.js?v=c145f85657';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=a29435c7f0';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=b6b2dca81e';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 
 const N_SAMPLES = 64;
@@ -749,7 +749,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // 0.5 mmHg steps, so a vessel's gradient is not rewritten on every heartbeat; widths move in
   // 0.5 px steps once settled (below, with hysteresis), so tubes are not rebuilt either.
   const qP = (v) => Math.round(v * 2) / 2;
-  const qW = (v) => Math.round(v * 4) / 4;
 
   // Nodes (circuit view)
   const nodeEls = {};
@@ -1509,7 +1508,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       showFigure();
     });
   }
-  let catchUp = false;
+  let catchUp = false, wAt = 0, widthEasing = false;
   function update(f) {
     inUpdate = true;
     try { updateInner(f); } finally { inUpdate = false; }
@@ -1529,6 +1528,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     F = f;
     lz?.update(f);
     if (lz?.isOpen() && !catchUp) return;   // the plate is hidden under the lobule; it catches up on the way out
+    // Widths and coils ease toward their targets in time (~0.25 s), not per model update.
+    const nowW = performance.now(), kW = -Math.expm1(-Math.min(0.1, (nowW - (wAt || nowW)) / 1000) / 0.25);
+    wAt = nowW; widthEasing = false;
     const st = store.get();
     const p = f.viewParams || st.params;
     const t = easeInOut(morph);
@@ -1550,7 +1552,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const x of Object.values(E)) {
       if (x.e.kind !== 'collateral' || x.e.spontaneous || STRAIGHT_COLL.has(x.e.id)) continue;
       const w = shownFrac(x.e.id, f) > 0.25 ? 1.5 + 3.5 * shownFrac(x.e.id, f) : 0;
-      if (Math.abs(w - geo[x.e.id].wig) > 0.6) { geo[x.e.id].wig = w; geomDirty = true; }
+      // Eased toward its target (a change of over 0.6 starts it), so the vessel coils gradually.
+      const g = geo[x.e.id];
+      if (g.wigT == null || Math.abs(w - g.wigT) > 0.6) g.wigT = w;
+      if (g.wig !== g.wigT) { const d = g.wigT - g.wig; g.wig = Math.abs(d) < 0.03 ? g.wigT : g.wig + d * kW; geomDirty = true; if (g.wig !== g.wigT) widthEasing = true; }
     }
     updateGeometry(geomDirty);
 
@@ -1587,11 +1592,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (e.code === 'C1' && f.bands > 0 && t < 1) w *= 1 - 0.14 * Math.min(4, f.bands);
       // The caudate vein hypertrophies when it becomes the liver's outflow (Budd–Chiari).
       if (e.id === 'CAUD' && t < 1) { const ref = store.get().healthy?.Q?.[k]; if (ref) w *= 0.8 * clamp(Math.sqrt(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) / Math.abs(ref)), 1, 1.8); }
-      w = qW(w);
-      if (x.reveal?.out && x.width != null) w = x.width;
-      // Settled (not morphing, same lens): ignore sub-half-pixel wobble from the pulse and breath.
-      const settled = (t === 0 || t === 1) && x.wMode === mode;
-      if (!settled || x.width == null || Math.abs(w - x.width) >= 0.5) x.width = w;
+      // A vessel leaving keeps its width. While the views morph, the width follows the morph frame by frame.
+      // Otherwise a change of half a pixel or more (smaller wobble from the pulse and breath is ignored)
+      // sets a new target, and the drawn width eases to it over a few frames instead of stepping.
+      if (x.reveal?.out && x.width != null) x.wT = x.width;
+      else if (x.width == null || (t > 0 && t < 1)) x.wT = x.width = w;
+      else if (x.wMode !== mode || x.wT == null || Math.abs(w - x.wT) >= 0.5) x.wT = w;
+      if (x.width !== x.wT) { const d = x.wT - x.width; x.width = Math.abs(d) < 0.02 ? x.wT : x.width + d * kW; if (x.width !== x.wT) widthEasing = true; }
       w = x.width;
       x.wMode = mode;
       // The hit stroke is never thinner than the drawn tube (the IVC is wide, behind the liver) and never under ~10 px on screen.
@@ -3962,11 +3969,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const still = (!st.running || reduceMotion.matches) && !bolus.active;
     const key = still ? `${cathVer}|${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${JSON.stringify(st.blood)}|${vCanvas.width}x${vCanvas.height}` : null;
     // A plate raster that lands while the figure is still (paused, or reduced motion) marks the vessel layer dirty: draw it.
-    if (still && !veinsDirty && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && F === lastDrawF && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { requestAnimationFrame(animate); return; }
+    if (still && !veinsDirty && !widthEasing && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && F === lastDrawF && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { requestAnimationFrame(animate); return; }
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
       if (F) update(F); else updateGeometry(true);
-    }
+    } else if (widthEasing && F) update(F);   // a width still easing to its target: one step a frame
     if (rotU !== rotTarget) {
       rotU = clamp(rotU + Math.sign(rotTarget - rotU) * dt / 0.5, 0, 1);
       setViewBox(easeInOut(morph));
