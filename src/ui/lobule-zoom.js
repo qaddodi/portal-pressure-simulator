@@ -32,7 +32,7 @@ import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const TAU = Math.PI * 2;
 const N = N_SAMPLES;
-const MAXT = 300;                       // GPU rows: the lobule has ~170 vessels, ~270 with the lymphatics
+const MAXT = 320;                       // GPU rows: the lobule has ~170 vessels, ~285 with the lymphatics
 const LIGHT = (() => { const n = Math.hypot(-0.42, -0.91); return [-0.42 / n, -0.91 / n]; })();
 const BLOOD = {
   originCol: [[0.9, 0.6, 0.16], [0.09, 0.62, 0.55], [0.49, 0.36, 0.86], [0.84, 0.2, 0.28], [0.44, 0.56, 0.75]],
@@ -719,6 +719,9 @@ export function createLobuleZoom({ host }) {
       join(E[0], E[1], [side, d], R * 0.004);
     }
     for (const t of L1) add('ly', curve((u) => at(beside(t), u)), { lymph: true, lvl: 1 });
+    // …and on along the innermost sinusoids, thinning out toward the central vein (lymph forms all along
+    // the sinusoid, least where the plates converge), so the channel fades in rather than starting abruptly.
+    for (const t of L2) add('ly', curve((u) => at(beside(t), u)), { lymph: true, lvl: 2 });
     return { W, H, phone, R, cx, cy, rt, rs0, rcv0, lobules, tubes, bloodTubes: tubes.filter((t) => !t.lymph), joins, triads, inlets, L0, L1, L2, cv, septaPC, cells, hsc, lymph };
   }
   function hexFrac(x, y, cx, cy, R) {
@@ -1245,12 +1248,14 @@ export function createLobuleZoom({ host }) {
       case 'bd': return Math.max(1.6, R * 0.0145);
       case 'tw': return Math.max(1.1, R * 0.0055 * clamp(m.art, 0.6, 2.2) ** 0.3);
       // Lymphatics widen as drainage rises (capped, so the tract lymphatic never swamps the triad).
-      case 'ly': return Math.max(1.1, g.rs0 * 0.5 * lyW(m, 0.45));   // the space of Disse fills and widens
+      case 'ly': return Math.max(1.1, g.rs0 * 0.5 * lyW(m, 0.45)) * lyTaper(t.rho[i]);   // the space of Disse fills and widens; tapers toward the central vein
       case 'lt': return Math.max(1.5, R * 0.0075 * lyW(m, 0.4));
       case 'lv': return R * 0.016 * lyW(m, 0.4);
       default: return rs;
     }
   }
+  // The space of Disse narrows to nothing as it nears the central vein.
+  const lyTaper = (rho) => 0.06 + 0.94 * smooth(0.13, 0.42, rho);
   // Lymphatic caliber against the healthy flow: 1 at a normal rate, up to 1 + k at four times it.
   const lyW = (m, k) => 1 + k * smooth(1, 4, lymphRate(m)) - 0.12 * (1 - smooth(0.3, 1, lymphRate(m)));
   // Lymph as the sinusoids filter it: f, how hard (0 at the healthy rate, 1 at four times it); over, how far
@@ -1706,12 +1711,13 @@ export function createLobuleZoom({ host }) {
         const L = t.len || 1, n = Math.max(1, Math.round(L / gapW)), dir = t.kind === 'ly' ? -1 : 1;   // the space of Disse is drawn from the edge inward
         const mo = motionOf(t);
         mo.lu = ((mo.lu ?? (t.id * 0.371) % 1) + (still ? 0 : dir * dt * vW / L) + 1) % 1;
-        const r = Math.max(minR, radiusAt(t, N >> 1) * 0.7);
+        const r = Math.max(minR, (radiusAt(t, N >> 1) / (t.kind === 'ly' ? lyTaper(t.rho[N >> 1]) : 1)) * 0.7);
         for (let i = 0; i < n; i++) {
           const u = (mo.lu + i / n) % 1, e = Math.min(u, 1 - u) * n;   // fading in and out at the ends
           if (e < 0.25) continue;
-          const [x, y] = at(t.pts, u);
-          drops.push(x, y, r * Math.min(1, e), t.id + i);
+          const [x, y] = at(t.pts, u), tp = t.kind === 'ly' ? lyTaper(Math.hypot(x - G.cx, y - G.cy) / G.R) : 1;
+          if (tp < 0.2) continue;   // too far in: the channel has thinned out
+          drops.push(x, y, r * Math.min(1, e) * smooth(0.2, 0.8, tp), t.id + i);
         }
       }
       c.fillStyle = dark ? 'rgba(214, 236, 204, .42)' : 'rgba(150, 186, 140, .42)';
