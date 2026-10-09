@@ -6,7 +6,7 @@ import { store, updateParams, replaceParams, bindParamSender, clearHistory, logA
 import { createStage } from './stage.js?v=6370dcd5f2';
 import { sinusoidSupported } from './sinusoid-view.js?v=528cc6cad5';
 import { createInspector } from './inspector.js?v=f2a0cd3e9a';
-import { createDock, CUTOFFS } from './dock.js?v=c941fd3065';
+import { createDock, CUTOFFS } from './dock.js?v=b8dea8ea86';
 import { setHvpgStage } from './hvpg-proc.js?v=3f37488f0d';
 import { createWhy } from './why.js?v=6e2456299a';
 import { createTimeline, LAPSES } from './timeline.js?v=6adb97dcda';
@@ -14,7 +14,7 @@ import { createLearn } from './learn.js?v=0f405fa2bb';
 import { createCases } from './cases.js?v=b05c879c01';
 import { createCompare } from './compare.js?v=da5b460b68';
 import { createCard } from './card.js?v=2b4a95cbcb';
-import { createChart, computeFindings } from './chart.js?v=968d6be635';
+import { createChart, computeFindings } from './chart.js?v=56be77fefd';
 import { createHome, ROLES } from './home.js?v=a2e73d8f59';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=424fa7e848';
 import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=309ffcab35';
