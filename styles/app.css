@@ -2805,6 +2805,9 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 /* Narrow: the name under a small icon, so all five fit in one row. */
 @container ws (max-width: 560px) {
   .instr-tab { flex-direction: column; gap: 1px; height: 40px; padding: 0 2px; }
+  /* Seven tabs: each keeps its whole name; where they do not all fit, the row scrolls sideways. */
+  .instr-tab { flex: 1 0 auto; min-width: 48px; padding: 0 4px; font-size: 10.5px; }
+  .it-t b { overflow: visible; }
 }
 
 /* Text size: smaller A, the size (tap to reset), larger A. */
@@ -3293,12 +3296,13 @@ body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state
 @media (min-width: 1024px) and (pointer: fine) {
   .instrument-workspace.float-ui { box-shadow: 0 8px 28px rgba(20, 22, 30, .10), 0 1px 3px rgba(20, 22, 30, .06), inset 0 0 0 1px var(--hairline); }
   .instr-tabs { gap: 2px; margin: 0 16px; padding: 0; border-radius: 0; background: none; }
-  .instr-tab, .instr-tab[aria-selected="true"] { flex: 0 1 auto; flex-direction: row; height: 36px; padding: 0 9px; border-radius: 0; background: none; box-shadow: none; font-weight: 500; font-size: var(--fs-14); color: var(--text-3); }
-  .instr-tab:first-child { margin-left: -9px; }
+  /* Seven tabs: 13px text and 6px sides keep every name whole on a laptop-width card. */
+  .instr-tab, .instr-tab[aria-selected="true"] { flex: 0 1 auto; flex-direction: row; height: 36px; padding: 0 6px; border-radius: 0; background: none; box-shadow: none; font-weight: 500; font-size: 13px; color: var(--text-3); }
+  .instr-tab:first-child { margin-left: -6px; }
   .instr-tab > svg { display: none; }
   .instr-tab:hover { color: var(--text); }
   .instr-tab[aria-selected="true"] { color: var(--text); font-weight: 600; }
-  .instr-tab[aria-selected="true"]::before { content: ''; position: absolute; left: 9px; right: 9px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent); }
+  .instr-tab[aria-selected="true"]::before { content: ''; position: absolute; left: 6px; right: 6px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent); }
   .instr-tab[data-slot="1"]::after, .instr-tab[data-slot="2"]::after { top: 2px; right: -6px; }
   .picking .instr-tab:not([aria-selected="true"]) { box-shadow: none; color: var(--accent-ink); }
   .instrument-workspace .dock-head { padding: 10px 8px 2px 16px !important; }
@@ -3335,3 +3339,29 @@ body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state
   .vdock .narrator .nr-s { display: none; }
 }
 .app.presenting .narrator { display: none; }
+/* Guideline lens (Measure › Guidelines): the patient on the Baveno VII rules. */
+.instrument-view.gl-pane { display: block; }
+.gl-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; }
+.gl-cap { font: 600 11px var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.gl-stage { margin: 0; font: 600 var(--fs-20) var(--font-ui); color: var(--text); }
+.gl-inputs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.gl-inputs > div { padding: 4px 9px; border-radius: 8px; background: var(--surface-2); }
+.gl-inputs dt { font: 500 11px var(--font-ui); color: var(--text-3); }
+.gl-inputs dd { margin: 0; font: 600 var(--fs-12) var(--font-num); font-variant-numeric: tabular-nums; color: var(--text); }
+.gl-note { margin: 0 0 10px; padding: 8px 10px; border-radius: 8px; border-left: 3px solid var(--caution); background: var(--surface-2); font-size: var(--fs-12); color: var(--text-2); }
+.gl-rules { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+@media (min-width: 1100px) { .instrument-workspace:not(.side) .gl-rules { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; } }
+.gl-rule { padding: 9px 0; border-bottom: 1px solid var(--hairline); }
+.gl-rule[data-state="na"] { opacity: .62; }
+.gl-top { display: flex; align-items: center; gap: 8px; }
+.gl-top .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--sev, var(--text-3)); }
+.gl-top .dot[data-sev="ok"] { --sev: var(--ok); } .gl-top .dot[data-sev="caution"] { --sev: var(--caution); } .gl-top .dot[data-sev="danger"] { --sev: var(--danger); }
+.gl-top .dot[data-sev="none"] { --sev: transparent; box-shadow: inset 0 0 0 1.5px var(--text-3); }
+.gl-top b { flex: 1 1 auto; min-width: 0; font: 600 var(--fs-14) var(--font-ui); color: var(--text); }
+.gl-verdict { flex: none; font: 600 var(--fs-12) var(--font-ui); color: var(--text-2); text-align: right; }
+.gl-rule[data-state="yes"] .gl-verdict { color: var(--danger); }
+.gl-reason { margin: 3px 0 0 16px; font-size: var(--fs-14); color: var(--text); }
+.gl-crit { margin: 3px 0 0 16px; font-size: var(--fs-12); color: var(--text-3); }
+.gl-src { display: inline-block; margin: 2px 4px 0 0; padding: 0 6px; border-radius: 6px; border: 1px solid var(--hairline); font: 600 10px/16px var(--font-ui); color: var(--text-2); white-space: nowrap; }
+.gl-off { margin: 8px 0; color: var(--text-2); }
+.gl-foot { margin-top: 12px; }

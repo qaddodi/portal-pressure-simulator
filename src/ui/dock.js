@@ -8,6 +8,7 @@ import { lobuleFlows } from './lobule-model.js?v=6e45ed9029';
 import { createProfile } from './charts.js?v=32df8541ef';
 import { createPressureTime } from './pressure-time.js?v=588201eed4';
 import { createFibroScan } from './fibroscan.js?v=cc82769305';
+import { createGuidelines, guidelineTab } from './guidelines.js?v=6ea157a580';
 import { createDoppler } from './doppler.js?v=5159b0e66c';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=925f494a37';
 
@@ -298,7 +299,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const pressure = { ...profile, id: 'profile', label: 'Pressure' };
   const instruments = [
     pressure, createPressureTime({ marks }),
-    createDoppler({ onProbe }), endoscopy, createAbdomen({ onAction }), createFibroScan(),
+    createDoppler({ onProbe }), endoscopy, createAbdomen({ onAction }), createFibroScan(), createGuidelines(),
   ];
   const panes = instruments.map((p) => {
     p.el.classList.remove('dock-pane'); p.el.classList.add('instrument-view');
@@ -317,9 +318,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     endoscopy: ['endoscope', (f) => (f.metrics.varix.d < 2.5 ? 'No varices' : `Grade ${f.metrics.varix.grade.code}`)],
     abdomen: ['needle', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],
     fibroscan: ['gauge', (f) => `${fmt(f.metrics.lsm, 0)} kPa`],
+    guidelines: ['book', guidelineTab],
   };
-  const SHORT = { profile: 'Pressure', scope: 'Over time', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites', fibroscan: 'FibroScan' };
-  const ORDER = ['profile', 'scope', 'doppler', 'endoscopy', 'abdomen', 'fibroscan'];
+  const SHORT = { profile: 'Pressure', scope: 'Over time', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites', fibroscan: 'FibroScan', guidelines: 'Guidelines' };
+  const ORDER = ['profile', 'scope', 'doppler', 'endoscopy', 'abdomen', 'fibroscan', 'guidelines'];
   const saved = (() => { try { return JSON.parse(localStorage.getItem('pps.instruments') || 'null') || {}; } catch { return {}; } })();
   let open = Array.isArray(saved.open) && saved.open.every((id) => byId[id]) && saved.open.length ? saved.open.slice(0, 2) : ['profile'];
   let frame = null, state = 'open', resizeFrame = 0, picking = false;
@@ -428,6 +430,11 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       tabEls[id].b.setAttribute('aria-selected', String(on));
       tabEls[id].b.tabIndex = id === open[0] ? 0 : -1;
       tabEls[id].b.dataset.slot = on && open.length > 1 ? String(open.indexOf(id) + 1) : '';
+    }
+    // A phone's tab row scrolls sideways: keep the chosen tab in view.
+    if (tabs.scrollWidth > tabs.clientWidth) {
+      const r = tabEls[open[0]].b.getBoundingClientRect(), T = tabs.getBoundingClientRect();
+      if (r.left < T.left || r.right > T.right) tabs.scrollLeft += r.left - T.left - (T.width - r.width) / 2;
     }
     remember();
     queueRefresh();
