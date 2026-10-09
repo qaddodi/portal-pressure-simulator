@@ -483,15 +483,12 @@ export const EDGE_VESSEL = {
   LRV_IVC: 'LRV', V_KID_L: 'LRV',
 };
 
-// Standard paths for the pressure-profile chart (§9.2)
+// The pressure-profile chart follows one path, gut → liver → heart, with plain station names;
+// `liver` marks the stations inside the liver (portal venule to central venule).
 export const PROFILE_PATHS = [
-  { id: 'main', label: 'Gut → liver → heart', nodes: ['AO', 'INT', 'SMV', 'CONF', 'PVH', 'RPV', 'SIN_R', 'CV_R', 'RHV', 'IVCS', 'RA'] },
-  { id: 'spleen', label: 'Spleen → liver → heart', nodes: ['AO', 'SPL', 'SV', 'CONF', 'PVH', 'LPV', 'SIN_L', 'CV_L', 'LHV', 'IVCS', 'RA'] },
-  { id: 'eso', label: 'Esophageal collateral route', nodes: ['AO', 'STO', 'LGV', 'VAR', 'AZY', 'SVC', 'RA'] },
-  { id: 'gastric', label: 'Gastric varix → gastrorenal', nodes: ['AO', 'SPL', 'SV', 'GV', 'LRV', 'IVCI', 'IVCS', 'RA'] },
-  { id: 'tips', label: 'Through a TIPS', nodes: ['AO', 'INT', 'SMV', 'CONF', 'PVH', 'RPV', 'RHV', 'IVCS', 'RA'] },
-  { id: 'dips', label: 'Through a DIPS', nodes: ['AO', 'INT', 'SMV', 'CONF', 'PVH', 'IVCI', 'IVCS', 'RA'] },
-  { id: 'umbilical', label: 'Paraumbilical route', nodes: ['AO', 'INT', 'SMV', 'CONF', 'PVH', 'LPV', 'EPI', 'ILI', 'IVCI', 'IVCS', 'RA'] },
+  { id: 'main', label: 'Gut → liver → heart', nodes: ['INT', 'CONF', 'RPV', 'SIN_R', 'CV_R', 'RHV', 'IVCS', 'RA'],
+    names: { INT: 'Gut', CONF: 'Portal vein', RPV: 'Portal venule', SIN_R: 'Sinusoid', CV_R: 'Central venule', RHV: 'Hepatic vein', IVCS: 'IVC', RA: 'RA' },
+    liver: ['RPV', 'CV_R'] },
 ];
 
 export const SHORT = {

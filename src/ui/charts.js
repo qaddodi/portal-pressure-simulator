@@ -1,7 +1,7 @@
 // Dock charts (blueprint §9.2): the pressure profile.
 
 import { NODES } from '../engine/topology.js?v=dc393aabea';
-import { PROFILE_PATHS, SHORT } from './anatomy.js?v=d6c5cddad6';
+import { PROFILE_PATHS, SHORT } from './anatomy.js?v=a971df1fbc';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { store } from './store.js?v=8ab9b37d48';
 import { h, fmt, fitCanvas, cssVar, clamp, createEaser, axisTop } from './util.js?v=86153645a3';
@@ -45,17 +45,17 @@ export function createProfile() {
   const box = h('div', { class: 'chart-box' });
   const cv = h('canvas', { role: 'img', 'aria-label': 'Pressure profile along the selected path' });
   box.append(cv);
-  const sel = h('select', { class: 'select', 'aria-label': 'Path' }, PROFILE_PATHS.map((p) => h('option', { value: p.id }, p.label)));
   const legend = h('div', { class: 'legend-inline' },
     h('span', {}, h('i', { style: { borderColor: 'var(--text)' } }), 'Now'),
     h('span', {}, h('i', { style: { borderColor: 'var(--text-3)', borderTopStyle: 'dashed' } }), 'Healthy'),
     h('span', { class: 'lg-compare', style: { display: 'none' } }, h('i', { style: { borderColor: 'var(--s1)', borderTopStyle: 'dotted' } }), 'Snapshot A'),
     h('span', { class: 'lg-pred', style: { display: 'none' } }, h('i', { style: { borderColor: 'var(--accent)', borderTopStyle: 'dashed' } }), 'Your prediction'));
   const note = h('div', { class: 'sub' }, 'Pressure at each station along the path. Where the line drops steeply, that is where the block is; the red pill marks the biggest drop.');
-  const side = h('div', { class: 'chart-side' }, sel, legend, note, h('div', { class: 'ctl-sub', id: 'profileOffscale' }));
+  const side = h('div', { class: 'chart-side' }, legend, note, h('div', { class: 'ctl-sub', id: 'profileOffscale' }));
   el.append(box, side);
   let pathId = 'main';
-  sel.addEventListener('change', () => { pathId = sel.value; draw(); });
+  const curPath = () => PROFILE_PATHS.find((p) => p.id === pathId) || PROFILE_PATHS[0];
+  const nm = (n) => curPath().names?.[n] || SHORT[n] || n;
   // F is what is drawn: the frame with its pressures eased toward the model's (breath- and
   // beat-filtered) values, so the line, dots and labels glide rather than jump when values change.
   let F = null, Fraw = null, axisMax = 15, easeRaf = 0;
@@ -64,7 +64,7 @@ export function createProfile() {
     if (!Fraw) return;
     const src = Fraw.Pf || Fraw.P;
     const { v: shown, moving: mP } = easeP.step(src);
-    const path = PROFILE_PATHS.find((p) => p.id === pathId);
+    const path = curPath();
     const st = store.get();
     let top = 0;
     for (const n of path.nodes) {
@@ -85,14 +85,14 @@ export function createProfile() {
 
   function geometry() {
     const { w, h: hh } = fitCanvas(cv);
-    const path = PROFILE_PATHS.find((p) => p.id === pathId);
+    const path = curPath();
     // Venous stations only: the arterial pressure sits far off the portal scale and says little here.
     const stations = path.nodes.filter((n) => !ARTERIAL.has(n));
     const slot0 = (w - 56) / stations.length;
     // Close together, the station names turn 30° on one row (each ending under its point).
     const stagger = slot0 < 74;
     let tilt = 0;
-    if (stagger) { const m = cv.getContext('2d'); m.font = FONT(500, 11); tilt = Math.max(...stations.map((n) => m.measureText(SHORT[n] || n).width)) * 0.5; }
+    if (stagger) { const m = cv.getContext('2d'); m.font = FONT(500, 11); tilt = Math.max(...stations.map((n) => m.measureText(nm(n)).width)) * 0.5; }
     // Arterial stations sit far above the venous scale: they are drawn in a band above a broken
     // axis (//) with their true value, never clipped.
     const hasArt = stations.some((n) => ARTERIAL.has(n));
@@ -122,14 +122,24 @@ export function createProfile() {
       ctx.globalAlpha = 0.55; ctx.beginPath(); ctx.moveTo(L, Math.round(y(p)) + 0.5); ctx.lineTo(w - R, Math.round(y(p)) + 0.5); ctx.stroke(); ctx.globalAlpha = 1;
       ctx.textAlign = 'right'; ctx.fillText(String(p), L - 8, y(p) + 4);
     }
+    // The liver: a soft band behind its stations, named at the top.
+    const lv = curPath().liver;
+    if (lv) {
+      const i0 = stations.indexOf(lv[0]), i1 = stations.indexOf(lv[1]);
+      if (i0 >= 0 && i1 >= i0) {
+        const bx = x(i0) - slot / 2, bw = slot * (i1 - i0 + 1);
+        ctx.save(); ctx.fillStyle = c.liver || 'rgba(176, 96, 84, .09)'; ctx.fillRect(bx, T - 6, bw, y(0) - T + 6);
+        ctx.fillStyle = c.muted; ctx.font = FONT(600, 10.5); ctx.textAlign = 'center'; ctx.fillText('LIVER', bx + bw / 2, T + 4); ctx.restore();
+      }
+    }
     ctx.strokeStyle = c.axis; ctx.beginPath(); ctx.moveTo(L, Math.round(y(0)) + 0.5); ctx.lineTo(w - R, Math.round(y(0)) + 0.5); ctx.stroke();
     if (roomy || !hasArt) { ctx.textAlign = 'left'; ctx.fillText('mmHg', 6, 12); } else { ctx.textAlign = 'right'; ctx.fillText('mmHg', w - R, artY + 4); }
     // station labels: horizontal, or turned 30° (ending under their point) when close together
     ctx.fillStyle = c.muted; ctx.font = FONT(500, 11);
     stations.forEach((n, i) => {
-      if (!stagger) { ctx.textAlign = 'center'; ctx.fillText(SHORT[n] || n, x(i), hh - B + 16); return; }
+      if (!stagger) { ctx.textAlign = 'center'; ctx.fillText(nm(n), x(i), hh - B + 16); return; }
       ctx.save(); ctx.translate(x(i) + 3, hh - B + 10); ctx.rotate(-Math.PI / 6);
-      ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillText(SHORT[n] || n, 0, 0);
+      ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillText(nm(n), 0, 0);
       ctx.restore();
     });
     ctx.textBaseline = 'alphabetic';
@@ -279,7 +289,7 @@ export function createProfile() {
     id: 'profile', label: 'Pressure profile', el,
     update(f) { Fraw = f; ease(); },
     redraw: draw,
-    setPath(id) { pathId = id; sel.value = id; draw(); },
+    setPath(id) { pathId = id; draw(); },
     startPredict(onChange) { predict = { on: true, values: new Map(), onChange }; draw(); },
     endPredict(reveal = true) { if (predict) { predict.on = false; predict.reveal = reveal; } draw(); return predict; },
     clearPredict() { predict = null; draw(); },
