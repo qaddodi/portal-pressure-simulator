@@ -489,9 +489,10 @@ export const PROFILE_PATHS = [
   { id: 'main', label: 'Gut → liver → heart', nodes: ['INT', 'CONF', 'RPV', 'SIN_R', 'CV_R', 'RHV', 'IVCS', 'RA'],
     names: { INT: 'Gut', CONF: 'Portal vein', RPV: 'Portal venule', SIN_R: 'Sinusoid', CV_R: 'Central venule', RHV: 'Hepatic vein', IVCS: 'IVC', RA: 'RA' },
     liver: ['RPV', 'CV_R'],
-    // Gradients drawn as dimension lines at the right: HVPG (sinusoid ≈ wedged − hepatic vein) and
-    // PPG (portal vein − IVC), each with its clinical threshold.
-    dims: [{ k: 'HVPG', hi: 'SIN_R', lo: 'RHV', warn: 5, bad: 10 }, { k: 'PPG', hi: 'CONF', lo: 'IVCS', warn: 5, bad: 12 }] },
+    // Gradients drawn as dimension lines at the right, with the same values and cut-offs as the readout
+    // tiles: HVPG = WHVP − FHVP (wedged − free hepatic vein) and PPG = portal vein − IVC.
+    dims: [{ k: 'HVPG', hi: 'SIN_R', lo: 'RHV', hiM: 'whvp', loM: 'fhvp', m: 'hvpg', warn: 5, bad: 10 },
+      { k: 'PPG', hi: 'CONF', lo: 'IVCS', m: 'ppg', warn: 6, bad: Infinity }] },
 ];
 
 export const SHORT = {

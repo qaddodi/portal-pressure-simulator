@@ -1,11 +1,11 @@
 // Learn mode (blueprint §11): lessons as step sequences with Predict → Observe → Explain.
 
 import { store, updateParams } from './store.js?v=8ab9b37d48';
-import { host } from './host.js?v=9254d33eb7';
+import { host } from './host.js?v=355062efc9';
 import { h, fmt, toast, svgIcon } from './util.js?v=86153645a3';
 import { createAnswerSheet, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=7f4afcf446';
 import { addRecord } from './records.js?v=50fb9dd463';
-import { runSequence } from './sequence.js?v=941afefa56';
+import { runSequence } from './sequence.js?v=df2927e386';
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
 import { trustLine, teachChip, blindOn, blindOff, isBlind, optionList, compareChip, bindQuestionKeys, mirrorMarker } from './learning-kit.js?v=faf71e7503';
 
@@ -86,7 +86,7 @@ export const LESSONS = [
       { type: 'predict', q: 'A traveller with schistosomiasis has large varices. Will his HVPG be high?', options: ['Yes, large varices mean a high gradient', 'No, it can be normal or only mildly raised', 'It cannot be measured in schistosomiasis', 'Yes, the liver is cirrhotic'], answer: 1,
         why: 'The wedge reads the sinusoids, and in schistosomiasis the block lies before them.' },
       { type: 'observe', seconds: 8, preset: 'schisto', tools: ['select'], tab: 'profile', zoom: 'fit', focus: ['PV_TRUNK', 'PRE_R', 'RHV_IVC'], focusLabel: 'Portal vein and liver outlet',
-        data: [{ label: 'Portal vein to cava', metric: 'ppg', unit: 'mmHg' }, { label: 'HVPG', metric: 'hvpg', unit: 'mmHg' }],
+        data: [{ label: 'PPG (portal vein − IVC)', metric: 'ppg', unit: 'mmHg' }, { label: 'HVPG', metric: 'hvpg', unit: 'mmHg' }],
         text: 'The portal pressure is high but the gradient is low, because the block sits before the sinusoids and the wedge cannot see it.' },
       { type: 'observe', seconds: 8, preset: 'rhf', params: { pulsatile: true }, tools: ['select'], tab: 'profile', zoom: 'fit', focus: ['IVCS_RA', 'RHV_IVC'], focusLabel: 'Cava and hepatic vein',
         data: [{ label: 'Free pressure', metric: 'fhvp', unit: 'mmHg' }, { label: 'Wedged pressure', metric: 'whvp', unit: 'mmHg' }, { label: 'Right atrium', metric: 'ra', unit: 'mmHg' }],
@@ -232,15 +232,15 @@ export const LESSONS = [
     pearls: ['Each tool treats a different part of the problem.', 'TIPS sends blood past the liver and onto the heart.', 'Check the heart, the brain and the bilirubin before TIPS.'],
     steps: [
       { type: 'frame', preset: 'cirr-decomp', tools: ['select', 'stent'], view: 'anatomic', zoom: 'fit', tab: 'profile', focus: ['PVH_R', 'RHV_IVC', 'C1b'], focusLabel: 'Portal vein, hepatic vein, varices',
-        data: [{ label: 'Portal-to-cava gradient', metric: 'ppg', unit: 'mmHg' }, { label: 'Blood to the liver', metric: 'hepaticFlow', d: 2, unit: 'L/min' }, { label: 'Right atrium', metric: 'ra', unit: 'mmHg' }],
+        data: [{ label: 'PPG (portal vein − IVC)', metric: 'ppg', unit: 'mmHg' }, { label: 'Blood to the liver', metric: 'hepaticFlow', d: 2, unit: 'L/min' }, { label: 'Right atrium', metric: 'ra', unit: 'mmHg' }],
         text: 'A patient with decompensated cirrhosis has varices and ascites. Drugs turn the inflow down, bands remove a varix, and a TIPS gives portal blood a new route. Note the starting numbers.' },
       { type: 'predict', q: 'After a TIPS, what happens to blood flow through the liver?', options: ['It falls', 'It rises', 'It stays the same', 'It reverses'], answer: 0,
         why: 'The shunt gives blood an easier way back to the heart, so less goes through the liver.' },
       { type: 'do', tools: ['select', 'stent'], focus: ['PVH_R', 'RHV_IVC'], focusLabel: 'Portal vein to hepatic vein', text: 'Create a **TIPS** between the right portal vein and the right hepatic vein, 8 mm wide. Compare the gradient, the blood reaching the liver, and the load on the heart.',
-        data: [{ label: 'Portal-to-cava gradient', metric: 'ppg', unit: 'mmHg' }, { label: 'Blood to the liver', metric: 'hepaticFlow', d: 2, unit: 'L/min' }, { label: 'Right atrium', metric: 'ra', unit: 'mmHg' }],
+        data: [{ label: 'PPG (portal vein − IVC)', metric: 'ppg', unit: 'mmHg' }, { label: 'Blood to the liver', metric: 'hepaticFlow', d: 2, unit: 'L/min' }, { label: 'Right atrium', metric: 'ra', unit: 'mmHg' }],
         goal: (f, p) => p.tips.on && Math.abs(p.tips.d - 8) <= 0.1, hint: 'Tap the right portal vein, choose Create shunt, tap the right hepatic vein, then set the diameter.' },
       { type: 'observe', seconds: 8, tools: ['select'], tab: 'profile', focus: ['TIPS', 'PVH_R', 'RHV_IVC'], focusLabel: 'The new shunt',
-        data: [{ label: 'Portal-to-cava gradient', metric: 'ppg', unit: 'mmHg' }, { label: 'Blood to the liver', metric: 'hepaticFlow', d: 2, unit: 'L/min' }, { label: 'Right atrium', metric: 'ra', unit: 'mmHg' }],
+        data: [{ label: 'PPG (portal vein − IVC)', metric: 'ppg', unit: 'mmHg' }, { label: 'Blood to the liver', metric: 'hepaticFlow', d: 2, unit: 'L/min' }, { label: 'Right atrium', metric: 'ra', unit: 'mmHg' }],
         text: 'The gradient falls, but less blood goes through the liver and more returns to the heart. This is why TIPS can cause encephalopathy or heart strain.' },
       { type: 'frame', preset: 'gastric-varix', tools: ['select', 'occlude'], tab: 'profile', focus: ['C2', 'C5', 'PV_TRUNK'], focusLabel: 'Gastric varices and their draining shunt',
         text: 'Another patient has gastric varices draining through a large shunt to the left renal vein. You can close that shunt, as in a BRTO.' },

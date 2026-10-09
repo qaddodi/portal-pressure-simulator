@@ -11,9 +11,9 @@
 import { store, updateParams } from './store.js?v=8ab9b37d48';
 import { h, fmt, icon, svgIcon, toast } from './util.js?v=86153645a3';
 import { DRUGS } from '../engine/scenario.js?v=d88966abe6';
-import { TILES, VITALS, readoutValue } from './dock.js?v=a6b2dfaa67';
+import { TILES, VITALS, readoutValue } from './dock.js?v=13417e91f0';
 import { activeInterventions } from './inspector.js?v=5268b7dbbf';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=f1e65a1042';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=cb62aff40d';
 
 // Where each readout is measured, so a click can show it on the figure.
 const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS', 'DIPS'], spleen: ['V_SPL', 'SV_CONF'], ra: ['IVCS_RA'] };
@@ -25,7 +25,7 @@ const FIND = {
   hvpg: (v, m, sev) => sev === 'caution'
     ? ['Portal hypertension, subclinical', `HVPG ${n1(v)} mmHg: above normal (< 5), below the clinically significant threshold (10).`]
     : ['Clinically significant portal hypertension', `HVPG ${n1(v)} mmHg (≥ 10). At this level varices, ascites and other complications can develop.`],
-  ppg: (v, m) => ['Portosystemic gradient raised', m.hvpg < 5
+  ppg: (v, m) => ['PPG raised', m.hvpg < 5
     ? `PPG ${n1(v)} mmHg (normal < 6) while HVPG is normal: the block sits before the sinusoids, where the wedged catheter cannot see it.`
     : `PPG ${n1(v)} mmHg (normal < 6), measured directly from the portal vein to the vena cava.`],
   pv: (v, m, sev) => [sev === 'danger' ? 'Portal pressure high' : 'Portal pressure raised', `Portal vein ${n1(v)} mmHg (normal ≤ 10).`],

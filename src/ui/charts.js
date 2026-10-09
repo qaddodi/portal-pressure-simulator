@@ -1,7 +1,7 @@
 // Dock charts (blueprint §9.2): the pressure profile.
 
 import { NODES } from '../engine/topology.js?v=dc393aabea';
-import { PROFILE_PATHS, SHORT } from './anatomy.js?v=529f91a122';
+import { PROFILE_PATHS, SHORT } from './anatomy.js?v=1c3fb66f80';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { store } from './store.js?v=8ab9b37d48';
 import { h, fmt, fitCanvas, cssVar, clamp, createEaser, axisTop } from './util.js?v=86153645a3';
@@ -50,7 +50,7 @@ export function createProfile() {
     h('span', {}, h('i', { style: { borderColor: 'var(--text-3)', borderTopStyle: 'dashed' } }), 'Healthy'),
     h('span', { class: 'lg-compare', style: { display: 'none' } }, h('i', { style: { borderColor: 'var(--s1)', borderTopStyle: 'dotted' } }), 'Snapshot A'),
     h('span', { class: 'lg-pred', style: { display: 'none' } }, h('i', { style: { borderColor: 'var(--accent)', borderTopStyle: 'dashed' } }), 'Your prediction'));
-  const note = h('div', { class: 'sub' }, 'Pressure from gut to heart. Where the line drops steeply, that is where the block is. At the right: HVPG (sinusoid − hepatic vein) and PPG (portal vein − IVC).');
+  const note = h('div', { class: 'sub' }, 'Pressure from gut to heart. Where the line drops steeply, that is where the block is. At the right: HVPG (wedged − free hepatic vein) and PPG (portal vein − IVC).');
   const side = h('div', { class: 'chart-side' }, legend, note, h('div', { class: 'ctl-sub', id: 'profileOffscale' }));
   el.append(box, side);
   let pathId = 'main';
@@ -246,7 +246,9 @@ export function createProfile() {
     (dims || []).forEach((d, k) => {
       const a = stations.indexOf(d.hi), b = stations.indexOf(d.lo);
       if (a < 0 || b < 0) return;
-      const v = now[a] - now[b], ya = y(now[a]), yb = y(now[b]);
+      const m = F.metrics || {};
+      const hv = d.hiM && m[d.hiM] != null ? m[d.hiM] : now[a], lv = d.loM && m[d.loM] != null ? m[d.loM] : now[b];
+      const v = d.m && m[d.m] != null ? m[d.m] : hv - lv, ya = y(hv), yb = y(lv);
       const dx = w - R + 12 + k * 40;
       const col = v >= d.bad ? c.danger : v >= d.warn ? c.caution : c.muted;
       ctx.save();
