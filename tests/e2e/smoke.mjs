@@ -325,6 +325,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const zk = () => page.evaluate(() => window.pps.stage.lobuleViewKey?.());
       // The framing glides when the free space changes: start from where it settles.
       // Settled means three readings in a row agree (a busy machine can pause a glide between two).
+      // Fit first: the vitals dock's caption line can arrive after the opening framing was set.
+      await page.click('#zoomFit');
       let k0 = await zk(), same = 0;
       for (let i = 0; i < 30 && same < 2; i++) { await page.waitForTimeout(700); const k = await zk(); same = k === k0 ? same + 1 : 0; k0 = k; }
       await page.click('#zoomIn');
