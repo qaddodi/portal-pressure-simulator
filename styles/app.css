@@ -2296,7 +2296,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .pt-sev[data-sev="caution"]::before { background: var(--caution); }
 .pt-sev[data-sev="danger"]::before { background: var(--danger); }
 .pt-sev[data-sev="danger"] { color: var(--danger); }
-.pt-delta { font-size: var(--fs-12); color: var(--text-3); font-variant-numeric: tabular-nums; margin-right: auto; }
+.pt-delta { font-size: var(--fs-12); color: var(--text-3); font-variant-numeric: tabular-nums; flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 1.2em; }
 .pt-delta[data-dir="up"] { color: var(--danger); }
 .pt-delta[data-dir="down"] { color: var(--ok); }
 .pt-range { flex: none; }
