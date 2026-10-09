@@ -118,34 +118,49 @@ void main() {
   vec3 hv = normalize(vec3(Lx - 0.35, Ly - 0.55, Lz + 0.75));
   float NH = max(0.0, Nx * hv.x + Ny * hv.y + Nz * hv.z);
 
-  vec3 ALB = vec3(236.0, 167.0, 152.0), DEEP = vec3(140.0, 40.0, 50.0), V = vec3(66.0, 62.0, 158.0);
-  float tint = sst(1.5, 9.0, z);
-  vec3 col = vec3(mix(ALB.x, DEEP.x, tint * 0.7), mix(ALB.y, DEEP.y, tint * 0.75), mix(ALB.z, DEEP.z, tint * 0.6));
+  // Squamous mucosa: pale pink-salmon close to the lens, warmer and redder with depth. Past the
+  // serrated Z-line (the squamocolumnar junction) the gastric cardia shows as deeper salmon-red.
+  vec3 ALB = vec3(226.0, 150.0, 132.0), DEEP = vec3(150.0, 52.0, 50.0);
+  float tint = sst(1.2, 7.0, z);
+  vec3 col = mix(ALB, DEEP, tint * vec3(0.7, 0.8, 0.65));
+  float zl = 5.2 + 0.9 * (nz(th / TAU * 11.0, 0.5, 11.0) - 0.5) + 0.35 * (nz(th / TAU * 31.0, 2.5, 31.0) - 0.5);
+  float zline = sst(zl - 0.25, zl + 0.25, z);
+  col = mix(col, vec3(200.0, 70.0, 60.0), zline * 0.85);
   float mott = nz(th / TAU * 14.0, z * 0.9, 14.0) * 0.6 + nz(th / TAU * 40.0, z * 2.5, 40.0) * 0.4;
-  float mm = 0.92 + 0.16 * mott + 0.08 * (hsh(gl_FragCoord.xy) - 0.5);
-  col *= vec3(mm, mm * (0.98 + 0.04 * mott), mm);
-  float rid = 1.0 - abs(nz(th / TAU * 48.0, z * 3.2, 48.0) * 2.0 - 1.0);
-  float vs = sst(0.95, 0.998, rid) * 0.07 * (1.0 - sst(2.5, 6.0, z));
-  col = mix(col, vec3(190.0, 70.0, 72.0), vs);
+  float grain = nz(th / TAU * 160.0, z * 11.0, 160.0);
+  float mm = 0.93 + 0.12 * mott + 0.06 * (grain - 0.5) + 0.04 * (hsh(gl_FragCoord.xy) - 0.5);
+  col *= vec3(mm, mm * (0.97 + 0.05 * mott), mm);
+  // Fine submucosal vessels: a branching red-violet net, long and thin along the wall (palisade
+  // vessels near the junction), sharp close to the lens and lost with depth.
+  float n1 = nz(th / TAU * 36.0 + 0.6 * nz(th / TAU * 9.0, z * 1.1, 9.0), z * 1.6, 36.0);
+  float n2 = nz(th / TAU * 90.0, z * 4.2 + 3.0 * n1, 90.0);
+  float r1 = 1.0 - abs(n1 * 2.0 - 1.0), r2 = 1.0 - abs(n2 * 2.0 - 1.0);
+  float vs = (sst(0.93, 0.995, r1) * 0.16 + sst(0.95, 0.995, r2) * 0.1) * (1.0 - sst(2.2, 5.0, z)) * sst(0.5, 0.75, z);
+  col = mix(col, vec3(184.0, 84.0, 92.0), vs);
 
   float dfc = 0.0;
   if (cc >= 0.0) for (int i = 0; i < 4; i++) if (float(i) == cc) dfc = uDef[i];
   float vn = 0.0;
   if (uVis > 0.05 && vein > 0.02) {
-    vn = min(1.0, uVis * vein * (0.4 + 0.75 * uGrow));
+    vn = min(1.0, uVis * vein * (0.45 + 0.7 * uGrow));
+    // A small varix shows white under thick mucosa; a large, thin-walled one shows blue.
     float crest = exp(-pow(abs(uu) / 0.55, 2.0));
-    float k = vn * 0.72;
-    col = mix(col, V + vec3(26.0, 22.0, 14.0) * crest, k);
-    if (uRed > 0.5) {
-      float sk = nz(uu * 13.0 + cc * 11.0, z * 1.3, 4096.0);
-      float wm = sst(0.7, 0.84, sk) * 0.6 * exp(-pow(abs(uu) / 0.8, 2.0)) * sst(0.35, 0.7, uGrow) * (1.0 - dfc);
-      float spot = sst(0.86, 0.93, nz(th / TAU * 120.0, z * 6.0, 120.0)) * vn * sst(0.3, 0.6, uGrow) * (1.0 - dfc);
-      float rr = max(wm * 0.8, spot * 0.85);
-      col = mix(col, vec3(178.0, 28.0, 44.0), rr);
+    vec3 V = mix(vec3(214.0, 178.0, 176.0), vec3(80.0, 90.0, 172.0), sst(0.1, 0.5, uGrow));
+    col = mix(col, V + vec3(30.0, 26.0, 18.0) * crest * sst(0.2, 0.6, uGrow), vn * 0.74);
+    if (uRed > 0.01) {
+      float rs = uRed * (1.0 - dfc) * (1.0 - zline);
+      // Red wale marks: thin, broken red whip-marks running along the crest.
+      float off = 0.32 * (nz(cc * 7.0, z * 0.8, 4096.0) - 0.5);
+      float streak = exp(-pow((uu - off) / 0.08, 2.0)) * sst(0.66, 0.86, nz(cc * 13.0 + 5.0, z * 2.6, 4096.0));
+      float streak2 = exp(-pow((uu + 0.35 + off) / 0.07, 2.0)) * sst(0.66, 0.84, nz(cc * 17.0 + 9.0, z * 3.4, 4096.0));
+      float wm = max(streak, streak2 * 0.8) * sst(0.0, 0.5, rs);
+      // Cherry-red spots: small round dots on the varix, more of them as the wall nears its limit.
+      float spot = sst(0.95 - 0.05 * rs, 0.98 - 0.03 * rs, nz(th / TAU * 220.0, z * 11.0, 220.0)) * vn * sst(0.2, 0.7, rs);
+      col = mix(col, vec3(158.0, 26.0, 42.0), max(wm * 0.6 * vn, spot * 0.75) * sst(0.25, 0.5, uGrow));
     }
   }
   float ao = 1.0;
-  if (uVis > 0.05 && vein > 0.005 && vein < 0.2) ao = 1.0 - 0.28 * uVis * uVis * sst(0.005, 0.1, vein) * (1.0 - sst(0.1, 0.2, vein));
+  if (uVis > 0.05 && vein > 0.003 && vein < 0.35) ao = 1.0 - 0.16 * uVis * uVis * sst(0.003, 0.12, vein) * (1.0 - sst(0.12, 0.35, vein));
 
   float gloss = 1.0;
   if (qm < 4.0) {
@@ -171,15 +186,20 @@ void main() {
     col = mix(col, vec3(26.0, 16.0, 20.0), ring * 0.8);
   }
 
-  float diff = min(1.1, NL * 0.72 + 0.28) * atten;
+  // Light from the scope tip: steep falloff with distance, and what light comes back from deep in
+  // the lumen is reddened by the tissue.
+  float diff = min(1.1, NL * 0.72 + 0.3) * atten;
+  vec3 lc = mix(vec3(1.0, 0.97, 0.93), vec3(1.0, 0.7, 0.6), sst(1.5, 8.0, z));
+  // Wet mucus film: patchy, so the highlights break up as they do on real tissue.
+  float wet = sst(0.35, 0.75, nz(th / TAU * 20.0, z * 1.4, 20.0)) * 0.8 + 0.2;
+  float spec = min(0.5, pow(NH, 200.0) * 0.35 + pow(NL, 90.0) * 0.32 * wet + pow(NL, 18.0) * 0.03) * gloss * atten * wet;
+  float glint = sst(0.93, 0.98, nz(th / TAU * 80.0, z * 7.0, 80.0)) * 0.18 * atten * pow(NL, 4.0);
   float sheen = 0.08 + 0.1 * nz(th / TAU * 9.0, z * 0.7, 9.0);
-  float spec = min(0.35, pow(NH, 220.0) * 0.3 + pow(NL, 14.0) * 0.02) * gloss * atten * (0.35 + 0.9 * nz(th / TAU * 20.0, z * 1.4, 20.0));
-  float glint = sst(0.94, 0.985, nz(th / TAU * 80.0, z * 7.0, 80.0)) * 0.14 * atten * NL;
-  vec3 rgb = (col / 255.0) * diff * ao + vec3(spec * 0.9 + glint * 0.8) + vec3(sheen * 0.04, sheen * 0.03, sheen * 0.03);
-  float lum = sst(5.0, 20.0, z);
-  rgb = mix(rgb, vec3(0.05, 0.012, 0.014), lum);
-  rgb *= 1.0 - 0.62 * sst(0.62, 1.0, rho);
-  rgb = vec3(pow(min(1.2, rgb.r), 0.82), pow(min(1.2, rgb.g), 0.9), pow(min(1.2, rgb.b), 0.86));
+  vec3 rgb = (col / 255.0) * diff * ao * lc + vec3(spec * 0.95 + glint * 0.85) * vec3(1.0, 0.98, 0.95) + vec3(sheen * 0.04, sheen * 0.025, sheen * 0.025);
+  float lum = sst(5.5, 18.0, z);
+  rgb = mix(rgb, vec3(0.045, 0.01, 0.012), lum);
+  rgb *= 1.0 - 0.58 * sst(0.64, 1.0, rho);
+  rgb = vec3(pow(min(1.2, rgb.r), 0.82), pow(min(1.2, rgb.g), 0.92), pow(min(1.2, rgb.b), 0.9));
   gl_FragColor = vec4(min(rgb, 1.0), 1.0);
 }
 `;
@@ -205,11 +225,11 @@ export function createEndoGL() {
     canvas: cv,
     // Raw RGBA of the last frame (for tests).
     pixels() { const n = cv.width, a = new Uint8Array(n * n * 4); gl.readPixels(0, 0, n, n, gl.RGBA, gl.UNSIGNED_BYTE, a); return a; },
-    // st: { grow, vis, red, def: [4], kn: [16] }; draws into the shared canvas at res x res.
+    // st: { grow, vis, red (0..1 red-sign strength), def: [4], kn: [16] }; draws into the shared canvas at res x res.
     render(res, st) {
       if (cv.width !== res) { cv.width = cv.height = res; }
       gl.viewport(0, 0, res, res);
-      gl.uniform1f(u.size, res); gl.uniform1f(u.grow, st.grow); gl.uniform1f(u.vis, st.vis); gl.uniform1f(u.red, st.red ? 1 : 0);
+      gl.uniform1f(u.size, res); gl.uniform1f(u.grow, st.grow); gl.uniform1f(u.vis, st.vis); gl.uniform1f(u.red, +st.red || 0);
       gl.uniform1fv(u.def, new Float32Array(st.def)); gl.uniform1fv(u.kn, new Float32Array(st.kn));
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       return cv;
