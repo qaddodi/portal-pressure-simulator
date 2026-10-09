@@ -5,21 +5,12 @@ import { store, hiddenNow } from './store.js?v=edbdbfb0c8';
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=e803df99cd';
 import { lobuleFlows } from './lobule-model.js?v=dd2bf5fddf';
-<<<<<<< HEAD
 import { createProfile } from './charts.js?v=8e2ff3a43c';
 import { createPressureTime } from './pressure-time.js?v=a3313b873f';
 import { createFibroScan } from './fibroscan.js?v=623a2b47df';
 import { createHvpgProcedure } from './hvpg-proc.js?v=8210f96ed7';
 import { createDoppler } from './doppler.js?v=74abfc9c4b';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=c8034a2e91';
-=======
-import { createProfile } from './charts.js?v=8e2ff3a43c';
-import { createPressureTime } from './pressure-time.js?v=a3313b873f';
-import { createFibroScan } from './fibroscan.js?v=623a2b47df';
-import { createHvpgProcedure } from './hvpg-proc.js?v=8210f96ed7';
-import { createDoppler } from './doppler.js?v=74abfc9c4b';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=c8034a2e91';
->>>>>>> origin/claude/settings-topbar-icon-flvft1
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic

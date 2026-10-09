@@ -2,12 +2,11 @@
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
 import { startHost, host } from './host.js?v=b54d9b1fcc';
-<<<<<<< HEAD
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=edbdbfb0c8';
 import { createStage } from './stage.js?v=db91618281';
 import { sinusoidSupported } from './sinusoid-view.js?v=90d85e7cf8';
 import { createInspector } from './inspector.js?v=fbb0750c20';
-import { createDock, CUTOFFS } from './dock.js?v=f701dbc3d7';
+import { createDock, CUTOFFS } from './dock.js?v=0dd92ec0a2';
 import { setHvpgStage } from './hvpg-proc.js?v=8210f96ed7';
 import { createWhy } from './why.js?v=6e2456299a';
 import { createTimeline, LAPSES } from './timeline.js?v=55e9506496';
@@ -15,24 +14,8 @@ import { createLearn } from './learn.js?v=1f6b87c7d2';
 import { createCases } from './cases.js?v=e22b3978f2';
 import { createCompare } from './compare.js?v=96506c9464';
 import { createCard } from './card.js?v=3597b7a412';
-import { createChart, computeFindings } from './chart.js?v=6c9fe7f348';
+import { createChart, computeFindings } from './chart.js?v=42103e5087';
 import { createHome, ROLES } from './home.js?v=82df67c62d';
-=======
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=edbdbfb0c8';
-import { createStage } from './stage.js?v=db91618281';
-import { sinusoidSupported } from './sinusoid-view.js?v=90d85e7cf8';
-import { createInspector } from './inspector.js?v=fbb0750c20';
-import { createDock, CUTOFFS } from './dock.js?v=f701dbc3d7';
-import { setHvpgStage } from './hvpg-proc.js?v=8210f96ed7';
-import { createWhy } from './why.js?v=6e2456299a';
-import { createTimeline, LAPSES } from './timeline.js?v=55e9506496';
-import { createLearn } from './learn.js?v=1f6b87c7d2';
-import { createCases } from './cases.js?v=e22b3978f2';
-import { createCompare } from './compare.js?v=96506c9464';
-import { createCard } from './card.js?v=3597b7a412';
-import { createChart, computeFindings } from './chart.js?v=6c9fe7f348';
-import { createHome, ROLES } from './home.js?v=82df67c62d';
->>>>>>> origin/claude/settings-topbar-icon-flvft1
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=424fa7e848';
 import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=ee3689fa2e';
 import { startLMS } from './lms.js?v=45983df90a';
