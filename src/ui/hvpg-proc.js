@@ -129,7 +129,7 @@ export function createHvpgProcedure({ sheet } = {}) {
     if (ph === 'result' && t < T.back) {
       labels.push({ key: 's', at: 'sum',
         rows: [{ at: 'ahead', kicker: 'WHVP', text: fmt(v.whvp, 1), unit: 'mmHg', cls: 'wedge' }, { at: 'tip', kicker: 'FHVP', text: fmt(v.fhvp, 1), unit: 'mmHg', cls: 'free' }],
-        calc: { kicker: 'HVPG = WHVP − FHVP', text: `${fmt(v.whvp, 1)} − ${fmt(v.fhvp, 1)} = ${fmt(v.hvpg, 1)}`, unit: 'mmHg', cls: 'result ' + sevOf(v.hvpg) } });
+        calc: { kicker: 'HVPG', text: fmt(v.hvpg, 1), unit: 'mmHg', cls: 'result ' + sevOf(v.hvpg) } });
     }
     sg.setCatheter({
       u: ease(k01(t, T.travel0, T.travel1)),
