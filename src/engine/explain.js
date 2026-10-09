@@ -13,6 +13,11 @@ export const METRICS = {
   ppg: { label: 'Direct portal–systemic gradient', unit: 'mmHg', get: (m) => m.ppg, digits: 1 },
   pvFlow: { label: 'Portal vein flow', unit: 'L/min', get: (m) => m.pvFlow, digits: 2 },
   liverPerf: { label: 'Liver perfusion', unit: '%', get: (m) => m.liverPerfPct, digits: 0 },
+  sinFlow: { label: 'Sinusoidal flow', unit: '% of normal', get: (m) => m.liverPerfPct, digits: 0 },
+  portalIn: { label: 'Portal inflow to the liver', unit: '% of normal', get: (m) => (m.pvFlow / healthyMetrics().pvFlow) * 100, digits: 0 },
+  artIn: { label: 'Hepatic artery inflow', unit: '% of normal', get: (m) => (m.arterialIn / healthyMetrics().arterialIn) * 100, digits: 0 },
+  hepLymph: { label: 'Hepatic lymph', unit: 'mL/min', get: (m) => m.ascites.hepLymph, digits: 1 },
+  hr: { label: 'Heart rate', unit: '/min', get: (m) => m.hr, digits: 0 },
   shunt: { label: 'Shunt fraction', unit: '%', get: (m) => m.shuntFraction * 100, digits: 0 },
   varix: { label: 'Varix wall stress (model)', unit: '% of rupture', get: (m) => m.varix.ratio * 100, digits: 0 },
   ascites: { label: 'Ascites formation', unit: 'mL/day', get: (m) => m.ascites.ratePerDay, digits: 0 },
@@ -128,6 +133,6 @@ function formula(eng, id) {
     return `Ascites = filtration (liver ${f.hep.toFixed(1)} + gut ${f.spl.toFixed(1)} mL/min) − lymph capacity ${eng.slow.lymphCap.toFixed(1)} − reabsorption ${f.reabs.toFixed(2)} mL/min`;
   }
   if (id === 'map') return `MAP = CO × SVR + RA = ${(eng.COf * 0.06).toFixed(2)} L/min × ${((eng.MAPf - P[ni.RA]) / (eng.COf * 0.06)).toFixed(1)} WU + ${P[ni.RA].toFixed(1)}`;
-  if (id === 'shunt' || id === 'pvFlow' || id === 'liverPerf') return 'Parallel paths: flow divides in inverse proportion to resistance (liver vs. collaterals/shunts).';
+  if (id === 'shunt' || id === 'pvFlow' || id === 'liverPerf' || id === 'sinFlow' || id === 'portalIn') return 'Parallel paths: flow divides in inverse proportion to resistance (liver vs. collaterals/shunts).';
   return '';
 }
