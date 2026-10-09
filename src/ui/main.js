@@ -3,18 +3,18 @@
 
 import { startHost, host } from './host.js?v=b54d9b1fcc';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=edbdbfb0c8';
-import { createStage } from './stage.js?v=b84a9dbd5e';
+import { createStage } from './stage.js?v=19512eac11';
 import { sinusoidSupported } from './sinusoid-view.js?v=5e3d2d7781';
 import { createInspector } from './inspector.js?v=fbb0750c20';
-import { createDock, CUTOFFS } from './dock.js?v=b0eedd0697';
-import { setHvpgStage } from './hvpg-proc.js?v=8210f96ed7';
+import { createDock, CUTOFFS } from './dock.js?v=f1e885fc9a';
+import { setHvpgStage } from './hvpg-proc.js?v=2f69b82b82';
 import { createWhy } from './why.js?v=6e2456299a';
 import { createTimeline, LAPSES } from './timeline.js?v=55e9506496';
 import { createLearn } from './learn.js?v=1f6b87c7d2';
 import { createCases } from './cases.js?v=e22b3978f2';
 import { createCompare } from './compare.js?v=96506c9464';
 import { createCard } from './card.js?v=3597b7a412';
-import { createChart, computeFindings } from './chart.js?v=c5f3da416b';
+import { createChart, computeFindings } from './chart.js?v=b1238b2208';
 import { createHome, ROLES } from './home.js?v=82df67c62d';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=424fa7e848';
 import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=ee3689fa2e';
@@ -179,12 +179,13 @@ async function main() {
   host.on('error', (m) => { console.error(m.message); toast('Engine error: see the console.', 'bad'); });
 
   // The Sinusoid button shows only in the Lobule view: it is one level further down.
-  const syncViewSeg = () => { const st = store.get(), cur = st.lobule && st.sinusoid ? 'sinusoid' : st.lobule ? 'lobule' : st.view; $$('#viewSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === cur))); $('#viewSeg [data-view="sinusoid"]').hidden = !st.lobule || !sinusoidSupported(); app.classList.toggle('sin-focus', !!(st.lobule && st.sinusoid)); };
+  const syncViewSeg = () => { const st = store.get(), cur = st.lobule && st.sinusoid ? 'sinusoid' : st.lobule ? 'lobule' : st.view; $$('#viewSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === cur))); $('#viewSeg [data-view="sinusoid"]').hidden = !st.lobule || !sinusoidSupported(); app.classList.toggle('sin-focus', !!(st.lobule && st.sinusoid)); $('#btnSinPlay').hidden = !(st.lobule && st.sinusoid); };
   store.on('view', (v) => { stage.setView(v); syncViewSeg(); });
   store.on('lobule', syncViewSeg);
   store.on('sinusoid', syncViewSeg);
   // The sinusoid view hides the timeline, so it gets its own play / pause (Space works too).
-  const sinPlay = $('#btnSinPlay'), syncSinPlay = () => { const on = store.get().running; sinPlay.setAttribute('aria-label', on ? 'Pause' : 'Play'); sinPlay.replaceChildren(icon(on ? 'pause' : 'play')); };
+  const sinPlay = $('#btnSinPlay');
+  let sinOn = null, syncSinPlay = () => { const on = store.get().running; if (on === sinOn) return; sinOn = on; sinPlay.setAttribute('aria-label', on ? 'Pause' : 'Play'); sinPlay.replaceChildren(icon(on ? 'pause' : 'play')); };
   sinPlay.addEventListener('click', () => host.send({ type: 'run', running: !store.get().running }));
   store.on('running', syncSinPlay);
   store.on('tool', (t) => {
