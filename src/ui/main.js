@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=b54d9b1fcc';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent } from './store.js?v=06e2d6e179';
-import { createStage } from './stage.js?v=c53c8cda70';
+import { createStage } from './stage.js?v=f53456b98b';
 import { createInspector } from './inspector.js?v=27d45ac861';
 import { createDock, CUTOFFS } from './dock.js?v=bec526260a';
 import { GUIDE_TABLE } from '../engine/guidelines.js?v=61be844d06';
@@ -14,8 +14,8 @@ import { createCases } from './cases.js?v=bcfad828db';
 import { createCompare } from './compare.js?v=4cb776bac2';
 import { createCard } from './card.js?v=ae7faa9f26';
 import { createChart, computeFindings } from './chart.js?v=fa391f62df';
-import { createHome, ROLES } from './home.js?v=af30624074';
-import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=0f0719fa20';
+import { createHome, ROLES } from './home.js?v=748b4cb2ce';
+import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=424fa7e848';
 import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=fd20ea54b3';
 import { startLMS } from './lms.js?v=94a14004b6';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
@@ -174,9 +174,11 @@ async function main() {
   host.on('frame', onFrame);
   host.on('error', (m) => { console.error(m.message); toast('Engine error: see the console.', 'bad'); });
 
-  const syncViewSeg = () => { const st = store.get(), cur = st.lobule ? 'lobule' : st.view; $$('#viewSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === cur))); };
+  // The Sinusoid button shows only in the Lobule view: it is one level further down.
+  const syncViewSeg = () => { const st = store.get(), cur = st.lobule && st.sinusoid ? 'sinusoid' : st.lobule ? 'lobule' : st.view; $$('#viewSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === cur))); $('#viewSeg [data-view="sinusoid"]').hidden = !st.lobule; };
   store.on('view', (v) => { stage.setView(v); syncViewSeg(); });
   store.on('lobule', syncViewSeg);
+  store.on('sinusoid', syncViewSeg);
   store.on('tool', (t) => {
     for (const c of [...view.classList]) if (c.startsWith('tool-')) view.classList.remove(c);
     view.classList.add('tool-' + t);
@@ -491,7 +493,7 @@ function buildHud() {
   const syncRotate = () => rotateBtn.setAttribute('aria-pressed', String(stage.circuitRotated()));
   rotateBtn.onclick = () => { stage.setCircuitRotated(!stage.circuitRotated()); syncRotate(); };
   syncRotate();
-  $$('#viewSeg button').forEach((b) => b.addEventListener('click', () => (b.dataset.view === 'lobule' ? zoomLobule() : store.set({ lobule: false, view: b.dataset.view }))));
+  $$('#viewSeg button').forEach((b) => b.addEventListener('click', () => (b.dataset.view === 'lobule' ? zoomLobule() : b.dataset.view === 'sinusoid' ? store.set({ sinusoid: true }) : store.set({ lobule: false, view: b.dataset.view }))));
   // The legend is the lens switcher: it shows what the colors mean and changes what they show.
   $('#btnLayers').addEventListener('click', (e) => openLayers(e.currentTarget));
   $('#btnLayers').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); openLayers(e.currentTarget); } });

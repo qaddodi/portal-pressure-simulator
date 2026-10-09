@@ -1670,6 +1670,13 @@ button.finding:hover { background: var(--surface-2); }
   -webkit-text-stroke: 4px color-mix(in srgb, var(--label-halo) 65%, transparent); paint-order: stroke fill; }
 .sv-back { position: absolute; left: 12px; top: calc(var(--top-safe, 56px) + var(--cmp-h, 0px) + 8px); display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 12px 0 9px;
   border-radius: 16px; border: 1px solid var(--hairline); background: var(--glass); color: var(--text); font: 500 13px var(--font-ui); cursor: pointer; transition: opacity .25s; box-shadow: 0 1px 2px rgba(20, 22, 30, .12); }
+.sv-legend { position: absolute; left: 0; top: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; max-width: calc(100% - 24px); pointer-events: none; font: 500 calc(10.5px * var(--label-k, 1)) / 1.3 var(--font-ui); color: var(--text-2); transition: opacity .25s; }
+.sv-legend span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; -webkit-text-stroke: 4px color-mix(in srgb, var(--label-halo) 65%, transparent); paint-order: stroke fill; }
+.sv-legend i { display: inline-block; flex: none; border-radius: 50%; }
+.sv-legend i.alb { width: 8px; height: 8px; background: #E39A1E; box-shadow: inset 0 0 0 1px rgba(120, 64, 0, .5); }
+.sv-legend i.wat { width: 6px; height: 6px; background: #fff; box-shadow: 0 0 0 1px rgba(60, 90, 120, .5); }
+.sv-legend i.lym { width: 16px; height: 6px; border-radius: 3px; background: #DCE8CD; box-shadow: inset 0 0 0 1px rgba(96, 140, 80, .45); }
+.sv:not(.on) .sv-legend { opacity: 0; }
 .sv-back span { font-size: 18px; line-height: 1; margin-top: -2px; }
 .sv-back:hover, .sv-back:focus-visible { border-color: var(--accent); outline: none; }
 .lz-field { z-index: var(--z-figure); pointer-events: none; opacity: 0; }
@@ -3053,6 +3060,10 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
   .topbar .lens-btn { padding: 0 3px; }
 }
 @media (max-width: 380px) { .topbar #viewSeg button { padding: 6px 3px; } }
+/* Four views (Sinusoid shows in the Lobule view): tighter, so the lens keeps its room on a phone. */
+@media (max-width: 720px) { .topbar #viewSeg:has(> [data-view="sinusoid"]:not([hidden])) button { padding-left: 3px; padding-right: 3px; font-size: 12.5px; letter-spacing: -.015em; }
+  .topbar:has(#viewSeg > [data-view="sinusoid"]:not([hidden])) .lg-scale { width: 64px; }
+  .topbar:has(#viewSeg > [data-view="sinusoid"]:not([hidden])) .lg-num { font-size: 10px; } }
 
 .chip-btn[hidden] { display: none; }
 
