@@ -7,7 +7,7 @@ import {
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=8b006eefeb';
 import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=d88966abe6';
-import { detectEvents } from './events.js?v=8af7c31f73';
+import { detectEvents } from './events.js?v=bc3578b18d';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -695,7 +695,7 @@ export class Engine {
     const hA = sieve(sA, hep, PROT.psHep) * alb, hG = sieve(sG, hep, PROT.psHep) * glob;
     const wH = PROT.hepWeep * hep, wS = jg;
     const inAlb = (wH * hA + wS * gA * alb) / (wH + wS), inGlob = (wH * hG + wS * gG * glob) / (wH + wS);
-    const prot = { alb, glob, hepAlb: hA, hepTP: hA + hG, lymphProt: (hA + hG) / (alb + glob), inAlb, inGlob };
+    const prot = { sigma: sA, alb, glob, hepAlb: hA, hepTP: hA + hG, lymphProt: (hA + hG) / (alb + glob), inAlb, inGlob };
     this.flows = { hep, spl, excess, reabs, bulk, water, prot };
     const ascAlb = this.slow.ascAlb ?? inAlb, ascTP = ascAlb + (this.slow.ascGlob ?? inGlob);
     return { hep, spl, net, excess, bulk, water, prot, ascAlb, ascTP, saag: alb - ascAlb, highProtein: ascTP >= 2.5 };

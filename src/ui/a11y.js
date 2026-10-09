@@ -8,7 +8,7 @@
 // 220 Hz at 0 mmHg to 880 Hz at 30 mmHg, with a short tick when flow reverses. It never plays
 // unless switched on, and stops with the page.
 
-import { store } from './store.js?v=472d889990';
+import { store } from './store.js?v=06e2d6e179';
 import { fmt, clamp } from './util.js?v=86153645a3';
 import { EDGES, NODES } from '../engine/topology.js?v=dc393aabea';
 

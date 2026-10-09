@@ -8,6 +8,7 @@ const state = {
   tool: 'select',
   view: 'anatomic',
   lobule: false,              // the Lobule view is open (over the anatomy)
+  sinusoid: false,            // inside the Lobule view, zoomed on into one sinusoid
   selection: null,            // { type: 'edge' | 'node' | 'organ', id } — the structure whose action card is open
   details: null,              // a selection shown in full in the side panel ('Details ›')
   allowedVerbs: null,         // verbs a lesson or case step allows (null = all)
