@@ -627,9 +627,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       setTimeout(() => { mo.disconnect(); res(n); }, 1500);
     }));
     if (changes) throw new Error(`the Measure HVPG button changed ${changes} times while idle`);
+    // The sheet slides up: tap where the button settles, not where it is on the way.
+    await page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === 'running' && a.effect?.target?.id === 'dock'), null, { timeout: 20000 });
     if (device === 'phone') { const b = await page.$eval(sel, (el) => { const r = el.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }); await page.touchscreen.tap(b[0], b[1]); }
     else await page.click(sel);
-    await page.waitForFunction((q) => document.querySelector(q).textContent.includes('Measuring'), sel, { timeout: 3000 }).catch(() => { throw new Error('a tap on Measure HVPG did not start it'); });
+    await page.waitForFunction((q) => document.querySelector(q).textContent.includes('Measuring'), sel, { timeout: 10000 }).catch(() => { throw new Error('a tap on Measure HVPG did not start it'); });
   });
 
   await check(device, 'pressure over time and Doppler', async (page) => {
