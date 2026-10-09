@@ -54,7 +54,7 @@ export function createSinusoidView({ host }) {
       R.el.replaceChildren(h('span', {}, name), ...lines.map((l) => { const [v, u] = l.split('~'); return h('span', { class: 'v' }, h('b', {}, v), u ? ` ${u}` : ''); }));
     }
     // side ±1: the caption sits wholly on that side of y (across the vessel), its near edge at y.
-    const w = R.el.offsetWidth, hh = R.el.offsetHeight, ang = along ? geo.ang : 0;
+    const w = R.el.offsetWidth, hh = R.el.offsetHeight, ang = along && !geo.vert ? geo.ang : 0;   // (always level on a top-down sinusoid)
     const across = along ? hh : Math.abs(w * Math.sin(geo.ang)) + Math.abs(hh * Math.cos(geo.ang));
     const yc = y + side * (across / 2) / VW.k;
     let [cx, cy] = toScreen(x, yc);
@@ -63,7 +63,7 @@ export function createSinusoidView({ host }) {
     return { half: (along ? w : Math.abs(w * Math.cos(geo.ang)) + Math.abs(hh * Math.sin(geo.ang))) / 2 / VW.k };
   }
   const legend = h('div', { class: 'sv-legend', 'aria-hidden': 'true' },
-    h('span', {}, h('i', { class: 'alb' }), 'Albumin'), h('span', {}, h('i', { class: 'wat' }), 'Plasma water'), h('span', {}, h('i', { class: 'lym' }), 'Lymph, back to the portal triad'));
+    h('span', {}, h('i', { class: 'alb' }), 'Albumin'), h('span', {}, h('i', { class: 'wat' }), 'Plasma water'));
   const el = h('div', { class: 'sv', 'aria-hidden': 'true' }, canvas, labels, legend);
   host.append(el);
   const gpu = createSinusoidGL(canvas);
@@ -85,13 +85,13 @@ export function createSinusoidView({ host }) {
     const t = cssN('--top-safe') + cssN('--cmp-h') + 8 + 40, b = H - 28, l = 12, r = W - 12;
     return { l, t, r: Math.max(l + 80, r), b: Math.max(t + 80, b) };
   }
-  // The stretch is laid out once per stage size. It always runs level across the screen, so every label reads
-  // upright; on a portrait screen it is framed by its width instead (a shorter stretch, more plates above and below).
+  // The stretch is laid out once per stage size. It runs along the stage's longer side: across on a
+  // landscape screen, down on a portrait one (where every label still reads level).
   function ensureGeo(W, H) {
     const key = W + '|' + H;
     if (key !== geoKey) {
       geoKey = key;
-      const vert = false, tall = W < H * 0.95, ang = 0;
+      const vert = W < H * 0.95, tall = vert, ang = vert ? Math.PI / 2 : 0;
       const X = Math.hypot(W, H) / 6 + 30;   // reach at the smallest scale (3 px/µm)
       // The fenestrae of both linings (the shader opens the same ones), for the traffic through them.
       const pores = [SEED.poreUp, SEED.poreDn].map((sd) => {
@@ -109,7 +109,7 @@ export function createSinusoidView({ host }) {
     const f = freeRect(W, H), fw = f.r - f.l, fh = f.b - f.t;
     // How much is shown across: both plates whole on a large screen; on a phone, closer in (the plates cut by the
     // edges), so the wall and its traffic stay large enough to follow.
-    const short = geo.tall ? fw : fh, across = geo.tall ? lerp(46, 64, smooth(380, 720, fw)) : lerp(40, 54, smooth(380, 720, short));
+    const short = geo.vert ? fw : fh, across = lerp(40, 54, smooth(380, 720, short));
     VW.f = f; VW.tk = clamp(short / across, 3, 14); VW.tC = [(f.l + f.r) / 2, (f.t + f.b) / 2];
     if (!VW.k) { VW.k = VW.tk; VW.C = [...VW.tC]; }
     return geo;
@@ -313,25 +313,23 @@ export function createSinusoidView({ host }) {
     const xh = pick(V ? 0.88 : 0.08), hc = cellAt(xh, SEED.plateDn), hx = (hc.x0 + hc.x1) / 2;
     region('hep', 'Hepatocyte', '', hx, hepIn(hx) + hep * (hc.nv < 0.5 ? 0.78 : 0.22));
   }
-  // A portrait screen: a short stretch across, with tall plates above and below. The vessel's ends are named
-  // just below it (layoutEnds), so the lumen keeps only its own name and the Kupffer cell's; the lymph and a
-  // hepatocyte go deeper into the plates, clear of them.
+  // A portrait screen: the sinusoid runs top to bottom and every label reads level. The lumen keeps only its own
+  // name; the narrow bands (fenestrae, Disse) and the cells are named in the plates beside them, the stellate cell's
+  // side (right) and the Kupffer cell's side (left) each in its own column, spaced down the screen.
   function layoutTall() {
     const g = geo, m = model, hep = UM.hep;
-    const pick = (u) => lerp(VW.fr[0] + 4, VW.fr[1] - 4, u);
+    const pick = (u) => lerp(VW.fr[0] + 6, VW.fr[1] - 6, u);
     const num = (v, d, u) => (m.hide ? '?' : `${fmt(v, d)}~${u}`);
-    const kw = region('kup', 'Kupffer cell', '', g.xk, 0, { along: true });
-    region('kup', 'Kupffer cell', '', g.xk - 8 - kw.half, halfW(g.xk) * 0.4, { along: true });
-    region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), pick(0.3), -halfW(pick(0.3)) * 0.15, { along: true });
-    const xf = pick(0.72);
-    region('fen', 'Fenestrae', S.por > 0.85 ? 'open' : S.por > 0.15 ? `${Math.round(S.por * 100)}%~open` : 'sealed', xf, -(halfW(xf) - 0.6), { along: true, side: 1 });
-    const xq = pick(0.82);
-    region('disse', 'Space of Disse', '', xq, -(wallIn(xq) + disseW(xq) * 0.5), { along: true });
-    const xd = pick(0.5);
-    region('lymph', 'Lymph', m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min · protein ${Math.round(m.lyProt * 100)}%`, xd, hepIn(xd) + hep * 0.5);
-    region('hsc', S.act > 0.5 ? 'Activated stellate cell' : 'Stellate cell', '', g.xs, -(hepIn(g.xs) + 1), { side: -1 });
-    const xh = pick(0.2), hc = cellAt(xh, SEED.plateUp), hx = (hc.x0 + hc.x1) / 2;
-    region('hep', 'Hepatocyte', '', hx, -(hepIn(hx) + hep * 0.86));
+    const mid = (x) => hepIn(x) + Math.min(hep * 0.5, (geo.W / 2 / VW.k - hepIn(x)) * 0.5);   // the middle of the plate's part on screen
+    region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), pick(0.38), 0);
+    // Right (y < 0): fenestrae, stellate cell, a hepatocyte.
+    region('fen', 'Fenestrae', S.por > 0.85 ? 'open' : S.por > 0.15 ? `${Math.round(S.por * 100)}%~open` : 'sealed', pick(0.16), -mid(pick(0.16)));
+    region('hsc', S.act > 0.5 ? 'Activated stellate cell' : 'Stellate cell', '', g.xs, -mid(g.xs));
+    region('hep', 'Hepatocyte', '', pick(0.8), -mid(pick(0.8)));
+    // Left (y > 0): the space of Disse, the lymph it carries, the Kupffer cell.
+    region('disse', 'Space of Disse', '', pick(0.2), mid(pick(0.2)));
+    region('lymph', 'Lymph', m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min · protein ${Math.round(m.lyProt * 100)}%`, pick(0.48), mid(pick(0.48)));
+    region('kup', 'Kupffer cell', '', g.xk, mid(g.xk));
   }
   function layoutEnds() {
     const g = geo, f = VW.f;
@@ -350,7 +348,6 @@ export function createSinusoidView({ host }) {
       const w = T.el.offsetWidth, hh = T.el.offsetHeight;
       let x, y;
       if (g.vert) { x = VW.C[0] - w / 2; y = u ? f.b - hh - 24 : f.t + 4; }   // (clear of the credit line at the bottom)
-      else if (g.tall) { x = u ? f.r - w - 6 : f.l + 6; y = toScreen(0, hepIn(0) + 1.5)[1]; }   // (just below the vessel, at its ends)
       else { x = u ? f.r - w - 6 : f.l + 6; y = VW.C[1] - hh / 2; }
       T.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
     }

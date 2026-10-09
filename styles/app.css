@@ -1686,7 +1686,6 @@ button.finding:hover { background: var(--surface-2); }
 .sv-legend i { display: inline-block; flex: none; border-radius: 50%; }
 .sv-legend i.alb { width: 8px; height: 8px; background: #E39A1E; box-shadow: inset 0 0 0 1px rgba(120, 64, 0, .5); }
 .sv-legend i.wat { width: 6px; height: 6px; background: #fff; box-shadow: 0 0 0 1px rgba(60, 90, 120, .5); }
-.sv-legend i.lym { width: 16px; height: 6px; border-radius: 3px; background: #DCE8CD; box-shadow: inset 0 0 0 1px rgba(96, 140, 80, .45); }
 .sv:not(.on) .sv-legend { opacity: 0; }
 .sv-back span { font-size: 18px; line-height: 1; margin-top: -2px; }
 .sv-back:hover, .sv-back:focus-visible { border-color: var(--accent); outline: none; }
