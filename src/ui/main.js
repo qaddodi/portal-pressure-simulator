@@ -3,23 +3,23 @@
 
 import { startHost, host } from './host.js?v=b54d9b1fcc';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=1d7cd9b00f';
-import { createStage } from './stage.js?v=1a089fc77f';
+import { createStage } from './stage.js?v=68c6f1f6d2';
 import { createInspector } from './inspector.js?v=eb9187916e';
-import { createDock, CUTOFFS } from './dock.js?v=2b8c0ce4d5';
-import { setHvpgStage } from './hvpg-proc.js?v=f22e721b9b';
+import { createDock, CUTOFFS } from './dock.js?v=01a323d57d';
+import { setHvpgStage } from './hvpg-proc.js?v=e5a9ccf97f';
 import { createWhy } from './why.js?v=f34a42cc3f';
 import { createTimeline, LAPSES } from './timeline.js?v=179a90e883';
 import { createLearn } from './learn.js?v=7593a68df4';
 import { createCases } from './cases.js?v=bee5d39a80';
 import { createCompare } from './compare.js?v=0838b1d3c8';
-import { createCard } from './card.js?v=fd813e0b26';
-import { createChart, computeFindings } from './chart.js?v=a98edeb0af';
+import { createCard } from './card.js?v=f6d40928e6';
+import { createChart, computeFindings } from './chart.js?v=274ef0aa1a';
 import { createHome, ROLES } from './home.js?v=21c9fa958c';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=424fa7e848';
 import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=85f06306e3';
 import { startLMS } from './lms.js?v=94bfcf5f73';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=c71c9dfdc0';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=4b78715774';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=dc393aabea';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=86153645a3';
@@ -143,7 +143,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=7d372bc3ea'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=7e239d2c63'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),

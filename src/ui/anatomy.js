@@ -139,13 +139,16 @@ export const EDGE_PATH = {
   RRV_IVC: 'M560 625 C 585 632 603 668 620 676',
   ILI_IVC: 'M620 950 L 620 650',
   EPI_ILI: 'M500 800 C 512 850 530 896 546 950',
-  EPI_SVC: 'M500 800 C 420 780 340 680 334 520 C 318 410 318 260 360 170 C 400 90 520 52 620 40',
+  // Up the chest wall and in across the azygos (in front of it, at a right angle) to the SVC's
+  // side, below the arch, so the two never run together.
+  EPI_SVC: 'M500 800 C 420 780 340 680 334 520 C 318 410 318 260 360 170 C 396 106 476 84 540 80 C 576 78 598 76 612 72',
 
   // The coronary vein reaches the gastroesophageal junction; from there the varices climb the
   // esophageal wall as a braid of submucosal columns (see STRANDS) up to the varices node.
   C1a: 'M821 318 C 814 296 804 272 802 250 C 800 220 798 180 795 140 C 793 110 790 86 789 66',
-  // Above them the varices drain over the heart into the azygos arch (crossing behind the SVC).
-  C1b: 'M789 66 C 784 44 764 26 736 18 C 700 10 650 12 622 18 C 602 22 586 25 574 30',
+  // Above them the varices drain over the heart into the azygos arch (crossing behind the SVC),
+  // passing over the top of the arch rather than alongside it.
+  C1b: 'M789 66 C 784 38 760 12 726 2 C 690 -8 640 -12 606 -8 C 584 -5 573 8 574 30',
   C2: 'M880 505 C 890 462 912 420 922 380 C 928 344 912 312 876 302',
   C3: 'M688 378 C 668 440 646 520 620 600 C 590 690 540 760 500 800',
   // Superior rectal veins: down beside the sigmoid to the anorectum, where they break up into
@@ -159,8 +162,9 @@ export const EDGE_PATH = {
   // and runs across to the cava lower down (see STRANDS for its small veins).
   C7: 'M738 755 C 706 756 664 748 620 745',
   C8: 'M700 556 C 695 520 650 470 602 442',
-  // Ascending lumbar veins → the ascending azygos, up to its arch.
-  C9: 'M620 650 C 584 604 566 500 564 400 C 562 300 564 230 566 172 C 568 110 572 70 574 30',
+  // Ascending lumbar veins → the ascending azygos, up to its arch. Above y 172 it runs in the
+  // azygos trunk's own lane (the same curve as its FEEDERS path), so the two read as one vein.
+  C9: 'M620 650 C 584 604 566 500 564 400 C 563 320 564 240 564 172 C 563 120 562 72 564 52 C 566 41 569 35 574 30',
 
   AP_R: 'M655 478 C 612 470 552 432 505 398',
   AP_L: 'M655 478 C 668 440 680 405 688 378',
@@ -222,7 +226,8 @@ export const FEEDERS = {
   // neither.
   // Azygos: its ascending trunk (the intercostal and ascending lumbar veins' channel) climbs
   // beside the cava into the arch.
-  AZY_SVC: { k: 1, paths: ['M566 172 C 563 120 561 70 565 50 C 567 40 570 34 574 30'] },
+  // `exact`: drawn on its curve, not meandered, so the ascending lumbar collateral (C9) can share it.
+  AZY_SVC: { k: 1, exact: true, paths: ['M564 172 C 563 120 562 72 564 52 C 566 41 569 35 574 30'] },
   // Caput medusae: the recanalized paraumbilical vein (C3) empties at the umbilicus into the
   // superficial epigastric veins, which fan out over the abdominal wall as a tortuous, branching
   // network that thins and fades into the skin (blood leaves the umbilicus, so its marks run

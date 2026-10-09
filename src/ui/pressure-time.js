@@ -7,7 +7,7 @@
 
 import { store, hiddenNow } from './store.js?v=1d7cd9b00f';
 import { h, fmt, fitCanvas, cssVar, clamp } from './util.js?v=86153645a3';
-import { FONT } from './charts.js?v=eb7ff82b4c';
+import { FONT } from './charts.js?v=76c667fc43';
 
 // hide: the readout a case can keep unmeasured (store.hiddenReadouts); day: the value on the
 // disease clock (null where the model keeps no daily value).
