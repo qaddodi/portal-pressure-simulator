@@ -59,7 +59,8 @@ export function createProfile() {
   // F is what is drawn: the frame with its pressures eased toward the model's (breath- and
   // beat-filtered) values, so the line, dots and labels glide rather than jump when values change.
   let F = null, Fraw = null, axisMax = 15, easeRaf = 0;
-  const easeP = createEaser(), easeAxis = createEaser();
+  const easeP = createEaser(), easeAxis = createEaser(), easePill = createEaser(0.18);
+  let pillMoving = false;
   function ease() {
     if (!Fraw) return;
     const src = Fraw.Pf || Fraw.P;
@@ -78,7 +79,7 @@ export function createProfile() {
     draw();
     cancelAnimationFrame(easeRaf);
     // Model frames arrive about ten times a second; the glide runs every display frame between them.
-    if (moving) easeRaf = requestAnimationFrame(() => { if (cv.isConnected && cv.offsetParent) ease(); });
+    if (moving || pillMoving) easeRaf = requestAnimationFrame(() => { if (cv.isConnected && cv.offsetParent) ease(); });
   }
   let predict = null; // { on, values: Map(station → P), done }
   let dragging = false;
@@ -241,36 +242,6 @@ export function createProfile() {
       ctx.fillStyle = dp < 0 ? c.rev : main ? c.danger : c.muted;
       ctx.fillText(txt, (r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2 + 0.5);
     }
-    // HVPG and PPG: a span inside the chart, under the line, from where each is measured to where it
-    // ends, labelled with its value; the same numbers and cut-offs as the tiles.
-    // HVPG is left out until it has been measured (hiddenNow); the PPG span keeps its row.
-    const hid = hiddenNow();
-    (dims || []).forEach((d, k) => {
-      const a = stations.indexOf(d.hi), b = stations.indexOf(d.lo);
-      if (a < 0 || b < 0 || (d.hide && hid?.has(d.hide))) return;
-      const m = F.metrics || {};
-      const hv = d.hiM && m[d.hiM] != null ? m[d.hiM] : now[a], lv = d.loM && m[d.loM] != null ? m[d.loM] : now[b];
-      const v = d.m && m[d.m] != null ? m[d.m] : hv - lv;
-      const col = v >= d.bad ? c.danger : v >= d.warn ? c.caution : c.muted;
-      const yy = y(0) - 12 - (dims.length - 1 - k) * 24, x0 = x(a), x1 = x(b);
-      ctx.save();
-      // Faint leaders up to the two station dots the gradient spans.
-      ctx.strokeStyle = col; ctx.globalAlpha = 0.45; ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
-      ctx.beginPath(); ctx.moveTo(x0, yy - 4); ctx.lineTo(x0, Y(now[a], a) + 7); ctx.moveTo(x1, yy - 4); ctx.lineTo(x1, Y(now[b], b) + 7); ctx.stroke();
-      ctx.setLineDash([]); ctx.globalAlpha = 1;
-      ctx.strokeStyle = col; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(x0, yy - 4); ctx.lineTo(x0, yy + 4); ctx.moveTo(x1, yy - 4); ctx.lineTo(x1, yy + 4); ctx.moveTo(x0, yy); ctx.lineTo(x1, yy); ctx.stroke();
-      const txt = `${d.k} `, num = fmt(v, 1);
-      ctx.font = FONT(600, 10.5); const tw1 = ctx.measureText(txt).width;
-      ctx.font = FONT(700, 12.5); const tw2 = ctx.measureText(num).width;
-      const tw = tw1 + tw2 + 12, lx = Math.max(L + 2, Math.min(w - R - tw, (x0 + x1) / 2 - tw / 2)), ly = yy;
-      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(lx, ly - 8, tw, 16, 8) : ctx.rect(lx, ly - 8, tw, 16);
-      ctx.fillStyle = c.surface; ctx.fill(); ctx.strokeStyle = col; ctx.globalAlpha = 0.5; ctx.lineWidth = 1; ctx.stroke(); ctx.globalAlpha = 1;
-      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = c.muted; ctx.font = FONT(600, 10.5); ctx.fillText(txt, lx + 6, ly + 0.5);
-      ctx.fillStyle = col === c.muted ? c.text : col; ctx.font = FONT(700, 12.5); ctx.fillText(num, lx + 6 + tw1, ly + 0.5);
-      ctx.restore();
-    });
     if (slot >= 26) {
       ctx.font = FONT(600, 11);
       for (const d of dots) {
@@ -282,6 +253,87 @@ export function createProfile() {
         ctx.fillStyle = c.text; ctx.fillText(txt, d.cx, (r.y0 + r.y1) / 2 + 0.5);
       }
     }
+    // HVPG and PPG: a bracket inside the chart from where each is measured to where it ends, with a
+    // pill giving its value (same numbers and cut-offs as the tiles). HVPG is left out until it has
+    // been measured (hiddenNow); the PPG span keeps its row. Each pill starts on its own row near the
+    // axis and is lifted (and slid along its bracket) to the nearest spot that covers no station dot,
+    // no value label and no pressure line; the move is eased so it never jumps.
+    const hid = hiddenNow();
+    const nLbl = dots.length, dimN = (dims || []).length;
+    const lineY = (pp, px) => {
+      for (let q = 0; q < pp.length - 1; q++) if (px >= pp[q][0] && px <= pp[q + 1][0]) return pp[q][1] + (pp[q + 1][1] - pp[q][1]) * (px - pp[q][0]) / (pp[q + 1][0] - pp[q][0] || 1);
+      return null;
+    };
+    const lines = [P0];
+    if (healthy) lines.push(pts(stations.map((n) => healthy.P[NI[n]])));
+    const hitsLine = (r, pp) => { for (let px = r.x0; px <= r.x1 + 3; px += 4) { const ly = lineY(pp, Math.min(px, r.x1)); if (ly != null && ly > r.y0 - 5 && ly < r.y1 + 5) return true; } return false; };
+    const overlap = (r, o) => r.x0 < o.x1 && r.x1 > o.x0 && r.y0 < o.y1 && r.y1 > o.y0;
+    const items = [], claimed = [];
+    (dims || []).forEach((d, k) => {
+      const a = stations.indexOf(d.hi), b = stations.indexOf(d.lo);
+      if (a < 0 || b < 0 || (d.hide && hid?.has(d.hide))) { items.push(null); return; }
+      const m = F.metrics || {};
+      const hv = d.hiM && m[d.hiM] != null ? m[d.hiM] : now[a], lv = d.loM && m[d.loM] != null ? m[d.loM] : now[b];
+      const v = d.m && m[d.m] != null ? m[d.m] : hv - lv;
+      const col = v >= d.bad ? c.danger : v >= d.warn ? c.caution : c.muted;
+      const txt = `${d.k} `, num = fmt(v, 1);
+      ctx.font = FONT(600, 10.5); const tw1 = ctx.measureText(txt).width;
+      ctx.font = FONT(700, 12.5); const tw2 = ctx.measureText(num).width;
+      const tw = tw1 + tw2 + 12, x0 = x(a), x1 = x(b);
+      const base = y(0) - 12 - (dimN - 1 - k) * 24;
+      const lo = Math.max(L + 2, Math.min(x0, x1) + 2), hi = Math.min(w - R, Math.max(x0, x1) - 2) - tw;
+      const cx = Math.max(L + 2, Math.min(w - R - tw, (x0 + x1) / 2 - tw / 2));
+      const shifts = [0];
+      if (hi > lo) for (let s = 12; s <= hi - lo + 12; s += 12) shifts.push(s, -s);
+      const xs = shifts.map((s) => (hi > lo ? Math.max(lo, Math.min(hi, cx + s)) : cx)).filter((v2, q, arr) => arr.indexOf(v2) === q);
+      const rows = []; for (let yy = base; yy >= T + 10; yy -= 8) rows.push(yy);
+      const ok = (yy, lx, withHealthy) => {
+        const r = { x0: lx, x1: lx + tw, y0: yy - 8, y1: yy + 8 };
+        if (taken.some((o) => overlap(r, o)) || claimed.some((o) => overlap(r, o))) return false;
+        // the bracket's own bar must not run through a value label
+        const bar = { x0: Math.min(x0, x1) + 8, x1: Math.max(x0, x1) - 8, y0: yy - 2, y1: yy + 2 };
+        if (taken.slice(nLbl).some((o) => overlap(bar, o))) return false;
+        return !lines.slice(0, withHealthy ? lines.length : 1).some((pp) => hitsLine(r, pp));
+      };
+      let best = null;
+      for (const withHealthy of [true, false]) {
+        for (const yy of rows) { for (const lx of xs) if (ok(yy, lx, withHealthy)) { best = { yy, lx }; break; } if (best) break; }
+        if (best) break;
+      }
+      if (!best) best = { yy: base, lx: cx };
+      claimed.push({ x0: best.lx, x1: best.lx + tw, y0: best.yy - 9, y1: best.yy + 9 });
+      items.push({ d, a, b, col, txt, num, tw1, tw, x0, x1, ty: best.yy, tx: best.lx, base });
+    });
+    // eased positions: [row, left edge] per span
+    const { v: pos, moving: mPill } = easePill.step(items.flatMap((it) => (it ? [it.ty, it.tx] : [0, 0])));
+    pillMoving = mPill;
+    items.forEach((it, k) => {
+      if (!it) return;
+      const { d, a, b, col, txt, num, tw1, tw, x0, x1 } = it;
+      const yy = pos[2 * k], lx = pos[2 * k + 1], ly = yy;
+      ctx.save();
+      // Faint leaders from the bracket ends to the two station dots, broken around any value label.
+      ctx.strokeStyle = col; ctx.globalAlpha = 0.45; ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
+      for (const [px, st2] of [[x0, a], [x1, b]]) {
+        const dy = Y(now[st2], st2), from = yy + (dy > yy ? 4 : -4), to = dy + (dy > yy ? -7 : 7);
+        const gaps = taken.slice(nLbl).filter((o) => px > o.x0 - 2 && px < o.x1 + 2 && o.y1 > Math.min(from, to) && o.y0 < Math.max(from, to)).sort((p1, p2) => p1.y0 - p2.y0);
+        const dir = to > from ? 1 : -1; let cur = from;
+        const segs = [];
+        for (const o of dir > 0 ? gaps : gaps.reverse()) { const e = dir > 0 ? o.y0 - 1 : o.y1 + 1; if ((e - cur) * dir > 0) segs.push([cur, e]); cur = dir > 0 ? o.y1 + 1 : o.y0 - 1; }
+        if ((to - cur) * dir > 0) segs.push([cur, to]);
+        ctx.beginPath(); for (const [s0, s1] of segs) { ctx.moveTo(px, s0); ctx.lineTo(px, s1); } ctx.stroke();
+      }
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+      ctx.strokeStyle = col; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(x0, yy - 4); ctx.lineTo(x0, yy + 4); ctx.moveTo(x1, yy - 4); ctx.lineTo(x1, yy + 4); ctx.moveTo(x0, yy); ctx.lineTo(x1, yy); ctx.stroke();
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(lx, ly - 8, tw, 16, 8) : ctx.rect(lx, ly - 8, tw, 16);
+      ctx.fillStyle = c.surface; ctx.fill(); ctx.strokeStyle = col; ctx.globalAlpha = 0.5; ctx.lineWidth = 1; ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = c.muted; ctx.font = FONT(600, 10.5); ctx.fillText(txt, lx + 6, ly + 0.5);
+      ctx.fillStyle = col === c.muted ? c.text : col; ctx.font = FONT(700, 12.5); ctx.fillText(num, lx + 6 + tw1, ly + 0.5);
+      ctx.restore();
+    });
+    if (pillMoving) { cancelAnimationFrame(easeRaf); easeRaf = requestAnimationFrame(() => { if (cv.isConnected && cv.offsetParent) ease(); }); }
     ctx.textBaseline = 'alphabetic';
     el.querySelector('#profileOffscale').textContent = hasArt ? 'Arterial pressure is drawn above the break (//) at its true value.' : '';
     // prediction
