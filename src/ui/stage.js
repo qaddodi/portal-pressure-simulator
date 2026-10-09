@@ -134,7 +134,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const STRAIGHT_COLL = new Set(['C9']);
   // Veins that fade into the vessel they sink into: a linear mask [x1, y1, x2, y2, offset], from
   // solid at the offset to 30 % at the end (the caudate vein into the IVC, C5 into the renal vein).
-  const FADE_IN = { RHV_IVC: [604, 226, 616, 204, 0, 0], MHV_IVC: [604, 246, 615, 228, 0, 0], LHV_IVC: [638, 220, 624, 211, 0, 0], CAUD: [566, 326, 620, 350, 0.45], C5: [852, 520, 862, 618, 0.6] };
+  const FADE_IN = { RHV_IVC: [604, 226, 616, 204, 0, 0], MHV_IVC: [604, 246, 615, 228, 0, 0], LHV_IVC: [638, 220, 624, 211, 0, 0], LRV_IVC: [642, 625, 624, 625, 0, 0], RRV_IVC: [602, 660, 615, 673, 0, 0], CAUD: [566, 326, 620, 350, 0.45], C5: [852, 520, 862, 618, 0.6] };
   for (const [id, fd] of Object.entries(FEEDERS)) {
     // A generated fan is a tortuous network (drawn like the variceal plexus); listed paths meander.
     const list = [...(fd.fan ? fanFeeders(fd.fan).map((x) => ({ ...x, fan: true, when: fd.fan.when, out: !!fd.fan.out })) : []), ...(fd.paths || []).map((d, i) => ({ d, k: 1, when: fd.when, src: fd.from?.[i] }))];
