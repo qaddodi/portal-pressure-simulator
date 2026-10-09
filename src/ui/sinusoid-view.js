@@ -20,7 +20,6 @@
 // around it.
 
 import { h, s, fmt, clamp, lerp } from './util.js?v=e803df99cd';
-import { pressureColor, deltaColor, heatColor } from './colormap.js?v=6d64a94345';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
 import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=bbcbeee81b';
