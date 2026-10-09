@@ -202,17 +202,27 @@ const SEV = ['ok', 'caution', 'danger', 'danger'];
 const GRADE = ['None', 'Grade 1', 'Grade 2', 'Grade 3'];
 const GRADE_TIP = ['No free fluid', 'Grade 1: seen on ultrasound only', 'Grade 2: moderate, symmetric distension', 'Grade 3: tense, marked distension'];
 export function createAbdomen({ onAction }) {
-  const vol = h('input', { type: 'range', min: 1, max: 10, step: 0.5, value: 5, 'aria-label': 'Volume to drain (L)' });
-  const volLbl = h('span', { class: 'ctl-val' }, '5.0 L');
-  const alb = h('input', { type: 'checkbox', checked: true });
+  // Paracentesis volume as a stepper (1–10 L in 0.5 L steps); the Drain button spells out what it will do.
+  let L = 5;
+  const volOut = h('output', { class: 'ab-step-val', 'aria-live': 'polite' });
+  const step = (d) => { L = clamp(L + d, 1, 10); paintVol(); };
+  const minus = h('button', { class: 'ab-step-btn', 'aria-label': 'Drain less', onclick: () => step(-0.5) }, '−');
+  const plus = h('button', { class: 'ab-step-btn', 'aria-label': 'Drain more', onclick: () => step(0.5) }, '+');
+  const alb = h('input', { type: 'checkbox', role: 'switch', checked: true, 'aria-label': 'Give albumin with the tap' });
   const albNote = h('span', { class: 'ab-note' });
+  const drainLbl = h('span');
+  let hasFluid = true;
   const paintVol = () => {
-    volLbl.textContent = `${(+vol.value).toFixed(1)} L`; vol.style.setProperty('--pct', `${((+vol.value - 1) / 9) * 100}%`);
-    albNote.textContent = +vol.value > 5 ? 'Advised above 5 L: prevents circulatory dysfunction after the tap.' : 'Optional below 5 L.';
+    volOut.textContent = `${L.toFixed(1)} L`; minus.disabled = L <= 1; plus.disabled = L >= 10;
+    const big = L > 5;
+    albNote.textContent = big ? (alb.checked ? 'Advised above 5 L: protects the circulation and kidneys.' : 'Advised above 5 L: risk of circulatory dysfunction.') : 'Optional up to 5 L.';
+    albNote.dataset.sev = big && !alb.checked ? 'caution' : '';
+    drainLbl.textContent = !hasFluid ? 'Nothing to drain' : `Drain ${L.toFixed(1)} L${alb.checked ? ` + ${Math.round(L * 8)} g albumin` : ''}`;
+    drain.disabled = !hasFluid;
   };
-  vol.addEventListener('input', paintVol); paintVol();
-  const drain = h('button', { class: 'btn primary block', onclick: () => onAction({ kind: 'paracentesis', mL: +vol.value * 1000, albumin: alb.checked }) }, icon('needle'), 'Drain');
-  const diu = h('input', { type: 'checkbox' });
+  const drain = h('button', { class: 'btn primary block', onclick: () => onAction({ kind: 'paracentesis', mL: L * 1000, albumin: alb.checked }) }, icon('needle'), drainLbl);
+  alb.addEventListener('change', paintVol); paintVol();
+  const diu = h('input', { type: 'checkbox', role: 'switch', 'aria-label': 'Diuretics' });
   diu.addEventListener('change', () => updateParams((p) => { p.diuretics = diu.checked; return p; }, { label: 'Diuretics' }));
   // Serum albumin is a patient input that drives ascites (oncotic pull back into the vessels), so it is set here.
   const sa = h('input', { type: 'range', min: 1.5, max: 5, step: 0.1, value: 4, 'aria-label': 'Serum albumin (g/dL)' });
@@ -233,24 +243,40 @@ export function createAbdomen({ onAction }) {
   // A small belly that fills with the fluid, beside the volume.
   const bellyFill = h('i', { class: 'ab-belly-fill' });
   const belly = h('div', { class: 'ab-belly', 'aria-hidden': 'true' }, bellyFill);
-  // The diagnostic tap as three live readouts, g/dL.
-  const lab = (k) => { const v = h('b', {}, '—'); return [h('div', { class: 'ab-lab' }, h('span', {}, k), v), v]; };
-  const [saagEl, saagV] = lab('SAAG'), [tpEl, tpV] = lab('Protein'), [albEl, albV] = lab('Albumin');
+  // The diagnostic tap. SAAG leads: a big number on a 0–3 g/dL scale with the 1.1 cut-off and the
+  // subtraction that makes it; total protein and ascitic albumin sit beneath as supporting values.
+  const saagV = h('b', {}, '—'), saagVerdict = h('span', { class: 'ab-saag-verdict' }), saagCalc = h('div', { class: 'ab-saag-calc' });
+  const saagDot = h('i', { class: 'ab-saag-dot' });
+  const saagBox = h('div', { class: 'ab-saag' },
+    h('div', { class: 'ab-saag-top' }, h('div', { class: 'ab-saag-k' }, 'SAAG', h('small', {}, 'serum − ascitic albumin')), h('div', { class: 'ab-saag-num' }, saagV, h('small', {}, 'g/dL'))),
+    h('div', { class: 'ab-saag-bar', 'aria-hidden': 'true' }, h('i', { class: 'ab-saag-cut' }), saagDot),
+    h('div', { class: 'ab-saag-scale', 'aria-hidden': 'true' }, h('span', {}, 'Low'), h('span', { class: 'ab-saag-cutlbl' }, '1.1'), h('span', {}, 'High')),
+    saagVerdict, saagCalc);
+  const sub = (k) => { const v = h('b', {}, '—'); return [h('div', { class: 'ab-sub' }, h('span', {}, k), v), v]; };
+  const [tpEl, tpV] = sub('Total protein'), [albEl, albV] = sub('Ascitic albumin');
   const tapNote = h('div', { class: 'ab-note' });
   const tap = h('div', { class: 'ab-tap' }, h('div', { class: 'ab-tap-title' }, 'Diagnostic tap'),
-    h('div', { class: 'ab-labs' }, saagEl, tpEl, albEl), tapNote);
+    saagBox, h('div', { class: 'ab-subs' }, tpEl, albEl), tapNote);
   const extraStats = h('dl', { class: 'kv' });
   const info = h('div', { class: 'ab-report' },
     h('div', { class: 'ab-head' }, h('div', { class: 'ab-sum' }, h('div', { class: 'hv-k' }, 'Ascites'), h('div', { class: 'hv-num' }, numEl, h('small', {}, 'L')), h('div', { class: 'ab-meta' }, gradeEl, trendEl)), belly),
     iap, tap,
     h('div', { class: 'ctl' }, h('div', { class: 'ctl-top' }, h('span', { class: 'ctl-label' }, 'Serum albumin'), saLbl), sa),
     h('details', { class: 'instrument-details' }, h('summary', {}, 'Why it forms'), extraStats));
-  const treat = h('div', { class: 'ab-report' },
-    h('div', { class: 'procedure-controls' },
-      h('div', { class: 'hv-k' }, 'Treat'),
-      h('label', { class: 'check-row' }, diu, 'Diuretics', h('span', { class: 'ab-note' }, 'spironolactone + furosemide')),
-      h('div', { class: 'ctl' }, h('div', { class: 'ctl-top' }, h('span', { class: 'ctl-label' }, 'Paracentesis'), volLbl), vol),
-      h('label', { class: 'check-row' }, alb, 'Albumin, 8 g per litre', albNote), drain));
+  // Two treatments, each a card that says what it does: diuretics (a standing switch) and a tap (choose litres, then Drain).
+  const treat = h('div', { class: 'ab-report ab-rx' },
+    h('div', { class: 'hv-k' }, 'Treat'),
+    h('label', { class: 'ab-rx-card toggle-row' },
+      h('span', { class: 'ab-rx-txt' }, h('b', {}, 'Diuretics'), h('span', { class: 'ab-note' }, 'Spironolactone + furosemide. Stops fluid building up again.')),
+      h('span', { class: 'switch' }, diu, h('span'))),
+    h('div', { class: 'ab-rx-card' },
+      h('div', { class: 'ab-rx-head' },
+        h('span', { class: 'ab-rx-txt' }, h('b', {}, 'Paracentesis'), h('span', { class: 'ab-note' }, 'Drain fluid with a needle for quick relief.')),
+        h('div', { class: 'ab-step', role: 'group', 'aria-label': 'Litres to drain' }, minus, volOut, plus)),
+      h('label', { class: 'toggle-row ab-rx-alb' },
+        h('span', { class: 'ab-rx-txt' }, h('span', {}, 'Albumin, 8 g per litre'), albNote),
+        h('span', { class: 'switch' }, alb, h('span'))),
+      drain));
   const el = h('div', { class: 'ab', 'data-pane': 'abdomen' }, h('div', { class: 'hv-main ab-main' }, info, treat));
   function update(f) {
     const a = f.metrics.ascites, p = store.get().params;
@@ -269,9 +295,17 @@ export function createAbdomen({ onAction }) {
     // A diagnostic tap, g/dL, from the model's protein balance: SAAG ≥ 1.1 means portal hypertension;
     // the total protein then says where the block is.
     const tapped = a.volume > 150;
-    saagV.textContent = tapped ? fmt(a.saag, 1) : '—'; tpV.textContent = tapped ? fmt(a.totalProtein, 1) : '—'; albV.textContent = tapped ? fmt(a.albumin, 1) : '—';
+    // SAAG from the rounded parts, so the shown subtraction always adds up.
+    const r1 = (x) => Math.round(x * 10) / 10, saag = r1(r1(p.albumin) - r1(a.albumin));
+    saagV.textContent = tapped ? fmt(saag, 1) : '—'; tpV.textContent = tapped ? fmt(a.totalProtein, 1) : '—'; albV.textContent = tapped ? fmt(a.albumin, 1) : '—';
+    const hi = saag >= 1.1;
+    saagBox.dataset.state = tapped ? (hi ? 'hi' : 'lo') : 'none';
+    saagDot.style.left = `${clamp(saag / 3, 0, 1) * 100}%`;
+    saagVerdict.textContent = tapped ? (hi ? 'High gradient (≥ 1.1): portal hypertension' : 'Low gradient (< 1.1): not portal hypertension') : '';
+    saagCalc.textContent = tapped ? `${fmt(p.albumin, 1)} serum − ${fmt(a.albumin, 1)} ascitic = ${fmt(saag, 1)}` : '';
     tap.title = tapped ? 'Diagnostic tap, g/dL. SAAG ≥ 1.1 means portal hypertension; total protein ≥ 2.5 then points after the sinusoids, < 2.5 to cirrhosis.' : '';
     tapNote.textContent = tapped ? '' : 'Too little fluid to tap.';
+    if (hasFluid !== tapped) { hasFluid = tapped; paintVol(); }
     bellyFill.style.height = `${a.volume > 150 ? 15 + clamp(a.volume / 8000, 0, 1) * 70 : 0}%`;
     extraStats.replaceChildren(
       h('dt', {}, 'Lymph from the liver'), h('dd', {}, `${fmt(a.hepLymph, 1)} (rises with sinusoidal pressure)`),
