@@ -20,6 +20,10 @@ export function setHvpgStage(stage) { stageRef = stage; }
 // The sequence, in ms from the start.
 // (settle: the wedged pressure has reached its plateau; only then is WHVP read and shown.)
 const T = { travel0: 300, travel1: 4300, zoom: 4300, free: 5100, inflate: 8200, wedge: 8900, settle: 10700, result: 12500, back: 18000, end: 18800 };
+// A thrombosed hepatic vein (Budd–Chiari): the tip reaches the ostium, probes it a few times, then the
+// procedure is aborted and the catheter withdrawn. No reading, so HVPG stays unmeasured.
+const TB = { probe0: 4600, probe1: 8200, abort: 8200, back: 9600, end: 13000 };
+const ABORT_MSG = 'Unable to cannulate hepatic vein — procedure aborted';
 const STEPS = [
   ['enter', 'Catheter in', 'In through the right internal jugular vein, down the SVC, through the right atrium and the IVC into the right hepatic vein.', 'Catheter'],
   ['free', 'Free pressure (FHVP)', 'The vein is open: the tip reads the pressure where the liver drains.', 'Free'],
@@ -62,8 +66,8 @@ export function createHvpgProcedure({ sheet } = {}) {
   const side = h('div', { class: 'chart-side' }, h('ol', { class: 'hvpg-steps' }, stepEls), caption, note);
   const el = h('div', { class: 'dock-pane', 'data-pane': 'hvpg' }, bar, box, side);
 
-  let t0 = null, t = 0, raf = 0, frame = null, result = null, sig = '', cam = '';
-  const phase = () => (t0 == null && !result ? 'idle' : t < T.free ? 'enter' : t < T.inflate ? 'free' : t < T.result ? 'wedge' : 'result');
+  let t0 = null, t = 0, raf = 0, frame = null, result = null, sig = '', cam = '', blocked = false;
+  const phase = () => (t0 == null && !result ? 'idle' : blocked ? (t < TB.abort ? 'enter' : 'abort') : t < T.free ? 'enter' : t < T.inflate ? 'free' : t < T.result ? 'wedge' : 'result');
   // (The pane is fed frames only while it is on screen; the store always has the newest.)
   const now = () => store.get().frame || frame;
   // Live values while measuring, the captured ones once done.
@@ -73,25 +77,26 @@ export function createHvpgProcedure({ sheet } = {}) {
   const values = () => result || snap || live();
 
   function start() {
-    if (t0 != null && t < T.end) return;
+    if (t0 != null && t < tEnd()) return;
     if (store.get().blind) { toast('Answer the question first.'); return; }
     const st = store.get();
     if (st.lobule) store.set({ lobule: false });
     if (st.view !== 'anatomic') store.set({ view: 'anatomic' });
-    result = null; t0 = performance.now(); t = 0; cam = ''; snap = now()?.metrics ? live() : null;
+    result = null; t0 = performance.now(); t = 0; cam = ''; blocked = (st.params?.thrombus?.RHV_IVC || 0) >= 0.8; snap = now()?.metrics ? live() : null;
     sheet?.(true);
     loop();
   }
   function stopFigure() { stageRef?.setCatheter(null); if (cam && cam !== 'home') stageRef?.cathFocus('home'); cam = ''; }
-  function reset() { cancelAnimationFrame(raf); raf = 0; if (t0 != null && t < T.end) { stopFigure(); sheet?.(false); } t0 = null; t = 0; result = null; snap = null; sig = ''; paintSide(); draw(); }
+  const tEnd = () => (blocked ? TB.end : T.end);
+  function reset() { cancelAnimationFrame(raf); raf = 0; if (t0 != null && t < tEnd()) { stopFigure(); sheet?.(false); } t0 = null; t = 0; result = null; snap = null; sig = ''; blocked = false; paintSide(); draw(); }
   function loop() {
     cancelAnimationFrame(raf);
     const step = () => {
       t = performance.now() - t0;
-      if (!result && t >= T.result) finish();
+      if (!result && !blocked && t >= T.result) finish();
       figure();
       paintSide(); draw();
-      if (t < T.end) raf = requestAnimationFrame(step);
+      if (t < tEnd()) raf = requestAnimationFrame(step);
       else { raf = 0; stageRef?.setCatheter(null); }
     };
     step();
@@ -107,6 +112,7 @@ export function createHvpgProcedure({ sheet } = {}) {
   function figure() {
     const sg = stageRef;
     if (!sg) return;
+    if (blocked) { figureBlocked(sg); return; }
     // The camera: the route while the catheter travels, the tip close up for the readings, then back.
     // (Each move waits until the anatomy is on screen: a switch from the circuit takes a moment.)
     const want = t < T.zoom ? 'route' : t < T.back ? 'tip' : 'home';
@@ -136,9 +142,25 @@ export function createHvpgProcedure({ sheet } = {}) {
     });
   }
 
+  function figureBlocked(sg) {
+    const want = t < T.zoom ? 'route' : t < TB.back + 1500 ? 'tip' : 'home';
+    if (want !== cam && (want !== 'route' || t > 250) && sg.cathFocus(want, want === 'tip' ? 1100 : 800)) cam = want;
+    if (want === 'home' && t > TB.end - 600) sheet?.(false);
+    // Three short pushes against the clot, each easing in and back out.
+    const pk = k01(t, TB.probe0, TB.probe1), probe = t < TB.probe1 ? Math.pow(Math.sin(pk * 3 * Math.PI), 2) * 0.9 : 0;
+    const labels = t >= TB.probe0 && t < TB.abort ? [{ key: 'p', at: 'tip', kicker: 'Hepatic vein', text: 'Occluded', unit: '', cls: 'wedge' }]
+      : t >= TB.abort && t < TB.end - 800 ? [{ key: 'a', at: 'tip', kicker: 'Unable to cannulate', text: 'Aborted', unit: '', cls: 'result danger' }] : [];
+    sg.setCatheter({
+      ostium: true, probe,
+      u: ease(k01(t, T.travel0, T.travel1)) * (1 - ease(k01(t, TB.back, TB.end - 500))),
+      balloon: 0, column: 0, ring: t >= TB.abort ? C.danger : null, pulse: 0.5 + 0.5 * Math.sin(t / 170), clock: t,
+      opacity: 1 - k01(t, TB.end - 900, TB.end), labels,
+    });
+  }
+
   function paintSide() {
     const ph = phase(), v = values(), st = store.get();
-    const shown = { fhvp: ph !== 'idle' && ph !== 'enter', whvp: ph === 'result' || (ph === 'wedge' && t >= T.settle), hvpg: ph === 'result' };
+    const shown = { fhvp: ph !== 'idle' && ph !== 'enter' && ph !== 'abort', whvp: ph === 'result' || (ph === 'wedge' && t >= T.settle), hvpg: ph === 'result' };
     for (const k of ['fhvp', 'whvp', 'hvpg']) {
       const txt = shown[k] ? fmt(v[k], 1) : '—';
       if (vals[k].textContent !== txt) vals[k].textContent = txt;
@@ -147,12 +169,14 @@ export function createHvpgProcedure({ sheet } = {}) {
     // replaced its text under the finger, and Safari then takes a tap for a hover and drops the click.
     const sev = shown.hvpg ? sevOf(v.hvpg) : '';
     if (vals.hvpg.dataset.sev !== sev) vals.hvpg.dataset.sev = sev;
-    const cur = STEPS.findIndex((s) => s[0] === ph);
-    stepEls.forEach((li, i) => { const v2 = ph === 'idle' ? '' : i < cur || ph === 'result' ? 'done' : i === cur ? 'now' : ''; if (li.dataset.state !== v2) li.dataset.state = v2; });
+    const cur = ph === 'abort' ? 1 : STEPS.findIndex((s) => s[0] === ph);
+    stepEls.forEach((li, i) => { const v2 = ph === 'idle' ? '' : ph === 'abort' ? (i === 0 ? 'done' : '') : i < cur || ph === 'result' ? 'done' : i === cur ? 'now' : ''; if (li.dataset.state !== v2) li.dataset.state = v2; });
     const cap = ph === 'idle' ? 'A balloon catheter through the right internal jugular vein reads two pressures in the right hepatic vein: free, then wedged. Watch it on the anatomy.'
+      : ph === 'abort' ? `${ABORT_MSG}. The hepatic vein is thrombosed (Budd–Chiari), so the catheter cannot enter it and no free or wedged pressure can be read. HVPG is not measurable.`
+      : blocked && t >= TB.probe0 ? 'The tip is at the hepatic vein ostium, but the vein is thrombosed: it will not advance.'
       : ph === 'result' ? `${sevWord(v.hvpg)}. ${STEPS[3][2]}` : STEPS[cur][2];
     if (caption.textContent !== cap) caption.textContent = cap;
-    const busy = t0 != null && t < T.end;
+    const busy = t0 != null && t < tEnd();
     if (startBtn.disabled !== busy) startBtn.disabled = busy;
     const lbl = busy ? 'Measuring…' : result ? 'Measure again' : 'Measure HVPG';
     if (startBtn.lastChild.textContent !== lbl) startBtn.lastChild.textContent = lbl;
@@ -175,6 +199,12 @@ export function createHvpgProcedure({ sheet } = {}) {
     ctx.fillText(narrow ? 'CATHETER TIP · mmHg' : 'CATHETER TIP PRESSURE · RIGHT HEPATIC VEIN · mmHg', x, y + 13);
     const big = Math.round(clamp(Math.min(W * 0.1, H * 0.14), 22, 40));
     let label, num = '', col = C.text;
+    if (ph === 'abort') {
+      ctx.font = FONT(600, 12); ctx.fillStyle = C.danger; ctx.fillText('Aborted', x, y + 32);
+      ctx.textAlign = 'center'; ctx.font = FONT(600, 12); ctx.fillText(narrow ? 'Unable to cannulate hepatic vein' : 'Unable to cannulate hepatic vein: procedure aborted', w / 2, hh / 2 + 8);
+      ctx.fillStyle = C.text; ctx.font = FONT(500, 11); ctx.fillText('HVPG not measurable', w / 2, hh / 2 + 28);
+      return;
+    }
     if (ph === 'idle') label = 'Ready';
     else if (ph === 'enter') label = 'Catheter advancing';
     else if (ph === 'free') { label = 'FHVP'; num = fmt(pAt(t, v), 1); col = C.free; }
@@ -194,7 +224,7 @@ export function createHvpgProcedure({ sheet } = {}) {
     }
     if (ph === 'idle' || ph === 'enter') {
       ctx.textAlign = 'center'; ctx.fillStyle = C.text; ctx.font = FONT(500, 11);
-      ctx.fillText(ph === 'idle' ? 'The tracing starts once the tip is in the hepatic vein.' : 'Waiting for the hepatic vein…', (L + R) / 2, (top + bot) / 2);
+      ctx.fillText(blocked && t >= TB.probe0 ? 'Probing the ostium: the vein will not take the catheter…' : ph === 'idle' ? 'The tracing starts once the tip is in the hepatic vein.' : 'Waiting for the hepatic vein…', (L + R) / 2, (top + bot) / 2);
       return;
     }
     // The trace, swept up to now: blue while free, violet once the balloon is up.

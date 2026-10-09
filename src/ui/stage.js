@@ -2779,8 +2779,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cath.labels.hidden = !r;
     if (!r) { if (veins?.canCath) veins.setCath(null); return; }
     if (!CTM) refreshCTM();
-    const tipD = r.start + (r.free - r.start) * clamp(st.u, 0, 1);
+    // A blocked hepatic vein: the tip only reaches the ostium and probes it (st.probe 0..1 nudges it in).
+    const end = st.ostium ? r.hv0 - 2 : r.free;
     const Rf = cathAt(r, r.free).r;
+    const tipD = r.start + (end - r.start) * clamp(st.u, 0, 1) + (st.probe || 0) * Rf * 1.6;
     // A 5 F catheter in the hepatic vein, held at one width in the world for the whole procedure (never
     // thinner than about 3 px at the start, nor so thick it crowds the vein), so it scales with the anatomy as the camera moves.
     if (!cath.rc) cath.rc = clamp(1.5 / (CTM.sc || 1), Rf * 0.17, Rf * 0.28);
