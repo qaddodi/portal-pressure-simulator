@@ -2174,6 +2174,8 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .cath-label::after { content: ''; position: absolute; left: 50%; bottom: -8px; width: 14px; height: 14px; translate: -50% 0; rotate: 45deg;
   background: var(--surface); box-shadow: 2px 2px 0 0 color-mix(in srgb, var(--c) 70%, transparent); z-index: -1; }
 .cath-label[data-at="ahead"] { translate: -50% 18px; }
+.cath-label[data-at="ahead"].above { translate: -50% calc(-100% - 18px); }
+.cath-label[data-at="ahead"].above::after { bottom: -8px; top: auto; box-shadow: 2px 2px 0 0 color-mix(in srgb, var(--c) 70%, transparent); }
 .cath-label[data-at="ahead"]::after { bottom: auto; top: -8px; box-shadow: -2px -2px 0 0 color-mix(in srgb, var(--c) 70%, transparent); }
 .cath-label small { color: var(--c); font-weight: 700; font-size: 12px; letter-spacing: .06em; }
 .cath-label b { font-size: 26px; line-height: 1.1; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--c); }

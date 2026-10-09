@@ -921,6 +921,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // says which edge it holds (data-safe="top|bottom|left|right"); the default framing keeps the
   // figure in the space they leave. Side cards count only on a wide screen (on a phone they are
   // sheets over the figure), and the figure never shrinks to a sliver for them.
+  // The space the cards leave above them and below the top bars, as it really is (no softening): the HVPG
+  // procedure keeps its zoomed view and readings inside it. A phone's sheet and a tablet's wide card count as bottom.
+  function cardSpace() {
+    const wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height, sp = { t: 0, b: 0 };
+    for (const el of document.querySelectorAll('[data-safe]')) {
+      if (el.hidden || el.closest('[hidden]')) continue;
+      if (el.checkVisibility ? !el.checkVisibility({ visibilityProperty: true }) : getComputedStyle(el).visibility === 'hidden') continue;
+      const q = el.getBoundingClientRect();
+      if (!q.width || !q.height) continue;
+      const y0 = (el.classList.contains('mini') && +el.dataset.fullH ? q.bottom - +el.dataset.fullH : q.top) - wr.top, y1 = q.bottom - wr.top;
+      if (y1 <= 0 || y0 >= H) continue;
+      const edge = el.dataset.safe;
+      if (edge === 'top') sp.t = Math.max(sp.t, y1);
+      else if (y0 > H * 0.3 && (W < 768 || q.width > W * 0.75 || (edge === 'bottom' && !el.classList.contains('side')))) sp.b = Math.max(sp.b, H - y0);
+    }
+    return sp;
+  }
   function safeInsets() {
     const wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height;
     const ins = { t: 0, b: 0, l: 0, r: 0, W, H }, cards = [];
@@ -2909,24 +2926,34 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       void el.offsetWidth; el.classList.remove('cath-pre');   // the transition runs from the hidden state
     }
     const W = wrap.clientWidth, H = wrap.clientHeight;
+    // The readings stay in the space the cards leave (a phone's Measure card sits over the bottom).
+    const sp = cardSpace(), lim = H - sp.b;
     want.forEach((l, k) => {
       const el = made.get(k);
       if (l.at !== 'sum') {
         fill(el, l);
         const p = el.dataset.at === 'ahead' ? at.ahead : at.tip;
         const [x, y] = worldToLocal(p[0], p[1]);
-        el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+        // A reading that hangs below its point goes above it when the bottom is covered (decided once, so it never jumps).
+        if (el._above == null && el.dataset.at === 'ahead') { el._above = y + 18 + el.offsetHeight > lim - 8; el.classList.toggle('above', el._above); }
+        // Side by side with the free reading, the wedged one steps aside rather than overlap it.
+        let dx = 0;
+        if (el.dataset.at === 'ahead' && el._above) {
+          const o = made.get('f');
+          if (o) { const [tx] = worldToLocal(at.tip[0], at.tip[1]); dx = -clamp((x + el.offsetWidth / 2) - (tx - o.offsetWidth / 2) + 6, 0, 14); }
+        }
+        el.style.transform = `translate(${(x + dx).toFixed(1)}px, ${y.toFixed(1)}px)`;
         return;
       }
       const box = el.querySelector('.cath-sum-box'), rows = [...box.querySelectorAll('.cath-sum-col .cath-label')];
       rows.forEach((r, j) => fill(r, l.rows[j]));
       fill(box.querySelector('.calc'), l.calc);
       const A = Object.fromEntries(['tip', 'ahead'].map((k) => [k, worldToLocal(at[k][0], at[k][1])]));
-      const bw = box.offsetWidth, bh = box.offsetHeight, top = 70;
+      const bw = box.offsetWidth, bh = box.offsetHeight, top = Math.max(70, sp.t + 6), gap = lim < 440 ? 40 : 64;
       // Above the readings, centred between them; below them when there is no room above.
-      let x = (A.tip[0] + A.ahead[0]) / 2 - bw / 2, y = Math.min(A.tip[1], A.ahead[1]) - bh - 64;
-      if (y < top) y = Math.max(A.tip[1], A.ahead[1]) + 64;
-      x = clamp(x, 28, Math.max(28, W - bw - 12)); y = clamp(y, top, Math.max(top, H - bh - 12));   // (room on the left for a leader)
+      let x = (A.tip[0] + A.ahead[0]) / 2 - bw / 2, y = Math.min(A.tip[1], A.ahead[1]) - bh - gap;
+      if (y < top) y = Math.max(A.tip[1], A.ahead[1]) + gap;
+      x = clamp(x, 28, Math.max(28, W - bw - 12)); y = clamp(y, top, Math.max(top, lim - bh - 12));   // (room on the left for a leader)
       box.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
       // The bracket, from the middle of one reading to the middle of the other.
       const ys = rows.map((r) => r.offsetTop + r.offsetHeight / 2), path = box.querySelector('.cath-brace path');
@@ -2956,16 +2983,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!cath.saved) cath.saved = { ...(vtTarget && vtAnim ? vtTarget : vt) };
     const wr = wrap.getBoundingClientRect(), ins = safeInsets();
     const [fx0, fy0] = clientToVB(wr.left + ins.l, wr.top + ins.t), [fx1, fy1] = clientToVB(wr.left + ins.W - ins.r, wr.top + ins.H - ins.b);
-    let cx, cy, k;
+    let cx, cy, k, cyScreen = (fy0 + fy1) / 2;
     if (mode === 'tip') {
       const tp = cutLen(r.pts, r.cum, 0, r.free).at(-1);
       cx = tp[0]; cy = tp[1]; k = 5;
+      // With little room above a card (a phone), the view is a little wider and the tip sits low in the free space,
+      // so the vein still shows and the readings fit above the tip.
+      const sp = cardSpace(), freeH = ins.H - sp.t - sp.b;
+      if (freeH < 440) {
+        const [, top] = clientToVB(wr.left, wr.top + sp.t), [, bot] = clientToVB(wr.left, wr.top + ins.H - sp.b);
+        k = 3.4; cyScreen = bot - (bot - top) * (74 / Math.max(freeH, 120));
+      }
     } else {
       const seg = cutLen(r.pts, r.cum, r.start * 0.5, r.hvEnd);
       const xs = seg.map((q) => q[0]), ys = seg.map((q) => q[1]), x0 = Math.min(...xs) - 30, x1 = Math.max(...xs) + 30, y0 = Math.min(...ys) - 30, y1 = Math.max(...ys) + 30;
       cx = (x0 + x1) / 2; cy = (y0 + y1) / 2; k = clamp(Math.min((fx1 - fx0) / (x1 - x0), (fy1 - fy0) / (y1 - y0)) * 0.9, 1, 2.6);
     }
-    animateVT({ k, x: (fx0 + fx1) / 2 - cx * k, y: (fy0 + fy1) / 2 - cy * k }, ms);
+    animateVT({ k, x: (fx0 + fx1) / 2 - cx * k, y: cyScreen - cy * k }, ms);
     return true;
   }
 
