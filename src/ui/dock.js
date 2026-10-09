@@ -5,12 +5,12 @@ import { store, hiddenNow } from './store.js?v=edbdbfb0c8';
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
 import { h, fmt, svgIcon, closePopover, clamp, scrollCue } from './util.js?v=159a875f7c';
 import { lobuleFlows } from './lobule-model.js?v=883c6a2857';
-import { createProfile } from './charts.js?v=23e4bf71f1';
-import { createPressureTime } from './pressure-time.js?v=19e7af5389';
-import { createFibroScan } from './fibroscan.js?v=5a2733b6c8';
-import { createHvpgProcedure } from './hvpg-proc.js?v=cae353564e';
-import { createDoppler } from './doppler.js?v=b56a1cd26c';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=db93dc2f4a';
+import { createProfile } from './charts.js?v=f1cf153a8c';
+import { createPressureTime } from './pressure-time.js?v=581b4d6a4d';
+import { createFibroScan } from './fibroscan.js?v=71ab76ea82';
+import { createHvpgProcedure } from './hvpg-proc.js?v=11226676b7';
+import { createDoppler } from './doppler.js?v=88ed51dcdb';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=17bbf76a12';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic

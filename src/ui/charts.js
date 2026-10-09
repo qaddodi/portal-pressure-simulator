@@ -290,9 +290,9 @@ export function createProfile() {
       const ok = (yy, lx, withHealthy) => {
         const r = { x0: lx, x1: lx + tw, y0: yy - 8, y1: yy + 8 };
         if (taken.some((o) => overlap(r, o)) || claimed.some((o) => overlap(r, o))) return false;
-        // the bracket's own bar must not run through a value label
-        const bar = { x0: Math.min(x0, x1) + 8, x1: Math.max(x0, x1) - 8, y0: yy - 2, y1: yy + 2 };
-        if (taken.slice(nLbl).some((o) => overlap(bar, o))) return false;
+        // the whole bracket (bar and end caps) must clear every dot and value label too, not just the pill
+        const bar = { x0: Math.min(x0, x1) - 3, x1: Math.max(x0, x1) + 3, y0: yy - 6, y1: yy + 6 };
+        if (taken.some((o) => overlap(bar, o)) || claimed.some((o) => overlap(bar, o))) return false;
         return !lines.slice(0, withHealthy ? lines.length : 1).some((pp) => hitsLine(r, pp));
       };
       let best = null;
@@ -301,7 +301,7 @@ export function createProfile() {
         if (best) break;
       }
       if (!best) best = { yy: base, lx: cx };
-      claimed.push({ x0: best.lx, x1: best.lx + tw, y0: best.yy - 9, y1: best.yy + 9 });
+      claimed.push({ x0: Math.min(x0, x1) - 3, x1: Math.max(x0, x1) + 3, y0: best.yy - 9, y1: best.yy + 9 });
       items.push({ d, a, b, col, txt, num, tw1, tw, x0, x1, ty: best.yy, tx: best.lx, base });
     });
     // eased positions: [row, left edge] per span
