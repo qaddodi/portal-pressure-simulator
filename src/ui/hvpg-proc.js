@@ -120,7 +120,7 @@ export function createHvpgProcedure({ sheet } = {}) {
       balloon: ease(k01(t, T.inflate, T.wedge)) * (1 - k01(t, T.back, T.back + 500)),
       column: ease(k01(t, T.wedge - 300, T.wedge + 1700)) * (1 - k01(t, T.back, T.back + 500)),
       columnColor: pressureColor(v.whvp),
-      ring: ph === 'free' ? C.free : ph === 'wedge' && t > T.wedge ? C.wedge : null, pulse,
+      ring: ph === 'free' ? C.free : ph === 'wedge' && t > T.wedge ? C.wedge : null, pulse, clock: t,
       opacity: 1 - k01(t, T.back + 300, T.end),
       labels,
     });

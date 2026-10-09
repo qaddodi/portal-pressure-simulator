@@ -2152,7 +2152,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .cath-column { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-opacity: .9; }
 /* While the catheter is in, the figure's own readouts step back so its labels read clearly. */
 .stage-view #labels { transition: opacity .4s var(--ease); }
-.cath-on #labels { opacity: .3; }
+.cath-on #labels { opacity: .15; }
 .cath-labels { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
 .cath-labels[hidden] { display: none; }
 .cath-label { position: absolute; left: 0; top: 0; display: inline-flex; align-items: baseline; gap: 5px; padding: 5px 10px; border-radius: 999px; white-space: nowrap;

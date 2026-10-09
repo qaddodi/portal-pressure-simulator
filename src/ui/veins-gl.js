@@ -397,6 +397,89 @@ void main() {
 // is a row of slots; a slot holds a parcel when its hash is under the occupancy that makes the
 // parcels crossing a section each second proportional to flow (see blood.js). Stagnant blood
 // drifts and clumps (smoke); with `origin` each parcel is colored by where its blood came from.
+// The HVPG catheter (stage.js builds it): tubes, discs and ellipsoids in world units, drawn over the
+// picture with the same transform, so it moves with the anatomy on every frame of a pan or zoom.
+// Per vertex: the world position, a direction (a tube's across, a disc's axis) and local coords
+// (a tube: across −1..1 and the length along it; a disc: −1..1 on both axes).
+const CATH_VS = `#version 300 es
+layout(location=0) in vec2 pos;
+layout(location=1) in vec2 dir;
+layout(location=2) in vec2 uv;
+uniform mat3 world;
+uniform vec2 size;
+out vec2 vDir;
+out vec2 vUV;
+void main() {
+  vec3 d = world * vec3(pos, 1.0);
+  gl_Position = vec4(d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0, 0.0, 1.0);
+  vDir = dir; vUV = uv;
+}`;
+// mode 0: soft shadow · 1: still blood column · 2: catheter shaft · 3: marker band · 4: rounded tip
+// 5: balloon (translucent, lit at its rim) · 6: a reading ripple.
+const CATH_FS = `#version 300 es
+precision highp float;
+in vec2 vDir;
+in vec2 vUV;
+uniform int mode;
+uniform vec3 col;
+uniform float alpha;
+uniform vec2 light;
+uniform vec2 fade;   // tubes: fade in over the first fade.x of the length, out over the last fade.y before len
+uniform float len;
+out vec4 o;
+void main() {
+  vec3 L = normalize(vec3(light * 0.85, 0.95)), H = normalize(L + vec3(0.0, 0.0, 1.0));
+  float a = alpha;
+  vec3 c = col, n;
+  if (mode <= 3) {
+    float v = clamp(vUV.x, -1.0, 1.0), e = 1.0 - abs(vUV.x);
+    float aa = clamp(e / max(fwidth(vUV.x), 1e-4), 0.0, 1.0);
+    a *= aa * smoothstep(0.0, max(fade.x, 1e-4), vUV.y) * clamp((len - vUV.y) / max(fade.y, 1e-4), 0.0, 1.0);
+    n = vec3(vDir * v, sqrt(max(0.0, 1.0 - v * v)));
+    float dif = max(dot(n, L), 0.0), sp = pow(max(dot(n, H), 0.0), mode == 3 ? 60.0 : 34.0);
+    if (mode == 0) { a *= pow(1.0 - v * v, 1.6); }
+    else if (mode == 1) {
+      // Blood standing in the vein: deep at the walls, a soft sheen down its middle.
+      c = col * (0.62 + 0.42 * dif) + vec3(0.16) * pow(max(dot(n, H), 0.0), 12.0);
+      a *= smoothstep(0.0, 0.35, e);
+    } else {
+      // Polymer (2) or a metal band (3); the dark rim that draws its edge thins out when the tube is a
+      // few pixels across, where it would turn the whole tube grey.
+      float wpx = 2.0 / max(fwidth(vUV.x), 1e-4), rim = smoothstep(2.5, 9.0, wpx);
+      if (mode == 2) {
+        c = col * (0.5 + 0.56 * dif) + vec3(0.9) * sp * 0.75;
+        c = mix(c, col * 0.32, smoothstep(0.7, 1.0, abs(v)) * 0.75 * rim);
+      } else {
+        c = col * (0.35 + 0.8 * dif) + vec3(1.0) * sp * 0.95;
+        c = mix(c, col * 0.25, smoothstep(0.7, 1.0, abs(v)) * 0.6 * rim);
+      }
+    }
+  } else {
+    float r2 = dot(vUV, vUV), r = sqrt(r2);
+    float aa = clamp((1.0 - r) / max(fwidth(r), 1e-4), 0.0, 1.0);
+    vec2 w = vDir * vUV.x + vec2(-vDir.y, vDir.x) * vUV.y;
+    float z = sqrt(max(0.0, 1.0 - r2));
+    n = normalize(vec3(w, z + 1e-3));
+    float dif = max(dot(n, L), 0.0), sp = pow(max(dot(n, H), 0.0), 34.0);
+    if (mode == 4) {
+      c = col * (0.46 + 0.6 * dif) + vec3(0.9) * sp * 0.75;
+      c = mix(c, col * 0.3, smoothstep(0.7, 1.0, r) * 0.75);
+      a *= aa;
+    } else if (mode == 5) {
+      // Thin latex over contrast: clear in the middle, bright at the rim, a hard highlight up-left.
+      float fr = pow(1.0 - z, 1.8), sp2 = pow(max(dot(n, H), 0.0), 90.0), edge = smoothstep(0.88, 0.985, r);
+      c = col * (0.66 + 0.42 * dif) + vec3(1.0) * (sp * 0.3 + sp2 * 0.9);
+      c = mix(c, col * vec3(0.7, 0.6, 0.5), edge * 0.7);
+      float k = 0.4 + 0.45 * fr + 0.5 * sp2 + edge * 0.35;
+      a *= aa * clamp(k, 0.0, 1.0);
+    } else {
+      float d = abs(r - 0.86), fw = max(fwidth(r), 1e-4);
+      a *= clamp((0.07 - d) / fw + 0.5, 0.0, 1.0) * 0.9 + exp(-d * d * 160.0) * 0.35;
+      a *= step(r, 1.0);
+    }
+  }
+  o = vec4(c * a, a);
+}`;
 const COMP_VS = `#version 300 es
 layout(location=0) in vec2 corner;
 void main() { gl_Position = vec4(corner * 2.0 - 1.0, 0.0, 1.0); }`;
@@ -841,6 +924,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   let comp, compCell;
   try { comp = compile(gl, COMP_VS, COMP_FS); compCell = compile(gl, COMP_CELL_VS, COMP_FS); } catch (e) { console.warn('Veins renderer: composite shader failed.', e); return null; }
   const plates = [null, null];   // [whole plate, sharp view] : { tex, rect }
+  let cathP = null;
+  try { cathP = compile(gl, CATH_VS, CATH_FS); } catch (e) { console.warn('Veins renderer: catheter shader failed.', e); }
+  const cathBuf = gl.createBuffer(), cathVAO = gl.createVertexArray();
+  gl.bindVertexArray(cathVAO);
+  gl.bindBuffer(gl.ARRAY_BUFFER, cathBuf);
+  for (let i = 0; i < 3; i++) { gl.enableVertexAttribArray(i); gl.vertexAttribPointer(i, 2, gl.FLOAT, false, 24, i * 8); }
+  gl.bindVertexArray(null);
+  let cath = null, cathWas = false;
 
   const quad = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
@@ -893,6 +984,27 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT2, gl.TEXTURE_2D, gTex2, 0);
     gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2]);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+  function drawCath(m) {
+    const U = cathP.u;
+    gl.useProgram(cathP.p);
+    gl.uniformMatrix3fv(U.world, false, new Float32Array([m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]));
+    gl.uniform2f(U.size, canvas.width, canvas.height);
+    gl.uniform2f(U.light, ...(cath.light || [-0.42, -0.91]));
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.bindVertexArray(cathVAO);
+    for (const d of cath.draws) {
+      gl.uniform1i(U.mode, d.mode);
+      gl.uniform3f(U.col, ...d.col);
+      gl.uniform1f(U.alpha, d.alpha);
+      gl.uniform2f(U.fade, ...(d.fade || [0, 0]));
+      gl.uniform1f(U.len, d.len ?? 1e9);
+      gl.drawArrays(gl.TRIANGLE_STRIP, d.first, d.count);
+    }
+    gl.bindVertexArray(null);
+    gl.disable(gl.BLEND);
   }
 
   let nCells = 0, lost = false, organRect = null;
@@ -1015,6 +1127,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       // A bleed sprays outside the vessels: the whole picture is repainted while it lasts, and once after.
       const bleeding = !!blood.bleed?.length;
       if (bleeding || wasBleeding) full = true;
+      // So does the catheter (it reaches past the vessel cells), and once after it is gone.
+      if (cath || cathWas) full = true;
+      cathWas = !!cath;
       wasBleeding = bleeding;
       if (!full && !nCells) return;
       const m = baseM, det = m[0] * m[3] - m[1] * m[2] || 1e-9;
@@ -1071,6 +1186,19 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nCells);
       }
       gl.bindVertexArray(null);
+      if (cath) drawCath(m);
+    },
+    /** Whether the catheter can be drawn here (else stage.js keeps its SVG one). */
+    get canCath() { return !!cathP; },
+    /**
+     * The HVPG catheter, or null: { verts: Float32Array (x, y, dirX, dirY, u, v per vertex),
+     * draws: [{ mode, first, count, col: [r, g, b], alpha, fade: [in, out], len }], light: [x, y] }.
+     */
+    setCath(spec) {
+      cath = cathP && spec?.draws?.length ? spec : null;
+      if (!cath) return;
+      gl.bindBuffer(gl.ARRAY_BUFFER, cathBuf);
+      gl.bufferData(gl.ARRAY_BUFFER, cath.verts, gl.DYNAMIC_DRAW);
     },
     clear() { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = 0; baseM = null; },
     /** The current picture as a PNG data URL (call right after draw, in the same task). */

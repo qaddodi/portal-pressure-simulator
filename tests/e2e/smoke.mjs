@@ -618,6 +618,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.evaluate(() => window.pps.dock.show('scope'));
     if (await page.evaluate(() => window.pps.store.get().params.pulsatile) !== pulsatileBefore) throw new Error('opening an instrument changed the patient parameters');
     await page.waitForTimeout(2500);
+    // In Explore the HVPG stays hidden until the HVPG procedure measures it.
+    const before = await page.$eval('#pane-scope .pt-num', (el) => el.textContent.trim());
+    if (before !== '—') throw new Error(`pressure over time shows HVPG ${before} before it is measured`);
+    await page.evaluate(() => window.pps.store.set({ hvpgMeasured: true }));
+    await page.waitForTimeout(600);
     const hero = await page.$eval('#pane-scope .pt-num', (el) => parseFloat(el.textContent));
     if (!(hero > 12)) throw new Error(`pressure over time shows HVPG ${hero}`);
     const drawn = await page.$eval('#pane-scope canvas', (c) => { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 16) if (d[i]) n++; return n; });
