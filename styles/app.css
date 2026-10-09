@@ -3551,3 +3551,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .instr-tabs { margin: 0 10px 6px; padding: 2px; }
   .instr-tab, .instr-tab[aria-selected="true"] { flex-direction: row; gap: 4px; height: 28px; padding: 0 8px; font-size: 11.5px; }
 }
+
+/* Treat's Drugs / Fluids / Procedures tabs reuse the Tests card's tab row (.instr-tabs); the pane under it needs no extra top gap. */
+.treat-card .instr-tab { flex: 1 1 0; }
+.treat-pane { padding-top: 4px; }

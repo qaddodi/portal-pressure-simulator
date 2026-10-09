@@ -6,7 +6,7 @@ import { store, updateParams, replaceParams, bindParamSender, clearHistory, logA
 import { createStage } from './stage.js?v=9b03251eb8';
 import { sinusoidSupported } from './sinusoid-view.js?v=467482282d';
 import { createInspector } from './inspector.js?v=fbb0750c20';
-import { createDock, CUTOFFS } from './dock.js?v=109c4e0f59';
+import { createDock, CUTOFFS } from './dock.js?v=d9dba1eca9';
 import { setHvpgStage } from './hvpg-proc.js?v=2f69b82b82';
 import { createWhy } from './why.js?v=6e2456299a';
 import { createTimeline, LAPSES } from './timeline.js?v=55e9506496';
@@ -14,9 +14,9 @@ import { createLearn } from './learn.js?v=1f6b87c7d2';
 import { createCases } from './cases.js?v=e22b3978f2';
 import { createCompare } from './compare.js?v=96506c9464';
 import { createCard } from './card.js?v=3597b7a412';
-import { createChart, computeFindings } from './chart.js?v=f1088da012';
-import { createHome, ROLES } from './home.js?v=82df67c62d';
-import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=424fa7e848';
+import { createChart, computeFindings } from './chart.js?v=c021f05cb6';
+import { createHome, ROLES } from './home.js?v=2122dd28b2';
+import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=a34d291061';
 import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=ee3689fa2e';
 import { startLMS } from './lms.js?v=45983df90a';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
@@ -145,7 +145,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=0acb72b298'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=d4332d42dd'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -797,7 +797,7 @@ function openSettings(anchor) {
     menuItem(t('menu.describe'), { icon: 'info', kb: 'D', onClick: () => { closePopover(); const d = describe(store.get().frame); announce(d); toast(d); } }),
     menuToggle(narratorOn(), 'info', t('menu.narrator'), 'One line under the figure saying what it shows now', (on) => setNarrator(on)),
     menuToggle(popupsOn(), 'info', 'Pop-up notices', 'Show messages as cards at the top instead of in the line above the timeline', (on) => setPopups(on)),
-    menuToggle(store.get().showHvpg, 'gauge', 'Always show HVPG', 'Show the HVPG without measuring it first (Measure › HVPG)', (on) => {
+    menuToggle(store.get().showHvpg, 'gauge', 'Always show HVPG', 'Show the HVPG without measuring it first (Tests › HVPG)', (on) => {
       try { localStorage.setItem('pps.showHvpg', on ? '1' : '0'); } catch { /* storage unavailable */ }
       document.body.classList.remove('hvpg-swap'); void document.body.offsetWidth; document.body.classList.add('hvpg-swap');
       setTimeout(() => document.body.classList.remove('hvpg-swap'), 600);
@@ -1100,10 +1100,11 @@ function openTreat() {
   const count = h('span', { class: 'card-meta' });
   const paintCount = () => { const n = chart.treatCount(store.get().params); count.textContent = n ? `${n} running` : ''; };
   sync.push(paintCount);
-  const body = h('div', { class: 'tc-body' }, chart.treatBody(sync, () => {}));
+  const [tabs, pane] = chart.treatBody(sync, () => {});
+  const body = h('div', { class: 'tc-body' }, pane);
   const grab = el.querySelector('.sheet-grab');
   el.replaceChildren(...[grab, h('div', { class: 'tc-head card-head' }, h('h2', { class: 'card-title' }, svgIcon('pill'), h('span', {}, 'Treat')), count,
-    h('button', { class: 'ib card-close', 'aria-label': 'Close Treat', title: 'Close (Esc)', onclick: () => closeTreat() }, icon('close'))), body].filter(Boolean));
+    h('button', { class: 'ib card-close', 'aria-label': 'Close Treat', title: 'Close (Esc)', onclick: () => closeTreat() }, icon('close'))), tabs, body].filter(Boolean));
   paintCount();
   treatOff?.();
   treatOff = store.on('params', () => { for (const fn of sync) fn(); });
@@ -1129,7 +1130,7 @@ function closeTreat() {
 // ── Modes ───────────────────────────────────────────
 function onMode(mode) {
   app.dataset.mode = mode;
-  const ptitle = document.querySelector('#panelTitle span'); if (ptitle) ptitle.textContent = mode === 'cases' ? 'Patient' : 'Findings';
+  const ptitle = document.querySelector('#panelTitle span'); if (ptitle) ptitle.textContent = 'Patient';
   syncModeName();
   if (mode !== 'cases' && cases?.active()) cases.exit();
   if (mode !== 'learn' && learn?.active()) learn.stop();
@@ -1258,7 +1259,7 @@ function brandMark() {
 function openHelp(section) {
   const rows = [
     ['Space', 'Play / pause'], ['[ ]', 'Slower / faster'], ['.', 'Step'], ['Z', 'Settle to equilibrium'], ['A', 'Anatomy ⇄ circuit'],
-    ['I', 'Open / close Measure'], ['T', 'Open / close Treat'], ['L', 'Next color lens (Shift: previous)'],
+    ['I', 'Open / close Tests'], ['T', 'Open / close Treat'], ['L', 'Next color lens (Shift: previous)'],
     ['Click', 'Open the actions for a vessel or organ'], ['1 – 9', 'Run an action on the open card'],
     ['Ctrl/⌘ Z', 'Back one change on the timeline (Shift: forward)'], ['P', 'Compare from here / stop comparing'], ['Esc', 'Cancel · close the card · close'], ['?', 'This guide'],
     ['Tab · Enter', 'Reach a vessel, open its actions'], ['← →', 'Walk vessels along the flow'], ['Ctrl/⌘ K or /', 'Search'],

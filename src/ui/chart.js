@@ -1,4 +1,4 @@
-// Findings: one card, no tabs, read top to bottom. The orders (drugs · fluids & blood ·
+// Patient (was Findings): one card, no tabs, read top to bottom. The orders (drugs · fluids & blood ·
 // procedures) are in the Treat card, built here too (treatBody).
 //
 //   [step card of a lesson or case]      (rendered by learn.js / cases.js above this)
@@ -11,7 +11,7 @@
 import { store, updateParams, hiddenNow } from './store.js?v=edbdbfb0c8';
 import { h, fmt, icon, svgIcon, toast } from './util.js?v=e803df99cd';
 import { DRUGS } from '../engine/scenario.js?v=d88966abe6';
-import { TILES, VITALS, readoutValue } from './dock.js?v=109c4e0f59';
+import { TILES, VITALS, readoutValue } from './dock.js?v=d9dba1eca9';
 import { activeInterventions } from './inspector.js?v=fbb0750c20';
 import { verbEnabled, DRUG_NOTE } from './actions.js?v=c318d652d9';
 
@@ -150,6 +150,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
 
   // ── Treat ─────────────────────────────────────────
   // The orders, for the Treat card. `sync` collects what must repaint when the parameters change.
+  let treatTab = 'drugs';
   function treatBody(sync, onDone) {
     const live = sync;
     const p0 = store.get().params;
@@ -206,9 +207,18 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       })(),
       proc('needle', 'Paracentesis', 'drain ascites', 'paracentesis', () => select({ type: 'organ', id: 'abdomen' })));
     for (const b of procs.querySelectorAll('button')) b.addEventListener('click', () => onDone?.());
-    return [h('div', { class: 'subhead' }, 'Drugs'), drugs,
-      h('div', { class: 'subhead' }, 'Fluids & blood'), fluids,
-      h('div', { class: 'subhead' }, 'Procedures'), procs];
+    // Three tabs, styled as the Tests card's, so the cards read as one set; the last tab is kept.
+    const panes = [['drugs', 'pill', 'Drugs', drugs], ['fluids', 'drop', 'Fluids', fluids], ['procs', 'band', 'Procedures', procs]];
+    const tabs = h('div', { class: 'instr-tabs treat-tabs', role: 'tablist', 'aria-label': 'Treatments' });
+    const body = h('div', { class: 'treat-pane' });
+    const show = (id) => {
+      treatTab = id;
+      for (const b of tabs.children) b.setAttribute('aria-selected', String(b.dataset.tab === id));
+      body.replaceChildren(panes.find((x) => x[0] === id)[3]);
+    };
+    for (const [id, ic, label] of panes) tabs.append(h('button', { class: 'instr-tab', role: 'tab', 'data-tab': id, 'aria-selected': 'false', onclick: () => show(id) }, svgIcon(ic), h('span', {}, label)));
+    show(treatTab);
+    return [tabs, body];
   }
   /** How many treatments are running now (drugs, shunts, balloons, BRTO). */
   function treatCount(p) {
