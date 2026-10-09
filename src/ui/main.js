@@ -3,7 +3,8 @@
 
 import { startHost, host } from './host.js?v=b54d9b1fcc';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=1d7cd9b00f';
-import { createStage } from './stage.js?v=68c6f1f6d2';
+import { createStage } from './stage.js?v=1b2853f639';
+import { sinusoidSupported } from './sinusoid-view.js?v=a7d638a4fa';
 import { createInspector } from './inspector.js?v=eb9187916e';
 import { createDock, CUTOFFS } from './dock.js?v=01a323d57d';
 import { setHvpgStage } from './hvpg-proc.js?v=e5a9ccf97f';
@@ -176,7 +177,7 @@ async function main() {
   host.on('error', (m) => { console.error(m.message); toast('Engine error: see the console.', 'bad'); });
 
   // The Sinusoid button shows only in the Lobule view: it is one level further down.
-  const syncViewSeg = () => { const st = store.get(), cur = st.lobule && st.sinusoid ? 'sinusoid' : st.lobule ? 'lobule' : st.view; $$('#viewSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === cur))); $('#viewSeg [data-view="sinusoid"]').hidden = !st.lobule; };
+  const syncViewSeg = () => { const st = store.get(), cur = st.lobule && st.sinusoid ? 'sinusoid' : st.lobule ? 'lobule' : st.view; $$('#viewSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === cur))); $('#viewSeg [data-view="sinusoid"]').hidden = !st.lobule || !sinusoidSupported(); app.classList.toggle('sin-focus', !!(st.lobule && st.sinusoid)); };
   store.on('view', (v) => { stage.setView(v); syncViewSeg(); });
   store.on('lobule', syncViewSeg);
   store.on('sinusoid', syncViewSeg);
@@ -1170,7 +1171,7 @@ function wireKeyboard() {
       return;
     }
     const k = e.key.toLowerCase();
-    if (k === 'a' && !e.shiftKey) { store.set({ lobule: false, view: store.get().view === 'circuit' ? 'anatomic' : 'circuit' }); return; }
+    if (k === 'a' && !e.shiftKey) { if (store.get().sinusoid) return; store.set({ lobule: false, view: store.get().view === 'circuit' ? 'anatomic' : 'circuit' }); return; }
     if ((k === 'l' || (e.key === 'C' && e.shiftKey)) && !store.get().imaging) {
       const ks = Object.keys(LENSES), i = ks.indexOf(store.get().colorMode);
       const next = ks[(i + (e.shiftKey && k === 'l' ? ks.length - 1 : 1)) % ks.length];
