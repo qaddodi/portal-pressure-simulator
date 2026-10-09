@@ -16,7 +16,7 @@ const EN = {
   'home.lessons': 'Lessons', 'home.cases': 'Cases', 'home.cases.d': 'A bleed at 3 a.m. and three diagnostic puzzles, scored',
   'home.presenter': 'Presenter', 'home.presenter.d': 'Step through a live model in front of a class',
   'menu.appearance': 'Appearance', 'menu.light': 'Light', 'menu.dark': 'Dark', 'menu.system': 'System', 'menu.units': 'Units', 'menu.role': 'I am a…',
-  'menu.language': 'Language', 'menu.access': 'Accessibility', 'menu.describe': 'Describe the patient', 'menu.sonify': 'Sonify pressure',
+  'menu.language': 'Language', 'menu.access': 'Accessibility', 'menu.describe': 'Describe the patient', 'menu.sonify': 'Sonify pressure', 'menu.narrator': 'Narrator caption',
   'menu.settings': 'Settings', 'menu.help': 'Help', 'menu.reset': 'Reset everything…', 'menu.shortcuts': 'Keyboard shortcuts', 'menu.refs': 'References', 'menu.credits': 'Credits',
   'menu.home': 'Home', 'menu.palette': 'Search', 'menu.guide': 'Guide', 'menu.about': 'About the model', 'menu.privacy': 'Privacy',
   'tabs.chart': 'Patient', 'tabs.instruments': 'Measure',
@@ -30,7 +30,7 @@ const ES = {
   'home.lessons': 'Lecciones', 'home.cases': 'Casos', 'home.cases.d': 'Una hemorragia a las 3 a. m. y tres enigmas diagnósticos, con puntuación',
   'home.presenter': 'Presentador', 'home.presenter.d': 'Recorra un modelo vivo ante la clase',
   'menu.appearance': 'Apariencia', 'menu.light': 'Claro', 'menu.dark': 'Oscuro', 'menu.system': 'Sistema', 'menu.units': 'Unidades', 'menu.role': 'Soy…',
-  'menu.language': 'Idioma', 'menu.access': 'Accesibilidad', 'menu.describe': 'Describir al paciente', 'menu.sonify': 'Sonificar la presión',
+  'menu.language': 'Idioma', 'menu.access': 'Accesibilidad', 'menu.describe': 'Describir al paciente', 'menu.sonify': 'Sonificar la presión', 'menu.narrator': 'Narrador',
   'menu.home': 'Inicio', 'menu.palette': 'Buscar', 'menu.guide': 'Guía', 'menu.about': 'Acerca del modelo', 'menu.privacy': 'Privacidad',
   'tabs.chart': 'Paciente', 'tabs.instruments': 'Medir',
 };
@@ -43,7 +43,7 @@ const FR = {
   'home.lessons': 'Leçons', 'home.cases': 'Cas', 'home.cases.d': 'Une hémorragie à 3 h du matin et trois énigmes diagnostiques, notées',
   'home.presenter': 'Présentateur', 'home.presenter.d': 'Faites défiler un modèle vivant devant la classe',
   'menu.appearance': 'Apparence', 'menu.light': 'Clair', 'menu.dark': 'Sombre', 'menu.system': 'Système', 'menu.units': 'Unités', 'menu.role': 'Je suis…',
-  'menu.language': 'Langue', 'menu.access': 'Accessibilité', 'menu.describe': 'Décrire le patient', 'menu.sonify': 'Sonifier la pression',
+  'menu.language': 'Langue', 'menu.access': 'Accessibilité', 'menu.describe': 'Décrire le patient', 'menu.sonify': 'Sonifier la pression', 'menu.narrator': 'Narrateur',
   'menu.home': 'Accueil', 'menu.palette': 'Rechercher', 'menu.guide': 'Guide', 'menu.about': 'À propos du modèle', 'menu.privacy': 'Confidentialité',
   'tabs.chart': 'Patient', 'tabs.instruments': 'Mesurer',
 };
@@ -56,7 +56,7 @@ const PT = {
   'home.lessons': 'Lições', 'home.cases': 'Casos', 'home.cases.d': 'Uma hemorragia às 3 da manhã e três enigmas diagnósticos, pontuados',
   'home.presenter': 'Apresentador', 'home.presenter.d': 'Percorra um modelo vivo diante da turma',
   'menu.appearance': 'Aparência', 'menu.light': 'Claro', 'menu.dark': 'Escuro', 'menu.system': 'Sistema', 'menu.units': 'Unidades', 'menu.role': 'Eu sou…',
-  'menu.language': 'Idioma', 'menu.access': 'Acessibilidade', 'menu.describe': 'Descrever o paciente', 'menu.sonify': 'Sonificar a pressão',
+  'menu.language': 'Idioma', 'menu.access': 'Acessibilidade', 'menu.describe': 'Descrever o paciente', 'menu.sonify': 'Sonificar a pressão', 'menu.narrator': 'Narrador',
   'menu.home': 'Início', 'menu.palette': 'Buscar', 'menu.guide': 'Guia', 'menu.about': 'Sobre o modelo', 'menu.privacy': 'Privacidade',
   'tabs.chart': 'Paciente', 'tabs.instruments': 'Medir',
 };

@@ -13,9 +13,9 @@ import { createCases } from './cases.js?v=9ce2b716b9';
 import { createCompare } from './compare.js?v=51523b6eb1';
 import { createCard } from './card.js?v=f5eafabeb0';
 import { createChart, computeFindings } from './chart.js?v=b120ae2428';
-import { createHome, ROLES } from './home.js?v=6c3ba919c0';
-import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
-import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=33893967f1';
+import { createHome, ROLES } from './home.js?v=d97522b3cf';
+import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=0f0719fa20';
+import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=78202c1abf';
 import { startLMS } from './lms.js?v=c905ea22e7';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=2c5d790fd5';
@@ -185,7 +185,8 @@ async function main() {
   store.on('mode', onMode);
   store.on('layers', () => { app.classList.toggle('chips-off', !store.get().layers.chips); syncBloodBtn(); redraw(); });
   store.on('presetId', (id) => { $('#scenarioName').textContent = presets.find((p) => p.id === id)?.label || 'Custom'; });
-  store.on('role', (r) => { try { localStorage.setItem('pps.role', r); } catch { /* storage unavailable */ } app.dataset.role = r; card.render(); });
+  store.on('role', (r) => { try { localStorage.setItem('pps.role', r); localStorage.removeItem('pps.narrator'); } catch { /* storage unavailable */ } narrPref = null; app.dataset.role = r; card.render(); narrate(store.get().frame, performance.now(), true); });
+  $('#narratorWhy').addEventListener('click', (e) => why.open('pv', e.currentTarget));
   app.dataset.role = store.get().role;
   for (const k of ['compareSnap', 'compareView', 'colorMode', 'imaging']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
   store.on('compareSnap', () => { if (!store.get().details) inspector.render(); });
@@ -273,7 +274,31 @@ function onFrame(f) {
   if (projector) updateProjector(f);
   sonifyFrame(f);
   if (now - lastDesc > 3000) { lastDesc = now; $('#stage').setAttribute('aria-description', describe(f)); }
+  narrate(f, now);
 }
+
+// Narrator (blueprint E1): the Describe reading as one live line above the timeline, refreshed on
+// events and changes (at most twice a second otherwise). On by default for Student and Instructor,
+// off for Researcher; the Settings toggle overrides it until the role changes.
+const NARRATOR_DEFAULT = { student: true, instructor: true, researcher: false };
+let lastNarr = 0, narrPref;
+const narratorOn = () => { const v = narrPref === undefined ? (narrPref = readLS('pps.narrator')) : narrPref; return v ? v === '1' : NARRATOR_DEFAULT[store.get().role || 'student'] !== false; };
+function narrate(f, now = performance.now(), force = false) {
+  const el = $('#narrator');
+  const on = narratorOn() && !presenter.active();
+  if (el.hidden === on) el.hidden = !on;
+  if (!on || !f || (!force && !f.events?.length && !f.params && now - lastNarr < 500)) return;
+  lastNarr = now;
+  const txt = caption(f), t = $('#narratorText');
+  if (el.title !== txt) { el.title = txt; t.replaceChildren(h('span', { class: 'nr-s' }, txt.slice(0, txt.length - caption(f, { scenario: false }).length)), caption(f, { scenario: false })); }
+  $('#narratorWhy').hidden = !!store.get().hiddenReadouts?.has('pv');
+}
+function setNarrator(on) {
+  narrPref = on ? '1' : '0';
+  try { localStorage.setItem('pps.narrator', narrPref); } catch { /* storage unavailable */ }
+  narrate(store.get().frame, performance.now(), true);
+}
+
 
 // ── Scenarios & share ───────────────────────────────
 function openScenarios(anchor) {
@@ -738,6 +763,7 @@ function openSettings(anchor) {
     (() => { const sel = h('select', { class: 'select menu-select', 'aria-label': t('menu.language') }, LANGS.map(([v, l]) => h('option', { value: v, selected: currentLang() === v }, l))); sel.addEventListener('change', () => { setLang(sel.value); }); return sel; })(),
     h('div', { class: 'menu-title' }, t('menu.access')),
     menuItem(t('menu.describe'), { icon: 'info', kb: 'D', onClick: () => { closePopover(); const d = describe(store.get().frame); announce(d); toast(d); } }),
+    menuToggle(narratorOn(), 'info', t('menu.narrator'), 'One line under the figure saying what it shows now', (on) => setNarrator(on)),
     menuItem(t('menu.sonify'), { icon: 'activity', checked: sonifying(), onClick: (e) => { setSonify(!sonifying()); e?.currentTarget?.setAttribute('aria-checked', String(sonifying())); toast(sonifying() ? 'Sonification on: pitch follows the pressure of the selected vessel (or the portal vein).' : 'Sonification off.'); } }),
     h('div', { class: 'menu-title' }, 'Debug'),
     ...debugOptions().map(([k, l]) => menuToggle(debugOn(k), 'activity', l, null, (on) => setDebug(k, on))),

@@ -3316,3 +3316,22 @@ body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state
   .dock-pane[data-pane="profile"] .chart-side .ctl-sub:empty { display: none; }
   .instrument-workspace .dock-pane[data-pane="profile"] .instrument-view .chart-box { flex: 1 1 auto; height: auto; min-height: 240px; }
 }
+
+/* Narrator caption (blueprint E1): one live line above the timeline. Below desktop width it takes
+   its own row under the event pill and wraps to two lines; phones drop the patient's name (it is in the top bar). */
+.vdock .narrator { flex: 1 1 auto; display: flex; align-items: center; gap: 8px; min-width: 0; margin: 0; font-size: var(--fs-14); line-height: 1.35; color: var(--text-2); }
+.vdock .narrator > svg { flex: none; width: 15px; height: 15px; fill: none; stroke: var(--accent); stroke-width: 1.8; }
+.vdock .narrator .nr-t { flex: 0 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.vdock .narrator .nr-why { flex: none; padding: 1px 8px; border: 1px solid var(--hairline); border-radius: 999px; background: transparent; color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; }
+.vdock .narrator .nr-why:hover { background: var(--surface-2); }
+.vdock .narrator .nr-why[hidden] { display: none; }
+@media (max-width: 1199px) {
+  .vdock .vd-status:has(.narrator:not([hidden])) { flex-wrap: wrap; row-gap: 6px; }
+  .vdock .narrator { flex-basis: 100%; order: 2; align-items: flex-start; }
+  .vdock .narrator .nr-t { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+}
+@media (max-width: 767px) {
+  .vdock .narrator { font-size: var(--fs-12); }
+  .vdock .narrator .nr-s { display: none; }
+}
+.app.presenting .narrator { display: none; }
