@@ -411,9 +411,14 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     setTimeout(() => dispatchEvent(new Event('resize')), 30);
   }
   const canSplit = () => (isSide() ? stageWrap.clientHeight - css('--top-safe') - css('--vdock-h') >= 620 : body.clientWidth >= 1000 || workspace.clientWidth >= 1000) || state === 'focus';
+  // Pressure and Over time read as one story: on a roomy desktop card they open together, stacked,
+  // so neither needs a long scroll.
+  const PAIR = ['profile', 'scope'];
+  const pairs = () => matchMedia('(min-width: 1024px) and (pointer: fine)').matches && canSplit();
   function layout() {
     // Never keep two cramped instruments after rotation or resizing.
     if (open.length > 1 && !canSplit()) open = open.slice(0, 1);
+    else if (open.length === 1 && PAIR.includes(open[0]) && pairs()) open = [...PAIR];
     for (const p of panes) p.el.classList.toggle('active', open.includes(p.id));
     body.classList.toggle('split', open.length > 1);
     body.classList.toggle('stack', open.length > 1 && isSide() && state !== 'focus');
