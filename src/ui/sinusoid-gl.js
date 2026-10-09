@@ -52,6 +52,7 @@ uniform vec2 size;
 uniform float uPx;              // µm per device px
 uniform vec4 uRev;              // shown: alpha, from x (µm, toward the portal side), to x, half-height |y|
 uniform float uAll;             // shown everywhere
+uniform float uFocus;           // how far the tissue beyond its own plates fades into the page (eased in as the zoom lands)
 uniform vec2 uDet;              // detail: amount, half-length (µm) of the stretch that has it
 float sat(float x) { return clamp(x, 0.0, 1.0); }
 float revealA(vec2 l) {
@@ -329,7 +330,8 @@ void main() {
     const float D = DISSE, E = ENDO, L = LUM0;
     if (v < HEP) c = plate(x, v, sd, det);
     else {
-      float b = v - HEP;
+      // (Repeating outward, so the tissue fills any screen, also while the zoom from the lobule still shows it small.)
+      float b = mod(v - HEP, 2.0 * D + 2.0 * E + 2.0 * L + HEP);
       if (b < D) c = disse(x, D - b + E, E, D + E, side, false, 0.0);
       else if (b < D + 2.0 * E + 2.0 * L) {
         float yl = b - (D + E + L), al = abs(yl);
@@ -338,8 +340,7 @@ void main() {
         c = endoInk(c, de, dN);
       }
       else if (b < 2.0 * D + 2.0 * E + 2.0 * L) c = disse(x, b - (D + 2.0 * E + 2.0 * L) + E, E, D + E, side, false, 0.0);
-      else if (b < 2.0 * D + 2.0 * E + 2.0 * L + HEP) c = plate(x, b - (2.0 * D + 2.0 * E + 2.0 * L), sd + 13, 0.0);
-      else c = cUnder;
+      else c = plate(x, b - (2.0 * D + 2.0 * E + 2.0 * L), sd + 13, 0.0);
     }
   }
   // The main lining over all that.
@@ -349,7 +350,7 @@ void main() {
   }
   // Focus: beyond this sinusoid's own plates the tissue fades into the page.
   float f0 = uLum + ENDO + disseW(0.0) + HEP * 0.85;
-  c = mix(c, cBg, smoothstep(f0, f0 + 18.0, a) * (0.72 + 0.06 * uDark));
+  c = mix(c, cBg, smoothstep(f0, f0 + 18.0, a) * (0.72 + 0.06 * uDark) * uFocus);
   o = vec4(c * show, show);
 }`;
 

@@ -85,13 +85,13 @@ export function createSinusoidView({ host }) {
     const t = cssN('--top-safe') + cssN('--cmp-h') + 8 + 40, b = H - 28, l = 12, r = W - 12;
     return { l, t, r: Math.max(l + 80, r), b: Math.max(t + 80, b) };
   }
-  // The stretch is laid out once per stage size. It runs along the stage's longer side: across on a
-  // landscape screen, down on a portrait one.
+  // The stretch is laid out once per stage size. It always runs level across the screen, so every label reads
+  // upright; on a portrait screen it is framed by its width instead (a shorter stretch, more plates above and below).
   function ensureGeo(W, H) {
     const key = W + '|' + H;
     if (key !== geoKey) {
       geoKey = key;
-      const vert = W < H * 0.95, ang = vert ? Math.PI / 2 : 0;
+      const vert = false, tall = W < H * 0.95, ang = 0;
       const X = Math.hypot(W, H) / 6 + 30;   // reach at the smallest scale (3 px/µm)
       // The fenestrae of both linings (the shader opens the same ones), for the traffic through them.
       const pores = [SEED.poreUp, SEED.poreDn].map((sd) => {
@@ -102,14 +102,14 @@ export function createSinusoidView({ host }) {
       // The stellate cell sits at a junction between two hepatocytes on the upper side, a little before the middle.
       let xs = cellEdge(0, SEED.plateUp);
       for (let j = -3; j <= 2; j++) { const b = cellEdge(j, SEED.plateUp); if (Math.abs(b + 10) < Math.abs(xs + 10)) xs = b; }
-      geo = { W, H, ang, vert, x0: -X, x1: X, xs, xk: 22, pores };
+      geo = { W, H, ang, vert, tall, x0: -X, x1: X, xs, xk: 22, pores };
     }
     // Where it is drawn: centred in the free space, the plates filling its short side. When that space
     // changes (the dock grows, a card opens) the view glides there (stepView), it does not jump.
     const f = freeRect(W, H), fw = f.r - f.l, fh = f.b - f.t;
     // How much is shown across: both plates whole on a large screen; on a phone, closer in (the plates cut by the
     // edges), so the wall and its traffic stay large enough to follow.
-    const short = geo.vert ? fw : fh, across = lerp(40, 54, smooth(380, 720, short));
+    const short = geo.tall ? fw : fh, across = geo.tall ? lerp(46, 64, smooth(380, 720, fw)) : lerp(40, 54, smooth(380, 720, short));
     VW.f = f; VW.tk = clamp(short / across, 3, 14); VW.tC = [(f.l + f.r) / 2, (f.t + f.b) / 2];
     if (!VW.k) { VW.k = VW.tk; VW.C = [...VW.tC]; }
     return geo;
@@ -294,6 +294,7 @@ export function createSinusoidView({ host }) {
     const away = (x, from, d) => (Math.abs(x - from) < d ? from + (x < from ? -d : d) : x);
     const num = (v, d, u) => (m.hide ? '?' : `${fmt(v, d)}~${u}`);
     // In the lumen: the sinusoid (mid-view), the Kupffer cell beside itself, and the fenestrae along the far wall.
+    if (g.tall) { layoutTall(); return; }
     const xc = away(pick(0.5), g.xk, 30);
     region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), xc, 0, { along: true });
     const kw = region('kup', 'Kupffer cell', '', g.xk, 0, { along: true });
@@ -312,6 +313,26 @@ export function createSinusoidView({ host }) {
     const xh = pick(V ? 0.88 : 0.08), hc = cellAt(xh, SEED.plateDn), hx = (hc.x0 + hc.x1) / 2;
     region('hep', 'Hepatocyte', '', hx, hepIn(hx) + hep * (hc.nv < 0.5 ? 0.78 : 0.22));
   }
+  // A portrait screen: a short stretch across, with tall plates above and below. The vessel's ends are named
+  // just below it (layoutEnds), so the lumen keeps only its own name and the Kupffer cell's; the lymph and a
+  // hepatocyte go deeper into the plates, clear of them.
+  function layoutTall() {
+    const g = geo, m = model, hep = UM.hep;
+    const pick = (u) => lerp(VW.fr[0] + 4, VW.fr[1] - 4, u);
+    const num = (v, d, u) => (m.hide ? '?' : `${fmt(v, d)}~${u}`);
+    const kw = region('kup', 'Kupffer cell', '', g.xk, 0, { along: true });
+    region('kup', 'Kupffer cell', '', g.xk - 8 - kw.half, halfW(g.xk) * 0.4, { along: true });
+    region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), pick(0.3), -halfW(pick(0.3)) * 0.15, { along: true });
+    const xf = pick(0.72);
+    region('fen', 'Fenestrae', S.por > 0.85 ? 'open' : S.por > 0.15 ? `${Math.round(S.por * 100)}%~open` : 'sealed', xf, -(halfW(xf) - 0.6), { along: true, side: 1 });
+    const xq = pick(0.82);
+    region('disse', 'Space of Disse', '', xq, -(wallIn(xq) + disseW(xq) * 0.5), { along: true });
+    const xd = pick(0.5);
+    region('lymph', 'Lymph', m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min · protein ${Math.round(m.lyProt * 100)}%`, xd, hepIn(xd) + hep * 0.5);
+    region('hsc', S.act > 0.5 ? 'Activated stellate cell' : 'Stellate cell', '', g.xs, -(hepIn(g.xs) + 1), { side: -1 });
+    const xh = pick(0.2), hc = cellAt(xh, SEED.plateUp), hx = (hc.x0 + hc.x1) / 2;
+    region('hep', 'Hepatocyte', '', hx, -(hepIn(hx) + hep * 0.86));
+  }
   function layoutEnds() {
     const g = geo, f = VW.f;
     // The ends: the portal venule the blood comes from and the central venule it goes to, with their pressures (as the lobule labels them).
@@ -329,6 +350,7 @@ export function createSinusoidView({ host }) {
       const w = T.el.offsetWidth, hh = T.el.offsetHeight;
       let x, y;
       if (g.vert) { x = VW.C[0] - w / 2; y = u ? f.b - hh - 24 : f.t + 4; }   // (clear of the credit line at the bottom)
+      else if (g.tall) { x = u ? f.r - w - 6 : f.l + 6; y = toScreen(0, hepIn(0) + 1.5)[1]; }   // (just below the vessel, at its ends)
       else { x = u ? f.r - w - 6 : f.l + 6; y = VW.C[1] - hh / 2; }
       T.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
     }
@@ -374,7 +396,8 @@ export function createSinusoidView({ host }) {
         u.uRev = [0, 0, 0, 0];
         u.uAll = smooth(0.5, 0.88, g);
         u.uDet = [smooth(0.72, 1, g), 1e5];
-      } else { u.uRev = [1, -1e5, 1e5, 1e5]; u.uAll = 1; u.uDet = [1, 1e5]; }
+        u.uFocus = smooth(0.82, 1, g);   // (the page shows around it only once it has landed, not as a band while it is small)
+      } else { u.uRev = [1, -1e5, 1e5, 1e5]; u.uAll = 1; u.uDet = [1, 1e5]; u.uFocus = 1; }
       gpu.draw(u, pts, sprites());
     }
     if (!dive) {
