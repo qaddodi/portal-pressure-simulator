@@ -2215,7 +2215,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // picking organs and for exports.
   const PLATE_RECT = [200, -200, 1020, 1320];
   const PLATE_BASE = 1.2;          // px per world unit of the whole-plate raster
-  let plateKey = '', plateSeq = 0, plateBusy = false, plateAgain = false, plateLast = 0, plateTimer = 0, plateView = null, plateViewKey = '', plateSettle = 0;
+  let plateTheme = null, plateKey = '', plateSeq = 0, plateBusy = false, plateAgain = false, plateLast = 0, plateTimer = 0, plateView = null, plateViewKey = '', plateSettle = 0;
   const plateOn = () => wrap.classList.contains('gl-plate');
   function plateMarkup(rect, W, H) {
     const was = plateOn();
@@ -2262,8 +2262,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!veins || veins.lost || !glWanted(easeInOut(morph))) return;
     const key = plateStateKey();
     if (key === plateKey && veins.hasPlate(0)) return;
+    // A theme switch: the old raster would keep the old background for a beat, so show the live
+    // SVG plate (already in the new theme) at once and rasterize again without the throttle.
+    const theme = getComputedStyle(wrap).getPropertyValue('--stage-bg');
+    const themed = plateTheme !== null && theme !== plateTheme;
+    plateTheme = theme;
+    if (themed && veins.hasPlate(0)) {
+      veins.dropPlate(0); veins.dropPlate(1); plateView = null; plateViewKey = '';
+      wrap.classList.remove('gl-plate'); veinsDirty = true; syncPlateLook();
+    }
     if (plateBusy) { plateAgain = true; return; }
-    const wait = Math.max(0, 500 - (performance.now() - plateLast));
+    const wait = themed ? 0 : Math.max(0, 500 - (performance.now() - plateLast));
     clearTimeout(plateTimer);
     plateTimer = setTimeout(async () => {
       plateBusy = true; plateLast = performance.now();
