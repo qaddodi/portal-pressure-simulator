@@ -252,6 +252,10 @@ export function createProfile() {
       const col = v >= d.bad ? c.danger : v >= d.warn ? c.caution : c.muted;
       const yy = y(0) - 12 - (dims.length - 1 - k) * 24, x0 = x(a), x1 = x(b);
       ctx.save();
+      // Faint leaders up to the two station dots the gradient spans.
+      ctx.strokeStyle = col; ctx.globalAlpha = 0.45; ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
+      ctx.beginPath(); ctx.moveTo(x0, yy - 4); ctx.lineTo(x0, Y(now[a], a) + 7); ctx.moveTo(x1, yy - 4); ctx.lineTo(x1, Y(now[b], b) + 7); ctx.stroke();
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
       ctx.strokeStyle = col; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(x0, yy - 4); ctx.lineTo(x0, yy + 4); ctx.moveTo(x1, yy - 4); ctx.lineTo(x1, yy + 4); ctx.moveTo(x0, yy); ctx.lineTo(x1, yy); ctx.stroke();
       const txt = `${d.k} `, num = fmt(v, 1);
