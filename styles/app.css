@@ -2134,6 +2134,19 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .instrument-details[open] > .instrument-view, .instrument-details[open] > .kv { margin-top: 12px; }
 .wall-details { grid-column: 1 / -1; }
 .trace-picker .check-list { margin-top: 8px; display: grid; grid-template-columns: 1fr; }
+/* HVPG procedure (Measure › HVPG): the monitor canvas, the readings and the four steps. */
+.hvpg-box { border-radius: var(--r-card); background: var(--mon-bg); }
+.hvpg-kv dd[data-sev="ok"] { color: color-mix(in srgb, var(--ok) 75%, var(--text)); }
+.hvpg-kv dd[data-sev="caution"] { color: color-mix(in srgb, var(--caution) 75%, var(--text)); }
+.hvpg-kv dd[data-sev="danger"] { color: color-mix(in srgb, var(--danger) 75%, var(--text)); }
+.hvpg-steps { margin: 0; padding: 0; list-style: none; counter-reset: hs; display: grid; gap: 4px; font-size: 13px; color: var(--text-3); }
+.hvpg-steps li { counter-increment: hs; display: flex; align-items: center; gap: 8px; }
+.hvpg-steps li::before { content: counter(hs); flex: none; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 600; border: 1px solid var(--border); }
+.hvpg-steps li[data-state="now"] { color: var(--text); font-weight: 600; }
+.hvpg-steps li[data-state="now"]::before { border-color: var(--accent); color: var(--accent-ink); }
+.hvpg-steps li[data-state="done"] { color: var(--text-2); }
+.hvpg-steps li[data-state="done"]::before { content: '✓'; background: var(--accent-soft); border-color: transparent; color: var(--accent-ink); }
+.hvpg-caption { min-height: 4.5em; }
 .procedure-controls { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--hairline); border-radius: var(--r-card); background: var(--surface-2); }
 .workspace-comparison { display: flex; gap: 20px; flex: none; padding: 8px 20px; background: var(--accent-soft); font-size: var(--fs-12); color: var(--text-2); overflow-x: auto; white-space: nowrap; }
 .workspace-comparison > span { display: inline-flex; gap: 8px; }

@@ -1,13 +1,13 @@
 // Learn mode (blueprint §11): lessons as step sequences with Predict → Observe → Explain.
 
-import { store, updateParams } from './store.js?v=06e2d6e179';
+import { store, updateParams } from './store.js?v=1d7cd9b00f';
 import { host } from './host.js?v=b54d9b1fcc';
 import { h, fmt, toast, svgIcon } from './util.js?v=86153645a3';
 import { createAnswerSheet, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=7f4afcf446';
 import { addRecord } from './records.js?v=50fb9dd463';
-import { runSequence } from './sequence.js?v=cbe4a82e93';
+import { runSequence } from './sequence.js?v=8a40629442';
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
-import { trustLine, teachChip, blindOn, blindOff, isBlind, optionList, compareChip, bindQuestionKeys, mirrorMarker } from './learning-kit.js?v=6f0cd3adc7';
+import { trustLine, teachChip, blindOn, blindOff, isBlind, optionList, compareChip, bindQuestionKeys, mirrorMarker } from './learning-kit.js?v=5b22ecbb97';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 

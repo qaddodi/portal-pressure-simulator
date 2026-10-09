@@ -2,7 +2,7 @@
 
 import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=dc393aabea';
 import { DRUGS } from '../engine/scenario.js?v=d88966abe6';
-import { store, updateParams, isLocked } from './store.js?v=06e2d6e179';
+import { store, updateParams, isLocked, hiddenNow } from './store.js?v=1d7cd9b00f';
 import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, icon, svgIcon } from './util.js?v=86153645a3';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -281,7 +281,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
   }
 
   const ORGAN_ABOUT = {
-    liver: ['Organ', 'Liver', 'Blood crosses three resistances in series: portal venules (presinusoidal), sinusoids and central veins (postsinusoidal). Cirrhosis raises sinusoidal resistance; schistosomiasis blocks the portal tracts; sinusoidal obstruction syndrome the central veins. The hepatic artery buffers falls in portal flow.', [['Sinusoids (R)', (f) => fp(f.P[NI.SIN_R]).join(' ')], ['HVPG', (f) => `${fmt(f.metrics.hvpg, 1)} mmHg`], ['Liver perfusion', (f) => `${Math.round(f.metrics.liverPerfPct)} %`], ['Hepatic artery flow', (f) => `${fmtFlow(f.metrics.arterialIn)} L/min`]], 'hvpg'],
+    liver: ['Organ', 'Liver', 'Blood crosses three resistances in series: portal venules (presinusoidal), sinusoids and central veins (postsinusoidal). Cirrhosis raises sinusoidal resistance; schistosomiasis blocks the portal tracts; sinusoidal obstruction syndrome the central veins. The hepatic artery buffers falls in portal flow.', [['Sinusoids (R)', (f) => fp(f.P[NI.SIN_R]).join(' ')], ['HVPG', (f) => (hiddenNow()?.has('trueHVPG') ? 'Not measured' : `${fmt(f.metrics.hvpg, 1)} mmHg`)], ['Liver perfusion', (f) => `${Math.round(f.metrics.liverPerfPct)} %`], ['Hepatic artery flow', (f) => `${fmtFlow(f.metrics.arterialIn)} L/min`]], 'hvpg'],
     heart: ['Organ', 'Right heart', 'The right atrium is where both cavae end. Its pressure is the floor of the whole venous system: a failing right ventricle or tricuspid regurgitation raises every pressure upstream, including the hepatic veins, so the HVPG stays normal.', [['Right atrium', (f) => fp(f.P[NI.RA]).join(' ')], ['Cardiac output', (f) => `${fmtFlow(f.metrics.co)} L/min`], ['MAP', (f) => `${fmt(f.metrics.map, 0)} mmHg`], ['Heart rate', (f) => `${fmt(f.metrics.hr, 0)} /min`]], 'ra'],
     varices: ['Collateral bed', 'Esophageal varices', 'Submucosal veins of the lower esophagus fed by the left gastric (coronary) vein and draining to the azygos. Wall tension follows Laplace: T = ΔP · r / w, so large thin-walled varices rupture.', [['Pressure', (f) => fp(f.P[NI.VAR]).join(' ')], ['Diameter', (f) => `${fmt(f.metrics.varix.d, 1)} mm`], ['Wall tension', (f) => `${Math.round(f.metrics.varix.ratio * 100)} % of rupture`], ['Grade', (f) => f.metrics.varix.grade.code]], 'varix'],
     gastric: ['Collateral bed', 'Fundal varices', 'Fed by the short and posterior gastric veins, often draining through a gastrorenal shunt to the left renal vein. They bleed at lower pressures than esophageal varices; BRTO occludes the shunt.', [['Pressure', (f) => fp(f.P[NI.GV]).join(' ')], ['Diameter', (f) => `${fmt(f.metrics.gastricVarix.d, 1)} mm`], ['Wall tension', (f) => `${Math.round(f.metrics.gastricVarix.ratio * 100)} % of rupture`]], 'varix'],

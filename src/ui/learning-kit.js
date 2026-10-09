@@ -9,7 +9,7 @@
 //   bindQuestionKeys(el)  keys 1 to 4 pick an option, Enter presses the primary button
 //   mirrorMarker(...)     "?" then an arrow on the vessel the question is about
 
-import { store } from './store.js?v=06e2d6e179';
+import { store } from './store.js?v=1d7cd9b00f';
 import { h } from './util.js?v=86153645a3';
 
 export const TRUST_LINE = 'Teaching model: shows how pressure and flow behave. It does not predict an individual patient.';

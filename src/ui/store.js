@@ -37,6 +37,8 @@ const state = {
   locked: null,               // Set of locked control keys (Learn / Cases)
   hiddenReadouts: null,       // Set of hidden metrics (Cases)
   hiddenEvents: null,         // Set of event ids a case keeps out of the story (model-only knowledge)
+  hvpgMeasured: false,        // Explore: the HVPG catheter procedure has run for this patient (the live HVPG shows)
+  presenting: false,          // a Presenter script or the tour is running
 };
 
 export const store = {
@@ -53,6 +55,17 @@ export const store = {
     return () => listeners.set(key, listeners.get(key).filter((f) => f !== fn));
   },
 };
+
+/** The readouts hidden right now: a case's or lesson's set and, in Explore, the true HVPG (wedged and free hepatic vein
+ *  pressures too) until the catheter procedure (Measure › HVPG) has measured it for this patient. A Presenter script or
+ *  the tour shows it as it is. */
+let hidCache = { base: undefined, set: null };
+export function hiddenNow(st = state) {
+  const base = st.hiddenReadouts;
+  if (st.mode !== 'explore' || st.hvpgMeasured || st.presenting || base?.has('trueHVPG')) return base;
+  if (hidCache.base !== base || !hidCache.set) hidCache = { base, set: new Set([...(base || []), 'trueHVPG']) };
+  return hidCache.set;
+}
 
 /** The one test for "this patient has varices": the model's varix diameter reaches the app's "none" cut-off (2.5 mm), or
  *  banded columns are still on the wall. The endoscopy pane, the figure and the circuit all use it, so they cannot disagree.

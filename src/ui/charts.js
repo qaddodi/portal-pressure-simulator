@@ -1,9 +1,9 @@
 // Dock charts (blueprint §9.2): the pressure profile.
 
 import { NODES } from '../engine/topology.js?v=dc393aabea';
-import { PROFILE_PATHS, SHORT } from './anatomy.js?v=6abc18b290';
+import { PROFILE_PATHS, SHORT } from './anatomy.js?v=af657213bb';
 import { pressureColor } from './colormap.js?v=6d64a94345';
-import { store } from './store.js?v=06e2d6e179';
+import { store, hiddenNow } from './store.js?v=1d7cd9b00f';
 import { h, fmt, fitCanvas, cssVar, clamp, createEaser, axisTop } from './util.js?v=86153645a3';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -243,9 +243,11 @@ export function createProfile() {
     }
     // HVPG and PPG: a span inside the chart, under the line, from where each is measured to where it
     // ends, labelled with its value; the same numbers and cut-offs as the tiles.
+    // HVPG is left out until it has been measured (hiddenNow); the PPG span keeps its row.
+    const hid = hiddenNow();
     (dims || []).forEach((d, k) => {
       const a = stations.indexOf(d.hi), b = stations.indexOf(d.lo);
-      if (a < 0 || b < 0) return;
+      if (a < 0 || b < 0 || (d.hide && hid?.has(d.hide))) return;
       const m = F.metrics || {};
       const hv = d.hiM && m[d.hiM] != null ? m[d.hiM] : now[a], lv = d.loM && m[d.loM] != null ? m[d.loM] : now[b];
       const v = d.m && m[d.m] != null ? m[d.m] : hv - lv;

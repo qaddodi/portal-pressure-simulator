@@ -8,7 +8,7 @@
 // 220 Hz at 0 mmHg to 880 Hz at 30 mmHg, with a short tick when flow reverses. It never plays
 // unless switched on, and stops with the page.
 
-import { store } from './store.js?v=06e2d6e179';
+import { store, hiddenNow } from './store.js?v=1d7cd9b00f';
 import { fmt, clamp } from './util.js?v=86153645a3';
 import { EDGES, NODES } from '../engine/topology.js?v=dc393aabea';
 
@@ -17,7 +17,7 @@ const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 
 export function describe(f) {
   if (!f) return 'The model is loading.';
-  const st = store.get(), m = f.metrics, hidden = st.hiddenReadouts;
+  const st = store.get(), m = f.metrics, hidden = hiddenNow(st);
   const scen = st.presetList?.find((p) => p.id === st.presetId)?.label || 'Custom patient';
   const parts = [`${scen}.`];
   if (!hidden?.has('pv')) {
@@ -45,7 +45,7 @@ export function describe(f) {
 // It hides what the case hides, like Describe. scenario: false leaves out the patient's name.
 export function caption(f, { scenario = true } = {}) {
   if (!f) return '';
-  const st = store.get(), m = f.metrics, hidden = st.hiddenReadouts;
+  const st = store.get(), m = f.metrics, hidden = hiddenNow(st);
   const scen = st.presetList?.find((p) => p.id === st.presetId)?.label || 'Custom patient';
   const parts = scenario ? [`${scen}.`] : [];
   if (f.bleed?.active) parts.push(`Active variceal bleed, HR ${fmt(m.hr, 0)}, MAP ${fmt(m.map, 0)}.`);

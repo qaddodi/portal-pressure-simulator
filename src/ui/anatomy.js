@@ -491,7 +491,7 @@ export const PROFILE_PATHS = [
     liver: ['RPV', 'CV_R'],
     // Gradients drawn as spans under the line, with the same values and cut-offs as the readout
     // tiles: HVPG = WHVP − FHVP (wedged − free hepatic vein) and PPG = portal vein − IVC.
-    dims: [{ k: 'HVPG', hi: 'SIN_R', lo: 'RHV', hiM: 'whvp', loM: 'fhvp', m: 'hvpg', warn: 5, bad: 10 },
+    dims: [{ k: 'HVPG', hi: 'SIN_R', lo: 'RHV', hiM: 'whvp', loM: 'fhvp', m: 'hvpg', warn: 5, bad: 10, hide: 'trueHVPG' },
       { k: 'PPG', hi: 'CONF', lo: 'IVCS', m: 'ppg', warn: 6, bad: 12 }] },
 ];
 

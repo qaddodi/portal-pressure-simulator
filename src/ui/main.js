@@ -2,24 +2,24 @@
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
 import { startHost, host } from './host.js?v=b54d9b1fcc';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent } from './store.js?v=06e2d6e179';
-import { createStage } from './stage.js?v=c53c8cda70';
-import { createInspector } from './inspector.js?v=27d45ac861';
-import { createDock, CUTOFFS } from './dock.js?v=bec526260a';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=1d7cd9b00f';
+import { createStage } from './stage.js?v=c11314c9d7';
+import { createInspector } from './inspector.js?v=eb9187916e';
+import { createDock, CUTOFFS } from './dock.js?v=d213d1b72b';
 import { GUIDE_TABLE } from '../engine/guidelines.js?v=61be844d06';
 import { createWhy } from './why.js?v=f34a42cc3f';
-import { createTimeline, LAPSES } from './timeline.js?v=8a28eeb34e';
-import { createLearn } from './learn.js?v=b61d016061';
-import { createCases } from './cases.js?v=bcfad828db';
-import { createCompare } from './compare.js?v=4cb776bac2';
-import { createCard } from './card.js?v=ae7faa9f26';
-import { createChart, computeFindings } from './chart.js?v=fa391f62df';
-import { createHome, ROLES } from './home.js?v=af30624074';
+import { createTimeline, LAPSES } from './timeline.js?v=179a90e883';
+import { createLearn } from './learn.js?v=7593a68df4';
+import { createCases } from './cases.js?v=bee5d39a80';
+import { createCompare } from './compare.js?v=0838b1d3c8';
+import { createCard } from './card.js?v=319ac2fee1';
+import { createChart, computeFindings } from './chart.js?v=d17ed19d66';
+import { createHome, ROLES } from './home.js?v=41227085e4';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=0f0719fa20';
-import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=fd20ea54b3';
-import { startLMS } from './lms.js?v=94a14004b6';
+import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=85f06306e3';
+import { startLMS } from './lms.js?v=94bfcf5f73';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=dd12254975';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=c71c9dfdc0';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=dc393aabea';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=86153645a3';
@@ -130,7 +130,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=654744cb35'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=4d80b4928d'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -142,7 +142,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=8d1aeaca37'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=7d372bc3ea'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -328,7 +328,7 @@ async function loadPreset(id, opts = {}) {
   const res = await host.request('preset', { id, days: opts.days });
   replaceParams(res.params);
   clearHistory();
-  store.set({ presetLoading: false, presetId: id, lastHVPG: null, selection: store.get().mode === 'cases' ? null : store.get().selection, historyTick: (store.get().historyTick || 0) + 1 });
+  store.set({ presetLoading: false, presetId: id, lastHVPG: null, hvpgMeasured: false, selection: store.get().mode === 'cases' ? null : store.get().selection, historyTick: (store.get().historyTick || 0) + 1 });
   timeline?.reset(store.get().presetList?.find((x) => x.id === id)?.label);
 }
 
@@ -395,7 +395,7 @@ function endSession(kind) {
   const f = store.get().frame;
   const bleeding = !!f?.metrics?.bleeding;
   const noun = kind === 'case' ? 'case' : 'lesson';
-  const back = () => { closeModal(); host.send({ type: 'restore', snap: saved.snap }); replaceParams(saved.snap.params); clearHistory(); store.set({ presetId: saved.presetId, lastHVPG: null, historyTick: (store.get().historyTick || 0) + 1 }); timeline.load(saved.tl); toast('Back where you were before the ' + noun + '.'); };
+  const back = () => { closeModal(); host.send({ type: 'restore', snap: saved.snap }); replaceParams(saved.snap.params); clearHistory(); store.set({ presetId: saved.presetId, lastHVPG: null, hvpgMeasured: false, historyTick: (store.get().historyTick || 0) + 1 }); timeline.load(saved.tl); toast('Back where you were before the ' + noun + '.'); };
   const keep = () => { closeModal(); toast(bleeding ? 'Kept the patient. The variceal bleed is still running.' : 'Kept this patient.'); };
   openModal(`Leaving the ${noun}`, h('div', {},
     h('p', {}, `Keep this patient to explore it further, or return to the model as it was before the ${noun}.`),
@@ -1061,7 +1061,7 @@ let lastFindKey = '', lastFindN = 0;
 function updateFindBadge(f) {
   // In a case where pressures are unmeasured, a check would claim more than is known.
   const unknown = !!store.get().imaging;
-  const found = unknown ? [] : computeFindings(f.metrics, store.get().hiddenReadouts);
+  const found = unknown ? [] : computeFindings(f.metrics, hiddenNow());
   const sev = unknown ? 'none' : found[0]?.sev || 'ok', n = found.length, key = `${n}|${sev}`;
   if (key === lastFindKey) return;
   lastFindKey = key;
@@ -1203,7 +1203,8 @@ function toggleProjector() {
 }
 function updateProjector(f) {
   if (!bigEl) return;
-  bigEl.replaceChildren(h('small', {}, 'HVPG'), fmt(f.metrics.hvpg, 1), h('span', { class: 'unit' }, 'mmHg'));
+  const hid = hiddenNow()?.has('trueHVPG');
+  bigEl.replaceChildren(h('small', {}, 'HVPG'), hid ? '—' : fmt(f.metrics.hvpg, 1), h('span', { class: 'unit' }, hid ? 'not measured' : 'mmHg'));
 }
 
 // ── Phone & tablet ──────────────────────────────────

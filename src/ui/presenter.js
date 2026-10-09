@@ -4,8 +4,8 @@
 // pointer. Instructors build their own scripts from the current model and share them as a file
 // or a link.
 
-import { store } from './store.js?v=06e2d6e179';
-import { runSequence, restoreSequence } from './sequence.js?v=cbe4a82e93';
+import { store } from './store.js?v=1d7cd9b00f';
+import { runSequence, restoreSequence } from './sequence.js?v=8a40629442';
 import { h, toast, svgIcon, icon } from './util.js?v=86153645a3';
 import { download } from './records.js?v=50fb9dd463';
 import { TOUR, createTour } from './tour.js?v=6170e2f7cd';
@@ -160,6 +160,7 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
     if (!script?.steps?.length) return;
     slides = []; chain = Promise.resolve();
     closeHome?.();
+    store.set({ presenting: true });
     if (store.get().mode !== 'explore') store.set({ mode: 'explore' });
     projectorOn();
     notesEl = h('aside', { class: 'presenter-notes stage-blocker', 'aria-label': 'Speaker notes', hidden: true });
@@ -190,6 +191,7 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
   function stop() {
     if (!script) return;
     script = null;
+    store.set({ presenting: false });
     tour?.destroy(); tour = null;
     bar?.remove(); titleEl?.remove(); progEl?.remove(); notesEl?.remove(); bar = titleEl = progEl = notesEl = null;
     clearTimeout(idleT);

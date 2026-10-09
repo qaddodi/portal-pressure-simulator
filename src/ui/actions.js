@@ -4,11 +4,11 @@
 // in the timeline as one entry.
 
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=dc393aabea';
-import { store, updateParams } from './store.js?v=06e2d6e179';
+import { store, updateParams, hiddenNow } from './store.js?v=1d7cd9b00f';
 import { fmt, fmtFlow, clamp, toast } from './util.js?v=86153645a3';
 import { aboutVessel, aboutOrgan } from './about.js?v=7bfd4cc614';
 import { lobuleState } from './lobule-model.js?v=2854fecf7f';
-import { LABEL_VESSEL } from './anatomy.js?v=6abc18b290';
+import { LABEL_VESSEL } from './anatomy.js?v=af657213bb';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -185,7 +185,7 @@ function organCard(sel, ctx) {
         { type: 'slider', id: 'cirrhosis', key: 'cirrhosis', label: 'Cirrhosis', icon: 'liver', min: 0, max: 1, step: 0.01, def: 0, format: pct, get: (p) => p.cirrhosis, set: (p, v) => { p.cirrhosis = v; }, hist: 'Cirrhosis',
           sub: '40 % compensated · 60 % CSPH · 85 % decompensated', info: 'Sinusoidal fibrosis, capillarization, a stiffer liver and arterioportal shunting. Jump months ahead on the timeline to watch collaterals open.' },
         { type: 'button', id: 'lobule', label: 'Open the lobule view', icon: 'explore', run: () => ctx.zoomLobule(), note: () => 'Fibrosis of the portal tract, sinusoids or central vein is set there, on each part’s card.' },
-        stat('HVPG', (f) => `${fmt(f.metrics.hvpg, 1)} mmHg`),
+        stat('HVPG', (f) => (hiddenNow()?.has('trueHVPG') ? 'Not measured' : `${fmt(f.metrics.hvpg, 1)} mmHg`)),
       ],
     };
   }

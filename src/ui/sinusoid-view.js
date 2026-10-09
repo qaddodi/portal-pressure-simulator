@@ -17,7 +17,7 @@
 //
 // Drawn on two canvases: the tissue, redrawn only when its state changes, and the moving red cells.
 
-import { store } from './store.js?v=06e2d6e179';
+import { store } from './store.js?v=1d7cd9b00f';
 import { h, s, fmt, clamp, lerp } from './util.js?v=86153645a3';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 

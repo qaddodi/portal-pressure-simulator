@@ -3,7 +3,7 @@
 // a one-line reason from the live readings. The rules themselves are in engine/guidelines.js.
 
 import { h } from './util.js?v=86153645a3';
-import { store } from './store.js?v=06e2d6e179';
+import { store, hiddenNow } from './store.js?v=1d7cd9b00f';
 import { guidelineLens } from '../engine/guidelines.js?v=61be844d06';
 
 const DOT = { yes: 'danger', maybe: 'caution', no: 'ok', na: 'none' };
@@ -27,7 +27,7 @@ export function createGuidelines() {
     if (inCase || (now - last < 400 && key)) return;
     last = now;
     const m = f.metrics;
-    const hvpg = st.hiddenReadouts?.has('trueHVPG') ? (st.lastHVPG?.hvpg ?? null) : m.hvpg;
+    const hvpg = hiddenNow(st)?.has('trueHVPG') ? (st.lastHVPG?.hvpg ?? null) : m.hvpg;
     const L = guidelineLens(m, st.params, hvpg);
     const k = JSON.stringify(L);
     if (k === key) return;
@@ -47,6 +47,6 @@ export function createGuidelines() {
 export function guidelineTab(f) {
   const st = store.get();
   if (st.mode === 'cases') return 'Off in cases';
-  const hvpg = st.hiddenReadouts?.has('trueHVPG') ? (st.lastHVPG?.hvpg ?? null) : f.metrics.hvpg;
+  const hvpg = hiddenNow(st)?.has('trueHVPG') ? (st.lastHVPG?.hvpg ?? null) : f.metrics.hvpg;
   return guidelineLens(f.metrics, st.params, hvpg).stage.replace(/^cACLD, /, '');
 }

@@ -8,12 +8,12 @@
 //   (what has happened lives in the timeline's History, under the figure)
 //   Advanced                             physiology knobs (instructor / researcher)
 
-import { store, updateParams } from './store.js?v=06e2d6e179';
+import { store, updateParams, hiddenNow } from './store.js?v=1d7cd9b00f';
 import { h, fmt, icon, svgIcon, toast } from './util.js?v=86153645a3';
 import { DRUGS } from '../engine/scenario.js?v=d88966abe6';
-import { TILES, VITALS, readoutValue } from './dock.js?v=bec526260a';
-import { activeInterventions } from './inspector.js?v=27d45ac861';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=dd12254975';
+import { TILES, VITALS, readoutValue } from './dock.js?v=d213d1b72b';
+import { activeInterventions } from './inspector.js?v=eb9187916e';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=c71c9dfdc0';
 
 // Where each readout is measured, so a click can show it on the figure.
 const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS', 'DIPS'], spleen: ['V_SPL', 'SV_CONF'], ra: ['IVCS_RA'] };
@@ -129,7 +129,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     const paint = () => {
       const f = store.get().frame;
       if (!f) return;
-      const found = computeFindings(f.metrics, store.get().hiddenReadouts);
+      const found = computeFindings(f.metrics, hiddenNow());
       for (const x of found) {
         let e = els.get(x.id);
         if (!e) { e = row(x.id); els.set(x.id, e); }
