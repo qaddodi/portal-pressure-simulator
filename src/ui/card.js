@@ -41,14 +41,14 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     if (sc) sc.classList.toggle('more', sc.scrollHeight - sc.clientHeight - sc.scrollTop > 4);
   }
   // The sheet covers the bottom of the figure: keep the tapped vessel in the part that is left, and lift
-  // the figure's own buttons (Fit, turn) clear of it.
+  // the figure's own buttons (Fit, turn) and the credit clear of it.
   let revealRaf = 0, lift = null, liftedBy = '';
   // The variable goes on the few elements that use it: set on the whole figure it would make the browser re-check
   // the style of every element under it.
   function liftButtons(px) {
     if (px === liftedBy) return;
     liftedBy = px;
-    lift ||= [...view.querySelectorAll('.zoom-pill, .stage-clock')];
+    lift ||= [...dockHost.querySelectorAll('.zoom-pill, .stage-clock, .stage-credit')];
     for (const b of lift) b.style.setProperty('--sheet-h', px);
     // Keep the zoom and Fit pill above the card; hide only if it would reach the top bar.
     const pill = lift.find((b) => b.classList.contains('zoom-pill'));

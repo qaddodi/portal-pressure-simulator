@@ -11,7 +11,7 @@ import { createTimeline, LAPSES } from './timeline.js?v=627f7956ba';
 import { createLearn } from './learn.js?v=011914ee7f';
 import { createCases } from './cases.js?v=02fad7e990';
 import { createCompare } from './compare.js?v=cf84ae7b62';
-import { createCard } from './card.js?v=522634372b';
+import { createCard } from './card.js?v=4aac7074af';
 import { createChart, computeFindings } from './chart.js?v=59e07419b6';
 import { createHome, ROLES } from './home.js?v=1a3dedb856';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
@@ -921,9 +921,6 @@ function wireFloating() {
     // On a phone the instruments sheet rises from the bottom edge, over the vitals dock.
     const bot = isPhone() && sheet ? Math.max(vdock + gap, sheet) : vdock + gap + sheet;
     app.style.setProperty('--bot-occ', px(bot));
-    // The copyright credit sits outside the app, above every layer, so it takes its height from the root: just above
-    // the dock or any open sheet.
-    document.documentElement.style.setProperty('--credit-bottom', px(bot + 8));
     dispatchEvent(new Event('pps:occ'));
   };
   const soon = () => { if (!pubRaf) pubRaf = requestAnimationFrame(publish); };
