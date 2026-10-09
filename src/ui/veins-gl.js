@@ -427,6 +427,9 @@ uniform sampler2D plate0, plate1;
 uniform vec4 plateRect0, plateRect1;
 uniform int plates;                    // bit 0: whole plate, bit 1: sharp view
 uniform float plateAlpha, plateSat;
+uniform sampler2D plateLight;          // baked light and material on the organs (see setLight)
+uniform vec4 lightRect;
+uniform int lightOn;
 uniform mat3 inv;                      // device pixels → world
 uniform float H;                       // canvas height, device pixels
 uniform float pxW;                     // world units per device pixel
@@ -661,6 +664,10 @@ void main() {
     vec2 uv = (w - plateRect0.xy) / plateRect0.zw;
     if (all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)))) pl = texture(plate0, uv);
   }
+  if (lightOn == 1 && pl.a > 0.0) {
+    vec4 lm = texture(plateLight, clamp((w - lightRect.xy) / lightRect.zw, 0.0, 1.0));
+    pl.rgb = min(pl.rgb * (1.0 - lm.a + 2.0 * lm.r) + lm.g * pl.a, vec3(pl.a));
+  }
   if (pl.a > 0.0) { float l = dot(pl.rgb / pl.a, vec3(0.299, 0.587, 0.114)); pl = vec4(mix(vec3(l) * pl.a, pl.rgb, plateSat), pl.a) * plateAlpha; }
 
   vec4 v = texelFetch(base, ip, 0);
@@ -841,6 +848,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   let comp, compCell;
   try { comp = compile(gl, COMP_VS, COMP_FS); compCell = compile(gl, COMP_CELL_VS, COMP_FS); } catch (e) { console.warn('Veins renderer: composite shader failed.', e); return null; }
   const plates = [null, null];   // [whole plate, sharp view] : { tex, rect }
+  let light = null;              // the organs' light map : { tex, rect }
 
   const quad = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
@@ -946,6 +954,19 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     },
     dropPlate(slot) { if (plates[slot]) { gl.deleteTexture(plates[slot].tex); plates[slot] = null; } },
     hasPlate: (slot) => !!plates[slot],
+    /**
+     * The organs' light map over the world rectangle `rect`, drawn on whichever plate raster shows:
+     * red is the shade factor halved (so 0.5 leaves the tone as it is), green the specular sheen,
+     * alpha the organ's coverage. It is smooth, so one coarse map serves every zoom.
+     */
+    setLight(source, rect) {
+      const t = light?.tex || dataTex(gl, gl.LINEAR);
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      light = { tex: t, rect };
+    },
     /** Per-vessel blood: nTubes × FLOW_TEXELS × 4 floats (see stage.js). */
     setFlow(data) {
       gl.bindTexture(gl.TEXTURE_2D, flowTex);
@@ -1040,6 +1061,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       gl.uniform1f(U.plateSat, look.plate?.sat ?? 1);
       gl.uniform4f(U.plateRect0, ...(plates[0]?.rect || [0, 0, 1, 1]));
       gl.uniform4f(U.plateRect1, ...(plates[1]?.rect || [0, 0, 1, 1]));
+      gl.uniform1i(U.lightOn, pm && light ? 1 : 0);
+      gl.uniform4f(U.lightRect, ...(light?.rect || [0, 0, 1, 1]));
       gl.uniform1i(U.blood, blood.on ? 1 : 0);
       gl.uniform1i(U.chev, blood.chev ? 1 : 0);
       gl.uniform1f(U.flowA, blood.alpha ?? 1);
@@ -1063,6 +1086,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       const bind = (unit, tex, name) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); gl.uniform1i(U[name], unit); };
       bind(0, baseTex, 'base'); bind(1, gTex, 'gbuf'); bind(2, flowTex, 'flow'); bind(3, radTex, 'rad'); bind(4, tubeTex, 'tube');
       bind(5, dyeTex, 'dye'); bind(6, plates[0]?.tex || baseTex, 'plate0'); bind(7, plates[1]?.tex || baseTex, 'plate1'); bind(8, gTex2, 'gbuf2');
+      bind(9, light?.tex || baseTex, 'plateLight');
       if (full) {
         gl.bindVertexArray(compVAO);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);

@@ -84,7 +84,7 @@
   --shadow-rgb: 46 22 34; --shadow-a: .15; --vessel-shadow: rgb(var(--shadow-rgb) / var(--shadow-a));
   --tube-shade: .2; --tube-sheen: .42;
   --organ-cast: rgba(80, 44, 40, .15);
-  --tex-a: .11; --lit-hi: .4; --lit-lo: .13;
+  --tex-a: .11; --lit-hi: .4; --lit-lo: .13; --lit-gloss: .5;
   --cavity: #F2ECE3;
   --spine: rgba(124, 150, 255, .09); --map-dot: rgba(160, 182, 255, .11);
   --module-fill: rgba(255, 255, 255, .02); --module-fill-open: rgba(124, 150, 255, .05); --module-line: rgba(150, 172, 255, .3);
@@ -174,7 +174,7 @@
     --grid: #1F2840; --axis: #34405E;
     --tr-pv: #F0649E; --tr-wedge: #A68CF2; --tr-hv: #5CA4F2; --tr-ra: #A9B2C7; --tr-ivc: #4CC2D6; --tr-var: #F28A56; --tr-sv: #3BC690; --tr-smv: #E0A63A;
     --shadow-1: 0 0 0 1px var(--hairline); --shadow-2: var(--shadow-menu); --shadow-3: var(--shadow-dialog);
-    --shadow-rgb: 0 0 0; --shadow-a: .38; --vessel-shadow: rgb(var(--shadow-rgb) / var(--shadow-a)); --tube-shade: .3; --tube-sheen: .38; --organ-cast: rgba(0, 0, 0, .42); --tex-a: .13; --lit-hi: .2; --lit-lo: .18; --cavity: #141B2E; --fx-ink: rgba(233, 237, 246, .9); --stent-metal: #A0ABBE; --stent-marker: #BAC2D0; --stent-alpha: .65; --stent-glint: .3; --stent-rail-w: 1.15; --stent-strut-w: .8;
+    --shadow-rgb: 0 0 0; --shadow-a: .38; --vessel-shadow: rgb(var(--shadow-rgb) / var(--shadow-a)); --tube-shade: .3; --tube-sheen: .38; --organ-cast: rgba(0, 0, 0, .42); --tex-a: .13; --lit-gloss: 1; --lit-hi: .2; --lit-lo: .18; --cavity: #141B2E; --fx-ink: rgba(233, 237, 246, .9); --stent-metal: #A0ABBE; --stent-marker: #BAC2D0; --stent-alpha: .65; --stent-glint: .3; --stent-rail-w: 1.15; --stent-strut-w: .8;
     color-scheme: dark;
   }
 }
@@ -209,7 +209,7 @@
   --grid: #1F2840; --axis: #34405E;
   --tr-pv: #F0649E; --tr-wedge: #A68CF2; --tr-hv: #5CA4F2; --tr-ra: #A9B2C7; --tr-ivc: #4CC2D6; --tr-var: #F28A56; --tr-sv: #3BC690; --tr-smv: #E0A63A;
   --shadow-1: 0 0 0 1px var(--hairline); --shadow-2: var(--shadow-menu); --shadow-3: var(--shadow-dialog);
-  --shadow-rgb: 0 0 0; --shadow-a: .38; --vessel-shadow: rgb(var(--shadow-rgb) / var(--shadow-a)); --tube-shade: .3; --tube-sheen: .38; --organ-cast: rgba(0, 0, 0, .42); --tex-a: .13; --lit-hi: .2; --lit-lo: .18; --cavity: #141B2E; --fx-ink: rgba(233, 237, 246, .9); --stent-metal: #A0ABBE; --stent-marker: #BAC2D0; --stent-alpha: .65; --stent-glint: .3; --stent-rail-w: 1.15; --stent-strut-w: .8;
+  --shadow-rgb: 0 0 0; --shadow-a: .38; --vessel-shadow: rgb(var(--shadow-rgb) / var(--shadow-a)); --tube-shade: .3; --tube-sheen: .38; --organ-cast: rgba(0, 0, 0, .42); --tex-a: .13; --lit-gloss: 1; --lit-hi: .2; --lit-lo: .18; --cavity: #141B2E; --fx-ink: rgba(233, 237, 246, .9); --stent-metal: #A0ABBE; --stent-marker: #BAC2D0; --stent-alpha: .65; --stent-glint: .3; --stent-rail-w: 1.15; --stent-strut-w: .8;
   color-scheme: dark;
 }
 
