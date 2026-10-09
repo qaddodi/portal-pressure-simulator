@@ -506,6 +506,11 @@ export function createLobuleZoom({ host }) {
   // ── State ──
   let F = null, fade = 0, raf = 0, last = 0, lastPaint = 0;
   let geo = null, geoKey = '', model = null;
+  // Where each vessel's moving marks are (blood stream, chevrons, lymph drops), kept by tube id so a
+  // rebuilt geometry (a resize, the phone's toolbar sliding) carries on from the same place, not a jump.
+  const motion = new Map();
+  let lyV = null;
+  const motionOf = (t) => { let mo = motion.get(t.id); if (!mo) motion.set(t.id, (mo = {})); return mo; };
   let drawVersion = 0, idleDrawn = '', lastSurface = 0;
   const binCache = new Map();
   store.on('*', () => { drawVersion++; });
@@ -1392,11 +1397,13 @@ export function createLobuleZoom({ host }) {
       else if (lv === 'in') { v = 24 * Math.sign(pr) * Math.sqrt(Math.abs(pr)); occ = clamp(0.55 * Math.abs(pr) ** 0.6, 0.05, 0.95); f0 = 1; f1 = 1; rev = pr < -0.02 ? 1 : 0; oe = LOBE.pre; }
       else if (lv === 'tw') { v = 30 * Math.sqrt(ar); occ = clamp(0.5 * ar ** 0.6, 0.05, 0.95); f0 = 1; oe = LOBE.a; }
       else continue;   // vessels seen end-on carry no streaks; lymph moves as the drops on the overlay, not as streaks
-      const sm = t.stream || (t.stream = { D: (t.id * 977) % PERIOD, rev: rev });
-      sm.D = (((sm.D + v * dt) % PERIOD) + PERIOD) % PERIOD;
+      const mo = motionOf(t), sm = mo.stream || (mo.stream = { D: (t.id * 977) % PERIOD, rev: rev, v });
+      // Speed eases toward the model's (a new frame changes it in a step), so the marks never lurch.
+      sm.v = Math.sign(v) !== Math.sign(sm.v) ? v : sm.v + (v - sm.v) * ease;
+      sm.D = (((sm.D + sm.v * dt) % PERIOD) + PERIOD) % PERIOD;
       sm.rev += (rev - sm.rev) * ease;
       const o = t.id * FLOW_TEXELS * 4, Rm = t.maxR || G.rs0;
-      flowData[o] = sm.D; flowData[o + 1] = v; flowData[o + 2] = (occ * Math.max(Math.abs(v), 2) * sumK(Rm)) / s0; flowData[o + 3] = stasis;
+      flowData[o] = sm.D; flowData[o + 1] = sm.v; flowData[o + 2] = (occ * Math.max(Math.abs(v), 2) * sumK(Rm)) / s0; flowData[o + 3] = stasis;
       flowData[o + 4] = f0; flowData[o + 5] = f1; flowData[o + 6] = strength; flowData[o + 7] = sm.rev;
       if (origin && origins && !t.lymph) { const kk = EI[oe]; for (let c = 0; c < ORIGIN_N; c++) flowData[o + 8 + c] = origins[kk * ORIGIN_N + c]; }
     }
@@ -1704,18 +1711,22 @@ export function createLobuleZoom({ host }) {
         c.restore();
       }
       // Lymph as drops drifting along the space of Disse and the terminal lymphatics to the portal tract:
-      // more of them, and faster, as more fluid filters (the volume); each carries albumin beads, as many as
-      // its protein allows (the concentration). One path per ink, no blur.
-      const lyR = clamp(lymphRate(m), 0.2, 6), f = lyF(m), beads = Math.round(1 + 4 * p);
-      const gapW = G.R * 0.07 / (0.75 + 0.6 * f), vW = G.R * 0.035 * Math.sqrt(lyR), minR = 2.6 / V.k;
+      // faster as more fluid filters (the volume); each carries albumin beads, as many as its protein allows
+      // (the concentration). A fixed number of drops per vessel (a count that followed the rate would make
+      // them all jump to new places), and speed eased toward the model's. One path per ink, no blur.
+      const lyR = clamp(lymphRate(m), 0.2, 6), beads = Math.round(1 + 4 * p);
+      const gapW = G.R * 0.06, minR = 2.6 / V.k;
+      lyV = lyV == null ? lyR : lyV + (lyR - lyV) * -Math.expm1(-dt / 0.5);
+      const vW = G.R * 0.035 * Math.sqrt(lyV);
       const drops = [];
       for (const t of G.tubes) {
         if (t.kind !== 'ly' && t.kind !== 'lt') continue;
         const L = t.len || 1, n = Math.max(1, Math.round(L / gapW)), dir = t.kind === 'ly' ? -1 : 1;   // the space of Disse is drawn from the edge inward
-        t.lu = ((t.lu ?? (t.id * 0.371) % 1) + (still ? 0 : dir * dt * vW / L) + 1) % 1;
+        const mo = motionOf(t);
+        mo.lu = ((mo.lu ?? (t.id * 0.371) % 1) + (still ? 0 : dir * dt * vW / L) + 1) % 1;
         const r = Math.max(minR, radiusAt(t, N >> 1) * 0.7);
         for (let i = 0; i < n; i++) {
-          const u = (t.lu + i / n) % 1, e = Math.min(u, 1 - u) * n;   // fading in and out at the ends
+          const u = (mo.lu + i / n) % 1, e = Math.min(u, 1 - u) * n;   // fading in and out at the ends
           if (e < 0.25) continue;
           const [x, y] = at(t.pts, u);
           drops.push(x, y, r * Math.min(1, e), t.id + i);
