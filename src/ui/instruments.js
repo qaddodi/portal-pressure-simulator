@@ -231,8 +231,9 @@ export function createAbdomen({ onAction }) {
     drain.disabled = !hasFluid;
   }
   paintVol();
-  // Diuretics: the same order chip as Treatments, driving the same parameter.
-  const diu = h('button', { class: 'order-chip', 'aria-pressed': 'false', title: 'Spironolactone + furosemide: renal sodium and water loss mobilizes ascites.' }, h('span', { class: 'oc-dot' }, icon('check')), h('span', { class: 'oc-t' }, 'Diuretics'));
+  // Diuretics: a full-width button that fills accent when on, driving the same parameter as the Treatments chip.
+  const diu = h('button', { class: 'ab-diu', 'aria-pressed': 'false', title: 'Spironolactone + furosemide: renal sodium and water loss mobilizes ascites. Keep the 100 : 40 mg ratio (5 : 2).' }, icon('pill'),
+    h('span', { class: 'ab-diu-txt' }, h('b', {}, 'Diuretics'), h('small', {}, 'Spironolactone 100 : furosemide 40 mg')), h('span', { class: 'ab-diu-ratio' }, '5 : 2'));
   diu.addEventListener('click', () => updateParams((p) => { p.diuretics = !p.diuretics; return p; }, { label: 'Diuretics' }));
   // Serum albumin is a patient input that drives ascites (oncotic pull back into the vessels) and the SAAG.
   const sa = stepper('Serum albumin', 'g/dL', 1.5, 5, 0.1, 1, 4, (v) => updateParams((p) => { p.albumin = v; return p; }, { label: 'Serum albumin' }));
@@ -257,11 +258,11 @@ export function createAbdomen({ onAction }) {
   const info = h('div', { class: 'ab-report' },
     h('div', { class: 'ab-head' }, h('div', { class: 'ab-sum' }, h('div', { class: 'hv-k' }, 'Ascites'), h('div', { class: 'hv-num' }, numEl, h('small', {}, 'L')), h('div', { class: 'ab-meta' }, gradeEl, trendEl)), belly),
     iap, tap);
-  // Treat: one card, the diuretics order chip, then the tap row and a full-width Drain.
+  // Treat: one card, the diuretics button, then the tap row and a full-width Drain.
   const treat = h('div', { class: 'ab-report' },
     h('div', { class: 'ab-rx' },
       h('div', { class: 'hv-k' }, 'Treat'),
-      h('div', { class: 'ab-row ab-rx-row ab-rx-diu' }, diu, h('small', { class: 'ab-note' }, 'spironolactone + furosemide')),
+      h('div', { class: 'ab-rx-diu' }, diu),
       h('div', { class: 'ab-row ab-rx-row' }, h('span', { class: 'ab-rx-txt' }, h('b', {}, 'Paracentesis'), h('small', {}, 'litres to drain')), vol.el),
       h('div', { class: 'ab-drain-row' }, alb, drain), albNote),
     h('details', { class: 'instrument-details' }, h('summary', {}, 'Why it forms'), extraStats));
