@@ -22,13 +22,13 @@
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { store } from './store.js?v=1d7cd9b00f';
 import { radiiChanged } from './lobule-render-cache.js?v=07951b5935';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=2854fecf7f';
-import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=86153645a3';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=dd2bf5fddf';
+import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=e803df99cd';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { NODES, EDGES } from '../engine/topology.js?v=dc393aabea';
-import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=e6cb0d0afd';
+import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=b6b2dca81e';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
-import { createSinusoidView } from './sinusoid-view.js?v=980fa12108';
+import { createSinusoidView } from './sinusoid-view.js?v=b87b8eced6';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const TAU = Math.PI * 2;
@@ -955,6 +955,8 @@ export function createLobuleZoom({ host }) {
     const dt = Math.min(0.1, (now - (last || now)) / 1000); last = now; lastPaint = now;
     const st = store.get(), moving = st.running && !reduce.matches;
     if (moving) clock = (clock + dt) % 10000;
+    rzMoving = easeRadii(dt);
+    if (rzMoving) drawVersion++;   // a caliber still easing: redraw this frame
     const drew = draw(moving ? dt : 0);
     // Resolution follows the frame time: when frames that redraw arrive late the lobule is drawn smaller (a step at a
     // time, not more often than every half second) and it grows back once there is room.
@@ -1238,10 +1240,26 @@ export function createLobuleZoom({ host }) {
   function warm() { const f = warmQ.shift(); if (f) f(); return warmQ.length > 0; }
 
   // Lumen radius of a tube at sample i (world px), from the model.
+  // The few model values the calibers follow, eased toward the model's every display frame (~0.3 s), so a
+  // vessel widens or narrows smoothly instead of stepping with each model update.
+  let rz = null, rzMoving = false;
+  const rzTarget = (m) => ({ sin: m.zone.sin, congU: m.congU, fibPre: m.fibPre, fibPost: m.fibPost, art: m.art, lr: lymphRate(m) });
+  const rzOf = () => rz || (rz = rzTarget(model));
+  function easeRadii(dt) {
+    const tg = rzTarget(model);
+    if (!rz) { rz = tg; return false; }
+    const k = -Math.expm1(-dt / 0.3);
+    let mv = false;
+    for (const key in tg) {
+      const d = tg[key] - rz[key];
+      if (Math.abs(d) > 2e-4 * (1 + Math.abs(tg[key]))) { rz[key] += d * k; mv = true; } else rz[key] = tg[key];
+    }
+    return mv;
+  }
   function radiusAt(t, i) {
-    const m = model, g = geo, R = g.R;
+    const m = rzOf(), g = geo, R = g.R;
     const z3 = 1 - smooth(0.24, 0.56, t.rho[i]);
-    const rs = g.rs0 / m.zone.sin ** 0.12 * (1 + 1.5 * m.congU * z3);
+    const rs = g.rs0 / m.sin ** 0.12 * (1 + 1.5 * m.congU * z3);
     switch (t.kind) {
       case 's0': return rs;
       case 's1': return rs * 1.15;
@@ -1254,16 +1272,16 @@ export function createLobuleZoom({ host }) {
       case 'bd': return Math.max(1.6, R * 0.0145);
       case 'tw': return Math.max(1.1, R * 0.0055 * clamp(m.art, 0.6, 2.2) ** 0.3);
       // Lymphatics widen as drainage rises (capped, so the tract lymphatic never swamps the triad).
-      case 'ly': return Math.max(1.1, g.rs0 * 0.5 * lyW(m, 0.45)) * lyTaper(t.rho[i]);   // the space of Disse fills and widens; tapers toward the central vein
-      case 'lt': return Math.max(1.5, R * 0.0075 * lyW(m, 0.4));
-      case 'lv': return R * 0.016 * lyW(m, 0.4);
+      case 'ly': return Math.max(1.1, g.rs0 * 0.5 * lyWr(m.lr, 0.45)) * lyTaper(t.rho[i]);   // the space of Disse fills and widens; tapers toward the central vein
+      case 'lt': return Math.max(1.5, R * 0.0075 * lyWr(m.lr, 0.4));
+      case 'lv': return R * 0.016 * lyWr(m.lr, 0.4);
       default: return rs;
     }
   }
   // The space of Disse narrows to nothing as it nears the central vein.
   const lyTaper = (rho) => 0.06 + 0.94 * smooth(0.13, 0.42, rho);
   // Lymphatic caliber against the healthy flow: 1 at a normal rate, up to 1 + k at four times it.
-  const lyW = (m, k) => 1 + k * smooth(1, 4, lymphRate(m)) - 0.12 * (1 - smooth(0.3, 1, lymphRate(m)));
+  const lyWr = (lr, k) => 1 + k * smooth(1, 4, lr) - 0.12 * (1 - smooth(0.3, 1, lr));
   // Lymph as the sinusoids filter it: f, how hard (0 at the healthy rate, 1 at four times it); over, how far
   // past what the lymphatics can carry (the rest weeps off the liver: ascites); and its protein, rich
   // where the fenestrae stay open (congestion behind the sinusoids), thin where collagen lines the
@@ -1328,15 +1346,15 @@ export function createLobuleZoom({ host }) {
     const origin = originOn();
     // The flow pass stays at display speed. Shapes and colors need at most 12.5 updates/s;
     // interactions and newly enabled layers refresh immediately.
-    if (dt === 0 || !attrKey || !radAll || bk !== binKey || dk !== drawKey || now - lastSurface >= 80) {
+    if (dt === 0 || rzMoving || !attrKey || !radAll || bk !== binKey || dk !== drawKey || now - lastSurface >= 80) {
       lastSurface = now;
       // Radii, re-sent when a tube's caliber changed (they follow only these few model values).
       let reachGrew = false;
-      const rk0 = [m.zone.sin, m.congU, m.fibPre, m.fibPost, m.art, lymphRate(m)].map((x) => x.toFixed(3)).join('|') + '|' + G.W + 'x' + G.H + '|' + lymphOn + '|' + (k * V.k).toFixed(3);
+      const rk0 = Object.values(rzOf()).map((x) => x.toFixed(4)).join('|') + '|' + G.W + 'x' + G.H + '|' + lymphOn + '|' + (k * V.k).toFixed(3);
       if (rk0 !== radAll) for (const t of live) {
         const r = Array.from({ length: N }, (_, i) => radiusAt(t, i));
         t.maxR = Math.max(...r);
-        if (radiiChanged(radKey[t.id], r, 0.35 / (k * V.k))) { radKey[t.id] = r; g.setRadii(t.id, r); glDirty = true; }
+        if (radiiChanged(radKey[t.id], r, (rzMoving ? 0.08 : 0.35) / (k * V.k))) { radKey[t.id] = r; g.setRadii(t.id, r); glDirty = true; }
         const reach = Math.ceil((t.maxR + (WALL[t.kind] || 0) + 10) / 2) * 2;
         if (reach > (binReach[t.id] || 0)) reachGrew = true;
       }

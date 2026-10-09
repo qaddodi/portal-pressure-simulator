@@ -8,8 +8,8 @@
 // readout tile. In Explore the live HVPG readouts stay hidden until this has run for the patient
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
-import { h, fmt, fitCanvas, clamp, icon, toast } from './util.js?v=86153645a3';
-import { FONT } from './charts.js?v=76c667fc43';
+import { h, fmt, fitCanvas, clamp, icon, toast } from './util.js?v=e803df99cd';
+import { FONT } from './charts.js?v=8004a4ab4c';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { store } from './store.js?v=1d7cd9b00f';
 
@@ -18,12 +18,13 @@ let stageRef = null;
 export function setHvpgStage(stage) { stageRef = stage; }
 
 // The sequence, in ms from the start.
-const T = { travel0: 300, travel1: 4300, zoom: 4300, free: 5100, inflate: 8200, wedge: 8900, result: 11800, back: 16000, end: 16800 };
+// (settle: the wedged pressure has reached its plateau; only then is WHVP read and shown.)
+const T = { travel0: 300, travel1: 4300, zoom: 4300, free: 5100, inflate: 8200, wedge: 8900, settle: 10700, result: 12500, back: 18000, end: 18800 };
 const STEPS = [
-  ['enter', 'Catheter in', 'In through the right internal jugular vein, down the SVC, through the right atrium and the IVC into the right hepatic vein.'],
-  ['free', 'Free pressure (FHVP)', 'The vein is open: the tip reads the pressure where the liver drains.'],
-  ['wedge', 'Wedged pressure (WHVP)', 'The balloon inflates just behind the tip and blocks the vein. Flow stops, and the still column in front of it reads the sinusoids.'],
-  ['result', 'HVPG = WHVP − FHVP', 'The pressure drop across the sinusoids. Normal below 5 mmHg; 10 or more is clinically significant portal hypertension.'],
+  ['enter', 'Catheter in', 'In through the right internal jugular vein, down the SVC, through the right atrium and the IVC into the right hepatic vein.', 'Catheter'],
+  ['free', 'Free pressure (FHVP)', 'The vein is open: the tip reads the pressure where the liver drains.', 'Free'],
+  ['wedge', 'Wedged pressure (WHVP)', 'The balloon inflates just behind the tip and blocks the vein. Once the pressure settles, the still vein in front of it reads the sinusoids.', 'Wedged'],
+  ['result', 'HVPG = WHVP − FHVP', 'The pressure drop across the sinusoids. Normal below 5 mmHg; 10 or more is clinically significant portal hypertension.', 'HVPG'],
 ];
 // The tracing is a monitor, dark in both themes (the Over time chart's dark trace colours).
 const C = { bg: '#07090C', grid: '#1C2128', line: '#2A3038', text: '#9AA4B2', bright: '#E8EDF4',
@@ -46,23 +47,30 @@ export function createHvpgProcedure({ sheet } = {}) {
   const cv = h('canvas', { role: 'img', 'aria-label': 'HVPG measurement: catheter pressure tracing' });
   const box = h('div', { class: 'chart-box hvpg-box' }, cv);
   const vals = {};
-  const kv = h('dl', { class: 'kv hvpg-kv' }, ['fhvp', 'whvp', 'hvpg'].flatMap((k) => {
+  // On top: the button and the three readings; then the tracing; then the steps and what is happening.
+  const kv = h('dl', { class: 'hvpg-kv' }, ['fhvp', 'whvp', 'hvpg'].map((k) => {
     vals[k] = h('dd', {}, '—');
-    return [h('dt', {}, { fhvp: 'Free (FHVP)', whvp: 'Wedged (WHVP)', hvpg: 'HVPG' }[k]), vals[k]];
+    return h('div', {}, h('dt', {}, { fhvp: 'FHVP', whvp: 'WHVP', hvpg: 'HVPG' }[k]), vals[k]);
   }));
-  const stepEls = STEPS.map(([id, title]) => h('li', { 'data-step': id }, title));
+  const stepEls = STEPS.map(([id, title, , short]) => h('li', { 'data-step': id, title }, h('span', {}, short)));
   const caption = h('p', { class: 'ctl-sub hvpg-caption', 'aria-live': 'polite' });
-  const startBtn = h('button', { class: 'btn primary', onclick: () => start() }, icon('catheter'), h('span', {}, 'Measure HVPG'));
-  const note = h('p', { class: 'ctl-sub' });
-  const side = h('div', { class: 'chart-side' }, kv, h('ol', { class: 'hvpg-steps' }, stepEls), caption, startBtn, note);
-  const el = h('div', { class: 'dock-pane', 'data-pane': 'hvpg' }, box, side);
+  // A touch starts it on the lift itself, so a tap never depends on the browser turning it into a click
+  // (start() ignores the click that follows).
+  const startBtn = h('button', { class: 'btn primary', onclick: () => start(), onpointerup: (e) => { if (e.pointerType !== 'mouse' && !startBtn.disabled) start(); } }, icon('catheter'), h('span', {}, 'Measure HVPG'));
+  const note = h('p', { class: 'ctl-sub hvpg-note' });
+  const bar = h('div', { class: 'hvpg-bar' }, startBtn, kv);
+  const side = h('div', { class: 'chart-side' }, h('ol', { class: 'hvpg-steps' }, stepEls), caption, note);
+  const el = h('div', { class: 'dock-pane', 'data-pane': 'hvpg' }, bar, box, side);
 
   let t0 = null, t = 0, raf = 0, frame = null, result = null, sig = '', cam = '';
   const phase = () => (t0 == null && !result ? 'idle' : t < T.free ? 'enter' : t < T.inflate ? 'free' : t < T.result ? 'wedge' : 'result');
   // (The pane is fed frames only while it is on screen; the store always has the newest.)
   const now = () => store.get().frame || frame;
   // Live values while measuring, the captured ones once done.
-  const values = () => { const m = now()?.metrics; return result || { fhvp: m?.fhvp ?? 0, whvp: m?.whvp ?? 0, hvpg: m?.hvpg ?? 0 }; };
+  // Read once when the catheter starts, so FHVP, WHVP and their difference agree on screen throughout.
+  let snap = null;
+  const live = () => { const m = now()?.metrics; return { fhvp: m?.fhvp ?? 0, whvp: m?.whvp ?? 0, hvpg: m?.hvpg ?? 0 }; };
+  const values = () => result || snap || live();
 
   function start() {
     if (t0 != null && t < T.end) return;
@@ -70,12 +78,12 @@ export function createHvpgProcedure({ sheet } = {}) {
     const st = store.get();
     if (st.lobule) store.set({ lobule: false });
     if (st.view !== 'anatomic') store.set({ view: 'anatomic' });
-    result = null; t0 = performance.now(); t = 0; cam = '';
+    result = null; t0 = performance.now(); t = 0; cam = ''; snap = now()?.metrics ? live() : null;
     sheet?.(true);
     loop();
   }
   function stopFigure() { stageRef?.setCatheter(null); if (cam && cam !== 'home') stageRef?.cathFocus('home'); cam = ''; }
-  function reset() { cancelAnimationFrame(raf); raf = 0; if (t0 != null && t < T.end) { stopFigure(); sheet?.(false); } t0 = null; t = 0; result = null; sig = ''; paintSide(); draw(); }
+  function reset() { cancelAnimationFrame(raf); raf = 0; if (t0 != null && t < T.end) { stopFigure(); sheet?.(false); } t0 = null; t = 0; result = null; snap = null; sig = ''; paintSide(); draw(); }
   function loop() {
     cancelAnimationFrame(raf);
     const step = () => {
@@ -91,7 +99,7 @@ export function createHvpgProcedure({ sheet } = {}) {
   function finish() {
     const f = now(), m = f?.metrics;
     if (!m) return;
-    result = { fhvp: m.fhvp, whvp: m.whvp, hvpg: m.hvpg, t: f.t, day: f.day };
+    result = { ...(snap || { fhvp: m.fhvp, whvp: m.whvp, hvpg: m.hvpg }), t: f.t, day: f.day };
     store.set({ lastHVPG: result, hvpgMeasured: true });
   }
 
@@ -108,17 +116,19 @@ export function createHvpgProcedure({ sheet } = {}) {
     const labels = [];
     if (ph === 'free') labels.push({ key: 'f', at: 'tip', kicker: 'FHVP', text: fmt(pAt(t, v), 1), unit: 'mmHg', cls: 'free' });
     if (ph === 'wedge') {
-      labels.push({ key: 'f', at: 'tip', kicker: 'FHVP', text: fmt(v.fhvp, 1), unit: 'mmHg', cls: 'free ghost' });
-      if (t > T.inflate + 300) labels.push({ key: 'w', at: 'ahead', kicker: 'WHVP', text: fmt(pAt(t, v), 1), unit: 'mmHg', cls: 'wedge' });
+      labels.push({ key: 'f', at: 'tip', kicker: 'FHVP', text: fmt(v.fhvp, 1), unit: 'mmHg', cls: 'free' });
+      if (t >= T.settle) labels.push({ key: 'w', at: 'ahead', kicker: 'WHVP', text: fmt(pAt(t, v), 1), unit: 'mmHg', cls: 'wedge' });
     }
+    // Both readings stay; a bracket joins them and gives the difference.
     if (ph === 'result' && t < T.back) {
-      labels.push({ key: 'r', at: 'tip', kicker: `HVPG = ${fmt(v.whvp, 1)} − ${fmt(v.fhvp, 1)}`, text: fmt(v.hvpg, 1), unit: 'mmHg', cls: 'result ' + sevOf(v.hvpg) });
-      labels.push({ key: 'w', at: 'ahead', kicker: 'WHVP', text: fmt(v.whvp, 1), unit: 'mmHg', cls: 'wedge' });
+      labels.push({ key: 's', at: 'sum',
+        rows: [{ at: 'ahead', kicker: 'WHVP', text: fmt(v.whvp, 1), unit: 'mmHg', cls: 'wedge' }, { at: 'tip', kicker: 'FHVP', text: fmt(v.fhvp, 1), unit: 'mmHg', cls: 'free' }],
+        calc: { kicker: 'HVPG = WHVP − FHVP', text: `${fmt(v.whvp, 1)} − ${fmt(v.fhvp, 1)} = ${fmt(v.hvpg, 1)}`, unit: 'mmHg', cls: 'result ' + sevOf(v.hvpg) } });
     }
     sg.setCatheter({
       u: ease(k01(t, T.travel0, T.travel1)),
       balloon: ease(k01(t, T.inflate, T.wedge)) * (1 - k01(t, T.back, T.back + 500)),
-      column: ease(k01(t, T.wedge - 300, T.wedge + 1700)) * (1 - k01(t, T.back, T.back + 500)),
+      column: ease(k01(t, T.settle, T.settle + 1400)) * (1 - k01(t, T.back, T.back + 500)),
       columnColor: pressureColor(v.whvp),
       ring: ph === 'free' ? C.free : ph === 'wedge' && t > T.wedge ? C.wedge : null, pulse, clock: t,
       opacity: 1 - k01(t, T.back + 300, T.end),
@@ -128,23 +138,27 @@ export function createHvpgProcedure({ sheet } = {}) {
 
   function paintSide() {
     const ph = phase(), v = values(), st = store.get();
-    const shown = { fhvp: ph !== 'idle' && ph !== 'enter', whvp: ph === 'result' || (ph === 'wedge' && t >= T.wedge), hvpg: ph === 'result' };
+    const shown = { fhvp: ph !== 'idle' && ph !== 'enter', whvp: ph === 'result' || (ph === 'wedge' && t >= T.settle), hvpg: ph === 'result' };
     for (const k of ['fhvp', 'whvp', 'hvpg']) {
-      const txt = shown[k] ? `${fmt(v[k], 1)} mmHg` : '—';
+      const txt = shown[k] ? fmt(v[k], 1) : '—';
       if (vals[k].textContent !== txt) vals[k].textContent = txt;
     }
-    vals.hvpg.dataset.sev = shown.hvpg ? sevOf(v.hvpg) : '';
+    // This runs on every model frame: write only what changed. Rewriting the button's label each frame
+    // replaced its text under the finger, and Safari then takes a tap for a hover and drops the click.
+    const sev = shown.hvpg ? sevOf(v.hvpg) : '';
+    if (vals.hvpg.dataset.sev !== sev) vals.hvpg.dataset.sev = sev;
     const cur = STEPS.findIndex((s) => s[0] === ph);
-    stepEls.forEach((li, i) => { li.dataset.state = ph === 'idle' ? '' : i < cur || ph === 'result' ? 'done' : i === cur ? 'now' : ''; });
+    stepEls.forEach((li, i) => { const v2 = ph === 'idle' ? '' : i < cur || ph === 'result' ? 'done' : i === cur ? 'now' : ''; if (li.dataset.state !== v2) li.dataset.state = v2; });
     const cap = ph === 'idle' ? 'A balloon catheter through the right internal jugular vein reads two pressures in the right hepatic vein: free, then wedged. Watch it on the anatomy.'
       : ph === 'result' ? `${sevWord(v.hvpg)}. ${STEPS[3][2]}` : STEPS[cur][2];
     if (caption.textContent !== cap) caption.textContent = cap;
     const busy = t0 != null && t < T.end;
-    startBtn.disabled = busy;
-    startBtn.lastChild.textContent = busy ? 'Measuring…' : result ? 'Measure again' : 'Measure HVPG';
+    if (startBtn.disabled !== busy) startBtn.disabled = busy;
+    const lbl = busy ? 'Measuring…' : result ? 'Measure again' : 'Measure HVPG';
+    if (startBtn.lastChild.textContent !== lbl) startBtn.lastChild.textContent = lbl;
     const n = st.mode === 'explore' && !st.presenting
-      ? (st.hvpgMeasured ? 'Measured: the HVPG readouts are live for this patient. A new patient hides them until it is measured again.' : 'The HVPG readouts stay hidden until it is measured here. The numbers are the model\'s own, the same as the HVPG tile.')
-      : 'The numbers are the model\'s own, the same as the HVPG tile.';
+      ? (st.hvpgMeasured ? 'Measured: the HVPG readouts are live for this patient until a new one.' : 'The HVPG readouts stay hidden until it is measured here.')
+      : 'The same numbers as the HVPG tile.';
     if (note.textContent !== n) note.textContent = n;
   }
 
@@ -164,7 +178,7 @@ export function createHvpgProcedure({ sheet } = {}) {
     if (ph === 'idle') label = 'Ready';
     else if (ph === 'enter') label = 'Catheter advancing';
     else if (ph === 'free') { label = 'FHVP'; num = fmt(pAt(t, v), 1); col = C.free; }
-    else if (ph === 'wedge') { label = t < T.wedge ? 'Balloon inflating' : 'WHVP'; num = fmt(pAt(t, v), 1); col = C.wedge; }
+    else if (ph === 'wedge') { label = t < T.wedge ? 'Balloon inflating' : t < T.settle ? 'Settling' : 'WHVP'; num = fmt(pAt(t, v), 1); col = C.wedge; }
     else { label = 'HVPG'; num = fmt(v.hvpg, 1); col = C[sevOf(v.hvpg)]; }
     ctx.font = FONT(600, 12); ctx.fillStyle = col === C.text ? C.bright : col; ctx.fillText(label, x, y + 32);
     if (num) { ctx.font = FONT(700, big); ctx.textAlign = 'right'; ctx.fillText(num, x + W, y + 14 + big); ctx.textAlign = 'left'; }
