@@ -1691,28 +1691,7 @@ export function createLobuleZoom({ host }) {
       c.restore();
     }
     if (lymphOn && !flat && !m.hide) {
-      // The sinusoid lining: nothing extra while the fenestrae are open; a thin continuous collagen line
-      // fades in as the sinusoids capillarize and hold protein back.
       const p = lyProt(m), still = reduce.matches, lw = 0.9 / V.k, seal = 1 - smooth(0.15, 0.6, p);
-      if (seal > 0.02) {
-        c.save();
-        c.lineWidth = lw;
-        c.strokeStyle = dark ? `rgba(232, 196, 140, ${(0.6 * seal).toFixed(3)})` : `rgba(150, 104, 40, ${(0.5 * seal).toFixed(3)})`;
-        c.beginPath();
-        for (const t of G.tubes) {
-          if (t.kind !== 's0' && t.kind !== 's1' && t.kind !== 's2') continue;
-          for (const side of [-1, 1]) {
-            t.pts.forEach(([x, y], i) => {
-              const [xa, ya] = t.pts[Math.max(0, i - 1)], [xb, yb] = t.pts[Math.min(N - 1, i + 1)], d = Math.hypot(xb - xa, yb - ya) || 1;
-              const o = side * (radiusAt(t, i) + lw);
-              const px = x - ((yb - ya) / d) * o, py = y + ((xb - xa) / d) * o;
-              if (i) c.lineTo(px, py); else c.moveTo(px, py);
-            });
-          }
-        }
-        c.stroke();
-        c.restore();
-      }
       // Lymph as drops drifting along the space of Disse and the terminal lymphatics to the portal tract:
       // faster as more fluid filters (the volume); each carries albumin beads, as many as its protein allows
       // (the concentration). A fixed number of drops per vessel (a count that followed the rate would make
@@ -1754,6 +1733,51 @@ export function createLobuleZoom({ host }) {
       c.stroke();
       c.fillStyle = dark ? 'rgb(255, 196, 40)' : 'rgb(194, 82, 0)';
       c.fill();
+      // The lymph runs beneath the blood: cut the drops away wherever a blood vessel (with its wall)
+      // lies over them, so the arterioles, venules and sinusoids pass on top.
+      c.save();
+      c.globalCompositeOperation = 'destination-out';
+      c.fillStyle = c.strokeStyle = '#000';
+      c.lineCap = 'round'; c.lineJoin = 'round';
+      for (const t of G.tubes) {
+        if (t.lymph || t.kind === 'ly' || t.kind === 'lt' || t.kind === 'lv') continue;
+        const wall = (WALL[t.kind] || 0.8) + 0.6 / V.k;
+        if (t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || t.kind === 'bd') {
+          const [x0, y0] = t.pts[0];
+          c.beginPath(); c.arc(x0, y0, radiusAt(t, N >> 1) + wall, 0, TAU); c.fill();
+          continue;
+        }
+        // In thirds, each as wide as the lumen at its middle (the sinusoids widen toward the central vein).
+        for (let q = 0; q < 3; q++) {
+          const i0 = Math.floor((q * (N - 1)) / 3), i1 = Math.floor(((q + 1) * (N - 1)) / 3);
+          c.lineWidth = 2 * (radiusAt(t, (i0 + i1) >> 1) + wall);
+          c.beginPath(); c.moveTo(...t.pts[i0]);
+          for (let i = i0 + 1; i <= i1; i++) c.lineTo(...t.pts[i]);
+          c.stroke();
+        }
+      }
+      c.restore();
+      // The sinusoid lining: nothing extra while the fenestrae are open; a thin continuous collagen line
+      // fades in as the sinusoids capillarize and hold protein back.
+      if (seal > 0.02) {
+        c.save();
+        c.lineWidth = lw;
+        c.strokeStyle = dark ? `rgba(232, 196, 140, ${(0.6 * seal).toFixed(3)})` : `rgba(150, 104, 40, ${(0.5 * seal).toFixed(3)})`;
+        c.beginPath();
+        for (const t of G.tubes) {
+          if (t.kind !== 's0' && t.kind !== 's1' && t.kind !== 's2') continue;
+          for (const side of [-1, 1]) {
+            t.pts.forEach(([x, y], i) => {
+              const [xa, ya] = t.pts[Math.max(0, i - 1)], [xb, yb] = t.pts[Math.min(N - 1, i + 1)], d = Math.hypot(xb - xa, yb - ya) || 1;
+              const o = side * (radiusAt(t, i) + lw);
+              const px = x - ((yb - ya) / d) * o, py = y + ((xb - xa) / d) * o;
+              if (i) c.lineTo(px, py); else c.moveTo(px, py);
+            });
+          }
+        }
+        c.stroke();
+        c.restore();
+      }
     }
     if (flat && !m.hide && store.get().layers?.flow !== false) {
       // Red cells along the sinusoids at the model's flow.
