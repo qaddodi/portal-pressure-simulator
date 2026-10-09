@@ -242,7 +242,7 @@ export function createProfile() {
       ctx.fillText(txt, (r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2 + 0.5);
     }
     // HVPG and PPG: a span inside the chart, under the line, from where each is measured to where it
-    // ends, labelled with its value and both pressures; the same numbers and cut-offs as the tiles.
+    // ends, labelled with its value; the same numbers and cut-offs as the tiles.
     (dims || []).forEach((d, k) => {
       const a = stations.indexOf(d.hi), b = stations.indexOf(d.lo);
       if (a < 0 || b < 0) return;
@@ -254,15 +254,15 @@ export function createProfile() {
       ctx.save();
       ctx.strokeStyle = col; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(x0, yy - 4); ctx.lineTo(x0, yy + 4); ctx.moveTo(x1, yy - 4); ctx.lineTo(x1, yy + 4); ctx.moveTo(x0, yy); ctx.lineTo(x1, yy); ctx.stroke();
-      const txt = `${d.k} ${fmt(v, 1)}`, sub = ` (${fmt(hv, 1)} → ${fmt(lv, 1)})`;
-      ctx.font = FONT(700, 11.5); const tw1 = ctx.measureText(txt).width;
-      ctx.font = FONT(500, 10.5); const tw2 = ctx.measureText(sub).width;
+      const txt = `${d.k} `, num = fmt(v, 1);
+      ctx.font = FONT(600, 10.5); const tw1 = ctx.measureText(txt).width;
+      ctx.font = FONT(700, 12.5); const tw2 = ctx.measureText(num).width;
       const tw = tw1 + tw2 + 12, lx = Math.max(L + 2, Math.min(w - R - tw, x0 - 4)), ly = yy - 14;
       ctx.beginPath(); ctx.roundRect ? ctx.roundRect(lx, ly - 8, tw, 16, 8) : ctx.rect(lx, ly - 8, tw, 16);
       ctx.fillStyle = c.surface; ctx.fill(); ctx.strokeStyle = col; ctx.globalAlpha = 0.5; ctx.lineWidth = 1; ctx.stroke(); ctx.globalAlpha = 1;
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = col === c.muted ? c.text : col; ctx.font = FONT(700, 11.5); ctx.fillText(txt, lx + 6, ly + 0.5);
-      ctx.fillStyle = c.muted; ctx.font = FONT(500, 10.5); ctx.fillText(sub, lx + 6 + tw1, ly + 0.5);
+      ctx.fillStyle = c.muted; ctx.font = FONT(600, 10.5); ctx.fillText(txt, lx + 6, ly + 0.5);
+      ctx.fillStyle = col === c.muted ? c.text : col; ctx.font = FONT(700, 12.5); ctx.fillText(num, lx + 6 + tw1, ly + 0.5);
       ctx.restore();
     });
     if (slot >= 26) {
