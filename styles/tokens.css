@@ -248,3 +248,42 @@
   color-scheme: dark;
 }
 }
+
+/* Pressure lens: the vessels carry the only saturated hues (blue, violet, magenta), so the organs
+   step into warm neutrals (sand, tan, ochre, taupe) that no pressure colour can be mistaken for.
+   The other lenses and the plain anatomy keep the richer tissue tones above. */
+.stage-view[data-layer="pressure"] {
+  --og-liver-1: #E5CDB4; --og-liver-2: #C7A07D; --og-liver-3: #8C6748;
+  --og-stomach-1: #F0DDC8; --og-stomach-2: #D9B999; --og-stomach-3: #A4805E;
+  --og-eso-1: #EDD8C3; --og-eso-2: #D5B393; --og-eso-3: #A07C5C;
+  --og-spleen-1: #DDD2C4; --og-spleen-2: #B5A390; --og-spleen-3: #7E6C5A;
+  --og-kidney-1: #E6C8AC; --og-kidney-2: #C39A76; --og-kidney-3: #8E6646;
+  --og-gut-1: #F3E4D0; --og-gut-2: #DEC3A3; --og-gut-3: #AB8A68;
+  --og-heart-1: #E7C0A5; --og-heart-2: #C99274; --og-heart-3: #925D42;
+  --og-ra-1: #E1B498; --og-ra-2: #C08467; --og-ra-3: #8A553B;
+  --organ-liver: #8C6748; --organ-spleen: #85766A; --organ-stomach: #A4805E; --organ-heart: #946048; --organ-kidney: #8E6646;
+}
+:root[data-theme="dark"] .stage-view[data-layer="pressure"] {
+  --og-liver-1: #7B5D48; --og-liver-2: #4F3B2F; --og-liver-3: #BC997D;
+  --og-stomach-1: #7D6552; --og-stomach-2: #534136; --og-stomach-3: #BDA28B;
+  --og-eso-1: #775F4E; --og-eso-2: #4F3E34; --og-eso-3: #B69C86;
+  --og-spleen-1: #6C625A; --og-spleen-2: #48413C; --og-spleen-3: #A99D91;
+  --og-kidney-1: #7A5C48; --og-kidney-2: #4F3B30; --og-kidney-3: #B9987E;
+  --og-gut-1: #6F6153; --og-gut-2: #4A4038; --og-gut-3: #AB9A87;
+  --og-heart-1: #845846; --og-heart-2: #573A2F; --og-heart-3: #C4937C;
+  --og-ra-1: #8B5644; --og-ra-2: #5B372D; --og-ra-3: #CA917A;
+  --organ-liver: #A8907A; --organ-spleen: #9A9087; --organ-stomach: #A99480; --organ-heart: #AE8B78; --organ-kidney: #A38B78;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .stage-view[data-layer="pressure"] {
+    --og-liver-1: #7B5D48; --og-liver-2: #4F3B2F; --og-liver-3: #BC997D;
+    --og-stomach-1: #7D6552; --og-stomach-2: #534136; --og-stomach-3: #BDA28B;
+    --og-eso-1: #775F4E; --og-eso-2: #4F3E34; --og-eso-3: #B69C86;
+    --og-spleen-1: #6C625A; --og-spleen-2: #48413C; --og-spleen-3: #A99D91;
+    --og-kidney-1: #7A5C48; --og-kidney-2: #4F3B30; --og-kidney-3: #B9987E;
+    --og-gut-1: #6F6153; --og-gut-2: #4A4038; --og-gut-3: #AB9A87;
+    --og-heart-1: #845846; --og-heart-2: #573A2F; --og-heart-3: #C4937C;
+    --og-ra-1: #8B5644; --og-ra-2: #5B372D; --og-ra-3: #CA917A;
+    --organ-liver: #A8907A; --organ-spleen: #9A9087; --organ-stomach: #A99480; --organ-heart: #AE8B78; --organ-kidney: #A38B78;
+  }
+}
