@@ -40,6 +40,20 @@ export function createSinusoidView({ host }) {
   const canvas = h('canvas', { class: 'sv-canvas', role: 'img', 'aria-label': 'A sinusoid, cut along its length' });
   const leaders = s('svg', { class: 'lz-leaders', 'aria-hidden': 'true' });
   const labels = h('div', { class: 'lz-labels' });
+  // Regions named in place, as the anatomy names its organs (spaced small capitals on a halo, no chip or leader).
+  const regions = {};
+  function region(key, name, value, x, y) {
+    let R = regions[key];
+    if (!R) { R = regions[key] = { el: h('div', { class: `sv-region sv-region-${key}` }) }; labels.append(R.el); }
+    const txt = name + '|' + value;
+    if (R.text !== txt) {
+      R.text = txt;
+      const [v, u] = value ? value.split('~') : [];
+      R.el.replaceChildren(h('span', {}, name), value ? h('span', { class: 'v' }, h('b', {}, v), u ? ` ${u}` : '') : '');
+    }
+    const [cx, cy] = toScreen(x, y);
+    R.el.style.transform = `translate(${cx.toFixed(1)}px, ${cy.toFixed(1)}px) translate(-50%, -50%) rotate(${((geo.ang * 180) / Math.PI).toFixed(2)}deg)`;
+  }
   const legend = h('div', { class: 'sv-legend', 'aria-hidden': 'true' },
     h('span', {}, h('i', { class: 'alb' }), 'Albumin'), h('span', {}, h('i', { class: 'wat' }), 'Plasma water'), h('span', {}, h('i', { class: 'lym' }), 'Lymph, back to the portal triad'));
   const el = h('div', { class: 'sv', 'aria-hidden': 'true' }, canvas, leaders, labels, legend);
@@ -302,9 +316,16 @@ export function createSinusoidView({ host }) {
     placed.length = 0;
     const g = geo, m = model, hep = UM.hep;
     const pick = (u) => lerp(VW.fr[0] + 8, VW.fr[1] - 8, u);
-    const xp = pick(g.vert ? 0.3 : 0.16), xd = pick(g.vert ? 0.55 : 0.36), xf = pick(g.vert ? 0.82 : 0.62), xh = pick(g.vert ? 0.86 : 0.07);
-    tag('sin', 'Sinusoid', m.hide ? '?' : `${fmt(m.P2, 1)}~mmHg`, xp, 0, xp, -(hepIn(xp) + hep * 0.45));
-    tag('lymph', ['Lymph in the space of Disse', 'Lymph in Disse'], m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min · protein ${Math.round(m.lyProt * 100)}%`, xd, hepIn(xd) - disseW(xd) * 0.5, xd, hepIn(xd) + hep * 0.4);
+    const xd = pick(g.vert ? 0.55 : 0.36), xf = pick(g.vert ? 0.82 : 0.62), xh = pick(g.vert ? 0.86 : 0.07);
+    // The sinusoid is named in its lumen, in the middle of the view (clear of the Kupffer cell).
+    let xc = pick(0.5);
+    if (Math.abs(xc - g.xk) < 30) xc = g.xk + (xc < g.xk ? -30 : 30);
+    region('sin', 'Sinusoid', m.hide ? '?' : `${fmt(m.P2, 1)}~mmHg`, xc, 0);
+    // The space of Disse, named along its band on the far side from the lymph's label, clear of the stellate cell.
+    let xq = pick(g.vert ? 0.3 : 0.84);
+    if (Math.abs(xq - g.xs) < 40) xq = g.xs + (xq < g.xs ? -40 : 40);
+    region('disse', 'Space of Disse', '', xq, -(wallIn(xq) + disseW(xq) * 0.5));
+    tag('lymph', ['Lymph, back to the portal triad', 'Lymph'], m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min · protein ${Math.round(m.lyProt * 100)}%`, xd, hepIn(xd) - disseW(xd) * 0.5, xd, hepIn(xd) + hep * 0.4);
     // The fenestrae's label points at an open pore near its place (or the wall there, once they have closed).
     const pf = g.pores[0].reduce((b, p) => (poreW(p) > 0.25 && Math.abs(p.x - xf) < Math.abs(b - xf) ? p.x : b), xf);
     tag('fen', 'Fenestrae', S.por > 0.85 ? 'open' : S.por > 0.15 ? `${Math.round(S.por * 100)}%~open` : 'sealed', Math.abs(pf - xf) < 6 ? pf : xf, -halfW(xf) - UM.endo * 0.5, xf, -(hepIn(xf) + hep * 0.3));
