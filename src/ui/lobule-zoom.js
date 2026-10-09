@@ -26,7 +26,7 @@ import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=dd2bf5fddf';
 import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=e803df99cd';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { NODES, EDGES } from '../engine/topology.js?v=dc393aabea';
-import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=b6b2dca81e';
+import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, F_NOCASE, ORIGIN_GREY } from './veins-gl.js?v=b6b2dca81e';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
 import { createSinusoidView } from './sinusoid-view.js?v=528cc6cad5';
 
@@ -1296,6 +1296,8 @@ export function createLobuleZoom({ host }) {
   };
   // The triad's outlines: dark blue, red and green (the venule, arteriole and ductule), against the common casing.
   const EDGE = { pv: [0.12, 0.27, 0.58], in: [0.12, 0.27, 0.58], ha: [0.55, 0.1, 0.16], tw: [0.55, 0.1, 0.16], bd: [0.27, 0.29, 0.12] }, BD_FILL = [0.48, 0.5, 0.24];   // bile: a dark, dull olive
+  // Sinusoids carry no casing outline (the owner removed it; it draws dark rims and spokes into the central vein).
+  const SINU = new Set(['s0', 's1', 's2', 'an', 'ly']);
   const WALL = { s0: 0.8, s1: 0.85, s2: 0.9, an: 0.7, in: 1.5, pv: 2, cv: 1.6, sh: 1.1, ha: 1.7, bd: 1.8, tw: 0.9, ly: 0.5, lt: 0.8, lv: 1.1 };
   // Weight of the inlet's value at a radius along the sinusoids (1 at the lobule's edge, 0 at the central vein).
   const sinW = (rho) => clamp((rho - 0.075) / (0.92 - 0.075), 0, 1) ** 0.8;
@@ -1392,7 +1394,7 @@ export function createLobuleZoom({ host }) {
           const big = t.kind === 'pv' || t.kind === 'cv' || t.kind === 'in';
           // The triad's three vessels carry a dark outline of their own colour; the rest the common casing.
           const edge = EDGE[t.kind];
-          const flags = (selIdsN.has(t.id) ? F_SEL : 0) | (edge ? F_EDGE : 0) | (isArt || isBd ? 0 : F_DIFFUSE | F_SHADOW | (big ? F_SPEC : 0));
+          const flags = (selIdsN.has(t.id) ? F_SEL : 0) | (edge ? F_EDGE : 0) | (SINU.has(t.kind) ? F_NOCASE : 0) | (isArt || isBd ? 0 : F_DIFFUSE | F_SHADOW | (big ? F_SPEC : 0));
           const z = { s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.13, an: 0.09, lt: 0.25, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.8, sh: 0.5, bd: 0.55, tw: 0.6, ha: 0.7 }[t.kind];
           tubeData.set([...c0, WALL[t.kind], ...c1, alpha, 1, z, flags, 0], o);
           tubeData.set([0, 1, t.len, 0], o + 20);
@@ -1720,7 +1722,7 @@ export function createLobuleZoom({ host }) {
       c.restore();
     }
     if (lymphOn && !flat && !m.hide) {
-      const p = lyProt(m), still = reduce.matches, lw = 0.9 / V.k, seal = 1 - smooth(0.15, 0.6, p);
+      const p = lyProt(m), still = reduce.matches;
       // Lymph as drops drifting along the space of Disse and the terminal lymphatics to the portal tract:
       // faster as more fluid filters (the volume); each carries albumin beads, as many as its protein allows
       // (the concentration). A fixed number of drops per vessel (a count that followed the rate would make
@@ -1787,27 +1789,6 @@ export function createLobuleZoom({ host }) {
         }
       }
       c.restore();
-      // The sinusoid lining: nothing extra while the fenestrae are open; a thin continuous collagen line
-      // fades in as the sinusoids capillarize and hold protein back.
-      if (seal > 0.02) {
-        c.save();
-        c.lineWidth = lw;
-        c.strokeStyle = dark ? `rgba(232, 196, 140, ${(0.6 * seal).toFixed(3)})` : `rgba(150, 104, 40, ${(0.5 * seal).toFixed(3)})`;
-        c.beginPath();
-        for (const t of G.tubes) {
-          if (t.kind !== 's0' && t.kind !== 's1' && t.kind !== 's2') continue;
-          for (const side of [-1, 1]) {
-            t.pts.forEach(([x, y], i) => {
-              const [xa, ya] = t.pts[Math.max(0, i - 1)], [xb, yb] = t.pts[Math.min(N - 1, i + 1)], d = Math.hypot(xb - xa, yb - ya) || 1;
-              const o = side * (radiusAt(t, i) + lw);
-              const px = x - ((yb - ya) / d) * o, py = y + ((xb - xa) / d) * o;
-              if (i) c.lineTo(px, py); else c.moveTo(px, py);
-            });
-          }
-        }
-        c.stroke();
-        c.restore();
-      }
     }
     if (flat && !m.hide && store.get().layers?.flow !== false) {
       // Red cells along the sinusoids at the model's flow.
