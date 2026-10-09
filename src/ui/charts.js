@@ -1,7 +1,7 @@
 // Dock charts (blueprint §9.2): the pressure profile.
 
 import { NODES } from '../engine/topology.js?v=dc393aabea';
-import { PROFILE_PATHS, SHORT } from './anatomy.js?v=40131de907';
+import { PROFILE_PATHS, SHORT } from './anatomy.js?v=6abc18b290';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { store } from './store.js?v=8ab9b37d48';
 import { h, fmt, fitCanvas, cssVar, clamp, createEaser, axisTop } from './util.js?v=86153645a3';
@@ -50,7 +50,7 @@ export function createProfile() {
     h('span', {}, h('i', { style: { borderColor: 'var(--text-3)', borderTopStyle: 'dashed' } }), 'Healthy'),
     h('span', { class: 'lg-compare', style: { display: 'none' } }, h('i', { style: { borderColor: 'var(--s1)', borderTopStyle: 'dotted' } }), 'Snapshot A'),
     h('span', { class: 'lg-pred', style: { display: 'none' } }, h('i', { style: { borderColor: 'var(--accent)', borderTopStyle: 'dashed' } }), 'Your prediction'));
-  const note = h('div', { class: 'sub' }, 'Pressure from gut to heart. Where the line drops steeply, that is where the block is. At the right: HVPG (wedged − free hepatic vein) and PPG (portal vein − IVC).');
+  const note = h('div', { class: 'sub' }, 'Pressure from gut to heart. Where the line drops steeply, that is where the block is. The spans along the bottom show HVPG (wedged − free hepatic vein) and PPG (portal vein − IVC).');
   const side = h('div', { class: 'chart-side' }, legend, note, h('div', { class: 'ctl-sub', id: 'profileOffscale' }));
   el.append(box, side);
   let pathId = 'main';
@@ -97,7 +97,7 @@ export function createProfile() {
     // axis (//) with their true value, never clipped.
     const hasArt = stations.some((n) => ARTERIAL.has(n));
     const roomy = hh > 230;
-    const L = 40, R = curPath().dims ? 88 : 16, T = hasArt ? (roomy ? 58 : 34) : 28, B = stagger ? Math.ceil(tilt) + 20 : 26;
+    const L = 40, R = 16, T = hasArt ? (roomy ? 58 : 34) : 28, B = stagger ? Math.ceil(tilt) + 20 : 26;
     const slot = (w - L - R) / stations.length;
     // The axis follows the highest point (now, healthy or the compared moment), eased, not fixed at 30.
     const maxP = axisMax;
@@ -241,25 +241,28 @@ export function createProfile() {
       ctx.fillStyle = dp < 0 ? c.rev : main ? c.danger : c.muted;
       ctx.fillText(txt, (r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2 + 0.5);
     }
-    // HVPG and PPG: a thin dimension line between the two levels, a faint guide from each station,
-    // and the value beside it, coloured by its threshold.
+    // HVPG and PPG: a span inside the chart, under the line, from where each is measured to where it
+    // ends, labelled with its value and both pressures; the same numbers and cut-offs as the tiles.
     (dims || []).forEach((d, k) => {
       const a = stations.indexOf(d.hi), b = stations.indexOf(d.lo);
       if (a < 0 || b < 0) return;
       const m = F.metrics || {};
       const hv = d.hiM && m[d.hiM] != null ? m[d.hiM] : now[a], lv = d.loM && m[d.loM] != null ? m[d.loM] : now[b];
-      const v = d.m && m[d.m] != null ? m[d.m] : hv - lv, ya = y(hv), yb = y(lv);
-      const dx = w - R + 12 + k * 40;
+      const v = d.m && m[d.m] != null ? m[d.m] : hv - lv;
       const col = v >= d.bad ? c.danger : v >= d.warn ? c.caution : c.muted;
+      const yy = y(0) - 8 - (dims.length - 1 - k) * 32, x0 = x(a), x1 = x(b);
       ctx.save();
-      ctx.strokeStyle = col; ctx.globalAlpha = 0.35; ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
-      ctx.beginPath(); ctx.moveTo(x(a) + 7, ya); ctx.lineTo(dx + 4, ya); ctx.moveTo(x(b) + 7, yb); ctx.lineTo(dx + 4, yb); ctx.stroke();
-      ctx.setLineDash([]); ctx.globalAlpha = 1; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(dx - 4, ya); ctx.lineTo(dx + 4, ya); ctx.moveTo(dx, ya); ctx.lineTo(dx, yb); ctx.moveTo(dx - 4, yb); ctx.lineTo(dx + 4, yb); ctx.stroke();
-      const ym = (ya + yb) / 2;
+      ctx.strokeStyle = col; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(x0, yy - 4); ctx.lineTo(x0, yy + 4); ctx.moveTo(x1, yy - 4); ctx.lineTo(x1, yy + 4); ctx.moveTo(x0, yy); ctx.lineTo(x1, yy); ctx.stroke();
+      const txt = `${d.k} ${fmt(v, 1)}`, sub = ` (${fmt(hv, 1)} → ${fmt(lv, 1)})`;
+      ctx.font = FONT(700, 11.5); const tw1 = ctx.measureText(txt).width;
+      ctx.font = FONT(500, 10.5); const tw2 = ctx.measureText(sub).width;
+      const tw = tw1 + tw2 + 12, lx = Math.max(L + 2, Math.min(w - R - tw, x0 - 4)), ly = yy - 14;
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(lx, ly - 8, tw, 16, 8) : ctx.rect(lx, ly - 8, tw, 16);
+      ctx.fillStyle = c.surface; ctx.fill(); ctx.strokeStyle = col; ctx.globalAlpha = 0.5; ctx.lineWidth = 1; ctx.stroke(); ctx.globalAlpha = 1;
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-      ctx.fillStyle = c.muted; ctx.font = FONT(600, 10.5); ctx.fillText(d.k, dx + 5, ym - 7);
-      ctx.fillStyle = col; ctx.font = FONT(700, 12.5); ctx.fillText(fmt(v, 1), dx + 5, ym + 6);
+      ctx.fillStyle = col === c.muted ? c.text : col; ctx.font = FONT(700, 11.5); ctx.fillText(txt, lx + 6, ly + 0.5);
+      ctx.fillStyle = c.muted; ctx.font = FONT(500, 10.5); ctx.fillText(sub, lx + 6 + tw1, ly + 0.5);
       ctx.restore();
     });
     if (slot >= 26) {

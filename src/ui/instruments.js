@@ -7,7 +7,7 @@ import { h, fmt, fitCanvas, cssVar, clamp, icon } from './util.js?v=86153645a3';
 import { simTime, isPaused } from './clock.js?v=82fce4c276';
 import { createEndoGL } from './endo-gl.js?v=f27c0841b0';
 import { renderEndo } from './endo-render.js?v=5ad939cd04';
-import { FONT } from './charts.js?v=16ca3cbbe3';
+import { FONT } from './charts.js?v=bfa30c1547';
 import { store, updateParams, logAction, varicesPresent } from './store.js?v=8ab9b37d48';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
