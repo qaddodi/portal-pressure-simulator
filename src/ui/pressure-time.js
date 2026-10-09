@@ -5,9 +5,9 @@
 // per day). Changes the learner makes and threshold events are marked where they happened, and
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
-import { store, hiddenNow } from './store.js?v=1d7cd9b00f';
+import { store, hiddenNow } from './store.js?v=edbdbfb0c8';
 import { h, fmt, fitCanvas, cssVar, clamp } from './util.js?v=e803df99cd';
-import { FONT } from './charts.js?v=8004a4ab4c';
+import { FONT } from './charts.js?v=8e2ff3a43c';
 
 // hide: the readout a case can keep unmeasured (store.hiddenReadouts); day: the value on the
 // disease clock (null where the model keeps no daily value).
@@ -553,7 +553,7 @@ export function createPressureTime({ marks = () => [] } = {}) {
 
   function update(f) { ingest(f); redraw(); }
   function redraw() { if (!frame) return; updateHero(); draw(); }
-  for (const k of ['hiddenReadouts', 'hvpgMeasured']) store.on(k, () => { yr.pressure = yr.hvpg = null; });
+  for (const k of ['hiddenReadouts', 'hvpgMeasured', 'showHvpg']) store.on(k, () => { yr.pressure = yr.hvpg = null; });
   // A new patient (or the same one restarted) starts with empty traces.
   function clear() { clearHemo(); days = []; redraw(); }
   return { id: 'scope', label: 'Pressure over time', el, update, ingest, redraw, clear };

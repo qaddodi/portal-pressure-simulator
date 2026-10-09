@@ -8,12 +8,18 @@
 //   (what has happened lives in the timeline's History, under the figure)
 //   Advanced                             physiology knobs (instructor / researcher)
 
-import { store, updateParams, hiddenNow } from './store.js?v=1d7cd9b00f';
+import { store, updateParams, hiddenNow } from './store.js?v=edbdbfb0c8';
 import { h, fmt, icon, svgIcon, toast } from './util.js?v=e803df99cd';
 import { DRUGS } from '../engine/scenario.js?v=d88966abe6';
-import { TILES, VITALS, readoutValue } from './dock.js?v=05169875c5';
-import { activeInterventions } from './inspector.js?v=f2a0cd3e9a';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=39cb087ac0';
+<<<<<<< HEAD
+import { TILES, VITALS, readoutValue } from './dock.js?v=f701dbc3d7';
+import { activeInterventions } from './inspector.js?v=fbb0750c20';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=c318d652d9';
+=======
+import { TILES, VITALS, readoutValue } from './dock.js?v=f701dbc3d7';
+import { activeInterventions } from './inspector.js?v=fbb0750c20';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=c318d652d9';
+>>>>>>> origin/claude/settings-topbar-icon-flvft1
 
 // Where each readout is measured, so a click can show it on the figure.
 const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS', 'DIPS'], spleen: ['V_SPL', 'SV_CONF'], ra: ['IVCS_RA'] };

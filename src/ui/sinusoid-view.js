@@ -21,9 +21,9 @@
 
 import { h, fmt, clamp, lerp } from './util.js?v=e803df99cd';
 import { pressureColor } from './colormap.js?v=6d64a94345';
-import { isPaused } from './clock.js?v=c6de7b1dd0';
+import { isPaused } from './clock.js?v=953a5f70a7';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=a34b064824';
+import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=0e61aa6581';
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
@@ -187,16 +187,17 @@ export function createSinusoidView({ host }) {
     const gap = rgb(v('--og-liver-2', dark ? '#5A3440' : '#C98E7E'));
     let cell = rgb(v('--og-liver-1', dark ? '#85514F' : '#E9C3B6'));
     if (dark) cell = mixv(gap, cell, 0.5);
-    const under = mixv(bg, gap, dark ? 0.55 : 0.5);
+    // The hepatocytes keep the lobule's colours; on a light page the clefts between them are drawn deeper, so each cell reads.
+    const under = mixv(bg, gap, dark ? 0.55 : 0.5), cleft = dark ? under : mixv(bg, gap, 0.8);
     return {
       cBg: bg, cLumen: lumen, cLymph: dark ? mixv(bg, ly, 0.34) : ly,
-      cCell: mixv(under, cell, dark ? 0.85 : 0.94), cUnder: under,
+      cCell: mixv(under, cell, dark ? 0.85 : 0.94), cUnder: cleft,
       cNuc: dark ? v3(40, 18, 34) : v3(132, 70, 100),
       cCol: dark ? v3(199, 186, 153) : v3(237, 222, 186), cBm: dark ? v3(236, 220, 170) : v3(150, 118, 70), aBm: dark ? 0.75 : 0.8,
       cBile: dark ? v3(150, 156, 80) : v3(122, 128, 61),
-      cEndo: dark ? v3(104, 100, 132) : v3(158, 150, 176), cMem: dark ? v3(196, 192, 226) : v3(78, 68, 98), cEndoN: dark ? v3(140, 128, 184) : v3(112, 96, 140),
-      cHscQ: dark ? v3(176, 136, 104) : v3(232, 196, 158), cHscA: dark ? v3(160, 104, 76) : v3(196, 134, 98), cHscN: dark ? v3(84, 46, 32) : v3(150, 92, 68), cDrop: dark ? v3(232, 204, 120) : v3(250, 222, 140),
-      cKup: dark ? v3(128, 112, 160) : v3(196, 182, 220), cKupN: dark ? v3(70, 52, 110) : v3(118, 92, 160),
+      cEndo: dark ? v3(122, 116, 156) : v3(184, 176, 204), cEndoN: dark ? v3(84, 74, 120) : v3(128, 114, 160),
+      cHscQ: dark ? v3(176, 134, 102) : v3(224, 184, 150), cHscA: dark ? v3(160, 102, 74) : v3(190, 128, 94), cHscN: dark ? v3(96, 56, 42) : v3(146, 90, 66), cDrop: dark ? v3(222, 196, 120) : v3(248, 226, 156),
+      cKup: dark ? v3(140, 124, 176) : v3(192, 178, 222), cKupN: dark ? v3(82, 64, 124) : v3(122, 98, 168),
       cChev: dark ? v3(10, 12, 20) : v3(20, 20, 26),
       cAlb: dark ? v3(242, 182, 74) : v3(227, 154, 30), cAlbE: dark ? v3(110, 58, 0) : v3(140, 76, 0),
       cWat: dark ? v3(225, 238, 252) : v3(255, 255, 255), cWatE: dark ? v3(90, 110, 140) : v3(80, 110, 140),

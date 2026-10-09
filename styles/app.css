@@ -3489,3 +3489,9 @@ body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state
 .topbar .stage-bar.top { transition: opacity .2s var(--ease), transform .2s var(--ease), visibility .2s; }
 .app.figure-focus .topbar.two-rows .stage-bar.top { opacity: 0; visibility: hidden; transform: translateY(-8px); pointer-events: none; }
 .vdock.mini .ro-group::before { display: none; }
+
+/* Turning "Always show HVPG" on or off: its readouts fade to the new state (opacity only). */
+@keyframes hvpgSwap { from { opacity: .1; } }
+body.hvpg-swap .metric[data-id="hvpg"] > :not(.k), body.hvpg-swap .pt canvas, body.hvpg-swap .pt-hero .pt-v, body.hvpg-swap .pt-hero .pt-sev,
+body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s var(--ease) both; }
+@media (prefers-reduced-motion: reduce) { body.hvpg-swap .metric[data-id="hvpg"] > :not(.k), body.hvpg-swap .pt canvas, body.hvpg-swap .pt-hero .pt-v, body.hvpg-swap .pt-hero .pt-sev, body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: none; } }
