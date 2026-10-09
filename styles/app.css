@@ -2447,18 +2447,12 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .ab-belly-fill { display: block; position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: color-mix(in srgb, #5fa8e6 60%, transparent); transition: height .6s var(--ease); }
 .ab-tap { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid var(--hairline); }
 .ab-tap-title { font-size: var(--fs-14); font-weight: 600; color: var(--text); }
-.ab-grid { display: grid; grid-template-columns: auto 1fr 1fr; gap: 4px; }
-.ab-ax { display: flex; align-items: center; justify-content: center; font-size: var(--fs-12); color: var(--text-3); padding: 0 4px; }
-.ab-cell { display: grid; align-content: start; gap: 2px; min-height: 44px; padding: 6px 8px; border-radius: var(--r-control); background: var(--surface-3); color: var(--text-3); font-size: var(--fs-12); transition: background .4s var(--ease), color .4s var(--ease); }
-.ab-cell b { font-weight: 500; }
-.ab-cell small:empty { display: none; }
-.ab-cell.on { background: var(--accent); color: #fff; }
-.ab-cell.on b { font-weight: 650; }
+.ab-labs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .ab-tap-line { font-size: var(--fs-14); color: var(--text); font-weight: 500; line-height: 1.4; margin-top: -2px; }
 .ab-tap-line:empty { display: none; }
 .ab-lab { display: grid; gap: 0; padding: 4px 10px; text-align: center; border-radius: var(--r-control); background: var(--surface); border: 1px solid var(--hairline); }
 .ab-lab span { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; }
-.ab-lab b { font-size: var(--fs-20); white-space: nowrap; font-weight: 650; color: var(--text); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.ab-lab b { transition: color .3s var(--ease); font-size: var(--fs-20); white-space: nowrap; font-weight: 650; color: var(--text); line-height: 1.1; font-variant-numeric: tabular-nums; }
 .ab-lab small { font-size: var(--fs-12); color: var(--text-3); }
 .ab-lab[data-hi="true"] { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 .ab-report dd[data-sev="caution"] { color: var(--caution); font-weight: 600; }

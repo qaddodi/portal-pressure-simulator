@@ -233,15 +233,12 @@ export function createAbdomen({ onAction }) {
   // A small belly that fills with the fluid, beside the volume.
   const bellyFill = h('i', { class: 'ab-belly-fill' });
   const belly = h('div', { class: 'ab-belly', 'aria-hidden': 'true' }, bellyFill);
-  // The diagnostic tap as a 2×2 grid, SAAG by total protein, with the matching cause lit.
-  const CELLS = [['ph-lo', 'Cirrhosis'], ['ph-hi', 'Heart failure, Budd–Chiari'], ['np-lo', 'Nephrotic, other'], ['np-hi', 'Peritoneal: TB, cancer']];
-  const cells = Object.fromEntries(CELLS.map(([k, t]) => [k, h('div', { class: 'ab-cell', 'data-k': k }, h('b', {}, t), h('small', {}))]));
+  // The diagnostic tap as three live readouts, g/dL.
+  const lab = (k) => { const v = h('b', {}, '—'); return [h('div', { class: 'ab-lab' }, h('span', {}, k), v), v]; };
+  const [saagEl, saagV] = lab('SAAG'), [tpEl, tpV] = lab('Total protein'), [albEl, albV] = lab('Albumin');
   const tapNote = h('div', { class: 'ab-note' });
-  const tap = h('div', { class: 'ab-tap' },
-    h('div', { class: 'ab-tap-title' }, 'Diagnostic tap'),
-    h('div', { class: 'ab-grid' }, h('span'), h('span', { class: 'ab-ax' }, 'Protein < 2.5'), h('span', { class: 'ab-ax' }, 'Protein ≥ 2.5'),
-      h('span', { class: 'ab-ax' }, 'SAAG ≥ 1.1'), cells['ph-lo'], cells['ph-hi'],
-      h('span', { class: 'ab-ax' }, 'SAAG < 1.1'), cells['np-lo'], cells['np-hi']), tapNote);
+  const tap = h('div', { class: 'ab-tap' }, h('div', { class: 'ab-tap-title' }, 'Diagnostic tap'),
+    h('div', { class: 'ab-labs' }, saagEl, tpEl, albEl), tapNote);
   const extraStats = h('dl', { class: 'kv' });
   const info = h('div', { class: 'ab-report' },
     h('div', { class: 'ab-head' }, h('div', {}, h('div', { class: 'hv-k' }, 'Ascites'), h('div', { class: 'hv-num' }, numEl, h('small', {}, 'L')), gradeEl, trendEl), belly),
@@ -271,12 +268,8 @@ export function createAbdomen({ onAction }) {
     iap.querySelector('.ab-iap-bar').setAttribute('aria-label', `Abdominal pressure ${fmt(a.iap, 0)} mmHg`);
     // A diagnostic tap, g/dL, from the model's protein balance: SAAG ≥ 1.1 means portal hypertension;
     // the total protein then says where the block is.
-    const ph = a.saag >= 1.1, hi = a.totalProtein >= 2.5;
-    const tapped = a.volume > 150, on = tapped ? `${ph ? 'ph' : 'np'}-${hi ? 'hi' : 'lo'}` : '';
-    for (const [k, c] of Object.entries(cells)) {
-      c.classList.toggle('on', k === on);
-      c.lastChild.textContent = k === on ? `SAAG ${fmt(a.saag, 1)} · protein ${fmt(a.totalProtein, 1)} · albumin ${fmt(a.albumin, 1)}` : '';
-    }
+    const tapped = a.volume > 150;
+    saagV.textContent = tapped ? fmt(a.saag, 1) : '—'; tpV.textContent = tapped ? fmt(a.totalProtein, 1) : '—'; albV.textContent = tapped ? fmt(a.albumin, 1) : '—';
     tap.title = tapped ? 'Diagnostic tap, g/dL. SAAG ≥ 1.1 means portal hypertension; total protein ≥ 2.5 then points after the sinusoids, < 2.5 to cirrhosis.' : '';
     tapNote.textContent = tapped ? '' : 'Too little fluid to tap.';
     bellyFill.style.height = `${a.volume > 150 ? 15 + clamp(a.volume / 8000, 0, 1) * 70 : 0}%`;
