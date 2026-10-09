@@ -919,7 +919,11 @@ function wireFloating() {
     app.style.setProperty('--right-occ', px(panelOcc + instrOcc + treatOcc));
     const sheet = wsOn && !ws.classList.contains('side') && ws.dataset.state !== 'peek' ? ws.offsetHeight + gap : 0;
     // On a phone the instruments sheet rises from the bottom edge, over the vitals dock.
-    app.style.setProperty('--bot-occ', px(isPhone() && sheet ? Math.max(vdock + gap, sheet) : vdock + gap + sheet));
+    const bot = isPhone() && sheet ? Math.max(vdock + gap, sheet) : vdock + gap + sheet;
+    app.style.setProperty('--bot-occ', px(bot));
+    // The copyright credit sits outside the app, above every layer, so it takes its height from the root: just above
+    // the dock or any open sheet.
+    document.documentElement.style.setProperty('--credit-bottom', px(bot + 8));
     dispatchEvent(new Event('pps:occ'));
   };
   const soon = () => { if (!pubRaf) pubRaf = requestAnimationFrame(publish); };
