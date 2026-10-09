@@ -3,22 +3,22 @@
 
 import { startHost, host } from './host.js?v=9254d33eb7';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent } from './store.js?v=8ab9b37d48';
-import { createStage } from './stage.js?v=ee02db9aad';
+import { createStage } from './stage.js?v=ef2aaeac40';
 import { createInspector } from './inspector.js?v=5268b7dbbf';
-import { createDock, CUTOFFS } from './dock.js?v=5b4bc781f9';
+import { createDock, CUTOFFS } from './dock.js?v=a6b2dfaa67';
 import { createWhy } from './why.js?v=af501813dd';
 import { createTimeline, LAPSES } from './timeline.js?v=01fdbd2c25';
 import { createLearn } from './learn.js?v=61e728addf';
 import { createCases } from './cases.js?v=9d976302d3';
 import { createCompare } from './compare.js?v=cf84ae7b62';
-import { createCard } from './card.js?v=dc7173d0ca';
-import { createChart, computeFindings } from './chart.js?v=e1a5d8e27a';
+import { createCard } from './card.js?v=7bf9e6fd3f';
+import { createChart, computeFindings } from './chart.js?v=e5fa62cacb';
 import { createHome, ROLES } from './home.js?v=e43f36fc01';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=1032fdba74';
 import { startLMS } from './lms.js?v=1da648d7d0';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=cf697ad40b';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=f1e65a1042';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=dc393aabea';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=86153645a3';
@@ -141,7 +141,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=e19628fc18'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=dd972f9dd9'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
