@@ -4,10 +4,10 @@
 // in the timeline as one entry.
 
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=dc393aabea';
-import { store, updateParams } from './store.js?v=8ab9b37d48';
+import { store, updateParams } from './store.js?v=b1f203f92d';
 import { fmt, fmtFlow, clamp, toast } from './util.js?v=86153645a3';
 import { aboutVessel, aboutOrgan } from './about.js?v=7bfd4cc614';
-import { lobuleState } from './lobule-model.js?v=6e45ed9029';
+import { lobuleState } from './lobule-model.js?v=2854fecf7f';
 import { LABEL_VESSEL } from './anatomy.js?v=6abc18b290';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -265,6 +265,7 @@ function lobuleCard(sel, ctx) {
         : 'A leaky capillary lined by fenestrated endothelium, between plates of hepatocytes one cell thick. Sinusoids merge toward the central vein, so blood speeds up as it goes; the highlighted path runs to the central vein.',
       m.fibSin > 0.1 ? 'Capillarization: the fenestrae close and collagen fills the space of Disse (pale sleeve), raising sinusoidal resistance: this is what raises HVPG in cirrhosis.' : '',
       m.congU > 0.1 ? 'Zone 3 sinusoids are dilated and packed with blood: the outflow is backing up.' : ''].filter(Boolean)),
+      { type: 'button', id: 'sinusoid', label: 'Zoom into the sinusoid', icon: 'explore', run: () => store.set({ sinusoid: true }), note: () => 'Its wall up close: fenestrae, the space of Disse, a stellate cell and the hepatocytes.' },
       fibrosisVerb('sin'), CIRRHOSIS, stat('Into the central vein', (m) => mm(m.P3)), stat('Sinusoidal flow', (m) => pc(m.flow))] };
     case 'cv': return { ...base, title: 'Central vein', value: pv((m) => m.P3),
       status: (f) => (L(f).congU > 0.1 ? ['warn', 'Congested'] : null),
