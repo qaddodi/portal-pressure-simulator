@@ -5,15 +5,14 @@ import { startHost, host } from './host.js?v=b54d9b1fcc';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=1d7cd9b00f';
 import { createStage } from './stage.js?v=c11314c9d7';
 import { createInspector } from './inspector.js?v=eb9187916e';
-import { createDock, CUTOFFS } from './dock.js?v=d213d1b72b';
-import { GUIDE_TABLE } from '../engine/guidelines.js?v=61be844d06';
+import { createDock, CUTOFFS } from './dock.js?v=4c8dfe3cf5';
 import { createWhy } from './why.js?v=f34a42cc3f';
 import { createTimeline, LAPSES } from './timeline.js?v=179a90e883';
 import { createLearn } from './learn.js?v=7593a68df4';
 import { createCases } from './cases.js?v=bee5d39a80';
 import { createCompare } from './compare.js?v=0838b1d3c8';
 import { createCard } from './card.js?v=fd813e0b26';
-import { createChart, computeFindings } from './chart.js?v=d17ed19d66';
+import { createChart, computeFindings } from './chart.js?v=708730546c';
 import { createHome, ROLES } from './home.js?v=41227085e4';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=0f0719fa20';
 import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=85f06306e3';
@@ -1280,11 +1279,6 @@ function openAbout(section) {
       h('thead', {}, h('tr', {}, ['Readout', 'Normal', 'Borderline', 'Past a threshold', 'High risk'].map((x, i) => h('th', {}, i ? h('span', { class: 'cut-h' }, h('i', { class: 'dot', 'data-sev': ['', 'ok', 'caution', 'danger', 'critical'][i] }), x) : x)))),
       h('tbody', {}, CUTOFFS.map((r) => h('tr', {}, r.map((c) => h('td', {}, c))))))),
     h('p', { class: 'sub' }, 'Thresholds belong to gradients, not to the color of a vessel. HVPG ≥ 10 mmHg is clinically significant portal hypertension in cirrhosis. HVPG ≥ 20 mmHg matters as a prognostic finding when measured during an acute variceal bleed. 12 mmHg is not a bleeding threshold: varices can bleed below it, and it is only a usual post-TIPS target for the direct gradient.'),
-    h('h3', { 'data-sec': 'guidelines' }, 'Guideline lens'),
-    h('p', { class: 'sub' }, 'Measure › Guidelines places the patient on these rules, using the stiffness, platelets, HVPG, varices and ascites the model shows. They are written for chronic liver disease; for a block before or after the sinusoids the lens says they do not apply. Illustrative, never patient advice. Where AASLD 2024 states the same rule it is listed as a source; AASLD and Baveno VII use the same HVPG cut-offs.'),
-    h('div', { class: 'table-wrap' }, h('table', { class: 'cut-table' },
-      h('thead', {}, h('tr', {}, ['Rule', 'Criterion', 'Source'].map((x) => h('th', {}, x)))),
-      h('tbody', {}, GUIDE_TABLE.map((r) => h('tr', {}, r.map((c) => h('td', {}, c))))))),
     h('h3', {}, 'Reference review'),
     h('p', {}, 'Baveno VII (2022) is the basis for the thresholds above. They were reviewed against Baveno VIII (J Hepatol, August 2026), whose abstract states that earlier HVPG measurement recommendations remain valid where they were not revised. A line-by-line check of each statement against the full Baveno VIII text is still pending.'),
     h('h3', {}, 'Clinical review'),
