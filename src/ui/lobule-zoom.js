@@ -26,7 +26,7 @@ import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=dd2bf5fddf';
 import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=e803df99cd';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { NODES, EDGES } from '../engine/topology.js?v=dc393aabea';
-import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, F_NOCASE, ORIGIN_GREY } from './veins-gl.js?v=b6b2dca81e';
+import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, F_NOCASE, ORIGIN_GREY } from './veins-gl.js?v=e944e0d434';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
 import { createSinusoidView } from './sinusoid-view.js?v=28c4173e64';
 
