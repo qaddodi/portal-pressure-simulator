@@ -2169,7 +2169,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .cath-label { position: absolute; left: 0; top: 0; display: inline-flex; flex-direction: column; align-items: center; gap: 1px; padding: 7px 16px 8px; border-radius: 14px; white-space: nowrap;
   --c: var(--text); background: var(--surface); color: var(--text); font: 500 12px var(--font-ui);
   box-shadow: 0 8px 24px rgba(16, 20, 30, .22), 0 0 0 2px color-mix(in srgb, var(--c) 70%, transparent);
-  translate: -50% calc(-100% - 18px); animation: cathIn .35s var(--ease) both; }
+  translate: -50% calc(-100% - 18px); transition: opacity .4s var(--ease), scale .4s var(--ease); }
 /* A pointer down to the tip (or up to the wedged vein, for the reading ahead of it). */
 .cath-label::after { content: ''; position: absolute; left: 50%; bottom: -8px; width: 14px; height: 14px; translate: -50% 0; rotate: 45deg;
   background: var(--surface); box-shadow: 2px 2px 0 0 color-mix(in srgb, var(--c) 70%, transparent); z-index: -1; }
@@ -2185,19 +2185,23 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .cath-label.ok { --c: var(--ok); } .cath-label.caution { --c: color-mix(in srgb, var(--caution) 80%, var(--text)); } .cath-label.danger { --c: var(--danger); }
 @media (max-width: 600px) { .cath-label { padding: 5px 12px 6px; } .cath-label b { font-size: 21px; } .cath-label small, .cath-label b + span { font-size: 11px; } }
 /* The result: both readings stacked, a bracket joining them and the difference worked out beside it. */
-.cath-sum { position: absolute; inset: 0; }
-.cath-leads { position: absolute; left: 0; top: 0; overflow: visible; animation: cathIn .35s var(--ease) both; }
+.cath-sum { position: absolute; inset: 0; transition: opacity .4s var(--ease); }
+.cath-leads { position: absolute; left: 0; top: 0; overflow: visible; }
 .cath-leads .lead { fill: none; stroke-width: 1.6; stroke: var(--text-3); stroke-linejoin: round; }
 .cath-leads .lead-dot { stroke: var(--surface); stroke-width: 1.5; fill: var(--text-3); }
 .cath-leads .free { stroke: var(--tr-hv); } .cath-leads .lead-dot.free { fill: var(--tr-hv); stroke: var(--surface); }
 .cath-leads .wedge { stroke: var(--tr-wedge); } .cath-leads .lead-dot.wedge { fill: var(--tr-wedge); stroke: var(--surface); }
-.cath-sum-box { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 4px; animation: cathIn .35s var(--ease) both; }
+.cath-sum-box { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 4px; transition: scale .4s var(--ease); }
 .cath-sum-col { display: flex; flex-direction: column; gap: 10px; }
-.cath-label.in-sum { position: relative; translate: none; animation: none; }
+.cath-label.in-sum { position: relative; translate: none; transition: none; }
 .cath-label.in-sum::after { display: none; }
 .cath-brace { flex: none; overflow: visible; }
 .cath-brace path { fill: none; stroke: var(--text-3); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-@keyframes cathIn { from { opacity: 0; } }
+/* A reading fades in when it appears and out when it goes (opacity and scale only). */
+.cath-label.cath-pre, .cath-sum.cath-pre { opacity: 0; }
+.cath-label.cath-pre { scale: .9; }
+.cath-sum.cath-pre .cath-sum-box { scale: .94; }
+@media (prefers-reduced-motion: reduce) { .cath-label, .cath-sum-box { transition-property: opacity; } .cath-label.cath-pre, .cath-sum.cath-pre .cath-sum-box { scale: 1; } }
 /* HVPG procedure (Measure › HVPG): the monitor canvas, the readings and the four steps. */
 .instrument-view[data-pane="hvpg"] { gap: 10px; }
 .instrument-view[data-pane="hvpg"] > .hvpg-bar { grid-column: 1 / -1; }

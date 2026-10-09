@@ -2873,9 +2873,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function cathLabels() {
     const st = cath.st, at = cath.at;
-    if (!st || !at) { cath.labels.replaceChildren(); return; }
-    // Rebuilt only when which labels show changes (each pops in once); their numbers update in place.
-    const want = (st.labels || []).map((l) => l.key + '|' + (l.cls || '')).join('/');
+    if (!st || !at) { cath.labels.replaceChildren(); cath.made?.clear(); return; }
+    // Each label keeps its element while its key is shown (numbers update in place). A new key fades in
+    // (opacity and scale, eased); one that goes fades out before it is removed.
+    const made = cath.made || (cath.made = new Map());
+    const want = new Map((st.labels || []).map((l) => [l.key, l]));
+    for (const [k, el] of made) if (!want.has(k)) { made.delete(k); el.classList.add('cath-pre'); setTimeout(() => el.remove(), 500); }
     const pill = (l, cls = '') => {
       const el = document.createElement('div');
       el.className = `cath-label ${l.cls || ''} ${cls}`; el.dataset.at = l.at || '';
@@ -2885,27 +2888,29 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return el;
     };
     const fill = (el, l) => { if (el.firstChild.textContent !== l.kicker) el.firstChild.textContent = l.kicker || ''; const b = el.querySelector('b'); if (b.textContent !== l.text) b.textContent = l.text; };
-    if (cath.labels.dataset.k !== want) {
-      cath.labels.dataset.k = want;
-      cath.labels.replaceChildren(...(st.labels || []).map((l) => {
-        if (l.at !== 'sum') return pill(l);
-        // The two readings stacked (wedged above free, as on the tracing), a bracket joining them and
-        // the difference beside it; thin leaders run from each reading to where it was taken.
-        const el = document.createElement('div'); el.className = 'cath-sum';
-        const svg = s('svg', { class: 'cath-leads' });
-        const col = document.createElement('div'); col.className = 'cath-sum-col';
-        col.append(...l.rows.map((r) => pill(r, 'in-sum')));
-        const brace = s('svg', { class: 'cath-brace', width: 22 });
-        brace.append(s('path', {}));
-        const box = document.createElement('div'); box.className = 'cath-sum-box';
-        box.append(col, brace, pill(l.calc, 'in-sum calc'));
-        el.append(svg, box);
-        return el;
-      }));
+    const build = (l) => {
+      if (l.at !== 'sum') return pill(l);
+      // The two readings stacked (wedged above free, as on the tracing), a bracket joining them and
+      // the difference beside it; thin leaders run from each reading to where it was taken.
+      const el = document.createElement('div'); el.className = 'cath-sum';
+      const svg = s('svg', { class: 'cath-leads' });
+      const col = document.createElement('div'); col.className = 'cath-sum-col';
+      col.append(...l.rows.map((r) => pill(r, 'in-sum')));
+      const brace = s('svg', { class: 'cath-brace', width: 22 });
+      brace.append(s('path', {}));
+      const box = document.createElement('div'); box.className = 'cath-sum-box';
+      box.append(col, brace, pill(l.calc, 'in-sum calc'));
+      el.append(svg, box);
+      return el;
+    };
+    for (const [k, l] of want) {
+      if (made.has(k)) continue;
+      const el = build(l); el.classList.add('cath-pre'); cath.labels.append(el); made.set(k, el);
+      void el.offsetWidth; el.classList.remove('cath-pre');   // the transition runs from the hidden state
     }
     const W = wrap.clientWidth, H = wrap.clientHeight;
-    [...cath.labels.children].forEach((el, i) => {
-      const l = st.labels[i];
+    want.forEach((l, k) => {
+      const el = made.get(k);
       if (l.at !== 'sum') {
         fill(el, l);
         const p = el.dataset.at === 'ahead' ? at.ahead : at.tip;
@@ -4646,7 +4651,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     labelScale: () => labelScale,
     /** The HVPG catheter: null removes it; else { u (0..1 of the way in), balloon, column (0..1), columnColor, ring, pulse,
      *  opacity, labels: [{ key, at: 'tip' | 'ahead', kicker, text, unit, cls }] }. */
-    setCatheter(st) { cath.st = st; wrap.classList.toggle('cath-on', !!st); if (!st) { cath.rc = 0; cath.route = null; if (veins?.canCath) veins.setCath(null); cathVer++; if (cathTint) { cathTint = null; cath.tintKey = ''; syncVeins(easeInOut(morph)); } cath.g.style.display = 'none'; cath.labels.hidden = true; cath.labels.replaceChildren(); cath.labels.dataset.k = ''; cath.at = null; return; } cathPaint(); },
+    setCatheter(st) { cath.st = st; wrap.classList.toggle('cath-on', !!st); if (!st) { cath.rc = 0; cath.route = null; if (veins?.canCath) veins.setCath(null); cathVer++; if (cathTint) { cathTint = null; cath.tintKey = ''; syncVeins(easeInOut(morph)); } cath.g.style.display = 'none'; cath.labels.hidden = true; cath.labels.replaceChildren(); cath.made?.clear(); cath.at = null; return; } cathPaint(); },
     /** Frame the catheter's route ('route'), its tip close up ('tip'), or go back to the view before ('home'). */
     cathFocus,
     /** The vessel the Doppler is reading, glowing green while the Doppler instrument is open (null: none). */
