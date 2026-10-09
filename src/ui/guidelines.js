@@ -3,7 +3,7 @@
 // a one-line reason from the live readings. The rules themselves are in engine/guidelines.js.
 
 import { h } from './util.js?v=86153645a3';
-import { store } from './store.js?v=8ab9b37d48';
+import { store } from './store.js?v=472d889990';
 import { guidelineLens } from '../engine/guidelines.js?v=61be844d06';
 
 const DOT = { yes: 'danger', maybe: 'caution', no: 'ok', na: 'none' };
