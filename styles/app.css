@@ -3541,13 +3541,35 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .ab-warn:empty { display: none; }
 .ab-iap { gap: 6px; }
 
-/* Phone: compact card and sheet headers so the title row and Measure tabs take less of the
-   visible sheet; a smaller title with the close inline, and one-line icon + name tabs. */
+/* Phone: a slimmer card header. The title is centred on the row; the close button sits in the
+   right corner with a 44px tap area that overlaps the row below instead of making the bar taller;
+   a quiet status (e.g. "2 running") sits in the left corner. The Tests row, which scrolls sideways,
+   fades at an edge that hides more tabs and shows a small chevron there. */
 @media (max-width: 767px) {
-  .card-head.card-head { min-height: 40px; padding: 2px 4px 0 14px !important; }
-  .card-head .card-title { font-size: var(--fs-14) !important; gap: 6px; }
+  .card-head.card-head { position: relative; min-height: 30px; padding: 4px 44px 0 !important; justify-content: center; }
+  /* No visible drag handle: the title row drags the sheet. The button stays for keyboard resizing, only seen on focus. */
+  .panel-grab, .sheet-grab { position: absolute; top: 0; left: 50%; width: 56px; height: 10px; z-index: 2; transform: translateX(-50%); opacity: 0; transition: opacity .15s var(--ease); }
+  .panel-grab::before, .sheet-grab::before { top: 3px; }
+  .panel-grab:focus-visible, .sheet-grab:focus-visible { opacity: 1; }
+  .card-head .card-title { flex: 0 1 auto; justify-content: center; font-size: var(--fs-14) !important; gap: 6px; }
   .card-head .card-title > svg { width: var(--ic-s) !important; height: var(--ic-s) !important; }
-  .card-head .card-close.card-close { width: 32px; height: 32px; }
+  .card-head .card-close.card-close { position: absolute; right: 0; top: 50%; width: 44px; height: 44px; transform: translateY(-50%); z-index: 1; }
+  .card-head .card-close svg { width: var(--ic-s); height: var(--ic-s); }
+  .card-head .card-meta, .card-head .workspace-live { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); max-width: calc(50% - 90px); overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
+  .tabs-cue { position: relative; flex: none; margin: 0 10px 6px; }
+  .tabs-cue > .instr-tabs { margin: 0; padding: 2px; }
+  .cue-edge { position: absolute; top: 0; bottom: 0; width: 30px; display: grid; place-items: center; padding: 0; border: 0; color: var(--text-2); cursor: pointer; opacity: 0; pointer-events: none; transition: opacity .22s var(--ease); }
+  .cue-edge svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .cue-l { left: 0; border-radius: 10px 0 0 10px; background: linear-gradient(to right, var(--surface-2) 45%, transparent); justify-content: start; padding-left: 5px; }
+  .cue-r { right: 0; border-radius: 0 10px 10px 0; background: linear-gradient(to left, var(--surface-2) 45%, transparent); justify-content: end; padding-right: 5px; }
+  .tabs-cue.more-l > .cue-l, .tabs-cue.more-r > .cue-r { opacity: 1; pointer-events: auto; }
   .instr-tabs { margin: 0 10px 6px; padding: 2px; }
   .instr-tab, .instr-tab[aria-selected="true"] { flex-direction: row; gap: 4px; height: 28px; padding: 0 8px; font-size: var(--fs-12); }
 }
+.tabs-cue { flex: none; min-width: 0; }
+.tabs-cue[hidden], .cue-edge { display: none; }
+@media (max-width: 767px) { .cue-edge { display: grid; } }
+
+/* Treat's Drugs / Fluids / Procedures tabs reuse the Tests card's tab row (.instr-tabs); the pane under it needs no extra top gap. */
+.treat-card .instr-tab { flex: 1 1 0; }
+.treat-pane { padding-top: 4px; }

@@ -19,7 +19,7 @@ const EN = {
   'menu.language': 'Language', 'menu.access': 'Accessibility', 'menu.describe': 'Describe the patient', 'menu.sonify': 'Sonify pressure', 'menu.narrator': 'Narrator caption',
   'menu.settings': 'Settings', 'menu.help': 'Help', 'menu.reset': 'Reset everything…', 'menu.shortcuts': 'Keyboard shortcuts', 'menu.refs': 'References', 'menu.credits': 'Credits',
   'menu.home': 'Home', 'menu.palette': 'Search', 'menu.guide': 'Guide', 'menu.about': 'About the model', 'menu.privacy': 'Privacy',
-  'tabs.chart': 'Patient', 'tabs.instruments': 'Measure',
+  'tabs.chart': 'Patient', 'tabs.instruments': 'Tests',
 };
 const ES = {
   'app.tagline': 'Un modelo vivo y basado en la física de la circulación portal. Aumente una resistencia en cualquier punto entre el intestino y el corazón y la sangre encontrará otro camino.',

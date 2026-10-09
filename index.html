@@ -21,7 +21,7 @@
   <link rel="stylesheet" href="fonts/fonts.css" />
   <script>try{var t=localStorage.getItem('pps.theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);var d=t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);if(d){document.documentElement.style.background='#0E1422';document.documentElement.style.colorScheme='dark'}}catch(e){}</script>
   <link rel="stylesheet" href="styles/tokens.css?v=7dacc636b7" />
-  <link rel="stylesheet" href="styles/app.css?v=0a83250c2b" />
+  <link rel="stylesheet" href="styles/app.css?v=9ca61b7acf" />
   <style>
     #boot { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; height: 100lvh; z-index: 2147483647; display: grid; place-items: center; background: var(--bg, #FBFAF7); transition: opacity .45s ease, visibility .45s; }
     #boot.done { opacity: 0; visibility: hidden; pointer-events: none; }
@@ -149,9 +149,9 @@
         </div>
       </div>
       <div class="top-right float-pill">
-        <button class="find-badge" id="btnInspector" aria-pressed="false" aria-haspopup="dialog" aria-controls="panel" title="Patient chart: what is abnormal and why"><svg><use href="#i-activity"/></svg><span class="fb-l">Findings</span><span class="fb-n" id="findBadge" data-sev="ok"><svg><use href="#i-check"/></svg></span></button>
+        <button class="find-badge" id="btnInspector" aria-pressed="false" aria-haspopup="dialog" aria-controls="panel" title="Patient chart: what is abnormal and why"><svg><use href="#i-activity"/></svg><span class="fb-l">Patient</span><span class="fb-n" id="findBadge" data-sev="ok"><svg><use href="#i-check"/></svg></span></button>
         <button class="tb-act" id="btnTreat" aria-haspopup="dialog" aria-expanded="false" aria-controls="treatCard" title="Treat: drugs, fluids and procedures (T)"><svg><use href="#i-pill"/></svg><span>Treat</span></button>
-        <button class="measure-launch tb-act" id="tabInstruments" aria-pressed="false" aria-controls="dock" title="Open instrument workspace (I)"><svg><use href="#i-gauge"/></svg><span data-i18n="tabs.instruments">Measure</span></button>
+        <button class="measure-launch tb-act" id="tabInstruments" aria-pressed="false" aria-controls="dock" title="Tests: pressures, HVPG, Doppler, endoscopy and more (I)"><svg><use href="#i-gauge"/></svg><span data-i18n="tabs.instruments">Tests</span></button>
         <span class="tb-sep" aria-hidden="true"></span>
         <button class="ib" id="btnSinPlay" aria-label="Pause" title="Play / pause (Space)" hidden><svg><use href="#i-pause"/></svg></button>
         <button class="ib" id="btnSettings" aria-haspopup="dialog" aria-label="Settings" title="Settings"><svg><use href="#i-gear"/></svg></button>
@@ -189,11 +189,11 @@
     </main>
 
     <div class="panel-scrim" id="panelScrim" aria-hidden="true"></div>
-    <aside class="panel float-ui stage-blocker" id="panel" aria-label="Findings" data-safe="right">
+    <aside class="panel float-ui stage-blocker" id="panel" aria-label="Patient" data-safe="right">
       <div class="lesson-rail" id="panelLesson" aria-label="Lesson"></div>
       <div class="panel-head card-head">
-        <h2 class="card-title" id="panelTitle"><svg><use href="#i-activity"/></svg><span>Findings</span></h2>
-        <button class="ib card-close" id="panelClose" aria-label="Close Findings" title="Close (Esc)"><svg><use href="#i-close"/></svg></button>
+        <h2 class="card-title" id="panelTitle"><svg><use href="#i-activity"/></svg><span>Patient</span></h2>
+        <button class="ib card-close" id="panelClose" aria-label="Close Patient" title="Close (Esc)"><svg><use href="#i-close"/></svg></button>
       </div>
       <div class="panel-page" id="panelChart" role="region" aria-labelledby="panelTitle">
         <div id="panelCase"></div>
@@ -210,17 +210,17 @@
   <div class="toast-wrap" id="toasts"></div>
   <div class="sr-only" aria-live="polite" id="live"></div>
 
-  <link rel="modulepreload" href="src/ui/stage.js?v=9b03251eb8" />
+  <link rel="modulepreload" href="src/ui/stage.js?v=580f4adad8" />
   <link rel="modulepreload" href="src/ui/anatomy.js?v=89191aa586" />
-  <link rel="modulepreload" href="src/ui/util.js?v=e803df99cd" />
+  <link rel="modulepreload" href="src/ui/util.js?v=159a875f7c" />
   <link rel="modulepreload" href="src/ui/store.js?v=edbdbfb0c8" />
   <link rel="modulepreload" href="src/ui/colormap.js?v=6d64a94345" />
-  <link rel="modulepreload" href="src/ui/inspector.js?v=fbb0750c20" />
-  <link rel="modulepreload" href="src/ui/dock.js?v=109c4e0f59" />
-  <link rel="modulepreload" href="src/ui/charts.js?v=8e2ff3a43c" />
-  <link rel="modulepreload" href="src/ui/instruments.js?v=df01721d3c" />
-  <link rel="modulepreload" href="src/ui/timeline.js?v=55e9506496" />
+  <link rel="modulepreload" href="src/ui/inspector.js?v=622a32764a" />
+  <link rel="modulepreload" href="src/ui/dock.js?v=efeb782ee1" />
+  <link rel="modulepreload" href="src/ui/charts.js?v=f1cf153a8c" />
+  <link rel="modulepreload" href="src/ui/instruments.js?v=93dfc9a605" />
+  <link rel="modulepreload" href="src/ui/timeline.js?v=641f5802ae" />
   <link rel="modulepreload" href="src/engine/topology.js?v=dc393aabea" />
-  <script type="module" src="src/ui/main.js?v=439120dd95"></script>
+  <script type="module" src="src/ui/main.js?v=3a7d3a2528"></script>
 </body>
 </html>

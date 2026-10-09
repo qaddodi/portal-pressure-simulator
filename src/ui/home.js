@@ -3,10 +3,10 @@
 // brings it back. A lesson or case then runs in the ordinary workspace with a slim banner.
 
 import { store } from './store.js?v=edbdbfb0c8';
-import { h, svgIcon, icon } from './util.js?v=e803df99cd';
-import { LESSONS } from './learn.js?v=1f6b87c7d2';
-import { CASES } from './cases.js?v=e22b3978f2';
-import { t } from '../i18n/i18n.js?v=424fa7e848';
+import { h, svgIcon, icon } from './util.js?v=159a875f7c';
+import { LESSONS } from './learn.js?v=dd00317c68';
+import { CASES } from './cases.js?v=8508205278';
+import { t } from '../i18n/i18n.js?v=a34d291061';
 import { exportCSV, exportXAPI, learnerName, setLearnerName, records } from './records.js?v=50fb9dd463';
 import { SNAPSHOTS, PATH } from './snapshots.js?v=d65b65cf14';
 import { pressureColor } from './colormap.js?v=6d64a94345';
