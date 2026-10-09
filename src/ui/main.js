@@ -179,12 +179,13 @@ async function main() {
   host.on('error', (m) => { console.error(m.message); toast('Engine error: see the console.', 'bad'); });
 
   // The Sinusoid button shows only in the Lobule view: it is one level further down.
-  const syncViewSeg = () => { const st = store.get(), cur = st.lobule && st.sinusoid ? 'sinusoid' : st.lobule ? 'lobule' : st.view; $$('#viewSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === cur))); $('#viewSeg [data-view="sinusoid"]').hidden = !st.lobule || !sinusoidSupported(); app.classList.toggle('sin-focus', !!(st.lobule && st.sinusoid)); };
+  const syncViewSeg = () => { const st = store.get(), cur = st.lobule && st.sinusoid ? 'sinusoid' : st.lobule ? 'lobule' : st.view; $$('#viewSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === cur))); $('#viewSeg [data-view="sinusoid"]').hidden = !st.lobule || !sinusoidSupported(); app.classList.toggle('sin-focus', !!(st.lobule && st.sinusoid)); $('#btnSinPlay').hidden = !(st.lobule && st.sinusoid); };
   store.on('view', (v) => { stage.setView(v); syncViewSeg(); });
   store.on('lobule', syncViewSeg);
   store.on('sinusoid', syncViewSeg);
   // The sinusoid view hides the timeline, so it gets its own play / pause (Space works too).
-  const sinPlay = $('#btnSinPlay'), syncSinPlay = () => { const on = store.get().running; sinPlay.setAttribute('aria-label', on ? 'Pause' : 'Play'); sinPlay.replaceChildren(icon(on ? 'pause' : 'play')); };
+  const sinPlay = $('#btnSinPlay');
+  let sinOn = null, syncSinPlay = () => { const on = store.get().running; if (on === sinOn) return; sinOn = on; sinPlay.setAttribute('aria-label', on ? 'Pause' : 'Play'); sinPlay.replaceChildren(icon(on ? 'pause' : 'play')); };
   sinPlay.addEventListener('click', () => host.send({ type: 'run', running: !store.get().running }));
   store.on('running', syncSinPlay);
   store.on('tool', (t) => {
