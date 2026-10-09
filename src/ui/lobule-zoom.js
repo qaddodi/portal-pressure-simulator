@@ -26,13 +26,13 @@ import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=6e45ed9029';
 import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=86153645a3';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { NODES, EDGES } from '../engine/topology.js?v=dc393aabea';
-import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=7d7c2490aa';
+import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=ac2a93ed30';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const TAU = Math.PI * 2;
 const N = N_SAMPLES;
-const MAXT = 300;                       // GPU rows: the lobule has ~170 vessels, ~270 with the lymphatics
+const MAXT = 320;                       // GPU rows: the lobule has ~170 vessels, ~285 with the lymphatics
 const LIGHT = (() => { const n = Math.hypot(-0.42, -0.91); return [-0.42 / n, -0.91 / n]; })();
 const BLOOD = {
   originCol: [[0.9, 0.6, 0.16], [0.09, 0.62, 0.55], [0.49, 0.36, 0.86], [0.84, 0.2, 0.28], [0.44, 0.56, 0.75]],
@@ -506,6 +506,11 @@ export function createLobuleZoom({ host }) {
   // ── State ──
   let F = null, fade = 0, raf = 0, last = 0, lastPaint = 0;
   let geo = null, geoKey = '', model = null;
+  // Where each vessel's moving marks are (blood stream, chevrons, lymph drops), kept by tube id so a
+  // rebuilt geometry (a resize, the phone's toolbar sliding) carries on from the same place, not a jump.
+  const motion = new Map();
+  let lyV = null;
+  const motionOf = (t) => { let mo = motion.get(t.id); if (!mo) motion.set(t.id, (mo = {})); return mo; };
   let drawVersion = 0, idleDrawn = '', lastSurface = 0;
   const binCache = new Map();
   store.on('*', () => { drawVersion++; });
@@ -714,6 +719,9 @@ export function createLobuleZoom({ host }) {
       join(E[0], E[1], [side, d], R * 0.004);
     }
     for (const t of L1) add('ly', curve((u) => at(beside(t), u)), { lymph: true, lvl: 1 });
+    // …and on along the innermost sinusoids, thinning out toward the central vein (lymph forms all along
+    // the sinusoid, least where the plates converge), so the channel fades in rather than starting abruptly.
+    for (const t of L2) add('ly', curve((u) => at(beside(t), u)), { lymph: true, lvl: 2 });
     return { W, H, phone, R, cx, cy, rt, rs0, rcv0, lobules, tubes, bloodTubes: tubes.filter((t) => !t.lymph), joins, triads, inlets, L0, L1, L2, cv, septaPC, cells, hsc, lymph };
   }
   function hexFrac(x, y, cx, cy, R) {
@@ -1240,12 +1248,14 @@ export function createLobuleZoom({ host }) {
       case 'bd': return Math.max(1.6, R * 0.0145);
       case 'tw': return Math.max(1.1, R * 0.0055 * clamp(m.art, 0.6, 2.2) ** 0.3);
       // Lymphatics widen as drainage rises (capped, so the tract lymphatic never swamps the triad).
-      case 'ly': return Math.max(1.1, g.rs0 * 0.5 * lyW(m, 0.45));   // the space of Disse fills and widens
+      case 'ly': return Math.max(1.1, g.rs0 * 0.5 * lyW(m, 0.45)) * lyTaper(t.rho[i]);   // the space of Disse fills and widens; tapers toward the central vein
       case 'lt': return Math.max(1.5, R * 0.0075 * lyW(m, 0.4));
       case 'lv': return R * 0.016 * lyW(m, 0.4);
       default: return rs;
     }
   }
+  // The space of Disse narrows to nothing as it nears the central vein.
+  const lyTaper = (rho) => 0.06 + 0.94 * smooth(0.13, 0.42, rho);
   // Lymphatic caliber against the healthy flow: 1 at a normal rate, up to 1 + k at four times it.
   const lyW = (m, k) => 1 + k * smooth(1, 4, lymphRate(m)) - 0.12 * (1 - smooth(0.3, 1, lymphRate(m)));
   // Lymph as the sinusoids filter it: f, how hard (0 at the healthy rate, 1 at four times it); over, how far
@@ -1392,11 +1402,16 @@ export function createLobuleZoom({ host }) {
       else if (lv === 'in') { v = 24 * Math.sign(pr) * Math.sqrt(Math.abs(pr)); occ = clamp(0.55 * Math.abs(pr) ** 0.6, 0.05, 0.95); f0 = 1; f1 = 1; rev = pr < -0.02 ? 1 : 0; oe = LOBE.pre; }
       else if (lv === 'tw') { v = 30 * Math.sqrt(ar); occ = clamp(0.5 * ar ** 0.6, 0.05, 0.95); f0 = 1; oe = LOBE.a; }
       else continue;   // vessels seen end-on carry no streaks; lymph moves as the drops on the overlay, not as streaks
-      const sm = t.stream || (t.stream = { D: (t.id * 977) % PERIOD, rev: rev });
-      sm.D = (((sm.D + v * dt) % PERIOD) + PERIOD) % PERIOD;
+      const mo = motionOf(t), sm = mo.stream || (mo.stream = { D: (t.id * 977) % PERIOD, rev: rev, v });
+      // Speed eases toward the model's (a new frame changes it in a step), so the marks never lurch.
+      sm.v = Math.sign(v) !== Math.sign(sm.v) ? v : sm.v + (v - sm.v) * ease;
+      sm.D = (((sm.D + sm.v * dt) % PERIOD) + PERIOD) % PERIOD;
+      // Density and stasis ease the same way, so the shimmer thickens or thins instead of popping.
+      sm.occ = sm.occ == null ? occ : sm.occ + (occ - sm.occ) * ease;
+      sm.st = sm.st == null ? stasis : sm.st + (stasis - sm.st) * ease;
       sm.rev += (rev - sm.rev) * ease;
       const o = t.id * FLOW_TEXELS * 4, Rm = t.maxR || G.rs0;
-      flowData[o] = sm.D; flowData[o + 1] = v; flowData[o + 2] = (occ * Math.max(Math.abs(v), 2) * sumK(Rm)) / s0; flowData[o + 3] = stasis;
+      flowData[o] = sm.D; flowData[o + 1] = sm.v; flowData[o + 2] = (sm.occ * Math.max(Math.abs(sm.v), 2) * sumK(Rm)) / s0; flowData[o + 3] = sm.st;
       flowData[o + 4] = f0; flowData[o + 5] = f1; flowData[o + 6] = strength; flowData[o + 7] = sm.rev;
       if (origin && origins && !t.lymph) { const kk = EI[oe]; for (let c = 0; c < ORIGIN_N; c++) flowData[o + 8 + c] = origins[kk * ORIGIN_N + c]; }
     }
@@ -1681,9 +1696,75 @@ export function createLobuleZoom({ host }) {
       c.restore();
     }
     if (lymphOn && !flat && !m.hide) {
+      const p = lyProt(m), still = reduce.matches, lw = 0.9 / V.k, seal = 1 - smooth(0.15, 0.6, p);
+      // Lymph as drops drifting along the space of Disse and the terminal lymphatics to the portal tract:
+      // faster as more fluid filters (the volume); each carries albumin beads, as many as its protein allows
+      // (the concentration). A fixed number of drops per vessel (a count that followed the rate would make
+      // them all jump to new places), and speed eased toward the model's. One path per ink, no blur.
+      const lyR = clamp(lymphRate(m), 0.2, 6), beads = Math.round(1 + 4 * p);
+      const gapW = G.R * 0.06, minR = 2.6 / V.k;
+      lyV = lyV == null ? lyR : lyV + (lyR - lyV) * -Math.expm1(-dt / 0.5);
+      const vW = G.R * 0.035 * Math.sqrt(lyV);
+      const drops = [];
+      for (const t of G.tubes) {
+        if (t.kind !== 'ly' && t.kind !== 'lt') continue;
+        const L = t.len || 1, n = Math.max(1, Math.round(L / gapW)), dir = t.kind === 'ly' ? -1 : 1;   // the space of Disse is drawn from the edge inward
+        const mo = motionOf(t);
+        mo.lu = ((mo.lu ?? (t.id * 0.371) % 1) + (still ? 0 : dir * dt * vW / L) + 1) % 1;
+        const r = Math.max(minR, (radiusAt(t, N >> 1) / (t.kind === 'ly' ? lyTaper(t.rho[N >> 1]) : 1)) * 0.7);
+        for (let i = 0; i < n; i++) {
+          const u = (mo.lu + i / n) % 1, e = Math.min(u, 1 - u) * n;   // fading in and out at the ends
+          if (e < 0.25) continue;
+          const [x, y] = at(t.pts, u), tp = t.kind === 'ly' ? lyTaper(Math.hypot(x - G.cx, y - G.cy) / G.R) : 1;
+          if (tp < 0.2) continue;   // too far in: the channel has thinned out
+          drops.push(x, y, r * Math.min(1, e) * smooth(0.2, 0.8, tp), t.id + i);
+        }
+      }
+      c.fillStyle = dark ? 'rgba(214, 236, 204, .42)' : 'rgba(150, 186, 140, .42)';
+      c.beginPath();
+      for (let j = 0; j < drops.length; j += 4) { const [x, y, rr] = [drops[j], drops[j + 1], drops[j + 2]]; c.moveTo(x + rr, y); c.arc(x, y, rr, 0, TAU); }
+      c.fill();
+      // Albumin beads: a saturated amber with a ring of the opposite lightness, so they stand off the pale
+      // green lymph in either theme.
+      c.beginPath();
+      for (let j = 0; j < drops.length; j += 4) {
+        const x = drops[j], y = drops[j + 1], rr = drops[j + 2], br = rr * 0.3, a0 = drops[j + 3] * 1.7;
+        for (let b = 0; b < beads; b++) {
+          const a = a0 + (b * TAU) / beads, q = beads === 1 ? 0 : rr * 0.5;
+          c.moveTo(x + Math.cos(a) * q + br, y + Math.sin(a) * q); c.arc(x + Math.cos(a) * q, y + Math.sin(a) * q, br, 0, TAU);
+        }
+      }
+      c.lineWidth = Math.max(0.5 / V.k, minR * 0.22);
+      c.strokeStyle = dark ? 'rgba(20, 14, 4, .9)' : 'rgba(255, 255, 255, .95)';
+      c.stroke();
+      c.fillStyle = dark ? 'rgb(255, 196, 40)' : 'rgb(194, 82, 0)';
+      c.fill();
+      // The lymph runs beneath the blood: cut the drops away wherever a blood vessel (with its wall)
+      // lies over them, so the arterioles, venules and sinusoids pass on top.
+      c.save();
+      c.globalCompositeOperation = 'destination-out';
+      c.fillStyle = c.strokeStyle = '#000';
+      c.lineCap = 'round'; c.lineJoin = 'round';
+      for (const t of G.tubes) {
+        if (t.lymph || t.kind === 'ly' || t.kind === 'lt' || t.kind === 'lv') continue;
+        const wall = (WALL[t.kind] || 0.8) + 0.6 / V.k;
+        if (t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || t.kind === 'bd') {
+          const [x0, y0] = t.pts[0];
+          c.beginPath(); c.arc(x0, y0, radiusAt(t, N >> 1) + wall, 0, TAU); c.fill();
+          continue;
+        }
+        // In thirds, each as wide as the lumen at its middle (the sinusoids widen toward the central vein).
+        for (let q = 0; q < 3; q++) {
+          const i0 = Math.floor((q * (N - 1)) / 3), i1 = Math.floor(((q + 1) * (N - 1)) / 3);
+          c.lineWidth = 2 * (radiusAt(t, (i0 + i1) >> 1) + wall);
+          c.beginPath(); c.moveTo(...t.pts[i0]);
+          for (let i = i0 + 1; i <= i1; i++) c.lineTo(...t.pts[i]);
+          c.stroke();
+        }
+      }
+      c.restore();
       // The sinusoid lining: nothing extra while the fenestrae are open; a thin continuous collagen line
       // fades in as the sinusoids capillarize and hold protein back.
-      const p = lyProt(m), still = reduce.matches, lw = 0.9 / V.k, seal = 1 - smooth(0.15, 0.6, p);
       if (seal > 0.02) {
         c.save();
         c.lineWidth = lw;
@@ -1703,38 +1784,6 @@ export function createLobuleZoom({ host }) {
         c.stroke();
         c.restore();
       }
-      // Lymph as drops drifting along the space of Disse and the terminal lymphatics to the portal tract:
-      // more of them, and faster, as more fluid filters (the volume); each carries albumin beads, as many as
-      // its protein allows (the concentration). One path per ink, no blur.
-      const lyR = clamp(lymphRate(m), 0.2, 6), f = lyF(m), beads = Math.round(1 + 4 * p);
-      const gapW = G.R * 0.07 / (0.75 + 0.6 * f), vW = G.R * 0.035 * Math.sqrt(lyR), minR = 2.6 / V.k;
-      const drops = [];
-      for (const t of G.tubes) {
-        if (t.kind !== 'ly' && t.kind !== 'lt') continue;
-        const L = t.len || 1, n = Math.max(1, Math.round(L / gapW)), dir = t.kind === 'ly' ? -1 : 1;   // the space of Disse is drawn from the edge inward
-        t.lu = ((t.lu ?? (t.id * 0.371) % 1) + (still ? 0 : dir * dt * vW / L) + 1) % 1;
-        const r = Math.max(minR, radiusAt(t, N >> 1) * 0.7);
-        for (let i = 0; i < n; i++) {
-          const u = (t.lu + i / n) % 1, e = Math.min(u, 1 - u) * n;   // fading in and out at the ends
-          if (e < 0.25) continue;
-          const [x, y] = at(t.pts, u);
-          drops.push(x, y, r * Math.min(1, e), t.id + i);
-        }
-      }
-      c.fillStyle = dark ? 'rgba(214, 236, 204, .42)' : 'rgba(150, 186, 140, .42)';
-      c.beginPath();
-      for (let j = 0; j < drops.length; j += 4) { const [x, y, rr] = [drops[j], drops[j + 1], drops[j + 2]]; c.moveTo(x + rr, y); c.arc(x, y, rr, 0, TAU); }
-      c.fill();
-      c.fillStyle = dark ? 'rgba(255, 210, 110, .95)' : 'rgba(176, 112, 16, .9)';
-      c.beginPath();
-      for (let j = 0; j < drops.length; j += 4) {
-        const x = drops[j], y = drops[j + 1], rr = drops[j + 2], br = rr * 0.24, a0 = drops[j + 3] * 1.7;
-        for (let b = 0; b < beads; b++) {
-          const a = a0 + (b * TAU) / beads, q = beads === 1 ? 0 : rr * 0.48;
-          c.moveTo(x + Math.cos(a) * q + br, y + Math.sin(a) * q); c.arc(x + Math.cos(a) * q, y + Math.sin(a) * q, br, 0, TAU);
-        }
-      }
-      c.fill();
     }
     if (flat && !m.hide && store.get().layers?.flow !== false) {
       // Red cells along the sinusoids at the model's flow.

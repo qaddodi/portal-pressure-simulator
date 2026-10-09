@@ -1,7 +1,7 @@
 // Dock charts (blueprint §9.2): the pressure profile.
 
 import { NODES } from '../engine/topology.js?v=dc393aabea';
-import { PROFILE_PATHS, SHORT } from './anatomy.js?v=d6c5cddad6';
+import { PROFILE_PATHS, SHORT } from './anatomy.js?v=6abc18b290';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { store } from './store.js?v=8ab9b37d48';
 import { h, fmt, fitCanvas, cssVar, clamp, createEaser, axisTop } from './util.js?v=86153645a3';
@@ -45,17 +45,17 @@ export function createProfile() {
   const box = h('div', { class: 'chart-box' });
   const cv = h('canvas', { role: 'img', 'aria-label': 'Pressure profile along the selected path' });
   box.append(cv);
-  const sel = h('select', { class: 'select', 'aria-label': 'Path' }, PROFILE_PATHS.map((p) => h('option', { value: p.id }, p.label)));
   const legend = h('div', { class: 'legend-inline' },
     h('span', {}, h('i', { style: { borderColor: 'var(--text)' } }), 'Now'),
     h('span', {}, h('i', { style: { borderColor: 'var(--text-3)', borderTopStyle: 'dashed' } }), 'Healthy'),
     h('span', { class: 'lg-compare', style: { display: 'none' } }, h('i', { style: { borderColor: 'var(--s1)', borderTopStyle: 'dotted' } }), 'Snapshot A'),
     h('span', { class: 'lg-pred', style: { display: 'none' } }, h('i', { style: { borderColor: 'var(--accent)', borderTopStyle: 'dashed' } }), 'Your prediction'));
-  const note = h('div', { class: 'sub' }, 'Pressure at each station along the path. Where the line drops steeply, that is where the block is; the red pill marks the biggest drop.');
-  const side = h('div', { class: 'chart-side' }, sel, legend, note, h('div', { class: 'ctl-sub', id: 'profileOffscale' }));
+  const note = h('div', { class: 'sub' }, 'Pressure from gut to heart. Where the line drops steeply, that is where the block is. The spans along the bottom show HVPG (wedged − free hepatic vein) and PPG (portal vein − IVC).');
+  const side = h('div', { class: 'chart-side' }, legend, note, h('div', { class: 'ctl-sub', id: 'profileOffscale' }));
   el.append(box, side);
   let pathId = 'main';
-  sel.addEventListener('change', () => { pathId = sel.value; draw(); });
+  const curPath = () => PROFILE_PATHS.find((p) => p.id === pathId) || PROFILE_PATHS[0];
+  const nm = (n) => curPath().names?.[n] || SHORT[n] || n;
   // F is what is drawn: the frame with its pressures eased toward the model's (breath- and
   // beat-filtered) values, so the line, dots and labels glide rather than jump when values change.
   let F = null, Fraw = null, axisMax = 15, easeRaf = 0;
@@ -64,7 +64,7 @@ export function createProfile() {
     if (!Fraw) return;
     const src = Fraw.Pf || Fraw.P;
     const { v: shown, moving: mP } = easeP.step(src);
-    const path = PROFILE_PATHS.find((p) => p.id === pathId);
+    const path = curPath();
     const st = store.get();
     let top = 0;
     for (const n of path.nodes) {
@@ -85,14 +85,14 @@ export function createProfile() {
 
   function geometry() {
     const { w, h: hh } = fitCanvas(cv);
-    const path = PROFILE_PATHS.find((p) => p.id === pathId);
+    const path = curPath();
     // Venous stations only: the arterial pressure sits far off the portal scale and says little here.
     const stations = path.nodes.filter((n) => !ARTERIAL.has(n));
     const slot0 = (w - 56) / stations.length;
-    // Close together, the station names turn 45° on one row (each ending under its point).
+    // Close together, the station names turn 30° on one row (each ending under its point).
     const stagger = slot0 < 74;
     let tilt = 0;
-    if (stagger) { const m = cv.getContext('2d'); m.font = FONT(500, 11); tilt = Math.max(...stations.map((n) => m.measureText(SHORT[n] || n).width)) * Math.SQRT1_2; }
+    if (stagger) { const m = cv.getContext('2d'); m.font = FONT(500, 11); tilt = Math.max(...stations.map((n) => m.measureText(nm(n)).width)) * 0.5; }
     // Arterial stations sit far above the venous scale: they are drawn in a band above a broken
     // axis (//) with their true value, never clipped.
     const hasArt = stations.some((n) => ARTERIAL.has(n));
@@ -119,17 +119,27 @@ export function createProfile() {
     ctx.strokeStyle = c.border; ctx.fillStyle = c.faint; ctx.lineWidth = 1;
     const step = maxP > 40 ? 10 : 5;
     for (let p = 0; p <= maxP; p += step) {
-      ctx.beginPath(); ctx.moveTo(L, Math.round(y(p)) + 0.5); ctx.lineTo(w - R, Math.round(y(p)) + 0.5); ctx.stroke();
+      ctx.globalAlpha = 0.55; ctx.beginPath(); ctx.moveTo(L, Math.round(y(p)) + 0.5); ctx.lineTo(w - R, Math.round(y(p)) + 0.5); ctx.stroke(); ctx.globalAlpha = 1;
       ctx.textAlign = 'right'; ctx.fillText(String(p), L - 8, y(p) + 4);
+    }
+    // The liver: a soft band behind its stations, named at the top.
+    const lv = curPath().liver;
+    if (lv) {
+      const i0 = stations.indexOf(lv[0]), i1 = stations.indexOf(lv[1]);
+      if (i0 >= 0 && i1 >= i0) {
+        const bx = x(i0) - slot / 2, bw = slot * (i1 - i0 + 1);
+        ctx.save(); ctx.fillStyle = c.liver || 'rgba(176, 96, 84, .09)'; ctx.fillRect(bx, T - 6, bw, y(0) - T + 6);
+        ctx.fillStyle = c.muted; ctx.font = FONT(600, 10.5); ctx.textAlign = 'center'; ctx.fillText('LIVER', bx + bw / 2, T + 4); ctx.restore();
+      }
     }
     ctx.strokeStyle = c.axis; ctx.beginPath(); ctx.moveTo(L, Math.round(y(0)) + 0.5); ctx.lineTo(w - R, Math.round(y(0)) + 0.5); ctx.stroke();
     if (roomy || !hasArt) { ctx.textAlign = 'left'; ctx.fillText('mmHg', 6, 12); } else { ctx.textAlign = 'right'; ctx.fillText('mmHg', w - R, artY + 4); }
-    // station labels: horizontal, or turned 45° (ending under their point) when close together
+    // station labels: horizontal, or turned 30° (ending under their point) when close together
     ctx.fillStyle = c.muted; ctx.font = FONT(500, 11);
     stations.forEach((n, i) => {
-      if (!stagger) { ctx.textAlign = 'center'; ctx.fillText(SHORT[n] || n, x(i), hh - B + 16); return; }
-      ctx.save(); ctx.translate(x(i) + 3, hh - B + 10); ctx.rotate(-Math.PI / 4);
-      ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillText(SHORT[n] || n, 0, 0);
+      if (!stagger) { ctx.textAlign = 'center'; ctx.fillText(nm(n), x(i), hh - B + 16); return; }
+      ctx.save(); ctx.translate(x(i) + 3, hh - B + 10); ctx.rotate(-Math.PI / 6);
+      ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillText(nm(n), 0, 0);
       ctx.restore();
     });
     ctx.textBaseline = 'alphabetic';
@@ -209,7 +219,9 @@ export function createProfile() {
     let big = -1, bigDp = 3;
     for (let k = 0; k < venousIdx.length - 1; k++) { const i = venousIdx[k], j = venousIdx[k + 1]; const d = now[i] - now[j]; if (d > bigDp) { bigDp = d; big = i; } }
     ctx.font = FONT(600, 10.5);
-    for (let k = 0; k < venousIdx.length - 1; k++) {
+    const dims = curPath().dims;
+    // With HVPG and PPG drawn at the right, the per-segment drop pills are left out.
+    for (let k = 0; !dims && k < venousIdx.length - 1; k++) {
       const i = venousIdx[k], j = venousIdx[k + 1];
       const dp = now[i] - now[j];
       if (Math.abs(dp) < 1) continue;
@@ -220,13 +232,43 @@ export function createProfile() {
       // below-left of a falling segment reads naturally (the fill side); above as a fallback
       const r = place(xm, [ym + 16, ym - 16, ym + 30, ym - 30], tw, th);
       if (!r) continue;
+      // An opaque plate first, so no line shows through the number.
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(r.x0, r.y0, tw, th, 8.5) : ctx.rect(r.x0, r.y0, tw, th);
+      ctx.fillStyle = c.surface; ctx.fill();
       ctx.fillStyle = main ? c.danger : c.surface2;
-      ctx.globalAlpha = main ? 0.14 : 1;
-      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(r.x0, r.y0, tw, th, 8.5) : ctx.rect(r.x0, r.y0, tw, th); ctx.fill();
+      ctx.globalAlpha = main ? 0.14 : 1; ctx.fill();
       ctx.globalAlpha = 1;
       ctx.fillStyle = dp < 0 ? c.rev : main ? c.danger : c.muted;
       ctx.fillText(txt, (r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2 + 0.5);
     }
+    // HVPG and PPG: a span inside the chart, under the line, from where each is measured to where it
+    // ends, labelled with its value; the same numbers and cut-offs as the tiles.
+    (dims || []).forEach((d, k) => {
+      const a = stations.indexOf(d.hi), b = stations.indexOf(d.lo);
+      if (a < 0 || b < 0) return;
+      const m = F.metrics || {};
+      const hv = d.hiM && m[d.hiM] != null ? m[d.hiM] : now[a], lv = d.loM && m[d.loM] != null ? m[d.loM] : now[b];
+      const v = d.m && m[d.m] != null ? m[d.m] : hv - lv;
+      const col = v >= d.bad ? c.danger : v >= d.warn ? c.caution : c.muted;
+      const yy = y(0) - 12 - (dims.length - 1 - k) * 24, x0 = x(a), x1 = x(b);
+      ctx.save();
+      // Faint leaders up to the two station dots the gradient spans.
+      ctx.strokeStyle = col; ctx.globalAlpha = 0.45; ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
+      ctx.beginPath(); ctx.moveTo(x0, yy - 4); ctx.lineTo(x0, Y(now[a], a) + 7); ctx.moveTo(x1, yy - 4); ctx.lineTo(x1, Y(now[b], b) + 7); ctx.stroke();
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+      ctx.strokeStyle = col; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(x0, yy - 4); ctx.lineTo(x0, yy + 4); ctx.moveTo(x1, yy - 4); ctx.lineTo(x1, yy + 4); ctx.moveTo(x0, yy); ctx.lineTo(x1, yy); ctx.stroke();
+      const txt = `${d.k} `, num = fmt(v, 1);
+      ctx.font = FONT(600, 10.5); const tw1 = ctx.measureText(txt).width;
+      ctx.font = FONT(700, 12.5); const tw2 = ctx.measureText(num).width;
+      const tw = tw1 + tw2 + 12, lx = Math.max(L + 2, Math.min(w - R - tw, (x0 + x1) / 2 - tw / 2)), ly = yy;
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(lx, ly - 8, tw, 16, 8) : ctx.rect(lx, ly - 8, tw, 16);
+      ctx.fillStyle = c.surface; ctx.fill(); ctx.strokeStyle = col; ctx.globalAlpha = 0.5; ctx.lineWidth = 1; ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = c.muted; ctx.font = FONT(600, 10.5); ctx.fillText(txt, lx + 6, ly + 0.5);
+      ctx.fillStyle = col === c.muted ? c.text : col; ctx.font = FONT(700, 12.5); ctx.fillText(num, lx + 6 + tw1, ly + 0.5);
+      ctx.restore();
+    });
     if (slot >= 26) {
       ctx.font = FONT(600, 11);
       for (const d of dots) {
@@ -276,7 +318,7 @@ export function createProfile() {
     id: 'profile', label: 'Pressure profile', el,
     update(f) { Fraw = f; ease(); },
     redraw: draw,
-    setPath(id) { pathId = id; sel.value = id; draw(); },
+    setPath(id) { pathId = id; draw(); },
     startPredict(onChange) { predict = { on: true, values: new Map(), onChange }; draw(); },
     endPredict(reveal = true) { if (predict) { predict.on = false; predict.reveal = reveal; } draw(); return predict; },
     clearPredict() { predict = null; draw(); },

@@ -5,11 +5,11 @@ import { store } from './store.js?v=8ab9b37d48';
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=86153645a3';
 import { lobuleFlows } from './lobule-model.js?v=6e45ed9029';
-import { createProfile } from './charts.js?v=121442ade0';
-import { createPressureTime } from './pressure-time.js?v=182b0db4df';
-import { createFibroScan } from './fibroscan.js?v=8bde69999f';
-import { createDoppler } from './doppler.js?v=3d78acfb63';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=93756e70b1';
+import { createProfile } from './charts.js?v=32df8541ef';
+import { createPressureTime } from './pressure-time.js?v=588201eed4';
+import { createFibroScan } from './fibroscan.js?v=cc82769305';
+import { createDoppler } from './doppler.js?v=5159b0e66c';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=925f494a37';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -23,9 +23,9 @@ export const TILES = [
     scale: [0, 25], ticks: [5, 10],
     st: (v) => (v < 5 ? 'ok' : v < 10 ? 'caution' : 'danger'),
     s: (v) => (v < 5 ? 'Normal' : v < 10 ? 'Subclinical' : 'CSPH') },
-  { id: 'ppg', group: 'pressure', k: 'PPG', title: 'Portosystemic pressure gradient: portal confluence − inferior vena cava at the right atrium, directly from the model network. Unlike HVPG it also includes a block before the liver (presinusoidal or prehepatic). Normal < 6 mmHg.', why: 'ppg', hideKey: 'pv', v: (m) => m.ppg, d: 1, u: 'mmHg',
-    scale: [0, 25], ticks: [6],
-    st: (v) => (v < 6 ? 'ok' : 'caution'), s: (v) => (v < 6 ? 'Normal' : 'Raised') },
+  { id: 'ppg', group: 'pressure', k: 'PPG', title: 'Portosystemic pressure gradient: portal confluence − inferior vena cava at the right atrium, directly from the model network. Unlike HVPG it also includes a block before the liver (presinusoidal or prehepatic). Normal < 6, high ≥ 12 mmHg.', why: 'ppg', hideKey: 'pv', v: (m) => m.ppg, d: 1, u: 'mmHg',
+    scale: [0, 25], ticks: [6, 12],
+    st: (v) => (v < 6 ? 'ok' : v < 12 ? 'caution' : 'danger'), s: (v) => (v < 6 ? 'Normal' : v < 12 ? 'Raised' : 'High') },
   { id: 'pv', group: 'pressure', k: 'Portal pressure', title: 'Portal vein pressure at the portal confluence, absolute (model value). Normal ≤ 10 mmHg.', why: 'pv', v: (m) => m.pv, d: 1, u: 'mmHg', hideKey: 'pv',
     scale: [0, 35], ticks: [10, 15],
     st: (v) => (v <= 10 ? 'ok' : v < 15 ? 'caution' : 'danger'), s: (v) => (v <= 10 ? 'Normal' : v < 15 ? 'Raised' : 'High') },
@@ -35,7 +35,7 @@ export const TILES = [
     scale: [-0.6, 2], ticks: [0, 0.9],
     st: (v, m) => (v < -0.02 ? 'critical' : Math.abs(vel(m)) < 5 ? 'danger' : v < 0.9 || Math.abs(vel(m)) < 12 ? 'caution' : 'ok'),
     s: (v, m) => (v < -0.02 ? 'Reversed' : Math.abs(vel(m)) < 5 ? 'Stasis' : v < 0.9 ? 'Reduced' : Math.abs(vel(m)) < 12 ? 'Slow' : 'Normal') },
-  { id: 'liver', group: 'flow', hideKey: 'model', k: 'Sinusoidal flow', ks: 'Sinusoids', title: 'Total blood flow through the liver sinusoids (portal + hepatic artery), % of this model\'s healthy baseline. A model quantity, not liver function.', why: 'liverPerf', v: (m) => m.liverPerfPct, d: 0, u: '%',
+  { id: 'liver', group: 'flow', hideKey: 'model', k: 'Sinusoidal flow', ks: 'Sinusoids', title: 'Total blood flow through the liver sinusoids (portal + hepatic artery), % of this model\'s healthy baseline. A model quantity, not liver function.', why: 'sinFlow', v: (m) => m.liverPerfPct, d: 0, u: '%',
     scale: [0, 150], ticks: [55, 75],
     st: (v) => (v > 75 ? 'ok' : v > 55 ? 'caution' : 'danger'), s: (v) => (v > 75 ? 'Normal' : v > 55 ? 'Reduced' : 'Low') },
   { id: 'shunt', group: 'flow', k: 'Shunted', why: 'shunt', hideKey: 'model', v: (m) => m.shuntFraction * 100, d: 0, u: '%', title: 'Share of gut and spleen blood that bypasses the liver through collaterals and shunts.',
@@ -58,16 +58,16 @@ export const TILES = [
 // makes. They are not findings, so they stay out of TILES. `v` reads the frame and the store, as the lobule does.
 const lobuleVal = (key) => (f, st) => lobuleFlows(f, st.healthy)[key];
 export const LOBULE_TILES = [
-  { id: 'lz-sin', group: 'lobule', k: 'Sinusoidal flow', ks: 'Sinusoids', title: 'Blood through the sinusoids, % of normal (portal + hepatic artery).', why: 'liverPerf', v: (f, st) => lobuleVal('flow')(f, st) * 100, d: 0, u: '%',
+  { id: 'lz-sin', group: 'lobule', k: 'Sinusoidal flow', ks: 'Sinusoids', title: 'Blood through the sinusoids, % of normal (portal + hepatic artery).', why: 'sinFlow', v: (f, st) => lobuleVal('flow')(f, st) * 100, d: 0, u: '%',
     scale: [0, 150], ticks: [55, 75],
     st: (v) => (v > 75 ? 'ok' : v > 55 ? 'caution' : 'danger'), s: (v) => (v > 75 ? 'Normal' : v > 55 ? 'Reduced' : 'Low') },
-  { id: 'lz-pv', group: 'lobule', k: 'Portal inflow', ks: 'Portal in', title: 'Blood entering the lobule from the portal venule, % of normal (negative = flowing out of the liver).', why: 'pvFlow', v: (f, st) => lobuleVal('portal')(f, st) * 100, d: 0, u: '%',
+  { id: 'lz-pv', group: 'lobule', k: 'Portal inflow', ks: 'Portal in', title: 'Blood entering the lobule from the portal venule, % of normal (negative = flowing out of the liver).', why: 'portalIn', v: (f, st) => lobuleVal('portal')(f, st) * 100, d: 0, u: '%',
     scale: [-60, 150], ticks: [0, 50],
     st: (v) => (v < -2 ? 'critical' : v < 50 ? 'danger' : v < 75 ? 'caution' : 'ok'), s: (v) => (v < -2 ? 'Reversed' : v < 50 ? 'Low' : v < 75 ? 'Reduced' : 'Normal') },
-  { id: 'lz-art', group: 'lobule', k: 'Arterial inflow', ks: 'Artery in', title: 'Blood entering the lobule from the hepatic arteriole, % of normal. It rises when the portal inflow falls (the arterial buffer response).', v: (f, st) => lobuleVal('art')(f, st) * 100, d: 0, u: '%',
+  { id: 'lz-art', group: 'lobule', k: 'Arterial inflow', ks: 'Artery in', title: 'Blood entering the lobule from the hepatic arteriole, % of normal. It rises when the portal inflow falls (the arterial buffer response).', why: 'artIn', v: (f, st) => lobuleVal('art')(f, st) * 100, d: 0, u: '%',
     scale: [0, 200], ticks: [60, 130],
     st: (v) => (v < 60 ? 'danger' : v > 130 ? 'caution' : 'ok'), s: (v) => (v < 60 ? 'Low' : v > 130 ? 'Compensating' : 'Normal'), ss: (v) => (v < 60 ? 'Low' : v > 130 ? 'Raised' : 'Normal') },
-  { id: 'lz-ly', group: 'lobule', k: 'Hepatic lymph', ks: 'Lymph', title: 'Lymph the liver forms in the space of Disse and drains to the portal tract. Normal is about 0.8 mL/min; past about three times that it overflows into the abdomen (ascites).', why: 'ascites', v: (f, st) => lobuleVal('lymph')(f, st), d: 1, u: 'mL/min',
+  { id: 'lz-ly', group: 'lobule', k: 'Hepatic lymph', ks: 'Lymph', title: 'Lymph the liver forms in the space of Disse and drains to the portal tract. Normal is about 0.8 mL/min; past about three times that it overflows into the abdomen (ascites).', why: 'hepLymph', v: (f, st) => lobuleVal('lymph')(f, st), d: 1, u: 'mL/min',
     scale: [0, 5], ticks: [1.2, 2.4],
     st: (v, f, st) => { const r = v / lobuleFlows(f, st.healthy).lymph0; return r >= 3 ? 'danger' : r >= 1.5 ? 'caution' : 'ok'; },
     s: (v, f, st) => { const r = v / lobuleFlows(f, st.healthy).lymph0; return r >= 3 ? 'Overflow' : r >= 1.5 ? 'Raised' : 'Normal'; } },
@@ -79,10 +79,10 @@ export const GROUPS = [['pressure', 'Pressure'], ['flow', 'Flow'], ['effects', '
 // The cut-offs behind each status, as About the model lists them: [readout, normal, amber, red, dark red].
 export const CUTOFFS = [
   ['HVPG (wedged − free)', '< 5 mmHg', '5–9 (subclinical)', '≥ 10 (CSPH in cirrhosis)', '—'],
-  ['PPG: portosystemic gradient (portal vein − IVC)', '< 6 mmHg', '≥ 6', '—', '—'],
+  ['PPG: portosystemic gradient (portal vein − IVC)', '< 6 mmHg', '6–11', '≥ 12', '—'],
   ['Portal vein pressure', '≤ 10 mmHg', '11–14', '≥ 15', '—'],
   ['Portal flow', '≥ 0.9 L/min and ≥ 12 cm/s', '< 0.9 L/min or < 12 cm/s', '< 5 cm/s (stasis)', 'Reversed (hepatofugal)'],
-  ['Liver perfusion', '> 75 % of normal', '56–75 %', '≤ 55 %', '—'],
+  ['Sinusoidal flow', '> 75 % of normal', '56–75 %', '≤ 55 %', '—'],
   ['Shunted blood', '< 10 %', '10–29 %', '30–59 %', '≥ 60 %'],
   ['Varix wall stress (model)', '< 40 % of rupture', '40–69 %, or diameter ≥ 5 mm', '70–89 %', '≥ 90 %'],
   ['Ascites', 'None', 'Grade 1', 'Grade 2–3', '—'],
@@ -92,7 +92,7 @@ export const CUTOFFS = [
 // Systemic circulation: a compact block at the end of the strip.
 export const VITALS = [
   { id: 'map', k: 'MAP', title: 'Mean arterial pressure', why: 'map', v: (m) => m.map, d: 0, u: 'mmHg', bad: (m) => m.map < 65 },
-  { id: 'hr', k: 'HR', title: 'Heart rate', why: 'map', v: (m) => m.hr, d: 0, u: '/min', bad: (m) => m.hr > 110 },
+  { id: 'hr', k: 'HR', title: 'Heart rate', why: 'hr', v: (m) => m.hr, d: 0, u: '/min', bad: (m) => m.hr > 110 },
   { id: 'co', k: 'CO', title: 'Cardiac output', why: 'co', v: (m) => m.co, d: 1, u: 'L/min', bad: (m) => m.co > 6.5 },
   { id: 'ra', k: 'RA', title: 'Right atrial pressure', why: 'ra', hideKey: 'ra', v: (m) => m.ra, d: 1, u: 'mmHg', bad: (m) => m.ra > 10 },
   { id: 'hb', k: 'Hb', title: 'Hemoglobin', why: null, v: (m) => m.blood.hb, d: 1, u: 'g/dL', bad: (m) => m.blood.hb < 7 },
@@ -411,9 +411,14 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     setTimeout(() => dispatchEvent(new Event('resize')), 30);
   }
   const canSplit = () => (isSide() ? stageWrap.clientHeight - css('--top-safe') - css('--vdock-h') >= 620 : body.clientWidth >= 1000 || workspace.clientWidth >= 1000) || state === 'focus';
+  // Pressure and Over time read as one story: on a roomy desktop card they open together, stacked,
+  // so neither needs a long scroll.
+  const PAIR = ['profile', 'scope'];
+  const pairs = () => matchMedia('(min-width: 1024px) and (pointer: fine)').matches && canSplit();
   function layout() {
     // Never keep two cramped instruments after rotation or resizing.
     if (open.length > 1 && !canSplit()) open = open.slice(0, 1);
+    else if (open.length === 1 && PAIR.includes(open[0]) && pairs()) open = [...PAIR];
     for (const p of panes) p.el.classList.toggle('active', open.includes(p.id));
     body.classList.toggle('split', open.length > 1);
     body.classList.toggle('stack', open.length > 1 && isSide() && state !== 'focus');

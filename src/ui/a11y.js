@@ -22,7 +22,7 @@ export function describe(f) {
   const parts = [`${scen}.`];
   if (!hidden?.has('pv')) {
     parts.push(`Portal pressure ${fmt(m.pv, 0)} millimeters of mercury, ${m.pv <= 10 ? 'normal' : m.pv < 15 ? 'raised' : 'high'}.`);
-    parts.push(`Direct portal to systemic gradient ${fmt(m.ppg, 0)} millimeters of mercury.`);
+    parts.push(`PPG, portal vein to IVC gradient, ${fmt(m.ppg, 0)} millimeters of mercury.`);
   }
   if (!hidden?.has('trueHVPG')) parts.push(`HVPG ${fmt(m.hvpg, 0)}.`);
   const q = (f.Qf || f.Q)[EI.PV_TRUNK];

@@ -567,9 +567,11 @@ vec4 bloodAt(int id, float s, float y, vec3 col) {
   uint sd0 = uint(id) * 31u, sd1 = uint(id) * 57u + 11u;
   // Between two lane speeds the two fields are blended; most pixels need only one.
   // The fine octave is left out where its features are under a pixel and a half (replaced by its mean, so the level holds).
-  bool fine = cellA * 0.5 > 1.5 * pxW;
-  float na = t < 1.0 ? 0.62 * vnoise(qa, sd0, per) + 0.38 * (fine ? vnoise(qa * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2) : 0.5) : 0.0;
-  float nb = t > 0.0 ? 0.62 * vnoise(qb, sd0, per) + 0.38 * (fine ? vnoise(qb * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2) : 0.5) : 0.0;
+  // It fades out over a range of zoom rather than switching off at one, so the sheen never pops.
+  float fw = smoothstep(1.2 * pxW, 2.0 * pxW, cellA * 0.5);
+  bool fine = fw > 0.0;
+  float na = t < 1.0 ? 0.62 * vnoise(qa, sd0, per) + 0.38 * (fine ? mix(0.5, vnoise(qa * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2), fw) : 0.5) : 0.0;
+  float nb = t > 0.0 ? 0.62 * vnoise(qb, sd0, per) + 0.38 * (fine ? mix(0.5, vnoise(qb * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2), fw) : 0.5) : 0.0;
   float nz = mix(na, nb, t);
   float dens = sqrt(clamp(p, 0.0, 1.0));
   // Soft-edged and subdued, so up close the sheen reads as moving light, not as stripes painted on the tube;

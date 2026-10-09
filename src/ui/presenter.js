@@ -5,12 +5,14 @@
 // or a link.
 
 import { store } from './store.js?v=8ab9b37d48';
-import { runSequence, restoreSequence } from './sequence.js?v=dfa16393c3';
+import { runSequence, restoreSequence } from './sequence.js?v=1a159bc10d';
 import { h, toast, svgIcon, icon } from './util.js?v=86153645a3';
 import { download } from './records.js?v=50fb9dd463';
+import { TOUR, createTour } from './tour.js?v=6170e2f7cd';
 
 const ask = (q, a) => `\n\nAsk the room: ${q} Expected: ${a}`;
 export const SCRIPTS = [
+  TOUR,
   {
     id: 'ph-five', title: 'Portal pressure in five minutes', builtin: true,
     summary: 'A pressure difference moves blood: sinusoidal, presinusoidal and downstream blocks.',
@@ -44,18 +46,6 @@ export const SCRIPTS = [
     ],
   },
   {
-    id: 'where-block', title: 'Where is the block?', builtin: true,
-    summary: 'Prehepatic, presinusoidal, sinusoidal, postsinusoidal, posthepatic and cardiac, on one profile.',
-    steps: [
-      { title: 'Prehepatic: portal vein thrombosis', preset: 'pvt-chronic', view: 'anatomic', zoom: 'fit', pane: 'profile', notes: 'The step sits before the liver. HVPG is normal; the cavernoma carries hepatopetal flow around the clot.' },
-      { title: 'Presinusoidal: schistosomiasis', preset: 'schisto', notes: 'The block is in the portal tracts. Portal pressure is high but the wedge only reaches normal sinusoids: HVPG underestimates it. Little ascites.' },
-      { title: 'Sinusoidal: cirrhosis', preset: 'cirr-comp', notes: 'The big drop is across the sinusoids. WHVP ≈ portal pressure: HVPG is valid here.' },
-      { title: 'Postsinusoidal: sinusoidal obstruction syndrome', preset: 'sos', notes: 'Central veins occluded: high HVPG, a congested liver and ascites.' },
-      { title: 'Posthepatic: Budd–Chiari', preset: 'budd-chiari', notes: 'Hepatic vein outflow is blocked; the caudate lobe, with its own veins to the IVC, carries the outflow and enlarges.' },
-      { title: 'Cardiac: right heart failure', preset: 'rhf', notes: 'Right atrial pressure transmits back: FHVP and WHVP rise together, so HVPG stays normal. Protein-rich ascites; a pulsatile portal vein.' },
-    ],
-  },
-  {
     id: 'bleed', title: 'The bleeding patient', builtin: true,
     summary: 'A variceal bleed and its treatment, step by step.',
     steps: [
@@ -75,7 +65,7 @@ const enc = (o) => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace
 const dec = (s) => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))));
 
 export function createPresenter({ loadPreset, updateParams, host, stage, dock, action, projectorOn, projectorOff, closeHome, rerenderHome }) {
-  let script = null, idx = 0, bar = null, titleEl = null, progEl = null, notesEl = null, notesOpen = false, laser = null;
+  let script = null, tour = null, idx = 0, bar = null, titleEl = null, progEl = null, notesEl = null, notesOpen = false, laser = null;
   const all = () => [...SCRIPTS, ...readMine()];
 
   // A slide's model state is a pure function of the slide before it: each is computed once from
@@ -106,9 +96,9 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
   async function go(i) {
     if (!script) return;
     idx = Math.max(0, Math.min(script.steps.length - 1, i));
-    renderBar();
+    renderBar(); tour?.show(idx); writeNotes();
     const at = idx;
-    chain = chain.then(async () => { if (script && at === idx) { await apply(at); writeNotes(); } });
+    chain = chain.then(async () => { if (script && at === idx) { await apply(at); writeNotes(); await tour?.ready(at); } });
     await chain;
   }
   // Presenting is chrome-free: the figure, the hero metric, the slide title and a slim progress
@@ -172,12 +162,24 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
     closeHome?.();
     if (store.get().mode !== 'explore') store.set({ mode: 'explore' });
     projectorOn();
+    notesEl = h('aside', { class: 'presenter-notes stage-blocker', 'aria-label': 'Speaker notes', hidden: true });
+    notesOpen = false;
+    if (script.tour) {
+      // The tour is one card: the step, its fingerprint and the controls. It plays on its own.
+      tour = createTour(script, { go, stop, notes: () => toggleNotes(), request: (type, payload) => host.request(type, payload) });
+      document.getElementById('stageView').append(tour.el, notesEl);
+      document.getElementById('app').classList.add('presenting', 'touring');
+      dock.close();
+      store.set({ selection: null });
+      stage.setProjection(innerWidth >= 768);   // projector-size labels, except on a phone
+      tour.start();
+      await go(0);
+      return;
+    }
     bar = h('div', { class: 'presenter-bar stage-blocker', role: 'toolbar', 'aria-label': 'Presenter' });
     bar.addEventListener('focusin', wake);
     titleEl = h('div', { class: 'presenter-title stage-blocker', role: 'status' });
     progEl = h('div', { class: 'presenter-progress', role: 'progressbar', 'aria-label': 'Slide', 'aria-valuemin': '1' }, h('i'));
-    notesEl = h('aside', { class: 'presenter-notes stage-blocker', 'aria-label': 'Speaker notes', hidden: true });
-    notesOpen = false;
     document.getElementById('stageView').append(titleEl, progEl, notesEl, bar);
     document.getElementById('app').classList.add('presenting');
     store.set({ selection: null });
@@ -188,11 +190,12 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
   function stop() {
     if (!script) return;
     script = null;
+    tour?.destroy(); tour = null;
     bar?.remove(); titleEl?.remove(); progEl?.remove(); notesEl?.remove(); bar = titleEl = progEl = notesEl = null;
     clearTimeout(idleT);
     stage.setProjection(false);
     if (laser) toggleLaser();
-    document.getElementById('app').classList.remove('presenting');
+    document.getElementById('app').classList.remove('presenting', 'touring');
     projectorOff();
   }
   // Keys while presenting: arrows / Page Up-Down (clickers) / space step; N notes; L laser; Esc stops.
@@ -200,7 +203,8 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
     if (!script || e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key;
     let used = true;
-    if (k === 'ArrowRight' || k === 'PageDown' || k === ' ') go(idx + 1);
+    if (tour && (k === ' ' || k.toLowerCase() === 'k')) tour.toggle();
+    else if (k === 'ArrowRight' || k === 'PageDown' || k === ' ') go(idx + 1);
     else if (k === 'ArrowLeft' || k === 'PageUp') go(idx - 1);
     else if (k === 'Home') go(0);
     else if (k === 'End') go(script.steps.length - 1);
@@ -263,11 +267,12 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
 
   function home() {
     const mine = new Set(readMine().map((s) => s.id));
-    const card = (s) => h('div', { class: 'home-item script' },
-      h('span', { class: 'meta' }, `${s.steps.length} steps`, s.builtin ? 'Built in' : 'Yours'),
+    const card = (s) => h('div', { class: 'home-item script' + (s.tour ? ' tour-hero' : '') },
+      h('span', { class: 'meta' }, s.tour ? `Self-running tour · ${s.steps.length} states` : `${s.steps.length} steps · ${s.builtin ? 'Built in' : 'Yours'}`),
       h('span', { class: 't' }, s.title), h('span', { class: 'd' }, s.summary || ''),
+      s.tour ? h('span', { class: 'tour-chips' }, ['Pre-hepatic', 'Presinusoidal', 'Sinusoidal', 'Postsinusoidal', 'Post-hepatic', 'Cardiac'].map((x) => h('span', {}, x))) : null,
       h('span', { class: 'script-acts' },
-        h('button', { class: 'btn sm primary', onclick: () => start(s.id) }, svgIcon('projector', 'mi-ic'), 'Present'),
+        h('button', { class: 'btn sm primary', onclick: () => start(s.id) }, svgIcon(s.tour ? 'play' : 'projector', 'mi-ic'), s.tour ? 'Play the tour' : 'Present'),
         mine.has(s.id) ? h('button', { class: 'btn sm', onclick: () => addStep(s.id) }, 'Add current state') : null,
         h('button', { class: 'btn sm ghost', onclick: () => shareLink(s) }, 'Share link'),
         h('button', { class: 'btn sm ghost', onclick: () => exportScript(s) }, 'Export'),
@@ -277,7 +282,7 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
       h('div', { class: 'btn-row', style: { marginTop: '16px' } },
         h('button', { class: 'btn', onclick: newScript }, 'New script from the current model'),
         h('button', { class: 'btn', onclick: importFile }, 'Import a script')),
-      h('p', { class: 'ctl-sub' }, 'While presenting: → or Page Down for the next step, ← to go back, N opens speaker notes in a second window, L is a laser pointer, Esc stops.'));
+      h('p', { class: 'ctl-sub' }, 'While presenting: → or Page Down for the next step, ← to go back, N opens the speaker notes, L is a laser pointer, Esc stops. In the tour, Space or K pauses and resumes.'));
   }
 
   return { start, stop, home, readLink, active: () => !!script };
