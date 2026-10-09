@@ -335,7 +335,7 @@ export function createSinusoidView({ host }) {
     const g = geo, f = VW.f;
     // The ends: the portal venule the blood comes from and the central venule it goes to, with their pressures (as the lobule labels them).
     const m = model, val = (P) => (m.hide ? '?' : `${fmt(P, 1)}~mmHg`);
-    for (const [key, name, value, u] of [['in', g.vert ? 'Portal venule ↓' : '← Portal venule', val(m.P1), 0], ['out', g.vert ? 'Central venule ↓' : 'Central venule →', val(m.P3), 1]]) {
+    for (const [key, name, value, u] of [['in', g.vert ? '↑ Portal venule' : '← Portal venule', val(m.P1), 0], ['out', g.vert ? 'Central venule ↓' : 'Central venule →', val(m.P3), 1]]) {
       let T = tags[key];
       if (!T) { T = tags[key] = { el: h('div', { class: 'lz-lab sv-tag sv-end' }) }; labels.append(T.el); }
       const txt = name + '|' + value;
@@ -353,7 +353,9 @@ export function createSinusoidView({ host }) {
     }
     // The legend: at the top left, under the top bar.
     const lx = f.l + 2, ly = cssN('--top-safe') + cssN('--cmp-h') + 12;
-    legend.style.maxWidth = `${Math.max(120, geo.W - lx - 12)}px`;
+    // (On a top-down sinusoid it stays in the plate on the left, clear of the vessel and the portal venule's name.)
+    const lr = g.vert ? toScreen(0, hepIn(0))[0] - 8 : geo.W - 12;
+    legend.style.maxWidth = `${Math.max(90, lr - lx)}px`;
     legend.style.transform = `translate(${lx.toFixed(1)}px, ${ly.toFixed(1)}px)`;
   }
 
