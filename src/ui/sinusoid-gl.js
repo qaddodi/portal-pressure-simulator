@@ -173,7 +173,7 @@ vec3 disse(float x, float a, float wi, float hi, int side, bool main, float det)
     float reach = 14.0 + 320.0 * smoothstep(0.0, 0.8, uCol) * (side < 0 ? 1.0 : 0.8);
     float spread = 1.0 - smoothstep(reach - 30.0, reach, abs(x - uXs - (side < 0 ? 0.0 : 18.0)));
     float bd = smoothstep(0.3, 0.1, uPx) * det;                   // the cross-banding, only once it is resolved
-    vec3 fib = cCol * 0.86, fibE = cCol * 0.6;
+    vec3 fib = cCol * 0.9, fibE = cCol * 0.72;
     for (int i = 0; i < 7; i++) {
       float al = smoothstep(float(i) / 7.0 * 0.8, float(i) / 7.0 * 0.8 + 0.22, uCol) * det * spread;
       if (al < 0.01) continue;
@@ -185,10 +185,10 @@ vec3 disse(float x, float a, float wi, float hi, int side, bool main, float det)
       if (d > 0.4) continue;
       // Striated like collagen under the microscope: light and dark bands across the bundle, and a fibril seam along it.
       float band = 0.5 + 0.5 * sin(6.2831853 * x / 1.1 + ph);
-      vec3 fc = mix(fib, fibE, (0.08 + 0.22 * band) * bd);
-      fc = mix(fc, fibE, line(a - mix(wi, hi, tc) - 0.18 * w * sin(x * 0.9 + ph), 0.06) * 0.5 * bd);
-      c = mix(c, fc, cov(d) * al);
-      c = mix(c, fibE, line(d, 0.07) * al * 0.85);
+      vec3 fc = mix(fib, fibE, (0.05 + 0.15 * band) * bd);
+      fc = mix(fc, fibE, line(a - mix(wi, hi, tc) - 0.18 * w * sin(x * 0.9 + ph), 0.06) * 0.3 * bd);
+      c = mix(c, fc, cov(d) * al * 0.5);           // translucent, like the lobule's fibrous bands
+      c = mix(c, fibE, line(d, 0.06) * al * 0.4);
     }
   }
   // Microvilli: fine strokes from the hepatocytes' face, flattened as the space fills with collagen.
