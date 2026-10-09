@@ -74,6 +74,7 @@ uniform int uPass;              // 0: the tissue; 1: the cells that lie over the
 uniform float uLum, uPinch, uXs, uXk, uKy, uHscA, uCol, uBm, uMv, uAct, uPor, uFlow, uLym, uDir, uDark, uShim, uStreak;
 uniform vec3 cBg, cLumen, cLymph, cCell, cUnder, cNuc, cCol, cBm, cBile, cEndo, cEndoN, cHscQ, cHscA, cHscN, cDrop, cKup, cKupN, cChev;
 uniform float aBm;
+uniform vec4 uEnd;               // the end arrows: portal x, central x (µm), size (µm), alpha
 
 const float ENDO = ${UM.endo.toFixed(2)}, DISSE = ${UM.disse.toFixed(2)}, HEP = ${UM.hep.toFixed(1)}, LUM0 = ${UM.lum.toFixed(1)};
 const float SLOT = ${SLOT.toFixed(2)}, CELL = ${CELL.toFixed(1)};
@@ -320,7 +321,17 @@ void main() {
     return;
   }
   vec3 c = cBg;
-  if (a < hw) c = lumen(x, y, hw, 0, true);
+  if (a < hw) {
+    c = lumen(x, y, hw, 0, true);
+    // The arrows at the ends, beside their labels: toward the portal venule (−x) and toward the central venule (+x).
+    for (int i = 0; i < 2; i++) {
+      float dir = i == 0 ? -1.0 : 1.0, s = uEnd.z;
+      vec2 q = vec2((x - (i == 0 ? uEnd.x : uEnd.y)) * dir, abs(y));
+      float head = max(q.y - 0.55 * s * (1.0 - (q.x - 0.0) / (0.65 * s)), max(-q.x, q.x - 0.65 * s));
+      float shaft = max(q.y - 0.13 * s, max(-q.x - 0.55 * s, q.x));
+      c = mix(c, cChev, cov(min(head, shaft)) * uEnd.w);
+    }
+  }
   else if (a < wi) c = mix(mix(cLumen, vec3(1.0), 0.3), cLymph, (a - hw) / ENDO);
   else if (a < hi) c = disse(x, a, wi, hi, side, true, det);
   else {
