@@ -74,6 +74,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const T = () => page.evaluate(() => (document.querySelector('#world').getAttribute('transform') || '').replace(/-?\d+\.\d+/g, (n) => (+n).toFixed(1)));
     // A software renderer draws a frame a second or two apart: wait until the transform holds for a while.
     const steady = async () => { let a = await T(), same = 0; for (let i = 0; i < 80 && same < 5; i++) { await page.waitForTimeout(300); const c = await T(); same = c === a ? same + 1 : 0; a = c; } return a; };
+    // The opening framing is set before the vitals dock reaches its full height (its caption line
+    // arrives later); the anatomy's own framing is what Fit gives once the page has settled.
+    await steady();
+    await page.evaluate(() => window.pps.stage.fit());
     const home = await steady();
     await page.click('#viewSeg [data-view="lobule"]', { force: true });
     await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 30000 });
