@@ -327,9 +327,9 @@ void main() {
     for (int i = 0; i < 2; i++) {
       float dir = i == 0 ? -1.0 : 1.0, s = uEnd.z;
       vec2 q = vec2((x - (i == 0 ? uEnd.x : uEnd.y)) * dir, abs(y));
-      float head = max(q.y - 0.55 * s * (1.0 - (q.x - 0.0) / (0.65 * s)), max(-q.x, q.x - 0.65 * s));
+      float head = max(q.y - 0.5 * s * (1.0 - q.x / (0.6 * s)), max(-q.x, q.x - 0.6 * s));
       float shaft = max(q.y - 0.13 * s, max(-q.x - 0.55 * s, q.x));
-      c = mix(c, cChev, cov(min(head, shaft)) * uEnd.w);
+      c = mix(c, mix(cLumen, vec3(1.0), 0.85), (1.0 - smoothstep(-0.08 * s, 0.04 * s, min(head, shaft))) * uEnd.w);   // soft, a light tint of the lumen
     }
   }
   else if (a < wi) c = mix(mix(cLumen, vec3(1.0), 0.3), cLymph, (a - hw) / ENDO);

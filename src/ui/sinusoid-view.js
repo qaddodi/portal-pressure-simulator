@@ -23,7 +23,7 @@ import { h, fmt, clamp, lerp } from './util.js?v=e803df99cd';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { isPaused } from './clock.js?v=953a5f70a7';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=1ff5a4e71d';
+import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=a4a95e56af';
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
@@ -348,15 +348,16 @@ export function createSinusoidView({ host }) {
       T.el.classList.toggle('left', !g.vert && u === 1);
       const w = T.el.offsetWidth, hh = T.el.offsetHeight;
       let x, y;
-      if (g.vert) { x = VW.C[0] - w / 2; y = u ? f.b - hh - 24 : f.t + 4; }   // (clear of the credit line at the bottom)
-      else { x = u ? f.r - w - 6 : f.l + 6; y = VW.C[1] - hh / 2; }
+      // Its arrow (drawn by the shader) sits on the far side of the label: above the portal venule's, below the central venule's
+      // on a top-down sinusoid; toward the screen's edge on a wide one.
+      if (g.vert) { x = VW.C[0] - w / 2; y = u ? f.b - hh - 52 : f.t + 30; }   // (clear of the credit line at the bottom)
+      else { x = u ? f.r - w - 34 : f.l + 34; y = VW.C[1] - hh / 2; }
       T.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
-      // Its arrow (drawn by the shader, pointing toward this venule) just inside the label, along the lumen.
-      const ax = g.vert ? VW.C[0] : u ? x - 14 : x + w + 14, ay = g.vert ? (u ? y - 16 : y + hh + 16) : VW.C[1];
+      const ax = g.vert ? VW.C[0] : u ? x + w + 16 : x - 16, ay = g.vert ? (u ? y + hh + 14 : y - 14) : VW.C[1];
       const ca = Math.cos(g.ang), sa = Math.sin(g.ang);
       END[u] = ((ax - VW.C[0]) * ca + (ay - VW.C[1]) * sa) / VW.k;
     }
-    END[2] = 16 / VW.k;
+    END[2] = 20 / VW.k;
     // The legend: at the top left, under the top bar.
     const lx = f.l + 2, ly = cssN('--top-safe') + cssN('--cmp-h') + 12;
     // (On a top-down sinusoid it stays in the plate on the left, clear of the vessel and the portal venule's name.)
@@ -391,7 +392,7 @@ export function createSinusoidView({ host }) {
       Object.assign(u, {
         uLum: UM.lum * S.lum, uPinch: S.pinch, uXs: geo.xs, uXk: geo.xk, uKy: halfW(geo.xk), uHscA: wallIn(geo.xs) + disseW(geo.xs) * 0.5 + 0.8,
         uCol: S.col, uBm: S.bm, uMv: S.mv, uAct: S.act, uPor: S.por, uFlow: flowX, uLym: lymX, uDir: Math.sign(S.v || 1),
-        uEnd: [END[0], END[1], END[2], 0.8],
+        uEnd: [END[0], END[1], END[2], 0.95],
       });
       // The zoom from the lobule: one camera move. The lobule (magnified by the compositor) carries it most of the way;
       // the view, already drawn where the lobule's own sinusoid is, comes in over all of it at once as the zoom lands
