@@ -19,7 +19,7 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, s, fmt, clamp, lerp } from './util.js?v=e803df99cd';
+import { h, fmt, clamp, lerp } from './util.js?v=e803df99cd';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
 import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=bbcbeee81b';
@@ -38,25 +38,32 @@ export function createSinusoidView({ host }) {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   const phoneMQ = matchMedia('(max-width: 720px)');
   const canvas = h('canvas', { class: 'sv-canvas', role: 'img', 'aria-label': 'A sinusoid, cut along its length' });
-  const leaders = s('svg', { class: 'lz-leaders', 'aria-hidden': 'true' });
   const labels = h('div', { class: 'lz-labels' });
-  // Regions named in place, as the anatomy names its organs (spaced small capitals on a halo, no chip or leader).
+  // Every part is named in place, as the anatomy names its organs: spaced small capitals on a halo, no chip or
+  // leader, with its reading (if any) beneath in the lobule's number style. Captions in a narrow band (the lumen,
+  // Disse) run along the vessel; those in the hepatocyte plates stay level.
   const regions = {};
-  function region(key, name, value, x, y) {
+  function region(key, name, value, x, y, { along = false, side = 0 } = {}) {
     let R = regions[key];
     if (!R) { R = regions[key] = { el: h('div', { class: `sv-region sv-region-${key}` }) }; labels.append(R.el); }
     const txt = name + '|' + value;
     if (R.text !== txt) {
       R.text = txt;
-      const [v, u] = value ? value.split('~') : [];
-      R.el.replaceChildren(h('span', {}, name), value ? h('span', { class: 'v' }, h('b', {}, v), u ? ` ${u}` : '') : '');
+      const lines = value ? value.split(' · ') : [];
+      R.el.replaceChildren(h('span', {}, name), ...lines.map((l) => { const [v, u] = l.split('~'); return h('span', { class: 'v' }, h('b', {}, v), u ? ` ${u}` : ''); }));
     }
-    const [cx, cy] = toScreen(x, y);
-    R.el.style.transform = `translate(${cx.toFixed(1)}px, ${cy.toFixed(1)}px) translate(-50%, -50%) rotate(${((geo.ang * 180) / Math.PI).toFixed(2)}deg)`;
+    // side ±1: the caption sits wholly on that side of y (across the vessel), its near edge at y.
+    const w = R.el.offsetWidth, hh = R.el.offsetHeight, ang = along ? geo.ang : 0;
+    const across = along ? hh : Math.abs(w * Math.sin(geo.ang)) + Math.abs(hh * Math.cos(geo.ang));
+    const yc = y + side * (across / 2) / VW.k;
+    let [cx, cy] = toScreen(x, yc);
+    if (!along) cx = clamp(cx, w / 2 + 4, geo.W - w / 2 - 4);   // a level caption stays on screen
+    R.el.style.transform = `translate(${cx.toFixed(1)}px, ${cy.toFixed(1)}px) translate(-50%, -50%)${ang ? ` rotate(${((ang * 180) / Math.PI).toFixed(2)}deg)` : ''}`;
+    return { half: (along ? w : Math.abs(w * Math.cos(geo.ang)) + Math.abs(hh * Math.sin(geo.ang))) / 2 / VW.k };
   }
   const legend = h('div', { class: 'sv-legend', 'aria-hidden': 'true' },
     h('span', {}, h('i', { class: 'alb' }), 'Albumin'), h('span', {}, h('i', { class: 'wat' }), 'Plasma water'), h('span', {}, h('i', { class: 'lym' }), 'Lymph, back to the portal triad'));
-  const el = h('div', { class: 'sv', 'aria-hidden': 'true' }, canvas, leaders, labels, legend);
+  const el = h('div', { class: 'sv', 'aria-hidden': 'true' }, canvas, labels, legend);
   host.append(el);
   const gpu = createSinusoidGL(canvas);
 
@@ -276,64 +283,31 @@ export function createSinusoidView({ host }) {
     return n;
   }
 
-  // ── Labels: the station and its readings, as the lobule's ──
+  // ── Labels ──
   const tags = {};
-  const placed = [];
-  function tag(key, names, value, ax, ay, lx, ly) {
-    const name = Array.isArray(names) ? names[phoneMQ.matches ? 1 : 0] : names;
-    let T = tags[key];
-    if (!T) {
-      T = tags[key] = { el: h('div', { class: 'lz-lab sv-tag' }), line: s('line', { class: 'leader' }), dot: s('circle', { class: 'leader-dot', r: 2.5 }) };
-      labels.append(T.el); leaders.append(T.line, T.dot);
-    }
-    const txt = name + '|' + value;
-    if (T.text !== txt) {
-      T.text = txt;
-      const [v, u] = value ? value.split('~') : [];
-      T.el.replaceChildren(h('span', { class: 'n' }, name), value ? h('span', { class: 'v' }, h('b', {}, v), u ? h('small', {}, u) : null) : '');
-    }
-    const [x, y] = toScreen(ax, ay), [X, Y] = toScreen(lx, ly);
-    const w = T.el.offsetWidth, hh = T.el.offsetHeight, left = X < x;
-    // Kept on screen, and clear of the labels already placed (moved down past them).
-    const bx = clamp(left ? X - w : X, 4, geo.W - 4 - w);
-    let by = Y - hh / 2;
-    for (let i = 0; i < 6; i++) {
-      const o = placed.find((q) => bx < q[2] && bx + w > q[0] && by < q[3] && by + hh > q[1]);
-      if (!o) break;
-      by = o[3] + 3;
-    }
-    const f = VW.f, inside = by > f.t - 40 && by + hh < f.b + 20;
-    if (inside) placed.push([bx, by, bx + w, by + hh]);
-    T.el.hidden = !inside; T.line.style.display = T.dot.style.display = inside ? '' : 'none';
-    if (!inside) return;
-    T.el.classList.toggle('left', left);
-    T.el.style.transform = `translate(${bx.toFixed(1)}px, ${by.toFixed(1)}px)`;
-    const ey = clamp(Y, by + 2, by + hh - 2), ex = left ? bx + w : bx;
-    for (const [a, b] of [['x1', x], ['y1', y], ['x2', ex], ['y2', ey]]) T.line.setAttribute(a, b.toFixed(1));
-    T.dot.setAttribute('cx', x.toFixed(1)); T.dot.setAttribute('cy', y.toFixed(1));
-  }
   function layoutTags() {
-    placed.length = 0;
-    const g = geo, m = model, hep = UM.hep;
+    const g = geo, m = model, hep = UM.hep, V = g.vert;
     const pick = (u) => lerp(VW.fr[0] + 8, VW.fr[1] - 8, u);
-    const xd = pick(g.vert ? 0.55 : 0.36), xf = pick(g.vert ? 0.82 : 0.62), xh = pick(g.vert ? 0.86 : 0.07);
-    // The sinusoid is named in its lumen, in the middle of the view (clear of the Kupffer cell).
-    let xc = pick(0.5);
-    if (Math.abs(xc - g.xk) < 30) xc = g.xk + (xc < g.xk ? -30 : 30);
-    region('sin', 'Sinusoid', m.hide ? '?' : `${fmt(m.P2, 1)}~mmHg`, xc, 0);
-    // The space of Disse, named along its band on the far side from the lymph's label, clear of the stellate cell.
-    // (On a tall screen it goes on the lymph's side, above its label, where nothing else is.)
-    let xq = pick(g.vert ? 0.24 : 0.84);
-    if (!g.vert && Math.abs(xq - g.xs) < 40) xq = g.xs + (xq < g.xs ? -40 : 40);
-    region('disse', 'Space of Disse', '', xq, (g.vert ? 1 : -1) * (wallIn(xq) + disseW(xq) * 0.5));
-    tag('lymph', ['Lymph, back to the portal triad', 'Lymph'], m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min · protein ${Math.round(m.lyProt * 100)}%`, xd, hepIn(xd) - disseW(xd) * 0.5, xd, hepIn(xd) + hep * 0.4);
-    // The fenestrae's label points at an open pore near its place (or the wall there, once they have closed).
-    const pf = g.pores[0].reduce((b, p) => (poreW(p) > 0.25 && Math.abs(p.x - xf) < Math.abs(b - xf) ? p.x : b), xf);
-    tag('fen', 'Fenestrae', S.por > 0.85 ? 'open' : S.por > 0.15 ? `${Math.round(S.por * 100)}%~open` : 'sealed', Math.abs(pf - xf) < 6 ? pf : xf, -halfW(xf) - UM.endo * 0.5, xf, -(hepIn(xf) + hep * 0.3));
-    tag('hsc', S.act > 0.5 ? ['Activated stellate cell', 'Stellate cell (active)'] : 'Stellate cell', '', g.xs, -(wallIn(g.xs) + 2.4), g.xs - 10, -(hepIn(g.xs) + hep * 0.7));
-    tag('kup', 'Kupffer cell', '', g.xk, halfW(g.xk) - 2, g.xk + 9, hepIn(g.xk) + hep * 0.62);
-    const hc = cellAt(xh, SEED.plateDn), hx = lerp(hc.x0 + 2, hc.x1 - 2, hc.bi ? hc.nu - 0.15 : hc.nu), hy = hepIn(hx) + lerp(2, hep - 2, hc.nv);
-    tag('hep', 'Hepatocyte', '', hx, hy, g.vert ? hx - 7 : hx + 7, hy + 5);   // (on a wide screen at the portal end, clear of the Kupffer cell's label)
+    const away = (x, from, d) => (Math.abs(x - from) < d ? from + (x < from ? -d : d) : x);
+    const num = (v, d, u) => (m.hide ? '?' : `${fmt(v, d)}~${u}`);
+    // In the lumen: the sinusoid (mid-view), the Kupffer cell beside itself, and the fenestrae along the far wall.
+    const xc = away(pick(0.5), g.xk, 30);
+    region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), xc, 0, { along: true });
+    const kw = region('kup', 'Kupffer cell', '', g.xk, 0, { along: true });
+    const kx = g.xk + 9 + kw.half < pick(0.92) ? g.xk + 9 + kw.half : g.xk - 9 - kw.half;   // beside it, where there is room
+    region('kup', 'Kupffer cell', '', kx, halfW(g.xk) * 0.35, { along: true });
+    const xf = away(pick(V ? 0.3 : 0.68), g.xs, 30);
+    region('fen', 'Fenestrae', S.por > 0.85 ? 'open' : S.por > 0.15 ? `${Math.round(S.por * 100)}%~open` : 'sealed', xf, -(halfW(xf) - 0.6), { along: true, side: 1 });
+    // In Disse: its name (on the stellate cell's side on a wide screen, clear of it), and the lymph it carries,
+    // read in the plate just beyond it on the other side.
+    const xq = V ? pick(0.24) : away(pick(0.86), g.xs, 40);
+    region('disse', 'Space of Disse', '', xq, (V ? 1 : -1) * (wallIn(xq) + disseW(xq) * 0.5), { along: true });
+    const xd = pick(V ? 0.55 : 0.32);
+    region('lymph', 'Lymph', m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min · protein ${Math.round(m.lyProt * 100)}%`, xd, hepIn(xd) + 1.2, { side: 1 });
+    // In the plates: the stellate cell named just beyond its body, and a hepatocyte on itself, clear of its nucleus.
+    region('hsc', S.act > 0.5 ? 'Activated stellate cell' : 'Stellate cell', '', g.xs, -(hepIn(g.xs) + 1), { side: -1, along: V });
+    const xh = pick(V ? 0.88 : 0.08), hc = cellAt(xh, SEED.plateDn), hx = (hc.x0 + hc.x1) / 2;
+    region('hep', 'Hepatocyte', '', hx, hepIn(hx) + hep * (hc.nv < 0.5 ? 0.78 : 0.22));
   }
   function layoutEnds() {
     const g = geo, f = VW.f;
