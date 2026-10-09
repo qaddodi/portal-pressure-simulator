@@ -1,51 +1,33 @@
-// Semantic zoom, one level below the lobule: a stretch of one sinusoid, cut along its length, as in
-// the textbook figure. Blood runs from the portal side (left, or top on a portrait screen) to the
-// central vein. Out from the lumen: the fenestrated endothelium, the space of Disse with the
-// hepatocytes' microvilli, a stellate (Ito) cell tucked between two hepatocytes, a Kupffer cell on
-// the lining, then the hepatocyte plates (one cell thick) and, faintly, the next sinusoids.
+// Semantic zoom, one level below the lobule: a stretch of one sinusoid, cut along its length, drawn in
+// the lobule's own language (a flat pressure-coloured lumen in a dark casing with chevrons and a
+// shimmer, the pale green lymph, the hepatocyte plates). Blood runs from the portal triad (left, or
+// top on a portrait screen) to the central vein.
 //
-// Everything is read from the lobule's model (lobule-model.js), so it moves with the same numbers
-// as the lobule above it:
-//   · the fenestrae close as the sinusoidal reflection coefficient rises (the engine's albumin
-//     sieving, which is what lowers the protein in hepatic lymph in cirrhosis),
-//   · collagen and a basement membrane fill the space of Disse and the microvilli flatten with
-//     sinusoidal fibrosis (capillarization),
-//   · the stellate cell activates (loses its vitamin A droplets, darkens, contracts),
-//   · the lumen narrows with sinusoidal resistance (as the lobule's sinusoids do) and widens with
-//     outflow congestion; red cells squeeze through a narrow one.
-// Each of these eases to its new value over about half a second, so nothing jumps.
+// What it is for: the wall, and what crosses it. Plasma filters out of the lumen through the
+// fenestrae into the space of Disse; albumin (amber) goes with it while the pores are open and is
+// turned back once they close; the lymph so made runs back along Disse toward the portal triad. The
+// rates are the engine's: filtration from the hepatic lymph flow, the albumin that gets through from
+// the lymph's protein, the pores from the sinusoidal reflection coefficient (engine.js starling()).
+// So a healthy liver and right heart failure show an open wall with protein-rich lymph (fast in
+// heart failure), and cirrhosis a sealed, capillarized wall with thin, protein-poor lymph.
 //
-// Drawn on two canvases: the tissue, redrawn only when its state changes, and the moving red cells.
+// Also from the lobule's model (lobule-model.js): collagen and a basement membrane in Disse and
+// flattened microvilli with sinusoidal fibrosis, the stellate cell's activation, the lumen's width.
+// Every one of these eases to its new value, so nothing jumps.
+//
+// Two canvases: the tissue, redrawn only when its state changes, and the moving marks over it.
 
 import { store } from './store.js?v=1d7cd9b00f';
 import { h, s, fmt, clamp, lerp } from './util.js?v=86153645a3';
-import { pressureColor } from './colormap.js?v=6d64a94345';
+import { pressureColor, deltaColor, heatColor } from './colormap.js?v=6d64a94345';
+import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
 
 const TAU = Math.PI * 2;
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
-// Sizes in micrometres. The lumen and the cells are to scale; the space of Disse, the endothelium
-// and the fenestrae are drawn several times thicker than life, or they would be invisible.
-const UM = { lum: 5, endo: 0.7, disse: 2.4, hep: 21, cell: 24, across: 70 };
-
-/** Targets for the drawing, from a lobule model (lobuleState). Exported for the tests. */
-export function sinusoidTargets(m) {
-  const sigma = m.sigma ?? 0.15;
-  // Porosity: 1 with the healthy reflection coefficient (0.15), 0 at its cirrhotic ceiling (0.6).
-  const por = clamp(1 - (sigma - 0.15) / 0.45, 0, 1);
-  const cap = clamp(Math.max(m.fibSin, 1 - por), 0, 1);
-  return {
-    por,
-    col: m.fibSin,                                    // collagen in Disse
-    bm: smooth(0.12, 0.7, cap),                       // basement membrane under the endothelium
-    mv: 1 - 0.75 * smooth(0.1, 0.85, cap),            // microvilli
-    act: m.act,                                       // stellate cell activation
-    lum: m.zone.sin ** -0.12 * (1 + 0.5 * m.congU),   // lumen width (as the lobule's sinusoids)
-    pinch: 0.22 * m.act,                              // the activated stellate cell's squeeze
-    v: (m.rev?.sin ? -1 : 1) * clamp(Math.abs(m.flow) / Math.max(0.35, m.zone.sin ** -0.24), 0.08, 3),   // red cell speed (flow / area)
-    pack: m.congU,                                    // congestion packs the lumen with red cells
-  };
-}
+// Sizes in micrometres. The lumen and the cells are to scale; the space of Disse, the endothelium and
+// its fenestrae are drawn several times larger than life, or the traffic across them would not show.
+const UM = { lum: 5, endo: 0.8, disse: 3.4, hep: 20, cell: 24 };
 
 export function createSinusoidView({ host, onBack }) {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
@@ -54,9 +36,11 @@ export function createSinusoidView({ host, onBack }) {
   const fx = h('canvas', { class: 'sv-canvas', 'aria-hidden': 'true' });
   const leaders = s('svg', { class: 'lz-leaders', 'aria-hidden': 'true' });
   const labels = h('div', { class: 'lz-labels' });
+  const legend = h('div', { class: 'sv-legend', 'aria-hidden': 'true' },
+    h('span', {}, h('i', { class: 'alb' }), 'Albumin'), h('span', {}, h('i', { class: 'wat' }), 'Plasma water'), h('span', {}, h('i', { class: 'lym' }), 'Lymph, back to the portal triad'));
   const back = h('button', { class: 'sv-back', type: 'button', 'aria-label': 'Back to the lobule' }, h('span', { 'aria-hidden': 'true' }, '‹'), ' Lobule');
   back.addEventListener('click', () => onBack?.());
-  const el = h('div', { class: 'sv', 'aria-hidden': 'true' }, tissue, fx, leaders, labels, back);
+  const el = h('div', { class: 'sv', 'aria-hidden': 'true' }, tissue, fx, leaders, labels, legend, back);
   host.append(el);
 
   // ── Leaving by zooming out: the wheel, a pinch or the zoom buttons (lobule-zoom.js) ──
@@ -85,9 +69,8 @@ export function createSinusoidView({ host, onBack }) {
   let model = null, shown = 0, open = false, raf = 0, last = 0;
   const S = {};          // the drawing's state, easing toward sinusoidTargets(model)
   let geo = null, geoKey = '', tissueKey = '';
-  const cells = [];      // red cells: { x, y, ph, r }
 
-  // Where the sinusoid sits: centred in the space the floating pieces leave, along the longer side.
+  // Where the sinusoid sits: centred in the space the floating pieces leave (a row kept for the legend).
   const appStyle = document.getElementById('app')?.style;
   const cssN = (k) => parseFloat(appStyle?.getPropertyValue(k)) || 0;
   function freeRect(W, H) {
@@ -106,8 +89,7 @@ export function createSinusoidView({ host, onBack }) {
       const plates = [];
       for (const side of [-1, 1]) for (let n = 0; n < 2; n++) {
         const row = [], seed = side > 0 ? 71 + n * 13 : 29 + n * 17;
-        const cell = (R, xa, xb) => ({ x0: xa, x1: xb, nu: 0.3 + 0.4 * R(), nv: 0.38 + 0.24 * R(), nr: 3.1 + 0.6 * R(), bi: R() < 0.12, tone: R(),
-          dots: Array.from({ length: 22 }, () => [R(), R(), 0.18 + 0.3 * R()]) });
+        const cell = (R, xa, xb) => ({ x0: xa, x1: xb, nu: 0.3 + 0.4 * R(), nv: 0.4 + 0.2 * R(), nr: 2.6 + 0.5 * R(), bi: R() < 0.12, tone: R() });
         const R0 = rng(seed), first = -UM.cell * (0.3 + 0.4 * R0());
         for (let x = first, R = rng(seed + 1); x < x1;) { const l = UM.cell * (0.8 + 0.4 * R()); row.push(cell(R, x, x + l)); x += l; }
         for (let x = first, R = rng(seed + 2); x > x0;) { const l = UM.cell * (0.8 + 0.4 * R()); row.unshift(cell(R, x - l, x)); x -= l; }
@@ -119,28 +101,29 @@ export function createSinusoidView({ host, onBack }) {
       // Fenestrae, gathered in sieve plates along both linings; each closes at its own threshold.
       const pores = [[], []];
       for (const i of [0, 1]) for (const dir of [1, -1]) {
-        const R = rng(3 + 2 * i + (dir > 0 ? 0 : 11)), out = [];
+        const R = rng(3 + 2 * i + (dir > 0 ? 0 : 11));
         for (let x = dir > 0 ? 0 : -1.5; Math.abs(x) < X;) {
-          x += dir * (3 + 5 * R());
-          const nP = 3 + Math.floor(R() * 4);
-          for (let j = 0; j < nP; j++) { out.push({ x, w: 0.42 + 0.3 * R(), th: R() }); x += dir * (0.9 + 0.5 * R()); }
+          x += dir * (3.5 + 5 * R());
+          const nP = 3 + Math.floor(R() * 3);
+          for (let j = 0; j < nP; j++) { pores[i].push({ x, w: 0.55 + 0.3 * R(), th: R() }); x += dir * (1.3 + 0.5 * R()); }
         }
-        pores[i].push(...out);
       }
       for (const ps of pores) ps.sort((a, b) => a.x - b.x);
       // Endothelial nuclei bulging into the lumen; the Kupffer cell on the lower lining after the middle.
       const nuclei = [[], []];
-      for (const i of [0, 1]) { const R = rng(41 + i); for (let x = -X + 10 * R(); x < X; x += 34 + 22 * R()) nuclei[i].push(x); }
+      for (const i of [0, 1]) { const R = rng(41 + i); for (let x = -X + 10 * R(); x < X; x += 38 + 22 * R()) nuclei[i].push(x); }
       // Collagen fibres in Disse: each appears at its own level of fibrosis.
       const fibres = [[], []];
       for (const i of [0, 1]) { const R = rng(91 + i); for (let j = 0; j < 9; j++) fibres[i].push({ v: 0.15 + 0.7 * R(), th: j / 9 * 0.85, ph: R() * TAU, f: 0.12 + 0.12 * R() }); }
       geo = { W, H, ang, ca: Math.cos(ang), sa: Math.sin(ang), vert, x0, x1, plates, xs, xk: 22, pores, nuclei, fibres };
-      seedCells();
     }
     // Where it is drawn: centred in the free space, the plates filling its short side. When that space
     // changes (the dock grows, a card opens) the view glides there (stepView), it does not jump.
     const f = freeRect(W, H), fw = f.r - f.l, fh = f.b - f.t;
-    VW.f = f; VW.tk = clamp((geo.vert ? fw : fh) / UM.across, 3, 14); VW.tC = [(f.l + f.r) / 2, (f.t + f.b) / 2];
+    // How much is shown across: both plates whole on a large screen; on a phone, closer in (the plates cut by the
+    // edges), so the wall and its traffic stay large enough to follow.
+    const short = geo.vert ? fw : fh, across = lerp(40, 54, smooth(380, 720, short));
+    VW.f = f; VW.tk = clamp(short / across, 3, 14); VW.tC = [(f.l + f.r) / 2, (f.t + f.b) / 2];
     if (!VW.k) { VW.k = VW.tk; VW.C = [...VW.tC]; }
     return geo;
   }
@@ -158,17 +141,14 @@ export function createSinusoidView({ host, onBack }) {
     VW.fr = span([[VW.f.l, VW.f.t], [VW.f.r, VW.f.b]]);
     return d >= 0.05;
   }
+  // Local (µm, along/across) → stage px.
   const toScreen = (x, y) => { const g = geo; return [VW.C[0] + VW.k * (x * g.ca - y * g.sa), VW.C[1] + VW.k * (x * g.sa + y * g.ca)]; };
 
-  function seedCells() {
-    const g = geo, R = rng(7);
-    cells.length = 0;
-    for (let x = g.x0; x < g.x1; x += 8 + 6 * R()) cells.push({ x, y: R() * 2 - 1, ph: R() * TAU, r: 0.92 + 0.16 * R(), sp: 0.85 + 0.3 * R(), extra: R() });
-  }
-
-  // The lumen's half width at x (the stellate cell's squeeze is a gentle waist around it).
-  const halfW = (x) => UM.lum * S.lum * (1 - S.pinch * Math.exp(-(((x - geo.xs) / 11) ** 2))) + 0.18 * Math.sin(x * 0.11 + 1.3);
-  const disseW = (x) => UM.disse * (1 + 0.35 * S.col) + 0.25 * Math.sin(x * 0.07);
+  // The lumen's half width at x (the stellate cell's squeeze is a gentle waist around it), and Disse's width.
+  const halfW = (x) => UM.lum * S.lum * (1 - S.pinch * Math.exp(-(((x - geo.xs) / 11) ** 2))) + 0.15 * Math.sin(x * 0.11 + 1.3);
+  const disseW = (x) => UM.disse * (1 + 0.25 * S.col) + 0.2 * Math.sin(x * 0.07);
+  const wallIn = (x) => halfW(x) + UM.endo;            // Disse's lumen side (under the endothelium)
+  const hepIn = (x) => wallIn(x) + disseW(x);          // the hepatocytes' face on Disse
 
   function stepState(dt) {
     if (!model) return false;
@@ -183,22 +163,28 @@ export function createSinusoidView({ host, onBack }) {
     return moving;
   }
 
-  // ── Colours (light and dark), from the theme's tokens where the lobule takes them ──
+  // ── Colours, from the theme's tokens as the lobule takes them ──
   function palette(dark, cs) {
     const v = (n, d) => cs.getPropertyValue(n).trim() || d;
+    const trip = (n, d) => { const k = v(n, d).split(/[\s,/]+/).map(Number); return k.length >= 3 && k.every(Number.isFinite) ? k.slice(0, 3) : d.split(' ').map(Number); };
+    const casing = trip('--casing-rgb', dark ? '214 222 246' : '30 24 40'), casA = parseFloat(v('--casing-a', dark ? '.34' : '.56')) || 0.5;
+    const bg = v('--stage-bg', v('--bg', dark ? '#0E1422' : '#FBFAF7'));
+    const m = model, M = m.mode;
+    const lumen = m.hide ? (dark ? '#58607A' : '#A0939C') : M === 'delta' ? deltaColor(m.dP[1]) : M === 'heat' ? heatColor(m.dP[1]) : pressureColor(m.P2);
+    // Lymph: clear and faintly green, deeper with more protein (as the lobule's lymphatics).
+    const p = S.prot ?? 1, lo = dark ? [0.72, 0.76, 0.69] : [0.92, 0.94, 0.88], mid = dark ? [0.7, 0.77, 0.66] : [0.88, 0.92, 0.82], hi = dark ? [0.64, 0.75, 0.58] : [0.82, 0.89, 0.74];
+    const ly = (p < 0.45 ? lo.map((x, i) => lerp(x, mid[i], p / 0.45)) : mid.map((x, i) => lerp(x, hi[i], (p - 0.45) / 0.55))).map((x) => Math.round(x * 255));
     return {
-      bg: v('--stage-bg', v('--bg', dark ? '#0E1422' : '#FBFAF7')),
-      cell: v('--og-liver-1', dark ? '#85514F' : '#E9C3B6'),
-      gap: v('--og-liver-2', dark ? '#5A3440' : '#C98E7E'),
-      disse: dark ? 'rgba(214, 196, 150, .16)' : 'rgba(250, 236, 196, .9)',
-      nuc: dark ? 'rgba(28, 12, 30, .42)' : 'rgba(112, 58, 86, .30)',
-      nucleolus: dark ? 'rgba(20, 8, 24, .55)' : 'rgba(96, 40, 70, .5)',
-      endo: dark ? '#8E7DB0' : '#B9A6D3', endoEdge: dark ? 'rgba(210, 196, 240, .5)' : 'rgba(96, 72, 140, .55)',
-      col: dark ? [200, 186, 152] : [236, 220, 184], colEdge: dark ? 'rgba(255, 240, 200, .35)' : 'rgba(150, 120, 80, .45)',
-      bm: dark ? 'rgba(236, 220, 170, .7)' : 'rgba(150, 118, 70, .75)',
-      canal: dark ? 'rgba(170, 196, 90, .8)' : 'rgba(120, 150, 40, .75)',
-      rbc: dark ? '#C9424F' : '#C23743', rbcPale: dark ? '#E0727C' : '#E3858C', rbcEdge: dark ? 'rgba(60, 0, 10, .5)' : 'rgba(110, 10, 24, .45)',
-      kup: dark ? '#7C6A9C' : '#A08DBE', kupNuc: dark ? 'rgba(30, 16, 50, .55)' : 'rgba(70, 40, 100, .5)',
+      bg, lumen, casing, casA,
+      cas: `rgba(${casing.join(',')}, ${casA})`,
+      lymph: dark ? `rgba(${ly.join(',')}, .3)` : `rgb(${ly.join(',')})`, lymphEdge: dark ? 'rgba(150, 200, 140, .35)' : 'rgba(96, 140, 80, .32)',
+      cell: v('--og-liver-1', dark ? '#85514F' : '#E9C3B6'), gap: v('--og-liver-2', dark ? '#5A3440' : '#C98E7E'),
+      nuc: dark ? 'rgba(30, 14, 28, .26)' : 'rgba(110, 60, 84, .22)',
+      col: dark ? [199, 186, 153] : [237, 222, 186], bm: dark ? 'rgba(236, 220, 170, .75)' : 'rgba(150, 118, 70, .8)',
+      bile: dark ? 'rgb(150, 156, 80)' : 'rgb(122, 128, 61)',
+      kup: dark ? '#7C6A9C' : '#A795C3', kupNuc: dark ? 'rgba(30, 16, 50, .5)' : 'rgba(70, 40, 100, .42)',
+      chev: dark ? 'rgba(10, 12, 20, .5)' : 'rgba(20, 20, 26, .5)',
+      alb: dark ? '#F2B64A' : '#E39A1E', albEdge: dark ? 'rgba(60, 30, 0, .6)' : 'rgba(120, 64, 0, .6)', water: dark ? 'rgba(235, 245, 255, .9)' : 'rgba(255, 255, 255, .95)', waterEdge: dark ? 'rgba(0, 0, 0, .35)' : 'rgba(60, 90, 120, .45)',
     };
   }
   const mix = (a, b, t) => { const A = rgb(a), B = rgb(b); return `rgb(${A.map((x, i) => Math.round(lerp(x, B[i], t))).join(',')})`; };
@@ -213,137 +199,123 @@ export function createSinusoidView({ host, onBack }) {
     return o;
   }
 
-  // ── The tissue ──
-  function paintTissue(c, P, dark) {
-    const g = geo, m = model;
-    c.fillStyle = P.bg; c.fillRect(-500, -500, 1000, 1000);
-    const X = (n) => lerp(VW.vis[0], VW.vis[1], n);
-    const xs = []; for (let i = 0; i <= 120; i++) xs.push(X(i / 120));
-    // Lumen plasma, tinted by the sinusoid's pressure as every lumen in the app is.
-    const tint = m.hide ? (dark ? '#2A2F3E' : '#ECE6EA') : mix(P.bg, pressureColor(m.P2), dark ? 0.32 : 0.2);
-    // One side at a time: s = -1 above the lumen, +1 below.
-    for (const side of [-1, 1]) {
-      const yIn = (x) => side * (halfW(x) + UM.endo + disseW(x));   // hepatocytes' face on Disse
-      // The plates: first the membrane colour as ground, then the cells over it, leaving their borders.
-      for (const pl of g.plates.filter((p) => p.side === side)) {
-        const off = pl.n * (UM.hep + 2 * UM.disse + 2 * UM.endo + 2 * UM.lum);
-        const a0 = (x) => yIn(x) + side * off, a1 = (x) => yIn(x) + side * (off + UM.hep);
-        const fade = pl.n ? 0.55 : 1;
-        c.globalAlpha = fade;
-        c.fillStyle = P.gap; c.beginPath();
-        xs.forEach((x, i) => (i ? c.lineTo(x, a0(x)) : c.moveTo(x, a0(x)))); for (let i = xs.length - 1; i >= 0; i--) c.lineTo(xs[i], a1(xs[i])); c.fill();
-        for (const k of pl.row) paintCell(c, P, k, a0, a1, side, dark);
-        // The next sinusoid beyond the plate, quiet: its Disse, lining and lumen.
-        if (pl.n === 0) {
-          const b0 = (x) => a1(x) + side * UM.disse, b1 = (x) => b0(x) + side * UM.endo, b2 = (x) => b1(x) + side * 2 * UM.lum * 0.95;
-          band(c, xs, a1, b0, P.disse);
-          band(c, xs, b0, b1, P.endo);
-          band(c, xs, b1, b2, tint);
-          c.globalAlpha = 0.55;
-          band(c, xs, (x) => b2(x), (x) => b2(x) + side * UM.endo, P.endo);
-          band(c, xs, (x) => b2(x) + side * UM.endo, (x) => b2(x) + side * (UM.endo + UM.disse), P.disse);
-        }
-        c.globalAlpha = 1;
-      }
-      // Space of Disse: plasma, collagen as it comes, the microvilli reaching into it.
-      const e1 = (x) => side * (halfW(x) + UM.endo);
-      band(c, xs, e1, yIn, P.disse);
-      paintCollagen(c, P, side, xs, e1, yIn);
-      paintMicrovilli(c, P, side, e1, yIn, dark);
-    }
-    paintStellate(c, P, dark);
-    // The lumen and its lining.
-    band(c, xs, (x) => -halfW(x), (x) => halfW(x), tint);
-    for (const side of [-1, 1]) paintEndothelium(c, P, side);
-    // Focus: beyond this sinusoid's own plates the tissue fades into the page.
-    const bq = rgb(P.bg);
-    for (const side of [-1, 1]) {
-      const y0 = side * (UM.lum * S.lum + UM.endo + disseW(0) + UM.hep), y1 = y0 + side * 16;
-      const gr = c.createLinearGradient(0, y0, 0, y1);
-      gr.addColorStop(0, `rgba(${bq.join(',')}, 0)`); gr.addColorStop(1, `rgba(${bq.join(',')}, ${dark ? 0.72 : 0.66})`);
-      c.fillStyle = gr; c.fillRect(VW.vis[0], Math.min(y0, side * 200), VW.vis[1] - VW.vis[0], Math.abs(side * 200 - y0));
-    }
-  }
+  // ── The tissue (cached) ──
+  const xsOf = () => { const a = []; for (let i = 0; i <= 140; i++) a.push(lerp(VW.vis[0], VW.vis[1], i / 140)); return a; };
   function band(c, xs, f0, f1, fill) {
     c.fillStyle = fill; c.beginPath();
     xs.forEach((x, i) => (i ? c.lineTo(x, f0(x)) : c.moveTo(x, f0(x))));
     for (let i = xs.length - 1; i >= 0; i--) c.lineTo(xs[i], f1(xs[i]));
     c.closePath(); c.fill();
   }
+  const line = (c, xs, f) => { c.beginPath(); xs.forEach((x, i) => (i ? c.lineTo(x, f(x)) : c.moveTo(x, f(x)))); c.stroke(); };
+  function paintTissue(c, P, dark) {
+    const g = geo, xs = xsOf();
+    c.fillStyle = P.bg; c.fillRect(VW.vis[0] - 10, -300, VW.vis[1] - VW.vis[0] + 20, 600);
+    const per = UM.hep + 2 * UM.disse + 2 * UM.endo + 2 * UM.lum;   // one plate and one sinusoid
+    for (const side of [-1, 1]) {
+      const yIn = (x) => side * hepIn(x);
+      for (const pl of g.plates.filter((p) => p.side === side)) {
+        const off = pl.n * per, a0 = (x) => yIn(x) + side * off, a1 = (x) => yIn(x) + side * (off + UM.hep);
+        // The plate: the cells' borders as ground, the cells over it (as the lobule draws its plates).
+        c.globalAlpha = dark ? 0.55 : 0.5; band(c, xs, a0, a1, P.gap); c.globalAlpha = 1;
+        for (const k of pl.row) if (k.x1 > VW.vis[0] && k.x0 < VW.vis[1]) paintCell(c, P, k, a0, a1, side, dark);
+        // The next sinusoid beyond the plate: its Disse, lining and lumen, quietly.
+        if (pl.n === 0) {
+          const b0 = (x) => a1(x) + side * UM.disse, b1 = (x) => b0(x) + side * UM.endo, b2 = (x) => b1(x) + side * 2 * UM.lum, b3 = (x) => b2(x) + side * UM.endo;
+          band(c, xs, a1, b0, P.lymph);
+          band(c, xs, b1, b2, P.lumen);
+          band(c, xs, b0, b1, P.cas); band(c, xs, b2, b3, P.cas);
+          band(c, xs, b3, (x) => b3(x) + side * UM.disse, P.lymph);
+        }
+      }
+      // Space of Disse: lymph, then collagen as fibrosis comes, the microvilli reaching into it.
+      const e1 = (x) => side * wallIn(x);
+      band(c, xs, e1, yIn, P.lymph);
+      c.strokeStyle = P.lymphEdge; c.lineWidth = 0.18; line(c, xs, yIn);
+      paintCollagen(c, P, side, xs, e1, yIn);
+      paintMicrovilli(c, P, side, e1, yIn, dark);
+    }
+    paintStellate(c, P, dark);
+    // The lumen, flat as the lobule's: a thin light line along its upper side, a thin dark one along the lower.
+    band(c, xs, (x) => -halfW(x), (x) => halfW(x), P.lumen);
+    c.lineWidth = 0.35;
+    c.strokeStyle = 'rgba(255, 255, 255, .32)'; line(c, xs, (x) => -halfW(x) + 0.55);
+    c.strokeStyle = 'rgba(0, 0, 0, .1)'; line(c, xs, (x) => halfW(x) - 0.55);
+    for (const side of [-1, 1]) paintEndothelium(c, P, side);
+    // Focus: beyond this sinusoid's own plates the tissue fades into the page.
+    const bq = rgb(P.bg);
+    for (const side of [-1, 1]) {
+      const y0 = side * (UM.lum * S.lum + UM.endo + disseW(0) + UM.hep * 0.85), y1 = y0 + side * 18;
+      const gr = c.createLinearGradient(0, y0, 0, y1);
+      gr.addColorStop(0, `rgba(${bq.join(',')}, 0)`); gr.addColorStop(1, `rgba(${bq.join(',')}, ${dark ? 0.75 : 0.7})`);
+      c.fillStyle = gr; c.fillRect(VW.vis[0] - 10, Math.min(y0, side * 300), VW.vis[1] - VW.vis[0] + 20, Math.abs(side * 300 - y0));
+    }
+  }
   function paintCell(c, P, k, a0, a1, side, dark) {
-    const gp = 0.35, r = 1.6, x0 = k.x0 + gp + r, x1 = k.x1 - gp - r;
+    const gp = 0.45, r = 2.2, x0 = k.x0 + gp + r, x1 = k.x1 - gp - r;
     if (x1 <= x0) return;
     const n = 8, pts = [];
     for (let i = 0; i <= n; i++) { const x = lerp(x0, x1, i / n); pts.push([x, a0(x) + side * (gp + r)]); }
     for (let i = n; i >= 0; i--) { const x = lerp(x0, x1, i / n); pts.push([x, a1(x) - side * (gp + r)]); }
-    const base = rgb(P.cell), t = 0.9 + 0.1 * k.tone;
-    c.fillStyle = `rgb(${base.map((v) => Math.round(v * t + (dark ? 0 : 255 * (1 - t) * 0.4))).join(',')})`;
+    const base = rgb(P.cell), gap = rgb(P.gap), t = 0.88 + 0.12 * k.tone;
+    const col = (dark ? base.map((x, i) => lerp(gap[i], x, 0.28)) : base).map((x) => Math.round(x * t + (1 - t) * (dark ? 0.15 : 1) * 0.3 * 255));
+    const bgc = rgb(P.bg), under = gap.map((x, i) => lerp(bgc[i], x, dark ? 0.55 : 0.5)), al = dark ? 0.8 : 0.92;
+    c.fillStyle = `rgb(${col.map((x, i) => Math.round(lerp(under[i], x, al))).join(',')})`;   // opaque: the rounding stroke overlaps the fill
     c.strokeStyle = c.fillStyle; c.lineWidth = 2 * r; c.lineJoin = 'round';
     c.beginPath(); pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y))); c.closePath(); c.fill(); c.stroke();
-    // Cytoplasm: glycogen and mitochondria as a faint grain.
+    // Nucleus (two in some hepatocytes): a flat, faint disc, as on the lobule.
     const at = (u, v) => { const x = lerp(k.x0 + 2, k.x1 - 2, u); return [x, lerp(a0(x) + side * 2, a1(x) - side * 2, v)]; };
-    c.fillStyle = dark ? 'rgba(255, 220, 220, .07)' : 'rgba(150, 80, 70, .1)';
-    for (const [u, v, rr] of k.dots) { const [x, y] = at(u, v); c.beginPath(); c.arc(x, y, rr, 0, TAU); c.fill(); }
-    // Nucleus (two in some hepatocytes), with its nucleolus.
-    const nucs = k.bi ? [[k.nu - 0.14, k.nv], [k.nu + 0.16, k.nv + 0.05]] : [[k.nu, k.nv]];
-    for (const [u, v] of nucs) {
-      const [x, y] = at(u, v), rr = k.bi ? k.nr * 0.82 : k.nr;
-      c.fillStyle = P.nuc; c.beginPath(); c.arc(x, y, rr, 0, TAU); c.fill();
-      c.fillStyle = P.nucleolus; c.beginPath(); c.arc(x + rr * 0.25, y - rr * 0.2, rr * 0.24, 0, TAU); c.fill();
+    c.fillStyle = P.nuc;
+    for (const [u, v] of k.bi ? [[k.nu - 0.15, k.nv], [k.nu + 0.15, k.nv + 0.04]] : [[k.nu, k.nv]]) {
+      const [x, y] = at(u, v); c.beginPath(); c.arc(x, y, k.bi ? k.nr * 0.82 : k.nr, 0, TAU); c.fill();
     }
-    // A bile canaliculus at the border with the next cell, mid-plate.
+    // A bile canaliculus between this cell and the next, mid-plate: dull olive, as the lobule's bile.
     const xb = k.x1, yb = lerp(a0(xb), a1(xb), 0.5);
-    c.fillStyle = P.canal; c.beginPath(); c.ellipse(xb, yb, 0.75, 0.6, 0, 0, TAU); c.fill();
+    c.fillStyle = P.bile; c.beginPath(); c.ellipse(xb, yb, 0.7, 0.55, 0, 0, TAU); c.fill();
   }
   function paintCollagen(c, P, side, xs, e1, yIn) {
     const g = geo, col = S.col;
-    if (col < 0.02 && S.bm < 0.02) return;
-    // A denser mesh close to the activated stellate cell, which makes it.
-    const near = (x) => (side < 0 ? Math.exp(-(((x - g.xs) / 26) ** 2)) * S.act : 0);
-    c.lineCap = 'round';
-    for (const fb of g.fibres[side < 0 ? 0 : 1]) {
-      const a = smooth(fb.th, fb.th + 0.18, col);
-      if (a <= 0.01) continue;
-      c.strokeStyle = `rgba(${P.col.join(',')}, ${(0.95 * a).toFixed(3)})`; c.lineWidth = 0.32 + 0.22 * a;
-      c.beginPath();
-      xs.forEach((x, i) => {
-        const v = clamp(fb.v + 0.12 * Math.sin(x * fb.f + fb.ph) + 0.08 * near(x), 0.05, 0.95), y = lerp(e1(x), yIn(x), v);
-        if (i) c.lineTo(x, y); else c.moveTo(x, y);
-      });
-      c.stroke();
+    const near = (x) => (side < 0 ? Math.exp(-(((x - g.xs) / 26) ** 2)) * S.act : 0);   // denser by the stellate cell that makes it
+    if (col > 0.02) {
+      // A pale fill first, as the collagen takes the space the lymph had.
+      c.globalAlpha = 0.55 * smooth(0.1, 0.9, col); band(c, xs, e1, yIn, `rgb(${P.col.join(',')})`); c.globalAlpha = 1;
+      c.lineCap = 'round';
+      for (const fb of g.fibres[side < 0 ? 0 : 1]) {
+        const a = smooth(fb.th, fb.th + 0.18, col);
+        if (a <= 0.01) continue;
+        c.strokeStyle = `rgba(${P.col.map((x) => Math.round(x * 0.82)).join(',')}, ${(0.85 * a).toFixed(3)})`; c.lineWidth = 0.28 + 0.2 * a;
+        line(c, xs, (x) => lerp(e1(x), yIn(x), clamp(fb.v + 0.12 * Math.sin(x * fb.f + fb.ph) + 0.08 * near(x), 0.05, 0.95)));
+      }
     }
     // Basement membrane: a continuous line just under the endothelium, as the sinusoid becomes a capillary.
-    if (S.bm > 0.02) {
-      c.strokeStyle = P.bm; c.globalAlpha = S.bm; c.lineWidth = 0.28 + 0.2 * S.bm;
-      c.beginPath(); xs.forEach((x, i) => { const y = e1(x) + side * 0.3; if (i) c.lineTo(x, y); else c.moveTo(x, y); }); c.stroke();
-      c.globalAlpha = 1;
-    }
+    if (S.bm > 0.02) { c.strokeStyle = P.bm; c.globalAlpha = S.bm; c.lineWidth = 0.3 + 0.2 * S.bm; line(c, xs, (x) => e1(x) + side * 0.3); c.globalAlpha = 1; }
   }
   function paintMicrovilli(c, P, side, e1, yIn, dark) {
     const L = S.mv;
-    c.strokeStyle = mix(P.cell, dark ? '#000' : P.gap, dark ? 0.15 : 0.35); c.lineWidth = 0.32; c.lineCap = 'round';
+    c.strokeStyle = mix(P.cell, dark ? '#000' : P.gap, dark ? 0.08 : 0.2); c.lineWidth = 0.26; c.lineCap = 'round';
     c.beginPath();
-    for (let i = Math.floor(VW.vis[0] / 0.85); i * 0.85 < VW.vis[1]; i++) {
-      const x = i * 0.85;
-      const y0 = yIn(x), room = Math.abs(yIn(x) - e1(x)), l = room * 0.7 * L * (0.55 + 0.45 * Math.abs(Math.sin(i * 2.17)));
-      c.moveTo(x, y0); c.lineTo(x + 0.15 * Math.sin(i), y0 - side * l);
+    for (let i = Math.floor(VW.vis[0] / 0.9); i * 0.9 < VW.vis[1]; i++) {
+      const x = i * 0.9, y0 = yIn(x), l = Math.abs(yIn(x) - e1(x)) * 0.5 * L * (0.55 + 0.45 * Math.abs(Math.sin(i * 2.17)));
+      c.moveTo(x, y0); c.lineTo(x + 0.12 * Math.sin(i), y0 - side * l);
     }
     c.stroke();
   }
+  // Open width of a pore (µm): each closes smoothly at its own threshold as the wall seals.
+  const poreW = (p) => p.w * smooth(p.th - 0.14, p.th + 0.14, S.por);
+  // The endothelium: the vessel's casing, with the fenestrae as gaps through it.
   function paintEndothelium(c, P, side) {
-    const g = geo, por = S.por, pores = g.pores[side < 0 ? 0 : 1];
-    const y0 = (x) => side * halfW(x), y1 = (x) => side * (halfW(x) + UM.endo);
-    // Segments of lining between open fenestrae. A closing pore narrows smoothly to nothing.
+    const g = geo, pores = g.pores[side < 0 ? 0 : 1];
+    const y0 = (x) => side * halfW(x), y1 = (x) => side * wallIn(x);
     const segs = [];
     let from = VW.vis[0];
     for (const p of pores) {
       if (p.x < VW.vis[0] || p.x > VW.vis[1]) continue;
-      const o = smooth(p.th - 0.14, p.th + 0.14, por), w = p.w * o;
-      if (w < 0.04) continue;
+      const w = poreW(p);
+      if (w < 0.05) continue;
       segs.push([from, p.x - w / 2]); from = p.x + w / 2;
     }
     segs.push([from, VW.vis[1]]);
-    c.fillStyle = P.endo;
+    c.fillStyle = P.cas;
     c.beginPath();
     for (const [a, b] of segs) {
       if (b <= a) continue;
@@ -353,100 +325,185 @@ export function createSinusoidView({ host, onBack }) {
       c.closePath();
     }
     c.fill();
-    c.strokeStyle = P.endoEdge; c.lineWidth = 0.14;
-    c.stroke();
-    // Endothelial nuclei: flat bulges into the lumen.
-    c.fillStyle = P.endo;
+    // Endothelial nuclei: flat lenses of the same casing, bulging into the lumen.
     for (const x of g.nuclei[side < 0 ? 0 : 1]) {
-      if (side > 0 && Math.abs(x - g.xk) < 12) continue;   // the Kupffer cell sits there
-      c.beginPath(); c.ellipse(x, y0(x) - side * 0.15, 4.2, 1.15, 0, 0, TAU); c.fill(); c.stroke();
-      c.fillStyle = P.endoEdge; c.beginPath(); c.ellipse(x, y0(x) - side * 0.25, 2.8, 0.55, 0, 0, TAU); c.fill(); c.fillStyle = P.endo;
+      if ((side > 0 && Math.abs(x - g.xk) < 12) || x < VW.vis[0] - 5 || x > VW.vis[1] + 5) continue;
+      c.beginPath(); c.ellipse(x, y0(x), 3.6, 0.95, 0, side < 0 ? 0 : Math.PI, side < 0 ? Math.PI : TAU); c.fill();
     }
   }
-  // The stellate cell, in the space of Disse at a junction of two hepatocytes. Quiescent: a rounded
-  // body filled with vitamin A droplets and thin processes along the lining. Activated (a
-  // myofibroblast): the droplets go, the body lengthens and darkens and its processes thicken and pull.
+  // The stellate cell, in Disse at a junction of two hepatocytes, as the lobule draws it: quiescent, a
+  // rounded body full of vitamin A droplets with thin processes along the lining; activated (a
+  // myofibroblast), the droplets go and the body lengthens, darkens and pulls on the sinusoid.
   function paintStellate(c, P, dark) {
-    const g = geo, a = S.act, x = g.xs, yE = -(halfW(x) + UM.endo), yb = yE - UM.disse * (1 + 0.35 * S.col) * 0.55 - 1.4 - 0.4 * a;
-    const L = 4.2 + 2.6 * a, Wd = 2.6 - 0.8 * a;
-    const q = dark ? [196, 150, 104] : [222, 186, 138], act = dark ? [160, 96, 64] : [176, 112, 76];
-    const colB = q.map((v, i) => Math.round(lerp(v, act[i], a)));
-    c.fillStyle = `rgb(${colB.join(',')})`;
-    // Processes: tapered strands hugging the endothelium both ways.
+    const g = geo, a = S.act, x = g.xs, yb = -(wallIn(x) + disseW(x) * 0.5) - 0.8;
+    const L = 4 + 2.6 * a, Wd = 2.3 - 0.6 * a;
+    c.fillStyle = `rgba(${dark ? '196, 140, 100' : '170, 112, 74'}, ${(0.5 + 0.35 * a).toFixed(3)})`;
     for (const sg of [-1, 1]) {
-      const len = 16 + 8 * a, w0 = 0.55 + 0.45 * a;
-      c.beginPath();
-      const n = 14, up = [], dn = [];
+      const len = 15 + 8 * a, w0 = 0.6 + 0.4 * a, n = 14, up = [], dn = [];
       for (let i = 0; i <= n; i++) {
-        const u = i / n, xx = x + sg * (L * 0.7 + len * u), yy = -(halfW(xx) + UM.endo) - 0.55 - 0.3 * Math.sin(u * 3), w = w0 * (1 - u) ** 1.2 + 0.06;
+        const u = i / n, xx = x + sg * (L * 0.7 + len * u), yy = -wallIn(xx) - 0.5 - 0.25 * Math.sin(u * 3), w = w0 * (1 - u) ** 1.2 + 0.06;
         up.push([xx, yy - w / 2]); dn.push([xx, yy + w / 2]);
       }
-      c.moveTo(x + sg * L * 0.5, yb - 0.6);
+      c.beginPath(); c.moveTo(x + sg * L * 0.5, yb - 0.6);
       up.forEach(([xx, yy]) => c.lineTo(xx, yy)); dn.reverse().forEach(([xx, yy]) => c.lineTo(xx, yy));
       c.lineTo(x + sg * L * 0.5, yb + 0.9); c.closePath(); c.fill();
     }
     c.beginPath(); c.ellipse(x, yb, L, Wd, 0, 0, TAU); c.fill();
-    c.strokeStyle = dark ? 'rgba(255, 230, 200, .3)' : 'rgba(110, 70, 40, .35)'; c.lineWidth = 0.15; c.stroke();
-    // Nucleus, indented by the droplets while they last.
-    c.fillStyle = dark ? 'rgba(40, 18, 10, .5)' : 'rgba(96, 54, 34, .45)';
-    c.beginPath(); c.ellipse(x - L * 0.18, yb + 0.2, 1.5 + 0.5 * a, 0.95 - 0.15 * a, 0, 0, TAU); c.fill();
-    // Vitamin A droplets: shrink and fade as the cell activates.
-    const dr = (1 - a) ** 0.8;
-    if (dr > 0.03) {
-      for (const [u, v, r] of [[0.25, -0.35, 0.95], [0.55, 0.25, 0.8], [0.05, 0.45, 0.6], [-0.55, -0.4, 0.7], [0.75, -0.3, 0.55]]) {
-        const rr = r * dr, cx = x + u * L * 0.8, cy = yb + v * Wd * 0.9;
-        c.fillStyle = `rgba(250, 222, 110, ${(0.92 * Math.min(1, dr * 1.4)).toFixed(3)})`; c.beginPath(); c.arc(cx, cy, rr, 0, TAU); c.fill();
-        c.fillStyle = `rgba(255, 255, 240, ${(0.7 * dr).toFixed(3)})`; c.beginPath(); c.arc(cx - rr * 0.3, cy - rr * 0.3, rr * 0.3, 0, TAU); c.fill();
-      }
+    c.fillStyle = `rgba(${dark ? '40, 18, 10' : '96, 54, 40'}, ${(0.35 + 0.25 * a).toFixed(3)})`;
+    c.beginPath(); c.ellipse(x - L * 0.2, yb + 0.2, 1.4 + 0.5 * a, 0.85 - 0.1 * a, 0, 0, TAU); c.fill();
+    const dr = (1 - a) ** 0.8;   // vitamin A droplets shrink and fade as it activates
+    if (dr > 0.03) for (const [u, v, r] of [[0.25, -0.3, 0.85], [0.55, 0.25, 0.7], [0.05, 0.42, 0.55], [-0.55, -0.35, 0.62], [0.78, -0.25, 0.5]]) {
+      c.fillStyle = `rgba(246, 214, 96, ${(0.9 * Math.min(1, dr * 1.4)).toFixed(3)})`; c.beginPath(); c.arc(x + u * L * 0.8, yb + v * Wd * 0.9, r * dr, 0, TAU); c.fill();
     }
   }
-  // The Kupffer cell: a macrophage on the lower lining, its body and pseudopods reaching into the lumen.
+  // The Kupffer cell: a macrophage on the lower lining, reaching into the lumen (drawn over the moving blood).
   function paintKupffer(c, P) {
-    const g = geo, x = g.xk, y0 = halfW(x), r = Math.min(3, y0 * 0.55);
-    c.fillStyle = P.kup;
+    const g = geo, x = g.xk, y0 = halfW(x), r = Math.min(2.8, y0 * 0.5), n = 28;
+    c.fillStyle = P.kup; c.strokeStyle = P.cas; c.lineWidth = 0.3;
     c.beginPath();
-    const n = 28;
     for (let i = 0; i <= n; i++) {
       const t = Math.PI + (i / n) * Math.PI, lobe = 1 + 0.22 * Math.sin(t * 5 + 0.6) + 0.12 * Math.sin(t * 9);
-      const px = x + Math.cos(t) * 6.5 * lobe, py = y0 + Math.sin(t) * r * lobe;
+      const px = x + Math.cos(t) * 6.2 * lobe, py = y0 + Math.sin(t) * r * lobe;
       i ? c.lineTo(px, py) : c.moveTo(px, py);
     }
-    c.closePath(); c.fill();
-    c.fillStyle = P.kupNuc; c.beginPath(); c.ellipse(x + 0.6, y0 - r * 0.42, 2, r * 0.32, 0, 0, TAU); c.fill();
-    c.fillStyle = 'rgba(80, 50, 40, .35)';
-    for (const [u, v] of [[-3.4, 0.35], [-1.8, 0.62], [3.2, 0.4]]) { c.beginPath(); c.arc(x + u, y0 - r * v, 0.55, 0, TAU); c.fill(); }
+    c.closePath(); c.fill(); c.stroke();
+    c.fillStyle = P.kupNuc; c.beginPath(); c.ellipse(x + 0.6, y0 - r * 0.42, 1.9, r * 0.3, 0, 0, TAU); c.fill();
   }
 
-  // ── Red cells: discs seen edge-on or turning, squeezed by a narrow lumen ──
-  function paintCells(c, P, dt) {
-    const g = geo, span = g.x1 - g.x0, v = S.v * 26;   // µm per second at normal flow
-    // Congestion packs the lumen: more cells shown, from a fixed pool (the rest are hidden).
-    const show = 0.62 + 0.38 * S.pack;
-    for (const k of cells) {
-      if (dt) { k.x += v * k.sp * dt; k.ph += dt * 0.6 * k.sp * Math.sign(v || 1); }
-      if (k.x > g.x1) k.x -= span; else if (k.x < g.x0) k.x += span;
-      if (k.extra > show || k.x < VW.vis[0] - 6 || k.x > VW.vis[1] + 6) continue;
-      const w = halfW(k.x), turn = Math.abs(Math.cos(k.ph));   // 0 edge-on, 1 face-on
-      // A disc wider than the lumen is pressed long (it keeps its area, roughly).
-      const ry0 = lerp(1.15, 3.7, turn) * k.r, ry = Math.min(ry0, w * 0.82), rx = 3.75 * k.r * (1 + 0.45 * (ry0 - ry) / 3.7);
-      const y = k.y * Math.max(0, w - ry - 0.25);
-      c.fillStyle = P.rbc; c.strokeStyle = P.rbcEdge; c.lineWidth = 0.14;
-      c.beginPath(); c.ellipse(k.x, y, rx, ry, 0, 0, TAU); c.fill(); c.stroke();
-      // The pallor: a pale centre face-on, a waist edge-on.
-      c.fillStyle = P.rbcPale;
-      c.beginPath(); c.ellipse(k.x, y, rx * (0.35 + 0.2 * turn), ry * (0.2 + 0.32 * turn), 0, 0, TAU); c.fill();
+  // ── What moves ──
+  // The blood: the lobule's moving marks, a shimmer of light streaks and dark chevrons along the lumen.
+  // Albumin rides in it (amber dots). Plasma crosses the wall into Disse: water (white specks) wherever
+  // it can, albumin only through open fenestrae; at a closed wall albumin is turned back. In Disse the
+  // lymph runs back toward the portal triad, carrying what crossed.
+  let flowX = 0, lymX = 0, spawnAcc = 0, bounceAcc = 0;
+  const albs = [], movers = [];   // movers: { kind: 'w' water | 'a' albumin | 'b' albumin turned back, side, x, y (depth in Disse, 0…1), t, ph }
+  const rnd = rng(17);
+  { const R = rng(23); for (let i = 0; i < 150; i++) albs.push({ u: R(), y: R() * 2 - 1, sp: 0.8 + 0.4 * R(), ph: R() * TAU }); }
+  function pickPore(side, albumin) {
+    const pores = geo.pores[side < 0 ? 0 : 1].filter((p) => p.x > VW.vis[0] && p.x < VW.vis[1]);
+    let tot = 0;
+    const wts = pores.map((p) => { const w = poreW(p); const k = albumin ? (w > 0.3 ? w * w : 0) : w + 0.06; tot += k; return k; });
+    if (tot <= 0) return null;
+    let r = rnd() * tot;
+    for (let i = 0; i < pores.length; i++) { r -= wts[i]; if (r <= 0) return pores[i]; }
+    return pores[pores.length - 1];
+  }
+  function stepMovers(dt) {
+    const span = VW.vis[1] - VW.vis[0], vB = S.v * 24, vL = -(3 + 5 * Math.sqrt(S.filt));   // µm/s: blood, and lymph (back toward the portal triad)
+    flowX += vB * dt; lymX += vL * dt;
+    // Filtration: crossings per second over this stretch of both walls, rising with the lymph; the share of albumin among
+    // them is the lymph's protein (what the dots in Disse show is its concentration, not its amount).
+    const rate = 0.07 * span * Math.sqrt(S.filt), pA = 0.5 * clamp((model.lyProt - 0.3) / 0.62, 0, 1) ** 2;
+    spawnAcc += rate * dt;
+    while (spawnAcc >= 1) {
+      spawnAcc -= 1;
+      if (movers.length > 900) continue;
+      const side = rnd() < 0.5 ? -1 : 1, alb = rnd() < pA, p = pickPore(side, alb);
+      if (alb && !p) { bounceAcc += 1; continue; }   // nowhere for it to go: it is turned back
+      const x = p ? p.x : lerp(VW.vis[0], VW.vis[1], rnd());
+      movers.push({ kind: alb ? 'a' : 'w', side, x, t: 0, y: 0.15 + 0.7 * rnd(), ph: rnd() * TAU });
+    }
+    // Albumin turned back at a sealed wall: it comes up to the lining and goes back into the stream.
+    bounceAcc += 0.1 * span * (1 - S.por) * dt;
+    while (bounceAcc >= 1) {
+      bounceAcc -= 1;
+      if (movers.length > 900) continue;
+      movers.push({ kind: 'b', side: rnd() < 0.5 ? -1 : 1, x: lerp(VW.vis[0] + 4, VW.vis[1] - 4, rnd()), t: 0, y: 0, ph: 0 });
+    }
+    for (let i = movers.length - 1; i >= 0; i--) {
+      const q = movers[i];
+      q.t += dt;
+      if (q.kind === 'b') { q.x += vB * 0.6 * dt; if (q.t > 1.1) movers.splice(i, 1); continue; }
+      // Through the wall (0.5 s, carried a little by the blood), then along Disse with the lymph.
+      if (q.t < 0.5) q.x += vB * 0.25 * dt; else q.x += vL * (0.85 + 0.3 * Math.sin(q.ph)) * dt;
+      if (q.x < VW.vis[0] - 4 || q.x > VW.vis[1] + 4) movers.splice(i, 1);
     }
   }
+  const dot = (c, x, y, r) => { c.moveTo(x + r, y); c.arc(x, y, r, 0, TAU); };
+  function paintMoving(c, P, dark) {
+    const [v0, v1] = VW.vis;
+    // Lumen: clipped to it, the shimmer, the chevrons and the albumin.
+    c.save(); c.beginPath();
+    for (let i = 0; i <= 120; i++) { const x = lerp(v0, v1, i / 120); i ? c.lineTo(x, -halfW(x)) : c.moveTo(x, -halfW(x)); }
+    for (let i = 120; i >= 0; i--) { const x = lerp(v0, v1, i / 120); c.lineTo(x, halfW(x)); }
+    c.clip();
+    const dir = Math.sign(S.v || 1);
+    c.lineCap = 'round';
+    c.strokeStyle = dark ? 'rgba(255, 255, 255, .16)' : 'rgba(255, 255, 255, .26)'; c.lineWidth = 0.45;
+    c.beginPath();
+    for (let j = 0; j < 7; j++) {
+      const lane = -0.75 + j * 0.25, sp = 18 + 7 * ((j * 5) % 3), L = 5 + 2 * (j % 3), o = flowX * (0.85 + 0.05 * j) + (j * 7.3) % sp;
+      for (let x = Math.floor((v0 - o) / sp) * sp + o; x < v1 + sp; x += sp) { const y = lane * halfW(x); c.moveTo(x, y); c.lineTo(x + L * dir, y); }
+    }
+    c.stroke();
+    // Chevrons down the middle, as on the lobule's vessels.
+    c.fillStyle = P.chev;
+    const sp = 16, cw = Math.min(1.1, halfW(0) * 0.28);
+    for (let x = Math.floor((v0 - flowX) / sp) * sp + flowX; x < v1 + sp; x += sp) {
+      c.beginPath(); c.moveTo(x + dir * cw, 0); c.lineTo(x - dir * cw * 0.6, -cw); c.lineTo(x - dir * cw * 0.15, 0); c.lineTo(x - dir * cw * 0.6, cw); c.closePath(); c.fill();
+    }
+    // Albumin in the plasma.
+    const span = v1 - v0 + 8, nA = Math.round(albs.length * clamp(span / 300, 0.15, 1));
+    c.fillStyle = P.alb; c.strokeStyle = P.albEdge; c.lineWidth = 0.12;
+    c.beginPath();
+    for (let i = 0; i < nA; i++) {
+      const a = albs[i], x = v0 - 4 + ((((a.u * span + flowX * a.sp) % span) + span) % span), w = halfW(x) - 0.6;
+      dot(c, x, clamp(a.y + 0.08 * Math.sin(flowX * 0.05 + a.ph), -1, 1) * w, 0.38);
+    }
+    c.fill(); c.stroke();
+    c.restore();
+    // Disse: light streaks of lymph running back toward the portal triad.
+    for (const side of [-1, 1]) {
+      c.save(); c.beginPath();
+      for (let i = 0; i <= 80; i++) { const x = lerp(v0, v1, i / 80); i ? c.lineTo(x, side * wallIn(x)) : c.moveTo(x, side * wallIn(x)); }
+      for (let i = 80; i >= 0; i--) { const x = lerp(v0, v1, i / 80); c.lineTo(x, side * hepIn(x)); }
+      c.clip();
+      c.strokeStyle = dark ? 'rgba(255, 255, 255, .22)' : 'rgba(255, 255, 255, .85)'; c.lineWidth = 0.35;
+      c.beginPath();
+      for (let j = 0; j < 2; j++) {
+        const sp2 = 9 + 3 * j, o = lymX + (j * 4.1) % sp2;
+        for (let x = Math.floor((v0 - o) / sp2) * sp2 + o; x < v1 + sp2; x += sp2) { const y = side * lerp(wallIn(x), hepIn(x), 0.32 + 0.36 * j); c.moveTo(x, y); c.lineTo(x - 2.6, y); }
+      }
+      c.stroke();
+      c.restore();
+    }
+    // What crosses the wall.
+    for (const q of movers) {
+      if (q.kind === 'b') {
+        // Up to the lining and back: an albumin dot with a small flash where it meets the sealed wall.
+        const u = Math.sin(Math.PI * clamp(q.t / 1.1, 0, 1)), y = q.side * lerp(halfW(q.x) - 2.2, halfW(q.x) - 0.45, u);
+        c.fillStyle = P.alb; c.strokeStyle = P.albEdge; c.lineWidth = 0.12;
+        c.beginPath(); dot(c, q.x, y, 0.42); c.fill(); c.stroke();
+        if (u > 0.85) { c.strokeStyle = `rgba(255, 255, 255, ${((u - 0.85) * 5).toFixed(2)})`; c.lineWidth = 0.18; c.beginPath(); c.arc(q.x, y, 0.95, 0, TAU); c.stroke(); }
+        continue;
+      }
+      const tIn = clamp(q.t / 0.5, 0, 1), e = tIn * tIn * (3 - 2 * tIn);
+      const y = q.side * lerp(halfW(q.x) - 1.1, lerp(wallIn(q.x), hepIn(q.x), q.y), e) + q.side * 0.15 * Math.sin(q.t * 2 + q.ph);
+      c.globalAlpha = Math.min(1, q.t * 4) * clamp((q.x - v0) / 6, 0, 1);
+      c.beginPath();
+      if (q.kind === 'a') { c.fillStyle = P.alb; c.strokeStyle = P.albEdge; c.lineWidth = 0.12; dot(c, q.x, y, 0.42); }
+      else { c.fillStyle = P.water; c.strokeStyle = P.waterEdge; c.lineWidth = 0.08; dot(c, q.x, y, 0.24); }
+      c.fill(); c.stroke();
+    }
+    c.globalAlpha = 1;
+  }
 
-  // ── Labels (names only for now) ──
+  // ── Labels: the station and its readings, as the lobule's ──
   const tags = {};
-  function tag(key, text, ax, ay, lx, ly) {
+  const placed = [];
+  function tag(key, names, value, ax, ay, lx, ly) {
+    const name = Array.isArray(names) ? names[phoneMQ.matches ? 1 : 0] : names;
     let T = tags[key];
     if (!T) {
       T = tags[key] = { el: h('div', { class: 'lz-lab sv-tag' }), line: s('line', { class: 'leader' }), dot: s('circle', { class: 'leader-dot', r: 2.5 }) };
       labels.append(T.el); leaders.append(T.line, T.dot);
     }
-    if (T.text !== text) { T.text = text; T.el.replaceChildren(...text.split('|').map((t, i) => (i ? h('span', { class: 'v' }, h('b', {}, t)) : h('span', { class: 'n' }, t)))); }
+    const txt = name + '|' + value;
+    if (T.text !== txt) {
+      T.text = txt;
+      const [v, u] = value ? value.split('~') : [];
+      T.el.replaceChildren(h('span', { class: 'n' }, name), value ? h('span', { class: 'v' }, h('b', {}, v), u ? h('small', {}, u) : null) : '');
+    }
     const [x, y] = toScreen(ax, ay), [X, Y] = toScreen(lx, ly);
     const w = T.el.offsetWidth, hh = T.el.offsetHeight, left = X < x;   // (not the bounding box: the view may still be scaled by its zoom)
     // Kept on screen, and clear of the labels already placed (moved down past them).
@@ -457,7 +514,7 @@ export function createSinusoidView({ host, onBack }) {
       if (!o) break;
       by = o[3] + 3;
     }
-    const f = VW.f, inside = by > f.t - 40 && by + hh < f.b;
+    const f = VW.f, inside = by > f.t - 40 && by + hh < f.b + 20;
     if (inside) placed.push([bx, by, bx + w, by + hh]);
     T.el.hidden = !inside; T.line.style.display = T.dot.style.display = inside ? '' : 'none';
     if (!inside) return;
@@ -467,37 +524,35 @@ export function createSinusoidView({ host, onBack }) {
     for (const [a, b] of [['x1', x], ['y1', y], ['x2', ex], ['y2', ey]]) T.line.setAttribute(a, b.toFixed(1));
     T.dot.setAttribute('cx', x.toFixed(1)); T.dot.setAttribute('cy', y.toFixed(1));
   }
-  const placed = [];
   function layoutTags() {
     placed.length = 0;
-    const g = geo, m = model;
-    const yIn = (x) => halfW(x) + UM.endo + disseW(x), hep = UM.hep;
+    const g = geo, m = model, hep = UM.hep;
     const pick = (u) => lerp(VW.fr[0] + 8, VW.fr[1] - 8, u);
-    const xh = pick(0.78), xd = pick(0.3), xf = g.xs + 30;
-    const xp = pick(g.vert ? 0.34 : 0.18);
-    tag('sin', m.hide ? 'Sinusoid|?' : `Sinusoid|${fmt(m.P2, 1)} mmHg`, xp, 0, xp, -(yIn(xp) + hep * 0.5));
-    // The hepatocyte's label points at a nucleus.
-    const hc = g.plates[0].row.find((k) => k.x0 <= xh && k.x1 > xh), hx = hc ? lerp(hc.x0 + 2, hc.x1 - 2, hc.nu) : xh, hy = -lerp(yIn(hx) + 2, yIn(hx) + hep - 2, hc ? hc.nv : 0.5);
-    tag('hep', 'Hepatocyte', hx, hy, hx + 7, hy - 5);
-    tag('hsc', S.act > 0.5 ? 'Activated stellate cell' : 'Stellate cell', g.xs, -(halfW(g.xs) + UM.endo + 2.6), g.xs - 12, -(yIn(g.xs) + hep * 0.7));
-    tag('fen', S.por > 0.15 ? 'Fenestrae' : 'Fenestrae (closed)', xf, -(halfW(xf) + UM.endo * 0.5), xf + 8, -(yIn(xf) + hep * 0.3));
-    tag('disse', 'Space of Disse', xd, halfW(xd) + UM.endo + disseW(xd) * 0.5, xd - 6, yIn(xd) + hep * 0.4);
-    tag('kup', 'Kupffer cell', g.xk, halfW(g.xk) - 1.5, g.xk + 9, yIn(g.xk) + hep * 0.62);
+    const xp = pick(g.vert ? 0.3 : 0.16), xd = pick(g.vert ? 0.55 : 0.36), xf = pick(g.vert ? 0.82 : 0.62), xh = pick(0.86);
+    tag('sin', 'Sinusoid', m.hide ? '?' : `${fmt(m.P2, 1)}~mmHg`, xp, 0, xp, -(hepIn(xp) + hep * 0.45));
+    tag('lymph', ['Lymph in the space of Disse', 'Lymph in Disse'], m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min · protein ${Math.round(m.lyProt * 100)}%`, xd, hepIn(xd) - disseW(xd) * 0.5, xd, hepIn(xd) + hep * 0.4);
+    tag('fen', 'Fenestrae', S.por > 0.85 ? 'open' : S.por > 0.15 ? `${Math.round(S.por * 100)}%~open` : 'sealed', xf, -wallIn(xf) + UM.endo * 0.5, xf, -(hepIn(xf) + hep * 0.3));
+    tag('hsc', S.act > 0.5 ? ['Activated stellate cell', 'Stellate cell (active)'] : 'Stellate cell', '', g.xs, -(wallIn(g.xs) + 2.4), g.xs - 10, -(hepIn(g.xs) + hep * 0.7));
+    tag('kup', 'Kupffer cell', '', g.xk, halfW(g.xk) - 1.4, g.xk + 9, hepIn(g.xk) + hep * 0.62);
+    const hc = g.plates[2].row.find((k) => k.x0 <= xh && k.x1 > xh), hx = hc ? lerp(hc.x0 + 2, hc.x1 - 2, hc.nu) : xh, hy = lerp(hepIn(hx) + 2, hepIn(hx) + hep - 2, hc ? hc.nv : 0.5);
+    tag('hep', 'Hepatocyte', '', hx, hy, hx - 7, hy + 5);
   }
   function layoutEnds() {
     const g = geo, f = VW.f;
-    // The two ends: where the blood comes from and where it goes.
-    for (const [key, txt, u] of [['in', g.vert ? '↓ from the portal triad' : '← from the portal triad', 0], ['out', g.vert ? 'to the central vein ↓' : 'to the central vein →', 1]]) {
+    for (const [key, txt, u] of [['in', g.vert ? '↓ from the portal triad' : '← portal triad', 0], ['out', g.vert ? 'to the central vein ↓' : 'central vein →', 1]]) {
       let T = tags[key];
       if (!T) { T = tags[key] = { el: h('div', { class: 'sv-end' }) }; labels.append(T.el); }
       if (T.text !== txt) { T.text = txt; T.el.textContent = txt; }
-      const r = { width: T.el.offsetWidth, height: T.el.offsetHeight };
-      // At the free space's end of the lumen.
+      const w = T.el.offsetWidth, hh = T.el.offsetHeight;
       let x, y;
-      if (g.vert) { x = VW.C[0] - r.width / 2; y = u ? f.b - r.height - 26 : f.t + 4; }
-      else { x = u ? f.r - r.width - 6 : f.l + 6; y = VW.C[1] - r.height / 2; }
+      if (g.vert) { x = VW.C[0] - w / 2; y = u ? f.b - hh - 24 : f.t + 4; }   // (clear of the credit line at the bottom)
+      else { x = u ? f.r - w - 6 : f.l + 6; y = VW.C[1] - hh / 2; }
       T.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
     }
+    // The legend: beside the back button.
+    const bx = back.offsetLeft + back.offsetWidth + 12, byy = back.offsetTop + (back.offsetHeight - legend.offsetHeight) / 2;
+    legend.style.maxWidth = `${Math.max(120, geo.W - bx - 12)}px`;
+    legend.style.transform = `translate(${bx.toFixed(1)}px, ${Math.max(back.offsetTop, byy).toFixed(1)}px)`;
   }
 
   // ── The frame ──
@@ -506,13 +561,13 @@ export function createSinusoidView({ host, onBack }) {
     const rect = host.getBoundingClientRect();
     const W = Math.max(1, Math.round(rect.width)), H = Math.max(1, Math.round(rect.height));
     ensureGeo(W, H);
-    const moving = stepState(dt) | stepView(dt);
+    stepState(dt); stepView(dt);
     const dpr = Math.min(2, devicePixelRatio || 1);
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
     const cs = getComputedStyle(host), P = palette(dark, cs);
     for (const cv of [tissue, fx]) if (cv.width !== W * dpr || cv.height !== H * dpr) { cv.width = W * dpr; cv.height = H * dpr; tissueKey = ''; }
     const g = geo, K = VW.k, M = [dpr * K * g.ca, dpr * K * g.sa, -dpr * K * g.sa, dpr * K * g.ca, dpr * VW.C[0], dpr * VW.C[1]];
-    const key = [geoKey, VW.k.toFixed(4), VW.C.map((v) => v.toFixed(1)), dpr, dark, P.bg, Object.values(S).map((v) => v.toFixed(3)).join(','), model.hide, Math.round(model.P2 * 2)].join('|');
+    const key = [geoKey, K.toFixed(4), VW.C.map((v) => v.toFixed(1)), dpr, dark, P.bg, P.lumen, P.casA, ['por', 'col', 'bm', 'mv', 'act', 'lum', 'pinch', 'prot'].map((k) => S[k].toFixed(3)).join(',')].join('|');
     if (key !== tissueKey) {
       tissueKey = key;
       const c = tissue.getContext('2d');
@@ -521,25 +576,21 @@ export function createSinusoidView({ host, onBack }) {
       paintTissue(c, P, dark);
       tissue.setAttribute('aria-label', describe());
     }
+    if (run && dt > 0) stepMovers(dt);
     const c = fx.getContext('2d');
     c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, fx.width, fx.height);
     c.setTransform(...M);
-    // The red cells stay inside the lumen; the Kupffer cell is drawn over them.
-    c.save(); c.beginPath();
-    for (let i = 0; i <= 120; i++) { const x = lerp(VW.vis[0], VW.vis[1], i / 120); i ? c.lineTo(x, -halfW(x)) : c.moveTo(x, -halfW(x)); }
-    for (let i = 120; i >= 0; i--) { const x = lerp(VW.vis[0], VW.vis[1], i / 120); c.lineTo(x, halfW(x)); }
-    c.clip();
-    paintCells(c, P, run ? dt : 0);
-    c.restore();
+    paintMoving(c, P, dark);
     paintKupffer(c, P);
-    const lk = [geoKey, VW.k.toFixed(4), VW.C.map((v) => v.toFixed(1)), S.lum.toFixed(3), S.act.toFixed(2), S.por.toFixed(2), model.hide, model.P2.toFixed(1), phoneMQ.matches].join('|');
+    const lk = [geoKey, K.toFixed(3), VW.C.map((v) => v.toFixed(0)), S.lum.toFixed(3), S.act > 0.5, Math.round(S.por * 20), model.hide, model.P2.toFixed(1), model.lymph.toFixed(1), Math.round(model.lyProt * 100), phoneMQ.matches].join('|');
     if (lk !== lastKey) { lastKey = lk; layoutTags(); layoutEnds(); }
-    return moving;
   }
   function describe() {
     const m = model;
     const parts = [`A sinusoid, cut along its length${m.hide ? '' : `, at ${fmt(m.P2, 1)} millimeters of mercury`}.`];
-    parts.push(S.por > 0.75 ? 'Its lining is fenestrated: open pores let plasma and protein into the space of Disse.' : S.por > 0.25 ? 'Many of its fenestrae have closed.' : 'Its fenestrae have closed: the sinusoid has become a capillary.');
+    parts.push(S.por > 0.75 ? 'Its lining is fenestrated: plasma and albumin pass through the open pores into the space of Disse.'
+      : S.por > 0.25 ? 'Many of its fenestrae have closed: less albumin gets through.' : 'Its fenestrae have closed: the wall is sealed, and albumin is turned back.');
+    if (!m.hide) parts.push(`Hepatic lymph ${fmt(m.lymph, 1)} milliliters per minute, flowing back along the space of Disse toward the portal triad, with ${Math.round(m.lyProt * 100)} percent of plasma protein.`);
     if (S.col > 0.15) parts.push('Collagen fills the space of Disse and the hepatocytes have lost their microvilli.');
     parts.push(S.act > 0.4 ? 'The stellate cell is activated: no vitamin A droplets, contracted, laying down collagen.' : 'The stellate cell is quiescent, full of vitamin A droplets.');
     return parts.join(' ');
@@ -548,8 +599,7 @@ export function createSinusoidView({ host, onBack }) {
     raf = 0;
     if (shown <= 0 || !model) return;
     const dt = Math.min(0.1, (now - (last || now)) / 1000); last = now;
-    const run = store.get().running && !reduce.matches;
-    draw(dt, run);
+    draw(dt, store.get().running && !reduce.matches);
     raf = requestAnimationFrame(loop);
   }
 
@@ -571,7 +621,16 @@ export function createSinusoidView({ host, onBack }) {
       open = isOpen;
       el.classList.toggle('on', isOpen);
       el.setAttribute('aria-hidden', String(!isOpen));
-      if (opacity > 0 && was <= 0) { last = 0; lastKey = ''; tissueKey = ''; VW.k = 0; if (model) { for (const k in S) delete S[k]; draw(0); } }
+      if (opacity > 0 && was <= 0) {
+        last = 0; lastKey = ''; tissueKey = ''; VW.k = 0; movers.length = 0; spawnAcc = 0; bounceAcc = 0;
+        if (model) {
+          for (const k in S) delete S[k];
+          // Arrive with the wall already at work: a few seconds of traffic run before the first frame.
+          draw(0, false);
+          for (let i = 0; i < 40; i++) stepMovers(0.1);
+          draw(0, false);
+        }
+      }
       if (opacity > 0 && !raf && model) raf = requestAnimationFrame(loop);
     },
     /** Where the sinusoid's centre is drawn (stage px), its direction (radians) and the lumen's width there (px). */
@@ -579,7 +638,6 @@ export function createSinusoidView({ host, onBack }) {
       const rect = host.getBoundingClientRect();
       ensureGeo(Math.max(1, Math.round(rect.width)), Math.max(1, Math.round(rect.height)));
       if (model && S.lum == null) stepState(0);
-      if (!VW.f) stepView(0);
       return { x: VW.tC[0], y: VW.tC[1], ang: geo.ang, lumen: 2 * UM.lum * (S.lum ?? 1) * VW.tk };
     },
     isOpen: () => open,
