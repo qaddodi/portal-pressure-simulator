@@ -304,6 +304,14 @@ svg { flex: none; }
 .glass { background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); border-radius: var(--r-card); }
 .stage-clock { display: none; }
 
+/* The credit: a faint line in the figure's lower-left corner, just above the vitals dock (--vdock-top). Sheets and
+   cards rise from the dock and draw over it, so it never sits on the figure they cover. On a phone the stage clock
+   takes this corner, so the credit rises above it. Decorative and non-interactive. */
+.stage-credit { position: absolute; left: 12px; bottom: calc(var(--vdock-top, 0px) + 8px); z-index: var(--z-figure); font-size: var(--fs-12); font-weight: 500; line-height: 1.4; letter-spacing: .01em; white-space: nowrap; color: color-mix(in srgb, var(--text) 45%, transparent); pointer-events: none; user-select: none; }
+@media (max-width: 767px) {
+  .stage-credit { bottom: calc(var(--vdock-top, 0px) + 30px); }
+}
+
 /* ── Readouts: the live monitor under the figure ─────
    One fixed set in teaching order: pressure → flow → consequences → systemic. Nothing joins or
    leaves as values change; narrower screens fold whole groups behind the chevron. Each value has
