@@ -254,7 +254,6 @@ export function createAbdomen({ onAction }) {
   const tap = h('div', { class: 'ab-tap' }, h('div', { class: 'ab-row' }, h('span', { class: 'ab-tap-title' }, 'Diagnostic tap'), tapNote),
     h('div', { class: 'ab-labs' }, saagEl, tpEl, albEl),
     h('div', { class: 'ab-row' }, h('span', { class: 'ctl-label' }, 'Serum albumin'), sa.el));
-  const extraStats = h('dl', { class: 'kv' });
   const info = h('div', { class: 'ab-report' },
     h('div', { class: 'ab-head' }, h('div', { class: 'ab-sum' }, h('div', { class: 'hv-k' }, 'Ascites'), h('div', { class: 'hv-num' }, numEl, h('small', {}, 'L')), h('div', { class: 'ab-meta' }, gradeEl, trendEl)), belly),
     iap, tap);
@@ -264,8 +263,7 @@ export function createAbdomen({ onAction }) {
       h('div', { class: 'hv-k' }, 'Treat'),
       h('div', { class: 'ab-rx-diu' }, diu),
       h('div', { class: 'ab-row ab-rx-row' }, h('span', { class: 'ab-rx-txt' }, h('b', {}, 'Paracentesis'), h('small', {}, 'litres to drain')), vol.el),
-      h('div', { class: 'ab-drain-row' }, alb, drain), albNote),
-    h('details', { class: 'instrument-details' }, h('summary', {}, 'Why it forms'), extraStats));
+      h('div', { class: 'ab-drain-row' }, alb, drain), albNote));
   const el = h('div', { class: 'ab', 'data-pane': 'abdomen' }, h('div', { class: 'hv-main ab-main' }, info, treat));
   function update(f) {
     const a = f.metrics.ascites, p = store.get().params;
@@ -292,13 +290,6 @@ export function createAbdomen({ onAction }) {
     // Whole percents only: rewriting the height every frame would keep restarting its ease.
     const bh = `${Math.round(a.volume > 150 ? 15 + clamp(a.volume / 8000, 0, 1) * 70 : 0)}%`;
     if (bellyFill.style.height !== bh) bellyFill.style.height = bh;
-    extraStats.replaceChildren(
-      h('dt', {}, 'Lymph from the liver'), h('dd', {}, `${fmt(a.hepLymph, 1)} (rises with sinusoidal pressure)`),
-      h('dt', {}, 'Liver lymph protein'), h('dd', {}, `${Math.round(a.lymphProt * 100)} % of plasma (${a.lymphProt < 0.7 ? 'capillarized sinusoids hold protein back' : 'open fenestrae let it through'})`),
-      h('dt', {}, 'Lymph from the gut'), h('dd', {}, `${fmt(a.splLymph, 1)} (protein-poor)`),
-      h('dt', {}, 'Lymphatic capacity'), h('dd', {}, fmt(a.lymphCap, 1)),
-      h('dt', {}, 'Serum albumin'), h('dd', {}, `${fmt(p.albumin, 1)} g/dL${p.albumin < 3 ? ' (low: less pull back into vessels)' : ''}`),
-      h('dt', {}, 'Kidneys'), h('dd', {}, p.diuretics ? 'Diuretics: sodium and water lost' : 'Retaining sodium and water'));
   }
   return { id: 'abdomen', label: 'Ascites & paracentesis', el, update };
 }
