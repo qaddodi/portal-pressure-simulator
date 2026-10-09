@@ -3421,6 +3421,11 @@ body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state
 .vdock .narrator .nr-why { flex: none; padding: 1px 8px; border: 1px solid var(--hairline); border-radius: 999px; background: transparent; color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; }
 .vdock .narrator .nr-why:hover { background: var(--surface-2); }
 .vdock .narrator .nr-why[hidden] { display: none; }
+/* A passing message takes the narrator's place for a few seconds, in the same row. */
+.vdock .vd-note { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: var(--fs-14); line-height: 1.35; font-weight: 600; color: var(--text); cursor: pointer; animation: fadeDown .22s var(--ease); }
+.vdock .vd-note.bad { color: var(--danger); }
+.vdock .vd-note[hidden], .vdock .vd-status.noting .narrator { display: none; }
+@media (max-width: 767px) { .vdock .vd-note { font-size: var(--fs-12); white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; } }
 @media (max-width: 1199px) {
   .vdock .vd-status:has(.narrator:not([hidden])) { flex-wrap: wrap; row-gap: 6px; }
   .vdock .narrator { flex-basis: 100%; order: 2; align-items: flex-start; }

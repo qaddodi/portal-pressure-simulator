@@ -4,7 +4,7 @@
 // and ascites protein) that highlights what sets it apart, and a closing table of all of them.
 // The values are the model's own, read from the worker once each state has settled.
 
-import { h, fmt, icon } from './util.js?v=86153645a3';
+import { h, fmt, icon } from './util.js?v=e803df99cd';
 
 // Where along the route each level sits. The three middle levels are inside the liver.
 // The short names label the route on a phone.
