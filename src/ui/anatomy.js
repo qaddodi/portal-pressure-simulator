@@ -43,7 +43,7 @@ export const NEEDS_C3 = new Set(['EPI_ILI', 'EPI_SVC']);
 // The IVC, drawn faded along its whole length, as the stretch behind the liver is.
 export const IVC_EDGES = new Set(['ILI_IVC', 'IVC_IS', 'IVCS_RA']);
 // Retroperitoneal vessels, drawn behind the organs (the liver and bowel veil them).
-export const BACK_EDGES = new Set(['IVC_IS', 'IVCS_RA', 'ILI_IVC', 'LRV_IVC', 'V_KID_L', 'C7', 'C9', 'S_MC', 'C1b']);
+export const BACK_EDGES = new Set(['IVC_IS', 'IVCS_RA', 'SVC_RA', 'V_UP', 'ILI_IVC', 'LRV_IVC', 'V_KID_L', 'C7', 'C9', 'S_MC']);
 
 // Node positions: [anatomic, circuit]
 export const NODE_POS = {
@@ -121,9 +121,9 @@ export const EDGE_PATH = {
   CAUD: 'M566 326 C 588 328 606 338 620 350',
   // The hepatic veins enter the cava's side wall at three heights, below the node where its two
   // halves meet, so that join is a clean run-on, not a knot of five ends.
-  RHV_IVC: 'M500 246 C 545 240 590 232 610 208',
-  MHV_IVC: 'M548 282 C 575 272 600 256 610 232',
-  LHV_IVC: 'M690 232 C 664 232 646 226 630 214',
+  RHV_IVC: 'M500 246 C 545 240 590 232 616 206',
+  MHV_IVC: 'M548 282 C 575 272 600 256 615 230',
+  LHV_IVC: 'M690 232 C 664 232 646 226 625 213',
   IVC_IS: 'M620 650 L 620 166',
   IVCS_RA: 'M620 166 L 620 112',
   V_UP: 'M620 -40 L 620 40',
@@ -134,10 +134,10 @@ export const EDGE_PATH = {
   AZY_SVC: 'M574 30 C 592 22 612 28 620 40',
   V_KID_L: 'M1005 622 C 960 620 910 618 862 618',
   // The left renal vein enters the cava's side a little above the right one, on the wall, not at the iliac end.
-  LRV_IVC: 'M862 618 C 790 618 700 626 620 626',
+  LRV_IVC: 'M862 618 C 790 618 700 625 625 625',
   // The right renal vein enters lower still, so the iliac and renal-level stretches meet head on at the node, with no fork beside it.
-  RRV_IVC: 'M560 625 C 585 632 603 668 620 676',
-  ILI_IVC: 'M620 950 L 620 650',
+  RRV_IVC: 'M560 625 C 585 632 601 664 615 673',
+  ILI_IVC: 'M620 880 L 620 650',
   EPI_ILI: 'M500 800 C 512 850 530 896 546 950',
   // Up the chest wall and in across the azygos (in front of it, at a right angle) to the SVC's
   // side, below the arch, so the two never run together.

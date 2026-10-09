@@ -2,7 +2,7 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=dc393aabea';
-import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=5cbf13ea86';
+import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=89191aa586';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=1d7cd9b00f';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=86153645a3';
@@ -109,7 +109,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // SVC above the azygos arch (it leaves the top of the plate).
   // Veins that end on the faded IVC fade into it over their last stretch, so the join is seamless.
   const IVC_NODES = new Set(['IVCS', 'IVCI', 'RA']), IVC_JOIN_LEN = 60;
-  const HEPATIC_VEINS = new Set(['RHV_IVC', 'MHV_IVC', 'LHV_IVC']);   // solid to the wall: the big veins that drain the liver
+  // Solid to the wall, joined to the cava as a confluence: the hepatic and renal veins.
+  const HEPATIC_VEINS = new Set(['RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'LRV_IVC', 'RRV_IVC']);
   const IVC_JOIN = {};
   for (const e of ALL_EDGES) {
     if (IVC_EDGES.has(e.id) || HEPATIC_VEINS.has(e.id) || !IVC_NODES.has(e.to) || !NODE_POS[e.to] || !NODE_POS[e.from]) continue;
@@ -119,11 +120,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const k = Math.min(IVC_JOIN_LEN, d) / d;
     IVC_JOIN[e.id] = [bx - (bx - ax) * k, by - (by - ay) * k, bx, by, 0, 1, 0.3, 1];
   }
-  const FADE_DOWN_Y = { C4: [892, 928], EPI_ILI: [870, 925], ILI_IVC: [850, 925], V_UP: [38, 4] };
-  // The azygos trunk fades out toward its lower end unless the ascending lumbar collateral (C9) is
-  // open and carries it on down to the cava: [y where the fade starts, y where it is gone].
+  const FADE_DOWN_Y = { C4: [892, 928], EPI_ILI: [870, 925], ILI_IVC: [800, 870], V_UP: [38, 4] };
+  // The azygos trunk fades out toward its lower end: [y where the fade starts, y where it is gone].
+  // When the ascending lumbar collateral (C9) is open it runs on in the same lane behind the organs,
+  // so the trunk still fades, into it, rather than ending in a hard step. (A feeder listed in
+  // FEEDER_CONNECTOR is drawn solid to its end while that collateral is open.)
   const FEEDER_FADE_Y = { AZY_SVC: [110, 176] };
-  const FEEDER_CONNECTOR = { AZY_SVC: 'C9' };
+  const FEEDER_CONNECTOR = {};
+  // The IVC narrows to the SVC's caliber at the right atrium on the GPU too, so its end never
+  // shows as a rounded cap inside the narrower SVC.
+  const GPU_EASE = { IVCS_RA: 'RA' };
+  // The ascending lumbar–azygos channel runs in the azygos trunk's lane, so it stays straight.
+  const STRAIGHT_COLL = new Set(['C9']);
   // Veins that fade into the vessel they sink into: a linear mask [x1, y1, x2, y2, offset], from
   // solid at the offset to 30 % at the end (the caudate vein into the IVC, C5 into the renal vein).
   const FADE_IN = { CAUD: [566, 326, 620, 350, 0.45], C5: [852, 520, 862, 618, 0.6] };
@@ -1540,7 +1548,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // collateral tortuosity
     let geomDirty = false;
     for (const x of Object.values(E)) {
-      if (x.e.kind !== 'collateral' || x.e.spontaneous) continue;
+      if (x.e.kind !== 'collateral' || x.e.spontaneous || STRAIGHT_COLL.has(x.e.id)) continue;
       const w = shownFrac(x.e.id, f) > 0.25 ? 1.5 + 3.5 * shownFrac(x.e.id, f) : 0;
       if (Math.abs(w - geo[x.e.id].wig) > 0.6) { geo[x.e.id].wig = w; geomDirty = true; }
     }
@@ -1714,7 +1722,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // vessel runs on into the next both ends ease to meet (see smoothRunOn), so no tube swells or pinches
     // beside a join. The SVG tubes ease their ends to the junction width instead.
     const gpu = glWanted(t);
-    const endW = (n) => (J[n] && !stroked && !gpu ? clamp(J[n], w * lo, w * lim) : w);
+    const endW = (n) => (J[n] && !stroked && (!gpu || GPU_EASE[id] === n) ? clamp(J[n], w * lo, w * lim) : w);
     const a = endW(x.e.from), b = endW(x.e.to);
     const key = `${w.toFixed(1)},${a.toFixed(1)},${b.toFixed(1)}|${wallPx.toFixed(2)}|${sten ? v.toFixed(3) + '@' + (stenosisAt[id] ?? 0.5) : ''}|${lastMorph}|${stroked}|${gpu}`;
     if (key === x.shadeKey) return;
