@@ -134,10 +134,11 @@ jobs:
           # Keep the preview out of search engines and record what it was built from.
           sed -i 's|<head>|<head>\n  <meta name="robots" content="noindex" />|' site/preview/index.html
           printf 'branch: %s\ncommit: %s\nbuilt:  %s\n' "$BRANCH" "$SHA" "$(date -u +%FT%TZ)" > site/preview/preview-info.txt
-          # A branch preview wears a PREVIEW badge; after a merge /preview/ is just main, so no badge.
-          if [ "$BRANCH" != "main" ]; then
-            node preview/scripts/preview-badge.mjs site/preview "${SHA:0:7}"
-          fi
+          # /preview/ always wears the PREVIEW badge so it is never mistaken for the live site; after a
+          # merge it is main's build and the badge says so ("PREVIEW · main abc1234").
+          LABEL="${SHA:0:7}"
+          if [ "$BRANCH" = "main" ]; then LABEL="main $LABEL"; fi
+          node preview/scripts/preview-badge.mjs site/preview "$LABEL"
           touch site/.nojekyll
 
       - uses: actions/configure-pages@v5

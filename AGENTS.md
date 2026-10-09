@@ -11,12 +11,13 @@ Work happens in the cloud; previews are published to GitHub Pages.
   `claude/**` pushes are checked but leave the preview alone, so merge into the integration
   branch to preview. Pushing it triggers `.github/workflows/pages.yml`, which republishes
   the live site at `/` and that branch at `/preview/` (about a minute or two).
-  Pushing `main` republishes both from `main`, so after a merge `/preview/` equals the live site.
+  Pushing `main` republishes both from `main`, so after a merge `/preview/` equals the live site
+  (still badged, "PREVIEW · main <commit>", so it stays recognisable as the preview).
   `/preview/preview-info.txt` shows which branch and commit the preview was built from.
   Do not publish preview artifacts.
 - **Preview badge:** a branch preview shows an orange "PREVIEW · <commit>" pill at the top
   centre and a "PREVIEW ·" title prefix, so the owner knows which build they are on. It is
-  injected at deploy time by `scripts/preview-badge.mjs` (only when the ref is not `main`),
+  injected at deploy time by `scripts/preview-badge.mjs` (on every `/preview/` build, `main` included),
   never committed to the source, so nothing has to be removed on merge.
 - **Preview branch:** work on your own one-level `claude/<name>` branch (include `preview`
   in the name), never commit or push directly to `main`. Keep the `claude/` prefix for every
