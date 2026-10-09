@@ -6,9 +6,9 @@
 
 import { store } from './store.js?v=edbdbfb0c8';
 import { runSequence, restoreSequence } from './sequence.js?v=8bf68f9d07';
-import { h, toast, svgIcon, icon } from './util.js?v=e803df99cd';
+import { h, toast, svgIcon, icon } from './util.js?v=159a875f7c';
 import { download } from './records.js?v=50fb9dd463';
-import { TOUR, createTour } from './tour.js?v=ced777d3a5';
+import { TOUR, createTour } from './tour.js?v=4303ba3868';
 
 const ask = (q, a) => `\n\nAsk the room: ${q} Expected: ${a}`;
 export const SCRIPTS = [

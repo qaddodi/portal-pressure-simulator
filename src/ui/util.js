@@ -198,6 +198,23 @@ export function svgIcon(id, cls = '') {
   const el = icon(id); if (cls) el.setAttribute('class', cls); return el;
 }
 
+/** Wrap a sideways-scrolling row so a phone can see that more lies off either edge: soft fades and a
+ *  small chevron (tap to scroll) on whichever side has hidden items, eased in and out as it scrolls. */
+export function scrollCue(scroller) {
+  const step = (dir) => scroller.scrollBy({ left: dir * scroller.clientWidth * 0.6, behavior: 'smooth' });
+  const edge = (cls, dir, id) => h('button', { class: 'cue-edge ' + cls, type: 'button', tabindex: '-1', 'aria-hidden': 'true', onclick: () => step(dir) }, icon(id));
+  const box = h('div', { class: 'tabs-cue' }, scroller, edge('cue-l', -1, 'chev-left'), edge('cue-r', 1, 'chev-right'));
+  const update = () => {
+    const max = scroller.scrollWidth - scroller.clientWidth;
+    box.classList.toggle('more-l', scroller.scrollLeft > 2);
+    box.classList.toggle('more-r', scroller.scrollLeft < max - 2);
+  };
+  scroller.addEventListener('scroll', update, { passive: true });
+  if (typeof ResizeObserver === 'function') new ResizeObserver(update).observe(scroller);
+  requestAnimationFrame(update);
+  return box;
+}
+
 let modalReturn = null;
 export function openModal(title, body, { wide = false, sub = null, bare = false } = {}) {
   const back = document.getElementById('modalBack');

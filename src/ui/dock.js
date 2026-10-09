@@ -3,14 +3,14 @@
 
 import { store, hiddenNow } from './store.js?v=edbdbfb0c8';
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
-import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=e803df99cd';
-import { lobuleFlows } from './lobule-model.js?v=dd2bf5fddf';
-import { createProfile } from './charts.js?v=8e2ff3a43c';
-import { createPressureTime } from './pressure-time.js?v=a3313b873f';
-import { createFibroScan } from './fibroscan.js?v=623a2b47df';
-import { createHvpgProcedure } from './hvpg-proc.js?v=2f69b82b82';
-import { createDoppler } from './doppler.js?v=74abfc9c4b';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=df01721d3c';
+import { h, fmt, svgIcon, closePopover, clamp, scrollCue } from './util.js?v=159a875f7c';
+import { lobuleFlows } from './lobule-model.js?v=883c6a2857';
+import { createProfile } from './charts.js?v=a30aefc589';
+import { createPressureTime } from './pressure-time.js?v=e1380f9b95';
+import { createFibroScan } from './fibroscan.js?v=7932b17473';
+import { createHvpgProcedure } from './hvpg-proc.js?v=e328b8da63';
+import { createDoppler } from './doppler.js?v=3b748b9a70';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=438300fe3e';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -360,7 +360,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     tabEls[ORDER[j]].b.focus(); pick(ORDER[j]);
   });
   const pickHint = h('div', { class: 'instr-hint', hidden: true }, 'Pick a second instrument to show with ', h('b'), '.');
-  head.after(tabs, pickHint);
+  const tabsBox = scrollCue(tabs);
+  head.after(tabsBox, pickHint);
   for (const p of panes) {
     p.el.id = 'pane-' + p.id; p.el.setAttribute('role', 'tabpanel'); p.el.setAttribute('aria-label', p.label);
     body.append(p.el);
@@ -409,7 +410,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     app.classList.toggle('instrument-focus', state === 'focus' && isVisible());
     divider.hidden = state !== 'open';
     body.hidden = state === 'peek';
-    tabs.hidden = state === 'peek';
+    tabsBox.hidden = state === 'peek';
     endPick();
     updateHeader(); layout();
     queueRefresh();
