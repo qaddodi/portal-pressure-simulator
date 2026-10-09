@@ -3428,8 +3428,8 @@ body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state
   /* Seven tabs: 13px text and 6px sides keep every name whole on a laptop-width card. */
   .instr-tab, .instr-tab[aria-selected="true"] { flex: 0 1 auto; flex-direction: row; height: 36px; padding: 0 6px; border-radius: 0; background: none; box-shadow: none; font-weight: 500; font-size: 13px; color: var(--text-3); }
   .instr-tab:first-child { margin-left: -6px; }
-  .instr-tab, .instr-tab[aria-selected="true"] { gap: 4px; padding: 0 5px; font-size: 12px; }
-  .instr-tab > svg { width: 13px; height: 13px; }
+  .instr-tab, .instr-tab[aria-selected="true"] { gap: 3px; padding: 0 5px; font-size: 12px; }
+  .instr-tab > svg { width: var(--ic-s); height: var(--ic-s); }
   .instr-tab:hover { color: var(--text); }
   .instr-tab[aria-selected="true"] { color: var(--text); font-weight: 600; }
   .instr-tab[aria-selected="true"]::before { content: ''; position: absolute; left: 6px; right: 6px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent); }
@@ -3454,7 +3454,7 @@ body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state
 /* Narrator caption (blueprint E1): one live line above the timeline. Below desktop width it takes
    its own row under the event pill and wraps to two lines; phones drop the patient's name (it is in the top bar). */
 .vdock .narrator { flex: 1 1 auto; display: flex; align-items: center; gap: 8px; min-width: 0; margin: 0; font-size: var(--fs-14); line-height: 1.35; color: var(--text-2); }
-.vdock .narrator > svg { flex: none; width: 15px; height: 15px; fill: none; stroke: var(--accent); stroke-width: 1.8; }
+.vdock .narrator > svg { flex: none; width: var(--ic-s); height: var(--ic-s); fill: none; stroke: var(--accent); stroke-width: 1.8; }
 .vdock .narrator .nr-t { flex: 0 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 .vdock .narrator .nr-why { flex: none; padding: 1px 8px; border: 1px solid var(--hairline); border-radius: 999px; background: transparent; color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; }
 .vdock .narrator .nr-why:hover { background: var(--surface-2); }
@@ -3549,5 +3549,5 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .card-head .card-title > svg { width: var(--ic-s) !important; height: var(--ic-s) !important; }
   .card-head .card-close.card-close { width: 32px; height: 32px; }
   .instr-tabs { margin: 0 10px 6px; padding: 2px; }
-  .instr-tab, .instr-tab[aria-selected="true"] { flex-direction: row; gap: 4px; height: 28px; padding: 0 8px; font-size: 11.5px; }
+  .instr-tab, .instr-tab[aria-selected="true"] { flex-direction: row; gap: 4px; height: 28px; padding: 0 8px; font-size: var(--fs-12); }
 }

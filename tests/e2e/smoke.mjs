@@ -32,6 +32,8 @@ const check = (device, name, fn) => { queue.push([device, name, fn]); };
 async function runCheck(device, name, fn) {
   const ctx = await browser.newContext({ ...DEVICES[device], serviceWorkers: 'block' });
   const page = await ctx.newPage();
+  // Four pages share a software GPU in CI, where one frame can take seconds: give taps and waits room.
+  page.setDefaultTimeout(60000);
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
@@ -516,6 +518,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   });
   await check(device, 'responsive instrument workspace', async (page) => {
     await open(page, '?preset=cirr-decomp');
+    // Let the first frames (shader compiles on a software GPU) finish before the first tap.
+    await page.waitForFunction(() => window.pps.store.get().frame.pulsing, null, { timeout: 45000 });
     await page.click('#tabInstruments');
     await page.waitForSelector('#dockBody .dock-pane.active');
     await page.waitForTimeout(400);
@@ -628,7 +632,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await open(page, '?preset=cirr-decomp');
     // The heartbeat always runs, so the trace is beat to beat before any instrument opens, and it
     // never touches the patient's parameters.
-    await page.waitForFunction(() => window.pps.store.get().frame.pulsing, null, { timeout: 20000 });
+    await page.waitForFunction(() => window.pps.store.get().frame.pulsing, null, { timeout: 45000 });
     // Pulsatile is on by default, so compare with its value before the instrument opens, not with false.
     const pulsatileBefore = await page.evaluate(() => window.pps.store.get().params.pulsatile);
     await page.click('#tabInstruments');
