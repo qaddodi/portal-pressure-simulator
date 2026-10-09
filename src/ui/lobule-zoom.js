@@ -1725,15 +1725,20 @@ export function createLobuleZoom({ host }) {
       c.beginPath();
       for (let j = 0; j < drops.length; j += 4) { const [x, y, rr] = [drops[j], drops[j + 1], drops[j + 2]]; c.moveTo(x + rr, y); c.arc(x, y, rr, 0, TAU); }
       c.fill();
-      c.fillStyle = dark ? 'rgba(255, 210, 110, .95)' : 'rgba(176, 112, 16, .9)';
+      // Albumin beads: a saturated amber with a ring of the opposite lightness, so they stand off the pale
+      // green lymph in either theme.
       c.beginPath();
       for (let j = 0; j < drops.length; j += 4) {
-        const x = drops[j], y = drops[j + 1], rr = drops[j + 2], br = rr * 0.24, a0 = drops[j + 3] * 1.7;
+        const x = drops[j], y = drops[j + 1], rr = drops[j + 2], br = rr * 0.3, a0 = drops[j + 3] * 1.7;
         for (let b = 0; b < beads; b++) {
-          const a = a0 + (b * TAU) / beads, q = beads === 1 ? 0 : rr * 0.48;
+          const a = a0 + (b * TAU) / beads, q = beads === 1 ? 0 : rr * 0.5;
           c.moveTo(x + Math.cos(a) * q + br, y + Math.sin(a) * q); c.arc(x + Math.cos(a) * q, y + Math.sin(a) * q, br, 0, TAU);
         }
       }
+      c.lineWidth = Math.max(0.5 / V.k, minR * 0.22);
+      c.strokeStyle = dark ? 'rgba(20, 14, 4, .9)' : 'rgba(255, 255, 255, .95)';
+      c.stroke();
+      c.fillStyle = dark ? 'rgb(255, 196, 40)' : 'rgb(194, 82, 0)';
       c.fill();
     }
     if (flat && !m.hide && store.get().layers?.flow !== false) {
