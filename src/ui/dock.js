@@ -5,11 +5,11 @@ import { store } from './store.js?v=8ab9b37d48';
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=86153645a3';
 import { lobuleFlows } from './lobule-model.js?v=6e45ed9029';
-import { createProfile } from './charts.js?v=913b6ef766';
-import { createPressureTime } from './pressure-time.js?v=8ac280c036';
-import { createFibroScan } from './fibroscan.js?v=683edfd9df';
-import { createDoppler } from './doppler.js?v=cf4c51e264';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=6cf48482c5';
+import { createProfile } from './charts.js?v=16ca3cbbe3';
+import { createPressureTime } from './pressure-time.js?v=d9351666d3';
+import { createFibroScan } from './fibroscan.js?v=53dc718896';
+import { createDoppler } from './doppler.js?v=769828812f';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=7a9fecb1b0';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -23,9 +23,9 @@ export const TILES = [
     scale: [0, 25], ticks: [5, 10],
     st: (v) => (v < 5 ? 'ok' : v < 10 ? 'caution' : 'danger'),
     s: (v) => (v < 5 ? 'Normal' : v < 10 ? 'Subclinical' : 'CSPH') },
-  { id: 'ppg', group: 'pressure', k: 'PPG', title: 'Portosystemic pressure gradient: portal confluence − inferior vena cava at the right atrium, directly from the model network. Unlike HVPG it also includes a block before the liver (presinusoidal or prehepatic). Normal < 6 mmHg.', why: 'ppg', hideKey: 'pv', v: (m) => m.ppg, d: 1, u: 'mmHg',
-    scale: [0, 25], ticks: [6],
-    st: (v) => (v < 6 ? 'ok' : 'caution'), s: (v) => (v < 6 ? 'Normal' : 'Raised') },
+  { id: 'ppg', group: 'pressure', k: 'PPG', title: 'Portosystemic pressure gradient: portal confluence − inferior vena cava at the right atrium, directly from the model network. Unlike HVPG it also includes a block before the liver (presinusoidal or prehepatic). Normal < 6, high ≥ 12 mmHg.', why: 'ppg', hideKey: 'pv', v: (m) => m.ppg, d: 1, u: 'mmHg',
+    scale: [0, 25], ticks: [6, 12],
+    st: (v) => (v < 6 ? 'ok' : v < 12 ? 'caution' : 'danger'), s: (v) => (v < 6 ? 'Normal' : v < 12 ? 'Raised' : 'High') },
   { id: 'pv', group: 'pressure', k: 'Portal pressure', title: 'Portal vein pressure at the portal confluence, absolute (model value). Normal ≤ 10 mmHg.', why: 'pv', v: (m) => m.pv, d: 1, u: 'mmHg', hideKey: 'pv',
     scale: [0, 35], ticks: [10, 15],
     st: (v) => (v <= 10 ? 'ok' : v < 15 ? 'caution' : 'danger'), s: (v) => (v <= 10 ? 'Normal' : v < 15 ? 'Raised' : 'High') },
@@ -79,7 +79,7 @@ export const GROUPS = [['pressure', 'Pressure'], ['flow', 'Flow'], ['effects', '
 // The cut-offs behind each status, as About the model lists them: [readout, normal, amber, red, dark red].
 export const CUTOFFS = [
   ['HVPG (wedged − free)', '< 5 mmHg', '5–9 (subclinical)', '≥ 10 (CSPH in cirrhosis)', '—'],
-  ['PPG: portosystemic gradient (portal vein − IVC)', '< 6 mmHg', '≥ 6', '—', '—'],
+  ['PPG: portosystemic gradient (portal vein − IVC)', '< 6 mmHg', '6–11', '≥ 12', '—'],
   ['Portal vein pressure', '≤ 10 mmHg', '11–14', '≥ 15', '—'],
   ['Portal flow', '≥ 0.9 L/min and ≥ 12 cm/s', '< 0.9 L/min or < 12 cm/s', '< 5 cm/s (stasis)', 'Reversed (hepatofugal)'],
   ['Sinusoidal flow', '> 75 % of normal', '56–75 %', '≤ 55 %', '—'],
