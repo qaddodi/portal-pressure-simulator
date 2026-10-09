@@ -847,6 +847,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!F || lz?.isOpen()) return;
     refreshCTM();
     updateLabels(F);
+    if (cath.st) cathLabels();
     onViewChange?.();
   }
   applyVT();
@@ -2644,6 +2645,133 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     ov.stents.append(s('path', { class: 'suture', d }));
   }
 
+  // ── The HVPG catheter (Measure › HVPG) ─────────────
+  // A balloon catheter drawn along the real vessels: in from the neck, down the SVC, through the right
+  // atrium into the IVC and out into the right hepatic vein, where its tip reads the pressure. In
+  // front of the inflated balloon the still column fills with the wedged (sinusoidal) pressure. The
+  // readings are labels at the tip, in screen pixels. hvpg-proc.js drives it frame by frame.
+  const cath = (() => {
+    const g = s('g', { class: 'cath', 'aria-hidden': 'true' });
+    const column = s('path', { class: 'cath-column' }), column2 = s('path', { class: 'cath-column' });
+    const shadow = s('path', { class: 'cath-shadow' }), body = s('path', { class: 'cath-body' });
+    const balloon = s('ellipse', { class: 'cath-balloon' }), ring = s('circle', { class: 'cath-ring' }), tip = s('circle', { class: 'cath-tip' });
+    g.append(column, column2, shadow, body, balloon, ring, tip);
+    g.style.display = 'none';
+    gOver.append(g);
+    const labels = document.createElement('div');
+    labels.className = 'cath-labels'; labels.setAttribute('aria-hidden', 'true');
+    wrap.append(labels);
+    return { g, column, column2, shadow, body, balloon, ring, tip, labels, st: null, at: null, saved: null };
+  })();
+  const CATH_IDS = ['SVC_RA', 'IVCS_RA', 'RHV_IVC', 'POST_R_RHV'];
+  const lenTo = (pts) => { const c = [0]; for (let i = 1; i < pts.length; i++) c.push(c[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])); return c; };
+  /** The part of a polyline from length a to length b (cumulative lengths in cum). */
+  function cutLen(pts, cum, a, b) {
+    const out = [];
+    for (let i = 1; i < pts.length; i++) {
+      const s0 = cum[i - 1], s1 = cum[i];
+      if (s1 < a || s0 > b) continue;
+      const at = (d) => { const u = s1 > s0 ? (d - s0) / (s1 - s0) : 0; return [lerp(pts[i - 1][0], pts[i][0], u), lerp(pts[i - 1][1], pts[i][1], u)]; };
+      if (!out.length) out.push(at(Math.max(a, s0)));
+      out.push(s1 <= b ? pts[i] : at(b));
+    }
+    return out;
+  }
+  // The route, with the lengths where its parts start: neck, SVC, IVC, right hepatic vein, the branch.
+  function cathRoute() {
+    if (morph > 0.01 || CATH_IDS.some((id) => !geo[id]?.cur?.length || !E[id])) return null;
+    const svc = geo.SVC_RA.cur, top = svc[0];
+    const parts = [[[top[0] - 6, top[1] - 150], [top[0] - 2, top[1] - 60], top], svc.slice(1), geo.IVCS_RA.cur.slice().reverse().slice(1), geo.RHV_IVC.cur.slice().reverse().slice(1), geo.POST_R_RHV.cur.slice().reverse().slice(1)];
+    const pts = [], marks = [];
+    for (const p of parts) { marks.push(pts.length); pts.push(...p); }
+    const cum = lenTo(pts), L = (i) => cum[Math.min(marks[i], cum.length - 1)];
+    // The tip reads in the trunk of the right hepatic vein, about two thirds of the way out from the IVC.
+    const hv0 = L(3), hv1 = L(4);
+    return { pts, cum, total: cum[cum.length - 1], start: L(1) * 0.55, free: hv0 + (hv1 - hv0) * 0.62, hvEnd: hv1 };
+  }
+  function cathPaint() {
+    const st = cath.st, r = st && cathRoute();
+    cath.g.style.display = r ? '' : 'none';
+    cath.labels.hidden = !r;
+    if (!r) return;
+    if (!CTM) refreshCTM();
+    // A 5 F catheter in a 10 mm vein, but never thinner than about 2 px on screen.
+    // The widths are held for the whole procedure (a vessel's drawn width pulses with its pressure).
+    if (!cath.w) cath.w = [E.RHV_IVC.width, E.POST_R_RHV.width];
+    const [wHV, wB] = cath.w, cw = Math.max(wHV * 0.13, 2 / (CTM.sc || 1));
+    const tipD = r.start + (r.free - r.start) * clamp(st.u, 0, 1);
+    const body = cutLen(r.pts, r.cum, 0, tipD), d = polyD(body), tp = body[body.length - 1], pre = body[Math.max(0, body.length - 3)];
+    for (const el of [cath.shadow, cath.body]) el.setAttribute('d', d);
+    cath.shadow.setAttribute('stroke-width', (cw * 1.6).toFixed(2)); cath.body.setAttribute('stroke-width', cw.toFixed(2));
+    const ang = Math.atan2(tp[1] - pre[1], tp[0] - pre[0]), ux = Math.cos(ang), uy = Math.sin(ang);
+    cath.tip.setAttribute('cx', tp[0].toFixed(2)); cath.tip.setAttribute('cy', tp[1].toFixed(2)); cath.tip.setAttribute('r', (cw * 0.85).toFixed(2));
+    cath.ring.setAttribute('cx', tp[0].toFixed(2)); cath.ring.setAttribute('cy', tp[1].toFixed(2));
+    cath.ring.setAttribute('r', (cw * (1.8 + 0.8 * (st.pulse || 0))).toFixed(2)); cath.ring.style.display = st.ring ? '' : 'none';
+    cath.ring.style.stroke = st.ring || '';
+    // The balloon sits just behind the pressure-reading tip; inflated it fills the vein.
+    const bl = clamp(st.balloon || 0, 0, 1), rx = wHV * (0.45 + 0.35 * bl), bcx = tp[0] - ux * (rx + cw * 1.5), bcy = tp[1] - uy * (rx + cw * 1.5);
+    cath.balloon.style.display = bl > 0 ? '' : 'none';
+    cath.balloon.setAttribute('cx', bcx.toFixed(2)); cath.balloon.setAttribute('cy', bcy.toFixed(2));
+    cath.balloon.setAttribute('rx', rx.toFixed(2)); cath.balloon.setAttribute('ry', (cw * 0.65 + (wHV * 0.47 - cw * 0.65) * bl).toFixed(2));
+    cath.balloon.setAttribute('transform', `rotate(${(ang * 180 / Math.PI).toFixed(1)} ${bcx.toFixed(2)} ${bcy.toFixed(2)})`);
+    // The still column in front of the balloon: the vein out to the sinusoids, at the wedged pressure.
+    const col = clamp(st.column || 0, 0, 1), reach = tipD + (r.total - tipD) * col;
+    const a = cutLen(r.pts, r.cum, tipD, Math.min(reach, r.hvEnd)), b = reach > r.hvEnd ? cutLen(r.pts, r.cum, r.hvEnd, reach) : [];
+    cath.column.setAttribute('d', a.length > 1 ? polyD(a) : ''); cath.column.setAttribute('stroke-width', (wHV * 0.82).toFixed(2));
+    cath.column2.setAttribute('d', b.length > 1 ? polyD(b) : ''); cath.column2.setAttribute('stroke-width', (wB * 0.82).toFixed(2));
+    for (const el of [cath.column, cath.column2]) el.style.stroke = st.columnColor || '';
+    cath.g.style.opacity = st.opacity ?? 1;
+    // Where the labels go: at the tip (free reading) and ahead of it in the column (wedged reading).
+    const ahead = cutLen(r.pts, r.cum, tipD, Math.min(r.total, tipD + wHV * 3.2));
+    cath.at = { tip: tp, ahead: ahead[ahead.length - 1] || tp, nx: -uy, ny: ux };
+    cathLabels();
+  }
+  function cathLabels() {
+    const st = cath.st, at = cath.at;
+    if (!st || !at) { cath.labels.replaceChildren(); return; }
+    // Rebuilt only when which labels show changes (each pops in once); their numbers update in place.
+    const want = (st.labels || []).map((l) => l.key + '|' + (l.cls || '')).join('/');
+    if (cath.labels.dataset.k !== want) {
+      cath.labels.dataset.k = want;
+      cath.labels.replaceChildren(...(st.labels || []).map((l) => {
+        const el = document.createElement('div');
+        el.className = 'cath-label ' + (l.cls || ''); el.dataset.at = l.at;
+        if (l.kicker) { const k = document.createElement('small'); k.textContent = l.kicker; el.append(k); }
+        const b = document.createElement('b'); b.textContent = l.text; el.append(b);
+        if (l.unit) { const u = document.createElement('span'); u.textContent = l.unit; el.append(u); }
+        return el;
+      }));
+    }
+    [...cath.labels.children].forEach((el, i) => {
+      const l = st.labels[i];
+      if (el.firstChild.textContent !== l.kicker && l.kicker) el.firstChild.textContent = l.kicker;
+      const b = el.querySelector('b'); if (b.textContent !== l.text) b.textContent = l.text;
+      const p = el.dataset.at === 'ahead' ? at.ahead : at.tip;
+      const [x, y] = worldToLocal(p[0], p[1]);
+      el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+    });
+  }
+  // The camera for the procedure: the route, the tip close up, then back where it was.
+  function cathFocus(mode, ms = 700) {
+    const r = cathRoute();
+    if (mode === 'home') { if (cath.saved) animateVT(cath.saved, ms); cath.saved = null; return true; }
+    if (!r) return false;
+    if (!cath.saved) cath.saved = { ...(vtTarget && vtAnim ? vtTarget : vt) };
+    const wr = wrap.getBoundingClientRect(), ins = safeInsets();
+    const [fx0, fy0] = clientToVB(wr.left + ins.l, wr.top + ins.t), [fx1, fy1] = clientToVB(wr.left + ins.W - ins.r, wr.top + ins.H - ins.b);
+    let cx, cy, k;
+    if (mode === 'tip') {
+      const tp = cutLen(r.pts, r.cum, 0, r.free).at(-1);
+      cx = tp[0]; cy = tp[1]; k = 5;
+    } else {
+      const seg = cutLen(r.pts, r.cum, r.start * 0.5, r.hvEnd);
+      const xs = seg.map((q) => q[0]), ys = seg.map((q) => q[1]), x0 = Math.min(...xs) - 30, x1 = Math.max(...xs) + 30, y0 = Math.min(...ys) - 30, y1 = Math.max(...ys) + 30;
+      cx = (x0 + x1) / 2; cy = (y0 + y1) / 2; k = clamp(Math.min((fx1 - fx0) / (x1 - x0), (fy1 - fy0) / (y1 - y0)) * 0.9, 1, 2.6);
+    }
+    animateVT({ k, x: (fx0 + fx1) / 2 - cx * k, y: (fy0 + fy1) / 2 - cy * k }, ms);
+    return true;
+  }
+
   // Overlays (stenosis, thrombus, stents, varices, balloons, catheter…)
   // The overlays (clamps, clots, stents, varices, caput medusae, balloons, catheter) are rebuilt
   // only when something they draw has visibly changed: the key holds every input, rounded.
@@ -4323,6 +4451,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The label slots as solved (key → side and pixel offset from the figure point it names), for tests.
     labelSlots: () => Object.fromEntries([...labelSol].filter(([, r]) => !r.drop).map(([k, r]) => [k, `${r.dir}/${r.pi}/${Math.round(r.dx)},${Math.round(r.dy)}`])),
     labelScale: () => labelScale,
+    /** The HVPG catheter: null removes it; else { u (0..1 of the way in), balloon, column (0..1), columnColor, ring, pulse,
+     *  opacity, labels: [{ key, at: 'tip' | 'ahead', kicker, text, unit, cls }] }. */
+    setCatheter(st) { cath.st = st; wrap.classList.toggle('cath-on', !!st); if (!st) { cath.w = null; cath.g.style.display = 'none'; cath.labels.hidden = true; cath.labels.replaceChildren(); cath.labels.dataset.k = ''; cath.at = null; return; } cathPaint(); },
+    /** Frame the catheter's route ('route'), its tip close up ('tip'), or go back to the view before ('home'). */
+    cathFocus,
     /** The vessel the Doppler is reading, glowing green while the Doppler instrument is open (null: none). */
     setDoppler(id) {
       if (id && !E[id]) id = null;

@@ -2134,6 +2134,34 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .instrument-details[open] > .instrument-view, .instrument-details[open] > .kv { margin-top: 12px; }
 .wall-details { grid-column: 1 / -1; }
 .trace-picker .check-list { margin-top: 8px; display: grid; grid-template-columns: 1fr; }
+/* The HVPG catheter on the anatomy (stage.js): a fine radiopaque line, its balloon and tip, and the still
+   column in front of the balloon in the wedged pressure's colour. Labels are screen-sized pills at the tip. */
+.cath { pointer-events: none; transition: opacity .5s var(--ease); }
+.cath-shadow { fill: none; stroke: rgba(10, 14, 22, .55); stroke-linecap: round; stroke-linejoin: round; }
+.cath-body { fill: none; stroke: #F4F6FA; stroke-linecap: round; stroke-linejoin: round; }
+.cath-tip { fill: #1B2230; stroke: #F4F6FA; stroke-width: .6; }
+.cath-ring { fill: none; stroke-width: .8; stroke-opacity: .85; }
+.cath-balloon { fill: rgba(226, 233, 244, .78); stroke: #FFFFFF; stroke-width: .6; }
+.cath-column { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-opacity: .9; }
+/* While the catheter is in, the figure's own readouts step back so its labels read clearly. */
+.stage-view #labels { transition: opacity .4s var(--ease); }
+.cath-on #labels { opacity: .3; }
+.cath-labels { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+.cath-labels[hidden] { display: none; }
+.cath-label { position: absolute; left: 0; top: 0; display: inline-flex; align-items: baseline; gap: 5px; padding: 5px 10px; border-radius: 999px; white-space: nowrap;
+  background: var(--surface); color: var(--text); box-shadow: 0 2px 10px rgba(20, 22, 30, .18), 0 0 0 1px var(--hairline); font: 500 12px var(--font-ui);
+  margin: -44px 0 0 0; translate: -50% 0; animation: cathIn .35s var(--ease) both; }
+.cath-label[data-at="ahead"] { margin-top: 18px; }
+.cath-label small { color: var(--text-3); font-weight: 600; font-size: 11px; letter-spacing: .02em; }
+.cath-label b { font-size: 15px; font-variant-numeric: tabular-nums; }
+.cath-label span { color: var(--text-3); font-size: 11px; }
+.cath-label.free b { color: var(--tr-hv); }
+.cath-label.wedge b { color: var(--tr-wedge); }
+.cath-label.ghost { opacity: .6; }
+.cath-label.result { padding: 7px 14px; }
+.cath-label.result b { font-size: 17px; }
+.cath-label.ok b { color: var(--ok); } .cath-label.caution b { color: color-mix(in srgb, var(--caution) 80%, var(--text)); } .cath-label.danger b { color: var(--danger); }
+@keyframes cathIn { from { opacity: 0; } }
 /* HVPG procedure (Measure › HVPG): the monitor canvas, the readings and the four steps. */
 .hvpg-box { border-radius: var(--r-card); background: var(--mon-bg); }
 .hvpg-kv dd[data-sev="ok"] { color: color-mix(in srgb, var(--ok) 75%, var(--text)); }

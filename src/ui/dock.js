@@ -8,7 +8,7 @@ import { lobuleFlows } from './lobule-model.js?v=2854fecf7f';
 import { createProfile } from './charts.js?v=eb7ff82b4c';
 import { createPressureTime } from './pressure-time.js?v=85d4f30f96';
 import { createFibroScan } from './fibroscan.js?v=1236dc7954';
-import { createHvpgProcedure } from './hvpg-proc.js?v=4ab7b34534';
+import { createHvpgProcedure } from './hvpg-proc.js?v=c99549ecf4';
 import { createDoppler } from './doppler.js?v=dff6b93167';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=56b8f0e0c5';
 
@@ -299,7 +299,9 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   wallDetails.addEventListener('toggle', () => { if (wallDetails.open && frame) wall.update(frame); });
   const pressure = { ...profile, id: 'profile', label: 'Pressure' };
   const instruments = [
-    pressure, createPressureTime({ marks }), createHvpgProcedure(),
+    pressure, createPressureTime({ marks }),
+    // On a sheet (phone, portrait tablet) the procedure folds the card down so the anatomy shows it.
+    createHvpgProcedure({ sheet: (on) => { if (!isSide() && isVisible()) setState(on ? 'peek' : 'open'); } }),
     createDoppler({ onProbe }), endoscopy, createAbdomen({ onAction }), createFibroScan(),
   ];
   const panes = instruments.map((p) => {

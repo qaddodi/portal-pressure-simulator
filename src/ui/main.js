@@ -3,16 +3,17 @@
 
 import { startHost, host } from './host.js?v=b54d9b1fcc';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=1d7cd9b00f';
-import { createStage } from './stage.js?v=c11314c9d7';
+import { createStage } from './stage.js?v=74d689a761';
 import { createInspector } from './inspector.js?v=eb9187916e';
-import { createDock, CUTOFFS } from './dock.js?v=4c8dfe3cf5';
+import { createDock, CUTOFFS } from './dock.js?v=c889462e0c';
+import { setHvpgStage } from './hvpg-proc.js?v=c99549ecf4';
 import { createWhy } from './why.js?v=f34a42cc3f';
 import { createTimeline, LAPSES } from './timeline.js?v=179a90e883';
 import { createLearn } from './learn.js?v=7593a68df4';
 import { createCases } from './cases.js?v=bee5d39a80';
 import { createCompare } from './compare.js?v=0838b1d3c8';
 import { createCard } from './card.js?v=fd813e0b26';
-import { createChart, computeFindings } from './chart.js?v=708730546c';
+import { createChart, computeFindings } from './chart.js?v=61762e747f';
 import { createHome, ROLES } from './home.js?v=41227085e4';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=0f0719fa20';
 import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=85f06306e3';
@@ -103,6 +104,7 @@ async function main() {
     onHoverInfo: hoverInfo,
     onViewChange: () => card?.position(),
   });
+  setHvpgStage(stage);
   compare = createCompare();
   timeline = createTimeline({
     root: $('#timeline'), onWhy: (m, el) => why.open(m, el),
