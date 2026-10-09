@@ -165,17 +165,30 @@ vec3 disse(float x, float a, float wi, float hi, int side, bool main, float det)
     c = mix(c, vec3(1.0), al * line(a - mix(wi, hi, 0.3 + 0.36 * float(j)), 0.18) * uStreak);
   }
   if (!main) return c;
-  // Collagen: a pale fill as it takes the space the lymph had, then fibres, each at its own stage.
+  // Collagen: a pale fill as it takes the space the lymph had, then banded fibre bundles laid down by the
+  // stellate cell: they start at it and spread along Disse, each thickening at its own stage.
   if (uCol > 0.02) {
-    c = mix(c, cCol, 0.55 * smoothstep(0.1, 0.9, uCol));
+    c = mix(c, cCol, 0.45 * smoothstep(0.1, 0.9, uCol));
     float near = side < 0 ? exp(-pow((x - uXs) / 26.0, 2.0)) * uAct * 0.08 : 0.0;
-    for (int i = 0; i < 9; i++) {
-      float al = smoothstep(float(i) / 9.0 * 0.85, float(i) / 9.0 * 0.85 + 0.18, uCol) * det;
+    float reach = 14.0 + 320.0 * smoothstep(0.0, 0.8, uCol) * (side < 0 ? 1.0 : 0.8);
+    float spread = 1.0 - smoothstep(reach - 30.0, reach, abs(x - uXs - (side < 0 ? 0.0 : 18.0)));
+    float bd = smoothstep(0.3, 0.1, uPx) * det;                   // the cross-banding, only once it is resolved
+    vec3 fib = cCol * 0.86, fibE = cCol * 0.6;
+    for (int i = 0; i < 7; i++) {
+      float al = smoothstep(float(i) / 7.0 * 0.8, float(i) / 7.0 * 0.8 + 0.22, uCol) * det * spread;
       if (al < 0.01) continue;
       int sd = side < 0 ? 91 : 92;
       float v = 0.15 + 0.7 * h1(i, sd), f = 0.12 + 0.12 * h1(i, sd + 7), ph = 6.2831853 * h1(i, sd + 9);
-      float tc = clamp(v + 0.12 * sin(x * f + ph) + 0.05 * sin(x * f * 2.7 + ph * 1.7) + near, 0.05, 0.95);
-      c = mix(c, cCol * 0.78, line(a - mix(wi, hi, tc), 0.16 + 0.1 * al) * 0.8 * al);
+      float tc = clamp(v + 0.12 * sin(x * f + ph) + 0.05 * sin(x * f * 2.7 + ph * 1.7) + near, 0.08, 0.92);
+      float w = (0.2 + (0.5 + 0.3 * h1(i, sd + 3)) * al * uCol) * (hi - wi) * 0.22;
+      float d = abs(a - mix(wi, hi, tc)) - 0.5 * w;
+      if (d > 0.4) continue;
+      // Striated like collagen under the microscope: light and dark bands across the bundle, and a fibril seam along it.
+      float band = 0.5 + 0.5 * sin(6.2831853 * x / 1.1 + ph);
+      vec3 fc = mix(fib, fibE, (0.08 + 0.22 * band) * bd);
+      fc = mix(fc, fibE, line(a - mix(wi, hi, tc) - 0.18 * w * sin(x * 0.9 + ph), 0.06) * 0.5 * bd);
+      c = mix(c, fc, cov(d) * al);
+      c = mix(c, fibE, line(d, 0.07) * al * 0.85);
     }
   }
   // Microvilli: fine strokes from the hepatocytes' face, flattened as the space fills with collagen.
