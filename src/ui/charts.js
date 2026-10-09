@@ -230,20 +230,19 @@ export function createProfile() {
       // below-left of a falling segment reads naturally (the fill side); above as a fallback
       const r = place(xm, [ym + 16, ym - 16, ym + 30, ym - 30], tw, th);
       if (!r) continue;
+      // An opaque plate first, so no line shows through the number.
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(r.x0, r.y0, tw, th, 8.5) : ctx.rect(r.x0, r.y0, tw, th);
+      ctx.fillStyle = c.surface; ctx.fill();
       ctx.fillStyle = main ? c.danger : c.surface2;
-      ctx.globalAlpha = main ? 0.14 : 1;
-      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(r.x0, r.y0, tw, th, 8.5) : ctx.rect(r.x0, r.y0, tw, th); ctx.fill();
+      ctx.globalAlpha = main ? 0.14 : 1; ctx.fill();
       ctx.globalAlpha = 1;
       ctx.fillStyle = dp < 0 ? c.rev : main ? c.danger : c.muted;
       ctx.fillText(txt, (r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2 + 0.5);
     }
-    // Values only where they tell the story: the two ends and either side of the biggest fall.
-    const keyIdx = new Set([venousIdx[0], venousIdx[venousIdx.length - 1]]);
-    if (big >= 0) { keyIdx.add(big); keyIdx.add(venousIdx[venousIdx.indexOf(big) + 1]); }
     if (slot >= 26) {
       ctx.font = FONT(600, 11);
       for (const d of dots) {
-        if (ARTERIAL.has(stations[d.i]) || !keyIdx.has(d.i)) continue;
+        if (ARTERIAL.has(stations[d.i])) continue;
         const txt = fmt(now[d.i], 0);
         const tw = ctx.measureText(txt).width + 4, th = 13;
         const r = place(d.cx, [d.cy - 15, d.cy + 15], tw, th);

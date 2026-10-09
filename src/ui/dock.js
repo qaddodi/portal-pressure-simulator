@@ -5,11 +5,11 @@ import { store } from './store.js?v=8ab9b37d48';
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=86153645a3';
 import { lobuleFlows } from './lobule-model.js?v=6e45ed9029';
-import { createProfile } from './charts.js?v=1cc1c46b6a';
-import { createPressureTime } from './pressure-time.js?v=244a60ae73';
-import { createFibroScan } from './fibroscan.js?v=e6f8d0485a';
-import { createDoppler } from './doppler.js?v=b1a2df0667';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=393254ef78';
+import { createProfile } from './charts.js?v=eb0b542021';
+import { createPressureTime } from './pressure-time.js?v=ea1a9c9355';
+import { createFibroScan } from './fibroscan.js?v=1101014532';
+import { createDoppler } from './doppler.js?v=4e9237c14f';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=5338fa32d2';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
