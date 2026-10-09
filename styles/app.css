@@ -1295,9 +1295,10 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .action-card.docked.peek .ac-top { padding-bottom: 12px; }
 /* With Measure / Instruments open on a phone the info card does not hide under it: it rises above the sheet with its
    controls (they scroll inside it), and the sheet takes less height while a card is open so both can be used at once. */
-.app.dock-open:not(.instrument-focus) .action-card.docked { bottom: var(--bot-occ, 0px); height: auto; max-height: 36dvh; border-radius: var(--r-sheet); }
-.app.dock-open:not(.instrument-focus):has(.action-card.docked:not([hidden])) .instrument-workspace:not([data-state="peek"]) { height: 34dvh; }
+.app.dock-open:not(.instrument-focus) .action-card.docked { bottom: var(--bot-occ, 0px); height: auto; max-height: min(36dvh, calc(100% - var(--bot-occ, 0px) - var(--top-safe, 0px) - 8px)); border-radius: var(--r-sheet); }
 .app.dock-open:not(.instrument-focus) .action-card.docked .ac-top { padding-bottom: 10px; }
+/* The sheet may grow as far as the screen allows with the card above it: its tallest size leaves room for a full card. */
+.app.dock-open:not(.instrument-focus):has(.action-card.docked:not([hidden])) .instrument-workspace.float-ui:not(.side) { max-height: calc(100% - var(--top-safe, 0px) - 36dvh - 8px); }
 .action-card.docked .ac-top { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 2px; align-items: center; padding: 2px 12px 4px; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
 .action-card.docked .ac-head, .action-card.docked .ac-titles, .action-card.docked .ac-readout { display: contents; }
 .action-card.docked .ac-grab { grid-column: 1 / -1; grid-row: 1; display: block; width: 100%; height: 12px; margin: 0; padding: 0; border: 0; background: none; cursor: pointer; position: relative; }
