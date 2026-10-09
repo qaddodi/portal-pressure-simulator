@@ -922,7 +922,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (el.checkVisibility ? !el.checkVisibility({ visibilityProperty: true }) : getComputedStyle(el).visibility === 'hidden') continue;
       const q = el.getBoundingClientRect();
       if (!q.width || !q.height) continue;
-      const x0 = q.left - wr.left, y0 = q.top - wr.top, x1 = q.right - wr.left, y1 = q.bottom - wr.top;
+      // The vitals dock folded to one line on a phone (main.js) still counts at its full height, so the
+      // framing does not jump each time it folds and opens.
+      const y0 = (el.classList.contains('mini') && +el.dataset.fullH ? q.bottom - +el.dataset.fullH : q.top) - wr.top;
+      const x0 = q.left - wr.left, x1 = q.right - wr.left, y1 = q.bottom - wr.top;
       if (x1 <= 0 || y1 <= 0 || x0 >= W || y0 >= H) continue;
       let edge = el.dataset.safe;
       if (edge === 'right' && W < 768) edge = 'bottom';   // a phone's cards are sheets over the bottom
@@ -2961,6 +2964,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return { runs, color: velocityColor(best) };
   }
 
+  // Where a label has no room with its value, it keeps the name alone (see placeMulti and the overlap pass).
+  function shortenItem(it) {
+    if (it.short || (it.lines.length < 2 && it.lines[0].length < 2)) return false;
+    it.lines = [[it.lines[0][0]]]; it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]); it.short = true;
+    return true;
+  }
   function nodeItem(id, f, mode, compact) {
     const st = store.get();
     const meta = ATLAS_LABELS[id];
@@ -2977,7 +2986,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const w = Math.max(...lines.map(lineW)) + (mode === 'atlas' ? 7 : 0);
     const hh = lines.reduce((a, l) => a + LINE_H(l), 0);
     const sel = st.selection?.type === 'node' && st.selection.id === id;
-    return { key: 'n:' + id, node: id, cls: 'node ' + mode + (one ? ' bare' : ''), lines, w, h: hh, sel, label: `${NODES[NI[id]].label}${lr ? `: ${lr.runs.map((r) => r.t).join(' ')}` : pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}`,
+    return { key: 'n:' + id, node: id, cls: 'node ' + mode + (one ? ' bare' : ''), lines, w, h: hh, sel, canShort: !!pr && mode !== 'atlas', label: `${NODES[NI[id]].label}${lr ? `: ${lr.runs.map((r) => r.t).join(' ')}` : pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}`,
       swatch: mode === 'atlas' && pr ? (lr ? lr.color : layerMode() === 'heat' ? heatColor(P - (REF()?.[NI[id]] ?? P)) : pressureColor(P)) : null, bg: mode === 'inline' && !one, padX: mode === 'inline' && !one ? 6 : 3, padY: mode === 'inline' && !one ? 3 : 2 };
   }
 
@@ -3038,12 +3047,30 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let solvedFor = null;       // { sig, sc, th } the slots were solved for
   const labelVis = new Map(); // key → shown last frame (hysteresis against blockers)
   let labelTurned = false;   // labels remember their side; turning the circuit changes which side is right
+  // Levels of detail (Blood menu › Labels). Key: at the home framing only the portal vein, the HVPG pair
+  // (wedged sinusoids and the free hepatic vein) and the stations the model flags; zoomed in, every
+  // station in view. All: every station at every zoom. None: only a selected station.
+  const KEY_NODES = ['CONF', 'SIN_R', 'RHV'];
+  const zoomedIn = () => vt.k > (homeAt?.k || 1) * 1.3;
+  function flagged(f) {
+    const st = store.get(), out = [];
+    if (hasVarices('VAR', f)) out.push('VAR');
+    if (hasVarices('GV', f)) out.push('GV');
+    if (f.metrics?.ra > 10) out.push('RA');   // the Findings cut-off for a raised right atrial pressure
+    // A narrowed vessel: the stations either side of it.
+    for (const [id, v] of Object.entries((f.viewParams || st.params).stenosis || {})) {
+      const e = v > 0 && EDGES[EI[id]];
+      if (!e) continue;
+      for (const n of [e.from, e.to]) if (CHIP_NODES.includes(n) && !out.includes(n)) out.push(n);
+    }
+    return out;
+  }
   const SOLVE_ZOOM = 0.05, SOLVE_TURN = 0.03;   // re-solve after a 5 % zoom change or ~2 degrees of turn
   function labelSig(f) {
     const st = store.get(), t = easeInOut(morph);
     const edges = Object.values(E).filter((x) => x.vis).map((x) => `${x.e.id}${Math.round(x.width || 0)}${x.g.classList.contains('coll-ghost') ? 'g' : ''}`).join(',');
     return [geometryVersion, t >= 0.5, rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, JSON.stringify((f.viewParams || st.params).stenosis),
-      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], vt.k > 1.35, edges].join('|');
+      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], vt.k > 1.35, st.labelLevel, zoomedIn(), flagged(f).join(','), edges].join('|');
   }
   function updateLabels(f) {
     refreshCTM();
@@ -3153,6 +3180,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // Carry: the label goes where it was put, relative to the figure point it names.
         if (!prev) { stale = true; return false; }
         if (prev.drop) return false;
+        if (prev.short && it.canShort) shortenItem(it);
         if (it.w > prev.w + 0.5 || it.h > prev.h + 0.5) { stale = true; return false; }
         const [ax, ay] = worldToLocal(prev.wx, prev.wy);
         it.ax = ax; it.ay = ay; it.dir = prev.dir; it.leader = prev.leader;
@@ -3179,7 +3207,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const cost = pi * 1e4 + (inside ? 0 : 2e3) + (ps.clear ? 0 : onLine * 12) + i + (ps.bias || 0) - (held ? (ps.clear ? 1e5 : 4) : 0);
         if (!best || cost < best.cost) best = { cost, dx, dy, r, dir, pi, leader: ps.leader };
       }));
-      if (!best) { nextSol.set(it.key, { drop: true }); return false; }
+      if (!best) {
+        // No room with the value: try the name alone before giving the label up.
+        if (it.canShort && shortenItem(it)) return placeMulti(it, dirs, passes);
+        nextSol.set(it.key, { drop: true }); return false;
+      }
       // The text hugs the station side of its reserved box.
       const slack = it.rot ? 0 : wRes - it.w, dir = best.dir;
       it.x = it.ax + best.dx + (dir.includes('W') ? slack : dir.includes('E') ? 0 : slack / 2);
@@ -3190,19 +3222,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const lead = gapPx > 18 || (!!prev?.lead && gapPx >= 10);
       it.leader = !!best.leader || lead;
       const [wx, wy] = localToWorld(it.ax, it.ay);
-      nextSol.set(it.key, { wx, wy, dx: best.dx, dy: best.dy, dir, pi: best.pi, w: wRes, h: it.h, leader: it.leader, lead });
+      nextSol.set(it.key, { wx, wy, dx: best.dx, dy: best.dy, dir, pi: best.pi, w: wRes, h: it.h, leader: it.leader, lead, short: !!it.short });
       placed.push(best.r); out.push(it);
       return true;
     };
 
     if (!circuit) {
       // ── Anatomy ──
-      const show = new Set(CHIP_NODES);
+      const lvl = st.labelLevel || 'key', zoomed = zoomedIn();
+      const show = new Set(lvl === 'none' ? [] : lvl === 'key' && !zoomed ? [...KEY_NODES, ...flagged(f)] : CHIP_NODES);
       // No varices, no varices callout: in a healthy patient the node's pressure is just the balance
       // between the coronary vein and the azygos, and a "varices" label on it would mislead.
       if (!hasVarices('VAR', f)) show.delete('VAR');
-      if (hasVarices('GV', f)) show.add('GV');
-      if (st.selection?.type === 'node') show.add(st.selection.id);
+      if (lvl !== 'none' && hasVarices('GV', f)) show.add('GV');
+      // Key, at the home framing on a wide screen: the other major stations too, but only where one fits
+      // beside its vessel without a leader (see `minor` below); a phone keeps to the key ones.
+      const minor = new Set(lvl === 'key' && !zoomed && !compact ? CHIP_NODES.filter((id) => !show.has(id) && id !== 'VAR') : []);
+      for (const id of minor) show.add(id);
+      if (st.selection?.type === 'node') { show.add(st.selection.id); minor.delete(st.selection.id); }
       const [lx] = worldToLocal(ATLAS_COLUMNS[0], 500), [rx] = worldToLocal(ATLAS_COLUMNS[1], 500);
       const colW = 150;
       // Pressures sit beside their vessels at every size (no margin columns with long leaders).
@@ -3212,7 +3249,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (!NODE_POS[id]) continue;
         const { ax, ay, mid, w: vw } = labelAnchor(id, t);
         const it = nodeItem(id, f, atlas ? 'atlas' : 'inline', compact);
-        it.ax = ax; it.ay = ay; it.vw = mid ? vw * CTM.sc : 0; it.pri = it.sel ? 100 : ANAT_PRI[id] || 5;
+        it.ax = ax; it.ay = ay; it.vw = mid ? vw * CTM.sc : 0; it.pri = it.sel ? 100 : minor.has(id) ? 1 : ANAT_PRI[id] || 5;
+        it.minor = minor.has(id);
+        if (it.minor) it.canShort = false;   // an optional label shows whole or not at all
         it.side = ATLAS_LABELS[id]?.side || (NODE_POS[id][0][0] < 700 ? 'L' : 'R');
         items.push(it);
       }
@@ -3239,7 +3278,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // Zoomed in, the other stations in view get their pressure too (hepatic veins, portal branches,
       // the left sinusoids...), each only where it stands clear of the labels already there, so they
       // appear as the zoom makes room and the overview stays uncluttered.
-      if (!atlas && vt.k > 1.35) {
+      if (!atlas && lvl !== 'none' && (vt.k > 1.35 || zoomed || lvl === 'all')) {
         const room = compact ? 64 : 80;
         for (const id of ANAT_EXTRA) {
           if (show.has(id) || !NODE_POS[id] || !(NI[id] >= 0)) continue;
@@ -3288,6 +3327,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           const dirs = it.side === 'L' ? ['NW', 'W', 'SW', 'N', 'S', 'NE', 'E', 'SE'] : ['NE', 'E', 'SE', 'N', 'S', 'NW', 'W', 'SW'];
           // Prefer a spot touching no vessel at all, near first; only then accept one that crosses a vessel.
           const near = 8 + it.vw / 2, far = 24 + it.vw / 2;
+          if (it.minor) { placeMulti(it, dirs, [{ gap: near, leader: false, clear: true }]); continue; }
           if (placeMulti(it, dirs, [{ gap: near, leader: false, clear: true }, { gap: far, leader: true, clear: true }, { gap: near, leader: false }, { gap: far, leader: true }])) continue;
           if (it.sel) { place(it, ['C'], 0, false) || (out.push(Object.assign(it, { x: it.ax + 8, y: it.ay - it.h / 2 })), true); }
         }
@@ -3344,12 +3384,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       buildLines();
       // The liver's stations show when zoomed in on it or when one is selected (there is no box to open them).
       const open = liverExpanded();
-      const nodes = [];
+      const nodes = [], flagC = flagged(f);
       for (const n of NODES) {
         if (!nodeEls[n.id] || !CIRCUIT_LABELS[n.id]) continue;
         if (!nodeVisible(n.id)) continue;
         if ((n.id === 'VAR' || n.id === 'GV') && !hasVarices(n.id, f)) continue;
         if (!open && LIVER_INNER.has(n.id) && !(st.selection?.type === 'node' && st.selection.id === n.id)) continue;
+        // Levels of detail: none shows only a selected station; key, zoomed out, the major ones (and the flagged).
+        const isSel = st.selection?.type === 'node' && st.selection.id === n.id, lvlC = st.labelLevel || 'key';
+        if (!isSel && (lvlC === 'none' || (lvlC === 'key' && !zoomedIn() && CIRCUIT_LABELS[n.id].pri < (compact ? 8 : 5) && !flagC.includes(n.id)))) continue;
         const { ax, ay, mid, tan, w: vw } = labelAnchor(n.id, t);
         // The station dot stays where it is; a callout on a vessel also keeps clear of its own marker.
         const [sx, sy] = worldToLocal(...nodePos(n.id, t));
@@ -3416,6 +3459,24 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const r = rectOf(it), was = labelVis.get(it.key) !== false, m = was ? 0 : 10;
       it.hide = !hits(r, stage) || obstacles.some((o) => hits(r, { x0: o.x0 - m, y0: o.y0 - m, x1: o.x1 + m, y1: o.y1 + m }));
       labelVis.set(it.key, !it.hide);
+    }
+    // Last pass: no two labels showing may overlap. A pan can pull a label in from the stage edge onto
+    // another, and carried slots are not searched again. The more important label keeps its place; the
+    // other drops its value and, if that is not enough, hides until there is room.
+    const rank = (it) => (it.sel ? 1e3 : it.key === 'focus' ? 900 : it.cls === 'organ' ? 0 : it.cls === 'lane' ? 1 : (it.pri ?? 2) + 2);
+    const kept = [];
+    for (const it of out.filter((o) => !o.hide && !o.live && !o.rot).sort((a, b) => rank(b) - rank(a))) {
+      let r = rectOf(it);
+      if (kept.some((k) => hits(r, k))) {
+        const w0 = it.w, h0 = it.h, d = it.dir || '';
+        if (it.canShort && shortenItem(it)) {
+          it.x += d.includes('W') ? w0 - it.w : d.includes('E') ? 0 : (w0 - it.w) / 2;
+          it.y += d.includes('N') ? h0 - it.h : d.includes('S') ? 0 : (h0 - it.h) / 2;
+          r = rectOf(it);
+        }
+        if (!it.sel && kept.some((k) => hits(r, k))) { it.hide = true; continue; }
+      }
+      kept.push(r);
     }
     // Leader lines and anchor dots, for the labels showing.
     for (const it of out) {

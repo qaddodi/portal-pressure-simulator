@@ -172,6 +172,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
       sortEntries();
       announce(`${ev.title}. ${ev.detail || ''}`);
       pulseLatest();
+      dispatchEvent(new Event('pps:event'));   // a phone's folded dock opens for it (main.js)
     }
   }
   async function jump(days, long) {

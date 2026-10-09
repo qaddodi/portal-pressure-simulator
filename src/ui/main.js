@@ -192,6 +192,7 @@ async function main() {
   for (const k of ['compareSnap', 'compareView', 'colorMode', 'imaging']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
   store.on('compareSnap', () => { if (!store.get().details) inspector.render(); });
   store.on('focus', redraw);
+  store.on('labelLevel', redraw);
   store.on('selection', redraw);
 
   // Console handle for educators preparing a class (and for automated screenshots).
@@ -593,7 +594,24 @@ function openBlood(anchor) {
     layer('chips', 'tag', 'Pressure values', 'The number beside each vessel\u2019s name'),
     layer('collaterals', 'route', 'Potential collaterals', 'Dotted routes that open as pressure rises'),
     layer('labels', 'liver', 'Organ names'),
+    h('div', { class: 'menu-sep' }),
+    h('div', { class: 'menu-title' }, 'Labels'),
+    labelLevelSeg(),
   ], { cls: 'blood-pop' });
+}
+// Which stations are labelled: the key ones (portal vein, the HVPG pair, what is abnormal; everything once
+// zoomed in), all of them at every zoom, or none.
+function labelLevelSeg() {
+  const cur = store.get().labelLevel;
+  return h('div', { class: 'seg full menu-seg', role: 'group', 'aria-label': 'Labels on the figure' }, [['key', 'Key'], ['all', 'All'], ['none', 'None']].map(([v, l]) => {
+    const b = h('button', { 'aria-pressed': String(cur === v), 'data-labels': v, title: { key: 'Portal vein, the HVPG pair and what is abnormal; every station once zoomed in', all: 'Every station at every zoom', none: 'No station labels' }[v] }, l);
+    b.addEventListener('click', () => {
+      store.set({ labelLevel: v });
+      try { localStorage.setItem('pps.labels', v); } catch { /* storage unavailable */ }
+      b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    });
+    return b;
+  }));
 }
 // The Lobule view's layers, in the same kind of menu: the zone bands and the lymph.
 function openLobuleLayers(anchor) {
@@ -918,7 +936,12 @@ function wireFloating() {
     const gap = isPhone() ? 8 : 12;
     // The dock's height, plus on an iPhone the home indicator's strip under it (the rules that use it add
     // the gap themselves), so nothing above it is placed behind it.
-    const vd = $('#vdock'), vdock = vd.offsetHeight ? Math.max(vd.offsetHeight, $('#stageView').getBoundingClientRect().bottom - vd.getBoundingClientRect().top - gap) : 0, wide = !isPhone();
+    // The dock's full height is kept while it is folded to one line (figureFocus below): the framing reads it
+    // (stage.js safeInsets), so the figure does not jump each time the dock folds and opens.
+    const vd = $('#vdock');
+    if (!vd.classList.contains('mini') && vd.offsetHeight) vd.dataset.fullH = String(vd.offsetHeight);
+    const vdTop = vd.offsetHeight ? $('#stageView').getBoundingClientRect().bottom - vd.getBoundingClientRect().top : 0;
+    const vdock = vd.offsetHeight ? Math.max(vd.offsetHeight, vdTop - gap) : 0, wide = !isPhone();
     // The top bar keeps one row when everything fits at its natural width (with a little to spare,
     // so it does not flip back and forth), else the view and legend move to a second row.
     // Off a phone the bar first compacts step by step (data-fit 1-3: shorter patient name, icon-only
@@ -937,7 +960,7 @@ function wireFloating() {
     if (fit > steps) { tb.dataset.fit = String(steps); tb.classList.add('two-rows'); }
     app.style.setProperty('--top-safe', px($('#topbar').offsetHeight));
     app.style.setProperty('--vdock-h', px(vdock));
-    app.style.setProperty('--vdock-top', px(vd.offsetHeight ? $('#stageView').getBoundingClientRect().bottom - vd.getBoundingClientRect().top : 0));
+    app.style.setProperty('--vdock-top', px(vd.offsetHeight ? vdTop : 0));
     const ws = $('#dock'), wsOn = app.classList.contains('dock-open') && !app.classList.contains('instrument-focus');
     const panelOcc = wide && app.classList.contains('panel-open') ? $('#panel').offsetWidth + gap : 0;
     const instrOcc = wsOn && ws.classList.contains('side') ? ws.offsetWidth + gap : 0;
@@ -969,14 +992,28 @@ function wireFloating() {
   treatSheet = sheetBehaviour($('#treatCard'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the Treat card' }), drag: '.tc-head', onClose: closeTreat });
   dockSheet = sheetBehaviour($('#dock'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the instruments' }), drag: '.dock-head', onClose: () => dock.close(), active: () => isPhone() && !$('#dock').classList.contains('side') && !app.classList.contains('instrument-focus') });
   // Focus: dragging, pinching or scrolling the figure fades the floating pieces until it stops.
-  let busyT = 0, down = null;
+  let busyT = 0, down = null, moved = false;
   const busy = (ms) => { app.classList.add('stage-busy'); clearTimeout(busyT); busyT = setTimeout(() => app.classList.remove('stage-busy'), ms); };
+  // On a phone the same gestures also give the figure more room: the vitals dock folds to one line (play,
+  // clock, HVPG) and the top bar's second row (view, colour legend) slides away, while the figure moves and
+  // for three seconds after. A tap anywhere, or an event on the timeline, brings them back at once.
+  let focusT = 0;
+  const unfocus = () => { clearTimeout(focusT); if (!app.classList.contains('figure-focus')) return; app.classList.remove('figure-focus'); $('#vdock').classList.remove('mini'); };
+  const figureFocus = (ms) => {
+    clearTimeout(focusT);
+    if (!isPhone() || $('#strip').classList.contains('all') || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    app.classList.add('figure-focus'); $('#vdock').classList.add('mini');
+    if (ms) focusT = setTimeout(unfocus, ms);
+  };
   // Only the figure itself: a swipe on a card (or one from the phone's edge) leaves the rest alone.
-  view.addEventListener('pointerdown', (e) => { down = systemEdge(e) || e.target.closest?.('.stage-blocker, .zoom-pill, button, input, select') ? null : [e.clientX, e.clientY]; });
-  view.addEventListener('pointermove', (e) => { if (down && e.buttons && Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 8) busy(5000); });
-  addEventListener('pointerup', () => { if (down) { down = null; if (app.classList.contains('stage-busy')) busy(600); } });
-  addEventListener('pointercancel', () => { if (down) { down = null; busy(300); } });
-  view.addEventListener('wheel', () => busy(800), { passive: true });
+  view.addEventListener('pointerdown', (e) => { down = systemEdge(e) || e.target.closest?.('.stage-blocker, .zoom-pill, button, input, select') ? null : [e.clientX, e.clientY]; moved = false; });
+  view.addEventListener('pointermove', (e) => { if (down && e.buttons && Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 8) { busy(5000); moved = true; figureFocus(0); } });
+  addEventListener('pointerup', () => { if (down) { down = null; if (app.classList.contains('stage-busy')) busy(600); if (moved) figureFocus(3000); else unfocus(); } });
+  addEventListener('pointercancel', () => { if (down) { down = null; busy(300); if (moved) figureFocus(3000); } });
+  view.addEventListener('wheel', () => { busy(800); figureFocus(3000); }, { passive: true });
+  $('#vdock').addEventListener('pointerdown', unfocus);
+  $('#topbar').addEventListener('pointerdown', unfocus);
+  addEventListener('pps:event', unfocus);
 }
 // Phone: the chart and Treat are bottom sheets with three heights; a drag on the handle (or the
 // head) moves between them, and below the lowest closes the sheet. Wider: the head drags the card

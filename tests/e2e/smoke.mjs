@@ -428,6 +428,38 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if (bad.length) throw new Error(`${w}×${hgt} ${q}${act ? ' + ' + act : ''}: ${bad.join('; ')}`);
     }
   });
+  // The figure's labels never sit on each other: at the home framing, for every patient, on a phone, an iPad
+  // held upright and a laptop, in the anatomy and the circuit (stage.js layoutLabels, its last overlap pass).
+  await check(device, 'figure labels never overlap', async (page) => {
+    const sizes = device === 'desktop' ? [[1440, 900], [820, 1180]] : [[390, 844]];
+    const presets = ['healthy', 'postprandial', 'pvt-acute', 'pvt-chronic', 'svt', 'schisto', 'cirr-comp', 'csph', 'cirr-decomp', 'cirr-hepatofugal', 'gastric-varix', 'sos', 'budd-chiari', 'ivc-web', 'rhf', 'constrictive'];
+    await open(page);
+    const overlaps = () => page.evaluate(() => {
+      const boxes = [...document.querySelectorAll('#labels .lb:not(.lb-off)')].filter((g) => getComputedStyle(g).display !== 'none' && +getComputedStyle(g).opacity > 0.05)
+        .map((g) => [g.dataset.key, [...g.querySelectorAll('text')].map((t) => t.getBoundingClientRect()).filter((r) => r.width > 1)]).filter(([, rs]) => rs.length);
+      const out = [];
+      for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+        for (const A of boxes[i][1]) for (const C of boxes[j][1]) {
+          const x = Math.min(A.right, C.right) - Math.max(A.left, C.left), y = Math.min(A.bottom, C.bottom) - Math.max(A.top, C.top);
+          if (x > 1.5 && y > 1.5) out.push(`${boxes[i][0]} × ${boxes[j][0]}`);
+        }
+      }
+      return [...new Set(out)];
+    });
+    for (const [w, hgt] of sizes) {
+      await page.setViewportSize({ width: w, height: hgt });
+      for (const id of presets) {
+        await page.evaluate((p) => window.pps.loadPreset(p), id);
+        for (const view of ['anatomic', 'circuit']) {
+          await page.evaluate((v) => window.pps.store.set({ view: v }), view);
+          await page.waitForTimeout(1200);
+          const bad = await overlaps();
+          if (bad.length) throw new Error(`${w}×${hgt} ${id} ${view}: ${bad.join('; ')}`);
+        }
+        await page.evaluate(() => window.pps.store.set({ view: 'anatomic' }));
+      }
+    }
+  });
   // One type scale and one icon scale (styles/tokens.css): every menu, card and sheet the owner can
   // open uses only the five interface sizes and three weights, icons come in 16, 20 and 24 (12 for a
   // check mark in a dot), and every button has a name. Figure artwork (the anatomy's labels, the
