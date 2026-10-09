@@ -3546,7 +3546,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    a quiet status (e.g. "2 running") sits in the left corner. The Tests row, which scrolls sideways,
    fades at an edge that hides more tabs and shows a small chevron there. */
 @media (max-width: 767px) {
-  .card-head.card-head { position: relative; min-height: 30px; padding: 0 44px !important; justify-content: center; }
+  .card-head.card-head { position: relative; min-height: 30px; padding: 4px 44px 0 !important; justify-content: center; }
+  /* No visible drag handle: the title row drags the sheet. The button stays for keyboard resizing, only seen on focus. */
+  .panel-grab, .sheet-grab { position: absolute; top: 0; left: 50%; width: 56px; height: 10px; z-index: 2; transform: translateX(-50%); opacity: 0; transition: opacity .15s var(--ease); }
+  .panel-grab::before, .sheet-grab::before { top: 3px; }
+  .panel-grab:focus-visible, .sheet-grab:focus-visible { opacity: 1; }
   .card-head .card-title { flex: 0 1 auto; justify-content: center; font-size: var(--fs-14) !important; gap: 6px; }
   .card-head .card-title > svg { width: var(--ic-s) !important; height: var(--ic-s) !important; }
   .card-head .card-close.card-close { position: absolute; right: 0; top: 50%; width: 44px; height: 44px; transform: translateY(-50%); z-index: 1; }
