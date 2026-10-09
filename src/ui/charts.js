@@ -89,10 +89,10 @@ export function createProfile() {
     // Venous stations only: the arterial pressure sits far off the portal scale and says little here.
     const stations = path.nodes.filter((n) => !ARTERIAL.has(n));
     const slot0 = (w - 56) / stations.length;
-    // Close together, the station names turn 45° on one row (each ending under its point).
+    // Close together, the station names turn 30° on one row (each ending under its point).
     const stagger = slot0 < 74;
     let tilt = 0;
-    if (stagger) { const m = cv.getContext('2d'); m.font = FONT(500, 11); tilt = Math.max(...stations.map((n) => m.measureText(SHORT[n] || n).width)) * Math.SQRT1_2; }
+    if (stagger) { const m = cv.getContext('2d'); m.font = FONT(500, 11); tilt = Math.max(...stations.map((n) => m.measureText(SHORT[n] || n).width)) * 0.5; }
     // Arterial stations sit far above the venous scale: they are drawn in a band above a broken
     // axis (//) with their true value, never clipped.
     const hasArt = stations.some((n) => ARTERIAL.has(n));
@@ -119,16 +119,16 @@ export function createProfile() {
     ctx.strokeStyle = c.border; ctx.fillStyle = c.faint; ctx.lineWidth = 1;
     const step = maxP > 40 ? 10 : 5;
     for (let p = 0; p <= maxP; p += step) {
-      ctx.beginPath(); ctx.moveTo(L, Math.round(y(p)) + 0.5); ctx.lineTo(w - R, Math.round(y(p)) + 0.5); ctx.stroke();
+      ctx.globalAlpha = 0.55; ctx.beginPath(); ctx.moveTo(L, Math.round(y(p)) + 0.5); ctx.lineTo(w - R, Math.round(y(p)) + 0.5); ctx.stroke(); ctx.globalAlpha = 1;
       ctx.textAlign = 'right'; ctx.fillText(String(p), L - 8, y(p) + 4);
     }
     ctx.strokeStyle = c.axis; ctx.beginPath(); ctx.moveTo(L, Math.round(y(0)) + 0.5); ctx.lineTo(w - R, Math.round(y(0)) + 0.5); ctx.stroke();
     if (roomy || !hasArt) { ctx.textAlign = 'left'; ctx.fillText('mmHg', 6, 12); } else { ctx.textAlign = 'right'; ctx.fillText('mmHg', w - R, artY + 4); }
-    // station labels: horizontal, or turned 45° (ending under their point) when close together
+    // station labels: horizontal, or turned 30° (ending under their point) when close together
     ctx.fillStyle = c.muted; ctx.font = FONT(500, 11);
     stations.forEach((n, i) => {
       if (!stagger) { ctx.textAlign = 'center'; ctx.fillText(SHORT[n] || n, x(i), hh - B + 16); return; }
-      ctx.save(); ctx.translate(x(i) + 3, hh - B + 10); ctx.rotate(-Math.PI / 4);
+      ctx.save(); ctx.translate(x(i) + 3, hh - B + 10); ctx.rotate(-Math.PI / 6);
       ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillText(SHORT[n] || n, 0, 0);
       ctx.restore();
     });
@@ -227,10 +227,13 @@ export function createProfile() {
       ctx.fillStyle = dp < 0 ? c.rev : main ? c.danger : c.muted;
       ctx.fillText(txt, (r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2 + 0.5);
     }
+    // Values only where they tell the story: the two ends and either side of the biggest fall.
+    const keyIdx = new Set([venousIdx[0], venousIdx[venousIdx.length - 1]]);
+    if (big >= 0) { keyIdx.add(big); keyIdx.add(venousIdx[venousIdx.indexOf(big) + 1]); }
     if (slot >= 26) {
       ctx.font = FONT(600, 11);
       for (const d of dots) {
-        if (ARTERIAL.has(stations[d.i])) continue;
+        if (ARTERIAL.has(stations[d.i]) || !keyIdx.has(d.i)) continue;
         const txt = fmt(now[d.i], 0);
         const tw = ctx.measureText(txt).width + 4, th = 13;
         const r = place(d.cx, [d.cy - 15, d.cy + 15], tw, th);
