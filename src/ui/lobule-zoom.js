@@ -1253,7 +1253,7 @@ export function createLobuleZoom({ host }) {
   // where the fenestrae stay open (congestion behind the sinusoids), thin where collagen lines the
   // space of Disse (capillarized sinusoids in cirrhosis). Protein, from the engine's sieving (lymph about
   // 88 % of plasma in a normal liver, about 50 % once capillarized), shows as the green's depth, the
-  // albumin beads in each drop and the sinusoid lining (open fenestrae, or a sealed collagen line).
+  // albumin beads in each drop and, once capillarized, a collagen line along the sinusoids.
   const lyF = (m) => smooth(1, 4, lymphRate(m));
   const lyProt = (m) => clamp((m.lyProt - 0.42) / 0.42, 0, 1);
   const lyInk = (m, dark) => {
@@ -1379,7 +1379,7 @@ export function createLobuleZoom({ host }) {
     };
     const ease = -Math.expm1(-dt / 0.5);
     const fr = Math.max(0, m.flow), pr = m.portal, ar = Math.max(0, m.art);
-    const vS = 15 * Math.sqrt(fr), lyR = clamp(lymphRate(m), 0.2, 6);
+    const vS = 15 * Math.sqrt(fr);
     flowData.fill(0);
     for (const t of live) if (t.lymph) flowData[t.id * FLOW_TEXELS * 4 + 8] = -1;   // lymph carries no blood origin
     if (bloodOn || chev || origin) for (const t of live) {
@@ -1391,9 +1391,7 @@ export function createLobuleZoom({ host }) {
       } else if (lv === 'an') { v = 0.35 * vS * t.sign; occ = 0.25 * clamp(fr, 0.2, 1.5); strength = 0.6; oe = LOBE.q; }
       else if (lv === 'in') { v = 24 * Math.sign(pr) * Math.sqrt(Math.abs(pr)); occ = clamp(0.55 * Math.abs(pr) ** 0.6, 0.05, 0.95); f0 = 1; f1 = 1; rev = pr < -0.02 ? 1 : 0; oe = LOBE.pre; }
       else if (lv === 'tw') { v = 30 * Math.sqrt(ar); occ = clamp(0.5 * ar ** 0.6, 0.05, 0.95); f0 = 1; oe = LOBE.a; }
-      // Lymph runs out against the blood (the space of Disse is drawn from the edge inward), faster as more forms.
-      else if (lv === 'ly' || lv === 'lt') { v = (lv === 'ly' ? -1 : 1) * (lv === 'ly' ? 5 : 9) * Math.sqrt(lyR); occ = clamp(0.3 * lyR ** 0.6, 0.08, 0.9); f0 = 1; f1 = 1; strength = 0.7 + 0.6 * lyF(m); oe = LOBE.q; }
-      else continue;   // vessels seen end-on carry no streaks
+      else continue;   // vessels seen end-on carry no streaks; lymph moves as the drops on the overlay, not as streaks
       const sm = t.stream || (t.stream = { D: (t.id * 977) % PERIOD, rev: rev });
       sm.D = (((sm.D + v * dt) % PERIOD) + PERIOD) % PERIOD;
       sm.rev += (rev - sm.rev) * ease;
@@ -1497,9 +1495,8 @@ export function createLobuleZoom({ host }) {
     // Zones of the acinus (toggle): hexagonal bands from the triads (1) to the central vein (3).
     if (zonesOn) {
       [[1, 0], [0.66, 1], [0.36, 2]].forEach(([k, i]) => { hexPath(main, k); c.fillStyle = `rgba(${ZONE_RGB[i].join(',')}, ${dark ? 0.2 : 0.17})`; c.fill(); });
-      c.setLineDash([4, 4]); c.lineWidth = 1.2; c.strokeStyle = dark ? 'rgba(255,255,255,.4)' : 'rgba(60,40,60,.38)';
+      c.lineWidth = 1; c.strokeStyle = dark ? 'rgba(255,255,255,.3)' : 'rgba(60,40,60,.28)';
       for (const k of [0.66, 0.36]) { hexPath(main, k); c.stroke(); }
-      c.setLineDash([]);
     }
     // Space of Disse collagen (capillarization) along every sinusoid.
     if (m.fibSin > 0.05) {
@@ -1684,27 +1681,28 @@ export function createLobuleZoom({ host }) {
       c.restore();
     }
     if (lymphOn && !flat && !m.hide) {
-      // The sinusoid lining: fenestrated (dashed, the gaps are the pores) where protein crosses freely,
-      // closing into a continuous collagen line as the sinusoids capillarize.
-      const p = lyProt(m), still = reduce.matches, lw = 0.9 / V.k;
-      c.save();
-      c.lineWidth = lw;
-      c.strokeStyle = p > 0.5 ? (dark ? 'rgba(220, 226, 236, .55)' : 'rgba(70, 80, 96, .5)') : (dark ? 'rgba(232, 196, 140, .7)' : 'rgba(150, 104, 40, .6)');
-      c.setLineDash(p > 0.05 ? [3 / V.k, (3.4 * p) / V.k] : []);
-      c.beginPath();
-      for (const t of G.tubes) {
-        if (t.kind !== 's0' && t.kind !== 's1' && t.kind !== 's2') continue;
-        for (const side of [-1, 1]) {
-          t.pts.forEach(([x, y], i) => {
-            const [xa, ya] = t.pts[Math.max(0, i - 1)], [xb, yb] = t.pts[Math.min(N - 1, i + 1)], d = Math.hypot(xb - xa, yb - ya) || 1;
-            const o = side * (radiusAt(t, i) + lw);
-            const px = x - ((yb - ya) / d) * o, py = y + ((xb - xa) / d) * o;
-            if (i) c.lineTo(px, py); else c.moveTo(px, py);
-          });
+      // The sinusoid lining: nothing extra while the fenestrae are open; a thin continuous collagen line
+      // fades in as the sinusoids capillarize and hold protein back.
+      const p = lyProt(m), still = reduce.matches, lw = 0.9 / V.k, seal = 1 - smooth(0.15, 0.6, p);
+      if (seal > 0.02) {
+        c.save();
+        c.lineWidth = lw;
+        c.strokeStyle = dark ? `rgba(232, 196, 140, ${(0.6 * seal).toFixed(3)})` : `rgba(150, 104, 40, ${(0.5 * seal).toFixed(3)})`;
+        c.beginPath();
+        for (const t of G.tubes) {
+          if (t.kind !== 's0' && t.kind !== 's1' && t.kind !== 's2') continue;
+          for (const side of [-1, 1]) {
+            t.pts.forEach(([x, y], i) => {
+              const [xa, ya] = t.pts[Math.max(0, i - 1)], [xb, yb] = t.pts[Math.min(N - 1, i + 1)], d = Math.hypot(xb - xa, yb - ya) || 1;
+              const o = side * (radiusAt(t, i) + lw);
+              const px = x - ((yb - ya) / d) * o, py = y + ((xb - xa) / d) * o;
+              if (i) c.lineTo(px, py); else c.moveTo(px, py);
+            });
+          }
         }
+        c.stroke();
+        c.restore();
       }
-      c.stroke();
-      c.restore();
       // Lymph as drops drifting along the space of Disse and the terminal lymphatics to the portal tract:
       // more of them, and faster, as more fluid filters (the volume); each carries albumin beads, as many as
       // its protein allows (the concentration). One path per ink, no blur.
