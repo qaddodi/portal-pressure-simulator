@@ -35,6 +35,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
 import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=0166e06ffb';
+import { initTopbarMotion } from './topbar-motion.js?v=a7ab34f946';
 import { ORIGINS } from './blood.js?v=6c39f43ddf';
 
 // Color lenses: [title, what it shows, legend swatch].
@@ -166,6 +167,7 @@ async function main() {
   renderPaintHint();
   buildHud();
   wireTopbar();
+  initTopbarMotion();
   wireFloating();
   // iOS scrolls the whole page to reveal a focused field, which pushes the top bar up under the
   // status bar of an installed app; the page itself never scrolls, so put it back.
