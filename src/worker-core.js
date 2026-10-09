@@ -9,6 +9,8 @@ import { defaultParams, deepMerge, PRESETS } from './engine/scenario.js?v=d88966
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
 
+const fingerprint = (m) => ({ pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: m.hvpg, ra: m.ra, asc: m.ascites.volume, saag: m.ascites.saag, tp: m.ascites.totalProtein });
+
 export function createCore(post) {
   let eng = new Engine();
   let running = true;
@@ -211,6 +213,18 @@ export function createCore(post) {
       const h = new Engine();
       post({ type: 'healthy', reqId, P: Array.from(h.P), Q: Array.from(h.Q), metrics: computeMetrics(h) });
     },
+    // The presenter tour's fingerprint: the live state, or each listed preset loaded fresh.
+    metrics({ reqId }) { post({ type: 'metrics', reqId, result: fingerprint(computeMetrics(eng)) }); },
+    presetMetrics({ ids, reqId }) {
+      const result = {};
+      for (const id of ids || []) {
+        const e = new Engine(), g = e.loadPresetSteps(id, {});
+        for (let n = g.next(); !n.done; n = g.next());
+        e.settle();
+        result[id] = fingerprint(computeMetrics(e));
+      }
+      post({ type: 'presetMetrics', reqId, result });
+    },
     presets({ reqId }) { post({ type: 'presets', reqId, presets: PRESETS.map(({ id, label, group, summary, days }) => ({ id, label, group, summary, days })) }); },
   };
 
@@ -238,7 +252,7 @@ export function createCore(post) {
         }
         // Queries must not wake the renderer. Mutations send one immediate frame,
         // including UI-originated parameters without echoing those parameters back.
-        if (!['snapshot', 'explain', 'healthyProfile', 'presets', 'counterfactual'].includes(msg.type)) {
+        if (!['snapshot', 'explain', 'healthyProfile', 'presets', 'counterfactual', 'metrics', 'presetMetrics'].includes(msg.type)) {
           frameDirty = true;
           if (visible) { lastFrame = performance.now(); frame(); }
         }

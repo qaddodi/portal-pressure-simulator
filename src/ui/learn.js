@@ -1,11 +1,11 @@
 // Learn mode (blueprint §11): lessons as step sequences with Predict → Observe → Explain.
 
 import { store, updateParams } from './store.js?v=8ab9b37d48';
-import { host } from './host.js?v=355062efc9';
+import { host } from './host.js?v=f328cac514';
 import { h, fmt, toast, svgIcon } from './util.js?v=86153645a3';
 import { createAnswerSheet, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=7f4afcf446';
 import { addRecord } from './records.js?v=50fb9dd463';
-import { runSequence } from './sequence.js?v=df2927e386';
+import { runSequence } from './sequence.js?v=1a159bc10d';
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
 import { trustLine, teachChip, blindOn, blindOff, isBlind, optionList, compareChip, bindQuestionKeys, mirrorMarker } from './learning-kit.js?v=faf71e7503';
 

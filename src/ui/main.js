@@ -1,22 +1,22 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=355062efc9';
+import { startHost, host } from './host.js?v=f328cac514';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent } from './store.js?v=8ab9b37d48';
 import { createStage } from './stage.js?v=e4d9de7f91';
 import { createInspector } from './inspector.js?v=5268b7dbbf';
 import { createDock, CUTOFFS } from './dock.js?v=13417e91f0';
-import { createWhy } from './why.js?v=85ae57c5b1';
-import { createTimeline, LAPSES } from './timeline.js?v=07295166f6';
-import { createLearn } from './learn.js?v=985da9bd63';
-import { createCases } from './cases.js?v=90f074da0d';
+import { createWhy } from './why.js?v=317f9414b1';
+import { createTimeline, LAPSES } from './timeline.js?v=032b0f35b1';
+import { createLearn } from './learn.js?v=c30525696e';
+import { createCases } from './cases.js?v=9ce2b716b9';
 import { createCompare } from './compare.js?v=51523b6eb1';
 import { createCard } from './card.js?v=5ba69b9b2e';
 import { createChart, computeFindings } from './chart.js?v=467277cc4f';
-import { createHome, ROLES } from './home.js?v=985ac2f184';
+import { createHome, ROLES } from './home.js?v=6c3ba919c0';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
 import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=33893967f1';
-import { startLMS } from './lms.js?v=2d2cd3d25e';
+import { startLMS } from './lms.js?v=c905ea22e7';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=cb62aff40d';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
@@ -129,7 +129,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=8e07e99106'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=bb7c1e2b84'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -141,7 +141,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=f787985291'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=084ea68ba4'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -700,7 +700,8 @@ function openMainMenu(anchor) {
     h('div', { class: 'mm-modes' },
       modeItem('explore', 'explore', 'explore', 'Explore a patient', 'Any of the patients, from healthy to Budd–Chiari'),
       modeItem('learn', 'learn', 'book', 'Lessons', 'Predict, observe, explain'),
-      modeItem('cases', 'cases', 'case', 'Cases', 'A bleed at 3 a.m. and diagnostic puzzles')),  // the Presenter entry is shelved (see home.js)
+      modeItem('cases', 'cases', 'case', 'Cases', 'A bleed at 3 a.m. and diagnostic puzzles'),
+      modeItem('present', 'present', 'projector', 'Presenter', 'A self-running tour: where is the block?')),
     h('div', { class: 'menu-title' }, t('menu.role')),
     roleControl(),
     h('div', { class: 'menu-sep' }),
@@ -916,10 +917,13 @@ function wireFloating() {
     const tc = $('#treatCard'), treatOcc = wide && !tc.hidden ? tc.offsetWidth + gap : 0;
     app.style.setProperty('--panel-occ', px(panelOcc));
     app.style.setProperty('--instr-occ', px(instrOcc));
-    app.style.setProperty('--right-occ', px(panelOcc + instrOcc + treatOcc));
+    // The presenter tour's card: at the right on a wide screen, a sheet over the bottom on a phone.
+    const tour = $('.tour-card:not(.summary)'), tourSide = innerWidth >= 768, tourOcc = tour ? tour.offsetWidth + gap : 0;
+    app.style.setProperty('--right-occ', px(panelOcc + instrOcc + treatOcc + (tourSide ? tourOcc : 0)));
     const sheet = wsOn && !ws.classList.contains('side') && ws.dataset.state !== 'peek' ? ws.offsetHeight + gap : 0;
     // On a phone the instruments sheet rises from the bottom edge, over the vitals dock.
-    const bot = isPhone() && sheet ? Math.max(vdock + gap, sheet) : vdock + gap + sheet;
+    let bot = isPhone() && sheet ? Math.max(vdock + gap, sheet) : vdock + gap + sheet;
+    if (tour && !tourSide) bot = Math.max(bot, tour.offsetHeight + gap);
     app.style.setProperty('--bot-occ', px(bot));
     // The copyright credit sits outside the app, above every layer, so it takes its height from the root: just above
     // the dock or any open sheet.
