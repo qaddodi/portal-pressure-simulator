@@ -20,9 +20,9 @@
 // around it.
 
 import { h, s, fmt, clamp, lerp } from './util.js?v=86153645a3';
-import { pressureColor, deltaColor, heatColor } from './colormap.js?v=6d64a94345';
+import { pressureColor } from './colormap.js?v=6d64a94345';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=e99b59b461';
+import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=bbcbeee81b';
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
@@ -34,7 +34,7 @@ export function sinusoidSupported() {
   return glSupport;
 }
 
-export function createSinusoidView({ host, onBack }) {
+export function createSinusoidView({ host }) {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   const phoneMQ = matchMedia('(max-width: 720px)');
   const canvas = h('canvas', { class: 'sv-canvas', role: 'img', 'aria-label': 'A sinusoid, cut along its length' });
@@ -42,33 +42,12 @@ export function createSinusoidView({ host, onBack }) {
   const labels = h('div', { class: 'lz-labels' });
   const legend = h('div', { class: 'sv-legend', 'aria-hidden': 'true' },
     h('span', {}, h('i', { class: 'alb' }), 'Albumin'), h('span', {}, h('i', { class: 'wat' }), 'Plasma water'), h('span', {}, h('i', { class: 'lym' }), 'Lymph, back to the portal triad'));
-  const back = h('button', { class: 'sv-back', type: 'button', 'aria-label': 'Back to the lobule' }, h('span', { 'aria-hidden': 'true' }, '‹'), ' Lobule');
-  back.addEventListener('click', () => onBack?.());
-  const el = h('div', { class: 'sv', 'aria-hidden': 'true' }, canvas, leaders, labels, legend, back);
+  const el = h('div', { class: 'sv', 'aria-hidden': 'true' }, canvas, leaders, labels, legend);
   host.append(el);
   const gpu = createSinusoidGL(canvas);
 
-  // ── Leaving by zooming out: the wheel, a pinch or the zoom buttons (lobule-zoom.js) ──
-  let wheelOut = 0, wheelT = 0;
-  el.addEventListener('wheel', (ev) => {
-    ev.preventDefault();
-    if (!open) return;
-    const now = performance.now();
-    if (now - wheelT > 300) wheelOut = 0;
-    wheelT = now;
-    wheelOut = Math.max(0, wheelOut + ev.deltaY * (ev.ctrlKey ? 3 : 1));
-    if (wheelOut > 120) { wheelOut = 0; onBack?.(); }
-  }, { passive: false });
-  const touches = new Map();
-  let pinch0 = 0;
-  const spread = () => { const p = [...touches.values()]; return p.length < 2 ? 0 : Math.hypot(p[0][0] - p[1][0], p[0][1] - p[1][1]); };
-  el.addEventListener('pointerdown', (ev) => { if (!open) return; touches.set(ev.pointerId, [ev.clientX, ev.clientY]); if (touches.size === 2) pinch0 = spread(); });
-  el.addEventListener('pointermove', (ev) => {
-    if (!touches.has(ev.pointerId)) return;
-    touches.set(ev.pointerId, [ev.clientX, ev.clientY]);
-    if (touches.size === 2 && pinch0 > 0 && spread() < pinch0 * 0.72) { pinch0 = 0; onBack?.(); }
-  });
-  for (const t of ['pointerup', 'pointercancel']) el.addEventListener(t, (ev) => { touches.delete(ev.pointerId); if (touches.size < 2) pinch0 = 0; });
+  // The view is left only by the view switch (Lobule): the wheel and a pinch do nothing here.
+  el.addEventListener('wheel', (ev) => ev.preventDefault(), { passive: false });
 
   // ── State ──
   let model = null, shown = 0, open = false, raf = 0, last = 0, dive = null, reveal = 1, drewNow = false;
@@ -79,7 +58,8 @@ export function createSinusoidView({ host, onBack }) {
   const appStyle = document.getElementById('app')?.style;
   const cssN = (k) => parseFloat(appStyle?.getPropertyValue(k)) || 0;
   function freeRect(W, H) {
-    const t = cssN('--top-safe') + cssN('--cmp-h') + 8 + 40, b = H - (cssN('--bot-occ') || 100) - 8, l = 12, r = W - cssN('--right-occ') - 12;
+    // The view has the stage to itself (the dock and the side panels are hidden in it), so their room is not kept.
+    const t = cssN('--top-safe') + cssN('--cmp-h') + 8 + 40, b = H - 28, l = 12, r = W - 12;
     return { l, t, r: Math.max(l + 80, r), b: Math.max(t + 80, b) };
   }
   // The stretch is laid out once per stage size. It runs along the stage's longer side: across on a
@@ -122,9 +102,11 @@ export function createSinusoidView({ host, onBack }) {
     // The zoom from the lobule (lobule-zoom.js): a turn and scale about the view's centre c, moved toward the lobule's sinusoid.
     let C = VW.C, k = VW.k, ang = geo.ang;
     if (dive) {
-      const { g, p, c, rot, s: sc } = dive, th = -rot * (1 - g), ct = Math.cos(th), st = Math.sin(th), dx = C[0] - c[0], dy = C[1] - c[1];
-      C = [c[0] + (p[0] - c[0]) * (1 - g) + sc * (dx * ct - dy * st), c[1] + (p[1] - c[1]) * (1 - g) + sc * (dx * st + dy * ct)];
-      k *= sc; ang += th;
+      // The zoom's similarity a fraction g of the way, about its fixed point q: the view's centre is where the lobule's sinusoid point p is now.
+      // Its scale and angle are the ones it set out with, so nothing the layout does meanwhile moves it.
+      const { g, p, q, rot, Z } = dive, zg = Z ** g, ct = Math.cos(rot * g), st = Math.sin(rot * g), dx = p[0] - q[0], dy = p[1] - q[1];
+      C = [q[0] + zg * (dx * ct - dy * st), q[1] + zg * (dx * st + dy * ct)];
+      k = dive.k * zg / Z; ang = dive.ang + rot * (g - 1);
     }
     Object.assign(CAM, { C, k, ang, ca: Math.cos(ang), sa: Math.sin(ang) });
     // The stretch of sinusoid on screen, and in the free space (µm along it).
@@ -173,8 +155,9 @@ export function createSinusoidView({ host, onBack }) {
   function palette(dark, cs) {
     const v = (n, d) => cs.getPropertyValue(n).trim() || d;
     const bg = rgb(v('--stage-bg', v('--bg', dark ? '#0E1422' : '#FBFAF7')));
-    const m = model, M = m.mode;
-    const lumen = rgb(m.hide ? (dark ? '#58607A' : '#A0939C') : M === 'delta' ? deltaColor(m.dP[1]) : M === 'heat' ? heatColor(m.dP[1]) : pressureColor(m.P2));
+    // Pressure only: this view has no other lens.
+    const m = model;
+    const lumen = rgb(m.hide ? (dark ? '#58607A' : '#A0939C') : pressureColor(m.P2));
     // Lymph: clear and faintly green, deeper with more protein (as the lobule's lymphatics).
     const p = S.prot ?? 1, lo = dark ? [0.72, 0.76, 0.69] : [0.92, 0.94, 0.88], mid = dark ? [0.7, 0.77, 0.66] : [0.88, 0.92, 0.82], hi = dark ? [0.64, 0.75, 0.58] : [0.82, 0.89, 0.74];
     const ly = p < 0.45 ? mixv(lo, mid, p / 0.45) : mixv(mid, hi, (p - 0.45) / 0.55);
@@ -189,8 +172,8 @@ export function createSinusoidView({ host, onBack }) {
       cCol: dark ? v3(199, 186, 153) : v3(237, 222, 186), cBm: dark ? v3(236, 220, 170) : v3(150, 118, 70), aBm: dark ? 0.75 : 0.8,
       cBile: dark ? v3(150, 156, 80) : v3(122, 128, 61),
       cEndo: dark ? v3(104, 100, 132) : v3(158, 150, 176), cMem: dark ? v3(196, 192, 226) : v3(78, 68, 98), cEndoN: dark ? v3(140, 128, 184) : v3(112, 96, 140),
-      cHscQ: dark ? v3(176, 134, 100) : v3(228, 186, 146), cHscA: dark ? v3(156, 96, 68) : v3(186, 118, 82), cHscN: dark ? v3(70, 36, 24) : v3(128, 76, 56),
-      cKup: dark ? v3(128, 110, 162) : v3(184, 168, 208), cKupN: dark ? v3(64, 44, 102) : v3(98, 72, 142),
+      cHscQ: dark ? v3(176, 136, 104) : v3(232, 196, 158), cHscA: dark ? v3(160, 104, 76) : v3(196, 134, 98), cHscN: dark ? v3(84, 46, 32) : v3(150, 92, 68), cDrop: dark ? v3(232, 204, 120) : v3(250, 222, 140),
+      cKup: dark ? v3(128, 112, 160) : v3(196, 182, 220), cKupN: dark ? v3(70, 52, 110) : v3(118, 92, 160),
       cChev: dark ? v3(10, 12, 20) : v3(20, 20, 26),
       cAlb: dark ? v3(242, 182, 74) : v3(227, 154, 30), cAlbE: dark ? v3(110, 58, 0) : v3(140, 76, 0),
       cWat: dark ? v3(225, 238, 252) : v3(255, 255, 255), cWatE: dark ? v3(90, 110, 140) : v3(80, 110, 140),
@@ -258,18 +241,15 @@ export function createSinusoidView({ host, onBack }) {
     let n = 0;
     const put = (x, y, r, a, k) => { if (n >= 1400 || a <= 0.01) return; const o = n * 5; pts[o] = x; pts[o + 1] = y; pts[o + 2] = r; pts[o + 3] = a; pts[o + 4] = k; n++; };
     const [v0, v1] = VW.vis, span = v1 - v0 + 8, nA = Math.round(albs.length * clamp(span / 300, 0.15, 1));
-    const ky = halfW(geo.xk), kk = clamp(ky / 5.2, 0.6, 1);
-    const behindKupffer = (x, y) => y > 0 && ((x - geo.xk) / (6.6 * kk)) ** 2 + ((y - (ky - 2.3 * kk)) / (3.4 * kk)) ** 2 < 1;
     for (let i = 0; i < nA; i++) {
       const a = albs[i], sp = 1.5 * (1 - a.y * a.y) + 0.08, x = v0 - 4 + ((((a.u * span + flowX * sp) % span) + span) % span);
       const y = clamp(a.y + 0.05 * Math.sin(flowX * 0.05 + a.ph), -0.96, 0.96) * (halfW(x) - 0.5);
-      if (!behindKupffer(x, y)) put(x, y, 0.4, 1, 0);
+      put(x, y, 0.4, 1, 0);
     }
     for (const q of movers) {
       if (q.kind === 'b') {
         // Up to the lining and back: an albumin dot with a small flash where it meets the sealed wall.
         const u = Math.sin(Math.PI * clamp(q.t / 1.1, 0, 1)), y = q.side * lerp(halfW(q.x) - 2.2, halfW(q.x) - 0.45, u);
-        if (behindKupffer(q.x, y)) continue;
         put(q.x, y, 0.42, 1, 0);
         if (u > 0.8) put(q.x, y, 0.95, (u - 0.8) * 5, 2);
         continue;
@@ -353,10 +333,10 @@ export function createSinusoidView({ host, onBack }) {
       else { x = u ? f.r - w - 6 : f.l + 6; y = VW.C[1] - hh / 2; }
       T.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
     }
-    // The legend: beside the back button.
-    const bx = back.offsetLeft + back.offsetWidth + 12, byy = back.offsetTop + (back.offsetHeight - legend.offsetHeight) / 2;
-    legend.style.maxWidth = `${Math.max(120, geo.W - bx - 12)}px`;
-    legend.style.transform = `translate(${bx.toFixed(1)}px, ${Math.max(back.offsetTop, byy).toFixed(1)}px)`;
+    // The legend: at the top left, under the top bar.
+    const lx = f.l + 2, ly = cssN('--top-safe') + cssN('--cmp-h') + 12;
+    legend.style.maxWidth = `${Math.max(120, geo.W - lx - 12)}px`;
+    legend.style.transform = `translate(${lx.toFixed(1)}px, ${ly.toFixed(1)}px)`;
   }
 
   // ── The frame ──
@@ -380,18 +360,20 @@ export function createSinusoidView({ host, onBack }) {
       u.uI1 = [-sa / K, ca / K, (C[0] * sa - C[1] * ca) / k];
       u.uF0 = [K * ca, -K * sa, dpr * C[0]]; u.uF1 = [K * sa, K * ca, dpr * C[1]];
       u.uPx = 1 / K; u.uK = K;
-      const L = [-0.55, -0.835];   // the light, from the upper left of the screen
-      u.uLightS = L; u.uLight = [L[0] * ca + L[1] * sa, -L[0] * sa + L[1] * ca];
       Object.assign(u, {
         uLum: UM.lum * S.lum, uPinch: S.pinch, uXs: geo.xs, uXk: geo.xk, uKy: halfW(geo.xk), uHscA: wallIn(geo.xs) + disseW(geo.xs) * 0.5 + 0.8,
         uCol: S.col, uBm: S.bm, uMv: S.mv, uAct: S.act, uPor: S.por, uFlow: flowX, uLym: lymX, uDir: Math.sign(S.v || 1),
       });
-      // The zoom from the lobule: the vessel first (a short stretch over the lobule's sinusoid, lengthening), then the tissue from the middle out.
-      const r = reveal, diag = Math.hypot(W, H) * dpr;
-      // (Lengths in µm at rest: the lobule's sinusoid curves away from the straight one beyond a few lumen widths.)
-      u.uReveal = dive ? [smooth(0.02, 0.16, r), lerp(14, 60, smooth(0.15, 0.6, r)) + lerp(0, 400, smooth(0.6, 1, r)), smooth(0.4, 0.58, r), 0] : [1, 1e5, 1, 0];
-      const r0 = lerp(0, 1.2, smooth(0.42, 0.97, r)) * diag;
-      u.uMask = [dpr * CAM.C[0], dpr * CAM.C[1], r0, r0 + lerp(0.05, 0.22, smooth(0.42, 0.97, r)) * diag];
+      // The zoom from the lobule (µm along the vessel): first the vessel itself, over the lobule's one and only as far
+      // as that runs straight; then the plates along it; then everything. The detail (fenestrae, microvilli, the
+      // cells, the traffic) comes in from the middle as it nears; until then it is drawn as plainly as the lobule.
+      const r = reveal, R = UM.lum * S.lum, hiC = hepIn(0) + 0.4;
+      if (dive) {
+        const grow = smooth(0.22, 0.9, r);
+        u.uRev = [smooth(0, 0.06, r), -lerp(Math.max(3, dive.run[0]) * R, 900, grow), lerp(Math.max(3, dive.run[1]) * R, 900, grow), lerp(hiC, hiC + UM.hep, smooth(0.12, 0.4, r)) + lerp(0, 600, smooth(0.4, 0.85, r) ** 2)];
+        u.uAll = smooth(0.8, 0.96, r);
+        u.uDet = [smooth(0.3, 0.85, r), lerp(8, 500, smooth(0.45, 1, r) ** 1.5)];
+      } else { u.uRev = [1, -1e5, 1e5, 1e5]; u.uAll = 1; u.uDet = [1, 1e5]; }
       gpu.draw(u, pts, sprites());
     }
     if (!dive) {
@@ -427,8 +409,9 @@ export function createSinusoidView({ host, onBack }) {
     setModel(m) { model = m; if (shown > 0 && !raf) raf = requestAnimationFrame(loop); },
     /**
      * Placement during the zoom from the lobule (lobule-zoom.js): opacity; the zoom's state, if it is
-     * running (`dive`: g, its eased progress; p, the lobule's sinusoid on screen; c, where this view's
-     * centre rests; rot, the turn still to make; s, the scale relative to rest), and its raw progress u
+     * running (`dive`: g, its eased progress; p, the lobule's sinusoid point on screen at rest; q, the zoom's
+     * fixed point; rot and Z, the full turn and scale; run, how far the vessel runs straight each way, in
+     * lumen radii), and its raw progress u
      * (what is shown so far); whether it is fully open (takes input).
      */
     place({ opacity, dive: dv = null, u = 1, isOpen = false }) {
@@ -457,7 +440,7 @@ export function createSinusoidView({ host, onBack }) {
       const rect = host.getBoundingClientRect();
       ensureGeo(Math.max(1, Math.round(rect.width)), Math.max(1, Math.round(rect.height)));
       if (model && S.lum == null) stepState(0);
-      return { x: VW.tC[0], y: VW.tC[1], ang: geo.ang, lumen: 2 * UM.lum * (S.lum ?? 1) * VW.tk };
+      return { x: VW.tC[0], y: VW.tC[1], ang: geo.ang, k: VW.tk, lumen: 2 * UM.lum * (S.lum ?? 1) * VW.tk };
     },
     isOpen: () => open,
     available: !!gpu,

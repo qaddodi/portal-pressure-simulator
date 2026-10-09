@@ -1664,13 +1664,13 @@ button.finding:hover { background: var(--surface-2); }
 .sv.on { pointer-events: auto; }
 .sv-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .sv .lz-labels, .sv .lz-leaders { transition: opacity .25s; }
-.sv:not(.on) :is(.lz-labels, .lz-leaders, .sv-back) { opacity: 0; }
+.sv:not(.on) :is(.lz-labels, .lz-leaders) { opacity: 0; }
 .sv-tag { pointer-events: none; cursor: default; }
 .sv-end { left: 0; top: 0; }
-/* The sinusoid view is a focused mode: only the way back to the lobule, the lens and its legend stay. */
+/* The sinusoid view is a focused mode: only the way back to the lobule and the pressure legend stay (no lens to pick). */
 #app.sin-focus :is(#viewSeg [data-view="anatomic"], #viewSeg [data-view="circuit"], #btnLobuleLayers, #btnBlood, #btnInspector, #btnTreat, #tabInstruments, .top-right .tb-sep, #zoomPill, #vdock, #dock, #panel, #treatCard, #stageCenter, #coach) { display: none !important; }
-.sv-back { position: absolute; left: 12px; top: calc(var(--top-safe, 56px) + var(--cmp-h, 0px) + 8px); display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 12px 0 9px;
-  border-radius: 16px; border: 1px solid var(--hairline); background: var(--glass); color: var(--text); font: 500 13px var(--font-ui); cursor: pointer; transition: opacity .25s; box-shadow: 0 1px 2px rgba(20, 22, 30, .12); }
+#app.sin-focus #btnLayers { pointer-events: none; cursor: default; }
+#app.sin-focus #btnLayers .chev { display: none; }
 .sv-legend { position: absolute; left: 0; top: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; max-width: calc(100% - 24px); pointer-events: none; font: 500 calc(10.5px * var(--label-k, 1)) / 1.3 var(--font-ui); color: var(--text-2); transition: opacity .25s; }
 .sv-legend span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; -webkit-text-stroke: 4px color-mix(in srgb, var(--label-halo) 65%, transparent); paint-order: stroke fill; }
 .sv-legend i { display: inline-block; flex: none; border-radius: 50%; }

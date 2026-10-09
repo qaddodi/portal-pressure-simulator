@@ -3,8 +3,8 @@
 
 import { startHost, host } from './host.js?v=b54d9b1fcc';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=1d7cd9b00f';
-import { createStage } from './stage.js?v=1b2853f639';
-import { sinusoidSupported } from './sinusoid-view.js?v=a7d638a4fa';
+import { createStage } from './stage.js?v=5f7fc31b62';
+import { sinusoidSupported } from './sinusoid-view.js?v=f9f09fdfa5';
 import { createInspector } from './inspector.js?v=eb9187916e';
 import { createDock, CUTOFFS } from './dock.js?v=01a323d57d';
 import { setHvpgStage } from './hvpg-proc.js?v=e5a9ccf97f';
@@ -193,7 +193,7 @@ async function main() {
   store.on('role', (r) => { try { localStorage.setItem('pps.role', r); localStorage.removeItem('pps.narrator'); } catch { /* storage unavailable */ } narrPref = null; app.dataset.role = r; card.render(); narrate(store.get().frame, performance.now(), true); });
   $('#narratorWhy').addEventListener('click', (e) => why.open('pv', e.currentTarget));
   app.dataset.role = store.get().role;
-  for (const k of ['compareSnap', 'compareView', 'colorMode', 'imaging']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
+  for (const k of ['compareSnap', 'compareView', 'colorMode', 'imaging', 'sinusoid', 'lobule']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
   store.on('compareSnap', () => { if (!store.get().details) inspector.render(); });
   store.on('focus', redraw);
   store.on('labelLevel', redraw);
@@ -497,15 +497,17 @@ function buildHud() {
   syncRotate();
   $$('#viewSeg button').forEach((b) => b.addEventListener('click', () => (b.dataset.view === 'lobule' ? zoomLobule() : b.dataset.view === 'sinusoid' ? store.set({ sinusoid: true }) : store.set({ lobule: false, view: b.dataset.view }))));
   // The legend is the lens switcher: it shows what the colors mean and changes what they show.
-  $('#btnLayers').addEventListener('click', (e) => openLayers(e.currentTarget));
-  $('#btnLayers').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); openLayers(e.currentTarget); } });
+  const sinLens = () => store.get().lobule && store.get().sinusoid;   // no lens in the sinusoid view
+  $('#btnLayers').addEventListener('click', (e) => { if (!sinLens()) openLayers(e.currentTarget); });
+  $('#btnLayers').addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && !sinLens()) { e.preventDefault(); e.stopPropagation(); openLayers(e.currentTarget); } });
   new ResizeObserver(() => stage.relayout()).observe(view);
 }
 function legendModel() {
   const st = store.get();
   const imaging = st.imaging;
   const cmp = !!st.compareSnap;
-  const m = imaging ? 'neutral' : cmp && st.compareView === 'D' ? 'delta' : st.colorMode;
+  // The sinusoid view shows pressure only (it has no lens).
+  const m = imaging ? 'neutral' : st.lobule && st.sinusoid ? 'pressure' : cmp && st.compareView === 'D' ? 'delta' : st.colorMode;
   const ref = cmp ? st.compareSnap.when : 'healthy';
   return { m, ref, imaging };
 }
@@ -1172,7 +1174,7 @@ function wireKeyboard() {
     }
     const k = e.key.toLowerCase();
     if (k === 'a' && !e.shiftKey) { if (store.get().sinusoid) return; store.set({ lobule: false, view: store.get().view === 'circuit' ? 'anatomic' : 'circuit' }); return; }
-    if ((k === 'l' || (e.key === 'C' && e.shiftKey)) && !store.get().imaging) {
+    if ((k === 'l' || (e.key === 'C' && e.shiftKey)) && !store.get().imaging && !(store.get().lobule && store.get().sinusoid)) {
       const ks = Object.keys(LENSES), i = ks.indexOf(store.get().colorMode);
       const next = ks[(i + (e.shiftKey && k === 'l' ? ks.length - 1 : 1)) % ks.length];
       store.set({ colorMode: next }); toast(`Lens: ${LENSES[next][0]}. ${LENSES[next][1]}.`); return;

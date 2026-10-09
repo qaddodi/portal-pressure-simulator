@@ -28,7 +28,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=dc393aabea';
 import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=e6cb0d0afd';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
-import { createSinusoidView } from './sinusoid-view.js?v=a7d638a4fa';
+import { createSinusoidView } from './sinusoid-view.js?v=f9f09fdfa5';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const TAU = Math.PI * 2;
@@ -344,7 +344,7 @@ export function createLobuleZoom({ host }) {
   let outHandler = null;
   function zoomBy(factor) {
     if (!geo) return;
-    if (sinTo) { if (factor < 1) store.set({ sinusoid: false }); return; }   // in the sinusoid: zooming out goes back up to the lobule
+    if (sinTo) return;   // in the sinusoid: only the view switch goes back up to the lobule
     if (factor < 1 && V.k <= kFit * 1.001 && outHandler) { outHandler(factor, true); return; }
     const f = freeRect(), px = (f.l + f.r) / 2, py = (f.t + f.b) / 2;
     const k = clamp(V.k * factor, kFit, kFit * KMAX), r = k / V.k;
@@ -353,7 +353,9 @@ export function createLobuleZoom({ host }) {
     glideTo(target);
   }
   // When the free space changes (a card opens, the readouts expand), a fitted lobule follows it.
-  function refit() { if (!geo || rubber) return; const F0 = fitV(); kFit = F0.k; if (atFit) glideTo(F0); else { clampV(); viewChanged(); } }
+  let refitLater = false;
+  function refit() { if (!geo || rubber || sinU > 0 || sinTo) { refitLater = !!geo; return; }   // not while in or on the way to the sinusoid: the zoom holds the lobule still
+    refitLater = false; const F0 = fitV(); kFit = F0.k; if (atFit) glideTo(F0); else { clampV(); viewChanged(); } }
   addEventListener('pps:occ', () => { if (fade > 0) { layoutKey = ''; refit(); } });
   addEventListener('pps:labelscale', () => { drawVersion++; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); });
   const viewChanged = () => { drawVersion++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); };
@@ -1845,7 +1847,7 @@ export function createLobuleZoom({ host }) {
   // lobule grows about that sinusoid, turning it to lie along the screen and carrying it to where the
   // sinusoid view draws its own, and the sinusoid view grows out of it at the same size and angle and
   // covers it. Zooming out (the zoom buttons, a pinch, the wheel), its back button or Escape reverse it.
-  const sv = createSinusoidView({ host, onBack: () => store.set({ sinusoid: false }) });
+  const sv = createSinusoidView({ host });
   let sinU = 0, sinTo = 0, sinRaf = 0, sinDive = null, sinPick = null, quietSin = false;
   const easeIO = (u) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
   // Which sinusoid, and where on it: the one whose card is open, else the one carrying the label.
@@ -1853,34 +1855,56 @@ export function createLobuleZoom({ host }) {
     const sl = store.get().selection, G = geo;
     const own = sl?.type === 'lobule' && (sl.part === 'sin' || sl.part === 'an') && G.tubes[sl.tube];
     if (own) return { tube: own.id, w: sl.at || at(own.pts, 0.45) };
-    // Otherwise the straightest long stretch of a sinusoid near the middle of the screen, so the straight
-    // vessel the sinusoid view grows from lies along the lobule's one for as long as possible.
-    const mx = G.W / 2, my = G.H / 2, D = Math.hypot(G.W, G.H);
+    // Otherwise a long, straight stretch of a sinusoid that already runs the way the sinusoid view does (from
+    // the portal side toward the central vein, across a landscape screen, down a portrait one), near the
+    // middle of the screen: the zoom then only grows it, with hardly any turn, and the straight vessel of
+    // the view lies along the lobule's own one.
+    const ang = sv.frame().ang, mx = G.W / 2, my = G.H / 2, D = Math.hypot(G.W, G.H);
     let best = null, bs = Infinity;
     for (const t of G.tubes) {
       if (t.kind !== 's0' && t.kind !== 's1' && t.kind !== 's2') continue;
-      const P = t.pts, w = Math.max(3, Math.round(N * 0.18));
-      for (let i = w; i < N - w; i += 2) {
-        const [x, y] = toScreen(P[i]);
-        const a0 = Math.atan2(P[i][1] - P[i - w][1], P[i][0] - P[i - w][0]), a1 = Math.atan2(P[i + w][1] - P[i][1], P[i + w][0] - P[i][0]);
-        const bend = Math.abs(Math.atan2(Math.sin(a1 - a0), Math.cos(a1 - a0)));
-        const sc = bend * 3 + Math.hypot(x - mx, y - my) / D;
-        if (sc < bs) { bs = sc; best = { tube: t.id, w: P[i] }; }
+      for (let i = 3; i < N - 3; i += 2) {
+        const g = straightRun(t, i), [x, y] = toScreen(t.pts[i]);
+        if (x < 20 || y < 20 || x > G.W - 20 || y > G.H - 20) continue;
+        const turn = Math.abs(Math.atan2(Math.sin(ang - g.th), Math.cos(ang - g.th)));
+        const sc = turn * 2.5 - Math.min(g.run[0], g.run[1], 14) * 0.08 + Math.hypot(x - mx, y - my) / D;
+        if (sc < bs) { bs = sc; best = { tube: t.id, w: t.pts[i] }; }
       }
     }
     if (best) return best;
     const t = sinTube();
     return { tube: t.id, w: at(t.pts, 0.45) };
   }
+  // At sample i of a sinusoid: the blood's direction (toward the central vein), and how far the vessel stays
+  // straight from there each way (back toward the portal side, on toward the central vein), in lumen radii.
+  function straightRun(t, i) {
+    const G = geo, P = t.pts, A = P[Math.max(0, i - 1)], B = P[Math.min(N - 1, i + 1)];
+    let th = Math.atan2(B[1] - A[1], B[0] - A[0]), dir = 1;
+    if (Math.hypot(B[0] - G.cx, B[1] - G.cy) > Math.hypot(A[0] - G.cx, A[1] - G.cy)) { th += Math.PI; dir = -1; }
+    const ux = Math.cos(th), uy = Math.sin(th), r = Math.max(1e-3, radiusAt(t, i)), run = [0, 0];
+    for (const [k, sg] of [[0, -1], [1, 1]]) {
+      for (let j = i + sg * dir; j >= 0 && j < N; j += sg * dir) {
+        const dx = P[j][0] - P[i][0], dy = P[j][1] - P[i][1];
+        if (Math.abs(-dx * uy + dy * ux) > 0.6 * r) break;
+        run[k] = Math.abs(dx * ux + dy * uy) / r;
+      }
+    }
+    return { th, run };
+  }
   function diveGeometry() {
     const G = geo, t = G.tubes[sinPick.tube], [, u] = distTo(t.pts, sinPick.w[0], sinPick.w[1]);
-    const i = clamp(Math.round(u * (N - 1)), 1, N - 2), A = t.pts[i - 1], B = t.pts[i + 1];
-    // The direction of the blood: toward the central vein.
-    let th = Math.atan2(B[1] - A[1], B[0] - A[0]);
-    if (Math.hypot(B[0] - G.cx, B[1] - G.cy) > Math.hypot(A[0] - G.cx, A[1] - G.cy)) th += Math.PI;
+    const i = clamp(Math.round(u * (N - 1)), 1, N - 2), { th, run } = straightRun(t, i);
     const p = toScreen(at(t.pts, u)), F = sv.frame();
     const rot = Math.atan2(Math.sin(F.ang - th), Math.cos(F.ang - th));
-    return { p, c: [F.x, F.y], rot, Z: clamp(F.lumen / Math.max(0.05, 2 * radiusAt(t, i) * V.k), 1.5, 400) };
+    const Z = clamp(F.lumen / Math.max(0.05, 2 * radiusAt(t, i) * V.k), 1.5, 400);
+    // The zoom is one similarity, from the lobule as it is to the sinusoid view as it rests (p to the view's
+    // centre c, turned by rot, grown by Z), taken a fraction at a time about its fixed point q: nothing slides,
+    // everything grows out of q, and the lobule's sinusoid stays exactly where the view draws it.
+    const m = Z * Math.cos(rot), n = Z * Math.sin(rot), c = [F.x, F.y];
+    const bx = c[0] - (m * p[0] - n * p[1]), by = c[1] - (n * p[0] + m * p[1]);
+    const a = 1 - m, b = n, det = a * a + b * b;   // (I − M) q = c − M p, with I − M = [a b; −b a]
+    const q = [(a * bx - b * by) / det, (b * bx + a * by) / det];
+    return { p, c, q, rot, Z, run, k: F.k, ang: F.ang };
   }
   function placeSinusoid() {
     const u = sinU, D = sinDive, rm = reduce.matches;
@@ -1889,17 +1913,17 @@ export function createLobuleZoom({ host }) {
       sv.place({ opacity: 0 });
       return;
     }
-    const g = rm ? 1 : easeIO(u), z = rm ? 1 : D.Z ** g, dx = (D.c[0] - D.p[0]) * g, dy = (D.c[1] - D.p[1]) * g;
-    // The lobule: grown about the sinusoid, turned, and carried to the sinusoid view's centre.
-    el.style.transformOrigin = rm ? '' : `${D.p[0].toFixed(1)}px ${D.p[1].toFixed(1)}px`;
-    el.style.transform = rm ? '' : `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) rotate(${(D.rot * g).toFixed(4)}rad) scale(${z.toFixed(4)})`;
+    const g = rm ? 1 : easeIO(u);
+    // The lobule: turned and grown about the zoom's fixed point.
+    el.style.transformOrigin = rm ? '' : `${D.q[0].toFixed(2)}px ${D.q[1].toFixed(2)}px`;
+    el.style.transform = rm ? '' : `rotate(${(D.rot * g).toFixed(5)}rad) scale(${(D.Z ** g).toFixed(5)})`;
     el.style.visibility = u >= 1 ? 'hidden' : '';
     el.classList.add('lz-sin');
-    // The sinusoid view: drawn by the GPU where the lobule's sinusoid is, at its size and angle, the vessel first and then
-    // the tissue around it, until it lands.
+    // The sinusoid view: drawn by the GPU on the lobule's sinusoid each frame, the vessel first, then the plates
+    // along it, then the rest, its detail coming in from the middle as it nears.
     sv.place({
       opacity: (rm ? u : 1) * fade,
-      dive: u >= 1 || rm ? null : { g, p: D.p, c: D.c, rot: D.rot, s: z / D.Z },
+      dive: u >= 1 || rm ? null : { g, p: D.p, q: D.q, rot: D.rot, Z: D.Z, run: D.run, k: D.k, ang: D.ang },
       u: rm ? 1 : u,
       isOpen: u >= 1 && fade > 0.98,
     });
@@ -1925,7 +1949,7 @@ export function createLobuleZoom({ host }) {
       const t = ms > 0 ? clamp((now - t0) / ms, 0, 1) : 1;
       sinU = lerp(from, to, t); placeSinusoid();
       if (t < 1) sinRaf = requestAnimationFrame(step);
-      else if (!on) { sinDive = null; drawVersion++; if (!raf && fade > 0) raf = requestAnimationFrame(loop); }
+      else if (!on) { sinDive = null; drawVersion++; if (!raf && fade > 0) raf = requestAnimationFrame(loop); if (refitLater) refit(); }
     };
     sinRaf = requestAnimationFrame(step);
   }
