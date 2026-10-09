@@ -6,10 +6,10 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=1d7cd9b00f';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=86153645a3';
-import { createLobuleZoom } from './lobule-zoom.js?v=5388863d01';
+import { createLobuleZoom } from './lobule-zoom.js?v=4eec441670';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=97a4806d9c';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=ac2a93ed30';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 
 const N_SAMPLES = 64;
@@ -449,7 +449,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   };
   for (const o of ORGANS) {
     const g = s('g', { class: 'organ organ-' + o.id + (o.tone ? ' tone-' + o.tone : '') });
-    if (o.tone && !o.deco) g.dataset.lit = o.band ? 'tube' : o.tone;   // its material in the light map (MATERIALS)
     let el;
     if (o.circle) { const [cx, cy, r] = o.circle; el = s('circle', { cx, cy, r, class: o.cls }); g.append(el); }
     else if (o.band) {
@@ -1339,7 +1338,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let quality = SOFTWARE ? 3 : (() => { try { return clamp(parseInt(localStorage.getItem('pps.quality'), 10) || 0, 0, 2); } catch { return 0; } })();
   vCanvas.addEventListener('webglcontextrestored', () => {
     veins = createVeinsGL(vCanvas, { tubes: GL_ROWS, force: true });
-    vBinKey = ''; glOrgans = false; plateKey = ''; lightKey = '';
+    vBinKey = ''; glOrgans = false; plateKey = '';
     for (const x of Object.values(E)) for (const o of [x, ...(x.strands || []), ...(x.feeders || [])]) o.glRadKey = null;
     if (F) update(F);
   });
@@ -2205,81 +2204,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const PLATE_BASE = 1.2;          // px per world unit of the whole-plate raster
   let plateKey = '', plateSeq = 0, plateBusy = false, plateAgain = false, plateLast = 0, plateTimer = 0, plateView = null, plateViewKey = '', plateSettle = 0;
   const plateOn = () => wrap.classList.contains('gl-plate');
-  // Light and material on the organs, baked once into a coarse light map the GPU applies to the
-  // plate (veins.setLight): one light from the upper left, as on the vessels. Each organ's own
-  // outline, blurred, is its relief, lit diffusely for form and with a specular sheen for its
-  // surface; a grain of noise roughens the spleen, heart and pancreas. The filters run only when an
-  // organ's shape changes, never per frame and never on the live SVG.
-  const LIGHT_PX = 0.75;   // light-map pixels per plate unit: the light is smooth, so one map serves every zoom
-  const MATERIALS = {
-    //        dome  edge relief shade spec  shine grain  grain frequency
-    liver:   [44,   6,   9,     .62,  .32,  34,   0],
-    kidney:  [16,   4,   7,     .6,   .4,   30,   0],
-    gb:      [10,   3,   5,     .55,  .45,  30,   0],
-    stomach: [30,   5,   7,     .58,  .22,  20,   0],
-    eso:     [6,    3,   4,     .5,   .2,   18,   0],
-    spleen:  [22,   4,   7,     .66,  .12,  10,   .1,   '.11'],
-    panc:    [12,   3,   5,     .58,  .1,   10,   .12,  '.16'],
-    heart:   [24,   5,   7,     .64,  .2,   14,   .12,  '.025 .16'],
-    ra:      [12,   4,   5,     .58,  .18,  14,   .1,   '.025 .16'],
-    tube:    [5,    2.5, 5,     .55,  0,    1,    0],
-  };
-  // Each filter writes the light map's code: red = shade factor / 2 (flat ground, where N·L is
-  // sin(elevation), keeps its tone; slopes to the light brighten, the far side darkens), green =
-  // sheen, alpha = the organ. Lighting slopes are per pixel, so relief scales with the map's size.
-  const litDefs = (gloss) => Object.entries(MATERIALS).map(([id, [dome, edge, relief, shade, spec, shine, grain, freq]]) => {
-    const el = 45, sc = (relief * 2.5 * LIGHT_PX).toFixed(2), sp = spec * gloss;
-    const k2 = 1 - shade * Math.sin(el * Math.PI / 180);
-    return `<filter id="lit-${id}" x="-6%" y="-6%" width="112%" height="112%" color-interpolation-filters="sRGB">`
-      + `<feGaussianBlur in="SourceAlpha" stdDeviation="${dome}" result="d"/><feGaussianBlur in="SourceAlpha" stdDeviation="${edge}" result="e"/>`
-      + `<feComposite in="d" in2="e" operator="arithmetic" k2=".6" k3=".4" result="h"/>`
-      + (grain ? `<feTurbulence type="fractalNoise" baseFrequency="${freq}" numOctaves="2" seed="7" result="n"/>`
-        + `<feComposite in="n" in2="h" operator="arithmetic" k2="${grain}" k3="1" result="h"/>` : '')
-      + `<feDiffuseLighting in="h" surfaceScale="${sc}" diffuseConstant="1" lighting-color="#fff" result="L"><feDistantLight azimuth="225" elevation="${el}"/></feDiffuseLighting>`
-      + `<feColorMatrix in="L" values="${(shade / 2).toFixed(3)} 0 0 0 ${(k2 / 2).toFixed(3)}  0 0 0 0 0  0 0 0 0 0  0 0 0 0 1" result="m"/>`
-      + (sp ? `<feSpecularLighting in="h" surfaceScale="${sc}" specularConstant="${sp.toFixed(3)}" specularExponent="${shine}" lighting-color="#fff" result="s"><feDistantLight azimuth="225" elevation="30"/></feSpecularLighting>`
-        + '<feColorMatrix in="s" values="0 0 0 0 0  0 0 0 1 0  0 0 0 0 0  0 0 0 0 1" result="s"/><feComposite in="m" in2="s" operator="arithmetic" k2="1" k3="1" result="m"/>' : '')
-      + '<feComposite in="m" in2="SourceAlpha" operator="in"/></filter>';
-  }).join('');
-  let lightKey = '', lightBusy = false;
-  const lightStateKey = () => [liverKey, organG.liver.getAttribute('transform'), organG.spleen.getAttribute('transform')?.replace(/(\d\.\d\d)\d*/g, '$1'),
-    organG.bowel.getAttribute('transform'), cssNum(getComputedStyle(wrap), '--lit-gloss', 1)].join('|');
-  async function rasterLight() {
-    const key = lightStateKey();
-    if (key === lightKey || lightBusy || !veins || veins.lost) return false;
-    lightBusy = true;
-    const rect = PLATE_RECT, W = Math.round(rect[2] * LIGHT_PX), H = Math.round(rect[3] * LIGHT_PX);
-    const ser = new XMLSerializer();
-    let out;
-    const was = plateOn();
-    wrap.classList.remove('gl-plate');
-    try {
-      const dc = defs.cloneNode(true); inlineStyles(defs, dc);
-      out = ser.serializeToString(dc) + litDefs(cssNum(getComputedStyle(wrap), '--lit-gloss', 1));
-      const c = gOrgans.cloneNode(true);
-      if (inlineStyles(gOrgans, c) !== false) {
-        for (const o of [...c.children]) {
-          if (!o.dataset.lit) { o.remove(); continue; }
-          o.setAttribute('filter', `url(#lit-${o.dataset.lit})`); o.removeAttribute('data-lit'); o.removeAttribute('opacity');
-        }
-        c.removeAttribute('opacity');
-        out += ser.serializeToString(c);
-      }
-    } finally { if (was) wrap.classList.add('gl-plate'); }
-    const url = URL.createObjectURL(new Blob([`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="${rect.join(' ')}" preserveAspectRatio="none">${out}</svg>`], { type: 'image/svg+xml' }));
-    try {
-      const img = new Image();
-      await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
-      if (!veins || veins.lost) return false;
-      const cv = document.createElement('canvas');
-      cv.width = W; cv.height = H;
-      cv.getContext('2d').drawImage(img, 0, 0, W, H);
-      veins.setLight(cv, rect);
-      cv.width = cv.height = 0;
-      lightKey = key;
-      return true;
-    } finally { URL.revokeObjectURL(url); lightBusy = false; }
-  }
   function plateMarkup(rect, W, H) {
     const was = plateOn();
     wrap.classList.remove('gl-plate');
@@ -2335,7 +2259,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       try {
         if (await rasterPlate(0, PLATE_RECT, PLATE_BASE)) {
           plateKey = k;
-          try { await rasterLight(); } catch (e) { console.warn('Light map failed; the organs stay flat.', e); }
           veins.dropPlate(1); plateView = null; plateViewKey = '';
           if (!plateOn() && glWanted(easeInOut(morph))) wrap.classList.add('gl-plate');
           veinsDirty = true; syncPlateLook(); schedulePlateView();
