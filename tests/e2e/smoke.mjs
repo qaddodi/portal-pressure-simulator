@@ -607,6 +607,23 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction(() => window.pps.store.get().running);
   });
 
+  await check(device, 'HVPG procedure: the button holds still and every tap starts it', async (page) => {
+    await open(page, '?preset=cirr-decomp');
+    await page.evaluate(() => { window.pps.dock.show('hvpg'); window.pps.dock.setState('open'); });
+    const sel = '[data-pane="hvpg"] .hvpg-bar .btn';
+    await page.waitForSelector(sel, { state: 'visible' });
+    // The card repaints on every model frame; the button must not change under a finger (Safari then drops the tap).
+    const changes = await page.$eval(sel, (b) => new Promise((res) => {
+      let n = 0; const mo = new MutationObserver((m) => { n += m.length; });
+      mo.observe(b, { subtree: true, childList: true, characterData: true, attributes: true });
+      setTimeout(() => { mo.disconnect(); res(n); }, 1500);
+    }));
+    if (changes) throw new Error(`the Measure HVPG button changed ${changes} times while idle`);
+    if (device === 'phone') { const b = await page.$eval(sel, (el) => { const r = el.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }); await page.touchscreen.tap(b[0], b[1]); }
+    else await page.click(sel);
+    await page.waitForFunction((q) => document.querySelector(q).textContent.includes('Measuring'), sel, { timeout: 3000 }).catch(() => { throw new Error('a tap on Measure HVPG did not start it'); });
+  });
+
   await check(device, 'pressure over time and Doppler', async (page) => {
     await open(page, '?preset=cirr-decomp');
     // The heartbeat always runs, so the trace is beat to beat before any instrument opens, and it

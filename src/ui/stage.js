@@ -2874,24 +2874,71 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!st || !at) { cath.labels.replaceChildren(); return; }
     // Rebuilt only when which labels show changes (each pops in once); their numbers update in place.
     const want = (st.labels || []).map((l) => l.key + '|' + (l.cls || '')).join('/');
+    const pill = (l, cls = '') => {
+      const el = document.createElement('div');
+      el.className = `cath-label ${l.cls || ''} ${cls}`; el.dataset.at = l.at || '';
+      const k = document.createElement('small'); k.textContent = l.kicker || ''; el.append(k);
+      const b = document.createElement('b'); b.textContent = l.text; el.append(b);
+      if (l.unit) { const u = document.createElement('span'); u.textContent = l.unit; el.append(u); }
+      return el;
+    };
+    const fill = (el, l) => { if (el.firstChild.textContent !== l.kicker) el.firstChild.textContent = l.kicker || ''; const b = el.querySelector('b'); if (b.textContent !== l.text) b.textContent = l.text; };
     if (cath.labels.dataset.k !== want) {
       cath.labels.dataset.k = want;
       cath.labels.replaceChildren(...(st.labels || []).map((l) => {
-        const el = document.createElement('div');
-        el.className = 'cath-label ' + (l.cls || ''); el.dataset.at = l.at;
-        if (l.kicker) { const k = document.createElement('small'); k.textContent = l.kicker; el.append(k); }
-        const b = document.createElement('b'); b.textContent = l.text; el.append(b);
-        if (l.unit) { const u = document.createElement('span'); u.textContent = l.unit; el.append(u); }
+        if (l.at !== 'sum') return pill(l);
+        // The two readings stacked (wedged above free, as on the tracing), a bracket joining them and
+        // the difference beside it; thin leaders run from each reading to where it was taken.
+        const el = document.createElement('div'); el.className = 'cath-sum';
+        const svg = s('svg', { class: 'cath-leads' });
+        const col = document.createElement('div'); col.className = 'cath-sum-col';
+        col.append(...l.rows.map((r) => pill(r, 'in-sum')));
+        const brace = s('svg', { class: 'cath-brace', width: 22 });
+        brace.append(s('path', {}));
+        const box = document.createElement('div'); box.className = 'cath-sum-box';
+        box.append(col, brace, pill(l.calc, 'in-sum calc'));
+        el.append(svg, box);
         return el;
       }));
     }
+    const W = wrap.clientWidth, H = wrap.clientHeight;
     [...cath.labels.children].forEach((el, i) => {
       const l = st.labels[i];
-      if (el.firstChild.textContent !== l.kicker && l.kicker) el.firstChild.textContent = l.kicker;
-      const b = el.querySelector('b'); if (b.textContent !== l.text) b.textContent = l.text;
-      const p = el.dataset.at === 'ahead' ? at.ahead : at.tip;
-      const [x, y] = worldToLocal(p[0], p[1]);
-      el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+      if (l.at !== 'sum') {
+        fill(el, l);
+        const p = el.dataset.at === 'ahead' ? at.ahead : at.tip;
+        const [x, y] = worldToLocal(p[0], p[1]);
+        el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+        return;
+      }
+      const box = el.querySelector('.cath-sum-box'), rows = [...box.querySelectorAll('.cath-sum-col .cath-label')];
+      rows.forEach((r, j) => fill(r, l.rows[j]));
+      fill(box.querySelector('.calc'), l.calc);
+      const A = Object.fromEntries(['tip', 'ahead'].map((k) => [k, worldToLocal(at[k][0], at[k][1])]));
+      const bw = box.offsetWidth, bh = box.offsetHeight, top = 70;
+      // Above the readings, centred between them; below them when there is no room above.
+      let x = (A.tip[0] + A.ahead[0]) / 2 - bw / 2, y = Math.min(A.tip[1], A.ahead[1]) - bh - 64;
+      if (y < top) y = Math.max(A.tip[1], A.ahead[1]) + 64;
+      x = clamp(x, 28, Math.max(28, W - bw - 12)); y = clamp(y, top, Math.max(top, H - bh - 12));   // (room on the left for a leader)
+      box.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+      // The bracket, from the middle of one reading to the middle of the other.
+      const ys = rows.map((r) => r.offsetTop + r.offsetHeight / 2), path = box.querySelector('.cath-brace path');
+      box.querySelector('.cath-brace').setAttribute('height', bh);
+      path.setAttribute('d', `M2 ${ys[0]} H9 V${ys[1]} H2 M9 ${(ys[0] + ys[1]) / 2} H20`);
+      // Leaders: from each reading to its point on the vein. The reading nearer the points runs straight
+      // from its edge; the other leaves from its outer side and runs down (or up) beside the stack.
+      const svg = el.querySelector('.cath-leads');
+      svg.setAttribute('width', W); svg.setAttribute('height', H);
+      const below = (A.tip[1] + A.ahead[1]) / 2 > y + bh / 2, near = below ? rows.length - 1 : 0;
+      const c0 = rows[0], c1 = rows[rows.length - 1], colTop = y + c0.offsetTop, colBot = y + c1.offsetTop + c1.offsetHeight;
+      svg.replaceChildren(...rows.flatMap((r, j) => {
+        const [px, py] = A[l.rows[j].at];
+        const rx0 = x + r.offsetLeft, ry0 = y + r.offsetTop, rx1 = rx0 + r.offsetWidth, ry1 = ry0 + r.offsetHeight;
+        let d;
+        if (j === near) d = `M${clamp(px, rx0 + 12, rx1 - 12).toFixed(1)} ${(below ? ry1 : ry0).toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`;
+        else { const ex = rx0 - 12, ey = below ? colBot + 14 : colTop - 14; d = `M${rx0.toFixed(1)} ${((ry0 + ry1) / 2).toFixed(1)} H${ex.toFixed(1)} V${ey.toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`; }
+        return [s('path', { class: 'lead ' + (l.rows[j].cls || ''), d }), s('circle', { class: 'lead-dot ' + (l.rows[j].cls || ''), cx: px.toFixed(1), cy: py.toFixed(1), r: 4.5 })];
+      }));
     });
   }
   // The camera for the procedure: the route, the tip close up, then back where it was.

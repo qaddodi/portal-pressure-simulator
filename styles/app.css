@@ -2174,6 +2174,19 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .cath-label.result small { color: var(--text-3); letter-spacing: .02em; }
 .cath-label.ok { --c: var(--ok); } .cath-label.caution { --c: color-mix(in srgb, var(--caution) 80%, var(--text)); } .cath-label.danger { --c: var(--danger); }
 @media (max-width: 600px) { .cath-label { padding: 5px 12px 6px; } .cath-label b { font-size: 21px; } .cath-label small, .cath-label b + span { font-size: 11px; } }
+/* The result: both readings stacked, a bracket joining them and the difference worked out beside it. */
+.cath-sum { position: absolute; inset: 0; }
+.cath-leads { position: absolute; left: 0; top: 0; overflow: visible; animation: cathIn .35s var(--ease) both; }
+.cath-leads .lead { fill: none; stroke-width: 1.6; stroke: var(--text-3); stroke-linejoin: round; }
+.cath-leads .lead-dot { stroke: var(--surface); stroke-width: 1.5; fill: var(--text-3); }
+.cath-leads .free { stroke: var(--tr-hv); } .cath-leads .lead-dot.free { fill: var(--tr-hv); stroke: var(--surface); }
+.cath-leads .wedge { stroke: var(--tr-wedge); } .cath-leads .lead-dot.wedge { fill: var(--tr-wedge); stroke: var(--surface); }
+.cath-sum-box { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 4px; animation: cathIn .35s var(--ease) both; }
+.cath-sum-col { display: flex; flex-direction: column; gap: 10px; }
+.cath-label.in-sum { position: relative; translate: none; animation: none; }
+.cath-label.in-sum::after { display: none; }
+.cath-brace { flex: none; overflow: visible; }
+.cath-brace path { fill: none; stroke: var(--text-3); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 @keyframes cathIn { from { opacity: 0; } }
 /* HVPG procedure (Measure › HVPG): the monitor canvas, the readings and the four steps. */
 .instrument-view[data-pane="hvpg"] { gap: 10px; }
