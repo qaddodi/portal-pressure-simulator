@@ -6,10 +6,10 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=1d7cd9b00f';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=86153645a3';
-import { createLobuleZoom } from './lobule-zoom.js?v=b0ef0a7df5';
+import { createLobuleZoom } from './lobule-zoom.js?v=92043ca5ef';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=e6cb0d0afd';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=a29435c7f0';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 
 const N_SAMPLES = 64;
@@ -1883,6 +1883,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
   }
   const tubeData = veins ? new Float32Array(GL_ROWS * TUBE_TEXELS * 4) : null;
+  let cathTint = null;   // the HVPG's wedged vein, recolored (see cathPaint)
   const ORIGIN_LUMEN = [ORIGIN_GREY, ORIGIN_GREY, ORIGIN_GREY];   // the lumen while the blood is colored by origin (the GPU paints the streams on it)
   let vBinKey = '', vBinReach = new Map(), veinsDirty = true, veinsDrawKey = '', vLook = null, glOrgans = false;
   const colorCtx = veins ? document.createElement('canvas').getContext('2d') : null;
@@ -2162,6 +2163,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (r.dir > 0) hi = 1 - off; else lo = off;
       }
       tubeData.set([lo, hi, kind === 's' ? obj.len : geo[id].len || 1, 0, ...(heatA ? toRGB(x.heatCol, cs) : [0, 0, 0]), 0], o + 20);
+      const tint = kind === 'v' && cathTint?.[id];
+      if (tint) tubeData.set([...toRGB(cathTint.col, cs), 1, tint[0], tint[1], cathTint.soft, 0], o + 32);
     }
     veins.setTubes(tubeData);
     vLook = {
@@ -2665,7 +2668,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     wrap.append(labels);
     return { g, column, column2, shadow, body, balloon, ring, tip, labels, st: null, at: null, saved: null };
   })();
-  const CATH_IDS = ['SVC_RA', 'IVCS_RA', 'RHV_IVC', 'POST_R_RHV'];
+  const CATH_IDS = ['SVC_RA', 'IVCS_RA', 'RHV_IVC', 'POST_R_RHV'];   // (and down the IVC_IS to the hepatic vein)
   const lenTo = (pts) => { const c = [0]; for (let i = 1; i < pts.length; i++) c.push(c[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])); return c; };
   /** The part of a polyline from length a to length b (cumulative lengths in cum). */
   function cutLen(pts, cum, a, b) {
@@ -2699,11 +2702,40 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     };
     marks.push(0);
     for (const q of [[top[0] - 6, top[1] - 150], [top[0] - 2, top[1] - 60], top]) { pts.push(q); rad.push(radOf('SVC_RA', 0)); }
-    add('SVC_RA', false); add('IVCS_RA', true); add('RHV_IVC', true); add('POST_R_RHV', true);
-    const cum = lenTo(pts), L = (i) => cum[Math.min(marks[i], cum.length - 1)];
+    add('SVC_RA', false); add('IVCS_RA', true);
+    // On down the middle of the IVC to the level where the right hepatic vein opens into it.
+    const ost = geo.RHV_IVC.cur[geo.RHV_IVC.cur.length - 1];
+    if (geo.IVC_IS?.cur?.length && E.IVC_IS) {
+      const P = geo.IVC_IS.cur.slice().reverse(), c = lenTo(P), n = c[c.length - 1] || 1;
+      for (let i = 1; i < P.length && P[i][1] < ost[1] - 4; i++) { pts.push(P[i]); rad.push(radOf('IVC_IS', 1 - c[i] / n)); }
+    }
+    add('RHV_IVC', true); add('POST_R_RHV', true);
+    // The vessels' courses meet at corners (the IVC turns into the hepatic vein at its side): the
+    // catheter bends through them as a wire does. Resampled evenly, then smoothed with a window as wide
+    // as the vein there, so the curve stays inside the lumen.
+    const c0 = lenTo(pts), H = 1.2, n = Math.max(2, Math.ceil(c0[c0.length - 1] / H) + 1);
+    let P = [], Rr = [], j = 1;
+    for (let i = 0; i < n; i++) {
+      const d = (c0[c0.length - 1] * i) / (n - 1);
+      while (j < c0.length - 1 && c0[j] < d) j++;
+      const u = c0[j] > c0[j - 1] ? clamp((d - c0[j - 1]) / (c0[j] - c0[j - 1]), 0, 1) : 0;
+      P.push([lerp(pts[j - 1][0], pts[j][0], u), lerp(pts[j - 1][1], pts[j][1], u)]); Rr.push(lerp(rad[j - 1], rad[j], u));
+    }
+    const idx = marks.map((m) => Math.round((c0[Math.min(m, c0.length - 1)] / c0[c0.length - 1]) * (n - 1)));
+    for (let pass = 0; pass < 2; pass++) {
+      const Q = P.map((q) => q.slice());
+      for (let i = 1; i < n - 1; i++) {
+        const sg = clamp(Rr[i] * 0.55, 1, 8) / H, w = Math.min(Math.ceil(sg * 2), i, n - 1 - i);
+        let sx = 0, sy = 0, sw = 0;
+        for (let k = -w; k <= w; k++) { const g = Math.exp(-(k * k) / (2 * sg * sg)); sx += P[i + k][0] * g; sy += P[i + k][1] * g; sw += g; }
+        Q[i] = [sx / sw, sy / sw];
+      }
+      P = Q;
+    }
+    const cum = lenTo(P), L = (i) => cum[Math.min(idx[i], cum.length - 1)];
     // The tip reads in the trunk of the right hepatic vein, about two thirds of the way out from the IVC.
     const hv0 = L(3), hv1 = L(4);
-    const r = { pts, rad, cum, total: cum[cum.length - 1], start: L(1) * 0.55, free: hv0 + (hv1 - hv0) * 0.62, hvEnd: hv1 };
+    const r = { pts: P, rad: Rr, cum, total: cum[cum.length - 1], start: L(1) * 0.55, free: hv0 + (hv1 - hv0) * 0.62, hv0, hvEnd: hv1 };
     if (E.RHV_IVC.glR?.length) cath.route = r;
     return r;
   }
@@ -2731,6 +2763,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const rc = cath.rc, ahead = cathAt(r, Math.min(r.total, tipD + Rf * 6.4));
     const tp = cathAt(r, tipD);
     cath.at = { tip: tp.p, ahead: ahead.p, nx: -tp.t[1], ny: tp.t[0] };
+    // The wedged reading: the vein beyond the balloon, out toward the sinusoids, takes the wedged
+    // pressure's color in the vessel's own rendering, filling outward as the column settles.
+    let tint = null;
+    const col = clamp(st.column || 0, 0, 1);
+    if (gpu && col > 0.001) {
+      const a = tipD - rc * 4.2, reach = a + (r.total - a) * col, soft = Rf * 1.2;
+      const hv = (d) => 1 - (d - r.hv0) / (r.hvEnd - r.hv0), br = (d) => 1 - (d - r.hvEnd) / (r.total - r.hvEnd);
+      tint = { col: st.columnColor || '#a33', soft, RHV_IVC: [hv(Math.min(reach, r.hvEnd)), hv(a)] };
+      if (reach >= r.hvEnd) tint.RHV_IVC[0] = -1;   // runs on into the branch: no edge at the join
+      if (reach > r.hvEnd) tint.POST_R_RHV = [br(reach), 2];
+    }
+    const tk = tint ? `${tint.col}|${tint.RHV_IVC.map((v) => v.toFixed(3))}|${tint.POST_R_RHV?.[0].toFixed(3) ?? ''}` : '';
+    if (tk !== cath.tintKey) { cath.tintKey = tk; cathTint = tint; if (!inUpdate) syncVeins(easeInOut(morph)); }
     if (gpu) cathGL(st, r, tipD, rc);
     else cathSVG(st, r, tipD, rc * 2, Rf * 2);
     cathVer++;
@@ -2756,13 +2801,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const [u, v] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) V.push(c[0] + t[0] * hx * u + nx * hy * v, c[1] + t[1] * hx * u + ny * hy * v, t[0], t[1], u, v);
       draws.push({ mode, first, count: 4, col, alpha: alpha * op });
     };
-    // The still column ahead of the balloon, out toward the sinusoids, at the wedged pressure; its front
-    // runs out softly.
-    const col = clamp(st.column || 0, 0, 1);
-    if (col > 0.001) {
-      const c0 = tipD + rc * 0.6, reach = c0 + (r.total - c0) * col;
-      if (reach > c0 + rc) tube(c0, reach, (q) => q.r * 0.94, 1, toRGB(st.columnColor || '#a33', cs), 0.92, [rc * 2, Math.min(reach - c0, rFree(r) * 5)]);
-    }
     const shaft = [0.93, 0.95, 0.98];
     tube(0, tipD - rc * 0.4, () => rc * 2.1, 0, [0.03, 0.05, 0.12], 0.34, [60, 0], rc * 0.7, rc * 1.1);
     tube(0, tipD - rc * 0.4, () => rc, 2, shaft, 1, [60, 0]);
@@ -2774,7 +2812,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const bl = clamp(st.balloon || 0, 0, 1);
     if (bl > 0.001) {
       const gap = rc * 4.2, Rb = cathAt(r, tipD - gap - rFree(r) * 1.6).r;
-      const rx = lerp(rc * 3.4, Rb * 1.6, bl), ry = lerp(rc * 1.35, Rb * 1.02, bl), bc = cathAt(r, tipD - gap - rx);
+      const rx = lerp(rc * 3.4, Rb * 1.6, bl), ry = lerp(rc * 1.35, Rb * 1.12, bl), bc = cathAt(r, tipD - gap - rx);
       disc(bc.p, bc.t, rx, ry, 5, [0.99, 0.9, 0.7], 0.55 + 0.45 * bl);   // latex
     }
     // The tip reading: two ripples running out from it.
@@ -4535,7 +4573,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     labelScale: () => labelScale,
     /** The HVPG catheter: null removes it; else { u (0..1 of the way in), balloon, column (0..1), columnColor, ring, pulse,
      *  opacity, labels: [{ key, at: 'tip' | 'ahead', kicker, text, unit, cls }] }. */
-    setCatheter(st) { cath.st = st; wrap.classList.toggle('cath-on', !!st); if (!st) { cath.rc = 0; cath.route = null; if (veins?.canCath) veins.setCath(null); cathVer++; cath.g.style.display = 'none'; cath.labels.hidden = true; cath.labels.replaceChildren(); cath.labels.dataset.k = ''; cath.at = null; return; } cathPaint(); },
+    setCatheter(st) { cath.st = st; wrap.classList.toggle('cath-on', !!st); if (!st) { cath.rc = 0; cath.route = null; if (veins?.canCath) veins.setCath(null); cathVer++; if (cathTint) { cathTint = null; cath.tintKey = ''; syncVeins(easeInOut(morph)); } cath.g.style.display = 'none'; cath.labels.hidden = true; cath.labels.replaceChildren(); cath.labels.dataset.k = ''; cath.at = null; return; } cathPaint(); },
     /** Frame the catheter's route ('route'), its tip close up ('tip'), or go back to the view before ('home'). */
     cathFocus,
     /** The vessel the Doppler is reading, glowing green while the Doppler instrument is open (null: none). */

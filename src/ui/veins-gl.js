@@ -30,7 +30,7 @@ import { SLOT, DYE_BINS } from './blood.js?v=6c39f43ddf';
 export const N_SAMPLES = 64;
 export const FLOW_TEXELS = 3;          // per-vessel blood: see stage.js (syncBlood)
 const SLOT_W = SLOT;
-export const TUBE_TEXELS = 8;          // texels of per-vessel attributes (see the layout below)
+export const TUBE_TEXELS = 10;         // texels of per-vessel attributes (see the layout below)
 export const MAX_TIERS = 20;
 const S_OFF = 96;                      // arc length is stored offset by this, so it can run on past a vessel's start
 export const ORIGIN_GREY = 0.62;       // the lumen's color while the blood is colored by origin
@@ -68,6 +68,8 @@ void main() {
 //   5: drawn part along the vessel (0–1): from, to; arc length (world); stream flags (F_UP, F_DN, F_REV)
 //   6: congestion glow color (rgb), streak course length (world)
 //   7: flow streaks: phase at the upstream end, spacing (world), direction (±1, from → to), strength (0 off)
+//   8: a stretch recolored (the HVPG's wedged vein): color (rgb), amount (0 none)
+//   9: that stretch along the vessel (0–1): from, to; its soft edge (world)
 const FS = `#version 300 es
 precision highp float;
 precision highp int;
@@ -202,6 +204,13 @@ void main() {
     vec4 t0 = T(sid[s], 0), t1 = T(sid[s], 1), t2 = T(sid[s], 2), t3 = T(sid[s], 3), t4 = T(sid[s], 4);
     stier[s] = t2.x; sz[s] = t2.y; sflag[s] = t2.z; swall[s] = t0.w; sheat[s] = t2.w;
     scol[s] = mix(t0.rgb, t1.rgb, clamp(su[s], 0.0, 1.0));
+    vec4 tc = T(sid[s], 8);
+    if (tc.w > 0.0) {
+      vec4 tr = T(sid[s], 9);
+      float Lv = max(T(sid[s], 5).z, 1.0), uu = su[s] * Lv;
+      float k = smoothstep(tr.x * Lv - tr.z, tr.x * Lv + tr.z, uu) * (1.0 - smoothstep(tr.y * Lv - tr.z, tr.y * Lv + tr.z, uu));
+      scol[s] = mix(scol[s], tc.rgb, k * tc.w);
+    }
     shcol[s] = t2.w > 0.0 ? T(sid[s], 6).rgb : vec3(0.0);
     sedge[s] = (int(t2.z + 0.5) & ${F_EDGE}) != 0 ? T(sid[s], 6).rgb : vec3(0.0);
     float a = t1.w;

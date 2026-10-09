@@ -3,18 +3,18 @@
 
 import { startHost, host } from './host.js?v=b54d9b1fcc';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=1d7cd9b00f';
-import { createStage } from './stage.js?v=1b2853f639';
+import { createStage } from './stage.js?v=1056db580e';
 import { sinusoidSupported } from './sinusoid-view.js?v=a7d638a4fa';
 import { createInspector } from './inspector.js?v=eb9187916e';
-import { createDock, CUTOFFS } from './dock.js?v=01a323d57d';
-import { setHvpgStage } from './hvpg-proc.js?v=e5a9ccf97f';
+import { createDock, CUTOFFS } from './dock.js?v=b63fbad7d3';
+import { setHvpgStage } from './hvpg-proc.js?v=fad99daa24';
 import { createWhy } from './why.js?v=f34a42cc3f';
 import { createTimeline, LAPSES } from './timeline.js?v=179a90e883';
 import { createLearn } from './learn.js?v=7593a68df4';
 import { createCases } from './cases.js?v=bee5d39a80';
 import { createCompare } from './compare.js?v=0838b1d3c8';
 import { createCard } from './card.js?v=f6d40928e6';
-import { createChart, computeFindings } from './chart.js?v=274ef0aa1a';
+import { createChart, computeFindings } from './chart.js?v=27c64cbdd7';
 import { createHome, ROLES } from './home.js?v=21c9fa958c';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=424fa7e848';
 import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=85f06306e3';

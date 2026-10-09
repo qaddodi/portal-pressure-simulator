@@ -2151,38 +2151,62 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .cath-ring { fill: none; stroke-width: .8; stroke-opacity: .85; }
 .cath-balloon { fill: rgba(226, 233, 244, .78); stroke: #FFFFFF; stroke-width: .6; }
 .cath-column { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-opacity: .9; }
-/* While the catheter is in, the figure's own readouts step back so its labels read clearly. */
+/* While the catheter is in, the figure's own readouts are hidden so its labels read clearly. */
 .stage-view #labels { transition: opacity .4s var(--ease); }
-.cath-on #labels { opacity: .15; }
+.cath-on #labels { opacity: 0; visibility: hidden; }
 .cath-labels { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
 .cath-labels[hidden] { display: none; }
-.cath-label { position: absolute; left: 0; top: 0; display: inline-flex; align-items: baseline; gap: 5px; padding: 5px 10px; border-radius: 999px; white-space: nowrap;
-  background: var(--surface); color: var(--text); box-shadow: 0 2px 10px rgba(20, 22, 30, .18), 0 0 0 1px var(--hairline); font: 500 12px var(--font-ui);
-  margin: -44px 0 0 0; translate: -50% 0; animation: cathIn .35s var(--ease) both; }
-.cath-label[data-at="ahead"] { margin-top: 18px; }
-.cath-label small { color: var(--text-3); font-weight: 600; font-size: 11px; letter-spacing: .02em; }
-.cath-label b { font-size: 15px; font-variant-numeric: tabular-nums; }
-.cath-label span { color: var(--text-3); font-size: 11px; }
-.cath-label.free b { color: var(--tr-hv); }
-.cath-label.wedge b { color: var(--tr-wedge); }
-.cath-label.ghost { opacity: .6; }
-.cath-label.result { padding: 7px 14px; }
-.cath-label.result b { font-size: 17px; }
-.cath-label.ok b { color: var(--ok); } .cath-label.caution b { color: color-mix(in srgb, var(--caution) 80%, var(--text)); } .cath-label.danger b { color: var(--danger); }
+.cath-label { position: absolute; left: 0; top: 0; display: inline-flex; flex-direction: column; align-items: center; gap: 1px; padding: 7px 16px 8px; border-radius: 14px; white-space: nowrap;
+  --c: var(--text); background: var(--surface); color: var(--text); font: 500 12px var(--font-ui);
+  box-shadow: 0 8px 24px rgba(16, 20, 30, .22), 0 0 0 2px color-mix(in srgb, var(--c) 70%, transparent);
+  translate: -50% calc(-100% - 18px); animation: cathIn .35s var(--ease) both; }
+/* A pointer down to the tip (or up to the wedged vein, for the reading ahead of it). */
+.cath-label::after { content: ''; position: absolute; left: 50%; bottom: -8px; width: 14px; height: 14px; translate: -50% 0; rotate: 45deg;
+  background: var(--surface); box-shadow: 2px 2px 0 0 color-mix(in srgb, var(--c) 70%, transparent); z-index: -1; }
+.cath-label[data-at="ahead"] { translate: -50% 18px; }
+.cath-label[data-at="ahead"]::after { bottom: auto; top: -8px; box-shadow: -2px -2px 0 0 color-mix(in srgb, var(--c) 70%, transparent); }
+.cath-label small { color: var(--c); font-weight: 700; font-size: 12px; letter-spacing: .06em; }
+.cath-label b { font-size: 26px; line-height: 1.1; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--c); }
+.cath-label b + span { color: var(--text-3); font-size: 12px; font-weight: 600; margin-top: -2px; }
+.cath-label.free { --c: var(--tr-hv); }
+.cath-label.wedge { --c: var(--tr-wedge); }
+.cath-label.ghost { opacity: .5; }
+.cath-label.result small { color: var(--text-3); letter-spacing: .02em; }
+.cath-label.ok { --c: var(--ok); } .cath-label.caution { --c: color-mix(in srgb, var(--caution) 80%, var(--text)); } .cath-label.danger { --c: var(--danger); }
+@media (max-width: 600px) { .cath-label { padding: 5px 12px 6px; } .cath-label b { font-size: 21px; } .cath-label small, .cath-label b + span { font-size: 11px; } }
 @keyframes cathIn { from { opacity: 0; } }
 /* HVPG procedure (Measure › HVPG): the monitor canvas, the readings and the four steps. */
+.instrument-view[data-pane="hvpg"] { gap: 10px; }
+.instrument-view[data-pane="hvpg"] > .hvpg-bar { grid-column: 1 / -1; }
+.hvpg-bar { display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; }
+.hvpg-bar .btn { flex: none; }
+.hvpg-kv { flex: 1; display: grid; grid-template-columns: repeat(3, minmax(56px, auto)); justify-content: start; gap: 18px; margin: 0; }
+.hvpg-kv dt { font-size: 11px; font-weight: 600; letter-spacing: .05em; color: var(--text-3); }
+.hvpg-kv dd { margin: 0; font-size: 17px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hvpg-kv dt::after { content: ' · mmHg'; font-weight: 500; letter-spacing: 0; }
 .hvpg-box { border-radius: var(--r-card); background: var(--mon-bg); }
 .hvpg-kv dd[data-sev="ok"] { color: color-mix(in srgb, var(--ok) 75%, var(--text)); }
 .hvpg-kv dd[data-sev="caution"] { color: color-mix(in srgb, var(--caution) 75%, var(--text)); }
 .hvpg-kv dd[data-sev="danger"] { color: color-mix(in srgb, var(--danger) 75%, var(--text)); }
-.hvpg-steps { margin: 0; padding: 0; list-style: none; counter-reset: hs; display: grid; gap: 4px; font-size: 13px; color: var(--text-3); }
-.hvpg-steps li { counter-increment: hs; display: flex; align-items: center; gap: 8px; }
+/* The four steps, in one row: a numbered dot and a word each. */
+.hvpg-steps { margin: 0; padding: 0; list-style: none; counter-reset: hs; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--text-3); }
+.hvpg-steps li { counter-increment: hs; display: flex; align-items: center; gap: 6px; }
 .hvpg-steps li::before { content: counter(hs); flex: none; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 600; border: 1px solid var(--border); }
 .hvpg-steps li[data-state="now"] { color: var(--text); font-weight: 600; }
 .hvpg-steps li[data-state="now"]::before { border-color: var(--accent); color: var(--accent-ink); }
 .hvpg-steps li[data-state="done"] { color: var(--text-2); }
 .hvpg-steps li[data-state="done"]::before { content: '✓'; background: var(--accent-soft); border-color: transparent; color: var(--accent-ink); }
-.hvpg-caption { min-height: 4.5em; }
+.hvpg-caption { min-height: 3em; margin: 0; }
+.hvpg-note { margin: 0; font-size: 12px; }
+@media (max-width: 600px) {
+  .instrument-view[data-pane="hvpg"] .chart-box { height: clamp(170px, 26vh, 220px); }
+  .hvpg-bar { gap: 8px 12px; }
+  .hvpg-bar .btn { padding-inline: 12px; }
+  .hvpg-kv { gap: 12px; }
+  .hvpg-kv dd { font-size: 15px; }
+  .hvpg-kv dt::after { content: none; }
+  .hvpg-caption { min-height: 0; }
+}
 .procedure-controls { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--hairline); border-radius: var(--r-card); background: var(--surface-2); }
 .workspace-comparison { display: flex; gap: 20px; flex: none; padding: 8px 20px; background: var(--accent-soft); font-size: var(--fs-12); color: var(--text-2); overflow-x: auto; white-space: nowrap; }
 .workspace-comparison > span { display: inline-flex; gap: 8px; }

@@ -8,7 +8,7 @@ import { lobuleFlows } from './lobule-model.js?v=2854fecf7f';
 import { createProfile } from './charts.js?v=76c667fc43';
 import { createPressureTime } from './pressure-time.js?v=c08640bbd6';
 import { createFibroScan } from './fibroscan.js?v=a76636363a';
-import { createHvpgProcedure } from './hvpg-proc.js?v=e5a9ccf97f';
+import { createHvpgProcedure } from './hvpg-proc.js?v=fad99daa24';
 import { createDoppler } from './doppler.js?v=a889ada582';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=02628a8870';
 

@@ -20,10 +20,10 @@ export function setHvpgStage(stage) { stageRef = stage; }
 // The sequence, in ms from the start.
 const T = { travel0: 300, travel1: 4300, zoom: 4300, free: 5100, inflate: 8200, wedge: 8900, result: 11800, back: 16000, end: 16800 };
 const STEPS = [
-  ['enter', 'Catheter in', 'In through the right internal jugular vein, down the SVC, through the right atrium and the IVC into the right hepatic vein.'],
-  ['free', 'Free pressure (FHVP)', 'The vein is open: the tip reads the pressure where the liver drains.'],
-  ['wedge', 'Wedged pressure (WHVP)', 'The balloon inflates just behind the tip and blocks the vein. Flow stops, and the still column in front of it reads the sinusoids.'],
-  ['result', 'HVPG = WHVP − FHVP', 'The pressure drop across the sinusoids. Normal below 5 mmHg; 10 or more is clinically significant portal hypertension.'],
+  ['enter', 'Catheter in', 'In through the right internal jugular vein, down the SVC, through the right atrium and the IVC into the right hepatic vein.', 'Catheter'],
+  ['free', 'Free pressure (FHVP)', 'The vein is open: the tip reads the pressure where the liver drains.', 'Free'],
+  ['wedge', 'Wedged pressure (WHVP)', 'The balloon inflates just behind the tip and blocks the vein. Flow stops, and the still vein in front of it reads the sinusoids.', 'Wedged'],
+  ['result', 'HVPG = WHVP − FHVP', 'The pressure drop across the sinusoids. Normal below 5 mmHg; 10 or more is clinically significant portal hypertension.', 'HVPG'],
 ];
 // The tracing is a monitor, dark in both themes (the Over time chart's dark trace colours).
 const C = { bg: '#07090C', grid: '#1C2128', line: '#2A3038', text: '#9AA4B2', bright: '#E8EDF4',
@@ -46,16 +46,18 @@ export function createHvpgProcedure({ sheet } = {}) {
   const cv = h('canvas', { role: 'img', 'aria-label': 'HVPG measurement: catheter pressure tracing' });
   const box = h('div', { class: 'chart-box hvpg-box' }, cv);
   const vals = {};
-  const kv = h('dl', { class: 'kv hvpg-kv' }, ['fhvp', 'whvp', 'hvpg'].flatMap((k) => {
+  // On top: the button and the three readings; then the tracing; then the steps and what is happening.
+  const kv = h('dl', { class: 'hvpg-kv' }, ['fhvp', 'whvp', 'hvpg'].map((k) => {
     vals[k] = h('dd', {}, '—');
-    return [h('dt', {}, { fhvp: 'Free (FHVP)', whvp: 'Wedged (WHVP)', hvpg: 'HVPG' }[k]), vals[k]];
+    return h('div', {}, h('dt', {}, { fhvp: 'FHVP', whvp: 'WHVP', hvpg: 'HVPG' }[k]), vals[k]);
   }));
-  const stepEls = STEPS.map(([id, title]) => h('li', { 'data-step': id }, title));
+  const stepEls = STEPS.map(([id, title, , short]) => h('li', { 'data-step': id, title }, h('span', {}, short)));
   const caption = h('p', { class: 'ctl-sub hvpg-caption', 'aria-live': 'polite' });
   const startBtn = h('button', { class: 'btn primary', onclick: () => start() }, icon('catheter'), h('span', {}, 'Measure HVPG'));
-  const note = h('p', { class: 'ctl-sub' });
-  const side = h('div', { class: 'chart-side' }, kv, h('ol', { class: 'hvpg-steps' }, stepEls), caption, startBtn, note);
-  const el = h('div', { class: 'dock-pane', 'data-pane': 'hvpg' }, box, side);
+  const note = h('p', { class: 'ctl-sub hvpg-note' });
+  const bar = h('div', { class: 'hvpg-bar' }, startBtn, kv);
+  const side = h('div', { class: 'chart-side' }, h('ol', { class: 'hvpg-steps' }, stepEls), caption, note);
+  const el = h('div', { class: 'dock-pane', 'data-pane': 'hvpg' }, bar, box, side);
 
   let t0 = null, t = 0, raf = 0, frame = null, result = null, sig = '', cam = '';
   const phase = () => (t0 == null && !result ? 'idle' : t < T.free ? 'enter' : t < T.inflate ? 'free' : t < T.result ? 'wedge' : 'result');
@@ -130,7 +132,7 @@ export function createHvpgProcedure({ sheet } = {}) {
     const ph = phase(), v = values(), st = store.get();
     const shown = { fhvp: ph !== 'idle' && ph !== 'enter', whvp: ph === 'result' || (ph === 'wedge' && t >= T.wedge), hvpg: ph === 'result' };
     for (const k of ['fhvp', 'whvp', 'hvpg']) {
-      const txt = shown[k] ? `${fmt(v[k], 1)} mmHg` : '—';
+      const txt = shown[k] ? fmt(v[k], 1) : '—';
       if (vals[k].textContent !== txt) vals[k].textContent = txt;
     }
     vals.hvpg.dataset.sev = shown.hvpg ? sevOf(v.hvpg) : '';
@@ -143,8 +145,8 @@ export function createHvpgProcedure({ sheet } = {}) {
     startBtn.disabled = busy;
     startBtn.lastChild.textContent = busy ? 'Measuring…' : result ? 'Measure again' : 'Measure HVPG';
     const n = st.mode === 'explore' && !st.presenting
-      ? (st.hvpgMeasured ? 'Measured: the HVPG readouts are live for this patient. A new patient hides them until it is measured again.' : 'The HVPG readouts stay hidden until it is measured here. The numbers are the model\'s own, the same as the HVPG tile.')
-      : 'The numbers are the model\'s own, the same as the HVPG tile.';
+      ? (st.hvpgMeasured ? 'Measured: the HVPG readouts are live for this patient until a new one.' : 'The HVPG readouts stay hidden until it is measured here.')
+      : 'The same numbers as the HVPG tile.';
     if (note.textContent !== n) note.textContent = n;
   }
 
