@@ -102,11 +102,27 @@ const read = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || d); 
 
 export function createHome({ el, brandMark, onPreset, onLesson, onUnit, onCase, onPresenter, onClose, onClosed }) {
   let tab = 'explore';
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  const app = document.getElementById('app');
+  let swapT = 0, leaveT = 0;
+  // The decks' titles are set in the serif: have it loaded before Present is first opened, so the page never changes font after it shows.
+  try { document.fonts?.load('600 28px "Source Serif 4"').catch(() => {}); } catch { /* fonts API unavailable */ }
+  // A page change inside Home (Explore ↔ Present, back): the page eases out, the next eases in, never a pop.
+  function swapTo(id) {
+    if (swapT) return;
+    const inner = el.firstElementChild;
+    if (reduce.matches || !inner) { tab = id; render(); el.scrollTop = 0; return; }
+    inner.classList.add('swap-out');
+    swapT = setTimeout(() => {
+      swapT = 0; tab = id; render(); el.scrollTop = 0;
+      el.firstElementChild?.classList.add('swap-in');
+    }, 160);
+  }
   function render() {
     const st = store.get();
     const done = read('pps.lessons', '{}');
     const best = read('pps.caseScores', '{}');
-    const go = (id) => { tab = id; render(); el.scrollTop = 0; };
+    const go = (id) => swapTo(id);
     // The course, lessons and cases are hidden for now (their pages stay below, unreachable): Home is
     // Explore, with Present one step down, for both roles.
     if (tab !== 'present') tab = 'explore';
@@ -175,9 +191,27 @@ export function createHome({ el, brandMark, onPreset, onLesson, onUnit, onCase, 
       h('p', { class: 'disclaimer' }, t('app.disclaimer'))));
   }
   return {
-    open(t) { if (t) tab = t; render(); el.hidden = false; document.getElementById('app').classList.add('home-open'); el.querySelector('.cr-continue, .home-back button')?.focus({ preventScroll: true }); },
-    close() { if (el.hidden) return; el.hidden = true; document.getElementById('app').classList.remove('home-open'); onClosed?.(); },
-    isOpen: () => !el.hidden,
+    open(t) {
+      clearTimeout(leaveT); leaveT = 0; el.classList.remove('leaving');
+      clearTimeout(swapT); swapT = 0;
+      if (t) tab = t;
+      render();
+      const was = el.hidden; el.hidden = false; app.classList.add('home-open');
+      if (!was) el.firstElementChild?.classList.add('swap-in');   // (already open: the new page eases in)
+      el.querySelector('.cr-continue, .home-back button')?.focus({ preventScroll: true });
+    },
+    // Closing eases the sheet out over the app (which is shown again at once, under it) before it is hidden.
+    close() {
+      if (el.hidden || leaveT) return;
+      clearTimeout(swapT); swapT = 0;
+      app.classList.remove('home-open');
+      const done = () => { leaveT = 0; el.hidden = true; el.classList.remove('leaving'); };
+      if (reduce.matches) { done(); onClosed?.(); return; }
+      el.classList.add('leaving');
+      onClosed?.();   // (the figure paints again under the fading sheet)
+      leaveT = setTimeout(done, 220);
+    },
+    isOpen: () => !el.hidden && !leaveT,
     tab: () => tab,
     render,
   };
