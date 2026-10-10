@@ -42,3 +42,8 @@ test('while presenting, the credit sits over the slide veil and rises above a st
   assert.match(css, /\.app\.presenting \.stage-credit \{ bottom: max\(14px, var\(--sheet-h, 0px\)\); z-index: calc\(var\(--z-hud\) \+ 1\); \}/);
   assert.match(css, /\.app\.presenting:has\(\.pz\.stack\) \.stage-credit \{ bottom: max\([^;]*var\(--sheet-h, 0px\)\)/);
 });
+
+test('copyright credit shrinks while a card sits beneath it', () => {
+  assert.match(css, /\.stage-credit\.busy \{ font-size: calc\(var\(--fs-12\) - 1\.5px\);/);
+  assert.match(css, /\.stage-credit \{[^}]*font-size: 10\.5px/);
+});

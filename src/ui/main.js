@@ -1116,6 +1116,13 @@ function wireFloating() {
   new MutationObserver(soon).observe($('#treatCard'), { attributes: true, attributeFilter: ['hidden'] });
   new MutationObserver(soon).observe($('#dock'), { attributes: true, attributeFilter: ['class', 'data-state'] });
   addEventListener('resize', soon);
+  // The corner credit shrinks while a card or sheet sits just beneath it (the figure's lift variables are set).
+  const credit = $('.stage-credit');
+  let busyRaf = 0;
+  const syncCredit = () => { busyRaf = 0; credit.classList.toggle('busy', parseFloat(credit.style.getPropertyValue('--sheet-h')) > 0 || parseFloat(app.style.getPropertyValue('--panel-h')) > 0); };
+  const syncSoon = () => { if (!busyRaf) busyRaf = requestAnimationFrame(syncCredit); };
+  new MutationObserver(syncSoon).observe(credit, { attributes: true, attributeFilter: ['style'] });
+  new MutationObserver(syncSoon).observe(app, { attributes: true, attributeFilter: ['style'] });
   publish();
   panelSheet = sheetBehaviour($('#panel'), { handle: h('button', { class: 'panel-grab', 'aria-label': 'Resize the patient chart' }), drag: '.panel-head', onClose: closePanel });
   treatSheet = sheetBehaviour($('#treatCard'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the Treat card' }), drag: '.tc-head', onClose: closeTreat });

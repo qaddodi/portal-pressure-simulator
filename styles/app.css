@@ -4174,7 +4174,9 @@ body.sim-paused .mon.bad .mv { animation-play-state: paused; }
 .vdock.mini { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "tl ro"; }
 .vdock.mini .vd-status { display: none; }
 .vdock.mini .stage-bar.bottom { height: 48px; }
-.app.figure-focus .zoom-pill, .stage-credit { transition: opacity .25s var(--ease), translate .2s var(--ease), bottom .2s var(--ease); }
+.app.figure-focus .zoom-pill, .stage-credit { transition: opacity .25s var(--ease), translate .2s var(--ease), bottom .2s var(--ease), font-size .3s var(--ease); }
+/* Busy screen (a card or sheet is open beneath it): the credit shrinks a little and tucks closer to the card's edge. */
+.stage-credit.busy { font-size: calc(var(--fs-12) - 1.5px); translate: 0 3px; }
 .vdock.mini .tl-speed, .vdock.mini .tl-left > :not(.tl-split), .vdock.mini .tl-track, .vdock.mini .tl-jumps, .vdock.mini .tl-hist, .vdock.mini .tl-pin, .vdock.mini .tl-latest { display: none !important; }
 .vdock.mini .timeline { justify-content: flex-start; gap: 10px; }
 .vdock.mini .tl-time { display: inline !important; }
@@ -4559,7 +4561,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* Phone: the corner credit is set a size smaller and closer to the edge, so the zoom pill never covers its end;
    a long patient name wraps to two lines instead of being cut to "Decomp…". */
 @media (max-width: 480px) {
-  .stage-credit { left: calc(env(safe-area-inset-left, 0px) + 14px); font-size: 12px; }
+  .stage-credit { left: calc(env(safe-area-inset-left, 0px) + 12px); font-size: 10.5px; }
+  .stage-credit.busy { font-size: 9px; }
   .topbar .scenario-v { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 12px; line-height: 1.15; }
   .topbar .scenario-v .sn-l { display: none; }
   .topbar .scenario-v .sn-s { display: inline; }
