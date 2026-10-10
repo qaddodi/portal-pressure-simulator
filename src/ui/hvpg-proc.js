@@ -193,83 +193,7 @@ export function createHvpgProcedure() {
   }
 
   // ── The tracing ──────────────────────────────────
-  function draw() {
-    const { ctx, w, h: hh } = fitCanvas(cv);
-    if (w < 80 || hh < 60) return;
-    ctx.clearRect(0, 0, w, hh);
-    rrect(ctx, 0, 0, w, hh, 12); ctx.fillStyle = C.bg; ctx.fill();
-    const x = 14, y = 10, W = w - 28, H = hh - 18;
-    const ph = phase(), v = values(), narrow = W < 300;
-    ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
-    ctx.fillStyle = C.text; ctx.font = FONT(600, 10);
-    ctx.fillText(narrow ? 'CATHETER TIP · mmHg' : 'CATHETER TIP PRESSURE · RIGHT HEPATIC VEIN · mmHg', x, y + 13);
-    const big = Math.round(clamp(Math.min(W * 0.1, H * 0.14), 22, 40));
-    let label, num = '', col = C.text;
-    if (ph === 'abort') {
-      ctx.font = FONT(600, 12); ctx.fillStyle = C.danger; ctx.fillText('Aborted', x, y + 32);
-      ctx.textAlign = 'center'; ctx.font = FONT(600, 12); ctx.fillText(narrow ? 'Unable to cannulate hepatic vein' : 'Unable to cannulate hepatic vein: procedure aborted', w / 2, hh / 2 + 8);
-      ctx.fillStyle = C.text; ctx.font = FONT(500, 11); ctx.fillText('HVPG not measurable', w / 2, hh / 2 + 28);
-      return;
-    }
-    if (ph === 'idle') label = 'Ready';
-    else if (ph === 'enter') label = 'Catheter advancing';
-    else if (ph === 'free') { label = 'FHVP'; num = fmt(pAt(t, v), 1); col = C.free; }
-    else if (ph === 'wedge') { label = t < T.wedge ? 'Balloon inflating' : t < T.callout ? 'Settling' : 'WHVP'; num = fmt(pAt(t, v), 1); col = C.wedge; }
-    else if (t0 != null && t < T.sum) { label = 'WHVP'; num = fmt(v.whvp, 1); col = C.wedge; }
-    else { label = 'HVPG'; num = fmt(v.hvpg, 1); col = C[sevOf(v.hvpg)]; }
-    ctx.font = FONT(600, 12); ctx.fillStyle = col === C.text ? C.bright : col; ctx.fillText(label, x, y + 32);
-    if (num) { ctx.font = FONT(700, big); ctx.textAlign = 'right'; ctx.fillText(num, x + W, y + 14 + big); ctx.textAlign = 'left'; }
-    const top = y + 30 + Math.max(big, 26) - 4, bot = y + H - 16, L = x + 22, R = x + W - (narrow ? 2 : 50);
-    if (bot - top < 40) return;
-    const ymax = Math.max(15, Math.ceil((Math.max(v.whvp, v.fhvp) + 5) / 5) * 5);
-    const Y = (p) => bot - (clamp(p, 0, ymax) / ymax) * (bot - top);
-    const X = (tt) => L + k01(tt, T.free - 300, T.back) * (R - L);
-    ctx.lineWidth = 1; ctx.font = FONT(500, 9.5); ctx.fillStyle = C.text; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-    for (let p = 0; p <= ymax; p += 5) {
-      ctx.strokeStyle = p ? C.grid : C.line; ctx.beginPath(); ctx.moveTo(L, Math.round(Y(p)) + 0.5); ctx.lineTo(R, Math.round(Y(p)) + 0.5); ctx.stroke();
-      if (p % 10 === 0 || ymax <= 20) ctx.fillText(String(p), L - 5, Y(p));
-    }
-    if (ph === 'idle' || ph === 'enter') {
-      ctx.textAlign = 'center'; ctx.fillStyle = C.text; ctx.font = FONT(500, 11);
-      ctx.fillText(blocked && t >= TB.probe0 ? 'Probing the ostium: the vein will not take the catheter…' : ph === 'idle' ? 'The tracing starts once the tip is in the hepatic vein.' : 'Waiting for the hepatic vein…', (L + R) / 2, (top + bot) / 2);
-      return;
-    }
-    // The trace, swept up to now: blue while free, violet once the balloon is up.
-    const tNow = Math.min(t, T.back);
-    const seg = (a, b, colr) => {
-      if (tNow <= a) return;
-      ctx.strokeStyle = colr; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.beginPath();
-      for (let tt = a; tt <= Math.min(b, tNow); tt += 30) { const X1 = X(tt), Y1 = Y(pAt(tt, v)); tt === a ? ctx.moveTo(X1, Y1) : ctx.lineTo(X1, Y1); }
-      ctx.stroke();
-    };
-    seg(T.free - 300, T.inflate, C.free);
-    seg(T.inflate, T.back, C.wedge);
-    if (t < T.back) { ctx.fillStyle = C.bright; ctx.beginPath(); ctx.arc(X(tNow), Y(pAt(tNow, v)), 2.6, 0, Math.PI * 2); ctx.fill(); }
-    const level = (p, colr, txt) => {
-      ctx.save(); ctx.strokeStyle = colr; ctx.globalAlpha = 0.75; ctx.setLineDash([4, 4]); ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(L, Y(p)); ctx.lineTo(R, Y(p)); ctx.stroke(); ctx.restore();
-      if (!narrow) { ctx.fillStyle = colr; ctx.font = FONT(600, 10); ctx.textAlign = 'left'; ctx.fillText(txt, R + 6, Y(p) - 6); ctx.font = FONT(700, 11); ctx.fillText(fmt(p, 1), R + 6, Y(p) + 7); }
-    };
-    if (t >= T.inflate) level(v.fhvp, C.free, 'FHVP');
-    if (ph === 'result') {
-      level(v.whvp, C.wedge, 'WHVP');
-      const a = ease(k01(t, T.sum - 400, T.sum + 200)), xa = L + (R - L) * 0.9, y1 = Y(v.fhvp), y2 = Y(v.fhvp + (v.whvp - v.fhvp) * a), col2 = C[sevOf(v.hvpg)];
-      ctx.strokeStyle = col2; ctx.fillStyle = col2; ctx.lineWidth = 1.6;
-      ctx.beginPath(); ctx.moveTo(xa, y1); ctx.lineTo(xa, y2); ctx.stroke();
-      if (Math.abs(y1 - y2) > 10) for (const [yy, d] of [[y1, 1], [y2, -1]]) { ctx.beginPath(); ctx.moveTo(xa, yy); ctx.lineTo(xa - 4, yy - 6 * d); ctx.lineTo(xa + 4, yy - 6 * d); ctx.closePath(); ctx.fill(); }
-      if (a > 0.6) {
-        ctx.save(); ctx.globalAlpha = ease(k01(t, T.sum, T.sum + 450));
-        const txt = `HVPG ${fmt(v.hvpg, 1)}`; ctx.font = FONT(700, 11.5);
-        const tw = ctx.measureText(txt).width + 12, lx = xa - tw - 6, ly = (y1 + y2) / 2;
-        ctx.fillStyle = C.bg; rrect(ctx, lx, ly - 9, tw, 18, 9); ctx.fill(); ctx.strokeStyle = col2; ctx.lineWidth = 1; ctx.stroke();
-        ctx.fillStyle = col2; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(txt, lx + 6, ly + 0.5);
-        ctx.restore();
-      }
-    }
-    ctx.fillStyle = C.text; ctx.font = FONT(500, 9); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-    ctx.fillText('balloon up', X(T.inflate), bot + 13);
-    ctx.strokeStyle = C.line; ctx.beginPath(); ctx.moveTo(X(T.inflate), bot); ctx.lineTo(X(T.inflate), bot + 4); ctx.stroke();
-  }
+  const draw = () => drawTrace(cv, { ph: phase(), t, v: values(), blocked, running: t0 != null });
 
   function update(f) {
     frame = f;
@@ -284,6 +208,124 @@ export function createHvpgProcedure() {
   store.on('lastHVPG', (v) => { if (!v && result) reset(); });
   paintSide();
   return { id: 'hvpg', label: 'HVPG procedure', el, update, start };
+}
+
+// The same monitor for a Presenter slide (presenter-tools.js, tool: { kind: 'monitor' }), following the slide's
+// catheter: set('free') sweeps the free pressure in, set('wedge') inflates the balloon and climbs to the wedge,
+// set('result') holds the wedge and gives the HVPG. Forward, it carries on from where the last slide left the trace.
+const SPAN = { free: [T.free - 300, T.inflate - 80], wedge: [T.inflate, T.result - 1], result: [T.result, T.sum + 700] };
+const ORDER = ['free', 'wedge', 'result'];
+export function createHvpgMonitor() {
+  const cv = h('canvas', { role: 'img', 'aria-label': 'Catheter pressure tracing, as on the monitor in the procedure room' });
+  const el = h('div', {}, h('div', { class: 'chart-box hvpg-box' }, cv));
+  let mode = null, t = 0, t1 = 0, last = 0, raf = 0, sig = '', fp = null;
+  // The slide's own readings (the catheter's callouts and the tiles show the same), else the live model's.
+  const live = () => { const m = fp || store.get().frame?.metrics; return { fhvp: m?.fhvp ?? 0, whvp: m?.whvp ?? 0, hvpg: m?.hvpg ?? 0 }; };
+  const phase = () => (t < T.inflate ? 'free' : t < T.result ? 'wedge' : 'result');
+  const draw = () => drawTrace(cv, { ph: phase(), t, v: live(), blocked: false, running: true });
+  function step(now) {
+    t = Math.min(t1, t + (now - last)); last = now;
+    draw();
+    raf = t < t1 && el.isConnected ? requestAnimationFrame(step) : 0;
+  }
+  function set(m, f = null) {
+    const span = SPAN[m];
+    fp = f;
+    if (!span || (m === mode && (raf || t >= t1))) { if (!raf) draw(); return; }
+    const fwd = mode && ORDER.indexOf(m) > ORDER.indexOf(mode);
+    if (!(fwd && t >= SPAN[mode][0] && t <= span[0])) t = span[0];
+    mode = m; t1 = span[1];
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) t = t1;
+    cancelAnimationFrame(raf);
+    // (Once the card is laid out: the canvas sizes itself to it.)
+    requestAnimationFrame((now) => { last = now; step(now); });
+  }
+  function update(f) {
+    if (raf || !mode || !f?.metrics) return;
+    const r = cv.getBoundingClientRect(), key = [Math.round(r.width), Math.round(r.height), fmt(f.metrics.fhvp, 1), fmt(f.metrics.whvp, 1)].join('|');
+    if (key !== sig) { sig = key; draw(); }
+  }
+  return { el, set, update, clear() { cancelAnimationFrame(raf); raf = 0; mode = null; t = 0; } };
+}
+
+// ── The tracing: the monitor in the IR suite, dark in both themes ──
+// st: { ph: the phase, t: ms on the procedure's clock (T), v: { fhvp, whvp, hvpg }, blocked, running: still sweeping }
+function drawTrace(cv, { ph, t, v, blocked, running }) {
+  const { ctx, w, h: hh } = fitCanvas(cv);
+  if (w < 80 || hh < 60) return;
+  ctx.clearRect(0, 0, w, hh);
+  rrect(ctx, 0, 0, w, hh, 12); ctx.fillStyle = C.bg; ctx.fill();
+  const x = 14, y = 10, W = w - 28, H = hh - 18;
+  const narrow = W < 300;
+  ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+  ctx.fillStyle = C.text; ctx.font = FONT(600, 10);
+  ctx.fillText(narrow ? 'CATHETER TIP · mmHg' : 'CATHETER TIP PRESSURE · RIGHT HEPATIC VEIN · mmHg', x, y + 13);
+  const big = Math.round(clamp(Math.min(W * 0.1, H * 0.14), 22, 40));
+  let label, num = '', col = C.text;
+  if (ph === 'abort') {
+    ctx.font = FONT(600, 12); ctx.fillStyle = C.danger; ctx.fillText('Aborted', x, y + 32);
+    ctx.textAlign = 'center'; ctx.font = FONT(600, 12); ctx.fillText(narrow ? 'Unable to cannulate hepatic vein' : 'Unable to cannulate hepatic vein: procedure aborted', w / 2, hh / 2 + 8);
+    ctx.fillStyle = C.text; ctx.font = FONT(500, 11); ctx.fillText('HVPG not measurable', w / 2, hh / 2 + 28);
+    return;
+  }
+  if (ph === 'idle') label = 'Ready';
+  else if (ph === 'enter') label = 'Catheter advancing';
+  else if (ph === 'free') { label = 'FHVP'; num = fmt(pAt(t, v), 1); col = C.free; }
+  else if (ph === 'wedge') { label = t < T.wedge ? 'Balloon inflating' : t < T.callout ? 'Settling' : 'WHVP'; num = fmt(pAt(t, v), 1); col = C.wedge; }
+  else if (running && t < T.sum) { label = 'WHVP'; num = fmt(v.whvp, 1); col = C.wedge; }
+  else { label = 'HVPG'; num = fmt(v.hvpg, 1); col = C[sevOf(v.hvpg)]; }
+  ctx.font = FONT(600, 12); ctx.fillStyle = col === C.text ? C.bright : col; ctx.fillText(label, x, y + 32);
+  if (num) { ctx.font = FONT(700, big); ctx.textAlign = 'right'; ctx.fillText(num, x + W, y + 14 + big); ctx.textAlign = 'left'; }
+  const top = y + 30 + Math.max(big, 26) - 4, bot = y + H - 16, L = x + 22, R = x + W - (narrow ? 2 : 50);
+  if (bot - top < 40) return;
+  const ymax = Math.max(15, Math.ceil((Math.max(v.whvp, v.fhvp) + 5) / 5) * 5);
+  const Y = (p) => bot - (clamp(p, 0, ymax) / ymax) * (bot - top);
+  const X = (tt) => L + k01(tt, T.free - 300, T.back) * (R - L);
+  ctx.lineWidth = 1; ctx.font = FONT(500, 9.5); ctx.fillStyle = C.text; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (let p = 0; p <= ymax; p += 5) {
+    ctx.strokeStyle = p ? C.grid : C.line; ctx.beginPath(); ctx.moveTo(L, Math.round(Y(p)) + 0.5); ctx.lineTo(R, Math.round(Y(p)) + 0.5); ctx.stroke();
+    if (p % 10 === 0 || ymax <= 20) ctx.fillText(String(p), L - 5, Y(p));
+  }
+  if (ph === 'idle' || ph === 'enter') {
+    ctx.textAlign = 'center'; ctx.fillStyle = C.text; ctx.font = FONT(500, 11);
+    ctx.fillText(blocked && t >= TB.probe0 ? 'Probing the ostium: the vein will not take the catheter…' : ph === 'idle' ? 'The tracing starts once the tip is in the hepatic vein.' : 'Waiting for the hepatic vein…', (L + R) / 2, (top + bot) / 2);
+    return;
+  }
+  // The trace, swept up to now: blue while free, violet once the balloon is up.
+  const tNow = Math.min(t, T.back);
+  const seg = (a, b, colr) => {
+    if (tNow <= a) return;
+    ctx.strokeStyle = colr; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.beginPath();
+    for (let tt = a; tt <= Math.min(b, tNow); tt += 30) { const X1 = X(tt), Y1 = Y(pAt(tt, v)); tt === a ? ctx.moveTo(X1, Y1) : ctx.lineTo(X1, Y1); }
+    ctx.stroke();
+  };
+  seg(T.free - 300, T.inflate, C.free);
+  seg(T.inflate, T.back, C.wedge);
+  if (t < T.back) { ctx.fillStyle = C.bright; ctx.beginPath(); ctx.arc(X(tNow), Y(pAt(tNow, v)), 2.6, 0, Math.PI * 2); ctx.fill(); }
+  const level = (p, colr, txt) => {
+    ctx.save(); ctx.strokeStyle = colr; ctx.globalAlpha = 0.75; ctx.setLineDash([4, 4]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(L, Y(p)); ctx.lineTo(R, Y(p)); ctx.stroke(); ctx.restore();
+    if (!narrow) { ctx.fillStyle = colr; ctx.font = FONT(600, 10); ctx.textAlign = 'left'; ctx.fillText(txt, R + 6, Y(p) - 6); ctx.font = FONT(700, 11); ctx.fillText(fmt(p, 1), R + 6, Y(p) + 7); }
+  };
+  if (t >= T.inflate) level(v.fhvp, C.free, 'FHVP');
+  if (ph === 'result') {
+    level(v.whvp, C.wedge, 'WHVP');
+    const a = ease(k01(t, T.sum - 400, T.sum + 200)), xa = L + (R - L) * 0.9, y1 = Y(v.fhvp), y2 = Y(v.fhvp + (v.whvp - v.fhvp) * a), col2 = C[sevOf(v.hvpg)];
+    ctx.strokeStyle = col2; ctx.fillStyle = col2; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(xa, y1); ctx.lineTo(xa, y2); ctx.stroke();
+    if (Math.abs(y1 - y2) > 10) for (const [yy, d] of [[y1, 1], [y2, -1]]) { ctx.beginPath(); ctx.moveTo(xa, yy); ctx.lineTo(xa - 4, yy - 6 * d); ctx.lineTo(xa + 4, yy - 6 * d); ctx.closePath(); ctx.fill(); }
+    if (a > 0.6) {
+      ctx.save(); ctx.globalAlpha = ease(k01(t, T.sum, T.sum + 450));
+      const txt = `HVPG ${fmt(v.hvpg, 1)}`; ctx.font = FONT(700, 11.5);
+      const tw = ctx.measureText(txt).width + 12, lx = xa - tw - 6, ly = (y1 + y2) / 2;
+      ctx.fillStyle = C.bg; rrect(ctx, lx, ly - 9, tw, 18, 9); ctx.fill(); ctx.strokeStyle = col2; ctx.lineWidth = 1; ctx.stroke();
+      ctx.fillStyle = col2; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(txt, lx + 6, ly + 0.5);
+      ctx.restore();
+    }
+  }
+  ctx.fillStyle = C.text; ctx.font = FONT(500, 9); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText('balloon up', X(T.inflate), bot + 13);
+  ctx.strokeStyle = C.line; ctx.beginPath(); ctx.moveTo(X(T.inflate), bot); ctx.lineTo(X(T.inflate), bot + 4); ctx.stroke();
 }
 
 function rrect(ctx, x, y, w, h2, r) {
