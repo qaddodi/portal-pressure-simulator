@@ -19,9 +19,9 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=cab65850a4';
 import { sinusoidSupported } from './sinusoid-view.js?v=5fb063d790';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
-import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=5b294e9057';
+import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=9cef6e294c';
 import { createTools } from './presenter-tools.js?v=621f749226';
-import { openHandout } from './handout.js?v=537d0d6a21';
+import { openHandout } from './handout.js?v=5d03010049';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -957,7 +957,15 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     if (cut()) return;
     if (!s.visual) {
       // The slide's marks, labels, the stations its terms name (in their colours) and its glows (see slideTargets).
-      const tg = q ? null : slideTargets(s), marks = q ? [] : (s.marks || (s.mark ? [s.mark] : [])).map((m) => ({ edges: [...m.edges], label: m.label, kind: m.kind || 'block' }));
+      const tg = q ? null : slideTargets(s);
+      let marks = q ? [] : (s.marks || (s.mark ? [s.mark] : [])).map((m) => ({ edges: [...m.edges], label: m.label, kind: m.kind || 'block' }));
+      // A note mark is a pointer: its vessel glows in its station's colour. Where a station label on the slide already
+      // names that vessel, the pointer would only repeat it, so it goes (the glow stays).
+      if (tg) {
+        const named = new Set([...(s.labels || []), ...tg.labels].flatMap((n) => TARGETS[n]?.edges || []));
+        for (const m of marks) if (m.kind === 'note') for (const e of m.edges) if (!tg.glow.some((g) => g.id === e)) tg.glow.push({ id: e, tone: EDGE_TONE[e] || 'accent' });
+        marks = marks.filter((m) => !(m.kind === 'note' && m.edges.some((e) => named.has(e))));
+      }
       store.set({ presentLabels: q ? [] : [...new Set([...(s.labels || []), ...tg.labels])], presentTerms: tg?.terms || null,
         presentNames: !q && (s.data === 'ladder' || !!s.cath),
         focus: marks.length ? { ...marks[0], marks } : null, lobuleCallout: q || !s.callout ? null : { kind: 'block', ...s.callout } });

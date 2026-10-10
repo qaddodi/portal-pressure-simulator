@@ -921,7 +921,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The Doppler's vessel: a steady green glow and a thin green edge around it while the Doppler
   // instrument is open. The vessel's middle is masked out, so its pressure colour shows through
   // (the GPU draws the vessels under this layer).
-  function makeMark(key, cls, { band: bandW = 60, glow: glowW = 18, edge: edgeW = 5 } = {}) {
+  function makeMark(key, cls, { band: bandW = 60, glow: glowW = 18, edge: edgeW = 5, blur: blurSd = 5 } = {}) {
     const g = s('g', { class: `${cls}-mark`, 'aria-hidden': 'true' });
     const BIG = { x: -4000, y: -4000, width: 12000, height: 12000 };
     // The mask: a wide band along the vessel that fades in from each end (open ends, no caps), with
@@ -934,7 +934,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     mask.append(band, knock);
     // The blur works in user space: a straight vessel's own box has no height, which would clip it.
     const blur = s('filter', { id: `${key}-blur`, filterUnits: 'userSpaceOnUse', ...BIG });
-    blur.append(s('feGaussianBlur', { stdDeviation: 5 }));
+    blur.append(s('feGaussianBlur', { stdDeviation: blurSd }));
     const defs = s('defs');
     defs.append(fade, mask, blur);
     const glow = s('path', { class: `${cls}-glow`, filter: `url(#${key}-blur)` });
@@ -988,7 +988,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     for (const [id, tone] of want) {
       let m = pg.get(id);
-      if (!m) { m = makeMark(`pg-${id}`, 'pg'); m.id = id; pg.set(id, m); }
+      if (!m) { m = makeMark(`pg-${id}`, 'pg', { band: 34, glow: 10, edge: 2.5, blur: 3 }); m.id = id; pg.set(id, m); }   // (tighter than the Doppler's: a slide can light several)
       clearTimeout(m.t); m.on = true;
       m.g.style.setProperty('--pg', tone.startsWith('--') ? `var(${tone})` : tone === 'accent' ? 'var(--accent)' : `var(--tr-${tone})`);
       const x = E[id], d = x.wall.getAttribute('d'); if (d) m.paint(d, x.dopW || 8);

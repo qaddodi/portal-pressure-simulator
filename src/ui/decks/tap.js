@@ -57,7 +57,7 @@ export const TAP = {
       ask: ['Starting doses of spironolactone and furosemide?', '100 mg and 40 mg a day, raised together in that ratio.'],
     },
     {
-      id: 'tips', params: { tips: { on: true } }, days: 28, cam: 'liver', mark: { edges: ['TIPS'], label: 'Covered stent' }, data: 'tiles', tiles: ['asc', 'ppg', 'liver'], key: ['asc'], delta: true,
+      id: 'tips', params: { tips: { on: true } }, days: 28, cam: 'liver', mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'tiles', tiles: ['asc', 'ppg', 'liver'], key: ['asc'], delta: true,
       kicker: 'Refractory ascites', site: 'sin', title: 'TIPS for refractory ascites',
       line: 'A PPG below {<12 mmHg} stops the excess lymph at its source, and the fluid falls to {asc}. The cost: less blood for the liver, and about one in three develops encephalopathy.',
       notes: 'In recurrent or refractory ascites, a covered TIPS improves survival over repeated paracentesis in selected patients: bilirubin under about 3 mg/dL, no recurrent encephalopathy, no heart failure or severe pulmonary hypertension. The ascites clears over weeks to months, diuretics continued at first. The model clears it faster.',

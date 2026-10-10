@@ -46,7 +46,7 @@ export const BLEED = {
       ask: ['Which two drugs start before the endoscopy?', 'Octreotide and an antibiotic, usually ceftriaxone.'],
     },
     {
-      id: 'band', action: [BAND, BAND, BAND], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices' }, tool: BEATS, data: 'tiles', tiles: ['map', 'hr'], key: ['map'], delta: true,
+      id: 'band', action: [BAND, BAND, BAND], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }, tool: BEATS, data: 'tiles', tiles: ['map', 'hr'], key: ['map'], delta: true,
       kicker: 'Endoscopy', site: 'sin', title: 'Bands stop the bleeding',
       line: 'Endoscopy within 12 hours, once the patient is stable. Bands on the bleeding varix stop the loss, but the blood pressure stays low until volume is given.',
       notes: 'Band ligation controls most variceal bleeds. If bleeding cannot be controlled, a balloon tube or a self-expanding esophageal stent buys time as a bridge to a rescue TIPS. Banding does not lower the portal pressure; over the following days it raises the HVPG slightly as the varix closes.',
