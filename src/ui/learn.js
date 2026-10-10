@@ -333,7 +333,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
   const liftOver = (card) => {
     const wrap = document.getElementById('stageView')?.getBoundingClientRect(), q = card?.getBoundingClientRect();
     const px = card && wrap && q.height ? `${Math.round(wrap.bottom - q.top + 8)}px` : '';
-    for (const b of document.querySelectorAll('.stage-credit, .zoom-pill, .stage-clock')) b.style.setProperty('--sheet-h', px);
+    for (const b of document.querySelectorAll('.zoom-pill, .stage-clock')) b.style.setProperty('--sheet-h', px);
   };
   let sheetMin = false;
   const snaps = [];             // starting state of each step, for Replay

@@ -471,6 +471,41 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if (bad.length) throw new Error(`${w}×${hgt} ${q}${act ? ' + ' + act : ''}: ${bad.join('; ')}`);
     }
   });
+  // The corner credit never sits on or touches a card, a sheet, a bar or a slide's panels, in every mode and on every
+  // slide of a deck; it may fade out only when no figure is left (src/ui/credit.js).
+  await check(device, 'corner credit never touches a card', async (page) => {
+    const sizes = device === 'desktop' ? [[1440, 900], [820, 1180]] : [[390, 844]];
+    const creditHits = () => page.evaluate(() => {
+      const c = document.querySelector('.stage-credit'), r = c.getBoundingClientRect();
+      if (+getComputedStyle(c).opacity < 0.5) return [];
+      const out = [];
+      for (const el of document.querySelectorAll('.stage-blocker:not([hidden]), .menu, .pz-text, .pz-data, .pz-panel, .pz-bar')) {
+        const st = getComputedStyle(el), q = el.getBoundingClientRect();
+        if (st.display === 'none' || st.visibility === 'hidden' || +st.opacity < 0.05 || !q.width) continue;
+        if (q.left < r.right + 4 && q.right > r.left - 4 && q.top < r.bottom + 4 && q.bottom > r.top - 4) out.push(el.id || el.className.split(' ')[0]);
+      }
+      return out;
+    });
+    const settle = async () => { await page.waitForTimeout(900); await page.waitForFunction(() => !document.querySelector('.stage-credit.moving'), null, { timeout: 5000 }).catch(() => {}); };
+    const verify = async (what) => {
+      await settle();
+      let bad = await creditHits();
+      for (let i = 0; i < 3 && bad.length; i++) { await settle(); bad = await creditHits(); }
+      if (bad.length) throw new Error(`${what}: the credit touches ${bad.join(', ')}`);
+    };
+    for (const [w, hgt] of sizes) {
+      await page.setViewportSize({ width: w, height: hgt });
+      const at = `${w}×${hgt}`;
+      await open(page, '?preset=cirr-decomp'); await verify(`${at} explore`);
+      await page.evaluate(() => window.pps.store.set({ selection: { type: 'edge', id: 'PV_TRUNK' } })); await verify(`${at} vessel card`);
+      await open(page, '?preset=cirr-decomp'); await page.click('#tabInstruments'); await verify(`${at} tests`);
+      await page.evaluate(() => document.querySelector('#btnInspector').click()); await verify(`${at} tests + patient`);
+      await open(page, '?lesson=portal-flow'); await verify(`${at} lesson`);
+      await open(page, '?case=bleed'); await verify(`${at} case`);
+      await open(page, '?script=circulation');
+      for (let i = 0; i < 10; i++) { await verify(`${at} slide ${i + 1}`); await page.keyboard.press('ArrowRight'); }
+    }
+  });
   // The figure's labels never sit on each other: at the home framing, for every patient, on a phone, an iPad
   // held upright and a laptop, in the anatomy and the circuit (stage.js layoutLabels, its last overlap pass).
   await check(device, 'figure labels never overlap', async (page) => {
@@ -527,7 +562,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await page.waitForTimeout(500);
       const found = await page.evaluate(() => {
         const ART = '#stage, #labels, .lz-lab, .lz-zone, .mon, .legend, svg';
-        const DISPLAY = '.presenter-title, .big-overlay';
+        // (The corner credit is a signature drawn on the figure, set below the interface sizes so it never competes with them.)
+        const DISPLAY = '.presenter-title, .big-overlay, .stage-credit';
         const SIZES = [12, 14, 16, 20, 28], WEIGHTS = [400, 500, 600], ICONS = [16, 20, 24];
         const shown = (el) => { const r = el.getBoundingClientRect(), st = getComputedStyle(el); return r.width > 0 && r.height > 0 && st.visibility !== 'hidden'; };
         const who = (el) => { const c = (e) => e ? e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (typeof e.className === 'string' && e.className ? '.' + e.className.trim().split(/\s+/)[0] : '') : ''; return `${c(el.parentElement)} > ${c(el)}`; };

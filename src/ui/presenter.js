@@ -17,7 +17,7 @@ import { store, replaceParams } from './store.js?v=5edd069b32';
 import { h, toast, svgIcon, icon, fmt, clamp } from './util.js?v=2bfec33ead';
 import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=61c8b94b98';
-import { sinusoidSupported } from './sinusoid-view.js?v=746b94f699';
+import { sinusoidSupported } from './sinusoid-view.js?v=4e2c50cdcf';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=290c1c555a';
 import { createHvpgMonitor } from './hvpg-proc.js?v=bd13aee321';
@@ -1349,14 +1349,6 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     set('--pz-r', !p && d ? W - (d.left - wr.left) + 8 : 0);
     set('--pz-t', p && d ? (ui.data.offsetTop + ui.data.offsetHeight) * k + 4 : 0);   // (offsets: a card coming in is still shifted by its entry transform)
     set('--pz-b', p && t ? B + 34 : 0);
-    // The corner credit rises above a data card or the numbers panel that reaches it (always on a phone, where they stack
-    // over the figure's lower part; on a tablet in portrait when the data card sits under the words).
-    // (Measured by layout offsets, not rects: a card fading in is still shifted by its entry transform.)
-    const cr = wrap.querySelector('.stage-credit'), rest = (p ? 78 : 14) + 22, reach = (cr?.offsetWidth || 220) + 40;
-    const lift = Math.max(0, ...[ui.data, ui.panel].filter((e) => !off(e) && e.offsetLeft < reach && H - (e.offsetTop + e.offsetHeight) < rest).map((e) => H - e.offsetTop));
-    cr?.style.setProperty('--sheet-h', lift ? `${Math.round(lift) + 12}px` : '');
-    // With the words above and a card below leaving no figure between them, the credit fades out.
-    cr?.classList.toggle('pz-covered', p && lift > 0 && H - lift - (t ? T + 34 : 0) < 56);
     dispatchEvent(new Event('pps:occ'));
   }
   const onResize = () => {
@@ -1633,7 +1625,6 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     ui?.tools.dispose(); ui?.root.remove(); ui?.shade.remove(); ui = null;
     view.classList.remove('pz-out');
     for (const k of ['--pz-l', '--pz-r', '--pz-t', '--pz-b']) app.style.removeProperty(k);
-    wrap.querySelector('.stage-credit')?.style.removeProperty('--sheet-h'); wrap.querySelector('.stage-credit')?.classList.remove('pz-covered');
     stage.setProjection(false);
     document.documentElement.style.setProperty('--label-k', String(stage.labelEff())); document.documentElement.style.setProperty('--label-scale', String(stage.labelScale()));
     dispatchEvent(new Event('pps:labelscale'));

@@ -658,7 +658,7 @@ export function createCases({ root, api, coach, onUnitEnd }) {
   const liftOver = (card) => {
     const wrap = document.getElementById('stageView')?.getBoundingClientRect(), q = card?.getBoundingClientRect();
     const px = card && wrap && q.height ? `${Math.round(wrap.bottom - q.top + 8)}px` : '';
-    for (const b of document.querySelectorAll('.stage-credit, .zoom-pill, .stage-clock')) b.style.setProperty('--sheet-h', px);
+    for (const b of document.querySelectorAll('.zoom-pill, .stage-clock')) b.style.setProperty('--sheet-h', px);
   };
   const MAX_ORDERS = 3;
   const unitSteps = () => [{ kind: 'present', title: 'The patient' }, { kind: 'orders', title: 'Orders' }, ...ctx.unit.def.steps.map((s) => ({ ...s, kind: s.type })), { kind: 'result', title: 'Result' }, { kind: 'debrief', title: 'Debrief' }];
