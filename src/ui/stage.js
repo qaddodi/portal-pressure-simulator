@@ -3387,7 +3387,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const el = document.createElement('div');
       el.className = 'scan-probe cath-pre'; el.setAttribute('aria-hidden', 'true');
       el.innerHTML = '<svg viewBox="0 0 220 96"><defs><radialGradient id="sp-beam" cx="66" cy="48" r="150" gradientUnits="userSpaceOnUse">'
-        + '<stop offset="0" stop-color="var(--tr-wedge)" stop-opacity=".22"/><stop offset="1" stop-color="var(--tr-wedge)" stop-opacity="0"/></radialGradient></defs>'
+        + '<stop offset="0" stop-color="var(--scan)" stop-opacity=".22"/><stop offset="1" stop-color="var(--scan)" stop-opacity="0"/></radialGradient></defs>'
         + '<path class="sp-beam" d="M66 48 L197.6 -23.9 A150 150 0 0 1 197.6 119.9 Z"/><g class="sp-waves">'
         + '<g><path class="sp-rip"/><path class="sp-front"/><path class="sp-rip"/></g>'.repeat(SCAN_N) + '</g>'
         + '<path class="sp-cable" d="M2 48 C10 48 14 48 20 48"/><g class="sp-head"><rect class="sp-body" x="18" y="36" width="40" height="24" rx="10"/>'

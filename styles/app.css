@@ -2757,7 +2757,7 @@ button.finding:hover { background: var(--surface-2); }
 .cath-label.site { transition: opacity .6s var(--ease) .35s, scale .6s var(--ease) .35s; }
 .cath-label.site.pv { --c: var(--tr-pv); } .cath-label.site.ivc { --c: var(--tr-ivc); }
 /* The FibroScan probe on the skin over the liver; its shear wave eases out into the right lobe and fades. */
-.scan-probe { position: absolute; left: 0; top: 0; width: 220px; height: 96px; translate: 0 -50%; transition: opacity .6s var(--ease); pointer-events: none; }
+.scan-probe { --scan: #f0924a; /* the orange of the FibroScan card's readout (ORANGE in fibroscan.js) */ position: absolute; left: 0; top: 0; width: 220px; height: 96px; translate: 0 -50%; transition: opacity .6s var(--ease); pointer-events: none; }
 .scan-probe.cath-pre, .scan-probe.off { opacity: 0; }
 .scan-probe svg { width: 220px; height: 96px; overflow: visible; transform: rotate(45deg); transform-origin: 66px 48px; }   /* probe and beam turned 45° about the tip, pointing down-right */
 .scan-probe .sp-body { fill: var(--surface); stroke: var(--text-2); stroke-width: 1.6; }
@@ -2765,7 +2765,7 @@ button.finding:hover { background: var(--surface-2); }
 .scan-probe .sp-cable { fill: none; stroke: var(--text-3); stroke-width: 3; stroke-linecap: round; }
 .scan-probe .sp-beam { fill: url(#sp-beam); filter: blur(5px); }
 .scan-probe .sp-waves > g { opacity: 0; }
-.scan-probe .sp-waves path { fill: none; stroke: var(--tr-wedge); stroke-linecap: round; }
+.scan-probe .sp-waves path { fill: none; stroke: var(--scan); stroke-linecap: round; }
 .scan-probe .sp-rip { stroke-width: 1.4; stroke-opacity: .35; }
 .scan-probe .sp-front { stroke-width: 2.2; stroke-opacity: .95; }
 .scan-probe .sp-head { transform-box: view-box; transform-origin: 40px 48px; }
