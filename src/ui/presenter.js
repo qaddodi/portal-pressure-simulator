@@ -4,8 +4,8 @@
 // A slide is one idea: a big headline, one line, a few causes, and a figure that explains it. Every
 // slide's model state is computed off screen first (a second engine in its own worker, worker-core.js
 // 'sequence'), each from the slide before, so the live figure only ever shows finished states and
-// forward, back and jump always agree. Between slides the words fade over; a change of patient fades the
-// figure out and back in; then the camera travels: to a region of the plate, or down into the lobule and
+// forward, back and jump always agree. Between slides the words fade over; a change of patient dims the
+// figure (never to blank) and brings it back; then the camera travels: to a region of the plate, or down into the lobule and
 // on to a portal tract, the sinusoids or a central vein. The pressure ladder and the tiles count to their
 // new values.
 //
@@ -19,7 +19,7 @@ import { SITES } from './ladder.js?v=d0e8d913b4';
 import { sinusoidSupported } from './sinusoid-view.js?v=cf0ef90530';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { NODES } from '../engine/topology.js?v=dc393aabea';
-import { DECKS, REGIONS, LEVELS } from './decks.js?v=5906f20fac';
+import { DECKS, REGIONS, LEVELS } from './decks.js?v=7e4ff1383c';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -424,7 +424,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
   }
 
   // ── The figure's moves ──
-  const fadeMs = () => (reduce.matches ? 0 : 340);
+  const fadeMs = () => (reduce.matches ? 0 : 420);
   async function figureOut() { view.classList.add('pz-out'); await wait(fadeMs()); }
   function figureIn() { view.classList.remove('pz-out'); }
   async function toAnatomy() {
@@ -677,7 +677,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
       panel.hidden = true; panel.replaceChildren(); ui.veil.classList.remove('on');
       text.hidden = false;
       text.replaceChildren(...(q
-        ? [kick(null, 'Quiz'), h('h1', { class: 'pz-h' }, s.quiz), s.rail ? rail(null) : null, h('p', { class: 'pz-line pz-hint' }, 'Read the ladder, take answers from the room, then press → to reveal.')]
+        ? [kick(null, 'Quiz'), h('h1', { class: 'pz-h' }, s.quiz), s.rail ? rail(null) : null, h('p', { class: 'pz-line pz-hint' }, 'Take answers from the audience, then press → to show the answer.')]
         : [kick(s.site, s.kicker), h('h1', { class: 'pz-h' }, nb(s.title)), s.line ? h('p', { class: 'pz-line' }, s.line) : null,
           s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, `Day 0 of ${s.days}`)) : null,
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
@@ -854,7 +854,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     ui.notes.replaceChildren(
       h('div', { class: 'pn-top' }, h('span', { class: 'pn-k' }, `Speaker notes · ${want + 1} / ${slides.length}`), h('button', { class: 'ib', 'aria-label': 'Close notes', onclick: () => toggleNotes(false) }, icon('close'))),
       h('h2', {}, s.title), h('p', {}, notes || 'No notes for this slide.'),
-      ask ? h('div', { class: 'pn-ask' }, h('b', {}, 'Ask the room'), h('p', {}, ask[0]), ask[1] ? h('p', { class: 'pn-a' }, 'Expected: ' + ask[1]) : null) : null,
+      ask ? h('div', { class: 'pn-ask' }, h('b', {}, 'Question for the audience'), h('p', {}, ask[0]), ask[1] ? h('p', { class: 'pn-a' }, 'Answer: ' + ask[1]) : null) : null,
       nx ? h('p', { class: 'pn-next' }, `Next: ${nx.title}`) : null);
   }
   function speaker() {
@@ -888,7 +888,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     const d = speakerWin.document, s = slides[want], nx = slides[want + 1], { notes, ask } = noteOf(s);
     const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
     d.getElementById('n').textContent = `Slide ${want + 1} of ${slides.length}${asking(s, wantRev) ? ' · quiz question showing' : ''}`;
-    d.getElementById('c').innerHTML = `<div class="k">${esc(s.kicker)}</div><h1>${esc(s.title)}</h1><p>${esc(notes || 'No notes for this slide.')}</p>${ask ? `<div class="ask"><b>Ask the room</b><p>${esc(ask[0])}</p><p class="a">Expected: ${esc(ask[1])}</p></div>` : ''}`;
+    d.getElementById('c').innerHTML = `<div class="k">${esc(s.kicker)}</div><h1>${esc(s.title)}</h1><p>${esc(notes || 'No notes for this slide.')}</p>${ask ? `<div class="ask"><b>Question for the audience</b><p>${esc(ask[0])}</p><p class="a">Answer: ${esc(ask[1])}</p></div>` : ''}`;
     d.getElementById('nx').innerHTML = nx ? `<div class="k">Next</div><h2>${esc(nx.title)}</h2><p>${esc(nx.line || '')}</p>` : '<div class="k">Last slide</div>';
     paintSpeakerClock();
   }
@@ -1054,17 +1054,13 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
         h('button', { class: 'btn sm ghost', onclick: () => exportScript(s) }, 'Export'),
         h('button', { class: 'btn sm ghost', onclick: () => remove(s.id) }, 'Delete')));
     return h('div', { class: 'pz-lib' },
-      h('p', { class: 'ctl-sub lib-note' }, 'Presentations on the live model for a lecture hall: big words, the figure doing the explaining, speaker notes and a question for the room on every slide.'),
+      h('p', { class: 'ctl-sub lib-note' }, 'Slide presentations that run on the live model, with speaker notes and a question for the audience on each slide.'),
       h('div', { class: 'pz-decks' }, DECKS.map(deckCard)),
       h('h3', { class: 'home-sub' }, 'Your scripts'),
-      mine.length ? h('div', { class: 'home-grid' }, mine.map(scriptCard)) : h('p', { class: 'ctl-sub' }, 'A script is a list of model states you capture yourself, presented the same way.'),
+      mine.length ? h('div', { class: 'home-grid' }, mine.map(scriptCard)) : h('p', { class: 'ctl-sub' }, 'A script is a series of model states you capture yourself. It plays like the presentations above.'),
       h('div', { class: 'btn-row', style: { marginTop: '12px' } },
         h('button', { class: 'btn', onclick: newScript }, 'New script from the current model'),
         h('button', { class: 'btn', onclick: importFile }, 'Import a script')),
-      cases.length ? h('h3', { class: 'home-sub' }, 'Present a case') : null,
-      cases.length ? h('div', { class: 'home-grid' }, cases.map((c) => h('div', { class: 'home-item script' },
-        h('span', { class: 'meta' }, 'Case · for the room'), h('span', { class: 't' }, c.title), h('span', { class: 'd' }, c.blurb || c.summary || ''),
-        h('span', { class: 'script-acts' }, h('button', { class: 'btn sm primary', onclick: () => presentCase(c.id) }, svgIcon('projector', 'mi-ic'), 'Present'))))) : null,
       h('p', { class: 'ctl-sub' }, 'While presenting: → or Page Down next, ← back, a number then Enter jumps, B black screen, F full screen, N notes, S a speaker window for a second screen, Q quiz, L laser, Esc stops. Clickers work.'));
   }
 

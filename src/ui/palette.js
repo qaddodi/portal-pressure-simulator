@@ -7,8 +7,6 @@ import { h, svgIcon, toast } from './util.js?v=e803df99cd';
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
 import { DRUGS } from '../engine/scenario.js?v=d88966abe6';
 import { HIDDEN_EDGES } from './anatomy.js?v=c9178ee66a';
-import { LESSONS } from './learn.js?v=d0e121ef3f';
-import { CASES } from './cases.js?v=a726cbf43e';
 
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9+ ]/g, ' ');
 
@@ -68,8 +66,6 @@ export function createPalette({ ctx }) {
     for (const [id, t] of [['liver', 'Liver'], ['heart', 'Right heart'], ['varices', 'Esophageal varices'], ['gastric', 'Fundal varices'], ['spleen', 'Spleen'], ['abdomen', 'Ascites']]) add('Go to', t, () => ctx.select({ type: 'organ', id }), { kw: 'organ select' });
     // Sessions and scenarios
     for (const p of st.presetList || []) add('Patient', p.label, () => ctx.loadPreset(p.id), { kw: `scenario preset ${p.group}` });
-    for (const l of LESSONS) add('Lesson', l.title, () => ctx.lesson(l.id), { kw: 'learn ' + l.summary });
-    for (const c of CASES) add('Case', c.title, () => ctx.caseStart(c.id), { kw: 'case ' + c.summary });
     add('App', 'Home', () => ctx.home(), { kw: 'start' });
     add('App', 'Reset everything', () => ctx.reset(), { kw: 'reset reload refresh clear start over' });
     add('App', 'Light / dark theme', () => ctx.theme(), { kw: 'appearance' });

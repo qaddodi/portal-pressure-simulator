@@ -202,7 +202,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForSelector('#home:not([hidden])');
     await shot(page, `${device}-home`);
     await page.evaluate(() => window.pps.home.open('present'));
-    await page.waitForFunction(() => document.querySelector('#home .script, #home .home-item'));
+    await page.waitForFunction(() => document.querySelector('#home .pz-deck, #home .script'));
     await page.keyboard.press('Escape');
     await page.evaluate(() => window.pps.palette.open());
     await page.waitForSelector('.pal-back:not([hidden])');

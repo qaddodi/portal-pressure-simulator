@@ -935,9 +935,9 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .cs-keys { display: flex; flex-direction: column; gap: 6px; }
 .cs-crit { margin-left: auto; color: var(--text-3); font-size: var(--fs-12); }
 .cs-cmp { display: flex; flex-direction: column; gap: 8px; }
-.cs-cmp-row { border: 1px solid var(--border); border-left-width: 4px; border-radius: var(--r-card); padding: 10px 14px; font-size: var(--fs-14); }
-.cs-cmp-row.ok { border-left-color: var(--ok); }
-.cs-cmp-row.miss { border-left-color: var(--caution); }
+.cs-cmp-row { border: 1px solid var(--border); border-radius: var(--r-card); padding: 10px 14px; font-size: var(--fs-14); }
+.cs-cmp-row.ok { background: color-mix(in srgb, var(--ok) 5%, var(--surface)); }
+.cs-cmp-row.miss { background: color-mix(in srgb, var(--caution) 6%, var(--surface)); }
 .cs-cmp-row div { display: flex; gap: 10px; margin-top: 4px; }
 .cs-cmp-row div span { flex: none; width: 48px; color: var(--text-3); font-size: var(--fs-12); font-weight: 600; text-transform: uppercase; padding-top: 2px; }
 .cs-cmp-row p { margin: 6px 0 0; color: var(--text-2); }
@@ -1784,8 +1784,8 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .app.presenting .stage-bar, .app.presenting #zoomPill, .app.presenting .zoom-crumbs, .app.presenting .action-card, .app.presenting .coach,
 .app.presenting #toolHint, .app.presenting .stage-clock, .app.presenting .hover-tip, .app.presenting .cmp-badge, .app.presenting .instr-float,
 .app.presenting .big-overlay, .app.presenting .projector-exit, .app.presenting #stageCenter { display: none; }
-.app.presenting #stageView { z-index: 0; transition: opacity .55s var(--ease); }   /* its own layer, so the slide's shade can lie over it and under the credit */
-.app.presenting #stageView.pz-out { opacity: 0; transition-duration: .34s; }
+.app.presenting #stageView { z-index: 0; transition: opacity .6s var(--ease); }   /* its own layer, so the slide's shade can lie over it and under the credit */
+.app.presenting #stageView.pz-out { opacity: .22; transition-duration: .42s; }
 .app.presenting .focus-ring { stroke: var(--danger); stroke-opacity: .5; animation: pz-fade .6s var(--ease) both, focusPulse 1.6s ease-in-out .6s infinite; }
 .app.presenting #labels .lb.focus .lb-bg { fill: var(--danger); }
 .app.presenting #labels .leader.focus { stroke: var(--danger); }
@@ -1993,7 +1993,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .pz-notes h2 { margin: 6px 0 10px; font: 600 var(--fs-20)/1.2 var(--font-display); }
 .pz-notes .pn-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .pz-notes .pn-k { font: 600 var(--fs-12) var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
-.pz-notes .pn-ask { margin: 14px 0; padding: 10px 12px; border-left: 4px solid var(--accent); background: var(--accent-soft); border-radius: 6px; }
+.pz-notes .pn-ask { margin: 14px 0; padding: 12px 14px; border: 1px solid var(--border); background: var(--surface-2); border-radius: 8px; }
 .pz-notes .pn-ask p { margin: 4px 0 0; }
 .pz-notes .pn-a { font-size: var(--fs-14); color: var(--text-2); }
 .pz-notes .pn-next { margin-top: 18px; font-size: var(--fs-14); color: var(--text-3); }
@@ -2024,13 +2024,17 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .pz.stack .pz-data.tiles-only .pz-tiles { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
 .pz.stack .pz-lapse { font-size: 14px; }
 .pz.stack .pz-count { display: none; }
+/* A phone scrolls what does not fit: the words, the data card and a visual each scroll on their own. The
+   stage's touch-action: none would otherwise stop iOS from scrolling anything inside it. */
+.app.presenting .stage-view { touch-action: pan-x pan-y; }
+.pz.stack .pz-text, .pz.stack .pz-data, .pz-panel { overflow-y: auto; overscroll-behavior: contain; touch-action: pan-x pan-y; }
+.pz.stack .pz-text, .pz.stack .pz-data { pointer-events: auto; }
 @media (prefers-reduced-motion: reduce) {
   .pz *, .pz, .app.presenting #stageView { animation: none !important; transition: none !important; }
 }
 /* Home › Present: the presentations, your scripts, present a case. */
 .pz-decks { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr)); gap: 16px; }
-.pz-deck { position: relative; display: flex; flex-direction: column; gap: 8px; padding: 20px 22px 18px; border: 1px solid var(--border); border-radius: var(--r-sheet); background: linear-gradient(160deg, color-mix(in srgb, var(--tour-portal) 7%, var(--surface)), color-mix(in srgb, var(--tour-sys) 7%, var(--surface))); overflow: hidden; }
-.pz-deck::before { content: ''; position: absolute; left: 0; top: 0; right: 0; height: 4px; background: linear-gradient(90deg, var(--tour-portal), var(--tour-sys)); }
+.pz-deck { position: relative; display: flex; flex-direction: column; gap: 8px; padding: 20px 22px 18px; border: 1px solid var(--border); border-radius: var(--r-sheet); background: var(--surface); overflow: hidden; }
 .pzd-top { display: flex; align-items: center; gap: 8px; font: 500 var(--fs-12) var(--font-ui); color: var(--text-3); }
 .pzd-lvl { padding: 2px 8px; border-radius: var(--r-pill); background: var(--surface); border: 1px solid var(--border); font-weight: 600; color: var(--text-2); }
 .pz-deck h3 { margin: 0; font: 600 var(--fs-28)/1.15 var(--font-display); letter-spacing: -.01em; color: var(--text); }
@@ -3516,13 +3520,11 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .trust-line { margin: 0 0 12px; font-size: var(--fs-12); line-height: 1.45; color: var(--text-3); }
 .lesson > .trust-line { font-size: var(--fs-12); line-height: 1.45; color: var(--text-3); }
 .teach-chip { display: inline-block; margin: 0 0 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); font-size: 11px; font-weight: 600; letter-spacing: .02em; color: var(--text-3); }
-.cmp-chip { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; margin: 0 0 12px; padding: 12px 16px; border-radius: var(--r-card); font-size: var(--fs-14); line-height: 1.4; background: var(--surface-2); color: var(--text); border-left: 4px solid var(--border-strong); }
+.cmp-chip { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; margin: 0 0 12px; padding: 12px 16px; border-radius: var(--r-card); font-size: var(--fs-14); line-height: 1.4; background: var(--surface-2); color: var(--text); border: 1px solid var(--hairline); }
 .cmp-chip i { font-style: normal; color: var(--text-3); }
 .cmp-chip .sep { color: var(--text-3); }
-.cmp-chip.right { border-left-color: var(--ok); background: color-mix(in srgb, var(--ok) 9%, var(--surface)); }
-.cmp-chip.wrong { border-left-color: var(--caution, #d98a00); background: color-mix(in srgb, var(--caution, #d98a00) 10%, var(--surface)); }
-.feedback.right, .feedback.wrong { border-left: 4px solid var(--ok); }
-.feedback.wrong { border-left-color: var(--caution, #d98a00); }
+.cmp-chip.right { background: color-mix(in srgb, var(--ok) 6%, var(--surface)); }
+.cmp-chip.wrong { background: color-mix(in srgb, var(--caution, #d98a00) 7%, var(--surface)); }
 /* The figure mirrors the question */
 .dir-mirror { position: absolute; z-index: var(--z-hud); transform: translate(-50%, -50%); pointer-events: none; display: flex; align-items: center; gap: 6px; }
 .dm-q { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font: 700 16px var(--font-ui); background: var(--accent); color: var(--on-accent, #fff); animation: dmPulse 1.2s ease-in-out infinite; }
@@ -3872,7 +3874,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .dr-test[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); }
 .dr-test:disabled:not([aria-pressed="true"]) { opacity: .45; cursor: default; }
 .dr-results { display: flex; flex-direction: column; gap: 6px; }
-.dr-res { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--surface-2); border-radius: 0 8px 8px 0; animation: lift .35s var(--ease) both; }
+.dr-res { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border: 1px solid var(--hairline); background: var(--surface-2); border-radius: 8px; animation: lift .35s var(--ease) both; }
 .dr-res b { font: 650 var(--fs-12) var(--font-ui); color: var(--text-2); }
 .dr-res span { font-size: var(--fs-14); line-height: 1.4; }
 .dr-step .tour-route { margin-top: 4px; }

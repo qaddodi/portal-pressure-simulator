@@ -8,7 +8,7 @@
 
 const EN = {
   'app.name': 'Portal Pressure Simulator',
-  'app.tagline': 'A living, physics-based model of the portal circulation. Raise a resistance anywhere from the gut to the heart and blood finds another way.',
+  'app.tagline': 'A physiological model of the portal circulation. Change the resistance anywhere from the gut to the heart and see how pressures and flow respond.',
   'app.disclaimer': 'Educational simulation. Simplified model with illustrative values; not for diagnosis or treatment decisions.',
   'top.patient': 'Patient', 'top.search': 'Search', 'top.chart': 'Side panel', 'top.panel.show': 'Show side panel', 'top.panel.hide': 'Hide side panel', 'top.share': 'Share and export', 'top.menu': 'Menu',
   'bar.anatomy': 'Anatomy', 'bar.circuit': 'Circuit', 'bar.lens': 'Lens', 'bar.lobule': 'Lobule', 'bar.sinusoid': 'Sinusoid', 'bar.instruments': 'Instruments', 'bar.figure': 'Figure',

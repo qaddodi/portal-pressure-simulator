@@ -11,7 +11,7 @@ import { createDrill, drillProgress, DRILL_TITLE, ROUNDS } from './drill.js?v=02
 import { skillsPath, reviewCard } from './practice.js?v=6d486e4141';
 import { UNITS, FINAL, PARTS, course } from './course.js?v=4e4bcc6304';
 import { openExam } from './exam.js?v=c9e5b145ef';
-import { t } from '../i18n/i18n.js?v=3113b1ec12';
+import { t } from '../i18n/i18n.js?v=96bbcced4d';
 import { exportCSV, exportXAPI, learnerName, setLearnerName, records } from './records.js?v=50fb9dd463';
 import { SNAPSHOTS, PATH } from './snapshots.js?v=34d1578d5f';
 import { pressureColor } from './colormap.js?v=6d64a94345';
@@ -59,7 +59,7 @@ function patientCard(p, cur, onPreset) {
 
 // Who is using the simulator (chosen in Settings): Student sees the course and a simpler Explore;
 // Instructor adds the physiology knobs, the case and lesson libraries, the presenter and unlocking units.
-export const ROLES = [['student', 'Student', 'The course, and a simpler Explore.'], ['instructor', 'Instructor', 'Everything open: physiology knobs, resistances, libraries, Present and unlock all units.']];
+export const ROLES = [['student', 'Student', 'A simpler set of controls, with the HVPG shown from the start.'], ['instructor', 'Instructor', 'All controls, including the physiology settings and resistances.']];
 
 // One row of the unit list: its number (a check once done, a lock until it opens), title, objective and time.
 function unitRow(u, onUnit) {
@@ -101,18 +101,18 @@ const LIBRARY = ['gastric', 'budd-chiari', 'pvt', 'nsbb-problem', 'schisto', 'he
 const read = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || d); } catch { return JSON.parse(d); } };
 
 export function createHome({ el, brandMark, onPreset, onLesson, onUnit, onCase, onPresenter, onClose, onClosed }) {
-  let tab = 'course';
+  let tab = 'explore';
   function render() {
     const st = store.get();
     const done = read('pps.lessons', '{}');
     const best = read('pps.caseScores', '{}');
     const go = (id) => { tab = id; render(); el.scrollTop = 0; };
-    const instructor = st.role === 'instructor';
-    // The case library and Present belong to Explore, and to instructors only.
-    if ((tab === 'cases' || tab === 'present') && !instructor) tab = 'explore';
+    // The course, lessons and cases are hidden for now (their pages stay below, unreachable): Home is
+    // Explore, with Present one step down, for both roles.
+    if (tab !== 'present') tab = 'explore';
     const TITLES = { explore: 'Explore the model', learn: 'Lessons', drill: 'Lessons', practice: 'Unit 3 practice', cases: 'Case library', present: 'Present' };
     const parent = tab === 'drill' ? ['learn', 'Lessons'] : tab === 'cases' || tab === 'present' ? ['explore', 'Explore'] : ['course', 'Course'];
-    const nav = tab === 'course' ? null : h('nav', { class: 'home-back', 'aria-label': 'Back' },
+    const nav = tab === 'explore' ? null : h('nav', { class: 'home-back', 'aria-label': 'Back' },
       h('button', { class: 'btn ghost sm', onclick: () => go(parent[0]) }, svgIcon('chev-left'), parent[1]), h('h2', {}, TITLES[tab]));
     let body;
     if (tab === 'course') {
@@ -124,12 +124,10 @@ export function createHome({ el, brandMark, onPreset, onLesson, onUnit, onCase, 
       // heart, each drawn as its own pressure profile.
       const axis = h('div', { class: 'hp-axis', 'aria-hidden': 'true' }, PATH.map(([, l]) => h('span', {}, l)));
       body = h('div', {},
-        instructor ? h('section', { class: 'ex-teach' }, h('span', { class: 'overline' }, 'Instructor'),
-          h('div', { class: 'cr-lib' },
-            h('button', { class: 'btn sm primary', onclick: () => go('present') }, svgIcon('projector'), 'Present'),
-            h('button', { class: 'btn sm', onclick: () => go('cases') }, svgIcon('case'), 'Case library'))) : null,
+        h('section', { class: 'ex-teach' },
+          h('button', { class: 'btn sm', onclick: () => go('present') }, svgIcon('projector'), 'Present')),
         h('div', { class: 'hp-intro' },
-          h('p', {}, 'Each line is a patient’s pressure from the gut to the heart. Blood runs downhill; ', h('b', {}, 'the steepest fall (shaded) is where the resistance sits.')),
+          h('p', {}, 'Each line plots one patient’s pressure from the gut to the heart. The shaded segment, where pressure drops most, marks the site of resistance.'),
           h('div', { class: 'hp-key' }, axis)),
         h('div', { class: 'home-grid scen' }, Object.entries(groups).map(([g, ps]) => h('section', { class: 'home-group' },
           h('h3', {}, h('i', { style: { background: GROUP_COLOR[g] || 'var(--text-3)' } }), g, h('small', {}, GROUP_WHERE[g] || '')),
