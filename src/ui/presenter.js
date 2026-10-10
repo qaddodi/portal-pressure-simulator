@@ -112,6 +112,8 @@ const ORGANS = new Set(['liver', 'spleen', 'heart']);
 // A vessel's station colour, for a glow written by hand (glow: ['PV_TRUNK']).
 const EDGE_TONE = {};
 for (const t of Object.values(TARGETS)) for (const e of t.edges || []) EDGE_TONE[e] ||= t.tone;
+// (Collaterals and spontaneous shunts take the varices' colour: one family on the figure.)
+for (const e of ['C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'S_PC', 'S_DSR', 'S_MC']) EDGE_TONE[e] ||= 'var';
 // A live value's colour ({pv}): the station it is read at; a value with no station (HVPG) is a plain pill.
 const VAL_TONE = { pv: 'pv', whvp: 'wedge', sin: 'wedge', fhvp: 'hv', ivc: 'ivc', ra: 'ra', varix: 'var', gv: 'var', spleen: 'sv' };
 // A slide's terms: { words: target } (terms: ['pv', 'ra'] takes each target's own words).
