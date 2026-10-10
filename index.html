@@ -21,8 +21,8 @@
   <link rel="preload" href="fonts/source-serif-4-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="fonts/fonts.css" />
   <script>try{var t=localStorage.getItem('pps.theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);var d=t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);if(d){document.documentElement.style.background='#0E1422';document.documentElement.style.colorScheme='dark'}var z=parseFloat(localStorage.getItem('pps.uiZoom'));if(z>=0.5&&z<=2&&z!==1){document.documentElement.style.zoom=z;document.documentElement.style.setProperty('--ui-zoom',z)}}catch(e){}</script>
-  <link rel="stylesheet" href="styles/tokens.css?v=d9d0f19c4b" />
-  <link rel="stylesheet" href="styles/app.css?v=c4aa86291b" />
+  <link rel="stylesheet" href="styles/tokens.css?v=8bfca4a8be" />
+  <link rel="stylesheet" href="styles/app.css?v=16a9cc8db6" />
   <style>
     #boot { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; height: 100lvh; z-index: 2147483647; display: grid; place-items: center; background: var(--bg, #FBFAF7); transition: opacity .45s ease, visibility .45s; }
     #boot.done { opacity: 0; visibility: hidden; pointer-events: none; }
@@ -88,8 +88,7 @@
       <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
       <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
       <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></symbol>
-      <symbol id="i-fit" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M6.5 12h4M8.5 10l2 2-2 2M17.5 12h-4M15.5 10l-2 2 2 2"/></symbol>
-      <symbol id="i-fullscreen" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></symbol>
+      <symbol id="i-fit" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></symbol>
       <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
       <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3.5"/></symbol>
       <symbol id="i-chev-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
@@ -170,7 +169,7 @@
         <div class="zoom-pill float-ui stage-blocker" id="zoomPill" role="group" aria-label="Zoom">
           <button class="ib" id="zoomIn" aria-label="Zoom in" title="Zoom in (or scroll / pinch)"><svg><use href="#i-plus"/></svg></button>
           <button class="ib" id="zoomOut" aria-label="Zoom out" title="Zoom out"><svg><use href="#i-minus"/></svg></button>
-          <button class="ib stage-fit" id="zoomFit" aria-label="Fit the figure to the view" title="Fit the figure to the view (0)"><svg><use href="#i-fit"/></svg></button>
+          <button class="ib stage-fit" id="zoomFit" aria-label="Fit the figure to the view" title="Fit (drag to pan)"><svg><use href="#i-fit"/></svg></button>
           <button class="ib stage-rotate" id="rotateCircuit" aria-pressed="false" aria-label="Turn the circuit upright, flowing bottom to top" title="Turn the circuit upright (flow runs bottom to top)"><svg><use href="#i-rotate"/></svg></button>
         </div>
       </div>
@@ -212,7 +211,7 @@
   <div class="toast-wrap" id="toasts"></div>
   <div class="sr-only" aria-live="polite" id="live"></div>
 
-  <link rel="modulepreload" href="src/ui/stage.js?v=1e5f7f9669" />
+  <link rel="modulepreload" href="src/ui/stage.js?v=026e28d100" />
   <link rel="modulepreload" href="src/ui/anatomy.js?v=c9178ee66a" />
   <link rel="modulepreload" href="src/ui/util.js?v=e0101a3fa2" />
   <link rel="modulepreload" href="src/ui/store.js?v=25cbe77a76" />
@@ -223,6 +222,6 @@
   <link rel="modulepreload" href="src/ui/instruments.js?v=3c2e3375ff" />
   <link rel="modulepreload" href="src/ui/timeline.js?v=b2d4b89da6" />
   <link rel="modulepreload" href="src/engine/topology.js?v=dc393aabea" />
-  <script type="module" src="src/ui/main.js?v=75121ca753"></script>
+  <script type="module" src="src/ui/main.js?v=b14a0c9e35"></script>
 </body>
 </html>

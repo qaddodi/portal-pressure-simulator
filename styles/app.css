@@ -590,13 +590,10 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .tier-shadow { opacity: var(--shadow-a); }
 #net { transition: opacity .25s var(--ease); }
 .stage-view.has-sel #net { opacity: .42; }
-.stage-view.hovering #net { opacity: .22; }
-.stage-view.hovering #backEdges .vg:not(.hl) { opacity: .22; }
 /* A selected vessel stays bright; the rest of the network and the organs recede. */
 .stage-view.has-sel #backEdges .vg:not(.is-sel):not(.hl) { filter: opacity(.42); }
 .stage-view.has-sel #organs > g, .stage-view.has-sel #backdrop { filter: opacity(.72); }
 .stage-view.has-sel .vg.is-sel .v-lumen, .stage-view.has-sel .vg.is-sel .v-lumenP { filter: brightness(1.12) saturate(1.1); }
-.stage-view.hovering #backEdges .vg.ctx:not(.hl) { opacity: .12; }
 
 .v-wall { fill: none; stroke: rgb(var(--casing-rgb)); stroke-linecap: round; stroke-linejoin: round; }
 .v-lumen { fill: none; stroke-linecap: round; stroke-linejoin: round; }
@@ -3330,6 +3327,11 @@ button.finding:hover { background: var(--surface-2); }
 .dop-mark { pointer-events: none; }
 .dop-glow { fill: none; stroke: var(--doppler); stroke-opacity: .7; stroke-linecap: butt; stroke-linejoin: round; }
 .dop-edge { fill: none; stroke: var(--doppler); stroke-opacity: .95; stroke-linecap: butt; stroke-linejoin: round; }
+/* The hovered vessel: the same glow in a soft neutral tone, eased in and out. */
+.vh-mark { pointer-events: none; opacity: 0; transition: opacity .28s var(--ease); }
+.vh-mark.on { opacity: 1; }
+.vh-glow { fill: none; stroke: var(--vessel-hl); stroke-opacity: calc(.45 * var(--vessel-hl-k, 1)); stroke-linecap: butt; stroke-linejoin: round; }
+.vh-edge { fill: none; stroke: var(--vessel-hl); stroke-opacity: min(1, calc(.7 * var(--vessel-hl-k, 1))); stroke-linecap: butt; stroke-linejoin: round; }
 .instrument-workspace .dock-title.dop-on .dt-l::before { content: ''; display: inline-block; width: 8px; height: 8px; margin: 0 8px 1px 0; border-radius: 50%; background: var(--doppler); box-shadow: 0 0 0 3px color-mix(in srgb, var(--doppler) 22%, transparent); vertical-align: middle; }
 
 /* ── Polish pass: play bar, phone chrome, card leader, sheets, sliders ── */

@@ -921,25 +921,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The Doppler's vessel: a steady green glow and a thin green edge around it while the Doppler
   // instrument is open. The vessel's middle is masked out, so its pressure colour shows through
   // (the GPU draws the vessels under this layer).
-  const dop = (() => {
-    const g = s('g', { class: 'dop-mark', 'aria-hidden': 'true' });
+  function makeMark(key, cls, { band: bandW = 60, glow: glowW = 18, edge: edgeW = 5 } = {}) {
+    const g = s('g', { class: `${cls}-mark`, 'aria-hidden': 'true' });
     const BIG = { x: -4000, y: -4000, width: 12000, height: 12000 };
     // The mask: a wide band along the vessel that fades in from each end (open ends, no caps), with
     // the vessel itself cut out so its pressure colour shows through.
-    const fade = s('linearGradient', { id: 'dop-fade', gradientUnits: 'userSpaceOnUse' });
+    const fade = s('linearGradient', { id: `${key}-fade`, gradientUnits: 'userSpaceOnUse' });
     for (const [o, a] of [[0, 0], [0.18, 1], [0.82, 1], [1, 0]]) fade.append(s('stop', { offset: o, 'stop-color': '#fff', 'stop-opacity': a }));
-    const band = s('path', { fill: 'none', stroke: 'url(#dop-fade)', 'stroke-linecap': 'butt', 'stroke-linejoin': 'round' });
+    const band = s('path', { fill: 'none', stroke: `url(#${key}-fade)`, 'stroke-linecap': 'butt', 'stroke-linejoin': 'round' });
     const knock = s('path', { fill: 'none', stroke: '#000', 'stroke-linecap': 'butt', 'stroke-linejoin': 'round' });
-    const mask = s('mask', { id: 'dop-knock', maskUnits: 'userSpaceOnUse', ...BIG });
+    const mask = s('mask', { id: `${key}-knock`, maskUnits: 'userSpaceOnUse', ...BIG });
     mask.append(band, knock);
     // The blur works in user space: a straight vessel's own box has no height, which would clip it.
-    const blur = s('filter', { id: 'dop-blur', filterUnits: 'userSpaceOnUse', ...BIG });
+    const blur = s('filter', { id: `${key}-blur`, filterUnits: 'userSpaceOnUse', ...BIG });
     blur.append(s('feGaussianBlur', { stdDeviation: 5 }));
     const defs = s('defs');
     defs.append(fade, mask, blur);
-    const glow = s('path', { class: 'dop-glow', filter: 'url(#dop-blur)' });
-    const glowG = s('g', { mask: 'url(#dop-knock)' });
-    const edge = s('path', { class: 'dop-edge' });
+    const glow = s('path', { class: `${cls}-glow`, filter: `url(#${key}-blur)` });
+    const glowG = s('g', { mask: `url(#${key}-knock)` });
+    const edge = s('path', { class: `${cls}-edge` });
     glowG.append(glow, edge);
     g.append(defs, glowG);
     g.style.display = 'none';
@@ -953,13 +953,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           fade.setAttribute('x1', n[0]); fade.setAttribute('y1', n[1]);
           fade.setAttribute('x2', n[n.length - 2]); fade.setAttribute('y2', n[n.length - 1]);
         }
-        band.setAttribute('stroke-width', (w + 60).toFixed(1));
+        band.setAttribute('stroke-width', (w + bandW).toFixed(1));
         knock.setAttribute('stroke-width', (w + 0.5).toFixed(1));
-        edge.setAttribute('stroke-width', (w + 5).toFixed(1));
-        glow.setAttribute('stroke-width', (w + 18).toFixed(1));
+        edge.setAttribute('stroke-width', (w + edgeW).toFixed(1));
+        glow.setAttribute('stroke-width', (w + glowW).toFixed(1));
       },
     };
-  })();
+  }
+  const dop = makeMark('dop', 'dop');
+  // The hovered vessel: the same kind of glow in a soft neutral tone (the rest of the network stays as it is).
+  // Two marks take turns, so moving from one vessel to the next cross-fades instead of jumping.
+  const vh = { id: null, cur: 0, marks: [makeMark('vh0', 'vh', { band: 40, glow: 14, edge: 3.5 }), makeMark('vh1', 'vh', { band: 40, glow: 14, edge: 3.5 })] };
 
   // ── View transform (pan / zoom) ───────────────────
   let vt = { k: 1, x: 0, y: 0 };
@@ -1552,7 +1556,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // ── Frame state ───────────────────────────────────
   let F = null;            // latest frame
   let hoverId = null;
-  let hl = null;           // highlighted edge ids
 
   // A case keeps each finding (varices, collaterals, clots, flow) off the figure until a test shows it.
   const findingHidden = (k) => { const fd = store.get().found; return !!fd && !fd.has(k); };
@@ -1632,6 +1635,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const d = t === 1 ? g.dC : polyD(pts);
       x.halo.setAttribute('d', d); x.sel.setAttribute('d', d); x.wall.setAttribute('d', d); x.hit.setAttribute('d', d);
       if (dop.id === x.e.id) dop.paint(d, x.dopW || 8);
+      if (vh.id && vhEdges(vh.id).includes(x.e.id)) vhPaint();
       x.shadow.setAttribute('d', d);
       if (x.heat) x.heat.setAttribute('d', d);
       if (x.lumen) x.lumen.setAttribute('d', d);
@@ -1876,6 +1880,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (selOn) setA(x.sel, 'stroke-width', (w + 12).toFixed(1));
       x.dopW = w;
       if (dop.id === e.id) { const d = x.wall.getAttribute('d'); if (d) dop.paint(d, w); dop.g.style.display = x.vis ? '' : 'none'; }
+      if (vh.id && vhEdges(vh.id).includes(e.id)) vhPaint();
     }
     // Junction widths: where vessels meet, the largest narrows to the second largest and the
     // others widen toward it, so calibers change smoothly through every junction.
@@ -2308,7 +2313,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // Attributes, every frame.
     const T0 = easeInOut(morph), now = performance.now();
-    const hovering = wrap.classList.contains('hovering'), hasSel = wrap.classList.contains('has-sel');
+    const hasSel = wrap.classList.contains('has-sel');
     const artery = toRGB('var(--artery)', cs);
     const originMode = originOn();
     tubeData.fill(0);
@@ -2339,7 +2344,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       let alpha = x.isArt ? 0.85 : kind === 'c' ? clamp(2 * T0 - 1, 0, 1) : kind === 's' || kind === 'f' ? (obj.live ?? 1) * clamp(1 - 2 * T0, 0, 1) : 1;
       if (x.back) {
-        if (hovering && !hl) alpha *= CONTEXT_EDGES.has(id) ? 0.12 : 0.22;
         if (hasSel && !sel && !hl) alpha *= 0.42;
       }
       const tier = ivcOn && IVC_EDGES.has(id) ? TIER_LIFT : x.lifted && !x.back ? (x.front ? TIER_LIFT_FRONT : TIER_LIFT) : x.isArt ? TIER_ART : levelTier(x);
@@ -2385,7 +2389,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       sheen: [...toRGB('var(--light-ink)', cs), cssNum(cs, '--tube-sheen', 0.42)],
       shade: [...toRGB('var(--tube-shade-ink)', cs), cssNum(cs, '--tube-shade', 0.2)],
       ring: [...(olCol = toRGB('var(--accent)', cs)), 0.34],
-      netAlpha: hovering ? 0.22 : hasSel ? 0.42 : 1,
+      netAlpha: hasSel ? 0.42 : 1,
       fx: true,
       tierAlpha: TIER_ALPHA, tierGroup: TIER_GROUP, fluid: fluidLook,
     };
@@ -4623,46 +4627,29 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const abdomenEl = s('path', { d: ABDOMEN_CLIP, fill: 'none', stroke: 'none' });
   defs.append(abdomenEl);
 
-  function computeHighlight(id) {
-    if (!F) return new Set([id]);
-    const set = new Set([id]);
-    const out = {}, inn = {};
-    for (const e of EDGES) {
-      if (!E[e.id]?.vis || e.kind === 'wedge') continue;
-      const q = F.Q[EI[e.id]];
-      if (Math.abs(q) < 0.02) continue;
-      const [a, b] = q > 0 ? [e.from, e.to] : [e.to, e.from];
-      (out[a] ||= []).push([e.id, b]); (inn[b] ||= []).push([e.id, a]);
-    }
-    const e0 = EDGES[EI[id]];
-    if (!e0) return set;
-    const q0 = F.Q[EI[id]];
-    const [s0, t0] = q0 >= 0 ? [e0.from, e0.to] : [e0.to, e0.from];
-    const walk = (start, map) => {
-      const seen = new Set([start]); let frontier = [start];
-      for (let d = 0; d < 14 && frontier.length; d++) {
-        const nxt = [];
-        for (const n of frontier) for (const [eid, m] of map[n] || []) { set.add(eid); if (!seen.has(m)) { seen.add(m); nxt.push(m); } }
-        frontier = nxt;
-      }
-    };
-    walk(t0, out); walk(s0, inn);
-    return set;
+  // The IVC is one vessel to the eye: hovering any stretch of it lights all of it.
+  const vhEdges = (id) => (IVC_EDGES.has(id) ? [...IVC_EDGES] : [id]).filter((e) => E[e]?.vis);
+  function vhPaint() {
+    const ids = vhEdges(vh.id), d = ids.map((e) => E[e].wall.getAttribute('d') || '').join(' ').trim();
+    if (d) vh.marks[vh.cur].paint(d, Math.max(...ids.map((e) => E[e].dopW || 8)));
   }
   function setHover(id) {
     if (id === hoverId) return;
     hoverId = id;
-    if (hl) for (const e of hl) if (E[e]) cls(E[e], 'hl', false);
-    hl = null;
-    if (id && store.get().tool === 'select' && !shunt) {
-      hl = computeHighlight(id);
-      // The flow path runs on into the IVC, but hovering anything else must not light it.
-      if (!IVC_EDGES.has(id)) for (const e of IVC_EDGES) hl.delete(e);
-      for (const e of hl) if (E[e]) cls(E[e], 'hl', true);
-      wrap.classList.add('hovering');
-    } else wrap.classList.remove('hovering');
-    syncLift();
-    syncVeins(easeInOut(morph));
+    const on = id && store.get().tool === 'select' && !shunt ? id : null;
+    if (on === vh.id) return;
+    const old = vh.marks[vh.cur];
+    old.g.classList.remove('on');
+    clearTimeout(old.t); old.t = setTimeout(() => { if (!old.g.classList.contains('on')) old.g.style.display = 'none'; }, 400);
+    vh.id = on;
+    if (!on) return;
+    vh.cur ^= 1;
+    const m = vh.marks[vh.cur];
+    clearTimeout(m.t);
+    vhPaint();
+    m.g.style.display = '';
+    void m.g.getBoundingClientRect();   // start from transparent, so it eases in
+    m.g.classList.add('on');
   }
 
   // Organ and site hover: a soft version of the selection outline, never kept once the pointer is away.
