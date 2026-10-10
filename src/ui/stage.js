@@ -982,12 +982,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let zoomRes = 1, dynRes = 1, resizeReady = false, forceDraw = false;   // forceDraw: the vessel canvas was just resized (and so cleared): the next frame draws it at once
   const applyVT = () => {
     const zr = vt.k > 4 ? 0.65 : vt.k > 2.5 ? 0.8 : 1;
-    if (zr !== zoomRes) { zoomRes = zr; if (resizeReady) resizeCanvas(); }
     const deg = rotDeg();
     world.setAttribute('transform', `translate(${vt.x} ${vt.y}) scale(${vt.k})${deg ? ` rotate(${deg.toFixed(3)} ${CIRC_C[0]} ${CIRC_C[1]})` : ''}`);
     worldOver?.setAttribute('transform', world.getAttribute('transform'));
     syncSemantic();
     CTM = null; viewVersion++;
+    // (After the new camera is set: the resize redraws the picture at once, in it.)
+    if (zr !== zoomRes) { zoomRes = zr; if (resizeReady) resizeCanvas(); }
     if (!viewRaf) viewRaf = requestAnimationFrame(syncView);
   };
   function syncView() {
@@ -1531,6 +1532,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     vCanvas.width = Math.max(1, Math.round(r.width * vdpr)); vCanvas.height = Math.max(1, Math.round(r.height * vdpr));
     wrap.classList.toggle('compact', r.height < 600);
     CTM = null; forceDraw = true;
+    // Resizing clears the canvas, and the organs (the plate) and vessels drawn on it with it: draw
+    // them again in the same task. A pinch or a layout change can land after this frame's draw
+    // (Safari delivers touches outside the frame loop), and the figure would vanish for a frame.
+    if (resizeReady && F && !inUpdate && !(lz?.isOpen() || lz?.covers())) { veinsDirty = true; drawVeins(); }
   }
   new ResizeObserver(resizeCanvas).observe(wrap);
   resizeCanvas(); resizeReady = true;
