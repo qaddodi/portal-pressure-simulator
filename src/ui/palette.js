@@ -12,7 +12,7 @@ const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').rep
 
 export function createPalette({ ctx }) {
   const back = h('div', { class: 'pal-back', hidden: true });
-  const input = h('input', { class: 'pal-input', type: 'text', placeholder: 'Search a vessel, patient or treatment: “tips 10”, “+6 months”…', 'aria-label': 'Search', autocomplete: 'off', spellcheck: 'false' });
+  const input = h('input', { class: 'pal-input', type: 'text', placeholder: innerWidth < 600 ? 'Search vessels, patients, treatments' : 'Search a vessel, patient or treatment: “tips 10”, “+6 months”…', 'aria-label': 'Search', autocomplete: 'off', spellcheck: 'false' });
   const list = h('div', { class: 'pal-list', role: 'listbox' });
   const box = h('div', { class: 'pal', role: 'dialog', 'aria-label': 'Command palette' }, h('div', { class: 'pal-top' }, svgIcon('explore', 'pal-ic'), input, h('kbd', {}, 'Esc')), list);
   back.append(box);

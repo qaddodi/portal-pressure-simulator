@@ -3,10 +3,10 @@
 
 import { startHost, host } from './host.js?v=90504cc4f2';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=25cbe77a76';
-import { createStage } from './stage.js?v=01a343eaa5';
+import { createStage } from './stage.js?v=3a8798e8b5';
 import { sinusoidSupported } from './sinusoid-view.js?v=b68c9ab562';
 import { createInspector } from './inspector.js?v=500d39491c';
-import { createDock, CUTOFFS } from './dock.js?v=519cba5d7a';
+import { createDock, CUTOFFS } from './dock.js?v=fc02c91baa';
 import { setHvpgStage } from './hvpg-proc.js?v=b2e9d319b1';
 import { createWhy } from './why.js?v=b3625fb455';
 import { createTimeline, LAPSES } from './timeline.js?v=ba6a626da7';
@@ -15,7 +15,7 @@ import { createCases, CASES } from './cases.js?v=9543b1fdde';
 import { isBlind } from './learning-kit.js?v=d37136ac07';
 import { createCompare } from './compare.js?v=118c08286d';
 import { createCard } from './card.js?v=7cf9cd2378';
-import { createChart, computeFindings } from './chart.js?v=25481a166c';
+import { createChart, computeFindings } from './chart.js?v=d7c6125620';
 import { createHome, ROLES } from './home.js?v=3869d5661a';
 import { course } from './course.js?v=3bf3617fd0';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=96bbcced4d';
@@ -154,7 +154,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=8191498a55'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=66fa66f087'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -206,7 +206,12 @@ async function main() {
   store.on('mode', onMode);
   store.on('layers', () => { app.classList.toggle('chips-off', !store.get().layers.chips); syncBloodBtn(); redraw(); });
   // A case never names its preset in the top bar: the name would give the diagnosis away.
-  const syncScenarioName = () => { const st = store.get(); $('#scenarioName').textContent = st.mode === 'cases' ? 'Case' : presets.find((p) => p.id === st.presetId)?.label || 'Custom'; };
+  // A phone shows a short form of a long name (styles), wrapped to two lines if needed: "Decomp. cirrhosis", not "Decomp…".
+  const shortName = (s) => s.replace(/\s*\(.*\)$/, '').replace(/,.*$/, '').replace(/^Decompensated\b/, 'Decomp.').replace(/^Compensated\b/, 'Comp.').replace(/^Clinically significant PH$/, 'CSPH');
+  const syncScenarioName = () => {
+    const st = store.get(), name = st.mode === 'cases' ? 'Case' : presets.find((p) => p.id === st.presetId)?.label || 'Custom';
+    $('#scenarioName').replaceChildren(h('span', { class: 'sn-l' }, name), h('span', { class: 'sn-s' }, shortName(name)));
+  };
   store.on('presetId', syncScenarioName);
   store.on('mode', syncScenarioName);
   store.on('role', (r) => { if (home.isOpen()) home.render(); try { localStorage.setItem('pps.role', r); localStorage.removeItem('pps.narrator'); } catch { /* storage unavailable */ } narrPref = null; if (readLS('pps.showHvpg') == null) store.set({ showHvpg: r === 'student' }); app.dataset.role = r; card.render(); narrate(store.get().frame, performance.now(), true); });
@@ -375,10 +380,14 @@ async function openInExplore(id) {
   if (store.get().mode !== 'explore') store.set({ mode: 'explore' });
   await loadPreset(id);
 }
+let presetGen = 0;
 async function loadPreset(id, opts = {}) {
+  const gen = ++presetGen;
   store.set({ presetLoading: true });   // the figure frames itself once the patient has arrived (stage.js)
   dock?.clearTraces();   // the Over time and Doppler traces start over with the new (or restarted) patient
   const res = await host.request('preset', { id, days: opts.days });
+  // Patients tapped in quick succession: the engine loads them in order, so only the last one's answer is applied.
+  if (gen !== presetGen) return;
   replaceParams(res.params);
   clearHistory();
   store.set({ presetLoading: false, presetId: id, lastHVPG: null, hvpgMeasured: false, selection: store.get().mode === 'cases' ? null : store.get().selection, historyTick: (store.get().historyTick || 0) + 1 });

@@ -960,8 +960,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // 0 to 1; the anatomy is never turned. The turn is part of the world transform and of the view
   // box (which swaps its width and height with it), so pan, zoom and every screen-space layer
   // keep working in the frame they already use.
-  // With no saved choice, a phone held upright opens the circuit upright (the wide map would be a strip).
-  const portraitPhone = () => innerWidth < 700 && innerHeight > innerWidth * 1.15;
+  // With no saved choice, a phone or tablet held upright opens the circuit upright (the wide map would be a strip).
+  const portraitPhone = () => innerWidth < 1100 && innerHeight > innerWidth * 1.15;
   let rotTarget = (() => { try { const v = localStorage.getItem('pps.circuitRot'); return v == null ? (portraitPhone() ? 1 : 0) : v === '1' ? 1 : 0; } catch { return portraitPhone() ? 1 : 0; } })();
   let rotU = rotTarget;
   const rotEase = (u) => u * u * (3 - 2 * u);

@@ -123,7 +123,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // ── Readout strip ─────────────────────────────────
   const tileEls = {};
   // A phone's four tiles are narrow: short names and status words where the long ones would be cut off.
-  const narrow = matchMedia('(max-width: 767px)');
+  const narrow = matchMedia('(max-width: 767px), (max-width: 1194px) and (pointer: coarse)');   // phones and tablets: short readout names
   const row = h('div', { class: 'ro-row' });
   strip.append(row);
   const pos = (t, v) => clamp((v - t.scale[0]) / (t.scale[1] - t.scale[0]), 0, 1) * 100;
@@ -426,7 +426,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       // With a step card above it, a phone keeps about a quarter of the height for the figure itself.
       const keep = coachH && matchMedia('(max-width: 767px)').matches ? Math.max(40, stageWrap.clientHeight * 0.26) : 40;
       const max = stageWrap.clientHeight - css('--top-safe') - coachH - css('--vdock-h') - keep;
-      const ratio = heightRatio ?? (matchMedia('(max-width: 767px)').matches ? 0.56 : 0.46);
+      // A tablet held upright keeps more than half the stage for the figure, so its vessel labels stay legible.
+      const ratio = heightRatio ?? (matchMedia('(max-width: 767px)').matches ? 0.56 : matchMedia('(orientation: portrait)').matches ? 0.4 : 0.46);
       // A phone in a lesson: the step card sits on top of the sheet and the two share the bottom half, so
       // the figure keeps the top half (styles: the coach in learn mode).
       const lessonPhone = coachH && app.dataset.mode === 'learn' && matchMedia('(max-width: 767px)').matches;
@@ -574,7 +575,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     updateSize();
     const h0 = workspace.clientHeight, side = isSide() && state !== 'focus';
     // As a tall card the plots take a sensible share of the height, so a pair still fits.
-    const plot = side ? clamp((body.clientHeight / (open.length > 1 ? 2 : 1)) - 90, 190, 380) : clamp(h0 - 150, 190, 420);
+    const plot = side ? clamp((body.clientHeight / (open.length > 1 ? 2 : 1)) - 90, 190, 380) : clamp(h0 - (innerWidth >= 768 ? 190 : 150), 190, 420);   // a tablet's sheet has a taller header and tab row
     workspace.style.setProperty('--plot-h', `${plot}px`);
     workspace.style.setProperty('--square-size', `${clamp(side ? workspace.clientWidth - 80 : h0 - 160, 220, 380)}px`);
     layout();
