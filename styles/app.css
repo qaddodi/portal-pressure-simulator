@@ -3693,3 +3693,14 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .dr-story { font-size: 16px; }
   .drill .tr-seg span.tr-l { display: none; } .drill .tr-seg span.tr-s { display: block; font-size: 10.5px; white-space: nowrap; }
 }
+/* ── Student mode: a calmer, simpler screen ───────────────────────
+   The timeline keeps play/pause, the scrubber and the clock; the readouts keep HVPG and PPG
+   (dock.js); the figure keeps names (stage.js); tiles do not flash. Explore only. */
+#app[data-role="student"][data-mode="explore"] :is(.tl-speed, .tl-ff, .tl-jumps, .tl-hist, .tl-pin, .tl-latest, .tl-marks .tl-m:not(.start)) { display: none; }
+#app[data-role="student"][data-mode="explore"] .readouts .ro-more { display: none; }
+#app[data-role="student"] .metric.flash { animation: none; }
+.order-more { grid-column: 1 / -1; justify-content: center; color: var(--text-2); }
+.order-btn.ob-hidden { display: none; }
+.order-btn.ob-extra:not(.ob-hidden) { animation: obIn .3s var(--ease); }
+@keyframes obIn { from { opacity: 0; transform: translateY(-3px); } }
+@media (prefers-reduced-motion: reduce) { .order-btn.ob-extra:not(.ob-hidden) { animation: none; } }

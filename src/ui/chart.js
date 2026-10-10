@@ -11,7 +11,7 @@
 import { store, updateParams, hiddenNow } from './store.js?v=edbdbfb0c8';
 import { h, fmt, icon, svgIcon, toast } from './util.js?v=a357853926';
 import { DRUGS } from '../engine/scenario.js?v=d88966abe6';
-import { TILES, VITALS, readoutValue } from './dock.js?v=cbcdf6dc63';
+import { TILES, VITALS, readoutValue } from './dock.js?v=af4006e713';
 import { activeInterventions } from './inspector.js?v=5acd5150f6';
 import { verbEnabled, DRUG_NOTE } from './actions.js?v=658820a7b3';
 
@@ -207,6 +207,15 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       })(),
       proc('needle', 'Paracentesis', 'drain ascites', 'paracentesis', () => select({ type: 'organ', id: 'abdomen' })));
     for (const b of procs.querySelectorAll('button')) b.addEventListener('click', () => onDone?.());
+    // Student mode shows the common procedures first; the rest wait behind "More procedures".
+    if ((store.get().role || 'student') === 'student') {
+      const COMMON = ['Band ligation', 'TIPS', 'Paracentesis'];
+      const rest = [...procs.children].filter((b) => !COMMON.includes(b.querySelector('.ob-t')?.textContent));
+      const more = h('button', { class: 'order-btn order-more', 'aria-expanded': 'false', title: 'Balloon tamponade, DIPS, surgical shunts, BRTO, spleen' }, h('span', { class: 'ob-t' }, 'More procedures'));
+      more.addEventListener('click', () => { const on = more.getAttribute('aria-expanded') !== 'true'; more.setAttribute('aria-expanded', String(on)); for (const b of rest) b.classList.toggle('ob-hidden', !on); more.querySelector('.ob-t').textContent = on ? 'Fewer procedures' : 'More procedures'; });
+      for (const b of rest) { b.classList.add('ob-extra', 'ob-hidden'); procs.append(b); }
+      procs.insertBefore(more, rest[0] || null);
+    }
     // Three tabs, styled as the Tests card's, so the cards read as one set; the last tab is kept.
     const panes = [['drugs', 'pill', 'Drugs', drugs], ['fluids', 'drop', 'Fluids', fluids], ['procs', 'band', 'Procedures', procs]];
     const tabs = h('div', { class: 'instr-tabs treat-tabs', role: 'tablist', 'aria-label': 'Treatments' });

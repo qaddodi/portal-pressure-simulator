@@ -103,6 +103,7 @@ export const VITALS = [
 // Collapsed, the strip shows the pressures (HVPG, the portosystemic gradient, portal pressure) and,
 // where there is room (not on a phone), portal flow: where the pressure sends the blood.
 export const PRIMARY = new Set(['hvpg', 'ppg', 'pv', 'pvflow']);
+const STUDENT_PRIMARY = new Set(['hvpg', 'ppg']);
 
 // A trend arrow marks a sustained change (over TREND_S seconds, larger than TREND_FRAC of the
 // bar's range), so the heartbeat and breathing never make it flicker.
@@ -146,8 +147,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       h('span', { class: 'ro-cap', 'aria-hidden': 'true' }, label), h('div', { class: 'ro-tiles' }, ts.map((t) => tile(t, false)))));
   }
   // The Lobule view swaps the key readouts for the lobule's flows (the group is hidden elsewhere, by CSS).
-  const syncLobule = () => { const on = !!store.get().lobule; strip.classList.toggle('lob', on); for (const x of Object.values(tileEls)) x.el.classList.toggle('primary', on ? LOBULE_PRIMARY.has(x.t.id) : PRIMARY.has(x.t.id)); };
-  store.on('lobule', () => { syncLobule(); setTimeout(() => dispatchEvent(new Event('resize')), 30); });
+  // Student mode keeps the two gradients (HVPG, PPG) and no "all readouts" chevron (CSS).
+  const syncLobule = () => { const st = store.get(), on = !!st.lobule, pri = on ? LOBULE_PRIMARY : st.role === 'student' && st.mode === 'explore' ? STUDENT_PRIMARY : PRIMARY; strip.classList.toggle('lob', on); for (const x of Object.values(tileEls)) x.el.classList.toggle('primary', pri.has(x.t.id)); };
+  for (const k of ['lobule', 'role', 'mode']) store.on(k, () => { syncLobule(); setTimeout(() => dispatchEvent(new Event('resize')), 30); });
+  syncLobule();
   const vitEls = VITALS.map((v) => {
     const val = h('b', {}, '—');
     const el = h(v.why ? 'button' : 'div', { class: 'vital', title: `${v.title} (${v.u})${v.why ? '\nClick for what is driving it.' : ''}` }, h('span', {}, v.k), val);

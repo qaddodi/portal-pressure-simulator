@@ -3341,13 +3341,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // two-line card: it covers as little of the anatomy as it can.
     const one = mode === 'inline';   // one line, no box, on every screen (as on a phone)
     const lines = [[{ t: name, size: compact ? 10.5 : 11.5, weight: one ? 600 : 500, cls: 'lb-name' }]];
-    const lr = isImaging() ? null : layerRuns(f, id, compact);
-    const pr = lr ? lr.runs : pressureRuns(P, id, compact);
+    const sel = st.selection?.type === 'node' && st.selection.id === id;
+    // Student mode (Explore) keeps the figure to names: a station shows its number once tapped.
+    const quiet = st.role === 'student' && st.mode === 'explore' && !st.presenting && !sel;
+    const lr = isImaging() || quiet ? null : layerRuns(f, id, compact);
+    const pr = quiet ? null : lr ? lr.runs : pressureRuns(P, id, compact);
     if (pr && one) lines[0].push(...pr.map((r, i) => (i ? r : { ...r, gap: 4 })));
     else if (pr) lines.push(pr);
     const w = Math.max(...lines.map(lineW)) + (mode === 'atlas' ? 7 : 0);
     const hh = lines.reduce((a, l) => a + LINE_H(l), 0);
-    const sel = st.selection?.type === 'node' && st.selection.id === id;
     return { key: 'n:' + id, node: id, cls: 'node ' + mode + (one ? ' bare' : ''), lines, w, h: hh, sel, canShort: !!pr && mode !== 'atlas', label: `${NODES[NI[id]].label}${lr ? `: ${lr.runs.map((r) => r.t).join(' ')}` : pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}`,
       swatch: mode === 'atlas' && pr ? (lr ? lr.color : layerMode() === 'heat' ? heatColor(P - (REF()?.[NI[id]] ?? P)) : pressureColor(P)) : null, bg: mode === 'inline' && !one, padX: mode === 'inline' && !one ? 6 : 3, padY: mode === 'inline' && !one ? 3 : 2 };
   }
@@ -3906,7 +3908,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function stepBlood(dt) {
     const st = store.get(), b = st.blood || {};
     const moving = st.running && !reduceMotion.matches;
-    const speed = st.clock === 'hemo' ? clamp(Math.sqrt(st.speed), 0.5, 2) : 0.8;
+    // Student mode (Explore) runs the blood a little slower: calmer, still the same direction and pattern.
+    const speed = (st.clock === 'hemo' ? clamp(Math.sqrt(st.speed), 0.5, 2) : 0.8) * (st.role === 'student' && st.mode === 'explore' ? 0.7 : 1);
     const Qf = F.Qf || F.Q;
     if (moving) bloodClock = (bloodClock + dt) % 10000;
     // Reversed flow (against the healthy direction, as the Direction lens has it) eases in and out.

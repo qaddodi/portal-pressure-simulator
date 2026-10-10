@@ -3,10 +3,10 @@
 
 import { startHost, host } from './host.js?v=b54d9b1fcc';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=edbdbfb0c8';
-import { createStage } from './stage.js?v=41bd04af6b';
+import { createStage } from './stage.js?v=ba856c7051';
 import { sinusoidSupported } from './sinusoid-view.js?v=7285150aa0';
 import { createInspector } from './inspector.js?v=5acd5150f6';
-import { createDock, CUTOFFS } from './dock.js?v=cbcdf6dc63';
+import { createDock, CUTOFFS } from './dock.js?v=af4006e713';
 import { setHvpgStage } from './hvpg-proc.js?v=97815283e5';
 import { createWhy } from './why.js?v=82d0ada42e';
 import { createTimeline, LAPSES } from './timeline.js?v=2831e31d82';
@@ -15,7 +15,7 @@ import { createCases } from './cases.js?v=a074a6964e';
 import { isBlind } from './learning-kit.js?v=472fe433c7';
 import { createCompare } from './compare.js?v=d64b7b73d4';
 import { createCard } from './card.js?v=767b2dc99d';
-import { createChart, computeFindings } from './chart.js?v=6eb7c60d38';
+import { createChart, computeFindings } from './chart.js?v=3546aeed06';
 import { createHome, ROLES } from './home.js?v=059cf7f9b9';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=a34d291061';
 import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=c7917d0320';
@@ -86,6 +86,8 @@ async function main() {
   startLMS();
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => { /* offline support is optional */ });
   store.set({ role: readLS('pps.role') || 'student' });
+  // Student mode shows the HVPG without measuring it first, unless Settings says otherwise.
+  if (readLS('pps.showHvpg') == null) store.set({ showHvpg: store.get().role === 'student' });
   const kind = await startHost();
   console.info(`Engine running in ${kind === 'worker' ? 'a Web Worker' : 'the main thread'}.`);
   app.dataset.engine = kind;
@@ -201,7 +203,7 @@ async function main() {
   const syncScenarioName = () => { const st = store.get(); $('#scenarioName').textContent = st.mode === 'cases' ? 'Case' : presets.find((p) => p.id === st.presetId)?.label || 'Custom'; };
   store.on('presetId', syncScenarioName);
   store.on('mode', syncScenarioName);
-  store.on('role', (r) => { try { localStorage.setItem('pps.role', r); localStorage.removeItem('pps.narrator'); } catch { /* storage unavailable */ } narrPref = null; app.dataset.role = r; card.render(); narrate(store.get().frame, performance.now(), true); });
+  store.on('role', (r) => { try { localStorage.setItem('pps.role', r); localStorage.removeItem('pps.narrator'); } catch { /* storage unavailable */ } narrPref = null; if (readLS('pps.showHvpg') == null) store.set({ showHvpg: r === 'student' }); app.dataset.role = r; card.render(); narrate(store.get().frame, performance.now(), true); });
   $('#narratorWhy').addEventListener('click', (e) => why.open('pv', e.currentTarget));
   app.dataset.role = store.get().role;
   for (const k of ['compareSnap', 'compareView', 'colorMode', 'imaging', 'sinusoid', 'lobule']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
