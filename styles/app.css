@@ -1841,6 +1841,7 @@ button.finding:hover { background: var(--surface-2); }
 .app.presenting #labels .lb.focus .lb-bg { fill: var(--danger); }
 .app.presenting #labels .leader.focus { stroke: var(--danger); }
 .app.presenting #labels .lb { animation: pz-fade .5s var(--ease) both; }
+.app.presenting #stageView { touch-action: none; }   /* no browser pan or pinch on the figure; the slide swipe reads touch events */
 .app.presenting .stage-credit { bottom: 14px; }
 @keyframes pz-fade { from { opacity: 0; } }
 @keyframes pz-in { from { opacity: 0; transform: translateY(14px); } }

@@ -1145,6 +1145,12 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     if (Math.abs(dx) > 60 && Math.abs(dx) > 1.6 * Math.abs(dy) && performance.now() - g.t < 700) { if (dx < 0) next(); else prev(); }
   }, { passive: true, capture: true });
 
+  // ── Hands off: while presenting, the figure only points (hover glow); taps, drags, pans and zooms that would
+  // move it off the slide's script are swallowed. The swipe above uses touch events, so it still works. ──
+  const offFig = (e) => deck && e.target.closest?.('#stageView') && !e.target.closest('#overlay');
+  for (const t of ['pointerdown', 'mousedown', 'click', 'dblclick', 'wheel', 'gesturestart'])
+    wrap.addEventListener(t, (e) => { if (offFig(e)) { if (e.cancelable) e.preventDefault(); e.stopImmediatePropagation(); } }, { capture: true, passive: false });
+
   // ── Keys ──
   function onKey(e) {
     if (!deck || e.ctrlKey || e.metaKey || e.altKey) return;
