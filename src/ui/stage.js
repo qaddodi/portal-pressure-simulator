@@ -2344,7 +2344,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // What the plate shows, in coarse steps: re-rasterize when it changes.
   function plateStateKey() {
     const cs = getComputedStyle(wrap);
-    return [liverKey, organG.liver.getAttribute('transform'), organG.spleen.getAttribute('transform')?.replace(/(\d\.\d\d)\d*/g, '$1'),
+    return [liverKey, organG.liver.getAttribute('transform'), organG.spleen.getAttribute('transform')?.replace(/(\d\.\d\d)\d*/g, '$1'), diaKey,
       Math.round((parseFloat(liverTint.style.opacity) || 0) * 40),
       organG.bowel.getAttribute('transform'), (flank.getAttribute('d') || '').slice(0, 24), selOKey,
       cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), wrap.classList.contains('imaging')].join('|');
@@ -2667,6 +2667,36 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
   }
 
+  // The diaphragm domes rest on the liver (right) and spleen (left): when either organ swells
+  // its dome rises with it, so the organ never pokes above the muscle. Follows the eased organ
+  // size, so it never pops; at the healthy size the path is exactly BACKDROP.diaphragm.
+  const diaEls = gBackdrop.querySelectorAll('.org-diaphragm');
+  const diaPts = BACKDROP.diaphragm.match(/-?\d+(\.\d+)?/g).map(Number);
+  const domeW = (x, c, h) => { const u = (x - c) / h; return Math.abs(u) >= 1 ? 0 : (1 + Math.cos(Math.PI * u)) / 2; };
+  // Tops of the healthy liver and spleen outlines (plate units), just under the domes.
+  const DIA_REF = { liver: 182, spleen: 266 };
+  let diaKey = '';
+  function liftDiaphragm(shrink, sc) {
+    const lTop = organEls.liver?.getBBox().y, sTop = organEls.spleen?.getBBox().y;
+    if (lTop === undefined || sTop === undefined) return;
+    // How far each organ's top now rises above its healthy top (never below: a shrunken organ
+    // leaves the dome where it was), plus a little so the muscle stays clear of the organ.
+    const lift = (top, c, s, ref) => Math.max(0, ref - (c - (c - top) * s)) * 1.2;
+    const lr = lift(lTop, 350, shrink, DIA_REF.liver), ll = lift(sTop, SPLEEN_CENTER[1], sc, DIA_REF.spleen);
+    const key = `${lr.toFixed(1)},${ll.toFixed(1)}`;
+    if (key === diaKey) return;
+    diaKey = key;
+    let i = 0;
+    const d = BACKDROP.diaphragm.replace(/-?\d+(\.\d+)?/g, () => {
+      const v = diaPts[i];
+      // The left dome also widens outward with the spleen, so its lateral edge stays covered.
+      if (i++ % 2 === 0) return (v + ll * 0.5 * domeW(v, 1110, 240)).toFixed(1);
+      const x = diaPts[i - 2];
+      return (v - lr * domeW(x, 560, 420) - ll * domeW(x, 1040, 280)).toFixed(1);
+    });
+    for (const el of diaEls) el.setAttribute('d', d);
+  }
+
   function updateOrgans(f, p, t) {
     const k = 1 - t;
     const imaging = isImaging();
@@ -2703,6 +2733,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const sc = f.slow.spleen / 11;
     organG.spleen.setAttribute('transform', `translate(${SPLEEN_CENTER[0]} ${SPLEEN_CENTER[1]}) scale(${sc.toFixed(3)}) translate(${-SPLEEN_CENTER[0]} ${-SPLEEN_CENTER[1]})`);
     organG.spleen.style.opacity = p.splenicRx === 2 ? '0.14' : '';
+    liftDiaphragm(shrink, sc);
     syncSelLine();
     // The shown ascites eases to the model's volume (stepFluid), so a tap or diuretics never pops the level.
     if (ascTarget === null) ascShown = f.slow.ascites;
