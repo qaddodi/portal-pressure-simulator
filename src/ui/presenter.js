@@ -1044,7 +1044,12 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const gone = newPatient && !data.hidden && !data.classList.contains('pz-hide');
     if (move || gone) data.classList.add('pz-hide');
     if (!move && !gone && out.every((el) => el.hidden || !el.childElementCount)) return;
-    for (const el of out) el.classList.add('pz-leave');
+    // The catheter's monitor stays up from one measuring slide to the next: only the words around it go.
+    const keep = mon && next?.monitor && !next.visual && mon.el.parentNode === ui.text;
+    for (const el of out) {
+      if (keep && el === ui.text) { for (const c of el.children) if (c !== mon.el) c.classList.add('pz-leave'); }
+      else el.classList.add('pz-leave');
+    }
     await wait(reduce.matches ? 0 : move || gone ? 340 : 220);
   }
   // A slide's tiles can say how far each number moved: from the slide before (delta: true) or a named one. A slide that
@@ -1071,7 +1076,16 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   let mon = null;
   function monitorFor(s, i) {
     mon ||= createHvpgMonitor();
-    requestAnimationFrame(() => mon.set(s.monitor, states[stateOf[i]]?.fp));
+    // Already up (the slide before measured too): it stays, and glides to its new place under the new words.
+    const stay = mon.el.parentNode === ui.text && !ui.text.hidden, y0 = stay ? mon.el.getBoundingClientRect().top : 0;
+    mon.el.classList.toggle('pz-stay', stay);
+    requestAnimationFrame(() => {
+      if (stay && !reduce.matches) {
+        const dy = y0 - mon.el.getBoundingClientRect().top;
+        if (Math.abs(dy) > 1) mon.el.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 450, easing: 'cubic-bezier(.2,.7,.2,1)' });
+      }
+      mon.set(s.monitor, states[stateOf[i]]?.fp);
+    });
     return mon.el;
   }
   function wordsIn(s, q, st, i, fresh = false) {
