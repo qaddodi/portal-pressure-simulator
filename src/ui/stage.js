@@ -3399,10 +3399,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     const lv = organEls.liver, wr = wrap.getBoundingClientRect();
     if (!lv || morph > 0.5) { scan.el.classList.add('off'); return; }
-    const r = lv.getBoundingClientRect(), x0 = pzInset('--pz-l') + 6, x1 = wr.width - pzInset('--pz-r') - 6;
+    const r = lv.getBoundingClientRect();
     // The top left of the right lobe (the patient's right is the figure's left): the tip sits on its edge, aimed 45° down toward the portal vein.
-    const x = clamp(r.left - wr.left + r.width * 0.13, x0 + 48, x1 - 110) - SCAN_TIP[0], y = r.top - wr.top + r.height * 0.09;
-    scan.el.classList.toggle('off', y < 20 || y > wr.height - 20);
+    // Anchored to the liver, not the view: it pans off screen with the liver (and hides once the tip is out of view).
+    const tx = r.left - wr.left + r.width * 0.13, y = r.top - wr.top + r.height * 0.09, x = tx - SCAN_TIP[0];
+    scan.el.classList.toggle('off', tx < -30 || tx > wr.width + 30 || y < -30 || y > wr.height + 30);
     scan.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
   }
   function setScanProbe(on) {
