@@ -1,19 +1,19 @@
 // "Why?" popover (blueprint §9.3): one causal sentence, a contribution waterfall and the formula.
 
-import { host } from './host.js?v=90504cc4f2';
-import { h, fmt, svgIcon } from './util.js?v=e803df99cd';
+import { host } from './host.js?v=4bb9b57859';
+import { h, fmt, svgIcon, uiScale } from './util.js?v=e0101a3fa2';
 
 export function createWhy(pop) {
   let openFor = null, anchorEl = null;
   function place(anchor) {
-    const r = anchor.getBoundingClientRect();
-    const pw = Math.min(440, innerWidth - 24);
+    const r = anchor.getBoundingClientRect(), z = uiScale();
+    const pw = Math.min(440 * z, innerWidth - 24);
     let x = r.left + r.width / 2 - pw / 2;
     x = Math.max(12, Math.min(innerWidth - pw - 12, x));
-    pop.style.left = x + 'px';
-    const ph = pop.offsetHeight || 260;
+    pop.style.left = x / z + 'px';
+    const ph = (pop.offsetHeight || 260) * z;
     const below = r.bottom + 10;
-    pop.style.top = (below + ph > innerHeight - 8 ? Math.max(8, r.top - ph - 10) : below) + 'px';
+    pop.style.top = (below + ph > innerHeight - 8 ? Math.max(8, r.top - ph - 10) : below) / z + 'px';
   }
   const head = (title) => h('header', {}, h('h3', {}, svgIcon('bulb'), title), h('button', { class: 'ib', 'aria-label': 'Close', onclick: close }, svgIcon('close')));
   async function open(metric, anchor) {

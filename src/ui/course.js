@@ -3,8 +3,8 @@
 // where the card at the bottom owns the screen and the rest of the chrome is hidden.
 // Progress lives on this device in pps.course; plans/course-api.md documents the shapes.
 
-import { store } from './store.js?v=25cbe77a76';
-import { h, svgIcon } from './util.js?v=e803df99cd';
+import { store } from './store.js?v=5edd069b32';
+import { h, svgIcon } from './util.js?v=e0101a3fa2';
 import { CASE_UNITS } from './cases/units.js?v=bde5f54566';
 
 // A unit: id, n (its number), part ('A' mechanism, 'B' clinic), title, objective (what the student

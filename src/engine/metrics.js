@@ -1,6 +1,6 @@
 // Clinical readouts derived from engine state (blueprint §9.1).
 
-import { PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES, EDGES } from './topology.js?v=dc393aabea';
+import { PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES, EDGES } from './topology.js?v=706a39d50b';
 import { clamp } from './physiology.js?v=6fc3ec393a';
 
 function varixGrade(d) {
@@ -80,9 +80,9 @@ export function computeMetrics(eng) {
     sv: P[ni.SV],
     ra, ivc: P[ni.IVCS],
     pvFlow: qf('PV_TRUNK') * 0.06,
-    pvVel: eng.velocity('PV_TRUNK'),
+    pvVel: eng.dopplerVelocity('PV_TRUNK'),
     pvFlowMean: (eng.pvQm ?? qf('PV_TRUNK')) * 0.06,
-    pvVelMean: eng.pvVm ?? eng.velocity('PV_TRUNK'),
+    pvVelMean: eng.pvVm ?? eng.dopplerVelocity('PV_TRUNK'),
     pvPI: p.pulsatile || eng.beat ? eng.pi.value : null,
     hepaticFlow: hepFlow * 0.06,
     liverPerfPct: (hepFlow / eng.baseHepFlow) * 100,

@@ -51,38 +51,7 @@ jobs:
         shard: ['1/2', '2/2']
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      # Chromium comes from a cache keyed on the Playwright version, so only the system packages
-      # come from apt. A slow apt mirror then fails this step clearly instead of eating the job.
-      - name: Playwright version
-        id: playwright
-        run: echo "version=$(node -p "require('./package-lock.json').packages['node_modules/playwright-core'].version")" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v4
-        id: playwright-cache
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
-      - name: Download Chromium
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        timeout-minutes: 4
-        run: npx playwright install chromium
-      # The runner image usually has every library Chromium needs already; apt (the slow,
-      # mirror-dependent part) runs only when ldd reports one missing.
-      - name: Install Chromium system packages
-        timeout-minutes: 4
-        run: |
-          missing=$(find ~/.cache/ms-playwright -type f \( -name chrome -o -name headless_shell -o -name chrome-headless-shell \) \
-            -exec ldd {} + | grep 'not found' | sort -u || true)
-          if [ -n "$missing" ]; then
-            echo "Missing libraries:"; echo "$missing"
-            npx playwright install-deps chromium
-          else
-            echo "All Chromium libraries present; skipping apt."
-          fi
+      - uses: ./.github/actions/setup-browser
       # Pages serves the repository root, so the browser checks run against it. The
       # production-build pass (npm run smoke:dist, for the SCORM package) stays in npm run check.
       - name: Browser checks
@@ -97,6 +66,43 @@ jobs:
         with:
           name: workspace-browser-checks-${{ matrix.device }}-${{ strategy.job-index }}
           path: workspace-shots/
+          if-no-files-found: ignore
+
+  # The look against tests/visual on every preview push, so a drift shows up now, not at merge
+  # time. A drift is a warning here (the diffs are kept as an artifact) and blocks only in ci.yml.
+  # When the change to the look is intended, run the "Visual references" workflow on the branch,
+  # which redraws the drifted views on these same machines and commits them.
+  visual:
+    name: visual (${{ matrix.device }})
+    runs-on: ubuntu-latest
+    concurrency:
+      group: visual-${{ github.ref }}-${{ matrix.device }}
+      cancel-in-progress: true
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        device: [desktop, phone]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-browser
+      - name: Visual regression
+        id: visual
+        continue-on-error: true
+        env:
+          VISUAL_DEVICE: ${{ matrix.device }}
+        shell: bash
+        run: npm run visual | tee visual.log
+      - name: Report drifted views
+        if: steps.visual.outcome == 'failure'
+        run: |
+          views=$(grep -o '^FAIL [^:]*' visual.log | cut -c6- | paste -sd' ' -)
+          echo "::warning title=Visual references drifted::$views. If intended, run the Visual references workflow on this branch; ci.yml blocks the merge until then."
+      - uses: actions/upload-artifact@v4
+        if: steps.visual.outcome == 'failure'
+        with:
+          name: visual-diff-${{ matrix.device }}
+          path: test-results/visual
           if-no-files-found: ignore
 
   # Only main and the one integration branch publish. Other claude/** branches are still checked,

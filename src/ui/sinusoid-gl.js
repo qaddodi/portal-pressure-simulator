@@ -1,6 +1,6 @@
 // The sinusoid view on the GPU (WebGL2): the tissue is one full-screen shader, evaluated per pixel in
 // the sinusoid's own frame (micrometres, x along the flow, y across), and what moves through the wall
-// (albumin, plasma water) is a pass of flat point sprites over it, with the stellate and Kupffer cells drawn over those.
+// (albumin) is a pass of flat point sprites over it, with the stellate and Kupffer cells drawn over those.
 //
 // Every repeated structure (the hepatocytes of each plate, the fenestrae, the endothelial nuclei) is
 // placed by an integer hash that this file also exports to JavaScript, so the traffic (sinusoid-view.js)
@@ -72,8 +72,8 @@ in vec2 vP;
 out vec4 o;
 ${COMMON}
 uniform int uPass;              // 0: the tissue; 1: the cells that lie over the moving particles (stellate, Kupffer)
-uniform float uLum, uPinch, uXs, uXk, uKy, uHscA, uCol, uBm, uMv, uAct, uPor, uFlow, uLym, uDir, uDark, uShim, uStreak;
-uniform vec3 cBg, cLumen, cLymph, cCell, cUnder, cNuc, cCol, cBm, cBile, cEndo, cEndoN, cHscQ, cHscA, cHscN, cKup, cKupN, cKupE, cRbc, cChev, cRev, cEndF, cEndE;
+uniform float uLum, uPinch, uXs, uXk, uKy, uHscA, uCol, uBm, uMv, uAct, uPor, uFlow, uLym, uLyF, uDir, uDark, uShim, uStreak;
+uniform vec3 cBg, cShade, cLumen, cLymph, cCell, cUnder, cNuc, cCol, cBm, cBile, cEndo, cEndoN, cHscQ, cHscA, cHscN, cKup, cKupN, cKupE, cRbc, cChev, cRev, cEndF, cEndE;
 uniform float aBm;
 uniform vec4 uEnd;               // the end arrows: portal x, central x (µm), size (µm), alpha
 uniform vec2 uLab;               // the lumen's own name: x and half length (µm), kept clear of the arrowheads
@@ -174,18 +174,25 @@ vec3 lumen(float x, float y, float hw, int lane0, bool chev) {
   const float NL = 9.0;
   float r = clamp(y / hw, -1.0, 1.0), u = (r * 0.5 + 0.5) * NL, li = min(floor(u), NL - 1.0), lc = (li + 0.5) / NL * 2.0 - 1.0;
   int id = int(li) + lane0;
-  float prof = 1.5 * (1.0 - lc * lc) + 0.08, P = 15.0 + 7.0 * h1(id, 7);
+  float prof = 1.8 * (1.0 - lc * lc) + 0.05, P = 15.0 + 7.0 * h1(id, 7);
   float sx = x - uFlow * prof + h1(id, 8) * P, k = floor(sx / P), xx = sx - k * P;
   int ki = int(k);
   float hk = h1(ki * 31 + id, 9), Ls = 4.0 + 6.0 * hk, x0 = (P - Ls) * h1(ki + id * 977, 10);
   float e = (xx - x0) / Ls;
-  float along = smoothstep(0.0, 0.35, e) * (1.0 - smoothstep(0.55, 1.0, e));
   float yc = (lc + (h1(ki, id + 11) - 0.5) * 0.6 / NL) * hw;
-  // As the app's shimmer: soft streaks of light (not painted lines) over a faint glow along the axis.
-  float wy = max(0.2, 1.4 * uPx), acr = exp(-pow((y - yc) / wy, 2.0));
   float rr = 1.0 - r * r;
   c = mix(c, vec3(1.0), 0.07 * rr * rr * uShim / 0.5);
-  c = mix(c, vec3(1.0), along * acr * step(0.25, hk) * uShim * 0.75);
+  float wy = min(max(0.35, 2.8 * uPx), 0.3 * hw / NL);
+  // Light on a flowing liquid: a slow sheen drifts with the blood (two broad, warped waves), and each streak is a soft
+  // glint, bright at its head and trailing off, that swells and fades as the sheen passes over it, so none blinks.
+  float sx2 = x - uFlow * (0.55 + 0.45 * rr);
+  float sh = 0.5 + 0.5 * sin(sx2 * 0.075 + 1.6 * sin(sx2 * 0.031 + y * 0.35) + y * 0.22);
+  sh = sh * sh * (3.0 - 2.0 * sh);
+  c = mix(c, vec3(1.0), 0.11 * sh * rr * uShim / 0.5);
+  float ed = uDir < 0.0 ? 1.0 - e : e;   // the head leads the flow
+  float along = smoothstep(0.0, 0.85, ed) * (1.0 - smoothstep(0.86, 1.0, ed));
+  float acr = exp(-pow((y - yc) / (wy * (0.6 + 0.6 * ed)), 2.0));
+  c = mix(c, vec3(1.0), along * acr * smoothstep(0.15, 0.35, hk) * uShim * 0.6 * (0.45 + 0.75 * sh));
   if (chev) {
     // The flow's arrowheads, the app's own (chevHead, as every vessel draws them): a slim filled head with a notched
     // back, dark (orange where the flow runs backwards) with a faint light rim, one fixed shape, moving with the blood.
@@ -195,8 +202,7 @@ vec3 lumen(float x, float y, float hw, int lane0, bool chev) {
     vec2 ch = chevHead(xc * uDir, abs(y), cw, uPx);
     // (Long, soft fades: a head moving past one dims over a good stretch of its path, it never blinks out. Each end's
     // name lies beyond its arrow, toward its venule.)
-    float s = uEnd.z, fe = 1.0 - smoothstep(-7.0 * s, -4.5 * s, xh - uEnd.x) * (1.0 - smoothstep(2.5 * s, 4.5 * s, xh - uEnd.x));
-    fe *= 1.0 - smoothstep(-7.0 * s, -4.5 * s, uEnd.y - xh) * (1.0 - smoothstep(2.5 * s, 4.5 * s, uEnd.y - xh));
+    float s = uEnd.z, fe = smoothstep(4.0 * s, 6.5 * s, abs(xh - uEnd.x)) * smoothstep(4.0 * s, 6.5 * s, abs(xh - uEnd.y));
     float fade = uEnd.w > 0.0 ? fe : 1.0;
     fade *= smoothstep(uLab.y + 0.3 * L, uLab.y + 3.0 * L, abs(xh - uLab.x));
     fade *= smoothstep(7.0, 11.0, abs(xh - uXk));
@@ -209,26 +215,33 @@ vec3 lumen(float x, float y, float hw, int lane0, bool chev) {
 // ── The space of Disse: lymph running back to the portal triad; collagen and microvilli as the detail comes in ──
 vec3 disse(float x, float a, float wi, float hi, int side, bool main, float det) {
   vec3 c = cLymph;
-  for (int j = 0; j < 2; j++) {
-    float P = 9.0 + 3.0 * float(j), sx = x - uLym * (0.8 + 0.12 * float(j)) + 4.1 * float(j) + (main ? 0.0 : 3.0), k = floor(sx / P), xx = sx - k * P;
-    float L = 2.2 + 1.6 * h1(int(k) * 7 + j, 21 + side), x0 = (P - L) * h1(int(k) + j * 131, 23 + side), e = (xx - x0) / L;
-    float al = smoothstep(0.0, 0.3, e) * (1.0 - smoothstep(0.65, 1.0, e));
-    c = mix(c, vec3(1.0), al * line(a - mix(wi, hi, 0.3 + 0.36 * float(j)), 0.18) * uStreak);
+  // The lymph: soft dashes running back toward the portal triad, tapered at both ends (never a hard line). How many
+  // show follows the lymph flow (uLyF, the share of slots lit: sparse when it is low, crowded when it is high),
+  // and each fades in or out as that eases, so none pops; the speed is the flow's too (lymX in sinusoid-view.js).
+  float lx = x - uLym + (main ? 0.0 : 3.0) + (side < 0 ? 0.0 : 7.0);
+  for (int j = 0; j < 4; j++) {
+    float fj = float(j), P = 8.0 + 1.7 * fj, sx = lx * (0.92 + 0.08 * fj) + 4.1 * fj, k = floor(sx / P), xx = sx - k * P;
+    float L = 2.4 + 1.8 * h1(int(k) * 7 + j, 21 + side), x0 = (P - L) * h1(int(k) + j * 131, 23 + side), e = (xx - x0) / L;
+    float on = smoothstep(h1(int(k) * 13 + j, 27 + side) - 0.12, h1(int(k) * 13 + j, 27 + side), uLyF - 0.25 * fj);
+    if (on < 0.01 || e < 0.0 || e > 1.0) continue;
+    float al = smoothstep(0.0, 0.3, e) * (1.0 - smoothstep(0.6, 1.0, e)) * on;
+    float yc = mix(wi, hi, 0.24 + 0.17 * fj + 0.06 * (h1(int(k), 29 + j) - 0.5)), wy = max(0.07 * (hi - wi), 1.1 * uPx);
+    c = mix(c, vec3(1.0), al * exp(-pow((a - yc) / wy, 2.0)) * uStreak * clamp(0.75 + 0.3 * uLyF, 0.75, 1.1));
   }
-  if (!main) return c;
   // Collagen: a pale fill as it takes the space the lymph had, then banded fibre bundles laid down by the
   // stellate cell: they start at it and spread along Disse, each thickening at its own stage.
   if (uCol > 0.02) {
     c = mix(c, cCol, (0.36 - 0.08 * uDark) * smoothstep(0.1, 0.9, uCol));
     float near = side < 0 ? exp(-pow((x - uXs) / 26.0, 2.0)) * uAct * 0.08 : 0.0;
     float reach = 14.0 + 320.0 * smoothstep(0.0, 0.8, uCol) * (side < 0 ? 1.0 : 0.8);
-    float spread = 1.0 - smoothstep(reach - 30.0, reach, abs(x - uXs - (side < 0 ? 0.0 : 18.0)));
-    float bd = smoothstep(0.3, 0.1, uPx) * det;                   // the cross-banding, only once it is resolved
+    float spread = main ? 1.0 - smoothstep(reach - 30.0, reach, abs(x - uXs - (side < 0 ? 0.0 : 18.0))) : 1.0;   // the neighbouring sinusoids' Disse fills evenly
+    float fd = main ? det : 1.0;
+    float bd = smoothstep(0.3, 0.1, uPx) * fd;                   // the cross-banding, only once it is resolved
     vec3 fib = cCol * 0.9, fibE = cCol * 0.72;
     for (int i = 0; i < 7; i++) {
-      float al = smoothstep(float(i) / 7.0 * 0.8, float(i) / 7.0 * 0.8 + 0.22, uCol) * det * spread;
+      float al = smoothstep(float(i) / 7.0 * 0.8, float(i) / 7.0 * 0.8 + 0.22, uCol) * fd * spread;
       if (al < 0.01) continue;
-      int sd = side < 0 ? 91 : 92;
+      int sd = (side < 0 ? 91 : 92) + (main ? 0 : 40);
       float v = 0.15 + 0.7 * h1(i, sd), f = 0.12 + 0.12 * h1(i, sd + 7), ph = 6.2831853 * h1(i, sd + 9);
       float tc = clamp(v + 0.12 * sin(x * f + ph) + 0.05 * sin(x * f * 2.7 + ph * 1.7) + near, 0.08, 0.92);
       float w = (0.2 + (0.5 + 0.3 * h1(i, sd + 3)) * al * uCol) * (hi - wi) * 0.22;
@@ -242,6 +255,7 @@ vec3 disse(float x, float a, float wi, float hi, int side, bool main, float det)
       c = mix(c, fibE, line(d, 0.06) * al * 0.18);
     }
   }
+  if (!main) return c;
   // Microvilli: fine strokes from the hepatocytes' face, flattened as the space fills with collagen.
   if (uMv * det > 0.02) {
     float pi = floor(x / 0.8), hx = (pi + 0.5) * 0.8 + 0.22 * (h1(int(pi), 61 + side) - 0.5);
@@ -395,13 +409,14 @@ void main() {
     // The arrows at the ends, beside their labels: the blood coming in from the portal venule and going out to the central venule.
     for (int i = 0; i < 2; i++) {
       float s = uEnd.z;
-      vec2 q = vec2((x - (i == 0 ? uEnd.x : uEnd.y)) * uDir, y);
-      // A heavy, laid-down arrowhead pointing with the flow (in at the portal end, out at the central end): a broad solid
-      // wedge with a notched back, in the labels' ink on a soft halo, as a journal figure marks flow.
-      vec2 T = vec2(0.5 * s, 0.0), A = vec2(-0.5 * s, 0.56 * s), B = vec2(-0.5 * s, -0.56 * s), N = vec2(-0.16 * s, 0.0);
-      float dA = max(sdTri(q, T, A, B), -sdTri(q, N, N + 4.0 * (A - N), N + 4.0 * (B - N)));
-      c = mix(c, cEndE, cov(dA - 0.1 * s) * 0.5 * uEnd.w);
-      c = mix(c, cEndF, cov(dA) * 0.88 * uEnd.w);
+      // Each points toward its vessel, off the view: the portal venule's back upstream, the central venule's on downstream.
+      vec2 q = vec2((x - (i == 0 ? uEnd.x : uEnd.y)) * uDir * (i == 0 ? -1.0 : 1.0), y);
+      // A thick, laid-down arrow: a short
+      // broad shaft and a wide head, softly rounded, in the labels' ink faded into the blood, as a journal figure marks flow.
+      float dA = min(sdRB(q - vec2(-0.3 * s, 0.0), vec2(0.28 * s, 0.17 * s), 0.05 * s),
+                     sdTri(q, vec2(0.52 * s, 0.0), vec2(0.0, 0.46 * s), vec2(0.0, -0.46 * s)) - 0.03 * s);
+      c = mix(c, cEndE, cov(dA - 0.08 * s) * 0.3 * uEnd.w);
+      c = mix(c, cEndF, cov(dA) * 0.5 * uEnd.w);
     }
   }
   else if (a < wi) c = mix(mix(cLumen, vec3(1.0), 0.3), cLymph, (a - hw) / ENDO);
@@ -431,13 +446,13 @@ void main() {
     float dN, de = sdEndo(x, a, hw, side < 0 ? ${SEED.poreUp} : ${SEED.poreDn}, side < 0 ? ${SEED.nucUp} : ${SEED.nucDn}, side > 0, det, dN);
     c = endoInk(c, de, dN, x, det);
   }
-  // Focus: beyond this sinusoid's own plates the tissue fades into the page.
+  // Focus: beyond this sinusoid's own plates the tissue fades to dark (the page in dark mode, a deep shade in light).
   float f0 = uLum + ENDO + disseW(0.0) + HEP * 0.85;
-  c = mix(c, cBg, smoothstep(f0, f0 + 18.0, a) * (0.72 + 0.06 * uDark) * uFocus);
+  c = mix(c, cShade, smoothstep(f0, f0 + 18.0, a) * (0.72 + 0.06 * uDark) * uFocus);
   o = vec4(c * show, show);
 }`;
 
-// Particles: albumin (amber), plasma water (small clear specks), and the ring where albumin meets a sealed wall; flat, outlined.
+// Particles: albumin (amber) and the glow where albumin meets a sealed wall; flat, outlined.
 const PVS = `#version 300 es
 layout(location=0) in vec4 aP;   // x, y (µm), radius (µm), alpha
 layout(location=1) in float aK;  // kind
@@ -456,16 +471,15 @@ void main() {
 const PFS = `#version 300 es
 precision highp float;
 in float vA; in float vK; in float vR;
-uniform vec3 cAlb, cAlbE, cWat, cWatE;
+uniform vec3 cAlb, cAlbE;
 out vec4 o;
 void main() {
   float r = length((gl_PointCoord * 2.0 - 1.0) * (vR + 1.5)), a;
   vec3 c;
   if (vK > 1.5) { a = (1.0 - smoothstep(0.25 * vR, vR + 1.0, r)) * 0.5; c = mix(vec3(1.0), cAlb, 0.3); }   // a soft glow where it meets the wall
   else {
-    bool alb = vK < 0.5;
     a = 1.0 - smoothstep(vR - 0.7, vR + 0.7, r);
-    c = mix(alb ? cAlb : cWat, alb ? cAlbE : cWatE, smoothstep(vR - 1.7, vR - 0.6, r) * (alb ? 0.6 : 0.7));
+    c = mix(cAlb, cAlbE, smoothstep(vR - 1.7, vR - 0.6, r) * 0.6);
   }
   a *= vA;
   o = vec4(c * a, a);

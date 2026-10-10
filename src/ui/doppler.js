@@ -4,10 +4,10 @@
 // and the waveform pattern. The trace keeps recording while the instrument is closed, so it opens
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
-import { EDGES } from '../engine/topology.js?v=dc393aabea';
-import { h, fmt, fitCanvas, clamp, icon } from './util.js?v=e803df99cd';
-import { FONT } from './charts.js?v=ac5eb186fd';
-import { logAction } from './store.js?v=25cbe77a76';
+import { EDGES, dopplerK } from '../engine/topology.js?v=706a39d50b';
+import { h, fmt, fitCanvas, clamp, icon } from './util.js?v=e0101a3fa2';
+import { FONT } from './charts.js?v=bcd2021343';
+import { logAction } from './store.js?v=5edd069b32';
 import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=fe9fd40247';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -137,9 +137,9 @@ export function createDoppler({ onProbe }) {
       const v = buf[i][1]; sum += v; n++;
       if (v > vmax) vmax = v; if (v < vmin) vmin = v;
     }
-    const mean = sum / n;
-    // Peak of the spectrum ≈ 1.3 × the mean velocity across the lumen
-    return { mean, vmax: vmax * 1.3, vmin: vmin * 1.3, vmaxMean: vmax, vminMean: vmin };
+    // The record is the mean across the lumen; the scanner reads the peak of the spectrum (dopplerK)
+    const k = dopplerK(EDGES[EI[probe]]);
+    return { mean: k * sum / n, vmax: vmax * k, vmin: vmin * k, vmaxMean: vmax, vminMean: vmin };
   }
   const meta = () => PROBES.find((p) => p.id === probe) || PROBES[0];
   // +1 when the vessel's forward flow is drawn above the baseline, −1 when below
@@ -158,7 +158,7 @@ export function createDoppler({ onProbe }) {
       dir = 'No flow'; sev = 'critical'; pattern = 'No signal';
       note = p.kind === 'tips' ? 'No flow in the stent: occluded.' : 'No detectable flow: the vessel is occluded, as in thrombosis.';
     } else if (p.kind === 'portal') {
-      if (a < 5 && !reverses) { dir = 'Stasis'; sev = 'danger'; }
+      if (a < 9 && !reverses) { dir = 'Stasis'; sev = 'danger'; }
       else if (reverses && Math.abs(r.mean) < swing * 0.35) { dir = 'To-and-fro'; sev = 'danger'; }
       else if (r.mean < 0) { dir = 'Hepatofugal'; sev = 'critical'; }
       else { dir = 'Hepatopetal'; sev = a < p.normal[0] ? 'caution' : 'ok'; }
@@ -171,9 +171,13 @@ export function createDoppler({ onProbe }) {
         : 'Normal: toward the liver with gentle phasicity.';
     } else if (p.kind === 'hepatic') {
       dir = r.mean < 0 ? 'Reversed' : 'Toward the heart'; sev = r.mean < 0 ? 'danger' : 'ok';
-      pattern = r.vminMean < -1 ? 'Triphasic' : pi > 0.3 ? 'Biphasic' : 'Monophasic';
+      // A reversal over 15 cm/s and 0.4 of the forward peak is more than the a-wave: tricuspid regurgitation or a high atrium.
+      const backflow = -r.vminMean > 15 && -r.vminMean > 0.4 * r.vmaxMean;
+      pattern = backflow ? 'Large reversal' : r.vminMean < -1 ? 'Triphasic' : pi > 0.3 ? 'Biphasic' : 'Monophasic';
       if (pattern === 'Monophasic') sev = sev === 'ok' ? 'caution' : sev;
-      note = pattern === 'Triphasic' ? 'Normal: the atrial a-wave briefly reverses flow each beat.'
+      if (backflow) sev = 'danger';
+      note = backflow ? 'Blood surges back toward the liver each beat: tricuspid regurgitation or a high right atrial pressure.'
+        : pattern === 'Triphasic' ? 'Normal: the atrial a-wave briefly reverses flow each beat.'
         : pattern === 'Biphasic' ? 'Damped: the a-wave no longer reverses flow.'
         : 'Flat: a stiff liver (cirrhosis) or an outflow block damps the cardiac waveform.';
     } else if (p.kind === 'artery') {
@@ -222,7 +226,8 @@ export function createDoppler({ onProbe }) {
     statEls.CI.wrap.hidden = !isPV;
     if (isPV && frame) {
       const D = Math.max(0.5, frame.D[EI[probe]]) / 10, area = Math.PI * D * D / 4;
-      set(statEls.CI.dd, Math.abs(r.mean) > 0.5 ? `${fmt(area / Math.abs(r.mean), 2)} cm·s` : '—');
+      const vm = Math.abs(r.mean) / dopplerK(EDGES[EI[probe]]);   // Moriyasu's index uses the mean across the lumen
+      set(statEls.CI.dd, vm > 0.3 ? `${fmt(area / vm, 2)} cm·s` : '—');
     }
     set(noteEl, it.note);
     const aria = `Spectral Doppler, ${EDGES[EI[probe]].label}, ${sweepSeconds}-second sweep: ${it.dir}, mean ${num(r.mean, 0)} centimeters per second, ${it.pattern}.`;
@@ -316,8 +321,8 @@ export function createDoppler({ onProbe }) {
     const v = velAt(c / g.cps, g);
     const has = !Number.isNaN(v);
     const av = Math.abs(v);
-    // velocity band: in an artery (or the stent) the flow is fast and blunt, from ~0.45× to 1.3×
-    // the mean with a clear window under it, and slow flow broadens toward the baseline; in a vein
+    // velocity band: in an artery (or the stent) the flow is fast and blunt, from ~0.45× the mean up to
+    // the peak (dopplerK × the mean) with a clear window under it, and slow flow broadens toward the baseline; in a vein
     // the sample volume takes in the slow flow near the wall too, so the band fills to the baseline
     const s = v < 0 ? -1 : 1;
     // each spectral line is its own estimate: its top reaches a little further or less far, and
@@ -325,7 +330,7 @@ export function createDoppler({ onProbe }) {
     // in time (held in the ring, so this scrolls with the trace)
     const rn = () => Math.random() + Math.random() + Math.random() - 1.5;
     jit = 0.45 * jit + rn(); lineGain = 0.5 * lineGain + rn();
-    const P = av * 1.3 * (1 + 0.035 * jit);
+    const P = av * g.k * (1 + 0.035 * jit);
     const gain = 10 ** (0.12 * lineGain);
     const L = av * (g.venous ? 0.05 : 0.45 - 0.4 * clamp(1 - av / 12, 0, 1));
     const sigHi = 0.02 * P + 0.4, sigLo = 0.08 * P + 1.2;
@@ -412,7 +417,8 @@ export function createDoppler({ onProbe }) {
     let pos = 0, neg = 0;
     const sgn = pol();
     for (const [t, v0] of buf) if (t >= tNow - sweepSeconds && t <= tNow) { const v = sgn * v0; if (v > pos) pos = v; if (-v > neg) neg = -v; }
-    pos *= 1.3; neg *= 1.3;
+    const k = dopplerK(EDGES[EI[probe]]);
+    pos *= k; neg *= k;
     const need = Math.max(pos, neg, 8) / 0.85;
     const target = STEPS.find((x) => x >= need) || STEPS[STEPS.length - 1];
     const tbRaw = pos + neg < 1 ? 0.5 : pos > 0 && neg < pos * 0.08 ? 0.88 : neg > 0 && pos < neg * 0.08 ? 0.12 : clamp(0.1 + 0.8 * (pos / (pos + neg)), 0.12, 0.88);
@@ -427,7 +433,7 @@ export function createDoppler({ onProbe }) {
 
     // Spectrum, at device resolution, newest line at the right edge.
     const RW = Math.max(1, Math.round(W * dpr)), RH = Math.max(1, Math.round(H * dpr));
-    const g = { RW, RH, rBase: baseY * dpr, rPxPerV: pxPerV * dpr, cps: RW / sweepSeconds, binPx: Math.max(1.5, RH / 200), spkPx: Math.max(2, RH / 110), spkMix: clamp(1 - 1 / dpr, 0.3, 0.65), pol: sgn, venous: meta().kind !== 'artery' && meta().kind !== 'tips' };
+    const g = { RW, RH, rBase: baseY * dpr, rPxPerV: pxPerV * dpr, cps: RW / sweepSeconds, binPx: Math.max(1.5, RH / 200), spkPx: Math.max(2, RH / 110), spkMix: clamp(1 - 1 / dpr, 0.3, 0.65), pol: sgn, k, venous: meta().kind !== 'artery' && meta().kind !== 'tips' };
     const cNow = Math.floor(tNow * g.cps);
     const key = `${RW}x${RH}|${scale}|${baseF}|${probe}|${sgn}|${sweepSeconds}|${mode}`;
     if (!img || img.width !== RW || img.height !== RH) {
@@ -485,6 +491,20 @@ export function createDoppler({ onProbe }) {
       if (major && y > padT + 5 && y < padT + H - 5) { ctx.fillStyle = 'rgba(255,255,255,.78)'; ctx.fillText(v === 0 ? '0' : num(v), padL + W + 13, y); }
     }
     ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.textAlign = 'right'; ctx.fillText('cm/s', w - 6, 13);
+    if (waves && meta().kind === 'hepatic') {
+      // The hepatic vein's waves named at their peaks (a presenter slide asks for it): the a-wave reversal on the
+      // atrial side of the baseline, then the S and D forward waves of the same beat, small and faded.
+      ctx.font = FONT(600, 11); ctx.textAlign = 'center';
+      const at = (t, v) => [padL + (RW - 1 - (cNow - Math.floor(t * g.cps))) / dpr, padT + baseY - v * k * pxPerV];
+      for (const [t, v, name] of hvWaves(tNow - sweepSeconds, tNow, sgn)) {
+        // (The a-wave's letter sits just past the baseline on its side, clear of the spectrum, even when it barely crosses.)
+        const up = name === 'a', [x, y0] = at(t, v), y = up ? Math.min(y0, padT + baseY) : y0;
+        if (x < padL + 6 || x > padL + W - 6) continue;
+        const ty = clamp(y + (up ? -4 : 4), padT + (up ? 12 : 0), padT + H - (up ? 0 : 12));
+        ctx.textBaseline = up ? 'bottom' : 'top'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(name, x, ty);
+        ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.fillText(name, x, ty);
+      }
+    }
     // One tick a second along the bottom, scrolling with the trace
     ctx.fillStyle = 'rgba(255,255,255,.4)';
     for (let sec = Math.ceil(tNow - sweepSeconds); sec <= tNow; sec++) {
@@ -496,6 +516,35 @@ export function createDoppler({ onProbe }) {
 
   // The dock asks for a redraw with each model frame (~10 a second); the picture itself runs on
   // animation frames while the model is live and the dock keeps asking, and stops when it doesn't.
+  // ── Hepatic vein waves: a, S and D in each whole beat on screen ──
+  // Beats are cut at the a-waves (the reversals, toward the probe's atrial side); between two, the two deepest
+  // forward troughs are S (first) and D, with the a-wave that opens the beat. Read from a lightly smoothed trace; nothing is named when the pattern
+  // is not triphasic (no clear reversal, or a single forward wave).
+  let waves = false;
+  function hvWaves(t0, t1, sgn) {
+    const p = buf.filter(([t]) => t >= t0 && t <= t1);
+    if (p.length < 12) return [];
+    const y = p.map((_, i) => { let s = 0, n = 0; for (let j = Math.max(0, i - 2); j <= Math.min(p.length - 1, i + 2); j++) { s += sgn * p[j][1]; n++; } return s / n; });
+    const top = Math.max(...y), bot = Math.min(...y);   // (top: the biggest reversal, which has to exist)
+    if (top < 0.5 || bot > -5) return [];
+    const ext = (i, s) => s * y[i] >= s * y[i - 1] && s * y[i] >= s * y[i + 1];
+    // An a-wave: the highest point within 0.3 s either side, at or near the baseline.
+    const crest = (i) => { for (let j = i - 1; j >= 0 && p[i][0] - p[j][0] < 0.3; j--) if (y[j] > y[i]) return false; for (let j = i + 1; j < y.length && p[j][0] - p[i][0] < 0.3; j++) if (y[j] > y[i]) return false; return true; };
+    const aI = [];
+    for (let i = 1; i < y.length - 1; i++) if (y[i] > bot * 0.15 && ext(i, 1) && crest(i) && (!aI.length || p[i][0] - p[aI.at(-1)][0] > 0.35)) aI.push(i);
+    // Only the newest whole beat is named, as a textbook marks one cycle: every beat at once crowds the trace.
+    for (let b = aI.length - 2; b >= 0; b--) {
+      const lows = [];
+      for (let i = aI[b] + 1; i < aI[b + 1]; i++) if (y[i] < bot * 0.25 && ext(i, -1)) lows.push(i);
+      // Keep the deepest trough of each dip (troughs closer than 0.12 s are one wave), then the two deepest dips.
+      const dips = [];
+      for (const i of lows) { const d = dips.at(-1); if (d && p[i][0] - p[d][0] < 0.12) { if (y[i] < y[d]) dips[dips.length - 1] = i; } else dips.push(i); }
+      if (dips.length < 2) continue;
+      const two = [...dips].sort((m, n) => y[m] - y[n]).slice(0, 2).sort((m, n) => m - n);
+      return [[p[aI[b]][0], y[aI[b]], 'a'], [p[two[0]][0], y[two[0]], 'S'], [p[two[1]][0], y[two[1]], 'D']];
+    }
+    return [];
+  }
   let raf = 0, askedAt = 0;
   function loop(now) {
     raf = 0;
@@ -511,5 +560,7 @@ export function createDoppler({ onProbe }) {
   }
   function update(f) { ingest(f); redraw(); }
   function clear() { buf = []; redraw(); }
-  return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, setInvert };
+  /** Name the hepatic vein's a, S and D waves on the trace (the Presenter's waveform slides). */
+  function setWaves(on) { if (waves !== !!on) { waves = !!on; ringKey = null; redraw(); } }
+  return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, setInvert, setWaves };
 }

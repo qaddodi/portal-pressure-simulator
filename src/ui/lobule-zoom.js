@@ -20,15 +20,15 @@
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
-import { store } from './store.js?v=25cbe77a76';
+import { store } from './store.js?v=5edd069b32';
 import { radiiChanged } from './lobule-render-cache.js?v=07951b5935';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=dd2bf5fddf';
-import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=e803df99cd';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=0c0c959895';
+import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=e0101a3fa2';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
-import { NODES, EDGES } from '../engine/topology.js?v=dc393aabea';
-import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=af24ea0bf0';
+import { NODES, EDGES } from '../engine/topology.js?v=706a39d50b';
+import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=44500994a2';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
-import { createSinusoidView } from './sinusoid-view.js?v=96ac8dcf06';
+import { createSinusoidView } from './sinusoid-view.js?v=14866bc1c9';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const TAU = Math.PI * 2;
@@ -358,7 +358,9 @@ export function createLobuleZoom({ host }) {
   function refit() { if (!geo || rubber || sinU > 0 || sinTo) { refitLater = !!geo; return; }   // not while in or on the way to the sinusoid: the zoom holds the lobule still
     refitLater = false; const F0 = fitV(); kFit = F0.k; if (atFit) glideTo(F0); else { clampV(); viewChanged(); } }
   addEventListener('pps:occ', () => { if (fade > 0) { layoutKey = ''; refit(); } });
-  addEventListener('pps:labelscale', () => { drawVersion++; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); });
+  // A new text size: the labels glide to their new places instead of jumping.
+  let easeT = 0;
+  addEventListener('pps:labelscale', () => { labels.classList.add('lz-ease'); clearTimeout(easeT); easeT = setTimeout(() => labels.classList.remove('lz-ease'), 450); drawVersion++; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); });
   const viewChanged = () => { drawVersion++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = requestAnimationFrame(loop); };
   const toWorld = (p) => [(p[0] - V.x) / V.k, (p[1] - V.y) / V.k];
   const toScreen = (p) => [p[0] * V.k + V.x, p[1] * V.k + V.y];
@@ -795,6 +797,12 @@ export function createLobuleZoom({ host }) {
 
   // ── Station labels (HTML, styled as the anatomy's) with leaders ──
   const labs = {}, badges = {};
+  // A unit with a second reading ('mL/min · Protein 48%'): the second part can drop to its own line when the label is wide.
+  const unitParts = (u) => {
+    if (!u) return [];
+    const [a, ...rest] = u.split(' · ');
+    return rest.length ? [h('small', {}, a), h('small', { class: 'u2' }, h('span', { class: 'dot' }, '· '), rest.join(' · '))] : [h('small', {}, u)];
+  };
   function setLab(key, name, short, v, u, d, col) {
     let L = labs[key];
     if (!L) {
@@ -807,7 +815,7 @@ export function createLobuleZoom({ host }) {
       L.txt = txt;
       L.el.style.setProperty('--sw', col || 'var(--border-strong)');
       L.el.replaceChildren(h('span', { class: 'n' }, h('span', { class: 'n-long' }, name), h('span', { class: 'n-short' }, short)),
-        h('span', { class: 'v' }, h('b', {}, v), u ? h('small', {}, u) : null, d ? h('span', { class: 'd' }, d) : null));
+        h('span', { class: 'v' }, h('b', {}, v), ...unitParts(u), d ? h('span', { class: 'd' }, d) : null));
       L.el.setAttribute('aria-label', `${name} ${v} ${u}${d ? `, ${d.startsWith('▲') ? 'up' : 'down'} ${d.slice(2)} ${model?.cmp ? 'since then' : 'from healthy'}` : ''}. Show details`);
       layoutKey = '';
     }
@@ -883,29 +891,50 @@ export function createLobuleZoom({ host }) {
       pick.lt = vis.includes(pick.lt ?? pick.triad) ? (pick.lt ?? pick.triad) : vis.sort((a, b) => dist(a) - dist(b))[0] ?? null;
       if (pick.lt == null) pick.lt = pick.triad;
     }
+    // Open cards over the figure (a presenter slide's numbers, notices) and the labelled structures themselves:
+    // a label pays heavily to sit on either, so at large text sizes the labels move off them rather than cover them.
+    const hr = el.getBoundingClientRect(), cards = [];
+    for (const c of document.querySelectorAll('.stage-blocker:not([hidden])')) {
+      const r = c.getBoundingClientRect();
+      if (r.width && getComputedStyle(c).visibility !== 'hidden') cards.push({ l: r.left - hr.left - 6, r: r.right - hr.left + 6, t: r.top - hr.top - 6, b: r.bottom - hr.top + 6 });
+    }
+    const marks = ['triad', 'cv', ...(lymphOn ? ['lymph'] : [])].map((k) => {
+      const [x, y] = toScreen(anchorOf(k)), r = Math.max(12, g.rcv0 * 1.3 * V.k);
+      return { k, l: x - r, r: x + r, t: y - r, b: y + r };
+    });
+    // The letters' halo reaches past each label's box, more so at larger text: the margins grow with it.
+    const lk = parseFloat(document.documentElement.style.getPropertyValue('--label-k')) || 1, hm = 4 + 2 * lk;
     for (const k of ['cv', 'sin', 'triad', 'lymph']) {
       const L = labs[k];
       if (!L) continue;
       if (k === 'lymph' && !lymphOn) { L.el.hidden = true; L.line.style.display = L.dotEl.style.display = 'none'; continue; }
       L.el.hidden = false;
+      // Too wide for the free space (large text, a narrow screen): the label stacks its second reading.
+      L.el.classList.remove('stack');
+      if (L.el.offsetWidth > (fr.r - fr.l) * 0.32 && L.el.querySelector('.u2')) L.el.classList.add('stack');
       const w = L.el.offsetWidth || 100, hh = L.el.offsetHeight || 40;
       const a = toScreen(anchorOf(k));
       const outside = k === 'lymph' ? a[0] < 0 || a[0] > g.W || a[1] < 0 || a[1] > g.H : a[0] < fr.l - 4 || a[0] > fr.r + 4 || a[1] < fr.t - 4 || a[1] > fr.b + 4;
       L.el.hidden = outside || fr.r - fr.l < w + 16 || fr.b - fr.t < hh + 16;
       if (L.el.hidden) { L.line.style.display = L.dotEl.style.display = 'none'; continue; }
-      const pad = 8, step = hh + 12;
+      const pad = 8 + 4 * lk, step = hh + 12;
       const preferred = k === 'cv' ? [a[0], a[1] - g.rcv0 * V.k - hh / 2 - 12]
         : k === 'triad' ? [a[0], a[1] + hh / 2 + 12] : k === 'lymph' ? [a[0], a[1] - hh / 2 - 14] : a;
-      const candidates = [preferred,
-        [preferred[0], preferred[1] - step], [preferred[0], preferred[1] + step],
-        [preferred[0] - w / 2 - 12, preferred[1]], [preferred[0] + w / 2 + 12, preferred[1]],
-        [preferred[0], preferred[1] - 2 * step], [preferred[0], preferred[1] + 2 * step]];
+      // Steps in proportion to the label, so larger text searches proportionally farther (above, below, beside, diagonally).
+      const candidates = [preferred];
+      for (const dx of [0, -(w / 2 + 12), w / 2 + 12, -(w + 24), w + 24])
+        for (const n of [0, -1, 1, -2, 2, -3, 3]) if (dx || n) candidates.push([preferred[0] + dx, preferred[1] + n * step]);
+      // Snug against each label already placed (just above or below it), so a tight gap between two is found.
+      for (const o of placed) candidates.push([preferred[0], o.b + hh / 2 + hm], [preferred[0], o.t - hh / 2 - hm]);
+      const own = marks.filter((m) => m.k !== k);
       let best = null;
       for (const [px, py] of candidates) {
         const x = clamp(px, fr.l + w / 2 + pad, fr.r - w / 2 - pad);
         const y = clamp(py, fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
-        const box = { l: x - w / 2 - 6, r: x + w / 2 + 6, t: y - hh / 2 - 6, b: y + hh / 2 + 6 };
+        const box = { l: x - w / 2 - hm, r: x + w / 2 + hm, t: y - hh / 2 - hm, b: y + hh / 2 + hm };
         const cost = placed.reduce((sum, other) => sum + overlap(box, other) * 100, 0)
+          + cards.reduce((sum, c) => sum + overlap(box, c) * 400, 0)
+          + own.reduce((sum, m) => sum + overlap(box, m) * 40, 0)
           + Math.hypot(x - preferred[0], y - preferred[1]);
         if (!best || cost < best.cost) best = { x, y, box, cost };
       }
@@ -1177,6 +1206,8 @@ export function createLobuleZoom({ host }) {
     return (t.quiet = { k, R: t.R, tw: t.tw, th: t.th, TW: t.TW, TH: t.TH, cv, pats: new WeakMap() });
   }
   // The surround fading into the page with distance from the lobule (q: 0..1, how far it has faded).
+  // The surround fades into the page (light in light mode, dark in dark mode).
+  const shadeOf = (bg) => bg;
   function fieldFade(c, bg, x, y, rd, q, w, h) {
     const vg = c.createRadialGradient(x, y, rd * 1.1, x, y, rd * 3.2);
     vg.addColorStop(0, css(bg, 0)); vg.addColorStop(0.5, css(bg, 0.72 * q)); vg.addColorStop(1, css(bg, q));
@@ -1215,7 +1246,7 @@ export function createLobuleZoom({ host }) {
     }
     fieldFill(c, t.liverQ, d.x * dpr, d.y * dpr, rd, field.width, field.height);
     // Quieting: the pre-quieted tile laid over the plain one (two pattern fills, not a blend of the whole screen).
-    if (d.quiet > 0) { c.globalAlpha = d.quiet; fieldFill(c, quietTile(t, bg), d.x * dpr, d.y * dpr, rd, field.width, field.height); c.globalAlpha = 1; fieldFade(c, bg, d.x * dpr, d.y * dpr, rd, d.quiet, field.width, field.height); }
+    if (d.quiet > 0) { c.globalAlpha = d.quiet; fieldFill(c, quietTile(t, shadeOf(bg, dark)), d.x * dpr, d.y * dpr, rd, field.width, field.height); c.globalAlpha = 1; fieldFade(c, shadeOf(bg, dark), d.x * dpr, d.y * dpr, rd, d.quiet, field.width, field.height); }
     // Emerging: the field spreads out from the dive point as it fades in.
     if (d.a < 1) {
       const diag = Math.hypot(W, H) * dpr, rho = diag * (0.2 + 1.1 * d.a);
@@ -1484,7 +1515,7 @@ export function createLobuleZoom({ host }) {
     {
       c.setTransform(1, 0, 0, 1, 0, 0);
       const [sx, sy] = toScreen([cx, cy]), rd = R * V.k * dpr;
-      fieldFill(c, quietTile(fieldTile(cs, dark, rd * 0.55), rgb01(bg)), sx * dpr, sy * dpr, rd, W * dpr, H * dpr);   // half resolution is plenty for the quiet surround
+      fieldFill(c, quietTile(fieldTile(cs, dark, rd * 0.55), shadeOf(rgb01(bg), dark)), sx * dpr, sy * dpr, rd, W * dpr, H * dpr);   // half resolution is plenty for the quiet surround
     }
     const B = 1.3 * R, bx = cx - B, by = cy - B;
     if (wk !== worldKey) {
@@ -1499,7 +1530,7 @@ export function createLobuleZoom({ host }) {
     c.setTransform(1, 0, 0, 1, 0, 0);
     { const [sx, sy] = toScreen([bx, by]); c.drawImage(worldCv, sx * dpr, sy * dpr, 2 * B * V.k * dpr, 2 * B * V.k * dpr); }
     // Focus: the surround fades into the page (as the dive's field does at its end).
-    { c.setTransform(1, 0, 0, 1, 0, 0); const [sx, sy] = toScreen([cx, cy]); fieldFade(c, rgb01(bg), sx * dpr, sy * dpr, R * V.k * dpr, 1, W * dpr, H * dpr); c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y); }
+    { c.setTransform(1, 0, 0, 1, 0, 0); const [sx, sy] = toScreen([cx, cy]); fieldFade(c, shadeOf(rgb01(bg), dark), sx * dpr, sy * dpr, R * V.k * dpr, 1, W * dpr, H * dpr); c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y); }
     if (flatVessels) paintFlatVessels(c, cs);
   }
   // The lobule in world space (plates, septa, tracts, lymph): drawn into the cached bitmap.
@@ -1931,12 +1962,17 @@ export function createLobuleZoom({ host }) {
     return { p, c, q, rot, Z, run, k: F.k, ang: F.ang };
   }
   function placeSinusoid() {
-    const u = sinU, D = sinDive, rm = reduce.matches;
+    const u = sinU, rm = reduce.matches;
+    let D = sinDive;
     if (!D || u <= 0) {
       el.style.transform = ''; el.style.transformOrigin = ''; el.style.visibility = ''; el.classList.remove('lz-sin');
       sv.place({ opacity: 0 });
       return;
     }
+    // On the way in the view's resting place is read afresh each frame: the dock and the side pieces leave as the
+    // zoom starts (and the credit line slides down), so the frame they free settles early in the zoom, which then
+    // lands on it, with no second move after it. (On the way out it is kept, so the lobule is reached as it was.)
+    if (D && sinTo === 1 && u > 0 && u < 1 && !rm) D = sinDive = diveGeometry();
     const g = rm ? 1 : easeIO(u);
     // The lobule: turned and grown about the zoom's fixed point.
     el.style.transformOrigin = rm ? '' : `${D.q[0].toFixed(2)}px ${D.q[1].toFixed(2)}px`;

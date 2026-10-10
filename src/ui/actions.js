@@ -3,12 +3,12 @@
 // palette, lessons and cases all call these same verbs, so each change is made one way and lands
 // in the timeline as one entry.
 
-import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=dc393aabea';
-import { store, updateParams, hiddenNow } from './store.js?v=25cbe77a76';
-import { fmt, fmtFlow, clamp, toast } from './util.js?v=e803df99cd';
-import { aboutVessel, aboutOrgan } from './about.js?v=1558f64152';
-import { lobuleState } from './lobule-model.js?v=dd2bf5fddf';
-import { LABEL_VESSEL } from './anatomy.js?v=c9178ee66a';
+import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=706a39d50b';
+import { store, updateParams, hiddenNow } from './store.js?v=5edd069b32';
+import { fmt, fmtFlow, clamp, toast } from './util.js?v=e0101a3fa2';
+import { aboutVessel, aboutOrgan } from './about.js?v=e2e9e6ee7d';
+import { lobuleState } from './lobule-model.js?v=0c0c959895';
+import { LABEL_VESSEL } from './anatomy.js?v=4355201afd';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

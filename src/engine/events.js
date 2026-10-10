@@ -1,6 +1,6 @@
 // Event detectors with hysteresis (blueprint §10.3). Pure functions of engine state.
 
-import { computeMetrics } from './metrics.js?v=ee4db8bc9b';
+import { computeMetrics } from './metrics.js?v=37f639c3dd';
 
 const COLLATERAL_NAMES = {
   C1b: ['Esophageal varices', 'VAR'], C3: ['Paraumbilical vein (caput medusae)', 'C3'], C4: ['Anorectal varices', 'C4'],
@@ -21,8 +21,8 @@ function defs(m, eng) {
       title: 'SMV flow reversed', detail: 'Portal blood is draining retrograde into the mesenteric veins.' },
     { id: 'INTRAHEPATIC_REVERSAL', on: Qf('PRE_R') < -0.2 || Qf('PRE_L') < -0.2 || Qf('PVH_L') < -0.2, off: Qf('PRE_R') > 0 && Qf('PRE_L') > 0 && Qf('PVH_L') > 0,
       severity: 'info', anchor: 'LPV', title: 'Intrahepatic portal branches reversed', detail: 'Arterial blood entering the sinusoids escapes backward through portal branches (typical after TIPS).' },
-    { id: 'PV_STASIS', on: Math.abs(m.pvVel) < 5 && !occ('PV_TRUNK'), off: Math.abs(m.pvVel) > 7, severity: 'caution', anchor: 'PV_TRUNK',
-      title: 'Portal vein stasis', detail: 'Mean velocity < 5 cm/s: stagnant flow raises the risk of portal vein thrombosis.' },
+    { id: 'PV_STASIS', on: Math.abs(m.pvVel) < 9 && !occ('PV_TRUNK'), off: Math.abs(m.pvVel) > 12, severity: 'caution', anchor: 'PV_TRUNK',
+      title: 'Portal vein stasis', detail: 'Doppler velocity < 9 cm/s: stagnant flow raises the risk of portal vein thrombosis.' },
     { id: 'CSPH', on: m.hvpg >= 10, off: m.hvpg < 9.5, severity: 'caution', anchor: 'SIN_R',
       title: 'Clinically significant portal hypertension', detail: 'HVPG ≥ 10 mmHg (in cirrhosis): collaterals and varices can develop.' },
     { id: 'BLEED_RISK', on: m.hvpg >= 12, off: m.hvpg < 11.5, severity: 'caution', anchor: 'VAR',

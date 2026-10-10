@@ -8,10 +8,10 @@
 // readout tile. In Explore the live HVPG readouts stay hidden until this has run for the patient
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
-import { h, fmt, fitCanvas, clamp, icon, toast } from './util.js?v=e803df99cd';
-import { FONT } from './charts.js?v=ac5eb186fd';
+import { h, fmt, fitCanvas, clamp, icon, toast } from './util.js?v=e0101a3fa2';
+import { FONT } from './charts.js?v=bcd2021343';
 import { pressureColor } from './colormap.js?v=6d64a94345';
-import { store, logAction } from './store.js?v=25cbe77a76';
+import { store, logAction } from './store.js?v=5edd069b32';
 
 let stageRef = null;
 /** main.js hands over the figure once it exists. */
@@ -19,8 +19,9 @@ export function setHvpgStage(stage) { stageRef = stage; }
 
 // The sequence, in ms from the start.
 // (settle: the wedged pressure has reached its plateau and the still column starts to fill; callout: the column
-// is full and the trace has held on the plateau, so only now is WHVP read and shown, then the result follows.)
-const T = { travel0: 300, travel1: 4300, zoom: 4300, free: 5100, inflate: 8200, wedge: 8900, settle: 10700, callout: 12400, result: 14600, back: 20100, end: 20900 };
+// is full and the trace has held on the plateau, so only now is WHVP read and shown, then the result follows; sum: both readings
+// have travelled to the summary, and after a beat the HVPG fades in.)
+const T = { travel0: 300, travel1: 4300, zoom: 4300, free: 5100, inflate: 8200, wedge: 8900, settle: 10700, callout: 12400, result: 14600, sum: 15350, back: 20100, end: 20900 };
 // A thrombosed hepatic vein (Budd–Chiari): the tip reaches the ostium, probes it a few times, then the
 // procedure is aborted and the catheter withdrawn. No reading, so HVPG stays unmeasured.
 const TB = { probe0: 4600, probe1: 8200, abort: 8200, back: 9600, end: 13000 };
@@ -161,10 +162,14 @@ export function createHvpgProcedure() {
 
   function paintSide() {
     const ph = phase(), v = values(), st = store.get();
-    const shown = { fhvp: ph !== 'idle' && ph !== 'enter' && ph !== 'abort', whvp: ph === 'result' || (ph === 'wedge' && t >= T.callout), hvpg: ph === 'result' };
+    const shown = { fhvp: ph !== 'idle' && ph !== 'enter' && ph !== 'abort', whvp: ph === 'result' || (ph === 'wedge' && t >= T.callout), hvpg: ph === 'result' && (t0 == null || t >= T.sum) };
     for (const k of ['fhvp', 'whvp', 'hvpg']) {
       const txt = shown[k] ? fmt(v[k], 1) : '—';
-      if (vals[k].textContent !== txt) vals[k].textContent = txt;
+      if (vals[k].textContent !== txt) {
+        vals[k].textContent = txt;
+        // The difference arrives after the two readings have settled: it fades and rises in, never pops.
+        if (k === 'hvpg' && shown.hvpg) { vals.hvpg.classList.remove('in'); void vals.hvpg.offsetWidth; vals.hvpg.classList.add('in'); }
+      }
     }
     // This runs on every model frame: write only what changed. Rewriting the button's label each frame
     // replaced its text under the finger, and Safari then takes a tap for a hover and drops the click.
@@ -210,6 +215,7 @@ export function createHvpgProcedure() {
     else if (ph === 'enter') label = 'Catheter advancing';
     else if (ph === 'free') { label = 'FHVP'; num = fmt(pAt(t, v), 1); col = C.free; }
     else if (ph === 'wedge') { label = t < T.wedge ? 'Balloon inflating' : t < T.callout ? 'Settling' : 'WHVP'; num = fmt(pAt(t, v), 1); col = C.wedge; }
+    else if (t0 != null && t < T.sum) { label = 'WHVP'; num = fmt(v.whvp, 1); col = C.wedge; }
     else { label = 'HVPG'; num = fmt(v.hvpg, 1); col = C[sevOf(v.hvpg)]; }
     ctx.font = FONT(600, 12); ctx.fillStyle = col === C.text ? C.bright : col; ctx.fillText(label, x, y + 32);
     if (num) { ctx.font = FONT(700, big); ctx.textAlign = 'right'; ctx.fillText(num, x + W, y + 14 + big); ctx.textAlign = 'left'; }
@@ -247,15 +253,17 @@ export function createHvpgProcedure() {
     if (t >= T.inflate) level(v.fhvp, C.free, 'FHVP');
     if (ph === 'result') {
       level(v.whvp, C.wedge, 'WHVP');
-      const a = ease(k01(t, T.result, T.result + 500)), xa = L + (R - L) * 0.9, y1 = Y(v.fhvp), y2 = Y(v.fhvp + (v.whvp - v.fhvp) * a), col2 = C[sevOf(v.hvpg)];
+      const a = ease(k01(t, T.sum - 400, T.sum + 200)), xa = L + (R - L) * 0.9, y1 = Y(v.fhvp), y2 = Y(v.fhvp + (v.whvp - v.fhvp) * a), col2 = C[sevOf(v.hvpg)];
       ctx.strokeStyle = col2; ctx.fillStyle = col2; ctx.lineWidth = 1.6;
       ctx.beginPath(); ctx.moveTo(xa, y1); ctx.lineTo(xa, y2); ctx.stroke();
       if (Math.abs(y1 - y2) > 10) for (const [yy, d] of [[y1, 1], [y2, -1]]) { ctx.beginPath(); ctx.moveTo(xa, yy); ctx.lineTo(xa - 4, yy - 6 * d); ctx.lineTo(xa + 4, yy - 6 * d); ctx.closePath(); ctx.fill(); }
       if (a > 0.6) {
+        ctx.save(); ctx.globalAlpha = ease(k01(t, T.sum, T.sum + 450));
         const txt = `HVPG ${fmt(v.hvpg, 1)}`; ctx.font = FONT(700, 11.5);
         const tw = ctx.measureText(txt).width + 12, lx = xa - tw - 6, ly = (y1 + y2) / 2;
         ctx.fillStyle = C.bg; rrect(ctx, lx, ly - 9, tw, 18, 9); ctx.fill(); ctx.strokeStyle = col2; ctx.lineWidth = 1; ctx.stroke();
         ctx.fillStyle = col2; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(txt, lx + 6, ly + 0.5);
+        ctx.restore();
       }
     }
     ctx.fillStyle = C.text; ctx.font = FONT(500, 9); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';

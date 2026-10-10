@@ -120,8 +120,8 @@ as a map of the disease: grouped by where the resistance sits, each with its pre
 - **LMS.** `npm run scorm` builds a SCORM 1.2 package (optionally of one lesson, case or script)
   that reports scores to the LMS. Deep links (`?lesson=hvpg`, `?case=bleed`, `?script=bleed`,
   `?preset=csph`) open straight into an activity. See [docs/LMS.md](docs/LMS.md).
-- **Accessibility.** Keyboard access to every structure, a spoken description of the patient
-  (D), pressure sonification, reduced motion, color always paired with a second cue. See
+- **Accessibility.** Keyboard access to every structure, a live one-line description of the
+  patient, interface zoom, reduced motion, color always paired with a second cue. See
   [ACCESSIBILITY.md](ACCESSIBILITY.md).
 - **Privacy.** No trackers, no third-party requests (fonts are self-hosted), nothing stored off
   the device. See [PRIVACY.md](PRIVACY.md).

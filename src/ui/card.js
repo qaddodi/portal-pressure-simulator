@@ -3,9 +3,9 @@
 // sliders that used to live in the side panel. Every verb takes effect at once and becomes one
 // entry in the timeline; nothing stays "armed".
 
-import { store, updateParams } from './store.js?v=25cbe77a76';
-import { h, icon, svgIcon, clamp, tooltipFor } from './util.js?v=e803df99cd';
-import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=8e44cc766f';
+import { store, updateParams } from './store.js?v=5edd069b32';
+import { h, icon, svgIcon, clamp, tooltipFor } from './util.js?v=e0101a3fa2';
+import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=e27052afd6';
 
 const LOCK_TIP = 'Not available in this step of the lesson or case';
 
@@ -383,14 +383,24 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     fitAbovePill();
     drawLeader(best.x, best.y, w, hh, a);
   }
+  const ns = 'http://www.w3.org/2000/svg', lLine = document.createElementNS(ns, 'path'), lDot = document.createElementNS(ns, 'circle');
+  lDot.setAttribute('r', '4');
   function drawLeader(x, y, w, hh, a) {
-    const ex = clamp(a.x, x, x + w), ey = clamp(a.y, y, y + hh);
-    const d = Math.hypot(ex - a.x, ey - a.y);
-    if (d < 30 || isDocked()) { leader.replaceChildren(); return; }
-    const ns = 'http://www.w3.org/2000/svg', line = document.createElementNS(ns, 'path'), dot = document.createElementNS(ns, 'circle');
-    line.setAttribute('d', `M${ex.toFixed(1)} ${ey.toFixed(1)} L${a.x.toFixed(1)} ${a.y.toFixed(1)}`);
-    dot.setAttribute('cx', a.x.toFixed(1)); dot.setAttribute('cy', a.y.toFixed(1)); dot.setAttribute('r', '4');
-    leader.replaceChildren(line, dot);
+    // From an organ's outline: the outline point nearest the card; otherwise from the anchor itself.
+    let ax = a.x, ay = a.y;
+    if (a.outline?.length) {
+      let bd = Infinity;
+      for (const [px, py] of a.outline) {
+        const dd = Math.hypot(px - clamp(px, x, x + w), py - clamp(py, y, y + hh));
+        if (dd < bd) { bd = dd; ax = px; ay = py; }
+      }
+    }
+    const ex = clamp(ax, x, x + w), ey = clamp(ay, y, y + hh);
+    const d = Math.hypot(ex - ax, ey - ay);
+    if (d < (a.outline ? 12 : 30) || isDocked()) { leader.replaceChildren(); leader.classList.remove('on'); return; }
+    lLine.setAttribute('d', `M${ex.toFixed(1)} ${ey.toFixed(1)} L${ax.toFixed(1)} ${ay.toFixed(1)}`);
+    lDot.setAttribute('cx', ax.toFixed(1)); lDot.setAttribute('cy', ay.toFixed(1));
+    if (!lLine.isConnected) { leader.classList.remove('on'); leader.replaceChildren(lLine, lDot); requestAnimationFrame(() => leader.classList.add('on')); }
   }
 
   // The floating pieces moved (a card opened on the right, the dock grew): place the card again.

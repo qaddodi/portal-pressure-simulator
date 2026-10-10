@@ -1,23 +1,31 @@
 // Simulation host: owns the Engine, runs the clocks, streams frames (blueprint §13.4).
 // Used inside a Web Worker (src/worker.js) or on the main thread as a fallback.
 
-import { Engine } from './engine/engine.js?v=24d34e6d47';
-import { computeMetrics } from './engine/metrics.js?v=ee4db8bc9b';
-import { detectEvents } from './engine/events.js?v=e24f641428';
-import { explain } from './engine/explain.js?v=1853c8cfde';
-import { defaultParams, deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=da4ad72f01';
+import { Engine } from './engine/engine.js?v=3ea17d16f2';
+import { computeMetrics } from './engine/metrics.js?v=37f639c3dd';
+import { detectEvents } from './engine/events.js?v=120d432c34';
+import { explain } from './engine/explain.js?v=3e6f99a688';
+import { defaultParams, deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=2ab3fe1eb2';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
 
 // A state's fingerprint for the ladder, the presenter's data and tables: the pressures from the portal vein to the
 // heart, the gradients, the ascites (volume, SAAG, protein, albumin) and the lymph that makes it, the sinusoidal and
 // central vein pressures, varices, spleen, flow and shunting.
+// rih: the resistance inside the liver (mmHg per L/min): each lobe's venules, sinusoids and outflow in series, the
+// two lobes in parallel, as the circuit view's liver resistor reads it. (PPG ÷ portal flow also counts the collaterals.)
+const LOBES = [['PRE_R', 'SIN_RR', 'POST_R_RHV'], ['PRE_L', 'SIN_LL', 'POST_L_LHV']];
+function liverRes(e) {
+  const P = e.Pf || e.P, Q = e.Qf || e.Q;
+  const r = (id) => { const k = e.ei[id], ed = e.edges[k]; return (P[e.ni[ed.from]] - P[e.ni[ed.to]]) / Math.max(1e-6, Math.abs(Q[k]) * 0.06); };
+  return 1 / LOBES.reduce((g, ids) => g + 1 / Math.max(1e-6, ids.reduce((s, id) => s + r(id), 0)), 0);
+}
 const fingerprint = (m, e) => {
   const P = e ? e.Pf || e.P : null, a = m.ascites;
   return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: m.hvpg, ra: m.ra, ivc: m.ivc, ppg: m.ppg,
     asc: a.volume, saag: a.saag, tp: a.totalProtein, aalb: a.albumin, salb: e?.params.albumin, sigma: a.lymphSigma, hepLymph: a.hepLymph, splLymph: a.splLymph,
     sin: P ? P[e.ni.SIN_R] : null, cv: P ? P[e.ni.CV_R] : null, int: P ? P[e.ni.INT] : null, varix: m.varix.d, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
-    pvFlow: m.pvFlowMean, shunt: m.shuntFraction, he: m.heRisk.index, liver: m.liverPerfPct, lsm: m.lsm, map: m.map, hr: m.hr, hb: m.blood.hb };
+    pvFlow: m.pvFlowMean, shunt: m.shuntFraction, he: m.heRisk.index, liver: m.liverPerfPct, lsm: m.lsm, map: m.map, hr: m.hr, hb: m.blood.hb, rih: e ? liverRes(e) : null };
 };
 // A time-lapse's params on day d of n: each ramped key eased linearly from its first value to its last.
 const rampAt = (ramp, d, n) => Object.fromEntries(ramp.map(([k, [a, b]]) => [k, a + (b - a) * Math.min(1, d / n)]));
@@ -278,7 +286,7 @@ export function createCore(post) {
           yield* e.advanceDaySteps(n, { noRupture: true, silent: true });
           done += n;
         }
-        if (st.preset || st.params || st.days) e.settle();
+        if (st.preset || st.params || st.action || st.days) e.settle();
         post({ type: 'seqStep', reqId, i, snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(computeMetrics(e), e) });
         yield;
       }

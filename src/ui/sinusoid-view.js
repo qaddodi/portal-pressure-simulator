@@ -19,11 +19,11 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=e803df99cd';
+import { h, fmt, clamp, lerp } from './util.js?v=e0101a3fa2';
 import { pressureColor } from './colormap.js?v=6d64a94345';
-import { isPaused } from './clock.js?v=77fb9815e5';
+import { isPaused } from './clock.js?v=d82cfa024b';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=5b384ed63d';
+import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=77f7c03378';
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
@@ -50,7 +50,9 @@ export function createSinusoidView({ host }) {
     if (!R) { R = regions[key] = { el: h('div', { class: cls }) }; labels.append(R.el); }
     const txt = name + '|' + value;
     if (R.text !== txt) {
+      const same = R.text && R.text.split('|')[0] === name && R.el.children.length === 1 + (value ? value.split(' · ').length : 0);
       R.text = txt;
+      if (same && key === 'fen') return R;   // (its value is kept by fenTick, which eases it: the caption is not rebuilt)
       const lines = value ? value.split(' · ') : [];
       R.el.replaceChildren(h('span', {}, name), ...lines.map((l) => { const [v, u] = l.split('~'); return h('span', { class: 'v' }, h('b', {}, v), u ? ` ${u}` : ''); }));
     }
@@ -58,6 +60,7 @@ export function createSinusoidView({ host }) {
   }
   function region(key, name, value, x, y, { along = false, side = 0 } = {}) {
     const R = caption(key, `sv-region sv-region-${key}`, name, value);
+    R.at = [x, y];   // (what it names, µm)
     // side ±1: the caption sits wholly on that side of y (across the vessel), its near edge at y.
     const w = R.el.offsetWidth, hh = R.el.offsetHeight, ang = along && !geo.vert ? geo.ang : 0;   // (always level on a top-down sinusoid)
     const across = along ? hh : Math.abs(w * Math.sin(geo.ang)) + Math.abs(hh * Math.cos(geo.ang));
@@ -71,11 +74,12 @@ export function createSinusoidView({ host }) {
       for (const b of ENDBOX) if (b && cy + hh / 2 > b.y0 - 4 && cy - hh / 2 < b.y1 + 4) cx = b.u ? Math.min(cx, b.x0 - 14 - w / 2) : Math.max(cx, b.x1 + 14 + w / 2);
       cx = clamp(cx, Math.min(VW.f.l + w / 2 + 4, geo.W / 2), Math.max(VW.f.r - w / 2 - 4, geo.W / 2));
     }
+    { const c = Math.abs(Math.cos(ang)), sn = Math.abs(Math.sin(ang)), bw = (w * c + hh * sn) / 2, bh = (w * sn + hh * c) / 2; R.box = { l: cx - bw, r: cx + bw, t: cy - bh, b: cy + bh }; }
     R.el.style.transform = `translate(${cx.toFixed(1)}px, ${cy.toFixed(1)}px) translate(-50%, -50%)${ang ? ` rotate(${((ang * 180) / Math.PI).toFixed(2)}deg)` : ''}`;
     return { cx, cy, w, hh, x: x + (geo.vert ? 0 : (cx - cx0) / VW.k), half: (along ? w : Math.abs(w * Math.cos(geo.ang)) + Math.abs(hh * Math.sin(geo.ang))) / 2 / VW.k };
   }
   const legend = h('div', { class: 'sv-legend', 'aria-hidden': 'true' },
-    h('span', {}, h('i', { class: 'alb' }), 'Protein'), h('span', {}, h('i', { class: 'wat' }), 'Plasma water'));
+    h('span', {}, h('i', { class: 'alb' }), 'Protein'));
   // Thin leaders from a name in the plate to the part it names (a portrait screen's narrow bands and cells).
   const NS = 'http://www.w3.org/2000/svg', leaders = document.createElementNS(NS, 'svg');
   leaders.setAttribute('class', 'sv-leaders');
@@ -87,7 +91,7 @@ export function createSinusoidView({ host }) {
     const [tx, ty] = toScreen(x, y), sx = R.cx + Math.sign(tx - R.cx) * (R.w / 2 + 3), sy = clamp(ty, R.cy - R.hh / 2 + 4, R.cy + R.hh / 2 - 4);
     const [ln, dot] = L.children;
     const on = Math.abs(tx - sx) > 6 && Math.sign(tx - R.cx) === Math.sign(tx - sx);   // (none when the name already sits on it)
-    L.style.display = on ? '' : 'none';
+    L.style.opacity = on ? '' : '0';
     ln.setAttribute('x1', sx.toFixed(1)); ln.setAttribute('y1', sy.toFixed(1)); ln.setAttribute('x2', tx.toFixed(1)); ln.setAttribute('y2', ty.toFixed(1));
     dot.setAttribute('cx', tx.toFixed(1)); dot.setAttribute('cy', ty.toFixed(1)); dot.setAttribute('r', '1.8');
   }
@@ -141,10 +145,16 @@ export function createSinusoidView({ host }) {
     // How much is shown across: both plates whole on a large screen; on a phone, closer in (the plates cut by the
     // edges), so the wall and its traffic stay large enough to follow.
     const short = geo.vert ? fw : fh, across = lerp(40, 54, smooth(380, 720, short));
-    VW.f = f; VW.tk = clamp(short / across, 3, 14); VW.tC = [(f.l + f.r) / 2, (f.t + f.b) / 2];
+    VW.f = f; VW.tk = clamp(short / across, 3, 14);
+    // Its names are the lobule's size on every device (only the app's label-size setting scales them).
+    el.style.setProperty('--label-k', String(labelK())); VW.tC = [(f.l + f.r) / 2, (f.t + f.b) / 2];
     if (!VW.k) { VW.k = VW.tk; VW.C = [...VW.tC]; }
     return geo;
   }
+  // On a desktop the lobule's labels are half as large again (stage.js deskK); these capitals, bolder and spaced, match
+  // them by eye a little smaller (1.4).
+  const deskMQ = matchMedia('(min-width: 1024px) and (pointer: fine)');
+  const labelK = () => (parseFloat(document.documentElement.style.getPropertyValue('--label-scale')) || 1) * (deskMQ.matches ? 1.4 : 1);
   const VW = { k: 0, C: [0, 0], tk: 0, tC: [0, 0], f: null, vis: [0, 0], fr: [0, 0] };
   // Where it is drawn this frame: the view's own placement, carried by the zoom from the lobule while that runs.
   const CAM = { C: [0, 0], k: 1, ang: 0, ca: 1, sa: 0 };
@@ -221,7 +231,7 @@ export function createSinusoidView({ host }) {
     // The hepatocytes keep the lobule's colours; on a light page the clefts between them are drawn deeper, so each cell reads.
     const under = mixv(bg, gap, dark ? 0.55 : 0.5), cleft = dark ? under : mixv(bg, gap, 0.8);
     return {
-      cBg: bg, cLumen: lumen, cLymph: dark ? mixv(bg, ly, 0.34) : ly,
+      cBg: bg, cShade: dark ? bg : mixv(bg, v3(42, 36, 48), 0.9), cLumen: lumen, cLymph: dark ? mixv(bg, ly, 0.34) : ly,
       cCell: mixv(under, cell, dark ? 0.85 : 0.94), cUnder: cleft,
       cNuc: dark ? v3(40, 18, 34) : v3(132, 70, 100),
       cCol: dark ? v3(199, 186, 153) : v3(237, 222, 186), cBm: dark ? v3(204, 188, 142) : v3(150, 118, 70), aBm: dark ? 0.6 : 0.8,
@@ -234,18 +244,17 @@ export function createSinusoidView({ host }) {
       cEndF: rgb(v('--text', dark ? '#E9EDF6' : '#1F2128')), cEndE: rgb(v('--label-halo', dark ? '#0B1120' : '#FBFAF7')),
       cChev: [0.08, 0.08, 0.1], cRev: [1, 0.55, 0.16],   // (the app's chevron inks, as stage.js's chevInk: dark, orange where reversed)
       cAlb: dark ? v3(242, 182, 74) : v3(227, 154, 30), cAlbE: dark ? v3(110, 58, 0) : v3(140, 76, 0),
-      cWat: dark ? v3(225, 238, 252) : v3(255, 255, 255), cWatE: dark ? v3(90, 110, 140) : v3(80, 110, 140),
       uShim: dark ? 0.3 : 0.5, uStreak: dark ? 0.3 : 0.85, uDark: dark ? 1 : 0,
     };
   }
 
   // ── What moves ──
   // The blood: the shader's shimmer and chevrons, at the flow. Albumin rides in it (amber dots), each at
-  // its lane's speed (parabolic: fastest in the middle). Plasma crosses the wall into Disse: water (clear
-  // specks) wherever it can, albumin only through open fenestrae; at a closed wall albumin is turned back.
+  // its lane's speed (parabolic: fastest in the middle). Plasma crosses the wall into Disse: its water
+  // wherever it can (not drawn), albumin only through open fenestrae; at a closed wall albumin is turned back.
   // In Disse the lymph runs back toward the portal triad, carrying what crossed.
   let flowX = 0, lymX = 0, spawnAcc = 0, bounceAcc = 0;
-  const albs = [], movers = [];   // movers: { kind: 'w' water | 'a' albumin | 'b' albumin turned back, side, x, y (depth in Disse, 0…1), t, ph }
+  const albs = [], movers = [];   // movers: { kind: 'a' albumin | 'b' albumin turned back, side, x, y (depth in Disse, 0…1), t, ph }
   const rnd = rng(17);
   { const R = rng(23); for (let i = 0; i < 150; i++) albs.push({ u: R(), y: R() * 1.9 - 0.95, ph: R() * Math.PI * 2 }); }
   const poreW = (p) => p.w * smooth(p.th - 0.14, p.th + 0.14, S.por);
@@ -263,7 +272,7 @@ export function createSinusoidView({ host }) {
     return null;
   }
   function stepMovers(dt) {
-    const span = VW.vis[1] - VW.vis[0], vB = S.v * 24, vL = -(3 + 5 * Math.sqrt(S.filt));   // µm/s: blood, and lymph (back toward the portal triad)
+    const span = VW.vis[1] - VW.vis[0], vB = S.v * 24, vL = -(1.5 + 4.5 * Math.min(S.filt, 4));   // µm/s: blood, and lymph (back toward the portal triad)
     flowX += vB * dt; lymX += vL * dt;
     // Filtration: crossings per second over this stretch of both walls, rising with the lymph; the share of albumin among
     // them is the lymph's protein (what the dots in Disse show is its concentration, not its amount).
@@ -272,10 +281,10 @@ export function createSinusoidView({ host }) {
     while (spawnAcc >= 1) {
       spawnAcc -= 1;
       if (movers.length > 900) continue;
-      const side = rnd() < 0.5 ? -1 : 1, alb = rnd() < pA, p = pickPore(side, alb);
-      if (alb && !p) { bounceAcc += 1; continue; }   // nowhere for it to go: it is turned back
-      const x = p ? p.x : lerp(VW.vis[0], VW.vis[1], rnd());
-      movers.push({ kind: alb ? 'a' : 'w', side, x, t: 0, y: 0.15 + 0.7 * rnd(), ph: rnd() * Math.PI * 2 });
+      if (rnd() >= pA) continue;   // water: it crosses too, but only the albumin is drawn
+      const side = rnd() < 0.5 ? -1 : 1, p = pickPore(side, true);
+      if (!p) { bounceAcc += 1; continue; }   // nowhere for it to go: it is turned back
+      movers.push({ kind: 'a', side, x: p.x, t: 0, y: 0.15 + 0.7 * rnd(), ph: rnd() * Math.PI * 2 });
     }
     // Albumin turned back at a sealed wall: it comes up to the lining and goes back into the stream.
     bounceAcc += 0.1 * span * (1 - S.por) * dt;
@@ -293,7 +302,7 @@ export function createSinusoidView({ host }) {
       if (q.x < VW.vis[0] - 4 || q.x > VW.vis[1] + 4) movers.splice(i, 1);
     }
   }
-  // The sprites for this frame: (x, y, radius, alpha, kind) — 0 albumin, 1 water, 2 the flash at a sealed wall.
+  // The sprites for this frame: (x, y, radius, alpha, kind) — 0 albumin, 2 the flash at a sealed wall.
   const pts = new Float32Array(1400 * 5);
   const BT = 1.6;   // how long an albumin turned back at a sealed wall is shown (s)
   let albN = -1, spriteDt = 0;
@@ -323,34 +332,67 @@ export function createSinusoidView({ host }) {
       const tIn = clamp(q.t / 0.5, 0, 1), e = tIn * tIn * (3 - 2 * tIn);
       const y = q.side * lerp(halfW(q.x) - 1.6, lerp(wallIn(q.x), hepIn(q.x), q.y), e) + q.side * 0.15 * Math.sin(q.t * 2 + q.ph);
       const al = smooth(-0.15, 0.45, q.t) * clamp((q.x - v0) / 6, 0, 1);   // (out of the stream, fading in: never appearing at once)
-      if (q.kind === 'a') put(q.x, y, 0.38, al, 0); else put(q.x, y, 0.26, al, 1);
+      put(q.x, y, 0.38, al, 0);
     }
     return n;
   }
 
   // ── Labels ──
+  // The fenestrae's state with the share open, read as a value beneath the name (eased with S.por, so it counts rather than jumps).
+  const fenWord = () => (S.por > 0.85 ? 'Open' : S.por > 0.15 ? 'Closing' : 'Closed');
+  const fenTxt = () => `${fenWord()}~${Math.round(S.por * 100)}%`;
+  // Every frame: the share counts by single percents with S.por, and a new state word cross-fades in (never a swap).
+  let fenFade = 0;
+  function fenTick() {
+    const b = regions.fen?.el.querySelector('.v b'), u = b?.nextSibling;
+    if (!b) return;
+    const pct = ` ${Math.round(S.por * 100)}%`;
+    if (u && u.nodeValue !== pct) u.nodeValue = pct;
+    const w = fenWord();
+    if (b.textContent !== w && !fenFade) {
+      b.style.opacity = '0';
+      fenFade = setTimeout(() => { b.textContent = w; b.style.opacity = ''; fenFade = 0; }, 260);
+    }
+  }
+  // The fenestra a callout points at: of the upper lining's pores near x, the one that stays open longest (by place
+  // only, so the line does not hop as the pores close).
+  const fenAt = (x) => {
+    let best = null;
+    for (const p of geo.pores[0]) if (Math.abs(p.x - x) < 9 && (!best || p.th < best.th)) best = p;
+    return best ? best.x : x;
+  };
   function layoutTags() {
     const g = geo, m = model, hep = UM.hep, V = g.vert;
     const pick = (u) => lerp(VW.fr[0] + 8, VW.fr[1] - 8, u);
     const away = (x, from, d) => (Math.abs(x - from) < d ? from + (x < from ? -d : d) : x);
     const num = (v, d, u) => (m.hide ? '?' : `${fmt(v, d)}~${u}`);
     // In the lumen: the sinusoid (mid-view), the Kupffer cell beside itself, and the fenestrae along the far wall.
-    leaders.style.display = g.tall ? '' : 'none';
     if (g.tall) { layoutTall(); return; }
+    for (const k in lead) if (k !== 'lymph' && k !== 'fen') lead[k].style.opacity = '0';   // (across the screen only the lymph and the fenestrae have leaders)
     const xc = away(pick(0.5), g.xk, 30);
     const rs = region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), xc, 0, { along: true });
     LAB[0] = rs.x; LAB[1] = rs.half;
     kupName();
-    const xf = away(pick(V ? 0.3 : 0.68), g.xs, 30);
-    region('fen', 'Fenestrae', S.por > 0.85 ? 'open' : S.por > 0.15 ? `${Math.round(S.por * 100)}%~open` : 'sealed', xf, -(halfW(xf) - 0.6), { along: true, side: 1 });
-    // In Disse: its name (on the stellate cell's side on a wide screen, clear of it), and the lymph it carries,
-    // read in the plate just beyond it on the other side.
-    const xq = V ? pick(0.24) : away(pick(0.86), g.xs, 40);
-    region('disse', 'Space of Disse', '', xq, (V ? 1 : -1) * (wallIn(xq) + disseW(xq) * 0.5), { along: true });
+    // In the plates: the stellate cell named just beyond its body; the fenestrae beside it in the same plate, with a
+    // thin callout down to an open fenestra in the lining (to the name's left), clear of the stellate cell's name.
+    const hs = region('hsc', S.act > 0.5 ? 'Activated stellate cell' : 'Stellate cell', '', g.xs, -(hepIn(g.xs) + 1), { side: -1, along: V });
+    const fp = 16 / VW.k, fen = (xp, dx) => region('fen', 'Fenestrae', fenTxt(), xp + dx, -(hepIn(xp) + 1), { side: -1 });
+    let xp = fenAt(pick(0.6)), rf = fen(xp, 0);
+    rf = fen(xp, rf.half + fp * 0.8);
+    if (Math.abs(rf.x - hs.x) - rf.half - hs.half < fp) { xp = fenAt(hs.x + hs.half + fp * 2); rf = fen(xp, rf.half + fp * 0.8); }
+    leader('fen', rf, xp, -(halfW(xp) + UM.endo * 0.5));
+    // In Disse: its name (on the stellate cell's side on a wide screen, clear of it and of the fenestrae's callout),
+    // and the lymph it carries, read in the plate just beyond it on the other side.
+    let xq = V ? pick(0.24) : away(pick(0.86), g.xs, 40);
+    const rq = region('disse', 'Space of Disse', '', xq, (V ? 1 : -1) * (wallIn(xq) + disseW(xq) * 0.5), { along: true });
+    if (!V && xq - rq.half < rf.x + rf.half + fp && xq + rq.half > xp - fp) {
+      xq = rf.x + rf.half + rq.half + fp;
+      if (xq + rq.half > VW.fr[1]) xq = xp - fp - rq.half;
+      region('disse', 'Space of Disse', '', xq, -(wallIn(xq) + disseW(xq) * 0.5), { along: true });
+    }
     const xd = pick(V ? 0.55 : 0.32), lymph = (x) => region('lymph', 'Lymph', m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min · Protein ${Math.round(m.lyProt * 100)}%`, x, hepIn(x) + 1.2, { side: 1 });
-    const ly = lymph(xd);
-    // In the plates: the stellate cell named just beyond its body, and a hepatocyte on itself, clear of its nucleus.
-    region('hsc', S.act > 0.5 ? 'Activated stellate cell' : 'Stellate cell', '', g.xs, -(hepIn(g.xs) + 1), { side: -1, along: V });
+    let ly = lymph(xd);
+    // A hepatocyte named on itself, clear of its nucleus.
     const xh = pick(V ? 0.88 : 0.08), hc = cellAt(xh, SEED.plateDn), hep1 = (x) => region('hep', 'Hepatocyte', '', x, hepIn(x) + hep * (hc.nv < 0.5 ? 0.78 : 0.22));
     // The cell's name and the lymph's numbers share a plate: on a narrow view (a cell wider than its share of the
     // screen) the name slides back along its cell, then the numbers step on, until the two are clear.
@@ -359,8 +401,10 @@ export function createSinusoidView({ host }) {
     if (gap(hl, ly) < pad) {
       const d = hl.x < ly.x ? -1 : 1;   // (the side of the numbers the name is on)
       hl = hep1(clamp(ly.x + d * (ly.half + hl.half + pad), hc.x0 + hl.half, hc.x1 - hl.half));
-      if (gap(hl, ly) < pad) lymph(hl.x - d * (hl.half + ly.half + pad));
+      if (gap(hl, ly) < pad) ly = lymph(hl.x - d * (hl.half + ly.half + pad));
     }
+    // The lymph's numbers are tied by a thin leader to the space of Disse that carries it.
+    { const xt = ly.x + ly.half + 3; leader('lymph', ly, xt, wallIn(xt) + disseW(xt) * 0.5); }
   }
   // A portrait screen: the sinusoid runs top to bottom and every label reads level. The lumen keeps only its own
   // name; the narrow bands (fenestrae, Disse) and the cells are named in the plates beside them, the stellate cell's
@@ -377,7 +421,8 @@ export function createSinusoidView({ host }) {
     LAB[0] = pick(0.42); LAB[1] = region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), LAB[0], 0).half;
     // Right (y < 0): fenestrae, stellate cell, a hepatocyte.
     let x = pick(0.08);
-    leader('fen', region('fen', 'Fenestrae', S.por > 0.85 ? 'open' : S.por > 0.15 ? `${Math.round(S.por * 100)}%~open` : 'sealed', x, -mid(x)), x, -(halfW(x) + UM.endo * 0.5));
+    const xp = fenAt(x);
+    leader('fen', region('fen', 'Fenestrae', fenTxt(), x, -mid(x)), xp, -(halfW(xp) + UM.endo * 0.5));
     x = clamp(g.xs, pick(0.3), pick(0.62));
     leader('hsc', region('hsc', S.act > 0.5 ? 'Activated\nstellate cell' : 'Stellate\ncell', '', x, -mid(x)), g.xs, -(dis(g.xs) + 0.6));   // (stacked, to fit the plate)
     region('hep', 'Hepatocyte', '', pick(0.92), -mid(pick(0.92)));
@@ -393,37 +438,113 @@ export function createSinusoidView({ host }) {
   const BAND = [0, 0];   // a portrait screen's band for the other names, between the ends' (px down the screen)
   const LAB = [0, 0];   // the lumen's name: x and half length (µm), for the shader to keep the arrowheads clear of it
   const END = [0, 0, 1];   // the end arrows: portal x, central x, size (µm)
-  const ENDBOX = [null, null];   // the ends' names on a wide screen (px), for the captions to keep clear of
+  const ENDBOX = [null, null];
+  const LEG = { x: 0, y: 0, w: 0, h: 0 };   // the legend's box (px)   // the ends' names on a wide screen (px), for the captions to keep clear of
+  // Large text (or a narrow view): names that still overlap after the layout step apart, up or down the screen first,
+  // then sideways, and ease there; a name's leader moves with it. The ends' names, the legend and the lumen's keep their places.
+  function declutter() {
+    // (From the boxes the layout recorded, not the screen: the view may be mid-zoom, scaled by the compositor.)
+    const W = geo.W, H = geo.H, lk = labelK();
+    const gx = 6 + 2 * lk, gy = 2 + 2 * lk;   // (clear of each other's halo, which grows with the text)
+    // (Within the stage, below the top bar and a presenter's words, above a presenter's bar.)
+    const T = cssN('--top-safe') + cssN('--pz-t') + 2, B = H - cssN('--pz-b') - 2;
+    const hit = (a, b) => a.l < b.r + gx && b.l < a.r + gx && a.t < b.b + gy && b.t < a.b + gy;
+    const placed = [];
+    if (LEG.w) placed.push({ l: LEG.x, r: LEG.x + LEG.w, t: LEG.y, b: LEG.y + LEG.h });
+    // The ends' names and the lumen's are fixed; the rest give way in turn.
+    for (const k of ['in', 'out', 'sin', 'fen', 'lymph', 'disse', 'hsc', 'hep', 'kup']) {
+      const R = regions[k];
+      if (!R?.box || !R.el.isConnected) continue;
+      const b = R.box, w = b.r - b.l, hh = b.b - b.t, cx = (b.l + b.r) / 2, cy = (b.t + b.b) / 2;
+      // A box at offset (dx, dy) and scale s about the label's centre.
+      const at = (dx, dy, s) => ({ l: cx + dx - (w / 2) * s, r: cx + dx + (w / 2) * s, t: cy + dy - (hh / 2) * s, b: cy + dy + (hh / 2) * s });
+      const free = (c) => c.l >= 2 && c.r <= W - 2 && c.t >= T && c.b <= B && !placed.some((p) => hit(c, p));
+      let off = [0, 0, 1];
+      if (k !== 'in' && k !== 'out' && k !== 'sin' && !free(at(0, 0, 1))) {
+        // Up or down the screen first, then sideways; where nothing is free at full size (a crowded phone at large
+        // text), the name is set a little smaller, then smaller again, before it may overlap.
+        // Failing all, the spot that overlaps least.
+        const ov = (c) => placed.reduce((a, p) => a + Math.max(0, Math.min(c.r, p.r + gx) - Math.max(c.l, p.l - gx)) * Math.max(0, Math.min(c.b, p.b + gy) - Math.max(c.t, p.t - gy)), 0)
+          + (c.l < 2 || c.r > W - 2 || c.t < T || c.b > B ? 1e7 : 0);
+        let found = null, least = null;
+        for (const s of [1, 0.85, 0.72]) {
+          const tries = [[0, 0]];
+          for (const n of [1, 2, 3, 4, 5, 6]) for (const sg of [1, -1]) tries.push([0, sg * n * (hh * s / 3 + 3)]);
+          for (const sg of [1, -1]) tries.push([sg * (w * s / 2 + 8), 0], [sg * (w * s + 8), 0]);
+          // (and snug above or below each name already placed)
+          for (const p of placed) tries.push([0, p.b + gy + 1 - (cy - (hh / 2) * s)], [0, p.t - gy - 1 - (cy + (hh / 2) * s)]);
+          for (const [dx, dy] of tries) {
+            if (Math.abs(dy) > 2.2 * hh) continue;   // (a name stays near what it names)
+            const c = at(dx, dy, s);
+            if (free(c)) { found = [dx, dy, s]; break; }
+            const o = ov(c) + Math.abs(dy) * 0.01;
+            if (!least || o < least.o) least = { o, v: [dx, dy, s] };
+          }
+          if (found) break;
+        }
+        off = found || least?.v || off;
+      }
+      R.off = off;
+      R.el.style.translate = off[0] || off[1] ? `${off[0].toFixed(1)}px ${off[1].toFixed(1)}px` : '';
+      R.el.style.scale = off[2] !== 1 ? String(off[2]) : '';
+      placed.push(at(off[0], off[1], off[2]));
+      // The Kupffer cell's name, crowded off its cell, is tied back to it by a thin leader.
+      if (k === 'kup') {
+        const [tx, ty] = toScreen(R.at[0], R.at[1]), c = at(off[0], off[1], off[2]);
+        if (tx < c.l - 6 || tx > c.r + 6 || ty < c.t - 6 || ty > c.b + 6) {
+          // (from the nearest point of the name's box to the cell)
+          leader('kup', { cx: 0, cy: 0, w: 0, hh: 0 }, R.at[0], R.at[1]);
+          const [kl, kd] = lead.kup.children;
+          kl.setAttribute('x1', clamp(tx, c.l, c.r).toFixed(1)); kl.setAttribute('y1', clamp(ty, c.t, c.b).toFixed(1));
+          kl.setAttribute('x2', tx.toFixed(1)); kl.setAttribute('y2', ty.toFixed(1));
+          kd.setAttribute('cx', tx.toFixed(1)); kd.setAttribute('cy', ty.toFixed(1));
+          lead.kup.style.opacity = '';
+        } else if (lead.kup) lead.kup.style.opacity = '0';
+        continue;
+      }
+      const ln = lead[k]?.children[0];
+      if (ln && (off[0] || off[1] || off[2] !== 1)) {
+        // (Its near end follows the name, to the edge of the smaller box when the name was set smaller.)
+        const sg = Math.sign(parseFloat(ln.getAttribute('x2')) - cx), dx = off[0] - sg * (w / 2) * (1 - off[2]);
+        for (const [a, d] of [['x1', dx], ['y1', off[1]]]) ln.setAttribute(a, (parseFloat(ln.getAttribute(a)) + d).toFixed(1));
+      }
+    }
+  }
   function layoutEnds() {
     const g = geo, f = VW.f;
     // The ends: the portal venule the blood comes from and the central venule it goes to, with their pressures (as the lobule labels them).
-    const m = model, val = (P) => (m.hide ? '?' : `${fmt(P, 1)}~mmHg`);
-    for (const [key, name, value, u] of [['in', 'Portal venule', val(m.P1), 0], ['out', 'Central venule', val(m.P3), 1]]) {
-      // (The Sinusoid's own caption, class and all: same capitals, size, ink, halo and reading.)
-      const T = caption(key, 'sv-region sv-region-sin sv-end', name, value);
-      const w = T.el.offsetWidth, hh = T.el.offsetHeight;
-      let x, y;
-      // Its arrow (drawn by the shader) points with the flow on the sinusoid's side of the label: below the portal venule's
-      // and above the central venule's on a top-down sinusoid; inward of each on a wide one.
-      const A = 22 + 10;   // (the arrow and its gaps, px)
-      if (g.vert) { x = VW.C[0] - w / 2; y = u ? f.b - hh : f.t; }
-      else { x = u ? f.r - w - 8 : f.l + 8; y = VW.C[1] - hh / 2; }
-      T.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
-      ENDBOX[u] = g.vert ? null : { u, x0: u ? x - A : x, x1: u ? x + w : x + w + A, y0: y, y1: y + hh };
-      if (g.vert) BAND[u] = u ? y - A - 6 : y + hh + A + 6;
-      const ax = g.vert ? VW.C[0] : u ? x - A / 2 : x + w + A / 2, ay = g.vert ? (u ? y - A / 2 : y + hh + A / 2) : VW.C[1];
-      const ca = Math.cos(g.ang), sa = Math.sin(g.ang);
-      END[u] = ((ax - VW.C[0]) * ca + (ay - VW.C[1]) * sa) / VW.k;
-    }
-    END[2] = Math.min(22 / VW.k, UM.lum * S.lum * 0.95);   // (a bold head, as wide as the names' capitals are tall, within the lumen)
-    // (On a top-down sinusoid the other names keep below the legend too.)
-    if (g.vert) BAND[0] = Math.max(BAND[0], cssN('--top-safe') + cssN('--cmp-h') + cssN('--pz-t') + 12 + legend.offsetHeight + 8);
     // The legend: at the top left, under the top bar.
     const lx = f.l + 2, ly = cssN('--top-safe') + cssN('--cmp-h') + cssN('--pz-t') + 12;
     // (On a top-down sinusoid it stays in the plate on the left, clear of the vessel and the portal venule's name.)
     const lr = g.vert ? toScreen(0, hepIn(0))[0] - 8 : geo.W - 12;
     legend.style.maxWidth = `${Math.max(90, lr - lx)}px`;
     legend.style.transform = `translate(${lx.toFixed(1)}px, ${ly.toFixed(1)}px)`;
+    LEG.x = lx; LEG.y = ly; LEG.w = legend.offsetWidth; LEG.h = legend.offsetHeight;
+    const m = model, val = (P) => (m.hide ? '?' : `${fmt(P, 1)}~mmHg`);
+    for (const [key, name, value, u] of [['in', 'Portal venule', val(m.P1), 0], ['out', 'Central venule', val(m.P3), 1]]) {
+      // (The Sinusoid's own caption, class and all: same capitals, size, ink, halo and reading.)
+      const T = caption(key, 'sv-region sv-region-sin sv-end', name, value);
+      const w = T.el.offsetWidth, hh = T.el.offsetHeight;
+      let x, y;
+      // Its arrow (drawn by the shader), outside the label, points toward the vessel off the view: the portal venule's
+      // above it on a top-down sinusoid (left of it on a wide one), pointing up (left); the central venule's below it
+      // (right of it), pointing down (right).
+      const A = 22 + 10;   // (the arrow and its gaps, px)
+      if (g.vert) { x = VW.C[0] - w / 2; y = u ? f.b - hh - A : f.t + A; }
+      else { x = u ? f.r - w - 8 - A : f.l + 8 + A; y = VW.C[1] - hh / 2; }
+      // (Large text: the portal venule's name drops below the legend rather than run into it.)
+      if (g.vert && !u && LEG.w && LEG.x + LEG.w > x - 6) y = Math.max(y, LEG.y + LEG.h + A);
+      T.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+      T.box = { l: x, r: x + w, t: y, b: y + hh };
+      ENDBOX[u] = g.vert ? null : { u, x0: u ? x : x - A, x1: u ? x + w + A : x + w, y0: y, y1: y + hh };
+      if (g.vert) BAND[u] = u ? y - 6 : y + hh + 6;
+      const ax = g.vert ? VW.C[0] : u ? x + w + A / 2 : x - A / 2, ay = g.vert ? (u ? y + hh + A / 2 : y - A / 2) : VW.C[1];
+      const ca = Math.cos(g.ang), sa = Math.sin(g.ang);
+      END[u] = ((ax - VW.C[0]) * ca + (ay - VW.C[1]) * sa) / VW.k;
+    }
+    END[2] = Math.min(22 / VW.k, UM.lum * S.lum * 0.95);   // (a bold head, as wide as the names' capitals are tall, within the lumen)
+    // (On a top-down sinusoid the other names keep below the legend too.)
+    if (g.vert) BAND[0] = Math.max(BAND[0], cssN('--top-safe') + cssN('--cmp-h') + cssN('--pz-t') + 12 + legend.offsetHeight + 8);
   }
 
   // ── The frame ──
@@ -441,6 +562,11 @@ export function createSinusoidView({ host }) {
     const dpr = Math.min(2, devicePixelRatio || 1);
     if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+    // The names are laid out where the view will rest, during the zoom too (hidden until it lands), so the end arrows
+    // the shader draws are in place from the first frame and nothing moves when the names fade in.
+    const lk = [geoKey, VW.k.toFixed(3), VW.C.map((v) => v.toFixed(0)), S.lum.toFixed(3), S.act > 0.5, Math.round(S.por * 20), model.hide, model.P2.toFixed(1), model.lymph.toFixed(1), Math.round(model.lyProt * 100), model.P1.toFixed(1), model.P3.toFixed(1), phoneMQ.matches, labelK()].join('|');
+    if (lk !== lastKey) { lastKey = lk; layoutEnds(); layoutTags(); declutter(); }
+    fenTick();
     if (gpu) {
       const u = palette(dark, getComputedStyle(host));
       // Device px ↔ local µm.
@@ -451,7 +577,7 @@ export function createSinusoidView({ host }) {
       u.uPx = 1 / K; u.uK = K; u.uKs = Math.min(K, 12 * dpr);   // (the particles no larger than on a phone)
       Object.assign(u, {
         uLum: UM.lum * S.lum, uPinch: S.pinch, uXs: geo.xs, uXk: geo.xk, uKy: halfW(geo.xk), uHscA: wallIn(geo.xs) + disseW(geo.xs) * 0.5 + 0.8,
-        uCol: S.col, uBm: S.bm, uMv: S.mv, uAct: S.act, uPor: S.por, uFlow: flowX, uLym: lymX, uDir: Math.sign(S.v || 1),
+        uCol: S.col, uBm: S.bm, uMv: S.mv, uAct: S.act, uPor: S.por, uFlow: flowX, uLym: lymX, uLyF: clamp(0.32 * S.filt ** 1.5, 0.06, 1.75), uDir: Math.sign(S.v || 1),
         uEnd: [END[0], END[1], END[2], 0.95], uLab: [LAB[0], LAB[1]],
       });
       // The zoom from the lobule: one camera move. The lobule (magnified by the compositor) carries it most of the way;
@@ -467,10 +593,6 @@ export function createSinusoidView({ host }) {
       } else { u.uRev = [1, -1e5, 1e5, 1e5]; u.uAll = 1; u.uDet = [1, 1e5]; u.uFocus = 1; }
       spriteDt = Math.max(0, dt) * go;
       gpu.draw(u, pts, sprites());
-    }
-    if (!dive) {
-      const lk = [geoKey, VW.k.toFixed(3), VW.C.map((v) => v.toFixed(0)), S.lum.toFixed(3), S.act > 0.5, Math.round(S.por * 20), model.hide, model.P2.toFixed(1), model.lymph.toFixed(1), Math.round(model.lyProt * 100), model.P1.toFixed(1), model.P3.toFixed(1), phoneMQ.matches].join('|');
-      if (lk !== lastKey) { lastKey = lk; layoutEnds(); layoutTags(); }
     }
     const dk = [Math.round(S.por * 4), S.col > 0.15, S.act > 0.4, model.hide, model.P2.toFixed(0), model.lymph.toFixed(1), Math.round(model.lyProt * 100)].join('|');
     if (dk !== descKey) { descKey = dk; canvas.setAttribute('aria-label', describe()); }

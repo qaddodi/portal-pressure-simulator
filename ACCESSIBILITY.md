@@ -10,11 +10,10 @@ the product does today and where it falls short.
 | Area | Status |
 |------|--------|
 | Keyboard | Supported. Every vessel is a focusable control (Tab, then ← → along the flow, Enter opens its actions, 1–9 run them). All menus, dialogs, the timeline, instruments and the command palette (Ctrl/⌘ K) work from the keyboard. Esc always backs out one level. |
-| Screen readers | Partially supported. The figure has an accessible name and a live description (`aria-description`) of the patient generated from the model; D reads a full description through a polite live region. Dialogs are modal with focus return. Instrument canvases carry a name and their key values are shown as text beside them; chart data is not yet exposed as tables. |
+| Screen readers | Partially supported. The figure has an accessible name and a live description (`aria-description`) of the patient generated from the model, the same line as the narrator caption. Dialogs are modal with focus return. Instrument canvases carry a name and their key values are shown as text beside them; chart data is not yet exposed as tables. |
 | Color | Supported. The pressure scale is perceptually uniform; every value shown by color also has a number, an arrow, a dash pattern or a word. Direction is shown by chevron orientation, not hue. |
 | Motion | Supported. `prefers-reduced-motion` turns every animation into an instant state change (the moving blood holds still, halos and transitions are skipped). |
-| Sound | Optional sonification of pressure (pitch) with a tick when flow reverses; off by default. |
-| Zoom and reflow | Responsive layouts down to 320 CSS px with no horizontal page scroll; at 200 % browser zoom (1280 × 900 → 640 × 450 CSS px) the figure, top bar and transport reflow into the phone-landscape layout and the readouts stay in the Patient tab. Figure labels keep a constant size at any figure zoom. |
+| Zoom and reflow | Responsive layouts down to 320 CSS px with no horizontal page scroll; at 200 % browser zoom (1280 × 900 → 640 × 450 CSS px) the figure, top bar and transport reflow into the phone-landscape layout and the readouts stay in the Patient tab. Figure labels keep a constant size at any figure zoom. Settings → Interface zoom scales the bars, dock, sheets and menus from 80 % to 140 % without changing the figure. |
 | Text contrast | All text tokens measure at least 4.5:1 against every surface they sit on, in both themes (secondary captions 4.5–5.6:1, body 7–9:1). Text drawn over the anatomy carries a halo in the page color. |
 | Timing | No time limits, except the clinical clock in the bleeding case, which can be paused at any time. |
 | Language | The document language and direction follow the chosen interface language (Arabic is right-to-left). |

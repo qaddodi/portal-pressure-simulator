@@ -1,22 +1,22 @@
 // Lumped-parameter hemodynamic engine (blueprint §7).
 // Pure JS, no DOM: runs in a Web Worker, on the main thread, or in Node tests.
 
-import { NODES, EDGES, dMinOf, edgePresent, isOccluded, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=dc393aabea';
+import { NODES, EDGES, dopplerK, dMinOf, edgePresent, isOccluded, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=706a39d50b';
 import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=6fc3ec393a';
-import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=da4ad72f01';
-import { detectEvents } from './events.js?v=e24f641428';
+import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=2ab3fe1eb2';
+import { detectEvents } from './events.js?v=120d432c34';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
 const EXT_OVERRIDE = { IVC_IS: 'abd', CAUD: 'none' };
 
-export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 7.0, k: 0.35, kGV: 0.4, openGV: 5.0 };
+export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 7.0, k: 0.35, kGV: 0.4, openGV: 5.0, mature: 0.3 };
 /** Rupture hazard per day as a function of T/Tcrit (§7.5). */
 const ruptureHazardPerDay = (x) => (x <= 1 ? 0 : 0.01 * Math.pow((x - 1) / 0.25, 3));
-const COLLATERAL = { open: 7.5, span: 14, tauGrow: 50, tauRegress: 120, acute: 0.4 };
+const COLLATERAL = { open: 7.5, span: 14, tauGrow: 50, tauRegress: 120, acute: 0 };
 const TIPS_R = { tract: 0.12, kin: 5.96 };   // PRU; kin: mmHg per (mL/s ÷ mm²)² (ρ·K/2 with K≈1.5)
 const DIPS_R = { tract: 0.07, kin: 5.96 };   // the caudate tract is a few centimetres, shorter than a TIPS tract
 // A stent in series with a parenchymal tract (which does not widen with the stent, so large stents plateau),
@@ -484,7 +484,8 @@ export class Engine {
     // flicker as breathing swings the instantaneous velocity across a cut-off.
     const av = Math.min(1, dt / 6), kPV = this.ei.PV_TRUNK;
     this.pvQm = (this.pvQm ?? this.Q[kPV]) + (this.Q[kPV] - (this.pvQm ?? this.Q[kPV])) * av;
-    this.pvVm = (this.pvVm ?? this.velocity('PV_TRUNK')) + (this.velocity('PV_TRUNK') - (this.pvVm ?? this.velocity('PV_TRUNK'))) * av;
+    const vPV = this.dopplerVelocity('PV_TRUNK');
+    this.pvVm = (this.pvVm ?? vPV) + (vPV - (this.pvVm ?? vPV)) * av;
     // Display-filtered pressures (removes respiratory / cardiac ripple from readouts)
     if (!this.Pf) this.Pf = Float64Array.from(this.P);
     const ap = Math.min(1, dt / 2.5);
@@ -648,8 +649,9 @@ export class Engine {
   /**
    * Working diameter of a collateral (mm): the largest of
    *  - its remodeled size (slow.d: weeks of growth under a sustained gradient, disease clock);
-   *  - an acute, passive opening of the pre-existing channel, which dilates within seconds as the
-   *    gradient across its route rises (up to COLLATERAL.acute of the full range);
+   *  - an acute, passive opening of the pre-existing channel as the gradient across its route rises
+   *    (up to COLLATERAL.acute of the full range; 0, since collaterals and a cavernoma take weeks to
+   *    form, so an acute block shows none and they grow on the disease clock);
    *  - full size for a spontaneous shunt that is present (an anatomical variant, not remodeled).
    * The result is recorded in slow.dEff so the figure draws what the model conducts.
    */
@@ -659,7 +661,7 @@ export class Engine {
     else if (this.refP) {
       const dMin = dMinOf(e);
       const frac = clamp((this.routeExcess(e.route) - (e.open ?? COLLATERAL.open)) / COLLATERAL.span, 0, 1);
-      d = Math.max(d, dMin + (e.dMax - dMin) * COLLATERAL.acute * Math.sqrt(frac));
+      d = Math.max(d, dMin + (e.dMax - dMin) * (e.acute ?? COLLATERAL.acute) * Math.sqrt(frac));
     }
     // The short/posterior gastric veins feed the fundal varices that the gastrorenal shunt
     // drains: this feeder is only as open as the shunt is.
@@ -827,8 +829,13 @@ export class Engine {
     return q / (Math.PI * d * d / 4);
   }
 
+  /** Doppler velocity (cm/s), signed: the time-averaged peak of the spectrum (see dopplerK). */
+  dopplerVelocity(id) {
+    return this.velocity(id) * dopplerK(EDGES[this.ei[id]]);
+  }
+
   /** The radius (mm) of a varix at the current gradient. It follows the gradient as it changes (smoothed over a few
-   *  seconds by the display-filtered pressures), not over weeks; banding shrinks it until the bands slough. */
+   *  seconds by the display-filtered pressures), up to a ceiling that grows over weeks with the coronary vein; banding shrinks it until the bands slough. */
   varixTarget(site, P = this.Pf || this.P) {
     const p = this.params;
     // Both kinds of varix follow the portosystemic pressure gradient above its healthy value, the same quantity
@@ -841,8 +848,19 @@ export class Engine {
     const ex = site === 'VAR' ? this.routeExcess(['CONF', 'RA'], P) : this.routeExcess(['SV', 'IVCI'], P);
     // Fundal varices exist only where a gastrorenal shunt can drain them.
     const ex0 = site === 'GV' && p.spontaneous.C5 === false ? -1e9 : ex;
-    const grown = clamp(VARIX.r0Healthy + (site === 'GV' ? VARIX.kGV : VARIX.k) * Math.max(0, ex0 - (site === 'GV' ? VARIX.openGV : VARIX.open)), VARIX.r0Healthy, VARIX.rMax);
+    // Esophageal varices are collaterals too, so they take weeks to form: their size is capped by how far the coronary
+    // vein feeding them has remodeled on the disease clock (none at the onset of an acute block). Fundal varices ride
+    // on a gastrorenal shunt that is present from birth, so they are not capped.
+    const mature = this.varixMature(site);
+    const grown = clamp(VARIX.r0Healthy + (site === 'GV' ? VARIX.kGV : VARIX.k) * Math.max(0, ex0 - (site === 'GV' ? VARIX.openGV : VARIX.open)), VARIX.r0Healthy, VARIX.r0Healthy + mature * (VARIX.rMax - VARIX.r0Healthy));
     return site === 'VAR' ? VARIX.r0Healthy + (grown - VARIX.r0Healthy) * Math.pow(0.6, this.bands) : grown;
+  }
+
+  /** How far the channel feeding a varix has remodeled (0 at the onset of a block, 1 once established). */
+  varixMature(site) {
+    if (site === 'GV') return 1;
+    const ch = EDGES[this.ei.C1a], chMin = dMinOf(ch);
+    return clamp((this.slow.d.C1a - chMin) / (ch.dMax - chMin) / VARIX.mature, 0, 1);
   }
 
   varix(site, P = this.P) {
@@ -855,7 +873,8 @@ export class Engine {
     // together and is not a varix, so it is taken off the distending pressure. The wall tension below still
     // uses the full transmural pressure.
     const ra = this.ni.RA, raRise = Math.max(0, P[ra] - (this.refP ? this.refP[ra] : this.Pbase[ra]));
-    const r = r0 * Math.sqrt(tubeArea(ptm - raRise, 0.08) / tubeArea(ref, 0.08));
+    // A vein that has not yet remodeled into a varix is not distended into one either.
+    const r = r0 * (1 + this.varixMature(site) * (Math.sqrt(tubeArea(ptm - raRise, 0.08) / tubeArea(ref, 0.08)) - 1));
     const w = Math.max(0.12, VARIX.w0 / r0) * (site === 'GV' ? 1.4 : 1);
     const T = Math.max(0, ptm) * r / w;
     return { ptm, r, r0, w, T, ratio: T / VARIX.Tcrit };

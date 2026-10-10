@@ -1,16 +1,16 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
-import { store, hiddenNow } from './store.js?v=25cbe77a76';
-import { EDGES } from '../engine/topology.js?v=dc393aabea';
-import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=e803df99cd';
-import { lobuleFlows } from './lobule-model.js?v=dd2bf5fddf';
-import { createProfile } from './charts.js?v=ac5eb186fd';
-import { createPressureTime } from './pressure-time.js?v=f6f0e4f571';
-import { createFibroScan } from './fibroscan.js?v=f40195d07f';
-import { createHvpgProcedure } from './hvpg-proc.js?v=7727982947';
-import { createDoppler } from './doppler.js?v=5a548779a8';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=4d65ed8f9a';
+import { store, hiddenNow } from './store.js?v=5edd069b32';
+import { EDGES } from '../engine/topology.js?v=706a39d50b';
+import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=e0101a3fa2';
+import { lobuleFlows } from './lobule-model.js?v=0c0c959895';
+import { createProfile } from './charts.js?v=bcd2021343';
+import { createPressureTime } from './pressure-time.js?v=92faef86cd';
+import { createFibroScan } from './fibroscan.js?v=8335360dec';
+import { createHvpgProcedure } from './hvpg-proc.js?v=4050ce0652';
+import { createDoppler } from './doppler.js?v=d905792b53';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=67a27049f4';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -31,11 +31,11 @@ export const TILES = [
     scale: [0, 35], ticks: [10, 15],
     st: (v) => (v <= 10 ? 'ok' : v < 15 ? 'caution' : 'danger'), s: (v) => (v <= 10 ? 'Normal' : v < 15 ? 'Raised' : 'High') },
   // Flow and velocity averaged over a few breaths (pvFlowMean, pvVelMean): breathing swings the
-  // instantaneous velocity across the 12 cm/s cut-off even in a healthy patient.
-  { id: 'pvflow', group: 'flow', k: 'Portal flow', ks: 'PV flow', title: 'Portal vein blood flow toward the liver, averaged over a few breaths (negative = away from it). Normal ≥ 0.9 L/min at ≥ 12 cm/s.', why: 'pvFlow', v: (m) => m.pvFlowMean ?? m.pvFlow, d: 1, u: 'L/min',
+  // instantaneous velocity across the 15 cm/s cut-off even in a healthy patient.
+  { id: 'pvflow', group: 'flow', k: 'Portal flow', ks: 'PV flow', title: 'Portal vein blood flow toward the liver, averaged over a few breaths (negative = away from it). Normal ≥ 0.9 L/min at ≥ 15 cm/s (Doppler).', why: 'pvFlow', v: (m) => m.pvFlowMean ?? m.pvFlow, d: 1, u: 'L/min',
     scale: [-0.6, 2], ticks: [0, 0.9],
-    st: (v, m) => (v < -0.02 ? 'critical' : Math.abs(vel(m)) < 5 ? 'danger' : v < 0.9 || Math.abs(vel(m)) < 12 ? 'caution' : 'ok'),
-    s: (v, m) => (v < -0.02 ? 'Reversed' : Math.abs(vel(m)) < 5 ? 'Stasis' : v < 0.9 ? 'Reduced' : Math.abs(vel(m)) < 12 ? 'Slow' : 'Normal') },
+    st: (v, m) => (v < -0.02 ? 'critical' : Math.abs(vel(m)) < 9 ? 'danger' : v < 0.9 || Math.abs(vel(m)) < 15 ? 'caution' : 'ok'),
+    s: (v, m) => (v < -0.02 ? 'Reversed' : Math.abs(vel(m)) < 9 ? 'Stasis' : v < 0.9 ? 'Reduced' : Math.abs(vel(m)) < 15 ? 'Slow' : 'Normal') },
   { id: 'liver', group: 'flow', hideKey: 'model', k: 'Sinusoidal flow', ks: 'Sinusoids', title: 'Total blood flow through the liver sinusoids (portal + hepatic artery), % of this model\'s healthy baseline. A model quantity, not liver function.', why: 'sinFlow', v: (m) => m.liverPerfPct, d: 0, u: '%',
     scale: [0, 150], ticks: [55, 75],
     st: (v) => (v > 75 ? 'ok' : v > 55 ? 'caution' : 'danger'), s: (v) => (v > 75 ? 'Normal' : v > 55 ? 'Reduced' : 'Low') },
@@ -82,7 +82,7 @@ export const CUTOFFS = [
   ['HVPG (wedged − free)', '< 5 mmHg', '5–9 (subclinical)', '≥ 10 (CSPH in cirrhosis)', '—'],
   ['PPG: portosystemic gradient (portal vein − IVC)', '< 6 mmHg', '6–11', '≥ 12', '—'],
   ['Portal vein pressure', '≤ 10 mmHg', '11–14', '≥ 15', '—'],
-  ['Portal flow', '≥ 0.9 L/min and ≥ 12 cm/s', '< 0.9 L/min or < 12 cm/s', '< 5 cm/s (stasis)', 'Reversed (hepatofugal)'],
+  ['Portal flow', '≥ 0.9 L/min and ≥ 15 cm/s', '< 0.9 L/min or < 15 cm/s', '< 9 cm/s (stasis)', 'Reversed (hepatofugal)'],
   ['Sinusoidal flow', '> 75 % of normal', '56–75 %', '≤ 55 %', '—'],
   ['Shunted blood', '< 10 %', '10–29 %', '30–59 %', '≥ 60 %'],
   ['Varix wall stress (model)', '< 40 % of rupture', '40–69 %, or diameter ≥ 5 mm', '70–89 %', '≥ 90 %'],
@@ -289,17 +289,13 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
 
   // ── Instrument workspace ─────────────────────────
   // The instruments. Legacy ids remain valid for lessons and actions:
-  // landscape is a Pressure view; varixwall is Endoscopy's expandable wall mechanics.
+  // landscape is a Pressure view; varixwall is Scope's Wall mechanics tab.
   const app = document.getElementById('app');
   const workspace = head.closest('.dock');
   const stageWrap = document.getElementById('stageWrap');
   const profile = createProfile(), wall = createVarixWall();
   const endoscopy = createEndoscopy({ onAction });
-  const wallDetails = h('details', { class: 'instrument-details wall-details' },
-    h('summary', {}, 'Wall mechanics', h('span', {}, 'Pressure, radius & wall thickness')), wall.el);
   wall.el.className = 'instrument-view wall-view';
-  endoscopy.el.append(wallDetails);
-  wallDetails.addEventListener('toggle', () => { if (wallDetails.open && frame) wall.update(frame); });
   const pressure = { ...profile, id: 'profile', label: 'Pressure' };
   const instruments = [
     pressure, createPressureTime({ marks }),
@@ -386,6 +382,19 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     p.el.id = 'pane-' + p.id; p.el.setAttribute('role', 'tabpanel'); p.el.setAttribute('aria-label', p.label);
     body.append(p.el);
   }
+  // Scope has the same kind of switch: the endoscopic view, or the wall mechanics behind it.
+  let endoSub = 'scope';
+  const endoPane = byId.endoscopy.el;
+  const endoSwitch = h('div', { class: 'pressure-switch', role: 'group', 'aria-label': 'Scope view' },
+    [['scope', 'Scope view'], ['wall', 'Wall mechanics']].map(([v, label]) => h('button', {
+      type: 'button', class: 'ps-btn', 'data-view': v, 'aria-pressed': String(v === 'scope'), onclick: () => setEndoSub(v),
+    }, label)));
+  function setEndoSub(v) {
+    endoSub = v; endoPane.dataset.sub = v;
+    for (const b of endoSwitch.children) b.setAttribute('aria-pressed', String(b.dataset.view === v));
+    if (frame) requestAnimationFrame(() => (v === 'wall' ? wall : endoscopy).update(frame));
+  }
+  endoPane.prepend(endoSwitch); endoPane.append(wall.el); endoPane.dataset.sub = endoSub;
   const comparison = h('div', { class: 'workspace-comparison', hidden: true });
   body.before(comparison);
   // A pane that scrolls (Ascites on a phone) is left alone while a finger is on it and for a moment after, so
@@ -401,8 +410,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       const p = byId[id];
       if (id !== 'scope' && id !== 'doppler' && holding() && p.el.scrollHeight > p.el.clientHeight + 1) continue;
       // live instruments keep their own history and only redraw; the rest draw from the frame
-      if (id === 'scope' || id === 'doppler') p.redraw(); else p.update(frame);
-      if (id === 'endoscopy' && wallDetails.open) wall.update(frame);
+      if (id === 'scope' || id === 'doppler') p.redraw(); else if (id === 'endoscopy' && endoSub === 'wall') wall.update(frame); else p.update(frame);
     }
   }
   function queueRefresh() {
@@ -512,7 +520,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     if (id === 'lobule') { onLobule?.(); return; }
     if (id === 'landscape' || ALIAS[id]) id = ALIAS[id] || 'profile';
     const revealWall = id === 'varixwall';
-    if (revealWall) { wallDetails.open = true; id = 'endoscopy'; }
+    if (revealWall) { setEndoSub('wall'); id = 'endoscopy'; }
     if (!byId[id]) return;
     endPick();
     if (alongside && open.length === 1 && tabOf(open[0]) !== tabOf(id) && canSplit()) open = [open[0], id];
@@ -521,7 +529,6 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     else if (doOpen) onOpen();
     if (state === 'peek') setState('open');
     layout();
-    if (revealWall) requestAnimationFrame(() => wallDetails.scrollIntoView({ block: 'nearest' }));
     queueRefresh();
   }
   function close() {

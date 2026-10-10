@@ -1,15 +1,15 @@
 // Instruments (blueprint §8.3, §9.4, §9.5, §6.4): endoscopy,
 // varix cross-section, abdomen.
 
-import { NODES } from '../engine/topology.js?v=dc393aabea';
+import { NODES } from '../engine/topology.js?v=706a39d50b';
 import { pressureColor } from './colormap.js?v=6d64a94345';
-import { verbEnabled } from './actions.js?v=8e44cc766f';
-import { h, fmt, fitCanvas, cssVar, clamp, icon } from './util.js?v=e803df99cd';
-import { simTime, isPaused } from './clock.js?v=77fb9815e5';
+import { verbEnabled } from './actions.js?v=e27052afd6';
+import { h, fmt, fitCanvas, cssVar, clamp, icon } from './util.js?v=e0101a3fa2';
+import { simTime, isPaused } from './clock.js?v=d82cfa024b';
 import { createEndoGL } from './endo-gl.js?v=b10afb7c95';
 import { renderEndo } from './endo-render.js?v=41cd7f6fa2';
-import { FONT } from './charts.js?v=ac5eb186fd';
-import { store, updateParams, logAction, varicesPresent } from './store.js?v=25cbe77a76';
+import { FONT } from './charts.js?v=bcd2021343';
+import { store, updateParams, logAction, varicesPresent } from './store.js?v=5edd069b32';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
@@ -20,24 +20,46 @@ export function createEndoscopy({ onAction }) {
   const cv = h('canvas', { role: 'img', 'aria-label': 'Endoscopic view' });
   box.append(cv);
   const view = 'eso'; // the esophageal variceal view only
+  // The position is a caption under the view, never over it.
+  const stage = h('div', { class: 'endo-stage' }, box, h('span', { class: 'endo-pos' }, 'Distal esophagus · 36 cm'));
   const bandBtn = h('button', { class: 'btn primary', onclick: () => onAction({ kind: 'band' }) }, icon('band'), 'Band a column (EVL)');
-  const stats = h('dl', { class: 'kv wrap' });
+  // The readings: the grade leads, wall stress is a meter toward the tear point, size and wall side by side,
+  // red signs and bands as chips. Built once; each frame only changes text, widths and states.
+  const dd = (cls) => h('dd', { class: cls });
+  const gradeCode = h('b'), gradeLabel = h('span');
+  const grade = h('dd', { class: 'endo-grade' }, gradeCode, gradeLabel);
+  const stressTxt = dd('endo-stress-v'), stressFill = h('i'), stressBar = h('span', { class: 'endo-bar', 'aria-hidden': 'true' }, stressFill);
+  const diam = dd('endo-num'), wall = dd('endo-num'), red = dd('endo-chip-v'), bands = dd('endo-chip-v');
+  const item = (cls, ...kids) => h('div', { class: cls }, ...kids);
+  const stats = h('dl', { class: 'endo-read' },
+    item('endo-g', h('dt', { class: 'sr-only' }, 'Grade'), grade),
+    item('endo-stress', h('dt', {}, 'Wall stress (model)'), stressTxt, stressBar),
+    item('endo-tile', h('dt', {}, 'Diameter'), diam),
+    item('endo-tile', h('dt', {}, 'Wall thickness'), wall),
+    item('endo-chip', h('dt', {}, 'Red signs'), red),
+    item('endo-chip', h('dt', {}, 'Bands placed'), bands));
   const side = h('div', { class: 'chart-side' }, stats,
     bandBtn,
     h('div', { class: 'ctl-sub' }, 'Drawn from the model. F1 small and straight, F2 enlarged and tortuous, F3 large and beaded.'));
-  el.append(box, side);
+  el.append(stage, side);
+  const set = (node, v) => { if (node.textContent !== v) node.textContent = v; };
   function update(f) {
     const m = f.metrics;
     const vx = view === 'eso' ? m.varix : m.gastricVarix;
     const noVx = !varicesPresent(f, view === 'eso' ? 'VAR' : 'GV');
     bandBtn.disabled = noVx; bandBtn.title = noVx ? 'No varices to band' : '';
-    stats.replaceChildren(
-      h('dt', {}, 'Grade'), h('dd', {}, `${vx.grade.code} ${vx.grade.label}`),
-      h('dt', {}, 'Diameter'), h('dd', {}, `${fmt(vx.d, 1)} mm`),
-      h('dt', {}, 'Wall thickness'), h('dd', {}, `${fmt(vx.w, 2)} mm`),
-      h('dt', {}, 'Wall stress (model)'), h('dd', {}, vx.ratio >= 1 ? (store.get().params?.bleeding ? 'past the tear point' : 'past the tear point (bleeding is off, so it holds)') : `${Math.round(vx.ratio * 100)} % of the tear point`),
-      h('dt', {}, 'Red signs'), h('dd', {}, vx.d < 2.5 ? 'None' : vx.redWale ? 'Red wale, cherry spots' : 'None'),
-      h('dt', {}, 'Bands placed'), h('dd', {}, String(Math.round(f.bands || 0))));
+    set(gradeCode, vx.grade.code === '—' ? '' : vx.grade.code); set(gradeLabel, vx.grade.label);   // no varices: the label alone
+    grade.dataset.sev = vx.grade.code === 'F1' ? 'caution' : vx.grade.code === '—' ? 'ok' : 'danger';
+    set(stressTxt, vx.ratio >= 1 ? (store.get().params?.bleeding ? 'past the tear point' : 'past the tear point (bleeding is off, so it holds)') : `${Math.round(vx.ratio * 100)} % of the tear point`);
+    const sev = vx.ratio > 1 ? 'critical' : vx.ratio > 0.7 ? 'danger' : vx.ratio > 0.4 ? 'caution' : 'ok';   // as the wall view's gauge
+    if (stressBar.dataset.sev !== sev) stressBar.dataset.sev = sev;
+    const wPct = `${Math.round(clamp(vx.ratio, 0, 1) * 1000) / 10}%`;
+    if (stressFill.style.width !== wPct) stressFill.style.width = wPct;
+    set(diam, `${fmt(vx.d, 1)} mm`); set(wall, `${fmt(vx.w, 2)} mm`);
+    const redV = vx.d < 2.5 ? 'None' : vx.redWale ? 'Red wale, cherry spots' : 'None';
+    set(red, redV); red.parentNode.dataset.on = String(redV !== 'None');
+    const nb = String(Math.round(f.bands || 0));
+    set(bands, nb); bands.parentNode.dataset.on = String(nb !== '0');
     draw(f, vx);
   }
   // Rendered endoscopic view (see endo-render.js): a per-pixel 3D shading of the lumen with raised,
@@ -61,8 +83,8 @@ export function createEndoscopy({ onAction }) {
     const { ctx, w, h: hh } = fitCanvas(cv);
     if (w < 32 || hh < 32) return; // hidden/reflowing canvas: wait for its measured size
     ctx.clearRect(0, 0, w, hh);
-    // The field sits above its caption, never under it.
-    const cx = w / 2, cy = (hh - 16) / 2, R = Math.min(w, hh - 16) / 2 - 6;
+    // The field fills the box.
+    const cx = w / 2, cy = hh / 2, R = Math.min(w, hh) / 2 - 4;
     ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
     const bands = Math.round(f.bands || 0);
     // Banding deflates the banded columns only. The model's single varix size falls as bands go on,
@@ -140,57 +162,96 @@ export function createEndoscopy({ onAction }) {
     }
     ctx.restore();
     ctx.strokeStyle = '#0c0d10'; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
-    ctx.fillStyle = cssVar('--text-3') || '#888'; ctx.font = FONT(500, 10); ctx.textAlign = 'left';
-    ctx.fillText('Distal esophagus · 36 cm', 6, hh - 3);
   }
   return { id: 'endoscopy', label: 'Endoscopy', el, update, setView() {} };
 }
 
 // ── Varix wall cross-section (L3) ───────────────────
+// Scope's Wall mechanics tab: a cross-section of the esophagus with the varix in its wall, and Laplace's
+// law as readings in the same tiles and meter as the scope view.
 export function createVarixWall() {
   const el = h('div', { class: 'dock-pane', 'data-pane': 'varixwall' });
-  const box = h('div', { class: 'chart-box' });
-  const cv = h('canvas', { role: 'img', 'aria-label': 'Varix cross-section and Laplace wall tension' });
+  const box = h('div', { class: 'chart-box square' });
+  const cv = h('canvas', { role: 'img', 'aria-label': 'Varix cross-section: transmural pressure stretches the varix wall' });
   box.append(cv);
-  const stats = h('dl', { class: 'kv' });
-  const side = h('div', { class: 'chart-side' }, h('div', { class: 'side-title' }, 'Laplace’s law'), h('div', { class: 'formula' }, 'T = ΔP · r / w'), stats,
-    h('div', { class: 'ctl-sub' }, 'Big radius, high transmural pressure and a thin wall all raise the modeled wall stress. Remodeling enlarges the varix and thins its wall over months. A balloon raises the luminal (outside) pressure.'));
-  el.append(box, side);
+  const stage = h('div', { class: 'endo-stage' }, box, h('span', { class: 'endo-pos' }, 'Cross-section'));
+  const dd = (cls) => h('dd', { class: cls });
+  const item = (cls, ...kids) => h('div', { class: cls }, ...kids);
+  const stressTxt = dd('endo-stress-v'), stressFill = h('i'), stressBar = h('span', { class: 'endo-bar', 'aria-hidden': 'true' }, stressFill);
+  // Each number with its unit in smaller type, so a long reading still fits a narrow tile.
+  const num = (unit) => { const v = h('span'); const d = h('dd', { class: 'endo-num' }, v, unit ? h('small', {}, ' ' + unit) : ''); d.v = v; return d; };
+  const ptm = num('mmHg'), rad = num('mm'), wal = num('mm'), idx = num('');
+  const stats = h('dl', { class: 'endo-read' },
+    item('endo-g wall-law', h('dt', {}, 'Laplace’s law'), h('dd', { class: 'wall-formula' }, 'T = ΔP · r / w')),
+    item('endo-stress', h('dt', {}, 'Wall stress (model)'), stressTxt, stressBar),
+    item('endo-tile', h('dt', {}, 'Transmural ΔP'), ptm),
+    item('endo-tile', h('dt', {}, 'Radius r'), rad),
+    item('endo-tile', h('dt', {}, 'Wall w'), wal),
+    item('endo-tile', h('dt', {}, 'Stress index'), idx));
+  const side = h('div', { class: 'chart-side' }, stats,
+    h('div', { class: 'ctl-sub' }, 'A wider varix, higher transmural pressure and a thinner wall all raise the stress. Remodeling enlarges the varix and thins its wall over months; a balloon raises the pressure outside it.'));
+  el.append(stage, side);
+  const set = (node, v) => { if (node.textContent !== v) node.textContent = v; };
   function update(f) {
     const v = f.metrics.varix;
-    stats.replaceChildren(
-      h('dt', {}, 'ΔP (transmural)'), h('dd', {}, `${fmt(v.ptm, 1)} mmHg`),
-      h('dt', {}, 'Radius r'), h('dd', {}, `${fmt(v.r, 2)} mm`),
-      h('dt', {}, 'Wall w'), h('dd', {}, `${fmt(v.w, 2)} mm`),
-      h('dt', {}, 'Stress index'), h('dd', {}, `${fmt(v.T, 0)} (${Math.round(v.ratio * 100)} %)`));
+    set(ptm.v, fmt(v.ptm, 1)); set(rad.v, fmt(v.r, 2)); set(wal.v, fmt(v.w, 2)); set(idx.v, fmt(v.T, 0));
+    set(stressTxt, v.ratio >= 1 ? 'past the tear point' : `${Math.round(v.ratio * 100)} % of the tear point`);
+    const sev = v.ratio > 1 ? 'critical' : v.ratio > 0.7 ? 'danger' : v.ratio > 0.4 ? 'caution' : 'ok';
+    if (stressBar.dataset.sev !== sev) stressBar.dataset.sev = sev;
+    const wPct = `${Math.round(clamp(v.ratio, 0, 1) * 1000) / 10}%`;
+    if (stressFill.style.width !== wPct) stressFill.style.width = wPct;
     const { ctx, w, h: hh } = fitCanvas(cv);
     if (w < 32 || hh < 32) return;
     ctx.clearRect(0, 0, w, hh);
-    const cx = Math.min(w * 0.4, hh * 0.6), cy = hh / 2, Rw = Math.min(cx, hh / 2) - 12;
-    // esophageal wall ring
-    ctx.fillStyle = cssVar('--organ-stomach'); ctx.globalAlpha = 0.35; ctx.beginPath(); ctx.arc(cx, cy, Rw, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
-    ctx.fillStyle = cssVar('--surface'); ctx.beginPath(); ctx.arc(cx, cy, Rw * 0.45, 0, 7); ctx.fill();
-    ctx.fillStyle = cssVar('--text-2'); ctx.font = FONT(500, 11); ctx.textAlign = 'center'; ctx.fillText('lumen', cx, cy + 4);
-    // varix at submucosa (top)
-    const scale = Rw * 0.08;
-    const rr = clamp(v.r * scale, 3, Rw * 0.5);
-    const vy = cy - Rw * 0.45 - rr * 0.6;
-    ctx.fillStyle = pressureColor(f.P[NI.VAR]); ctx.beginPath(); ctx.arc(cx, vy, rr, 0, 7); ctx.fill();
-    ctx.strokeStyle = v.ratio > 0.7 ? '#D0192E' : '#26336B'; ctx.lineWidth = clamp(v.w * 5, 1, 8); ctx.stroke();
-    // pressure arrows
-    ctx.strokeStyle = cssVar('--text'); ctx.lineWidth = 1.5;
-    for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
-      const x0 = cx + Math.cos(a) * rr * 0.4, y0 = vy + Math.sin(a) * rr * 0.4, x1 = cx + Math.cos(a) * (rr + 8), y1 = vy + Math.sin(a) * (rr + 8);
+    const cx = w / 2, cy = hh / 2, R = Math.min(w, hh) / 2 - 6, Rl = R * 0.52;
+    // The wall: muscle outside, mucosa inside, the lumen in the middle.
+    ctx.fillStyle = cssVar('--organ-stomach'); ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.fill();
+    ctx.globalAlpha = 0.55; ctx.beginPath(); ctx.arc(cx, cy, R * 0.74, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+    ctx.strokeStyle = cssVar('--hairline'); ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.stroke();
+    ctx.fillStyle = cssVar('--surface'); ctx.beginPath(); ctx.arc(cx, cy, Rl, 0, 7); ctx.fill();
+    // The varix in the submucosa at the top, bulging into the lumen; its size follows the model's radius.
+    const rr = clamp(v.r * R * 0.05, 4, R * 0.3);
+    const vy = cy - Rl - rr * 0.25;
+    const rim = v.ratio > 0.7 ? cssVar('--danger') : cssVar('--text-2');
+    // Transmural pressure pushes outward on the varix wall: longer arrows for a higher ΔP.
+    const len = clamp(v.ptm, 0, 30) / 30 * rr * 0.9 + 4;
+    ctx.strokeStyle = cssVar('--text-2'); ctx.fillStyle = cssVar('--text-2'); ctx.lineWidth = Math.max(1.25, R / 140);
+    for (let a = -Math.PI; a < Math.PI - 0.01; a += Math.PI / 4) {
+      const x0 = cx + Math.cos(a) * (rr + 3), y0 = vy + Math.sin(a) * (rr + 3), x1 = cx + Math.cos(a) * (rr + 3 + len), y1 = vy + Math.sin(a) * (rr + 3 + len);
       ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+      const hd = 4 + R / 60;
+      ctx.beginPath(); ctx.moveTo(x1, y1);
+      ctx.lineTo(x1 - Math.cos(a - 0.45) * hd, y1 - Math.sin(a - 0.45) * hd); ctx.lineTo(x1 - Math.cos(a + 0.45) * hd, y1 - Math.sin(a + 0.45) * hd); ctx.fill();
     }
-    // tension gauge
-    const gx = cx + Rw + 40, gw = Math.max(40, w - gx - 30), gy = cy - 12;
-    ctx.fillStyle = cssVar('--surface-3'); ctx.beginPath(); ctx.roundRect ? ctx.roundRect(gx, gy, gw, 14, 7) : ctx.rect(gx, gy, gw, 14); ctx.fill();
-    ctx.fillStyle = v.ratio > 1 ? cssVar('--critical') : v.ratio > 0.7 ? cssVar('--danger') : v.ratio > 0.4 ? cssVar('--caution') : cssVar('--ok');
-    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(gx, gy, Math.max(14, gw * clamp(v.ratio / 1.5, 0, 1)), 14, 7) : ctx.rect(gx, gy, gw * clamp(v.ratio / 1.5, 0, 1), 14); ctx.fill();
-    ctx.strokeStyle = cssVar('--critical'); ctx.lineWidth = 2; const rx = gx + gw / 1.5; ctx.beginPath(); ctx.moveTo(rx, gy - 6); ctx.lineTo(rx, gy + 20); ctx.stroke();
-    ctx.fillStyle = cssVar('--text'); ctx.textAlign = 'left'; ctx.font = FONT(600, 12);
-    ctx.fillText(`Wall stress ${Math.round(v.ratio * 100)} % of critical`, gx, gy - 12); ctx.textAlign = 'center'; ctx.font = FONT(500, 11); ctx.fillStyle = cssVar('--text-2'); ctx.fillText('rupture', rx, gy + 34);
+    ctx.fillStyle = pressureColor(f.P[NI.VAR]); ctx.beginPath(); ctx.arc(cx, vy, rr, 0, 7); ctx.fill();
+    ctx.strokeStyle = rim; ctx.lineWidth = clamp(v.w * R / 20, 1, 10); ctx.stroke();
+    // The radius, drawn across the varix.
+    ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 1.25; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(cx, vy); ctx.lineTo(cx + rr, vy); ctx.stroke(); ctx.setLineDash([]);
+    const fs = clamp(R / 11, 10, 14);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    if (rr > 14) { ctx.fillStyle = '#fff'; ctx.font = FONT(600, fs); ctx.fillText('r', cx + rr / 2, vy + fs * 0.7); }
+    // Laplace's other two terms on the picture: the tension T along the wall (two arrows pulling apart round the top,
+    // heavier as the stress rises) and the wall thickness w across the rim (a bracket, in the faded label ink).
+    const lw = clamp(v.w * R / 20, 1, 10), ro = rr + lw / 2 + Math.max(5, R / 30), ink = cssVar('--text-3');
+    ctx.strokeStyle = rim; ctx.fillStyle = rim; ctx.lineWidth = clamp(1.25 + 2.5 * clamp(v.ratio, 0, 1.2), 1.25, 4);
+    for (const s of [-1, 1]) {
+      const a0 = -Math.PI / 2 + s * 0.22, a1 = -Math.PI / 2 + s * 1.05;
+      ctx.beginPath(); ctx.arc(cx, vy, ro, Math.min(a0, a1), Math.max(a0, a1)); ctx.stroke();
+      const ex = cx + Math.cos(a1) * ro, ey = vy + Math.sin(a1) * ro, tx = -Math.sin(a1) * s, ty = Math.cos(a1) * s, hd = 5 + R / 50;
+      ctx.beginPath(); ctx.moveTo(ex + tx * hd * 0.2, ey + ty * hd * 0.2);
+      ctx.lineTo(ex - tx * hd + ty * hd * 0.55, ey - ty * hd - tx * hd * 0.55); ctx.lineTo(ex - tx * hd - ty * hd * 0.55, ey - ty * hd + tx * hd * 0.55); ctx.fill();
+    }
+    ctx.font = FONT(600, fs); ctx.fillStyle = rim; ctx.fillText('T', cx, vy - ro - fs * 0.75);
+    const aw = Math.PI * 0.62, bx = Math.cos(aw), by = Math.sin(aw);
+    const i0 = rr - lw / 2, o0 = rr + lw / 2 + 3;
+    ctx.strokeStyle = ink; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx + bx * i0, vy + by * i0); ctx.lineTo(cx + bx * (o0 + 6), vy + by * (o0 + 6)); ctx.stroke();
+    for (const d of [i0, rr + lw / 2]) { ctx.beginPath(); ctx.moveTo(cx + bx * d - by * 3, vy + by * d + bx * 3); ctx.lineTo(cx + bx * d + by * 3, vy + by * d - bx * 3); ctx.stroke(); }
+    ctx.fillStyle = ink; ctx.font = FONT(600, fs); ctx.fillText('w', cx + bx * (o0 + 6 + fs * 0.6), vy + by * (o0 + 6 + fs * 0.6));
+    ctx.fillStyle = cssVar('--text-3'); ctx.font = FONT(500, fs);
+    ctx.fillText('lumen', cx, cy + Rl * 0.35);
+    ctx.fillText('muscle', cx, cy + R * 0.87);
   }
   return { id: 'varixwall', label: 'Varix wall', el, update };
 }

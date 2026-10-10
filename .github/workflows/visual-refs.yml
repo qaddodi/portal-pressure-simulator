@@ -1,0 +1,50 @@
+name: Visual references
+
+# Run by hand (Actions tab, or the GitHub Actions API) on a claude/* branch whose change to the look
+# is intended: views that drifted past the threshold get their references in tests/visual redrawn on
+# CI's own machines (the ones ci.yml compares on) and committed back to that branch, listed by name.
+# Views that still match are left alone. Nothing runs this automatically, so the comparison stays a
+# real check.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: visual-refs-${{ github.ref }}
+
+jobs:
+  refresh:
+    if: startsWith(github.ref_name, 'claude/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-browser
+      - name: Redraw the references of views that drifted
+        shell: bash
+        run: npm run visual -- --refresh | tee visual.log
+      - name: Commit refreshed references
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          git add tests/visual
+          if git diff --cached --quiet; then echo "All views match their references."; exit 0; fi
+          views=$(grep -o '^ref  [^ ]*' visual.log | cut -c6- | paste -sd' ' -)
+          git -c user.name='github-actions[bot]' -c user.email='41898341+github-actions[bot]@users.noreply.github.com' \
+            commit -m "Visual references redrawn on CI: $views"
+          # Other pushes may have landed meanwhile: replay on top of them (never a force-push).
+          for i in 1 2 3; do
+            git pull --rebase origin "$BRANCH" && git push origin "HEAD:$BRANCH" && exit 0
+            git rebase --abort 2>/dev/null || true
+            sleep $((i * 5))
+          done
+          echo "::error::Could not push the refreshed references; run the workflow again."; exit 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: visual-references
+          path: tests/visual/

@@ -25,7 +25,7 @@ test('T1 healthy targets', () => {
   within(m.hepaticFlow, 1.3, 1.7, 'hepatic flow');
   within(m.pvFlow, 0.95, 1.25, 'PV flow');
   within(m.arterialIn, 0.3, 0.5, 'HA flow');
-  within(m.pvVel, 12, 25, 'PV velocity');
+  within(m.pvVel, 20, 35, 'PV velocity (Doppler)');
   within(m.spleen.length, 10, 13, 'spleen');
   within(m.ascites.iap, 3, 7, 'IAP');
 });

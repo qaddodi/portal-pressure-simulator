@@ -68,11 +68,15 @@ export const units = { pressure: 'mmHg', flow: 'L/min' };
 export function fp(v) { const c = unitConv.pressure[units.pressure]; return [fmt(c.f(v), c.d), c.u]; }
 export function ff(v) { const c = unitConv.flow[units.flow]; return [units.flow === 'L/min' ? fmtFlow(v) : fmt(c.f(v), c.d), c.u]; }
 
+// Interface zoom (Settings): screen pixels per CSS pixel of the zoomed page, measured rather than
+// read from the setting so browsers that report rectangles either way both place menus right.
+export function uiScale() {
+  const b = document.body, w = b?.offsetWidth;
+  return w ? b.getBoundingClientRect().width / w || 1 : 1;
+}
+
 // Messages go to a quiet line in the status row above the timeline, never over the figure.
-// Settings → "Pop-up notices" brings back the cards at the top.
-let popPref;
-export const popupsOn = () => { if (popPref === undefined) { try { popPref = localStorage.getItem('pps.popups') === '1'; } catch { popPref = false; } } return popPref; };
-export function setPopups(on) { popPref = !!on; try { localStorage.setItem('pps.popups', on ? '1' : '0'); } catch { /* storage unavailable */ } }
+// When that line is not on screen they show as a card at the top instead.
 let noteTimer = 0;
 function inlineNote(msg, kind) {
   const row = document.getElementById('vdStatus');
@@ -92,7 +96,7 @@ function inlineNote(msg, kind) {
 
 export function toast(msg, kind = '') {
   if (!msg) return;
-  if (!popupsOn() && inlineNote(msg, kind)) return;
+  if (inlineNote(msg, kind)) return;
   const wrap = document.getElementById('toasts');
   // One message at a time reads calmer than a growing stack.
   while (wrap.children.length >= 2) wrap.firstChild.remove();
@@ -101,8 +105,8 @@ export function toast(msg, kind = '') {
   const r = document.querySelector('.vdock')?.offsetParent && bars?.getBoundingClientRect();
   wrap.classList.toggle('docked', !!(r && r.height));
   if (r && r.height) {
-    const w = Math.min(innerWidth - 24, 560);
-    Object.assign(wrap.style, { left: `${(innerWidth - w) / 2 - 20}px`, width: `${w + 40}px`, top: `${r.bottom}px`, bottom: 'auto', height: '', maxWidth: 'none' });
+    const z = uiScale(), W = innerWidth / z, w = Math.min(W - 24, 560);
+    Object.assign(wrap.style, { left: `${(W - w) / 2 - 20}px`, width: `${w + 40}px`, top: `${r.bottom / z}px`, bottom: 'auto', height: '', maxWidth: 'none' });
   }
   const t = h('div', { class: 'toast ' + kind, role: 'status' }, h('span', { class: 'toast-msg' }, msg));
   let timer = 0;
@@ -150,7 +154,8 @@ export function tooltipFor(el, text, side = 'right') {
       x = r.right + 10; y = r.top + r.height / 2 - tr.height / 2;
       if (x + tr.width > innerWidth - 8) x = r.left - tr.width - 10;
     }
-    tip.style.left = clamp(x, 8, innerWidth - tr.width - 8) + 'px'; tip.style.top = clamp(y, 8, innerHeight - tr.height - 8) + 'px';
+    const z = uiScale();
+    tip.style.left = clamp(x, 8, innerWidth - tr.width - 8) / z + 'px'; tip.style.top = clamp(y, 8, innerHeight - tr.height - 8) / z + 'px';
   };
   const hide = () => tip.classList.remove('show');
   el.addEventListener('pointerenter', (e) => { if (e.pointerType !== 'touch') show(); });
@@ -166,19 +171,25 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   if (openMenu) { const same = openMenu.anchor === anchor; closePopover(); if (same) return null; }
   const el = h('div', { class: 'menu ' + cls, role: 'dialog' }, content);
   document.body.append(el);
-  const r = anchor.getBoundingClientRect(), mr = el.getBoundingClientRect();
-  let x = align === 'end' ? r.right - mr.width : align === 'center' ? r.left + r.width / 2 - mr.width / 2 : r.left;
-  let y = place === 'above' ? r.top - mr.height - 8 : r.bottom + 8;
-  if (y + mr.height > innerHeight - 8) y = Math.max(8, r.top - mr.height - 8);
-  el.style.left = clamp(x, 8, innerWidth - mr.width - 8) + 'px';
-  el.style.top = clamp(y, 8, innerHeight - mr.height - 8) + 'px';
+  const put = () => {
+    // Layout size, not the rectangle: the opening animation scales the menu for a moment.
+    const r = anchor.getBoundingClientRect(), z = uiScale(), mr = { width: el.offsetWidth * z, height: el.offsetHeight * z };
+    let x = align === 'end' ? r.right - mr.width : align === 'center' ? r.left + r.width / 2 - mr.width / 2 : r.left;
+    let y = place === 'above' ? r.top - mr.height - 8 : r.bottom + 8;
+    if (y + mr.height > innerHeight - 8) y = Math.max(8, r.top - mr.height - 8);
+    el.style.left = clamp(x, 8, innerWidth - mr.width - 8) / z + 'px';
+    el.style.top = clamp(y, 8, innerHeight - mr.height - 8) / z + 'px';
+  };
+  put();
   const off = (e) => { if (!el.contains(e.target) && !anchor.contains(e.target)) closePopover(); };
   const esc = (e) => { if (e.key === 'Escape') closePopover(); };
   setTimeout(() => { addEventListener('pointerdown', off, true); addEventListener('keydown', esc); }, 0);
-  openMenu = { el, anchor, cleanup: () => { removeEventListener('pointerdown', off, true); removeEventListener('keydown', esc); onClose?.(); } };
+  openMenu = { el, anchor, put, cleanup: () => { removeEventListener('pointerdown', off, true); removeEventListener('keydown', esc); onClose?.(); } };
   anchor.setAttribute('aria-expanded', 'true');
   return el;
 }
+/** Places the open menu again, after something it is anchored to has moved or resized. */
+export function repositionPopover() { if (openMenu) { openMenu.el.style.left = openMenu.el.style.top = '0px'; openMenu.put(); } }
 export function closePopover() {
   if (!openMenu) return;
   openMenu.el.remove(); openMenu.anchor.setAttribute('aria-expanded', 'false'); openMenu.cleanup();

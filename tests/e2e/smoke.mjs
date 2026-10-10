@@ -6,6 +6,8 @@
 //   SHOTS=dir node tests/e2e/smoke.mjs  also save screenshots
 //   SMOKE_WORKERS=1                    checks at a time (default 4; use 1 on a small CI runner)
 //   SMOKE_DEVICE=phone SMOKE_SHARD=1/2 one device, and one share of its checks (CI runs shards in parallel)
+//   SMOKE_RETRIES=0                    no second try (default 1: a check that failed only by timing
+//                                       out on a slow runner gets one more try; any other failure counts)
 //
 // Needs a Chromium for Playwright (`npx playwright install chromium`; the Claude Code cloud
 // image ships one).
@@ -29,7 +31,10 @@ const DEVICES = {
 // Checks are queued, then run a few at a time (each has its own browser context).
 const queue = [];
 const check = (device, name, fn) => { queue.push([device, name, fn]); };
-async function runCheck(device, name, fn) {
+const RETRIES = process.env.SMOKE_RETRIES === undefined ? 1 : Number(process.env.SMOKE_RETRIES);
+// a Playwright timeout, also when a check re-threw it with its own message ({ cause })
+const timedOut = (e) => { for (; e; e = e.cause) if (e.name === 'TimeoutError') return true; return false; };
+async function runCheck(device, name, fn, tries = RETRIES) {
   const ctx = await browser.newContext({ ...DEVICES[device], serviceWorkers: 'block' });
   const page = await ctx.newPage();
   // Four pages share a software GPU in CI, where one frame can take seconds: give taps and waits room.
@@ -43,6 +48,12 @@ async function runCheck(device, name, fn) {
     if (errors.length) throw new Error('page errors: ' + errors.join(' | '));
     console.log(`ok   ${device.padEnd(7)} ${name} (${Date.now() - t0} ms)`);
   } catch (e) {
+    // Only a timeout gets a second try (a slow runner); a wrong value or a page error fails at once.
+    if (tries > 0 && timedOut(e)) {
+      console.log(`RETRY ${device.padEnd(7)} ${name}: timed out (${e.message.split('\n')[0]})`);
+      await ctx.close();
+      return runCheck(device, name, fn, tries - 1);
+    }
     failed++;
     console.log(`FAIL ${device.padEnd(7)} ${name}: ${e.message.split('\n')[0]}`); if (process.env.SMOKE_STACK) console.log(e.stack);
     if (shots) await page.screenshot({ path: `${shots}/FAIL-${device}-${name.replace(/\W+/g, '-')}.png` }).catch(() => {});
@@ -99,7 +110,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.evaluate(() => window.pps.store.set({ view: 'circuit' }));
     // Animations step with the frames: wait for where they end, not a fixed time (CI has no GPU).
     const ratio = () => { const s = document.querySelector('#stage'); return s.viewBox.baseVal.height / s.viewBox.baseVal.width; };
-    const until = (fn, msg) => page.waitForFunction(fn, null, { timeout: 30000 }).catch(() => { throw new Error(msg); });
+    const until = (fn, msg) => page.waitForFunction(fn, null, { timeout: 30000 }).catch((e) => { throw new Error(msg, { cause: e }); });
     // A phone held upright opens the circuit upright; turn it wide first.
     if (device === 'phone') { await until(`(${ratio})() > 1`, 'circuit did not open upright on a phone'); await page.click('#rotateCircuit'); }
     await until(`(${ratio})() < 1`, 'circuit did not open wide');
@@ -179,7 +190,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     // The liver's title opens the liver's card (there is no organ to click in the circuit).
     await page.locator('#labels .lb.zonecap.link', { hasText: 'LIVER' }).click();
     await page.waitForFunction(() => { const s = window.pps.store.get().selection; return s?.type === 'organ' && s.id === 'liver'; }, null, { timeout: 5000 })
-      .catch(() => { throw new Error('the LIVER title did not open the liver card'); });
+      .catch((e) => { throw new Error('the LIVER title did not open the liver card', { cause: e }); });
     await page.waitForSelector('.action-card:not([hidden])');
     await page.evaluate(() => window.pps.store.set({ selection: null }));
     await page.evaluate(() => window.pps.store.set({ view: 'anatomic' }));
@@ -334,9 +345,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       let k0 = await zk(), same = 0;
       for (let i = 0; i < 30 && same < 2; i++) { await page.waitForTimeout(700); const k = await zk(); same = k === k0 ? same + 1 : 0; k0 = k; }
       await page.click('#zoomIn');
-      await page.waitForFunction((k0) => window.pps.stage.lobuleViewKey() !== k0, k0, { timeout: 15000 }).catch(() => { throw new Error('zoom in does nothing in the lobule'); });
+      await page.waitForFunction((k0) => window.pps.stage.lobuleViewKey() !== k0, k0, { timeout: 15000 }).catch((e) => { throw new Error('zoom in does nothing in the lobule', { cause: e }); });
       await page.click('#zoomFit');
-      await page.waitForFunction((k0) => window.pps.stage.lobuleViewKey() === k0, k0, { timeout: 15000 }).catch(() => { throw new Error('Fit does not return the lobule to its framing'); });
+      await page.waitForFunction((k0) => window.pps.stage.lobuleViewKey() === k0, k0, { timeout: 15000 }).catch((e) => { throw new Error('Fit does not return the lobule to its framing', { cause: e }); });
     }
     // Zooming in stays in the lobule.
     const box = await page.locator('.lz').boundingBox();
@@ -354,7 +365,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForTimeout(1500);
     await page.click('#btnLobuleLayers');
     await page.click('.menu .lens-opt:has-text("Zones")');
-    await page.waitForFunction(() => document.querySelectorAll('.lz-zone').length === 3, null, { timeout: 5000 }).catch(() => { throw new Error('zones did not show'); });
+    await page.waitForFunction(() => document.querySelectorAll('.lz-zone').length === 3, null, { timeout: 5000 }).catch((e) => { throw new Error('zones did not show', { cause: e }); });
     await page.click('.menu .lens-opt:has-text("Lymph")');
     await page.click('.menu .lens-opt:has-text("Lymph")');
     await page.keyboard.press('Escape');
@@ -383,7 +394,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction(() => document.querySelector('#app').classList.contains('panel-open'));
     // The model runs, so a finding can come or go between two reads: compare them in one frame.
     await page.waitForFunction(() => parseInt(document.querySelector('#findBadge').textContent, 10) === document.querySelectorAll('#panel .finding').length, null, { timeout: 5000 })
-      .catch(() => { throw new Error('the badge and the chart disagree on the number of findings'); });
+      .catch((e) => { throw new Error('the badge and the chart disagree on the number of findings', { cause: e }); });
     await page.click('#panelClose');
     await page.click('#btnTreat');
     await page.waitForSelector('#treatCard:not([hidden]) .order-chip');
@@ -580,13 +591,16 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if (!sized) throw new Error(`${id} has an unsized visible canvas`);
     }
     await page.evaluate(() => window.pps.dock.show('varixwall', { reveal: true }));
-    if (!(await page.$eval('.wall-details', (d) => d.open))) throw new Error('legacy varixwall route does not open mechanics');
+    if ((await page.$eval('#pane-endoscopy', (d) => d.dataset.sub)) !== 'wall') throw new Error('legacy varixwall route does not open Wall mechanics');
     await page.evaluate(() => window.pps.host.send({ type: 'run', running: false }));
     await page.waitForFunction(() => !window.pps.store.get().running);
     await page.waitForTimeout(250);
     await settled();
-    const square = await page.$eval('#pane-endoscopy .chart-box.square', (el) => { const r = el.getBoundingClientRect(); return Math.abs(r.width - r.height); });
-    if (square > 2) throw new Error('endoscopy loses its square aspect ratio');
+    for (const v of ['wall', 'scope']) {
+      await page.click(`#pane-endoscopy .ps-btn[data-view="${v}"]`);
+      const sq = await page.$$eval('#pane-endoscopy .chart-box.square', (els) => els.map((el) => el.getBoundingClientRect()).filter((r) => r.width).map((r) => [r.width, r.height]));
+      if (sq.length !== 1 || Math.abs(sq[0][0] - sq[0][1]) > 2 || sq[0][0] < 100) throw new Error(`endoscopy ${v} view is not one visible square: ${JSON.stringify(sq)}`);
+    }
     await page.$eval('#pane-endoscopy', (el) => { el.scrollTop = 0; });
     await shot(page, `${device}-workspace-endoscopy`);
     if (device === 'phone') {
@@ -604,7 +618,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await page.waitForFunction(() => {
         const dock = document.querySelector('#dock').getBoundingClientRect(), stage = document.querySelector('#stageView').getBoundingClientRect();
         return dock.right <= innerWidth + 1 && stage.height >= 20;
-      }, null, { timeout: 10000 }).catch(() => { throw new Error('rotation makes workspace unusable'); });
+      }, null, { timeout: 10000 }).catch((e) => { throw new Error('rotation makes workspace unusable', { cause: e }); });
       await shot(page, 'phone-workspace-landscape');
       await page.setViewportSize({ width: 390, height: 844 });
     } else {
@@ -615,7 +629,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await shot(page, 'desktop-workspace-two-instruments');
       await page.setViewportSize({ width: 768, height: 1024 });
       // The dock relayouts on the resize event, which a busy machine may deliver late: wait for it.
-      await page.waitForFunction(() => !document.querySelector('#dockBody').classList.contains('split'), null, { timeout: 10000 }).catch(() => { throw new Error('two cramped columns remain on tablet'); });
+      await page.waitForFunction(() => !document.querySelector('#dockBody').classList.contains('split'), null, { timeout: 10000 }).catch((e) => { throw new Error('two cramped columns remain on tablet', { cause: e }); });
       await shot(page, 'tablet-workspace');
     }
     await page.evaluate(() => window.pps.host.send({ type: 'run', running: true }));
@@ -638,7 +652,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === 'running' && a.effect?.target?.id === 'dock'), null, { timeout: 60000 });
     if (device === 'phone') { const b = await page.$eval(sel, (el) => { const r = el.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }); await page.touchscreen.tap(b[0], b[1]); }
     else await page.click(sel);
-    await page.waitForFunction((q) => document.querySelector(q).textContent.includes('Measuring'), sel, { timeout: 10000 }).catch(() => { throw new Error('a tap on Measure HVPG did not start it'); });
+    await page.waitForFunction((q) => document.querySelector(q).textContent.includes('Measuring'), sel, { timeout: 10000 }).catch((e) => { throw new Error('a tap on Measure HVPG did not start it', { cause: e }); });
   });
 
   await check(device, 'pressure over time and Doppler', async (page) => {

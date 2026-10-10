@@ -1,31 +1,31 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=90504cc4f2';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=25cbe77a76';
-import { createStage } from './stage.js?v=afec8ac251';
-import { sinusoidSupported } from './sinusoid-view.js?v=96ac8dcf06';
-import { createInspector } from './inspector.js?v=500d39491c';
-import { createDock, CUTOFFS } from './dock.js?v=6f0df6906c';
-import { setHvpgStage } from './hvpg-proc.js?v=7727982947';
-import { createWhy } from './why.js?v=b3625fb455';
-import { createTimeline, LAPSES } from './timeline.js?v=ba6a626da7';
-import { createLearn } from './learn.js?v=f427100fb8';
-import { createCases, CASES } from './cases.js?v=a7414fa276';
-import { isBlind } from './learning-kit.js?v=d37136ac07';
-import { createCompare } from './compare.js?v=118c08286d';
-import { createCard } from './card.js?v=7cf9cd2378';
-import { createChart, computeFindings } from './chart.js?v=967a6a286c';
-import { createHome, ROLES } from './home.js?v=65e4521cf0';
-import { course } from './course.js?v=3bf3617fd0';
-import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=96bbcced4d';
-import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=11a19282f2';
-import { startLMS } from './lms.js?v=9b12568299';
+import { startHost, host } from './host.js?v=4bb9b57859';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=5edd069b32';
+import { createStage } from './stage.js?v=88e3186d25';
+import { sinusoidSupported } from './sinusoid-view.js?v=14866bc1c9';
+import { createInspector } from './inspector.js?v=127b504390';
+import { createDock, CUTOFFS } from './dock.js?v=bee4540494';
+import { setHvpgStage } from './hvpg-proc.js?v=4050ce0652';
+import { createWhy } from './why.js?v=051ee69d2b';
+import { createTimeline, LAPSES } from './timeline.js?v=5aaa481577';
+import { createLearn } from './learn.js?v=2ba33a4748';
+import { createCases, CASES } from './cases.js?v=a66f47cf4e';
+import { isBlind } from './learning-kit.js?v=709a64e91f';
+import { createCompare } from './compare.js?v=baa48f57a4';
+import { createCard } from './card.js?v=59e205bc1d';
+import { createChart, computeFindings } from './chart.js?v=8dafa598cb';
+import { createHome, ROLES } from './home.js?v=1159117682';
+import { course } from './course.js?v=91c1512351';
+import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=398e679a38';
+import { caption } from './a11y.js?v=d781e4dd20';
+import { startLMS } from './lms.js?v=cbfc3f30c7';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=8e44cc766f';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=e27052afd6';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
-import { EDGES, NODES } from '../engine/topology.js?v=dc393aabea';
-import { $, $$, h, icon, fmt, fmtFlow, toast, popupsOn, setPopups, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=e803df99cd';
+import { EDGES, NODES } from '../engine/topology.js?v=706a39d50b';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=e0101a3fa2';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -39,7 +39,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=0166e06ffb';
 import { initTopbarMotion } from './topbar-motion.js?v=a7ab34f946';
 import { ORIGINS } from './blood.js?v=6c39f43ddf';
-import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=da4ad72f01';
+import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=2ab3fe1eb2';
 
 // Color lenses: [title, what it shows, legend swatch].
 // SMV, IMV, splenic vein, hepatic artery, systemic: as stage.js BLOOD_COLORS.
@@ -141,9 +141,9 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else home.open(o?.practice ? 'practice' : 'course'); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => home.open('course') });
-  presenterL = lazy(() => import('./presenter.js?v=d57abc7d6c'), ({ createPresenter }) => createPresenter({ startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=89bdb472a1'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
-    closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
+    closeHome: () => home.close(), stashCards, rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
     el: $('#home'), brandMark,
     onPreset: (id) => openInExplore(id),
@@ -154,7 +154,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=66fa66f087'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=70ce6d22a5'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -235,7 +235,6 @@ async function main() {
   const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
   setTimeout(() => idle(() => { paletteL.warm(); presenterL.warm(); }), 3000);
   addEventListener('pps:lang', () => { if (home.isOpen()) home.render(); });
-  if (readLS('pps.sonify') === '1') addEventListener('pointerdown', () => setSonify(true), { once: true });
 }
 // Deep links, for an LMS or a syllabus: ?lesson=<id> (&step=<step id or n>), ?case=<id>, ?script=<id> (&slide=<n>), ?preset=<id>,
 // ?home=explore|learn|cases|present. They open straight into that activity.
@@ -317,12 +316,11 @@ function onFrame(f) {
   updateFindBadge(f);
   syncModeName();
   if (projector) updateProjector(f);
-  sonifyFrame(f);
-  if (now - lastDesc > 3000) { lastDesc = now; $('#stage').setAttribute('aria-description', describe(f)); }
+  if (now - lastDesc > 3000) { lastDesc = now; $('#stage').setAttribute('aria-description', caption(f)); }
   narrate(f, now);
 }
 
-// Narrator (blueprint E1): the Describe reading as one live line above the timeline, refreshed on
+// Narrator (blueprint E1): the patient's reading as one live line above the timeline, refreshed on
 // events and changes (at most twice a second otherwise). On by default for both roles; the Settings
 // toggle overrides it until the role changes.
 const NARRATOR_DEFAULT = { student: true, instructor: true };
@@ -842,30 +840,32 @@ function roleControl() {
 // use it, what it is, and who made it). The role is chosen in Settings.
 function openSettings(anchor) {
   const cur = document.documentElement.getAttribute('data-theme') || 'system';
+  // While presenting, only what changes how the talk looks: appearance, full screen, text size, interface zoom.
+  const talk = presenter.active();
   popover(anchor, [
-    h('div', { class: 'menu-title' }, t('menu.role')),
-    roleControl(),
+    ...(talk ? [] : [h('div', { class: 'menu-title' }, t('menu.role')), roleControl()]),
     h('div', { class: 'menu-title' }, t('menu.appearance')),
     h('div', { class: 'seg full menu-seg' }, [['light', t('menu.light')], ['dark', t('menu.dark')], ['system', t('menu.system')]].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { applyTheme(v === 'system' ? null : v, v === 'system'); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; })),
+    fullscreenControl(),
     h('div', { class: 'menu-title' }, 'Text size on the figure'),
     textSizeControl(),
-    h('div', { class: 'menu-title' }, t('menu.language')),
-    (() => { const sel = h('select', { class: 'select menu-select', 'aria-label': t('menu.language') }, LANGS.map(([v, l]) => h('option', { value: v, selected: currentLang() === v }, l))); sel.addEventListener('change', () => { setLang(sel.value); }); return sel; })(),
-    h('div', { class: 'menu-title' }, t('menu.access')),
-    menuItem(t('menu.describe'), { icon: 'info', kb: 'D', onClick: () => { closePopover(); const d = describe(store.get().frame); announce(d); toast(d); } }),
-    menuToggle(narratorOn(), 'info', t('menu.narrator'), 'One line under the figure saying what it shows now', (on) => setNarrator(on)),
-    menuToggle(popupsOn(), 'info', 'Pop-up notices', 'Show messages as cards at the top instead of in the line above the timeline', (on) => setPopups(on)),
-    menuToggle(store.get().showHvpg, 'gauge', 'Always show HVPG', 'Show the HVPG without measuring it first (Tests › HVPG)', (on) => {
-      try { localStorage.setItem('pps.showHvpg', on ? '1' : '0'); } catch { /* storage unavailable */ }
-      document.body.classList.remove('hvpg-swap'); void document.body.offsetWidth; document.body.classList.add('hvpg-swap');
-      setTimeout(() => document.body.classList.remove('hvpg-swap'), 600);
-      store.set({ showHvpg: on });
-    }),
-    menuItem(t('menu.sonify'), { icon: 'activity', checked: sonifying(), onClick: (e) => { setSonify(!sonifying()); e?.currentTarget?.setAttribute('aria-checked', String(sonifying())); toast(sonifying() ? 'Sonification on: pitch follows the pressure of the selected vessel (or the portal vein).' : 'Sonification off.'); } }),
-    h('div', { class: 'menu-title' }, 'Debug'),
-    ...debugOptions().map(([k, l]) => menuToggle(debugOn(k), 'activity', l, null, (on) => setDebug(k, on))),
-    h('div', { class: 'menu-sep' }),
-    menuItem(t('menu.reset'), { icon: 'reset', onClick: () => resetEverything() }),
+    h('div', { class: 'menu-title' }, 'Interface zoom'),
+    uiZoomControl(),
+    ...(talk ? [] : [
+      h('div', { class: 'menu-title' }, t('menu.language')),
+      (() => { const sel = h('select', { class: 'select menu-select', 'aria-label': t('menu.language') }, LANGS.map(([v, l]) => h('option', { value: v, selected: currentLang() === v }, l))); sel.addEventListener('change', () => { setLang(sel.value); }); return sel; })(),
+      h('div', { class: 'menu-title' }, t('menu.access')),
+      menuToggle(narratorOn(), 'info', t('menu.narrator'), 'One line under the figure saying what it shows now', (on) => setNarrator(on)),
+      menuToggle(store.get().showHvpg, 'gauge', 'Always show HVPG', 'Show the HVPG without measuring it first (Tests › HVPG)', (on) => {
+        try { localStorage.setItem('pps.showHvpg', on ? '1' : '0'); } catch { /* storage unavailable */ }
+        document.body.classList.remove('hvpg-swap'); void document.body.offsetWidth; document.body.classList.add('hvpg-swap');
+        setTimeout(() => document.body.classList.remove('hvpg-swap'), 600);
+        store.set({ showHvpg: on });
+      }),
+      // Debug toggles stay out of the sheet; ?debug in the address brings them back.
+      ...(new URLSearchParams(location.search).has('debug') ? [h('div', { class: 'menu-title' }, 'Debug'), ...debugOptions().map(([k, l]) => menuToggle(debugOn(k), 'activity', l, null, (on) => setDebug(k, on)))] : []),
+      h('div', { class: 'menu-sep' }),
+      menuItem(t('menu.reset'), { icon: 'reset', onClick: () => resetEverything() })]),
   ], { align: 'start', cls: 'app-menu' });
 }
 // Text size: smaller and larger in even steps, and the middle shows the size and resets it.
@@ -887,6 +887,52 @@ function textSizeControl() {
   reset.addEventListener('click', () => { stage.setLabelScale(1); paint(); });
   paint();
   return h('div', { class: 'seg full menu-seg text-size', role: 'group', 'aria-label': 'Text size on the figure' }, smaller, reset, larger);
+}
+// Full screen through the browser. iPhone Safari has no full screen for pages, so there the
+// sheet says how to get the same room: Add to Home Screen opens the app without browser bars.
+function fullscreenControl() {
+  const root = document.documentElement;
+  if (!document.fullscreenEnabled || !root.requestFullscreen) {
+    return /iPhone|iPod/.test(navigator.userAgent) && !matchMedia('(display-mode: standalone)').matches
+      ? h('small', { class: 'mm-role-note fs-hint' }, 'For full screen on iPhone: Share › Add to Home Screen.') : null;
+  }
+  const b = menuToggle(!!document.fullscreenElement, 'fullscreen', 'Full screen', 'Hide the browser bars (Esc leaves)', (on) => {
+    const p = on ? root.requestFullscreen() : document.exitFullscreen();
+    p?.catch?.(() => sync());
+  });
+  const sync = () => { if (!b.isConnected) { document.removeEventListener('fullscreenchange', sync); return; } const on = !!document.fullscreenElement; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); };
+  document.addEventListener('fullscreenchange', sync);
+  return b;
+}
+// Interface zoom: scales the bars, dock, sheets and menus (the figure keeps its own zoom and text size).
+// The page applies the saved value before it paints (index.html); --ui-zoom undoes it on the figure.
+const UI_ZOOM_STEPS = [0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4];
+function setUiZoom(z) {
+  const root = document.documentElement;
+  root.style.zoom = z === 1 ? '' : String(z);
+  root.style.setProperty('--ui-zoom', String(z));
+  try { localStorage.setItem('pps.uiZoom', String(z)); } catch { /* storage unavailable */ }
+  dispatchEvent(new Event('resize'));
+}
+function uiZoomControl() {
+  const cur = () => parseFloat(document.documentElement.style.zoom) || 1;
+  const at = () => UI_ZOOM_STEPS.reduce((b, v, i) => (Math.abs(v - cur()) < Math.abs(UI_ZOOM_STEPS[b] - cur()) ? i : b), 0);
+  const smaller = h('button', { class: 'ts-a ts-sm', 'aria-label': 'Zoom out the interface', title: 'Zoom out the interface' }, '−');
+  const reset = h('button', { class: 'ts-reset', 'aria-label': 'Reset interface zoom', title: 'Reset interface zoom' });
+  const larger = h('button', { class: 'ts-a ts-lg', 'aria-label': 'Zoom in the interface', title: 'Zoom in the interface' }, '+');
+  const paint = () => {
+    const i = at();
+    smaller.disabled = i === 0; larger.disabled = i === UI_ZOOM_STEPS.length - 1;
+    reset.textContent = `${Math.round(cur() * 100)}%`;
+    reset.setAttribute('aria-pressed', String(i === UI_ZOOM_STEPS.indexOf(1)));
+  };
+  // The sheet stays open and re-anchors to the zoomed gear button.
+  const apply = (z) => { setUiZoom(z); paint(); requestAnimationFrame(repositionPopover); };
+  smaller.addEventListener('click', () => apply(UI_ZOOM_STEPS[Math.max(0, at() - 1)]));
+  larger.addEventListener('click', () => apply(UI_ZOOM_STEPS[Math.min(UI_ZOOM_STEPS.length - 1, at() + 1)]));
+  reset.addEventListener('click', () => apply(1));
+  paint();
+  return h('div', { class: 'seg full menu-seg text-size ui-zoom', role: 'group', 'aria-label': 'Interface zoom' }, smaller, reset, larger);
 }
 function openHelpMenu(anchor) {
   popover(anchor, [
@@ -1170,6 +1216,12 @@ function openTreat() {
   refitStage();
   requestAnimationFrame(() => stage.relayout());
 }
+// Presenter puts every card, sheet and menu away (each fades out) and hands back a function that reopens them on exit.
+function stashCards() {
+  const was = { panel: panelShown(), treat: !$('#treatCard').hidden, dock: app.classList.contains('dock-open') };
+  closePopover(); why?.close(); closeTreat(); closePanel(); if (was.dock) setPanelTab('chart');
+  return () => { if (was.panel) openPanel(); if (was.dock) openPanel('instruments'); if (was.treat) openTreat(); };
+}
 function closeTreat() {
   const el = $('#treatCard');
   if (el.hidden) return;
@@ -1255,7 +1307,6 @@ function wireKeyboard() {
     if (k === 't') { if (treatOpen()) closeTreat(); else openTreat(); return; }
     if (k === 'p') { timeline.togglePin(); return; }
     if (k === 'j' && !store.get().imaging) { if (!e.repeat) injectDye({ hold: true }); return; }
-    if (k === 'd') { const d = describe(store.get().frame); announce(d); toast(d); return; }
   });
 }
 
