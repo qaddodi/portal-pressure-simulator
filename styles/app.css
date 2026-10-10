@@ -1776,11 +1776,10 @@ button.finding:hover { background: var(--surface-2); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lz-zone.z1 { --zc: rgb(246, 140, 120); } :root:not([data-theme="light"]) .lz-zone.z2 { --zc: rgb(232, 186, 112); } :root:not([data-theme="light"]) .lz-zone.z3 { --zc: rgb(170, 150, 246); } }
 :root[data-theme="dark"] .lz-zone.z1 { --zc: rgb(246, 140, 120); } :root[data-theme="dark"] .lz-zone.z2 { --zc: rgb(232, 186, 112); } :root[data-theme="dark"] .lz-zone.z3 { --zc: rgb(170, 150, 246); }
 .stage-view.in-lobule #labels, .stage-view.in-lobule #veins, .stage-view.in-lobule #stageOver, .stage-view.in-lobule #overlay { visibility: hidden; }
-/* Phone: labels one size smaller */
+/* Phone: snugger cards (labels keep the one size every screen uses) */
 @media (max-width: 720px) {
   .lz-lab { padding: 3px 7px 4px; }
   .stage-view.in-lobule .stage-clock { display: none; }
-  .lz-lab .n { font-size: 10.5px; } .lz-lab .v { font-size: 12.5px; }
 }
 /* Circuit bridges: a line that crosses another hops over it */
 #bridges path { fill: none; stroke-linecap: butt; pointer-events: none; }
@@ -3514,9 +3513,6 @@ button.finding:hover { background: var(--surface-2); }
 @media (max-width: 720px) {
   .lz-lab { display: flex; align-items: baseline; gap: 4px; border: 0 !important; padding: 0 2px; }
   .lz-lab .n-long { display: none; } .lz-lab .n-short { display: inline; }
-  .lz-lab .n { font-size: calc(10.5px * var(--label-k, 1)); }
-  .lz-lab .v { font-size: calc(12.5px * var(--label-k, 1)); }
-  .lz-lab .d { font-size: calc(9.5px * var(--label-k, 1)); }
   .lz-lab small { font-size: calc(9.5px * var(--label-k, 1)); }
 }
 /* Dark lobule labels: white names, values, units and zones on a black letter outline. */

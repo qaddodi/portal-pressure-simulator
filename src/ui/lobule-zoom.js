@@ -909,7 +909,7 @@ export function createLobuleZoom({ host }) {
     const overlap = (a, b) => Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l))
       * Math.max(0, Math.min(a.b, b.b) - Math.max(a.t, b.t));
     if (zonesOn) {
-      const ap = R * 0.866, zk = clamp((R * V.k) / 300, 0.66, 1.15);
+      const ap = R * 0.866, zk = 1;   // (the zone names keep the one label size)
       for (const q of [0.83, 0.51, 0.2]) {
         const [x, y] = toScreen([cx, cy + ap * q]);
         placed.push({ l: x - 46 * zk, r: x + 46 * zk, t: y - 18 * zk, b: y + 18 * zk });
@@ -988,7 +988,7 @@ export function createLobuleZoom({ host }) {
     if (zonesOn) {
       const a = Math.PI / 2, ap = R * 0.866;
       // In proportion to the lobule on screen (within limits, so they stay legible and never shout).
-      const zk = clamp((R * V.k) / 300, 0.66, 1.15).toFixed(3);
+      const zk = '1';
       [[0.83, 'Zone 1', 'periportal'], [0.51, 'Zone 2', 'midzonal'], [0.2, 'Zone 3', 'centrilobular']].forEach(([q, t, d], i) => {
         const z = h('div', { class: 'lz-zone z' + (i + 1), 'aria-hidden': 'true' }, h('b', {}, t), h('span', {}, d));
         // Its usual spot (on the radius to the flat bottom edge); if that is out of view, the nearest in-view spot
