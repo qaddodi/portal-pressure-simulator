@@ -3325,22 +3325,56 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // The FibroScan probe (the Presenter's stiffness slides): a transducer on the skin over the right lobe, at the
   // lower ribs, with a shear wave easing out from its tip into the liver. Screen-space, beside the liver's outline.
-  const scan = { on: false, el: null };
+  // Each tap sends one shear wavefront: a soft arc that spreads and fades as it crosses the liver. Shear waves
+  // travel at c = √(E / 3ρ), so the fronts move with the square root of the model's stiffness (5 kPa ≈ 1.3 m/s,
+  // 25 kPa ≈ 2.9 m/s), easing to a new speed when the reading changes.
+  const scan = { on: false, el: null, raf: 0, v: 0, fronts: [], next: 0, last: 0 };
+  const SCAN_TIP = [66, 48], SCAN_SPAN = 150, SCAN_EVERY = 1.5, SCAN_N = 4, SCAN_HALF = 0.5, SCAN_GAP = 6;
+  const scanSpeed = () => 34 * Math.sqrt(clamp(F?.metrics?.lsm ?? 5, 2.5, 75) / 5);   // px/s (34 px/s at 5 kPa)
+  function scanArc(r) {
+    const [cx, cy] = SCAN_TIP, h = SCAN_HALF * (0.75 + 0.25 * Math.min(1, r / 50));   // the front widens a little with depth
+    const p = (t) => `${(cx + r * Math.cos(t)).toFixed(1)} ${(cy + r * Math.sin(t)).toFixed(1)}`;
+    return `M${p(-h)} A${r.toFixed(1)} ${r.toFixed(1)} 0 0 1 ${p(h)}`;
+  }
+  function scanTick(now) {
+    scan.raf = 0;
+    if (!scan.on || !scan.el) return;
+    const dt = scan.last && !reduceMotion.matches ? Math.min(0.1, (now - scan.last) / 1000) : 0; scan.last = now;
+    const target = scanSpeed();
+    scan.v = scan.v ? scan.v + (target - scan.v) * (1 - Math.exp(-dt / 0.6)) : target;   // ease to a new kPa
+    if (now >= scan.next) { scan.fronts.push(0); scan.next = now + SCAN_EVERY * 1000; scan.el.classList.remove('tap'); void scan.el.offsetWidth; scan.el.classList.add('tap'); }
+    scan.fronts = scan.fronts.map((r) => r + scan.v * dt).filter((r) => r < SCAN_SPAN);
+    const g = scan.el.querySelectorAll('.sp-waves g');
+    g.forEach((el, i) => {
+      const r = scan.fronts[i];
+      if (r == null) { el.style.opacity = 0; return; }
+      const u = r / SCAN_SPAN, fade = Math.sin(Math.PI * Math.min(1, u * 1.15 + 0.04)) ** 1.2 * (1 - u * 0.35);
+      el.style.opacity = fade.toFixed(3);
+      // A short packet: the crest, with a faint ripple ahead and behind.
+      [...el.children].forEach((pth, j) => pth.setAttribute('d', scanArc(Math.max(1, r + (j - 1) * SCAN_GAP))));
+    });
+    scan.raf = requestAnimationFrame(scanTick);
+  }
   function scanPaint() {
     if (!scan.el) {
       const el = document.createElement('div');
       el.className = 'scan-probe cath-pre'; el.setAttribute('aria-hidden', 'true');
-      el.innerHTML = '<svg viewBox="0 0 150 64"><g class="sp-waves"><path d="M70 14 Q86 32 70 50"/><path d="M70 14 Q86 32 70 50"/><path d="M70 14 Q86 32 70 50"/></g>'
-        + '<path class="sp-cable" d="M2 32 C10 32 12 32 18 32"/><rect class="sp-body" x="16" y="20" width="42" height="24" rx="10"/>'
-        + '<rect class="sp-tip" x="54" y="23" width="10" height="18" rx="3"/></svg><span>FibroScan probe</span>';   // (constant markup)
+      el.innerHTML = '<svg viewBox="0 0 220 96"><defs><radialGradient id="sp-beam" cx="66" cy="48" r="150" gradientUnits="userSpaceOnUse">'
+        + '<stop offset="0" stop-color="var(--tr-wedge)" stop-opacity=".22"/><stop offset="1" stop-color="var(--tr-wedge)" stop-opacity="0"/></radialGradient></defs>'
+        + '<path class="sp-beam" d="M66 48 L197.6 -23.9 A150 150 0 0 1 197.6 119.9 Z"/><g class="sp-waves">'
+        + '<g><path class="sp-rip"/><path class="sp-front"/><path class="sp-rip"/></g>'.repeat(SCAN_N) + '</g>'
+        + '<path class="sp-cable" d="M2 48 C10 48 14 48 20 48"/><g class="sp-head"><rect class="sp-body" x="18" y="36" width="40" height="24" rx="10"/>'
+        + '<rect class="sp-tip" x="54" y="39" width="10" height="18" rx="3"/></g></svg><span>FibroScan probe</span>';   // (constant markup)
       sites.el.append(el); scan.el = el;
       void el.offsetWidth; el.classList.remove('cath-pre');
+      if (reduceMotion.matches) { scan.fronts = [40, 90]; scan.v = 0; scan.next = Infinity; }
+      if (!scan.raf) { scan.last = 0; scan.raf = requestAnimationFrame(scanTick); }
     }
     const lv = organEls.liver, wr = wrap.getBoundingClientRect();
     if (!lv || morph > 0.5) { scan.el.classList.add('off'); return; }
     const r = lv.getBoundingClientRect(), x0 = pzInset('--pz-l') + 6, x1 = wr.width - pzInset('--pz-r') - 6;
     // The right lobe's lateral edge (the patient's right is the figure's left), two thirds down: the lower ribs.
-    const x = clamp(r.left - wr.left + r.width * 0.04, x0, x1 - 150), y = r.top - wr.top + r.height * 0.6;
+    const x = clamp(r.left - wr.left + r.width * 0.04, x0, x1 - 220), y = r.top - wr.top + r.height * 0.6;
     scan.el.classList.toggle('off', y < 20 || y > wr.height - 20);
     scan.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
   }
@@ -3348,7 +3382,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (scan.on === !!on) return;
     scan.on = !!on;
     if (on) { refreshCTM(); scanPaint(); return; }
-    const el = scan.el; scan.el = null;
+    const el = scan.el; scan.el = null; scan.fronts = []; scan.v = 0; scan.next = 0;
+    if (scan.raf) { cancelAnimationFrame(scan.raf); scan.raf = 0; }
     if (el) { el.classList.add('cath-pre'); setTimeout(() => el.remove(), 500); }
   }
   const CATH_IDS = ['SVC_RA', 'IVCS_RA', 'RHV_IVC', 'POST_R_RHV'];   // (and down the IVC_IS to the hepatic vein)

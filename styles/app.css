@@ -2755,14 +2755,19 @@ button.finding:hover { background: var(--surface-2); }
 /* The FibroScan probe on the skin over the liver; its shear wave eases out into the right lobe and fades. */
 .scan-probe { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; translate: 0 -50%; transition: opacity .6s var(--ease); pointer-events: none; }
 .scan-probe.cath-pre, .scan-probe.off { opacity: 0; }
-.scan-probe svg { width: 150px; height: 64px; overflow: visible; }
+.scan-probe svg { width: 220px; height: 96px; overflow: visible; }
 .scan-probe .sp-body { fill: var(--surface); stroke: var(--text-2); stroke-width: 1.6; }
 .scan-probe .sp-tip { fill: var(--text-2); }
 .scan-probe .sp-cable { fill: none; stroke: var(--text-3); stroke-width: 3; stroke-linecap: round; }
-.scan-probe .sp-waves path { fill: none; stroke: var(--tr-wedge); stroke-width: 3; stroke-linecap: round; opacity: 0; transform-box: view-box; transform-origin: 64px 32px; animation: sp-wave 2.4s cubic-bezier(.3, .6, .4, 1) infinite; }
-.scan-probe .sp-waves path:nth-child(2) { animation-delay: .8s; } .scan-probe .sp-waves path:nth-child(3) { animation-delay: 1.6s; }
-@keyframes sp-wave { 0% { opacity: 0; transform: translateX(0) scale(.6); } 20% { opacity: .9; } 100% { opacity: 0; transform: translateX(90px) scale(1.8); } }
-@media (prefers-reduced-motion: reduce) { .scan-probe .sp-waves path { animation: none; opacity: .6; } .scan-probe .sp-waves path:nth-child(2) { opacity: .35; transform: translateX(22px); } .scan-probe .sp-waves path:nth-child(3) { display: none; } }
+.scan-probe .sp-beam { fill: url(#sp-beam); filter: blur(5px); }
+.scan-probe .sp-waves > g { opacity: 0; }
+.scan-probe .sp-waves path { fill: none; stroke: var(--tr-wedge); stroke-linecap: round; }
+.scan-probe .sp-rip { stroke-width: 1.4; stroke-opacity: .35; }
+.scan-probe .sp-front { stroke-width: 2.6; stroke-opacity: .95; }
+.scan-probe .sp-head { transform-box: view-box; transform-origin: 40px 48px; }
+.scan-probe.tap .sp-head { animation: sp-tap .35s var(--ease); }
+@keyframes sp-tap { 30% { transform: translateX(3px); } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .scan-probe.tap .sp-head { animation: none; } }
 .scan-probe span { margin-left: 16px; font: 600 12px var(--font-ui); color: var(--text-3); letter-spacing: .02em; text-shadow: 0 0 3px var(--stage-bg), 0 0 6px var(--stage-bg); }
 /* Where portal blood goes: a fork, each branch as wide as its share, the two shares beside the tips. */
 .cath-label.site.split { --c: var(--tr-pv); }
