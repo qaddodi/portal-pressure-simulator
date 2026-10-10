@@ -19,7 +19,7 @@ import { SITES } from './ladder.js?v=9c1505ff94';
 import { sinusoidSupported } from './sinusoid-view.js?v=d2f4b1dcbd';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { NODES } from '../engine/topology.js?v=dc393aabea';
-import { DECKS, REGIONS, LEVELS } from './decks.js?v=b52229404f';
+import { DECKS, REGIONS, LEVELS } from './decks.js?v=2434600b12';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -41,6 +41,13 @@ const RUNGS = [['pv', 'Portal', 'vein'], ['whvp', 'Wedged', 'WHVP'], ['fhvp', 'F
 const NO_ASC = 150;   // mL: below it there is no ascites to tap (ultrasound grade 1 starts here)
 const vSize = (v) => (v < 2.5 ? ['ok', 'None'] : v < 5 ? ['mid', 'Small'] : ['hi', 'Large']);
 // A name joined by an en dash (Budd–Chiari) never breaks at the dash.
+// A slide's equation (decks.js eq: [MathML, legend]): typeset by the browser's own MathML, the legend under it.
+function equation([ml, legend]) {
+  const box = h('div', { class: 'pz-eq' });
+  box.innerHTML = `<math>${ml}</math>`;   // (the decks' own constant markup, never user text)
+  if (legend) box.append(h('p', { class: 'pz-eqk' }, legend));
+  return box;
+}
 const nb = (t) => (t || '').replace(/(\p{L})–(\p{L})/gu, '$1–\u2060$2');
 const RATE = {
   hvpg: (v) => (v >= 10 ? ['hi', 'Clinically significant'] : v >= 5 ? ['mid', 'Raised'] : ['ok', 'Normal']),
@@ -712,7 +719,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
       text.hidden = false;
       text.replaceChildren(...(q
         ? [kick(null, 'Quiz'), h('h1', { class: 'pz-h' }, s.quiz), s.rail ? rail(null) : null, h('p', { class: 'pz-line pz-hint' }, 'Take answers from the audience, then press → to show the answer.')]
-        : [kick(s.site, s.kicker), h('h1', { class: 'pz-h' }, nb(s.title)), s.line ? h('p', { class: 'pz-line' }, s.line) : null,
+        : [kick(s.site, s.kicker), h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, s.line) : null,
           s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
           s.causes?.length ? h('div', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), h('ul', {}, s.causes.map((c) => h('li', {}, c)))) : null]));

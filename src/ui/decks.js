@@ -13,6 +13,7 @@
 //                            framing), or 'sinusoid'
 //   labels                   the stations named on the anatomy (none when absent)
 //   mark                     { edges, label }: a ring and a callout on the figure (hidden until a quiz is answered)
+//   eq                       [MathML, legend?]: an equation under the title (see mi, mo, sub and frac)
 //   kicker, site, title, line, causes
 //                            the words (site: a level of ladder.js SITES; it colours the kicker)
 //   rail                     true: the six levels with this slide's site marked; 'all': every level named
@@ -42,6 +43,10 @@ export const REGIONS = {
   fundus: [740, 220, 1110, 690],    // fundal varices, the gastrorenal shunt, the left renal vein
   splenic: [660, 230, 1110, 640],   // splenic vein to the confluence, the spleen, the fundus
 };
+
+// Equations as MathML (shown under a slide's title): italic single-letter symbols, upright names, real fraction bars.
+const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`, sub = (b, i) => `<msub>${b}<mtext>${i}</mtext></msub>`;
+const frac = (n, d) => `<mfrac><mrow>${n}</mrow><mrow>${d}</mrow></mfrac>`;
 
 export const LEVELS = { foundation: 'Foundation', core: 'Core', advanced: 'Advanced' };
 
@@ -104,6 +109,7 @@ export const DECKS = [
       {
         id: 'flow', days: 8, ramp: { splanchnicTone: [1, 0.72] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' }, cam: 'portal', labels: ['SMV', 'CONF'], data: 'ladder', key: ['pv'], tiles: ['pvFlow', 'ppg'], delta: true,
         kicker: 'Hemodynamics', title: 'After a meal: more flow, little more pressure',
+        eq: ['<mrow><mi mathvariant="normal">Δ</mi><mi>P</mi></mrow>' + mo('=') + mi('Q') + mo('×') + mi('R'), 'ΔP pressure drop across the liver · Q portal flow · R hepatic resistance'],
         line: 'The gut arterioles open and portal flow climbs by about a quarter. A healthy liver offers so little resistance that the portal pressure barely moves.',
         notes: 'Watch the portal flow tile and the vessels speed up as the meal is digested, while the portal pressure rises by under a millimetre. Pressure is flow times resistance, and normal sinusoids have very little resistance, so even a large rise in flow adds little pressure. In cirrhosis the resistance is high, so the same meal raises the HVPG several mmHg; this is why resistance, not flow, is the starting point of portal hypertension. Later the splanchnic arterioles dilate for good and the extra inflow keeps the pressure high even after collaterals open. Treatments work on one side or the other: beta-blockers and terlipressin cut inflow; TIPS goes around the resistance.',
         ask: ['Name the two ways portal pressure can rise.', 'More resistance to flow, or more inflow (splanchnic vasodilation).'],
@@ -228,7 +234,8 @@ export const DECKS = [
       },
       {
         id: 'hvpg', cath: 'result', data: 'ladder', key: ['whvp', 'fhvp', 'hvpg'], tiles: ['hvpg', 'ppg'],
-        kicker: 'Measuring portal pressure', site: 'sin', title: 'HVPG = WHVP − FHVP',
+        kicker: 'Measuring portal pressure', site: 'sin', title: 'Hepatic venous pressure gradient',
+        eq: [mi('HVPG') + mo('=') + mi('WHVP') + mo('−') + mi('FHVP'), 'Wedged minus free hepatic venous pressure'],
         line: 'Normal is 1 to 5 mmHg. Above 5 is portal hypertension, 10 or more is clinically significant, and from 12 varices can bleed.',
         notes: 'The hepatic venous pressure gradient is the pressure drop across the sinusoids. This patient\'s HVPG of about 12 mmHg is clinically significant. HVPG predicts outcome: varices and decompensation at 10 mmHg or more, bleeding at 12 or more. On treatment, a fall to below 12 mmHg, or by 20% or more, protects against bleeding. Without a catheter, liver stiffness (25 kPa or more) rules clinically significant portal hypertension in; stiffness of 15 kPa or less with platelets of 150 or more rules it out.',
         ask: ['On carvedilol, HVPG falls from 18 to 13 mmHg. Is that a response?', 'Yes: a fall of more than 20% protects against bleeding, although it is still above 12.'],
@@ -251,7 +258,8 @@ export const DECKS = [
       {
         id: 'ppg', preset: 'pvt-chronic', cam: 'portal', labels: ['CONF'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, data: 'ladder', key: ['pv', 'hvpg'], tiles: ['hvpg', 'ppg'],
         kicker: 'Where HVPG fails', site: 'pre', title: 'The portal pressure gradient',
-        line: 'PPG is portal vein minus IVC pressure, measured directly. It detects obstruction anywhere between the two, including this portal vein clot.',
+        eq: [mi('PPG') + mo('=') + sub(mi('P'), 'portal vein') + mo('−') + sub(mi('P'), 'IVC')],
+        line: 'Measured directly. It detects obstruction anywhere between the two, including this portal vein clot.',
         notes: 'Portal pressure can be measured directly: during TIPS, through a needle into a portal branch (transhepatic or transjugular), or by an endoscopic ultrasound-guided needle. A PPG above 5 mmHg is portal hypertension, as for HVPG, and after TIPS the aim is a PPG below 12 mmHg. In the model the portal pressure is read at the confluence, upstream of the clot, so the PPG is high while the HVPG, read downstream, is normal.',
         ask: ['Which measurement finds a pre-hepatic block: HVPG or PPG?', 'PPG: it is read upstream of the block. HVPG is read downstream and stays normal.'],
       },
@@ -300,7 +308,8 @@ export const DECKS = [
       {
         id: 'saag', cam: 'fit', data: 'tiles', tiles: ['saag', 'tp'], key: ['saag'],
         kicker: 'Tapping the fluid', site: 'sin', title: 'Serum–ascites albumin gradient',
-        line: 'Serum albumin minus ascitic albumin. A value of 1.1 g/dL or more indicates portal hypertension.',
+        eq: [mi('SAAG') + mo('=') + sub(mi('Albumin'), 'serum') + mo('−') + sub(mi('Albumin'), 'ascites')],
+        line: 'A value of 1.1 g/dL or more indicates portal hypertension.',
         notes: 'The serum–ascites albumin gradient uses serum and ascites taken the same day. A SAAG of 1.1 g/dL or more identifies portal hypertension as the cause with about 97% accuracy, whatever causes the portal hypertension. Below 1.1, the fluid comes from a leaky peritoneum or a very low serum albumin: cancer, tuberculosis, pancreatitis, nephrotic syndrome. Send a cell count as well (more than 250 neutrophils per mm³ is spontaneous bacterial peritonitis), the total protein, and a culture in blood-culture bottles.',
         ask: ['The SAAG is 0.8 g/dL. Is portal hypertension the cause?', 'No: below 1.1 the fluid is not pushed out by portal pressure. Look for peritoneal disease or a very low protein state.'],
       },
@@ -383,7 +392,8 @@ export const DECKS = [
       {
         id: 'burst', cam: [690, -10, 890, 170], kMax: 4.5, labels: ['VAR'], data: 'tiles', tiles: ['varix', 'hvpg'], key: ['hvpg'],
         kicker: 'Varices', site: 'sin', title: 'Bleeding risk above 12 mmHg',
-        line: 'Wall tension = pressure × radius ÷ wall thickness. Large, thin-walled varices under high pressure are the ones that rupture.',
+        eq: [mi('T') + mo('=') + frac(mi('P') + mo('⋅') + mi('r'), mi('w')), 'Laplace: T wall tension · P pressure in the varix · r radius · w wall thickness'],
+        line: 'Large, thin-walled varices under high pressure are the ones that rupture.',
         notes: 'By Laplace\'s law the tension in a varix wall rises with the pressure inside it and its radius, and falls with the thickness of its wall. Varices do not bleed below an HVPG of 12 mmHg. Large size, red wale marks and poor liver function (Child–Pugh B or C) predict bleeding: about 10 to 15% of patients with varices bleed each year, and a bleed carries a 6-week mortality of about 15 to 20%. Large varices are treated with a non-selective beta-blocker or banding.',
         ask: ['Name three predictors of variceal bleeding.', 'Large size, red wale marks, Child–Pugh B or C (and an HVPG of 12 or more).'],
       },

@@ -1825,6 +1825,9 @@ button.finding:hover { background: var(--surface-2); }
 .pz-kick i { width: .62em; height: .62em; border-radius: 50%; background: currentColor; flex: none; }
 .pz-h { margin: 0; font: 600 clamp(32px, 5.8vh, 70px)/1.06 var(--font-display); letter-spacing: -.015em; text-wrap: balance; color: var(--text); }
 .pz-line { margin: 0; font: 400 clamp(17px, 2.55vh, 31px)/1.38 var(--font-ui); color: var(--text-2); text-wrap: pretty; }
+.pz-eq { margin: 0; color: var(--text); }
+.pz-eq math { font-family: "STIX Two Math", "Cambria Math", "Latin Modern Math", math; font-size: clamp(22px, 3.4vh, 42px); math-style: normal; }
+.pz-eqk { margin: 4px 0 0; font: 400 clamp(13px, 1.8vh, 20px)/1.4 var(--font-ui); color: var(--text-3); }
 .pz-hint { color: var(--text-3); font-style: italic; }
 .pz-sub { display: block; margin-bottom: .55em; font: 600 clamp(12px, 1.4vh, 17px)/1.2 var(--font-ui); letter-spacing: .09em; text-transform: uppercase; color: var(--text-3); }
 .pz-causes ul { display: flex; flex-wrap: wrap; gap: .5em; margin: 0; padding: 0; list-style: none; }
@@ -2022,6 +2025,8 @@ button.finding:hover { background: var(--surface-2); }
 .pz.stack .pz-kick { font-size: 12px; }
 .pz.stack .pz-h { font-size: clamp(24px, 3.4vh, 40px); }
 .pz.stack .pz-line { font-size: clamp(14px, 1.9vh, 20px); }
+.pz.stack .pz-eq math { font-size: 21px; }
+.pz.stack .pz-eqk { font-size: 12px; }
 .pz.stack .pz-causes, .pz.stack .pz-rail { display: none; }
 .pz.stack .pz-data { left: 8px; right: 8px; top: auto; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); width: auto; max-height: 42%; gap: 6px; padding: 10px 12px; border-radius: 18px; }
 .pz.stack .pz-data.pz-hide { transform: translateY(18px); }
