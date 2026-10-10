@@ -504,9 +504,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     gloss: s('g', { class: 'lv-gloss', 'clip-path': 'url(#clip-liver)' }),
     nut: s('path', { class: 'lv-nut', 'clip-path': 'url(#clip-liver)' }),
     nutNet: s('path', { class: 'lv-nut-net', 'clip-path': 'url(#clip-liver)' }),
-    nodSh: s('path', { class: 'lv-nod-sh', 'clip-path': 'url(#clip-liver)' }),
     nod: s('path', { class: 'lv-nod', 'clip-path': 'url(#clip-liver)' }),
-    nodHi: s('path', { class: 'lv-nod-hi', 'clip-path': 'url(#clip-liver)' }),
     blunt: s('path', { class: 'lv-blunt', 'clip-path': 'url(#clip-liver)' }),
     edge: s('path', { class: 'lv-edge', 'clip-path': 'url(#clip-liver)' }),
   };
@@ -515,7 +513,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   lv.gloss.append(s('ellipse', { cx: 468, cy: 236, rx: 118, ry: 34, transform: 'rotate(-6 468 236)', fill: 'url(#lvSheen)' }),
     s('ellipse', { cx: 752, cy: 262, rx: 66, ry: 16, transform: 'rotate(22 752 262)', fill: 'url(#lvSheen)' }));
   const shadeAt = organG.liver.querySelector('.org-shade');
-  for (const el of [liverTint, lv.nutNet, lv.nut, lv.nodSh, lv.nod, lv.nodHi, lv.gloss, lv.blunt]) organG.liver.insertBefore(el, shadeAt);
+  for (const el of [liverTint, lv.nutNet, lv.nut, lv.nod, lv.gloss, lv.blunt]) organG.liver.insertBefore(el, shadeAt);
   organG.liver.insertBefore(lv.edge, organG.liver.querySelector('.org-line'));
   const liverPaths = [...organG.liver.querySelectorAll('path')].filter((el) => el.getAttribute('d') === liverD);
   const liverClip = defs.querySelector('#clip-liver path');
@@ -622,21 +620,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lv.edge.style.opacity = (1 - blunt * 0.9).toFixed(3);
     lv.blunt.style.opacity = blunt.toFixed(3);
     lv.gloss.style.opacity = (1 - 0.75 * smooth01(c / 0.6)).toFixed(3);
-    // Regenerative nodules: they rise out of the surface with cirrhosis, and the fibrous septa
-    // between them widen as it advances.
+    // Regenerative nodules: a flat, faint cobbling of soft-edged rounded islands outlined by
+    // fine septa, firmer with severity.
     const cn = smooth01(c / 0.55);
     if (cn > 0.01) {
-      let sh = '', bd = '', hi = '';
-      const off = 0.12 + 0.12 * c;
+      let bd = '';
       for (const b of nodules) {
-        const [x, y] = liverField(b.x, b.y, c), r = b.r * (1.05 - 0.22 * c);
-        sh += blobPath(b, x + r * off, y + r * off * 1.3, r);
-        bd += blobPath(b, x, y, r * 0.96);
-        hi += blobPath(b, x - r * 0.3, y - r * 0.36, r * 0.42, 1.15, 0.8);
+        const [x, y] = liverField(b.x, b.y, c);
+        bd += blobPath(b, x, y, b.r * (0.98 - 0.12 * c));
       }
-      lv.nodSh.setAttribute('d', sh); lv.nod.setAttribute('d', bd); lv.nodHi.setAttribute('d', hi);
-    } else for (const el of [lv.nodSh, lv.nod, lv.nodHi]) el.setAttribute('d', '');
-    for (const el of [lv.nodSh, lv.nod, lv.nodHi]) el.style.opacity = cn.toFixed(3);
+      lv.nod.setAttribute('d', bd);
+    } else lv.nod.setAttribute('d', '');
+    lv.nod.style.opacity = (cn * (0.6 + 0.4 * c)).toFixed(3);
     // Nutmeg: dark centrilobular spots that grow and begin to link up as congestion deepens.
     if (g > 0.01) {
       let nt = '', ln = '';

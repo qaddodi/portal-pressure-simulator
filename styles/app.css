@@ -546,13 +546,11 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .lv-nut { fill: var(--path-nutmeg); fill-opacity: .07; }
 .lv-nut-net { fill: none; stroke: var(--path-nutmeg); stroke-opacity: .05; stroke-linecap: round; }
 .lv-sh0 { stop-color: #fff; stop-opacity: .85; } .lv-sh1 { stop-color: #fff; stop-opacity: .28; } .lv-sh2 { stop-color: #fff; stop-opacity: 0; }
-.lv-nod-sh { fill: var(--og-liver-3); fill-opacity: .14; }
-.lv-nod { fill: var(--og-liver-1); fill-opacity: .16; }
-.lv-nod-hi { fill: #fff; fill-opacity: .09; }
+.lv-nod { fill: var(--og-liver-1); fill-opacity: .14; stroke: var(--og-liver-3); stroke-opacity: .16; stroke-width: .7; stroke-linejoin: round; }
 .lv-edge { fill: none; stroke: #fff; stroke-opacity: .95; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .lv-blunt { fill: none; stroke: var(--og-liver-3); stroke-opacity: .22; stroke-width: 11; stroke-linecap: round; stroke-linejoin: round; }
-:root[data-theme="dark"] .lv-nod-sh, :root[data-theme="dark"] .lv-blunt { fill: #120608; stroke: #120608; } :root[data-theme="dark"] .lv-nod-sh { fill-opacity: .16; stroke: none; } :root[data-theme="dark"] .lv-blunt { fill: none; stroke-opacity: .3; } :root[data-theme="dark"] .lv-nod-hi { fill-opacity: .04; } :root[data-theme="dark"] .lv-edge { stroke-opacity: .3; } :root[data-theme="dark"] .lv-sh0 { stop-opacity: .14; } :root[data-theme="dark"] .lv-sh1 { stop-opacity: .04; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lv-nod-sh, :root:not([data-theme="light"]) .lv-blunt { fill: #120608; stroke: #120608; } :root:not([data-theme="light"]) .lv-nod-sh { fill-opacity: .16; stroke: none; } :root:not([data-theme="light"]) .lv-blunt { fill: none; stroke-opacity: .3; } :root:not([data-theme="light"]) .lv-nod-hi { fill-opacity: .04; } :root:not([data-theme="light"]) .lv-edge { stroke-opacity: .3; } :root:not([data-theme="light"]) .lv-sh0 { stop-opacity: .14; } :root:not([data-theme="light"]) .lv-sh1 { stop-opacity: .04; } }
+:root[data-theme="dark"] .lv-blunt { stroke: #120608; } :root[data-theme="dark"] .lv-blunt { fill: none; stroke-opacity: .3; } :root[data-theme="dark"] .lv-nod { fill-opacity: .1; stroke: #120608; stroke-opacity: .3; } :root[data-theme="dark"] .lv-edge { stroke-opacity: .3; } :root[data-theme="dark"] .lv-sh0 { stop-opacity: .14; } :root[data-theme="dark"] .lv-sh1 { stop-opacity: .04; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lv-blunt { stroke: #120608; } :root:not([data-theme="light"]) .lv-blunt { fill: none; stroke-opacity: .3; } :root:not([data-theme="light"]) .lv-nod { fill-opacity: .1; stroke: #120608; stroke-opacity: .3; } :root:not([data-theme="light"]) .lv-edge { stroke-opacity: .3; } :root:not([data-theme="light"]) .lv-sh0 { stop-opacity: .14; } :root:not([data-theme="light"]) .lv-sh1 { stop-opacity: .04; } }
 .fl-top { stop-color: var(--ascites); stop-opacity: calc(var(--ascites-a) * .5); } .fl-bot { stop-color: var(--ascites); stop-opacity: var(--ascites-a); }
 .sk-in { stop-color: var(--skin); stop-opacity: .5; } .sk-mid { stop-color: var(--skin); stop-opacity: .3; } .sk-out { stop-color: var(--skin); stop-opacity: 0; }
 .mt-a { stop-color: var(--stent-metal); } .mt-b { stop-color: var(--light-ink); }
