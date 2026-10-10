@@ -526,26 +526,28 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The liver shows its disease in its form and surface, never as a pressure hue (hue is kept for
   // data). Healthy: a smooth, glossy capsule and a thin, sharp inferior edge. Congested: a
   // swollen, rounder, darker organ with a faint nutmeg mottle. Cirrhotic: a shrunken right lobe,
-  // a larger left lobe, blunt edges and a cobbled surface of regenerative nodules, coarser with
-  // severity. Shape and surface are drawn from one displacement field, so every state blends
-  // continuously into the next.
+  // a larger left lobe, blunt edges, a tawny cast and a surface of regenerative nodules parted by
+  // pale fibrous septa, firmer with severity. Shape and surface are drawn from one displacement
+  // field, so every state blends continuously into the next.
   const liverD = ORGANS.find((o) => o.id === 'liver').d;
   const liverTint = s('path', { d: liverD, fill: 'url(#congest)', class: 'liver-tint' });
   const lv = {
     gloss: s('g', { class: 'lv-gloss', 'clip-path': 'url(#clip-liver)' }),
     nut: s('path', { class: 'lv-nut', 'clip-path': 'url(#clip-liver)' }),
     nutNet: s('path', { class: 'lv-nut-net', 'clip-path': 'url(#clip-liver)' }),
-    nod: s('path', { class: 'lv-nod', 'clip-path': 'url(#clip-liver)' }),
+    sep: s('path', { d: liverD, class: 'lv-sep', 'clip-path': 'url(#clip-liver)', style: 'opacity:0' }),
+    nod: s('path', { class: 'lv-nod', 'clip-path': 'url(#clip-liver)', style: 'opacity:0' }),
   };
   // The capsule's sheen: broad soft reflections on the domes of both lobes.
   defs.insertAdjacentHTML('beforeend', '<radialGradient id="lvSheen"><stop offset="0" class="lv-sh0"/><stop offset=".55" class="lv-sh1"/><stop offset="1" class="lv-sh2"/></radialGradient>');
   lv.gloss.append(s('ellipse', { cx: 468, cy: 236, rx: 118, ry: 34, transform: 'rotate(-6 468 236)', fill: 'url(#lvSheen)' }),
     s('ellipse', { cx: 752, cy: 262, rx: 66, ry: 16, transform: 'rotate(22 752 262)', fill: 'url(#lvSheen)' }));
   const shadeAt = organG.liver.querySelector('.org-shade');
-  for (const el of [liverTint, lv.nutNet, lv.nut, lv.nod, lv.gloss]) organG.liver.insertBefore(el, shadeAt);
+  for (const el of [liverTint, lv.nutNet, lv.nut, lv.sep, lv.nod, lv.gloss]) organG.liver.insertBefore(el, shadeAt);
   const liverPaths = [...organG.liver.querySelectorAll('path')].filter((el) => el.getAttribute('d') === liverD);
   const liverClip = defs.querySelector('#clip-liver path');
   if (liverClip) liverPaths.push(liverClip);
+  liverPaths.push(lv.sep);
   let baseLiver = null, liverKey = '';
   const smooth01 = (v) => { const t = clamp(v, 0, 1); return t * t * (3 - 2 * t); };
   // A seeded random stream, so the surface is the same on every load.
@@ -572,8 +574,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (acc - start > lam) { start = acc; lam = 15 + 12 * rnd(); }
       nod.push([(acc - start) / lam, 0.7 + 0.6 * rnd()]);
     }
-    // Surface nodules (a jittered hex lattice, mixed sizes) and nutmeg spots (a finer one), each a
-    // closed blob of six radii.
+    // Nutmeg spots (a jittered hex lattice, mixed sizes), each a closed blob of six radii.
     const blobs = (gap, seed, sz) => {
       const r = seeded(seed), out = [];
       for (let y = 170, row = 0; y < 520; y += gap * 0.866, row++) {
@@ -593,7 +594,60 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (dd < 20 && lr() < 0.42) links.push([a, b, (lr() - 0.5) * 9, (lr() - 0.5) * 9]);
       }
     }
-    return { pts, nm, nod, nodules: blobs(25, 11, [0.7, 0.55]), spots, links };
+    return { pts, nm, nod, cells: nodularCells(pts), spots, links };
+  }
+  // Regenerative nodules as a packing of irregular polygons (a Voronoi diagram of dart-thrown
+  // sites whose spacing follows a smooth size field, so large macronodules and clusters of small
+  // micronodules mix). Each cell keeps its site and its corners.
+  function nodularCells(outline) {
+    const r = seeded(53), inside = (x, y) => {
+      let w = false;
+      for (let i = 0, j = outline.length - 1; i < outline.length; j = i++) {
+        const [xi, yi] = outline[i], [xj, yj] = outline[j];
+        if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) w = !w;
+      }
+      return w;
+    };
+    const near = (x, y) => inside(x, y) || inside(x + 16, y) || inside(x - 16, y) || inside(x, y + 16) || inside(x, y - 16);
+    const p1 = r() * 6, p2 = r() * 6, p3 = r() * 6;
+    const size = (x, y) => { const n = 0.5 + 0.3 * Math.sin(x * 0.011 + p1) * Math.sin(y * 0.016 + p2) + 0.22 * Math.sin((x - y) * 0.009 + p3); return 12 + 30 * Math.pow(clamp(n, 0, 1), 1.6); };
+    const sites = [];
+    for (let k = 0; k < 9000 && sites.length < 420; k++) {
+      const x = 290 + 620 * r(), y = 150 + 390 * r();
+      if (!near(x, y)) continue;
+      const d = size(x, y) * (0.8 + 0.4 * r());
+      if (sites.every(([sx, sy, sd]) => Math.hypot(sx - x, sy - y) > (d + sd) / 2)) sites.push([x, y, d]);
+    }
+    return sites.map(([x, y], i) => {
+      let poly = [[x - 70, y - 70], [x + 70, y - 70], [x + 70, y + 70], [x - 70, y + 70]];
+      for (let j = 0; j < sites.length; j++) {
+        if (j === i) continue;
+        const [ox, oy] = sites[j], dx = ox - x, dy = oy - y;
+        if (dx * dx + dy * dy > 90 * 90) continue;
+        const mx = (x + ox) / 2, my = (y + oy) / 2, side = (q) => (q[0] - mx) * dx + (q[1] - my) * dy, nxt = [];
+        for (let k = 0; k < poly.length; k++) {
+          const a = poly[k], b = poly[(k + 1) % poly.length], sa = side(a), sb = side(b);
+          if (sa <= 0) nxt.push(a);
+          if ((sa <= 0) !== (sb <= 0)) { const t = sa / (sa - sb); nxt.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); }
+        }
+        poly = nxt;
+      }
+      const v = poly.filter((q, k) => Math.hypot(q[0] - poly[(k + 1) % poly.length][0], q[1] - poly[(k + 1) % poly.length][1]) > 2);
+      return { x, y, v };
+    }).filter((cl) => cl.v.length >= 3);
+  }
+  // A cell drawn as a rounded nodule: corners pulled in toward the site by the septum's half
+  // width, then smoothed (quadratics through the edge midpoints).
+  function cellPath(cl, c, w) {
+    const [sx, sy] = liverField(cl.x, cl.y, c);
+    const p = cl.v.map(([vx, vy]) => {
+      const [x, y] = liverField(vx, vy, c), dx = x - sx, dy = y - sy, l = Math.hypot(dx, dy) || 1, k = Math.max(0.35, 1 - w / l);
+      return [sx + dx * k, sy + dy * k];
+    });
+    const n = p.length, m = (j) => { const a = p[j % n], q = p[(j + 1) % n]; return `${((a[0] + q[0]) / 2).toFixed(1)} ${((a[1] + q[1]) / 2).toFixed(1)}`; };
+    let d = 'M' + m(n - 1);
+    for (let j = 0; j < n; j++) d += `Q${p[j][0].toFixed(1)} ${p[j][1].toFixed(1)} ${m(j)}`;
+    return d + 'Z';
   }
   // The displacement of the whole organ (interior and outline): the right lobe atrophies toward
   // the hilum and the lateral left lobe hypertrophies with cirrhosis.
@@ -616,7 +670,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (key === liverKey) return;
     if (!baseLiver) { try { baseLiver = sampleLiver(); } catch { return; } if (!baseLiver.pts.length) { baseLiver = null; return; } }
     liverKey = key;
-    const { pts, nm, nod, nodules, spots } = baseLiver;
+    const { pts, nm, nod, spots } = baseLiver;
     const out = pts.map((p0, i) => {
       let [x, y] = liverField(p0[0], p0[1], c);
       const [nx, ny] = nm[i], inf = clamp(ny, 0, 1);
@@ -634,18 +688,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const d = c + g > 0 ? 'M' + out.map(([x, y]) => `${f1(x)} ${f1(y)}`).join(' L') + ' Z' : liverD;
     for (const el of liverPaths) el.setAttribute('d', d);
     lv.gloss.style.opacity = (1 - 0.75 * smooth01(c / 0.6)).toFixed(3);
-    // Regenerative nodules: a flat, faint cobbling of soft-edged rounded islands outlined by
-    // fine septa, firmer with severity.
-    const cn = smooth01(c / 0.55);
-    if (cn > 0.01) {
-      let bd = '';
-      for (const b of nodules) {
-        const [x, y] = liverField(b.x, b.y, c);
-        bd += blobPath(b, x, y, b.r * (0.98 - 0.12 * c));
-      }
-      lv.nod.setAttribute('d', bd);
-    } else lv.nod.setAttribute('d', '');
-    lv.nod.style.opacity = (cn * (0.6 + 0.4 * c)).toFixed(3);
+    // Regenerative nodules: tawny islands of mixed size parted by a network of pale fibrous
+    // septa (the liver shows through the gaps, lightened). Flat, no shading; the septa widen and
+    // the contrast firms with severity.
+    const cn = smooth01(c / 0.5) * (0.55 + 0.45 * c);
+    lv.nod.setAttribute('d', cn > 0.01 ? baseLiver.cells.map((cl) => cellPath(cl, c, 0.8 + 1.4 * c)).join('') : '');
+    lv.sep.style.opacity = lv.nod.style.opacity = cn.toFixed(3);
     // Nutmeg: dark centrilobular spots that grow and begin to link up as congestion deepens.
     if (g > 0.01) {
       let nt = '', ln = '';

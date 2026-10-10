@@ -545,9 +545,17 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .lv-nut { fill: var(--path-nutmeg); fill-opacity: .07; }
 .lv-nut-net { fill: none; stroke: var(--path-nutmeg); stroke-opacity: .05; stroke-linecap: round; }
 .lv-sh0 { stop-color: #fff; stop-opacity: .85; } .lv-sh1 { stop-color: #fff; stop-opacity: .28; } .lv-sh2 { stop-color: #fff; stop-opacity: 0; }
-.lv-nod { fill: var(--og-liver-1); fill-opacity: .14; stroke: var(--og-liver-3); stroke-opacity: .16; stroke-width: .7; stroke-linejoin: round; }
-:root[data-theme="dark"] .lv-nod { fill-opacity: .1; stroke: #120608; stroke-opacity: .3; } :root[data-theme="dark"] .lv-sh0 { stop-opacity: .14; } :root[data-theme="dark"] .lv-sh1 { stop-opacity: .04; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lv-nod { fill-opacity: .1; stroke: #120608; stroke-opacity: .3; } :root:not([data-theme="light"]) .lv-sh0 { stop-opacity: .14; } :root:not([data-theme="light"]) .lv-sh1 { stop-opacity: .04; } }
+.lv-sep, .lv-nod { --lv-sep: #FFF4E6; --lv-nod: #C9955C; }
+.lv-sep { fill: var(--lv-sep); fill-opacity: .5; }
+.lv-nod { fill: var(--lv-nod); fill-opacity: .32; }
+:root[data-theme="dark"] :is(.lv-sep, .lv-nod) { --lv-sep: #E8C4AE; --lv-nod: #6E4428; }
+:root[data-theme="dark"] .lv-sep { fill-opacity: .42; } :root[data-theme="dark"] .lv-nod { fill-opacity: .3; }
+:root[data-theme="dark"] .lv-sh0 { stop-opacity: .14; } :root[data-theme="dark"] .lv-sh1 { stop-opacity: .04; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) :is(.lv-sep, .lv-nod) { --lv-sep: #E8C4AE; --lv-nod: #6E4428; }
+  :root:not([data-theme="light"]) .lv-sep { fill-opacity: .42; } :root:not([data-theme="light"]) .lv-nod { fill-opacity: .3; }
+  :root:not([data-theme="light"]) .lv-sh0 { stop-opacity: .14; } :root:not([data-theme="light"]) .lv-sh1 { stop-opacity: .04; }
+}
 .fl-top { stop-color: var(--ascites); stop-opacity: calc(var(--ascites-a) * .5); } .fl-bot { stop-color: var(--ascites); stop-opacity: var(--ascites-a); }
 .sk-in { stop-color: var(--skin); stop-opacity: .5; } .sk-mid { stop-color: var(--skin); stop-opacity: .3; } .sk-out { stop-color: var(--skin); stop-opacity: 0; }
 .mt-a { stop-color: var(--stent-metal); } .mt-b { stop-color: var(--light-ink); }
