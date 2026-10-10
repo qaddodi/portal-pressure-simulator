@@ -5,10 +5,10 @@
 
 import { store } from './store.js?v=25cbe77a76';
 import { h, svgIcon, icon } from './util.js?v=e803df99cd';
-import { LESSONS } from './learn.js?v=4c3b826ba4';
-import { CASES } from './cases.js?v=3d4cd0f045';
-import { createDrill, drillProgress, DRILL_TITLE, ROUNDS } from './drill.js?v=fd34c89b06';
-import { skillsPath, reviewCard } from './practice.js?v=58ac984a8b';
+import { LESSONS } from './learn.js?v=6bbb5475b3';
+import { CASES } from './cases.js?v=9543b1fdde';
+import { createDrill, drillProgress, DRILL_TITLE, ROUNDS } from './drill.js?v=415aede895';
+import { skillsPath, reviewCard } from './practice.js?v=22ad13c319';
 import { UNITS, FINAL, PARTS, course } from './course.js?v=3bf3617fd0';
 import { openExam } from './exam.js?v=237348df1c';
 import { t } from '../i18n/i18n.js?v=96bbcced4d';

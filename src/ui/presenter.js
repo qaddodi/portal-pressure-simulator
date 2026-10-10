@@ -15,7 +15,7 @@
 import { store, replaceParams } from './store.js?v=25cbe77a76';
 import { h, toast, svgIcon, icon, fmt, clamp } from './util.js?v=e803df99cd';
 import { download } from './records.js?v=50fb9dd463';
-import { SITES } from './ladder.js?v=03e1559928';
+import { SITES } from './ladder.js?v=819db1deff';
 import { sinusoidSupported } from './sinusoid-view.js?v=b68c9ab562';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { NODES } from '../engine/topology.js?v=dc393aabea';
@@ -118,17 +118,18 @@ const sv = (tag, attrs = {}, ...kids) => {
 let uid = 0;
 
 /** The pressure ladder at projector size: four stations, the healthy line dashed behind, every fall of
- *  more than 4 mmHg shaded as a block. Two brackets in the right margin give the gradients as spans of the
- *  same scale: HVPG (wedged − free) and PPG (portal vein − IVC), coloured by their cut-offs.
- *  set(f, { key }) glides the line and counts the numbers. */
+ *  more than 4 mmHg shaded as a block. Under the axis, as on the app's own pressure chart, two spans run
+ *  along the stations with the number written in them: HVPG (wedged to free hepatic vein) and PPG (portal
+ *  vein to the IVC, at the right-atrium column), coloured by their cut-offs, with faint leaders up to the
+ *  stations they join. set(f, { key }) glides the line and counts the numbers. */
 function bigLadder() {
-  const W = 486, H = 312, X = (i) => 70 + i * 92, Y = (v) => 252 - clamp(v, 0, 30) * 6.6;
-  const BX = { hvpg: 390, ppg: 450 };
+  const W = 500, H = 382, X = (i) => 74 + i * 116, Y = (v) => 252 - clamp(v, 0, 30) * 6.6;
+  const SPAN_Y = { hvpg: 278, ppg: 316 };
   const gid = 'pzGrad' + ++uid;
   const base = sv('path', { class: 'pzl-base' });
   const line = sv('path', { class: 'pzl-line', stroke: `url(#${gid})` });
   const bands = [0, 1, 2].map((i) => {
-    const r = sv('rect', { x: X(i) + 16, y: Y(30) - 6, width: 92 - 32, height: Y(0) - Y(30) + 6, rx: 12 });
+    const r = sv('rect', { x: X(i) + 16, y: Y(30) - 6, width: 116 - 32, height: Y(0) - Y(30) + 6, rx: 12 });
     const t = sv('text', { x: (X(i) + X(i + 1)) / 2, y: 26, 'text-anchor': 'middle' });
     return { g: sv('g', { class: 'pzl-drop', opacity: 0 }, r, t), t };
   });
@@ -136,14 +137,15 @@ function bigLadder() {
     const c = sv('circle', { cx: X(i), r: 8.5 }), v = sv('text', { class: 'pzl-v', x: X(i), 'text-anchor': 'middle' });
     return { g: sv('g', { class: 'pzl-pt' }, c, v, sv('text', { class: 'pzl-k', x: X(i), y: H - 34, 'text-anchor': 'middle' }, a), sv('text', { class: 'pzl-k2', x: X(i), y: H - 10, 'text-anchor': 'middle' }, b)), c, v };
   });
-  // A gradient bracket: its name and number over a "]" spanning two levels, faint leaders running back to them.
-  const bracket = (name, bx, tag) => {
-    const lead = sv('path', { class: 'pzl-lead' }), br = sv('path', { class: 'pzl-br' });
-    const k = sv('text', { class: 'pzl-bk', x: bx, y: 17, 'text-anchor': 'middle' }, name), v = sv('text', { class: 'pzl-bv', x: bx, y: 45, 'text-anchor': 'middle' });
-    const t = tag ? sv('text', { class: 'pzl-bt', x: bx - 11, 'text-anchor': 'end' }, tag) : null;
-    return { g: sv('g', { class: 'pzl-bg', opacity: 0 }, lead, br, k, v, t), lead, br, v, t };
+  // A gradient span: a bar with end caps from one station's column to another's, dotted leaders up to the two
+  // station points, and a pill in the middle with its name and number.
+  const span = (name, row, i0, i1) => {
+    const x0 = X(i0), x1 = X(i1), w = name === 'HVPG' ? 112 : 100, mid = (x0 + x1) / 2;
+    const lead = sv('path', { class: 'pzl-lead' }), bar = sv('path', { class: 'pzl-br', d: `M${x0} ${row - 5}V${row + 5}M${x1} ${row - 5}V${row + 5}M${x0} ${row}H${x1}` });
+    const k = sv('text', { class: 'pzl-bk', x: mid - w / 2 + 11, y: row + 5 }, name), v = sv('text', { class: 'pzl-bv', x: mid + w / 2 - 11, y: row + 6.5, 'text-anchor': 'end' });
+    return { x0, x1, row, lead, v, g: sv('g', { class: 'pzl-bg', opacity: 0 }, lead, bar, sv('rect', { class: 'pzl-pill', x: mid - w / 2, y: row - 13, width: w, height: 26, rx: 13 }), k, v) };
   };
-  const hv = bracket('HVPG', BX.hvpg), pp = bracket('PPG', BX.ppg, 'IVC');
+  const hv = span('HVPG', SPAN_Y.hvpg, 1, 2), pp = span('PPG', SPAN_Y.ppg, 0, 3);
   const el = sv('svg', { class: 'pz-ladder', viewBox: `0 0 ${W} ${H}`, role: 'img' },
     sv('defs', {}, sv('linearGradient', { id: gid, x1: 0, x2: 1, y1: 0, y2: 0 }, sv('stop', { offset: 0, 'stop-color': 'var(--tour-portal)' }), sv('stop', { offset: 1, 'stop-color': 'var(--tour-sys)' }))),
     [0, 10, 20, 30].map((v) => sv('g', { class: 'pzl-grid' }, sv('line', { x1: 44, x2: W - 10, y1: Y(v), y2: Y(v) }), sv('text', { x: 34, y: Y(v) + 5, 'text-anchor': 'end' }, String(v)))),
@@ -157,20 +159,17 @@ function bigLadder() {
       b.g.setAttribute('opacity', clamp((d - 4) / 3, 0, 1).toFixed(3));
       b.t.textContent = `−${fmt(Math.max(0, d), 0)} mmHg`;
     });
-    // Each bracket spans two levels on the same scale; it fades out when a level is not measurable.
-    const span = (b, hi, lo, x0, v, rate) => {
-      const ok = Number.isFinite(hi) && Number.isFinite(lo) && Number.isFinite(v), bx = BX[b === hv ? 'hvpg' : 'ppg'];
+    // Each span fades out when a level is not measurable (Budd-Chiari has no wedge). Its leaders end on the points.
+    const put = (b, hi, lo, v, rate) => {
+      const ok = Number.isFinite(hi) && Number.isFinite(lo) && Number.isFinite(v);
       b.g.setAttribute('opacity', ok ? 1 : 0);
       if (!ok) return;
-      const y1 = Y(hi), y2 = Y(lo);
-      b.br.setAttribute('d', `M${bx - 7} ${y1.toFixed(1)}H${bx}V${y2.toFixed(1)}H${bx - 7}`);
-      b.lead.setAttribute('d', `M${x0 + 10} ${y1.toFixed(1)}H${bx - 9}` + (x0 === X(1) ? `M${X(2) + 10} ${y2.toFixed(1)}H${bx - 9}` : ''));
+      b.lead.setAttribute('d', `M${b.x0} ${b.row - 9}V${(Y(hi) + 12).toFixed(1)}M${b.x1} ${b.row - 9}V${(Y(lo) + 12).toFixed(1)}`);
       b.v.textContent = fmt(v, 1);
       b.g.dataset.rate = rate;
-      b.t?.setAttribute('y', (y2 + 4).toFixed(1));
     };
-    span(hv, f.whvp, f.fhvp, X(1), f.hvpg, rateOf('hvpg', f)[0] || 'ok');
-    span(pp, f.pv, f.ivc, X(0), f.ppg, rateOf('ppg', f)[0] || 'ok');
+    put(hv, f.whvp, f.fhvp, f.hvpg, rateOf('hvpg', f)[0] || 'ok');
+    put(pp, f.pv, f.ra, f.ppg, rateOf('ppg', f)[0] || 'ok');
     el.setAttribute('aria-label', 'Pressure ladder: ' + RUNGS.map(([k, a, b]) => `${a} ${b} ${fmt(f[k], 0)}`).join(', ') + ' mmHg. '
       + `HVPG ${fmt(f.hvpg, 1)}, PPG ${fmt(f.ppg, 1)} mmHg.`);
   });
