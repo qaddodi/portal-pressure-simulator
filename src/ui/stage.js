@@ -603,10 +603,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // sites, each with its own random spacing, so nodule sizes mix evenly over the whole
   // liver). Each cell keeps its site and its corners.
   function nodularCells(outline) {
+    // Even-odd test, with the outline's edges bucketed into horizontal bands so each test walks only
+    // the few edges that span its row (the same edges and arithmetic as a full walk, so the same answer).
+    // A full walk per test froze the first load for seconds.
+    const BAND = 4, bands = new Map();
+    for (let i = 0, j = outline.length - 1; i < outline.length; j = i++) {
+      const yi = outline[i][1], yj = outline[j][1];
+      for (let b = Math.floor(Math.min(yi, yj) / BAND), e = Math.floor(Math.max(yi, yj) / BAND); b <= e; b++) {
+        if (bands.has(b)) bands.get(b).push(i, j); else bands.set(b, [i, j]);
+      }
+    }
     const r = seeded(53), inside = (x, y) => {
       let w = false;
-      for (let i = 0, j = outline.length - 1; i < outline.length; j = i++) {
-        const [xi, yi] = outline[i], [xj, yj] = outline[j];
+      const es = bands.get(Math.floor(y / BAND));
+      if (!es) return false;
+      for (let k = 0; k < es.length; k += 2) {
+        const [xi, yi] = outline[es[k]], [xj, yj] = outline[es[k + 1]];
         if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) w = !w;
       }
       return w;
