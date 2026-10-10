@@ -4,9 +4,9 @@
 // pps.lessons (lessons), pps.caseScores (cases), pps.drill (the drill), pps.review (the warm-up).
 
 import { h, svgIcon, icon } from './util.js?v=e803df99cd';
-import { LESSONS } from './learn.js?v=449abaf68e';
-import { CASES } from './cases.js?v=a3ee5a784b';
-import { drillProgress, DRILL_TITLE } from './drill.js?v=501177d12a';
+import { LESSONS } from './learn.js?v=f427100fb8';
+import { CASES } from './cases.js?v=a7414fa276';
+import { drillProgress, DRILL_TITLE } from './drill.js?v=ef8c1409f2';
 import { UNITS, course } from './course.js?v=3bf3617fd0';
 
 // [skill, what it means, items]; an item is 'l:<lesson>', 'c:<case>' or 'drill'.

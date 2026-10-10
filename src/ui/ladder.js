@@ -45,7 +45,7 @@ const RATE = {
   tp: (v, f) => (f.asc < ASCITES_ML ? [null, 'No ascites'] : v >= 2.5 ? ['hi', 'High'] : ['lo', 'Low']),
 };
 export const rate = (k, f) => (RATE[k] ? RATE[k](f[k], f) : [null, '']);
-export const RUNGS = [['pv', 'Portal', 'vein'], ['whvp', 'Wedged', 'WHVP'], ['fhvp', 'Free HV', 'FHVP'], ['ivc', 'IVC', 'cava'], ['ra', 'Right', 'atrium']];
+export const RUNGS = [['pv', 'PV'], ['whvp', 'WHVP'], ['fhvp', 'FHVP'], ['ivc', 'IVC'], ['ra', 'RA']];
 const TILES = [['hvpg', 'HVPG', 'mmHg', 'Wedged − free'], ['saag', 'SAAG', 'g/dL', 'Serum − ascites albumin'], ['tp', 'Ascites protein', 'g/dL', 'Total protein']];
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -71,7 +71,7 @@ export function biggestDrop(f, known = RUNGS.map(([k]) => k)) {
 /** The pressure ladder: five stations from the portal vein to the right atrium (IVC between), the healthy line
  *  dashed behind, the biggest drop shaded as the block. */
 export function ladder(f, { base = null, key = [], known = null, reveal = false } = {}) {
-  const W = 320, H = 224, x = (i) => 30 + i * 65, y = (v) => 128 - Math.min(30, Math.max(0, v)) * 3.5;
+  const W = 320, H = 208, x = (i) => 30 + i * 65, y = (v) => 128 - Math.min(30, Math.max(0, v)) * 3.5;
   // The IVC is read with the right atrium (the echo), so it is known when the atrium is.
   const kn = known ? (known.includes('ra') ? [...known, 'ivc'] : known) : RUNGS.map(([k]) => k), has = (i) => kn.includes(RUNGS[i][0]);
   const pts = RUNGS.map(([k], i) => [x(i), has(i) ? y(f[k]) : y(0), f[k]]);
@@ -82,7 +82,7 @@ export function ladder(f, { base = null, key = [], known = null, reveal = false 
   pts.forEach(([px, py], i) => { if (has(i)) d += (i && has(i - 1) ? 'L' : 'M') + px.toFixed(1) + ' ' + py.toFixed(1); });
   const band = drop >= 0 ? s('g', { class: 'tl-drop' },
     s('rect', { x: pts[drop][0] + 10, y: y(30) - 4, width: 46, height: y(0) - y(30) + 4, rx: 8 }),
-    s('text', { x: (pts[drop][0] + pts[drop + 1][0]) / 2, y: y(30) - 9, 'text-anchor': 'middle' }, `−${fmt(big, 0)} mmHg`)) : null;
+    s('text', { x: (pts[drop][0] + pts[drop + 1][0]) / 2, y: y(30) - 9, 'text-anchor': 'middle' }, `Δ ${fmt(big, 0)} mmHg`)) : null;
   // The gradients as spans under the axis, as on the app's pressure chart: HVPG (wedged to free hepatic vein) and PPG
   // (portal vein to the IVC) run along their stations, each named in a pill, coloured
   // by the cut-offs (amber 5 / red 10 and 6 / 12), with faint leaders up to the stations. PPG needs f.ppg (not in old snapshots).
@@ -98,7 +98,7 @@ export function ladder(f, { base = null, key = [], known = null, reveal = false 
   const hvpgBr = has(1) && has(2) ? span('HVPG', 150, 1, 2, f.whvp, f.fhvp, f.hvpg, f.hvpg >= 10 ? 'hi' : f.hvpg >= 5 ? 'mid' : 'ok') : null;
   const ppgBr = has(0) && has(3) ? span('PPG', 177, 0, 3, f.pv, f.ivc, f.ppg, f.ppg >= 12 ? 'hi' : f.ppg >= 6 ? 'mid' : 'ok') : null;
   const gid = 'tlGrad' + ++uid;
-  const label = 'Pressure ladder: ' + RUNGS.map(([, a, b], i) => `${a} ${b} ${has(i) ? fmt(pts[i][2], 1) : 'not measured'}`).join(', ') + ' mmHg'
+  const label = 'Pressure ladder: ' + RUNGS.map(([, a], i) => `${a} ${has(i) ? fmt(pts[i][2], 1) : 'not measured'}`).join(', ') + ' mmHg'
     + (hvpgBr ? `. HVPG ${fmt(f.hvpg, 1)}` : '') + (ppgBr ? `${hvpgBr ? ', ' : '. '}PPG ${fmt(f.ppg, 1)}` : '') + (hvpgBr || ppgBr ? ' mmHg' : '');
   return s('svg', { class: 'tl-ladder' + (reveal ? ' reveal' : ''), viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': label },
     s('defs', {}, s('linearGradient', { id: gid, x1: 0, x2: 1, y1: 0, y2: 0 }, s('stop', { offset: 0, 'stop-color': 'var(--tour-portal)' }), s('stop', { offset: 1, 'stop-color': 'var(--tour-sys)' }))),
@@ -108,8 +108,7 @@ export function ladder(f, { base = null, key = [], known = null, reveal = false 
     pts.map(([px, py, v], i) => s('g', { class: 'tl-pt' + (key.includes(RUNGS[i][0]) ? ' key' : '') + (has(i) ? '' : ' unk'), style: `--i:${i}` },
       s('circle', { cx: px, cy: py, r: 5.5 }),
       s('text', { class: 'tl-v', x: px, y: py - 11, 'text-anchor': 'middle' }, has(i) ? fmt(v, 0) : '?'),
-      s('text', { class: 'tl-k', x: px, y: H - 18, 'text-anchor': 'middle' }, RUNGS[i][1]),
-      s('text', { class: 'tl-k2', x: px, y: H - 4, 'text-anchor': 'middle' }, RUNGS[i][2]))));
+      s('text', { class: 'tl-k', x: px, y: H - 4, 'text-anchor': 'middle' }, RUNGS[i][1]))));
 }
 
 /** HVPG, SAAG and ascites protein, each rated. Tiles not in `known` read "?". */

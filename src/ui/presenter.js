@@ -15,7 +15,7 @@
 import { store, replaceParams } from './store.js?v=25cbe77a76';
 import { h, toast, svgIcon, icon, fmt, clamp } from './util.js?v=e803df99cd';
 import { download } from './records.js?v=50fb9dd463';
-import { SITES } from './ladder.js?v=9c1505ff94';
+import { SITES } from './ladder.js?v=3c3d5cd555';
 import { sinusoidSupported } from './sinusoid-view.js?v=d2f4b1dcbd';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { NODES } from '../engine/topology.js?v=dc393aabea';
@@ -37,7 +37,7 @@ async function until(fn, ms = 3000) { const t0 = performance.now(); while (!fn()
 const LOBULE_CAM = /^(lobule|sinusoid)/;
 
 // ── Numbers ────────────────────────────────────────
-const RUNGS = [['pv', 'Portal', 'vein'], ['whvp', 'Wedged', 'WHVP'], ['fhvp', 'Free HV', 'FHVP'], ['ivc', 'IVC', 'cava'], ['ra', 'Right', 'atrium']];
+const RUNGS = [['pv', 'PV'], ['whvp', 'WHVP'], ['fhvp', 'FHVP'], ['ivc', 'IVC'], ['ra', 'RA']];
 const NO_ASC = 150;   // mL: below it there is no ascites to tap (ultrasound grade 1 starts here)
 const vSize = (v) => (v < 2.5 ? ['ok', 'None'] : v < 5 ? ['mid', 'Small'] : ['hi', 'Large']);
 // A name joined by an en dash (Budd–Chiari) never breaks at the dash.
@@ -130,7 +130,7 @@ let uid = 0;
  *  vein to the IVC), coloured by their cut-offs, with faint leaders up to the
  *  stations they join. set(f, { key }) glides the line and counts the numbers. */
 function bigLadder() {
-  const W = 500, H = 382, X = (i) => 56 + i * 97, Y = (v) => 252 - clamp(v, 0, 30) * 6.6;
+  const W = 500, H = 362, X = (i) => 56 + i * 97, Y = (v) => 252 - clamp(v, 0, 30) * 6.6;
   const SPAN_Y = { hvpg: 278, ppg: 316 };
   const gid = 'pzGrad' + ++uid;
   const base = sv('path', { class: 'pzl-base' });
@@ -140,9 +140,9 @@ function bigLadder() {
     const t = sv('text', { x: (X(i) + X(i + 1)) / 2, y: 26, 'text-anchor': 'middle' });
     return { g: sv('g', { class: 'pzl-drop', opacity: 0 }, r, t), t };
   });
-  const pts = RUNGS.map(([, a, b], i) => {
+  const pts = RUNGS.map(([, a], i) => {
     const c = sv('circle', { cx: X(i), r: 8.5 }), v = sv('text', { class: 'pzl-v', x: X(i), 'text-anchor': 'middle' });
-    return { g: sv('g', { class: 'pzl-pt' }, c, v, sv('text', { class: 'pzl-k', x: X(i), y: H - 34, 'text-anchor': 'middle' }, a), sv('text', { class: 'pzl-k2', x: X(i), y: H - 10, 'text-anchor': 'middle' }, b)), c, v };
+    return { g: sv('g', { class: 'pzl-pt' }, c, v, sv('text', { class: 'pzl-k', x: X(i), y: H - 8, 'text-anchor': 'middle' }, a)), c, v };
   });
   // A gradient span: a bar with end caps from one station's column to another's, dotted leaders up to the two
   // station points, and a pill in the middle with its name (the numbers are in the tiles below).
@@ -163,7 +163,7 @@ function bigLadder() {
     bands.forEach((b, i) => {
       const d = f[RUNGS[i][0]] - f[RUNGS[i + 1][0]];
       b.g.setAttribute('opacity', clamp((d - 4) / 3, 0, 1).toFixed(3));
-      b.t.textContent = `−${fmt(Math.max(0, d), 0)} mmHg`;
+      b.t.textContent = `Δ ${fmt(Math.max(0, d), 0)} mmHg`;
     });
     // Each span fades out when a level is not measurable (Budd-Chiari has no wedge). Its leaders end on the points.
     const put = (b, hi, lo, v, rate) => {
@@ -175,7 +175,7 @@ function bigLadder() {
     };
     put(hv, f.whvp, f.fhvp, f.hvpg, rateOf('hvpg', f)[0] || 'ok');
     put(pp, f.pv, f.ivc, f.ppg, rateOf('ppg', f)[0] || 'ok');
-    el.setAttribute('aria-label', 'Pressure ladder: ' + RUNGS.map(([k, a, b]) => `${a} ${b} ${fmt(f[k], 0)}`).join(', ') + ' mmHg. '
+    el.setAttribute('aria-label', 'Pressure ladder: ' + RUNGS.map(([k, a]) => `${a} ${fmt(f[k], 0)}`).join(', ') + ' mmHg. '
       + `HVPG ${fmt(f.hvpg, 1)}, PPG ${fmt(f.ppg, 1)} mmHg.`);
   });
   return {
