@@ -1840,10 +1840,13 @@ button.finding:hover { background: var(--surface-2); }
 @keyframes pz-fade { from { opacity: 0; } }
 @keyframes pz-in { from { opacity: 0; transform: translateY(14px); } }
 .pz { position: absolute; inset: 0; z-index: var(--z-hud); pointer-events: none; color: var(--text); }
-.pz-shade { position: absolute; left: 0; top: 0; bottom: 0; width: 0; z-index: var(--z-figure); pointer-events: none; background: linear-gradient(90deg, var(--stage-bg) calc(100% - 130px), color-mix(in srgb, var(--stage-bg) 88%, transparent) calc(100% - 100px), color-mix(in srgb, var(--stage-bg) 52%, transparent) calc(100% - 64px), color-mix(in srgb, var(--stage-bg) 18%, transparent) calc(100% - 28px), color-mix(in srgb, var(--stage-bg) 0%, transparent)); transition: width .45s var(--ease), height .45s var(--ease), opacity .3s var(--ease); }
+.pz-shade { --pz-fade: 48px; position: absolute; left: 0; top: 0; bottom: 0; width: 0; z-index: var(--z-figure); pointer-events: none; background: color-mix(in srgb, var(--stage-bg) 80%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - var(--pz-fade)), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - var(--pz-fade)), transparent); transition: width .45s var(--ease), height .45s var(--ease), opacity .3s var(--ease); }
+/* (Without a backdrop blur the words keep a plain backdrop of the page colour.) */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-shade { background: color-mix(in srgb, var(--stage-bg) 94%, transparent); } }
+@media (prefers-reduced-transparency: reduce) { .pz-shade { background: color-mix(in srgb, var(--stage-bg) 94%, transparent); } }
 .pz-safe { position: absolute; left: 0; top: 0; bottom: 0; width: 0; opacity: 0; pointer-events: none; }
 .pz.stack .pz-safe { right: 0; bottom: auto; width: auto; }
-.pz-text { position: absolute; left: clamp(20px, calc(3.4vw / var(--vz)), 76px); top: clamp(20px, calc(8vh / var(--vz)), 110px); width: clamp(300px, calc(27vw / var(--vz)), 560px); max-height: calc(100% - 2 * clamp(20px, calc(8vh / var(--vz)), 110px)); display: flex; flex-direction: column; gap: clamp(10px, calc(2.3vh / var(--vz)), 30px); transition: opacity .22s var(--ease), transform .22s var(--ease); }
+.pz-text { position: absolute; left: clamp(20px, calc(3.4vw / var(--vz)), 76px); top: clamp(20px, calc(8vh / var(--vz)), 110px); width: clamp(300px, calc(29vw / var(--vz)), 600px); max-height: calc(100% - 2 * clamp(20px, calc(8vh / var(--vz)), 110px)); display: flex; flex-direction: column; gap: clamp(10px, calc(2.3vh / var(--vz)), 30px); transition: opacity .22s var(--ease), transform .22s var(--ease); }
 .pz-text.pz-leave, .pz-panel.pz-leave { opacity: 0; transform: translateY(-6px); }
 .pz-text.pz-enter > * { animation: pz-in .6s var(--ease) both; animation-delay: calc(var(--i, 0) * 80ms + 40ms); }
 .pz-kick { display: flex; align-items: center; gap: .55em; font: 600 clamp(13px, calc(1.75vh / var(--vz)), 21px)/1.2 var(--font-ui); letter-spacing: .1em; text-transform: uppercase; color: var(--site, var(--text-3)); }
@@ -1920,7 +1923,7 @@ button.finding:hover { background: var(--surface-2); }
 .pz-data.tiles-only .pz-tiles[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .pz-data.tiles-only .pzt-v { font-size: clamp(32px, calc(5.6vh / var(--vz)), 68px); }
 /* Under the words (beside a sinusoid): the left column, the tiles two by two. */
-.pz-data.under { left: clamp(20px, calc(3.4vw / var(--vz)), 76px); right: auto; width: clamp(300px, calc(27vw / var(--vz)), 560px); }
+.pz-data.under { left: clamp(20px, calc(3.4vw / var(--vz)), 76px); right: auto; width: clamp(300px, calc(29vw / var(--vz)), 600px); }
 .pz-data.under.pz-hide { transform: translateY(14px); }
 .pz-data.under.tiles-only .pz-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .pz-data.under.tiles-only .pzt-v { font-size: clamp(30px, calc(5vh / var(--vz)), 60px); }
@@ -2081,7 +2084,7 @@ button.finding:hover { background: var(--surface-2); }
 .pz-black { position: fixed; inset: 0; z-index: var(--z-toast); background: #000; opacity: 0; pointer-events: none; transition: opacity .4s var(--ease); }
 .pz-black.on { opacity: 1; pointer-events: auto; cursor: none; }
 /* A phone, or a screen taller than wide: the words on top, the data below, the figure between. */
-.pz-shade.stack { width: auto !important; right: 0; bottom: auto; height: 0; background: linear-gradient(180deg, var(--stage-bg) calc(100% - 48px), color-mix(in srgb, var(--stage-bg) 70%, transparent) calc(100% - 26px), color-mix(in srgb, var(--stage-bg) 0%, transparent)); }
+.pz-shade.stack { --pz-fade: 36px; width: auto !important; right: 0; bottom: auto; height: 0; -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - var(--pz-fade)), transparent); mask-image: linear-gradient(180deg, #000 calc(100% - var(--pz-fade)), transparent); }
 .pz.stack .pz-text { left: 14px; right: 14px; top: 12px; width: auto; max-height: 40%; gap: 6px; }
 .pz.stack .pz-kick { font-size: 12px; }
 .pz.stack .pz-h { font-size: clamp(24px, calc(3.4vh / var(--vz)), 40px); }

@@ -977,20 +977,20 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     if (below && t) { const y = t.bottom - wr.top + 28; ui.data.style.top = `${Math.round(y / k)}px`; ui.data.style.maxHeight = `${Math.round((H - y - 24) / k)}px`; }
     else { ui.data.style.top = ''; ui.data.style.maxHeight = ''; }
     const d = below ? null : r(ui.data);
-    // The words get a soft backdrop of the page colour, so a zoomed figure behind them never runs through the
-    // text; it fades out over 130 px (48 on a phone), and the figure frames itself from most of the way across.
+    // The words sit on a frosted panel: the figure shows through it blurred, and its edge fades out over the last
+    // 48 px (36 on a phone). The figure frames itself from just inside that fade, so nothing it frames is hidden.
     const L = t ? t.right - wr.left : 0, T = t ? t.bottom - wr.top : 0;
-    ui.shade.style.width = !p && t ? `${(L + 140) / k}px` : '';
-    ui.shade.style.height = p && t ? `${(T + 48) / k}px` : '';
+    ui.shade.style.width = !p && t ? `${(L + 36) / k}px` : '';
+    ui.shade.style.height = p && t ? `${(T + 26) / k}px` : '';
     ui.shade.style.opacity = t ? '1' : '0';
     ui.safe.hidden = !t;
     ui.safe.dataset.safe = p ? 'top' : 'left';
-    ui.safe.style.width = p ? '' : `${(L + 90) / k}px`;
-    ui.safe.style.height = p ? `${(T + 20) / k}px` : '';
+    ui.safe.style.width = p ? '' : `${(L + 24) / k}px`;
+    ui.safe.style.height = p ? `${(T + 26) / k}px` : '';
     const set = (k, v) => app.style.setProperty(k, `${Math.max(0, Math.round(v))}px`);
-    set('--pz-l', !p && t ? L + 90 : 0);
+    set('--pz-l', !p && t ? L + 24 : 0);
     set('--pz-r', !p && d ? W - (d.left - wr.left) + 8 : 0);
-    set('--pz-t', p && t ? T + 20 : 0);
+    set('--pz-t', p && t ? T + 26 : 0);
     set('--pz-b', p && d ? H - (d.top - wr.top) + 4 : 0);
     dispatchEvent(new Event('pps:occ'));
   }
