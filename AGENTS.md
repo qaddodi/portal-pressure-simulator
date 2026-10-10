@@ -36,9 +36,17 @@ Loop for every change (fast previews first, full tests before merge):
 3. The owner tests on their devices and reports anything broken; repeat steps 1-2 quickly.
 4. When the owner is happy, run the full `npm run check` (lint, unit, build, smoke, smoke:dist),
    fix anything it finds, and recommend any tests worth adding for the new behaviour.
-   The full CI (`ci.yml`) also runs every check on pull requests and on `main`.
-   After a deliberate change to the look, run `npm run visual -- --update`, look at the changed
-   pictures in `tests/visual/`, and commit them with the change (CI compares against them).
+   The full CI (`ci.yml`) also runs every check on pull requests and on `main`, split over
+   parallel runners (source site and build, desktop and phone, two shares each, plus the visual
+   check per device). A browser check that failed only by timing out gets one more try
+   (`SMOKE_RETRIES`); any other failure counts at once.
+   Visual references (`tests/visual/`): every preview push compares the look (job `visual` in
+   the Pages run). A drift there is a warning with the diffs as an artifact; in `ci.yml` it blocks
+   the merge. If your change is meant to alter a view, run the "Visual references" workflow on your
+   branch right after pushing it (GitHub Actions API: run `visual-refs.yml` on the branch). It
+   redraws only the drifted views on CI's machines and commits them as "Visual references redrawn
+   on CI: <views>"; pull before your next push. Never run it to silence a drift you did not intend.
+   To redraw them all by hand (rarely needed), run `npm run visual -- --update`.
 5. Merge to `main` only when the owner says so. That also resets `/preview/` to match `main`.
    If the branch is already merged, restart it from the latest `main` before more work.
 

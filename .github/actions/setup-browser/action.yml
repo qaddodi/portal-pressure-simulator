@@ -1,0 +1,39 @@
+name: Set up Node and Chromium
+description: npm ci, then Chromium for Playwright from a cache keyed on its version (apt only when a library is missing).
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: npm
+    - run: npm ci
+      shell: bash
+    - name: Playwright version
+      id: playwright
+      shell: bash
+      run: echo "version=$(node -p "require('./package-lock.json').packages['node_modules/playwright-core'].version")" >> "$GITHUB_OUTPUT"
+    - uses: actions/cache@v4
+      id: playwright-cache
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+    # Composite steps cannot set timeout-minutes, so `timeout` caps the downloads: a slow mirror
+    # then fails this step clearly instead of eating the job.
+    - name: Download Chromium
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: timeout 240 npx playwright install chromium
+    # The runner image usually has every library Chromium needs already; apt (the slow,
+    # mirror-dependent part) runs only when ldd reports one missing.
+    - name: Install Chromium system packages
+      shell: bash
+      run: |
+        missing=$(find ~/.cache/ms-playwright -type f \( -name chrome -o -name headless_shell -o -name chrome-headless-shell \) \
+          -exec ldd {} + | grep 'not found' | sort -u || true)
+        if [ -n "$missing" ]; then
+          echo "Missing libraries:"; echo "$missing"
+          timeout 240 npx playwright install-deps chromium
+        else
+          echo "All Chromium libraries present; skipping apt."
+        fi
