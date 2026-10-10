@@ -216,20 +216,20 @@ vec3 disse(float x, float a, float wi, float hi, int side, bool main, float det)
     float al = smoothstep(0.0, 0.3, e) * (1.0 - smoothstep(0.65, 1.0, e));
     c = mix(c, vec3(1.0), al * line(a - mix(wi, hi, 0.3 + 0.36 * float(j)), 0.18) * uStreak);
   }
-  if (!main) return c;
   // Collagen: a pale fill as it takes the space the lymph had, then banded fibre bundles laid down by the
   // stellate cell: they start at it and spread along Disse, each thickening at its own stage.
   if (uCol > 0.02) {
     c = mix(c, cCol, (0.36 - 0.08 * uDark) * smoothstep(0.1, 0.9, uCol));
     float near = side < 0 ? exp(-pow((x - uXs) / 26.0, 2.0)) * uAct * 0.08 : 0.0;
     float reach = 14.0 + 320.0 * smoothstep(0.0, 0.8, uCol) * (side < 0 ? 1.0 : 0.8);
-    float spread = 1.0 - smoothstep(reach - 30.0, reach, abs(x - uXs - (side < 0 ? 0.0 : 18.0)));
-    float bd = smoothstep(0.3, 0.1, uPx) * det;                   // the cross-banding, only once it is resolved
+    float spread = main ? 1.0 - smoothstep(reach - 30.0, reach, abs(x - uXs - (side < 0 ? 0.0 : 18.0))) : 1.0;   // the neighbouring sinusoids' Disse fills evenly
+    float fd = main ? det : 1.0;
+    float bd = smoothstep(0.3, 0.1, uPx) * fd;                   // the cross-banding, only once it is resolved
     vec3 fib = cCol * 0.9, fibE = cCol * 0.72;
     for (int i = 0; i < 7; i++) {
-      float al = smoothstep(float(i) / 7.0 * 0.8, float(i) / 7.0 * 0.8 + 0.22, uCol) * det * spread;
+      float al = smoothstep(float(i) / 7.0 * 0.8, float(i) / 7.0 * 0.8 + 0.22, uCol) * fd * spread;
       if (al < 0.01) continue;
-      int sd = side < 0 ? 91 : 92;
+      int sd = (side < 0 ? 91 : 92) + (main ? 0 : 40);
       float v = 0.15 + 0.7 * h1(i, sd), f = 0.12 + 0.12 * h1(i, sd + 7), ph = 6.2831853 * h1(i, sd + 9);
       float tc = clamp(v + 0.12 * sin(x * f + ph) + 0.05 * sin(x * f * 2.7 + ph * 1.7) + near, 0.08, 0.92);
       float w = (0.2 + (0.5 + 0.3 * h1(i, sd + 3)) * al * uCol) * (hi - wi) * 0.22;
@@ -243,6 +243,7 @@ vec3 disse(float x, float a, float wi, float hi, int side, bool main, float det)
       c = mix(c, fibE, line(d, 0.06) * al * 0.18);
     }
   }
+  if (!main) return c;
   // Microvilli: fine strokes from the hepatocytes' face, flattened as the space fills with collagen.
   if (uMv * det > 0.02) {
     float pi = floor(x / 0.8), hx = (pi + 0.5) * 0.8 + 0.22 * (h1(int(pi), 61 + side) - 0.5);
