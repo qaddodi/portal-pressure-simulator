@@ -9,7 +9,7 @@ import { SITES, rate, ladder, tiles, createRoute } from './ladder.js?v=2cbec732f
 
 const lobule = { view: 'anatomic', zoom: 'lobule' }, whole = { view: 'anatomic', zoom: 'fit' };
 export const TOUR = {
-  id: 'where-block', title: 'Where is the block?', builtin: true, tour: true,
+  id: 'where-block', title: 'Where is the block?', builtin: true, tour: true, quiz: true,
   summary: 'A self-running tour from pre-hepatic to cardiac portal hypertension: the causes, the pressure fingerprint of each and how to tell them apart.',
   steps: [
     { preset: 'healthy', ...whole, kicker: 'Reference', title: 'Healthy circulation', site: null, key: [],
@@ -57,8 +57,8 @@ const DWELL = 16000, SUMMARY_DWELL = 40000;
  */
 export function createTour(script, ctx) {
   const steps = script.steps, n = steps.length, fps = [], base = { pv: 7.8, whvp: 6.5, fhvp: 4.1, ra: 3, hvpg: 2.4 };
-  let idx = 0, playing = true, elapsed = 0, ready = false, raf = 0, last = 0, playBtn = null;
-  const card = h('section', { class: 'tour-card stage-blocker', 'data-safe': 'right', 'aria-label': script.title, 'aria-live': 'polite' });
+  let idx = 0, playing = script.autoplay !== false, quiz = false, revealed = false, pick = null, elapsed = 0, ready = false, raf = 0, last = 0, playBtn = null;
+  const card = h('section', { class: 'tour-card stage-blocker' + (playing ? '' : ' paused'), 'data-safe': 'right', 'aria-label': script.title, 'aria-live': 'polite' });
   const segs = h('div', { class: 'tour-segs' }, steps.map((st, i) => h('button', { class: 'tour-seg', 'aria-label': `${i + 1}: ${st.title}`, title: st.title, onclick: () => ctx.go(i) }, h('i'))));
   const body = h('div', { class: 'tour-body' });
   const ctl = h('div', { class: 'tour-ctl', role: 'toolbar', 'aria-label': 'Tour controls' });
@@ -75,7 +75,8 @@ export function createTour(script, ctx) {
     raf = 0;
     if (!playing) return;
     // At most 100 ms per frame, so a hidden tab (no frames) pauses the tour rather than skipping.
-    if (ready) elapsed += Math.min(100, t - (last || t));
+    // A quiz question waits for Reveal.
+    if (ready && !asking()) elapsed += Math.min(100, t - (last || t));
     last = t;
     if (elapsed >= dwell()) { elapsed = 0; ctx.go((idx + 1) % n); }
     paintSegs();
@@ -88,6 +89,11 @@ export function createTour(script, ctx) {
     card.classList.toggle('paused', !on);
     renderCtl();
   }
+  // Quiz mode: each level opens as "Where is the block?" with the answer hidden; the room picks a
+  // level on the route (or calls it out) and the presenter taps Reveal.
+  const quizzable = (st) => quiz && !st.summary && !!st.site;
+  const asking = () => quizzable(steps[idx]) && !revealed;
+  function doReveal() { revealed = true; paint(); renderCtl(); }
   function renderCtl() {
     playBtn = h('button', { class: 'tc-play', 'aria-label': playing ? 'Pause the tour' : 'Play the tour', title: playing ? 'Pause (K)' : 'Play (K)', onclick: () => setPlaying(!playing) }, icon(playing ? 'pause' : 'play'));
     ctl.replaceChildren(
@@ -96,11 +102,14 @@ export function createTour(script, ctx) {
       h('button', { class: 'ib', 'aria-label': 'Next', title: 'Next (→)', onclick: () => ctx.go((idx + 1) % n) }, icon('chev-right')),
       h('span', { class: 'tc-n' }, `${idx + 1} / ${n}`),
       h('span', { class: 'tc-sp' }),
+      script.quiz ? h('button', { class: 'btn sm tc-quiz', 'aria-pressed': String(quiz), title: 'Quiz the room: hide each answer until Reveal (Q)', onclick: () => setQuiz(!quiz) }, 'Quiz') : null,
       h('button', { class: 'ib', 'aria-label': 'Speaker notes', title: 'Speaker notes (N)', onclick: ctx.notes }, icon('book')),
       h('button', { class: 'ib', 'aria-label': 'End the tour', title: 'End (Esc)', onclick: ctx.stop }, icon('close')));
   }
 
+  function setQuiz(on) { quiz = on; revealed = false; pick = null; paint(); renderCtl(); }
   function head(st) {
+    if (asking()) return [h('div', { class: 'tour-kick', 'data-site': 'none' }, h('i'), 'Quiz'), h('h2', { class: 'tour-title' }, 'Where is the block?')];
     const at = SITES.find(([id]) => id === st.site);
     return [
       h('div', { class: 'tour-kick', 'data-site': st.site || 'none' }, h('i'), st.kicker, at ? h('span', {}, ' · ', at[2]) : null),
@@ -112,13 +121,28 @@ export function createTour(script, ctx) {
     card.classList.toggle('summary', !!st.summary);
     document.getElementById('app')?.classList.toggle('tour-summary', !!st.summary);   // main.js re-reads what the card covers
     if (st.summary) { body.replaceChildren(...head(st), summaryTable(), h('p', { class: 'tour-tell' }, st.tell)); return; }
-    const f = fps[idx];
-    body.replaceChildren(...head(st), createRoute({ site: st.site }).el,
+    const f = fps[idx], q = quizzable(st), hide = q && !revealed;
+    let route = createRoute({ site: q ? null : st.site });
+    if (q) {
+      route = createRoute({ onPick: (id) => { pick = id; if (revealed) return; doReveal(); } });
+      if (pick) route.select(pick);
+      if (revealed) route.reveal(st.site);
+    }
+    if (hide) {
+      body.replaceChildren(...head(st), route.el,
+        h('div', { class: 'tour-fp' + (f ? '' : ' wait') },
+          h('div', { class: 'tour-sub' }, 'Pressure along the way', h('span', {}, h('i', { class: 'lg-now' }), 'This patient', h('i', { class: 'lg-base' }), 'Healthy')),
+          f ? ladder(f, { base, reveal }) : h('div', { class: 'tl-wait' }),
+          f ? tiles(f, {}) : h('div', { class: 'tour-tiles wait' })),
+        h('button', { class: 'btn primary tour-reveal', onclick: doReveal }, 'Reveal'));
+      return;
+    }
+    body.replaceChildren(...head(st), route.el,
       h('div', { class: 'tour-fp' + (f ? '' : ' wait') },
         h('div', { class: 'tour-sub' }, 'Pressure along the way', h('span', {}, h('i', { class: 'lg-now' }), 'This patient', h('i', { class: 'lg-base' }), 'Healthy')),
         f ? ladder(f, { base: idx ? base : null, key: st.key, reveal }) : h('div', { class: 'tl-wait' }),
         f ? tiles(f, { key: st.key }) : h('div', { class: 'tour-tiles wait' })),
-      h('div', { class: 'tour-tell' }, h('b', {}, 'How to tell'), h('p', {}, st.tell)),
+      h('div', { class: 'tour-tell' }, h('b', {}, script.label || 'How to tell'), h('p', {}, st.tell)),
       st.causes?.length ? h('div', { class: 'tour-causes' }, h('b', {}, 'Causes'), h('ul', {}, st.causes.map((c) => h('li', {}, c)))) : null);
   }
 
@@ -152,6 +176,7 @@ export function createTour(script, ctx) {
     /** A step starts: its text appears at once; the numbers follow in ready(). */
     show(i) {
       const changed = i !== idx || !body.childElementCount;
+      if (i !== idx) { revealed = false; pick = null; }
       idx = i; elapsed = 0; ready = false;
       paint(); renderCtl(); paintSegs();
       if (changed) { card.classList.remove('swap'); void card.offsetWidth; card.classList.add('swap'); }
@@ -171,6 +196,9 @@ export function createTour(script, ctx) {
     },
     start() { setPlaying(true); },
     toggle() { setPlaying(!playing); },
+    /** Q toggles quiz mode; R (or Space while a question is open) reveals. */
+    quiz() { if (script.quiz) setQuiz(!quiz); },
+    reveal() { if (asking()) { doReveal(); return true; } return false; },
     destroy() { setPlaying(false); card.remove(); document.getElementById('app')?.classList.remove('tour-summary'); },
   };
 }

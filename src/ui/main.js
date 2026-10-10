@@ -11,13 +11,13 @@ import { setHvpgStage } from './hvpg-proc.js?v=97815283e5';
 import { createWhy } from './why.js?v=82d0ada42e';
 import { createTimeline, LAPSES } from './timeline.js?v=2831e31d82';
 import { createLearn } from './learn.js?v=648a1f6d2a';
-import { createCases } from './cases.js?v=a074a6964e';
+import { createCases, CASES } from './cases.js?v=a074a6964e';
 import { isBlind } from './learning-kit.js?v=472fe433c7';
 import { createCompare } from './compare.js?v=d64b7b73d4';
 import { createCard } from './card.js?v=767b2dc99d';
 import { createChart, computeFindings } from './chart.js?v=3546aeed06';
-import { createHome, ROLES } from './home.js?v=059cf7f9b9';
-import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=a34d291061';
+import { createHome, ROLES } from './home.js?v=2c57749124';
+import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=3113b1ec12';
 import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=c7917d0320';
 import { startLMS } from './lms.js?v=e2d015d3f3';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
@@ -75,6 +75,7 @@ const palette = {
 const presenter = {
   home: () => presenterL.now()?.home() ?? (presenterL.get().then(() => { if (home.isOpen()) home.render(); }), h('div', { class: 'home-loading' }, 'Loading…')),
   start: (id) => presenterL.get().then((p) => p.start(id)),
+  presentCase: (id) => presenterL.get().then((p) => p.presentCase(id)),
   stop: () => presenterL.now()?.stop(),
   readLink: () => (/#script=/.test(location.hash) ? presenterL.get().then((p) => p.readLink()) : false),
   active: () => !!presenterL.now()?.active(),
@@ -136,7 +137,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=a33bb76c1c'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=833c431818'), ({ createPresenter }) => createPresenter({ startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({

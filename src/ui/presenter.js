@@ -8,54 +8,71 @@ import { store } from './store.js?v=edbdbfb0c8';
 import { runSequence, restoreSequence } from './sequence.js?v=8bf68f9d07';
 import { h, toast, svgIcon, icon } from './util.js?v=a357853926';
 import { download } from './records.js?v=50fb9dd463';
-import { TOUR, createTour } from './tour.js?v=87bbad8ac0';
+import { TOUR, createTour } from './tour.js?v=c3b8d37a12';
 
 const ask = (q, a) => `\n\nAsk the room: ${q} Expected: ${a}`;
+// Lecture scripts share the tour's card (route, ladder, tiles) and its clinical voice, but wait for
+// the presenter instead of playing on their own.
+const lecture = (s) => ({ ...s, builtin: true, tour: true, autoplay: false, steps: s.steps.map((st) => ({ zoom: 'fit', view: 'anatomic', ...st, notes: st.tell + (st.ask ? ask(...st.ask) : '') })) });
 export const SCRIPTS = [
   TOUR,
-  {
-    id: 'ph-five', title: 'Portal pressure in five minutes', builtin: true,
-    summary: 'A pressure difference moves blood: sinusoidal, presinusoidal and downstream blocks.',
+  lecture({
+    id: 'ph-five', title: 'Portal hypertension in five minutes', label: 'What to see',
+    summary: 'Where the pressure drop sits: healthy, cirrhosis, a presinusoidal block and the heart.',
     steps: [
-      { title: 'A pressure difference moves blood. (1 min)', preset: 'healthy', view: 'circuit', zoom: 'fit', pane: 'profile',
-        notes: 'Follow blood from the bowel and spleen through the liver to the heart. Across any route, pressure drop equals flow times resistance. Use the difference between two pressures, rather than a single pressure. The portal vein has no valve that guarantees one direction.' + ask('If upstream and downstream pressures become equal, what drives steady flow through this route?', 'No pressure difference remains to drive that flow.') },
-      { title: 'Put resistance in the liver. (1.5 min)', preset: 'csph', view: 'anatomic', zoom: 'lobule', pane: 'profile',
-        notes: 'This is a sinusoidal example. Hepatic venous pressure gradient, or HVPG, is wedged minus free hepatic venous pressure. In sinusoidal cirrhosis it can reflect the upstream pressure problem. Clinically significant portal hypertension in this setting is conventionally defined by HVPG of at least 10 mmHg. The model supplies a wedge surrogate, not an actual catheter procedure.' + ask('Which two pressures form HVPG?', 'Wedged minus free hepatic venous pressure.') },
-      { title: 'Move the obstruction upstream. (1.5 min)', preset: 'schisto', view: 'anatomic', zoom: 'lobule', pane: 'profile',
-        notes: 'This presinusoidal example has high pressure upstream of the sinusoids. A low HVPG does not exclude portal hypertension here. The app’s portal pressure gradient, or PPG, subtracts upper-caval pressure from confluence pressure. It is a direct network readout at those points, not an interchangeable clinical measurement. Compare PPG with HVPG in the Pressure readouts.' + ask('Does this low HVPG rule out the upstream obstruction?', 'No, the wedge surrogate does not capture all upstream resistance.') },
-      { title: 'Raise the pressure downstream. (1 min)', preset: 'rhf', params: { pulsatile: true }, view: 'anatomic', zoom: 'fit', pane: 'profile',
-        notes: 'Congestion can raise both hepatic venous pressures together. A small difference can coexist with high absolute pressure. Identify the resistance site before choosing a treatment. This model demonstrates backpressure. It does not establish a real patient’s cardiac diagnosis or procedural eligibility. Keep endoscopy closed. Related lessons: valveless, resistance-site, hvpg, heart.' + ask('Which matters here: the small difference alone, or the absolute pressures and their location?', 'Assess both absolute pressures and location.') },
+      { preset: 'healthy', kicker: 'Start here', title: 'Healthy circulation', site: null, key: ['pv', 'hvpg'],
+        tell: 'Blood from the gut and spleen crosses the liver on its way to the heart. Each station sits a little lower than the one before: portal pressure stays under 10 mmHg and HVPG under 5.',
+        ask: ['What moves blood through the liver?', 'The pressure difference between the portal vein and the hepatic veins.'] },
+      { preset: 'csph', zoom: 'lobule', kicker: 'Intrahepatic · sinusoidal', title: 'Cirrhosis stiffens the sinusoids', site: 'sin', key: ['whvp', 'hvpg'],
+        tell: 'Scarred sinusoids resist flow, so the big drop moves into the liver. The wedged catheter reads the pressure behind it: an HVPG of 10 mmHg or more is clinically significant portal hypertension, where varices and ascites begin.',
+        ask: ['Which two pressures make the HVPG?', 'Wedged minus free hepatic venous pressure.'] },
+      { preset: 'schisto', zoom: 'lobule', kicker: 'Intrahepatic · presinusoidal', title: 'A block before the sinusoids', site: 'presin', key: ['pv', 'hvpg'],
+        tell: 'In schistosomiasis the block sits in the portal tracts, upstream of where the wedge reads. Portal pressure is high but HVPG is normal or only mildly raised, so a normal HVPG does not rule out portal hypertension.',
+        ask: ['Does a normal HVPG exclude portal hypertension?', 'No, not when the block is presinusoidal or pre-hepatic.'] },
+      { preset: 'rhf', params: { pulsatile: true }, kicker: 'Cardiac', title: 'Pressure backing up from the heart', site: 'cardiac', key: ['ra', 'fhvp', 'hvpg'],
+        tell: 'A failing right heart raises the right atrium, and every station behind it rises together. Wedged and free pressures are both high, so HVPG stays normal. A raised JVP and a pulsatile portal vein point to the heart.',
+        ask: ['Portal pressure is 20 and HVPG is 3. Where is the problem?', 'Downstream of the sinusoids: the hepatic veins or the heart.'] },
     ],
-  },
-  {
-    id: 'ph-ten', title: 'From resistance to collateral flow', builtin: true,
-    summary: 'Pressure difference → sinusoidal resistance → inflow → drugs → collaterals → TIPS.',
+  }),
+  lecture({
+    id: 'ph-ten', title: 'What each treatment fixes and costs', label: 'What it does',
+    summary: 'Inflow, beta blockers, collaterals and TIPS: what each lowers and what it costs.',
     steps: [
-      { title: 'Start with the pressure difference. (1 min)', preset: 'healthy', view: 'circuit', zoom: 'fit', pane: 'profile',
-        notes: 'Use pressure drop = flow × resistance as our starting relationship. It describes a route within a coupled circulation. The whole network can change when we alter one route. A pressure reading without its location and reference is incomplete.' + ask('What must we subtract from upstream pressure to describe a pressure drop?', 'Downstream pressure for the same route.') },
-      { title: 'Add sinusoidal resistance. (2 min)', preset: 'cirr-comp', view: 'anatomic', zoom: 'lobule', pane: 'profile',
-        notes: 'The cirrhosis control is an educational resistance macro. It is not a histologic percentage or a clinical score. This mild state raises the sinusoidal pressure difference. Contrast this profile with a portal-vein obstruction, which puts the largest drop elsewhere.' + ask('Where is the main added resistance in this state?', 'The sinusoidal bed.') },
-      { title: 'Inflow still matters. (2 min)', preset: 'csph', params: { splanchnicTone: 0.6 }, view: 'anatomic', zoom: 'fit', pane: 'profile',
-        notes: 'Compare HVPG and portal flow with the CSPH baseline shown in lesson Forward. Lowering this tone control lowers modeled arterial resistance in the splanchnic bed. More inflow meets the resistant liver. Nonselective beta blockers, or NSBBs, address part of this mechanism. Clinical prevention benefits come from trials, not from the magnitude of this slider response.' + ask('With liver resistance unchanged, can more inflow raise upstream pressure?', 'Yes.') },
-      { title: 'Reduce inflow pharmacologically. (1.5 min)', preset: 'csph', params: { drugs: { carvedilol: true, propranolol: false, terlipressin: false, octreotide: false } }, view: 'anatomic', zoom: 'fit', pane: 'profile',
-        notes: 'Carvedilol represents beta blockade plus a reduction in intrahepatic tone in this model. Propranolol has a different fixed parameter effect. These are mechanism illustrations. They do not compare clinical doses, tolerability or individual response. In compensated cirrhosis with clinically significant portal hypertension, trial evidence supports NSBB prevention of decompensation.' + ask('Why should we watch systemic pressure as well as the portal gradient?', 'An intervention can affect systemic hemodynamics and tolerability.') },
-      { title: 'Let collaterals remodel. (2 min)', preset: 'healthy', params: { cirrhosis: 0.65 }, days: 180, view: 'anatomic', zoom: 'fit', pane: 'profile',
-        notes: 'Alternative routes can carry flow immediately when a gradient exists. Their caliber can also remodel over time. The disease clock is separate from the beat-to-beat clock. Collaterals can decompress one pathway while exposing another tissue to pressure and flow.' + ask('Does opening a collateral guarantee normal pressure or normal liver perfusion?', 'No.') },
-      { title: 'A bypass changes several quantities. (1.5 min)', preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, view: 'anatomic', zoom: 'fit', pane: 'profile',
-        notes: 'Transjugular intrahepatic portosystemic shunt, or TIPS, bypasses part of the liver resistance. It redistributes flow and may increase downstream load. The model’s shunt fraction saturates in this example. It cannot predict encephalopathy, survival or the safest diameter. Selection requires clinical information outside this network. Related lessons: valveless, resistance-site, forward, collaterals, costs.' + ask('Which additional quantities should we inspect after pressure falls?', 'Bypass flow, sinusoidal flow and downstream pressure/load, alongside clinical eligibility.') },
+      { preset: 'csph', kicker: 'Starting point', title: 'Compensated cirrhosis', site: 'sin', key: ['pv', 'hvpg'],
+        tell: 'Two things keep portal pressure high: a stiff liver, and extra blood pouring in from a dilated splanchnic bed. Every treatment acts on one or the other.',
+        ask: ['Name the two levers on portal pressure.', 'Resistance in the liver and inflow from the gut.'] },
+      { preset: 'csph', params: { splanchnicTone: 0.6 }, kicker: 'Inflow', title: 'More inflow, higher pressure', site: 'sin', key: ['pv', 'hvpg'],
+        tell: 'Splanchnic vasodilation sends more blood into the same stiff liver, and portal pressure climbs further. That is why lowering inflow works even though the liver itself is unchanged.',
+        ask: ['The liver is unchanged. Can more inflow raise portal pressure?', 'Yes: pressure is flow times resistance.'] },
+      { preset: 'csph', params: { drugs: { carvedilol: true, propranolol: false, terlipressin: false, octreotide: false } }, kicker: 'Treatment · beta blocker', title: 'Carvedilol', site: 'sin', key: ['hvpg'],
+        tell: 'Carvedilol lowers inflow through beta blockade and liver tone through alpha blockade, so HVPG falls. In compensated cirrhosis with CSPH it prevents decompensation. The cost is systemic pressure: watch the blood pressure, above all with refractory ascites.',
+        ask: ['What do you watch besides the portal pressure?', 'Systemic blood pressure and kidney function.'] },
+      { preset: 'healthy', params: { cirrhosis: 0.65 }, days: 180, kicker: 'Over months', title: 'Collaterals open', site: 'sin', key: ['pv', 'hvpg'],
+        tell: 'Sustained pressure opens routes to the systemic veins: varices, the umbilical vein, splenorenal shunts. They divert flow but never bring portal pressure back to normal, and blood that skips the liver adds to the risk of encephalopathy.',
+        ask: ['Do collaterals decompress the portal system?', 'Only partly: the pressure stays high and varices can bleed.'] },
+      { preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, kicker: 'Treatment · shunt', title: 'TIPS', site: 'sin', key: ['pv', 'hvpg'],
+        tell: 'A stent from the portal vein to a hepatic vein bypasses the liver’s resistance, and the portal pressure gradient falls at once, usually below 12 mmHg. It controls bleeding and ascites. The costs: blood skips the liver (encephalopathy) and the right heart takes more volume.',
+        ask: ['Who is a poor candidate for TIPS?', 'Recurrent encephalopathy, heart failure, or very advanced liver failure.'] },
     ],
-  },
-  {
-    id: 'bleed', title: 'The bleeding patient', builtin: true,
-    summary: 'A variceal bleed and its treatment, step by step.',
+  }),
+  lecture({
+    id: 'bleed', title: 'The bleeding patient', label: 'What to see',
+    summary: 'A variceal bleed: why it happens, how to transfuse and what each treatment does.',
     steps: [
-      { title: 'Decompensated cirrhosis', preset: 'cirr-decomp', view: 'anatomic', zoom: 'fit', pane: 'endoscopy', notes: 'Large varices with red wale signs: modeled wall stress is close to its rupture point (index = ΔP·r / w).' },
-      { title: 'The varix ruptures', action: { kind: 'rupture', site: 'VAR', tear: 0.8 }, notes: 'Blood loss lowers portal pressure and the bleeding may pause; over-transfusion would refill the splanchnic veins and restart it.' },
-      { title: 'Terlipressin', params: { drugs: { terlipressin: true } }, pane: 'varixwall', notes: 'Splanchnic vasoconstriction lowers portal inflow within minutes: variceal pressure and modeled wall stress fall.' },
-      { title: 'Band ligation', action: { kind: 'band' }, pane: 'endoscopy', notes: 'EVL removes the bleeding source but leaves portal pressure unchanged.' },
-      { title: 'The same patient as a circuit', view: 'circuit', notes: 'The circuit shows every route the blood can take; watch the collateral lanes.' },
+      { preset: 'cirr-decomp', kicker: 'Before the bleed', title: 'Decompensated cirrhosis', site: 'sin', key: ['hvpg'],
+        tell: 'HVPG is well above 12 mmHg, the level at which varices can bleed. Wall tension rises with the pressure inside and the size of the varix and falls with wall thickness: large varices with red signs are the ones that burst.',
+        ask: ['Which varices bleed?', 'Large ones with red signs, at high pressure.'] },
+      { action: { kind: 'rupture', site: 'VAR', tear: 0.8 }, kicker: 'Bleed', title: 'The varix ruptures', site: 'sin', key: ['pv', 'hvpg'],
+        tell: 'Blood loss drops the pressure and the bleed can slow on its own. Transfuse to a hemoglobin of 7 to 8 g/dL: over-transfusion refills the portal bed and restarts the bleeding.',
+        ask: ['Why transfuse to only 7 to 8 g/dL?', 'More volume raises portal pressure and restarts the bleed.'] },
+      { params: { drugs: { terlipressin: true } }, kicker: 'Treatment · first hour', title: 'Terlipressin', site: 'sin', key: ['pv', 'hvpg'],
+        tell: 'Splanchnic vasoconstriction cuts portal inflow within minutes, and variceal pressure falls. Start it before endoscopy, together with antibiotics (ceftriaxone).',
+        ask: ['What else starts before endoscopy?', 'Antibiotics, such as ceftriaxone.'] },
+      { action: { kind: 'band' }, kicker: 'Treatment · endoscopy', title: 'Band ligation', site: 'sin', key: ['pv', 'hvpg'],
+        tell: 'Bands strangle the bleeding varix, ideally within 12 hours. They stop the source but leave portal pressure unchanged, so a beta blocker follows to prevent the next bleed, and pre-emptive TIPS for the highest-risk patients.',
+        ask: ['Does banding lower portal pressure?', 'No: it treats the varix, not the pressure.'] },
     ],
-  },
+  }),
 ];
 
 const KEY = 'pps.scripts';
@@ -64,7 +81,7 @@ const writeMine = (list) => { try { localStorage.setItem(KEY, JSON.stringify(lis
 const enc = (o) => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const dec = (s) => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))));
 
-export function createPresenter({ loadPreset, updateParams, host, stage, dock, action, projectorOn, projectorOff, closeHome, rerenderHome }) {
+export function createPresenter({ startCase, cases = [], loadPreset, updateParams, host, stage, dock, action, projectorOn, projectorOff, closeHome, rerenderHome }) {
   let script = null, tour = null, idx = 0, bar = null, titleEl = null, progEl = null, notesEl = null, notesOpen = false, laser = null;
   const all = () => [...SCRIPTS, ...readMine()];
 
@@ -173,7 +190,7 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
       dock.close();
       store.set({ selection: null });
       stage.setProjection(innerWidth >= 768);   // projector-size labels, except on a phone
-      tour.start();
+      if (script.autoplay !== false) tour.start();
       await go(0);
       return;
     }
@@ -205,7 +222,9 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
     if (!script || e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key;
     let used = true;
-    if (tour && (k === ' ' || k.toLowerCase() === 'k')) tour.toggle();
+    if (tour && (k === ' ' || k.toLowerCase() === 'r' || k === 'ArrowRight' || k === 'PageDown') && tour.reveal()) { /* a quiz answer first */ }
+    else if (tour && k.toLowerCase() === 'q') tour.quiz();
+    else if (tour && (k.toLowerCase() === 'k' || (k === ' ' && script.autoplay !== false))) tour.toggle();
     else if (k === 'ArrowRight' || k === 'PageDown' || k === ' ') go(idx + 1);
     else if (k === 'ArrowLeft' || k === 'PageUp') go(idx - 1);
     else if (k === 'Home') go(0);
@@ -269,23 +288,49 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
 
   function home() {
     const mine = new Set(readMine().map((s) => s.id));
-    const card = (s) => h('div', { class: 'home-item script' + (s.tour ? ' tour-hero' : '') },
-      h('span', { class: 'meta' }, s.tour ? `Self-running tour · ${s.steps.length} states` : `${s.steps.length} steps · ${s.builtin ? 'Built in' : 'Yours'}`),
+    const card = (s) => h('div', { class: 'home-item script' + (s.quiz ? ' tour-hero' : '') },
+      h('span', { class: 'meta' }, s.quiz ? `Self-running tour · ${s.steps.length} states` : `${s.steps.length} steps · ${s.builtin ? 'Built in' : 'Yours'}`),
       h('span', { class: 't' }, s.title), h('span', { class: 'd' }, s.summary || ''),
-      s.tour ? h('span', { class: 'tour-chips' }, ['Pre-hepatic', 'Presinusoidal', 'Sinusoidal', 'Postsinusoidal', 'Post-hepatic', 'Cardiac'].map((x) => h('span', {}, x))) : null,
+      s.quiz ? h('span', { class: 'tour-chips' }, ['Pre-hepatic', 'Presinusoidal', 'Sinusoidal', 'Postsinusoidal', 'Post-hepatic', 'Cardiac'].map((x) => h('span', {}, x))) : null,
       h('span', { class: 'script-acts' },
-        h('button', { class: 'btn sm primary', onclick: () => start(s.id) }, svgIcon(s.tour ? 'play' : 'projector', 'mi-ic'), s.tour ? 'Play the tour' : 'Present'),
+        h('button', { class: 'btn sm primary', onclick: () => start(s.id) }, svgIcon(s.quiz ? 'play' : 'projector', 'mi-ic'), s.quiz ? 'Play the tour' : 'Present'),
         mine.has(s.id) ? h('button', { class: 'btn sm', onclick: () => addStep(s.id) }, 'Add current state') : null,
         h('button', { class: 'btn sm ghost', onclick: () => shareLink(s) }, 'Share link'),
         h('button', { class: 'btn sm ghost', onclick: () => exportScript(s) }, 'Export'),
         mine.has(s.id) ? h('button', { class: 'btn sm ghost', onclick: () => remove(s.id) }, 'Delete') : null));
     return h('div', {},
       h('div', { class: 'home-grid' }, all().map(card)),
+      cases.length ? h('h3', { class: 'home-sub' }, 'Present a case') : null,
+      cases.length ? h('div', { class: 'home-grid' }, cases.map((c) => h('div', { class: 'home-item script' },
+        h('span', { class: 'meta' }, 'Case · for the room'), h('span', { class: 't' }, c.title), h('span', { class: 'd' }, c.blurb || c.summary || ''),
+        h('span', { class: 'script-acts' }, h('button', { class: 'btn sm primary', onclick: () => presentCase(c.id) }, svgIcon('projector', 'mi-ic'), 'Present'))))) : null,
       h('div', { class: 'btn-row', style: { marginTop: '16px' } },
         h('button', { class: 'btn', onclick: newScript }, 'New script from the current model'),
         h('button', { class: 'btn', onclick: importFile }, 'Import a script')),
       h('p', { class: 'ctl-sub' }, 'While presenting: → or Page Down for the next step, ← to go back, N opens the speaker notes, L is a laser pointer, Esc stops. In the tour, Space or K pauses and resumes.'));
   }
 
-  return { start, stop, home, readLink, active: () => !!script };
+  // Present a case: any case full screen for a class. Projector-size labels on the figure; the slim bar reminds the presenter to take a show of hands before committing.
+  let classBar = null;
+  function presentCase(id) {
+    closeHome?.();
+    startCase(id);
+    stage.setProjection(innerWidth >= 768);   // projector-size labels; the case panel stays open
+    document.getElementById('app').classList.add('class-case');
+    classBar?.remove();
+    classBar = h('div', { class: 'class-bar stage-blocker', role: 'status' },
+      h('span', { class: 'cb-k' }, 'Presenting'),
+      h('span', {}, 'Read each choice aloud, take a show of hands, then commit for the room.'),
+      h('button', { class: 'ib', 'aria-label': 'Stop presenting the case', title: 'Stop (Esc)', onclick: endCase }, icon('close')));
+    document.getElementById('stageView').append(classBar);
+  }
+  function endCase() {
+    if (!classBar) return;
+    classBar.remove(); classBar = null;
+    document.getElementById('app').classList.remove('class-case');
+    stage.setProjection(false);
+  }
+  addEventListener('keydown', (e) => { if (classBar && e.key === 'Escape' && !script) endCase(); });
+
+  return { start, stop, home, readLink, presentCase, active: () => !!script };
 }
