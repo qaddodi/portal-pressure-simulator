@@ -3,13 +3,13 @@
 
 import { NODES } from '../engine/topology.js?v=dc393aabea';
 import { pressureColor } from './colormap.js?v=6d64a94345';
-import { verbEnabled } from './actions.js?v=658820a7b3';
-import { h, fmt, fitCanvas, cssVar, clamp, icon } from './util.js?v=a357853926';
-import { simTime, isPaused } from './clock.js?v=953a5f70a7';
+import { verbEnabled } from './actions.js?v=8e44cc766f';
+import { h, fmt, fitCanvas, cssVar, clamp, icon } from './util.js?v=e803df99cd';
+import { simTime, isPaused } from './clock.js?v=77fb9815e5';
 import { createEndoGL } from './endo-gl.js?v=b10afb7c95';
 import { renderEndo } from './endo-render.js?v=41cd7f6fa2';
-import { FONT } from './charts.js?v=151b0288b8';
-import { store, updateParams, logAction, varicesPresent } from './store.js?v=edbdbfb0c8';
+import { FONT } from './charts.js?v=ac5eb186fd';
+import { store, updateParams, logAction, varicesPresent } from './store.js?v=25cbe77a76';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
@@ -265,28 +265,35 @@ export function createAbdomen({ onAction }) {
       h('div', { class: 'ab-row ab-rx-row' }, h('span', { class: 'ab-rx-txt' }, h('b', {}, 'Paracentesis'), h('small', {}, 'litres to drain')), vol.el),
       h('div', { class: 'ab-drain-row' }, alb, drain), albNote));
   const el = h('div', { class: 'ab', 'data-pane': 'abdomen' }, h('div', { class: 'hv-main ab-main' }, info, treat));
+  // Every frame calls this, but a pane the learner is scrolling must not be touched when nothing changed: on a phone,
+  // rewriting a text node or an attribute to the same value is enough to make the browser stop a scroll in flight.
+  const setText = (el, t) => { if (el.textContent !== t) el.textContent = t; };
+  const setAttr = (el, k, v) => { if (el.getAttribute(k) !== v) el.setAttribute(k, v); };
+  const setData = (el, k, v) => { if (el.dataset[k] !== v) el.dataset[k] = v; };
   function update(f) {
     const a = f.metrics.ascites, p = store.get().params;
-    numEl.textContent = fmt(a.volume / 1000, 1);
-    gradeEl.textContent = GRADE[a.grade] || a.label; gradeEl.title = GRADE_TIP[a.grade] || '';
-    gradeEl.dataset.sev = SEV[a.grade] || 'danger';
-    diu.setAttribute('aria-pressed', String(!!p.diuretics));
+    setText(numEl, fmt(a.volume / 1000, 1));
+    setText(gradeEl, GRADE[a.grade] || a.label); setAttr(gradeEl, 'title', GRADE_TIP[a.grade] || '');
+    setData(gradeEl, 'sev', SEV[a.grade] || 'danger');
+    setAttr(diu, 'aria-pressed', String(!!p.diuretics));
     diu.disabled = !(verbEnabled('drug:diuretics', 'drug:diuretics') || verbEnabled('drugs', 'drugs'));
     if (sa.get() !== p.albumin) sa.set(p.albumin);
     const r = a.ratePerDay, trend = Math.abs(r) < 20 ? 'steady' : r > 0 ? 'building up' : 'resolving';
-    trendEl.textContent = `${r > 0 ? '+' : ''}${fmt(r, 0)} mL a day · ${trend}`;
+    setText(trendEl, `${r > 0 ? '+' : ''}${fmt(r, 0)} mL a day · ${trend}`);
     const sev = a.iap >= 20 ? 'danger' : a.iap >= 12 ? 'caution' : 'ok';
-    iapVal.textContent = `${fmt(a.iap, 0)} mmHg · ${a.iap >= 20 ? 'compartment syndrome' : a.iap >= 12 ? 'high' : 'normal'}`;
-    iapVal.dataset.sev = sev; iapFill.dataset.sev = sev;
-    iapFill.style.width = `${clamp(a.iap / 30, 0, 1) * 100}%`;
-    iapBar.setAttribute('aria-label', `Abdominal pressure ${fmt(a.iap, 0)} mmHg`);
+    setText(iapVal, `${fmt(a.iap, 0)} mmHg · ${a.iap >= 20 ? 'compartment syndrome' : a.iap >= 12 ? 'high' : 'normal'}`);
+    setData(iapVal, 'sev', sev); setData(iapFill, 'sev', sev);
+    const iw = `${Math.round(clamp(a.iap / 30, 0, 1) * 1000) / 10}%`;
+    if (iapFill.style.width !== iw) iapFill.style.width = iw;
+    setAttr(iapBar, 'aria-label', `Abdominal pressure ${fmt(a.iap, 0)} mmHg`);
     // SAAG from the rounded parts, so serum − ascitic always adds up on screen.
-    const tapped = a.volume > 150;
+    // In a case the fluid results come from the tap you order, in the case chart, never from here.
+    const inCase = !!store.get().found, tapped = a.volume > 150 && !inCase;
     const r1 = (x) => Math.round(x * 10) / 10, saag = r1(r1(p.albumin) - r1(a.albumin));
-    saagV.textContent = tapped ? fmt(saag, 1) : '—'; tpV.textContent = tapped ? fmt(a.totalProtein, 1) : '—'; albV.textContent = tapped ? fmt(a.albumin, 1) : '—';
-    saagEl.title = tapped ? `SAAG ${fmt(p.albumin, 1)} − ${fmt(a.albumin, 1)} = ${fmt(saag, 1)} g/dL. ≥ 1.1 means portal hypertension.` : '';
-    tapNote.textContent = tapped ? 'g/dL' : 'Too little fluid to tap';
-    if (hasFluid !== tapped) { hasFluid = tapped; paintVol(); }
+    setText(saagV, tapped ? fmt(saag, 1) : '—'); setText(tpV, tapped ? fmt(a.totalProtein, 1) : '—'); setText(albV, tapped ? fmt(a.albumin, 1) : '—');
+    setAttr(saagEl, 'title', tapped ? `SAAG ${fmt(p.albumin, 1)} − ${fmt(a.albumin, 1)} = ${fmt(saag, 1)} g/dL. ≥ 1.1 means portal hypertension.` : '');
+    setText(tapNote, inCase ? 'Order it in the case' : tapped ? 'g/dL' : 'Too little fluid to tap');
+    if (hasFluid !== a.volume > 150) { hasFluid = a.volume > 150; paintVol(); }
     // Whole percents only: rewriting the height every frame would keep restarting its ease.
     const bh = `${Math.round(a.volume > 150 ? 15 + clamp(a.volume / 8000, 0, 1) * 70 : 0)}%`;
     if (bellyFill.style.height !== bh) bellyFill.style.height = bh;

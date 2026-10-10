@@ -11,7 +11,7 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 70
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -54,8 +54,12 @@ jobs:
           fi
       - name: Smoke test (build-free site)
         run: npm run smoke
+        env:
+          SMOKE_WORKERS: 2
       - name: Smoke test (production build)
         run: npm run smoke:dist
+        env:
+          SMOKE_WORKERS: 2
       # The look (organ tones and light, vessels, lobule) against tests/visual; on a failure the
       # current pictures and diffs are kept as an artifact.
       - name: Visual regression

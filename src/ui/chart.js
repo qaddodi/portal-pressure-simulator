@@ -6,14 +6,14 @@
 //   Changes                              what has been set: sliders, drugs, shunts, with values
 //   Abnormal results                     what is abnormal, in words, with its cut-off; Why?
 //   (what has happened lives in the timeline's History, under the figure)
-//   Advanced                             physiology knobs (instructor / researcher)
+//   Advanced                             physiology knobs (instructor)
 
-import { store, updateParams, hiddenNow } from './store.js?v=edbdbfb0c8';
-import { h, fmt, icon, svgIcon, toast } from './util.js?v=a357853926';
-import { DRUGS } from '../engine/scenario.js?v=d88966abe6';
-import { TILES, VITALS, readoutValue } from './dock.js?v=cbcdf6dc63';
-import { activeInterventions } from './inspector.js?v=5acd5150f6';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=658820a7b3';
+import { store, updateParams, hiddenNow } from './store.js?v=25cbe77a76';
+import { h, fmt, icon, svgIcon, toast } from './util.js?v=e803df99cd';
+import { DRUGS } from '../engine/scenario.js?v=da4ad72f01';
+import { TILES, VITALS, readoutValue } from './dock.js?v=6f0df6906c';
+import { activeInterventions } from './inspector.js?v=500d39491c';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=8e44cc766f';
 
 // Where each readout is measured, so a click can show it on the figure.
 const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS', 'DIPS'], spleen: ['V_SPL', 'SV_CONF'], ra: ['IVCS_RA'] };
@@ -207,6 +207,15 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       })(),
       proc('needle', 'Paracentesis', 'drain ascites', 'paracentesis', () => select({ type: 'organ', id: 'abdomen' })));
     for (const b of procs.querySelectorAll('button')) b.addEventListener('click', () => onDone?.());
+    // Student mode shows the common procedures first; the rest wait behind "More procedures".
+    if ((store.get().role || 'student') === 'student') {
+      const COMMON = ['Band ligation', 'TIPS', 'Paracentesis'];
+      const rest = [...procs.children].filter((b) => !COMMON.includes(b.querySelector('.ob-t')?.textContent));
+      const more = h('button', { class: 'order-btn order-more', 'aria-expanded': 'false', title: 'Balloon tamponade, DIPS, surgical shunts, BRTO, spleen' }, h('span', { class: 'ob-t' }, 'More procedures'));
+      more.addEventListener('click', () => { const on = more.getAttribute('aria-expanded') !== 'true'; more.setAttribute('aria-expanded', String(on)); for (const b of rest) b.classList.toggle('ob-hidden', !on); more.querySelector('.ob-t').textContent = on ? 'Fewer procedures' : 'More procedures'; });
+      for (const b of rest) { b.classList.add('ob-extra', 'ob-hidden'); procs.append(b); }
+      procs.insertBefore(more, rest[0] || null);
+    }
     // Three tabs, styled as the Tests card's, so the cards read as one set; the last tab is kept.
     const panes = [['drugs', 'pill', 'Drugs', drugs], ['fluids', 'drop', 'Fluids', fluids], ['procs', 'band', 'Procedures', procs]];
     const tabs = h('div', { class: 'instr-tabs treat-tabs', role: 'tablist', 'aria-label': 'Treatments' });
@@ -233,7 +242,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       h('button', { class: 'order-btn', onclick: () => action({ kind: 'valsalva' }) }, h('span', { class: 'ob-t' }, 'Valsalva', h('small', {}, '10 s strain'))),
       h('button', { class: 'order-btn', onclick: () => action({ kind: 'rupture', site: 'VAR', tear: 0.6 }) }, h('span', { class: 'ob-t' }, 'Rupture a varix', h('small', {}, 'start a bleed'))),
       h('button', { class: 'order-btn', onclick: () => action({ kind: 'hemorrhage', mL: 500 }) }, h('span', { class: 'ob-t' }, '− 500 mL', h('small', {}, 'hemorrhage'))));
-    if (role === 'researcher') open.add('advanced');
+    if (role === 'instructor') open.add('advanced');
     return section('advanced', 'Advanced physiology', 'sliders', null,
       h('div', { class: 'subhead' }, 'Inflow & vascular tone'), controls(['splanchnicTone', 'systemicTone']),
       h('div', { class: 'subhead' }, 'Hepatic circulation'), controls(['habr', 'apShunt']),

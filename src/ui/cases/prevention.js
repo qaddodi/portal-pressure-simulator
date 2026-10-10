@@ -1,13 +1,14 @@
 // C2. Big varices on a screening scope: the learner reads a chart that hides the contraindication
 // (or has none), chooses carvedilol or banding, then follows the patient through a skip-ahead.
 
-import { DX_HIDDEN, pltRow, esoText, fill } from './kit.js?v=4021282d5c';
+import { DX_HIDDEN, pltRow, esoText, fill } from './kit.js?v=4db57f825c';
 
 const BASE_HX = ['Compensated cirrhosis from fatty liver disease (MASLD), diagnosed 2 years ago. Never decompensated: no ascites, no confusion, no jaundice.', 'Liver stiffness {lsm} kPa. Platelets {plt}.', 'Screening endoscopy today: {eso-}. No bleeding.'];
 const PATIENT = { name: 'Aisha Bello', age: 61, sex: 'F', setting: 'Hepatology clinic', problem: 'Large varices on a screening scope. No bleeding yet.' };
 
 export const prevention = {
   id: 'prevention', title: 'Big varices on a screening scope', level: 'Prevention', minutes: 9,
+  tests: (c) => (c.cs.contra === 'block' ? ['egd', 'ecg'] : ['egd']),
   summary: 'A woman with compensated cirrhosis has large varices on her screening scope. Read the chart, pick the prevention plan, and see what it does three months later.',
   tools: ['select', 'endoscope'], hidden: DX_HIDDEN, speed: 1, preset: 'csph',
   // Aged to match the story: stiffness above 25 kPa, large varices with red wale, no ascites yet.

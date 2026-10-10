@@ -1,6 +1,6 @@
 // C4. Ascites that keeps coming back: the chart plants one contraindication to TIPS, or none.
 
-import { DX_HIDDEN, fill } from './kit.js?v=4021282d5c';
+import { DX_HIDDEN, fill } from './kit.js?v=4db57f825c';
 
 const PT = { name: 'Linda Park', age: 59, sex: 'F', setting: 'Hepatology day unit', problem: 'Needs a large tap every two weeks.' };
 const HX = ['Alcohol-related cirrhosis. Abstinent for two years.', 'Ascites for 18 months. Takes spironolactone 400 mg and furosemide 160 mg a day, the maximum doses. The dietitian confirms a low-salt diet and a urine sodium check confirms she follows it.', 'Needs a large tap about every two weeks and is back again today.'];
@@ -16,6 +16,7 @@ const variant = (k) => ({ vid: k, patient: PT, ...V[k], tipsOk: k === 'a' });
 
 export const refractory = {
   id: 'refractory', title: 'Ascites that keeps coming back', level: 'Management', minutes: 10,
+  tests: ['labs', 'tap-dx', 'echo'], trend: ['Ascites', 'asc', 'mL'],
   summary: 'A woman needs a large tap every two weeks despite maximum diuretics. Relieve her today, then read the chart to decide whether she should have a TIPS.',
   tools: ['select', 'needle', 'stent'], hidden: DX_HIDDEN, speed: 1,
   preset: 'cirr-decomp', afterDays: 400, prep: (p) => { p.diuretics = false; return p; },

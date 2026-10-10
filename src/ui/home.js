@@ -1,14 +1,19 @@
-// Home: where a session starts. Four doors: explore a patient, take a lesson, manage a case, or
-// present to a class. It replaces the mode tabs and the first-run welcome; the brand mark
-// brings it back. A lesson or case then runs in the ordinary workspace with a slim banner.
+// Home is the course page: "Continue" with the next unit, the units with their progress (each opens
+// when the one before is done), the review card for a returning student, and a link to Explore.
+// Instructors also get "Unlock all units" and the lesson and case libraries and the presenter.
+// The other pages (explore, learn, drill, cases, present) open from here and lead back to it.
 
-import { store } from './store.js?v=edbdbfb0c8';
-import { h, svgIcon, icon } from './util.js?v=a357853926';
-import { LESSONS } from './learn.js?v=648a1f6d2a';
-import { CASES } from './cases.js?v=7bbce6617a';
-import { t } from '../i18n/i18n.js?v=a34d291061';
+import { store } from './store.js?v=25cbe77a76';
+import { h, svgIcon, icon } from './util.js?v=e803df99cd';
+import { LESSONS } from './learn.js?v=f427100fb8';
+import { CASES } from './cases.js?v=a7414fa276';
+import { createDrill, drillProgress, DRILL_TITLE, ROUNDS } from './drill.js?v=ef8c1409f2';
+import { skillsPath, reviewCard } from './practice.js?v=43fccbc3d1';
+import { UNITS, FINAL, PARTS, course } from './course.js?v=3bf3617fd0';
+import { openExam } from './exam.js?v=237348df1c';
+import { t } from '../i18n/i18n.js?v=96bbcced4d';
 import { exportCSV, exportXAPI, learnerName, setLearnerName, records } from './records.js?v=50fb9dd463';
-import { SNAPSHOTS, PATH } from './snapshots.js?v=d65b65cf14';
+import { SNAPSHOTS, PATH } from './snapshots.js?v=47b3a3415c';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 
@@ -52,61 +57,125 @@ function patientCard(p, cur, onPreset) {
     h('span', { class: 'd' }, p.summary));
 }
 
-// Who is using the simulator: it sets how much of the model the cards and the chart open.
-export const ROLES = [['student', 'Student', 'The model and the clinical orders.'], ['instructor', 'Instructor', 'Adds the physiology knobs and presenter scripts.'], ['researcher', 'Researcher', 'Everything open, with resistances on the cards.']];
-function rolePicker(render) {
-  const cur = store.get().role || 'student';
-  const d = ROLES.find(([v]) => v === cur)?.[2];
-  return h('div', { class: 'home-role' },
-    h('span', { class: 'hr-k', id: 'homeRoleK' }, t('menu.role')),
-    h('div', { class: 'seg', role: 'group', 'aria-labelledby': 'homeRoleK' }, ROLES.map(([v, l, dd]) => h('button', { 'aria-pressed': String(cur === v), title: dd, onclick: () => { store.set({ role: v }); render(); } }, l))),
-    h('span', { class: 'hr-d' }, d));
+// Who is using the simulator (chosen in Settings): Student sees the course and a simpler Explore;
+// Instructor adds the physiology knobs, the case and lesson libraries, the presenter and unlocking units.
+export const ROLES = [['student', 'Student', 'A simpler set of controls, with the HVPG shown from the start.'], ['instructor', 'Instructor', 'All controls, including the physiology settings and resistances.']];
+
+// One row of the unit list: its number (a check once done, a lock until it opens), title, objective and time.
+function unitRow(u, onUnit) {
+  const st = course.state(u.id), done = course.progress().done[u.id], at = course.progress().at[u.id];
+  const mark = st === 'done' ? svgIcon('check') : st === 'locked' ? svgIcon('lock') : String(u.n ?? '★');
+  return h('button', { class: 'cu-row', 'data-state': st, disabled: st === 'locked', title: st === 'locked' ? 'Opens when the unit before it is done' : u.objective, onclick: () => onUnit(u.id) },
+    h('span', { class: 'cu-n', 'aria-hidden': 'true' }, mark),
+    h('span', { class: 'cu-b' }, h('span', { class: 'cu-t' }, u.n ? `${u.n}. ` : '', u.title), h('span', { class: 'cu-d' }, u.objective)),
+    h('span', { class: 'cu-m' }, done ? h('b', {}, `${done.score} %`) : at > 0 && st === 'open' ? h('b', { class: 'cu-go' }, 'In progress') : null, h('small', {}, u.draft ? 'Draft' : `${u.minutes} min`)));
 }
+function coursePage({ onUnit, go, instructor, render }) {
+  const next = course.next(), n = course.doneCount(), started = next && course.progress().at[next.id] > 0;
+  const cont = next
+    ? h('button', { class: 'cr-continue', onclick: () => onUnit(next.id) },
+      h('span', { class: 'overline' }, started ? 'Continue' : n ? 'Next unit' : 'Start the course'),
+      h('span', { class: 'cr-t' }, `Unit ${next.n} · ${next.title}`), h('span', { class: 'cr-d' }, next.objective),
+      h('span', { class: 'cr-p' }, h('span', { class: 'ub-track' }, h('i', { style: { width: `${(100 * n) / UNITS.length}%` } })), `${n} of ${UNITS.length} units done`),
+      h('span', { class: 'cr-go', 'aria-hidden': 'true' }, icon('chev-right')))
+    : h('div', { class: 'cr-continue done' }, h('span', { class: 'overline' }, 'Course'), h('span', { class: 'cr-t' }, 'All eight units done'), h('span', { class: 'cr-d' }, 'The final assessment is next.'));
+  const parts = Object.entries(PARTS).map(([k, name]) => h('section', { class: 'cu-part' }, h('h3', { class: 'home-sub' }, `${k} · ${name}`), UNITS.filter((u) => u.part === k).map((u) => unitRow(u, onUnit))));
+  const final = h('section', { class: 'cu-part' }, h('h3', { class: 'home-sub' }, 'Assessment'), unitRow(FINAL, () => openExam({ onDone: render })));
+  const explore = h('button', { class: 'cr-explore', onclick: () => go('explore') }, h('span', { class: 'hd-ic' }, svgIcon('explore')),
+    h('span', {}, h('b', {}, 'Explore the model'), h('small', {}, 'Any of the patients, freely: views, treatments, time-lapse, Doppler and endoscopy.')), icon('chev-right'));
+  let teach = null;
+  if (instructor) {
+    const unlock = h('input', { type: 'checkbox', checked: course.progress().unlockAll });
+    unlock.addEventListener('change', () => { course.setUnlockAll(unlock.checked); render(); });
+    teach = h('section', { class: 'cr-teach' }, h('span', { class: 'overline' }, 'Instructor'),
+      h('label', { class: 'cr-unlock' }, unlock, 'Unlock all units'),
+      h('div', { class: 'cr-lib' }, h('button', { class: 'btn sm', onclick: () => go('learn') }, svgIcon('book'), 'Lessons')));
+  }
+  return h('div', { class: 'course' }, cont, reviewCard(), parts, final, explore, teach);
+}
+
+// The eight cases cut from the course (the plan's §2): they stay in the Case library under Explore, for instructors.
+// The other four are the course's own (units 4, 6, 7 and 8); the library lists them last, as a reminder.
+const LIBRARY = ['gastric', 'budd-chiari', 'pvt', 'nsbb-problem', 'schisto', 'hepatofugal', 'post-tips', 'treat-cause'];
 
 const read = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || d); } catch { return JSON.parse(d); } };
 
-export function createHome({ el, brandMark, onPreset, onLesson, onCase, onPresenter, onClose, onClosed }) {
+export function createHome({ el, brandMark, onPreset, onLesson, onUnit, onCase, onPresenter, onClose, onClosed }) {
   let tab = 'explore';
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  const app = document.getElementById('app');
+  let swapT = 0, leaveT = 0;
+  // The decks' titles are set in the serif: have it loaded before Present is first opened, so the page never changes font after it shows.
+  try { document.fonts?.load('600 28px "Source Serif 4"').catch(() => {}); } catch { /* fonts API unavailable */ }
+  // A page change inside Home (Explore ↔ Present, back): the page eases out, the next eases in, never a pop.
+  function swapTo(id) {
+    if (swapT) return;
+    const inner = el.firstElementChild;
+    if (reduce.matches || !inner) { tab = id; render(); el.scrollTop = 0; return; }
+    inner.classList.add('swap-out');
+    swapT = setTimeout(() => {
+      swapT = 0; tab = id; render(); el.scrollTop = 0;
+      el.firstElementChild?.classList.add('swap-in');
+    }, 160);
+  }
   function render() {
     const st = store.get();
     const done = read('pps.lessons', '{}');
     const best = read('pps.caseScores', '{}');
-    const tabs = [['explore', 'explore', t('home.explore'), t('home.explore.d')],
-      ['learn', 'book', t('home.lessons'), `${LESSONS.filter((l) => done[l.id]).length} / ${LESSONS.length} · predict, observe, explain`],
-      ['cases', 'case', t('home.cases'), t('home.cases.d')],
-      ['present', 'projector', t('home.presenter'), t('home.presenter.d')]];
-    const nav = h('nav', { class: 'home-doors', 'aria-label': 'Start' }, tabs.map(([id, ic, t, d]) => {
-      const b = h('button', { class: 'home-door', 'aria-pressed': String(tab === id) }, h('span', { class: 'hd-ic' }, svgIcon(ic)), h('span', { class: 'hd-t' }, t), h('span', { class: 'hd-d' }, d));
-      b.addEventListener('click', () => { tab = id; render(); });
-      return b;
-    }));
+    const go = (id) => swapTo(id);
+    // The course, lessons and cases are hidden for now (their pages stay below, unreachable): Home is
+    // Explore, with Present one step down, for both roles.
+    if (tab !== 'present') tab = 'explore';
+    const TITLES = { explore: 'Explore the model', learn: 'Lessons', drill: 'Lessons', practice: 'Unit 3 practice', cases: 'Case library', present: 'Present' };
+    const parent = tab === 'drill' ? ['learn', 'Lessons'] : tab === 'cases' || tab === 'present' ? ['explore', 'Explore'] : ['course', 'Course'];
+    const nav = tab === 'explore' ? null : h('nav', { class: 'home-back', 'aria-label': 'Back' },
+      h('button', { class: 'btn ghost sm', onclick: () => go(parent[0]) }, svgIcon('chev-left'), parent[1]), h('h2', {}, TITLES[tab]));
     let body;
-    if (tab === 'explore') {
+    if (tab === 'course') {
+      body = coursePage({ onUnit, go, instructor: st.role === 'instructor', render });
+    } else if (tab === 'explore') {
       const groups = {};
       for (const p of st.presetList || []) (groups[p.group] ||= []).push(p);
       // A map of the disease: patients grouped by where the resistance sits, from the gut to the
       // heart, each drawn as its own pressure profile.
       const axis = h('div', { class: 'hp-axis', 'aria-hidden': 'true' }, PATH.map(([, l]) => h('span', {}, l)));
       body = h('div', {},
+        h('section', { class: 'ex-teach' },
+          h('button', { class: 'btn sm', onclick: () => go('present') }, svgIcon('projector'), 'Present')),
         h('div', { class: 'hp-intro' },
-          h('p', {}, 'Each line is a patient’s pressure from the gut to the heart. Blood runs downhill; ', h('b', {}, 'the steepest fall (shaded) is where the resistance sits.')),
+          h('p', {}, 'Each line plots one patient’s pressure from the gut to the heart. The shaded segment, where pressure drops most, marks the site of resistance.'),
           h('div', { class: 'hp-key' }, axis)),
         h('div', { class: 'home-grid scen' }, Object.entries(groups).map(([g, ps]) => h('section', { class: 'home-group' },
           h('h3', {}, h('i', { style: { background: GROUP_COLOR[g] || 'var(--text-3)' } }), g, h('small', {}, GROUP_WHERE[g] || '')),
           ps.map((p) => patientCard(p, st.presetId, onPreset))))));
+    } else if (tab === 'practice') {
+      // Unit 3's optional practice: the drill, five patients, back to the course.
+      body = createDrill({ rounds: 5, exitLabel: 'Back to the course', onExit: () => go('course') }).el;
+    } else if (tab === 'drill') {
+      body = createDrill({ onExit: () => { tab = 'learn'; render(); } }).el;
     } else if (tab === 'learn') {
-      body = h('div', { class: 'home-grid' }, LESSONS.map((l, i) => h('button', { class: 'home-item lesson' + (done[l.id] ? ' done' : ''), onclick: () => onLesson(l.id) },
+      const drill = drillProgress(), openDrill = () => { tab = 'drill'; render(); };
+      const lessons = h('div', { class: 'home-grid' }, LESSONS.map((l, i) => h('button', { class: 'home-item lesson' + (done[l.id] ? ' done' : ''), onclick: () => onLesson(l.id) },
         h('span', { class: 'meta' }, h('span', { class: 'num' }, done[l.id] ? svgIcon('check') : String(i + 1)), `${l.minutes} min`, done[l.id]?.score != null ? h('span', { class: 'score' }, `${done[l.id].score} %`) : done[l.id] ? h('span', { class: 'score' }, 'Done') : null),
         h('span', { class: 't' }, l.title), h('span', { class: 'd' }, l.summary))));
+      body = h('div', { class: 'home-learn' }, reviewCard(), skillsPath({ onLesson, onCase, onDrill: openDrill }),
+        h('button', { class: 'home-item drill-door', onclick: openDrill },
+          h('span', { class: 'meta' }, 'Practice', `${ROUNDS} patients`, drill.n ? h('span', { class: 'score' }, `Best ${drill.best} %`) : null),
+          h('span', { class: 't' }, DRILL_TITLE), h('span', { class: 'd' }, 'A hidden patient each round: order up to three tests, tap the level of the block, then see the pressure ladder.')),
+        h('h3', { class: 'home-sub' }, 'Lessons'), lessons);
     } else if (tab === 'cases') {
-      body = h('div', { class: 'home-grid' }, CASES.map((c) => h('button', { class: 'home-item case', onclick: () => onCase(c.id) },
+      const card = (c) => h('button', { class: 'home-item case', onclick: () => onCase(c.id) },
         h('span', { class: 'meta' }, c.level, best[c.id] != null ? h('span', { class: 'score' }, `Best ${best[c.id]}`) : null),
-        h('span', { class: 't' }, c.title), h('span', { class: 'd' }, c.summary))));
+        h('span', { class: 't' }, c.title), h('span', { class: 'd' }, c.summary));
+      body = h('div', {},
+        h('p', { class: 'ctl-sub lib-note' }, 'Eight cases that are not part of the course. Each has a history, orders, decisions and a debrief, and any of them can be presented to a class from the Present page.'),
+        h('div', { class: 'home-grid' }, CASES.filter((c) => LIBRARY.includes(c.id)).map(card)),
+        h('h3', { class: 'home-sub' }, 'Used in the course'), h('div', { class: 'home-grid' }, CASES.filter((c) => !LIBRARY.includes(c.id)).map(card)));
     } else {
       body = onPresenter();
     }
     // Assessment: every finished lesson and case is recorded on this device for export.
-    if (tab === 'learn' || tab === 'cases') {
+    if (tab === 'course' || tab === 'learn' || tab === 'cases') {
       const name = h('input', { class: 'input', type: 'text', placeholder: 'Your name (for the export)', value: learnerName(), 'aria-label': 'Learner name' });
       name.addEventListener('change', () => setLearnerName(name.value.trim()));
       const n = records().length;
@@ -118,14 +187,32 @@ export function createHome({ el, brandMark, onPreset, onLesson, onCase, onPresen
           h('p', { class: 'home-byline' }, 'Created by ', h('b', {}, AUTHOR), h('span', { class: 'sep', 'aria-hidden': 'true' }, '·'),
             h('a', { href: AUTHOR_URL, target: '_blank', rel: 'noopener' }, 'More tools by the author ', icon('chev-right')))),
         h('button', { class: 'ib home-x', 'aria-label': 'Close', title: 'Back to the model (Esc)', onclick: onClose }, icon('close'))),
-      rolePicker(render),
       nav, h('div', { class: 'home-body' }, body),
       h('p', { class: 'disclaimer' }, t('app.disclaimer'))));
   }
   return {
-    open(t) { if (t) tab = t; render(); el.hidden = false; document.getElementById('app').classList.add('home-open'); el.querySelector('.home-door[aria-pressed="true"]')?.focus({ preventScroll: true }); },
-    close() { if (el.hidden) return; el.hidden = true; document.getElementById('app').classList.remove('home-open'); onClosed?.(); },
-    isOpen: () => !el.hidden,
+    open(t) {
+      clearTimeout(leaveT); leaveT = 0; el.classList.remove('leaving');
+      clearTimeout(swapT); swapT = 0;
+      if (t) tab = t;
+      render();
+      const was = el.hidden; el.hidden = false; app.classList.add('home-open');
+      if (!was) el.firstElementChild?.classList.add('swap-in');   // (already open: the new page eases in)
+      el.querySelector('.cr-continue, .home-back button')?.focus({ preventScroll: true });
+    },
+    // Closing eases the sheet out over the app (which is shown again at once, under it) before it is hidden.
+    close() {
+      if (el.hidden || leaveT) return;
+      clearTimeout(swapT); swapT = 0;
+      app.classList.remove('home-open');
+      const done = () => { leaveT = 0; el.hidden = true; el.classList.remove('leaving'); };
+      if (reduce.matches) { done(); onClosed?.(); return; }
+      el.classList.add('leaving');
+      onClosed?.();   // (the figure paints again under the fading sheet)
+      leaveT = setTimeout(done, 220);
+    },
+    isOpen: () => !el.hidden && !leaveT,
+    tab: () => tab,
     render,
   };
 }

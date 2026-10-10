@@ -5,9 +5,9 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
-import { h, fmt, fitCanvas, clamp, icon } from './util.js?v=a357853926';
-import { FONT } from './charts.js?v=151b0288b8';
-import { logAction } from './store.js?v=edbdbfb0c8';
+import { h, fmt, fitCanvas, clamp, icon } from './util.js?v=e803df99cd';
+import { FONT } from './charts.js?v=ac5eb186fd';
+import { logAction } from './store.js?v=25cbe77a76';
 import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=fe9fd40247';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -111,8 +111,16 @@ export function createDoppler({ onProbe }) {
   function ingest(f) {
     frame = f;
     if (f.probe !== probe) { buf = []; probe = f.probe; if (probeSel.value !== probe) probeSel.value = probe; }
+    // Time lapse (the disease clock) has no bedside samples: drop the old trace at once, so the
+    // unavailable state shows on entry rather than only after the vessel changes.
+    const paused = f.clock === 'disease';
+    if (paused && buf.length) { buf = []; tDisp = null; }
+    if (el.classList.contains('dop-paused') !== paused) {
+      el.classList.toggle('dop-paused', paused);
+      box.classList.remove('dop-fade'); void box.offsetWidth; box.classList.add('dop-fade');
+    }
     const s = f.samples;
-    if (!s || f.clock === 'disease' || !s.t.length) return;
+    if (!s || paused || !s.t.length) return;
     if (buf.length && s.t[0] < buf[buf.length - 1][0] - 1e-9) buf = [];
     for (let i = 0; i < s.t.length; i++) if (!buf.length || s.t[i] > buf[buf.length - 1][0]) buf.push([s.t[i], s.vel[i]]);
     const tNow = buf[buf.length - 1][0];
@@ -191,7 +199,12 @@ export function createDoppler({ onProbe }) {
 
   function updateReport() {
     const r = reading();
-    if (!r) { dirEl.textContent = frame?.clock === 'disease' ? 'Paused on the disease clock' : 'Acquiring…'; dirEl.dataset.sev = ''; return; }
+    if (!r) {
+      dirEl.textContent = frame?.clock === 'disease' ? 'Not available during time lapse' : 'Acquiring…'; dirEl.dataset.sev = '';
+      for (const e of [velEl.firstChild, rangeEl, patternEl, noteEl]) if (e.textContent) e.textContent = e === velEl.firstChild ? '—' : '';
+      for (const k in statEls) statEls[k].dd.textContent = '—';
+      return;
+    }
     const p = meta();
     const it = interpret(r);
     const set = (e, t) => { if (e.textContent !== t) e.textContent = t; };

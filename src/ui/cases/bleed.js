@@ -1,7 +1,7 @@
 // C1. Hematemesis in the emergency department. The one acute case: a real clock, a patient who is
 // actually unstable, and two safety-critical choices whose effect the model shows at once.
 
-import { DX_HIDDEN, pltRow } from './kit.js?v=4021282d5c';
+import { DX_HIDDEN, pltRow } from './kit.js?v=4db57f825c';
 
 const PATIENTS = {
   A: { name: 'Daniel Reyes', age: 54, sex: 'M', setting: 'Emergency department', problem: 'Vomiting blood. Known cirrhosis.' },
@@ -25,6 +25,7 @@ const HB0 = 6.4, HB_PER_UNIT = 0.75;
 
 export const bleed = {
   id: 'bleed', title: 'Vomiting blood in the ED', level: 'Acute care', minutes: 10, acute: true,
+  tests: ['labs', 'egd'], trend: ['Heart rate', 'hr', '/min'],
   summary: 'A man with cirrhosis vomits blood and is already unstable. Run the first hour, decide how much blood to give, and plan what comes after the scope.',
   tools: ['select', 'endoscope', 'balloon'], hidden: DX_HIDDEN, speed: 6,
   preset: 'cirr-decomp', params: {},
@@ -35,7 +36,13 @@ export const bleed = {
     { vid: 'B', patient: PATIENTS.B, preset: 'csph', prep: (p) => { p.cirrhosis = 0.8; p.albumin = 4.5; return p; }, afterDays: 150, plan: 'standard', hx: HX.B, exam: EXAM.B, lab: LABS.B },
     { vid: 'C', patient: { ...PATIENTS.A, name: 'Victor Hale', age: 57 }, preset: 'cirr-decomp', plan: 'rebleed', hx: HX.A.map((s) => s.replace('14 months ago', '9 months ago')), exam: EXAM.A, lab: LABS.A },
   ],
-  setup: async (a, c) => { a.action({ kind: 'rupture', site: 'VAR', tear: 0.95 }); await c.advance(330); a.action({ kind: 'rupture', site: 'VAR', tear: 0.9 }); await c.advance(60); },
+  // He arrives in shock with a heart rate of about 120 to 140: bleed until the pulse passes 115
+  // (re-tearing once if a smaller varix clots), then a fresh tear on arrival.
+  setup: async (a, c) => {
+    a.action({ kind: 'rupture', site: 'VAR', tear: 0.95 });
+    for (let t = 30; t <= 600 && c.read().hr < 115; t += 30) { await c.advance(30); if (t === 300) a.action({ kind: 'rupture', site: 'VAR', tear: 0.95 }); }
+    a.action({ kind: 'rupture', site: 'VAR', tear: 0.9 }); await c.advance(60);
+  },
   vitals: ['hr', 'bp', 'hb'],
   intro: (c) => [`${c.cs.patient.name} arrives by ambulance, vomiting blood. Heart rate ${c.hr}, blood pressure ${c.bp}.`, 'Nurse: "He has one cannula. I can get a second line and the blood bottles. Where do you want to start?"'],
   chart: (c) => [
