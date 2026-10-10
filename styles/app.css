@@ -4489,8 +4489,15 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .instrument-workspace.float-ui .dop-report > .dop-pattern { grid-column: 2; grid-row: 1; margin: 0; }
   .instrument-workspace.float-ui .dop-velrow { margin-top: 0; }
   .instrument-workspace.float-ui .dop-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 10px; margin-top: 4px; padding-top: 6px; }
-  /* FibroScan */
-  .instrument-workspace.float-ui .instrument-view[data-pane="fibroscan"] > .chart-box { flex: 1 1 0; height: auto; min-height: 180px; }
+  /* FibroScan: the live map always gets its box (an older sheet rule made this view a block, collapsing it) */
+  .instrument-workspace.float-ui .dock-pane > .instrument-view[data-pane="fibroscan"] { display: flex; flex-direction: column; }
+  .instrument-workspace.float-ui .instrument-view[data-pane="fibroscan"] > .chart-box { flex: 1 1 0; height: auto; min-height: 200px; }
+  /* Ascites: its rows spread to use the card's height, the treatment block settling at the bottom */
+  .instrument-workspace.float-ui .dock-pane:has(> .ab) { padding-top: 6px; padding-bottom: 8px; }
+  .instrument-workspace.float-ui .dock-pane > .instrument-view.ab { flex: 1 1 auto; min-height: 100%; }
+  .instrument-workspace.float-ui .instrument-view.ab .ab-main { flex: 1 1 auto; align-content: space-between; }
+  .instrument-workspace.float-ui .instrument-view.ab :is(.ab-main, .ab-report) { row-gap: clamp(4px, calc((100cqh - 300px) / 5), 18px); }
+  .instrument-workspace.float-ui .instrument-view.ab .ab-tap { gap: clamp(4px, calc((100cqh - 300px) / 6), 14px); }
   .instrument-workspace.float-ui .instrument-view[data-pane="fibroscan"] > .ctl-sub { margin: 0; flex: none; }
   .ab-step-val { min-width: 52px; }
   .ab-chip, .ab-drain { padding: 0 8px; gap: 4px; font-size: 13px; }
@@ -4519,6 +4526,16 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .instrument-view[data-pane="fibroscan"] > .ctl-sub, .dock-pane[data-pane="endoscopy"] .chart-side > .ctl-sub { display: none; }
 }
 @container (max-height: 520px) { .dock-pane[data-pane="endoscopy"] .chart-side > .ctl-sub { display: none; } }
+/* Ascites with some room (a phone's sheet at its middle height on most phones): fuller controls. */
+@container (min-height: 360px) {
+  .instrument-workspace.float-ui .ab-sum .hv-num { font-size: 30px; }
+  .instrument-workspace.float-ui .ab-belly { width: 40px; height: 40px; }
+  .instrument-workspace.float-ui .ab-lab { padding: 6px; }
+  .instrument-workspace.float-ui .ab-step-btn { width: 34px; height: 34px; }
+  .instrument-workspace.float-ui .ab-diu { min-height: 48px; }
+  .instrument-workspace.float-ui :is(.ab-drain, .ab-chip) { min-height: 40px; }
+  .instrument-workspace.float-ui .ab-rx { gap: 8px; padding: 8px 10px; }
+}
 /* Ascites in a tall card: the same rows, with fuller controls and room between them. */
 @container (min-height: 540px) {
   .instrument-workspace.float-ui .ab-main, .instrument-workspace.float-ui .ab-report { gap: 10px; }
@@ -4527,10 +4544,13 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .instrument-workspace.float-ui .ab-belly { width: 44px; height: 44px; }
   .instrument-workspace.float-ui .ab-iap-bar { height: 8px; }
   .instrument-workspace.float-ui .ab-lab { padding: 8px 6px; }
-  .instrument-workspace.float-ui .ab-step-btn { width: 40px; height: 40px; }
+  .instrument-workspace.float-ui .ab-step-btn { width: 36px; height: 36px; }
+  .instrument-workspace.float-ui .instrument-view.ab .ab-main { align-content: start; }
+  .instrument-workspace.float-ui .instrument-view.ab :is(.ab-main, .ab-report) { row-gap: 22px; }
+  .instrument-workspace.float-ui .instrument-view.ab .ab-tap { gap: 14px; }
   .instrument-workspace.float-ui .ab-diu { min-height: 52px; }
   .instrument-workspace.float-ui .ab-drain, .instrument-workspace.float-ui .ab-chip { min-height: 44px; }
-  .instrument-workspace.float-ui .ab-rx { gap: 10px; padding: 10px 12px; }
+  .instrument-workspace.float-ui .ab-rx { gap: 8px; padding: 10px; }
 }
 
 /* Scope's readings: the grade leads with its status, wall stress is a meter toward the tear point, size and
@@ -4600,3 +4620,12 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .wall-formula { font: 650 var(--fs-16) var(--font-ui); letter-spacing: .02em; color: var(--text); }
 @keyframes endo-in { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view { animation: none; } }
+/* A short phone sheet (Safari's toolbar showing): the traces give up some height. */
+@container (max-height: 300px) and (max-width: 649px) {
+  .instrument-workspace .instrument-view.pt .pt-box, .instrument-workspace.float-ui .instrument-view.dop .dop-box { min-height: 100px; }
+  .instrument-workspace.float-ui .dock-pane .instrument-view > .chart-box:not(.square) { min-height: 100px; }
+  .instrument-workspace .pt-chips { gap: 4px; }
+  .instrument-workspace .pt-chips .pt-chip { height: 24px; padding: 0 7px; gap: 4px; font-size: 11px; }
+  .instrument-workspace .pt-head { row-gap: 4px; }
+  .instrument-workspace .pt-head :is(.pt-range, .pt-smooth) { height: 28px; }
+}
