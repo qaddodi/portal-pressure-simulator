@@ -997,18 +997,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // wall, the vessel itself cut out so its own colour shows through. It fades to nothing only at the ends of a
   // glowing run: where the next glowing vessel carries on (SMV into the portal vein), the band runs on unbroken.
   let pgN = 0;
-  // Cheap to keep up: the cut-out is a clip path (geometry, no offscreen mask image), and the band is only rebuilt
-  // when the vessel has moved or changed caliber by more than a hair (the band is soft and the cut sits inside the
-  // wall, so a lag that small never shows), so a still or gently pulsing vessel does not re-blur every frame.
+  // Cheap to keep up: the band and its cut-out are only rebuilt when the vessel has moved or changed caliber by more
+  // than a hair (the band is soft and the cut sits inside the wall, so a lag that small never shows), so a still or
+  // gently pulsing vessel does not re-blur every frame. The cut-out is a mask (black lumens on white), so where
+  // vessels overlap at a junction their lumens simply add up (a clip with holes would flip back in the overlap and
+  // leave rings and dots); its region is only the glow's own box, never the whole screen.
   function makeGlow(id) {
     const key = `pg${++pgN}`, g = s('g', { class: 'pg-mark', 'aria-hidden': 'true' });
-    const clip = s('clipPath', { id: `${key}-k`, clipPathUnits: 'userSpaceOnUse' }), cut = s('path', { 'clip-rule': 'evenodd' });
-    clip.append(cut);
+    const mask = s('mask', { id: `${key}-k`, maskUnits: 'userSpaceOnUse' });
+    const all = s('rect', { fill: '#fff' }), cut = s('path', { fill: '#000' });
+    mask.append(all, cut);
     const blur = s('filter', { id: `${key}-b`, x: '-20%', y: '-20%', width: '140%', height: '140%' });
     blur.append(s('feGaussianBlur', { stdDeviation: 1.8 }));
-    const defs = s('defs'); defs.append(clip, blur);
-    // The clip goes on a wrapper, so it cuts the blurred band (on the path itself it would apply before the blur).
-    const glow = s('path', { class: 'pg-glow', filter: `url(#${key}-b)` }), held = s('g', { 'clip-path': `url(#${key}-k)` });
+    const defs = s('defs'); defs.append(mask, blur);
+    // The mask goes on a wrapper, so it cuts the blurred band (on the path itself it would apply before the blur).
+    const glow = s('path', { class: 'pg-glow', filter: `url(#${key}-b)` }), held = s('g', { mask: `url(#${key}-k)` });
     held.append(glow); g.append(defs, held); g.style.display = 'none'; gOver.prepend(g);
     let lastPts = null, lastKey = '', lit = null;
     const moved = (pts) => {
@@ -1016,14 +1019,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (let i = 0; i < pts.length; i++) if (Math.abs(pts[i][0] - lastPts[i][0]) > 0.35 || Math.abs(pts[i][1] - lastPts[i][1]) > 0.35) return true;
       return false;
     };
-    // Where a glowing vessel meets others (its own run, or a branch at the same junction), the band rounds the
-    // junction: those vessels are cut out too, so the band never lies across a neighbour's lumen.
+    // Where a glowing vessel meets others (its own run, or a branch at the same junction), those vessels are cut
+    // out too, so the band never lies across a neighbour's lumen.
     const cutOf = (o) => {
       const p = o.glPts || geo[o.e.id]?.cur, rOf = o.rOf || (() => (o.dopW || o.width || 8) / 2);
       return p?.length > 1 ? tubeOutline(p, litNormals(p), (u) => Math.max(0.5, rOf(u) - 0.4)) : '';
     };
     let lastNb = [];
-    const m = { id, g, ends: [true, true], nb: [], paint() {
+    // ends: per end, 'fade' (a free end: the band tapers to nothing over a fifth of the vessel), 'join' (the same
+    // colour runs on into the next vessel: no taper) or 'blend' (another colour carries on: the band thins and
+    // fades over the last few units, so the two colours meet softly at the junction, no hard cap or overlap).
+    const m = { id, g, ends: ['fade', 'fade'], nb: [], paint() {
       const q = geo[id], x = E[id];
       if (!q?.cur || q.cur.length < 2 || !x) return;
       // The course the GPU draws this vessel along (smoothed at run-on joins), else the live one.
@@ -1033,9 +1039,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const k = `${x.shadeKey}|${wall}|${m.ends}|` + nb.map((o) => o.e.id + o.shadeKey).join();
       if (k === lastKey && nbPts.every((p, i) => p === lastNb[i]) && (pts === lastPts || !moved(pts))) return;
       lastPts = pts; lastKey = k; lastNb = nbPts; lit = litNormals(pts);
-      const [fa, fb] = m.ends, taper = (u) => (fa ? smooth01(u / 0.22) : 1) * (fb ? smooth01((1 - u) / 0.22) : 1);
+      const len = Math.max(1, arcLen(pts)), BL = Math.min(0.3, 16 / len);
+      const end = (mode, v) => (mode === 'join' ? 1 : mode === 'blend' ? smooth01(v / BL) : smooth01(v / 0.22));
+      const taper = (u) => end(m.ends[0], u) * end(m.ends[1], 1 - u);
       glow.setAttribute('d', tubeOutline(pts, lit, (u) => (rOf(u) + wall + 4) * taper(u) + 0.01));
-      cut.setAttribute('d', 'M-4000 -4000H8000V8000H-4000Z' + tubeOutline(pts, lit, (u) => Math.max(0.5, rOf(u) - 0.4)) + nb.map(cutOf).join(''));
+      cut.setAttribute('d', tubeOutline(pts, lit, (u) => Math.max(0.5, rOf(u) - 0.4)) + nb.map(cutOf).join(''));
+      // The mask covers the band and its blur, nothing more.
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const [px, py] of pts) { x0 = Math.min(x0, px); y0 = Math.min(y0, py); x1 = Math.max(x1, px); y1 = Math.max(y1, py); }
+      const pad = rOf(0.5) + wall + 20, box = { x: x0 - pad, y: y0 - pad, width: x1 - x0 + 2 * pad, height: y1 - y0 + 2 * pad };
+      for (const el of [mask, all]) for (const [a, v] of Object.entries(box)) el.setAttribute(a, v.toFixed(1));
     } };
     return m;
   }
@@ -1047,12 +1060,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // Which ends fade: an end that meets another glowing vessel runs on into it instead.
     const nodes = new Map();
-    for (const id of want.keys()) for (const n of [E[id].e.from, E[id].e.to]) nodes.set(n, (nodes.get(n) || 0) + 1);
+    for (const [id, { tone }] of want) for (const n of [E[id].e.from, E[id].e.to]) { if (!nodes.has(n)) nodes.set(n, []); nodes.get(n).push(tone); }
     for (const [id, { tone }] of want) {
       let m = pg.get(id);
       if (!m) { m = makeGlow(id); pg.set(id, m); }
       const { from, to } = E[id].e;
-      m.ends = [nodes.get(from) < 2, nodes.get(to) < 2];
+      const mode = (n) => { const t = nodes.get(n); return t.length < 2 ? 'fade' : t.every((v) => v === tone) ? 'join' : 'blend'; };
+      m.ends = [mode(from), mode(to)];
       m.nb = Object.values(E).filter((o) => o.e.id !== id && !o.isArt && [o.e.from, o.e.to].some((n) => n === from || n === to));
       clearTimeout(m.t); m.on = true;
       m.g.style.setProperty('--pg', tone.startsWith('--') ? `var(${tone})` : tone === 'accent' ? 'var(--accent)' : `var(--tr-${tone})`);
