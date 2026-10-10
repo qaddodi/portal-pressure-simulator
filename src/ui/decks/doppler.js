@@ -4,6 +4,7 @@ const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`;
 
 export const DOPPLER = {
   id: 'doppler', level: 'core', title: 'Doppler of the portal system', minutes: 12,
+  sections: [['The probe', ['Doppler']], ['Cirrhosis', ['Cirrhosis']], ['Blocked veins', ['Portal vein thrombosis', 'Budd–Chiari syndrome']], ['Heart failure and TIPS', ['Heart failure', 'After TIPS']]],
   objectives: [
     'Read normal portal and hepatic vein Doppler: direction, velocity and waveform.',
     'Recognise slow and reversed portal flow in cirrhosis.',
@@ -23,7 +24,7 @@ export const DOPPLER = {
     {
       id: 'hepatic', cam: 'hepatic', labels: ['RHV', 'RA'], tool: { kind: 'doppler', vessel: 'RHV_IVC', waves: true },
       kicker: 'Doppler', title: 'The hepatic vein waveform',
-      line: 'Flow runs toward the heart and pulses with the right atrium: two forward waves and a brief reversal with each beat.',
+      line: 'Flow runs toward the heart, drawn below the baseline, and pulses with the right atrium: two forward waves and a brief reversal with each beat.',
       notes: 'The hepatic veins are close to the right atrium, so their waveform follows it. The normal pattern is triphasic: the a wave (atrial contraction) briefly reverses flow, then the S and D waves carry blood toward the heart during ventricular systole and diastole. A stiff, cirrhotic liver damps the wave to biphasic or monophasic. A tall a wave and S-wave reversal point to tricuspid regurgitation or a high right atrial pressure.',
       ask: ['What causes the brief reversal in the normal hepatic vein waveform?', 'Atrial contraction (the a wave).'],
     },
@@ -42,7 +43,7 @@ export const DOPPLER = {
       data: 'tiles', tiles: ['hvpg', 'pv'], key: ['hvpg'],
       kicker: 'Cirrhosis', site: 'sin', title: 'Cirrhosis slows the portal vein',
       line: 'Resistance in the sinusoids slows portal flow. A mean velocity under 15 cm/s is abnormal.',
-      notes: 'As intrahepatic resistance rises, portal velocity falls and the vein widens (a main portal vein over 13 mm is a soft sign). The congestion index, cross-sectional area over mean velocity, rises above 0.07 cm·s. These signs are specific but insensitive: a normal Doppler does not exclude clinically significant portal hypertension. Splenomegaly, collaterals and reversed flow in the paraumbilical vein add to the picture.',
+      notes: 'As intrahepatic resistance rises, portal velocity falls and the vein widens (a main portal vein over 13 mm is a soft sign). The congestion index, cross-sectional area over mean velocity, rises above 0.07 cm × s. These signs are specific but insensitive: a normal Doppler does not exclude clinically significant portal hypertension. Splenomegaly, collaterals and reversed flow in the paraumbilical vein add to the picture.',
       ask: ['What portal vein velocity is abnormal?', 'A mean velocity under 15 cm/s.'],
     },
     {
@@ -56,9 +57,9 @@ export const DOPPLER = {
     {
       id: 'clot', preset: 'pvt-acute', cam: 'portal', labels: ['CONF'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
       data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'],
-      kicker: 'Portal vein thrombosis', site: 'pvt', title: 'Thrombosis: no signal',
-      line: 'No flow in the lumen. The finding is the absence of a trace.',
-      notes: 'Doppler ultrasound is the first test for portal vein thrombosis: echogenic material in the lumen with no colour or spectral signal. An acute clot may be nearly anechoic, so the missing flow signal matters more than the grey-scale picture. CT or MR then shows how far the clot extends into the splenic and mesenteric veins. The HVPG stays normal because the block lies before the liver.',
+      kicker: 'Portal vein thrombosis', site: 'pvt', title: 'Acute thrombosis: no signal',
+      line: 'The clot fills the lumen, so the probe finds no flow: the finding is the absence of a trace.',
+      notes: 'Doppler ultrasound is the first test for portal vein thrombosis: echogenic material in the lumen with no color or spectral signal. An acute clot may be nearly anechoic, so the missing flow signal matters more than the gray-scale picture. CT or MR then shows how far the clot extends into the splenic and mesenteric veins. The HVPG stays normal because the block lies before the liver.',
       ask: ['What is the first test for portal vein thrombosis?', 'Doppler ultrasound: no flow signal in the portal vein.'],
     },
     {
@@ -89,16 +90,18 @@ export const DOPPLER = {
       id: 'tips', preset: 'cirr-decomp', params: { tips: { on: true } }, cam: 'liver', mark: { edges: ['TIPS'], label: 'Covered stent' }, tool: { kind: 'doppler', vessel: 'TIPS' },
       data: 'tiles', tiles: ['ppg'], key: ['ppg'],
       kicker: 'After TIPS', site: 'sin', title: 'TIPS: fast flow in the stent',
-      line: 'Brisk flow from the portal vein to the hepatic vein means the stent is open. Under about 50 or over 250 cm/s suggests narrowing; no signal means a clot.',
+      line: 'Brisk flow through the stent means it is open; under about 50 or over 250 cm/s suggests narrowing.',
       notes: 'Doppler is the surveillance test after TIPS: a baseline study in the first days, then when symptoms return. Velocities along the stent are typically 90 to 190 cm/s. A low velocity, a large change from the baseline study, or new hepatopetal flow in the intrahepatic portal branches suggest stenosis. Covered stents narrow far less often than the old bare stents. After TIPS the portal vein velocity rises and the intrahepatic portal branches often reverse toward the stent, which is expected.',
       ask: ['What Doppler finding suggests a TIPS is narrowing?', 'A stent velocity under about 50 cm/s, or a large change from the baseline study.'],
     },
     {
-      id: 'summary', visual: 'table', cols: ['pv', 'hvpg', 'ppg'], asc: false, note: 'Portal flow', rowHead: 'Patient',
-      of: [{ id: 'probe', kicker: 'Reference', title: 'Healthy', note: 'Toward the liver', ref: true }, { id: 'slow', title: 'Cirrhosis', note: 'Slow' },
-        { id: 'reverse', title: 'Advanced cirrhosis', note: 'Reversed' }, { id: 'clot', title: 'Portal vein thrombosis', note: 'None in the portal vein' },
-        { id: 'bc', title: 'Budd–Chiari', note: 'None in the hepatic veins' }, { id: 'rhf', title: 'Right heart failure', note: 'Pulsatile' }, { id: 'tips', title: 'TIPS', note: 'Fast in the stent' }],
+      // The Doppler's own findings: portal flow against the healthy row, and what the trace shows.
+      id: 'summary', visual: 'table', cols: ['pvFlow'], asc: false, vs: 'first', note: ['Portal vein', 'Hepatic veins or stent'], rowHead: 'Patient',
+      of: [{ id: 'probe', kicker: 'Reference', title: 'Healthy', note: ['Portal: toward the liver, steady', 'Hepatic veins: S and D waves'], ref: true }, { id: 'slow', title: 'Cirrhosis', note: ['Portal: toward the liver, slow', ''] },
+        { id: 'reverse', title: 'Advanced cirrhosis', note: ['Portal: away from the liver', ''] }, { id: 'clot', title: 'Portal vein thrombosis', note: ['Portal: no signal', ''] },
+        { id: 'bc', title: 'Budd–Chiari', note: ['Portal: toward the liver', 'Hepatic veins: no signal'] }, { id: 'rhf', title: 'Right heart failure', note: ['Portal: pulsatile', 'Hepatic veins: flow driven back'] }, { id: 'tips', title: 'TIPS', note: ['Portal: toward the stent', 'Stent: fast flow'] }],
       kicker: 'Summary', title: 'Doppler compared',
+      line: 'Direction, speed and pulse of the portal trace tell the level of the block before any catheter.',
       notes: 'The Doppler places the problem before, in or after the liver, often before any pressure is measured. No flow in the portal vein: thrombosis. Slow or reversed portal flow: cirrhosis. No flow in the hepatic veins: Budd–Chiari. A pulsing portal vein: the heart.',
       ask: ['A patient has no flow in the hepatic veins and slow portal flow. What is the diagnosis?', 'Budd–Chiari syndrome.'],
     },

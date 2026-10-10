@@ -2,6 +2,7 @@
 
 export const LOBULE = {
   id: 'lobule', level: 'advanced', title: 'Inside the lobule: where each disease sits', minutes: 10,
+  sections: [['The lobule', ['The lobule']], ['Where the block sits', ['Presinusoidal', 'Sinusoidal', 'Postsinusoidal', 'Cardiac']], ['Measuring', ['Measuring']]],
   objectives: [
     'Trace blood through the lobule from the portal tract to the central vein',
     'Place schistosomiasis, cirrhosis, sinusoidal obstruction and congestion in the lobule',
@@ -12,9 +13,9 @@ export const LOBULE = {
   slides: [
     {
       id: 'lobule', preset: 'healthy', cam: 'lobule:fit',
-      kicker: 'The lobule', title: 'The lobule',
+      kicker: 'The lobule', title: 'The lobule from tract to central vein',
       line: 'Portal tracts at the corners, the central vein in the middle, sinusoids between.',
-      notes: 'The classic lobule is a hexagon about a millimetre across. Blood enters at the portal tracts, where portal venules and hepatic arterioles empty into the sinusoids, runs inward along plates of liver cells one cell thick, and leaves by the central vein (terminal hepatic venule). Each disease in this talk blocks one point on that path, and the point decides the pressures, the HVPG and the ascites.',
+      notes: 'The classic lobule is a hexagon about a millimeter across. Blood enters at the portal tracts, where portal venules and hepatic arterioles empty into the sinusoids, runs inward along plates of liver cells one cell thick, and leaves by the central vein (terminal hepatic venule). Each disease in this talk blocks one point on that path, and the point decides the pressures, the HVPG and the ascites.',
       ask: ['Which way does blood run in the lobule?', 'From the portal tracts at the edge, through the sinusoids, to the central vein.'],
     },
     {
@@ -35,7 +36,7 @@ export const LOBULE = {
       id: 'cirr', preset: 'cirr-decomp', cam: 'sinusoid', data: 'tiles', tiles: ['sin', 'hvpg'],
       kicker: 'Sinusoidal', site: 'sin', title: 'Cirrhosis: the sinusoid',
       line: 'Collagen fills the space of Disse, the fenestrae close, and stellate cells contract around the sinusoid.',
-      notes: 'Activated stellate cells lay down collagen in the space of Disse; the endothelium loses its fenestrae and gains a basement membrane (capillarisation). Scar and regenerative nodules distort and compress the sinusoids. This structural part makes up about two thirds of the raised resistance. The rest is tone: too little nitric oxide in the liver, and contracted stellate cells, which is why drugs such as carvedilol and statins can lower it. With the wall closed, protein no longer crosses freely, so the ascites of cirrhosis is low in protein.',
+      notes: 'Activated stellate cells lay down collagen in the space of Disse; the endothelium loses its fenestrae and gains a basement membrane (capillarization). Scar and regenerative nodules distort and compress the sinusoids. This structural part makes up about two thirds of the raised resistance. The rest is tone: too little nitric oxide in the liver, and contracted stellate cells, which is why drugs such as carvedilol and statins can lower it. With the wall closed, protein no longer crosses freely, so the ascites of cirrhosis is low in protein.',
       ask: ['Name the two parts of the raised resistance in cirrhosis.', 'Structural (scar, nodules, capillarised sinusoids) and dynamic (vascular tone).'],
     },
     {
@@ -61,10 +62,11 @@ export const LOBULE = {
     },
     {
       id: 'summary', visual: 'table', cols: ['pv', 'hvpg'], asc: true, note: 'Site in the lobule', rowHead: 'Disease',
-      of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', note: 'None', ref: true }, { id: 'schisto', title: 'Schistosomiasis', note: 'Portal venules, in the tract' },
+      of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', note: 'No block', ref: true }, { id: 'schisto', title: 'Schistosomiasis', note: 'Portal venules, in the tract' },
         { id: 'cirr', title: 'Cirrhosis', note: 'Sinusoids, the space of Disse' }, { id: 'sos', title: 'Sinusoidal obstruction', note: 'Central venules' },
-        { id: 'cong', title: 'Heart failure', note: 'None: back pressure on zone 3' }],
+        { id: 'cong', title: 'Heart failure', note: 'No block: congestion of zone 3' }],
       kicker: 'Summary', title: 'Where each disease sits',
+      line: 'The wedge reads the sinusoids, so HVPG rises only when the block sits in them or in the central venules.',
       notes: 'Read from top to bottom, the block moves along the lobule from the portal tract to the central vein. The HVPG rises only when the block lies between the sinusoids and the free hepatic vein: cirrhosis and sinusoidal obstruction. The ascites protein follows the sinusoid wall: low when the wall is capillarised (cirrhosis), high when it is still open (sinusoidal obstruction, congestion). Presinusoidal disease rarely causes ascites, because the sinusoids are at normal pressure.',
       ask: ['A patient has ascites with high protein and a raised HVPG. Where is the block?', 'At the central venules: sinusoidal obstruction syndrome.'],
     },

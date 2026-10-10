@@ -4,6 +4,7 @@ const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`, sub = (b, i) => 
 
 export const TAP = {
   id: 'tap', level: 'advanced', title: 'Ascites at the bedside: the tap and the albumin', minutes: 12,
+  sections: [['Ascites', ['Ascites']], ['The tap', ['The diagnostic tap', 'Large-volume paracentesis', 'Two weeks later']], ['Treatment', ['Treatment', 'Refractory ascites']], ['Protein-rich fluid', ['Protein-rich fluid']]],
   objectives: [
     'Know what to send from a diagnostic tap and how to read the SAAG',
     'Give albumin correctly after a large-volume paracentesis',
@@ -29,21 +30,21 @@ export const TAP = {
     },
     {
       id: 'lvp', action: { kind: 'paracentesis', mL: 8000 }, params: {}, cam: 'fit', tool: { kind: 'abdomen' }, data: 'tiles', tiles: ['pv', 'map'], key: ['pv'], delta: true,
-      kicker: 'Large-volume paracentesis', site: 'sin', title: 'All of it, in one sitting',
+      kicker: 'Large-volume paracentesis', site: 'sin', title: 'Large-volume paracentesis',
       line: 'The abdomen softens and the portal pressure falls a little. Over the next days, the arterial pressure can fall too.',
       notes: 'Large-volume paracentesis removes all the fluid in one go, safely, in a few hours. Taking off the intra-abdominal pressure lowers the portal and variceal pressure a little. After more than 5 L, splanchnic vessels dilate further and the effective blood volume falls over the next days: post-paracentesis circulatory dysfunction, with renin rising, hyponatremia, kidney injury and faster return of the ascites.',
       ask: ['What is post-paracentesis circulatory dysfunction?', 'A fall in effective blood volume after a large tap, with kidney injury, hyponatremia and quick re-accumulation.'],
     },
     {
       id: 'albumin', params: { albumin: 2.74 }, cam: 'fit', data: 'tiles', tiles: ['salb', 'map'], key: ['salb'], delta: true,
-      kicker: 'Large-volume paracentesis', site: 'sin', title: 'Albumin after the tap',
-      line: '6 to 8 g of albumin for each litre removed, when more than 5 litres come out. It protects the circulation and the kidneys.',
-      notes: 'For a 6 L tap, about 40 g of 20% albumin, given during or after the tap. Albumin prevents post-paracentesis circulatory dysfunction better than saline or synthetic colloids. Under 5 L, albumin is optional. The model has no kidneys or renin: here albumin raises the serum albumin and the plasma oncotic pressure, and the fluid comes back more slowly on the next slide.',
-      ask: ['How much albumin after an 8 L paracentesis?', 'About 50 to 65 g: 6 to 8 g for each litre removed.'],
+      kicker: 'Large-volume paracentesis', site: 'sin', title: 'Albumin with the tap',
+      line: '6 to 8 g of albumin for each liter removed, when more than 5 liters come out. It protects the circulation and the kidneys.',
+      notes: 'For a 6 L tap, about 40 g of 20% albumin, given during or after the tap. Albumin prevents post-paracentesis circulatory dysfunction better than saline or synthetic colloids. Under 5 L, albumin is optional. The model has no kidneys or renin: here albumin raises the serum albumin and the plasma oncotic pressure, and the fluid comes back more slowly on "Ascites returns in two weeks".',
+      ask: ['How much albumin after an 8 L paracentesis?', 'About 50 to 65 g: 6 to 8 g for each liter removed.'],
     },
     {
       id: 'back', days: 14, cam: 'fit', tool: { kind: 'abdomen' }, data: 'tiles', tiles: ['asc', 'pv'], key: ['asc'], delta: true,
-      kicker: 'Two weeks later', site: 'sin', title: 'It comes back',
+      kicker: 'Two weeks later', site: 'sin', title: 'Ascites returns in two weeks',
       line: 'The tap removes the fluid, not its cause. Without diuretics or a lower portal pressure, it reforms within weeks.',
       notes: 'The sinusoidal pressure and the kidneys\' sodium retention are unchanged, so lymph keeps weeping from the liver. Patients who need a tap more often than every two to three weeks despite diuretics, or who cannot take them, have refractory ascites.',
       ask: ['What defines refractory ascites?', 'Ascites that cannot be cleared or returns early despite maximum diuretics and salt restriction, or diuretics that cannot be taken.'],
@@ -57,7 +58,7 @@ export const TAP = {
     },
     {
       id: 'tips', params: { tips: { on: true } }, days: 28, cam: 'liver', mark: { edges: ['TIPS'], label: 'Covered stent' }, data: 'tiles', tiles: ['asc', 'ppg', 'liver'], key: ['asc'], delta: true,
-      kicker: 'Refractory ascites', site: 'sin', title: 'TIPS',
+      kicker: 'Refractory ascites', site: 'sin', title: 'TIPS for refractory ascites',
       line: 'A PPG below 12 mmHg stops the excess lymph at its source. The cost: less blood for the liver, and about one in three develops encephalopathy.',
       notes: 'In recurrent or refractory ascites, a covered TIPS improves survival over repeated paracentesis in selected patients: bilirubin under about 3 mg/dL, no recurrent encephalopathy, no heart failure or severe pulmonary hypertension. The ascites clears over weeks to months, diuretics continued at first. The model clears it faster.',
       ask: ['Name a reason not to place a TIPS for ascites.', 'Recurrent encephalopathy, heart failure or pulmonary hypertension, or advanced liver failure.'],
@@ -70,10 +71,10 @@ export const TAP = {
       ask: ['SAAG 1.5 g/dL and protein 4 g/dL. What do you examine next?', 'The heart: the jugular venous pressure, BNP and an echocardiogram.'],
     },
     {
-      id: 'summary', visual: 'table', cols: ['asc', 'ppg', 'liver'], fine: true, asc: false, vs: 'first', rowHead: 'Step',
+      id: 'summary', visual: 'table', cols: ['asc', 'ppg', 'liver'], asc: false, vs: 'first', rowHead: 'Step',
       of: [{ id: 'tense', kicker: 'Baseline', title: 'Tense ascites' }, { id: 'lvp', kicker: 'Tap', title: 'Paracentesis' }, { id: 'albumin', kicker: 'Tap', title: 'With albumin' }, { id: 'back', kicker: 'No treatment', title: 'Two weeks on' }, { id: 'diuretics', kicker: 'Drugs', title: 'Diuretics, 4 weeks' }, { id: 'tips', kicker: 'Shunt', title: 'TIPS, 4 weeks' }],
       kicker: 'Summary', title: 'Each step compared',
-      foot: 'From the model, against tense ascites (top row: ascites in litres, PPG in mmHg, liver blood flow in % of normal). ↓ lower, ↓↓ 40% or more lower, ↑ higher; • unchanged. Green: better, red: worse. Hover or tap a cell for its value. Pick a row to go back to it.',
+      line: 'Each step against tense ascites: the tap empties the abdomen, but only diuretics or TIPS keep the fluid down.',
       notes: 'The tap clears the fluid at once but leaves its cause; albumin protects the circulation; diuretics clear it more slowly and keep it away; TIPS clears it by lowering the sinusoidal pressure, at the cost of the liver\'s portal blood. Each patient with refractory ascites is also assessed for transplantation.',
       ask: ['Which step treats the cause of the ascites rather than the fluid?', 'TIPS lowers the sinusoidal pressure; diuretics treat the sodium retention. The tap treats neither.'],
     },

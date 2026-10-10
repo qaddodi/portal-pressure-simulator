@@ -43,7 +43,7 @@ export const RIGHT_HEART = {
       id: 'constrict', preset: 'constrictive', cam: 'heart', labels: ['RHV', 'RA'], tool: { kind: 'doppler', vessel: 'RHV_IVC' }, data: 'tiles', tiles: ['ra', 'lsm'], key: ['ra'],
       kicker: 'Constrictive pericarditis', site: 'cardiac', title: 'A rigid pericardium',
       line: 'The heart cannot fill, and the right atrial pressure rises to about 10 mmHg. The liver congests and ascites forms, often before the legs swell.',
-      notes: 'Constriction follows tuberculosis, cardiac surgery, radiotherapy or viral pericarditis. It is often first seen as ascites or a stiff liver and mistaken for cirrhosis. The neck veins are high and rise on inspiration (Kussmaul sign); there may be a pericardial knock. On Doppler the hepatic vein reversal grows in expiration. Echocardiography, CT or MRI of the pericardium and right heart catheterisation make the diagnosis; pericardiectomy treats it.',
+      notes: 'Constriction follows tuberculosis, cardiac surgery, radiotherapy or viral pericarditis. It is often first seen as ascites or a stiff liver and mistaken for cirrhosis. The neck veins are high and rise on inspiration (Kussmaul sign); there may be a pericardial knock. On Doppler the hepatic vein reversal grows in expiration. Echocardiography, CT or MRI of the pericardium and right heart catheterization make the diagnosis; pericardiectomy treats it.',
       ask: ['Ascites with a high SAAG and high protein, a pericardial knock and a JVP that rises on inspiration. What is the diagnosis?', 'Constrictive pericarditis.'],
     },
     {
@@ -54,10 +54,10 @@ export const RIGHT_HEART = {
       ask: ['Congested liver, ascites, normal JVP and a normal echocardiogram. Where is the block?', 'Between the liver and the heart: the hepatic veins or the IVC.'],
     },
     {
-      id: 'summary', visual: 'table', cols: ['ra', 'ivc', 'hvpg', 'lsm'], fine: true, asc: false, rowHead: 'Patient',
+      id: 'summary', visual: 'table', cols: ['ra', 'ivc', 'hvpg', 'lsm'], asc: false, rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'tr', kicker: 'Cardiac', title: 'Heart failure with TR' }, { id: 'constrict', kicker: 'Cardiac', title: 'Constriction' }, { id: 'web', kicker: 'Post-hepatic', title: 'IVC web' }],
       kicker: 'Summary', title: 'Outflow from the liver',
-      foot: 'From the model, against normal (top row: pressures in mmHg, stiffness in kPa). ↑ above normal, ↑↑ well above, ↓ below, • normal. The right atrium separates the heart from the web; the HVPG is normal in all three. Hover or tap a cell for its value. Pick a row to go back to it.',
+      line: 'The right atrium separates the heart from the web; the HVPG is normal in all three.',
       notes: 'Each of these congests the liver from above: the stiffness rises and the ascites is rich in protein, while the HVPG stays normal. The right atrial pressure and the jugular vein tell the heart from a block in the IVC or the hepatic veins. Doppler adds the waveform: reversal in tricuspid regurgitation and a pulsatile portal vein when the right atrium is high.',
       ask: ['Which bedside sign separates heart failure from an IVC web?', 'The jugular venous pressure: high in heart failure, normal with a web.'],
     },

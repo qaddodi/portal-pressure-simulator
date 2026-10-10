@@ -19,9 +19,9 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=cab65850a4';
 import { sinusoidSupported } from './sinusoid-view.js?v=320c741494';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
-import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=5e0a6885ba';
+import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=5844082541';
 import { createTools } from './presenter-tools.js?v=5bb66173ff';
-import { openHandout } from './handout.js?v=c22ae4757e';
+import { openHandout } from './handout.js?v=4f8c5eb7e8';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -51,23 +51,39 @@ function equation([ml, legend]) {
   return box;
 }
 const nb = (t) => (t || '').replace(/(\p{L})–(\p{L})/gu, '$1–\u2060$2');
-// A slide's line, typeset: values with units in a quiet pill, the first mention of each key term in bold
-// (at most three per line, so it stays a sentence and not a list of highlights). Tune the two lists here.
-const VAL = String.raw`\d+(?:\.\d+)?(?:\s(?:to|or)\s\d+(?:\.\d+)?)?\s?(?:mmHg|g\/dL|mL\/min|%)`;
-const TERMS = ['HVPG', 'PPG', 'CSPH', 'SAAG', 'TIPS', 'WHVP', 'FHVP', 'portal vein', 'central vein', 'portal tracts?', 'fenestrae', 'space of Disse',
-  'basement membrane', 'capillarization', 'wedged pressure', 'free pressures?', 'right atrial pressure', 'sinusoidal pressure', 'varices', 'caput medusae',
-  'gastrorenal shunt', 'stellate cells?', 'lymph', 'collaterals', 'encephalopathy', 'periportal fibrosis', 'intrahepatic resistance'];
-const RICH = new RegExp(`(${VAL})|\\b(${TERMS.join('|')})\\b`, 'g');
-function rich(t) {
-  const out = [], seen = new Set(); let at = 0, bold = 0, m;
-  t = nb(t); RICH.lastIndex = 0;
-  while ((m = RICH.exec(t))) {
-    const key = m[2] && m[2].toLowerCase().replace(/s$/, '');
-    if (m[2] && (seen.has(key) || bold >= 3)) continue;
+// A slide's line, typeset. One value goes in a quiet pill: the one the deck marks with {braces}, else the first
+// value with a unit (a line of cut-offs leaves the rest to its scale). The slide's own key terms (its highlighted
+// tiles, or `bold`) are bold wherever the line names them; the first mention of a term students meet for the first
+// time is bold too, at most three bold terms a line, so it stays a sentence and not a list of highlights.
+const VAL = String.raw`\d+(?:\.\d+)?(?:\s(?:to|or)\s\d+(?:\.\d+)?)?\s?(?:mmHg|g\/dL|mL\/min|kPa|cm\/s|mm|%)(?![A-Za-z])`;
+const TERMS = ['CSPH', 'SAAG', 'WHVP', 'FHVP', 'central vein', 'portal tracts?', 'fenestrae', 'space of Disse',
+  'basement membrane', 'capillarization', 'wedged pressure', 'free pressures?', 'sinusoidal pressure', 'caput medusae',
+  'gastrorenal shunt', 'stellate cells?', 'encephalopathy', 'periportal fibrosis', 'intrahepatic resistance', 'hepatopetal', 'hepatofugal',
+  'cavernoma', 'a wave', 'pulsatility', 'reflection coefficient', 'Laplace', 'congestion index', 'gray zone', 'red wale marks'];
+// A tile's words in a line (the slide's key tiles are its key terms).
+const KEYWORDS = { hvpg: 'HVPG', ppg: 'PPG', pv: 'portal pressure', whvp: 'WHVP|wedged pressure', fhvp: 'FHVP|free pressure', ra: 'right atrial pressure|right atrium',
+  ivc: 'IVC', varix: 'varix|varices', hr: 'heart rate', map: 'blood pressure', asc: 'ascites', plt: 'platelets?', lsm: 'stiffness', spleen: 'spleen',
+  liver: 'liver blood flow', shunt: 'shunt', sin: 'sinusoidal pressure', saag: 'SAAG', tp: 'protein', hb: 'hemoglobin', pvFlow: 'portal flow' };
+const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function rich(t, s = {}) {
+  const keys = [...(s.key || []).map((k) => KEYWORDS[k]).filter(Boolean), ...(s.bold || []).map(esc)];
+  const marked = /\{[^}]+\}/.test(t);
+  const re = new RegExp(`\\{([^}]+)\\}([,.;:]?)|(${VAL})([,.;:]?)` + (keys.length ? `|\\b(${keys.join('|')})\\b` : '') + `|\\b(${TERMS.join('|')})\\b`, 'g');
+  const out = [], seen = new Set(); let at = 0, bold = 0, pills = 0, m;
+  t = nb(t);
+  // A pill keeps the word before it and the stop after it on its line (a no-break space, one unbreakable span).
+  const pill = (v, stop) => { const prev = out[out.length - 1]; if (typeof prev === 'string') out[out.length - 1] = prev.replace(/ $/, ' ');
+    pills++; return h('span', { class: 'pz-nw' }, h('span', { class: 'pz-val' }, v.replace(/\s(?=mmHg|g\/dL|mL|kPa|cm\/s|mm\b|%)/, ' ')), stop || ''); };
+  while ((m = re.exec(t))) {
+    const [all, mk, mkStop, val, valStop, key, term] = m, w = (key || term)?.toLowerCase().replace(/(?:s|ces)$/, '');
+    if (val && (marked || pills || s.pill === false)) continue;
+    if (term && (seen.has(w) || bold >= 3)) continue;
+    if (key && seen.has(w)) continue;
     out.push(t.slice(at, m.index));
-    if (m[1]) out.push(h('span', { class: 'pz-val' }, m[1].replace(/\s(?=mmHg|g\/dL|mL)/, ' ')));
-    else { seen.add(key); bold++; out.push(h('b', {}, m[2])); }
-    at = m.index + m[0].length;
+    if (mk) out.push(pill(mk, mkStop));
+    else if (val) out.push(pill(val, valStop));
+    else { seen.add(w); bold++; out.push(h('b', {}, key || term)); }
+    at = m.index + all.length;
   }
   out.push(t.slice(at));
   return out;
@@ -838,14 +854,14 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     if (!ui) return;
     const { text, panel, data } = ui;
     text.classList.remove('pz-leave');   // (the panel's own is let go once its new content is in, so it never fades back in with the old)
-    const kick = (site, words) => h('div', { class: 'pz-kick', 'data-site': site || 'none' }, h('i'), words);
+    const kick = (site, words, sec) => h('div', { class: 'pz-kick', 'data-site': site || 'none' }, h('i'), sec ? h('span', { class: 'pz-sec' }, `${sec[0]} of ${sec[1]} ·`) : null, words);
     if (s.visual) {
       text.hidden = true; text.replaceChildren();
       // A panel that was not there fades in (never pops): unhidden while still faded, then let go.
       if (panel.hidden) { panel.classList.add('pz-leave'); panel.hidden = false; void panel.offsetWidth; }
       panel.classList.toggle('fill', s.visual === 'ladders');
       panel.dataset.visual = s.visual;
-      panel.replaceChildren(h('div', { class: 'pz-ph' }, kick(null, s.kicker), h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line)) : null),
+      panel.replaceChildren(h('div', { class: 'pz-ph' }, kick(null, s.kicker), h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s)) : null),
         VISUALS[s.visual](s));
       panel.classList.remove('pz-leave');
       ui.veil.classList.add('on');
@@ -854,7 +870,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
       text.hidden = false;
       text.replaceChildren(...(q
         ? [kick(null, 'Quiz'), h('h1', { class: 'pz-h' }, s.quiz), s.rail ? rail(null) : null, h('p', { class: 'pz-line pz-hint' }, 'Take answers from the audience, then press → to show the answer.')]
-        : [kick(s.site, s.kicker), h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line)) : null,
+        : [kick(s.site, s.kicker, s.sec), h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s)) : null,
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), onclick: () => abPick(s, i, k) }, o.label))) : null,
           s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
@@ -908,7 +924,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
       const [i, k] = rowAt(o), sl = i >= 0 ? slides[i] : null, x = typeof o === 'object' ? o : {};
       if (k == null || k < 0) return null;
       const title = x.title ?? sl?.title ?? '';
-      return { i, k, f: states[k]?.fp, kicker: x.kicker ?? sl?.kicker ?? '', title, name: x.name || title, site: x.site ?? sl?.site, note: x.note, blank: x.blank || [], ref: !!x.ref };
+      return { i, k, f: states[k]?.fp, kicker: x.kicker ?? sl?.kicker ?? '', title, name: x.name || title, site: x.site ?? sl?.site, note: x.note, blank: x.blank || [], ref: !!x.ref, vs: x.vs };
     }).filter(Boolean);
   }
   function laddersGrid(s) {
@@ -927,16 +943,21 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     return grid;
   }
   // The table's columns: the raw pressures shade above normal, the rest by their tile's rating.
-  // Headers match the pressure chart's axis (PV, WHVP, FHVP, IVC, RA).
-  const COLS = { pv: 'PV', whvp: 'WHVP', fhvp: 'FHVP', ivc: 'IVC', ra: 'RA', hvpg: 'HVPG', ppg: 'PPG', sin: 'Sinusoids', varix: 'Varix', asc: 'Ascites', liver: 'Liver flow', shunt: 'Shunted', saag: 'SAAG', tp: 'Protein', plt: 'Platelets', lsm: 'LSM', spleen: 'Spleen', map: 'BP' };
+  // Headers match the pressure chart's axis (PV, WHVP, FHVP, IVC, RA). res: the resistance across the portal circuit, PPG ÷ portal flow.
+  const COLS = { pv: 'PV', whvp: 'WHVP', fhvp: 'FHVP', ivc: 'IVC', ra: 'RA', hvpg: 'HVPG', ppg: 'PPG', sin: 'Sinusoids', varix: 'Varix', asc: 'Ascites', liver: 'Liver flow', shunt: 'Shunted', saag: 'SAAG', tp: 'Protein', plt: 'Platelets', lsm: 'LSM', spleen: 'Spleen', map: 'BP', hr: 'HR', pvFlow: 'Flow (Q)', res: 'Resist. (R)' };
+  // Each column's cut-offs, shown on its heading (hover or tap) so the legend can stay one line.
+  const CUT = { pv: '↑ over 10, ↑↑ over 20 mmHg', whvp: '↑ over 10, ↑↑ over 20 mmHg', fhvp: '↑ over 8, ↑↑ over 16 mmHg', ivc: '↑ over 8, ↑↑ over 16 mmHg', ra: '↑ over 8, ↑↑ over 16 mmHg',
+    hvpg: '↑ 5 or more, ↑↑ 10 or more mmHg', ppg: '↑ 6 or more, ↑↑ 12 or more mmHg', sin: '↑ 9 or more, ↑↑ 12 or more mmHg', varix: '↑ 2.5 to 5 mm, ↑↑ 5 mm or more',
+    plt: '↓ under 150, ↓↓ under 100 × 10⁹/L', lsm: '↑ 10 to 25, ↑↑ 25 kPa or more', spleen: '↑↑ over 13 cm', liver: '↓ under 80%, ↓↓ under 50%', shunt: '↑ 20% or more, ↑↑ 50% or more', map: '↓↓ under 65 mmHg',
+    asc: '↑ grade 1, ↑↑ grade 2 or 3' };
   const RAW = { pv: (v) => v > 10, whvp: (v) => v > 10, fhvp: (v) => v > 8, ivc: (v) => v > 8, ra: (v) => v > 8 };
   const RAWLIM = { pv: 10, whvp: 10, fhvp: 8, ivc: 8, ra: 8 };
   const UP_GOOD = new Set(['liver', 'plt', 'map', 'salb']);   // (higher is better: a low one rates amber or red, an arrow down)
-  const PRESS = new Set(['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'ppg', 'sin']);
-  const fpv = (k, f) => (k === 'ivc' ? f.ivc ?? f.ra : f[k]);
+  const PRESS = new Set(['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'ppg', 'sin', 'map']);
+  const fpv = (k, f) => (k === 'ivc' ? f.ivc ?? f.ra : k === 'res' ? (f.pvFlow > 0.05 ? f.ppg / f.pvFlow : null) : f[k]);
   const cellRate = (k, f) => (RAW[k] ? (RAW[k](fpv(k, f)) ? 'hi' : null) : ['hi', 'mid'].includes(rateOf(k, f)[0]) ? rateOf(k, f)[0] : null);
-  // A cell's direction: against the normal range ('abs': ↑ above, ↑↑ well above or past the red cut-off, ↓ below, a dot within),
-  // or against a reference patient's value ('rel': the treatments table's baseline).
+  // A cell's direction: against the normal range ('abs': ↑ above, ↑↑ well above or past the red cut-off, ↓ below, a dash within),
+  // or against a reference patient's value ('rel': the treatments table's baseline, or the row a row names).
   function dirAbs(k, f) {
     const v = fpv(k, f);
     if (RAW[k]) return v > RAWLIM[k] * 2 ? 2 : v > RAWLIM[k] ? 1 : 0;
@@ -945,9 +966,11 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     return r === 'hi' ? 2 * sign : r === 'mid' ? sign : 0;
   }
   // Against the baseline every real change shows (octreotide's half-millimetre, banding's slight rise), so the steps are small.
-  const STEP_REL = { pv: .5, whvp: .5, fhvp: .5, ivc: .5, ra: .5, hvpg: .5, ppg: .5, sin: .5, varix: .3, asc: 100, liver: 2, shunt: .05 };
+  const STEP_REL = { pv: .5, whvp: .5, fhvp: .5, ivc: .5, ra: .5, hvpg: .5, ppg: .5, sin: .5, varix: .3, asc: 100, liver: 2, shunt: .05, pvFlow: .15, res: 1.5, map: 2, hr: 2 };
   function dirRel(k, f, ref) {
-    const d = f[k] - ref[k], r = Math.abs(d) / Math.max(Math.abs(ref[k]), 1e-6);
+    const a = fpv(k, f), b = fpv(k, ref);
+    if (a == null || b == null) return 0;
+    const d = a - b, r = Math.abs(d) / Math.max(Math.abs(b), 1e-6);
     return Math.abs(d) < (STEP_REL[k] ?? 1) ? 0 : (d > 0 ? 1 : -1) * (r >= 0.4 ? 2 : 1);
   }
   // Purpose-drawn arrows: a solid head on a shaft of real weight, one per symbol; a large change is two arrows side by side.
@@ -966,48 +989,69 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     el.innerHTML = `<svg viewBox="${box}" focusable="false">${d}</svg>`;   // (constant markup, never user text)
     return el;
   }
-  // A legend line with its arrow symbols drawn as the table's arrows.
-  const withArrows = (t) => t.split(/(↑↑|↓↓|↑|↓|•)/).map((x) => (x === '↑↑' ? arrowEl(2) : x === '↓↓' ? arrowEl(-2) : x === '↑' ? arrowEl(1) : x === '↓' ? arrowEl(-1) : x === '•' ? arrowEl(0) : x));
+  // A cell that cannot be measured: a hollow ring, never the dash that means normal.
+  const noneEl = () => h('span', { class: 'pz-nm', 'aria-hidden': 'true' });
+  // A legend line with its symbols drawn as the table's own: arrows, the dash (•) and the ring (○).
+  const withArrows = (t) => t.split(/(↑↑|↓↓|↑|↓|•|○)/).map((x) => (x === '↑↑' ? arrowEl(2) : x === '↓↓' ? arrowEl(-2) : x === '↑' ? arrowEl(1) : x === '↓' ? arrowEl(-1) : x === '•' ? arrowEl(0) : x === '○' ? noneEl() : x));
   const WORD = { 2: 'well above normal', 1: 'above normal', 0: 'normal', '-1': 'below normal', '-2': 'well below normal' };
   const WORDREL = { 2: 'much higher', 1: 'higher', 0: 'unchanged', '-1': 'lower', '-2': 'much lower' };
   // In the comparison table a change is coloured by what it means for the patient: green better, red worse.
-  // Lower is better everywhere except blood flow to the liver, platelets, blood pressure and albumin.
-  const effOf = (k, d) => (d === 0 ? null : (UP_GOOD.has(k) ? d > 0 : d < 0) ? 'good' : 'bad');
-  const unitOf = (k) => (k === 'varix' ? ' mm' : k === 'asc' ? ' L' : k === 'liver' ? '%' : PRESS.has(k) ? ' mmHg' : TILE[k]?.u ? ` ${TILE[k].u}` : '');
+  // Lower is better everywhere except blood flow to the liver, platelets, blood pressure and albumin; portal flow is neither.
+  const effOf = (k, d) => (d === 0 || k === 'pvFlow' ? null : (UP_GOOD.has(k) ? d > 0 : d < 0) ? 'good' : 'bad');
+  const unitOf = (k) => (k === 'varix' ? ' mm' : k === 'asc' ? ' L' : k === 'liver' ? '%' : k === 'res' ? ' mmHg per L/min' : PRESS.has(k) ? ' mmHg' : TILE[k]?.u ? ` ${TILE[k].u}` : '');
+  const UNIT_WORDS = { press: 'pressures in mmHg', varix: 'varix in mm', asc: 'ascites in liters', liver: 'liver blood flow in % of normal', shunt: 'shunted blood in %', plt: 'platelets × 10⁹/L',
+    lsm: 'stiffness in kPa', hr: 'heart rate a minute', pvFlow: 'portal flow in L/min', res: 'resistance in mmHg per L/min', spleen: 'spleen in cm' };
   function summaryTable(s, arrived = -1) {
-    const cols = s.cols || ['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'ppg'], asc = s.asc ?? !s.cols, rows = rowsOf(s), rel = s.vs === 'first';
-    const val = (k, f) => (PRESS.has(k) && !s.fine ? fmt(fpv(k, f), 0) : tileVal(k, f[k]));
+    const cols = s.cols || ['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'ppg'], ascCols = s.asc ?? !s.cols, rows = rowsOf(s);
+    const perRow = rows.some((r) => r.vs), rel = s.vs === 'first' || perRow;
+    const notes = s.note ? [s.note].flat() : [];
+    // Pressures always in whole mmHg (the model is not that precise); litres, kPa and flow keep their decimal.
+    const val = (k, f) => { const v = fpv(k, f); return v == null ? '—' : PRESS.has(k) ? fmt(v, 0) : k === 'res' ? fmt(v, 1) : tileVal(k, v); };
     const first = rows[0]?.f;
+    const refOfRow = (r) => (r.vs ? fpOf(r.vs) : first);
+    const vsName = (r) => { const t = rows.find((x) => slides[x.i]?.id === r.vs); return (t?.title || slides.find((x) => x.id === r.vs)?.title || '').toLowerCase(); };
     // The reference row (the healthy patient, or the baseline) keeps its numbers, the anchor for the arrows.
-    const isRef = (r, n) => !!r.ref || (rel && n === 0);
+    const isRef = (r, n) => !!r.ref || (rel && !r.vs && n === 0);
     const cell = (k, r, n) => {
-      if (r.blank.includes(k)) return h('td', { class: 'num blank' }, h('span', { 'aria-hidden': 'true' }, '–'), h('span', { class: 'sr-only' }, 'not measurable'));
-      if (!r.f || (rel && !first)) return h('td', { class: 'num pend' }, '…');
-      if (isRef(r, n)) return h('td', { class: 'num ref', 'data-rate': rel ? cellRate(k, r.f) : null }, val(k, r.f));
-      const d = rel ? dirRel(k, r.f, first) : dirAbs(k, r.f), v = val(k, r.f) + unitOf(k);
+      if (r.blank.includes(k)) return h('td', { class: 'num blank', title: 'Not measurable' }, noneEl(), h('span', { class: 'sr-only' }, 'not measurable'));
+      if (!r.f || (rel && !isRef(r, n) && !refOfRow(r))) return h('td', { class: 'num pend' }, '…');
+      if (isRef(r, n)) return h('td', { class: 'num ref', 'data-rate': rel ? null : cellRate(k, r.f) }, val(k, r.f));
+      const ref = refOfRow(r), d = rel ? (ref ? dirRel(k, r.f, ref) : 0) : dirAbs(k, r.f), v = val(k, r.f) + unitOf(k);
       // Against normal, the colour follows the arrows (amber above, red well above); against a baseline, better or worse.
       return h('td', { class: 'num dir' + (d ? '' : ' zero') + (rel ? ' rel' : ''), 'data-rate': rel ? null : ({ 1: 'mid', 2: 'hi' })[Math.abs(d)] ?? null, 'data-eff': rel ? effOf(k, d) : null, title: v },
         arrowEl(d), h('span', { class: 'sr-only' }, `${rel ? WORDREL[d] : WORD[d]}, ${v}`));
     };
-    const ascCell = (r, n) => {
-      if (!r.f || (rel && !first)) return h('td', { class: 'asc pend' }, '…');
-      if (!r.f) return h('td', { class: 'asc' }, '…');
-      if (r.f.asc < NO_ASC) return h('td', { class: 'asc' }, h('span', { class: 'none' }, 'None'));
+    // Ascites as two columns, SAAG and protein, one arrow each; "None" spans both when there is no fluid.
+    const ascCells = (r, n) => {
+      if (!r.f) return [h('td', { class: 'num pend' }, '…'), h('td', { class: 'num pend' }, '…')];
+      if (r.f.asc < NO_ASC) return [h('td', { class: 'num none', colspan: '2' }, 'None')];
       const hiS = r.f.saag >= 1.1, hiP = r.f.tp >= 2.5;
-      if (isRef(r, n)) return h('td', { class: 'asc' }, h('b', { 'data-rate': hiS ? 'hi' : null }, fmt(r.f.saag, 1)), ' · ', h('b', {}, fmt(r.f.tp, 1)));
-      return h('td', { class: 'asc dir', title: `SAAG ${fmt(r.f.saag, 1)}, protein ${fmt(r.f.tp, 1)} g/dL` },
-        h('span', { class: 'ap' }, h('small', {}, 'SAAG '), h('b', { 'data-rate': hiS ? 'hi' : null }, arrowEl(hiS ? 1 : -1)), h('span', { class: 'sr-only' }, hiS ? 'high gradient' : 'low gradient')),
-        h('span', { class: 'sep' }, ' · '), h('span', { class: 'ap' }, h('small', {}, 'Protein '), h('b', {}, arrowEl(hiP ? 1 : -1)), h('span', { class: 'sr-only' }, hiP ? 'high protein' : 'low protein')));
+      if (isRef(r, n)) return [h('td', { class: 'num ref', 'data-rate': hiS ? 'hi' : null }, fmt(r.f.saag, 1)), h('td', { class: 'num ref' }, fmt(r.f.tp, 1))];
+      return [h('td', { class: 'num dir', 'data-rate': hiS ? 'hi' : null, title: `SAAG ${fmt(r.f.saag, 1)} g/dL` }, arrowEl(hiS ? 1 : -1), h('span', { class: 'sr-only' }, `SAAG ${hiS ? '1.1 or more' : 'under 1.1'}, ${fmt(r.f.saag, 1)}`)),
+        h('td', { class: 'num dir', title: `Protein ${fmt(r.f.tp, 1)} g/dL` }, arrowEl(hiP ? 1 : -1), h('span', { class: 'sr-only' }, `protein ${hiP ? '2.5 or more' : 'under 2.5'}, ${fmt(r.f.tp, 1)} g/dL`))];
     };
-    const key = rel ? `↓ lower or ↑ higher than ${first ? rows[0].title.toLowerCase() : 'baseline'} (pressures by 0.5 mmHg or more), ↓↓ by 40% or more; • unchanged. Green: better, red: worse` : `↑ above normal, ↑↑ well above (HVPG 10 or more, PPG 12 or more), ↓ below; • within normal`;
-    return h('div', { class: 'pz-table' }, h('table', { style: { '--nc': String(cols.length), '--asc-w': asc ? '3.2em' : '0px' } },
-      h('thead', {}, h('tr', {}, h('th', {}, s.rowHead || 'Level'), cols.map((k) => h('th', { class: 'num' }, COLS[k] || k)), asc ? h('th', { class: 'ah' }, 'Ascites') : null, s.note ? h('th', {}, s.note) : null)),
-      h('tbody', {}, rows.map((r, n) => h('tr', { ...(r.i >= 0 ? { onclick: () => go(r.i) } : { class: 'static' }), 'data-arrived': r.k === arrived || (rel && n > 0 && rows[0].k === arrived) ? '' : null },
-        h('th', { scope: 'row' }, h('span', { class: 'pz-kick', 'data-site': r.site || 'none' }, h('i'), r.kicker.replace('Intrahepatic · ', '')), h('span', { class: 'tn' }, nb(r.title))),
+    // One legend, built from the table itself: what the arrows compare with, the reference row's units, the ring.
+    const units = [...new Set(cols.map((k) => (PRESS.has(k) ? 'press' : k)).filter((k) => UNIT_WORDS[k]))].map((k) => UNIT_WORDS[k]);
+    if (ascCols) units.push('SAAG and protein in g/dL');
+    const refTitle = first ? rows[0].title.toLowerCase() : 'the baseline';
+    const key = rel
+      ? `↑ higher, ↓ lower than ${perRow ? 'the row named under each' : refTitle}; ↑↑ ↓↓ by 40% or more; • unchanged${cols.some((k) => k !== 'pvFlow') ? '. Green better, red worse' : ''}`
+      : `↑ above normal, ↓ below; ↑↑ ↓↓ past the red cut-off of that column (tap a heading for it); • within normal`;
+    const legend = [key, rows.some((r) => r.blank.length) ? '○ not measurable' : '', units.length && rows.some((r, n) => isRef(r, n)) ? `Top row: ${units.join(', ')}` : '', s.foot || '']
+      .filter(Boolean).join('. ').replace(/\.\./g, '.') + '.';
+    const go1 = (r) => (e) => { if (e.type === 'click' || e.key === 'Enter' || e.key === ' ') { e.preventDefault?.(); go(r.i); } };
+    return h('div', { class: 'pz-table' }, h('table', { style: { '--nc': String(cols.length + (ascCols ? 2 : 0)), '--asc-w': '0px' } },
+      h('thead', {}, h('tr', {}, h('th', {}, s.rowHead || 'Level'), cols.map((k) => h('th', { class: 'num', title: CUT[k] || null }, COLS[k] || k)),
+        ascCols ? [h('th', { class: 'num', title: 'Serum-ascites albumin gradient: ↑ 1.1 g/dL or more (portal hypertension)' }, 'SAAG'), h('th', { class: 'num', title: 'Ascites protein: ↑ 2.5 g/dL or more' }, h('abbr', { title: 'Protein' }, 'Prot.'))] : null,
+        notes.map((x) => h('th', {}, x)))),
+      h('tbody', {}, rows.map((r, n) => h('tr', { ...(r.i >= 0 ? { tabindex: '0', onclick: go1(r), onkeydown: go1(r), 'aria-label': `${r.title}: go to this slide` } : { class: 'static' }),
+          'data-arrived': r.k === arrived || (rel && n > 0 && (r.vs ? rows.find((x) => slides[x.i]?.id === r.vs)?.k : rows[0].k) === arrived) ? '' : null },
+        h('th', { scope: 'row' }, h('span', { class: 'pz-kick', 'data-site': r.site || 'none' }, h('i'), r.kicker.replace('Intrahepatic · ', '')), h('span', { class: 'tw' }, h('span', { class: 'tn' }, nb(r.title)),
+          r.vs ? h('span', { class: 'vs' }, `vs ${vsName(r)}`) : null)),
         cols.map((k) => cell(k, r, n)),
-        asc ? ascCell(r, n) : null,
-        s.note ? h('td', { class: 'note' }, r.note || '') : null)))),
-    h('p', { class: 'pz-foot' }, withArrows(s.foot || `Arrows from the model: ${key}. Hover or tap a cell for its value. Pick a row to go back to it.`)));
+        ascCols ? ascCells(r, n) : null,
+        notes.map((_, j) => h('td', { class: 'note' }, [r.note].flat()[j] || '')))))),
+    h('p', { class: 'pz-foot' }, withArrows(legend)));
   }
   const VISUALS = {
     table: summaryTable,
@@ -1076,6 +1120,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
   addEventListener('pps:labelscale', () => { if (deck && ui && !labelling) setLabels(); });
 
   // ── Chrome: counter, progress, controls ──
+  let askAt = [-1, 0];   // (the slide whose question is open, and how far: 0 shut, 1 the question, 2 with its answer)
   function paintChrome() {
     if (!ui) return;
     const n = slides.length, i = want;
@@ -1096,9 +1141,15 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
         h('button', { class: 'ib', 'aria-label': 'Exit the presentation', title: 'Exit', onclick: stop }, icon('close')));
         return;
     }
+    // The slide's question for the room, for the presenter: a faint "?" beside the count shows it, a second tap the answer.
+    const ask = slides[i]?.ask;
+    if (askAt[0] !== i) askAt = [i, 0];
+    const askBtn = ask?.[0] ? h('button', { class: 'ib pzb-ask', 'aria-label': 'Ask the room', title: 'Ask the room: the question, then the answer', 'aria-expanded': String(askAt[1] > 0),
+      onclick: () => { askAt = [i, (askAt[1] + 1) % 3]; paintChrome(); } }, '?') : null;
+    const askPop = askBtn && askAt[1] ? h('div', { class: 'pzb-q', role: 'status' }, h('b', {}, ask[0]), askAt[1] > 1 && ask[1] ? h('span', {}, ask[1]) : null) : null;
     ui.bar.replaceChildren(
       h('button', { class: 'ib', 'aria-label': 'Previous slide', title: 'Previous (←)', disabled: i === 0, onclick: prev }, icon('chev-left')),
-      countBtn,
+      countBtn, askBtn, askPop,
       h('button', { class: 'ib', 'aria-label': skip ? 'Run the time-lapse to its end' : 'Next slide', title: skip ? 'Skip to the end of the time-lapse (→)' : 'Next (→)', disabled: last, onclick: next }, icon('chev-right')),
       skip ? h('span', { class: 'pzb-skip', 'aria-hidden': 'true' }, '⏵ skip') : null,
       h('span', { class: 'pzb-sep' }),

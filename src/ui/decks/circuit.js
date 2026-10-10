@@ -37,14 +37,14 @@ export const CIRCUIT = {
     },
     {
       id: 'meal', ...MEAL, view: C, sites: R, data: 'tiles', tiles: ['pvFlow', 'ppg'], delta: true,
-      kicker: K, title: 'More flow',
+      kicker: K, title: 'More flow: a meal',
       line: 'After a meal the gut arterioles open and portal flow rises by about a quarter. Across a low resistance, the gradient barely moves.',
-      notes: 'The Q term. The rise in the gradient is the rise in flow times the hepatic resistance, and a healthy liver\'s resistance is small. The same meal on a cirrhotic liver comes back on slide 5.',
+      notes: 'The Q term. The rise in the gradient is the rise in flow times the hepatic resistance, and a healthy liver\'s resistance is small. The same meal on a cirrhotic liver comes back on the slide "Flow and resistance together".',
       ask: ['Why does a meal barely change portal pressure in a healthy liver?', 'The extra flow crosses a very low resistance.'],
     },
     {
       id: 'resist', preset: 'csph', view: C, sites: R, data: 'tiles', tiles: ['pvFlow', 'hvpg', 'ppg'], delta: 'ohm',
-      kicker: K, site: 'sin', title: 'More resistance',
+      kicker: K, site: 'sin', title: 'More resistance: cirrhosis',
       line: 'Scarred sinusoids resist the same flow several times more, so the pressure drop across the liver rises in proportion.',
       notes: 'The R term. In cirrhosis about three quarters of the extra resistance is fixed (fibrosis, nodules, capillarized sinusoids) and a quarter is tone: contracted stellate cells and too little nitric oxide in the sinusoids. The tone is what drugs can reverse. The tiles compare with the healthy liver on the first slide; the portal flow is almost the same.',
       ask: ['What part of the intrahepatic resistance can drugs lower?', 'The dynamic part: stellate cell and vascular tone.'],
@@ -80,10 +80,12 @@ export const CIRCUIT = {
       ask: ['Which term of ΔP = Q × R does carvedilol act on that propranolol does not?', 'R, the intrahepatic resistance, through α1 blockade.'],
     },
     {
-      id: 'summary', visual: 'table', cols: ['hvpg', 'ppg', 'liver'], fine: true, asc: false, vs: 'first', rowHead: 'Circuit',
-      of: [{ kicker: 'Reference', id: 'ohm', title: 'Healthy' }, { kicker: 'More flow', id: 'meal', title: 'Healthy, after a meal' }, { kicker: 'More resistance', id: 'resist', title: 'Cirrhosis' }, { kicker: 'Both', id: 'both', title: 'Cirrhosis, after a meal' },
-        { kicker: 'Parallel resistor', id: 'parallel', title: 'With collaterals' }, { kicker: 'Parallel resistor', id: 'tips', title: 'TIPS' }, { kicker: 'Less flow', id: 'drugs', title: 'Propranolol' }],
+      // Each row against the row it changes (vs), in the circuit's own terms: portal flow (Q), resistance (R = PPG ÷ Q) and their product.
+      id: 'summary', visual: 'table', cols: ['pvFlow', 'res', 'ppg'], asc: false, rowHead: 'Circuit',
+      of: [{ kicker: 'Reference', id: 'ohm', title: 'Healthy' }, { kicker: 'More flow', id: 'meal', title: 'Healthy, after a meal', vs: 'ohm' }, { kicker: 'More resistance', id: 'resist', title: 'Cirrhosis', vs: 'ohm' }, { kicker: 'Both', id: 'both', title: 'Cirrhosis, after a meal', vs: 'resist' },
+        { kicker: 'Parallel resistor', id: 'parallel', title: 'With collaterals', vs: 'resist' }, { kicker: 'Parallel resistor', id: 'tips', title: 'TIPS', vs: 'parallel' }, { kicker: 'Less flow', id: 'drugs', title: 'Propranolol', vs: 'parallel' }],
       kicker: 'Summary', title: 'Every slide is ΔP = Q × R',
+      line: 'Each row against the row it changes: the gradient (PPG) moves with the flow (Q) times the resistance (R).',
       notes: 'Each row changes Q, R or both, compared with the healthy circuit. A meal raises Q; cirrhosis raises R; collaterals and TIPS add resistors in parallel; drugs lower Q, and carvedilol also R.',
       ask: ['Classify TIPS, propranolol and a meal by the term they change.', 'TIPS lowers R (in parallel); propranolol lowers Q; a meal raises Q.'],
     },
