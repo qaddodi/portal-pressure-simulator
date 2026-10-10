@@ -4598,18 +4598,19 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* Scope and its Wall mechanics tab share one layout that fills the card: the picture takes all the height the
    readings leave, with its caption under it (never over it). Wider than tall: picture beside the readings;
    taller: picture above them. */
-.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, min(360px, 50%)); grid-template-rows: minmax(150px, 1fr) auto auto; gap: 10px 18px; animation: endo-in .22s var(--ease); }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view { flex: 1 1 auto; min-height: auto; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, min(360px, 50%)); grid-template-rows: minmax(auto, 1fr) auto auto; gap: 10px 18px; animation: endo-in .22s var(--ease); }
 .instrument-workspace .dock-pane[data-pane="endoscopy"][data-sub="wall"] > .instrument-view:not(.wall-view),
 .instrument-workspace .dock-pane[data-pane="endoscopy"]:not([data-sub="wall"]) > .wall-view { display: none; }
 .instrument-workspace .dock-pane[data-pane="endoscopy"] .chart-side { display: contents; }
-.endo-stage { grid-column: 1; grid-row: 1; align-self: stretch; justify-self: stretch; min-width: 0; min-height: 0; container-type: size; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+.endo-stage { grid-column: 1; grid-row: 1; align-self: stretch; justify-self: stretch; min-width: 0; min-height: 150px; container-type: size; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
 .instrument-workspace .endo-stage > .chart-box.square { flex: none; width: min(100cqw, 100cqh - 24px); max-width: none; }
 .instrument-workspace .dock-pane[data-pane="endoscopy"] .endo-read { grid-column: 2; grid-row: 1; align-self: center; }
 .instrument-workspace .dock-pane[data-pane="endoscopy"] .chart-side > :not(.endo-read) { grid-column: 1 / -1; margin: 0; }
 .instrument-workspace .dock-pane[data-pane="endoscopy"] .chart-side > .btn { grid-row: 2; }
 .instrument-workspace .dock-pane[data-pane="endoscopy"] .chart-side > .ctl-sub { grid-row: 3; }
 @container (max-aspect-ratio: 4 / 5) {
-  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(180px, 1fr) auto auto auto; gap: 14px; }
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(auto, 1fr) auto auto auto; gap: 14px; }
+  .endo-stage { min-height: 180px; }
   .instrument-workspace .dock-pane[data-pane="endoscopy"] .endo-read { grid-column: 1; grid-row: 2; }
   .instrument-workspace .dock-pane[data-pane="endoscopy"] .chart-side > .btn { grid-row: 3; }
   .instrument-workspace .dock-pane[data-pane="endoscopy"] .chart-side > .ctl-sub { grid-row: 4; }
@@ -4624,6 +4625,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 @media (prefers-reduced-motion: reduce) { .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view { animation: none; } }
 /* A short phone sheet (Safari's toolbar showing): the traces give up some height. */
 @container (max-height: 300px) and (max-width: 649px) {
+  .endo-stage { min-height: 110px; }
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view { row-gap: 8px; }
+  .endo-grade b { font-size: 20px; }
+  .endo-stress-v { font-size: var(--fs-12); }
+  .endo-tile, .endo-chip { padding-top: 3px; padding-bottom: 3px; }
   .instrument-workspace .instrument-view.pt .pt-box, .instrument-workspace.float-ui .instrument-view.dop .dop-box { min-height: 100px; }
   .instrument-workspace.float-ui .dock-pane .instrument-view > .chart-box:not(.square) { min-height: 100px; }
   .instrument-workspace .pt-chips { gap: 4px; }
