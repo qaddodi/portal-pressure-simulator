@@ -19,7 +19,7 @@ export const LOBULE = {
       ask: ['Which way does blood run in the lobule?', 'From the portal tracts at the edge, through the sinusoids, to the central vein.'],
     },
     {
-      id: 'zones', cam: 'lobule',
+      id: 'zones', cam: 'lobule', layers: ['zones'],
       kicker: 'The lobule', title: 'Zones 1 to 3',
       line: 'Oxygen and nutrients fall from the portal tract to the central vein. Zone 3, around the central vein, gets the least.',
       notes: 'In the acinus, zone 1 lies next to the portal tract and zone 3 around the central vein. Blood gives up oxygen as it runs, so zone 3 cells work closest to hypoxia; they also hold most of the cytochrome P450 enzymes. Zone 3 is the first injured by low flow (ischemic hepatitis), by congestion and by toxins activated there, such as paracetamol. Zone 1 is hit first by toxins that arrive directly, and is where periportal disease begins.',

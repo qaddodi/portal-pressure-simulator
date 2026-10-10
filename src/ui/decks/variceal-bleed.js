@@ -18,9 +18,9 @@ export const BLEED = {
   summary: 'One bleed from tear to TIPS: early shock with a normal hemoglobin, octreotide before the scope, banding, restrictive transfusion and why overfilling raises the portal pressure.',
   slides: [
     {
-      id: 'before', preset: 'cirr-decomp', cam: 'varices', labels: ['AZY'], tool: BEATS, data: 'tiles', tiles: ['pv', 'varix'], key: ['varix'],
+      id: 'before', preset: 'cirr-decomp', cam: 'varices', labels: ['VAR', 'AZY'], mark: { edges: ['C1a', 'C1b'], label: 'Large varix' }, tool: BEATS, data: 'tiles', tiles: ['pv', 'varix'], key: ['varix'],
       kicker: 'Before', site: 'sin', title: 'Large varices under pressure',
-      line: 'Decompensated cirrhosis with an 8 mm varix and a portal pressure of 23 mmHg. The wall is thin and the tension high.',
+      line: 'Decompensated cirrhosis with an 8 mm varix and a portal pressure of {23 mmHg}. The wall is thin and the tension high.',
       notes: 'This patient has the features that predict a bleed: large varices, red wale marks on the scope, Child–Pugh B or C, and an HVPG of 12 mmHg or more. Prevention would have been a non-selective beta-blocker (carvedilol) or banding. The trace on the right runs live, beat by beat, for the rest of the talk.',
       ask: ['Name three features that predict a first variceal bleed.', 'Large varices, red signs on the varix and advanced liver disease (Child–Pugh B or C).'],
     },

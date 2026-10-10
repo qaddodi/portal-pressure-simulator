@@ -12,6 +12,7 @@
 //                            'lobule', 'lobule:triad' | 'lobule:sinusoid' | 'lobule:central' (zoom: × the lobule's
 //                            framing), or 'sinusoid'
 //   labels                   the stations named on the anatomy (none when absent)
+//   layers                   ['zones']: the lobule's zone bands on (a lobule slide shows none otherwise)
 //   mark                     { edges, label }: a ring and a callout on the figure (hidden until a quiz is answered)
 //   eq                       [MathML, legend?]: an equation under the title (see mi, mo, sub and frac)
 //   kicker, site, title, line, causes
@@ -49,7 +50,7 @@
 
 import { STIFFNESS } from './decks/stiffness.js?v=3e351fce98';
 import { ONE_YEAR } from './decks/one-year.js?v=5c136a5945';
-import { LOBULE } from './decks/lobule.js?v=88e7d6a484';
+import { LOBULE } from './decks/lobule.js?v=a4fece9e32';
 import { SHUNTS } from './decks/shunts.js?v=f85ae18277';
 import { TAP } from './decks/tap.js?v=aeece78bce';
 import { CIRCUIT } from './decks/circuit.js?v=567293bbfe';
@@ -57,7 +58,7 @@ import { DOPPLER } from './decks/doppler.js?v=8d2db6e5e8';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=ca5ddcfed8';
 import { PREHEPATIC } from './decks/prehepatic.js?v=4de7c2b784';
 import { RIGHT_HEART } from './decks/right-heart.js?v=5fdaa16faa';
-import { BLEED } from './decks/variceal-bleed.js?v=17d33e548b';
+import { BLEED } from './decks/variceal-bleed.js?v=461b703f8d';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {

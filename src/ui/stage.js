@@ -3198,7 +3198,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const hp = store.get().healthy, P = F.Pf || F.P, Q = F.Qf || F.Q;
     if (!hp?.P || !hp?.Q) return null;
     const r0 = liverRes(hp.P, hp.Q);
-    if (kind === 'liver') return liverRes(P, Q) / r0;
+    // (The live frame breathes a few percent around the settled value, so a liver within 8% of the healthy one reads exactly ×1.0, not ×0.9 and ×1.0 by turns.)
+    if (kind === 'liver') { const r = liverRes(P, Q) / r0; return Math.abs(r - 1) < 0.08 ? 1 : r; }
     let qc = 0;
     for (const e of EDGES) if (e.kind === 'collateral' && edgePresent(e, store.get().params)) qc += Math.max(0, Q[EI[e.id]]);
     if (qc * 0.06 < 0.05) return null;

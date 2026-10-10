@@ -19,9 +19,9 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=cab65850a4';
 import { sinusoidSupported } from './sinusoid-view.js?v=14866bc1c9';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
-import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=2bbef46a1d';
+import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=50d14b4239';
 import { createTools } from './presenter-tools.js?v=28dfa00d7e';
-import { openHandout } from './handout.js?v=7e21af602d';
+import { openHandout } from './handout.js?v=6df2442acb';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -180,15 +180,18 @@ let uid = 0;
  *  vein to the IVC), coloured by their cut-offs, with faint leaders up to the
  *  stations they join. set(f, { key }) glides the line and counts the numbers. */
 function bigLadder() {
-  const W = 500, H = 362, X = (i) => 56 + i * 97, Y = (v) => 252 - clamp(v, 0, 30) * 6.6;
+  const W = 500, H = 362, X = (i) => 56 + i * 97;
+  // The axis runs to 30 mmHg, or to the next 10 above the highest station (an acute portal vein clot reads in the 40s); it eases when that changes.
+  let top = 30, baseVals = null;
+  const Y = (v) => 252 - clamp(v, 0, top) * (198 / top);
   const SPAN_Y = { hvpg: 278, ppg: 316 };
   const gid = 'pzGrad' + ++uid;
   const base = sv('path', { class: 'pzl-base' });
   const line = sv('path', { class: 'pzl-line', stroke: `url(#${gid})` });
   const bands = [0, 1, 2, 3].map((i) => {
-    const r = sv('rect', { x: X(i) + 16, y: Y(30) - 6, width: 97 - 32, height: Y(0) - Y(30) + 6, rx: 12 });
+    const r = sv('rect', { x: X(i) + 16, y: Y(30) - 6, width: 97 - 32, height: Y(0) - Y(30) + 6, rx: 12 });   // (y and height follow the axis, in draw)
     const t = sv('text', { x: (X(i) + X(i + 1)) / 2, y: 26, 'text-anchor': 'middle' });
-    return { g: sv('g', { class: 'pzl-drop', opacity: 0 }, r, t), t };
+    return { g: sv('g', { class: 'pzl-drop', opacity: 0 }, r, t), t, r };
   });
   const pts = RUNGS.map(([, a], i) => {
     const c = sv('circle', { cx: X(i), r: 8.5 }), v = sv('text', { class: 'pzl-v', x: X(i), 'text-anchor': 'middle' });
@@ -203,12 +206,24 @@ function bigLadder() {
     return { name, x0, x1, row, lead, pill, txt, w, mid, g: sv('g', { class: 'pzl-bg', opacity: 0 }, lead, bar, pill, txt) };
   };
   const hv = span('HVPG', SPAN_Y.hvpg, 1, 2), pp = span('PPG', SPAN_Y.ppg, 0, 3);
+  const grid = [0, 10, 20, 30, 40, 50].map((v) => {
+    const line = sv('line', { x1: 44, x2: W - 10 }), txt = sv('text', { x: 34, 'text-anchor': 'end' }, String(v));
+    return { v, line, txt, g: sv('g', { class: 'pzl-grid' }, line, txt) };
+  });
+  const drawBase = () => base.setAttribute('d', baseVals ? RUNGS.map(([k], i) => `${i ? 'L' : 'M'}${X(i)} ${Y(baseVals[k]).toFixed(1)}`).join(' ') : '');
   let verdict = {};
   const el = sv('svg', { class: 'pz-ladder', viewBox: `0 0 ${W} ${H}`, role: 'img' },
     sv('defs', {}, sv('linearGradient', { id: gid, x1: 0, x2: 1, y1: 0, y2: 0 }, sv('stop', { offset: 0, 'stop-color': 'var(--tour-portal)' }), sv('stop', { offset: 1, 'stop-color': 'var(--tour-sys)' }))),
-    [0, 10, 20, 30].map((v) => sv('g', { class: 'pzl-grid' }, sv('line', { x1: 44, x2: W - 10, y1: Y(v), y2: Y(v) }), sv('text', { x: 34, y: Y(v) + 5, 'text-anchor': 'end' }, String(v)))),
+    grid.map((r) => r.g),
     bands.map((b) => b.g), hv.g, pp.g, base, line, pts.map((p) => p.g));
   const draw = tweener((f) => {
+    top = clamp(f.top || 30, 30, 50);
+    for (const g of grid) {
+      g.line.setAttribute('y1', Y(g.v).toFixed(1)); g.line.setAttribute('y2', Y(g.v).toFixed(1)); g.txt.setAttribute('y', (Y(g.v) + 5).toFixed(1));
+      g.g.setAttribute('opacity', g.v <= 30 ? 1 : clamp((top - g.v) / 10 + 1, 0, 1).toFixed(3));
+    }
+    bands.forEach((b) => { b.r.setAttribute('y', (Y(top) - 6).toFixed(1)); b.r.setAttribute('height', (Y(0) - Y(top) + 6).toFixed(1)); });
+    drawBase();
     const y = RUNGS.map(([k]) => Y(f[k]));
     line.setAttribute('d', y.map((yy, i) => `${i ? 'L' : 'M'}${X(i)} ${yy.toFixed(1)}`).join(' '));
     pts.forEach((p, i) => { p.c.setAttribute('cy', y[i].toFixed(1)); p.v.setAttribute('y', (y[i] - 18).toFixed(1)); p.v.textContent = fmt(f[RUNGS[i][0]], 0); });
@@ -239,11 +254,11 @@ function bigLadder() {
   });
   return {
     el,
-    setBase(b) { base.setAttribute('d', b ? RUNGS.map(([k], i) => `${i ? 'L' : 'M'}${X(i)} ${Y(b[k]).toFixed(1)}`).join(' ') : ''); },
+    setBase(b) { baseVals = b; drawBase(); },
     set(f, { key = [], ms, brackets = null } = {}) {
       verdict = brackets || {};
       pts.forEach((p, i) => p.g.classList.toggle('key', key.includes(RUNGS[i][0])));
-      draw({ pv: f.pv, whvp: f.whvp, fhvp: f.fhvp, ra: f.ra, ivc: f.ivc ?? f.ra, hvpg: f.hvpg, ppg: f.ppg }, ms);
+      draw({ top: Math.max(30, Math.ceil(Math.max(f.pv, f.whvp, f.fhvp, f.ra, f.ivc ?? f.ra) / 10) * 10 || 30), pv: f.pv, whvp: f.whvp, fhvp: f.fhvp, ra: f.ra, ivc: f.ivc ?? f.ra, hvpg: f.hvpg, ppg: f.ppg }, ms);
     },
   };
 }
@@ -573,6 +588,9 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
   async function camera(cam, s, cut) {
     const ms = reduce.matches ? 0 : 1500;
     if (LOBULE_CAM.test(cam)) {
+      // (A slide's layers: ['zones'] shows the lobule's zone bands; any other lobule slide has them off.)
+      const zonesWant = !!s.layers?.includes('zones');
+      if (!!store.get().lobuleLayers?.zones !== zonesWant) store.set({ lobuleLayers: { ...store.get().lobuleLayers, zones: zonesWant } });
       if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await wait(700); }
       if (!store.get().lobule) {
         // Whole figure → the liver → into it: the dive starts from the liver, filling the screen.
@@ -1313,7 +1331,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     const st = store.get(), { snap } = await host.request('snapshot');
     return { snap, params: structuredClone(st.params), presetId: st.presetId, view: st.view, lobule: st.lobule, sinusoid: st.sinusoid, mode: st.mode,
       selection: st.selection, details: st.details, compareSnap: st.compareSnap, compareView: st.compareView, colorMode: st.colorMode,
-      running: st.running, speed: st.speed, lapse: st.lapse, clock: st.clock, hvpgMeasured: st.hvpgMeasured, lastHVPG: st.lastHVPG,
+      lobuleLayers: st.lobuleLayers, running: st.running, speed: st.speed, lapse: st.lapse, clock: st.clock, hvpgMeasured: st.hvpgMeasured, lastHVPG: st.lastHVPG,
       labelK: stage.labelScale(), cam: stage.cameraState() };
   }
   async function start(id, at = 0) {
@@ -1376,6 +1394,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
       compareSnap: b.compareSnap, compareView: b.compareView, historyTick: (before.historyTick || 0) + 1 });
     if (before.view !== b.view) { store.set({ view: b.view }); await wait(reduce.matches ? 0 : 700); }
     if (!b.lobule) stage.setCamera(b.cam, reduce.matches ? 0 : 900);
+    if (b.lobuleLayers) store.set({ lobuleLayers: b.lobuleLayers });
     if (before.lobule !== b.lobule) store.set({ lobule: b.lobule, sinusoid: b.sinusoid });
     else if (before.sinusoid !== b.sinusoid) store.set({ sinusoid: b.sinusoid });
     store.set({ selection: b.selection, details: b.details });
