@@ -2303,14 +2303,17 @@ button.finding:hover { background: var(--surface-2); }
 .pz-tool .dop-head:empty, .pz-tool .dop-head:not(:has(> :not(select):not(.dop-btns))) { display: none; }
 .pz-tool[data-kind="doppler"] .dop-box { height: clamp(150px, 24vh, 300px); }
 .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: clamp(220px, 38vh, 440px); }
-.pz-tool[data-kind="scope"] .chart-box.square { width: min(100%, 40vh); height: auto; aspect-ratio: 1; margin: 0 auto; }
+/* The scope's view sits in .endo-stage, a size container in the Tests card; here the stage takes the view's own height. */
+.pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage { container-type: normal; min-height: 0; }
+.pz-tool[data-kind="scope"] .endo-stage { width: min(100%, 30vh, 20vw); margin: 0 auto; }
+.pz-tool[data-kind="scope"] .chart-box.square { width: 100%; height: auto; aspect-ratio: 1; max-width: none; margin: 0; }
 .pz-tool[data-kind="scope"] .chart-side { width: 100%; max-width: none; }
 .pz-tool[data-kind="beats"] .pt-box { height: clamp(180px, 30vh, 360px); }
 /* Quiz: the reading stays covered until the answer (a soft veil, never a pop). */
 .pz-tool::after { content: ""; position: absolute; pointer-events: none; opacity: 0; transition: opacity .32s var(--ease); background: var(--surface); border-radius: 10px; }
 .pz-tool.ask[data-kind="fibroscan"]::after { opacity: 1; left: 8px; top: 30px; width: 46%; height: 64px; }
-.pz-tool .dop-report, .pz-tool[data-kind="scope"] .kv { transition: opacity .32s var(--ease); }
-.pz-tool.ask .dop-report, .pz-tool.ask[data-kind="scope"] .kv { opacity: 0; }
+.pz-tool .dop-report, .pz-tool[data-kind="scope"] .endo-read { transition: opacity .32s var(--ease); }
+.pz-tool.ask .dop-report, .pz-tool.ask[data-kind="scope"] .endo-read { opacity: 0; }
 /* The talk so far: pressures at each slide, HVPG in its own lane. */
 .pz-talk { display: grid; }
 .pz-mon { flex: none; margin-top: 14px; }
@@ -2337,13 +2340,13 @@ button.finding:hover { background: var(--surface-2); }
 .pz.stack .pz-data.has-tool { max-height: 50%; }
 .pz.stack .pz-tool[data-kind="doppler"] .dop-box { height: 110px; }
 .pz.stack .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: 180px; }
-.pz.stack .pz-tool[data-kind="scope"] .chart-box.square { width: min(100%, 24vh); }
 .pz.stack .pz-tool[data-kind="beats"] .pt-box { height: 140px; }
 /* Phone: the scope sits beside its grade and size, and the Doppler drops its sentence, so a tile still fits under the instrument. */
 .pz.stack .pz-tool[data-kind="scope"] .pz-inst { flex-direction: row; align-items: center; gap: 12px; }
-.pz.stack .pz-tool[data-kind="scope"] .chart-box.square { width: 40%; flex: none; margin: 0; }
+.pz.stack .pz-tool[data-kind="scope"] .endo-stage { width: min(40%, 24vh); flex: none; margin: 0; }
+.pz.stack .pz-tool[data-kind="scope"] .endo-pos { display: none; }
 .pz.stack .pz-tool[data-kind="scope"] .chart-side { flex: 1; min-width: 0; }
-.pz.stack .pz-tool[data-kind="scope"] .kv > :nth-child(n+5) { display: none; }
+.pz.stack .pz-tool[data-kind="scope"] .endo-read > :nth-child(n+5) { display: none; }
 .pz.stack .pz-tool .dop-note { display: none; }
 .pz.stack .pz-table td.note { min-width: 6.5em; }
 /* The count opens the slide list; a running time-lapse shows that Next skips it. */
