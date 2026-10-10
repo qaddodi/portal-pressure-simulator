@@ -15,7 +15,7 @@ import { h, openModal, closeModal, toast, svgIcon } from './util.js?v=a357853926
 import { addRecord, exportCSV, exportXAPI } from './records.js?v=50fb9dd463';
 import { scoreCase, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=7f4afcf446';
 import { veinBlocked } from './measure-model.js?v=96862e2586';
-import { CASES, ORDER_META, GROUPS } from './cases/index.js?v=01262353d6';
+import { CASES, ORDER_META, GROUPS } from './cases/index.js?v=81cf1cdfeb';
 import { bpOf, tension, abdomen } from './cases/kit.js?v=4021282d5c';
 import { trustLine } from './learning-kit.js?v=472fe433c7';
 
@@ -110,6 +110,8 @@ export function createCases({ root, api }) {
       tension: tension(m.varix?.ratio ?? 0), varix: m.varix?.d ?? 0, spleen: m.spleen.length, pvdir: m.pvFlow < -0.05 ? 'away from the liver' : m.pvFlow < 0.03 ? 'no flow' : 'toward the liver' };
   }
   function vit() {
+    // While a decision is open the vitals hold still, so the question and the strip quote the same numbers.
+    if (ctx.frozen && ctx.open && !ctx.consequence) return ctx.frozen;
     const r = read(), o = cs.vitalsFn?.(c) || {};
     return { hr: o.hr ?? String(r.hr), bp: o.bp ?? r.bp };
   }
@@ -143,10 +145,20 @@ export function createCases({ root, api }) {
   const whenText = () => (cs.acute ? `${cs.patient.setting} · ${clockText(ctx.t + ctx.clockAdd)}` : ctx.when || cs.patient.setting);
 
   // ───────────── orders ─────────────
+  // Finding captions on the figure stay hidden until the test that would show them.
+  const LANES = ['C1b', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'EPI_SVC'];
+  const REVEALS = { egd: ['VAR', 'GV'], ct: ['GV', ...LANES], doppler: LANES };
+  function revealLabels(id) {
+    const hid = store.get().hiddenLabels, show = REVEALS[id];
+    if (!hid || !show) return;
+    const next = new Set([...hid].filter((k) => !show.includes(k)));
+    if (next.size !== hid.size) store.set({ hiddenLabels: next });
+  }
   function runOrder(id, o = {}) {
     const meta = ORDER_META[id], def = RUN[id];
     if (!meta || !def) return;
     log.push({ id, t: ctx.t });
+    revealLabels(id);
     def.run?.({ ...api }, o, c);
     if (!o.silent || meta.g !== 'assess') ctx.story.push({ kind: 'order', text: meta.label, at: ctx.t + ctx.clockAdd });
     // a study puts a result in the chart, after a short wait
@@ -178,8 +190,8 @@ export function createCases({ root, api }) {
   }
   function lockOf(s) {
     const miss = (s.needs || []).filter((id) => !log.some((l) => l.id === id));
-    if (miss.length) return `Order first: ${miss.map((id) => ORDER_META[id].label.toLowerCase()).join(', ')}`;
-    if (s.needsAny && !s.needsAny.some((id) => log.some((l) => l.id === id))) return `Order first: ${s.needsAny.map((id) => ORDER_META[id].label.toLowerCase()).join(' or ')}`;
+    if (miss.length) return 'You need a result first';
+    if (s.needsAny && !s.needsAny.some((id) => log.some((l) => l.id === id))) return 'You need a result first';
     return null;
   }
   function grade(s, pick) {
@@ -195,6 +207,7 @@ export function createCases({ root, api }) {
     ctx.open = s.id; ctx.sel = s.multi ? new Set() : null; ctx.consequence = null;
     pause();
     if (!ctx.opened.has(s.id)) { ctx.opened.add(s.id); ctx.busy = true; render(); await s.onOpen?.(c); ctx.busy = false; }
+    ctx.frozen = null; ctx.frozen = vit();
     bindKeys(); render();
   }
   async function commit() {
@@ -268,7 +281,7 @@ export function createCases({ root, api }) {
     if (cs.afterDays) { host.send({ type: 'advance', days: cs.afterDays, restartClock: true }); host.send({ type: 'settle' }); await host.request('snapshot'); }
     if (cs.params) updateParams(cs.params, { history: false, settle: true });
     const vis = visibilityOf(cs);
-    store.set({ hiddenReadouts: vis.hidden, hiddenEvents: vis.events, lastHVPG: null, locked: new Set(['!cirrhosis']), imaging: vis.imaging });
+    store.set({ hiddenLabels: new Set(['VAR', 'GV', ...LANES]), hiddenReadouts: vis.hidden, hiddenEvents: vis.events, lastHVPG: null, locked: new Set(['!cirrhosis']), imaging: vis.imaging });
     api.setAllowedTools(cs.tools);
     api.muteEvents?.(true);
     await cs.setup?.(api, c);
@@ -303,7 +316,7 @@ export function createCases({ root, api }) {
     if (!cs) return;
     clearInterval(timer); unbindKeys();
     cs = null; ctx = null; c = null;
-    store.set({ hiddenReadouts: null, hiddenEvents: null, locked: null, imaging: false });
+    store.set({ hiddenLabels: null, hiddenReadouts: null, hiddenEvents: null, locked: null, imaging: false });
     api.setAllowedTools(null);
     api.muteEvents?.(false);
     host.send({ type: 'run', running: true, speed: 1 });

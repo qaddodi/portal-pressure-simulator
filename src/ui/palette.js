@@ -8,7 +8,7 @@ import { EDGES } from '../engine/topology.js?v=dc393aabea';
 import { DRUGS } from '../engine/scenario.js?v=d88966abe6';
 import { HIDDEN_EDGES } from './anatomy.js?v=89191aa586';
 import { LESSONS } from './learn.js?v=648a1f6d2a';
-import { CASES } from './cases.js?v=7bbce6617a';
+import { CASES } from './cases.js?v=a074a6964e';
 
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9+ ]/g, ' ');
 

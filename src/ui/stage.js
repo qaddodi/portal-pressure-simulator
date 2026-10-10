@@ -3245,6 +3245,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return st.compareSnap ? st.compareSnap.P : st.healthy?.P;
   };
   const isImaging = () => !!store.get().imaging;
+  // A case hides the captions of findings (varices, collaterals) until a test shows them.
+  const labelHidden = (id) => !!store.get().hiddenLabels?.has(id);
   // The active data layer (what vessel color encodes).
   function layerMode() {
     const st = store.get();
@@ -3429,7 +3431,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const st = store.get(), t = easeInOut(morph);
     const edges = Object.values(E).filter((x) => x.vis).map((x) => `${x.e.id}${Math.round(x.width || 0)}${x.g.classList.contains('coll-ghost') ? 'g' : ''}`).join(',');
     return [geometryVersion, t >= 0.5, rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, JSON.stringify((f.viewParams || st.params).stenosis),
-      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], vt.k > 1.35, st.labelLevel, zoomedIn(), flagged(f).join(','), edges].join('|');
+      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], vt.k > 1.35, st.labelLevel, [...(st.hiddenLabels || [])].join(','), zoomedIn(), flagged(f).join(','), edges].join('|');
   }
   function updateLabels(f) {
     refreshCTM();
@@ -3605,7 +3607,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const atlas = false;
       const items = [];
       for (const id of show) {
-        if (!NODE_POS[id]) continue;
+        if (!NODE_POS[id] || labelHidden(id)) continue;
         const { ax, ay, mid, w: vw } = labelAnchor(id, t);
         const it = nodeItem(id, f, atlas ? 'atlas' : 'inline', compact);
         it.ax = ax; it.ay = ay; it.vw = mid ? vw * CTM.sc : 0; it.pri = it.sel ? 100 : minor.has(id) ? 1 : ANAT_PRI[id] || 5;
@@ -3640,7 +3642,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!atlas && lvl !== 'none' && (vt.k > 1.35 || zoomed || lvl === 'all')) {
         const room = compact ? 64 : 80;
         for (const id of ANAT_EXTRA) {
-          if (show.has(id) || !NODE_POS[id] || !(NI[id] >= 0)) continue;
+          if (show.has(id) || !NODE_POS[id] || !(NI[id] >= 0) || labelHidden(id)) continue;
           const { ax, ay, mid, w: vw } = labelAnchor(id, t);
           if (items.some((o) => Math.hypot(o.ax - ax, o.ay - ay) < room)) continue;
           const it = nodeItem(id, f, 'inline', compact);
@@ -3746,7 +3748,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const nodes = [], flagC = flagged(f);
       for (const n of NODES) {
         if (!nodeEls[n.id] || !CIRCUIT_LABELS[n.id]) continue;
-        if (!nodeVisible(n.id)) continue;
+        if (!nodeVisible(n.id) || labelHidden(n.id)) continue;
         if ((n.id === 'VAR' || n.id === 'GV') && !hasVarices(n.id, f)) continue;
         if (!open && LIVER_INNER.has(n.id) && !(st.selection?.type === 'node' && st.selection.id === n.id)) continue;
         // Levels of detail: none shows only a selected station; key, zoomed out, the major ones (and the flagged).
@@ -3772,7 +3774,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // Collateral and shunt lanes, captioned along their run.
       for (const [id, cap] of Object.entries(LANE_CAPTIONS)) {
         const x = E[id];
-        if (!x?.vis || x.g.classList.contains('coll-ghost')) continue;
+        if (!x?.vis || x.g.classList.contains('coll-ghost') || labelHidden(id)) continue;
         const it = { key: 'lane:' + id, cls: 'lane', lines: [[{ t: cap, size: compact ? 9 : 10, weight: 550, cls: 'lb-lane' }]], align: 'middle', padX: 2, padY: 1, ax: 0, ay: 0 };
         it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
         // Turned upright, a lane that runs up the screen is captioned along it (text turned to read bottom to top), beside it.

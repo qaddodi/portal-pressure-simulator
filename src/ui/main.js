@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=b54d9b1fcc';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=edbdbfb0c8';
-import { createStage } from './stage.js?v=17e63a090e';
+import { createStage } from './stage.js?v=296ad3d7f9';
 import { sinusoidSupported } from './sinusoid-view.js?v=7285150aa0';
 import { createInspector } from './inspector.js?v=5acd5150f6';
 import { createDock, CUTOFFS } from './dock.js?v=cbcdf6dc63';
@@ -11,15 +11,15 @@ import { setHvpgStage } from './hvpg-proc.js?v=97815283e5';
 import { createWhy } from './why.js?v=82d0ada42e';
 import { createTimeline, LAPSES } from './timeline.js?v=2831e31d82';
 import { createLearn } from './learn.js?v=648a1f6d2a';
-import { createCases } from './cases.js?v=7bbce6617a';
+import { createCases } from './cases.js?v=a074a6964e';
 import { isBlind } from './learning-kit.js?v=472fe433c7';
 import { createCompare } from './compare.js?v=d64b7b73d4';
 import { createCard } from './card.js?v=767b2dc99d';
 import { createChart, computeFindings } from './chart.js?v=6eb7c60d38';
-import { createHome, ROLES } from './home.js?v=9b5bdb2794';
+import { createHome, ROLES } from './home.js?v=bf592f63ab';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=a34d291061';
 import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=c7917d0320';
-import { startLMS } from './lms.js?v=032f014067';
+import { startLMS } from './lms.js?v=e2d015d3f3';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=658820a7b3';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
@@ -146,7 +146,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=60852f1482'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=b62fd9532e'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -197,7 +197,10 @@ async function main() {
   store.on('shunting', renderPaintHint);
   store.on('mode', onMode);
   store.on('layers', () => { app.classList.toggle('chips-off', !store.get().layers.chips); syncBloodBtn(); redraw(); });
-  store.on('presetId', (id) => { $('#scenarioName').textContent = presets.find((p) => p.id === id)?.label || 'Custom'; });
+  // A case never names its preset in the top bar: the name would give the diagnosis away.
+  const syncScenarioName = () => { const st = store.get(); $('#scenarioName').textContent = st.mode === 'cases' ? 'Case' : presets.find((p) => p.id === st.presetId)?.label || 'Custom'; };
+  store.on('presetId', syncScenarioName);
+  store.on('mode', syncScenarioName);
   store.on('role', (r) => { try { localStorage.setItem('pps.role', r); localStorage.removeItem('pps.narrator'); } catch { /* storage unavailable */ } narrPref = null; app.dataset.role = r; card.render(); narrate(store.get().frame, performance.now(), true); });
   $('#narratorWhy').addEventListener('click', (e) => why.open('pv', e.currentTarget));
   app.dataset.role = store.get().role;
@@ -351,7 +354,7 @@ async function loadPreset(id, opts = {}) {
   replaceParams(res.params);
   clearHistory();
   store.set({ presetLoading: false, presetId: id, lastHVPG: null, hvpgMeasured: false, selection: store.get().mode === 'cases' ? null : store.get().selection, historyTick: (store.get().historyTick || 0) + 1 });
-  timeline?.reset(store.get().presetList?.find((x) => x.id === id)?.label);
+  timeline?.reset(store.get().mode === 'cases' ? 'Case' : store.get().presetList?.find((x) => x.id === id)?.label);
 }
 
 function encodeShare() {
