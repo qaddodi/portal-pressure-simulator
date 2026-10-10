@@ -1177,8 +1177,8 @@ export function createLobuleZoom({ host }) {
     return (t.quiet = { k, R: t.R, tw: t.tw, th: t.th, TW: t.TW, TH: t.TH, cv, pats: new WeakMap() });
   }
   // The surround fading into the page with distance from the lobule (q: 0..1, how far it has faded).
-  // The surround fades to dark: the page in dark mode, a deep shade in light mode, so the focus lobule stands out.
-  const shadeOf = (bg, dark) => dark ? bg : bg.map((x, i) => lerp(x, [0.165, 0.141, 0.188][i], 0.9));
+  // The surround fades into the page (light in light mode, dark in dark mode).
+  const shadeOf = (bg) => bg;
   function fieldFade(c, bg, x, y, rd, q, w, h) {
     const vg = c.createRadialGradient(x, y, rd * 1.1, x, y, rd * 3.2);
     vg.addColorStop(0, css(bg, 0)); vg.addColorStop(0.5, css(bg, 0.72 * q)); vg.addColorStop(1, css(bg, q));
