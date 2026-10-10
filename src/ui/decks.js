@@ -26,6 +26,8 @@
 //                            days at least the seconds, or the live clock runs sub-day and skips the ramp)
 //   visual                   over the dimmed figure: 'ladders', 'table' (cols, asc, note, fine, vs: 'first' to show arrows against the first row; a row's ref: true keeps its numbers), 'scale' (scale), 'quadrant'
 //                            (SAAG × protein) or 'walls'; of: the rows, slide ids or { id | preset, name, title, note, blank: [columns] }
+//   compare                  [{ label, params, own? }]: buttons that switch the live model between treatments in real
+//                            time (params: each option's full set of the switched keys; own: the slide's own state)
 //   quiz                     quiz mode (Q) asks this before the answer shows (the camera waits at the whole figure)
 //   notes, ask               speaker notes, and [question, expected answer] for the room
 
@@ -436,14 +438,14 @@ export const DECKS = [
   },
   {
     id: 'treatment', level: 'advanced', title: 'Lowering portal pressure', minutes: 14,
-    summary: 'Propranolol, carvedilol, terlipressin, band ligation and TIPS in one patient with decompensated cirrhosis, with the effect of each on HVPG, varices and ascites, and the cost of TIPS to liver perfusion.',
+    summary: 'Propranolol, carvedilol, octreotide, terlipressin, band ligation and TIPS in one patient with decompensated cirrhosis, with the effect of each on HVPG, varices and ascites, and the cost of TIPS to liver perfusion.',
     slides: [
       {
         id: 'target', preset: 'cirr-decomp', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], data: 'ladder', key: ['hvpg'], tiles: ['hvpg', 'varix'],
         kicker: 'Lowering portal pressure', site: 'sin', title: 'The patient',
         line: 'Decompensated cirrhosis with HVPG 17 mmHg, large varices and ascites. Treatment lowers the inflow or the resistance, or bypasses the liver.',
         notes: 'Portal pressure is flow times resistance. Non-selective beta-blockers and the vasoactive drugs used in bleeding cut the inflow; carvedilol also lowers the resistance inside the liver; TIPS goes around it. Banding treats the varix, not the pressure. Removing the cause (stopping alcohol, treating hepatitis) lowers the resistance over months to years. On drugs, the aim is an HVPG fall of 20% or more, or to below 12 mmHg.',
-        ask: ['Name a treatment that cuts the inflow and one that lowers the resistance.', 'Inflow: propranolol, terlipressin, octreotide. Resistance: carvedilol, treating the cause; TIPS goes around it.'],
+        ask: ['Name a treatment that cuts the inflow and one that lowers the resistance.', 'Inflow: propranolol, octreotide, terlipressin. Resistance: carvedilol, treating the cause; TIPS goes around it.'],
       },
       {
         id: 'prop', params: { drugs: { propranolol: true } }, cam: 'portal', labels: ['SMV', 'CONF'], data: 'ladder', key: ['pv', 'hvpg'], tiles: ['hvpg', 'varix'], delta: 'target',
@@ -453,18 +455,27 @@ export const DECKS = [
         ask: ['How is propranolol titrated?', 'To a resting heart rate of 55 to 60 a minute, keeping systolic pressure above 90 mmHg.'],
       },
       {
-        id: 'carv', params: { drugs: { propranolol: false, carvedilol: true } }, cam: 'liver', data: 'ladder', key: ['whvp', 'hvpg'], tiles: ['hvpg', 'varix'], delta: 'target',
+        id: 'carv', params: { drugs: { propranolol: false, carvedilol: true } }, cam: 'liver',
+        compare: [{ label: 'Propranolol', params: { drugs: { propranolol: true, carvedilol: false } } }, { label: 'Carvedilol', own: true, params: { drugs: { propranolol: false, carvedilol: true } } }], data: 'ladder', key: ['whvp', 'hvpg'], tiles: ['hvpg', 'varix'], delta: 'target',
         kicker: 'Non-selective beta-blocker', site: 'sin', title: 'Carvedilol',
         line: 'It also blocks α1 receptors, so the stellate cells and portal venules relax and the intrahepatic resistance falls. HVPG falls further, at some cost in blood pressure.',
         notes: 'Carvedilol 6.25 to 12.5 mg a day. Its α1 blockade relaxes the contracted stellate cells and lowers the resistance inside the liver, so it lowers HVPG more than propranolol and brings about half of propranolol non-responders to a protective fall. Baveno VII recommends a non-selective beta-blocker, preferably carvedilol, in compensated cirrhosis with clinically significant portal hypertension, to prevent decompensation. Watch the blood pressure, especially with ascites.',
         ask: ['Why does carvedilol lower HVPG more than propranolol?', 'Its α1 blockade also lowers the vascular resistance inside the liver.'],
       },
       {
-        id: 'terli', params: { drugs: { carvedilol: false, terlipressin: true } }, cam: 'portal', labels: ['SMV', 'CONF'], data: 'ladder', key: ['pv'], tiles: ['hvpg', 'pvFlow'], delta: 'target',
-        kicker: 'Acute variceal bleeding', site: 'sin', title: 'Terlipressin',
-        line: 'A vasopressin analogue that clamps the splanchnic arterioles. It is started as soon as a variceal bleed is suspected.',
-        notes: 'Suspected variceal bleeding: a vasoactive drug at once (terlipressin, somatostatin or octreotide), continued for 2 to 5 days; antibiotics (ceftriaxone); restrictive transfusion, aiming for a hemoglobin of 7 to 8 g/dL, because over-transfusion raises portal pressure; endoscopy with banding within 12 hours. Pre-emptive TIPS within 72 hours for patients at high risk: Child–Pugh C below 14 points, or B above 7 with active bleeding. Terlipressin can cause ischemia and hyponatremia.',
+        id: 'oct', params: { drugs: { carvedilol: false, octreotide: true } }, cam: 'portal', labels: ['SMV', 'CONF'], data: 'ladder', key: ['pv'], tiles: ['hvpg', 'pvFlow'], delta: 'target',
+        kicker: 'Acute variceal bleeding', site: 'sin', title: 'Octreotide',
+        line: 'A somatostatin analogue that blocks the gut\'s vasodilating peptides. Splanchnic inflow falls and portal pressure with it. It is started as soon as a variceal bleed is suspected.',
+        notes: 'Suspected variceal bleeding: octreotide at once (a 50 µg bolus, then 50 µg an hour), continued for 2 to 5 days; ceftriaxone; restrictive transfusion to a hemoglobin of 7 to 8 g/dL, because over-transfusion raises portal pressure; endoscopy with banding within 12 hours. Pre-emptive TIPS within 72 hours for patients at high risk: Child–Pugh C below 14 points, or B above 7 with active bleeding. Octreotide is the vasoactive drug used for bleeding in the US; elsewhere terlipressin or somatostatin are alternatives. Its effect on portal pressure is modest and partly transient, so the model gives it a smaller fall than terlipressin (splanchnic resistance × 1.35 against × 1.9), in line with HVPG studies of somatostatin analogues (Escorsell 2001, Baik 2005).',
         ask: ['Why transfuse only to a hemoglobin of 7 to 8 g/dL in a variceal bleed?', 'Extra blood volume raises portal pressure and the risk of rebleeding.'],
+      },
+      {
+        id: 'terli', params: { drugs: { octreotide: false, terlipressin: true } }, cam: 'portal', labels: ['SMV', 'CONF'], data: 'tiles', key: ['map'], tiles: ['map', 'pvFlow', 'hvpg'], delta: 'target',
+        compare: [{ label: 'Octreotide', params: { drugs: { octreotide: true, terlipressin: false } } }, { label: 'Terlipressin', own: true, params: { drugs: { octreotide: false, terlipressin: true } } }],
+        kicker: 'Hepatorenal syndrome', site: 'sin', title: 'Terlipressin for HRS-AKI',
+        line: 'A vasopressin analogue given with albumin. It constricts the dilated splanchnic arterioles, so blood pressure and kidney perfusion rise.',
+        notes: 'In the US terlipressin is approved for hepatorenal syndrome with a rapid fall in kidney function (HRS-AKI), not for variceal bleeding. It is given with albumin (1 g/kg on day 1, then 20 to 40 g a day), as a bolus every 6 hours or a continuous infusion, and stopped if creatinine has not fallen by day 4. It is avoided with hypoxia (SpO2 below 90%), volume overload or a creatinine of 5 mg/dL or more, because of the risk of respiratory failure; other risks are ischemia and hyponatremia. Octreotide alone does little for HRS; where terlipressin is not available it is combined with midodrine and albumin, or norepinephrine is used. The model has no kidneys: the tiles show the blood pressure and portal inflow that drive kidney perfusion.',
+        ask: ['What is given with terlipressin for HRS-AKI?', 'Albumin.'],
       },
       {
         id: 'band', params: { drugs: { terlipressin: false } }, action: [{ kind: 'band' }, { kind: 'band' }, { kind: 'band' }], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices' },
@@ -496,11 +507,25 @@ export const DECKS = [
         ask: ['Name two contraindications to TIPS.', 'Heart failure or severe pulmonary hypertension; advanced liver failure (high MELD); recurrent severe encephalopathy.'],
       },
       {
+        id: 'vs', cam: 'liver', data: 'ladder', key: ['ppg'], tiles: ['ppg', 'liver'], delta: 'target',
+        compare: [
+          { label: 'TIPS', own: true, params: { tips: { on: true }, drugs: { propranolol: false, carvedilol: false, octreotide: false, terlipressin: false } } },
+          { label: 'Propranolol', params: { tips: { on: false }, drugs: { propranolol: true, carvedilol: false, octreotide: false, terlipressin: false } } },
+          { label: 'Carvedilol', params: { tips: { on: false }, drugs: { propranolol: false, carvedilol: true, octreotide: false, terlipressin: false } } },
+          { label: 'Octreotide', params: { tips: { on: false }, drugs: { propranolol: false, carvedilol: false, octreotide: true, terlipressin: false } } },
+          { label: 'Terlipressin', params: { tips: { on: false }, drugs: { propranolol: false, carvedilol: false, octreotide: false, terlipressin: true } } },
+        ],
+        kicker: 'Compared', site: 'sin', title: 'TIPS against the drugs',
+        line: 'Drugs lower the gradient by a few mmHg; TIPS lowers it below 12 mmHg, at the cost of the liver\'s portal blood.',
+        notes: 'The same patient, switched between TIPS and each drug alone. In the model the drugs lower the PPG by 1 to 2 mmHg, carvedilol most; TIPS brings it below 12 mmHg but halves the blood reaching the sinusoids. The bands from the earlier slide stay in place throughout.',
+        ask: ['Why does TIPS lower the gradient so much more than any drug?', 'The drugs trim the inflow or the tone; TIPS gives portal blood a low-resistance path around the sinusoids.'],
+      },
+      {
         id: 'summary', visual: 'table', cols: ['hvpg', 'ppg', 'varix', 'asc', 'liver'], fine: true, asc: false, vs: 'first', rowHead: 'Treatment',
-        of: [{ id: 'target', kicker: 'Baseline', title: 'Decompensated cirrhosis' }, 'prop', 'carv', { id: 'terli', kicker: 'Vasoactive drug' }, { id: 'band', title: 'Banding' }, { id: 'tips', title: 'TIPS' }, { id: 'after', kicker: 'Shunt', title: 'TIPS, 60 days on' }],
+        of: [{ id: 'target', kicker: 'Baseline', title: 'Decompensated cirrhosis' }, 'prop', 'carv', { id: 'oct', kicker: 'Vasoactive drug' }, { id: 'terli', kicker: 'HRS-AKI', title: 'Terlipressin' }, { id: 'band', title: 'Banding' }, { id: 'tips', title: 'TIPS' }, { id: 'after', kicker: 'Shunt', title: 'TIPS, 60 days on' }],
         kicker: 'Summary', title: 'Treatments compared',
         foot: 'From the model, each treatment given alone, compared with the decompensated baseline (top row: pressures in mmHg, varix in mm, ascites in litres, liver blood flow in % of normal). ↓ lower, ↓↓ 40% or more lower, ↑ higher; • unchanged. Green: better, red: worse. Hover or tap a cell for its value. Pick a row to go back to it.',
-        notes: 'Drugs cut the inflow (propranolol, terlipressin) or the resistance as well (carvedilol). Banding eradicates varices without lowering portal pressure. TIPS lowers the gradient most and clears the ascites, at the price of the liver\'s portal blood and a risk of encephalopathy. In practice they combine: a beta-blocker with banding after a bleed; terlipressin, banding and, for those at high risk, pre-emptive TIPS in an acute bleed.',
+        notes: 'Drugs cut the inflow (propranolol, octreotide, terlipressin) or the resistance as well (carvedilol). Banding eradicates varices without lowering portal pressure. TIPS lowers the gradient most and clears the ascites, at the price of the liver\'s portal blood and a risk of encephalopathy. In practice they combine: a beta-blocker with banding after a bleed; octreotide, banding and, for those at high risk, pre-emptive TIPS in an acute bleed.',
         ask: ['Which treatment lowers the portal pressure gradient most, and what does it cost?', 'TIPS: less blood for the liver and a risk of encephalopathy.'],
       },
     ],

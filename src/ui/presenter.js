@@ -19,7 +19,7 @@ import { SITES } from './ladder.js?v=3c3d5cd555';
 import { sinusoidSupported } from './sinusoid-view.js?v=5f44cd9170';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { NODES } from '../engine/topology.js?v=dc393aabea';
-import { DECKS, REGIONS, LEVELS } from './decks.js?v=bae1a22d51';
+import { DECKS, REGIONS, LEVELS } from './decks.js?v=b81edf6827';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -590,6 +590,26 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
   // ── A time-lapse on the live model: its days run on the disease clock (ramped as the off-screen chain ran them),
   // the counter and the numbers follow, then the slide's computed state takes over (the same, to the decimal).
   let lapseOn = false;
+  // A compare slide's buttons switch the live model's params (liveOff: it no longer shows the slide's computed state).
+  let liveOff = false, abGen = 0, abFast = false;
+  const merge = (a, b) => { for (const [k, v] of Object.entries(b)) a[k] = v && typeof v === 'object' && !Array.isArray(v) ? merge({ ...(a[k] || {}) }, v) : v; return a; };
+  function abSlow() { abGen++; if (abFast) { abFast = false; host.send({ type: 'run', running: true, clock: 'hemo', speed: 1 }); } }
+  // The new treatment takes effect on the live figure, run three times faster while it settles; the ladder and tiles follow it.
+  async function abPick(s, i, k) {
+    if (!deck || shown?.i !== i || slides[i] !== s) return;
+    ui?.text.querySelectorAll('.pz-abb').forEach((b, j) => b.setAttribute('aria-pressed', String(j === k)));
+    const g = ++abGen, ref = refOf(s, i), mine = () => g === abGen && shown?.i === i && !!deck;
+    liveOff = true;
+    replaceParams(merge(structuredClone(store.get().params), s.compare[k].params));
+    host.send({ type: 'setParams', params: store.get().params, settle: false });
+    abFast = true; host.send({ type: 'run', running: true, clock: 'hemo', speed: 3 });
+    for (const t0 = performance.now(); performance.now() - t0 < 7000 && mine();) {
+      await wait(150);
+      const fr = store.get().frame;
+      if (fr?.metrics && mine()) dataTo(s, liveFp(fr), ref, 280);
+    }
+    if (mine()) abSlow();
+  }
   function stopLapse() { if (!lapseOn) return; lapseOn = false; host.send({ type: 'lapse', days: 0 }); shownState = -1; }
   const lapseWords = (n) => (n >= 60 && n % 30 === 0 ? `${n / 30} months` : `${n} days`);
   const lapseText = (s, d, n, done) => (s.lapse.to ? (done ? s.lapse.to : `${s.lapse.from} → ${s.lapse.to}`) : done ? `${lapseWords(n)} later` : `Day ${Math.round(d)} of ${n}`);
@@ -649,9 +669,9 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     const lap = !!s.lapse && to > 0 && !q, ct = !q && !s.visual ? s.cath || null : null;
     // Words out, and the marks: they belong to the slide that is leaving.
     store.set({ focus: null, presentLabels: [] });
-    stopLapse();
+    stopLapse(); abSlow();
     const si = lap ? stateOf[to - 1] : stateOf[to];
-    await wordsOut(s, shownState >= 0 && si !== shownState);
+    await wordsOut(s, shownState >= 0 && (si !== shownState || liveOff));
     if (cut()) return;
     // The catheter leaves with its slides (with a new patient, the figure's fade takes it).
     if (cath.on && (!ct || si !== shownState)) { await cathOut(si !== shownState && shownState >= 0); if (cut()) return; }
@@ -665,10 +685,10 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     // A visual waits for every patient it compares (some are computed after the slides).
     if (s.visual) { await Promise.all(rowIdx(s).map(stateReady)); if (cut()) return; }
     // A new patient, or the same one changed: the figure fades out, the state changes unseen, it fades back in.
-    const swap = si !== shownState;
+    const swap = si !== shownState || liveOff;
     if (swap) {
       if (shownState >= 0 && !view.classList.contains('pz-out')) await figureOut();
-      applyState(st); shownState = si;
+      applyState(st); shownState = si; liveOff = false;
       await drawn(st);
       if (!deck) return;
     }
@@ -725,6 +745,8 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
       text.replaceChildren(...(q
         ? [kick(null, 'Quiz'), h('h1', { class: 'pz-h' }, s.quiz), s.rail ? rail(null) : null, h('p', { class: 'pz-line pz-hint' }, 'Take answers from the audience, then press → to show the answer.')]
         : [kick(s.site, s.kicker), h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, s.line) : null,
+          s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': 'Switch treatment on the live model' },
+            s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), onclick: () => abPick(s, i, k) }, o.label))) : null,
           s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
           s.causes?.length ? h('div', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), h('ul', {}, s.causes.map((c) => h('li', {}, c)))) : null]));
@@ -1037,7 +1059,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
   function stop(restore = true) {
     if (!deck) return;
     deck = null; shown = null; want = 0;
-    stopLapse(); cathStop();
+    stopLapse(); cathStop(); abSlow(); liveOff = false;
     for (const w of waiters) w.res(null);
     waiters = [];
     removeEventListener('resize', onResize);

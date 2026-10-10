@@ -1921,6 +1921,12 @@ button.finding:hover { background: var(--surface-2); }
 .pzl-bar { position: relative; flex: 1; max-width: 12em; height: .5em; border-radius: .25em; background: var(--hairline); overflow: hidden; }
 .pzl-bar i { position: absolute; inset: 0; transform-origin: left; transform: scaleX(var(--k, 0)); background: linear-gradient(90deg, var(--tour-portal), var(--tour-sys)); border-radius: inherit; transition: transform .2s linear; }
 .pz-lapse.done { color: var(--text); }
+/* A compare slide's treatments: a segmented switch on the live model (the pressed one eases to the accent). */
+.pz-ab { display: flex; flex-wrap: wrap; gap: 6px; padding: 5px; width: fit-content; max-width: 100%; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border); border-radius: 22px; box-shadow: var(--shadow-2); pointer-events: auto; }
+.pz-abb { appearance: none; border: 0; border-radius: 999px; padding: .5em 1.05em; min-height: 40px; font: 600 clamp(14px, 1.9vh, 22px)/1.1 var(--font-ui); color: var(--text-2); background: transparent; cursor: pointer; transition: background-color .3s var(--ease), color .3s var(--ease), box-shadow .3s var(--ease); }
+.pz-abb:hover { color: var(--text); background: var(--hairline); }
+.pz-abb[aria-pressed="true"] { color: var(--on-accent); background: var(--accent); box-shadow: var(--shadow-1); }
+.pz-abb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* Projector-size catheter readings. */
 .app.presenting .cath-label { padding: calc(7px * min(var(--label-k, 1), 1.7)) calc(16px * min(var(--label-k, 1), 1.7)) calc(8px * min(var(--label-k, 1), 1.7)); border-radius: calc(14px * min(var(--label-k, 1), 1.7)); }
 .app.presenting .cath-label small, .app.presenting .cath-label b + span { font-size: calc(12px * min(var(--label-k, 1), 1.7)); }
@@ -2086,6 +2092,8 @@ button.finding:hover { background: var(--surface-2); }
 .pz.stack .pz-data.tiles-only .pzt-v { font-size: 26px; }
 .pz.stack .pz-data.tiles-only .pz-tiles { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
 .pz.stack .pz-lapse { font-size: 14px; }
+.pz.stack .pz-abb { font-size: 14px; min-height: 36px; padding: .45em .85em; }
+.pz.stack .pz-ab { gap: 2px; padding: 3px; }
 .pz.stack .pz-count { display: none; }
 /* A phone scrolls what does not fit: the words, the data card and a visual each scroll on their own. The
    stage's touch-action: none would otherwise stop iOS from scrolling anything inside it. */
@@ -3589,7 +3597,7 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .opts.dir { flex-direction: row; gap: 12px; }
 .opts.dir .opt { flex: 1 1 0; justify-content: center; text-align: center; font-weight: 600; min-height: 56px; }
 .opts.dir .dir-arrow { font-size: 22px; }
-.opt[aria-checked="true"].sel .letter { background: var(--accent); color: var(--on-accent, #fff); }
+.opt[aria-checked="true"].sel .letter { background: var(--accent); color: var(--on-accent); }
 .lesson-foot { position: sticky; bottom: 0; z-index: 2; padding: 12px 0 0; margin-top: 8px; background: linear-gradient(180deg, transparent, var(--surface) 28%); }
 .lesson-foot .btn { min-height: 44px; }
 .trust-line { margin: 0 0 12px; font-size: var(--fs-12); line-height: 1.45; color: var(--text-3); }
@@ -3602,7 +3610,7 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .cmp-chip.wrong { background: color-mix(in srgb, var(--caution, #d98a00) 7%, var(--surface)); }
 /* The figure mirrors the question */
 .dir-mirror { position: absolute; z-index: var(--z-hud); transform: translate(-50%, -50%); pointer-events: none; display: flex; align-items: center; gap: 6px; }
-.dm-q { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font: 700 16px var(--font-ui); background: var(--accent); color: var(--on-accent, #fff); animation: dmPulse 1.2s ease-in-out infinite; }
+.dm-q { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font: 700 16px var(--font-ui); background: var(--accent); color: var(--on-accent); animation: dmPulse 1.2s ease-in-out infinite; }
 .dm-arrow { font-size: 26px; line-height: 1; text-shadow: 0 0 3px var(--bg, #fff); }
 .dm-pick { color: var(--accent-ink, var(--accent)); }
 .dm-true { color: var(--ok); margin-left: 8px; }
@@ -4102,7 +4110,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .cr-d { font-size: var(--fs-14); color: var(--text-2); line-height: 1.45; }
 .cr-p { display: flex; align-items: center; gap: 10px; margin-top: 6px; font-size: var(--fs-12); color: var(--text-3); font-weight: 600; }
 .cr-p .ub-track { width: 140px; }
-.cr-go { position: absolute; right: 18px; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--on-accent, #fff); }
+.cr-go { position: absolute; right: 18px; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); }
 .cr-go svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
 .cu-part { display: flex; flex-direction: column; gap: 6px; }
 .cu-part .home-sub { margin: 4px 0 2px; }
