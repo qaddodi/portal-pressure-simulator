@@ -23,7 +23,7 @@ import { h, fmt, clamp, lerp } from './util.js?v=e803df99cd';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { isPaused } from './clock.js?v=77fb9815e5';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=5b384ed63d';
+import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=708c5b7901';
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
@@ -87,7 +87,7 @@ export function createSinusoidView({ host }) {
     const [tx, ty] = toScreen(x, y), sx = R.cx + Math.sign(tx - R.cx) * (R.w / 2 + 3), sy = clamp(ty, R.cy - R.hh / 2 + 4, R.cy + R.hh / 2 - 4);
     const [ln, dot] = L.children;
     const on = Math.abs(tx - sx) > 6 && Math.sign(tx - R.cx) === Math.sign(tx - sx);   // (none when the name already sits on it)
-    L.style.display = on ? '' : 'none';
+    L.style.opacity = on ? '' : '0';
     ln.setAttribute('x1', sx.toFixed(1)); ln.setAttribute('y1', sy.toFixed(1)); ln.setAttribute('x2', tx.toFixed(1)); ln.setAttribute('y2', ty.toFixed(1));
     dot.setAttribute('cx', tx.toFixed(1)); dot.setAttribute('cy', ty.toFixed(1)); dot.setAttribute('r', '1.8');
   }
@@ -341,7 +341,7 @@ export function createSinusoidView({ host }) {
     const rs = region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), xc, 0, { along: true });
     LAB[0] = rs.x; LAB[1] = rs.half;
     kupName();
-    const xf = away(pick(V ? 0.3 : 0.68), g.xs, 30);
+    const xf = away(away(pick(V ? 0.3 : 0.68), g.xs, 30), g.xk, 16);   // (clear of the stellate cell, and of the Kupffer cell's name)
     region('fen', 'Fenestrae', S.por > 0.85 ? 'open' : S.por > 0.15 ? `${Math.round(S.por * 100)}%~open` : 'sealed', xf, -(halfW(xf) - 0.6), { along: true, side: 1 });
     // In Disse: its name (on the stellate cell's side on a wide screen, clear of it), and the lymph it carries,
     // read in the plate just beyond it on the other side.
@@ -403,15 +403,15 @@ export function createSinusoidView({ host }) {
       const T = caption(key, 'sv-region sv-region-sin sv-end', name, value);
       const w = T.el.offsetWidth, hh = T.el.offsetHeight;
       let x, y;
-      // Its arrow (drawn by the shader) points with the flow on the sinusoid's side of the label: below the portal venule's
-      // and above the central venule's on a top-down sinusoid; inward of each on a wide one.
+      // Its arrow (drawn by the shader) points with the flow, outside the label: upstream of the portal venule's (above it
+      // on a top-down sinusoid, left of it on a wide one), downstream of the central venule's (below it, right of it).
       const A = 22 + 10;   // (the arrow and its gaps, px)
-      if (g.vert) { x = VW.C[0] - w / 2; y = u ? f.b - hh : f.t; }
-      else { x = u ? f.r - w - 8 : f.l + 8; y = VW.C[1] - hh / 2; }
+      if (g.vert) { x = VW.C[0] - w / 2; y = u ? f.b - hh - A : f.t + A; }
+      else { x = u ? f.r - w - 8 - A : f.l + 8 + A; y = VW.C[1] - hh / 2; }
       T.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
-      ENDBOX[u] = g.vert ? null : { u, x0: u ? x - A : x, x1: u ? x + w : x + w + A, y0: y, y1: y + hh };
-      if (g.vert) BAND[u] = u ? y - A - 6 : y + hh + A + 6;
-      const ax = g.vert ? VW.C[0] : u ? x - A / 2 : x + w + A / 2, ay = g.vert ? (u ? y - A / 2 : y + hh + A / 2) : VW.C[1];
+      ENDBOX[u] = g.vert ? null : { u, x0: u ? x : x - A, x1: u ? x + w + A : x + w, y0: y, y1: y + hh };
+      if (g.vert) BAND[u] = u ? y - 6 : y + hh + 6;
+      const ax = g.vert ? VW.C[0] : u ? x + w + A / 2 : x - A / 2, ay = g.vert ? (u ? y + hh + A / 2 : y - A / 2) : VW.C[1];
       const ca = Math.cos(g.ang), sa = Math.sin(g.ang);
       END[u] = ((ax - VW.C[0]) * ca + (ay - VW.C[1]) * sa) / VW.k;
     }

@@ -195,8 +195,7 @@ vec3 lumen(float x, float y, float hw, int lane0, bool chev) {
     vec2 ch = chevHead(xc * uDir, abs(y), cw, uPx);
     // (Long, soft fades: a head moving past one dims over a good stretch of its path, it never blinks out. Each end's
     // name lies beyond its arrow, toward its venule.)
-    float s = uEnd.z, fe = 1.0 - smoothstep(-7.0 * s, -4.5 * s, xh - uEnd.x) * (1.0 - smoothstep(2.5 * s, 4.5 * s, xh - uEnd.x));
-    fe *= 1.0 - smoothstep(-7.0 * s, -4.5 * s, uEnd.y - xh) * (1.0 - smoothstep(2.5 * s, 4.5 * s, uEnd.y - xh));
+    float s = uEnd.z, fe = smoothstep(4.0 * s, 6.5 * s, abs(xh - uEnd.x)) * smoothstep(4.0 * s, 6.5 * s, abs(xh - uEnd.y));
     float fade = uEnd.w > 0.0 ? fe : 1.0;
     fade *= smoothstep(uLab.y + 0.3 * L, uLab.y + 3.0 * L, abs(xh - uLab.x));
     fade *= smoothstep(7.0, 11.0, abs(xh - uXk));
@@ -396,12 +395,12 @@ void main() {
     for (int i = 0; i < 2; i++) {
       float s = uEnd.z;
       vec2 q = vec2((x - (i == 0 ? uEnd.x : uEnd.y)) * uDir, y);
-      // A heavy, laid-down arrowhead pointing with the flow (in at the portal end, out at the central end): a broad solid
-      // wedge with a notched back, in the labels' ink on a soft halo, as a journal figure marks flow.
-      vec2 T = vec2(0.5 * s, 0.0), A = vec2(-0.5 * s, 0.56 * s), B = vec2(-0.5 * s, -0.56 * s), N = vec2(-0.16 * s, 0.0);
-      float dA = max(sdTri(q, T, A, B), -sdTri(q, N, N + 4.0 * (A - N), N + 4.0 * (B - N)));
-      c = mix(c, cEndE, cov(dA - 0.1 * s) * 0.5 * uEnd.w);
-      c = mix(c, cEndF, cov(dA) * 0.88 * uEnd.w);
+      // A thick, laid-down arrow pointing with the flow (into the portal venule's end, out past the central venule's): a short
+      // broad shaft and a wide head, softly rounded, in the labels' ink faded into the blood, as a journal figure marks flow.
+      float dA = min(sdRB(q - vec2(-0.3 * s, 0.0), vec2(0.28 * s, 0.17 * s), 0.05 * s),
+                     sdTri(q, vec2(0.52 * s, 0.0), vec2(0.0, 0.46 * s), vec2(0.0, -0.46 * s)) - 0.03 * s);
+      c = mix(c, cEndE, cov(dA - 0.08 * s) * 0.3 * uEnd.w);
+      c = mix(c, cEndF, cov(dA) * 0.5 * uEnd.w);
     }
   }
   else if (a < wi) c = mix(mix(cLumen, vec3(1.0), 0.3), cLymph, (a - hw) / ENDO);
