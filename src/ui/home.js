@@ -178,6 +178,7 @@ export function createHome({ el, brandMark, onPreset, onLesson, onUnit, onCase, 
     open(t) { if (t) tab = t; render(); el.hidden = false; document.getElementById('app').classList.add('home-open'); el.querySelector('.cr-continue, .home-back button')?.focus({ preventScroll: true }); },
     close() { if (el.hidden) return; el.hidden = true; document.getElementById('app').classList.remove('home-open'); onClosed?.(); },
     isOpen: () => !el.hidden,
+    tab: () => tab,
     render,
   };
 }

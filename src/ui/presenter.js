@@ -380,7 +380,7 @@ function makeCalc() {
   };
 }
 
-export function createPresenter({ startCase, cases = [], host, stage, projectorOn, projectorOff, closeHome, rerenderHome }) {
+export function createPresenter({ startCase, cases = [], host, stage, projectorOn, projectorOff, closeHome, homeTab, reopenHome, rerenderHome }) {
   const app = document.getElementById('app'), view = document.getElementById('stageView'), wrap = document.getElementById('stageWrap');
   let calc = null;
   const getCalc = () => (calc ||= makeCalc());
@@ -450,8 +450,10 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
 
   // ── The figure's moves ──
   const fadeMs = () => (reduce.matches ? 0 : 420);
-  async function figureOut() { view.classList.add('pz-out'); await wait(fadeMs()); }
-  function figureIn() { view.classList.remove('pz-out'); }
+  // A quiet arc over the figure's free space while a new patient settles (it fades in and out with the dim, never pops).
+  const loading = (on) => ui?.load.classList.toggle('on', on);
+  async function figureOut() { loading(true); view.classList.add('pz-out'); await wait(fadeMs()); }
+  function figureIn() { view.classList.remove('pz-out'); loading(false); }
   async function toAnatomy() {
     if (store.get().sinusoid) { store.set({ sinusoid: false }); await wait(reduce.matches ? 300 : 1000); }
     if (store.get().lobule) { store.set({ lobule: false }); await until(() => stage.lobuleSettled(), 2600); await wait(80); }
@@ -646,7 +648,10 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     if (cath.on && (!ct || si !== shownState)) { await cathOut(si !== shownState && shownState >= 0); if (cut()) return; }
     // Out of the lobule while the old patient is still there, so the rise reads as leaving the liver.
     if ((ct || (cam && !LOBULE_CAM.test(cam))) && (store.get().lobule || store.get().sinusoid)) { await toAnatomy(); if (cut()) return; }
+    // (A patient still being computed off screen: after a short wait the arc shows.)
+    const lateT = states[si] ? 0 : setTimeout(() => loading(true), 260);
     const st = await stateReady(si);
+    clearTimeout(lateT);
     if (!st || cut()) return;
     // A visual waits for every patient it compares (some are computed after the slides).
     if (s.visual) { await Promise.all(rowIdx(s).map(stateReady)); if (cut()) return; }
@@ -659,7 +664,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
       if (!deck) return;
     }
     wordsIn(s, q, st, to);
-    if (swap || view.classList.contains('pz-out')) figureIn();
+    if (swap || view.classList.contains('pz-out')) figureIn(); else loading(false);
     if (cut()) return;
     if (ct) await cathTo(ct, st.fp, cut);
     else if (cam) await camera(cam, s, cut);
@@ -975,20 +980,31 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     const shade = h('div', { class: 'pz-shade' });
     // What the figure frames itself clear of: the words and most of the shade's fade.
     const safe = h('div', { class: 'pz-safe', 'aria-hidden': 'true', hidden: true });
-    const root = h('div', { class: 'pz' }, safe, veil, text, data, panel, count, prog, notes, bar, blackEl);
+    const load = h('div', { class: 'pz-load', 'aria-hidden': 'true' }, h('i'));
+    const root = h('div', { class: 'pz' }, safe, veil, load, text, data, panel, count, prog, notes, bar, blackEl);
     wrap.insertBefore(shade, wrap.querySelector('.stage-credit'));
     wrap.append(root);
-    return { root, shade, safe, text, data, dhT, dhL, ladder, tiles, veil, panel, count, prog, bar, notes, black: blackEl };
+    return { root, shade, safe, load, text, data, dhT, dhL, ladder, tiles, veil, panel, count, prog, bar, notes, black: blackEl };
+  }
+  // Everything the audience's slides will change, kept so Esc, ✕ or Finish puts the app back as it was.
+  async function capture() {
+    const st = store.get(), { snap } = await host.request('snapshot');
+    return { snap, params: structuredClone(st.params), presetId: st.presetId, view: st.view, lobule: st.lobule, sinusoid: st.sinusoid, mode: st.mode,
+      selection: st.selection, details: st.details, compareSnap: st.compareSnap, compareView: st.compareView, colorMode: st.colorMode,
+      running: st.running, speed: st.speed, lapse: st.lapse, clock: st.clock, hvpgMeasured: st.hvpgMeasured, lastHVPG: st.lastHVPG,
+      labelK: stage.labelScale(), cam: stage.cameraState(), home: homeTab?.() ?? null };
   }
   async function start(id, at = 0) {
     const want0 = Math.max(0, (parseInt(at, 10) || 0));
     const d = typeof id === 'object' ? id : all().find((x) => x.id === (ALIAS[id] || id));
     if (!d?.slides?.length) { toast('That presentation could not be found.'); return; }
-    if (deck) stop();
+    // Starting another deck while one runs keeps the state from before the first.
+    const before = deck ? saved : await capture();
+    if (deck) stop(false);
+    saved = before;
     deck = d; slides = d.slides; shown = null; shownState = -1; quiz = false; notesOpen = false; black = false;
     closeHome?.();
     const st0 = store.get();
-    saved = { colorMode: st0.colorMode, labelK: stage.labelScale() };
     store.set({ presenting: true, selection: null, details: null, compareSnap: null, colorMode: 'pressure', presentLabels: [], focus: null, ...(st0.mode !== 'explore' ? { mode: 'explore' } : {}) });
     if (st0.view !== 'anatomic' && !st0.lobule) store.set({ view: 'anatomic' });
     projectorOn();
@@ -1002,14 +1018,14 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     go(Math.min(want0, slides.length - 1));
     wake();
   }
-  function stop() {
+  function stop(restore = true) {
     if (!deck) return;
     deck = null; shown = null; want = 0;
     stopLapse(); cathStop();
     for (const w of waiters) w.res(null);
     waiters = [];
     removeEventListener('resize', onResize);
-    store.set({ presenting: false, presentLabels: null, focus: null, ...(saved ? { colorMode: saved.colorMode } : {}) });
+    store.set({ presenting: false, presentLabels: null, focus: null });
     clearTimeout(idleT);
     ui?.root.remove(); ui?.shade.remove(); ui = null;
     view.classList.remove('pz-out');
@@ -1024,6 +1040,27 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     app.classList.remove('presenting');
     projectorOff();
     dispatchEvent(new Event('pps:occ'));
+    if (restore && saved) putBack(saved);
+    if (restore) saved = null;
+  }
+  // Back to the app as it was before the presentation: the patient and every setting, the view and its camera, the cards and
+  // sheets that were open, the sim running or paused (and a time-lapse), each easing in rather than jumping.
+  async function putBack(b) {
+    const before = store.get(), ms = reduce.matches ? 0 : 380;
+    // The patient changes behind a soft dim of the figure, as between slides, so nothing pops.
+    if (ms) { view.style.transition = `opacity ${ms}ms var(--ease)`; view.style.opacity = '.22'; await wait(ms); }
+    host.send({ type: 'restore', snap: b.snap });
+    replaceParams(structuredClone(b.params));
+    host.send({ type: 'run', running: b.running, clock: b.lapse ? 'disease' : 'hemo', speed: b.lapse || b.speed });
+    store.set({ presetId: b.presetId, presetLoading: false, mode: b.mode, colorMode: b.colorMode, lapse: b.lapse, speed: b.speed, hvpgMeasured: b.hvpgMeasured, lastHVPG: b.lastHVPG,
+      compareSnap: b.compareSnap, compareView: b.compareView, historyTick: (before.historyTick || 0) + 1 });
+    if (before.view !== b.view) { store.set({ view: b.view }); await wait(reduce.matches ? 0 : 700); }
+    if (!b.lobule) stage.setCamera(b.cam, reduce.matches ? 0 : 900);
+    if (before.lobule !== b.lobule) store.set({ lobule: b.lobule, sinusoid: b.sinusoid });
+    else if (before.sinusoid !== b.sinusoid) store.set({ sinusoid: b.sinusoid });
+    store.set({ selection: b.selection, details: b.details });
+    if (b.home) reopenHome?.(b.home);
+    if (ms) { await wait(260); view.style.opacity = ''; await wait(ms + 60); view.style.transition = ''; }
   }
 
   // ── Library (Home › Present) ──

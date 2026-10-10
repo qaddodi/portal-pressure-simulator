@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=90504cc4f2';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=25cbe77a76';
-import { createStage } from './stage.js?v=3a8798e8b5';
+import { createStage } from './stage.js?v=b3bd54636b';
 import { sinusoidSupported } from './sinusoid-view.js?v=b68c9ab562';
 import { createInspector } from './inspector.js?v=500d39491c';
 import { createDock, CUTOFFS } from './dock.js?v=fc02c91baa';
@@ -16,7 +16,7 @@ import { isBlind } from './learning-kit.js?v=d37136ac07';
 import { createCompare } from './compare.js?v=118c08286d';
 import { createCard } from './card.js?v=7cf9cd2378';
 import { createChart, computeFindings } from './chart.js?v=d7c6125620';
-import { createHome, ROLES } from './home.js?v=3869d5661a';
+import { createHome, ROLES } from './home.js?v=59d88cd824';
 import { course } from './course.js?v=3bf3617fd0';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=96bbcced4d';
 import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=11a19282f2';
@@ -141,9 +141,9 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else home.open(o?.practice ? 'practice' : 'course'); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => home.open('course') });
-  presenterL = lazy(() => import('./presenter.js?v=3d47632f84'), ({ createPresenter }) => createPresenter({ startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=6b3d82c4d4'), ({ createPresenter }) => createPresenter({ startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
-    closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
+    closeHome: () => home.close(), homeTab: () => (home.isOpen() ? home.tab() : null), reopenHome: (t) => home.open(t), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
     el: $('#home'), brandMark,
     onPreset: (id) => openInExplore(id),
