@@ -28,7 +28,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=dc393aabea';
 import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=4fe4837865';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
-import { createSinusoidView } from './sinusoid-view.js?v=5f44cd9170';
+import { createSinusoidView } from './sinusoid-view.js?v=7da41424ee';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const TAU = Math.PI * 2;

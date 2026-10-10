@@ -329,6 +329,8 @@ export function createSinusoidView({ host }) {
   }
 
   // ── Labels ──
+  // The fenestrae's state in capitals with the share open (eased with S.por, so it counts rather than jumps).
+  const fenTxt = () => `${S.por > 0.85 ? 'OPEN' : S.por > 0.15 ? 'CLOSING' : 'CLOSED'}~${Math.round(S.por * 100)}%`;
   function layoutTags() {
     const g = geo, m = model, hep = UM.hep, V = g.vert;
     const pick = (u) => lerp(VW.fr[0] + 8, VW.fr[1] - 8, u);
@@ -342,7 +344,7 @@ export function createSinusoidView({ host }) {
     LAB[0] = rs.x; LAB[1] = rs.half;
     kupName();
     const xf = away(away(pick(V ? 0.3 : 0.68), g.xs, 30), g.xk, 16);   // (clear of the stellate cell, and of the Kupffer cell's name)
-    region('fen', 'Fenestrae', S.por > 0.85 ? 'open' : S.por > 0.15 ? `${Math.round(S.por * 100)}%~open` : 'sealed', xf, -(halfW(xf) - 0.6), { along: true, side: 1 });
+    region('fen', 'Fenestrae', fenTxt(), xf, -(halfW(xf) - 0.6), { along: true, side: 1 });
     // In Disse: its name (on the stellate cell's side on a wide screen, clear of it), and the lymph it carries,
     // read in the plate just beyond it on the other side.
     const xq = V ? pick(0.24) : away(pick(0.86), g.xs, 40);
@@ -377,7 +379,7 @@ export function createSinusoidView({ host }) {
     LAB[0] = pick(0.42); LAB[1] = region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), LAB[0], 0).half;
     // Right (y < 0): fenestrae, stellate cell, a hepatocyte.
     let x = pick(0.08);
-    leader('fen', region('fen', 'Fenestrae', S.por > 0.85 ? 'open' : S.por > 0.15 ? `${Math.round(S.por * 100)}%~open` : 'sealed', x, -mid(x)), x, -(halfW(x) + UM.endo * 0.5));
+    leader('fen', region('fen', 'Fenestrae', fenTxt(), x, -mid(x)), x, -(halfW(x) + UM.endo * 0.5));
     x = clamp(g.xs, pick(0.3), pick(0.62));
     leader('hsc', region('hsc', S.act > 0.5 ? 'Activated\nstellate cell' : 'Stellate\ncell', '', x, -mid(x)), g.xs, -(dis(g.xs) + 0.6));   // (stacked, to fit the plate)
     region('hep', 'Hepatocyte', '', pick(0.92), -mid(pick(0.92)));
