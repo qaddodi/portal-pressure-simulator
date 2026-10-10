@@ -2205,7 +2205,7 @@ button.finding:hover { background: var(--surface-2); }
 .pz-tool[data-kind="wall"] .endo-stage { flex: none; width: min(46%, 30vh); min-height: 0; }
 .pz-tool[data-kind="wall"] .chart-box.square { width: 100%; height: auto; aspect-ratio: 1; max-width: none; }
 .pz-tool[data-kind="wall"] .chart-side { flex: 1; min-width: 0; }
-.pz-tool[data-kind="wall"] .endo-read { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.pz-tool[data-kind="wall"] .endo-read { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
 .pz-tool[data-kind="wall"] .endo-stress { grid-column: 1 / -1; }
 .pz-tool[data-kind="wall"] .endo-pos, .pz-tool[data-kind="wall"] .wall-law, .pz-tool[data-kind="wall"] .endo-read > :last-child { display: none; }
 .pz-data.has-tool { overflow-y: auto; overscroll-behavior: contain; pointer-events: auto; }

@@ -285,7 +285,7 @@ export const DECKS = [
         ask: ['On carvedilol, HVPG falls from 18 to 13 mmHg. Is that a response?', 'Yes: a fall of more than 20% protects against bleeding, although it is still above 12.'],
       },
       {
-        id: 'grades', visual: 'scale', scale: { key: 'hvpg', max: 20, legend: true, low: 'Normal', marks: [[5, 'Portal\nhypertension'], [10, 'Clinically significant\nportal hypertension\n(CSPH)'], [12, 'Variceal bleed risk\nis high']] },
+        id: 'grades', visual: 'scale', scale: { key: 'hvpg', max: 20, legend: true, low: 'Normal', marks: [[5, 'Portal\nhypertension', 'Raised'], [10, 'Clinically significant\nportal hypertension\n(CSPH)', 'CSPH'], [12, 'Variceal bleed risk\nis high', 'Bleeding risk']] },
         of: [{ preset: 'healthy', name: 'Healthy' }, { preset: 'cirr-comp', name: 'Compensated cirrhosis' }, { id: 'hvpg', name: 'This patient' }, { preset: 'cirr-decomp', name: 'Decompensated cirrhosis' }],
         kicker: 'Thresholds', title: 'Four patients on one scale',
         line: 'Healthy, compensated, this patient, decompensated.',

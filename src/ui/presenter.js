@@ -329,7 +329,7 @@ function scaleVisual(sc, rows) {
 function scaleKey(sc, rows) {
   const max = sc.max || 20, u = TILE[sc.key]?.u || '', P = (v) => `${(100 * clamp(v, 0, max) / max).toFixed(2)}%`;
   const cuts = [0, ...sc.marks.map(([v]) => v), max];
-  const zones = cuts.slice(0, -1).map((a, i) => ({ a, b: cuts[i + 1], c: ['ok', 'mid', 'hi', 'top'][Math.min(i, 3)], t: i ? sc.marks[i - 1][1] : sc.low }));
+  const zones = cuts.slice(0, -1).map((a, i) => ({ a, b: cuts[i + 1], c: ['ok', 'mid', 'hi', 'top'][Math.min(i, 3)], t: i ? sc.marks[i - 1][2] || sc.marks[i - 1][1] : sc.low }));   // (a mark's third item: its short name, for the band)
   const span = (z) => `left:${P(z.a)};width:calc(${P(z.b)} - ${P(z.a)})`;
   const pins = rows.filter((r) => r.f).sort((a, b) => a.f[sc.key] - b.f[sc.key]);
   const rate = (r) => rateOf(sc.key, r.f)[0] || 'none';
