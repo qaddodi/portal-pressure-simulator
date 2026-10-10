@@ -26,7 +26,7 @@
 //                            brackets: { hvpg | ppg: 'misleads' | 'works' } colours the ladder's bracket red or green, its number in it)
 //   tool                     an instrument in the data card, reading the live model (presenter-tools.js): { kind: 'doppler',
 //                            vessel }, { kind: 'scope' }, { kind: 'fibroscan' }, { kind: 'trace', range: 'talk' | 'beats' },
-//                            { kind: 'abdomen' }, { kind: 'wall' } (the varix in cross-section); title? names the card; waves: true
+//                            { kind: 'abdomen' }, { kind: 'wall' } (the varix in cross-section), { kind: 'monitor', at } (the HVPG catheter's tracing); title? names the card; waves: true
 //                            names a hepatic vein Doppler's a, S and D. With data too, the tool sits above the tiles
 //   sites                    readings on the figure: 'pv', 'ivc', 'ra', 'web' (pressures; web: the IVC below a web), 'rLiver', 'rColl' (the circuit's resistors), 'split' (portal blood to liver and shunts)
 //   cath                     the HVPG catheter instead of a camera: 'route', 'free', 'wedge', 'result' or 'blocked'
@@ -50,14 +50,14 @@
 
 import { STIFFNESS } from './decks/stiffness.js?v=35e2f96b71';
 import { ONE_YEAR } from './decks/one-year.js?v=37492fcfd2';
-import { LOBULE } from './decks/lobule.js?v=d9485fcd73';
+import { LOBULE } from './decks/lobule.js?v=0180de95c3';
 import { SHUNTS } from './decks/shunts.js?v=a0cc164807';
 import { TAP } from './decks/tap.js?v=fd0e03bbb4';
 import { CIRCUIT } from './decks/circuit.js?v=05ee0b6b76';
 import { DOPPLER } from './decks/doppler.js?v=0a0f53ea61';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=95aa3aef7f';
 import { PREHEPATIC } from './decks/prehepatic.js?v=c8af5f351e';
-import { RIGHT_HEART } from './decks/right-heart.js?v=21025ec96f';
+import { RIGHT_HEART } from './decks/right-heart.js?v=2221556b33';
 import { BLEED } from './decks/variceal-bleed.js?v=646e098b15';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
@@ -237,7 +237,7 @@ export const DECKS = [
         ask: ['Why is HVPG near zero although the portal pressure is about 26 mmHg?', 'Both the wedged and the free pressures are measured behind the block, so both are high and their difference is small.'],
       },
       {
-        id: 'cardiac', preset: 'rhf', cam: 'heart', labels: ['RHV', 'IVCS', 'RA'],
+        id: 'cardiac', preset: 'rhf', cam: 'heart', labels: ['RHV', 'IVCS', 'RA'], glow: ['ivc', 'hv'], glowSeq: 550,
         data: 'ladder', key: ['fhvp', 'hvpg', 'ppg'], rail: true, quiz: 'Where is the obstruction?',
         kicker: 'Cardiac', site: 'cardiac', title: 'Right heart failure',
         line: 'Raised [right atrial pressure](ra) is transmitted back through the hepatic veins to the sinusoids. All stations rise together and HVPG stays normal.',
@@ -275,7 +275,7 @@ export const DECKS = [
         ask: ['Why the right internal jugular vein?', 'It gives a straight path through the right atrium and the IVC into the hepatic veins.'],
       },
       {
-        id: 'free', cath: 'free',
+        id: 'free', cath: 'free', tool: { kind: 'monitor', at: 'free' },
         kicker: 'Measuring portal pressure', title: 'Free hepatic venous pressure',
         terms: { 'hepatic vein pressure': 'fhvp', IVC: 'ivc' },
         line: 'With the balloon deflated, the catheter tip records hepatic vein pressure, normally close to IVC pressure.',
@@ -283,7 +283,7 @@ export const DECKS = [
         ask: ['Why subtract the free pressure rather than the right atrial pressure?', 'The free pressure carries the same abdominal and venous pressure as the wedge, so subtracting it cancels them.'],
       },
       {
-        id: 'wedge', cath: 'wedge',
+        id: 'wedge', cath: 'wedge', tool: { kind: 'monitor', at: 'wedge' },
         kicker: 'Measuring portal pressure', title: 'Wedged hepatic venous pressure',
         terms: { 'sinusoidal pressure': 'whvp' },
         line: 'With the balloon inflated, the static column of blood ahead of it transmits sinusoidal pressure.',
@@ -291,7 +291,7 @@ export const DECKS = [
         ask: ['How do you check that the balloon has truly wedged the vein?', 'Inject a little contrast: it stays in the vein with no washout, and the tracing loses its pulse.'],
       },
       {
-        id: 'hvpg', cath: 'result', data: 'ladder', key: ['whvp', 'fhvp', 'hvpg'], tiles: ['hvpg', 'ppg'],
+        id: 'hvpg', cath: 'result', tool: { kind: 'monitor', at: 'result' }, data: 'ladder', key: ['whvp', 'fhvp', 'hvpg'], tiles: ['hvpg', 'ppg'],
         kicker: 'Measuring portal pressure', site: 'sin', title: 'Hepatic venous pressure gradient',
         eq: [mi('HVPG') + mo('=') + '<mi class="eq-wedge">WHVP</mi>' + mo('−') + '<mi class="eq-hv">FHVP</mi>', 'Wedged minus free hepatic venous pressure'],
         line: 'This patient\'s HVPG is {hvpg}: clinically significant portal hypertension.',

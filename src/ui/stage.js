@@ -6,7 +6,7 @@ import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=5edd069b32';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=e0101a3fa2';
-import { createLobuleZoom } from './lobule-zoom.js?v=37f494a843';
+import { createLobuleZoom } from './lobule-zoom.js?v=8fcd1b9f7f';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
@@ -981,18 +981,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // station's own colour (--pg). Each eases in and out on its own, so a change of slide cross-fades.
   const pg = new Map();   // edge id → mark
   function setGlow(list) {
-    const want = new Map((list || []).filter((g) => E[g.id]).map((g) => [g.id, g.tone || 'accent']));
+    const want = new Map((list || []).filter((g) => E[g.id]).map((g) => [g.id, { tone: g.tone || 'accent', at: g.at }]));
     for (const [id, m] of pg) if (!want.has(id) && m.on) {
-      m.on = false; m.g.classList.remove('on');
+      m.on = false; m.g.style.transitionDelay = ''; m.g.classList.remove('on');
       clearTimeout(m.t); m.t = setTimeout(() => { if (!m.on) { m.g.remove(); pg.delete(id); } }, 450);
     }
-    for (const [id, tone] of want) {
+    for (const [id, { tone }] of want) {
       let m = pg.get(id);
       if (!m) { m = makeMark(`pg-${id}`, 'pg', { band: 34, glow: 10, edge: 2.5, blur: 3 }); m.id = id; pg.set(id, m); }   // (tighter than the Doppler's: a slide can light several)
       clearTimeout(m.t); m.on = true;
       m.g.style.setProperty('--pg', tone.startsWith('--') ? `var(${tone})` : tone === 'accent' ? 'var(--accent)' : `var(--tr-${tone})`);
       const x = E[id], d = x.wall.getAttribute('d'); if (d) m.paint(d, x.dopW || 8);
       m.g.style.display = x.vis ? '' : 'none';
+      // (A glow in a sequence waits its turn: at, ms. It goes without waiting.)
+      m.g.style.transitionDelay = m.g.classList.contains('on') ? '' : `${want.get(id).at || 0}ms`;
       requestAnimationFrame(() => m.on && m.g.classList.add('on'));
     }
   }
@@ -3327,22 +3329,56 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // The FibroScan probe (the Presenter's stiffness slides): a transducer on the skin over the right lobe, at the
   // lower ribs, with a shear wave easing out from its tip into the liver. Screen-space, beside the liver's outline.
-  const scan = { on: false, el: null };
+  // Each tap sends one shear wavefront: a soft arc that spreads and fades as it crosses the liver. Shear waves
+  // travel at c = √(E / 3ρ), so the fronts move with the square root of the model's stiffness (5 kPa ≈ 1.3 m/s,
+  // 25 kPa ≈ 2.9 m/s), easing to a new speed when the reading changes.
+  const scan = { on: false, el: null, raf: 0, v: 0, fronts: [], next: 0, last: 0 };
+  const SCAN_TIP = [66, 48], SCAN_SPAN = 150, SCAN_EVERY = 1.5, SCAN_N = 4, SCAN_HALF = 0.5, SCAN_GAP = 6;
+  const scanSpeed = () => 34 * Math.sqrt(clamp(F?.metrics?.lsm ?? 5, 2.5, 75) / 5);   // px/s (34 px/s at 5 kPa)
+  function scanArc(r) {
+    const [cx, cy] = SCAN_TIP, h = SCAN_HALF * (0.75 + 0.25 * Math.min(1, r / 50));   // the front widens a little with depth
+    const p = (t) => `${(cx + r * Math.cos(t)).toFixed(1)} ${(cy + r * Math.sin(t)).toFixed(1)}`;
+    return `M${p(-h)} A${r.toFixed(1)} ${r.toFixed(1)} 0 0 1 ${p(h)}`;
+  }
+  function scanTick(now) {
+    scan.raf = 0;
+    if (!scan.on || !scan.el) return;
+    const dt = scan.last && !reduceMotion.matches ? Math.min(0.1, (now - scan.last) / 1000) : 0; scan.last = now;
+    const target = scanSpeed();
+    scan.v = scan.v ? scan.v + (target - scan.v) * (1 - Math.exp(-dt / 0.6)) : target;   // ease to a new kPa
+    if (now >= scan.next) { scan.fronts.push(0); scan.next = now + SCAN_EVERY * 1000; scan.el.classList.remove('tap'); void scan.el.offsetWidth; scan.el.classList.add('tap'); }
+    scan.fronts = scan.fronts.map((r) => r + scan.v * dt).filter((r) => r < SCAN_SPAN);
+    const g = scan.el.querySelectorAll('.sp-waves g');
+    g.forEach((el, i) => {
+      const r = scan.fronts[i];
+      if (r == null) { el.style.opacity = 0; return; }
+      const u = r / SCAN_SPAN, fade = Math.sin(Math.PI * Math.min(1, u * 1.15 + 0.04)) ** 1.2 * (1 - u * 0.35);
+      el.style.opacity = fade.toFixed(3);
+      // A short packet: the crest, with a faint ripple ahead and behind.
+      [...el.children].forEach((pth, j) => pth.setAttribute('d', scanArc(Math.max(1, r + (j - 1) * SCAN_GAP))));
+    });
+    scan.raf = requestAnimationFrame(scanTick);
+  }
   function scanPaint() {
     if (!scan.el) {
       const el = document.createElement('div');
       el.className = 'scan-probe cath-pre'; el.setAttribute('aria-hidden', 'true');
-      el.innerHTML = '<svg viewBox="0 0 150 64"><g class="sp-waves"><path d="M70 14 Q86 32 70 50"/><path d="M70 14 Q86 32 70 50"/><path d="M70 14 Q86 32 70 50"/></g>'
-        + '<path class="sp-cable" d="M2 32 C10 32 12 32 18 32"/><rect class="sp-body" x="16" y="20" width="42" height="24" rx="10"/>'
-        + '<rect class="sp-tip" x="54" y="23" width="10" height="18" rx="3"/></svg><span>FibroScan probe</span>';   // (constant markup)
+      el.innerHTML = '<svg viewBox="0 0 220 96"><defs><radialGradient id="sp-beam" cx="66" cy="48" r="150" gradientUnits="userSpaceOnUse">'
+        + '<stop offset="0" stop-color="var(--tr-wedge)" stop-opacity=".22"/><stop offset="1" stop-color="var(--tr-wedge)" stop-opacity="0"/></radialGradient></defs>'
+        + '<path class="sp-beam" d="M66 48 L197.6 -23.9 A150 150 0 0 1 197.6 119.9 Z"/><g class="sp-waves">'
+        + '<g><path class="sp-rip"/><path class="sp-front"/><path class="sp-rip"/></g>'.repeat(SCAN_N) + '</g>'
+        + '<path class="sp-cable" d="M2 48 C10 48 14 48 20 48"/><g class="sp-head"><rect class="sp-body" x="18" y="36" width="40" height="24" rx="10"/>'
+        + '<rect class="sp-tip" x="54" y="39" width="10" height="18" rx="3"/></g></svg><span>FibroScan probe</span>';   // (constant markup)
       sites.el.append(el); scan.el = el;
       void el.offsetWidth; el.classList.remove('cath-pre');
+      if (reduceMotion.matches) { scan.fronts = [40, 90]; scan.v = 0; scan.next = Infinity; }
+      if (!scan.raf) { scan.last = 0; scan.raf = requestAnimationFrame(scanTick); }
     }
     const lv = organEls.liver, wr = wrap.getBoundingClientRect();
     if (!lv || morph > 0.5) { scan.el.classList.add('off'); return; }
     const r = lv.getBoundingClientRect(), x0 = pzInset('--pz-l') + 6, x1 = wr.width - pzInset('--pz-r') - 6;
     // The right lobe's lateral edge (the patient's right is the figure's left), two thirds down: the lower ribs.
-    const x = clamp(r.left - wr.left + r.width * 0.04, x0, x1 - 150), y = r.top - wr.top + r.height * 0.6;
+    const x = clamp(r.left - wr.left + r.width * 0.04, x0, x1 - 220), y = r.top - wr.top + r.height * 0.6;
     scan.el.classList.toggle('off', y < 20 || y > wr.height - 20);
     scan.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
   }
@@ -3350,7 +3386,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (scan.on === !!on) return;
     scan.on = !!on;
     if (on) { refreshCTM(); scanPaint(); return; }
-    const el = scan.el; scan.el = null;
+    const el = scan.el; scan.el = null; scan.fronts = []; scan.v = 0; scan.next = 0;
+    if (scan.raf) { cancelAnimationFrame(scan.raf); scan.raf = 0; }
     if (el) { el.classList.add('cath-pre'); setTimeout(() => el.remove(), 500); }
   }
   const CATH_IDS = ['SVC_RA', 'IVCS_RA', 'RHV_IVC', 'POST_R_RHV'];   // (and down the IVC_IS to the hepatic vein)
@@ -3825,7 +3862,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const TURN_DIR = { N: 'W', W: 'S', S: 'E', E: 'N', NE: 'NW', NW: 'SW', SW: 'SE', SE: 'NE', C: 'C' };
   // A desktop (a wide screen and a mouse) is read from farther away: its 100 % is half as large again as a phone's or tablet's.
   const deskMQ = matchMedia('(min-width: 1024px) and (pointer: fine)');
-  const deskK = () => (deskMQ.matches ? 1.5 : 1);
+  // One label size on every screen and window width at 100 % (the laptop's): only the label setting changes it.
+  const deskK = () => 1.5;
   let labelScale = (() => {
     try {
       let v = parseFloat(localStorage.getItem('pps.labelScale'));
@@ -3990,12 +4028,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function pressureRuns(P, id, compact) {
     if (!store.get().layers.chips || isImaging()) return null;
     const [v, u] = fp(P);
-    const runs = [{ t: v, size: compact ? 12.5 : 14, weight: 650, cls: 'lb-val' }, { t: u, size: compact ? 9.5 : 10, weight: 500, cls: 'lb-unit', gap: 2.5 }];
+    const runs = [{ t: v, size: 14, weight: 650, cls: 'lb-val' }, { t: u, size: 10, weight: 500, cls: 'lb-unit', gap: 2.5 }];
     // A change from healthy is shown only once it matters clinically (5 mmHg, the upper limit
     // of a normal HVPG); while comparing, every change from the pinned moment is shown. Deltas
     // are neutral ink: red is kept for crossed thresholds.
     const ref = REF()?.[NI[id]], cmp = !!store.get().compareSnap;
-    if (ref != null && badge((cmp ? 'pc:' : 'p:') + id, Math.abs(P - ref), cmp ? 1 : DELTA_MIN, cmp ? 0.7 : DELTA_MIN - 1)) runs.push({ t: `${P > ref ? '▲' : '▼'} ${fmt(Math.abs(P - ref), 0)}`, size: compact ? 9.5 : 10.5, weight: 650, cls: 'lb-delta ' + (P > ref ? 'up' : 'down'), gap: 6 });
+    if (ref != null && badge((cmp ? 'pc:' : 'p:') + id, Math.abs(P - ref), cmp ? 1 : DELTA_MIN, cmp ? 0.7 : DELTA_MIN - 1)) runs.push({ t: `${P > ref ? '▲' : '▼'} ${fmt(Math.abs(P - ref), 0)}`, size: 10.5, weight: 650, cls: 'lb-delta ' + (P > ref ? 'up' : 'down'), gap: 6 });
     return runs;
   }
 
@@ -4005,14 +4043,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const lm = layerMode();
     if (lm !== 'flow' && lm !== 'velocity') return null;
     if (!store.get().layers.chips) return null;
-    const big = { size: compact ? 12.5 : 14, weight: 650, cls: 'lb-val' }, unit = { size: compact ? 9.5 : 10, weight: 500, cls: 'lb-unit', gap: 2.5 };
+    const big = { size: 14, weight: 650, cls: 'lb-val' }, unit = { size: 10, weight: 500, cls: 'lb-unit', gap: 2.5 };
     if (lm === 'flow') {
       const v = throughput(f.Qf || f.Q, id);
       const runs = [{ ...big, t: fmtFlow(v) }, { ...unit, t: 'L/min' }];
       const refQ = store.get().healthy?.Q;
       if (refQ && !store.get().compareSnap) {
         const r = throughput(refQ, id);
-        if (r > 0.02 && badge('q:' + id, Math.abs(v - r) / r, 0.3, 0.25)) runs.push({ t: `${v > r ? '▲' : '▼'} ${Math.round(Math.abs(v - r) / r * 100)}%`, size: compact ? 9.5 : 10.5, weight: 650, cls: 'lb-delta ' + (v > r ? 'up' : 'down'), gap: 6 });
+        if (r > 0.02 && badge('q:' + id, Math.abs(v - r) / r, 0.3, 0.25)) runs.push({ t: `${v > r ? '▲' : '▼'} ${Math.round(Math.abs(v - r) / r * 100)}%`, size: 10.5, weight: 650, cls: 'lb-delta ' + (v > r ? 'up' : 'down'), gap: 6 });
       }
       return { runs, color: flowColor(v) };
     }
@@ -4029,7 +4067,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // collaterals carries no flow at all (not stasis in an open vessel).
     if (!tubes) return { runs: [{ ...unit, t: bed ? 'microcirculation' : 'collaterals closed', gap: 0 }], color: 'rgb(150,152,162)' };
     const runs = [{ ...big, t: fmt(best, 0) }, { ...unit, t: 'cm/s' }];
-    if (best < 5) runs.push({ t: 'stasis', size: compact ? 9.5 : 10.5, weight: 650, cls: 'lb-alert', gap: 6 });
+    if (best < 5) runs.push({ t: 'stasis', size: 10.5, weight: 650, cls: 'lb-alert', gap: 6 });
     return { runs, color: velocityColor(best) };
   }
 
@@ -4049,7 +4087,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // On a small screen an inline label is one quiet line (name, value) on a text halo, not a
     // two-line card: it covers as little of the anatomy as it can.
     const one = mode === 'inline';   // one line, no box, on every screen (as on a phone)
-    const lines = [[{ t: name, size: compact ? 10.5 : 11.5, weight: one ? 600 : 500, cls: 'lb-name' }]];
+    const lines = [[{ t: name, size: 11.5, weight: one ? 600 : 500, cls: 'lb-name' }]];
     const sel = st.selection?.type === 'node' && st.selection.id === id;
     // Student mode (Explore) keeps the figure to names: a station shows its number once tapped.
     const quiet = st.role === 'student' && st.mode === 'explore' && !st.presenting && !sel;
@@ -4219,9 +4257,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const t = easeInOut(morph);
     const circuit = t >= 0.5;
     if ((circuit && rotU > 0.5) !== labelTurned) { labelTurned = !labelTurned; labelSol = new Map(); if (!solve) return false; }
-    // Zoomed far out (the whole map on a phone), the map's own scale is tiny, so its labels shrink with it
-    // (down to 70 %) instead of burying it; from 0.6 px per unit up they are full size.
-    labelK = labelBase() * (circuit ? CIRCUIT_LABEL_K * clamp(CTM.sc / 0.6, 0.7, 1) : 1);
+    labelK = labelBase() * (circuit ? CIRCUIT_LABEL_K : 1);
     const lbk = labelK.toFixed(2);
     if (gLabels.dataset.k !== lbk) { gLabels.dataset.k = lbk; gLabels.style.setProperty('--lbk', lbk); }
     const wr = stageBox();
@@ -4347,10 +4383,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           {
             const it = nodeItem('RPV', f, atlas ? 'atlas' : 'inline', compact);
             const vel = Math.abs(edgeVel(f, EI[sid])) * dopplerK(EDGES[EI[sid]]);   // read as Doppler reads it
-            const unit = { size: compact ? 9.5 : 10, weight: 500, cls: 'lb-unit', gap: 2.5 };
+            const unit = { size: 10, weight: 500, cls: 'lb-unit', gap: 2.5 };
             it.lines[0][0].t = sid;
             it.lines.length = 1; it.lines[0].length = 1;
-            const vr = [{ t: fmt(vel, 0), size: compact ? 12.5 : 14, weight: 650, cls: 'lb-val', gap: atlas ? 0 : 4 }, { ...unit, t: 'cm/s' }];
+            const vr = [{ t: fmt(vel, 0), size: 14, weight: 650, cls: 'lb-val', gap: atlas ? 0 : 4 }, { ...unit, t: 'cm/s' }];
             if (atlas) it.lines.push(vr); else it.lines[0].push(...vr);
             it.key = `n:${sid}`; it.node = undefined; it.sel = false; it.swatch = null;
             it.w = Math.max(...it.lines.map(lineW)) + (atlas ? 7 : 0); it.h = it.lines.reduce((a, l) => a + LINE_H(l), 0);
@@ -4422,7 +4458,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         for (const [txt, x, y] of ORGAN_LABELS) {
           const [ax, ay] = worldToLocal(x, y);
           const up = txt.toUpperCase();
-          const it = { key: 'o:' + txt, cls: 'organ', lines: [[{ t: up, size: compact ? 8.5 : 9.5, weight: 600, cls: 'lb-organ', track: 0.1 }]], align: 'middle', padX: 2, padY: 1, ax, ay };
+          const it = { key: 'o:' + txt, cls: 'organ', lines: [[{ t: up, size: 9.5, weight: 600, cls: 'lb-organ', track: 0.1 }]], align: 'middle', padX: 2, padY: 1, ax, ay };
           it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
           place(it, ['C'], 0, false);
         }
@@ -4435,7 +4471,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const [a, ay0] = worldToLocal(x0, 60), [b, by] = worldToLocal(x1, 60);
         // The liver's and the heart's titles open their cards (there is no organ to click in the circuit).
         const organ = { Liver: 'liver', Heart: 'heart' }[txt];
-        const it = { key: 'z:' + txt, cls: organ ? 'zonecap link' : 'zonecap', lines: [[{ t: txt.toUpperCase(), size: compact ? 8.5 : 9.5, weight: 650, cls: 'lb-zone', track: 0.1 }]], align: 'middle', padX: 2, padY: 2 };
+        const it = { key: 'z:' + txt, cls: organ ? 'zonecap link' : 'zonecap', lines: [[{ t: txt.toUpperCase(), size: 9.5, weight: 650, cls: 'lb-zone', track: 0.1 }]], align: 'middle', padX: 2, padY: 2 };
         if (organ) {
           it.onClick = () => onSelect({ type: 'organ', id: organ });
           it.label = `${txt}: open its card`; it.hit = true;
@@ -4502,7 +4538,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const [id, cap] of Object.entries(LANE_CAPTIONS)) {
         const x = E[id];
         if (!x?.vis || x.g.classList.contains('coll-ghost') || labelHidden(id)) continue;
-        const it = { key: 'lane:' + id, cls: 'lane', lines: [[{ t: cap, size: compact ? 9 : 10, weight: 550, cls: 'lb-lane' }]], align: 'middle', padX: 2, padY: 1, ax: 0, ay: 0 };
+        const it = { key: 'lane:' + id, cls: 'lane', lines: [[{ t: cap, size: 10, weight: 550, cls: 'lb-lane' }]], align: 'middle', padX: 2, padY: 1, ax: 0, ay: 0 };
         it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
         // Turned upright, a lane that runs up the screen is captioned along it (text turned to read bottom to top), beside it.
         const at = (u) => { const [lx, ly] = pointAt(geo[id].cur, u); [it.ax, it.ay] = worldToLocal(lx, ly); };

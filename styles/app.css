@@ -1776,11 +1776,10 @@ button.finding:hover { background: var(--surface-2); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lz-zone.z1 { --zc: rgb(246, 140, 120); } :root:not([data-theme="light"]) .lz-zone.z2 { --zc: rgb(232, 186, 112); } :root:not([data-theme="light"]) .lz-zone.z3 { --zc: rgb(170, 150, 246); } }
 :root[data-theme="dark"] .lz-zone.z1 { --zc: rgb(246, 140, 120); } :root[data-theme="dark"] .lz-zone.z2 { --zc: rgb(232, 186, 112); } :root[data-theme="dark"] .lz-zone.z3 { --zc: rgb(170, 150, 246); }
 .stage-view.in-lobule #labels, .stage-view.in-lobule #veins, .stage-view.in-lobule #stageOver, .stage-view.in-lobule #overlay { visibility: hidden; }
-/* Phone: labels one size smaller */
+/* Phone: snugger cards (labels keep the one size every screen uses) */
 @media (max-width: 720px) {
   .lz-lab { padding: 3px 7px 4px; }
   .stage-view.in-lobule .stage-clock { display: none; }
-  .lz-lab .n { font-size: 10.5px; } .lz-lab .v { font-size: 12.5px; }
 }
 /* Circuit bridges: a line that crosses another hops over it */
 #bridges path { fill: none; stroke-linecap: butt; pointer-events: none; }
@@ -1981,6 +1980,18 @@ button.finding:hover { background: var(--surface-2); }
 .pzt-d { font: 600 clamp(12px, calc(1.5vh / var(--vz)), 18px)/1.25 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-3); }
 .pzt-d[data-way="good"] { color: color-mix(in srgb, var(--ok) 85%, var(--text)); }
 .pzt-d[data-way="bad"] { color: var(--danger); }
+.pz-col { display: block; width: min(100%, 460px); height: auto; overflow: visible; font: 600 11px var(--font-ui); }
+.pz-col text { fill: var(--text-3); letter-spacing: .02em; }
+.pz-col .c-top { fill: var(--tr-wedge); opacity: 0; transition: opacity .6s var(--ease) 1.9s; }
+.pz-col .c-pv { fill: color-mix(in srgb, var(--tr-pv) 55%, transparent); }
+.pz-col .c-sin { fill: color-mix(in srgb, var(--tr-wedge) 18%, transparent); stroke: color-mix(in srgb, var(--tr-wedge) 45%, transparent); stroke-width: 1; }
+.pz-col .c-hv { fill: color-mix(in srgb, var(--tr-hv) 35%, transparent); }
+.pz-col .c-fill { fill: var(--tr-wedge); opacity: .75; transform-box: fill-box; transform-origin: right center; transform: scaleX(0); transition: transform 1.6s var(--ease) .5s; }
+.pz-col .c-bal { fill: var(--surface); stroke: var(--tr-wedge); stroke-width: 2.5; }
+.pz-col .c-blk { stroke: var(--danger); stroke-width: 3.5; stroke-linecap: round; fill: none; opacity: 0; transition: opacity .5s var(--ease) 1.8s; }
+.pz-col .c-blkt { fill: var(--danger); opacity: 0; transition: opacity .5s var(--ease) 1.8s; }
+.pz-col.in .c-fill { transform: none; } .pz-col.in :is(.c-top, .c-blk, .c-blkt) { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .pz-col * { transition: none !important; } }
 .pz-stk { display: flex; flex-wrap: wrap; gap: .35em 1em; font: 600 clamp(12px, calc(1.5vh / var(--vz)), 17px)/1.2 var(--font-ui); color: var(--text-2); }
 .pz-stk span { display: inline-flex; align-items: center; gap: .4em; white-space: nowrap; }
 .pz-stk i { width: .75em; height: .75em; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 2px color-mix(in srgb, var(--c) 25%, transparent); }
@@ -2292,6 +2303,7 @@ button.finding:hover { background: var(--surface-2); }
 .pz-tool[data-kind="scope"] .chart-box.square { width: min(100%, 40vh); height: auto; aspect-ratio: 1; margin: 0 auto; }
 .pz-tool[data-kind="scope"] .chart-side { width: 100%; max-width: none; }
 .pz-tool[data-kind="beats"] .pt-box { height: clamp(180px, 30vh, 360px); }
+.pz-tool[data-kind="monitor"] .hvpg-box { height: clamp(170px, 28vh, 320px); }
 /* Quiz: the reading stays covered until the answer (a soft veil, never a pop). */
 .pz-tool::after { content: ""; position: absolute; pointer-events: none; opacity: 0; transition: opacity .32s var(--ease); background: var(--surface); border-radius: 10px; }
 .pz-tool.ask[data-kind="fibroscan"]::after { opacity: 1; left: 8px; top: 30px; width: 46%; height: 64px; }
@@ -2320,6 +2332,7 @@ button.finding:hover { background: var(--surface-2); }
 .pz.stack .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: 180px; }
 .pz.stack .pz-tool[data-kind="scope"] .chart-box.square { width: min(100%, 24vh); }
 .pz.stack .pz-tool[data-kind="beats"] .pt-box { height: 140px; }
+.pz.stack .pz-tool[data-kind="monitor"] .hvpg-box { height: 150px; }
 /* Phone: the scope sits beside its grade and size, and the Doppler drops its sentence, so a tile still fits under the instrument. */
 .pz.stack .pz-tool[data-kind="scope"] .pz-inst { flex-direction: row; align-items: center; gap: 12px; }
 .pz.stack .pz-tool[data-kind="scope"] .chart-box.square { width: 40%; flex: none; margin: 0; }
@@ -2743,14 +2756,19 @@ button.finding:hover { background: var(--surface-2); }
 /* The FibroScan probe on the skin over the liver; its shear wave eases out into the right lobe and fades. */
 .scan-probe { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; translate: 0 -50%; transition: opacity .6s var(--ease); pointer-events: none; }
 .scan-probe.cath-pre, .scan-probe.off { opacity: 0; }
-.scan-probe svg { width: 150px; height: 64px; overflow: visible; }
+.scan-probe svg { width: 220px; height: 96px; overflow: visible; }
 .scan-probe .sp-body { fill: var(--surface); stroke: var(--text-2); stroke-width: 1.6; }
 .scan-probe .sp-tip { fill: var(--text-2); }
 .scan-probe .sp-cable { fill: none; stroke: var(--text-3); stroke-width: 3; stroke-linecap: round; }
-.scan-probe .sp-waves path { fill: none; stroke: var(--tr-wedge); stroke-width: 3; stroke-linecap: round; opacity: 0; transform-box: view-box; transform-origin: 64px 32px; animation: sp-wave 2.4s cubic-bezier(.3, .6, .4, 1) infinite; }
-.scan-probe .sp-waves path:nth-child(2) { animation-delay: .8s; } .scan-probe .sp-waves path:nth-child(3) { animation-delay: 1.6s; }
-@keyframes sp-wave { 0% { opacity: 0; transform: translateX(0) scale(.6); } 20% { opacity: .9; } 100% { opacity: 0; transform: translateX(90px) scale(1.8); } }
-@media (prefers-reduced-motion: reduce) { .scan-probe .sp-waves path { animation: none; opacity: .6; } .scan-probe .sp-waves path:nth-child(2) { opacity: .35; transform: translateX(22px); } .scan-probe .sp-waves path:nth-child(3) { display: none; } }
+.scan-probe .sp-beam { fill: url(#sp-beam); filter: blur(5px); }
+.scan-probe .sp-waves > g { opacity: 0; }
+.scan-probe .sp-waves path { fill: none; stroke: var(--tr-wedge); stroke-linecap: round; }
+.scan-probe .sp-rip { stroke-width: 1.4; stroke-opacity: .35; }
+.scan-probe .sp-front { stroke-width: 2.6; stroke-opacity: .95; }
+.scan-probe .sp-head { transform-box: view-box; transform-origin: 40px 48px; }
+.scan-probe.tap .sp-head { animation: sp-tap .35s var(--ease); }
+@keyframes sp-tap { 30% { transform: translateX(3px); } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .scan-probe.tap .sp-head { animation: none; } }
 .scan-probe span { margin-left: 16px; font: 600 12px var(--font-ui); color: var(--text-3); letter-spacing: .02em; text-shadow: 0 0 3px var(--stage-bg), 0 0 6px var(--stage-bg); }
 /* Where portal blood goes: a fork, each branch as wide as its share, the two shares beside the tips. */
 .cath-label.site.split { --c: var(--tr-pv); }
@@ -3514,17 +3532,12 @@ button.finding:hover { background: var(--surface-2); }
 @media (max-width: 720px) {
   .lz-lab { display: flex; align-items: baseline; gap: 4px; border: 0 !important; padding: 0 2px; }
   .lz-lab .n-long { display: none; } .lz-lab .n-short { display: inline; }
-  .lz-lab .n { font-size: calc(10.5px * var(--label-k, 1)); }
-  .lz-lab .v { font-size: calc(12.5px * var(--label-k, 1)); }
-  .lz-lab .d { font-size: calc(9.5px * var(--label-k, 1)); }
   .lz-lab small { font-size: calc(9.5px * var(--label-k, 1)); }
 }
-/* Dark lobule labels: white names, values, units and zones on a black letter outline. */
-:root[data-theme="dark"] .lz { --label-halo: #000; }
+/* Dark lobule labels: white names, values, units and zones on the anatomy's dark outline. */
 :root[data-theme="dark"] .lz :is(.lz-lab, .lz-lab .n, .lz-lab .v, .lz-lab .v b, .lz-lab small, .lz-lab .d, .lz-zone) { color: #fff; }
 :root[data-theme="dark"] .lz-zone span { opacity: 1; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .lz { --label-halo: #000; }
   :root:not([data-theme="light"]) .lz :is(.lz-lab, .lz-lab .n, .lz-lab .v, .lz-lab .v b, .lz-lab small, .lz-lab .d, .lz-zone) { color: #fff; }
   :root:not([data-theme="light"]) .lz-zone span { opacity: 1; }
 }

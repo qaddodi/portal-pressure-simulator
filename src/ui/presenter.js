@@ -19,9 +19,9 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=cab65850a4';
 import { sinusoidSupported } from './sinusoid-view.js?v=5fb063d790';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
-import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=9cef6e294c';
-import { createTools } from './presenter-tools.js?v=621f749226';
-import { openHandout } from './handout.js?v=5d03010049';
+import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=32b5fc73cf';
+import { createTools } from './presenter-tools.js?v=068560af73';
+import { openHandout } from './handout.js?v=fb9354f663';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -135,13 +135,16 @@ export function slideTargets(s, line = s.line || '') {
     if (t.organ) organs.set(t.organ, t.tone);
     if (t.res) res.set(t.res, t.tone);
   }
-  for (const g of s.glow || []) {
-    const id = typeof g === 'string' ? g : g.id, tone = typeof g === 'string' ? null : g.tone;
-    if (TARGETS[id]) { const t = TARGETS[id]; if (t.lit) lit.add(id); if (t.res) res.set(t.res, tone || t.tone); for (const e of t.edges || []) glow.set(e, tone || t.tone); if (t.organ) organs.set(t.organ, tone || t.tone); }
+  // glowSeq (ms): the glow field lights in its order, one step apart (pressure passing back from the heart, D6).
+  const at = new Map();
+  (s.glow || []).forEach((g, i) => {
+    const id = typeof g === 'string' ? g : g.id, tone = typeof g === 'string' ? null : g.tone, ms = s.glowSeq ? i * s.glowSeq : 0;
+    const add = (e, tn) => { glow.delete(e); glow.set(e, tn); if (ms) at.set(e, ms); };
+    if (TARGETS[id]) { const t = TARGETS[id]; if (t.lit) lit.add(id); if (t.res) res.set(t.res, tone || t.tone); for (const e of t.edges || []) add(e, tone || t.tone); if (t.organ) organs.set(t.organ, tone || t.tone); }
     else if (ORGANS.has(id)) organs.set(id, tone || TARGETS[id]?.tone);
-    else glow.set(id, tone || EDGE_TONE[id] || 'accent');
-  }
-  return { labels, terms, glow: [...glow].map(([id, tone]) => ({ id, tone })), organs: [...organs].map(([id, tone]) => ({ id, tone })), res: [...res].map(([id, tone]) => ({ id, tone })), lit: [...lit], sites: [...sites] };
+    else add(id, tone || EDGE_TONE[id] || 'accent');
+  });
+  return { labels, terms, glow: [...glow].map(([id, tone]) => ({ id, tone, at: at.get(id) || 0 })), organs: [...organs].map(([id, tone]) => ({ id, tone })), res: [...res].map(([id, tone]) => ({ id, tone })), lit: [...lit], sites: [...sites] };
 }
 // A live value pill ({pv}): the model's reading for this slide, rounded as its card shows it (the ladder's
 // stations in whole mmHg on a ladder slide).
@@ -183,6 +186,9 @@ function rich(t, s = {}, fp = null) {
     else if (val) out.push(pill(val, valStop));
     else { seen.add(w); bold++; out.push(h('b', {}, key || term)); }
     at = m.index + all.length;
+    // (A term pill keeps the stop or bracket after it on its line.)
+    const last = out[out.length - 1];
+    if (last?.classList?.contains('pz-term') && /^[),.;:]+/.test(t.slice(at))) { const st = t.slice(at).match(/^[),.;:]+/)[0]; out[out.length - 1] = h('span', { class: 'pz-nw' }, last, st); at += st.length; }
   }
   out.push(t.slice(at));
   return out;
@@ -192,6 +198,25 @@ function rich(t, s = {}, fp = null) {
 const STATIONS = [['pv', 'Portal vein'], ['wedge', 'Sinusoids · WHVP'], ['hv', 'Hepatic vein · FHVP'], ['ivc', 'IVC'], ['ra', 'Right atrium']];
 const stationKey = () => h('div', { class: 'pz-stk', role: 'list', 'aria-label': 'Station colours' },
   STATIONS.map(([t, w]) => h('span', { role: 'listitem', style: `--c:var(--tr-${t})` }, h('i'), w)));
+// The still column inside the lobule (D5), for a wedge slide with column: true: the balloon stops the hepatic vein,
+// and the column behind it (in the wedge colour) fills back through the central venule and the sinusoids to the
+// first moving blood. Here it stops at a block in the portal tract (schistosomiasis), so the wedge never sees it.
+function wedgeColumn() {
+  const S = 'http://www.w3.org/2000/svg', el = (t, a = {}, txt) => { const e = document.createElementNS(S, t); for (const [k, v] of Object.entries(a)) e.setAttribute(k, v); if (txt) e.textContent = txt; return e; };
+  const svg = el('svg', { class: 'pz-col', viewBox: '0 0 360 98', role: 'img', 'aria-label': 'The still column fills from the balloon back through the central venule and the sinusoids, and stops at the block in the portal tract.' });
+  svg.append(
+    el('rect', { class: 'c-pv', x: 4, y: 36, width: 76, height: 18, rx: 9 }),
+    el('rect', { class: 'c-sin', x: 92, y: 38, width: 146, height: 14 }),
+    el('rect', { class: 'c-hv', x: 238, y: 35, width: 104, height: 20, rx: 10 }),
+    el('rect', { class: 'c-fill', x: 92, y: 35, width: 238, height: 20, rx: 6 }),
+    el('ellipse', { class: 'c-bal', cx: 330, cy: 45, rx: 13, ry: 13 }),
+    el('path', { class: 'c-blk', d: 'M78 33 L94 57 M94 33 L78 57' }),
+    el('text', { class: 'c-top', x: 211, y: 24, 'text-anchor': 'middle' }, 'Still column: reads the sinusoids'),
+    ...[[40, 'Portal vein'], [165, 'Sinusoids'], [262, 'Central venule'], [330, 'Balloon']].map(([x, t]) => el('text', { x, y: 76, 'text-anchor': 'middle' }, t)),
+    el('text', { class: 'c-blkt', x: 86, y: 92, 'text-anchor': 'middle' }, 'Block in the portal tract'));
+  requestAnimationFrame(() => requestAnimationFrame(() => svg.classList.add('in')));
+  return svg;
+}
 const RATE = {
   hvpg: (v) => (v >= 10 ? ['hi', 'CSPH'] : v >= 5 ? ['mid', 'Raised'] : ['ok', 'Normal']),
   ppg: (v) => (v >= 12 ? ['hi', 'High'] : v >= 6 ? ['mid', 'Raised'] : ['ok', 'Normal']),
@@ -1048,6 +1073,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), onclick: () => abPick(s, i, k) }, o.label))) : null,
           s.data === 'ladder' || s.cath ? stationKey() : null,
+          s.column ? wedgeColumn() : null,
           s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
           s.causes?.length ? h('div', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), h('ul', {}, s.causes.map((c) => h('li', {}, c)))) : null]));
