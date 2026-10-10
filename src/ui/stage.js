@@ -597,8 +597,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return { pts, nm, nod, cells: nodularCells(pts), spots, links };
   }
   // Regenerative nodules as a packing of irregular polygons (a Voronoi diagram of dart-thrown
-  // sites whose spacing follows a smooth size field, so large macronodules and clusters of small
-  // micronodules mix). Each cell keeps its site and its corners.
+  // sites, each with its own random spacing, so nodule sizes mix evenly over the whole
+  // liver). Each cell keeps its site and its corners.
   function nodularCells(outline) {
     const r = seeded(53), inside = (x, y) => {
       let w = false;
@@ -609,12 +609,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return w;
     };
     const near = (x, y) => inside(x, y) || inside(x + 10, y) || inside(x - 10, y) || inside(x, y + 10) || inside(x, y - 10);
-    const p1 = r() * 6, p2 = r() * 6, p3 = r() * 6;
-    const size = (x, y) => { const n = 0.5 + 0.3 * Math.sin(x * 0.011 + p1) * Math.sin(y * 0.016 + p2) + 0.22 * Math.sin((x - y) * 0.009 + p3); return 8 + 17 * Math.pow(clamp(n, 0, 1), 1.6); };
     // Dart throwing, with a grid of accepted sites so each try checks only its neighbours.
     const sites = [], grid = new Map(), G = 26;
     for (let k = 0; k < 40000 && sites.length < 1100; k++) {
-      const x = 290 + 620 * r(), y = 150 + 390 * r(), d = size(x, y) * (0.8 + 0.4 * r());
+      const x = 290 + 620 * r(), y = 150 + 390 * r(), d = 10 + 9 * r();
       const gx = Math.floor(x / G), gy = Math.floor(y / G);
       let ok = true;
       for (let i = -1; i <= 1 && ok; i++) for (let j = -1; j <= 1 && ok; j++) {
