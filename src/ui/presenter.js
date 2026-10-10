@@ -591,7 +591,7 @@ function makeCalc() {
   };
 }
 
-export function createPresenter({ openSettings, startCase, cases = [], host, stage, projectorOn, projectorOff, closeHome, stashCards, rerenderHome }) {
+export function createPresenter({ openSettings, startCase, loadPreset, cases = [], host, stage, projectorOn, projectorOff, closeHome, stashCards, rerenderHome }) {
   const app = document.getElementById('app'), view = document.getElementById('stageView'), wrap = document.getElementById('stageWrap');
   let calc = null;
   const getCalc = () => (calc ||= makeCalc());
@@ -1443,7 +1443,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     wrap.append(root);
     return { root, shade, safe, load, text, data, dhT, dhL, ladder, tiles, tools, veil, panel, count, prog, bar, black: blackEl, jump };
   }
-  // Everything the audience's slides will change, kept so Esc, ✕ or Finish puts the app back as it was.
+  // Everything the audience's slides will change, kept so Esc, ✕ or Finish can put the viewer's own settings back (the patient itself returns to healthy, see putHealthy).
   async function capture() {
     const st = store.get(), { snap } = await host.request('snapshot');
     return { snap, params: structuredClone(st.params), presetId: st.presetId, view: st.view, lobule: st.lobule, sinusoid: st.sinusoid, mode: st.mode,
@@ -1479,8 +1479,8 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
   }
   function stop(restore = true) {
     if (!deck) return;
+    stopLapse(); cathStop(); abSlow(); liveOff = false;   // (before deck is cleared: stopping a time-lapse repaints the bar)
     deck = null; shown = null; want = 0;
-    stopLapse(); cathStop(); abSlow(); liveOff = false;
     for (const w of waiters) w.res(null);
     waiters = [];
     removeEventListener('resize', onResize);
@@ -1496,27 +1496,24 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     app.classList.remove('presenting', 'pz-hi');
     projectorOff();
     dispatchEvent(new Event('pps:occ'));
-    if (restore && saved) putBack(saved);
+    if (restore && saved) putHealthy(saved);
     if (restore) { saved = null; if (layersBefore) store.set({ lobuleLayers: layersBefore }); layersBefore = null; }
   }
-  // Back to the app as it was before the presentation: the patient and every setting, the view and its camera, the cards and
-  // sheets that were open (not Home, which launched the show and stays closed), the sim running or paused (and a time-lapse), each easing in rather than jumping.
-  async function putBack(b) {
-    const before = store.get(), ms = reduce.matches ? 0 : 380;
-    // The patient changes behind a soft dim of the figure, as between slides, so nothing pops.
+  // When the show ends, the app returns to the healthy patient from the start (not to where the viewer was): healthy preset, anatomy view
+  // framed to fit, tools and cards closed, nothing from the last slide left on. The viewer's own settings (theme, label size, the
+  // lobule layers they chose) stay as they were. The figure dims softly while the patient changes, as between slides, so nothing pops.
+  async function putHealthy(b) {
+    const ms = reduce.matches ? 0 : 380;
     if (ms) { view.style.transition = `opacity ${ms}ms var(--ease)`; view.style.opacity = '.22'; await wait(ms); }
-    host.send({ type: 'restore', snap: b.snap });
-    replaceParams(structuredClone(b.params));
-    host.send({ type: 'run', running: b.running, clock: b.lapse ? 'disease' : 'hemo', speed: b.lapse || b.speed });
-    store.set({ presetId: b.presetId, presetLoading: false, mode: b.mode, colorMode: b.colorMode, lapse: b.lapse, speed: b.speed, hvpgMeasured: b.hvpgMeasured, lastHVPG: b.lastHVPG,
-      compareSnap: b.compareSnap, compareView: b.compareView, historyTick: (before.historyTick || 0) + 1 });
-    if (before.view !== b.view) { store.set({ view: b.view }); await wait(reduce.matches ? 0 : 700); }
-    if (!b.lobule) stage.setCamera(b.cam, reduce.matches ? 0 : 900);
+    const st = store.get();
+    store.set({ mode: 'explore', colorMode: 'pressure', selection: null, details: null, compareSnap: null, compareView: 'B', hvpgMeasured: false, lastHVPG: null, lapse: 0, speed: 1 });
+    if (st.sinusoid) { store.set({ sinusoid: false }); await wait(reduce.matches ? 0 : 1000); }
+    if (st.lobule) { store.set({ lobule: false }); await until(() => stage.lobuleSettled(), 2600); await wait(80); }
     if (b.lobuleLayers) store.set({ lobuleLayers: b.lobuleLayers });
-    if (before.lobule !== b.lobule) store.set({ lobule: b.lobule, sinusoid: b.sinusoid });
-    else if (before.sinusoid !== b.sinusoid) store.set({ sinusoid: b.sinusoid });
-    store.set({ selection: b.selection, details: b.details });
-    b.cards?.();
+    if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await wait(reduce.matches ? 0 : 700); }
+    host.send({ type: 'run', running: true, clock: 'hemo', speed: 1 });
+    await loadPreset?.('healthy');
+    stage.fitSlow(reduce.matches ? 0 : 700);
     if (ms) { await wait(260); view.style.opacity = ''; await wait(ms + 60); view.style.transition = ''; }
   }
 
