@@ -9,11 +9,11 @@
 //   Advanced                             physiology knobs (instructor)
 
 import { store, updateParams, hiddenNow } from './store.js?v=5edd069b32';
-import { h, fmt, icon, svgIcon, toast } from './util.js?v=c40671acfb';
+import { h, fmt, icon, svgIcon, toast } from './util.js?v=2bfec33ead';
 import { DRUGS } from '../engine/scenario.js?v=2ab3fe1eb2';
-import { TILES, VITALS, readoutValue } from './dock.js?v=424d8fe3ed';
-import { activeInterventions } from './inspector.js?v=f8e9753ccd';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=da1cf0caee';
+import { TILES, VITALS, readoutValue } from './dock.js?v=24f1375672';
+import { activeInterventions } from './inspector.js?v=599f2b1196';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=52483673ca';
 
 // Where each readout is measured, so a click can show it on the figure.
 const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS', 'DIPS'], spleen: ['V_SPL', 'SV_CONF'], ra: ['IVCS_RA'] };

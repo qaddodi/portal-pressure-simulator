@@ -3,9 +3,9 @@
 // a certificate on a pass, a review of every answer and the key points of every unit. Each attempt
 // is kept in the records, so it exports with them as CSV or xAPI.
 
-import { h, openModal, closeModal } from './util.js?v=c40671acfb';
-import { optionList } from './learning-kit.js?v=6df2efa942';
-import { UNITS, FINAL, course } from './course.js?v=5ac0b0266c';
+import { h, openModal, closeModal } from './util.js?v=2bfec33ead';
+import { optionList } from './learning-kit.js?v=98abf1f07d';
+import { UNITS, FINAL, course } from './course.js?v=3e9ae03e94';
 import { addRecord, learnerName, setLearnerName, exportCSV, exportXAPI } from './records.js?v=50fb9dd463';
 import { BANK } from './exam-bank.js?v=8e5d34c933';
 

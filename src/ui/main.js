@@ -3,29 +3,29 @@
 
 import { startHost, host } from './host.js?v=5f360b39e4';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=5edd069b32';
-import { createStage } from './stage.js?v=a282fcb8ae';
-import { sinusoidSupported } from './sinusoid-view.js?v=f4c687c596';
-import { createInspector } from './inspector.js?v=f8e9753ccd';
-import { createDock, CUTOFFS } from './dock.js?v=424d8fe3ed';
-import { setHvpgStage } from './hvpg-proc.js?v=04fe682893';
-import { createWhy } from './why.js?v=83decdbe76';
-import { createTimeline, LAPSES } from './timeline.js?v=53d8c4005e';
-import { createLearn } from './learn.js?v=75264bde4f';
-import { createCases, CASES } from './cases.js?v=b1320be1ce';
-import { isBlind } from './learning-kit.js?v=6df2efa942';
-import { createCompare } from './compare.js?v=19ac82375c';
-import { createCard } from './card.js?v=1f3ea2aca0';
-import { createChart, computeFindings } from './chart.js?v=2e1f5683a3';
-import { createHome, ROLES } from './home.js?v=cdc60429d1';
-import { course } from './course.js?v=5ac0b0266c';
+import { createStage } from './stage.js?v=41616864d0';
+import { sinusoidSupported } from './sinusoid-view.js?v=746b94f699';
+import { createInspector } from './inspector.js?v=599f2b1196';
+import { createDock, CUTOFFS } from './dock.js?v=24f1375672';
+import { setHvpgStage } from './hvpg-proc.js?v=bd13aee321';
+import { createWhy } from './why.js?v=6a8e1cab9b';
+import { createTimeline, LAPSES } from './timeline.js?v=333c5fc305';
+import { createLearn } from './learn.js?v=ac6e7fef7d';
+import { createCases, CASES } from './cases.js?v=1aa336e84e';
+import { isBlind } from './learning-kit.js?v=98abf1f07d';
+import { createCompare } from './compare.js?v=4c30af58d2';
+import { createCard } from './card.js?v=20b6deb1ab';
+import { createChart, computeFindings } from './chart.js?v=04d2763737';
+import { createHome, ROLES } from './home.js?v=674855e5ac';
+import { course } from './course.js?v=3e9ae03e94';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=398e679a38';
-import { caption } from './a11y.js?v=9196b88cba';
-import { startLMS } from './lms.js?v=a19ee6d0f2';
+import { caption } from './a11y.js?v=57932e0bda';
+import { startLMS } from './lms.js?v=545a5a044e';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue } from './actions.js?v=da1cf0caee';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue } from './actions.js?v=52483673ca';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=7616551729';
 import { EDGES } from '../engine/topology.js?v=706a39d50b';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=c40671acfb';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=2bfec33ead';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const app = $('#app');
@@ -140,7 +140,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else home.open(o?.practice ? 'practice' : 'course'); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => home.open('course') });
-  presenterL = lazy(() => import('./presenter.js?v=bdf51fe175'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=941e7d113d'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), stashCards, rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -153,7 +153,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=7d451f8e21'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=5234ce36ad'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -1096,7 +1096,8 @@ function wireFloating() {
     const was = +(tb.dataset.fit || 0) + (tb.classList.contains('two-rows') ? 1 : 0);
     tb.classList.remove('two-rows');
     let fit = 0;
-    const steps = wide ? 3 : 0;
+    // A phone held sideways has the width for one row too, once the bar compacts.
+    const steps = wide || matchMedia('(orientation: landscape)').matches ? 3 : 0;
     for (; fit <= steps; fit++) {
       tb.dataset.fit = String(fit);
       if (need() <= avail - (fit < was ? 24 : 0)) break;

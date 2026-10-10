@@ -4,8 +4,8 @@
 // are left out. The map is a continuously evolving reading: coherent speckle that morphs smoothly, one
 // dominant dark shear-wave band, and a slope that drifts gently around the model's value.
 
-import { h, fitCanvas, clamp } from './util.js?v=c40671acfb';
-import { FONT } from './charts.js?v=3ad08356dd';
+import { h, fitCanvas, clamp } from './util.js?v=2bfec33ead';
+import { FONT } from './charts.js?v=576cefb93a';
 import { simTime, isPaused } from './clock.js?v=d82cfa024b';
 import { store } from './store.js?v=5edd069b32';
 

@@ -168,11 +168,15 @@ export function tooltipFor(el, text, side = 'right') {
 /** Floating menu/popover anchored to an element. Closes on outside click, Escape or re-open. */
 let openMenu = null;
 const reduceMotionMQ = matchMedia('(prefers-reduced-motion: reduce)');
-export function popover(anchor, content, { cls = '', align = 'start', place = 'below', onClose } = {}) {
+// sheet: on a phone the menu rises as a bottom sheet (full width, its text wraps) instead of a tall
+// popover; pass false for a menu that lays itself out.
+export function popover(anchor, content, { cls = '', align = 'start', place = 'below', onClose, sheet = true } = {}) {
   if (openMenu) { const same = openMenu.anchor === anchor; closePopover(); if (same) return null; }
-  const el = h('div', { class: 'menu ' + cls, role: 'dialog' }, content);
+  const asSheet = sheet && innerWidth < 768;
+  const el = h('div', { class: 'menu ' + cls + (asSheet ? ' as-sheet' : ''), role: 'dialog' }, content);
   document.body.append(el);
   const put = () => {
+    if (asSheet) return;
     // Layout size, not the rectangle: the opening animation scales the menu for a moment.
     const r = anchor.getBoundingClientRect(), z = uiScale(), mr = { width: el.offsetWidth * z, height: el.offsetHeight * z };
     let x = align === 'end' ? r.right - mr.width : align === 'center' ? r.left + r.width / 2 - mr.width / 2 : r.left;

@@ -4,13 +4,13 @@
 // The other pages (explore, learn, drill, cases, present) open from here and lead back to it.
 
 import { store } from './store.js?v=5edd069b32';
-import { h, svgIcon, icon } from './util.js?v=c40671acfb';
-import { LESSONS } from './learn.js?v=75264bde4f';
-import { CASES } from './cases.js?v=b1320be1ce';
-import { createDrill, drillProgress, DRILL_TITLE, ROUNDS } from './drill.js?v=df831c54a9';
-import { skillsPath, reviewCard } from './practice.js?v=663a75f4aa';
-import { UNITS, FINAL, PARTS, course } from './course.js?v=5ac0b0266c';
-import { openExam } from './exam.js?v=7402148dba';
+import { h, svgIcon, icon } from './util.js?v=2bfec33ead';
+import { LESSONS } from './learn.js?v=ac6e7fef7d';
+import { CASES } from './cases.js?v=1aa336e84e';
+import { createDrill, drillProgress, DRILL_TITLE, ROUNDS } from './drill.js?v=c36a167448';
+import { skillsPath, reviewCard } from './practice.js?v=1da6fdcc33';
+import { UNITS, FINAL, PARTS, course } from './course.js?v=3e9ae03e94';
+import { openExam } from './exam.js?v=8399537a34';
 import { t } from '../i18n/i18n.js?v=398e679a38';
 import { exportCSV, exportXAPI, learnerName, setLearnerName, records } from './records.js?v=50fb9dd463';
 import { SNAPSHOTS, PATH } from './snapshots.js?v=d3e900d9e9';
