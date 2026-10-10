@@ -386,9 +386,10 @@ export const ORGANS = [
   { id: 'esophagus', tone: 'eso', cls: 'org org-eso', d: 'M775 -90 L 799 -90 L 798 0 C 800 90 805 190 813 251 L 792 251 C 787 190 781 90 776 0 Z' },
   { id: 'heart', tone: 'heart', cls: 'org org-heart', d: 'M618 64 C 607 88 606 128 611 158 C 616 184 632 194 658 194 C 695 194 731 188 753 172 C 762 165 762 150 755 140 C 738 110 716 80 691 64 C 669 51 637 50 618 64 Z' },
   // The right atrium: the chamber on the heart's right border (the viewer's left) that both cavae
-  // empty into, bulging past the ventricles' outline as the right heart border does, bounded medially by the atrioventricular groove, with its auricle tucked over the top.
+  // empty into (the SVC at its top, the IVC at its bottom), bulging a little past the ventricles' outline as
+  // the right heart border does; smaller than the right ventricle, with its auricle tucked over the top.
   // Presenter slides and the RA station point at it, not at the cava running into it.
-  { id: 'heart-ra', tone: 'ra', cls: 'org org-ra', d: 'M612 66 C 596 80 589 102 590 124 C 591 150 602 176 622 187 C 632 192 644 193 654 193 C 660 150 658 102 648 64 C 652 58 657 55 662 54 C 654 51 644 52 635 55 C 625 57 617 60 612 66 Z' },
+  { id: 'heart-ra', tone: 'ra', cls: 'org org-ra', d: 'M616 66 C 604 80 600 98 601 116 C 602 140 609 160 622 170 C 633 172 642 164 644 150 C 647 124 646 92 640 70 C 646 64 652 62 656 62 C 648 56 636 56 628 59 C 623 61 619 63 616 66 Z' },
   { id: 'heart-grooves', cls: 'org-heart-groove', deco: true, d: 'M691 64 C 700 108 722 152 751 176 M648 64 C 658 102 660 150 655 193' },
   { id: 'heart-out', cls: 'org-heart-flow', deco: true, d: 'M647 118 C 663 112 679 114 695 126' },
   { id: 'appendix', tone: 'gut', cls: 'org-appendix', band: true, d: 'M420 906 C 418 924 428 938 448 940' },
@@ -452,7 +453,7 @@ export const SITES = {
 // Organ captions: [text, x, y, anchor]
 export const ORGAN_LABELS = [
   ['Liver', 404, 446], ['Stomach', 918, 432], ['Spleen', 1058, 482], ['Colon', 1016, 824], ['Kidney', 1030, 716],
-  ['Small bowel', 866, 752], ['Esophagus', 860, 40], ['Right atrium', 546, 150],
+  ['Small bowel', 866, 752], ['Esophagus', 860, 40], ['Right atrium', 532, 118],
 ];
 
 // Atlas labels: node → caption and which margin column it hangs from.
