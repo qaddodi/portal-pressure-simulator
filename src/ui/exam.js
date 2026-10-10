@@ -4,8 +4,8 @@
 // is kept in the records, so it exports with them as CSV or xAPI.
 
 import { h, openModal, closeModal } from './util.js?v=e0101a3fa2';
-import { optionList } from './learning-kit.js?v=c27a9a6a60';
-import { UNITS, FINAL, course } from './course.js?v=b780ae35f5';
+import { optionList } from './learning-kit.js?v=709a64e91f';
+import { UNITS, FINAL, course } from './course.js?v=91c1512351';
 import { addRecord, learnerName, setLearnerName, exportCSV, exportXAPI } from './records.js?v=50fb9dd463';
 import { BANK } from './exam-bank.js?v=8e5d34c933';
 

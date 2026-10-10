@@ -9,8 +9,8 @@
 // `unsafe: { when(pick, c), run(c) → consequence }`, `onCommit(c, pick)`, `needs`/`needsAny` (orders
 // that must be placed first), `auto` (opens by itself) and `show(c)` (conditional steps).
 
-import { store, updateParams, replaceParams } from './store.js?v=25cbe77a76';
-import { host } from './host.js?v=52742ef44a';
+import { store, updateParams, replaceParams } from './store.js?v=5edd069b32';
+import { host } from './host.js?v=72c15f1d20';
 import { h, openModal, closeModal, toast, svgIcon } from './util.js?v=e0101a3fa2';
 import { addRecord, exportCSV, exportXAPI } from './records.js?v=50fb9dd463';
 import { scoreCase, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=7f4afcf446';
@@ -18,13 +18,13 @@ import { veinBlocked } from './measure-model.js?v=96862e2586';
 import { CASES, ORDER_META, GROUPS } from './cases/index.js?v=78c53e6b35';
 import { EXPLAIN } from './cases/explain.js?v=81bcd9a17a';
 import { bpOf, tension, abdomen, esoText, spleenCm, ascitesText } from './cases/kit.js?v=4db57f825c';
-import { trustLine, optionList, bindQuestionKeys } from './learning-kit.js?v=c27a9a6a60';
-import { course, setUnitSurface, unitBar } from './course.js?v=b780ae35f5';
+import { trustLine, optionList, bindQuestionKeys } from './learning-kit.js?v=709a64e91f';
+import { course, setUnitSurface, unitBar } from './course.js?v=91c1512351';
 import { CASE_UNITS } from './cases/units.js?v=bde5f54566';
-import { activeInterventions } from './inspector.js?v=bf76ac941d';
-import { captureFrame } from './timeline.js?v=e105456f66';
+import { activeInterventions } from './inspector.js?v=127b504390';
+import { captureFrame } from './timeline.js?v=0b03b26f82';
 import { createRoute, ladder, SITE_OF_GROUP } from './ladder.js?v=cab65850a4';
-import { SNAPSHOTS } from './snapshots.js?v=47b3a3415c';
+import { SNAPSHOTS } from './snapshots.js?v=250aebd278';
 
 export { CASES };
 

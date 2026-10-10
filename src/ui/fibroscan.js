@@ -5,9 +5,9 @@
 // dominant dark shear-wave band, and a slope that drifts gently around the model's value.
 
 import { h, fitCanvas, clamp } from './util.js?v=e0101a3fa2';
-import { FONT } from './charts.js?v=a26445b85d';
-import { simTime, isPaused } from './clock.js?v=77fb9815e5';
-import { store } from './store.js?v=25cbe77a76';
+import { FONT } from './charts.js?v=bcd2021343';
+import { simTime, isPaused } from './clock.js?v=d82cfa024b';
+import { store } from './store.js?v=5edd069b32';
 
 const WAVE_T0 = 8; // ms: the shear wave reaches the top of the window about 8 ms after the push
 const ORANGE = '#f0924a';

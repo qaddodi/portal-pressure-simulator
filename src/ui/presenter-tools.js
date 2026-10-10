@@ -14,13 +14,13 @@
 // covered until the answer. Each instrument is made once per presentation and kept, so a trace that keeps recording
 // (Doppler) carries on from slide to slide while the patient stays the same.
 
-import { store } from './store.js?v=25cbe77a76';
+import { store } from './store.js?v=5edd069b32';
 import { h, fmt, clamp } from './util.js?v=e0101a3fa2';
 import { EDGES } from '../engine/topology.js?v=706a39d50b';
-import { createDoppler } from './doppler.js?v=2278aa363e';
-import { createFibroScan } from './fibroscan.js?v=a5e6512e21';
-import { createPressureTime } from './pressure-time.js?v=41ee279896';
-import { createEndoscopy, createAbdomen } from './instruments.js?v=b415bce86f';
+import { createDoppler } from './doppler.js?v=846d2cc390';
+import { createFibroScan } from './fibroscan.js?v=8335360dec';
+import { createPressureTime } from './pressure-time.js?v=92faef86cd';
+import { createEndoscopy, createAbdomen } from './instruments.js?v=05870f9c55';
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
   SMV_CONF: 'superior mesenteric vein', RHV_IVC: 'right hepatic vein', MHV_IVC: 'middle hepatic vein', LHV_IVC: 'left hepatic vein', IVCS_RA: 'inferior vena cava',

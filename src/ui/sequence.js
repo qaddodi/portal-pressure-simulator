@@ -5,8 +5,8 @@
 // Three clocks stay separate: `presetDays` is native pre-aging inside the preset load, `days` is
 // extra disease days AFTER the patch, and observation seconds belong to the caller (hemodynamic time).
 
-import { store, updateParams, replaceParams } from './store.js?v=25cbe77a76';
-import { host } from './host.js?v=52742ef44a';
+import { store, updateParams, replaceParams } from './store.js?v=5edd069b32';
+import { host } from './host.js?v=72c15f1d20';
 
 /**
  * @param step { preset?, presetDays?, params?, action?, days?, label? }

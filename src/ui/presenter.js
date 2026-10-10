@@ -13,15 +13,15 @@
 // ← Page Up back, a number then Enter jumps, G the slide list, Home End, B or . black screen, F full screen, Q quiz,
 // P projector contrast, Esc. On a touch screen a sideways swipe over the figure goes on or back.
 
-import { store, replaceParams } from './store.js?v=25cbe77a76';
+import { store, replaceParams } from './store.js?v=5edd069b32';
 import { h, toast, svgIcon, icon, fmt, clamp } from './util.js?v=e0101a3fa2';
 import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=cab65850a4';
-import { sinusoidSupported } from './sinusoid-view.js?v=c9d7b10379';
+import { sinusoidSupported } from './sinusoid-view.js?v=ccaa1af24d';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
 import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=70de05a64c';
-import { createTools } from './presenter-tools.js?v=0604eec2ef';
+import { createTools } from './presenter-tools.js?v=8c3e4f65eb';
 import { openHandout } from './handout.js?v=33bd523876';
 
 const KEY = 'pps.scripts';
@@ -425,7 +425,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=d60c4a49b5', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=00964c7ace', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 6000);
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -437,7 +437,7 @@ function makeCalc() {
       w.onmessage = (e) => onMsg(e.data); w.onerror = null;
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
-      const { createCore } = await import('../worker-core.js?v=3e5b1bf224');
+      const { createCore } = await import('../worker-core.js?v=acf379f9cb');
       const core = createCore((m) => setTimeout(() => onMsg(m), 0));
       core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
       post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();

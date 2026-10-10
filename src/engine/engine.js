@@ -6,7 +6,7 @@ import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=6fc3ec393a';
-import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=da4ad72f01';
+import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=2ab3fe1eb2';
 import { detectEvents } from './events.js?v=120d432c34';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
@@ -16,7 +16,7 @@ const EXT_OVERRIDE = { IVC_IS: 'abd', CAUD: 'none' };
 export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 7.0, k: 0.35, kGV: 0.4, openGV: 5.0 };
 /** Rupture hazard per day as a function of T/Tcrit (§7.5). */
 const ruptureHazardPerDay = (x) => (x <= 1 ? 0 : 0.01 * Math.pow((x - 1) / 0.25, 3));
-const COLLATERAL = { open: 7.5, span: 14, tauGrow: 50, tauRegress: 120, acute: 0.4 };
+const COLLATERAL = { open: 7.5, span: 14, tauGrow: 50, tauRegress: 120, acute: 0 };
 const TIPS_R = { tract: 0.12, kin: 5.96 };   // PRU; kin: mmHg per (mL/s ÷ mm²)² (ρ·K/2 with K≈1.5)
 const DIPS_R = { tract: 0.07, kin: 5.96 };   // the caudate tract is a few centimetres, shorter than a TIPS tract
 // A stent in series with a parenchymal tract (which does not widen with the stent, so large stents plateau),
@@ -649,8 +649,9 @@ export class Engine {
   /**
    * Working diameter of a collateral (mm): the largest of
    *  - its remodeled size (slow.d: weeks of growth under a sustained gradient, disease clock);
-   *  - an acute, passive opening of the pre-existing channel, which dilates within seconds as the
-   *    gradient across its route rises (up to COLLATERAL.acute of the full range);
+   *  - an acute, passive opening of the pre-existing channel as the gradient across its route rises
+   *    (up to COLLATERAL.acute of the full range; 0, since collaterals and a cavernoma take weeks to
+   *    form, so an acute block shows none and they grow on the disease clock);
    *  - full size for a spontaneous shunt that is present (an anatomical variant, not remodeled).
    * The result is recorded in slow.dEff so the figure draws what the model conducts.
    */
@@ -660,7 +661,7 @@ export class Engine {
     else if (this.refP) {
       const dMin = dMinOf(e);
       const frac = clamp((this.routeExcess(e.route) - (e.open ?? COLLATERAL.open)) / COLLATERAL.span, 0, 1);
-      d = Math.max(d, dMin + (e.dMax - dMin) * COLLATERAL.acute * Math.sqrt(frac));
+      d = Math.max(d, dMin + (e.dMax - dMin) * (e.acute ?? COLLATERAL.acute) * Math.sqrt(frac));
     }
     // The short/posterior gastric veins feed the fundal varices that the gastrorenal shunt
     // drains: this feeder is only as open as the shunt is.

@@ -1,28 +1,28 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=52742ef44a';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=25cbe77a76';
-import { createStage } from './stage.js?v=8a43bfaa1c';
-import { sinusoidSupported } from './sinusoid-view.js?v=c9d7b10379';
-import { createInspector } from './inspector.js?v=bf76ac941d';
-import { createDock, CUTOFFS } from './dock.js?v=0237a01729';
-import { setHvpgStage } from './hvpg-proc.js?v=e7ebae63ea';
-import { createWhy } from './why.js?v=f43962e366';
-import { createTimeline, LAPSES } from './timeline.js?v=e105456f66';
-import { createLearn } from './learn.js?v=032c8dfeb5';
-import { createCases, CASES } from './cases.js?v=d186a5aa07';
-import { isBlind } from './learning-kit.js?v=c27a9a6a60';
-import { createCompare } from './compare.js?v=93cb55ca64';
-import { createCard } from './card.js?v=8b8bf4f878';
-import { createChart, computeFindings } from './chart.js?v=0a617d0ca8';
-import { createHome, ROLES } from './home.js?v=338fdd55be';
-import { course } from './course.js?v=b780ae35f5';
+import { startHost, host } from './host.js?v=72c15f1d20';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=5edd069b32';
+import { createStage } from './stage.js?v=fdcf758e4d';
+import { sinusoidSupported } from './sinusoid-view.js?v=ccaa1af24d';
+import { createInspector } from './inspector.js?v=127b504390';
+import { createDock, CUTOFFS } from './dock.js?v=52b2c65f07';
+import { setHvpgStage } from './hvpg-proc.js?v=7ede0d73ac';
+import { createWhy } from './why.js?v=3639b28cf1';
+import { createTimeline, LAPSES } from './timeline.js?v=0b03b26f82';
+import { createLearn } from './learn.js?v=e747cc9063';
+import { createCases, CASES } from './cases.js?v=4eebe11263';
+import { isBlind } from './learning-kit.js?v=709a64e91f';
+import { createCompare } from './compare.js?v=baa48f57a4';
+import { createCard } from './card.js?v=59e205bc1d';
+import { createChart, computeFindings } from './chart.js?v=3b0697257a';
+import { createHome, ROLES } from './home.js?v=db43ea497d';
+import { course } from './course.js?v=91c1512351';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=398e679a38';
-import { caption } from './a11y.js?v=eeed58a1ad';
-import { startLMS } from './lms.js?v=69a3fbb5ce';
+import { caption } from './a11y.js?v=d781e4dd20';
+import { startLMS } from './lms.js?v=075f29d6f8';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=d3b44b7ce9';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=e27052afd6';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=706a39d50b';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=e0101a3fa2';
@@ -39,7 +39,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=0166e06ffb';
 import { initTopbarMotion } from './topbar-motion.js?v=a7ab34f946';
 import { ORIGINS } from './blood.js?v=6c39f43ddf';
-import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=da4ad72f01';
+import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=2ab3fe1eb2';
 
 // Color lenses: [title, what it shows, legend swatch].
 // SMV, IMV, splenic vein, hepatic artery, systemic: as stage.js BLOOD_COLORS.
@@ -141,7 +141,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else home.open(o?.practice ? 'practice' : 'course'); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => home.open('course') });
-  presenterL = lazy(() => import('./presenter.js?v=76d75fef64'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=d1c0029ab4'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), stashCards, rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -154,7 +154,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=c1f49585fe'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=70ce6d22a5'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),

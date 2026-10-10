@@ -61,7 +61,7 @@ export const PRESETS = [
   { id: 'postprandial', group: 'Normal', label: 'Post-prandial', apply: P({ splanchnicTone: 0.72 }), days: 0,
     summary: 'Meal-induced splanchnic vasodilation increases portal inflow and pressure slightly.' },
   { id: 'pvt-acute', group: 'Prehepatic', label: 'Acute portal vein thrombosis', apply: P({ thrombus: { PV_TRUNK: 1 } }), days: 0,
-    summary: 'Occlusive clot in the main portal vein. Mesenteric congestion; the hepatic artery buffer keeps the liver perfused. HVPG normal.' },
+    summary: 'Occlusive clot in the main portal vein. Mesenteric congestion; no collaterals yet (they form over weeks). The hepatic artery buffer keeps the liver perfused. HVPG normal.' },
   { id: 'pvt-chronic', group: 'Prehepatic', label: 'Chronic PVT (cavernous transformation)', apply: P({ thrombus: { PV_TRUNK: 1 } }), days: 240,
     summary: 'Months after occlusion: periportal collaterals (cavernoma) carry hepatopetal flow around the clot.' },
   { id: 'svt', group: 'Prehepatic', label: 'Splenic vein thrombosis (sinistral PH)', apply: P({ thrombus: { SV_CONF: 1 }, spontaneous: { C5: true } }), days: 180,
