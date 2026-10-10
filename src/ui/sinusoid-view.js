@@ -23,7 +23,7 @@ import { h, fmt, clamp, lerp } from './util.js?v=e0101a3fa2';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { isPaused } from './clock.js?v=77fb9815e5';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=9bc27270d8';
+import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=4e169e68c7';
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
@@ -223,7 +223,7 @@ export function createSinusoidView({ host }) {
     // The hepatocytes keep the lobule's colours; on a light page the clefts between them are drawn deeper, so each cell reads.
     const under = mixv(bg, gap, dark ? 0.55 : 0.5), cleft = dark ? under : mixv(bg, gap, 0.8);
     return {
-      cBg: bg, cLumen: lumen, cLymph: dark ? mixv(bg, ly, 0.34) : ly,
+      cBg: bg, cShade: dark ? bg : mixv(bg, v3(42, 36, 48), 0.9), cLumen: lumen, cLymph: dark ? mixv(bg, ly, 0.34) : ly,
       cCell: mixv(under, cell, dark ? 0.85 : 0.94), cUnder: cleft,
       cNuc: dark ? v3(40, 18, 34) : v3(132, 70, 100),
       cCol: dark ? v3(199, 186, 153) : v3(237, 222, 186), cBm: dark ? v3(204, 188, 142) : v3(150, 118, 70), aBm: dark ? 0.6 : 0.8,

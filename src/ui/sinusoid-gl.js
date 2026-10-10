@@ -73,7 +73,7 @@ out vec4 o;
 ${COMMON}
 uniform int uPass;              // 0: the tissue; 1: the cells that lie over the moving particles (stellate, Kupffer)
 uniform float uLum, uPinch, uXs, uXk, uKy, uHscA, uCol, uBm, uMv, uAct, uPor, uFlow, uLym, uDir, uDark, uShim, uStreak;
-uniform vec3 cBg, cLumen, cLymph, cCell, cUnder, cNuc, cCol, cBm, cBile, cEndo, cEndoN, cHscQ, cHscA, cHscN, cKup, cKupN, cKupE, cRbc, cChev, cRev, cEndF, cEndE;
+uniform vec3 cBg, cShade, cLumen, cLymph, cCell, cUnder, cNuc, cCol, cBm, cBile, cEndo, cEndoN, cHscQ, cHscA, cHscN, cKup, cKupN, cKupE, cRbc, cChev, cRev, cEndF, cEndE;
 uniform float aBm;
 uniform vec4 uEnd;               // the end arrows: portal x, central x (µm), size (µm), alpha
 uniform vec2 uLab;               // the lumen's own name: x and half length (µm), kept clear of the arrowheads
@@ -433,9 +433,9 @@ void main() {
     float dN, de = sdEndo(x, a, hw, side < 0 ? ${SEED.poreUp} : ${SEED.poreDn}, side < 0 ? ${SEED.nucUp} : ${SEED.nucDn}, side > 0, det, dN);
     c = endoInk(c, de, dN, x, det);
   }
-  // Focus: beyond this sinusoid's own plates the tissue fades into the page.
+  // Focus: beyond this sinusoid's own plates the tissue fades to dark (the page in dark mode, a deep shade in light).
   float f0 = uLum + ENDO + disseW(0.0) + HEP * 0.85;
-  c = mix(c, cBg, smoothstep(f0, f0 + 18.0, a) * (0.72 + 0.06 * uDark) * uFocus);
+  c = mix(c, cShade, smoothstep(f0, f0 + 18.0, a) * (0.72 + 0.06 * uDark) * uFocus);
   o = vec4(c * show, show);
 }`;
 

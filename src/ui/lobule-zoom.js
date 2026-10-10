@@ -28,7 +28,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=dc393aabea';
 import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=44500994a2';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
-import { createSinusoidView } from './sinusoid-view.js?v=0a862dc027';
+import { createSinusoidView } from './sinusoid-view.js?v=8e6741cf16';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const TAU = Math.PI * 2;
@@ -1177,6 +1177,8 @@ export function createLobuleZoom({ host }) {
     return (t.quiet = { k, R: t.R, tw: t.tw, th: t.th, TW: t.TW, TH: t.TH, cv, pats: new WeakMap() });
   }
   // The surround fading into the page with distance from the lobule (q: 0..1, how far it has faded).
+  // The surround fades to dark: the page in dark mode, a deep shade in light mode, so the focus lobule stands out.
+  const shadeOf = (bg, dark) => dark ? bg : bg.map((x, i) => lerp(x, [0.165, 0.141, 0.188][i], 0.9));
   function fieldFade(c, bg, x, y, rd, q, w, h) {
     const vg = c.createRadialGradient(x, y, rd * 1.1, x, y, rd * 3.2);
     vg.addColorStop(0, css(bg, 0)); vg.addColorStop(0.5, css(bg, 0.72 * q)); vg.addColorStop(1, css(bg, q));
@@ -1215,7 +1217,7 @@ export function createLobuleZoom({ host }) {
     }
     fieldFill(c, t.liverQ, d.x * dpr, d.y * dpr, rd, field.width, field.height);
     // Quieting: the pre-quieted tile laid over the plain one (two pattern fills, not a blend of the whole screen).
-    if (d.quiet > 0) { c.globalAlpha = d.quiet; fieldFill(c, quietTile(t, bg), d.x * dpr, d.y * dpr, rd, field.width, field.height); c.globalAlpha = 1; fieldFade(c, bg, d.x * dpr, d.y * dpr, rd, d.quiet, field.width, field.height); }
+    if (d.quiet > 0) { c.globalAlpha = d.quiet; fieldFill(c, quietTile(t, shadeOf(bg, dark)), d.x * dpr, d.y * dpr, rd, field.width, field.height); c.globalAlpha = 1; fieldFade(c, shadeOf(bg, dark), d.x * dpr, d.y * dpr, rd, d.quiet, field.width, field.height); }
     // Emerging: the field spreads out from the dive point as it fades in.
     if (d.a < 1) {
       const diag = Math.hypot(W, H) * dpr, rho = diag * (0.2 + 1.1 * d.a);
@@ -1484,7 +1486,7 @@ export function createLobuleZoom({ host }) {
     {
       c.setTransform(1, 0, 0, 1, 0, 0);
       const [sx, sy] = toScreen([cx, cy]), rd = R * V.k * dpr;
-      fieldFill(c, quietTile(fieldTile(cs, dark, rd * 0.55), rgb01(bg)), sx * dpr, sy * dpr, rd, W * dpr, H * dpr);   // half resolution is plenty for the quiet surround
+      fieldFill(c, quietTile(fieldTile(cs, dark, rd * 0.55), shadeOf(rgb01(bg), dark)), sx * dpr, sy * dpr, rd, W * dpr, H * dpr);   // half resolution is plenty for the quiet surround
     }
     const B = 1.3 * R, bx = cx - B, by = cy - B;
     if (wk !== worldKey) {
@@ -1499,7 +1501,7 @@ export function createLobuleZoom({ host }) {
     c.setTransform(1, 0, 0, 1, 0, 0);
     { const [sx, sy] = toScreen([bx, by]); c.drawImage(worldCv, sx * dpr, sy * dpr, 2 * B * V.k * dpr, 2 * B * V.k * dpr); }
     // Focus: the surround fades into the page (as the dive's field does at its end).
-    { c.setTransform(1, 0, 0, 1, 0, 0); const [sx, sy] = toScreen([cx, cy]); fieldFade(c, rgb01(bg), sx * dpr, sy * dpr, R * V.k * dpr, 1, W * dpr, H * dpr); c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y); }
+    { c.setTransform(1, 0, 0, 1, 0, 0); const [sx, sy] = toScreen([cx, cy]); fieldFade(c, shadeOf(rgb01(bg), dark), sx * dpr, sy * dpr, R * V.k * dpr, 1, W * dpr, H * dpr); c.setTransform(dpr * V.k, 0, 0, dpr * V.k, dpr * V.x, dpr * V.y); }
     if (flatVessels) paintFlatVessels(c, cs);
   }
   // The lobule in world space (plates, septa, tracts, lymph): drawn into the cached bitmap.
