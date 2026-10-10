@@ -4860,6 +4860,13 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .instrument-workspace :is(.dop-box, .hvpg-box, .fibroscan-box) > canvas { inset: 0; margin: auto; width: min(100cqw, 100cqh * var(--ar)); height: min(100cqh, 100cqw / var(--ar)); border-radius: var(--r-card); }
 .instrument-workspace .dop-box > canvas { background: var(--scope-bg); }
 .instrument-workspace .hvpg-box > canvas { background: var(--mon-bg); }
+/* Phone sheet: Doppler and FibroScan fill the card's width and the height left under their header, so the
+   picture uses the whole card at every sheet height (both draw to any shape); the shapes above stay for wider cards. */
+@media (max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+  .instrument-workspace.float-ui:not(.side) :is(.dop-box, .fibroscan-box) { aspect-ratio: auto; flex: 1 1 0 !important; min-height: 100px !important; max-height: none; }
+  .instrument-workspace.float-ui:not(.side) .fibroscan-box { min-height: 180px !important; }
+  .instrument-workspace.float-ui:not(.side) :is(.dop-box, .fibroscan-box) > canvas { width: 100%; height: 100%; }
+}
 /* The side card keeps one column at every width: widening it grows the pictures, it never splits them off. */
 .instrument-workspace.side { --one-col: 1; }
 .instrument-workspace.side :is(.instrument-view, .dop-main, .hv-main, .ab-main) { grid-template-columns: minmax(0, 1fr); }

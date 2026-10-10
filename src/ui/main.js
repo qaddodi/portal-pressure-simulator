@@ -1148,7 +1148,7 @@ function wireFloating() {
   publish();
   panelSheet = sheetBehaviour($('#panel'), { handle: h('button', { class: 'panel-grab', 'aria-label': 'Resize the patient chart' }), drag: '.panel-head', onClose: closePanel });
   treatSheet = sheetBehaviour($('#treatCard'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the Treat card' }), drag: '.tc-head', onClose: closeTreat, fit: '.tc-body' });
-  dockSheet = sheetBehaviour($('#dock'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the instruments' }), drag: '.dock-head', onClose: () => dock.close(), active: () => isPhone() && !$('#dock').classList.contains('side') && !app.classList.contains('instrument-focus') });
+  dockSheet = sheetBehaviour($('#dock'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the instruments' }), drag: '.dock-head', anywhere: true, onClose: () => dock.close(), active: () => isPhone() && !$('#dock').classList.contains('side') && !app.classList.contains('instrument-focus') });
   // Focus: dragging, pinching or scrolling the figure fades the floating pieces until it stops.
   let busyT = 0, down = null, moved = false;
   const busy = (ms) => { app.classList.add('stage-busy'); clearTimeout(busyT); busyT = setTimeout(() => app.classList.remove('stage-busy'), ms); };
@@ -1177,7 +1177,7 @@ function wireFloating() {
 // head) moves between them, and below the lowest closes the sheet. Wider: the head drags the card
 // aside, and it returns to its place when it closes.
 // fit: the scrolling body's selector; at the middle stop the sheet is only as tall as its content.
-function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = null }) {
+function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = null, anywhere = false }) {
   const SIZES = [0.32, 0.56, 0.9];
   let size = 1;
   el.prepend(handle);
@@ -1196,27 +1196,42 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = 
   if (fit) el.addEventListener('click', (e) => { if (size === 1 && e.target.closest('[role="tab"]')) requestAnimationFrame(apply); });
   apply();
   handle.addEventListener('click', () => { if (!isPhone() || !active()) return; size = (size + 1) % SIZES.length; apply(); });
-  let start = null;
-  const grabbed = (e) => e.target === handle || (e.target.closest(drag) && !e.target.closest('button, a, input, select, [role="tab"]'));
+  let start = null, swallow = false;
+  // Controls keep their own gestures. With `anywhere` (a phone sheet), a vertical drag from any other spot on the
+  // card moves it too; a sideways one is left alone, and content scrolled away from its top scrolls back first.
+  const CONTROLS = 'button, a, input, select, textarea, label, [role="tab"], [role="slider"], [contenteditable]';
+  const scroller = (t) => { for (let n = t; n && n !== el; n = n.parentElement) { if (n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(n).overflowY)) return n; } return null; };
   el.addEventListener('pointerdown', (e) => {
-    if (!grabbed(e) || !active() || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    if (start || !active() || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    const own = e.target === handle || !!e.target.closest(drag);
+    if (e.target !== handle && e.target.closest(CONTROLS)) return;
+    if (!own && !(anywhere && isPhone())) return;
     const r = el.getBoundingClientRect(), mv = (el.style.translate || '0px 0px').split(' ').map(parseFloat);
-    start = { x: e.clientX, y: e.clientY, h: r.height, H: app.clientHeight, tx: mv[0] || 0, ty: mv[1] || 0, moved: false };
-    el.setPointerCapture?.(e.pointerId);
+    start = { id: e.pointerId, x: e.clientX, y: e.clientY, h: r.height, H: app.clientHeight, tx: mv[0] || 0, ty: mv[1] || 0, moved: false, loose: !own, sc: own ? null : scroller(e.target) };
+    if (own) el.setPointerCapture?.(e.pointerId);
   });
   el.addEventListener('pointermove', (e) => {
-    if (!start) return;
+    if (!start || e.pointerId !== start.id) return;
     const dx = e.clientX - start.x, dy = e.clientY - start.y;
-    if (!start.moved && Math.hypot(dx, dy) < 6) return;
-    start.moved = true;
+    if (!start.moved) {
+      if (Math.hypot(dx, dy) < 6) return;
+      const sc = start.sc;
+      if (start.loose && (Math.abs(dx) > Math.abs(dy) || (sc && (sc.scrollTop > 0 || (dy < 0 && size === SIZES.length - 1))))) { start = null; return; }
+      start.moved = true;
+      if (start.loose) el.setPointerCapture?.(e.pointerId);
+    }
     el.classList.add('dragging');
     if (isPhone()) el.style.height = `${Math.max(60, start.h - dy)}px`;
     else el.style.translate = `${start.tx + dx}px ${start.ty + dy}px`;
   });
-  const end = () => {
-    if (!start) return;
+  // Once the sheet follows the finger, the page must not scroll under it, and the lift is not a tap.
+  el.addEventListener('touchmove', (e) => { if (start?.moved && e.cancelable) e.preventDefault(); }, { passive: false });
+  el.addEventListener('click', (e) => { if (swallow) { swallow = false; e.stopPropagation(); e.preventDefault(); } }, true);
+  const end = (e) => {
+    if (!start || (e && e.pointerId !== start.id)) return;
     const s0 = start; start = null;
     el.classList.remove('dragging');
+    if (s0.moved) { swallow = true; setTimeout(() => { swallow = false; }, 350); }
     if (!s0.moved || !isPhone()) return;
     const frac = el.getBoundingClientRect().height / s0.H;
     el.style.height = '';
