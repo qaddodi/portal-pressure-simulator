@@ -4219,3 +4219,39 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .home-inner.swap-out { opacity: 0; transform: translateY(-6px); }
 .home-inner.swap-in { animation: homeIn .32s var(--ease) both; }
 @media (prefers-reduced-motion: reduce) { .home, .home-inner.swap-in { animation: none; } }
+
+/* Phone: the whole Ascites card, Treat included, fits the sheet without scrolling. */
+@media (max-width: 600px) {
+  .ab-main, .ab-report { gap: 6px; }
+  .ab-head { padding-bottom: 6px; margin-bottom: 0; }
+  .ab-sum { gap: 2px; }
+  .ab-sum .hv-num { font-size: 30px; line-height: 1.05; }
+  .ab-belly { width: 48px; height: 48px; }
+  .ab-iap { gap: 3px; }
+  .ab-iap-bar { height: 8px; }
+  .ab-tap { gap: 4px; padding-top: 6px; }
+  .ab-lab { padding: 3px 6px; }
+  .ab-lab b { font-size: var(--fs-16, 16px); }
+  .ab-lab.ab-key b { font-size: 20px; }
+  .ab-step-btn { width: 32px; height: 32px; font-size: 18px; }
+  .ab-rx { padding: 8px 10px; gap: 2px; }
+  .ab-rx-diu { padding-bottom: 4px; }
+  .ab-diu { min-height: 44px; padding: 5px 12px; }
+  .ab-rx-row { min-height: 40px; }
+  .ab-drain-row { margin-top: 2px; }
+  .ab-drain, .ab-chip { min-height: 40px; }
+  .ab-sum > .hv-k, .ab-lab small, .ab-rx-txt small { display: none; }
+  .ab-diu-txt small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ab-diu { min-height: 40px; }
+  .ab-main, .ab-report { gap: 4px; }
+  .dock-pane:has(> .ab) { padding-top: 8px; padding-bottom: 8px; }
+  .ab-sum .hv-num { font-size: 26px; }
+  .ab-belly { width: 42px; height: 42px; }
+  .ab-step-btn { width: 30px; height: 30px; }
+  .ab-rx-row, .ab-drain, .ab-chip { min-height: 36px; }
+  .ab-diu { padding: 3px 12px; }
+  .ab-diu > svg { width: 20px; height: 20px; }
+  .ab-head { padding-bottom: 4px; }
+  .ab-tap { padding-top: 4px; }
+  .ab-rx { padding: 6px 10px; }
+}
