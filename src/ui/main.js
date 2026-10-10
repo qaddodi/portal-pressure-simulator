@@ -141,7 +141,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else home.open(o?.practice ? 'practice' : 'course'); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => home.open('course') });
-  presenterL = lazy(() => import('./presenter.js?v=6fa9f6eb94'), ({ createPresenter }) => createPresenter({ startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=6fa9f6eb94'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -840,9 +840,10 @@ function roleControl() {
 // use it, what it is, and who made it). The role is chosen in Settings.
 function openSettings(anchor) {
   const cur = document.documentElement.getAttribute('data-theme') || 'system';
+  // While presenting, only what changes how the talk looks: appearance, full screen, text size, interface zoom.
+  const talk = presenter.active();
   popover(anchor, [
-    h('div', { class: 'menu-title' }, t('menu.role')),
-    roleControl(),
+    ...(talk ? [] : [h('div', { class: 'menu-title' }, t('menu.role')), roleControl()]),
     h('div', { class: 'menu-title' }, t('menu.appearance')),
     h('div', { class: 'seg full menu-seg' }, [['light', t('menu.light')], ['dark', t('menu.dark')], ['system', t('menu.system')]].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { applyTheme(v === 'system' ? null : v, v === 'system'); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; })),
     fullscreenControl(),
@@ -850,20 +851,21 @@ function openSettings(anchor) {
     textSizeControl(),
     h('div', { class: 'menu-title' }, 'Interface zoom'),
     uiZoomControl(),
-    h('div', { class: 'menu-title' }, t('menu.language')),
-    (() => { const sel = h('select', { class: 'select menu-select', 'aria-label': t('menu.language') }, LANGS.map(([v, l]) => h('option', { value: v, selected: currentLang() === v }, l))); sel.addEventListener('change', () => { setLang(sel.value); }); return sel; })(),
-    h('div', { class: 'menu-title' }, t('menu.access')),
-    menuToggle(narratorOn(), 'info', t('menu.narrator'), 'One line under the figure saying what it shows now', (on) => setNarrator(on)),
-    menuToggle(store.get().showHvpg, 'gauge', 'Always show HVPG', 'Show the HVPG without measuring it first (Tests › HVPG)', (on) => {
-      try { localStorage.setItem('pps.showHvpg', on ? '1' : '0'); } catch { /* storage unavailable */ }
-      document.body.classList.remove('hvpg-swap'); void document.body.offsetWidth; document.body.classList.add('hvpg-swap');
-      setTimeout(() => document.body.classList.remove('hvpg-swap'), 600);
-      store.set({ showHvpg: on });
-    }),
-    // Debug toggles stay out of the sheet; ?debug in the address brings them back.
-    ...(new URLSearchParams(location.search).has('debug') ? [h('div', { class: 'menu-title' }, 'Debug'), ...debugOptions().map(([k, l]) => menuToggle(debugOn(k), 'activity', l, null, (on) => setDebug(k, on)))] : []),
-    h('div', { class: 'menu-sep' }),
-    menuItem(t('menu.reset'), { icon: 'reset', onClick: () => resetEverything() }),
+    ...(talk ? [] : [
+      h('div', { class: 'menu-title' }, t('menu.language')),
+      (() => { const sel = h('select', { class: 'select menu-select', 'aria-label': t('menu.language') }, LANGS.map(([v, l]) => h('option', { value: v, selected: currentLang() === v }, l))); sel.addEventListener('change', () => { setLang(sel.value); }); return sel; })(),
+      h('div', { class: 'menu-title' }, t('menu.access')),
+      menuToggle(narratorOn(), 'info', t('menu.narrator'), 'One line under the figure saying what it shows now', (on) => setNarrator(on)),
+      menuToggle(store.get().showHvpg, 'gauge', 'Always show HVPG', 'Show the HVPG without measuring it first (Tests › HVPG)', (on) => {
+        try { localStorage.setItem('pps.showHvpg', on ? '1' : '0'); } catch { /* storage unavailable */ }
+        document.body.classList.remove('hvpg-swap'); void document.body.offsetWidth; document.body.classList.add('hvpg-swap');
+        setTimeout(() => document.body.classList.remove('hvpg-swap'), 600);
+        store.set({ showHvpg: on });
+      }),
+      // Debug toggles stay out of the sheet; ?debug in the address brings them back.
+      ...(new URLSearchParams(location.search).has('debug') ? [h('div', { class: 'menu-title' }, 'Debug'), ...debugOptions().map(([k, l]) => menuToggle(debugOn(k), 'activity', l, null, (on) => setDebug(k, on)))] : []),
+      h('div', { class: 'menu-sep' }),
+      menuItem(t('menu.reset'), { icon: 'reset', onClick: () => resetEverything() })]),
   ], { align: 'start', cls: 'app-menu' });
 }
 // Text size: smaller and larger in even steps, and the middle shows the size and resets it.
