@@ -12,7 +12,7 @@
 //     dashed behind. key: rungs to highlight. known: the rungs measured so far (default all); the
 //     rest show "?" and no number, and the biggest drop is only shaded between two known rungs.
 //     reveal: the line draws in, the rungs follow and the drop shades last, all eased. HVPG and PPG brackets
-//     run along the stations under the axis (PPG needs f.ppg).
+//     run along the stations under the axis (PPG needs f.ivc and f.ppg).
 //   tiles(f, { key, known })   HVPG, SAAG and ascites protein tiles, rated normal / raised / high.
 //
 // Also exported: SITES (the six levels), SITE_OF_GROUP (a preset's group → its site), RUNGS and
@@ -45,7 +45,7 @@ const RATE = {
   tp: (v, f) => (f.asc < ASCITES_ML ? [null, 'No ascites'] : v >= 2.5 ? ['hi', 'High'] : ['lo', 'Low']),
 };
 export const rate = (k, f) => (RATE[k] ? RATE[k](f[k], f) : [null, '']);
-export const RUNGS = [['pv', 'Portal', 'vein'], ['whvp', 'Wedged', 'WHVP'], ['fhvp', 'Free HV', 'FHVP'], ['ra', 'Right', 'atrium']];
+export const RUNGS = [['pv', 'Portal', 'vein'], ['whvp', 'Wedged', 'WHVP'], ['fhvp', 'Free HV', 'FHVP'], ['ivc', 'IVC', 'cava'], ['ra', 'Right', 'atrium']];
 const TILES = [['hvpg', 'HVPG', 'mmHg', 'Wedged − free'], ['saag', 'SAAG', 'g/dL', 'Serum − ascites albumin'], ['tp', 'Ascites protein', 'g/dL', 'Total protein']];
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -60,7 +60,7 @@ let uid = 0;
 /** The biggest fall between two neighbouring known rungs, over 4 mmHg: [index, mmHg], or [-1, 0]. */
 export function biggestDrop(f, known = RUNGS.map(([k]) => k)) {
   let at = -1, big = 4;
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < RUNGS.length - 1; i++) {
     if (!known.includes(RUNGS[i][0]) || !known.includes(RUNGS[i + 1][0])) continue;
     const d = f[RUNGS[i][0]] - f[RUNGS[i + 1][0]];
     if (d > big) { big = d; at = i; }
@@ -68,11 +68,12 @@ export function biggestDrop(f, known = RUNGS.map(([k]) => k)) {
   return at < 0 ? [-1, 0] : [at, big];
 }
 
-/** The pressure ladder: four stations from the portal vein to the right atrium, the healthy line
+/** The pressure ladder: five stations from the portal vein to the right atrium (IVC between), the healthy line
  *  dashed behind, the biggest drop shaded as the block. */
 export function ladder(f, { base = null, key = [], known = null, reveal = false } = {}) {
-  const W = 320, H = 224, x = (i) => 34 + i * 84, y = (v) => 128 - Math.min(30, Math.max(0, v)) * 3.5;
-  const kn = known || RUNGS.map(([k]) => k), has = (i) => kn.includes(RUNGS[i][0]);
+  const W = 320, H = 224, x = (i) => 30 + i * 65, y = (v) => 128 - Math.min(30, Math.max(0, v)) * 3.5;
+  // The IVC is read with the right atrium (the echo), so it is known when the atrium is.
+  const kn = known ? (known.includes('ra') ? [...known, 'ivc'] : known) : RUNGS.map(([k]) => k), has = (i) => kn.includes(RUNGS[i][0]);
   const pts = RUNGS.map(([k], i) => [x(i), has(i) ? y(f[k]) : y(0), f[k]]);
   const [drop, big] = biggestDrop(f, kn);
   const grid = [0, 10, 20, 30].map((v) => s('g', { class: 'tl-grid' }, s('line', { x1: 18, x2: W - 6, y1: y(v), y2: y(v) }), s('text', { x: 12, y: y(v) + 3.5, 'text-anchor': 'end' }, String(v))));
@@ -80,23 +81,22 @@ export function ladder(f, { base = null, key = [], known = null, reveal = false 
   let d = '';
   pts.forEach(([px, py], i) => { if (has(i)) d += (i && has(i - 1) ? 'L' : 'M') + px.toFixed(1) + ' ' + py.toFixed(1); });
   const band = drop >= 0 ? s('g', { class: 'tl-drop' },
-    s('rect', { x: pts[drop][0] + 10, y: y(30) - 4, width: 64, height: y(0) - y(30) + 4, rx: 8 }),
+    s('rect', { x: pts[drop][0] + 10, y: y(30) - 4, width: 46, height: y(0) - y(30) + 4, rx: 8 }),
     s('text', { x: (pts[drop][0] + pts[drop + 1][0]) / 2, y: y(30) - 9, 'text-anchor': 'middle' }, `−${fmt(big, 0)} mmHg`)) : null;
   // The gradients as spans under the axis, as on the app's pressure chart: HVPG (wedged to free hepatic vein) and PPG
-  // (portal vein to the IVC, at the right-atrium column) run along their stations with the number in a pill, coloured
+  // (portal vein to the IVC) run along their stations, each named in a pill, coloured
   // by the cut-offs (amber 5 / red 10 and 6 / 12), with faint leaders up to the stations. PPG needs f.ppg (not in old snapshots).
   const span = (name, row, i0, i1, hi, lo, v, rate) => {
     if (![hi, lo, v].every(Number.isFinite)) return null;
-    const x0 = x(i0), x1 = x(i1), mid = (x0 + x1) / 2, w = name === 'HVPG' ? 74 : 66;
+    const x0 = x(i0), x1 = x(i1), mid = (x0 + x1) / 2, w = name === 'HVPG' ? 50 : 42;
     return s('g', { class: 'tl-bg', 'data-rate': rate },
       s('path', { class: 'tl-lead', d: `M${x0} ${row - 6}V${(y(hi) + 8).toFixed(1)}M${x1} ${row - 6}V${(y(lo) + 8).toFixed(1)}` }),
       s('path', { class: 'tl-br', d: `M${x0} ${row - 3.5}V${row + 3.5}M${x1} ${row - 3.5}V${row + 3.5}M${x0} ${row}H${x1}` }),
       s('rect', { class: 'tl-pill', x: mid - w / 2, y: row - 9, width: w, height: 18, rx: 9 }),
-      s('text', { class: 'tl-bk', x: mid - w / 2 + 8, y: row + 3.2 }, name),
-      s('text', { class: 'tl-bv', x: mid + w / 2 - 8, y: row + 4.4, 'text-anchor': 'end' }, fmt(v, 1)));
+      s('text', { class: 'tl-bk', x: mid, y: row + 3.2, 'text-anchor': 'middle' }, name));
   };
   const hvpgBr = has(1) && has(2) ? span('HVPG', 150, 1, 2, f.whvp, f.fhvp, f.hvpg, f.hvpg >= 10 ? 'hi' : f.hvpg >= 5 ? 'mid' : 'ok') : null;
-  const ppgBr = has(0) && has(3) ? span('PPG', 177, 0, 3, f.pv, f.ra, f.ppg, f.ppg >= 12 ? 'hi' : f.ppg >= 6 ? 'mid' : 'ok') : null;
+  const ppgBr = has(0) && has(3) ? span('PPG', 177, 0, 3, f.pv, f.ivc, f.ppg, f.ppg >= 12 ? 'hi' : f.ppg >= 6 ? 'mid' : 'ok') : null;
   const gid = 'tlGrad' + ++uid;
   const label = 'Pressure ladder: ' + RUNGS.map(([, a, b], i) => `${a} ${b} ${has(i) ? fmt(pts[i][2], 1) : 'not measured'}`).join(', ') + ' mmHg'
     + (hvpgBr ? `. HVPG ${fmt(f.hvpg, 1)}` : '') + (ppgBr ? `${hvpgBr ? ', ' : '. '}PPG ${fmt(f.ppg, 1)}` : '') + (hvpgBr || ppgBr ? ' mmHg' : '');
