@@ -55,7 +55,7 @@ const SIX = ['pvt', 'presin', 'sin', 'postsin', 'post', 'cardiac'];
 export const DECKS = [
   {
     id: 'circulation', level: 'foundation', title: 'The portal circulation', minutes: 12,
-    summary: 'Anatomy and pressures of the normal portal system, from the splanchnic veins through the lobule to the right atrium, ending with the definition of portal hypertension.',
+    summary: 'The normal portal system, from the gut to the right atrium. Ends with the definition of portal hypertension.',
     slides: [
       {
         id: 'inflow', preset: 'healthy', cam: 'portal', labels: ['SMV', 'SV', 'CONF'], data: 'tiles', tiles: ['pvFlow', 'pv'],
@@ -125,7 +125,7 @@ export const DECKS = [
   },
   {
     id: 'sites', level: 'core', title: 'Sites and causes of portal hypertension', minutes: 15,
-    summary: 'Pre-hepatic, presinusoidal, sinusoidal, postsinusoidal, post-hepatic and cardiac causes, each with its pressure ladder and its effect on the HVPG, followed by a comparison table.',
+    summary: 'Six levels of block, each with its pressure ladder and HVPG. Ends with a comparison table.',
     slides: [
       {
         id: 'overview', preset: 'healthy', cam: 'fit', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], rail: 'all',
@@ -172,13 +172,13 @@ export const DECKS = [
         line: 'Damaged endothelium obstructs the sinusoids and small central veins, upstream of the catheter tip, so the wedged pressure and HVPG rise.',
         causes: ['Conditioning for stem cell transplant', 'Oxaliplatin', 'Pyrrolizidine alkaloids (bush teas)'],
         notes: 'Formerly veno-occlusive disease. Toxic injury sheds sinusoidal endothelial cells, which obstruct the sinusoids and the terminal hepatic venules. It presents within weeks of myeloablative conditioning with tender hepatomegaly, weight gain, ascites and jaundice. An HVPG above 10 mmHg, measured with a transjugular biopsy, strongly supports the diagnosis. The model shows an earlier stage, with an HVPG of about 9 mmHg: raised, but under 10.',
-        ask: ['Why does HVPG rise here but not in schistosomiasis?', 'Here the block lies behind the wedge; in schistosomiasis it lies upstream of the sinusoids.'],
+        ask: ['Why does HVPG rise here but not in schistosomiasis?', 'Here the block is in the sinusoids and central venules the wedge reads; in schistosomiasis it is in the portal tracts, upstream of them.'],
       },
       {
         id: 'post', preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Blocked hepatic veins' },
         data: 'ladder', key: ['fhvp', 'ra', 'hvpg'], rail: true, quiz: 'Where is the obstruction?',
         kicker: 'Post-hepatic', site: 'post', title: 'Budd–Chiari syndrome',
-        line: 'Hepatic venous outflow is obstructed. Wedged and free pressures are both high, so HVPG is near zero, while right atrial pressure is normal.',
+        line: 'Hepatic venous outflow is obstructed. When a vein can still be entered, wedged and free pressures are both high behind the block, so HVPG is near zero. Right atrial pressure is normal.',
         causes: ['Myeloproliferative neoplasm (JAK2)', 'Thrombophilia, pregnancy, the pill', 'IVC web', 'Tumor invading the veins'],
         notes: 'Hepatic venous outflow obstruction, anywhere from the small hepatic veins to the IVC at the right atrium. The liver is congested and enlarged; the caudate lobe, which drains straight into the IVC, hypertrophies. Ascites is common, protein-rich (2.5 g/dL or more) and with a SAAG of 1.1 or more. In practice the blocked veins often cannot be catheterized: the model shows the pressures behind the block. Doppler ultrasound, CT or MR venography make the diagnosis.',
         ask: ['Why is HVPG near zero although the portal pressure is about 27 mmHg?', 'Both the wedged and the free pressures are measured behind the block, so both are high and their difference is small.'],
@@ -195,7 +195,7 @@ export const DECKS = [
       {
         id: 'ladders', cam: 'fit', visual: 'ladders', of: SIX,
         kicker: 'How to tell them apart', title: 'The largest pressure drop locates the obstruction',
-        line: 'Portal pressure is high at every site. HVPG measures only the drop between the wedged and free hepatic pressures.',
+        line: 'Portal pressure is high at every site. HVPG reads only the drop across the sinusoids.',
         notes: 'Read each ladder from left to right. Pre-hepatic and presinusoidal: the fall is between the portal vein and the wedge, so HVPG is normal and only a direct portal pressure (or the PPG) shows it. Sinusoidal and postsinusoidal: the fall is between the wedged and the free pressures, exactly what HVPG measures. Post-hepatic: the fall is between the free hepatic vein and the right atrium. Cardiac: there is no fall at all; every station is high.',
         ask: ['Which two levels raise the HVPG?', 'Sinusoidal and postsinusoidal.'],
       },
@@ -209,7 +209,7 @@ export const DECKS = [
   },
   {
     id: 'hvpg', level: 'core', title: 'Measuring portal pressure: HVPG and PPG', minutes: 15,
-    summary: 'How the free and wedged hepatic pressures are recorded and what the HVPG means, then the conditions in which it misleads (pre-hepatic and presinusoidal disease, heart failure, Budd–Chiari) and how the PPG helps.',
+    summary: 'How the HVPG is measured and what it means. Then where it misleads, and how the PPG helps.',
     slides: [
       {
         id: 'route', preset: 'csph', cath: 'route',
@@ -230,7 +230,7 @@ export const DECKS = [
         kicker: 'Measuring portal pressure', title: 'Wedged hepatic venous pressure',
         line: 'With the balloon inflated, the static column of blood ahead of it transmits sinusoidal pressure.',
         notes: 'With the balloon inflated, flow in the hepatic vein stops and the still column of blood carries the pressure of the sinusoids that feed it. A little contrast confirms the wedge: it stays still, with no washout through collaterals. The wedged hepatic venous pressure (WHVP) is read once stable, after at least 40 seconds. In cirrhosis the sinusoids no longer communicate freely with each other, so the WHVP closely matches the portal pressure.',
-        ask: ['How do you check that the balloon has truly wedged the vein?', 'Inject contrast: it stays still, with no washout, and the pressure curve flattens.'],
+        ask: ['How do you check that the balloon has truly wedged the vein?', 'Inject a little contrast: it stays in the vein with no washout, and the tracing loses its pulse.'],
       },
       {
         id: 'hvpg', cath: 'result', data: 'ladder', key: ['whvp', 'fhvp', 'hvpg'], tiles: ['hvpg', 'ppg'],
@@ -243,21 +243,21 @@ export const DECKS = [
       {
         id: 'grades', visual: 'scale', scale: { key: 'hvpg', max: 20, low: 'Normal', marks: [[5, 'Portal\nhypertension'], [10, 'Clinically significant\nportal hypertension\n(CSPH)'], [12, 'Variceal bleed risk\nis high']] },
         of: [{ preset: 'healthy', name: 'Healthy' }, { preset: 'cirr-comp', name: 'Compensated cirrhosis' }, { id: 'hvpg', name: 'This patient' }, { preset: 'cirr-decomp', name: 'Decompensated cirrhosis' }],
-        kicker: 'Thresholds', title: 'HVPG thresholds',
-        line: 'Four patients from the model, plotted on the same scale.',
+        kicker: 'Thresholds', title: 'Four patients on one scale',
+        line: 'Healthy, compensated, this patient, decompensated.',
         notes: 'HVPG 1 to 5 mmHg is normal. 6 to 9: portal hypertension, still subclinical. 10 or more: clinically significant portal hypertension, the threshold for varices, ascites and decompensation; Baveno VII advises a non-selective beta-blocker, preferably carvedilol, at this stage to prevent decompensation. 12 or more: varices can bleed. Higher values carry a worse outlook; in an acute bleed an HVPG of 20 or more predicts failure to control it.',
         ask: ['At what HVPG can varices bleed?', '12 mmHg or more.'],
       },
       {
         id: 'presin', preset: 'schisto', cam: 'lobule:triad', data: 'ladder', key: ['pv', 'whvp', 'hvpg'], tiles: ['hvpg', 'ppg'],
-        kicker: 'Where HVPG fails', site: 'presin', title: 'Normal HVPG, high portal pressure',
+        kicker: 'Where HVPG misleads', site: 'presin', title: 'Normal HVPG, high portal pressure',
         line: 'In schistosomiasis the obstruction is in the portal tracts, upstream of the sinusoids. HVPG is 2 mmHg while portal pressure is 21.',
         notes: 'The wedged catheter reads only what lies downstream of a block. In presinusoidal disease (schistosomiasis, porto-sinusoidal vascular disorder, early primary biliary cholangitis) the sinusoids are near normal, so the WHVP and the HVPG are normal or only mildly raised and underestimate the portal pressure. A normal HVPG in a patient with varices or a large spleen points to a presinusoidal or pre-hepatic cause.',
         ask: ['Varices, a large spleen and an HVPG of 4 mmHg. What next?', 'Look for a presinusoidal or pre-hepatic cause: image the portal vein, and consider a liver biopsy.'],
       },
       {
         id: 'ppg', preset: 'pvt-chronic', cam: 'portal', labels: ['CONF'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, data: 'ladder', key: ['pv', 'hvpg'], tiles: ['hvpg', 'ppg'],
-        kicker: 'Where HVPG fails', site: 'pre', title: 'The portal pressure gradient',
+        kicker: 'Where HVPG misleads', site: 'pre', title: 'The portal pressure gradient',
         eq: [mi('PPG') + mo('=') + sub(mi('P'), 'portal vein') + mo('−') + sub(mi('P'), 'IVC')],
         line: 'Measured directly. It detects obstruction anywhere between the two, including this portal vein clot.',
         notes: 'Portal pressure can be measured directly: during TIPS, through a needle into a portal branch (transhepatic or transjugular), or by an endoscopic ultrasound-guided needle. A PPG above 5 mmHg is portal hypertension, as for HVPG, and after TIPS the aim is a PPG below 12 mmHg. In the model the portal pressure is read at the confluence, upstream of the clot, so the PPG is high while the HVPG, read downstream, is normal.',
@@ -265,14 +265,14 @@ export const DECKS = [
       },
       {
         id: 'heart', preset: 'rhf', cam: 'heart', labels: ['RHV', 'IVCS', 'RA'], data: 'ladder', key: ['fhvp', 'ra', 'hvpg'], tiles: ['hvpg', 'ppg'],
-        kicker: 'Free hepatic pressure', site: 'cardiac', title: 'Right heart failure',
+        kicker: 'Where HVPG misleads', site: 'cardiac', title: 'Right heart failure',
         line: 'Wedged and free pressures are both near 20 mmHg, so HVPG is normal. The raised free pressure points to the heart.',
         notes: 'HVPG is a difference, so it cancels whatever the wedged and the free readings share. In right heart failure and constrictive pericarditis every station from the portal vein to the right atrium is high: the HVPG and the PPG are normal, but the absolute pressures are not. Always read the free hepatic and the right atrial pressures as well. The same pattern with a normal right atrial pressure points to a block between the hepatic veins and the heart, such as an IVC web.',
         ask: ['WHVP 21, FHVP 20, right atrium 19 mmHg. What is the HVPG, and where is the problem?', 'HVPG 1 mmHg, normal. The problem is the heart: every station is high.'],
       },
       {
         id: 'bc', preset: 'budd-chiari', cath: 'blocked',
-        kicker: 'Hepatic vein occlusion', site: 'post', title: 'Budd–Chiari syndrome',
+        kicker: 'Where HVPG misleads', site: 'post', title: 'Budd–Chiari syndrome',
         line: 'The hepatic veins are occluded. The catheter reaches the opening but cannot enter, so there is no HVPG to read.',
         notes: 'In Budd–Chiari syndrome the hepatic veins, or the IVC above them, are thrombosed or webbed. The catheter often cannot enter the vein, or enters only a stump. If a wedge is achieved, both the wedged and the free readings lie behind the block, so the HVPG is near zero and misleading. Doppler ultrasound, CT or MR venography make the diagnosis; venography shows a spider-web of collaterals. Treatment is stepwise: anticoagulation, angioplasty or a stent for short stenoses, TIPS, then transplantation.',
         ask: ['Why would a wedged reading mislead in Budd–Chiari syndrome?', 'The wedged and free readings both lie behind the block, so their difference is near zero although portal pressure is very high.'],
@@ -289,7 +289,7 @@ export const DECKS = [
   },
   {
     id: 'ascites', level: 'advanced', title: 'Ascites: where it comes from and what is in it', minutes: 15,
-    summary: 'How ascites forms in the sinusoids, why portal vein thrombosis and presinusoidal disease rarely cause it, and how the SAAG and ascitic protein point to the cause.',
+    summary: 'How ascites forms in the sinusoids and why presinusoidal disease rarely causes it. Ends with SAAG and protein.',
     slides: [
       {
         id: 'start', preset: 'csph', cam: 'sinusoid', data: 'tiles', tiles: ['sin', 'asc'], key: ['sin'],
@@ -301,7 +301,7 @@ export const DECKS = [
       {
         id: 'fill', days: 60, ramp: { cirrhosis: [0.6, 0.85], albumin: [4, 2.8] }, lapse: { seconds: 9 }, cam: 'fit', data: 'tiles', tiles: ['sin', 'asc', 'tp'], key: ['asc'], delta: true,
         kicker: 'Ascites', site: 'sin', title: 'Two months of progression',
-        line: 'As fibrosis advances and serum albumin falls, sinusoidal pressure rises and ascites accumulates.',
+        line: 'As fibrosis advances and serum albumin falls, sinusoidal pressure rises, lymph outruns the lymphatics and fluid collects.',
         notes: 'The time-lapse runs the model\'s disease clock: cirrhosis advances and serum albumin falls from 4.0 to 2.8 g/dL over 60 days, without diuretics. The sinusoids climb from about 17 to 26 mmHg, hepatic lymph overflows and the ascites reaches several litres. In patients, splanchnic vasodilation lowers the effective blood volume, and the kidneys retain sodium and water through renin–angiotensin–aldosterone, the sympathetic system and vasopressin. Portal hypertension decides where the fluid goes; the kidneys keep it coming. Treatment: less salt, spironolactone with furosemide, large-volume paracentesis with albumin, TIPS.',
         ask: ['Which hormone system drives sodium retention in cirrhotic ascites, and which drug blocks it?', 'Renin–angiotensin–aldosterone; spironolactone.'],
       },
@@ -339,12 +339,12 @@ export const DECKS = [
         kicker: 'Starling forces', title: 'Gut capillaries and sinusoids compared',
         line: 'Gut capillaries retain protein, so oncotic pressure limits filtration when their pressure rises. Sinusoids do not, so ascites depends on sinusoidal pressure.',
         notes: 'Starling: filtration = Kf × [(capillary − tissue pressure) − σ × (plasma − tissue oncotic pressure)]. The gut\'s capillary wall is continuous, with a basement membrane, and turns back most protein (σ about 0.9): the plasma\'s oncotic pressure, about 25 mmHg, holds the fluid in, so a raised capillary pressure makes only a little more fluid, which the lymphatics carry away. In the sinusoid σ is near zero: oncotic pressure offers almost no opposition, and each rise in pressure adds to lymph flow. Capillarization in cirrhosis raises σ part of the way, which is why cirrhotic ascites is thin.',
-        ask: ['What does a reflection coefficient (σ) near zero mean for the sinusoid wall?', 'Protein crosses freely, so oncotic pressure cannot hold the fluid back, and pressure becomes lymph.'],
+        ask: ['What does a reflection coefficient (σ) near zero mean for the sinusoid wall?', 'Protein crosses freely, so oncotic pressure cannot hold the fluid back, and any rise in pressure becomes lymph.'],
       },
       {
         id: 'hf', preset: 'rhf', cam: 'sinusoid', data: 'tiles', tiles: ['tp', 'saag', 'sin'], key: ['tp'],
         kicker: 'Protein-rich ascites', site: 'cardiac', title: 'High protein in heart failure',
-        line: 'The sinusoid wall is still open. Congestion drives protein-rich lymph through it: SAAG 1.1 or more, protein 2.5 or more.',
+        line: 'The sinusoid wall is still open. Congestion drives protein-rich lymph through it: SAAG 1.1 g/dL or more, protein 2.5 g/dL or more.',
         notes: 'In heart failure and constrictive pericarditis the sinusoids are congested but not scarred: the fenestrae stay open, so the lymph is nearly as rich in protein as plasma. The ascites has a high SAAG (portal hypertension of cardiac origin) and a total protein of 2.5 g/dL or more. A raised jugular venous pressure and a high BNP point to the heart.',
         ask: ['Ascites with a SAAG of 1.5 and protein of 3.8 g/dL. What do you examine next?', 'The heart: the jugular venous pressure, an echocardiogram, BNP.'],
       },
@@ -366,7 +366,7 @@ export const DECKS = [
   },
   {
     id: 'varices', level: 'core', title: 'Collaterals and varices', minutes: 14,
-    summary: 'Six months of progression on the model, then esophageal and fundal varices, bleeding risk, splenic vein thrombosis, other portosystemic routes, and why heart failure rarely produces varices.',
+    summary: 'Six months of progression, then the varices and other collateral routes. Ends with why heart failure rarely causes varices.',
     slides: [
       {
         id: 'collat', preset: 'csph', cam: 'fit', data: 'tiles', tiles: ['hvpg', 'varix', 'spleen', 'plt'],
@@ -378,14 +378,14 @@ export const DECKS = [
       {
         id: 'lapse', days: 180, ramp: { cirrhosis: [0.6, 0.85] }, lapse: { seconds: 10 }, cam: 'fit', data: 'tiles', tiles: ['hvpg', 'varix', 'spleen', 'plt'], delta: true,
         kicker: 'Collaterals', site: 'sin', title: 'Six months of progression',
-        line: 'HVPG climbs, the varices grow from small to large, the spleen swells and the platelets fall.',
+        line: 'HVPG climbs past 12 mmHg, small varices become large, the spleen enlarges and the platelets fall.',
         notes: 'The time-lapse runs the model\'s disease clock for 180 days while the cirrhosis advances. As the gradient rises, collateral flow grows (by the end about three quarters of the portal blood is shunted) and the varices enlarge. The congested spleen enlarges and holds back platelets (hypersplenism): a low platelet count with a stiff liver suggests clinically significant portal hypertension. Baveno advises that screening endoscopy can be skipped when liver stiffness is below 20 kPa and platelets are above 150.',
         ask: ['When can screening endoscopy be skipped in compensated cirrhosis?', 'Liver stiffness below 20 kPa and platelets above 150 (Baveno).'],
       },
       {
         id: 'eso', cam: 'varices', labels: ['VAR', 'AZY'], mark: { edges: ['C1a', 'C1b'], label: 'Esophageal varices' }, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'],
         kicker: 'Varices', site: 'sin', title: 'Esophageal varices',
-        line: 'The left gastric vein carries portal blood up to the lower esophagus. The veins under its lining swell and drain to the azygos.',
+        line: 'The left gastric vein carries portal blood up to the lower esophagus. The submucosal veins of the lower esophagus swell and drain to the azygos.',
         notes: 'Gastroesophageal varices are the collaterals that matter most, because they bleed. Blood runs from the left gastric (coronary) and short gastric veins through veins in the wall of the lower esophagus to the azygos system. At endoscopy small varices are under 5 mm and large ones over 5 mm; red wale marks are thin spots in the wall. About half of patients have varices when cirrhosis is diagnosed.',
         ask: ['Into which systemic vein do esophageal varices drain?', 'The azygos vein.'],
       },
@@ -414,7 +414,7 @@ export const DECKS = [
       {
         id: 'umbilical', preset: 'cirr-decomp', cam: 'wall', mark: { edges: ['C3'], label: 'Paraumbilical vein' }, data: 'tiles', tiles: ['shunt', 'liver'],
         kicker: 'Other collaterals', site: 'sin', title: 'Paraumbilical collaterals',
-        line: 'The paraumbilical vein reopens from the left portal vein to the veins of the abdominal wall. A caput medusae can spread around the navel.',
+        line: 'The paraumbilical vein reopens from the left portal vein to the veins of the abdominal wall. Dilated wall veins can radiate from the navel: the caput medusae.',
         notes: 'The paraumbilical veins run in the falciform ligament from the left portal vein to the abdominal wall. When they enlarge, blood flows away from the liver through them; dilated veins radiating from the umbilicus form a caput medusae, and a venous hum may be heard over them (Cruveilhier–Baumgarten). The flow runs away from the umbilicus, unlike the upward flow of IVC obstruction. These collaterals rarely bleed, but a large one steals portal blood from the liver.',
         ask: ['How do the abdominal wall veins tell portal hypertension from IVC obstruction?', 'In portal hypertension the flow radiates away from the umbilicus; in IVC obstruction it runs upward below it.'],
       },
@@ -441,21 +441,21 @@ export const DECKS = [
       {
         id: 'target', preset: 'cirr-decomp', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], data: 'ladder', key: ['hvpg'], tiles: ['hvpg', 'varix'],
         kicker: 'Lowering portal pressure', site: 'sin', title: 'The patient',
-        line: 'Decompensated cirrhosis with HVPG 17 mmHg, large varices and ascites. Treatment reduces inflow, reduces resistance, or bypasses the liver.',
+        line: 'Decompensated cirrhosis with HVPG 17 mmHg, large varices and ascites. Treatment lowers the inflow or the resistance, or bypasses the liver.',
         notes: 'Portal pressure is flow times resistance. Non-selective beta-blockers and the vasoactive drugs used in bleeding cut the inflow; carvedilol also lowers the resistance inside the liver; TIPS goes around it. Banding treats the varix, not the pressure. Removing the cause (stopping alcohol, treating hepatitis) lowers the resistance over months to years. On drugs, the aim is an HVPG fall of 20% or more, or to below 12 mmHg.',
         ask: ['Name a treatment that cuts the inflow and one that lowers the resistance.', 'Inflow: propranolol, terlipressin, octreotide. Resistance: carvedilol, treating the cause; TIPS goes around it.'],
       },
       {
         id: 'prop', params: { drugs: { propranolol: true } }, cam: 'portal', labels: ['SMV', 'CONF'], data: 'ladder', key: ['pv', 'hvpg'], tiles: ['hvpg', 'varix'], delta: 'target',
         kicker: 'Non-selective beta-blocker', site: 'sin', title: 'Propranolol',
-        line: 'β1 blockade lowers cardiac output; β2 blockade lets the gut\'s arterioles constrict. Portal inflow falls, and HVPG with it.',
+        line: 'β1 blockade lowers cardiac output; β2 blockade removes the dilating tone on the gut arterioles, so they constrict. Portal inflow falls, and HVPG with it.',
         notes: 'Propranolol (or nadolol) is titrated to a resting heart rate of 55 to 60 a minute, keeping systolic pressure above 90 mmHg. It prevents a first bleed from large varices and, with banding, a second one. About a third to a half of patients reach a protective fall in HVPG. In refractory ascites with low blood pressure or kidney injury the dose is reduced or stopped. The model shows a modest fall.',
         ask: ['How is propranolol titrated?', 'To a resting heart rate of 55 to 60 a minute, keeping systolic pressure above 90 mmHg.'],
       },
       {
         id: 'carv', params: { drugs: { propranolol: false, carvedilol: true } }, cam: 'liver', data: 'ladder', key: ['whvp', 'hvpg'], tiles: ['hvpg', 'varix'], delta: 'target',
         kicker: 'Non-selective beta-blocker', site: 'sin', title: 'Carvedilol',
-        line: 'It also blocks α1 receptors, relaxing the liver\'s own vascular tone. HVPG falls further, at some cost in blood pressure.',
+        line: 'It also blocks α1 receptors, so the stellate cells and portal venules relax and the intrahepatic resistance falls. HVPG falls further, at some cost in blood pressure.',
         notes: 'Carvedilol 6.25 to 12.5 mg a day. Its α1 blockade relaxes the contracted stellate cells and lowers the resistance inside the liver, so it lowers HVPG more than propranolol and brings about half of propranolol non-responders to a protective fall. Baveno VII recommends a non-selective beta-blocker, preferably carvedilol, in compensated cirrhosis with clinically significant portal hypertension, to prevent decompensation. Watch the blood pressure, especially with ascites.',
         ask: ['Why does carvedilol lower HVPG more than propranolol?', 'Its α1 blockade also lowers the vascular resistance inside the liver.'],
       },
@@ -470,7 +470,7 @@ export const DECKS = [
         id: 'band', params: { drugs: { terlipressin: false } }, action: [{ kind: 'band' }, { kind: 'band' }, { kind: 'band' }], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices' },
         data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'target',
         kicker: 'Endoscopy', site: 'sin', title: 'Band ligation',
-        line: 'Ligated varices thrombose and shrink. HVPG is unchanged or slightly higher, so varices can recur.',
+        line: 'Ligated varices thrombose and shrink. HVPG does not fall, so new varices form.',
         notes: 'Band ligation is repeated every 2 to 4 weeks until the varices are gone, followed by surveillance endoscopy. It stops an acute bleed and prevents rebleeding, but it does nothing for the portal pressure: the collateral closes, its flow is redirected and the pressure can rise slightly, so varices come back. After a bleed, banding is combined with a non-selective beta-blocker.',
         ask: ['Why combine banding with a beta-blocker after a bleed?', 'Banding removes the varices, not the high pressure that makes new ones; the beta-blocker lowers it.'],
       },
@@ -491,7 +491,7 @@ export const DECKS = [
       {
         id: 'cost', cam: 'liver', mark: { edges: ['TIPS'], label: 'Covered stent' }, data: 'tiles', tiles: ['liver', 'shunt'], delta: 'target',
         kicker: 'After TIPS', site: 'sin', title: 'Liver perfusion and encephalopathy',
-        line: 'Less portal blood reaches the sinusoids, liver perfusion falls and gut-derived toxins enter the systemic circulation. Encephalopathy develops in about a third.',
+        line: 'Less portal blood reaches the sinusoids, liver perfusion falls and gut-derived toxins enter the systemic circulation. About one patient in three develops encephalopathy.',
         notes: 'After TIPS, overt hepatic encephalopathy develops in about a third of patients, mostly in the first months; older age, earlier encephalopathy and a wider stent raise the risk, and an 8 mm covered stent lowers it. The heart receives more venous return and the liver less portal blood, so TIPS is avoided in heart failure, severe pulmonary hypertension, advanced liver failure (a high MELD) and recurrent encephalopathy. Lactulose and rifaximin treat encephalopathy; the shunt can be narrowed if it persists.',
         ask: ['Name two contraindications to TIPS.', 'Heart failure or severe pulmonary hypertension; advanced liver failure (high MELD); recurrent severe encephalopathy.'],
       },
