@@ -88,19 +88,21 @@ export function createCreditPlacer(credit) {
     const wr = wrap.getBoundingClientRect();
     let { w, h } = measure(false);
     const fig = { l: size.sl, t: 0, r: wr.width - size.sr, b: wr.height };
-    const obs = [...document.querySelectorAll(OBSTACLES)].map((el) => rectOf(el, wr)).filter((o) => o && hit(o, fig));
+    const els = [...document.querySelectorAll(OBSTACLES)], obs = els.map((el) => rectOf(el, wr)).filter((o) => o && hit(o, fig));
     const busy = obs.some((o) => !o.chrome);
     credit.classList.toggle('busy', busy);
     if (busy) ({ w, h } = measure(true));
     const sig = obs.map((o) => [o.l, o.t, o.r, o.b].map(Math.round).join(',')).join(';') + '|' + w + '|' + wr.width + 'x' + wr.height;
     const now = performance.now();
-    if (sig !== lastSig) {
+    // A card still sliding or fading in is not where it will settle: wait for it (and for its size to stop changing).
+    const settling = els.some((el) => el.getAnimations({ subtree: true }).some((an) => an.playState === 'running' && Number.isFinite(an.effect?.getComputedTiming().endTime)));
+    if (sig !== lastSig || settling) {
       // Something moved: if it now reaches the credit, fade out at once; let it settle before choosing a new spot
       // (but not forever: a piece that keeps moving is taken where it is after a moment).
       lastSig = sig;
       if (pos && obs.some((o) => hit({ l: pos.x - 4, t: pos.y - 4, r: pos.x + w + 4, b: pos.y + h + 4 }, o))) credit.classList.add('moving');
       changedAt ||= now;
-      if (now - changedAt < 700) { clearTimeout(waitT); waitT = setTimeout(soon, 120); return; }
+      if (now - changedAt < 1600) { clearTimeout(waitT); waitT = setTimeout(soon, 120); return; }
     }
     changedAt = 0;
     const spots = freeSpots(fig, obs, w, h, { inset: wr.width < 768 ? 12 : 24 });
@@ -115,7 +117,11 @@ export function createCreditPlacer(credit) {
     } else betterSince = 0;
     if (c !== cur) betterSince = 0;
     const p = spots[c];
-    if (c === cur && !credit.classList.contains('moving') && !credit.classList.contains('covered') && Math.abs(p.x - pos.x) < 1 && Math.abs(p.y - pos.y) < 1) return;
+    if (c === cur && !credit.classList.contains('moving') && !credit.classList.contains('covered') && Math.abs(p.x - pos.x) <= 4 && Math.abs(p.y - pos.y) <= 4) {
+      // A nudge of a few pixels (its own size easing to the busy size) is taken in place, without a fade.
+      if (p.x !== pos.x || p.y !== pos.y) place(c, p);
+      return;
+    }
     if (!pos || credit.classList.contains('covered') || credit.classList.contains('moving')) { place(c, p); return; }
     // A new spot: fade out in place, jump there unseen, fade back in (never a slide across the figure).
     credit.classList.add('moving');
