@@ -32,11 +32,12 @@ jobs:
         env:
           BRANCH: ${{ github.ref_name }}
         run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898341+github-actions[bot]@users.noreply.github.com'
           git add tests/visual
           if git diff --cached --quiet; then echo "All views match their references."; exit 0; fi
           views=$(grep -o '^ref  [^ ]*' visual.log | cut -c6- | paste -sd' ' -)
-          git -c user.name='github-actions[bot]' -c user.email='41898341+github-actions[bot]@users.noreply.github.com' \
-            commit -m "Visual references redrawn on CI: $views"
+          git commit -m "Visual references redrawn on CI: $views"
           # Other pushes may have landed meanwhile: replay on top of them (never a force-push).
           for i in 1 2 3; do
             git pull --rebase origin "$BRANCH" && git push origin "HEAD:$BRANCH" && exit 0
