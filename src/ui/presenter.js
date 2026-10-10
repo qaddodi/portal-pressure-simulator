@@ -20,7 +20,7 @@ import { SITES } from './ladder.js?v=3c3d5cd555';
 import { sinusoidSupported } from './sinusoid-view.js?v=b052d22dcf';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { NODES } from '../engine/topology.js?v=dc393aabea';
-import { DECKS, REGIONS, LEVELS } from './decks.js?v=f687c67ad5';
+import { DECKS, REGIONS, LEVELS } from './decks.js?v=b5289acfe7';
 import { createTools } from './presenter-tools.js?v=ae0e6a42be';
 
 const KEY = 'pps.scripts';
@@ -837,7 +837,6 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
   const cellRate = (k, f) => (RAW[k] ? (RAW[k](fpv(k, f)) ? 'hi' : null) : ['hi', 'mid'].includes(rateOf(k, f)[0]) ? rateOf(k, f)[0] : null);
   // A cell's direction: against the normal range ('abs': ↑ above, ↑↑ well above or past the red cut-off, ↓ below, a dot within),
   // or against a reference patient's value ('rel': the treatments table's baseline).
-  const STEP = { pv: 1, whvp: 1, fhvp: 1, ivc: 1, ra: 1, hvpg: 1, ppg: 1, sin: 1, varix: .5, asc: 100, liver: 3 };
   function dirAbs(k, f) {
     const v = fpv(k, f);
     if (RAW[k]) return v > RAWLIM[k] * 2 ? 2 : v > RAWLIM[k] ? 1 : 0;
@@ -845,9 +844,11 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     const r = rateOf(k, f)[0], sign = k === 'liver' ? -1 : 1;
     return r === 'hi' ? 2 * sign : r === 'mid' ? sign : 0;
   }
+  // Against the baseline every real change shows (octreotide's half-millimetre, banding's slight rise), so the steps are small.
+  const STEP_REL = { pv: .5, whvp: .5, fhvp: .5, ivc: .5, ra: .5, hvpg: .5, ppg: .5, sin: .5, varix: .3, asc: 100, liver: 2 };
   function dirRel(k, f, ref) {
     const d = f[k] - ref[k], r = Math.abs(d) / Math.max(Math.abs(ref[k]), 1e-6);
-    return Math.abs(d) < (STEP[k] ?? 1) || r < 0.1 ? 0 : (d > 0 ? 1 : -1) * (r >= 0.4 ? 2 : 1);
+    return Math.abs(d) < (STEP_REL[k] ?? 1) ? 0 : (d > 0 ? 1 : -1) * (r >= 0.4 ? 2 : 1);
   }
   // Purpose-drawn arrows: a solid head on a shaft of real weight, one per symbol; a large change is two arrows side by side.
   // A thin dash means unchanged / normal. Drawn on one grid so they sit on the table's cap height. n: 2 / 1 up, -1 / -2 down, 0 the dash.
@@ -897,7 +898,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
         h('small', {}, 'SAAG '), h('b', { 'data-rate': hiS ? 'hi' : null }, arrowEl(hiS ? 1 : -1)), h('span', { class: 'sr-only' }, hiS ? 'high gradient' : 'low gradient'),
         ' · ', h('small', {}, 'Protein '), h('b', {}, arrowEl(hiP ? 1 : -1)), h('span', { class: 'sr-only' }, hiP ? 'high protein' : 'low protein'));
     };
-    const key = rel ? `↓ lower or ↑ higher than ${first ? rows[0].title.toLowerCase() : 'baseline'}, ↓↓ by 40% or more; • unchanged. Green: better, red: worse` : `↑ above normal, ↑↑ well above (HVPG 10 or more, PPG 12 or more), ↓ below; • within normal`;
+    const key = rel ? `↓ lower or ↑ higher than ${first ? rows[0].title.toLowerCase() : 'baseline'} (pressures by 0.5 mmHg or more), ↓↓ by 40% or more; • unchanged. Green: better, red: worse` : `↑ above normal, ↑↑ well above (HVPG 10 or more, PPG 12 or more), ↓ below; • within normal`;
     return h('div', { class: 'pz-table' }, h('table', {},
       h('thead', {}, h('tr', {}, h('th', {}, s.rowHead || 'Level'), cols.map((k) => h('th', { class: 'num' }, COLS[k] || k)), asc ? h('th', {}, 'Ascites') : null, s.note ? h('th', {}, s.note) : null)),
       h('tbody', {}, rows.map((r, n) => h('tr', r.i >= 0 ? { onclick: () => go(r.i) } : { class: 'static' },
