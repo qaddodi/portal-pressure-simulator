@@ -981,18 +981,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // station's own colour (--pg). Each eases in and out on its own, so a change of slide cross-fades.
   const pg = new Map();   // edge id → mark
   function setGlow(list) {
-    const want = new Map((list || []).filter((g) => E[g.id]).map((g) => [g.id, g.tone || 'accent']));
+    const want = new Map((list || []).filter((g) => E[g.id]).map((g) => [g.id, { tone: g.tone || 'accent', at: g.at }]));
     for (const [id, m] of pg) if (!want.has(id) && m.on) {
-      m.on = false; m.g.classList.remove('on');
+      m.on = false; m.g.style.transitionDelay = ''; m.g.classList.remove('on');
       clearTimeout(m.t); m.t = setTimeout(() => { if (!m.on) { m.g.remove(); pg.delete(id); } }, 450);
     }
-    for (const [id, tone] of want) {
+    for (const [id, { tone }] of want) {
       let m = pg.get(id);
       if (!m) { m = makeMark(`pg-${id}`, 'pg'); m.id = id; pg.set(id, m); }
       clearTimeout(m.t); m.on = true;
       m.g.style.setProperty('--pg', tone.startsWith('--') ? `var(${tone})` : tone === 'accent' ? 'var(--accent)' : `var(--tr-${tone})`);
       const x = E[id], d = x.wall.getAttribute('d'); if (d) m.paint(d, x.dopW || 8);
       m.g.style.display = x.vis ? '' : 'none';
+      // (A glow in a sequence waits its turn: at, ms. It goes without waiting.)
+      m.g.style.transitionDelay = m.g.classList.contains('on') ? '' : `${want.get(id).at || 0}ms`;
       requestAnimationFrame(() => m.on && m.g.classList.add('on'));
     }
   }

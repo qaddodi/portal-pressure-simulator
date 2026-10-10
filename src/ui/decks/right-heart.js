@@ -26,7 +26,7 @@ export const RIGHT_HEART = {
       ask: ['What happens to the S wave of the hepatic vein in severe tricuspid regurgitation?', 'It reverses: flow goes back toward the liver in systole.'],
     },
     {
-      id: 'pulse', cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
+      id: 'pulse', cam: 'portal', labels: ['CONF'], glow: ['heart', 'ivc', 'hv', 'pv'], glowSeq: 550, tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
       kicker: 'Heart failure', site: 'cardiac', title: 'The portal vein pulses',
       line: 'The soft sinusoids pass the atrial pressure through to the portal vein. A pulsatile portal flow points to the heart, not the liver.',
       notes: 'Normal portal flow is steady, with a small change on breathing. When the right atrial pressure is high and the sinusoids are normal, its swings reach the portal vein: the trace pulses with each beat and may briefly reverse. In cirrhosis the stiff sinusoids damp these swings, so a pulsatile portal vein argues against cirrhosis. The pulsatility index falls as the heart failure is treated.',

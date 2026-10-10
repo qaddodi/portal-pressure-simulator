@@ -19,9 +19,9 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=cab65850a4';
 import { sinusoidSupported } from './sinusoid-view.js?v=d5403260c8';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
-import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=aaa10f7b47';
+import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=c620902a6d';
 import { createTools } from './presenter-tools.js?v=621f749226';
-import { openHandout } from './handout.js?v=d16fd73db2';
+import { openHandout } from './handout.js?v=329de1df13';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -117,13 +117,16 @@ export function slideTargets(s, line = s.line || '') {
     if (t.organ) organs.set(t.organ, t.tone);
     if (t.res) res.set(t.res, t.tone);
   }
-  for (const g of s.glow || []) {
-    const id = typeof g === 'string' ? g : g.id, tone = typeof g === 'string' ? null : g.tone;
-    if (TARGETS[id]) { const t = TARGETS[id]; if (t.res) res.set(t.res, tone || t.tone); for (const e of t.edges || []) glow.set(e, tone || t.tone); if (t.organ) organs.set(t.organ, tone || t.tone); }
+  // glowSeq (ms): the glow field lights in its order, one step apart (pressure passing back from the heart, D6).
+  const at = new Map();
+  (s.glow || []).forEach((g, i) => {
+    const id = typeof g === 'string' ? g : g.id, tone = typeof g === 'string' ? null : g.tone, ms = s.glowSeq ? i * s.glowSeq : 0;
+    const add = (e, tn) => { glow.delete(e); glow.set(e, tn); if (ms) at.set(e, ms); };
+    if (TARGETS[id]) { const t = TARGETS[id]; if (t.res) res.set(t.res, tone || t.tone); for (const e of t.edges || []) add(e, tone || t.tone); if (t.organ) organs.set(t.organ, tone || t.tone); }
     else if (ORGANS.has(id)) organs.set(id, tone || TARGETS[id]?.tone);
-    else glow.set(id, tone || EDGE_TONE[id] || 'accent');
-  }
-  return { labels, terms, glow: [...glow].map(([id, tone]) => ({ id, tone })), organs: [...organs].map(([id, tone]) => ({ id, tone })), res: [...res].map(([id, tone]) => ({ id, tone })) };
+    else add(id, tone || EDGE_TONE[id] || 'accent');
+  });
+  return { labels, terms, glow: [...glow].map(([id, tone]) => ({ id, tone, at: at.get(id) || 0 })), organs: [...organs].map(([id, tone]) => ({ id, tone })), res: [...res].map(([id, tone]) => ({ id, tone })) };
 }
 // A live value pill ({pv}): the model's reading for this slide, rounded as its card shows it (the ladder's
 // stations in whole mmHg on a ladder slide).

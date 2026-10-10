@@ -57,7 +57,7 @@ import { CIRCUIT } from './decks/circuit.js?v=cee51921d7';
 import { DOPPLER } from './decks/doppler.js?v=0a0f53ea61';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=95aa3aef7f';
 import { PREHEPATIC } from './decks/prehepatic.js?v=c8af5f351e';
-import { RIGHT_HEART } from './decks/right-heart.js?v=21025ec96f';
+import { RIGHT_HEART } from './decks/right-heart.js?v=2221556b33';
 import { BLEED } from './decks/variceal-bleed.js?v=c60ec5c529';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
@@ -237,7 +237,7 @@ export const DECKS = [
         ask: ['Why is HVPG near zero although the portal pressure is about 26 mmHg?', 'Both the wedged and the free pressures are measured behind the block, so both are high and their difference is small.'],
       },
       {
-        id: 'cardiac', preset: 'rhf', cam: 'heart', labels: ['RHV', 'IVCS', 'RA'],
+        id: 'cardiac', preset: 'rhf', cam: 'heart', labels: ['RHV', 'IVCS', 'RA'], glow: ['ivc', 'hv'], glowSeq: 550,
         data: 'ladder', key: ['fhvp', 'hvpg', 'ppg'], rail: true, quiz: 'Where is the obstruction?',
         kicker: 'Cardiac', site: 'cardiac', title: 'Right heart failure',
         line: 'Raised [right atrial pressure](ra) is transmitted back through the hepatic veins to the sinusoids. All stations rise together and HVPG stays normal.',
