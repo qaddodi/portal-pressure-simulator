@@ -2767,7 +2767,7 @@ button.finding:hover { background: var(--surface-2); }
 .scan-probe .sp-waves > g { opacity: 0; }
 .scan-probe .sp-waves path { fill: none; stroke: var(--tr-wedge); stroke-linecap: round; }
 .scan-probe .sp-rip { stroke-width: 1.4; stroke-opacity: .35; }
-.scan-probe .sp-front { stroke-width: 2.6; stroke-opacity: .95; }
+.scan-probe .sp-front { stroke-width: 2.2; stroke-opacity: .95; }
 .scan-probe .sp-head { transform-box: view-box; transform-origin: 40px 48px; }
 .scan-probe.tap .sp-head { animation: sp-tap .35s var(--ease); }
 @keyframes sp-tap { 30% { transform: translateX(3px); } 100% { transform: none; } }

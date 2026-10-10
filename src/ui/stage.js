@@ -3329,12 +3329,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // The FibroScan probe (the Presenter's stiffness slides): a transducer on the skin at the top left of the right
   // lobe, angled 45° down toward the portal vein, with a shear wave easing out from its tip into the liver along that
-  // line. Screen-space, at the liver's outline. Each tap sends one shear wavefront: a soft arc that spreads and fades as
+  // line. Screen-space, at the liver's outline. Each tap (three a second) sends one shear wavefront: a soft arc that spreads and fades as
   // it crosses the liver. The true speed goes with √kPa (about 2.2× from 5 to 25 kPa); on screen it is exaggerated to
   // roughly linear in kPa (5× from 5 to 25) so the difference reads at a glance, easing to a new speed when the reading changes.
   const scan = { on: false, el: null, raf: 0, v: 0, fronts: [], next: 0, last: 0 };
-  const SCAN_TIP = [66, 48], SCAN_SPAN = 150, SCAN_EVERY = 1.5, SCAN_N = 5, SCAN_HALF = 0.5, SCAN_GAP = 6;
-  const scanSpeed = () => 5 * clamp(F?.metrics?.lsm ?? 5, 3, 60);   // px/s: 25 at 5 kPa (slow but visible), 125 at 25, 200 at 40, 300 from 60
+  const SCAN_TIP = [66, 48], SCAN_SPAN = 150, SCAN_EVERY = 1 / 3, SCAN_N = 12, SCAN_HALF = 0.5, SCAN_GAP = 6;   // three pulses a second, so several fronts are in flight at once
+  const scanSpeed = () => 12 * clamp(F?.metrics?.lsm ?? 5, 4, 40);   // px/s: 60 at 5 kPa (slow but visible, fronts 20 px apart at three a second), 300 at 25, 480 from 40
   function scanArc(r) {
     const [cx, cy] = SCAN_TIP, h = SCAN_HALF * (0.75 + 0.25 * Math.min(1, r / 50));   // the front widens a little with depth
     const p = (t) => `${(cx + r * Math.cos(t)).toFixed(1)} ${(cy + r * Math.sin(t)).toFixed(1)}`;
@@ -3348,14 +3348,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     scan.v = scan.v ? scan.v + (target - scan.v) * (1 - Math.exp(-dt / 0.6)) : target;   // ease to a new kPa
     if (now >= scan.next) { scan.fronts.push(0); scan.next = now + SCAN_EVERY * 1000; scan.el.classList.remove('tap'); void scan.el.offsetWidth; scan.el.classList.add('tap'); }
     scan.fronts = scan.fronts.map((r) => r + scan.v * dt).filter((r) => r < SCAN_SPAN);
-    const g = scan.el.querySelectorAll('.sp-waves g');
+    const g = scan.el.querySelectorAll('.sp-waves g'), gap = clamp(scan.v * SCAN_EVERY * 0.4, 2, SCAN_GAP);   // the ripples tighten when fronts are close, so neighbours never merge
     g.forEach((el, i) => {
       const r = scan.fronts[i];
       if (r == null) { el.style.opacity = 0; return; }
       const u = r / SCAN_SPAN, fade = Math.sin(Math.PI * Math.min(1, u * 1.15 + 0.04)) ** 1.2 * (1 - u * 0.35);
       el.style.opacity = fade.toFixed(3);
       // A short packet: the crest, with a faint ripple ahead and behind.
-      [...el.children].forEach((pth, j) => pth.setAttribute('d', scanArc(Math.max(1, r + (j - 1) * SCAN_GAP))));
+      [...el.children].forEach((pth, j) => pth.setAttribute('d', scanArc(Math.max(1, r + (j - 1) * gap))));
     });
     scan.raf = requestAnimationFrame(scanTick);
   }
