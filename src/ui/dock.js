@@ -3,14 +3,14 @@
 
 import { store, hiddenNow } from './store.js?v=5edd069b32';
 import { EDGES } from '../engine/topology.js?v=706a39d50b';
-import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=e0101a3fa2';
-import { lobuleFlows } from './lobule-model.js?v=0c0c959895';
-import { createProfile } from './charts.js?v=bcd2021343';
-import { createPressureTime } from './pressure-time.js?v=92faef86cd';
-import { createFibroScan } from './fibroscan.js?v=8335360dec';
-import { createHvpgProcedure } from './hvpg-proc.js?v=4050ce0652';
-import { createDoppler } from './doppler.js?v=d905792b53';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=67a27049f4';
+import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=045e641b44';
+import { lobuleFlows } from './lobule-model.js?v=e0a6918f70';
+import { createProfile } from './charts.js?v=17c82c589c';
+import { createPressureTime } from './pressure-time.js?v=a37b68e463';
+import { createFibroScan } from './fibroscan.js?v=b4b6e62ca6';
+import { createHvpgProcedure } from './hvpg-proc.js?v=ba33a59e09';
+import { createDoppler } from './doppler.js?v=a8f829ca25';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=831d9047a4';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -27,7 +27,7 @@ export const TILES = [
   { id: 'ppg', group: 'pressure', k: 'PPG', title: 'Portosystemic pressure gradient: portal confluence − inferior vena cava at the right atrium, directly from the model network. Unlike HVPG it also includes a block before the liver (presinusoidal or prehepatic). Normal < 6, high ≥ 12 mmHg.', why: 'ppg', hideKey: 'pv', v: (m) => m.ppg, d: 1, u: 'mmHg',
     scale: [0, 25], ticks: [6, 12],
     st: (v) => (v < 6 ? 'ok' : v < 12 ? 'caution' : 'danger'), s: (v) => (v < 6 ? 'Normal' : v < 12 ? 'Raised' : 'High') },
-  { id: 'pv', group: 'pressure', k: 'Portal pressure', title: 'Portal vein pressure at the portal confluence, absolute (model value). Normal ≤ 10 mmHg.', why: 'pv', v: (m) => m.pv, d: 1, u: 'mmHg', hideKey: 'pv',
+  { id: 'pv', group: 'pressure', k: 'Portal pressure', ks: 'Portal P', title: 'Portal vein pressure at the portal confluence, absolute (model value). Normal ≤ 10 mmHg.', why: 'pv', v: (m) => m.pv, d: 1, u: 'mmHg', hideKey: 'pv',
     scale: [0, 35], ticks: [10, 15],
     st: (v) => (v <= 10 ? 'ok' : v < 15 ? 'caution' : 'danger'), s: (v) => (v <= 10 ? 'Normal' : v < 15 ? 'Raised' : 'High') },
   // Flow and velocity averaged over a few breaths (pvFlowMean, pvVelMean): breathing swings the
@@ -149,7 +149,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // The Lobule view swaps the key readouts for the lobule's flows (the group is hidden elsewhere, by CSS).
   // Student mode keeps the two gradients (HVPG, PPG) and no "all readouts" chevron (CSS).
   const syncLobule = () => { const st = store.get(), on = !!st.lobule, pri = on ? LOBULE_PRIMARY : st.role === 'student' && st.mode === 'explore' ? STUDENT_PRIMARY : PRIMARY; strip.classList.toggle('lob', on); for (const x of Object.values(tileEls)) x.el.classList.toggle('primary', pri.has(x.t.id)); };
-  for (const k of ['lobule', 'role', 'mode']) store.on(k, () => { syncLobule(); setTimeout(() => dispatchEvent(new Event('resize')), 30); });
+  // A paused model sends no frames: fill the tiles from the last one at once (no dashes).
+  for (const k of ['lobule', 'role', 'mode']) store.on(k, () => { syncLobule(); if (frame) updateStrip(frame); setTimeout(() => dispatchEvent(new Event('resize')), 30); });
   syncLobule();
   const vitEls = VITALS.map((v) => {
     const val = h('b', {}, '—');
@@ -236,7 +237,12 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       const { el, t } = x;
       const lz = t.group === 'lobule';
       if (lz && !st0.lobule) continue;
-      const v = lz ? (st0.imaging ? null : t.v(f, st0)) : readoutValue(t, m, hidden);
+      const raw = lz ? (st0.imaging ? null : t.v(f, st0)) : readoutValue(t, m, hidden);
+      // The beat swings every value a little: the tile shows a running mean (about a second), so the
+      // number stays steady; a real step (beyond a tenth of the scale) or a paused model shows at once.
+      let v = raw;
+      if (raw != null && x.sm != null && st0.running && t.scale && Math.abs(raw - x.sm) < 0.1 * Math.abs(t.scale[1] - t.scale[0])) v = x.sm + (raw - x.sm) * Math.min(1, (now - x.smT) / 1200);
+      x.sm = v; x.smT = now;
       const measured = !lz && v != null && hidden?.has(t.hideKey);
       let sev, s;
       if (v == null) {
@@ -275,7 +281,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
           el.dataset.sev = sev; x.sev = sev;
         }
       } else x.sevNext = null;
-      if (sev === x.sev && x.st.textContent !== s) x.st.textContent = s;
+      if (sev === x.sev && x.st.textContent !== s) { x.st.textContent = s; x.st.classList.toggle('unmeas', v == null); }
       const aria = `${t.title || t.k}: ${v == null ? 'not measured' : `${fmt(v, t.d)} ${t.u}${t.ux || ''}, ${s}`}${x.trend ? `, ${x.trend === 'up' ? 'rising' : 'falling'}` : ''}`;
       if (aria !== x.ariaTxt) { x.ariaTxt = aria; el.setAttribute('aria-label', aria); }
     }

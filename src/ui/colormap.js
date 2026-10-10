@@ -59,9 +59,6 @@ export function deltaColor(d) {
   return `rgb(${c.map(Math.round).join(',')})`;
 }
 
-export function dropColor(dp) {
-  return pressureColor(Math.min(35, Math.abs(dp) * 2.5));
-}
 
 // ── Data layers (city-builder style views of the same network) ──────────────
 // Each is a sequential scale interpolated in OKLab, like the pressure map.
@@ -90,10 +87,10 @@ export const flowPos = (lpm) => Math.log10(Math.max(FLOW_MIN, lpm) / FLOW_MIN) /
 export const flowColor = (lpm) => flowScale(flowPos(lpm));
 export const flowCss = (dir) => flowScale.css(dir);
 
-// Mean velocity, cm/s on a square-root scale to 60: stagnant (thrombosis-prone) is dark red, as
-// traffic jams are in a city view; free-flowing is green.
+// Mean velocity, cm/s on a square-root scale to 60: one hue, light amber (slow) to deep brown
+// (fast), so it reads without colour vision and never uses red for "slow". Stasis is named on the label.
 export const VEL_MAX = 60;
-const velScale = makeScale([[0, '#7A1020'], [0.2, '#D2452F'], [0.34, '#EDA100'], [0.47, '#8CC63F'], [0.75, '#2FA36B'], [1, '#0E6468']]);
+const velScale = makeScale([[0, '#EBCB7E'], [0.35, '#D9923A'], [0.7, '#A3511F'], [1, '#5A220E']]);
 export const velPos = (v) => Math.sqrt(Math.min(VEL_MAX, Math.abs(v)) / VEL_MAX);
 export const velocityColor = (v) => velScale(velPos(v));
 export const velocityCss = (dir) => velScale.css(dir);
@@ -103,3 +100,10 @@ export const HEAT_MAX = 15;
 const heatScale = makeScale([[0, '#B4B8C2'], [0.12, '#F4D35E'], [0.45, '#F08A24'], [0.75, '#D7263D'], [1, '#6E0B2E']]);
 export const heatColor = (d) => heatScale(Math.max(0, d) / HEAT_MAX);
 export const heatCss = (dir) => heatScale.css(dir);
+
+// Pressure drop across a vessel, 0 to 12+ mmHg: its own green ramp, so switching from Pressure
+// visibly changes the figure (pale = no resistance, deep green = where the resistance lives).
+export const DROP_MAX = 12;
+const dropScale = makeScale([[0, '#DCE6D2'], [0.3, '#A8C97A'], [0.65, '#4F8C3C'], [1, '#1D4724']]);
+export const dropColor = (dp) => dropScale(Math.abs(dp) / DROP_MAX);
+export const dropCss = (dir) => dropScale.css(dir);

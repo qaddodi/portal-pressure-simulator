@@ -10,21 +10,21 @@
 // that must be placed first), `auto` (opens by itself) and `show(c)` (conditional steps).
 
 import { store, updateParams, replaceParams } from './store.js?v=5edd069b32';
-import { host } from './host.js?v=4bb9b57859';
-import { h, openModal, closeModal, toast, svgIcon } from './util.js?v=e0101a3fa2';
+import { host } from './host.js?v=5f360b39e4';
+import { h, openModal, closeModal, toast, svgIcon } from './util.js?v=045e641b44';
 import { addRecord, exportCSV, exportXAPI } from './records.js?v=50fb9dd463';
 import { scoreCase, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=7f4afcf446';
 import { veinBlocked } from './measure-model.js?v=96862e2586';
 import { CASES, ORDER_META, GROUPS } from './cases/index.js?v=78c53e6b35';
 import { EXPLAIN } from './cases/explain.js?v=81bcd9a17a';
 import { bpOf, tension, abdomen, esoText, spleenCm, ascitesText } from './cases/kit.js?v=4db57f825c';
-import { trustLine, optionList, bindQuestionKeys } from './learning-kit.js?v=709a64e91f';
-import { course, setUnitSurface, unitBar } from './course.js?v=91c1512351';
+import { trustLine, optionList, bindQuestionKeys } from './learning-kit.js?v=d80de1677e';
+import { course, setUnitSurface, unitBar } from './course.js?v=0339234e33';
 import { CASE_UNITS } from './cases/units.js?v=bde5f54566';
-import { activeInterventions } from './inspector.js?v=127b504390';
-import { captureFrame } from './timeline.js?v=5aaa481577';
-import { createRoute, ladder, SITE_OF_GROUP } from './ladder.js?v=cab65850a4';
-import { SNAPSHOTS } from './snapshots.js?v=250aebd278';
+import { activeInterventions } from './inspector.js?v=7eaae98614';
+import { captureFrame } from './timeline.js?v=30f6a2dab1';
+import { createRoute, ladder, SITE_OF_GROUP } from './ladder.js?v=18ecf24045';
+import { SNAPSHOTS } from './snapshots.js?v=d3e900d9e9';
 
 export { CASES };
 
@@ -658,7 +658,7 @@ export function createCases({ root, api, coach, onUnitEnd }) {
   const liftOver = (card) => {
     const wrap = document.getElementById('stageView')?.getBoundingClientRect(), q = card?.getBoundingClientRect();
     const px = card && wrap && q.height ? `${Math.round(wrap.bottom - q.top + 8)}px` : '';
-    for (const b of document.querySelectorAll('.stage-credit, .zoom-pill, .stage-clock')) b.style.setProperty('--sheet-h', px);
+    for (const b of document.querySelectorAll('.zoom-pill, .stage-clock')) b.style.setProperty('--sheet-h', px);
   };
   const MAX_ORDERS = 3;
   const unitSteps = () => [{ kind: 'present', title: 'The patient' }, { kind: 'orders', title: 'Orders' }, ...ctx.unit.def.steps.map((s) => ({ ...s, kind: s.type })), { kind: 'result', title: 'Result' }, { kind: 'debrief', title: 'Debrief' }];

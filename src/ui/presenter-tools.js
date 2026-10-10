@@ -17,12 +17,12 @@
 // (Doppler) carries on from slide to slide while the patient stays the same.
 
 import { store } from './store.js?v=5edd069b32';
-import { h, fmt, clamp } from './util.js?v=e0101a3fa2';
+import { h, fmt, clamp } from './util.js?v=045e641b44';
 import { EDGES } from '../engine/topology.js?v=706a39d50b';
-import { createDoppler } from './doppler.js?v=d905792b53';
-import { createFibroScan } from './fibroscan.js?v=8335360dec';
-import { createPressureTime } from './pressure-time.js?v=92faef86cd';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=67a27049f4';
+import { createDoppler } from './doppler.js?v=a8f829ca25';
+import { createFibroScan } from './fibroscan.js?v=b4b6e62ca6';
+import { createPressureTime } from './pressure-time.js?v=a37b68e463';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=831d9047a4';
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
   SMV_CONF: 'superior mesenteric vein', RHV_IVC: 'right hepatic vein', MHV_IVC: 'middle hepatic vein', LHV_IVC: 'left hepatic vein', IVCS_RA: 'inferior vena cava',
@@ -39,6 +39,7 @@ const READS = new Set(['doppler', 'fibroscan', 'scope']);
 const noop = () => {};
 
 export function createTools({ host, stage }) {
+  const ghostEl = h('div', { class: 'pz-ghost', 'aria-live': 'polite' });
   const box = h('div', { class: 'pz-tool' });
   const made = {};
   let cur = null, kind = null, probe0, lastSt = null;
@@ -74,12 +75,17 @@ export function createTools({ host, stage }) {
       inst.setWaves?.(!!t.waves);
       if (stateKey !== lastSt && (k === 'doppler' || k === 'beats')) inst.clear?.();
       lastSt = stateKey;
-      if (cur !== inst) box.replaceChildren(inst.el);
+      if (cur !== inst) box.replaceChildren(inst.el, ghostEl);
       cur = inst; kind = k;
       box.dataset.kind = k;
       box.classList.toggle('ask', quiz && READS.has(t.kind));
       if (k === 'talk') inst.set(chain);
       else { const f = store.get().frame; if (f) requestAnimationFrame(() => cur === inst && inst.update(f)); }
+    },
+    /** The earlier reading, faint beside the live one ({ label, value }), or null. Eases in and out. */
+    ghost(g) {
+      ghostEl.classList.toggle('on', !!g);
+      if (g) ghostEl.replaceChildren(h('span', {}, g.label), h('b', {}, g.value));
     },
     hide() { stage?.pinDoppler?.(null); stage?.setScanProbe?.(false); cur = null; kind = null; delete box.dataset.kind; },
     /** The presentation is over: the Doppler goes back to the vessel it had. */

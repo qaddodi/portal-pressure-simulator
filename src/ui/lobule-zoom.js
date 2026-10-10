@@ -22,13 +22,13 @@
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { store } from './store.js?v=5edd069b32';
 import { radiiChanged } from './lobule-render-cache.js?v=07951b5935';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=0c0c959895';
-import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=e0101a3fa2';
-import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=e0a6918f70';
+import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=045e641b44';
+import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=7616551729';
 import { NODES, EDGES } from '../engine/topology.js?v=706a39d50b';
-import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=44500994a2';
+import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=cb8a3840bd';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
-import { createSinusoidView } from './sinusoid-view.js?v=14866bc1c9';
+import { createSinusoidView } from './sinusoid-view.js?v=de74e96d8e';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const TAU = Math.PI * 2;
@@ -231,6 +231,16 @@ export function createLobuleZoom({ host }) {
     requestAnimationFrame(refit);
   };
   store.on('lobuleLayers', () => syncLayers());
+  // A presenter slide's pointer at the lesion (D4): { at: 'triad' | 'sin' | 'cv', label, kind: block | treat | note }.
+  const callEl = h('div', { class: 'lz-call', 'aria-hidden': 'true' }), callLine = s('line', { class: 'lz-call-l' }), callRing = s('circle', { class: 'lz-call-r' });
+  let call = null;
+  store.on('lobuleCallout', () => {
+    const c = store.get().lobuleCallout || null;
+    if (JSON.stringify(c) === JSON.stringify(call)) return;
+    call = c;
+    if (c) { callEl.textContent = c.label; callEl.dataset.kind = callLine.dataset.kind = callRing.dataset.kind = c.kind || 'block'; }
+    viewChanged();
+  });
 
   const phoneMQ = matchMedia('(max-width: 720px)');
   const el = h('div', { class: 'lz', 'aria-hidden': 'true' }, tissue, glCv, fx, leaders, labels);
@@ -803,10 +813,12 @@ export function createLobuleZoom({ host }) {
     const [a, ...rest] = u.split(' · ');
     return rest.length ? [h('small', {}, a), h('small', { class: 'u2' }, h('span', { class: 'dot' }, '· '), rest.join(' · '))] : [h('small', {}, u)];
   };
+  // What a presenter slide's terms call each label (presentLit, see presenter.js TARGETS).
+  const LZ_TARGET = { triad: 'triad', sin: 'sinusoid', cv: 'central', lymph: 'lymph' };
   function setLab(key, name, short, v, u, d, col) {
     let L = labs[key];
     if (!L) {
-      L = labs[key] = { el: h('button', { class: 'lz-lab', type: 'button' }), line: s('line', { class: 'leader' }), dotEl: s('circle', { class: 'leader-dot', r: 3 }) };
+      L = labs[key] = { el: h('button', { class: 'lz-lab', type: 'button', 'data-target': `lobule:${LZ_TARGET[key] || key}` }), line: s('line', { class: 'leader' }), dotEl: s('circle', { class: 'leader-dot', r: 3 }) };
       L.el.addEventListener('click', (ev) => { if (!geo || ev.detail !== 0) return; const q = anchorOf(key); select(hitKind(key), [q[0], q[1]]); });
       labels.append(L.el); leaders.append(L.line, L.dotEl);
     }
@@ -863,8 +875,30 @@ export function createLobuleZoom({ host }) {
     if (!inside(sinAt(sinTube()), keep)) { const t = best([...g.L0, ...g.L1, ...g.L2], sinAt, [[g.cx, g.cy], C[pick.triad]]); if (t) pick.sin = t.id; }
   }
   const hitKind = (key) => (key === 'triad' ? { part: 'triad', tri: pick.triad } : key === 'cv' ? { part: 'cv' } : key === 'lymph' ? { part: 'lv', tri: pick.lt ?? pick.triad } : { part: 'sin', tube: sinTube().id });
+  // The lesion pointer: a pill near the spot, clear of the labels and cards, with a leader to a ring on it. Eases in and out.
+  function placeCall(fr, placed, cards) {
+    if (!callEl.isConnected) { labels.append(callEl); leaders.append(callLine, callRing); }
+    const a = call && toScreen(anchorOf(call.at)), on = !!a && a[0] > fr.l && a[0] < fr.r && a[1] > fr.t && a[1] < fr.b;
+    for (const e of [callEl, callLine, callRing]) e.classList.toggle('on', on);
+    if (!on) return;
+    const w = callEl.offsetWidth || 120, hh = callEl.offsetHeight || 28, pad = 10;
+    const ov = (p, q) => Math.max(0, Math.min(p.r, q.r) - Math.max(p.l, q.l)) * Math.max(0, Math.min(p.b, q.b) - Math.max(p.t, q.t));
+    const rr = Math.max(10, (geo.rcv0 || 6) * 1.1 * V.k), spot = { l: a[0] - rr - 6, r: a[0] + rr + 6, t: a[1] - rr - 6, b: a[1] + rr + 6 };
+    let best = null;
+    for (const r of [70, 100, 140]) for (let i = 0; i < 12; i++) {
+      const t = (i / 12) * Math.PI * 2 - Math.PI / 2;
+      const x = clamp(a[0] + Math.cos(t) * (r + w / 3), fr.l + w / 2 + pad, fr.r - w / 2 - pad), y = clamp(a[1] + Math.sin(t) * r, fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
+      const box = { l: x - w / 2 - 4, r: x + w / 2 + 4, t: y - hh / 2 - 4, b: y + hh / 2 + 4 };
+      const cost = placed.reduce((c, o) => c + ov(box, o) * 100, 0) + ov(box, spot) * 200 + cards.reduce((c, o) => c + ov(box, o) * 400, 0) + Math.hypot(x - a[0], y - a[1]) * 0.5;
+      if (!best || cost < best.cost) best = { x, y, box, cost };
+    }
+    placed.push(best.box);
+    callEl.style.left = `${best.x - w / 2}px`; callEl.style.top = `${best.y - hh / 2}px`;
+    callLine.setAttribute('x1', a[0]); callLine.setAttribute('y1', a[1]); callLine.setAttribute('x2', best.x); callLine.setAttribute('y2', best.y);
+    callRing.setAttribute('cx', a[0]); callRing.setAttribute('cy', a[1]); callRing.setAttribute('r', rr);
+  }
   function layoutLabels() {
-    const fr0 = freeRect(), g = geo, key = `${g.W}x${g.H}|${Object.values(labs).map((l) => l.txt).join('|')}|${zonesOn}|${lymphOn}|${V.k},${V.x},${V.y}|${fr0.t},${fr0.b},${fr0.l},${fr0.r}`;
+    const fr0 = freeRect(), g = geo, key = `${g.W}x${g.H}|${Object.values(labs).map((l) => l.txt).join('|')}|${zonesOn}|${lymphOn}|${call ? call.at + call.label : ''}|${V.k},${V.x},${V.y}|${fr0.t},${fr0.b},${fr0.l},${fr0.r}`;
     if (key === layoutKey) return;
     layoutKey = key;
     pickAnchors(fr0);
@@ -877,7 +911,7 @@ export function createLobuleZoom({ host }) {
     const overlap = (a, b) => Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l))
       * Math.max(0, Math.min(a.b, b.b) - Math.max(a.t, b.t));
     if (zonesOn) {
-      const ap = R * 0.866, zk = clamp((R * V.k) / 300, 0.66, 1.15);
+      const ap = R * 0.866, zk = 1;   // (the zone names keep the one label size)
       for (const q of [0.83, 0.51, 0.2]) {
         const [x, y] = toScreen([cx, cy + ap * q]);
         placed.push({ l: x - 46 * zk, r: x + 46 * zk, t: y - 18 * zk, b: y + 18 * zk });
@@ -951,13 +985,14 @@ export function createLobuleZoom({ host }) {
     }
     // Zone names written in the bands themselves, as the organs are named on the anatomy: quiet capitals in each
     // zone's color, on the radius to the flat bottom edge, so each name runs along its band.
+    placeCall(fr, placed, cards);
     labels.querySelectorAll('.lz-zone').forEach((z) => z.remove());
     if (zonesOn) {
       const a = Math.PI / 2, ap = R * 0.866;
       // In proportion to the lobule on screen (within limits, so they stay legible and never shout).
-      const zk = clamp((R * V.k) / 300, 0.66, 1.15).toFixed(3);
+      const zk = '1';
       [[0.83, 'Zone 1', 'periportal'], [0.51, 'Zone 2', 'midzonal'], [0.2, 'Zone 3', 'centrilobular']].forEach(([q, t, d], i) => {
-        const z = h('div', { class: 'lz-zone z' + (i + 1), 'aria-hidden': 'true' }, h('b', {}, t), h('span', {}, d));
+        const z = h('div', { class: 'lz-zone z' + (i + 1), 'aria-hidden': 'true', 'data-target': `lobule:zone${i + 1}` }, h('b', {}, t), h('span', {}, d));
         // Its usual spot (on the radius to the flat bottom edge); if that is out of view, the nearest in-view spot
         // of the same zone (the same ring, at the other five sides and corners), else clamped to the free edge.
         const ring = [];

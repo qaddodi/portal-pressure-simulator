@@ -12,9 +12,9 @@
 // switch, undo/redo/reset, the Findings list, the Log instrument and Compare mode.
 
 import { store, replaceParams, onParamChange } from './store.js?v=5edd069b32';
-import { host } from './host.js?v=4bb9b57859';
-import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=e0101a3fa2';
-import { activeInterventions } from './inspector.js?v=127b504390';
+import { host } from './host.js?v=5f360b39e4';
+import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=045e641b44';
+import { activeInterventions } from './inspector.js?v=7eaae98614';
 
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };
 export const EVENT_WHY = { VARIX_RUPTURE: 'varix', RED_WALE: 'varix', VARIX_LARGE: 'varix', HEPATOFUGAL_PV: 'pvFlow', PV_STASIS: 'pvFlow', CSPH: 'hvpg', BLEED_RISK: 'hvpg', ASCITES_FORMING: 'ascites', TENSE_ASCITES: 'ascites', HIGH_SHUNT: 'shunt', LIVER_HYPOPERFUSION: 'liverPerf', RA_HIGH: 'ra', HYPERDYNAMIC: 'co', SPLENOMEGALY: 'spleen' };
@@ -81,6 +81,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   // The latest event, named beside the clock; a click opens it like its marker.
   const latestEl = h('button', { class: 'tl-latest', hidden: true });
   latestEl.addEventListener('click', (e) => { const i = latestEventIndex(); if (i >= 0) openMarker(e.currentTarget, [i]); });
+  latestEl.addEventListener('transitionend', (e) => { if (e.propertyName === 'opacity' && latestEl.classList.contains('stale')) latestEl.hidden = true; });
   const histCount = h('span', { class: 'tl-hc' });
   const histBtn = h('button', { class: 'tl-hist', 'aria-haspopup': 'dialog', title: 'History: every change and event, with a way back to each' }, svgIcon('menu', 'mi-ic'), h('span', { class: 'tl-hl' }, 'History'), histCount);
   histBtn.addEventListener('click', (e) => openHistory(e.currentTarget));
@@ -261,13 +262,18 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   // rebuilt when the timeline's contents change, or at most once a second as time passes.
   let trackW = 0;
   new ResizeObserver(() => { trackW = track.clientWidth; render(true); }).observe(track);
-  let lastRenderKey = '', lastMarksAt = 0, lastNow = -1;
+  let lastRenderKey = '', lastMarksAt = 0, lastNow = -1, leapT = 0;
   function render(force) {
     const W = trackW || (trackW = track.clientWidth);
     if (!W) return;
     const { at, now } = positions(W);
     const rn = Math.round(now);
-    if (rn !== lastNow) { lastNow = rn; fill.style.width = `${rn}px`; nowEl.style.left = `${rn}px`; }
+    // The playhead follows the clock frame by frame (a transform, no layout); only a leap (a jump,
+    // restart or resize) eases, so the transition is not restarted on every pixel.
+    if (rn !== lastNow) {
+      if (lastNow >= 0 && Math.abs(rn - lastNow) > 24) { track.classList.add('leap'); clearTimeout(leapT); leapT = setTimeout(() => track.classList.remove('leap'), 350); }
+      lastNow = rn; fill.style.width = `${rn}px`; nowEl.style.transform = `translateX(${rn}px)`;
+    }
     const key = `${entries.length}|${cursor}|${W}|${entries.map((e) => (e.snap ? 1 : 0)).join('')}`;
     const t = performance.now();
     if (!force && key === lastRenderKey && t - lastMarksAt < 1000) return;
@@ -412,12 +418,20 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
     if (k !== lastLatest) {
       lastLatest = k;
       latestEl.hidden = !e;
+      latestEl.classList.remove('stale');
       if (e) {
         latestEl.style.setProperty('--sev', SEV[e.sev] || SEV.info);
         latestEl.replaceChildren(h('i', { class: 'tl-ld', 'aria-hidden': 'true' }), h('span', {}, e.label), h('small', {}, e.kind === 'start' ? '' : fmtClock(e.t, e.day)));
         latestEl.setAttribute('aria-label', `Latest event at ${fmtClock(e.t, e.day)}: ${e.label}`);
         latestEl.title = `${fmtClock(e.t, e.day)} · ${e.label}${e.detail ? `\n${e.detail}` : ''}`;
       }
+    }
+    // After about 20 s of model time the chip fades away (History keeps the event); live only.
+    const f = frameNow();
+    const stale = !!e && cursor < 0 && !!f && f.day * 86400 + f.t - absT(e) > 20;
+    if (stale !== latestEl.classList.contains('stale')) {
+      latestEl.classList.toggle('stale', stale);
+      if (!stale) latestEl.hidden = !e;
     }
     const n = entries.filter((x) => x.kind !== 'start').length;
     if (histCount.textContent !== (n ? String(n) : '')) histCount.textContent = n ? String(n) : '';

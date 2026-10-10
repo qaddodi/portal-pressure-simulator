@@ -5,10 +5,10 @@
 
 import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent } from '../engine/topology.js?v=706a39d50b';
 import { store, updateParams, hiddenNow } from './store.js?v=5edd069b32';
-import { fmt, fmtFlow, clamp, toast } from './util.js?v=e0101a3fa2';
-import { aboutVessel, aboutOrgan } from './about.js?v=e2e9e6ee7d';
-import { lobuleState } from './lobule-model.js?v=0c0c959895';
-import { LABEL_VESSEL } from './anatomy.js?v=4355201afd';
+import { fmt, fmtFlow, clamp, toast } from './util.js?v=045e641b44';
+import { aboutVessel, aboutOrgan } from './about.js?v=5cd9e1d9c6';
+import { lobuleState } from './lobule-model.js?v=e0a6918f70';
+import { LABEL_VESSEL } from './anatomy.js?v=f43ab79a81';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -149,7 +149,7 @@ export function cardFor(selIn, ctx) {
 // station's pressure, as its label and the readouts do; any other vessel reads the mean of its ends.
 // Both use the breath-smoothed pressures the labels show, so the card never disagrees with them.
 const STATION_OF = Object.fromEntries(Object.entries(LABEL_VESSEL).map(([n, e]) => [e, n]));
-function edgeValue(e, f, lens, ref) {
+export function edgeValue(e, f, lens, ref) {
   const k = EI[e.id], PF = f.Pf || f.P, st = STATION_OF[e.id];
   const P1 = PF[NI[e.from]], P2 = PF[NI[e.to]], P = st ? PF[NI[st]] : (P1 + P2) / 2;
   const q = (f.Qf ? f.Qf[k] : f.Q[k]) * 0.06;

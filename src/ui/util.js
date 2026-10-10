@@ -139,6 +139,30 @@ export function announce(msg) {
 }
 
 /** Hover/focus tooltip. `text` may be a string, a function, or { text, key }. `side`: 'right' | 'bottom'. */
+// An ⓘ button: hover (or keyboard focus) shows the tooltip; a tap on touch opens the same text
+// under its row instead, easing open, and a second tap or a tap elsewhere closes it.
+function closeInfos(except) {
+  for (const r of document.querySelectorAll('.info-open')) if (r !== except) { r.classList.remove('info-open'); r.querySelector('.info-i')?.setAttribute('aria-expanded', 'false'); }
+}
+let infoWired = false;
+export function infoButton(text) {
+  const b = h('button', { class: 'info-i', type: 'button', 'aria-label': text, 'aria-expanded': 'false' }, icon('info'));
+  tooltipFor(b, text);
+  if (!infoWired) { infoWired = true; document.addEventListener('pointerdown', (e) => { if (!e.target.closest?.('.info-i, .ac-info')) closeInfos(); }, true); }
+  let touch = false;
+  b.addEventListener('pointerdown', (e) => { touch = e.pointerType === 'touch' || e.pointerType === 'pen'; });
+  b.addEventListener('click', (e) => {
+    if (!touch && !matchMedia('(hover: none)').matches) return;
+    e.preventDefault(); e.stopPropagation();
+    const row = b.closest('.ac-slider, .ctl') || b.parentElement;
+    if (!row.querySelector(':scope > .ac-info')) row.append(h('div', { class: 'ac-info' }, h('div', {}, h('p', {}, text))));
+    const open = !row.classList.contains('info-open');
+    closeInfos(row);
+    row.classList.toggle('info-open', open); b.setAttribute('aria-expanded', String(open));
+  });
+  return b;
+}
+
 export function tooltipFor(el, text, side = 'right') {
   const tip = document.getElementById('tooltip');
   const show = () => {
@@ -167,11 +191,16 @@ export function tooltipFor(el, text, side = 'right') {
 
 /** Floating menu/popover anchored to an element. Closes on outside click, Escape or re-open. */
 let openMenu = null;
-export function popover(anchor, content, { cls = '', align = 'start', place = 'below', onClose } = {}) {
+const reduceMotionMQ = matchMedia('(prefers-reduced-motion: reduce)');
+// sheet: on a phone the menu rises as a bottom sheet (full width, its text wraps) instead of a tall
+// popover; pass false for a menu that lays itself out.
+export function popover(anchor, content, { cls = '', align = 'start', place = 'below', onClose, sheet = true } = {}) {
   if (openMenu) { const same = openMenu.anchor === anchor; closePopover(); if (same) return null; }
-  const el = h('div', { class: 'menu ' + cls, role: 'dialog' }, content);
+  const asSheet = sheet && innerWidth < 768;
+  const el = h('div', { class: 'menu ' + cls + (asSheet ? ' as-sheet' : ''), role: 'dialog' }, content);
   document.body.append(el);
   const put = () => {
+    if (asSheet) return;
     // Layout size, not the rectangle: the opening animation scales the menu for a moment.
     const r = anchor.getBoundingClientRect(), z = uiScale(), mr = { width: el.offsetWidth * z, height: el.offsetHeight * z };
     let x = align === 'end' ? r.right - mr.width : align === 'center' ? r.left + r.width / 2 - mr.width / 2 : r.left;
@@ -181,6 +210,7 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
     el.style.top = clamp(y, 8, innerHeight - mr.height - 8) / z + 'px';
   };
   put();
+  if (asSheet) swipeSheet(el, () => closePopover());
   const off = (e) => { if (!el.contains(e.target) && !anchor.contains(e.target)) closePopover(); };
   const esc = (e) => { if (e.key === 'Escape') closePopover(); };
   setTimeout(() => { addEventListener('pointerdown', off, true); addEventListener('keydown', esc); }, 0);
@@ -192,8 +222,57 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
 export function repositionPopover() { if (openMenu) { openMenu.el.style.left = openMenu.el.style.top = '0px'; openMenu.put(); } }
 export function closePopover() {
   if (!openMenu) return;
-  openMenu.el.remove(); openMenu.anchor.setAttribute('aria-expanded', 'false'); openMenu.cleanup();
+  // The menu fades out (it is inert at once, so nothing under it waits), then leaves the page.
+  const el = openMenu.el;
+  if (reduceMotionMQ.matches || !el.isConnected) el.remove();
+  // A sheet swiped away is already sliding down; it leaves when it is out of sight.
+  else { el.classList.add('leaving'); el.inert = true; setTimeout(() => el.remove(), el.dataset.swiped ? 240 : 130); }
+  openMenu.anchor.setAttribute('aria-expanded', 'false'); openMenu.cleanup();
   openMenu = null;
+}
+/** A phone's bottom sheet follows a vertical drag from anywhere on it and closes past a short pull (or a quick
+ *  flick) down; a short one eases back. Content scrolled away from its top scrolls back first, a sideways drag
+ *  and a slider keep their own gestures, and taps work as normal. onClose closes it; the sheet is already
+ *  sliding out of sight (data-swiped is set) so the close needs no animation of its own. */
+export function swipeSheet(panel, onClose) {
+  let s = null;
+  const scroller = (t) => {
+    for (let n = t; n && n !== panel.parentElement; n = n.parentElement) if (n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(n).overflowY)) return n;
+    return null;
+  };
+  panel.addEventListener('touchstart', (e) => {
+    s = null;
+    if (e.touches.length !== 1 || e.target.closest('input[type="range"], textarea, [contenteditable]')) return;
+    const t = e.touches[0], sc = scroller(e.target);
+    s = { x: t.clientX, y: t.clientY, top: !sc || sc.scrollTop <= 0, on: false, dy: 0, t: 0 };
+  }, { passive: true });
+  panel.addEventListener('touchmove', (e) => {
+    if (!s) return;
+    if (e.touches.length !== 1) { end(); return; }
+    const t = e.touches[0], dx = t.clientX - s.x, dy = t.clientY - s.y;
+    if (!s.on) {
+      // A pull down from the top is the sheet's from its first move (so the page never starts scrolling under it).
+      const down = s.top && dy > 0 && dy >= Math.abs(dx);
+      if (down && e.cancelable) e.preventDefault();
+      if (Math.hypot(dx, dy) < 8) return;
+      if (!down) { s = null; return; }
+      s.on = true; s.y = t.clientY; s.t = performance.now();
+      panel.style.transition = 'none'; panel.style.animation = 'none';
+    }
+    if (e.cancelable) e.preventDefault();
+    s.dy = Math.max(0, t.clientY - s.y);
+    panel.style.transform = `translateY(${s.dy}px)`;
+  }, { passive: false });
+  const end = () => {
+    const s0 = s; s = null;
+    if (!s0?.on) return;
+    const flick = s0.dy > 30 && s0.dy / Math.max(1, performance.now() - s0.t) > 0.6;
+    panel.style.transition = 'transform .22s var(--ease)';
+    if (flick || s0.dy > Math.min(90, panel.offsetHeight * 0.3)) { panel.style.transform = 'translateY(100%)'; panel.dataset.swiped = '1'; onClose(); }
+    else { panel.style.transform = ''; setTimeout(() => { if (!s) panel.style.transition = ''; }, 240); }
+  };
+  panel.addEventListener('touchend', end);
+  panel.addEventListener('touchcancel', end);
 }
 export function menuItem(label, { checked, onClick, kb, icon: ic } = {}) {
   // A toggle with an icon keeps its icon (so every row in a group has one) and shows its state

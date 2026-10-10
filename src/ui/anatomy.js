@@ -346,7 +346,7 @@ export function metroPath([x1, y1], [x2, y2]) {
 }
 
 // Circuit pressure zones (x0, x1 in world units), captioned along the top of the map.
-export const CIRCUIT_ZONES = [['Splanchnic beds', 60, 390], ['Portal veins', 390, 630], ['Liver', 630, 950], ['Hepatic veins · IVC', 950, 1185], ['Heart', 1185, 1360]];
+export const CIRCUIT_ZONES = [['Splanchnic beds', 60, 390], ['Portal veins', 390, 630], ['Liver · sinusoids', 630, 950], ['Hepatic veins · IVC', 950, 1185], ['Heart', 1185, 1360]];
 
 // Station labels in the circuit: preferred placement around the node (tried in order) and
 // priority (higher wins when space is short; low-priority stations drop out on small screens).
@@ -385,6 +385,11 @@ export const ORGANS = [
   { id: 'kidney-l', tone: 'kidney', cls: 'org org-kidney', d: 'M1002 556 C 1040 548 1066 584 1064 626 C 1062 672 1034 700 1000 694 C 982 690 984 668 994 654 C 1000 642 998 630 990 620 C 984 606 978 574 1002 556 Z' },
   { id: 'esophagus', tone: 'eso', cls: 'org org-eso', d: 'M775 -90 L 799 -90 L 798 0 C 800 90 805 190 813 251 L 792 251 C 787 190 781 90 776 0 Z' },
   { id: 'heart', tone: 'heart', cls: 'org org-heart', d: 'M618 64 C 607 88 606 128 611 158 C 616 184 632 194 658 194 C 695 194 731 188 753 172 C 762 165 762 150 755 140 C 738 110 716 80 691 64 C 669 51 637 50 618 64 Z' },
+  // The right atrium: the chamber on the heart's right border (the viewer's left) that both cavae
+  // empty into (the SVC at its top, the IVC at its bottom), bulging a little past the ventricles' outline as
+  // the right heart border does; a smooth, rounded chamber smaller than the right ventricle.
+  // Presenter slides and the RA station point at it, not at the cava running into it.
+  { id: 'heart-ra', tone: 'ra', cls: 'org org-ra', d: 'M622 60 C 608 68 601 90 601 116 C 601 142 609 162 622 170 C 634 174 643 162 645 146 C 648 122 647 92 641 74 C 637 62 630 57 622 60 Z' },
   { id: 'heart-grooves', cls: 'org-heart-groove', deco: true, d: 'M691 64 C 700 108 722 152 751 176 M648 64 C 658 102 660 150 655 193' },
   { id: 'heart-out', cls: 'org-heart-flow', deco: true, d: 'M647 118 C 663 112 679 114 695 126' },
   { id: 'appendix', tone: 'gut', cls: 'org-appendix', band: true, d: 'M420 906 C 418 924 428 938 448 940' },
@@ -448,7 +453,7 @@ export const SITES = {
 // Organ captions: [text, x, y, anchor]
 export const ORGAN_LABELS = [
   ['Liver', 404, 446], ['Stomach', 918, 432], ['Spleen', 1058, 482], ['Colon', 1016, 824], ['Kidney', 1030, 716],
-  ['Small bowel', 866, 752], ['Esophagus', 860, 40], ['Right atrium', 704, 96],
+  ['Small bowel', 866, 752], ['Esophagus', 860, 40], ['Right atrium', 532, 118],
 ];
 
 // Atlas labels: node → caption and which margin column it hangs from.
@@ -514,7 +519,7 @@ export const SHORT = {
   AO: 'Aorta', HA: 'Hep. artery', INT: 'Gut bed', COL: 'Colon', SPL: 'Spleen', STO: 'Stomach', SMV: 'SMV', IMV: 'IMV', SV: 'Splenic v.',
   LGV: 'L. gastric v.', CONF: 'Portal v.', PVH: 'PV hilum', RPV: 'R portal', LPV: 'L portal', VAR: 'Esoph. varices', GV: 'Fundal varices',
   SIN_R: 'Sinusoids R', SIN_L: 'Sinusoids L', CV_R: 'Central v. R', CV_L: 'Central v. L', W_R: 'Wedge R', W_M: 'Wedge M', W_L: 'Wedge L',
-  RHV: 'RHV', MHV: 'MHV', LHV: 'LHV', IVCI: 'IVC', IVCS: 'IVC', RA: 'RA', SVC: 'SVC', AZY: 'Azygos', UPPV: 'Upper body',
+  RHV: 'RHV', MHV: 'MHV', LHV: 'LHV', IVCI: 'Lower IVC', IVCS: 'IVC', RA: 'RA', SVC: 'SVC', AZY: 'Azygos', UPPV: 'Upper body',
   LOWV: 'Lower body', ILI: 'Iliac v.', EPI: 'Umbilicus', KID_L: 'L kidney', KID_R: 'R kidney', LRV: 'L renal v.', RRV: 'R renal v.',
 };
 

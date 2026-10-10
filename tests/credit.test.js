@@ -1,5 +1,6 @@
-// The copyright credit must ship on every build, drawn over the figure in every view but beneath every card, sheet,
-// menu and popover. A merge once dropped the markup and the credit vanished without any error, so the markup, its
+// The copyright credit must ship on every build, drawn over the figure in every view and never covered by it or by a
+// card: cards and sheets leave the corner clear (the credit rises above a docked card, a sheet or a stacked slide card),
+// and only a full-screen menu, popover or dialog may pass over it while open. A merge once dropped the markup and the credit vanished without any error, so the markup, its
 // place in the page and its layer are all checked here.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -29,8 +30,49 @@ test('copyright credit sits in the stage, right after the figure', () => {
   assert.ok(end > view && at > end && at < html.indexOf('</main>'), 'the credit must follow the stage view inside the stage');
 });
 
-test('copyright credit is on the figure layer, beneath every card, and never takes a tap', () => {
-  const rule = css.match(/\.stage-credit \{[^}]*\}/)?.[0] ?? '';
+test('copyright credit is on the figure layer, placed by script, and never takes a tap', () => {
+  const rule = css.match(/\.stage-credit \{ position[^}]*\}/)?.[0] ?? '';
   assert.match(rule, /z-index: var\(--z-figure\);/);
   assert.match(rule, /pointer-events: none;/);
+  assert.match(rule, /translate: var\(--cx/);
+  assert.match(css, /\.app\.presenting \.stage-credit \{ z-index: calc\(var\(--z-hud\) \+ 1\); \}/);
+  assert.match(css, /\.stage-credit:not\(\.placed\), \.stage-credit\.moving, \.stage-credit\.covered \{ opacity: 0; \}/);
+});
+
+// The placement itself: a free box nearest each corner, never within the gap of a card.
+const { freeSpots, pickCorner } = await import('../src/ui/credit.js');
+const fig = { l: 0, t: 0, r: 390, b: 700 }, W = 200, H = 14;
+const clear = (s, obs) => obs.every((o) => s.x + W + 10 <= o.l || s.x - 10 >= o.r || s.y + H + 10 <= o.t || s.y - 10 >= o.b);
+
+test('credit keeps the bottom-left corner on a bare figure', () => {
+  const s = freeSpots(fig, [], W, H);
+  assert.deepEqual(s.bl, { x: 12, y: 700 - 12 - H });
+  assert.equal(pickCorner(s, null), 'bl');
+});
+
+test('copyright credit shrinks while a card sits beneath it', () => {
+  assert.match(css, /\.stage-credit\.busy \{ scale: \.875; \}/);
+  assert.match(css, /\.stage-credit \{[^}]*scale: \.875/);
+  assert.match(css, /\.stage-credit\.busy \{ scale: \.75; \}/);
+});
+
+test('credit rides above a card at the bottom, clear of it', () => {
+  const card = { l: 0, t: 520, r: 390, b: 700 };
+  const s = freeSpots(fig, [card], W, H);
+  assert.ok(s.bl && clear(s.bl, [card]) && s.bl.y + H <= 510);
+});
+
+test('credit moves to a top corner when cards cover the lower half', () => {
+  const obs = [{ l: 0, t: 0, r: 390, b: 60 }, { l: 0, t: 300, r: 390, b: 700 }];
+  const s = freeSpots(fig, obs, W, H);
+  assert.equal(s.bl, null);
+  assert.equal(pickCorner(s, null), 'tl');
+  assert.ok(clear(s.tl, obs));
+});
+
+test('credit keeps its current corner while it stays free, and fades when no figure is left', () => {
+  const s = freeSpots(fig, [{ l: 0, t: 600, r: 230, b: 700 }], W, H);
+  assert.equal(pickCorner(s, 'br'), 'br');
+  const none = freeSpots(fig, [{ l: 0, t: 0, r: 390, b: 700 }], W, H);
+  assert.equal(pickCorner(none, 'bl'), null);
 });

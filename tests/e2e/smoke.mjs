@@ -208,13 +208,37 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.locator('.action-card').waitFor({ state: 'hidden' });
   });
 
-  await check(device, 'home, palette, presenter, instruments', async (page) => {
-    await open(page, '?home=explore');
-    await page.waitForSelector('#home:not([hidden])');
-    await shot(page, `${device}-home`);
-    await page.evaluate(() => window.pps.home.open('present'));
-    await page.waitForFunction(() => document.querySelector('#home .pz-deck, #home .script'));
+  await check(device, 'menu, palette, presenter, instruments', async (page) => {
+    // ?home=present opens the one menu: both columns side by side, or a bottom sheet on a phone.
+    await open(page, '?home=present');
+    await page.waitForSelector('.umenu .um-row[data-k="d:hvpg"]');
+    const sheet = await page.evaluate(() => document.querySelector('.umenu').classList.contains('sheet'));
+    if (sheet !== (device === 'phone')) throw new Error(`the menu is ${sheet ? 'a sheet' : 'a popover'} on ${device}`);
+    // Two tabs, Present first: only its list shows.
+    const shown = await page.evaluate(() => [...document.querySelectorAll('.um-col')].filter((c) => c.offsetParent).map((c) => c.dataset.col).join());
+    if (shown !== 'present') throw new Error(`the menu opened showing ${shown || 'nothing'}, not the Present tab`);
+    await shot(page, `${device}-menu`);
+    // Typing "hvpg" leaves one presentation; Enter presents it.
+    await page.fill('.um-q', 'hvpg');
+    const left = await page.evaluate(() => [...document.querySelectorAll('.um-col[data-col="present"] li:not([hidden]) > .um-row')].filter((r) => r.offsetParent).length);
+    if (left !== 1) throw new Error(`"hvpg" left ${left} presentations`);
+    // "budd" has no presentation: the note offers the matching patient in the other tab.
+    await page.fill('.um-q', 'budd');
+    await page.waitForSelector('.um-other:not([hidden])');
+    await page.fill('.um-q', 'hvpg');
+    await page.press('.um-q', 'Enter');
+    await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting'));
     await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('#app').classList.contains('presenting'));
+    // A patient row loads that patient and marks it current.
+    await page.click('#btnMenu');
+    await page.click('#umtab-patients');
+    await page.click('.um-row[data-k="p:schisto"]');
+    await page.waitForFunction(() => window.pps.store.get().presetId === 'schisto' && !window.pps.menu.isOpen());
+    await page.click('#btnMenu');
+    await page.waitForSelector('.um-row[data-k="p:schisto"][aria-current="true"]', { state: 'visible' });
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('.umenu'));
     await page.evaluate(() => window.pps.palette.open());
     await page.waitForSelector('.pal-back:not([hidden])');
     await page.keyboard.press('Escape');
@@ -451,6 +475,41 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if (bad.length) throw new Error(`${w}×${hgt} ${q}${act ? ' + ' + act : ''}: ${bad.join('; ')}`);
     }
   });
+  // The corner credit never sits on or touches a card, a sheet, a bar or a slide's panels, in every mode and on every
+  // slide of a deck; it may fade out only when no figure is left (src/ui/credit.js).
+  await check(device, 'corner credit never touches a card', async (page) => {
+    const sizes = device === 'desktop' ? [[1440, 900], [820, 1180]] : [[390, 844]];
+    const creditHits = () => page.evaluate(() => {
+      const c = document.querySelector('.stage-credit'), r = c.getBoundingClientRect();
+      if (+getComputedStyle(c).opacity < 0.5) return [];
+      const out = [];
+      for (const el of document.querySelectorAll('.stage-blocker:not([hidden]), .menu, .pz-text, .pz-data, .pz-panel, .pz-bar')) {
+        const st = getComputedStyle(el), q = el.getBoundingClientRect();
+        if (st.display === 'none' || st.visibility === 'hidden' || +st.opacity < 0.05 || !q.width) continue;
+        if (q.left < r.right + 4 && q.right > r.left - 4 && q.top < r.bottom + 4 && q.bottom > r.top - 4) out.push(el.id || el.className.split(' ')[0]);
+      }
+      return out;
+    });
+    const settle = async () => { await page.waitForTimeout(900); await page.waitForFunction(() => !document.querySelector('.stage-credit.moving'), null, { timeout: 5000 }).catch(() => {}); };
+    const verify = async (what) => {
+      await settle();
+      let bad = await creditHits();
+      for (let i = 0; i < 3 && bad.length; i++) { await settle(); bad = await creditHits(); }
+      if (bad.length) throw new Error(`${what}: the credit touches ${bad.join(', ')}`);
+    };
+    for (const [w, hgt] of sizes) {
+      await page.setViewportSize({ width: w, height: hgt });
+      const at = `${w}×${hgt}`;
+      await open(page, '?preset=cirr-decomp'); await verify(`${at} explore`);
+      await page.evaluate(() => window.pps.store.set({ selection: { type: 'edge', id: 'PV_TRUNK' } })); await verify(`${at} vessel card`);
+      await open(page, '?preset=cirr-decomp'); await page.click('#tabInstruments'); await verify(`${at} tests`);
+      await page.evaluate(() => document.querySelector('#btnInspector').click()); await verify(`${at} tests + patient`);
+      await open(page, '?lesson=portal-flow'); await verify(`${at} lesson`);
+      await open(page, '?case=bleed'); await verify(`${at} case`);
+      await open(page, '?script=circulation');
+      for (let i = 0; i < 10; i++) { await verify(`${at} slide ${i + 1}`); await page.keyboard.press('ArrowRight'); }
+    }
+  });
   // The figure's labels never sit on each other: at the home framing, for every patient, on a phone, an iPad
   // held upright and a laptop, in the anatomy and the circuit (stage.js layoutLabels, its last overlap pass).
   await check(device, 'figure labels never overlap', async (page) => {
@@ -489,10 +548,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // lobule's labels, the bedside monitor, charts drawn in SVG or on a canvas) has its own sizes.
   await check(device, 'one type and icon scale in every menu and card', async (page) => {
     const surfaces = [
-      ['explore', null], ['menu', '#btnMenu'], ['patients', '#scenarioBtn'], ['blood', '#btnBlood'], ['colors', '#btnLayers'],
+      ['explore', null], ['menu', '#btnMenu'], ['blood', '#btnBlood'], ['colors', '#btnLayers'],
       ['findings', '#btnInspector'], ['treat', '#btnTreat'], ['measure', '#tabInstruments'], ['search', '#btnPalette'],
       ['vessel card', { type: 'edge', id: 'PV_TRUNK' }], ['liver card', { type: 'organ', id: 'liver' }], ['all readouts', '#strip .ro-more'],
-      ['help', '?'], ['home', 'home'],
+      ['help', '?'], ['menu from a link', 'home'],
     ];
     const bad = new Set();
     await open(page, '?preset=cirr-decomp');
@@ -507,7 +566,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await page.waitForTimeout(500);
       const found = await page.evaluate(() => {
         const ART = '#stage, #labels, .lz-lab, .lz-zone, .mon, .legend, svg';
-        const DISPLAY = '.home-head h1, .presenter-title, .big-overlay';
+        const DISPLAY = '.presenter-title, .big-overlay';
         const SIZES = [12, 14, 16, 20, 28], WEIGHTS = [400, 500, 600], ICONS = [16, 20, 24];
         const shown = (el) => { const r = el.getBoundingClientRect(), st = getComputedStyle(el); return r.width > 0 && r.height > 0 && st.visibility !== 'hidden'; };
         const who = (el) => { const c = (e) => e ? e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (typeof e.className === 'string' && e.className ? '.' + e.className.trim().split(/\s+/)[0] : '') : ''; return `${c(el.parentElement)} > ${c(el)}`; };

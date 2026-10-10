@@ -4,8 +4,8 @@
 // entry in the timeline; nothing stays "armed".
 
 import { store, updateParams } from './store.js?v=5edd069b32';
-import { h, icon, svgIcon, clamp, tooltipFor } from './util.js?v=e0101a3fa2';
-import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=e27052afd6';
+import { h, icon, svgIcon, clamp, tooltipFor, infoButton } from './util.js?v=045e641b44';
+import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=6ac4d44543';
 
 const LOCK_TIP = 'Not available in this step of the lesson or case';
 
@@ -48,7 +48,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   function liftButtons(px) {
     if (px === liftedBy) return;
     liftedBy = px;
-    lift ||= [...dockHost.querySelectorAll('.zoom-pill, .stage-clock, .stage-credit')];
+    lift ||= [...dockHost.querySelectorAll('.zoom-pill, .stage-clock')];
     for (const b of lift) b.style.setProperty('--sheet-h', px);
     // Keep the zoom and Fit pill above the card; hide only if it would reach the top bar.
     const pill = lift.find((b) => b.classList.contains('zoom-pill'));
@@ -226,7 +226,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       });
       // On a phone a short name sits on one row with its track; a long one stacks above it.
       const row = h('div', { class: 'ac-slider' + (lab.length > 13 ? ' long' : '') + (dis ? ' locked' : ''), title: dis ? LOCK_TIP : null },
-        h('div', { class: 'ctl-top' }, h('span', { class: 'ac-label' }, v.icon ? svgIcon(v.icon, 'ac-ic') : null, lab, v.info ? infoI(v.info) : null), val),
+        h('div', { class: 'ctl-top' }, h('span', { class: 'ac-label' }, v.icon ? svgIcon(v.icon, 'ac-ic') : null, lab, v.info ? infoButton(v.info) : null), val),
         h('div', { class: 'range-wrap' }, input),
         v.sub ? h('div', { class: 'ctl-sub' }, v.sub) : null);
       paint(v.get(p0));
@@ -298,7 +298,6 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     }
     return null;
   }
-  function infoI(text) { const b = h('button', { class: 'info-i', type: 'button', 'aria-label': text }, icon('info')); tooltipFor(b, text); return b; }
 
   let dragEl = null;
   el.addEventListener('pointerdown', (e) => { dragEl = e.target.closest?.('input[type=range], .ac-btn, .ac-toggle, .seg button') || null; });

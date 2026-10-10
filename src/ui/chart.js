@@ -9,11 +9,11 @@
 //   Advanced                             physiology knobs (instructor)
 
 import { store, updateParams, hiddenNow } from './store.js?v=5edd069b32';
-import { h, fmt, icon, svgIcon, toast } from './util.js?v=e0101a3fa2';
+import { h, fmt, icon, svgIcon, toast } from './util.js?v=045e641b44';
 import { DRUGS } from '../engine/scenario.js?v=2ab3fe1eb2';
-import { TILES, VITALS, readoutValue } from './dock.js?v=bee4540494';
-import { activeInterventions } from './inspector.js?v=127b504390';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=e27052afd6';
+import { TILES, VITALS, readoutValue } from './dock.js?v=cc13479fce';
+import { activeInterventions } from './inspector.js?v=7eaae98614';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=6ac4d44543';
 
 // Where each readout is measured, so a click can show it on the figure.
 const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS', 'DIPS'], spleen: ['V_SPL', 'SV_CONF'], ra: ['IVCS_RA'] };
@@ -35,7 +35,7 @@ const FIND = {
       ? ['Portal flow near stasis', `${n0(Math.abs(m.pvVelMean ?? m.pvVel))} cm/s (normal ≥ 15). Slow flow favors portal vein thrombosis.`]
       : ['Portal flow reduced', `${fmt(v, 1)} L/min at ${n0(Math.abs(m.pvVelMean ?? m.pvVel))} cm/s (normal ≥ 0.9 L/min, ≥ 15 cm/s).`],
   liver: (v, m) => ['Liver perfusion reduced', `${n0(v)} % of this model’s healthy sinusoidal flow. The hepatic artery has risen ×${fmt(m.habr, 1)} to buffer the loss of portal flow.`],
-  shunt: (v, m) => ['Portosystemic shunting', `${n0(v)} % of gut blood bypasses the liver (a model fraction, capped at 100 %).`],
+  shunt: (v, m) => ['Portosystemic shunting', `${n0(v)} % of the gut\u2019s blood bypasses the liver.`],
   varix: (v, m, sev) => [m.varix.d < 2.5 ? 'Varix wall under strain' : sev === 'critical' ? 'Varices close to rupture' : `Esophageal varices, ${m.varix.grade.label.toLowerCase()}`,
     `${n1(m.varix.d)} mm across; modeled wall stress ${n0(v)} % of the rupture point${m.varix.redWale ? ', with red wale signs' : ''}.`],
   ascites: (v, m) => [`Ascites, grade ${m.ascites.grade}`, `${fmt(v, 1)} L of free fluid in the abdomen.`],
@@ -86,23 +86,36 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
   // ── Changes ───────────────────────────────────────
   // Everything set away from a healthy adult (by a preset, a slider, a drug or a procedure), with
   // its value; one tap takes a change back.
+  // The loaded patient's own settings, while the learner is still on that patient in Explore.
+  function presetBase() {
+    const st = store.get(), b = st.presetParams;
+    return b && st.mode === 'explore' && b.id === st.presetId ? b.params : null;
+  }
   function changes() {
     const list = h('div', { class: 'chg-list', role: 'list' });
     const empty = h('p', { class: 'fd-empty' }, 'Nothing changed yet. Move a slider or treat, and it shows here.');
-    const clear = h('button', { class: 'link chg-clear', onclick: () => updateParams((q) => { for (const a of activeInterventions(q)) a.remove(q); return q; }, { label: 'Clear all changes' }) }, 'Clear all');
+    // Clear all takes back only the learner's own changes: the patient's own picture stays.
+    const clear = h('button', { class: 'link chg-clear', onclick: () => updateParams((q) => { const base = presetBase(); if (base) return structuredClone(base); for (const a of activeInterventions(q)) a.remove(q); return q; }, { label: 'Clear all changes' }) }, 'Clear all');
     let key = null, count = null;
+    const row = (a, undo) => {
+      const m = /^(.*?)\s+([×\d].*)$/.exec(a.label);
+      return h('div', { class: 'chg' + (undo ? '' : ' about'), role: 'listitem' },
+        h('span', { class: 'chg-n' }, m ? m[1] : a.label), m ? h('span', { class: 'chg-v' }, m[2]) : null,
+        undo ? h('button', { class: 'ib chg-x', 'aria-label': `Undo ${a.label}`, title: 'Undo this change', onclick: () => updateParams((q) => { a.remove(q); return q; }, { label: `Remove ${a.label}` }) }, icon('close')) : null);
+    };
     const paint = () => {
-      const active = activeInterventions(store.get().params), k = active.map((a) => a.label).join('|');
+      const base = presetBase();
+      const baseLabels = new Set(base ? activeInterventions(base).map((a) => a.label) : []);
+      const active = activeInterventions(store.get().params), k = active.map((a) => a.label).join('|') + '#' + [...baseLabels].join('|');
       if (k === key) return;
       key = k;
-      list.replaceChildren(...active.map((a) => {
-        const m = /^(.*?)\s+([×\d].*)$/.exec(a.label);
-        return h('div', { class: 'chg', role: 'listitem' },
-          h('span', { class: 'chg-n' }, m ? m[1] : a.label), m ? h('span', { class: 'chg-v' }, m[2]) : null,
-          h('button', { class: 'ib chg-x', 'aria-label': `Undo ${a.label}`, title: 'Undo this change', onclick: () => updateParams((q) => { a.remove(q); return q; }, { label: `Remove ${a.label}` }) }, icon('close')));
-      }));
-      empty.hidden = active.length > 0; clear.hidden = !active.length;
-      if (count) { count.textContent = active.length; count.hidden = !active.length; }
+      // What the patient came with is a fact about them, not a change to undo.
+      const about = active.filter((a) => baseLabels.has(a.label)), mine = active.filter((a) => !baseLabels.has(a.label));
+      list.replaceChildren(
+        ...(about.length ? [h('div', { class: 'chg-sub' }, 'About this patient'), ...about.map((a) => row(a, false)), h('div', { class: 'chg-sub' }, 'Your changes')] : []),
+        ...mine.map((a) => row(a, true)));
+      empty.hidden = mine.length > 0; clear.hidden = !mine.length;
+      if (count) { count.textContent = mine.length; count.hidden = !mine.length; }
     };
     live.push(paint);
     const sec = section('changes', 'Changes', 'sliders', '0', list, empty, clear);

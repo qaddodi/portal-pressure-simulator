@@ -19,8 +19,8 @@
 // the sinusoid exactly over the lobule's one at every step: first the vessel itself, then the tissue
 // around it.
 
-import { h, fmt, clamp, lerp } from './util.js?v=e0101a3fa2';
-import { pressureColor } from './colormap.js?v=6d64a94345';
+import { h, fmt, clamp, lerp } from './util.js?v=045e641b44';
+import { pressureColor } from './colormap.js?v=7616551729';
 import { isPaused } from './clock.js?v=d82cfa024b';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
 import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=77f7c03378';
@@ -44,10 +44,12 @@ export function createSinusoidView({ host }) {
   // leader, with its reading (if any) beneath in the lobule's number style. Captions in a narrow band (the lumen,
   // Disse) run along the vessel; those in the hepatocyte plates stay level.
   const regions = {};
+  const SV_TARGET = { fen: 'fenestrae', hsc: 'stellate', kup: 'kupffer', hep: 'hepatocyte', sin: 'lumen', in: 'in', out: 'out' };
   // One caption, built one way for every name in the view (the ends' venules are written exactly as the Sinusoid's own).
   function caption(key, cls, name, value) {
+    // (What a presenter slide's terms call each part: presentLit, see presenter.js TARGETS.)
     let R = regions[key];
-    if (!R) { R = regions[key] = { el: h('div', { class: cls }) }; labels.append(R.el); }
+    if (!R) { R = regions[key] = { el: h('div', { class: cls, 'data-target': `sinusoid:${SV_TARGET[key] || key}` }) }; labels.append(R.el); }
     const txt = name + '|' + value;
     if (R.text !== txt) {
       const same = R.text && R.text.split('|')[0] === name && R.el.children.length === 1 + (value ? value.split(' · ').length : 0);
@@ -117,7 +119,7 @@ export function createSinusoidView({ host }) {
     // the dock or the bar, is kept clear.)
     const t = cssN('--top-safe') + cssN('--cmp-h') + cssN('--pz-t') + 8 + (cssN('--pz-t') ? 0 : 40);
     const cr = document.querySelector('.stage-credit')?.getBoundingClientRect(), ht = host.getBoundingClientRect().top;
-    const b = Math.min(H - cssN('--pz-b') - 34, cr?.height ? cr.top - ht - 8 : H - 34), l = 12 + cssN('--pz-l'), r = W - 12 - cssN('--pz-r');
+    const b = Math.min(H - cssN('--pz-b') - 34, cr?.height && cr.top - ht > H / 2 ? cr.top - ht - 8 : H - 34), l = 12 + cssN('--pz-l'), r = W - 12 - cssN('--pz-r');
     return { l, t, r: Math.max(l + 80, r), b: Math.max(t + 80, b) };
   }
   // The stretch is laid out once per stage size. It runs along the stage's longer side: across on a
@@ -151,10 +153,9 @@ export function createSinusoidView({ host }) {
     if (!VW.k) { VW.k = VW.tk; VW.C = [...VW.tC]; }
     return geo;
   }
-  // On a desktop the lobule's labels are half as large again (stage.js deskK); these capitals, bolder and spaced, match
-  // them by eye a little smaller (1.4).
-  const deskMQ = matchMedia('(min-width: 1024px) and (pointer: fine)');
-  const labelK = () => (parseFloat(document.documentElement.style.getPropertyValue('--label-scale')) || 1) * (deskMQ.matches ? 1.4 : 1);
+  // The lobule's own label size (--label-k: the label setting, the desktop's baseline, a presentation's projector size),
+  // a touch smaller since these capitals are bolder and spaced.
+  const labelK = () => (parseFloat(document.documentElement.style.getPropertyValue('--label-k')) || 1) * 0.9;
   const VW = { k: 0, C: [0, 0], tk: 0, tC: [0, 0], f: null, vis: [0, 0], fr: [0, 0] };
   // Where it is drawn this frame: the view's own placement, carried by the zoom from the lobule while that runs.
   const CAM = { C: [0, 0], k: 1, ang: 0, ca: 1, sa: 0 };

@@ -1,34 +1,33 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=4bb9b57859';
+import { startHost, host } from './host.js?v=5f360b39e4';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=5edd069b32';
-import { createStage } from './stage.js?v=88e3186d25';
-import { sinusoidSupported } from './sinusoid-view.js?v=14866bc1c9';
-import { createInspector } from './inspector.js?v=127b504390';
-import { createDock, CUTOFFS } from './dock.js?v=bee4540494';
-import { setHvpgStage } from './hvpg-proc.js?v=4050ce0652';
-import { createWhy } from './why.js?v=051ee69d2b';
-import { createTimeline, LAPSES } from './timeline.js?v=5aaa481577';
-import { createLearn } from './learn.js?v=2ba33a4748';
-import { createCases, CASES } from './cases.js?v=a66f47cf4e';
-import { isBlind } from './learning-kit.js?v=709a64e91f';
-import { createCompare } from './compare.js?v=baa48f57a4';
-import { createCard } from './card.js?v=59e205bc1d';
-import { createChart, computeFindings } from './chart.js?v=8dafa598cb';
-import { createHome, ROLES } from './home.js?v=1159117682';
-import { course } from './course.js?v=91c1512351';
+import { createStage } from './stage.js?v=4559d3a537';
+import { createCreditPlacer } from './credit.js?v=b3a9118903';
+import { sinusoidSupported } from './sinusoid-view.js?v=de74e96d8e';
+import { createInspector } from './inspector.js?v=7eaae98614';
+import { createDock, CUTOFFS } from './dock.js?v=cc13479fce';
+import { setHvpgStage } from './hvpg-proc.js?v=ba33a59e09';
+import { createWhy } from './why.js?v=4f469f841e';
+import { createTimeline, LAPSES } from './timeline.js?v=30f6a2dab1';
+import { createLearn } from './learn.js?v=d0f5597022';
+import { createCases, CASES } from './cases.js?v=e7ff622ce5';
+import { isBlind } from './learning-kit.js?v=d80de1677e';
+import { createCompare } from './compare.js?v=6076ea1c5d';
+import { createCard } from './card.js?v=d6c7639034';
+import { createChart, computeFindings } from './chart.js?v=67f8e506cd';
+import { createMenu, ROLES } from './menu.js?v=d3062b3ce4';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=398e679a38';
-import { caption } from './a11y.js?v=d781e4dd20';
-import { startLMS } from './lms.js?v=cbfc3f30c7';
+import { caption } from './a11y.js?v=7b9d1b7a21';
+import { startLMS } from './lms.js?v=fca5c89200';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=e27052afd6';
-import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
-import { EDGES, NODES } from '../engine/topology.js?v=706a39d50b';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=e0101a3fa2';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue } from './actions.js?v=6ac4d44543';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=7616551729';
+import { EDGES } from '../engine/topology.js?v=706a39d50b';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, uiScale, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=045e641b44';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
-const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const app = $('#app');
 const view = $('#stageView');
 const isPhone = () => matchMedia('(max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape)').matches;
@@ -37,7 +36,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
 import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=0166e06ffb';
-import { initTopbarMotion } from './topbar-motion.js?v=a7ab34f946';
+import { initTopbarMotion } from './topbar-motion.js?v=a941da3e97';
 import { ORIGINS } from './blood.js?v=6c39f43ddf';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=2ab3fe1eb2';
 
@@ -48,17 +47,15 @@ const LENSES = {
   pressure: ['Pressure', 'Venous pressure in each vessel', () => gradientCss('to right', 30)],
   delta: ['Change', 'Higher or lower than healthy', () => 'linear-gradient(to right, #2D6CDF, #9696A0, #D22846)'],
   heat: ['Congestion', 'Where pressure has backed up', () => heatCss('to right')],
-  drop: ['Pressure drop', 'Where the resistance lives', () => gradientCss('to right', 30)],
+  drop: ['Pressure drop', 'Where the resistance lives', () => dropCss('to right')],
   flow: ['Flow volume', 'How much blood; width = flow', () => flowCss('to right')],
-  velocity: ['Velocity', 'How fast; red = stagnant', () => velocityCss('to right')],
+  velocity: ['Velocity', 'How fast; pale = slow, dark = fast', () => velocityCss('to right')],
   direction: ['Direction', 'Toward the liver or away', () => 'linear-gradient(to right, var(--flow-normal) 50%, var(--flow-reversed) 50%)'],
   origin: ['Blood origin', 'Where each vessel\u2019s blood comes from', () => `linear-gradient(to right, ${ORIGIN_CSS.map((c, i) => `${c} ${i * 20}% ${(i + 1) * 20}%`).join(', ')})`],
 };
 const COLOR_MODES = { pressure: 'Pressure', delta: 'Change', heat: 'Congestion', drop: 'Pressure drop', flow: 'Flow volume', velocity: 'Velocity', direction: 'Flow direction', origin: 'Blood origin' };
-const GROUP_COLOR = { Baseline: 'var(--ok)', 'Pre-hepatic': 'var(--s1)', Hepatic: 'var(--s5)', 'Post-hepatic': 'var(--s4)' };
-const LEVEL = { Normal: 'Baseline', Prehepatic: 'Pre-hepatic', Presinusoidal: 'Hepatic', Sinusoidal: 'Hepatic', Postsinusoidal: 'Hepatic', Posthepatic: 'Post-hepatic', Cardiac: 'Post-hepatic' };
 
-let stage, inspector, dock, why, timeline, learn, cases, compare, card, chart, home;
+let stage, inspector, dock, why, timeline, learn, cases, compare, card, chart, mainMenu;
 
 // Surfaces most sessions never open (the command palette, the presenter) load
 // on first use, so the first paint only waits for the model, the figure and the chart.
@@ -76,7 +73,8 @@ const palette = {
   isOpen: () => !!paletteL.now()?.isOpen(),
 };
 const presenter = {
-  home: () => presenterL.now()?.home() ?? (presenterL.get().then(() => { if (home.isOpen()) home.render(); }), h('div', { class: 'home-loading' }, 'Loading…')),
+  library: () => presenterL.get().then((p) => p.library()),
+  libraryNow: () => presenterL.now()?.library() ?? null,
   start: (id, at) => presenterL.get().then((p) => p.start(id, at)),
   presentCase: (id) => presenterL.get().then((p) => p.presentCase(id)),
   stop: () => presenterL.now()?.stop(),
@@ -126,12 +124,12 @@ async function main() {
     scenarioLabel: () => store.get().presetList?.find((x) => x.id === store.get().presetId)?.label || 'Custom',
   });
   chart = createChart({
-    onWhy: (m, el) => why.open(m, el), flash: (ids) => stage.flash(ids), onScenarios: (el) => openScenarios(el),
+    onWhy: (m, el) => why.open(m, el), flash: (ids) => stage.flash(ids), onScenarios: () => mainMenu.open('patients'),
     action: doAction, startShunt: (id, o) => stage.startShunt(id, o), select, timeline, pinned: () => compare.section(),
   });
   inspector = createInspector($('#inspector'), {
     onWhy: (m, el) => why.open(m, el), onAction: doAction, onOpenTab: (id) => dock.show(id, { reveal: true }),
-    onScenarios: () => openScenarios($('#scenarioBtn')), onMode: (m) => store.set({ mode: m }), chart,
+    onScenarios: () => mainMenu.open('patients'), onMode: (m) => store.set({ mode: m }), chart,
   });
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
@@ -139,27 +137,22 @@ async function main() {
   const api = { beginSession, endSession, onEnd: () => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); }, muteEvents: () => {}, loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), showFound: (list) => stage.showFound(list), runHvpg: () => { dock.show('hvpg', { reveal: true }); dock.pane('hvpg')?.start(); }, openPanel, setBanner, select: (sel) => store.set({ selection: sel }) };
   // A lesson keeps its card in view where the panel covers the figure: instruments it opens are
   // flagged, not forced.
-  learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else home.open(o?.practice ? 'practice' : 'course'); } });
-  cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => home.open('course') });
-  presenterL = lazy(() => import('./presenter.js?v=89bdb472a1'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else mainMenu.open(); } });
+  cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => mainMenu.open() });
+  presenterL = lazy(() => import('./presenter.js?v=23d8513954'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
-    closeHome: () => home.close(), stashCards, rerenderHome: () => { if (home.isOpen()) home.render(); } }));
-  home = createHome({
-    el: $('#home'), brandMark,
-    onPreset: (id) => openInExplore(id),
-    onLesson: (id) => { home.close(); startLesson(id); },
-    onUnit: (id) => { home.close(); if (course.unit(id)?.caseUnit) startCaseUnit(id); else startLesson(id); },
-    onCase: (id) => { home.close(); startCase(id); },
-    onPresenter: () => presenter.home(),
-    onClose: () => home.close(),
-    onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
+    closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
+  mainMenu = createMenu({
+    anchor: $('#btnMenu'), library: presenter.library, libraryNow: presenter.libraryNow,
+    onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
+    onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); },
   });
-  paletteL = lazy(() => import('./palette.js?v=70ce6d22a5'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=e97a577da4'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
     loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); toast(store.get().presetList.find((p) => p.id === id)?.label); },
-    lesson: (id) => startLesson(id), caseStart: (id) => startCase(id), home: () => home.open(), theme: () => toggleTheme(), help: () => openHelp(), share, restart: () => restartPatient(), reset: () => resetEverything(),
+    lesson: (id) => startLesson(id), caseStart: (id) => startCase(id), home: () => mainMenu.open(), theme: () => toggleTheme(), help: () => openHelp(), share, restart: () => restartPatient(), reset: () => resetEverything(),
   } }));
   card = createCard({
     view, stage, onWhy: (m, el) => why.open(m, el),
@@ -214,8 +207,10 @@ async function main() {
   };
   store.on('presetId', syncScenarioName);
   store.on('mode', syncScenarioName);
-  store.on('role', (r) => { if (home.isOpen()) home.render(); try { localStorage.setItem('pps.role', r); localStorage.removeItem('pps.narrator'); } catch { /* storage unavailable */ } narrPref = null; if (readLS('pps.showHvpg') == null) store.set({ showHvpg: r === 'student' }); app.dataset.role = r; card.render(); narrate(store.get().frame, performance.now(), true); });
+  store.on('role', (r) => { mainMenu.render(); try { localStorage.setItem('pps.role', r); localStorage.removeItem('pps.narrator'); } catch { /* storage unavailable */ } narrPref = null; if (readLS('pps.showHvpg') == null) store.set({ showHvpg: r === 'student' }); app.dataset.role = r; card.render(); narrate(store.get().frame, performance.now(), true); });
   $('#narratorWhy').addEventListener('click', (e) => why.open('pv', e.currentTarget));
+  // Where the caption is clamped to two lines, a tap shows the rest (and a second tap folds it again).
+  $('#narratorText').addEventListener('click', () => $('#narrator').classList.toggle('full'));
   app.dataset.role = store.get().role;
   for (const k of ['compareSnap', 'compareView', 'colorMode', 'imaging', 'found', 'sinusoid', 'lobule']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
   store.on('compareSnap', () => { if (!store.get().details) inspector.render(); });
@@ -224,8 +219,9 @@ async function main() {
   store.on('selection', redraw);
 
   // Console handle for educators preparing a class (and for automated screenshots).
-  window.pps = { loadPreset, store, updateParams, setTool, dock, stage, host, card, timeline, home, palette, startLesson, startCase, presenter };
-  if (await presenter.readLink()) home.open('present');
+  window.pps = { loadPreset, store, updateParams, setTool, dock, stage, host, card, timeline, menu: mainMenu, palette, startLesson, startCase, presenter };
+  const linked = await presenter.readLink();
+  if (linked) mainMenu.open('scripts', { mark: typeof linked === 'string' ? linked : null });
   const shared = readShare();
   if (shared) await loadShared(shared); else timeline.reset();
   inspector.render();
@@ -234,10 +230,10 @@ async function main() {
   store.set({ booted: true });
   const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
   setTimeout(() => idle(() => { paletteL.warm(); presenterL.warm(); }), 3000);
-  addEventListener('pps:lang', () => { if (home.isOpen()) home.render(); });
+  addEventListener('pps:lang', () => mainMenu.render());
 }
 // Deep links, for an LMS or a syllabus: ?lesson=<id> (&step=<step id or n>), ?case=<id>, ?script=<id> (&slide=<n>), ?preset=<id>,
-// ?home=explore|learn|cases|present. They open straight into that activity.
+// ?home=explore|present (the menu, open at Patients or Present). They open straight into that activity.
 async function openDeepLink() {
   const q = new URLSearchParams(location.search);
   if (q.get('lesson')) { startLesson(q.get('lesson'), q.get('step')); return true; }
@@ -251,7 +247,7 @@ async function openDeepLink() {
     if (near) { await loadPreset(near.id); return true; }
     return false;
   }
-  if (q.get('home')) { home.open(q.get('home')); return true; }
+  if (q.get('home')) { mainMenu.open(q.get('home') === 'present' ? 'present' : 'patients'); return true; }
   return false;
 }
 const redraw = () => { const f = store.get().frame; if (f) stage.update(viewFrame(f)); };
@@ -274,9 +270,16 @@ function viewFrame(f) {
 // The engine ticks ~30×/s, but pressures ease over seconds, so the anatomy, readouts and panel
 // are repainted at most ~10×/s (the chevrons animate separately). Repainting the whole SVG plate
 // on every tick kept the main thread busy and the laptop warm for no visible gain.
-let lastPaint = 0, lastDesc = 0, homeStale = false;
+let lastPaint = 0, lastDesc = 0;
 // The Doppler's vessel glows on the figure while the Doppler instrument is open.
-function syncDoppler(f = store.get().frame) { stage?.setDoppler(f && dock?.isOpen('doppler') ? f.probe : null); }
+function syncDoppler(f = store.get().frame) { stage?.setDoppler(f && dock?.isOpen('doppler') ? f.probe : null); syncScanProbe(); }
+// The FibroScan probe and its shear wave show on the figure while the FibroScan card is open in Explore; the Presenter drives its own.
+let scanOwned = false;
+function syncScanProbe() {
+  const want = store.get().mode === 'explore' && !!dock?.isOpen('fibroscan');
+  if (store.get().mode !== 'explore') { scanOwned = false; return; }
+  if (want !== scanOwned) { scanOwned = want; stage?.setScanProbe(want); }
+}
 // Settings no patient could live through (circulatory collapse): a plain warning over the figure, so nobody
 // reads numbers off an impossible patient. Hysteresis keeps it from flickering at the edge.
 const COLLAPSE = { on: (m) => m.map < 45 || m.co < 1.5, off: (m) => m.map > 50 && m.co > 1.8 };
@@ -294,13 +297,11 @@ function syncCollapse(m) {
 function onFrame(f) {
   if (f.params) replaceParams(f.params);
   if (f.events?.length) { const hid = store.get().hiddenEvents; const ev = hid ? f.events.filter((e) => !hid.has(e.id) && !(hid.has('COLL_*') && e.id.startsWith('COLL_'))) : f.events; if (ev.length) timeline.addEvents(ev); }
-  dock?.ingest(f);   // every frame's samples, even one that is not painted (or while Home covers everything)
+  dock?.ingest(f);   // every frame's samples, even one that is not painted
   const now = performance.now();
   if (!f.changed && !f.params && !f.events?.length && now - lastPaint < 80) return;
   lastPaint = now;
   store.set({ frame: f, running: f.running, clock: f.clock, ...(f.clock === 'hemo' && store.get().lapse ? { lapse: 0, speed: f.speed } : {}) });
-  // Home covers the whole workspace: keep the latest frame, paint it when Home closes.
-  if (home?.isOpen()) { homeStale = true; return; }
   stage.update(viewFrame(f));
   syncCollapse(f.metrics);
   card.update(f);
@@ -314,7 +315,6 @@ function onFrame(f) {
   if (tipInfo) hoverInfo(tipInfo);   // the readings popup stays live with the sim
   updateBleedBanner(f);
   updateFindBadge(f);
-  syncModeName();
   if (projector) updateProjector(f);
   if (now - lastDesc > 3000) { lastDesc = now; $('#stage').setAttribute('aria-description', caption(f)); }
   narrate(f, now);
@@ -354,27 +354,11 @@ function setNarrator(on) {
 
 
 // ── Scenarios & share ───────────────────────────────
-function openScenarios(anchor) {
-  const presets = store.get().presetList;
-  const groups = {};
-  for (const p of presets) (groups[p.group] ||= []).push(p);
-  const cur = store.get().presetId;
-  const body = h('div', {},
-    h('div', { class: 'scn-head' }, 'Patients'),
-    Object.entries(groups).map(([g, ps]) => h('div', { class: 'scn-group' + (LEVEL[g] === 'Hepatic' ? ' sub' : '') },
-      LEVEL[g] === 'Hepatic' && g === 'Presinusoidal' ? h('div', { class: 'menu-title' }, h('i', { style: { background: GROUP_COLOR.Hepatic } }), 'Hepatic') : null,
-      LEVEL[g] === 'Hepatic' ? h('div', { class: 'scn-sub' }, g === 'Sinusoidal' ? 'Intrasinusoidal' : g) : h('div', { class: 'menu-title' }, h('i', { style: { background: GROUP_COLOR[LEVEL[g]] || 'var(--text-3)' } }), LEVEL[g] || g),
-      ps.map((p) => h('button', { class: 'scn', title: p.summary, 'aria-current': String(p.id === cur), onclick: async () => {
-        closePopover();
-        await loadPreset(p.id);
-        toast(p.days ? `${p.label}: ${p.days} simulated days applied.` : p.label);
-      } }, p.label.replace(/\s*\(.*\)$/, ''))))));
-  popover(anchor, body, { cls: 'scenario-pop', align: 'end' });
-}
-
-// The patient picker's path: close Home, switch to Explore and load the patient (also used by "Open this patient in Explore").
+// The corner credit stays on the figure while the menu's popover is open: src/ui/credit.js finds it a spot clear of the
+// panel (fading out, jumping and fading back in), or fades it out when no figure is left.
+let creditPlacer = null;
+// The menu's patient rows: switch to Explore and load the patient (also used by "Open this patient in Explore").
 async function openInExplore(id) {
-  home.close();
   if (store.get().mode !== 'explore') store.set({ mode: 'explore' });
   await loadPreset(id);
 }
@@ -387,6 +371,7 @@ async function loadPreset(id, opts = {}) {
   // Patients tapped in quick succession: the engine loads them in order, so only the last one's answer is applied.
   if (gen !== presetGen) return;
   replaceParams(res.params);
+  store.set({ presetParams: { id, params: structuredClone(res.params) } });   // what the patient came with (chart.js: About this patient)
   clearHistory();
   store.set({ presetLoading: false, presetId: id, lastHVPG: null, hvpgMeasured: false, selection: store.get().mode === 'cases' ? null : store.get().selection, historyTick: (store.get().historyTick || 0) + 1 });
   timeline?.reset(store.get().mode === 'cases' ? 'Case' : store.get().presetList?.find((x) => x.id === id)?.label);
@@ -473,7 +458,6 @@ function endSession(kind, opts) {
 }
 
 function startLesson(id, step) { if (store.get().mode === 'cases') cases.exit(); store.set({ mode: 'learn' }); learn.start(id, step); }
-function startCaseUnit(id) { if (store.get().mode === 'learn') learn.stop(); store.set({ mode: 'cases' }); cases.startUnit(id); }
 function startCase(id) { if (store.get().mode === 'learn') learn.stop(); store.set({ mode: 'cases' }); cases.start(id); openPanel(); }
 
 // ── Actions ─────────────────────────────────────────
@@ -581,25 +565,27 @@ function renderLegend() {
   const scale = (grad, nums, ticks = []) => h('div', { class: 'lg-scale' }, h('div', { class: 'lg-bar', style: { background: grad } }),
     ticks.map((p) => h('span', { class: 'lg-tick', style: { left: p + '%' } })),
     nums.map(([p, t]) => h('span', { class: 'lg-num' + (p >= 99 ? ' end' : p <= 1 ? ' start' : ''), style: { left: p + '%' } }, t)));
+  // Where the full title is hidden (narrow screens), a two-word caption keeps the lens and its unit.
+  const cap = (k, u) => h('div', { class: 'lg-cap', 'aria-hidden': 'true' }, k, h('small', {}, u));
   if (m === 'pressure' || m === 'drop') {
     const max = 30, at = (p) => (p / max) * 100;
-    el.replaceChildren(h('div', { class: 'lg-title' }, m === 'pressure' ? 'Mean venous pressure' : 'Pressure drop', h('small', {}, 'mmHg')),
+    el.replaceChildren(h('div', { class: 'lg-title' }, m === 'pressure' ? 'Mean venous pressure' : 'Pressure drop', h('small', {}, 'mmHg')), cap(m === 'pressure' ? 'Pressure' : 'Drop', 'mmHg'),
       m === 'pressure' ? scale(gradientCss('to right', max), PRESSURE_TICKS.map((p) => [at(p), String(p)]), PRESSURE_TICKS.map(at))
-        : scale(gradientCss('to right', max), [[0, '0'], [100, '12+']]));
-    el.setAttribute('aria-label', m === 'pressure' ? 'Legend: mean venous pressure at each vessel, 0 to 30 millimeters of mercury, pale blue to dark magenta' : 'Legend: pressure drop across each vessel, 0 to 12 or more millimeters of mercury');
+        : scale(dropCss('to right'), [[0, '0'], [100, '12+']]));
+    el.setAttribute('aria-label', m === 'pressure' ? 'Legend: mean venous pressure at each vessel, 0 to 30 millimeters of mercury, pale blue to dark magenta' : 'Legend: pressure drop across each vessel, 0 to 12 or more millimeters of mercury, pale to deep green');
   } else if (m === 'flow') {
     const at = (v) => flowPos(v) * 100;
-    el.replaceChildren(h('div', { class: 'lg-title' }, 'Flow volume', h('small', {}, 'L/min · width ∝ √flow')),
-      scale(flowCss('to right'), [[at(0.02), '0.02'], [at(0.1), '0.1'], [at(0.5), '0.5'], [at(1), '1'], [at(5), '5']], [at(0.1), at(1)]));
+    el.replaceChildren(h('div', { class: 'lg-title' }, 'Flow volume', h('small', {}, 'L/min · width ∝ √flow')), cap('Flow', 'L/min'),
+      scale(flowCss('to right'), [[at(0.02), '0.02'], [at(0.5), '0.5'], [at(5), '5']], [at(0.5)]));
     el.setAttribute('aria-label', 'Legend: flow volume from 0.02 to 6 liters per minute on a log scale, pale mint to deep blue; line width grows with flow');
   } else if (m === 'velocity') {
     const at = (v) => velPos(v) * 100;
-    el.replaceChildren(h('div', { class: 'lg-title' }, 'Mean velocity', h('small', {}, 'cm/s')),
+    el.replaceChildren(h('div', { class: 'lg-title' }, 'Mean velocity', h('small', {}, 'cm/s')), cap('Velocity', 'cm/s'),
       scale(velocityCss('to right'), [[at(0), '0'], [at(5), '5'], [at(15), '15'], [at(30), '30'], [at(60), '60']], [at(5)]));
-    el.setAttribute('aria-label', 'Legend: mean blood velocity from 0 to 60 centimeters per second; dark red is stagnant (below 5), green is free-flowing');
+    el.setAttribute('aria-label', 'Legend: mean blood velocity from 0 to 60 centimeters per second, pale amber (slow; stasis below 5) to deep brown (fast)');
   } else if (m === 'heat') {
     const at = (v) => (v / HEAT_MAX) * 100;
-    el.replaceChildren(h('div', { class: 'lg-title' }, 'Congestion', h('small', {}, `mmHg above ${ref}`)),
+    el.replaceChildren(h('div', { class: 'lg-title' }, 'Congestion', h('small', {}, `mmHg above ${ref}`)), cap('Congestion', 'mmHg'),
       scale(heatCss('to right'), [[at(0), '0'], [at(5), '5'], [at(10), '10'], [at(15), '15+']], []));
     el.setAttribute('aria-label', `Legend: pressure above ${ref}, 0 to 15 millimeters of mercury, grey to yellow to deep red, with a glow where congestion is highest`);
   } else if (m === 'direction') {
@@ -614,7 +600,7 @@ function renderLegend() {
       h('span', { class: 'lg-note' }, svgIcon('info'), 'Pressures unmeasured')));
     el.setAttribute('aria-label', 'Legend: violet portal veins, blue systemic veins. Pressures are unmeasured in this case: investigate with the tools.');
   } else {
-    el.replaceChildren(h('div', { class: 'lg-title' }, `Change from ${ref}`, h('small', {}, 'mmHg')),
+    el.replaceChildren(h('div', { class: 'lg-title' }, `Change from ${ref}`, h('small', {}, 'mmHg')), cap('Change', 'mmHg'),
       scale('linear-gradient(to right, #2D6CDF, #9696A0, #D22846)', [[0, '−12'], [50, '0'], [100, '+12']], [50]));
     el.setAttribute('aria-label', `Legend: change in pressure from ${ref}, blue lower, red higher, up to 12 millimeters of mercury`);
   }
@@ -646,7 +632,7 @@ function injectDye({ hold = false } = {}) {
 function menuToggle(checked, ic, label, sub, onChange) {
   let on = !!checked;
   const b = h('button', { class: 'lens lens-opt' + (on ? ' on' : ''), role: 'menuitemcheckbox', 'aria-checked': String(on) },
-    svgIcon(ic, 'bo-ic'), h('span', { class: 'lens-t' }, label), sub ? h('span', { class: 'lens-d' }, sub) : null);
+    svgIcon(ic, 'bo-ic'), h('span', { class: 'lens-t' }, label), sub ? h('span', { class: 'lens-d' }, sub) : null, h('span', { class: 'mt-sw', 'aria-hidden': 'true' }));
   b.addEventListener('click', () => { on = !on; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); onChange(on); });
   return b;
 }
@@ -661,7 +647,9 @@ function openBlood(anchor) {
     toggle(!!b.chevrons, 'chevrons', 'Chevrons', 'Arrowheads moving with the flow; orange where it runs backwards', (on) => setBlood({ chevrons: on })),
     h('div', { class: 'menu-sep' }),
     h('div', { class: 'menu-title' }, 'Show on the figure'),
-    layer('chips', 'tag', 'Pressure values', 'The number beside each vessel\u2019s name'),
+    // A student's figure keeps to names (stage.js, the quiet rule), so the switch would do nothing there.
+    st.role === 'student' && st.mode === 'explore' ? h('div', { class: 'lens lens-opt lens-hint' }, svgIcon('tag', 'bo-ic'), h('span', { class: 'lens-t' }, 'Pressure values'), h('span', { class: 'lens-d' }, 'Tap a vessel to see its pressure'))
+      : layer('chips', 'tag', 'Pressure values', 'The number beside each vessel\u2019s name'),
     layer('collaterals', 'route', 'Potential collaterals', 'Dotted routes that open as pressure rises'),
     layer('labels', 'liver', 'Organ names'),
     h('div', { class: 'menu-sep' }),
@@ -693,6 +681,13 @@ function openLobuleLayers(anchor) {
     menuToggle(!!l.lymph, 'lymph', 'Lymph', 'Lymph forming in the space of Disse and draining to the portal tract', (on) => set({ lymph: on })),
   ], { cls: 'blood-pop' });
 }
+// Students see the five core lenses; Congestion, Velocity and Origin are instructor extras
+// (the current lens always stays listed).
+const STUDENT_HIDDEN = ['heat', 'velocity', 'origin'];
+function lensKeys() {
+  const st = store.get();
+  return Object.keys(LENSES).filter((k) => st.role !== 'student' || k === st.colorMode || !STUDENT_HIDDEN.includes(k));
+}
 function openLayers(anchor) {
   const s0 = store.get();
   const cur = store.get().colorMode;
@@ -704,7 +699,7 @@ function openLayers(anchor) {
     return b;
   };
   popover(anchor, [
-    h('div', { class: 'lens-grid' }, Object.keys(LENSES).map(lens)),
+    h('div', { class: 'lens-grid' }, lensKeys().map(lens)),
     s0.imaging ? h('div', { class: 'ctl-sub', style: { padding: '2px 10px 6px' } }, s0.blind ? 'The numbers appear once you answer.' : 'This case shows anatomy only until you measure.') : null,
   ], { cls: 'layers-pop' });
 }
@@ -734,7 +729,7 @@ function hoverInfo(info) {
   const v = f.Q[k] / (Math.PI * D * D / 4);
   const r = (a, b) => h('div', { class: 'r' }, a, h('b', {}, b));
   tipEl.replaceChildren(h('div', { class: 't' }, e.label),
-    r('Pressure', `${fmt(f.P[NI[e.from]], 1)} → ${fmt(f.P[NI[e.to]], 1)} mmHg`), r('Flow', `${fmtFlow(f.Q[k] * 0.06)} L/min`),
+    r('Pressure', `${edgeValue(e, f, 'pressure', null).v} mmHg`), r('Flow', `${fmtFlow((f.Qf ? f.Qf[k] : f.Q[k]) * 0.06)} L/min`),
     r('Velocity', `${fmt(v, 1)} cm/s`), r('Diameter', `${fmt(f.D[k], 1)} mm`), h('div', { class: 'hint' }, info.peek ? 'Tap for actions' : 'Click or right-click for actions'));
   tipEl.style.display = '';
   tipEl.classList.toggle('peek', !!info.peek);
@@ -788,8 +783,7 @@ function renderBanner() {
 // ── Top bar & transport ─────────────────────────────
 function wireTopbar() {
   initDebug(() => stage.zoomLevel());
-  $('#btnMenu').addEventListener('click', (e) => openMainMenu(e.currentTarget));
-  $('#scenarioBtn').addEventListener('click', (e) => openScenarios(e.currentTarget));
+  $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());
   $('#btnInspector').addEventListener('click', () => { if (panelShown() && !store.get().details) closePanel(); else { store.set({ details: null }); openPanel(); } });
@@ -797,31 +791,6 @@ function wireTopbar() {
   for (const [id, side] of [['#btnPalette', 'bottom'], ['#btnTreat', 'bottom'], ['#btnInspector', 'bottom'], ['#zoomIn', 'left'], ['#zoomOut', 'left'], ['#zoomFit', 'left'], ['#rotateCircuit', 'left']]) {
     const b = $(id); tooltipFor(b, b.title, side); b.removeAttribute('title');
   }
-}
-// The main menu (the button at the top left, named after the current mode): where to go (Explore,
-// Presenter), what to do with the figure (share, export, present), and the
-// settings and help. It replaces the logo (which gave no sign it was a menu) and three icons.
-const MODE_NAME = { explore: 'Explore', learn: 'Lesson', cases: 'Case', compare: 'Explore' };
-function syncModeName() {
-  const n = presenter.active() ? 'Presenter' : MODE_NAME[store.get().mode] || 'Explore', el = $('#modeName');
-  if (el.textContent !== n) el.textContent = n;
-}
-function openMainMenu(anchor) {
-  const mode = store.get().mode;
-  const go = (tab) => () => { closePopover(); home.open(tab); };
-  const sub = (label, ic, fn, d) => { const b = menuItem(label, { icon: ic, onClick: () => { closePopover(); fn(); } }); if (d) b.append(h('small', { class: 'mi-d' }, d)); return b; };
-  const modeItem = (id, tab, ic, label, d) => { const b = sub(label, ic, go(tab), d); b.classList.add('mm-mode'); if (mode === id) b.setAttribute('aria-current', 'true'); return b; };
-  popover(anchor, [
-    h('div', { class: 'mm-head' }, brandMark(), h('div', {}, h('b', {}, 'Portal Pressure Simulator'), h('small', {}, 'Choose what to do'))),
-    h('div', { class: 'mm-modes' },
-      modeItem('explore', 'explore', 'explore', 'Explore a patient', 'Any of the patients, from healthy to Budd–Chiari'),
-      // The course, lessons and cases are hidden (their code stays); the presenter is open to both roles.
-      modeItem('present', 'present', 'projector', 'Present', 'Slide presentations on the live model')),
-    h('div', { class: 'menu-sep' }),
-    menuItem('Copy a link to this exact state', { icon: 'share', onClick: () => { closePopover(); share(); } }),
-    h('div', { class: 'menu-sep' }),
-    menuItem(t('menu.help') + '…', { icon: 'help', kb: '?', onClick: () => { closePopover(); setTimeout(() => openHelpMenu(anchor), 0); } }),
-  ], { cls: 'main-menu', align: 'start' });
 }
 // The role ("I am a…") in Settings: choosing one sets store.role, and the 'role' listener saves it
 // and redraws the cards, the chart and Home.
@@ -965,11 +934,9 @@ function applyTheme(t, clear) {
   syncStatusBar();
 }
 // The browser's and the installed app's status bar take the color of whatever sits under it: the
-// figure (the top bar floats over it), or the start screen when it is open. The theme can differ from the system's, so the
-// color comes from the page, not from a media query.
+// figure (the top bar floats over it). The theme can differ from the system's, so the color comes from the page, not from a media query.
 function syncStatusBar() {
-  const homeEl = document.getElementById('home');
-  const el = homeEl && !homeEl.hidden ? homeEl : document.getElementById('stageWrap');
+  const el = document.getElementById('stageWrap');
   const c = el && getComputedStyle(el).backgroundColor;
   if (!c || c === 'rgba(0, 0, 0, 0)') return;
   let m = document.querySelector('meta[name="theme-color"]:not([media])');
@@ -980,7 +947,6 @@ function syncStatusBar() {
   if (m.content !== c) m.content = c;
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => syncStatusBar());
-new MutationObserver(() => syncStatusBar()).observe(document.getElementById('home'), { attributes: true, attributeFilter: ['hidden'] });
 // (again once the figure's background has finished its .5 s fade)
 new MutationObserver(() => { syncStatusBar(); setTimeout(syncStatusBar, 600); }).observe(document.getElementById('app'), { attributes: true, attributeFilter: ['class'] });
 function readLS(k) { try { return localStorage.getItem(k); } catch { return null; } }
@@ -1076,7 +1042,8 @@ function wireFloating() {
     const was = +(tb.dataset.fit || 0) + (tb.classList.contains('two-rows') ? 1 : 0);
     tb.classList.remove('two-rows');
     let fit = 0;
-    const steps = wide ? 3 : 0;
+    // A phone held sideways has the width for one row too, once the bar compacts.
+    const steps = wide || matchMedia('(orientation: landscape)').matches ? 3 : 0;
     for (; fit <= steps; fit++) {
       tb.dataset.fit = String(fit);
       if (need() <= avail - (fit < was ? 24 : 0)) break;
@@ -1096,6 +1063,12 @@ function wireFloating() {
     // On a phone the instruments sheet rises from the bottom edge, over the vitals dock.
     const bot = isPhone() && sheet ? Math.max(vdock + gap, sheet) : vdock + gap + sheet;
     app.style.setProperty('--bot-occ', px(bot));
+    // The patient chart is a bottom sheet on a phone, over the dock: the corner credit rides above it, unless the
+    // sheet is so tall (a case's decision, nearly full screen) that there is no figure left to ride on.
+    const pn = $('#panel'), lift = isPhone() && panelShown() && pn.offsetParent ? pn.offsetParent.clientHeight - pn.offsetTop + 8 : 0;
+    const tall = !!pn.offsetParent && lift > 0 && pn.offsetParent.clientHeight - lift < $('#topbar').offsetHeight + 48;
+    app.style.setProperty('--panel-h', px(tall || !lift ? 0 : lift + 4));
+    app.style.setProperty('--panel-cover', tall ? '1' : '0');
     dispatchEvent(new Event('pps:occ'));
   };
   const soon = () => { if (!pubRaf) pubRaf = requestAnimationFrame(publish); };
@@ -1105,10 +1078,12 @@ function wireFloating() {
   new MutationObserver(soon).observe($('#treatCard'), { attributes: true, attributeFilter: ['hidden'] });
   new MutationObserver(soon).observe($('#dock'), { attributes: true, attributeFilter: ['class', 'data-state'] });
   addEventListener('resize', soon);
+  // The corner credit finds a free spot on the figure (src/ui/credit.js).
+  creditPlacer = createCreditPlacer($('.stage-credit'));
   publish();
   panelSheet = sheetBehaviour($('#panel'), { handle: h('button', { class: 'panel-grab', 'aria-label': 'Resize the patient chart' }), drag: '.panel-head', onClose: closePanel });
-  treatSheet = sheetBehaviour($('#treatCard'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the Treat card' }), drag: '.tc-head', onClose: closeTreat });
-  dockSheet = sheetBehaviour($('#dock'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the instruments' }), drag: '.dock-head', onClose: () => dock.close(), active: () => isPhone() && !$('#dock').classList.contains('side') && !app.classList.contains('instrument-focus') });
+  treatSheet = sheetBehaviour($('#treatCard'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the Treat card' }), drag: '.tc-head', onClose: closeTreat, fit: '.tc-body' });
+  dockSheet = sheetBehaviour($('#dock'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the instruments' }), drag: '.dock-head', anywhere: true, onClose: () => dock.close(), active: () => isPhone() && !$('#dock').classList.contains('side') && !app.classList.contains('instrument-focus') });
   // Focus: dragging, pinching or scrolling the figure fades the floating pieces until it stops.
   let busyT = 0, down = null, moved = false;
   const busy = (ms) => { app.classList.add('stage-busy'); clearTimeout(busyT); busyT = setTimeout(() => app.classList.remove('stage-busy'), ms); };
@@ -1136,34 +1111,62 @@ function wireFloating() {
 // Phone: the chart and Treat are bottom sheets with three heights; a drag on the handle (or the
 // head) moves between them, and below the lowest closes the sheet. Wider: the head drags the card
 // aside, and it returns to its place when it closes.
-function sheetBehaviour(el, { handle, drag, onClose, active = () => true }) {
+// fit: the scrolling body's selector; at the middle stop the sheet is only as tall as its content.
+function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = null, anywhere = false }) {
   const SIZES = [0.32, 0.56, 0.9];
   let size = 1;
   el.prepend(handle);
-  const apply = () => el.style.setProperty('--sheet-size', `${Math.round(SIZES[size] * 100)}%`);
+  const natural = () => {
+    if (!fit || !isPhone() || el.hidden) return Infinity;
+    const cs = getComputedStyle(el);
+    // The body fills the sheet, so its own height says nothing: measure down to its last child.
+    const inner = (c) => { const l = c.lastElementChild; if (!l) return 0; const b = parseFloat(getComputedStyle(c).paddingBottom) + parseFloat(getComputedStyle(l).marginBottom); return l.getBoundingClientRect().bottom - c.getBoundingClientRect().top + c.scrollTop + b; };
+    return [...el.children].reduce((a, c) => a + (c.matches(fit) ? inner(c) : c.offsetHeight), 0) + parseFloat(cs.paddingBottom) + parseFloat(cs.paddingTop);
+  };
+  const apply = () => {
+    const need = size === 1 ? natural() : Infinity;
+    el.style.setProperty('--sheet-size', need < SIZES[1] * app.clientHeight ? `${Math.ceil(need)}px` : `${Math.round(SIZES[size] * 100)}%`);
+  };
+  // A new tab refits the sheet to its content (the height eases).
+  if (fit) el.addEventListener('click', (e) => { if (size === 1 && e.target.closest('[role="tab"]')) requestAnimationFrame(apply); });
   apply();
   handle.addEventListener('click', () => { if (!isPhone() || !active()) return; size = (size + 1) % SIZES.length; apply(); });
-  let start = null;
-  const grabbed = (e) => e.target === handle || (e.target.closest(drag) && !e.target.closest('button, a, input, select, [role="tab"]'));
+  let start = null, swallow = false;
+  // Controls keep their own gestures. With `anywhere` (a phone sheet), a vertical drag from any other spot on the
+  // card moves it too; a sideways one is left alone, and content scrolled away from its top scrolls back first.
+  const CONTROLS = 'button, a, input, select, textarea, label, [role="tab"], [role="slider"], [contenteditable]';
+  const scroller = (t) => { for (let n = t; n && n !== el; n = n.parentElement) { if (n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(n).overflowY)) return n; } return null; };
   el.addEventListener('pointerdown', (e) => {
-    if (!grabbed(e) || !active() || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    if (start || !active() || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    const own = e.target === handle || !!e.target.closest(drag);
+    if (e.target !== handle && e.target.closest(CONTROLS)) return;
+    if (!own && !(anywhere && isPhone())) return;
     const r = el.getBoundingClientRect(), mv = (el.style.translate || '0px 0px').split(' ').map(parseFloat);
-    start = { x: e.clientX, y: e.clientY, h: r.height, H: app.clientHeight, tx: mv[0] || 0, ty: mv[1] || 0, moved: false };
-    el.setPointerCapture?.(e.pointerId);
+    start = { id: e.pointerId, x: e.clientX, y: e.clientY, h: r.height, H: app.clientHeight, tx: mv[0] || 0, ty: mv[1] || 0, moved: false, loose: !own, sc: own ? null : scroller(e.target) };
+    if (own) el.setPointerCapture?.(e.pointerId);
   });
   el.addEventListener('pointermove', (e) => {
-    if (!start) return;
+    if (!start || e.pointerId !== start.id) return;
     const dx = e.clientX - start.x, dy = e.clientY - start.y;
-    if (!start.moved && Math.hypot(dx, dy) < 6) return;
-    start.moved = true;
+    if (!start.moved) {
+      if (Math.hypot(dx, dy) < 6) return;
+      const sc = start.sc;
+      if (start.loose && (Math.abs(dx) > Math.abs(dy) || (sc && (sc.scrollTop > 0 || (dy < 0 && size === SIZES.length - 1))))) { start = null; return; }
+      start.moved = true;
+      if (start.loose) el.setPointerCapture?.(e.pointerId);
+    }
     el.classList.add('dragging');
     if (isPhone()) el.style.height = `${Math.max(60, start.h - dy)}px`;
     else el.style.translate = `${start.tx + dx}px ${start.ty + dy}px`;
   });
-  const end = () => {
-    if (!start) return;
+  // Once the sheet follows the finger, the page must not scroll under it, and the lift is not a tap.
+  el.addEventListener('touchmove', (e) => { if (start?.moved && e.cancelable) e.preventDefault(); }, { passive: false });
+  el.addEventListener('click', (e) => { if (swallow) { swallow = false; e.stopPropagation(); e.preventDefault(); } }, true);
+  const end = (e) => {
+    if (!start || (e && e.pointerId !== start.id)) return;
     const s0 = start; start = null;
     el.classList.remove('dragging');
+    if (s0.moved) { swallow = true; setTimeout(() => { swallow = false; }, 350); }
     if (!s0.moved || !isPhone()) return;
     const frac = el.getBoundingClientRect().height / s0.H;
     el.style.height = '';
@@ -1175,13 +1178,20 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true }) {
   return { open: () => { if (isPhone()) { size = 1; apply(); } }, closed: () => { el.style.translate = ''; el.style.height = ''; } };
 }
 // The findings badge: a check when nothing is abnormal, else how many findings, in the color of the worst.
-let lastFindKey = '', lastFindN = 0;
+// A new count must hold for a moment before the badge takes it, so a value hovering on a cut-off
+// with every beat does not flicker the count (or bump it) back and forth.
+let lastFindKey = '', lastFindN = 0, nextFindKey = '', nextFindSince = 0;
 function updateFindBadge(f) {
   // In a case where pressures are unmeasured, a check would claim more than is known.
   const unknown = !!store.get().imaging;
   const found = unknown ? [] : computeFindings(f.metrics, hiddenNow());
   const sev = unknown ? 'none' : found[0]?.sev || 'ok', n = found.length, key = `${n}|${sev}`;
-  if (key === lastFindKey) return;
+  if (key === lastFindKey) { nextFindKey = ''; return; }
+  const now = performance.now();
+  if (key !== nextFindKey) { nextFindKey = key; nextFindSince = now; }
+  // Only a one-step change at the same severity (the beat straddling a cut-off) waits; a new patient or a real change shows at once.
+  const [ln, ls] = lastFindKey.split('|');
+  if (lastFindKey && ls === sev && Math.abs(n - +ln) === 1 && store.get().running && now - nextFindSince < 2000) return;
   lastFindKey = key;
   const el = $('#findBadge');
   el.dataset.sev = sev;
@@ -1238,7 +1248,6 @@ function closeTreat() {
 function onMode(mode) {
   app.dataset.mode = mode;
   const ptitle = document.querySelector('#panelTitle span'); if (ptitle) ptitle.textContent = 'Patient';
-  syncModeName();
   if (mode !== 'cases' && cases?.active()) cases.exit();
   if (mode !== 'learn' && learn?.active()) learn.stop();
   if (mode !== 'learn' && mode !== 'cases') { bannerInfo = null; store.set({ focus: null }); }
@@ -1267,7 +1276,7 @@ function wireKeyboard() {
     if (e.key === 'Escape') {
       closePopover();
       if (isModalOpen()) closeModal();
-      else if (home.isOpen()) home.close();
+      else if (mainMenu.isOpen()) mainMenu.close();
       else if (projector) toggleProjector();
       else if (app.classList.contains('instrument-focus')) dock.setState('open');
       else if (treatOpen()) closeTreat();
@@ -1277,7 +1286,7 @@ function wireKeyboard() {
       else store.set({ selection: null });
       return;
     }
-    if (isModalOpen() || home.isOpen()) return;
+    if (isModalOpen() || mainMenu.isOpen()) return;
     if (e.key === '/') { e.preventDefault(); palette.open(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); (e.shiftKey ? doRedo : doUndo)(); return; }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -1297,7 +1306,7 @@ function wireKeyboard() {
     const k = e.key.toLowerCase();
     if (k === 'a' && !e.shiftKey) { if (store.get().sinusoid) return; store.set({ lobule: false, view: store.get().view === 'circuit' ? 'anatomic' : 'circuit' }); return; }
     if ((k === 'l' || (e.key === 'C' && e.shiftKey)) && !store.get().imaging && !(store.get().lobule && store.get().sinusoid)) {
-      const ks = Object.keys(LENSES), i = ks.indexOf(store.get().colorMode);
+      const ks = lensKeys(), i = ks.indexOf(store.get().colorMode);
       const next = ks[(i + (e.shiftKey && k === 'l' ? ks.length - 1 : 1)) % ks.length];
       store.set({ colorMode: next }); toast(`Lens: ${LENSES[next][0]}. ${LENSES[next][1]}.`); return;
     }
@@ -1357,11 +1366,6 @@ function wirePanel() {
 }
 
 // ── Help & first run ────────────────────────────────
-function brandMark() {
-  const s = document.querySelector('.brand-mark').cloneNode(true);
-  s.removeAttribute('class'); s.removeAttribute('hidden');
-  return s;
-}
 function openHelp(section) {
   const rows = [
     ['Space', 'Play / pause'], ['[ ]', 'Slower / faster'], ['.', 'Step'], ['Z', 'Settle to equilibrium'], ['A', 'Anatomy ⇄ circuit'],
