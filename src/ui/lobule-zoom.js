@@ -1394,7 +1394,8 @@ export function createLobuleZoom({ host }) {
           const big = t.kind === 'pv' || t.kind === 'cv' || t.kind === 'in';
           // The triad's three vessels carry a dark outline of their own colour; the rest the common casing.
           const edge = EDGE[t.kind];
-          const flags = (selIdsN.has(t.id) ? F_SEL : 0) | (edge ? F_EDGE : 0) | (isArt || isBd ? 0 : F_DIFFUSE | F_SHADOW | (big ? F_SPEC : 0));
+          // The central vein is drawn flat (no light or dark line): on its round hub they read as stray arcs.
+          const flags = (selIdsN.has(t.id) ? F_SEL : 0) | (edge ? F_EDGE : 0) | (isArt || isBd ? 0 : F_SHADOW | (t.kind === 'cv' ? 0 : F_DIFFUSE | (big ? F_SPEC : 0)));
           const z = { s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.13, an: 0.09, lt: 0.25, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.8, sh: 0.5, bd: 0.55, tw: 0.6, ha: 0.7 }[t.kind];
           tubeData.set([...c0, WALL[t.kind], ...c1, alpha, 1, z, flags, 0], o);
           tubeData.set([0, 1, t.len, 0], o + 20);
