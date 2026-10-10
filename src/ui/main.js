@@ -10,17 +10,17 @@ import { createDock, CUTOFFS } from './dock.js?v=3419490c7d';
 import { setHvpgStage } from './hvpg-proc.js?v=bb053422f1';
 import { createWhy } from './why.js?v=82d0ada42e';
 import { createTimeline, LAPSES } from './timeline.js?v=bf87e94cd0';
-import { createLearn } from './learn.js?v=c5b2be8b18';
-import { createCases, CASES } from './cases.js?v=8d4fbd875f';
+import { createLearn } from './learn.js?v=5ed958def5';
+import { createCases, CASES } from './cases.js?v=cd7eea377b';
 import { isBlind } from './learning-kit.js?v=83e19de948';
 import { createCompare } from './compare.js?v=6c5edeb764';
 import { createCard } from './card.js?v=bec985d017';
 import { createChart, computeFindings } from './chart.js?v=62d1022a9b';
-import { createHome, ROLES } from './home.js?v=8d2a41eb64';
-import { UNITS, course } from './course.js?v=16e2e211aa';
+import { createHome, ROLES } from './home.js?v=61286c3285';
+import { UNITS, course } from './course.js?v=5391cf593b';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=3113b1ec12';
 import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=db814778e1';
-import { startLMS } from './lms.js?v=69d542165c';
+import { startLMS } from './lms.js?v=843ef1d32e';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=732cefd9b1';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
@@ -139,7 +139,7 @@ async function main() {
   // A lesson keeps its card in view where the panel covers the figure: instruments it opens are
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else home.open(o?.practice ? 'practice' : 'course'); } });
-  cases = createCases({ root: $('#panelCase'), api });
+  cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => home.open('course') });
   presenterL = lazy(() => import('./presenter.js?v=c3dcb57d97'), ({ createPresenter }) => createPresenter({ startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
@@ -147,13 +147,13 @@ async function main() {
     el: $('#home'), brandMark,
     onPreset: (id) => openInExplore(id),
     onLesson: (id) => { home.close(); startLesson(id); },
-    onUnit: (id) => { home.close(); startLesson(id); },
+    onUnit: (id) => { home.close(); if (course.unit(id)?.caseUnit) startCaseUnit(id); else startLesson(id); },
     onCase: (id) => { home.close(); startCase(id); },
     onPresenter: () => presenter.home(),
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=3c3ba88acf'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=615ae13fd7'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -446,6 +446,7 @@ function endSession(kind, opts) {
 }
 
 function startLesson(id, step) { if (store.get().mode === 'cases') cases.exit(); store.set({ mode: 'learn' }); learn.start(id, step); }
+function startCaseUnit(id) { if (store.get().mode === 'learn') learn.stop(); store.set({ mode: 'cases' }); cases.startUnit(id); }
 function startCase(id) { if (store.get().mode === 'learn') learn.stop(); store.set({ mode: 'cases' }); cases.start(id); openPanel(); }
 
 // ── Actions ─────────────────────────────────────────

@@ -4,7 +4,7 @@
 // (Model check, Oct 2026: lowering the cirrhosis parameter from 0.6 to 0.35 takes HVPG 11.8 → 5.4 mmHg,
 // varices small → none, spleen 15.8 → 12.3 cm and stiffness 24 → 10 kPa over months.)
 
-import { DX_HIDDEN, fill, esoText, plt, lsm } from './kit.js?v=4021282d5c';
+import { DX_HIDDEN, fill, esoText, plt, lsm } from './kit.js?v=4db57f825c';
 
 const PT = { name: 'Lena Novak', age: 52, sex: 'F', setting: 'Hepatology clinic', problem: 'Hepatitis C cured. What now for her portal pressure?' };
 

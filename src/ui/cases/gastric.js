@@ -1,7 +1,7 @@
 // C5. Melena with a big spleen: do not assume cirrhosis. Variant L is a blocked splenic vein with a
 // normal liver (TIPS is wrong); variant G is cirrhosis with a gastrorenal shunt (BRTO or TIPS).
 
-import { DX_HIDDEN, fill } from './kit.js?v=4021282d5c';
+import { DX_HIDDEN, fill } from './kit.js?v=4db57f825c';
 
 const L = {
   vid: 'L', preset: 'svt', splenic: true,

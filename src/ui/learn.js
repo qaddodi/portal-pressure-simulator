@@ -9,8 +9,8 @@ import { runSequence } from './sequence.js?v=f8b2dfcd73';
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
 import { SNAPSHOTS } from './snapshots.js?v=34d1578d5f';
 import { createRoute, ladder } from './ladder.js?v=2cbec732f7';
-import { CASES } from './cases/index.js?v=433329e7fa';
-import { UNITS, course, setUnitSurface, unitBar, exploreButton } from './course.js?v=16e2e211aa';
+import { CASES } from './cases/index.js?v=78c53e6b35';
+import { UNITS, course, setUnitSurface, unitBar, exploreButton } from './course.js?v=5391cf593b';
 import { trustLine, teachChip, blindOn, blindOff, isBlind, optionList, compareChip, bindQuestionKeys, mirrorMarker } from './learning-kit.js?v=83e19de948';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

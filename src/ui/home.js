@@ -5,12 +5,12 @@
 
 import { store } from './store.js?v=49dc9cdf15';
 import { h, svgIcon, icon } from './util.js?v=a357853926';
-import { LESSONS } from './learn.js?v=c5b2be8b18';
-import { CASES } from './cases.js?v=8d4fbd875f';
+import { LESSONS } from './learn.js?v=5ed958def5';
+import { CASES } from './cases.js?v=cd7eea377b';
 import { createDrill, drillProgress, DRILL_TITLE, ROUNDS } from './drill.js?v=8e1d2959a6';
-import { skillsPath, reviewCard } from './practice.js?v=4101289551';
-import { UNITS, FINAL, PARTS, course } from './course.js?v=16e2e211aa';
-import { openExam } from './exam.js?v=a73d6ca8f9';
+import { skillsPath, reviewCard } from './practice.js?v=e87b55c218';
+import { UNITS, FINAL, PARTS, course } from './course.js?v=5391cf593b';
+import { openExam } from './exam.js?v=8baec5ea96';
 import { t } from '../i18n/i18n.js?v=3113b1ec12';
 import { exportCSV, exportXAPI, learnerName, setLearnerName, records } from './records.js?v=50fb9dd463';
 import { SNAPSHOTS, PATH } from './snapshots.js?v=34d1578d5f';

@@ -1,6 +1,6 @@
 // C3. New ascites, whose fault? The fluid test is mandatory; the heart variants must not get a TIPS.
 
-import { DX_HIDDEN, fill } from './kit.js?v=4021282d5c';
+import { DX_HIDDEN, fill } from './kit.js?v=4db57f825c';
 
 const PT = { name: 'Tom Alvarez', age: 68, sex: 'M', setting: 'Medical admissions unit', problem: 'Six weeks of belly and ankle swelling.' };
 

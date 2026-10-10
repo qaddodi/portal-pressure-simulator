@@ -3822,6 +3822,19 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .opt.right .opt-why, .opt.wrong .opt-why { color: var(--text); }
 .keypoints ul { margin: 6px 0 4px; padding-left: 18px; line-height: 1.55; }
 
+/* Units 6–8: a case on the unit surface (cases.js startUnit). */
+.coach .lesson.sheet.cu-case > h3.cu-title { display: block; margin: 12px 0 8px; font-size: var(--fs-16); color: var(--text); }
+.cu-case .cu-vitals { margin: 0 0 12px; }
+.cu-case .cu-who { margin: 0 0 8px; font-size: var(--fs-14); color: var(--text-2); }
+.cu-case .cu-who b { color: var(--text); }
+.cu-case .cu-block { margin: 10px 0; }
+.cu-case .cu-block ul { margin: 4px 0 0; padding-left: 18px; font-size: var(--fs-14); line-height: 1.5; }
+.cu-case .cu-results, .cu-case .cs-cons, .cu-case .cs-change { margin-top: 12px; }
+.cu-case .cu-cmp th, .cu-case .cu-cmp td { text-align: right; padding: 6px 4px; }
+.cu-case .cu-cmp th:first-child, .cu-case .cu-cmp td:first-child { text-align: left; }
+.cu-case .cs-cmp { margin: 12px 0; }
+.cu-case .cu-refs { margin: 10px 0; font-size: var(--fs-12); color: var(--text-2); }
+
 /* Home as the course page */
 .course { display: flex; flex-direction: column; gap: 16px; max-width: 760px; }
 .cr-continue { position: relative; display: flex; flex-direction: column; gap: 6px; text-align: left; padding: 18px 56px 18px 20px; border-radius: var(--r-sheet); border: 1px solid var(--accent-line); background: linear-gradient(180deg, var(--accent-soft), var(--surface)); color: var(--text); cursor: pointer; transition: box-shadow var(--t-fast), transform var(--t-fast); }

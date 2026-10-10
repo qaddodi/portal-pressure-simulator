@@ -5,6 +5,7 @@
 
 import { store } from './store.js?v=49dc9cdf15';
 import { h, svgIcon } from './util.js?v=a357853926';
+import { CASE_UNITS } from './cases/units.js?v=bde5f54566';
 
 // A unit: id, n (its number), part ('A' mechanism, 'B' clinic), title, objective (what the student
 // can do after it), minutes, keyPoints (three margin notes, kept for the summary page) and steps
@@ -19,6 +20,11 @@ const stub = (objective) => [
 // sit in them as single steps: the Doppler direction (unit 1), the splenic vein clot (unit 3) and
 // carvedilol (unit 4).
 const SITE_OPTIONS = ['Splenic vein', 'Main portal vein', 'Presinusoidal portal venules', 'Hepatic sinusoids', 'Hepatic veins'];
+// Units 6–8 run a case on the unit surface (cases.js startUnit); their stems also feed the review card.
+function caseUnit(id) {
+  const d = CASE_UNITS[id];
+  return d ? { caseUnit: true, draft: false, keyPoints: d.keyPoints, steps: d.steps.filter((s) => s.type === 'stem') } : {};
+}
 export const UNITS = [
   { id: 'u1-normal', n: 1, part: 'A', title: 'Normal portal circulation', minutes: 7,
     objective: 'Trace portal flow from gut to heart; state normal portal pressure, HVPG and flow direction on Doppler.',
@@ -174,7 +180,7 @@ export const UNITS = [
     objective: 'Run the first hour, band, prevent rebleeding and know when to use TIPS.' },
   { id: 'u8-refractory', n: 8, part: 'B', title: 'Refractory ascites and TIPS', minutes: 10, draft: true,
     objective: 'Recognise refractory ascites and weigh TIPS against paracentesis and albumin.' },
-].map((u) => ({ steps: stub(u.objective), keyPoints: [], ...u, unit: u.n, pearls: null }));
+].map((u) => ({ steps: stub(u.objective), keyPoints: [], ...u, ...caseUnit(u.id), unit: u.n, pearls: null }));
 export const FINAL = { id: 'final', title: 'Final assessment', minutes: 15, objective: 'Ten mixed vignettes; pass at 70 %.' };
 export const PARTS = { A: 'Mechanism', B: 'Clinic' };
 

@@ -15,10 +15,12 @@ import { h, openModal, closeModal, toast, svgIcon } from './util.js?v=a357853926
 import { addRecord, exportCSV, exportXAPI } from './records.js?v=50fb9dd463';
 import { scoreCase, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=7f4afcf446';
 import { veinBlocked } from './measure-model.js?v=96862e2586';
-import { CASES, ORDER_META, GROUPS } from './cases/index.js?v=433329e7fa';
+import { CASES, ORDER_META, GROUPS } from './cases/index.js?v=78c53e6b35';
 import { EXPLAIN } from './cases/explain.js?v=81bcd9a17a';
-import { bpOf, tension, abdomen, esoText, spleenCm, ascitesText } from './cases/kit.js?v=4021282d5c';
-import { trustLine } from './learning-kit.js?v=83e19de948';
+import { bpOf, tension, abdomen, esoText, spleenCm, ascitesText } from './cases/kit.js?v=4db57f825c';
+import { trustLine, optionList, bindQuestionKeys } from './learning-kit.js?v=83e19de948';
+import { course, setUnitSurface, unitBar } from './course.js?v=5391cf593b';
+import { CASE_UNITS } from './cases/units.js?v=bde5f54566';
 import { activeInterventions } from './inspector.js?v=5072cb4981';
 import { captureFrame } from './timeline.js?v=bf87e94cd0';
 import { createRoute, ladder, SITE_OF_GROUP } from './ladder.js?v=2cbec732f7';
@@ -42,7 +44,7 @@ const clockText = (secs) => {
 const drug = (key, label, exclusive) => ({ toggle: (p) => !!p.drugs[key], run: (a, o, c) => updateParams((p) => { p.drugs[key] = !p.drugs[key]; if (exclusive && p.drugs[key]) p.drugs[exclusive] = false; return p; }, { label, settle: !c.cs.acute }) });
 const flag = (key, label) => ({ toggle: (p) => !!p[key], run: (a, o, c) => updateParams((p) => { p[key] = !p[key]; return p; }, { label, settle: !c.cs.acute }) });
 const RUN = {
-  labs: {}, ct: {}, echo: {}, ecg: {}, 'tap-dx': {}, 'clot-screen': {},
+  labs: {}, ct: {}, echo: {}, ecg: {}, 'tap-dx': {}, 'clot-screen': {}, xmatch: {}, cxr: {},
   // Imaging studies open the matching view of the model, so the student sees what the report describes.
   'abd-us': { pane: 'abdomen', run: (a, o) => { if (!o.silent) a.showPane('abdomen'); } },
   doppler: { pane: 'doppler', derive: (c) => dopplerLines(c.m, c.params), run: (a, o) => { a.setProbe?.('PV_TRUNK'); if (!o.silent) a.showPane('doppler'); } },
@@ -67,7 +69,7 @@ const RUN = {
   splenectomy: { once: true, run: (a, o, c) => updateParams({ splenicRx: 2 }, { label: 'Splenectomy', settle: !c.cs.acute }) },
   'tips-reduce': { once: true, run: (a, o, c) => updateParams({ tips: { on: true, d: 6 } }, { label: 'TIPS reduced', settle: true }) },
 };
-const SECTION = { labs: 'Labs', 'tap-dx': 'Labs', 'clot-screen': 'Labs' };
+const SECTION = { labs: 'Labs', 'tap-dx': 'Labs', 'clot-screen': 'Labs', xmatch: 'Labs' };
 // What a test costs in case time (seconds), outside the acute cases where the clock already runs.
 const H = 3600;
 const COST = { labs: H, 'abd-us': H, doppler: H, ct: 2 * H, egd: 4 * H, fibroscan: H / 2, echo: 2 * H, hvpg: 24 * H, 'tap-dx': H / 2, 'clot-screen': 48 * H, ecg: H / 6 };
@@ -123,7 +125,7 @@ function visibilityOf(cs) {
   return { hidden, imaging, events };
 }
 
-export function createCases({ root, api }) {
+export function createCases({ root, api, coach, onUnitEnd }) {
   let cs = null, ctx = null, c = null, timer = null, keyOff = null, seed = 0, wall0 = 0;
   const log = [];
 
@@ -131,7 +133,7 @@ export function createCases({ root, api }) {
   const frame = () => store.get().frame;
   function read() {
     const m = frame().metrics, [s, d] = bpOf(m);
-    return { hr: Math.round(m.hr), bp: `${s}/${d}`, map: m.map, pv: m.pv, ra: m.ra, lost: m.blood.lost, asc: m.ascites.volume, hepflow: m.hepaticFlow, hvpg: m.hvpg,
+    return { hr: Math.round(m.hr), bp: `${s}/${d}`, map: m.map, pv: m.pv, ppg: m.ppg, ra: m.ra, lost: m.blood.lost, asc: m.ascites.volume, hepflow: m.hepaticFlow, hvpg: m.hvpg,
       tension: tension(m.varix?.ratio ?? 0), varix: m.varix?.d ?? 0, spleen: m.spleen.length, pvdir: m.pvFlow < -0.05 ? 'away from the liver' : m.pvFlow < 0.03 ? 'no flow' : 'toward the liver' };
   }
   function vit() {
@@ -152,6 +154,14 @@ export function createCases({ root, api }) {
       pick: (id) => ctx.answers[id], met: (id) => ctx.grades[id] === true, viewed: (tab) => ctx.viewed.has(tab),
       chose: (id, i) => { const p = ctx.answers[id]; return Array.isArray(p) ? p.includes(i) : p === i; },
       hbLab: () => cs.hbLab?.(hnd),
+      // Try a change on the model and put it back: the metrics it gave (the unit's Watch step).
+      trial: async (apply) => {
+        const { snap } = await host.request('snapshot');
+        await apply(); await advance(30);
+        const m = { ...frame().metrics };
+        host.send({ type: 'restore', snap }); replaceParams(snap.params); await sleep(200);
+        return m;
+      },
     };
     return hnd;
   }
@@ -335,6 +345,20 @@ export function createCases({ root, api }) {
     ctx = { t0: null, t: 0, clockAdd: 0, when: null, answers: {}, grades: {}, flags: {}, opened: new Set(), autoed: new Set(), unsafeHit: new Set(), viewed: new Set(['story']), order: {},
       story: [], items: [], snaps: [], spent: 0, skips: [], trend: [], decSnap: {}, lastSample: -1e9, tab: 'story', dot: false, open: null, sel: null, consequence: null, busy: true, ended: false, hbShown: null, lowFor: 0 };
     c = makeHandle();
+    await prepare();
+    for (const it of cs.chart(c)) ctx.items.push(it);
+    for (const t of cs.intro(c)) ctx.story.push({ kind: 'text', text: t, at: 0 });
+    host.send({ type: 'run', running: true, speed: cs.speed, clock: 'hemo' });
+    store.set({ speed: cs.speed });
+    wall0 = Date.now();
+    ctx.busy = false;
+    render();
+    clearInterval(timer);
+    timer = setInterval(tick, 250);
+  }
+
+  // The patient: preset, aging, the case's own changes, what is hidden, then its setup (a bleed, say).
+  async function prepare() {
     // Hide model-only events before the preset ages, so none from the patient's past reach the timeline.
     store.set({ hiddenEvents: visibilityOf(cs).events, found: new Set(cs.found || []) });
     await api.loadPreset(cs.preset, { keepLesson: true, days: cs.days });
@@ -347,15 +371,6 @@ export function createCases({ root, api }) {
     api.muteEvents?.(true);
     await cs.setup?.(api, c);
     await sleep(250);
-    for (const it of cs.chart(c)) ctx.items.push(it);
-    for (const t of cs.intro(c)) ctx.story.push({ kind: 'text', text: t, at: 0 });
-    host.send({ type: 'run', running: true, speed: cs.speed, clock: 'hemo' });
-    store.set({ speed: cs.speed });
-    wall0 = Date.now();
-    ctx.busy = false;
-    render();
-    clearInterval(timer);
-    timer = setInterval(tick, 250);
   }
 
   // The case's key measure over case time, for the debrief's trajectory: a point every few seconds,
@@ -387,7 +402,8 @@ export function createCases({ root, api }) {
 
   function exit() {
     if (!cs) return;
-    clearInterval(timer); unbindKeys();
+    const unit = ctx?.unit;
+    clearInterval(timer); unbindKeys(); unitKeysOff?.(); unitKeysOff = null;
     cs = null; ctx = null; c = null;
     store.set({ hiddenLabels: null, hiddenReadouts: null, hiddenEvents: null, locked: null, imaging: false, found: null, ...(store.get().compareSnap?.names ? { compareSnap: null, compareView: 'B' } : {}) });
     api.setAllowedTools(null);
@@ -397,8 +413,10 @@ export function createCases({ root, api }) {
     root.replaceChildren();
     root.closest('.app')?.classList.remove('case-deciding');
     api.setBanner?.(null);
-    api.endSession?.('case');
+    if (unit) { setUnitSurface(false); coach?.replaceChildren(); liftOver(null); }
+    api.endSession?.(unit ? 'unit' : 'case');
     api.onEnd?.();
+    if (unit) onUnitEnd?.(unit.u);
   }
 
   // ───────────── rendering ─────────────
@@ -499,6 +517,7 @@ export function createCases({ root, api }) {
 
   function render() {
     if (!cs || !ctx) return;
+    if (ctx.unit) { renderUnit(); return; }
     const body0 = root.querySelector('.cs-pane'), top = body0 ? body0.scrollTop : 0;
     const pt = cs.patient;
     const vitals = h('div', { class: 'cs-vitals', role: 'group', 'aria-label': 'Vital signs' });
@@ -629,9 +648,183 @@ export function createCases({ root, api }) {
     openModal(title, body, { wide: true, sub: `Case debrief · ${cs.level} · ${new Date().toLocaleDateString()}` });
   }
 
+  // ───────────── course units 6–8: the case on the unit surface ─────────────
+  // Presentation → Orders (up to three) → stems (A–E, immediate feedback; the pick plays on the model)
+  // → Result (the clock moves on) → Debrief. The card at the bottom owns the screen; the Patient
+  // sheet shows the story, the exam and the results, never the model's knobs.
+  let unitKeysOff = null, unitCard = null, unitMin = false;
+  const asWide = matchMedia('(max-width: 1279px)');
+  asWide.addEventListener('change', () => { if (ctx?.unit) requestAnimationFrame(renderUnit); });
+  const liftOver = (card) => {
+    const wrap = document.getElementById('stageView')?.getBoundingClientRect(), q = card?.getBoundingClientRect();
+    const px = card && wrap && q.height ? `${Math.round(wrap.bottom - q.top + 8)}px` : '';
+    for (const b of document.querySelectorAll('.stage-credit, .zoom-pill, .stage-clock')) b.style.setProperty('--sheet-h', px);
+  };
+  const MAX_ORDERS = 3;
+  const unitSteps = () => [{ kind: 'present', title: 'The patient' }, { kind: 'orders', title: 'Orders' }, ...ctx.unit.def.steps.map((s) => ({ ...s, kind: s.type })), { kind: 'result', title: 'Result' }, { kind: 'debrief', title: 'Debrief' }];
+
+  async function startUnit(id) {
+    const u = course.unit(id), def = CASE_UNITS[id], base = def && CASES.find((x) => x.id === def.caseId);
+    if (!u || !base) { toast('That unit does not exist.'); return; }
+    await api.beginSession?.('unit');
+    log.length = 0; seed = def.seed;
+    const v = base.variants?.[def.variant] || {};
+    cs = { ...base, ...v, ...def.over, results: { ...base.results, ...def.over?.results }, steps: [], objectives: [], speed: 1 };
+    ctx = { t0: null, t: 0, clockAdd: 0, when: null, answers: {}, grades: {}, flags: {}, opened: new Set(), autoed: new Set(), unsafeHit: new Set(), viewed: new Set(), order: {},
+      story: [], items: [], snaps: [], spent: 0, skips: [], trend: [], decSnap: {}, lastSample: -1e9, tab: 'chart', dot: false, open: null, sel: null, consequence: null, busy: true, ended: false, hbShown: null, lowFor: 0,
+      unit: { u, def, idx: 0, ready: false, sheet: false, sel: new Set(), ordered: false, picks: {}, cons: {}, watch: {}, entered: new Set(), result: null, playing: false, t0: Date.now() } };
+    c = makeHandle();
+    unitMin = false;
+    setUnitSurface(true);
+    unitKeysOff?.(); unitKeysOff = bindQuestionKeys(() => unitCard);
+    renderUnit();
+    await prepare();
+    pause();
+    if (!cs) return;
+    for (const it of cs.chart(c)) ctx.items.push(it);
+    ctx.flags.start = read();
+    ctx.busy = false; ctx.unit.ready = true;
+    renderUnit();
+  }
+
+  async function unitGo(i) {
+    const U = ctx.unit, st = unitSteps()[i];
+    U.idx = i; U.sheet = false;
+    if (!U.entered.has(i)) {
+      U.entered.add(i); ctx.busy = true; renderUnit();
+      try {
+        if (st.enter) await st.enter(c);
+        if (st.kind === 'watch') U.watch[st.sid] = await st.run(c);
+        if (st.kind === 'result') { const n = ctx.story.length; U.result = await U.def.result(c, U.picks); U.changes = ctx.story.slice(n).filter((e) => e.kind === 'change'); }
+      } catch (e) { console.error(e); }
+      ctx.busy = false;
+    }
+    renderUnit();
+    if (unitCard) unitCard.scrollTop = 0;
+  }
+  function sendOrders() {
+    const U = ctx.unit;
+    if (!U.sel.size || U.ordered) return;
+    U.ordered = true;
+    for (const id of U.sel) runOrder(id, { silent: true });
+    ctx.story.push({ kind: 'order', text: [...U.sel].map((id) => ORDER_META[id].label).join(', '), at: 0 });
+    renderUnit();
+  }
+  async function pickStem(st, i) {
+    const U = ctx.unit;
+    if (U.picks[st.sid] != null || U.playing) return;
+    U.picks[st.sid] = i; ctx.answers[st.sid] = i; ctx.grades[st.sid] = i === st.answer;
+    log.push({ id: `Decision: ${st.title}`, t: ctx.t, key: `unit:${U.u.id}:${st.sid}`, correct: i === st.answer });
+    U.playing = true; renderUnit();
+    requestAnimationFrame(() => unitCard?.querySelector('.opt.wrong, .opt.right')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+    try { U.cons[st.sid] = (await st.play?.(c, i)) || null; } catch (e) { console.error(e); }
+    U.playing = false; renderUnit();
+  }
+  function unitScore() {
+    const U = ctx.unit, stems = U.def.steps.filter((s) => s.type === 'stem');
+    const ordered = [...new Set(log.filter((l) => ORDER_META[l.id]?.g === 'assess' && U.def.orders.includes(l.id)).map((l) => l.id))];
+    const ordersOk = U.def.need.every((id) => ordered.includes(id));
+    const right = stems.filter((s) => U.picks[s.sid] === s.answer).length + (ordersOk ? 1 : 0), total = stems.length + 1;
+    return { stems, ordered, ordersOk, right, total, score: Math.round((100 * right) / total) };
+  }
+  function finishUnit() {
+    const U = ctx.unit, r = unitScore();
+    course.complete(U.u.id, r.score);
+    addRecord({ kind: 'unit', id: U.u.id, title: U.u.title, score: r.score, assessment: ASSESSMENT_VERSION, contentVersion: CONTENT_VERSION, completed: true, mastered: r.score >= MASTERY,
+      wallDuration: (Date.now() - U.t0) / 1000, duration: (Date.now() - U.t0) / 1000, met: r.right, total: r.total, seed,
+      answers: [`unit:${U.u.id}:orders: ${r.ordersOk ? 'correct' : 'incorrect'}`, ...r.stems.map((s) => `unit:${U.u.id}:${s.sid}: ${U.picks[s.sid] === s.answer ? 'correct' : 'incorrect'}`)] });
+    toast(`Unit ${U.u.n} complete: ${U.u.title} · ${r.score} %`);
+    exit();
+  }
+
+  const whoLine = () => { const pt = cs.patient; return h('p', { class: 'cu-who' }, h('b', {}, pt.name), ` · ${pt.age}${pt.sex} · ${pt.setting}`); };
+  const listBlock = (label, lines) => h('div', { class: 'cu-block' }, h('p', { class: 'step-label' }, label), h('ul', {}, lines.map((l) => h('li', {}, l))));
+  const resultItems = () => ctx.items.filter((it) => it.section !== 'History' && it.section !== 'Exam');
+  function patientSheet() {
+    const res = resultItems();
+    return [whoLine(), listBlock('Story', cs.hx || []), listBlock('Exam', cs.exam || []),
+      res.length ? h('div', { class: 'cu-block' }, h('p', { class: 'step-label' }, 'Results'), res.map(itemEl)) : h('p', { class: 'cs-note' }, 'No tests ordered yet.')];
+  }
+  function stemBody(st) {
+    const U = ctx.unit, got = U.picks[st.sid], done = got != null, cons = U.cons[st.sid];
+    return [h('p', { class: 'stem-v' }, st.stem), h('p', { class: 'q' }, st.q),
+      optionList({ options: st.options, picked: got ?? null, answer: st.answer, reveal: done, locked: done, notes: st.explain, onPick: (i) => pickStem(st, i) }),
+      done ? h('div', { class: 'feedback ' + (got === st.answer ? 'right' : 'wrong'), role: 'status' }, h('b', {}, got === st.answer ? 'Correct. ' : `Not quite: the answer is ${'ABCDE'[st.answer]}. `), st.explain[st.answer]) : null,
+      done && U.playing ? h('p', { class: 'cs-wait' }, 'The model is playing your choice…') : null,
+      cons ? h('div', { class: 'cs-cons' + (cons.unsafe ? ' unsafe' : '') }, h('span', { class: 'cs-kicker' }, cons.unsafe ? 'What happened' : 'On the model'), h('h3', {}, cons.title), h('p', {}, cons.text),
+        cons.rows?.length ? h('table', { class: 'cs-rows' }, h('tbody', {}, cons.rows.map((r) => h('tr', {}, h('td', {}, r[0]), h('td', {}, r[1]))))) : null) : null];
+  }
+  function ordersBody() {
+    const U = ctx.unit, ids = U.def.orders;
+    const btns = h('div', { class: 'cs-ord-grid' }, ids.map((id) => {
+      const on = U.sel.has(id), full = !on && U.sel.size >= MAX_ORDERS;
+      return h('button', { class: 'cs-ord' + (on ? ' on' : '') + (U.ordered && on ? ' done' : ''), 'aria-pressed': String(on), disabled: U.ordered || full,
+        onclick: () => { on ? U.sel.delete(id) : U.sel.add(id); renderUnit(); } }, h('span', {}, ORDER_META[id].label), U.ordered && on ? svgIcon('check') : null);
+    }));
+    const res = resultItems().filter((it) => it.id.includes(':'));
+    return [h('p', {}, U.ordered ? 'Results come back on the card; findings appear on the figure.' : `Choose up to ${MAX_ORDERS} tests, then send them.`), btns,
+      U.ordered ? h('div', { class: 'cu-results' }, res.map(itemEl)) : null];
+  }
+  function debriefBody() {
+    const U = ctx.unit, r = unitScore();
+    const ring = document.createElementNS('http://www.w3.org/2000/svg', 'svg'), rr = 32, cc = 2 * Math.PI * rr, col = r.score >= MASTERY ? 'var(--ok)' : r.score >= 50 ? 'var(--caution)' : 'var(--danger)';
+    ring.setAttribute('viewBox', '0 0 76 76'); ring.setAttribute('class', 'score-ring');
+    ring.innerHTML = `<circle cx="38" cy="38" r="${rr}" fill="none" stroke="var(--surface-3)" stroke-width="6"/><circle cx="38" cy="38" r="${rr}" fill="none" stroke="${col}" stroke-width="6" stroke-linecap="round" stroke-dasharray="${(cc * r.score) / 100} ${cc}" transform="rotate(-90 38 38)"/><text x="38" y="44" text-anchor="middle" font-size="19" font-weight="600" fill="var(--text)" font-family="Inter, system-ui">${r.score}</text>`;
+    const row = (ok, title, mine, best, why) => h('div', { class: 'cs-cmp-row ' + (ok ? 'ok' : 'miss') }, h('b', {}, title), h('div', {}, h('span', {}, 'You'), mine), ok ? null : h('div', {}, h('span', {}, 'Best'), best), why ? h('p', {}, why) : null);
+    const lbl = (st, i) => (i == null ? 'Not answered' : `${'ABCDE'[i]}. ${st.options[i]}`);
+    return [h('div', { class: 'score' }, ring, h('div', {}, h('b', {}, U.u.title), h('div', { class: 'sub' }, `${r.right} of ${r.total} right · ${cs.patient.name}, ${cs.patient.age}${cs.patient.sex}`))),
+      h('div', { class: 'cs-cmp' },
+        row(r.ordersOk, 'Orders', r.ordered.map((id) => ORDER_META[id].label).join(', ') || 'None', U.def.need.map((id) => ORDER_META[id].label).join(', '), U.def.orderNote),
+        r.stems.map((st) => row(U.picks[st.sid] === st.answer, st.title, lbl(st, U.picks[st.sid]), lbl(st, st.answer), st.explain[st.answer]))),
+      h('div', { class: 'pearls keypoints' }, h('p', { class: 'step-label' }, 'Key points'), h('ul', {}, U.u.keyPoints.map((t) => h('li', {}, t)))),
+      cs.refs ? h('details', { class: 'cu-refs' }, h('summary', {}, 'References'), h('ol', { class: 'refs' }, cs.refs.map((x) => h('li', {}, x)))) : null,
+      h('p', { class: 'disclaimer' }, 'Teaching model: it shows how pressure and flow behave; it does not predict an individual patient.')];
+  }
+
+  const cmpTable = (w) => h('table', { class: 'cs-rows cs-change cu-cmp' }, h('thead', {}, h('tr', {}, w.cols.map((x) => h('th', {}, x)))), h('tbody', {}, w.rows.map((r) => h('tr', {}, r.map((x) => h('td', {}, x))))));
+  function renderUnit() {
+    if (!ctx?.unit || !coach) return;
+    const U = ctx.unit, steps = unitSteps(), st = steps[U.idx], last = U.idx === steps.length - 1;
+    const body = [];
+    let canNext = true, label = 'Continue', go = () => unitGo(U.idx + 1);
+    if (!U.ready || (ctx.busy && !U.playing)) { body.push(h('p', { class: 'cs-wait' }, U.ready ? 'The model is moving on…' : 'Preparing the patient…')); canNext = false; }
+    else if (U.sheet) { body.push(...patientSheet()); label = 'Back to the step'; go = () => { U.sheet = false; renderUnit(); }; }
+    else if (st.kind === 'present') { body.push(whoLine(), ...cs.intro(c).map((t) => h('p', {}, t)), listBlock('Story', cs.hx || []), listBlock('Exam', cs.exam || [])); label = 'Order tests'; }
+    else if (st.kind === 'orders') {
+      body.push(...ordersBody());
+      if (!U.ordered) { label = 'Send orders'; canNext = U.sel.size > 0; go = sendOrders; } else canNext = !resultItems().some((it) => it.pending);
+    } else if (st.kind === 'stem') { body.push(...stemBody(st)); canNext = U.picks[st.sid] != null && !U.playing; }
+    else if (st.kind === 'watch') {
+      const w = U.watch[st.sid];
+      body.push(h('p', {}, st.text), w ? cmpTable(w) : null);
+    } else if (st.kind === 'result') {
+      const k = U.result;
+      if (k) body.push(h('div', { class: 'cs-cons' }, h('span', { class: 'cs-kicker' }, 'Result'), h('h3', {}, k.title), h('p', {}, k.text)), ...(U.changes || []).map(changeEl), k.table ? cmpTable(k.table) : null);
+      label = 'See the debrief';
+    } else if (st.kind === 'debrief') { body.push(...debriefBody()); label = 'Finish unit'; go = finishUnit; }
+    const vitals = U.ready && !U.sheet && st.kind !== 'result' && !last ? h('div', { class: 'cs-vitals cu-vitals', role: 'group', 'aria-label': 'Vital signs' }) : null;
+    if (vitals) renderVitals(vitals);
+    const card = h('section', { class: 'lesson unit sheet cu-case', 'aria-label': `Unit ${U.u.n}: ${U.u.title}` },
+      h('div', { class: 'lesson-top' }, unitBar(U.u, U.idx, steps.length),
+        h('span', { class: 'lt-act' },
+          U.ready && U.idx > 0 && !last ? h('button', { class: 'link', 'aria-pressed': String(U.sheet), onclick: () => { U.sheet = !U.sheet; renderUnit(); } }, 'Patient') : null,
+          h('button', { class: 'link', onclick: exit }, 'Exit'),
+          h('button', { class: 'ib sheet-min', 'aria-label': unitMin ? 'Expand the unit' : 'Minimize the unit', 'aria-expanded': String(!unitMin), onclick: () => { unitMin = !unitMin; renderUnit(); } }, svgIcon('chev-down')))),
+      h('h3', { class: 'cu-title' }, U.sheet ? 'Patient' : st.title), vitals, ...body,
+      h('div', { class: 'lesson-foot' }, h('span'), h('button', { class: 'btn primary', disabled: !canNext, onclick: go }, label, svgIcon('chev-right'))));
+    const top = unitCard?.isConnected ? coach.scrollTop : 0, same = unitCard?.dataset.step === String(U.idx) + U.sheet;
+    card.dataset.step = String(U.idx) + U.sheet;
+    card.classList.toggle('min', unitMin);
+    coach.replaceChildren(card); unitCard = card;
+    coach.dataset.safe = 'bottom';
+    if (same) coach.scrollTop = top;
+    requestAnimationFrame(() => { liftOver(card); dispatchEvent(new Event('resize')); });
+  }
+
   return {
     mount() { if (cs) render(); else root.replaceChildren(); },
     start,
+    startUnit,
     active: () => !!cs,
     exit,
   };

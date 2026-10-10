@@ -83,3 +83,23 @@ test('learner text uses clinical words: no vessel codes or model controls', () =
     assert.ok(!codes.test(all), `${cs.id}/${cs.vid}: jargon: ${all.match(codes)?.[0]}`);
   }
 });
+
+test('course units 6–8: stems have five options, an answer and a line each; orders are real', async () => {
+  const { CASE_UNITS } = await import('../src/ui/cases/units.js');
+  assert.deepEqual(Object.keys(CASE_UNITS), ['u6-new-ascites', 'u7-bleed', 'u8-refractory']);
+  for (const [id, u] of Object.entries(CASE_UNITS)) {
+    const base = CASES.find((x) => x.id === u.caseId);
+    assert.ok(base && base.variants[u.variant], `${id}: case and variant`);
+    assert.equal(u.keyPoints.length, 3, `${id}: three key points`);
+    assert.ok(u.orders.length <= 6 && u.need.every((o) => u.orders.includes(o)) && u.orders.every((o) => ORDER_META[o]), `${id}: orders`);
+    assert.equal(typeof u.result, 'function');
+    for (const s of u.steps) {
+      if (s.type === 'watch') { assert.equal(typeof s.run, 'function'); continue; }
+      assert.equal(s.type, 'stem');
+      assert.equal(typeof s.stem, 'string', `${id}/${s.sid}: stem text stands alone`);
+      assert.equal(s.options.length, 5, `${id}/${s.sid}: five options`);
+      assert.equal(s.explain.length, 5, `${id}/${s.sid}: a line per option`);
+      assert.ok(Number.isInteger(s.answer) && s.answer >= 0 && s.answer < 5, `${id}/${s.sid}: answer`);
+    }
+  }
+});

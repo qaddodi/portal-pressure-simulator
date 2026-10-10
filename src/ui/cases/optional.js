@@ -1,7 +1,7 @@
 // Optional cases 9 to 11: schistosomiasis varices, reversed portal flow on a routine scan, and
 // confusion after a TIPS.
 
-import { DX_HIDDEN, fill } from './kit.js?v=4021282d5c';
+import { DX_HIDDEN, fill } from './kit.js?v=4db57f825c';
 
 const LEVELS = ['The portal vein, before the liver', 'Inside the liver, before the sinusoids', 'Inside the liver, in the sinusoids', 'The hepatic veins, after the liver'];
 
