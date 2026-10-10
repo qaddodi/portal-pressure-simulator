@@ -28,8 +28,10 @@ export const DOPPLER = {
       ask: ['What causes the brief reversal in the normal hepatic vein waveform?', 'Atrial contraction (the a wave).'],
     },
     {
-      id: 'meal', preset: 'postprandial', cam: 'portal', labels: ['SMV', 'CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
-      data: 'tiles', tiles: ['pvFlow', 'pv'], key: ['pvFlow'], delta: 'probe',
+      // (The same 8-day fall in splanchnic tone as the Circuit talk's meal, as a time-lapse from fasting.)
+      id: 'meal', days: 8, ramp: { splanchnicTone: [1, 0.72] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' },
+      cam: 'portal', labels: ['SMV', 'CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
+      data: 'tiles', tiles: ['pvFlow', 'pv'], key: ['pvFlow'], delta: true,
       kicker: 'Doppler', title: 'After a meal',
       line: 'Portal flow and velocity rise by about a quarter. The pressure barely moves.',
       notes: 'Digestion dilates the gut arterioles and portal flow rises by a quarter to a half, peaking 30 to 60 minutes after eating. A normal liver takes the extra flow with little rise in pressure. Portal Doppler should be done fasting, or the velocity is overestimated and slow flow in early cirrhosis is missed. Liver stiffness also rises after a meal, which is why FibroScan is done fasting too.',

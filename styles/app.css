@@ -2062,6 +2062,14 @@ button.finding:hover { background: var(--surface-2); }
 }
 .pz-table tbody tr.static { cursor: default; }
 .pz-table tbody tr.static:hover { background: none; }
+/* A row still computing shows "…" in its cells; when its patient arrives the numbers fade in. */
+.pz-table td.pend { color: var(--text-3); text-align: center; }
+.pz-table tr[data-arrived] td { animation: pz-fade .5s var(--ease) both; }
+/* A tablet in portrait: the words at the left as on a laptop, from the top, and the data card under them. */
+.pz.port .pz-text { bottom: auto; margin-block: 0; }
+.pz.port .pz-data, .pz.port .pz-data.has-tool { left: clamp(20px, calc(3.4vw / var(--vz)), 76px); right: auto; width: clamp(300px, calc(29vw / var(--vz)), 600px); }
+.pz.port .pz-data.pz-hide { transform: translateY(14px); }
+.pz.port .pz-data.tiles-only .pz-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 /* The visuals: a scale with thresholds, SAAG × protein, the two capillary walls. */
 .pz-visual { min-height: 0; display: flex; justify-content: center; }
 .pz-scale, .pz-walls { display: block; width: 100%; height: auto; max-height: calc(56vh / var(--vz)); overflow: visible; }
@@ -2080,6 +2088,10 @@ button.finding:hover { background: var(--surface-2); }
 .pzs-pin line { stroke: currentColor; stroke-width: 3; }
 .pzs-pv { font: 700 40px var(--font-ui); fill: currentColor; font-variant-numeric: tabular-nums; }
 .pzs-pn { font: 600 28px var(--font-ui); fill: var(--text); }
+/* The pin's number and name fade in as it nears its value, so names never pile up at zero while the pins set off. */
+.pzs-pin text { opacity: 0; transition: opacity .5s var(--ease) calc(var(--i, 0) * 160ms + 1250ms); }
+.pz-scale.in .pzs-pin text { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .pzs-pin, .pzs-pin text { transition-duration: .3s; transition-delay: 0s; } }
 .pz-quadwrap { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: clamp(16px, calc(3vw / var(--vz)), 52px); align-items: center; }
 .pz-quad { display: block; width: 100%; height: auto; max-height: calc(58vh / var(--vz)); }
 .pzq-q rect { fill: var(--surface-2); }
@@ -2170,6 +2182,13 @@ button.finding:hover { background: var(--surface-2); }
 .pz.stack .pz-lapse { font-size: 14px; }
 .pz.stack .pz-abb { font-size: 14px; min-height: 36px; padding: .45em .85em; }
 .pz.stack .pz-ab { gap: 2px; padding: 3px; }
+.pz.stack .pz-ab { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }   /* (one row that scrolls sideways, never two rows of buttons) */
+.pz.stack .pz-ab::-webkit-scrollbar { display: none; }
+.pz.stack .pz-abb { flex: none; }
+/* On a phone the corner credit sits just above the bottom bar on every slide (beneath any card that covers it). */
+.app.presenting:has(.pz.stack) .stage-credit { bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
+/* A title that would run past two lines in the side pane steps down a size. */
+.pz:not(.stack) .pz-text .pz-h.long { font-size: calc(clamp(32px, calc(5.8vh / var(--vz)), 70px) * .84); }
 .pz.stack .pz-count { display: none; }
 /* A slide's instrument (tool) in the data card: the instrument as the app draws it, without its controls. */
 .pz-data.has-tool { width: clamp(340px, 32vw, 620px); }

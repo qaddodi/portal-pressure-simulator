@@ -1206,7 +1206,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const at = vtGliding ? vtTarget : vt;
     const to = circuit && !near(focus, whole) ? (near(at, whole) ? focus : whole) : focus;
     if (!circuit) homeAt = to;
-    // It glides there, as the zoom buttons do (reduced motion: at once).
+    // It glides there, as the zoom buttons do (reduced motion: a short glide).
     animateVT(to, 420);
   };
 
@@ -1426,7 +1426,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cancelAnimationFrame(vtAnim);
     vtTarget = to;
     const from = { ...vt }, t0 = performance.now();
-    if (reduceMotion.matches) { vtGliding = false; vt = to; applyVT(); CTM = null; return; }
+    if (reduceMotion.matches) ms = Math.min(ms, 300);   // (reduced motion: a short glide, never a jump)
+    if (ms <= 0) { vtGliding = false; vt = to; applyVT(); CTM = null; return; }
     vtGliding = true;
     const step = (now) => {
       const u = easeInOut(clamp((now - t0) / ms, 0, 1));
