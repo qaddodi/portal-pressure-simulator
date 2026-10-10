@@ -6,7 +6,7 @@ import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=49dc9cdf15';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=e803df99cd';
-import { createLobuleZoom } from './lobule-zoom.js?v=f5a0e81cd4';
+import { createLobuleZoom } from './lobule-zoom.js?v=79eeb3ba2d';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
@@ -2610,7 +2610,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   addEventListener('pageshow', () => { resumedAt = performance.now(); });
   store.on('params', () => {
     if (routeCustomShunts(store.get().params)) updateGeometry(true);
-    if (!F || quietFx() || performance.now() < 5000 || performance.now() - resumedAt < 4000) return;
+    // (A presentation explains its own changes: no halos over its slides.)
+    if (!F || quietFx() || store.get().presenting || performance.now() < 5000 || performance.now() - resumedAt < 4000) return;
     if (!haloBase) haloBase = { P: Float64Array.from(F.P), t: performance.now() };
     clearTimeout(haloBase.timer);
     haloBase.timer = setTimeout(() => { if (F && haloBase) { haloBase.t = 0; stepHalos(F, easeInOut(morph)); } }, 1200);
@@ -3242,7 +3243,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           const o = made.get('f');
           if (o) { const [tx] = worldToLocal(at.tip[0], at.tip[1]); dx = -clamp((x + el.offsetWidth / 2) - (tx - o.offsetWidth / 2) + 6, 0, 14); }
         }
-        el.style.transform = `translate(${(x + dx).toFixed(1)}px, ${y.toFixed(1)}px)`;
+        // Kept inside the stage: the box moves in and its pointer stays on the point.
+        const half = el.offsetWidth / 2, cx = clamp(x + dx, Math.min(half + 8, W / 2), Math.max(W - half - 8, W / 2));
+        el.style.setProperty('--ax', `${(x + dx - cx).toFixed(1)}px`);
+        el.style.transform = `translate(${cx.toFixed(1)}px, ${y.toFixed(1)}px)`;
         return;
       }
       const box = el.querySelector('.cath-sum-box'), rows = [...box.querySelectorAll('.cath-sum-col .cath-label')];
@@ -3288,6 +3292,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (mode === 'tip') {
       const tp = cutLen(r.pts, r.cum, 0, r.free).at(-1);
       cx = tp[0]; cy = tp[1]; k = 6.2;
+      // A blocked vein: the tip waits at the ostium, so the view holds both it and the vein it cannot enter.
+      if (cath.st?.ostium) { const o = cutLen(r.pts, r.cum, 0, r.hv0 - 2).at(-1); cx = (o[0] + tp[0]) / 2; cy = (o[1] + tp[1]) / 2; k = 4.8; }
       // With little room above a card (a phone), the view is a little wider and the tip sits low in the free space,
       // so the vein still shows and the readings fit above the tip.
       const sp = cardSpace(), freeH = ins.H - sp.t - sp.b;
@@ -5072,6 +5078,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** Frame the catheter's route ('route'), its tip close up ('tip'), or go back to the view before ('home'). */
     cathFocus,
     cathFollow,
+    /** Forget the view cathFocus would go back to (the presenter moves its own camera on). */
+    cathForget() { cath.saved = null; cath.k0 = 0; },
     /** The vessel the Doppler is reading, glowing green while the Doppler instrument is open (null: none). */
     setDoppler(id) {
       if (id && !E[id]) id = null;

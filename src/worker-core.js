@@ -16,9 +16,11 @@ const fingerprint = (m, e) => {
   const P = e ? e.Pf || e.P : null, a = m.ascites;
   return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: m.hvpg, ra: m.ra, ivc: m.ivc, ppg: m.ppg,
     asc: a.volume, saag: a.saag, tp: a.totalProtein, aalb: a.albumin, salb: e?.params.albumin, sigma: a.lymphSigma, hepLymph: a.hepLymph, splLymph: a.splLymph,
-    sin: P ? P[e.ni.SIN_R] : null, cv: P ? P[e.ni.CV_R] : null, varix: m.varix.d, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
-    pvFlow: m.pvFlowMean, shunt: m.shuntFraction, he: m.heRisk.index, lsm: m.lsm, map: m.map, hb: m.blood.hb };
+    sin: P ? P[e.ni.SIN_R] : null, cv: P ? P[e.ni.CV_R] : null, int: P ? P[e.ni.INT] : null, varix: m.varix.d, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
+    pvFlow: m.pvFlowMean, shunt: m.shuntFraction, he: m.heRisk.index, liver: m.liverPerfPct, lsm: m.lsm, map: m.map, hr: m.hr, hb: m.blood.hb };
 };
+// A time-lapse's params on day d of n: each ramped key eased linearly from its first value to its last.
+const rampAt = (ramp, d, n) => Object.fromEntries(ramp.map(([k, [a, b]]) => [k, a + (b - a) * Math.min(1, d / n)]));
 
 export function createCore(post) {
   let eng = new Engine();
@@ -33,6 +35,8 @@ export function createCore(post) {
   let frameDirty = true;
   let paramsDirty = true;
   let samples = null;
+  // The presenter's time-lapse on the live model: days left, and the params ramped day by day (see 'lapse').
+  let lapse = null;
   let beat = true; // the heartbeat always runs (the Over time trace is beat to beat from the start)
   const newSamples = () => ({ t: [], vel: [], pvVel: [], hvVel: [], whvp: [], hvpg: [], ...Object.fromEntries(SAMPLE_NODES.map((n) => [n, []])) });
 
@@ -109,14 +113,28 @@ export function createCore(post) {
           }
         } else if (days > 0) {
           diseaseAcc -= days;
-          const r = eng.advanceDays(days);
-          if (r.ruptured) { clock = 'hemo'; speed = 1; }
-          if (eng.params.anticoag) paramsDirty = true;
+          if (lapse) lapseDays(days);
+          else {
+            const r = eng.advanceDays(days);
+            if (r.ruptured) { clock = 'hemo'; speed = 1; }
+            if (eng.params.anticoag) paramsDirty = true;
+          }
           sample();
         }
       }
     }
     if (frameDirty || paramsDirty || eng.newEvents.length || (running && now - lastFrame > 95)) { lastFrame = now; frame(); }
+  }
+
+  // A presenter time-lapse: one day at a time, exactly as the presenter's off-screen chain computed it
+  // ('sequence' with fine days), then back to bedside time once the days are done.
+  function lapseDays(n) {
+    for (let k = 0; k < n && lapse; k++) {
+      if (lapse.ramp) eng.setParams(deepMerge(eng.params, rampAt(lapse.ramp, lapse.total - lapse.left + 1, lapse.total)));
+      eng.advanceDays(1, { noRupture: true, silent: true });
+      if (--lapse.left <= 0) { lapse = null; eng.settle(); clock = 'hemo'; speed = 1; diseaseAcc = 0; }
+    }
+    paramsDirty = true;
   }
 
   function start() {
@@ -162,7 +180,13 @@ export function createCore(post) {
     run({ running: r, speed: s, clock: c }) {
       if (r !== undefined) running = r;
       if (s !== undefined) speed = s;
-      if (c !== undefined) { clock = c; diseaseAcc = 0; }
+      if (c !== undefined) { clock = c; diseaseAcc = 0; if (c === 'hemo') lapse = null; }
+    },
+    // The presenter's time-lapse: days on the disease clock at speed days a second, ramp's params eased over
+    // them ({ key: [from, to] }); days 0 stops one under way.
+    lapse({ days, speed: s, ramp }) {
+      lapse = days > 0 ? { left: days, total: days, ramp: ramp ? Object.entries(ramp) : null } : null;
+      running = true; clock = lapse ? 'disease' : 'hemo'; speed = lapse ? s : 1; diseaseAcc = 0;
     },
     visibility({ visible: v }) { visible = v; },
     // restartClock: the days are the patient's past (a case aging its patient), so the clock and
@@ -213,7 +237,7 @@ export function createCore(post) {
     probe({ id }) { probe = id; },
     beat({ on }) { if (beat !== !!on) { beat = !!on; frameDirty = true; } },
     snapshot({ reqId }) { post({ type: 'snapshot', reqId, snap: eng.snapshot() }); },
-    restore({ snap }) { eng.restore(snap); paramsDirty = true; },
+    restore({ snap }) { eng.restore(snap); lapse = null; paramsDirty = true; },
     explain({ metric, reqId }) {
       const r = explain(eng, metric);
       post({ type: 'explain', reqId, result: r });
@@ -236,8 +260,9 @@ export function createCore(post) {
     },
     // The presenter's slides, computed off screen so the figure only ever shows finished states: a chain in
     // which each slide starts from the one before (base: the state before the first), in the order the
-    // lessons use (preset → params → settle → action → disease days → settle). Each slide is posted as it is
-    // ready ('seqStep': snapshot, params, fingerprint); 'sequence' ends the chain.
+    // lessons use (preset → params → settle → actions → disease days → settle). Each slide is posted as it is
+    // ready ('seqStep': snapshot, params, fingerprint); 'sequence' ends the chain. A slide the presenter plays
+    // as a time-lapse (fine, or a ramp) steps its days one at a time, as the live 'lapse' does.
     *sequence({ steps, base, reqId }) {
       const e = new Engine();
       if (base) e.restore(base);
@@ -245,9 +270,11 @@ export function createCore(post) {
         const st = steps[i] || {};
         if (st.preset) yield* e.loadPresetSteps(st.preset, st.presetDays != null ? { days: st.presetDays + (PRESETS.find((p) => p.id === st.preset)?.days || 0) } : {});
         if (st.params) { e.setParams(deepMerge(e.params, st.params)); e.settle(); }
-        if (st.action) applyAction(e, st.action);
+        for (const a of [st.action || []].flat()) applyAction(e, a);
+        const ramp = st.ramp ? Object.entries(st.ramp) : null, fine = !!(ramp || st.fine);
         for (let done = 0; done < (st.days || 0);) {
-          const n = Math.min(30, st.days - done);
+          const n = fine ? 1 : Math.min(30, st.days - done);
+          if (ramp) e.setParams(deepMerge(e.params, rampAt(ramp, done + 1, st.days)));
           yield* e.advanceDaySteps(n, { noRupture: true, silent: true });
           done += n;
         }

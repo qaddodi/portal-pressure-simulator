@@ -1858,7 +1858,29 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .pz-tile[data-rate="mid"] .pzt-r::before { background: var(--caution); }
 .pz-tile[data-rate="ok"] .pzt-r::before, .pz-tile[data-rate="lo"] .pzt-r::before { background: var(--ok); }
 .pz-tile[data-rate="none"] .pzt-v { color: var(--text-3); }
+.pz-tile[data-rate="info"] .pzt-r::before { background: var(--text-3); }
 /* A visual slide: a panel over the dimmed figure. */
+/* Tiles alone (no ladder), bigger; a tile's change from an earlier slide; the time-lapse counter. */
+.pz-data.tiles-only .pz-ladder, .pz-data.tiles-only .pz-lg { display: none; }
+.pz-data.tiles-only .pz-tiles { grid-template-columns: minmax(0, 1fr); }
+.pz-data.tiles-only .pz-tiles[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pz-data.tiles-only .pzt-v { font-size: clamp(32px, 5.6vh, 68px); }
+/* Under the words (beside a sinusoid): the left column, the tiles two by two. */
+.pz-data.under { left: clamp(20px, 3.4vw, 76px); right: auto; width: clamp(300px, 27vw, 560px); }
+.pz-data.under.pz-hide { transform: translateY(14px); }
+.pz-data.under.tiles-only .pz-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pz-data.under.tiles-only .pzt-v { font-size: clamp(30px, 5vh, 60px); }
+.pzt-d { font: 600 clamp(12px, 1.5vh, 18px)/1.25 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-3); }
+.pzt-d[data-way="good"] { color: color-mix(in srgb, var(--ok) 85%, var(--text)); }
+.pzt-d[data-way="bad"] { color: var(--danger); }
+.pz-lapse { display: flex; align-items: center; gap: .8em; font: 600 clamp(15px, 2.1vh, 25px)/1.2 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-2); }
+.pzl-bar { position: relative; flex: 1; max-width: 12em; height: .5em; border-radius: .25em; background: var(--hairline); overflow: hidden; }
+.pzl-bar i { position: absolute; inset: 0; transform-origin: left; transform: scaleX(var(--k, 0)); background: linear-gradient(90deg, var(--tour-portal), var(--tour-sys)); border-radius: inherit; transition: transform .2s linear; }
+.pz-lapse.done { color: var(--text); }
+/* Projector-size catheter readings. */
+.app.presenting .cath-label { padding: calc(7px * min(var(--label-k, 1), 1.7)) calc(16px * min(var(--label-k, 1), 1.7)) calc(8px * min(var(--label-k, 1), 1.7)); border-radius: calc(14px * min(var(--label-k, 1), 1.7)); }
+.app.presenting .cath-label small, .app.presenting .cath-label b + span { font-size: calc(12px * min(var(--label-k, 1), 1.7)); }
+.app.presenting .cath-label b { font-size: calc(26px * min(var(--label-k, 1), 1.7)); }
 .pz-veil { position: absolute; inset: 0; background: color-mix(in srgb, var(--stage-bg) 92%, transparent); opacity: 0; transition: opacity .5s var(--ease); }
 .pz-veil.on { opacity: 1; }
 .pz-panel { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: min(1560px, calc(100% - 2 * clamp(16px, 3vw, 64px))); max-height: calc(100% - 2 * clamp(16px, 4vh, 56px)); overflow: auto; display: flex; flex-direction: column; gap: clamp(12px, 2.4vh, 32px); padding: clamp(18px, 3.4vh, 44px) clamp(20px, 3vw, 52px); background: var(--surface); border: 1px solid var(--border); border-radius: clamp(18px, 2.6vh, 32px); box-shadow: var(--shadow-3); pointer-events: auto; animation: pz-in .55s var(--ease) both; transition: opacity .22s var(--ease), transform .22s var(--ease); }
@@ -1898,6 +1920,67 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .pz-table .pz-foot { padding: .7em 1em .8em; border-top: 1px solid var(--border); }
 .pz-foot { margin: 0; font: 500 clamp(12px, 1.45vh, 17px)/1.4 var(--font-ui); color: var(--text-3); }
 /* Counter, progress, controls, notes, black screen. */
+.pz-table td.note { font-size: .8em; color: var(--text-2); }
+.pz-table td.blank { color: var(--text-3); }
+.pz-table tbody tr.static { cursor: default; }
+.pz-table tbody tr.static:hover { background: none; }
+/* The visuals: a scale with thresholds, SAAG × protein, the two capillary walls. */
+.pz-visual { min-height: 0; display: flex; justify-content: center; }
+.pz-scale, .pz-walls { display: block; width: 100%; height: auto; max-height: 56vh; overflow: visible; }
+.pzs-zone[data-rate="ok"] { fill: color-mix(in srgb, var(--ok) 26%, transparent); }
+.pzs-zone[data-rate="mid"] { fill: color-mix(in srgb, var(--caution) 30%, transparent); }
+.pzs-zone[data-rate="hi"] { fill: color-mix(in srgb, var(--danger) 22%, transparent); }
+.pzs-zone[data-rate="top"] { fill: color-mix(in srgb, var(--danger) 40%, transparent); }
+.pzs-mark line { stroke: var(--text-2); stroke-width: 3; }
+.pzs-mv { font: 700 34px var(--font-ui); fill: var(--text); }
+.pzs-mw { font: 500 27px var(--font-ui); fill: var(--text-2); }
+.pzs-unit { font: 500 25px var(--font-ui); fill: var(--text-3); }
+.pzs-pin { color: var(--text-2); transform: translateX(0); transition: transform 1.4s var(--ease) calc(var(--i, 0) * 160ms + 250ms); }
+.pz-scale.in .pzs-pin { transform: translateX(var(--x)); }
+.pzs-pin[data-rate="ok"] { color: var(--ok); } .pzs-pin[data-rate="mid"] { color: var(--caution); } .pzs-pin[data-rate="hi"] { color: var(--danger); }
+.pzs-pin circle { fill: var(--surface); stroke: currentColor; stroke-width: 7; }
+.pzs-pin line { stroke: currentColor; stroke-width: 3; }
+.pzs-pv { font: 700 40px var(--font-ui); fill: currentColor; font-variant-numeric: tabular-nums; }
+.pzs-pn { font: 600 28px var(--font-ui); fill: var(--text); }
+.pz-quadwrap { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: clamp(16px, 3vw, 52px); align-items: center; }
+.pz-quad { display: block; width: 100%; height: auto; max-height: 58vh; }
+.pzq-q rect { fill: var(--surface-2); }
+.pzq-q[data-portal="y"] rect { fill: color-mix(in srgb, var(--tour-portal) 9%, var(--surface)); }
+.pzq-n { font: 700 42px var(--font-display); fill: var(--text-3); }
+.pzq-cut { stroke: var(--text-2); stroke-width: 3; stroke-dasharray: 10 8; }
+.pzq-axis { stroke: var(--border-strong); stroke-width: 2; }
+.pzq-t { font: 500 25px var(--font-ui); fill: var(--text-3); }
+.pzq-t.on { font-weight: 700; fill: var(--text); }
+.pzq-ax { font: 600 25px var(--font-ui); fill: var(--text-2); }
+.pzq-pt { animation: pz-in .6s var(--ease) both; animation-delay: calc(var(--i, 0) * 180ms + 300ms); }
+.pzq-pt circle { fill: var(--site); stroke: var(--surface); stroke-width: 5; }
+.pzq-pt text { font: 700 29px var(--font-ui); fill: var(--text); }
+.pz-quads { display: flex; flex-direction: column; gap: clamp(8px, 1.6vh, 20px); margin: 0; padding: 0; list-style: none; }
+.pz-quads li { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: .8em; row-gap: .2em; align-items: baseline; padding: .65em .9em; border-radius: clamp(12px, 1.6vh, 18px); background: var(--surface-2); }
+.pz-quads li[data-portal="y"] { background: color-mix(in srgb, var(--tour-portal) 9%, var(--surface)); }
+.pz-quads .qn { grid-row: span 2; font: 700 clamp(22px, 3.6vh, 42px)/1 var(--font-display); color: var(--text-3); }
+.pz-quads .qt { font: 600 clamp(15px, 2.15vh, 26px)/1.2 var(--font-ui); color: var(--text); }
+.pz-quads .qc { font: 400 clamp(13px, 1.85vh, 22px)/1.3 var(--font-ui); color: var(--text-2); }
+.pzw-t { font: 600 40px var(--font-display); fill: var(--text); }
+.pzw-s { font: 500 26px var(--font-ui); fill: var(--text-2); }
+.pzw-l { font: 600 21px var(--font-ui); letter-spacing: .05em; text-transform: uppercase; fill: var(--text-3); }
+.pzw-c { font: 600 28px var(--font-ui); fill: var(--text); }
+.pzw-c2 { font: 400 26px var(--font-ui); fill: var(--text-2); }
+.pzw-lumen { fill: color-mix(in srgb, var(--tour-portal) 26%, var(--surface)); }
+.pzw-wall { fill: color-mix(in srgb, var(--tour-portal) 62%, var(--text)); }
+.pzw-bm { fill: var(--text); opacity: .75; }
+.pzw-tissue { fill: var(--surface-2); }
+.pzw-hep { fill: color-mix(in srgb, #C58B5C 34%, var(--surface)); }
+.pzw-disse { fill: color-mix(in srgb, var(--ok) 18%, var(--surface)); }
+.pzw-alb { fill: #E3A33B; }
+.pzw-flow { fill: none; stroke: var(--tour-sys); stroke-width: 4; stroke-linecap: round; animation: pzw-pulse 2.4s ease-in-out infinite; }
+.pzw-flow.big { stroke-width: 7; }
+.pzw-head { fill: var(--tour-sys); }
+.pzw-dots { animation: pzw-drift 3.2s ease-in-out infinite alternate; }
+.pzw-cross { opacity: 0; animation: pzw-rise 2.6s var(--ease) infinite; animation-delay: var(--d, 0s); }
+@keyframes pzw-drift { from { transform: translateX(-30px); } to { transform: translateX(30px); } }
+@keyframes pzw-pulse { 0%, 100% { opacity: .45; } 50% { opacity: .95; } }
+@keyframes pzw-rise { 0% { transform: translateY(40px); opacity: 0; } 25%, 75% { opacity: 1; } 100% { transform: translateY(-44px); opacity: 0; } }
 .pz-count { position: absolute; right: clamp(16px, 2.2vw, 44px); bottom: 14px; font: 600 clamp(12px, 1.5vh, 17px) var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-3); }
 .pz-prog { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: var(--hairline); }
 .pz-prog i { display: block; height: 100%; width: calc(var(--p, 0) * 100%); background: var(--accent); transition: width .5s var(--ease); }
@@ -1935,6 +2018,11 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .pz.stack .pz-panel.fill { height: auto; }
 .pz.stack .pz-panel.fill .pz-cell .pz-ladder { flex: none; }
 .pz.stack .pz-bar { bottom: calc(var(--pz-b, 0px) + 8px); }
+.pz.stack .pz-quadwrap { grid-template-columns: minmax(0, 1fr); }
+.pz.stack .pz-visual { flex: none; }   /* (a phone scrolls the card rather than squeeze the chart over its words) */
+.pz.stack .pz-data.tiles-only .pzt-v { font-size: 26px; }
+.pz.stack .pz-data.tiles-only .pz-tiles { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
+.pz.stack .pz-lapse { font-size: 14px; }
 .pz.stack .pz-count { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .pz *, .pz, .app.presenting #stageView { animation: none !important; transition: none !important; }
@@ -2284,7 +2372,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
   box-shadow: 0 8px 24px rgba(16, 20, 30, .22), 0 0 0 2px color-mix(in srgb, var(--c) 70%, transparent);
   translate: -50% calc(-100% - 18px); transition: opacity .4s var(--ease), scale .4s var(--ease); }
 /* A pointer down to the tip (or up to the wedged vein, for the reading ahead of it). */
-.cath-label::after { content: ''; position: absolute; left: 50%; bottom: -8px; width: 14px; height: 14px; translate: -50% 0; rotate: 45deg;
+.cath-label::after { content: ''; position: absolute; left: calc(50% + clamp(-40%, var(--ax, 0px), 40%)); bottom: -8px; width: 14px; height: 14px; translate: -50% 0; rotate: 45deg;
   background: var(--surface); box-shadow: 2px 2px 0 0 color-mix(in srgb, var(--c) 70%, transparent); z-index: -1; }
 .cath-label[data-at="ahead"] { translate: -50% 18px; }
 .cath-label[data-at="ahead"].above { translate: -50% calc(-100% - 18px); }

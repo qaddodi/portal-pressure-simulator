@@ -63,9 +63,16 @@ export function createSinusoidView({ host }) {
     const across = along ? hh : Math.abs(w * Math.sin(geo.ang)) + Math.abs(hh * Math.cos(geo.ang));
     const yc = y + side * (across / 2) / VW.k;
     let [cx, cy] = toScreen(x, yc);
+    const cx0 = cx;
     if (!along) cx = clamp(cx, w / 2 + 4, geo.W - w / 2 - 4);   // a level caption stays on screen
+    if (!geo.vert) {
+      // Across the screen every caption is level: it steps clear of the ends' names and stays in the free space
+      // (a narrow one, beside a presenter's words).
+      for (const b of ENDBOX) if (b && cy + hh / 2 > b.y0 - 4 && cy - hh / 2 < b.y1 + 4) cx = b.u ? Math.min(cx, b.x0 - 14 - w / 2) : Math.max(cx, b.x1 + 14 + w / 2);
+      cx = clamp(cx, Math.min(VW.f.l + w / 2 + 4, geo.W / 2), Math.max(VW.f.r - w / 2 - 4, geo.W / 2));
+    }
     R.el.style.transform = `translate(${cx.toFixed(1)}px, ${cy.toFixed(1)}px) translate(-50%, -50%)${ang ? ` rotate(${((ang * 180) / Math.PI).toFixed(2)}deg)` : ''}`;
-    return { half: (along ? w : Math.abs(w * Math.cos(geo.ang)) + Math.abs(hh * Math.sin(geo.ang))) / 2 / VW.k };
+    return { x: x + (geo.vert ? 0 : (cx - cx0) / VW.k), half: (along ? w : Math.abs(w * Math.cos(geo.ang)) + Math.abs(hh * Math.sin(geo.ang))) / 2 / VW.k };
   }
   const legend = h('div', { class: 'sv-legend', 'aria-hidden': 'true' },
     h('span', {}, h('i', { class: 'alb' }), 'Albumin'), h('span', {}, h('i', { class: 'wat' }), 'Plasma water'));
@@ -312,7 +319,8 @@ export function createSinusoidView({ host }) {
     // In the lumen: the sinusoid (mid-view), the Kupffer cell beside itself, and the fenestrae along the far wall.
     if (g.tall) { layoutTall(); return; }
     const xc = away(pick(0.5), g.xk, 30);
-    LAB[0] = xc; LAB[1] = region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), xc, 0, { along: true }).half;
+    const rs = region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), xc, 0, { along: true });
+    LAB[0] = rs.x; LAB[1] = rs.half;
     const kw = region('kup', 'Kupffer cell', '', g.xk, 0, { along: true });
     const kx = g.xk + 9 + kw.half < pick(0.92) ? g.xk + 9 + kw.half : g.xk - 9 - kw.half;   // beside it, where there is room
     region('kup', 'Kupffer cell', '', kx, halfW(g.xk) * 0.35, { along: true });
@@ -322,12 +330,20 @@ export function createSinusoidView({ host }) {
     // read in the plate just beyond it on the other side.
     const xq = V ? pick(0.24) : away(pick(0.86), g.xs, 40);
     region('disse', 'Space of Disse', '', xq, (V ? 1 : -1) * (wallIn(xq) + disseW(xq) * 0.5), { along: true });
-    const xd = pick(V ? 0.55 : 0.32);
-    region('lymph', 'Lymph', m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min · protein ${Math.round(m.lyProt * 100)}%`, xd, hepIn(xd) + 1.2, { side: 1 });
+    const xd = pick(V ? 0.55 : 0.32), lymph = (x) => region('lymph', 'Lymph', m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min · protein ${Math.round(m.lyProt * 100)}%`, x, hepIn(x) + 1.2, { side: 1 });
+    const ly = lymph(xd);
     // In the plates: the stellate cell named just beyond its body, and a hepatocyte on itself, clear of its nucleus.
     region('hsc', S.act > 0.5 ? 'Activated stellate cell' : 'Stellate cell', '', g.xs, -(hepIn(g.xs) + 1), { side: -1, along: V });
-    const xh = pick(V ? 0.88 : 0.08), hc = cellAt(xh, SEED.plateDn), hx = (hc.x0 + hc.x1) / 2;
-    region('hep', 'Hepatocyte', '', hx, hepIn(hx) + hep * (hc.nv < 0.5 ? 0.78 : 0.22));
+    const xh = pick(V ? 0.88 : 0.08), hc = cellAt(xh, SEED.plateDn), hep1 = (x) => region('hep', 'Hepatocyte', '', x, hepIn(x) + hep * (hc.nv < 0.5 ? 0.78 : 0.22));
+    // The cell's name and the lymph's numbers share a plate: on a narrow view (a cell wider than its share of the
+    // screen) the name slides back along its cell, then the numbers step on, until the two are clear.
+    const gap = (a, b) => Math.abs(a.x - b.x) - a.half - b.half, pad = 16 / VW.k;   // (µm)
+    let hl = hep1((hc.x0 + hc.x1) / 2);
+    if (gap(hl, ly) < pad) {
+      const d = hl.x < ly.x ? -1 : 1;   // (the side of the numbers the name is on)
+      hl = hep1(clamp(ly.x + d * (ly.half + hl.half + pad), hc.x0 + hl.half, hc.x1 - hl.half));
+      if (gap(hl, ly) < pad) lymph(hl.x - d * (hl.half + ly.half + pad));
+    }
   }
   // A portrait screen: the sinusoid runs top to bottom and every label reads level. The lumen keeps only its own
   // name; the narrow bands (fenestrae, Disse) and the cells are named in the plates beside them, the stellate cell's
@@ -349,6 +365,7 @@ export function createSinusoidView({ host }) {
   }
   const LAB = [0, 0];   // the lumen's name: x and half length (µm), for the shader to keep the arrowheads clear of it
   const END = [0, 0, 1];   // the end arrows: portal x, central x, size (µm)
+  const ENDBOX = [null, null];   // the ends' names on a wide screen (px), for the captions to keep clear of
   function layoutEnds() {
     const g = geo, f = VW.f;
     // The ends: the portal venule the blood comes from and the central venule it goes to, with their pressures (as the lobule labels them).
@@ -363,6 +380,7 @@ export function createSinusoidView({ host }) {
       if (g.vert) { x = VW.C[0] - w / 2; y = u ? f.b - hh - 52 : f.t + 30; }   // (clear of the credit line at the bottom)
       else { x = u ? f.r - w - 34 : f.l + 34; y = VW.C[1] - hh / 2; }
       T.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+      ENDBOX[u] = g.vert ? null : { u, x0: x, x1: x + w, y0: y, y1: y + hh };
       const ax = g.vert ? VW.C[0] : u ? x + w + 16 : x - 16, ay = g.vert ? (u ? y + hh + 14 : y - 14) : VW.C[1];
       const ca = Math.cos(g.ang), sa = Math.sin(g.ang);
       END[u] = ((ax - VW.C[0]) * ca + (ay - VW.C[1]) * sa) / VW.k;
@@ -420,7 +438,7 @@ export function createSinusoidView({ host }) {
     }
     if (!dive) {
       const lk = [geoKey, VW.k.toFixed(3), VW.C.map((v) => v.toFixed(0)), S.lum.toFixed(3), S.act > 0.5, Math.round(S.por * 20), model.hide, model.P2.toFixed(1), model.lymph.toFixed(1), Math.round(model.lyProt * 100), model.P1.toFixed(1), model.P3.toFixed(1), phoneMQ.matches].join('|');
-      if (lk !== lastKey) { lastKey = lk; layoutTags(); layoutEnds(); }
+      if (lk !== lastKey) { lastKey = lk; layoutEnds(); layoutTags(); }
     }
     const dk = [Math.round(S.por * 4), S.col > 0.15, S.act > 0.4, model.hide, model.P2.toFixed(0), model.lymph.toFixed(1), Math.round(model.lyProt * 100)].join('|');
     if (dk !== descKey) { descKey = dk; canvas.setAttribute('aria-label', describe()); }
