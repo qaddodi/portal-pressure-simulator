@@ -75,14 +75,14 @@ export function ladder(f, { base = null, key = [], known = null, reveal = false 
   // The IVC is read with the right atrium (the echo), so it is known when the atrium is.
   const kn = known ? (known.includes('ra') ? [...known, 'ivc'] : known) : RUNGS.map(([k]) => k), has = (i) => kn.includes(RUNGS[i][0]);
   const pts = RUNGS.map(([k], i) => [x(i), has(i) ? y(f[k]) : y(0), f[k]]);
-  const [drop, big] = biggestDrop(f, kn);
+  const [drop] = biggestDrop(f, kn);
   const grid = [0, 10, 20, 30].map((v) => s('g', { class: 'tl-grid' }, s('line', { x1: 18, x2: W - 6, y1: y(v), y2: y(v) }), s('text', { x: 12, y: y(v) + 3.5, 'text-anchor': 'end' }, String(v))));
   // The line only joins neighbouring rungs that are both known.
   let d = '';
   pts.forEach(([px, py], i) => { if (has(i)) d += (i && has(i - 1) ? 'L' : 'M') + px.toFixed(1) + ' ' + py.toFixed(1); });
   const band = drop >= 0 ? s('g', { class: 'tl-drop' },
     s('rect', { x: pts[drop][0] + 10, y: y(30) - 4, width: 46, height: y(0) - y(30) + 4, rx: 8 }),
-    s('text', { x: (pts[drop][0] + pts[drop + 1][0]) / 2, y: y(30) - 9, 'text-anchor': 'middle' }, `Δ ${fmt(big, 0)} mmHg`)) : null;
+    s('text', { x: (pts[drop][0] + pts[drop + 1][0]) / 2, y: y(30) - 9, 'text-anchor': 'middle' }, `Δ ${fmt(Math.round(f[RUNGS[drop][0]]) - Math.round(f[RUNGS[drop + 1][0]]), 0)} mmHg`)) : null;
   // The gradients as spans under the axis, as on the app's pressure chart: HVPG (wedged to free hepatic vein) and PPG
   // (portal vein to the IVC) run along their stations, each named in a pill, coloured
   // by the cut-offs (amber 5 / red 10 and 6 / 12), with faint leaders up to the stations. PPG needs f.ppg (not in old snapshots).

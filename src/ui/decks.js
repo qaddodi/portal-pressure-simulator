@@ -290,7 +290,7 @@ export const DECKS = [
         ask: ['Varices, a large spleen and an HVPG of 4 mmHg. What next?', 'Look for a presinusoidal or pre-hepatic cause: image the portal vein, and consider a liver biopsy.'],
       },
       {
-        id: 'ppg', preset: 'pvt-chronic', cam: 'portal', labels: ['CONF'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, data: 'ladder', key: ['pv', 'hvpg'], tiles: ['hvpg', 'ppg'],
+        id: 'ppg', preset: 'pvt-chronic', cam: 'route', labels: [], sites: ['pv', 'ivc'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, data: 'ladder', key: ['pv', 'ivc'], tiles: ['hvpg', 'ppg'],
         kicker: 'Where HVPG misleads', site: 'pre', title: 'The portal pressure gradient',
         eq: [mi('PPG') + mo('=') + sub(mi('P'), 'portal vein') + mo('−') + sub(mi('P'), 'IVC')],
         line: 'Measured directly. It detects obstruction anywhere between the two, including this portal vein clot.',

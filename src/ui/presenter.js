@@ -173,7 +173,8 @@ function bigLadder() {
     bands.forEach((b, i) => {
       const d = f[RUNGS[i][0]] - f[RUNGS[i + 1][0]];
       b.g.setAttribute('opacity', clamp((d - 4) / 3, 0, 1).toFixed(3));
-      b.t.textContent = `Δ ${fmt(Math.max(0, d), 0)} mmHg`;
+      // (From the rounded readings shown at the two stations, so the fall always adds up: 20 to 7 reads Δ 13.)
+      b.t.textContent = `Δ ${fmt(Math.max(0, Math.round(f[RUNGS[i][0]]) - Math.round(f[RUNGS[i + 1][0]])), 0)} mmHg`;
     });
     // Each span fades out when a level is not measurable (Budd-Chiari has no wedge). Its leaders end on the points.
     const put = (b, hi, lo, v, rate) => {
@@ -719,7 +720,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     // A time-lapse starts from the slide before's state; a catheter slide drives its own camera.
     const lap = !!s.lapse && to > 0 && !q, ct = !q && !s.visual ? s.cath || null : null;
     // Words out, and the marks: they belong to the slide that is leaving.
-    store.set({ focus: null, presentLabels: [] });
+    store.set({ focus: null, presentLabels: [] }); stage.setSites(null);
     stopLapse(); abSlow();
     const si = lap ? stateOf[to - 1] : stateOf[to];
     await wordsOut(s, shownState >= 0 && (si !== shownState || liveOff));
@@ -756,6 +757,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     else if (cam) await camera(cam, s, cut);
     if (cut()) return;
     if (!s.visual) store.set({ presentLabels: q ? [] : s.labels || [], focus: !q && s.mark ? { edges: [...s.mark.edges], label: s.mark.label } : null });
+    if (!s.visual && !q && s.sites) stage.setSites(s.sites, st.fp);
     shown = { i: to, rev, gen: g };
     paintChrome();
     if (lap) await playLapse(s, to, cut);
@@ -962,7 +964,9 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
   const phone = () => innerWidth < 768 || innerWidth < innerHeight * 0.95;
   function layout() {
     if (!ui) return;
-    const p = phone(), W = wrap.clientWidth, H = wrap.clientHeight, wr = wrap.getBoundingClientRect();
+    // Under interface zoom the page is scaled by k: rects are screen px, inline sizes are the page's own (screen / k).
+    // The --pz-* insets stay in screen px, the figure's own units (the stage view undoes the zoom).
+    const p = phone(), wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height, k = wr.width / (wrap.clientWidth || wr.width) || 1;
     ui.root.classList.toggle('stack', p); ui.shade.classList.toggle('stack', p);
     const off = (el) => el.hidden || el.classList.contains('pz-hide');
     const below = !p && ui.data.classList.contains('under');
@@ -970,19 +974,19 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     const r = (el) => (off(el) ? null : el.getBoundingClientRect());
     const t = r(ui.text);
     // (Under the words: in the left column, clear of the bottom.)
-    if (below && t) { const y = t.bottom - wr.top + 28; ui.data.style.top = `${Math.round(y)}px`; ui.data.style.maxHeight = `${Math.round(H - y - 24)}px`; }
+    if (below && t) { const y = t.bottom - wr.top + 28; ui.data.style.top = `${Math.round(y / k)}px`; ui.data.style.maxHeight = `${Math.round((H - y - 24) / k)}px`; }
     else { ui.data.style.top = ''; ui.data.style.maxHeight = ''; }
     const d = below ? null : r(ui.data);
     // The words get a soft backdrop of the page colour, so a zoomed figure behind them never runs through the
     // text; it fades out over 130 px (48 on a phone), and the figure frames itself from most of the way across.
     const L = t ? t.right - wr.left : 0, T = t ? t.bottom - wr.top : 0;
-    ui.shade.style.width = !p && t ? `${L + 140}px` : '';
-    ui.shade.style.height = p && t ? `${T + 48}px` : '';
+    ui.shade.style.width = !p && t ? `${(L + 140) / k}px` : '';
+    ui.shade.style.height = p && t ? `${(T + 48) / k}px` : '';
     ui.shade.style.opacity = t ? '1' : '0';
     ui.safe.hidden = !t;
     ui.safe.dataset.safe = p ? 'top' : 'left';
-    ui.safe.style.width = p ? '' : `${L + 90}px`;
-    ui.safe.style.height = p ? `${T + 20}px` : '';
+    ui.safe.style.width = p ? '' : `${(L + 90) / k}px`;
+    ui.safe.style.height = p ? `${(T + 20) / k}px` : '';
     const set = (k, v) => app.style.setProperty(k, `${Math.max(0, Math.round(v))}px`);
     set('--pz-l', !p && t ? L + 90 : 0);
     set('--pz-r', !p && d ? W - (d.left - wr.left) + 8 : 0);
@@ -1207,7 +1211,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     for (const w of waiters) w.res(null);
     waiters = [];
     removeEventListener('resize', onResize);
-    store.set({ presenting: false, presentLabels: null, focus: null });
+    store.set({ presenting: false, presentLabels: null, focus: null }); stage.setSites(null);
     clearTimeout(idleT);
     ui?.tools.dispose(); ui?.root.remove(); ui?.shade.remove(); ui = null;
     view.classList.remove('pz-out');

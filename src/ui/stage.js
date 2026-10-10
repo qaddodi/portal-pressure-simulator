@@ -1011,6 +1011,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     refreshCTM();
     updateLabels(F);
     if (cath.st) cathLabels();
+    if (sites.list) sitesPaint();
     onViewChange?.();
   }
   applyVT();
@@ -1417,6 +1418,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       applyVT(); CTM = null;
       // With the catheter in, the vessels, the catheter and its labels follow the camera in this very frame.
       if (cath.st) { refreshCTM(); cathLabels(); if (drawVeins()) drawnView = viewVersion; }
+      if (sites.list) { refreshCTM(); sitesPaint(); }
       if (u < 1) vtAnim = requestAnimationFrame(step); else vtGliding = false;
     };
     vtAnim = requestAnimationFrame(step);
@@ -3146,6 +3148,44 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     wrap.append(labels);
     return { g, column, column2, shadow, body, balloon, ring, tip, labels, st: null, at: null, saved: null };
   })();
+  // A presenter slide's measuring sites (the PPG's portal vein and IVC): a pointer on each station with its reading,
+  // drawn like the catheter's WHVP and FHVP callouts. It fades in, follows the camera and stays in the figure's free space.
+  // (The portal vein's hangs below the confluence, clear of the trunk and its clot.)
+  const SITE_DEF = { pv: { node: 'CONF', kicker: 'Portal vein', cls: 'pv', below: true }, ivc: { node: 'IVCS', kicker: 'IVC', cls: 'ivc' } };
+  const sites = (() => {
+    const el = document.createElement('div');
+    el.className = 'cath-labels site-labels'; el.setAttribute('aria-hidden', 'true');
+    wrap.append(el);
+    return { el, list: null, fp: null, made: new Map() };
+  })();
+  function sitesPaint() {
+    const want = sites.list || [], made = sites.made;
+    for (const [k, el] of made) if (!want.includes(k)) { made.delete(k); el.classList.add('cath-pre'); setTimeout(() => el.remove(), 500); }
+    if (!F || !want.length) return;
+    const wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height, t = easeInOut(morph);
+    const x0 = pzInset('--pz-l') + 8, x1 = W - pzInset('--pz-r') - 8, y0 = pzInset('--pz-t') + 8, y1 = H - pzInset('--pz-b') - 8;
+    for (const k of want) {
+      const d = SITE_DEF[k];
+      if (!d || !NODE_POS[d.node]) continue;
+      let el = made.get(k);
+      if (!el) {
+        el = document.createElement('div'); el.className = `cath-label site ${d.cls} cath-pre`;
+        const sm = document.createElement('small'); sm.textContent = d.kicker;
+        const b = document.createElement('b'), u = document.createElement('span'); u.textContent = 'mmHg';
+        el.append(sm, b, u); sites.el.append(el); made.set(k, el);
+        void el.offsetWidth; el.classList.remove('cath-pre');
+      }
+      const b = el.querySelector('b'), v = fmt(sites.fp?.[k] ?? (F.Pf || F.P)[NI[d.node]], 1);
+      if (b.textContent !== v) b.textContent = v;
+      const [x, y] = worldToLocal(...nodePos(d.node, t));
+      // Off the free space, the reading waits hidden; above its point unless the top is covered (decided once, so it never jumps).
+      el.classList.toggle('off', x < x0 || x > x1 || y < y0 || y > y1);
+      if (el._below == null && el.offsetHeight) { el._below = d.below ? y + 18 + el.offsetHeight < y1 : y - 18 - el.offsetHeight < y0; el.dataset.at = el._below ? 'ahead' : ''; }
+      const half = el.offsetWidth / 2, cx = clamp(x, Math.min(x0 + half, (x0 + x1) / 2), Math.max(x1 - half, (x0 + x1) / 2));
+      el.style.setProperty('--ax', `${(x - cx).toFixed(1)}px`);
+      el.style.transform = `translate(${cx.toFixed(1)}px, ${y.toFixed(1)}px)`;
+    }
+  }
   const CATH_IDS = ['SVC_RA', 'IVCS_RA', 'RHV_IVC', 'POST_R_RHV'];   // (and down the IVC_IS to the hepatic vein)
   const lenTo = (pts) => { const c = [0]; for (let i = 1; i < pts.length; i++) c.push(c[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])); return c; };
   /** The part of a polyline from length a to length b (cumulative lengths in cum). */
@@ -3905,6 +3945,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const sc = CTM.sc, th = Math.atan2(CTM.b, CTM.a), sig = labelSig(f);
     const solve = !solvedFor || solvedFor.sig !== sig || Math.abs(Math.log(sc / solvedFor.sc)) > SOLVE_ZOOM || Math.abs(th - solvedFor.th) > SOLVE_TURN;
     if (solve || layoutLabels(f, false) === false) { layoutLabels(f, true); solvedFor = { sig, sc, th }; }
+    if (sites.list) sitesPaint();
   }
   // Figure point under a local (stage) pixel.
   function localToWorld(x, y) {
@@ -5208,6 +5249,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** The HVPG catheter: null removes it; else { u (0..1 of the way in), balloon, column (0..1), columnColor, ring, pulse,
      *  opacity, labels: [{ key, at: 'tip' | 'ahead', kicker, text, unit, cls }] }. */
     setCatheter(st) { cath.st = st; wrap.classList.toggle('cath-on', !!st); if (!st) { cath.rc = 0; cath.route = null; if (veins?.canCath) veins.setCath(null); cathVer++; if (cathTint) { cathTint = null; cath.tintKey = ''; syncVeins(easeInOut(morph)); } cath.g.style.display = 'none'; cath.labels.hidden = true; cath.labels.replaceChildren(); cath.made?.clear(); cath.at = null; return; } cathPaint(); },
+    /** A presenter slide's measuring sites, e.g. ['pv', 'ivc'] (see SITE_DEF), read from fp (the slide's numbers, so they
+     *  match its ladder and tiles) or else the live figure; null removes them. */
+    setSites(list, fp = null) { sites.list = list?.length ? [...list] : null; sites.fp = fp; if (!sites.list) for (const k of [...sites.made.keys()]) { const el = sites.made.get(k); sites.made.delete(k); el.classList.add('cath-pre'); setTimeout(() => el.remove(), 500); } else { refreshCTM(); sitesPaint(); } },
     /** Frame the catheter's route ('route'), its tip close up ('tip'), or go back to the view before ('home'). */
     cathFocus,
     cathFollow,
