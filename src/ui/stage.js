@@ -6,10 +6,10 @@ import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLU
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=49dc9cdf15';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=a357853926';
-import { createLobuleZoom } from './lobule-zoom.js?v=a9e44743f0';
+import { createLobuleZoom } from './lobule-zoom.js?v=f8fe56d673';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=db1288869c';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=90a3499d43';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 
 const N_SAMPLES = 64;
@@ -2983,21 +2983,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The camera for the procedure: the route, the tip close up, then back where it was.
   function cathFocus(mode, ms = 700) {
     const r = cathRoute();
-    if (mode === 'home') { if (cath.saved) animateVT(cath.saved, ms); cath.saved = null; return true; }
+    if (mode === 'home') { if (cath.saved) animateVT(cath.saved, ms); cath.saved = null; cath.k0 = 0; return true; }
     if (!r) return false;
     if (!cath.saved) cath.saved = { ...(vtTarget && vtAnim ? vtTarget : vt) };
+    if (mode === 'route') cath.k0 = 0;
     const wr = wrap.getBoundingClientRect(), ins = safeInsets();
     const [fx0, fy0] = clientToVB(wr.left + ins.l, wr.top + ins.t), [fx1, fy1] = clientToVB(wr.left + ins.W - ins.r, wr.top + ins.H - ins.b);
     let cx, cy, k, cyScreen = (fy0 + fy1) / 2;
     if (mode === 'tip') {
       const tp = cutLen(r.pts, r.cum, 0, r.free).at(-1);
-      cx = tp[0]; cy = tp[1]; k = 5;
+      cx = tp[0]; cy = tp[1]; k = 6.2;
       // With little room above a card (a phone), the view is a little wider and the tip sits low in the free space,
       // so the vein still shows and the readings fit above the tip.
       const sp = cardSpace(), freeH = ins.H - sp.t - sp.b;
       if (freeH < 440) {
         const [, top] = clientToVB(wr.left, wr.top + sp.t), [, bot] = clientToVB(wr.left, wr.top + ins.H - sp.b);
-        k = 3.4; cyScreen = bot - (bot - top) * (74 / Math.max(freeH, 120));
+        k = 4.2; cyScreen = bot - (bot - top) * (74 / Math.max(freeH, 120));
       }
     } else {
       const seg = cutLen(r.pts, r.cum, r.start * 0.5, r.hvEnd);
@@ -3017,11 +3018,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const end = st.ostium ? r.hv0 - 2 : r.free, tipD = r.start + (end - r.start) * clamp(st.u, 0, 1);
     const wr = wrap.getBoundingClientRect(), ins = safeInsets();
     const [fx0, fy0] = clientToVB(wr.left + ins.l, wr.top + ins.t), [fx1, fy1] = clientToVB(wr.left + ins.W - ins.r, wr.top + ins.H - ins.b);
-    const tp = cutLen(r.pts, r.cum, 0, tipD).at(-1), k = vt.k;
-    const tx = (fx0 + fx1) / 2 - tp[0] * k, ty = (fy0 + fy1) / 2 - tp[1] * k;
-    // Only ever follow downwards along the descent (no backing up as the tip turns in).
-    const a = 1 - Math.exp(-dt / 450), ny = vt.y + Math.min(0, ty - vt.y) * a, nx = vt.x + (tx - vt.x) * a * 0.5;
-    if (Math.abs(ny - vt.y) + Math.abs(nx - vt.x) < 0.05) return;
+    // Up and down only (no sideways pan), with a gentle zoom in as the tip nears the vein.
+    const tp = cutLen(r.pts, r.cum, 0, tipD).at(-1), a = 1 - Math.exp(-dt / 450);
+    if (!cath.k0) cath.k0 = vt.k;
+    const k = vt.k + (cath.k0 * (1 + 0.25 * clamp(st.u, 0, 1)) - vt.k) * a, sx = (fx0 + fx1) / 2;
+    const nx = sx - (sx - vt.x) * (k / vt.k), ty = (fy0 + fy1) / 2 - tp[1] * k;
+    const sy = (fy0 + fy1) / 2, ys = sy - (sy - vt.y) * (k / vt.k), ny = ys + Math.min(0, ty - ys) * a;
+    if (Math.abs(ny - vt.y) + Math.abs(nx - vt.x) + Math.abs(k - vt.k) * 100 < 0.05) return;
     vt = { k, x: nx, y: ny }; applyVT(); CTM = null; refreshCTM(); cathLabels(); if (drawVeins()) drawnView = viewVersion;
   }
 

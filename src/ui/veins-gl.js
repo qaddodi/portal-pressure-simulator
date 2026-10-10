@@ -473,8 +473,13 @@ void main() {
     n = normalize(vec3(w, z + 1e-3));
     float dif = max(dot(n, L), 0.0), sp = pow(max(dot(n, H), 0.0), 34.0);
     if (mode == 4) {
-      c = col * (0.46 + 0.6 * dif) + vec3(0.9) * sp * 0.75;
-      c = mix(c, col * 0.3, smoothstep(0.7, 1.0, r) * 0.75);
+      // The rounded end shades like the shaft it closes (a cylinder across its width, not a ball), so
+      // it reads as part of the tube rather than a glossy bead stuck on.
+      float v = clamp(vUV.y, -1.0, 1.0);
+      vec3 nc = vec3(vec2(-vDir.y, vDir.x) * v, sqrt(max(0.0, 1.0 - v * v)));
+      float dc = max(dot(nc, L), 0.0), sc = pow(max(dot(nc, H), 0.0), 34.0);
+      c = col * (0.5 + 0.56 * dc) + vec3(0.9) * sc * 0.75;
+      c = mix(c, col * 0.32, smoothstep(0.78, 1.0, r) * 0.6);
       a *= aa;
     } else if (mode == 5) {
       // Thin latex over contrast: clear in the middle, bright at the rim, a hard highlight up-left.
