@@ -23,7 +23,7 @@ import { h, fmt, clamp, lerp } from './util.js?v=a357853926';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { isPaused } from './clock.js?v=e759f7bea1';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=5a800f6974';
+import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=ed4006f082';
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
@@ -199,8 +199,8 @@ export function createSinusoidView({ host }) {
       cHscQ: dark ? v3(176, 134, 102) : v3(224, 184, 150), cHscA: dark ? v3(160, 102, 74) : v3(190, 128, 94), cHscN: dark ? v3(96, 56, 42) : v3(146, 90, 66), cDrop: dark ? v3(222, 196, 120) : v3(248, 226, 156),
       cKup: dark ? v3(132, 106, 176) : v3(178, 150, 214), cKupN: dark ? v3(74, 54, 116) : v3(108, 80, 156), cKupE: dark ? v3(58, 42, 96) : v3(96, 70, 142),
       cRbc: dark ? v3(176, 62, 72) : v3(204, 74, 80),
-      // The end arrows wear their labels' pill: its fill and border.
-      cEndF: dark ? mixv(bg, [1, 1, 1], 0.08) : [1, 1, 1], cEndE: dark ? v3(176, 186, 214) : v3(70, 74, 92),
+      // The end arrows are inked as their labels: the text's colour inside the labels' halo.
+      cEndF: rgb(v('--text', dark ? '#E9EDF6' : '#1F2128')), cEndE: rgb(v('--label-halo', dark ? '#0B1120' : '#FBFAF7')),
       cChev: dark ? v3(10, 12, 20) : v3(20, 20, 26), cRev: [1, 0.55, 0.16],   // (the app's chevron inks: dark, orange where reversed)
       cAlb: dark ? v3(242, 182, 74) : v3(227, 154, 30), cAlbE: dark ? v3(110, 58, 0) : v3(140, 76, 0),
       cWat: dark ? v3(225, 238, 252) : v3(255, 255, 255), cWatE: dark ? v3(90, 110, 140) : v3(80, 110, 140),
@@ -256,7 +256,7 @@ export function createSinusoidView({ host }) {
     for (let i = movers.length - 1; i >= 0; i--) {
       const q = movers[i];
       q.t += dt;
-      if (q.kind === 'b') { q.x += vB * 0.6 * dt; if (q.t > 1.1) movers.splice(i, 1); continue; }
+      if (q.kind === 'b') { q.x += vB * 0.6 * dt; if (q.t > BT) movers.splice(i, 1); continue; }
       // Through the wall (0.5 s, carried a little by the blood), then along Disse with the lymph.
       if (q.t < 0.5) q.x += vB * 0.25 * dt; else q.x += vL * (0.85 + 0.3 * Math.sin(q.ph)) * dt;
       if (q.x < VW.vis[0] - 4 || q.x > VW.vis[1] + 4) movers.splice(i, 1);
@@ -264,26 +264,34 @@ export function createSinusoidView({ host }) {
   }
   // The sprites for this frame: (x, y, radius, alpha, kind) — 0 albumin, 1 water, 2 the flash at a sealed wall.
   const pts = new Float32Array(1400 * 5);
+  const BT = 1.6;   // how long an albumin turned back at a sealed wall is shown (s)
+  let albN = -1, spriteDt = 0;
   function sprites() {
     let n = 0;
     const put = (x, y, r, a, k) => { if (n >= 1400 || a <= 0.01) return; const o = n * 5; pts[o] = x; pts[o + 1] = y; pts[o + 2] = r; pts[o + 3] = a; pts[o + 4] = k; n++; };
-    const [v0, v1] = VW.vis, span = v1 - v0 + 8, nA = Math.round(albs.length * clamp(span / 300, 0.15, 1));
+    const [v0, v1] = VW.vis, span = v1 - v0 + 8;
+    // How many ride in the stream follows the stretch shown; the count eases, so a dot fades in or out rather than popping.
+    const nT = albs.length * clamp(span / 300, 0.15, 1);
+    albN = albN < 0 ? nT : albN + (nT - albN) * Math.min(1, spriteDt / 0.8);
+    const nA = Math.min(albs.length, Math.ceil(albN));
     for (let i = 0; i < nA; i++) {
       const a = albs[i], sp = 1.5 * (1 - a.y * a.y) + 0.08, x = v0 - 4 + ((((a.u * span + flowX * sp) % span) + span) % span);
       const y = clamp(a.y + 0.05 * Math.sin(flowX * 0.05 + a.ph), -0.96, 0.96) * (halfW(x) - 0.5);
-      put(x, y, 0.36, 1, 0);
+      put(x, y, 0.36, clamp(albN - i, 0, 1), 0);
     }
     for (const q of movers) {
       if (q.kind === 'b') {
         // Up to the lining and back: an albumin dot with a small flash where it meets the sealed wall.
-        const u = Math.sin(Math.PI * clamp(q.t / 1.1, 0, 1)), y = q.side * lerp(halfW(q.x) - 2.2, halfW(q.x) - 0.45, u);
-        if (u > 0.8) put(q.x, y, 1.1, (u - 0.8) * 5, 2);   // (the glow under the dot)
-        put(q.x, y, 0.38, 1, 0);
+        // (It comes out of the stream and goes back into it, fading in and out there: never appearing or vanishing at once.)
+        const u = Math.sin(Math.PI * clamp(q.t / BT, 0, 1)), y = q.side * lerp(halfW(q.x) - 2.6, halfW(q.x) - 0.45, u);
+        const fa = smooth(0, 0.45, q.t) * smooth(BT, BT - 0.45, q.t);
+        if (u > 0.8) put(q.x, y, 1.1, (u - 0.8) * 5 * fa, 2);   // (the glow under the dot)
+        put(q.x, y, 0.38, fa, 0);
         continue;
       }
       const tIn = clamp(q.t / 0.5, 0, 1), e = tIn * tIn * (3 - 2 * tIn);
-      const y = q.side * lerp(halfW(q.x) - 1.1, lerp(wallIn(q.x), hepIn(q.x), q.y), e) + q.side * 0.15 * Math.sin(q.t * 2 + q.ph);
-      const al = Math.min(1, q.t * 4) * clamp((q.x - v0) / 6, 0, 1);
+      const y = q.side * lerp(halfW(q.x) - 1.6, lerp(wallIn(q.x), hepIn(q.x), q.y), e) + q.side * 0.15 * Math.sin(q.t * 2 + q.ph);
+      const al = smooth(-0.15, 0.45, q.t) * clamp((q.x - v0) / 6, 0, 1);   // (out of the stream, fading in: never appearing at once)
       if (q.kind === 'a') put(q.x, y, 0.38, al, 0); else put(q.x, y, 0.26, al, 1);
     }
     return n;
@@ -410,6 +418,7 @@ export function createSinusoidView({ host }) {
         u.uDet = [smooth(0.72, 1, g), 1e5];
         u.uFocus = smooth(0.82, 1, g);   // (the page shows around it only once it has landed, not as a band while it is small)
       } else { u.uRev = [1, -1e5, 1e5, 1e5]; u.uAll = 1; u.uDet = [1, 1e5]; u.uFocus = 1; }
+      spriteDt = Math.max(0, dt) * go;
       gpu.draw(u, pts, sprites());
     }
     if (!dive) {

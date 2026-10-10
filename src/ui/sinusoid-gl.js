@@ -130,11 +130,12 @@ float sdEndo(float x, float a, float hw, int sd, int nsd, bool skipK, float det,
 // The endothelial cells: a pale lining with a deeper membrane line on both faces (so it reads against the lumen and
 // Disse), a flattened nucleus with its envelope, and a seam at each cell's border.
 vec3 endoInk(vec3 under, float d, float dN, float x, float det) {
-  vec3 c = paint(under, cEndo, d);
-  c = mix(c, cEndoN, line(d, 0.09) * 0.55 * det);
+  // A little translucent (the lumen or Disse tints it through), its membrane and nucleus more solid.
+  vec3 c = mix(under, cEndo, cov(d) * mix(1.0, 0.72, det));
+  c = mix(c, cEndoN, line(d, 0.09) * 0.6 * det);
   float sx = mod(x + 19.0, 38.0) - 19.0;                      // the cells' borders, midway between the nuclei
   c = mix(c, cEndoN, cov(d) * line(sx, 0.12) * 0.7 * det);
-  c = mix(c, mix(cEndoN, cEndo, 0.25), cov(dN));
+  c = mix(c, mix(cEndoN, cEndo, 0.3), cov(dN) * 0.85);
   return mix(c, cEndoN * 0.8, line(dN, 0.1) * det);
 }
 
@@ -238,6 +239,7 @@ vec3 plate(float x, float v, int sd, float det) {
   // A little body: the cytoplasm faintly lighter inside, deeper at the membrane, and finely granular (mitochondria, glycogen).
   c = mix(c, vec3(1.0), (0.05 - 0.03 * uDark) * smoothstep(-2.0, -7.0, d));
   c = mix(c, cUnder, 0.22 * smoothstep(-1.6, 0.0, d));
+  c = mix(c, mix(cUnder, cNuc, 0.25), line(d + 0.25, 0.14) * 0.35 * det);   // the membrane, fine
   if (det > 0.05) {
     vec2 gq = vec2(x, v) / 1.7, gf = floor(gq);
     int gi = int(gf.x) * 131 + int(gf.y) * 17;
@@ -319,9 +321,13 @@ vec4 hsc(vec2 p) {
   }
   c = paint(c, cHscN, dn);
   c = mix(c, cHscN * 0.85, line(dn, 0.08) * 0.6);
+  c = mix(c, cHscN * 0.7, cov(length(p - vec2(uXs - L * 0.05, uHscA - 0.05)) - 0.22) * 0.7);   // its nucleolus
   // Its membrane, so the cell and its fine processes read against Disse.
-  c = mix(c, cHscN, line(d, 0.1) * 0.55);
-  return vec4(c, cov(d - 0.5 * max(0.1, 1.1 * uPx)));
+  float mem = line(d, 0.1);
+  c = mix(c, cHscN, mem * 0.55);
+  // A little translucent (what passes beneath shows through), the membrane, nucleus and droplets more solid.
+  float op = max(0.8, max(mem, max(cov(dn), 0.0)));
+  return vec4(c, cov(d - 0.5 * max(0.1, 1.1 * uPx)) * op);
 }
 
 // ── The Kupffer cell: a macrophage anchored on the lower lining, reaching into the stream ──
@@ -358,8 +364,10 @@ vec4 kupffer(vec2 p) {
   float dn = smax(sdE(q - vec2(1.2, -2.7), vec2(1.8, 1.15)), -(length(q - vec2(1.5, -4.0)) - 0.75), 0.35) * k;
   c = paint(c, cKupN, dn);
   c = mix(c, cKupE, line(dn, 0.08) * 0.6);
-  c = mix(c, cKupE, line(d, 0.11) * 0.7);
-  return vec4(c, cov(d - 0.5 * max(0.1, 1.1 * uPx)));
+  float mem = line(d, 0.11);
+  c = mix(c, cKupE, mem * 0.7);
+  float op = max(0.78, max(mem, max(cov(dn), cov(sdE(rq, vec2(0.82, 0.5)) * k))));   // a little translucent, as the stellate cell
+  return vec4(c, cov(d - 0.5 * max(0.1, 1.1 * uPx)) * op);
 }
 
 void main() {
@@ -389,10 +397,10 @@ void main() {
       float head = max(max((qx + q.y * kk) / sqrt(1.0 + kk * kk), -L + 0.3 * L * (1.0 - sat(q.y / hw2)) - qx), q.y - hw2);
       float shaft = sdTaper(q, vec2(-0.5 * s, 0.0), vec2(0.0, 0.0), 0.12 * s, 0.12 * s);
       float dA = min(head, shaft);
-      // As its label's pill: the pill's fill inside a crisp border, on a soft shadow, so it stands off the lumen.
+      // Inked as its label: the text's colour inside the same halo, so it stands off the lumen as the names do.
       float px = uPx;
-      c = mix(c, vec3(0.0), (1.0 - smoothstep(0.0, 0.2 * s, dA - 0.06 * s)) * 0.22 * uEnd.w);
-      c = mix(c, cEndE, (1.0 - smoothstep(-px, px, dA - 0.07 * s)) * uEnd.w);
+      c = mix(c, cEndE, (1.0 - smoothstep(0.0, 0.08 * s, dA - 0.08 * s)) * 0.6 * uEnd.w);
+      c = mix(c, cEndE, (1.0 - smoothstep(-px, px, dA - 0.08 * s)) * uEnd.w);
       c = mix(c, cEndF, (1.0 - smoothstep(-px, px, dA + 0.02 * s)) * uEnd.w);
     }
   }
