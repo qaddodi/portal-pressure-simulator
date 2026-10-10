@@ -6,15 +6,15 @@
 import { store } from './store.js?v=5edd069b32';
 import { h, svgIcon, icon } from './util.js?v=c40671acfb';
 import { LESSONS } from './learn.js?v=75264bde4f';
-import { CASES } from './cases.js?v=1638d196c2';
+import { CASES } from './cases.js?v=37f0f9f354';
 import { createDrill, drillProgress, DRILL_TITLE, ROUNDS } from './drill.js?v=df831c54a9';
-import { skillsPath, reviewCard } from './practice.js?v=cc6c990683';
+import { skillsPath, reviewCard } from './practice.js?v=59dec83845';
 import { UNITS, FINAL, PARTS, course } from './course.js?v=5ac0b0266c';
 import { openExam } from './exam.js?v=7402148dba';
 import { t } from '../i18n/i18n.js?v=398e679a38';
 import { exportCSV, exportXAPI, learnerName, setLearnerName, records } from './records.js?v=50fb9dd463';
 import { SNAPSHOTS, PATH } from './snapshots.js?v=d3e900d9e9';
-import { pressureColor } from './colormap.js?v=6d64a94345';
+import { pressureColor } from './colormap.js?v=7616551729';
 import { AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 
 const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };

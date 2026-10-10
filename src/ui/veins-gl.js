@@ -237,8 +237,8 @@ void main() {
   vec4 glow = vec4(0.0);
   if (heat == 1) for (int s = 0; s < MAXS; s++) {
     if (s >= n || sheat[s] <= 0.0) continue;
-    float x = sd[s] + sr[s], hw = sr[s] + 11.0;
-    float gv = 0.87 * (1.0 - smoothstep(hw - 18.0, hw + 18.0, x)) * sheat[s] * sa[s];
+    float x = sd[s] + sr[s], hw = sr[s] + 7.0;
+    float gv = 0.58 * (1.0 - smoothstep(hw - 12.0, hw + 12.0, x)) * sheat[s] * sa[s];
     if (gv > glow.a) glow = vec4(shcol[s] * gv, gv);
   }
   // ── Hover: a soft halo in the vessel's own colour, just outside its wall (under the network) ──

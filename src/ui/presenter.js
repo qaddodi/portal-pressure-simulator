@@ -17,11 +17,11 @@ import { store, replaceParams } from './store.js?v=5edd069b32';
 import { h, toast, svgIcon, icon, fmt, clamp } from './util.js?v=c40671acfb';
 import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=05b5d1d92f';
-import { sinusoidSupported } from './sinusoid-view.js?v=85f840c460';
+import { sinusoidSupported } from './sinusoid-view.js?v=f4c687c596';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
 import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=93d381e8df';
-import { createHvpgMonitor } from './hvpg-proc.js?v=a1f75a0b16';
-import { createTools } from './presenter-tools.js?v=bef0602d27';
+import { createHvpgMonitor } from './hvpg-proc.js?v=3afe9f2baa';
+import { createTools } from './presenter-tools.js?v=d4637ea40e';
 import { openHandout } from './handout.js?v=252beba081';
 
 const KEY = 'pps.scripts';

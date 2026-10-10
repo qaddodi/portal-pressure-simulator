@@ -22,7 +22,7 @@ import { trustLine, optionList, bindQuestionKeys } from './learning-kit.js?v=6df
 import { course, setUnitSurface, unitBar } from './course.js?v=5ac0b0266c';
 import { CASE_UNITS } from './cases/units.js?v=bde5f54566';
 import { activeInterventions } from './inspector.js?v=f8e9753ccd';
-import { captureFrame } from './timeline.js?v=e28d3c5396';
+import { captureFrame } from './timeline.js?v=21b8f2df30';
 import { createRoute, ladder, SITE_OF_GROUP } from './ladder.js?v=05b5d1d92f';
 import { SNAPSHOTS } from './snapshots.js?v=d3e900d9e9';
 

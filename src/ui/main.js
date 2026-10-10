@@ -3,27 +3,27 @@
 
 import { startHost, host } from './host.js?v=5f360b39e4';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=5edd069b32';
-import { createStage } from './stage.js?v=86946f555d';
-import { sinusoidSupported } from './sinusoid-view.js?v=85f840c460';
+import { createStage } from './stage.js?v=dc55143a8b';
+import { sinusoidSupported } from './sinusoid-view.js?v=f4c687c596';
 import { createInspector } from './inspector.js?v=f8e9753ccd';
-import { createDock, CUTOFFS } from './dock.js?v=f4796f99fc';
-import { setHvpgStage } from './hvpg-proc.js?v=a1f75a0b16';
+import { createDock, CUTOFFS } from './dock.js?v=9f9ce92c27';
+import { setHvpgStage } from './hvpg-proc.js?v=3afe9f2baa';
 import { createWhy } from './why.js?v=20917f56d7';
-import { createTimeline, LAPSES } from './timeline.js?v=e28d3c5396';
+import { createTimeline, LAPSES } from './timeline.js?v=21b8f2df30';
 import { createLearn } from './learn.js?v=75264bde4f';
-import { createCases, CASES } from './cases.js?v=1638d196c2';
+import { createCases, CASES } from './cases.js?v=37f0f9f354';
 import { isBlind } from './learning-kit.js?v=6df2efa942';
 import { createCompare } from './compare.js?v=19ac82375c';
 import { createCard } from './card.js?v=acfa6e10ad';
-import { createChart, computeFindings } from './chart.js?v=4f9862e946';
-import { createHome, ROLES } from './home.js?v=502034fe56';
+import { createChart, computeFindings } from './chart.js?v=4639117d4d';
+import { createHome, ROLES } from './home.js?v=87a7e37aaf';
 import { course } from './course.js?v=5ac0b0266c';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=398e679a38';
 import { caption } from './a11y.js?v=9196b88cba';
-import { startLMS } from './lms.js?v=97ab188831';
+import { startLMS } from './lms.js?v=f9756d1b7b';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=9490bc4764';
-import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
+import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=7616551729';
 import { EDGES, NODES } from '../engine/topology.js?v=706a39d50b';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=c40671acfb';
 
@@ -48,9 +48,9 @@ const LENSES = {
   pressure: ['Pressure', 'Venous pressure in each vessel', () => gradientCss('to right', 30)],
   delta: ['Change', 'Higher or lower than healthy', () => 'linear-gradient(to right, #2D6CDF, #9696A0, #D22846)'],
   heat: ['Congestion', 'Where pressure has backed up', () => heatCss('to right')],
-  drop: ['Pressure drop', 'Where the resistance lives', () => gradientCss('to right', 30)],
+  drop: ['Pressure drop', 'Where the resistance lives', () => dropCss('to right')],
   flow: ['Flow volume', 'How much blood; width = flow', () => flowCss('to right')],
-  velocity: ['Velocity', 'How fast; red = stagnant', () => velocityCss('to right')],
+  velocity: ['Velocity', 'How fast; pale = slow, dark = fast', () => velocityCss('to right')],
   direction: ['Direction', 'Toward the liver or away', () => 'linear-gradient(to right, var(--flow-normal) 50%, var(--flow-reversed) 50%)'],
   origin: ['Blood origin', 'Where each vessel\u2019s blood comes from', () => `linear-gradient(to right, ${ORIGIN_CSS.map((c, i) => `${c} ${i * 20}% ${(i + 1) * 20}%`).join(', ')})`],
 };
@@ -141,7 +141,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else home.open(o?.practice ? 'practice' : 'course'); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => home.open('course') });
-  presenterL = lazy(() => import('./presenter.js?v=7d23435c37'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=d280785991'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), stashCards, rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -594,8 +594,8 @@ function renderLegend() {
     const max = 30, at = (p) => (p / max) * 100;
     el.replaceChildren(h('div', { class: 'lg-title' }, m === 'pressure' ? 'Mean venous pressure' : 'Pressure drop', h('small', {}, 'mmHg')), cap(m === 'pressure' ? 'Pressure' : 'Drop', 'mmHg'),
       m === 'pressure' ? scale(gradientCss('to right', max), PRESSURE_TICKS.map((p) => [at(p), String(p)]), PRESSURE_TICKS.map(at))
-        : scale(gradientCss('to right', max), [[0, '0'], [100, '12+']]));
-    el.setAttribute('aria-label', m === 'pressure' ? 'Legend: mean venous pressure at each vessel, 0 to 30 millimeters of mercury, pale blue to dark magenta' : 'Legend: pressure drop across each vessel, 0 to 12 or more millimeters of mercury');
+        : scale(dropCss('to right'), [[0, '0'], [100, '12+']]));
+    el.setAttribute('aria-label', m === 'pressure' ? 'Legend: mean venous pressure at each vessel, 0 to 30 millimeters of mercury, pale blue to dark magenta' : 'Legend: pressure drop across each vessel, 0 to 12 or more millimeters of mercury, pale to deep green');
   } else if (m === 'flow') {
     const at = (v) => flowPos(v) * 100;
     el.replaceChildren(h('div', { class: 'lg-title' }, 'Flow volume', h('small', {}, 'L/min · width ∝ √flow')), cap('Flow', 'L/min'),
@@ -605,7 +605,7 @@ function renderLegend() {
     const at = (v) => velPos(v) * 100;
     el.replaceChildren(h('div', { class: 'lg-title' }, 'Mean velocity', h('small', {}, 'cm/s')), cap('Velocity', 'cm/s'),
       scale(velocityCss('to right'), [[at(0), '0'], [at(5), '5'], [at(15), '15'], [at(30), '30'], [at(60), '60']], [at(5)]));
-    el.setAttribute('aria-label', 'Legend: mean blood velocity from 0 to 60 centimeters per second; dark red is stagnant (below 5), green is free-flowing');
+    el.setAttribute('aria-label', 'Legend: mean blood velocity from 0 to 60 centimeters per second, pale amber (slow; stasis below 5) to deep brown (fast)');
   } else if (m === 'heat') {
     const at = (v) => (v / HEAT_MAX) * 100;
     el.replaceChildren(h('div', { class: 'lg-title' }, 'Congestion', h('small', {}, `mmHg above ${ref}`)), cap('Congestion', 'mmHg'),
@@ -655,7 +655,7 @@ function injectDye({ hold = false } = {}) {
 function menuToggle(checked, ic, label, sub, onChange) {
   let on = !!checked;
   const b = h('button', { class: 'lens lens-opt' + (on ? ' on' : ''), role: 'menuitemcheckbox', 'aria-checked': String(on) },
-    svgIcon(ic, 'bo-ic'), h('span', { class: 'lens-t' }, label), sub ? h('span', { class: 'lens-d' }, sub) : null);
+    svgIcon(ic, 'bo-ic'), h('span', { class: 'lens-t' }, label), sub ? h('span', { class: 'lens-d' }, sub) : null, h('span', { class: 'mt-sw', 'aria-hidden': 'true' }));
   b.addEventListener('click', () => { on = !on; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); onChange(on); });
   return b;
 }
@@ -670,7 +670,9 @@ function openBlood(anchor) {
     toggle(!!b.chevrons, 'chevrons', 'Chevrons', 'Arrowheads moving with the flow; orange where it runs backwards', (on) => setBlood({ chevrons: on })),
     h('div', { class: 'menu-sep' }),
     h('div', { class: 'menu-title' }, 'Show on the figure'),
-    layer('chips', 'tag', 'Pressure values', 'The number beside each vessel\u2019s name'),
+    // A student's figure keeps to names (stage.js, the quiet rule), so the switch would do nothing there.
+    st.role === 'student' && st.mode === 'explore' ? h('div', { class: 'lens lens-opt lens-hint' }, svgIcon('tag', 'bo-ic'), h('span', { class: 'lens-t' }, 'Pressure values'), h('span', { class: 'lens-d' }, 'Tap a vessel to see its pressure'))
+      : layer('chips', 'tag', 'Pressure values', 'The number beside each vessel\u2019s name'),
     layer('collaterals', 'route', 'Potential collaterals', 'Dotted routes that open as pressure rises'),
     layer('labels', 'liver', 'Organ names'),
     h('div', { class: 'menu-sep' }),
@@ -702,6 +704,13 @@ function openLobuleLayers(anchor) {
     menuToggle(!!l.lymph, 'lymph', 'Lymph', 'Lymph forming in the space of Disse and draining to the portal tract', (on) => set({ lymph: on })),
   ], { cls: 'blood-pop' });
 }
+// Students see the five core lenses; Congestion, Velocity and Origin are instructor extras
+// (the current lens always stays listed).
+const STUDENT_HIDDEN = ['heat', 'velocity', 'origin'];
+function lensKeys() {
+  const st = store.get();
+  return Object.keys(LENSES).filter((k) => st.role !== 'student' || k === st.colorMode || !STUDENT_HIDDEN.includes(k));
+}
 function openLayers(anchor) {
   const s0 = store.get();
   const cur = store.get().colorMode;
@@ -713,7 +722,7 @@ function openLayers(anchor) {
     return b;
   };
   popover(anchor, [
-    h('div', { class: 'lens-grid' }, Object.keys(LENSES).map(lens)),
+    h('div', { class: 'lens-grid' }, lensKeys().map(lens)),
     s0.imaging ? h('div', { class: 'ctl-sub', style: { padding: '2px 10px 6px' } }, s0.blind ? 'The numbers appear once you answer.' : 'This case shows anatomy only until you measure.') : null,
   ], { cls: 'layers-pop' });
 }
@@ -1136,7 +1145,7 @@ function wireFloating() {
   new MutationObserver(syncSoon).observe(app, { attributes: true, attributeFilter: ['style', 'class'] });
   publish();
   panelSheet = sheetBehaviour($('#panel'), { handle: h('button', { class: 'panel-grab', 'aria-label': 'Resize the patient chart' }), drag: '.panel-head', onClose: closePanel });
-  treatSheet = sheetBehaviour($('#treatCard'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the Treat card' }), drag: '.tc-head', onClose: closeTreat });
+  treatSheet = sheetBehaviour($('#treatCard'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the Treat card' }), drag: '.tc-head', onClose: closeTreat, fit: '.tc-body' });
   dockSheet = sheetBehaviour($('#dock'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the instruments' }), drag: '.dock-head', onClose: () => dock.close(), active: () => isPhone() && !$('#dock').classList.contains('side') && !app.classList.contains('instrument-focus') });
   // Focus: dragging, pinching or scrolling the figure fades the floating pieces until it stops.
   let busyT = 0, down = null, moved = false;
@@ -1165,11 +1174,24 @@ function wireFloating() {
 // Phone: the chart and Treat are bottom sheets with three heights; a drag on the handle (or the
 // head) moves between them, and below the lowest closes the sheet. Wider: the head drags the card
 // aside, and it returns to its place when it closes.
-function sheetBehaviour(el, { handle, drag, onClose, active = () => true }) {
+// fit: the scrolling body's selector; at the middle stop the sheet is only as tall as its content.
+function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = null }) {
   const SIZES = [0.32, 0.56, 0.9];
   let size = 1;
   el.prepend(handle);
-  const apply = () => el.style.setProperty('--sheet-size', `${Math.round(SIZES[size] * 100)}%`);
+  const natural = () => {
+    if (!fit || !isPhone() || el.hidden) return Infinity;
+    const cs = getComputedStyle(el);
+    // The body fills the sheet, so its own height says nothing: measure down to its last child.
+    const inner = (c) => { const l = c.lastElementChild; if (!l) return 0; const b = parseFloat(getComputedStyle(c).paddingBottom) + parseFloat(getComputedStyle(l).marginBottom); return l.getBoundingClientRect().bottom - c.getBoundingClientRect().top + c.scrollTop + b; };
+    return [...el.children].reduce((a, c) => a + (c.matches(fit) ? inner(c) : c.offsetHeight), 0) + parseFloat(cs.paddingBottom) + parseFloat(cs.paddingTop);
+  };
+  const apply = () => {
+    const need = size === 1 ? natural() : Infinity;
+    el.style.setProperty('--sheet-size', need < SIZES[1] * app.clientHeight ? `${Math.ceil(need)}px` : `${Math.round(SIZES[size] * 100)}%`);
+  };
+  // A new tab refits the sheet to its content (the height eases).
+  if (fit) el.addEventListener('click', (e) => { if (size === 1 && e.target.closest('[role="tab"]')) requestAnimationFrame(apply); });
   apply();
   handle.addEventListener('click', () => { if (!isPhone() || !active()) return; size = (size + 1) % SIZES.length; apply(); });
   let start = null;
@@ -1331,7 +1353,7 @@ function wireKeyboard() {
     const k = e.key.toLowerCase();
     if (k === 'a' && !e.shiftKey) { if (store.get().sinusoid) return; store.set({ lobule: false, view: store.get().view === 'circuit' ? 'anatomic' : 'circuit' }); return; }
     if ((k === 'l' || (e.key === 'C' && e.shiftKey)) && !store.get().imaging && !(store.get().lobule && store.get().sinusoid)) {
-      const ks = Object.keys(LENSES), i = ks.indexOf(store.get().colorMode);
+      const ks = lensKeys(), i = ks.indexOf(store.get().colorMode);
       const next = ks[(i + (e.shiftKey && k === 'l' ? ks.length - 1 : 1)) % ks.length];
       store.set({ colorMode: next }); toast(`Lens: ${LENSES[next][0]}. ${LENSES[next][1]}.`); return;
     }

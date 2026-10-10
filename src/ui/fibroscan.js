@@ -5,7 +5,7 @@
 // dominant dark shear-wave band, and a slope that drifts gently around the model's value.
 
 import { h, fitCanvas, clamp } from './util.js?v=c40671acfb';
-import { FONT } from './charts.js?v=3118732a3a';
+import { FONT } from './charts.js?v=45f0d5ffde';
 import { simTime, isPaused } from './clock.js?v=d82cfa024b';
 import { store } from './store.js?v=5edd069b32';
 

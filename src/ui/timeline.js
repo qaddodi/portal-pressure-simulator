@@ -81,6 +81,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   // The latest event, named beside the clock; a click opens it like its marker.
   const latestEl = h('button', { class: 'tl-latest', hidden: true });
   latestEl.addEventListener('click', (e) => { const i = latestEventIndex(); if (i >= 0) openMarker(e.currentTarget, [i]); });
+  latestEl.addEventListener('transitionend', (e) => { if (e.propertyName === 'opacity' && latestEl.classList.contains('stale')) latestEl.hidden = true; });
   const histCount = h('span', { class: 'tl-hc' });
   const histBtn = h('button', { class: 'tl-hist', 'aria-haspopup': 'dialog', title: 'History: every change and event, with a way back to each' }, svgIcon('menu', 'mi-ic'), h('span', { class: 'tl-hl' }, 'History'), histCount);
   histBtn.addEventListener('click', (e) => openHistory(e.currentTarget));
@@ -412,12 +413,20 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
     if (k !== lastLatest) {
       lastLatest = k;
       latestEl.hidden = !e;
+      latestEl.classList.remove('stale');
       if (e) {
         latestEl.style.setProperty('--sev', SEV[e.sev] || SEV.info);
         latestEl.replaceChildren(h('i', { class: 'tl-ld', 'aria-hidden': 'true' }), h('span', {}, e.label), h('small', {}, e.kind === 'start' ? '' : fmtClock(e.t, e.day)));
         latestEl.setAttribute('aria-label', `Latest event at ${fmtClock(e.t, e.day)}: ${e.label}`);
         latestEl.title = `${fmtClock(e.t, e.day)} · ${e.label}${e.detail ? `\n${e.detail}` : ''}`;
       }
+    }
+    // After about 20 s of model time the chip fades away (History keeps the event); live only.
+    const f = frameNow();
+    const stale = !!e && cursor < 0 && !!f && f.day * 86400 + f.t - absT(e) > 20;
+    if (stale !== latestEl.classList.contains('stale')) {
+      latestEl.classList.toggle('stale', stale);
+      if (!stale) latestEl.hidden = !e;
     }
     const n = entries.filter((x) => x.kind !== 'start').length;
     if (histCount.textContent !== (n ? String(n) : '')) histCount.textContent = n ? String(n) : '';
