@@ -14,14 +14,14 @@
 // P projector contrast, Esc. On a touch screen a sideways swipe over the figure goes on or back.
 
 import { store, replaceParams } from './store.js?v=5edd069b32';
-import { h, toast, svgIcon, icon, fmt, clamp } from './util.js?v=e0101a3fa2';
+import { h, toast, svgIcon, icon, fmt, clamp } from './util.js?v=c40671acfb';
 import { download } from './records.js?v=50fb9dd463';
-import { SITES } from './ladder.js?v=cab65850a4';
-import { sinusoidSupported } from './sinusoid-view.js?v=5fb063d790';
+import { SITES } from './ladder.js?v=05b5d1d92f';
+import { sinusoidSupported } from './sinusoid-view.js?v=85f840c460';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
 import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=93d381e8df';
-import { createHvpgMonitor } from './hvpg-proc.js?v=a4d00d90a5';
-import { createTools } from './presenter-tools.js?v=3fc540d53c';
+import { createHvpgMonitor } from './hvpg-proc.js?v=a1f75a0b16';
+import { createTools } from './presenter-tools.js?v=bef0602d27';
 import { openHandout } from './handout.js?v=252beba081';
 
 const KEY = 'pps.scripts';

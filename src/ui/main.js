@@ -3,29 +3,29 @@
 
 import { startHost, host } from './host.js?v=5f360b39e4';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=5edd069b32';
-import { createStage } from './stage.js?v=b86be46f5b';
-import { sinusoidSupported } from './sinusoid-view.js?v=5fb063d790';
-import { createInspector } from './inspector.js?v=127b504390';
-import { createDock, CUTOFFS } from './dock.js?v=145d37a635';
-import { setHvpgStage } from './hvpg-proc.js?v=a4d00d90a5';
-import { createWhy } from './why.js?v=de880e3533';
-import { createTimeline, LAPSES } from './timeline.js?v=1e357674d3';
-import { createLearn } from './learn.js?v=0fd232734e';
-import { createCases, CASES } from './cases.js?v=d914dab10c';
-import { isBlind } from './learning-kit.js?v=709a64e91f';
-import { createCompare } from './compare.js?v=baa48f57a4';
-import { createCard } from './card.js?v=a16088167e';
-import { createChart, computeFindings } from './chart.js?v=89ad901e86';
-import { createHome, ROLES } from './home.js?v=2700056083';
-import { course } from './course.js?v=91c1512351';
+import { createStage } from './stage.js?v=86946f555d';
+import { sinusoidSupported } from './sinusoid-view.js?v=85f840c460';
+import { createInspector } from './inspector.js?v=f8e9753ccd';
+import { createDock, CUTOFFS } from './dock.js?v=f4796f99fc';
+import { setHvpgStage } from './hvpg-proc.js?v=a1f75a0b16';
+import { createWhy } from './why.js?v=20917f56d7';
+import { createTimeline, LAPSES } from './timeline.js?v=e28d3c5396';
+import { createLearn } from './learn.js?v=75264bde4f';
+import { createCases, CASES } from './cases.js?v=1638d196c2';
+import { isBlind } from './learning-kit.js?v=6df2efa942';
+import { createCompare } from './compare.js?v=19ac82375c';
+import { createCard } from './card.js?v=acfa6e10ad';
+import { createChart, computeFindings } from './chart.js?v=4f9862e946';
+import { createHome, ROLES } from './home.js?v=502034fe56';
+import { course } from './course.js?v=5ac0b0266c';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=398e679a38';
-import { caption } from './a11y.js?v=d781e4dd20';
-import { startLMS } from './lms.js?v=a5c0e42068';
+import { caption } from './a11y.js?v=9196b88cba';
+import { startLMS } from './lms.js?v=97ab188831';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=451611887c';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=9490bc4764';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=706a39d50b';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=e0101a3fa2';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=c40671acfb';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -141,7 +141,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else home.open(o?.practice ? 'practice' : 'course'); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => home.open('course') });
-  presenterL = lazy(() => import('./presenter.js?v=e5a0fa7d28'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=7d23435c37'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), stashCards, rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -154,7 +154,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=1c7dc0ce8b'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=42f66e839c'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -588,25 +588,27 @@ function renderLegend() {
   const scale = (grad, nums, ticks = []) => h('div', { class: 'lg-scale' }, h('div', { class: 'lg-bar', style: { background: grad } }),
     ticks.map((p) => h('span', { class: 'lg-tick', style: { left: p + '%' } })),
     nums.map(([p, t]) => h('span', { class: 'lg-num' + (p >= 99 ? ' end' : p <= 1 ? ' start' : ''), style: { left: p + '%' } }, t)));
+  // Where the full title is hidden (narrow screens), a two-word caption keeps the lens and its unit.
+  const cap = (k, u) => h('div', { class: 'lg-cap', 'aria-hidden': 'true' }, k, h('small', {}, u));
   if (m === 'pressure' || m === 'drop') {
     const max = 30, at = (p) => (p / max) * 100;
-    el.replaceChildren(h('div', { class: 'lg-title' }, m === 'pressure' ? 'Mean venous pressure' : 'Pressure drop', h('small', {}, 'mmHg')),
+    el.replaceChildren(h('div', { class: 'lg-title' }, m === 'pressure' ? 'Mean venous pressure' : 'Pressure drop', h('small', {}, 'mmHg')), cap(m === 'pressure' ? 'Pressure' : 'Drop', 'mmHg'),
       m === 'pressure' ? scale(gradientCss('to right', max), PRESSURE_TICKS.map((p) => [at(p), String(p)]), PRESSURE_TICKS.map(at))
         : scale(gradientCss('to right', max), [[0, '0'], [100, '12+']]));
     el.setAttribute('aria-label', m === 'pressure' ? 'Legend: mean venous pressure at each vessel, 0 to 30 millimeters of mercury, pale blue to dark magenta' : 'Legend: pressure drop across each vessel, 0 to 12 or more millimeters of mercury');
   } else if (m === 'flow') {
     const at = (v) => flowPos(v) * 100;
-    el.replaceChildren(h('div', { class: 'lg-title' }, 'Flow volume', h('small', {}, 'L/min · width ∝ √flow')),
-      scale(flowCss('to right'), [[at(0.02), '0.02'], [at(0.1), '0.1'], [at(0.5), '0.5'], [at(1), '1'], [at(5), '5']], [at(0.1), at(1)]));
+    el.replaceChildren(h('div', { class: 'lg-title' }, 'Flow volume', h('small', {}, 'L/min · width ∝ √flow')), cap('Flow', 'L/min'),
+      scale(flowCss('to right'), [[at(0.02), '0.02'], [at(0.5), '0.5'], [at(5), '5']], [at(0.5)]));
     el.setAttribute('aria-label', 'Legend: flow volume from 0.02 to 6 liters per minute on a log scale, pale mint to deep blue; line width grows with flow');
   } else if (m === 'velocity') {
     const at = (v) => velPos(v) * 100;
-    el.replaceChildren(h('div', { class: 'lg-title' }, 'Mean velocity', h('small', {}, 'cm/s')),
+    el.replaceChildren(h('div', { class: 'lg-title' }, 'Mean velocity', h('small', {}, 'cm/s')), cap('Velocity', 'cm/s'),
       scale(velocityCss('to right'), [[at(0), '0'], [at(5), '5'], [at(15), '15'], [at(30), '30'], [at(60), '60']], [at(5)]));
     el.setAttribute('aria-label', 'Legend: mean blood velocity from 0 to 60 centimeters per second; dark red is stagnant (below 5), green is free-flowing');
   } else if (m === 'heat') {
     const at = (v) => (v / HEAT_MAX) * 100;
-    el.replaceChildren(h('div', { class: 'lg-title' }, 'Congestion', h('small', {}, `mmHg above ${ref}`)),
+    el.replaceChildren(h('div', { class: 'lg-title' }, 'Congestion', h('small', {}, `mmHg above ${ref}`)), cap('Congestion', 'mmHg'),
       scale(heatCss('to right'), [[at(0), '0'], [at(5), '5'], [at(10), '10'], [at(15), '15+']], []));
     el.setAttribute('aria-label', `Legend: pressure above ${ref}, 0 to 15 millimeters of mercury, grey to yellow to deep red, with a glow where congestion is highest`);
   } else if (m === 'direction') {
@@ -621,7 +623,7 @@ function renderLegend() {
       h('span', { class: 'lg-note' }, svgIcon('info'), 'Pressures unmeasured')));
     el.setAttribute('aria-label', 'Legend: violet portal veins, blue systemic veins. Pressures are unmeasured in this case: investigate with the tools.');
   } else {
-    el.replaceChildren(h('div', { class: 'lg-title' }, `Change from ${ref}`, h('small', {}, 'mmHg')),
+    el.replaceChildren(h('div', { class: 'lg-title' }, `Change from ${ref}`, h('small', {}, 'mmHg')), cap('Change', 'mmHg'),
       scale('linear-gradient(to right, #2D6CDF, #9696A0, #D22846)', [[0, '−12'], [50, '0'], [100, '+12']], [50]));
     el.setAttribute('aria-label', `Legend: change in pressure from ${ref}, blue lower, red higher, up to 12 millimeters of mercury`);
   }
@@ -1202,13 +1204,18 @@ function sheetBehaviour(el, { handle, drag, onClose, active = () => true }) {
   return { open: () => { if (isPhone()) { size = 1; apply(); } }, closed: () => { el.style.translate = ''; el.style.height = ''; } };
 }
 // The findings badge: a check when nothing is abnormal, else how many findings, in the color of the worst.
-let lastFindKey = '', lastFindN = 0;
+// A new count must hold for a moment before the badge takes it, so a value hovering on a cut-off
+// with every beat does not flicker the count (or bump it) back and forth.
+let lastFindKey = '', lastFindN = 0, nextFindKey = '', nextFindSince = 0;
 function updateFindBadge(f) {
   // In a case where pressures are unmeasured, a check would claim more than is known.
   const unknown = !!store.get().imaging;
   const found = unknown ? [] : computeFindings(f.metrics, hiddenNow());
   const sev = unknown ? 'none' : found[0]?.sev || 'ok', n = found.length, key = `${n}|${sev}`;
-  if (key === lastFindKey) return;
+  if (key === lastFindKey) { nextFindKey = ''; return; }
+  const now = performance.now();
+  if (key !== nextFindKey) { nextFindKey = key; nextFindSince = now; }
+  if (lastFindKey && store.get().running && now - nextFindSince < 2000) return;
   lastFindKey = key;
   const el = $('#findBadge');
   el.dataset.sev = sev;

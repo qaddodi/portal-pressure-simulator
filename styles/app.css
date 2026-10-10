@@ -166,6 +166,10 @@ svg { flex: none; }
 .legend { display: flex; align-items: center; gap: 12px; padding: 0 4px; border-radius: var(--r-control); pointer-events: none; }
 .lg-title { display: flex; flex-direction: column; line-height: 1.15; font-size: var(--fs-12); color: var(--text-2); font-weight: 600; text-align: right; white-space: nowrap; margin-right: 4px; }
 .lg-title small { font-size: var(--fs-12); color: var(--text-3); font-weight: 500; }
+.lg-cap { display: none; flex-direction: column; line-height: 1.1; font-size: 11px; color: var(--text-2); font-weight: 600; text-align: right; white-space: nowrap; margin-right: -4px; }
+.lg-cap small { font-size: 10px; color: var(--text-3); font-weight: 500; }
+@container figbar (max-width: 1000px) { .legend .lg-cap { display: flex; } }
+@media (max-width: 1599px) { .legend .lg-cap { display: flex; } }
 .lg-scale { position: relative; width: 168px; height: 30px; }
 .lg-bar { position: absolute; left: 0; right: 0; top: 4px; height: 8px; border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .06); }
 .lg-tick { position: absolute; top: 2px; width: 1px; height: 12px; background: var(--text-2); opacity: .55; }
@@ -634,8 +638,10 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 /* The figure is a clean plate: flat lumens (color is the value), no texture or cast shadows. */
 /* Data layers: the anatomy steps back so the network carries the reading. */
 .stage-view.data-layer #organs, .stage-view.data-layer #backdrop { filter: saturate(.12) opacity(.72); }
-#heatGlow { display: none; pointer-events: none; }
-.stage-view[data-layer="heat"] #heatGlow { display: inline; }
+#heatGlow { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .28s var(--ease), visibility 0s linear .28s; }
+.stage-view[data-layer="heat"] #heatGlow { opacity: 1; visibility: visible; transition: opacity .28s var(--ease), visibility 0s; }
+/* A lens or a selection eases the anatomy back (no one-frame dim or grey). */
+#organs > g, #backdrop, #organs, #backEdges .vg { transition: filter .28s var(--ease); }
 .v-heat { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .map-grid { opacity: .9; }
 .map-dot { fill: var(--map-dot); }
@@ -1004,6 +1010,8 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .menu-sep { height: 1px; background: var(--hairline); margin: 4px 4px; }
 .menu label.menu-item input { accent-color: var(--accent); margin: 0; }
 @keyframes pop { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
+.menu.leaving { pointer-events: none; animation: popOut .12s var(--ease) forwards; }
+@keyframes popOut { to { opacity: 0; transform: translateY(-4px) scale(.98); } }
 .scenario-pop { width: min(300px, calc(calc(100vw / var(--vz)) - 24px)); max-height: min(calc(80dvh / var(--vz)), 680px); overflow: auto; padding: 8px 6px; }
 .scn-head { font-weight: 600; font-size: var(--fs-14); padding: 2px 10px 6px; }
 .scn-group { display: flex; flex-direction: column; margin-bottom: 6px; }
@@ -1153,7 +1161,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   #btnLayers #colorModeLabel { display: none; }
   #btnFigure { display: none; }
   #btnInspector { width: 36px; height: 36px; padding: 0; justify-content: center; }
-  #btnInspector span { display: none; }
+  #btnInspector .fb-l { display: none; }
   .legend .lg-title { display: none; }
   .lg-scale { width: 88px; }
   .lg-num { font-size: var(--fs-12); }
@@ -3802,7 +3810,6 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .topbar[data-fit="3"] .lg-scale { width: 112px; }
 /* A phone: the lens pill is all key (a tap opens the lenses), so the five origins fit beside Blood. */
 @media (max-width: 767px) {
-  .topbar .lens-btn .chev { display: none; }
   .topbar .lens-btn { padding: 0 4px; }
   .topbar .legend { padding: 0; }
   /* The five origins in two compact rows: a round coloured dot and its name. */

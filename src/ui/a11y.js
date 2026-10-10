@@ -3,7 +3,7 @@
 // The figure's accessible description is kept current with the narrator's one-line reading.
 
 import { store, hiddenNow } from './store.js?v=5edd069b32';
-import { fmt } from './util.js?v=e0101a3fa2';
+import { fmt } from './util.js?v=c40671acfb';
 import { EDGES } from '../engine/topology.js?v=706a39d50b';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

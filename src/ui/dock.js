@@ -3,14 +3,14 @@
 
 import { store, hiddenNow } from './store.js?v=5edd069b32';
 import { EDGES } from '../engine/topology.js?v=706a39d50b';
-import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=e0101a3fa2';
-import { lobuleFlows } from './lobule-model.js?v=0c0c959895';
-import { createProfile } from './charts.js?v=87f57389af';
-import { createPressureTime } from './pressure-time.js?v=645ea21479';
-import { createFibroScan } from './fibroscan.js?v=edfbb5f974';
-import { createHvpgProcedure } from './hvpg-proc.js?v=a4d00d90a5';
-import { createDoppler } from './doppler.js?v=8315101531';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=5bd189e404';
+import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=c40671acfb';
+import { lobuleFlows } from './lobule-model.js?v=a07e5a3d8f';
+import { createProfile } from './charts.js?v=3118732a3a';
+import { createPressureTime } from './pressure-time.js?v=5c96ec6ecc';
+import { createFibroScan } from './fibroscan.js?v=343e0927e2';
+import { createHvpgProcedure } from './hvpg-proc.js?v=a1f75a0b16';
+import { createDoppler } from './doppler.js?v=0f8502b108';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=454bee8e2d';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -149,7 +149,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // The Lobule view swaps the key readouts for the lobule's flows (the group is hidden elsewhere, by CSS).
   // Student mode keeps the two gradients (HVPG, PPG) and no "all readouts" chevron (CSS).
   const syncLobule = () => { const st = store.get(), on = !!st.lobule, pri = on ? LOBULE_PRIMARY : st.role === 'student' && st.mode === 'explore' ? STUDENT_PRIMARY : PRIMARY; strip.classList.toggle('lob', on); for (const x of Object.values(tileEls)) x.el.classList.toggle('primary', pri.has(x.t.id)); };
-  for (const k of ['lobule', 'role', 'mode']) store.on(k, () => { syncLobule(); setTimeout(() => dispatchEvent(new Event('resize')), 30); });
+  // A paused model sends no frames: fill the tiles from the last one at once (no dashes).
+  for (const k of ['lobule', 'role', 'mode']) store.on(k, () => { syncLobule(); if (frame) updateStrip(frame); setTimeout(() => dispatchEvent(new Event('resize')), 30); });
   syncLobule();
   const vitEls = VITALS.map((v) => {
     const val = h('b', {}, '—');
@@ -236,7 +237,12 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       const { el, t } = x;
       const lz = t.group === 'lobule';
       if (lz && !st0.lobule) continue;
-      const v = lz ? (st0.imaging ? null : t.v(f, st0)) : readoutValue(t, m, hidden);
+      const raw = lz ? (st0.imaging ? null : t.v(f, st0)) : readoutValue(t, m, hidden);
+      // The beat swings every value a little: the tile shows a running mean (about a second), so the
+      // number stays steady; a real step (beyond a tenth of the scale) or a paused model shows at once.
+      let v = raw;
+      if (raw != null && x.sm != null && st0.running && t.scale && Math.abs(raw - x.sm) < 0.1 * Math.abs(t.scale[1] - t.scale[0])) v = x.sm + (raw - x.sm) * Math.min(1, (now - x.smT) / 1200);
+      x.sm = v; x.smT = now;
       const measured = !lz && v != null && hidden?.has(t.hideKey);
       let sev, s;
       if (v == null) {

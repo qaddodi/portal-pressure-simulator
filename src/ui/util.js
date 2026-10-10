@@ -167,6 +167,7 @@ export function tooltipFor(el, text, side = 'right') {
 
 /** Floating menu/popover anchored to an element. Closes on outside click, Escape or re-open. */
 let openMenu = null;
+const reduceMotionMQ = matchMedia('(prefers-reduced-motion: reduce)');
 export function popover(anchor, content, { cls = '', align = 'start', place = 'below', onClose } = {}) {
   if (openMenu) { const same = openMenu.anchor === anchor; closePopover(); if (same) return null; }
   const el = h('div', { class: 'menu ' + cls, role: 'dialog' }, content);
@@ -192,7 +193,11 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
 export function repositionPopover() { if (openMenu) { openMenu.el.style.left = openMenu.el.style.top = '0px'; openMenu.put(); } }
 export function closePopover() {
   if (!openMenu) return;
-  openMenu.el.remove(); openMenu.anchor.setAttribute('aria-expanded', 'false'); openMenu.cleanup();
+  // The menu fades out (it is inert at once, so nothing under it waits), then leaves the page.
+  const el = openMenu.el;
+  if (reduceMotionMQ.matches || !el.isConnected) el.remove();
+  else { el.classList.add('leaving'); el.inert = true; setTimeout(() => el.remove(), 130); }
+  openMenu.anchor.setAttribute('aria-expanded', 'false'); openMenu.cleanup();
   openMenu = null;
 }
 export function menuItem(label, { checked, onClick, kb, icon: ic } = {}) {

@@ -5,8 +5,8 @@ import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOcclud
 import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=6d0bd235b5';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=5edd069b32';
-import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=e0101a3fa2';
-import { createLobuleZoom } from './lobule-zoom.js?v=8fcd1b9f7f';
+import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=c40671acfb';
+import { createLobuleZoom } from './lobule-zoom.js?v=4ecefba30f';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
@@ -2192,6 +2192,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let cathTint = null;   // the HVPG's wedged vein, recolored (see cathPaint)
   const ORIGIN_LUMEN = [ORIGIN_GREY, ORIGIN_GREY, ORIGIN_GREY];   // the lumen while the blood is colored by origin (the GPU paints the streams on it)
   let vBinKey = '', vBinReach = new Map(), veinsDirty = true, veinsDrawKey = '', vLook = null, glOrgans = false;
+  let plateDim = null, plateSat = 1, netA = 1;
   const colorCtx = veins ? document.createElement('canvas').getContext('2d') : null;
   const rgbCache = new Map();
   // Any CSS color (rgb(), #hex, a named var) as [r, g, b] in 0–1.
@@ -2483,7 +2484,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       sheen: [...toRGB('var(--light-ink)', cs), cssNum(cs, '--tube-sheen', 0.42)],
       shade: [...toRGB('var(--tube-shade-ink)', cs), cssNum(cs, '--tube-shade', 0.2)],
       ring: [...(olCol = toRGB('var(--accent)', cs)), 0.34],
-      netAlpha: hasSel ? 0.42 : 1,
+      netAlpha: netA,
       fx: true,
       tierAlpha: TIER_ALPHA, tierGroup: TIER_GROUP, fluid: fluidLook,
     };
@@ -2649,11 +2650,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const { a, b, c, d, e, f } = CTM, det = a * d - b * c || 1, x = cx - e, y = cy - f;
     return [(d * x - c * y) / det, (-b * x + a * y) / det];
   }
+  // The plate's dim and grey (a lens or a selection) and the network's dim ease toward their targets
+  // (stepPlateEase, each frame), so a lens switch or a selection never changes the figure in one frame.
+  const plateTargets = () => {
+    const dataLayer = wrap.classList.contains('data-layer'), sel = wrap.classList.contains('has-sel');
+    return [(sel ? 0.72 : 1) * (dataLayer ? 0.72 : 1), dataLayer ? 0.12 : 1, sel ? 0.42 : 1];
+  };
   function syncPlateLook() {
     if (!vLook) return;
-    const t = easeInOut(morph), dataLayer = wrap.classList.contains('data-layer');
-    const dim = (wrap.classList.contains('has-sel') ? 0.72 : 1) * (dataLayer ? 0.72 : 1);
-    vLook.plate = plateOn() ? { alpha: (1 - t) * dim, sat: dataLayer ? 0.12 : 1 } : null;
+    if (plateDim == null || reduceMotion.matches) [plateDim, plateSat, netA] = plateTargets();
+    vLook.plate = plateOn() ? { alpha: (1 - easeInOut(morph)) * plateDim, sat: plateSat } : null;
+    vLook.netAlpha = netA;
+  }
+  const plateEasing = () => { if (plateDim == null) return false; const [d, s, n] = plateTargets(); return d !== plateDim || s !== plateSat || n !== netA; };
+  function stepPlateEase(dt) {
+    if (!vLook || !plateEasing()) return;
+    const [d, s, n] = plateTargets(), k = dt / 0.28;
+    const step = (c, t, span) => (Math.abs(t - c) <= k * span ? t : c + Math.sign(t - c) * k * span);
+    plateDim = step(plateDim, d, 0.48); plateSat = step(plateSat, s, 0.88); netA = step(netA, n, 0.58);
+    syncPlateLook(); veinsDirty = true;
   }
 
   // Circuit liver module: collapsed unless asked for, selected into, or zoomed in on.
@@ -4881,7 +4896,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const still = (!st.running || reduceMotion.matches) && !bolus.active;
     const key = still ? `${cathVer}|${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${JSON.stringify(st.blood)}|${vCanvas.width}x${vCanvas.height}` : null;
     // A plate raster that lands while the figure is still (paused, or reduced motion) marks the vessel layer dirty: draw it.
-    if (still && !veinsDirty && !olDirty && !olList.some((o) => o.a !== (o.on ? 1 : 0)) && !widthEasing && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && F === lastDrawF && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { requestAnimationFrame(animate); return; }
+    if (still && !veinsDirty && !olDirty && !olList.some((o) => o.a !== (o.on ? 1 : 0)) && !widthEasing && !plateEasing() && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && F === lastDrawF && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { requestAnimationFrame(animate); return; }
+    stepPlateEase(dt);
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
       if (F) update(F); else updateGeometry(true);
