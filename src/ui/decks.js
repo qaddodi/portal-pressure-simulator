@@ -19,8 +19,10 @@
 //   data                     'ladder': the pressure ladder and tiles; 'tiles': tiles only (tiles: which, key: what
 //                            to highlight, delta: true or a slide id to show each tile's change from that state)
 //   cath                     the HVPG catheter instead of a camera: 'route', 'free', 'wedge', 'result' or 'blocked'
-//   lapse                    { seconds }: the slide's days (ramp: { param: [from, to] } eased over them) play on the
-//                            live figure as a time-lapse, from the slide before's state
+//   lapse                    { seconds, from?, to? }: the slide's days (ramp: { param: [from, to] } eased over them) play on the
+//                            live figure as a time-lapse, from the slide before's state (from/to: words for the
+//                            start and end in place of a day counter, e.g. 'Fasting' and 'After a meal'; keep the
+//                            days at least the seconds, or the live clock runs sub-day and skips the ramp)
 //   visual                   over the dimmed figure: 'ladders', 'table' (cols, asc, note, fine), 'scale' (scale), 'quadrant'
 //                            (SAAG × protein) or 'walls'; of: the rows, slide ids or { id | preset, name, title, note, blank: [columns] }
 //   quiz                     quiz mode (Q) asks this before the answer shows (the camera waits at the whole figure)
@@ -100,10 +102,10 @@ export const DECKS = [
         ask: ['Why does the caudate lobe enlarge in Budd–Chiari syndrome?', 'It drains into the IVC by its own veins, which escape the block.'],
       },
       {
-        id: 'flow', params: { splanchnicTone: 0.72 }, cam: 'portal', labels: ['SMV', 'CONF'], data: 'ladder', key: ['pv'], tiles: ['pvFlow', 'ppg'], delta: true,
-        kicker: 'Hemodynamics', title: 'Pressure = flow × resistance',
-        line: 'After a meal the arterioles of the gut open. More blood reaches the portal vein, and its pressure rises a little.',
-        notes: 'As in Ohm\'s law, the pressure gradient is flow times resistance. Portal pressure rises if the resistance to outflow rises (scar in the liver, a clot, a blocked hepatic vein) or if inflow rises (splanchnic vasodilation, a meal). In cirrhosis both happen: resistance rises first, then the splanchnic arterioles dilate and inflow climbs, which keeps the pressure high even after collaterals open. Treatments work on one or the other: beta-blockers and terlipressin cut inflow; TIPS goes around the resistance.',
+        id: 'flow', days: 8, ramp: { splanchnicTone: [1, 0.72] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' }, cam: 'portal', labels: ['SMV', 'CONF'], data: 'ladder', key: ['pv'], tiles: ['pvFlow', 'ppg'], delta: true,
+        kicker: 'Hemodynamics', title: 'After a meal: more flow, little more pressure',
+        line: 'The gut arterioles open and portal flow climbs by about a quarter. A healthy liver offers so little resistance that the portal pressure barely moves.',
+        notes: 'Watch the portal flow tile and the vessels speed up as the meal is digested, while the portal pressure rises by under a millimetre. Pressure is flow times resistance, and normal sinusoids have very little resistance, so even a large rise in flow adds little pressure. In cirrhosis the resistance is high, so the same meal raises the HVPG several mmHg; this is why resistance, not flow, is the starting point of portal hypertension. Later the splanchnic arterioles dilate for good and the extra inflow keeps the pressure high even after collaterals open. Treatments work on one side or the other: beta-blockers and terlipressin cut inflow; TIPS goes around the resistance.',
         ask: ['Name the two ways portal pressure can rise.', 'More resistance to flow, or more inflow (splanchnic vasodilation).'],
       },
       {

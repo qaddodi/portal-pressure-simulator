@@ -19,7 +19,7 @@ import { SITES } from './ladder.js?v=9c1505ff94';
 import { sinusoidSupported } from './sinusoid-view.js?v=b68c9ab562';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { NODES } from '../engine/topology.js?v=dc393aabea';
-import { DECKS, REGIONS, LEVELS } from './decks.js?v=7e4ff1383c';
+import { DECKS, REGIONS, LEVELS } from './decks.js?v=b52229404f';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -582,11 +582,12 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
   let lapseOn = false;
   function stopLapse() { if (!lapseOn) return; lapseOn = false; host.send({ type: 'lapse', days: 0 }); shownState = -1; }
   const lapseWords = (n) => (n >= 60 && n % 30 === 0 ? `${n / 30} months` : `${n} days`);
-  function paintLapse(d, n, done = false) {
+  const lapseText = (s, d, n, done) => (s.lapse.to ? (done ? s.lapse.to : `${s.lapse.from} → ${s.lapse.to}`) : done ? `${lapseWords(n)} later` : `Day ${Math.round(d)} of ${n}`);
+  function paintLapse(s, d, n, done = false) {
     const el = ui?.text.querySelector('.pz-lapse');
     if (!el) return;
     el.style.setProperty('--k', (n ? d / n : 0).toFixed(3));
-    el.querySelector('.pzl-t').textContent = done ? `${lapseWords(n)} later` : `Day ${Math.round(d)} of ${n}`;
+    el.querySelector('.pzl-t').textContent = lapseText(s, d, n, done);
     el.classList.toggle('done', done);
   }
   const tileKeys = (s) => s.tiles || (s.data === 'ladder' ? ['hvpg', 'ppg'] : []);
@@ -604,14 +605,14 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     while (lapseOn && !cut()) {
       await wait(150);
       const fr = store.get().frame, d = clamp((fr?.day ?? d0) - d0, 0, days);
-      paintLapse(d, days);
+      paintLapse(s, d, days);
       if (fr?.metrics) dataTo(s, liveFp(fr), ref, 280);
       if (d >= days && fr?.clock === 'hemo') break;
     }
     if (!lapseOn || cut()) { stopLapse(); return; }
     lapseOn = false;
     applyState(end); shownState = stateOf[to];
-    paintLapse(days, days, true);
+    paintLapse(s, days, days, true);
     dataTo(s, end.fp, ref, 700);
   }
 
@@ -712,7 +713,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
       text.replaceChildren(...(q
         ? [kick(null, 'Quiz'), h('h1', { class: 'pz-h' }, s.quiz), s.rail ? rail(null) : null, h('p', { class: 'pz-line pz-hint' }, 'Take answers from the audience, then press → to show the answer.')]
         : [kick(s.site, s.kicker), h('h1', { class: 'pz-h' }, nb(s.title)), s.line ? h('p', { class: 'pz-line' }, s.line) : null,
-          s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, `Day 0 of ${s.days}`)) : null,
+          s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
           s.causes?.length ? h('div', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), h('ul', {}, s.causes.map((c) => h('li', {}, c)))) : null]));
       [...text.children].forEach((c, k) => c.style.setProperty('--i', k));
