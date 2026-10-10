@@ -2,13 +2,14 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=dc393aabea';
-import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=caa59485d2';
+import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=c9178ee66a';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=49dc9cdf15';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=e803df99cd';
 import { createLobuleZoom } from './lobule-zoom.js?v=60d502221e';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
+import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=1bc281838c';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 
@@ -143,6 +144,34 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The liver's branches in the circuit (circuit only), sampled once.
   const treeGeo = {};
   for (const [id, list] of Object.entries(CIRCUIT_TREES)) treeGeo[id] = list.map(({ d, k }) => ({ pts: sample(d), k }));
+  // Custom shunts in the circuit: each opened one is routed as a transit-map line around everything
+  // already drawn (and the custom shunts opened before it, which keep their courses, so nothing on
+  // the map moves when another one opens). A closed one keeps its last course while it fades out.
+  const customRoutes = new Map();
+  const routerLines = ALL_EDGES.filter((e) => e.shunt !== 'custom').map((e) => geo[e.id].C).concat(Object.values(treeGeo).flatMap((l) => l.map((b) => b.pts)));
+  const routerStations = NODES.map((n) => n.id || n[0]).filter((id) => NODE_POS[id] && !HIDDEN_NODES.has(id)).map((id) => NODE_POS[id][1]);
+  function routeCustomShunts(p) {
+    const open = Object.keys(p.customShunts || {}).filter((id) => p.customShunts[id] > 0 && geo[id]).sort();
+    for (const id of [...customRoutes.keys()]) if (!open.includes(id)) customRoutes.delete(id);
+    const fresh = open.filter((id) => !customRoutes.has(id));
+    if (!fresh.length) return false;
+    const router = createRouter({ lines: routerLines, stations: routerStations,
+      bounds: [VB_CIRC[0], 100, VB_CIRC[0] + VB_CIRC[2], VB_CIRC[1] + VB_CIRC[3] + 10] });
+    for (const id of customRoutes.keys()) router.addLine(geo[id].C, true);
+    svg.append(scratchG);
+    for (const id of fresh) {
+      const e = EDGES[EI[id]], pts = router.route(NODE_POS[e.from][1], NODE_POS[e.to][1]);
+      if (!pts) continue;
+      const g = geo[id];
+      g.dC = metroRoute(pts, 16);
+      g.C = sample(g.dC);
+      router.addLine(g.C, true);
+      customRoutes.set(id, pts);
+    }
+    scratchG.remove();
+    return true;
+  }
+  routeCustomShunts(store.get().params);
   scratchG.remove();
   // Where to caption each circuit lane: the middle of its longest horizontal run.
   const laneU = {}, laneAlt = {};
@@ -2510,6 +2539,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   document.addEventListener('visibilitychange', () => { resumedAt = performance.now(); });
   addEventListener('pageshow', () => { resumedAt = performance.now(); });
   store.on('params', () => {
+    if (routeCustomShunts(store.get().params)) updateGeometry(true);
     if (!F || quietFx() || performance.now() < 5000 || performance.now() - resumedAt < 4000) return;
     if (!haloBase) haloBase = { P: Float64Array.from(F.P), t: performance.now() };
     clearTimeout(haloBase.timer);
@@ -4011,7 +4041,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const dirs = vertical ? ['E', 'W'] : [dirOf('N'), dirOf('S')], gaps = [3 + (x.width || 4) / 2, 12 + (x.width || 4) / 2];
         // Try the spots along the lane that no other vessel touches, then settle for the first.
         const spots = [laneU[id], ...(laneAlt[id] || [])];
-        if (!spots.some((u) => { at(u); return place(it, dirs, gaps, false, true); })) { at(laneU[id]); place(it, dirs, gaps, false); }
+        // Failing that, the caption rides on its own lane (never on another line).
+        if (!spots.some((u) => { at(u); return place(it, dirs, gaps, false, true); })) { at(laneU[id]); place(it, ['C'], 0, false); }
       }
     }
     // Lesson / case focus callout
