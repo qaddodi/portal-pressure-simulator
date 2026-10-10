@@ -4322,38 +4322,26 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .home-inner.swap-in { animation: homeIn .32s var(--ease) both; }
 @media (prefers-reduced-motion: reduce) { .home, .home-inner.swap-in { animation: none; } }
 
-/* Phone: the whole Ascites card, Treat included, fits the sheet without scrolling. */
-@media (max-width: 600px) {
-  .ab-main, .ab-report { gap: 6px; }
-  .ab-head { padding-bottom: 6px; margin-bottom: 0; }
-  .ab-sum { gap: 2px; }
-  .ab-sum .hv-num { font-size: 30px; line-height: 1.05; }
-  .ab-belly { width: 48px; height: 48px; }
-  .ab-iap { gap: 3px; }
-  .ab-iap-bar { height: 8px; }
-  .ab-tap { gap: 4px; padding-top: 6px; }
-  .ab-lab { padding: 3px 6px; }
-  .ab-lab b { font-size: var(--fs-16, 16px); }
-  .ab-lab.ab-key b { font-size: 20px; }
-  .ab-step-btn { width: 32px; height: 32px; font-size: 18px; }
-  .ab-rx { padding: 8px 10px; gap: 2px; }
-  .ab-rx-diu { padding-bottom: 4px; }
-  .ab-diu { min-height: 44px; padding: 5px 12px; }
-  .ab-rx-row { min-height: 40px; }
-  .ab-drain-row { margin-top: 2px; }
-  .ab-drain, .ab-chip { min-height: 40px; }
-  .ab-sum > .hv-k, .ab-lab small, .ab-rx-txt small { display: none; }
-  .ab-diu-txt small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .ab-diu { min-height: 40px; }
-  .ab-main, .ab-report { gap: 4px; }
-  .dock-pane:has(> .ab) { padding-top: 8px; padding-bottom: 8px; }
-  .ab-sum .hv-num { font-size: 26px; }
-  .ab-belly { width: 42px; height: 42px; }
-  .ab-step-btn { width: 30px; height: 30px; }
-  .ab-rx-row, .ab-drain, .ab-chip { min-height: 36px; }
-  .ab-diu { padding: 3px 12px; }
-  .ab-diu > svg { width: 20px; height: 20px; }
-  .ab-head { padding-bottom: 4px; }
-  .ab-tap { padding-top: 4px; }
-  .ab-rx { padding: 6px 10px; }
-}
+/* Ascites: one compact card at every size, so all of it, Treat included, fits without scrolling. */
+.dock-pane:has(> .ab) { padding-top: 8px; padding-bottom: 8px; }
+.ab-main, .ab-report { gap: 4px; }
+.ab-head { padding-bottom: 4px; margin-bottom: 0; gap: 8px; }
+.ab-sum { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+.ab-sum > .hv-k, .ab-lab small, .ab-rx-txt, .ab-rx > .hv-k { display: none; }
+.ab-sum .hv-num { font-size: 26px; line-height: 1.1; }
+.ab-belly { width: 34px; height: 34px; border-width: 1.5px; }
+.ab-iap { gap: 3px; }
+.ab-iap-bar { height: 6px; }
+.ab-tap { gap: 4px; padding-top: 4px; }
+.ab-lab { display: flex; align-items: baseline; justify-content: center; gap: 6px; padding: 4px 6px; }
+.ab-lab b, .ab-lab.ab-key b { font-size: var(--fs-16, 16px); }
+.ab-step-btn { width: 30px; height: 30px; font-size: 18px; }
+.ab-step-val { min-width: 70px; padding: 0 4px; }
+.ab-rx { grid-template-columns: auto auto 1fr; align-items: center; gap: 6px; padding: 6px 8px; }
+.ab-rx-diu { grid-column: 1 / -1; padding-bottom: 6px; }
+.ab-rx-row, .ab-drain-row { display: contents; }
+.ab-rx .ab-warn { grid-column: 1 / -1; }
+.ab-diu { min-height: 40px; padding: 3px 12px; }
+.ab-diu > svg { width: 20px; height: 20px; }
+.ab-diu-txt small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ab-drain, .ab-chip { min-height: 36px; padding: 0 10px; }
