@@ -441,6 +441,10 @@ export function createSinusoidView({ host }) {
     const dpr = Math.min(2, devicePixelRatio || 1);
     if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+    // The names are laid out where the view will rest, during the zoom too (hidden until it lands), so the end arrows
+    // the shader draws are in place from the first frame and nothing moves when the names fade in.
+    const lk = [geoKey, VW.k.toFixed(3), VW.C.map((v) => v.toFixed(0)), S.lum.toFixed(3), S.act > 0.5, Math.round(S.por * 20), model.hide, model.P2.toFixed(1), model.lymph.toFixed(1), Math.round(model.lyProt * 100), model.P1.toFixed(1), model.P3.toFixed(1), phoneMQ.matches].join('|');
+    if (lk !== lastKey) { lastKey = lk; layoutEnds(); layoutTags(); }
     if (gpu) {
       const u = palette(dark, getComputedStyle(host));
       // Device px ↔ local µm.
@@ -467,10 +471,6 @@ export function createSinusoidView({ host }) {
       } else { u.uRev = [1, -1e5, 1e5, 1e5]; u.uAll = 1; u.uDet = [1, 1e5]; u.uFocus = 1; }
       spriteDt = Math.max(0, dt) * go;
       gpu.draw(u, pts, sprites());
-    }
-    if (!dive) {
-      const lk = [geoKey, VW.k.toFixed(3), VW.C.map((v) => v.toFixed(0)), S.lum.toFixed(3), S.act > 0.5, Math.round(S.por * 20), model.hide, model.P2.toFixed(1), model.lymph.toFixed(1), Math.round(model.lyProt * 100), model.P1.toFixed(1), model.P3.toFixed(1), phoneMQ.matches].join('|');
-      if (lk !== lastKey) { lastKey = lk; layoutEnds(); layoutTags(); }
     }
     const dk = [Math.round(S.por * 4), S.col > 0.15, S.act > 0.4, model.hide, model.P2.toFixed(0), model.lymph.toFixed(1), Math.round(model.lyProt * 100)].join('|');
     if (dk !== descKey) { descKey = dk; canvas.setAttribute('aria-label', describe()); }

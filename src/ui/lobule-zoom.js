@@ -28,7 +28,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=dc393aabea';
 import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=4fe4837865';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
-import { createSinusoidView } from './sinusoid-view.js?v=bd997c6bd1';
+import { createSinusoidView } from './sinusoid-view.js?v=5b53c3b936';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const TAU = Math.PI * 2;
@@ -1931,12 +1931,17 @@ export function createLobuleZoom({ host }) {
     return { p, c, q, rot, Z, run, k: F.k, ang: F.ang };
   }
   function placeSinusoid() {
-    const u = sinU, D = sinDive, rm = reduce.matches;
+    const u = sinU, rm = reduce.matches;
+    let D = sinDive;
     if (!D || u <= 0) {
       el.style.transform = ''; el.style.transformOrigin = ''; el.style.visibility = ''; el.classList.remove('lz-sin');
       sv.place({ opacity: 0 });
       return;
     }
+    // On the way in the view's resting place is read afresh each frame: the dock and the side pieces leave as the
+    // zoom starts (and the credit line slides down), so the frame they free settles early in the zoom, which then
+    // lands on it, with no second move after it. (On the way out it is kept, so the lobule is reached as it was.)
+    if (D && sinTo === 1 && u > 0 && u < 1 && !rm) D = sinDive = diveGeometry();
     const g = rm ? 1 : easeIO(u);
     // The lobule: turned and grown about the zoom's fixed point.
     el.style.transformOrigin = rm ? '' : `${D.q[0].toFixed(2)}px ${D.q[1].toFixed(2)}px`;
