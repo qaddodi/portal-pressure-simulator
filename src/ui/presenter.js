@@ -20,8 +20,8 @@ import { SITES } from './ladder.js?v=cab65850a4';
 import { sinusoidSupported } from './sinusoid-view.js?v=5fb063d790';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
 import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=93d381e8df';
-import { createHvpgMonitor } from './hvpg-proc.js?v=3bd8f6829c';
-import { createTools } from './presenter-tools.js?v=621f749226';
+import { createHvpgMonitor } from './hvpg-proc.js?v=454d04200f';
+import { createTools } from './presenter-tools.js?v=d71c7cacb7';
 import { openHandout } from './handout.js?v=252beba081';
 
 const KEY = 'pps.scripts';
@@ -77,7 +77,7 @@ const TARGETS = {
   fhvp: { node: 'RHV', edges: ['RHV_IVC'], tone: 'hv', words: 'FHVP|free pressure' },
   hv: { node: 'RHV', edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], tone: 'hv', words: 'hepatic veins?' },
   ivc: { node: 'IVCS', edges: ['IVCS_RA', 'IVC_IS'], tone: 'ivc', words: 'IVC|inferior vena cava' },
-  ra: { node: 'RA', organ: 'heart', tone: 'ra', words: 'right atrium' },
+  ra: { node: 'RA', organ: 'heart-ra', tone: 'ra', words: 'right atrium' },
   varix: { node: 'VAR', edges: ['C1a', 'C1b'], tone: 'var', words: 'esophageal varices|varices|varix' },
   gv: { node: 'GV', edges: ['C2'], tone: 'var', words: 'gastric varices|fundal varices' },
   lgv: { node: 'LGV', edges: ['LGV_CONF', 'V_STO'], tone: 'var', words: 'left gastric vein|coronary vein' },
@@ -109,7 +109,7 @@ const TARGETS = {
 const toneVar = (t) => (t === 'accent' ? 'var(--accent)' : t.startsWith('--') ? `var(${t})` : `var(--tr-${t})`);
 // Node ids name their target too ([portal vein](CONF) is [portal vein](pv)).
 for (const [k, t] of Object.entries(TARGETS)) if (t.node && !TARGETS[t.node]) TARGETS[t.node] = TARGETS[k];
-const ORGANS = new Set(['liver', 'spleen', 'heart']);
+const ORGANS = new Set(['liver', 'spleen', 'heart', 'heart-ra']);
 // A vessel's station colour, for a glow written by hand (glow: ['PV_TRUNK']).
 const EDGE_TONE = {};
 for (const t of Object.values(TARGETS)) for (const e of t.edges || []) EDGE_TONE[e] ||= t.tone;
