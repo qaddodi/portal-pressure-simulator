@@ -231,6 +231,24 @@ export function createVarixWall() {
     const fs = clamp(R / 11, 10, 14);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     if (rr > 14) { ctx.fillStyle = '#fff'; ctx.font = FONT(600, fs); ctx.fillText('r', cx + rr / 2, vy + fs * 0.7); }
+    // Laplace's other two terms on the picture: the tension T along the wall (two arrows pulling apart round the top,
+    // heavier as the stress rises) and the wall thickness w across the rim (a bracket, in the faded label ink).
+    const lw = clamp(v.w * R / 20, 1, 10), ro = rr + lw / 2 + Math.max(5, R / 30), ink = cssVar('--text-3');
+    ctx.strokeStyle = rim; ctx.fillStyle = rim; ctx.lineWidth = clamp(1.25 + 2.5 * clamp(v.ratio, 0, 1.2), 1.25, 4);
+    for (const s of [-1, 1]) {
+      const a0 = -Math.PI / 2 + s * 0.22, a1 = -Math.PI / 2 + s * 1.05;
+      ctx.beginPath(); ctx.arc(cx, vy, ro, Math.min(a0, a1), Math.max(a0, a1)); ctx.stroke();
+      const ex = cx + Math.cos(a1) * ro, ey = vy + Math.sin(a1) * ro, tx = -Math.sin(a1) * s, ty = Math.cos(a1) * s, hd = 5 + R / 50;
+      ctx.beginPath(); ctx.moveTo(ex + tx * hd * 0.2, ey + ty * hd * 0.2);
+      ctx.lineTo(ex - tx * hd + ty * hd * 0.55, ey - ty * hd - tx * hd * 0.55); ctx.lineTo(ex - tx * hd - ty * hd * 0.55, ey - ty * hd + tx * hd * 0.55); ctx.fill();
+    }
+    ctx.font = FONT(600, fs); ctx.fillStyle = rim; ctx.fillText('T', cx, vy - ro - fs * 0.75);
+    const aw = Math.PI * 0.62, bx = Math.cos(aw), by = Math.sin(aw);
+    const i0 = rr - lw / 2, o0 = rr + lw / 2 + 3;
+    ctx.strokeStyle = ink; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx + bx * i0, vy + by * i0); ctx.lineTo(cx + bx * (o0 + 6), vy + by * (o0 + 6)); ctx.stroke();
+    for (const d of [i0, rr + lw / 2]) { ctx.beginPath(); ctx.moveTo(cx + bx * d - by * 3, vy + by * d + bx * 3); ctx.lineTo(cx + bx * d + by * 3, vy + by * d - bx * 3); ctx.stroke(); }
+    ctx.fillStyle = ink; ctx.font = FONT(600, fs); ctx.fillText('w', cx + bx * (o0 + 6 + fs * 0.6), vy + by * (o0 + 6 + fs * 0.6));
     ctx.fillStyle = cssVar('--text-3'); ctx.font = FONT(500, fs);
     ctx.fillText('lumen', cx, cy + Rl * 0.35);
     ctx.fillText('muscle', cx, cy + R * 0.87);

@@ -42,7 +42,7 @@ export const ENDOSCOPY = {
       ask: ['Name two endoscopic findings that predict a first bleed.', 'Size over 5 mm and red signs (red wale marks or cherry-red spots).'],
     },
     {
-      id: 'tension', cam: [690, -10, 890, 170], kMax: 4.5, labels: ['VAR'],
+      id: 'tension', cam: [690, -10, 890, 170], kMax: 4.5, labels: ['VAR'], tool: { kind: 'wall' },
       data: 'tiles', tiles: ['varix', 'pv'], key: ['varix'],
       kicker: 'Why varices burst', site: 'sin', title: 'Wall tension',
       eq: [mi('T') + mo('=') + frac('<mi mathvariant="normal">Δ</mi><mi>P</mi>' + mo('·') + mi('r'), mi('w')), 'T wall tension · ΔP pressure in the varix minus the lumen · r radius · w wall thickness'],

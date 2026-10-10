@@ -18,11 +18,10 @@ import { h, toast, svgIcon, icon, fmt, clamp } from './util.js?v=e0101a3fa2';
 import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=cab65850a4';
 import { sinusoidSupported } from './sinusoid-view.js?v=9b14b4629e';
-import { pressureColor } from './colormap.js?v=6d64a94345';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
-import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=c30bb160ac';
-import { createTools } from './presenter-tools.js?v=8c3e4f65eb';
-import { openHandout } from './handout.js?v=7ffd1d7f39';
+import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=29f443b1de';
+import { createTools } from './presenter-tools.js?v=5bb66173ff';
+import { openHandout } from './handout.js?v=4c174ab7e7';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -184,9 +183,11 @@ function bigLadder() {
   const span = (name, row, i0, i1) => {
     const x0 = X(i0), x1 = X(i1), w = name === 'HVPG' ? 78 : 66, mid = (x0 + x1) / 2;
     const lead = sv('path', { class: 'pzl-lead' }), bar = sv('path', { class: 'pzl-br', d: `M${x0} ${row - 5}V${row + 5}M${x1} ${row - 5}V${row + 5}M${x0} ${row}H${x1}` });
-    return { x0, x1, row, lead, g: sv('g', { class: 'pzl-bg', opacity: 0 }, lead, bar, sv('rect', { class: 'pzl-pill', x: mid - w / 2, y: row - 13, width: w, height: 26, rx: 13 }), sv('text', { class: 'pzl-bk', x: mid, y: row + 5, 'text-anchor': 'middle' }, name)) };
+    const pill = sv('rect', { class: 'pzl-pill', x: mid - w / 2, y: row - 13, width: w, height: 26, rx: 13 }), txt = sv('text', { class: 'pzl-bk', x: mid, y: row + 5, 'text-anchor': 'middle' }, name);
+    return { name, x0, x1, row, lead, pill, txt, w, mid, g: sv('g', { class: 'pzl-bg', opacity: 0 }, lead, bar, pill, txt) };
   };
   const hv = span('HVPG', SPAN_Y.hvpg, 1, 2), pp = span('PPG', SPAN_Y.ppg, 0, 3);
+  let verdict = {};
   const el = sv('svg', { class: 'pz-ladder', viewBox: `0 0 ${W} ${H}`, role: 'img' },
     sv('defs', {}, sv('linearGradient', { id: gid, x1: 0, x2: 1, y1: 0, y2: 0 }, sv('stop', { offset: 0, 'stop-color': 'var(--tour-portal)' }), sv('stop', { offset: 1, 'stop-color': 'var(--tour-sys)' }))),
     [0, 10, 20, 30].map((v) => sv('g', { class: 'pzl-grid' }, sv('line', { x1: 44, x2: W - 10, y1: Y(v), y2: Y(v) }), sv('text', { x: 34, y: Y(v) + 5, 'text-anchor': 'end' }, String(v)))),
@@ -202,12 +203,18 @@ function bigLadder() {
       b.t.textContent = `Δ ${fmt(Math.max(0, Math.round(f[RUNGS[i][0]]) - Math.round(f[RUNGS[i + 1][0]])), 0)} mmHg`;
     });
     // Each span fades out when a level is not measurable (Budd-Chiari has no wedge). Its leaders end on the points.
+    // A slide's verdict on a gradient (brackets: { hvpg: 'misleads', ppg: 'works' }) colours its bracket red or green
+    // and writes its number in the pill.
     const put = (b, hi, lo, v, rate) => {
       const ok = Number.isFinite(hi) && Number.isFinite(lo) && Number.isFinite(v);
       b.g.setAttribute('opacity', ok ? 1 : 0);
       if (!ok) return;
       b.lead.setAttribute('d', `M${b.x0} ${b.row - 9}V${(Y(hi) + 12).toFixed(1)}M${b.x1} ${b.row - 9}V${(Y(lo) + 12).toFixed(1)}`);
-      b.g.dataset.rate = rate;
+      const say = verdict[b.name.toLowerCase()];
+      b.g.dataset.rate = say ? (say === 'misleads' ? 'hi' : 'ok') : rate;
+      b.g.classList.toggle('says', !!say);
+      const w = say ? b.w + 52 : b.w, label = say ? `${b.name} ${fmt(v, 1)}` : b.name;
+      if (b.txt.textContent !== label) { b.txt.textContent = label; b.pill.setAttribute('x', b.mid - w / 2); b.pill.setAttribute('width', w); }
     };
     put(hv, f.whvp, f.fhvp, f.hvpg, rateOf('hvpg', f)[0] || 'ok');
     put(pp, f.pv, f.ivc, f.ppg, rateOf('ppg', f)[0] || 'ok');
@@ -217,7 +224,8 @@ function bigLadder() {
   return {
     el,
     setBase(b) { base.setAttribute('d', b ? RUNGS.map(([k], i) => `${i ? 'L' : 'M'}${X(i)} ${Y(b[k]).toFixed(1)}`).join(' ') : ''); },
-    set(f, { key = [], ms } = {}) {
+    set(f, { key = [], ms, brackets = null } = {}) {
+      verdict = brackets || {};
       pts.forEach((p, i) => p.g.classList.toggle('key', key.includes(RUNGS[i][0])));
       draw({ pv: f.pv, whvp: f.whvp, fhvp: f.fhvp, ra: f.ra, ivc: f.ivc ?? f.ra, hvpg: f.hvpg, ppg: f.ppg }, ms);
     },
@@ -343,13 +351,13 @@ function scaleKey(sc, rows) {
   return box;
 }
 
-/** SAAG against ascites protein: the four quadrants numbered on the plot and named beside it, the model's
- *  patients as points (two at one place share a point). */
+/** SAAG against ascites protein: the four quadrants numbered on the plot in reading order (1 top left to 4 bottom
+ *  right) and named beside it, the model's patients as points (two close together share a point, names stacked). */
 const QUADS = [
-  { n: 1, x: 1, y: 0, t: 'Portal hypertension, sealed sinusoids', c: 'Cirrhosis · late Budd–Chiari · massive liver metastases' },
+  { n: 1, x: 0, y: 1, t: 'Not portal: the peritoneum leaks', c: 'Peritoneal cancer · tuberculosis · pancreatic ascites' },
   { n: 2, x: 1, y: 1, t: 'Portal hypertension, open sinusoids', c: 'Heart failure · constrictive pericarditis · early Budd–Chiari' },
-  { n: 3, x: 0, y: 1, t: 'Not portal: the peritoneum leaks', c: 'Peritoneal cancer · tuberculosis · pancreatic ascites' },
-  { n: 4, x: 0, y: 0, t: 'Not portal, protein-poor', c: 'Nephrotic syndrome · protein-losing enteropathy' },
+  { n: 3, x: 0, y: 0, t: 'Not portal, protein-poor', c: 'Nephrotic syndrome · protein-losing enteropathy' },
+  { n: 4, x: 1, y: 0, t: 'Portal hypertension, sealed sinusoids', c: 'Cirrhosis · late Budd–Chiari · massive liver metastases' },
 ];
 function quadrantVisual(rows) {
   const W = 760, H = 640, L = 96, R = W - 24, T = 24, B = H - 92, X = (v) => L + (R - L) * clamp(v, 0, 3) / 3, Y = (v) => B - (B - T) * clamp(v, 0, 5) / 5;
@@ -357,7 +365,7 @@ function quadrantVisual(rows) {
   const pts = [];
   for (const r of rows) {
     if (!r.f || r.f.asc < NO_ASC) continue;
-    const near = pts.find((p) => Math.abs(p.saag - r.f.saag) < 0.12 && Math.abs(p.tp - r.f.tp) < 0.2);
+    const near = pts.find((p) => Math.abs(p.saag - r.f.saag) < 0.3 && Math.abs(p.tp - r.f.tp) < 0.5);   // (labels that would overlap)
     if (near) near.names.push(r.name); else pts.push({ saag: r.f.saag, tp: r.f.tp, names: [r.name], site: r.site });
   }
   const box = [[L, T, xs, ys], [xs, T, R, ys], [L, ys, xs, B], [xs, ys, R, B]];
@@ -575,6 +583,9 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
   // readings; each step eases on from wherever the last one left it, and it slides out with its slides.
   const CC = { free: '#5CA4F2', wedge: '#A68CF2', bad: '#FF7A85' };   // the procedure's own colours
   const cath = { on: false, raf: 0, t0: 0, v: { u: 0, balloon: 0, column: 0, opacity: 1 }, tr: {}, show: [], ring: null, ostium: false, probeT0: 0, follow: false, cam: null, fp: null };
+  // The still column is shaded in the catheter's wedge colour (the WHVP callout's), so it reads as the catheter's
+  // column of still blood, not as one more pressure on the map.
+  const wedgeInk = () => getComputedStyle(document.documentElement).getPropertyValue('--tr-wedge').trim() || '#7650C8';
   function cathTrack(k, to, ms, delay = 0) { cath.tr[k] = { from: cath.v[k], to, t0: performance.now() + delay, ms: reduce.matches ? 0 : ms }; }
   function cathLabels() {
     const f = cath.fp, v = cath.v;
@@ -597,7 +608,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     }
     // Three short pushes against the clot (Budd–Chiari), each easing in and back out.
     const pk = cath.probeT0 ? clamp((now - cath.probeT0) / 3600, 0, 1) : 1, probe = pk < 1 ? Math.sin(pk * 3 * Math.PI) ** 2 * 0.9 : 0;
-    stage.setCatheter({ u: v.u, balloon: v.balloon, column: v.column, columnColor: cath.fp ? pressureColor(cath.fp.whvp) : null, ring: cath.ring,
+    stage.setCatheter({ u: v.u, balloon: v.balloon, column: v.column, columnColor: wedgeInk(), ring: cath.ring,
       pulse: 0.5 + 0.5 * Math.sin((now - cath.t0) / 170), clock: now - cath.t0, opacity: v.opacity, labels: cathLabels(), ostium: cath.ostium, probe });
     if (cath.follow) stage.cathFollow();
     cath.raf = requestAnimationFrame(cathFrame);
@@ -698,7 +709,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
   const tileKeys = (s) => s.tiles || (s.data === 'ladder' ? ['hvpg', 'ppg'] : []);
   function dataTo(s, f, ref, ms) {
     if (!ui) return;
-    if (s.data === 'ladder') ui.ladder.set(f, { key: s.key || [], ms });
+    if (s.data === 'ladder') ui.ladder.set(f, { key: s.key || [], ms, brackets: s.brackets });
     if (s.data) ui.tiles.set(f, tileKeys(s), s.key || [], ref, ms);
   }
   async function playLapse(s, to, cut) {
@@ -866,7 +877,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
       if (s.tool) ui.tools.show(s.tool, { quiz: q, stateKey: stateOf[i], chain: chainTo(i) }); else ui.tools.hide();
       // (With a new patient the numbers are set at once, while the card is still out: it fades back in already showing them.)
       const ms = fresh ? 0 : undefined;
-      if (lad) ui.ladder.set(st.fp, { key: q ? [] : s.key || [], ms });
+      if (lad) ui.ladder.set(st.fp, { key: q ? [] : s.key || [], ms, brackets: q ? null : s.brackets });
       if (s.data) ui.tiles.set(st.fp, tileKeys(s), q ? [] : s.key || [], q ? null : refOf(s, i), ms);
       if (data.hidden) { data.hidden = false; data.classList.add('pz-hide'); void data.offsetWidth; }
       data.classList.remove('pz-hide');
@@ -910,6 +921,9 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
           h('span', {}, 'HVPG ', h('b', { 'data-rate': rateOf('hvpg', r.f)[0] }, fmt(r.f.hvpg, 1)))),
         h('div', { class: 'pz-cell-t' }, r.title), L.el));
     }
+    // The dashed line's numbers, once for all six: the healthy reference each ladder is read against.
+    if (base) grid.append(h('p', { class: 'pz-grid-key' }, h('i', { 'aria-hidden': 'true' }), 'Healthy, dashed: ',
+      [['PV', 'pv'], ['WHVP', 'whvp'], ['FHVP', 'fhvp'], ['IVC', 'ivc'], ['RA', 'ra']].filter(([, k]) => base[k] != null).map(([a, k]) => `${a} ${fmt(base[k], 0)}`).join(' · ') + ' mmHg'));
     return grid;
   }
   // The table's columns: the raw pressures shade above normal, the rest by their tile's rating.

@@ -21,7 +21,7 @@ export const DOPPLER = {
       ask: ['Which way does normal portal flow run, and how fast?', 'Toward the liver (hepatopetal), at about 15 to 40 cm/s.'],
     },
     {
-      id: 'hepatic', cam: 'hepatic', labels: ['RHV', 'RA'], tool: { kind: 'doppler', vessel: 'RHV_IVC' },
+      id: 'hepatic', cam: 'hepatic', labels: ['RHV', 'RA'], tool: { kind: 'doppler', vessel: 'RHV_IVC', waves: true },
       kicker: 'Doppler', title: 'The hepatic vein waveform',
       line: 'Flow runs toward the heart and pulses with the right atrium: two forward waves and a brief reversal with each beat.',
       notes: 'The hepatic veins are close to the right atrium, so their waveform follows it. The normal pattern is triphasic: the a wave (atrial contraction) briefly reverses flow, then the S and D waves carry blood toward the heart during ventricular systole and diastole. A stiff, cirrhotic liver damps the wave to biphasic or monophasic. A tall a wave and S-wave reversal point to tricuspid regurgitation or a high right atrial pressure.',

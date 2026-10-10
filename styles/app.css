@@ -1980,6 +1980,8 @@ button.finding:hover { background: var(--surface-2); }
 .pz-panel .pz-ph { display: flex; flex-direction: column; gap: clamp(6px, calc(1.2vh / var(--vz)), 14px); }
 .pz-panel .pz-h { font-size: clamp(28px, calc(4.6vh / var(--vz)), 56px); }
 .pz-panel .pz-line { max-width: 70ch; }
+.pz-grid-key { grid-column: 1 / -1; margin: 0; font: 500 clamp(12px, calc(1.5vh / var(--vz, 1)), 15px) var(--font-ui); color: var(--text-3); font-variant-numeric: tabular-nums; }
+.pz-grid-key i { display: inline-block; width: 22px; margin-right: 8px; vertical-align: middle; border-top: 2px dashed var(--text-3); }
 .pz-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(10px, calc(2vh / var(--vz)), 26px); }
 .pz-cell { display: flex; flex-direction: column; gap: clamp(4px, calc(.8vh / var(--vz)), 10px); padding: clamp(10px, calc(1.6vh / var(--vz)), 20px) clamp(12px, calc(1.6vh / var(--vz)), 20px) clamp(6px, calc(1vh / var(--vz)), 12px); border-radius: clamp(12px, calc(1.8vh / var(--vz)), 20px); background: var(--surface-2); min-width: 0; }
 .pz-cell .pz-kick { font-size: clamp(11px, calc(1.35vh / var(--vz)), 16px); }
@@ -2198,6 +2200,14 @@ button.finding:hover { background: var(--surface-2); }
 .pz-tool .ab-belly { width: clamp(68px, 10vh, 120px); height: clamp(68px, 10vh, 120px); }
 .pz-tool .ab-sum .hv-num b { font-size: clamp(28px, 4.4vh, 48px); }
 .pz-tool { position: relative; flex: none; }
+/* The varix wall: the cross-section beside its stress meter and the r, w and ΔP of Laplace's law (the equation is the slide's). */
+.pz-tool[data-kind="wall"] .pz-inst { display: flex; flex-direction: row; align-items: center; gap: 14px; }
+.pz-tool[data-kind="wall"] .endo-stage { flex: none; width: min(46%, 30vh); min-height: 0; }
+.pz-tool[data-kind="wall"] .chart-box.square { width: 100%; height: auto; aspect-ratio: 1; max-width: none; }
+.pz-tool[data-kind="wall"] .chart-side { flex: 1; min-width: 0; }
+.pz-tool[data-kind="wall"] .endo-read { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.pz-tool[data-kind="wall"] .endo-stress { grid-column: 1 / -1; }
+.pz-tool[data-kind="wall"] .endo-pos, .pz-tool[data-kind="wall"] .wall-law, .pz-tool[data-kind="wall"] .endo-read > :last-child { display: none; }
 .pz-data.has-tool { overflow-y: auto; overscroll-behavior: contain; pointer-events: auto; }
 .pz-tool .dop-main { flex: none; gap: 12px; }
 .pz-tool .dop-report { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2px 16px; align-items: start; }
@@ -2663,6 +2673,34 @@ button.finding:hover { background: var(--surface-2); }
 /* The presenter's measuring sites (PPG: portal vein and IVC), in the tracing colours; one off the free space waits hidden. */
 .cath-label.site { transition: opacity .6s var(--ease) .35s, scale .6s var(--ease) .35s; }
 .cath-label.site.pv { --c: var(--tr-pv); } .cath-label.site.ivc { --c: var(--tr-ivc); }
+/* Where portal blood goes: a fork, each branch as wide as its share, the two shares beside the tips. */
+.cath-label.site.split { --c: var(--tr-pv); }
+.cath-label.site.split b { display: flex; align-items: center; gap: 6px; font-size: 14px; line-height: 1.25; }
+.cath-label.site.split svg { width: 64px; height: 40px; overflow: visible; }
+.cath-label.site.split .sp-t { justify-content: space-between; height: 40px; }
+.cath-label.site.split svg path { fill: none; stroke-linecap: round; transition: stroke-width .8s var(--ease); }
+.cath-label.site.split .sp-l { stroke: var(--tr-pv); stroke-width: var(--sp-l, 8px); }
+.cath-label.site.split .sp-s { stroke: var(--text-3); stroke-width: var(--sp-s, 2px); }
+.cath-label.site.split .sp-t { display: flex; flex-direction: column; gap: 4px; }
+.cath-label.site.split em { font-style: normal; font-size: 14px; font-weight: 700; color: var(--tr-pv); } .cath-label.site.split em + em { color: var(--text-2); }
+.cath-label.site.split b + span { display: none; }
+/* A resistor's reading is a faded figure label, not a callout: its name and the ratio on one line, no box. */
+.cath-label.site.res, .app.presenting .cath-label.site.res { --c: var(--text-2); flex-direction: row; align-items: baseline; gap: 5px; padding: 0; background: none; box-shadow: none;
+  translate: -50% calc(-100% - 12px); text-shadow: 0 0 3px var(--stage-bg), 0 0 6px var(--stage-bg), 0 0 10px var(--stage-bg); }
+.app .cath-label.site.res.coll { translate: -50% calc(-200% - 18px); }
+/* Under an upright circuit (a phone) the two readings share one line, without the unit, so both clear the data card. */
+.app .cath-label.site.res.low { translate: calc(-100% - 10px) 10px; } .app .cath-label.site.res.coll.low { translate: 10px 10px; }
+.app .cath-label.site.res.low b + span { display: none; }
+.cath-label.site.res::after { display: none; }
+.cath-label.site.res small, .app.presenting .cath-label.site.res small { color: var(--text-3); font-size: calc(12px * var(--sk, 1)); letter-spacing: .02em; font-weight: 600; }
+.cath-label.site.res b, .app.presenting .cath-label.site.res b { color: var(--text); font-size: calc(16px * var(--sk, 1)); }
+.cath-label.site.res b + span, .app.presenting .cath-label.site.res b + span { color: var(--text-3); font-size: calc(11px * var(--sk, 1)); margin: 0; }
+.cath-label.site.res b + span:empty { display: none; }
+/* The circuit's resistors: a zigzag over the vessel, heavier as its resistance rises (eased, never a jump). */
+.res-one { transition: opacity .6s var(--ease); }
+.res-one path { fill: none; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; transition: stroke-width .8s var(--ease); }
+.res-one .res-halo { stroke: var(--stage-bg, var(--bg)); stroke-width: calc(var(--res-w, 1.5px) + 3px); opacity: .85; }
+.res-one .res-line { stroke: var(--text); stroke-width: var(--res-w, 1.5px); opacity: .8; }
 .cath-label.site.off { opacity: 0; transition-delay: 0s; }
 .cath-label.site { padding: 5px 12px 6px; } .cath-label.site b { font-size: 20px; }
 /* A phone keeps each site to one line (name, value, unit) so two fit in the small figure. */

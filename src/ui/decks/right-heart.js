@@ -12,7 +12,7 @@ export const RIGHT_HEART = {
   summary: 'Heart failure, constrictive pericarditis and an IVC web on Doppler: the hepatic vein waveform, the pulsatile portal vein, and why the HVPG stays normal while every pressure is high.',
   slides: [
     {
-      id: 'normal', preset: 'healthy', cam: 'hepatic', labels: ['RHV', 'RA'], tool: { kind: 'doppler', vessel: 'RHV_IVC' },
+      id: 'normal', preset: 'healthy', cam: 'hepatic', labels: ['RHV', 'RA'], tool: { kind: 'doppler', vessel: 'RHV_IVC', waves: true },
       kicker: 'The hepatic veins', site: 'cardiac', title: 'The normal hepatic vein waveform',
       line: 'Blood flows toward the heart in two waves each beat, with a short reversal as the right atrium contracts.',
       notes: 'The hepatic veins sit next to the right atrium, so their Doppler trace follows its pressure. Flow away from the probe, toward the heart, is drawn below the baseline: the S wave as the atrium relaxes and the tricuspid ring moves down in systole, then the D wave as the tricuspid valve opens. The small a wave above the baseline is the atrial kick pushing blood back. The pattern is called triphasic.',
@@ -47,7 +47,7 @@ export const RIGHT_HEART = {
       ask: ['Ascites with a high SAAG and high protein, a pericardial knock and a JVP that rises on inspiration. What is the diagnosis?', 'Constrictive pericarditis.'],
     },
     {
-      id: 'web', preset: 'ivc-web', cam: 'hepatic', labels: ['RHV', 'IVCS', 'RA'], mark: { edges: ['IVCS_RA'], label: 'Web in the IVC' }, tool: { kind: 'doppler', vessel: 'IVCS_RA' }, data: 'tiles', tiles: ['ivc', 'ra'], key: ['ivc'],
+      id: 'web', preset: 'ivc-web', cam: 'hepatic', labels: ['RHV'], sites: ['web', 'ra'], mark: { edges: ['IVCS_RA'], label: 'Web in the IVC' }, tool: { kind: 'doppler', vessel: 'IVCS_RA' }, data: 'tiles', tiles: ['ivc', 'ra'], key: ['ivc'],
       kicker: 'The IVC', site: 'post', title: 'A web in the IVC',
       line: 'A membrane in the IVC, above the hepatic veins. Below it the pressure is 15 mmHg; the right atrium beyond it is normal at 3.',
       notes: 'Membranous obstruction of the IVC is a form of Budd–Chiari syndrome, common in South and East Asia and southern Africa. The liver congests as in heart failure, but the jugular venous pressure is normal and the echocardiogram is too. Doppler shows fast or turbulent flow at the web and slow or reversed flow below it. The PPG, read against the IVC below the web, looks normal; the portal vein against the right atrium shows the full gradient. Angioplasty, with or without a stent, treats it.',

@@ -7,6 +7,7 @@ const dP = '<mrow><mi mathvariant="normal">Δ</mi><mi>P</mi></mrow>';
 
 const K = 'The circuit';
 const C = 'circuit';
+const R = ['rLiver', 'rColl'];   // the resistors on the figure: the liver's, and the collaterals' once they open
 const MEAL = { days: 8, ramp: { splanchnicTone: [1, 0.72] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' } };
 
 export const CIRCUIT = {
@@ -20,7 +21,7 @@ export const CIRCUIT = {
   summary: 'Portal hypertension as a circuit: more flow, more resistance, collaterals in parallel, TIPS and the drugs, each read as ΔP = Q × R.',
   slides: [
     {
-      id: 'ohm', preset: 'healthy', view: C, data: 'tiles', tiles: ['pvFlow', 'ppg'],
+      id: 'ohm', preset: 'healthy', view: C, sites: R, data: 'tiles', tiles: ['pvFlow', 'ppg'],
       kicker: K, title: 'Pressure, flow and resistance',
       eq: [dP + mo('=') + mi('Q') + mo('×') + mi('R'), 'ΔP pressure drop · Q flow · R resistance'],
       line: 'Pressure falls across each resistance in proportion to the flow through it.',
@@ -28,35 +29,35 @@ export const CIRCUIT = {
       ask: ['Name the two ways the pressure drop across the liver can rise.', 'More flow through it, or more resistance to that flow.'],
     },
     {
-      id: 'where', view: C, data: 'ladder', key: ['pv', 'hvpg'],
+      id: 'where', view: C, sites: R, data: 'ladder', key: ['pv', 'hvpg'],
       kicker: K, title: 'Where the pressure falls',
       line: 'The gut arterioles spend most of the pressure before blood reaches the portal vein. A healthy liver drops only a few mmHg.',
       notes: 'Mean arterial pressure is about 90 mmHg; the portal vein is under 10. The splanchnic arterioles are the largest resistance in the circuit and they set the portal inflow. Normal sinusoids are wide and many, so the HVPG is 1 to 5 mmHg.',
       ask: ['Which resistance sets the portal inflow?', 'The splanchnic (gut) arterioles.'],
     },
     {
-      id: 'meal', ...MEAL, view: C, data: 'tiles', tiles: ['pvFlow', 'ppg'], delta: true,
+      id: 'meal', ...MEAL, view: C, sites: R, data: 'tiles', tiles: ['pvFlow', 'ppg'], delta: true,
       kicker: K, title: 'More flow',
       line: 'After a meal the gut arterioles open and portal flow rises by about a quarter. Across a low resistance, the gradient barely moves.',
       notes: 'The Q term. The rise in the gradient is the rise in flow times the hepatic resistance, and a healthy liver\'s resistance is small. The same meal on a cirrhotic liver comes back on slide 5.',
       ask: ['Why does a meal barely change portal pressure in a healthy liver?', 'The extra flow crosses a very low resistance.'],
     },
     {
-      id: 'resist', preset: 'csph', view: C, data: 'tiles', tiles: ['pvFlow', 'hvpg', 'ppg'], delta: 'ohm',
+      id: 'resist', preset: 'csph', view: C, sites: R, data: 'tiles', tiles: ['pvFlow', 'hvpg', 'ppg'], delta: 'ohm',
       kicker: K, site: 'sin', title: 'More resistance',
       line: 'Scarred sinusoids resist the same flow several times more, so the pressure drop across the liver rises in proportion.',
       notes: 'The R term. In cirrhosis about three quarters of the extra resistance is fixed (fibrosis, nodules, capillarized sinusoids) and a quarter is tone: contracted stellate cells and too little nitric oxide in the sinusoids. The tone is what drugs can reverse. The tiles compare with the healthy liver on the first slide; the portal flow is almost the same.',
       ask: ['What part of the intrahepatic resistance can drugs lower?', 'The dynamic part: stellate cell and vascular tone.'],
     },
     {
-      id: 'both', ...MEAL, view: C, data: 'tiles', tiles: ['pvFlow', 'hvpg'], delta: true,
+      id: 'both', ...MEAL, view: C, sites: R, data: 'tiles', tiles: ['pvFlow', 'hvpg'], delta: true,
       kicker: K, site: 'sin', title: 'Flow and resistance together',
       line: 'The same meal now raises HVPG several times more: the rise in flow crosses a higher resistance.',
       notes: 'In cirrhosis the splanchnic arterioles dilate for good (nitric oxide, glucagon, bacterial products), so the inflow stays high: the hyperdynamic circulation. A raised resistance and a raised inflow multiply. The postprandial rise in HVPG is one reason meals and large transfusions raise the risk of a variceal bleed.',
       ask: ['What keeps portal inflow high in advanced cirrhosis?', 'Splanchnic arteriolar dilatation, the hyperdynamic circulation.'],
     },
     {
-      id: 'parallel', preset: 'cirr-decomp', view: C, data: 'tiles', tiles: ['shunt', 'liver', 'ppg'], delta: false,
+      id: 'parallel', preset: 'cirr-decomp', view: C, sites: [...R, 'split'], data: 'tiles', tiles: ['shunt', 'liver', 'ppg'], delta: false,
       kicker: K, site: 'sin', title: 'A parallel path',
       eq: [frac('<mn>1</mn>', sub(mi('R'), 'total')) + mo('=') + frac('<mn>1</mn>', sub(mi('R'), 'liver')) + mo('+') + frac('<mn>1</mn>', sub(mi('R'), 'collaterals')), 'Resistances in parallel: the total is lower than either'],
       line: 'Collaterals are resistors in parallel with the liver. They take much of the portal flow, yet the gradient stays high.',
@@ -64,14 +65,14 @@ export const CIRCUIT = {
       ask: ['Why do collaterals not relieve portal hypertension?', 'Their resistance is still high and the inflow rises with them, so the gradient stays high.'],
     },
     {
-      id: 'tips', params: { tips: { on: true } }, view: C, data: 'tiles', tiles: ['ppg', 'shunt', 'liver'], delta: true,
+      id: 'tips', params: { tips: { on: true } }, view: C, sites: R, data: 'tiles', tiles: ['ppg', 'shunt', 'liver'], delta: true,
       kicker: K, site: 'sin', title: 'TIPS: a low resistor in parallel',
       line: 'A wide stent beside the sinusoids. The gradient falls by about half, and blood that reached the liver now bypasses it.',
       notes: 'A covered stent 8 to 10 mm wide has a far lower resistance than the sinusoids or any collateral, so most portal blood takes it. The gradient falls below 12 mmHg; the cost is less portal blood for the liver and a risk of encephalopathy. An 8 mm stent is a compromise between the two.',
       ask: ['What does TIPS cost the liver?', 'Most of its portal blood, and with it a risk of encephalopathy.'],
     },
     {
-      id: 'drugs', params: { tips: { on: false }, drugs: { propranolol: true } }, view: C, data: 'tiles', tiles: ['hvpg', 'pvFlow'], delta: 'parallel',
+      id: 'drugs', params: { tips: { on: false }, drugs: { propranolol: true } }, view: C, sites: R, data: 'tiles', tiles: ['hvpg', 'pvFlow'], delta: 'parallel',
       compare: [{ label: 'Propranolol', own: true, params: { drugs: { propranolol: true, carvedilol: false } } }, { label: 'Carvedilol', params: { drugs: { propranolol: false, carvedilol: true } } }],
       kicker: K, site: 'sin', title: 'Drugs act on Q; carvedilol on R too',
       line: 'Propranolol lowers the inflow. Carvedilol also relaxes the resistance inside the liver, so HVPG falls further.',

@@ -3171,7 +3171,61 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A presenter slide's measuring sites (the PPG's portal vein and IVC): a pointer on each station with its reading,
   // drawn like the catheter's WHVP and FHVP callouts. It fades in, follows the camera and stays in the figure's free space.
   // (The portal vein's hangs below the confluence, clear of the trunk and its clot.)
-  const SITE_DEF = { pv: { node: 'CONF', kicker: 'Portal vein', cls: 'pv', below: true }, ivc: { node: 'IVCS', kicker: 'IVC', cls: 'ivc' } };
+  // rLiver, rColl: the circuit's resistors, the liver's and the collaterals', each against the healthy liver's
+  // resistance (a zigzag drawn on the vessels, its stroke heavier as the resistance rises, and the ratio beside it).
+  const SITE_DEF = { pv: { node: 'CONF', kicker: 'Portal vein', cls: 'pv', below: true }, ivc: { node: 'IVCS', kicker: 'IVC', cls: 'ivc' },
+    ra: { node: 'RA', kicker: 'Right atrium', cls: 'ivc' },
+    web: { node: 'IVCS', kicker: 'IVC, below the web', cls: 'ivc', below: true },   // (with ra above it: the two sides of an IVC web)
+    // split: where portal blood goes, a fork whose two branches are as wide as the shares to the liver and to the shunts.
+    split: { node: 'PVH', kicker: 'Portal blood', cls: 'split', split: true, below: true },
+    // (Both readings stand above the liver's column, clear of the station labels; the zigzags mark where each resistor is.)
+    rLiver: { kicker: 'R liver', cls: 'res', unit: 'vs healthy liver', res: 'liver' },
+    rColl: { kicker: 'R collaterals', cls: 'res coll', unit: 'vs healthy liver', res: 'coll' } };
+  // Where the resistors' readings stand (stage-local): centred over the circuit, above it, or below it once it is turned upright.
+  function resAt() {
+    const c = [[60, 40], [1360, 40], [60, 640], [1360, 640]].map(([x, y]) => worldToLocal(x, y)), ys = c.map((p) => p[1]);
+    const up = rotU > 0.5;
+    return { x: c.reduce((a, p) => a + p[0], 0) / 4, y: up ? Math.max(...ys) : Math.min(...ys), up };
+  }
+  // Resistance as ΔP / Q: the liver's lobes, each its venules, sinusoids and outflow in series, in parallel with each other.
+  const LOBES = [['PRE_R', 'SIN_RR', 'POST_R_RHV'], ['PRE_L', 'SIN_LL', 'POST_L_LHV']];
+  const rOf = (P, Q, id) => { const k = EI[id], e = EDGES[k]; return (P[NI[e.from]] - P[NI[e.to]]) / Math.max(1e-6, Math.abs(Q[k])); };
+  const liverRes = (P, Q) => 1 / LOBES.reduce((g, ids) => g + 1 / Math.max(1e-6, ids.reduce((r, id) => r + rOf(P, Q, id), 0)), 0);
+  /** The ratio a resistor shows, or null when there is nothing to show (collaterals closed). */
+  function resRatio(kind) {
+    const hp = store.get().healthy, P = F.Pf || F.P, Q = F.Qf || F.Q;
+    if (!hp?.P || !hp?.Q) return null;
+    const r0 = liverRes(hp.P, hp.Q);
+    if (kind === 'liver') return liverRes(P, Q) / r0;
+    let qc = 0;
+    for (const e of EDGES) if (e.kind === 'collateral' && edgePresent(e, store.get().params)) qc += Math.max(0, Q[EI[e.id]]);
+    if (qc * 0.06 < 0.05) return null;
+    return (P[NI.CONF] - P[NI.IVCS]) / qc / r0;
+  }
+  const resG = s('g', { class: 'res-zz circuit-only', 'aria-hidden': 'true' });
+  gOver.append(resG);
+  const resMade = new Map();
+  // A resistor's zigzag along a vessel: n teeth of amplitude amp (world units) from a to b.
+  const zig = (a, b, n = 6, amp = 9) => {
+    const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+    let d = `M${a[0].toFixed(1)} ${a[1].toFixed(1)}`;
+    for (let i = 0; i < n; i++) { const u = (i + 0.5) / n, sgn = i % 2 ? -1 : 1; d += ` L${(a[0] + dx * u + nx * amp * sgn).toFixed(1)} ${(a[1] + dy * u + ny * amp * sgn).toFixed(1)}`; }
+    return d + ` L${b[0].toFixed(1)} ${b[1].toFixed(1)}`;
+  };
+  function resPaint(k, d, ratio) {
+    let g = resMade.get(k);
+    const want = sites.list?.includes(k) && ratio != null;
+    if (!want) { if (g) { resMade.delete(k); g.style.opacity = 0; setTimeout(() => g.remove(), 600); } return; }
+    if (!g) { g = s('g', { class: 'res-one' }); g.style.opacity = 0; resG.append(g); resMade.set(k, g); requestAnimationFrame(() => requestAnimationFrame(() => { g.style.opacity = 1; })); }
+    const segs = d.res === 'liver' ? [[[812, 303], [888, 303]], [[812, 387], [888, 387]]] : (() => {
+      const q = geo.C1b && pointAt(geo.C1b.cur, 0.5);
+      return q ? [[[q[0] - q[2] * 34, q[1] - q[3] * 34], [q[0] + q[2] * 34, q[1] + q[3] * 34]]] : [];
+    })();
+    const path = segs.map(([a, b]) => zig(a, b)).join(' ');
+    if (g.dataset.d !== path) { g.dataset.d = path; g.replaceChildren(s('path', { class: 'res-halo', d: path }), s('path', { class: 'res-line', d: path })); }
+    // Heavier as the resistance rises: 1.5 px at the healthy liver's, about 4 px at four times it (eased by CSS).
+    g.style.setProperty('--res-w', `${clamp(1.5 + 1.25 * Math.log2(Math.max(0.25, ratio)), 0.8, 5).toFixed(2)}px`);
+  }
   const sites = (() => {
     const el = document.createElement('div');
     el.className = 'cath-labels site-labels'; el.setAttribute('aria-hidden', 'true');
@@ -3180,26 +3234,45 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   })();
   function sitesPaint() {
     const want = sites.list || [], made = sites.made;
+    for (const k of [...resMade.keys()]) if (!want.includes(k)) resPaint(k, SITE_DEF[k], null);
     for (const [k, el] of made) if (!want.includes(k)) { made.delete(k); el.classList.add('cath-pre'); setTimeout(() => el.remove(), 500); }
     if (!F || !want.length) return;
     const wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height, t = easeInOut(morph);
     const x0 = pzInset('--pz-l') + 8, x1 = W - pzInset('--pz-r') - 8, y0 = pzInset('--pz-t') + 8, y1 = H - pzInset('--pz-b') - 8;
     for (const k of want) {
       const d = SITE_DEF[k];
-      if (!d || !NODE_POS[d.node]) continue;
+      if (!d || (d.node && !NODE_POS[d.node])) continue;
+      const ratio = d.res ? resRatio(d.res) : null;
+      if (d.res) resPaint(k, d, ratio);
       let el = made.get(k);
       if (!el) {
         el = document.createElement('div'); el.className = `cath-label site ${d.cls} cath-pre`;
         const sm = document.createElement('small'); sm.textContent = d.kicker;
-        const b = document.createElement('b'), u = document.createElement('span'); u.textContent = 'mmHg';
-        el.append(sm, b, u); sites.el.append(el); made.set(k, el);
+        const b = document.createElement('b'), u = document.createElement('span'); u.textContent = d.unit ?? 'mmHg';
+        el.append(sm, b, u);
+        if (d.split) {
+          b.innerHTML = '<svg viewBox="0 0 64 40" aria-hidden="true"><path class="sp-l" d="M4 20 C26 20 32 7 60 7"/><path class="sp-s" d="M4 20 C26 20 32 33 60 33"/></svg>'
+            + '<span class="sp-t"><em class="sp-lt"></em><em class="sp-st"></em></span>';   // (constant markup)
+          u.textContent = '';
+        }
+        sites.el.append(el); made.set(k, el);
         void el.offsetWidth; el.classList.remove('cath-pre');
       }
-      const b = el.querySelector('b'), v = fmt(sites.fp?.[k] ?? (F.Pf || F.P)[NI[d.node]], 1);
-      if (b.textContent !== v) b.textContent = v;
-      const [x, y] = worldToLocal(...nodePos(d.node, t));
-      // Off the free space, the reading waits hidden; above its point unless the top is covered (decided once, so it never jumps).
-      el.classList.toggle('off', x < x0 || x > x1 || y < y0 || y > y1);
+      if (d.split) {
+        const sh = clamp(sites.fp?.shunt ?? F.metrics?.shuntFraction ?? 0, 0, 1), lt = `Liver ${Math.round((1 - sh) * 100)} %`, stx = `Shunts ${Math.round(sh * 100)} %`;
+        el.style.setProperty('--sp-l', `${(1.5 + 9 * (1 - sh)).toFixed(1)}px`); el.style.setProperty('--sp-s', `${(1.5 + 9 * sh).toFixed(1)}px`);
+        const [a, c] = el.querySelectorAll('em');
+        if (a.textContent !== lt) a.textContent = lt;
+        if (c.textContent !== stx) c.textContent = stx;
+      }
+      const b = el.querySelector('b'), v = d.split ? null : d.res ? (ratio == null ? '' : '×' + fmt(ratio, ratio < 10 ? 1 : 0)) : fmt(sites.fp?.[k] ?? (F.Pf || F.P)[NI[d.node]], 1);
+      if (v != null && b.textContent !== v) b.textContent = v;
+      const ra = d.res ? resAt() : null;
+      if (ra) el.classList.toggle('low', ra.up);
+      const [x, y] = ra ? [ra.x, ra.y] : worldToLocal(...nodePos(d.node, t));
+      // Off the free space (or a resistor with nothing to show, or out of the circuit), the reading waits hidden; above
+      // its point unless the top is covered (decided once, so it never jumps).
+      el.classList.toggle('off', x < x0 || x > x1 || y < y0 || y > y1 || (!!d.res && (ratio == null || t < 0.5)));
       if (el._below == null && el.offsetHeight) { el._below = d.below ? y + 18 + el.offsetHeight < y1 : y - 18 - el.offsetHeight < y0; el.dataset.at = el._below ? 'ahead' : ''; }
       const half = el.offsetWidth / 2, cx = clamp(x, Math.min(x0 + half, (x0 + x1) / 2), Math.max(x1 - half, (x0 + x1) / 2));
       el.style.setProperty('--ax', `${(x - cx).toFixed(1)}px`);
@@ -3308,7 +3381,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     let tint = null;
     const col = clamp(st.column || 0, 0, 1);
     if (gpu && col > 0.001) {
-      const a = tipD - rc * 4.2, reach = a + (r.total - a) * col, soft = Rf * 1.2;
+      const a = tipD - rc * 4.2, reach = a + (r.total - a) * col, soft = Rf * 2.6;   // (a long fade where it meets moving blood)
       const hv = (d) => 1 - (d - r.hv0) / (r.hvEnd - r.hv0), br = (d) => 1 - (d - r.hvEnd) / (r.total - r.hvEnd);
       tint = { col: st.columnColor || '#a33', soft, RHV_IVC: [hv(Math.min(reach, r.hvEnd)), hv(a)] };
       if (reach >= r.hvEnd) tint.RHV_IVC[0] = -1;   // runs on into the branch: no edge at the join
@@ -5311,7 +5384,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setCatheter(st) { cath.st = st; wrap.classList.toggle('cath-on', !!st); if (!st) { cath.rc = 0; cath.route = null; if (veins?.canCath) veins.setCath(null); cathVer++; if (cathTint) { cathTint = null; cath.tintKey = ''; syncVeins(easeInOut(morph)); } cath.g.style.display = 'none'; cath.labels.hidden = true; cath.labels.replaceChildren(); cath.made?.clear(); cath.at = null; return; } cathPaint(); },
     /** A presenter slide's measuring sites, e.g. ['pv', 'ivc'] (see SITE_DEF), read from fp (the slide's numbers, so they
      *  match its ladder and tiles) or else the live figure; null removes them. */
-    setSites(list, fp = null) { sites.list = list?.length ? [...list] : null; sites.fp = fp; if (!sites.list) for (const k of [...sites.made.keys()]) { const el = sites.made.get(k); sites.made.delete(k); el.classList.add('cath-pre'); setTimeout(() => el.remove(), 500); } else { refreshCTM(); sitesPaint(); } },
+    setSites(list, fp = null) { sites.list = list?.length ? [...list] : null; sites.fp = fp; if (!sites.list) for (const k of [...resMade.keys()]) resPaint(k, SITE_DEF[k], null); if (!sites.list) for (const k of [...sites.made.keys()]) { const el = sites.made.get(k); sites.made.delete(k); el.classList.add('cath-pre'); setTimeout(() => el.remove(), 500); } else { refreshCTM(); sitesPaint(); } },
     /** Frame the catheter's route ('route'), its tip close up ('tip'), or go back to the view before ('home'). */
     cathFocus,
     cathFollow,

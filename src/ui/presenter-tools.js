@@ -1,13 +1,15 @@
 // Slide instruments for the Presenter: a slide's `tool` field (decks.js) puts one of the app's instruments in
 // the data card, beside the figure, reading the live model while the slide is up.
 //
-//   tool: { kind: 'doppler', vessel: 'PV_TRUNK' }   spectral Doppler in one vessel (doppler.js PROBES ids)
+//   tool: { kind: 'doppler', vessel: 'PV_TRUNK' }   spectral Doppler in one vessel (doppler.js PROBES ids); waves: true names
+//                                                   a hepatic vein's a, S and D waves on the trace
 //   tool: { kind: 'scope' }                         the esophagus at this slide's varix state (endoscopy)
 //   tool: { kind: 'fibroscan' }                     liver stiffness, kPa (metrics.lsm)
 //   tool: { kind: 'trace', range: 'talk' | 'beats' }
 //                                                   'talk' (default): portal, wedged and free hepatic pressures and the
 //                                                   HVPG at every slide so far, one point per state; 'beats': the live trace
 //   tool: { kind: 'abdomen' }                       the belly with its ascites and collaterals
+//   tool: { kind: 'wall' }                          the varix in cross-section, Laplace's T, r and w (the scope's Wall mechanics)
 //
 // Optional on any kind: title (the card's heading, in place of the kind's own). A slide may carry both data and tool:
 // the tool sits above the tiles. In quiz mode a tool with a reading (Doppler, FibroScan, the scope's grade) keeps it
@@ -17,10 +19,10 @@
 import { store } from './store.js?v=5edd069b32';
 import { h, fmt, clamp } from './util.js?v=e0101a3fa2';
 import { EDGES } from '../engine/topology.js?v=706a39d50b';
-import { createDoppler } from './doppler.js?v=846d2cc390';
+import { createDoppler } from './doppler.js?v=d905792b53';
 import { createFibroScan } from './fibroscan.js?v=8335360dec';
 import { createPressureTime } from './pressure-time.js?v=92faef86cd';
-import { createEndoscopy, createAbdomen } from './instruments.js?v=05870f9c55';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=67a27049f4';
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
   SMV_CONF: 'superior mesenteric vein', RHV_IVC: 'right hepatic vein', MHV_IVC: 'middle hepatic vein', LHV_IVC: 'left hepatic vein', IVCS_RA: 'inferior vena cava',
@@ -31,6 +33,7 @@ const TITLE = {
   fibroscan: () => 'Liver stiffness, FibroScan',
   trace: (t) => (t.range === 'beats' ? 'Pressure, beat by beat' : 'Pressure over the talk'),
   abdomen: () => 'The abdomen',
+  wall: () => 'The varix wall, in cross-section',
 };
 const READS = new Set(['doppler', 'fibroscan', 'scope']);
 const noop = () => {};
@@ -42,7 +45,7 @@ export function createTools({ host, stage }) {
   function make(k) {
     if (made[k]) return made[k];
     const inst = k === 'doppler' ? createDoppler({ onProbe: noop }) : k === 'fibroscan' ? createFibroScan() : k === 'scope' ? createEndoscopy({ onAction: noop })
-      : k === 'abdomen' ? createAbdomen({ onAction: noop }) : k === 'beats' ? createPressureTime() : k === 'talk' ? talkTrace() : null;
+      : k === 'abdomen' ? createAbdomen({ onAction: noop }) : k === 'wall' ? createVarixWall() : k === 'beats' ? createPressureTime() : k === 'talk' ? talkTrace() : null;
     if (inst) { inst.el.classList.remove('dock-pane'); inst.el.classList.add('pz-inst'); }
     return (made[k] = inst);
   }
@@ -67,6 +70,7 @@ export function createTools({ host, stage }) {
         host.send({ type: 'probe', id: t.vessel || 'PV_TRUNK' });
         stage?.pinDoppler?.(t.vessel || 'PV_TRUNK');
       }
+      inst.setWaves?.(!!t.waves);
       if (stateKey !== lastSt && (k === 'doppler' || k === 'beats')) inst.clear?.();
       lastSt = stateKey;
       if (cur !== inst) box.replaceChildren(inst.el);

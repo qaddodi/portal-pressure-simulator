@@ -491,6 +491,20 @@ export function createDoppler({ onProbe }) {
       if (major && y > padT + 5 && y < padT + H - 5) { ctx.fillStyle = 'rgba(255,255,255,.78)'; ctx.fillText(v === 0 ? '0' : num(v), padL + W + 13, y); }
     }
     ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.textAlign = 'right'; ctx.fillText('cm/s', w - 6, 13);
+    if (waves && meta().kind === 'hepatic') {
+      // The hepatic vein's waves named at their peaks (a presenter slide asks for it): the a-wave reversal on the
+      // atrial side of the baseline, then the S and D forward waves of the same beat, small and faded.
+      ctx.font = FONT(600, 11); ctx.textAlign = 'center';
+      const at = (t, v) => [padL + (RW - 1 - (cNow - Math.floor(t * g.cps))) / dpr, padT + baseY - v * k * pxPerV];
+      for (const [t, v, name] of hvWaves(tNow - sweepSeconds, tNow, sgn)) {
+        // (The a-wave's letter sits just past the baseline on its side, clear of the spectrum, even when it barely crosses.)
+        const up = name === 'a', [x, y0] = at(t, v), y = up ? Math.min(y0, padT + baseY) : y0;
+        if (x < padL + 6 || x > padL + W - 6) continue;
+        const ty = clamp(y + (up ? -4 : 4), padT + (up ? 12 : 0), padT + H - (up ? 0 : 12));
+        ctx.textBaseline = up ? 'bottom' : 'top'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(name, x, ty);
+        ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.fillText(name, x, ty);
+      }
+    }
     // One tick a second along the bottom, scrolling with the trace
     ctx.fillStyle = 'rgba(255,255,255,.4)';
     for (let sec = Math.ceil(tNow - sweepSeconds); sec <= tNow; sec++) {
@@ -502,6 +516,35 @@ export function createDoppler({ onProbe }) {
 
   // The dock asks for a redraw with each model frame (~10 a second); the picture itself runs on
   // animation frames while the model is live and the dock keeps asking, and stops when it doesn't.
+  // ── Hepatic vein waves: a, S and D in each whole beat on screen ──
+  // Beats are cut at the a-waves (the reversals, toward the probe's atrial side); between two, the two deepest
+  // forward troughs are S (first) and D, with the a-wave that opens the beat. Read from a lightly smoothed trace; nothing is named when the pattern
+  // is not triphasic (no clear reversal, or a single forward wave).
+  let waves = false;
+  function hvWaves(t0, t1, sgn) {
+    const p = buf.filter(([t]) => t >= t0 && t <= t1);
+    if (p.length < 12) return [];
+    const y = p.map((_, i) => { let s = 0, n = 0; for (let j = Math.max(0, i - 2); j <= Math.min(p.length - 1, i + 2); j++) { s += sgn * p[j][1]; n++; } return s / n; });
+    const top = Math.max(...y), bot = Math.min(...y);   // (top: the biggest reversal, which has to exist)
+    if (top < 0.5 || bot > -5) return [];
+    const ext = (i, s) => s * y[i] >= s * y[i - 1] && s * y[i] >= s * y[i + 1];
+    // An a-wave: the highest point within 0.3 s either side, at or near the baseline.
+    const crest = (i) => { for (let j = i - 1; j >= 0 && p[i][0] - p[j][0] < 0.3; j--) if (y[j] > y[i]) return false; for (let j = i + 1; j < y.length && p[j][0] - p[i][0] < 0.3; j++) if (y[j] > y[i]) return false; return true; };
+    const aI = [];
+    for (let i = 1; i < y.length - 1; i++) if (y[i] > bot * 0.15 && ext(i, 1) && crest(i) && (!aI.length || p[i][0] - p[aI.at(-1)][0] > 0.35)) aI.push(i);
+    // Only the newest whole beat is named, as a textbook marks one cycle: every beat at once crowds the trace.
+    for (let b = aI.length - 2; b >= 0; b--) {
+      const lows = [];
+      for (let i = aI[b] + 1; i < aI[b + 1]; i++) if (y[i] < bot * 0.25 && ext(i, -1)) lows.push(i);
+      // Keep the deepest trough of each dip (troughs closer than 0.12 s are one wave), then the two deepest dips.
+      const dips = [];
+      for (const i of lows) { const d = dips.at(-1); if (d && p[i][0] - p[d][0] < 0.12) { if (y[i] < y[d]) dips[dips.length - 1] = i; } else dips.push(i); }
+      if (dips.length < 2) continue;
+      const two = [...dips].sort((m, n) => y[m] - y[n]).slice(0, 2).sort((m, n) => m - n);
+      return [[p[aI[b]][0], y[aI[b]], 'a'], [p[two[0]][0], y[two[0]], 'S'], [p[two[1]][0], y[two[1]], 'D']];
+    }
+    return [];
+  }
   let raf = 0, askedAt = 0;
   function loop(now) {
     raf = 0;
@@ -517,5 +560,7 @@ export function createDoppler({ onProbe }) {
   }
   function update(f) { ingest(f); redraw(); }
   function clear() { buf = []; redraw(); }
-  return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, setInvert };
+  /** Name the hepatic vein's a, S and D waves on the trace (the Presenter's waveform slides). */
+  function setWaves(on) { if (waves !== !!on) { waves = !!on; ringKey = null; redraw(); } }
+  return { id: 'doppler', label: 'Doppler', el, update, ingest, redraw, clear, setInvert, setWaves };
 }

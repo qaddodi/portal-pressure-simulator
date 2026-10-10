@@ -14,7 +14,7 @@ export const SHUNTS = {
   summary: 'Spontaneous portosystemic shunts, TIPS, and what closing a shunt does. Ends with a comparison of gradient, liver flow and encephalopathy risk.',
   slides: [
     {
-      id: 'own', preset: 'cirr-decomp', cam: 'fit', data: 'tiles', tiles: ['ppg', 'shunt', 'liver'],
+      id: 'own', preset: 'cirr-decomp', cam: 'fit', sites: ['split'], data: 'tiles', tiles: ['ppg', 'shunt', 'liver'],
       kicker: 'Shunts', site: 'sin', title: 'The body\'s own shunts',
       eq: [frac('<mn>1</mn>', sub(mi('R'), 'total')) + mo('=') + frac('<mn>1</mn>', sub(mi('R'), 'liver')) + mo('+') + frac('<mn>1</mn>', sub(mi('R'), 'shunt')), 'R resistance to portal flow · the liver and the shunt in parallel'],
       line: 'Collaterals already carry part of the portal blood around the liver. They lower the gradient a little, never enough.',
@@ -37,7 +37,7 @@ export const SHUNTS = {
       ask: ['A patient with cirrhosis has recurrent encephalopathy despite lactulose and rifaximin. What should you look for?', 'A large spontaneous portosystemic shunt, such as a splenorenal shunt, on CT.'],
     },
     {
-      id: 'tips', preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, cam: 'liver', mark: { edges: ['TIPS'], label: 'Covered stent' },
+      id: 'tips', preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Covered stent' },
       tool: { kind: 'doppler', vessel: 'TIPS' }, data: 'tiles', tiles: ['ppg', 'shunt', 'liver'], delta: 'own',
       kicker: 'Made', site: 'sin', title: 'TIPS',
       line: 'A covered stent, 8 to 10 mm, from a hepatic vein to the portal vein. The gradient falls below 12 mmHg.',
@@ -45,7 +45,7 @@ export const SHUNTS = {
       ask: ['What does Doppler show in a working TIPS?', 'Steady flow toward the heart along the whole stent, at a velocity close to the last scan.'],
     },
     {
-      id: 'wide', params: { tips: { d: 12 } }, cam: 'liver', mark: { edges: ['TIPS'], label: 'Stent at 12 mm' }, data: 'tiles', tiles: ['ppg', 'liver'],
+      id: 'wide', params: { tips: { d: 12 } }, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Stent at 12 mm' }, data: 'tiles', tiles: ['ppg', 'liver'],
       kicker: 'Made', site: 'sin', title: 'Stent too wide',
       line: 'A wider stent lowers the gradient further and takes more blood from the liver: more encephalopathy, and a risk of liver failure.',
       notes: 'The same patient with the stent opened to 12 mm. The gradient falls further, but the liver loses more of its portal blood. Encephalopathy after TIPS is commoner with wider stents, older age and earlier encephalopathy; liver failure is the feared complication when reserve is poor. Many centres place an 8 mm stent, or a stent that is under-dilated and can be widened later if the gradient stays high. Persistent encephalopathy can be treated by narrowing the stent.',
