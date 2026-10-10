@@ -2,7 +2,7 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=dc393aabea';
-import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=89191aa586';
+import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=a54521547f';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=49dc9cdf15';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=a357853926';
@@ -317,11 +317,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     ${grad('gLiver', '--organ-liver', 0.8, 1.05)}${grad('gStomach', '--organ-stomach', 0.75, 1)}${grad('gSpleen', '--organ-spleen', 0.8, 1.05)}
     ${grad('gKidney', '--organ-kidney', 0.75, 1)}${grad('gGut', '--organ-gut', 0.6, 0.85)}${grad('gHeart', '--organ-heart', 0.8, 1.05)}${grad('gPancreas', '--organ-pancreas', 0.8, 1)}
     <filter id="orgSoft" x="-8%" y="-8%" width="116%" height="116%"><feGaussianBlur stdDeviation="6"/></filter>
-    <pattern id="nodules" width="34" height="30" patternUnits="userSpaceOnUse">
-      <g class="nodule"><circle cx="5" cy="5" r="4.6"/><circle cx="15.5" cy="3.5" r="3.4"/><circle cx="25" cy="6.5" r="5.2"/><circle cx="10" cy="14.5" r="4"/><circle cx="21" cy="16" r="5.6"/><circle cx="31" cy="17" r="3.2"/>
-        <circle cx="3" cy="24" r="3.6"/><circle cx="13" cy="25" r="4.8"/><circle cx="25.5" cy="26.5" r="3.9"/><circle cx="34" cy="5" r="4.6"/><circle cx="0" cy="14.5" r="3.2"/><circle cx="34" cy="30" r="3.4"/></g>
-    </pattern>
-    <pattern id="nutmeg" width="16" height="14" patternUnits="userSpaceOnUse"><g class="nutmeg"><circle cx="3" cy="3" r="1.9"/><circle cx="11" cy="5" r="2.4"/><circle cx="6" cy="10.5" r="2.1"/><circle cx="14" cy="12" r="1.6"/></g></pattern>
     <radialGradient id="congest" cx=".42" cy=".42" r=".7"><stop offset=".35" class="cg-in"/><stop offset="1" class="cg-out"/></radialGradient>
     <linearGradient id="fluid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="fl-top"/><stop offset="1" class="fl-bot"/></linearGradient>
     <radialGradient id="skin" cx=".5" cy=".5" r=".5"><stop offset="0" class="sk-in"/><stop offset=".8" class="sk-mid"/><stop offset="1" class="sk-out"/></radialGradient>
@@ -497,22 +492,38 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (o.id === 'esophagus') g.setAttribute('mask', 'url(#esoFade)');   // it runs up out of the plate: fade, don't cut
     gOrgans.append(g);
   }
-  // The liver shows its disease as texture, never as a pressure hue (hue is kept for data):
-  // a congested vignette as sinusoidal pressure rises, nutmeg mottling when the outflow backs up,
-  // a nodular surface with cirrhosis, and a slightly shrunken, blunter organ.
+  // The liver shows its disease in its form and surface, never as a pressure hue (hue is kept for
+  // data). Healthy: a smooth, glossy capsule and a thin, sharp inferior edge. Congested: a
+  // swollen, rounder, darker organ with a faint nutmeg mottle. Cirrhotic: a shrunken right lobe,
+  // a larger left lobe, blunt edges and a cobbled surface of regenerative nodules, coarser with
+  // severity. Shape and surface are drawn from one displacement field, so every state blends
+  // continuously into the next.
   const liverD = ORGANS.find((o) => o.id === 'liver').d;
   const liverTint = s('path', { d: liverD, fill: 'url(#congest)', class: 'liver-tint' });
-  const liverNutmeg = s('path', { d: liverD, fill: 'url(#nutmeg)', opacity: 0 });
-  const liverNodules = s('path', { d: liverD, fill: 'url(#nodules)', opacity: 0 });
-  for (const el of [liverTint, liverNutmeg, liverNodules]) organG.liver.insertBefore(el, organG.liver.querySelector('.org-shade'));
-  // Cirrhosis reshapes the outline itself. The healthy outline is resampled evenly and every
-  // point is displaced, so the shape blends continuously with the slider: the right lobe
-  // atrophies toward the hilum, the lateral left lobe hypertrophies, the inferior edge draws up
-  // and blunts, and the contour dimples between regenerative nodules.
+  const lv = {
+    gloss: s('g', { class: 'lv-gloss', 'clip-path': 'url(#clip-liver)' }),
+    nut: s('path', { class: 'lv-nut', 'clip-path': 'url(#clip-liver)' }),
+    nutNet: s('path', { class: 'lv-nut-net', 'clip-path': 'url(#clip-liver)' }),
+    nodSh: s('path', { class: 'lv-nod-sh', 'clip-path': 'url(#clip-liver)' }),
+    nod: s('path', { class: 'lv-nod', 'clip-path': 'url(#clip-liver)' }),
+    nodHi: s('path', { class: 'lv-nod-hi', 'clip-path': 'url(#clip-liver)' }),
+    blunt: s('path', { class: 'lv-blunt', 'clip-path': 'url(#clip-liver)' }),
+    edge: s('path', { class: 'lv-edge', 'clip-path': 'url(#clip-liver)' }),
+  };
+  // The capsule's sheen: broad soft reflections on the domes of both lobes.
+  defs.insertAdjacentHTML('beforeend', '<radialGradient id="lvSheen"><stop offset="0" class="lv-sh0"/><stop offset=".55" class="lv-sh1"/><stop offset="1" class="lv-sh2"/></radialGradient>');
+  lv.gloss.append(s('ellipse', { cx: 468, cy: 236, rx: 118, ry: 34, transform: 'rotate(-6 468 236)', fill: 'url(#lvSheen)' }),
+    s('ellipse', { cx: 752, cy: 262, rx: 66, ry: 16, transform: 'rotate(22 752 262)', fill: 'url(#lvSheen)' }));
+  const shadeAt = organG.liver.querySelector('.org-shade');
+  for (const el of [liverTint, lv.nutNet, lv.nut, lv.nodSh, lv.nod, lv.nodHi, lv.gloss, lv.blunt]) organG.liver.insertBefore(el, shadeAt);
+  organG.liver.insertBefore(lv.edge, organG.liver.querySelector('.org-line'));
   const liverPaths = [...organG.liver.querySelectorAll('path')].filter((el) => el.getAttribute('d') === liverD);
   const liverClip = defs.querySelector('#clip-liver path');
   if (liverClip) liverPaths.push(liverClip);
   let baseLiver = null, liverKey = '';
+  const smooth01 = (v) => { const t = clamp(v, 0, 1); return t * t * (3 - 2 * t); };
+  // A seeded random stream, so the surface is the same on every load.
+  const seeded = (seed) => () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
   function sampleLiver() {
     const tmp = s('path', { d: liverD }); svg.append(tmp);
     const L = tmp.getTotalLength(), n = 360, pts = [];
@@ -526,47 +537,121 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const dx = bx - ax, dy = by - ay, l = Math.hypot(dx, dy) || 1;
       return [(sg * dy) / l, (-sg * dx) / l];
     });
-    // Nodules: irregular lengths along the edge, fixed per point.
-    let r = 7, start = 0;
-    const rnd = () => { r = (r * 9301 + 49297) % 233280; return r / 233280; };
-    let lam = 18 + 10 * rnd();
+    // Contour nodules: irregular lengths along the edge, fixed per point.
+    const rnd = seeded(7);
+    let start = 0, lam = 18 + 10 * rnd();
     const step = L / n, nod = [];
     for (let i = 0; i < n; i++) {
       const acc = i * step;
-      if (acc - start > lam) { start = acc; lam = 16 + 12 * rnd(); }
+      if (acc - start > lam) { start = acc; lam = 15 + 12 * rnd(); }
       nod.push([(acc - start) / lam, 0.7 + 0.6 * rnd()]);
     }
-    return { pts, nm, nod };
+    // Surface nodules (a jittered hex lattice, mixed sizes) and nutmeg spots (a finer one), each a
+    // closed blob of six radii.
+    const blobs = (gap, seed, sz) => {
+      const r = seeded(seed), out = [];
+      for (let y = 170, row = 0; y < 520; y += gap * 0.866, row++) {
+        for (let x = 310 + (row % 2) * gap / 2; x < 890; x += gap) {
+          out.push({ x: x + (r() - 0.5) * gap * 0.55, y: y + (r() - 0.5) * gap * 0.5, r: gap * 0.5 * (sz[0] + sz[1] * r()),
+            k: Array.from({ length: 6 }, () => 0.8 + 0.34 * r()), a: r() * Math.PI });
+        }
+      }
+      return out;
+    };
+    // Nutmeg links: some neighbouring spots joined by a thin bridge, so deeper congestion reads as
+    // a lacy network rather than a field of dots.
+    const spots = blobs(15, 23, [0.35, 0.6]), lr = seeded(31), links = [];
+    for (let i = 0; i < spots.length; i++) {
+      for (let j = i + 1; j < spots.length; j++) {
+        const a = spots[i], b = spots[j], dd = Math.hypot(a.x - b.x, a.y - b.y);
+        if (dd < 20 && lr() < 0.42) links.push([a, b, (lr() - 0.5) * 9, (lr() - 0.5) * 9]);
+      }
+    }
+    return { pts, nm, nod, nodules: blobs(25, 11, [0.7, 0.55]), spots, links };
   }
-  const smooth01 = (v) => { const t = clamp(v, 0, 1); return t * t * (3 - 2 * t); };
-  function morphLiver(cirr) {
-    const c = Math.round(clamp(cirr, 0, 1) * 40) / 40;
-    const key = String(c);
+  // The displacement of the whole organ (interior and outline): the right lobe atrophies toward
+  // the hilum and the lateral left lobe hypertrophies with cirrhosis.
+  function liverField(x, y, c) {
+    const wr = smooth01((610 - x) / 260), wl = smooth01((x - 700) / 140);
+    return [x + (600 - x) * 0.15 * c * wr + (x - 720) * 0.12 * c * wl, y + (360 - y) * 0.11 * c * wr + (y - 280) * 0.14 * c * wl];
+  }
+  // A closed smooth blob (quadratics through the edge midpoints) of radius r at (x, y).
+  function blobPath(b, x, y, r, sx = 1, sy = 1) {
+    const p = b.k.map((k, j) => { const t = b.a + (j * Math.PI) / 3; return [x + Math.cos(t) * r * k * sx, y + Math.sin(t) * r * k * sy]; });
+    const m = (j) => { const a = p[j % 6], q = p[(j + 1) % 6]; return `${((a[0] + q[0]) / 2).toFixed(1)} ${((a[1] + q[1]) / 2).toFixed(1)}`; };
+    let d = 'M' + m(5);
+    for (let j = 0; j < 6; j++) d += `Q${p[j][0].toFixed(1)} ${p[j][1].toFixed(1)} ${m(j)}`;
+    return d + 'Z';
+  }
+  function morphLiver(cirr, cong, fine) {
+    const q = fine ? 200 : 40;
+    const c = Math.round(clamp(cirr, 0, 1) * q) / q, g = Math.round(clamp(cong, 0, 1) * q) / q;
+    const key = c + ',' + g;
     if (key === liverKey) return;
     if (!baseLiver) { try { baseLiver = sampleLiver(); } catch { return; } if (!baseLiver.pts.length) { baseLiver = null; return; } }
     liverKey = key;
-    let d = liverD;
-    if (c > 0) {
-      const { pts, nm, nod } = baseLiver;
-      d = 'M' + pts.map((p0, i) => {
-        let [x, y] = p0;
-        // Right lobe atrophy (toward the hilum) and lateral left lobe hypertrophy (outward).
-        const wr = smooth01((600 - p0[0]) / 260), wl = smooth01((p0[0] - 720) / 120);
-        x += (600 - x) * 0.1 * c * wr; y += (360 - y) * 0.08 * c * wr;
-        x += (x - 720) * 0.1 * c * wl; y += (y - 280) * 0.12 * c * wl;
-        const [nx, ny] = nm[i];
-        // Blunted inferior edge: the downward-facing margin draws up and rounds off.
-        const inf = clamp(ny, 0, 1);
-        x -= nx * 8 * c * inf; y -= ny * 8 * c * inf;
-        // Nodular contour: indentations between regenerative nodules.
-        const [u, a] = nod[i];
-        const dip = Math.pow(1 - Math.sin(Math.PI * u), 2) * 5 * a * c;
-        x -= nx * dip; y -= ny * dip;
-        return `${x.toFixed(1)} ${y.toFixed(1)}`;
-      }).join(' L') + ' Z';
-    }
+    const { pts, nm, nod, nodules, spots } = baseLiver, n = pts.length;
+    const blunt = Math.max(c, g);
+    const out = pts.map((p0, i) => {
+      let [x, y] = liverField(p0[0], p0[1], c);
+      const [nx, ny] = nm[i], inf = clamp(ny, 0, 1);
+      // Cirrhosis: the inferior edge draws up and rounds off; the thin left lobe tip thickens.
+      const tip = smooth01((p0[0] - 780) / 70);
+      let push = -8 * c * inf + 5 * c * tip;
+      // Congestion: the organ swells, most along its free inferior edge, and its tip rounds.
+      push += g * (5 + 9 * inf + 4 * tip);
+      // Nodular contour: rounded bulges with notches between them (a cusp at each notch).
+      const [u, a] = nod[i];
+      push += (Math.pow(Math.sin(Math.PI * u), 0.5) - 0.72) * 6 * a * smooth01(c / 0.7) * (0.45 + 0.55 * c);
+      return [x + nx * push, y + ny * push];
+    });
+    const f1 = (v) => v.toFixed(1);
+    const d = c + g > 0 ? 'M' + out.map(([x, y]) => `${f1(x)} ${f1(y)}`).join(' L') + ' Z' : liverD;
     for (const el of liverPaths) el.setAttribute('d', d);
+    // The free inferior edge: a fine bright line when it is thin and sharp, a broad shade once it
+    // is rounded (by swelling or by fibrosis).
+    let edge = '', run = false;
+    for (let i = 0; i <= n; i++) {
+      const j = i % n, [nx, ny] = nm[j];
+      if (ny > 0.45 && pts[j][0] < 840) {
+        const x = out[j][0] - nx * 2.2, y = out[j][1] - ny * 2.2;
+        edge += `${run ? ' L' : 'M'}${f1(x)} ${f1(y)}`; run = true;
+      } else run = false;
+    }
+    lv.edge.setAttribute('d', edge); lv.blunt.setAttribute('d', edge);
+    lv.edge.style.opacity = (1 - blunt * 0.9).toFixed(3);
+    lv.blunt.style.opacity = blunt.toFixed(3);
+    lv.gloss.style.opacity = (1 - 0.75 * smooth01(c / 0.6)).toFixed(3);
+    // Regenerative nodules: they rise out of the surface with cirrhosis, and the fibrous septa
+    // between them widen as it advances.
+    const cn = smooth01(c / 0.55);
+    if (cn > 0.01) {
+      let sh = '', bd = '', hi = '';
+      const off = 0.12 + 0.12 * c;
+      for (const b of nodules) {
+        const [x, y] = liverField(b.x, b.y, c), r = b.r * (1.05 - 0.22 * c);
+        sh += blobPath(b, x + r * off, y + r * off * 1.3, r);
+        bd += blobPath(b, x, y, r * 0.96);
+        hi += blobPath(b, x - r * 0.3, y - r * 0.36, r * 0.42, 1.15, 0.8);
+      }
+      lv.nodSh.setAttribute('d', sh); lv.nod.setAttribute('d', bd); lv.nodHi.setAttribute('d', hi);
+    } else for (const el of [lv.nodSh, lv.nod, lv.nodHi]) el.setAttribute('d', '');
+    for (const el of [lv.nodSh, lv.nod, lv.nodHi]) el.style.opacity = cn.toFixed(3);
+    // Nutmeg: dark centrilobular spots that grow and begin to link up as congestion deepens.
+    if (g > 0.01) {
+      let nt = '', ln = '';
+      for (const b of spots) { const [x, y] = liverField(b.x, b.y, c); nt += blobPath(b, x, y, b.r * (0.4 + 0.6 * g)); }
+      for (const [a, b, jx, jy] of baseLiver.links) {
+        const [ax, ay] = liverField(a.x, a.y, c), [bx, by] = liverField(b.x, b.y, c);
+        ln += `M${f1(ax)} ${f1(ay)}Q${f1((ax + bx) / 2 + jx)} ${f1((ay + by) / 2 + jy)} ${f1(bx)} ${f1(by)}`;
+      }
+      lv.nut.setAttribute('d', nt); lv.nutNet.setAttribute('d', ln);
+      lv.nutNet.style.strokeWidth = (0.8 + 2.6 * g).toFixed(2);
+    } else { lv.nut.setAttribute('d', ''); lv.nutNet.setAttribute('d', ''); }
+    lv.nut.style.opacity = lv.nutNet.style.opacity = smooth01(g / 0.5).toFixed(3);
   }
+  // The liver's state eases toward the model's (a new patient or a slider never makes it jump).
+  let lvC = null, lvG = 0, lvAt = 0, lvMoving = false;
   // Abdominal wall (anterior): a soft skin tint that appears only with caput medusae, under its veins.
   const abdWall = s('ellipse', { cx: SITES.umbilicus[0], cy: SITES.umbilicus[1], rx: 120, ry: 96, fill: 'url(#skin)', class: 'abd-wall', opacity: 0 });
   // Flanks: the outline of the abdominal wall, which bulges as ascites accumulates.
@@ -2283,12 +2368,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function plateStateKey() {
     const cs = getComputedStyle(wrap);
     return [liverKey, organG.liver.getAttribute('transform'), organG.spleen.getAttribute('transform')?.replace(/(\d\.\d\d)\d*/g, '$1'),
-      Math.round((parseFloat(liverTint.style.opacity) || 0) * 40), liverNutmeg.getAttribute('opacity'), liverNodules.getAttribute('opacity'),
+      Math.round((parseFloat(liverTint.style.opacity) || 0) * 40),
       organG.bowel.getAttribute('transform'), (ascitesPath.getAttribute('d') || '').slice(0, 48), (flank.getAttribute('d') || '').slice(0, 24), selOKey,
       cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), wrap.classList.contains('imaging')].join('|');
   }
   function platePoke() {
-    if (!veins || veins.lost || !glWanted(easeInOut(morph))) return;
+    if (lvMoving || !veins || veins.lost || !glWanted(easeInOut(morph))) return;
     const key = plateStateKey();
     if (key === plateKey && veins.hasPlate(0)) return;
     // A theme switch: the old raster would keep the old background for a beat, so show the live
@@ -2607,15 +2692,33 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function updateOrgans(f, p, t) {
     const k = 1 - t;
     const imaging = isImaging();
-    liverNodules.setAttribute('opacity', (Math.min(1, p.cirrhosis) * 0.75 * k).toFixed(2));
-    morphLiver(p.cirrhosis);
     const psin = Math.max(f.P[NI.SIN_R], f.P[NI.SIN_L]);
     liverTint.style.opacity = imaging ? 0 : (clamp((psin - 8) / 16, 0, 1) * 0.5 * k).toFixed(3);
     const hp = store.get().healthy?.P;
     const cvUp = hp ? Math.max(f.P[NI.CV_R] - hp[NI.CV_R], f.P[NI.CV_L] - hp[NI.CV_L]) : 0;
-    liverNutmeg.setAttribute('opacity', imaging ? 0 : (clamp((cvUp - 4) / 10, 0, 1) * 0.6 * k).toFixed(2));
-    // A cirrhotic liver shrinks a little; a congested one does not.
-    const shrink = 1 - 0.035 * Math.min(1, p.cirrhosis);
+    const cT = Math.min(1, p.cirrhosis), gT = clamp((cvUp - 4) / 10, 0, 1);
+    const now = performance.now();
+    if (lvC === null || reduceMotion.matches) { lvC = cT; lvG = gT; }
+    else {
+      const e = -Math.expm1(-Math.min(0.1, (now - lvAt) / 1000) / 0.4);
+      lvC += (cT - lvC) * e; lvG += (gT - lvG) * e;
+      if (Math.abs(cT - lvC) < 0.004) lvC = cT;
+      if (Math.abs(gT - lvG) < 0.004) lvG = gT;
+    }
+    lvAt = now;
+    const moving = lvC !== cT || lvG !== gT;
+    // While it eases, the live drawing shows (a raster would move in steps); the plate is
+    // rasterized again once it settles.
+    if (moving && !lvMoving && veins && !veins.lost && veins.hasPlate(0)) {
+      veins.dropPlate(0); veins.dropPlate(1); plateView = null; plateViewKey = '';
+      wrap.classList.remove('gl-plate'); veinsDirty = true; syncPlateLook();
+    }
+    lvMoving = moving;
+    if (moving) widthEasing = true;
+    morphLiver(lvC, lvG, moving);
+    for (const el of [lv.nut, lv.nutNet, lv.gloss]) el.style.visibility = imaging ? 'hidden' : '';
+    // A cirrhotic liver shrinks a little; a congested one swells.
+    const shrink = 1 - 0.035 * lvC + 0.035 * lvG;
     organG.liver.setAttribute('transform', `translate(560 350) scale(${shrink.toFixed(4)}) translate(-560 -350)`);
     const c3 = recruitFrac('C3', f);
     abdWall.setAttribute('opacity', (clamp((c3 - 0.1) / 0.4, 0, 1) * 0.9 * k).toFixed(2));
