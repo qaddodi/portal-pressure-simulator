@@ -999,7 +999,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const q = geo[id], x = E[id];
       if (!q?.cur || q.cur.length < 2 || !q.lit || !x) return;
       const r = (x.dopW || x.width || 8) / 2;
-      glow.setAttribute('d', tubeOutline(q.cur, q.lit, (u) => (r + 3.5) * taper(u) + 0.01));
+      glow.setAttribute('d', tubeOutline(q.cur, q.lit, (u) => (r + 4.5) * taper(u) + 0.01));
       cut.setAttribute('d', tubeOutline(q.cur, q.lit, () => Math.max(0.5, r - 0.6)));
     } };
   }
