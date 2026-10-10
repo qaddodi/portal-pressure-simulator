@@ -2999,11 +2999,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // and the bowel floats up on it. A slow ripple runs along the surface while the model runs. On
   // the GPU the fluid is drawn over the plate (not in its raster), so no lens tints it; the SVG
   // copy stays for picking, the selection outline and exports.
-  let ascTarget = null, ascShown = 0, fluidMaskB = null, fluidMaskOf = null, fluidMaskOfB = null, fluidBandH = -1, fluidH = 0, fluidAmp = 0, fluidInkRGBA = [0.9, 0.75, 0.28, 0.4];
+  let ascTarget = null, ascShown = 0, ascVel = 0, fluidMaskB = null, fluidMaskOf = null, fluidMaskOfB = null, fluidBandH = -1, fluidH = 0, fluidAmp = 0, fluidInkRGBA = [0.9, 0.75, 0.28, 0.4];
   const fluidLook = { s: [0, 0, 0, 0], ink: [0, 0, 0, 0], ripple: false };
   const abdomenClipEl = defs.querySelector('#abdomenClip path');
   const fluidPhase = () => (performance.now() / 1100) % (20 * Math.PI);   // both ripple terms are periodic over 20π
   const fluidSurfAt = (x, ph) => { const c = (x - 712) / 400; return ABDOMEN_FLOOR + 5 - fluidH * (0.55 + 0.45 * c * c) + (Math.sin(x / 38 + ph) * 0.7 + Math.sin(x / 23 - ph * 1.3) * 0.3) * fluidAmp; };
+  // A thin pool fades in as it fills and fades out as it drains, so the first and last millimetres never pop.
+  const fluidFade = () => clamp((fluidH - 3) / 45, 0, 1);
   function drawAscites() {
     const u = clamp(ascShown / 11000, 0, 1);
     const bulge = Math.round(u * 34 * 2) / 2;
@@ -3033,6 +3035,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       let line = '';
       for (let x = 296; x <= 1128; x += 8) line += `${x === 296 ? 'M' : ' L'}${x} ${surf(x).toFixed(1)}`;
       ascitesLine.setAttribute('d', line);
+      gAscites.style.setProperty('--fluid-fade', fluidFade().toFixed(3));
       ascitesPath.setAttribute('d', `${line} L 1128 ${floor + 70} L 296 ${floor + 70} Z`);   // down past the rounded pelvic floor; the clip shapes it
       // The cells the rippling surface (and its light band) passes through, redrawn each frame on the GPU.
       if (veins && !veins.lost && Math.abs(fluidH - fluidBandH) > 0.25) {
@@ -3055,14 +3058,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (ascTarget === null) return false;
     let moved = false;
     if (ascShown !== ascTarget) {
-      const d = ascTarget - ascShown;
-      ascShown = Math.abs(d) < 3 ? ascTarget : ascShown + d * (1 - Math.exp(-dt / 0.45));
+      // A critically damped spring on the drawn scale (volume^0.6), so the fluid fills in from the pelvis and
+      // drains out smoothly, starting and stopping gently, instead of jumping in or out of existence.
+      const w = 4.2, h = Math.min(dt, 0.05), vs = Math.pow(ascShown, 0.6), vt = Math.pow(ascTarget, 0.6);
+      ascVel += (-w * w * (vs - vt) - 2 * w * ascVel) * h;
+      const nv = Math.max(0, vs + ascVel * h);
+      if (Math.abs(nv - vt) < 0.2 && Math.abs(ascVel) < 0.5) { ascShown = ascTarget; ascVel = 0; }
+      else ascShown = Math.pow(nv, 1 / 0.6);
       drawAscites(); moved = true;
     }
     const run = st.running && !reduceMotion.matches;
     const t = easeInOut(morph), k = (1 - t) * (wrap.classList.contains('has-sel') ? 0.72 : 1);
     fluidLook.s = [ABDOMEN_FLOOR + 5, fluidH, fluidAmp, run ? fluidPhase() : fluidLook.s[3]];
-    fluidLook.ink = [fluidInkRGBA[0], fluidInkRGBA[1], fluidInkRGBA[2], fluidH >= 3 ? fluidInkRGBA[3] * k : 0];
+    fluidLook.ink = [fluidInkRGBA[0], fluidInkRGBA[1], fluidInkRGBA[2], fluidH >= 3 ? fluidInkRGBA[3] * k * fluidFade() : 0];
     fluidLook.ripple = run && fluidH >= 3 && k > 0;
     if (vLook) vLook.fluid = fluidLook;
     return moved;

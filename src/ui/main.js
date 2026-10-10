@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=90504cc4f2';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=25cbe77a76';
-import { createStage } from './stage.js?v=1ab9a0221a';
+import { createStage } from './stage.js?v=68c255dafa';
 import { sinusoidSupported } from './sinusoid-view.js?v=5b53c3b936';
 import { createInspector } from './inspector.js?v=500d39491c';
 import { createDock, CUTOFFS } from './dock.js?v=6f0df6906c';

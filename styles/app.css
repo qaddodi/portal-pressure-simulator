@@ -676,8 +676,8 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .band-ring { fill: none; stroke: var(--text); stroke-width: 2.4; }
 .redwale { stroke: var(--red-wale); stroke-width: 1.3; stroke-linecap: round; }
 .balloon-shape { fill: var(--balloon); fill-opacity: .8; stroke: var(--balloon-line); stroke-width: 1.4; }
-.ascites-fill { stroke: none; }
-.ascites-line { fill: none; stroke: var(--ascites); stroke-opacity: .3; stroke-width: 4; stroke-linejoin: round; }   /* a soft meniscus band, not a hard rule */
+.ascites-fill { stroke: none; opacity: var(--fluid-fade, 1); }
+.ascites-line { fill: none; stroke: var(--ascites); stroke-opacity: calc(.3 * var(--fluid-fade, 1)); stroke-width: 4; stroke-linejoin: round; }   /* a soft meniscus band, not a hard rule */
 .pinch-guide { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 4 3; }
 .stent-guide { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 6 4; stroke-linecap: round; }
 .stent-guide.invalid { stroke: var(--danger); }
