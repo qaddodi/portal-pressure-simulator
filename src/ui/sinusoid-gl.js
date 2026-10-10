@@ -72,7 +72,7 @@ in vec2 vP;
 out vec4 o;
 ${COMMON}
 uniform int uPass;              // 0: the tissue; 1: the cells that lie over the moving particles (stellate, Kupffer)
-uniform float uLum, uPinch, uXs, uXk, uKy, uHscA, uCol, uBm, uMv, uAct, uPor, uFlow, uLym, uDir, uDark, uShim, uStreak;
+uniform float uLum, uPinch, uXs, uXk, uKy, uHscA, uCol, uBm, uMv, uAct, uPor, uFlow, uLym, uLyF, uDir, uDark, uShim, uStreak;
 uniform vec3 cBg, cShade, cLumen, cLymph, cCell, cUnder, cNuc, cCol, cBm, cBile, cEndo, cEndoN, cHscQ, cHscA, cHscN, cKup, cKupN, cKupE, cRbc, cChev, cRev, cEndF, cEndE;
 uniform float aBm;
 uniform vec4 uEnd;               // the end arrows: portal x, central x (µm), size (µm), alpha
@@ -221,13 +221,16 @@ vec3 disse(float x, float a, float wi, float hi, int side, bool main, float det)
   float lx = x - uLym * 0.9 + (main ? 0.0 : 3.0) + (side < 0 ? 0.0 : 7.0);
   float ls = 0.5 + 0.5 * sin(lx * 0.16 + 1.3 * sin(lx * 0.05 + float(side)));
   ls = ls * ls * (3.0 - 2.0 * ls);
-  c = mix(c, vec3(1.0), 0.22 * ls * mid * uStreak);
-  for (int j = 0; j < 2; j++) {
+  // How much shows follows the lymph flow (uLyF, 1 at the healthy rate): more flow, a brighter, wider glow and more glints.
+  c = mix(c, vec3(1.0), min(0.22 * uLyF, 0.5) * ls * pow(mid, 1.0 / uLyF) * uStreak);
+  for (int j = 0; j < 3; j++) {
+    float on = j < 2 ? 1.0 : smoothstep(1.2, 1.7, uLyF);   // a third lane of glints joins as the flow rises
+    if (on < 0.01) continue;
     float P = 11.0 + 4.0 * float(j), sx = lx * (0.9 + 0.15 * float(j)) + 4.1 * float(j), k = floor(sx / P), xx = sx - k * P;
     float L = 3.0 + 2.5 * h1(int(k) * 7 + j, 21 + side), x0 = (P - L) * h1(int(k) + j * 131, 23 + side), e = 1.0 - (xx - x0) / L;
-    float al = smoothstep(0.0, 0.8, e) * (1.0 - smoothstep(0.85, 1.0, e));
-    float yc = mix(wi, hi, 0.3 + 0.36 * float(j)), wy = max(0.12 * (hi - wi) * (0.6 + 0.6 * e), 1.2 * uPx);
-    c = mix(c, vec3(1.0), al * exp(-pow((a - yc) / wy, 2.0)) * uStreak * 0.7 * (0.5 + 0.6 * ls));
+    float al = smoothstep(0.0, 0.8, e) * (1.0 - smoothstep(0.85, 1.0, e)) * on;
+    float yc = mix(wi, hi, j == 2 ? 0.48 : 0.3 + 0.36 * float(j)), wy = max(0.12 * (hi - wi) * (0.6 + 0.6 * e), 1.2 * uPx);
+    c = mix(c, vec3(1.0), al * exp(-pow((a - yc) / wy, 2.0)) * uStreak * 0.7 * clamp(uLyF, 0.5, 1.4) * (0.5 + 0.6 * ls));
   }
   // Collagen: a pale fill as it takes the space the lymph had, then banded fibre bundles laid down by the
   // stellate cell: they start at it and spread along Disse, each thickening at its own stage.
