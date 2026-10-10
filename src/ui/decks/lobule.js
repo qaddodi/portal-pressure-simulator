@@ -28,7 +28,7 @@ export const LOBULE = {
     {
       id: 'schisto', preset: 'schisto', cam: 'lobule:triad', callout: { at: 'triad', label: 'Block: portal venules' }, data: 'tiles', tiles: ['pv', 'hvpg'],
       kicker: 'Presinusoidal', site: 'presin', title: 'Schistosomiasis: the portal tract',
-      line: 'Eggs lodge in the portal venules. Granulomas and fibrosis form around them, and the sinusoids downstream stay normal.',
+      line: 'Eggs lodge in the portal venules. Granulomas and fibrosis form around them, and the sinusoids downstream stay normal. The portal pressure is {pv}, yet the HVPG only {hvpg}.',
       notes: 'Schistosoma mansoni and japonicum eggs are carried in portal blood and trapped in the small portal venules, where they cause granulomas and then periportal (pipestem) fibrosis. The block is before the sinusoids: the portal pressure is high, but the wedge reads the normal sinusoids, so the HVPG is normal or only slightly raised. Liver cells are spared, so function is kept for years. Varices and splenomegaly are the presentation; ascites is rare. Porto-sinusoidal vascular disorder behaves the same way.',
       ask: ['Why is the HVPG normal in schistosomiasis?', 'The block is in the portal venules, before the sinusoids that the wedge reads.'],
     },
@@ -49,7 +49,7 @@ export const LOBULE = {
     {
       id: 'cong', preset: 'rhf', cam: 'lobule:central', data: 'tiles', tiles: ['pv', 'hvpg'],
       kicker: 'Cardiac', site: 'cardiac', title: 'Congestion: zone 3',
-      line: 'Back pressure from the heart dilates the sinusoids around the central vein, and zone 3 cells die first.',
+      line: 'Back pressure from the heart dilates the sinusoids around the central vein, and zone 3 cells die first. The portal vein reads {pv}, the HVPG {hvpg}.',
       notes: 'A high right atrial pressure passes back through the hepatic veins into the central veins and the sinusoids of zone 3, which dilate and fill with blood; the cut liver looks like a nutmeg. Low cardiac output adds hypoxia, and zone 3 cells atrophy and die. Years of this lay down fibrosis that links the central veins (cardiac cirrhosis). Every pressure from the portal vein to the atrium is high, so the HVPG is normal. The sinusoid wall is still open, so the ascites is rich in protein.',
       ask: ['Why is the HVPG normal in congestive hepatopathy although the portal pressure is high?', 'The wedged and free pressures rise together with the right atrium.'],
     },

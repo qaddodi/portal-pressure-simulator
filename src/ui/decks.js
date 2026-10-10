@@ -50,15 +50,15 @@
 
 import { STIFFNESS } from './decks/stiffness.js?v=35e2f96b71';
 import { ONE_YEAR } from './decks/one-year.js?v=37492fcfd2';
-import { LOBULE } from './decks/lobule.js?v=1c3334a8b0';
-import { SHUNTS } from './decks/shunts.js?v=f85ae18277';
+import { LOBULE } from './decks/lobule.js?v=3556774332';
+import { SHUNTS } from './decks/shunts.js?v=a0cc164807';
 import { TAP } from './decks/tap.js?v=a7198caf5f';
 import { CIRCUIT } from './decks/circuit.js?v=1097d61831';
-import { DOPPLER } from './decks/doppler.js?v=ce002d6dac';
-import { ENDOSCOPY } from './decks/endoscopy.js?v=b253a0817b';
-import { PREHEPATIC } from './decks/prehepatic.js?v=7c9a33aa27';
-import { RIGHT_HEART } from './decks/right-heart.js?v=5fdaa16faa';
-import { BLEED } from './decks/variceal-bleed.js?v=461b703f8d';
+import { DOPPLER } from './decks/doppler.js?v=0a0f53ea61';
+import { ENDOSCOPY } from './decks/endoscopy.js?v=95aa3aef7f';
+import { PREHEPATIC } from './decks/prehepatic.js?v=c8af5f351e';
+import { RIGHT_HEART } from './decks/right-heart.js?v=21025ec96f';
+import { BLEED } from './decks/variceal-bleed.js?v=c60ec5c529';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {

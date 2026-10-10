@@ -14,7 +14,7 @@ export const PREHEPATIC = {
   summary: 'A clot before the liver: acute portal vein thrombosis on Doppler, the normal HVPG and high PPG, the cavernoma months later, and splenic vein thrombosis with gastric varices.',
   slides: [
     {
-      id: 'clot', preset: 'pvt-acute', cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'],
+      id: 'clot', preset: 'pvt-acute', cam: 'portal', labels: ['CONF'], terms: { 'portal pressure': 'pv' }, tool: { kind: 'doppler', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'],
       kicker: 'Acute thrombosis', site: 'pvt', title: 'A clot in the portal vein',
       line: 'No signal on Doppler in the main portal vein. Behind the clot the portal pressure climbs steeply.',
       notes: 'Acute portal vein thrombosis presents with abdominal pain, sometimes fever, or is found on a scan. Look for a cause: a myeloproliferative neoplasm (test for JAK2), an inherited thrombophilia, local inflammation (pancreatitis, appendicitis, diverticulitis), abdominal surgery or cirrhosis. Contrast CT confirms the clot and shows whether it reaches the superior mesenteric vein, where bowel ischemia is the danger. Without cirrhosis, anticoagulation starts at once and continues for at least six months; the earlier it starts, the more often the vein reopens.',
@@ -24,7 +24,7 @@ export const PREHEPATIC = {
       id: 'cath', cath: 'result', data: 'ladder', key: ['hvpg', 'ppg'], tiles: ['hvpg', 'ppg'],
       kicker: 'Acute thrombosis', site: 'pvt', title: 'The HVPG misses it',
       eq: [mi('PPG') + mo('=') + sub(mi('P'), 'portal vein') + mo('−') + sub(mi('P'), 'IVC'), 'Portal pressure gradient: the whole fall from the portal vein to the IVC'],
-      line: 'The block is before the liver, so the wedged and free hepatic pressures stay normal and the HVPG reads {2 mmHg}. The PPG, {about 27 mmHg}, finds it.',
+      line: 'The block is before the liver, so the wedged and free hepatic pressures stay normal and the HVPG reads {hvpg}. The PPG, {ppg}, finds it.',
       notes: 'The wedged catheter reads the sinusoids, which sit downstream of the clot, so the HVPG is normal however high the portal vein pressure. The PPG compares the portal vein itself with the IVC and catches the block; it needs a direct portal vein reading (transhepatic, at TIPS, or by EUS). In practice the diagnosis is made on imaging, and the catheter is rarely needed. A normal HVPG with varices is the clue that the block is not in the sinusoids.',
       ask: ['Varices, a large spleen and an HVPG of 3 mmHg. What does the HVPG tell you?', 'The block is not sinusoidal: look before the sinusoids, in the portal vein or the portal tracts.'],
     },
@@ -38,7 +38,7 @@ export const PREHEPATIC = {
     {
       id: 'liver', cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'hvpg'], key: ['lsm'], delta: false,
       kicker: 'Months later', site: 'pvt', title: 'The liver itself is normal',
-      line: 'Stiffness about 5 kPa and a normal HVPG. Varices with a soft liver point to a block before the sinusoids.',
+      line: 'Stiffness {lsm} and a normal HVPG. Varices with a soft liver point to a block before the sinusoids.',
       notes: 'The liver tissue is spared, so the stiffness, albumin and clotting are usually normal and the patient rarely decompensates. A soft liver with varices and a large spleen means pre-hepatic or presinusoidal disease: portal vein thrombosis, schistosomiasis or porto-sinusoidal vascular disorder. Doppler or CT tells the first from the others. Spleen stiffness stays high, because it follows the portal vein pressure.',
       ask: ['Varices, platelets of 70 and a stiffness of 5 kPa. What two causes do you consider first?', 'Portal vein thrombosis and a presinusoidal block such as schistosomiasis.'],
     },

@@ -14,7 +14,7 @@ export const SHUNTS = {
   summary: 'Spontaneous portosystemic shunts, TIPS, and what closing a shunt does. Ends with a comparison of gradient, liver flow and encephalopathy risk.',
   slides: [
     {
-      id: 'own', preset: 'cirr-decomp', cam: 'fit', sites: ['split'], data: 'tiles', tiles: ['ppg', 'shunt', 'liver'],
+      id: 'own', preset: 'cirr-decomp', cam: 'fit', sites: ['split'], glow: ['C1a', 'C1b', 'C3'], data: 'tiles', tiles: ['ppg', 'shunt', 'liver'],
       kicker: 'Shunts', site: 'sin', title: 'The body\'s own shunts',
       eq: [frac('<mn>1</mn>', sub(mi('R'), 'total')) + mo('=') + frac('<mn>1</mn>', sub(mi('R'), 'liver')) + mo('+') + frac('<mn>1</mn>', sub(mi('R'), 'shunt')), 'R resistance to portal flow · the liver and the shunt in parallel'],
       line: 'Collaterals already carry part of the portal blood around the liver. They lower the gradient a little, never enough.',
@@ -22,14 +22,14 @@ export const SHUNTS = {
       ask: ['Why do collaterals fail to bring the portal pressure down?', 'Portal inflow rises as they open, and they are not wide enough to carry it all at a low gradient.'],
     },
     {
-      id: 'grs', preset: 'gastric-varix', cam: 'fundus', mark: { edges: ['C5'], label: 'Gastrorenal shunt' }, data: 'tiles', tiles: ['gv', 'ppg'],
+      id: 'grs', preset: 'gastric-varix', cam: 'fundus', mark: { edges: ['C5'], label: 'Gastrorenal shunt', kind: 'note' }, data: 'tiles', tiles: ['gv', 'ppg'],
       kicker: 'Spontaneous', site: 'sin', title: 'Gastrorenal shunt',
       line: 'Fundal varices drain through the gastrorenal shunt to the left renal vein.',
       notes: 'Isolated fundal varices (IGV1) and those continuous with the esophageal varices along the lesser curve (GOV2) are fed by the short and posterior gastric veins, and most drain through a gastrorenal shunt, often via the left inferior phrenic vein, into the left renal vein. Because the shunt decompresses them, fundal varices bleed at a lower HVPG than esophageal varices, and bleed more heavily. The shunt is the route used to close them from below (BRTO), later in this talk. Endoscopy in this app stays in the esophagus; fundal varices are read from the tile.',
       ask: ['Where does a gastrorenal shunt drain?', 'Into the left renal vein.'],
     },
     {
-      id: 'srs', preset: 'cirr-decomp', params: { spontaneous: { C6: true } }, days: 30, cam: 'splenic', mark: { edges: ['C6'], label: 'Splenorenal shunt' },
+      id: 'srs', preset: 'cirr-decomp', params: { spontaneous: { C6: true } }, days: 30, cam: 'splenic', mark: { edges: ['C6'], label: 'Splenorenal shunt', kind: 'note' },
       data: 'tiles', tiles: ['ppg', 'shunt', 'liver'], delta: 'own',
       kicker: 'Spontaneous', site: 'sin', title: 'Splenorenal shunt',
       line: 'A large spontaneous shunt lowers the gradient, and starves the liver. Portal flow may reverse.',
@@ -37,15 +37,15 @@ export const SHUNTS = {
       ask: ['A patient with cirrhosis has recurrent encephalopathy despite lactulose and rifaximin. What should you look for?', 'A large spontaneous portosystemic shunt, such as a splenorenal shunt, on CT.'],
     },
     {
-      id: 'tips', preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Covered stent' },
+      id: 'tips', preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' },
       tool: { kind: 'doppler', vessel: 'TIPS' }, data: 'tiles', tiles: ['ppg', 'shunt', 'liver'], delta: 'own',
       kicker: 'Made', site: 'sin', title: 'TIPS',
-      line: 'A covered stent, 8 to 10 mm, from a hepatic vein to the portal vein. The gradient falls below 12 mmHg.',
+      line: 'A covered stent, 8 to 10 mm, from a hepatic vein to the portal vein. The PPG falls to {ppg}, below {<12 mmHg}.',
       notes: 'The stent runs through the liver from the right hepatic vein to the right portal vein, so portal blood has a low-resistance path back to the heart. The PPG is measured before and after; for bleeding the aim is below 12 mmHg, or a fall of half. On Doppler the stent carries steady flow toward the heart along its whole length; a clear fall or rise in velocity from the last scan suggests narrowing. The tiles compare with the same patient before the stent.',
       ask: ['What does Doppler show in a working TIPS?', 'Steady flow toward the heart along the whole stent, at a velocity close to the last scan.'],
     },
     {
-      id: 'wide', params: { tips: { d: 12 } }, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Stent at 12 mm' }, data: 'tiles', tiles: ['ppg', 'liver'],
+      id: 'wide', params: { tips: { d: 12 } }, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Stent at 12 mm', kind: 'treat' }, data: 'tiles', tiles: ['ppg', 'liver'],
       kicker: 'Made', site: 'sin', title: 'A 12 mm stent takes too much',
       line: 'A wider stent lowers the gradient further and takes more blood from the liver: more encephalopathy, and a risk of liver failure.',
       notes: 'The same patient with the stent opened to 12 mm. The gradient falls further, but the liver loses more of its portal blood. Encephalopathy after TIPS is commoner with wider stents, older age and earlier encephalopathy; liver failure is the feared complication when reserve is poor. Many centers place an 8 mm stent, or a stent that is under-dilated and can be widened later if the gradient stays high. Persistent encephalopathy can be treated by narrowing the stent.',
@@ -60,7 +60,7 @@ export const SHUNTS = {
       ask: ['How does a blocked TIPS usually present?', 'With the return of what it treated: rebleeding or ascites, and an absent or changed Doppler signal.'],
     },
     {
-      id: 'brto', preset: 'gastric-varix', params: { occluded: { C5: true } }, cam: 'fundus', mark: { edges: ['C5'], label: 'Shunt closed' },
+      id: 'brto', preset: 'gastric-varix', params: { occluded: { C5: true } }, cam: 'fundus', mark: { edges: ['C5'], label: 'Shunt closed', kind: 'treat' },
       data: 'tiles', tiles: ['pv', 'varix'], key: ['varix'], delta: 'grs',
       kicker: 'Closing a shunt', site: 'sin', title: 'BRTO closes the gastrorenal shunt',
       line: 'Occluding the gastrorenal shunt treats the fundal varix it drains, and raises the portal pressure: esophageal varices grow.',
