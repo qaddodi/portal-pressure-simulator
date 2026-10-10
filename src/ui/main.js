@@ -3,11 +3,7 @@
 
 import { startHost, host } from './host.js?v=5f360b39e4';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=5edd069b32';
-<<<<<<< HEAD
 import { createStage } from './stage.js?v=b47c5c043b';
-=======
-import { createStage } from './stage.js?v=b47c5c043b';
->>>>>>> da65f18 (Draw the right atrium as a chamber and point its highlight and caption at it)
 import { sinusoidSupported } from './sinusoid-view.js?v=5fb063d790';
 import { createInspector } from './inspector.js?v=127b504390';
 import { createDock, CUTOFFS } from './dock.js?v=583d13eefc';
@@ -145,11 +141,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else home.open(o?.practice ? 'practice' : 'course'); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => home.open('course') });
-<<<<<<< HEAD
   presenterL = lazy(() => import('./presenter.js?v=00819cf976'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
-=======
-  presenterL = lazy(() => import('./presenter.js?v=00819cf976'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
->>>>>>> da65f18 (Draw the right atrium as a chamber and point its highlight and caption at it)
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), stashCards, rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
