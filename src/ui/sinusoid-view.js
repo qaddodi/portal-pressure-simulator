@@ -146,12 +146,15 @@ export function createSinusoidView({ host }) {
     // edges), so the wall and its traffic stay large enough to follow.
     const short = geo.vert ? fw : fh, across = lerp(40, 54, smooth(380, 720, short));
     VW.f = f; VW.tk = clamp(short / across, 3, 14);
-    // Its names scale with the drawing, not the device, so they read the same size against the cells on a phone, an iPad and a desktop.
+    // Its names are the lobule's size on every device (only the app's label-size setting scales them).
     el.style.setProperty('--label-k', String(labelK())); VW.tC = [(f.l + f.r) / 2, (f.t + f.b) / 2];
     if (!VW.k) { VW.k = VW.tk; VW.C = [...VW.tC]; }
     return geo;
   }
-  const labelK = () => (parseFloat(document.documentElement.style.getPropertyValue('--label-scale')) || 1) * clamp((VW.tk || 1) / 9, 1, 1.6);
+  // On a desktop the lobule's labels are half as large again (stage.js deskK); these capitals, bolder and spaced, match
+  // them by eye a little smaller (1.4).
+  const deskMQ = matchMedia('(min-width: 1024px) and (pointer: fine)');
+  const labelK = () => (parseFloat(document.documentElement.style.getPropertyValue('--label-scale')) || 1) * (deskMQ.matches ? 1.4 : 1);
   const VW = { k: 0, C: [0, 0], tk: 0, tC: [0, 0], f: null, vis: [0, 0], fr: [0, 0] };
   // Where it is drawn this frame: the view's own placement, carried by the zoom from the lobule while that runs.
   const CAM = { C: [0, 0], k: 1, ang: 0, ca: 1, sa: 0 };
