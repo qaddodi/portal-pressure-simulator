@@ -2097,6 +2097,76 @@ button.finding:hover { background: var(--surface-2); }
 .pz.stack .pz-abb { font-size: 14px; min-height: 36px; padding: .45em .85em; }
 .pz.stack .pz-ab { gap: 2px; padding: 3px; }
 .pz.stack .pz-count { display: none; }
+/* A slide's instrument (tool) in the data card: the instrument as the app draws it, without its controls. */
+.pz-data.has-tool { width: clamp(340px, 32vw, 620px); }
+.pz-tool:not([data-kind]) { display: none; }
+.pz-data.tool-only .pz-tiles, .pz-data.tool-only .pz-ladder, .pz-data.tool-only .pz-lg { display: none; }
+.pz-tool .ab-main { display: block; }
+.pz-tool .ab-main > .ab-report + .ab-report, .pz-tool .ab-tap > .ab-row:last-child { display: none; }
+.pz-tool .ab-belly { width: clamp(68px, 10vh, 120px); height: clamp(68px, 10vh, 120px); }
+.pz-tool .ab-sum .hv-num b { font-size: clamp(28px, 4.4vh, 48px); }
+.pz-tool { position: relative; flex: none; }
+.pz-data.has-tool { overflow-y: auto; overscroll-behavior: contain; pointer-events: auto; }
+.pz-tool .dop-main { flex: none; gap: 12px; }
+.pz-tool .dop-report { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2px 16px; align-items: start; }
+.pz-tool .dop-report > :not(.dop-stats) { grid-column: 1; }
+.pz-tool .dop-stats { grid-column: 2; grid-row: 1 / span 3; margin: 0; padding: 0 0 0 16px; border-top: 0; border-left: 1px solid var(--hairline); }
+.pz-tool .dop-note { grid-column: 1 / -1 !important; margin: 6px 0 0; font-size: var(--fs-14); color: var(--text-2); }
+.pz-tool .dop-vel b { font-size: clamp(28px, 4.4vh, 48px); }
+.pz-tool .pz-inst { display: flex; flex-direction: column; gap: 10px; padding: 0; overflow: visible; }
+.pz-tool .pz-inst > *, .pz-tool .hv-main, .pz-tool .chart-box { flex: none; }
+.pz-tool select, .pz-tool .dop-btns, .pz-tool .btn, .pz-tool .ctl-sub, .pz-tool .instrument-details, .pz-tool .pt-range, .pz-tool .pt-chips, .pz-tool .pt-tools,
+.pz-tool .ab-step, .pz-tool .ab-chip, .pz-tool .ab-note, .pz-tool .ab-controls { display: none; }
+.pz-tool .dop-head:empty, .pz-tool .dop-head:not(:has(> :not(select):not(.dop-btns))) { display: none; }
+.pz-tool[data-kind="doppler"] .dop-box { height: clamp(150px, 24vh, 300px); }
+.pz-tool[data-kind="fibroscan"] .fibroscan-box { height: clamp(220px, 38vh, 440px); }
+.pz-tool[data-kind="scope"] .chart-box.square { width: min(100%, 40vh); height: auto; aspect-ratio: 1; margin: 0 auto; }
+.pz-tool[data-kind="scope"] .chart-side { width: 100%; max-width: none; }
+.pz-tool[data-kind="beats"] .pt-box { height: clamp(180px, 30vh, 360px); }
+/* Quiz: the reading stays covered until the answer (a soft veil, never a pop). */
+.pz-tool::after { content: ""; position: absolute; pointer-events: none; opacity: 0; transition: opacity .32s var(--ease); background: var(--surface); border-radius: 10px; }
+.pz-tool.ask[data-kind="fibroscan"]::after { opacity: 1; left: 8px; top: 30px; width: 46%; height: 64px; }
+.pz-tool .dop-report, .pz-tool[data-kind="scope"] .kv { transition: opacity .32s var(--ease); }
+.pz-tool.ask .dop-report, .pz-tool.ask[data-kind="scope"] .kv { opacity: 0; }
+/* The talk so far: pressures at each slide, HVPG in its own lane. */
+.pz-talk { display: grid; }
+.pz-talk svg { grid-area: 1 / 1; width: 100%; height: auto; overflow: visible; transition: opacity .42s var(--ease); }
+.pz-talk svg.in { opacity: 0; }
+.ptk-grid line { stroke: var(--border); stroke-width: 1; }
+.ptk-grid.cut line { stroke-dasharray: 4 5; stroke-width: 1.5; }
+.ptk-grid[data-rate="mid"] line { stroke: var(--caution); } .ptk-grid[data-rate="hi"] line { stroke: var(--danger); }
+.ptk-grid text, .ptk-mark text { font: 500 15px var(--font-ui); fill: var(--text-3); font-variant-numeric: tabular-nums; }
+.ptk-ax { font: 600 13px var(--font-ui); letter-spacing: .06em; text-transform: uppercase; fill: var(--text-3); }
+.ptk-mark line { stroke: var(--border); stroke-dasharray: 2 6; }
+.ptk-mark.now text { fill: var(--text); font-weight: 700; }
+.ptk-line { fill: none; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
+.ptk-line.hv { stroke: var(--text-2); stroke-width: 2.5; }
+.ptk-lbl { font: 700 14px var(--font-ui); }
+.ptk-pt { fill: var(--surface); stroke: var(--text-2); stroke-width: 2.5; }
+.ptk-pt[data-rate="mid"] { stroke: var(--caution); fill: var(--caution); } .ptk-pt[data-rate="hi"] { stroke: var(--danger); fill: var(--danger); }
+.ptk-v { font: 700 22px var(--font-ui); fill: var(--text); font-variant-numeric: tabular-nums; }
+.ptk-v[data-rate="mid"] { fill: var(--caution); } .ptk-v[data-rate="hi"] { fill: var(--danger); }
+.pz.stack .pz-data.has-tool { max-height: 50%; }
+.pz.stack .pz-tool[data-kind="doppler"] .dop-box { height: 110px; }
+.pz.stack .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: 180px; }
+.pz.stack .pz-tool[data-kind="scope"] .chart-box.square { width: min(100%, 24vh); }
+.pz.stack .pz-tool[data-kind="beats"] .pt-box { height: 140px; }
+/* The count opens the slide list; a running time-lapse shows that Next skips it. */
+.pz-bar button.pzb-n { border: 0; background: none; border-radius: var(--r-pill); min-height: 32px; cursor: pointer; }
+.pz-bar button.pzb-n:hover, .pz-bar button.pzb-n[aria-expanded="true"] { background: var(--surface-2); color: var(--text); }
+.pzb-skip { padding: 0 6px 0 2px; font: 600 var(--fs-12) var(--font-ui); color: var(--text-3); white-space: nowrap; animation: pz-fade .3s var(--ease) both; }
+@keyframes pz-fade { from { opacity: 0; } }
+.pz-jump { position: absolute; left: 50%; bottom: 88px; translate: -50% 0; width: min(560px, calc(100% - 24px)); max-height: min(70vh, calc(100% - 120px)); display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sheet); box-shadow: var(--shadow-3); pointer-events: auto; overflow: hidden; transition: opacity .22s var(--ease), transform .22s var(--ease); }
+.pz-jump.pz-leave { opacity: 0; transform: translateY(8px); }
+.pzj-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 10px 8px 18px; border-bottom: 1px solid var(--border); font: 600 var(--fs-14) var(--font-ui); color: var(--text-2); }
+.pzj-list { overflow-y: auto; overscroll-behavior: contain; padding: 6px 8px 12px; }
+.pzj-list h3 { margin: 12px 10px 4px; font: 600 var(--fs-12)/1.3 var(--font-ui); letter-spacing: .07em; text-transform: uppercase; color: var(--text-3); }
+.pzj-list ol { list-style: none; margin: 0; padding: 0; }
+.pzj-list button { display: flex; gap: 12px; width: 100%; padding: 8px 10px; border: 0; border-radius: 10px; background: none; font: 500 var(--fs-16)/1.35 var(--font-ui); color: var(--text); text-align: left; cursor: pointer; }
+.pzj-list button:hover, .pzj-list button:focus-visible { background: var(--surface-2); outline: none; }
+.pzj-list button[aria-current] { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+.pzj-list .n { min-width: 2ch; text-align: right; font-variant-numeric: tabular-nums; color: var(--text-3); }
+.pz.stack .pz-jump { left: 8px; right: 8px; width: auto; translate: none; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); max-height: calc(100% - 96px); }
 /* A phone scrolls what does not fit: the words, the data card and a visual each scroll on their own. The
    stage's touch-action: none would otherwise stop iOS from scrolling anything inside it. */
 .app.presenting .stage-view { touch-action: pan-x pan-y; }

@@ -18,7 +18,11 @@
 //                            the words (site: a level of ladder.js SITES; it colours the kicker)
 //   rail                     true: the six levels with this slide's site marked; 'all': every level named
 //   data                     'ladder': the pressure ladder and tiles; 'tiles': tiles only (tiles: which, key: what
-//                            to highlight, delta: true or a slide id to show each tile's change from that state)
+//                            to highlight, delta: true or a slide id to show each tile's change from that state; a slide that
+//                            changes the same patient (no preset) counts from the slide before unless it says delta: false)
+//   tool                     an instrument in the data card, reading the live model (presenter-tools.js): { kind: 'doppler',
+//                            vessel }, { kind: 'scope' }, { kind: 'fibroscan' }, { kind: 'trace', range: 'talk' | 'beats' },
+//                            { kind: 'abdomen' }; title? names the card. With data too, the tool sits above the tiles
 //   cath                     the HVPG catheter instead of a camera: 'route', 'free', 'wedge', 'result' or 'blocked'
 //   lapse                    { seconds, from?, to? }: the slide's days (ramp: { param: [from, to] } eased over them) play on the
 //                            live figure as a time-lapse, from the slide before's state (from/to: words for the

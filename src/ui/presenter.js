@@ -9,8 +9,9 @@
 // on to a portal tract, the sinusoids or a central vein. The pressure ladder and the tiles count to their
 // new values.
 //
-// Keys (clickers send the same): → Page Down Space Enter next, ← Page Up back, a number then Enter
-// jumps, Home End, B or . black screen, F full screen, Q quiz, Esc.
+// Keys (clickers send the same): → Page Down Space Enter next (during a time-lapse the first runs it to its end),
+// ← Page Up back, a number then Enter jumps, G the slide list, Home End, B or . black screen, F full screen, Q quiz,
+// Esc. On a touch screen a sideways swipe over the figure goes on or back.
 
 import { store, replaceParams } from './store.js?v=25cbe77a76';
 import { h, toast, svgIcon, icon, fmt, clamp } from './util.js?v=e803df99cd';
@@ -19,7 +20,8 @@ import { SITES } from './ladder.js?v=3c3d5cd555';
 import { sinusoidSupported } from './sinusoid-view.js?v=7da41424ee';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { NODES } from '../engine/topology.js?v=dc393aabea';
-import { DECKS, REGIONS, LEVELS } from './decks.js?v=b81edf6827';
+import { DECKS, REGIONS, LEVELS } from './decks.js?v=f687c67ad5';
+import { createTools } from './presenter-tools.js?v=ae0e6a42be';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -589,7 +591,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
 
   // ── A time-lapse on the live model: its days run on the disease clock (ramped as the off-screen chain ran them),
   // the counter and the numbers follow, then the slide's computed state takes over (the same, to the decimal).
-  let lapseOn = false;
+  let lapseOn = false, lapseLeft = 0;   // (lapseLeft: days still to run; 0 once Next has sped it up)
   // A compare slide's buttons switch the live model's params (liveOff: it no longer shows the slide's computed state).
   let liveOff = false, abGen = 0, abFast = false;
   const merge = (a, b) => { for (const [k, v] of Object.entries(b)) a[k] = v && typeof v === 'object' && !Array.isArray(v) ? merge({ ...(a[k] || {}) }, v) : v; return a; };
@@ -610,7 +612,9 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     }
     if (mine()) abSlow();
   }
-  function stopLapse() { if (!lapseOn) return; lapseOn = false; host.send({ type: 'lapse', days: 0 }); shownState = -1; }
+  function stopLapse() { if (!lapseOn) return; lapseOn = false; host.send({ type: 'lapse', days: 0 }); shownState = -1; paintChrome(); }
+  // Next during a time-lapse runs the days that are left in about 600 ms (the clock speeds up, the ramp is unchanged) and stops on its end.
+  function skipLapse() { if (!lapseOn || lapseLeft < 1) return; host.send({ type: 'run', speed: Math.max(1, lapseLeft / 0.6) }); lapseLeft = 0; paintChrome(); }
   const lapseWords = (n) => (n >= 60 && n % 30 === 0 ? `${n / 30} months` : `${n} days`);
   const lapseText = (s, d, n, done) => (s.lapse.to ? (done ? s.lapse.to : `${s.lapse.from} → ${s.lapse.to}`) : done ? `${lapseWords(n)} later` : `Day ${Math.round(d)} of ${n}`);
   function paintLapse(s, d, n, done = false) {
@@ -630,17 +634,20 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     const end = await stateReady(stateOf[to]);
     if (!end || cut()) return;
     const days = s.days, d0 = store.get().frame?.day ?? 0, ref = refOf(s, to);
-    lapseOn = true;
+    lapseOn = true; lapseLeft = days;
     host.send({ type: 'lapse', days, speed: days / (s.lapse.seconds || 8), ramp: s.ramp || null });
+    paintChrome();
     while (lapseOn && !cut()) {
-      await wait(150);
+      const fast = lapseLeft === 0;
+      await wait(fast ? 60 : 150);
       const fr = store.get().frame, d = clamp((fr?.day ?? d0) - d0, 0, days);
+      if (lapseLeft) lapseLeft = days - d;
       paintLapse(s, d, days);
-      if (fr?.metrics) dataTo(s, liveFp(fr), ref, 280);
+      if (fr?.metrics) dataTo(s, liveFp(fr), ref, fast ? 120 : 280);
       if (d >= days && fr?.clock === 'hemo') break;
     }
     if (!lapseOn || cut()) { stopLapse(); return; }
-    lapseOn = false;
+    lapseOn = false; paintChrome();
     applyState(end); shownState = stateOf[to];
     paintLapse(s, days, days, true);
     dataTo(s, end.fp, ref, 700);
@@ -654,7 +661,11 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     paintChrome();
     if (!busy) run();
   }
-  const next = () => { const s = slides[want]; if (asking(s, wantRev)) go(want, true); else if (want < slides.length - 1) go(want + 1); else stop(); };
+  const next = () => {
+    const s = slides[want];
+    if (lapseOn && lapseLeft > 0 && shown?.i === want) skipLapse();
+    else if (asking(s, wantRev)) go(want, true); else if (want < slides.length - 1) go(want + 1); else stop();
+  };
   const prev = () => { if (want > 0) go(want - 1); };
   async function run() {
     busy = true;
@@ -692,10 +703,16 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
       await drawn(st);
       if (!deck) return;
     }
+    // With a new patient and a move over the plate, the glide starts while the figure is still dim and runs on
+    // through its fade back in, so the eye sees one motion, not a fade and then a move.
+    // (The words come first: they set the space the camera frames into.)
     wordsIn(s, q, st, to, swap);
+    const lead = swap && !ct && cam && !LOBULE_CAM.test(cam) && !store.get().lobule && !reduce.matches ? camera(cam, s, cut) : null;
+    if (lead) await wait(150);
     if (swap || view.classList.contains('pz-out')) figureIn(); else loading(false);
     if (cut()) return;
     if (ct) await cathTo(ct, st.fp, cut);
+    else if (lead) await lead;
     else if (cam) await camera(cam, s, cut);
     if (cut()) return;
     if (!s.visual) store.set({ presentLabels: q ? [] : s.labels || [], focus: !q && s.mark ? { edges: [...s.mark.edges], label: s.mark.label } : null });
@@ -712,9 +729,10 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     const out = [ui.text, ui.panel], data = ui.data;
     // A card that moves (under the words, or back beside them) goes out with the words and comes back in its new place.
     // (Also when its kind or title changes, so the ladder never appears or goes under the numbers in one frame.)
-    const lad = next?.data === 'ladder', ttl = lad ? 'Pressure, portal vein to heart' : next?.dataTitle || 'This patient, from the model';
-    const move = !data.hidden && !data.classList.contains('pz-hide') && next && (next.data === 'ladder' || next.data === 'tiles') && !next.visual
-      && (under(next) !== data.classList.contains('under') || !lad !== data.classList.contains('tiles-only') || ttl !== ui.dhT.textContent);
+    const lad = next?.data === 'ladder', ttl = cardTitle(next);
+    const move = !data.hidden && !data.classList.contains('pz-hide') && next && hasCard(next)
+      && (under(next) !== data.classList.contains('under') || !lad !== data.classList.contains('tiles-only') || ttl !== ui.dhT.textContent
+        || ui.tools.sig(next.tool) !== (data.dataset.tool || ''));
     // A different patient: the card leaves with the words and stays gone until the new patient has settled, so its numbers never travel from one patient to the other.
     const gone = newPatient && !data.hidden && !data.classList.contains('pz-hide');
     if (move || gone) data.classList.add('pz-hide');
@@ -722,8 +740,15 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     for (const el of out) el.classList.add('pz-leave');
     await wait(reduce.matches ? 0 : move || gone ? 340 : 220);
   }
-  // A slide's tiles can say how far each number moved: from the slide before (delta: true) or a named one.
-  const refOf = (s, i) => (s.delta === true ? states[stateOf[i - 1]]?.fp : typeof s.delta === 'string' ? fpOf(s.delta) : null) || null;
+  // A slide's tiles can say how far each number moved: from the slide before (delta: true) or a named one. A slide that
+  // changes the same patient (a drug, an action, days) counts from the slide before unless it says delta: false.
+  const deltaOf = (s, i) => s.delta ?? (i > 0 && !s.preset && changes(s) ? true : null);
+  const refOf = (s, i) => { const d = deltaOf(s, i); return (d === true ? states[stateOf[i - 1]]?.fp : typeof d === 'string' ? fpOf(d) : null) || null; };
+  // The data card: the ladder and tiles, a slide's instrument (tool), or both (the tool above the tiles).
+  const hasCard = (s) => !s.visual && (s.data === 'ladder' || s.data === 'tiles' || !!s.tool);
+  const cardTitle = (s) => (s?.data === 'ladder' ? 'Pressure, portal vein to heart' : s?.dataTitle || (s?.tool ? ui.tools.title(s.tool) : 'This patient, from the model'));
+  // The talk so far, for a pressure trace: every state up to slide i, once each.
+  const chainTo = (i) => [...new Set(stateOf.slice(0, i + 1))].map((k) => ({ n: k + 1, title: slides[k].title, fp: states[k]?.fp }));
   function wordsIn(s, q, st, i, fresh = false) {
     if (!ui) return;
     const { text, panel, data } = ui;
@@ -753,22 +778,25 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
       [...text.children].forEach((c, k) => c.style.setProperty('--i', k));
       text.classList.remove('pz-enter'); void text.offsetWidth; text.classList.add('pz-enter');
     }
-    const showData = (s.data === 'ladder' || s.data === 'tiles') && !s.visual;
-    if (showData) {
+    if (hasCard(s)) {
       const lad = s.data === 'ladder';
       data.classList.toggle('tiles-only', !lad);
       data.classList.toggle('under', under(s));
-      ui.dhT.textContent = lad ? 'Pressure, portal vein to heart' : s.dataTitle || 'This patient, from the model';
+      data.classList.toggle('has-tool', !!s.tool);
+      data.classList.toggle('tool-only', !!s.tool && !s.data);
+      data.dataset.tool = ui.tools.sig(s.tool);
+      ui.dhT.textContent = cardTitle(s);
       ui.dhL.hidden = !lad;
+      if (s.tool) ui.tools.show(s.tool, { quiz: q, stateKey: stateOf[i], chain: chainTo(i) }); else ui.tools.hide();
       // (With a new patient the numbers are set at once, while the card is still out: it fades back in already showing them.)
       const ms = fresh ? 0 : undefined;
       if (lad) ui.ladder.set(st.fp, { key: q ? [] : s.key || [], ms });
-      ui.tiles.set(st.fp, tileKeys(s), q ? [] : s.key || [], q ? null : refOf(s, i), ms);
+      if (s.data) ui.tiles.set(st.fp, tileKeys(s), q ? [] : s.key || [], q ? null : refOf(s, i), ms);
       if (data.hidden) { data.hidden = false; data.classList.add('pz-hide'); void data.offsetWidth; }
       data.classList.remove('pz-hide');
     } else if (!data.hidden) {
       data.classList.add('pz-hide');
-      setTimeout(() => { if (data.classList.contains('pz-hide')) data.hidden = true; }, reduce.matches ? 0 : 320);
+      setTimeout(() => { if (data.classList.contains('pz-hide')) { data.hidden = true; ui?.tools.hide(); } }, reduce.matches ? 0 : 320);
     }
     layout();
   }
@@ -940,21 +968,24 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     ui.count.textContent = `${i + 1} / ${n}`;
     ui.prog.style.setProperty('--p', String((i + 1) / n));
     // A phone keeps it to Back, the count, Next (Finish on the last slide) and Exit, always in view.
-    const ph = phone(), last = i === n - 1 && !asking(slides[i], wantRev);
+    const ph = phone(), skip = lapseOn && lapseLeft > 0, last = i === n - 1 && !asking(slides[i], wantRev) && !skip;
+    // The count opens the slide list (G).
+    const countBtn = h('button', { class: 'pzb-n', 'aria-label': `Slide ${i + 1} of ${n}: list the slides`, title: 'Slide list (G)', 'aria-expanded': String(!ui.jump.hidden), onclick: () => toggleJump() }, `${i + 1} / ${n}`);
     ui.bar.classList.toggle('phone', ph);
     if (ph) {
       ui.bar.classList.remove('idle');
       ui.bar.replaceChildren(
         h('button', { class: 'btn sm', 'aria-label': 'Previous slide', disabled: i === 0, onclick: prev }, icon('chev-left'), 'Back'),
-        h('span', { class: 'pzb-n' }, `${i + 1} / ${n}`),
-        h('button', { class: 'btn sm primary', 'aria-label': last ? 'Finish presenting' : 'Next slide', onclick: last ? stop : next }, last ? 'Finish' : 'Next', last ? null : icon('chev-right')),
+        countBtn,
+        h('button', { class: 'btn sm primary', 'aria-label': last ? 'Finish presenting' : skip ? 'Run the time-lapse to its end' : 'Next slide', onclick: last ? stop : next }, last ? 'Finish' : skip ? 'Skip' : 'Next', last ? null : icon('chev-right')),
         h('button', { class: 'ib', 'aria-label': 'Exit the presentation', title: 'Exit', onclick: stop }, icon('close')));
         return;
     }
     ui.bar.replaceChildren(
       h('button', { class: 'ib', 'aria-label': 'Previous slide', title: 'Previous (←)', disabled: i === 0, onclick: prev }, icon('chev-left')),
-      h('span', { class: 'pzb-n' }, `${i + 1} / ${n}`),
-      h('button', { class: 'ib', 'aria-label': 'Next slide', title: 'Next (→)', disabled: i === n - 1 && !asking(slides[i], wantRev), onclick: next }, icon('chev-right')),
+      countBtn,
+      h('button', { class: 'ib', 'aria-label': skip ? 'Run the time-lapse to its end' : 'Next slide', title: skip ? 'Skip to the end of the time-lapse (→)' : 'Next (→)', disabled: last, onclick: next }, icon('chev-right')),
+      skip ? h('span', { class: 'pzb-skip', 'aria-hidden': 'true' }, '⏵ skip') : null,
       h('span', { class: 'pzb-sep' }),
       deck.slides.some((s) => s.quiz) ? h('button', { class: 'btn sm', 'aria-pressed': String(quiz), title: 'Quiz the room: ask first, reveal on the next click (Q)', onclick: toggleQuiz }, 'Quiz') : null,
       h('button', { class: 'ib', 'aria-label': 'Black screen', title: 'Black screen (B)', onclick: () => toggleBlack() }, icon('pause')),
@@ -979,9 +1010,57 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
   addEventListener('pointermove', () => { if (deck) wake(); });
   addEventListener('pointerdown', () => { if (deck) wake(); });
 
+  // ── The slide list (G, or the count): every title, grouped under its kicker; a tap or Enter goes there ──
+  function toggleJump(on = ui?.jump.hidden) {
+    if (!ui) return;
+    const j = ui.jump;
+    if (!on) {
+      if (j.hidden) return;
+      j.classList.add('pz-leave');
+      setTimeout(() => { if (j.classList.contains('pz-leave')) j.hidden = true; }, reduce.matches ? 0 : 220);
+      paintChrome();
+      return;
+    }
+    const groups = [];
+    slides.forEach((s, i) => { const k = s.kicker || ''; if (groups.at(-1)?.k !== k) groups.push({ k, items: [] }); groups.at(-1).items.push(i); });
+    j.replaceChildren(h('div', { class: 'pzj-h' }, h('span', {}, deck.title), h('button', { class: 'ib', 'aria-label': 'Close the slide list', onclick: () => toggleJump(false) }, icon('close'))),
+      h('div', { class: 'pzj-list' }, groups.map((g) => h('section', {}, g.k ? h('h3', {}, g.k) : null,
+        h('ol', {}, g.items.map((i) => h('li', {}, h('button', { type: 'button', 'aria-current': i === want ? 'true' : null, onclick: () => { toggleJump(false); go(i); } },
+          h('span', { class: 'n' }, String(i + 1)), h('span', { class: 't' }, nb(slides[i].title))))))))));
+    j.classList.add('pz-leave'); j.hidden = false; void j.offsetWidth; j.classList.remove('pz-leave');
+    const curBtn = j.querySelector('[aria-current]');
+    curBtn?.focus({ preventScroll: true }); curBtn?.scrollIntoView({ block: 'center' });
+    paintChrome();
+  }
+  function jumpKey(e) {
+    const k = e.key, btns = [...ui.jump.querySelectorAll('.pzj-list button')], at = btns.indexOf(document.activeElement);
+    if (k === 'Escape' || k.toLowerCase?.() === 'g') toggleJump(false);
+    else if (k === 'ArrowDown' || k === 'ArrowUp') btns[clamp(at + (k === 'ArrowDown' ? 1 : -1), 0, btns.length - 1)]?.focus();
+    else return;   // (Enter and Space press the focused title, Tab moves as usual)
+    e.preventDefault(); e.stopImmediatePropagation();
+  }
+
+  // ── Swipe: a sideways swipe over the figure (one finger, mostly horizontal, over 60 px) goes on or back; pans
+  // and pinches that are not mostly sideways stay with the figure, and nothing on a card counts. ──
+  // (Touch events, not pointer events: the browser keeps its pans on the stage while presenting, which cancels pointers.)
+  let sw = null;
+  wrap.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    sw = deck && e.touches.length === 1 && !e.target.closest?.('.stage-blocker') ? { x: t.clientX, y: t.clientY, t: performance.now() } : null;
+  }, { passive: true, capture: true });
+  wrap.addEventListener('touchmove', (e) => { if (e.touches.length > 1) sw = null; }, { passive: true, capture: true });
+  wrap.addEventListener('touchcancel', () => { sw = null; }, { passive: true, capture: true });
+  wrap.addEventListener('touchend', (e) => {
+    const g = sw, t = e.changedTouches[0]; sw = null;
+    if (!g || !deck || !t || e.touches.length) return;
+    const dx = t.clientX - g.x, dy = t.clientY - g.y;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > 1.6 * Math.abs(dy) && performance.now() - g.t < 700) { if (dx < 0) next(); else prev(); }
+  }, { passive: true, capture: true });
+
   // ── Keys ──
   function onKey(e) {
     if (!deck || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (ui && !ui.jump.hidden) { jumpKey(e); return; }
     const tag = e.target?.tagName?.toLowerCase?.();
     if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
     const k = e.key, lk = k.length === 1 ? k.toLowerCase() : k;
@@ -995,6 +1074,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     else if (lk === 'b' || k === '.' || lk === 'w') toggleBlack();
     else if (lk === 'f') fullscreen();
     else if (lk === 'q') toggleQuiz();
+    else if (lk === 'g') toggleJump(true);
     else if (lk === 'n' || lk === 's' || lk === 'l') { /* the app's own N, S and L (such as the lens) stay off while presenting */ }
     else if (k === 'F5') { /* a clicker's "start show": never reload the page */ }
     else if (k === 'Escape') { if (black) toggleBlack(false); else stop(); }
@@ -1008,8 +1088,9 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     const ladder = bigLadder(), tiles = bigTiles();
     const text = h('section', { class: 'pz-text stage-blocker', 'aria-live': 'polite' });
     const dhT = h('span', {}, 'Pressure, portal vein to heart'), dhL = h('span', { class: 'pz-lg' }, h('i', { class: 'now' }), 'This patient', h('i', { class: 'base' }), 'Healthy');
+    const tools = createTools({ host });
     const data = h('section', { class: 'pz-data stage-blocker pz-hide', 'data-safe': 'right', hidden: true, 'aria-label': 'The numbers' },
-      h('div', { class: 'pz-dh' }, dhT, dhL), ladder.el, tiles.el);
+      h('div', { class: 'pz-dh' }, dhT, dhL), tools.el, ladder.el, tiles.el);
     const veil = h('div', { class: 'pz-veil' }), panel = h('section', { class: 'pz-panel stage-blocker', hidden: true, 'aria-live': 'polite' });
     const count = h('div', { class: 'pz-count stage-blocker', 'aria-hidden': 'true' }), prog = h('div', { class: 'pz-prog', 'aria-hidden': 'true' }, h('i'));
     const bar = h('div', { class: 'pz-bar stage-blocker', role: 'toolbar', 'aria-label': 'Presenter' });
@@ -1020,10 +1101,11 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     // What the figure frames itself clear of: the words and most of the shade's fade.
     const safe = h('div', { class: 'pz-safe', 'aria-hidden': 'true', hidden: true });
     const load = h('div', { class: 'pz-load', 'aria-hidden': 'true' }, h('i'));
-    const root = h('div', { class: 'pz' }, safe, veil, load, text, data, panel, count, prog, bar, blackEl);
+    const jump = h('nav', { class: 'pz-jump stage-blocker', hidden: true, 'aria-label': 'Slides' });
+    const root = h('div', { class: 'pz' }, safe, veil, load, text, data, panel, count, prog, bar, jump, blackEl);
     wrap.insertBefore(shade, wrap.querySelector('.stage-credit'));
     wrap.append(root);
-    return { root, shade, safe, load, text, data, dhT, dhL, ladder, tiles, veil, panel, count, prog, bar, black: blackEl };
+    return { root, shade, safe, load, text, data, dhT, dhL, ladder, tiles, tools, veil, panel, count, prog, bar, black: blackEl, jump };
   }
   // Everything the audience's slides will change, kept so Esc, ✕ or Finish puts the app back as it was.
   async function capture() {
@@ -1065,7 +1147,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     removeEventListener('resize', onResize);
     store.set({ presenting: false, presentLabels: null, focus: null });
     clearTimeout(idleT);
-    ui?.root.remove(); ui?.shade.remove(); ui = null;
+    ui?.tools.dispose(); ui?.root.remove(); ui?.shade.remove(); ui = null;
     view.classList.remove('pz-out');
     for (const k of ['--pz-l', '--pz-r', '--pz-t', '--pz-b']) app.style.removeProperty(k);
     stage.setProjection(false);
