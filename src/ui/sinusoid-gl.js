@@ -174,7 +174,7 @@ vec3 lumen(float x, float y, float hw, int lane0, bool chev) {
   const float NL = 9.0;
   float r = clamp(y / hw, -1.0, 1.0), u = (r * 0.5 + 0.5) * NL, li = min(floor(u), NL - 1.0), lc = (li + 0.5) / NL * 2.0 - 1.0;
   int id = int(li) + lane0;
-  float prof = 1.5 * (1.0 - lc * lc) + 0.08, P = 15.0 + 7.0 * h1(id, 7);
+  float prof = 1.8 * (1.0 - lc * lc) + 0.05, P = 15.0 + 7.0 * h1(id, 7);
   float sx = x - uFlow * prof + h1(id, 8) * P, k = floor(sx / P), xx = sx - k * P;
   int ki = int(k);
   float hk = h1(ki * 31 + id, 9), Ls = 4.0 + 6.0 * hk, x0 = (P - Ls) * h1(ki + id * 977, 10);
@@ -182,10 +182,12 @@ vec3 lumen(float x, float y, float hw, int lane0, bool chev) {
   float along = smoothstep(0.0, 0.35, e) * (1.0 - smoothstep(0.55, 1.0, e));
   float yc = (lc + (h1(ki, id + 11) - 0.5) * 0.6 / NL) * hw;
   // As the app's shimmer: soft streaks of light (not painted lines) over a faint glow along the axis.
-  float wy = max(0.2, 1.4 * uPx), acr = exp(-pow((y - yc) / wy, 2.0));
+  float wy = min(max(0.35, 2.8 * uPx), 0.3 * hw / NL), acr = exp(-pow((y - yc) / wy, 2.0));
   float rr = 1.0 - r * r;
   c = mix(c, vec3(1.0), 0.07 * rr * rr * uShim / 0.5);
-  c = mix(c, vec3(1.0), along * acr * step(0.25, hk) * uShim * 0.75);
+  // (Wide and soft, so a streak glides across pixel rows instead of flickering; each breathes in and out gently.)
+  float tw = 0.7 + 0.3 * sin(uFlow * 0.15 + hk * 6.2832);
+  c = mix(c, vec3(1.0), along * acr * step(0.25, hk) * uShim * 0.42 * tw);
   if (chev) {
     // The flow's arrowheads, the app's own (chevHead, as every vessel draws them): a slim filled head with a notched
     // back, dark (orange where the flow runs backwards) with a faint light rim, one fixed shape, moving with the blood.
