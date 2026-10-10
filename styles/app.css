@@ -2225,9 +2225,10 @@ button.finding:hover { background: var(--surface-2); }
 .pz.stack .pz-ladder { max-height: calc(21vh / var(--vz)); }
 .pz.stack .pz-tile { padding: 6px 10px; }
 .pz.stack .pzt-v { font-size: min(24px, 30cqi); }
-.pz.stack .pz-panel { top: 8px; translate: -50% 0; width: calc(100% - 16px); max-height: calc(100% - 88px - env(safe-area-inset-bottom, 0px)); padding: 16px; gap: 12px; }
+/* (Centred in the figure above the Back/Next bar: top and bottom set, its own height, auto margins.) */
+.pz.stack .pz-panel { top: 8px; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); height: fit-content; margin-block: auto; translate: -50% 0; width: calc(100% - 16px); max-height: calc(100% - 88px - env(safe-area-inset-bottom, 0px)); padding: 16px; gap: 12px; }
 .pz.stack .pz-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: none; }
-.pz.stack .pz-panel.fill { height: auto; }
+.pz.stack .pz-panel.fill { height: fit-content; }
 .pz.stack .pz-panel.fill .pz-grid { flex: none; }   /* (the six ladders keep their height; the card scrolls instead of the charts spilling out of their cells) */
 .pz.stack .pz-panel.fill .pz-cell .pz-ladder { flex: none; }
 .pz.stack .pz-bar { --pz-bar-h: 56px; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); translate: none; max-width: none; height: var(--pz-bar-h); justify-content: space-between; padding: 6px 8px; overflow: visible; }
@@ -2390,10 +2391,24 @@ button.finding:hover { background: var(--surface-2); }
 /* Projector contrast (P while presenting): larger words, thicker leaders, ratings as filled chips, a deeper shade. Organ art unchanged. */
 .app.pz-hi .pz:not(.stack) .pz-text { zoom: 1.15; }
 /* The opening slide: the talk's outline beside its objectives. */
-.pz-outline { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: clamp(16px, calc(3vh / var(--vz)), 40px) clamp(24px, 4vw, 64px); }
-.pz-outline h2 { margin: 0 0 .5em; }
-.pz-outline :is(ol, ul) { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: .45em; font: 400 clamp(16px, calc(2.3vh / var(--vz)), 28px)/1.35 var(--font-ui); color: var(--text); }
-.pz-outline li::marker { color: var(--text-3); font-variant-numeric: tabular-nums; }
+/* The opening slide: the talk's plan as a numbered run of sections, its objectives on a tinted card beside it
+   (under it on a narrow screen). One type size for both lists; the numbers and ticks in the accent colour. */
+.pz-outline { --pzo-fs: clamp(16px, calc(2.15vh / var(--vz)), 26px); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); align-items: start; gap: clamp(18px, calc(3.2vh / var(--vz)), 44px) clamp(24px, 3.6vw, 60px); }
+.pz-outline section { min-width: 0; display: flex; flex-direction: column; }
+.pz-outline h2.pz-sub { display: flex; align-items: center; gap: .8em; margin: 0 0 .7em; }
+.pz-outline h2.pz-sub::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+.pz-outline :is(ol, ul) { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; font: 400 var(--pzo-fs)/1.35 var(--font-ui); color: var(--text); }
+.pz-outline ol { counter-reset: pzo; }
+.pz-outline ol li { counter-increment: pzo; display: grid; grid-template-columns: 2.1em minmax(0, 1fr); align-items: baseline; padding: .5em 0; border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent); }
+.pz-outline ol li:first-child { border-top: 0; padding-top: .1em; }
+.pz-outline ol li::before { content: counter(pzo, decimal-leading-zero); font: 600 .74em/1 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: .04em; color: var(--accent); }
+.pzo-obj { padding: clamp(14px, calc(2.2vh / var(--vz)), 26px) clamp(16px, calc(2.2vh / var(--vz)), 28px); border-radius: clamp(14px, calc(1.8vh / var(--vz)), 22px); background: color-mix(in srgb, var(--accent) 6%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent); }
+.pzo-obj h2.pz-sub::after { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.pz-outline ul { gap: .75em; }
+.pz-outline ul li { position: relative; padding-left: 1.7em; }
+.pz-outline ul li::before { content: ""; position: absolute; left: .3em; top: .28em; width: .32em; height: .6em; border: solid var(--accent); border-width: 0 .14em .14em 0; transform: rotate(45deg); }
+.pz.stack .pz-outline { --pzo-fs: 16px; gap: 14px; }
+.pz.stack .pzo-obj { padding: 12px 14px; border-radius: 14px; }
 .pz-panel[data-visual="outline"] { width: min(1180px, calc(100% - 2 * clamp(16px, calc(3vw / var(--vz)), 64px))); }
 .app.presenting.pz-hi #labels .leader { stroke-width: 2.5; }
 .app.presenting.pz-hi #labels .leader.hl, .app.presenting.pz-hi #labels .leader.focus { stroke-width: 3; }

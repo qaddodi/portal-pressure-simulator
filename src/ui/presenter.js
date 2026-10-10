@@ -1310,7 +1310,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     walls: () => wallsVisual(),
     outline: (s) => h('div', { class: 'pz-outline' },
       h('section', {}, h('h2', { class: 'pz-sub' }, 'Outline'), h('ol', {}, s.outline.map((k) => h('li', {}, k)))),
-      s.objectives.length ? h('section', {}, h('h2', { class: 'pz-sub' }, 'By the end you can'), h('ul', {}, s.objectives.map((o) => h('li', {}, o)))) : null),
+      s.objectives.length ? h('section', { class: 'pzo-obj' }, h('h2', { class: 'pz-sub' }, 'By the end you can'), h('ul', {}, s.objectives.map((o) => h('li', {}, o)))) : null),
   };
 
   // ── Layout: what the slide's words and data cover, so the figure frames itself in the rest ──
