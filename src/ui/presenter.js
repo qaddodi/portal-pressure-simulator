@@ -19,9 +19,9 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=cab65850a4';
 import { sinusoidSupported } from './sinusoid-view.js?v=d5403260c8';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
-import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=88686073d1';
+import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=ccc9eca402';
 import { createTools } from './presenter-tools.js?v=068560af73';
-import { openHandout } from './handout.js?v=1d6f675690';
+import { openHandout } from './handout.js?v=b62f2011d6';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -177,6 +177,25 @@ function rich(t, s = {}, fp = null) {
 const STATIONS = [['pv', 'Portal vein'], ['wedge', 'Sinusoids · WHVP'], ['hv', 'Hepatic vein · FHVP'], ['ivc', 'IVC'], ['ra', 'Right atrium']];
 const stationKey = () => h('div', { class: 'pz-stk', role: 'list', 'aria-label': 'Station colours' },
   STATIONS.map(([t, w]) => h('span', { role: 'listitem', style: `--c:var(--tr-${t})` }, h('i'), w)));
+// The still column inside the lobule (D5), for a wedge slide with column: true: the balloon stops the hepatic vein,
+// and the column behind it (in the wedge colour) fills back through the central venule and the sinusoids to the
+// first moving blood. Here it stops at a block in the portal tract (schistosomiasis), so the wedge never sees it.
+function wedgeColumn() {
+  const S = 'http://www.w3.org/2000/svg', el = (t, a = {}, txt) => { const e = document.createElementNS(S, t); for (const [k, v] of Object.entries(a)) e.setAttribute(k, v); if (txt) e.textContent = txt; return e; };
+  const svg = el('svg', { class: 'pz-col', viewBox: '0 0 360 98', role: 'img', 'aria-label': 'The still column fills from the balloon back through the central venule and the sinusoids, and stops at the block in the portal tract.' });
+  svg.append(
+    el('rect', { class: 'c-pv', x: 4, y: 36, width: 76, height: 18, rx: 9 }),
+    el('rect', { class: 'c-sin', x: 92, y: 38, width: 146, height: 14 }),
+    el('rect', { class: 'c-hv', x: 238, y: 35, width: 104, height: 20, rx: 10 }),
+    el('rect', { class: 'c-fill', x: 92, y: 35, width: 238, height: 20, rx: 6 }),
+    el('ellipse', { class: 'c-bal', cx: 330, cy: 45, rx: 13, ry: 13 }),
+    el('path', { class: 'c-blk', d: 'M78 33 L94 57 M94 33 L78 57' }),
+    el('text', { class: 'c-top', x: 211, y: 24, 'text-anchor': 'middle' }, 'Still column: reads the sinusoids'),
+    ...[[40, 'Portal vein'], [165, 'Sinusoids'], [262, 'Central venule'], [330, 'Balloon']].map(([x, t]) => el('text', { x, y: 76, 'text-anchor': 'middle' }, t)),
+    el('text', { class: 'c-blkt', x: 86, y: 92, 'text-anchor': 'middle' }, 'Block in the portal tract'));
+  requestAnimationFrame(() => requestAnimationFrame(() => svg.classList.add('in')));
+  return svg;
+}
 const RATE = {
   hvpg: (v) => (v >= 10 ? ['hi', 'CSPH'] : v >= 5 ? ['mid', 'Raised'] : ['ok', 'Normal']),
   ppg: (v) => (v >= 12 ? ['hi', 'High'] : v >= 6 ? ['mid', 'Raised'] : ['ok', 'Normal']),
@@ -1024,6 +1043,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), onclick: () => abPick(s, i, k) }, o.label))) : null,
           s.data === 'ladder' || s.cath ? stationKey() : null,
+          s.column ? wedgeColumn() : null,
           s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
           s.causes?.length ? h('div', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), h('ul', {}, s.causes.map((c) => h('li', {}, c)))) : null]));
