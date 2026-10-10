@@ -34,6 +34,10 @@
 //                            time (params: each option's full set of the switched keys; own: the slide's own state)
 //   quiz                     quiz mode (Q) asks this before the answer shows (the camera waits at the whole figure)
 //   notes, ask               speaker notes, and [question, expected answer] for the room
+//
+// Deck fields: id, level, title, minutes, summary, objectives (3 to 4 short learning objectives), slides.
+// Every deck opens with an "Outline and objectives" slide built from its kicker groups and objectives
+// (withOverview below); a deck never writes that slide itself.
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {
@@ -56,12 +60,27 @@ const frac = (n, d) => `<mfrac><mrow>${n}</mrow><mrow>${d}</mrow></mfrac>`;
 
 export const LEVELS = { foundation: 'Foundation', core: 'Core', advanced: 'Advanced' };
 
+// The opening slide of every deck: the outline (its kicker groups, in order, Summary aside) and its objectives,
+// over the first slide's patient, which the first slide then keeps (so the figure does not change between them).
+const MODEL = ['preset', 'presetDays', 'params', 'action', 'days'];
+export function withOverview(d) {
+  if (!d?.slides?.length || d.slides[0].visual === 'outline') return d;
+  const [first, ...rest] = d.slides, keep = !first.lapse && !first.ramp;
+  const outline = [...new Set(d.slides.map((s) => s.kicker).filter((k) => k && k !== 'Summary'))];
+  const open = { id: 'outline', visual: 'outline', outline, objectives: d.objectives || [], kicker: d.title, title: 'Outline and objectives',
+    notes: 'Set out the plan of the talk and what the audience should be able to do by the end.',
+    ...(keep ? Object.fromEntries(MODEL.filter((k) => first[k] !== undefined).map((k) => [k, first[k]])) : {}) };
+  const firstNow = keep ? Object.fromEntries(Object.entries(first).filter(([k]) => !MODEL.includes(k))) : first;
+  return { ...d, slides: [open, firstNow, ...rest] };
+}
+
 const SIX = ['pvt', 'presin', 'sin', 'postsin', 'post', 'cardiac'];
 
 export const DECKS = [
   {
     id: 'circulation', level: 'foundation', title: 'The portal circulation', minutes: 12,
     summary: 'The normal portal system, from the gut to the right atrium. Ends with the definition of portal hypertension.',
+    objectives: ['Trace portal blood from the gut and spleen through the liver to the heart', 'Name the two capillary beds in series and where each sits', 'Give normal pressures from the portal vein to the right atrium', 'Define portal hypertension and CSPH by the HVPG'],
     slides: [
       {
         id: 'inflow', preset: 'healthy', cam: 'portal', labels: ['SMV', 'SV', 'CONF'], data: 'tiles', tiles: ['pvFlow', 'pv'],
@@ -132,6 +151,7 @@ export const DECKS = [
   {
     id: 'sites', level: 'core', title: 'Sites and causes of portal hypertension', minutes: 15,
     summary: 'Six levels of block, each with its pressure ladder and HVPG. Ends with a comparison table.',
+    objectives: ['Place a cause of portal hypertension at one of six levels', 'Predict the HVPG for a block at each level', 'Read a pressure ladder to find where the largest drop is'],
     slides: [
       {
         id: 'overview', preset: 'healthy', cam: 'fit', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], rail: 'all',
@@ -216,6 +236,7 @@ export const DECKS = [
   {
     id: 'hvpg', level: 'core', title: 'Measuring portal pressure: HVPG and PPG', minutes: 15,
     summary: 'How the HVPG is measured and what it means. Then where it misleads, and how the PPG helps.',
+    objectives: ['Describe how free and wedged hepatic pressures are recorded', 'Calculate the HVPG and know its 5, 10 and 12 mmHg cut-offs', 'Recognise when the HVPG misleads', 'Use the portal pressure gradient when it does'],
     slides: [
       {
         id: 'route', preset: 'csph', cath: 'route',
@@ -296,6 +317,7 @@ export const DECKS = [
   {
     id: 'ascites', level: 'advanced', title: 'Ascites: where it comes from and what is in it', minutes: 15,
     summary: 'How ascites forms in the sinusoids and why presinusoidal disease rarely causes it. Ends with SAAG and protein.',
+    objectives: ['Explain how sinusoidal pressure and lymph make ascites', 'Interpret the SAAG and ascitic protein', 'Explain why pre-hepatic and presinusoidal blocks rarely cause ascites', 'Tell cirrhosis from heart failure and Budd–Chiari by the tap'],
     slides: [
       {
         id: 'start', preset: 'csph', cam: 'sinusoid', data: 'tiles', tiles: ['sin', 'asc'], key: ['sin'],
@@ -373,6 +395,7 @@ export const DECKS = [
   {
     id: 'varices', level: 'core', title: 'Collaterals and varices', minutes: 14,
     summary: 'Six months of progression, then the varices and other collateral routes. Ends with why heart failure rarely causes varices.',
+    objectives: ['Name the main portosystemic collaterals and where they form', 'Relate varix size and HVPG to bleeding risk', 'Recognise left-sided portal hypertension and gastric varices', 'Explain why heart failure rarely produces varices'],
     slides: [
       {
         id: 'collat', preset: 'csph', cam: 'fit', data: 'tiles', tiles: ['hvpg', 'varix', 'spleen', 'plt'],
@@ -443,6 +466,7 @@ export const DECKS = [
   {
     id: 'treatment', level: 'advanced', title: 'Lowering portal pressure', minutes: 14,
     summary: 'Propranolol, carvedilol, octreotide, terlipressin, band ligation and TIPS in one patient with decompensated cirrhosis, with the effect of each on HVPG, varices and ascites, and the cost of TIPS to liver perfusion.',
+    objectives: ['Explain how each drug lowers portal pressure: inflow, resistance or both', 'Outline the treatment of an acute variceal bleed', 'Compare banding, drugs and TIPS for pressure, varices and ascites', 'Weigh the costs of TIPS: liver perfusion and encephalopathy'],
     slides: [
       {
         id: 'target', preset: 'cirr-decomp', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], data: 'ladder', key: ['hvpg'], tiles: ['hvpg', 'varix'],

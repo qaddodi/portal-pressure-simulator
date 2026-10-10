@@ -2177,28 +2177,31 @@ button.finding:hover { background: var(--surface-2); }
   .pz *, .pz, .app.presenting #stageView { animation: none !important; transition: none !important; }
 }
 /* Home › Present: the presentations, your scripts, present a case. */
-.pz-decks { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr)); gap: 16px; }
-.pz-deck { position: relative; display: flex; flex-direction: column; gap: 8px; padding: 20px 22px 18px; border: 1px solid var(--border); border-radius: var(--r-sheet); background: var(--surface); overflow: hidden; }
+.pz-decks { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 12px; }
+.pz-deck { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--r-sheet); background: var(--surface); overflow: hidden; }
 .pzd-top { display: flex; align-items: center; gap: 8px; font: 500 var(--fs-12) var(--font-ui); color: var(--text-3); }
 .pzd-lvl { padding: 2px 8px; border-radius: var(--r-pill); background: var(--surface); border: 1px solid var(--border); font-weight: 600; color: var(--text-2); }
-.pz-deck h3 { margin: 0; font: 600 var(--fs-28)/1.15 var(--font-display); letter-spacing: -.01em; color: var(--text); }
-.pzd-sum { margin: 0; font: 400 var(--fs-14)/1.5 var(--font-ui); color: var(--text-2); max-width: 70ch; }
-.pzd-list { margin: 4px 0 0; padding: 0 0 0 22px; columns: 2 220px; column-gap: 24px; font: 400 var(--fs-14)/1.4 var(--font-ui); color: var(--text-3); }
-.pzd-list li { break-inside: avoid; padding: 1px 0; }
-.pzd-list button { padding: 0; border: 0; background: none; font: inherit; color: var(--text-2); text-align: left; cursor: pointer; }
-.pzd-list button:hover { color: var(--accent); text-decoration: underline; }
+.pz-deck h3 { margin: 0; font: 600 var(--fs-20, 20px)/1.2 var(--font-display); letter-spacing: -.01em; color: var(--text); }
+.pz-deck .script-acts { flex-wrap: nowrap; gap: 4px; margin-top: auto; }
+.pz-deck .script-acts .btn { white-space: nowrap; }
 .pzd-head { display: flex; align-items: flex-start; gap: 16px; }
 .pzd-hd { display: flex; flex-direction: column; gap: 8px; flex: 1 1 auto; min-width: 0; }
 /* The first slide's figure, small; it fades in when loaded (a deck without a still shows none). */
-.pzd-still { flex: none; width: 104px; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 10px; border: 1px solid var(--border); background: var(--stage-bg); opacity: 0; transition: opacity .4s var(--ease); }
+.pzd-still { flex: none; width: 72px; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 10px; border: 1px solid var(--border); background: var(--stage-bg); opacity: 0; transition: opacity .4s var(--ease); }
 .pzd-still.on { opacity: 1; }
-@media (max-width: 520px) { .pzd-still { width: 76px; border-radius: 8px; } }
+@media (max-width: 520px) { .pzd-still { width: 64px; border-radius: 8px; } }
 /* A thin divider naming each level, simple to advanced. */
-.pz-lvl-div { display: flex; align-items: center; gap: 12px; margin: 22px 0 12px; font: 600 var(--fs-12)/1.2 var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
+.pz-lvl-div { display: flex; align-items: center; gap: 12px; margin: 16px 0 8px; font: 600 var(--fs-12)/1.2 var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
 .pz-lvl-div::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 .pz-lib > .pz-lvl-div:first-of-type { margin-top: 8px; }
 /* Projector contrast (P while presenting): larger words, thicker leaders, ratings as filled chips, a deeper shade. Organ art unchanged. */
 .app.pz-hi .pz:not(.stack) .pz-text { zoom: 1.15; }
+/* The opening slide: the talk's outline beside its objectives. */
+.pz-outline { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: clamp(16px, calc(3vh / var(--vz)), 40px) clamp(24px, 4vw, 64px); }
+.pz-outline h2 { margin: 0 0 .5em; }
+.pz-outline :is(ol, ul) { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: .45em; font: 400 clamp(16px, calc(2.3vh / var(--vz)), 28px)/1.35 var(--font-ui); color: var(--text); }
+.pz-outline li::marker { color: var(--text-3); font-variant-numeric: tabular-nums; }
+.pz-panel[data-visual="outline"] { width: min(1180px, calc(100% - 2 * clamp(16px, calc(3vw / var(--vz)), 64px))); }
 .app.presenting.pz-hi #labels .leader { stroke-width: 2.5; }
 .app.presenting.pz-hi #labels .leader.hl, .app.presenting.pz-hi #labels .leader.focus { stroke-width: 3; }
 .app.presenting.pz-hi #labels .leader-dot { stroke-width: 2.2; }

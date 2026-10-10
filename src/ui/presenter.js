@@ -20,9 +20,9 @@ import { SITES } from './ladder.js?v=c0d400b6f9';
 import { sinusoidSupported } from './sinusoid-view.js?v=083b2b7649';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { NODES } from '../engine/topology.js?v=dc393aabea';
-import { DECKS, REGIONS, LEVELS } from './decks.js?v=b5289acfe7';
+import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=b521bd24e5';
 import { createTools } from './presenter-tools.js?v=40af8ad0f3';
-import { openHandout } from './handout.js?v=be7cdd0a53';
+import { openHandout } from './handout.js?v=1a9c87c546';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -918,6 +918,9 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     scale: (s) => scaleVisual(s.scale, rowsOf(s)),
     quadrant: (s) => quadrantVisual(rowsOf(s)),
     walls: () => wallsVisual(),
+    outline: (s) => h('div', { class: 'pz-outline' },
+      h('section', {}, h('h2', { class: 'pz-sub' }, 'Outline'), h('ol', {}, s.outline.map((k) => h('li', {}, k)))),
+      s.objectives.length ? h('section', {}, h('h2', { class: 'pz-sub' }, 'By the end you can'), h('ul', {}, s.objectives.map((o) => h('li', {}, o)))) : null),
   };
 
   // ── Layout: what the slide's words and data cover, so the figure frames itself in the rest ──
@@ -1145,7 +1148,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     const before = deck ? saved : await capture();
     if (deck) stop(false);
     saved = before;
-    deck = d; slides = d.slides; shown = null; shownState = -1; quiz = false; black = false;
+    deck = d; slides = d.mine ? d.slides : withOverview(d).slides; shown = null; shownState = -1; quiz = false; black = false;
     closeHome?.();
     const st0 = store.get();
     store.set({ presenting: true, selection: null, details: null, compareSnap: null, colorMode: 'pressure', presentLabels: [], focus: null, ...(st0.mode !== 'explore' ? { mode: 'explore' } : {}) });
@@ -1264,13 +1267,11 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     const deckCard = (d) => h('article', { class: 'pz-deck', 'data-level': d.level },
       h('div', { class: 'pzd-head' },
         h('div', { class: 'pzd-hd' },
-          h('div', { class: 'pzd-top' }, h('span', { class: 'pzd-lvl' }, LEVELS[d.level] || ''), h('span', { class: 'pzd-meta' }, `${d.slides.length} slides · about ${d.minutes} min`)),
+          h('div', { class: 'pzd-top' }, h('span', { class: 'pzd-lvl' }, LEVELS[d.level] || ''), h('span', { class: 'pzd-meta' }, `${d.slides.length + 1} slides · ${d.minutes} min`)),
           h('h3', {}, d.title)),
         deckStill(d)),
-      h('p', { class: 'pzd-sum' }, d.summary),
-      h('ol', { class: 'pzd-list' }, d.slides.map((s, i) => h('li', {}, h('button', { type: 'button', title: `Start at slide ${i + 1}`, onclick: () => start(d.id, i) }, s.title)))),
       h('div', { class: 'script-acts' },
-        h('button', { class: 'btn primary', onclick: () => start(d.id) }, svgIcon('projector', 'mi-ic'), 'Present'),
+        h('button', { class: 'btn sm primary', onclick: () => start(d.id) }, svgIcon('projector', 'mi-ic'), 'Present'),
         h('button', { class: 'btn ghost sm', onclick: () => shareDeck(d) }, 'Copy link'),
         h('button', { class: 'btn ghost sm', title: 'Speaker notes and questions for the room, one row per slide, to print or keep on a phone', onclick: () => openHandout(d) }, 'Print notes')));
     const scriptCard = (s) => h('div', { class: 'home-item script' },

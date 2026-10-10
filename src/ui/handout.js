@@ -4,7 +4,7 @@
 // Works for any deck the Presenter lists (decks.js, new ones included) and for the instructor's scripts.
 
 import { download } from './records.js?v=50fb9dd463';
-import { LEVELS } from './decks.js?v=b5289acfe7';
+import { LEVELS, withOverview } from './decks.js?v=b521bd24e5';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const slug = (t) => t.replace(/[^\w-]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
@@ -29,6 +29,9 @@ h2 { margin: 0; font: 600 17px/1.25 'Source Serif 4', 'Iowan Old Style', Georgia
 .eq math { font-family: 'STIX Two Math', 'Cambria Math', 'Latin Modern Math', math; font-size: 17px; }
 .eq small { display: block; margin-top: 2px; color: var(--ink-3); font-size: 12px; }
 .notes p { margin: 0; }
+.ol { display: block; margin: 4px 0 10px; padding-left: 1.3em; color: var(--ink-2); }
+.ol li { display: list-item; padding: 1px 0; border: 0; }
+ul.ol { list-style: disc; } ol.ol { list-style: decimal; }
 .h { margin: 0 0 2px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
 .ask { margin-top: 10px; padding: 8px 12px; border-radius: 8px; background: var(--soft); }
 .ask p { margin: 0; }
@@ -57,6 +60,7 @@ function slideRow(s, i) {
     ${s.kicker ? `<p class="k">${esc(s.kicker)}</p>` : ''}
     <h2>${esc(s.title || 'Slide')}</h2>
     ${s.line ? `<p class="line">${esc(s.line)}</p>` : ''}
+    ${s.visual === 'outline' ? `<p class="h">Outline</p><ol class="ol">${s.outline.map((k) => `<li>${esc(k)}</li>`).join('')}</ol>${s.objectives.length ? `<p class="h">Objectives</p><ul class="ol">${s.objectives.map((o) => `<li>${esc(o)}</li>`).join('')}</ul>` : ''}` : ''}
     ${ml ? `<div class="eq"><math>${ml}</math>${legend ? `<small>${esc(legend)}</small>` : ''}</div>` : ''}
   </div>
   <div class="notes">
@@ -74,7 +78,7 @@ export function handoutHTML(d) {
 <title>Notes: ${esc(d.title)}</title><style>${CSS}</style></head><body><main>
 <header><div><h1>${esc(d.title)}</h1><p class="meta">Speaker notes · ${esc(meta)}</p>${d.summary ? `<p class="sum">${esc(d.summary)}</p>` : ''}</div>
 <button type="button" onclick="print()">Print</button></header>
-<ol>${d.slides.map(slideRow).join('')}</ol>
+<ol>${(d.mine ? d.slides : withOverview(d).slides).map(slideRow).join('')}</ol>
 </main></body></html>`;
 }
 
