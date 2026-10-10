@@ -63,6 +63,7 @@ rmSync(cssEntry);
 const cssFile = basename(Object.keys(css.metafile.outputs).find((f) => f.endsWith('.css')));
 const fontFiles = Object.keys(css.metafile.outputs).filter((f) => f.endsWith('.woff2')).map((f) => basename(f));
 const interLatin = fontFiles.find((f) => f.startsWith('inter-latin-') && !f.startsWith('inter-latin-ext'));
+const serifLatin = fontFiles.find((f) => f.startsWith('source-serif-4-latin-') && !f.startsWith('source-serif-4-latin-ext'));
 
 // 4. Static files.
 for (const d of ['brand']) cpSync(join(ROOT, d), join(OUT, d), { recursive: true });
@@ -71,12 +72,13 @@ cpSync(join(ROOT, 'manifest.webmanifest'), join(OUT, 'manifest.webmanifest'));
 // 5. index.html: the source page with its local styles, preloads and entry swapped for the build.
 let html = readFileSync(join(ROOT, 'index.html'), 'utf8');
 html = html
-  .replace(/\s*<link rel="preload" href="fonts\/[^"]+"[^>]*>/, '')
+  .replace(/\s*<link rel="preload" href="fonts\/[^"]+"[^>]*>/g, '')
   .replace(/\s*<link rel="stylesheet" href="(?:fonts|styles)\/[^"]+" \/>/g, '')
   .replace(/\s*<link rel="modulepreload" href="src\/[^"]+" \/>/g, '')
   .replace(/\s*<script type="module" src="src\/ui\/main\.js[^"]*"><\/script>/, '');
 const head = [
   interLatin ? `<link rel="preload" href="assets/${interLatin}" as="font" type="font/woff2" crossorigin />` : '',
+  serifLatin ? `<link rel="preload" href="assets/${serifLatin}" as="font" type="font/woff2" crossorigin />` : '',
   `<link rel="stylesheet" href="assets/${cssFile}" />`,
   ...staticChunks.map((c) => `<link rel="modulepreload" href="assets/${c}" />`),
   `<script type="module" src="assets/${appFile}"></script>`,
