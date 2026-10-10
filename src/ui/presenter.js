@@ -391,7 +391,7 @@ function makeCalc() {
   };
 }
 
-export function createPresenter({ startCase, cases = [], host, stage, projectorOn, projectorOff, closeHome, rerenderHome }) {
+export function createPresenter({ openSettings, startCase, cases = [], host, stage, projectorOn, projectorOff, closeHome, rerenderHome }) {
   const app = document.getElementById('app'), view = document.getElementById('stageView'), wrap = document.getElementById('stageWrap');
   let calc = null;
   const getCalc = () => (calc ||= makeCalc());
@@ -964,9 +964,12 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
   function setLabels() {
     const k = (phone() ? 1.15 : clamp(Math.min(innerHeight / 540, innerWidth / 960), 1.25, 2.4)) * (hiCon && !phone() ? 1.15 : 1);
     stage.setProjection(k);
-    document.documentElement.style.setProperty('--label-k', String(Math.min(k, 2.2)));
-    dispatchEvent(new Event('pps:labelscale'));
+    document.documentElement.style.setProperty('--label-k', String(Math.min(k, 2.2) * stage.labelScale()));
+    labelling = true; dispatchEvent(new Event('pps:labelscale')); labelling = false;
   }
+  // The viewer's own text size (Settings) scales them too: a change there while presenting is re-applied on top.
+  let labelling = false;
+  addEventListener('pps:labelscale', () => { if (deck && ui && !labelling) setLabels(); });
 
   // ── Chrome: counter, progress, controls ──
   function paintChrome() {
@@ -985,6 +988,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
         h('button', { class: 'btn sm', 'aria-label': 'Previous slide', disabled: i === 0, onclick: prev }, icon('chev-left'), 'Back'),
         countBtn,
         h('button', { class: 'btn sm primary', 'aria-label': last ? 'Finish presenting' : skip ? 'Run the time-lapse to its end' : 'Next slide', onclick: last ? stop : next }, last ? 'Finish' : skip ? 'Skip' : 'Next', last ? null : icon('chev-right')),
+        gear(),
         h('button', { class: 'ib', 'aria-label': 'Exit the presentation', title: 'Exit', onclick: stop }, icon('close')));
         return;
     }
@@ -998,8 +1002,11 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
       h('button', { class: 'btn sm', 'aria-pressed': String(hiCon), title: 'Projector contrast: larger words, thicker lines, rating chips (P)', onclick: toggleProj }, 'Projector'),
       h('button', { class: 'ib', 'aria-label': 'Black screen', title: 'Black screen (B)', onclick: () => toggleBlack() }, icon('pause')),
       document.fullscreenEnabled ? h('button', { class: 'ib', 'aria-label': 'Full screen', title: 'Full screen (F)', onclick: fullscreen }, icon('fullscreen')) : null,
+      gear(),
       h('button', { class: 'ib', 'aria-label': 'Stop presenting', title: 'Stop (Esc)', onclick: stop }, icon('close')));
   }
+  // Settings while presenting (appearance, text size, interface zoom, full screen): the app's own sheet, opened from the bar.
+  const gear = () => (openSettings ? h('button', { class: 'ib', 'aria-label': 'Settings', 'aria-haspopup': 'dialog', title: 'Settings', onclick: (e) => openSettings(e.currentTarget) }, svgIcon('gear')) : null);
   let idleT = 0;
   function wake() {
     if (!ui) return;
@@ -1167,7 +1174,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     view.classList.remove('pz-out');
     for (const k of ['--pz-l', '--pz-r', '--pz-t', '--pz-b']) app.style.removeProperty(k);
     stage.setProjection(false);
-    document.documentElement.style.setProperty('--label-k', String(saved?.labelK ?? stage.labelScale()));
+    document.documentElement.style.setProperty('--label-k', String(stage.labelScale()));
     dispatchEvent(new Event('pps:labelscale'));
     if (document.fullscreenElement) document.exitFullscreen?.();
     app.classList.remove('presenting', 'pz-hi');

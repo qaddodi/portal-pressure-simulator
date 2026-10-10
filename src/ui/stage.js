@@ -3603,7 +3603,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Projection ramp: presenting sets the atlas labels at projector sizes (at 2: values 28 px, names 23 px),
   // readable from the back of a room. The presenter passes a scale for the screen it is on.
   let projecting = false;
-  const labelBase = () => (projecting ? (typeof projecting === 'number' ? projecting : 2) : labelScale);
+  // (Projecting, the projector's size times the viewer's own text size from Settings.)
+  const labelBase = () => (projecting ? (typeof projecting === 'number' ? projecting : 2) * labelScale : labelScale);
   // A line is a list of runs { t, size, weight, cls, track }. Returns [width, height].
   const LINE_H = (line) => Math.max(...line.map((r) => r.size)) * labelK * 1.24;
   const lineW = (line) => line.reduce((w, r, i) => w + textW(r.t, r.size * labelK, r.weight, r.track || 0) + (i ? (r.gap ?? 3) * labelK : 0), 0);
