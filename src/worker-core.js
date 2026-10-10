@@ -278,7 +278,7 @@ export function createCore(post) {
           yield* e.advanceDaySteps(n, { noRupture: true, silent: true });
           done += n;
         }
-        if (st.preset || st.params || st.days) e.settle();
+        if (st.preset || st.params || st.action || st.days) e.settle();
         post({ type: 'seqStep', reqId, i, snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(computeMetrics(e), e) });
         yield;
       }
