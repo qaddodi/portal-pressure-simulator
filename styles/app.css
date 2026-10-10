@@ -226,8 +226,12 @@ svg { flex: none; }
 .lb-mod-act { fill: var(--accent-ink); }
 .lb-lane { fill: var(--text-3); font-style: italic; }
 
-.focus-ring { fill: none; stroke: var(--accent); stroke-opacity: .34; stroke-linecap: round; stroke-linejoin: round; animation: focusPulse 1.6s ease-in-out infinite; }
-@keyframes focusPulse { 50% { stroke-opacity: .12; } }
+.focus-ring { fill: var(--accent); stroke: none; pointer-events: none; animation: pz-fade .6s var(--ease) both; }
+.focus-ring.flat { fill: none; stroke: var(--accent); stroke-linecap: round; stroke-linejoin: round; }
+.focus-halo { opacity: .2; }
+.focus-core { opacity: .3; }
+.focus-out { pointer-events: none; animation: focusOut .45s var(--ease) both; }
+@keyframes focusOut { to { opacity: 0; } }
 
 /* Figure header banner (lesson instruction, case status, compare switch) */
 .banner { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-width: 0; padding: 4px 12px 4px 8px; border-radius: var(--r-card); background: var(--accent-soft); color: var(--accent-ink); font-size: var(--fs-14); font-weight: 500; }
@@ -1792,7 +1796,8 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .app.presenting .big-overlay, .app.presenting .projector-exit, .app.presenting #stageCenter { display: none; }
 .app.presenting #stageView { z-index: 0; transition: opacity .6s var(--ease); }   /* its own layer, so the slide's shade can lie over it and under the credit */
 .app.presenting #stageView.pz-out { opacity: .22; transition-duration: .42s; }
-.app.presenting .focus-ring { stroke: var(--danger); stroke-opacity: .5; animation: pz-fade .6s var(--ease) both, focusPulse 1.6s ease-in-out .6s infinite; }
+.app.presenting .focus-ring { fill: var(--danger); }
+.app.presenting .focus-ring.flat { fill: none; stroke: var(--danger); }
 .app.presenting #labels .lb.focus .lb-bg { fill: var(--danger); }
 .app.presenting #labels .leader.focus { stroke: var(--danger); }
 .app.presenting #labels .lb { animation: pz-fade .5s var(--ease) both; }
@@ -3649,7 +3654,7 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .data-row .dr-was { margin-left: 6px; font-size: var(--fs-12); font-weight: 500; color: var(--text-3); white-space: nowrap; }
 
 /* Play/pause: looping sim animations freeze with the simulation (see ui/clock.js). */
-body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state: paused; }
+body.sim-paused .mon.bad .mv { animation-play-state: paused; }
 .cmp-table-btn { white-space: nowrap; }
 @media (max-width: 600px) { .cmp-label { display: none; } }
 

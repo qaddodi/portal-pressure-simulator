@@ -363,6 +363,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     <pattern id="texRugae" width="40" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(-38)"><path class="tex" d="M0 6c7-4 13 4 20 0s13-4 20 0"/></pattern>
     <pattern id="texLobules" width="14" height="12" patternUnits="userSpaceOnUse"><path class="tex" d="M1 6a6 5 0 0 1 12 0M-6 12a6 5 0 0 1 12 0M8 12a6 5 0 0 1 12 0"/></pattern>
     <pattern id="texMuscle" width="30" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(24)"><path class="tex" d="M0 5c8-3 22 3 30 0"/></pattern>
+    <filter id="focusHalo" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="7"/></filter>
+    <filter id="focusCore" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.4"/></filter>
     <filter id="heatBlur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="10"/></filter>
     <pattern id="mapGrid" width="20" height="20" patternUnits="userSpaceOnUse"><circle class="map-dot" cx="10" cy="10" r=".9"/></pattern>`;
   svg.append(defs);
@@ -2780,7 +2782,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const key = ids.join(',') + '|' + ids.map((id) => E[id].width.toFixed(0)).join(',') + '|' + lastMorph;
     if (gFocus._k === key) return;
     gFocus._k = key;
-    gFocus.replaceChildren(...ids.map((id) => s('path', { class: 'focus-ring', d: E[id].wall.getAttribute('d'), 'stroke-width': (E[id].width + 16).toFixed(1) })));
+    // A soft feathered glow along the vessel: two blurred ribbons (a wide halo and a closer core) that
+    // taper to nothing at both ends, so there is no blunt cap. Eases in; the old glow fades out.
+    const taper = (u) => smooth01(u / 0.12) * smooth01((1 - u) / 0.12);
+    const glow = ids.map((id) => {
+      const g = geo[id], w = E[id].width / 2;
+      const ribbon = (cls, r, blur) => g?.cur?.length > 1 && g.lit
+        ? s('path', { class: cls, d: tubeOutline(g.cur, g.lit, (u) => (w + r) * taper(u) + 0.01), filter: `url(#${blur})` })
+        : s('path', { class: cls + ' flat', d: E[id].wall.getAttribute('d'), 'stroke-width': ((w + r) * 2).toFixed(1) });
+      return [ribbon('focus-ring focus-halo', 13, 'focusHalo'), ribbon('focus-ring focus-core', 5, 'focusCore')];
+    }).flat();
+    if (gFocus.childNodes.length) {
+      const old = s('g', { class: 'focus-out' });
+      old.append(...gFocus.childNodes);
+      gFocus.after(old);
+      setTimeout(() => old.remove(), 500);
+    }
+    gFocus.replaceChildren(...glow);
   }
 
   function isReversed(e, f) {
