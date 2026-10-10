@@ -141,7 +141,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else home.open(o?.practice ? 'practice' : 'course'); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => home.open('course') });
-  presenterL = lazy(() => import('./presenter.js?v=bf34c86e19'), ({ createPresenter }) => createPresenter({ startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=4da6868292'), ({ createPresenter }) => createPresenter({ startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -845,6 +845,7 @@ function openSettings(anchor) {
     roleControl(),
     h('div', { class: 'menu-title' }, t('menu.appearance')),
     h('div', { class: 'seg full menu-seg' }, [['light', t('menu.light')], ['dark', t('menu.dark')], ['system', t('menu.system')]].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { applyTheme(v === 'system' ? null : v, v === 'system'); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; })),
+    fullscreenControl(),
     h('div', { class: 'menu-title' }, 'Text size on the figure'),
     textSizeControl(),
     h('div', { class: 'menu-title' }, 'Interface zoom'),
@@ -884,6 +885,22 @@ function textSizeControl() {
   reset.addEventListener('click', () => { stage.setLabelScale(1); paint(); });
   paint();
   return h('div', { class: 'seg full menu-seg text-size', role: 'group', 'aria-label': 'Text size on the figure' }, smaller, reset, larger);
+}
+// Full screen through the browser. iPhone Safari has no full screen for pages, so there the
+// sheet says how to get the same room: Add to Home Screen opens the app without browser bars.
+function fullscreenControl() {
+  const root = document.documentElement;
+  if (!document.fullscreenEnabled || !root.requestFullscreen) {
+    return /iPhone|iPod/.test(navigator.userAgent) && !matchMedia('(display-mode: standalone)').matches
+      ? h('small', { class: 'mm-role-note fs-hint' }, 'For full screen on iPhone: Share › Add to Home Screen.') : null;
+  }
+  const b = menuToggle(!!document.fullscreenElement, 'fullscreen', 'Full screen', 'Hide the browser bars (Esc leaves)', (on) => {
+    const p = on ? root.requestFullscreen() : document.exitFullscreen();
+    p?.catch?.(() => sync());
+  });
+  const sync = () => { if (!b.isConnected) { document.removeEventListener('fullscreenchange', sync); return; } const on = !!document.fullscreenElement; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); };
+  document.addEventListener('fullscreenchange', sync);
+  return b;
 }
 // Interface zoom: scales the bars, dock, sheets and menus (the figure keeps its own zoom and text size).
 // The page applies the saved value before it paints (index.html); --ui-zoom undoes it on the figure.
