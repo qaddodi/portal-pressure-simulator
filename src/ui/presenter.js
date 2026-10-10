@@ -65,7 +65,7 @@ const RATE = {
   plt: (v) => (v < 100 ? ['hi', 'Low'] : v < 150 ? ['mid', 'Low'] : ['ok', 'Normal']),
   pvFlow: (v) => (v < 0 ? ['hi', 'Reversed, away from the liver'] : [null, 'Toward the liver']),
   liver: (v) => (v < 50 ? ['hi', 'Low'] : v < 80 ? ['mid', 'Reduced'] : ['ok', 'Normal']),
-  shunt: (v) => (v >= 0.5 ? ['hi', 'Most of it'] : v >= 0.2 ? ['mid', 'Some'] : ['ok', 'Little']),
+  shunt: (v) => (v >= 0.5 ? ['hi', 'Large'] : v >= 0.2 ? ['mid', 'Moderate'] : ['ok', 'Small']),
   map: (v) => (v < 65 ? ['hi', 'Low'] : ['ok', 'Normal']),
   hr: (v) => [null, v < 60 ? 'Slow' : v > 100 ? 'Fast' : 'Normal'],
 };
@@ -213,7 +213,9 @@ function bigTiles() {
       const r0 = f['ref_' + p.k];
       if (r0 == null || f[p.k] == null) return;
       const x = p.T.x ?? 1, dg = p.T.d ?? 1, dd = (f[p.k] - r0) * x, same = Math.abs(dd) < 0.5 * 10 ** -dg;
-      p.d.textContent = same ? 'No change' : `${dd < 0 ? '▼' : '▲'} ${fmt(Math.abs(dd), dg)} from ${fmt(r0 * x, dg)}`;
+      // "Up 9 points from 82%", "Down 2.1 mmHg from 17.7": the change, then where it started (never read as "up to").
+      const pct = p.T.u === '%', by = pct ? (Math.abs(dd) === 1 ? ' point' : ' points') : p.T.u ? ' ' + p.T.u : '';
+      p.d.textContent = same ? 'No change' : `${dd < 0 ? '▼ Down' : '▲ Up'} ${fmt(Math.abs(dd), dg)}${by} from ${fmt(r0 * x, dg)}${pct ? '%' : ''}`;
       const calm = cls === 'ok' && rateOf(p.k, { ...f, [p.k]: r0 })[0] === 'ok';   // (a change within normal is neither)
       p.d.dataset.way = same || calm || !p.T.better ? '' : Math.sign(dd) === p.T.better ? 'good' : 'bad';
     }));
