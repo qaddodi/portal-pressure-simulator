@@ -387,9 +387,9 @@ export const ORGANS = [
   { id: 'heart', tone: 'heart', cls: 'org org-heart', d: 'M618 64 C 607 88 606 128 611 158 C 616 184 632 194 658 194 C 695 194 731 188 753 172 C 762 165 762 150 755 140 C 738 110 716 80 691 64 C 669 51 637 50 618 64 Z' },
   // The right atrium: the chamber on the heart's right border (the viewer's left) that both cavae
   // empty into (the SVC at its top, the IVC at its bottom), bulging a little past the ventricles' outline as
-  // the right heart border does; smaller than the right ventricle, with its auricle tucked over the top.
+  // the right heart border does; a smooth, rounded chamber smaller than the right ventricle.
   // Presenter slides and the RA station point at it, not at the cava running into it.
-  { id: 'heart-ra', tone: 'ra', cls: 'org org-ra', d: 'M616 66 C 604 80 600 98 601 116 C 602 140 609 160 622 170 C 633 172 642 164 644 150 C 647 124 646 92 640 70 C 646 64 652 62 656 62 C 648 56 636 56 628 59 C 623 61 619 63 616 66 Z' },
+  { id: 'heart-ra', tone: 'ra', cls: 'org org-ra', d: 'M622 60 C 608 68 601 90 601 116 C 601 142 609 162 622 170 C 634 174 643 162 645 146 C 648 122 647 92 641 74 C 637 62 630 57 622 60 Z' },
   { id: 'heart-grooves', cls: 'org-heart-groove', deco: true, d: 'M691 64 C 700 108 722 152 751 176 M648 64 C 658 102 660 150 655 193' },
   { id: 'heart-out', cls: 'org-heart-flow', deco: true, d: 'M647 118 C 663 112 679 114 695 126' },
   { id: 'appendix', tone: 'gut', cls: 'org-appendix', band: true, d: 'M420 906 C 418 924 428 938 448 940' },

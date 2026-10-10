@@ -20,8 +20,8 @@ import { SITES } from './ladder.js?v=cab65850a4';
 import { sinusoidSupported } from './sinusoid-view.js?v=5fb063d790';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
 import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=93d381e8df';
-import { createHvpgMonitor } from './hvpg-proc.js?v=3425632d4d';
-import { createTools } from './presenter-tools.js?v=ed8b40d246';
+import { createHvpgMonitor } from './hvpg-proc.js?v=a4d00d90a5';
+import { createTools } from './presenter-tools.js?v=3fc540d53c';
 import { openHandout } from './handout.js?v=252beba081';
 
 const KEY = 'pps.scripts';

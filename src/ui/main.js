@@ -3,26 +3,26 @@
 
 import { startHost, host } from './host.js?v=5f360b39e4';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=5edd069b32';
-import { createStage } from './stage.js?v=0464e35bf9';
+import { createStage } from './stage.js?v=67ce787c2a';
 import { sinusoidSupported } from './sinusoid-view.js?v=5fb063d790';
 import { createInspector } from './inspector.js?v=127b504390';
-import { createDock, CUTOFFS } from './dock.js?v=3b8814b53d';
-import { setHvpgStage } from './hvpg-proc.js?v=3425632d4d';
+import { createDock, CUTOFFS } from './dock.js?v=145d37a635';
+import { setHvpgStage } from './hvpg-proc.js?v=a4d00d90a5';
 import { createWhy } from './why.js?v=de880e3533';
 import { createTimeline, LAPSES } from './timeline.js?v=1e357674d3';
 import { createLearn } from './learn.js?v=0fd232734e';
 import { createCases, CASES } from './cases.js?v=d914dab10c';
 import { isBlind } from './learning-kit.js?v=709a64e91f';
 import { createCompare } from './compare.js?v=baa48f57a4';
-import { createCard } from './card.js?v=08430b3917';
-import { createChart, computeFindings } from './chart.js?v=e668880344';
+import { createCard } from './card.js?v=a16088167e';
+import { createChart, computeFindings } from './chart.js?v=89ad901e86';
 import { createHome, ROLES } from './home.js?v=2700056083';
 import { course } from './course.js?v=91c1512351';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=398e679a38';
 import { caption } from './a11y.js?v=d781e4dd20';
 import { startLMS } from './lms.js?v=a5c0e42068';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=48f9f1ef03';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=451611887c';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=706a39d50b';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=e0101a3fa2';
@@ -141,7 +141,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else home.open(o?.practice ? 'practice' : 'course'); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => home.open('course') });
-  presenterL = lazy(() => import('./presenter.js?v=f837208ec2'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=e5a0fa7d28'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), stashCards, rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -154,7 +154,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=2082419437'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=1c7dc0ce8b'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
