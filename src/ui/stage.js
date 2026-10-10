@@ -6,7 +6,7 @@ import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=25cbe77a76';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=e0101a3fa2';
-import { createLobuleZoom } from './lobule-zoom.js?v=df6621a262';
+import { createLobuleZoom } from './lobule-zoom.js?v=0e02d3e31b';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
@@ -4013,6 +4013,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Zoomed far out (the whole map on a phone), the map's own scale is tiny, so its labels shrink with it
     // (down to 70 %) instead of burying it; from 0.6 px per unit up they are full size.
     labelK = labelBase() * (circuit ? CIRCUIT_LABEL_K * clamp(CTM.sc / 0.6, 0.7, 1) : 1);
+    const lbk = labelK.toFixed(2);
+    if (gLabels.dataset.k !== lbk) { gLabels.dataset.k = lbk; gLabels.style.setProperty('--lbk', lbk); }
     const wr = stageBox();
     const W = wr.width, H = wr.height;
     // A solve prefers slots that sit inside the stage as it is now, but never depends on the panels, and a pan
@@ -4235,7 +4237,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         // set out every frame rather than solved. Figure labels were placed round their natural spot, and
         // one that a pan brings under a title is hidden.
         const zoneAt = (x, y) => { it.live = true; it.ax = x; it.ay = y; const bx = it.rot ? it.h : it.w, by2 = it.rot ? it.w : it.h; it.x = x - bx / 2; it.y = y - by2 / 2; return rectOf({ ...it, x: it.x, y: it.y, w: bx, h: by2 }); };
+        // A narrow zone (a zoomed-out circuit, or large text) takes a shorter title rather than none; one that
+        // still does not fit its band is left out rather than run into its neighbour's.
+        const span = turned ? Math.abs(by - ay0) : b - a;
+        for (const alt of ZONE_SHORT[txt] || []) {
+          if (span > it.w + 6) break;
+          it.lines = [[{ ...it.lines[0][0], t: alt.toUpperCase() }]]; it.w = lineW(it.lines[0]);
+        }
         if (turned) {
+          if (span <= it.w + 6) continue;
           // Upright, a zone is a horizontal band: its title runs up the map's left edge (text turned to read
           // bottom to top), centred on the band.
           it.rot = true;
@@ -4243,11 +4253,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           const zr = zoneAt(Math.max(it.h / 2 + 8, (a + b) / 2), (ay0 + by) / 2);
           if (within(zr, { x0: 6, y0: 6, x1: W - 6, y1: H - 6 }) && !blockers.some((o) => hits(zr, o))) { out.push(it); obstacles.push(zr); }
           continue;
-        }
-        // A narrow zone (a zoomed-out circuit) takes a shorter title rather than none.
-        for (const alt of ZONE_SHORT[txt] || []) {
-          if (b - a > it.w + 6) break;
-          it.lines = [[{ ...it.lines[0][0], t: alt.toUpperCase() }]]; it.w = lineW(it.lines[0]);
         }
         if (b - a > it.w + 6) {
           if (solve) placed.push(zoneAt((a + b) / 2, by));

@@ -73,6 +73,7 @@ export function createSinusoidView({ host }) {
       for (const b of ENDBOX) if (b && cy + hh / 2 > b.y0 - 4 && cy - hh / 2 < b.y1 + 4) cx = b.u ? Math.min(cx, b.x0 - 14 - w / 2) : Math.max(cx, b.x1 + 14 + w / 2);
       cx = clamp(cx, Math.min(VW.f.l + w / 2 + 4, geo.W / 2), Math.max(VW.f.r - w / 2 - 4, geo.W / 2));
     }
+    { const c = Math.abs(Math.cos(ang)), sn = Math.abs(Math.sin(ang)), bw = (w * c + hh * sn) / 2, bh = (w * sn + hh * c) / 2; R.box = { l: cx - bw, r: cx + bw, t: cy - bh, b: cy + bh }; }
     R.el.style.transform = `translate(${cx.toFixed(1)}px, ${cy.toFixed(1)}px) translate(-50%, -50%)${ang ? ` rotate(${((ang * 180) / Math.PI).toFixed(2)}deg)` : ''}`;
     return { cx, cy, w, hh, x: x + (geo.vert ? 0 : (cx - cx0) / VW.k), half: (along ? w : Math.abs(w * Math.cos(geo.ang)) + Math.abs(hh * Math.sin(geo.ang))) / 2 / VW.k };
   }
@@ -431,10 +432,48 @@ export function createSinusoidView({ host }) {
   const BAND = [0, 0];   // a portrait screen's band for the other names, between the ends' (px down the screen)
   const LAB = [0, 0];   // the lumen's name: x and half length (µm), for the shader to keep the arrowheads clear of it
   const END = [0, 0, 1];   // the end arrows: portal x, central x, size (µm)
-  const ENDBOX = [null, null];   // the ends' names on a wide screen (px), for the captions to keep clear of
+  const ENDBOX = [null, null];
+  const LEG = { x: 0, y: 0, w: 0, h: 0 };   // the legend's box (px)   // the ends' names on a wide screen (px), for the captions to keep clear of
+  // Large text (or a narrow view): names that still overlap after the layout step apart, up or down the screen first,
+  // then sideways, and ease there; a name's leader moves with it. The ends' names, the legend and the lumen's keep their places.
+  function declutter() {
+    // (From the boxes the layout recorded, not the screen: the view may be mid-zoom, scaled by the compositor.)
+    const W = geo.W, H = geo.H;
+    const hit = (a, b) => a.l < b.r + 8 && b.l < a.r + 8 && a.t < b.b + 2 && b.t < a.b + 2;
+    const placed = [];
+    if (LEG.w) placed.push({ l: LEG.x, r: LEG.x + LEG.w, t: LEG.y, b: LEG.y + LEG.h });
+    for (const k of ['in', 'out', 'sin', 'fen', 'lymph', 'disse', 'hsc', 'hep', 'kup']) {
+      const R = regions[k];
+      if (!R?.box || !R.el.isConnected) continue;
+      const b = R.box, w = b.r - b.l, hh = b.b - b.t;
+      let off = [0, 0];
+      if (k !== 'in' && k !== 'out' && k !== 'sin' && placed.some((p) => hit(b, p))) {
+        const tries = [];
+        for (const n of [1, 2, 3, 4]) for (const sg of [1, -1]) tries.push([0, sg * n * (hh / 2 + 4)]);
+        for (const sg of [1, -1]) tries.push([sg * (w / 2 + 8), 0], [sg * (w + 8), 0]);
+        const ok = tries.find(([dx, dy]) => {
+          const c = { l: b.l + dx, r: b.r + dx, t: b.t + dy, b: b.b + dy };
+          return c.l >= 2 && c.r <= W - 2 && c.t >= 2 && c.b <= H - 2 && !placed.some((p) => hit(c, p));
+        });
+        if (ok) off = ok;
+      }
+      R.off = off;
+      R.el.style.translate = off[0] || off[1] ? `${off[0].toFixed(1)}px ${off[1].toFixed(1)}px` : '';
+      placed.push({ l: b.l + off[0], r: b.r + off[0], t: b.t + off[1], b: b.b + off[1] });
+      const ln = lead[k]?.children[0];
+      if (ln && (off[0] || off[1])) for (const [a, d] of [['x1', off[0]], ['y1', off[1]]]) ln.setAttribute(a, (parseFloat(ln.getAttribute(a)) + d).toFixed(1));
+    }
+  }
   function layoutEnds() {
     const g = geo, f = VW.f;
     // The ends: the portal venule the blood comes from and the central venule it goes to, with their pressures (as the lobule labels them).
+    // The legend: at the top left, under the top bar.
+    const lx = f.l + 2, ly = cssN('--top-safe') + cssN('--cmp-h') + cssN('--pz-t') + 12;
+    // (On a top-down sinusoid it stays in the plate on the left, clear of the vessel and the portal venule's name.)
+    const lr = g.vert ? toScreen(0, hepIn(0))[0] - 8 : geo.W - 12;
+    legend.style.maxWidth = `${Math.max(90, lr - lx)}px`;
+    legend.style.transform = `translate(${lx.toFixed(1)}px, ${ly.toFixed(1)}px)`;
+    LEG.x = lx; LEG.y = ly; LEG.w = legend.offsetWidth; LEG.h = legend.offsetHeight;
     const m = model, val = (P) => (m.hide ? '?' : `${fmt(P, 1)}~mmHg`);
     for (const [key, name, value, u] of [['in', 'Portal venule', val(m.P1), 0], ['out', 'Central venule', val(m.P3), 1]]) {
       // (The Sinusoid's own caption, class and all: same capitals, size, ink, halo and reading.)
@@ -447,7 +486,10 @@ export function createSinusoidView({ host }) {
       const A = 22 + 10;   // (the arrow and its gaps, px)
       if (g.vert) { x = VW.C[0] - w / 2; y = u ? f.b - hh - A : f.t + A; }
       else { x = u ? f.r - w - 8 - A : f.l + 8 + A; y = VW.C[1] - hh / 2; }
+      // (Large text: the portal venule's name drops below the legend rather than run into it.)
+      if (g.vert && !u && LEG.w && LEG.x + LEG.w > x - 6) y = Math.max(y, LEG.y + LEG.h + A);
       T.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+      T.box = { l: x, r: x + w, t: y, b: y + hh };
       ENDBOX[u] = g.vert ? null : { u, x0: u ? x : x - A, x1: u ? x + w + A : x + w, y0: y, y1: y + hh };
       if (g.vert) BAND[u] = u ? y - 6 : y + hh + 6;
       const ax = g.vert ? VW.C[0] : u ? x + w + A / 2 : x - A / 2, ay = g.vert ? (u ? y + hh + A / 2 : y - A / 2) : VW.C[1];
@@ -457,12 +499,6 @@ export function createSinusoidView({ host }) {
     END[2] = Math.min(22 / VW.k, UM.lum * S.lum * 0.95);   // (a bold head, as wide as the names' capitals are tall, within the lumen)
     // (On a top-down sinusoid the other names keep below the legend too.)
     if (g.vert) BAND[0] = Math.max(BAND[0], cssN('--top-safe') + cssN('--cmp-h') + cssN('--pz-t') + 12 + legend.offsetHeight + 8);
-    // The legend: at the top left, under the top bar.
-    const lx = f.l + 2, ly = cssN('--top-safe') + cssN('--cmp-h') + cssN('--pz-t') + 12;
-    // (On a top-down sinusoid it stays in the plate on the left, clear of the vessel and the portal venule's name.)
-    const lr = g.vert ? toScreen(0, hepIn(0))[0] - 8 : geo.W - 12;
-    legend.style.maxWidth = `${Math.max(90, lr - lx)}px`;
-    legend.style.transform = `translate(${lx.toFixed(1)}px, ${ly.toFixed(1)}px)`;
   }
 
   // ── The frame ──
@@ -482,8 +518,8 @@ export function createSinusoidView({ host }) {
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
     // The names are laid out where the view will rest, during the zoom too (hidden until it lands), so the end arrows
     // the shader draws are in place from the first frame and nothing moves when the names fade in.
-    const lk = [geoKey, VW.k.toFixed(3), VW.C.map((v) => v.toFixed(0)), S.lum.toFixed(3), S.act > 0.5, Math.round(S.por * 20), model.hide, model.P2.toFixed(1), model.lymph.toFixed(1), Math.round(model.lyProt * 100), model.P1.toFixed(1), model.P3.toFixed(1), phoneMQ.matches].join('|');
-    if (lk !== lastKey) { lastKey = lk; layoutEnds(); layoutTags(); }
+    const lk = [geoKey, VW.k.toFixed(3), VW.C.map((v) => v.toFixed(0)), S.lum.toFixed(3), S.act > 0.5, Math.round(S.por * 20), model.hide, model.P2.toFixed(1), model.lymph.toFixed(1), Math.round(model.lyProt * 100), model.P1.toFixed(1), model.P3.toFixed(1), phoneMQ.matches, document.documentElement.style.getPropertyValue('--label-k')].join('|');
+    if (lk !== lastKey) { lastKey = lk; layoutEnds(); layoutTags(); declutter(); }
     fenTick();
     if (gpu) {
       const u = palette(dark, getComputedStyle(host));
