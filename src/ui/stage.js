@@ -984,23 +984,34 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // vessel dilates or narrows: a soft band just outside the wall that tapers to nothing at both ends (no caps, no box),
   // the vessel itself cut out so its own colour shows through.
   let pgN = 0;
+  // Cheap to keep up: the cut-out is a clip path (geometry, no offscreen mask image), and the band is only rebuilt
+  // when the vessel has moved or changed width by more than a hair (the band is soft and the cut sits inside the
+  // wall, so a lag that small never shows), so a still or gently pulsing vessel does not re-blur every frame.
   function makeGlow(id) {
     const key = `pg${++pgN}`, g = s('g', { class: 'pg-mark', 'aria-hidden': 'true' });
-    const mask = s('mask', { id: `${key}-k`, maskUnits: 'userSpaceOnUse', x: -4000, y: -4000, width: 12000, height: 12000 });
-    const all = s('rect', { x: -4000, y: -4000, width: 12000, height: 12000, fill: '#fff' }), cut = s('path', { fill: '#000' });
-    mask.append(all, cut);
+    const clip = s('clipPath', { id: `${key}-k`, clipPathUnits: 'userSpaceOnUse' }), cut = s('path', { 'clip-rule': 'evenodd' });
+    clip.append(cut);
     const blur = s('filter', { id: `${key}-b`, x: '-20%', y: '-20%', width: '140%', height: '140%' });
     blur.append(s('feGaussianBlur', { stdDeviation: 1.8 }));
-    const defs = s('defs'); defs.append(mask, blur);
-    const glow = s('path', { class: 'pg-glow', filter: `url(#${key}-b)`, mask: `url(#${key}-k)` });
-    g.append(defs, glow); g.style.display = 'none'; gOver.prepend(g);
+    const defs = s('defs'); defs.append(clip, blur);
+    // The clip goes on a wrapper, so it cuts the blurred band (on the path itself it would apply before the blur).
+    const glow = s('path', { class: 'pg-glow', filter: `url(#${key}-b)` }), held = s('g', { 'clip-path': `url(#${key}-k)` });
+    held.append(glow); g.append(defs, held); g.style.display = 'none'; gOver.prepend(g);
     const taper = (u) => smooth01(u / 0.22) * smooth01((1 - u) / 0.22);
+    let lastPts = null, lastR = -1;
+    const moved = (pts) => {
+      if (!lastPts || lastPts.length !== pts.length) return true;
+      for (let i = 0; i < pts.length; i++) if (Math.abs(pts[i][0] - lastPts[i][0]) > 0.35 || Math.abs(pts[i][1] - lastPts[i][1]) > 0.35) return true;
+      return false;
+    };
     return { id, g, paint() {
       const q = geo[id], x = E[id];
       if (!q?.cur || q.cur.length < 2 || !q.lit || !x) return;
       const r = (x.dopW || x.width || 8) / 2;
+      if (Math.abs(r - lastR) <= 0.35 && (q.cur === lastPts || !moved(q.cur))) return;
+      lastPts = q.cur; lastR = r;
       glow.setAttribute('d', tubeOutline(q.cur, q.lit, (u) => (r + 4.5) * taper(u) + 0.01));
-      cut.setAttribute('d', tubeOutline(q.cur, q.lit, () => Math.max(0.5, r - 0.6)));
+      cut.setAttribute('d', 'M-4000 -4000H8000V8000H-4000Z' + tubeOutline(q.cur, q.lit, () => Math.max(0.5, r - 0.6)));
     } };
   }
   function setGlow(list) {
