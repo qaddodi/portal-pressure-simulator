@@ -23,7 +23,7 @@ import { h, fmt, clamp, lerp } from './util.js?v=e803df99cd';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { isPaused } from './clock.js?v=77fb9815e5';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=708c5b7901';
+import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=8630385f70';
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
@@ -403,8 +403,9 @@ export function createSinusoidView({ host }) {
       const T = caption(key, 'sv-region sv-region-sin sv-end', name, value);
       const w = T.el.offsetWidth, hh = T.el.offsetHeight;
       let x, y;
-      // Its arrow (drawn by the shader) points with the flow, outside the label: upstream of the portal venule's (above it
-      // on a top-down sinusoid, left of it on a wide one), downstream of the central venule's (below it, right of it).
+      // Its arrow (drawn by the shader), outside the label, points toward the vessel off the view: the portal venule's
+      // above it on a top-down sinusoid (left of it on a wide one), pointing up (left); the central venule's below it
+      // (right of it), pointing down (right).
       const A = 22 + 10;   // (the arrow and its gaps, px)
       if (g.vert) { x = VW.C[0] - w / 2; y = u ? f.b - hh - A : f.t + A; }
       else { x = u ? f.r - w - 8 - A : f.l + 8 + A; y = VW.C[1] - hh / 2; }

@@ -394,8 +394,9 @@ void main() {
     // The arrows at the ends, beside their labels: the blood coming in from the portal venule and going out to the central venule.
     for (int i = 0; i < 2; i++) {
       float s = uEnd.z;
-      vec2 q = vec2((x - (i == 0 ? uEnd.x : uEnd.y)) * uDir, y);
-      // A thick, laid-down arrow pointing with the flow (into the portal venule's end, out past the central venule's): a short
+      // Each points toward its vessel, off the view: the portal venule's back upstream, the central venule's on downstream.
+      vec2 q = vec2((x - (i == 0 ? uEnd.x : uEnd.y)) * uDir * (i == 0 ? -1.0 : 1.0), y);
+      // A thick, laid-down arrow: a short
       // broad shaft and a wide head, softly rounded, in the labels' ink faded into the blood, as a journal figure marks flow.
       float dA = min(sdRB(q - vec2(-0.3 * s, 0.0), vec2(0.28 * s, 0.17 * s), 0.05 * s),
                      sdTri(q, vec2(0.52 * s, 0.0), vec2(0.0, 0.46 * s), vec2(0.0, -0.46 * s)) - 0.03 * s);
