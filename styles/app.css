@@ -1854,7 +1854,8 @@ button.finding:hover { background: var(--surface-2); }
 @media (prefers-reduced-transparency: reduce) { .pz-shade { background: color-mix(in srgb, var(--stage-bg) 94%, transparent); } }
 /* The data card is the same glass: see-through tint, the same blur, crisp edge with a hairline highlight, soft shadow. */
 .pz-data.pz-data { --pz-glass-edge: color-mix(in srgb, #fff 45%, transparent); --pz-glass-drop: rgb(0 0 0 / .14); background: color-mix(in srgb, var(--surface) 58%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); border-color: color-mix(in srgb, var(--text) 10%, transparent); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); }
-.pz-data .pz-tile:not(.key) { background: color-mix(in srgb, var(--surface-2) 52%, transparent); }
+/* The blocks stand out from the glass: a fill a shade toward the text colour (darker in light, lighter in dark) and a hairline edge. */
+.pz-data .pz-tile:not(.key) { background: color-mix(in srgb, color-mix(in srgb, var(--surface-2) 88%, var(--text)) 72%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 11%, transparent); }
 :root[data-theme="dark"] .pz-data.pz-data { --pz-glass-edge: color-mix(in srgb, #fff 12%, transparent); --pz-glass-drop: rgb(0 0 0 / .45); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pz-data.pz-data { --pz-glass-edge: color-mix(in srgb, #fff 12%, transparent); --pz-glass-drop: rgb(0 0 0 / .45); } }
 /* A faint halo of the page colour keeps the words crisp over a busy figure. */
@@ -2015,7 +2016,9 @@ button.finding:hover { background: var(--surface-2); }
 .pz-table .asc b[data-rate="hi"] { color: var(--danger); }
 .pz-table .asc small { font-size: .72em; }
 .pz-table .asc .none { color: var(--text-3); }
-.pz-table .pz-foot { padding: .7em 1em .8em; border-top: 1px solid var(--border); }
+.pz-table .pz-foot { position: sticky; left: 0; bottom: 0; padding: .7em 1em .8em; border-top: 1px solid var(--border); background: var(--surface); }
+/* (A long table's rows sit closer, so its legend fits under it; the legend stays pinned at the bottom if it still would not.) */
+.pz-table:has(tbody tr:nth-child(7)) tbody :is(th, td) { padding-block: .36em; }
 .pz-foot { margin: 0; font: 500 clamp(12px, calc(1.45vh / var(--vz)), 17px)/1.4 var(--font-ui); color: var(--text-3); }
 /* Counter, progress, controls, notes, black screen. */
 .pz-table td.note { font-size: .8em; color: var(--text-2); }
@@ -2173,6 +2176,10 @@ button.finding:hover { background: var(--surface-2); }
 .pz.stack .pz-data { left: 8px; right: 8px; top: auto; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); width: auto; max-height: 42%; gap: 6px; padding: 10px 12px; border-radius: 18px; }
 .pz.stack .pz-data.pz-hide { transform: translateY(18px); }
 .pz.stack .pz-dh { font-size: 11px; }
+.pz-fold { display: none; }
+.pz.stack .pz-data.has-tool:not(.tool-only) .pz-fold { display: inline-flex; align-items: center; min-height: 28px; margin: -6px -4px -6px auto; padding: 0 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--accent); font: inherit; letter-spacing: .05em; cursor: pointer; }
+.pz.stack .pz-data.has-tool:not(.tool-only) .pz-tool { max-height: 60vh; overflow: hidden; transition: max-height .36s var(--ease), opacity .26s var(--ease), margin .36s var(--ease); }
+.pz.stack .pz-data.has-tool:not(.tool-only):not(.tool-open) .pz-tool { max-height: 0; opacity: 0; margin-bottom: -6px; }
 .pz.stack .pz-ladder { max-height: calc(21vh / var(--vz)); }
 .pz.stack .pz-tile { padding: 6px 10px; }
 .pz.stack .pzt-v { font-size: min(24px, 30cqi); }
@@ -2211,6 +2218,11 @@ button.finding:hover { background: var(--surface-2); }
 .pz.stack .pz-count { display: none; }
 /* A slide's instrument (tool) in the data card: the instrument as the app draws it, without its controls. */
 .pz-data.has-tool { width: clamp(340px, 32vw, 620px); }
+/* An instrument with tiles under it (desktop): a narrower card with the tiles side by side, so the figure keeps more of the middle. */
+.pz:not(.stack):not(.port) .pz-data.has-tool:not(.tool-only) { width: clamp(320px, 27vw, 540px); }
+.pz:not(.stack):not(.port) .pz-data.has-tool:not(.tool-only) .pz-tiles { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
+.pz:not(.stack):not(.port) .pz-data.has-tool:not(.tool-only) .pz-tiles[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pz:not(.stack):not(.port) .pz-data.has-tool.tiles-only:not(.tool-only) .pzt-v { font-size: min(clamp(28px, calc(4.6vh / var(--vz)), 56px), 30cqi); }
 .pz-tool:not([data-kind]) { display: none; }
 .pz-data.tool-only .pz-tiles, .pz-data.tool-only .pz-ladder, .pz-data.tool-only .pz-lg { display: none; }
 .pz-tool .ab-main { display: block; }

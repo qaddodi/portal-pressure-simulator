@@ -10,7 +10,7 @@
 // that must be placed first), `auto` (opens by itself) and `show(c)` (conditional steps).
 
 import { store, updateParams, replaceParams } from './store.js?v=5edd069b32';
-import { host } from './host.js?v=10a9e8b390';
+import { host } from './host.js?v=4bb9b57859';
 import { h, openModal, closeModal, toast, svgIcon } from './util.js?v=e0101a3fa2';
 import { addRecord, exportCSV, exportXAPI } from './records.js?v=50fb9dd463';
 import { scoreCase, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=7f4afcf446';
@@ -22,7 +22,7 @@ import { trustLine, optionList, bindQuestionKeys } from './learning-kit.js?v=709
 import { course, setUnitSurface, unitBar } from './course.js?v=91c1512351';
 import { CASE_UNITS } from './cases/units.js?v=bde5f54566';
 import { activeInterventions } from './inspector.js?v=127b504390';
-import { captureFrame } from './timeline.js?v=f892ede38d';
+import { captureFrame } from './timeline.js?v=5aaa481577';
 import { createRoute, ladder, SITE_OF_GROUP } from './ladder.js?v=cab65850a4';
 import { SNAPSHOTS } from './snapshots.js?v=250aebd278';
 
