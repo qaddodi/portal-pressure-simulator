@@ -378,7 +378,7 @@ function makeCalc() {
   };
 }
 
-export function createPresenter({ startCase, cases = [], host, stage, projectorOn, projectorOff, closeHome, homeTab, reopenHome, rerenderHome }) {
+export function createPresenter({ startCase, cases = [], host, stage, projectorOn, projectorOff, closeHome, rerenderHome }) {
   const app = document.getElementById('app'), view = document.getElementById('stageView'), wrap = document.getElementById('stageWrap');
   let calc = null;
   const getCalc = () => (calc ||= makeCalc());
@@ -624,7 +624,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     paintChrome();
     if (!busy) run();
   }
-  const next = () => { const s = slides[want]; if (asking(s, wantRev)) go(want, true); else if (want < slides.length - 1) go(want + 1); };
+  const next = () => { const s = slides[want]; if (asking(s, wantRev)) go(want, true); else if (want < slides.length - 1) go(want + 1); else stop(); };
   const prev = () => { if (want > 0) go(want - 1); };
   async function run() {
     busy = true;
@@ -932,7 +932,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     return { snap, params: structuredClone(st.params), presetId: st.presetId, view: st.view, lobule: st.lobule, sinusoid: st.sinusoid, mode: st.mode,
       selection: st.selection, details: st.details, compareSnap: st.compareSnap, compareView: st.compareView, colorMode: st.colorMode,
       running: st.running, speed: st.speed, lapse: st.lapse, clock: st.clock, hvpgMeasured: st.hvpgMeasured, lastHVPG: st.lastHVPG,
-      labelK: stage.labelScale(), cam: stage.cameraState(), home: homeTab?.() ?? null };
+      labelK: stage.labelScale(), cam: stage.cameraState() };
   }
   async function start(id, at = 0) {
     const want0 = Math.max(0, (parseInt(at, 10) || 0));
@@ -980,7 +980,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     if (restore) saved = null;
   }
   // Back to the app as it was before the presentation: the patient and every setting, the view and its camera, the cards and
-  // sheets that were open, the sim running or paused (and a time-lapse), each easing in rather than jumping.
+  // sheets that were open (not Home, which launched the show and stays closed), the sim running or paused (and a time-lapse), each easing in rather than jumping.
   async function putBack(b) {
     const before = store.get(), ms = reduce.matches ? 0 : 380;
     // The patient changes behind a soft dim of the figure, as between slides, so nothing pops.
@@ -995,7 +995,6 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     if (before.lobule !== b.lobule) store.set({ lobule: b.lobule, sinusoid: b.sinusoid });
     else if (before.sinusoid !== b.sinusoid) store.set({ sinusoid: b.sinusoid });
     store.set({ selection: b.selection, details: b.details });
-    if (b.home) reopenHome?.(b.home);
     if (ms) { await wait(260); view.style.opacity = ''; await wait(ms + 60); view.style.transition = ''; }
   }
 
