@@ -308,6 +308,9 @@ svg { flex: none; }
    or a docked card (like the zoom pill). It sits in the stage right after the figure and on the figure's layer, so it
    draws over the figure in every view, the lobule included, but beneath every card, sheet, menu, popover and dialog.
    Decorative and non-interactive. */
+.collapse-banner { position: absolute; left: 50%; top: calc(var(--top-safe) + 8px); z-index: var(--z-hud); display: flex; flex-direction: column; gap: 2px; width: max-content; max-width: min(460px, calc(100% - 32px)); padding: 10px 16px; border-radius: var(--r-card); background: var(--surface); box-shadow: var(--shadow-2), inset 0 0 0 1px color-mix(in srgb, var(--danger) 35%, transparent); font-size: var(--fs-12); line-height: 1.4; color: var(--text-2); text-align: center; pointer-events: none; opacity: 0; visibility: hidden; transform: translate(-50%, -6px); transition: opacity .35s var(--ease), transform .35s var(--ease), visibility 0s linear .35s; }
+.collapse-banner b { font: 650 var(--fs-14) var(--font-ui); color: var(--danger); }
+.collapse-banner.on { opacity: 1; visibility: visible; transform: translate(-50%, 0); transition: opacity .35s var(--ease), transform .35s var(--ease), visibility 0s; }
 .stage-credit { position: absolute; left: calc(env(safe-area-inset-left, 0px) + 24px); bottom: max(calc(var(--bot-occ, 120px) + 8px), var(--sheet-h, 0px)); z-index: var(--z-figure); font-size: var(--fs-12); font-weight: 500; line-height: 1.4; letter-spacing: .01em; white-space: nowrap; color: color-mix(in srgb, var(--text) 45%, transparent); pointer-events: none; user-select: none; }
 
 /* ── Readouts: the live monitor under the figure ─────

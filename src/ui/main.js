@@ -273,6 +273,20 @@ function viewFrame(f) {
 let lastPaint = 0, lastDesc = 0, homeStale = false;
 // The Doppler's vessel glows on the figure while the Doppler instrument is open.
 function syncDoppler(f = store.get().frame) { stage?.setDoppler(f && dock?.isOpen('doppler') ? f.probe : null); }
+// Settings no patient could live through (circulatory collapse): a plain warning over the figure, so nobody
+// reads numbers off an impossible patient. Hysteresis keeps it from flickering at the edge.
+const COLLAPSE = { on: (m) => m.map < 45 || m.co < 1.5, off: (m) => m.map > 50 && m.co > 1.8 };
+let collapseEl = null, collapsed = false;
+function syncCollapse(m) {
+  if (!m || !Number.isFinite(m.map) || !Number.isFinite(m.co)) return;
+  const next = collapsed ? !COLLAPSE.off(m) : COLLAPSE.on(m);
+  if (!collapseEl) {
+    collapseEl = h('div', { class: 'collapse-banner', role: 'status', 'aria-live': 'polite' }, h('b', {}, 'This patient would not survive these settings'), h('span'));
+    document.getElementById('stageWrap')?.append(collapseEl);
+  }
+  if (next) collapseEl.lastChild.textContent = `Blood pressure ${fmt(m.map, 0)} mmHg and cardiac output ${fmt(m.co, 1)} L/min: the circulation has collapsed.`;
+  if (next !== collapsed) { collapsed = next; collapseEl.classList.toggle('on', next); }
+}
 function onFrame(f) {
   if (f.params) replaceParams(f.params);
   if (f.events?.length) { const hid = store.get().hiddenEvents; const ev = hid ? f.events.filter((e) => !hid.has(e.id) && !(hid.has('COLL_*') && e.id.startsWith('COLL_'))) : f.events; if (ev.length) timeline.addEvents(ev); }
@@ -284,6 +298,7 @@ function onFrame(f) {
   // Home covers the whole workspace: keep the latest frame, paint it when Home closes.
   if (home?.isOpen()) { homeStale = true; return; }
   stage.update(viewFrame(f));
+  syncCollapse(f.metrics);
   card.update(f);
   dock.update(f);
   syncDoppler(f);
