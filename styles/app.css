@@ -2546,7 +2546,7 @@ button.finding:hover { background: var(--surface-2); }
 .cath-label { position: absolute; left: 0; top: 0; display: inline-flex; flex-direction: column; align-items: center; gap: 1px; padding: 7px 16px 8px; border-radius: 14px; white-space: nowrap;
   --c: var(--text); background: var(--surface); color: var(--text); font: 500 12px var(--font-ui);
   box-shadow: 0 8px 24px rgba(16, 20, 30, .22), 0 0 0 2px color-mix(in srgb, var(--c) 70%, transparent);
-  translate: -50% calc(-100% - 18px); transition: opacity .4s var(--ease), scale .4s var(--ease); }
+  translate: -50% calc(-100% - 18px); transition: opacity .4s var(--ease), top .4s var(--ease); }
 /* A pointer down to the tip (or up to the wedged vein, for the reading ahead of it). */
 .cath-label::after { content: ''; position: absolute; left: calc(50% + clamp(-40%, var(--ax, 0px), 40%)); bottom: -8px; width: 14px; height: 14px; translate: -50% 0; rotate: 45deg;
   background: var(--surface); box-shadow: 2px 2px 0 0 color-mix(in srgb, var(--c) 70%, transparent); z-index: -1; }
@@ -2570,17 +2570,17 @@ button.finding:hover { background: var(--surface-2); }
 .cath-leads .lead-dot { stroke: var(--surface); stroke-width: 1.5; fill: var(--text-3); }
 .cath-leads .free { stroke: var(--tr-hv); } .cath-leads .lead-dot.free { fill: var(--tr-hv); stroke: var(--surface); }
 .cath-leads .wedge { stroke: var(--tr-wedge); } .cath-leads .lead-dot.wedge { fill: var(--tr-wedge); stroke: var(--surface); }
-.cath-sum-box { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 4px; transition: scale .4s var(--ease); }
+.cath-sum-box { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 4px; transition: top .4s var(--ease); }
 .cath-sum-col { display: flex; flex-direction: column; gap: 10px; }
 .cath-label.in-sum { position: relative; translate: none; transition: none; }
 .cath-label.in-sum::after { display: none; }
 .cath-brace { flex: none; overflow: visible; }
 .cath-brace path { fill: none; stroke: var(--text-3); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-/* A reading fades in when it appears and out when it goes (opacity and scale only). */
+/* A reading fades in when it appears and out when it goes (opacity and a few pixels of rise only). */
 .cath-label.cath-pre, .cath-sum.cath-pre { opacity: 0; }
-.cath-label.cath-pre { scale: .9; }
-.cath-sum.cath-pre .cath-sum-box { scale: .94; }
-@media (prefers-reduced-motion: reduce) { .cath-label, .cath-sum-box { transition-property: opacity; } .cath-label.cath-pre, .cath-sum.cath-pre .cath-sum-box { scale: 1; } }
+/* A small rise from just below, never a scale: scale composes with the positioning transform and would slide the box in from the corner. */
+.cath-label.cath-pre:not(.in-sum), .cath-sum.cath-pre .cath-sum-box { top: 6px; }
+@media (prefers-reduced-motion: reduce) { .cath-label, .cath-sum-box { transition-property: opacity; } .cath-label.cath-pre:not(.in-sum), .cath-sum.cath-pre .cath-sum-box { top: 0; } }
 /* HVPG procedure (Measure › HVPG): the monitor canvas, the readings and the four steps. */
 .instrument-view[data-pane="hvpg"] { gap: 10px; }
 .instrument-view[data-pane="hvpg"] > .hvpg-bar { grid-column: 1 / -1; }

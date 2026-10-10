@@ -3328,7 +3328,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const st = cath.st, at = cath.at;
     if (!st || !at) { cath.labels.replaceChildren(); cath.made?.clear(); return; }
     // Each label keeps its element while its key is shown (numbers update in place). A new key fades in
-    // (opacity and scale, eased); one that goes fades out before it is removed.
+    // (opacity and a small rise, eased); one that goes fades out before it is removed.
     const made = cath.made || (cath.made = new Map());
     const want = new Map((st.labels || []).map((l) => [l.key, l]));
     for (const [k, el] of made) if (!want.has(k)) { made.delete(k); el.classList.add('cath-pre'); setTimeout(() => el.remove(), 500); }
