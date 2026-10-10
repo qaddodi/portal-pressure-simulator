@@ -4,10 +4,10 @@
 
 import { store } from './store.js?v=49dc9cdf15';
 import { h, svgIcon, icon } from './util.js?v=a357853926';
-import { LESSONS } from './learn.js?v=ec3fed71bf';
+import { LESSONS } from './learn.js?v=6d1320233c';
 import { CASES } from './cases.js?v=fff85d98fc';
 import { createDrill, drillProgress, DRILL_TITLE, ROUNDS } from './drill.js?v=af9584165f';
-import { skillsPath, reviewCard } from './practice.js?v=d6dd0f041b';
+import { skillsPath, reviewCard } from './practice.js?v=83e0d7cd10';
 import { t } from '../i18n/i18n.js?v=3113b1ec12';
 import { exportCSV, exportXAPI, learnerName, setLearnerName, records } from './records.js?v=50fb9dd463';
 import { SNAPSHOTS, PATH } from './snapshots.js?v=34d1578d5f';

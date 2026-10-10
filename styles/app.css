@@ -3378,6 +3378,24 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .lesson .tour-route { margin: 4px 0 12px; }
 .lesson svg.tl-ladder { display: block; width: 100%; max-width: 380px; max-height: 210px; margin: 6px auto 12px; }
 .dye-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 12px; }
+.dr-v.dr-dial { display: inline-flex; align-items: center; gap: 8px; }
+.dr-dial svg { width: 64px; height: 35px; overflow: visible; }
+.dr-dial svg path { fill: none; stroke-width: 8; }
+.dr-dial .dz-ok { stroke: color-mix(in srgb, var(--ok) 70%, transparent); }
+.dr-dial .dz-mid { stroke: color-mix(in srgb, var(--caution) 80%, transparent); }
+.dr-dial .dz-hi { stroke: color-mix(in srgb, var(--danger) 80%, transparent); }
+.dr-dial .dn { stroke: var(--text); stroke-width: 3; stroke-linecap: round; transform-origin: 50px 46px; transition: transform .6s var(--ease); }
+.dr-dial circle { fill: var(--text); }
+.dr-dial[data-level="hi"] b { color: var(--danger); }
+@media (prefers-reduced-motion: reduce) { .dr-dial .dn { transition: none; } }
+.fluid-table { width: 100%; border-collapse: collapse; margin: 0 0 12px; font-size: var(--fs-14); }
+.fluid-table th, .fluid-table td { padding: 8px 6px; text-align: left; border-bottom: 1px solid var(--hairline); font-variant-numeric: tabular-nums; }
+.fluid-table thead th { font-size: var(--fs-12); color: var(--text-3); font-weight: 600; }
+.fluid-table tbody th { font-weight: 500; color: var(--text); }
+.fluid-table td { font-weight: 650; }
+.fluid-table td small { margin-left: 6px; font-weight: 500; color: var(--text-3); }
+.fluid-table td.hi { color: var(--danger); }
+.fluid-table td.lo { color: var(--accent-ink, var(--accent)); }
 .try-case { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 12px; padding: 12px 16px; border: 1px solid var(--accent); border-radius: var(--r-card); background: var(--accent-soft); color: var(--text); font: inherit; text-align: left; cursor: pointer; transition: background-color var(--t-fast) var(--ease); }
 .try-case:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
 .try-case small { display: block; font-size: var(--fs-12); color: var(--accent-ink, var(--accent)); font-weight: 600; }
@@ -3406,10 +3424,10 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .cs-body { gap: 10px; }
 .cs-q { font: 600 17px/24px var(--font-ui); }
 .cs-opt { padding: 10px 12px; font-size: 15px; }
-/* Phone lessons: the step card above and the instruments below each take about a third, so the figure keeps the middle */
+/* Phone lessons: the step card sits on the instrument sheet and the two share the bottom half, so the figure keeps the top half */
 @media (max-width: 767px) {
-  .app[data-mode="learn"] .instrument-workspace.float-ui:not(.side):not(.dragging) { height: min(var(--sheet-size, 56%), 40%); }
-  .app[data-mode="learn"] .coach { max-height: 36%; }
+  .app[data-mode="learn"] .instrument-workspace.float-ui:not(.side):not(.dragging) { height: min(var(--sheet-size, 56%), 27%); }
+  .app[data-mode="learn"] .coach { max-height: max(170px, calc(50% - var(--bot-occ, 120px))); }
   .coach .lesson.sheet .goal { padding: 6px 10px; margin-bottom: 6px; font-size: 14px; }
   .coach .lesson.sheet .lesson-foot { padding-top: 6px; margin-top: 4px; }
   .coach .lesson.sheet .lesson-foot .btn { min-height: 40px; }

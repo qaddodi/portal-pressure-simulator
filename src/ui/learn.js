@@ -127,74 +127,83 @@ export const LESSONS = [
     ],
   },
   {
-    id: 'inflow-and-drugs', title: 'Why the gut sends more blood, and how drugs help', minutes: 5,
+    id: 'inflow-and-drugs', title: 'Why the gut sends more blood, and how drugs help', minutes: 5, caseId: 'prevention',
     summary: 'Cirrhosis opens the gut’s arteries, so more blood pours into a stiff liver; beta blockers turn the inflow down.',
-    pearls: ['Portal hypertension is a stiff liver plus too much inflow.', 'Carvedilol is the preferred beta blocker to prevent decompensation.', 'Watch blood pressure in advanced disease.'],
+    pearls: ['Portal hypertension is a stiff liver plus too much inflow.', 'Carvedilol is the preferred beta blocker to prevent decompensation.', 'A fall in HVPG of 20 % or more, or to 12 or below, is a good response.', 'Watch blood pressure in advanced disease.'],
     steps: [
-      { type: 'frame', preset: 'csph', tools: ['select'], view: 'anatomic', zoom: 'fit', tab: 'profile', focus: ['A_SMA', 'SIN_RR', 'PV_TRUNK'], focusLabel: 'Gut inflow, liver, portal vein',
+      { sid: 'intro', type: 'frame', preset: 'csph', tools: ['select'], view: 'anatomic', zoom: 'fit', tab: 'scope', focus: ['A_SMA', 'SIN_RR', 'PV_TRUNK'], focusLabel: 'Gut inflow, liver, portal vein',
         data: [{ label: 'HVPG', metric: 'hvpg', unit: 'mmHg' }, { label: 'Portal flow', metric: 'pvFlow', d: 2, unit: 'L/min' }, { label: 'Heart rate', metric: 'hr', d: 0, unit: 'bpm' }, { label: 'Blood pressure', metric: 'map', d: 0, unit: 'mmHg' }],
-        text: 'Why does a heart drug, a beta blocker, prevent variceal bleeding? Here is a patient with compensated cirrhosis and a gradient above 10. Note the starting numbers.' },
+        text: 'Why does a heart drug, a beta blocker, prevent variceal bleeding? Here is a patient with compensated cirrhosis and a gradient above 10. The **Over time** chart traces her pressures as they go; note where they start.' },
       { type: 'predict', q: 'In cirrhosis, what are the arteries that supply the gut doing?', options: ['Wide open, sending more blood to the liver', 'Normal', 'Constricted, sending less blood to the liver', 'Closed in the area of the varices'], answer: 0,
         why: 'Cirrhosis dilates the gut’s arteries, so inflow rises on top of the stiff liver.' },
-      { type: 'do', tools: ['select'], text: 'Start **carvedilol** and keep propranolol off. Watch the pressure and the heart.', controls: ['drugs', 'drug:carvedilol', 'drug:propranolol', 'drug:terlipressin', 'drug:octreotide'],
+      { sid: 'carvedilol', type: 'do', preset: 'csph', tools: ['select'], tab: 'scope', text: 'Start **carvedilol** and keep the other drugs off. Watch the Over time chart.', controls: ['drugs', 'drug:carvedilol', 'drug:propranolol', 'drug:terlipressin', 'drug:octreotide'],
         data: [{ label: 'HVPG', metric: 'hvpg', unit: 'mmHg' }, { label: 'Portal flow', metric: 'pvFlow', d: 2, unit: 'L/min' }],
         goal: (f, p) => p.drugs.carvedilol && !p.drugs.propranolol && !p.drugs.terlipressin && !p.drugs.octreotide },
-      { type: 'observe', seconds: 8, preset: 'csph', params: { drugs: { carvedilol: true, propranolol: false, terlipressin: false, octreotide: false } }, tools: ['select'], tab: 'profile', focus: ['A_SMA', 'SIN_RR'], focusLabel: 'Inflow and liver',
-        data: [{ label: 'HVPG', metric: 'hvpg', unit: 'mmHg' }, { label: 'Blood pressure', metric: 'map', d: 0, unit: 'mmHg' }, { label: 'Heart rate', metric: 'hr', d: 0, unit: 'bpm' }],
-        text: 'Carvedilol: the portal pressure falls, the heart slows, and the blood pressure drops a little. It also relaxes the liver slightly.' },
-      { type: 'observe', seconds: 8, preset: 'csph', params: { drugs: { propranolol: true, carvedilol: false, terlipressin: false, octreotide: false } }, tools: ['select'], tab: 'profile', focus: ['A_SMA', 'SIN_RR'], focusLabel: 'Inflow and liver',
+      { sid: 'hvpg-response', type: 'observe', seconds: 8, tools: ['select'], tab: 'scope', focus: ['A_SMA', 'SIN_RR'], focusLabel: 'Inflow and liver',
+        data: [{ label: 'HVPG', metric: 'hvpg', unit: 'mmHg', pct: true }, { label: 'Heart rate', metric: 'hr', d: 0, unit: 'bpm' }, { label: 'Blood pressure', metric: 'map', d: 0, unit: 'mmHg' }],
+        text: 'Read the response on the chart: the gradient falls, the heart slows and the blood pressure dips a little. A fall of **20 % or more**, or to **12 or below**, counts as a response and goes with fewer bleeds. Carvedilol is usually started without measuring this.' },
+      { sid: 'propranolol', type: 'observe', seconds: 8, preset: 'csph', params: { drugs: { propranolol: true, carvedilol: false, terlipressin: false, octreotide: false } }, tools: ['select'], tab: 'scope', focus: ['A_SMA', 'SIN_RR'], focusLabel: 'Inflow and liver',
         data: [{ label: 'HVPG', metric: 'hvpg', unit: 'mmHg' }, { label: 'Blood pressure', metric: 'map', d: 0, unit: 'mmHg' }, { label: 'Heart rate', metric: 'hr', d: 0, unit: 'bpm' }],
         text: 'Propranolol on the same patient: it lowers the pressure through slower inflow alone, and a little less than carvedilol.' },
       { type: 'explain', metric: 'hvpg', text: 'Cirrhosis opens the gut’s arteries, so more blood pours into a stiff liver. Beta blockers turn the inflow down. Carvedilol also relaxes the liver, which is why it is preferred.' },
       { type: 'check', quiz: [
         { q: 'A 58-year-old has compensated cirrhosis, a gradient of 14, no varices that have bled, and no asthma. What is the best next step?', options: ['Start carvedilol', 'Band ligation now', 'Place a TIPS', 'Observe and repeat the scope in 3 years'], answer: 0, why: 'With clinically significant portal hypertension, carvedilol lowers the risk of a first decompensation. Banding is for those who cannot take it.' },
+        { q: 'On carvedilol, a patient’s gradient falls from 18 to 13 mmHg. How do you read it?', options: ['A response: it fell by more than 20 %', 'No response: it is still above 12', 'A response only if it falls below 5', 'The drug has failed and should be stopped'], answer: 0, why: 'A fall of 20 % or more from the start, or to 12 or below, is a response. 18 to 13 is a 28 % fall.' },
         { q: 'A man with decompensated cirrhosis and refractory ascites has a blood pressure of 88/52 on carvedilol. What do you do?', options: ['Reduce or stop the beta blocker', 'Double the dose to protect his varices', 'Add a second beta blocker', 'Continue unchanged because the pressure is expected'], answer: 0, why: 'Low blood pressure on a beta blocker puts the kidneys at risk. Reduce or stop it, and protect the varices with banding.' },
       ] },
     ],
   },
   {
-    id: 'varices', title: 'Varices: where they form and why they bleed', minutes: 6,
-    summary: 'Large varices with red signs and a sick liver bleed; bands remove the varix, drugs treat the pressure behind it.',
-    pearls: ['Size, red signs and Child–Pugh class predict bleeding.', 'Bands treat the varix; drugs treat the pressure.', 'Collaterals take months to grow.'],
+    id: 'varices', title: 'Varices: where they form and why they bleed', minutes: 6, caseId: 'prevention',
+    summary: 'Large varices with red signs and a sick liver bleed; bands remove the varix, lowering the pressure shrinks them.',
+    pearls: ['Size, red signs and Child–Pugh class predict bleeding.', 'Bands treat the varix; drugs and treating the cause treat the pressure.', 'Varices grow and shrink with the gradient, over months.'],
     steps: [
-      { type: 'frame', preset: 'csph', tools: ['select', 'endoscope'], view: 'anatomic', zoom: 'fit', tab: 'endoscopy', focus: ['C1b'], focusLabel: 'Esophageal varix',
-        data: [{ label: 'Varix size', metric: (m) => m.varix.d, fmt: (d) => `${Math.round(d)} mm` }],
-        text: 'A 55-year-old with cirrhosis has a screening scope. Portal blood that cannot get through the stiff liver is rerouted through collateral veins, and the ones under the lining of the esophagus swell into **varices**. His are still thin (size below). Which varices go on to bleed?' },
-      { type: 'predict', q: 'Which varix is most likely to bleed?', options: ['Small, flat, no red signs, mild liver disease', 'Large, red wale signs, advanced liver disease', 'Large, no red signs, mild liver disease', 'Small with red signs, mild liver disease'], answer: 1,
+      { sid: 'intro', type: 'frame', preset: 'csph', tools: ['select', 'endoscope'], view: 'anatomic', zoom: 'fit', tab: 'endoscopy', focus: ['C1b'], focusLabel: 'Esophageal varix',
+        data: [{ label: 'Varix size', metric: (m) => m.varix.d, fmt: (d) => `${Math.round(d)} mm` }, { label: 'Wall tension', metric: (m) => m.varix.ratio, dial: true }],
+        text: 'A 55-year-old with cirrhosis has a screening scope. Portal blood that cannot get through the stiff liver is rerouted through collateral veins, and the ones under the lining of the esophagus swell into **varices**. His are still thin. The dial reads the tension in the varix wall. Which varices go on to bleed?' },
+      { sid: 'bleed-risk', type: 'predict', q: 'Which varix is most likely to bleed?', options: ['Small, flat, no red signs, mild liver disease', 'Large, red wale signs, advanced liver disease', 'Large, no red signs, mild liver disease', 'Small with red signs, mild liver disease'], answer: 1,
         why: 'Size, red signs and a sicker liver together carry the highest risk.' },
-      { type: 'observe', days: 180, params: { cirrhosis: 0.85 }, tools: ['select', 'endoscope'], tab: 'endoscopy', focus: ['C1a', 'C1b', 'C3', 'C6'], focusLabel: 'Collateral veins',
-        data: [{ label: 'Varix size', metric: (m) => m.varix.d, fmt: (d) => `${Math.round(d)} mm` }, { label: 'Varix wall tension', metric: (m) => m.varix.ratio, fmt: (r) => (r < 0.6 ? 'Low' : r < 1 ? 'Moderate' : 'High') }, { label: 'Portal pressure', metric: 'pv', unit: 'mmHg' }],
-        text: 'Six months on, his liver has scarred further. Watch the scope: the varix has grown, its wall has thinned and red marks have appeared. The collaterals ease the pressure a little, but it stays high.' },
-      { type: 'do', tools: ['select', 'band', 'endoscope'], tab: 'endoscopy', focus: ['C1b'], focusLabel: 'Esophageal varix',
-        text: '**Band** the esophageal varix and watch the endoscopy view and the pressure.',
-        data: [{ label: 'Varix wall tension', metric: (m) => m.varix.ratio, fmt: (r) => (r < 0.6 ? 'Low' : r < 1 ? 'Moderate' : 'High') }, { label: 'Portal pressure', metric: 'pv', unit: 'mmHg' }],
+      { sid: 'grow', type: 'observe', preset: 'csph', lapse: { days: 180, speed: 15, ramp: { cirrhosis: [0.6, 0.85] } }, tools: ['select', 'endoscope'], tab: 'endoscopy', focus: ['C1a', 'C1b', 'C3', 'C6'], focusLabel: 'Collateral veins',
+        data: [{ label: 'Varix size', metric: (m) => m.varix.d, fmt: (d) => `${Math.round(d)} mm` }, { label: 'Wall tension', metric: (m) => m.varix.ratio, dial: true }, { label: 'HVPG', metric: 'hvpg', unit: 'mmHg' }],
+        text: 'Time-lapse: six months while his liver scars further and the gradient climbs. Watch the scope: the varix grows, its wall thins, red marks appear, and the tension dial swings toward red.' },
+      { sid: 'band', type: 'do', preset: 'cirr-decomp', tools: ['select', 'band', 'endoscope'], tab: 'endoscopy', focus: ['C1b'], focusLabel: 'Esophageal varix',
+        text: 'His varices are now large, with red signs. **Band** the esophageal varix and watch the endoscopy view and the pressure.',
+        data: [{ label: 'Wall tension', metric: (m) => m.varix.ratio, dial: true }, { label: 'HVPG', metric: 'hvpg', unit: 'mmHg' }],
         goal: (f, p, log) => log.some((a) => a.type === 'action' && a.target === 'band') },
       { type: 'observe', seconds: 8, tools: ['select', 'endoscope'], tab: 'endoscopy', focus: ['C1b'], focusLabel: 'Esophageal varix',
-        data: [{ label: 'Varix wall tension', metric: (m) => m.varix.ratio, fmt: (r) => (r < 0.6 ? 'Low' : r < 1 ? 'Moderate' : 'High') }, { label: 'Portal pressure', metric: 'pv', unit: 'mmHg' }],
-        text: 'The banded varix is treated, yet the pressure behind it has not changed.' },
-      { type: 'explain', metric: 'varix', tools: ['select'], text: 'A big, thin-walled varix under high pressure is a balloon about to pop. Banding removes the balloon but does not lower the pressure that made it.' },
+        data: [{ label: 'Wall tension', metric: (m) => m.varix.ratio, dial: true }, { label: 'HVPG', metric: 'hvpg', unit: 'mmHg' }],
+        text: 'The banded varix is treated, yet the gradient behind it has not changed. New varices can form while it stays high.' },
+      { sid: 'shrink', type: 'observe', preset: 'cirr-decomp', params: { cirrhosis: 0.85 }, lapse: { days: 360, speed: 30, ramp: { cirrhosis: [0.85, 0.5] } }, tools: ['select', 'endoscope'], tab: 'endoscopy', focus: ['C1a', 'C1b'], focusLabel: 'Esophageal varices',
+        data: [{ label: 'Varix size', metric: (m) => m.varix.d, fmt: (d) => `${Math.round(d)} mm` }, { label: 'Wall tension', metric: (m) => m.varix.ratio, dial: true }, { label: 'HVPG', metric: 'hvpg', unit: 'mmHg' }],
+        text: 'Another patient, whose cause was removed: he stopped drinking. Time-lapse a year as his liver slowly softens. The gradient falls, and the varices shrink with it.' },
+      { type: 'explain', metric: 'varix', tools: ['select'], text: 'A big, thin-walled varix under high pressure is a balloon about to pop. Banding removes the balloon but does not lower the pressure that made it. Lowering the gradient, with a beta blocker or by treating the cause, is what shrinks varices and keeps new ones from forming.' },
       { type: 'check', quiz: [
-        { q: 'A patient has had banding and the varices are gone. What still needs treatment?', options: ['The portal pressure, with a beta blocker', 'Nothing, banding cures portal hypertension', 'Repeat banding every week for life', 'The platelet count'], answer: 0, why: 'Bands remove the varix, not the pressure. A beta blocker treats the pressure and stops new varices forming.' },
+        { q: 'After a variceal bleed, a patient’s varices have been banded away. What still needs treatment?', options: ['The portal pressure, with a beta blocker', 'Nothing, banding cures portal hypertension', 'Repeat banding every week for life', 'The platelet count'], answer: 0, why: 'Bands remove the varix, not the pressure. After a bleed, a beta blocker is combined with banding to lower the pressure and stop new varices forming.' },
         { q: 'During endoscopy you see a varix that is 10 mm across with red wale signs in a Child–Pugh C patient. How do you read this?', options: ['High risk of bleeding: treat now', 'Low risk: observe', 'Risk depends only on bilirubin', 'A bleed is excluded if the stool is normal'], answer: 0, why: 'Large size, red signs and Child–Pugh C each raise the risk, and together they make bleeding likely.' },
       ] },
     ],
   },
   {
-    id: 'ascites', title: 'Ascites: where the fluid comes from', minutes: 6,
+    id: 'ascites', title: 'Ascites: where the fluid comes from', minutes: 7, caseId: 'new-ascites',
     summary: 'Tap every new ascites: the gradient says portal hypertension and the protein says where the block is.',
-    pearls: ['Tap every new ascites.', 'High gradient means portal hypertension; protein tells you where.', 'Give albumin with large taps; diuretics and salt restriction keep the fluid from returning.'],
+    pearls: ['Tap every new ascites.', 'High SAAG means portal hypertension; protein tells you where.', 'A scarred sinusoid holds protein back; a congested, healthy one lets it through.', 'Give albumin with large taps; diuretics and salt restriction keep the fluid from returning.'],
     steps: [
-      { type: 'frame', preset: 'cirr-decomp', params: { diuretics: false }, afterDays: 300, tools: ['select'], view: 'anatomic', zoom: 'fit', tab: 'abdomen', focus: ['SIN_RR', 'IVC_IS'], focusLabel: 'Liver and abdomen',
+      { sid: 'intro', type: 'frame', preset: 'cirr-decomp', params: { diuretics: false }, afterDays: 300, tools: ['select'], view: 'anatomic', zoom: 'fit', tab: 'abdomen', focus: ['SIN_RR', 'IVC_IS'], focusLabel: 'Liver and abdomen',
         data: [{ label: 'Ascites', metric: 'ascites.volume', d: 0, unit: 'mL' }],
         text: 'A man with cirrhosis has a swollen belly: about 4 litres of new ascites (below). Fluid leaks from congested vessels faster than the lymph can drain it.' },
-      { type: 'predict', q: 'What is the one test you always do in a patient with new ascites?', options: ['A diagnostic tap of the fluid', 'A CT of the abdomen', 'An albumin infusion', 'A trial of diuretics, then reassess'], answer: 0,
+      { sid: 'tap', type: 'predict', q: 'What is the one test you always do in a patient with new ascites?', options: ['A diagnostic tap of the fluid', 'A CT of the abdomen', 'An albumin infusion', 'A trial of diuretics, then reassess'], answer: 0,
         why: 'The fluid tells you whether the pressure is portal, and where the block lies.' },
-      { type: 'observe', seconds: 8, tools: ['select'], tab: 'abdomen', zoom: 'fit', focus: ['SIN_RR', 'IVC_IS'], focusLabel: 'Liver and abdomen',
+      { sid: 'sinusoid-scarred', type: 'observe', seconds: 10, preset: 'cirr-decomp', tools: ['select'], zoom: 'lobule', sinusoid: true,
+        text: 'Inside one sinusoid of his liver. Normally its lining is full of pores, and albumin passes freely into the space around it. Scar has sealed most of them: water still seeps out, but albumin (amber) is turned back at the wall. So the fluid that reaches his belly is **low in protein**.' },
+      { type: 'predict', q: 'A woman has Budd–Chiari: her hepatic veins are blocked, but her liver is not scarred. Will her ascites be high or low in protein?', options: ['High: the open pores let albumin through', 'Low, like cirrhosis', 'There is no ascites when the veins are blocked', 'It has no protein at all'], answer: 0,
+        why: 'Congestion drives fluid out of sinusoids whose pores are still open, and albumin goes with it.' },
+      { sid: 'sinusoid-outflow', type: 'observe', seconds: 10, preset: 'budd-chiari', tools: ['select'], zoom: 'lobule', sinusoid: true,
+        text: 'Her sinusoid: congested from the blocked outflow, with its pores still open. Water and albumin pour into the space around it, so her ascites is **rich in protein**. Heart failure looks the same from here.' },
+      { sid: 'read-fluid', type: 'frame', preset: 'cirr-decomp', tools: ['select'], zoom: 'fit', tab: 'abdomen', fluids: ['cirr-decomp', 'budd-chiari', 'rhf'],
+        text: 'Read the tap in two steps. The **SAAG** compares albumin in the blood with albumin in the fluid: a gap of 1.1 g/dL or more means portal hypertension, as in all three patients below. Then the **protein** says where: low (under 2.5 g/dL) in cirrhosis, high when the block is after the liver or at the heart.' },
+      { sid: 'drain', type: 'do', preset: 'cirr-decomp', params: { diuretics: false }, afterDays: 300, tools: ['select', 'needle'], tab: 'abdomen', focus: ['IVC_IS'], focusLabel: 'Abdomen',
         data: [{ label: 'Ascites', metric: 'ascites.volume', d: 0, unit: 'mL' }, { label: 'Abdominal pressure', metric: 'ascites.iap', d: 1, unit: 'mmHg' }],
-        text: 'Cirrhosis. The tap shows a serum–ascites albumin gradient (**SAAG**) of 1.1 or more and **low** protein. A high SAAG means portal hypertension. In heart failure the SAAG is also high, but the protein is **high**. In schistosomiasis there is little ascites, because the sinusoids are spared.' },
-      { type: 'do', tools: ['select', 'needle'], tab: 'abdomen', focus: ['IVC_IS'], focusLabel: 'Abdomen',
-        data: [{ label: 'Ascites', metric: 'ascites.volume', d: 0, unit: 'mL' }, { label: 'Abdominal pressure', metric: 'ascites.iap', d: 1, unit: 'mmHg' }],
-        text: 'Remove **5 litres** with albumin (**Drain**, albumin on). Watch the belly and the pressure.',
+        text: 'Back to the man with cirrhosis. Remove **5 litres** with albumin (**Drain**, albumin on). Watch the belly and the pressure.',
         goal: (f, p, log) => log.some((a) => a.type === 'action' && a.target === 'paracentesis'), hint: 'The volume removed is the smaller of 5 L and the fluid present.' },
       { type: 'observe', days: 90, tools: ['select'], zoom: 'fit', tab: 'abdomen',
         data: [{ label: 'Ascites', metric: 'ascites.volume', d: 0, unit: 'mL' }, { label: 'Abdominal pressure', metric: 'ascites.iap', d: 1, unit: 'mmHg' }],
@@ -202,6 +211,7 @@ export const LESSONS = [
       { type: 'explain', metric: 'ascites', text: 'Draining fluid relieves the belly but does not treat the liver’s resistance. Diuretics and salt restriction keep the fluid from returning, and albumin protects the kidneys during large taps.' },
       { type: 'check', quiz: [
         { q: 'A patient has a SAAG of 1.6, ascitic protein of 3.2 g/dL and a raised JVP. What is the next test?', options: ['An echocardiogram', 'A repeat tap with cultures', 'A CT of the liver', 'A liver biopsy'], answer: 0, why: 'High SAAG with high protein means the block is after the liver. A raised JVP points to the heart.' },
+        { q: 'Why is ascitic protein low in cirrhosis?', options: ['Scarred sinusoids hold albumin back', 'The liver makes no albumin at all', 'Diuretics remove the protein', 'The fluid comes from the bowel'], answer: 0, why: 'Scar seals the pores of the sinusoid lining, so water leaks out but albumin stays in the blood.' },
         { q: 'A patient with cirrhosis has 6 litres of ascites tapped, with no albumin. What is the main risk?', options: ['Kidney injury from the fluid shift', 'The fluid never returns', 'Immediate variceal bleeding', 'Low sodium from the diuretics'], answer: 0, why: 'Taking off more than 5 L without albumin can drop the circulating volume and injure the kidneys.' },
       ] },
     ],
@@ -321,7 +331,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
   let dataTimer = 0;
   function dataRow(items) {
     const val = (it, m) => (typeof it.metric === 'function' ? it.metric(m) : it.metric.split('.').reduce((a, k) => a?.[k], m));
-    const cells = items.map((it) => h('span', { class: 'dr-v' }, '—'));
+    const cells = items.map((it) => h('span', { class: 'dr-v' + (it.dial ? ' dr-dial' : '') }, '—'));
     const show = (it, v) => (v == null ? '—' : it.fmt ? it.fmt(v) : `${fmt(v, it.d ?? 1)} ${it.unit || ''}`.trim());
     // On a step where something happens (do, observe), each number also says where it started, so the
     // change is read off the card instead of remembered.
@@ -330,14 +340,62 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
       const m = store.get().frame?.metrics; if (!m) return;
       items.forEach((it, i) => {
         const v = val(it, m), now = show(it, v);
+        if (it.dial) { paintDial(cells[i], v); return; }
         if (base && v != null && !(it.label in base)) base[it.label] = v;
         const b = base?.[it.label], was = b == null ? now : show(it, b);
         const moved = was !== now && (typeof v !== 'number' || it.fmt || Math.abs(v - b) >= Math.max(0.5, 0.05 * Math.abs(b)));
-        cells[i].replaceChildren(now, moved ? h('small', { class: 'dr-was' }, `${v > b ? '↑' : '↓'} from ${was}`) : '');
+        const pct = it.pct && b ? ` ${Math.round((Math.abs(v - b) / Math.abs(b)) * 100)} %,` : '';
+        cells[i].replaceChildren(now, moved ? h('small', { class: 'dr-was' }, `${v > b ? '↑' : '↓'}${pct} from ${was}`) : '');
       });
     };
     clearInterval(dataTimer); upd(); dataTimer = setInterval(upd, 400);
     return h('dl', { class: 'kv data-row', 'aria-live': 'off' }, items.flatMap((it, i) => [h('dt', {}, it.label), h('dd', {}, cells[i])]));
+  }
+
+  // Varix wall tension as a dial: the needle eases between readings (0 to 150 % of the rupture stress).
+  const DIAL_ZONES = [[0, 0.6, 'ok'], [0.6, 1, 'mid'], [1, 1.5, 'hi']];
+  function paintDial(cell, r) {
+    const k = Math.max(0, Math.min(1, (r ?? 0) / 1.5)), word = r == null ? '—' : r < 0.6 ? 'Low' : r < 1 ? 'Moderate' : 'High';
+    const arc = (a, b) => { const p = (t) => [50 - 40 * Math.cos(Math.PI * t), 46 - 40 * Math.sin(Math.PI * t)]; const [x0, y0] = p(a / 1.5), [x1, y1] = p(b / 1.5); return `M${x0.toFixed(1)} ${y0.toFixed(1)} A40 40 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`; };
+    let svg = cell.querySelector('svg');
+    if (!svg) {
+      cell.innerHTML = `<svg viewBox="0 0 100 54" aria-hidden="true">${DIAL_ZONES.map(([a, b, c]) => `<path class="dz-${c}" d="${arc(a, b)}"/>`).join('')}<line class="dn" x1="50" y1="46" x2="50" y2="12"/><circle cx="50" cy="46" r="3.5"/></svg><b></b>`;
+      svg = cell.querySelector('svg');
+    }
+    svg.querySelector('.dn').style.transform = `rotate(${(k * 180 - 90).toFixed(1)}deg)`;
+    cell.querySelector('b').textContent = word;
+    cell.dataset.level = r == null ? '' : r < 0.6 ? 'ok' : r < 1 ? 'mid' : 'hi';
+  }
+  // Ascitic fluid for several patients side by side (the model's own values), read without an equation.
+  function fluidTable(ids) {
+    const row = (id) => { const f = SNAPSHOTS[id]?.fp; if (!f) return null;
+      const name = store.get().presetList?.find((p) => p.id === id)?.label || id;
+      return h('tr', {}, h('th', {}, name), h('td', { class: f.saag >= 1.1 ? 'hi' : 'ok' }, `${fmt(f.saag, 1)}`, h('small', {}, f.saag >= 1.1 ? 'portal' : 'not portal')), h('td', { class: f.tp >= 2.5 ? 'hi' : 'lo' }, `${fmt(f.tp, 1)}`, h('small', {}, f.tp >= 2.5 ? 'high' : 'low'))); };
+    return h('table', { class: 'fluid-table' }, h('thead', {}, h('tr', {}, h('th', {}, 'Patient'), h('th', {}, 'SAAG g/dL'), h('th', {}, 'Protein g/dL'))), h('tbody', {}, ids.map(row)));
+  }
+  const endLapse = () => { if (store.get().lapse) { store.set({ lapse: 0 }); host.send({ type: 'run', running: true, speed: 1, clock: 'hemo' }); } };
+  // A time-lapse: the disease clock runs fast while the step eases its params from one value to the next.
+  function runLapse(st) {
+    const { days, speed = 15, ramp = {} } = st.lapse, f0 = store.get().frame, d0 = f0?.day ?? 0;
+    store.set({ lapse: speed });
+    host.send({ type: 'run', running: true, speed, clock: 'disease' });
+    let lastK = -1;
+    pollTimer = setInterval(() => {
+      if (lesson?.steps[idx] !== st) { clearInterval(pollTimer); return; }
+      const d = store.get().frame?.day ?? d0, k = Math.min(1, Math.max(0, (d - d0) / days));
+      if (k - lastK >= 0.04 || (k >= 1 && lastK < 1)) {
+        lastK = k;
+        const patch = Object.fromEntries(Object.entries(ramp).map(([key, [a, b]]) => [key, a + (b - a) * k]));
+        if (Object.keys(patch).length) updateParams(patch, { history: false });
+      }
+      const month = Math.floor((d - d0) / 30);
+      state.lapseDays = Math.round(d - d0);
+      if (month !== state.lapseMonth) { state.lapseMonth = month; render(); }
+      if (k >= 1) {
+        clearInterval(pollTimer); endLapse();
+        state.observed = true; render();
+      }
+    }, 250);
   }
 
   function openList() { render(); }
@@ -352,7 +410,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     idx = at >= 0 ? at : /^\d+$/.test(step || '') ? Math.min(lesson.steps.length - 1, Math.max(0, +step - 1)) : 0; state = {}; perms = {}; snaps.length = 0; answers = createAnswerSheet(); t0 = Date.now();
     unbindKeys?.(); unbindKeys = bindQuestionKeys(() => cardEl);
     sheetMin = false;
-    await enter();
+    await enter({ deep: idx > 0 });
     if (!asSheet.matches) openPanel?.('chart');
     panel.scrollTop = 0;
   }
@@ -360,7 +418,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     lesson = null;
     mirror?.el.remove(); mirror = null; blindOff(); unbindKeys?.(); unbindKeys = null; cardEl = null;
     coach?.replaceChildren(); if (coach) coach.dataset.safe = 'top'; liftOver(null);
-    clearInterval(pollTimer); clearInterval(dataTimer);
+    clearInterval(pollTimer); clearInterval(dataTimer); endLapse();
     store.set({ locked: null, hiddenReadouts: null });
     setAllowedTools(null);
     dock.profile.clearPredict();
@@ -371,9 +429,12 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     onEnd?.();
   }
 
-  async function enter({ replay = false } = {}) {
+  async function enter({ replay = false, deep = false } = {}) {
     const st = lesson.steps[idx];
-    clearInterval(pollTimer); clearInterval(dataTimer);
+    // A deep link into a step that builds on the ones before it starts from their patient.
+    let src = st;
+    if (deep && !st.preset) for (let k = idx - 1; k >= 0; k--) if (lesson.steps[k].preset) { src = lesson.steps[k]; break; }
+    clearInterval(pollTimer); clearInterval(dataTimer); endLapse();
     mirror?.el.remove(); mirror = null; blindOff();
     // An observe step that watches the result of the step before it keeps that step's starting numbers.
     const carry = st.type === 'observe' && !st.preset && lesson.steps[idx - 1]?.type === 'do' ? { ...(state.base || {}) } : undefined;
@@ -381,7 +442,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     // One executor for the whole step state (sequence.js): reset → patch → settle → snapshot, then
     // the step is exposed. The snapshot Replay returns to is taken after the worker acknowledged
     // the patch, so it carries the patch with it.
-    const seq = await runSequence({ preset: st.preset, presetDays: st.presetDays, params: st.params, days: st.afterDays, label: st.title }, { loadPreset, action }, { reset: !replay });
+    const seq = await runSequence({ preset: src.preset, presetDays: src.presetDays, params: src === st ? st.params : { ...src.params, ...st.params }, days: src.afterDays, label: st.title }, { loadPreset, action }, { reset: !replay });
     if (!lesson || lesson.steps[idx] !== st) return;
     if (!replay) snaps[idx] = { snap: seq.snap, params: seq.params };
     state.logStart = store.get().actionLog?.length || 0;
@@ -420,7 +481,8 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     if (st.type === 'observe') {
       host.send({ type: 'run', running: true, clock: 'hemo' });
       if (st.reveal) dock.profile.endPredict(true);
-      if (st.days) { host.send({ type: 'advance', days: st.days }); state.observed = true; }
+      if (st.lapse) runLapse(st);
+      else if (st.days) { host.send({ type: 'advance', days: st.days }); state.observed = true; }
       else setTimeout(() => { if (lesson?.steps[idx] === st) { state.observed = true; render(); } }, st.seconds * 1000);
     }
     if (st.type === 'explain' && !st.text) {
@@ -534,6 +596,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     if (idx === 0) body.push(trustLine());
     if (st.text) body.push(h('p', {}, md(st.text)));
     if (st.data && !isBlind()) body.push(dataRow(st.data), teachChip());
+    if (st.fluids) body.push(fluidTable(st.fluids));
     let canNext = true, asking = false;
     if (st.type === 'predict' && !st.mode) {
       body.push(h('p', { class: 'q' }, st.q));
@@ -575,7 +638,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     }
     if (st.type === 'observe') {
       canNext = state.observed;
-      if (!state.observed) body.push(h('div', { class: 'goal waiting' }, h('span', { class: 'chk' }, svgIcon('check')), st.days ? `Running ${st.days} simulated days…` : 'Watching the model…'));
+      if (!state.observed) body.push(h('div', { class: 'goal waiting' }, h('span', { class: 'chk' }, svgIcon('check')), st.lapse ? `Time-lapse: month ${Math.min(Math.round(st.lapse.days / 30), Math.floor((state.lapseDays || 0) / 30) + 1)} of ${Math.round(st.lapse.days / 30)}…` : st.days ? `Running ${st.days} simulated days…` : 'Watching the model…'));
       else if (st.reveal) { const err = dock.profile.predictionError(); if (err != null) body.push(h('div', { class: 'feedback' }, `Your prediction was off by `, h('b', {}, `${fmt(err, 1)} mmHg`), ' on average.')); }
     }
     if (st.type === 'explain') {
