@@ -45,6 +45,8 @@ import { LOBULE } from './decks/lobule.js?v=657b69955e';
 import { SHUNTS } from './decks/shunts.js?v=a0764ff6d0';
 import { TAP } from './decks/tap.js?v=90280ceb39';
 import { CIRCUIT } from './decks/circuit.js?v=4e9956be9e';
+import { DOPPLER } from './decks/doppler.js?v=a30ddaa424';
+import { ENDOSCOPY } from './decks/endoscopy.js?v=b18a2f0005';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {
@@ -570,3 +572,4 @@ export const DECKS = [
 ];
 
 DECKS.push(STIFFNESS, ONE_YEAR, TAP, CIRCUIT, LOBULE, SHUNTS);
+DECKS.push(DOPPLER, ENDOSCOPY);
