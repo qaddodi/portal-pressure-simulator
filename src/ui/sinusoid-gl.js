@@ -348,10 +348,13 @@ vec4 hsc(vec2 p) {
 // A smooth, rounded body on a foot spread over the endothelium, two short blunt pseudopods, a kidney-shaped nucleus,
 // a phagosome holding a red cell it has taken up, a few lysosomes; flat, slightly translucent, a fine membrane line.
 float sdKup0(vec2 q) {
-  float d = sdE(q - vec2(0.2, -2.7), vec2(3.5, 2.6));                                   // the body, a rounded dome
-  d = smin(d, sdE(q - vec2(0.0, -0.4), vec2(3.6, 0.42)), 1.6);                          // its foot, a gentle skirt on the lining
-  d = smin(d, length(q - vec2(-2.9, -3.9)) - 1.15, 1.6);                                 // two soft, rounded pseudopod lobes
-  d = smin(d, length(q - vec2(2.5, -4.7)) - 0.95, 1.6);
+  float d = sdE(q - vec2(0.0, -2.5), vec2(2.9, 2.2));                                   // the body, a smooth dome
+  d = smin(d, sdE(q - vec2(0.0, -0.4), vec2(3.4, 0.45)), 1.4);                          // its foot, a gentle skirt on the lining
+  // A few slender pseudopods, tapering out of the body: two along the lining, two reaching into the stream.
+  d = smin(d, sdTaper(q, vec2(-2.4, -0.7), vec2(-6.6, -0.35), 0.62, 0.1), 0.9);
+  d = smin(d, sdTaper(q, vec2(2.4, -0.7), vec2(6.4, -0.3), 0.6, 0.1), 0.9);
+  d = smin(d, sdTaper(q, vec2(-1.7, -3.9), vec2(-4.1, -6.1), 0.55, 0.1), 0.9);
+  d = smin(d, sdTaper(q, vec2(1.8, -4.0), vec2(3.4, -6.3), 0.5, 0.1), 0.9);
   return d;
 }
 float kupK() { return clamp(uKy / 5.2, 0.6, 1.0); }
@@ -360,27 +363,15 @@ vec4 kupffer(vec2 p) {
   vec2 q = (p - vec2(uXk, uKy)) / k;
   float d = sdKup0(q) * k;
   if (d > 0.3) return vec4(0.0);
-  vec3 c = cKup, pale = mix(cKup, vec3(1.0), 0.34 - 0.12 * uDark);
-  c = mix(c, mix(cKup, vec3(1.0), 0.14 - 0.05 * uDark), smoothstep(-0.2, -1.4, d));   // a shade lighter inside
-  // The phagosome, with the red cell inside it.
-  vec2 pc = vec2(-1.6, -2.3);
-  float ph = (length(q - pc) - 1.05) * k;
-  c = mix(c, pale, cov(ph));
-  c = mix(c, cKupE, line(ph, 0.05) * 0.4);
-  vec2 rq = mat2(0.8, 0.6, -0.6, 0.8) * (q - pc);
-  float rb = sdE(rq, vec2(0.74, 0.46)) * k;
-  c = mix(c, cRbc, cov(rb));
-  c = mix(c, mix(cRbc, vec3(1.0), 0.3), cov(sdE(rq, vec2(0.34, 0.16)) * k) * 0.55);
-  // A few lysosomes.
-  vec3 gr[3] = vec3[3](vec3(-0.4, -4.0, 0.2), vec3(3.0, -2.0, 0.17), vec3(0.4, -1.0, 0.16));
-  for (int i = 0; i < 3; i++) c = mix(c, cKupN, cov((length(q - gr[i].xy) - gr[i].z) * k) * 0.55);
-  // The nucleus, kidney-shaped (a smooth notch), with a fine envelope.
-  float dn = smax(sdE(q - vec2(1.2, -2.6), vec2(1.7, 1.1)), -(length(q - vec2(1.4, -3.95)) - 0.7), 0.4) * k;
-  c = mix(c, cKupN, cov(dn) * 0.85);
-  c = mix(c, cKupE, line(dn, 0.06) * 0.5);
+  // Faded and translucent, as the stellate cell: a pale body, a shade lighter inside, its nucleus low in it (clear of its name).
+  vec3 c = mix(cKup, vec3(1.0), 0.18 - 0.08 * uDark);
+  c = mix(c, mix(cKup, vec3(1.0), 0.32 - 0.12 * uDark), smoothstep(-0.2, -1.4, d));
+  float dn = sdE(q - vec2(0.9, -1.5), vec2(1.25, 0.7)) * k;
+  c = mix(c, cKupN, cov(dn) * 0.55);
+  c = mix(c, cKupE, line(dn, 0.06) * 0.35);
   float mem = line(d, 0.08);
-  c = mix(c, cKupE, mem * 0.6);
-  return vec4(c, cov(d - 0.5 * max(0.1, 1.1 * uPx)) * max(0.86, max(mem, cov(rb))));
+  c = mix(c, cKupE, mem * 0.5);
+  return vec4(c, cov(d - 0.5 * max(0.1, 1.1 * uPx)) * max(0.74, mem * 0.85));
 }
 
 void main() {

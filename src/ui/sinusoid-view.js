@@ -23,7 +23,7 @@ import { h, fmt, clamp, lerp } from './util.js?v=e803df99cd';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { isPaused } from './clock.js?v=77fb9815e5';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=b5abde5826';
+import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=5b384ed63d';
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
@@ -340,9 +340,7 @@ export function createSinusoidView({ host }) {
     const xc = away(pick(0.5), g.xk, 30);
     const rs = region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), xc, 0, { along: true });
     LAB[0] = rs.x; LAB[1] = rs.half;
-    const kw = region('kup', 'Kupffer cell', '', g.xk, 0, { along: true });
-    const kx = g.xk + 9 + kw.half < pick(0.92) ? g.xk + 9 + kw.half : g.xk - 9 - kw.half;   // beside it, where there is room
-    region('kup', 'Kupffer cell', '', kx, halfW(g.xk) * 0.35, { along: true });
+    kupName();
     const xf = away(pick(V ? 0.3 : 0.68), g.xs, 30);
     region('fen', 'Fenestrae', S.por > 0.85 ? 'open' : S.por > 0.15 ? `${Math.round(S.por * 100)}%~open` : 'sealed', xf, -(halfW(xf) - 0.6), { along: true, side: 1 });
     // In Disse: its name (on the stellate cell's side on a wide screen, clear of it), and the lymph it carries,
@@ -388,9 +386,10 @@ export function createSinusoidView({ host }) {
     leader('disse', region('disse', 'Space of\nDisse', '', x, mid(x)), x, dis(x));
     x = pick(0.46);
     leader('lymph', region('lymph', 'Lymph', m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min · Protein ${Math.round(m.lyProt * 100)}%`, x, mid(x)), x + 2, dis(x + 2));
-    x = clamp(g.xk, pick(0.7), pick(0.94));
-    leader('kup', region('kup', 'Kupffer cell', '', x, mid(x)), g.xk, halfW(g.xk) - 3);
+    kupName();
   }
+  // The Kupffer cell is named inside itself, over its body above the nucleus (its name tinted as the cell).
+  const kupName = () => region('kup', 'Kupffer\ncell', '', geo.xk - 0.3, halfW(geo.xk) - 3.3 * clamp(halfW(geo.xk) / 5.2, 0.6, 1), { along: true });
   const BAND = [0, 0];   // a portrait screen's band for the other names, between the ends' (px down the screen)
   const LAB = [0, 0];   // the lumen's name: x and half length (µm), for the shader to keep the arrowheads clear of it
   const END = [0, 0, 1];   // the end arrows: portal x, central x, size (µm)
