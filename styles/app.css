@@ -2666,6 +2666,14 @@ button.finding:hover { background: var(--surface-2); }
 .cath-brace path { fill: none; stroke: var(--text-3); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 /* A reading fades in when it appears and out when it goes (opacity and a few pixels of rise only). */
 .cath-label.cath-pre, .cath-sum.cath-pre { opacity: 0; }
+/* The summary after the readings travel in: the bracket and leaders follow, then the HVPG fades and rises in. */
+.cath-sum .cath-brace, .cath-sum .cath-leads { transition: opacity .35s var(--ease) .65s; }
+.cath-sum .cath-label.in-sum.calc { transition: opacity .45s var(--ease) .75s, translate .45s var(--ease) .75s; }
+.cath-sum.cath-travel .cath-brace, .cath-sum.cath-travel .cath-leads, .cath-sum.cath-travel .cath-label.in-sum.calc { opacity: 0; transition: none; }
+.cath-sum.cath-travel .cath-label.in-sum.calc { translate: 0 6px; }
+@keyframes hvpg-in { from { opacity: 0; translate: 0 5px; } }
+.hvpg-kv dd.in { animation: hvpg-in .45s var(--ease); }
+@media (prefers-reduced-motion: reduce) { .hvpg-kv dd.in { animation-name: fadeIn; } }
 /* A small rise from just below, never a scale: scale composes with the positioning transform and would slide the box in from the corner. */
 .cath-label.cath-pre:not(.in-sum), .cath-sum.cath-pre .cath-sum-box { top: 6px; }
 @media (prefers-reduced-motion: reduce) { .cath-label, .cath-sum-box { transition-property: opacity; } .cath-label.cath-pre:not(.in-sum), .cath-sum.cath-pre .cath-sum-box { top: 0; } }

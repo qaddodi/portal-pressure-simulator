@@ -3388,7 +3388,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (opacity and a small rise, eased); one that goes fades out before it is removed.
     const made = cath.made || (cath.made = new Map());
     const want = new Map((st.labels || []).map((l) => [l.key, l]));
-    for (const [k, el] of made) if (!want.has(k)) { made.delete(k); el.classList.add('cath-pre'); setTimeout(() => el.remove(), 500); }
+    // When the summary arrives, the two readings travel from where they were into it (their old pills go at once).
+    const travel = want.has('s') && !made.has('s') && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const from = {};
+    for (const [k, el] of made) if (!want.has(k)) {
+      made.delete(k);
+      if (travel && (k === 'f' || k === 'w')) { from[k === 'f' ? 'tip' : 'ahead'] = el.getBoundingClientRect(); el.remove(); continue; }
+      el.classList.add('cath-pre'); setTimeout(() => el.remove(), 500);
+    }
     const pill = (l, cls = '') => {
       const el = document.createElement('div');
       el.className = `cath-label ${l.cls || ''} ${cls}`; el.dataset.at = l.at || '';
@@ -3415,7 +3422,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     };
     for (const [k, l] of want) {
       if (made.has(k)) continue;
-      const el = build(l); el.classList.add('cath-pre'); cath.labels.append(el); made.set(k, el);
+      const el = build(l); el.classList.add(l.at === 'sum' && travel ? 'cath-travel' : 'cath-pre'); cath.labels.append(el); made.set(k, el);
+      if (l.at === 'sum' && travel) el._from = from;
       void el.offsetWidth; el.classList.remove('cath-pre');   // the transition runs from the hidden state
     }
     const W = wrap.clientWidth, H = wrap.clientHeight;
@@ -3469,6 +3477,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         else { const ex = rx0 - 12, ey = below ? colBot + 14 : colTop - 14; d = `M${rx0.toFixed(1)} ${((ry0 + ry1) / 2).toFixed(1)} H${ex.toFixed(1)} V${ey.toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`; }
         return [s('path', { class: 'lead ' + (l.rows[j].cls || ''), d }), s('circle', { class: 'lead-dot ' + (l.rows[j].cls || ''), cx: px.toFixed(1), cy: py.toFixed(1), r: 4.5 })];
       }));
+      if (el._from) {
+        // FLIP: each reading starts where its pill was and eases into its row; the bracket, leaders and
+        // HVPG wait (CSS delays) until they have landed.
+        rows.forEach((r, j) => {
+          const a = el._from[l.rows[j].at]; if (!a) return;
+          const b = r.getBoundingClientRect();
+          r.style.transition = 'none'; r.style.transform = `translate(${(a.left - b.left).toFixed(1)}px, ${(a.top - b.top).toFixed(1)}px)`;
+          void r.offsetWidth; r.style.transition = 'transform .6s var(--ease)'; r.style.transform = '';
+        });
+        el._from = null; requestAnimationFrame(() => el.classList.remove('cath-travel'));
+      }
     });
   }
   // The camera for the procedure: the route, the tip close up, then back where it was.
