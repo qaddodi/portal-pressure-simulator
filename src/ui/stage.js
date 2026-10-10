@@ -6,11 +6,11 @@ import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=25cbe77a76';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=e803df99cd';
-import { createLobuleZoom } from './lobule-zoom.js?v=2e647b148b';
+import { createLobuleZoom } from './lobule-zoom.js?v=05197a03ea';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=af24ea0bf0';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=4fe4837865';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 
 const N_SAMPLES = 64;
@@ -417,6 +417,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // halos, guides), which moves to a second SVG above the GPU layer, with the same view box.
   const GL_ROWS = ALL_EDGES.length + ALL_EDGES.reduce((n, e) => n + (STRANDS[e.id]?.length || 0) + (feedGeo[e.id]?.length || 0) + (treeGeo[e.id]?.length || 0), 0);
   let veins = null, svgOver = null, worldOver = null;
+  let olList = [], olCol = [0.2, 0.45, 0.9], olDirty = false, olLast = 0, olVerts = null;   // the organ outlines on the GPU (see olStep)
   const vCanvas = document.createElement('canvas');
   vCanvas.id = 'veins'; vCanvas.setAttribute('aria-hidden', 'true');
   svg.after(vCanvas);
@@ -2383,7 +2384,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       shadow: [...cssTriplet(cs, '--shadow-rgb'), cssNum(cs, '--shadow-a', 0.15)],
       sheen: [...toRGB('var(--light-ink)', cs), cssNum(cs, '--tube-sheen', 0.42)],
       shade: [...toRGB('var(--tube-shade-ink)', cs), cssNum(cs, '--tube-shade', 0.2)],
-      ring: [...toRGB('var(--accent)', cs), 0.34],
+      ring: [...(olCol = toRGB('var(--accent)', cs)), 0.34],
       netAlpha: hovering ? 0.22 : hasSel ? 0.42 : 1,
       fx: true,
       tierAlpha: TIER_ALPHA, tierGroup: TIER_GROUP, fluid: fluidLook,
@@ -2681,6 +2682,78 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     haloTimer = setTimeout(() => { gHalo.replaceChildren(); gGlow.replaceChildren(); }, 1700);
   }
 
+  // The organ outlines (selected, hovered) are drawn on the GPU with the figure, so a drag, pinch
+  // or zoom moves them in the same frame (an SVG overlay is composited apart and can trail it).
+  // Each one fades in and out; the SVG lines are kept only where the GPU cannot draw them.
+  const glLines = !!veins?.canLines;
+  const OL_LOOK = { sel: [2.4, 0.55], hov: [2, 0.4] };   // as .org-sel-line and .org-hov-line: width, opacity
+  const OL_FADE = 160;   // ms
+  let olPath = null;   // sampled in <defs>: the organ itself is hidden while the GPU draws the plate
+  function olRings(id) {
+    const m = organG[id].transform.baseVal.consolidate()?.matrix;
+    if (!olPath) { olPath = s('path'); defs.append(olPath); }
+    const el = olPath;
+    el.setAttribute('d', organEls[id].getAttribute('d'));
+    let L;
+    try { L = el.getTotalLength(); } catch { return []; }
+    const n = Math.max(48, Math.ceil(L / 2)), step = L / n, rings = [];
+    let cur = [], prev = null;
+    for (let i = 0; i <= n; i++) {
+      const q = el.getPointAtLength(i * step);
+      const p = m ? [m.a * q.x + m.c * q.y + m.e, m.b * q.x + m.d * q.y + m.f] : [q.x, q.y];
+      if (prev && Math.hypot(p[0] - prev[0], p[1] - prev[1]) > step * 4 * (m ? Math.hypot(m.a, m.b) : 1)) { if (cur.length > 1) rings.push(cur); cur = []; }   // a new subpath
+      cur.push(p); prev = p;
+    }
+    if (cur.length > 1) rings.push(cur);
+    return rings;
+  }
+  const olKey = (id) => organEls[id].getAttribute('d') + '|' + (organG[id].getAttribute('transform') || '');
+  function olSet(kind, id) {
+    for (const o of olList) if (o.kind === kind && o.id !== id) o.on = false;
+    if (id && organEls[id]?.getAttribute('d') && !olList.some((o) => o.kind === kind && o.id === id && (o.on = true))) {
+      olList.push({ kind, id, key: olKey(id), rings: olRings(id), a: 0, on: true });
+    }
+    olDirty = true; olLast = performance.now();
+  }
+  // The organ was redrawn (a reshaped liver, a larger spleen): the outlines follow it.
+  function olGeom() {
+    for (const o of olList) { const k = olKey(o.id); if (k !== o.key) { o.key = k; o.rings = olRings(o.id); o.verts = null; olDirty = true; } }
+  }
+  // Eases each outline toward shown or gone and hands them to the GPU; true while anything is changing.
+  function olStep(now) {
+    if (!glLines || (!olDirty && !olList.length)) return false;
+    const du = Math.min(1, (now - olLast) / OL_FADE);
+    olLast = now;
+    let moving = false;
+    for (const o of olList) {
+      const t = o.on ? 1 : 0;
+      if (o.a !== t) { o.a = t > o.a ? Math.min(1, o.a + du) : Math.max(0, o.a - du); moving = true; }
+    }
+    olList = olList.filter((o) => o.on || o.a > 0);
+    let V = olDirty ? [] : null;
+    const draws = [];
+    let first = 0;
+    for (const o of olList) {
+      const [w, alpha] = OL_LOOK[o.kind], h = w / 2, a = alpha * (o.a * o.a * (3 - 2 * o.a));
+      for (const r of o.rings) {
+        const closed = Math.hypot(r[0][0] - r[r.length - 1][0], r[0][1] - r[r.length - 1][1]) < 0.5;
+        const pts = closed ? r.slice(0, -1) : r, n = pts.length, count = (n + (closed ? 1 : 0)) * 2;
+        if (V) for (let i = 0; i <= n - (closed ? 0 : 1); i++) {
+          const k = i % n, p = pts[k];
+          const pa = pts[closed ? (k - 1 + n) % n : Math.max(0, k - 1)], pb = pts[closed ? (k + 1) % n : Math.min(n - 1, k + 1)];
+          let tx = pb[0] - pa[0], ty = pb[1] - pa[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
+          V.push(p[0], p[1], -ty, tx, 1, h, p[0], p[1], -ty, tx, -1, h);
+        }
+        draws.push({ first, count, col: olCol, alpha: a });
+        first += count;
+      }
+    }
+    if (V) olVerts = new Float32Array(V);
+    veins.setLines(draws.length ? { verts: olVerts, draws } : null);
+    olDirty = false;
+    return moving || !!V;
+  }
+
   // A selected organ keeps a quiet outline; a selected site (varices, fundus, abdomen) a ring.
   const gSelO = s('g', { id: 'organSel' });
   gOver.after(gSelO);
@@ -2691,6 +2764,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     selFluid.line.setAttribute('d', ascitesLine.getAttribute('d') || '');
   }
   function syncSelLine() {
+    if (glLines) olGeom();
     if (!selLine) return;
     const d = organEls[selLine.id].getAttribute('d'), tr = organG[selLine.id].getAttribute('transform');
     if (selLine.el.getAttribute('d') !== d) selLine.el.setAttribute('d', d);
@@ -2703,10 +2777,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     selOKey = key;
     for (const g of Object.values(organG)) g.classList.remove('org-sel');
     gSelO.replaceChildren(); selLine = null; selFluid = null;
+    const byOrgan = o && { liver: ['liver'], heart: ['heart'], spleen: ['spleen'] }[o];
+    if (glLines) olSet('sel', byOrgan?.[0] || null);
     if (!o) return;
-    const byOrgan = { liver: ['liver'], heart: ['heart'], spleen: ['spleen'] }[o];
     if (byOrgan) {
       for (const id of byOrgan) organG[id]?.classList.add('org-sel');
+      if (glLines) return;
       // The outline follows the organ as drawn now (a cirrhotic liver's reshaped contour, an
       // enlarged spleen), not its healthy outline.
       if (organEls[byOrgan[0]]?.getAttribute('d')) { selLine = { id: byOrgan[0], el: s('path', { class: 'org-sel-line' }) }; syncSelLine(); gSelO.append(selLine.el); }
@@ -4445,7 +4521,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const still = (!st.running || reduceMotion.matches) && !bolus.active;
     const key = still ? `${cathVer}|${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${JSON.stringify(st.blood)}|${vCanvas.width}x${vCanvas.height}` : null;
     // A plate raster that lands while the figure is still (paused, or reduced motion) marks the vessel layer dirty: draw it.
-    if (still && !veinsDirty && !widthEasing && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && F === lastDrawF && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { requestAnimationFrame(animate); return; }
+    if (still && !veinsDirty && !olDirty && !olList.some((o) => o.a !== (o.on ? 1 : 0)) && !widthEasing && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && F === lastDrawF && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { requestAnimationFrame(animate); return; }
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
       if (F) update(F); else updateGeometry(true);
@@ -4460,6 +4536,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (F) stepBlood(dt);
     const fluidMoved = stepFluid(dt, st);
     // The vessel layer is redrawn only when something in it changed; the blood every frame.
+    olStep(now);
     if (!drawVeins() && veins && !veins.lost && vLook && F) veins.composite(vLook, bloodLook(), fluidMoved);
     drawnView = viewVersion;
     governRes(now, viewMoved || st.running);
@@ -4589,9 +4666,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (key === hovO) return;
     hovO = key;
     gHovO.replaceChildren();
+    const byOrgan = o && { liver: 'liver', heart: 'heart', spleen: 'spleen' }[o];
+    if (glLines) olSet('hov', byOrgan || null);
     if (!o) return;
-    const byOrgan = { liver: 'liver', heart: 'heart', spleen: 'spleen' }[o];
     if (byOrgan) {
+      if (glLines) return;
       const d = organEls[byOrgan]?.getAttribute('d');
       if (!d) return;
       const el = s('path', { class: 'org-hov-line', d }), tr = organG[byOrgan].getAttribute('transform');

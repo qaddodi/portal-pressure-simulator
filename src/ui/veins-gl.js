@@ -849,6 +849,37 @@ void main() {
   outColor = o;
 }`;
 
+// Organ outlines (a selected or hovered organ): a stroke of world width, drawn with the figure so a
+// pan or zoom moves it in the same frame. Widened in device pixels so a hairline still covers its
+// pixels (its alpha thins instead), and antialiased across both edges.
+const LINE_VS = `#version 300 es
+layout(location=0) in vec2 pos;
+layout(location=1) in vec2 nrm;
+layout(location=2) in vec2 sideW;   // side (−1 or 1), half width (world units)
+uniform mat3 world;
+uniform vec2 size;
+out float vD;
+out float vW;
+void main() {
+  vec2 n = (world * vec3(nrm, 0.0)).xy;
+  float k = max(length(n), 1e-6);
+  vW = sideW.y * k;
+  float e = max(vW, 0.5) + 1.0;
+  vec2 d = (world * vec3(pos, 1.0)).xy + n / k * sideW.x * e;
+  gl_Position = vec4(d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0, 0.0, 1.0);
+  vD = sideW.x * e;
+}`;
+const LINE_FS = `#version 300 es
+precision highp float;
+in float vD;
+in float vW;
+uniform vec4 col;   // rgb, alpha
+out vec4 o;
+void main() {
+  float a = col.a * clamp(max(vW, 0.5) + 0.5 - abs(vD), 0.0, 1.0) * min(1.0, vW * 2.0);
+  o = vec4(col.rgb * a, a);
+}`;
+
 function compile(gl, vs, fs) {
   const p = gl.createProgram();
   for (const [type, src] of [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]]) {
@@ -979,6 +1010,30 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
   for (let i = 0; i < 3; i++) { gl.enableVertexAttribArray(i); gl.vertexAttribPointer(i, 2, gl.FLOAT, false, 24, i * 8); }
   gl.bindVertexArray(null);
   let cath = null, cathWas = false;
+  let lineP = null;
+  try { lineP = compile(gl, LINE_VS, LINE_FS); } catch (e) { console.warn('Veins renderer: outline shader failed.', e); }
+  const lineBuf = gl.createBuffer(), lineVAO = gl.createVertexArray();
+  gl.bindVertexArray(lineVAO);
+  gl.bindBuffer(gl.ARRAY_BUFFER, lineBuf);
+  for (let i = 0; i < 3; i++) { gl.enableVertexAttribArray(i); gl.vertexAttribPointer(i, 2, gl.FLOAT, false, 24, i * 8); }
+  gl.bindVertexArray(null);
+  let lines = null, linesWas = false;
+  function drawLines(m) {
+    const U = lineP.u;
+    gl.useProgram(lineP.p);
+    gl.uniformMatrix3fv(U.world, false, new Float32Array([m[0], m[1], 0, m[2], m[3], 0, m[4], m[5], 1]));
+    gl.uniform2f(U.size, canvas.width, canvas.height);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.bindVertexArray(lineVAO);
+    for (const d of lines.draws) {
+      if (d.alpha <= 0) continue;
+      gl.uniform4f(U.col, ...d.col, d.alpha);
+      gl.drawArrays(gl.TRIANGLE_STRIP, d.first, d.count);
+    }
+    gl.bindVertexArray(null);
+    gl.disable(gl.BLEND);
+  }
 
   const quad = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
@@ -1200,6 +1255,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       // So does the catheter (it reaches past the vessel cells), and once after it is gone.
       if (cath || cathWas) full = true;
       cathWas = !!cath;
+      // And the organ outlines (drawn over the vessels), and once after they go.
+      if (lines || linesWas) full = true;
+      linesWas = !!lines;
       wasBleeding = bleeding;
       const fl = look.fluid && fluidRect ? look.fluid : null;
       if (!full && !nCells && !(fl?.ripple && nFluid)) return;
@@ -1261,6 +1319,20 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
       }
       gl.bindVertexArray(null);
       if (cath) drawCath(m);
+      if (lines) drawLines(m);
+    },
+    /** Whether organ outlines can be drawn here (else stage.js keeps its SVG ones). */
+    get canLines() { return !!lineP; },
+    /**
+     * Organ outlines, or null: { verts: Float32Array (x, y, normal x, y, side, half width per vertex; world units),
+     * draws: [{ first, count, col: [r, g, b], alpha }] }. Alphas may change without new verts.
+     */
+    setLines(spec) {
+      const fresh = spec && spec.verts !== lines?.verts;
+      lines = lineP && spec?.draws?.length ? spec : null;
+      if (!lines || !fresh) return;
+      gl.bindBuffer(gl.ARRAY_BUFFER, lineBuf);
+      gl.bufferData(gl.ARRAY_BUFFER, lines.verts, gl.DYNAMIC_DRAW);
     },
     /** Whether the catheter can be drawn here (else stage.js keeps its SVG one). */
     get canCath() { return !!cathP; },
