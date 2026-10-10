@@ -2,16 +2,16 @@
 
 import { store, updateParams } from './store.js?v=25cbe77a76';
 import { host } from './host.js?v=90504cc4f2';
-import { h, fmt, toast, svgIcon } from './util.js?v=e803df99cd';
+import { h, fmt, toast, svgIcon } from './util.js?v=e0101a3fa2';
 import { createAnswerSheet, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from './assess.js?v=7f4afcf446';
 import { addRecord } from './records.js?v=50fb9dd463';
 import { runSequence } from './sequence.js?v=07add8047f';
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
 import { SNAPSHOTS } from './snapshots.js?v=47b3a3415c';
-import { createRoute, ladder } from './ladder.js?v=3c3d5cd555';
+import { createRoute, ladder } from './ladder.js?v=c0d400b6f9';
 import { CASES } from './cases/index.js?v=78c53e6b35';
-import { UNITS, course, setUnitSurface, unitBar, exploreButton } from './course.js?v=3bf3617fd0';
-import { trustLine, teachChip, blindOn, blindOff, isBlind, optionList, compareChip, bindQuestionKeys, mirrorMarker } from './learning-kit.js?v=d37136ac07';
+import { UNITS, course, setUnitSurface, unitBar, exploreButton } from './course.js?v=b780ae35f5';
+import { trustLine, teachChip, blindOn, blindOff, isBlind, optionList, compareChip, bindQuestionKeys, mirrorMarker } from './learning-kit.js?v=c27a9a6a60';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 
