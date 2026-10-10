@@ -3378,7 +3378,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!lv || morph > 0.5) { scan.el.classList.add('off'); return; }
     const r = lv.getBoundingClientRect(), x0 = pzInset('--pz-l') + 6, x1 = wr.width - pzInset('--pz-r') - 6;
     // The top left of the right lobe (the patient's right is the figure's left): the tip sits on its edge, aimed 45° down toward the portal vein.
-    const x = clamp(r.left - wr.left + r.width * 0.13, x0 + 48, x1 - 110) - SCAN_TIP[0], y = r.top - wr.top + r.height * 0.17;
+    const x = clamp(r.left - wr.left + r.width * 0.13, x0 + 48, x1 - 110) - SCAN_TIP[0], y = r.top - wr.top + r.height * 0.09;
     scan.el.classList.toggle('off', y < 20 || y > wr.height - 20);
     scan.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
   }
