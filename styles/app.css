@@ -2960,7 +2960,7 @@ button.finding:hover { background: var(--surface-2); }
 @container (min-width: 620px) {
   .dop-main { grid-template-columns: minmax(0, 1fr) 232px; }
 }
-@container (max-width: 619px) {
+@container (max-width: 619px) or style(--one-col: 1) {
   .dop-main { flex: none; gap: 12px; }
   .instrument-workspace .instrument-view.dop .dop-box { height: clamp(180px, calc(30vh / var(--vz)), 260px); flex: none; }
   .dop-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -3008,7 +3008,7 @@ button.finding:hover { background: var(--surface-2); }
 @container (min-width: 620px) {
   .hv-main { grid-template-columns: minmax(0, 1fr) 232px; }
 }
-@container (max-width: 619px) {
+@container (max-width: 619px) or style(--one-col: 1) {
   .hv-main { flex: none; gap: 12px; }
   .instrument-workspace .instrument-view.hv .hv-box { height: clamp(180px, calc(30vh / var(--vz)), 260px); flex: none; }
   .hv-veins { flex: 1 1 100%; display: flex; }
@@ -3067,7 +3067,7 @@ button.finding:hover { background: var(--surface-2); }
   .ab-main { grid-template-columns: minmax(0, 1fr) 260px; }
 }
 .instrument-workspace .instrument-view .chart-box.perf-donut { height: min(var(--plot-h), 300px); }
-@container (max-width: 649px) {
+@container (max-width: 649px) or style(--one-col: 1) {
   .instrument-workspace .instrument-view .chart-box.perf-donut { height: 250px; }
 }
 
@@ -4614,7 +4614,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* Tests in a narrow card (a phone's sheet, the side card on an iPad or a laptop): every tab fills the card's
    height and its picture takes what is left, so it all fits without scrolling; on a raised phone sheet or a
    tall card the picture grows and the notes under it come back. */
-@container ws (max-width: 649px) {
+@container ws (max-width: 649px) or style(--one-col: 1) {
   .instrument-workspace.float-ui .dock-pane { padding-top: 10px; padding-bottom: 12px; gap: 10px; }
   .instrument-workspace.float-ui .dock-pane > .instrument-view { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
   .instrument-workspace.float-ui .dock-pane .instrument-view > .chart-box:not(.square) { flex: 1 1 0; height: auto; min-height: 130px; }
@@ -4749,7 +4749,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .instrument-workspace .dock-pane[data-pane="endoscopy"] .chart-side > :not(.endo-read) { grid-column: 1 / -1; margin: 0; }
 .instrument-workspace .dock-pane[data-pane="endoscopy"] .chart-side > .btn { grid-row: 2; }
 .instrument-workspace .dock-pane[data-pane="endoscopy"] .chart-side > .ctl-sub { grid-row: 3; }
-@container (max-aspect-ratio: 4 / 5) {
+@container (max-aspect-ratio: 4 / 5) or style(--one-col: 1) {
   .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(auto, 1fr) auto auto auto; gap: 14px; }
   .endo-stage { min-height: 180px; }
   .instrument-workspace .dock-pane[data-pane="endoscopy"] .endo-read { grid-column: 1; grid-row: 2; }
@@ -4785,3 +4785,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .instrument-workspace :is(.dop-box, .hvpg-box, .fibroscan-box) > canvas { inset: 0; margin: auto; width: min(100cqw, 100cqh * var(--ar)); height: min(100cqh, 100cqw / var(--ar)); border-radius: var(--r-card); }
 .instrument-workspace .dop-box > canvas { background: var(--scope-bg); }
 .instrument-workspace .hvpg-box > canvas { background: var(--mon-bg); }
+/* The side card keeps one column at every width: widening it grows the pictures, it never splits them off. */
+.instrument-workspace.side { --one-col: 1; }
+.instrument-workspace.side :is(.instrument-view, .dop-main, .hv-main, .ab-main) { grid-template-columns: minmax(0, 1fr); }
+.instrument-workspace.side .instrument-view > .chart-side { grid-column: auto; }
