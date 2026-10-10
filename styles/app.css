@@ -982,17 +982,15 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .menu-sep { height: 1px; background: var(--hairline); margin: 4px 4px; }
 .menu label.menu-item input { accent-color: var(--accent); margin: 0; }
 @keyframes pop { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
-.scenario-pop { width: min(680px, calc(100vw - 24px)); max-height: min(78dvh, 720px); overflow: auto; padding: 16px; }
-.scenario-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; }
-.scn-group { display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; }
+.scenario-pop { width: min(300px, calc(100vw - 24px)); max-height: min(80dvh, 680px); overflow: auto; padding: 8px 6px; }
+.scn-head { font-weight: 600; font-size: var(--fs-14); padding: 2px 10px 6px; }
+.scn-group { display: flex; flex-direction: column; margin-bottom: 6px; }
 .scn-group .menu-title { display: flex; align-items: center; gap: 8px; }
 .scn-group .menu-title i { width: 8px; height: 8px; border-radius: 2px; }
-.scn { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border-radius: var(--r-card); border: 0; background: transparent; text-align: left; cursor: pointer; }
+.scn { display: block; width: 100%; padding: 6px 10px 6px 26px; border-radius: 8px; border: 0; background: transparent; text-align: left; cursor: pointer; font-size: var(--fs-14); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; position: relative; transition: background .18s var(--ease); }
 .scn:hover { background: var(--surface-2); }
-.scn .t { font-size: var(--fs-14); font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; }
-.scn .d { font-size: var(--fs-12); color: var(--text-2); line-height: 1.45; }
-.scn[aria-current="true"] { background: var(--accent-soft); }
-.scn[aria-current="true"] .t { color: var(--accent-ink); }
+.scn[aria-current="true"] { background: var(--accent-soft); color: var(--accent-ink); font-weight: 600; }
+.scn[aria-current="true"]::before { content: ""; position: absolute; left: 11px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: currentColor; }
 
 .why-pop { position: fixed; z-index: var(--z-popover); width: min(440px, calc(100vw - 24px)); background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline); padding: 16px 16px 16px; display: none; }
 .why-pop.show { display: block; animation: pop .18s var(--ease); }
@@ -1161,7 +1159,6 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
   .modal > .body { padding: 4px 20px 20px; }
   .entry-grid { grid-template-columns: 1fr; }
   .keys { grid-template-columns: 1fr; }
-  .scenario-grid { grid-template-columns: 1fr; }
   .toast-wrap { top: auto; bottom: calc(80px + env(safe-area-inset-bottom)); }
   .tool-tray { width: min(340px, calc(100vw - 16px)); }
   .tray-item { padding: 12px 12px; }
@@ -2123,7 +2120,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 
 /* Every live number uses tabular figures, so digits hold still as the model runs. */
 .metric, .vital, .fd-d, .kv dd, .tl-time, .stage-clock, .big-overlay, .cmp-table, .cut-table, .hp-chip, .mon,
-.ctl-val, .event-log, .pb-n, .pt-n, .scn .d, #labels text, .ic-live, .tl-pop .when, .story .st-when, .bleed-pill { font-variant-numeric: tabular-nums; }
+.ctl-val, .event-log, .pb-n, .pt-n, #labels text, .ic-live, .tl-pop .when, .story .st-when, .bleed-pill { font-variant-numeric: tabular-nums; }
 
 /* ── Live instrument workspace ─────────────────────
    Instruments share the figure column, independent of the patient panel. No floating windows

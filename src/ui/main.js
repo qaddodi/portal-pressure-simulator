@@ -53,7 +53,8 @@ const LENSES = {
   origin: ['Blood origin', 'Where each vessel\u2019s blood comes from', () => `linear-gradient(to right, ${ORIGIN_CSS.map((c, i) => `${c} ${i * 20}% ${(i + 1) * 20}%`).join(', ')})`],
 };
 const COLOR_MODES = { pressure: 'Pressure', delta: 'Change', heat: 'Congestion', drop: 'Pressure drop', flow: 'Flow volume', velocity: 'Velocity', direction: 'Flow direction', origin: 'Blood origin' };
-const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };
+const GROUP_COLOR = { Baseline: 'var(--ok)', 'Pre-hepatic': 'var(--s1)', Hepatic: 'var(--s5)', 'Post-hepatic': 'var(--s4)' };
+const LEVEL = { Normal: 'Baseline', Prehepatic: 'Pre-hepatic', Presinusoidal: 'Hepatic', Sinusoidal: 'Hepatic', Postsinusoidal: 'Hepatic', Posthepatic: 'Post-hepatic', Cardiac: 'Post-hepatic' };
 
 let stage, inspector, dock, why, timeline, learn, cases, compare, card, chart, home;
 
@@ -334,19 +335,17 @@ function setNarrator(on) {
 function openScenarios(anchor) {
   const presets = store.get().presetList;
   const groups = {};
-  for (const p of presets) (groups[p.group] ||= []).push(p);
+  for (const p of presets) (groups[LEVEL[p.group] || p.group] ||= []).push(p);
   const cur = store.get().presetId;
   const body = h('div', {},
-    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '2px 10px 10px', gap: '12px' } },
-      h('div', {}, h('div', { style: { fontWeight: 600, fontSize: 'var(--fs-16)' } }, 'Patient scenarios'), h('div', { class: 'sub' }, 'Grouped by where the resistance sits, from the gut to the heart.')),
-      h('span', { class: 'muted', style: { fontSize: 'var(--fs-12)', whiteSpace: 'nowrap' } }, `${presets.length} scenarios`)),
-    h('div', { class: 'scenario-grid' }, Object.entries(groups).map(([g, ps]) => h('div', { class: 'scn-group' },
+    h('div', { class: 'scn-head' }, 'Patients'),
+    Object.entries(groups).map(([g, ps]) => h('div', { class: 'scn-group' },
       h('div', { class: 'menu-title' }, h('i', { style: { background: GROUP_COLOR[g] || 'var(--text-3)' } }), g),
-      ps.map((p) => h('button', { class: 'scn', 'aria-current': String(p.id === cur), onclick: async () => {
+      ps.map((p) => h('button', { class: 'scn', title: p.summary, 'aria-current': String(p.id === cur), onclick: async () => {
         closePopover();
         await loadPreset(p.id);
         toast(p.days ? `${p.label}: ${p.days} simulated days applied.` : p.label);
-      } }, h('span', { class: 't' }, p.label), h('span', { class: 'd' }, p.summary)))))));
+      } }, p.label.replace(/\s*\(.*\)$/, ''))))));
   popover(anchor, body, { cls: 'scenario-pop', align: 'end' });
 }
 
