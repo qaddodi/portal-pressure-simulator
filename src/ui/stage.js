@@ -6,7 +6,7 @@ import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=49dc9cdf15';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=e803df99cd';
-import { createLobuleZoom } from './lobule-zoom.js?v=60d502221e';
+import { createLobuleZoom } from './lobule-zoom.js?v=f5a0e81cd4';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
@@ -1055,7 +1055,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // Where the side cards would leave under 60% of the width (a tablet held upright), a short card is cleared
     // above (or below) instead, so the figure keeps the full width rather than shrinking into a strip.
-    if (ins.r && W - ins.l - ins.r < W * 0.6) {
+    // (Not while presenting: a slide's text and data columns are laid out to leave the figure its own column.)
+    if (ins.r && W - ins.l - ins.r < W * 0.6 && !store.get().presenting) {
       const top = Math.min(...cards.map((c) => c[0])), bot = Math.max(...cards.map((c) => c[1]));
       if (top > H * 0.45) { ins.b = Math.max(ins.b, H - top + 8); ins.r = 0; }
       else if (bot <= H * 0.62) { ins.t = Math.max(ins.t, bot + 8); ins.r = 0; }
@@ -1365,6 +1366,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function zoomToBox(x0, y0, x1, y1) {
     const k = clamp(Math.min(VIEW.w / (x1 - x0), VIEW.h / (y1 - y0)) * 0.9, 1, 5);
     animateVT({ k, x: VIEW.w / 2 - ((x0 + x1) / 2) * k, y: VIEW.h / 2 - ((y0 + y1) / 2) * k }, 400);
+  }
+  // The presenter's camera: glide so a box of the plate (world units) fills the space the floating
+  // pieces leave, as Fit does for the whole plate, zoomed in no further than kMax.
+  function frameBox([x0, y0, x1, y1], ms = 1300, kMax = 4) {
+    if (morphTarget !== 0) return;
+    const r = { width: svg.clientWidth, height: svg.clientHeight };
+    if (!r.width || !r.height) return;
+    const ins = safeInsets(), s0 = Math.min(r.width / VB_ANAT[2], r.height / VB_ANAT[3]);
+    const fw = Math.max(40, r.width - ins.l - ins.r), fh = Math.max(40, r.height - ins.t - ins.b);
+    const k = clamp(Math.min(fw / s0 / (x1 - x0), fh / s0 / (y1 - y0)), 0.6, kMax);
+    const cx = VB_ANAT[0] + VB_ANAT[2] / 2 + (ins.l - ins.r) / 2 / s0, cy = VB_ANAT[1] + VB_ANAT[3] / 2 + (ins.t - ins.b) / 2 / s0;
+    const to = { k, x: cx - k * ((x0 + x1) / 2), y: cy - k * ((y0 + y1) / 2) };
+    if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms);
   }
   function vtFor(wx, wy, k) { const [cx, cy] = vbCenter(); return { k, x: cx - wx * k, y: cy - wy * k }; }
   function zoomLiver() {
@@ -2391,8 +2405,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       organG.bowel.getAttribute('transform'), (flank.getAttribute('d') || '').slice(0, 24), selOKey,
       cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), wrap.classList.contains('imaging')].join('|');
   }
+  // Hidden (the home page over the app), every organ would rasterize invisible: wait until the figure shows.
+  const figureHidden = () => getComputedStyle(wrap).visibility === 'hidden';
   function platePoke() {
-    if (lvMoving || !veins || veins.lost || !glWanted(easeInOut(morph))) return;
+    if (lvMoving || !veins || veins.lost || !glWanted(easeInOut(morph)) || figureHidden()) return;
     const key = plateStateKey();
     if (key === plateKey && veins.hasPlate(0)) return;
     readFluidInk(getComputedStyle(wrap));
@@ -2409,6 +2425,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const wait = themed ? 0 : Math.max(0, 500 - (performance.now() - plateLast));
     clearTimeout(plateTimer);
     plateTimer = setTimeout(async () => {
+      if (figureHidden()) return;   // hidden meanwhile: the first poke once it shows rasterizes
       const k = plateStateKey();
       if (k === plateKey && veins?.hasPlate(0)) return;   // it changed and changed back
       plateBusy = true; plateLast = performance.now();
@@ -3394,10 +3411,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Every label on a figure (the lobule's too) reads the same scale.
   document.documentElement.style.setProperty('--label-k', String(labelScale));
   let labelK = labelScale;
-  // Projection ramp: presenting sets the atlas labels at projector sizes (values 28 px, names 23 px),
-  // readable from the back of a room.
+  // Projection ramp: presenting sets the atlas labels at projector sizes (at 2: values 28 px, names 23 px),
+  // readable from the back of a room. The presenter passes a scale for the screen it is on.
   let projecting = false;
-  const labelBase = () => (projecting ? 2 : labelScale);
+  const labelBase = () => (projecting ? (typeof projecting === 'number' ? projecting : 2) : labelScale);
   // A line is a list of runs { t, size, weight, cls, track }. Returns [width, height].
   const LINE_H = (line) => Math.max(...line.map((r) => r.size)) * labelK * 1.24;
   const lineW = (line) => line.reduce((w, r, i) => w + textW(r.t, r.size * labelK, r.weight, r.track || 0) + (i ? (r.gap ?? 3) * labelK : 0), 0);
@@ -3613,6 +3630,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const ANAT_EXTRA = ['MHV', 'LHV', 'RPV', 'LPV', 'SIN_L', 'IMV', 'LGV'];
 
   let blockerBoxes = null;
+  const appStyle = document.getElementById('app')?.style;
+  const pzInset = (k) => parseFloat(appStyle?.getPropertyValue(k)) || 0;
   function readBlockers() {
     const wr = stageBox();
     return [...document.querySelectorAll('.stage-blocker:not([hidden])')].map((el) => {
@@ -3688,7 +3707,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const st = store.get(), t = easeInOut(morph);
     const edges = Object.values(E).filter((x) => x.vis).map((x) => `${x.e.id}${Math.round(x.width || 0)}${x.g.classList.contains('coll-ghost') ? 'g' : ''}`).join(',');
     return [geometryVersion, t >= 0.5, rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, JSON.stringify((f.viewParams || st.params).stenosis),
-      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], vt.k > 1.35, st.labelLevel, [...(st.hiddenLabels || [])].join(','), zoomedIn(), flagged(f).join(','), edges].join('|');
+      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], vt.k > 1.35, st.labelLevel, st.presenting && st.presentLabels?.join(','), [...(st.hiddenLabels || [])].join(','), zoomedIn(), flagged(f).join(','), edges].join('|');
   }
   function updateLabels(f) {
     refreshCTM();
@@ -3767,6 +3786,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // A solve prefers slots that sit inside the stage as it is now, but never depends on the panels, and a pan
     // alone never searches again. A label a pan later pushes past the edge is pulled back in (see below).
     const view = { x0: 6, y0: 6, x1: W - 6, y1: H - 6 };
+    // A presenter slide's words hold the left (a phone: the top) under a fading shade; labels keep clear of it.
+    if (st.presenting) { view.x0 = Math.max(view.x0, pzInset('--pz-l') + 30); view.y0 = Math.max(view.y0, pzInset('--pz-t') + 12); }
     const compact = W < 700;
     // Floating panels over the figure (notifications, hint cards, banners): a label under one is hidden.
     // Their boxes are read before this frame's SVG changes (see updateInner), while layout is clean.
@@ -3848,14 +3869,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!circuit) {
       // ── Anatomy ──
       const lvl = st.labelLevel || 'key', zoomed = zoomedIn();
-      const show = new Set(lvl === 'none' ? [] : lvl === 'key' && !zoomed ? [...KEY_NODES, ...flagged(f)] : CHIP_NODES);
+      // A presenter slide names exactly the stations it talks about (store.presentLabels).
+      const pres = st.presenting && Array.isArray(st.presentLabels) ? st.presentLabels : null;
+      const show = new Set(pres || (lvl === 'none' ? [] : lvl === 'key' && !zoomed ? [...KEY_NODES, ...flagged(f)] : CHIP_NODES));
       // No varices, no varices callout: in a healthy patient the node's pressure is just the balance
       // between the coronary vein and the azygos, and a "varices" label on it would mislead.
       if (!hasVarices('VAR', f)) show.delete('VAR');
-      if (lvl !== 'none' && hasVarices('GV', f)) show.add('GV');
+      if (!pres && lvl !== 'none' && hasVarices('GV', f)) show.add('GV');
+      if (pres && !hasVarices('GV', f)) show.delete('GV');
       // Key, at the home framing on a wide screen: the other major stations too, but only where one fits
       // beside its vessel without a leader (see `minor` below); a phone keeps to the key ones.
-      const minor = new Set(lvl === 'key' && !zoomed && !compact ? CHIP_NODES.filter((id) => !show.has(id) && id !== 'VAR') : []);
+      const minor = new Set(!pres && lvl === 'key' && !zoomed && !compact ? CHIP_NODES.filter((id) => !show.has(id) && id !== 'VAR') : []);
       for (const id of minor) show.add(id);
       if (st.selection?.type === 'node') { show.add(st.selection.id); minor.delete(st.selection.id); }
       const [lx] = worldToLocal(ATLAS_COLUMNS[0], 500), [rx] = worldToLocal(ATLAS_COLUMNS[1], 500);
@@ -3896,7 +3920,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // Zoomed in, the other stations in view get their pressure too (hepatic veins, portal branches,
       // the left sinusoids...), each only where it stands clear of the labels already there, so they
       // appear as the zoom makes room and the overview stays uncluttered.
-      if (!atlas && lvl !== 'none' && (vt.k > 1.35 || zoomed || lvl === 'all')) {
+      if (!atlas && !pres && lvl !== 'none' && (vt.k > 1.35 || zoomed || lvl === 'all')) {
         const room = compact ? 64 : 80;
         for (const id of ANAT_EXTRA) {
           if (show.has(id) || !NODE_POS[id] || !(NI[id] >= 0) || labelHidden(id)) continue;
@@ -5015,7 +5039,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       dispatchEvent(new Event('pps:labelscale'));
       if (F) updateLabels(F);
     },
-    setProjection(on) { projecting = !!on; if (F) updateLabels(F); },
+    setProjection(on) { projecting = typeof on === 'number' ? on : !!on; if (F) updateLabels(F); },
     labelLayer: () => labelSvg,
     /** The layer the GPU's picture lies under (lesions, stents, halos), when the GPU draws. */
     overLayer: () => (veins && wrap.classList.contains('gl-on') ? svgOver : null),
@@ -5047,9 +5071,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     layoutKey: () => `${viewVersion}|${geometryVersion}` + (lz?.isOpen() ? '|' + lz.viewKey() : ''),
     setCircuitRotated,
     circuitRotated: () => rotTarget === 1,
-    zoomToBox,
+    zoomToBox, frameBox,
+    /** Fit with a chosen glide (the presenter's slower, calmer moves). */
+    fitSlow(ms = 1300) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms); },
     cameraKey: () => `${vt.k.toFixed(3)}|${vt.x.toFixed(1)}|${vt.y.toFixed(1)}`,
     zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(), lobuleViewKey: () => lz?.viewKey(),
+    /** The presenter's camera in the lobule: the whole lobule ('fit'), a portal tract ('triad'), the sinusoids ('sinusoid') or the central vein ('central'). */
+    lobuleFocus: (part, opts) => lz?.focusOn(part, opts),
+    /** The dive into the lobule (or back out) has finished: the view is wholly the lobule, or wholly the anatomy. */
+    lobuleSettled: () => (lobuleOn ? diveT >= 1 : diveT <= 0),
     /** On-screen scale, px per world unit (for the tests: turning the circuit keeps it). */
     zoomLevel: () => { refreshCTM(); return CTM.sc; },
     focusEdge(id) { E[id]?.hit.focus(); },

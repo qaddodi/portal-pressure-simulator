@@ -1,26 +1,26 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=b54d9b1fcc';
+import { startHost, host } from './host.js?v=e773459003';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=49dc9cdf15';
-import { createStage } from './stage.js?v=31f15d0d0c';
-import { sinusoidSupported } from './sinusoid-view.js?v=c9f6bf3814';
+import { createStage } from './stage.js?v=19528fab17';
+import { sinusoidSupported } from './sinusoid-view.js?v=d7288ad11f';
 import { createInspector } from './inspector.js?v=2a9c297d91';
 import { createDock, CUTOFFS } from './dock.js?v=b4cc2e624c';
 import { setHvpgStage } from './hvpg-proc.js?v=97ec1c1dc6';
-import { createWhy } from './why.js?v=6e2456299a';
-import { createTimeline, LAPSES } from './timeline.js?v=847aac3d96';
-import { createLearn } from './learn.js?v=0bf7df4ef3';
-import { createCases, CASES } from './cases.js?v=36ab26b5ad';
+import { createWhy } from './why.js?v=228dfe2f38';
+import { createTimeline, LAPSES } from './timeline.js?v=1ae24f9854';
+import { createLearn } from './learn.js?v=a15c7ac6f3';
+import { createCases, CASES } from './cases.js?v=33178bf228';
 import { isBlind } from './learning-kit.js?v=4c9e07a876';
 import { createCompare } from './compare.js?v=9611c9f998';
 import { createCard } from './card.js?v=af12d7b051';
 import { createChart, computeFindings } from './chart.js?v=f1dcd9d1d0';
-import { createHome, ROLES } from './home.js?v=b350a90a7f';
+import { createHome, ROLES } from './home.js?v=26b77a99e6';
 import { UNITS, course } from './course.js?v=4e4bcc6304';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=3113b1ec12';
 import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=b78b4aa239';
-import { startLMS } from './lms.js?v=3c2127457b';
+import { startLMS } from './lms.js?v=6066e67541';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=222b048585';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
@@ -76,7 +76,7 @@ const palette = {
 };
 const presenter = {
   home: () => presenterL.now()?.home() ?? (presenterL.get().then(() => { if (home.isOpen()) home.render(); }), h('div', { class: 'home-loading' }, 'Loading…')),
-  start: (id) => presenterL.get().then((p) => p.start(id)),
+  start: (id, at) => presenterL.get().then((p) => p.start(id, at)),
   presentCase: (id) => presenterL.get().then((p) => p.presentCase(id)),
   stop: () => presenterL.now()?.stop(),
   readLink: () => (/#script=/.test(location.hash) ? presenterL.get().then((p) => p.readLink()) : false),
@@ -140,7 +140,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else home.open(o?.practice ? 'practice' : 'course'); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => home.open('course') });
-  presenterL = lazy(() => import('./presenter.js?v=cd506a192a'), ({ createPresenter }) => createPresenter({ startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=96533c72aa'), ({ createPresenter }) => createPresenter({ startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -153,7 +153,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=bbde6cf095'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=9dc545159b'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -231,13 +231,13 @@ async function main() {
   addEventListener('pps:lang', () => { if (home.isOpen()) home.render(); });
   if (readLS('pps.sonify') === '1') addEventListener('pointerdown', () => setSonify(true), { once: true });
 }
-// Deep links, for an LMS or a syllabus: ?lesson=<id> (&step=<step id or n>), ?case=<id>, ?script=<id>, ?preset=<id>,
+// Deep links, for an LMS or a syllabus: ?lesson=<id> (&step=<step id or n>), ?case=<id>, ?script=<id> (&slide=<n>), ?preset=<id>,
 // ?home=explore|learn|cases|present. They open straight into that activity.
 async function openDeepLink() {
   const q = new URLSearchParams(location.search);
   if (q.get('lesson')) { startLesson(q.get('lesson'), q.get('step')); return true; }
   if (q.get('case')) { startCase(q.get('case')); return true; }
-  if (q.get('script')) { presenter.start(q.get('script')); return true; }
+  if (q.get('script')) { presenter.start(q.get('script'), Math.max(0, (parseInt(q.get('slide'), 10) || 1) - 1)); return true; }
   if (q.get('preset')) {
     const id = q.get('preset'), list = store.get().presetList || [];
     if (list.some((p) => p.id === id)) { await loadPreset(id); return true; }
@@ -791,7 +791,7 @@ function openMainMenu(anchor) {
       modeItem('explore', 'explore', 'explore', 'Explore a patient', 'Any of the patients, from healthy to Budd–Chiari'),
       // The lesson and case libraries and the presenter are for instructors (the course covers them for students).
       ...(store.get().role === 'instructor' ? [
-        modeItem('present', 'present', 'projector', 'Present', 'Tours and lectures on the live model, for a class'),
+        modeItem('present', 'present', 'projector', 'Present', 'Presentations on the live model, for a lecture hall'),
         modeItem('cases', 'cases', 'case', 'Case library', 'Eight more cases, outside the course'),
         modeItem('learn', 'learn', 'book', 'Lessons', 'The lesson library')] : [])),
     h('div', { class: 'menu-sep' }),
@@ -1022,13 +1022,10 @@ function wireFloating() {
     const tc = $('#treatCard'), treatOcc = wide && !tc.hidden ? tc.offsetWidth + gap : 0;
     app.style.setProperty('--panel-occ', px(panelOcc));
     app.style.setProperty('--instr-occ', px(instrOcc));
-    // The presenter tour's card: at the right on a wide screen, a sheet over the bottom on a phone.
-    const tour = $('.tour-card:not(.summary)'), tourSide = innerWidth >= 768, tourOcc = tour ? tour.offsetWidth + gap : 0;
-    app.style.setProperty('--right-occ', px(panelOcc + instrOcc + treatOcc + (tourSide ? tourOcc : 0)));
+    app.style.setProperty('--right-occ', px(panelOcc + instrOcc + treatOcc));
     const sheet = wsOn && !ws.classList.contains('side') && ws.dataset.state !== 'peek' ? ws.offsetHeight + gap : 0;
     // On a phone the instruments sheet rises from the bottom edge, over the vitals dock.
-    let bot = isPhone() && sheet ? Math.max(vdock + gap, sheet) : vdock + gap + sheet;
-    if (tour && !tourSide) bot = Math.max(bot, tour.offsetHeight + gap);
+    const bot = isPhone() && sheet ? Math.max(vdock + gap, sheet) : vdock + gap + sheet;
     app.style.setProperty('--bot-occ', px(bot));
     dispatchEvent(new Event('pps:occ'));
   };

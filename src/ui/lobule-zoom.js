@@ -28,7 +28,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=dc393aabea';
 import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=1bc281838c';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
-import { createSinusoidView } from './sinusoid-view.js?v=c9f6bf3814';
+import { createSinusoidView } from './sinusoid-view.js?v=d7288ad11f';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const TAU = Math.PI * 2;
@@ -247,7 +247,8 @@ export function createLobuleZoom({ host }) {
   const cssN = (k) => parseFloat(appStyle?.getPropertyValue(k)) || 0;
   function freeRect() {
     const W = geo.W, H = geo.H, phone = phoneMQ.matches;
-    let t = cssN('--top-safe') + cssN('--cmp-h') + 8, b = H - (cssN('--bot-occ') || 100) - 8, l = 12, r = W - cssN('--right-occ') - 12;
+    // (--pz-l, --pz-r, --pz-b: the room a presenter slide's text and data take.)
+    let t = cssN('--top-safe') + cssN('--cmp-h') + cssN('--pz-t') + 8, b = H - (cssN('--bot-occ') || 100) - cssN('--pz-b') - 8, l = 12 + cssN('--pz-l'), r = W - cssN('--right-occ') - cssN('--pz-r') - 12;
     // The zoom buttons: on a phone they sit top right beside the Zones and Lymph switches, so the labels start below them.
     const zp = phone && document.getElementById('zoomPill');
     if (phone) {
@@ -2040,6 +2041,20 @@ export function createLobuleZoom({ host }) {
     resetView,
     /** The zoom buttons: in or out about the middle of the free space, and Fit. */
     zoomBy, fitView,
+    /** The presenter's camera: glide to the whole lobule ('fit') or close in on a portal tract ('triad'), the
+     *  sinusoids between it and the centre ('sinusoid') or the central vein ('central'), zoom × the framing. */
+    focusOn(part, { zoom = 2, ms = 1400 } = {}) {
+      if (!geo || sinTo) return;
+      const F0 = fitV(); kFit = F0.k;
+      if (!part || part === 'fit') { atFit = true; glideTo(F0, ms); return; }
+      const g = geo, tri = g.lobules[0].corners[3];
+      const w = part === 'triad' ? [lerp(tri[0], g.cx, 0.12), lerp(tri[1], g.cy, 0.12)] : part === 'central' ? [g.cx, g.cy] : [lerp(tri[0], g.cx, 0.5), lerp(tri[1], g.cy, 0.5)];
+      const f = freeRect(), mx = (f.l + f.r) / 2, my = (f.t + f.b) / 2, k = clamp(kFit * zoom, kFit, kFit * KMAX);
+      const saved = { ...V };
+      Object.assign(V, { k, x: mx - w[0] * k, y: my - w[1] * k }); clampV();
+      const to = { ...V }; Object.assign(V, saved);
+      atFit = false; glideTo(to, ms);
+    },
     viewKey: () => `${V.k.toFixed(3)},${V.x.toFixed(1)},${V.y.toFixed(1)}|${geoKey}`,
     isOpen: () => fade > 0.98,
     isShown: () => fade > 0,

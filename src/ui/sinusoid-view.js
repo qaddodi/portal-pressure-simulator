@@ -87,7 +87,8 @@ export function createSinusoidView({ host }) {
   const cssN = (k) => parseFloat(appStyle?.getPropertyValue(k)) || 0;
   function freeRect(W, H) {
     // The view has the stage to itself (the dock and the side panels are hidden in it), so their room is not kept.
-    const t = cssN('--top-safe') + cssN('--cmp-h') + 8 + 40, b = H - 28, l = 12, r = W - 12;
+    // (--pz-l, --pz-r: the room a presenter slide's text and data take.)
+    const t = cssN('--top-safe') + cssN('--cmp-h') + 8 + 40, b = H - 28, l = 12 + cssN('--pz-l'), r = W - 12 - cssN('--pz-r');
     return { l, t, r: Math.max(l + 80, r), b: Math.max(t + 80, b) };
   }
   // The stretch is laid out once per stage size. It runs along the stage's longer side: across on a

@@ -9,7 +9,16 @@ import { defaultParams, deepMerge, PRESETS } from './engine/scenario.js?v=d88966
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
 
-const fingerprint = (m) => ({ pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: m.hvpg, ra: m.ra, asc: m.ascites.volume, saag: m.ascites.saag, tp: m.ascites.totalProtein });
+// A state's fingerprint for the ladder, the presenter's data and tables: the pressures from the portal vein to the
+// heart, the gradients, the ascites (volume, SAAG, protein, albumin) and the lymph that makes it, the sinusoidal and
+// central vein pressures, varices, spleen, flow and shunting.
+const fingerprint = (m, e) => {
+  const P = e ? e.Pf || e.P : null, a = m.ascites;
+  return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: m.hvpg, ra: m.ra, ivc: m.ivc, ppg: m.ppg,
+    asc: a.volume, saag: a.saag, tp: a.totalProtein, aalb: a.albumin, salb: e?.params.albumin, sigma: a.lymphSigma, hepLymph: a.hepLymph, splLymph: a.splLymph,
+    sin: P ? P[e.ni.SIN_R] : null, cv: P ? P[e.ni.CV_R] : null, varix: m.varix.d, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
+    pvFlow: m.pvFlowMean, shunt: m.shuntFraction, he: m.heRisk.index, lsm: m.lsm, map: m.map, hb: m.blood.hb };
+};
 
 export function createCore(post) {
   let eng = new Engine();
@@ -214,16 +223,39 @@ export function createCore(post) {
       post({ type: 'healthy', reqId, P: Array.from(h.P), Q: Array.from(h.Q), metrics: computeMetrics(h) });
     },
     // The presenter tour's fingerprint: the live state, or each listed preset loaded fresh.
-    metrics({ reqId }) { post({ type: 'metrics', reqId, result: fingerprint(computeMetrics(eng)) }); },
+    metrics({ reqId }) { post({ type: 'metrics', reqId, result: fingerprint(computeMetrics(eng), eng) }); },
     presetMetrics({ ids, reqId }) {
       const result = {};
       for (const id of ids || []) {
         const e = new Engine(), g = e.loadPresetSteps(id, {});
         for (let n = g.next(); !n.done; n = g.next());
         e.settle();
-        result[id] = fingerprint(computeMetrics(e));
+        result[id] = fingerprint(computeMetrics(e), e);
       }
       post({ type: 'presetMetrics', reqId, result });
+    },
+    // The presenter's slides, computed off screen so the figure only ever shows finished states: a chain in
+    // which each slide starts from the one before (base: the state before the first), in the order the
+    // lessons use (preset → params → settle → action → disease days → settle). Each slide is posted as it is
+    // ready ('seqStep': snapshot, params, fingerprint); 'sequence' ends the chain.
+    *sequence({ steps, base, reqId }) {
+      const e = new Engine();
+      if (base) e.restore(base);
+      for (let i = 0; i < (steps || []).length; i++) {
+        const st = steps[i] || {};
+        if (st.preset) yield* e.loadPresetSteps(st.preset, st.presetDays != null ? { days: st.presetDays + (PRESETS.find((p) => p.id === st.preset)?.days || 0) } : {});
+        if (st.params) { e.setParams(deepMerge(e.params, st.params)); e.settle(); }
+        if (st.action) applyAction(e, st.action);
+        for (let done = 0; done < (st.days || 0);) {
+          const n = Math.min(30, st.days - done);
+          yield* e.advanceDaySteps(n, { noRupture: true, silent: true });
+          done += n;
+        }
+        if (st.preset || st.params || st.days) e.settle();
+        post({ type: 'seqStep', reqId, i, snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(computeMetrics(e), e) });
+        yield;
+      }
+      post({ type: 'sequence', reqId });
     },
     presets({ reqId }) { post({ type: 'presets', reqId, presets: PRESETS.map(({ id, label, group, summary, days }) => ({ id, label, group, summary, days })) }); },
   };
@@ -252,7 +284,7 @@ export function createCore(post) {
         }
         // Queries must not wake the renderer. Mutations send one immediate frame,
         // including UI-originated parameters without echoing those parameters back.
-        if (!['snapshot', 'explain', 'healthyProfile', 'presets', 'counterfactual', 'metrics', 'presetMetrics'].includes(msg.type)) {
+        if (!['snapshot', 'explain', 'healthyProfile', 'presets', 'counterfactual', 'metrics', 'presetMetrics', 'sequence'].includes(msg.type)) {
           frameDirty = true;
           if (visible) { lastFrame = performance.now(); frame(); }
         }
