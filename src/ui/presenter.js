@@ -731,7 +731,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   }
   // Glide the camera to a slide's framing; resolves when it has landed (cut(): a newer slide was asked for).
   async function camera(cam, s, cut) {
-    const ms = reduce.matches ? 0 : 1500;
+    const ms = reduce.matches || booting ? 0 : 1500;
     if (LOBULE_CAM.test(cam)) {
       // (A slide's layers: ['zones'] shows the lobule's zone bands; any other lobule slide has them off.)
       const zonesWant = !!s.layers?.includes('zones');
@@ -990,7 +990,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     // (The words come first: they set the space the camera frames into.)
     wordsIn(s, q, st, to, swap);
     if (s.visual === 'table') fillTable(s, cut);
-    const lead = swap && !ct && cam && !LOBULE_CAM.test(cam) && !store.get().lobule && !reduce.matches ? camera(cam, s, cut) : null;
+    const lead = swap && !ct && cam && !LOBULE_CAM.test(cam) && !store.get().lobule && !reduce.matches && !booting ? camera(cam, s, cut) : null;
     if (lead) await wait(150);
     if (swap || view.classList.contains('pz-out')) figureIn(); else loading(false);
     if (cut()) return;
@@ -1018,6 +1018,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     { const ss = !s.visual && !q ? [...new Set([...(s.sites || []), ...slideTargets(s).sites])] : []; if (ss.length) stage.setSites(ss, st.fp); }
     shown = { i: to, rev, gen: g };
     paintChrome();
+    if (booting) await coverDown();
     if (lap) await playLapse(s, to, cut);
   }
 
@@ -1043,6 +1044,8 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     // A different patient: the card leaves with the words and stays gone until the new patient has settled, so its numbers never travel from one patient to the other.
     const gone = newPatient && !data.hidden && !data.classList.contains('pz-hide');
     if (move || gone) data.classList.add('pz-hide');
+    // Leaving a visual for the figure: the veil lifts with the panel, not after it.
+    if (!next?.visual) ui.veil.classList.remove('on');
     if (!move && !gone && out.every((el) => el.hidden || !el.childElementCount)) return;
     // The catheter's monitor stays up from one measuring slide to the next: only the words around it go.
     const keep = mon && next?.monitor && !next.visual && mon.el.parentNode === ui.text;
@@ -1551,6 +1554,32 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     wrap.append(root);
     return { root, shade, safe, load, text, data, dhT, dhL, ladder, tiles, tools, veil, panel, count, prog, bar, black: blackEl, jump };
   }
+  // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.
+  let cover = null, booting = false, coverT = 0;
+  function coverUp() {
+    booting = true;
+    clearTimeout(coverT); coverT = setTimeout(() => coverDown(true), 12000);   // (never left up)
+    if (!cover) { cover = h('div', { class: 'pz-cover', 'aria-hidden': 'true' }, h('i')); document.body.append(cover); void cover.offsetWidth; }
+    cover.classList.add('on');
+    return wait(reduce.matches ? 0 : 300);
+  }
+  async function coverDown(now = false) {
+    if (!now) {
+      // Under the cover: the figure has refitted to the projector layout (its framing holds still) and the slide's
+      // own entrances (the words, the card, the glass) have finished, so the reveal shows a finished slide.
+      const T = () => document.getElementById('world')?.getAttribute('transform') || '';
+      let a = T(), same = 0;
+      for (let i = 0; i < 40 && same < 5; i++) { await wait(60); const c = T(); same = c === a ? same + 1 : 0; a = c; }
+      const runs = ui ? [...ui.root.getAnimations({ subtree: true }), ...ui.shade.getAnimations()].filter((x) => x.effect?.getComputedTiming().iterations !== Infinity) : [];
+      await Promise.race([Promise.all(runs.map((x) => x.finished.catch(() => {}))), wait(1200)]);
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    }
+    clearTimeout(coverT); booting = false;
+    const c = cover; cover = null;
+    if (!c) return;
+    c.classList.remove('on');
+    setTimeout(() => c.remove(), reduce.matches ? 0 : 700);
+  }
   // Everything the audience's slides will change, kept so Esc, ✕ or Finish can put the viewer's own settings back (the patient itself returns to healthy, see putHealthy).
   async function capture() {
     const st = store.get(), { snap } = await host.request('snapshot');
@@ -1563,8 +1592,12 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const want0 = Math.max(0, (parseInt(at, 10) || 0));
     const d = typeof id === 'object' ? id : all().find((x) => x.id === (ALIAS[id] || id));
     if (!d?.slides?.length) { toast('That presentation could not be found.'); return; }
+    // The start is one composed reveal: a calm cover fades over the screen, the projector layout, the first patient and
+    // the first slide are all set up under it, and the cover fades away once nothing behind it is still moving.
+    const up = coverUp();
     // Starting another deck while one runs keeps the state from before the first.
     const before = deck ? saved : await capture();
+    await up;
     if (deck) stop(false);
     saved = before;
     if (saved && !saved.cards) saved.cards = stashCards?.();
@@ -1587,6 +1620,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   }
   function stop(restore = true) {
     if (!deck) return;
+    if (cover) coverDown(true);
     stopLapse(); cathStop(); abSlow(); liveOff = false;   // (before deck is cleared: stopping a time-lapse repaints the bar)
     deck = null; shown = null; want = 0;
     for (const w of waiters) w.res(null);
