@@ -80,11 +80,9 @@ for (const [device, opts] of Object.entries(DEVICES)) {
     try {
       await page.goto(server.url + '?preset=cirr-decomp');
       await page.waitForFunction(() => window.pps?.store?.get().frame, null, { timeout: 45000 });
-      // Pause at once and settle to equilibrium, so a slow machine shows the same clock, readings and
-      // beat as a fast one (a fixed wait let the model run for a machine-dependent time).
-      await page.evaluate(() => { window.pps.host.send({ type: 'run', running: false }); window.pps.host.send({ type: 'settle' }); });
-      await page.waitForFunction(() => window.pps.store.get().running === false);
       await page.waitForTimeout(1500);
+      await page.evaluate(() => window.pps.host.send({ type: 'run', running: false }));
+      await page.waitForFunction(() => window.pps.store.get().running === false);
       await page.evaluate((l) => window.pps.store.set({ colorMode: l }), lens);
       if (view !== 'anatomic') await page.click(`#viewSeg [data-view="${view}"]`, { force: true });
       if (view === 'lobule') await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 30000 });
