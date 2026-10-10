@@ -39,6 +39,7 @@ const READS = new Set(['doppler', 'fibroscan', 'scope']);
 const noop = () => {};
 
 export function createTools({ host, stage }) {
+  const ghostEl = h('div', { class: 'pz-ghost', 'aria-live': 'polite' });
   const box = h('div', { class: 'pz-tool' });
   const made = {};
   let cur = null, kind = null, probe0, lastSt = null;
@@ -74,12 +75,17 @@ export function createTools({ host, stage }) {
       inst.setWaves?.(!!t.waves);
       if (stateKey !== lastSt && (k === 'doppler' || k === 'beats')) inst.clear?.();
       lastSt = stateKey;
-      if (cur !== inst) box.replaceChildren(inst.el);
+      if (cur !== inst) box.replaceChildren(inst.el, ghostEl);
       cur = inst; kind = k;
       box.dataset.kind = k;
       box.classList.toggle('ask', quiz && READS.has(t.kind));
       if (k === 'talk') inst.set(chain);
       else { const f = store.get().frame; if (f) requestAnimationFrame(() => cur === inst && inst.update(f)); }
+    },
+    /** The earlier reading, faint beside the live one ({ label, value }), or null. Eases in and out. */
+    ghost(g) {
+      ghostEl.classList.toggle('on', !!g);
+      if (g) ghostEl.replaceChildren(h('span', {}, g.label), h('b', {}, g.value));
     },
     hide() { stage?.pinDoppler?.(null); stage?.setScanProbe?.(false); cur = null; kind = null; delete box.dataset.kind; },
     /** The presentation is over: the Doppler goes back to the vessel it had. */

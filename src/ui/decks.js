@@ -49,7 +49,7 @@
 // (withOverview below); a deck never writes that slide itself.
 
 import { STIFFNESS } from './decks/stiffness.js?v=35e2f96b71';
-import { ONE_YEAR } from './decks/one-year.js?v=95caadb5bb';
+import { ONE_YEAR } from './decks/one-year.js?v=37492fcfd2';
 import { LOBULE } from './decks/lobule.js?v=a4fece9e32';
 import { SHUNTS } from './decks/shunts.js?v=f85ae18277';
 import { TAP } from './decks/tap.js?v=a7198caf5f';

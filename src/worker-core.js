@@ -25,7 +25,7 @@ const fingerprint = (m, e) => {
   return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: m.hvpg, ra: m.ra, ivc: m.ivc, ppg: m.ppg,
     asc: a.volume, saag: a.saag, tp: a.totalProtein, aalb: a.albumin, salb: e?.params.albumin, sigma: a.lymphSigma, hepLymph: a.hepLymph, splLymph: a.splLymph,
     sin: P ? P[e.ni.SIN_R] : null, cv: P ? P[e.ni.CV_R] : null, int: P ? P[e.ni.INT] : null, varix: m.varix.d, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
-    pvFlow: m.pvFlowMean, shunt: m.shuntFraction, he: m.heRisk.index, liver: m.liverPerfPct, lsm: m.lsm, map: m.map, hr: m.hr, hb: m.blood.hb, rih: e ? liverRes(e) : null };
+    pvFlow: m.pvFlowMean, shunt: m.shuntFraction, he: m.heRisk.index, liver: m.liverPerfPct, lsm: m.lsm, pvVel: m.pvVelMean, map: m.map, hr: m.hr, hb: m.blood.hb, rih: e ? liverRes(e) : null };
 };
 // A time-lapse's params on day d of n: each ramped key eased linearly from its first value to its last.
 const rampAt = (ramp, d, n) => Object.fromEntries(ramp.map(([k, [a, b]]) => [k, a + (b - a) * Math.min(1, d / n)]));

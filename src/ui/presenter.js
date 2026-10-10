@@ -19,9 +19,9 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=cab65850a4';
 import { sinusoidSupported } from './sinusoid-view.js?v=d5403260c8';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
-import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=ae350d9724';
-import { createTools } from './presenter-tools.js?v=28dfa00d7e';
-import { openHandout } from './handout.js?v=e2ccdcd55c';
+import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=7b00729ce0';
+import { createTools } from './presenter-tools.js?v=621f749226';
+import { openHandout } from './handout.js?v=e6247b0150';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -229,7 +229,7 @@ function liveFp(fr) {
   const m = fr.metrics, a = m.ascites, P = fr.Pf || fr.P;
   return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: m.hvpg, ra: m.ra, ivc: m.ivc, ppg: m.ppg, asc: a.volume, saag: a.saag, tp: a.totalProtein,
     sin: P?.[NI.SIN_R], int: P?.[NI.INT], varix: m.varix.d, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
-    pvFlow: m.pvFlowMean, shunt: m.shuntFraction, liver: m.liverPerfPct, map: m.map, hr: m.hr, lsm: m.lsm, hb: m.blood?.hb };
+    pvFlow: m.pvFlowMean, shunt: m.shuntFraction, liver: m.liverPerfPct, map: m.map, hr: m.hr, lsm: m.lsm, pvVel: m.pvVelMean, hb: m.blood?.hb };
 }
 
 // A value counts from where it was to where it goes (eased, about a second); reduced motion jumps.
@@ -565,7 +565,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=c4c903ed96', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=bafb12d22a', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 6000);
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -577,7 +577,7 @@ function makeCalc() {
       w.onmessage = (e) => onMsg(e.data); w.onerror = null;
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
-      const { createCore } = await import('../worker-core.js?v=a02b247db5');
+      const { createCore } = await import('../worker-core.js?v=c394f5eab9');
       const core = createCore((m) => setTimeout(() => onMsg(m), 0));
       core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
       post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
@@ -979,6 +979,17 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
   const refOf = (s, i) => { const d = deltaOf(s, i); return (d === true ? states[stateOf[i - 1]]?.fp : typeof d === 'string' ? fpOf(d) : null) || null; };
   // The data card: the ladder and tiles, a slide's instrument (tool), or both (the tool above the tiles).
   const hasCard = (s) => !s.visual && (s.data === 'ladder' || s.data === 'tiles' || !!s.tool);
+  // A reading tool can show the earlier reading as a ghost (D3): tool.delta, else the slide's own delta.
+  const GHOST = { fibroscan: ['lsm', 'kPa', 1], doppler: ['pvVel', 'cm/s', 0] };
+  function toolGhost(s, i) {
+    const g = GHOST[s.tool.kind];
+    if (!g || (s.tool.kind === 'doppler' && (s.tool.vessel || 'PV_TRUNK') !== 'PV_TRUNK')) return null;
+    const t = s.tool.delta != null ? { ...s, delta: s.tool.delta } : s, d = deltaOf(t, i), r = refOf(t, i);
+    if (r?.[g[0]] == null) return null;
+    // (The earlier reading only: the instrument's live reading jitters, so a computed change could disagree with it.)
+    const from = d === true ? slides[stateOf[i - 1]] : slides.find((x) => x.id === d);
+    return { label: s.tool.deltaLabel || (d === true && s.lapse?.from) || from?.kicker || 'Before', value: `${fmt(r[g[0]], g[2])} ${g[1]}` };
+  }
   const cardTitle = (s) => (s?.data === 'ladder' ? 'Pressure, portal vein to heart' : s?.dataTitle || (s?.tool ? ui.tools.title(s.tool) : 'This patient, from the model'));
   // The talk so far, for a pressure trace: every state up to slide i, once each.
   const chainTo = (i) => [...new Set(stateOf.slice(0, i + 1))].map((k) => ({ n: k + 1, title: slides[k].title, fp: states[k]?.fp }));
@@ -1024,6 +1035,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
       ui.dhT.textContent = cardTitle(s);
       ui.dhL.hidden = !lad;
       if (s.tool) ui.tools.show(s.tool, { quiz: q, stateKey: stateOf[i], chain: chainTo(i) }); else ui.tools.hide();
+      if (s.tool) ui.tools.ghost(q ? null : toolGhost(s, i));
       // (With a new patient the numbers are set at once, while the card is still out: it fades back in already showing them.)
       const ms = fresh ? 0 : undefined;
       if (lad) ui.ladder.set(st.fp, { key: q ? [] : s.key || [], ms, brackets: q ? null : s.brackets });

@@ -34,7 +34,7 @@ export function startLMS() {
   let required = single ? [single] : null;
   const catalog = async () => {
     if (required) return required;
-    const [{ LESSONS }, { CASES }] = await Promise.all([import('./learn.js?v=ec48cdfa2b'), import('./cases.js?v=a253797d04')]);
+    const [{ LESSONS }, { CASES }] = await Promise.all([import('./learn.js?v=0fd232734e'), import('./cases.js?v=d914dab10c')]);
     return (required = [...LESSONS.map((l) => ({ kind: 'lesson', id: l.id })), ...CASES.map((c) => ({ kind: 'case', id: c.id }))]);
   };
   if (q.get('script')) return api; // presentations are ungraded

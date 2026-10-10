@@ -48,7 +48,7 @@ export const ONE_YEAR = {
       ask: ['Above what HVPG is the variceal bleed risk high?', '12 mmHg.'],
     },
     {
-      id: 'doppler', cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
+      id: 'doppler', cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK', delta: 'd0' },
       kicker: 'Day 365', site: 'sin', title: 'Doppler of the portal vein',
       line: 'Flow still runs toward the liver, but slower than a year ago.',
       notes: 'The main portal vein normally carries 15 cm/s or more toward the liver, with a gentle respiratory ripple. As resistance rises the velocity falls; under about 15 cm/s supports portal hypertension. Later the flow can become to-and-fro, then reverse (hepatofugal). Doppler also looks for a clot, a large spleen, collaterals and ascites. It is operator-dependent and changes with meals and breathing, so scan fasting.',

@@ -2245,6 +2245,10 @@ button.finding:hover { background: var(--surface-2); }
 .pz:not(.stack):not(.port) .pz-data.has-tool:not(.tool-only) .pz-tiles[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .pz:not(.stack):not(.port) .pz-data.has-tool.tiles-only:not(.tool-only) .pzt-v { font-size: min(clamp(28px, calc(4.6vh / var(--vz)), 56px), 30cqi); }
 .pz-tool:not([data-kind]) { display: none; }
+.pz-ghost { display: flex; flex-wrap: wrap; align-items: baseline; gap: .2em .6em; margin-top: 6px; font: 600 clamp(12px, calc(1.45vh / var(--vz)), 16px)/1.2 var(--font-ui); color: var(--text-3); opacity: 0; max-height: 0; overflow: hidden; transition: opacity .5s var(--ease), max-height .5s var(--ease); }
+.pz-ghost.on { opacity: 1; max-height: 3em; }
+.pz-ghost span { letter-spacing: .06em; text-transform: uppercase; font-size: .85em; }
+.pz-ghost b { color: var(--text-2); opacity: .7; font-variant-numeric: tabular-nums; }
 .pz-data.tool-only .pz-tiles, .pz-data.tool-only .pz-ladder, .pz-data.tool-only .pz-lg { display: none; }
 .pz-tool .ab-main { display: block; }
 .pz-tool .ab-main > .ab-report + .ab-report, .pz-tool .ab-tap > .ab-row:last-child { display: none; }
