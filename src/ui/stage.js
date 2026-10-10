@@ -1376,6 +1376,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // The anatomy is covered by the lobule at this point: take it to its fit framing now, unseen, so the way out is one
       // continuous zoom from the lobule's fit to the anatomy's fit, with no correction after it lands.
       if (morphTarget === 0 && liverBox()) {
+        // Leaving from the sinusoid, its focus class (main.js) still hides the dock and bars until the store's other
+        // listeners run: drop it first, or the fit is measured without them and lands too close, cutting off the ascites.
+        if (!store.get().lobule) document.getElementById('app')?.classList.remove('sin-focus');
         cancelAnimationFrame(vtAnim); vtGliding = false;
         const d = defaultVT(false); vt = { ...d }; homeAt = d; applyVT(); CTM = null; refreshCTM();
         // The plate stopped updating under the lobule, so it still holds the old zoom's culling and detail: bring it up to date for the fit now, not when the zoom lands.
