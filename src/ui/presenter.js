@@ -391,7 +391,7 @@ function makeCalc() {
   };
 }
 
-export function createPresenter({ openSettings, startCase, cases = [], host, stage, projectorOn, projectorOff, closeHome, rerenderHome }) {
+export function createPresenter({ openSettings, startCase, cases = [], host, stage, projectorOn, projectorOff, closeHome, stashCards, rerenderHome }) {
   const app = document.getElementById('app'), view = document.getElementById('stageView'), wrap = document.getElementById('stageWrap');
   let calc = null;
   const getCalc = () => (calc ||= makeCalc());
@@ -1148,6 +1148,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     const before = deck ? saved : await capture();
     if (deck) stop(false);
     saved = before;
+    if (saved && !saved.cards) saved.cards = stashCards?.();
     deck = d; slides = d.mine ? d.slides : withOverview(d).slides; shown = null; shownState = -1; quiz = false; black = false;
     closeHome?.();
     const st0 = store.get();
@@ -1202,6 +1203,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     if (before.lobule !== b.lobule) store.set({ lobule: b.lobule, sinusoid: b.sinusoid });
     else if (before.sinusoid !== b.sinusoid) store.set({ sinusoid: b.sinusoid });
     store.set({ selection: b.selection, details: b.details });
+    b.cards?.();
     if (ms) { await wait(260); view.style.opacity = ''; await wait(ms + 60); view.style.transition = ''; }
   }
 

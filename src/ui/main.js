@@ -141,9 +141,9 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else home.open(o?.practice ? 'practice' : 'course'); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => home.open('course') });
-  presenterL = lazy(() => import('./presenter.js?v=3e15a13e62'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=02a871df2a'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
-    closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
+    closeHome: () => home.close(), stashCards, rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
     el: $('#home'), brandMark,
     onPreset: (id) => openInExplore(id),
@@ -1215,6 +1215,12 @@ function openTreat() {
   $('#btnTreat').setAttribute('aria-expanded', 'true');
   refitStage();
   requestAnimationFrame(() => stage.relayout());
+}
+// Presenter puts every card, sheet and menu away (each fades out) and hands back a function that reopens them on exit.
+function stashCards() {
+  const was = { panel: panelShown(), treat: !$('#treatCard').hidden, dock: app.classList.contains('dock-open') };
+  closePopover(); why?.close(); closeTreat(); closePanel(); if (was.dock) setPanelTab('chart');
+  return () => { if (was.panel) openPanel(); if (was.dock) openPanel('instruments'); if (was.treat) openTreat(); };
 }
 function closeTreat() {
   const el = $('#treatCard');
