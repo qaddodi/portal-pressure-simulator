@@ -329,8 +329,15 @@ export function createSinusoidView({ host }) {
   }
 
   // ── Labels ──
-  // The fenestrae's state in capitals with the share open (eased with S.por, so it counts rather than jumps).
-  const fenTxt = () => `${S.por > 0.85 ? 'OPEN' : S.por > 0.15 ? 'CLOSING' : 'CLOSED'}~${Math.round(S.por * 100)}%`;
+  // The fenestrae's state with the share open, read as a value beneath the name (eased with S.por, so it counts rather than jumps).
+  const fenTxt = () => `${S.por > 0.85 ? 'Open' : S.por > 0.15 ? 'Closing' : 'Closed'}~${Math.round(S.por * 100)}%`;
+  // The fenestra a callout points at: of the upper lining's pores near x, the one that stays open longest (by place
+  // only, so the line does not hop as the pores close).
+  const fenAt = (x) => {
+    let best = null;
+    for (const p of geo.pores[0]) if (Math.abs(p.x - x) < 9 && (!best || p.th < best.th)) best = p;
+    return best ? best.x : x;
+  };
   function layoutTags() {
     const g = geo, m = model, hep = UM.hep, V = g.vert;
     const pick = (u) => lerp(VW.fr[0] + 8, VW.fr[1] - 8, u);
@@ -338,21 +345,31 @@ export function createSinusoidView({ host }) {
     const num = (v, d, u) => (m.hide ? '?' : `${fmt(v, d)}~${u}`);
     // In the lumen: the sinusoid (mid-view), the Kupffer cell beside itself, and the fenestrae along the far wall.
     if (g.tall) { layoutTall(); return; }
-    for (const k in lead) if (k !== 'lymph') lead[k].style.opacity = '0';   // (across the screen only the lymph has a leader)
+    for (const k in lead) if (k !== 'lymph' && k !== 'fen') lead[k].style.opacity = '0';   // (across the screen only the lymph and the fenestrae have leaders)
     const xc = away(pick(0.5), g.xk, 30);
     const rs = region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), xc, 0, { along: true });
     LAB[0] = rs.x; LAB[1] = rs.half;
     kupName();
-    const xf = away(away(pick(V ? 0.3 : 0.68), g.xs, 30), g.xk, 16);   // (clear of the stellate cell, and of the Kupffer cell's name)
-    region('fen', 'Fenestrae', fenTxt(), xf, -(halfW(xf) - 0.6), { along: true, side: 1 });
-    // In Disse: its name (on the stellate cell's side on a wide screen, clear of it), and the lymph it carries,
-    // read in the plate just beyond it on the other side.
-    const xq = V ? pick(0.24) : away(pick(0.86), g.xs, 40);
-    region('disse', 'Space of Disse', '', xq, (V ? 1 : -1) * (wallIn(xq) + disseW(xq) * 0.5), { along: true });
+    // In the plates: the stellate cell named just beyond its body; the fenestrae beside it in the same plate, with a
+    // thin callout down to an open fenestra in the lining (to the name's left), clear of the stellate cell's name.
+    const hs = region('hsc', S.act > 0.5 ? 'Activated stellate cell' : 'Stellate cell', '', g.xs, -(hepIn(g.xs) + 1), { side: -1, along: V });
+    const fp = 16 / VW.k, fen = (xp, dx) => region('fen', 'Fenestrae', fenTxt(), xp + dx, -(hepIn(xp) + 1), { side: -1 });
+    let xp = fenAt(pick(0.6)), rf = fen(xp, 0);
+    rf = fen(xp, rf.half + fp * 0.8);
+    if (Math.abs(rf.x - hs.x) - rf.half - hs.half < fp) { xp = fenAt(hs.x + hs.half + fp * 2); rf = fen(xp, rf.half + fp * 0.8); }
+    leader('fen', rf, xp, -(halfW(xp) + UM.endo * 0.5));
+    // In Disse: its name (on the stellate cell's side on a wide screen, clear of it and of the fenestrae's callout),
+    // and the lymph it carries, read in the plate just beyond it on the other side.
+    let xq = V ? pick(0.24) : away(pick(0.86), g.xs, 40);
+    const rq = region('disse', 'Space of Disse', '', xq, (V ? 1 : -1) * (wallIn(xq) + disseW(xq) * 0.5), { along: true });
+    if (!V && xq - rq.half < rf.x + rf.half + fp && xq + rq.half > xp - fp) {
+      xq = rf.x + rf.half + rq.half + fp;
+      if (xq + rq.half > VW.fr[1]) xq = xp - fp - rq.half;
+      region('disse', 'Space of Disse', '', xq, -(wallIn(xq) + disseW(xq) * 0.5), { along: true });
+    }
     const xd = pick(V ? 0.55 : 0.32), lymph = (x) => region('lymph', 'Lymph', m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min · Protein ${Math.round(m.lyProt * 100)}%`, x, hepIn(x) + 1.2, { side: 1 });
     let ly = lymph(xd);
-    // In the plates: the stellate cell named just beyond its body, and a hepatocyte on itself, clear of its nucleus.
-    region('hsc', S.act > 0.5 ? 'Activated stellate cell' : 'Stellate cell', '', g.xs, -(hepIn(g.xs) + 1), { side: -1, along: V });
+    // A hepatocyte named on itself, clear of its nucleus.
     const xh = pick(V ? 0.88 : 0.08), hc = cellAt(xh, SEED.plateDn), hep1 = (x) => region('hep', 'Hepatocyte', '', x, hepIn(x) + hep * (hc.nv < 0.5 ? 0.78 : 0.22));
     // The cell's name and the lymph's numbers share a plate: on a narrow view (a cell wider than its share of the
     // screen) the name slides back along its cell, then the numbers step on, until the two are clear.
@@ -381,7 +398,8 @@ export function createSinusoidView({ host }) {
     LAB[0] = pick(0.42); LAB[1] = region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), LAB[0], 0).half;
     // Right (y < 0): fenestrae, stellate cell, a hepatocyte.
     let x = pick(0.08);
-    leader('fen', region('fen', 'Fenestrae', fenTxt(), x, -mid(x)), x, -(halfW(x) + UM.endo * 0.5));
+    const xp = fenAt(x);
+    leader('fen', region('fen', 'Fenestrae', fenTxt(), x, -mid(x)), xp, -(halfW(xp) + UM.endo * 0.5));
     x = clamp(g.xs, pick(0.3), pick(0.62));
     leader('hsc', region('hsc', S.act > 0.5 ? 'Activated\nstellate cell' : 'Stellate\ncell', '', x, -mid(x)), g.xs, -(dis(g.xs) + 0.6));   // (stacked, to fit the plate)
     region('hep', 'Hepatocyte', '', pick(0.92), -mid(pick(0.92)));

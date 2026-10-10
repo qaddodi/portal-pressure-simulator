@@ -1693,8 +1693,13 @@ button.finding:hover { background: var(--surface-2); }
   text-shadow: 1.6px 0 0 var(--label-halo), -1.6px 0 0 var(--label-halo), 0 1.6px 0 var(--label-halo), 0 -1.6px 0 var(--label-halo), 1.1px 1.1px 0 var(--label-halo), -1.1px 1.1px 0 var(--label-halo), 1.1px -1.1px 0 var(--label-halo), -1.1px -1.1px 0 var(--label-halo), 0 0 3px var(--label-halo); }
 .sv-region .v { letter-spacing: 0; text-transform: none; font-weight: 500; font-size: calc(10px * var(--label-k, 1)); color: var(--text-2); }
 .sv-region .v b { font-weight: 700; font-size: calc(12px * var(--label-k, 1)); color: var(--text); margin-right: 1px; }
-.sv-region-fen .v { color: var(--text); font-weight: 600; }
-.sv-region-fen .v b { font-size: calc(12.5px * var(--label-k, 1)); font-weight: 800; letter-spacing: .04em; }
+/* The fenestrae named as the cells are (small tinted capitals, the lining's slate), their state a quiet value beneath. */
+.sv-region-fen { --fen-ink: #56688A; font-size: calc(9px * var(--label-k, 1)); color: var(--fen-ink); gap: 2px; }
+.sv-region-fen > span:first-child { opacity: .9; }
+.sv-region-fen .v { font-size: calc(9.5px * var(--label-k, 1)); font-weight: 500; color: var(--text-2); opacity: .9; }
+.sv-region-fen .v b { font-size: calc(10px * var(--label-k, 1)); font-weight: 600; color: var(--text-2); margin-right: 2px; }
+:root[data-theme="dark"] .sv-region-fen, :root[data-theme="dark"] .sv-lead-fen { --fen-ink: #B8C6E2; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) :is(.sv-region-fen, .sv-lead-fen) { --fen-ink: #B8C6E2; } }
 .sv-region-sin { color: var(--text); font-size: calc(11.5px * var(--label-k, 1)); }
 .sv-region-disse, .sv-region-lymph { --svg-green: #4F7440; color: var(--svg-green); }
 :root[data-theme="dark"] :is(.sv-region-disse, .sv-region-lymph) { --svg-green: #B5D3A3; }
@@ -1725,6 +1730,7 @@ button.finding:hover { background: var(--surface-2); }
 .sv-lead circle { fill: currentColor; opacity: .8; }
 .sv-lead-disse, .sv-lead-lymph { color: #4F7440; }
 .sv-lead-hsc { color: #93603F; }
+.sv-lead-fen { --fen-ink: #56688A; color: var(--fen-ink); }
 :root[data-theme="dark"] :is(.sv-lead-disse, .sv-lead-lymph) { color: #B5D3A3; }
 :root[data-theme="dark"] .sv-lead-hsc { color: #D9B092; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) :is(.sv-lead-disse, .sv-lead-lymph) { color: #B5D3A3; } :root:not([data-theme="light"]) .sv-lead-hsc { color: #D9B092; } }
