@@ -22,14 +22,14 @@ export const ONE_YEAR = {
     {
       id: 'cath', cath: 'result', data: 'ladder', key: ['whvp', 'fhvp', 'hvpg'], tiles: ['hvpg', 'ppg'],
       kicker: 'Day 0', site: 'sin', title: 'The catheter at diagnosis',
-      line: 'The HVPG is {9 mmHg}: portal hypertension, still below the CSPH threshold of 10.',
+      line: 'The HVPG is {hvpg}: portal hypertension, still below the CSPH threshold of 10.',
       notes: 'HVPG = WHVP − FHVP. Above 5 mmHg is portal hypertension; 10 or more is clinically significant (CSPH), the level at which varices form and decompensation becomes likely. At 9 mmHg this patient is close. HVPG is the reference standard, but invasive, so most centers reserve it for trials, uncertain cases and before liver surgery.',
       ask: ['HVPG 9 mmHg. Is this CSPH?', 'No: portal hypertension, but CSPH starts at 10 mmHg.'],
     },
     {
       id: 'd90', days: 90, ramp: ramp(0.5, 0.54), cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'], delta: 'd0',
       kicker: 'Day 90', site: 'sin', title: 'FibroScan',
-      line: 'Stiffness is over 20 kPa with platelets below 150. In this part of the gray zone, the pair makes CSPH likely without a catheter.',
+      line: 'Stiffness is {lsm} with platelets of {plt}, below 150. In this part of the gray zone, the pair makes CSPH likely without a catheter.',
       notes: 'Baveno VII gray zone: 20 to 25 kPa with platelets below 150, or 15 to 20 kPa with platelets below 110, carries a risk of CSPH of 60% or more. The model agrees: the HVPG has just passed 10 mmHg. Stiffness and platelets are cheap and repeatable, which is why they are used to follow patients between endoscopies.',
       ask: ['Stiffness 21 kPa and platelets 115. How likely is CSPH?', 'Likely: 60% or more by the Baveno VII gray-zone rule.'],
     },
@@ -43,7 +43,7 @@ export const ONE_YEAR = {
     {
       id: 'd365', days: 185, ramp: ramp(0.58, 0.66), cath: 'result', data: 'ladder', key: ['whvp', 'fhvp', 'hvpg'], tiles: ['hvpg', 'ppg'], delta: 'd0',
       kicker: 'Day 365', site: 'sin', title: 'The catheter at one year',
-      line: 'The HVPG is {13 mmHg}, up from 9 a year ago. At 12 or more, varices can bleed.',
+      line: 'The HVPG is {hvpg}, up from 9 a year ago. At 12 or more, varices can bleed.',
       notes: 'A year on, the gradient has risen by 4 mmHg. Above 12 mmHg varices can bleed, and the risk of ascites and other decompensation rises with each mmHg. Repeat catheter studies are not routine; in practice the stiffness, the platelets and the scope track this rise.',
       ask: ['Above what HVPG is the variceal bleed risk high?', '12 mmHg.'],
     },
@@ -55,9 +55,9 @@ export const ONE_YEAR = {
       ask: ['What portal vein velocity supports portal hypertension?', 'Under about 15 cm/s, or flow that is to-and-fro or reversed.'],
     },
     {
-      id: 'belly', cam: 'fit', tool: { kind: 'abdomen' }, data: 'tiles', tiles: ['asc', 'spleen'], key: ['asc'],
+      id: 'belly', cam: 'fit', glow: ['spleen'], tool: { kind: 'abdomen' }, data: 'tiles', tiles: ['asc', 'spleen'], key: ['asc'],
       kicker: 'Day 365', site: 'sin', title: 'Ultrasound of the abdomen',
-      line: 'A thin rim of fluid, seen on ultrasound only: grade 1 ascites. The spleen has grown.',
+      line: 'A thin rim of fluid, seen on ultrasound only: grade 1 ascites. The spleen has grown to {spleen}.',
       notes: 'Grade 1 ascites is found only on ultrasound; grade 2 is visible as a symmetric distension; grade 3 is tense. A first episode of clinically evident ascites marks decompensation, and every new ascites is tapped. Salt restriction to about 5 g a day starts here.',
       ask: ['How is grade 1 ascites detected?', 'On ultrasound only; it cannot be found by examination.'],
     },
