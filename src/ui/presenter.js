@@ -17,7 +17,7 @@ import { store, replaceParams } from './store.js?v=5edd069b32';
 import { h, toast, svgIcon, icon, fmt, clamp } from './util.js?v=e0101a3fa2';
 import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=cab65850a4';
-import { sinusoidSupported } from './sinusoid-view.js?v=af45d58f41';
+import { sinusoidSupported } from './sinusoid-view.js?v=7729cc180a';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
 import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=70de05a64c';
@@ -1031,7 +1031,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
   function setLabels() {
     const k = (phone() ? 1.15 : clamp(Math.min(innerHeight / 540, innerWidth / 960), 1.25, 2.4)) * (hiCon && !phone() ? 1.15 : 1);
     stage.setProjection(k);
-    document.documentElement.style.setProperty('--label-k', String(Math.min(k, 2.2) * stage.labelScale()));
+    { const lv = String(Math.min(k, 2.2) * stage.labelScale()); document.documentElement.style.setProperty('--label-k', lv); document.documentElement.style.setProperty('--label-scale', lv); }
     labelling = true; dispatchEvent(new Event('pps:labelscale')); labelling = false;
   }
   // The viewer's own text size (Settings) scales them too: a change there while presenting is re-applied on top.
@@ -1248,7 +1248,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     view.classList.remove('pz-out');
     for (const k of ['--pz-l', '--pz-r', '--pz-t', '--pz-b']) app.style.removeProperty(k);
     stage.setProjection(false);
-    document.documentElement.style.setProperty('--label-k', String(stage.labelEff()));
+    { const lv = String(stage.labelEff()); document.documentElement.style.setProperty('--label-k', lv); document.documentElement.style.setProperty('--label-scale', lv); }
     dispatchEvent(new Event('pps:labelscale'));
     if (document.fullscreenElement) document.exitFullscreen?.();
     app.classList.remove('presenting', 'pz-hi');

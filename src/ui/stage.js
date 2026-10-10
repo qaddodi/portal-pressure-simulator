@@ -6,7 +6,7 @@ import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=5edd069b32';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=e0101a3fa2';
-import { createLobuleZoom } from './lobule-zoom.js?v=ac0b15ca18';
+import { createLobuleZoom } from './lobule-zoom.js?v=6b3f5e67d7';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
@@ -3687,7 +3687,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     } catch { return 1; }
   })();
   // Every label on a figure (the lobule's too) reads the same scale.
-  document.documentElement.style.setProperty('--label-k', String(labelScale * deskK()));
+  document.documentElement.style.setProperty('--label-k', String(labelScale * deskK())); document.documentElement.style.setProperty('--label-scale', String(labelScale));
   let labelK = labelScale * deskK();
   // Projection ramp: presenting sets the atlas labels at projector sizes (at 2: values 28 px, names 23 px),
   // readable from the back of a room. The presenter passes a scale for the screen it is on.
@@ -3695,7 +3695,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (Projecting, the projector's size times the viewer's own text size from Settings.)
   const labelBase = () => (projecting ? (typeof projecting === 'number' ? projecting : 2) * labelScale : labelScale * deskK());
   // (A window dragged between a desktop's width and a narrow one: the labels follow; a presentation sets its own.)
-  deskMQ.addEventListener?.('change', () => { if (projecting) return; document.documentElement.style.setProperty('--label-k', String(labelScale * deskK())); dispatchEvent(new Event('pps:labelscale')); });
+  deskMQ.addEventListener?.('change', () => { if (projecting) return; document.documentElement.style.setProperty('--label-k', String(labelScale * deskK())); document.documentElement.style.setProperty('--label-scale', String(labelScale)); dispatchEvent(new Event('pps:labelscale')); });
   // A line is a list of runs { t, size, weight, cls, track }. Returns [width, height].
   const LINE_H = (line) => Math.max(...line.map((r) => r.size)) * labelK * 1.24;
   const lineW = (line) => line.reduce((w, r, i) => w + textW(r.t, r.size * labelK, r.weight, r.track || 0) + (i ? (r.gap ?? 3) * labelK : 0), 0);
@@ -5320,7 +5320,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setLabelScale(v) {
       labelScale = clamp(Math.round(v * 100) / 100, LABEL_MIN, LABEL_MAX);
       try { localStorage.setItem('pps.labelScale', String(labelScale)); } catch { /* storage unavailable */ }
-      if (!projecting) document.documentElement.style.setProperty('--label-k', String(labelScale * deskK()));
+      if (!projecting) document.documentElement.style.setProperty('--label-k', String(labelScale * deskK())); document.documentElement.style.setProperty('--label-scale', String(labelScale));
       dispatchEvent(new Event('pps:labelscale'));
       if (F) updateLabels(F);
     },

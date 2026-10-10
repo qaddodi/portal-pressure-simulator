@@ -145,10 +145,13 @@ export function createSinusoidView({ host }) {
     // How much is shown across: both plates whole on a large screen; on a phone, closer in (the plates cut by the
     // edges), so the wall and its traffic stay large enough to follow.
     const short = geo.vert ? fw : fh, across = lerp(40, 54, smooth(380, 720, short));
-    VW.f = f; VW.tk = clamp(short / across, 3, 14); VW.tC = [(f.l + f.r) / 2, (f.t + f.b) / 2];
+    VW.f = f; VW.tk = clamp(short / across, 3, 14);
+    // Its names scale with the drawing, not the device, so they read the same size against the cells on a phone, an iPad and a desktop.
+    el.style.setProperty('--label-k', String(labelK())); VW.tC = [(f.l + f.r) / 2, (f.t + f.b) / 2];
     if (!VW.k) { VW.k = VW.tk; VW.C = [...VW.tC]; }
     return geo;
   }
+  const labelK = () => (parseFloat(document.documentElement.style.getPropertyValue('--label-scale')) || 1) * clamp((VW.tk || 1) / 9, 1, 1.6);
   const VW = { k: 0, C: [0, 0], tk: 0, tC: [0, 0], f: null, vis: [0, 0], fr: [0, 0] };
   // Where it is drawn this frame: the view's own placement, carried by the zoom from the lobule while that runs.
   const CAM = { C: [0, 0], k: 1, ang: 0, ca: 1, sa: 0 };
@@ -439,7 +442,7 @@ export function createSinusoidView({ host }) {
   // then sideways, and ease there; a name's leader moves with it. The ends' names, the legend and the lumen's keep their places.
   function declutter() {
     // (From the boxes the layout recorded, not the screen: the view may be mid-zoom, scaled by the compositor.)
-    const W = geo.W, H = geo.H, lk = parseFloat(document.documentElement.style.getPropertyValue('--label-k')) || 1;
+    const W = geo.W, H = geo.H, lk = labelK();
     const gx = 6 + 2 * lk, gy = 2 + 2 * lk;   // (clear of each other's halo, which grows with the text)
     // (Within the stage, below the top bar and a presenter's words, above a presenter's bar.)
     const T = cssN('--top-safe') + cssN('--pz-t') + 2, B = H - cssN('--pz-b') - 2;
@@ -559,7 +562,7 @@ export function createSinusoidView({ host }) {
     const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
     // The names are laid out where the view will rest, during the zoom too (hidden until it lands), so the end arrows
     // the shader draws are in place from the first frame and nothing moves when the names fade in.
-    const lk = [geoKey, VW.k.toFixed(3), VW.C.map((v) => v.toFixed(0)), S.lum.toFixed(3), S.act > 0.5, Math.round(S.por * 20), model.hide, model.P2.toFixed(1), model.lymph.toFixed(1), Math.round(model.lyProt * 100), model.P1.toFixed(1), model.P3.toFixed(1), phoneMQ.matches, document.documentElement.style.getPropertyValue('--label-k')].join('|');
+    const lk = [geoKey, VW.k.toFixed(3), VW.C.map((v) => v.toFixed(0)), S.lum.toFixed(3), S.act > 0.5, Math.round(S.por * 20), model.hide, model.P2.toFixed(1), model.lymph.toFixed(1), Math.round(model.lyProt * 100), model.P1.toFixed(1), model.P3.toFixed(1), phoneMQ.matches, labelK()].join('|');
     if (lk !== lastKey) { lastKey = lk; layoutEnds(); layoutTags(); declutter(); }
     fenTick();
     if (gpu) {
