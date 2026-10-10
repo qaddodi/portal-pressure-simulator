@@ -4769,3 +4769,10 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .instrument-workspace .pt-head { row-gap: 4px; }
   .instrument-workspace .pt-head :is(.pt-range, .pt-smooth) { height: 28px; }
 }
+/* Tests card: each picture keeps its own shape (Doppler and HVPG wide, FibroScan square). Its box takes the
+   shape's height and gives some back if the card is short; the picture fits inside, centred, never stretched. */
+.instrument-workspace :is(.dop-box, .hvpg-box, .fibroscan-box) { --ar: 1.6; container-type: size; aspect-ratio: var(--ar); height: auto !important; flex: 0 1 auto !important; min-height: 0 !important; max-height: 100%; background: none; }
+.instrument-workspace .fibroscan-box { --ar: 1; }
+.instrument-workspace :is(.dop-box, .hvpg-box, .fibroscan-box) > canvas { inset: 0; margin: auto; width: min(100cqw, 100cqh * var(--ar)); height: min(100cqh, 100cqw / var(--ar)); border-radius: var(--r-card); }
+.instrument-workspace .dop-box > canvas { background: var(--scope-bg); }
+.instrument-workspace .hvpg-box > canvas { background: var(--mon-bg); }
