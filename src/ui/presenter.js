@@ -21,7 +21,7 @@ import { sinusoidSupported } from './sinusoid-view.js?v=c9d7b10379';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
 import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=70de05a64c';
-import { createTools } from './presenter-tools.js?v=948c41666f';
+import { createTools } from './presenter-tools.js?v=f94c0326ff';
 import { openHandout } from './handout.js?v=33bd523876';
 
 const KEY = 'pps.scripts';

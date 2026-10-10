@@ -10,7 +10,7 @@ import { createPressureTime } from './pressure-time.js?v=41ee279896';
 import { createFibroScan } from './fibroscan.js?v=a5e6512e21';
 import { createHvpgProcedure } from './hvpg-proc.js?v=e7ebae63ea';
 import { createDoppler } from './doppler.js?v=2278aa363e';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=7be19cf02a';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=b415bce86f';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -289,17 +289,13 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
 
   // ── Instrument workspace ─────────────────────────
   // The instruments. Legacy ids remain valid for lessons and actions:
-  // landscape is a Pressure view; varixwall is Endoscopy's expandable wall mechanics.
+  // landscape is a Pressure view; varixwall is Scope's Wall mechanics tab.
   const app = document.getElementById('app');
   const workspace = head.closest('.dock');
   const stageWrap = document.getElementById('stageWrap');
   const profile = createProfile(), wall = createVarixWall();
   const endoscopy = createEndoscopy({ onAction });
-  const wallDetails = h('details', { class: 'instrument-details wall-details' },
-    h('summary', {}, 'Wall mechanics', h('span', {}, 'Pressure, radius & wall thickness')), wall.el);
   wall.el.className = 'instrument-view wall-view';
-  endoscopy.el.append(wallDetails);
-  wallDetails.addEventListener('toggle', () => { if (wallDetails.open && frame) wall.update(frame); });
   const pressure = { ...profile, id: 'profile', label: 'Pressure' };
   const instruments = [
     pressure, createPressureTime({ marks }),
@@ -386,6 +382,19 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     p.el.id = 'pane-' + p.id; p.el.setAttribute('role', 'tabpanel'); p.el.setAttribute('aria-label', p.label);
     body.append(p.el);
   }
+  // Scope has the same kind of switch: the endoscopic view, or the wall mechanics behind it.
+  let endoSub = 'scope';
+  const endoPane = byId.endoscopy.el;
+  const endoSwitch = h('div', { class: 'pressure-switch', role: 'group', 'aria-label': 'Scope view' },
+    [['scope', 'Scope view'], ['wall', 'Wall mechanics']].map(([v, label]) => h('button', {
+      type: 'button', class: 'ps-btn', 'data-view': v, 'aria-pressed': String(v === 'scope'), onclick: () => setEndoSub(v),
+    }, label)));
+  function setEndoSub(v) {
+    endoSub = v; endoPane.dataset.sub = v;
+    for (const b of endoSwitch.children) b.setAttribute('aria-pressed', String(b.dataset.view === v));
+    if (frame) requestAnimationFrame(() => (v === 'wall' ? wall : endoscopy).update(frame));
+  }
+  endoPane.prepend(endoSwitch); endoPane.append(wall.el); endoPane.dataset.sub = endoSub;
   const comparison = h('div', { class: 'workspace-comparison', hidden: true });
   body.before(comparison);
   // A pane that scrolls (Ascites on a phone) is left alone while a finger is on it and for a moment after, so
@@ -401,8 +410,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       const p = byId[id];
       if (id !== 'scope' && id !== 'doppler' && holding() && p.el.scrollHeight > p.el.clientHeight + 1) continue;
       // live instruments keep their own history and only redraw; the rest draw from the frame
-      if (id === 'scope' || id === 'doppler') p.redraw(); else p.update(frame);
-      if (id === 'endoscopy' && wallDetails.open) wall.update(frame);
+      if (id === 'scope' || id === 'doppler') p.redraw(); else if (id === 'endoscopy' && endoSub === 'wall') wall.update(frame); else p.update(frame);
     }
   }
   function queueRefresh() {
@@ -512,7 +520,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     if (id === 'lobule') { onLobule?.(); return; }
     if (id === 'landscape' || ALIAS[id]) id = ALIAS[id] || 'profile';
     const revealWall = id === 'varixwall';
-    if (revealWall) { wallDetails.open = true; id = 'endoscopy'; }
+    if (revealWall) { setEndoSub('wall'); id = 'endoscopy'; }
     if (!byId[id]) return;
     endPick();
     if (alongside && open.length === 1 && tabOf(open[0]) !== tabOf(id) && canSplit()) open = [open[0], id];
@@ -521,7 +529,6 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     else if (doOpen) onOpen();
     if (state === 'peek') setState('open');
     layout();
-    if (revealWall) requestAnimationFrame(() => wallDetails.scrollIntoView({ block: 'nearest' }));
     queueRefresh();
   }
   function close() {

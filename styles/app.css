@@ -2609,7 +2609,6 @@ button.finding:hover { background: var(--surface-2); }
 .instrument-details[open] > summary::before { content: '−'; }
 .instrument-details > summary > span { color: var(--text-3); font-weight: 400; font-size: var(--fs-12); }
 .instrument-details[open] > .instrument-view, .instrument-details[open] > .kv { margin-top: 12px; }
-.wall-details { grid-column: 1 / -1; }
 .trace-picker .check-list { margin-top: 8px; display: grid; grid-template-columns: 1fr; }
 /* The HVPG catheter on the anatomy (stage.js): a fine radiopaque line, its balloon and tip, and the still
    column in front of the balloon in the wedged pressure's colour. Labels are screen-sized pills at the tip. */
@@ -2715,7 +2714,6 @@ button.finding:hover { background: var(--surface-2); }
   .instrument-view { grid-template-columns: minmax(0, 1fr) 260px; }
   .instrument-view[data-pane="perfusion"] { grid-template-columns: minmax(0, .75fr) minmax(0, 1fr); }
   .instrument-view[data-pane="perfusion"] > .chart-side { grid-column: 1 / -1; }
-  .wall-view { grid-template-columns: minmax(0, 1fr) 230px; }
 }
 @container (min-width: 1050px) {
   .instrument-view[data-pane="perfusion"] { grid-template-columns: minmax(220px, .55fr) minmax(0, 1.2fr) 240px; }
@@ -4491,13 +4489,6 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .instrument-workspace.float-ui .dop-report > .dop-pattern { grid-column: 2; grid-row: 1; margin: 0; }
   .instrument-workspace.float-ui .dop-velrow { margin-top: 0; }
   .instrument-workspace.float-ui .dop-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 10px; margin-top: 4px; padding-top: 6px; }
-  /* Scope: the view beside its readings; raised, the view is on top and larger */
-  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view { flex: none; display: grid; grid-template-columns: minmax(0, 44%) minmax(0, 1fr); align-items: start; gap: 8px 14px; }
-  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view > .chart-box.square { width: 100%; justify-self: stretch; }
-  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view > .chart-side { display: contents; }
-  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] .chart-side > .endo-read { grid-column: 2; grid-row: 1; align-self: center; }
-  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] .chart-side > :not(.endo-read) { grid-column: 1 / -1; }
-  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-details { flex: none; padding-top: 4px; }
   /* FibroScan */
   .instrument-workspace.float-ui .instrument-view[data-pane="fibroscan"] > .chart-box { flex: 1 1 0; height: auto; min-height: 180px; }
   .instrument-workspace.float-ui .instrument-view[data-pane="fibroscan"] > .ctl-sub { margin: 0; flex: none; }
@@ -4520,11 +4511,6 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* Scope on a tablet sheet: the view is sized to the sheet's height, the readings beside it wide enough not to wrap. */
 @media (min-width: 768px) {
   .instrument-workspace.float-ui:not(.side) .dock-pane .instrument-view > .chart-box:not(.square) { max-height: calc(100cqh - 52px); }
-  .instrument-workspace.float-ui:not(.side) .dock-pane[data-pane="endoscopy"] { gap: 8px; }
-  .instrument-workspace.float-ui:not(.side) .dock-pane[data-pane="endoscopy"] > .instrument-view { grid-template-columns: minmax(0, 1fr) min(420px, 55%); gap: 12px 24px; }
-  .instrument-workspace.float-ui:not(.side) .dock-pane[data-pane="endoscopy"] .chart-box.square { width: min(100%, var(--square-size), calc(100cqh - 90px)); }
-  .instrument-workspace.float-ui:not(.side) .dock-pane[data-pane="endoscopy"] .chart-side { gap: 8px; }
-  .instrument-workspace.float-ui:not(.side) .dock-pane[data-pane="endoscopy"] > .instrument-details { padding-top: 4px; }
 }
 /* In a short narrow card (a phone sheet at its middle height) the explanatory lines step aside so the picture keeps its room. */
 @container (max-height: 520px) and (max-width: 649px) {
@@ -4533,12 +4519,6 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .instrument-view[data-pane="fibroscan"] > .ctl-sub, .dock-pane[data-pane="endoscopy"] .chart-side > .ctl-sub { display: none; }
 }
 @container (max-height: 520px) { .dock-pane[data-pane="endoscopy"] .chart-side > .ctl-sub { display: none; } }
-/* Raised: Scope stacks again with a larger view. */
-@container (min-height: 620px) and (max-width: 649px) {
-  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view { grid-template-columns: minmax(0, 1fr); }
-  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view > .chart-box.square { width: min(100%, calc(100cqh - 360px)); justify-self: center; }
-  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] .chart-side > .endo-read { grid-column: 1; grid-row: auto; }
-}
 /* Ascites in a tall card: the same rows, with fuller controls and room between them. */
 @container (min-height: 540px) {
   .instrument-workspace.float-ui .ab-main, .instrument-workspace.float-ui .ab-report { gap: 10px; }
@@ -4556,7 +4536,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* Scope's readings: the grade leads with its status, wall stress is a meter toward the tear point, size and
    wall sit side by side, red signs and bands are chips. The position label sits on the view's dark rim. */
 .chart-box.square { position: relative; container-type: inline-size; }
-.endo-pos { max-width: 90%; overflow: hidden; text-overflow: ellipsis; position: absolute; left: 50%; bottom: 3%; transform: translateX(-50%); padding: 2px 8px; border-radius: var(--r-pill); background: rgba(12, 13, 16, .78); color: rgba(255, 255, 255, .88); font: 500 11px/1.4 var(--font-ui); letter-spacing: .01em; white-space: nowrap; pointer-events: none; }
+.endo-pos { flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-3); font: 500 var(--fs-12)/1.3 var(--font-ui); letter-spacing: .01em; }
 .endo-read { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; min-width: 0; }
 .endo-read dt { font-size: var(--fs-12); font-weight: 500; color: var(--text-3); line-height: 1.3; }
 .endo-read dd { margin: 0; font-variant-numeric: tabular-nums; }
@@ -4592,4 +4572,31 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .endo-tile { padding: 5px 8px; }
   .endo-read dt { font-size: 11px; }
 }
-@container (max-width: 220px) { .endo-pos { font-size: 9.5px; padding: 1px 6px; } }
+
+/* Scope and its Wall mechanics tab share one layout that fills the card: the picture takes all the height the
+   readings leave, with its caption under it (never over it). Wider than tall: picture beside the readings;
+   taller: picture above them. */
+.instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, min(360px, 50%)); grid-template-rows: minmax(150px, 1fr) auto auto; gap: 10px 18px; animation: endo-in .22s var(--ease); }
+.instrument-workspace .dock-pane[data-pane="endoscopy"][data-sub="wall"] > .instrument-view:not(.wall-view),
+.instrument-workspace .dock-pane[data-pane="endoscopy"]:not([data-sub="wall"]) > .wall-view { display: none; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] .chart-side { display: contents; }
+.endo-stage { grid-column: 1; grid-row: 1; align-self: stretch; justify-self: stretch; min-width: 0; min-height: 0; container-type: size; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+.instrument-workspace .endo-stage > .chart-box.square { flex: none; width: min(100cqw, 100cqh - 24px); max-width: none; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] .endo-read { grid-column: 2; grid-row: 1; align-self: center; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] .chart-side > :not(.endo-read) { grid-column: 1 / -1; margin: 0; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] .chart-side > .btn { grid-row: 2; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] .chart-side > .ctl-sub { grid-row: 3; }
+@container (max-aspect-ratio: 4 / 5) {
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(180px, 1fr) auto auto auto; gap: 14px; }
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] .endo-read { grid-column: 1; grid-row: 2; }
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] .chart-side > .btn { grid-row: 3; }
+  .instrument-workspace .dock-pane[data-pane="endoscopy"] .chart-side > .ctl-sub { grid-row: 4; }
+}
+/* A tall card spaces the readings out instead of packing them. */
+.instrument-workspace .dock-pane[data-pane="endoscopy"] .endo-read { gap: clamp(6px, 2.4cqh, 18px) 8px; }
+.instrument-workspace .dock-pane[data-pane="endoscopy"] .endo-chip { grid-column: 1 / -1; }
+.endo-num small { font-size: var(--fs-12); font-weight: 500; color: var(--text-2); }
+.wall-law { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.wall-formula { font: 650 var(--fs-16) var(--font-ui); letter-spacing: .02em; color: var(--text); }
+@keyframes endo-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view { animation: none; } }

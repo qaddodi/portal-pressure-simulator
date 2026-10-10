@@ -576,13 +576,16 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if (!sized) throw new Error(`${id} has an unsized visible canvas`);
     }
     await page.evaluate(() => window.pps.dock.show('varixwall', { reveal: true }));
-    if (!(await page.$eval('.wall-details', (d) => d.open))) throw new Error('legacy varixwall route does not open mechanics');
+    if ((await page.$eval('#pane-endoscopy', (d) => d.dataset.sub)) !== 'wall') throw new Error('legacy varixwall route does not open Wall mechanics');
     await page.evaluate(() => window.pps.host.send({ type: 'run', running: false }));
     await page.waitForFunction(() => !window.pps.store.get().running);
     await page.waitForTimeout(250);
     await settled();
-    const square = await page.$eval('#pane-endoscopy .chart-box.square', (el) => { const r = el.getBoundingClientRect(); return Math.abs(r.width - r.height); });
-    if (square > 2) throw new Error('endoscopy loses its square aspect ratio');
+    for (const v of ['wall', 'scope']) {
+      await page.click(`#pane-endoscopy .ps-btn[data-view="${v}"]`);
+      const sq = await page.$$eval('#pane-endoscopy .chart-box.square', (els) => els.map((el) => el.getBoundingClientRect()).filter((r) => r.width).map((r) => [r.width, r.height]));
+      if (sq.length !== 1 || Math.abs(sq[0][0] - sq[0][1]) > 2 || sq[0][0] < 100) throw new Error(`endoscopy ${v} view is not one visible square: ${JSON.stringify(sq)}`);
+    }
     await page.$eval('#pane-endoscopy', (el) => { el.scrollTop = 0; });
     await shot(page, `${device}-workspace-endoscopy`);
     if (device === 'phone') {
