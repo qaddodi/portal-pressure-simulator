@@ -17,7 +17,7 @@
 import { store } from './store.js?v=25cbe77a76';
 import { h, fmt, clamp } from './util.js?v=e0101a3fa2';
 import { EDGES } from '../engine/topology.js?v=706a39d50b';
-import { createDoppler } from './doppler.js?v=2105ed48d3';
+import { createDoppler } from './doppler.js?v=2278aa363e';
 import { createFibroScan } from './fibroscan.js?v=a5e6512e21';
 import { createPressureTime } from './pressure-time.js?v=41ee279896';
 import { createEndoscopy, createAbdomen } from './instruments.js?v=7be19cf02a';

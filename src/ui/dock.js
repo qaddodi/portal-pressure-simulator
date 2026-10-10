@@ -9,7 +9,7 @@ import { createProfile } from './charts.js?v=a26445b85d';
 import { createPressureTime } from './pressure-time.js?v=41ee279896';
 import { createFibroScan } from './fibroscan.js?v=a5e6512e21';
 import { createHvpgProcedure } from './hvpg-proc.js?v=e7ebae63ea';
-import { createDoppler } from './doppler.js?v=2105ed48d3';
+import { createDoppler } from './doppler.js?v=2278aa363e';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=7be19cf02a';
 
 

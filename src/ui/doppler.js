@@ -171,8 +171,8 @@ export function createDoppler({ onProbe }) {
         : 'Normal: toward the liver with gentle phasicity.';
     } else if (p.kind === 'hepatic') {
       dir = r.mean < 0 ? 'Reversed' : 'Toward the heart'; sev = r.mean < 0 ? 'danger' : 'ok';
-      // A reversal of more than 0.4 of the forward peak is more than the a-wave: tricuspid regurgitation or a high atrium.
-      const backflow = r.vminMean < -1 && -r.vminMean > 0.4 * Math.max(1, r.vmaxMean);
+      // A reversal over 15 cm/s and 0.4 of the forward peak is more than the a-wave: tricuspid regurgitation or a high atrium.
+      const backflow = -r.vminMean > 15 && -r.vminMean > 0.4 * r.vmaxMean;
       pattern = backflow ? 'Large reversal' : r.vminMean < -1 ? 'Triphasic' : pi > 0.3 ? 'Biphasic' : 'Monophasic';
       if (pattern === 'Monophasic') sev = sev === 'ok' ? 'caution' : sev;
       if (backflow) sev = 'danger';
