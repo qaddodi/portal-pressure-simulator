@@ -3473,6 +3473,9 @@ body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state
   .vdock .narrator { font-size: var(--fs-12); }
   .vdock .narrator .nr-s { display: none; }
 }
+.vdock .narrator { max-height: 3.2em; transition: opacity .22s var(--ease), max-height .24s var(--ease); }
+.vdock .narrator.quiet { opacity: 0; max-height: 0; overflow: hidden; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .vdock .narrator { transition: none; } }
 .app.presenting .narrator { display: none; }
 /* Phone: while the figure is panned or zoomed (and three seconds after), the vitals dock folds to one line
    (play, clock, HVPG) and the top bar's second row (view, colour legend) slides away (main.js figureFocus).

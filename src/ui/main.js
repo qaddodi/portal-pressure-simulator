@@ -12,6 +12,7 @@ import { createWhy } from './why.js?v=82d0ada42e';
 import { createTimeline, LAPSES } from './timeline.js?v=2831e31d82';
 import { createLearn } from './learn.js?v=648a1f6d2a';
 import { createCases } from './cases.js?v=7bbce6617a';
+import { isBlind } from './learning-kit.js?v=472fe433c7';
 import { createCompare } from './compare.js?v=d64b7b73d4';
 import { createCard } from './card.js?v=767b2dc99d';
 import { createChart, computeFindings } from './chart.js?v=6eb7c60d38';
@@ -294,13 +295,23 @@ function onFrame(f) {
 // events and changes (at most twice a second otherwise). On by default for Student and Instructor,
 // off for Researcher; the Settings toggle overrides it until the role changes.
 const NARRATOR_DEFAULT = { student: true, instructor: true, researcher: false };
-let lastNarr = 0, narrPref;
+let lastNarr = 0, narrPref, narrT;
 const narratorOn = () => { const v = narrPref === undefined ? (narrPref = readLS('pps.narrator')) : narrPref; return v ? v === '1' : NARRATOR_DEFAULT[store.get().role || 'student'] !== false; };
 function narrate(f, now = performance.now(), force = false) {
   const el = $('#narrator');
   const on = narratorOn() && !presenter.active();
-  if (el.hidden === on) el.hidden = !on;
-  if (!on || !f || (!force && !f.events?.length && !f.params && now - lastNarr < 500)) return;
+  // The caption names the diagnosis and the flow direction, so it stays quiet in cases and while a
+  // lesson question is open; it eases out and back in rather than popping.
+  const quiet = on && (store.get().mode === 'cases' || isBlind());
+  if (!on) { clearTimeout(narrT); el.hidden = true; el.classList.remove('quiet'); }
+  else if (quiet) {
+    if (!el.hidden && !el.classList.contains('quiet')) { el.classList.add('quiet'); clearTimeout(narrT); narrT = setTimeout(() => { el.hidden = true; }, 260); }
+  } else {
+    clearTimeout(narrT);
+    if (el.hidden) { el.classList.add('quiet'); el.hidden = false; force = true; requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('quiet'))); }
+    else el.classList.remove('quiet');
+  }
+  if (!on || quiet || (!force && !f?.events?.length && !f?.params && now - lastNarr < 500) || !f) return;
   lastNarr = now;
   const txt = caption(f), t = $('#narratorText');
   if (el.title !== txt) { el.title = txt; t.replaceChildren(h('span', { class: 'nr-s' }, txt.slice(0, txt.length - caption(f, { scenario: false }).length)), caption(f, { scenario: false })); }
