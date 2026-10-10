@@ -10,8 +10,6 @@
 //                                                   HVPG at every slide so far, one point per state; 'beats': the live trace
 //   tool: { kind: 'abdomen' }                       the belly with its ascites and collaterals
 //   tool: { kind: 'wall' }                          the varix in cross-section, Laplace's T, r and w (the scope's Wall mechanics)
-//   tool: { kind: 'monitor', at: 'free' | 'wedge' | 'result' }
-//                                                   the catheter's pressure tracing, the IR room's monitor (Measure › HVPG)
 //
 // Optional on any kind: title (the card's heading, in place of the kind's own). A slide may carry both data and tool:
 // the tool sits above the tiles. In quiz mode a tool with a reading (Doppler, FibroScan, the scope's grade) keeps it
@@ -24,7 +22,6 @@ import { EDGES } from '../engine/topology.js?v=706a39d50b';
 import { createDoppler } from './doppler.js?v=d905792b53';
 import { createFibroScan } from './fibroscan.js?v=8335360dec';
 import { createPressureTime } from './pressure-time.js?v=92faef86cd';
-import { createHvpgMonitor } from './hvpg-proc.js?v=9d29de876f';
 import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=67a27049f4';
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
@@ -37,7 +34,6 @@ const TITLE = {
   trace: (t) => (t.range === 'beats' ? 'Pressure, beat by beat' : 'Pressure over the talk'),
   abdomen: () => 'The abdomen',
   wall: () => 'The varix wall, in cross-section',
-  monitor: () => 'Pressure monitor, catheter tip',
 };
 const READS = new Set(['doppler', 'fibroscan', 'scope']);
 const noop = () => {};
@@ -50,7 +46,7 @@ export function createTools({ host, stage }) {
   function make(k) {
     if (made[k]) return made[k];
     const inst = k === 'doppler' ? createDoppler({ onProbe: noop }) : k === 'fibroscan' ? createFibroScan() : k === 'scope' ? createEndoscopy({ onAction: noop })
-      : k === 'abdomen' ? createAbdomen({ onAction: noop }) : k === 'wall' ? createVarixWall() : k === 'beats' ? createPressureTime() : k === 'talk' ? talkTrace() : k === 'monitor' ? createHvpgMonitor() : null;
+      : k === 'abdomen' ? createAbdomen({ onAction: noop }) : k === 'wall' ? createVarixWall() : k === 'beats' ? createPressureTime() : k === 'talk' ? talkTrace() : null;
     if (inst) { inst.el.classList.remove('dock-pane'); inst.el.classList.add('pz-inst'); }
     return (made[k] = inst);
   }
@@ -84,7 +80,6 @@ export function createTools({ host, stage }) {
       box.dataset.kind = k;
       box.classList.toggle('ask', quiz && READS.has(t.kind));
       if (k === 'talk') inst.set(chain);
-      else if (k === 'monitor') inst.set(t.at, chain.at(-1)?.fp);
       else { const f = store.get().frame; if (f) requestAnimationFrame(() => cur === inst && inst.update(f)); }
     },
     /** The earlier reading, faint beside the live one ({ label, value }), or null. Eases in and out. */

@@ -3679,7 +3679,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     });
   }
   // The camera for the procedure: the route, the tip close up, then back where it was.
-  function cathFocus(mode, ms = 700) {
+  // both: the close-up holds the tip and the vein ahead of it, where the wedged reading hangs, inside the free space.
+  function cathFocus(mode, ms = 700, { both = false } = {}) {
     const r = cathRoute();
     if (mode === 'home') { if (cath.saved) animateVT(cath.saved, ms); cath.saved = null; cath.k0 = 0; return true; }
     if (!r) return false;
@@ -3691,6 +3692,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (mode === 'tip') {
       const tp = cutLen(r.pts, r.cum, 0, r.free).at(-1);
       cx = tp[0]; cy = tp[1]; k = 6.2;
+      if (both) {
+        const ah = cathAt(r, Math.min(r.total, r.free + cathAt(r, r.free).r * 6.4)).p;
+        cx = (tp[0] + ah[0]) / 2; cy = (tp[1] + ah[1]) / 2;
+        k = Math.min(k, (fx1 - fx0) * 0.5 / Math.max(1, Math.abs(ah[0] - tp[0])), (fy1 - fy0) * 0.5 / Math.max(1, Math.abs(ah[1] - tp[1])));
+      }
       // A blocked vein: the tip waits at the ostium, so the view holds both it and the vein it cannot enter.
       if (cath.st?.ostium) { const o = cutLen(r.pts, r.cum, 0, r.hv0 - 2).at(-1); cx = (o[0] + tp[0]) / 2; cy = (o[1] + tp[1]) / 2; k = 4.8; }
       // With little room above a card (a phone), the view is a little wider and the tip sits low in the free space,

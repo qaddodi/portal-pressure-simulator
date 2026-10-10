@@ -2303,7 +2303,6 @@ button.finding:hover { background: var(--surface-2); }
 .pz-tool[data-kind="scope"] .chart-box.square { width: min(100%, 40vh); height: auto; aspect-ratio: 1; margin: 0 auto; }
 .pz-tool[data-kind="scope"] .chart-side { width: 100%; max-width: none; }
 .pz-tool[data-kind="beats"] .pt-box { height: clamp(180px, 30vh, 360px); }
-.pz-tool[data-kind="monitor"] .hvpg-box { height: clamp(170px, 28vh, 320px); }
 /* Quiz: the reading stays covered until the answer (a soft veil, never a pop). */
 .pz-tool::after { content: ""; position: absolute; pointer-events: none; opacity: 0; transition: opacity .32s var(--ease); background: var(--surface); border-radius: 10px; }
 .pz-tool.ask[data-kind="fibroscan"]::after { opacity: 1; left: 8px; top: 30px; width: 46%; height: 64px; }
@@ -2311,6 +2310,11 @@ button.finding:hover { background: var(--surface-2); }
 .pz-tool.ask .dop-report, .pz-tool.ask[data-kind="scope"] .kv { opacity: 0; }
 /* The talk so far: pressures at each slide, HVPG in its own lane. */
 .pz-talk { display: grid; }
+.pz-mon { flex: none; margin-top: 14px; }
+.pz-mon .hvpg-box { height: clamp(150px, 24vh, 280px); }
+.pz.stack .pz-mon { margin-top: 8px; }
+.pz.stack .pz-text:has(.pz-mon) { max-height: 50%; }
+.pz.stack .pz-mon .hvpg-box { height: 136px; }
 .pz-talk svg { grid-area: 1 / 1; width: 100%; height: auto; overflow: visible; transition: opacity .42s var(--ease); }
 .pz-talk svg.in { opacity: 0; }
 .ptk-grid line { stroke: var(--border); stroke-width: 1; }
@@ -2332,7 +2336,6 @@ button.finding:hover { background: var(--surface-2); }
 .pz.stack .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: 180px; }
 .pz.stack .pz-tool[data-kind="scope"] .chart-box.square { width: min(100%, 24vh); }
 .pz.stack .pz-tool[data-kind="beats"] .pt-box { height: 140px; }
-.pz.stack .pz-tool[data-kind="monitor"] .hvpg-box { height: 150px; }
 /* Phone: the scope sits beside its grade and size, and the Doppler drops its sentence, so a tile still fits under the instrument. */
 .pz.stack .pz-tool[data-kind="scope"] .pz-inst { flex-direction: row; align-items: center; gap: 12px; }
 .pz.stack .pz-tool[data-kind="scope"] .chart-box.square { width: 40%; flex: none; margin: 0; }

@@ -19,9 +19,10 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=cab65850a4';
 import { sinusoidSupported } from './sinusoid-view.js?v=5fb063d790';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
-import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=32b5fc73cf';
-import { createTools } from './presenter-tools.js?v=068560af73';
-import { openHandout } from './handout.js?v=fb9354f663';
+import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=93d381e8df';
+import { createHvpgMonitor } from './hvpg-proc.js?v=3bd8f6829c';
+import { createTools } from './presenter-tools.js?v=621f749226';
+import { openHandout } from './handout.js?v=252beba081';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -848,7 +849,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       return;
     }
     // The tip close up (again each slide: the data card may have come or gone).
-    stage.cathFocus('tip', ms(cath.cam === 'tip' ? 700 : 1500)); 
+    stage.cathFocus('tip', ms(cath.cam === 'tip' ? 700 : 1500), { both: true }); 
     await wait(ms(cath.cam === 'tip' ? 700 : 1500)); cath.cam = 'tip';
     if (cut()) return;
     if (mode === 'blocked') {
@@ -1066,6 +1067,13 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   const cardTitle = (s) => (s?.data === 'ladder' ? 'Pressure, portal vein to heart' : s?.dataTitle || (s?.tool ? ui.tools.title(s.tool) : 'This patient, from the model'));
   // The talk so far, for a pressure trace: every state up to slide i, once each.
   const chainTo = (i) => [...new Set(stateOf.slice(0, i + 1))].map((k) => ({ n: k + 1, title: slides[k].title, fp: states[k]?.fp }));
+  // The catheter's pressure monitor, made once and kept, so its trace carries on from slide to slide.
+  let mon = null;
+  function monitorFor(s, i) {
+    mon ||= createHvpgMonitor();
+    requestAnimationFrame(() => mon.set(s.monitor, states[stateOf[i]]?.fp));
+    return mon.el;
+  }
   function wordsIn(s, q, st, i, fresh = false) {
     if (!ui) return;
     const { text, panel, data } = ui;
@@ -1090,6 +1098,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), onclick: () => abPick(s, i, k) }, o.label))) : null,
           s.data === 'ladder' || s.cath ? stationKey() : null,
+          s.monitor ? monitorFor(s, i) : null,
           s.column ? wedgeColumn() : null,
           s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
@@ -1328,7 +1337,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     layout(); setLabels();
     if (!shown) return;
     const s = slides[shown.i], cam = s.visual ? s.cam : asking(s, shown.rev) ? 'fit' : s.cam || 'fit';
-    if (cath.on && cath.cam) stage.cathFocus(cath.cam, 400);
+    if (cath.on && cath.cam) stage.cathFocus(cath.cam, 400, { both: true });
     else if (cam && !LOBULE_CAM.test(cam) && !store.get().lobule) { if (cam === 'fit') stage.fitSlow(400); else stage.frameBox(camBox(cam, s), 400, s.kMax || 3.2); }
   };
   // Projector-size labels on the figure, for the screen it is on (2 at 1080 lines).
