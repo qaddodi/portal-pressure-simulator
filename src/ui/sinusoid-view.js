@@ -23,7 +23,7 @@ import { h, fmt, clamp, lerp } from './util.js?v=a357853926';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { isPaused } from './clock.js?v=e759f7bea1';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=a4a95e56af';
+import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=9e353c9245';
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
@@ -193,12 +193,12 @@ export function createSinusoidView({ host }) {
       cBg: bg, cLumen: lumen, cLymph: dark ? mixv(bg, ly, 0.34) : ly,
       cCell: mixv(under, cell, dark ? 0.85 : 0.94), cUnder: cleft,
       cNuc: dark ? v3(40, 18, 34) : v3(132, 70, 100),
-      cCol: dark ? v3(199, 186, 153) : v3(237, 222, 186), cBm: dark ? v3(236, 220, 170) : v3(150, 118, 70), aBm: dark ? 0.75 : 0.8,
+      cCol: dark ? v3(199, 186, 153) : v3(237, 222, 186), cBm: dark ? v3(204, 188, 142) : v3(150, 118, 70), aBm: dark ? 0.6 : 0.8,
       cBile: dark ? v3(150, 156, 80) : v3(122, 128, 61),
       cEndo: dark ? v3(122, 116, 156) : v3(184, 176, 204), cEndoN: dark ? v3(84, 74, 120) : v3(128, 114, 160),
       cHscQ: dark ? v3(176, 134, 102) : v3(224, 184, 150), cHscA: dark ? v3(160, 102, 74) : v3(190, 128, 94), cHscN: dark ? v3(96, 56, 42) : v3(146, 90, 66), cDrop: dark ? v3(222, 196, 120) : v3(248, 226, 156),
       cKup: dark ? v3(140, 124, 176) : v3(192, 178, 222), cKupN: dark ? v3(82, 64, 124) : v3(122, 98, 168),
-      cChev: dark ? v3(10, 12, 20) : v3(20, 20, 26),
+      cChev: dark ? v3(10, 12, 20) : v3(20, 20, 26), cRev: [1, 0.55, 0.16],   // (the app's chevron inks: dark, orange where reversed)
       cAlb: dark ? v3(242, 182, 74) : v3(227, 154, 30), cAlbE: dark ? v3(110, 58, 0) : v3(140, 76, 0),
       cWat: dark ? v3(225, 238, 252) : v3(255, 255, 255), cWatE: dark ? v3(90, 110, 140) : v3(80, 110, 140),
       uShim: dark ? 0.3 : 0.5, uStreak: dark ? 0.3 : 0.85, uDark: dark ? 1 : 0,
@@ -268,20 +268,20 @@ export function createSinusoidView({ host }) {
     for (let i = 0; i < nA; i++) {
       const a = albs[i], sp = 1.5 * (1 - a.y * a.y) + 0.08, x = v0 - 4 + ((((a.u * span + flowX * sp) % span) + span) % span);
       const y = clamp(a.y + 0.05 * Math.sin(flowX * 0.05 + a.ph), -0.96, 0.96) * (halfW(x) - 0.5);
-      put(x, y, 0.4, 1, 0);
+      put(x, y, 0.36, 1, 0);
     }
     for (const q of movers) {
       if (q.kind === 'b') {
         // Up to the lining and back: an albumin dot with a small flash where it meets the sealed wall.
         const u = Math.sin(Math.PI * clamp(q.t / 1.1, 0, 1)), y = q.side * lerp(halfW(q.x) - 2.2, halfW(q.x) - 0.45, u);
-        put(q.x, y, 0.42, 1, 0);
-        if (u > 0.8) put(q.x, y, 0.95, (u - 0.8) * 5, 2);
+        if (u > 0.8) put(q.x, y, 1.1, (u - 0.8) * 5, 2);   // (the glow under the dot)
+        put(q.x, y, 0.38, 1, 0);
         continue;
       }
       const tIn = clamp(q.t / 0.5, 0, 1), e = tIn * tIn * (3 - 2 * tIn);
       const y = q.side * lerp(halfW(q.x) - 1.1, lerp(wallIn(q.x), hepIn(q.x), q.y), e) + q.side * 0.15 * Math.sin(q.t * 2 + q.ph);
       const al = Math.min(1, q.t * 4) * clamp((q.x - v0) / 6, 0, 1);
-      if (q.kind === 'a') put(q.x, y, 0.42, al, 0); else put(q.x, y, 0.26, al, 1);
+      if (q.kind === 'a') put(q.x, y, 0.38, al, 0); else put(q.x, y, 0.26, al, 1);
     }
     return n;
   }
@@ -296,7 +296,7 @@ export function createSinusoidView({ host }) {
     // In the lumen: the sinusoid (mid-view), the Kupffer cell beside itself, and the fenestrae along the far wall.
     if (g.tall) { layoutTall(); return; }
     const xc = away(pick(0.5), g.xk, 30);
-    region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), xc, 0, { along: true });
+    LAB[0] = xc; LAB[1] = region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), xc, 0, { along: true }).half;
     const kw = region('kup', 'Kupffer cell', '', g.xk, 0, { along: true });
     const kx = g.xk + 9 + kw.half < pick(0.92) ? g.xk + 9 + kw.half : g.xk - 9 - kw.half;   // beside it, where there is room
     region('kup', 'Kupffer cell', '', kx, halfW(g.xk) * 0.35, { along: true });
@@ -321,16 +321,17 @@ export function createSinusoidView({ host }) {
     const pick = (u) => lerp(VW.fr[0] + 6, VW.fr[1] - 6, u);
     const num = (v, d, u) => (m.hide ? '?' : `${fmt(v, d)}~${u}`);
     const mid = (x) => hepIn(x) + Math.min(hep * 0.5, (geo.W / 2 / VW.k - hepIn(x)) * 0.5);   // the middle of the plate's part on screen
-    region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), pick(0.38), 0);
+    LAB[0] = pick(0.38); LAB[1] = region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), LAB[0], 0).half;
     // Right (y < 0): fenestrae, stellate cell, a hepatocyte.
     region('fen', 'Fenestrae', S.por > 0.85 ? 'open' : S.por > 0.15 ? `${Math.round(S.por * 100)}%~open` : 'sealed', pick(0.16), -mid(pick(0.16)));
-    region('hsc', S.act > 0.5 ? 'Activated stellate cell' : 'Stellate cell', '', g.xs, -mid(g.xs));
+    region('hsc', S.act > 0.5 ? 'Activated\nstellate cell' : 'Stellate cell', '', g.xs, -mid(g.xs));   // (two lines, to fit the plate)
     region('hep', 'Hepatocyte', '', pick(0.8), -mid(pick(0.8)));
     // Left (y > 0): the space of Disse, the lymph it carries, the Kupffer cell.
     region('disse', 'Space of Disse', '', pick(0.2), mid(pick(0.2)));
     region('lymph', 'Lymph', m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min · protein ${Math.round(m.lyProt * 100)}%`, pick(0.48), mid(pick(0.48)));
     region('kup', 'Kupffer cell', '', g.xk, mid(g.xk));
   }
+  const LAB = [0, 0];   // the lumen's name: x and half length (µm), for the shader to keep the arrowheads clear of it
   const END = [0, 0, 1];   // the end arrows: portal x, central x, size (µm)
   function layoutEnds() {
     const g = geo, f = VW.f;
@@ -388,11 +389,11 @@ export function createSinusoidView({ host }) {
       u.uI0 = [ca / K, sa / K, -(C[0] * ca + C[1] * sa) / k];
       u.uI1 = [-sa / K, ca / K, (C[0] * sa - C[1] * ca) / k];
       u.uF0 = [K * ca, -K * sa, dpr * C[0]]; u.uF1 = [K * sa, K * ca, dpr * C[1]];
-      u.uPx = 1 / K; u.uK = K;
+      u.uPx = 1 / K; u.uK = K; u.uKs = Math.min(K, 12 * dpr);   // (the particles no larger than on a phone)
       Object.assign(u, {
         uLum: UM.lum * S.lum, uPinch: S.pinch, uXs: geo.xs, uXk: geo.xk, uKy: halfW(geo.xk), uHscA: wallIn(geo.xs) + disseW(geo.xs) * 0.5 + 0.8,
         uCol: S.col, uBm: S.bm, uMv: S.mv, uAct: S.act, uPor: S.por, uFlow: flowX, uLym: lymX, uDir: Math.sign(S.v || 1),
-        uEnd: [END[0], END[1], END[2], 0.95],
+        uEnd: [END[0], END[1], END[2], 0.95], uLab: [LAB[0], LAB[1]],
       });
       // The zoom from the lobule: one camera move. The lobule (magnified by the compositor) carries it most of the way;
       // the view, already drawn where the lobule's own sinusoid is, comes in over all of it at once as the zoom lands

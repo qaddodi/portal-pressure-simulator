@@ -1676,6 +1676,9 @@ button.finding:hover { background: var(--surface-2); }
 :root[data-theme="dark"] :is(.sv-region-disse, .sv-region-lymph) { --svg-green: #B5D3A3; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) :is(.sv-region-disse, .sv-region-lymph) { --svg-green: #B5D3A3; } }
 .sv-end { left: 0; top: 0; }
+/* The ends' names sit on the lumen: the same full halo as the other names here (a part-clear stroke greys over the blood). */
+.sv .sv-end :is(.n, .v) { -webkit-text-stroke: 0; text-shadow: 1.6px 0 0 var(--label-halo), -1.6px 0 0 var(--label-halo), 0 1.6px 0 var(--label-halo), 0 -1.6px 0 var(--label-halo), 1.1px 1.1px 0 var(--label-halo), -1.1px 1.1px 0 var(--label-halo), 1.1px -1.1px 0 var(--label-halo), -1.1px -1.1px 0 var(--label-halo), 0 0 3px var(--label-halo); }
+.sv-region > span:first-child { white-space: pre-line; }
 /* The sinusoid view is a focused mode: only the way back to the lobule and the pressure legend stay (no lens to pick). */
 #app.sin-focus :is(#viewSeg [data-view="anatomic"], #viewSeg [data-view="circuit"], #btnLobuleLayers, #btnBlood, #btnInspector, #btnTreat, #tabInstruments, .top-right .tb-sep, #zoomPill, #vdock, #dock, #panel, #treatCard, #stageCenter, #coach) { display: none !important; }
 #app.sin-focus #btnLayers { pointer-events: none; cursor: default; }

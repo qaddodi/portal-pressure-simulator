@@ -72,9 +72,10 @@ out vec4 o;
 ${COMMON}
 uniform int uPass;              // 0: the tissue; 1: the cells that lie over the moving particles (stellate, Kupffer)
 uniform float uLum, uPinch, uXs, uXk, uKy, uHscA, uCol, uBm, uMv, uAct, uPor, uFlow, uLym, uDir, uDark, uShim, uStreak;
-uniform vec3 cBg, cLumen, cLymph, cCell, cUnder, cNuc, cCol, cBm, cBile, cEndo, cEndoN, cHscQ, cHscA, cHscN, cDrop, cKup, cKupN, cChev;
+uniform vec3 cBg, cLumen, cLymph, cCell, cUnder, cNuc, cCol, cBm, cBile, cEndo, cEndoN, cHscQ, cHscA, cHscN, cDrop, cKup, cKupN, cChev, cRev;
 uniform float aBm;
 uniform vec4 uEnd;               // the end arrows: portal x, central x (µm), size (µm), alpha
+uniform vec2 uLab;               // the lumen's own name: x and half length (µm), kept clear of the arrowheads
 
 const float ENDO = ${UM.endo.toFixed(2)}, DISSE = ${UM.disse.toFixed(2)}, HEP = ${UM.hep.toFixed(1)}, LUM0 = ${UM.lum.toFixed(1)};
 const float SLOT = ${SLOT.toFixed(2)}, CELL = ${CELL.toFixed(1)};
@@ -142,16 +143,31 @@ vec3 lumen(float x, float y, float hw, int lane0, bool chev) {
   float prof = 1.5 * (1.0 - lc * lc) + 0.08, P = 15.0 + 7.0 * h1(id, 7);
   float sx = x - uFlow * prof + h1(id, 8) * P, k = floor(sx / P), xx = sx - k * P;
   int ki = int(k);
-  float hk = h1(ki * 31 + id, 9), Ls = 3.0 + 4.0 * hk, x0 = (P - Ls) * h1(ki + id * 977, 10);
+  float hk = h1(ki * 31 + id, 9), Ls = 4.0 + 6.0 * hk, x0 = (P - Ls) * h1(ki + id * 977, 10);
   float e = (xx - x0) / Ls;
-  float along = smoothstep(0.0, 0.25, e) * (1.0 - smoothstep(0.6, 1.0, e));
+  float along = smoothstep(0.0, 0.35, e) * (1.0 - smoothstep(0.55, 1.0, e));
   float yc = (lc + (h1(ki, id + 11) - 0.5) * 0.6 / NL) * hw;
-  c = mix(c, vec3(1.0), along * line(y - yc, 0.2) * step(0.25, hk) * uShim);
+  // As the app's shimmer: soft streaks of light (not painted lines) over a faint glow along the axis.
+  float wy = max(0.2, 1.4 * uPx), acr = exp(-pow((y - yc) / wy, 2.0));
+  float rr = 1.0 - r * r;
+  c = mix(c, vec3(1.0), 0.07 * rr * rr * uShim / 0.5);
+  c = mix(c, vec3(1.0), along * acr * step(0.25, hk) * uShim * 0.75);
   if (chev) {
-    float cw = min(1.0, hw * 0.24), xc = mod(x - uFlow, 16.0) - 8.0;
-    vec2 q = vec2(xc * uDir, abs(y));
-    float d = max(max((q.x - (cw - 1.6 * q.y)) / 1.887, ((-0.15 * cw - 0.45 * q.y) - q.x) / 1.039), q.y - cw);
-    c = mix(c, cChev, cov(d) * 0.45);
+    // The app's flow arrowheads: a slim filled head with a notched back, dark (orange where the flow runs
+    // backwards) with a faint light rim, one fixed shape, moving with the blood. None by the ends' labels.
+    float cw = 0.34 * uLum, L = 1.6 * cw, Pc = max(24.0, 4.5 * L);
+    float xc = mod(x - uFlow + 0.5 * Pc, Pc) - 0.5 * Pc, xh = x - xc;
+    float u = xc * uDir, ay = abs(y), kk = L / cw;
+    float side = (u - 0.55 * L + ay * kk) / sqrt(1.0 + kk * kk);
+    float rear = -0.45 * L + 0.32 * L * (1.0 - sat(ay / cw)) - u;
+    float d = max(max(side, rear), ay - cw);
+    // (Long, soft fades: a head moving past one dims over a good stretch of its path, it never blinks out.)
+    float s = uEnd.z, fade = uEnd.w > 0.0 ? (1.0 - smoothstep(-4.0 * s, -1.2 * s, xh - uEnd.x) * (1.0 - smoothstep(5.5 * s, 8.5 * s, xh - uEnd.x)))
+      * (1.0 - smoothstep(-4.0 * s, -1.2 * s, uEnd.y - xh) * (1.0 - smoothstep(5.5 * s, 8.5 * s, uEnd.y - xh))) : 1.0;
+    fade *= smoothstep(uLab.y + 0.3 * L, uLab.y + 3.0 * L, abs(xh - uLab.x));
+    float cc = cov(d), rim = (1.0 - smoothstep(0.0, 1.8 * uPx + 0.1 * cw, d)) * (1.0 - cc);
+    c = mix(c, vec3(1.0), rim * 0.5 * fade);
+    c = mix(c, uDir < 0.0 ? cRev : cChev, cc * 0.82 * fade);
   }
   return c;
 }
@@ -169,7 +185,7 @@ vec3 disse(float x, float a, float wi, float hi, int side, bool main, float det)
   // Collagen: a pale fill as it takes the space the lymph had, then banded fibre bundles laid down by the
   // stellate cell: they start at it and spread along Disse, each thickening at its own stage.
   if (uCol > 0.02) {
-    c = mix(c, cCol, 0.45 * smoothstep(0.1, 0.9, uCol));
+    c = mix(c, cCol, (0.36 - 0.08 * uDark) * smoothstep(0.1, 0.9, uCol));
     float near = side < 0 ? exp(-pow((x - uXs) / 26.0, 2.0)) * uAct * 0.08 : 0.0;
     float reach = 14.0 + 320.0 * smoothstep(0.0, 0.8, uCol) * (side < 0 ? 1.0 : 0.8);
     float spread = 1.0 - smoothstep(reach - 30.0, reach, abs(x - uXs - (side < 0 ? 0.0 : 18.0)));
@@ -187,9 +203,9 @@ vec3 disse(float x, float a, float wi, float hi, int side, bool main, float det)
       // Striated like collagen under the microscope: light and dark bands across the bundle, and a fibril seam along it.
       float band = 0.5 + 0.5 * sin(6.2831853 * x / 1.1 + ph);
       vec3 fc = mix(fib, fibE, (0.05 + 0.15 * band) * bd);
-      fc = mix(fc, fibE, line(a - mix(wi, hi, tc) - 0.18 * w * sin(x * 0.9 + ph), 0.06) * 0.3 * bd);
+      fc = mix(fc, fibE, line(a - mix(wi, hi, tc) - 0.18 * w * sin(x * 0.9 + ph), 0.06) * 0.15 * bd);
       c = mix(c, fc, cov(d) * al * 0.5);           // translucent, like the lobule's fibrous bands
-      c = mix(c, fibE, line(d, 0.06) * al * 0.4);
+      c = mix(c, fibE, line(d, 0.06) * al * 0.18);
     }
   }
   // Microvilli: fine strokes from the hepatocytes' face, flattened as the space fills with collagen.
@@ -327,9 +343,14 @@ void main() {
     for (int i = 0; i < 2; i++) {
       float dir = i == 0 ? -1.0 : 1.0, s = uEnd.z;
       vec2 q = vec2((x - (i == 0 ? uEnd.x : uEnd.y)) * dir, abs(y));
-      float head = max(q.y - 0.5 * s * (1.0 - q.x / (0.6 * s)), max(-q.x, q.x - 0.6 * s));
-      float shaft = max(q.y - 0.13 * s, max(-q.x - 0.55 * s, q.x));
-      c = mix(c, mix(cLumen, vec3(1.0), 0.85), (1.0 - smoothstep(-0.08 * s, 0.04 * s, min(head, shaft))) * uEnd.w);   // soft, a light tint of the lumen
+      // A notched head, as the flow's arrowheads, on a short rounded shaft.
+      float hw2 = 0.5 * s, L = 0.66 * s, kk = L / hw2, qx = q.x - 0.6 * s;
+      float head = max(max((qx + q.y * kk) / sqrt(1.0 + kk * kk), -L + 0.3 * L * (1.0 - sat(q.y / hw2)) - qx), q.y - hw2);
+      float shaft = sdTaper(q, vec2(-0.5 * s, 0.0), vec2(0.0, 0.0), 0.12 * s, 0.12 * s);
+      float dA = min(head, shaft);
+      vec3 tint = mix(cLumen, vec3(1.0), 0.85);
+      c = mix(c, mix(cLumen, vec3(0.0), 0.25), (1.0 - smoothstep(0.0, 0.12 * s, dA)) * 0.35 * uEnd.w);   // a soft shadow edge lifts it off the lumen
+      c = mix(c, tint, (1.0 - smoothstep(-0.05 * s, 0.03 * s, dA)) * uEnd.w);   // soft, a light tint of the lumen
     }
   }
   else if (a < wi) c = mix(mix(cLumen, vec3(1.0), 0.3), cLymph, (a - hw) / ENDO);
@@ -372,10 +393,11 @@ layout(location=1) in float aK;  // kind
 ${COMMON}
 uniform vec3 uF0, uF1;          // local µm → device px
 uniform float uK;               // device px per µm
+uniform float uKs;              // device px per µm for the particles' size (capped on a large screen, so they stay specks)
 out float vA; out float vK; out float vR;
 void main() {
   vec2 d = vec2(dot(uF0, vec3(aP.xy, 1.0)), dot(uF1, vec3(aP.xy, 1.0)));
-  vR = max(aP.z * uK, 1.2); vK = aK;
+  vR = max(aP.z * uKs, 1.2); vK = aK;
   vA = aP.w * revealA(aP.xy) * detailAt(aP.x);
   gl_PointSize = 2.0 * vR + 3.0;
   gl_Position = vec4(d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0, 0.0, 1.0);
@@ -388,11 +410,11 @@ out vec4 o;
 void main() {
   float r = length((gl_PointCoord * 2.0 - 1.0) * (vR + 1.5)), a;
   vec3 c;
-  if (vK > 1.5) { a = (1.0 - smoothstep(0.5, 1.2, abs(r - vR))) * 0.9; c = vec3(1.0); }
+  if (vK > 1.5) { a = (1.0 - smoothstep(0.25 * vR, vR + 1.0, r)) * 0.5; c = mix(vec3(1.0), cAlb, 0.3); }   // a soft glow where it meets the wall
   else {
     bool alb = vK < 0.5;
     a = 1.0 - smoothstep(vR - 0.7, vR + 0.7, r);
-    c = mix(alb ? cAlb : cWat, alb ? cAlbE : cWatE, smoothstep(vR - 1.7, vR - 0.6, r));
+    c = mix(alb ? cAlb : cWat, alb ? cAlbE : cWatE, smoothstep(vR - 1.7, vR - 0.6, r) * (alb ? 0.6 : 0.7));
   }
   a *= vA;
   o = vec4(c * a, a);
