@@ -8,6 +8,7 @@ const PATIENT = { name: 'Aisha Bello', age: 61, sex: 'F', setting: 'Hepatology c
 
 export const prevention = {
   id: 'prevention', title: 'Big varices on a screening scope', level: 'Prevention', minutes: 9,
+  tests: (c) => (c.cs.contra === 'block' ? ['egd', 'ecg'] : ['egd']),
   summary: 'A woman with compensated cirrhosis has large varices on her screening scope. Read the chart, pick the prevention plan, and see what it does three months later.',
   tools: ['select', 'endoscope'], hidden: DX_HIDDEN, speed: 1, preset: 'csph',
   // Aged to match the story: stiffness above 25 kPa, large varices with red wale, no ascites yet.

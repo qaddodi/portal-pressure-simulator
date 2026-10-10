@@ -11,9 +11,9 @@ const val = (x, c) => (typeof x === 'function' ? x(c) : x);
 const merged = [];
 for (const base of CASES) for (const v of base.variants || [{}]) { const cs = { ...base, ...v }; Object.assign(cs, cs.build(cs)); merged.push(cs); }
 
-test('eleven cases, unique ids, each with the pieces the runtime needs', () => {
-  assert.equal(CASES.length, 11);
-  assert.equal(new Set(CASES.map((c) => c.id)).size, 11);
+test('twelve cases, unique ids, each with the pieces the runtime needs', () => {
+  assert.equal(CASES.length, 12);
+  assert.equal(new Set(CASES.map((c) => c.id)).size, 12);
   for (const cs of merged) {
     const tag = `${cs.id}/${cs.vid}`;
     assert.ok(cs.title && cs.level && cs.summary && cs.preset, `${tag}: header fields`);

@@ -9,17 +9,17 @@ import { createInspector } from './inspector.js?v=5072cb4981';
 import { createDock, CUTOFFS } from './dock.js?v=4ec68d8ef4';
 import { setHvpgStage } from './hvpg-proc.js?v=1b9445adb3';
 import { createWhy } from './why.js?v=82d0ada42e';
-import { createTimeline, LAPSES } from './timeline.js?v=f67e43a86e';
-import { createLearn } from './learn.js?v=f973c0e143';
-import { createCases, CASES } from './cases.js?v=f025f0c412';
+import { createTimeline, LAPSES } from './timeline.js?v=bf87e94cd0';
+import { createLearn } from './learn.js?v=ec3fed71bf';
+import { createCases, CASES } from './cases.js?v=fff85d98fc';
 import { isBlind } from './learning-kit.js?v=01d081b730';
-import { createCompare } from './compare.js?v=138b73e70b';
+import { createCompare } from './compare.js?v=6c5edeb764';
 import { createCard } from './card.js?v=bec985d017';
 import { createChart, computeFindings } from './chart.js?v=d53a854673';
-import { createHome, ROLES } from './home.js?v=415b18ba2c';
+import { createHome, ROLES } from './home.js?v=e3cbad6041';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=3113b1ec12';
 import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=db814778e1';
-import { startLMS } from './lms.js?v=5b59ae2a30';
+import { startLMS } from './lms.js?v=757d6e5893';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=732cefd9b1';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
@@ -149,7 +149,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=39de9ec766'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=69718adda0'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -719,7 +719,8 @@ function renderBanner() {
   const kids = [];
   if (s0.compareSnap) {
     kids.push(h('span', { class: 'cmp-label' }, `Comparing with ${s0.compareSnap.when}`));
-    kids.push(h('div', { class: 'seg cmp-seg', role: 'group', 'aria-label': `Comparing with ${s0.compareSnap.when}: show` }, [['A', 'Then', `The model at ${s0.compareSnap.when}`], ['B', 'Now', 'The live model'], ['D', 'Change', `Change from ${s0.compareSnap.when} to now`]].map(([v, l, t]) => {
+    const [nA, nB] = s0.compareSnap.names || ['Then', 'Now'];
+    kids.push(h('div', { class: 'seg cmp-seg', role: 'group', 'aria-label': `Comparing with ${s0.compareSnap.when}: show` }, [['A', nA, `The model at ${s0.compareSnap.when}`], ['B', nB, 'The live model'], ['D', 'Change', `Change from ${s0.compareSnap.when} to now`]].map(([v, l, t]) => {
       const b = h('button', { 'aria-pressed': String((s0.compareView || 'B') === v), title: t }, h('b', {}, l));
       b.addEventListener('click', () => store.set({ compareView: v }));
       return b;
@@ -728,6 +729,7 @@ function renderBanner() {
     kids.push(tbl);
   }
   el.replaceChildren(...kids);
+  app.classList.toggle('cmp-on', !!s0.compareSnap);
   // The switch's height, for views that place their own controls under it (the lobule's).
   app.style.setProperty('--cmp-h', s0.compareSnap ? `${$('#stageCenter').offsetHeight + 8}px` : '0px');
   const bar = $('#sessionBar');

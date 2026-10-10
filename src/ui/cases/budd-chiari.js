@@ -38,6 +38,7 @@ const WEB = {
 };
 
 export const buddChiari = {
+  tests: (c) => ['doppler', 'labs', ...(c.cs.kind === 'bc' ? ['clot-screen'] : [])],
   id: 'budd-chiari', title: 'Rapid ascites in a young patient', level: 'Referral', minutes: 10,
   summary: 'A young patient with fast ascites and no cirrhosis. Find the level of the block, know when an HVPG lies, and choose the next step in the ladder.',
   tools: ['select', 'doppler'], hidden: DX_HIDDEN, speed: 1,

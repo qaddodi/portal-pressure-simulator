@@ -28,6 +28,7 @@ const G = {
 
 export const gastric = {
   id: 'gastric', title: 'Melena with a big spleen', level: 'Diagnosis', minutes: 9,
+  tests: ['labs', 'ct', 'egd'],
   found: ['gv'],   // the scope in hospital already showed the fundal varices
   summary: 'Fundal varices and a big spleen. Find where the block is before you choose a treatment, because the same varices need different answers.',
   tools: ['select', 'doppler', 'endoscope'], hidden: DX_HIDDEN, speed: 1,

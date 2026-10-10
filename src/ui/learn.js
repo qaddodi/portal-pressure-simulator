@@ -9,7 +9,7 @@ import { runSequence } from './sequence.js?v=f8b2dfcd73';
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
 import { SNAPSHOTS } from './snapshots.js?v=34d1578d5f';
 import { createRoute, ladder } from './ladder.js?v=2cbec732f7';
-import { CASES } from './cases/index.js?v=92e4fa48ba';
+import { CASES } from './cases/index.js?v=433329e7fa';
 import { trustLine, teachChip, blindOn, blindOff, isBlind, optionList, compareChip, bindQuestionKeys, mirrorMarker } from './learning-kit.js?v=01d081b730';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

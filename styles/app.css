@@ -104,7 +104,7 @@ svg { flex: none; }
 .sb-banner { display: flex; min-width: 0; justify-content: center; align-items: center; gap: 8px; }
 .sb-banner:empty { display: none; }
 /* The case panel already shows the clinical clock beside the figure. */
-@media (min-width: 1280px) { .app[data-mode="cases"].panel-open .sb-banner { display: none; } }
+@media (min-width: 1280px) { .app[data-mode="cases"].panel-open:not(.cmp-on) .sb-banner { display: none; } }
 /* Active bleeding: a steady status, not a flashing alarm */
 .bleed-pill { flex: none; display: inline-flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; padding: 4px 12px 4px 8px; border-radius: var(--r-card); font-size: var(--fs-14); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   color: color-mix(in srgb, var(--critical) 82%, var(--text)); background: color-mix(in srgb, var(--critical) 9%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--critical) 28%, transparent); }
@@ -3737,3 +3737,33 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .cs-ord .cs-cost { margin-left: auto; color: var(--text-3); font-size: var(--fs-12); font-weight: 500; white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) { .found-halo, .found-pill { transition: opacity .2s linear; transform: none !important; } }
 .found-tag.left .found-pill { left: auto; right: 14px; }
+
+/* ── Case debrief v2: tests, trajectory, lesson links ── */
+.cs-tests { display: flex; flex-wrap: wrap; gap: 6px; }
+.cs-test { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border); font-size: var(--fs-14); }
+.cs-test svg { width: 14px; height: 14px; fill: none; stroke-width: 2.4; stroke: currentColor; }
+.cs-test.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
+.cs-test.miss { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
+.cs-test.extra { color: var(--text-3); border-style: dashed; }
+.cs-test small { font-size: var(--fs-12); }
+.cs-cmp-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 6px; }
+.cs-learn { font-size: var(--fs-14); color: var(--accent); text-decoration: none; margin-left: auto; }
+.cs-keys .cs-learn { padding-left: 8px; }
+.cs-learn:hover { text-decoration: underline; }
+.cs-trendchart { width: 100%; height: auto; max-height: 200px; display: block; }
+.cs-trendchart .tc-line { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.cs-trendchart .tc-axis { stroke: var(--border); }
+.cs-trendchart .tc-break { stroke: var(--text-3); stroke-dasharray: 3 4; }
+.cs-trendchart text { font: 500 11px var(--font-ui); fill: var(--text-3); }
+.cs-trendchart .tc-y { text-anchor: end; }
+.cs-trendchart .tc-x.end { text-anchor: end; }
+.cs-trendchart .tc-pin circle { fill: var(--surface); stroke: var(--accent); stroke-width: 2; }
+.cs-trendchart .tc-pin text { text-anchor: middle; fill: var(--accent); font-weight: 700; }
+.cs-ladder { margin-top: 10px; }
+.cs-ladder > svg, .cs-ladder > * { max-width: 460px; }
+@media (max-width: 767px) {
+  .app.cmp-on[data-mode="cases"] .sb-center { top: 104px; justify-content: center; }
+  .cs-keys .goal { flex-wrap: wrap; }
+  .cs-keys .cs-learn { flex-basis: 100%; margin-left: 32px; padding-left: 0; }
+}
+.cs-learn { white-space: nowrap; }

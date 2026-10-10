@@ -16,6 +16,7 @@ const variant = (k) => ({ vid: k, patient: PT, ...V[k], tipsOk: k === 'a' });
 
 export const refractory = {
   id: 'refractory', title: 'Ascites that keeps coming back', level: 'Management', minutes: 10,
+  tests: ['labs', 'tap-dx', 'echo'], trend: ['Ascites', 'asc', 'mL'],
   summary: 'A woman needs a large tap every two weeks despite maximum diuretics. Relieve her today, then read the chart to decide whether she should have a TIPS.',
   tools: ['select', 'needle', 'stent'], hidden: DX_HIDDEN, speed: 1,
   preset: 'cirr-decomp', afterDays: 400, prep: (p) => { p.diuretics = false; return p; },

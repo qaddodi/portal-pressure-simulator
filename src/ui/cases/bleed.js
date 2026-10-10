@@ -25,6 +25,7 @@ const HB0 = 6.4, HB_PER_UNIT = 0.75;
 
 export const bleed = {
   id: 'bleed', title: 'Vomiting blood in the ED', level: 'Acute care', minutes: 10, acute: true,
+  tests: ['labs', 'egd'], trend: ['Heart rate', 'hr', '/min'],
   summary: 'A man with cirrhosis vomits blood and is already unstable. Run the first hour, decide how much blood to give, and plan what comes after the scope.',
   tools: ['select', 'endoscope', 'balloon'], hidden: DX_HIDDEN, speed: 6,
   preset: 'cirr-decomp', params: {},

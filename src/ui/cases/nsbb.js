@@ -7,6 +7,7 @@ const PT = { name: 'George Miller', age: 66, sex: 'M', setting: 'Medical ward', 
 
 export const nsbb = {
   id: 'nsbb-problem', title: 'The beta blocker that became a problem', level: 'Management', minutes: 8,
+  tests: ['labs'],
   summary: 'A man with advanced cirrhosis has been on carvedilol for two years. Now his pressure is low and his kidneys are failing. What do you do with the drug, and with his varices?',
   tools: ['select', 'endoscope'], hidden: DX_HIDDEN, speed: 1,
   preset: 'cirr-decomp', afterDays: 300, prep: (p) => { p.diuretics = false; return p; }, params: { drugs: { carvedilol: true } },

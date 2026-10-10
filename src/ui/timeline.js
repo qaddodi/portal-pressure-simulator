@@ -27,7 +27,7 @@ export const LAPSES = [[1 / 24, '1 h/s', '1 hour per second'], [0.5, '12 h/s', '
 const JUMPS = [[7, '+1 wk', '1 week'], [30, '+1 mo', '1 month'], [180, '+6 mo', '6 months']];
 
 /** A frozen, self-contained copy of a frame (for pinning A and for markers). */
-function captureFrame(f, params) {
+export function captureFrame(f, params) {
   return {
     P: Array.from(f.P), metrics: structuredClone(f.metrics), params: structuredClone(params),
     frame: { ...f, P: Array.from(f.P), Pf: f.Pf ? Array.from(f.Pf) : undefined, Q: Array.from(f.Q), Qf: f.Qf ? Array.from(f.Qf) : undefined, D: Array.from(f.D),

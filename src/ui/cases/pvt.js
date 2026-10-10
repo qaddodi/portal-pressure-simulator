@@ -26,6 +26,7 @@ const C = {
 
 export const pvt = {
   id: 'pvt', title: 'Abdominal pain and a clot', level: 'Referral', minutes: 9,
+  tests: ['doppler', 'ct', 'labs', 'clot-screen', 'egd'],
   summary: 'A clot in the portal vein, new or old. Know when to anticoagulate, what to watch for, and why a normal HVPG does not mean normal pressure.',
   tools: ['select', 'doppler', 'endoscope'], hidden: DX_HIDDEN, speed: 1,
   variants: [A, C],
