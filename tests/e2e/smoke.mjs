@@ -310,7 +310,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (!(await page.locator('.action-card input[aria-label^="Fibrosis"]').count())) throw new Error('no fibrosis slider on the sinusoid card');
     await page.keyboard.press('Escape');
     await page.waitForSelector('.action-card', { state: 'hidden' });
-    // Framed in the free space: the lobule's bottom corner is above the vitals dock, also with every readout open.
+    // Framed in the free space: the lobule's bottom corner is above the vitals dock, also with every readout open
+    // (the More readouts button is for instructors; Student mode keeps just HVPG and PPG).
+    await page.evaluate(() => window.pps.store.set({ role: 'instructor' }));
     for (const all of [false, true]) {
       if (all) await page.click('#strip .ro-more');
       const clear = await page.waitForFunction(() => {

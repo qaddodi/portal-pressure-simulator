@@ -3428,7 +3428,7 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 @media (max-width: 380px) { .topbar #viewSeg button { padding: 6px 3px; } }
 /* Four views (Sinusoid shows in the Lobule view): tighter, so the lens keeps its room on a phone. */
 /* Phone: one view-switcher size in every view (with or without the Sinusoid tab), so the row never changes size. */
-@media (max-width: 720px) { .topbar #viewSeg button { font-size: 13px; letter-spacing: -.01em; }
+@media (max-width: 720px) { .topbar #viewSeg button { font-size: 12px; letter-spacing: -.01em; }
   .topbar #viewSeg:has(> [data-view="sinusoid"]:not([hidden])) button { padding-left: 3px; padding-right: 3px; }
   .topbar:has(#viewSeg > [data-view="sinusoid"]:not([hidden])) .lg-scale { width: 64px; }
   .topbar:has(#viewSeg > [data-view="sinusoid"]:not([hidden])) .lg-num { font-size: 10px; } }
@@ -4168,15 +4168,15 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .ws-tabs.compact .instr-tab[aria-selected="true"]::before { left: 4px; right: 4px; }
 .ws-tabs.compact .instr-tab:first-child { margin-left: 0; }
 /* Narrower still: the name under its icon. */
-.ws-tabs.narrow .instr-tab, .ws-tabs.narrow .instr-tab[aria-selected="true"] { flex-direction: column; gap: 2px; height: 44px; padding: 0 2px; font-size: 11px; }
+.ws-tabs.narrow .instr-tab, .ws-tabs.narrow .instr-tab[aria-selected="true"] { flex-direction: column; gap: 2px; height: 44px; padding: 0 2px; font-size: 12px; }
 .ws-tabs .instr-tab[data-slot="1"]::after, .ws-tabs .instr-tab[data-slot="2"]::after { position: absolute; top: 0; right: 2px; margin: 0; width: 13px; height: 13px; font: 600 9.5px/13px var(--font-ui); }
 .ws-tabs.narrow .instr-tab[data-slot="1"]::after, .ws-tabs.narrow .instr-tab[data-slot="2"]::after { top: 2px; right: 3px; width: 15px; height: 15px; font: 600 10px/15px var(--font-ui); }
 
 /* Phone: the corner credit is set a size smaller and closer to the edge, so the zoom pill never covers its end;
    a long patient name wraps to two lines instead of being cut to "Decomp…". */
 @media (max-width: 480px) {
-  .stage-credit { left: calc(env(safe-area-inset-left, 0px) + 14px); font-size: 11px; }
-  .topbar .scenario-v { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 12.5px; line-height: 1.15; }
+  .stage-credit { left: calc(env(safe-area-inset-left, 0px) + 14px); font-size: 12px; }
+  .topbar .scenario-v { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 12px; line-height: 1.15; }
   .topbar .scenario-v .sn-l { display: none; }
   .topbar .scenario-v .sn-s { display: inline; }
 }
