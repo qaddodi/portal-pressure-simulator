@@ -8,7 +8,7 @@ import { lobuleFlows } from './lobule-model.js?v=64bf651eba';
 import { createProfile } from './charts.js?v=b563d492d6';
 import { createPressureTime } from './pressure-time.js?v=a71d7c08f9';
 import { createFibroScan } from './fibroscan.js?v=7a008d540f';
-import { createHvpgProcedure } from './hvpg-proc.js?v=8893a347c6';
+import { createHvpgProcedure } from './hvpg-proc.js?v=1b9445adb3';
 import { createDoppler } from './doppler.js?v=7bb0e8bcb7';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=6f89232735';
 
@@ -402,7 +402,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       const keep = coachH && matchMedia('(max-width: 767px)').matches ? Math.max(40, stageWrap.clientHeight * 0.26) : 40;
       const max = stageWrap.clientHeight - css('--top-safe') - coachH - css('--vdock-h') - keep;
       const ratio = heightRatio ?? (matchMedia('(max-width: 767px)').matches ? 0.56 : 0.46);
-      const height = Math.min(max, Math.max(180, stageWrap.clientHeight * ratio));
+      // A phone in a lesson: the step card sits on top of the sheet and the two share the bottom half, so
+      // the figure keeps the top half (styles: the coach in learn mode).
+      const lessonPhone = coachH && app.dataset.mode === 'learn' && matchMedia('(max-width: 767px)').matches;
+      const height = lessonPhone ? Math.max(150, stageWrap.clientHeight * 0.27) : Math.min(max, Math.max(180, stageWrap.clientHeight * ratio));
       workspace.style.setProperty('--instrument-h', `${Math.max(140, height)}px`);
       divider.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
     }

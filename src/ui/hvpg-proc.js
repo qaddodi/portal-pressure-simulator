@@ -11,7 +11,7 @@
 import { h, fmt, fitCanvas, clamp, icon, toast } from './util.js?v=a357853926';
 import { FONT } from './charts.js?v=b563d492d6';
 import { pressureColor } from './colormap.js?v=6d64a94345';
-import { store } from './store.js?v=49dc9cdf15';
+import { store, logAction } from './store.js?v=49dc9cdf15';
 
 let stageRef = null;
 /** main.js hands over the figure once it exists. */
@@ -96,7 +96,8 @@ export function createHvpgProcedure() {
       figure();
       paintSide(); draw();
       if (t < tEnd()) raf = requestAnimationFrame(step);
-      else { raf = 0; stageRef?.setCatheter(null); }
+      // A lesson waits for the whole procedure (the catheter back out) before it moves on.
+      else { raf = 0; stageRef?.setCatheter(null); logAction('hvpg', blocked ? 'aborted' : 'measured'); }
     };
     step();
   }

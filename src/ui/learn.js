@@ -7,6 +7,9 @@ import { createAnswerSheet, ASSESSMENT_VERSION, CONTENT_VERSION, MASTERY } from 
 import { addRecord } from './records.js?v=50fb9dd463';
 import { runSequence } from './sequence.js?v=f8b2dfcd73';
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
+import { SNAPSHOTS } from './snapshots.js?v=34d1578d5f';
+import { createRoute, ladder } from './ladder.js?v=2cbec732f7';
+import { CASES } from './cases/index.js?v=92e4fa48ba';
 import { trustLine, teachChip, blindOn, blindOff, isBlind, optionList, compareChip, bindQuestionKeys, mirrorMarker } from './learning-kit.js?v=01d081b730';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -18,6 +21,11 @@ const save = () => { try { localStorage.setItem('pps.lessons', JSON.stringify(sa
 // tab (pane), probe, invert, endo ('eso'), focus, data (labeled metric row); a do-step goal(frame, params, log)
 // also receives the actions the learner has taken since the step began (store.logAction).
 // Step types: frame | predict (mcq | draw | direction) | do (goal) | observe (seconds / days) | explain (metric) | check (quiz)
+// | route (tap the level of the block for `patient`, a preset; the ladder then eases in).
+// `sid` is a stable step id for deep links (?lesson=id&step=sid; lesson-step-ids.md); keep it once published.
+// A do-step may offer `dye` (a vessel to inject), `stay` (wait for Continue instead of moving on) and `after`
+// (shown once the goal is met); its goal(frame, params, log, state) can read state.dyed. `view`: anatomic | circuit;
+// `zoom: 'lobule'` with `sinusoid: true` goes one level further down. A lesson's `caseId` is its "Now try it" case.
 // Each lesson runs: vignette (frame) → prediction → action (do) → reveal (observe) → explanation → new-patient questions (check).
 // Text is clinical voice only: no vessel codes, no equations. `pearls` are the lesson’s takeaways.
 // A 'direction' prediction is answered with two buttons under the question ('labels' override
@@ -27,22 +35,28 @@ const save = () => { try { localStorage.setItem('pps.lessons', JSON.stringify(sa
 // Set `blind: false` on a step to keep them, `blind: true` to hide them on any other step.
 export const LESSONS = [
   {
-    id: 'portal-flow', title: 'Where portal blood goes', minutes: 4,
+    id: 'portal-flow', title: 'Where portal blood goes', minutes: 5, caseId: 'pvt',
     summary: 'Portal veins have no valves: blood follows pressure, and a block raises pressure behind it.',
-    pearls: ['Portal hypertension is pressure building up behind a block.', 'There are no valves, so flow follows pressure.', 'A big spleen and low platelets are back-pressure signs.'],
+    pearls: ['Portal hypertension is pressure building up behind a block.', 'There are no valves, so flow follows pressure.', 'Past a block, blood takes collateral veins, given time.', 'A big spleen and low platelets are back-pressure signs.'],
     steps: [
-      { type: 'frame', preset: 'healthy', tools: ['select'], view: 'anatomic', zoom: 'fit', tab: 'profile', path: 'main', focus: ['SV_CONF', 'PV_TRUNK', 'RHV_IVC'], focusLabel: 'Splenic, portal and hepatic veins',
-        text: 'A 40-year-old has a clot in his portal vein, and his spleen has grown. Blood from the gut and spleen normally travels through the portal vein into the liver, then out through the hepatic veins.' },
-      { type: 'predict', mode: 'direction', edge: 'SV_CONF', q: 'In a healthy person, which way does blood flow in the splenic vein: toward the liver or away from it?' },
-      { type: 'observe', seconds: 6, tools: ['select'], view: 'anatomic', tab: 'profile', focus: ['SV_CONF'], focusLabel: 'Splenic vein',
-        text: 'Toward the liver, along a steady pressure slope from spleen to liver to heart.' },
-      { type: 'do', tools: ['select', 'thrombus'], focus: ['PV_TRUNK'], focusLabel: 'Portal vein', text: 'Put a **clot in the portal vein** that blocks it completely. Then watch the pressure on each side.',
+      { sid: 'intro', type: 'frame', preset: 'healthy', tools: ['select'], view: 'circuit', zoom: 'fit', focus: ['SV_CONF', 'PV_TRUNK', 'RHV_IVC'], focusLabel: 'Splenic, portal and hepatic veins',
+        text: 'A 40-year-old has a clot in his portal vein, and his spleen has grown. This is the **Circuit** view: the same veins drawn as a map. Blood from the gut and spleen travels through the portal vein into the liver, then out through the hepatic veins to the heart.' },
+      { sid: 'direction', type: 'predict', mode: 'direction', edge: 'SV_CONF', q: 'In a healthy person, which way does blood flow in the splenic vein: toward the liver or away from it?' },
+      { sid: 'dye', type: 'do', preset: 'healthy', tools: ['select'], view: 'circuit', dye: 'SV_CONF', dyeLabel: 'Inject dye into the splenic vein', focus: ['SV_CONF', 'PV_TRUNK'], focusLabel: 'Splenic and portal veins',
+        text: 'Check your answer with dye. **Inject dye into the splenic vein** and follow it.',
+        after: 'The dye runs toward the liver, spreads through it, and leaves through the hepatic veins for the heart: downhill, along the pressure slope.', stay: true, goal: (f, p, log, s) => s.dyed },
+      { sid: 'clot', type: 'do', preset: 'healthy', tools: ['select', 'thrombus'], view: 'circuit', focus: ['PV_TRUNK'], focusLabel: 'Portal vein', text: 'Put a **clot in the portal vein** that blocks it completely. Then watch the pressure on each side.',
         data: [{ label: 'Spleen side', metric: 'sv', unit: 'mmHg' }, { label: 'Liver side', metric: 'pv', unit: 'mmHg' }],
         goal: (f, p) => (p.thrombus.PV_TRUNK || 0) >= 0.99, hint: 'Tap the portal vein on the figure, then drag Clot to 100 %.' },
-      { type: 'observe', seconds: 8, tools: ['select'], tab: 'profile', focus: ['SV_CONF', 'PV_TRUNK'], focusLabel: 'Spleen side and liver side',
+      { type: 'observe', seconds: 8, tools: ['select'], focus: ['SV_CONF', 'PV_TRUNK'], focusLabel: 'Spleen side and liver side',
         data: [{ label: 'Spleen side', metric: 'sv', unit: 'mmHg' }, { label: 'Liver side', metric: 'pv', unit: 'mmHg' }],
         text: 'Pressure piles up on the gut and spleen side of the clot, while the liver side stays low. Blood now searches for other ways out.' },
-      { type: 'explain', metric: 'pv', text: 'Portal veins have no valves, so blood goes wherever the pressure is lowest. A block raises pressure behind it, never beyond it. That is why this patient’s spleen enlarged and his platelets fell.' },
+      { type: 'predict', q: 'Months later the clot is still there. Where will dye from the spleen go now?', options: ['Around the clot, through new collateral veins', 'Through the clot into the liver', 'Back into the spleen, where it stops', 'Into the hepatic artery'], answer: 0,
+        why: 'Back-pressure slowly opens small veins around the block. Given months, they carry the blood the portal vein cannot.' },
+      { sid: 'collaterals', type: 'do', preset: 'pvt-chronic', tools: ['select'], view: 'circuit', dye: 'SV_CONF', dyeLabel: 'Inject dye into the splenic vein', focus: ['SV_CONF', 'PV_TRUNK'], focusLabel: 'Splenic vein and the clotted portal vein',
+        text: 'Months on, the portal vein is still blocked. **Inject dye into the splenic vein** again.',
+        after: 'The dye cannot cross the clot. It detours: some through a web of small veins around the portal vein into the liver (a cavernoma), and some through collaterals such as varices, straight to the heart.', stay: true, goal: (f, p, log, s) => s.dyed },
+      { type: 'explain', metric: 'pv', text: 'Portal veins have no valves, so blood goes wherever the pressure is lowest. A block raises pressure behind it, never beyond it. That is why this patient’s spleen enlarged and his platelets fell, and why, over months, collateral veins open around the block.' },
       { type: 'check', quiz: [
         { q: 'A patient’s portal vein is blocked where it enters the liver. Where do you expect the pressure to be highest?', options: ['In the veins of the spleen and bowel', 'In the liver’s sinusoids', 'In the hepatic veins and cava', 'Equally high everywhere'], answer: 0, why: 'Pressure builds up behind a block, in the veins that drain into it, not beyond it.' },
         { q: 'A woman has a large spleen, platelets of 70 and a normal liver ultrasound. Which finding would best explain the platelets?', options: ['A big spleen from back-pressure, trapping them', 'Leaking valves in the portal vein', 'Reduced bile flow from the liver', 'Too much blood reaching the liver'], answer: 0, why: 'Back-pressure enlarges the spleen, and a big spleen holds on to platelets (hypersplenism).' },
@@ -50,25 +64,29 @@ export const LESSONS = [
     ],
   },
   {
-    id: 'which-level', title: 'Before, in, or after the liver', minutes: 6,
+    id: 'which-level', title: 'Before, in, or after the liver', minutes: 6, caseId: 'budd-chiari',
     summary: 'Find the level of the block first: before the liver, inside it, or after it.',
     pearls: ['Find the level of the block before you name the disease.', 'Ascites with high protein points to a block after the liver.', 'Big varices with normal liver tests point to a block before the sinusoids.'],
     steps: [
-      { type: 'frame', preset: 'healthy', tools: ['select'], view: 'anatomic', zoom: 'fit', tab: 'profile', path: 'main', focus: ['PV_TRUNK', 'SIN_RR', 'RHV_IVC'], focusLabel: 'Portal vein, liver, hepatic vein',
-        text: 'Three patients have varices: one from schistosomiasis, one with alcohol-related cirrhosis, one with blocked hepatic veins. The varices look the same, but the problems are not. Blood runs from the gut, through the portal vein and the liver, out the hepatic veins and back to the heart.' },
-      { type: 'predict', q: 'In alcohol-related cirrhosis, where does the main block to flow sit?',
-        options: ['In the portal vein before the liver', 'Inside the liver, in the sinusoids', 'In the hepatic veins after the liver', 'In the heart'], answer: 1,
-        why: 'Scarring stiffens the sinusoids, so the main drop in pressure happens inside the liver.' },
-      { type: 'observe', seconds: 8, preset: 'cirr-comp', tools: ['select'], tab: 'profile', zoom: 'fit', path: 'main', focus: ['PV_TRUNK', 'SIN_RR', 'RHV_IVC'], focusLabel: 'Portal vein, liver, hepatic vein',
-        data: [{ label: 'Portal vein', metric: 'pv', unit: 'mmHg' }, { label: 'Hepatic vein', metric: 'fhvp', unit: 'mmHg' }],
-        text: 'Cirrhosis: the pressure falls steeply inside the liver. This patient has impaired liver function and may form ascites with low protein.' },
-      { type: 'observe', seconds: 8, preset: 'schisto', tools: ['select'], tab: 'profile', zoom: 'fit', path: 'main', focus: ['PRE_R', 'PRE_L', 'PV_TRUNK'], focusLabel: 'Small portal branches',
-        data: [{ label: 'Portal vein', metric: 'pv', unit: 'mmHg' }, { label: 'Hepatic vein', metric: 'fhvp', unit: 'mmHg' }],
-        text: 'Schistosomiasis: the block is in the small portal branches, before the sinusoids. Portal pressure is high, yet the liver works well and ascites is uncommon.' },
-      { type: 'observe', seconds: 8, preset: 'budd-chiari', tools: ['select'], tab: 'profile', zoom: 'fit', path: 'main', focus: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], focusLabel: 'Hepatic veins',
-        data: [{ label: 'Portal vein', metric: 'pv', unit: 'mmHg' }, { label: 'Hepatic vein', metric: 'fhvp', unit: 'mmHg' }],
-        text: 'Budd–Chiari: the hepatic veins are blocked, so the whole liver backs up. Ascites is common, and it is protein-rich.' },
-      { type: 'explain', metric: 'pv', text: 'Block **before** the liver (portal vein clot): normal liver tests, little ascites. Block **in** the liver before the sinusoids (schistosomiasis): normal liver function, big varices. Block **in** the sinusoids (cirrhosis): sick liver, ascites with low protein. Block **after** the liver (hepatic veins, heart): ascites with high protein.' },
+      { sid: 'intro', type: 'frame', preset: 'healthy', tools: ['select'], view: 'anatomic', zoom: 'fit', tab: 'profile', path: 'main', focus: ['PV_TRUNK', 'SIN_RR', 'RHV_IVC'], focusLabel: 'Portal vein, liver, hepatic vein',
+        text: 'Four patients have portal hypertension, and their varices look alike. Before you name a disease, find the **level** of the block on the route blood takes: before the liver, in the portal tracts, in the sinusoids, just after them, in the hepatic veins or cava, or at the heart. For each patient, tap the level; the pressure ladder then shows where the pressure drops.' },
+      { sid: 'level-presin', type: 'route', preset: 'healthy', patient: 'schisto', site: 'presin', focus: ['PRE_R', 'PRE_L'], focusLabel: 'Small portal branches',
+        story: 'A 28-year-old who grew up near the Nile has large varices and a big spleen.',
+        clues: ['Bilirubin, albumin and clotting are normal. No ascites.', 'Doppler: the portal vein is open, with flow toward the liver. Thick, bright bands surround the portal branches.'],
+        why: 'Schistosome eggs lodge in the small portal branches, before the sinusoids. Portal pressure is high, yet the liver cells are spared, so the liver works and ascites is uncommon.' },
+      { sid: 'level-sin', type: 'route', preset: 'healthy', patient: 'cirr-decomp', site: 'sin', focus: ['SIN_RR', 'SIN_RL'], focusLabel: 'Sinusoids',
+        story: 'A 52-year-old with years of heavy drinking has new jaundice and a swollen abdomen.',
+        clues: ['Doppler: slow portal flow toward the liver. The liver is small and nodular, the spleen big.', (fp) => `Ascitic tap: SAAG ${fmt(fp.saag, 1)} g/dL, protein ${fmt(fp.tp, 1)} g/dL.`],
+        why: 'Scarring stiffens the sinusoids, so the main drop in pressure happens inside the liver. The scarred sinusoid holds protein back, so the ascites is low in protein.' },
+      { sid: 'level-post', type: 'route', preset: 'healthy', patient: 'budd-chiari', site: 'post', focus: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], focusLabel: 'Hepatic veins',
+        story: 'A 26-year-old on the pill has ascites that came on over two weeks, and a painful, enlarged liver.',
+        clues: ['Doppler: the hepatic veins cannot be seen. The caudate lobe is enlarged.', (fp) => `Ascitic tap: SAAG ${fmt(fp.saag, 1)} g/dL, protein ${fmt(fp.tp, 1)} g/dL.`, 'Neck veins are not raised.'],
+        why: 'Clot in the hepatic veins backs up the whole liver. The sinusoids stay leaky, so the ascites is rich in protein, and the heart is normal.' },
+      { sid: 'level-cardiac', type: 'route', preset: 'healthy', patient: 'rhf', site: 'cardiac', focus: ['IVCS_RA', 'RHV_IVC'], focusLabel: 'Cava and right atrium',
+        story: 'A 70-year-old has breathlessness, swollen legs and ascites.',
+        clues: ['The neck veins are full to the jaw.', 'Doppler: the portal vein pulses with each heartbeat. The hepatic veins and cava are wide.', (fp) => `Ascitic tap: SAAG ${fmt(fp.saag, 1)} g/dL, protein ${fmt(fp.tp, 1)} g/dL.`],
+        why: 'Pressure backs up from the failing heart into every vein below it. Like Budd–Chiari, the ascites is high in protein; the full neck veins point to the heart.' },
+      { sid: 'summary', type: 'explain', metric: 'pv', text: 'Block **before** the liver (portal vein clot): normal liver tests, little ascites. Block **in** the liver before the sinusoids (schistosomiasis): normal liver function, big varices. Block **in** the sinusoids (cirrhosis): sick liver, ascites with low protein. Block **after** the liver (hepatic veins, heart): ascites with high protein.' },
       { type: 'check', quiz: [
         { q: 'A 30-year-old from Egypt has large varices, normal bilirubin and no ascites. Where is the block most likely?', options: ['Before the sinusoids, in small portal branches', 'In the sinusoids, from cirrhosis', 'After the liver, in the hepatic veins', 'In the heart, from right heart failure'], answer: 0, why: 'Schistosome eggs block the small portal branches. The liver cells are spared, so bilirubin is normal and ascites is unusual.' },
         { q: 'A woman has painful hepatomegaly, rapid ascites with high protein, and varices. Where do you look for the block?', options: ['After the liver: hepatic veins and cava', 'In the portal vein', 'In the sinusoids, from cirrhosis', 'In the splenic vein'], answer: 0, why: 'Painful liver, fast ascites with high protein: think Budd–Chiari. Doppler the hepatic veins and cava.' },
@@ -76,24 +94,33 @@ export const LESSONS = [
     ],
   },
   {
-    id: 'measuring-pressure', title: 'Measuring portal pressure, and when the number lies', minutes: 6,
+    id: 'measuring-pressure', title: 'Measuring portal pressure, and when the number lies', minutes: 7, caseId: 'schisto',
     summary: 'The wedged-minus-free gradient reads the sinusoids, and misleads when the block is before or after them.',
-    pearls: ['A gradient of 10 or more is clinically significant; 12 or more carries bleeding risk.', 'A normal gradient does not rule out portal hypertension.', 'With blocked hepatic veins the gradient cannot be trusted.'],
+    pearls: ['A gradient of 10 or more is clinically significant; 12 or more carries bleeding risk.', 'A normal gradient does not rule out portal hypertension.', 'With blocked hepatic veins the gradient cannot be measured or trusted.'],
     steps: [
-      { type: 'frame', preset: 'cirr-comp', tools: ['select'], view: 'anatomic', zoom: 'fit', tab: 'profile', focus: ['RHV_IVC', 'PRE_R', 'SIN_RR'], focusLabel: 'Hepatic vein and sinusoids',
-        data: [{ label: 'Free pressure', metric: 'fhvp', unit: 'mmHg' }, { label: 'Wedged pressure', metric: 'whvp', unit: 'mmHg' }],
-        text: 'This patient has early cirrhosis. How do you put a number on her portal pressure? The hepatic venous pressure gradient (**HVPG**) is the wedged pressure minus the free pressure in a hepatic vein. Normal is up to 5, clinically significant is 10 or more, and bleeding risk rises from 12.' },
+      { sid: 'intro', type: 'frame', preset: 'csph', tools: ['select'], view: 'anatomic', zoom: 'fit', tab: 'hvpg', focus: ['RHV_IVC', 'SIN_RR'], focusLabel: 'Hepatic vein and sinusoids',
+        text: 'This patient has compensated cirrhosis. How do you put a number on her portal pressure? A catheter goes in from the neck to a hepatic vein. It reads the **free** pressure there; then a balloon blocks the vein, and the still blood in front of it reads the **wedged** pressure, which stands in for the sinusoids. Wedged minus free is the hepatic venous pressure gradient (**HVPG**). Normal is up to 5, clinically significant is 10 or more, and bleeding risk rises from 12.' },
+      { sid: 'hvpg-run', type: 'do', preset: 'csph', tools: ['select'], tab: 'hvpg', text: 'Tap **Measure HVPG** and watch the catheter, the balloon and the tracing.', hint: 'The button is at the top of the HVPG card.',
+        after: 'Wedged minus free: this gradient is clinically significant.', stay: true, goal: (f, p, log) => log.some((a) => a.type === 'hvpg') },
       { type: 'predict', q: 'A traveller with schistosomiasis has large varices. Will his HVPG be high?', options: ['Yes, large varices mean a high gradient', 'No, it can be normal or only mildly raised', 'It cannot be measured in schistosomiasis', 'Yes, the liver is cirrhotic'], answer: 1,
         why: 'The wedge reads the sinusoids, and in schistosomiasis the block lies before them.' },
-      { type: 'observe', seconds: 8, preset: 'schisto', tools: ['select'], tab: 'profile', zoom: 'fit', focus: ['PV_TRUNK', 'PRE_R', 'RHV_IVC'], focusLabel: 'Portal vein and liver outlet',
+      { sid: 'hvpg-schisto', type: 'do', preset: 'schisto', tools: ['select'], tab: 'hvpg', focus: ['PRE_R', 'PRE_L'], focusLabel: 'Small portal branches',
+        text: 'Now the traveller with schistosomiasis. **Measure his HVPG**.', stay: true, goal: (f, p, log) => log.some((a) => a.type === 'hvpg'),
+        after: 'A normal gradient, in a man with large varices.' },
+      { type: 'observe', seconds: 6, tools: ['select'], tab: 'profile', path: 'main', focus: ['PV_TRUNK', 'PRE_R', 'RHV_IVC'], focusLabel: 'Portal vein and liver outlet',
         data: [{ label: 'PPG (portal vein − IVC)', metric: 'ppg', unit: 'mmHg' }, { label: 'HVPG', metric: 'hvpg', unit: 'mmHg' }],
-        text: 'The portal pressure is high but the gradient is low, because the block sits before the sinusoids and the wedge cannot see it.' },
-      { type: 'observe', seconds: 8, preset: 'rhf', params: { pulsatile: true }, tools: ['select'], tab: 'profile', zoom: 'fit', focus: ['IVCS_RA', 'RHV_IVC'], focusLabel: 'Cava and hepatic vein',
+        text: 'The pressure profile shows why: the portal pressure is high, but it drops before the sinusoids, where the wedge cannot see it. The portosystemic gradient (**PPG**, portal vein minus cava) catches it.' },
+      { type: 'predict', q: 'A young woman has Budd–Chiari: her hepatic veins are blocked by clot. What happens when the catheter tries to measure her HVPG?', options: ['It cannot enter the hepatic vein, so there is no reading', 'It reads a very high gradient', 'It reads a normal gradient you can trust', 'It reads the portal vein directly'], answer: 0,
+        why: 'The wedge needs an open hepatic vein. With the veins clotted the catheter cannot get in, and the measurement is abandoned.' },
+      { sid: 'hvpg-budd-chiari', type: 'do', preset: 'budd-chiari', tools: ['select'], tab: 'hvpg', focus: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], focusLabel: 'Hepatic veins',
+        text: '**Measure the HVPG** in Budd–Chiari and watch the catheter.', stay: true, goal: (f, p, log) => log.some((a) => a.type === 'hvpg'),
+        after: 'The catheter cannot enter the clotted vein, so there is no free or wedged pressure to read. Her portal pressure is high all the same.' },
+      { sid: 'hvpg-heart', type: 'observe', seconds: 8, preset: 'rhf', params: { pulsatile: true }, tools: ['select'], tab: 'profile', path: 'main', zoom: 'fit', focus: ['IVCS_RA', 'RHV_IVC'], focusLabel: 'Cava and hepatic vein',
         data: [{ label: 'Free pressure', metric: 'fhvp', unit: 'mmHg' }, { label: 'Wedged pressure', metric: 'whvp', unit: 'mmHg' }, { label: 'Right atrium', metric: 'ra', unit: 'mmHg' }],
-        text: 'In right heart failure both pressures are high, so their difference stays small.' },
-      { type: 'explain', metric: 'hvpg', text: 'The wedge sees the sinusoids. A block before them is invisible, and a failing heart raises both readings together. A low gradient therefore never excludes portal hypertension.' },
+        text: 'In right heart failure the catheter gets in, but both pressures are high, so their difference stays small.' },
+      { type: 'explain', metric: 'hvpg', text: 'The wedge sees the sinusoids. A block before them is invisible, a clotted hepatic vein cannot be entered, and a failing heart raises both readings together. A low gradient therefore never excludes portal hypertension.' },
       { type: 'check', quiz: [
-        { q: 'A patient with Budd–Chiari has a low gradient. Can you trust it?', options: ['No: blocked hepatic veins make the wedge invalid', 'Yes: a low number means no portal hypertension', 'Yes, as long as the free pressure is also low', 'Only if the patient is on a beta blocker'], answer: 0, why: 'The wedge needs an open hepatic vein to read the sinusoids. With the outflow blocked, the number means nothing.' },
+        { q: 'A patient with Budd–Chiari has a low gradient on an outside report. Can you trust it?', options: ['No: blocked hepatic veins make the wedge invalid', 'Yes: a low number means no portal hypertension', 'Yes, as long as the free pressure is also low', 'Only if the patient is on a beta blocker'], answer: 0, why: 'The wedge needs an open hepatic vein to read the sinusoids. With the outflow blocked, the number means nothing.' },
         { q: 'A patient with cirrhosis has a gradient of 11 mmHg. What does this tell you?', options: ['Clinically significant portal hypertension', 'Normal pressure', 'Portal hypertension is excluded', 'A block after the liver'], answer: 0, why: '10 or more is clinically significant portal hypertension: the threshold for varices, ascites and preventive treatment.' },
         { q: 'A patient with severe tricuspid regurgitation has high free and wedged pressures and a gradient of 3. What is the best explanation?', options: ['Congestion from the failing right heart', 'A normal liver', 'A block before the sinusoids', 'A reversed portal vein'], answer: 0, why: 'The failing heart raises both pressures together, so their difference stays small even though the liver is congested.' },
       ] },
@@ -257,17 +284,22 @@ export const LESSONS = [
 ];
 
 const STEP = {
-  frame: ['book', 'Context'], predict: ['bulb', 'Predict'], do: ['tools', 'Your turn'], observe: ['explore', 'Observe'], explain: ['bulb', 'Explain'], check: ['check', 'Check'],
+  frame: ['book', 'Context'], predict: ['bulb', 'Predict'], do: ['tools', 'Your turn'], observe: ['explore', 'Observe'], explain: ['bulb', 'Explain'], check: ['check', 'Check'], route: ['route', 'Level'],
 };
 // Lesson steps name locked-control keys; these are the matching controls to embed in the card.
 const INLINE = { cirrhosis: 'cirrhosis', splanchnicTone: 'splanchnicTone', 'drug:propranolol': 'drug:propranolol', 'drug:terlipressin': 'drug:terlipressin', 'drug:octreotide': 'drug:octreotide', 'drug:carvedilol': 'drug:carvedilol', apShunt: 'apShunt', spontaneous: 'srShunt', diuretics: 'diuretics', brto: 'brto' };
 
-export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector, beginSession, endSession, onEnd, loadPreset, action, setTool, setAllowedTools, showPane, setProbe, openPanel, setBanner }) {
+export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector, beginSession, endSession, onEnd, loadPreset, action, setTool, setAllowedTools, showPane, setProbe, openPanel, setBanner, startCase }) {
   let lesson = null, idx = 0, state = {};
   // The step card never covers the figure. Where the side panel sits beside the figure (wide
   // screens) it heads the panel; below that it is a bottom sheet under the figure, which gives up
   // its own height to it.
-  const asSheet = matchMedia('(max-width: 1279px)');
+  const asSheet = matchMedia('(max-width: 1279px)'), asPhone = matchMedia('(max-width: 767px)');
+  const liftOver = (card) => {
+    const wrap = document.getElementById('stageView')?.getBoundingClientRect(), q = card?.getBoundingClientRect();
+    const px = card && wrap && q.height ? `${Math.round(wrap.bottom - q.top + 8)}px` : '';
+    for (const b of document.querySelectorAll('.stage-credit, .zoom-pill, .stage-clock')) b.style.setProperty('--sheet-h', px);
+  };
   let sheetMin = false;
   const snaps = [];             // starting state of each step, for Replay
   let answers = createAnswerSheet(), t0 = 0, mirror = null, unbindKeys = null, cardEl = null;
@@ -310,10 +342,14 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
 
   function openList() { render(); }
 
-  async function start(id) {
+  async function start(id, step) {
+    const found = LESSONS.find((l) => l.id === id);
+    if (!found) { toast(`No lesson called “${id}”.`, 'bad'); return; }
     await beginSession?.('lesson');
-    lesson = LESSONS.find((l) => l.id === id);
-    idx = 0; state = {}; perms = {}; snaps.length = 0; answers = createAnswerSheet(); t0 = Date.now();
+    lesson = found;
+    // A deep link may open on a step: by its stable id, or its number (1-based).
+    const at = step == null ? -1 : lesson.steps.findIndex((s0) => s0.sid === step);
+    idx = at >= 0 ? at : /^\d+$/.test(step || '') ? Math.min(lesson.steps.length - 1, Math.max(0, +step - 1)) : 0; state = {}; perms = {}; snaps.length = 0; answers = createAnswerSheet(); t0 = Date.now();
     unbindKeys?.(); unbindKeys = bindQuestionKeys(() => cardEl);
     sheetMin = false;
     await enter();
@@ -323,7 +359,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
   function stop() {
     lesson = null;
     mirror?.el.remove(); mirror = null; blindOff(); unbindKeys?.(); unbindKeys = null; cardEl = null;
-    coach?.replaceChildren();
+    coach?.replaceChildren(); if (coach) coach.dataset.safe = 'top'; liftOver(null);
     clearInterval(pollTimer); clearInterval(dataTimer);
     store.set({ locked: null, hiddenReadouts: null });
     setAllowedTools(null);
@@ -354,27 +390,31 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     store.set({ locked: new Set(st.controls || ['*']) });
     if (st.layers) store.set({ layers: { ...store.get().layers, ...st.layers } });
     if (st.view && st.view !== store.get().view) store.set({ view: st.view });
-    if (st.zoom) store.set({ lobule: st.zoom === 'lobule' });
+    if (st.zoom) store.set({ lobule: st.zoom === 'lobule', sinusoid: st.zoom === 'lobule' && !!st.sinusoid });
     if (st.lobuleLayers) store.set({ lobuleLayers: { ...store.get().lobuleLayers, ...st.lobuleLayers } });
     // One surface: a question never has an instrument open beside it, unless the student has to draw on one.
-    const asking = (st.type === 'predict' && st.mode !== 'draw') || st.type === 'check';
+    const asking = (st.type === 'predict' && st.mode !== 'draw') || st.type === 'check' || st.type === 'route';
     if (asking) dock.close?.(); else if (st.tab) showPane(st.tab);
     // The figure glides into the space the closed (or opened) instrument leaves.
     setTimeout(() => { if (lesson?.steps[idx] === st) stage?.refit?.(); }, 380);
-    if (st.blind ?? (st.type === 'predict' && st.mode !== 'draw')) blindOn();
+    if (st.blind ?? ((st.type === 'predict' && st.mode !== 'draw') || st.type === 'route')) blindOn();
+    if (st.type === 'route') state.route = createRoute({ onPick: (id) => pickRoute(st, id) });
     if (st.path) dock.profile.setPath(st.path);
     if (st.probe) setProbe(st.probe);
     if (st.invert != null) dock.pane('doppler')?.setInvert?.(st.invert);
     if (st.endo) { showPane('endoscopy'); dock.pane('endoscopy')?.setView?.(st.endo); }
     store.set({ focus: st.focus ? { edges: st.focus, label: st.focusLabel } : null });
-    if (st.type === 'predict' || st.type === 'frame' || st.type === 'check') host.send({ type: 'run', running: st.type === 'frame' });
+    if (st.type === 'predict' || st.type === 'frame' || st.type === 'check' || st.type === 'route') host.send({ type: 'run', running: st.type === 'frame' });
     if (st.type === 'predict' && st.mode === 'draw') { dock.profile.startPredict(() => render()); showPane('profile'); }
     if (st.type === 'predict' && st.mode === 'direction') setTimeout(() => showMirror(st), 120);
     if (st.type === 'do') {
       host.send({ type: 'run', running: true });
       pollTimer = setInterval(() => {
         const f = store.get().frame;
-        if (f && st.goal(f, store.get().params, (store.get().actionLog || []).slice(state.logStart))) { state.met = true; clearInterval(pollTimer); render(); setTimeout(() => { if (lesson && lesson.steps[idx] === st) next(); }, 1100); }
+        if (f && st.goal(f, store.get().params, (store.get().actionLog || []).slice(state.logStart), state)) {
+          state.met = true; clearInterval(pollTimer); render();
+          if (!st.stay) setTimeout(() => { if (lesson && lesson.steps[idx] === st) next(); }, 1100);
+        }
       }, 300);
     }
     if (st.type === 'observe') {
@@ -399,7 +439,10 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     if (st.type === 'predict' && st.options && state.answered != null) answers.record(key('q1'), state.answered === st.answer);
     if (st.type === 'check') st.quiz.forEach((qq, qi) => { if (state.quizAns[qi] != null) answers.record(key(`q${qi + 1}`), state.quizAns[qi] === qq.answer); });
     if (idx < lesson.steps.length - 1) { idx++; enter(); panel.scrollTop = 0; }
-    else {
+    else finish();
+  }
+  function finish() {
+    {
       const { score, right, total, mastered } = answers.score();
       saved[lesson.id] = { score: Math.max(score, saved[lesson.id]?.score || 0), date: new Date().toISOString() }; save();
       addRecord({ kind: 'lesson', id: lesson.id, title: lesson.title, score, assessment: ASSESSMENT_VERSION, contentVersion: CONTENT_VERSION, completed: true, mastered, wallDuration: (Date.now() - t0) / 1000, duration: (Date.now() - t0) / 1000, met: right, total,
@@ -442,6 +485,31 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     blindOff(); stage?.flash([st.edge]); render();
   }
   function back() { if (lesson && idx > 0) { idx--; enter(); } }
+  // The route game: the pick is scored, the strip shows the true level, and only then does the
+  // patient appear on the figure (it would give the level away before).
+  async function pickRoute(st, id) {
+    if (state.answered != null) return;
+    state.answered = id;
+    answers.record(`lesson:${lesson.id}:step-${String(idx + 1).padStart(2, '0')}:level`, id === st.site);
+    state.route.reveal(st.site);
+    const fp = SNAPSHOTS[st.patient]?.fp;
+    if (fp) state.ladder = ladder(fp, { base: SNAPSHOTS.healthy.fp, reveal: true });
+    blindOff(); render();
+    requestAnimationFrame(() => {   // only the card scrolls, never the page under it
+      const fb = cardEl?.querySelector('.feedback'), box = cardEl?.closest('.coach, .panel-page, #panelChart') || cardEl?.parentElement;
+      if (fb && box) box.scrollTo({ top: Math.max(0, fb.offsetTop - 12), behavior: 'smooth' });
+    });
+    await runSequence({ preset: st.patient }, { loadPreset, action }, { reset: true });
+    if (!lesson || lesson.steps[idx] !== st) return;
+    store.set({ focus: st.focus ? { edges: st.focus, label: st.focusLabel } : null });
+    host.send({ type: 'run', running: true });
+  }
+  function injectDye(st) {
+    stage?.injectDye?.(st.dye);
+    state.dyeing = true; render();
+    // The goal is met once the dye has had time to travel, so the explanation follows what was seen.
+    setTimeout(() => { if (lesson?.steps[idx] === st) { state.dyed = true; state.dyeing = false; render(); } }, 3500);
+  }
   const flowSign = (id) => { const f = store.get().frame; const q = f ? (f.Qf || f.Q)[EI[id]] : 0; return q >= 0 ? 1 : -1; };
 
   const plain = (t) => String(t || '').replace(/\*\*(.+?)\*\*/g, '$1').replace(/\*(.+?)\*/g, '$1');
@@ -451,6 +519,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     if (st.type === 'observe') return state.observed ? 'Now read what changed on the figure' : plain(st.text).split('. ')[0];
     if (st.type === 'explain') return `Why? ${lesson.title}`;
     if (st.type === 'check') return 'Check your understanding in the panel';
+    if (st.type === 'route') return state.answered == null ? 'Where is the block?' : 'See where the pressure drops';
     return lesson.title;
   }
   const md = (t) => { const span = h('span'); span.innerHTML = String(t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\*(.+?)\*/g, '<i>$1</i>'); return span; };
@@ -472,6 +541,17 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
       body.push(shuffledList(`${idx}`, { options: st.options, picked: state.answered, answer: st.answer, onPick: (i) => { state.answered = i; blindOff(); render(); } }));
       if (state.answered != null) body.push(h('div', { class: 'feedback ' + (state.answered === st.answer ? 'right' : 'wrong') }, h('b', {}, state.answered === st.answer ? 'Correct. ' : 'Not quite. '), st.why || 'Now let’s see what the model does.'));
     }
+    if (st.type === 'route') {
+      const fp = SNAPSHOTS[st.patient]?.fp || {};
+      canNext = state.answered != null; asking = !canNext;
+      body.push(h('p', { class: 'route-story' }, st.story), h('ul', { class: 'route-clues' }, st.clues.map((c) => h('li', {}, typeof c === 'function' ? c(fp) : c))));
+      body.push(h('p', { class: 'q' }, 'Where is the block? Tap its level.'), state.route.el);
+      if (state.answered != null) {
+        const ok = state.answered === st.site;
+        body.push(h('div', { class: 'feedback ' + (ok ? 'right' : 'wrong') }, h('b', {}, ok ? 'Correct. ' : 'Not quite. '), st.why));
+        if (state.ladder) body.push(h('div', { class: 'tour-sub' }, 'Pressure along the way', h('span', {}, h('i', { class: 'lg-now' }), 'This patient', h('i', { class: 'lg-base' }), 'Healthy')), state.ladder);
+      }
+    }
     if (st.type === 'predict' && st.mode === 'draw') body.push(h('div', { class: 'feedback' }, 'Draw on the pressure profile below the anatomy. When you have at least four points, continue.'));
     if (st.type === 'predict' && st.mode === 'direction') {
       const labels = st.labels || ['Toward the liver', 'Away from the liver'], said = state.answered == null ? null : state.answered > 0 ? 0 : 1;
@@ -487,9 +567,11 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
         inline = inspector.buildControls([...new Set(ids)]);
         body.push(h('div', { class: 'inline-controls' }, inline.els));
       }
+      if (st.dye) body.push(h('button', { class: 'btn block dye-btn', disabled: !!state.dyeing, onclick: () => injectDye(st) }, svgIcon('drop'), state.dyed ? 'Inject again' : state.dyeing ? 'Dye on its way…' : st.dyeLabel || 'Inject dye'));
       if (st.presetButton) body.push(h('button', { class: 'btn block', style: { marginBottom: '12px' }, onclick: () => loadPreset(st.presetButton) }, `Load: ${store.get().presetList?.find((p) => p.id === st.presetButton)?.label || st.presetButton}`));
-      body.push(h('div', { class: 'goal ' + (state.met ? 'met' : 'waiting') }, h('span', { class: 'chk' }, svgIcon('check')), state.met ? 'Done. Moving on…' : 'Waiting for you…'));
-      if (st.hint) body.push(h('p', { class: 'ctl-sub' }, st.hint));
+      if (state.met && st.after) body.push(h('div', { class: 'feedback right' }, st.after));
+      else body.push(h('div', { class: 'goal ' + (state.met ? 'met' : 'waiting') }, h('span', { class: 'chk' }, svgIcon('check')), state.met ? (st.stay ? 'Done.' : 'Done. Moving on…') : 'Waiting for you…'));
+      if (st.hint && !state.met) body.push(h('p', { class: 'ctl-sub' }, st.hint));
     }
     if (st.type === 'observe') {
       canNext = state.observed;
@@ -512,6 +594,9 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     }
     // The takeaways close the lesson: shown on the last step once its questions are answered.
     if (idx === lesson.steps.length - 1 && lesson.pearls?.length && canNext) body.push(h('div', { class: 'pearls' }, h('p', { class: 'step-label' }, 'Pearls'), h('ul', {}, lesson.pearls.map((t) => h('li', {}, t)))));
+    // Then a patient to try it on: the lesson is recorded first, then the case opens.
+    const tryCase = idx === lesson.steps.length - 1 && canNext && startCase && CASES.find((c) => c.id === lesson.caseId);
+    if (tryCase) body.push(h('button', { class: 'try-case', onclick: () => { const id = tryCase.id; finish(); startCase(id); } }, h('span', {}, h('small', {}, 'Now try it on a patient'), h('b', {}, tryCase.title)), svgIcon('chev-right')));
     const [, typeLabel] = STEP[st.type], stepLabel = `${typeLabel} · ${idx + 1} of ${lesson.steps.length}`;
     const bt = bannerText(st);
     setBanner?.({ tag: `Lesson · ${idx + 1}/${lesson.steps.length}`, text: bt === lesson.title ? lesson.title : `${lesson.title}: ${bt}` });
@@ -532,8 +617,11 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     card.classList.toggle('q-active', asking && st.mode !== 'draw');
     card.classList.toggle('sheet', !!sheet);
     card.classList.toggle('min', !!sheet && sheetMin);
+    // On a phone the card sits at the bottom (styles), so the figure frames itself above it and lifts its
+    // credit and buttons clear of it.
+    coach.dataset.safe = sheet && asPhone.matches ? 'bottom' : 'top';
     // The figure gives up (or takes back) the sheet's height.
-    requestAnimationFrame(() => { stage?.relayout(); if (sheet) dispatchEvent(new Event('resize')); });
+    requestAnimationFrame(() => { stage?.relayout(); liftOver(sheet && asPhone.matches ? card : null); if (sheet) dispatchEvent(new Event('resize')); });
   }
 
   store.on('mode', (m) => { if (m !== 'learn' && lesson) stop(); render(); });
