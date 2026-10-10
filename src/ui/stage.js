@@ -612,9 +612,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     };
     const near = (x, y) => inside(x, y) || inside(x + 10, y) || inside(x - 10, y) || inside(x, y + 10) || inside(x, y - 10);
     // Dart throwing, with a grid of accepted sites so each try checks only its neighbours.
-    const sites = [], grid = new Map(), G = 26;
-    for (let k = 0; k < 40000 && sites.length < 1100; k++) {
-      const x = 290 + 620 * r(), y = 150 + 390 * r(), d = 10 + 9 * r();
+    const sites = [], grid = new Map(), G = 13;
+    for (let k = 0; k < 160000 && sites.length < 4600; k++) {
+      const x = 290 + 620 * r(), y = 150 + 390 * r(), d = 5 + 4.5 * r();
       const gx = Math.floor(x / G), gy = Math.floor(y / G);
       let ok = true;
       for (let i = -1; i <= 1 && ok; i++) for (let j = -1; j <= 1 && ok; j++) {
@@ -626,11 +626,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (grid.has(key)) grid.get(key).push(site); else grid.set(key, [site]);
     }
     return sites.map(([x, y], i) => {
-      let poly = [[x - 40, y - 40], [x + 40, y - 40], [x + 40, y + 40], [x - 40, y + 40]];
-      for (let j = 0; j < sites.length; j++) {
-        if (j === i) continue;
-        const [ox, oy] = sites[j], dx = ox - x, dy = oy - y;
-        if (dx * dx + dy * dy > 55 * 55) continue;
+      let poly = [[x - 20, y - 20], [x + 20, y - 20], [x + 20, y + 20], [x - 20, y + 20]];
+      const gx = Math.floor(x / G), gy = Math.floor(y / G), nb = [];
+      for (let a = -3; a <= 3; a++) for (let b = -3; b <= 3; b++) for (const o of grid.get((gx + a) * 1000 + gy + b) || []) if (o !== sites[i]) nb.push(o);
+      for (const [ox, oy] of nb) {
+        const dx = ox - x, dy = oy - y;
+        if (dx * dx + dy * dy > 28 * 28) continue;
         const mx = (x + ox) / 2, my = (y + oy) / 2, side = (q) => (q[0] - mx) * dx + (q[1] - my) * dy, nxt = [];
         for (let k = 0; k < poly.length; k++) {
           const a = poly[k], b = poly[(k + 1) % poly.length], sa = side(a), sb = side(b);
@@ -699,7 +700,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // septa (the liver shows through the gaps, lightened). Flat, no shading; the septa widen and
     // the contrast firms with severity.
     const cn = smooth01(c / 0.5) * (0.55 + 0.45 * c);
-    lv.nod.setAttribute('d', cn > 0.01 ? baseLiver.cells.map((cl) => cellPath(cl, c, 0.6 + 0.9 * c)).join('') : '');
+    lv.nod.setAttribute('d', cn > 0.01 ? baseLiver.cells.map((cl) => cellPath(cl, c, 0.3 + 0.45 * c)).join('') : '');
     lv.sep.style.opacity = lv.nod.style.opacity = cn.toFixed(3);
     // Nutmeg: dark centrilobular spots that grow and begin to link up as congestion deepens.
     if (g > 0.01) {
