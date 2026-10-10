@@ -19,9 +19,9 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=cab65850a4';
 import { sinusoidSupported } from './sinusoid-view.js?v=d5403260c8';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
-import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=7b00729ce0';
+import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=ec21450a03';
 import { createTools } from './presenter-tools.js?v=621f749226';
-import { openHandout } from './handout.js?v=e6247b0150';
+import { openHandout } from './handout.js?v=4873dfbe05';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -894,7 +894,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     // A time-lapse starts from the slide before's state; a catheter slide drives its own camera.
     const lap = !!s.lapse && to > 0 && !q, ct = !q && !s.visual ? s.cath || null : null;
     // Words out, and the marks: they belong to the slide that is leaving.
-    store.set({ focus: null, presentLabels: [], presentTerms: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
+    store.set({ focus: null, presentLabels: [], presentTerms: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
     stopLapse(); abSlow();
     const si = lap ? stateOf[to - 1] : stateOf[to];
     await wordsOut(s, shownState >= 0 && (si !== shownState || liveOff));
@@ -938,7 +938,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       const tg = q ? null : slideTargets(s), marks = q ? [] : (s.marks || (s.mark ? [s.mark] : [])).map((m) => ({ edges: [...m.edges], label: m.label, kind: m.kind || 'block' }));
       store.set({ presentLabels: q ? [] : [...new Set([...(s.labels || []), ...tg.labels])], presentTerms: tg?.terms || null,
         presentNames: !q && (s.data === 'ladder' || !!s.cath),
-        focus: marks.length ? { ...marks[0], marks } : null });
+        focus: marks.length ? { ...marks[0], marks } : null, lobuleCallout: q || !s.callout ? null : { kind: 'block', ...s.callout } });
       if (tg) { stage.setGlow(tg.glow); stage.pinOrgans(tg.organs); }
     }
     if (!s.visual && !q && s.sites) stage.setSites(s.sites, st.fp);
@@ -1484,7 +1484,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     for (const w of waiters) w.res(null);
     waiters = [];
     removeEventListener('resize', onResize);
-    store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
+    store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
     clearTimeout(idleT);
     ui?.tools.dispose(); ui?.root.remove(); ui?.shade.remove(); ui = null;
     view.classList.remove('pz-out');

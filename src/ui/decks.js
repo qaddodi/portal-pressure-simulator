@@ -50,7 +50,7 @@
 
 import { STIFFNESS } from './decks/stiffness.js?v=35e2f96b71';
 import { ONE_YEAR } from './decks/one-year.js?v=37492fcfd2';
-import { LOBULE } from './decks/lobule.js?v=a4fece9e32';
+import { LOBULE } from './decks/lobule.js?v=1c3334a8b0';
 import { SHUNTS } from './decks/shunts.js?v=f85ae18277';
 import { TAP } from './decks/tap.js?v=a7198caf5f';
 import { CIRCUIT } from './decks/circuit.js?v=1097d61831';
@@ -204,7 +204,7 @@ export const DECKS = [
         ask: ['Why is HVPG normal when the portal pressure is about 20 mmHg?', 'The wedge reads the sinusoids, which lie downstream of the clot and are at normal pressure.'],
       },
       {
-        id: 'presin', preset: 'schisto', cam: 'lobule:triad', data: 'ladder', key: ['pv', 'hvpg', 'ppg'], rail: true, quiz: 'Where is the obstruction?',
+        id: 'presin', preset: 'schisto', cam: 'lobule:triad', data: 'ladder', key: ['pv', 'hvpg', 'ppg'], callout: { at: 'triad', label: 'Block: portal venules' }, rail: true, quiz: 'Where is the obstruction?',
         kicker: 'Intrahepatic · presinusoidal', site: 'presin', title: 'Schistosomiasis',
         line: 'Eggs lodge in the portal venules and cause periportal fibrosis. The obstruction is upstream of the sinusoids, so HVPG stays near normal.',
         causes: ['Schistosomiasis', 'Porto-sinusoidal vascular disorder', 'Early primary biliary cholangitis', 'Sarcoidosis, congenital hepatic fibrosis'],
@@ -212,7 +212,7 @@ export const DECKS = [
         ask: ['A patient bleeds from varices. HVPG is normal and the portal vein is open. Where is the block?', 'Presinusoidal, in the portal tracts: schistosomiasis or porto-sinusoidal vascular disorder.'],
       },
       {
-        id: 'sin', preset: 'cirr-decomp', cam: 'lobule:sinusoid', data: 'ladder', key: ['whvp', 'hvpg'], rail: true, quiz: 'Where is the obstruction?',
+        id: 'sin', preset: 'cirr-decomp', cam: 'lobule:sinusoid', callout: { at: 'sin', label: 'Block: sinusoids' }, data: 'ladder', key: ['whvp', 'hvpg'], rail: true, quiz: 'Where is the obstruction?',
         kicker: 'Intrahepatic · sinusoidal', site: 'sin', title: 'Cirrhosis',
         line: 'Fibrosis, nodules and stellate cell contraction narrow the sinusoids. The wedged pressure reflects sinusoidal pressure, so HVPG rises with portal pressure.',
         causes: ['Alcohol', 'Fatty liver disease (MASLD)', 'Hepatitis B and C', 'Autoimmune, cholestatic, metabolic'],
@@ -220,7 +220,7 @@ export const DECKS = [
         ask: ['Why does the wedged pressure track the portal pressure in cirrhosis?', 'The resistance lies in the sinusoids the wedge reads, so the wedged pressure rises with the portal pressure.'],
       },
       {
-        id: 'postsin', preset: 'sos', cam: 'lobule:central', data: 'ladder', key: ['whvp', 'hvpg'], rail: true, quiz: 'Where is the obstruction?',
+        id: 'postsin', preset: 'sos', cam: 'lobule:central', callout: { at: 'cv', label: 'Block: central venules' }, data: 'ladder', key: ['whvp', 'hvpg'], rail: true, quiz: 'Where is the obstruction?',
         kicker: 'Intrahepatic · postsinusoidal', site: 'postsin', title: 'Sinusoidal obstruction syndrome',
         line: 'Damaged endothelium obstructs the sinusoids and small central veins, upstream of the catheter tip, so the wedged pressure and HVPG rise.',
         causes: ['Conditioning for stem cell transplant', 'Oxaliplatin', 'Pyrrolizidine alkaloids (bush teas)'],

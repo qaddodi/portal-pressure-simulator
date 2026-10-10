@@ -6,7 +6,7 @@ import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=5edd069b32';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=e0101a3fa2';
-import { createLobuleZoom } from './lobule-zoom.js?v=52832529f6';
+import { createLobuleZoom } from './lobule-zoom.js?v=87a8a70a00';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
