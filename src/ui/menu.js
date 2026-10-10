@@ -5,7 +5,11 @@
 // the panel; on touch, the ⓘ at a presentation's end opens the same preview under its row.
 
 import { store } from './store.js?v=5edd069b32';
+<<<<<<< ours
 import { h, icon, svgIcon, uiScale, clamp } from './util.js?v=959c4627e1';
+=======
+import { h, icon, svgIcon, uiScale, clamp, swipeSheet } from './util.js?v=24fc9d8ff0';
+>>>>>>> theirs
 import { SNAPSHOTS } from './snapshots.js?v=d3e900d9e9';
 import { pressureColor } from './colormap.js?v=7616551729';
 
@@ -346,18 +350,8 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     render,
   };
 
-  // A phone's sheet follows a drag down on its handle or search row, and closes past a short distance.
+  // A phone's sheet follows a drag down from anywhere on it (the shared sheet swipe) and closes past a short pull.
   function dragToClose(panel) {
-    if (!panel.classList.contains('sheet')) return;
-    const top = panel.querySelector('.um-top'), grab = panel.querySelector('.um-grab');
-    let y0 = null, dy = 0;
-    const down = (e) => { if (e.target.closest('input, button')) return; y0 = e.clientY; dy = 0; panel.style.transition = 'none'; e.currentTarget.setPointerCapture?.(e.pointerId); };
-    const move = (e) => { if (y0 == null) return; dy = Math.max(0, e.clientY - y0); panel.style.transform = `translateY(${dy}px)`; };
-    const up = () => {
-      if (y0 == null) return; y0 = null;
-      panel.style.transition = 'transform .2s var(--ease)';
-      if (dy > 90) close({ dragged: true }); else { panel.style.transform = ''; setTimeout(() => { panel.style.transition = ''; }, 220); }
-    };
-    for (const t of [top, grab]) { t.addEventListener('pointerdown', down); t.addEventListener('pointermove', move); t.addEventListener('pointerup', up); t.addEventListener('pointercancel', up); }
+    if (panel.classList.contains('sheet')) swipeSheet(panel, () => close({ dragged: true }));
   }
 }

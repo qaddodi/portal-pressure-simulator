@@ -1014,7 +1014,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 @keyframes pop { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
 .menu.leaving { pointer-events: none; animation: popOut .12s var(--ease) forwards; }
 /* A phone's menus are bottom sheets: full width, descriptions wrap, the same rise and fall as the cards. */
-.menu.as-sheet { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: auto !important; min-width: 0; max-width: none; max-height: 75dvh; overflow-y: auto; overscroll-behavior: contain;
+.menu.as-sheet { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: auto !important; min-width: 0; max-width: none; max-height: 75dvh; overflow: hidden auto; overscroll-behavior: contain; touch-action: pan-y;
   padding: 10px 8px calc(10px + env(safe-area-inset-bottom)); border-radius: var(--r-sheet) var(--r-sheet) 0 0; animation: sheetUp .24s var(--ease); }
 .menu.as-sheet.leaving { animation: sheetDown .12s var(--ease) forwards; }
 .menu.as-sheet .lens-d { white-space: normal; }
@@ -1521,7 +1521,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .menu-seg { margin: 2px 8px 8px; }
 .menu-row { display: flex; gap: 8px; padding: 2px 12px 8px; }
 .menu-row .select, .menu-select { height: 30px; font-size: var(--fs-14); }
-.menu-select { margin: 2px 12px 8px; width: calc(100% - 20px); }
+.menu-select { margin: 2px 12px 8px; width: calc(100% - 24px); }
 .home-head > svg { width: 56px; height: 56px; flex: none; }
 .home-head h1 { margin: 0; font: 600 var(--fs-32)/1.15 var(--font-display, var(--font-ui)); letter-spacing: -.02em; }
 .home-head p { margin: 8px 0 0; color: var(--text-2); max-width: 64ch; line-height: 1.55; }
