@@ -10,7 +10,8 @@ import { EDGES } from '../engine/topology.js?v=dc393aabea';
 import { SNAPSHOTS } from './snapshots.js?v=34d1578d5f';
 import { createRoute, ladder } from './ladder.js?v=2cbec732f7';
 import { CASES } from './cases/index.js?v=433329e7fa';
-import { trustLine, teachChip, blindOn, blindOff, isBlind, optionList, compareChip, bindQuestionKeys, mirrorMarker } from './learning-kit.js?v=01d081b730';
+import { UNITS, course, setUnitSurface, unitBar } from './course.js?v=7531d86bf7';
+import { trustLine, teachChip, blindOn, blindOff, isBlind, optionList, compareChip, bindQuestionKeys, mirrorMarker } from './learning-kit.js?v=83e19de948';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 
@@ -21,7 +22,11 @@ const save = () => { try { localStorage.setItem('pps.lessons', JSON.stringify(sa
 // tab (pane), probe, invert, endo ('eso'), focus, data (labeled metric row); a do-step goal(frame, params, log)
 // also receives the actions the learner has taken since the step began (store.logAction).
 // Step types: frame | predict (mcq | draw | direction) | do (goal) | observe (seconds / days) | explain (metric) | check (quiz)
-// | route (tap the level of the block for `patient`, a preset; the ladder then eases in).
+// | route (tap the level of the block for `patient`, a preset; the ladder then eases in)
+// | stem (a clinical vignette: `stem` text, lead-in `q`, five `options` A–E in authored order, `answer`,
+//   `explain` one line per option; feedback is immediate) | keypoints (the unit's `keyPoints` as bullets).
+// A step's `next` renames its Continue button (a unit's opening stem says "Show me").
+// Course units (course.js) are lessons with `unit` set: they run on the unit surface and save progress there.
 // `sid` is a stable step id for deep links (?lesson=id&step=sid; lesson-step-ids.md); keep it once published.
 // A do-step may offer `dye` (a vessel to inject), `stay` (wait for Continue instead of moving on) and `after`
 // (shown once the goal is met); its goal(frame, params, log, state) can read state.dyed. `view`: anatomic | circuit;
@@ -314,12 +319,12 @@ export const LESSONS = [
 ];
 
 const STEP = {
-  frame: ['book', 'Context'], predict: ['bulb', 'Predict'], do: ['tools', 'Your turn'], observe: ['explore', 'Observe'], explain: ['bulb', 'Explain'], check: ['check', 'Check'], route: ['route', 'Level'],
+  frame: ['book', 'Context'], predict: ['bulb', 'Predict'], do: ['tools', 'Your turn'], observe: ['explore', 'Observe'], explain: ['bulb', 'Explain'], check: ['check', 'Check'], route: ['route', 'Level'], stem: ['bulb', 'Question'], keypoints: ['check', 'Key points'],
 };
 // Lesson steps name locked-control keys; these are the matching controls to embed in the card.
 const INLINE = { cirrhosis: 'cirrhosis', splanchnicTone: 'splanchnicTone', 'drug:propranolol': 'drug:propranolol', 'drug:terlipressin': 'drug:terlipressin', 'drug:octreotide': 'drug:octreotide', 'drug:carvedilol': 'drug:carvedilol', apShunt: 'apShunt', spontaneous: 'srShunt', diuretics: 'diuretics', brto: 'brto', tips: 'tips', splenicRx: 'splenicRx' };
 
-export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector, beginSession, endSession, onEnd, loadPreset, action, setTool, setAllowedTools, showPane, setProbe, openPanel, setBanner, startCase }) {
+export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector, beginSession, endSession, onEnd, onUnitEnd, loadPreset, action, setTool, setAllowedTools, showPane, setProbe, openPanel, setBanner, startCase }) {
   let lesson = null, idx = 0, state = {}, recs = {};   // recs: numbers saved by `record` steps, for a `compare` step
   // The step card never covers the figure. Where the side panel sits beside the figure (wide
   // screens) it heads the panel; below that it is a bottom sheet under the figure, which gives up
@@ -432,22 +437,28 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
   function openList() { render(); }
 
   async function start(id, step) {
-    const found = LESSONS.find((l) => l.id === id);
+    const found = LESSONS.find((l) => l.id === id) || UNITS.find((u) => u.id === id);
     if (!found) { toast(`No lesson called “${id}”.`, 'bad'); return; }
-    await beginSession?.('lesson');
+    await beginSession?.(found.unit ? 'unit' : 'lesson');
     lesson = found;
+    if (lesson.unit && step == null && course.resumeAt(id)) step = String(course.resumeAt(id) + 1);
     // A deep link may open on a step: by its stable id, or its number (1-based).
     const at = step == null ? -1 : lesson.steps.findIndex((s0) => s0.sid === step);
     recs = {};
     idx = at >= 0 ? at : /^\d+$/.test(step || '') ? Math.min(lesson.steps.length - 1, Math.max(0, +step - 1)) : 0; state = {}; perms = {}; snaps.length = 0; answers = createAnswerSheet(); t0 = Date.now();
     unbindKeys?.(); unbindKeys = bindQuestionKeys(() => cardEl);
     sheetMin = false;
+    if (lesson.unit) setUnitSurface(true);
     await enter({ deep: idx > 0 });
-    if (!asSheet.matches) openPanel?.('chart');
+    if (!asSheet.matches && !lesson.unit) openPanel?.('chart');
     panel.scrollTop = 0;
   }
   function stop() {
+    const unit = lesson?.unit ? lesson : null;
+    if (unit && !finishing) course.saveStep(unit.id, idx);
+    finishing = false;
     lesson = null;
+    if (unit) setUnitSurface(false);
     mirror?.el.remove(); mirror = null; blindOff(); unbindKeys?.(); unbindKeys = null; cardEl = null;
     coach?.replaceChildren(); if (coach) coach.dataset.safe = 'top'; liftOver(null);
     clearInterval(pollTimer); clearInterval(dataTimer); endLapse();
@@ -457,9 +468,11 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     store.set({ focus: null });
     setBanner?.(null);
     render();
-    endSession?.('lesson');
+    endSession?.(unit ? 'unit' : 'lesson');
     onEnd?.();
+    if (unit) onUnitEnd?.(unit);
   }
+  let finishing = false;
 
   async function enter({ replay = false, deep = false } = {}) {
     const st = lesson.steps[idx];
@@ -486,18 +499,21 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     if (st.zoom) store.set({ lobule: st.zoom === 'lobule', sinusoid: st.zoom === 'lobule' && !!st.sinusoid });
     if (st.lobuleLayers) store.set({ lobuleLayers: { ...store.get().lobuleLayers, ...st.lobuleLayers } });
     // One surface: a question never has an instrument open beside it, unless the student has to draw on one.
-    const asking = (st.type === 'predict' && st.mode !== 'draw') || st.type === 'check' || st.type === 'route';
+    const asking = (st.type === 'predict' && st.mode !== 'draw') || st.type === 'check' || st.type === 'route' || st.type === 'stem';
+    if (lesson.unit) { setUnitSurface(true, { try: st.type === 'do' }); course.saveStep(lesson.id, idx); }
     if (asking) dock.close?.(); else if (st.tab) showPane(st.tab);
+    // A unit shows an instrument only on a step that names one.
+    if (lesson.unit && !asking && !st.tab && !st.endo) dock.close?.();
     // The figure glides into the space the closed (or opened) instrument leaves.
     setTimeout(() => { if (lesson?.steps[idx] === st) stage?.refit?.(); }, 380);
-    if (st.blind ?? ((st.type === 'predict' && st.mode !== 'draw') || st.type === 'route')) blindOn();
+    if (st.blind ?? ((st.type === 'predict' && st.mode !== 'draw') || st.type === 'route' || st.type === 'stem')) blindOn();
     if (st.type === 'route') state.route = createRoute({ onPick: (id) => pickRoute(st, id) });
     if (st.path) dock.profile.setPath(st.path);
     if (st.probe) setProbe(st.probe);
     if (st.invert != null) dock.pane('doppler')?.setInvert?.(st.invert);
     if (st.endo) { showPane('endoscopy'); dock.pane('endoscopy')?.setView?.(st.endo); }
     store.set({ focus: st.focus ? { edges: st.focus, label: st.focusLabel } : null });
-    if (st.type === 'predict' || st.type === 'frame' || st.type === 'check' || st.type === 'route') host.send({ type: 'run', running: st.type === 'frame' });
+    if (st.type === 'predict' || st.type === 'frame' || st.type === 'check' || st.type === 'route' || st.type === 'stem' || st.type === 'keypoints') host.send({ type: 'run', running: st.type === 'frame' });
     if (st.type === 'predict' && st.mode === 'draw') { dock.profile.startPredict(() => render()); showPane('profile'); }
     if (st.type === 'predict' && st.mode === 'direction') setTimeout(() => showMirror(st), 120);
     if (st.type === 'do') {
@@ -532,6 +548,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     // First answer per stable key only: stepping back and forward again never adds points.
     const key = (suffix) => `lesson:${lesson.id}:step-${String(idx + 1).padStart(2, '0')}:${suffix}`;
     if (st.type === 'predict' && st.options && state.answered != null) answers.record(key('q1'), state.answered === st.answer);
+    if (st.type === 'stem' && state.answered != null) answers.record(key('stem'), state.answered === st.answer);
     if (st.type === 'check') st.quiz.forEach((qq, qi) => { if (state.quizAns[qi] != null) answers.record(key(`q${qi + 1}`), state.quizAns[qi] === qq.answer); });
     if (idx < lesson.steps.length - 1) { idx++; enter(); panel.scrollTop = 0; }
     else finish();
@@ -539,10 +556,11 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
   function finish() {
     {
       const { score, right, total, mastered } = answers.score();
+      if (lesson.unit) { course.complete(lesson.id, score); finishing = true; }
       saved[lesson.id] = { score: Math.max(score, saved[lesson.id]?.score || 0), date: new Date().toISOString() }; save();
       addRecord({ kind: 'lesson', id: lesson.id, title: lesson.title, score, assessment: ASSESSMENT_VERSION, contentVersion: CONTENT_VERSION, completed: true, mastered, wallDuration: (Date.now() - t0) / 1000, duration: (Date.now() - t0) / 1000, met: right, total,
         answers: answers.entries().map(([k, ok]) => `${k}: ${ok ? 'correct' : 'incorrect'}`) });
-      toast(`Lesson complete: ${lesson.title} · ${score} %${mastered ? ' · mastered' : ` · mastery is ${MASTERY} %`}`); stop();
+      toast(`${lesson.unit ? `Unit ${lesson.unit} complete` : 'Lesson complete'}: ${lesson.title} · ${score} %${mastered ? ' · mastered' : ` · mastery is ${MASTERY} %`}`); stop();
     }
   }
   // Replay: back to the state this step started from (it is also a timeline entry).
@@ -626,12 +644,20 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     if (!inLearn || !lesson) { hostEl.replaceChildren(); coach?.replaceChildren(); return; }
     const st = lesson.steps[idx];
     const body = [];
-    if (idx === 0) body.push(trustLine());
+    if (idx === 0 && !lesson.unit) body.push(trustLine());
     if (st.text) body.push(h('p', {}, md(st.text)));
+    if (st.type === 'keypoints') body.push(h('div', { class: 'pearls keypoints' }, h('p', { class: 'step-label' }, 'Key points'), h('ul', {}, (lesson.keyPoints || []).map((t) => h('li', {}, t)))));
     if (st.data && !isBlind()) body.push(dataRow(st.data), teachChip());
     if (st.fluids) body.push(fluidTable(st.fluids));
     if (st.compare) body.push(compareTable(st.compare));
     let canNext = true, asking = false;
+    if (st.type === 'stem') {
+      canNext = state.answered != null;   // not q-active: the vignette stays in view with its question
+      body.push(h('p', { class: 'stem-v' }, md(st.stem)), h('p', { class: 'q' }, st.q));
+      body.push(optionList({ options: st.options, picked: state.answered, answer: st.answer, reveal: state.answered != null, locked: state.answered != null, notes: st.explain,
+        onPick: (i) => { state.answered = i; blindOff(); render(); requestAnimationFrame(() => cardEl?.querySelector('.opt.sel, .opt.wrong')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })); } }));
+      if (state.answered != null) body.push(h('div', { class: 'feedback ' + (state.answered === st.answer ? 'right' : 'wrong'), role: 'status' }, h('b', {}, state.answered === st.answer ? 'Correct. ' : `Not quite: the answer is ${'ABCDE'[st.answer]}. `), st.explain?.[st.answer] || ''));
+    }
     if (st.type === 'predict' && !st.mode) {
       body.push(h('p', { class: 'q' }, st.q));
       canNext = state.answered != null; asking = !canNext;
@@ -692,33 +718,35 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     // The takeaways close the lesson: shown on the last step once its questions are answered.
     if (idx === lesson.steps.length - 1 && lesson.pearls?.length && canNext) body.push(h('div', { class: 'pearls' }, h('p', { class: 'step-label' }, 'Pearls'), h('ul', {}, lesson.pearls.map((t) => h('li', {}, t)))));
     // Then a patient to try it on: the lesson is recorded first, then the case opens.
-    const tryCase = idx === lesson.steps.length - 1 && canNext && startCase && CASES.find((c) => c.id === lesson.caseId);
+    const tryCase = !lesson.unit && idx === lesson.steps.length - 1 && canNext && startCase && CASES.find((c) => c.id === lesson.caseId);
     if (tryCase) body.push(h('button', { class: 'try-case', onclick: () => { const id = tryCase.id; finish(); startCase(id); } }, h('span', {}, h('small', {}, 'Now try it on a patient'), h('b', {}, tryCase.title)), svgIcon('chev-right')));
     const [, typeLabel] = STEP[st.type], stepLabel = `${typeLabel} · ${idx + 1} of ${lesson.steps.length}`;
     const bt = bannerText(st);
     setBanner?.({ tag: `Lesson · ${idx + 1}/${lesson.steps.length}`, text: bt === lesson.title ? lesson.title : `${lesson.title}: ${bt}` });
-    const sheet = asSheet.matches && coach;
+    const sheet = (asSheet.matches || !!lesson.unit) && coach;
     const card = h('section', { class: 'lesson', 'aria-label': `Lesson: ${lesson.title}` },
       // Progress: a dot per step, with only the current step named.
       h('div', { class: 'lesson-top' },
-        h('div', { class: 'phase-rail', role: 'img', 'aria-label': stepLabel }, lesson.steps.map((s0, i) => h('span', { class: i < idx ? 'on' : i === idx ? 'cur' : '' }, h('i'), i === idx ? h('b', {}, stepLabel) : null))),
+        lesson.unit ? unitBar(lesson, idx, lesson.steps.length) : h('div', { class: 'phase-rail', role: 'img', 'aria-label': stepLabel }, lesson.steps.map((s0, i) => h('span', { class: i < idx ? 'on' : i === idx ? 'cur' : '' }, h('i'), i === idx ? h('b', {}, stepLabel) : null))),
         h('span', { class: 'lt-act' }, h('button', { class: 'link', title: 'Back to the state this step started from', onclick: replay, disabled: !snaps[idx] }, 'Replay'), h('button', { class: 'link', onclick: stop }, 'Exit'),
           sheet ? h('button', { class: 'ib sheet-min', 'aria-label': sheetMin ? 'Expand the lesson' : 'Minimize the lesson', 'aria-expanded': String(!sheetMin), onclick: () => { sheetMin = !sheetMin; render(); } }, svgIcon('chev-down')) : null)),
       h('h3', {}, lesson.title), ...body,
       h('div', { class: 'lesson-foot' }, idx > 0 ? h('button', { class: 'btn ghost', onclick: back }, 'Back') : h('span'),
-        h('button', { class: 'btn primary', disabled: !canNext, onclick: () => { if (st.type === 'predict' && st.mode === 'draw') dock.profile.endPredict(false); next(); } }, idx === lesson.steps.length - 1 ? 'Finish lesson' : 'Continue', svgIcon('chev-right'))));
+        h('button', { class: 'btn primary', disabled: !canNext, onclick: () => { if (st.type === 'predict' && st.mode === 'draw') dock.profile.endPredict(false); next(); } }, idx === lesson.steps.length - 1 ? (lesson.unit ? 'Finish unit' : 'Finish lesson') : st.next || 'Continue', svgIcon('chev-right'))));
     const target = sheet ? coach : hostEl;
     (target === coach ? hostEl : coach)?.replaceChildren();
     target.replaceChildren(card);
     cardEl = card;
     card.classList.toggle('q-active', asking && st.mode !== 'draw');
+    card.classList.toggle('unit', !!lesson.unit);
     card.classList.toggle('sheet', !!sheet);
     card.classList.toggle('min', !!sheet && sheetMin);
     // On a phone the card sits at the bottom (styles), so the figure frames itself above it and lifts its
     // credit and buttons clear of it.
-    coach.dataset.safe = sheet && asPhone.matches ? 'bottom' : 'top';
+    const bottom = sheet && (asPhone.matches || !!lesson.unit);
+    coach.dataset.safe = bottom ? 'bottom' : 'top';
     // The figure gives up (or takes back) the sheet's height.
-    requestAnimationFrame(() => { stage?.relayout(); liftOver(sheet && asPhone.matches ? card : null); if (sheet) dispatchEvent(new Event('resize')); });
+    requestAnimationFrame(() => { stage?.relayout(); liftOver(bottom ? card : null); if (sheet) dispatchEvent(new Event('resize')); });
   }
 
   store.on('mode', (m) => { if (m !== 'learn' && lesson) stop(); render(); });

@@ -4,9 +4,10 @@
 // pps.lessons (lessons), pps.caseScores (cases), pps.drill (the drill), pps.review (the warm-up).
 
 import { h, svgIcon, icon } from './util.js?v=a357853926';
-import { LESSONS } from './learn.js?v=983846b96b';
-import { CASES } from './cases.js?v=fff85d98fc';
+import { LESSONS } from './learn.js?v=037aa0c280';
+import { CASES } from './cases.js?v=8d4fbd875f';
 import { drillProgress, DRILL_TITLE } from './drill.js?v=af9584165f';
+import { UNITS, course } from './course.js?v=7531d86bf7';
 
 // [skill, what it means, items]; an item is 'l:<lesson>', 'c:<case>' or 'drill'.
 export const SKILLS = [
@@ -56,6 +57,10 @@ export function reviewCard({ now = Date.now() } = {}) {
   if (rv.last && now - rv.last < GAP_MS && !rv.open) return null;
   const pool = LESSONS.filter((l) => done[l.id] && now - Date.parse(done[l.id].date || 0) > 3600 * 1000)
     .flatMap((l) => l.steps.filter((s) => s.type === 'check').flatMap((s) => s.quiz.map((q, k) => ({ q, key: `${l.id}#${k}`, lesson: l.title }))));
+  // Stems from finished course units join the pool (vignette and lead-in as one question).
+  const unitsDone = course.progress().done;
+  pool.push(...UNITS.filter((u) => unitsDone[u.id] && now - Date.parse(unitsDone[u.id].date || 0) > 3600 * 1000)
+    .flatMap((u) => u.steps.filter((s) => s.type === 'stem').map((s) => ({ q: { q: `${s.stem} ${s.q}`, options: s.options, answer: s.answer, why: s.explain?.[s.answer] }, key: `${u.id}#${s.sid}`, lesson: `Unit ${u.n} · ${u.title}` }))));
   if (pool.length < 2) return null;
   const qs = (rv.open || []).map((k) => pool.find((x) => x.key === k)).filter(Boolean);
   if (qs.length < 2) { qs.length = 0; qs.push(...pool.sort((a, b) => (seen[a.key] || 0) - (seen[b.key] || 0) || Math.random() - 0.5).slice(0, 2)); }

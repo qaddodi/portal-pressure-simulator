@@ -6,7 +6,7 @@
 //   Changes                              what has been set: sliders, drugs, shunts, with values
 //   Abnormal results                     what is abnormal, in words, with its cut-off; Why?
 //   (what has happened lives in the timeline's History, under the figure)
-//   Advanced                             physiology knobs (instructor / researcher)
+//   Advanced                             physiology knobs (instructor)
 
 import { store, updateParams, hiddenNow } from './store.js?v=49dc9cdf15';
 import { h, fmt, icon, svgIcon, toast } from './util.js?v=a357853926';
@@ -242,7 +242,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       h('button', { class: 'order-btn', onclick: () => action({ kind: 'valsalva' }) }, h('span', { class: 'ob-t' }, 'Valsalva', h('small', {}, '10 s strain'))),
       h('button', { class: 'order-btn', onclick: () => action({ kind: 'rupture', site: 'VAR', tear: 0.6 }) }, h('span', { class: 'ob-t' }, 'Rupture a varix', h('small', {}, 'start a bleed'))),
       h('button', { class: 'order-btn', onclick: () => action({ kind: 'hemorrhage', mL: 500 }) }, h('span', { class: 'ob-t' }, '− 500 mL', h('small', {}, 'hemorrhage'))));
-    if (role === 'researcher') open.add('advanced');
+    if (role === 'instructor') open.add('advanced');
     return section('advanced', 'Advanced physiology', 'sliders', null,
       h('div', { class: 'subhead' }, 'Inflow & vascular tone'), controls(['splanchnicTone', 'systemicTone']),
       h('div', { class: 'subhead' }, 'Hepatic circulation'), controls(['habr', 'apShunt']),

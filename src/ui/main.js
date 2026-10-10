@@ -10,16 +10,17 @@ import { createDock, CUTOFFS } from './dock.js?v=3419490c7d';
 import { setHvpgStage } from './hvpg-proc.js?v=bb053422f1';
 import { createWhy } from './why.js?v=82d0ada42e';
 import { createTimeline, LAPSES } from './timeline.js?v=bf87e94cd0';
-import { createLearn } from './learn.js?v=983846b96b';
-import { createCases, CASES } from './cases.js?v=fff85d98fc';
-import { isBlind } from './learning-kit.js?v=01d081b730';
+import { createLearn } from './learn.js?v=037aa0c280';
+import { createCases, CASES } from './cases.js?v=8d4fbd875f';
+import { isBlind } from './learning-kit.js?v=83e19de948';
 import { createCompare } from './compare.js?v=6c5edeb764';
 import { createCard } from './card.js?v=bec985d017';
-import { createChart, computeFindings } from './chart.js?v=7928537b12';
-import { createHome, ROLES } from './home.js?v=fa5f787c20';
+import { createChart, computeFindings } from './chart.js?v=62d1022a9b';
+import { createHome, ROLES } from './home.js?v=bcac57b9ad';
+import { UNITS, course } from './course.js?v=7531d86bf7';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=3113b1ec12';
 import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=db814778e1';
-import { startLMS } from './lms.js?v=ea4973b201';
+import { startLMS } from './lms.js?v=bae2cd3d5a';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=732cefd9b1';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
@@ -87,7 +88,8 @@ async function main() {
   applyI18n();
   startLMS();
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => { /* offline support is optional */ });
-  store.set({ role: readLS('pps.role') || 'student' });
+  // Two roles (Student, Instructor); the old Researcher role is now Instructor.
+  store.set({ role: readLS('pps.role') === 'student' || !readLS('pps.role') ? 'student' : 'instructor' });
   // Student mode shows the HVPG without measuring it first, unless Settings says otherwise.
   if (readLS('pps.showHvpg') == null) store.set({ showHvpg: store.get().role === 'student' });
   const kind = await startHost();
@@ -136,7 +138,7 @@ async function main() {
   const api = { beginSession, endSession, onEnd: () => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); }, muteEvents: () => {}, loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), showFound: (list) => stage.showFound(list), runHvpg: () => { dock.show('hvpg', { reveal: true }); dock.pane('hvpg')?.start(); }, openPanel, setBanner, select: (sel) => store.set({ selection: sel }) };
   // A lesson keeps its card in view where the panel covers the figure: instruments it opens are
   // flagged, not forced.
-  learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id) });
+  learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: () => home.open('course') });
   cases = createCases({ root: $('#panelCase'), api });
   presenterL = lazy(() => import('./presenter.js?v=f067e8bd76'), ({ createPresenter }) => createPresenter({ startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
@@ -145,12 +147,13 @@ async function main() {
     el: $('#home'), brandMark,
     onPreset: async (id) => { home.close(); if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); },
     onLesson: (id) => { home.close(); startLesson(id); },
+    onUnit: (id) => { home.close(); startLesson(id); },
     onCase: (id) => { home.close(); startCase(id); },
     onPresenter: () => presenter.home(),
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=9c5db644cc'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=e60f67fd88'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -205,7 +208,7 @@ async function main() {
   const syncScenarioName = () => { const st = store.get(); $('#scenarioName').textContent = st.mode === 'cases' ? 'Case' : presets.find((p) => p.id === st.presetId)?.label || 'Custom'; };
   store.on('presetId', syncScenarioName);
   store.on('mode', syncScenarioName);
-  store.on('role', (r) => { try { localStorage.setItem('pps.role', r); localStorage.removeItem('pps.narrator'); } catch { /* storage unavailable */ } narrPref = null; if (readLS('pps.showHvpg') == null) store.set({ showHvpg: r === 'student' }); app.dataset.role = r; card.render(); narrate(store.get().frame, performance.now(), true); });
+  store.on('role', (r) => { if (home.isOpen()) home.render(); try { localStorage.setItem('pps.role', r); localStorage.removeItem('pps.narrator'); } catch { /* storage unavailable */ } narrPref = null; if (readLS('pps.showHvpg') == null) store.set({ showHvpg: r === 'student' }); app.dataset.role = r; card.render(); narrate(store.get().frame, performance.now(), true); });
   $('#narratorWhy').addEventListener('click', (e) => why.open('pv', e.currentTarget));
   app.dataset.role = store.get().role;
   for (const k of ['compareSnap', 'compareView', 'colorMode', 'imaging', 'found', 'sinusoid', 'lobule']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
@@ -299,9 +302,9 @@ function onFrame(f) {
 }
 
 // Narrator (blueprint E1): the Describe reading as one live line above the timeline, refreshed on
-// events and changes (at most twice a second otherwise). On by default for Student and Instructor,
-// off for Researcher; the Settings toggle overrides it until the role changes.
-const NARRATOR_DEFAULT = { student: true, instructor: true, researcher: false };
+// events and changes (at most twice a second otherwise). On by default for both roles; the Settings
+// toggle overrides it until the role changes.
+const NARRATOR_DEFAULT = { student: true, instructor: true };
 let lastNarr = 0, narrPref, narrT;
 const narratorOn = () => { const v = narrPref === undefined ? (narrPref = readLS('pps.narrator')) : narrPref; return v ? v === '1' : NARRATOR_DEFAULT[store.get().role || 'student'] !== false; };
 function narrate(f, now = performance.now(), force = false) {
@@ -422,6 +425,8 @@ function endSession(kind) {
   session = null;
   const f = store.get().frame;
   const bleeding = !!f?.metrics?.bleeding;
+  // A course unit always hands back the model as it was: its patients belong to the unit.
+  if (kind === 'unit') { host.send({ type: 'restore', snap: saved.snap }); replaceParams(saved.snap.params); clearHistory(); store.set({ presetId: saved.presetId, view: saved.view, lastHVPG: null, hvpgMeasured: false, historyTick: (store.get().historyTick || 0) + 1 }); timeline.load(saved.tl); return; }
   const noun = kind === 'case' ? 'case' : 'lesson';
   const back = () => { closeModal(); host.send({ type: 'restore', snap: saved.snap }); replaceParams(saved.snap.params); clearHistory(); store.set({ presetId: saved.presetId, lastHVPG: null, hvpgMeasured: false, historyTick: (store.get().historyTick || 0) + 1 }); timeline.load(saved.tl); toast('Back where you were before the ' + noun + '.'); };
   const keep = () => { closeModal(); toast(bleeding ? 'Kept the patient. The variceal bleed is still running.' : 'Kept this patient.'); };
@@ -774,12 +779,13 @@ function openMainMenu(anchor) {
   popover(anchor, [
     h('div', { class: 'mm-head' }, brandMark(), h('div', {}, h('b', {}, 'Portal Pressure Simulator'), h('small', {}, 'Choose what to do'))),
     h('div', { class: 'mm-modes' },
+      modeItem('course', 'course', 'book', 'Course', `${course.doneCount()} of ${UNITS.length} units done`),
       modeItem('explore', 'explore', 'explore', 'Explore a patient', 'Any of the patients, from healthy to Budd–Chiari'),
-      modeItem('learn', 'learn', 'book', 'Lessons', 'Predict, observe, explain'),
-      modeItem('cases', 'cases', 'case', 'Cases', 'A bleed at 3 a.m. and diagnostic puzzles'),
-      modeItem('present', 'present', 'projector', 'Presenter', 'A self-running tour: where is the block?')),
-    h('div', { class: 'menu-title' }, t('menu.role')),
-    roleControl(),
+      // The lesson and case libraries and the presenter are for instructors (the course covers them for students).
+      ...(store.get().role === 'instructor' ? [
+        modeItem('learn', 'learn', 'book', 'Lessons', 'The lesson library'),
+        modeItem('cases', 'cases', 'case', 'Cases', 'The case library'),
+        modeItem('present', 'present', 'projector', 'Presenter', 'A self-running tour: where is the block?')] : [])),
     h('div', { class: 'menu-sep' }),
     menuItem('Home page', { icon: 'grid', onClick: () => { closePopover(); home.open(); } }),
     h('div', { class: 'menu-sep' }),
@@ -788,8 +794,8 @@ function openMainMenu(anchor) {
     menuItem(t('menu.help') + '…', { icon: 'help', kb: '?', onClick: () => { closePopover(); setTimeout(() => openHelpMenu(anchor), 0); } }),
   ], { cls: 'main-menu', align: 'start' });
 }
-// The role ("I am a…") from the main menu, in any mode. It is the same setting Home shows: choosing
-// one sets store.role, and the 'role' listener saves it and redraws the cards and the chart.
+// The role ("I am a…") in Settings: choosing one sets store.role, and the 'role' listener saves it
+// and redraws the cards, the chart and Home.
 function roleControl() {
   const cur = () => store.get().role || 'student';
   const seg = h('div', { class: 'seg full menu-seg', role: 'group', 'aria-label': t('menu.role') }, ROLES.map(([v, l]) => h('button', { 'data-role': v, onclick: () => { store.set({ role: v }); paint(); } }, l)));
@@ -802,10 +808,12 @@ function roleControl() {
   return h('div', { class: 'mm-role' }, seg, note);
 }
 // Two menus with one job each: Settings (how the simulator looks and reads) and Help (how to
-// use it, what it is, and who made it). The role also lives on Home, where a session starts.
+// use it, what it is, and who made it). The role is chosen in Settings.
 function openSettings(anchor) {
   const cur = document.documentElement.getAttribute('data-theme') || 'system';
   popover(anchor, [
+    h('div', { class: 'menu-title' }, t('menu.role')),
+    roleControl(),
     h('div', { class: 'menu-title' }, t('menu.appearance')),
     h('div', { class: 'seg full menu-seg' }, [['light', t('menu.light')], ['dark', t('menu.dark')], ['system', t('menu.system')]].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { applyTheme(v === 'system' ? null : v, v === 'system'); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; })),
     h('div', { class: 'menu-title' }, 'Text size on the figure'),
@@ -1350,8 +1358,10 @@ function openPrivacy() {
     h('div', { class: 'btn-row' }, h('button', { class: 'btn', onclick: () => { if (!confirm('Delete everything this simulator has stored on this device?')) return; for (const k of keys) { try { localStorage.removeItem(k); } catch { /* storage unavailable */ } } closeModal(); toast('Your data on this device has been cleared.'); } }, 'Clear my data on this device'))));
 }
 function firstRun() {
-  if (readLS('pps.seen') === '1' || readShare()) return;
+  if (readShare()) return;
+  // Home is the course page: a student lands on it at every launch, an instructor on the first one.
+  if (readLS('pps.seen') === '1' && store.get().role !== 'student') return;
   try { localStorage.setItem('pps.seen', '1'); } catch { /* storage unavailable */ }
-  home.open('explore');
+  home.open('course');
 }
 main().catch((err) => { console.error(err); document.body.append(h('pre', { style: { position: 'fixed', bottom: 0, left: 0, background: '#fff', color: '#900', padding: '8px', zIndex: 999 } }, String(err.stack || err))); });

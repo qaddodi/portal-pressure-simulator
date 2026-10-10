@@ -1,13 +1,15 @@
-// Home: where a session starts. Four doors: explore a patient, take a lesson, manage a case, or
-// present to a class. It replaces the mode tabs and the first-run welcome; the brand mark
-// brings it back. A lesson or case then runs in the ordinary workspace with a slim banner.
+// Home is the course page: "Continue" with the next unit, the units with their progress (each opens
+// when the one before is done), the review card for a returning student, and a link to Explore.
+// Instructors also get "Unlock all units" and the lesson and case libraries and the presenter.
+// The other pages (explore, learn, drill, cases, present) open from here and lead back to it.
 
 import { store } from './store.js?v=49dc9cdf15';
 import { h, svgIcon, icon } from './util.js?v=a357853926';
-import { LESSONS } from './learn.js?v=983846b96b';
-import { CASES } from './cases.js?v=fff85d98fc';
+import { LESSONS } from './learn.js?v=037aa0c280';
+import { CASES } from './cases.js?v=8d4fbd875f';
 import { createDrill, drillProgress, DRILL_TITLE, ROUNDS } from './drill.js?v=af9584165f';
-import { skillsPath, reviewCard } from './practice.js?v=dc8d8d9871';
+import { skillsPath, reviewCard } from './practice.js?v=83a5bce44e';
+import { UNITS, FINAL, PARTS, course } from './course.js?v=7531d86bf7';
 import { t } from '../i18n/i18n.js?v=3113b1ec12';
 import { exportCSV, exportXAPI, learnerName, setLearnerName, records } from './records.js?v=50fb9dd463';
 import { SNAPSHOTS, PATH } from './snapshots.js?v=34d1578d5f';
@@ -54,37 +56,59 @@ function patientCard(p, cur, onPreset) {
     h('span', { class: 'd' }, p.summary));
 }
 
-// Who is using the simulator: it sets how much of the model the cards and the chart open.
-export const ROLES = [['student', 'Student', 'The model and the clinical orders.'], ['instructor', 'Instructor', 'Adds the physiology knobs and presenter scripts.'], ['researcher', 'Researcher', 'Everything open, with resistances on the cards.']];
-function rolePicker(render) {
-  const cur = store.get().role || 'student';
-  const d = ROLES.find(([v]) => v === cur)?.[2];
-  return h('div', { class: 'home-role' },
-    h('span', { class: 'hr-k', id: 'homeRoleK' }, t('menu.role')),
-    h('div', { class: 'seg', role: 'group', 'aria-labelledby': 'homeRoleK' }, ROLES.map(([v, l, dd]) => h('button', { 'aria-pressed': String(cur === v), title: dd, onclick: () => { store.set({ role: v }); render(); } }, l))),
-    h('span', { class: 'hr-d' }, d));
+// Who is using the simulator (chosen in Settings): Student sees the course and a simpler Explore;
+// Instructor adds the physiology knobs, the case and lesson libraries, the presenter and unlocking units.
+export const ROLES = [['student', 'Student', 'The course, and a simpler Explore.'], ['instructor', 'Instructor', 'Everything open: physiology knobs, resistances, libraries, Present and unlock all units.']];
+
+// One row of the unit list: its number (a check once done, a lock until it opens), title, objective and time.
+function unitRow(u, onUnit) {
+  const st = course.state(u.id), done = course.progress().done[u.id], at = course.progress().at[u.id];
+  const mark = st === 'done' ? svgIcon('check') : st === 'locked' ? svgIcon('lock') : String(u.n ?? '★');
+  return h('button', { class: 'cu-row', 'data-state': st, disabled: st === 'locked', title: st === 'locked' ? 'Opens when the unit before it is done' : u.objective, onclick: () => onUnit(u.id) },
+    h('span', { class: 'cu-n', 'aria-hidden': 'true' }, mark),
+    h('span', { class: 'cu-b' }, h('span', { class: 'cu-t' }, u.n ? `${u.n}. ` : '', u.title), h('span', { class: 'cu-d' }, u.objective)),
+    h('span', { class: 'cu-m' }, done ? h('b', {}, `${done.score} %`) : at > 0 && st === 'open' ? h('b', { class: 'cu-go' }, 'In progress') : null, h('small', {}, u.draft ? 'Draft' : `${u.minutes} min`)));
+}
+function coursePage({ onUnit, go, instructor, render }) {
+  const next = course.next(), n = course.doneCount(), started = next && course.progress().at[next.id] > 0;
+  const cont = next
+    ? h('button', { class: 'cr-continue', onclick: () => onUnit(next.id) },
+      h('span', { class: 'overline' }, started ? 'Continue' : n ? 'Next unit' : 'Start the course'),
+      h('span', { class: 'cr-t' }, `Unit ${next.n} · ${next.title}`), h('span', { class: 'cr-d' }, next.objective),
+      h('span', { class: 'cr-p' }, h('span', { class: 'ub-track' }, h('i', { style: { width: `${(100 * n) / UNITS.length}%` } })), `${n} of ${UNITS.length} units done`),
+      h('span', { class: 'cr-go', 'aria-hidden': 'true' }, icon('chev-right')))
+    : h('div', { class: 'cr-continue done' }, h('span', { class: 'overline' }, 'Course'), h('span', { class: 'cr-t' }, 'All eight units done'), h('span', { class: 'cr-d' }, 'The final assessment is next.'));
+  const parts = Object.entries(PARTS).map(([k, name]) => h('section', { class: 'cu-part' }, h('h3', { class: 'home-sub' }, `${k} · ${name}`), UNITS.filter((u) => u.part === k).map((u) => unitRow(u, onUnit))));
+  const final = h('section', { class: 'cu-part' }, h('h3', { class: 'home-sub' }, 'Assessment'), unitRow(FINAL, () => {}));
+  const explore = h('button', { class: 'cr-explore', onclick: () => go('explore') }, h('span', { class: 'hd-ic' }, svgIcon('explore')),
+    h('span', {}, h('b', {}, 'Explore the model'), h('small', {}, 'Any of the patients, freely: views, treatments, time-lapse, Doppler and endoscopy.')), icon('chev-right'));
+  let teach = null;
+  if (instructor) {
+    const unlock = h('input', { type: 'checkbox', checked: course.progress().unlockAll });
+    unlock.addEventListener('change', () => { course.setUnlockAll(unlock.checked); render(); });
+    teach = h('section', { class: 'cr-teach' }, h('span', { class: 'overline' }, 'Instructor'),
+      h('label', { class: 'cr-unlock' }, unlock, 'Unlock all units'),
+      h('div', { class: 'cr-lib' }, [['learn', 'book', 'Lessons'], ['cases', 'case', 'Cases'], ['present', 'projector', 'Presenter']].map(([id, ic, l]) => h('button', { class: 'btn sm', onclick: () => go(id) }, svgIcon(ic), l))));
+  }
+  return h('div', { class: 'course' }, cont, reviewCard(), parts, final, explore, teach);
 }
 
 const read = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || d); } catch { return JSON.parse(d); } };
 
-export function createHome({ el, brandMark, onPreset, onLesson, onCase, onPresenter, onClose, onClosed }) {
-  let tab = 'explore';
+export function createHome({ el, brandMark, onPreset, onLesson, onUnit, onCase, onPresenter, onClose, onClosed }) {
+  let tab = 'course';
   function render() {
     const st = store.get();
     const done = read('pps.lessons', '{}');
     const best = read('pps.caseScores', '{}');
-    const tabs = [['explore', 'explore', t('home.explore'), t('home.explore.d')],
-      ['learn', 'book', t('home.lessons'), `${LESSONS.filter((l) => done[l.id]).length} / ${LESSONS.length} · predict, observe, explain`],
-      ['cases', 'case', t('home.cases'), t('home.cases.d')],
-      ['present', 'projector', t('home.presenter'), t('home.presenter.d')]];
-    const nav = h('nav', { class: 'home-doors', 'aria-label': 'Start' }, tabs.map(([id, ic, t, d]) => {
-      const b = h('button', { class: 'home-door', 'aria-pressed': String(tab === id) }, h('span', { class: 'hd-ic' }, svgIcon(ic)), h('span', { class: 'hd-t' }, t), h('span', { class: 'hd-d' }, d));
-      b.addEventListener('click', () => { tab = id; render(); });
-      if (tab === 'drill' && id === 'learn') b.setAttribute('aria-pressed', 'true');
-      return b;
-    }));
+    const go = (id) => { tab = id; render(); el.scrollTop = 0; };
+    const TITLES = { explore: 'Explore the model', learn: 'Lessons', drill: 'Lessons', cases: 'Cases', present: 'Presenter' };
+    const nav = tab === 'course' ? null : h('nav', { class: 'home-back', 'aria-label': 'Back' },
+      h('button', { class: 'btn ghost sm', onclick: () => go(tab === 'drill' ? 'learn' : 'course') }, svgIcon('chev-left'), tab === 'drill' ? 'Lessons' : 'Course'), h('h2', {}, TITLES[tab]));
     let body;
-    if (tab === 'explore') {
+    if (tab === 'course') {
+      body = coursePage({ onUnit, go, instructor: st.role === 'instructor', render });
+    } else if (tab === 'explore') {
       const groups = {};
       for (const p of st.presetList || []) (groups[p.group] ||= []).push(p);
       // A map of the disease: patients grouped by where the resistance sits, from the gut to the
@@ -117,7 +141,7 @@ export function createHome({ el, brandMark, onPreset, onLesson, onCase, onPresen
       body = onPresenter();
     }
     // Assessment: every finished lesson and case is recorded on this device for export.
-    if (tab === 'learn' || tab === 'cases') {
+    if (tab === 'course' || tab === 'learn' || tab === 'cases') {
       const name = h('input', { class: 'input', type: 'text', placeholder: 'Your name (for the export)', value: learnerName(), 'aria-label': 'Learner name' });
       name.addEventListener('change', () => setLearnerName(name.value.trim()));
       const n = records().length;
@@ -129,12 +153,11 @@ export function createHome({ el, brandMark, onPreset, onLesson, onCase, onPresen
           h('p', { class: 'home-byline' }, 'Created by ', h('b', {}, AUTHOR), h('span', { class: 'sep', 'aria-hidden': 'true' }, '·'),
             h('a', { href: AUTHOR_URL, target: '_blank', rel: 'noopener' }, 'More tools by the author ', icon('chev-right')))),
         h('button', { class: 'ib home-x', 'aria-label': 'Close', title: 'Back to the model (Esc)', onclick: onClose }, icon('close'))),
-      rolePicker(render),
       nav, h('div', { class: 'home-body' }, body),
       h('p', { class: 'disclaimer' }, t('app.disclaimer'))));
   }
   return {
-    open(t) { if (t) tab = t; render(); el.hidden = false; document.getElementById('app').classList.add('home-open'); el.querySelector('.home-door[aria-pressed="true"]')?.focus({ preventScroll: true }); },
+    open(t) { if (t) tab = t; render(); el.hidden = false; document.getElementById('app').classList.add('home-open'); el.querySelector('.cr-continue, .home-back button')?.focus({ preventScroll: true }); },
     close() { if (el.hidden) return; el.hidden = true; document.getElementById('app').classList.remove('home-open'); onClosed?.(); },
     isOpen: () => !el.hidden,
     render,
