@@ -16,6 +16,7 @@ const hsh = (x) => {
   return (x ^ (x >>> 16)) >>> 0;
 };
 /** A hash of (i, seed) in [0, 1), 24 bits, as the shader's h1. */
+import { CHEV_GLSL } from './chevron-glsl.js?v=96ec7c6666';
 export const h1 = (i, s) => (hsh((Math.imul((i + 1048576) >>> 0, 0x9e3779b1) ^ hsh(s)) >>> 0) >>> 8) / 16777216;
 export const SLOT = 1;                    // fenestra slots (µm), ten to a stretch of lining with a sieve plate in it
 export const CELL = 24;                   // hepatocyte pitch along a plate (µm)
@@ -108,6 +109,7 @@ vec2 sdBez(vec2 pos, vec2 A, vec2 B, vec2 C) {
 }
 // A smooth process: a Bézier stroke tapering from radius ra to rb.
 float sdProc(vec2 p, vec2 A, vec2 B, vec2 C, float ra, float rb) { vec2 r = sdBez(p, A, B, C); return r.x - mix(ra, rb, r.y); }
+${CHEV_GLSL}
 // Flat fill, no outline, as the lobule draws its cells: a shape reads by its colour against what is under it.
 vec3 paint(vec3 under, vec3 fill, float d) { return mix(under, fill, cov(d)); }
 
@@ -178,18 +180,19 @@ vec3 lumen(float x, float y, float hw, int lane0, bool chev) {
   c = mix(c, vec3(1.0), 0.07 * rr * rr * uShim / 0.5);
   c = mix(c, vec3(1.0), along * acr * step(0.25, hk) * uShim * 0.75);
   if (chev) {
-    // The flow's arrowheads, as a journal figure draws them: a fine open chevron, low in contrast (orange where the flow
-    // runs backwards), one fixed shape, moving with the blood. None by the ends' labels, and none over the Kupffer cell.
-    float cw = 0.2 * uLum, L = 0.9 * cw, Pc = 24.0;
+    // The flow's arrowheads, the app's own (chevHead, as every vessel draws them): a slim filled head with a notched
+    // back, dark (orange where the flow runs backwards) with a faint light rim, one fixed shape, moving with the blood.
+    // Sized as they show on the anatomy's veins; none by the ends' labels, and none over the Kupffer cell.
+    float cw = min(0.5 * uLum, 0.55 * uEnd.z), L = 1.6 * cw, Pc = 24.0;
     float xc = mod(x - uFlow + 0.5 * Pc, Pc) - 0.5 * Pc, xh = x - xc;
-    vec2 pa = vec2(xc * uDir, abs(y)) - vec2(0.5 * L, 0.0), ba = vec2(-L, cw);
-    float d = length(pa - ba * sat(dot(pa, ba) / dot(ba, ba)));
+    vec2 ch = chevHead(xc * uDir, abs(y), cw, uPx);
     // (Long, soft fades: a head moving past one dims over a good stretch of its path, it never blinks out.)
     float s = uEnd.z, fade = uEnd.w > 0.0 ? (1.0 - smoothstep(-4.0 * s, -1.2 * s, xh - uEnd.x) * (1.0 - smoothstep(7.5 * s, 11.0 * s, xh - uEnd.x)))
       * (1.0 - smoothstep(-4.0 * s, -1.2 * s, uEnd.y - xh) * (1.0 - smoothstep(7.5 * s, 11.0 * s, uEnd.y - xh))) : 1.0;
     fade *= smoothstep(uLab.y + 0.3 * L, uLab.y + 3.0 * L, abs(xh - uLab.x));
     fade *= smoothstep(7.0, 11.0, abs(xh - uXk));
-    c = mix(c, uDir < 0.0 ? cRev : cChev, line(d, 0.11 * s) * (uDir < 0.0 ? 0.8 : 0.5) * fade);
+    c = mix(c, vec3(1.0), ch.y * 0.75 * fade);
+    c = mix(c, uDir < 0.0 ? cRev : cChev, ch.x * fade);
   }
   return c;
 }
