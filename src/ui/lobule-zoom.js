@@ -249,12 +249,11 @@ export function createLobuleZoom({ host }) {
     const W = geo.W, H = geo.H, phone = phoneMQ.matches;
     // (--pz-l, --pz-r, --pz-b: the room a presenter slide's text and data take.)
     let t = cssN('--top-safe') + cssN('--cmp-h') + cssN('--pz-t') + 8, b = H - (cssN('--bot-occ') || 100) - cssN('--pz-b') - 8, l = 12 + cssN('--pz-l'), r = W - cssN('--right-occ') - cssN('--pz-r') - 12;
-    // The zoom buttons: on a phone they sit top right beside the Zones and Lymph switches, so the labels start below them.
+    // The zoom buttons: on a phone they sit above the dock (Zones and Lymph live in the Layers menu); should they sit near the top, the labels start below them.
     const zp = phone && document.getElementById('zoomPill');
     if (phone) {
       const hr = el.getBoundingClientRect(), q = zp && zp.offsetHeight ? zp.getBoundingClientRect() : null;
-      // (While the view is still opening they have not moved up yet: keep their row free anyway.)
-      t = q && q.top - hr.top < H / 2 ? Math.max(t, q.bottom - hr.top + 14) : t + 52;
+      if (q && q.top - hr.top < H / 2) t = Math.max(t, q.bottom - hr.top + 14);
     }
     // The bottom stays above the vitals dock. With no room left, layoutLabels hides the labels rather than set them under it.
     return { l, t, r: Math.max(l + 80, r), b };
@@ -262,7 +261,8 @@ export function createLobuleZoom({ host }) {
   // The lobule and its labels' places, in world units.
   const frameBox = () => {
     const { cx, cy, R } = geo, ph = phoneMQ.matches;
-    return ph ? [cx - 1.05 * R, cy - 0.98 * R, cx + 1.05 * R, cy + 1.22 * R] : [cx - 1.52 * R, cy - 1.16 * R, cx + 1.52 * R, cy + 1.02 * R];
+    // Even above and below the hexagon (its curved sides reach about 0.97 R), so a fitted lobule is centred in the free space.
+    return ph ? [cx - 1.05 * R, cy - 1.02 * R, cx + 1.05 * R, cy + 1.02 * R] : [cx - 1.52 * R, cy - 1.04 * R, cx + 1.52 * R, cy + 1.04 * R];
   };
   function fitV() {
     if (!geo) return { k: 1, x: 0, y: 0 };
@@ -789,7 +789,7 @@ export function createLobuleZoom({ host }) {
     setLab('cv', 'Central venule', 'Central venule', ...mv('cv', m.P3, m.R[2]));
     // Lymph (Lymph layer on): the whole liver's rate and its protein; the change from healthy is on its card.
     if (m.hide) setLab('lymph', 'Lymphatic', 'Lymph', '?', '', '', null);
-    else setLab('lymph', 'Lymphatic', 'Lymph', fmt(m.lymph, 1), `mL/min · protein ${Math.round(m.lyProt * 100)}%`, '', null);
+    else setLab('lymph', 'Lymphatic', 'Lymph', fmt(m.lymph, 1), `mL/min · Protein ${Math.round(m.lyProt * 100)}%`, '', null);
     if (sinTo || sinU > 0) sv.setModel(m);
   }
 
