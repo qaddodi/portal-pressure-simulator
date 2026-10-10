@@ -47,6 +47,9 @@ import { TAP } from './decks/tap.js?v=90280ceb39';
 import { CIRCUIT } from './decks/circuit.js?v=4e9956be9e';
 import { DOPPLER } from './decks/doppler.js?v=a30ddaa424';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=b18a2f0005';
+import { PREHEPATIC } from './decks/prehepatic.js?v=e1915e749b';
+import { RIGHT_HEART } from './decks/right-heart.js?v=211c3fda34';
+import { BLEED } from './decks/variceal-bleed.js?v=96f6b5b2da';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {
@@ -573,3 +576,4 @@ export const DECKS = [
 
 DECKS.push(STIFFNESS, ONE_YEAR, TAP, CIRCUIT, LOBULE, SHUNTS);
 DECKS.push(DOPPLER, ENDOSCOPY);
+DECKS.push(PREHEPATIC, RIGHT_HEART, BLEED);

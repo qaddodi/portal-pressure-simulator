@@ -171,9 +171,13 @@ export function createDoppler({ onProbe }) {
         : 'Normal: toward the liver with gentle phasicity.';
     } else if (p.kind === 'hepatic') {
       dir = r.mean < 0 ? 'Reversed' : 'Toward the heart'; sev = r.mean < 0 ? 'danger' : 'ok';
-      pattern = r.vminMean < -1 ? 'Triphasic' : pi > 0.3 ? 'Biphasic' : 'Monophasic';
+      // A reversal of more than 0.4 of the forward peak is more than the a-wave: tricuspid regurgitation or a high atrium.
+      const backflow = r.vminMean < -1 && -r.vminMean > 0.4 * Math.max(1, r.vmaxMean);
+      pattern = backflow ? 'Large reversal' : r.vminMean < -1 ? 'Triphasic' : pi > 0.3 ? 'Biphasic' : 'Monophasic';
       if (pattern === 'Monophasic') sev = sev === 'ok' ? 'caution' : sev;
-      note = pattern === 'Triphasic' ? 'Normal: the atrial a-wave briefly reverses flow each beat.'
+      if (backflow) sev = 'danger';
+      note = backflow ? 'Blood surges back toward the liver each beat: tricuspid regurgitation or a high right atrial pressure.'
+        : pattern === 'Triphasic' ? 'Normal: the atrial a-wave briefly reverses flow each beat.'
         : pattern === 'Biphasic' ? 'Damped: the a-wave no longer reverses flow.'
         : 'Flat: a stiff liver (cirrhosis) or an outflow block damps the cardiac waveform.';
     } else if (p.kind === 'artery') {

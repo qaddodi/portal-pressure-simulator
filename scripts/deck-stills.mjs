@@ -27,7 +27,7 @@ try {
     for (const d of decks) {
       const page = await ctx.newPage();
       await page.goto(`${server.url}?script=${d.id}`);
-      await page.waitForFunction(() => document.querySelector('.pz-text h2, .pz-text h1')?.textContent && window.pps?.store?.get().frame, null, { timeout: 60000 });
+      await page.waitForFunction(() => document.querySelector('.pz h2, .pz h1')?.textContent && window.pps?.store?.get().frame, null, { timeout: 60000 });
       await page.waitForTimeout(12000);   // the patient settles, the camera lands and the organ plate is drawn
       // The figure only: the slide's words, its shade, the labels (too small to read here) and the corner credit go.
       const box = await page.evaluate(() => {

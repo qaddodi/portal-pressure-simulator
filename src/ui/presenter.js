@@ -20,9 +20,9 @@ import { SITES } from './ladder.js?v=cab65850a4';
 import { sinusoidSupported } from './sinusoid-view.js?v=1a75caf738';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { NODES } from '../engine/topology.js?v=dc393aabea';
-import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=65d5b19f6d';
-import { createTools } from './presenter-tools.js?v=5dcbffa2b3';
-import { openHandout } from './handout.js?v=2978d415ed';
+import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=fc234cc428';
+import { createTools } from './presenter-tools.js?v=129a96f267';
+import { openHandout } from './handout.js?v=e3282db73d';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -94,6 +94,8 @@ const RATE = {
   ra: (v) => (v > 8 ? ['hi', 'High'] : ['ok', 'Normal']),
   salb: (v) => (v < 3.5 ? ['mid', 'Low'] : ['ok', 'Normal']),
   hr: (v) => [null, v < 60 ? 'Slow' : v > 100 ? 'Fast' : 'Normal'],
+  ivc: (v) => (v > 8 ? ['hi', 'High'] : ['ok', 'Normal']),
+  hb: (v) => (v < 7 ? ['hi', 'Low'] : v < 12 ? ['mid', 'Below normal'] : ['ok', 'Normal']),
 };
 // Each tile: its name, what it is, the unit, the decimals (1 unless d), a scale (x) and which way is better
 // (−1 lower, 1 higher) for the colour of a change.
@@ -117,6 +119,8 @@ const TILE = {
   lsm: { t: 'Liver stiffness', s: 'FibroScan', u: 'kPa', better: -1 },
   ra: { t: 'Right atrium', s: 'Pressure', u: 'mmHg', better: -1 },
   salb: { t: 'Serum albumin', s: 'Blood', u: 'g/dL', better: 1 },
+  ivc: { t: 'IVC', s: 'Pressure', u: 'mmHg', better: -1 },
+  hb: { t: 'Hemoglobin', s: 'Blood', u: 'g/dL', better: 1 },
 };
 const rateOf = (k, f) => (RATE[k] && f && f[k] != null ? RATE[k](f[k], f) : [null, '']);
 const tileVal = (k, v) => (v == null ? '—' : fmt(v * (TILE[k]?.x ?? 1), TILE[k]?.d ?? 1));
@@ -126,7 +130,7 @@ function liveFp(fr) {
   const m = fr.metrics, a = m.ascites, P = fr.Pf || fr.P;
   return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: m.hvpg, ra: m.ra, ivc: m.ivc, ppg: m.ppg, asc: a.volume, saag: a.saag, tp: a.totalProtein,
     sin: P?.[NI.SIN_R], int: P?.[NI.INT], varix: m.varix.d, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
-    pvFlow: m.pvFlowMean, shunt: m.shuntFraction, liver: m.liverPerfPct, map: m.map, hr: m.hr, lsm: m.lsm };
+    pvFlow: m.pvFlowMean, shunt: m.shuntFraction, liver: m.liverPerfPct, map: m.map, hr: m.hr, lsm: m.lsm, hb: m.blood?.hb };
 }
 
 // A value counts from where it was to where it goes (eased, about a second); reduced motion jumps.
