@@ -742,6 +742,16 @@ button.vital:hover b { text-decoration: underline; text-decoration-color: var(--
 .info-i { width: 16px; height: 16px; border: 0; background: transparent; padding: 0; cursor: help; color: var(--text-3); display: grid; place-items: center; border-radius: 50%; }
 .info-i svg { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; }
 .info-i:hover { color: var(--text); }
+/* The visible dot stays 16px; an invisible ring around it makes a 44px tap target. */
+.info-i { position: relative; flex: none; }
+.info-i::before { content: ''; position: absolute; inset: -14px; }
+.info-open .info-i { color: var(--accent-ink); }
+/* The tap-opened explanation under a slider row eases open and shut. */
+.ac-info { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .22s ease, opacity .22s ease; grid-column: 1 / -1; }
+.ac-info > div { overflow: hidden; min-height: 0; }
+.ac-info p { margin: 0; padding: 4px 0 2px; font-size: var(--fs-12); line-height: 1.4; color: var(--text-2); }
+.info-open > .ac-info { grid-template-rows: 1fr; opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .ac-info { transition: none; } }
 .reset-btn { width: 18px; height: 18px; border: 0; background: transparent; padding: 0; cursor: pointer; color: var(--accent); display: none; place-items: center; border-radius: 4px; }
 .reset-btn svg { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .ctl.changed .reset-btn { display: grid; }
@@ -1359,12 +1369,15 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 /* A slider is one row: name, track, value (a long name takes a line of its own above the track and the value). */
 .action-card.docked .ac-slider { display: grid; align-items: center; column-gap: 10px; row-gap: 0; }
 .action-card.docked .range-wrap, .action-card.docked input[type=range] { height: 24px; }
-.action-card.docked .ac-slider:not(.long) { grid-template-columns: 92px minmax(0, 1fr) auto; }
+.action-card.docked .ac-slider:not(.long) { grid-template-columns: minmax(92px, max-content) minmax(0, 1fr) auto; }
+.action-card.docked .ac-slider .ac-label { white-space: nowrap; gap: 6px; }
+.action-card.docked .ac-slider .ctl-val { font-variant-numeric: tabular-nums; }
 .action-card.docked .ac-slider:not(.long) .ctl-top { display: contents; }
 .action-card.docked .ac-slider:not(.long) .ac-label { grid-column: 1; grid-row: 1; }
 .action-card.docked .ac-slider:not(.long) .range-wrap { grid-column: 2; grid-row: 1; min-width: 0; }
 .action-card.docked .ac-slider:not(.long) .ctl-val { grid-column: 3; grid-row: 1; min-width: 3.2em; text-align: right; }
 .action-card.docked .ac-slider:not(.long) .ctl-sub { grid-column: 1 / -1; grid-row: 2; }
+.action-card.docked .ac-slider:not(.long) .ac-info { grid-row: 3; }
 .action-card.docked .ac-slider.long { grid-template-columns: minmax(0, 1fr); row-gap: 0; }
 .action-card.docked .ac-slider .ctl-sub { font-size: var(--fs-12); line-height: 1.3; }
 .action-card.docked .ac-note { font-size: var(--fs-12); padding-top: 2px; }

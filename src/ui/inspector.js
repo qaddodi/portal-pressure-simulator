@@ -3,7 +3,7 @@
 import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=706a39d50b';
 import { DRUGS } from '../engine/scenario.js?v=2ab3fe1eb2';
 import { store, updateParams, isLocked, hiddenNow } from './store.js?v=5edd069b32';
-import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, icon, svgIcon } from './util.js?v=2bfec33ead';
+import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, infoButton, icon, svgIcon } from './util.js?v=959c4627e1';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -75,14 +75,13 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
   const reg = (el) => { if (el?._sync) syncers.push(el); return el; };
 
   // ── Control builders ──────────────────────────────
-  function infoI(text) { const b = h('button', { class: 'info-i', type: 'button', 'aria-label': text }, icon('info')); tooltipFor(b, text); return b; }
   function slider(c) {
     const { key, label, min, max, step, get, set, format, normal, info, sub, lockKey, def } = c;
     const input = h('input', { type: 'range', min, max, step, 'aria-label': label, 'data-def': def ?? null });
     const val = h('span', { class: 'ctl-val' });
     const reset = h('button', { class: 'reset-btn', title: 'Reset', 'aria-label': `Reset ${label}` }, icon('reset'));
     const wrap = h('div', { class: 'ctl' },
-      h('div', { class: 'ctl-top' }, h('span', { class: 'ctl-label' }, label, info ? infoI(info) : null, reset), val),
+      h('div', { class: 'ctl-top' }, h('span', { class: 'ctl-label' }, label, info ? infoButton(info) : null, reset), val),
       h('div', { class: 'range-wrap' }, normal ? h('span', { class: 'normal', title: 'Normal range', style: { left: `calc(${((normal[0] - min) / (max - min)) * 100}% + 2px)`, width: `calc(${((normal[1] - normal[0]) / (max - min)) * 100}% - 4px)` } }) : null, input),
       sub ? h('div', { class: 'ctl-sub' }, sub) : null);
     const paint = (v) => {
@@ -116,7 +115,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
     cb.checked = !!get(store.get().params);
     if (isLocked(lockKey || key)) cb.disabled = true;
     cb.addEventListener('change', () => updateParams((pp) => { set(pp, cb.checked); return pp; }, { label: `${label} ${cb.checked ? 'on' : 'off'}` }));
-    const row = h('div', { class: 'ctl' }, h('label', { class: 'toggle-row' }, h('span', { class: 'ctl-label' }, label, info ? infoI(info) : null), h('span', { class: 'switch' }, cb, h('span'))), sub ? h('div', { class: 'ctl-sub' }, sub) : null);
+    const row = h('div', { class: 'ctl' }, h('label', { class: 'toggle-row' }, h('span', { class: 'ctl-label' }, label, info ? infoButton(info) : null), h('span', { class: 'switch' }, cb, h('span'))), sub ? h('div', { class: 'ctl-sub' }, sub) : null);
     row._sync = (pp) => { cb.checked = !!get(pp); };
     return row;
   }

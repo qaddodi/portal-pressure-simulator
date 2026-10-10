@@ -139,6 +139,30 @@ export function announce(msg) {
 }
 
 /** Hover/focus tooltip. `text` may be a string, a function, or { text, key }. `side`: 'right' | 'bottom'. */
+// An ⓘ button: hover (or keyboard focus) shows the tooltip; a tap on touch opens the same text
+// under its row instead, easing open, and a second tap or a tap elsewhere closes it.
+function closeInfos(except) {
+  for (const r of document.querySelectorAll('.info-open')) if (r !== except) { r.classList.remove('info-open'); r.querySelector('.info-i')?.setAttribute('aria-expanded', 'false'); }
+}
+let infoWired = false;
+export function infoButton(text) {
+  const b = h('button', { class: 'info-i', type: 'button', 'aria-label': text, 'aria-expanded': 'false' }, icon('info'));
+  tooltipFor(b, text);
+  if (!infoWired) { infoWired = true; document.addEventListener('pointerdown', (e) => { if (!e.target.closest?.('.info-i, .ac-info')) closeInfos(); }, true); }
+  let touch = false;
+  b.addEventListener('pointerdown', (e) => { touch = e.pointerType === 'touch' || e.pointerType === 'pen'; });
+  b.addEventListener('click', (e) => {
+    if (!touch && !matchMedia('(hover: none)').matches) return;
+    e.preventDefault(); e.stopPropagation();
+    const row = b.closest('.ac-slider, .ctl') || b.parentElement;
+    if (!row.querySelector(':scope > .ac-info')) row.append(h('div', { class: 'ac-info' }, h('div', {}, h('p', {}, text))));
+    const open = !row.classList.contains('info-open');
+    closeInfos(row);
+    row.classList.toggle('info-open', open); b.setAttribute('aria-expanded', String(open));
+  });
+  return b;
+}
+
 export function tooltipFor(el, text, side = 'right') {
   const tip = document.getElementById('tooltip');
   const show = () => {

@@ -17,12 +17,12 @@
 // (Doppler) carries on from slide to slide while the patient stays the same.
 
 import { store } from './store.js?v=5edd069b32';
-import { h, fmt, clamp } from './util.js?v=2bfec33ead';
+import { h, fmt, clamp } from './util.js?v=959c4627e1';
 import { EDGES } from '../engine/topology.js?v=706a39d50b';
-import { createDoppler } from './doppler.js?v=82293c1fda';
-import { createFibroScan } from './fibroscan.js?v=2619eac998';
-import { createPressureTime } from './pressure-time.js?v=f52de6ffa1';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=669ffa9f95';
+import { createDoppler } from './doppler.js?v=c0d0029263';
+import { createFibroScan } from './fibroscan.js?v=0f370f7b72';
+import { createPressureTime } from './pressure-time.js?v=64a986136b';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=821e55d1e9';
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
   SMV_CONF: 'superior mesenteric vein', RHV_IVC: 'right hepatic vein', MHV_IVC: 'middle hepatic vein', LHV_IVC: 'left hepatic vein', IVCS_RA: 'inferior vena cava',
