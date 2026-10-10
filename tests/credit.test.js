@@ -44,8 +44,9 @@ test('while presenting, the credit sits over the slide veil and rises above a st
 });
 
 test('copyright credit shrinks while a card sits beneath it', () => {
-  assert.match(css, /\.stage-credit\.busy \{ font-size: calc\(var\(--fs-12\) - 1\.5px\);/);
-  assert.match(css, /\.stage-credit \{[^}]*font-size: 10\.5px/);
+  assert.match(css, /\.stage-credit\.busy \{ scale: \.875; \}/);
+  assert.match(css, /\.stage-credit \{[^}]*scale: \.875/);
+  assert.match(css, /\.stage-credit\.busy \{ scale: \.75; \}/);
 });
 
 test('copyright credit fades out when a card leaves no figure above it', () => {
