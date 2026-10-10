@@ -4,7 +4,7 @@
 //   node tests/e2e/visual.mjs           compare; exit 1 when a view drifts past the threshold
 //   node tests/e2e/visual.mjs --update  rewrite the references (after a deliberate change to the look)
 //   node tests/e2e/visual.mjs --refresh compare, and rewrite only the references of views that drifted
-//                                       (the preview workflow runs this on CI's own machines)
+//                                       (the Visual references workflow runs this on CI machines)
 //   VISUAL_OUT=dir                      where the current pictures and diffs of a failure go
 //                                       (default test-results/visual)
 //   VISUAL_DEVICE=phone                 one device only (CI checks each device on its own runner)

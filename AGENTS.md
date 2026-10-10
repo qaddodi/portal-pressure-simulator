@@ -40,10 +40,12 @@ Loop for every change (fast previews first, full tests before merge):
    parallel runners (source site and build, desktop and phone, two shares each, plus the visual
    check per device). A browser check that failed only by timing out gets one more try
    (`SMOKE_RETRIES`); any other failure counts at once.
-   Visual references (`tests/visual/`) need no hand work: every push to the integration branch
-   runs the `visual-refresh` job, which redraws the references of views whose look changed on CI's
-   own machines and commits them back to the branch ("Refresh visual references for <commit>").
-   So rebase before pushing, as always, and the merge check then compares against current pictures.
+   Visual references (`tests/visual/`): every preview push compares the look (job `visual` in
+   the Pages run). A drift there is a warning with the diffs as an artifact; in `ci.yml` it blocks
+   the merge. If your change is meant to alter a view, run the "Visual references" workflow on your
+   branch right after pushing it (GitHub Actions API: run `visual-refs.yml` on the branch). It
+   redraws only the drifted views on CI's machines and commits them as "Visual references redrawn
+   on CI: <views>"; pull before your next push. Never run it to silence a drift you did not intend.
    To redraw them all by hand (rarely needed), run `npm run visual -- --update`.
 5. Merge to `main` only when the owner says so. That also resets `/preview/` to match `main`.
    If the branch is already merged, restart it from the latest `main` before more work.

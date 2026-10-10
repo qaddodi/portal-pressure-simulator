@@ -68,49 +68,41 @@ jobs:
           path: workspace-shots/
           if-no-files-found: ignore
 
-  # Keeps tests/visual in step with the preview, so the references never pile up before a merge:
-  # on the integration branch, views whose look changed get their references redrawn here, on CI's
-  # own machines (the ones the merge check compares on), and committed back to the branch with the
-  # list of views in the message. The owner reviews the look itself on the published preview.
-  visual-refresh:
-    if: github.ref_name == 'claude/settings-topbar-icon-flvft1'
+  # The look against tests/visual on every preview push, so a drift shows up now, not at merge
+  # time. A drift is a warning here (the diffs are kept as an artifact) and blocks only in ci.yml.
+  # When the change to the look is intended, run the "Visual references" workflow on the branch,
+  # which redraws the drifted views on these same machines and commits them.
+  visual:
+    name: visual (${{ matrix.device }})
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     concurrency:
-      group: visual-refresh-${{ github.ref }}
+      group: visual-${{ github.ref }}-${{ matrix.device }}
       cancel-in-progress: true
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        device: [desktop, phone]
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: ./.github/actions/setup-browser
-      - name: Compare, and redraw the references of views that changed
-        shell: bash
-        run: npm run visual -- --refresh | tee visual.log
-      - name: Commit refreshed references
+      - name: Visual regression
+        id: visual
+        continue-on-error: true
         env:
-          SHA: ${{ github.sha }}
-          BRANCH: ${{ github.ref_name }}
+          VISUAL_DEVICE: ${{ matrix.device }}
+        shell: bash
+        run: npm run visual | tee visual.log
+      - name: Report drifted views
+        if: steps.visual.outcome == 'failure'
         run: |
-          git add tests/visual
-          if git diff --cached --quiet; then echo "References already match."; exit 0; fi
-          views=$(grep -o '^ref  [^ ]*' visual.log | cut -c6- | paste -sd, -)
-          git -c user.name='github-actions[bot]' -c user.email='41898341+github-actions[bot]@users.noreply.github.com' \
-            commit -m "Refresh visual references for ${SHA:0:7}: $views"
-          # Other pushes may have landed meanwhile: replay on top of them (never a force-push).
-          for i in 1 2 3; do
-            git pull --rebase origin "$BRANCH" && git push origin "HEAD:$BRANCH" && exit 0
-            git rebase --abort 2>/dev/null || true
-            sleep $((i * 5))
-          done
-          echo "::warning::Could not push the refreshed references; the next preview push redraws them."
+          views=$(grep -o '^FAIL [^:]*' visual.log | cut -c6- | paste -sd' ' -)
+          echo "::warning title=Visual references drifted::$views. If intended, run the Visual references workflow on this branch; ci.yml blocks the merge until then."
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: steps.visual.outcome == 'failure'
         with:
-          name: visual-refresh
-          path: tests/visual/
+          name: visual-diff-${{ matrix.device }}
+          path: test-results/visual
           if-no-files-found: ignore
 
   # Only main and the one integration branch publish. Other claude/** branches are still checked,
