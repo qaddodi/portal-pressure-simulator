@@ -3532,12 +3532,10 @@ button.finding:hover { background: var(--surface-2); }
   .lz-lab .n-long { display: none; } .lz-lab .n-short { display: inline; }
   .lz-lab small { font-size: calc(9.5px * var(--label-k, 1)); }
 }
-/* Dark lobule labels: white names, values, units and zones on a black letter outline. */
-:root[data-theme="dark"] .lz { --label-halo: #000; }
+/* Dark lobule labels: white names, values, units and zones on the anatomy's dark outline. */
 :root[data-theme="dark"] .lz :is(.lz-lab, .lz-lab .n, .lz-lab .v, .lz-lab .v b, .lz-lab small, .lz-lab .d, .lz-zone) { color: #fff; }
 :root[data-theme="dark"] .lz-zone span { opacity: 1; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .lz { --label-halo: #000; }
   :root:not([data-theme="light"]) .lz :is(.lz-lab, .lz-lab .n, .lz-lab .v, .lz-lab .v b, .lz-lab small, .lz-lab .d, .lz-zone) { color: #fff; }
   :root:not([data-theme="light"]) .lz-zone span { opacity: 1; }
 }
