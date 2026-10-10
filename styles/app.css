@@ -986,6 +986,8 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .scn-head { font-weight: 600; font-size: var(--fs-14); padding: 2px 10px 6px; }
 .scn-group { display: flex; flex-direction: column; margin-bottom: 6px; }
 .scn-group .menu-title { display: flex; align-items: center; gap: 8px; }
+.scn-group.sub { margin-bottom: 2px; }
+.scn-sub { font-size: var(--fs-12); color: var(--text-2); padding: 4px 10px 2px 26px; }
 .scn-group .menu-title i { width: 8px; height: 8px; border-radius: 2px; }
 .scn { display: block; width: 100%; padding: 6px 10px 6px 26px; border-radius: 8px; border: 0; background: transparent; text-align: left; cursor: pointer; font-size: var(--fs-14); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; position: relative; transition: background .18s var(--ease); }
 .scn:hover { background: var(--surface-2); }

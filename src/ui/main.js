@@ -335,12 +335,13 @@ function setNarrator(on) {
 function openScenarios(anchor) {
   const presets = store.get().presetList;
   const groups = {};
-  for (const p of presets) (groups[LEVEL[p.group] || p.group] ||= []).push(p);
+  for (const p of presets) (groups[p.group] ||= []).push(p);
   const cur = store.get().presetId;
   const body = h('div', {},
     h('div', { class: 'scn-head' }, 'Patients'),
-    Object.entries(groups).map(([g, ps]) => h('div', { class: 'scn-group' },
-      h('div', { class: 'menu-title' }, h('i', { style: { background: GROUP_COLOR[g] || 'var(--text-3)' } }), g),
+    Object.entries(groups).map(([g, ps]) => h('div', { class: 'scn-group' + (LEVEL[g] === 'Hepatic' ? ' sub' : '') },
+      LEVEL[g] === 'Hepatic' && g === 'Presinusoidal' ? h('div', { class: 'menu-title' }, h('i', { style: { background: GROUP_COLOR.Hepatic } }), 'Hepatic') : null,
+      LEVEL[g] === 'Hepatic' ? h('div', { class: 'scn-sub' }, g === 'Sinusoidal' ? 'Intrasinusoidal' : g) : h('div', { class: 'menu-title' }, h('i', { style: { background: GROUP_COLOR[LEVEL[g]] || 'var(--text-3)' } }), LEVEL[g] || g),
       ps.map((p) => h('button', { class: 'scn', title: p.summary, 'aria-current': String(p.id === cur), onclick: async () => {
         closePopover();
         await loadPreset(p.id);
