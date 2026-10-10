@@ -138,10 +138,10 @@ export const LESSONS = [
     steps: [
       { sid: 'intro', type: 'frame', preset: 'csph', tools: ['select'], view: 'anatomic', zoom: 'fit', tab: 'scope', focus: ['A_SMA', 'SIN_RR', 'PV_TRUNK'], focusLabel: 'Gut inflow, liver, portal vein',
         data: [{ label: 'HVPG', metric: 'hvpg', unit: 'mmHg' }, { label: 'Portal flow', metric: 'pvFlow', d: 2, unit: 'L/min' }, { label: 'Heart rate', metric: 'hr', d: 0, unit: 'bpm' }, { label: 'Blood pressure', metric: 'map', d: 0, unit: 'mmHg' }],
-        text: 'Why does a heart drug, a beta blocker, prevent variceal bleeding? Here is a patient with compensated cirrhosis and a gradient above 10. The **Trend** chart traces her pressures as they go; note where they start.' },
+        text: 'Why does a heart drug, a beta blocker, prevent variceal bleeding? Here is a patient with compensated cirrhosis and a gradient above 10. The **Over time** chart traces her pressures as they go; note where they start.' },
       { type: 'predict', q: 'In cirrhosis, what are the arteries that supply the gut doing?', options: ['Wide open, sending more blood to the liver', 'Normal', 'Constricted, sending less blood to the liver', 'Closed in the area of the varices'], answer: 0,
         why: 'Cirrhosis dilates the gut’s arteries, so inflow rises on top of the stiff liver.' },
-      { sid: 'carvedilol', type: 'do', preset: 'csph', tools: ['select'], tab: 'scope', text: 'Start **carvedilol** and keep the other drugs off. Watch the Trend chart.', controls: ['drugs', 'drug:carvedilol', 'drug:propranolol', 'drug:terlipressin', 'drug:octreotide'],
+      { sid: 'carvedilol', type: 'do', preset: 'csph', tools: ['select'], tab: 'scope', text: 'Start **carvedilol** and keep the other drugs off. Watch the Over time chart.', controls: ['drugs', 'drug:carvedilol', 'drug:propranolol', 'drug:terlipressin', 'drug:octreotide'],
         data: [{ label: 'HVPG', metric: 'hvpg', unit: 'mmHg' }, { label: 'Portal flow', metric: 'pvFlow', d: 2, unit: 'L/min' }],
         goal: (f, p) => p.drugs.carvedilol && !p.drugs.propranolol && !p.drugs.terlipressin && !p.drugs.octreotide },
       { sid: 'hvpg-response', type: 'observe', seconds: 8, tools: ['select'], tab: 'scope', focus: ['A_SMA', 'SIN_RR'], focusLabel: 'Inflow and liver',

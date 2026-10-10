@@ -326,8 +326,12 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     abdomen: ['needle', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],
     fibroscan: ['gauge', (f) => `${fmt(f.metrics.lsm, 0)} kPa`],
   };
-  const SHORT = { profile: 'Pressure', scope: 'Trend', hvpg: 'HVPG', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites', fibroscan: 'FibroScan' };
+  const SHORT = { profile: 'Pressure', scope: 'Over time', hvpg: 'HVPG', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites', fibroscan: 'FibroScan' };
   const ORDER = ['profile', 'scope', 'hvpg', 'doppler', 'endoscopy', 'abdomen', 'fibroscan'];
+  // Pressure (along the circuit) and Over time (the same pressures through time) share one tab with a
+  // small switch inside it; 'scope' stays a pane of its own, so lessons and the Presenter still reach it.
+  const TABS = ORDER.filter((id) => id !== 'scope');
+  const tabOf = (id) => (id === 'scope' ? 'profile' : id);
   const saved = (() => { try { return JSON.parse(localStorage.getItem('pps.instruments') || 'null') || {}; } catch { return {}; } })();
   let open = Array.isArray(saved.open) && saved.open.every((id) => byId[id]) && saved.open.length ? saved.open.slice(0, 2) : ['profile'];
   let frame = null, state = 'open', resizeFrame = 0, picking = false;
@@ -346,7 +350,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   head.append(titleEl, live, closeBtn);
   // The tabs: one per instrument, with its live reading.
   const tabEls = {};
-  const tabs = h('div', { class: 'instr-tabs', role: 'tablist', 'aria-label': 'Instruments' }, ORDER.map((id) => {
+  const tabs = h('div', { class: 'instr-tabs', role: 'tablist', 'aria-label': 'Instruments' }, TABS.map((id) => {
     const val = h('small', { class: 'it-v' });
     const b = h('button', { class: 'instr-tab', role: 'tab', 'data-instrument': id, 'aria-selected': 'false', 'aria-controls': 'pane-' + id },
       svgIcon(INFO[id][0]), h('span', { class: 'it-t' }, h('b', {}, SHORT[id] || byId[id].label), val));
@@ -358,14 +362,21 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   tabs.addEventListener('keydown', (e) => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
     e.preventDefault();
-    const i = ORDER.indexOf(e.target.closest('.instr-tab')?.dataset.instrument);
-    const j = e.key === 'Home' ? 0 : e.key === 'End' ? ORDER.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : ORDER.length - 1)) % ORDER.length;
-    tabEls[ORDER[j]].b.focus(); pick(ORDER[j]);
+    const i = TABS.indexOf(e.target.closest('.instr-tab')?.dataset.instrument);
+    const j = e.key === 'Home' ? 0 : e.key === 'End' ? TABS.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : TABS.length - 1)) % TABS.length;
+    tabEls[TABS[j]].b.focus(); pick(TABS[j]);
   });
   const pickHint = h('div', { class: 'instr-hint', hidden: true }, 'Pick a second instrument to show with ', h('b'), '.');
   const tabsBox = scrollCue(tabs);
   head.after(tabsBox, pickHint);
+  // The switch inside the Pressure tab: the chart along the circuit, or the same pressures over time.
+  const pressureSwitch = (own) => h('div', { class: 'pressure-switch', role: 'group', 'aria-label': 'Pressure view' },
+    [['profile', 'Along the circuit'], ['scope', 'Over time']].map(([id, label]) => h('button', {
+      type: 'button', class: 'ps-btn', 'data-view': id, 'aria-pressed': String(id === own),
+      onclick: () => { if (id !== own) { open = open.map((x) => (x === own ? id : x)); layout(); workspace.querySelector('.dock-body')?.scrollTo?.(0, 0); } },
+    }, label)));
   for (const p of panes) {
+    if (tabOf(p.id) === 'profile') p.el.prepend(pressureSwitch(p.id));
     p.el.id = 'pane-' + p.id; p.el.setAttribute('role', 'tabpanel'); p.el.setAttribute('aria-label', p.label);
     body.append(p.el);
   }
@@ -423,27 +434,23 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     setTimeout(() => dispatchEvent(new Event('resize')), 30);
   }
   const canSplit = () => (isSide() ? stageWrap.clientHeight - css('--top-safe') - css('--vdock-h') >= 620 : body.clientWidth >= 1000 || workspace.clientWidth >= 1000) || state === 'focus';
-  // Pressure and Over time read as one story: on a roomy desktop card they open together, stacked,
-  // so neither needs a long scroll.
-  const PAIR = ['profile', 'scope'];
-  const pairs = () => matchMedia('(min-width: 1024px) and (pointer: fine)').matches && canSplit();
   function layout() {
     // Never keep two cramped instruments after rotation or resizing.
     if (open.length > 1 && !canSplit()) open = open.slice(0, 1);
-    else if (open.length === 1 && PAIR.includes(open[0]) && pairs()) open = [...PAIR];
+    else if (open.length > 1 && tabOf(open[0]) === tabOf(open[1])) open = open.slice(0, 1);
     for (const p of panes) p.el.classList.toggle('active', open.includes(p.id));
     body.classList.toggle('split', open.length > 1);
     body.classList.toggle('stack', open.length > 1 && isSide() && state !== 'focus');
     paintTitle();
-    for (const id of ORDER) {
-      const on = open.includes(id);
+    for (const id of TABS) {
+      const at = open.findIndex((x) => tabOf(x) === id), on = at >= 0;
       tabEls[id].b.setAttribute('aria-selected', String(on));
-      tabEls[id].b.tabIndex = id === open[0] ? 0 : -1;
-      tabEls[id].b.dataset.slot = on && open.length > 1 ? String(open.indexOf(id) + 1) : '';
+      tabEls[id].b.tabIndex = id === tabOf(open[0]) ? 0 : -1;
+      tabEls[id].b.dataset.slot = on && open.length > 1 ? String(at + 1) : '';
     }
     // A phone's tab row scrolls sideways: keep the chosen tab in view.
     if (tabs.scrollWidth > tabs.clientWidth) {
-      const r = tabEls[open[0]].b.getBoundingClientRect(), T = tabs.getBoundingClientRect();
+      const r = tabEls[tabOf(open[0])].b.getBoundingClientRect(), T = tabs.getBoundingClientRect();
       if (r.left < T.left || r.right > T.right) tabs.scrollLeft += r.left - T.left - (T.width - r.width) / 2;
     }
     remember();
@@ -466,13 +473,13 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     pickHint.querySelector('b').textContent = byId[open[0]].label;
     pickHint.hidden = false; workspace.classList.add('picking');
     layout();
-    tabs.querySelector(`.instr-tab:not([data-instrument="${open[0]}"])`)?.focus();
+    tabs.querySelector(`.instr-tab:not([data-instrument="${tabOf(open[0])}"])`)?.focus();
   }
   function pick(id) {
-    if (picking && id !== open[0]) { open = [open[0], id]; endPick(); layout(); return; }
+    if (picking && id !== tabOf(open[0])) { open = [open[0], id]; endPick(); layout(); return; }
     endPick();
-    // A tab of a pair shows that instrument alone.
-    open = [id];
+    // A tab shows that instrument alone (the Pressure tab keeps the view it was on).
+    open = [open.find((x) => tabOf(x) === id) || id];
     if (state === 'peek') setState('open');
     layout();
     workspace.querySelector('.dock-body')?.scrollTo?.(0, 0);
@@ -482,7 +489,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     if (!isVisible()) { onOpen(); setState('open'); }
     else if (state === 'peek') setState('open');
     if (alongside && canSplit() && open.length === 1) toggleSecond();
-    else tabEls[open[0]].b.focus();
+    else tabEls[tabOf(open[0])].b.focus();
   }
   function show(id, { open: doOpen = true, reveal = false, alongside = false } = {}) {
     if (id === 'lobule') { onLobule?.(); return; }
@@ -491,7 +498,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     if (revealWall) { wallDetails.open = true; id = 'endoscopy'; }
     if (!byId[id]) return;
     endPick();
-    if (alongside && open.length === 1 && open[0] !== id && canSplit()) open = [open[0], id];
+    if (alongside && open.length === 1 && tabOf(open[0]) !== tabOf(id) && canSplit()) open = [open[0], id];
     else if (!open.includes(id)) open = [id];
     if (reveal) onReveal?.(reveal);
     else if (doOpen) onOpen();
@@ -577,7 +584,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     if (live.textContent !== txt) live.textContent = txt;
     live.dataset.state = state === 'peek' ? 'summary' : st.running ? 'live' : 'paused';
     // Each tab carries its instrument's reading (not in a case, where the numbers are to be found).
-    if (frame && isVisible()) for (const id of ORDER) {
+    if (frame && isVisible()) for (const id of TABS) {
       const v = st.imaging ? '' : INFO[id][1](frame);
       if (tabEls[id].val.textContent !== v) tabEls[id].val.textContent = v;
     }

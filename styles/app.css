@@ -3654,6 +3654,15 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .tabs-cue.more-l > .cue-l, .tabs-cue.more-r > .cue-r { opacity: 1; pointer-events: auto; }
 }
 
+/* The switch inside the Pressure tab: along the circuit, or the same pressures over time. */
+.pressure-switch { display: flex; gap: 2px; flex: none; align-self: flex-start; padding: 2px; border-radius: 9px; background: var(--surface-2); }
+.ps-btn { height: 26px; padding: 0 12px; border: 0; border-radius: 7px; background: none; color: var(--text-2); cursor: pointer; font: 600 var(--fs-12) var(--font-ui); white-space: nowrap; transition: background .18s var(--ease), color .18s var(--ease), box-shadow .18s var(--ease); }
+.ps-btn:hover { color: var(--text); }
+.ps-btn[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(20, 22, 30, .12), 0 0 0 .5px var(--hairline); }
+.ps-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+@keyframes pane-fade { from { opacity: 0; } to { opacity: 1; } }
+.instrument-workspace .dock-pane.active:is([data-pane="profile"], [data-pane="scope"]) { animation: pane-fade .24s var(--ease); }
+
 /* Treat's Drugs / Fluids / Procedures tabs reuse the Tests card's tab row (.instr-tabs); the pane under it needs no extra top gap. */
 .treat-card .instr-tab { flex: 1 1 0; }
 .treat-pane { padding-top: 4px; }

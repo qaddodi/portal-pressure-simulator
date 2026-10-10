@@ -561,14 +561,15 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction(() => !!window.pps.store.get().compareSnap);
     await page.waitForSelector('.workspace-comparison:not([hidden])');
     // One tap on a tab chooses an instrument; each tab carries its live reading.
-    if (await page.locator('.instr-tab').count() !== 7) throw new Error('the tabs must offer seven distinct instruments');
+    if (await page.locator('.instr-tab').count() !== 6) throw new Error('the tabs must offer six distinct instruments (Pressure holds both pressure views)');
     const choose = async (id) => {
       await page.click(`.instr-tab[data-instrument="${id}"]`);
       await page.waitForFunction((id) => document.querySelector(`.instr-tab[data-instrument="${id}"]`).getAttribute('aria-selected') === 'true', id);
       await page.waitForTimeout(250);
     };
     for (const id of ['scope', 'hvpg', 'doppler', 'endoscopy', 'abdomen', 'profile']) {
-      await choose(id);
+      if (id === 'scope') { await choose('profile'); await page.click('#pane-profile .ps-btn[data-view="scope"]'); await page.waitForTimeout(250); }
+      else await choose(id);
       const overflow = await page.$eval(`#pane-${id}`, (el) => el.scrollWidth - el.clientWidth);
       if (overflow > 2) throw new Error(`${id} has horizontal overflow (${overflow}px)`);
       const sized = await page.$eval(`#pane-${id}`, (el) => [...el.querySelectorAll('canvas')].filter((c) => c.getBoundingClientRect().height > 0).every((c) => c.width > 1 && c.height > 1));
