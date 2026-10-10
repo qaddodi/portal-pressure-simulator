@@ -3871,3 +3871,28 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .explore-here small { flex-basis: 100%; text-align: center; }
 .lib-note ~ .home-sub { margin-top: 26px; }
 .explore-here { height: auto; min-height: 40px; padding-block: 8px; line-height: 1.25; }
+
+/* ── The final assessment (exam.js) ── */
+.exam { display: grid; gap: 14px; }
+.exam p { margin: 0; line-height: 1.5; }
+.exam-name { font: inherit; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2, var(--surface)); color: var(--text); }
+.exam-bar { display: grid; gap: 6px; font-size: 13px; color: var(--text-2); }
+.exam-stem { color: var(--text); }
+.exam-foot { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.exam-result { display: flex; align-items: baseline; gap: 12px; padding: 14px 16px; border-radius: 12px; background: var(--surface-2, var(--surface)); animation: fade .3s var(--ease); }
+.exam-result b { font-size: 32px; }
+.exam-result.pass b { color: var(--ok); }
+.exam-result.fail b { color: var(--warn, var(--s5)); }
+.exam-cert { text-align: center; padding: 24px 16px; border: 2px solid var(--accent, var(--ok)); border-radius: 14px; animation: fade .4s var(--ease); }
+.exam-cert h3 { font-size: 24px; margin: 8px 0; }
+.exam-cert-m { color: var(--text-2); font-size: 14px; margin-top: 8px !important; }
+.exam-rev { border-top: 1px solid var(--border); padding: 8px 0; }
+.exam-rev summary { cursor: pointer; font-weight: 600; }
+.exam-rev .ok { color: var(--ok); } .exam-rev .no { color: var(--bad, #d9534f); }
+.exam-rev > *:not(summary) { margin-top: 10px; }
+.exam-kp h4 { margin: 0 0 4px; } .exam-kp ul { margin: 0; padding-left: 20px; line-height: 1.5; }
+.exam-kp.todo { opacity: .75; }
+@media print {
+  body:has(.exam-cert) > *:not(#modalBack), #modalBack .modal > header, .exam > *:not(.exam-cert) { display: none !important; }
+  #modalBack { position: static !important; background: none !important; }
+}

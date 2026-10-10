@@ -5,11 +5,12 @@
 
 import { store } from './store.js?v=49dc9cdf15';
 import { h, svgIcon, icon } from './util.js?v=a357853926';
-import { LESSONS } from './learn.js?v=12d780c088';
+import { LESSONS } from './learn.js?v=1f334ee904';
 import { CASES } from './cases.js?v=8d4fbd875f';
 import { createDrill, drillProgress, DRILL_TITLE, ROUNDS } from './drill.js?v=af9584165f';
-import { skillsPath, reviewCard } from './practice.js?v=02bb5ed6c9';
-import { UNITS, FINAL, PARTS, course } from './course.js?v=63289989a0';
+import { skillsPath, reviewCard } from './practice.js?v=98460e015d';
+import { UNITS, FINAL, PARTS, course } from './course.js?v=3d22791adf';
+import { openExam } from './exam.js?v=d32dd24e77';
 import { t } from '../i18n/i18n.js?v=3113b1ec12';
 import { exportCSV, exportXAPI, learnerName, setLearnerName, records } from './records.js?v=50fb9dd463';
 import { SNAPSHOTS, PATH } from './snapshots.js?v=34d1578d5f';
@@ -79,7 +80,7 @@ function coursePage({ onUnit, go, instructor, render }) {
       h('span', { class: 'cr-go', 'aria-hidden': 'true' }, icon('chev-right')))
     : h('div', { class: 'cr-continue done' }, h('span', { class: 'overline' }, 'Course'), h('span', { class: 'cr-t' }, 'All eight units done'), h('span', { class: 'cr-d' }, 'The final assessment is next.'));
   const parts = Object.entries(PARTS).map(([k, name]) => h('section', { class: 'cu-part' }, h('h3', { class: 'home-sub' }, `${k} · ${name}`), UNITS.filter((u) => u.part === k).map((u) => unitRow(u, onUnit))));
-  const final = h('section', { class: 'cu-part' }, h('h3', { class: 'home-sub' }, 'Assessment'), unitRow(FINAL, () => {}));
+  const final = h('section', { class: 'cu-part' }, h('h3', { class: 'home-sub' }, 'Assessment'), unitRow(FINAL, () => openExam({ onDone: render })));
   const explore = h('button', { class: 'cr-explore', onclick: () => go('explore') }, h('span', { class: 'hd-ic' }, svgIcon('explore')),
     h('span', {}, h('b', {}, 'Explore the model'), h('small', {}, 'Any of the patients, freely: views, treatments, time-lapse, Doppler and endoscopy.')), icon('chev-right'));
   let teach = null;

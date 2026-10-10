@@ -60,7 +60,7 @@ export const UNITS = [
   { id: 'u8-refractory', n: 8, part: 'B', title: 'Refractory ascites and TIPS', minutes: 10, draft: true,
     objective: 'Recognise refractory ascites and weigh TIPS against paracentesis and albumin.' },
 ].map((u) => ({ steps: stub(u.objective), keyPoints: [], ...u, unit: u.n, pearls: null }));
-export const FINAL = { id: 'final', title: 'Final assessment', minutes: 15, objective: 'Ten mixed vignettes; pass at 70 %.', draft: true };
+export const FINAL = { id: 'final', title: 'Final assessment', minutes: 15, objective: 'Ten mixed vignettes; pass at 70 %.' };
 export const PARTS = { A: 'Mechanism', B: 'Clinic' };
 
 // ── Progress ────────────────────────────────────────
