@@ -708,7 +708,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lv.nut.style.opacity = lv.nutNet.style.opacity = smooth01(g / 0.5).toFixed(3);
   }
   // The liver's state eases toward the model's (a new patient or a slider never makes it jump).
-  let lvC = null, lvG = 0, lvT = 0, lvGT = null, lvTT = null, lvAt = 0, lvMoving = false;
+  let lvC = null, lvG = 0, lvT = 0, lvGT = null, lvTT = null, lvAt = 0, lvMoving = false, lvCT = null, lvGTo = null, lvStillAt = 0;
   // Abdominal wall (anterior): a soft skin tint that appears only with caput medusae, under its veins.
   const abdWall = s('ellipse', { cx: SITES.umbilicus[0], cy: SITES.umbilicus[1], rx: 120, ry: 96, fill: 'url(#skin)', class: 'abd-wall', opacity: 0 });
   // Flanks: the outline of the abdominal wall, which bulges as ascites accumulates.
@@ -1691,6 +1691,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function update(f) {
     inUpdate = true;
     try { updateInner(f); } finally { inUpdate = false; }
+    if (plateRedraw) { plateRedraw = false; drawVeins(); }
     // The first framing waits for the patient (the first frames are drawn before it has loaded, without its
     // ascites or spleen), and the figure stays hidden until it is framed, so it appears once, in place.
     firstFrame();
@@ -2407,6 +2408,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const PLATE_BASE = 1.2;          // px per world unit of the whole-plate raster
   let plateTheme = null, plateKey = '', plateSeq = 0, plateBusy = false, plateAgain = false, plateLast = 0, plateTimer = 0, plateView = null, plateViewKey = '', plateSettle = 0;
   const plateOn = () => wrap.classList.contains('gl-plate');
+  // Drops the plate rasters and shows the live SVG organs. The vessel layer is redrawn in the same
+  // task (after the model update in progress), so no frame shows the SVG organs over the old GPU
+  // plate: the two, and the ascites, would add up to a bright flash.
+  let plateRedraw = false;
+  function hidePlate() {
+    veins.dropPlate(0); veins.dropPlate(1); plateView = null; plateViewKey = '';
+    wrap.classList.remove('gl-plate'); veinsDirty = true; syncPlateLook();
+    if (inUpdate) plateRedraw = true; else drawVeins();
+  }
   function plateMarkup(rect, W, H) {
     const was = plateOn();
     wrap.classList.remove('gl-plate');
@@ -2466,14 +2476,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const themed = plateTheme !== null && theme !== plateTheme;
     plateTheme = theme;
     if (themed && veins.hasPlate(0)) {
-      veins.dropPlate(0); veins.dropPlate(1); plateView = null; plateViewKey = '';
-      wrap.classList.remove('gl-plate'); veinsDirty = true; syncPlateLook();
+      hidePlate();
     }
     if (plateBusy) { plateAgain = true; return; }
-    const wait = themed ? 0 : Math.max(0, 500 - (performance.now() - plateLast));
+    // (A liver that just settled may be pausing mid time-lapse: give it a moment.)
+    const wait = themed ? 0 : Math.max(0, 500 - (performance.now() - plateLast), 400 - (performance.now() - lvStillAt));
     clearTimeout(plateTimer);
     plateTimer = setTimeout(async () => {
-      if (figureHidden()) return;   // hidden meanwhile: the first poke once it shows rasterizes
+      if (figureHidden() || lvMoving) return;   // hidden or moving meanwhile: a later poke rasterizes
       const k = plateStateKey();
       if (k === plateKey && veins?.hasPlate(0)) return;   // it changed and changed back
       plateBusy = true; plateLast = performance.now();
@@ -2485,13 +2495,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           // the softer whole plate for a beat: the textures would blur, then sharpen).
           plateView = null; plateViewKey = '';
           veinsDirty = true;
-          if (!plateOn() && glWanted(easeInOut(morph))) {
+          if (!plateOn() && glWanted(easeInOut(morph)) && !lvMoving) {
             // The raster lands outside an animation frame (and the next frames may be paced out):
             // hide the SVG organs only together with a GPU draw that shows the plate, or a frame
             // would show neither (a flash of the dark stage through the organs).
             wrap.classList.add('gl-plate'); syncPlateLook();
             if (!drawVeins()) { wrap.classList.remove('gl-plate'); syncPlateLook(); }
           } else syncPlateLook();
+          if (!plateOn()) plateKey = '';   // not shown (the liver moved meanwhile): raster again once it settles
           schedulePlateView();
         }
       } catch (e) { console.warn('Plate raster failed; the SVG plate stays.', e); }
@@ -2816,15 +2827,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function updateOrgans(f, p, t) {
     const k = 1 - t;
     const imaging = isImaging();
-    const psin = Math.max(f.P[NI.SIN_R], f.P[NI.SIN_L]);
+    // The heart-cycle-averaged pressures: the beat must not swing the liver's look.
+    const PA = f.Pf || f.P;
+    const psin = Math.max(PA[NI.SIN_R], PA[NI.SIN_L]);
     // Targets that follow the running model's pressures move only in steps (with hysteresis), so a
     // pressure wavering with the cycle never keeps the liver easing, and its plate being dropped and
     // rasterized again, over and over.
-    const held = (prev, v, tol) => (prev === null || Math.abs(v - prev) > tol || (v === 0 && prev !== 0) || (v === 1 && prev !== 1) ? v : prev);
+    // An end (0 or 1) is reached at once but left only on a clear move, so a value hovering just
+    // past an end never flips to it and back.
+    const held = (prev, v, tol) => (prev === null || Math.abs(v - prev) > ((prev === 0 || prev === 1) ? 2 * tol : tol) || (v === 0 && prev !== 0) || (v === 1 && prev !== 1) ? v : prev);
     lvTT = held(lvTT, clamp((psin - 8) / 16, 0, 1), 0.1);
     const tT = imaging ? 0 : lvTT * 0.5;
     const hp = store.get().healthy?.P;
-    const cvUp = hp ? Math.max(f.P[NI.CV_R] - hp[NI.CV_R], f.P[NI.CV_L] - hp[NI.CV_L]) : 0;
+    const cvUp = hp ? Math.max(PA[NI.CV_R] - hp[NI.CV_R], PA[NI.CV_L] - hp[NI.CV_L]) : 0;
     lvGT = held(lvGT, clamp((cvUp - 4) / 10, 0, 1), 0.03);
     const cT = Math.min(1, p.cirrhosis), gT = lvGT;
     const now = performance.now();
@@ -2845,10 +2860,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const moving = lvC !== cT || lvG !== gT;
     // While it eases, the live drawing shows (a raster would move in steps); the plate is
     // rasterized again once it settles.
-    if (moving && !lvMoving && veins && !veins.lost && veins.hasPlate(0)) {
-      veins.dropPlate(0); veins.dropPlate(1); plateView = null; plateViewKey = '';
-      wrap.classList.remove('gl-plate'); veinsDirty = true; syncPlateLook();
-    }
+    // A large change, or one still under way (a time-lapse), shows the live drawing. A small step
+    // (the running model's congestion drifting a notch) eases under the plate and is rasterized once
+    // it settles: swapping to the live drawing and back every few seconds would flash the organs.
+    const retarget = lvMoving && (cT !== lvCT || gT !== lvGTo);
+    lvCT = cT; lvGTo = gT;
+    if (moving && (retarget || Math.max(Math.abs(cT - lvC), Math.abs(gT - lvG)) > 0.08) && veins && !veins.lost && veins.hasPlate(0)) hidePlate();
+    if (lvMoving && !moving) lvStillAt = performance.now();
     lvMoving = moving;
     if (moving) widthEasing = true;
     morphLiver(lvC, lvG, moving);
