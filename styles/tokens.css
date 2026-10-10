@@ -71,7 +71,7 @@
   --diaphragm: #8E7566;
   --artery: #C8414D;
   --casing-rgb: 30 24 40; --casing-a: .56; --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a));
-  --ascites: #E0B43C; --ascites-a: .4;   /* straw: pale urine, translucent so the organs read through */
+  --ascites: #E6D28E; --ascites-a: .34;   /* a faint pale-straw wash, translucent so the organs read through */
   --stage-grid: rgba(80, 70, 60, .06);
   --leader: rgba(40, 42, 52, .42);
   --vein-portal: #7D6FB6;
@@ -169,7 +169,7 @@
     --organ-body: #1A2238; --organ-body-line: #2C3756;
     --organ-liver: #A88C82; --organ-spleen: #93889A; --organ-gut: #A8998A; --organ-stomach: #A99088; --organ-heart: #AE8387;
     --organ-kidney: #A08A80; --organ-lung: #5A6E90; --organ-pancreas: #AFA286; --organ-gb: #8C9A7E; --organ-aorta: #6E6470; --organ-a: .3; --organ-tint: 20%; --diaphragm: #9C8C84;
-    --artery: #E4606C; --casing-rgb: 214 222 246; --casing-a: .34; --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a)); --ascites: #F6CB5C; --ascites-a: .46; --stage-grid: rgba(160, 180, 255, .05); --leader: rgba(200, 212, 240, .42); --vein-portal: #9C90DA; --vein-systemic: #6FA6DA; --arrow-ink: rgba(233, 237, 246, .82); --label-halo: rgba(11, 17, 32, .9); --doppler: #3EE0A5;
+    --artery: #E4606C; --casing-rgb: 214 222 246; --casing-a: .34; --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a)); --ascites: #EADB9C; --ascites-a: .24; --stage-grid: rgba(160, 180, 255, .05); --leader: rgba(200, 212, 240, .42); --vein-portal: #9C90DA; --vein-systemic: #6FA6DA; --arrow-ink: rgba(233, 237, 246, .82); --label-halo: rgba(11, 17, 32, .9); --doppler: #3EE0A5;
     --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
     --grid: #1F2840; --axis: #34405E;
     --tr-pv: #F0649E; --tr-wedge: #A68CF2; --tr-hv: #5CA4F2; --tr-ra: #A9B2C7; --tr-ivc: #4CC2D6; --tr-var: #F28A56; --tr-sv: #3BC690; --tr-smv: #E0A63A;
@@ -204,7 +204,7 @@
   --organ-body: #1A2238; --organ-body-line: #2C3756;
   --organ-liver: #A88C82; --organ-spleen: #93889A; --organ-gut: #A8998A; --organ-stomach: #A99088; --organ-heart: #AE8387;
   --organ-kidney: #A08A80; --organ-lung: #5A6E90; --organ-pancreas: #AFA286; --organ-gb: #8C9A7E; --organ-aorta: #6E6470; --organ-a: .3; --organ-tint: 20%; --diaphragm: #9C8C84;
-  --artery: #E4606C; --casing-rgb: 214 222 246; --casing-a: .34; --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a)); --ascites: #F6CB5C; --ascites-a: .46; --stage-grid: rgba(160, 180, 255, .05); --leader: rgba(200, 212, 240, .42); --vein-portal: #9C90DA; --vein-systemic: #6FA6DA; --arrow-ink: rgba(233, 237, 246, .82); --label-halo: rgba(11, 17, 32, .9); --doppler: #3EE0A5;
+  --artery: #E4606C; --casing-rgb: 214 222 246; --casing-a: .34; --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a)); --ascites: #EADB9C; --ascites-a: .24; --stage-grid: rgba(160, 180, 255, .05); --leader: rgba(200, 212, 240, .42); --vein-portal: #9C90DA; --vein-systemic: #6FA6DA; --arrow-ink: rgba(233, 237, 246, .82); --label-halo: rgba(11, 17, 32, .9); --doppler: #3EE0A5;
   --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
   --grid: #1F2840; --axis: #34405E;
   --tr-pv: #F0649E; --tr-wedge: #A68CF2; --tr-hv: #5CA4F2; --tr-ra: #A9B2C7; --tr-ivc: #4CC2D6; --tr-var: #F28A56; --tr-sv: #3BC690; --tr-smv: #E0A63A;
