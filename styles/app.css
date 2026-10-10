@@ -1693,7 +1693,7 @@ button.finding:hover { background: var(--surface-2); }
 .sv-region .v { letter-spacing: 0; text-transform: none; font-weight: 500; font-size: calc(10px * var(--label-k, 1)); color: var(--text-2); }
 .sv-region .v b { font-weight: 700; font-size: calc(12px * var(--label-k, 1)); color: var(--text); margin-right: 1px; }
 .sv-region-fen .v { color: var(--text); font-weight: 600; }
-.sv-region-fen .v b { font-size: calc(14px * var(--label-k, 1)); font-weight: 800; letter-spacing: .06em; }
+.sv-region-fen .v b { font-size: calc(12.5px * var(--label-k, 1)); font-weight: 800; letter-spacing: .04em; }
 .sv-region-sin { color: var(--text); font-size: calc(11.5px * var(--label-k, 1)); }
 .sv-region-disse, .sv-region-lymph { --svg-green: #4F7440; color: var(--svg-green); }
 :root[data-theme="dark"] :is(.sv-region-disse, .sv-region-lymph) { --svg-green: #B5D3A3; }

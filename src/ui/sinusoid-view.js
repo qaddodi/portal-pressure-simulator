@@ -337,8 +337,8 @@ export function createSinusoidView({ host }) {
     const away = (x, from, d) => (Math.abs(x - from) < d ? from + (x < from ? -d : d) : x);
     const num = (v, d, u) => (m.hide ? '?' : `${fmt(v, d)}~${u}`);
     // In the lumen: the sinusoid (mid-view), the Kupffer cell beside itself, and the fenestrae along the far wall.
-    leaders.style.display = g.tall ? '' : 'none';
     if (g.tall) { layoutTall(); return; }
+    for (const k in lead) if (k !== 'lymph') lead[k].style.opacity = '0';   // (across the screen only the lymph has a leader)
     const xc = away(pick(0.5), g.xk, 30);
     const rs = region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), xc, 0, { along: true });
     LAB[0] = rs.x; LAB[1] = rs.half;
@@ -350,7 +350,7 @@ export function createSinusoidView({ host }) {
     const xq = V ? pick(0.24) : away(pick(0.86), g.xs, 40);
     region('disse', 'Space of Disse', '', xq, (V ? 1 : -1) * (wallIn(xq) + disseW(xq) * 0.5), { along: true });
     const xd = pick(V ? 0.55 : 0.32), lymph = (x) => region('lymph', 'Lymph', m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min · Protein ${Math.round(m.lyProt * 100)}%`, x, hepIn(x) + 1.2, { side: 1 });
-    const ly = lymph(xd);
+    let ly = lymph(xd);
     // In the plates: the stellate cell named just beyond its body, and a hepatocyte on itself, clear of its nucleus.
     region('hsc', S.act > 0.5 ? 'Activated stellate cell' : 'Stellate cell', '', g.xs, -(hepIn(g.xs) + 1), { side: -1, along: V });
     const xh = pick(V ? 0.88 : 0.08), hc = cellAt(xh, SEED.plateDn), hep1 = (x) => region('hep', 'Hepatocyte', '', x, hepIn(x) + hep * (hc.nv < 0.5 ? 0.78 : 0.22));
@@ -361,8 +361,10 @@ export function createSinusoidView({ host }) {
     if (gap(hl, ly) < pad) {
       const d = hl.x < ly.x ? -1 : 1;   // (the side of the numbers the name is on)
       hl = hep1(clamp(ly.x + d * (ly.half + hl.half + pad), hc.x0 + hl.half, hc.x1 - hl.half));
-      if (gap(hl, ly) < pad) lymph(hl.x - d * (hl.half + ly.half + pad));
+      if (gap(hl, ly) < pad) ly = lymph(hl.x - d * (hl.half + ly.half + pad));
     }
+    // The lymph's numbers are tied by a thin leader to the space of Disse that carries it.
+    { const xt = ly.x + ly.half + 3; leader('lymph', ly, xt, wallIn(xt) + disseW(xt) * 0.5); }
   }
   // A portrait screen: the sinusoid runs top to bottom and every label reads level. The lumen keeps only its own
   // name; the narrow bands (fenestrae, Disse) and the cells are named in the plates beside them, the stellate cell's
