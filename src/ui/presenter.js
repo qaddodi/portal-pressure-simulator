@@ -19,9 +19,9 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=cab65850a4';
 import { sinusoidSupported } from './sinusoid-view.js?v=d5403260c8';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
-import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=e908e007a1';
+import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=cfc72a8353';
 import { createTools } from './presenter-tools.js?v=28dfa00d7e';
-import { openHandout } from './handout.js?v=7adc8a8793';
+import { openHandout } from './handout.js?v=f2aa2beda0';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -162,6 +162,11 @@ function rich(t, s = {}, fp = null) {
   out.push(t.slice(at));
   return out;
 }
+// The five stations' colours with their names, once on a ladder or catheter slide (D1): the figure's labels and
+// the ladder's points take the same colours.
+const STATIONS = [['pv', 'Portal vein'], ['wedge', 'Sinusoids · WHVP'], ['hv', 'Hepatic vein · FHVP'], ['ivc', 'IVC'], ['ra', 'Right atrium']];
+const stationKey = () => h('div', { class: 'pz-stk', role: 'list', 'aria-label': 'Station colours' },
+  STATIONS.map(([t, w]) => h('span', { role: 'listitem', style: `--c:var(--tr-${t})` }, h('i'), w)));
 const RATE = {
   hvpg: (v) => (v >= 10 ? ['hi', 'CSPH'] : v >= 5 ? ['mid', 'Raised'] : ['ok', 'Normal']),
   ppg: (v) => (v >= 12 ? ['hi', 'High'] : v >= 6 ? ['mid', 'Raised'] : ['ok', 'Normal']),
@@ -341,7 +346,10 @@ function bigLadder() {
  *  tile also says how far it moved from there, green when it went the better way (and plain within normal). */
 function bigTiles() {
   const el = h('div', { class: 'pz-tiles' });
-  let sig = '', parts = [], draw = null;
+  let sig = '', parts = [], draw = null, goal = false;
+  // After TIPS the PPG is read against its target (below 12 mmHg), so a tile never says "Raised" under a line that
+  // says the target is reached.
+  const rated = (k, f) => (goal && k === 'ppg' && f.ppg != null ? (f.ppg < 12 ? ['ok', 'Below 12: target met'] : ['hi', '12 or more: target not met']) : rateOf(k, f));
   function build(ks, withRef) {
     parts = ks.map((k) => {
       const T = TILE[k] || { t: k, s: '', u: '' };
@@ -352,7 +360,7 @@ function bigTiles() {
     el.replaceChildren(...parts.map((p) => p.tile));
     el.dataset.n = String(parts.length);
     draw = tweener((f) => parts.forEach((p) => {
-      const [cls, word] = rateOf(p.k, f), none = cls == null && (p.k === 'saag' || p.k === 'tp');
+      const [cls, word] = rated(p.k, f), none = cls == null && (p.k === 'saag' || p.k === 'tp');
       p.v.textContent = none ? '—' : tileVal(p.k, f[p.k]);
       p.u.hidden = none || !p.T.u;
       p.r.textContent = word;
@@ -363,13 +371,14 @@ function bigTiles() {
       // "Up 9 points from 82%", "Down 2.1 mmHg from 17.7": the change, then where it started (never read as "up to").
       const pct = p.T.u === '%', by = pct ? (Math.abs(dd) === 1 ? ' point' : ' points') : p.T.u ? ' ' + p.T.u : '';
       p.d.textContent = same ? 'No change' : `${dd < 0 ? '▼ Down' : '▲ Up'} ${fmt(Math.abs(dd), dg)}${by} from ${fmt(r0 * x, dg)}${pct ? '%' : ''}`;
-      const calm = cls === 'ok' && rateOf(p.k, { ...f, [p.k]: r0 })[0] === 'ok';   // (a change within normal is neither)
+      const calm = cls === 'ok' && rated(p.k, { ...f, [p.k]: r0 })[0] === 'ok';   // (a change within normal is neither)
       p.d.dataset.way = same || calm || !p.T.better ? '' : Math.sign(dd) === p.T.better ? 'good' : 'bad';
     }));
   }
   return {
     el,
-    set(f, ks, key = [], ref = null, ms) {
+    set(f, ks, key = [], ref = null, ms, tips = false) {
+      goal = !!tips;
       const sg = ks.join() + (ref ? '|ref' : '');
       if (sg !== sig) { sig = sg; build(ks, !!ref); }
       parts.forEach((p) => p.tile.classList.toggle('key', key.includes(p.k)));
@@ -829,7 +838,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
   function dataTo(s, f, ref, ms) {
     if (!ui) return;
     if (s.data === 'ladder') ui.ladder.set(f, { key: s.key || [], ms, brackets: s.brackets });
-    if (s.data) ui.tiles.set(f, tileKeys(s), s.key || [], ref, ms);
+    if (s.data) ui.tiles.set(f, tileKeys(s), s.key || [], ref, ms, store.get().params?.tips?.on);
   }
   async function playLapse(s, to, cut) {
     const end = await stateReady(stateOf[to]);
@@ -991,6 +1000,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
         : [kick(s.site, s.kicker, s.sec), h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null,
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), onclick: () => abPick(s, i, k) }, o.label))) : null,
+          s.data === 'ladder' || s.cath ? stationKey() : null,
           s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
           s.causes?.length ? h('div', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), h('ul', {}, s.causes.map((c) => h('li', {}, c)))) : null]));
@@ -1012,7 +1022,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
       // (With a new patient the numbers are set at once, while the card is still out: it fades back in already showing them.)
       const ms = fresh ? 0 : undefined;
       if (lad) ui.ladder.set(st.fp, { key: q ? [] : s.key || [], ms, brackets: q ? null : s.brackets });
-      if (s.data) ui.tiles.set(st.fp, tileKeys(s), q ? [] : s.key || [], q ? null : refOf(s, i), ms);
+      if (s.data) ui.tiles.set(st.fp, tileKeys(s), q ? [] : s.key || [], q ? null : refOf(s, i), ms, st.params?.tips?.on);
       if (data.hidden) { data.hidden = false; data.classList.add('pz-hide'); void data.offsetWidth; }
       data.classList.remove('pz-hide');
     } else if (!data.hidden) {

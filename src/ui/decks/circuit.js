@@ -44,6 +44,7 @@ export const CIRCUIT = {
     },
     {
       id: 'resist', preset: 'csph', view: C, sites: R, data: 'tiles', tiles: ['pvFlow', 'hvpg', 'ppg'], delta: 'ohm',
+      compare: [{ label: 'Healthy', params: { cirrhosis: 0 } }, { label: 'Cirrhosis', own: true, params: { cirrhosis: 0.6 } }],
       kicker: K, site: 'sin', title: 'More resistance: cirrhosis',
       line: 'Scarred sinusoids resist the same flow several times more, so the pressure drop across the liver rises in proportion.',
       notes: 'The R term. In cirrhosis about three quarters of the extra resistance is fixed (fibrosis, nodules, capillarized sinusoids) and a quarter is tone: contracted stellate cells and too little nitric oxide in the sinusoids. The tone is what drugs can reverse. The tiles compare with the healthy liver on the first slide; the portal flow is almost the same.',
