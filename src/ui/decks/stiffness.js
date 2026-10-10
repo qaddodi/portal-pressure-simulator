@@ -1,7 +1,6 @@
 // Presenter talk: liver stiffness, the spleen and the platelets (the slide fields are described at the top of decks.js).
 
 // A variable in an equation: set in italic, as in print.
-const v = (x) => `<mi style="font-style:italic">${x}</mi>`;
 
 export const STIFFNESS = {
   id: 'stiffness', level: 'core', title: 'Non-invasive assessment: stiffness, spleen and platelets', minutes: 10,
@@ -35,13 +34,13 @@ export const STIFFNESS = {
       ask: ['Why scan fasting?', 'A meal raises portal inflow and the stiffness reading for up to about two hours.'],
     },
     {
-      id: 'rule', visual: 'scale', scale: { key: 'lsm', max: 40, low: 'Rule out', marks: [[15, 'Gray zone'], [25, 'Rule in']], sub: 'hvpg' },
-      of: [{ preset: 'healthy', name: 'Healthy' }, { id: 'fibrosis', name: 'Compensated cirrhosis' }, { preset: 'csph', name: 'CSPH by HVPG' }, { preset: 'cirr-decomp', name: 'Decompensated cirrhosis' }],
-      kicker: 'Baveno VII', title: 'Stiffness against the gradient',
-      eq: [`<mtable><mtr><mtd style="text-align:left;padding:0 .7em .15em 0"><mtext>Rule out</mtext></mtd><mtd style="text-align:left;padding:0 0 .15em">${v('LSM')}<mo>≤</mo><mn>15</mn><mtext>&#8201;kPa</mtext></mtd></mtr><mtr><mtd style="text-align:left;padding:0 .7em .15em 0"></mtd><mtd style="text-align:left;padding:0 0 .15em"><mtext>and&#8194;</mtext>${v('PLT')}<mo>≥</mo><mn>150</mn><mo>×</mo><msup><mn>10</mn><mn>9</mn></msup><mtext>/L</mtext></mtd></mtr><mtr><mtd style="text-align:left;padding:.35em .7em .15em 0"><mtext>Rule in</mtext></mtd><mtd style="text-align:left;padding:.35em 0 .15em">${v('LSM')}<mo>≥</mo><mn>25</mn><mtext>&#8201;kPa</mtext></mtd></mtr></mtable>`,
-        'CSPH by Baveno VII. LSM: liver stiffness by FibroScan. PLT: platelet count.'],
-      line: 'Between 15 and 25 kPa, stiffness alone cannot decide. The patient in the gray zone has CSPH by HVPG at 24 kPa.',
-      notes: 'The rule of five: 10, 15, 20 and 25 kPa. At or below 15 kPa with platelets of 150 or more, CSPH is ruled out (under 5% risk) and screening endoscopy can be skipped. At 25 kPa or more, CSPH is ruled in (in viral and alcohol-related disease, and in non-obese MASLD). In the gray zone, 20 to 25 kPa with platelets below 150, or 15 to 20 kPa with platelets below 110, gives a risk of CSPH of 60% or more. The model\'s patient with CSPH (HVPG 11.7 mmHg) sits at 24 kPa, in the gray zone: a reminder that the zone is common, and that there the catheter or the platelets decide.',
+      id: 'rule', visual: 'scale', scale: { key: 'lsm', max: 40, low: 'Rule out', marks: [[15, 'Gray zone'], [25, 'Rule in']], sub: ['hvpg', 'plt'],
+        rules: ['15 kPa or less with platelets 150 or more: no CSPH', '15 to 25 kPa: the platelets decide', '25 kPa or more: CSPH'] },
+      // (Baveno VII's rules are for compensated disease, so every patient here is compensated, without ascites.)
+      of: [{ preset: 'healthy', name: 'Healthy' }, { id: 'fibrosis', name: 'Compensated cirrhosis' }, { preset: 'csph', name: 'Compensated, CSPH by HVPG' }, { preset: 'csph', params: { cirrhosis: 0.75 }, name: 'Compensated, stiffer' }],
+      kicker: 'Baveno VII', title: 'Stiffness rules for CSPH',
+      line: 'In compensated cirrhosis, 25 kPa or more means CSPH and 15 or less with normal platelets rules it out. Patient 3, at {24.1 kPa}, has an HVPG of 12: in the gray zone, low platelets point to CSPH.',
+      notes: 'The rule of five: 10, 15, 20 and 25 kPa. At or below 15 kPa with platelets of 150 or more, CSPH is ruled out (under 5% risk) and screening endoscopy can be skipped. At 25 kPa or more, CSPH is ruled in (in viral and alcohol-related disease, and in non-obese MASLD). In the gray zone, 20 to 25 kPa with platelets below 150, or 15 to 20 kPa with platelets below 110, gives a risk of CSPH of 60% or more. The model\'s compensated patient with CSPH (HVPG 12 mmHg, platelets 88) sits at 24 kPa, in the gray zone: a reminder that the zone is common, and that there the catheter or the platelets decide.',
       ask: ['Stiffness 13 kPa, platelets 180. Does this patient need a screening endoscopy?', 'No: below 15 kPa with platelets of 150 or more rules out CSPH.'],
     },
     {

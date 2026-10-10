@@ -19,9 +19,9 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=cab65850a4';
 import { sinusoidSupported } from './sinusoid-view.js?v=14866bc1c9';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
-import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=76c2cba741';
+import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=2fdce58a54';
 import { createTools } from './presenter-tools.js?v=5bb66173ff';
-import { openHandout } from './handout.js?v=0c17ffecc0';
+import { openHandout } from './handout.js?v=9dec8b36c3';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -305,6 +305,11 @@ function rail(mode) {
 /** One number on a scale with its thresholds, each patient a pin that glides from zero to its value.
  *  sc: { key, max, low, marks: [[value, words]] }: each zone is named under its middle (low names the
  *  first), a name too wide for its zone on two lines; rows: [{ name, f, site }]. */
+// A visual's own patient ({ preset } with its params and days, if any), as one key.
+const xKey = (o) => o.preset + (o.params || o.days ? JSON.stringify([o.params, o.days]) : '');
+// Pressures read in whole mmHg on every visual; the rest keep their decimal.
+const WHOLE = new Set(['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'ppg', 'sin', 'map']);
+const dig = (k) => (WHOLE.has(k) ? 0 : TILE[k]?.d ?? 1);
 function scaleVisual(sc, rows) {
   if (sc.key === 'lsm' || sc.legend) return scaleKey(sc, rows);
   const W = 1400, H = 480, x0 = 70, x1 = W - 60, max = sc.max || 20, X = (v) => x0 + (x1 - x0) * clamp(v, 0, max) / max, Y = 268;
@@ -317,7 +322,7 @@ function scaleVisual(sc, rows) {
     return sv('text', { class: 'pzs-mw', x, y: Y + 116, 'text-anchor': 'middle' }, lines.map((l, i) => sv('tspan', { x, dy: i ? 34 : 0 }, l)));
   };
   const pins = [...rows].filter((r) => r.f).sort((a, b) => a.f[sc.key] - b.f[sc.key]);
-  const svg = sv('svg', { class: 'pz-scale', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': pins.map((r) => `${r.name} ${fmt(r.f[sc.key], 1)}`).join(', ') },
+  const svg = sv('svg', { class: 'pz-scale', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': pins.map((r) => `${r.name} ${fmt(r.f[sc.key], dig(sc.key))}`).join(', ') },
     zones.map(([a, b, c]) => sv('rect', { class: 'pzs-zone', 'data-rate': c, x: X(a), y: Y - 22, width: X(b) - X(a), height: 44 })),
     sc.marks.map(([v]) => sv('g', { class: 'pzs-mark' },
       sv('line', { x1: X(v), x2: X(v), y1: Y - 34, y2: Y + 34 }),
@@ -330,7 +335,7 @@ function scaleVisual(sc, rows) {
       const g = sv('g', { class: 'pzs-pin', 'data-rate': rate || 'none', style: `--x:${(X(v) - x0).toFixed(1)}px; --i:${i}` },
         sv('line', { x1: x0, x2: x0, y1: Y - up + 12, y2: Y - 14 }),
         sv('circle', { cx: x0, cy: Y, r: 15 }),
-        sv('text', { class: 'pzs-pv', x: x0, y: Y - up - 14, 'text-anchor': 'middle' }, fmt(v, 1)),
+        sv('text', { class: 'pzs-pv', x: x0, y: Y - up - 14, 'text-anchor': 'middle' }, fmt(v, dig(sc.key))),
         sv('text', { class: 'pzs-pn', x: x0, y: Y - up + 4 - 54, 'text-anchor': 'middle' }, r.name));
       return g;
     }));
@@ -349,7 +354,9 @@ function scaleKey(sc, rows) {
   const span = (z) => `left:${P(z.a)};width:calc(${P(z.b)} - ${P(z.a)})`;
   const pins = rows.filter((r) => r.f).sort((a, b) => a.f[sc.key] - b.f[sc.key]);
   const rate = (r) => rateOf(sc.key, r.f)[0] || 'none';
-  const sub = (f) => (sc.sub && f[sc.sub] != null ? `${TILE[sc.sub]?.t || sc.sub} ${fmt(f[sc.sub], 1)} ${TILE[sc.sub]?.u || ''}` : null);
+  // A second reading or several under each patient (sub: a tile key or a list), pressures in whole mmHg.
+  const SUBNAME = { hvpg: 'HVPG', plt: 'Platelets', ppg: 'PPG' };
+  const sub = (f) => [sc.sub || []].flat().filter((k) => f[k] != null).map((k) => `${SUBNAME[k] || TILE[k]?.t || k} ${fmt(f[k], dig(k))}${TILE[k]?.u ? ` ${TILE[k].u}` : ''}`);
   const box = h('div', { class: 'pz-visual pz-sk', role: 'img', 'aria-label': pins.map((r) => `${r.name} ${fmt(r.f[sc.key], 1)} ${u}`).join(', ') },
     h('div', { class: 'pzk-names', 'aria-hidden': 'true' }, zones.map((z) => h('span', { 'data-rate': z.c, style: span(z) }, z.t))),
     h('div', { class: 'pzk-bar', 'aria-hidden': 'true' },
@@ -357,11 +364,13 @@ function scaleKey(sc, rows) {
       sc.marks.map(([v]) => h('b', { style: `left:${P(v)}` })),
       pins.map((r, i) => h('span', { class: 'pzk-dot', 'data-rate': rate(r), style: `--x:${P(r.f[sc.key])};--i:${i}` }, String(i + 1)))),
     h('div', { class: 'pzk-axis', 'aria-hidden': 'true' }, [0, ...sc.marks.map(([v]) => v)].map((v) => h('span', { style: `left:${P(v)}` }, String(v))), h('span', { class: 'end' }, `${max}+ ${u}`)),
+    // (rules: each zone's rule in words, under its stretch of the axis)
+    sc.rules ? h('div', { class: 'pzk-rules' }, zones.map((z, i) => h('span', { 'data-rate': z.c, style: span(z) }, sc.rules[i] || ''))) : null,
     h('ol', { class: 'pzk-key' }, pins.map((r, i) => h('li', { 'data-rate': rate(r), style: `--i:${i}` },
       h('span', { class: 'pzk-n' }, String(i + 1)),
-      h('span', { class: 'pzk-v' }, fmt(r.f[sc.key], 1), h('small', {}, ` ${u}`)),
+      h('span', { class: 'pzk-v' }, fmt(r.f[sc.key], dig(sc.key)), h('small', {}, ` ${u}`)),
       h('span', { class: 'pzk-name' }, r.name),
-      sub(r.f) ? h('span', { class: 'pzk-sub' }, sub(r.f)) : null))));
+      sub(r.f).map((t) => h('span', { class: 'pzk-sub' }, t))))));
   const go = () => box.classList.add('in');
   requestAnimationFrame(() => requestAnimationFrame(go)); setTimeout(go, 120);
   return box;
@@ -508,16 +517,17 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     const key = deck.mine ? null : deck.id;
     stateOf = []; let last = 0;
     slides.forEach((s, i) => { if (changes(s) || i === 0) last = i; stateOf[i] = last; });
-    // Patients a visual compares that no slide shows ({ preset } rows): computed after the slides, each fresh.
-    const extra = [...new Set(slides.flatMap((s) => (s.of || []).filter((o) => typeof o === 'object' && o.preset && !o.id).map((o) => o.preset)))];
-    extraOf = new Map(extra.map((id, k) => [id, slides.length + k]));
+    // Patients a visual compares that no slide shows ({ preset, params?, days? } rows): computed after the slides, each fresh.
+    const extraRows = slides.flatMap((s) => (s.of || []).filter((o) => typeof o === 'object' && o.preset && !o.id));
+    const extra = [...new Map(extraRows.map((o) => [xKey(o), o])).values()];
+    extraOf = new Map(extra.map((o, k) => [xKey(o), slides.length + k]));
     const hit = key && cache.get(key);
     if (hit) { states = hit.states; waiters = []; return; }
     const mine = []; states = mine; waiters = [];
-    const c = getCalc(), steps = [...slides.map((s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse } : {})), ...extra.map((id) => ({ preset: id }))];
+    const c = getCalc(), steps = [...slides.map((s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse } : {})), ...extra.map((o) => ({ preset: o.preset, params: o.params, days: o.days }))];
     const presetAt = []; let pid = store.get().presetId;
     slides.forEach((s, i) => { if (s.preset) pid = s.preset; presetAt[i] = pid; });
-    extra.forEach((id, k) => { presetAt[slides.length + k] = id; });
+    extra.forEach((o, k) => { presetAt[slides.length + k] = o.preset; });
     const deckNow = deck;
     (async () => {
       const first = slides[0]?.preset ? null : (await host.request('snapshot')).snap;
@@ -917,7 +927,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
   const fpOf = (id) => { const i = slides.findIndex((x) => x.id === id); return i >= 0 ? states[stateOf[i]]?.fp : null; };
   // A visual's rows: the deck's slides by id ('pvt', or { id, name } to name it), or { preset, name } patients that
   // no slide shows, computed after the slides.
-  const rowAt = (o) => { const id = typeof o === 'string' ? o : o.id, i = id ? slides.findIndex((x) => x.id === id) : -1; return [i, i >= 0 ? stateOf[i] : extraOf.get(o.preset)]; };
+  const rowAt = (o) => { const id = typeof o === 'string' ? o : o.id, i = id ? slides.findIndex((x) => x.id === id) : -1; return [i, i >= 0 ? stateOf[i] : extraOf.get(xKey(o))]; };
   const rowIdx = (s) => (s.of || []).map((o) => rowAt(o)[1]).filter((k) => k != null && k >= 0);
   function rowsOf(s) {
     return (s.of || []).map((o) => {
