@@ -60,6 +60,7 @@ export function createSinusoidView({ host }) {
   }
   function region(key, name, value, x, y, { along = false, side = 0 } = {}) {
     const R = caption(key, `sv-region sv-region-${key}`, name, value);
+    R.at = [x, y];   // (what it names, µm)
     // side ±1: the caption sits wholly on that side of y (across the vessel), its near edge at y.
     const w = R.el.offsetWidth, hh = R.el.offsetHeight, ang = along && !geo.vert ? geo.ang : 0;   // (always level on a top-down sinusoid)
     const across = along ? hh : Math.abs(w * Math.sin(geo.ang)) + Math.abs(hh * Math.cos(geo.ang));
@@ -438,30 +439,70 @@ export function createSinusoidView({ host }) {
   // then sideways, and ease there; a name's leader moves with it. The ends' names, the legend and the lumen's keep their places.
   function declutter() {
     // (From the boxes the layout recorded, not the screen: the view may be mid-zoom, scaled by the compositor.)
-    const W = geo.W, H = geo.H;
-    const hit = (a, b) => a.l < b.r + 8 && b.l < a.r + 8 && a.t < b.b + 2 && b.t < a.b + 2;
+    const W = geo.W, H = geo.H, lk = parseFloat(document.documentElement.style.getPropertyValue('--label-k')) || 1;
+    const gx = 6 + 2 * lk, gy = 2 + 2 * lk;   // (clear of each other's halo, which grows with the text)
+    // (Within the stage, below the top bar and a presenter's words, above a presenter's bar.)
+    const T = cssN('--top-safe') + cssN('--pz-t') + 2, B = H - cssN('--pz-b') - 2;
+    const hit = (a, b) => a.l < b.r + gx && b.l < a.r + gx && a.t < b.b + gy && b.t < a.b + gy;
     const placed = [];
     if (LEG.w) placed.push({ l: LEG.x, r: LEG.x + LEG.w, t: LEG.y, b: LEG.y + LEG.h });
+    // The ends' names and the lumen's are fixed; the rest give way in turn.
     for (const k of ['in', 'out', 'sin', 'fen', 'lymph', 'disse', 'hsc', 'hep', 'kup']) {
       const R = regions[k];
       if (!R?.box || !R.el.isConnected) continue;
-      const b = R.box, w = b.r - b.l, hh = b.b - b.t;
-      let off = [0, 0];
-      if (k !== 'in' && k !== 'out' && k !== 'sin' && placed.some((p) => hit(b, p))) {
-        const tries = [];
-        for (const n of [1, 2, 3, 4]) for (const sg of [1, -1]) tries.push([0, sg * n * (hh / 2 + 4)]);
-        for (const sg of [1, -1]) tries.push([sg * (w / 2 + 8), 0], [sg * (w + 8), 0]);
-        const ok = tries.find(([dx, dy]) => {
-          const c = { l: b.l + dx, r: b.r + dx, t: b.t + dy, b: b.b + dy };
-          return c.l >= 2 && c.r <= W - 2 && c.t >= 2 && c.b <= H - 2 && !placed.some((p) => hit(c, p));
-        });
-        if (ok) off = ok;
+      const b = R.box, w = b.r - b.l, hh = b.b - b.t, cx = (b.l + b.r) / 2, cy = (b.t + b.b) / 2;
+      // A box at offset (dx, dy) and scale s about the label's centre.
+      const at = (dx, dy, s) => ({ l: cx + dx - (w / 2) * s, r: cx + dx + (w / 2) * s, t: cy + dy - (hh / 2) * s, b: cy + dy + (hh / 2) * s });
+      const free = (c) => c.l >= 2 && c.r <= W - 2 && c.t >= T && c.b <= B && !placed.some((p) => hit(c, p));
+      let off = [0, 0, 1];
+      if (k !== 'in' && k !== 'out' && k !== 'sin' && !free(at(0, 0, 1))) {
+        // Up or down the screen first, then sideways; where nothing is free at full size (a crowded phone at large
+        // text), the name is set a little smaller, then smaller again, before it may overlap.
+        // Failing all, the spot that overlaps least.
+        const ov = (c) => placed.reduce((a, p) => a + Math.max(0, Math.min(c.r, p.r + gx) - Math.max(c.l, p.l - gx)) * Math.max(0, Math.min(c.b, p.b + gy) - Math.max(c.t, p.t - gy)), 0)
+          + (c.l < 2 || c.r > W - 2 || c.t < T || c.b > B ? 1e7 : 0);
+        let found = null, least = null;
+        for (const s of [1, 0.85, 0.72]) {
+          const tries = [[0, 0]];
+          for (const n of [1, 2, 3, 4, 5, 6]) for (const sg of [1, -1]) tries.push([0, sg * n * (hh * s / 3 + 3)]);
+          for (const sg of [1, -1]) tries.push([sg * (w * s / 2 + 8), 0], [sg * (w * s + 8), 0]);
+          // (and snug above or below each name already placed)
+          for (const p of placed) tries.push([0, p.b + gy + 1 - (cy - (hh / 2) * s)], [0, p.t - gy - 1 - (cy + (hh / 2) * s)]);
+          for (const [dx, dy] of tries) {
+            if (Math.abs(dy) > 2.2 * hh) continue;   // (a name stays near what it names)
+            const c = at(dx, dy, s);
+            if (free(c)) { found = [dx, dy, s]; break; }
+            const o = ov(c) + Math.abs(dy) * 0.01;
+            if (!least || o < least.o) least = { o, v: [dx, dy, s] };
+          }
+          if (found) break;
+        }
+        off = found || least?.v || off;
       }
       R.off = off;
       R.el.style.translate = off[0] || off[1] ? `${off[0].toFixed(1)}px ${off[1].toFixed(1)}px` : '';
-      placed.push({ l: b.l + off[0], r: b.r + off[0], t: b.t + off[1], b: b.b + off[1] });
+      R.el.style.scale = off[2] !== 1 ? String(off[2]) : '';
+      placed.push(at(off[0], off[1], off[2]));
+      // The Kupffer cell's name, crowded off its cell, is tied back to it by a thin leader.
+      if (k === 'kup') {
+        const [tx, ty] = toScreen(R.at[0], R.at[1]), c = at(off[0], off[1], off[2]);
+        if (tx < c.l - 6 || tx > c.r + 6 || ty < c.t - 6 || ty > c.b + 6) {
+          // (from the nearest point of the name's box to the cell)
+          leader('kup', { cx: 0, cy: 0, w: 0, hh: 0 }, R.at[0], R.at[1]);
+          const [kl, kd] = lead.kup.children;
+          kl.setAttribute('x1', clamp(tx, c.l, c.r).toFixed(1)); kl.setAttribute('y1', clamp(ty, c.t, c.b).toFixed(1));
+          kl.setAttribute('x2', tx.toFixed(1)); kl.setAttribute('y2', ty.toFixed(1));
+          kd.setAttribute('cx', tx.toFixed(1)); kd.setAttribute('cy', ty.toFixed(1));
+          lead.kup.style.opacity = '';
+        } else if (lead.kup) lead.kup.style.opacity = '0';
+        continue;
+      }
       const ln = lead[k]?.children[0];
-      if (ln && (off[0] || off[1])) for (const [a, d] of [['x1', off[0]], ['y1', off[1]]]) ln.setAttribute(a, (parseFloat(ln.getAttribute(a)) + d).toFixed(1));
+      if (ln && (off[0] || off[1] || off[2] !== 1)) {
+        // (Its near end follows the name, to the edge of the smaller box when the name was set smaller.)
+        const sg = Math.sign(parseFloat(ln.getAttribute('x2')) - cx), dx = off[0] - sg * (w / 2) * (1 - off[2]);
+        for (const [a, d] of [['x1', dx], ['y1', off[1]]]) ln.setAttribute(a, (parseFloat(ln.getAttribute(a)) + d).toFixed(1));
+      }
     }
   }
   function layoutEnds() {

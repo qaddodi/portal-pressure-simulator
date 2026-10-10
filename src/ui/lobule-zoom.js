@@ -28,7 +28,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js?v=706a39d50b';
 import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=44500994a2';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
-import { createSinusoidView } from './sinusoid-view.js?v=1a75caf738';
+import { createSinusoidView } from './sinusoid-view.js?v=c9d7b10379';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const TAU = Math.PI * 2;
@@ -902,6 +902,8 @@ export function createLobuleZoom({ host }) {
       const [x, y] = toScreen(anchorOf(k)), r = Math.max(12, g.rcv0 * 1.3 * V.k);
       return { k, l: x - r, r: x + r, t: y - r, b: y + r };
     });
+    // The letters' halo reaches past each label's box, more so at larger text: the margins grow with it.
+    const lk = parseFloat(document.documentElement.style.getPropertyValue('--label-k')) || 1, hm = 4 + 2 * lk;
     for (const k of ['cv', 'sin', 'triad', 'lymph']) {
       const L = labs[k];
       if (!L) continue;
@@ -915,19 +917,21 @@ export function createLobuleZoom({ host }) {
       const outside = k === 'lymph' ? a[0] < 0 || a[0] > g.W || a[1] < 0 || a[1] > g.H : a[0] < fr.l - 4 || a[0] > fr.r + 4 || a[1] < fr.t - 4 || a[1] > fr.b + 4;
       L.el.hidden = outside || fr.r - fr.l < w + 16 || fr.b - fr.t < hh + 16;
       if (L.el.hidden) { L.line.style.display = L.dotEl.style.display = 'none'; continue; }
-      const pad = 8, step = hh + 12;
+      const pad = 8 + 4 * lk, step = hh + 12;
       const preferred = k === 'cv' ? [a[0], a[1] - g.rcv0 * V.k - hh / 2 - 12]
         : k === 'triad' ? [a[0], a[1] + hh / 2 + 12] : k === 'lymph' ? [a[0], a[1] - hh / 2 - 14] : a;
       // Steps in proportion to the label, so larger text searches proportionally farther (above, below, beside, diagonally).
       const candidates = [preferred];
       for (const dx of [0, -(w / 2 + 12), w / 2 + 12, -(w + 24), w + 24])
         for (const n of [0, -1, 1, -2, 2, -3, 3]) if (dx || n) candidates.push([preferred[0] + dx, preferred[1] + n * step]);
+      // Snug against each label already placed (just above or below it), so a tight gap between two is found.
+      for (const o of placed) candidates.push([preferred[0], o.b + hh / 2 + hm], [preferred[0], o.t - hh / 2 - hm]);
       const own = marks.filter((m) => m.k !== k);
       let best = null;
       for (const [px, py] of candidates) {
         const x = clamp(px, fr.l + w / 2 + pad, fr.r - w / 2 - pad);
         const y = clamp(py, fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
-        const box = { l: x - w / 2 - 6, r: x + w / 2 + 6, t: y - hh / 2 - 6, b: y + hh / 2 + 6 };
+        const box = { l: x - w / 2 - hm, r: x + w / 2 + hm, t: y - hh / 2 - hm, b: y + hh / 2 + hm };
         const cost = placed.reduce((sum, other) => sum + overlap(box, other) * 100, 0)
           + cards.reduce((sum, c) => sum + overlap(box, c) * 400, 0)
           + own.reduce((sum, m) => sum + overlap(box, m) * 40, 0)
