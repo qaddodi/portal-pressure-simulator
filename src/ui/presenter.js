@@ -105,7 +105,7 @@ const TARGETS = {
   'sinusoid:lymph': { lit: true, tone: 'ivc', words: 'lymph' },
   'sinusoid:lumen': { lit: true, tone: 'wedge', words: 'sinusoids?' },
 };
-const toneVar = (t) => (t === 'accent' ? 'var(--accent)' : `var(--tr-${t})`);
+const toneVar = (t) => (t === 'accent' ? 'var(--accent)' : t.startsWith('--') ? `var(${t})` : `var(--tr-${t})`);
 // Node ids name their target too ([portal vein](CONF) is [portal vein](pv)).
 for (const [k, t] of Object.entries(TARGETS)) if (t.node && !TARGETS[t.node]) TARGETS[t.node] = TARGETS[k];
 const ORGANS = new Set(['liver', 'spleen', 'heart']);
@@ -115,7 +115,12 @@ for (const t of Object.values(TARGETS)) for (const e of t.edges || []) EDGE_TONE
 // (Collaterals and spontaneous shunts take the varices' colour: one family on the figure.)
 for (const e of ['C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'S_PC', 'S_DSR', 'S_MC']) EDGE_TONE[e] ||= 'var';
 // A live value's colour ({pv}): the station it is read at; a value with no station (HVPG) is a plain pill.
-const VAL_TONE = { pv: 'pv', whvp: 'wedge', sin: 'wedge', fhvp: 'hv', ivc: 'ivc', ra: 'ra', varix: 'var', gv: 'var', spleen: 'sv' };
+const VAL_TONE = { pv: 'pv', whvp: 'wedge', sin: 'wedge', fhvp: 'hv', ivc: 'ivc', ra: 'ra' };
+// A reading with no station of its own (a size: the spleen, the varices) takes its status colour, as its card
+// shows it, on its pill and on its organ's outline; neutral while it is normal.
+const BY_RATE = new Set(['spleen', 'varix', 'gv']), RATE_TONE = { hi: '--danger', mid: '--caution' };
+const rateTone = (k, fp) => RATE_TONE[rateOf(k, fp)[0]] || null;
+const valTone = (k, fp) => (BY_RATE.has(k) ? rateTone(k, fp) : VAL_TONE[k]);
 // A slide's terms: { words: target } (terms: ['pv', 'ra'] takes each target's own words).
 function termList(s) {
   const t = s.terms;
@@ -182,7 +187,7 @@ function rich(t, s = {}, fp = null) {
     out.push(t.slice(at, m.index));
     if (lw) out.push(TARGETS[lk] ? termPill(lw, lk) : lw);
     else if (tword) { seenT.add(tk); out.push(termPill(tword, tk)); }
-    else if (mk && TILE[mk]) out.push(pill(liveVal(mk, s, fp), mkStop, '', VAL_TONE[mk]));
+    else if (mk && TILE[mk]) out.push(pill(liveVal(mk, s, fp), mkStop, '', valTone(mk, fp)));
     else if (mk && /^[<>≥≤]=?/.test(mk)) out.push(pill(mk.replace(/^(?:>=|<=|[<>≥≤])\s*/, ''), mkStop, ' cut'));
     else if (mk) out.push(pill(mk, mkStop));
     else if (val) out.push(pill(val, valStop));
@@ -756,8 +761,17 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     // (Reduced motion keeps the glide, short: a jump of the whole figure is harder to follow than a quick move.)
     const gl = ms || 300;
     if (cam === 'fit' || v === 'circuit') stage.fitSlow(gl);
-    else stage.frameBox(Array.isArray(cam) ? cam : REGIONS[cam] || REGIONS.route, gl, s.kMax || 3.2);
+    else stage.frameBox(camBox(cam, s), gl, s.kMax || 3.2);
     await wait(gl);
+  }
+  // A slide's framing: its region of the plate, grown to take in all of what the slide points at (its outlined
+  // organs as drawn now, an enlarged spleen whole), with a little room for the outline's glow.
+  function camBox(cam, s) {
+    const r = Array.isArray(cam) ? cam : REGIONS[cam] || REGIONS.route;
+    const tg = slideTargets(s), f = stage.focusBox({ organs: tg.organs.map((o) => o.id) });
+    if (!f) return r;
+    const m = 0.08 * Math.max(f[2] - f[0], f[3] - f[1]);
+    return [Math.min(r[0], f[0] - m), Math.min(r[1], f[1] - m), Math.max(r[2], f[2] + m), Math.max(r[3], f[3] + m)];
   }
 
   // ── The HVPG catheter (stage.setCatheter, as Measure › HVPG draws it), choreographed slide by slide: in along
@@ -996,7 +1010,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       store.set({ presentLabels: q ? [] : [...new Set([...(s.labels || []), ...tg.labels])], presentTerms: tg?.terms || null,
         presentNames: !q && (s.data === 'ladder' || !!s.cath),
         focus: marks.length ? { ...marks[0], marks } : null, lobuleCallout: q || !s.callout ? null : { kind: 'block', ...s.callout } });
-      if (tg) { stage.setGlow(tg.glow); stage.pinOrgans(tg.organs); stage.setResGlow(tg.res); }
+      if (tg) { stage.setGlow(tg.glow); stage.pinOrgans(tg.organs.map((o) => (o.id === 'spleen' && st?.fp ? { id: o.id, tone: rateTone('spleen', st.fp) } : o))); stage.setResGlow(tg.res); }
       app.dataset.lit = tg?.lit.join(' ') || '';
     }
     { const ss = !s.visual && !q ? [...new Set([...(s.sites || []), ...slideTargets(s).sites])] : []; if (ss.length) stage.setSites(ss, st.fp); }
@@ -1314,7 +1328,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     if (!shown) return;
     const s = slides[shown.i], cam = s.visual ? s.cam : asking(s, shown.rev) ? 'fit' : s.cam || 'fit';
     if (cath.on && cath.cam) stage.cathFocus(cath.cam, 400);
-    else if (cam && !LOBULE_CAM.test(cam) && !store.get().lobule) { if (cam === 'fit') stage.fitSlow(400); else stage.frameBox(Array.isArray(cam) ? cam : REGIONS[cam] || REGIONS.route, 400, s.kMax || 3.2); }
+    else if (cam && !LOBULE_CAM.test(cam) && !store.get().lobule) { if (cam === 'fit') stage.fitSlow(400); else stage.frameBox(camBox(cam, s), 400, s.kMax || 3.2); }
   };
   // Projector-size labels on the figure, for the screen it is on (2 at 1080 lines).
   function setLabels() {

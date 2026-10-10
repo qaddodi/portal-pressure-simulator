@@ -2771,7 +2771,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Each in its station's colour ([{ id, tone }], --tr-<tone>).
   function pinOrgans(list) {
     const want = new Map((list || []).map((o) => (typeof o === 'string' ? [o, null] : [o.id, o.tone])).filter(([id]) => organEls[id]));
-    const cs = getComputedStyle(svg), col = (tone) => (tone ? [...toRGB(`var(--tr-${tone})`, cs)].slice(0, 3) : null);
+    const cs = getComputedStyle(svg), col = (tone) => (tone ? [...toRGB(`var(${tone.startsWith('--') ? tone : `--tr-${tone}`})`, cs)].slice(0, 3) : null);
     for (const o of olList) if (o.kind === 'pin' && !want.has(o.id)) o.on = false;
     for (const [id, tone] of want) {
       const o = olList.find((x) => x.kind === 'pin' && x.id === id);
@@ -5558,6 +5558,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setCircuitRotated,
     circuitRotated: () => rotTarget === 1,
     zoomToBox, frameBox,
+    /** The plate box (world units) around organs and vessels as drawn now (an enlarged spleen at its size), or null. */
+    focusBox({ organs = [], edges = [] } = {}) {
+      let b = null;
+      const add = (el, m) => {
+        if (!el?.getBBox) return;
+        let r; try { r = el.getBBox(); } catch { return; }
+        if (!r.width && !r.height) return;
+        for (const [x, y] of [[r.x, r.y], [r.x + r.width, r.y], [r.x, r.y + r.height], [r.x + r.width, r.y + r.height]]) {
+          const X = m ? m.a * x + m.c * y + m.e : x, Y = m ? m.b * x + m.d * y + m.f : y;
+          b = b ? [Math.min(b[0], X), Math.min(b[1], Y), Math.max(b[2], X), Math.max(b[3], Y)] : [X, Y, X, Y];
+        }
+      };
+      for (const id of organs) if (organEls[id]?.getAttribute('d')) add(organEls[id], organG[id]?.transform.baseVal.consolidate()?.matrix);
+      for (const id of edges) if (E[id]?.vis) add(E[id].wall);
+      return b;
+    },
     /** Fit with a chosen glide (the presenter's slower, calmer moves). */
     fitSlow(ms = 1300) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms); },
     /** The anatomy/circuit camera (where it is headed, if gliding), and a glide back to one saved earlier (the presenter puts the view back). */
