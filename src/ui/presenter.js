@@ -682,7 +682,10 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     if (!ui) return;
     const out = [ui.text, ui.panel], data = ui.data;
     // A card that moves (under the words, or back beside them) goes out with the words and comes back in its new place.
-    const move = !data.hidden && !data.classList.contains('pz-hide') && next && (next.data === 'ladder' || next.data === 'tiles') && !next.visual && under(next) !== data.classList.contains('under');
+    // (Also when its kind or title changes, so the ladder never appears or goes under the numbers in one frame.)
+    const lad = next?.data === 'ladder', ttl = lad ? 'Pressure, portal vein to heart' : next?.dataTitle || 'This patient, from the model';
+    const move = !data.hidden && !data.classList.contains('pz-hide') && next && (next.data === 'ladder' || next.data === 'tiles') && !next.visual
+      && (under(next) !== data.classList.contains('under') || !lad !== data.classList.contains('tiles-only') || ttl !== ui.dhT.textContent);
     if (move) data.classList.add('pz-hide');
     if (!move && out.every((el) => el.hidden || !el.childElementCount)) return;
     for (const el of out) el.classList.add('pz-leave');
@@ -693,18 +696,20 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
   function wordsIn(s, q, st, i) {
     if (!ui) return;
     const { text, panel, data } = ui;
-    text.classList.remove('pz-leave'); panel.classList.remove('pz-leave');
+    text.classList.remove('pz-leave');   // (the panel's own is let go once its new content is in, so it never fades back in with the old)
     const kick = (site, words) => h('div', { class: 'pz-kick', 'data-site': site || 'none' }, h('i'), words);
     if (s.visual) {
       text.hidden = true; text.replaceChildren();
-      panel.hidden = false;
+      // A panel that was not there fades in (never pops): unhidden while still faded, then let go.
+      if (panel.hidden) { panel.classList.add('pz-leave'); panel.hidden = false; void panel.offsetWidth; }
       panel.classList.toggle('fill', s.visual === 'ladders');
       panel.dataset.visual = s.visual;
       panel.replaceChildren(h('div', { class: 'pz-ph' }, kick(null, s.kicker), h('h1', { class: 'pz-h' }, nb(s.title)), s.line ? h('p', { class: 'pz-line' }, s.line) : null),
         VISUALS[s.visual](s));
+      panel.classList.remove('pz-leave');
       ui.veil.classList.add('on');
     } else {
-      panel.hidden = true; panel.replaceChildren(); ui.veil.classList.remove('on');
+      panel.hidden = true; panel.replaceChildren(); panel.classList.remove('pz-leave'); ui.veil.classList.remove('on');
       text.hidden = false;
       text.replaceChildren(...(q
         ? [kick(null, 'Quiz'), h('h1', { class: 'pz-h' }, s.quiz), s.rail ? rail(null) : null, h('p', { class: 'pz-line pz-hint' }, 'Take answers from the audience, then press → to show the answer.')]
