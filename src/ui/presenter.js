@@ -22,7 +22,7 @@ import { pressureColor } from './colormap.js?v=6d64a94345';
 import { NODES } from '../engine/topology.js?v=dc393aabea';
 import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=fdbd872ffa';
 import { createTools } from './presenter-tools.js?v=40af8ad0f3';
-import { openHandout } from './handout.js?v=2870ab6967';
+import { openHandout } from './handout.js?v=30ecc034a6';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
