@@ -6,9 +6,9 @@
 
 import { store } from './store.js?v=49dc9cdf15';
 import { runSequence, restoreSequence } from './sequence.js?v=f8b2dfcd73';
-import { h, toast, svgIcon, icon } from './util.js?v=a357853926';
+import { h, toast, svgIcon, icon } from './util.js?v=e803df99cd';
 import { download } from './records.js?v=50fb9dd463';
-import { TOUR, createTour } from './tour.js?v=34e0710a5c';
+import { TOUR, createTour } from './tour.js?v=0d30afbdd3';
 
 const ask = (q, a) => `\n\nAsk the room: ${q} Expected: ${a}`;
 // Lecture scripts share the tour's card (route, ladder, tiles) and its clinical voice, but wait for

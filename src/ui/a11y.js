@@ -9,7 +9,7 @@
 // unless switched on, and stops with the page.
 
 import { store, hiddenNow } from './store.js?v=49dc9cdf15';
-import { fmt, clamp } from './util.js?v=a357853926';
+import { fmt, clamp } from './util.js?v=e803df99cd';
 import { EDGES, NODES } from '../engine/topology.js?v=dc393aabea';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));

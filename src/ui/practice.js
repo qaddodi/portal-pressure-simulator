@@ -3,11 +3,11 @@
 // earlier, shown when a student comes back (spaced retrieval). Progress is read from this device:
 // pps.lessons (lessons), pps.caseScores (cases), pps.drill (the drill), pps.review (the warm-up).
 
-import { h, svgIcon, icon } from './util.js?v=a357853926';
-import { LESSONS } from './learn.js?v=5ed958def5';
-import { CASES } from './cases.js?v=cd7eea377b';
-import { drillProgress, DRILL_TITLE } from './drill.js?v=8e1d2959a6';
-import { UNITS, course } from './course.js?v=5391cf593b';
+import { h, svgIcon, icon } from './util.js?v=e803df99cd';
+import { LESSONS } from './learn.js?v=0bf7df4ef3';
+import { CASES } from './cases.js?v=36ab26b5ad';
+import { drillProgress, DRILL_TITLE } from './drill.js?v=02b7232823';
+import { UNITS, course } from './course.js?v=4e4bcc6304';
 
 // [skill, what it means, items]; an item is 'l:<lesson>', 'c:<case>' or 'drill'.
 export const SKILLS = [

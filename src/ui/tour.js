@@ -4,8 +4,8 @@
 // and ascites protein) that highlights what sets it apart, and a closing table of all of them.
 // The values are the model's own, read from the worker once each state has settled.
 
-import { h, fmt, icon } from './util.js?v=a357853926';
-import { SITES, rate, ladder, tiles, createRoute } from './ladder.js?v=2cbec732f7';
+import { h, fmt, icon } from './util.js?v=e803df99cd';
+import { SITES, rate, ladder, tiles, createRoute } from './ladder.js?v=d0e8d913b4';
 
 const lobule = { view: 'anatomic', zoom: 'lobule' }, whole = { view: 'anatomic', zoom: 'fit' };
 export const TOUR = {

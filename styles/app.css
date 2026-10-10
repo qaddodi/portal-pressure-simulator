@@ -2951,8 +2951,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .instrument-workspace.side .pt-chips { flex-wrap: wrap; overflow: visible; -webkit-mask-image: none; mask-image: none; padding-right: 0; }
 
 /* Instrument tabs: one slim segmented bar; the chosen instrument is a raised chip. */
-.instr-tabs { display: flex; gap: 2px; margin: 2px 12px 10px; padding: 3px; flex: none; border-radius: 10px; background: var(--surface-2); overflow-x: auto; scrollbar-width: none; }
-.instr-tabs::-webkit-scrollbar { display: none; }
+.instr-tabs { display: flex; gap: 2px; margin: 2px 12px 10px; padding: 3px; flex: none; border-radius: 10px; background: var(--surface-2); overflow: hidden; }
 .instr-tabs[hidden] { display: none; }
 .instr-tab { position: relative; flex: 1 1 0; display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; height: 30px; padding: 0 8px; border: 0; border-radius: 7px; background: none; color: var(--text-2); cursor: pointer; font: 600 var(--fs-12) var(--font-ui); white-space: nowrap; transition: background .15s, color .15s, box-shadow .15s; }
 .instr-tab:hover { color: var(--text); }
@@ -2967,7 +2966,6 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 /* Narrow: the name under a small icon, so all five fit in one row. */
 @container ws (max-width: 560px) {
   .instr-tab { flex-direction: column; gap: 1px; height: 40px; padding: 0 2px; }
-  /* Seven tabs: each keeps its whole name; where they do not all fit, the row scrolls sideways. */
   .instr-tab { flex: 1 0 auto; min-width: 48px; padding: 0 4px; font-size: 10.5px; }
   .it-t b { overflow: visible; }
 }
@@ -3497,9 +3495,7 @@ body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state
    head, tabs and body; a softer edge so the card sits lightly over the map. */
 @media (min-width: 1024px) and (pointer: fine) {
   .instrument-workspace.float-ui { box-shadow: 0 8px 28px rgba(20, 22, 30, .10), 0 1px 3px rgba(20, 22, 30, .06), inset 0 0 0 1px var(--hairline); }
-  .tabs-cue { margin: 0 16px; }
-  .tabs-cue > .instr-tabs { margin: 0; gap: 6px; padding: 0; border-radius: 0; background: none; }
-  /* Seven tabs with icons do not fit a laptop-width card, so they keep their full width and the row scrolls (edge fade + chevron, as on the phone). */
+  .instr-tabs { margin: 2px 16px 10px; gap: 6px; padding: 0; border-radius: 0; background: none; }
   .instr-tab, .instr-tab[aria-selected="true"] { flex: 0 0 auto; flex-direction: row; height: 36px; gap: 6px; padding: 0 8px; border-radius: 0; background: none; box-shadow: none; font-weight: 500; font-size: 13px; color: var(--text-3); }
   .instr-tab:first-child { margin-left: -8px; }
   .instr-tab > svg { width: var(--ic-s); height: var(--ic-s); }
@@ -3508,9 +3504,6 @@ body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state
   .instr-tab[aria-selected="true"]::before { content: ''; position: absolute; left: 8px; right: 8px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent); }
   /* The 1 / 2 slot number sits after the name, in the row, so it never covers a neighbour. */
   .instr-tab[data-slot="1"]::after, .instr-tab[data-slot="2"]::after { position: static; flex: none; margin-left: 1px; width: 14px; height: 14px; font: 600 9.5px/14px var(--font-ui); }
-  .tabs-cue .cue-edge { width: 34px; }
-  .tabs-cue .cue-l { background: linear-gradient(to right, var(--surface) 50%, transparent); border-radius: 0; padding-left: 0; }
-  .tabs-cue .cue-r { background: linear-gradient(to left, var(--surface) 50%, transparent); border-radius: 0; padding-right: 0; }
   .picking .instr-tab:not([aria-selected="true"]) { box-shadow: none; color: var(--accent-ink); }
   .instrument-workspace .dock-head { padding: 10px 8px 2px 16px !important; }
   .instrument-workspace .dock-pane { padding-left: 16px; padding-right: 16px; }
@@ -3623,8 +3616,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 
 /* Phone: a slimmer card header. The title is centred on the row; the close button sits in the
    right corner with a 44px tap area that overlaps the row below instead of making the bar taller;
-   a quiet status (e.g. "2 running") sits in the left corner. The Tests row, which scrolls sideways,
-   fades at an edge that hides more tabs and shows a small chevron there. */
+   a quiet status (e.g. "2 running") sits in the left corner. The Tests row never scrolls. */
 @media (max-width: 767px) {
   .card-head.card-head { position: relative; min-height: 30px; padding: 4px 44px 0 !important; justify-content: center; }
   /* No visible drag handle: the title row drags the sheet. The button stays for keyboard resizing, only seen on focus. */
@@ -3636,27 +3628,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .card-head .card-close.card-close { position: absolute; right: 0; top: 50%; width: 44px; height: 44px; transform: translateY(-50%); z-index: 1; }
   .card-head .card-close svg { width: var(--ic-s); height: var(--ic-s); }
   .card-head .card-meta, .card-head .workspace-live { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); max-width: calc(50% - 90px); overflow: hidden; text-overflow: ellipsis; font-size: var(--fs-12); }
-  .tabs-cue { position: relative; flex: none; margin: 0 10px 6px; }
-  .tabs-cue > .instr-tabs { margin: 0; padding: 2px; }
-  .cue-edge { position: absolute; top: 0; bottom: 0; width: 30px; display: grid; place-items: center; padding: 0; border: 0; color: var(--text-2); cursor: pointer; opacity: 0; pointer-events: none; transition: opacity .22s var(--ease); }
-  .cue-edge svg { width: var(--ic-s); height: var(--ic-s); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .cue-l { left: 0; border-radius: 10px 0 0 10px; background: linear-gradient(to right, var(--surface-2) 45%, transparent); justify-content: start; padding-left: 5px; }
-  .cue-r { right: 0; border-radius: 0 10px 10px 0; background: linear-gradient(to left, var(--surface-2) 45%, transparent); justify-content: end; padding-right: 5px; }
-  .tabs-cue.more-l > .cue-l, .tabs-cue.more-r > .cue-r { opacity: 1; pointer-events: auto; }
   .instr-tabs { margin: 0 10px 6px; padding: 2px; }
   .instr-tab, .instr-tab[aria-selected="true"] { flex-direction: row; gap: 4px; height: 28px; padding: 0 8px; font-size: var(--fs-12); }
-}
-.tabs-cue { flex: none; min-width: 0; }
-.tabs-cue[hidden], .cue-edge { display: none; }
-@media (max-width: 767px) { .cue-edge { display: grid; } }
-/* The scroll cue also serves the tablet and desktop Tests row, where seven tabs overflow. */
-@media (min-width: 768px) {
-  .cue-edge { position: absolute; top: 0; bottom: 0; width: 30px; display: grid; place-items: center; padding: 0; border: 0; color: var(--text-2); cursor: pointer; opacity: 0; pointer-events: none; transition: opacity .22s var(--ease); }
-  .cue-edge svg { width: var(--ic-s); height: var(--ic-s); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .cue-l { left: 0; justify-content: start; background: linear-gradient(to right, var(--surface-2) 45%, transparent); }
-  .cue-r { right: 0; justify-content: end; background: linear-gradient(to left, var(--surface-2) 45%, transparent); }
-  .tabs-cue { position: relative; }
-  .tabs-cue.more-l > .cue-l, .tabs-cue.more-r > .cue-r { opacity: 1; pointer-events: auto; }
 }
 
 /* The switch inside the Pressure tab: along the circuit, or the same pressures over time. */
@@ -3945,3 +3918,19 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   body:has(.exam-cert) > *:not(#modalBack), #modalBack .modal > header, .exam > *:not(.exam-cert) { display: none !important; }
   #modalBack { position: static !important; background: none !important; }
 }
+
+/* The Tests tab row never scrolls. A wide card shows the full names; a narrower one (class .compact, set from the
+   row's width) shows the short names (Scope, Fibro) under their icons, so all six always fit. */
+.instr-tabs.ws-tabs { overflow: hidden; }
+.ws-tabs .instr-tab { flex: 1 1 0; min-width: 0; }
+.ws-tabs .it-short { display: none; }
+.ws-tabs.compact .it-full { display: none; }
+.ws-tabs.compact .it-short { display: inline; }
+.ws-tabs.compact { gap: 2px; }
+.ws-tabs.compact .instr-tab, .ws-tabs.compact .instr-tab[aria-selected="true"] { gap: 4px; padding: 0 4px; }
+.ws-tabs.compact .instr-tab[aria-selected="true"]::before { left: 4px; right: 4px; }
+.ws-tabs.compact .instr-tab:first-child { margin-left: 0; }
+/* Narrower still: the name under its icon. */
+.ws-tabs.narrow .instr-tab, .ws-tabs.narrow .instr-tab[aria-selected="true"] { flex-direction: column; gap: 2px; height: 44px; padding: 0 2px; font-size: 11px; }
+.ws-tabs .instr-tab[data-slot="1"]::after, .ws-tabs .instr-tab[data-slot="2"]::after { position: absolute; top: 0; right: 2px; margin: 0; width: 13px; height: 13px; font: 600 9.5px/13px var(--font-ui); }
+.ws-tabs.narrow .instr-tab[data-slot="1"]::after, .ws-tabs.narrow .instr-tab[data-slot="2"]::after { top: 2px; right: 3px; width: 15px; height: 15px; font: 600 10px/15px var(--font-ui); }
