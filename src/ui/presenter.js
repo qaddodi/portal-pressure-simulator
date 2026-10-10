@@ -19,15 +19,9 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=cab65850a4';
 import { sinusoidSupported } from './sinusoid-view.js?v=14866bc1c9';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
-<<<<<<< HEAD
 import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=a63fd1a945';
 import { createTools } from './presenter-tools.js?v=28dfa00d7e';
-import { openHandout } from './handout.js?v=e5b1fa6f61';
-=======
-import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=a63fd1a945';
-import { createTools } from './presenter-tools.js?v=28dfa00d7e';
-import { openHandout } from './handout.js?v=e5b1fa6f61';
->>>>>>> d4fa644 (Presenter engine: term pills that light their station, live and cut-off value pills, slide glows, marks by kind, slide layers, ladder names on the figure)
+import { openHandout } from './handout.js?v=a11e7479e1';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -938,10 +932,10 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     if (lap) await playLapse(s, to, cut);
   }
 
-  // A slide's lobule layers (layers: ['zones', 'lymph'] turns those on); a slide without the field has the viewer's own.
+  // A slide's lobule layers (layers: ['zones', 'lymph'] turns those on); otherwise zones off and lymph as the viewer had it.
   function slideLayers(s) {
     if (!layersBefore) return;
-    const want = { ...layersBefore, ...Object.fromEntries((s.layers || []).map((k) => [k, true])) }, now = store.get().lobuleLayers || {};
+    const want = { ...layersBefore, zones: false, ...Object.fromEntries((s.layers || []).map((k) => [k, true])) }, now = store.get().lobuleLayers || {};
     if (Object.keys(want).some((k) => !!want[k] !== !!now[k])) store.set({ lobuleLayers: want });
   }
 
