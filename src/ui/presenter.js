@@ -52,6 +52,27 @@ function equation([ml, legend]) {
   return box;
 }
 const nb = (t) => (t || '').replace(/(\p{L})–(\p{L})/gu, '$1–\u2060$2');
+// A slide's line, typeset: values with units in a quiet pill, the first mention of each key term in bold
+// (at most three per line, so it stays a sentence and not a list of highlights). Tune the two lists here.
+const VAL = String.raw`\d+(?:\.\d+)?(?:\s(?:to|or)\s\d+(?:\.\d+)?)?\s?(?:mmHg|g\/dL|mL\/min|%)`;
+const TERMS = ['HVPG', 'PPG', 'CSPH', 'SAAG', 'TIPS', 'WHVP', 'FHVP', 'portal vein', 'central vein', 'portal tracts?', 'fenestrae', 'space of Disse',
+  'basement membrane', 'capillarization', 'wedged pressure', 'free pressures?', 'right atrial pressure', 'sinusoidal pressure', 'varices', 'caput medusae',
+  'gastrorenal shunt', 'stellate cells?', 'lymph', 'collaterals', 'encephalopathy', 'periportal fibrosis', 'intrahepatic resistance'];
+const RICH = new RegExp(`(${VAL})|\\b(${TERMS.join('|')})\\b`, 'g');
+function rich(t) {
+  const out = [], seen = new Set(); let at = 0, bold = 0, m;
+  t = nb(t); RICH.lastIndex = 0;
+  while ((m = RICH.exec(t))) {
+    const key = m[2] && m[2].toLowerCase().replace(/s$/, '');
+    if (m[2] && (seen.has(key) || bold >= 3)) continue;
+    out.push(t.slice(at, m.index));
+    if (m[1]) out.push(h('span', { class: 'pz-val' }, m[1].replace(/\s(?=mmHg|g\/dL|mL)/, ' ')));
+    else { seen.add(key); bold++; out.push(h('b', {}, m[2])); }
+    at = m.index + m[0].length;
+  }
+  out.push(t.slice(at));
+  return out;
+}
 const RATE = {
   hvpg: (v) => (v >= 10 ? ['hi', 'CSPH'] : v >= 5 ? ['mid', 'Raised'] : ['ok', 'Normal']),
   ppg: (v) => (v >= 12 ? ['hi', 'High'] : v >= 6 ? ['mid', 'Raised'] : ['ok', 'Normal']),
@@ -802,7 +823,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
       if (panel.hidden) { panel.classList.add('pz-leave'); panel.hidden = false; void panel.offsetWidth; }
       panel.classList.toggle('fill', s.visual === 'ladders');
       panel.dataset.visual = s.visual;
-      panel.replaceChildren(h('div', { class: 'pz-ph' }, kick(null, s.kicker), h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, s.line) : null),
+      panel.replaceChildren(h('div', { class: 'pz-ph' }, kick(null, s.kicker), h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line)) : null),
         VISUALS[s.visual](s));
       panel.classList.remove('pz-leave');
       ui.veil.classList.add('on');
@@ -811,7 +832,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
       text.hidden = false;
       text.replaceChildren(...(q
         ? [kick(null, 'Quiz'), h('h1', { class: 'pz-h' }, s.quiz), s.rail ? rail(null) : null, h('p', { class: 'pz-line pz-hint' }, 'Take answers from the audience, then press → to show the answer.')]
-        : [kick(s.site, s.kicker), h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, s.line) : null,
+        : [kick(s.site, s.kicker), h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line)) : null,
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), onclick: () => abPick(s, i, k) }, o.label))) : null,
           s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
@@ -979,20 +1000,20 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     if (below && t) { const y = t.bottom - wr.top + 28; ui.data.style.top = `${Math.round(y / k)}px`; ui.data.style.maxHeight = `${Math.round((H - y - 24) / k)}px`; }
     else { ui.data.style.top = ''; ui.data.style.maxHeight = ''; }
     const d = below ? null : r(ui.data);
-    // The words sit on a frosted panel: the figure shows through it blurred, and its edge fades out over the last
-    // 48 px (36 on a phone). The figure frames itself from just inside that fade, so nothing it frames is hidden.
+    // The words sit on a frosted glass pane: the figure shows through it blurred, behind a crisp edge with a soft
+    // shadow. The figure frames itself just past that shadow, so nothing it frames is hidden.
     const L = t ? t.right - wr.left : 0, T = t ? t.bottom - wr.top : 0;
     ui.shade.style.width = !p && t ? `${(L + 36) / k}px` : '';
     ui.shade.style.height = p && t ? `${(T + 26) / k}px` : '';
     ui.shade.style.opacity = t ? '1' : '0';
     ui.safe.hidden = !t;
     ui.safe.dataset.safe = p ? 'top' : 'left';
-    ui.safe.style.width = p ? '' : `${(L + 24) / k}px`;
-    ui.safe.style.height = p ? `${(T + 26) / k}px` : '';
+    ui.safe.style.width = p ? '' : `${(L + 48) / k}px`;
+    ui.safe.style.height = p ? `${(T + 34) / k}px` : '';
     const set = (k, v) => app.style.setProperty(k, `${Math.max(0, Math.round(v))}px`);
-    set('--pz-l', !p && t ? L + 24 : 0);
+    set('--pz-l', !p && t ? L + 48 : 0);
     set('--pz-r', !p && d ? W - (d.left - wr.left) + 8 : 0);
-    set('--pz-t', p && t ? T + 26 : 0);
+    set('--pz-t', p && t ? T + 34 : 0);
     set('--pz-b', p && d ? H - (d.top - wr.top) + 4 : 0);
     dispatchEvent(new Event('pps:occ'));
   }
@@ -1164,7 +1185,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     const blackEl = h('div', { class: 'pz-black', 'aria-hidden': 'true', onclick: () => toggleBlack(false) });
     // The shade sits under the corner credit (both at figure level, the credit later), the slide over both.
     const shade = h('div', { class: 'pz-shade' });
-    // What the figure frames itself clear of: the words and most of the shade's fade.
+    // What the figure frames itself clear of: the words, the glass and its shadow.
     const safe = h('div', { class: 'pz-safe', 'aria-hidden': 'true', hidden: true });
     const load = h('div', { class: 'pz-load', 'aria-hidden': 'true' }, h('i'));
     const jump = h('nav', { class: 'pz-jump stage-blocker', hidden: true, 'aria-label': 'Slides' });

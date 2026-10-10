@@ -1845,20 +1845,29 @@ button.finding:hover { background: var(--surface-2); }
 @keyframes pz-fade { from { opacity: 0; } }
 @keyframes pz-in { from { opacity: 0; transform: translateY(14px); } }
 .pz { position: absolute; inset: 0; z-index: var(--z-hud); pointer-events: none; color: var(--text); }
-.pz-shade { --pz-fade: 48px; position: absolute; left: 0; top: 0; bottom: 0; width: 0; z-index: var(--z-figure); pointer-events: none; background: color-mix(in srgb, var(--stage-bg) 80%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - var(--pz-fade)), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - var(--pz-fade)), transparent); transition: width .45s var(--ease), height .45s var(--ease), opacity .3s var(--ease); }
+/* A pane of frosted glass: a crisp edge with a hairline highlight and a soft shadow onto the figure. */
+.pz-shade { --pz-glass-edge: color-mix(in srgb, #fff 34%, transparent); --pz-glass-line: color-mix(in srgb, var(--text) 12%, transparent); --pz-glass-drop: rgb(0 0 0 / .16); position: absolute; left: 0; top: 0; bottom: 0; width: 0; z-index: var(--z-figure); pointer-events: none; background: color-mix(in srgb, var(--stage-bg) 80%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); box-shadow: inset -1px 0 0 var(--pz-glass-edge), 1px 0 0 var(--pz-glass-line), 10px 0 28px -6px var(--pz-glass-drop), 2px 0 6px -1px var(--pz-glass-drop); transition: width .45s var(--ease), height .45s var(--ease), opacity .3s var(--ease); }
+:root[data-theme="dark"] .pz-shade { --pz-glass-edge: color-mix(in srgb, #fff 14%, transparent); --pz-glass-line: rgb(0 0 0 / .5); --pz-glass-drop: rgb(0 0 0 / .42); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pz-shade { --pz-glass-edge: color-mix(in srgb, #fff 14%, transparent); --pz-glass-line: rgb(0 0 0 / .5); --pz-glass-drop: rgb(0 0 0 / .42); } }
 /* (Without a backdrop blur the words keep a plain backdrop of the page colour.) */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-shade { background: color-mix(in srgb, var(--stage-bg) 94%, transparent); } }
 @media (prefers-reduced-transparency: reduce) { .pz-shade { background: color-mix(in srgb, var(--stage-bg) 94%, transparent); } }
 .pz-safe { position: absolute; left: 0; top: 0; bottom: 0; width: 0; opacity: 0; pointer-events: none; }
 .pz.stack .pz-safe { right: 0; bottom: auto; width: auto; }
-.pz-text { position: absolute; left: clamp(20px, calc(3.4vw / var(--vz)), 76px); top: clamp(20px, calc(8vh / var(--vz)), 110px); width: clamp(300px, calc(29vw / var(--vz)), 600px); max-height: calc(100% - 2 * clamp(20px, calc(8vh / var(--vz)), 110px)); display: flex; flex-direction: column; gap: clamp(10px, calc(2.3vh / var(--vz)), 30px); transition: opacity .22s var(--ease), transform .22s var(--ease); }
+.pz-text { position: absolute; left: clamp(20px, calc(3.4vw / var(--vz)), 76px); top: clamp(20px, calc(8vh / var(--vz)), 110px); bottom: clamp(20px, calc(8vh / var(--vz)), 110px); height: fit-content; margin-block: auto; width: clamp(300px, calc(29vw / var(--vz)), 600px); max-height: calc(100% - 2 * clamp(20px, calc(8vh / var(--vz)), 110px)); display: flex; flex-direction: column; gap: clamp(10px, calc(2.3vh / var(--vz)), 30px); transition: opacity .22s var(--ease), transform .22s var(--ease); }
 .pz-text.pz-leave, .pz-panel.pz-leave { opacity: 0; transform: translateY(-6px); }
 .pz-text.pz-enter > * { animation: pz-in .6s var(--ease) both; animation-delay: calc(var(--i, 0) * 80ms + 40ms); }
 .pz-kick { display: flex; align-items: center; gap: .55em; font: 600 clamp(13px, calc(1.75vh / var(--vz)), 21px)/1.2 var(--font-ui); letter-spacing: .1em; text-transform: uppercase; color: var(--site, var(--text-3)); }
 .pz-kick[data-site="none"] { color: var(--text-3); }
 .pz-kick i { width: .62em; height: .62em; border-radius: 50%; background: currentColor; flex: none; }
 .pz-h { margin: 0; font: 600 clamp(32px, calc(5.8vh / var(--vz)), 70px)/1.06 var(--font-display); letter-spacing: -.015em; text-wrap: balance; color: var(--text); }
+/* A short neutral rule closes the title off from the body. */
+.pz-text .pz-h::after, .pz-ph .pz-h::after { content: ""; display: block; width: 2.2rem; height: 2px; margin-top: .3em; border-radius: 1px; background: color-mix(in srgb, var(--text) 22%, transparent); }
+.pz.stack .pz-h::after { margin-top: .22em; width: 1.6rem; }
 .pz-line { margin: 0; font: 400 clamp(17px, calc(2.55vh / var(--vz)), 31px)/1.38 var(--font-ui); color: var(--text-2); text-wrap: pretty; }
+/* Body emphasis: key terms in the heading colour, values in a quiet pill with even figures. */
+.pz-line b { font-weight: 600; color: var(--text); }
+.pz-val { display: inline-block; padding: .02em .42em .06em; border-radius: var(--r-pill); background: color-mix(in srgb, var(--text) 7%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 12%, transparent); font-weight: 600; font-size: .92em; font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; line-height: 1.25; }
 .pz-eq { margin: 0; color: var(--text); }
 .pz-eq math { font-family: "STIX Two Math", "Cambria Math", "Latin Modern Math", math; font-size: clamp(22px, calc(3.4vh / var(--vz)), 42px); math-style: normal; }
 .pz-eqk { margin: 4px 0 0; font: 400 clamp(13px, calc(1.8vh / var(--vz)), 20px)/1.4 var(--font-ui); color: var(--text-3); }
@@ -2100,8 +2109,10 @@ button.finding:hover { background: var(--surface-2); }
 .pz-black { position: fixed; inset: 0; z-index: var(--z-toast); background: #000; opacity: 0; pointer-events: none; transition: opacity .4s var(--ease); }
 .pz-black.on { opacity: 1; pointer-events: auto; cursor: none; }
 /* A phone, or a screen taller than wide: the words on top, the data below, the figure between. */
-.pz-shade.stack { --pz-fade: 36px; width: auto !important; right: 0; bottom: auto; height: 0; -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - var(--pz-fade)), transparent); mask-image: linear-gradient(180deg, #000 calc(100% - var(--pz-fade)), transparent); }
-.pz.stack .pz-text { left: 14px; right: 14px; top: 12px; width: auto; max-height: 40%; gap: 6px; }
+.pz-shade.stack { width: auto !important; right: 0; bottom: auto; height: 0; box-shadow: inset 0 -1px 0 var(--pz-glass-edge), 0 1px 0 var(--pz-glass-line), 0 10px 24px -6px var(--pz-glass-drop), 0 2px 5px -1px var(--pz-glass-drop); }
+.pz.stack .pz-text { left: 14px; right: 14px; top: 12px; bottom: auto; margin-block: 0; width: auto; max-height: 40%; gap: 6px; }
+/* (With a data card under the words, the pair keeps to the top so the card has room.) */
+.pz:has(.pz-data.under:not(.pz-hide)) .pz-text { bottom: auto; margin-block: 0; }
 .pz.stack .pz-kick { font-size: 12px; }
 .pz.stack .pz-h { font-size: clamp(24px, calc(3.4vh / var(--vz)), 40px); }
 .pz.stack .pz-line { font-size: clamp(14px, calc(1.9vh / var(--vz)), 20px); }
