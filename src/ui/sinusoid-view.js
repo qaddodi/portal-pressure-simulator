@@ -21,7 +21,7 @@
 
 import { h, fmt, clamp, lerp } from './util.js?v=a357853926';
 import { pressureColor } from './colormap.js?v=6d64a94345';
-import { isPaused } from './clock.js?v=953a5f70a7';
+import { isPaused } from './clock.js?v=e759f7bea1';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
 import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=a4a95e56af';
 

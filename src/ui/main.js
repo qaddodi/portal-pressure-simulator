@@ -2,26 +2,26 @@
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
 import { startHost, host } from './host.js?v=b54d9b1fcc';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=edbdbfb0c8';
-import { createStage } from './stage.js?v=ba856c7051';
-import { sinusoidSupported } from './sinusoid-view.js?v=7285150aa0';
-import { createInspector } from './inspector.js?v=5acd5150f6';
-import { createDock, CUTOFFS } from './dock.js?v=af4006e713';
-import { setHvpgStage } from './hvpg-proc.js?v=97815283e5';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=49dc9cdf15';
+import { createStage } from './stage.js?v=daa11009b8';
+import { sinusoidSupported } from './sinusoid-view.js?v=241e4b5237';
+import { createInspector } from './inspector.js?v=5072cb4981';
+import { createDock, CUTOFFS } from './dock.js?v=b572e7e9fc';
+import { setHvpgStage } from './hvpg-proc.js?v=8893a347c6';
 import { createWhy } from './why.js?v=82d0ada42e';
-import { createTimeline, LAPSES } from './timeline.js?v=2831e31d82';
-import { createLearn } from './learn.js?v=648a1f6d2a';
-import { createCases, CASES } from './cases.js?v=a074a6964e';
-import { isBlind } from './learning-kit.js?v=472fe433c7';
-import { createCompare } from './compare.js?v=d64b7b73d4';
-import { createCard } from './card.js?v=767b2dc99d';
-import { createChart, computeFindings } from './chart.js?v=3546aeed06';
-import { createHome, ROLES } from './home.js?v=2c57749124';
+import { createTimeline, LAPSES } from './timeline.js?v=f67e43a86e';
+import { createLearn } from './learn.js?v=e87f57181f';
+import { createCases, CASES } from './cases.js?v=f025f0c412';
+import { isBlind } from './learning-kit.js?v=01d081b730';
+import { createCompare } from './compare.js?v=138b73e70b';
+import { createCard } from './card.js?v=bec985d017';
+import { createChart, computeFindings } from './chart.js?v=6c9075f088';
+import { createHome, ROLES } from './home.js?v=1c0775c30f';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=3113b1ec12';
-import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=c7917d0320';
-import { startLMS } from './lms.js?v=e2d015d3f3';
+import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=db814778e1';
+import { startLMS } from './lms.js?v=66bc6a4b70';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=658820a7b3';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=732cefd9b1';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=dc393aabea';
 import { $, $$, h, icon, fmt, fmtFlow, toast, popupsOn, setPopups, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=a357853926';
@@ -132,12 +132,12 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  const api = { beginSession, endSession, onEnd: () => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); }, muteEvents: () => {}, loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), openPanel, setBanner, select: (sel) => store.set({ selection: sel }) };
+  const api = { beginSession, endSession, onEnd: () => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); }, muteEvents: () => {}, loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), showFound: (list) => stage.showFound(list), runHvpg: () => { dock.show('hvpg', { reveal: true }); dock.pane('hvpg')?.start(); }, openPanel, setBanner, select: (sel) => store.set({ selection: sel }) };
   // A lesson keeps its card in view where the panel covers the figure: instruments it opens are
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=833c431818'), ({ createPresenter }) => createPresenter({ startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=f067e8bd76'), ({ createPresenter }) => createPresenter({ startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -149,7 +149,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=b62fd9532e'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=32d70dd9d2'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -207,7 +207,7 @@ async function main() {
   store.on('role', (r) => { try { localStorage.setItem('pps.role', r); localStorage.removeItem('pps.narrator'); } catch { /* storage unavailable */ } narrPref = null; if (readLS('pps.showHvpg') == null) store.set({ showHvpg: r === 'student' }); app.dataset.role = r; card.render(); narrate(store.get().frame, performance.now(), true); });
   $('#narratorWhy').addEventListener('click', (e) => why.open('pv', e.currentTarget));
   app.dataset.role = store.get().role;
-  for (const k of ['compareSnap', 'compareView', 'colorMode', 'imaging', 'sinusoid', 'lobule']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
+  for (const k of ['compareSnap', 'compareView', 'colorMode', 'imaging', 'found', 'sinusoid', 'lobule']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
   store.on('compareSnap', () => { if (!store.get().details) inspector.render(); });
   store.on('focus', redraw);
   store.on('labelLevel', redraw);
@@ -1154,7 +1154,7 @@ function onMode(mode) {
   if (mode !== 'learn' && mode !== 'cases') { bannerInfo = null; store.set({ focus: null }); }
   if (mode === 'cases') cases.mount();
   learn.render();
-  if (mode === 'explore') { store.set({ locked: null, hiddenReadouts: null, hiddenEvents: null, imaging: false }); setAllowedTools(null); }
+  if (mode === 'explore') { store.set({ locked: null, hiddenReadouts: null, hiddenEvents: null, imaging: false, found: null }); setAllowedTools(null); }
   store.set({ selection: null, details: null });
   inspector.render();
   renderPaintHint(); renderBanner(); renderLegend();

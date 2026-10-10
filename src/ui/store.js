@@ -29,6 +29,7 @@ const state = {
   compareSnap: null,
   compareView: 'B',           // With A pinned, what the figure shows: A | B (now) | D (change A→now)
   imaging: false,             // Cases: anatomy only, pressures unmeasured
+  found: null,                // Cases: Set of findings a test has shown ('eso','gv','coll','clot','flow'); null shows all
   blind: false,               // A lesson/case question is open: numbers that would answer it are hidden (learning-kit.js)
   focus: null,                // { edges: [ids], label } where a lesson step asks the learner to act
   compareMetrics: null,

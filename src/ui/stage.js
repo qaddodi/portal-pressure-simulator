@@ -4,9 +4,9 @@
 import { EDGES, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=dc393aabea';
 import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=89191aa586';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
-import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=edbdbfb0c8';
+import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=49dc9cdf15';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=a357853926';
-import { createLobuleZoom } from './lobule-zoom.js?v=dc4de50597';
+import { createLobuleZoom } from './lobule-zoom.js?v=edf5b21761';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=e944e0d434';
@@ -1385,12 +1385,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let hoverId = null;
   let hl = null;           // highlighted edge ids
 
+  // A case keeps each finding (varices, collaterals, clots, flow) off the figure until a test shows it.
+  const findingHidden = (k) => { const fd = store.get().found; return !!fd && !fd.has(k); };
+  const FINDING_OF = { VAR: 'eso', GV: 'gv' };
   function edgeVisible(x, f) {
     const e = x.e, p = f.viewParams || store.get().params;
     if (ANAT_HIDDEN.has(e.id) && morph < 0.5) return false;
-    if (NEEDS_C3.has(e.id)) return recruitFrac('C3', f) > 0.15;
+    if (NEEDS_C3.has(e.id)) return !findingHidden('coll') && recruitFrac('C3', f) > 0.15;
     if (e.kind === 'collateral') {
       if (!edgePresent(e, p)) return false;
+      if (findingHidden(FINDING_OF[VARIX_CHANNELS[e.id]] || 'coll')) return false;
       return store.get().layers.collaterals || collOpen(e.id, f);
     }
     if (e.kind === 'shunt') {
@@ -3015,7 +3019,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function overlayInputs(f, p, t) {
     const m = f.metrics;
     const lesions = [...Object.keys(p.stenosis), ...Object.keys(p.thrombus), ...Object.keys(p.occluded), 'TIPS', 'DIPS', 'S_PC', 'S_DSR', 'S_MC', ...Object.keys(p.customShunts || {}), 'C3'];
-    return JSON.stringify([t.toFixed(3), isImaging(), p.stenosis, p.thrombus, p.occluded, p.splenicRx | 0, p.tips, p.dips, p.customShunts, p.balloonEso, p.balloonGas,
+    return JSON.stringify([t.toFixed(3), isImaging(), findingHidden('clot'), p.stenosis, p.thrombus, p.occluded, p.splenicRx | 0, p.tips, p.dips, p.customShunts, p.balloonEso, p.balloonGas,
       lesions.map((id) => (E[id] ? [E[id].vis, E[id].width, !!E[id].reveal] : 0)),
       // Varix geometry follows the grade, not the pulse: red wales appear above 70 % of the
       // rupture threshold, in coarse steps.
@@ -3034,7 +3038,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const anat = t < 0.5;
     // stenosis clamps & thrombi
     ov.clamps.innerHTML = ''; ov.thrombi.innerHTML = ''; ov.stents.innerHTML = ''; ov.plugs.innerHTML = '';
-    const hideDx = isImaging();
+    const hideDx = store.get().found ? findingHidden('clot') : isImaging();
     for (const [id, v] of Object.entries(p.stenosis)) {
       if (hideDx || !(v > 0) || !E[id] || !E[id].vis) continue;
       const [x, y, dx, dy] = pointAt(geo[id].cur, stenosisAt[id] ?? 0.5);
@@ -3875,8 +3879,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const bolus = createBolus(EDGES, NODES);
   const net = { Q: new Float32Array(EDGES.length), vd: new Float32Array(EDGES.length), len: new Float32Array(EDGES.length) };
   let origins = null, originsF = null, bloodClock = 0, dyeShown = false, endsKey = '';
-  const bloodOn = () => !!F && !store.get().imaging && store.get().layers.flow !== false;
-  const chevOn = () => !!F && !store.get().imaging && !!store.get().blood?.chevrons;
+  // In a case the flow shows once a Doppler has looked at it (still in neutral colours: pressures stay unmeasured).
+  const flowSeen = () => !store.get().imaging || !!store.get().found?.has('flow');
+  const bloodOn = () => !!F && flowSeen() && store.get().layers.flow !== false;
+  const chevOn = () => !!F && flowSeen() && !!store.get().blood?.chevrons;
   // The Blood origin lens colors each lumen by where its blood comes from (streams side by side).
   const originOn = () => !!F && layerMode() === 'origin';
   // Mean velocity (cm/s) for a flow (mL/s): flow over lumen area; the liver beds are not one tube.
@@ -4668,6 +4674,53 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return null;
   }
 
+  // ── "Found by" tags (cases) ──────────────────────
+  // A test that finds something on the figure marks it: a soft halo eases in at the spot with a small
+  // tag naming the finding and the test, then fades. Positions follow pan and zoom while they show.
+  const foundLayer = h('div', { class: 'found-layer', 'aria-hidden': 'true' });
+  wrap.append(foundLayer);
+  let foundRaf = 0;
+  const foundPoint = (at) => {
+    if (Array.isArray(at)) return at;
+    if (ORGAN_ANCHOR[at]) return ORGAN_ANCHOR[at];
+    const g = geo[at];
+    return g ? pointAt(g.cur, 0.5) : null;
+  };
+  function placeFound() {
+    foundRaf = 0;
+    if (!foundLayer.childElementCount) return;
+    refreshCTM();
+    const W = foundLayer.clientWidth, boxes = [];
+    for (const el of foundLayer.children) {
+      const [x, y] = worldToLocal(...el._w);
+      el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+      // Near the right edge the tag hangs to the left of its spot, so it never runs off the figure;
+      // a tag that would cover an earlier one drops below it.
+      const pw = (el._pw ||= el.lastChild.offsetWidth), ph = (el._ph ||= el.lastChild.offsetHeight);
+      const left = x + 22 + pw > W - 8;
+      if (left !== el.classList.contains('left')) el.classList.toggle('left', left);
+      const x0 = left ? x - 14 - pw : x + 14;
+      let dy = 0;
+      while (dy < 200 && boxes.some((b) => x0 < b[2] && x0 + pw > b[0] && y - 40 + dy < b[3] && y - 40 + dy + ph > b[1])) dy += ph + 6;
+      boxes.push([x0, y - 40 + dy, x0 + pw, y - 40 + dy + ph]);
+      if (el._dy !== dy) { el._dy = dy; el.lastChild.style.marginTop = `${dy}px`; }
+    }
+    foundRaf = requestAnimationFrame(placeFound);
+  }
+  /** Mark findings: [{ at: organ id | vessel id | [x, y], text, by }]. */
+  function showFound(list) {
+    list.forEach((it, i) => {
+      const w = foundPoint(it.at);
+      if (!w) return;
+      const el = h('div', { class: 'found-tag' }, h('i', { class: 'found-halo' }), h('span', { class: 'found-pill' }, h('b', {}, it.text), it.by ? h('small', {}, it.by) : null));
+      el._w = w;
+      foundLayer.append(el);
+      setTimeout(() => el.classList.add('on'), 30 + i * 220);
+      setTimeout(() => { el.classList.remove('on'); setTimeout(() => el.remove(), 700); }, 5200 + i * 220);
+    });
+    if (!foundRaf) placeFound();
+  }
+
   // ── Public API ────────────────────────────────────
   return {
     update,
@@ -4747,7 +4800,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** On-screen scale, px per world unit (for the tests: turning the circuit keeps it). */
     zoomLevel: () => { refreshCTM(); return CTM.sc; },
     focusEdge(id) { E[id]?.hit.focus(); },
-    startShunt, cancelShunt, isShunting: () => !!shunt, anchorFor, organAt,
+    startShunt, cancelShunt, isShunting: () => !!shunt, anchorFor, organAt, showFound,
     /** Briefly glow the given vessels (where a readout is measured). */
     flash(ids) {
       const g = s('g', { class: 'flash' });
