@@ -39,9 +39,9 @@
 // Every deck opens with an "Outline and objectives" slide built from its kicker groups and objectives
 // (withOverview below); a deck never writes that slide itself.
 
-import { STIFFNESS } from './decks/stiffness.js?v=59c2beed02';
-import { ONE_YEAR } from './decks/one-year.js?v=409b3754fb';
-import { TAP } from './decks/tap.js?v=e92f545067';
+import { STIFFNESS } from './decks/stiffness.js?v=c9cae28f24';
+import { ONE_YEAR } from './decks/one-year.js?v=f45d2cb1d7';
+import { TAP } from './decks/tap.js?v=90280ceb39';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {

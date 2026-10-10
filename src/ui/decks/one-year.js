@@ -4,6 +4,12 @@ const ramp = (a, b) => ({ cirrhosis: [a, b] });
 
 export const ONE_YEAR = {
   id: 'one-year', level: 'core', title: 'One patient, one year: what each test shows', minutes: 12,
+  objectives: [
+    'Follow one patient with cirrhosis through a year of rising portal pressure',
+    'Match each test to what it shows: catheter, FibroScan, scope, Doppler, ultrasound',
+    'Recognise the thresholds that change care: HVPG 10 and 12',
+    'Know when to start carvedilol',
+  ],
   summary: 'One patient with compensated cirrhosis followed for a year, seen in turn through the catheter, FibroScan, endoscopy, Doppler and the abdomen. Ends with carvedilol and the year on one chart.',
   slides: [
     {

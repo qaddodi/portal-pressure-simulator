@@ -2,6 +2,12 @@
 
 export const STIFFNESS = {
   id: 'stiffness', level: 'core', title: 'Non-invasive assessment: stiffness, spleen and platelets', minutes: 10,
+  objectives: [
+    'Explain what a FibroScan reading in kPa measures',
+    'Apply the Baveno VII stiffness and platelet rule to CSPH',
+    'Link a large spleen and low platelets to portal hypertension',
+    'Recognise when stiffness misleads: presinusoidal block, congestion, a meal',
+  ],
   summary: 'FibroScan, spleen size and the platelet count against the portal gradient: the Baveno VII rule, and where stiffness misleads (presinusoidal block, congestion, a meal).',
   slides: [
     {

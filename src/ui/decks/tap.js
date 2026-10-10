@@ -4,6 +4,12 @@ const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`, sub = (b, i) => 
 
 export const TAP = {
   id: 'tap', level: 'advanced', title: 'Ascites at the bedside: the tap and the albumin', minutes: 12,
+  objectives: [
+    'Know what to send from a diagnostic tap and how to read the SAAG',
+    'Give albumin correctly after a large-volume paracentesis',
+    'Use diuretics and TIPS for ascites that keeps coming back',
+    'Recognise protein-rich ascites that points to the heart',
+  ],
   summary: 'One patient with tense ascites: the diagnostic tap, large-volume paracentesis with albumin, diuretics and TIPS, with the effect of each on the fluid and the pressures.',
   slides: [
     {
