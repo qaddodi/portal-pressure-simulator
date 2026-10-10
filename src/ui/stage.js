@@ -2,7 +2,7 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=dc393aabea';
-import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=4e4d74bbb4';
+import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=caa59485d2';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=49dc9cdf15';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=e803df99cd';
@@ -505,16 +505,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     nut: s('path', { class: 'lv-nut', 'clip-path': 'url(#clip-liver)' }),
     nutNet: s('path', { class: 'lv-nut-net', 'clip-path': 'url(#clip-liver)' }),
     nod: s('path', { class: 'lv-nod', 'clip-path': 'url(#clip-liver)' }),
-    blunt: s('path', { class: 'lv-blunt', 'clip-path': 'url(#clip-liver)' }),
-    edge: s('path', { class: 'lv-edge', 'clip-path': 'url(#clip-liver)' }),
   };
   // The capsule's sheen: broad soft reflections on the domes of both lobes.
   defs.insertAdjacentHTML('beforeend', '<radialGradient id="lvSheen"><stop offset="0" class="lv-sh0"/><stop offset=".55" class="lv-sh1"/><stop offset="1" class="lv-sh2"/></radialGradient>');
   lv.gloss.append(s('ellipse', { cx: 468, cy: 236, rx: 118, ry: 34, transform: 'rotate(-6 468 236)', fill: 'url(#lvSheen)' }),
     s('ellipse', { cx: 752, cy: 262, rx: 66, ry: 16, transform: 'rotate(22 752 262)', fill: 'url(#lvSheen)' }));
   const shadeAt = organG.liver.querySelector('.org-shade');
-  for (const el of [liverTint, lv.nutNet, lv.nut, lv.nod, lv.gloss, lv.blunt]) organG.liver.insertBefore(el, shadeAt);
-  organG.liver.insertBefore(lv.edge, organG.liver.querySelector('.org-line'));
+  for (const el of [liverTint, lv.nutNet, lv.nut, lv.nod, lv.gloss]) organG.liver.insertBefore(el, shadeAt);
   const liverPaths = [...organG.liver.querySelectorAll('path')].filter((el) => el.getAttribute('d') === liverD);
   const liverClip = defs.querySelector('#clip-liver path');
   if (liverClip) liverPaths.push(liverClip);
@@ -588,8 +585,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (key === liverKey) return;
     if (!baseLiver) { try { baseLiver = sampleLiver(); } catch { return; } if (!baseLiver.pts.length) { baseLiver = null; return; } }
     liverKey = key;
-    const { pts, nm, nod, nodules, spots } = baseLiver, n = pts.length;
-    const blunt = Math.max(c, g);
+    const { pts, nm, nod, nodules, spots } = baseLiver;
     const out = pts.map((p0, i) => {
       let [x, y] = liverField(p0[0], p0[1], c);
       const [nx, ny] = nm[i], inf = clamp(ny, 0, 1);
@@ -600,25 +596,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       push += g * (5 + 9 * inf + 4 * tip);
       // Nodular contour: rounded bulges with notches between them (a cusp at each notch).
       const [u, a] = nod[i];
-      push += (Math.pow(Math.sin(Math.PI * u), 0.5) - 0.72) * 3.5 * a * smooth01(c / 0.7) * (0.45 + 0.55 * c);
+      push += (Math.pow(Math.sin(Math.PI * u), 0.5) - 0.72) * 2.2 * a * smooth01(c / 0.7) * (0.45 + 0.55 * c);
       return [x + nx * push, y + ny * push];
     });
     const f1 = (v) => v.toFixed(1);
     const d = c + g > 0 ? 'M' + out.map(([x, y]) => `${f1(x)} ${f1(y)}`).join(' L') + ' Z' : liverD;
     for (const el of liverPaths) el.setAttribute('d', d);
-    // The free inferior edge: a fine bright line when it is thin and sharp, a broad shade once it
-    // is rounded (by swelling or by fibrosis).
-    let edge = '', run = false;
-    for (let i = 0; i <= n; i++) {
-      const j = i % n, [nx, ny] = nm[j];
-      if (ny > 0.45 && pts[j][0] < 840) {
-        const x = out[j][0] - nx * 2.2, y = out[j][1] - ny * 2.2;
-        edge += `${run ? ' L' : 'M'}${f1(x)} ${f1(y)}`; run = true;
-      } else run = false;
-    }
-    lv.edge.setAttribute('d', edge); lv.blunt.setAttribute('d', edge);
-    lv.edge.style.opacity = (1 - blunt * 0.9).toFixed(3);
-    lv.blunt.style.opacity = blunt.toFixed(3);
     lv.gloss.style.opacity = (1 - 0.75 * smooth01(c / 0.6)).toFixed(3);
     // Regenerative nodules: a flat, faint cobbling of soft-edged rounded islands outlined by
     // fine septa, firmer with severity.
