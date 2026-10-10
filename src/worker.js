@@ -1,4 +1,4 @@
-import { createCore } from './worker-core.js?v=acf379f9cb';
+import { createCore } from './worker-core.js?v=9ce36cd225';
 
 const core = createCore((msg, transfer) => self.postMessage(msg, transfer || []));
 self.onmessage = (e) => core.handle(e.data);

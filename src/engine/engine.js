@@ -13,7 +13,7 @@ const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6],
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
 const EXT_OVERRIDE = { IVC_IS: 'abd', CAUD: 'none' };
 
-export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 7.0, k: 0.35, kGV: 0.4, openGV: 5.0 };
+export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 7.0, k: 0.35, kGV: 0.4, openGV: 5.0, mature: 0.3 };
 /** Rupture hazard per day as a function of T/Tcrit (§7.5). */
 const ruptureHazardPerDay = (x) => (x <= 1 ? 0 : 0.01 * Math.pow((x - 1) / 0.25, 3));
 const COLLATERAL = { open: 7.5, span: 14, tauGrow: 50, tauRegress: 120, acute: 0 };
@@ -835,7 +835,7 @@ export class Engine {
   }
 
   /** The radius (mm) of a varix at the current gradient. It follows the gradient as it changes (smoothed over a few
-   *  seconds by the display-filtered pressures), not over weeks; banding shrinks it until the bands slough. */
+   *  seconds by the display-filtered pressures), up to a ceiling that grows over weeks with the coronary vein; banding shrinks it until the bands slough. */
   varixTarget(site, P = this.Pf || this.P) {
     const p = this.params;
     // Both kinds of varix follow the portosystemic pressure gradient above its healthy value, the same quantity
@@ -848,8 +848,19 @@ export class Engine {
     const ex = site === 'VAR' ? this.routeExcess(['CONF', 'RA'], P) : this.routeExcess(['SV', 'IVCI'], P);
     // Fundal varices exist only where a gastrorenal shunt can drain them.
     const ex0 = site === 'GV' && p.spontaneous.C5 === false ? -1e9 : ex;
-    const grown = clamp(VARIX.r0Healthy + (site === 'GV' ? VARIX.kGV : VARIX.k) * Math.max(0, ex0 - (site === 'GV' ? VARIX.openGV : VARIX.open)), VARIX.r0Healthy, VARIX.rMax);
+    // Esophageal varices are collaterals too, so they take weeks to form: their size is capped by how far the coronary
+    // vein feeding them has remodeled on the disease clock (none at the onset of an acute block). Fundal varices ride
+    // on a gastrorenal shunt that is present from birth, so they are not capped.
+    const mature = this.varixMature(site);
+    const grown = clamp(VARIX.r0Healthy + (site === 'GV' ? VARIX.kGV : VARIX.k) * Math.max(0, ex0 - (site === 'GV' ? VARIX.openGV : VARIX.open)), VARIX.r0Healthy, VARIX.r0Healthy + mature * (VARIX.rMax - VARIX.r0Healthy));
     return site === 'VAR' ? VARIX.r0Healthy + (grown - VARIX.r0Healthy) * Math.pow(0.6, this.bands) : grown;
+  }
+
+  /** How far the channel feeding a varix has remodeled (0 at the onset of a block, 1 once established). */
+  varixMature(site) {
+    if (site === 'GV') return 1;
+    const ch = EDGES[this.ei.C1a], chMin = dMinOf(ch);
+    return clamp((this.slow.d.C1a - chMin) / (ch.dMax - chMin) / VARIX.mature, 0, 1);
   }
 
   varix(site, P = this.P) {
@@ -862,7 +873,8 @@ export class Engine {
     // together and is not a varix, so it is taken off the distending pressure. The wall tension below still
     // uses the full transmural pressure.
     const ra = this.ni.RA, raRise = Math.max(0, P[ra] - (this.refP ? this.refP[ra] : this.Pbase[ra]));
-    const r = r0 * Math.sqrt(tubeArea(ptm - raRise, 0.08) / tubeArea(ref, 0.08));
+    // A vein that has not yet remodeled into a varix is not distended into one either.
+    const r = r0 * (1 + this.varixMature(site) * (Math.sqrt(tubeArea(ptm - raRise, 0.08) / tubeArea(ref, 0.08)) - 1));
     const w = Math.max(0.12, VARIX.w0 / r0) * (site === 'GV' ? 1.4 : 1);
     const T = Math.max(0, ptm) * r / w;
     return { ptm, r, r0, w, T, ratio: T / VARIX.Tcrit };

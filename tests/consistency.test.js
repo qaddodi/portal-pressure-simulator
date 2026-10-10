@@ -104,10 +104,12 @@ test('esophageal varix size follows the portal-to-right-atrial gradient across e
   }
 });
 
-test('varices follow the gradient in real time: a patient made cirrhotic now has them now', () => {
+test('varices take weeks to form, then follow the gradient in real time', () => {
   const e = new Engine(); run(e.loadPresetSteps('healthy', {}));
   assert.ok(computeMetrics(e).varix.d < 2.5);
   e.setParams(deepMerge(e.params, { cirrhosis: 1 })); e.settle();
+  assert.ok(computeMetrics(e).varix.d < 2.5, 'none at onset');
+  e.advanceDays(90, { noRupture: true, silent: true }); e.settle();
   assert.ok(computeMetrics(e).varix.d >= 5, `varix ${computeMetrics(e).varix.d.toFixed(1)} mm`);
   e.setParams(deepMerge(e.params, { cirrhosis: 0 })); e.settle();
   assert.ok(computeMetrics(e).varix.d < 2.5, 'and they are gone when the gradient is');
