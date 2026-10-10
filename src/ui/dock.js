@@ -10,7 +10,7 @@ import { createPressureTime } from './pressure-time.js?v=f6f0e4f571';
 import { createFibroScan } from './fibroscan.js?v=f40195d07f';
 import { createHvpgProcedure } from './hvpg-proc.js?v=b2e9d319b1';
 import { createDoppler } from './doppler.js?v=5a548779a8';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=4bc61fc88e';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=4d65ed8f9a';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -388,10 +388,18 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   }
   const comparison = h('div', { class: 'workspace-comparison', hidden: true });
   body.before(comparison);
+  // A pane that scrolls (Ascites on a phone) is left alone while a finger is on it and for a moment after, so
+  // the live numbers cannot interrupt the scroll; it catches up as soon as the finger has gone.
+  let touching = false, holdUntil = 0, catchUp = 0;
+  const holding = () => touching || performance.now() < holdUntil;
+  body.addEventListener('scroll', () => { holdUntil = performance.now() + 200; }, { capture: true, passive: true });
+  body.addEventListener('touchstart', () => { touching = true; }, { passive: true });
+  for (const t of ['touchend', 'touchcancel']) body.addEventListener(t, () => { touching = false; holdUntil = performance.now() + 200; clearTimeout(catchUp); catchUp = setTimeout(refresh, 260); }, { passive: true });
   function refresh() {
     if (!frame || !isVisible() || state === 'peek' || !workspace.offsetParent) return;
     for (const id of open) {
       const p = byId[id];
+      if (id !== 'scope' && id !== 'doppler' && holding() && p.el.scrollHeight > p.el.clientHeight + 1) continue;
       // live instruments keep their own history and only redraw; the rest draw from the frame
       if (id === 'scope' || id === 'doppler') p.redraw(); else p.update(frame);
       if (id === 'endoscopy' && wallDetails.open) wall.update(frame);
@@ -577,7 +585,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   store.on('compareSnap', () => updateHeader());
   function updateHeader() {
     const st = store.get(), comparing = !!st.compareSnap;
-    comparison.hidden = !comparing || state === 'peek' || st.imaging;
+    const hideCmp = !comparing || state === 'peek' || st.imaging;
+    if (comparison.hidden !== hideCmp) comparison.hidden = hideCmp;
     if (comparing && frame) {
       const a = st.compareSnap.metrics, b = frame.metrics;
       const delta = (label, v, digits, unit) => h('span', {}, label, h('b', {}, `${v > 0 ? '+' : ''}${fmt(v, digits)} ${unit}`));
@@ -590,7 +599,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const txt = !frame ? '' : state === 'peek' && !st.imaging ? INFO[open[0]][1](frame)
       : frame.clock === 'disease' ? `${st.running ? 'Live' : 'Paused'} · Day ${frame.day}` : st.running ? 'Live' : 'Paused';
     if (live.textContent !== txt) live.textContent = txt;
-    live.dataset.state = state === 'peek' ? 'summary' : st.running ? 'live' : 'paused';
+    const ls = state === 'peek' ? 'summary' : st.running ? 'live' : 'paused';
+    if (live.dataset.state !== ls) live.dataset.state = ls;
     // Each tab carries its instrument's reading (not in a case, where the numbers are to be found).
     if (frame && isVisible()) for (const id of TABS) {
       const v = st.imaging ? '' : INFO[id][1](frame);
