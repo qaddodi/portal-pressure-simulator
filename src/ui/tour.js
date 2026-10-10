@@ -5,17 +5,7 @@
 // The values are the model's own, read from the worker once each state has settled.
 
 import { h, fmt, icon } from './util.js?v=a357853926';
-
-// Where along the route each level sits. The three middle levels are inside the liver.
-// The short names label the route on a phone.
-const SITES = [
-  ['pre', 'Pre-hepatic', 'Portal vein', 'Pre-hep.'],
-  ['presin', 'Pre\u00ADsinusoidal', 'Portal tracts', 'Pre-sin.'],
-  ['sin', 'Sinusoidal', 'Sinusoids', 'Sinus.'],
-  ['postsin', 'Post\u00ADsinusoidal', 'Central veins', 'Post-sin.'],
-  ['post', 'Post-hepatic', 'Hepatic veins, IVC', 'Post-hep.'],
-  ['cardiac', 'Cardiac', 'Heart', 'Heart'],
-];
+import { SITES, rate, ladder, tiles, createRoute } from './ladder.js?v=2cbec732f7';
 
 const lobule = { view: 'anatomic', zoom: 'lobule' }, whole = { view: 'anatomic', zoom: 'fit' };
 export const TOUR = {
@@ -59,73 +49,7 @@ export const TOUR = {
   ].map((s) => ({ ...s, notes: s.tell })),
 };
 
-// Normal or not, by the clinical cut-offs the app uses elsewhere. 'hi' is abnormal, 'mid' is borderline.
-const ASCITES_ML = 200;
-const RATE = {
-  pv: (v) => (v > 10 ? ['hi', 'High'] : ['ok', 'Normal']),
-  whvp: (v) => (v > 10 ? ['hi', 'High'] : ['ok', 'Normal']),
-  fhvp: (v) => (v > 8 ? ['hi', 'High'] : ['ok', 'Normal']),
-  ra: (v) => (v > 8 ? ['hi', 'High'] : ['ok', 'Normal']),
-  hvpg: (v) => (v >= 10 ? ['hi', '≥ 10'] : v >= 5 ? ['mid', 'Raised'] : ['ok', 'Normal']),
-  saag: (v, f) => (f.asc < ASCITES_ML ? [null, 'No ascites'] : v >= 1.1 ? ['hi', '≥ 1.1'] : ['ok', '< 1.1']),
-  tp: (v, f) => (f.asc < ASCITES_ML ? [null, 'No ascites'] : v >= 2.5 ? ['hi', 'High'] : ['lo', 'Low']),
-};
-const TILES = [['hvpg', 'HVPG', 'mmHg', 'Wedged − free'], ['saag', 'SAAG', 'g/dL', 'Serum − ascites albumin'], ['tp', 'Ascites protein', 'g/dL', 'Total protein']];
-const LADDER = [['pv', 'Portal', 'vein'], ['whvp', 'Wedged', 'WHVP'], ['fhvp', 'Free HV', 'FHVP'], ['ra', 'Right', 'atrium']];
 const DWELL = 16000, SUMMARY_DWELL = 40000;
-
-const SVGNS = 'http://www.w3.org/2000/svg';
-const s = (tag, attrs = {}, ...kids) => {
-  const el = document.createElementNS(SVGNS, tag);
-  for (const [k, v] of Object.entries(attrs)) if (v != null) el.setAttribute(k, v);
-  el.append(...kids.flat().filter((k) => k != null));
-  return el;
-};
-
-/** The pressure ladder: four stations from the portal vein to the right atrium, the healthy line
- *  dashed behind, the biggest drop shaded as the block. */
-function ladder(f, base, key) {
-  const W = 320, H = 172, x = (i) => 34 + i * 84, y = (v) => 128 - Math.min(30, Math.max(0, v)) * 3.5;
-  const pts = LADDER.map(([k], i) => [x(i), y(f[k]), f[k]]);
-  let drop = -1, big = 4;
-  for (let i = 0; i < 3; i++) { const d = pts[i][2] - pts[i + 1][2]; if (d > big) { big = d; drop = i; } }
-  const grid = [0, 10, 20, 30].map((v) => s('g', { class: 'tl-grid' }, s('line', { x1: 18, x2: W - 6, y1: y(v), y2: y(v) }), s('text', { x: 12, y: y(v) + 3.5, 'text-anchor': 'end' }, String(v))));
-  const path = (p) => p.map(([px, py], i) => (i ? 'L' : 'M') + px.toFixed(1) + ' ' + py.toFixed(1)).join(' ');
-  // The biggest fall between two stations (over 4 mmHg) is the block: a shaded column, labelled above the plot.
-  const band = drop >= 0 ? s('g', { class: 'tl-drop' },
-    s('rect', { x: pts[drop][0] + 10, y: y(30) - 4, width: 64, height: y(0) - y(30) + 4, rx: 8 }),
-    s('text', { x: (pts[drop][0] + pts[drop + 1][0]) / 2, y: y(30) - 9, 'text-anchor': 'middle' }, `−${fmt(big, 0)} mmHg`)) : null;
-  return s('svg', { class: 'tl-ladder', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Pressure ladder: ' + LADDER.map(([, a, b], i) => `${a} ${b} ${fmt(pts[i][2], 1)}`).join(', ') + ' mmHg' },
-    s('defs', {}, s('linearGradient', { id: 'tlGrad', x1: 0, x2: 1, y1: 0, y2: 0 }, s('stop', { offset: 0, 'stop-color': 'var(--tour-portal)' }), s('stop', { offset: 1, 'stop-color': 'var(--tour-sys)' }))),
-    grid, band,
-    base ? s('path', { class: 'tl-base', d: path(LADDER.map(([k], i) => [x(i), y(base[k])])) }) : null,
-    s('path', { class: 'tl-line', d: path(pts) }),
-    pts.map(([px, py, v], i) => s('g', { class: 'tl-pt' + (key.includes(LADDER[i][0]) ? ' key' : '') },
-      s('circle', { cx: px, cy: py, r: 5.5 }),
-      s('text', { class: 'tl-v', x: px, y: py - 11, 'text-anchor': 'middle' }, fmt(v, 0)),
-      s('text', { class: 'tl-k', x: px, y: H - 18, 'text-anchor': 'middle' }, LADDER[i][1]),
-      s('text', { class: 'tl-k2', x: px, y: H - 4, 'text-anchor': 'middle' }, LADDER[i][2]))));
-}
-
-function tiles(f, key) {
-  return h('div', { class: 'tour-tiles' }, TILES.map(([k, label, unit, sub]) => {
-    const [cls, word] = RATE[k](f[k], f), none = cls == null && k !== 'hvpg';
-    return h('div', { class: 'tour-tile' + (key.includes(k) ? ' key' : ''), 'data-rate': cls || 'none' },
-      h('span', { class: 'tt-k' }, label, key.includes(k) ? h('i', { class: 'tt-key' }, 'Key') : null),
-      h('span', { class: 'tt-v' }, none ? '—' : fmt(f[k], 1), none ? null : h('small', {}, unit)),
-      h('span', { class: 'tt-r' }, word),
-      h('span', { class: 'tt-s' }, sub));
-  }));
-}
-
-function route(site) {
-  const at = SITES.findIndex(([id]) => id === site);
-  return h('div', { class: 'tour-route', role: 'img', 'aria-label': at >= 0 ? `Block: ${SITES[at][1]}, at the ${SITES[at][2].toLowerCase()}` : 'No block' },
-    h('div', { class: 'tr-liver' }, h('span', {}, 'Liver')),
-    h('div', { class: 'tr-track' }, SITES.map(([id, label, , short], i) => h('div', { class: 'tr-seg' + (i === at ? ' on' : ''), 'data-site': id },
-      h('i', { class: 'tr-bar' }, i === at ? h('b', { class: 'tr-x' }) : null),
-      h('span', { class: 'tr-l' }, label), h('span', { class: 'tr-s', 'aria-hidden': 'true' }, short)))));
-}
 
 /**
  * The tour's card. ctx: { go(i), stop(), notes(), request(type, payload) }.
@@ -183,17 +107,17 @@ export function createTour(script, ctx) {
       h('h2', { class: 'tour-title' }, st.title),
     ];
   }
-  function paint() {
+  function paint(reveal = false) {
     const st = steps[idx];
     card.classList.toggle('summary', !!st.summary);
     document.getElementById('app')?.classList.toggle('tour-summary', !!st.summary);   // main.js re-reads what the card covers
     if (st.summary) { body.replaceChildren(...head(st), summaryTable(), h('p', { class: 'tour-tell' }, st.tell)); return; }
     const f = fps[idx];
-    body.replaceChildren(...head(st), route(st.site),
+    body.replaceChildren(...head(st), createRoute({ site: st.site }).el,
       h('div', { class: 'tour-fp' + (f ? '' : ' wait') },
         h('div', { class: 'tour-sub' }, 'Pressure along the way', h('span', {}, h('i', { class: 'lg-now' }), 'This patient', h('i', { class: 'lg-base' }), 'Healthy')),
-        f ? ladder(f, idx ? base : null, st.key) : h('div', { class: 'tl-wait' }),
-        f ? tiles(f, st.key) : h('div', { class: 'tour-tiles wait' })),
+        f ? ladder(f, { base: idx ? base : null, key: st.key, reveal }) : h('div', { class: 'tl-wait' }),
+        f ? tiles(f, { key: st.key }) : h('div', { class: 'tour-tiles wait' })),
       h('div', { class: 'tour-tell' }, h('b', {}, 'How to tell'), h('p', {}, st.tell)),
       st.causes?.length ? h('div', { class: 'tour-causes' }, h('b', {}, 'Causes'), h('ul', {}, st.causes.map((c) => h('li', {}, c)))) : null);
   }
@@ -202,7 +126,7 @@ export function createTour(script, ctx) {
     const rows = steps.map((st, i) => [st, i, fps[i]]).filter(([st]) => !st.summary);
     const cell = (k, f) => {
       if (!f) return h('td', { class: 'num' }, '…');
-      const [cls, word] = RATE[k] ? RATE[k](f[k], f) : [null];
+      const [cls, word] = rate(k, f);
       const none = (k === 'saag' || k === 'tp') && cls == null;
       return h('td', { class: 'num', 'data-rate': cls || 'none', title: word }, none ? '—' : fmt(f[k], 1));
     };
@@ -241,7 +165,7 @@ export function createTour(script, ctx) {
         if (i !== idx || !result) return;
         fps[i] = result;
         if (steps[i].preset === 'healthy') Object.assign(base, result);
-        paint();
+        paint(true);
       }
       ready = true;
     },

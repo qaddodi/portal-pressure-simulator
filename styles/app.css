@@ -1846,7 +1846,7 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .tl-grid line { stroke: var(--hairline); stroke-width: 1; }
 .tl-grid text { fill: var(--text-3); font: 500 9.5px var(--font-ui); }
 .tl-base { fill: none; stroke: var(--text-3); stroke-width: 1.5; stroke-dasharray: 4 4; opacity: .7; }
-.tl-line { fill: none; stroke: url(#tlGrad); stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
+.tl-line { fill: none; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
 .tl-pt circle { fill: var(--surface); stroke: var(--text-2); stroke-width: 2; }
 .tl-pt.key circle { fill: var(--accent); stroke: var(--surface); stroke-width: 2.5; }
 .tl-v { fill: var(--text); font: 650 13px var(--font-ui); font-variant-numeric: tabular-nums; }
@@ -1856,6 +1856,31 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .tl-drop rect { fill: color-mix(in srgb, var(--danger) 10%, transparent); }
 .tl-drop text { fill: var(--danger); font: 700 11px var(--font-ui); letter-spacing: .02em; }
 .tl-wait { aspect-ratio: 320 / 172; border-radius: 12px; background: var(--surface-2); }
+/* Pressure ladder (ladder.js): unknown rungs, the eased reveal, the tap-to-answer route strip. */
+.tl-pt.unk circle { fill: var(--surface); stroke: var(--text-3); stroke-dasharray: 2.5 2.5; }
+.tl-pt.unk .tl-v { fill: var(--text-3); }
+.tl-ladder.reveal .tl-line { stroke-dasharray: 1; animation: tl-draw .9s var(--ease) both; }
+.tl-ladder.reveal .tl-pt circle, .tl-ladder.reveal .tl-v { transform-box: fill-box; transform-origin: center; animation: tl-pop .45s var(--ease) both; animation-delay: calc(.12s + var(--i) * .16s); }
+.tl-ladder.reveal .tl-drop { animation: tl-fade .6s var(--ease) .8s both; }
+.tl-ladder.reveal .tl-drop rect { transform-box: fill-box; transform-origin: bottom; animation: tl-rise .6s var(--ease) .8s both; }
+@keyframes tl-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes tl-pop { from { opacity: 0; transform: scale(.4); } }
+@keyframes tl-fade { from { opacity: 0; } }
+@keyframes tl-rise { from { transform: scaleY(0); } }
+.tour-route.pickable .tr-seg { appearance: none; margin: 0; padding: 8px 0 6px; min-height: 48px; border: 0; border-radius: 10px; background: none; color: inherit; cursor: pointer; transition: background-color var(--t-fast) var(--ease); }
+.tour-route.pickable .tr-seg:hover:not(:disabled) { background: var(--surface-2); }
+.tour-route.pickable .tr-seg:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.tour-route.pickable .tr-seg:disabled { cursor: default; }
+.tour-route .tr-bar { transition: opacity .35s var(--ease), box-shadow .35s var(--ease); }
+.tour-route.pickable .tr-seg:hover:not(:disabled) .tr-bar { opacity: .55; }
+.tour-route .tr-seg.pick .tr-bar { opacity: 1; box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text); }
+.tour-route .tr-seg.pick span { color: var(--text); font-weight: 650; }
+.tour-route.answered .tr-seg:not(.on):not(.pick) .tr-bar { opacity: .18; }
+.tour-route .tr-seg.wrong .tr-bar { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--danger); opacity: .45; }
+.tour-route .tr-seg.right .tr-bar { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ok); }
+.tour-route.answered .tr-x { animation: tr-x-in .5s var(--ease) .15s both; }
+@keyframes tr-x-in { from { opacity: 0; scale: .3; } }
+@media (prefers-reduced-motion: reduce) { .tl-ladder.reveal *, .tour-route.answered .tr-x { animation: none !important; } }
 .tour-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .tour-tiles.wait { height: 92px; border-radius: 12px; background: var(--surface-2); }
 .tour-tile { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); border: 1.5px solid transparent; min-width: 0; }
