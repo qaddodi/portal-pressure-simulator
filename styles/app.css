@@ -1697,7 +1697,8 @@ button.finding:hover { background: var(--surface-2); }
 .sv-region-fen { --fen-ink: #56688A; font-size: calc(9px * var(--label-k, 1)); color: var(--fen-ink); gap: 2px; }
 .sv-region-fen > span:first-child { opacity: .9; }
 .sv-region-fen .v { font-size: calc(9.5px * var(--label-k, 1)); font-weight: 500; color: var(--text-2); opacity: .9; }
-.sv-region-fen .v b { font-size: calc(10px * var(--label-k, 1)); font-weight: 600; color: var(--text-2); margin-right: 2px; }
+.sv-region-fen .v { font-variant-numeric: tabular-nums; }
+.sv-region-fen .v b { font-size: calc(10px * var(--label-k, 1)); font-weight: 600; color: var(--text-2); margin-right: 2px; transition: opacity .26s var(--ease); }
 :root[data-theme="dark"] .sv-region-fen, :root[data-theme="dark"] .sv-lead-fen { --fen-ink: #B8C6E2; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) :is(.sv-region-fen, .sv-lead-fen) { --fen-ink: #B8C6E2; } }
 .sv-region-sin { color: var(--text); font-size: calc(11.5px * var(--label-k, 1)); }

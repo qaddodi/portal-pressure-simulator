@@ -50,7 +50,9 @@ export function createSinusoidView({ host }) {
     if (!R) { R = regions[key] = { el: h('div', { class: cls }) }; labels.append(R.el); }
     const txt = name + '|' + value;
     if (R.text !== txt) {
+      const same = R.text && R.text.split('|')[0] === name && R.el.children.length === 1 + (value ? value.split(' · ').length : 0);
       R.text = txt;
+      if (same && key === 'fen') return R;   // (its value is kept by fenTick, which eases it: the caption is not rebuilt)
       const lines = value ? value.split(' · ') : [];
       R.el.replaceChildren(h('span', {}, name), ...lines.map((l) => { const [v, u] = l.split('~'); return h('span', { class: 'v' }, h('b', {}, v), u ? ` ${u}` : ''); }));
     }
@@ -330,7 +332,21 @@ export function createSinusoidView({ host }) {
 
   // ── Labels ──
   // The fenestrae's state with the share open, read as a value beneath the name (eased with S.por, so it counts rather than jumps).
-  const fenTxt = () => `${S.por > 0.85 ? 'Open' : S.por > 0.15 ? 'Closing' : 'Closed'}~${Math.round(S.por * 100)}%`;
+  const fenWord = () => (S.por > 0.85 ? 'Open' : S.por > 0.15 ? 'Closing' : 'Closed');
+  const fenTxt = () => `${fenWord()}~${Math.round(S.por * 100)}%`;
+  // Every frame: the share counts by single percents with S.por, and a new state word cross-fades in (never a swap).
+  let fenFade = 0;
+  function fenTick() {
+    const b = regions.fen?.el.querySelector('.v b'), u = b?.nextSibling;
+    if (!b) return;
+    const pct = ` ${Math.round(S.por * 100)}%`;
+    if (u && u.nodeValue !== pct) u.nodeValue = pct;
+    const w = fenWord();
+    if (b.textContent !== w && !fenFade) {
+      b.style.opacity = '0';
+      fenFade = setTimeout(() => { b.textContent = w; b.style.opacity = ''; fenFade = 0; }, 260);
+    }
+  }
   // The fenestra a callout points at: of the upper lining's pores near x, the one that stays open longest (by place
   // only, so the line does not hop as the pores close).
   const fenAt = (x) => {
@@ -468,6 +484,7 @@ export function createSinusoidView({ host }) {
     // the shader draws are in place from the first frame and nothing moves when the names fade in.
     const lk = [geoKey, VW.k.toFixed(3), VW.C.map((v) => v.toFixed(0)), S.lum.toFixed(3), S.act > 0.5, Math.round(S.por * 20), model.hide, model.P2.toFixed(1), model.lymph.toFixed(1), Math.round(model.lyProt * 100), model.P1.toFixed(1), model.P3.toFixed(1), phoneMQ.matches].join('|');
     if (lk !== lastKey) { lastKey = lk; layoutEnds(); layoutTags(); }
+    fenTick();
     if (gpu) {
       const u = palette(dark, getComputedStyle(host));
       // Device px ↔ local µm.
