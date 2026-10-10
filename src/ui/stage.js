@@ -3007,6 +3007,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     animateVT({ k, x: (fx0 + fx1) / 2 - cx * k, y: cyScreen - cy * k }, ms);
     return true;
   }
+  // While the catheter travels, the view drifts after its tip (eased, never snapping) once the tip has
+  // passed the middle of the route view, so the hepatic vein arrives centred before the close-up.
+  let followT = 0;
+  function cathFollow() {
+    const r = cathRoute(), now = performance.now(), dt = Math.min(64, now - (followT || now)); followT = now;
+    const st = cath.st;
+    if (!r || !st || !cath.saved || vtGliding || reduceMotion.matches) return;
+    const end = st.ostium ? r.hv0 - 2 : r.free, tipD = r.start + (end - r.start) * clamp(st.u, 0, 1);
+    const wr = wrap.getBoundingClientRect(), ins = safeInsets();
+    const [fx0, fy0] = clientToVB(wr.left + ins.l, wr.top + ins.t), [fx1, fy1] = clientToVB(wr.left + ins.W - ins.r, wr.top + ins.H - ins.b);
+    const tp = cutLen(r.pts, r.cum, 0, tipD).at(-1), k = vt.k;
+    const tx = (fx0 + fx1) / 2 - tp[0] * k, ty = (fy0 + fy1) / 2 - tp[1] * k;
+    // Only ever follow downwards along the descent (no backing up as the tip turns in).
+    const a = 1 - Math.exp(-dt / 450), ny = vt.y + Math.min(0, ty - vt.y) * a, nx = vt.x + (tx - vt.x) * a * 0.5;
+    if (Math.abs(ny - vt.y) + Math.abs(nx - vt.x) < 0.05) return;
+    vt = { k, x: nx, y: ny }; applyVT(); CTM = null; refreshCTM(); cathLabels(); if (drawVeins()) drawnView = viewVersion;
+  }
 
   // Overlays (stenosis, thrombus, stents, varices, balloons, catheter…)
   // The overlays (clamps, clots, stents, varices, caput medusae, balloons, catheter) are rebuilt
@@ -4747,6 +4764,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setCatheter(st) { cath.st = st; wrap.classList.toggle('cath-on', !!st); if (!st) { cath.rc = 0; cath.route = null; if (veins?.canCath) veins.setCath(null); cathVer++; if (cathTint) { cathTint = null; cath.tintKey = ''; syncVeins(easeInOut(morph)); } cath.g.style.display = 'none'; cath.labels.hidden = true; cath.labels.replaceChildren(); cath.made?.clear(); cath.at = null; return; } cathPaint(); },
     /** Frame the catheter's route ('route'), its tip close up ('tip'), or go back to the view before ('home'). */
     cathFocus,
+    cathFollow,
     /** The vessel the Doppler is reading, glowing green while the Doppler instrument is open (null: none). */
     setDoppler(id) {
       if (id && !E[id]) id = null;

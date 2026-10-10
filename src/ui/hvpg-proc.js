@@ -117,6 +117,7 @@ export function createHvpgProcedure() {
     // (Each move waits until the anatomy is on screen: a switch from the circuit takes a moment.)
     const want = t < T.zoom ? 'route' : t < T.back ? 'tip' : 'home';
     if (want !== cam && (want !== 'route' || t > 250) && sg.cathFocus(want, want === 'tip' ? 1100 : 800)) cam = want;
+    if (cam === 'route' && want === 'route') sg.cathFollow?.();
     const v = values(), ph = phase(), pulse = 0.5 + 0.5 * Math.sin(t / 170);
     const labels = [];
     if (ph === 'free') labels.push({ key: 'f', at: 'tip', kicker: 'FHVP', text: fmt(pAt(t, v), 1), unit: 'mmHg', cls: 'free' });
@@ -144,6 +145,7 @@ export function createHvpgProcedure() {
   function figureBlocked(sg) {
     const want = t < T.zoom ? 'route' : t < TB.back + 1500 ? 'tip' : 'home';
     if (want !== cam && (want !== 'route' || t > 250) && sg.cathFocus(want, want === 'tip' ? 1100 : 800)) cam = want;
+    if (cam === 'route' && want === 'route') sg.cathFollow?.();
     // Three short pushes against the clot, each easing in and back out.
     const pk = k01(t, TB.probe0, TB.probe1), probe = t < TB.probe1 ? Math.pow(Math.sin(pk * 3 * Math.PI), 2) * 0.9 : 0;
     const labels = t >= TB.probe0 && t < TB.abort ? [{ key: 'p', at: 'tip', kicker: 'Hepatic vein', text: 'Occluded', unit: '', cls: 'wedge' }]
