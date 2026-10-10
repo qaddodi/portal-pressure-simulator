@@ -40,12 +40,12 @@
 // (withOverview below); a deck never writes that slide itself.
 
 import { STIFFNESS } from './decks/stiffness.js?v=49124fb5fb';
-import { ONE_YEAR } from './decks/one-year.js?v=f45d2cb1d7';
+import { ONE_YEAR } from './decks/one-year.js?v=d8bd51a4bf';
 import { LOBULE } from './decks/lobule.js?v=657b69955e';
 import { SHUNTS } from './decks/shunts.js?v=a0764ff6d0';
 import { TAP } from './decks/tap.js?v=90280ceb39';
 import { CIRCUIT } from './decks/circuit.js?v=4e9956be9e';
-import { DOPPLER } from './decks/doppler.js?v=a30ddaa424';
+import { DOPPLER } from './decks/doppler.js?v=6f60edd4a8';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=b18a2f0005';
 import { PREHEPATIC } from './decks/prehepatic.js?v=e1915e749b';
 import { RIGHT_HEART } from './decks/right-heart.js?v=211c3fda34';

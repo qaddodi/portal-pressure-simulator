@@ -2,15 +2,15 @@
 // Instruments card (blueprint §9.1, §9.2).
 
 import { store, hiddenNow } from './store.js?v=25cbe77a76';
-import { EDGES } from '../engine/topology.js?v=dc393aabea';
+import { EDGES } from '../engine/topology.js?v=706a39d50b';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=e0101a3fa2';
-import { lobuleFlows } from './lobule-model.js?v=6578b28606';
-import { createProfile } from './charts.js?v=7f75bcfb57';
-import { createPressureTime } from './pressure-time.js?v=2d6e39306b';
-import { createFibroScan } from './fibroscan.js?v=014c81846e';
-import { createHvpgProcedure } from './hvpg-proc.js?v=49d47fb931';
-import { createDoppler } from './doppler.js?v=ab9a7cd128';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=eb0f8ac1fa';
+import { lobuleFlows } from './lobule-model.js?v=0c0c959895';
+import { createProfile } from './charts.js?v=a26445b85d';
+import { createPressureTime } from './pressure-time.js?v=41ee279896';
+import { createFibroScan } from './fibroscan.js?v=a5e6512e21';
+import { createHvpgProcedure } from './hvpg-proc.js?v=e7ebae63ea';
+import { createDoppler } from './doppler.js?v=2105ed48d3';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=7be19cf02a';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -31,11 +31,11 @@ export const TILES = [
     scale: [0, 35], ticks: [10, 15],
     st: (v) => (v <= 10 ? 'ok' : v < 15 ? 'caution' : 'danger'), s: (v) => (v <= 10 ? 'Normal' : v < 15 ? 'Raised' : 'High') },
   // Flow and velocity averaged over a few breaths (pvFlowMean, pvVelMean): breathing swings the
-  // instantaneous velocity across the 12 cm/s cut-off even in a healthy patient.
-  { id: 'pvflow', group: 'flow', k: 'Portal flow', ks: 'PV flow', title: 'Portal vein blood flow toward the liver, averaged over a few breaths (negative = away from it). Normal ≥ 0.9 L/min at ≥ 12 cm/s.', why: 'pvFlow', v: (m) => m.pvFlowMean ?? m.pvFlow, d: 1, u: 'L/min',
+  // instantaneous velocity across the 15 cm/s cut-off even in a healthy patient.
+  { id: 'pvflow', group: 'flow', k: 'Portal flow', ks: 'PV flow', title: 'Portal vein blood flow toward the liver, averaged over a few breaths (negative = away from it). Normal ≥ 0.9 L/min at ≥ 15 cm/s (Doppler).', why: 'pvFlow', v: (m) => m.pvFlowMean ?? m.pvFlow, d: 1, u: 'L/min',
     scale: [-0.6, 2], ticks: [0, 0.9],
-    st: (v, m) => (v < -0.02 ? 'critical' : Math.abs(vel(m)) < 5 ? 'danger' : v < 0.9 || Math.abs(vel(m)) < 12 ? 'caution' : 'ok'),
-    s: (v, m) => (v < -0.02 ? 'Reversed' : Math.abs(vel(m)) < 5 ? 'Stasis' : v < 0.9 ? 'Reduced' : Math.abs(vel(m)) < 12 ? 'Slow' : 'Normal') },
+    st: (v, m) => (v < -0.02 ? 'critical' : Math.abs(vel(m)) < 9 ? 'danger' : v < 0.9 || Math.abs(vel(m)) < 15 ? 'caution' : 'ok'),
+    s: (v, m) => (v < -0.02 ? 'Reversed' : Math.abs(vel(m)) < 9 ? 'Stasis' : v < 0.9 ? 'Reduced' : Math.abs(vel(m)) < 15 ? 'Slow' : 'Normal') },
   { id: 'liver', group: 'flow', hideKey: 'model', k: 'Sinusoidal flow', ks: 'Sinusoids', title: 'Total blood flow through the liver sinusoids (portal + hepatic artery), % of this model\'s healthy baseline. A model quantity, not liver function.', why: 'sinFlow', v: (m) => m.liverPerfPct, d: 0, u: '%',
     scale: [0, 150], ticks: [55, 75],
     st: (v) => (v > 75 ? 'ok' : v > 55 ? 'caution' : 'danger'), s: (v) => (v > 75 ? 'Normal' : v > 55 ? 'Reduced' : 'Low') },
@@ -82,7 +82,7 @@ export const CUTOFFS = [
   ['HVPG (wedged − free)', '< 5 mmHg', '5–9 (subclinical)', '≥ 10 (CSPH in cirrhosis)', '—'],
   ['PPG: portosystemic gradient (portal vein − IVC)', '< 6 mmHg', '6–11', '≥ 12', '—'],
   ['Portal vein pressure', '≤ 10 mmHg', '11–14', '≥ 15', '—'],
-  ['Portal flow', '≥ 0.9 L/min and ≥ 12 cm/s', '< 0.9 L/min or < 12 cm/s', '< 5 cm/s (stasis)', 'Reversed (hepatofugal)'],
+  ['Portal flow', '≥ 0.9 L/min and ≥ 15 cm/s', '< 0.9 L/min or < 15 cm/s', '< 9 cm/s (stasis)', 'Reversed (hepatofugal)'],
   ['Sinusoidal flow', '> 75 % of normal', '56–75 %', '≤ 55 %', '—'],
   ['Shunted blood', '< 10 %', '10–29 %', '30–59 %', '≥ 60 %'],
   ['Varix wall stress (model)', '< 40 % of rupture', '40–69 %, or diameter ≥ 5 mm', '70–89 %', '≥ 90 %'],

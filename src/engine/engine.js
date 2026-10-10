@@ -1,13 +1,13 @@
 // Lumped-parameter hemodynamic engine (blueprint §7).
 // Pure JS, no DOM: runs in a Web Worker, on the main thread, or in Node tests.
 
-import { NODES, EDGES, dMinOf, edgePresent, isOccluded, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=dc393aabea';
+import { NODES, EDGES, dopplerK, dMinOf, edgePresent, isOccluded, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=706a39d50b';
 import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
 } from './physiology.js?v=6fc3ec393a';
 import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=da4ad72f01';
-import { detectEvents } from './events.js?v=e24f641428';
+import { detectEvents } from './events.js?v=120d432c34';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -484,7 +484,8 @@ export class Engine {
     // flicker as breathing swings the instantaneous velocity across a cut-off.
     const av = Math.min(1, dt / 6), kPV = this.ei.PV_TRUNK;
     this.pvQm = (this.pvQm ?? this.Q[kPV]) + (this.Q[kPV] - (this.pvQm ?? this.Q[kPV])) * av;
-    this.pvVm = (this.pvVm ?? this.velocity('PV_TRUNK')) + (this.velocity('PV_TRUNK') - (this.pvVm ?? this.velocity('PV_TRUNK'))) * av;
+    const vPV = this.dopplerVelocity('PV_TRUNK');
+    this.pvVm = (this.pvVm ?? vPV) + (vPV - (this.pvVm ?? vPV)) * av;
     // Display-filtered pressures (removes respiratory / cardiac ripple from readouts)
     if (!this.Pf) this.Pf = Float64Array.from(this.P);
     const ap = Math.min(1, dt / 2.5);
@@ -825,6 +826,11 @@ export class Engine {
     const q = this.Q[this.ei[id]];
     const d = Math.max(0.5, this.diameter(id)) / 10; // cm
     return q / (Math.PI * d * d / 4);
+  }
+
+  /** Doppler velocity (cm/s), signed: the time-averaged peak of the spectrum (see dopplerK). */
+  dopplerVelocity(id) {
+    return this.velocity(id) * dopplerK(EDGES[this.ei[id]]);
   }
 
   /** The radius (mm) of a varix at the current gradient. It follows the gradient as it changes (smoothed over a few

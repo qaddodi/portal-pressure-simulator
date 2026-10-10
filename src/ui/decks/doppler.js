@@ -36,7 +36,7 @@ export const DOPPLER = {
       ask: ['Why is portal Doppler done fasting?', 'A meal raises portal flow and velocity, which can hide the slow flow of portal hypertension.'],
     },
     {
-      id: 'slow', preset: 'csph', cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
+      id: 'slow', preset: 'cirr-decomp', cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
       data: 'tiles', tiles: ['hvpg', 'pv'], key: ['hvpg'],
       kicker: 'Cirrhosis', site: 'sin', title: 'Cirrhosis slows the portal vein',
       line: 'Resistance in the sinusoids slows portal flow. A mean velocity under 15 cm/s is abnormal.',

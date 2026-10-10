@@ -4,7 +4,7 @@
 
 import { store, hiddenNow } from './store.js?v=25cbe77a76';
 import { fmt } from './util.js?v=e0101a3fa2';
-import { EDGES } from '../engine/topology.js?v=dc393aabea';
+import { EDGES } from '../engine/topology.js?v=706a39d50b';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 
@@ -22,7 +22,7 @@ export function caption(f, { scenario = true } = {}) {
   if (!hidden?.has('trueHVPG')) p.push(`HVPG ${fmt(m.hvpg, 0)}`);
   if (p.length) parts.push(p.join(', ') + '.');
   const q = (f.Qf || f.Q)[EI.PV_TRUNK];
-  const flow = q < -0.05 ? 'flow reversed, away from the liver' : Math.abs(m.pvVel) < 5 ? 'sluggish portal flow' : 'flow toward the liver';
+  const flow = q < -0.05 ? 'flow reversed, away from the liver' : Math.abs(m.pvVel) < 9 ? 'sluggish portal flow' : 'flow toward the liver';
   const e = [];
   if (m.varix.d >= 2.5) e.push(`${m.varix.grade.label.toLowerCase()} varices${m.varix.redWale ? ' with red wale signs' : ''}`);
   if (m.ascites.grade > 0) e.push(`${fmt(m.ascites.volume / 1000, 1)} L ascites`);

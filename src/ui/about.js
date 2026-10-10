@@ -2,7 +2,7 @@
 // is happening to it in this patient right now (reversed flow, a clot, a collateral opening). The
 // first sentence is fixed; the rest is read from the live model.
 
-import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=dc393aabea';
+import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=706a39d50b';
 import { fmt, clamp } from './util.js?v=e0101a3fa2';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

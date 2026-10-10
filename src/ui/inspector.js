@@ -1,6 +1,6 @@
 // Controls panel (blueprint §4.1, §8.4): global parameters in three tabs, or the selected vessel.
 
-import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=dc393aabea';
+import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=706a39d50b';
 import { DRUGS } from '../engine/scenario.js?v=da4ad72f01';
 import { store, updateParams, isLocked, hiddenNow } from './store.js?v=25cbe77a76';
 import { h, fmt, fmtFlow, fp, ff, clamp, tooltipFor, icon, svgIcon } from './util.js?v=e0101a3fa2';
@@ -299,7 +299,7 @@ export function createInspector(root, { onWhy, onAction, onOpenTab, onScenarios,
 
   function aboutEdge(e) {
     const txt = {
-      PV_TRUNK: 'Carries about 75 % of liver blood flow (≈ 1.1 L/min). Normal mean velocity 15–40 cm/s, toward the liver. The portal system has no valves: flow goes wherever the gradient points.',
+      PV_TRUNK: 'Carries about 75 % of liver blood flow (≈ 1.1 L/min). Normal Doppler velocity 15–40 cm/s, toward the liver (the mean across the lumen is about 0.57 of that). The portal system has no valves: flow goes wherever the gradient points.',
       C1a: 'The left gastric (coronary) vein feeds the esophageal submucosal plexus: the source of esophageal varices.',
       C1b: 'Esophageal varices drain to the azygos vein and SVC. Modeled wall stress follows ΔP · r / w (an educational index, not a measured tension).',
       C2: 'Short and posterior gastric veins connect the splenic vein to the fundus: the route of isolated gastric varices in splenic vein thrombosis.',

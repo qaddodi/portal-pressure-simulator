@@ -22,10 +22,10 @@
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { store } from './store.js?v=25cbe77a76';
 import { radiiChanged } from './lobule-render-cache.js?v=07951b5935';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=6578b28606';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=0c0c959895';
 import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=e0101a3fa2';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
-import { NODES, EDGES } from '../engine/topology.js?v=dc393aabea';
+import { NODES, EDGES } from '../engine/topology.js?v=706a39d50b';
 import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=44500994a2';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
 import { createSinusoidView } from './sinusoid-view.js?v=1a75caf738';

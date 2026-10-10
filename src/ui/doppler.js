@@ -4,9 +4,9 @@
 // and the waveform pattern. The trace keeps recording while the instrument is closed, so it opens
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
-import { EDGES } from '../engine/topology.js?v=dc393aabea';
+import { EDGES, dopplerK } from '../engine/topology.js?v=706a39d50b';
 import { h, fmt, fitCanvas, clamp, icon } from './util.js?v=e0101a3fa2';
-import { FONT } from './charts.js?v=7f75bcfb57';
+import { FONT } from './charts.js?v=a26445b85d';
 import { logAction } from './store.js?v=25cbe77a76';
 import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=fe9fd40247';
 
@@ -137,9 +137,9 @@ export function createDoppler({ onProbe }) {
       const v = buf[i][1]; sum += v; n++;
       if (v > vmax) vmax = v; if (v < vmin) vmin = v;
     }
-    const mean = sum / n;
-    // Peak of the spectrum ≈ 1.3 × the mean velocity across the lumen
-    return { mean, vmax: vmax * 1.3, vmin: vmin * 1.3, vmaxMean: vmax, vminMean: vmin };
+    // The record is the mean across the lumen; the scanner reads the peak of the spectrum (dopplerK)
+    const k = dopplerK(EDGES[EI[probe]]);
+    return { mean: k * sum / n, vmax: vmax * k, vmin: vmin * k, vmaxMean: vmax, vminMean: vmin };
   }
   const meta = () => PROBES.find((p) => p.id === probe) || PROBES[0];
   // +1 when the vessel's forward flow is drawn above the baseline, −1 when below
@@ -158,7 +158,7 @@ export function createDoppler({ onProbe }) {
       dir = 'No flow'; sev = 'critical'; pattern = 'No signal';
       note = p.kind === 'tips' ? 'No flow in the stent: occluded.' : 'No detectable flow: the vessel is occluded, as in thrombosis.';
     } else if (p.kind === 'portal') {
-      if (a < 5 && !reverses) { dir = 'Stasis'; sev = 'danger'; }
+      if (a < 9 && !reverses) { dir = 'Stasis'; sev = 'danger'; }
       else if (reverses && Math.abs(r.mean) < swing * 0.35) { dir = 'To-and-fro'; sev = 'danger'; }
       else if (r.mean < 0) { dir = 'Hepatofugal'; sev = 'critical'; }
       else { dir = 'Hepatopetal'; sev = a < p.normal[0] ? 'caution' : 'ok'; }
@@ -226,7 +226,8 @@ export function createDoppler({ onProbe }) {
     statEls.CI.wrap.hidden = !isPV;
     if (isPV && frame) {
       const D = Math.max(0.5, frame.D[EI[probe]]) / 10, area = Math.PI * D * D / 4;
-      set(statEls.CI.dd, Math.abs(r.mean) > 0.5 ? `${fmt(area / Math.abs(r.mean), 2)} cm·s` : '—');
+      const vm = Math.abs(r.mean) / dopplerK(EDGES[EI[probe]]);   // Moriyasu's index uses the mean across the lumen
+      set(statEls.CI.dd, vm > 0.3 ? `${fmt(area / vm, 2)} cm·s` : '—');
     }
     set(noteEl, it.note);
     const aria = `Spectral Doppler, ${EDGES[EI[probe]].label}, ${sweepSeconds}-second sweep: ${it.dir}, mean ${num(r.mean, 0)} centimeters per second, ${it.pattern}.`;
@@ -320,8 +321,8 @@ export function createDoppler({ onProbe }) {
     const v = velAt(c / g.cps, g);
     const has = !Number.isNaN(v);
     const av = Math.abs(v);
-    // velocity band: in an artery (or the stent) the flow is fast and blunt, from ~0.45× to 1.3×
-    // the mean with a clear window under it, and slow flow broadens toward the baseline; in a vein
+    // velocity band: in an artery (or the stent) the flow is fast and blunt, from ~0.45× the mean up to
+    // the peak (dopplerK × the mean) with a clear window under it, and slow flow broadens toward the baseline; in a vein
     // the sample volume takes in the slow flow near the wall too, so the band fills to the baseline
     const s = v < 0 ? -1 : 1;
     // each spectral line is its own estimate: its top reaches a little further or less far, and
@@ -329,7 +330,7 @@ export function createDoppler({ onProbe }) {
     // in time (held in the ring, so this scrolls with the trace)
     const rn = () => Math.random() + Math.random() + Math.random() - 1.5;
     jit = 0.45 * jit + rn(); lineGain = 0.5 * lineGain + rn();
-    const P = av * 1.3 * (1 + 0.035 * jit);
+    const P = av * g.k * (1 + 0.035 * jit);
     const gain = 10 ** (0.12 * lineGain);
     const L = av * (g.venous ? 0.05 : 0.45 - 0.4 * clamp(1 - av / 12, 0, 1));
     const sigHi = 0.02 * P + 0.4, sigLo = 0.08 * P + 1.2;
@@ -416,7 +417,8 @@ export function createDoppler({ onProbe }) {
     let pos = 0, neg = 0;
     const sgn = pol();
     for (const [t, v0] of buf) if (t >= tNow - sweepSeconds && t <= tNow) { const v = sgn * v0; if (v > pos) pos = v; if (-v > neg) neg = -v; }
-    pos *= 1.3; neg *= 1.3;
+    const k = dopplerK(EDGES[EI[probe]]);
+    pos *= k; neg *= k;
     const need = Math.max(pos, neg, 8) / 0.85;
     const target = STEPS.find((x) => x >= need) || STEPS[STEPS.length - 1];
     const tbRaw = pos + neg < 1 ? 0.5 : pos > 0 && neg < pos * 0.08 ? 0.88 : neg > 0 && pos < neg * 0.08 ? 0.12 : clamp(0.1 + 0.8 * (pos / (pos + neg)), 0.12, 0.88);
@@ -431,7 +433,7 @@ export function createDoppler({ onProbe }) {
 
     // Spectrum, at device resolution, newest line at the right edge.
     const RW = Math.max(1, Math.round(W * dpr)), RH = Math.max(1, Math.round(H * dpr));
-    const g = { RW, RH, rBase: baseY * dpr, rPxPerV: pxPerV * dpr, cps: RW / sweepSeconds, binPx: Math.max(1.5, RH / 200), spkPx: Math.max(2, RH / 110), spkMix: clamp(1 - 1 / dpr, 0.3, 0.65), pol: sgn, venous: meta().kind !== 'artery' && meta().kind !== 'tips' };
+    const g = { RW, RH, rBase: baseY * dpr, rPxPerV: pxPerV * dpr, cps: RW / sweepSeconds, binPx: Math.max(1.5, RH / 200), spkPx: Math.max(2, RH / 110), spkMix: clamp(1 - 1 / dpr, 0.3, 0.65), pol: sgn, k, venous: meta().kind !== 'artery' && meta().kind !== 'tips' };
     const cNow = Math.floor(tNow * g.cps);
     const key = `${RW}x${RH}|${scale}|${baseF}|${probe}|${sgn}|${sweepSeconds}|${mode}`;
     if (!img || img.width !== RW || img.height !== RH) {

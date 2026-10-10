@@ -202,3 +202,9 @@ export const PORTAL_TERRITORY = new Set(['SMV', 'IMV', 'SV', 'LGV', 'CONF', 'PVH
 // Edges that carry portal blood into systemic veins (for shunt fraction). Positive sign = toward systemic.
 export const PORTOSYSTEMIC_EDGES = ['C1b', 'C3', 'C4', 'C5', 'C6', 'C7', 'TIPS', 'DIPS', 'S_PC', 'S_DSR', 'S_MC'];
 export const SPLANCHNIC_ARTERIES = ['A_SMA', 'A_IMA', 'A_SPL', 'A_LGA'];
+
+// Doppler reads the peak of the velocity spectrum (blood at the centre of the vessel), averaged over
+// time; the model's velocity is flow over area, the mean across the lumen. Mean ≈ 0.57 × peak in the
+// portal vein (Moriyasu 1986), ≈ 0.5 × peak for laminar flow in a smooth stent. The usual Doppler
+// ranges (portal vein 15–40 cm/s, TIPS 90–190 cm/s) are peak velocities.
+export const dopplerK = (e) => (e?.kind === 'shunt' ? 2 : 1 / 0.57);

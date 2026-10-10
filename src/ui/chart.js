@@ -11,9 +11,9 @@
 import { store, updateParams, hiddenNow } from './store.js?v=25cbe77a76';
 import { h, fmt, icon, svgIcon, toast } from './util.js?v=e0101a3fa2';
 import { DRUGS } from '../engine/scenario.js?v=da4ad72f01';
-import { TILES, VITALS, readoutValue } from './dock.js?v=f90794d490';
-import { activeInterventions } from './inspector.js?v=c125b2c440';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=fcac0d9c66';
+import { TILES, VITALS, readoutValue } from './dock.js?v=3164756ac8';
+import { activeInterventions } from './inspector.js?v=bf76ac941d';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=d3b44b7ce9';
 
 // Where each readout is measured, so a click can show it on the figure.
 const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS', 'DIPS'], spleen: ['V_SPL', 'SV_CONF'], ra: ['IVCS_RA'] };
@@ -32,8 +32,8 @@ const FIND = {
   pvflow: (v, m, sev) => sev === 'critical'
     ? ['Portal flow reversed (hepatofugal)', `${fmt(Math.abs(v), 1)} L/min flows away from the liver, out through collaterals.`]
     : sev === 'danger'
-      ? ['Portal flow near stasis', `${n0(Math.abs(m.pvVelMean ?? m.pvVel))} cm/s (normal ≥ 12). Slow flow favors portal vein thrombosis.`]
-      : ['Portal flow reduced', `${fmt(v, 1)} L/min at ${n0(Math.abs(m.pvVelMean ?? m.pvVel))} cm/s (normal ≥ 0.9 L/min, ≥ 12 cm/s).`],
+      ? ['Portal flow near stasis', `${n0(Math.abs(m.pvVelMean ?? m.pvVel))} cm/s (normal ≥ 15). Slow flow favors portal vein thrombosis.`]
+      : ['Portal flow reduced', `${fmt(v, 1)} L/min at ${n0(Math.abs(m.pvVelMean ?? m.pvVel))} cm/s (normal ≥ 0.9 L/min, ≥ 15 cm/s).`],
   liver: (v, m) => ['Liver perfusion reduced', `${n0(v)} % of this model’s healthy sinusoidal flow. The hepatic artery has risen ×${fmt(m.habr, 1)} to buffer the loss of portal flow.`],
   shunt: (v, m) => ['Portosystemic shunting', `${n0(v)} % of gut blood bypasses the liver (a model fraction, capped at 100 %).`],
   varix: (v, m, sev) => [m.varix.d < 2.5 ? 'Varix wall under strain' : sev === 'critical' ? 'Varices close to rupture' : `Esophageal varices, ${m.varix.grade.label.toLowerCase()}`,

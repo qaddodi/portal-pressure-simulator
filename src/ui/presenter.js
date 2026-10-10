@@ -19,10 +19,10 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=cab65850a4';
 import { sinusoidSupported } from './sinusoid-view.js?v=1a75caf738';
 import { pressureColor } from './colormap.js?v=6d64a94345';
-import { NODES } from '../engine/topology.js?v=dc393aabea';
-import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=fc234cc428';
-import { createTools } from './presenter-tools.js?v=129a96f267';
-import { openHandout } from './handout.js?v=e3282db73d';
+import { NODES } from '../engine/topology.js?v=706a39d50b';
+import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=70de05a64c';
+import { createTools } from './presenter-tools.js?v=3ac7886496';
+import { openHandout } from './handout.js?v=33bd523876';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -425,7 +425,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=55fe387726', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=d60c4a49b5', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 6000);
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -437,7 +437,7 @@ function makeCalc() {
       w.onmessage = (e) => onMsg(e.data); w.onerror = null;
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
-      const { createCore } = await import('../worker-core.js?v=773cc8d82f');
+      const { createCore } = await import('../worker-core.js?v=3e5b1bf224');
       const core = createCore((m) => setTimeout(() => onMsg(m), 0));
       core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
       post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
