@@ -4175,8 +4175,9 @@ body.sim-paused .mon.bad .mv { animation-play-state: paused; }
 .vdock.mini .vd-status { display: none; }
 .vdock.mini .stage-bar.bottom { height: 48px; }
 .app.figure-focus .zoom-pill, .stage-credit { transition: opacity .25s var(--ease), translate .2s var(--ease), bottom .2s var(--ease), font-size .3s var(--ease); }
-/* Busy screen (a card or sheet is open beneath it): the credit shrinks a little and tucks closer to the card's edge. */
-.stage-credit.busy { font-size: calc(var(--fs-12) - 1.5px); translate: 0 3px; }
+/* Busy screen (a card or sheet is open beneath it): the credit shrinks a little and keeps a clear gap above the card. */
+.stage-credit.busy { font-size: calc(var(--fs-12) - 1.5px); }
+.stage-credit.covered, .stage-credit.pz-covered { opacity: 0; }   /* no figure left above the card: fade out rather than sit on it */
 .vdock.mini .tl-speed, .vdock.mini .tl-left > :not(.tl-split), .vdock.mini .tl-track, .vdock.mini .tl-jumps, .vdock.mini .tl-hist, .vdock.mini .tl-pin, .vdock.mini .tl-latest { display: none !important; }
 .vdock.mini .timeline { justify-content: flex-start; gap: 10px; }
 .vdock.mini .tl-time { display: inline !important; }

@@ -141,7 +141,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else home.open(o?.practice ? 'practice' : 'course'); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => home.open('course') });
-  presenterL = lazy(() => import('./presenter.js?v=f341ef3d48'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=f837208ec2'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), stashCards, rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -1106,7 +1106,9 @@ function wireFloating() {
     // The patient chart is a bottom sheet on a phone, over the dock: the corner credit rides above it, unless the
     // sheet is so tall (a case's decision, nearly full screen) that there is no figure left to ride on.
     const pn = $('#panel'), lift = isPhone() && panelShown() && pn.offsetParent ? pn.offsetParent.clientHeight - pn.offsetTop + 8 : 0;
-    app.style.setProperty('--panel-h', px(pn.offsetParent && pn.offsetParent.clientHeight - lift < $('#topbar').offsetHeight + 48 ? 0 : lift));
+    const tall = !!pn.offsetParent && lift > 0 && pn.offsetParent.clientHeight - lift < $('#topbar').offsetHeight + 48;
+    app.style.setProperty('--panel-h', px(tall || !lift ? 0 : lift + 4));
+    app.style.setProperty('--panel-cover', tall ? '1' : '0');
     dispatchEvent(new Event('pps:occ'));
   };
   const soon = () => { if (!pubRaf) pubRaf = requestAnimationFrame(publish); };
@@ -1119,10 +1121,17 @@ function wireFloating() {
   // The corner credit shrinks while a card or sheet sits just beneath it (the figure's lift variables are set).
   const credit = $('.stage-credit');
   let busyRaf = 0;
-  const syncCredit = () => { busyRaf = 0; credit.classList.toggle('busy', parseFloat(credit.style.getPropertyValue('--sheet-h')) > 0 || parseFloat(app.style.getPropertyValue('--panel-h')) > 0); };
+  const syncCredit = () => {
+    busyRaf = 0;
+    const lift = Math.max(parseFloat(credit.style.getPropertyValue('--sheet-h')) || 0, parseFloat(app.style.getPropertyValue('--panel-h')) || 0);
+    const room = (credit.offsetParent?.clientHeight || 0) - lift - (app.classList.contains('presenting') ? 0 : $('#topbar').offsetHeight);
+    credit.classList.toggle('busy', lift > 0);
+    // No figure left above the card or sheet: the credit fades out rather than sit on the card.
+    credit.classList.toggle('covered', app.style.getPropertyValue('--panel-cover') === '1' || (lift > 0 && room < 56 && !app.classList.contains('presenting')));
+  };
   const syncSoon = () => { if (!busyRaf) busyRaf = requestAnimationFrame(syncCredit); };
   new MutationObserver(syncSoon).observe(credit, { attributes: true, attributeFilter: ['style'] });
-  new MutationObserver(syncSoon).observe(app, { attributes: true, attributeFilter: ['style'] });
+  new MutationObserver(syncSoon).observe(app, { attributes: true, attributeFilter: ['style', 'class'] });
   publish();
   panelSheet = sheetBehaviour($('#panel'), { handle: h('button', { class: 'panel-grab', 'aria-label': 'Resize the patient chart' }), drag: '.panel-head', onClose: closePanel });
   treatSheet = sheetBehaviour($('#treatCard'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the Treat card' }), drag: '.tc-head', onClose: closeTreat });

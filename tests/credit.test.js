@@ -47,3 +47,7 @@ test('copyright credit shrinks while a card sits beneath it', () => {
   assert.match(css, /\.stage-credit\.busy \{ font-size: calc\(var\(--fs-12\) - 1\.5px\);/);
   assert.match(css, /\.stage-credit \{[^}]*font-size: 10\.5px/);
 });
+
+test('copyright credit fades out when a card leaves no figure above it', () => {
+  assert.match(css, /\.stage-credit\.covered, \.stage-credit\.pz-covered \{ opacity: 0; \}/);
+});

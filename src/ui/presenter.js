@@ -1346,9 +1346,12 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     set('--pz-b', p && d ? H - (d.top - wr.top) + 4 : 0);
     // The corner credit rises above a data card or the numbers panel that reaches it (always on a phone, where they stack
     // over the figure's lower part; on a tablet in portrait when the data card sits under the words).
+    // (Measured by layout offsets, not rects: a card fading in is still shifted by its entry transform.)
     const cr = wrap.querySelector('.stage-credit'), rest = (p ? 78 : 14) + 22, reach = (cr?.offsetWidth || 220) + 40;
-    const lift = Math.max(0, ...[r(ui.data), r(ui.panel)].filter((e) => e && e.left - wr.left < reach && wr.bottom - e.bottom < rest).map((e) => wr.bottom - e.top));
-    cr?.style.setProperty('--sheet-h', lift ? `${Math.round(lift) + 8}px` : '');
+    const lift = Math.max(0, ...[ui.data, ui.panel].filter((e) => !off(e) && e.offsetLeft < reach && H - (e.offsetTop + e.offsetHeight) < rest).map((e) => H - e.offsetTop));
+    cr?.style.setProperty('--sheet-h', lift ? `${Math.round(lift) + 12}px` : '');
+    // With the words above and a card below leaving no figure between them, the credit fades out.
+    cr?.classList.toggle('pz-covered', p && lift > 0 && H - lift - (t ? T + 34 : 0) < 56);
     dispatchEvent(new Event('pps:occ'));
   }
   const onResize = () => {
@@ -1594,7 +1597,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     ui?.tools.dispose(); ui?.root.remove(); ui?.shade.remove(); ui = null;
     view.classList.remove('pz-out');
     for (const k of ['--pz-l', '--pz-r', '--pz-t', '--pz-b']) app.style.removeProperty(k);
-    wrap.querySelector('.stage-credit')?.style.removeProperty('--sheet-h');
+    wrap.querySelector('.stage-credit')?.style.removeProperty('--sheet-h'); wrap.querySelector('.stage-credit')?.classList.remove('pz-covered');
     stage.setProjection(false);
     document.documentElement.style.setProperty('--label-k', String(stage.labelEff())); document.documentElement.style.setProperty('--label-scale', String(stage.labelScale()));
     dispatchEvent(new Event('pps:labelscale'));
