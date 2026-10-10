@@ -66,9 +66,14 @@ export function createCreditPlacer(credit) {
     if (el === credit || credit.contains(el)) return null;
     const s = getComputedStyle(el);
     if (s.display === 'none' || s.visibility === 'hidden' || el.classList.contains('pz-hide')) return null;
-    const r = el.getBoundingClientRect();
-    if (!r.width || !r.height) return null;
-    return { l: r.left - wr.left, t: r.top - wr.top, r: r.right - wr.left, b: r.bottom - wr.top, chrome: el.matches(CHROME) };
+    // A pane can draw outside its own box (the phone slide's words hang above a zero-height holder): take its children too.
+    let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
+    for (const q of [el.getBoundingClientRect(), ...[...el.children].map((k) => k.getBoundingClientRect())]) {
+      if (!q.width || !q.height) continue;
+      l = Math.min(l, q.left); t = Math.min(t, q.top); r = Math.max(r, q.right); b = Math.max(b, q.bottom);
+    }
+    if (r <= l) return null;
+    return { l: l - wr.left, t: t - wr.top, r: r - wr.left, b: b - wr.top, chrome: el.matches(CHROME) };
   };
   const place = (c, p) => {
     credit.style.setProperty('--cx', `${Math.round(p.x)}px`);
