@@ -1795,8 +1795,6 @@ button.finding:hover { background: var(--surface-2); }
   body.print-report #modal { box-shadow: none; border: 0; width: 100% !important; max-height: none; overflow: visible; color: var(--shade-ink); background: var(--light-ink); }
   body.print-report #modal header .ib, body.print-report .no-print { display: none !important; }
 }
-.laser { position: fixed; left: -9px; top: -9px; width: 18px; height: 18px; border-radius: 50%; pointer-events: none; z-index: var(--z-toast); background: radial-gradient(circle, var(--laser) 0 35%, rgba(255, 43, 58, .35) 36% 60%, rgba(255, 43, 58, 0) 61%); box-shadow: 0 0 14px rgba(255, 43, 58, .8); }
-body.laser-on, body.laser-on * { cursor: none !important; }
 .home-item.script { cursor: default; }
 .script-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 /* Presenter (presenter.js): projector-first slides on the live model. Sizes follow the screen's height,
@@ -2016,15 +2014,6 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .pz-bar.idle { opacity: 0; pointer-events: none; transform: translateY(8px); }
 .pz-bar .pzb-n { padding: 0 4px; font: 600 var(--fs-14) var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-2); white-space: nowrap; }
 .pz-bar .pzb-sep { width: 1px; align-self: stretch; margin: 0 2px; background: var(--border); }
-.pz-notes { position: absolute; right: 12px; top: 12px; bottom: 84px; width: min(440px, calc(100% - 24px)); overflow: auto; padding: 14px 18px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sheet); box-shadow: var(--shadow-3); font: 400 var(--fs-16)/1.55 var(--font-ui); color: var(--text); pointer-events: auto; animation: pz-fade .3s var(--ease) both; }
-.pz-notes[hidden] { display: none; }
-.pz-notes h2 { margin: 6px 0 10px; font: 600 var(--fs-20)/1.2 var(--font-display); }
-.pz-notes .pn-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.pz-notes .pn-k { font: 600 var(--fs-12) var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
-.pz-notes .pn-ask { margin: 14px 0; padding: 12px 14px; border: 1px solid var(--border); background: var(--surface-2); border-radius: 8px; }
-.pz-notes .pn-ask p { margin: 4px 0 0; }
-.pz-notes .pn-a { font-size: var(--fs-14); color: var(--text-2); }
-.pz-notes .pn-next { margin-top: 18px; font-size: var(--fs-14); color: var(--text-3); }
 .pz-black { position: fixed; inset: 0; z-index: var(--z-toast); background: #000; opacity: 0; pointer-events: none; transition: opacity .4s var(--ease); }
 .pz-black.on { opacity: 1; pointer-events: auto; cursor: none; }
 /* A phone, or a screen taller than wide: the words on top, the data below, the figure between. */

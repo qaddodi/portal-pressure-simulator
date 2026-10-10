@@ -10,7 +10,7 @@
 // new values.
 //
 // Keys (clickers send the same): → Page Down Space Enter next, ← Page Up back, a number then Enter
-// jumps, Home End, B or . black screen, F full screen, N notes, S speaker window, Q quiz, L laser, Esc.
+// jumps, Home End, B or . black screen, F full screen, Q quiz, Esc.
 
 import { store, replaceParams } from './store.js?v=25cbe77a76';
 import { h, toast, svgIcon, icon, fmt, clamp } from './util.js?v=e803df99cd';
@@ -386,7 +386,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
   let deck = null, slides = [], states = [], waiters = [], stateOf = [], base = null, extraOf = new Map();
   // `gen` counts redraws asked of the slide in place (quiz on or off): a transition under way for an older one starts over.
   let want = 0, wantRev = false, shown = null, shownState = -1, busy = false, quiz = false, gen = 0;
-  let ui = null, notesOpen = false, laser = null, black = false, speakerWin = null, speakerT = 0, startedAt = 0, digits = '', digitT = 0;
+  let ui = null, black = false, digits = '', digitT = 0;
   let saved = null;
 
   const all = () => [...DECKS, ...readMine().map(fromScript)];
@@ -735,7 +735,6 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
       setTimeout(() => { if (data.classList.contains('pz-hide')) data.hidden = true; }, reduce.matches ? 0 : 320);
     }
     layout();
-    writeNotes(); paintSpeaker();
   }
   const fpOf = (id) => { const i = slides.findIndex((x) => x.id === id); return i >= 0 ? states[stateOf[i]]?.fp : null; };
   // A visual's rows: the deck's slides by id ('pvt', or { id, name } to name it), or { preset, name } patients that
@@ -851,8 +850,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
         h('span', { class: 'pzb-n' }, `${i + 1} / ${n}`),
         h('button', { class: 'btn sm primary', 'aria-label': last ? 'Finish presenting' : 'Next slide', onclick: last ? stop : next }, last ? 'Finish' : 'Next', last ? null : icon('chev-right')),
         h('button', { class: 'ib', 'aria-label': 'Exit the presentation', title: 'Exit', onclick: stop }, icon('close')));
-      writeNotes(); paintSpeaker();
-      return;
+        return;
     }
     ui.bar.replaceChildren(
       h('button', { class: 'ib', 'aria-label': 'Previous slide', title: 'Previous (←)', disabled: i === 0, onclick: prev }, icon('chev-left')),
@@ -860,13 +858,9 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
       h('button', { class: 'ib', 'aria-label': 'Next slide', title: 'Next (→)', disabled: i === n - 1 && !asking(slides[i], wantRev), onclick: next }, icon('chev-right')),
       h('span', { class: 'pzb-sep' }),
       deck.slides.some((s) => s.quiz) ? h('button', { class: 'btn sm', 'aria-pressed': String(quiz), title: 'Quiz the room: ask first, reveal on the next click (Q)', onclick: toggleQuiz }, 'Quiz') : null,
-      h('button', { class: 'btn sm', 'aria-pressed': String(notesOpen), title: 'Speaker notes (N)', onclick: () => toggleNotes() }, 'Notes'),
-      h('button', { class: 'btn sm', title: 'Speaker window: notes, next slide, timer (S)', onclick: speaker }, 'Speaker'),
-      h('button', { class: 'btn sm', 'aria-pressed': String(!!laser), title: 'Laser pointer (L)', onclick: toggleLaser }, 'Laser'),
       h('button', { class: 'ib', 'aria-label': 'Black screen', title: 'Black screen (B)', onclick: () => toggleBlack() }, icon('pause')),
       document.fullscreenEnabled ? h('button', { class: 'ib', 'aria-label': 'Full screen', title: 'Full screen (F)', onclick: fullscreen }, icon('fit')) : null,
       h('button', { class: 'ib', 'aria-label': 'Stop presenting', title: 'Stop (Esc)', onclick: stop }, icon('close')));
-    writeNotes(); paintSpeaker();
   }
   let idleT = 0;
   function wake() {
@@ -883,63 +877,8 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
   }
   function toggleBlack(on = !black) { black = on; ui?.black.classList.toggle('on', black); }
   function fullscreen() { if (document.fullscreenElement) document.exitFullscreen?.(); else document.documentElement.requestFullscreen?.().catch(() => {}); }
-  function toggleLaser() {
-    if (laser) { laser.remove(); laser = null; document.body.classList.remove('laser-on'); paintChrome(); return; }
-    laser = h('div', { class: 'laser', 'aria-hidden': 'true' });
-    document.body.append(laser); document.body.classList.add('laser-on'); paintChrome();
-  }
-  addEventListener('pointermove', (e) => { if (laser) laser.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`; if (deck) wake(); });
+  addEventListener('pointermove', () => { if (deck) wake(); });
   addEventListener('pointerdown', () => { if (deck) wake(); });
-
-  // ── Speaker notes: a drawer (N), or a second window for the presenter's screen (S) ──
-  const noteOf = (s) => ({ notes: s?.notes || '', ask: s?.ask });
-  function toggleNotes(force) { notesOpen = force ?? !notesOpen; writeNotes(); paintChrome(); }
-  function writeNotes() {
-    if (!ui) return;
-    ui.notes.hidden = !notesOpen;
-    if (!notesOpen) return;
-    const s = slides[want], nx = slides[want + 1], { notes, ask } = noteOf(s);
-    ui.notes.replaceChildren(
-      h('div', { class: 'pn-top' }, h('span', { class: 'pn-k' }, `Speaker notes · ${want + 1} / ${slides.length}`), h('button', { class: 'ib', 'aria-label': 'Close notes', onclick: () => toggleNotes(false) }, icon('close'))),
-      h('h2', {}, s.title), h('p', {}, notes || 'No notes for this slide.'),
-      ask ? h('div', { class: 'pn-ask' }, h('b', {}, 'Question for the audience'), h('p', {}, ask[0]), ask[1] ? h('p', { class: 'pn-a' }, 'Answer: ' + ask[1]) : null) : null,
-      nx ? h('p', { class: 'pn-next' }, `Next: ${nx.title}`) : null);
-  }
-  function speaker() {
-    if (speakerWin && !speakerWin.closed) { speakerWin.focus(); return; }
-    speakerWin = open('', 'pps-speaker', 'popup,width=980,height=720');
-    if (!speakerWin) { toast('Allow pop-ups for this site to open the speaker window.'); return; }
-    const d = speakerWin.document;
-    d.title = 'Speaker · ' + deck.title;
-    d.head.innerHTML = `<meta name="viewport" content="width=device-width"><style>
-      body{margin:0;font:18px/1.5 Inter,system-ui,sans-serif;background:#10141c;color:#e9edf6}
-      header{display:flex;align-items:center;gap:16px;padding:14px 22px;border-bottom:1px solid #263047}
-      header b{font-size:30px;font-variant-numeric:tabular-nums}header span{color:#a9b2c7}
-      header button{font:inherit;font-size:16px;padding:8px 16px;border-radius:10px;border:1px solid #33405f;background:#1b2438;color:#e9edf6;cursor:pointer}
-      .sp{flex:1}main{display:grid;grid-template-columns:2fr 1fr;gap:28px;padding:22px}
-      h1{font:600 34px/1.15 Georgia,serif;margin:4px 0 14px}.k{font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:#8f99b3}
-      .ask{margin-top:18px;padding:12px 16px;border-left:4px solid #7c9bff;background:#1b2438;border-radius:8px}.ask p{margin:4px 0}.a{color:#a9b2c7}
-      .nx{color:#a9b2c7}.nx h2{font:600 22px/1.25 Georgia,serif;color:#e9edf6;margin:6px 0}</style>`;
-    d.body.innerHTML = '<header><b id="t">0:00</b><span id="n"></span><span class="sp"></span><button id="p">◀ Back</button><button id="x">Next ▶</button></header><main><section id="c"></section><aside class="nx" id="nx"></aside></main>';
-    d.getElementById('p').onclick = prev; d.getElementById('x').onclick = next;
-    speakerWin.addEventListener('keydown', onKey, true);
-    clearInterval(speakerT); speakerT = setInterval(paintSpeakerClock, 1000);
-    paintSpeaker();
-  }
-  function paintSpeakerClock() {
-    if (!speakerWin || speakerWin.closed) { clearInterval(speakerT); return; }
-    const s = Math.floor((performance.now() - startedAt) / 1000);
-    speakerWin.document.getElementById('t').textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-  }
-  function paintSpeaker() {
-    if (!speakerWin || speakerWin.closed || !deck) return;
-    const d = speakerWin.document, s = slides[want], nx = slides[want + 1], { notes, ask } = noteOf(s);
-    const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-    d.getElementById('n').textContent = `Slide ${want + 1} of ${slides.length}${asking(s, wantRev) ? ' · quiz question showing' : ''}`;
-    d.getElementById('c').innerHTML = `<div class="k">${esc(s.kicker)}</div><h1>${esc(s.title)}</h1><p>${esc(notes || 'No notes for this slide.')}</p>${ask ? `<div class="ask"><b>Question for the audience</b><p>${esc(ask[0])}</p><p class="a">Answer: ${esc(ask[1])}</p></div>` : ''}`;
-    d.getElementById('nx').innerHTML = nx ? `<div class="k">Next</div><h2>${esc(nx.title)}</h2><p>${esc(nx.line || '')}</p>` : '<div class="k">Last slide</div>';
-    paintSpeakerClock();
-  }
 
   // ── Keys ──
   function onKey(e) {
@@ -956,12 +895,10 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     else if (k === 'End') go(slides.length - 1);
     else if (lk === 'b' || k === '.' || lk === 'w') toggleBlack();
     else if (lk === 'f') fullscreen();
-    else if (lk === 'n') toggleNotes();
-    else if (lk === 's') speaker();
     else if (lk === 'q') toggleQuiz();
-    else if (lk === 'l') toggleLaser();
+    else if (lk === 'n' || lk === 's' || lk === 'l') { /* the app's own N, S and L (such as the lens) stay off while presenting */ }
     else if (k === 'F5') { /* a clicker's "start show": never reload the page */ }
-    else if (k === 'Escape') { if (black) toggleBlack(false); else if (notesOpen) toggleNotes(false); else stop(); }
+    else if (k === 'Escape') { if (black) toggleBlack(false); else stop(); }
     else used = false;
     if (used) { e.preventDefault(); e.stopImmediatePropagation(); }
   }
@@ -978,17 +915,16 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     const count = h('div', { class: 'pz-count stage-blocker', 'aria-hidden': 'true' }), prog = h('div', { class: 'pz-prog', 'aria-hidden': 'true' }, h('i'));
     const bar = h('div', { class: 'pz-bar stage-blocker', role: 'toolbar', 'aria-label': 'Presenter' });
     bar.addEventListener('focusin', wake);
-    const notes = h('aside', { class: 'pz-notes stage-blocker', 'aria-label': 'Speaker notes', hidden: true });
     const blackEl = h('div', { class: 'pz-black', 'aria-hidden': 'true', onclick: () => toggleBlack(false) });
     // The shade sits under the corner credit (both at figure level, the credit later), the slide over both.
     const shade = h('div', { class: 'pz-shade' });
     // What the figure frames itself clear of: the words and most of the shade's fade.
     const safe = h('div', { class: 'pz-safe', 'aria-hidden': 'true', hidden: true });
     const load = h('div', { class: 'pz-load', 'aria-hidden': 'true' }, h('i'));
-    const root = h('div', { class: 'pz' }, safe, veil, load, text, data, panel, count, prog, notes, bar, blackEl);
+    const root = h('div', { class: 'pz' }, safe, veil, load, text, data, panel, count, prog, bar, blackEl);
     wrap.insertBefore(shade, wrap.querySelector('.stage-credit'));
     wrap.append(root);
-    return { root, shade, safe, load, text, data, dhT, dhL, ladder, tiles, veil, panel, count, prog, bar, notes, black: blackEl };
+    return { root, shade, safe, load, text, data, dhT, dhL, ladder, tiles, veil, panel, count, prog, bar, black: blackEl };
   }
   // Everything the audience's slides will change, kept so Esc, ✕ or Finish puts the app back as it was.
   async function capture() {
@@ -1006,7 +942,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     const before = deck ? saved : await capture();
     if (deck) stop(false);
     saved = before;
-    deck = d; slides = d.slides; shown = null; shownState = -1; quiz = false; notesOpen = false; black = false;
+    deck = d; slides = d.slides; shown = null; shownState = -1; quiz = false; black = false;
     closeHome?.();
     const st0 = store.get();
     store.set({ presenting: true, selection: null, details: null, compareSnap: null, colorMode: 'pressure', presentLabels: [], focus: null, ...(st0.mode !== 'explore' ? { mode: 'explore' } : {}) });
@@ -1016,7 +952,6 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     ui = build();
     if (base) ui.ladder.setBase(base);
     setLabels();
-    startedAt = performance.now();
     prepare();
     addEventListener('resize', onResize);
     go(Math.min(want0, slides.length - 1));
@@ -1037,9 +972,6 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     stage.setProjection(false);
     document.documentElement.style.setProperty('--label-k', String(saved?.labelK ?? stage.labelScale()));
     dispatchEvent(new Event('pps:labelscale'));
-    if (laser) toggleLaser();
-    if (speakerWin && !speakerWin.closed) speakerWin.close();
-    speakerWin = null; clearInterval(speakerT);
     if (document.fullscreenElement) document.exitFullscreen?.();
     app.classList.remove('presenting');
     projectorOff();
@@ -1085,7 +1017,6 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     if (!s) return;
     const step = captureStep();
     step.title = prompt('Title for this slide', step.title) || step.title;
-    step.notes = prompt('Speaker notes (optional)', '') || '';
     s.steps.push(step); writeMine(list); rerenderHome?.();
   }
   function remove(id) { if (!confirm('Delete this script?')) return; writeMine(readMine().filter((x) => x.id !== id)); rerenderHome?.(); }
@@ -1134,14 +1065,14 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
         h('button', { class: 'btn sm ghost', onclick: () => exportScript(s) }, 'Export'),
         h('button', { class: 'btn sm ghost', onclick: () => remove(s.id) }, 'Delete')));
     return h('div', { class: 'pz-lib' },
-      h('p', { class: 'ctl-sub lib-note' }, 'Slide presentations that run on the live model, with speaker notes and a question for the audience on each slide.'),
+      h('p', { class: 'ctl-sub lib-note' }, 'Slide presentations that run on the live model, with a question for the audience on each slide.'),
       h('div', { class: 'pz-decks' }, DECKS.map(deckCard)),
       h('h3', { class: 'home-sub' }, 'Your scripts'),
       mine.length ? h('div', { class: 'home-grid' }, mine.map(scriptCard)) : h('p', { class: 'ctl-sub' }, 'A script is a series of model states you capture yourself. It plays like the presentations above.'),
       h('div', { class: 'btn-row', style: { marginTop: '12px' } },
         h('button', { class: 'btn', onclick: newScript }, 'New script from the current model'),
         h('button', { class: 'btn', onclick: importFile }, 'Import a script')),
-      h('p', { class: 'ctl-sub' }, 'While presenting: → or Page Down next, ← back, a number then Enter jumps, B black screen, F full screen, N notes, S a speaker window for a second screen, Q quiz, L laser, Esc stops. Clickers work.'));
+      h('p', { class: 'ctl-sub' }, 'While presenting: → or Page Down next, ← back, a number then Enter jumps, B black screen, F full screen, Q quiz, Esc stops. Clickers work.'));
   }
 
   // Present a case: any case full screen for a class. Projector-size labels on the figure; the slim bar reminds the presenter to take a show of hands before committing.
