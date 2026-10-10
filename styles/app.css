@@ -1900,15 +1900,15 @@ button.finding:hover { background: var(--surface-2); }
 .pzl-pill { fill: var(--surface); stroke: var(--c); stroke-width: 1.6; stroke-opacity: .55; transition: stroke .4s var(--ease); }
 .pzl-bk { fill: var(--c); font: 700 15px var(--font-ui); letter-spacing: .06em; transition: fill .4s var(--ease); }
 .pz-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: clamp(8px, calc(1.2vh / var(--vz)), 14px); }
-.pz-tile { display: flex; flex-direction: column; gap: .2em; padding: clamp(10px, calc(1.5vh / var(--vz)), 18px) clamp(12px, calc(1.6vh / var(--vz)), 20px); border-radius: clamp(12px, calc(1.6vh / var(--vz)), 18px); background: var(--surface-2); border: 2px solid transparent; min-width: 0; transition: border-color .4s var(--ease), background-color .4s var(--ease); }
+.pz-tile { display: flex; flex-direction: column; gap: .2em; container-type: inline-size; padding: clamp(10px, calc(1.5vh / var(--vz)), 18px) clamp(12px, calc(1.6vh / var(--vz)), 20px); border-radius: clamp(12px, calc(1.6vh / var(--vz)), 18px); background: var(--surface-2); border: 2px solid transparent; min-width: 0; transition: border-color .4s var(--ease), background-color .4s var(--ease); }
 .pz-tile.key { border-color: var(--accent); background: var(--accent-soft); }
-.pzt-k { font: 600 clamp(12px, calc(1.5vh / var(--vz)), 18px)/1.2 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); }
-.pzt-vu { display: flex; align-items: baseline; gap: .3em; }
-.pzt-v { font: 600 clamp(28px, calc(4.7vh / var(--vz)), 58px)/1.05 var(--font-ui); font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--text); transition: color .4s var(--ease); }
-.pzt-vu small { font: 500 clamp(12px, calc(1.5vh / var(--vz)), 18px) var(--font-ui); color: var(--text-3); }
+.pzt-k { font: 600 clamp(12px, calc(1.5vh / var(--vz)), 18px)/1.2 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); overflow-wrap: anywhere; }
+/* The number shrinks with its tile (30cqi) and the unit drops under it rather than leave the box. */
+.pzt-vu { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .3em; min-width: 0; }
+.pzt-v { font: 600 min(clamp(28px, calc(4.7vh / var(--vz)), 58px), 30cqi)/1.05 var(--font-ui); font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--text); transition: color .4s var(--ease); }
+.pzt-vu small { font: 500 clamp(12px, calc(1.5vh / var(--vz)), 18px) var(--font-ui); color: var(--text-3); white-space: nowrap; }
 .pzt-r { display: inline-flex; align-items: center; gap: .45em; font: 600 clamp(12px, calc(1.55vh / var(--vz)), 19px)/1.2 var(--font-ui); color: var(--text-2); }
 .pzt-r::before { content: ''; width: .6em; height: .6em; border-radius: 50%; background: var(--text-3); flex: none; transition: background-color .4s var(--ease); }
-.pzt-s { font: 500 clamp(11px, calc(1.3vh / var(--vz)), 15px)/1.25 var(--font-ui); color: var(--text-3); }
 .pz-tile[data-rate="hi"] .pzt-v, .pz-tile[data-rate="hi"] .pzt-r { color: var(--danger); }
 .pz-tile[data-rate="hi"] .pzt-r::before { background: var(--danger); }
 .pz-tile[data-rate="mid"] .pzt-v { color: var(--caution); }
@@ -1921,12 +1921,12 @@ button.finding:hover { background: var(--surface-2); }
 .pz-data.tiles-only .pz-ladder, .pz-data.tiles-only .pz-lg { display: none; }
 .pz-data.tiles-only .pz-tiles { grid-template-columns: minmax(0, 1fr); }
 .pz-data.tiles-only .pz-tiles[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.pz-data.tiles-only .pzt-v { font-size: clamp(32px, calc(5.6vh / var(--vz)), 68px); }
+.pz-data.tiles-only .pzt-v { font-size: min(clamp(32px, calc(5.6vh / var(--vz)), 68px), 30cqi); }
 /* Under the words (beside a sinusoid): the left column, the tiles two by two. */
 .pz-data.under { left: clamp(20px, calc(3.4vw / var(--vz)), 76px); right: auto; width: clamp(300px, calc(29vw / var(--vz)), 600px); }
 .pz-data.under.pz-hide { transform: translateY(14px); }
 .pz-data.under.tiles-only .pz-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.pz-data.under.tiles-only .pzt-v { font-size: clamp(30px, calc(5vh / var(--vz)), 60px); }
+.pz-data.under.tiles-only .pzt-v { font-size: min(clamp(30px, calc(5vh / var(--vz)), 60px), 30cqi); }
 .pzt-d { font: 600 clamp(12px, calc(1.5vh / var(--vz)), 18px)/1.25 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-3); }
 .pzt-d[data-way="good"] { color: color-mix(in srgb, var(--ok) 85%, var(--text)); }
 .pzt-d[data-way="bad"] { color: var(--danger); }
@@ -2011,10 +2011,21 @@ button.finding:hover { background: var(--surface-2); }
 @media (max-width: 520px) { .pz-table th, .pz-table td { padding: .5em .35em; } .pz-table tbody th { padding-left: .7em; } .pz-table thead th { letter-spacing: .02em; } .pz-table tbody th .pz-kick { letter-spacing: .02em; } }
 @media (max-width: 767px) {
   .pz-table th, .pz-table td { padding: .5em .5em; }
-  /* Only a phone scrolls the table sideways, so only there the row names stay pinned (iPad Safari misdrew pinned cells). */
-  .pz-table tbody th[scope="row"] { position: sticky; left: 0; z-index: 1; background: var(--surface); min-width: 8.5em; max-width: 9.5em; box-shadow: 1px 0 0 var(--border); }
+  /* A phone fits the table to its width: each row's name on a line of its own, its values in a row of columns under the
+     column heads, then its ascites and note across the row. --nc: the number of value columns. */
+  .pz-table { overflow: visible; }
+  .pz-table table, .pz-table thead, .pz-table tbody { display: block; }
+  .pz-table tr { display: grid; grid-template-columns: repeat(var(--nc, 7), minmax(0, 1fr)); align-items: center; }
+  .pz-table thead th:not(.num) { display: none; }
+  .pz-table thead th.num { padding: .6em .1em; font-size: 10px; letter-spacing: .02em; overflow-wrap: anywhere; white-space: normal; }
+  .pz-table td.num { padding: .1em .1em .55em; }
+  .pz-table tbody th[scope="row"], .pz-table td.asc, .pz-table td.note { grid-column: 1 / -1; }
+  .pz-table tbody th[scope="row"] { padding: .55em .6em .3em; }
+  .pz-table td.asc, .pz-table td.note { padding: 0 .6em .55em; font-size: .85em; }
   .pz-table .tn { font-size: .92em; }
+  .pz-table .pz-ck { display: inline; font-size: .72em; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
 }
+.pz-ck { display: none; }
 .pz-table tbody tr.static { cursor: default; }
 .pz-table tbody tr.static:hover { background: none; }
 /* The visuals: a scale with thresholds, SAAG × protein, the two capillary walls. */
@@ -2097,11 +2108,11 @@ button.finding:hover { background: var(--surface-2); }
 .pz.stack .pz-dh { font-size: 11px; }
 .pz.stack .pz-ladder { max-height: calc(21vh / var(--vz)); }
 .pz.stack .pz-tile { padding: 6px 10px; }
-.pz.stack .pzt-v { font-size: 24px; }
-.pz.stack .pzt-s { display: none; }
+.pz.stack .pzt-v { font-size: min(24px, 30cqi); }
 .pz.stack .pz-panel { top: 8px; translate: -50% 0; width: calc(100% - 16px); max-height: calc(100% - 88px - env(safe-area-inset-bottom, 0px)); padding: 16px; gap: 12px; }
 .pz.stack .pz-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: none; }
 .pz.stack .pz-panel.fill { height: auto; }
+.pz.stack .pz-panel.fill .pz-grid { flex: none; }   /* (the six ladders keep their height; the card scrolls instead of the charts spilling out of their cells) */
 .pz.stack .pz-panel.fill .pz-cell .pz-ladder { flex: none; }
 .pz.stack .pz-bar { --pz-bar-h: 56px; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); translate: none; max-width: none; height: var(--pz-bar-h); justify-content: space-between; padding: 6px 8px; overflow: visible; }
 @media (max-width: 767px) { .app.presenting .stage-credit { bottom: calc(78px + env(safe-area-inset-bottom, 0px)); } }   /* above the phone's controls */
@@ -2109,9 +2120,17 @@ button.finding:hover { background: var(--surface-2); }
 .pz.stack .pz-bar .btn { min-height: 44px; padding: 0 14px; }
 .pz.stack .pz-bar .pzb-n { flex: 1; text-align: center; }
 .pz.stack .pz-quadwrap { grid-template-columns: minmax(0, 1fr); }
+/* A tall tablet keeps the table's columns but tightens it to fit its width: smaller type, ascites on two lines. */
+@media (min-width: 768px) {
+  .pz.stack .pz-table table { font-size: clamp(14px, 2.3vw, 22px); }
+  .pz.stack .pz-table th, .pz.stack .pz-table td { padding: .5em .4em; }
+  .pz.stack .pz-table td.asc { white-space: normal; }
+  .pz.stack .pz-table td.asc .ap { white-space: nowrap; }   /* (it breaks between SAAG and protein, never inside one) */
+}
 .pz.stack .pz-visual { flex: none; }   /* (a phone scrolls the card rather than squeeze the chart over its words) */
-.pz.stack .pz-data.tiles-only .pzt-v { font-size: 26px; }
+.pz.stack .pz-data.tiles-only .pzt-v { font-size: min(26px, 30cqi); }
 .pz.stack .pz-data.tiles-only .pz-tiles { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
+.pz.stack .pz-tiles[data-n="4"], .pz.stack .pz-data.tiles-only .pz-tiles[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }   /* (four in a row cannot hold their numbers on a phone) */
 .pz.stack .pz-lapse { font-size: 14px; }
 .pz.stack .pz-abb { font-size: 14px; min-height: 36px; padding: .45em .85em; }
 .pz.stack .pz-ab { gap: 2px; padding: 3px; }

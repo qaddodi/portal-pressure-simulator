@@ -208,7 +208,7 @@ function bigTiles() {
     parts = ks.map((k) => {
       const T = TILE[k] || { t: k, s: '', u: '' };
       const v = h('span', { class: 'pzt-v' }), u = h('small', {}, T.u), r = h('span', { class: 'pzt-r' }), d = h('span', { class: 'pzt-d' });
-      const tile = h('div', { class: 'pz-tile' }, h('span', { class: 'pzt-k' }, T.t), h('span', { class: 'pzt-vu' }, v, u), r, withRef ? d : h('span', { class: 'pzt-s' }, T.s));
+      const tile = h('div', { class: 'pz-tile' }, h('span', { class: 'pzt-k' }, T.t), h('span', { class: 'pzt-vu' }, v, u), r, withRef ? d : null);
       return { k, T, tile, v, u, r, d };
     });
     el.replaceChildren(...parts.map((p) => p.tile));
@@ -936,16 +936,18 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
       const hiS = r.f.saag >= 1.1, hiP = r.f.tp >= 2.5;
       if (isRef(r, n)) return h('td', { class: 'asc' }, h('b', { 'data-rate': hiS ? 'hi' : null }, fmt(r.f.saag, 1)), ' · ', h('b', {}, fmt(r.f.tp, 1)));
       return h('td', { class: 'asc dir', title: `SAAG ${fmt(r.f.saag, 1)}, protein ${fmt(r.f.tp, 1)} g/dL` },
-        h('small', {}, 'SAAG '), h('b', { 'data-rate': hiS ? 'hi' : null }, arrowEl(hiS ? 1 : -1)), h('span', { class: 'sr-only' }, hiS ? 'high gradient' : 'low gradient'),
-        ' · ', h('small', {}, 'Protein '), h('b', {}, arrowEl(hiP ? 1 : -1)), h('span', { class: 'sr-only' }, hiP ? 'high protein' : 'low protein'));
+        h('span', { class: 'ap' }, h('small', {}, 'SAAG '), h('b', { 'data-rate': hiS ? 'hi' : null }, arrowEl(hiS ? 1 : -1)), h('span', { class: 'sr-only' }, hiS ? 'high gradient' : 'low gradient')),
+        ' · ', h('span', { class: 'ap' }, h('small', {}, 'Protein '), h('b', {}, arrowEl(hiP ? 1 : -1)), h('span', { class: 'sr-only' }, hiP ? 'high protein' : 'low protein')));
     };
+    // (A phone shows the ascites cell on a line of its own, so it carries its name there.)
+    const withKey = (td, k) => { td.prepend(h('span', { class: 'pz-ck', 'aria-hidden': 'true' }, k + ' ')); return td; };
     const key = rel ? `↓ lower or ↑ higher than ${first ? rows[0].title.toLowerCase() : 'baseline'} (pressures by 0.5 mmHg or more), ↓↓ by 40% or more; • unchanged. Green: better, red: worse` : `↑ above normal, ↑↑ well above (HVPG 10 or more, PPG 12 or more), ↓ below; • within normal`;
-    return h('div', { class: 'pz-table' }, h('table', {},
+    return h('div', { class: 'pz-table' }, h('table', { style: { '--nc': String(cols.length) } },
       h('thead', {}, h('tr', {}, h('th', {}, s.rowHead || 'Level'), cols.map((k) => h('th', { class: 'num' }, COLS[k] || k)), asc ? h('th', {}, 'Ascites') : null, s.note ? h('th', {}, s.note) : null)),
       h('tbody', {}, rows.map((r, n) => h('tr', r.i >= 0 ? { onclick: () => go(r.i) } : { class: 'static' },
         h('th', { scope: 'row' }, h('span', { class: 'pz-kick', 'data-site': r.site || 'none' }, h('i'), r.kicker.replace('Intrahepatic · ', '')), h('span', { class: 'tn' }, nb(r.title))),
         cols.map((k) => cell(k, r, n)),
-        asc ? ascCell(r, n) : null,
+        asc ? withKey(ascCell(r, n), 'Ascites') : null,
         s.note ? h('td', { class: 'note' }, r.note || '') : null)))),
     h('p', { class: 'pz-foot' }, withArrows(s.foot || `Arrows from the model: ${key}. Hover or tap a cell for its value. Pick a row to go back to it.`)));
   }
