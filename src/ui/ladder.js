@@ -11,7 +11,8 @@
 //     'metrics' / 'presetMetrics' or SNAPSHOTS[id].fp give it. base: the healthy fingerprint, drawn
 //     dashed behind. key: rungs to highlight. known: the rungs measured so far (default all); the
 //     rest show "?" and no number, and the biggest drop is only shaded between two known rungs.
-//     reveal: the line draws in, the rungs follow and the drop shades last, all eased.
+//     reveal: the line draws in, the rungs follow and the drop shades last, all eased. HVPG and PPG brackets
+//     sit in the right margin (PPG needs f.ivc and f.ppg).
 //   tiles(f, { key, known })   HVPG, SAAG and ascites protein tiles, rated normal / raised / high.
 //
 // Also exported: SITES (the six levels), SITE_OF_GROUP (a preset's group → its site), RUNGS and
@@ -70,7 +71,7 @@ export function biggestDrop(f, known = RUNGS.map(([k]) => k)) {
 /** The pressure ladder: four stations from the portal vein to the right atrium, the healthy line
  *  dashed behind, the biggest drop shaded as the block. */
 export function ladder(f, { base = null, key = [], known = null, reveal = false } = {}) {
-  const W = 320, H = 172, x = (i) => 34 + i * 84, y = (v) => 128 - Math.min(30, Math.max(0, v)) * 3.5;
+  const W = 320, H = 172, x = (i) => 28 + i * 70, y = (v) => 128 - Math.min(30, Math.max(0, v)) * 3.5;
   const kn = known || RUNGS.map(([k]) => k), has = (i) => kn.includes(RUNGS[i][0]);
   const pts = RUNGS.map(([k], i) => [x(i), has(i) ? y(f[k]) : y(0), f[k]]);
   const [drop, big] = biggestDrop(f, kn);
@@ -79,13 +80,28 @@ export function ladder(f, { base = null, key = [], known = null, reveal = false 
   let d = '';
   pts.forEach(([px, py], i) => { if (has(i)) d += (i && has(i - 1) ? 'L' : 'M') + px.toFixed(1) + ' ' + py.toFixed(1); });
   const band = drop >= 0 ? s('g', { class: 'tl-drop' },
-    s('rect', { x: pts[drop][0] + 10, y: y(30) - 4, width: 64, height: y(0) - y(30) + 4, rx: 8 }),
+    s('rect', { x: pts[drop][0] + 8, y: y(30) - 4, width: 54, height: y(0) - y(30) + 4, rx: 8 }),
     s('text', { x: (pts[drop][0] + pts[drop + 1][0]) / 2, y: y(30) - 9, 'text-anchor': 'middle' }, `−${fmt(big, 0)} mmHg`)) : null;
+  // The gradients as spans of the same scale in the right margin: HVPG (wedged − free) and PPG (portal vein − IVC),
+  // coloured by their cut-offs (amber 5 / red 10 and 6 / 12). PPG needs the IVC pressure, so snapshots without it skip it.
+  const span = (name, bx, hi, lo, v, rate, x0, tag) => {
+    if (![hi, lo, v].every(Number.isFinite)) return null;
+    const y1 = y(hi), y2 = y(lo);
+    return s('g', { class: 'tl-bg', 'data-rate': rate },
+      s('path', { class: 'tl-lead', d: `M${x0 + 8} ${y1.toFixed(1)}H${bx - 8}` + (name === 'HVPG' ? `M${x(2) + 8} ${y2.toFixed(1)}H${bx - 8}` : '') }),
+      s('path', { class: 'tl-br', d: `M${bx - 6} ${y1.toFixed(1)}H${bx}V${y2.toFixed(1)}H${bx - 6}` }),
+      s('text', { class: 'tl-bk', x: bx, y: 12, 'text-anchor': 'middle' }, name),
+      s('text', { class: 'tl-bv', x: bx, y: 27, 'text-anchor': 'middle' }, fmt(v, 1)),
+      tag ? s('text', { class: 'tl-bt', x: bx - 9, y: y2 + 3, 'text-anchor': 'end' }, tag) : null);
+  };
+  const hvpgBr = has(1) && has(2) ? span('HVPG', 270, f.whvp, f.fhvp, f.hvpg, f.hvpg >= 10 ? 'hi' : f.hvpg >= 5 ? 'mid' : 'ok', x(1)) : null;
+  const ppgBr = has(0) && has(3) ? span('PPG', 302, f.pv, f.ivc, f.ppg, f.ppg >= 12 ? 'hi' : f.ppg >= 6 ? 'mid' : 'ok', x(0), 'IVC') : null;
   const gid = 'tlGrad' + ++uid;
-  const label = 'Pressure ladder: ' + RUNGS.map(([, a, b], i) => `${a} ${b} ${has(i) ? fmt(pts[i][2], 1) : 'not measured'}`).join(', ') + ' mmHg';
+  const label = 'Pressure ladder: ' + RUNGS.map(([, a, b], i) => `${a} ${b} ${has(i) ? fmt(pts[i][2], 1) : 'not measured'}`).join(', ') + ' mmHg'
+    + (hvpgBr ? `. HVPG ${fmt(f.hvpg, 1)}` : '') + (ppgBr ? `${hvpgBr ? ', ' : '. '}PPG ${fmt(f.ppg, 1)}` : '') + (hvpgBr || ppgBr ? ' mmHg' : '');
   return s('svg', { class: 'tl-ladder' + (reveal ? ' reveal' : ''), viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': label },
     s('defs', {}, s('linearGradient', { id: gid, x1: 0, x2: 1, y1: 0, y2: 0 }, s('stop', { offset: 0, 'stop-color': 'var(--tour-portal)' }), s('stop', { offset: 1, 'stop-color': 'var(--tour-sys)' }))),
-    grid, band,
+    grid, band, hvpgBr, ppgBr,
     base ? s('path', { class: 'tl-base', d: RUNGS.map(([k], i) => (i ? 'L' : 'M') + x(i) + ' ' + y(base[k]).toFixed(1)).join(' ') }) : null,
     d ? s('path', { class: 'tl-line', d, stroke: `url(#${gid})`, pathLength: 1 }) : null,
     pts.map(([px, py, v], i) => s('g', { class: 'tl-pt' + (key.includes(RUNGS[i][0]) ? ' key' : '') + (has(i) ? '' : ' unk'), style: `--i:${i}` },

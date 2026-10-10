@@ -26,7 +26,7 @@ export function snapshots() {
     e.loadPreset(p.id);
     const P = e.Pf || e.P, m = computeMetrics(e);
     out[p.id] = { P: PATH.map(([n]) => Math.round(P[e.ni[n]] * 10) / 10), hvpg: Math.round(m.hvpg * 10) / 10, pv: Math.round(m.pv * 10) / 10, pvFlow: Math.round(m.pvFlow * 100) / 100, ascites: Math.round((e.slow.ascites || 0) / 100) / 10,
-      fp: { pv: r1(m.pv), whvp: r1(m.whvp), fhvp: r1(m.fhvp), ra: r1(m.ra), hvpg: r1(m.hvpg), asc: Math.round(m.ascites.volume), saag: r1(m.ascites.saag), tp: r1(m.ascites.totalProtein), lsm: r1(m.lsm) } };
+      fp: { pv: r1(m.pv), whvp: r1(m.whvp), fhvp: r1(m.fhvp), ra: r1(m.ra), ivc: r1(m.ivc), ppg: r1(m.ppg), hvpg: r1(m.hvpg), asc: Math.round(m.ascites.volume), saag: r1(m.ascites.saag), tp: r1(m.ascites.totalProtein), lsm: r1(m.lsm) } };
   }
   return out;
 }

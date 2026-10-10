@@ -5,8 +5,8 @@
 // own (SNAPSHOTS, regenerated from the engine); only the imaging words are authored.
 
 import { h, fmt, icon } from './util.js?v=e803df99cd';
-import { SNAPSHOTS } from './snapshots.js?v=9df9ef8713';
-import { createRoute, ladder, tiles, siteName } from './ladder.js?v=d0e8d913b4';
+import { SNAPSHOTS } from './snapshots.js?v=47b3a3415c';
+import { createRoute, ladder, tiles, siteName } from './ladder.js?v=03e1559928';
 import { addRecord } from './records.js?v=50fb9dd463';
 
 export const ROUNDS = 10, MAX_TESTS = 3;
