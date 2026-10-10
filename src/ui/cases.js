@@ -23,7 +23,7 @@ import { course, setUnitSurface, unitBar } from './course.js?v=b780ae35f5';
 import { CASE_UNITS } from './cases/units.js?v=bde5f54566';
 import { activeInterventions } from './inspector.js?v=c125b2c440';
 import { captureFrame } from './timeline.js?v=82634bf898';
-import { createRoute, ladder, SITE_OF_GROUP } from './ladder.js?v=c0d400b6f9';
+import { createRoute, ladder, SITE_OF_GROUP } from './ladder.js?v=cab65850a4';
 import { SNAPSHOTS } from './snapshots.js?v=47b3a3415c';
 
 export { CASES };

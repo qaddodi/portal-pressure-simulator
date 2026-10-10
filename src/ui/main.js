@@ -3,24 +3,24 @@
 
 import { startHost, host } from './host.js?v=dc4425da8d';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=25cbe77a76';
-import { createStage } from './stage.js?v=104dea127e';
+import { createStage } from './stage.js?v=da8aabfade';
 import { sinusoidSupported } from './sinusoid-view.js?v=0a862dc027';
 import { createInspector } from './inspector.js?v=c125b2c440';
 import { createDock, CUTOFFS } from './dock.js?v=490ea7fd6b';
 import { setHvpgStage } from './hvpg-proc.js?v=49d47fb931';
 import { createWhy } from './why.js?v=ad5be5ebe2';
 import { createTimeline, LAPSES } from './timeline.js?v=82634bf898';
-import { createLearn } from './learn.js?v=623a768ebc';
-import { createCases, CASES } from './cases.js?v=51ad5b7d01';
+import { createLearn } from './learn.js?v=2bb33e1118';
+import { createCases, CASES } from './cases.js?v=42536e5948';
 import { isBlind } from './learning-kit.js?v=c27a9a6a60';
 import { createCompare } from './compare.js?v=4fdecb38c3';
 import { createCard } from './card.js?v=1d07c83770';
 import { createChart, computeFindings } from './chart.js?v=e22dfda654';
-import { createHome, ROLES } from './home.js?v=b6f1f578e7';
+import { createHome, ROLES } from './home.js?v=37ad50650d';
 import { course } from './course.js?v=b780ae35f5';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=398e679a38';
 import { caption } from './a11y.js?v=aa029f2b43';
-import { startLMS } from './lms.js?v=5daf8b86fc';
+import { startLMS } from './lms.js?v=c8833cbe9b';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=fcac0d9c66';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
@@ -141,7 +141,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else home.open(o?.practice ? 'practice' : 'course'); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => home.open('course') });
-  presenterL = lazy(() => import('./presenter.js?v=11a57cd260'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=4ba73a8ed8'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), stashCards, rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
