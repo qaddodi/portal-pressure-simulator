@@ -1,15 +1,26 @@
 // Simulation host: owns the Engine, runs the clocks, streams frames (blueprint §13.4).
 // Used inside a Web Worker (src/worker.js) or on the main thread as a fallback.
 
-import { Engine } from './engine/engine.js?v=c0181c9ebe';
-import { computeMetrics } from './engine/metrics.js?v=618d18effe';
-import { detectEvents } from './engine/events.js?v=bc3578b18d';
-import { explain } from './engine/explain.js?v=aa022eaf54';
-import { defaultParams, deepMerge, PRESETS } from './engine/scenario.js?v=d88966abe6';
+import { Engine } from './engine/engine.js?v=24d34e6d47';
+import { computeMetrics } from './engine/metrics.js?v=ee4db8bc9b';
+import { detectEvents } from './engine/events.js?v=e24f641428';
+import { explain } from './engine/explain.js?v=1853c8cfde';
+import { defaultParams, deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=da4ad72f01';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
 
-const fingerprint = (m) => ({ pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: m.hvpg, ra: m.ra, asc: m.ascites.volume, saag: m.ascites.saag, tp: m.ascites.totalProtein });
+// A state's fingerprint for the ladder, the presenter's data and tables: the pressures from the portal vein to the
+// heart, the gradients, the ascites (volume, SAAG, protein, albumin) and the lymph that makes it, the sinusoidal and
+// central vein pressures, varices, spleen, flow and shunting.
+const fingerprint = (m, e) => {
+  const P = e ? e.Pf || e.P : null, a = m.ascites;
+  return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: m.hvpg, ra: m.ra, ivc: m.ivc, ppg: m.ppg,
+    asc: a.volume, saag: a.saag, tp: a.totalProtein, aalb: a.albumin, salb: e?.params.albumin, sigma: a.lymphSigma, hepLymph: a.hepLymph, splLymph: a.splLymph,
+    sin: P ? P[e.ni.SIN_R] : null, cv: P ? P[e.ni.CV_R] : null, int: P ? P[e.ni.INT] : null, varix: m.varix.d, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
+    pvFlow: m.pvFlowMean, shunt: m.shuntFraction, he: m.heRisk.index, liver: m.liverPerfPct, lsm: m.lsm, map: m.map, hr: m.hr, hb: m.blood.hb };
+};
+// A time-lapse's params on day d of n: each ramped key eased linearly from its first value to its last.
+const rampAt = (ramp, d, n) => Object.fromEntries(ramp.map(([k, [a, b]]) => [k, a + (b - a) * Math.min(1, d / n)]));
 
 export function createCore(post) {
   let eng = new Engine();
@@ -24,6 +35,8 @@ export function createCore(post) {
   let frameDirty = true;
   let paramsDirty = true;
   let samples = null;
+  // The presenter's time-lapse on the live model: days left, and the params ramped day by day (see 'lapse').
+  let lapse = null;
   let beat = true; // the heartbeat always runs (the Over time trace is beat to beat from the start)
   const newSamples = () => ({ t: [], vel: [], pvVel: [], hvVel: [], whvp: [], hvpg: [], ...Object.fromEntries(SAMPLE_NODES.map((n) => [n, []])) });
 
@@ -100,14 +113,28 @@ export function createCore(post) {
           }
         } else if (days > 0) {
           diseaseAcc -= days;
-          const r = eng.advanceDays(days);
-          if (r.ruptured) { clock = 'hemo'; speed = 1; }
-          if (eng.params.anticoag) paramsDirty = true;
+          if (lapse) lapseDays(days);
+          else {
+            const r = eng.advanceDays(days);
+            if (r.ruptured) { clock = 'hemo'; speed = 1; }
+            if (eng.params.anticoag) paramsDirty = true;
+          }
           sample();
         }
       }
     }
     if (frameDirty || paramsDirty || eng.newEvents.length || (running && now - lastFrame > 95)) { lastFrame = now; frame(); }
+  }
+
+  // A presenter time-lapse: one day at a time, exactly as the presenter's off-screen chain computed it
+  // ('sequence' with fine days), then back to bedside time once the days are done.
+  function lapseDays(n) {
+    for (let k = 0; k < n && lapse; k++) {
+      if (lapse.ramp) eng.setParams(deepMerge(eng.params, rampAt(lapse.ramp, lapse.total - lapse.left + 1, lapse.total)));
+      eng.advanceDays(1, { noRupture: true, silent: true });
+      if (--lapse.left <= 0) { lapse = null; eng.settle(); clock = 'hemo'; speed = 1; diseaseAcc = 0; }
+    }
+    paramsDirty = true;
   }
 
   function start() {
@@ -136,13 +163,13 @@ export function createCore(post) {
 
   const handlers = {
     init({ params }) {
-      if (params) { eng.setParams(deepMerge(defaultParams(), params)); eng.settle(); }
+      if (params) { eng.setParams(sanitizeParams(params)); eng.settle(); }
       paramsDirty = true;
       start();
     },
     setParams({ params, settle }) {
       // UI-originated: not echoed back (avoids overwriting in-flight edits).
-      eng.setParams(deepMerge(defaultParams(), params));
+      eng.setParams(sanitizeParams(params));
       if (settle) eng.settle();
     },
     *preset({ id, days, reqId }) {
@@ -153,7 +180,13 @@ export function createCore(post) {
     run({ running: r, speed: s, clock: c }) {
       if (r !== undefined) running = r;
       if (s !== undefined) speed = s;
-      if (c !== undefined) { clock = c; diseaseAcc = 0; }
+      if (c !== undefined) { clock = c; diseaseAcc = 0; if (c === 'hemo') lapse = null; }
+    },
+    // The presenter's time-lapse: days on the disease clock at speed days a second, ramp's params eased over
+    // them ({ key: [from, to] }); days 0 stops one under way.
+    lapse({ days, speed: s, ramp }) {
+      lapse = days > 0 ? { left: days, total: days, ramp: ramp ? Object.entries(ramp) : null } : null;
+      running = true; clock = lapse ? 'disease' : 'hemo'; speed = lapse ? s : 1; diseaseAcc = 0;
     },
     visibility({ visible: v }) { visible = v; },
     // restartClock: the days are the patient's past (a case aging its patient), so the clock and
@@ -204,7 +237,7 @@ export function createCore(post) {
     probe({ id }) { probe = id; },
     beat({ on }) { if (beat !== !!on) { beat = !!on; frameDirty = true; } },
     snapshot({ reqId }) { post({ type: 'snapshot', reqId, snap: eng.snapshot() }); },
-    restore({ snap }) { eng.restore(snap); paramsDirty = true; },
+    restore({ snap }) { eng.restore(snap); lapse = null; paramsDirty = true; },
     explain({ metric, reqId }) {
       const r = explain(eng, metric);
       post({ type: 'explain', reqId, result: r });
@@ -214,16 +247,42 @@ export function createCore(post) {
       post({ type: 'healthy', reqId, P: Array.from(h.P), Q: Array.from(h.Q), metrics: computeMetrics(h) });
     },
     // The presenter tour's fingerprint: the live state, or each listed preset loaded fresh.
-    metrics({ reqId }) { post({ type: 'metrics', reqId, result: fingerprint(computeMetrics(eng)) }); },
+    metrics({ reqId }) { post({ type: 'metrics', reqId, result: fingerprint(computeMetrics(eng), eng) }); },
     presetMetrics({ ids, reqId }) {
       const result = {};
       for (const id of ids || []) {
         const e = new Engine(), g = e.loadPresetSteps(id, {});
         for (let n = g.next(); !n.done; n = g.next());
         e.settle();
-        result[id] = fingerprint(computeMetrics(e));
+        result[id] = fingerprint(computeMetrics(e), e);
       }
       post({ type: 'presetMetrics', reqId, result });
+    },
+    // The presenter's slides, computed off screen so the figure only ever shows finished states: a chain in
+    // which each slide starts from the one before (base: the state before the first), in the order the
+    // lessons use (preset → params → settle → actions → disease days → settle). Each slide is posted as it is
+    // ready ('seqStep': snapshot, params, fingerprint); 'sequence' ends the chain. A slide the presenter plays
+    // as a time-lapse (fine, or a ramp) steps its days one at a time, as the live 'lapse' does.
+    *sequence({ steps, base, reqId }) {
+      const e = new Engine();
+      if (base) e.restore(base);
+      for (let i = 0; i < (steps || []).length; i++) {
+        const st = steps[i] || {};
+        if (st.preset) yield* e.loadPresetSteps(st.preset, st.presetDays != null ? { days: st.presetDays + (PRESETS.find((p) => p.id === st.preset)?.days || 0) } : {});
+        if (st.params) { e.setParams(deepMerge(e.params, st.params)); e.settle(); }
+        for (const a of [st.action || []].flat()) applyAction(e, a);
+        const ramp = st.ramp ? Object.entries(st.ramp) : null, fine = !!(ramp || st.fine);
+        for (let done = 0; done < (st.days || 0);) {
+          const n = fine ? 1 : Math.min(30, st.days - done);
+          if (ramp) e.setParams(deepMerge(e.params, rampAt(ramp, done + 1, st.days)));
+          yield* e.advanceDaySteps(n, { noRupture: true, silent: true });
+          done += n;
+        }
+        if (st.preset || st.params || st.days) e.settle();
+        post({ type: 'seqStep', reqId, i, snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(computeMetrics(e), e) });
+        yield;
+      }
+      post({ type: 'sequence', reqId });
     },
     presets({ reqId }) { post({ type: 'presets', reqId, presets: PRESETS.map(({ id, label, group, summary, days }) => ({ id, label, group, summary, days })) }); },
   };
@@ -252,7 +311,7 @@ export function createCore(post) {
         }
         // Queries must not wake the renderer. Mutations send one immediate frame,
         // including UI-originated parameters without echoing those parameters back.
-        if (!['snapshot', 'explain', 'healthyProfile', 'presets', 'counterfactual', 'metrics', 'presetMetrics'].includes(msg.type)) {
+        if (!['snapshot', 'explain', 'healthyProfile', 'presets', 'counterfactual', 'metrics', 'presetMetrics', 'sequence'].includes(msg.type)) {
           frameDirty = true;
           if (visible) { lastFrame = performance.now(); frame(); }
         }

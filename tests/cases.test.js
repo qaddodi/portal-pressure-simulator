@@ -11,9 +11,9 @@ const val = (x, c) => (typeof x === 'function' ? x(c) : x);
 const merged = [];
 for (const base of CASES) for (const v of base.variants || [{}]) { const cs = { ...base, ...v }; Object.assign(cs, cs.build(cs)); merged.push(cs); }
 
-test('eleven cases, unique ids, each with the pieces the runtime needs', () => {
-  assert.equal(CASES.length, 11);
-  assert.equal(new Set(CASES.map((c) => c.id)).size, 11);
+test('twelve cases, unique ids, each with the pieces the runtime needs', () => {
+  assert.equal(CASES.length, 12);
+  assert.equal(new Set(CASES.map((c) => c.id)).size, 12);
   for (const cs of merged) {
     const tag = `${cs.id}/${cs.vid}`;
     assert.ok(cs.title && cs.level && cs.summary && cs.preset, `${tag}: header fields`);
@@ -81,5 +81,25 @@ test('learner text uses clinical words: no vessel codes or model controls', () =
     const c = fake(cs);
     const all = JSON.stringify([cs.title, cs.summary, cs.intro(c), cs.chart(c), cs.pearls, cs.steps.map((s) => [s.title, val(s.q, c), val(s.options, c), s.why]), cs.objectives.map((o) => o.text)]);
     assert.ok(!codes.test(all), `${cs.id}/${cs.vid}: jargon: ${all.match(codes)?.[0]}`);
+  }
+});
+
+test('course units 6–8: stems have five options, an answer and a line each; orders are real', async () => {
+  const { CASE_UNITS } = await import('../src/ui/cases/units.js');
+  assert.deepEqual(Object.keys(CASE_UNITS), ['u6-new-ascites', 'u7-bleed', 'u8-refractory']);
+  for (const [id, u] of Object.entries(CASE_UNITS)) {
+    const base = CASES.find((x) => x.id === u.caseId);
+    assert.ok(base && base.variants[u.variant], `${id}: case and variant`);
+    assert.equal(u.keyPoints.length, 3, `${id}: three key points`);
+    assert.ok(u.orders.length <= 6 && u.need.every((o) => u.orders.includes(o)) && u.orders.every((o) => ORDER_META[o]), `${id}: orders`);
+    assert.equal(typeof u.result, 'function');
+    for (const s of u.steps) {
+      if (s.type === 'watch') { assert.equal(typeof s.run, 'function'); continue; }
+      assert.equal(s.type, 'stem');
+      assert.equal(typeof s.stem, 'string', `${id}/${s.sid}: stem text stands alone`);
+      assert.equal(s.options.length, 5, `${id}/${s.sid}: five options`);
+      assert.equal(s.explain.length, 5, `${id}/${s.sid}: a line per option`);
+      assert.ok(Number.isInteger(s.answer) && s.answer >= 0 && s.answer < 5, `${id}/${s.sid}: answer`);
+    }
   }
 });

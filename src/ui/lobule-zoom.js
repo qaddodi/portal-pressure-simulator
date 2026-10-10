@@ -20,15 +20,15 @@
 // Without WebGL2 the vessels are drawn flat on the tissue canvas.
 
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
-import { store } from './store.js?v=edbdbfb0c8';
+import { store } from './store.js?v=25cbe77a76';
 import { radiiChanged } from './lobule-render-cache.js?v=07951b5935';
-import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=64bf651eba';
-import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=a357853926';
+import { lobuleState, lymphRate, LOBE } from './lobule-model.js?v=dd2bf5fddf';
+import { h, s, fmt, clamp, createEaser, systemEdge } from './util.js?v=e803df99cd';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { NODES, EDGES } from '../engine/topology.js?v=dc393aabea';
-import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=e944e0d434';
+import { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js?v=af24ea0bf0';
 import { SLOT, PERIOD, originFractions, ORIGIN_N } from './blood.js?v=6c39f43ddf';
-import { createSinusoidView } from './sinusoid-view.js?v=7285150aa0';
+import { createSinusoidView } from './sinusoid-view.js?v=96ac8dcf06';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const TAU = Math.PI * 2;
@@ -247,13 +247,13 @@ export function createLobuleZoom({ host }) {
   const cssN = (k) => parseFloat(appStyle?.getPropertyValue(k)) || 0;
   function freeRect() {
     const W = geo.W, H = geo.H, phone = phoneMQ.matches;
-    let t = cssN('--top-safe') + cssN('--cmp-h') + 8, b = H - (cssN('--bot-occ') || 100) - 8, l = 12, r = W - cssN('--right-occ') - 12;
-    // The zoom buttons: on a phone they sit top right beside the Zones and Lymph switches, so the labels start below them.
+    // (--pz-l, --pz-r, --pz-b: the room a presenter slide's text and data take.)
+    let t = cssN('--top-safe') + cssN('--cmp-h') + cssN('--pz-t') + 8, b = H - (cssN('--bot-occ') || 100) - cssN('--pz-b') - 8, l = 12 + cssN('--pz-l'), r = W - cssN('--right-occ') - cssN('--pz-r') - 12;
+    // The zoom buttons: on a phone they sit above the dock (Zones and Lymph live in the Layers menu); should they sit near the top, the labels start below them.
     const zp = phone && document.getElementById('zoomPill');
     if (phone) {
       const hr = el.getBoundingClientRect(), q = zp && zp.offsetHeight ? zp.getBoundingClientRect() : null;
-      // (While the view is still opening they have not moved up yet: keep their row free anyway.)
-      t = q && q.top - hr.top < H / 2 ? Math.max(t, q.bottom - hr.top + 14) : t + 52;
+      if (q && q.top - hr.top < H / 2) t = Math.max(t, q.bottom - hr.top + 14);
     }
     // The bottom stays above the vitals dock. With no room left, layoutLabels hides the labels rather than set them under it.
     return { l, t, r: Math.max(l + 80, r), b };
@@ -261,7 +261,8 @@ export function createLobuleZoom({ host }) {
   // The lobule and its labels' places, in world units.
   const frameBox = () => {
     const { cx, cy, R } = geo, ph = phoneMQ.matches;
-    return ph ? [cx - 1.05 * R, cy - 0.98 * R, cx + 1.05 * R, cy + 1.22 * R] : [cx - 1.52 * R, cy - 1.16 * R, cx + 1.52 * R, cy + 1.02 * R];
+    // Even above and below the hexagon (its curved sides reach about 0.97 R), so a fitted lobule is centred in the free space.
+    return ph ? [cx - 1.05 * R, cy - 1.02 * R, cx + 1.05 * R, cy + 1.02 * R] : [cx - 1.52 * R, cy - 1.04 * R, cx + 1.52 * R, cy + 1.04 * R];
   };
   function fitV() {
     if (!geo) return { k: 1, x: 0, y: 0 };
@@ -788,7 +789,7 @@ export function createLobuleZoom({ host }) {
     setLab('cv', 'Central venule', 'Central venule', ...mv('cv', m.P3, m.R[2]));
     // Lymph (Lymph layer on): the whole liver's rate and its protein; the change from healthy is on its card.
     if (m.hide) setLab('lymph', 'Lymphatic', 'Lymph', '?', '', '', null);
-    else setLab('lymph', 'Lymphatic', 'Lymph', fmt(m.lymph, 1), `mL/min · protein ${Math.round(m.lyProt * 100)}%`, '', null);
+    else setLab('lymph', 'Lymphatic', 'Lymph', fmt(m.lymph, 1), `mL/min · Protein ${Math.round(m.lyProt * 100)}%`, '', null);
     if (sinTo || sinU > 0) sv.setModel(m);
   }
 
@@ -1394,7 +1395,8 @@ export function createLobuleZoom({ host }) {
           const big = t.kind === 'pv' || t.kind === 'cv' || t.kind === 'in';
           // The triad's three vessels carry a dark outline of their own colour; the rest the common casing.
           const edge = EDGE[t.kind];
-          const flags = (selIdsN.has(t.id) ? F_SEL : 0) | (edge ? F_EDGE : 0) | (isArt || isBd ? 0 : F_DIFFUSE | F_SHADOW | (big ? F_SPEC : 0));
+          // The central vein is drawn flat (no light or dark line): on its round hub they read as stray arcs.
+          const flags = (selIdsN.has(t.id) ? F_SEL : 0) | (edge ? F_EDGE : 0) | (isArt || isBd ? 0 : F_SHADOW | (t.kind === 'cv' ? 0 : F_DIFFUSE | (big ? F_SPEC : 0)));
           const z = { s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.13, an: 0.09, lt: 0.25, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.8, sh: 0.5, bd: 0.55, tw: 0.6, ha: 0.7 }[t.kind];
           tubeData.set([...c0, WALL[t.kind], ...c1, alpha, 1, z, flags, 0], o);
           tubeData.set([0, 1, t.len, 0], o + 20);
@@ -2039,6 +2041,20 @@ export function createLobuleZoom({ host }) {
     resetView,
     /** The zoom buttons: in or out about the middle of the free space, and Fit. */
     zoomBy, fitView,
+    /** The presenter's camera: glide to the whole lobule ('fit') or close in on a portal tract ('triad'), the
+     *  sinusoids between it and the centre ('sinusoid') or the central vein ('central'), zoom × the framing. */
+    focusOn(part, { zoom = 2, ms = 1400 } = {}) {
+      if (!geo || sinTo) return;
+      const F0 = fitV(); kFit = F0.k;
+      if (!part || part === 'fit') { atFit = true; glideTo(F0, ms); return; }
+      const g = geo, tri = g.lobules[0].corners[3];
+      const w = part === 'triad' ? [lerp(tri[0], g.cx, 0.12), lerp(tri[1], g.cy, 0.12)] : part === 'central' ? [g.cx, g.cy] : [lerp(tri[0], g.cx, 0.5), lerp(tri[1], g.cy, 0.5)];
+      const f = freeRect(), mx = (f.l + f.r) / 2, my = (f.t + f.b) / 2, k = clamp(kFit * zoom, kFit, kFit * KMAX);
+      const saved = { ...V };
+      Object.assign(V, { k, x: mx - w[0] * k, y: my - w[1] * k }); clampV();
+      const to = { ...V }; Object.assign(V, saved);
+      atFit = false; glideTo(to, ms);
+    },
     viewKey: () => `${V.k.toFixed(3)},${V.x.toFixed(1)},${V.y.toFixed(1)}|${geoKey}`,
     isOpen: () => fade > 0.98,
     isShown: () => fade > 0,

@@ -1,16 +1,16 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
-import { store, hiddenNow } from './store.js?v=edbdbfb0c8';
+import { store, hiddenNow } from './store.js?v=25cbe77a76';
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
-import { h, fmt, svgIcon, closePopover, clamp, scrollCue } from './util.js?v=a357853926';
-import { lobuleFlows } from './lobule-model.js?v=64bf651eba';
-import { createProfile } from './charts.js?v=151b0288b8';
-import { createPressureTime } from './pressure-time.js?v=f585440f46';
-import { createFibroScan } from './fibroscan.js?v=cb1a100f24';
-import { createHvpgProcedure } from './hvpg-proc.js?v=97815283e5';
-import { createDoppler } from './doppler.js?v=8171ee4a53';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=4d041069dd';
+import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=e803df99cd';
+import { lobuleFlows } from './lobule-model.js?v=dd2bf5fddf';
+import { createProfile } from './charts.js?v=ac5eb186fd';
+import { createPressureTime } from './pressure-time.js?v=f6f0e4f571';
+import { createFibroScan } from './fibroscan.js?v=f40195d07f';
+import { createHvpgProcedure } from './hvpg-proc.js?v=7727982947';
+import { createDoppler } from './doppler.js?v=5a548779a8';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=4d65ed8f9a';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -103,6 +103,7 @@ export const VITALS = [
 // Collapsed, the strip shows the pressures (HVPG, the portosystemic gradient, portal pressure) and,
 // where there is room (not on a phone), portal flow: where the pressure sends the blood.
 export const PRIMARY = new Set(['hvpg', 'ppg', 'pv', 'pvflow']);
+const STUDENT_PRIMARY = new Set(['hvpg', 'ppg']);
 
 // A trend arrow marks a sustained change (over TREND_S seconds, larger than TREND_FRAC of the
 // bar's range), so the heartbeat and breathing never make it flicker.
@@ -122,7 +123,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // ── Readout strip ─────────────────────────────────
   const tileEls = {};
   // A phone's four tiles are narrow: short names and status words where the long ones would be cut off.
-  const narrow = matchMedia('(max-width: 767px)');
+  const narrow = matchMedia('(max-width: 767px), (max-width: 1194px) and (pointer: coarse)');   // phones and tablets: short readout names
   const row = h('div', { class: 'ro-row' });
   strip.append(row);
   const pos = (t, v) => clamp((v - t.scale[0]) / (t.scale[1] - t.scale[0]), 0, 1) * 100;
@@ -146,8 +147,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       h('span', { class: 'ro-cap', 'aria-hidden': 'true' }, label), h('div', { class: 'ro-tiles' }, ts.map((t) => tile(t, false)))));
   }
   // The Lobule view swaps the key readouts for the lobule's flows (the group is hidden elsewhere, by CSS).
-  const syncLobule = () => { const on = !!store.get().lobule; strip.classList.toggle('lob', on); for (const x of Object.values(tileEls)) x.el.classList.toggle('primary', on ? LOBULE_PRIMARY.has(x.t.id) : PRIMARY.has(x.t.id)); };
-  store.on('lobule', () => { syncLobule(); setTimeout(() => dispatchEvent(new Event('resize')), 30); });
+  // Student mode keeps the two gradients (HVPG, PPG) and no "all readouts" chevron (CSS).
+  const syncLobule = () => { const st = store.get(), on = !!st.lobule, pri = on ? LOBULE_PRIMARY : st.role === 'student' && st.mode === 'explore' ? STUDENT_PRIMARY : PRIMARY; strip.classList.toggle('lob', on); for (const x of Object.values(tileEls)) x.el.classList.toggle('primary', pri.has(x.t.id)); };
+  for (const k of ['lobule', 'role', 'mode']) store.on(k, () => { syncLobule(); setTimeout(() => dispatchEvent(new Event('resize')), 30); });
+  syncLobule();
   const vitEls = VITALS.map((v) => {
     const val = h('b', {}, '—');
     const el = h(v.why ? 'button' : 'div', { class: 'vital', title: `${v.title} (${v.u})${v.why ? '\nClick for what is driving it.' : ''}` }, h('span', {}, v.k), val);
@@ -324,7 +327,13 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     fibroscan: ['gauge', (f) => `${fmt(f.metrics.lsm, 0)} kPa`],
   };
   const SHORT = { profile: 'Pressure', scope: 'Over time', hvpg: 'HVPG', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites', fibroscan: 'FibroScan' };
+  // Narrow cards use these shorter names so all six tabs always fit without scrolling.
+  const TINY = { endoscopy: 'Scope', fibroscan: 'Fibro' };
   const ORDER = ['profile', 'scope', 'hvpg', 'doppler', 'endoscopy', 'abdomen', 'fibroscan'];
+  // Pressure (along the circuit) and Over time (the same pressures through time) share one tab with a
+  // small switch inside it; 'scope' stays a pane of its own, so lessons and the Presenter still reach it.
+  const TABS = ORDER.filter((id) => id !== 'scope');
+  const tabOf = (id) => (id === 'scope' ? 'profile' : id);
   const saved = (() => { try { return JSON.parse(localStorage.getItem('pps.instruments') || 'null') || {}; } catch { return {}; } })();
   let open = Array.isArray(saved.open) && saved.open.every((id) => byId[id]) && saved.open.length ? saved.open.slice(0, 2) : ['profile'];
   let frame = null, state = 'open', resizeFrame = 0, picking = false;
@@ -343,10 +352,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   head.append(titleEl, live, closeBtn);
   // The tabs: one per instrument, with its live reading.
   const tabEls = {};
-  const tabs = h('div', { class: 'instr-tabs', role: 'tablist', 'aria-label': 'Instruments' }, ORDER.map((id) => {
+  const tabs = h('div', { class: 'instr-tabs ws-tabs', role: 'tablist', 'aria-label': 'Instruments' }, TABS.map((id) => {
     const val = h('small', { class: 'it-v' });
     const b = h('button', { class: 'instr-tab', role: 'tab', 'data-instrument': id, 'aria-selected': 'false', 'aria-controls': 'pane-' + id },
-      svgIcon(INFO[id][0]), h('span', { class: 'it-t' }, h('b', {}, SHORT[id] || byId[id].label), val));
+      svgIcon(INFO[id][0]), h('span', { class: 'it-t' }, h('b', {}, h('span', { class: 'it-full' }, SHORT[id] || byId[id].label), h('span', { class: 'it-short' }, TINY[id] || SHORT[id] || byId[id].label)), val));
     b.title = byId[id].label;
     b.addEventListener('click', () => pick(id));
     tabEls[id] = { b, val };
@@ -355,23 +364,42 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   tabs.addEventListener('keydown', (e) => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
     e.preventDefault();
-    const i = ORDER.indexOf(e.target.closest('.instr-tab')?.dataset.instrument);
-    const j = e.key === 'Home' ? 0 : e.key === 'End' ? ORDER.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : ORDER.length - 1)) % ORDER.length;
-    tabEls[ORDER[j]].b.focus(); pick(ORDER[j]);
+    const i = TABS.indexOf(e.target.closest('.instr-tab')?.dataset.instrument);
+    const j = e.key === 'Home' ? 0 : e.key === 'End' ? TABS.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : TABS.length - 1)) % TABS.length;
+    tabEls[TABS[j]].b.focus(); pick(TABS[j]);
   });
   const pickHint = h('div', { class: 'instr-hint', hidden: true }, 'Pick a second instrument to show with ', h('b'), '.');
-  const tabsBox = scrollCue(tabs);
+  const tabsBox = tabs;
+  // The row never scrolls: a wide card shows every full name, a narrower one the short names over their icons.
+  const fitTabs = () => { const w = tabs.clientWidth; if (w) { tabs.classList.toggle('compact', w < 620); tabs.classList.toggle('narrow', w < 470); } };
+  if (typeof ResizeObserver === 'function') new ResizeObserver(fitTabs).observe(tabs);
+  fitTabs();
   head.after(tabsBox, pickHint);
+  // The switch inside the Pressure tab: the chart along the circuit, or the same pressures over time.
+  const pressureSwitch = (own) => h('div', { class: 'pressure-switch', role: 'group', 'aria-label': 'Pressure view' },
+    [['profile', 'Along the circuit'], ['scope', 'Over time']].map(([id, label]) => h('button', {
+      type: 'button', class: 'ps-btn', 'data-view': id, 'aria-pressed': String(id === own),
+      onclick: () => { if (id !== own) { open = open.map((x) => (x === own ? id : x)); layout(); workspace.querySelector('.dock-body')?.scrollTo?.(0, 0); } },
+    }, label)));
   for (const p of panes) {
+    if (tabOf(p.id) === 'profile') p.el.prepend(pressureSwitch(p.id));
     p.el.id = 'pane-' + p.id; p.el.setAttribute('role', 'tabpanel'); p.el.setAttribute('aria-label', p.label);
     body.append(p.el);
   }
   const comparison = h('div', { class: 'workspace-comparison', hidden: true });
   body.before(comparison);
+  // A pane that scrolls (Ascites on a phone) is left alone while a finger is on it and for a moment after, so
+  // the live numbers cannot interrupt the scroll; it catches up as soon as the finger has gone.
+  let touching = false, holdUntil = 0, catchUp = 0;
+  const holding = () => touching || performance.now() < holdUntil;
+  body.addEventListener('scroll', () => { holdUntil = performance.now() + 200; }, { capture: true, passive: true });
+  body.addEventListener('touchstart', () => { touching = true; }, { passive: true });
+  for (const t of ['touchend', 'touchcancel']) body.addEventListener(t, () => { touching = false; holdUntil = performance.now() + 200; clearTimeout(catchUp); catchUp = setTimeout(refresh, 260); }, { passive: true });
   function refresh() {
     if (!frame || !isVisible() || state === 'peek' || !workspace.offsetParent) return;
     for (const id of open) {
       const p = byId[id];
+      if (id !== 'scope' && id !== 'doppler' && holding() && p.el.scrollHeight > p.el.clientHeight + 1) continue;
       // live instruments keep their own history and only redraw; the rest draw from the frame
       if (id === 'scope' || id === 'doppler') p.redraw(); else p.update(frame);
       if (id === 'endoscopy' && wallDetails.open) wall.update(frame);
@@ -398,8 +426,12 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       // With a step card above it, a phone keeps about a quarter of the height for the figure itself.
       const keep = coachH && matchMedia('(max-width: 767px)').matches ? Math.max(40, stageWrap.clientHeight * 0.26) : 40;
       const max = stageWrap.clientHeight - css('--top-safe') - coachH - css('--vdock-h') - keep;
-      const ratio = heightRatio ?? (matchMedia('(max-width: 767px)').matches ? 0.56 : 0.46);
-      const height = Math.min(max, Math.max(180, stageWrap.clientHeight * ratio));
+      // A tablet held upright keeps more than half the stage for the figure, so its vessel labels stay legible.
+      const ratio = heightRatio ?? (matchMedia('(max-width: 767px)').matches ? 0.56 : matchMedia('(orientation: portrait)').matches ? 0.4 : 0.46);
+      // A phone in a lesson: the step card sits on top of the sheet and the two share the bottom half, so
+      // the figure keeps the top half (styles: the coach in learn mode).
+      const lessonPhone = coachH && app.dataset.mode === 'learn' && matchMedia('(max-width: 767px)').matches;
+      const height = lessonPhone ? Math.max(150, stageWrap.clientHeight * 0.27) : Math.min(max, Math.max(180, stageWrap.clientHeight * ratio));
       workspace.style.setProperty('--instrument-h', `${Math.max(140, height)}px`);
       divider.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
     }
@@ -417,28 +449,26 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     setTimeout(() => dispatchEvent(new Event('resize')), 30);
   }
   const canSplit = () => (isSide() ? stageWrap.clientHeight - css('--top-safe') - css('--vdock-h') >= 620 : body.clientWidth >= 1000 || workspace.clientWidth >= 1000) || state === 'focus';
-  // Pressure and Over time read as one story: on a roomy desktop card they open together, stacked,
-  // so neither needs a long scroll.
+  // Pressure and Over time read as one story: where the card is roomy (desktop, iPad landscape) they open
+  // together, stacked, with no switch; elsewhere the Pressure tab keeps its Along the circuit / Over time switch.
   const PAIR = ['profile', 'scope'];
-  const pairs = () => matchMedia('(min-width: 1024px) and (pointer: fine)').matches && canSplit();
+  const roomy = () => isSide() && canSplit() && body.clientHeight >= 600;
+  const isPair = () => open.length === 2 && tabOf(open[0]) === tabOf(open[1]);
   function layout() {
     // Never keep two cramped instruments after rotation or resizing.
     if (open.length > 1 && !canSplit()) open = open.slice(0, 1);
-    else if (open.length === 1 && PAIR.includes(open[0]) && pairs()) open = [...PAIR];
+    else if (open.length === 1 && tabOf(open[0]) === 'profile' && roomy()) open = [...PAIR];
+    else if (open.length > 1 && tabOf(open[0]) === tabOf(open[1]) && !roomy()) open = open.slice(0, 1);
     for (const p of panes) p.el.classList.toggle('active', open.includes(p.id));
     body.classList.toggle('split', open.length > 1);
-    body.classList.toggle('stack', open.length > 1 && isSide() && state !== 'focus');
+    body.classList.toggle('stack', open.length > 1 && (isPair() || (isSide() && state !== 'focus')));
+    body.classList.toggle('pair', isPair());
     paintTitle();
-    for (const id of ORDER) {
-      const on = open.includes(id);
+    for (const id of TABS) {
+      const at = open.findIndex((x) => tabOf(x) === id), on = at >= 0;
       tabEls[id].b.setAttribute('aria-selected', String(on));
-      tabEls[id].b.tabIndex = id === open[0] ? 0 : -1;
-      tabEls[id].b.dataset.slot = on && open.length > 1 ? String(open.indexOf(id) + 1) : '';
-    }
-    // A phone's tab row scrolls sideways: keep the chosen tab in view.
-    if (tabs.scrollWidth > tabs.clientWidth) {
-      const r = tabEls[open[0]].b.getBoundingClientRect(), T = tabs.getBoundingClientRect();
-      if (r.left < T.left || r.right > T.right) tabs.scrollLeft += r.left - T.left - (T.width - r.width) / 2;
+      tabEls[id].b.tabIndex = id === tabOf(open[0]) ? 0 : -1;
+      tabEls[id].b.dataset.slot = on && open.length > 1 && !isPair() ? String(at + 1) : '';
     }
     remember();
     queueRefresh();
@@ -460,13 +490,13 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     pickHint.querySelector('b').textContent = byId[open[0]].label;
     pickHint.hidden = false; workspace.classList.add('picking');
     layout();
-    tabs.querySelector(`.instr-tab:not([data-instrument="${open[0]}"])`)?.focus();
+    tabs.querySelector(`.instr-tab:not([data-instrument="${tabOf(open[0])}"])`)?.focus();
   }
   function pick(id) {
-    if (picking && id !== open[0]) { open = [open[0], id]; endPick(); layout(); return; }
+    if (picking && id !== tabOf(open[0])) { open = [open[0], id]; endPick(); layout(); return; }
     endPick();
-    // A tab of a pair shows that instrument alone.
-    open = [id];
+    // A tab shows that instrument alone (the Pressure tab keeps the view it was on).
+    open = [open.find((x) => tabOf(x) === id) || id];
     if (state === 'peek') setState('open');
     layout();
     workspace.querySelector('.dock-body')?.scrollTo?.(0, 0);
@@ -476,7 +506,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     if (!isVisible()) { onOpen(); setState('open'); }
     else if (state === 'peek') setState('open');
     if (alongside && canSplit() && open.length === 1) toggleSecond();
-    else tabEls[open[0]].b.focus();
+    else tabEls[tabOf(open[0])].b.focus();
   }
   function show(id, { open: doOpen = true, reveal = false, alongside = false } = {}) {
     if (id === 'lobule') { onLobule?.(); return; }
@@ -485,7 +515,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     if (revealWall) { wallDetails.open = true; id = 'endoscopy'; }
     if (!byId[id]) return;
     endPick();
-    if (alongside && open.length === 1 && open[0] !== id && canSplit()) open = [open[0], id];
+    if (alongside && open.length === 1 && tabOf(open[0]) !== tabOf(id) && canSplit()) open = [open[0], id];
     else if (!open.includes(id)) open = [id];
     if (reveal) onReveal?.(reveal);
     else if (doOpen) onOpen();
@@ -545,7 +575,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     updateSize();
     const h0 = workspace.clientHeight, side = isSide() && state !== 'focus';
     // As a tall card the plots take a sensible share of the height, so a pair still fits.
-    const plot = side ? clamp((body.clientHeight / (open.length > 1 ? 2 : 1)) - 90, 190, 380) : clamp(h0 - 150, 190, 420);
+    const plot = side ? clamp((body.clientHeight / (open.length > 1 ? 2 : 1)) - 90, 190, 380) : clamp(h0 - (innerWidth >= 768 ? 190 : 150), 190, 420);   // a tablet's sheet has a taller header and tab row
     workspace.style.setProperty('--plot-h', `${plot}px`);
     workspace.style.setProperty('--square-size', `${clamp(side ? workspace.clientWidth - 80 : h0 - 160, 220, 380)}px`);
     layout();
@@ -556,7 +586,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   store.on('compareSnap', () => updateHeader());
   function updateHeader() {
     const st = store.get(), comparing = !!st.compareSnap;
-    comparison.hidden = !comparing || state === 'peek' || st.imaging;
+    const hideCmp = !comparing || state === 'peek' || st.imaging;
+    if (comparison.hidden !== hideCmp) comparison.hidden = hideCmp;
     if (comparing && frame) {
       const a = st.compareSnap.metrics, b = frame.metrics;
       const delta = (label, v, digits, unit) => h('span', {}, label, h('b', {}, `${v > 0 ? '+' : ''}${fmt(v, digits)} ${unit}`));
@@ -569,9 +600,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const txt = !frame ? '' : state === 'peek' && !st.imaging ? INFO[open[0]][1](frame)
       : frame.clock === 'disease' ? `${st.running ? 'Live' : 'Paused'} · Day ${frame.day}` : st.running ? 'Live' : 'Paused';
     if (live.textContent !== txt) live.textContent = txt;
-    live.dataset.state = state === 'peek' ? 'summary' : st.running ? 'live' : 'paused';
+    const ls = state === 'peek' ? 'summary' : st.running ? 'live' : 'paused';
+    if (live.dataset.state !== ls) live.dataset.state = ls;
     // Each tab carries its instrument's reading (not in a case, where the numbers are to be found).
-    if (frame && isVisible()) for (const id of ORDER) {
+    if (frame && isVisible()) for (const id of TABS) {
       const v = st.imaging ? '' : INFO[id][1](frame);
       if (tabEls[id].val.textContent !== v) tabEls[id].val.textContent = v;
     }

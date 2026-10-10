@@ -90,6 +90,37 @@ export const PRESETS = [
     summary: 'Pericardial constraint raises RA pressure; congestive hepatopathy without an HVPG rise.' },
 ];
 
+// Allowed range of each numeric parameter (the controls' own ranges). Hand-edited links and console calls
+// are clamped to these, so a value no control can reach never turns the model into NaN.
+const RANGES = {
+  cirrhosis: [0, 1], splenicRx: [0, 2], splanchnicTone: [0.4, 2.5], systemicTone: [0.4, 2.5],
+  contractility: [0.15, 1.6], tr: [0, 1], pericardial: [0, 1], albumin: [1.5, 5], habrStrength: [0, 2],
+  apShunt: [0, 1], respDepth: [0, 3],
+};
+const num = (v, lo, hi, def) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : def);
+
+/** A copy of params with every value of the wrong type replaced by its default and every number clamped to its range. */
+export function sanitizeParams(p) {
+  const d = defaultParams();
+  const out = isObj(p) ? deepMerge(d, p) : d;
+  for (const [k, [lo, hi]] of Object.entries(RANGES)) out[k] = num(out[k], lo, hi, d[k]);
+  out.splenicRx = Math.round(out.splenicRx);
+  for (const k of Object.keys(d)) {
+    if (typeof d[k] === 'boolean') out[k] = !!out[k];
+    else if (isObj(d[k]) && !isObj(out[k])) out[k] = d[k];
+  }
+  for (const lobe of ['R', 'L']) {
+    if (!isObj(out.fibrosis[lobe])) out.fibrosis[lobe] = d.fibrosis[lobe];
+    for (const z of ['pre', 'sin', 'post']) out.fibrosis[lobe][z] = num(out.fibrosis[lobe][z], 1, 80, 1);
+  }
+  for (const k of ['stenosis', 'thrombus']) for (const id of Object.keys(out[k])) out[k][id] = num(out[k][id], 0, k === 'stenosis' ? 0.95 : 1, 0);
+  for (const k of ['tips', 'dips']) { out[k].on = !!out[k].on; out[k].d = num(out[k].d, 6, 12, 8); }
+  for (const id of Object.keys(out.customShunts)) if (out.customShunts[id]) out.customShunts[id] = num(out.customShunts[id], 4, 16, 10);
+  for (const k of Object.keys(out.drugs)) out.drugs[k] = !!out.drugs[k];
+  out.seed = num(out.seed, 0, 2 ** 31, 1);
+  return out;
+}
+
 function isObj(x) { return x && typeof x === 'object' && !Array.isArray(x); }
 export function deepMerge(base, patch) {
   const out = structuredClone(base);

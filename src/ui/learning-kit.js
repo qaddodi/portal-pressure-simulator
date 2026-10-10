@@ -9,8 +9,8 @@
 //   bindQuestionKeys(el)  keys 1 to 4 pick an option, Enter presses the primary button
 //   mirrorMarker(...)     "?" then an arrow on the vessel the question is about
 
-import { store } from './store.js?v=edbdbfb0c8';
-import { h } from './util.js?v=a357853926';
+import { store } from './store.js?v=25cbe77a76';
+import { h } from './util.js?v=e803df99cd';
 
 export const TRUST_LINE = 'Teaching model: shows how pressure and flow behave. It does not predict an individual patient.';
 export const trustLine = () => h('p', { class: 'trust-line' }, TRUST_LINE);
@@ -45,19 +45,20 @@ const ARROW = '➜';
  *   answer    right index/array; marks right/wrong only when reveal is true
  *   multi     toggle several, then press the caller's Commit button
  *   dir       direction buttons: options[0] is "forward" (arrow →), options[1] is "reverse" (arrow ←)
+ *   notes     one line per option, shown under each option once revealed (a stem's explanations)
  *   onPick(i) called with the option index
  */
-export function optionList({ options, picked = null, answer = null, reveal = false, locked = false, multi = false, dir = false, onPick }) {
+export function optionList({ options, picked = null, answer = null, reveal = false, locked = false, multi = false, dir = false, notes = null, onPick }) {
   const isPicked = (i) => (Array.isArray(picked) ? picked.includes(i) : picked === i);
   const isRight = (i) => (Array.isArray(answer) ? answer.includes(i) : answer === i);
   return h('div', { class: 'opts' + (dir ? ' dir' : ''), role: multi ? 'group' : 'radiogroup', 'data-locked': locked ? '1' : '0' },
     options.map((o, i) => {
       const cls = ['opt'];
-      if (isPicked(i)) cls.push('sel');
+      if (isPicked(i) && !reveal) cls.push('sel');   // once revealed the pick reads green or red
       if (reveal) { if (isRight(i)) cls.push('right'); else if (isPicked(i)) cls.push('wrong'); }
       return h('button', { class: cls.join(' '), disabled: locked, role: multi ? 'checkbox' : 'radio', 'aria-checked': String(isPicked(i)), 'data-i': String(i), onclick: () => onPick?.(i) },
         dir ? h('span', { class: 'dir-arrow', 'aria-hidden': 'true', style: { transform: i === 0 ? 'none' : 'scaleX(-1)' } }, ARROW) : h('span', { class: 'letter' }, 'ABCDE'[i]),
-        h('span', {}, o));
+        h('span', { class: 'opt-t' }, o, reveal && notes?.[i] ? h('small', { class: 'opt-why' }, notes[i]) : null));
     }));
 }
 

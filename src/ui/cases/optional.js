@@ -1,12 +1,13 @@
 // Optional cases 9 to 11: schistosomiasis varices, reversed portal flow on a routine scan, and
 // confusion after a TIPS.
 
-import { DX_HIDDEN, fill } from './kit.js?v=4021282d5c';
+import { DX_HIDDEN, fill } from './kit.js?v=4db57f825c';
 
 const LEVELS = ['The portal vein, before the liver', 'Inside the liver, before the sinusoids', 'Inside the liver, in the sinusoids', 'The hepatic veins, after the liver'];
 
 export const schisto = {
   id: 'schisto', title: 'Varices with a normal liver', level: 'Diagnosis', minutes: 8,
+  tests: ['labs', 'doppler', 'egd', 'hvpg'],
   summary: 'A young man from an area where schistosomiasis is common has bled from varices. His liver tests are normal and his HVPG is low. Where is the block?',
   tools: ['select', 'doppler', 'endoscope'], hidden: DX_HIDDEN, speed: 1, preset: 'schisto',
   patient: { name: 'Karim Nasser', age: 34, sex: 'M', setting: 'Gastroenterology ward', problem: 'Bled from varices yesterday. Normal liver tests.' }, variants: [{ vid: 'a' }],
@@ -51,6 +52,7 @@ export const schisto = {
 
 export const hepatofugal = {
   id: 'hepatofugal', title: 'Reversed flow on a routine scan', level: 'Referral', minutes: 7,
+  tests: ['labs', 'doppler'],
   summary: 'A routine ultrasound in a woman with cirrhosis reports hepatofugal portal flow. Read the report, check for a clot, and decide who she needs to see.',
   tools: ['select', 'doppler'], hidden: DX_HIDDEN, speed: 1, preset: 'cirr-hepatofugal',
   patient: { name: 'Gloria Ruiz', age: 63, sex: 'F', setting: 'Hepatology clinic', problem: 'Routine scan report: hepatofugal portal flow.' }, variants: [{ vid: 'a' }],
@@ -93,6 +95,7 @@ export const hepatofugal = {
 
 export const postTips = {
   id: 'post-tips', title: 'Confused after a TIPS', level: 'Management', minutes: 7,
+  tests: ['labs', 'tap-dx'],
   summary: 'A man three weeks after a TIPS becomes drowsy. Treat the encephalopathy, and know what to do when it keeps coming back.',
   tools: ['select', 'stent'], hidden: DX_HIDDEN, speed: 1,
   preset: 'cirr-decomp', params: { diuretics: true, tips: { on: true, d: 8 } },

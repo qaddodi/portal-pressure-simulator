@@ -3,9 +3,9 @@
 // and the change, readouts report "vs then", and this section of the panel names both states and
 // tabulates every difference. There is no Compare mode: unpinning ends it.
 
-import { store } from './store.js?v=edbdbfb0c8';
-import { h, fmt, svgIcon } from './util.js?v=a357853926';
-import { activeInterventions } from './inspector.js?v=5acd5150f6';
+import { store } from './store.js?v=25cbe77a76';
+import { h, fmt, svgIcon } from './util.js?v=e803df99cd';
+import { activeInterventions } from './inspector.js?v=500d39491c';
 
 const ROWS = [
   ['HVPG', (m) => m.hvpg, 1, 'mmHg'], ['Portal pressure', (m) => m.pv, 1, 'mmHg'], ['PPG (portal vein − IVC)', (m) => m.ppg, 1, 'mmHg'], ['Portal flow', (m) => m.pvFlow, 1, 'L/min'],
@@ -24,11 +24,12 @@ export function createCompare() {
     const A = store.get().compareSnap;
     if (!A) return null;
     tableEl = h('div');
-    nowCard = card('b', 'N', 'Now · live', scen(), describe(activeInterventions(store.get().params).map((a) => a.label)));
+    const [nA, nB] = A.names || ['Then', 'Now'];
+    nowCard = card('b', 'N', A.names ? nB : 'Now · live', scen(), describe(activeInterventions(store.get().params).map((a) => a.label)));
     const unpin = h('button', { class: 'btn sm', onclick: () => store.set({ compareSnap: null, compareView: 'B' }) }, svgIcon('close', 'mi-ic'), 'Stop comparing');
     const el = h('section', { class: 'cmp-section' },
       h('div', { class: 'cmp-top' }, h('span', { class: 'overline' }, `Comparing with ${A.when}`), unpin),
-      h('div', { class: 'cmp-states' }, card('a', 'T', `Then · ${A.when}`, A.label, describe(A.changes)), nowCard),
+      h('div', { class: 'cmp-states' }, card('a', 'T', A.names ? nA : `Then · ${A.when}`, A.label, describe(A.changes)), nowCard),
       tableEl,
       h('p', { class: 'ctl-sub', style: { margin: 0 } }, 'Switch the figure between then, now and the change in the figure header. The pressure profile overlays then as a dotted line.'));
     const f = store.get().frame;
@@ -42,7 +43,7 @@ export function createCompare() {
     const A = st.compareSnap.metrics, B = f.metrics;
     const maxRel = Math.max(...ROWS.map(([, g]) => { const a = g(A), b = g(B); return Math.abs(b - a) / Math.max(Math.abs(a), 1); }), 1e-6);
     tableEl.replaceChildren(h('table', { class: 'cmp-table' },
-      h('thead', {}, h('tr', {}, h('th', {}, 'Metric'), h('th', {}, 'Then'), h('th', {}, 'Now'), h('th', {}, 'Δ'))),
+      h('thead', {}, h('tr', {}, h('th', {}, 'Metric'), h('th', {}, st.compareSnap.names?.[0] || 'Then'), h('th', {}, st.compareSnap.names?.[1] || 'Now'), h('th', {}, 'Δ'))),
       h('tbody', {}, ROWS.map(([lab, g, d, u]) => {
         const a = g(A), b = g(B), dd = b - a;
         const same = Math.abs(dd) < Math.pow(10, -d) * 0.5;

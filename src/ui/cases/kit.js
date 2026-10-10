@@ -15,6 +15,8 @@ export const ORDER_META = {
   'tap-dx': { g: 'assess', label: 'Diagnostic tap of the ascites' },
   'clot-screen': { g: 'assess', label: 'Clotting disorder and JAK2 tests' },
   ecg: { g: 'assess', label: 'ECG' },
+  xmatch: { g: 'assess', label: 'Type and crossmatch' },
+  cxr: { g: 'assess', label: 'Chest X-ray' },
   crystalloid: { g: 'treat', label: '1 L IV fluid' },
   prbc: { g: 'treat', label: 'Transfuse 1 unit of red cells' },
   vaso: { g: 'treat', label: 'Terlipressin infusion' },

@@ -5,9 +5,9 @@ import { NODES, EDGES, dMinOf, edgePresent, isOccluded, PORTOSYSTEMIC_EDGES, SPL
 import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
-} from './physiology.js?v=8b006eefeb';
-import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=d88966abe6';
-import { detectEvents } from './events.js?v=bc3578b18d';
+} from './physiology.js?v=6fc3ec393a';
+import { defaultParams, DRUGS, PRESETS, deepMerge } from './scenario.js?v=da4ad72f01';
+import { detectEvents } from './events.js?v=e24f641428';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
@@ -40,6 +40,8 @@ const sieve = (sig, jv, ps) => (1 - sig) / (1 - sig * Math.exp(-Math.max(0, jv) 
 
 /** Splenic artery resistance multiplier: none, partial embolization (about 60 % infarct), splenectomy (no inflow). */
 const SPLENIC_RX_R = [1, 2.5, 80];
+/** Systemic share of the chronic splanchnic vasodilation (fraction of the splanchnic tone drop). */
+const SYS_DILATION = 0.5;
 
 export class Engine {
   constructor({ params, seed } = {}) {
@@ -90,6 +92,8 @@ export class Engine {
     this.day = 0;
     this.rng = makeRng(seed);
     this.baro = 1; this.MAPf = 93; this.habr = 1;
+    // Display filters start over from the new state (a non-finite run must not leak into the next patient).
+    this.Pf = this.Qf = null; this.COf = this.pvQm = this.pvVm = undefined;
     this.hr = HR_REST;
     this.slow = {
       d: Object.fromEntries(this.collaterals.map((k) => [EDGES[k].id, dMinOf(EDGES[k])])),
@@ -262,7 +266,9 @@ export class Engine {
     const p = this.params, s = p.cirrhosis, d = this._drug;
     const visc = this.viscosity();
     const spl = p.splanchnicTone * this.slow.splTone * d.spl * Math.pow(this.baro, 0.6);
-    const sys = p.systemicTone * d.sys * this.baro;
+    // Chronic portal hypertension dilates systemic arterioles too (nitric oxide spill-over), not only the
+    // splanchnic bed: SVR falls and, with the expanded plasma volume, cardiac output rises (hyperdynamic circulation).
+    const sys = p.systemicTone * d.sys * this.baro * (1 - SYS_DILATION * (1 - this.slow.splTone));
     const cath = p.catheter;
     const extE = { abd: this.iap - 5, thor: this.ext[this.ni.SVC], eso: this.ext[this.ni.VAR], gas: this.ext[this.ni.GV], none: 0 };
 
@@ -398,7 +404,7 @@ export class Engine {
       const ph = this.phase();
       m = fillShape(ph) + p.tr * 1.2 * (fillShape(ph) - systoleShape(ph));
     }
-    const [Qh0, dQh0] = heartFlow(P[RA] - this.ext[RA], hs.cap);
+    const [Qh0, dQh0] = heartFlow(P[RA] - this.ext[RA], hs.cap, P[RA] - this.ext[this.ni.SVC]);
     const Qh = Qh0 * m, dQh = dQh0 * m;
     const a0 = Qh - dQh * P[RA];
     A[RA * N + RA] += dQh; b[RA] -= a0;

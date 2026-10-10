@@ -2,19 +2,17 @@
 // chart, so every command lands in the timeline like any other change. A number in the query is
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
-import { store, updateParams } from './store.js?v=edbdbfb0c8';
-import { h, svgIcon, toast } from './util.js?v=a357853926';
+import { store, updateParams } from './store.js?v=25cbe77a76';
+import { h, svgIcon, toast } from './util.js?v=e803df99cd';
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
-import { DRUGS } from '../engine/scenario.js?v=d88966abe6';
-import { HIDDEN_EDGES } from './anatomy.js?v=89191aa586';
-import { LESSONS } from './learn.js?v=648a1f6d2a';
-import { CASES } from './cases.js?v=7bbce6617a';
+import { DRUGS } from '../engine/scenario.js?v=da4ad72f01';
+import { HIDDEN_EDGES } from './anatomy.js?v=c9178ee66a';
 
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9+ ]/g, ' ');
 
 export function createPalette({ ctx }) {
   const back = h('div', { class: 'pal-back', hidden: true });
-  const input = h('input', { class: 'pal-input', type: 'text', placeholder: 'Search a vessel, patient or treatment: “tips 10”, “+6 months”…', 'aria-label': 'Search', autocomplete: 'off', spellcheck: 'false' });
+  const input = h('input', { class: 'pal-input', type: 'text', placeholder: innerWidth < 600 ? 'Search vessels, patients, treatments' : 'Search a vessel, patient or treatment: “tips 10”, “+6 months”…', 'aria-label': 'Search', autocomplete: 'off', spellcheck: 'false' });
   const list = h('div', { class: 'pal-list', role: 'listbox' });
   const box = h('div', { class: 'pal', role: 'dialog', 'aria-label': 'Command palette' }, h('div', { class: 'pal-top' }, svgIcon('explore', 'pal-ic'), input, h('kbd', {}, 'Esc')), list);
   back.append(box);
@@ -68,8 +66,6 @@ export function createPalette({ ctx }) {
     for (const [id, t] of [['liver', 'Liver'], ['heart', 'Right heart'], ['varices', 'Esophageal varices'], ['gastric', 'Fundal varices'], ['spleen', 'Spleen'], ['abdomen', 'Ascites']]) add('Go to', t, () => ctx.select({ type: 'organ', id }), { kw: 'organ select' });
     // Sessions and scenarios
     for (const p of st.presetList || []) add('Patient', p.label, () => ctx.loadPreset(p.id), { kw: `scenario preset ${p.group}` });
-    for (const l of LESSONS) add('Lesson', l.title, () => ctx.lesson(l.id), { kw: 'learn ' + l.summary });
-    for (const c of CASES) add('Case', c.title, () => ctx.caseStart(c.id), { kw: 'case ' + c.summary });
     add('App', 'Home', () => ctx.home(), { kw: 'start' });
     add('App', 'Reset everything', () => ctx.reset(), { kw: 'reset reload refresh clear start over' });
     add('App', 'Light / dark theme', () => ctx.theme(), { kw: 'appearance' });

@@ -1,7 +1,7 @@
 // C5. Melena with a big spleen: do not assume cirrhosis. Variant L is a blocked splenic vein with a
 // normal liver (TIPS is wrong); variant G is cirrhosis with a gastrorenal shunt (BRTO or TIPS).
 
-import { DX_HIDDEN, fill } from './kit.js?v=4021282d5c';
+import { DX_HIDDEN, fill } from './kit.js?v=4db57f825c';
 
 const L = {
   vid: 'L', preset: 'svt', splenic: true,
@@ -28,6 +28,8 @@ const G = {
 
 export const gastric = {
   id: 'gastric', title: 'Melena with a big spleen', level: 'Diagnosis', minutes: 9,
+  tests: ['labs', 'ct', 'egd'],
+  found: ['gv'],   // the scope in hospital already showed the fundal varices
   summary: 'Fundal varices and a big spleen. Find where the block is before you choose a treatment, because the same varices need different answers.',
   tools: ['select', 'doppler', 'endoscope'], hidden: DX_HIDDEN, speed: 1,
   variants: [L, G],

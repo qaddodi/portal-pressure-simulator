@@ -1,29 +1,31 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=b54d9b1fcc';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=edbdbfb0c8';
-import { createStage } from './stage.js?v=17e63a090e';
-import { sinusoidSupported } from './sinusoid-view.js?v=7285150aa0';
-import { createInspector } from './inspector.js?v=5acd5150f6';
-import { createDock, CUTOFFS } from './dock.js?v=cbcdf6dc63';
-import { setHvpgStage } from './hvpg-proc.js?v=97815283e5';
-import { createWhy } from './why.js?v=82d0ada42e';
-import { createTimeline, LAPSES } from './timeline.js?v=2831e31d82';
-import { createLearn } from './learn.js?v=648a1f6d2a';
-import { createCases } from './cases.js?v=7bbce6617a';
-import { createCompare } from './compare.js?v=d64b7b73d4';
-import { createCard } from './card.js?v=767b2dc99d';
-import { createChart, computeFindings } from './chart.js?v=6eb7c60d38';
-import { createHome, ROLES } from './home.js?v=9b5bdb2794';
-import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=a34d291061';
-import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=c7917d0320';
-import { startLMS } from './lms.js?v=032f014067';
+import { startHost, host } from './host.js?v=90504cc4f2';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=25cbe77a76';
+import { createStage } from './stage.js?v=afec8ac251';
+import { sinusoidSupported } from './sinusoid-view.js?v=96ac8dcf06';
+import { createInspector } from './inspector.js?v=500d39491c';
+import { createDock, CUTOFFS } from './dock.js?v=6f0df6906c';
+import { setHvpgStage } from './hvpg-proc.js?v=7727982947';
+import { createWhy } from './why.js?v=b3625fb455';
+import { createTimeline, LAPSES } from './timeline.js?v=ba6a626da7';
+import { createLearn } from './learn.js?v=f427100fb8';
+import { createCases, CASES } from './cases.js?v=a7414fa276';
+import { isBlind } from './learning-kit.js?v=d37136ac07';
+import { createCompare } from './compare.js?v=118c08286d';
+import { createCard } from './card.js?v=7cf9cd2378';
+import { createChart, computeFindings } from './chart.js?v=967a6a286c';
+import { createHome, ROLES } from './home.js?v=65e4521cf0';
+import { course } from './course.js?v=3bf3617fd0';
+import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=96bbcced4d';
+import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=11a19282f2';
+import { startLMS } from './lms.js?v=9b12568299';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=658820a7b3';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=8e44cc766f';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=dc393aabea';
-import { $, $$, h, icon, fmt, fmtFlow, toast, popupsOn, setPopups, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=a357853926';
+import { $, $$, h, icon, fmt, fmtFlow, toast, popupsOn, setPopups, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=e803df99cd';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -37,6 +39,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=0166e06ffb';
 import { initTopbarMotion } from './topbar-motion.js?v=a7ab34f946';
 import { ORIGINS } from './blood.js?v=6c39f43ddf';
+import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=da4ad72f01';
 
 // Color lenses: [title, what it shows, legend swatch].
 // SMV, IMV, splenic vein, hepatic artery, systemic: as stage.js BLOOD_COLORS.
@@ -52,7 +55,8 @@ const LENSES = {
   origin: ['Blood origin', 'Where each vessel\u2019s blood comes from', () => `linear-gradient(to right, ${ORIGIN_CSS.map((c, i) => `${c} ${i * 20}% ${(i + 1) * 20}%`).join(', ')})`],
 };
 const COLOR_MODES = { pressure: 'Pressure', delta: 'Change', heat: 'Congestion', drop: 'Pressure drop', flow: 'Flow volume', velocity: 'Velocity', direction: 'Flow direction', origin: 'Blood origin' };
-const GROUP_COLOR = { Normal: 'var(--ok)', Prehepatic: 'var(--s1)', Presinusoidal: 'var(--s7)', Sinusoidal: 'var(--s5)', Postsinusoidal: 'var(--s2)', Posthepatic: 'var(--s4)', Cardiac: 'var(--s8)' };
+const GROUP_COLOR = { Baseline: 'var(--ok)', 'Pre-hepatic': 'var(--s1)', Hepatic: 'var(--s5)', 'Post-hepatic': 'var(--s4)' };
+const LEVEL = { Normal: 'Baseline', Prehepatic: 'Pre-hepatic', Presinusoidal: 'Hepatic', Sinusoidal: 'Hepatic', Postsinusoidal: 'Hepatic', Posthepatic: 'Post-hepatic', Cardiac: 'Post-hepatic' };
 
 let stage, inspector, dock, why, timeline, learn, cases, compare, card, chart, home;
 
@@ -73,7 +77,8 @@ const palette = {
 };
 const presenter = {
   home: () => presenterL.now()?.home() ?? (presenterL.get().then(() => { if (home.isOpen()) home.render(); }), h('div', { class: 'home-loading' }, 'Loading…')),
-  start: (id) => presenterL.get().then((p) => p.start(id)),
+  start: (id, at) => presenterL.get().then((p) => p.start(id, at)),
+  presentCase: (id) => presenterL.get().then((p) => p.presentCase(id)),
   stop: () => presenterL.now()?.stop(),
   readLink: () => (/#script=/.test(location.hash) ? presenterL.get().then((p) => p.readLink()) : false),
   active: () => !!presenterL.now()?.active(),
@@ -84,7 +89,10 @@ async function main() {
   applyI18n();
   startLMS();
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => { /* offline support is optional */ });
-  store.set({ role: readLS('pps.role') || 'student' });
+  // Two roles (Student, Instructor); the old Researcher role is now Instructor.
+  store.set({ role: readLS('pps.role') === 'student' || !readLS('pps.role') ? 'student' : 'instructor' });
+  // Student mode shows the HVPG without measuring it first, unless Settings says otherwise.
+  if (readLS('pps.showHvpg') == null) store.set({ showHvpg: store.get().role === 'student' });
   const kind = await startHost();
   console.info(`Engine running in ${kind === 'worker' ? 'a Web Worker' : 'the main thread'}.`);
   app.dataset.engine = kind;
@@ -128,24 +136,25 @@ async function main() {
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
     marks: () => timeline.entries(), onBeat: () => sendBeat() });
-  const api = { beginSession, endSession, onEnd: () => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); }, muteEvents: () => {}, loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), openPanel, setBanner, select: (sel) => store.set({ selection: sel }) };
+  const api = { beginSession, endSession, onEnd: () => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); }, muteEvents: () => {}, loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), showFound: (list) => stage.showFound(list), runHvpg: () => { dock.show('hvpg', { reveal: true }); dock.pane('hvpg')?.start(); }, openPanel, setBanner, select: (sel) => store.set({ selection: sel }) };
   // A lesson keeps its card in view where the panel covers the figure: instruments it opens are
   // flagged, not forced.
-  learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
-  cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=a27af8dd4f'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else home.open(o?.practice ? 'practice' : 'course'); } });
+  cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => home.open('course') });
+  presenterL = lazy(() => import('./presenter.js?v=d57abc7d6c'), ({ createPresenter }) => createPresenter({ startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
     el: $('#home'), brandMark,
-    onPreset: async (id) => { home.close(); if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); },
+    onPreset: (id) => openInExplore(id),
     onLesson: (id) => { home.close(); startLesson(id); },
+    onUnit: (id) => { home.close(); if (course.unit(id)?.caseUnit) startCaseUnit(id); else startLesson(id); },
     onCase: (id) => { home.close(); startCase(id); },
     onPresenter: () => presenter.home(),
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=60852f1482'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=66fa66f087'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -196,11 +205,19 @@ async function main() {
   store.on('shunting', renderPaintHint);
   store.on('mode', onMode);
   store.on('layers', () => { app.classList.toggle('chips-off', !store.get().layers.chips); syncBloodBtn(); redraw(); });
-  store.on('presetId', (id) => { $('#scenarioName').textContent = presets.find((p) => p.id === id)?.label || 'Custom'; });
-  store.on('role', (r) => { try { localStorage.setItem('pps.role', r); localStorage.removeItem('pps.narrator'); } catch { /* storage unavailable */ } narrPref = null; app.dataset.role = r; card.render(); narrate(store.get().frame, performance.now(), true); });
+  // A case never names its preset in the top bar: the name would give the diagnosis away.
+  // A phone shows a short form of a long name (styles), wrapped to two lines if needed: "Decomp. cirrhosis", not "Decomp…".
+  const shortName = (s) => s.replace(/\s*\(.*\)$/, '').replace(/,.*$/, '').replace(/^Decompensated\b/, 'Decomp.').replace(/^Compensated\b/, 'Comp.').replace(/^Clinically significant PH$/, 'CSPH');
+  const syncScenarioName = () => {
+    const st = store.get(), name = st.mode === 'cases' ? 'Case' : presets.find((p) => p.id === st.presetId)?.label || 'Custom';
+    $('#scenarioName').replaceChildren(h('span', { class: 'sn-l' }, name), h('span', { class: 'sn-s' }, shortName(name)));
+  };
+  store.on('presetId', syncScenarioName);
+  store.on('mode', syncScenarioName);
+  store.on('role', (r) => { if (home.isOpen()) home.render(); try { localStorage.setItem('pps.role', r); localStorage.removeItem('pps.narrator'); } catch { /* storage unavailable */ } narrPref = null; if (readLS('pps.showHvpg') == null) store.set({ showHvpg: r === 'student' }); app.dataset.role = r; card.render(); narrate(store.get().frame, performance.now(), true); });
   $('#narratorWhy').addEventListener('click', (e) => why.open('pv', e.currentTarget));
   app.dataset.role = store.get().role;
-  for (const k of ['compareSnap', 'compareView', 'colorMode', 'imaging', 'sinusoid', 'lobule']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
+  for (const k of ['compareSnap', 'compareView', 'colorMode', 'imaging', 'found', 'sinusoid', 'lobule']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
   store.on('compareSnap', () => { if (!store.get().details) inspector.render(); });
   store.on('focus', redraw);
   store.on('labelLevel', redraw);
@@ -220,13 +237,13 @@ async function main() {
   addEventListener('pps:lang', () => { if (home.isOpen()) home.render(); });
   if (readLS('pps.sonify') === '1') addEventListener('pointerdown', () => setSonify(true), { once: true });
 }
-// Deep links, for an LMS or a syllabus: ?lesson=<id>, ?case=<id>, ?script=<id>, ?preset=<id>,
+// Deep links, for an LMS or a syllabus: ?lesson=<id> (&step=<step id or n>), ?case=<id>, ?script=<id> (&slide=<n>), ?preset=<id>,
 // ?home=explore|learn|cases|present. They open straight into that activity.
 async function openDeepLink() {
   const q = new URLSearchParams(location.search);
-  if (q.get('lesson')) { startLesson(q.get('lesson')); return true; }
+  if (q.get('lesson')) { startLesson(q.get('lesson'), q.get('step')); return true; }
   if (q.get('case')) { startCase(q.get('case')); return true; }
-  if (q.get('script')) { presenter.start(q.get('script')); return true; }
+  if (q.get('script')) { presenter.start(q.get('script'), Math.max(0, (parseInt(q.get('slide'), 10) || 1) - 1)); return true; }
   if (q.get('preset')) {
     const id = q.get('preset'), list = store.get().presetList || [];
     if (list.some((p) => p.id === id)) { await loadPreset(id); return true; }
@@ -261,6 +278,20 @@ function viewFrame(f) {
 let lastPaint = 0, lastDesc = 0, homeStale = false;
 // The Doppler's vessel glows on the figure while the Doppler instrument is open.
 function syncDoppler(f = store.get().frame) { stage?.setDoppler(f && dock?.isOpen('doppler') ? f.probe : null); }
+// Settings no patient could live through (circulatory collapse): a plain warning over the figure, so nobody
+// reads numbers off an impossible patient. Hysteresis keeps it from flickering at the edge.
+const COLLAPSE = { on: (m) => m.map < 45 || m.co < 1.5, off: (m) => m.map > 50 && m.co > 1.8 };
+let collapseEl = null, collapsed = false;
+function syncCollapse(m) {
+  if (!m || !Number.isFinite(m.map) || !Number.isFinite(m.co)) return;
+  const next = collapsed ? !COLLAPSE.off(m) : COLLAPSE.on(m);
+  if (!collapseEl) {
+    collapseEl = h('div', { class: 'collapse-banner', role: 'status', 'aria-live': 'polite' }, h('b', {}, 'This patient would not survive these settings'), h('span'));
+    document.getElementById('stageWrap')?.append(collapseEl);
+  }
+  if (next) collapseEl.lastChild.textContent = `Blood pressure ${fmt(m.map, 0)} mmHg and cardiac output ${fmt(m.co, 1)} L/min: the circulation has collapsed.`;
+  if (next !== collapsed) { collapsed = next; collapseEl.classList.toggle('on', next); }
+}
 function onFrame(f) {
   if (f.params) replaceParams(f.params);
   if (f.events?.length) { const hid = store.get().hiddenEvents; const ev = hid ? f.events.filter((e) => !hid.has(e.id) && !(hid.has('COLL_*') && e.id.startsWith('COLL_'))) : f.events; if (ev.length) timeline.addEvents(ev); }
@@ -272,6 +303,7 @@ function onFrame(f) {
   // Home covers the whole workspace: keep the latest frame, paint it when Home closes.
   if (home?.isOpen()) { homeStale = true; return; }
   stage.update(viewFrame(f));
+  syncCollapse(f.metrics);
   card.update(f);
   dock.update(f);
   syncDoppler(f);
@@ -291,16 +323,26 @@ function onFrame(f) {
 }
 
 // Narrator (blueprint E1): the Describe reading as one live line above the timeline, refreshed on
-// events and changes (at most twice a second otherwise). On by default for Student and Instructor,
-// off for Researcher; the Settings toggle overrides it until the role changes.
-const NARRATOR_DEFAULT = { student: true, instructor: true, researcher: false };
-let lastNarr = 0, narrPref;
+// events and changes (at most twice a second otherwise). On by default for both roles; the Settings
+// toggle overrides it until the role changes.
+const NARRATOR_DEFAULT = { student: true, instructor: true };
+let lastNarr = 0, narrPref, narrT;
 const narratorOn = () => { const v = narrPref === undefined ? (narrPref = readLS('pps.narrator')) : narrPref; return v ? v === '1' : NARRATOR_DEFAULT[store.get().role || 'student'] !== false; };
 function narrate(f, now = performance.now(), force = false) {
   const el = $('#narrator');
   const on = narratorOn() && !presenter.active();
-  if (el.hidden === on) el.hidden = !on;
-  if (!on || !f || (!force && !f.events?.length && !f.params && now - lastNarr < 500)) return;
+  // The caption names the diagnosis and the flow direction, so it stays quiet in cases and while a
+  // lesson question is open; it eases out and back in rather than popping.
+  const quiet = on && (store.get().mode === 'cases' || isBlind());
+  if (!on) { clearTimeout(narrT); el.hidden = true; el.classList.remove('quiet'); }
+  else if (quiet) {
+    if (!el.hidden && !el.classList.contains('quiet')) { el.classList.add('quiet'); clearTimeout(narrT); narrT = setTimeout(() => { el.hidden = true; }, 260); }
+  } else {
+    clearTimeout(narrT);
+    if (el.hidden) { el.classList.add('quiet'); el.hidden = false; force = true; requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('quiet'))); }
+    else el.classList.remove('quiet');
+  }
+  if (!on || quiet || (!force && !f?.events?.length && !f?.params && now - lastNarr < 500) || !f) return;
   lastNarr = now;
   const txt = caption(f), t = $('#narratorText');
   if (el.title !== txt) { el.title = txt; t.replaceChildren(h('span', { class: 'nr-s' }, txt.slice(0, txt.length - caption(f, { scenario: false }).length)), caption(f, { scenario: false })); }
@@ -320,27 +362,36 @@ function openScenarios(anchor) {
   for (const p of presets) (groups[p.group] ||= []).push(p);
   const cur = store.get().presetId;
   const body = h('div', {},
-    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '2px 10px 10px', gap: '12px' } },
-      h('div', {}, h('div', { style: { fontWeight: 600, fontSize: 'var(--fs-16)' } }, 'Patient scenarios'), h('div', { class: 'sub' }, 'Grouped by where the resistance sits, from the gut to the heart.')),
-      h('span', { class: 'muted', style: { fontSize: 'var(--fs-12)', whiteSpace: 'nowrap' } }, `${presets.length} scenarios`)),
-    h('div', { class: 'scenario-grid' }, Object.entries(groups).map(([g, ps]) => h('div', { class: 'scn-group' },
-      h('div', { class: 'menu-title' }, h('i', { style: { background: GROUP_COLOR[g] || 'var(--text-3)' } }), g),
-      ps.map((p) => h('button', { class: 'scn', 'aria-current': String(p.id === cur), onclick: async () => {
+    h('div', { class: 'scn-head' }, 'Patients'),
+    Object.entries(groups).map(([g, ps]) => h('div', { class: 'scn-group' + (LEVEL[g] === 'Hepatic' ? ' sub' : '') },
+      LEVEL[g] === 'Hepatic' && g === 'Presinusoidal' ? h('div', { class: 'menu-title' }, h('i', { style: { background: GROUP_COLOR.Hepatic } }), 'Hepatic') : null,
+      LEVEL[g] === 'Hepatic' ? h('div', { class: 'scn-sub' }, g === 'Sinusoidal' ? 'Intrasinusoidal' : g) : h('div', { class: 'menu-title' }, h('i', { style: { background: GROUP_COLOR[LEVEL[g]] || 'var(--text-3)' } }), LEVEL[g] || g),
+      ps.map((p) => h('button', { class: 'scn', title: p.summary, 'aria-current': String(p.id === cur), onclick: async () => {
         closePopover();
         await loadPreset(p.id);
         toast(p.days ? `${p.label}: ${p.days} simulated days applied.` : p.label);
-      } }, h('span', { class: 't' }, p.label), h('span', { class: 'd' }, p.summary)))))));
+      } }, p.label.replace(/\s*\(.*\)$/, ''))))));
   popover(anchor, body, { cls: 'scenario-pop', align: 'end' });
 }
 
+// The patient picker's path: close Home, switch to Explore and load the patient (also used by "Open this patient in Explore").
+async function openInExplore(id) {
+  home.close();
+  if (store.get().mode !== 'explore') store.set({ mode: 'explore' });
+  await loadPreset(id);
+}
+let presetGen = 0;
 async function loadPreset(id, opts = {}) {
+  const gen = ++presetGen;
   store.set({ presetLoading: true });   // the figure frames itself once the patient has arrived (stage.js)
   dock?.clearTraces();   // the Over time and Doppler traces start over with the new (or restarted) patient
   const res = await host.request('preset', { id, days: opts.days });
+  // Patients tapped in quick succession: the engine loads them in order, so only the last one's answer is applied.
+  if (gen !== presetGen) return;
   replaceParams(res.params);
   clearHistory();
   store.set({ presetLoading: false, presetId: id, lastHVPG: null, hvpgMeasured: false, selection: store.get().mode === 'cases' ? null : store.get().selection, historyTick: (store.get().historyTick || 0) + 1 });
-  timeline?.reset(store.get().presetList?.find((x) => x.id === id)?.label);
+  timeline?.reset(store.get().mode === 'cases' ? 'Case' : store.get().presetList?.find((x) => x.id === id)?.label);
 }
 
 function encodeShare() {
@@ -355,7 +406,11 @@ function readShare() {
 }
 async function loadShared(s) {
   await loadPreset(s.preset || 'healthy');
-  if (s.params) updateParams(s.params, { settle: true, history: false });
+  if (s.params) {
+    const merged = deepMerge(store.get().params, s.params), clean = sanitizeParams(merged);
+    updateParams(() => clean, { settle: true, history: false });
+    if (JSON.stringify(clean) !== JSON.stringify(merged)) { timeline.flush(); toast('This link had values out of range; they were set to the nearest allowed values.'); return; }
+  }
   if (s.view) store.set({ view: s.view });
   timeline.flush();
   toast('Loaded the shared scenario.');
@@ -399,12 +454,15 @@ async function beginSession(kind) {
   timeline.flush();
   session = { kind, snap, presetId: store.get().presetId, view: store.get().view, tl: timeline.save() };
 }
-function endSession(kind) {
+function endSession(kind, opts) {
   if (!session || session.kind !== kind) return;
   const saved = session;
   session = null;
+  if (kind === 'unit' && opts?.keep) { store.set({ view: saved.view }); return; }   // "Open this patient in Explore": the patient loads next, so skip the restore (it would flash)
   const f = store.get().frame;
   const bleeding = !!f?.metrics?.bleeding;
+  // A course unit always hands back the model as it was: its patients belong to the unit.
+  if (kind === 'unit') { host.send({ type: 'restore', snap: saved.snap }); replaceParams(saved.snap.params); clearHistory(); store.set({ presetId: saved.presetId, view: saved.view, lastHVPG: null, hvpgMeasured: false, historyTick: (store.get().historyTick || 0) + 1 }); timeline.load(saved.tl); return; }
   const noun = kind === 'case' ? 'case' : 'lesson';
   const back = () => { closeModal(); host.send({ type: 'restore', snap: saved.snap }); replaceParams(saved.snap.params); clearHistory(); store.set({ presetId: saved.presetId, lastHVPG: null, hvpgMeasured: false, historyTick: (store.get().historyTick || 0) + 1 }); timeline.load(saved.tl); toast('Back where you were before the ' + noun + '.'); };
   const keep = () => { closeModal(); toast(bleeding ? 'Kept the patient. The variceal bleed is still running.' : 'Kept this patient.'); };
@@ -416,7 +474,8 @@ function endSession(kind) {
       h('button', { class: 'btn primary', onclick: back }, 'Return to where I was'))), { sub: null });
 }
 
-function startLesson(id) { if (store.get().mode === 'cases') cases.exit(); store.set({ mode: 'learn' }); learn.start(id); }
+function startLesson(id, step) { if (store.get().mode === 'cases') cases.exit(); store.set({ mode: 'learn' }); learn.start(id, step); }
+function startCaseUnit(id) { if (store.get().mode === 'learn') learn.stop(); store.set({ mode: 'cases' }); cases.startUnit(id); }
 function startCase(id) { if (store.get().mode === 'learn') learn.stop(); store.set({ mode: 'cases' }); cases.start(id); openPanel(); }
 
 // ── Actions ─────────────────────────────────────────
@@ -702,7 +761,8 @@ function renderBanner() {
   const kids = [];
   if (s0.compareSnap) {
     kids.push(h('span', { class: 'cmp-label' }, `Comparing with ${s0.compareSnap.when}`));
-    kids.push(h('div', { class: 'seg cmp-seg', role: 'group', 'aria-label': `Comparing with ${s0.compareSnap.when}: show` }, [['A', 'Then', `The model at ${s0.compareSnap.when}`], ['B', 'Now', 'The live model'], ['D', 'Change', `Change from ${s0.compareSnap.when} to now`]].map(([v, l, t]) => {
+    const [nA, nB] = s0.compareSnap.names || ['Then', 'Now'];
+    kids.push(h('div', { class: 'seg cmp-seg', role: 'group', 'aria-label': `Comparing with ${s0.compareSnap.when}: show` }, [['A', nA, `The model at ${s0.compareSnap.when}`], ['B', nB, 'The live model'], ['D', 'Change', `Change from ${s0.compareSnap.when} to now`]].map(([v, l, t]) => {
       const b = h('button', { 'aria-pressed': String((s0.compareView || 'B') === v), title: t }, h('b', {}, l));
       b.addEventListener('click', () => store.set({ compareView: v }));
       return b;
@@ -711,6 +771,7 @@ function renderBanner() {
     kids.push(tbl);
   }
   el.replaceChildren(...kids);
+  app.classList.toggle('cmp-on', !!s0.compareSnap);
   // The switch's height, for views that place their own controls under it (the lobule's).
   app.style.setProperty('--cmp-h', s0.compareSnap ? `${$('#stageCenter').offsetHeight + 8}px` : '0px');
   const bar = $('#sessionBar');
@@ -740,7 +801,7 @@ function wireTopbar() {
   }
 }
 // The main menu (the button at the top left, named after the current mode): where to go (Explore,
-// Lessons, Cases, Presenter, Home), what to do with the figure (share, export, present), and the
+// Presenter), what to do with the figure (share, export, present), and the
 // settings and help. It replaces the logo (which gave no sign it was a menu) and three icons.
 const MODE_NAME = { explore: 'Explore', learn: 'Lesson', cases: 'Case', compare: 'Explore' };
 function syncModeName() {
@@ -756,21 +817,16 @@ function openMainMenu(anchor) {
     h('div', { class: 'mm-head' }, brandMark(), h('div', {}, h('b', {}, 'Portal Pressure Simulator'), h('small', {}, 'Choose what to do'))),
     h('div', { class: 'mm-modes' },
       modeItem('explore', 'explore', 'explore', 'Explore a patient', 'Any of the patients, from healthy to Budd–Chiari'),
-      modeItem('learn', 'learn', 'book', 'Lessons', 'Predict, observe, explain'),
-      modeItem('cases', 'cases', 'case', 'Cases', 'A bleed at 3 a.m. and diagnostic puzzles'),
-      modeItem('present', 'present', 'projector', 'Presenter', 'A self-running tour: where is the block?')),
-    h('div', { class: 'menu-title' }, t('menu.role')),
-    roleControl(),
-    h('div', { class: 'menu-sep' }),
-    menuItem('Home page', { icon: 'grid', onClick: () => { closePopover(); home.open(); } }),
+      // The course, lessons and cases are hidden (their code stays); the presenter is open to both roles.
+      modeItem('present', 'present', 'projector', 'Present', 'Slide presentations on the live model')),
     h('div', { class: 'menu-sep' }),
     menuItem('Copy a link to this exact state', { icon: 'share', onClick: () => { closePopover(); share(); } }),
     h('div', { class: 'menu-sep' }),
     menuItem(t('menu.help') + '…', { icon: 'help', kb: '?', onClick: () => { closePopover(); setTimeout(() => openHelpMenu(anchor), 0); } }),
   ], { cls: 'main-menu', align: 'start' });
 }
-// The role ("I am a…") from the main menu, in any mode. It is the same setting Home shows: choosing
-// one sets store.role, and the 'role' listener saves it and redraws the cards and the chart.
+// The role ("I am a…") in Settings: choosing one sets store.role, and the 'role' listener saves it
+// and redraws the cards, the chart and Home.
 function roleControl() {
   const cur = () => store.get().role || 'student';
   const seg = h('div', { class: 'seg full menu-seg', role: 'group', 'aria-label': t('menu.role') }, ROLES.map(([v, l]) => h('button', { 'data-role': v, onclick: () => { store.set({ role: v }); paint(); } }, l)));
@@ -783,10 +839,12 @@ function roleControl() {
   return h('div', { class: 'mm-role' }, seg, note);
 }
 // Two menus with one job each: Settings (how the simulator looks and reads) and Help (how to
-// use it, what it is, and who made it). The role also lives on Home, where a session starts.
+// use it, what it is, and who made it). The role is chosen in Settings.
 function openSettings(anchor) {
   const cur = document.documentElement.getAttribute('data-theme') || 'system';
   popover(anchor, [
+    h('div', { class: 'menu-title' }, t('menu.role')),
+    roleControl(),
     h('div', { class: 'menu-title' }, t('menu.appearance')),
     h('div', { class: 'seg full menu-seg' }, [['light', t('menu.light')], ['dark', t('menu.dark')], ['system', t('menu.system')]].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { applyTheme(v === 'system' ? null : v, v === 'system'); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; })),
     h('div', { class: 'menu-title' }, 'Text size on the figure'),
@@ -987,13 +1045,10 @@ function wireFloating() {
     const tc = $('#treatCard'), treatOcc = wide && !tc.hidden ? tc.offsetWidth + gap : 0;
     app.style.setProperty('--panel-occ', px(panelOcc));
     app.style.setProperty('--instr-occ', px(instrOcc));
-    // The presenter tour's card: at the right on a wide screen, a sheet over the bottom on a phone.
-    const tour = $('.tour-card:not(.summary)'), tourSide = innerWidth >= 768, tourOcc = tour ? tour.offsetWidth + gap : 0;
-    app.style.setProperty('--right-occ', px(panelOcc + instrOcc + treatOcc + (tourSide ? tourOcc : 0)));
+    app.style.setProperty('--right-occ', px(panelOcc + instrOcc + treatOcc));
     const sheet = wsOn && !ws.classList.contains('side') && ws.dataset.state !== 'peek' ? ws.offsetHeight + gap : 0;
     // On a phone the instruments sheet rises from the bottom edge, over the vitals dock.
-    let bot = isPhone() && sheet ? Math.max(vdock + gap, sheet) : vdock + gap + sheet;
-    if (tour && !tourSide) bot = Math.max(bot, tour.offsetHeight + gap);
+    const bot = isPhone() && sheet ? Math.max(vdock + gap, sheet) : vdock + gap + sheet;
     app.style.setProperty('--bot-occ', px(bot));
     dispatchEvent(new Event('pps:occ'));
   };
@@ -1137,7 +1192,7 @@ function onMode(mode) {
   if (mode !== 'learn' && mode !== 'cases') { bannerInfo = null; store.set({ focus: null }); }
   if (mode === 'cases') cases.mount();
   learn.render();
-  if (mode === 'explore') { store.set({ locked: null, hiddenReadouts: null, hiddenEvents: null, imaging: false }); setAllowedTools(null); }
+  if (mode === 'explore') { store.set({ locked: null, hiddenReadouts: null, hiddenEvents: null, imaging: false, found: null }); setAllowedTools(null); }
   store.set({ selection: null, details: null });
   inspector.render();
   renderPaintHint(); renderBanner(); renderLegend();
@@ -1330,9 +1385,9 @@ function openPrivacy() {
     h('p', { class: 'sub' }, keys.length ? `Stored now: ${keys.join(', ')}.` : 'Nothing is stored on this device yet.'),
     h('div', { class: 'btn-row' }, h('button', { class: 'btn', onclick: () => { if (!confirm('Delete everything this simulator has stored on this device?')) return; for (const k of keys) { try { localStorage.removeItem(k); } catch { /* storage unavailable */ } } closeModal(); toast('Your data on this device has been cleared.'); } }, 'Clear my data on this device'))));
 }
+// Launch goes straight into the simulator, the first time included: the course is one tap away
+// (Menu › Course). Only a deep link (?lesson=, ?case=, ?script=…) opens anything else.
 function firstRun() {
-  if (readLS('pps.seen') === '1' || readShare()) return;
   try { localStorage.setItem('pps.seen', '1'); } catch { /* storage unavailable */ }
-  home.open('explore');
 }
 main().catch((err) => { console.error(err); document.body.append(h('pre', { style: { position: 'fixed', bottom: 0, left: 0, background: '#fff', color: '#900', padding: '8px', zIndex: 999 } }, String(err.stack || err))); });

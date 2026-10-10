@@ -8,7 +8,7 @@
 
 export const VIEW = { w: 1400, h: 1000 };
 export const VB_ANAT = [300, 0, 820, 920];
-export const VB_CIRC = [30, 30, 1360, 700];
+export const VB_CIRC = [30, 30, 1360, 730];
 // World x of the margins the atlas labels hang from (left, right).
 export const ATLAS_COLUMNS = [318, 1102];
 
@@ -79,9 +79,9 @@ export const NODE_POS = {
   SVC: [[620, 40], [1250, 205]],
   AZY: [[574, 30], [1120, 205]],
   UPPV: [[620, -40], [1250, 100]],
-  LOWV: [[620, 980], [1120, 660]],
-  ILI: [[620, 880], [1120, 610]],
-  EPI: [[500, 800], [1000, 610]],
+  LOWV: [[620, 980], [1120, 690]],
+  ILI: [[620, 880], [1120, 640]],
+  EPI: [[500, 800], [960, 640]],
   KID_L: [[1005, 622], [880, 540]],
   KID_R: [[500, 622], [880, 562]],
   LRV: [[862, 618], [1000, 540]],
@@ -285,17 +285,23 @@ export const CIRCUIT_PATH = {
   C1a: route([[320, 191], [383, 128], [620, 128]]),
   C1b: route([[620, 128], [1043, 128], [1120, 205]]),
   C2: route([[320, 261], [292, 233], [292, 165], [248, 121], [240, 121]], 12),
-  // portosystemic shunts, each in its own lane below the spine
+  // Portosystemic shunts, each in its own lane below the spine, 30–32 apart. Every line drops from
+  // its station in a column of its own (the lower the lane, the further left the column, so no two
+  // cross there) and reaches its end station from a direction no other line uses: the infrahepatic
+  // IVC (IVCI) from the upper left (portocaval), the left (mesocaval) and the lower left (left renal
+  // vein); the left renal vein (LRV) from the upper left (spontaneous splenorenal), the lower left
+  // (distal splenorenal), below (gastrorenal) and the left (the kidney's own vein). The retroperitoneal
+  // veins join the IVC's side wall below the renal vein.
   C8: route([[480, 345], [506, 376], [554, 376], [580, 345]], 12),
-  S_PC: route([[480, 345], [480, 434], [1050, 434], [1094, 478], [1120, 478]], 40),
-  C7: route([[320, 394], [320, 458], [1040, 458], [1060, 478], [1120, 478]], 40),
-  S_MC: route([[320, 394], [320, 482], [1040, 482], [1050, 478], [1120, 478]], 40),
-  C6: route([[320, 261], [350, 291], [350, 526], [974, 526], [1000, 540]], 40),
-  S_DSR: route([[320, 261], [380, 321], [380, 504], [962, 504], [998, 540]], 40),
-  C3: route([[680, 387], [680, 580], [710, 610], [1000, 610]]),
-  C4: route([[240, 310], [240, 640], [1090, 640], [1120, 610]]),
-  C5: route([[240, 121], [70, 121], [70, 670], [870, 670], [1000, 540]]),
-  EPI_SVC: route([[1000, 610], [1000, 700], [1330, 700], [1330, 205], [1250, 205]]),
+  S_PC: route([[480, 345], [480, 446], [1088, 446], [1120, 478]], 24),
+  S_MC: route([[320, 394], [350, 424], [350, 478], [1120, 478]], 16),
+  C6: route([[320, 261], [410, 351], [410, 510], [970, 510], [1000, 540]], 16),
+  S_DSR: route([[320, 261], [320, 306], [380, 366], [380, 570], [970, 570], [1000, 540]], 16),
+  C7: route([[320, 394], [320, 600], [1120, 600]], 24),
+  C3: route([[680, 387], [680, 640], [960, 640]], 24),
+  C4: route([[240, 310], [240, 670], [1090, 670], [1120, 640]]),
+  C5: route([[240, 121], [70, 121], [70, 700], [1000, 700], [1000, 540]]),
+  EPI_SVC: route([[960, 640], [960, 730], [1330, 730], [1330, 205], [1250, 205]]),
   C9: route([[1120, 478], [1175, 478], [1175, 250], [1130, 205], [1120, 205]]),
 };
 
@@ -423,7 +429,11 @@ export const BACKDROP = {
 // Invisible peritoneal outline: ascites fills it from the bottom.
 // The peritoneal cavity closes in a rounded pelvic floor (below the plate's default frame), so
 // ascites pools in a basin when the view is zoomed out instead of ending in a flat cut.
-export const ABDOMEN_CLIP = 'M330 440 C 320 600 340 800 388 950 C 470 1010 970 1010 1052 950 C 1090 800 1100 600 1092 440 Z';
+// One outline, mirror-symmetric about x = 712, for the flanks drawn on the plate and the cavity the
+// fluid fills, so the fluid always meets the body wall. `b`: how far the flanks bulge with ascites.
+export const flankPath = (b = 0) => `M336 470 C ${324 - b} 610 ${330 - b} 780 ${372 - b * 0.4} 954 C 470 1012 954 1012 ${1052 + b * 0.4} 954 C ${1094 + b} 780 ${1100 + b} 610 1088 470`;
+export const abdomenOutline = (b = 0) => `M336 440 L${flankPath(b).slice(1)} L1088 440 Z`;
+export const ABDOMEN_CLIP = abdomenOutline(0);
 export const ABDOMEN_FLOOR = 950;
 export const SPLEEN_CENTER = [1040, 362];
 

@@ -8,18 +8,19 @@
 // readout tile. In Explore the live HVPG readouts stay hidden until this has run for the patient
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
-import { h, fmt, fitCanvas, clamp, icon, toast } from './util.js?v=a357853926';
-import { FONT } from './charts.js?v=151b0288b8';
+import { h, fmt, fitCanvas, clamp, icon, toast } from './util.js?v=e803df99cd';
+import { FONT } from './charts.js?v=ac5eb186fd';
 import { pressureColor } from './colormap.js?v=6d64a94345';
-import { store } from './store.js?v=edbdbfb0c8';
+import { store, logAction } from './store.js?v=25cbe77a76';
 
 let stageRef = null;
 /** main.js hands over the figure once it exists. */
 export function setHvpgStage(stage) { stageRef = stage; }
 
 // The sequence, in ms from the start.
-// (settle: the wedged pressure has reached its plateau; only then is WHVP read and shown.)
-const T = { travel0: 300, travel1: 4300, zoom: 4300, free: 5100, inflate: 8200, wedge: 8900, settle: 10700, result: 12500, back: 18000, end: 18800 };
+// (settle: the wedged pressure has reached its plateau and the still column starts to fill; callout: the column
+// is full and the trace has held on the plateau, so only now is WHVP read and shown, then the result follows.)
+const T = { travel0: 300, travel1: 4300, zoom: 4300, free: 5100, inflate: 8200, wedge: 8900, settle: 10700, callout: 12400, result: 14600, back: 20100, end: 20900 };
 // A thrombosed hepatic vein (Budd–Chiari): the tip reaches the ostium, probes it a few times, then the
 // procedure is aborted and the catheter withdrawn. No reading, so HVPG stays unmeasured.
 const TB = { probe0: 4600, probe1: 8200, abort: 8200, back: 9600, end: 13000 };
@@ -34,7 +35,7 @@ const STEPS = [
 const C = { bg: '#07090C', grid: '#1C2128', line: '#2A3038', text: '#9AA4B2', bright: '#E8EDF4',
   free: '#5CA4F2', wedge: '#A68CF2', ok: '#4FD18B', caution: '#F2B84B', danger: '#FF7A85' };
 const sevOf = (v) => (v >= 10 ? 'danger' : v >= 5 ? 'caution' : 'ok');
-const sevWord = (v) => (v >= 10 ? 'Clinically significant' : v >= 5 ? 'Subclinical' : 'Normal');
+const sevWord = (v) => (v >= 10 ? 'Clinically significant portal hypertension (CSPH)' : v >= 5 ? 'Subclinical' : 'Normal');
 const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const k01 = (t, a, b) => clamp((t - a) / (b - a), 0, 1);
 
@@ -96,7 +97,8 @@ export function createHvpgProcedure() {
       figure();
       paintSide(); draw();
       if (t < tEnd()) raf = requestAnimationFrame(step);
-      else { raf = 0; stageRef?.setCatheter(null); }
+      // A lesson waits for the whole procedure (the catheter back out) before it moves on.
+      else { raf = 0; stageRef?.setCatheter(null); logAction('hvpg', blocked ? 'aborted' : 'measured'); }
     };
     step();
   }
@@ -116,12 +118,13 @@ export function createHvpgProcedure() {
     // (Each move waits until the anatomy is on screen: a switch from the circuit takes a moment.)
     const want = t < T.zoom ? 'route' : t < T.back ? 'tip' : 'home';
     if (want !== cam && (want !== 'route' || t > 250) && sg.cathFocus(want, want === 'tip' ? 1100 : 800)) cam = want;
+    if (cam === 'route' && want === 'route') sg.cathFollow?.();
     const v = values(), ph = phase(), pulse = 0.5 + 0.5 * Math.sin(t / 170);
     const labels = [];
     if (ph === 'free') labels.push({ key: 'f', at: 'tip', kicker: 'FHVP', text: fmt(pAt(t, v), 1), unit: 'mmHg', cls: 'free' });
     if (ph === 'wedge') {
       labels.push({ key: 'f', at: 'tip', kicker: 'FHVP', text: fmt(v.fhvp, 1), unit: 'mmHg', cls: 'free' });
-      if (t >= T.settle) labels.push({ key: 'w', at: 'ahead', kicker: 'WHVP', text: fmt(pAt(t, v), 1), unit: 'mmHg', cls: 'wedge' });
+      if (t >= T.callout) labels.push({ key: 'w', at: 'ahead', kicker: 'WHVP', text: fmt(pAt(t, v), 1), unit: 'mmHg', cls: 'wedge' });
     }
     // Both readings stay; a bracket joins them and gives the difference.
     if (ph === 'result' && t < T.back) {
@@ -143,6 +146,7 @@ export function createHvpgProcedure() {
   function figureBlocked(sg) {
     const want = t < T.zoom ? 'route' : t < TB.back + 1500 ? 'tip' : 'home';
     if (want !== cam && (want !== 'route' || t > 250) && sg.cathFocus(want, want === 'tip' ? 1100 : 800)) cam = want;
+    if (cam === 'route' && want === 'route') sg.cathFollow?.();
     // Three short pushes against the clot, each easing in and back out.
     const pk = k01(t, TB.probe0, TB.probe1), probe = t < TB.probe1 ? Math.pow(Math.sin(pk * 3 * Math.PI), 2) * 0.9 : 0;
     const labels = t >= TB.probe0 && t < TB.abort ? [{ key: 'p', at: 'tip', kicker: 'Hepatic vein', text: 'Occluded', unit: '', cls: 'wedge' }]
@@ -157,7 +161,7 @@ export function createHvpgProcedure() {
 
   function paintSide() {
     const ph = phase(), v = values(), st = store.get();
-    const shown = { fhvp: ph !== 'idle' && ph !== 'enter' && ph !== 'abort', whvp: ph === 'result' || (ph === 'wedge' && t >= T.settle), hvpg: ph === 'result' };
+    const shown = { fhvp: ph !== 'idle' && ph !== 'enter' && ph !== 'abort', whvp: ph === 'result' || (ph === 'wedge' && t >= T.callout), hvpg: ph === 'result' };
     for (const k of ['fhvp', 'whvp', 'hvpg']) {
       const txt = shown[k] ? fmt(v[k], 1) : '—';
       if (vals[k].textContent !== txt) vals[k].textContent = txt;
@@ -205,7 +209,7 @@ export function createHvpgProcedure() {
     if (ph === 'idle') label = 'Ready';
     else if (ph === 'enter') label = 'Catheter advancing';
     else if (ph === 'free') { label = 'FHVP'; num = fmt(pAt(t, v), 1); col = C.free; }
-    else if (ph === 'wedge') { label = t < T.wedge ? 'Balloon inflating' : t < T.settle ? 'Settling' : 'WHVP'; num = fmt(pAt(t, v), 1); col = C.wedge; }
+    else if (ph === 'wedge') { label = t < T.wedge ? 'Balloon inflating' : t < T.callout ? 'Settling' : 'WHVP'; num = fmt(pAt(t, v), 1); col = C.wedge; }
     else { label = 'HVPG'; num = fmt(v.hvpg, 1); col = C[sevOf(v.hvpg)]; }
     ctx.font = FONT(600, 12); ctx.fillStyle = col === C.text ? C.bright : col; ctx.fillText(label, x, y + 32);
     if (num) { ctx.font = FONT(700, big); ctx.textAlign = 'right'; ctx.fillText(num, x + W, y + 14 + big); ctx.textAlign = 'left'; }
