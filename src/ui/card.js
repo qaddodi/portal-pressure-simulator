@@ -5,7 +5,7 @@
 
 import { store, updateParams } from './store.js?v=49dc9cdf15';
 import { h, icon, svgIcon, clamp, tooltipFor } from './util.js?v=a357853926';
-import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=c2eb53a0c2';
+import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=1b8832cdc6';
 
 const LOCK_TIP = 'Not available in this step of the lesson or case';
 

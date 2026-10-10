@@ -2,14 +2,14 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=dc393aabea';
-import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=a54521547f';
+import { LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=4e4d74bbb4';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=49dc9cdf15';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=a357853926';
-import { createLobuleZoom } from './lobule-zoom.js?v=f8fe56d673';
+import { createLobuleZoom } from './lobule-zoom.js?v=2144e9726a';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=90a3499d43';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=1bc281838c';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 
 const N_SAMPLES = 64;
@@ -659,8 +659,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   gOver.before(abdWall);
   const ascitesPath = s('path', { class: 'ascites-fill', d: '', fill: 'url(#fluid)' });
   const ascitesLine = s('path', { class: 'ascites-line', d: '' });
-  const ascitesGlint = s('path', { class: 'ascites-glint', d: '' });
-  gAscites.append(ascitesPath, ascitesLine, ascitesGlint);
+  gAscites.append(ascitesPath, ascitesLine);
   let fluidSurf = null;   // the ascites surface y(x) while there is fluid; a tap below it opens the Ascites view
   gBackdrop.append(flank);
 
@@ -2298,7 +2297,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       ring: [...toRGB('var(--accent)', cs), 0.34],
       netAlpha: hovering ? 0.22 : hasSel ? 0.42 : 1,
       fx: true,
-      tierAlpha: TIER_ALPHA, tierGroup: TIER_GROUP,
+      tierAlpha: TIER_ALPHA, tierGroup: TIER_GROUP, fluid: fluidLook,
     };
     syncPlateLook();
     veinsDirty = true;
@@ -2339,7 +2338,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     try {
       const dc = defs.cloneNode(true); inlineStyles(defs, dc);
       out = ser.serializeToString(dc);
-      for (const g of [gBackdrop, gOrgans, gAscites]) {
+      for (const g of [gBackdrop, gOrgans]) {   // the ascites is drawn on the GPU over the plate (see fluidLook)
         const c = g.cloneNode(true);
         if (inlineStyles(g, c) === false) continue;
         c.removeAttribute('opacity');   // the plate fades with the morph on the GPU
@@ -2369,13 +2368,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const cs = getComputedStyle(wrap);
     return [liverKey, organG.liver.getAttribute('transform'), organG.spleen.getAttribute('transform')?.replace(/(\d\.\d\d)\d*/g, '$1'),
       Math.round((parseFloat(liverTint.style.opacity) || 0) * 40),
-      organG.bowel.getAttribute('transform'), (ascitesPath.getAttribute('d') || '').slice(0, 48), (flank.getAttribute('d') || '').slice(0, 24), selOKey,
+      organG.bowel.getAttribute('transform'), (flank.getAttribute('d') || '').slice(0, 24), selOKey,
       cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), wrap.classList.contains('imaging')].join('|');
   }
   function platePoke() {
     if (lvMoving || !veins || veins.lost || !glWanted(easeInOut(morph))) return;
     const key = plateStateKey();
     if (key === plateKey && veins.hasPlate(0)) return;
+    readFluidInk(getComputedStyle(wrap));
     // A theme switch: the old raster would keep the old background for a beat, so show the live
     // SVG plate (already in the new theme) at once and rasterize again without the throttle.
     const theme = getComputedStyle(wrap).getPropertyValue('--stage-bg');
@@ -2726,34 +2726,90 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     organG.spleen.setAttribute('transform', `translate(${SPLEEN_CENTER[0]} ${SPLEEN_CENTER[1]}) scale(${sc.toFixed(3)}) translate(${-SPLEEN_CENTER[0]} ${-SPLEEN_CENTER[1]})`);
     organG.spleen.style.opacity = p.splenicRx === 2 ? '0.14' : '';
     syncSelLine();
-    // Ascites collects in the flanks and the pelvis first (supine patient, frontal view), so its
-    // surface is a meniscus: highest at the sides, lowest in the middle. The abdominal wall bulges
-    // and the bowel floats up on it. A slow ripple runs along the surface.
-    const V = f.slow.ascites;
-    const u = clamp(V / 11000, 0, 1);
-    const bulge = u * 34;
-    flank.setAttribute('d', u < 0.04 ? '' : `M336 470 C ${324 - bulge} 610 ${330 - bulge} 780 ${372 - bulge * 0.4} 954 M1088 470 C ${1100 + bulge} 610 ${1094 + bulge} 780 ${1052 + bulge * 0.4} 954 M${372 - bulge * 0.4} 954 C 470 1012 970 1012 ${1052 + bulge * 0.4} 954`);
+    // The shown ascites eases to the model's volume (stepFluid), so a tap or diuretics never pops the level.
+    if (ascTarget === null) ascShown = f.slow.ascites;
+    ascTarget = f.slow.ascites;
+    drawAscites();
+    syncSelFluid();
+    platePoke();
+  }
+
+  // Ascites collects in the flanks and the pelvis first (supine patient, frontal view), so its
+  // surface is a meniscus: highest at the sides, lowest in the middle. The abdominal wall bulges
+  // and the bowel floats up on it. A slow ripple runs along the surface while the model runs. On
+  // the GPU the fluid is drawn over the plate (not in its raster), so no lens tints it; the SVG
+  // copy stays for picking, the selection outline and exports.
+  let ascTarget = null, ascShown = 0, fluidMaskB = null, fluidMaskOf = null, fluidMaskOfB = null, fluidBandH = -1, fluidH = 0, fluidAmp = 0, fluidInkRGBA = [0.9, 0.75, 0.28, 0.4];
+  const fluidLook = { s: [0, 0, 0, 0], ink: [0, 0, 0, 0], ripple: false };
+  const abdomenClipEl = defs.querySelector('#abdomenClip path');
+  const fluidPhase = () => (performance.now() / 1100) % (20 * Math.PI);   // both ripple terms are periodic over 20π
+  const fluidSurfAt = (x, ph) => { const c = (x - 712) / 400; return ABDOMEN_FLOOR + 5 - fluidH * (0.55 + 0.45 * c * c) + (Math.sin(x / 38 + ph) * 0.7 + Math.sin(x / 23 - ph * 1.3) * 0.3) * fluidAmp; };
+  function drawAscites() {
+    const u = clamp(ascShown / 11000, 0, 1);
+    const bulge = Math.round(u * 34 * 2) / 2;
+    flank.setAttribute('d', u < 0.04 ? '' : flankPath(bulge));
+    const d = abdomenOutline(bulge);
+    if (fluidMaskB !== bulge) { fluidMaskB = bulge; abdomenClipEl.setAttribute('d', d); abdomenEl.setAttribute('d', d); }
+    if (veins && !veins.lost && (fluidMaskOf !== veins || fluidMaskOfB !== bulge)) {
+      fluidMaskOf = veins; fluidMaskOfB = bulge; fluidBandH = -1;
+      {
+        const R = [284, 430, 856, 600], c = document.createElement('canvas');
+        c.width = R[2]; c.height = R[3];
+        const x = c.getContext('2d'); x.translate(-R[0], -R[1]); x.fill(new Path2D(d));
+        veins.setFluidMask(c, R);
+        c.width = c.height = 0;
+      }
+    }
     organG.bowel.setAttribute('transform', `translate(0 ${(-u * 26).toFixed(1)})`);
     // The fluid level rises on a compressed scale (u^0.6), so a grade 1–2 effusion is a visible pool, not a sliver.
     const uv = Math.pow(u, 0.6);
-    const hgt = plateOn() ? Math.round(uv * 110) * 3 : uv * 330;
+    fluidH = uv * 330; fluidAmp = 2 * Math.min(1, uv * 4);
     fluidSurf = null;
-    if (hgt < 3) { ascitesPath.setAttribute('d', ''); ascitesLine.setAttribute('d', ''); ascitesGlint.setAttribute('d', ''); }
+    if (fluidH < 3) { ascitesPath.setAttribute('d', ''); ascitesLine.setAttribute('d', ''); }
     else {
-      // On the GPU the plate is a raster: the surface holds still (no ripple) and rises in steps.
-      const floor = ABDOMEN_FLOOR + 5, ph = reduceMotion.matches || plateOn() ? 0 : (performance.now() / 1100) % (Math.PI * 2);
-      const surf = (x) => { const c = (x - 712) / 400; return floor - hgt * (0.55 + 0.45 * c * c) + Math.sin(x / 38 + ph) * 1.6 * Math.min(1, uv * 4); };
+      const floor = ABDOMEN_FLOOR + 5, ph = reduceMotion.matches || plateOn() ? 0 : fluidPhase();
+      const surf = (x) => fluidSurfAt(x, ph);
       fluidSurf = surf;
       let line = '';
-      for (let x = 296; x <= 1128; x += 16) line += `${x === 296 ? 'M' : ' L'}${x} ${surf(x).toFixed(1)}`;
+      for (let x = 296; x <= 1128; x += 8) line += `${x === 296 ? 'M' : ' L'}${x} ${surf(x).toFixed(1)}`;
       ascitesLine.setAttribute('d', line);
       ascitesPath.setAttribute('d', `${line} L 1128 ${floor + 70} L 296 ${floor + 70} Z`);   // down past the rounded pelvic floor; the clip shapes it
-      let glint = '';
-      for (let x = 470; x <= 950; x += 16) glint += `${x === 470 ? 'M' : ' L'}${x} ${(surf(x) + 5).toFixed(1)}`;
-      ascitesGlint.setAttribute('d', glint);
+      // The cells the rippling surface (and its light band) passes through, redrawn each frame on the GPU.
+      if (veins && !veins.lost && Math.abs(fluidH - fluidBandH) > 0.25) {
+        fluidBandH = fluidH;
+        const cells = [];
+        for (let x = 288; x < 1136; x += 16) {
+          const base = (z) => { const c = (z - 712) / 400; return ABDOMEN_FLOOR + 5 - fluidH * (0.55 + 0.45 * c * c); };
+          const a = base(x), b = base(x + 16);
+          const y0 = Math.min(a, b) - fluidAmp - 2, y1 = Math.max(a, b) + fluidAmp + 10;
+          for (let y = y0; y < y1; y += 16) cells.push(x, y);
+        }
+        veins.setFluidCells(new Float32Array(cells));
+      }
     }
     syncSelFluid();
     platePoke();
+  }
+  // Per animation frame: ease the shown volume and keep the GPU fluid's look current. True when the level moved.
+  function stepFluid(dt, st) {
+    if (ascTarget === null) return false;
+    let moved = false;
+    if (ascShown !== ascTarget) {
+      const d = ascTarget - ascShown;
+      ascShown = Math.abs(d) < 3 ? ascTarget : ascShown + d * (1 - Math.exp(-dt / 0.45));
+      drawAscites(); moved = true;
+    }
+    const run = st.running && !reduceMotion.matches;
+    const t = easeInOut(morph), k = (1 - t) * (wrap.classList.contains('has-sel') ? 0.72 : 1);
+    fluidLook.s = [ABDOMEN_FLOOR + 5, fluidH, fluidAmp, run ? fluidPhase() : fluidLook.s[3]];
+    fluidLook.ink = [fluidInkRGBA[0], fluidInkRGBA[1], fluidInkRGBA[2], fluidH >= 3 ? fluidInkRGBA[3] * k : 0];
+    fluidLook.ripple = run && fluidH >= 3 && k > 0;
+    if (vLook) vLook.fluid = fluidLook;
+    return moved;
+  }
+  function readFluidInk(cs) {
+    const hex = cs.getPropertyValue('--ascites').trim().replace('#', ''), a = parseFloat(cs.getPropertyValue('--ascites-a')) || 0.4;
+    if (hex.length === 6) fluidInkRGBA = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).concat(a);
   }
 
   // Point, unit normal and unit tangent at arc length `d` along a vessel's current centerline.
@@ -4192,7 +4248,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const still = (!st.running || reduceMotion.matches) && !bolus.active;
     const key = still ? `${cathVer}|${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${JSON.stringify(st.blood)}|${vCanvas.width}x${vCanvas.height}` : null;
     // A plate raster that lands while the figure is still (paused, or reduced motion) marks the vessel layer dirty: draw it.
-    if (still && !veinsDirty && !widthEasing && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && F === lastDrawF && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { requestAnimationFrame(animate); return; }
+    if (still && !veinsDirty && !widthEasing && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && F === lastDrawF && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { requestAnimationFrame(animate); return; }
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
       if (F) update(F); else updateGeometry(true);
@@ -4205,8 +4261,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     stepReveals(now);
     if (F) stepBlood(dt);
+    const fluidMoved = stepFluid(dt, st);
     // The vessel layer is redrawn only when something in it changed; the blood every frame.
-    if (!drawVeins() && veins && !veins.lost && vLook && F) veins.composite(vLook, bloodLook());
+    if (!drawVeins() && veins && !veins.lost && vLook && F) veins.composite(vLook, bloodLook(), fluidMoved);
     drawnView = viewVersion;
     governRes(now, viewMoved || st.running);
     lastDrawKey = key; lastDrawF = F; lastDrawCTM = CTM;

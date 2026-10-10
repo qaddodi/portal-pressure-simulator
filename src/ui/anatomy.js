@@ -423,7 +423,11 @@ export const BACKDROP = {
 // Invisible peritoneal outline: ascites fills it from the bottom.
 // The peritoneal cavity closes in a rounded pelvic floor (below the plate's default frame), so
 // ascites pools in a basin when the view is zoomed out instead of ending in a flat cut.
-export const ABDOMEN_CLIP = 'M330 440 C 320 600 340 800 388 950 C 470 1010 970 1010 1052 950 C 1090 800 1100 600 1092 440 Z';
+// One outline, mirror-symmetric about x = 712, for the flanks drawn on the plate and the cavity the
+// fluid fills, so the fluid always meets the body wall. `b`: how far the flanks bulge with ascites.
+export const flankPath = (b = 0) => `M336 470 C ${324 - b} 610 ${330 - b} 780 ${372 - b * 0.4} 954 C 470 1012 954 1012 ${1052 + b * 0.4} 954 C ${1094 + b} 780 ${1100 + b} 610 1088 470`;
+export const abdomenOutline = (b = 0) => `M336 440 L${flankPath(b).slice(1)} L1088 440 Z`;
+export const ABDOMEN_CLIP = abdomenOutline(0);
 export const ABDOMEN_FLOOR = 950;
 export const SPLEEN_CENTER = [1040, 362];
 
