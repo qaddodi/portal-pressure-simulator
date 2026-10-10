@@ -992,12 +992,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A presenter slide's glows (glow: [...] and its terms' vessels): the Doppler's mark, one per vessel, in the
   // station's own colour (--pg). Each eases in and out on its own, so a change of slide cross-fades.
   const pg = new Map();   // edge id → mark
-  // Built from the vessel's live course and width (geo[id].cur, as the GPU draws it), so it hugs the wall as the
-  // vessel dilates or narrows: a soft band just outside the wall that tapers to nothing at both ends (no caps, no box),
-  // the vessel itself cut out so its own colour shows through.
+  // Built from the course and caliber the GPU actually draws (its smoothed course where vessels run on into each
+  // other, and its tapering radius plus wall), so it hugs the live wall on both sides: a soft band just outside the
+  // wall, the vessel itself cut out so its own colour shows through. It fades to nothing only at the ends of a
+  // glowing run: where the next glowing vessel carries on (SMV into the portal vein), the band runs on unbroken.
   let pgN = 0;
   // Cheap to keep up: the cut-out is a clip path (geometry, no offscreen mask image), and the band is only rebuilt
-  // when the vessel has moved or changed width by more than a hair (the band is soft and the cut sits inside the
+  // when the vessel has moved or changed caliber by more than a hair (the band is soft and the cut sits inside the
   // wall, so a lag that small never shows), so a still or gently pulsing vessel does not re-blur every frame.
   function makeGlow(id) {
     const key = `pg${++pgN}`, g = s('g', { class: 'pg-mark', 'aria-hidden': 'true' });
@@ -1009,22 +1010,34 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The clip goes on a wrapper, so it cuts the blurred band (on the path itself it would apply before the blur).
     const glow = s('path', { class: 'pg-glow', filter: `url(#${key}-b)` }), held = s('g', { 'clip-path': `url(#${key}-k)` });
     held.append(glow); g.append(defs, held); g.style.display = 'none'; gOver.prepend(g);
-    const taper = (u) => smooth01(u / 0.22) * smooth01((1 - u) / 0.22);
-    let lastPts = null, lastR = -1;
+    let lastPts = null, lastKey = '', lit = null;
     const moved = (pts) => {
       if (!lastPts || lastPts.length !== pts.length) return true;
       for (let i = 0; i < pts.length; i++) if (Math.abs(pts[i][0] - lastPts[i][0]) > 0.35 || Math.abs(pts[i][1] - lastPts[i][1]) > 0.35) return true;
       return false;
     };
-    return { id, g, paint() {
+    // Where a glowing vessel meets others (its own run, or a branch at the same junction), the band rounds the
+    // junction: those vessels are cut out too, so the band never lies across a neighbour's lumen.
+    const cutOf = (o) => {
+      const p = o.glPts || geo[o.e.id]?.cur, rOf = o.rOf || (() => (o.dopW || o.width || 8) / 2);
+      return p?.length > 1 ? tubeOutline(p, litNormals(p), (u) => Math.max(0.5, rOf(u) - 0.4)) : '';
+    };
+    let lastNb = [];
+    const m = { id, g, ends: [true, true], nb: [], paint() {
       const q = geo[id], x = E[id];
-      if (!q?.cur || q.cur.length < 2 || !q.lit || !x) return;
-      const r = (x.dopW || x.width || 8) / 2;
-      if (Math.abs(r - lastR) <= 0.35 && (q.cur === lastPts || !moved(q.cur))) return;
-      lastPts = q.cur; lastR = r;
-      glow.setAttribute('d', tubeOutline(q.cur, q.lit, (u) => (r + 4.5) * taper(u) + 0.01));
-      cut.setAttribute('d', 'M-4000 -4000H8000V8000H-4000Z' + tubeOutline(q.cur, q.lit, () => Math.max(0.5, r - 0.6)));
+      if (!q?.cur || q.cur.length < 2 || !x) return;
+      // The course the GPU draws this vessel along (smoothed at run-on joins), else the live one.
+      const pts = x.glPts || q.cur;
+      const rOf = x.rOf || (() => (x.dopW || x.width || 8) / 2), wall = x.wallPx || 1;
+      const nb = m.nb.filter((o) => o.vis), nbPts = nb.map((o) => o.glPts);
+      const k = `${x.shadeKey}|${wall}|${m.ends}|` + nb.map((o) => o.e.id + o.shadeKey).join();
+      if (k === lastKey && nbPts.every((p, i) => p === lastNb[i]) && (pts === lastPts || !moved(pts))) return;
+      lastPts = pts; lastKey = k; lastNb = nbPts; lit = litNormals(pts);
+      const [fa, fb] = m.ends, taper = (u) => (fa ? smooth01(u / 0.22) : 1) * (fb ? smooth01((1 - u) / 0.22) : 1);
+      glow.setAttribute('d', tubeOutline(pts, lit, (u) => (rOf(u) + wall + 4) * taper(u) + 0.01));
+      cut.setAttribute('d', 'M-4000 -4000H8000V8000H-4000Z' + tubeOutline(pts, lit, (u) => Math.max(0.5, rOf(u) - 0.4)) + nb.map(cutOf).join(''));
     } };
+    return m;
   }
   function setGlow(list) {
     const want = new Map((list || []).filter((g) => E[g.id]).map((g) => [g.id, { tone: g.tone || 'accent', at: g.at }]));
@@ -1032,9 +1045,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       m.on = false; m.g.style.transitionDelay = ''; m.g.classList.remove('on');
       clearTimeout(m.t); m.t = setTimeout(() => { if (!m.on) { m.g.remove(); pg.delete(id); } }, 450);
     }
+    // Which ends fade: an end that meets another glowing vessel runs on into it instead.
+    const nodes = new Map();
+    for (const id of want.keys()) for (const n of [E[id].e.from, E[id].e.to]) nodes.set(n, (nodes.get(n) || 0) + 1);
     for (const [id, { tone }] of want) {
       let m = pg.get(id);
       if (!m) { m = makeGlow(id); pg.set(id, m); }
+      const { from, to } = E[id].e;
+      m.ends = [nodes.get(from) < 2, nodes.get(to) < 2];
+      m.nb = Object.values(E).filter((o) => o.e.id !== id && !o.isArt && [o.e.from, o.e.to].some((n) => n === from || n === to));
       clearTimeout(m.t); m.on = true;
       m.g.style.setProperty('--pg', tone.startsWith('--') ? `var(${tone})` : tone === 'accent' ? 'var(--accent)' : `var(--tr-${tone})`);
       const x = E[id]; m.paint();
@@ -2410,6 +2429,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       vBinKey = key;
       vBinReach = new Map(items.map((it) => [it.row, reachOf(it)]));
       const J = veinJoins(items), smooth = smoothRunOn(items);
+      for (const it of items) if (it.kind === 'v') { it.obj.glPts = smooth.get(it.row) || it.pts; }
       veins.setGeometry(binVeins(items.map((it) => ({ id: it.row, pts: smooth.get(it.row) || it.pts, reach: vBinReach.get(it.row) })), J));
     }
     // Attributes, every frame.
