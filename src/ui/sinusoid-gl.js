@@ -72,7 +72,7 @@ out vec4 o;
 ${COMMON}
 uniform int uPass;              // 0: the tissue; 1: the cells that lie over the moving particles (stellate, Kupffer)
 uniform float uLum, uPinch, uXs, uXk, uKy, uHscA, uCol, uBm, uMv, uAct, uPor, uFlow, uLym, uDir, uDark, uShim, uStreak;
-uniform vec3 cBg, cLumen, cLymph, cCell, cUnder, cNuc, cCol, cBm, cBile, cEndo, cEndoN, cHscQ, cHscA, cHscN, cDrop, cKup, cKupN, cKupE, cRbc, cChev, cRev, cEndF, cEndE;
+uniform vec3 cBg, cLumen, cLymph, cCell, cUnder, cNuc, cCol, cBm, cBile, cEndo, cEndoN, cHscQ, cHscA, cHscN, cKup, cKupN, cKupE, cRbc, cChev, cRev, cEndF, cEndE;
 uniform float aBm;
 uniform vec4 uEnd;               // the end arrows: portal x, central x (µm), size (µm), alpha
 uniform vec2 uLab;               // the lumen's own name: x and half length (µm), kept clear of the arrowheads
@@ -280,24 +280,16 @@ vec3 plate(float x, float v, int sd, float det) {
 
 // ── The stellate (Ito) cell, in the upper Disse; p = (x, depth from the axis) ──
 // Drawn as a textbook figure: one smooth, continuous membrane around a body lying along the sinusoid and its tapered
-// processes, which curve down onto the endothelium and run along it. Quiescent it is plump and pale, its outline
-// gently lobed by the vitamin A droplets it stores; activated (a myofibroblast) it lengthens and darkens, the droplets
-// shrink away, and its processes grow long, with finer branches reaching up between the hepatocytes.
+// processes, which curve down onto the endothelium and run along it; inside, only its nucleus (as NEJM draws it).
+// Quiescent it is plump and pale; activated (a myofibroblast) it lengthens and darkens, and its processes grow long,
+// with finer branches reaching up between the hepatocytes.
 float hscL() { return 4.4 + 2.4 * uAct; }
 float hscW() { return 1.4 - 0.2 * uAct; }
 float hscWall(float x) { return halfW(x) + ENDO + 0.42; }
-const vec3 HSC_DROPS[5] = vec3[5](vec3(-0.5, -0.1, 0.5), vec3(-0.08, 0.32, 0.46), vec3(0.3, -0.22, 0.44), vec3(0.62, 0.2, 0.36), vec3(-0.8, 0.22, 0.32));
-vec4 hscDrop(int i) {   // a droplet: centre (x, y) and radius, shrinking away as the cell activates
-  float L = hscL(), Wd = hscW();
-  vec3 D = HSC_DROPS[i];
-  return vec4(uXs + D.x * L, uHscA + D.y * Wd, D.z * Wd * pow(1.0 - uAct, 0.8), 0.0);
-}
 float sdHsc(vec2 p) {
   float L = hscL(), Wd = hscW();
   vec2 b = p - vec2(uXs, uHscA);
   float d = sdE(b, vec2(L, Wd));
-  // The droplets lift the membrane over them, a soft lobe each (gone once they are).
-  for (int i = 0; i < 5; i++) { vec4 dr = hscDrop(i); if (dr.z > 0.02) d = smin(d, length(p - dr.xy) - dr.z - 0.16, 0.7); }
   for (int i = 0; i < 2; i++) {
     float sg = i == 0 ? -1.0 : 1.0;
     // Down from the body's flank onto the wall, then along it (two Bézier strokes that meet at the same width).
@@ -327,21 +319,12 @@ vec4 hsc(vec2 p) {
     for (int i = -1; i <= 1; i++) fb = max(fb, line(p.y - uHscA - float(i) * 0.38 * Wd - 0.1 * sin((p.x - uXs) * 0.5 + float(i) * 2.0), 0.06));
     c = mix(c, cHscN, fb * 0.28 * uAct * cov(d + 0.35));
   }
-  // The nucleus: a smooth oval pressed toward the plate by the droplets, a fine envelope and a nucleolus.
-  vec2 nc = vec2(uXs + 0.12 * L, uHscA - 0.15 * Wd * (1.0 - uAct));
+  // The nucleus: a smooth oval, a fine envelope and a nucleolus.
+  vec2 nc = vec2(uXs, uHscA);
   float dn = sdE(p - nc, vec2(1.15 + 0.9 * uAct, 0.5 + 0.05 * uAct));
   c = mix(c, mix(c, cHscN, 0.7), cov(dn));
   c = mix(c, cHscN, line(dn, 0.06) * 0.5);
   c = mix(c, cHscN * 0.8, cov(length(p - nc - vec2(0.3, 0.0)) - 0.18) * 0.6);
-  // Vitamin A droplets: pale gold discs with a fine rim and a soft shine.
-  for (int i = 0; i < 5; i++) {
-    vec4 dr = hscDrop(i);
-    if (dr.z < 0.02) continue;
-    float dd = length(p - dr.xy) - dr.z, k = smoothstep(0.02, 0.2, dr.z);
-    c = mix(c, cDrop, cov(dd) * 0.92 * k);
-    c = mix(c, mix(cDrop, cHscN, 0.55), line(dd, 0.05) * 0.5 * k);
-    c = mix(c, vec3(1.0), cov(length(p - dr.xy + vec2(0.32, 0.3) * dr.z) - 0.28 * dr.z) * 0.45 * k);
-  }
   // One continuous membrane around body and processes alike.
   float mem = line(d, 0.08);
   c = mix(c, cHscN, mem * 0.55);

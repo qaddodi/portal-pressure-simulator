@@ -23,7 +23,7 @@ import { h, fmt, clamp, lerp } from './util.js?v=e803df99cd';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { isPaused } from './clock.js?v=77fb9815e5';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=ccb499b54c';
+import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=fc68148684';
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
@@ -75,7 +75,7 @@ export function createSinusoidView({ host }) {
     return { x: x + (geo.vert ? 0 : (cx - cx0) / VW.k), half: (along ? w : Math.abs(w * Math.cos(geo.ang)) + Math.abs(hh * Math.sin(geo.ang))) / 2 / VW.k };
   }
   const legend = h('div', { class: 'sv-legend', 'aria-hidden': 'true' },
-    h('span', {}, h('i', { class: 'alb' }), 'Albumin'), h('span', {}, h('i', { class: 'wat' }), 'Plasma water'));
+    h('span', {}, h('i', { class: 'alb' }), 'Protein'), h('span', {}, h('i', { class: 'wat' }), 'Plasma water'));
   const el = h('div', { class: 'sv', 'aria-hidden': 'true' }, canvas, labels, legend);
   host.append(el);
   const gpu = createSinusoidGL(canvas);
@@ -209,7 +209,7 @@ export function createSinusoidView({ host }) {
       cCol: dark ? v3(199, 186, 153) : v3(237, 222, 186), cBm: dark ? v3(204, 188, 142) : v3(150, 118, 70), aBm: dark ? 0.6 : 0.8,
       cBile: dark ? v3(150, 156, 80) : v3(122, 128, 61),
       cEndo: dark ? v3(122, 116, 156) : v3(184, 176, 204), cEndoN: dark ? v3(84, 74, 120) : v3(128, 114, 160),
-      cHscQ: dark ? v3(176, 134, 102) : v3(224, 184, 150), cHscA: dark ? v3(160, 102, 74) : v3(190, 128, 94), cHscN: dark ? v3(96, 56, 42) : v3(146, 90, 66), cDrop: dark ? v3(222, 196, 120) : v3(248, 226, 156),
+      cHscQ: dark ? v3(176, 134, 102) : v3(224, 184, 150), cHscA: dark ? v3(160, 102, 74) : v3(190, 128, 94), cHscN: dark ? v3(96, 56, 42) : v3(146, 90, 66),
       cKup: dark ? v3(132, 106, 176) : v3(178, 150, 214), cKupN: dark ? v3(74, 54, 116) : v3(108, 80, 156), cKupE: dark ? v3(58, 42, 96) : v3(96, 70, 142),
       cRbc: dark ? v3(176, 62, 72) : v3(204, 74, 80),
       // The end arrows are inked as their labels: the text's colour inside the labels' halo.
@@ -330,7 +330,7 @@ export function createSinusoidView({ host }) {
     // read in the plate just beyond it on the other side.
     const xq = V ? pick(0.24) : away(pick(0.86), g.xs, 40);
     region('disse', 'Space of Disse', '', xq, (V ? 1 : -1) * (wallIn(xq) + disseW(xq) * 0.5), { along: true });
-    const xd = pick(V ? 0.55 : 0.32), lymph = (x) => region('lymph', 'Lymph', m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min · protein ${Math.round(m.lyProt * 100)}%`, x, hepIn(x) + 1.2, { side: 1 });
+    const xd = pick(V ? 0.55 : 0.32), lymph = (x) => region('lymph', 'Lymph', m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min · Protein ${Math.round(m.lyProt * 100)}%`, x, hepIn(x) + 1.2, { side: 1 });
     const ly = lymph(xd);
     // In the plates: the stellate cell named just beyond its body, and a hepatocyte on itself, clear of its nucleus.
     region('hsc', S.act > 0.5 ? 'Activated stellate cell' : 'Stellate cell', '', g.xs, -(hepIn(g.xs) + 1), { side: -1, along: V });
@@ -360,7 +360,7 @@ export function createSinusoidView({ host }) {
     region('hep', 'Hepatocyte', '', pick(0.8), -mid(pick(0.8)));
     // Left (y > 0): the space of Disse, the lymph it carries, the Kupffer cell.
     region('disse', 'Space of Disse', '', pick(0.2), mid(pick(0.2)));
-    region('lymph', 'Lymph', m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min · protein ${Math.round(m.lyProt * 100)}%`, pick(0.48), mid(pick(0.48)));
+    region('lymph', 'Lymph', m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min · Protein ${Math.round(m.lyProt * 100)}%`, pick(0.48), mid(pick(0.48)));
     region('kup', 'Kupffer cell', '', g.xk, mid(g.xk));
   }
   const LAB = [0, 0];   // the lumen's name: x and half length (µm), for the shader to keep the arrowheads clear of it
@@ -446,8 +446,8 @@ export function createSinusoidView({ host }) {
   function describe() {
     const m = model;
     const parts = [`A sinusoid, cut along its length${m.hide ? '' : `, at ${fmt(m.P2, 1)} millimeters of mercury`}.`];
-    parts.push(S.por > 0.75 ? 'Its lining is fenestrated: plasma and albumin pass through the open pores into the space of Disse.'
-      : S.por > 0.25 ? 'Many of its fenestrae have closed: less albumin gets through.' : 'Its fenestrae have closed: the wall is sealed, and albumin is turned back.');
+    parts.push(S.por > 0.75 ? 'Its lining is fenestrated: plasma and its proteins pass through the open pores into the space of Disse.'
+      : S.por > 0.25 ? 'Many of its fenestrae have closed: less protein gets through.' : 'Its fenestrae have closed: the wall is sealed, and protein is turned back.');
     if (!m.hide) parts.push(`Hepatic lymph ${fmt(m.lymph, 1)} milliliters per minute, flowing back along the space of Disse toward the portal triad, with ${Math.round(m.lyProt * 100)} percent of plasma protein.`);
     if (S.col > 0.15) parts.push('Collagen fills the space of Disse and the hepatocytes have lost their microvilli.');
     parts.push(S.act > 0.4 ? 'The stellate cell is activated: no vitamin A droplets, contracted, laying down collagen.' : 'The stellate cell is quiescent, full of vitamin A droplets.');

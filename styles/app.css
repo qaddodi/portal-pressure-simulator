@@ -1695,6 +1695,17 @@ button.finding:hover { background: var(--surface-2); }
 :root[data-theme="dark"] :is(.sv-region-disse, .sv-region-lymph) { --svg-green: #B5D3A3; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) :is(.sv-region-disse, .sv-region-lymph) { --svg-green: #B5D3A3; } }
 .sv-region > span:first-child { white-space: pre-line; }
+/* As a journal figure (NEJM) sets its secondary names: the ends' venules are the Sinusoid's caption a size smaller and a
+   little faded, and the cells are named small, in a faded tint of their own colour. */
+.sv-region.sv-end { font-size: calc(9.5px * var(--label-k, 1)); opacity: .78; }
+.sv-region.sv-end .v { font-size: calc(9px * var(--label-k, 1)); }
+.sv-region.sv-end .v b { font-size: calc(10.5px * var(--label-k, 1)); }
+.sv-region-hsc, .sv-region-hep { font-size: calc(9px * var(--label-k, 1)); opacity: .9; }
+.sv-region-hsc { color: #93603F; }
+.sv-region-hep { color: #A0625A; }
+:root[data-theme="dark"] .sv-region-hsc { color: #D9B092; }
+:root[data-theme="dark"] .sv-region-hep { color: #E3B2A9; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .sv-region-hsc { color: #D9B092; } :root:not([data-theme="light"]) .sv-region-hep { color: #E3B2A9; } }
 /* The sinusoid view is a focused mode: only the way back to the lobule and the pressure legend stay (no lens to pick). */
 #app.sin-focus :is(#viewSeg [data-view="anatomic"], #viewSeg [data-view="circuit"], #btnLobuleLayers, #btnBlood, #btnInspector, #btnTreat, #tabInstruments, .top-right .tb-sep, #zoomPill, #vdock, #dock, #panel, #treatCard, #stageCenter, #coach) { display: none !important; }
 #app.sin-focus #btnLayers { pointer-events: none; cursor: default; }
