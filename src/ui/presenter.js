@@ -19,7 +19,7 @@ import { SITES } from './ladder.js?v=3c3d5cd555';
 import { sinusoidSupported } from './sinusoid-view.js?v=96ac8dcf06';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { NODES } from '../engine/topology.js?v=dc393aabea';
-import { DECKS, REGIONS, LEVELS } from './decks.js?v=0846ae173c';
+import { DECKS, REGIONS, LEVELS } from './decks.js?v=42a3ca262c';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -785,7 +785,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
   const cellRate = (k, f) => (RAW[k] ? (RAW[k](fpv(k, f)) ? 'hi' : null) : ['hi', 'mid'].includes(rateOf(k, f)[0]) ? rateOf(k, f)[0] : null);
   // A cell's direction: against the normal range ('abs': ↑ above, ↑↑ well above or past the red cut-off, ↓ below, a dot within),
   // or against a reference patient's value ('rel': the treatments table's baseline).
-  const DOT = '•', STEP = { pv: 1, whvp: 1, fhvp: 1, ivc: 1, ra: 1, hvpg: 1, ppg: 1, sin: 1, varix: .5, asc: 100, liver: 3 };
+  const STEP = { pv: 1, whvp: 1, fhvp: 1, ivc: 1, ra: 1, hvpg: 1, ppg: 1, sin: 1, varix: .5, asc: 100, liver: 3 };
   function dirAbs(k, f) {
     const v = fpv(k, f);
     if (RAW[k]) return v > RAWLIM[k] * 2 ? 2 : v > RAWLIM[k] ? 1 : 0;
@@ -797,7 +797,23 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     const d = f[k] - ref[k], r = Math.abs(d) / Math.max(Math.abs(ref[k]), 1e-6);
     return Math.abs(d) < (STEP[k] ?? 1) || r < 0.1 ? 0 : (d > 0 ? 1 : -1) * (r >= 0.4 ? 2 : 1);
   }
-  const ARROW = { 2: '↑↑', 1: '↑', 0: DOT, '-1': '↓', '-2': '↓↓' };
+  // Purpose-drawn arrows (one stroke weight, a solid head; a double is a solid head over a chevron) and a thin dash for "normal",
+  // drawn on one grid so they sit on the table's cap height. n: 2 / 1 up, -1 / -2 down, 0 the dash.
+  const HEAD = (y0, y1) => `<path d="M6 ${y0}L10.6 ${y1}H1.4Z" fill="currentColor" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/>`;
+  const SHAPE = {
+    1: `<path d="M6 15V7" stroke-width="1.7" stroke-linecap="round"/>${HEAD(1.2, 7.8)}`,
+    2: `${HEAD(0.8, 7)}<path d="M1.6 13.2L6 8.8L10.4 13.2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`,
+    0: '<path d="M2.6 8H9.4" stroke-width="1.3" stroke-linecap="round"/>',
+  };
+  function arrowEl(n) {
+    const el = document.createElement('span');
+    el.className = `pz-arr${n < 0 ? ' dn' : ''}${n === 0 ? ' zero' : ''}`;
+    el.setAttribute('aria-hidden', 'true');
+    el.innerHTML = `<svg viewBox="0 0 12 16" focusable="false">${SHAPE[Math.abs(n)]}</svg>`;   // (constant markup, never user text)
+    return el;
+  }
+  // A legend line with its arrow symbols drawn as the table's arrows.
+  const withArrows = (t) => t.split(/(↑↑|↓↓|↑|↓|•)/).map((x) => (x === '↑↑' ? arrowEl(2) : x === '↓↓' ? arrowEl(-2) : x === '↑' ? arrowEl(1) : x === '↓' ? arrowEl(-1) : x === '•' ? arrowEl(0) : x));
   const WORD = { 2: 'well above normal', 1: 'above normal', 0: 'normal', '-1': 'below normal', '-2': 'well below normal' };
   const WORDREL = { 2: 'much higher', 1: 'higher', 0: 'unchanged', '-1': 'lower', '-2': 'much lower' };
   const unitOf = (k) => (k === 'varix' ? ' mm' : k === 'asc' ? ' L' : k === 'liver' ? '%' : PRESS.has(k) ? ' mmHg' : '');
@@ -813,7 +829,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
       if (isRef(r, n)) return h('td', { class: 'num ref', 'data-rate': rel ? cellRate(k, r.f) : null }, val(k, r.f));
       const d = rel ? dirRel(k, r.f, first) : dirAbs(k, r.f), v = val(k, r.f) + unitOf(k);
       return h('td', { class: 'num dir' + (d ? '' : ' zero') + (rel ? ' rel' : ''), 'data-rate': cellRate(k, r.f), title: v },
-        h('span', { 'aria-hidden': 'true' }, ARROW[d]), h('span', { class: 'sr-only' }, `${rel ? WORDREL[d] : WORD[d]}, ${v}`));
+        arrowEl(d), h('span', { class: 'sr-only' }, `${rel ? WORDREL[d] : WORD[d]}, ${v}`));
     };
     const ascCell = (r, n) => {
       if (!r.f) return h('td', { class: 'asc' }, '…');
@@ -821,10 +837,10 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
       const hiS = r.f.saag >= 1.1, hiP = r.f.tp >= 2.5;
       if (isRef(r, n)) return h('td', { class: 'asc' }, h('b', { 'data-rate': hiS ? 'hi' : null }, fmt(r.f.saag, 1)), ' · ', h('b', {}, fmt(r.f.tp, 1)));
       return h('td', { class: 'asc dir', title: `SAAG ${fmt(r.f.saag, 1)}, protein ${fmt(r.f.tp, 1)} g/dL` },
-        h('small', {}, 'SAAG '), h('b', { 'data-rate': hiS ? 'hi' : null, 'aria-hidden': 'true' }, hiS ? '↑' : '↓'), h('span', { class: 'sr-only' }, hiS ? 'high gradient' : 'low gradient'),
-        ' · ', h('small', {}, 'Protein '), h('b', { 'aria-hidden': 'true' }, hiP ? '↑' : '↓'), h('span', { class: 'sr-only' }, hiP ? 'high protein' : 'low protein'));
+        h('small', {}, 'SAAG '), h('b', { 'data-rate': hiS ? 'hi' : null }, arrowEl(hiS ? 1 : -1)), h('span', { class: 'sr-only' }, hiS ? 'high gradient' : 'low gradient'),
+        ' · ', h('small', {}, 'Protein '), h('b', {}, arrowEl(hiP ? 1 : -1)), h('span', { class: 'sr-only' }, hiP ? 'high protein' : 'low protein'));
     };
-    const key = rel ? `↑ higher, ↓ lower than ${first ? rows[0].title.toLowerCase() : 'baseline'} (doubled for 40% or more); a dot is unchanged` : `↑ above normal, ↓ below, ↑↑ well above (HVPG 10 or more, PPG 12 or more); a dot is within normal`;
+    const key = rel ? `↑ higher, ↓ lower than ${first ? rows[0].title.toLowerCase() : 'baseline'} (doubled for 40% or more); • unchanged` : `↑ above normal, ↓ below, ↑↑ well above (HVPG 10 or more, PPG 12 or more); • within normal`;
     return h('div', { class: 'pz-table' }, h('table', {},
       h('thead', {}, h('tr', {}, h('th', {}, s.rowHead || 'Level'), cols.map((k) => h('th', { class: 'num' }, COLS[k] || k)), asc ? h('th', {}, 'Ascites') : null, s.note ? h('th', {}, s.note) : null)),
       h('tbody', {}, rows.map((r, n) => h('tr', r.i >= 0 ? { onclick: () => go(r.i) } : { class: 'static' },
@@ -832,7 +848,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
         cols.map((k) => cell(k, r, n)),
         asc ? ascCell(r, n) : null,
         s.note ? h('td', { class: 'note' }, r.note || '') : null)))),
-    h('p', { class: 'pz-foot' }, s.foot || `Arrows from the model: ${key}. Shaded: abnormal. Hover or tap a cell for its value. Pick a row to go back to it.`));
+    h('p', { class: 'pz-foot' }, withArrows(s.foot || `Arrows from the model: ${key}. Shaded: abnormal. Hover or tap a cell for its value. Pick a row to go back to it.`)));
   }
   const VISUALS = {
     table: summaryTable,
