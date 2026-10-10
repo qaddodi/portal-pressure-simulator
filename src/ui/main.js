@@ -3,23 +3,24 @@
 
 import { startHost, host } from './host.js?v=5f360b39e4';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=5edd069b32';
-import { createStage } from './stage.js?v=0defe70d85';
-import { sinusoidSupported } from './sinusoid-view.js?v=746b94f699';
+import { createStage } from './stage.js?v=2f40e9a1da';
+import { createCreditPlacer } from './credit.js?v=b3a9118903';
+import { sinusoidSupported } from './sinusoid-view.js?v=4e2c50cdcf';
 import { createInspector } from './inspector.js?v=599f2b1196';
 import { createDock, CUTOFFS } from './dock.js?v=24f1375672';
 import { setHvpgStage } from './hvpg-proc.js?v=bd13aee321';
 import { createWhy } from './why.js?v=6a8e1cab9b';
 import { createTimeline, LAPSES } from './timeline.js?v=333c5fc305';
-import { createLearn } from './learn.js?v=ac6e7fef7d';
-import { createCases, CASES } from './cases.js?v=1aa336e84e';
+import { createLearn } from './learn.js?v=5b92977a2c';
+import { createCases, CASES } from './cases.js?v=89e4e1bd44';
 import { isBlind } from './learning-kit.js?v=98abf1f07d';
 import { createCompare } from './compare.js?v=4c30af58d2';
-import { createCard } from './card.js?v=20b6deb1ab';
+import { createCard } from './card.js?v=7b3af5592f';
 import { createChart, computeFindings } from './chart.js?v=04d2763737';
 import { createMenu, ROLES } from './menu.js?v=de531de822';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=398e679a38';
 import { caption } from './a11y.js?v=57932e0bda';
-import { startLMS } from './lms.js?v=545a5a044e';
+import { startLMS } from './lms.js?v=3c015d1067';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 import { toolsToVerbs, normalizeSel, shuntable, edgeValue } from './actions.js?v=52483673ca';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=7616551729';
@@ -138,13 +139,13 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else mainMenu.open(); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => mainMenu.open() });
-  presenterL = lazy(() => import('./presenter.js?v=835044f664'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=775938461f'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
     anchor: $('#btnMenu'), library: presenter.library, libraryNow: presenter.libraryNow,
     onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
-    onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditBesideMenu(on && !sheet); },
+    onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditPlacer?.refresh(); },
   });
   paletteL = lazy(() => import('./palette.js?v=5234ce36ad'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
@@ -353,18 +354,9 @@ function setNarrator(on) {
 
 
 // ── Scenarios & share ───────────────────────────────
-// The corner credit stays on the figure while the menu's popover is open: it slides to the right of the panel,
-// or fades out when the panel leaves no room for it there.
-function creditBesideMenu(on) {
-  const c = $('.stage-credit'), m = document.querySelector('.umenu:not(.out)');
-  if (!c) return;
-  if (!on || !m) { c.style.removeProperty('translate'); c.classList.remove('um-covered'); return; }
-  const z = uiScale(), mr = m.getBoundingClientRect(), cr = c.getBoundingClientRect();
-  if (cr.top > mr.bottom + 4 || cr.left > mr.right + 8) return;
-  const dx = mr.right + 24 * z - cr.left;
-  if (mr.right + 24 * z + cr.width + 16 * z > innerWidth) c.classList.add('um-covered');
-  else c.style.translate = `${dx}px 0`;   // (the figure's layer is not zoomed)
-}
+// The corner credit stays on the figure while the menu's popover is open: src/ui/credit.js finds it a spot clear of the
+// panel (fading out, jumping and fading back in), or fades it out when no figure is left.
+let creditPlacer = null;
 // The menu's patient rows: switch to Explore and load the patient (also used by "Open this patient in Explore").
 async function openInExplore(id) {
   if (store.get().mode !== 'explore') store.set({ mode: 'explore' });
@@ -1086,20 +1078,8 @@ function wireFloating() {
   new MutationObserver(soon).observe($('#treatCard'), { attributes: true, attributeFilter: ['hidden'] });
   new MutationObserver(soon).observe($('#dock'), { attributes: true, attributeFilter: ['class', 'data-state'] });
   addEventListener('resize', soon);
-  // The corner credit shrinks while a card or sheet sits just beneath it (the figure's lift variables are set).
-  const credit = $('.stage-credit');
-  let busyRaf = 0;
-  const syncCredit = () => {
-    busyRaf = 0;
-    const lift = Math.max(parseFloat(credit.style.getPropertyValue('--sheet-h')) || 0, parseFloat(app.style.getPropertyValue('--panel-h')) || 0);
-    const room = (credit.offsetParent?.clientHeight || 0) - lift - (app.classList.contains('presenting') ? 0 : $('#topbar').offsetHeight);
-    credit.classList.toggle('busy', lift > 0);
-    // No figure left above the card or sheet: the credit fades out rather than sit on the card.
-    credit.classList.toggle('covered', app.style.getPropertyValue('--panel-cover') === '1' || (lift > 0 && room < 56 && !app.classList.contains('presenting')));
-  };
-  const syncSoon = () => { if (!busyRaf) busyRaf = requestAnimationFrame(syncCredit); };
-  new MutationObserver(syncSoon).observe(credit, { attributes: true, attributeFilter: ['style'] });
-  new MutationObserver(syncSoon).observe(app, { attributes: true, attributeFilter: ['style', 'class'] });
+  // The corner credit finds a free spot on the figure (src/ui/credit.js).
+  creditPlacer = createCreditPlacer($('.stage-credit'));
   publish();
   panelSheet = sheetBehaviour($('#panel'), { handle: h('button', { class: 'panel-grab', 'aria-label': 'Resize the patient chart' }), drag: '.panel-head', onClose: closePanel });
   treatSheet = sheetBehaviour($('#treatCard'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the Treat card' }), drag: '.tc-head', onClose: closeTreat, fit: '.tc-body' });

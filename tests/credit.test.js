@@ -30,17 +30,24 @@ test('copyright credit sits in the stage, right after the figure', () => {
   assert.ok(end > view && at > end && at < html.indexOf('</main>'), 'the credit must follow the stage view inside the stage');
 });
 
-test('copyright credit is on the figure layer, rides above docked cards and sheets, and never takes a tap', () => {
-  const rule = css.match(/\.stage-credit \{[^}]*\}/)?.[0] ?? '';
+test('copyright credit is on the figure layer, placed by script, and never takes a tap', () => {
+  const rule = css.match(/\.stage-credit \{ position[^}]*\}/)?.[0] ?? '';
   assert.match(rule, /z-index: var\(--z-figure\);/);
   assert.match(rule, /pointer-events: none;/);
-  assert.match(rule, /var\(--sheet-h, 0px\)/, 'a docked card lifts the credit');
-  assert.match(rule, /var\(--panel-h, 0px\)/, 'the phone chart sheet lifts the credit');
+  assert.match(rule, /translate: var\(--cx/);
+  assert.match(css, /\.app\.presenting \.stage-credit \{ z-index: calc\(var\(--z-hud\) \+ 1\); \}/);
+  assert.match(css, /\.stage-credit:not\(\.placed\), \.stage-credit\.moving, \.stage-credit\.covered \{ opacity: 0; \}/);
 });
 
-test('while presenting, the credit sits over the slide veil and rises above a stacked data card', () => {
-  assert.match(css, /\.app\.presenting \.stage-credit \{ bottom: max\(14px, var\(--sheet-h, 0px\)\); z-index: calc\(var\(--z-hud\) \+ 1\); \}/);
-  assert.match(css, /\.app\.presenting:has\(\.pz\.stack\) \.stage-credit \{ bottom: max\([^;]*var\(--sheet-h, 0px\)\)/);
+// The placement itself: a free box nearest each corner, never within the gap of a card.
+const { freeSpots, pickCorner } = await import('../src/ui/credit.js');
+const fig = { l: 0, t: 0, r: 390, b: 700 }, W = 200, H = 14;
+const clear = (s, obs) => obs.every((o) => s.x + W + 10 <= o.l || s.x - 10 >= o.r || s.y + H + 10 <= o.t || s.y - 10 >= o.b);
+
+test('credit keeps the bottom-left corner on a bare figure', () => {
+  const s = freeSpots(fig, [], W, H);
+  assert.deepEqual(s.bl, { x: 12, y: 700 - 12 - H });
+  assert.equal(pickCorner(s, null), 'bl');
 });
 
 test('copyright credit shrinks while a card sits beneath it', () => {
@@ -49,6 +56,23 @@ test('copyright credit shrinks while a card sits beneath it', () => {
   assert.match(css, /\.stage-credit\.busy \{ scale: \.75; \}/);
 });
 
-test('copyright credit fades out when a card leaves no figure above it', () => {
-  assert.match(css, /\.stage-credit\.covered, \.stage-credit\.pz-covered \{ opacity: 0; \}/);
+test('credit rides above a card at the bottom, clear of it', () => {
+  const card = { l: 0, t: 520, r: 390, b: 700 };
+  const s = freeSpots(fig, [card], W, H);
+  assert.ok(s.bl && clear(s.bl, [card]) && s.bl.y + H <= 510);
+});
+
+test('credit moves to a top corner when cards cover the lower half', () => {
+  const obs = [{ l: 0, t: 0, r: 390, b: 60 }, { l: 0, t: 300, r: 390, b: 700 }];
+  const s = freeSpots(fig, obs, W, H);
+  assert.equal(s.bl, null);
+  assert.equal(pickCorner(s, null), 'tl');
+  assert.ok(clear(s.tl, obs));
+});
+
+test('credit keeps its current corner while it stays free, and fades when no figure is left', () => {
+  const s = freeSpots(fig, [{ l: 0, t: 600, r: 230, b: 700 }], W, H);
+  assert.equal(pickCorner(s, 'br'), 'br');
+  const none = freeSpots(fig, [{ l: 0, t: 0, r: 390, b: 700 }], W, H);
+  assert.equal(pickCorner(none, 'bl'), null);
 });
