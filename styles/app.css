@@ -2754,9 +2754,9 @@ button.finding:hover { background: var(--surface-2); }
 .cath-label.site { transition: opacity .6s var(--ease) .35s, scale .6s var(--ease) .35s; }
 .cath-label.site.pv { --c: var(--tr-pv); } .cath-label.site.ivc { --c: var(--tr-ivc); }
 /* The FibroScan probe on the skin over the liver; its shear wave eases out into the right lobe and fades. */
-.scan-probe { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; translate: 0 -50%; transition: opacity .6s var(--ease); pointer-events: none; }
+.scan-probe { position: absolute; left: 0; top: 0; width: 220px; height: 96px; translate: 0 -50%; transition: opacity .6s var(--ease); pointer-events: none; }
 .scan-probe.cath-pre, .scan-probe.off { opacity: 0; }
-.scan-probe svg { width: 220px; height: 96px; overflow: visible; }
+.scan-probe svg { width: 220px; height: 96px; overflow: visible; transform: rotate(45deg); transform-origin: 66px 48px; }   /* probe and beam turned 45° about the tip, pointing down-right */
 .scan-probe .sp-body { fill: var(--surface); stroke: var(--text-2); stroke-width: 1.6; }
 .scan-probe .sp-tip { fill: var(--text-2); }
 .scan-probe .sp-cable { fill: none; stroke: var(--text-3); stroke-width: 3; stroke-linecap: round; }
@@ -2769,7 +2769,7 @@ button.finding:hover { background: var(--surface-2); }
 .scan-probe.tap .sp-head { animation: sp-tap .35s var(--ease); }
 @keyframes sp-tap { 30% { transform: translateX(3px); } 100% { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .scan-probe.tap .sp-head { animation: none; } }
-.scan-probe span { margin-left: 16px; font: 600 12px var(--font-ui); color: var(--text-3); letter-spacing: .02em; text-shadow: 0 0 3px var(--stage-bg), 0 0 6px var(--stage-bg); }
+.scan-probe span { position: absolute; left: 58px; top: -4px; white-space: nowrap; font: 600 12px var(--font-ui); color: var(--text-3); letter-spacing: .02em; text-shadow: 0 0 3px var(--stage-bg), 0 0 6px var(--stage-bg); }
 /* Where portal blood goes: a fork, each branch as wide as its share, the two shares beside the tips. */
 .cath-label.site.split { --c: var(--tr-pv); }
 .cath-label.site.split b { display: flex; align-items: center; gap: 6px; font-size: 14px; line-height: 1.25; }
