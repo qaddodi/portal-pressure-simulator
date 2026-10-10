@@ -2034,21 +2034,31 @@ button.finding:hover { background: var(--surface-2); }
 @media (max-width: 520px) { .pz-table th, .pz-table td { padding: .5em .35em; } .pz-table tbody th { padding-left: .7em; } .pz-table thead th { letter-spacing: .02em; } .pz-table tbody th .pz-kick { letter-spacing: .02em; } }
 @media (max-width: 767px) {
   .pz-table th, .pz-table td { padding: .5em .5em; }
-  /* A phone fits the table to its width: each row's name on a line of its own, its values in a row of columns under the
-     column heads, then its ascites and note across the row. --nc: the number of value columns. */
-  .pz-table { overflow: visible; }
+  /* A phone fits the table to its width, one compact line per row: the name (its site as a dot), the value columns,
+     then ascites as a narrow last column; a note goes on a small line under. The column heads stay in view.
+     --nc: the number of value columns; --asc-w: the ascites column (0 when there is none). */
+  .pz-table { overflow: clip; border-radius: 12px; }   /* (clip, not hidden: the heads still stick to the card) */
   .pz-table table, .pz-table thead, .pz-table tbody { display: block; }
-  .pz-table tr { display: grid; grid-template-columns: repeat(var(--nc, 7), minmax(0, 1fr)); align-items: center; }
-  .pz-table thead th:not(.num) { display: none; }
-  .pz-table thead th.num { padding: .6em .1em; font-size: 10px; letter-spacing: .02em; overflow-wrap: anywhere; white-space: normal; }
-  .pz-table td.num { padding: .1em .1em .55em; }
-  .pz-table tbody th[scope="row"], .pz-table td.asc, .pz-table td.note { grid-column: 1 / -1; }
-  .pz-table tbody th[scope="row"] { padding: .55em .6em .3em; }
-  .pz-table td.asc, .pz-table td.note { padding: 0 .6em .55em; font-size: .85em; }
-  .pz-table .tn { font-size: .92em; }
-  .pz-table .pz-ck { display: inline; font-size: .72em; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+  .pz-table table { font-size: 15px; }
+  .pz-table tr { display: grid; grid-template-columns: minmax(6.6rem, 1.6fr) repeat(var(--nc, 7), minmax(0, 1fr)) var(--asc-w, 0px); align-items: center; }
+  .pz-table thead { position: sticky; top: -16px; z-index: 2; }   /* (the card's padding: the heads stick to its top edge) */
+  .pz-table thead tr { background: var(--surface-2); border-radius: 12px 12px 0 0; }
+  .pz-table thead th { padding: .7em 0; font-size: 8.5px; line-height: 1.15; letter-spacing: 0; overflow-wrap: anywhere; white-space: normal; text-align: center; }
+  .pz-table thead th:first-child { text-align: left; padding-left: 10px; }
+  .pz-table thead th:not(.num):not(:first-child):not(.ah) { display: none; }
+  .pz-table th, .pz-table td { padding: .5em .1em; }
+  .pz-table tbody th[scope="row"] { display: flex; align-items: center; gap: 6px; padding: .55em 4px .55em 10px; min-width: 0; }
+  .pz .pz-table tbody th .pz-kick { font-size: 0; gap: 0; flex: none; }
+  .pz-table tbody th .pz-kick i { width: 7px; height: 7px; }
+  .pz-table .tn { min-width: 0; margin: 0; font-size: 12.5px; line-height: 1.15; overflow-wrap: break-word; -webkit-hyphens: auto; hyphens: auto; }
+  .pz-table td.num { font-size: 14px; }
+  .pz-table .pz-arr svg { height: .85em; }
+  .pz-table td.asc { padding: .3em 6px .3em 2px; font-size: 10px; line-height: 1.3; white-space: normal; text-align: left; }
+  .pz-table td.asc .ap { display: block; white-space: nowrap; }
+  .pz-table td.asc small { font-size: .85em; text-transform: uppercase; letter-spacing: .03em; color: var(--text-3); }
+  .pz-table td.asc .sep { display: none; }   /* (no separator between the two stacked lines) */
+  .pz-table td.note { grid-column: 1 / -1; padding: 0 10px .6em 23px; font-size: 11px; text-align: left; }
 }
-.pz-ck { display: none; }
 .pz-table tbody tr.static { cursor: default; }
 .pz-table tbody tr.static:hover { background: none; }
 /* The visuals: a scale with thresholds, SAAG × protein, the two capillary walls. */
