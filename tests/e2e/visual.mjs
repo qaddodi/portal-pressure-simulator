@@ -3,8 +3,11 @@
 //
 //   node tests/e2e/visual.mjs           compare; exit 1 when a view drifts past the threshold
 //   node tests/e2e/visual.mjs --update  rewrite the references (after a deliberate change to the look)
+//   node tests/e2e/visual.mjs --refresh compare, and rewrite only the references of views that drifted
+//                                       (the preview workflow runs this on CI's own machines)
 //   VISUAL_OUT=dir                      where the current pictures and diffs of a failure go
 //                                       (default test-results/visual)
+//   VISUAL_DEVICE=phone                 one device only (CI checks each device on its own runner)
 //
 // The model is paused and motion reduced, so a view is still. Pictures are kept at half size and
 // compared there: a live number that differs in its last digit, or anti-aliasing that differs
@@ -20,6 +23,8 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const REF = join(ROOT, 'tests/visual');
 const OUT = resolve(process.env.VISUAL_OUT || join(ROOT, 'test-results/visual'));
 const update = process.argv.includes('--update');
+const refresh = process.argv.includes('--refresh');
+let refreshed = 0;
 // A pixel differs when a channel moves by more than TOL (of 255); a view fails when more than
 // LIMIT of its pixels differ.
 const TOL = 40, LIMIT = 0.01;
@@ -72,7 +77,7 @@ const steady = async (page) => {
   await page.waitForFunction(() => !document.getAnimations().some((x) => x.playState === 'running'), null, { timeout: 20000 }).catch(() => {});
 };
 
-for (const [device, opts] of Object.entries(DEVICES)) {
+for (const [device, opts] of Object.entries(DEVICES).filter(([d]) => !process.env.VISUAL_DEVICE || d === process.env.VISUAL_DEVICE)) {
   for (const [name, scheme, view, lens] of VIEWS) {
     const id = `${device}-${name}`;
     const ctx = await browser.newContext({ ...opts, colorScheme: scheme, reducedMotion: 'reduce', serviceWorkers: 'block' });
@@ -115,7 +120,11 @@ for (const [device, opts] of Object.entries(DEVICES)) {
         if (res.share <= LIMIT) break;
       }
       const { share, mask, w, h } = res;
-      if (share > LIMIT) {
+      if (share > LIMIT && refresh) {
+        writeFileSync(refPath, Buffer.from(cur.png, 'base64'));
+        refreshed++;
+        console.log(`ref  ${id} refreshed (${Number.isFinite(share) ? (share * 100).toFixed(2) + '% of pixels differed' : 'size changed'})`);
+      } else if (share > LIMIT) {
         failed++;
         mkdirSync(OUT, { recursive: true });
         writeFileSync(join(OUT, `${id}.png`), Buffer.from(cur.png, 'base64'));
@@ -137,5 +146,6 @@ for (const [device, opts] of Object.entries(DEVICES)) {
 
 await browser.close();
 server.close();
+if (refreshed) console.log(`\n${refreshed} reference(s) refreshed in tests/visual.`);
 if (failed) console.log(`\n${failed} view(s) changed. If the change is intended, run: npm run visual -- --update\nThe current pictures and diffs are in ${OUT}.`);
 process.exit(failed ? 1 : 0);

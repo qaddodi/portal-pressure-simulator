@@ -51,38 +51,7 @@ jobs:
         shard: ['1/2', '2/2']
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      # Chromium comes from a cache keyed on the Playwright version, so only the system packages
-      # come from apt. A slow apt mirror then fails this step clearly instead of eating the job.
-      - name: Playwright version
-        id: playwright
-        run: echo "version=$(node -p "require('./package-lock.json').packages['node_modules/playwright-core'].version")" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v4
-        id: playwright-cache
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
-      - name: Download Chromium
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        timeout-minutes: 4
-        run: npx playwright install chromium
-      # The runner image usually has every library Chromium needs already; apt (the slow,
-      # mirror-dependent part) runs only when ldd reports one missing.
-      - name: Install Chromium system packages
-        timeout-minutes: 4
-        run: |
-          missing=$(find ~/.cache/ms-playwright -type f \( -name chrome -o -name headless_shell -o -name chrome-headless-shell \) \
-            -exec ldd {} + | grep 'not found' | sort -u || true)
-          if [ -n "$missing" ]; then
-            echo "Missing libraries:"; echo "$missing"
-            npx playwright install-deps chromium
-          else
-            echo "All Chromium libraries present; skipping apt."
-          fi
+      - uses: ./.github/actions/setup-browser
       # Pages serves the repository root, so the browser checks run against it. The
       # production-build pass (npm run smoke:dist, for the SCORM package) stays in npm run check.
       - name: Browser checks
@@ -97,6 +66,51 @@ jobs:
         with:
           name: workspace-browser-checks-${{ matrix.device }}-${{ strategy.job-index }}
           path: workspace-shots/
+          if-no-files-found: ignore
+
+  # Keeps tests/visual in step with the preview, so the references never pile up before a merge:
+  # on the integration branch, views whose look changed get their references redrawn here, on CI's
+  # own machines (the ones the merge check compares on), and committed back to the branch with the
+  # list of views in the message. The owner reviews the look itself on the published preview.
+  visual-refresh:
+    if: github.ref_name == 'claude/settings-topbar-icon-flvft1'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: visual-refresh-${{ github.ref }}
+      cancel-in-progress: true
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-browser
+      - name: Compare, and redraw the references of views that changed
+        shell: bash
+        run: npm run visual -- --refresh | tee visual.log
+      - name: Commit refreshed references
+        env:
+          SHA: ${{ github.sha }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          git add tests/visual
+          if git diff --cached --quiet; then echo "References already match."; exit 0; fi
+          views=$(grep -o '^ref  [^ ]*' visual.log | cut -c6- | paste -sd, -)
+          git -c user.name='github-actions[bot]' -c user.email='41898341+github-actions[bot]@users.noreply.github.com' \
+            commit -m "Refresh visual references for ${SHA:0:7}: $views"
+          # Other pushes may have landed meanwhile: replay on top of them (never a force-push).
+          for i in 1 2 3; do
+            git pull --rebase origin "$BRANCH" && git push origin "HEAD:$BRANCH" && exit 0
+            git rebase --abort 2>/dev/null || true
+            sleep $((i * 5))
+          done
+          echo "::warning::Could not push the refreshed references; the next preview push redraws them."
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visual-refresh
+          path: tests/visual/
           if-no-files-found: ignore
 
   # Only main and the one integration branch publish. Other claude/** branches are still checked,

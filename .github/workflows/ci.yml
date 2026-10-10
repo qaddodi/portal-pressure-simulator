@@ -8,10 +8,18 @@ on:
 permissions:
   contents: read
 
+# A newer push to the same pull request replaces a run still in progress.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# The browser checks used to run one after another in a single job (source site, then build, then
+# the visual check): about 40 minutes, and one timeout meant starting over. Now every share runs on
+# its own runner at the same time, so the run takes as long as the slowest share.
 jobs:
-  check:
+  quick:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,45 +33,61 @@ jobs:
         run: npm test
       - name: Production build
         run: npm run build
-      # Chromium comes from a cache keyed on the Playwright version; only the system packages
-      # come from apt, with their own time limit so a slow mirror fails clearly.
-      - name: Playwright version
-        id: playwright
-        run: echo "version=$(node -p "require('./package-lock.json').packages['node_modules/playwright-core'].version")" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v4
-        id: playwright-cache
+      - name: Performance report
+        run: npm run perf -- dist
+
+  # The build-free site (what Pages serves) and the production build (the SCORM package), each on
+  # a desktop and a phone, in two shares: eight runners, one check at a time on each (a runner is
+  # too small to run several browsers at once). A check that only timed out gets one more try.
+  browser-checks:
+    name: browser-checks (${{ matrix.site }}, ${{ matrix.device }} ${{ matrix.shard }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        site: [source, build]
+        device: [desktop, phone]
+        shard: ['1/2', '2/2']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-browser
+      - name: Production build
+        if: matrix.site == 'build'
+        run: npm run build
+      - name: Browser checks
+        env:
+          SHOTS: browser-shots
+          SMOKE_DEVICE: ${{ matrix.device }}
+          SMOKE_SHARD: ${{ matrix.shard }}
+          SMOKE_WORKERS: 1
+        run: npm run smoke -- ${{ matrix.site == 'build' && 'dist' || '.' }}
+      - uses: actions/upload-artifact@v4
+        if: failure()
         with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
-      - name: Download Chromium
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        timeout-minutes: 4
-        run: npx playwright install chromium
-      # The runner image usually has every library Chromium needs already; apt (the slow,
-      # mirror-dependent part) runs only when ldd reports one missing.
-      - name: Install Chromium system packages
-        timeout-minutes: 4
-        run: |
-          missing=$(find ~/.cache/ms-playwright -type f \( -name chrome -o -name headless_shell -o -name chrome-headless-shell \) \
-            -exec ldd {} + | grep 'not found' | sort -u || true)
-          if [ -n "$missing" ]; then
-            echo "Missing libraries:"; echo "$missing"
-            npx playwright install-deps chromium
-          else
-            echo "All Chromium libraries present; skipping apt."
-          fi
-      - name: Smoke test (build-free site)
-        run: npm run smoke
-      - name: Smoke test (production build)
-        run: npm run smoke:dist
-      # The look (organ tones and light, vessels, lobule) against tests/visual; on a failure the
-      # current pictures and diffs are kept as an artifact.
+          name: browser-checks-${{ matrix.site }}-${{ matrix.device }}-${{ strategy.job-index }}
+          path: browser-shots/
+          if-no-files-found: ignore
+
+  # The look (organ tones and light, vessels, lobule) against tests/visual, one device per runner;
+  # on a failure the current pictures and diffs are kept as an artifact.
+  visual:
+    name: visual (${{ matrix.device }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        device: [desktop, phone]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-browser
       - name: Visual regression
+        env:
+          VISUAL_DEVICE: ${{ matrix.device }}
         run: npm run visual
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: visual-diff
+          name: visual-diff-${{ matrix.device }}
           path: test-results/visual
-      - name: Performance report
-        run: npm run perf -- dist
