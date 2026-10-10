@@ -19,10 +19,10 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=61c8b94b98';
 import { sinusoidSupported } from './sinusoid-view.js?v=746b94f699';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
-import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=93d381e8df';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=290c1c555a';
 import { createHvpgMonitor } from './hvpg-proc.js?v=bd13aee321';
 import { createTools } from './presenter-tools.js?v=215fa58294';
-import { openHandout } from './handout.js?v=252beba081';
+import { openHandout } from './handout.js?v=ae57ad6b00';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -1660,7 +1660,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     if (ms) { await wait(260); view.style.opacity = ''; await wait(ms + 60); view.style.transition = ''; }
   }
 
-  // ── Library (Home › Present) ──
+  // ── Library (the menu's Present column) ──
   function captureStep() {
     const st = store.get();
     return { title: st.presetList?.find((p) => p.id === st.presetId)?.label || 'Step', preset: st.presetId, params: structuredClone(st.params), view: st.view, notes: '' };
@@ -1695,17 +1695,20 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   function addToLibrary(s) {
     if (!s?.title || !Array.isArray(s.steps)) throw new Error('bad script');
     const list = readMine();
-    list.push({ ...s, id: 'my-' + Date.now().toString(36), builtin: undefined });
+    const id = 'my-' + Date.now().toString(36);
+    list.push({ ...s, id, builtin: undefined });
     writeMine(list); rerenderHome?.();
     toast(`Added “${s.title}” to your scripts.`);
+    return id;
   }
-  /** A shared link (#script=…) adds its script to this device's library. */
+  /** A shared link (#script=…) adds its script to this device's library; returns its id (true if it could not be read). */
   function readLink() {
     const m = location.hash.match(/#script=([\w-]+)/);
     if (!m) return false;
-    try { addToLibrary(dec(m[1])); } catch { toast('The shared script could not be read.'); }
+    let id = true;
+    try { id = addToLibrary(dec(m[1])); } catch { toast('The shared script could not be read.'); }
     history.replaceState(null, '', location.pathname + location.search);
-    return true;
+    return id;
   }
 
   // A small still of the deck's first slide (brand/decks, made by scripts/deck-stills.mjs) in the page's theme;
@@ -1717,38 +1720,9 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     img.onerror = () => img.remove();
     return img;
   }
-  function home() {
-    const mine = readMine();
-    const deckCard = (d) => h('article', { class: 'pz-deck', 'data-level': d.level },
-      h('div', { class: 'pzd-head' },
-        h('div', { class: 'pzd-hd' },
-          h('div', { class: 'pzd-top' }, h('span', { class: 'pzd-lvl' }, LEVELS[d.level] || ''), h('span', { class: 'pzd-meta' }, `${d.slides.length + 1} slides · ${d.minutes} min`)),
-          h('h3', {}, d.title)),
-        deckStill(d)),
-      h('div', { class: 'script-acts' },
-        h('button', { class: 'btn sm primary', onclick: () => start(d.id) }, svgIcon('projector', 'mi-ic'), 'Present'),
-        h('button', { class: 'btn ghost sm', onclick: () => shareDeck(d) }, 'Copy link'),
-        h('button', { class: 'btn ghost sm', title: 'Speaker notes and questions for the room, one row per slide, to print or keep on a phone', onclick: () => openHandout(d) }, 'Print notes')));
-    const scriptCard = (s) => h('div', { class: 'home-item script' },
-      h('span', { class: 'meta' }, `${s.steps.length} slides · Yours`), h('span', { class: 't' }, s.title), h('span', { class: 'd' }, s.summary || ''),
-      h('span', { class: 'script-acts' },
-        h('button', { class: 'btn sm primary', onclick: () => start(s.id) }, svgIcon('projector', 'mi-ic'), 'Present'),
-        h('button', { class: 'btn sm', onclick: () => addStep(s.id) }, 'Add current state'),
-        h('button', { class: 'btn sm ghost', onclick: () => shareScript(s) }, 'Share link'),
-        h('button', { class: 'btn sm ghost', onclick: () => exportScript(s) }, 'Export'),
-        h('button', { class: 'btn sm ghost', onclick: () => openHandout(fromScript(s)) }, 'Print notes'),
-        h('button', { class: 'btn sm ghost', onclick: () => remove(s.id) }, 'Delete')));
-    return h('div', { class: 'pz-lib' },
-      h('p', { class: 'ctl-sub lib-note' }, 'Slide presentations that run on the live model, with a question for the audience on each slide.'),
-      // Simple to advanced, a thin divider naming each level (decks keep their order within it).
-      ...Object.keys(LEVELS).flatMap((lv) => { const ds = DECKS.filter((d) => d.level === lv); return ds.length ? [h('h3', { class: 'pz-lvl-div' }, LEVELS[lv]), h('div', { class: 'pz-decks' }, ds.map(deckCard))] : []; }),
-      h('h3', { class: 'home-sub' }, 'Your scripts'),
-      mine.length ? h('div', { class: 'home-grid' }, mine.map(scriptCard)) : h('p', { class: 'ctl-sub' }, 'A script is a series of model states you capture yourself. It plays like the presentations above.'),
-      h('div', { class: 'btn-row', style: { marginTop: '12px' } },
-        h('button', { class: 'btn', onclick: newScript }, 'New script from the current model'),
-        h('button', { class: 'btn', onclick: importFile }, 'Import a script')),
-      h('p', { class: 'ctl-sub' }, 'While presenting: → or Page Down next, ← back, a number then Enter jumps, B black screen, F full screen, Q quiz, P projector contrast, Esc stops. Clickers work.'));
-  }
+  // What the unified menu (menu.js) lists and does: the presentations, this device's scripts and their actions.
+  const library = () => ({ decks: DECKS, topics: TOPICS, levels: LEVELS, mine: readMine(), still: deckStill, start, shareDeck, notes: openHandout,
+    scriptNotes: (s) => openHandout(fromScript(s)), newScript, importFile, addStep, shareScript, exportScript, remove, current: () => deck?.id ?? null });
 
   // Present a case: any case full screen for a class. Projector-size labels on the figure; the slim bar reminds the presenter to take a show of hands before committing.
   let classBar = null;
@@ -1772,5 +1746,5 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   }
   addEventListener('keydown', (e) => { if (classBar && e.key === 'Escape' && !deck) endCase(); });
 
-  return { start, stop, home, readLink, presentCase, active: () => !!deck };
+  return { start, stop, library, readLink, presentCase, active: () => !!deck };
 }

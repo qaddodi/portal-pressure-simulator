@@ -208,13 +208,33 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.locator('.action-card').waitFor({ state: 'hidden' });
   });
 
-  await check(device, 'home, palette, presenter, instruments', async (page) => {
-    await open(page, '?home=explore');
-    await page.waitForSelector('#home:not([hidden])');
-    await shot(page, `${device}-home`);
-    await page.evaluate(() => window.pps.home.open('present'));
-    await page.waitForFunction(() => document.querySelector('#home .pz-deck, #home .script'));
+  await check(device, 'menu, palette, presenter, instruments', async (page) => {
+    // ?home=present opens the one menu: both columns side by side, or a bottom sheet on a phone.
+    await open(page, '?home=present');
+    await page.waitForSelector('.umenu .um-row[data-k="d:hvpg"]');
+    const sheet = await page.evaluate(() => document.querySelector('.umenu').classList.contains('sheet'));
+    if (sheet !== (device === 'phone')) throw new Error(`the menu is ${sheet ? 'a sheet' : 'a popover'} on ${device}`);
+    if (!sheet) {
+      const [a, b] = await page.evaluate(() => [...document.querySelectorAll('.um-col')].map((c) => c.getBoundingClientRect().left));
+      if (!(b > a + 200)) throw new Error('the menu does not show Present and Patients side by side');
+    }
+    await shot(page, `${device}-menu`);
+    // Typing "hvpg" leaves one presentation; Enter presents it.
+    await page.fill('.um-q', 'hvpg');
+    const left = await page.evaluate(() => [...document.querySelectorAll('.um-col[data-col="present"] li:not([hidden]) > .um-row')].filter((r) => r.offsetParent).length);
+    if (left !== 1) throw new Error(`"hvpg" left ${left} presentations`);
+    await page.press('.um-q', 'Enter');
+    await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting'));
     await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('#app').classList.contains('presenting'));
+    // A patient row loads that patient and marks it current.
+    await page.click('#btnMenu');
+    await page.click('.um-row[data-k="p:schisto"]');
+    await page.waitForFunction(() => window.pps.store.get().presetId === 'schisto' && !window.pps.menu.isOpen());
+    await page.click('#btnMenu');
+    await page.waitForSelector('.um-row[data-k="p:schisto"][aria-current="true"]');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('.umenu'));
     await page.evaluate(() => window.pps.palette.open());
     await page.waitForSelector('.pal-back:not([hidden])');
     await page.keyboard.press('Escape');
@@ -489,10 +509,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   // lobule's labels, the bedside monitor, charts drawn in SVG or on a canvas) has its own sizes.
   await check(device, 'one type and icon scale in every menu and card', async (page) => {
     const surfaces = [
-      ['explore', null], ['menu', '#btnMenu'], ['patients', '#scenarioBtn'], ['blood', '#btnBlood'], ['colors', '#btnLayers'],
+      ['explore', null], ['menu', '#btnMenu'], ['blood', '#btnBlood'], ['colors', '#btnLayers'],
       ['findings', '#btnInspector'], ['treat', '#btnTreat'], ['measure', '#tabInstruments'], ['search', '#btnPalette'],
       ['vessel card', { type: 'edge', id: 'PV_TRUNK' }], ['liver card', { type: 'organ', id: 'liver' }], ['all readouts', '#strip .ro-more'],
-      ['help', '?'], ['home', 'home'],
+      ['help', '?'], ['menu from a link', 'home'],
     ];
     const bad = new Set();
     await open(page, '?preset=cirr-decomp');
@@ -507,7 +527,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await page.waitForTimeout(500);
       const found = await page.evaluate(() => {
         const ART = '#stage, #labels, .lz-lab, .lz-zone, .mon, .legend, svg';
-        const DISPLAY = '.home-head h1, .presenter-title, .big-overlay';
+        const DISPLAY = '.presenter-title, .big-overlay';
         const SIZES = [12, 14, 16, 20, 28], WEIGHTS = [400, 500, 600], ICONS = [16, 20, 24];
         const shown = (el) => { const r = el.getBoundingClientRect(), st = getComputedStyle(el); return r.width > 0 && r.height > 0 && st.visibility !== 'hidden'; };
         const who = (el) => { const c = (e) => e ? e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (typeof e.className === 'string' && e.className ? '.' + e.className.trim().split(/\s+/)[0] : '') : ''; return `${c(el.parentElement)} > ${c(el)}`; };

@@ -601,3 +601,13 @@ export const DECKS = [
 DECKS.push(STIFFNESS, ONE_YEAR, TAP, CIRCUIT, LOBULE, SHUNTS);
 DECKS.push(DOPPLER, ENDOSCOPY);
 DECKS.push(PREHEPATIC, RIGHT_HEART, BLEED);
+
+// The unified menu lists the presentations by topic, in teaching order, under a short title (32 characters or fewer).
+export const TOPICS = [
+  ['foundations', 'Foundations', [['circulation', 'The portal circulation'], ['circuit', 'Pressure, flow and resistance']]],
+  ['causes', 'Causes', [['sites', 'Sites and causes'], ['prehepatic', 'Pre-hepatic PH'], ['right-heart', 'The right heart and the liver'], ['lobule', 'Inside the lobule']]],
+  ['measuring', 'Measuring', [['hvpg', 'HVPG and PPG'], ['doppler', 'Doppler of the portal system'], ['endoscopy', 'Endoscopy and the varix'], ['stiffness', 'Stiffness, spleen and platelets'], ['one-year', 'One patient, one year']]],
+  ['complications', 'Complications', [['varices', 'Collaterals and varices'], ['variceal-bleed', 'Acute variceal bleeding'], ['ascites', 'Where ascites comes from'], ['tap', 'The tap and the albumin']]],
+  ['treatment', 'Treatment', [['treatment', 'Lowering portal pressure'], ['shunts', 'Shunts, made and spontaneous']]],
+];
+for (const [topic, , list] of TOPICS) for (const [id, short] of list) { const d = DECKS.find((x) => x.id === id); if (d) Object.assign(d, { topic, short }); }

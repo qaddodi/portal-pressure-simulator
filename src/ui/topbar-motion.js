@@ -134,7 +134,7 @@ export function initTopbarMotion() {
   app._sin = app.classList.contains('sin-focus');
   mo.observe(bar, { attributes: true, subtree: true, attributeFilter: ['hidden', 'class', 'data-fit'], attributeOldValue: true });
   mo.observe(app, { attributes: true, attributeFilter: ['class'], attributeOldValue: true });
-  for (const id of ['scenarioName', 'modeName']) { const e = document.getElementById(id); if (e) mo.observe(e, { childList: true, characterData: true, subtree: true }); }
+  for (const id of ['scenarioName']) { const e = document.getElementById(id); if (e) mo.observe(e, { childList: true, characterData: true, subtree: true }); }
 
   // Layout that changes with no mutation of ours (fonts, a resize) is only recorded, never animated.
   const ro = new ResizeObserver(() => { if (snap) resnap(); });

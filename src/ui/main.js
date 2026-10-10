@@ -16,8 +16,7 @@ import { isBlind } from './learning-kit.js?v=98abf1f07d';
 import { createCompare } from './compare.js?v=4c30af58d2';
 import { createCard } from './card.js?v=20b6deb1ab';
 import { createChart, computeFindings } from './chart.js?v=04d2763737';
-import { createHome, ROLES } from './home.js?v=674855e5ac';
-import { course } from './course.js?v=3e9ae03e94';
+import { createMenu, ROLES } from './menu.js?v=de531de822';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=398e679a38';
 import { caption } from './a11y.js?v=57932e0bda';
 import { startLMS } from './lms.js?v=545a5a044e';
@@ -25,7 +24,7 @@ import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL 
 import { toolsToVerbs, normalizeSel, shuntable, edgeValue } from './actions.js?v=52483673ca';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=7616551729';
 import { EDGES } from '../engine/topology.js?v=706a39d50b';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=2bfec33ead';
+import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, uiScale, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=2bfec33ead';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const app = $('#app');
@@ -36,7 +35,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
 import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=0166e06ffb';
-import { initTopbarMotion } from './topbar-motion.js?v=a7ab34f946';
+import { initTopbarMotion } from './topbar-motion.js?v=a941da3e97';
 import { ORIGINS } from './blood.js?v=6c39f43ddf';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=2ab3fe1eb2';
 
@@ -54,10 +53,8 @@ const LENSES = {
   origin: ['Blood origin', 'Where each vessel\u2019s blood comes from', () => `linear-gradient(to right, ${ORIGIN_CSS.map((c, i) => `${c} ${i * 20}% ${(i + 1) * 20}%`).join(', ')})`],
 };
 const COLOR_MODES = { pressure: 'Pressure', delta: 'Change', heat: 'Congestion', drop: 'Pressure drop', flow: 'Flow volume', velocity: 'Velocity', direction: 'Flow direction', origin: 'Blood origin' };
-const GROUP_COLOR = { Baseline: 'var(--ok)', 'Pre-hepatic': 'var(--s1)', Hepatic: 'var(--s5)', 'Post-hepatic': 'var(--s4)' };
-const LEVEL = { Normal: 'Baseline', Prehepatic: 'Pre-hepatic', Presinusoidal: 'Hepatic', Sinusoidal: 'Hepatic', Postsinusoidal: 'Hepatic', Posthepatic: 'Post-hepatic', Cardiac: 'Post-hepatic' };
 
-let stage, inspector, dock, why, timeline, learn, cases, compare, card, chart, home;
+let stage, inspector, dock, why, timeline, learn, cases, compare, card, chart, mainMenu;
 
 // Surfaces most sessions never open (the command palette, the presenter) load
 // on first use, so the first paint only waits for the model, the figure and the chart.
@@ -75,7 +72,8 @@ const palette = {
   isOpen: () => !!paletteL.now()?.isOpen(),
 };
 const presenter = {
-  home: () => presenterL.now()?.home() ?? (presenterL.get().then(() => { if (home.isOpen()) home.render(); }), h('div', { class: 'home-loading' }, 'Loading…')),
+  library: () => presenterL.get().then((p) => p.library()),
+  libraryNow: () => presenterL.now()?.library() ?? null,
   start: (id, at) => presenterL.get().then((p) => p.start(id, at)),
   presentCase: (id) => presenterL.get().then((p) => p.presentCase(id)),
   stop: () => presenterL.now()?.stop(),
@@ -125,12 +123,12 @@ async function main() {
     scenarioLabel: () => store.get().presetList?.find((x) => x.id === store.get().presetId)?.label || 'Custom',
   });
   chart = createChart({
-    onWhy: (m, el) => why.open(m, el), flash: (ids) => stage.flash(ids), onScenarios: (el) => openScenarios(el),
+    onWhy: (m, el) => why.open(m, el), flash: (ids) => stage.flash(ids), onScenarios: () => mainMenu.open('patients'),
     action: doAction, startShunt: (id, o) => stage.startShunt(id, o), select, timeline, pinned: () => compare.section(),
   });
   inspector = createInspector($('#inspector'), {
     onWhy: (m, el) => why.open(m, el), onAction: doAction, onOpenTab: (id) => dock.show(id, { reveal: true }),
-    onScenarios: () => openScenarios($('#scenarioBtn')), onMode: (m) => store.set({ mode: m }), chart,
+    onScenarios: () => mainMenu.open('patients'), onMode: (m) => store.set({ mode: m }), chart,
   });
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
@@ -138,27 +136,22 @@ async function main() {
   const api = { beginSession, endSession, onEnd: () => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); }, muteEvents: () => {}, loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), showFound: (list) => stage.showFound(list), runHvpg: () => { dock.show('hvpg', { reveal: true }); dock.pane('hvpg')?.start(); }, openPanel, setBanner, select: (sel) => store.set({ selection: sel }) };
   // A lesson keeps its card in view where the panel covers the figure: instruments it opens are
   // flagged, not forced.
-  learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else home.open(o?.practice ? 'practice' : 'course'); } });
-  cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => home.open('course') });
-  presenterL = lazy(() => import('./presenter.js?v=941e7d113d'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else mainMenu.open(); } });
+  cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => mainMenu.open() });
+  presenterL = lazy(() => import('./presenter.js?v=7b4b684f8e'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
-    closeHome: () => home.close(), stashCards, rerenderHome: () => { if (home.isOpen()) home.render(); } }));
-  home = createHome({
-    el: $('#home'), brandMark,
-    onPreset: (id) => openInExplore(id),
-    onLesson: (id) => { home.close(); startLesson(id); },
-    onUnit: (id) => { home.close(); if (course.unit(id)?.caseUnit) startCaseUnit(id); else startLesson(id); },
-    onCase: (id) => { home.close(); startCase(id); },
-    onPresenter: () => presenter.home(),
-    onClose: () => home.close(),
-    onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
+    closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
+  mainMenu = createMenu({
+    anchor: $('#btnMenu'), library: presenter.library, libraryNow: presenter.libraryNow,
+    onPreset: (id) => openInExplore(id), share, help: (a) => openHelpMenu(a),
+    onToggle: (on, sheet) => { closePopover(); app.classList.toggle('menu-sheet-open', on && !!sheet); creditBesideMenu(on && !sheet); },
   });
   paletteL = lazy(() => import('./palette.js?v=5234ce36ad'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
     loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); toast(store.get().presetList.find((p) => p.id === id)?.label); },
-    lesson: (id) => startLesson(id), caseStart: (id) => startCase(id), home: () => home.open(), theme: () => toggleTheme(), help: () => openHelp(), share, restart: () => restartPatient(), reset: () => resetEverything(),
+    lesson: (id) => startLesson(id), caseStart: (id) => startCase(id), home: () => mainMenu.open(), theme: () => toggleTheme(), help: () => openHelp(), share, restart: () => restartPatient(), reset: () => resetEverything(),
   } }));
   card = createCard({
     view, stage, onWhy: (m, el) => why.open(m, el),
@@ -213,7 +206,7 @@ async function main() {
   };
   store.on('presetId', syncScenarioName);
   store.on('mode', syncScenarioName);
-  store.on('role', (r) => { if (home.isOpen()) home.render(); try { localStorage.setItem('pps.role', r); localStorage.removeItem('pps.narrator'); } catch { /* storage unavailable */ } narrPref = null; if (readLS('pps.showHvpg') == null) store.set({ showHvpg: r === 'student' }); app.dataset.role = r; card.render(); narrate(store.get().frame, performance.now(), true); });
+  store.on('role', (r) => { mainMenu.render(); try { localStorage.setItem('pps.role', r); localStorage.removeItem('pps.narrator'); } catch { /* storage unavailable */ } narrPref = null; if (readLS('pps.showHvpg') == null) store.set({ showHvpg: r === 'student' }); app.dataset.role = r; card.render(); narrate(store.get().frame, performance.now(), true); });
   $('#narratorWhy').addEventListener('click', (e) => why.open('pv', e.currentTarget));
   // Where the caption is clamped to two lines, a tap shows the rest (and a second tap folds it again).
   $('#narratorText').addEventListener('click', () => $('#narrator').classList.toggle('full'));
@@ -225,8 +218,9 @@ async function main() {
   store.on('selection', redraw);
 
   // Console handle for educators preparing a class (and for automated screenshots).
-  window.pps = { loadPreset, store, updateParams, setTool, dock, stage, host, card, timeline, home, palette, startLesson, startCase, presenter };
-  if (await presenter.readLink()) home.open('present');
+  window.pps = { loadPreset, store, updateParams, setTool, dock, stage, host, card, timeline, menu: mainMenu, palette, startLesson, startCase, presenter };
+  const linked = await presenter.readLink();
+  if (linked) mainMenu.open('scripts', { mark: typeof linked === 'string' ? linked : null });
   const shared = readShare();
   if (shared) await loadShared(shared); else timeline.reset();
   inspector.render();
@@ -235,10 +229,10 @@ async function main() {
   store.set({ booted: true });
   const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
   setTimeout(() => idle(() => { paletteL.warm(); presenterL.warm(); }), 3000);
-  addEventListener('pps:lang', () => { if (home.isOpen()) home.render(); });
+  addEventListener('pps:lang', () => mainMenu.render());
 }
 // Deep links, for an LMS or a syllabus: ?lesson=<id> (&step=<step id or n>), ?case=<id>, ?script=<id> (&slide=<n>), ?preset=<id>,
-// ?home=explore|learn|cases|present. They open straight into that activity.
+// ?home=explore|present (the menu, open at Patients or Present). They open straight into that activity.
 async function openDeepLink() {
   const q = new URLSearchParams(location.search);
   if (q.get('lesson')) { startLesson(q.get('lesson'), q.get('step')); return true; }
@@ -252,7 +246,7 @@ async function openDeepLink() {
     if (near) { await loadPreset(near.id); return true; }
     return false;
   }
-  if (q.get('home')) { home.open(q.get('home')); return true; }
+  if (q.get('home')) { mainMenu.open(q.get('home') === 'present' ? 'present' : 'patients'); return true; }
   return false;
 }
 const redraw = () => { const f = store.get().frame; if (f) stage.update(viewFrame(f)); };
@@ -275,7 +269,7 @@ function viewFrame(f) {
 // The engine ticks ~30×/s, but pressures ease over seconds, so the anatomy, readouts and panel
 // are repainted at most ~10×/s (the chevrons animate separately). Repainting the whole SVG plate
 // on every tick kept the main thread busy and the laptop warm for no visible gain.
-let lastPaint = 0, lastDesc = 0, homeStale = false;
+let lastPaint = 0, lastDesc = 0;
 // The Doppler's vessel glows on the figure while the Doppler instrument is open.
 function syncDoppler(f = store.get().frame) { stage?.setDoppler(f && dock?.isOpen('doppler') ? f.probe : null); syncScanProbe(); }
 // The FibroScan probe and its shear wave show on the figure while the FibroScan card is open in Explore; the Presenter drives its own.
@@ -302,13 +296,11 @@ function syncCollapse(m) {
 function onFrame(f) {
   if (f.params) replaceParams(f.params);
   if (f.events?.length) { const hid = store.get().hiddenEvents; const ev = hid ? f.events.filter((e) => !hid.has(e.id) && !(hid.has('COLL_*') && e.id.startsWith('COLL_'))) : f.events; if (ev.length) timeline.addEvents(ev); }
-  dock?.ingest(f);   // every frame's samples, even one that is not painted (or while Home covers everything)
+  dock?.ingest(f);   // every frame's samples, even one that is not painted
   const now = performance.now();
   if (!f.changed && !f.params && !f.events?.length && now - lastPaint < 80) return;
   lastPaint = now;
   store.set({ frame: f, running: f.running, clock: f.clock, ...(f.clock === 'hemo' && store.get().lapse ? { lapse: 0, speed: f.speed } : {}) });
-  // Home covers the whole workspace: keep the latest frame, paint it when Home closes.
-  if (home?.isOpen()) { homeStale = true; return; }
   stage.update(viewFrame(f));
   syncCollapse(f.metrics);
   card.update(f);
@@ -322,7 +314,6 @@ function onFrame(f) {
   if (tipInfo) hoverInfo(tipInfo);   // the readings popup stays live with the sim
   updateBleedBanner(f);
   updateFindBadge(f);
-  syncModeName();
   if (projector) updateProjector(f);
   if (now - lastDesc > 3000) { lastDesc = now; $('#stage').setAttribute('aria-description', caption(f)); }
   narrate(f, now);
@@ -362,27 +353,20 @@ function setNarrator(on) {
 
 
 // ── Scenarios & share ───────────────────────────────
-function openScenarios(anchor) {
-  const presets = store.get().presetList;
-  const groups = {};
-  for (const p of presets) (groups[p.group] ||= []).push(p);
-  const cur = store.get().presetId;
-  const body = h('div', {},
-    h('div', { class: 'scn-head' }, 'Patients'),
-    Object.entries(groups).map(([g, ps]) => h('div', { class: 'scn-group' + (LEVEL[g] === 'Hepatic' ? ' sub' : '') },
-      LEVEL[g] === 'Hepatic' && g === 'Presinusoidal' ? h('div', { class: 'menu-title' }, h('i', { style: { background: GROUP_COLOR.Hepatic } }), 'Hepatic') : null,
-      LEVEL[g] === 'Hepatic' ? h('div', { class: 'scn-sub' }, g === 'Sinusoidal' ? 'Intrasinusoidal' : g) : h('div', { class: 'menu-title' }, h('i', { style: { background: GROUP_COLOR[LEVEL[g]] || 'var(--text-3)' } }), LEVEL[g] || g),
-      ps.map((p) => h('button', { class: 'scn', title: p.summary, 'aria-current': String(p.id === cur), onclick: async () => {
-        closePopover();
-        await loadPreset(p.id);
-        toast(p.days ? `${p.label}: ${p.days} simulated days applied.` : p.label);
-      } }, p.label.replace(/\s*\(.*\)$/, ''))))));
-  popover(anchor, body, { cls: 'scenario-pop', align: 'end' });
+// The corner credit stays on the figure while the menu's popover is open: it slides to the right of the panel,
+// or fades out when the panel leaves no room for it there.
+function creditBesideMenu(on) {
+  const c = $('.stage-credit'), m = document.querySelector('.umenu:not(.out)');
+  if (!c) return;
+  if (!on || !m) { c.style.removeProperty('translate'); c.classList.remove('um-covered'); return; }
+  const z = uiScale(), mr = m.getBoundingClientRect(), cr = c.getBoundingClientRect();
+  if (cr.top > mr.bottom + 4 || cr.left > mr.right + 8) return;
+  const dx = mr.right + 24 * z - cr.left;
+  if (mr.right + 24 * z + cr.width + 16 * z > innerWidth) c.classList.add('um-covered');
+  else c.style.translate = `${dx}px 0`;   // (the figure's layer is not zoomed)
 }
-
-// The patient picker's path: close Home, switch to Explore and load the patient (also used by "Open this patient in Explore").
+// The menu's patient rows: switch to Explore and load the patient (also used by "Open this patient in Explore").
 async function openInExplore(id) {
-  home.close();
   if (store.get().mode !== 'explore') store.set({ mode: 'explore' });
   await loadPreset(id);
 }
@@ -482,7 +466,6 @@ function endSession(kind, opts) {
 }
 
 function startLesson(id, step) { if (store.get().mode === 'cases') cases.exit(); store.set({ mode: 'learn' }); learn.start(id, step); }
-function startCaseUnit(id) { if (store.get().mode === 'learn') learn.stop(); store.set({ mode: 'cases' }); cases.startUnit(id); }
 function startCase(id) { if (store.get().mode === 'learn') learn.stop(); store.set({ mode: 'cases' }); cases.start(id); openPanel(); }
 
 // ── Actions ─────────────────────────────────────────
@@ -808,8 +791,7 @@ function renderBanner() {
 // ── Top bar & transport ─────────────────────────────
 function wireTopbar() {
   initDebug(() => stage.zoomLevel());
-  $('#btnMenu').addEventListener('click', (e) => openMainMenu(e.currentTarget));
-  $('#scenarioBtn').addEventListener('click', (e) => openScenarios(e.currentTarget));
+  $('#btnMenu').addEventListener('click', () => mainMenu.toggle());
   $('#btnSettings').addEventListener('click', (e) => openSettings(e.currentTarget));
   $('#btnPalette').addEventListener('click', () => palette.open());
   $('#btnInspector').addEventListener('click', () => { if (panelShown() && !store.get().details) closePanel(); else { store.set({ details: null }); openPanel(); } });
@@ -817,31 +799,6 @@ function wireTopbar() {
   for (const [id, side] of [['#btnPalette', 'bottom'], ['#btnTreat', 'bottom'], ['#btnInspector', 'bottom'], ['#zoomIn', 'left'], ['#zoomOut', 'left'], ['#zoomFit', 'left'], ['#rotateCircuit', 'left']]) {
     const b = $(id); tooltipFor(b, b.title, side); b.removeAttribute('title');
   }
-}
-// The main menu (the button at the top left, named after the current mode): where to go (Explore,
-// Presenter), what to do with the figure (share, export, present), and the
-// settings and help. It replaces the logo (which gave no sign it was a menu) and three icons.
-const MODE_NAME = { explore: 'Explore', learn: 'Lesson', cases: 'Case', compare: 'Explore' };
-function syncModeName() {
-  const n = presenter.active() ? 'Presenter' : MODE_NAME[store.get().mode] || 'Explore', el = $('#modeName');
-  if (el.textContent !== n) el.textContent = n;
-}
-function openMainMenu(anchor) {
-  const mode = store.get().mode;
-  const go = (tab) => () => { closePopover(); home.open(tab); };
-  const sub = (label, ic, fn, d) => { const b = menuItem(label, { icon: ic, onClick: () => { closePopover(); fn(); } }); if (d) b.append(h('small', { class: 'mi-d' }, d)); return b; };
-  const modeItem = (id, tab, ic, label, d) => { const b = sub(label, ic, go(tab), d); b.classList.add('mm-mode'); if (mode === id) b.setAttribute('aria-current', 'true'); return b; };
-  popover(anchor, [
-    h('div', { class: 'mm-head' }, brandMark(), h('div', {}, h('b', {}, 'Portal Pressure Simulator'), h('small', {}, 'Choose what to do'))),
-    h('div', { class: 'mm-modes' },
-      modeItem('explore', 'explore', 'explore', 'Explore a patient', 'Any of the patients, from healthy to Budd–Chiari'),
-      // The course, lessons and cases are hidden (their code stays); the presenter is open to both roles.
-      modeItem('present', 'present', 'projector', 'Present', 'Slide presentations on the live model')),
-    h('div', { class: 'menu-sep' }),
-    menuItem('Copy a link to this exact state', { icon: 'share', onClick: () => { closePopover(); share(); } }),
-    h('div', { class: 'menu-sep' }),
-    menuItem(t('menu.help') + '…', { icon: 'help', kb: '?', onClick: () => { closePopover(); setTimeout(() => openHelpMenu(anchor), 0); } }),
-  ], { cls: 'main-menu', align: 'start' });
 }
 // The role ("I am a…") in Settings: choosing one sets store.role, and the 'role' listener saves it
 // and redraws the cards, the chart and Home.
@@ -985,11 +942,9 @@ function applyTheme(t, clear) {
   syncStatusBar();
 }
 // The browser's and the installed app's status bar take the color of whatever sits under it: the
-// figure (the top bar floats over it), or the start screen when it is open. The theme can differ from the system's, so the
-// color comes from the page, not from a media query.
+// figure (the top bar floats over it). The theme can differ from the system's, so the color comes from the page, not from a media query.
 function syncStatusBar() {
-  const homeEl = document.getElementById('home');
-  const el = homeEl && !homeEl.hidden ? homeEl : document.getElementById('stageWrap');
+  const el = document.getElementById('stageWrap');
   const c = el && getComputedStyle(el).backgroundColor;
   if (!c || c === 'rgba(0, 0, 0, 0)') return;
   let m = document.querySelector('meta[name="theme-color"]:not([media])');
@@ -1000,7 +955,6 @@ function syncStatusBar() {
   if (m.content !== c) m.content = c;
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => syncStatusBar());
-new MutationObserver(() => syncStatusBar()).observe(document.getElementById('home'), { attributes: true, attributeFilter: ['hidden'] });
 // (again once the figure's background has finished its .5 s fade)
 new MutationObserver(() => { syncStatusBar(); setTimeout(syncStatusBar, 600); }).observe(document.getElementById('app'), { attributes: true, attributeFilter: ['class'] });
 function readLS(k) { try { return localStorage.getItem(k); } catch { return null; } }
@@ -1314,7 +1268,6 @@ function closeTreat() {
 function onMode(mode) {
   app.dataset.mode = mode;
   const ptitle = document.querySelector('#panelTitle span'); if (ptitle) ptitle.textContent = 'Patient';
-  syncModeName();
   if (mode !== 'cases' && cases?.active()) cases.exit();
   if (mode !== 'learn' && learn?.active()) learn.stop();
   if (mode !== 'learn' && mode !== 'cases') { bannerInfo = null; store.set({ focus: null }); }
@@ -1343,7 +1296,7 @@ function wireKeyboard() {
     if (e.key === 'Escape') {
       closePopover();
       if (isModalOpen()) closeModal();
-      else if (home.isOpen()) home.close();
+      else if (mainMenu.isOpen()) mainMenu.close();
       else if (projector) toggleProjector();
       else if (app.classList.contains('instrument-focus')) dock.setState('open');
       else if (treatOpen()) closeTreat();
@@ -1353,7 +1306,7 @@ function wireKeyboard() {
       else store.set({ selection: null });
       return;
     }
-    if (isModalOpen() || home.isOpen()) return;
+    if (isModalOpen() || mainMenu.isOpen()) return;
     if (e.key === '/') { e.preventDefault(); palette.open(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); (e.shiftKey ? doRedo : doUndo)(); return; }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -1433,11 +1386,6 @@ function wirePanel() {
 }
 
 // ── Help & first run ────────────────────────────────
-function brandMark() {
-  const s = document.querySelector('.brand-mark').cloneNode(true);
-  s.removeAttribute('class'); s.removeAttribute('hidden');
-  return s;
-}
 function openHelp(section) {
   const rows = [
     ['Space', 'Play / pause'], ['[ ]', 'Slower / faster'], ['.', 'Step'], ['Z', 'Settle to equilibrium'], ['A', 'Anatomy ⇄ circuit'],
