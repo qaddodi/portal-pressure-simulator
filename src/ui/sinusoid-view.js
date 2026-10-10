@@ -23,7 +23,7 @@ import { h, fmt, clamp, lerp } from './util.js?v=e803df99cd';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { isPaused } from './clock.js?v=e759f7bea1';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=ed4006f082';
+import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=ccb499b54c';
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
@@ -44,15 +44,20 @@ export function createSinusoidView({ host }) {
   // leader, with its reading (if any) beneath in the lobule's number style. Captions in a narrow band (the lumen,
   // Disse) run along the vessel; those in the hepatocyte plates stay level.
   const regions = {};
-  function region(key, name, value, x, y, { along = false, side = 0 } = {}) {
+  // One caption, built one way for every name in the view (the ends' venules are written exactly as the Sinusoid's own).
+  function caption(key, cls, name, value) {
     let R = regions[key];
-    if (!R) { R = regions[key] = { el: h('div', { class: `sv-region sv-region-${key}` }) }; labels.append(R.el); }
+    if (!R) { R = regions[key] = { el: h('div', { class: cls }) }; labels.append(R.el); }
     const txt = name + '|' + value;
     if (R.text !== txt) {
       R.text = txt;
       const lines = value ? value.split(' · ') : [];
       R.el.replaceChildren(h('span', {}, name), ...lines.map((l) => { const [v, u] = l.split('~'); return h('span', { class: 'v' }, h('b', {}, v), u ? ` ${u}` : ''); }));
     }
+    return R;
+  }
+  function region(key, name, value, x, y, { along = false, side = 0 } = {}) {
+    const R = caption(key, `sv-region sv-region-${key}`, name, value);
     // side ±1: the caption sits wholly on that side of y (across the vessel), its near edge at y.
     const w = R.el.offsetWidth, hh = R.el.offsetHeight, ang = along && !geo.vert ? geo.ang : 0;   // (always level on a top-down sinusoid)
     const across = along ? hh : Math.abs(w * Math.sin(geo.ang)) + Math.abs(hh * Math.cos(geo.ang));
@@ -298,7 +303,6 @@ export function createSinusoidView({ host }) {
   }
 
   // ── Labels ──
-  const tags = {};
   function layoutTags() {
     const g = geo, m = model, hep = UM.hep, V = g.vert;
     const pick = (u) => lerp(VW.fr[0] + 8, VW.fr[1] - 8, u);
@@ -349,16 +353,8 @@ export function createSinusoidView({ host }) {
     // The ends: the portal venule the blood comes from and the central venule it goes to, with their pressures (as the lobule labels them).
     const m = model, val = (P) => (m.hide ? '?' : `${fmt(P, 1)}~mmHg`);
     for (const [key, name, value, u] of [['in', 'Portal venule', val(m.P1), 0], ['out', 'Central venule', val(m.P3), 1]]) {
-      let T = tags[key];
-      if (!T) { T = tags[key] = { el: h('div', { class: 'lz-lab sv-tag sv-end' }) }; labels.append(T.el); }
-      const txt = name + '|' + value;
-      if (T.text !== txt) {
-        T.text = txt;
-        const [v, un] = value.split('~');
-        T.el.replaceChildren(h('span', { class: 'n' }, name), h('span', { class: 'v' }, h('b', {}, v), un ? h('small', {}, ' ' + un) : null));
-      }
-      T.el.classList.toggle('left', !g.vert && u === 1);
-      T.el.classList.toggle('vert', g.vert);   // (stacked and centred on a top-down sinusoid)
+      // (The Sinusoid's own caption, class and all: same capitals, size, ink, halo and reading.)
+      const T = caption(key, 'sv-region sv-region-sin sv-end', name, value);
       const w = T.el.offsetWidth, hh = T.el.offsetHeight;
       let x, y;
       // Its arrow (drawn by the shader) sits on the far side of the label: above the portal venule's, below the central venule's
@@ -370,7 +366,7 @@ export function createSinusoidView({ host }) {
       const ca = Math.cos(g.ang), sa = Math.sin(g.ang);
       END[u] = ((ax - VW.C[0]) * ca + (ay - VW.C[1]) * sa) / VW.k;
     }
-    END[2] = 20 / VW.k;
+    END[2] = 17 / VW.k;   // (a fine arrow, smaller than the names beside it)
     // The legend: at the top left, under the top bar.
     const lx = f.l + 2, ly = cssN('--top-safe') + cssN('--cmp-h') + 12;
     // (On a top-down sinusoid it stays in the plate on the left, clear of the vessel and the portal venule's name.)

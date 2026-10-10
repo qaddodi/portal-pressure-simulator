@@ -1667,7 +1667,6 @@ button.finding:hover { background: var(--surface-2); }
 .sv-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .sv .lz-labels, .sv .lz-leaders { transition: opacity .25s; }
 .sv:not(.on) :is(.lz-labels, .lz-leaders) { opacity: 0; }
-.sv-tag { pointer-events: none; cursor: default; }
 /* Each part named in place, as the organs and the lobule's zones are: spaced small capitals on a halo, the reading beneath. */
 .sv-region { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; pointer-events: none; white-space: nowrap; line-height: 1.15; text-align: center;
   font: 650 calc(10px * var(--label-k, 1)) var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--text-2);
@@ -1678,16 +1677,6 @@ button.finding:hover { background: var(--surface-2); }
 .sv-region-disse, .sv-region-lymph { --svg-green: #4F7440; color: var(--svg-green); }
 :root[data-theme="dark"] :is(.sv-region-disse, .sv-region-lymph) { --svg-green: #B5D3A3; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) :is(.sv-region-disse, .sv-region-lymph) { --svg-green: #B5D3A3; } }
-.sv-end { left: 0; top: 0; }
-/* The ends' names sit on the lumen: no box, styled as the Sinusoid's own name (spaced capitals on a halo, the reading beneath). */
-.sv .sv-end { display: grid; gap: 1px; padding: 0 2px; line-height: 1.15; }
-.sv .sv-end :is(.n, .v) { -webkit-text-stroke: 0; text-shadow: 1.6px 0 0 var(--label-halo), -1.6px 0 0 var(--label-halo), 0 1.6px 0 var(--label-halo), 0 -1.6px 0 var(--label-halo), 1.1px 1.1px 0 var(--label-halo), -1.1px 1.1px 0 var(--label-halo), 1.1px -1.1px 0 var(--label-halo), -1.1px -1.1px 0 var(--label-halo), 0 0 3px var(--label-halo); }
-.sv .sv-end .n { font: 650 calc(11.5px * var(--label-k, 1)) var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--text); }
-.sv .sv-end .v { font-size: calc(10px * var(--label-k, 1)); font-weight: 500; color: var(--text-2); }
-.sv .sv-end .v b { font-weight: 700; font-size: calc(12px * var(--label-k, 1)); color: var(--text); }
-.sv .sv-end small { font-size: inherit; color: inherit; }
-/* On a top-down sinusoid (a portrait phone) the name sits centred over its reading. */
-.sv .sv-end.vert { justify-items: center; text-align: center; }
 .sv-region > span:first-child { white-space: pre-line; }
 /* The sinusoid view is a focused mode: only the way back to the lobule and the pressure legend stay (no lens to pick). */
 #app.sin-focus :is(#viewSeg [data-view="anatomic"], #viewSeg [data-view="circuit"], #btnLobuleLayers, #btnBlood, #btnInspector, #btnTreat, #tabInstruments, .top-right .tb-sep, #zoomPill, #vdock, #dock, #panel, #treatCard, #stageCenter, #coach) { display: none !important; }

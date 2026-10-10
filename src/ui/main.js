@@ -3,8 +3,8 @@
 
 import { startHost, host } from './host.js?v=b54d9b1fcc';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=49dc9cdf15';
-import { createStage } from './stage.js?v=592ba2ccf2';
-import { sinusoidSupported } from './sinusoid-view.js?v=9bd675c24a';
+import { createStage } from './stage.js?v=3f54ad0537';
+import { sinusoidSupported } from './sinusoid-view.js?v=c9f6bf3814';
 import { createInspector } from './inspector.js?v=2a9c297d91';
 import { createDock, CUTOFFS } from './dock.js?v=715eafb9a3';
 import { setHvpgStage } from './hvpg-proc.js?v=61b4af5eb2';
