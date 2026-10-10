@@ -2193,6 +2193,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const ORIGIN_LUMEN = [ORIGIN_GREY, ORIGIN_GREY, ORIGIN_GREY];   // the lumen while the blood is colored by origin (the GPU paints the streams on it)
   let vBinKey = '', vBinReach = new Map(), veinsDirty = true, veinsDrawKey = '', vLook = null, glOrgans = false;
   let plateDim = null, plateSat = 1, netA = 1;
+  // A lens switch crossfades every vessel from the colors it showed to the new lens's (no one-frame recolor).
+  let shownCol = new Map(), lensFrom = null, lensT0 = 0, lensMode = null;
+  const LENS_FADE = 300;
+  const lensFading = () => !!lensFrom && performance.now() - lensT0 < LENS_FADE + 20;
   const colorCtx = veins ? document.createElement('canvas').getContext('2d') : null;
   const rgbCache = new Map();
   // Any CSS color (rgb(), #hex, a named var) as [r, g, b] in 0–1.
@@ -2359,6 +2363,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const items = glItems();
     const cs = getComputedStyle(wrap);
     const mode = layerMode(), heat = mode === 'heat';
+    if (lensMode && mode !== lensMode && !reduceMotion.matches) { lensFrom = shownCol; lensT0 = performance.now(); }
+    lensMode = mode;
+    if (lensFrom && !lensFading()) lensFrom = null;
+    shownCol = new Map();
     // Radii: re-sent only when a tube changed.
     for (const it of items) {
       const [key, rOf] = itemRadii(it), o = it.obj;
@@ -2406,7 +2414,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // Attributes, every frame.
     const T0 = easeInOut(morph), now = performance.now();
-    const hasSel = wrap.classList.contains('has-sel');
     const artery = toRGB('var(--artery)', cs);
     const originMode = originOn();
     tubeData.fill(0);
@@ -2437,7 +2444,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       }
       let alpha = x.isArt ? 0.85 : kind === 'c' ? clamp(2 * T0 - 1, 0, 1) : kind === 's' || kind === 'f' ? (obj.live ?? 1) * clamp(1 - 2 * T0, 0, 1) : 1;
       if (x.back) {
-        if (hasSel && !sel && !hl) alpha *= 0.42;
+        if (!sel && !hl) alpha *= netA;
       }
       const tier = ivcOn && IVC_EDGES.has(id) ? TIER_LIFT : x.lifted && !x.back ? (x.front ? TIER_LIFT_FRONT : TIER_LIFT) : x.isArt ? TIER_ART : levelTier(x);
       const shade = !x.isArt && !ghost;
@@ -2447,6 +2454,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const z = (kind === 'v' ? x.row + 0.5 : x.row) / GL_ROWS;
       // No congestion halo on the IVC itself: its wide halo would spill onto the bowel beside it.
       const heatA = kind === 'v' && heat && !IVC_EDGES.has(id) ? (x.heatA || 0) : 0;
+      if (lensFrom) {
+        const was = lensFrom.get(it.row), u = easeInOut(clamp((now - lensT0) / LENS_FADE, 0, 1));
+        if (was) { c0 = mix3(was[0], c0, u); c1 = mix3(was[1], c1, u); }
+      }
+      shownCol.set(it.row, [c0, c1]);
       tubeData.set([...c0, x.isArt ? 0 : x.wallPx, ...c1, alpha, tier, z, flags, heatA], o);
       // Fades, as the SVG masks: into an organ (TIP_FADE), out of the plate, into a deeper vein,
       // tributaries toward the bowel they drain.
@@ -2664,6 +2676,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   const plateEasing = () => { if (plateDim == null) return false; const [d, s, n] = plateTargets(); return d !== plateDim || s !== plateSat || n !== netA; };
   function stepPlateEase(dt) {
+    if (lensFrom) veinsDirty = true;
     if (!vLook || !plateEasing()) return;
     const [d, s, n] = plateTargets(), k = dt / 0.28;
     const step = (c, t, span) => (Math.abs(t - c) <= k * span ? t : c + Math.sign(t - c) * k * span);
@@ -4896,7 +4909,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const still = (!st.running || reduceMotion.matches) && !bolus.active;
     const key = still ? `${cathVer}|${morph}|${rotU}|${wrap.className}|${st.layers.flow}|${JSON.stringify(st.blood)}|${vCanvas.width}x${vCanvas.height}` : null;
     // A plate raster that lands while the figure is still (paused, or reduced motion) marks the vessel layer dirty: draw it.
-    if (still && !veinsDirty && !olDirty && !olList.some((o) => o.a !== (o.on ? 1 : 0)) && !widthEasing && !plateEasing() && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && F === lastDrawF && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { requestAnimationFrame(animate); return; }
+    if (still && !veinsDirty && !olDirty && !olList.some((o) => o.a !== (o.on ? 1 : 0)) && !widthEasing && !plateEasing() && !lensFrom && ascShown === ascTarget && morph === morphTarget && rotU === rotTarget && key === lastDrawKey && F === lastDrawF && CTM === lastDrawCTM && !Object.values(E).some((x) => x.reveal)) { requestAnimationFrame(animate); return; }
     stepPlateEase(dt);
     if (morph !== morphTarget) {
       morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
