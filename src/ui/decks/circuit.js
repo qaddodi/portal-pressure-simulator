@@ -10,7 +10,11 @@ const C = 'circuit';
 const R = ['rLiver', 'rColl'];   // the resistors on the figure: the liver's, and the collaterals' once they open
 const MEAL = { days: 8, ramp: { splanchnicTone: [1, 0.72] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' } };
 
-export const CIRCUIT = {
+// 'resistance' and 'collaterals' in a line take their resistor's colour and light its zigzag on the figure.
+const POINTS = { resistance: 'rLiver', collaterals: 'rColl' };
+const withPoints = (d) => ({ ...d, slides: d.slides.map((s) => (s.visual ? s : { terms: POINTS, ...s })) });
+
+export const CIRCUIT = withPoints({
   id: 'circuit', level: 'foundation', title: 'The circuit: pressure, flow and resistance', minutes: 10,
   objectives: [
     'Read portal pressure as flow times resistance',
@@ -23,13 +27,13 @@ export const CIRCUIT = {
     {
       id: 'ohm', preset: 'healthy', view: C, sites: R, data: 'tiles', tiles: ['pvFlow', 'ppg'],
       kicker: K, title: 'Pressure, flow and resistance',
-      eq: [dP + mo('=') + mi('Q') + mo('×') + mi('R'), 'ΔP pressure drop · Q flow · R resistance'],
+      eq: [dP + mo('=') + mi('Q') + mo('×') + '<mi class="eq-wedge">R</mi>', 'ΔP pressure drop · Q flow · R resistance'],
       line: 'Pressure falls across each resistance in proportion to the flow through it.',
       notes: 'The heart is the pump; arterioles, capillaries, sinusoids and veins are resistors in series. The same law as Ohm\'s: the drop in pressure across a segment is the flow through it times its resistance. Portal hypertension is a rise in the drop across the liver, so either the flow or the resistance has risen, and usually both.',
       ask: ['Name the two ways the pressure drop across the liver can rise.', 'More flow through it, or more resistance to that flow.'],
     },
     {
-      id: 'where', view: C, sites: R, data: 'ladder', key: ['pv', 'hvpg'],
+      id: 'where', view: C, sites: [...R, 'rGut'], terms: ['rGut'], data: 'ladder', key: ['pv', 'hvpg'],
       kicker: K, title: 'Where the pressure falls',
       line: 'The gut arterioles spend most of the pressure before blood reaches the portal vein. A healthy liver drops only a few mmHg.',
       notes: 'Mean arterial pressure is about 90 mmHg; the portal vein is under 10. The splanchnic arterioles are the largest resistance in the circuit and they set the portal inflow. Normal sinusoids are wide and many, so the HVPG is 1 to 5 mmHg.',
@@ -60,7 +64,7 @@ export const CIRCUIT = {
     {
       id: 'parallel', preset: 'cirr-decomp', view: C, sites: [...R, 'split'], data: 'tiles', tiles: ['shunt', 'liver', 'ppg'], delta: false,
       kicker: K, site: 'sin', title: 'A parallel path',
-      eq: [frac('<mn>1</mn>', sub(mi('R'), 'total')) + mo('=') + frac('<mn>1</mn>', sub(mi('R'), 'liver')) + mo('+') + frac('<mn>1</mn>', sub(mi('R'), 'collaterals')), 'Resistances in parallel: the total is lower than either'],
+      eq: [frac('<mn>1</mn>', sub(mi('R'), 'total')) + mo('=') + frac('<mn>1</mn>', '<msub class="eq-wedge"><mi>R</mi><mtext>liver</mtext></msub>') + mo('+') + frac('<mn>1</mn>', '<msub class="eq-var"><mi>R</mi><mtext>collaterals</mtext></msub>'), 'Resistances in parallel: the total is lower than either'],
       line: 'Collaterals are resistors in parallel with the liver. They take much of the portal flow, yet the gradient stays high.',
       notes: 'Collaterals open where portal and systemic veins meet: the esophagus, the umbilicus, the rectum and behind the gut. They lower the total resistance, but they are narrow and the inflow keeps rising, so the gradient stays high. They also carry blood and its ammonia past the liver, and the liver\'s own share of the portal blood falls.',
       ask: ['Why do collaterals not relieve portal hypertension?', 'Their resistance is still high and the inflow rises with them, so the gradient stays high.'],
@@ -92,4 +96,4 @@ export const CIRCUIT = {
       ask: ['Classify TIPS, propranolol and a meal by the term they change.', 'TIPS lowers R (in parallel); propranolol lowers Q; a meal raises Q.'],
     },
   ],
-};
+});

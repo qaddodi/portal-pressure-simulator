@@ -6,7 +6,7 @@ import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=5edd069b32';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=e0101a3fa2';
-import { createLobuleZoom } from './lobule-zoom.js?v=87a8a70a00';
+import { createLobuleZoom } from './lobule-zoom.js?v=37f494a843';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
@@ -3218,7 +3218,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     split: { node: 'PVH', kicker: 'Portal blood', cls: 'split', split: true, below: true },
     // (Both readings stand above the liver's column, clear of the station labels; the zigzags mark where each resistor is.)
     rLiver: { kicker: 'R liver', cls: 'res', unit: 'vs healthy liver', res: 'liver' },
-    rColl: { kicker: 'R collaterals', cls: 'res coll', unit: 'vs healthy liver', res: 'coll' } };
+    rColl: { kicker: 'R collaterals', cls: 'res coll', unit: 'vs healthy liver', res: 'coll' },
+    // The gut's arterioles (the splanchnic arteries in parallel), in series before the liver: most of the pressure falls here.
+    rGut: { kicker: 'R gut arterioles', cls: 'res gut', unit: 'vs healthy liver', res: 'gut' } };
   // Where the resistors' readings stand (stage-local): centred over the circuit, above it, or below it once it is turned upright.
   function resAt() {
     const c = [[60, 40], [1360, 40], [60, 640], [1360, 640]].map(([x, y]) => worldToLocal(x, y)), ys = c.map((p) => p[1]);
@@ -3228,6 +3230,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Resistance as ΔP / Q: the liver's lobes, each its venules, sinusoids and outflow in series, in parallel with each other.
   const LOBES = [['PRE_R', 'SIN_RR', 'POST_R_RHV'], ['PRE_L', 'SIN_LL', 'POST_L_LHV']];
   const rOf = (P, Q, id) => { const k = EI[id], e = EDGES[k]; return (P[NI[e.from]] - P[NI[e.to]]) / Math.max(1e-6, Math.abs(Q[k])); };
+  const GUT_ART = ['A_SMA', 'A_IMA', 'A_SPL', 'A_LGA'];
   const liverRes = (P, Q) => 1 / LOBES.reduce((g, ids) => g + 1 / Math.max(1e-6, ids.reduce((r, id) => r + rOf(P, Q, id), 0)), 0);
   /** The ratio a resistor shows, or null when there is nothing to show (collaterals closed). */
   function resRatio(kind) {
@@ -3236,6 +3239,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const r0 = liverRes(hp.P, hp.Q);
     // (The live frame breathes a few percent around the settled value, so a liver within 8% of the healthy one reads exactly ×1.0, not ×0.9 and ×1.0 by turns.)
     if (kind === 'liver') { const r = liverRes(P, Q) / r0; return Math.abs(r - 1) < 0.08 ? 1 : r; }
+    if (kind === 'gut') return 1 / GUT_ART.reduce((g, id) => g + 1 / Math.max(1e-6, rOf(P, Q, id)), 0) / r0;
     let qc = 0;
     for (const e of EDGES) if (e.kind === 'collateral' && edgePresent(e, store.get().params)) qc += Math.max(0, Q[EI[e.id]]);
     if (qc * 0.06 < 0.05) return null;
@@ -3244,6 +3248,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const resG = s('g', { class: 'res-zz circuit-only', 'aria-hidden': 'true' });
   gOver.append(resG);
   const resMade = new Map();
+  let resLit = new Map();   // the circuit's resistors a slide's words point at (rLiver, rColl) → their station tone
   // A resistor's zigzag along a vessel: n teeth of amplitude amp (world units) from a to b.
   const zig = (a, b, n = 6, amp = 9) => {
     const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
@@ -3257,9 +3262,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!want) { if (g) { resMade.delete(k); g.style.opacity = 0; setTimeout(() => g.remove(), 600); } return; }
     if (!g) { g = s('g', { class: 'res-one' }); g.style.opacity = 0; resG.append(g); resMade.set(k, g); requestAnimationFrame(() => requestAnimationFrame(() => { g.style.opacity = 1; })); }
     const segs = d.res === 'liver' ? [[[812, 303], [888, 303]], [[812, 387], [888, 387]]] : (() => {
-      const q = geo.C1b && pointAt(geo.C1b.cur, 0.5);
+      const q = d.res === 'gut' ? geo.A_SMA?.cur && pointAt(geo.A_SMA.cur, 0.5) : geo.C1b && pointAt(geo.C1b.cur, 0.5);
       return q ? [[[q[0] - q[2] * 34, q[1] - q[3] * 34], [q[0] + q[2] * 34, q[1] + q[3] * 34]]] : [];
     })();
+    const lit = resLit.get(k);
+    g.classList.toggle('lit', !!lit); g.style.setProperty('--res-c', lit ? `var(--tr-${lit})` : 'var(--text)');
     const path = segs.map(([a, b]) => zig(a, b)).join(' ');
     if (g.dataset.d !== path) { g.dataset.d = path; g.replaceChildren(s('path', { class: 'res-halo', d: path }), s('path', { class: 'res-line', d: path })); }
     // Heavier as the resistance rises: 1.5 px at the healthy liver's, about 4 px at four times it (eased by CSS).
@@ -5462,6 +5469,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
      *  match its ladder and tiles) or else the live figure; null removes them. */
     // A presenter slide's glows: vessels ([{ id, tone }], eased, in the station's colour) and organs (outlined, held).
     setGlow(list) { setGlow(list); },
+    setResGlow(list) { resLit = new Map((list || []).map((r) => [r.id, r.tone])); if (sites.list) sitesPaint(); },
     pinOrgans(list) { pinOrgans(list); },
     setSites(list, fp = null) { sites.list = list?.length ? [...list] : null; sites.fp = fp; if (!sites.list) for (const k of [...resMade.keys()]) resPaint(k, SITE_DEF[k], null); if (!sites.list) for (const k of [...sites.made.keys()]) { const el = sites.made.get(k); sites.made.delete(k); el.classList.add('cath-pre'); setTimeout(() => el.remove(), 500); } else { refreshCTM(); sitesPaint(); } },
     /** Frame the catheter's route ('route'), its tip close up ('tip'), or go back to the view before ('home'). */

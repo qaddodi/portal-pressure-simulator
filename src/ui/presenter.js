@@ -17,11 +17,11 @@ import { store, replaceParams } from './store.js?v=5edd069b32';
 import { h, toast, svgIcon, icon, fmt, clamp } from './util.js?v=e0101a3fa2';
 import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=cab65850a4';
-import { sinusoidSupported } from './sinusoid-view.js?v=d5403260c8';
+import { sinusoidSupported } from './sinusoid-view.js?v=5fb063d790';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
-import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=4ac77e066c';
+import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=5b294e9057';
 import { createTools } from './presenter-tools.js?v=621f749226';
-import { openHandout } from './handout.js?v=0e305bf4f0';
+import { openHandout } from './handout.js?v=537d0d6a21';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -81,6 +81,10 @@ const TARGETS = {
   gv: { node: 'GV', edges: ['C2'], tone: 'var', words: 'gastric varices|fundal varices' },
   lgv: { node: 'LGV', edges: ['LGV_CONF', 'V_STO'], tone: 'var', words: 'left gastric vein|coronary vein' },
   azy: { node: 'AZY', edges: ['AZY_SVC'], tone: 'var', words: 'azygos(?: vein)?' },
+  // The circuit's resistors (its zigzags): lit in a station colour, not outlined.
+  rLiver: { res: 'rLiver', tone: 'wedge', words: 'resistance' },
+  rColl: { res: 'rColl', tone: 'var', words: 'collaterals' },
+  rGut: { res: 'rGut', site: 'rGut', tone: 'smv', words: 'gut arterioles' },
   lpv: { node: 'LPV', edges: ['PVH_L'], tone: 'pv', words: 'left portal vein' },
   lrv: { node: 'LRV', edges: ['LRV_IVC', 'V_KID_L'], tone: 'ivc', words: 'left renal vein' },
   spleen: { organ: 'spleen', tone: 'sv', words: 'spleen' },
@@ -121,7 +125,7 @@ export function slideTargets(s, line = s.line || '') {
   const keys = new Set();
   for (const m of line.matchAll(/\[([^\]]+)\]\(([\w:]+)\)/g)) if (TARGETS[m[2]]) keys.add(m[2]);
   for (const [w, k] of termList(s)) if (new RegExp(`\\b(?:${w})\\b`, 'i').test(line)) keys.add(k);
-  const labels = [], terms = {}, glow = new Map(), organs = new Map(), lit = new Set(), sites = new Set();
+  const labels = [], terms = {}, glow = new Map(), organs = new Map(), res = new Map(), lit = new Set(), sites = new Set();
   for (const k of keys) {
     const t = TARGETS[k];
     if (t.node) { labels.push(t.node); terms[t.node] = t.tone; }
@@ -129,14 +133,15 @@ export function slideTargets(s, line = s.line || '') {
     if (t.site) sites.add(t.site);
     for (const e of t.edges || []) glow.set(e, t.tone);
     if (t.organ) organs.set(t.organ, t.tone);
+    if (t.res) res.set(t.res, t.tone);
   }
   for (const g of s.glow || []) {
     const id = typeof g === 'string' ? g : g.id, tone = typeof g === 'string' ? null : g.tone;
-    if (TARGETS[id]) { const t = TARGETS[id]; for (const e of t.edges || []) glow.set(e, tone || t.tone); if (t.organ) organs.set(t.organ, tone || t.tone); }
+    if (TARGETS[id]) { const t = TARGETS[id]; if (t.lit) lit.add(id); if (t.res) res.set(t.res, tone || t.tone); for (const e of t.edges || []) glow.set(e, tone || t.tone); if (t.organ) organs.set(t.organ, tone || t.tone); }
     else if (ORGANS.has(id)) organs.set(id, tone || TARGETS[id]?.tone);
     else glow.set(id, tone || EDGE_TONE[id] || 'accent');
   }
-  return { labels, terms, glow: [...glow].map(([id, tone]) => ({ id, tone })), organs: [...organs].map(([id, tone]) => ({ id, tone })), lit: [...lit], sites: [...sites] };
+  return { labels, terms, glow: [...glow].map(([id, tone]) => ({ id, tone })), organs: [...organs].map(([id, tone]) => ({ id, tone })), res: [...res].map(([id, tone]) => ({ id, tone })), lit: [...lit], sites: [...sites] };
 }
 // A live value pill ({pv}): the model's reading for this slide, rounded as its card shows it (the ladder's
 // stations in whole mmHg on a ladder slide).
@@ -956,7 +961,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       store.set({ presentLabels: q ? [] : [...new Set([...(s.labels || []), ...tg.labels])], presentTerms: tg?.terms || null,
         presentNames: !q && (s.data === 'ladder' || !!s.cath),
         focus: marks.length ? { ...marks[0], marks } : null, lobuleCallout: q || !s.callout ? null : { kind: 'block', ...s.callout } });
-      if (tg) { stage.setGlow(tg.glow); stage.pinOrgans(tg.organs); }
+      if (tg) { stage.setGlow(tg.glow); stage.pinOrgans(tg.organs); stage.setResGlow(tg.res); }
       app.dataset.lit = tg?.lit.join(' ') || '';
     }
     { const ss = !s.visual && !q ? [...new Set([...(s.sites || []), ...slideTargets(s).sites])] : []; if (ss.length) stage.setSites(ss, st.fp); }
@@ -1090,15 +1095,18 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       return { i, k, f: states[k]?.fp, kicker: x.kicker ?? sl?.kicker ?? '', title, name: x.name || title, site: x.site ?? sl?.site, note: x.note, blank: x.blank || [], ref: !!x.ref, vs: x.vs };
     }).filter(Boolean);
   }
+  const reveal = (c) => { c.classList.add('shown'); c.removeAttribute('role'); c.removeAttribute('tabindex'); c.removeAttribute('aria-label'); };
   function laddersGrid(s) {
     const grid = h('div', { class: 'pz-grid' });
     for (const r of rowsOf(s)) {
       if (!r.f) continue;
       const L = bigLadder(); L.setBase(base); L.set(r.f, {});
-      grid.append(h('div', { class: 'pz-cell' },
+      // In quiz mode each ladder's site is hidden until a tap (D7): the room names the site from the ladder's shape.
+      const cell = h('div', quiz ? { class: 'pz-cell q', role: 'button', tabindex: '0', 'aria-label': 'Show the site of this ladder', onclick: () => reveal(cell), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); reveal(cell); } } } : { class: 'pz-cell' },
         h('div', { class: 'pz-cell-k' }, h('div', { class: 'pz-kick', 'data-site': r.site || 'none' }, h('i'), r.kicker.replace('Intrahepatic · ', '')),
           h('span', {}, 'HVPG ', h('b', { 'data-rate': rateOf('hvpg', r.f)[0] }, fmt(r.f.hvpg, 1)))),
-        h('div', { class: 'pz-cell-t' }, r.title), L.el));
+        h('div', { class: 'pz-cell-t' }, r.title), L.el);
+      grid.append(cell);
     }
     // The dashed line's numbers, once for all six: the healthy reference each ladder is read against.
     if (base) grid.append(h('p', { class: 'pz-grid-key' }, h('i', { 'aria-hidden': 'true' }), 'Healthy, dashed: ',

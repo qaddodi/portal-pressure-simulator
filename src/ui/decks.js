@@ -50,10 +50,10 @@
 
 import { STIFFNESS } from './decks/stiffness.js?v=35e2f96b71';
 import { ONE_YEAR } from './decks/one-year.js?v=37492fcfd2';
-import { LOBULE } from './decks/lobule.js?v=3556774332';
+import { LOBULE } from './decks/lobule.js?v=d9485fcd73';
 import { SHUNTS } from './decks/shunts.js?v=a0cc164807';
 import { TAP } from './decks/tap.js?v=a7198caf5f';
-import { CIRCUIT } from './decks/circuit.js?v=1097d61831';
+import { CIRCUIT } from './decks/circuit.js?v=05ee0b6b76';
 import { DOPPLER } from './decks/doppler.js?v=0a0f53ea61';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=95aa3aef7f';
 import { PREHEPATIC } from './decks/prehepatic.js?v=c8af5f351e';
@@ -204,7 +204,7 @@ export const DECKS = [
         ask: ['Why is HVPG normal when the portal pressure is about 20 mmHg?', 'The wedge reads the sinusoids, which lie downstream of the clot and are at normal pressure.'],
       },
       {
-        id: 'presin', preset: 'schisto', cam: 'lobule:triad', data: 'ladder', key: ['pv', 'hvpg', 'ppg'], callout: { at: 'triad', label: 'Block: portal venules' }, rail: true, quiz: 'Where is the obstruction?',
+        id: 'presin', terms: { 'portal venules': 'lobule:triad' }, preset: 'schisto', cam: 'lobule:triad', data: 'ladder', key: ['pv', 'hvpg', 'ppg'], callout: { at: 'triad', label: 'Block: portal venules' }, rail: true, quiz: 'Where is the obstruction?',
         kicker: 'Intrahepatic · presinusoidal', site: 'presin', title: 'Schistosomiasis',
         line: 'Eggs lodge in the portal venules and cause periportal fibrosis. The obstruction is upstream of the sinusoids, so HVPG stays near normal.',
         causes: ['Schistosomiasis', 'Porto-sinusoidal vascular disorder', 'Early primary biliary cholangitis', 'Sarcoidosis, congenital hepatic fibrosis'],
@@ -212,7 +212,7 @@ export const DECKS = [
         ask: ['A patient bleeds from varices. HVPG is normal and the portal vein is open. Where is the block?', 'Presinusoidal, in the portal tracts: schistosomiasis or porto-sinusoidal vascular disorder.'],
       },
       {
-        id: 'sin', preset: 'cirr-decomp', cam: 'lobule:sinusoid', callout: { at: 'sin', label: 'Block: sinusoids' }, data: 'ladder', key: ['whvp', 'hvpg'], rail: true, quiz: 'Where is the obstruction?',
+        id: 'sin', terms: { sinusoids: 'lobule:sinusoid' }, preset: 'cirr-decomp', cam: 'lobule:sinusoid', callout: { at: 'sin', label: 'Block: sinusoids' }, data: 'ladder', key: ['whvp', 'hvpg'], rail: true, quiz: 'Where is the obstruction?',
         kicker: 'Intrahepatic · sinusoidal', site: 'sin', title: 'Cirrhosis',
         line: 'Fibrosis, nodules and stellate cell contraction narrow the sinusoids. The wedged pressure reflects sinusoidal pressure, so HVPG rises with portal pressure.',
         causes: ['Alcohol', 'Fatty liver disease (MASLD)', 'Hepatitis B and C', 'Autoimmune, cholestatic, metabolic'],
@@ -220,7 +220,7 @@ export const DECKS = [
         ask: ['Why does the wedged pressure track the portal pressure in cirrhosis?', 'The resistance lies in the sinusoids the wedge reads, so the wedged pressure rises with the portal pressure.'],
       },
       {
-        id: 'postsin', preset: 'sos', cam: 'lobule:central', callout: { at: 'cv', label: 'Block: central venules' }, data: 'ladder', key: ['whvp', 'hvpg'], rail: true, quiz: 'Where is the obstruction?',
+        id: 'postsin', terms: { 'central veins': 'lobule:central' }, preset: 'sos', cam: 'lobule:central', callout: { at: 'cv', label: 'Block: central venules' }, data: 'ladder', key: ['whvp', 'hvpg'], rail: true, quiz: 'Where is the obstruction?',
         kicker: 'Intrahepatic · postsinusoidal', site: 'postsin', title: 'Sinusoidal obstruction syndrome',
         line: 'Damaged endothelium obstructs the sinusoids and small central veins, upstream of the catheter tip, so the wedged pressure and HVPG rise.',
         causes: ['Conditioning for stem cell transplant', 'Oxaliplatin', 'Pyrrolizidine alkaloids (bush teas)'],
@@ -353,7 +353,7 @@ export const DECKS = [
     objectives: ['Explain how sinusoidal pressure and lymph make ascites', 'Interpret the SAAG and ascitic protein', 'Explain why pre-hepatic and presinusoidal blocks rarely cause ascites', 'Tell cirrhosis from heart failure and Budd–Chiari by the tap'],
     slides: [
       {
-        id: 'start', preset: 'csph', cam: 'sinusoid', data: 'tiles', tiles: ['sin', 'asc'], key: ['sin'],
+        id: 'start', terms: { 'space of Disse': 'sinusoid:disse', lymphatics: 'sinusoid:lymph' }, preset: 'csph', cam: 'sinusoid', data: 'tiles', tiles: ['sin', 'asc'], key: ['sin'],
         kicker: 'Ascites', site: 'sin', title: 'Ascites starts in the sinusoids',
         line: 'Sinusoidal pressure drives plasma into the space of Disse. Hepatic lymphatics drain it until their capacity is exceeded.',
         notes: 'Ascites in portal hypertension is mostly lymph. Sinusoidal pressure drives plasma through the open sinusoid wall into the space of Disse, and the hepatic lymphatics return it to the blood through the thoracic duct. Hepatic lymph flow can rise many-fold; once it outruns the lymphatics, lymph weeps from the surface of the liver into the peritoneum. This patient has clinically significant portal hypertension, and the lymphatics still keep up. Ascites seldom forms below an HVPG of about 12 mmHg.',
@@ -375,7 +375,7 @@ export const DECKS = [
         ask: ['The SAAG is 0.8 g/dL. Is portal hypertension the cause?', 'No: below 1.1 the fluid is not pushed out by portal pressure. Look for peritoneal disease or a very low protein state.'],
       },
       {
-        id: 'lowprot', cam: 'sinusoid', data: 'tiles', tiles: ['tp', 'saag'], key: ['tp'],
+        id: 'lowprot', terms: { fenestrae: 'sinusoid:fenestrae' }, cam: 'sinusoid', data: 'tiles', tiles: ['tp', 'saag'], key: ['tp'],
         kicker: 'Tapping the fluid', site: 'sin', title: 'Low protein in cirrhosis',
         line: 'Fibrosis closes the fenestrae and lays down a basement membrane (capillarization). Less protein crosses, so the fluid is protein-poor.',
         notes: 'In cirrhosis the sinusoids capillarize: the fenestrae close and a basement membrane and collagen form in the space of Disse. The wall now holds protein back, so the lymph and the ascites are thin, with a total protein below 2.5 g/dL. Diuretics concentrate the fluid and raise its protein somewhat. A protein below 1.5 g/dL means weak opsonic activity and a higher risk of spontaneous bacterial peritonitis, so prophylactic antibiotics are considered.',
@@ -403,7 +403,7 @@ export const DECKS = [
         ask: ['What does a reflection coefficient (σ) near zero mean for the sinusoid wall?', 'Protein crosses freely, so oncotic pressure cannot hold the fluid back, and any rise in pressure becomes lymph.'],
       },
       {
-        id: 'hf', preset: 'rhf', cam: 'sinusoid', data: 'tiles', tiles: ['tp', 'saag', 'sin'], key: ['tp'],
+        id: 'hf', terms: { lymph: 'sinusoid:lymph' }, preset: 'rhf', cam: 'sinusoid', data: 'tiles', tiles: ['tp', 'saag', 'sin'], key: ['tp'],
         kicker: 'Protein-rich ascites', site: 'cardiac', title: 'High protein in heart failure',
         line: 'The sinusoid wall is still open. Congestion drives protein-rich lymph through it: SAAG {saag}, at least {>=1.1 g/dL}, and protein {tp}, at least {>=2.5 g/dL}.',
         notes: 'In heart failure and constrictive pericarditis the sinusoids are congested but not scarred: the fenestrae stay open, so the lymph is nearly as rich in protein as plasma. The ascites has a high SAAG (portal hypertension of cardiac origin) and a total protein of 2.5 g/dL or more. A raised jugular venous pressure and a high BNP point to the heart.',
