@@ -11,7 +11,7 @@
 //
 // Keys (clickers send the same): → Page Down Space Enter next (during a time-lapse the first runs it to its end),
 // ← Page Up back, a number then Enter jumps, G the slide list, Home End, B or . black screen, F full screen, Q quiz,
-// Esc. On a touch screen a sideways swipe over the figure goes on or back.
+// P projector contrast, Esc. On a touch screen a sideways swipe over the figure goes on or back.
 
 import { store, replaceParams } from './store.js?v=25cbe77a76';
 import { h, toast, svgIcon, icon, fmt, clamp } from './util.js?v=e0101a3fa2';
@@ -22,6 +22,7 @@ import { pressureColor } from './colormap.js?v=6d64a94345';
 import { NODES } from '../engine/topology.js?v=dc393aabea';
 import { DECKS, REGIONS, LEVELS } from './decks.js?v=b5289acfe7';
 import { createTools } from './presenter-tools.js?v=40af8ad0f3';
+import { openHandout } from './handout.js?v=be7cdd0a53';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -400,6 +401,9 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
   let want = 0, wantRev = false, shown = null, shownState = -1, busy = false, quiz = false, gen = 0;
   let ui = null, black = false, digits = '', digitT = 0;
   let saved = null;
+  // Projector contrast (P): larger words and labels, thicker leaders, ratings as filled chips, a deeper shade. Remembered.
+  const PROJ = 'pps.projector';
+  let hiCon = (() => { try { return localStorage.getItem(PROJ) === '1'; } catch { return false; } })();
 
   const all = () => [...DECKS, ...readMine().map(fromScript)];
   // An instructor's script (captured model states) as slides: its own titles and notes, the ladder beside.
@@ -958,7 +962,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
   };
   // Projector-size labels on the figure, for the screen it is on (2 at 1080 lines).
   function setLabels() {
-    const k = phone() ? 1.15 : clamp(Math.min(innerHeight / 540, innerWidth / 960), 1.25, 2.4);
+    const k = (phone() ? 1.15 : clamp(Math.min(innerHeight / 540, innerWidth / 960), 1.25, 2.4)) * (hiCon && !phone() ? 1.15 : 1);
     stage.setProjection(k);
     document.documentElement.style.setProperty('--label-k', String(Math.min(k, 2.2)));
     dispatchEvent(new Event('pps:labelscale'));
@@ -991,6 +995,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
       skip ? h('span', { class: 'pzb-skip', 'aria-hidden': 'true' }, '⏵ skip') : null,
       h('span', { class: 'pzb-sep' }),
       deck.slides.some((s) => s.quiz) ? h('button', { class: 'btn sm', 'aria-pressed': String(quiz), title: 'Quiz the room: ask first, reveal on the next click (Q)', onclick: toggleQuiz }, 'Quiz') : null,
+      h('button', { class: 'btn sm', 'aria-pressed': String(hiCon), title: 'Projector contrast: larger words, thicker lines, rating chips (P)', onclick: toggleProj }, 'Projector'),
       h('button', { class: 'ib', 'aria-label': 'Black screen', title: 'Black screen (B)', onclick: () => toggleBlack() }, icon('pause')),
       document.fullscreenEnabled ? h('button', { class: 'ib', 'aria-label': 'Full screen', title: 'Full screen (F)', onclick: fullscreen }, icon('fit')) : null,
       h('button', { class: 'ib', 'aria-label': 'Stop presenting', title: 'Stop (Esc)', onclick: stop }, icon('close')));
@@ -1007,6 +1012,12 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     quiz = !quiz;
     toast(quiz ? 'Quiz: each level opens as a question; the next click reveals it.' : 'Quiz off.');
     gen++; shown = null; go(want, false);
+  }
+  function toggleProj() {
+    hiCon = !hiCon;
+    try { localStorage.setItem(PROJ, hiCon ? '1' : '0'); } catch { /* storage unavailable */ }
+    app.classList.toggle('pz-hi', hiCon);
+    paintChrome(); onResize();
   }
   function toggleBlack(on = !black) { black = on; ui?.black.classList.toggle('on', black); }
   function fullscreen() { if (document.fullscreenElement) document.exitFullscreen?.(); else document.documentElement.requestFullscreen?.().catch(() => {}); }
@@ -1078,6 +1089,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     else if (lk === 'f') fullscreen();
     else if (lk === 'q') toggleQuiz();
     else if (lk === 'g') toggleJump(true);
+    else if (lk === 'p') toggleProj();
     else if (lk === 'n' || lk === 's' || lk === 'l') { /* the app's own N, S and L (such as the lens) stay off while presenting */ }
     else if (k === 'F5') { /* a clicker's "start show": never reload the page */ }
     else if (k === 'Escape') { if (black) toggleBlack(false); else stop(); }
@@ -1133,6 +1145,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     if (st0.view !== 'anatomic' && !st0.lobule) store.set({ view: 'anatomic' });
     projectorOn();
     app.classList.add('presenting');
+    app.classList.toggle('pz-hi', hiCon);
     ui = build();
     if (base) ui.ladder.setBase(base);
     setLabels();
@@ -1157,7 +1170,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     document.documentElement.style.setProperty('--label-k', String(saved?.labelK ?? stage.labelScale()));
     dispatchEvent(new Event('pps:labelscale'));
     if (document.fullscreenElement) document.exitFullscreen?.();
-    app.classList.remove('presenting');
+    app.classList.remove('presenting', 'pz-hi');
     projectorOff();
     dispatchEvent(new Event('pps:occ'));
     if (restore && saved) putBack(saved);
@@ -1230,15 +1243,29 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     return true;
   }
 
+  // A small still of the deck's first slide (brand/decks, made by scripts/deck-stills.mjs) in the page's theme;
+  // it fades in once loaded, and a deck without one simply shows none.
+  function deckStill(d) {
+    const dark = (document.documentElement.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark';
+    const img = h('img', { class: 'pzd-still', alt: '', 'aria-hidden': 'true', decoding: 'async', loading: 'lazy', src: `brand/decks/${d.id}-${dark ? 'dark' : 'light'}.webp` });
+    img.onload = () => img.classList.add('on');
+    img.onerror = () => img.remove();
+    return img;
+  }
   function home() {
     const mine = readMine();
     const deckCard = (d) => h('article', { class: 'pz-deck', 'data-level': d.level },
-      h('div', { class: 'pzd-top' }, h('span', { class: 'pzd-lvl' }, LEVELS[d.level] || ''), h('span', { class: 'pzd-meta' }, `${d.slides.length} slides · about ${d.minutes} min`)),
-      h('h3', {}, d.title), h('p', { class: 'pzd-sum' }, d.summary),
+      h('div', { class: 'pzd-head' },
+        h('div', { class: 'pzd-hd' },
+          h('div', { class: 'pzd-top' }, h('span', { class: 'pzd-lvl' }, LEVELS[d.level] || ''), h('span', { class: 'pzd-meta' }, `${d.slides.length} slides · about ${d.minutes} min`)),
+          h('h3', {}, d.title)),
+        deckStill(d)),
+      h('p', { class: 'pzd-sum' }, d.summary),
       h('ol', { class: 'pzd-list' }, d.slides.map((s, i) => h('li', {}, h('button', { type: 'button', title: `Start at slide ${i + 1}`, onclick: () => start(d.id, i) }, s.title)))),
       h('div', { class: 'script-acts' },
         h('button', { class: 'btn primary', onclick: () => start(d.id) }, svgIcon('projector', 'mi-ic'), 'Present'),
-        h('button', { class: 'btn ghost sm', onclick: () => shareDeck(d) }, 'Copy link')));
+        h('button', { class: 'btn ghost sm', onclick: () => shareDeck(d) }, 'Copy link'),
+        h('button', { class: 'btn ghost sm', title: 'Speaker notes and questions for the room, one row per slide, to print or keep on a phone', onclick: () => openHandout(d) }, 'Print notes')));
     const scriptCard = (s) => h('div', { class: 'home-item script' },
       h('span', { class: 'meta' }, `${s.steps.length} slides · Yours`), h('span', { class: 't' }, s.title), h('span', { class: 'd' }, s.summary || ''),
       h('span', { class: 'script-acts' },
@@ -1246,16 +1273,18 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
         h('button', { class: 'btn sm', onclick: () => addStep(s.id) }, 'Add current state'),
         h('button', { class: 'btn sm ghost', onclick: () => shareScript(s) }, 'Share link'),
         h('button', { class: 'btn sm ghost', onclick: () => exportScript(s) }, 'Export'),
+        h('button', { class: 'btn sm ghost', onclick: () => openHandout(fromScript(s)) }, 'Print notes'),
         h('button', { class: 'btn sm ghost', onclick: () => remove(s.id) }, 'Delete')));
     return h('div', { class: 'pz-lib' },
       h('p', { class: 'ctl-sub lib-note' }, 'Slide presentations that run on the live model, with a question for the audience on each slide.'),
-      h('div', { class: 'pz-decks' }, DECKS.map(deckCard)),
+      // Simple to advanced, a thin divider naming each level (decks keep their order within it).
+      ...Object.keys(LEVELS).flatMap((lv) => { const ds = DECKS.filter((d) => d.level === lv); return ds.length ? [h('h3', { class: 'pz-lvl-div' }, LEVELS[lv]), h('div', { class: 'pz-decks' }, ds.map(deckCard))] : []; }),
       h('h3', { class: 'home-sub' }, 'Your scripts'),
       mine.length ? h('div', { class: 'home-grid' }, mine.map(scriptCard)) : h('p', { class: 'ctl-sub' }, 'A script is a series of model states you capture yourself. It plays like the presentations above.'),
       h('div', { class: 'btn-row', style: { marginTop: '12px' } },
         h('button', { class: 'btn', onclick: newScript }, 'New script from the current model'),
         h('button', { class: 'btn', onclick: importFile }, 'Import a script')),
-      h('p', { class: 'ctl-sub' }, 'While presenting: → or Page Down next, ← back, a number then Enter jumps, B black screen, F full screen, Q quiz, Esc stops. Clickers work.'));
+      h('p', { class: 'ctl-sub' }, 'While presenting: → or Page Down next, ← back, a number then Enter jumps, B black screen, F full screen, Q quiz, P projector contrast, Esc stops. Clickers work.'));
   }
 
   // Present a case: any case full screen for a class. Projector-size labels on the figure; the slim bar reminds the presenter to take a show of hands before committing.

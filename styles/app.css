@@ -2190,6 +2190,29 @@ button.finding:hover { background: var(--surface-2); }
 .pzd-list li { break-inside: avoid; padding: 1px 0; }
 .pzd-list button { padding: 0; border: 0; background: none; font: inherit; color: var(--text-2); text-align: left; cursor: pointer; }
 .pzd-list button:hover { color: var(--accent); text-decoration: underline; }
+.pzd-head { display: flex; align-items: flex-start; gap: 16px; }
+.pzd-hd { display: flex; flex-direction: column; gap: 8px; flex: 1 1 auto; min-width: 0; }
+/* The first slide's figure, small; it fades in when loaded (a deck without a still shows none). */
+.pzd-still { flex: none; width: 104px; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 10px; border: 1px solid var(--border); background: var(--stage-bg); opacity: 0; transition: opacity .4s var(--ease); }
+.pzd-still.on { opacity: 1; }
+@media (max-width: 520px) { .pzd-still { width: 76px; border-radius: 8px; } }
+/* A thin divider naming each level, simple to advanced. */
+.pz-lvl-div { display: flex; align-items: center; gap: 12px; margin: 22px 0 12px; font: 600 var(--fs-12)/1.2 var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
+.pz-lvl-div::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.pz-lib > .pz-lvl-div:first-of-type { margin-top: 8px; }
+/* Projector contrast (P while presenting): larger words, thicker leaders, ratings as filled chips, a deeper shade. Organ art unchanged. */
+.app.pz-hi .pz:not(.stack) .pz-text { zoom: 1.15; }
+.app.presenting.pz-hi #labels .leader { stroke-width: 2.5; }
+.app.presenting.pz-hi #labels .leader.hl, .app.presenting.pz-hi #labels .leader.focus { stroke-width: 3; }
+.app.presenting.pz-hi #labels .leader-dot { stroke-width: 2.2; }
+.app.pz-hi .pzl-lead { stroke-width: 2.6; opacity: .85; }
+.app.pz-hi .pzt-r { align-self: flex-start; padding: .22em .7em; border-radius: var(--r-pill); background: var(--text-2); color: var(--surface); transition: background-color .4s var(--ease), color .4s var(--ease); }
+.app.pz-hi .pzt-r::before { display: none; }
+.app.pz-hi .pz-tile[data-rate="hi"] .pzt-r { background: var(--danger); color: var(--stage-bg); }
+.app.pz-hi .pz-tile[data-rate="mid"] .pzt-r { background: var(--caution); color: #1a1300; }
+.app.pz-hi .pz-tile:is([data-rate="ok"], [data-rate="lo"]) .pzt-r { background: var(--ok); color: var(--stage-bg); }
+.app.pz-hi .pz-tile[data-rate="mid"] .pzt-v { color: color-mix(in srgb, var(--caution) 70%, var(--text)); }
+.app.pz-hi .pz-shade { filter: brightness(.9); }
 /* The pressure route runs from portal (magenta) to systemic (blue), as the vessels do on the figure. Each level of
    portal hypertension has its own shade between them (presenter, drill, lessons). */
 :root { --tour-portal: #B8326F; --tour-sys: #3F7FCB; }
