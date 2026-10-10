@@ -50,7 +50,7 @@ function equation([ml, legend]) {
 }
 const nb = (t) => (t || '').replace(/(\p{L})–(\p{L})/gu, '$1–\u2060$2');
 const RATE = {
-  hvpg: (v) => (v >= 10 ? ['hi', 'Clinically significant'] : v >= 5 ? ['mid', 'Raised'] : ['ok', 'Normal']),
+  hvpg: (v) => (v >= 10 ? ['hi', 'CSPH'] : v >= 5 ? ['mid', 'Raised'] : ['ok', 'Normal']),
   ppg: (v) => (v >= 12 ? ['hi', 'High'] : v >= 6 ? ['mid', 'Raised'] : ['ok', 'Normal']),
   pv: (v) => (v > 10 ? ['hi', 'High'] : ['ok', 'Normal']),
   sin: (v) => (v >= 12 ? ['hi', 'High'] : v >= 9 ? ['mid', 'Raised'] : ['ok', 'Normal']),
@@ -244,12 +244,13 @@ function rail(mode) {
  *  sc: { key, max, low, marks: [[value, words]] }: each zone is named under its middle (low names the
  *  first), a name too wide for its zone on two lines; rows: [{ name, f, site }]. */
 function scaleVisual(sc, rows) {
-  const W = 1400, H = 440, x0 = 70, x1 = W - 60, max = sc.max || 20, X = (v) => x0 + (x1 - x0) * clamp(v, 0, max) / max, Y = 268;
+  const W = 1400, H = 480, x0 = 70, x1 = W - 60, max = sc.max || 20, X = (v) => x0 + (x1 - x0) * clamp(v, 0, max) / max, Y = 268;
   const cuts = [0, ...sc.marks.map(([v]) => v), max];
   const zones = cuts.slice(0, -1).map((a, i) => [a, cuts[i + 1], ['ok', 'mid', 'hi', 'top'][Math.min(i, 3)], i ? sc.marks[i - 1][1] : sc.low]);
   const words = (t, x, room) => {
+    // A name may carry its own line breaks; otherwise one too wide for its zone splits at the middle space.
     const sp = [...t.matchAll(/ /g)].map((m) => m.index), at = sp.sort((a, b) => Math.abs(a - t.length / 2) - Math.abs(b - t.length / 2))[0];
-    const lines = t.length * 13.5 > room - 20 && at != null ? [t.slice(0, at), t.slice(at + 1)] : [t];
+    const lines = t.includes('\n') ? t.split('\n') : t.length * 13.5 > room - 20 && at != null ? [t.slice(0, at), t.slice(at + 1)] : [t];
     return sv('text', { class: 'pzs-mw', x, y: Y + 116, 'text-anchor': 'middle' }, lines.map((l, i) => sv('tspan', { x, dy: i ? 34 : 0 }, l)));
   };
   const pins = [...rows].filter((r) => r.f).sort((a, b) => a.f[sc.key] - b.f[sc.key]);

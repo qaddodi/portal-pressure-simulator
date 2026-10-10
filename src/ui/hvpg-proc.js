@@ -35,7 +35,7 @@ const STEPS = [
 const C = { bg: '#07090C', grid: '#1C2128', line: '#2A3038', text: '#9AA4B2', bright: '#E8EDF4',
   free: '#5CA4F2', wedge: '#A68CF2', ok: '#4FD18B', caution: '#F2B84B', danger: '#FF7A85' };
 const sevOf = (v) => (v >= 10 ? 'danger' : v >= 5 ? 'caution' : 'ok');
-const sevWord = (v) => (v >= 10 ? 'Clinically significant' : v >= 5 ? 'Subclinical' : 'Normal');
+const sevWord = (v) => (v >= 10 ? 'Clinically significant portal hypertension (CSPH)' : v >= 5 ? 'Subclinical' : 'Normal');
 const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const k01 = (t, a, b) => clamp((t - a) / (b - a), 0, 1);
 
