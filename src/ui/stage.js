@@ -5100,6 +5100,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   // ── Anchors for the action card ───────────────────
   const ORGAN_ANCHOR = { liver: [470, 360], heart: [650, 118], spleen: [1052, 362], varices: SITES.varix, gastric: SITES.fundus, abdomen: [720, 770] };
+  const anchorRings = { key: '', rings: [] };
   function anchorFor(sel) {
     if (!sel) return null;
     if (sel.type === 'lobule') return lz?.anchorFor(sel) || null;
@@ -5112,16 +5113,26 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       return { x, y, path };
     }
     if (sel.type === 'organ') {
-      const w = sel.at || ORGAN_ANCHOR[sel.id];
+      const org = { liver: 'liver', heart: 'heart', spleen: 'spleen' }[sel.id];
+      const hasLine = org && organEls[org]?.getAttribute('d');
+      // An organ with an outline anchors at its own centre (not the clicked point); its leader starts on the outline.
+      const w = (hasLine ? ORGAN_ANCHOR[sel.id] : null) || sel.at || ORGAN_ANCHOR[sel.id];
       if (!w) return null;
       const [x, y] = worldToLocal(w[0], w[1]);
-      const org = { liver: 'liver', heart: 'heart', spleen: 'spleen' }[sel.id];
       const path = [[x, y]];
       if (org && organEls[org]?.getBBox) {
         const b = organEls[org].getBBox();
         for (let i = 0; i <= 4; i++) for (let j = 0; j <= 4; j++) path.push(worldToLocal(b.x + (b.width * i) / 4, b.y + (b.height * j) / 4));
       }
-      return { x, y, path };
+      let outline = null;
+      if (hasLine) {
+        // The same sampled rings the GPU outline draws (olRings), cached per shape, in screen space.
+        const k = olKey(org);
+        if (anchorRings.key !== k) { anchorRings.key = k; anchorRings.rings = olRings(org); }
+        outline = [];
+        for (const r of anchorRings.rings) for (let i = 0; i < r.length; i += 2) outline.push(worldToLocal(r[i][0], r[i][1]));
+      }
+      return { x, y, path, outline };
     }
     return null;
   }

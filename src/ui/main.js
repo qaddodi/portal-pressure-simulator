@@ -3,7 +3,7 @@
 
 import { startHost, host } from './host.js?v=90504cc4f2';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=25cbe77a76';
-import { createStage } from './stage.js?v=9bb39162f8';
+import { createStage } from './stage.js?v=eee2c24d1e';
 import { sinusoidSupported } from './sinusoid-view.js?v=1bee447b11';
 import { createInspector } from './inspector.js?v=c125b2c440';
 import { createDock, CUTOFFS } from './dock.js?v=eb3569dafa';
@@ -14,7 +14,7 @@ import { createLearn } from './learn.js?v=17c62014a4';
 import { createCases, CASES } from './cases.js?v=b5faaf8c0d';
 import { isBlind } from './learning-kit.js?v=c27a9a6a60';
 import { createCompare } from './compare.js?v=4fdecb38c3';
-import { createCard } from './card.js?v=d36db8f004';
+import { createCard } from './card.js?v=229d61f2cc';
 import { createChart, computeFindings } from './chart.js?v=79de0909f8';
 import { createHome, ROLES } from './home.js?v=d1fdf8e819';
 import { course } from './course.js?v=b780ae35f5';

@@ -3381,7 +3381,9 @@ button.finding:hover { background: var(--surface-2); }
 }
 
 /* The card's leader line to its structure, when the card sits away from it. */
-.ac-leader { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; z-index: calc(var(--z-hud) - 1); }
+.ac-leader { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; z-index: calc(var(--z-hud) - 1); opacity: 0; transition: opacity .22s ease; }
+.ac-leader.on { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .ac-leader { transition: none; } }
 .ac-leader path { stroke: var(--text-2); stroke-width: 1.2; stroke-dasharray: 3 3; fill: none; opacity: .8; }
 .ac-leader circle { fill: var(--surface); stroke: var(--accent); stroke-width: 2; }
 .stage-view.in-lobule .ac-leader { display: none; }
