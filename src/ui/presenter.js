@@ -19,9 +19,15 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=cab65850a4';
 import { sinusoidSupported } from './sinusoid-view.js?v=14866bc1c9';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
-import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=50d14b4239';
+<<<<<<< HEAD
+import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=a63fd1a945';
 import { createTools } from './presenter-tools.js?v=28dfa00d7e';
-import { openHandout } from './handout.js?v=6df2442acb';
+import { openHandout } from './handout.js?v=e5b1fa6f61';
+=======
+import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=a63fd1a945';
+import { createTools } from './presenter-tools.js?v=28dfa00d7e';
+import { openHandout } from './handout.js?v=e5b1fa6f61';
+>>>>>>> d4fa644 (Presenter engine: term pills that light their station, live and cut-off value pills, slide glows, marks by kind, slide layers, ladder names on the figure)
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -65,22 +71,95 @@ const KEYWORDS = { hvpg: 'HVPG', ppg: 'PPG', pv: 'portal pressure', whvp: 'WHVP|
   ivc: 'IVC', varix: 'varix|varices', hr: 'heart rate', map: 'blood pressure', asc: 'ascites', plt: 'platelets?', lsm: 'stiffness', spleen: 'spleen',
   liver: 'liver blood flow', shunt: 'shunt', sin: 'sinusoidal pressure', saag: 'SAAG', tp: 'protein', hb: 'hemoglobin', pvFlow: 'portal flow' };
 const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-function rich(t, s = {}) {
+// What a word in a line can point at on the figure (a term pill, M1): the station's label (node), the vessels that
+// glow (edges) or the organ outlined, in the station's colour (tone: --tr-<tone>), and the words that name it.
+const TARGETS = {
+  pv: { node: 'CONF', edges: ['PV_TRUNK'], tone: 'pv', words: 'portal vein' },
+  sv: { node: 'SV', edges: ['SV_CONF', 'V_SPL'], tone: 'sv', words: 'splenic vein|splenic' },
+  smv: { node: 'SMV', edges: ['SMV_CONF', 'V_INT'], tone: 'smv', words: 'superior mesenteric veins?|superior mesenteric' },
+  sin: { node: 'SIN_R', organ: 'liver', tone: 'wedge', words: 'sinusoids?|sinusoidal pressure' },
+  whvp: { node: 'SIN_R', organ: 'liver', tone: 'wedge', words: 'WHVP|wedged pressure' },
+  fhvp: { node: 'RHV', edges: ['RHV_IVC'], tone: 'hv', words: 'FHVP|free pressure' },
+  hv: { node: 'RHV', edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], tone: 'hv', words: 'hepatic veins?' },
+  ivc: { node: 'IVCS', edges: ['IVCS_RA', 'IVC_IS'], tone: 'ivc', words: 'IVC|inferior vena cava' },
+  ra: { node: 'RA', organ: 'heart', tone: 'ra', words: 'right atrium' },
+  varix: { node: 'VAR', edges: ['C1a', 'C1b'], tone: 'var', words: 'esophageal varices|varices|varix' },
+  gv: { node: 'GV', edges: ['C2'], tone: 'var', words: 'gastric varices|fundal varices' },
+  lgv: { node: 'LGV', edges: ['LGV_CONF', 'V_STO'], tone: 'var', words: 'left gastric vein|coronary vein' },
+  spleen: { organ: 'spleen', tone: 'sv', words: 'spleen' },
+  liver: { organ: 'liver', tone: 'wedge', words: 'liver' },
+  heart: { organ: 'heart', tone: 'ra', words: 'heart' },
+};
+// Node ids name their target too ([portal vein](CONF) is [portal vein](pv)).
+for (const [k, t] of Object.entries(TARGETS)) if (t.node && !TARGETS[t.node]) TARGETS[t.node] = TARGETS[k];
+const ORGANS = new Set(['liver', 'spleen', 'heart']);
+// A vessel's station colour, for a glow written by hand (glow: ['PV_TRUNK']).
+const EDGE_TONE = {};
+for (const t of Object.values(TARGETS)) for (const e of t.edges || []) EDGE_TONE[e] ||= t.tone;
+// A live value's colour ({pv}): the station it is read at; a value with no station (HVPG) is a plain pill.
+const VAL_TONE = { pv: 'pv', whvp: 'wedge', sin: 'wedge', fhvp: 'hv', ivc: 'ivc', ra: 'ra', varix: 'var', gv: 'var', spleen: 'sv' };
+// A slide's terms: { words: target } (terms: ['pv', 'ra'] takes each target's own words).
+function termList(s) {
+  const t = s.terms;
+  if (!t) return [];
+  return (Array.isArray(t) ? t.map((k) => [TARGETS[k]?.words, k]) : Object.entries(t).map(([w, k]) => [esc(w), k])).filter(([w, k]) => w && TARGETS[k]);
+}
+/** Everything a slide points at on the figure: its terms (as the line names them) and its glow field. */
+export function slideTargets(s, line = s.line || '') {
+  const keys = new Set();
+  for (const m of line.matchAll(/\[([^\]]+)\]\(([\w:]+)\)/g)) if (TARGETS[m[2]]) keys.add(m[2]);
+  for (const [w, k] of termList(s)) if (new RegExp(`\\b(?:${w})\\b`, 'i').test(line)) keys.add(k);
+  const labels = [], terms = {}, glow = new Map(), organs = new Set();
+  for (const k of keys) {
+    const t = TARGETS[k];
+    if (t.node) { labels.push(t.node); terms[t.node] = t.tone; }
+    for (const e of t.edges || []) glow.set(e, t.tone);
+    if (t.organ) organs.add(t.organ);
+  }
+  for (const g of s.glow || []) {
+    const id = typeof g === 'string' ? g : g.id, tone = typeof g === 'string' ? null : g.tone;
+    if (TARGETS[id]) { const t = TARGETS[id]; for (const e of t.edges || []) glow.set(e, tone || t.tone); if (t.organ) organs.add(t.organ); }
+    else if (ORGANS.has(id)) organs.add(id);
+    else glow.set(id, tone || EDGE_TONE[id] || 'accent');
+  }
+  return { labels, terms, glow: [...glow].map(([id, tone]) => ({ id, tone })), organs: [...organs] };
+}
+// A live value pill ({pv}): the model's reading for this slide, rounded as its card shows it (the ladder's
+// stations in whole mmHg on a ladder slide).
+const LADDER_KEYS = new Set(RUNGS.map(([k]) => k));
+function liveVal(k, s, fp) {
+  const T = TILE[k], v = fp?.[k];
+  if (v == null || !Number.isFinite(v)) return '…';
+  const d = s.data === 'ladder' && LADDER_KEYS.has(k) ? 0 : T.d ?? 1;
+  return `${fmt(v * (T.x || 1), d)}${T.u ? ` ${T.u}` : ''}`;
+}
+// A line, typeset (see above). Also: {pv} a live value, {>=10 mmHg} a cut-off (outlined), and a term that points
+// at the figure, [portal vein](pv) or through the slide's terms field, as a pill in its station's colour.
+function rich(t, s = {}, fp = null) {
   const keys = [...(s.key || []).map((k) => KEYWORDS[k]).filter(Boolean), ...(s.bold || []).map(esc)];
+  const tl = termList(s), tw = tl.map(([w]) => w.replace(/(^|\|)([a-z])/g, (_, p, c) => `${p}[${c}${c.toUpperCase()}]`));   // (a term may open the sentence)
   const marked = /\{[^}]+\}/.test(t);
-  const re = new RegExp(`\\{([^}]+)\\}([,.;:]?)|(${VAL})([,.;:]?)` + (keys.length ? `|\\b(${keys.join('|')})\\b` : '') + `|\\b(${TERMS.join('|')})\\b`, 'g');
-  const out = [], seen = new Set(); let at = 0, bold = 0, pills = 0, m;
+  const re = new RegExp(String.raw`\[([^\]]+)\]\(([\w:]+)\)|\{([^}]+)\}([,.;:]?)` + (tw.length ? `|\\b(${tw.join('|')})\\b` : '') + `|(${VAL})([,.;:]?)` + (keys.length ? `|\\b(${keys.join('|')})\\b` : '') + `|\\b(${TERMS.join('|')})\\b`, 'g');
+  const out = [], seen = new Set(), seenT = new Set(); let at = 0, bold = 0, pills = 0, m;
   t = nb(t);
   // A pill keeps the word before it and the stop after it on its line (a no-break space, one unbreakable span).
-  const pill = (v, stop) => { const prev = out[out.length - 1]; if (typeof prev === 'string') out[out.length - 1] = prev.replace(/ $/, ' ');
-    pills++; return h('span', { class: 'pz-nw' }, h('span', { class: 'pz-val' }, v.replace(/\s(?=mmHg|g\/dL|mL|kPa|cm\/s|mm\b|%)/, ' ')), stop || ''); };
+  const glue = () => { const prev = out[out.length - 1]; if (typeof prev === 'string') out[out.length - 1] = prev.replace(/ $/, '\u00a0'); };
+  const pill = (v, stop, cls = '', tone = null) => { glue();
+    pills++; return h('span', { class: 'pz-nw' }, h('span', { class: `pz-val${cls}${tone ? ' tone' : ''}`, style: tone ? `--tone: var(--tr-${tone})` : null }, v.replace(/\s(?=mmHg|g\/dL|mL|kPa|cm\/s|mm\b|%)/, '\u00a0')), stop || ''); };
+  const termPill = (w, k) => { const tone = TARGETS[k].tone; return h('span', { class: 'pz-term', 'data-target': k, style: `--tone: var(--tr-${tone})` }, w); };
   while ((m = re.exec(t))) {
-    const [all, mk, mkStop, val, valStop, key, term] = m, w = (key || term)?.toLowerCase().replace(/(?:s|ces)$/, '');
+    const [all, lw, lk, mk, mkStop, tword, val, valStop, key, term] = m, w = (key || term)?.toLowerCase().replace(/(?:s|ces)$/, '');
     if (val && (marked || pills || s.pill === false)) continue;
     if (term && (seen.has(w) || bold >= 3)) continue;
     if (key && seen.has(w)) continue;
+    const tk = tword ? tl.find(([x]) => new RegExp(`^(?:${x})$`, 'i').test(tword))?.[1] : null;
+    if (tword && (!tk || seenT.has(tk))) continue;
     out.push(t.slice(at, m.index));
-    if (mk) out.push(pill(mk, mkStop));
+    if (lw) out.push(TARGETS[lk] ? termPill(lw, lk) : lw);
+    else if (tword) { seenT.add(tk); out.push(termPill(tword, tk)); }
+    else if (mk && TILE[mk]) out.push(pill(liveVal(mk, s, fp), mkStop, '', VAL_TONE[mk]));
+    else if (mk && /^[<>≥≤]=?/.test(mk)) out.push(pill(mk.replace(/^(?:>=|<=|[<>≥≤])\s*/, ''), mkStop, ' cut'));
+    else if (mk) out.push(pill(mk, mkStop));
     else if (val) out.push(pill(val, valStop));
     else { seen.add(w); bold++; out.push(h('b', {}, key || term)); }
     at = m.index + all.length;
@@ -511,7 +590,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
   // `gen` counts redraws asked of the slide in place (quiz on or off): a transition under way for an older one starts over.
   let want = 0, wantRev = false, shown = null, shownState = -1, busy = false, quiz = false, gen = 0;
   let ui = null, black = false, digits = '', digitT = 0;
-  let saved = null;
+  let saved = null, layersBefore = null;   // (the viewer's own lobule layers, put back when the show ends)
   // Projector contrast (P): larger words and labels, thicker leaders, ratings as filled chips, a deeper shade. Remembered.
   const PROJ = 'pps.projector';
   let hiCon = (() => { try { return localStorage.getItem(PROJ) === '1'; } catch { return false; } })();
@@ -805,11 +884,12 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     // A time-lapse starts from the slide before's state; a catheter slide drives its own camera.
     const lap = !!s.lapse && to > 0 && !q, ct = !q && !s.visual ? s.cath || null : null;
     // Words out, and the marks: they belong to the slide that is leaving.
-    store.set({ focus: null, presentLabels: [] }); stage.setSites(null);
+    store.set({ focus: null, presentLabels: [], presentTerms: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
     stopLapse(); abSlow();
     const si = lap ? stateOf[to - 1] : stateOf[to];
     await wordsOut(s, shownState >= 0 && (si !== shownState || liveOff));
     if (cut()) return;
+    slideLayers(s);
     // The catheter leaves with its slides (with a new patient, the figure's fade takes it).
     if (cath.on && (!ct || si !== shownState)) { await cathOut(si !== shownState && shownState >= 0); if (cut()) return; }
     // Out of the lobule while the old patient is still there, so the rise reads as leaving the liver.
@@ -843,11 +923,25 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     else if (lead) await lead;
     else if (cam) await camera(cam, s, cut);
     if (cut()) return;
-    if (!s.visual) store.set({ presentLabels: q ? [] : s.labels || [], focus: !q && s.mark ? { edges: [...s.mark.edges], label: s.mark.label } : null });
+    if (!s.visual) {
+      // The slide's marks, labels, the stations its terms name (in their colours) and its glows (see slideTargets).
+      const tg = q ? null : slideTargets(s), marks = q ? [] : (s.marks || (s.mark ? [s.mark] : [])).map((m) => ({ edges: [...m.edges], label: m.label, kind: m.kind || 'block' }));
+      store.set({ presentLabels: q ? [] : [...new Set([...(s.labels || []), ...tg.labels])], presentTerms: tg?.terms || null,
+        presentNames: !q && (s.data === 'ladder' || !!s.cath),
+        focus: marks.length ? { ...marks[0], marks } : null });
+      if (tg) { stage.setGlow(tg.glow); stage.pinOrgans(tg.organs); }
+    }
     if (!s.visual && !q && s.sites) stage.setSites(s.sites, st.fp);
     shown = { i: to, rev, gen: g };
     paintChrome();
     if (lap) await playLapse(s, to, cut);
+  }
+
+  // A slide's lobule layers (layers: ['zones', 'lymph'] turns those on); a slide without the field has the viewer's own.
+  function slideLayers(s) {
+    if (!layersBefore) return;
+    const want = { ...layersBefore, ...Object.fromEntries((s.layers || []).map((k) => [k, true])) }, now = store.get().lobuleLayers || {};
+    if (Object.keys(want).some((k) => !!want[k] !== !!now[k])) store.set({ lobuleLayers: want });
   }
 
   // ── The slide's words, data and visual ──
@@ -889,7 +983,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
       if (panel.hidden) { panel.classList.add('pz-leave'); panel.hidden = false; void panel.offsetWidth; }
       panel.classList.toggle('fill', s.visual === 'ladders');
       panel.dataset.visual = s.visual;
-      panel.replaceChildren(h('div', { class: 'pz-ph' }, kick(null, s.kicker), h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s)) : null),
+      panel.replaceChildren(h('div', { class: 'pz-ph' }, kick(null, s.kicker), h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null),
         VISUALS[s.visual](s));
       panel.classList.remove('pz-leave');
       ui.veil.classList.add('on');
@@ -898,7 +992,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
       text.hidden = false;
       text.replaceChildren(...(q
         ? [kick(null, 'Quiz'), h('h1', { class: 'pz-h' }, s.quiz), s.rail ? rail(null) : null, h('p', { class: 'pz-line pz-hint' }, 'Take answers from the audience, then press → to show the answer.')]
-        : [kick(s.site, s.kicker, s.sec), h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s)) : null,
+        : [kick(s.site, s.kicker, s.sec), h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null,
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), onclick: () => abPick(s, i, k) }, o.label))) : null,
           s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
@@ -1346,6 +1440,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     deck = d; slides = d.mine ? d.slides : withOverview(d).slides; shown = null; shownState = -1; quiz = false; black = false;
     closeHome?.();
     const st0 = store.get();
+    if (!layersBefore) layersBefore = { ...st0.lobuleLayers };
     store.set({ presenting: true, selection: null, details: null, compareSnap: null, colorMode: 'pressure', presentLabels: [], focus: null, ...(st0.mode !== 'explore' ? { mode: 'explore' } : {}) });
     if (st0.view !== 'anatomic' && !st0.lobule) store.set({ view: 'anatomic' });
     projectorOn();
@@ -1366,7 +1461,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     for (const w of waiters) w.res(null);
     waiters = [];
     removeEventListener('resize', onResize);
-    store.set({ presenting: false, presentLabels: null, focus: null }); stage.setSites(null);
+    store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
     clearTimeout(idleT);
     ui?.tools.dispose(); ui?.root.remove(); ui?.shade.remove(); ui = null;
     view.classList.remove('pz-out');
@@ -1379,7 +1474,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     projectorOff();
     dispatchEvent(new Event('pps:occ'));
     if (restore && saved) putBack(saved);
-    if (restore) saved = null;
+    if (restore) { saved = null; if (layersBefore) store.set({ lobuleLayers: layersBefore }); layersBefore = null; }
   }
   // Back to the app as it was before the presentation: the patient and every setting, the view and its camera, the cards and
   // sheets that were open (not Home, which launched the show and stays closed), the sim running or paused (and a time-lapse), each easing in rather than jumping.

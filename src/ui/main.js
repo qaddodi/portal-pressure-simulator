@@ -3,7 +3,11 @@
 
 import { startHost, host } from './host.js?v=4bb9b57859';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=5edd069b32';
-import { createStage } from './stage.js?v=7db1c906bc';
+<<<<<<< HEAD
+import { createStage } from './stage.js?v=a6f1b3788f';
+=======
+import { createStage } from './stage.js?v=a6f1b3788f';
+>>>>>>> d4fa644 (Presenter engine: term pills that light their station, live and cut-off value pills, slide glows, marks by kind, slide layers, ladder names on the figure)
 import { sinusoidSupported } from './sinusoid-view.js?v=14866bc1c9';
 import { createInspector } from './inspector.js?v=127b504390';
 import { createDock, CUTOFFS } from './dock.js?v=bee4540494';
@@ -141,7 +145,11 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else home.open(o?.practice ? 'practice' : 'course'); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => home.open('course') });
-  presenterL = lazy(() => import('./presenter.js?v=ff3371f117'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+<<<<<<< HEAD
+  presenterL = lazy(() => import('./presenter.js?v=f1d6b656d1'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+=======
+  presenterL = lazy(() => import('./presenter.js?v=f1d6b656d1'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+>>>>>>> d4fa644 (Presenter engine: term pills that light their station, live and cut-off value pills, slide glows, marks by kind, slide layers, ladder names on the figure)
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), stashCards, rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({

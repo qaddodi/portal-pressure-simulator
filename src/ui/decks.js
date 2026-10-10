@@ -54,8 +54,8 @@ import { LOBULE } from './decks/lobule.js?v=a4fece9e32';
 import { SHUNTS } from './decks/shunts.js?v=f85ae18277';
 import { TAP } from './decks/tap.js?v=aeece78bce';
 import { CIRCUIT } from './decks/circuit.js?v=567293bbfe';
-import { DOPPLER } from './decks/doppler.js?v=8d2db6e5e8';
-import { ENDOSCOPY } from './decks/endoscopy.js?v=ca5ddcfed8';
+import { DOPPLER } from './decks/doppler.js?v=ce002d6dac';
+import { ENDOSCOPY } from './decks/endoscopy.js?v=b253a0817b';
 import { PREHEPATIC } from './decks/prehepatic.js?v=4de7c2b784';
 import { RIGHT_HEART } from './decks/right-heart.js?v=5fdaa16faa';
 import { BLEED } from './decks/variceal-bleed.js?v=461b703f8d';
@@ -109,14 +109,14 @@ export const DECKS = [
     objectives: ['Trace portal blood from the gut and spleen through the liver to the heart', 'Name the two capillary beds in series and where each sits', 'Give normal pressures from the portal vein to the right atrium', 'Define portal hypertension and CSPH by the HVPG'],
     slides: [
       {
-        id: 'inflow', preset: 'healthy', cam: 'portal', labels: ['SMV', 'SV', 'CONF'], data: 'tiles', tiles: ['pvFlow', 'pv'],
+        id: 'inflow', preset: 'healthy', cam: 'portal', labels: ['SMV', 'SV', 'CONF'], terms: ['sv', 'smv', 'pv'], data: 'tiles', tiles: ['pvFlow', 'pv'],
         kicker: 'The portal circulation', title: 'Where portal blood comes from',
         line: 'The splenic and superior mesenteric veins join behind the pancreas to form the portal vein. It brings the liver about three quarters of its blood.',
         notes: 'Portal blood drains the gut from the lower esophagus to the upper rectum, and the spleen, pancreas and gallbladder. It carries absorbed nutrients, toxins and bacterial products to the liver first. The inferior mesenteric vein usually joins the splenic vein. Portal flow is about 1 to 1.2 L a minute, three quarters of the liver\'s blood; the hepatic artery brings the rest, and about half of the liver\'s oxygen.',
         ask: ['Which veins form the portal vein?', 'The superior mesenteric vein and the splenic vein, behind the neck of the pancreas.'],
       },
       {
-        id: 'series', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'],
+        id: 'series', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], terms: { sinusoids: 'sin' }, glow: ['smv'],
         kicker: 'The portal circulation', title: 'Two capillary beds in series',
         line: 'Gut blood crosses the capillaries of the intestine, then the sinusoids of the liver, before it returns to the heart.',
         notes: 'A portal system is a set of veins running between two capillary beds. The first bed is in the gut and spleen, the second is the hepatic sinusoids. Because the beds are in series, anything that raises resistance in the liver, or beyond it, raises the pressure in every vein upstream: the portal vein, the splenic vein and the veins of the gut.',
@@ -125,7 +125,7 @@ export const DECKS = [
       {
         id: 'ladder', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], data: 'ladder', key: ['hvpg', 'ppg'],
         kicker: 'The portal circulation', title: 'Normal pressures, portal vein to heart',
-        line: 'About 8 mmHg in the portal vein and 3 in the right atrium. Normal sinusoids offer little resistance, so each drop is small.',
+        line: 'About {pv} in the [portal vein](pv) and {ra} in the [right atrium](ra). Normal [sinusoids](sin) offer little resistance, so each drop is small.',
         notes: 'The ladder reads four stations: the portal vein, the wedged hepatic vein (which reads the sinusoids), the free hepatic vein and the right atrium. The dashed line is the healthy reference, used on every slide. In health the whole fall from the portal vein to the IVC, the portal pressure gradient (PPG), is 5 mmHg or less, and the hepatic venous pressure gradient (HVPG), the fall across the sinusoids, is 1 to 5 mmHg.',
         ask: ['What is the normal portal pressure gradient?', '5 mmHg or less.'],
       },
@@ -168,7 +168,7 @@ export const DECKS = [
       {
         id: 'define', preset: 'csph', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], data: 'ladder', key: ['hvpg', 'ppg'],
         kicker: 'Definition', site: 'sin', title: 'Portal hypertension',
-        line: 'A portal pressure gradient above {5 mmHg}, measured as the HVPG in cirrhosis. At an HVPG of 10 or more, varices and ascites become likely.',
+        line: 'A portal pressure gradient above {>=5 mmHg}, measured as the HVPG in cirrhosis. This patient\'s HVPG is {hvpg}; at {>=10 mmHg} varices and ascites become likely.',
         notes: 'Portal hypertension is a portal pressure gradient above 5 mmHg; in cirrhosis it is measured as the HVPG. An HVPG of 6 to 9 mmHg is subclinical. 10 mmHg or more is clinically significant portal hypertension (CSPH), the threshold for varices and decompensation (ascites, variceal bleeding, encephalopathy); 12 mmHg or more is the threshold for variceal bleeding. In this cirrhotic liver the largest pressure drop is across the sinusoids.',
         ask: ['What HVPG defines clinically significant portal hypertension?', '10 mmHg or more.'],
       },
@@ -443,7 +443,7 @@ export const DECKS = [
         ask: ['When can screening endoscopy be skipped in compensated cirrhosis?', 'Liver stiffness below 20 kPa and platelets above 150 (Baveno VII).'],
       },
       {
-        id: 'eso', cam: 'varices', labels: ['VAR', 'AZY'], mark: { edges: ['C1a', 'C1b'], label: 'Esophageal varices' }, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'],
+        id: 'eso', cam: 'varices', labels: ['VAR', 'AZY'], mark: { edges: ['C1a', 'C1b'], label: 'Esophageal varices', kind: 'note' }, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'],
         kicker: 'Varices', site: 'sin', title: 'Esophageal varices',
         line: 'The left gastric vein carries portal blood up to the lower esophagus. The submucosal veins of the lower esophagus swell and drain to the azygos.',
         notes: 'Gastroesophageal varices are the collaterals that matter most, because they bleed. Blood runs from the left gastric (coronary) and short gastric veins through veins in the wall of the lower esophagus to the azygos system. At endoscopy small varices are under 5 mm and large ones over 5 mm; red wale marks are thin spots in the wall. About half of patients have varices when cirrhosis is diagnosed.',
@@ -458,7 +458,7 @@ export const DECKS = [
         ask: ['Name three predictors of variceal bleeding.', 'Large size, red wale marks, Child–Pugh B or C (and an HVPG of 12 or more).'],
       },
       {
-        id: 'fundal', preset: 'gastric-varix', cam: 'fundus', labels: ['GV', 'LRV'], mark: { edges: ['C5'], label: 'Gastrorenal shunt' }, data: 'tiles', tiles: ['gv', 'varix'], key: ['gv'],
+        id: 'fundal', preset: 'gastric-varix', cam: 'fundus', labels: ['GV', 'LRV'], mark: { edges: ['C5'], label: 'Gastrorenal shunt', kind: 'note' }, data: 'tiles', tiles: ['gv', 'varix'], key: ['gv'],
         kicker: 'Gastric varices', site: 'sin', title: 'Fundal varices and the gastrorenal shunt',
         line: 'Gastric veins swell in the fundus of the stomach and drain into the left renal vein through a gastrorenal shunt.',
         notes: 'Isolated fundal varices (IGV1) and those running from the esophagus along the greater curve (GOV2) usually drain through a spontaneous gastrorenal shunt to the left renal vein. They bleed less often than esophageal varices, but more heavily. They are treated with cyanoacrylate glue at endoscopy, by blocking the shunt from below (balloon-occluded retrograde transvenous obliteration, BRTO), or with TIPS. A large shunt also steals portal blood from the liver and raises the risk of encephalopathy.',
@@ -472,14 +472,14 @@ export const DECKS = [
         ask: ['Gastric varices, a large spleen and normal liver tests after pancreatitis. Diagnosis and cure?', 'Splenic vein thrombosis; splenectomy, or splenic artery embolization.'],
       },
       {
-        id: 'umbilical', preset: 'cirr-decomp', cam: 'wall', mark: { edges: ['C3'], label: 'Paraumbilical vein' }, data: 'tiles', tiles: ['shunt', 'liver'],
+        id: 'umbilical', preset: 'cirr-decomp', cam: 'wall', mark: { edges: ['C3'], label: 'Paraumbilical vein', kind: 'note' }, data: 'tiles', tiles: ['shunt', 'liver'],
         kicker: 'Other collaterals', site: 'sin', title: 'Paraumbilical collaterals',
         line: 'The paraumbilical vein reopens from the left portal vein to the veins of the abdominal wall. Dilated wall veins can radiate from the navel: the caput medusae.',
         notes: 'The paraumbilical veins run in the falciform ligament from the left portal vein to the abdominal wall. When they enlarge, blood flows away from the liver through them; dilated veins radiating from the umbilicus form a caput medusae, and a venous hum may be heard over them (Cruveilhier–Baumgarten). The flow runs away from the umbilicus, unlike the upward flow of IVC obstruction. These collaterals rarely bleed, but a large one steals portal blood from the liver.',
         ask: ['How do the abdominal wall veins tell portal hypertension from IVC obstruction?', 'In portal hypertension the flow radiates away from the umbilicus; in IVC obstruction it runs upward below it.'],
       },
       {
-        id: 'rectal', cam: 'rectum', mark: { edges: ['C4'], label: 'Rectal varices' },
+        id: 'rectal', cam: 'rectum', mark: { edges: ['C4'], label: 'Rectal varices', kind: 'note' },
         kicker: 'Other collaterals', site: 'sin', title: 'Rectal varices and shunts behind the gut',
         line: 'The superior rectal vein (portal) meets the middle and inferior rectal veins (systemic). Retroperitoneal and splenorenal shunts open too.',
         notes: 'Rectal varices are portosystemic collaterals; hemorrhoids are vascular cushions and are no more common in portal hypertension. Rectal varices bleed occasionally. The retroperitoneal veins of Retzius and spontaneous splenorenal shunts carry portal blood to the IVC and the renal veins. Together, large spontaneous shunts divert portal blood, and the ammonia it carries from the gut, past the liver, and raise the risk of encephalopathy.',
@@ -538,7 +538,7 @@ export const DECKS = [
         ask: ['What is given with terlipressin for HRS-AKI?', 'Albumin.'],
       },
       {
-        id: 'band', params: { drugs: { terlipressin: false } }, action: [{ kind: 'band' }, { kind: 'band' }, { kind: 'band' }], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices' },
+        id: 'band', params: { drugs: { terlipressin: false } }, action: [{ kind: 'band' }, { kind: 'band' }, { kind: 'band' }], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' },
         data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'target',
         kicker: 'Endoscopy', site: 'sin', title: 'Band ligation',
         line: 'Ligated varices thrombose and shrink. With that outflow closed, HVPG rises slightly, so new varices form.',
@@ -546,7 +546,7 @@ export const DECKS = [
         ask: ['Why combine banding with a beta-blocker after a bleed?', 'Banding removes the varices, not the high pressure that makes new ones; the beta-blocker lowers it.'],
       },
       {
-        id: 'tips', params: { tips: { on: true } }, cam: 'liver', mark: { edges: ['TIPS'], label: 'Covered stent' }, data: 'ladder', key: ['pv', 'ppg'], tiles: ['ppg', 'varix'], delta: 'target',
+        id: 'tips', params: { tips: { on: true } }, cam: 'liver', mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'ladder', key: ['pv', 'ppg'], tiles: ['ppg', 'varix'], delta: 'target',
         kicker: 'Shunt', site: 'sin', title: 'TIPS',
         line: 'A covered stent from a hepatic vein to the portal vein. Portal blood bypasses the sinusoids, and the PPG falls below 12 mmHg.',
         notes: 'Transjugular intrahepatic portosystemic shunt: from the jugular vein, a needle is passed from the right hepatic vein through the liver into the right portal vein, and the tract is lined with a covered stent, usually 8 mm wide. The portal pressure gradient is measured before and after; for bleeding the aim is below 12 mmHg. Indications: pre-emptive TIPS in high-risk variceal bleeding, rescue when bleeding cannot be controlled, recurrent bleeding, and recurrent or refractory ascites.',
@@ -560,7 +560,7 @@ export const DECKS = [
         ask: ['Name two benefits of TIPS besides stopping a bleed.', 'The ascites clears as the kidneys excrete sodium again, and the low gradient keeps varices from rebleeding.'],
       },
       {
-        id: 'cost', cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Covered stent' }, data: 'tiles', tiles: ['liver', 'shunt'], delta: 'target',
+        id: 'cost', cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'tiles', tiles: ['liver', 'shunt'], delta: 'target',
         kicker: 'After TIPS', site: 'sin', title: 'Liver perfusion and encephalopathy',
         line: 'Less portal blood reaches the sinusoids, and gut toxins pass straight into the systemic circulation. About one patient in three develops encephalopathy.',
         notes: 'After TIPS, overt hepatic encephalopathy develops in about a third of patients, mostly in the first months; older age, earlier encephalopathy and a wider stent raise the risk, and an 8 mm covered stent lowers it. The heart receives more venous return and the liver less portal blood, so TIPS is avoided in heart failure, severe pulmonary hypertension, advanced liver failure (a high MELD) and recurrent encephalopathy. Lactulose and rifaximin treat encephalopathy; the shunt can be narrowed if it persists.',

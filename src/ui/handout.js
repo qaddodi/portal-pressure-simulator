@@ -6,7 +6,11 @@
 // (decks.js, new ones included: a slide without a figure prints without one) and for the instructor's scripts.
 
 import { download } from './records.js?v=50fb9dd463';
-import { LEVELS, withOverview } from './decks.js?v=50d14b4239';
+<<<<<<< HEAD
+import { LEVELS, withOverview } from './decks.js?v=a63fd1a945';
+=======
+import { LEVELS, withOverview } from './decks.js?v=a63fd1a945';
+>>>>>>> d4fa644 (Presenter engine: term pills that light their station, live and cut-off value pills, slide glows, marks by kind, slide layers, ladder names on the figure)
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const slug = (t) => t.replace(/[^\w-]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
