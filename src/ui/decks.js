@@ -73,7 +73,9 @@ const MODEL = ['preset', 'presetDays', 'params', 'action', 'days'];
 export function withOverview(d) {
   if (!d?.slides?.length || d.slides[0].visual === 'outline') return d;
   const [first, ...rest] = d.slides, keep = !first.lapse && !first.ramp;
-  const outline = [...new Set(d.slides.map((s) => s.kicker).filter((k) => k && k !== 'Summary'))];
+  // (A deck with fewer than three kicker groups lists its slide titles instead.)
+  const groups = [...new Set(d.slides.map((s) => s.kicker).filter((k) => k && k !== 'Summary'))];
+  const outline = groups.length >= 3 ? groups : d.slides.filter((s) => s.kicker !== 'Summary').map((s) => s.title);
   const open = { id: 'outline', visual: 'outline', outline, objectives: d.objectives || [], kicker: d.title, title: 'Outline and objectives',
     notes: 'Set out the plan of the talk and what the audience should be able to do by the end.',
     ...(keep ? Object.fromEntries(MODEL.filter((k) => first[k] !== undefined).map((k) => [k, first[k]])) : {}) };

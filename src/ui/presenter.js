@@ -20,9 +20,9 @@ import { SITES } from './ladder.js?v=cab65850a4';
 import { sinusoidSupported } from './sinusoid-view.js?v=0a862dc027';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { NODES } from '../engine/topology.js?v=dc393aabea';
-import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=6fa28a7d51';
+import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=0a973e18f1';
 import { createTools } from './presenter-tools.js?v=2f69eff5f9';
-import { openHandout } from './handout.js?v=8d3d6461c1';
+import { openHandout } from './handout.js?v=947ed912a1';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
