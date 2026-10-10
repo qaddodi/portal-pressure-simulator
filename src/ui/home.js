@@ -6,9 +6,11 @@ import { store } from './store.js?v=edbdbfb0c8';
 import { h, svgIcon, icon } from './util.js?v=a357853926';
 import { LESSONS } from './learn.js?v=648a1f6d2a';
 import { CASES } from './cases.js?v=a074a6964e';
+import { createDrill, drillProgress, DRILL_TITLE, ROUNDS } from './drill.js?v=af9584165f';
+import { skillsPath, reviewCard } from './practice.js?v=d3879605c2';
 import { t } from '../i18n/i18n.js?v=a34d291061';
 import { exportCSV, exportXAPI, learnerName, setLearnerName, records } from './records.js?v=50fb9dd463';
-import { SNAPSHOTS, PATH } from './snapshots.js?v=d65b65cf14';
+import { SNAPSHOTS, PATH } from './snapshots.js?v=34d1578d5f';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 
@@ -78,6 +80,7 @@ export function createHome({ el, brandMark, onPreset, onLesson, onCase, onPresen
     const nav = h('nav', { class: 'home-doors', 'aria-label': 'Start' }, tabs.map(([id, ic, t, d]) => {
       const b = h('button', { class: 'home-door', 'aria-pressed': String(tab === id) }, h('span', { class: 'hd-ic' }, svgIcon(ic)), h('span', { class: 'hd-t' }, t), h('span', { class: 'hd-d' }, d));
       b.addEventListener('click', () => { tab = id; render(); });
+      if (tab === 'drill' && id === 'learn') b.setAttribute('aria-pressed', 'true');
       return b;
     }));
     let body;
@@ -94,10 +97,18 @@ export function createHome({ el, brandMark, onPreset, onLesson, onCase, onPresen
         h('div', { class: 'home-grid scen' }, Object.entries(groups).map(([g, ps]) => h('section', { class: 'home-group' },
           h('h3', {}, h('i', { style: { background: GROUP_COLOR[g] || 'var(--text-3)' } }), g, h('small', {}, GROUP_WHERE[g] || '')),
           ps.map((p) => patientCard(p, st.presetId, onPreset))))));
+    } else if (tab === 'drill') {
+      body = createDrill({ onExit: () => { tab = 'learn'; render(); } }).el;
     } else if (tab === 'learn') {
-      body = h('div', { class: 'home-grid' }, LESSONS.map((l, i) => h('button', { class: 'home-item lesson' + (done[l.id] ? ' done' : ''), onclick: () => onLesson(l.id) },
+      const drill = drillProgress(), openDrill = () => { tab = 'drill'; render(); };
+      const lessons = h('div', { class: 'home-grid' }, LESSONS.map((l, i) => h('button', { class: 'home-item lesson' + (done[l.id] ? ' done' : ''), onclick: () => onLesson(l.id) },
         h('span', { class: 'meta' }, h('span', { class: 'num' }, done[l.id] ? svgIcon('check') : String(i + 1)), `${l.minutes} min`, done[l.id]?.score != null ? h('span', { class: 'score' }, `${done[l.id].score} %`) : done[l.id] ? h('span', { class: 'score' }, 'Done') : null),
         h('span', { class: 't' }, l.title), h('span', { class: 'd' }, l.summary))));
+      body = h('div', { class: 'home-learn' }, reviewCard(), skillsPath({ onLesson, onCase, onDrill: openDrill }),
+        h('button', { class: 'home-item drill-door', onclick: openDrill },
+          h('span', { class: 'meta' }, 'Practice', `${ROUNDS} patients`, drill.n ? h('span', { class: 'score' }, `Best ${drill.best} %`) : null),
+          h('span', { class: 't' }, DRILL_TITLE), h('span', { class: 'd' }, 'A hidden patient each round: order up to three tests, tap the level of the block, then see the pressure ladder.')),
+        h('h3', { class: 'home-sub' }, 'Lessons'), lessons);
     } else if (tab === 'cases') {
       body = h('div', { class: 'home-grid' }, CASES.map((c) => h('button', { class: 'home-item case', onclick: () => onCase(c.id) },
         h('span', { class: 'meta' }, c.level, best[c.id] != null ? h('span', { class: 'score' }, `Best ${best[c.id]}`) : null),
