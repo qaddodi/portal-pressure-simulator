@@ -2769,8 +2769,8 @@ button.finding:hover { background: var(--surface-2); }
 .scan-probe .sp-rip { stroke-width: 1.4; stroke-opacity: .35; }
 .scan-probe .sp-front { stroke-width: 2.2; stroke-opacity: .95; }
 .scan-probe .sp-head { transform-box: view-box; transform-origin: 40px 48px; }
-.scan-probe.tap .sp-head { animation: sp-tap .35s var(--ease); }
-@keyframes sp-tap { 30% { transform: translateX(3px); } 100% { transform: none; } }
+.scan-probe.tap .sp-head { animation: sp-tap .2s var(--ease); }   /* a quick nudge along the probe's own 45° axis with each pulse (three a second) */
+@keyframes sp-tap { 25% { transform: translateX(4.5px); } 100% { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .scan-probe.tap .sp-head { animation: none; } }
 .scan-probe span { position: absolute; left: 58px; top: -4px; white-space: nowrap; font: 600 12px var(--font-ui); color: var(--text-3); letter-spacing: .02em; text-shadow: 0 0 3px var(--stage-bg), 0 0 6px var(--stage-bg); }
 /* Where portal blood goes: a fork, each branch as wide as its share, the two shares beside the tips. */
