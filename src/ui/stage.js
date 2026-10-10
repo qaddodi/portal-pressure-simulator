@@ -2736,7 +2736,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // or zoom moves them in the same frame (an SVG overlay is composited apart and can trail it).
   // Each one fades in and out; the SVG lines are kept only where the GPU cannot draw them.
   const glLines = !!veins?.canLines;
-  const OL_LOOK = { sel: [2.4, 0.55], hov: [2, 0.4], pin: [3.2, 0.8] };   // as .org-sel-line and .org-hov-line: width, opacity
+  const OL_LOOK = { sel: [2.4, 0.55], hov: [2, 0.4], pin: [2.6, 0.6] };   // as .org-sel-line and .org-hov-line: width, opacity
   const OL_FADE = 160;   // ms
   let olPath = null;   // sampled in <defs>: the organ itself is hidden while the GPU draws the plate
   function olRings(id) {
@@ -2766,10 +2766,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     olDirty = true; olLast = performance.now();
   }
   // A presenter slide's organs, outlined and held (several at once): eased in and out like the hover outline.
+  // Each in its station's colour ([{ id, tone }], --tr-<tone>).
   function pinOrgans(list) {
-    const want = new Set((list || []).filter((o) => organEls[o]));
+    const want = new Map((list || []).map((o) => (typeof o === 'string' ? [o, null] : [o.id, o.tone])).filter(([id]) => organEls[id]));
+    const cs = getComputedStyle(svg), col = (tone) => (tone ? [...toRGB(`var(--tr-${tone})`, cs)].slice(0, 3) : null);
     for (const o of olList) if (o.kind === 'pin' && !want.has(o.id)) o.on = false;
-    for (const id of want) if (organEls[id].getAttribute('d') && !olList.some((o) => o.kind === 'pin' && o.id === id && (o.on = true))) olList.push({ kind: 'pin', id, key: olKey(id), rings: olRings(id), a: 0, on: true });
+    for (const [id, tone] of want) {
+      const o = olList.find((x) => x.kind === 'pin' && x.id === id);
+      if (o) { o.on = true; o.col = col(tone); } else if (organEls[id].getAttribute('d')) olList.push({ kind: 'pin', id, key: olKey(id), rings: olRings(id), a: 0, on: true, col: col(tone) });
+    }
     olDirty = true; olLast = performance.now();
   }
   // The organ was redrawn (a reshaped liver, a larger spleen): the outlines follow it.
@@ -2801,7 +2806,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
           let tx = pb[0] - pa[0], ty = pb[1] - pa[1]; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
           V.push(p[0], p[1], -ty, tx, 1, h, p[0], p[1], -ty, tx, -1, h);
         }
-        draws.push({ first, count, col: olCol, alpha: a });
+        draws.push({ first, count, col: o.col || olCol, alpha: a });
         first += count;
       }
     }

@@ -109,20 +109,20 @@ export function slideTargets(s, line = s.line || '') {
   const keys = new Set();
   for (const m of line.matchAll(/\[([^\]]+)\]\(([\w:]+)\)/g)) if (TARGETS[m[2]]) keys.add(m[2]);
   for (const [w, k] of termList(s)) if (new RegExp(`\\b(?:${w})\\b`, 'i').test(line)) keys.add(k);
-  const labels = [], terms = {}, glow = new Map(), organs = new Set();
+  const labels = [], terms = {}, glow = new Map(), organs = new Map();
   for (const k of keys) {
     const t = TARGETS[k];
     if (t.node) { labels.push(t.node); terms[t.node] = t.tone; }
     for (const e of t.edges || []) glow.set(e, t.tone);
-    if (t.organ) organs.add(t.organ);
+    if (t.organ) organs.set(t.organ, t.tone);
   }
   for (const g of s.glow || []) {
     const id = typeof g === 'string' ? g : g.id, tone = typeof g === 'string' ? null : g.tone;
-    if (TARGETS[id]) { const t = TARGETS[id]; for (const e of t.edges || []) glow.set(e, tone || t.tone); if (t.organ) organs.add(t.organ); }
-    else if (ORGANS.has(id)) organs.add(id);
+    if (TARGETS[id]) { const t = TARGETS[id]; for (const e of t.edges || []) glow.set(e, tone || t.tone); if (t.organ) organs.set(t.organ, tone || t.tone); }
+    else if (ORGANS.has(id)) organs.set(id, tone || TARGETS[id]?.tone);
     else glow.set(id, tone || EDGE_TONE[id] || 'accent');
   }
-  return { labels, terms, glow: [...glow].map(([id, tone]) => ({ id, tone })), organs: [...organs] };
+  return { labels, terms, glow: [...glow].map(([id, tone]) => ({ id, tone })), organs: [...organs].map(([id, tone]) => ({ id, tone })) };
 }
 // A live value pill ({pv}): the model's reading for this slide, rounded as its card shows it (the ladder's
 // stations in whole mmHg on a ladder slide).
@@ -139,7 +139,8 @@ function rich(t, s = {}, fp = null) {
   const keys = [...(s.key || []).map((k) => KEYWORDS[k]).filter(Boolean), ...(s.bold || []).map(esc)];
   const tl = termList(s), tw = tl.map(([w]) => w.replace(/(^|\|)([a-z])/g, (_, p, c) => `${p}[${c}${c.toUpperCase()}]`));   // (a term may open the sentence)
   const marked = /\{[^}]+\}/.test(t);
-  const re = new RegExp(String.raw`\[([^\]]+)\]\(([\w:]+)\)|\{([^}]+)\}([,.;:]?)` + (tw.length ? `|\\b(${tw.join('|')})\\b` : '') + `|(${VAL})([,.;:]?)` + (keys.length ? `|\\b(${keys.join('|')})\\b` : '') + `|\\b(${TERMS.join('|')})\\b`, 'g');
+  // (A group that never matches holds the place of an empty list, so each kind keeps its group number.)
+  const re = new RegExp(String.raw`\[([^\]]+)\]\(([\w:]+)\)|\{([^}]+)\}([,.;:]?)` + (tw.length ? `|\\b(${tw.join('|')})\\b` : '|((?!))') + `|(${VAL})([,.;:]?)` + (keys.length ? `|\\b(${keys.join('|')})\\b` : '|((?!))') + `|\\b(${TERMS.join('|')})\\b`, 'g');
   const out = [], seen = new Set(), seenT = new Set(); let at = 0, bold = 0, pills = 0, m;
   t = nb(t);
   // A pill keeps the word before it and the stop after it on its line (a no-break space, one unbreakable span).
