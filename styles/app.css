@@ -3584,8 +3584,7 @@ button.finding:hover { background: var(--surface-2); }
 .pg-mark { pointer-events: none; opacity: 0; transition: opacity .5s var(--ease); }
 .pg-mark.on { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .pg-mark { transition: none; } }
-.pg-glow { fill: none; stroke: var(--pg); stroke-opacity: .5; stroke-linecap: butt; stroke-linejoin: round; }
-.pg-edge { fill: none; stroke: var(--pg); stroke-opacity: .9; stroke-linecap: butt; stroke-linejoin: round; }
+.pg-glow { fill: var(--pg); fill-opacity: .6; stroke: none; }
 .instrument-workspace .dock-title.dop-on .dt-l::before { content: ''; display: inline-block; width: 8px; height: 8px; margin: 0 8px 1px 0; border-radius: 50%; background: var(--doppler); box-shadow: 0 0 0 3px color-mix(in srgb, var(--doppler) 22%, transparent); vertical-align: middle; }
 
 /* ── Polish pass: play bar, phone chrome, card leader, sheets, sliders ── */

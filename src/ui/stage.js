@@ -980,6 +980,29 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A presenter slide's glows (glow: [...] and its terms' vessels): the Doppler's mark, one per vessel, in the
   // station's own colour (--pg). Each eases in and out on its own, so a change of slide cross-fades.
   const pg = new Map();   // edge id → mark
+  // Built from the vessel's live course and width (geo[id].cur, as the GPU draws it), so it hugs the wall as the
+  // vessel dilates or narrows: a soft band just outside the wall that tapers to nothing at both ends (no caps, no box),
+  // the vessel itself cut out so its own colour shows through.
+  let pgN = 0;
+  function makeGlow(id) {
+    const key = `pg${++pgN}`, g = s('g', { class: 'pg-mark', 'aria-hidden': 'true' });
+    const mask = s('mask', { id: `${key}-k`, maskUnits: 'userSpaceOnUse', x: -4000, y: -4000, width: 12000, height: 12000 });
+    const all = s('rect', { x: -4000, y: -4000, width: 12000, height: 12000, fill: '#fff' }), cut = s('path', { fill: '#000' });
+    mask.append(all, cut);
+    const blur = s('filter', { id: `${key}-b`, x: '-20%', y: '-20%', width: '140%', height: '140%' });
+    blur.append(s('feGaussianBlur', { stdDeviation: 1.8 }));
+    const defs = s('defs'); defs.append(mask, blur);
+    const glow = s('path', { class: 'pg-glow', filter: `url(#${key}-b)`, mask: `url(#${key}-k)` });
+    g.append(defs, glow); g.style.display = 'none'; gOver.prepend(g);
+    const taper = (u) => smooth01(u / 0.22) * smooth01((1 - u) / 0.22);
+    return { id, g, paint() {
+      const q = geo[id], x = E[id];
+      if (!q?.cur || q.cur.length < 2 || !q.lit || !x) return;
+      const r = (x.dopW || x.width || 8) / 2;
+      glow.setAttribute('d', tubeOutline(q.cur, q.lit, (u) => (r + 3.5) * taper(u) + 0.01));
+      cut.setAttribute('d', tubeOutline(q.cur, q.lit, () => Math.max(0.5, r - 0.6)));
+    } };
+  }
   function setGlow(list) {
     const want = new Map((list || []).filter((g) => E[g.id]).map((g) => [g.id, { tone: g.tone || 'accent', at: g.at }]));
     for (const [id, m] of pg) if (!want.has(id) && m.on) {
@@ -988,10 +1011,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     for (const [id, { tone }] of want) {
       let m = pg.get(id);
-      if (!m) { m = makeMark(`pg-${id}`, 'pg', { band: 34, glow: 10, edge: 2.5, blur: 3 }); m.id = id; pg.set(id, m); }   // (tighter than the Doppler's: a slide can light several)
+      if (!m) { m = makeGlow(id); pg.set(id, m); }
       clearTimeout(m.t); m.on = true;
       m.g.style.setProperty('--pg', tone.startsWith('--') ? `var(${tone})` : tone === 'accent' ? 'var(--accent)' : `var(--tr-${tone})`);
-      const x = E[id], d = x.wall.getAttribute('d'); if (d) m.paint(d, x.dopW || 8);
+      const x = E[id]; m.paint();
       m.g.style.display = x.vis ? '' : 'none';
       // (A glow in a sequence waits its turn: at, ms. It goes without waiting.)
       m.g.style.transitionDelay = m.g.classList.contains('on') ? '' : `${want.get(id).at || 0}ms`;
@@ -1681,11 +1704,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const d = t === 1 ? g.dC : polyD(pts);
       x.halo.setAttribute('d', d); x.sel.setAttribute('d', d); x.wall.setAttribute('d', d); x.hit.setAttribute('d', d);
       if (dop.id === x.e.id) dop.paint(d, x.dopW || 8);
-      pg.get(x.e.id)?.paint(d, x.dopW || 8);
       x.shadow.setAttribute('d', d);
       if (x.heat) x.heat.setAttribute('d', d);
       if (x.lumen) x.lumen.setAttribute('d', d);
       g.lit = litNormals(pts);
+      pg.get(x.e.id)?.paint();
       x.shadeKey = '';
       const a = pts[0], b = pts[pts.length - 1];
       x.grad.setAttribute('x1', a[0]); x.grad.setAttribute('y1', a[1]);
@@ -1926,7 +1949,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (selOn) setA(x.sel, 'stroke-width', (w + 12).toFixed(1));
       x.dopW = w;
       if (dop.id === e.id) { const d = x.wall.getAttribute('d'); if (d) dop.paint(d, w); dop.g.style.display = x.vis ? '' : 'none'; }
-      { const m = pg.get(e.id); if (m) { const d = x.wall.getAttribute('d'); if (d) m.paint(d, w); m.g.style.display = x.vis ? '' : 'none'; } }
+      { const m = pg.get(e.id); if (m) { m.paint(); m.g.style.display = x.vis ? '' : 'none'; } }
     }
     // Junction widths: where vessels meet, the largest narrows to the second largest and the
     // others widen toward it, so calibers change smoothly through every junction.
