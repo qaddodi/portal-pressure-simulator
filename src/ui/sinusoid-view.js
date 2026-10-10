@@ -23,7 +23,7 @@ import { h, fmt, clamp, lerp } from './util.js?v=e0101a3fa2';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { isPaused } from './clock.js?v=d82cfa024b';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=a43751c508';
+import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=ef5ed41f9b';
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
@@ -79,7 +79,7 @@ export function createSinusoidView({ host }) {
     return { cx, cy, w, hh, x: x + (geo.vert ? 0 : (cx - cx0) / VW.k), half: (along ? w : Math.abs(w * Math.cos(geo.ang)) + Math.abs(hh * Math.sin(geo.ang))) / 2 / VW.k };
   }
   const legend = h('div', { class: 'sv-legend', 'aria-hidden': 'true' },
-    h('span', {}, h('i', { class: 'alb' }), 'Protein'), h('span', {}, h('i', { class: 'wat' }), 'Plasma water'));
+    h('span', {}, h('i', { class: 'alb' }), 'Protein'));
   // Thin leaders from a name in the plate to the part it names (a portrait screen's narrow bands and cells).
   const NS = 'http://www.w3.org/2000/svg', leaders = document.createElementNS(NS, 'svg');
   leaders.setAttribute('class', 'sv-leaders');
@@ -241,18 +241,17 @@ export function createSinusoidView({ host }) {
       cEndF: rgb(v('--text', dark ? '#E9EDF6' : '#1F2128')), cEndE: rgb(v('--label-halo', dark ? '#0B1120' : '#FBFAF7')),
       cChev: [0.08, 0.08, 0.1], cRev: [1, 0.55, 0.16],   // (the app's chevron inks, as stage.js's chevInk: dark, orange where reversed)
       cAlb: dark ? v3(242, 182, 74) : v3(227, 154, 30), cAlbE: dark ? v3(110, 58, 0) : v3(140, 76, 0),
-      cWat: dark ? v3(225, 238, 252) : v3(255, 255, 255), cWatE: dark ? v3(90, 110, 140) : v3(80, 110, 140),
       uShim: dark ? 0.3 : 0.5, uStreak: dark ? 0.3 : 0.85, uDark: dark ? 1 : 0,
     };
   }
 
   // ── What moves ──
   // The blood: the shader's shimmer and chevrons, at the flow. Albumin rides in it (amber dots), each at
-  // its lane's speed (parabolic: fastest in the middle). Plasma crosses the wall into Disse: water (clear
-  // specks) wherever it can, albumin only through open fenestrae; at a closed wall albumin is turned back.
+  // its lane's speed (parabolic: fastest in the middle). Plasma crosses the wall into Disse: its water
+  // wherever it can (not drawn), albumin only through open fenestrae; at a closed wall albumin is turned back.
   // In Disse the lymph runs back toward the portal triad, carrying what crossed.
   let flowX = 0, lymX = 0, spawnAcc = 0, bounceAcc = 0;
-  const albs = [], movers = [];   // movers: { kind: 'w' water | 'a' albumin | 'b' albumin turned back, side, x, y (depth in Disse, 0…1), t, ph }
+  const albs = [], movers = [];   // movers: { kind: 'a' albumin | 'b' albumin turned back, side, x, y (depth in Disse, 0…1), t, ph }
   const rnd = rng(17);
   { const R = rng(23); for (let i = 0; i < 150; i++) albs.push({ u: R(), y: R() * 1.9 - 0.95, ph: R() * Math.PI * 2 }); }
   const poreW = (p) => p.w * smooth(p.th - 0.14, p.th + 0.14, S.por);
@@ -279,10 +278,10 @@ export function createSinusoidView({ host }) {
     while (spawnAcc >= 1) {
       spawnAcc -= 1;
       if (movers.length > 900) continue;
-      const side = rnd() < 0.5 ? -1 : 1, alb = rnd() < pA, p = pickPore(side, alb);
-      if (alb && !p) { bounceAcc += 1; continue; }   // nowhere for it to go: it is turned back
-      const x = p ? p.x : lerp(VW.vis[0], VW.vis[1], rnd());
-      movers.push({ kind: alb ? 'a' : 'w', side, x, t: 0, y: 0.15 + 0.7 * rnd(), ph: rnd() * Math.PI * 2 });
+      if (rnd() >= pA) continue;   // water: it crosses too, but only the albumin is drawn
+      const side = rnd() < 0.5 ? -1 : 1, p = pickPore(side, true);
+      if (!p) { bounceAcc += 1; continue; }   // nowhere for it to go: it is turned back
+      movers.push({ kind: 'a', side, x: p.x, t: 0, y: 0.15 + 0.7 * rnd(), ph: rnd() * Math.PI * 2 });
     }
     // Albumin turned back at a sealed wall: it comes up to the lining and goes back into the stream.
     bounceAcc += 0.1 * span * (1 - S.por) * dt;
@@ -300,7 +299,7 @@ export function createSinusoidView({ host }) {
       if (q.x < VW.vis[0] - 4 || q.x > VW.vis[1] + 4) movers.splice(i, 1);
     }
   }
-  // The sprites for this frame: (x, y, radius, alpha, kind) — 0 albumin, 1 water, 2 the flash at a sealed wall.
+  // The sprites for this frame: (x, y, radius, alpha, kind) — 0 albumin, 2 the flash at a sealed wall.
   const pts = new Float32Array(1400 * 5);
   const BT = 1.6;   // how long an albumin turned back at a sealed wall is shown (s)
   let albN = -1, spriteDt = 0;
@@ -330,7 +329,7 @@ export function createSinusoidView({ host }) {
       const tIn = clamp(q.t / 0.5, 0, 1), e = tIn * tIn * (3 - 2 * tIn);
       const y = q.side * lerp(halfW(q.x) - 1.6, lerp(wallIn(q.x), hepIn(q.x), q.y), e) + q.side * 0.15 * Math.sin(q.t * 2 + q.ph);
       const al = smooth(-0.15, 0.45, q.t) * clamp((q.x - v0) / 6, 0, 1);   // (out of the stream, fading in: never appearing at once)
-      if (q.kind === 'a') put(q.x, y, 0.38, al, 0); else put(q.x, y, 0.26, al, 1);
+      put(q.x, y, 0.38, al, 0);
     }
     return n;
   }
