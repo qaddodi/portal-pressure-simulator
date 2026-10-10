@@ -2,13 +2,13 @@
 // chart, so every command lands in the timeline like any other change. A number in the query is
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
-import { store, updateParams } from './store.js?v=8ab9b37d48';
-import { h, svgIcon, toast } from './util.js?v=86153645a3';
+import { store, updateParams } from './store.js?v=edbdbfb0c8';
+import { h, svgIcon, toast } from './util.js?v=a357853926';
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
 import { DRUGS } from '../engine/scenario.js?v=d88966abe6';
-import { HIDDEN_EDGES } from './anatomy.js?v=6abc18b290';
-import { LESSONS } from './learn.js?v=c30525696e';
-import { CASES } from './cases.js?v=9ce2b716b9';
+import { HIDDEN_EDGES } from './anatomy.js?v=89191aa586';
+import { LESSONS } from './learn.js?v=648a1f6d2a';
+import { CASES } from './cases.js?v=7bbce6617a';
 
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9+ ]/g, ' ');
 
@@ -49,8 +49,8 @@ export function createPalette({ ctx }) {
     add('Treat', '1 unit PRBC', () => ctx.action({ kind: 'infuse', fluid: 'prbc' }), { kw: 'transfuse blood' });
     add('Treat', 'BRTO', () => updateParams((p) => { p.occluded.C5 = true; return p; }, { label: 'BRTO' }), { kw: 'occlude gastrorenal' });
     add('Treat', 'Esophageal balloon', () => updateParams((p) => { p.balloonEso = !p.balloonEso; return p; }, { label: 'Esophageal balloon' }), { kw: 'tamponade sengstaken' });
-    add('Measure', 'Doppler of the portal vein', () => { ctx.probe('PV_TRUNK'); ctx.showPane('doppler'); }, { kw: 'ultrasound velocity' });
-    add('Measure', 'Endoscopy', () => ctx.showPane('endoscopy'), { kw: 'scope varices' });
+    add('Tests', 'Doppler of the portal vein', () => { ctx.probe('PV_TRUNK'); ctx.showPane('doppler'); }, { kw: 'ultrasound velocity' });
+    add('Tests', 'Endoscopy', () => ctx.showPane('endoscopy'), { kw: 'scope varices' });
     // Time
     for (const [d, l] of [[7, '+1 week'], [30, '+1 month'], [180, '+6 months'], [365, '+1 year']]) add('Time', l, () => ctx.jump(d, l.slice(1)), { kw: 'jump advance months weeks forward disease' });
     add('Time', 'Until something happens', () => ctx.jump('event', 'until the next event'), { kw: 'next event advance' });
@@ -62,7 +62,7 @@ export function createPalette({ ctx }) {
     add('View', 'Anatomy view', () => store.set({ view: 'anatomic' }), { kw: 'anatomic' });
     add('View', 'Circuit view', () => store.set({ view: 'circuit' }), { kw: 'schematic map' });
     add('View', 'Lobule view', () => ctx.zoomLobule(), { kw: 'microcirculation sinusoid lobule zoom' });
-    add('View', 'Measure', () => ctx.instruments(), { kw: 'instruments charts dock' });
+    add('View', 'Tests', () => ctx.instruments(), { kw: 'measure instruments charts dock' });
     // Go to a structure
     for (const e of EDGES) if (!HIDDEN_EDGES.has(e.id) && e.kind !== 'wedge' && e.kind !== 'shunt' && e.label) add('Go to', e.label, () => ctx.select({ type: 'edge', id: e.id }), { kw: 'select vessel' });
     for (const [id, t] of [['liver', 'Liver'], ['heart', 'Right heart'], ['varices', 'Esophageal varices'], ['gastric', 'Fundal varices'], ['spleen', 'Spleen'], ['abdomen', 'Ascites']]) add('Go to', t, () => ctx.select({ type: 'organ', id }), { kw: 'organ select' });

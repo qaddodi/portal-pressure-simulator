@@ -4,11 +4,11 @@
 // pointer. Instructors build their own scripts from the current model and share them as a file
 // or a link.
 
-import { store } from './store.js?v=8ab9b37d48';
-import { runSequence, restoreSequence } from './sequence.js?v=1a159bc10d';
-import { h, toast, svgIcon, icon } from './util.js?v=86153645a3';
+import { store } from './store.js?v=edbdbfb0c8';
+import { runSequence, restoreSequence } from './sequence.js?v=8bf68f9d07';
+import { h, toast, svgIcon, icon } from './util.js?v=a357853926';
 import { download } from './records.js?v=50fb9dd463';
-import { TOUR, createTour } from './tour.js?v=6170e2f7cd';
+import { TOUR, createTour } from './tour.js?v=4f78ed9565';
 
 const ask = (q, a) => `\n\nAsk the room: ${q} Expected: ${a}`;
 export const SCRIPTS = [
@@ -160,6 +160,7 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
     if (!script?.steps?.length) return;
     slides = []; chain = Promise.resolve();
     closeHome?.();
+    store.set({ presenting: true });
     if (store.get().mode !== 'explore') store.set({ mode: 'explore' });
     projectorOn();
     notesEl = h('aside', { class: 'presenter-notes stage-blocker', 'aria-label': 'Speaker notes', hidden: true });
@@ -190,6 +191,7 @@ export function createPresenter({ loadPreset, updateParams, host, stage, dock, a
   function stop() {
     if (!script) return;
     script = null;
+    store.set({ presenting: false });
     tour?.destroy(); tour = null;
     bar?.remove(); titleEl?.remove(); progEl?.remove(); notesEl?.remove(); bar = titleEl = progEl = notesEl = null;
     clearTimeout(idleT);

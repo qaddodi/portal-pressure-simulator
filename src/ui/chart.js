@@ -1,4 +1,4 @@
-// Findings: one card, no tabs, read top to bottom. The orders (drugs · fluids & blood ·
+// Patient (was Findings): one card, no tabs, read top to bottom. The orders (drugs · fluids & blood ·
 // procedures) are in the Treat card, built here too (treatBody).
 //
 //   [step card of a lesson or case]      (rendered by learn.js / cases.js above this)
@@ -8,12 +8,12 @@
 //   (what has happened lives in the timeline's History, under the figure)
 //   Advanced                             physiology knobs (instructor / researcher)
 
-import { store, updateParams } from './store.js?v=8ab9b37d48';
-import { h, fmt, icon, svgIcon, toast } from './util.js?v=86153645a3';
+import { store, updateParams, hiddenNow } from './store.js?v=edbdbfb0c8';
+import { h, fmt, icon, svgIcon, toast } from './util.js?v=a357853926';
 import { DRUGS } from '../engine/scenario.js?v=d88966abe6';
-import { TILES, VITALS, readoutValue } from './dock.js?v=8c5f8969ae';
-import { activeInterventions } from './inspector.js?v=5268b7dbbf';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=2c5d790fd5';
+import { TILES, VITALS, readoutValue } from './dock.js?v=cbcdf6dc63';
+import { activeInterventions } from './inspector.js?v=5acd5150f6';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=658820a7b3';
 
 // Where each readout is measured, so a click can show it on the figure.
 const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS', 'DIPS'], spleen: ['V_SPL', 'SV_CONF'], ra: ['IVCS_RA'] };
@@ -129,7 +129,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     const paint = () => {
       const f = store.get().frame;
       if (!f) return;
-      const found = computeFindings(f.metrics, store.get().hiddenReadouts);
+      const found = computeFindings(f.metrics, hiddenNow());
       for (const x of found) {
         let e = els.get(x.id);
         if (!e) { e = row(x.id); els.set(x.id, e); }
@@ -150,6 +150,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
 
   // ── Treat ─────────────────────────────────────────
   // The orders, for the Treat card. `sync` collects what must repaint when the parameters change.
+  let treatTab = 'drugs';
   function treatBody(sync, onDone) {
     const live = sync;
     const p0 = store.get().params;
@@ -206,9 +207,18 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       })(),
       proc('needle', 'Paracentesis', 'drain ascites', 'paracentesis', () => select({ type: 'organ', id: 'abdomen' })));
     for (const b of procs.querySelectorAll('button')) b.addEventListener('click', () => onDone?.());
-    return [h('div', { class: 'subhead' }, 'Drugs'), drugs,
-      h('div', { class: 'subhead' }, 'Fluids & blood'), fluids,
-      h('div', { class: 'subhead' }, 'Procedures'), procs];
+    // Three tabs, styled as the Tests card's, so the cards read as one set; the last tab is kept.
+    const panes = [['drugs', 'pill', 'Drugs', drugs], ['fluids', 'drop', 'Fluids', fluids], ['procs', 'band', 'Procedures', procs]];
+    const tabs = h('div', { class: 'instr-tabs treat-tabs', role: 'tablist', 'aria-label': 'Treatments' });
+    const body = h('div', { class: 'treat-pane' });
+    const show = (id) => {
+      treatTab = id;
+      for (const b of tabs.children) b.setAttribute('aria-selected', String(b.dataset.tab === id));
+      body.replaceChildren(panes.find((x) => x[0] === id)[3]);
+    };
+    for (const [id, ic, label] of panes) tabs.append(h('button', { class: 'instr-tab', role: 'tab', 'data-tab': id, 'aria-selected': 'false', onclick: () => show(id) }, svgIcon(ic), h('span', {}, label)));
+    show(treatTab);
+    return [tabs, body];
   }
   /** How many treatments are running now (drugs, shunts, balloons, BRTO). */
   function treatCount(p) {

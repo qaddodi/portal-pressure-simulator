@@ -15,7 +15,8 @@
     "smoke:dist": "node tests/e2e/smoke.mjs dist",
     "perf": "node scripts/perf.mjs",
     "check": "npm run lint && npm test && npm run build && npm run smoke && npm run smoke:dist",
-    "scorm": "node scripts/scorm.mjs"
+    "scorm": "node scripts/scorm.mjs",
+    "visual": "node tests/e2e/visual.mjs"
   },
   "license": "UNLICENSED",
   "devDependencies": {

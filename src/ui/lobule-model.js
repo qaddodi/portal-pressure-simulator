@@ -6,7 +6,7 @@
 // liver's flow).
 
 import { NODES, EDGES } from '../engine/topology.js?v=dc393aabea';
-import { clamp } from './util.js?v=86153645a3';
+import { clamp } from './util.js?v=a357853926';
 
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -16,7 +16,7 @@ export const LOBE = { pv: 'RPV', sin: 'SIN_R', cv: 'CV_R', hv: 'RHV', q: 'SIN_RR
 export function lobuleFlows(f, H) {
   const Q = f.Qf || f.Q, Qe = (id) => Q[EI[id]], He = (id) => H?.Q?.[EI[id]];
   const ratio = (id) => { const q = Qe(id), q0 = He(id) || Math.abs(q) || 1; return q / q0; };
-  return { flow: ratio(LOBE.q), portal: ratio(LOBE.pre), art: ratio(LOBE.a), lymph: f.metrics?.ascites?.hepLymph ?? 0, lyProt: f.metrics?.ascites?.lymphProt ?? 0.88, lymph0: H?.metrics?.ascites?.hepLymph || 0.8 };
+  return { flow: ratio(LOBE.q), portal: ratio(LOBE.pre), art: ratio(LOBE.a), lymph: f.metrics?.ascites?.hepLymph ?? 0, lyProt: f.metrics?.ascites?.lymphProt ?? 0.88, sigma: f.metrics?.ascites?.lymphSigma ?? 0.15, lymph0: H?.metrics?.ascites?.hepLymph || 0.8 };
 }
 
 /** The lobule's state for frame `f` (store state `st` gives the healthy reference and the case). */

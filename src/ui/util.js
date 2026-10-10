@@ -68,7 +68,31 @@ export const units = { pressure: 'mmHg', flow: 'L/min' };
 export function fp(v) { const c = unitConv.pressure[units.pressure]; return [fmt(c.f(v), c.d), c.u]; }
 export function ff(v) { const c = unitConv.flow[units.flow]; return [units.flow === 'L/min' ? fmtFlow(v) : fmt(c.f(v), c.d), c.u]; }
 
+// Messages go to a quiet line in the status row above the timeline, never over the figure.
+// Settings → "Pop-up notices" brings back the cards at the top.
+let popPref;
+export const popupsOn = () => { if (popPref === undefined) { try { popPref = localStorage.getItem('pps.popups') === '1'; } catch { popPref = false; } } return popPref; };
+export function setPopups(on) { popPref = !!on; try { localStorage.setItem('pps.popups', on ? '1' : '0'); } catch { /* storage unavailable */ } }
+let noteTimer = 0;
+function inlineNote(msg, kind) {
+  const row = document.getElementById('vdStatus');
+  if (!row?.closest('.vdock')?.offsetParent) return false;
+  let n = row.querySelector('.vd-note');
+  if (!n) {
+    n = h('span', { class: 'vd-note', role: 'status' });
+    n.addEventListener('click', () => { clearTimeout(noteTimer); n.hidden = true; row.classList.remove('noting'); });
+    row.append(n);
+  }
+  n.className = 'vd-note ' + kind; n.textContent = msg; n.title = msg; n.hidden = false;
+  row.classList.add('noting');
+  clearTimeout(noteTimer);
+  noteTimer = setTimeout(() => { n.hidden = true; row.classList.remove('noting'); }, 4200);
+  return true;
+}
+
 export function toast(msg, kind = '') {
+  if (!msg) return;
+  if (!popupsOn() && inlineNote(msg, kind)) return;
   const wrap = document.getElementById('toasts');
   // One message at a time reads calmer than a growing stack.
   while (wrap.children.length >= 2) wrap.firstChild.remove();
@@ -172,6 +196,23 @@ export function menuItem(label, { checked, onClick, kb, icon: ic } = {}) {
 }
 export function svgIcon(id, cls = '') {
   const el = icon(id); if (cls) el.setAttribute('class', cls); return el;
+}
+
+/** Wrap a sideways-scrolling row so a phone can see that more lies off either edge: soft fades and a
+ *  small chevron (tap to scroll) on whichever side has hidden items, eased in and out as it scrolls. */
+export function scrollCue(scroller) {
+  const step = (dir) => scroller.scrollBy({ left: dir * scroller.clientWidth * 0.6, behavior: 'smooth' });
+  const edge = (cls, dir, id) => h('button', { class: 'cue-edge ' + cls, type: 'button', tabindex: '-1', 'aria-hidden': 'true', 'aria-label': dir < 0 ? 'Scroll tabs left' : 'Scroll tabs right', onclick: () => step(dir) }, icon(id));
+  const box = h('div', { class: 'tabs-cue' }, scroller, edge('cue-l', -1, 'chev-left'), edge('cue-r', 1, 'chev-right'));
+  const update = () => {
+    const max = scroller.scrollWidth - scroller.clientWidth;
+    box.classList.toggle('more-l', scroller.scrollLeft > 2);
+    box.classList.toggle('more-r', scroller.scrollLeft < max - 2);
+  };
+  scroller.addEventListener('scroll', update, { passive: true });
+  if (typeof ResizeObserver === 'function') new ResizeObserver(update).observe(scroller);
+  requestAnimationFrame(update);
+  return box;
 }
 
 let modalReturn = null;

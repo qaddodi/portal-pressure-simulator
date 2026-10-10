@@ -1,27 +1,29 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=f328cac514';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent } from './store.js?v=8ab9b37d48';
-import { createStage } from './stage.js?v=69fd1fb397';
-import { createInspector } from './inspector.js?v=5268b7dbbf';
-import { createDock, CUTOFFS } from './dock.js?v=8c5f8969ae';
-import { createWhy } from './why.js?v=317f9414b1';
-import { createTimeline, LAPSES } from './timeline.js?v=032b0f35b1';
-import { createLearn } from './learn.js?v=c30525696e';
-import { createCases } from './cases.js?v=9ce2b716b9';
-import { createCompare } from './compare.js?v=51523b6eb1';
-import { createCard } from './card.js?v=f5eafabeb0';
-import { createChart, computeFindings } from './chart.js?v=b120ae2428';
-import { createHome, ROLES } from './home.js?v=6c3ba919c0';
-import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=1ad6d8253b';
-import { describe, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=33893967f1';
-import { startLMS } from './lms.js?v=c905ea22e7';
+import { startHost, host } from './host.js?v=b54d9b1fcc';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=edbdbfb0c8';
+import { createStage } from './stage.js?v=17e63a090e';
+import { sinusoidSupported } from './sinusoid-view.js?v=7285150aa0';
+import { createInspector } from './inspector.js?v=5acd5150f6';
+import { createDock, CUTOFFS } from './dock.js?v=cbcdf6dc63';
+import { setHvpgStage } from './hvpg-proc.js?v=97815283e5';
+import { createWhy } from './why.js?v=82d0ada42e';
+import { createTimeline, LAPSES } from './timeline.js?v=2831e31d82';
+import { createLearn } from './learn.js?v=648a1f6d2a';
+import { createCases } from './cases.js?v=7bbce6617a';
+import { createCompare } from './compare.js?v=d64b7b73d4';
+import { createCard } from './card.js?v=767b2dc99d';
+import { createChart, computeFindings } from './chart.js?v=6eb7c60d38';
+import { createHome, ROLES } from './home.js?v=9b5bdb2794';
+import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=a34d291061';
+import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=c7917d0320';
+import { startLMS } from './lms.js?v=032f014067';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=2c5d790fd5';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=658820a7b3';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=dc393aabea';
-import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=86153645a3';
+import { $, $$, h, icon, fmt, fmtFlow, toast, popupsOn, setPopups, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=a357853926';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -33,6 +35,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 // Everything the learner does is a verb on the structure they click (actions.js, card.js); the
 // only armed gesture left is a shunt waiting for its target.
 import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=0166e06ffb';
+import { initTopbarMotion } from './topbar-motion.js?v=a7ab34f946';
 import { ORIGINS } from './blood.js?v=6c39f43ddf';
 
 // Color lenses: [title, what it shows, legend swatch].
@@ -103,6 +106,7 @@ async function main() {
     onHoverInfo: hoverInfo,
     onViewChange: () => card?.position(),
   });
+  setHvpgStage(stage);
   compare = createCompare();
   timeline = createTimeline({
     root: $('#timeline'), onWhy: (m, el) => why.open(m, el),
@@ -129,7 +133,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }) });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=bb7c1e2b84'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=a27af8dd4f'), ({ createPresenter }) => createPresenter({ loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -141,7 +145,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=eb7af08595'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=60852f1482'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -163,6 +167,7 @@ async function main() {
   renderPaintHint();
   buildHud();
   wireTopbar();
+  initTopbarMotion();
   wireFloating();
   // iOS scrolls the whole page to reveal a focused field, which pushes the top bar up under the
   // status bar of an installed app; the page itself never scrolls, so put it back.
@@ -173,9 +178,16 @@ async function main() {
   host.on('frame', onFrame);
   host.on('error', (m) => { console.error(m.message); toast('Engine error: see the console.', 'bad'); });
 
-  const syncViewSeg = () => { const st = store.get(), cur = st.lobule ? 'lobule' : st.view; $$('#viewSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === cur))); };
+  // The Sinusoid button shows only in the Lobule view: it is one level further down.
+  const syncViewSeg = () => { const st = store.get(), cur = st.lobule && st.sinusoid ? 'sinusoid' : st.lobule ? 'lobule' : st.view; $$('#viewSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === cur))); $('#viewSeg [data-view="sinusoid"]').hidden = !st.lobule || !sinusoidSupported(); app.classList.toggle('sin-focus', !!(st.lobule && st.sinusoid)); $('#btnSinPlay').hidden = !(st.lobule && st.sinusoid); };
   store.on('view', (v) => { stage.setView(v); syncViewSeg(); });
   store.on('lobule', syncViewSeg);
+  store.on('sinusoid', syncViewSeg);
+  // The sinusoid view hides the timeline, so it gets its own play / pause (Space works too).
+  const sinPlay = $('#btnSinPlay');
+  let sinOn = null, syncSinPlay = () => { const on = store.get().running; if (on === sinOn) return; sinOn = on; sinPlay.setAttribute('aria-label', on ? 'Pause' : 'Play'); sinPlay.replaceChildren(icon(on ? 'pause' : 'play')); };
+  sinPlay.addEventListener('click', () => host.send({ type: 'run', running: !store.get().running }));
+  store.on('running', syncSinPlay);
   store.on('tool', (t) => {
     for (const c of [...view.classList]) if (c.startsWith('tool-')) view.classList.remove(c);
     view.classList.add('tool-' + t);
@@ -185,11 +197,13 @@ async function main() {
   store.on('mode', onMode);
   store.on('layers', () => { app.classList.toggle('chips-off', !store.get().layers.chips); syncBloodBtn(); redraw(); });
   store.on('presetId', (id) => { $('#scenarioName').textContent = presets.find((p) => p.id === id)?.label || 'Custom'; });
-  store.on('role', (r) => { try { localStorage.setItem('pps.role', r); } catch { /* storage unavailable */ } app.dataset.role = r; card.render(); });
+  store.on('role', (r) => { try { localStorage.setItem('pps.role', r); localStorage.removeItem('pps.narrator'); } catch { /* storage unavailable */ } narrPref = null; app.dataset.role = r; card.render(); narrate(store.get().frame, performance.now(), true); });
+  $('#narratorWhy').addEventListener('click', (e) => why.open('pv', e.currentTarget));
   app.dataset.role = store.get().role;
-  for (const k of ['compareSnap', 'compareView', 'colorMode', 'imaging']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
+  for (const k of ['compareSnap', 'compareView', 'colorMode', 'imaging', 'sinusoid', 'lobule']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
   store.on('compareSnap', () => { if (!store.get().details) inspector.render(); });
   store.on('focus', redraw);
+  store.on('labelLevel', redraw);
   store.on('selection', redraw);
 
   // Console handle for educators preparing a class (and for automated screenshots).
@@ -273,7 +287,31 @@ function onFrame(f) {
   if (projector) updateProjector(f);
   sonifyFrame(f);
   if (now - lastDesc > 3000) { lastDesc = now; $('#stage').setAttribute('aria-description', describe(f)); }
+  narrate(f, now);
 }
+
+// Narrator (blueprint E1): the Describe reading as one live line above the timeline, refreshed on
+// events and changes (at most twice a second otherwise). On by default for Student and Instructor,
+// off for Researcher; the Settings toggle overrides it until the role changes.
+const NARRATOR_DEFAULT = { student: true, instructor: true, researcher: false };
+let lastNarr = 0, narrPref;
+const narratorOn = () => { const v = narrPref === undefined ? (narrPref = readLS('pps.narrator')) : narrPref; return v ? v === '1' : NARRATOR_DEFAULT[store.get().role || 'student'] !== false; };
+function narrate(f, now = performance.now(), force = false) {
+  const el = $('#narrator');
+  const on = narratorOn() && !presenter.active();
+  if (el.hidden === on) el.hidden = !on;
+  if (!on || !f || (!force && !f.events?.length && !f.params && now - lastNarr < 500)) return;
+  lastNarr = now;
+  const txt = caption(f), t = $('#narratorText');
+  if (el.title !== txt) { el.title = txt; t.replaceChildren(h('span', { class: 'nr-s' }, txt.slice(0, txt.length - caption(f, { scenario: false }).length)), caption(f, { scenario: false })); }
+  $('#narratorWhy').hidden = !!store.get().hiddenReadouts?.has('pv');
+}
+function setNarrator(on) {
+  narrPref = on ? '1' : '0';
+  try { localStorage.setItem('pps.narrator', narrPref); } catch { /* storage unavailable */ }
+  narrate(store.get().frame, performance.now(), true);
+}
+
 
 // ── Scenarios & share ───────────────────────────────
 function openScenarios(anchor) {
@@ -301,7 +339,7 @@ async function loadPreset(id, opts = {}) {
   const res = await host.request('preset', { id, days: opts.days });
   replaceParams(res.params);
   clearHistory();
-  store.set({ presetLoading: false, presetId: id, lastHVPG: null, selection: store.get().mode === 'cases' ? null : store.get().selection, historyTick: (store.get().historyTick || 0) + 1 });
+  store.set({ presetLoading: false, presetId: id, lastHVPG: null, hvpgMeasured: false, selection: store.get().mode === 'cases' ? null : store.get().selection, historyTick: (store.get().historyTick || 0) + 1 });
   timeline?.reset(store.get().presetList?.find((x) => x.id === id)?.label);
 }
 
@@ -368,7 +406,7 @@ function endSession(kind) {
   const f = store.get().frame;
   const bleeding = !!f?.metrics?.bleeding;
   const noun = kind === 'case' ? 'case' : 'lesson';
-  const back = () => { closeModal(); host.send({ type: 'restore', snap: saved.snap }); replaceParams(saved.snap.params); clearHistory(); store.set({ presetId: saved.presetId, lastHVPG: null, historyTick: (store.get().historyTick || 0) + 1 }); timeline.load(saved.tl); toast('Back where you were before the ' + noun + '.'); };
+  const back = () => { closeModal(); host.send({ type: 'restore', snap: saved.snap }); replaceParams(saved.snap.params); clearHistory(); store.set({ presetId: saved.presetId, lastHVPG: null, hvpgMeasured: false, historyTick: (store.get().historyTick || 0) + 1 }); timeline.load(saved.tl); toast('Back where you were before the ' + noun + '.'); };
   const keep = () => { closeModal(); toast(bleeding ? 'Kept the patient. The variceal bleed is still running.' : 'Kept this patient.'); };
   openModal(`Leaving the ${noun}`, h('div', {},
     h('p', {}, `Keep this patient to explore it further, or return to the model as it was before the ${noun}.`),
@@ -425,7 +463,7 @@ function renderPaintHint() {
   redraw();
 }
 // The Lobule view: a view of its own beside Anatomy and Circuit.
-function zoomLobule() { store.set({ lobule: true }); }
+function zoomLobule() { store.set({ lobule: true, sinusoid: false }); }
 
 // ── Figure header: view, color, legend; banners ─────
 let bleedEl, tipEl, stageClock;
@@ -464,17 +502,19 @@ function buildHud() {
   const syncRotate = () => rotateBtn.setAttribute('aria-pressed', String(stage.circuitRotated()));
   rotateBtn.onclick = () => { stage.setCircuitRotated(!stage.circuitRotated()); syncRotate(); };
   syncRotate();
-  $$('#viewSeg button').forEach((b) => b.addEventListener('click', () => (b.dataset.view === 'lobule' ? zoomLobule() : store.set({ lobule: false, view: b.dataset.view }))));
+  $$('#viewSeg button').forEach((b) => b.addEventListener('click', () => (b.dataset.view === 'lobule' ? zoomLobule() : b.dataset.view === 'sinusoid' ? store.set({ sinusoid: true }) : store.set({ lobule: false, view: b.dataset.view }))));
   // The legend is the lens switcher: it shows what the colors mean and changes what they show.
-  $('#btnLayers').addEventListener('click', (e) => openLayers(e.currentTarget));
-  $('#btnLayers').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); openLayers(e.currentTarget); } });
+  const sinLens = () => store.get().lobule && store.get().sinusoid;   // no lens in the sinusoid view
+  $('#btnLayers').addEventListener('click', (e) => { if (!sinLens()) openLayers(e.currentTarget); });
+  $('#btnLayers').addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && !sinLens()) { e.preventDefault(); e.stopPropagation(); openLayers(e.currentTarget); } });
   new ResizeObserver(() => stage.relayout()).observe(view);
 }
 function legendModel() {
   const st = store.get();
   const imaging = st.imaging;
   const cmp = !!st.compareSnap;
-  const m = imaging ? 'neutral' : cmp && st.compareView === 'D' ? 'delta' : st.colorMode;
+  // The sinusoid view shows pressure only (it has no lens).
+  const m = imaging ? 'neutral' : st.lobule && st.sinusoid ? 'pressure' : cmp && st.compareView === 'D' ? 'delta' : st.colorMode;
   const ref = cmp ? st.compareSnap.when : 'healthy';
   return { m, ref, imaging };
 }
@@ -567,7 +607,24 @@ function openBlood(anchor) {
     layer('chips', 'tag', 'Pressure values', 'The number beside each vessel\u2019s name'),
     layer('collaterals', 'route', 'Potential collaterals', 'Dotted routes that open as pressure rises'),
     layer('labels', 'liver', 'Organ names'),
+    h('div', { class: 'menu-sep' }),
+    h('div', { class: 'menu-title' }, 'Labels'),
+    labelLevelSeg(),
   ], { cls: 'blood-pop' });
+}
+// Which stations are labelled: the key ones (portal vein, the HVPG pair, what is abnormal; everything once
+// zoomed in), all of them at every zoom, or none.
+function labelLevelSeg() {
+  const cur = store.get().labelLevel;
+  return h('div', { class: 'seg full menu-seg', role: 'group', 'aria-label': 'Labels on the figure' }, [['key', 'Key'], ['all', 'All'], ['none', 'None']].map(([v, l]) => {
+    const b = h('button', { 'aria-pressed': String(cur === v), 'data-labels': v, title: { key: 'Portal vein, the HVPG pair and what is abnormal; every station once zoomed in', all: 'Every station at every zoom', none: 'No station labels' }[v] }, l);
+    b.addEventListener('click', () => {
+      store.set({ labelLevel: v });
+      try { localStorage.setItem('pps.labels', v); } catch { /* storage unavailable */ }
+      b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    });
+    return b;
+  }));
 }
 // The Lobule view's layers, in the same kind of menu: the zone bands and the lymph.
 function openLobuleLayers(anchor) {
@@ -738,6 +795,14 @@ function openSettings(anchor) {
     (() => { const sel = h('select', { class: 'select menu-select', 'aria-label': t('menu.language') }, LANGS.map(([v, l]) => h('option', { value: v, selected: currentLang() === v }, l))); sel.addEventListener('change', () => { setLang(sel.value); }); return sel; })(),
     h('div', { class: 'menu-title' }, t('menu.access')),
     menuItem(t('menu.describe'), { icon: 'info', kb: 'D', onClick: () => { closePopover(); const d = describe(store.get().frame); announce(d); toast(d); } }),
+    menuToggle(narratorOn(), 'info', t('menu.narrator'), 'One line under the figure saying what it shows now', (on) => setNarrator(on)),
+    menuToggle(popupsOn(), 'info', 'Pop-up notices', 'Show messages as cards at the top instead of in the line above the timeline', (on) => setPopups(on)),
+    menuToggle(store.get().showHvpg, 'gauge', 'Always show HVPG', 'Show the HVPG without measuring it first (Tests › HVPG)', (on) => {
+      try { localStorage.setItem('pps.showHvpg', on ? '1' : '0'); } catch { /* storage unavailable */ }
+      document.body.classList.remove('hvpg-swap'); void document.body.offsetWidth; document.body.classList.add('hvpg-swap');
+      setTimeout(() => document.body.classList.remove('hvpg-swap'), 600);
+      store.set({ showHvpg: on });
+    }),
     menuItem(t('menu.sonify'), { icon: 'activity', checked: sonifying(), onClick: (e) => { setSonify(!sonifying()); e?.currentTarget?.setAttribute('aria-checked', String(sonifying())); toast(sonifying() ? 'Sonification on: pitch follows the pressure of the selected vessel (or the portal vein).' : 'Sonification off.'); } }),
     h('div', { class: 'menu-title' }, 'Debug'),
     ...debugOptions().map(([k, l]) => menuToggle(debugOn(k), 'activity', l, null, (on) => setDebug(k, on))),
@@ -891,7 +956,12 @@ function wireFloating() {
     const gap = isPhone() ? 8 : 12;
     // The dock's height, plus on an iPhone the home indicator's strip under it (the rules that use it add
     // the gap themselves), so nothing above it is placed behind it.
-    const vd = $('#vdock'), vdock = vd.offsetHeight ? Math.max(vd.offsetHeight, $('#stageView').getBoundingClientRect().bottom - vd.getBoundingClientRect().top - gap) : 0, wide = !isPhone();
+    // The dock's full height is kept while it is folded to one line (figureFocus below): the framing reads it
+    // (stage.js safeInsets), so the figure does not jump each time the dock folds and opens.
+    const vd = $('#vdock');
+    if (!vd.classList.contains('mini') && vd.offsetHeight) vd.dataset.fullH = String(vd.offsetHeight);
+    const vdTop = vd.offsetHeight ? $('#stageView').getBoundingClientRect().bottom - vd.getBoundingClientRect().top : 0;
+    const vdock = vd.offsetHeight ? Math.max(vd.offsetHeight, vdTop - gap) : 0, wide = !isPhone();
     // The top bar keeps one row when everything fits at its natural width (with a little to spare,
     // so it does not flip back and forth), else the view and legend move to a second row.
     // Off a phone the bar first compacts step by step (data-fit 1-3: shorter patient name, icon-only
@@ -910,7 +980,7 @@ function wireFloating() {
     if (fit > steps) { tb.dataset.fit = String(steps); tb.classList.add('two-rows'); }
     app.style.setProperty('--top-safe', px($('#topbar').offsetHeight));
     app.style.setProperty('--vdock-h', px(vdock));
-    app.style.setProperty('--vdock-top', px(vd.offsetHeight ? $('#stageView').getBoundingClientRect().bottom - vd.getBoundingClientRect().top : 0));
+    app.style.setProperty('--vdock-top', px(vd.offsetHeight ? vdTop : 0));
     const ws = $('#dock'), wsOn = app.classList.contains('dock-open') && !app.classList.contains('instrument-focus');
     const panelOcc = wide && app.classList.contains('panel-open') ? $('#panel').offsetWidth + gap : 0;
     const instrOcc = wsOn && ws.classList.contains('side') ? ws.offsetWidth + gap : 0;
@@ -925,9 +995,6 @@ function wireFloating() {
     let bot = isPhone() && sheet ? Math.max(vdock + gap, sheet) : vdock + gap + sheet;
     if (tour && !tourSide) bot = Math.max(bot, tour.offsetHeight + gap);
     app.style.setProperty('--bot-occ', px(bot));
-    // The copyright credit sits outside the app, above every layer, so it takes its height from the root: just above
-    // the dock or any open sheet.
-    document.documentElement.style.setProperty('--credit-bottom', px(bot + 8));
     dispatchEvent(new Event('pps:occ'));
   };
   const soon = () => { if (!pubRaf) pubRaf = requestAnimationFrame(publish); };
@@ -942,14 +1009,28 @@ function wireFloating() {
   treatSheet = sheetBehaviour($('#treatCard'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the Treat card' }), drag: '.tc-head', onClose: closeTreat });
   dockSheet = sheetBehaviour($('#dock'), { handle: h('button', { class: 'sheet-grab', 'aria-label': 'Resize the instruments' }), drag: '.dock-head', onClose: () => dock.close(), active: () => isPhone() && !$('#dock').classList.contains('side') && !app.classList.contains('instrument-focus') });
   // Focus: dragging, pinching or scrolling the figure fades the floating pieces until it stops.
-  let busyT = 0, down = null;
+  let busyT = 0, down = null, moved = false;
   const busy = (ms) => { app.classList.add('stage-busy'); clearTimeout(busyT); busyT = setTimeout(() => app.classList.remove('stage-busy'), ms); };
+  // On a phone the same gestures also give the figure more room: the vitals dock folds to one line (play,
+  // clock, HVPG) and the top bar's second row (view, colour legend) slides away, while the figure moves and
+  // for three seconds after. A tap anywhere, or an event on the timeline, brings them back at once.
+  let focusT = 0;
+  const unfocus = () => { clearTimeout(focusT); if (!app.classList.contains('figure-focus')) return; app.classList.remove('figure-focus'); $('#vdock').classList.remove('mini'); };
+  const figureFocus = (ms) => {
+    clearTimeout(focusT);
+    if (!isPhone() || $('#strip').classList.contains('all') || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    app.classList.add('figure-focus'); $('#vdock').classList.add('mini');
+    if (ms) focusT = setTimeout(unfocus, ms);
+  };
   // Only the figure itself: a swipe on a card (or one from the phone's edge) leaves the rest alone.
-  view.addEventListener('pointerdown', (e) => { down = systemEdge(e) || e.target.closest?.('.stage-blocker, .zoom-pill, button, input, select') ? null : [e.clientX, e.clientY]; });
-  view.addEventListener('pointermove', (e) => { if (down && e.buttons && Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 8) busy(5000); });
-  addEventListener('pointerup', () => { if (down) { down = null; if (app.classList.contains('stage-busy')) busy(600); } });
-  addEventListener('pointercancel', () => { if (down) { down = null; busy(300); } });
-  view.addEventListener('wheel', () => busy(800), { passive: true });
+  view.addEventListener('pointerdown', (e) => { down = systemEdge(e) || e.target.closest?.('.stage-blocker, .zoom-pill, button, input, select') ? null : [e.clientX, e.clientY]; moved = false; });
+  view.addEventListener('pointermove', (e) => { if (down && e.buttons && Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 8) { busy(5000); moved = true; figureFocus(0); } });
+  addEventListener('pointerup', () => { if (down) { down = null; if (app.classList.contains('stage-busy')) busy(600); if (moved) figureFocus(3000); else unfocus(); } });
+  addEventListener('pointercancel', () => { if (down) { down = null; busy(300); if (moved) figureFocus(3000); } });
+  view.addEventListener('wheel', () => { busy(800); figureFocus(3000); }, { passive: true });
+  $('#vdock').addEventListener('pointerdown', unfocus);
+  $('#topbar').addEventListener('pointerdown', unfocus);
+  addEventListener('pps:event', unfocus);
 }
 // Phone: the chart and Treat are bottom sheets with three heights; a drag on the handle (or the
 // head) moves between them, and below the lowest closes the sheet. Wider: the head drags the card
@@ -997,7 +1078,7 @@ let lastFindKey = '', lastFindN = 0;
 function updateFindBadge(f) {
   // In a case where pressures are unmeasured, a check would claim more than is known.
   const unknown = !!store.get().imaging;
-  const found = unknown ? [] : computeFindings(f.metrics, store.get().hiddenReadouts);
+  const found = unknown ? [] : computeFindings(f.metrics, hiddenNow());
   const sev = unknown ? 'none' : found[0]?.sev || 'ok', n = found.length, key = `${n}|${sev}`;
   if (key === lastFindKey) return;
   lastFindKey = key;
@@ -1019,10 +1100,11 @@ function openTreat() {
   const count = h('span', { class: 'card-meta' });
   const paintCount = () => { const n = chart.treatCount(store.get().params); count.textContent = n ? `${n} running` : ''; };
   sync.push(paintCount);
-  const body = h('div', { class: 'tc-body' }, chart.treatBody(sync, () => {}));
+  const [tabs, pane] = chart.treatBody(sync, () => {});
+  const body = h('div', { class: 'tc-body' }, pane);
   const grab = el.querySelector('.sheet-grab');
   el.replaceChildren(...[grab, h('div', { class: 'tc-head card-head' }, h('h2', { class: 'card-title' }, svgIcon('pill'), h('span', {}, 'Treat')), count,
-    h('button', { class: 'ib card-close', 'aria-label': 'Close Treat', title: 'Close (Esc)', onclick: () => closeTreat() }, icon('close'))), body].filter(Boolean));
+    h('button', { class: 'ib card-close', 'aria-label': 'Close Treat', title: 'Close (Esc)', onclick: () => closeTreat() }, icon('close'))), tabs, body].filter(Boolean));
   paintCount();
   treatOff?.();
   treatOff = store.on('params', () => { for (const fn of sync) fn(); });
@@ -1048,7 +1130,7 @@ function closeTreat() {
 // ── Modes ───────────────────────────────────────────
 function onMode(mode) {
   app.dataset.mode = mode;
-  const ptitle = document.querySelector('#panelTitle span'); if (ptitle) ptitle.textContent = mode === 'cases' ? 'Patient' : 'Findings';
+  const ptitle = document.querySelector('#panelTitle span'); if (ptitle) ptitle.textContent = 'Patient';
   syncModeName();
   if (mode !== 'cases' && cases?.active()) cases.exit();
   if (mode !== 'learn' && learn?.active()) learn.stop();
@@ -1084,6 +1166,7 @@ function wireKeyboard() {
       else if (treatOpen()) closeTreat();
       else if (stage.isShunting()) stage.cancelShunt();
       else if (store.get().tool !== 'select') setTool('select');
+      else if (store.get().sinusoid && !store.get().selection) store.set({ sinusoid: false });
       else store.set({ selection: null });
       return;
     }
@@ -1105,8 +1188,8 @@ function wireKeyboard() {
       return;
     }
     const k = e.key.toLowerCase();
-    if (k === 'a' && !e.shiftKey) { store.set({ lobule: false, view: store.get().view === 'circuit' ? 'anatomic' : 'circuit' }); return; }
-    if ((k === 'l' || (e.key === 'C' && e.shiftKey)) && !store.get().imaging) {
+    if (k === 'a' && !e.shiftKey) { if (store.get().sinusoid) return; store.set({ lobule: false, view: store.get().view === 'circuit' ? 'anatomic' : 'circuit' }); return; }
+    if ((k === 'l' || (e.key === 'C' && e.shiftKey)) && !store.get().imaging && !(store.get().lobule && store.get().sinusoid)) {
       const ks = Object.keys(LENSES), i = ks.indexOf(store.get().colorMode);
       const next = ks[(i + (e.shiftKey && k === 'l' ? ks.length - 1 : 1)) % ks.length];
       store.set({ colorMode: next }); toast(`Lens: ${LENSES[next][0]}. ${LENSES[next][1]}.`); return;
@@ -1138,7 +1221,8 @@ function toggleProjector() {
 }
 function updateProjector(f) {
   if (!bigEl) return;
-  bigEl.replaceChildren(h('small', {}, 'HVPG'), fmt(f.metrics.hvpg, 1), h('span', { class: 'unit' }, 'mmHg'));
+  const hid = hiddenNow()?.has('trueHVPG');
+  bigEl.replaceChildren(h('small', {}, 'HVPG'), hid ? '—' : fmt(f.metrics.hvpg, 1), h('span', { class: 'unit' }, hid ? 'not measured' : 'mmHg'));
 }
 
 // ── Phone & tablet ──────────────────────────────────
@@ -1175,7 +1259,7 @@ function brandMark() {
 function openHelp(section) {
   const rows = [
     ['Space', 'Play / pause'], ['[ ]', 'Slower / faster'], ['.', 'Step'], ['Z', 'Settle to equilibrium'], ['A', 'Anatomy ⇄ circuit'],
-    ['I', 'Open / close Measure'], ['T', 'Open / close Treat'], ['L', 'Next color lens (Shift: previous)'],
+    ['I', 'Open / close Tests'], ['T', 'Open / close Treat'], ['L', 'Next color lens (Shift: previous)'],
     ['Click', 'Open the actions for a vessel or organ'], ['1 – 9', 'Run an action on the open card'],
     ['Ctrl/⌘ Z', 'Back one change on the timeline (Shift: forward)'], ['P', 'Compare from here / stop comparing'], ['Esc', 'Cancel · close the card · close'], ['?', 'This guide'],
     ['Tab · Enter', 'Reach a vessel, open its actions'], ['← →', 'Walk vessels along the flow'], ['Ctrl/⌘ K or /', 'Search'],

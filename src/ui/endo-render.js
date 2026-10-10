@@ -92,7 +92,7 @@ function field(th, z, cols, grow, beaded, o) {
   return hh;
 }
 
-// Renders the view to an offscreen canvas of res x res. p: { grow, bands, redWale }.
+// Renders the view to an offscreen canvas of res x res. p: { grow, bands, vis, red (0..1) }.
 export function renderEndo(res, p) {
   const grow = Math.min(1, Math.max(0, p.grow));
   const bands = Math.max(0, Math.round(p.bands || 0));
@@ -101,10 +101,11 @@ export function renderEndo(res, p) {
   const beaded = grow > 0.5;
   const vis = Math.min(1, Math.max(0, p.vis ?? (present ? 1 : 0))); // 0 = no varix, grows smoothly into view
   for (const c of cols) c.amp *= vis;
+  const red = Math.min(1, Math.max(0, +p.red || 0));
   const cv = document.createElement('canvas'); cv.width = cv.height = res;
   const ctx = cv.getContext('2d'), img = ctx.createImageData(res, res), D = img.data;
   const half = res / 2, o = {};
-  const V = [66, 62, 158], ALB = [236, 167, 152], DEEP = [140, 40, 50];
+  const ALB = [226, 150, 132], DEEP = [150, 52, 50];
   const eth = 0.008;
   for (let py = 0; py < res; py++) {
     for (let px = 0; px < res; px++) {
@@ -133,37 +134,44 @@ export function renderEndo(res, p) {
       const hl = Math.hypot(hx, hy, hz2); hx /= hl; hy /= hl; hz2 /= hl;
       const NH = Math.max(0, Nx * hx + Ny * hy + Nz * hz2);
 
-      // Mucosal colour: salmon, deeper toward the lumen, with slow mottling.
-      const tint = sstep(1.5, 9, z);
-      let r0 = mix(ALB[0], DEEP[0], tint * 0.7), g0 = mix(ALB[1], DEEP[1], tint * 0.75), b0 = mix(ALB[2], DEEP[2], tint * 0.6);
+      // Squamous mucosa, warmer with depth; past the serrated Z-line the cardia shows salmon-red.
+      const tint = sstep(1.2, 7, z);
+      let r0 = mix(ALB[0], DEEP[0], tint * 0.7), g0 = mix(ALB[1], DEEP[1], tint * 0.8), b0 = mix(ALB[2], DEEP[2], tint * 0.65);
+      const zl = 5.2 + 0.9 * (nz(th / TAU * 11, 0.5, 11) - 0.5) + 0.35 * (nz(th / TAU * 31, 2.5, 31) - 0.5);
+      const zline = sstep(zl - 0.25, zl + 0.25, z);
+      r0 = mix(r0, 196, zline * 0.75); g0 = mix(g0, 68, zline * 0.75); b0 = mix(b0, 58, zline * 0.75);
       const mott = nz(th / TAU * 14, z * 0.9, 14) * 0.6 + nz(th / TAU * 40, z * 2.5, 40) * 0.4;
-      const mm = 0.92 + 0.16 * mott + 0.08 * (h2(px, py) - 0.5);
-      r0 *= mm; g0 *= mm * (0.98 + 0.04 * mott); b0 *= mm;
-      // Very fine, faint superficial vessels (ridged noise) fading with distance.
-      const rid = 1 - Math.abs(nz(th / TAU * 48, z * 3.2, 48) * 2 - 1);
-      const vs = sstep(0.95, 0.998, rid) * 0.07 * (1 - sstep(2.5, 6, z));
-      r0 = mix(r0, 190, vs); g0 = mix(g0, 70, vs); b0 = mix(b0, 72, vs);
+      const mm = 0.93 + 0.12 * mott + 0.06 * (nz(th / TAU * 160, z * 11, 160) - 0.5) + 0.04 * (h2(px, py) - 0.5);
+      r0 *= mm; g0 *= mm * (0.97 + 0.05 * mott); b0 *= mm;
+      // Fine submucosal vessels: a thin red-violet net along the wall, lost with depth.
+      const n1 = nz(th / TAU * 36 + 0.6 * nz(th / TAU * 9, z * 1.1, 9), z * 1.6, 36);
+      const n2 = nz(th / TAU * 90, z * 4.2 + 3 * n1, 90);
+      const rid1 = 1 - Math.abs(n1 * 2 - 1), rid2 = 1 - Math.abs(n2 * 2 - 1);
+      const vs = (sstep(0.93, 0.995, rid1) * 0.16 + sstep(0.95, 0.995, rid2) * 0.1) * (1 - sstep(2.2, 5, z)) * sstep(0.5, 0.75, z);
+      r0 = mix(r0, 184, vs); g0 = mix(g0, 84, vs); b0 = mix(b0, 92, vs);
 
-      // The vein under the thin mucosa: blue-purple, strongest where the column is tallest.
+      // The vein under the mucosa: white when small, blue when large and thin-walled.
       let vein = 0;
       if (vis > 0.02 && o.vein > 0.02) {
-        vein = Math.min(1, vis * o.vein * (0.4 + 0.75 * grow) * (o.c >= 0 && cols[o.c].vk ? cols[o.c].vk : 1));
-        // Pale, stretched mucosa along the very crest.
-        const crest = Math.exp(-Math.pow(Math.abs(o.u) / 0.55, 2));
-        const k = vein * 0.72;
-        r0 = mix(r0, V[0] + 26 * crest, k); g0 = mix(g0, V[1] + 22 * crest, k); b0 = mix(b0, V[2] + 14 * crest, k);
-        if (p.redWale && o.c >= 0) {
-          // Red wale marks: broken longitudinal red streaks along the crest, plus cherry-red spots.
-          const sk = nz(o.u * 13 + o.c * 11, z * 1.3, 4096);
-          const wm = sstep(0.7, 0.84, sk) * 0.6 * Math.exp(-Math.pow(Math.abs(o.u) / 0.8, 2)) * sstep(0.35, 0.7, grow);
-          const spot = sstep(0.86, 0.93, nz(th / TAU * 120, z * 6, 120)) * vein * sstep(0.3, 0.6, grow);
-          const rr = Math.max(wm * 0.8, spot * 0.85);
-          r0 = mix(r0, 178, rr); g0 = mix(g0, 28, rr); b0 = mix(b0, 44, rr);
+        vein = Math.min(1, vis * o.vein * (0.45 + 0.7 * grow) * (o.c >= 0 && cols[o.c].vk ? cols[o.c].vk : 1));
+        const crest = Math.exp(-Math.pow(Math.abs(o.u) / 0.55, 2)) * sstep(0.2, 0.6, grow);
+        const bl = sstep(0.1, 0.5, grow), k = vein * 0.74;
+        r0 = mix(r0, mix(214, 80, bl) + 30 * crest, k); g0 = mix(g0, mix(178, 90, bl) + 26 * crest, k); b0 = mix(b0, mix(176, 172, bl) + 18 * crest, k);
+        const rs = red * (o.c >= 0 && cols[o.c].vk ? 0 : 1) * (1 - zline);
+        if (rs > 0.01 && o.c >= 0) {
+          // Red wale marks along the crest, and cherry-red spots that multiply near the tear point.
+          const off = 0.32 * (nz(o.c * 7, z * 0.8, 4096) - 0.5);
+          const s1 = Math.exp(-Math.pow((o.u - off) / 0.08, 2)) * sstep(0.66, 0.86, nz(o.c * 13 + 5, z * 2.6, 4096));
+          const s2 = Math.exp(-Math.pow((o.u + 0.35 + off) / 0.07, 2)) * sstep(0.66, 0.84, nz(o.c * 17 + 9, z * 3.4, 4096));
+          const wm = Math.max(s1, s2 * 0.8) * sstep(0, 0.5, rs);
+          const spot = sstep(0.95 - 0.05 * rs, 0.98 - 0.03 * rs, nz(th / TAU * 220, z * 11, 220)) * vein * sstep(0.2, 0.7, rs);
+          const rr = Math.max(wm * 0.6 * vein, spot * 0.75) * sstep(0.25, 0.5, grow);
+          r0 = mix(r0, 158, rr); g0 = mix(g0, 26, rr); b0 = mix(b0, 42, rr);
         }
       }
-      // Occlusion in the groove beside a column.
+      // Soft occlusion in the groove beside a column.
       let ao = 1;
-      if (vis > 0.02 && o.vein > 0.005 && o.vein < 0.2) ao = 1 - 0.28 * sstep(0.005, 0.1, o.vein) * (1 - sstep(0.1, 0.2, o.vein));
+      if (vis > 0.02 && o.vein > 0.003 && o.vein < 0.35) ao = 1 - 0.16 * vis * vis * sstep(0.003, 0.12, o.vein) * (1 - sstep(0.12, 0.35, o.vein));
 
       // Banded knuckle.
       let gloss = 1, knuckle = 0;
@@ -188,23 +196,25 @@ export function renderEndo(res, p) {
         if (ring > 0.01) { r0 = mix(r0, 26, ring * 0.8); g0 = mix(g0, 16, ring * 0.8); b0 = mix(b0, 20, ring * 0.8); }
       }
 
-      const diff = Math.min(1.1, (NL * 0.72 + 0.28)) * atten;
-      const sheen = (0.08 + 0.1 * nz(th / TAU * 9, z * 0.7, 9));
-      const spec = (Math.min(0.35, Math.pow(NH, 220) * 0.3 + Math.pow(NL, 14) * 0.02)) * gloss * atten * (0.35 + 0.9 * nz(th / TAU * 20, z * 1.4, 20));
-      // Tiny wet glints from saliva films, sparse and fixed.
-      const glint = sstep(0.94, 0.985, nz(th / TAU * 80, z * 7, 80)) * 0.14 * atten * NL;
-      let rr = (r0 / 255) * diff * ao + spec * 0.9 + glint * 0.8 + sheen * 0.04;
-      let gg = (g0 / 255) * diff * ao + spec * 0.9 + glint * 0.8 + sheen * 0.03;
-      let bb = (b0 / 255) * diff * ao + spec * 0.9 + glint * 0.8 + sheen * 0.03;
+      // Tip light: steep falloff, reddened by the tissue deep in the lumen; patchy wet film.
+      const diff = Math.min(1.1, NL * 0.72 + 0.3) * atten;
+      const lr = sstep(1.5, 8, z), lg = mix(0.97, 0.7, lr), lb = mix(0.93, 0.6, lr);
+      const wet = sstep(0.35, 0.75, nz(th / TAU * 20, z * 1.4, 20)) * 0.8 + 0.2;
+      const spec = Math.min(0.5, Math.pow(NH, 200) * 0.35 + Math.pow(NL, 90) * 0.32 * wet + Math.pow(NL, 18) * 0.03) * gloss * atten * wet;
+      const glint = sstep(0.93, 0.98, nz(th / TAU * 80, z * 7, 80)) * 0.18 * atten * Math.pow(NL, 4);
+      const sheen = 0.08 + 0.1 * nz(th / TAU * 9, z * 0.7, 9), wh = spec * 0.95 + glint * 0.85;
+      let rr = (r0 / 255) * diff * ao + wh + sheen * 0.04;
+      let gg = (g0 / 255) * diff * ao * lg + wh * 0.98 + sheen * 0.025;
+      let bb = (b0 / 255) * diff * ao * lb + wh * 0.95 + sheen * 0.025;
       // Lumen: fade to a dark red-brown void.
-      const lum = sstep(5, 20, z);
-      rr = mix(rr, 0.05, lum); gg = mix(gg, 0.012, lum); bb = mix(bb, 0.014, lum);
+      const lum = sstep(5.5, 18, z);
+      rr = mix(rr, 0.045, lum); gg = mix(gg, 0.01, lum); bb = mix(bb, 0.012, lum);
       // Vignette of the lens.
-      const vg = 1 - 0.62 * sstep(0.62, 1.0, rho);
+      const vg = 1 - 0.58 * sstep(0.64, 1.0, rho);
       rr *= vg; gg *= vg; bb *= vg;
       D[i] = Math.min(255, 255 * Math.pow(Math.min(1.2, rr), 0.82));
-      D[i + 1] = Math.min(255, 255 * Math.pow(Math.min(1.2, gg), 0.9));
-      D[i + 2] = Math.min(255, 255 * Math.pow(Math.min(1.2, bb), 0.86));
+      D[i + 1] = Math.min(255, 255 * Math.pow(Math.min(1.2, gg), 0.92));
+      D[i + 2] = Math.min(255, 255 * Math.pow(Math.min(1.2, bb), 0.9));
       D[i + 3] = 255;
     }
   }

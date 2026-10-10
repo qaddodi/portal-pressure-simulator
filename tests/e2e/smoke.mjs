@@ -32,6 +32,8 @@ const check = (device, name, fn) => { queue.push([device, name, fn]); };
 async function runCheck(device, name, fn) {
   const ctx = await browser.newContext({ ...DEVICES[device], serviceWorkers: 'block' });
   const page = await ctx.newPage();
+  // Four pages share a software GPU in CI, where one frame can take seconds: give taps and waits room.
+  page.setDefaultTimeout(60000);
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
@@ -72,6 +74,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const T = () => page.evaluate(() => (document.querySelector('#world').getAttribute('transform') || '').replace(/-?\d+\.\d+/g, (n) => (+n).toFixed(1)));
     // A software renderer draws a frame a second or two apart: wait until the transform holds for a while.
     const steady = async () => { let a = await T(), same = 0; for (let i = 0; i < 80 && same < 5; i++) { await page.waitForTimeout(300); const c = await T(); same = c === a ? same + 1 : 0; a = c; } return a; };
+    // The opening framing is set before the vitals dock reaches its full height (its caption line
+    // arrives later); the anatomy's own framing is what Fit gives once the page has settled.
+    await steady();
+    await page.evaluate(() => window.pps.stage.fit());
     const home = await steady();
     await page.click('#viewSeg [data-view="lobule"]', { force: true });
     await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 30000 });
@@ -319,6 +325,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       const zk = () => page.evaluate(() => window.pps.stage.lobuleViewKey?.());
       // The framing glides when the free space changes: start from where it settles.
       // Settled means three readings in a row agree (a busy machine can pause a glide between two).
+      // Fit first: the vitals dock's caption line can arrive after the opening framing was set.
+      await page.click('#zoomFit');
       let k0 = await zk(), same = 0;
       for (let i = 0; i < 30 && same < 2; i++) { await page.waitForTimeout(700); const k = await zk(); same = k === k0 ? same + 1 : 0; k0 = k; }
       await page.click('#zoomIn');
@@ -428,6 +436,38 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if (bad.length) throw new Error(`${w}×${hgt} ${q}${act ? ' + ' + act : ''}: ${bad.join('; ')}`);
     }
   });
+  // The figure's labels never sit on each other: at the home framing, for every patient, on a phone, an iPad
+  // held upright and a laptop, in the anatomy and the circuit (stage.js layoutLabels, its last overlap pass).
+  await check(device, 'figure labels never overlap', async (page) => {
+    const sizes = device === 'desktop' ? [[1440, 900], [820, 1180]] : [[390, 844]];
+    const presets = ['healthy', 'postprandial', 'pvt-acute', 'pvt-chronic', 'svt', 'schisto', 'cirr-comp', 'csph', 'cirr-decomp', 'cirr-hepatofugal', 'gastric-varix', 'sos', 'budd-chiari', 'ivc-web', 'rhf', 'constrictive'];
+    await open(page);
+    const overlaps = () => page.evaluate(() => {
+      const boxes = [...document.querySelectorAll('#labels .lb:not(.lb-off)')].filter((g) => getComputedStyle(g).display !== 'none' && +getComputedStyle(g).opacity > 0.05)
+        .map((g) => [g.dataset.key, [...g.querySelectorAll('text')].map((t) => t.getBoundingClientRect()).filter((r) => r.width > 1)]).filter(([, rs]) => rs.length);
+      const out = [];
+      for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+        for (const A of boxes[i][1]) for (const C of boxes[j][1]) {
+          const x = Math.min(A.right, C.right) - Math.max(A.left, C.left), y = Math.min(A.bottom, C.bottom) - Math.max(A.top, C.top);
+          if (x > 1.5 && y > 1.5) out.push(`${boxes[i][0]} × ${boxes[j][0]}`);
+        }
+      }
+      return [...new Set(out)];
+    });
+    for (const [w, hgt] of sizes) {
+      await page.setViewportSize({ width: w, height: hgt });
+      for (const id of presets) {
+        await page.evaluate((p) => window.pps.loadPreset(p), id);
+        for (const view of ['anatomic', 'circuit']) {
+          await page.evaluate((v) => window.pps.store.set({ view: v }), view);
+          await page.waitForTimeout(1200);
+          const bad = await overlaps();
+          if (bad.length) throw new Error(`${w}×${hgt} ${id} ${view}: ${bad.join('; ')}`);
+        }
+        await page.evaluate(() => window.pps.store.set({ view: 'anatomic' }));
+      }
+    }
+  });
   // One type scale and one icon scale (styles/tokens.css): every menu, card and sheet the owner can
   // open uses only the five interface sizes and three weights, icons come in 16, 20 and 24 (12 for a
   // check mark in a dot), and every button has a name. Figure artwork (the anatomy's labels, the
@@ -484,6 +524,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   });
   await check(device, 'responsive instrument workspace', async (page) => {
     await open(page, '?preset=cirr-decomp');
+    // Let the first frames (shader compiles on a software GPU) finish before the first tap.
+    await page.waitForFunction(() => window.pps.store.get().frame.pulsing, null, { timeout: 45000 });
     await page.click('#tabInstruments');
     await page.waitForSelector('#dockBody .dock-pane.active');
     await page.waitForTimeout(400);
@@ -519,13 +561,13 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction(() => !!window.pps.store.get().compareSnap);
     await page.waitForSelector('.workspace-comparison:not([hidden])');
     // One tap on a tab chooses an instrument; each tab carries its live reading.
-    if (await page.locator('.instr-tab').count() !== 6) throw new Error('the tabs must offer six distinct instruments');
+    if (await page.locator('.instr-tab').count() !== 7) throw new Error('the tabs must offer seven distinct instruments');
     const choose = async (id) => {
       await page.click(`.instr-tab[data-instrument="${id}"]`);
       await page.waitForFunction((id) => document.querySelector(`.instr-tab[data-instrument="${id}"]`).getAttribute('aria-selected') === 'true', id);
       await page.waitForTimeout(250);
     };
-    for (const id of ['scope', 'doppler', 'endoscopy', 'abdomen', 'profile']) {
+    for (const id of ['scope', 'hvpg', 'doppler', 'endoscopy', 'abdomen', 'profile']) {
       await choose(id);
       const overflow = await page.$eval(`#pane-${id}`, (el) => el.scrollWidth - el.clientWidth);
       if (overflow > 2) throw new Error(`${id} has horizontal overflow (${overflow}px)`);
@@ -575,17 +617,41 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction(() => window.pps.store.get().running);
   });
 
+  await check(device, 'HVPG procedure: the button holds still and every tap starts it', async (page) => {
+    await open(page, '?preset=cirr-decomp');
+    await page.evaluate(() => { window.pps.dock.show('hvpg'); window.pps.dock.setState('open'); });
+    const sel = '[data-pane="hvpg"] .hvpg-bar .btn';
+    await page.waitForSelector(sel, { state: 'visible' });
+    // The card repaints on every model frame; the button must not change under a finger (Safari then drops the tap).
+    const changes = await page.$eval(sel, (b) => new Promise((res) => {
+      let n = 0; const mo = new MutationObserver((m) => { n += m.length; });
+      mo.observe(b, { subtree: true, childList: true, characterData: true, attributes: true });
+      setTimeout(() => { mo.disconnect(); res(n); }, 1500);
+    }));
+    if (changes) throw new Error(`the Measure HVPG button changed ${changes} times while idle`);
+    // The sheet slides up: tap where the button settles, not where it is on the way.
+    await page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === 'running' && a.effect?.target?.id === 'dock'), null, { timeout: 20000 });
+    if (device === 'phone') { const b = await page.$eval(sel, (el) => { const r = el.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }); await page.touchscreen.tap(b[0], b[1]); }
+    else await page.click(sel);
+    await page.waitForFunction((q) => document.querySelector(q).textContent.includes('Measuring'), sel, { timeout: 10000 }).catch(() => { throw new Error('a tap on Measure HVPG did not start it'); });
+  });
+
   await check(device, 'pressure over time and Doppler', async (page) => {
     await open(page, '?preset=cirr-decomp');
     // The heartbeat always runs, so the trace is beat to beat before any instrument opens, and it
     // never touches the patient's parameters.
-    await page.waitForFunction(() => window.pps.store.get().frame.pulsing, null, { timeout: 20000 });
+    await page.waitForFunction(() => window.pps.store.get().frame.pulsing, null, { timeout: 45000 });
     // Pulsatile is on by default, so compare with its value before the instrument opens, not with false.
     const pulsatileBefore = await page.evaluate(() => window.pps.store.get().params.pulsatile);
     await page.click('#tabInstruments');
     await page.evaluate(() => window.pps.dock.show('scope'));
     if (await page.evaluate(() => window.pps.store.get().params.pulsatile) !== pulsatileBefore) throw new Error('opening an instrument changed the patient parameters');
     await page.waitForTimeout(2500);
+    // In Explore the HVPG stays hidden until the HVPG procedure measures it.
+    const before = await page.$eval('#pane-scope .pt-num', (el) => el.textContent.trim());
+    if (before !== '—') throw new Error(`pressure over time shows HVPG ${before} before it is measured`);
+    await page.evaluate(() => window.pps.store.set({ hvpgMeasured: true }));
+    await page.waitForTimeout(600);
     const hero = await page.$eval('#pane-scope .pt-num', (el) => parseFloat(el.textContent));
     if (!(hero > 12)) throw new Error(`pressure over time shows HVPG ${hero}`);
     const drawn = await page.$eval('#pane-scope canvas', (c) => { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 16) if (d[i]) n++; return n; });

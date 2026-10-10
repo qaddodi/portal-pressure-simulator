@@ -37,6 +37,8 @@ Loop for every change (fast previews first, full tests before merge):
 4. When the owner is happy, run the full `npm run check` (lint, unit, build, smoke, smoke:dist),
    fix anything it finds, and recommend any tests worth adding for the new behaviour.
    The full CI (`ci.yml`) also runs every check on pull requests and on `main`.
+   After a deliberate change to the look, run `npm run visual -- --update`, look at the changed
+   pictures in `tests/visual/`, and commit them with the change (CI compares against them).
 5. Merge to `main` only when the owner says so. That also resets `/preview/` to match `main`.
    If the branch is already merged, restart it from the latest `main` before more work.
 

@@ -5,9 +5,9 @@
 // full. It scrolls smoothly, one spectral line at a time, as the machine does.
 
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
-import { h, fmt, fitCanvas, clamp, icon } from './util.js?v=86153645a3';
-import { FONT } from './charts.js?v=32df8541ef';
-import { logAction } from './store.js?v=8ab9b37d48';
+import { h, fmt, fitCanvas, clamp, icon } from './util.js?v=a357853926';
+import { FONT } from './charts.js?v=151b0288b8';
+import { logAction } from './store.js?v=edbdbfb0c8';
 import { DOPPLER_MODES, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js?v=fe9fd40247';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));

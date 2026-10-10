@@ -11,10 +11,10 @@
 // from here" freezes the current moment as A for comparison. It replaces play/speed, the Seconds/Months
 // switch, undo/redo/reset, the Findings list, the Log instrument and Compare mode.
 
-import { store, replaceParams, onParamChange } from './store.js?v=8ab9b37d48';
-import { host } from './host.js?v=f328cac514';
-import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=86153645a3';
-import { activeInterventions } from './inspector.js?v=5268b7dbbf';
+import { store, replaceParams, onParamChange } from './store.js?v=edbdbfb0c8';
+import { host } from './host.js?v=b54d9b1fcc';
+import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, clamp } from './util.js?v=a357853926';
+import { activeInterventions } from './inspector.js?v=5acd5150f6';
 
 const SEV = { critical: 'var(--critical)', danger: 'var(--danger)', caution: 'var(--caution)', info: 'var(--info)', ok: 'var(--ok)' };
 export const EVENT_WHY = { VARIX_RUPTURE: 'varix', RED_WALE: 'varix', VARIX_LARGE: 'varix', HEPATOFUGAL_PV: 'pvFlow', PV_STASIS: 'pvFlow', CSPH: 'hvpg', BLEED_RISK: 'hvpg', ASCITES_FORMING: 'ascites', TENSE_ASCITES: 'ascites', HIGH_SHUNT: 'shunt', LIVER_HYPOPERFUSION: 'liverPerf', RA_HIGH: 'ra', HYPERDYNAMIC: 'co', SPLENOMEGALY: 'spleen' };
@@ -172,6 +172,7 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
       sortEntries();
       announce(`${ev.title}. ${ev.detail || ''}`);
       pulseLatest();
+      dispatchEvent(new Event('pps:event'));   // a phone's folded dock opens for it (main.js)
     }
   }
   async function jump(days, long) {

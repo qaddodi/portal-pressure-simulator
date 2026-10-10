@@ -3,9 +3,9 @@
 // sliders that used to live in the side panel. Every verb takes effect at once and becomes one
 // entry in the timeline; nothing stays "armed".
 
-import { store, updateParams } from './store.js?v=8ab9b37d48';
-import { h, icon, svgIcon, clamp, tooltipFor } from './util.js?v=86153645a3';
-import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=2c5d790fd5';
+import { store, updateParams } from './store.js?v=edbdbfb0c8';
+import { h, icon, svgIcon, clamp, tooltipFor } from './util.js?v=a357853926';
+import { cardFor, verbEnabled, normalizeSel } from './actions.js?v=658820a7b3';
 
 const LOCK_TIP = 'Not available in this step of the lesson or case';
 
@@ -19,7 +19,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   const tabletTouch = matchMedia('(pointer: coarse) and (min-width: 768px) and (max-width: 1366px)');
   const sizes = { vw: view.clientWidth, vh: view.clientHeight, w: 0, h: 0 };
   new ResizeObserver(() => { const moved = Math.abs(sizes.vw - view.clientWidth) > 2 || !sizes.vh; sizes.vw = view.clientWidth; sizes.vh = view.clientHeight; if (moved) { placedFor = ''; lastLayout = ''; pinned = null; } position(); if (isDocked()) reveal(); }).observe(view);
-  new ResizeObserver(() => { const first = !sizes.w; sizes.w = el.offsetWidth; sizes.h = el.offsetHeight; if (first) { placedFor = ''; lastLayout = ''; pinned = null; } position(); syncMore(); if (isDocked()) reveal(); }).observe(el);
+  new ResizeObserver(() => { const first = !sizes.w; sizes.w = el.offsetWidth; sizes.h = el.offsetHeight; if (first) { placedFor = ''; lastLayout = ''; pinned = null; } else lastLayout = ''; position(); syncMore(); if (isDocked()) reveal(); }).observe(el);
   const uiState = {};
   ctx.ui = (key, def) => (uiState[key] ||= def);
   let lastSelKey = '', model = null, live = [], syncs = [], actionable = [], selRef = null, placedFor = '', lastLayout = '', pinned = null;
@@ -41,14 +41,14 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     if (sc) sc.classList.toggle('more', sc.scrollHeight - sc.clientHeight - sc.scrollTop > 4);
   }
   // The sheet covers the bottom of the figure: keep the tapped vessel in the part that is left, and lift
-  // the figure's own buttons (Fit, turn) clear of it.
+  // the figure's own buttons (Fit, turn) and the credit clear of it.
   let revealRaf = 0, lift = null, liftedBy = '';
   // The variable goes on the few elements that use it: set on the whole figure it would make the browser re-check
   // the style of every element under it.
   function liftButtons(px) {
     if (px === liftedBy) return;
     liftedBy = px;
-    lift ||= [...view.querySelectorAll('.zoom-pill, .stage-clock')];
+    lift ||= [...dockHost.querySelectorAll('.zoom-pill, .stage-clock, .stage-credit')];
     for (const b of lift) b.style.setProperty('--sheet-h', px);
     // Keep the zoom and Fit pill above the card; hide only if it would reach the top bar.
     const pill = lift.find((b) => b.classList.contains('zoom-pill'));
@@ -343,7 +343,6 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     if (!a) return;
     // Once placed, the card stays put while its controls are used (the drawn structure shifting as values change must not
     // move it); only the leader follows. A resize, a new selection or a moved panel places it afresh (placedFor reset).
-    if (placedFor && pinned) { drawLeader(pinned.x, pinned.y, sizes.w || 288, sizes.h || 240, a); return; }
     // Sizes come from ResizeObservers: measuring here, after the frame's DOM writes, would force
     // a layout every frame while the card is open.
     const W = sizes.vw, H = sizes.vh;
@@ -352,6 +351,9 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
     // cards on the right leave free (published on #app by main.js).
     const css = (k) => parseFloat(appStyle.getPropertyValue(k)) || 0;
     const top = css('--top-safe') + 8, bottom = H - (css('--bot-occ') || 0) - 8, right = W - css('--right-occ') - 8;
+    // ...unless it no longer fits there (placed before the dock published its height, or the card grew).
+    const fits = pinned && pinned.y >= top - 1 && pinned.y + hh <= Math.max(bottom, top + hh) + 1;
+    if (placedFor && pinned && fits) { drawLeader(pinned.x, pinned.y, w, hh, a); return; }
     const pts = a.path || [[a.x, a.y]];
     const gap = 22;
     // Beside the structure first; failing that, in the empty margin beside the figure (with a leader
@@ -392,7 +394,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
   }
 
   // The floating pieces moved (a card opened on the right, the dock grew): place the card again.
-  addEventListener('pps:occ', () => { fitAbovePill(); if (pinned && !isDocked()) return; placedFor = ''; lastLayout = ''; pinned = null; position(); if (isDocked()) reveal(); });
+  addEventListener('pps:occ', () => { fitAbovePill(); if (pinned && !isDocked()) { lastLayout = ''; position(); return; } placedFor = ''; lastLayout = ''; pinned = null; position(); if (isDocked()) reveal(); });
   store.on('selection', () => render());
   store.on('shunting', () => render());
   store.on('allowedVerbs', () => render());

@@ -1,15 +1,16 @@
 // Readout strip (the four key readouts in the vitals dock, and the rest behind its chevron) and the
 // Instruments card (blueprint §9.1, §9.2).
 
-import { store } from './store.js?v=8ab9b37d48';
+import { store, hiddenNow } from './store.js?v=edbdbfb0c8';
 import { EDGES } from '../engine/topology.js?v=dc393aabea';
-import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=86153645a3';
-import { lobuleFlows } from './lobule-model.js?v=6e45ed9029';
-import { createProfile } from './charts.js?v=32df8541ef';
-import { createPressureTime } from './pressure-time.js?v=588201eed4';
-import { createFibroScan } from './fibroscan.js?v=cc82769305';
-import { createDoppler } from './doppler.js?v=5159b0e66c';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=925f494a37';
+import { h, fmt, svgIcon, closePopover, clamp, scrollCue } from './util.js?v=a357853926';
+import { lobuleFlows } from './lobule-model.js?v=64bf651eba';
+import { createProfile } from './charts.js?v=151b0288b8';
+import { createPressureTime } from './pressure-time.js?v=f585440f46';
+import { createFibroScan } from './fibroscan.js?v=cb1a100f24';
+import { createHvpgProcedure } from './hvpg-proc.js?v=97815283e5';
+import { createDoppler } from './doppler.js?v=8171ee4a53';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=4d041069dd';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -115,7 +116,7 @@ export function readoutValue(t, m, hidden) {
 }
 
 // Legacy pane names in content: flow and perfusion live in the readout strip, the pressure profile is the closest pane.
-const ALIAS = { flow: 'profile', perfusion: 'profile', hvpg: 'profile', chart: 'profile' };
+const ALIAS = { flow: 'profile', perfusion: 'profile', chart: 'profile' };
 
 export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReveal, onLobule, onOpen, onClose, isVisible, marks, onBeat, onLayout }) {
   // ── Readout strip ─────────────────────────────────
@@ -134,7 +135,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     el.title = `${t.title || t.k}${t.pane ? '\nClick to open the Ascites view.' : t.why ? '\nClick for what is driving it.' : ''}`;
     // Ascites opens its own instrument (amount, cause, tap, treatment) rather than a second popover.
     if (t.pane) el.addEventListener('click', () => show(t.pane, { reveal: true }));
-    else if (t.why) el.addEventListener('click', () => onWhy(t.why, el));
+    // HVPG not yet measured (Explore): the tile opens the catheter procedure instead.
+    else if (t.why) el.addEventListener('click', () => (t.id === 'hvpg' && readoutValue(t, {}, hiddenNow()) == null ? show('hvpg', { reveal: true }) : onWhy(t.why, el)));
     tileEls[t.id] = { el, t, val, tr, st, cmp, fill, hist: [], sev: null, trend: '', ariaTxt: '' };
     return el;
   }
@@ -224,7 +226,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const m = f.metrics;
     const st0 = store.get();
     if (strip.classList.contains('lob') !== !!st0.lobule) syncLobule();
-    const hidden = st0.hiddenReadouts;
+    const hidden = hiddenNow(st0);
     const A = st0.compareSnap?.metrics || null;
     const now = performance.now();
     for (const x of Object.values(tileEls)) {
@@ -298,6 +300,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const pressure = { ...profile, id: 'profile', label: 'Pressure' };
   const instruments = [
     pressure, createPressureTime({ marks }),
+    // On a sheet (phone, portrait tablet) the procedure folds the card down so the anatomy shows it.
+    createHvpgProcedure(),
     createDoppler({ onProbe }), endoscopy, createAbdomen({ onAction }), createFibroScan(),
   ];
   const panes = instruments.map((p) => {
@@ -312,14 +316,15 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // open are remembered on this device.
   const INFO = {
     profile: ['activity', (f) => `${fmt(f.metrics.pv, 1)} mmHg`],
-    scope: ['chart', (f) => `HVPG ${fmt(f.metrics.hvpg, 1)}`],
+    scope: ['chart', (f) => (hiddenNow()?.has('trueHVPG') ? `PV ${fmt(f.metrics.pv, 1)}` : `HVPG ${fmt(f.metrics.hvpg, 1)}`)],
+    hvpg: ['catheter', (f) => { const st = store.get(), meas = st.lastHVPG; return !hiddenNow(st)?.has('trueHVPG') ? `${fmt(f.metrics.hvpg, 1)} mmHg` : meas ? `${fmt(meas.hvpg, 1)} mmHg` : 'Not measured'; }],
     doppler: ['doppler', (f) => `${fmt(Math.abs(f.metrics.pvVel), 0)} cm/s`],
     endoscopy: ['endoscope', (f) => (f.metrics.varix.d < 2.5 ? 'No varices' : `Grade ${f.metrics.varix.grade.code}`)],
     abdomen: ['needle', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],
     fibroscan: ['gauge', (f) => `${fmt(f.metrics.lsm, 0)} kPa`],
   };
-  const SHORT = { profile: 'Pressure', scope: 'Over time', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites', fibroscan: 'FibroScan' };
-  const ORDER = ['profile', 'scope', 'doppler', 'endoscopy', 'abdomen', 'fibroscan'];
+  const SHORT = { profile: 'Pressure', scope: 'Over time', hvpg: 'HVPG', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites', fibroscan: 'FibroScan' };
+  const ORDER = ['profile', 'scope', 'hvpg', 'doppler', 'endoscopy', 'abdomen', 'fibroscan'];
   const saved = (() => { try { return JSON.parse(localStorage.getItem('pps.instruments') || 'null') || {}; } catch { return {}; } })();
   let open = Array.isArray(saved.open) && saved.open.every((id) => byId[id]) && saved.open.length ? saved.open.slice(0, 2) : ['profile'];
   let frame = null, state = 'open', resizeFrame = 0, picking = false;
@@ -330,8 +335,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
 
   const live = h('span', { class: 'workspace-live', 'aria-live': 'off' });
   // The head is the same as Findings' and Treat's: icon, name, a quiet status, close.
-  const titleEl = h('h2', { class: 'dock-title card-title' }, svgIcon('gauge'), h('span', {}, 'Measure'), h('span', { class: 'dt-l' }));
-  const closeBtn = h('button', { class: 'ib card-close workspace-close', 'aria-label': 'Close Measure', title: 'Close (Esc)', onclick: close }, svgIcon('close'));
+  const titleEl = h('h2', { class: 'dock-title card-title' }, svgIcon('gauge'), h('span', {}, 'Tests'), h('span', { class: 'dt-l' }));
+  const closeBtn = h('button', { class: 'ib card-close workspace-close', 'aria-label': 'Close Tests', title: 'Close (Esc)', onclick: close }, svgIcon('close'));
   const divider = h('div', { class: 'workspace-divider', role: 'separator', tabindex: '0', 'aria-label': 'Instruments size' }, h('span'));
   workspace.prepend(divider);
   head.classList.add('card-head');
@@ -355,7 +360,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     tabEls[ORDER[j]].b.focus(); pick(ORDER[j]);
   });
   const pickHint = h('div', { class: 'instr-hint', hidden: true }, 'Pick a second instrument to show with ', h('b'), '.');
-  head.after(tabs, pickHint);
+  const tabsBox = scrollCue(tabs);
+  head.after(tabsBox, pickHint);
   for (const p of panes) {
     p.el.id = 'pane-' + p.id; p.el.setAttribute('role', 'tabpanel'); p.el.setAttribute('aria-label', p.label);
     body.append(p.el);
@@ -404,7 +410,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     app.classList.toggle('instrument-focus', state === 'focus' && isVisible());
     divider.hidden = state !== 'open';
     body.hidden = state === 'peek';
-    tabs.hidden = state === 'peek';
+    tabsBox.hidden = state === 'peek';
     endPick();
     updateHeader(); layout();
     queueRefresh();
@@ -428,6 +434,11 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       tabEls[id].b.setAttribute('aria-selected', String(on));
       tabEls[id].b.tabIndex = id === open[0] ? 0 : -1;
       tabEls[id].b.dataset.slot = on && open.length > 1 ? String(open.indexOf(id) + 1) : '';
+    }
+    // A phone's tab row scrolls sideways: keep the chosen tab in view.
+    if (tabs.scrollWidth > tabs.clientWidth) {
+      const r = tabEls[open[0]].b.getBoundingClientRect(), T = tabs.getBoundingClientRect();
+      if (r.left < T.left || r.right > T.right) tabs.scrollLeft += r.left - T.left - (T.width - r.width) / 2;
     }
     remember();
     queueRefresh();
@@ -550,7 +561,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       const a = st.compareSnap.metrics, b = frame.metrics;
       const delta = (label, v, digits, unit) => h('span', {}, label, h('b', {}, `${v > 0 ? '+' : ''}${fmt(v, digits)} ${unit}`));
       comparison.replaceChildren(h('span', { class: 'comparison-label' }, 'Change since baseline'),
-        !st.hiddenReadouts?.has('trueHVPG') ? delta('HVPG', b.hvpg - a.hvpg, 1, 'mmHg') : null,
+        !hiddenNow(st)?.has('trueHVPG') ? delta('HVPG', b.hvpg - a.hvpg, 1, 'mmHg') : null,
         !st.hiddenReadouts?.has('model') ? delta('Liver flow', b.liverPerfPct - a.liverPerfPct, 0, 'pp') : null,
         !st.hiddenReadouts?.has('model') ? delta('Shunting', (b.shuntFraction - a.shuntFraction) * 100, 0, 'pp') : null);
     }
