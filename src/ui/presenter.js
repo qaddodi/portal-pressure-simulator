@@ -103,7 +103,7 @@ function tweener(draw) {
   let cur = null, raf = 0;
   return (to, ms = 950) => {
     cancelAnimationFrame(raf);
-    if (!cur || reduce.matches) { cur = { ...to }; draw(cur); return; }
+    if (!cur || reduce.matches || ms === 0) { cur = { ...to }; draw(cur); return; }
     const from = { ...cur }, t0 = performance.now();
     const step = (now) => {
       const u = ease(clamp((now - t0) / ms, 0, 1));
@@ -647,9 +647,9 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     // Words out, and the marks: they belong to the slide that is leaving.
     store.set({ focus: null, presentLabels: [] });
     stopLapse();
-    await wordsOut(s);
-    if (cut()) return;
     const si = lap ? stateOf[to - 1] : stateOf[to];
+    await wordsOut(s, shownState >= 0 && si !== shownState);
+    if (cut()) return;
     // The catheter leaves with its slides (with a new patient, the figure's fade takes it).
     if (cath.on && (!ct || si !== shownState)) { await cathOut(si !== shownState && shownState >= 0); if (cut()) return; }
     // Out of the lobule while the old patient is still there, so the rise reads as leaving the liver.
@@ -669,7 +669,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
       await drawn(st);
       if (!deck) return;
     }
-    wordsIn(s, q, st, to);
+    wordsIn(s, q, st, to, swap);
     if (swap || view.classList.contains('pz-out')) figureIn(); else loading(false);
     if (cut()) return;
     if (ct) await cathTo(ct, st.fp, cut);
@@ -684,7 +684,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
   // ── The slide's words, data and visual ──
   // Tiles beside a sinusoid sit under the words, so the vessel has the width of the screen.
   const under = (s) => s.data === 'tiles' && !s.visual && /^sinusoid/.test(s.cam || '');
-  async function wordsOut(next) {
+  async function wordsOut(next, newPatient = false) {
     if (!ui) return;
     const out = [ui.text, ui.panel], data = ui.data;
     // A card that moves (under the words, or back beside them) goes out with the words and comes back in its new place.
@@ -692,14 +692,16 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     const lad = next?.data === 'ladder', ttl = lad ? 'Pressure, portal vein to heart' : next?.dataTitle || 'This patient, from the model';
     const move = !data.hidden && !data.classList.contains('pz-hide') && next && (next.data === 'ladder' || next.data === 'tiles') && !next.visual
       && (under(next) !== data.classList.contains('under') || !lad !== data.classList.contains('tiles-only') || ttl !== ui.dhT.textContent);
-    if (move) data.classList.add('pz-hide');
-    if (!move && out.every((el) => el.hidden || !el.childElementCount)) return;
+    // A different patient: the card leaves with the words and stays gone until the new patient has settled, so its numbers never travel from one patient to the other.
+    const gone = newPatient && !data.hidden && !data.classList.contains('pz-hide');
+    if (move || gone) data.classList.add('pz-hide');
+    if (!move && !gone && out.every((el) => el.hidden || !el.childElementCount)) return;
     for (const el of out) el.classList.add('pz-leave');
-    await wait(reduce.matches ? 0 : move ? 340 : 220);
+    await wait(reduce.matches ? 0 : move || gone ? 340 : 220);
   }
   // A slide's tiles can say how far each number moved: from the slide before (delta: true) or a named one.
   const refOf = (s, i) => (s.delta === true ? states[stateOf[i - 1]]?.fp : typeof s.delta === 'string' ? fpOf(s.delta) : null) || null;
-  function wordsIn(s, q, st, i) {
+  function wordsIn(s, q, st, i, fresh = false) {
     if (!ui) return;
     const { text, panel, data } = ui;
     text.classList.remove('pz-leave');   // (the panel's own is let go once its new content is in, so it never fades back in with the old)
@@ -733,8 +735,10 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
       data.classList.toggle('under', under(s));
       ui.dhT.textContent = lad ? 'Pressure, portal vein to heart' : s.dataTitle || 'This patient, from the model';
       ui.dhL.hidden = !lad;
-      if (lad) ui.ladder.set(st.fp, { key: q ? [] : s.key || [] });
-      ui.tiles.set(st.fp, tileKeys(s), q ? [] : s.key || [], q ? null : refOf(s, i));
+      // (With a new patient the numbers are set at once, while the card is still out: it fades back in already showing them.)
+      const ms = fresh ? 0 : undefined;
+      if (lad) ui.ladder.set(st.fp, { key: q ? [] : s.key || [], ms });
+      ui.tiles.set(st.fp, tileKeys(s), q ? [] : s.key || [], q ? null : refOf(s, i), ms);
       if (data.hidden) { data.hidden = false; data.classList.add('pz-hide'); void data.offsetWidth; }
       data.classList.remove('pz-hide');
     } else if (!data.hidden) {
