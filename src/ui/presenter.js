@@ -368,7 +368,8 @@ function scaleKey(sc, rows) {
   const zones = cuts.slice(0, -1).map((a, i) => ({ a, b: cuts[i + 1], c: ['ok', 'mid', 'hi', 'top'][Math.min(i, 3)], t: i ? sc.marks[i - 1][2] || sc.marks[i - 1][1] : sc.low }));   // (a mark's third item: its short name, for the band)
   const span = (z) => `left:${P(z.a)};width:calc(${P(z.b)} - ${P(z.a)})`;
   const pins = rows.filter((r) => r.f).sort((a, b) => a.f[sc.key] - b.f[sc.key]);
-  const rate = (r) => rateOf(sc.key, r.f)[0] || 'none';
+  // (each patient takes the colour of the zone it sits in)
+  const rate = (r) => (zones.find((z) => r.f[sc.key] < z.b) || zones[zones.length - 1]).c;
   // A second reading or several under each patient (sub: a tile key or a list), pressures in whole mmHg.
   const SUBNAME = { hvpg: 'HVPG', plt: 'Platelets', ppg: 'PPG' };
   const sub = (f) => [sc.sub || []].flat().filter((k) => f[k] != null).map((k) => `${SUBNAME[k] || TILE[k]?.t || k} ${fmt(f[k], dig(k))}${TILE[k]?.u ? ` ${TILE[k].u}` : ''}`);
