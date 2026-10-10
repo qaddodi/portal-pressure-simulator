@@ -337,11 +337,13 @@ void main() {
     if (fx == 1 && (flags & ${F_DIFFUSE}) != 0 && aL > 0.0) {
       // A textbook plate, not a rendered tube: a flat lumen with one thin light line along the
       // side toward the light and one thin dark line along the other. The across-tube
-      // coordinate toward the light (−1 … 1) places them, so they run on through the joins;
-      // where the light runs along a vessel they fade, and on hairline vessels they are left out.
-      float side = rho * dot(g, light);
+      // coordinate (−1 … 1, positive on the lit side) places them at a fixed depth in the tube, so
+      // they run on through the joins and never slide to the rim as a vessel turns; where the light
+      // runs along a vessel they fade out smoothly, and on hairline vessels they are left out.
+      float k = dot(g, light);
+      float side = rho * sign(k);
       float soft = 0.06 + aa / max(R, 1e-3);
-      float thin = smoothstep(1.2, 2.6, R / aa);
+      float thin = smoothstep(1.2, 2.6, R / aa) * smoothstep(0.25, 0.7, abs(k));
       float aDark = (1.0 - smoothstep(0.1, 0.1 + soft, abs(side + 0.62))) * thin;
       lum = mix(lum, shadeInk.rgb, clamp(shadeInk.a * 1.3 * aDark, 0.0, 0.5));
       if ((flags & ${F_SPEC}) != 0) {
