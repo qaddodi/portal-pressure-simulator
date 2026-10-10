@@ -39,6 +39,10 @@
 // Every deck opens with an "Outline and objectives" slide built from its kicker groups and objectives
 // (withOverview below); a deck never writes that slide itself.
 
+import { STIFFNESS } from './decks/stiffness.js?v=59c2beed02';
+import { ONE_YEAR } from './decks/one-year.js?v=409b3754fb';
+import { TAP } from './decks/tap.js?v=e92f545067';
+
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {
   route: [380, 30, 900, 690],       // portal vein to heart
@@ -559,3 +563,5 @@ export const DECKS = [
     ],
   },
 ];
+
+DECKS.push(STIFFNESS, ONE_YEAR, TAP);

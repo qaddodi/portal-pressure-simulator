@@ -20,9 +20,9 @@ import { SITES } from './ladder.js?v=c0d400b6f9';
 import { sinusoidSupported } from './sinusoid-view.js?v=1bee447b11';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { NODES } from '../engine/topology.js?v=dc393aabea';
-import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=b521bd24e5';
+import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=2988ed3182';
 import { createTools } from './presenter-tools.js?v=40af8ad0f3';
-import { openHandout } from './handout.js?v=1a9c87c546';
+import { openHandout } from './handout.js?v=3cceadebf4';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -68,6 +68,10 @@ const RATE = {
   liver: (v) => (v < 50 ? ['hi', 'Low'] : v < 80 ? ['mid', 'Reduced'] : ['ok', 'Normal']),
   shunt: (v) => (v >= 0.5 ? ['hi', 'Large'] : v >= 0.2 ? ['mid', 'Moderate'] : ['ok', 'Small']),
   map: (v) => (v < 65 ? ['hi', 'Low'] : ['ok', 'Normal']),
+  // Liver stiffness (Baveno VII): under 10 kPa normal, 15 to 25 the grey zone, 25 or more CSPH.
+  lsm: (v) => (v >= 25 ? ['hi', 'CSPH likely'] : v >= 15 ? ['mid', 'Grey zone'] : v >= 10 ? ['mid', 'Raised'] : ['ok', 'Normal']),
+  ra: (v) => (v > 8 ? ['hi', 'High'] : ['ok', 'Normal']),
+  salb: (v) => (v < 3.5 ? ['mid', 'Low'] : ['ok', 'Normal']),
   hr: (v) => [null, v < 60 ? 'Slow' : v > 100 ? 'Fast' : 'Normal'],
 };
 // Each tile: its name, what it is, the unit, the decimals (1 unless d), a scale (x) and which way is better
@@ -89,6 +93,9 @@ const TILE = {
   shunt: { t: 'Shunted', s: 'Portal blood bypassing the liver', u: '%', x: 100, d: 0, better: -1 },
   map: { t: 'Blood pressure', s: 'Mean arterial', u: 'mmHg', d: 0 },
   hr: { t: 'Heart rate', s: 'Beats a minute', u: '/min', d: 0 },
+  lsm: { t: 'Liver stiffness', s: 'FibroScan', u: 'kPa', better: -1 },
+  ra: { t: 'Right atrium', s: 'Pressure', u: 'mmHg', better: -1 },
+  salb: { t: 'Serum albumin', s: 'Blood', u: 'g/dL', better: 1 },
 };
 const rateOf = (k, f) => (RATE[k] && f && f[k] != null ? RATE[k](f[k], f) : [null, '']);
 const tileVal = (k, v) => (v == null ? '—' : fmt(v * (TILE[k]?.x ?? 1), TILE[k]?.d ?? 1));
@@ -98,7 +105,7 @@ function liveFp(fr) {
   const m = fr.metrics, a = m.ascites, P = fr.Pf || fr.P;
   return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: m.hvpg, ra: m.ra, ivc: m.ivc, ppg: m.ppg, asc: a.volume, saag: a.saag, tp: a.totalProtein,
     sin: P?.[NI.SIN_R], int: P?.[NI.INT], varix: m.varix.d, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
-    pvFlow: m.pvFlowMean, shunt: m.shuntFraction, liver: m.liverPerfPct, map: m.map, hr: m.hr };
+    pvFlow: m.pvFlowMean, shunt: m.shuntFraction, liver: m.liverPerfPct, map: m.map, hr: m.hr, lsm: m.lsm };
 }
 
 // A value counts from where it was to where it goes (eased, about a second); reduced motion jumps.
@@ -833,9 +840,10 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
   }
   // The table's columns: the raw pressures shade above normal, the rest by their tile's rating.
   // Headers match the pressure chart's axis (PV, WHVP, FHVP, IVC, RA).
-  const COLS = { pv: 'PV', whvp: 'WHVP', fhvp: 'FHVP', ivc: 'IVC', ra: 'RA', hvpg: 'HVPG', ppg: 'PPG', sin: 'Sinusoids', varix: 'Varix', asc: 'Ascites', liver: 'Liver flow', saag: 'SAAG', tp: 'Protein', plt: 'Platelets' };
+  const COLS = { pv: 'PV', whvp: 'WHVP', fhvp: 'FHVP', ivc: 'IVC', ra: 'RA', hvpg: 'HVPG', ppg: 'PPG', sin: 'Sinusoids', varix: 'Varix', asc: 'Ascites', liver: 'Liver flow', saag: 'SAAG', tp: 'Protein', plt: 'Platelets', lsm: 'LSM', spleen: 'Spleen', map: 'BP' };
   const RAW = { pv: (v) => v > 10, whvp: (v) => v > 10, fhvp: (v) => v > 8, ivc: (v) => v > 8, ra: (v) => v > 8 };
   const RAWLIM = { pv: 10, whvp: 10, fhvp: 8, ivc: 8, ra: 8 };
+  const UP_GOOD = new Set(['liver', 'plt', 'map', 'salb']);   // (higher is better: a low one rates amber or red, an arrow down)
   const PRESS = new Set(['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'ppg', 'sin']);
   const fpv = (k, f) => (k === 'ivc' ? f.ivc ?? f.ra : f[k]);
   const cellRate = (k, f) => (RAW[k] ? (RAW[k](fpv(k, f)) ? 'hi' : null) : ['hi', 'mid'].includes(rateOf(k, f)[0]) ? rateOf(k, f)[0] : null);
@@ -845,7 +853,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     const v = fpv(k, f);
     if (RAW[k]) return v > RAWLIM[k] * 2 ? 2 : v > RAWLIM[k] ? 1 : 0;
     if (k === 'asc') return v < NO_ASC ? 0 : rateOf(k, f)[0] === 'hi' ? 2 : 1;
-    const r = rateOf(k, f)[0], sign = k === 'liver' ? -1 : 1;
+    const r = rateOf(k, f)[0], sign = UP_GOOD.has(k) ? -1 : 1;
     return r === 'hi' ? 2 * sign : r === 'mid' ? sign : 0;
   }
   // Against the baseline every real change shows (octreotide's half-millimetre, banding's slight rise), so the steps are small.
@@ -875,9 +883,9 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
   const WORD = { 2: 'well above normal', 1: 'above normal', 0: 'normal', '-1': 'below normal', '-2': 'well below normal' };
   const WORDREL = { 2: 'much higher', 1: 'higher', 0: 'unchanged', '-1': 'lower', '-2': 'much lower' };
   // In the comparison table a change is coloured by what it means for the patient: green better, red worse.
-  // Lower is better everywhere except blood flow to the liver.
-  const effOf = (k, d) => (d === 0 ? null : (k === 'liver' ? d > 0 : d < 0) ? 'good' : 'bad');
-  const unitOf = (k) => (k === 'varix' ? ' mm' : k === 'asc' ? ' L' : k === 'liver' ? '%' : PRESS.has(k) ? ' mmHg' : '');
+  // Lower is better everywhere except blood flow to the liver, platelets, blood pressure and albumin.
+  const effOf = (k, d) => (d === 0 ? null : (UP_GOOD.has(k) ? d > 0 : d < 0) ? 'good' : 'bad');
+  const unitOf = (k) => (k === 'varix' ? ' mm' : k === 'asc' ? ' L' : k === 'liver' ? '%' : PRESS.has(k) ? ' mmHg' : TILE[k]?.u ? ` ${TILE[k].u}` : '');
   function summaryTable(s) {
     const cols = s.cols || ['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'ppg'], asc = s.asc ?? !s.cols, rows = rowsOf(s), rel = s.vs === 'first';
     const val = (k, f) => (PRESS.has(k) && !s.fine ? fmt(fpv(k, f), 0) : tileVal(k, f[k]));

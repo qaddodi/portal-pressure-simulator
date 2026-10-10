@@ -1997,6 +1997,7 @@ button.finding:hover { background: var(--surface-2); }
 .pz-table td.asc .pz-arr svg { height: .95em; width: .71em; }
 .pz-table th.num { text-align: center; }
 .pz-table td.rel[data-rate] { color: var(--text); }
+@media (max-width: 520px) { .pz-table th, .pz-table td { padding: .5em .35em; } .pz-table tbody th { padding-left: .7em; } .pz-table thead th { letter-spacing: .02em; } .pz-table tbody th .pz-kick { letter-spacing: .02em; } }
 @media (max-width: 767px) {
   .pz-table th, .pz-table td { padding: .5em .5em; }
   /* Only a phone scrolls the table sideways, so only there the row names stay pinned (iPad Safari misdrew pinned cells). */
