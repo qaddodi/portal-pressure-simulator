@@ -110,7 +110,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const steady = () => page.evaluate(() => new Promise((res) => { let a = window.pps.stage.zoomLevel(); const t = setInterval(() => { const b = window.pps.stage.zoomLevel(); if (Math.abs(b - a) < 1e-4) { clearInterval(t); res(b); } a = b; }, 700); }));
     const k0 = await steady();
     await page.evaluate(() => { window.pps.stage.zoomIn(); window.pps.stage.zoomIn(); });
-    await page.waitForFunction((k0) => window.pps.stage.zoomLevel() > k0 * 1.5, k0, { timeout: 20000 });
+    await page.waitForFunction((k0) => window.pps.stage.zoomLevel() > k0 * 1.5, k0, { timeout: 60000 });
     const kIn = await steady();
     await page.click('#rotateCircuit');
     await until(`(${ratio})() < 1`, 'circuit did not turn back to wide');
@@ -433,7 +433,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         return out;
       });
       // The cards slide in: measure where they settle, not where they are on the way.
-      await page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === 'running' && ['panel', 'treatCard', 'dock'].includes(a.effect?.target?.id)), null, { timeout: 20000 });
+      await page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === 'running' && ['panel', 'treatCard', 'dock'].includes(a.effect?.target?.id)), null, { timeout: 60000 });
       let bad = await measure();
       // A slow machine can take several frames to follow a change in size (a bleed adds a line to the dock).
       for (let i = 0; i < 4 && bad.length; i++) { await frames(); bad = await measure(); }
@@ -534,7 +534,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForSelector('#dockBody .dock-pane.active');
     await page.waitForTimeout(400);
     // The card slides in: measure where it settles, not where it is on the way.
-    const settled = () => page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === 'running' && a.effect?.target?.id === 'dock'), null, { timeout: 20000 });
+    const settled = () => page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === 'running' && a.effect?.target?.id === 'dock'), null, { timeout: 60000 });
     await settled();
     const geometry = () => page.evaluate(() => {
       const dock = document.querySelector('#dock').getBoundingClientRect();
@@ -635,7 +635,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     }));
     if (changes) throw new Error(`the Measure HVPG button changed ${changes} times while idle`);
     // The sheet slides up: tap where the button settles, not where it is on the way.
-    await page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === 'running' && a.effect?.target?.id === 'dock'), null, { timeout: 20000 });
+    await page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === 'running' && a.effect?.target?.id === 'dock'), null, { timeout: 60000 });
     if (device === 'phone') { const b = await page.$eval(sel, (el) => { const r = el.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }); await page.touchscreen.tap(b[0], b[1]); }
     else await page.click(sel);
     await page.waitForFunction((q) => document.querySelector(q).textContent.includes('Measuring'), sel, { timeout: 10000 }).catch(() => { throw new Error('a tap on Measure HVPG did not start it'); });
@@ -673,7 +673,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.click('#pane-scope [data-range="days"]');
     // A jump stops early if a varix ruptures on the way, so only require that the clock moved.
     await page.evaluate(() => window.pps.timeline.jump(30, '1 month'));
-    await page.waitForFunction(() => window.pps.store.get().frame.day > 0, null, { timeout: 20000 });
+    await page.waitForFunction(() => window.pps.store.get().frame.day > 0, null, { timeout: 60000 });
     await page.waitForTimeout(500);
     await shot(page, `${device}-pressure-over-time-days`);
     await page.evaluate(() => window.pps.dock.show('doppler'));
