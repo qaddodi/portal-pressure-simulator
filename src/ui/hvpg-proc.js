@@ -210,15 +210,15 @@ export function createHvpgProcedure() {
   return { id: 'hvpg', label: 'HVPG procedure', el, update, start };
 }
 
-// The same monitor for a Presenter slide (presenter-tools.js, tool: { kind: 'monitor' }), following the slide's
+// The same monitor for a Presenter slide (decks.js monitor, under the slide's words), following the slide's
 // catheter: set('free') sweeps the free pressure in, set('wedge') inflates the balloon and climbs to the wedge,
 // set('result') holds the wedge and gives the HVPG. Forward, it carries on from where the last slide left the trace.
 const SPAN = { free: [T.free - 300, T.inflate - 80], wedge: [T.inflate, T.result - 1], result: [T.result, T.sum + 700] };
 const ORDER = ['free', 'wedge', 'result'];
 export function createHvpgMonitor() {
   const cv = h('canvas', { role: 'img', 'aria-label': 'Catheter pressure tracing, as on the monitor in the procedure room' });
-  const el = h('div', {}, h('div', { class: 'chart-box hvpg-box' }, cv));
-  let mode = null, t = 0, t1 = 0, last = 0, raf = 0, sig = '', fp = null;
+  const el = h('div', { class: 'pz-mon' }, h('div', { class: 'chart-box hvpg-box' }, cv));
+  let mode = null, t = 0, t1 = 0, last = 0, raf = 0, fp = null;
   // The slide's own readings (the catheter's callouts and the tiles show the same), else the live model's.
   const live = () => { const m = fp || store.get().frame?.metrics; return { fhvp: m?.fhvp ?? 0, whvp: m?.whvp ?? 0, hvpg: m?.hvpg ?? 0 }; };
   const phase = () => (t < T.inflate ? 'free' : t < T.result ? 'wedge' : 'result');
@@ -240,12 +240,9 @@ export function createHvpgMonitor() {
     // (Once the card is laid out: the canvas sizes itself to it.)
     requestAnimationFrame((now) => { last = now; step(now); });
   }
-  function update(f) {
-    if (raf || !mode || !f?.metrics) return;
-    const r = cv.getBoundingClientRect(), key = [Math.round(r.width), Math.round(r.height), fmt(f.metrics.fhvp, 1), fmt(f.metrics.whvp, 1)].join('|');
-    if (key !== sig) { sig = key; draw(); }
-  }
-  return { el, set, update, clear() { cancelAnimationFrame(raf); raf = 0; mode = null; t = 0; } };
+  // (A new size redraws it; the animation loop paints while it runs.)
+  new ResizeObserver(() => { if (!raf && mode) draw(); }).observe(cv);
+  return { el, set };
 }
 
 // ── The tracing: the monitor in the IR suite, dark in both themes ──

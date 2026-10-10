@@ -2794,7 +2794,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Each in its station's colour ([{ id, tone }], --tr-<tone>).
   function pinOrgans(list) {
     const want = new Map((list || []).map((o) => (typeof o === 'string' ? [o, null] : [o.id, o.tone])).filter(([id]) => organEls[id]));
-    const cs = getComputedStyle(svg), col = (tone) => (tone ? [...toRGB(`var(--tr-${tone})`, cs)].slice(0, 3) : null);
+    const cs = getComputedStyle(svg), col = (tone) => (tone ? [...toRGB(`var(${tone.startsWith('--') ? tone : `--tr-${tone}`})`, cs)].slice(0, 3) : null);
     for (const o of olList) if (o.kind === 'pin' && !want.has(o.id)) o.on = false;
     for (const [id, tone] of want) {
       const o = olList.find((x) => x.kind === 'pin' && x.id === id);
@@ -3352,12 +3352,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // The FibroScan probe (the Presenter's stiffness slides): a transducer on the skin at the top left of the right
   // lobe, angled 45° down toward the portal vein, with a shear wave easing out from its tip into the liver along that
-  // line. Screen-space, at the liver's outline. Each tap sends one shear wavefront: a soft arc that spreads and fades as
+  // line. Screen-space, at the liver's outline. Each tap (three a second) sends one shear wavefront: a soft arc that spreads and fades as
   // it crosses the liver. The true speed goes with √kPa (about 2.2× from 5 to 25 kPa); on screen it is exaggerated to
   // roughly linear in kPa (5× from 5 to 25) so the difference reads at a glance, easing to a new speed when the reading changes.
   const scan = { on: false, el: null, raf: 0, v: 0, fronts: [], next: 0, last: 0 };
-  const SCAN_TIP = [66, 48], SCAN_SPAN = 150, SCAN_EVERY = 1.5, SCAN_N = 5, SCAN_HALF = 0.5, SCAN_GAP = 6;
-  const scanSpeed = () => 5 * clamp(F?.metrics?.lsm ?? 5, 3, 60);   // px/s: 25 at 5 kPa (slow but visible), 125 at 25, 200 at 40, 300 from 60
+  const SCAN_TIP = [66, 48], SCAN_SPAN = 150, SCAN_EVERY = 1 / 3, SCAN_N = 12, SCAN_HALF = 0.5, SCAN_GAP = 6;   // three pulses a second, so several fronts are in flight at once
+  const scanSpeed = () => 12 * clamp(F?.metrics?.lsm ?? 5, 4, 40);   // px/s: 60 at 5 kPa (slow but visible, fronts 20 px apart at three a second), 300 at 25, 480 from 40
   function scanArc(r) {
     const [cx, cy] = SCAN_TIP, h = SCAN_HALF * (0.75 + 0.25 * Math.min(1, r / 50));   // the front widens a little with depth
     const p = (t) => `${(cx + r * Math.cos(t)).toFixed(1)} ${(cy + r * Math.sin(t)).toFixed(1)}`;
@@ -3371,14 +3371,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     scan.v = scan.v ? scan.v + (target - scan.v) * (1 - Math.exp(-dt / 0.6)) : target;   // ease to a new kPa
     if (now >= scan.next) { scan.fronts.push(0); scan.next = now + SCAN_EVERY * 1000; scan.el.classList.remove('tap'); void scan.el.offsetWidth; scan.el.classList.add('tap'); }
     scan.fronts = scan.fronts.map((r) => r + scan.v * dt).filter((r) => r < SCAN_SPAN);
-    const g = scan.el.querySelectorAll('.sp-waves g');
+    const g = scan.el.querySelectorAll('.sp-waves g'), gap = clamp(scan.v * SCAN_EVERY * 0.4, 2, SCAN_GAP);   // the ripples tighten when fronts are close, so neighbours never merge
     g.forEach((el, i) => {
       const r = scan.fronts[i];
       if (r == null) { el.style.opacity = 0; return; }
       const u = r / SCAN_SPAN, fade = Math.sin(Math.PI * Math.min(1, u * 1.15 + 0.04)) ** 1.2 * (1 - u * 0.35);
       el.style.opacity = fade.toFixed(3);
       // A short packet: the crest, with a faint ripple ahead and behind.
-      [...el.children].forEach((pth, j) => pth.setAttribute('d', scanArc(Math.max(1, r + (j - 1) * SCAN_GAP))));
+      [...el.children].forEach((pth, j) => pth.setAttribute('d', scanArc(Math.max(1, r + (j - 1) * gap))));
     });
     scan.raf = requestAnimationFrame(scanTick);
   }
@@ -3401,7 +3401,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!lv || morph > 0.5) { scan.el.classList.add('off'); return; }
     const r = lv.getBoundingClientRect(), x0 = pzInset('--pz-l') + 6, x1 = wr.width - pzInset('--pz-r') - 6;
     // The top left of the right lobe (the patient's right is the figure's left): the tip sits on its edge, aimed 45° down toward the portal vein.
-    const x = clamp(r.left - wr.left + r.width * 0.13, x0 + 48, x1 - 110) - SCAN_TIP[0], y = r.top - wr.top + r.height * 0.17;
+    const x = clamp(r.left - wr.left + r.width * 0.13, x0 + 48, x1 - 110) - SCAN_TIP[0], y = r.top - wr.top + r.height * 0.09;
     scan.el.classList.toggle('off', y < 20 || y > wr.height - 20);
     scan.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
   }
@@ -3702,7 +3702,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     });
   }
   // The camera for the procedure: the route, the tip close up, then back where it was.
-  function cathFocus(mode, ms = 700) {
+  // both: the close-up holds the tip and the vein ahead of it, where the wedged reading hangs, inside the free space.
+  function cathFocus(mode, ms = 700, { both = false } = {}) {
     const r = cathRoute();
     if (mode === 'home') { if (cath.saved) animateVT(cath.saved, ms); cath.saved = null; cath.k0 = 0; return true; }
     if (!r) return false;
@@ -3714,6 +3715,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (mode === 'tip') {
       const tp = cutLen(r.pts, r.cum, 0, r.free).at(-1);
       cx = tp[0]; cy = tp[1]; k = 6.2;
+      if (both) {
+        const ah = cathAt(r, Math.min(r.total, r.free + cathAt(r, r.free).r * 6.4)).p;
+        cx = (tp[0] + ah[0]) / 2; cy = (tp[1] + ah[1]) / 2;
+        k = Math.min(k, (fx1 - fx0) * 0.5 / Math.max(1, Math.abs(ah[0] - tp[0])), (fy1 - fy0) * 0.5 / Math.max(1, Math.abs(ah[1] - tp[1])));
+      }
       // A blocked vein: the tip waits at the ostium, so the view holds both it and the vein it cannot enter.
       if (cath.st?.ostium) { const o = cutLen(r.pts, r.cum, 0, r.hv0 - 2).at(-1); cx = (o[0] + tp[0]) / 2; cy = (o[1] + tp[1]) / 2; k = 4.8; }
       // With little room above a card (a phone), the view is a little wider and the tip sits low in the free space,
@@ -5581,6 +5587,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setCircuitRotated,
     circuitRotated: () => rotTarget === 1,
     zoomToBox, frameBox,
+    /** The plate box (world units) around organs and vessels as drawn now (an enlarged spleen at its size), or null. */
+    focusBox({ organs = [], edges = [] } = {}) {
+      let b = null;
+      const add = (el, m) => {
+        if (!el?.getBBox) return;
+        let r; try { r = el.getBBox(); } catch { return; }
+        if (!r.width && !r.height) return;
+        for (const [x, y] of [[r.x, r.y], [r.x + r.width, r.y], [r.x, r.y + r.height], [r.x + r.width, r.y + r.height]]) {
+          const X = m ? m.a * x + m.c * y + m.e : x, Y = m ? m.b * x + m.d * y + m.f : y;
+          b = b ? [Math.min(b[0], X), Math.min(b[1], Y), Math.max(b[2], X), Math.max(b[3], Y)] : [X, Y, X, Y];
+        }
+      };
+      for (const id of organs) if (organEls[id]?.getAttribute('d')) add(organEls[id], organG[id]?.transform.baseVal.consolidate()?.matrix);
+      for (const id of edges) if (E[id]?.vis) add(E[id].wall);
+      return b;
+    },
     /** Fit with a chosen glide (the presenter's slower, calmer moves). */
     fitSlow(ms = 1300) { if (lobuleOn) return; const to = defaultVT(morphTarget === 1); if (morphTarget !== 1) homeAt = to; if (!sameView(to, vtGliding ? vtTarget : vt)) animateVT(to, ms); },
     /** The anatomy/circuit camera (where it is headed, if gliding), and a glide back to one saved earlier (the presenter puts the view back). */

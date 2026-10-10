@@ -26,10 +26,11 @@
 //                            brackets: { hvpg | ppg: 'misleads' | 'works' } colours the ladder's bracket red or green, its number in it)
 //   tool                     an instrument in the data card, reading the live model (presenter-tools.js): { kind: 'doppler',
 //                            vessel }, { kind: 'scope' }, { kind: 'fibroscan' }, { kind: 'trace', range: 'talk' | 'beats' },
-//                            { kind: 'abdomen' }, { kind: 'wall' } (the varix in cross-section), { kind: 'monitor', at } (the HVPG catheter's tracing); title? names the card; waves: true
+//                            { kind: 'abdomen' }, { kind: 'wall' } (the varix in cross-section); title? names the card; waves: true
 //                            names a hepatic vein Doppler's a, S and D. With data too, the tool sits above the tiles
 //   sites                    readings on the figure: 'pv', 'ivc', 'ra', 'web' (pressures; web: the IVC below a web), 'rLiver', 'rColl' (the circuit's resistors), 'split' (portal blood to liver and shunts)
 //   cath                     the HVPG catheter instead of a camera: 'route', 'free', 'wedge', 'result' or 'blocked'
+//   monitor                  the catheter's pressure monitor (Measure › HVPG's tracing) under the slide's words: 'free', 'wedge' or 'result'
 //   lapse                    { seconds, from?, to? }: the slide's days (ramp: { param: [from, to] } eased over them) play on the
 //                            live figure as a time-lapse, from the slide before's state (from/to: words for the
 //                            start and end in place of a day counter, e.g. 'Fasting' and 'After a meal'; keep the
@@ -275,7 +276,7 @@ export const DECKS = [
         ask: ['Why the right internal jugular vein?', 'It gives a straight path through the right atrium and the IVC into the hepatic veins.'],
       },
       {
-        id: 'free', cath: 'free', tool: { kind: 'monitor', at: 'free' },
+        id: 'free', cath: 'free', monitor: 'free',
         kicker: 'Measuring portal pressure', title: 'Free hepatic venous pressure',
         terms: { 'hepatic vein pressure': 'fhvp', IVC: 'ivc' },
         line: 'With the balloon deflated, the catheter tip records hepatic vein pressure, normally close to IVC pressure.',
@@ -283,7 +284,7 @@ export const DECKS = [
         ask: ['Why subtract the free pressure rather than the right atrial pressure?', 'The free pressure carries the same abdominal and venous pressure as the wedge, so subtracting it cancels them.'],
       },
       {
-        id: 'wedge', cath: 'wedge', tool: { kind: 'monitor', at: 'wedge' },
+        id: 'wedge', cath: 'wedge', monitor: 'wedge',
         kicker: 'Measuring portal pressure', title: 'Wedged hepatic venous pressure',
         terms: { 'sinusoidal pressure': 'whvp' },
         line: 'With the balloon inflated, the static column of blood ahead of it transmits sinusoidal pressure.',
@@ -291,7 +292,7 @@ export const DECKS = [
         ask: ['How do you check that the balloon has truly wedged the vein?', 'Inject a little contrast: it stays in the vein with no washout, and the tracing loses its pulse.'],
       },
       {
-        id: 'hvpg', cath: 'result', tool: { kind: 'monitor', at: 'result' }, data: 'ladder', key: ['whvp', 'fhvp', 'hvpg'], tiles: ['hvpg', 'ppg'],
+        id: 'hvpg', cath: 'result', monitor: 'result', data: 'ladder', key: ['whvp', 'fhvp', 'hvpg'], tiles: ['hvpg', 'ppg'],
         kicker: 'Measuring portal pressure', site: 'sin', title: 'Hepatic venous pressure gradient',
         eq: [mi('HVPG') + mo('=') + '<mi class="eq-wedge">WHVP</mi>' + mo('−') + '<mi class="eq-hv">FHVP</mi>', 'Wedged minus free hepatic venous pressure'],
         line: 'This patient\'s HVPG is {hvpg}: clinically significant portal hypertension.',

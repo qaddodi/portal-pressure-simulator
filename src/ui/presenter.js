@@ -19,9 +19,10 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=cab65850a4';
 import { sinusoidSupported } from './sinusoid-view.js?v=5fb063d790';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
-import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=32b5fc73cf';
-import { createTools } from './presenter-tools.js?v=068560af73';
-import { openHandout } from './handout.js?v=fb9354f663';
+import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=93d381e8df';
+import { createHvpgMonitor } from './hvpg-proc.js?v=3bd8f6829c';
+import { createTools } from './presenter-tools.js?v=621f749226';
+import { openHandout } from './handout.js?v=252beba081';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -105,7 +106,7 @@ const TARGETS = {
   'sinusoid:lymph': { lit: true, tone: 'ivc', words: 'lymph' },
   'sinusoid:lumen': { lit: true, tone: 'wedge', words: 'sinusoids?' },
 };
-const toneVar = (t) => (t === 'accent' ? 'var(--accent)' : `var(--tr-${t})`);
+const toneVar = (t) => (t === 'accent' ? 'var(--accent)' : t.startsWith('--') ? `var(${t})` : `var(--tr-${t})`);
 // Node ids name their target too ([portal vein](CONF) is [portal vein](pv)).
 for (const [k, t] of Object.entries(TARGETS)) if (t.node && !TARGETS[t.node]) TARGETS[t.node] = TARGETS[k];
 const ORGANS = new Set(['liver', 'spleen', 'heart']);
@@ -115,7 +116,12 @@ for (const t of Object.values(TARGETS)) for (const e of t.edges || []) EDGE_TONE
 // (Collaterals and spontaneous shunts take the varices' colour: one family on the figure.)
 for (const e of ['C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'S_PC', 'S_DSR', 'S_MC']) EDGE_TONE[e] ||= 'var';
 // A live value's colour ({pv}): the station it is read at; a value with no station (HVPG) is a plain pill.
-const VAL_TONE = { pv: 'pv', whvp: 'wedge', sin: 'wedge', fhvp: 'hv', ivc: 'ivc', ra: 'ra', varix: 'var', gv: 'var', spleen: 'sv' };
+const VAL_TONE = { pv: 'pv', whvp: 'wedge', sin: 'wedge', fhvp: 'hv', ivc: 'ivc', ra: 'ra' };
+// A reading with no station of its own (a size: the spleen, the varices) takes its status colour, as its card
+// shows it, on its pill and on its organ's outline; neutral while it is normal.
+const BY_RATE = new Set(['spleen', 'varix', 'gv']), RATE_TONE = { hi: '--danger', mid: '--caution' };
+const rateTone = (k, fp) => RATE_TONE[rateOf(k, fp)[0]] || null;
+const valTone = (k, fp) => (BY_RATE.has(k) ? rateTone(k, fp) : VAL_TONE[k]);
 // A slide's terms: { words: target } (terms: ['pv', 'ra'] takes each target's own words).
 function termList(s) {
   const t = s.terms;
@@ -171,7 +177,8 @@ function rich(t, s = {}, fp = null) {
   const glue = () => { const prev = out[out.length - 1]; if (typeof prev === 'string') out[out.length - 1] = prev.replace(/ $/, '\u00a0'); };
   const pill = (v, stop, cls = '', tone = null) => { glue();
     pills++; return h('span', { class: 'pz-nw' }, h('span', { class: `pz-val${cls}${tone ? ' tone' : ''}`, style: tone ? `--tone: ${toneVar(tone)}` : null }, v.replace(/\s(?=mmHg|g\/dL|mL|kPa|cm\/s|mm\b|%)/, '\u00a0')), stop || ''); };
-  const termPill = (w, k) => { const tone = TARGETS[k].tone; return h('span', { class: 'pz-term', 'data-target': k, style: `--tone: ${toneVar(tone)}` }, w); };
+  const termPill = (w, k) => { const tone = TARGETS[k].organ === 'spleen' ? (fp && rateTone('spleen', fp)) || '--text-2' : TARGETS[k].tone;   // (the spleen's word, as its outline)
+    return h('span', { class: 'pz-term', 'data-target': k, style: `--tone: ${toneVar(tone)}` }, w); };
   while ((m = re.exec(t))) {
     const [all, lw, lk, mk, mkStop, tword, val, valStop, key, term] = m, w = (key || term)?.toLowerCase().replace(/(?:s|ces)$/, '');
     if (val && (marked || pills || s.pill === false)) continue;
@@ -182,7 +189,7 @@ function rich(t, s = {}, fp = null) {
     out.push(t.slice(at, m.index));
     if (lw) out.push(TARGETS[lk] ? termPill(lw, lk) : lw);
     else if (tword) { seenT.add(tk); out.push(termPill(tword, tk)); }
-    else if (mk && TILE[mk]) out.push(pill(liveVal(mk, s, fp), mkStop, '', VAL_TONE[mk]));
+    else if (mk && TILE[mk]) out.push(pill(liveVal(mk, s, fp), mkStop, '', valTone(mk, fp)));
     else if (mk && /^[<>≥≤]=?/.test(mk)) out.push(pill(mk.replace(/^(?:>=|<=|[<>≥≤])\s*/, ''), mkStop, ' cut'));
     else if (mk) out.push(pill(mk, mkStop));
     else if (val) out.push(pill(val, valStop));
@@ -756,8 +763,17 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     // (Reduced motion keeps the glide, short: a jump of the whole figure is harder to follow than a quick move.)
     const gl = ms || 300;
     if (cam === 'fit' || v === 'circuit') stage.fitSlow(gl);
-    else stage.frameBox(Array.isArray(cam) ? cam : REGIONS[cam] || REGIONS.route, gl, s.kMax || 3.2);
+    else stage.frameBox(camBox(cam, s), gl, s.kMax || 3.2);
     await wait(gl);
+  }
+  // A slide's framing: its region of the plate, grown to take in all of what the slide points at (its outlined
+  // organs as drawn now, an enlarged spleen whole), with a little room for the outline's glow.
+  function camBox(cam, s) {
+    const r = Array.isArray(cam) ? cam : REGIONS[cam] || REGIONS.route;
+    const tg = slideTargets(s), f = stage.focusBox({ organs: tg.organs.map((o) => o.id) });
+    if (!f) return r;
+    const m = 0.08 * Math.max(f[2] - f[0], f[3] - f[1]);
+    return [Math.min(r[0], f[0] - m), Math.min(r[1], f[1] - m), Math.max(r[2], f[2] + m), Math.max(r[3], f[3] + m)];
   }
 
   // ── The HVPG catheter (stage.setCatheter, as Measure › HVPG draws it), choreographed slide by slide: in along
@@ -833,7 +849,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       return;
     }
     // The tip close up (again each slide: the data card may have come or gone).
-    stage.cathFocus('tip', ms(cath.cam === 'tip' ? 700 : 1500)); 
+    stage.cathFocus('tip', ms(cath.cam === 'tip' ? 700 : 1500), { both: true }); 
     await wait(ms(cath.cam === 'tip' ? 700 : 1500)); cath.cam = 'tip';
     if (cut()) return;
     if (mode === 'blocked') {
@@ -996,7 +1012,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       store.set({ presentLabels: q ? [] : [...new Set([...(s.labels || []), ...tg.labels])], presentTerms: tg?.terms || null,
         presentNames: !q && (s.data === 'ladder' || !!s.cath),
         focus: marks.length ? { ...marks[0], marks } : null, lobuleCallout: q || !s.callout ? null : { kind: 'block', ...s.callout } });
-      if (tg) { stage.setGlow(tg.glow); stage.pinOrgans(tg.organs); stage.setResGlow(tg.res); }
+      if (tg) { stage.setGlow(tg.glow); stage.pinOrgans(tg.organs.map((o) => (o.id === 'spleen' && st?.fp ? { id: o.id, tone: rateTone('spleen', st.fp) } : o))); stage.setResGlow(tg.res); }
       app.dataset.lit = tg?.lit.join(' ') || '';
     }
     { const ss = !s.visual && !q ? [...new Set([...(s.sites || []), ...slideTargets(s).sites])] : []; if (ss.length) stage.setSites(ss, st.fp); }
@@ -1051,6 +1067,13 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   const cardTitle = (s) => (s?.data === 'ladder' ? 'Pressure, portal vein to heart' : s?.dataTitle || (s?.tool ? ui.tools.title(s.tool) : 'This patient, from the model'));
   // The talk so far, for a pressure trace: every state up to slide i, once each.
   const chainTo = (i) => [...new Set(stateOf.slice(0, i + 1))].map((k) => ({ n: k + 1, title: slides[k].title, fp: states[k]?.fp }));
+  // The catheter's pressure monitor, made once and kept, so its trace carries on from slide to slide.
+  let mon = null;
+  function monitorFor(s, i) {
+    mon ||= createHvpgMonitor();
+    requestAnimationFrame(() => mon.set(s.monitor, states[stateOf[i]]?.fp));
+    return mon.el;
+  }
   function wordsIn(s, q, st, i, fresh = false) {
     if (!ui) return;
     const { text, panel, data } = ui;
@@ -1075,6 +1098,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), onclick: () => abPick(s, i, k) }, o.label))) : null,
           s.data === 'ladder' || s.cath ? stationKey() : null,
+          s.monitor ? monitorFor(s, i) : null,
           s.column ? wedgeColumn() : null,
           s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
@@ -1313,8 +1337,8 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     layout(); setLabels();
     if (!shown) return;
     const s = slides[shown.i], cam = s.visual ? s.cam : asking(s, shown.rev) ? 'fit' : s.cam || 'fit';
-    if (cath.on && cath.cam) stage.cathFocus(cath.cam, 400);
-    else if (cam && !LOBULE_CAM.test(cam) && !store.get().lobule) { if (cam === 'fit') stage.fitSlow(400); else stage.frameBox(Array.isArray(cam) ? cam : REGIONS[cam] || REGIONS.route, 400, s.kMax || 3.2); }
+    if (cath.on && cath.cam) stage.cathFocus(cath.cam, 400, { both: true });
+    else if (cam && !LOBULE_CAM.test(cam) && !store.get().lobule) { if (cam === 'fit') stage.fitSlow(400); else stage.frameBox(camBox(cam, s), 400, s.kMax || 3.2); }
   };
   // Projector-size labels on the figure, for the screen it is on (2 at 1080 lines).
   function setLabels() {
