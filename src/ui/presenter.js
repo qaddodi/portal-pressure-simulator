@@ -20,9 +20,9 @@ import { SITES } from './ladder.js?v=c0d400b6f9';
 import { sinusoidSupported } from './sinusoid-view.js?v=0a862dc027';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { NODES } from '../engine/topology.js?v=dc393aabea';
-import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=164a65d454';
+import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=ad83310b61';
 import { createTools } from './presenter-tools.js?v=40af8ad0f3';
-import { openHandout } from './handout.js?v=302912ecbe';
+import { openHandout } from './handout.js?v=a5e1eac965';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -256,6 +256,7 @@ function rail(mode) {
  *  sc: { key, max, low, marks: [[value, words]] }: each zone is named under its middle (low names the
  *  first), a name too wide for its zone on two lines; rows: [{ name, f, site }]. */
 function scaleVisual(sc, rows) {
+  if (sc.key === 'lsm' || sc.legend) return scaleKey(sc, rows);
   const W = 1400, H = 480, x0 = 70, x1 = W - 60, max = sc.max || 20, X = (v) => x0 + (x1 - x0) * clamp(v, 0, max) / max, Y = 268;
   const cuts = [0, ...sc.marks.map(([v]) => v), max];
   const zones = cuts.slice(0, -1).map((a, i) => [a, cuts[i + 1], ['ok', 'mid', 'hi', 'top'][Math.min(i, 3)], i ? sc.marks[i - 1][1] : sc.low]);
@@ -285,6 +286,32 @@ function scaleVisual(sc, rows) {
     }));
   requestAnimationFrame(() => requestAnimationFrame(() => svg.classList.add('in')));
   return h('div', { class: 'pz-visual' }, svg);
+}
+
+/** The scale as a figure that reflows: short zone names over the band, the cut-offs under it, each patient a
+ *  numbered dot gliding to its value, named in a key below (value, name and, with sub, a second reading). */
+function scaleKey(sc, rows) {
+  const max = sc.max || 20, u = TILE[sc.key]?.u || '', P = (v) => `${(100 * clamp(v, 0, max) / max).toFixed(2)}%`;
+  const cuts = [0, ...sc.marks.map(([v]) => v), max];
+  const zones = cuts.slice(0, -1).map((a, i) => ({ a, b: cuts[i + 1], c: ['ok', 'mid', 'hi', 'top'][Math.min(i, 3)], t: i ? sc.marks[i - 1][1] : sc.low }));
+  const span = (z) => `left:${P(z.a)};width:calc(${P(z.b)} - ${P(z.a)})`;
+  const pins = rows.filter((r) => r.f).sort((a, b) => a.f[sc.key] - b.f[sc.key]);
+  const rate = (r) => rateOf(sc.key, r.f)[0] || 'none';
+  const sub = (f) => (sc.sub && f[sc.sub] != null ? `${TILE[sc.sub]?.t || sc.sub} ${fmt(f[sc.sub], 1)} ${TILE[sc.sub]?.u || ''}` : null);
+  const box = h('div', { class: 'pz-visual pz-sk', role: 'img', 'aria-label': pins.map((r) => `${r.name} ${fmt(r.f[sc.key], 1)} ${u}`).join(', ') },
+    h('div', { class: 'pzk-names', 'aria-hidden': 'true' }, zones.map((z) => h('span', { 'data-rate': z.c, style: span(z) }, z.t))),
+    h('div', { class: 'pzk-bar', 'aria-hidden': 'true' },
+      zones.map((z) => h('i', { 'data-rate': z.c, style: span(z) })),
+      sc.marks.map(([v]) => h('b', { style: `left:${P(v)}` })),
+      pins.map((r, i) => h('span', { class: 'pzk-dot', 'data-rate': rate(r), style: `--x:${P(r.f[sc.key])};--i:${i}` }, String(i + 1)))),
+    h('div', { class: 'pzk-axis', 'aria-hidden': 'true' }, [0, ...sc.marks.map(([v]) => v)].map((v) => h('span', { style: `left:${P(v)}` }, String(v))), h('span', { class: 'end' }, `${max}+ ${u}`)),
+    h('ol', { class: 'pzk-key' }, pins.map((r, i) => h('li', { 'data-rate': rate(r), style: `--i:${i}` },
+      h('span', { class: 'pzk-n' }, String(i + 1)),
+      h('span', { class: 'pzk-v' }, fmt(r.f[sc.key], 1), h('small', {}, ` ${u}`)),
+      h('span', { class: 'pzk-name' }, r.name),
+      sub(r.f) ? h('span', { class: 'pzk-sub' }, sub(r.f)) : null))));
+  requestAnimationFrame(() => requestAnimationFrame(() => box.classList.add('in')));
+  return box;
 }
 
 /** SAAG against ascites protein: the four quadrants numbered on the plot and named beside it, the model's
@@ -773,7 +800,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
       if (panel.hidden) { panel.classList.add('pz-leave'); panel.hidden = false; void panel.offsetWidth; }
       panel.classList.toggle('fill', s.visual === 'ladders');
       panel.dataset.visual = s.visual;
-      panel.replaceChildren(h('div', { class: 'pz-ph' }, kick(null, s.kicker), h('h1', { class: 'pz-h' }, nb(s.title)), s.line ? h('p', { class: 'pz-line' }, s.line) : null),
+      panel.replaceChildren(h('div', { class: 'pz-ph' }, kick(null, s.kicker), h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, s.line) : null),
         VISUALS[s.visual](s));
       panel.classList.remove('pz-leave');
       ui.veil.classList.add('on');

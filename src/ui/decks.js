@@ -39,7 +39,7 @@
 // Every deck opens with an "Outline and objectives" slide built from its kicker groups and objectives
 // (withOverview below); a deck never writes that slide itself.
 
-import { STIFFNESS } from './decks/stiffness.js?v=c9cae28f24';
+import { STIFFNESS } from './decks/stiffness.js?v=49124fb5fb';
 import { ONE_YEAR } from './decks/one-year.js?v=f45d2cb1d7';
 import { LOBULE } from './decks/lobule.js?v=657b69955e';
 import { SHUNTS } from './decks/shunts.js?v=a0764ff6d0';

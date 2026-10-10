@@ -4350,3 +4350,41 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .ab-diu > svg { width: 20px; height: 20px; }
 .ab-diu-txt small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ab-drain, .ab-chip { min-height: 36px; padding: 0 10px; }
+
+/* The Presenter's reflowing scale (scaleKey): zone names over a band, cut-offs under it, numbered dots, a key. */
+.pz-sk { --sk: clamp(13px, calc(2.2vh / var(--vz)), 26px); font: 500 var(--sk)/1.3 var(--font-ui); color: var(--text); padding: .4em 0 0; }
+.pzk-names, .pzk-bar, .pzk-axis { position: relative; margin: 0 1.2em; }
+.pzk-names { height: 1.6em; }
+.pzk-names span { position: absolute; bottom: .3em; text-align: center; font-weight: 600; font-size: .78em; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+.pzk-names [data-rate="ok"] { color: var(--ok); } .pzk-names [data-rate="mid"] { color: var(--caution); } .pzk-names [data-rate="hi"], .pzk-names [data-rate="top"] { color: var(--danger); }
+.pzk-bar { height: 1.5em; }
+.pzk-bar i { position: absolute; top: .25em; bottom: .25em; }
+.pzk-bar i:first-child { border-radius: 99px 0 0 99px; } .pzk-bar i:nth-last-of-type(1) { border-radius: 0 99px 99px 0; }
+.pzk-bar i[data-rate="ok"] { background: color-mix(in srgb, var(--ok) 28%, transparent); }
+.pzk-bar i[data-rate="mid"] { background: color-mix(in srgb, var(--caution) 32%, transparent); }
+.pzk-bar i[data-rate="hi"] { background: color-mix(in srgb, var(--danger) 24%, transparent); }
+.pzk-bar i[data-rate="top"] { background: color-mix(in srgb, var(--danger) 40%, transparent); }
+.pzk-bar b { position: absolute; top: -.15em; bottom: -.15em; width: 2px; margin-left: -1px; background: var(--text-2); }
+.pzk-dot { position: absolute; top: 50%; left: 0; width: 2.1em; height: 2.1em; margin: -1.05em 0 0 -1.05em; border-radius: 50%; display: grid; place-items: center;
+  background: var(--surface); border: .17em solid currentColor; font: 700 .72em/1 var(--font-ui); color: var(--text-2); box-sizing: border-box;
+  opacity: 0; transition: left 1.4s var(--ease) calc(var(--i, 0) * 160ms + 250ms), opacity .4s var(--ease) calc(var(--i, 0) * 160ms + 100ms); }
+.pz-sk.in .pzk-dot { left: var(--x); opacity: 1; }
+.pzk-dot[data-rate="ok"], .pzk-key [data-rate="ok"] .pzk-n, .pzk-key [data-rate="ok"] .pzk-v { color: var(--ok); }
+.pzk-dot[data-rate="mid"], .pzk-key [data-rate="mid"] .pzk-n, .pzk-key [data-rate="mid"] .pzk-v { color: var(--caution); }
+.pzk-dot[data-rate="hi"], .pzk-key [data-rate="hi"] .pzk-n, .pzk-key [data-rate="hi"] .pzk-v { color: var(--danger); }
+.pzk-axis { height: 1.7em; margin-top: .2em; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pzk-axis span { position: absolute; top: 0; transform: translateX(-50%); }
+.pzk-axis .end { right: 0; transform: none; font-weight: 500; color: var(--text-3); }
+.pzk-key { list-style: none; margin: .9em 0 0; padding: .9em 0 0; border-top: 1px solid var(--border); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .9em 1.2em; }
+.pzk-key li { display: grid; grid-template-columns: auto 1fr; column-gap: .55em; align-items: baseline; align-content: start; opacity: 0; transition: opacity .5s var(--ease) calc(var(--i, 0) * 160ms + 400ms); }
+.pz-sk.in .pzk-key li { opacity: 1; }
+.pzk-n { grid-row: span 3; align-self: start; display: grid; place-items: center; width: 1.5em; height: 1.5em; border-radius: 50%; border: .12em solid currentColor; font: 700 .72em/1 var(--font-ui); color: var(--text-2); margin-top: .35em; }
+.pzk-v { font: 700 1.5em/1.1 var(--font-ui); font-variant-numeric: tabular-nums; }
+.pzk-v small { font-size: .5em; font-weight: 500; color: var(--text-3); }
+.pzk-name { font-weight: 600; }
+.pzk-sub { font-size: .82em; color: var(--text-3); }
+@media (prefers-reduced-motion: reduce) { .pzk-dot, .pzk-key li { transition: none; } }
+.pz-visual.pz-sk { display: block; width: 100%; max-width: 1100px; margin: 0 auto; }
+.pz-ph .pz-eq { margin: .35em 0 .5em; }
+@media (max-width: 900px) { .pzk-key { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .pz-sk { --sk: 14px; } .pzk-names span { letter-spacing: .04em; } .pzk-names, .pzk-bar, .pzk-axis { margin: 0 .9em; } }
