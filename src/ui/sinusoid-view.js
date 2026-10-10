@@ -23,7 +23,7 @@ import { h, fmt, clamp, lerp } from './util.js?v=e0101a3fa2';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { isPaused } from './clock.js?v=d82cfa024b';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=cba83a895a';
+import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=77f7c03378';
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
@@ -272,7 +272,7 @@ export function createSinusoidView({ host }) {
     return null;
   }
   function stepMovers(dt) {
-    const span = VW.vis[1] - VW.vis[0], vB = S.v * 24, vL = -(3 + 5 * Math.sqrt(S.filt));   // µm/s: blood, and lymph (back toward the portal triad)
+    const span = VW.vis[1] - VW.vis[0], vB = S.v * 24, vL = -(1.5 + 4.5 * Math.min(S.filt, 4));   // µm/s: blood, and lymph (back toward the portal triad)
     flowX += vB * dt; lymX += vL * dt;
     // Filtration: crossings per second over this stretch of both walls, rising with the lymph; the share of albumin among
     // them is the lymph's protein (what the dots in Disse show is its concentration, not its amount).
@@ -577,7 +577,7 @@ export function createSinusoidView({ host }) {
       u.uPx = 1 / K; u.uK = K; u.uKs = Math.min(K, 12 * dpr);   // (the particles no larger than on a phone)
       Object.assign(u, {
         uLum: UM.lum * S.lum, uPinch: S.pinch, uXs: geo.xs, uXk: geo.xk, uKy: halfW(geo.xk), uHscA: wallIn(geo.xs) + disseW(geo.xs) * 0.5 + 0.8,
-        uCol: S.col, uBm: S.bm, uMv: S.mv, uAct: S.act, uPor: S.por, uFlow: flowX, uLym: lymX, uLyF: Math.min(2, 0.35 + 0.65 * Math.sqrt(S.filt)), uDir: Math.sign(S.v || 1),
+        uCol: S.col, uBm: S.bm, uMv: S.mv, uAct: S.act, uPor: S.por, uFlow: flowX, uLym: lymX, uLyF: clamp(0.32 * S.filt ** 1.5, 0.06, 1.75), uDir: Math.sign(S.v || 1),
         uEnd: [END[0], END[1], END[2], 0.95], uLab: [LAB[0], LAB[1]],
       });
       // The zoom from the lobule: one camera move. The lobule (magnified by the compositor) carries it most of the way;

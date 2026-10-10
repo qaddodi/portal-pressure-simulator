@@ -215,22 +215,18 @@ vec3 lumen(float x, float y, float hw, int lane0, bool chev) {
 // ── The space of Disse: lymph running back to the portal triad; collagen and microvilli as the detail comes in ──
 vec3 disse(float x, float a, float wi, float hi, int side, bool main, float det) {
   vec3 c = cLymph;
-  // The lymph's sheen: a soft glow across Disse that drifts back toward the portal triad, brightest mid-depth,
-  // with a soft glint or two riding it (bright head toward the triad, trailing off), never a painted dash.
-  float dep = clamp((a - wi) / max(hi - wi, 0.01), 0.0, 1.0), mid = 1.0 - pow(2.0 * dep - 1.0, 2.0);
-  float lx = x - uLym * 0.9 + (main ? 0.0 : 3.0) + (side < 0 ? 0.0 : 7.0);
-  float ls = 0.5 + 0.5 * sin(lx * 0.16 + 1.3 * sin(lx * 0.05 + float(side)));
-  ls = ls * ls * (3.0 - 2.0 * ls);
-  // How much shows follows the lymph flow (uLyF, 1 at the healthy rate): more flow, a brighter, wider glow and more glints.
-  c = mix(c, vec3(1.0), min(0.22 * uLyF, 0.5) * ls * pow(mid, 1.0 / uLyF) * uStreak);
-  for (int j = 0; j < 3; j++) {
-    float on = j < 2 ? 1.0 : smoothstep(1.2, 1.7, uLyF);   // a third lane of glints joins as the flow rises
-    if (on < 0.01) continue;
-    float P = 11.0 + 4.0 * float(j), sx = lx * (0.9 + 0.15 * float(j)) + 4.1 * float(j), k = floor(sx / P), xx = sx - k * P;
-    float L = 3.0 + 2.5 * h1(int(k) * 7 + j, 21 + side), x0 = (P - L) * h1(int(k) + j * 131, 23 + side), e = 1.0 - (xx - x0) / L;
-    float al = smoothstep(0.0, 0.8, e) * (1.0 - smoothstep(0.85, 1.0, e)) * on;
-    float yc = mix(wi, hi, j == 2 ? 0.48 : 0.3 + 0.36 * float(j)), wy = max(0.12 * (hi - wi) * (0.6 + 0.6 * e), 1.2 * uPx);
-    c = mix(c, vec3(1.0), al * exp(-pow((a - yc) / wy, 2.0)) * uStreak * 0.7 * clamp(uLyF, 0.5, 1.4) * (0.5 + 0.6 * ls));
+  // The lymph: soft dashes running back toward the portal triad, tapered at both ends (never a hard line). How many
+  // show follows the lymph flow (uLyF, the share of slots lit: sparse when it is low, crowded when it is high),
+  // and each fades in or out as that eases, so none pops; the speed is the flow's too (lymX in sinusoid-view.js).
+  float lx = x - uLym + (main ? 0.0 : 3.0) + (side < 0 ? 0.0 : 7.0);
+  for (int j = 0; j < 4; j++) {
+    float fj = float(j), P = 8.0 + 1.7 * fj, sx = lx * (0.92 + 0.08 * fj) + 4.1 * fj, k = floor(sx / P), xx = sx - k * P;
+    float L = 2.4 + 1.8 * h1(int(k) * 7 + j, 21 + side), x0 = (P - L) * h1(int(k) + j * 131, 23 + side), e = (xx - x0) / L;
+    float on = smoothstep(h1(int(k) * 13 + j, 27 + side) - 0.12, h1(int(k) * 13 + j, 27 + side), uLyF - 0.25 * fj);
+    if (on < 0.01 || e < 0.0 || e > 1.0) continue;
+    float al = smoothstep(0.0, 0.3, e) * (1.0 - smoothstep(0.6, 1.0, e)) * on;
+    float yc = mix(wi, hi, 0.24 + 0.17 * fj + 0.06 * (h1(int(k), 29 + j) - 0.5)), wy = max(0.07 * (hi - wi), 1.1 * uPx);
+    c = mix(c, vec3(1.0), al * exp(-pow((a - yc) / wy, 2.0)) * uStreak * clamp(0.75 + 0.3 * uLyF, 0.75, 1.1));
   }
   // Collagen: a pale fill as it takes the space the lymph had, then banded fibre bundles laid down by the
   // stellate cell: they start at it and spread along Disse, each thickening at its own stage.
