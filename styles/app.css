@@ -2778,7 +2778,9 @@ button.finding:hover { background: var(--surface-2); }
 .res-one { transition: opacity .6s var(--ease); }
 .res-one path { fill: none; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; transition: stroke-width .8s var(--ease); }
 .res-one .res-halo { stroke: var(--stage-bg, var(--bg)); stroke-width: calc(var(--res-w, 1.5px) + 3px); opacity: .85; }
-.res-one .res-line { stroke: var(--text); stroke-width: var(--res-w, 1.5px); opacity: .8; }
+.res-one .res-line { stroke: var(--res-c, var(--text)); stroke-width: var(--res-w, 1.5px); opacity: .8; transition: stroke-width .8s var(--ease), stroke .6s var(--ease), opacity .6s var(--ease); }
+.res-one.lit .res-line { opacity: 1; stroke-width: calc(var(--res-w, 1.5px) + 1.5px); }
+.res-one.lit .res-halo { stroke: var(--res-c); stroke-width: calc(var(--res-w, 1.5px) + 9px); opacity: .22; }
 .cath-label.site.off { opacity: 0; transition-delay: 0s; }
 .cath-label.site { padding: 5px 12px 6px; } .cath-label.site b { font-size: 20px; }
 /* A phone keeps each site to one line (name, value, unit) so two fit in the small figure. */

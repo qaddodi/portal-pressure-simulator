@@ -3244,6 +3244,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const resG = s('g', { class: 'res-zz circuit-only', 'aria-hidden': 'true' });
   gOver.append(resG);
   const resMade = new Map();
+  let resLit = new Map();   // the circuit's resistors a slide's words point at (rLiver, rColl) → their station tone
   // A resistor's zigzag along a vessel: n teeth of amplitude amp (world units) from a to b.
   const zig = (a, b, n = 6, amp = 9) => {
     const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
@@ -3260,6 +3261,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const q = geo.C1b && pointAt(geo.C1b.cur, 0.5);
       return q ? [[[q[0] - q[2] * 34, q[1] - q[3] * 34], [q[0] + q[2] * 34, q[1] + q[3] * 34]]] : [];
     })();
+    const lit = resLit.get(k);
+    g.classList.toggle('lit', !!lit); g.style.setProperty('--res-c', lit ? `var(--tr-${lit})` : 'var(--text)');
     const path = segs.map(([a, b]) => zig(a, b)).join(' ');
     if (g.dataset.d !== path) { g.dataset.d = path; g.replaceChildren(s('path', { class: 'res-halo', d: path }), s('path', { class: 'res-line', d: path })); }
     // Heavier as the resistance rises: 1.5 px at the healthy liver's, about 4 px at four times it (eased by CSS).
@@ -5462,6 +5465,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
      *  match its ladder and tiles) or else the live figure; null removes them. */
     // A presenter slide's glows: vessels ([{ id, tone }], eased, in the station's colour) and organs (outlined, held).
     setGlow(list) { setGlow(list); },
+    setResGlow(list) { resLit = new Map((list || []).map((r) => [r.id, r.tone])); if (sites.list) sitesPaint(); },
     pinOrgans(list) { pinOrgans(list); },
     setSites(list, fp = null) { sites.list = list?.length ? [...list] : null; sites.fp = fp; if (!sites.list) for (const k of [...resMade.keys()]) resPaint(k, SITE_DEF[k], null); if (!sites.list) for (const k of [...sites.made.keys()]) { const el = sites.made.get(k); sites.made.delete(k); el.classList.add('cath-pre'); setTimeout(() => el.remove(), 500); } else { refreshCTM(); sitesPaint(); } },
     /** Frame the catheter's route ('route'), its tip close up ('tip'), or go back to the view before ('home'). */
