@@ -3338,11 +3338,6 @@ button.finding:hover { background: var(--surface-2); }
 .dop-mark { pointer-events: none; }
 .dop-glow { fill: none; stroke: var(--doppler); stroke-opacity: .7; stroke-linecap: butt; stroke-linejoin: round; }
 .dop-edge { fill: none; stroke: var(--doppler); stroke-opacity: .95; stroke-linecap: butt; stroke-linejoin: round; }
-/* The hovered vessel: the same glow in a soft neutral tone, eased in and out. */
-.vh-mark { pointer-events: none; opacity: 0; transition: opacity .28s var(--ease); }
-.vh-mark.on { opacity: 1; }
-.vh-glow { fill: none; stroke: var(--vessel-hl); stroke-opacity: calc(.45 * var(--vessel-hl-k, 1)); stroke-linecap: butt; stroke-linejoin: round; }
-.vh-edge { fill: none; stroke: var(--vessel-hl); stroke-opacity: min(1, calc(.7 * var(--vessel-hl-k, 1))); stroke-linecap: butt; stroke-linejoin: round; }
 .instrument-workspace .dock-title.dop-on .dt-l::before { content: ''; display: inline-block; width: 8px; height: 8px; margin: 0 8px 1px 0; border-radius: 50%; background: var(--doppler); box-shadow: 0 0 0 3px color-mix(in srgb, var(--doppler) 22%, transparent); vertical-align: middle; }
 
 /* ── Polish pass: play bar, phone chrome, card leader, sheets, sliders ── */

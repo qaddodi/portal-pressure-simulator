@@ -70,7 +70,7 @@ void main() {
 //   6: congestion glow color (rgb), streak course length (world)
 //   7: flow streaks: phase at the upstream end, spacing (world), direction (±1, from → to), strength (0 off)
 //   8: a stretch recolored (the HVPG's wedged vein): color (rgb), amount (0 none)
-//   9: that stretch along the vessel (0–1): from, to; its soft edge (world)
+//   9: that stretch along the vessel (0–1): from, to; its soft edge (world); hover glow (0–1)
 const FS = `#version 300 es
 precision highp float;
 precision highp int;
@@ -197,7 +197,7 @@ void main() {
   }
 
   // ── Per-vessel attributes ──
-  float stier[MAXS], sz[MAXS], sflag[MAXS], sa[MAXS], swall[MAXS], sheat[MAXS];
+  float stier[MAXS], sz[MAXS], sflag[MAXS], sa[MAXS], swall[MAXS], sheat[MAXS], shov[MAXS];
   vec3 scol[MAXS], shcol[MAXS], sedge[MAXS];
   float occl = useOrgan == 1 ? texture(organ, (p - organRect.xy) / organRect.zw).a * 0.5 * organK : 0.0;
   for (int s = 0; s < MAXS; s++) {
@@ -206,6 +206,7 @@ void main() {
     stier[s] = t2.x; sz[s] = t2.y; sflag[s] = t2.z; swall[s] = t0.w; sheat[s] = t2.w;
     scol[s] = mix(t0.rgb, t1.rgb, clamp(su[s], 0.0, 1.0));
     vec4 tc = T(sid[s], 8);
+    shov[s] = T(sid[s], 9).w;
     if (tc.w > 0.0) {
       vec4 tr = T(sid[s], 9);
       float Lv = max(T(sid[s], 5).z, 1.0), uu = su[s] * Lv;
@@ -239,6 +240,14 @@ void main() {
     float x = sd[s] + sr[s], hw = sr[s] + 11.0;
     float gv = 0.87 * (1.0 - smoothstep(hw - 18.0, hw + 18.0, x)) * sheat[s] * sa[s];
     if (gv > glow.a) glow = vec4(shcol[s] * gv, gv);
+  }
+  // ── Hover: a soft halo in the vessel's own colour, just outside its wall (under the network) ──
+  for (int s = 0; s < MAXS; s++) {
+    if (s >= n || shov[s] <= 0.0) continue;
+    float e = sd[s] - swall[s];
+    float Lh = max(T(sid[s], 5).z, 1.0), ends = min(su[s], 1.0 - su[s]) * Lh;   // tapers off toward both ends, never a blunt cap
+    float gv = 0.8 * shov[s] * sa[s] * smoothstep(-0.5, 1.0, e) * (1.0 - smoothstep(1.0, 13.0, e)) * smoothstep(-6.0, 14.0, ends);
+    if (gv > glow.a) glow = vec4(scol[s] * gv, gv);
   }
 
   // ── Tiers, back to front ──
@@ -353,6 +362,7 @@ void main() {
       }
     }
     if (sel && grp == 2) lum = min(lum * 1.12, vec3(1.0));
+    lum = mix(lum, min(lum * 1.18 + 0.04, vec3(1.0)), shov[ow]);   // the hovered vessel, a little brighter in its own hue
     c = over(vec4(lum, 1.0) * aL, c);
     c *= alpha * tierAlpha[ti];
     float gf = grp == 0 ? 1.0 - occl : grp == 1 ? netAlpha : 1.0;

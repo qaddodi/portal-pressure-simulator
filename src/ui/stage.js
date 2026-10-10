@@ -6,11 +6,11 @@ import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=6d64a94345';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=25cbe77a76';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=e0101a3fa2';
-import { createLobuleZoom } from './lobule-zoom.js?v=0d02ee0f86';
+import { createLobuleZoom } from './lobule-zoom.js?v=78ab59114b';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=4fe4837865';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=44500994a2';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 
 const N_SAMPLES = 64;
@@ -961,9 +961,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     };
   }
   const dop = makeMark('dop', 'dop');
-  // The hovered vessel: the same kind of glow in a soft neutral tone (the rest of the network stays as it is).
-  // Two marks take turns, so moving from one vessel to the next cross-fades instead of jumping.
-  const vh = { id: null, cur: 0, marks: [makeMark('vh0', 'vh', { band: 40, glow: 14, edge: 3.5 }), makeMark('vh1', 'vh', { band: 40, glow: 14, edge: 3.5 })] };
+  // The hovered vessel glows softly in its own colour, drawn on the GPU along its live course and
+  // width (the rest of the network stays as it is). Each vessel's glow eases in and out on its own,
+  // so moving from one vessel to the next cross-fades.
+  const vh = { id: null, amt: new Map(), raf: 0, t: 0 };
 
   // ── View transform (pan / zoom) ───────────────────
   let vt = { k: 1, x: 0, y: 0 };
@@ -1635,7 +1636,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const d = t === 1 ? g.dC : polyD(pts);
       x.halo.setAttribute('d', d); x.sel.setAttribute('d', d); x.wall.setAttribute('d', d); x.hit.setAttribute('d', d);
       if (dop.id === x.e.id) dop.paint(d, x.dopW || 8);
-      if (vh.id && vhEdges(vh.id).includes(x.e.id)) vhPaint();
       x.shadow.setAttribute('d', d);
       if (x.heat) x.heat.setAttribute('d', d);
       if (x.lumen) x.lumen.setAttribute('d', d);
@@ -1880,7 +1880,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (selOn) setA(x.sel, 'stroke-width', (w + 12).toFixed(1));
       x.dopW = w;
       if (dop.id === e.id) { const d = x.wall.getAttribute('d'); if (d) dop.paint(d, w); dop.g.style.display = x.vis ? '' : 'none'; }
-      if (vh.id && vhEdges(vh.id).includes(e.id)) vhPaint();
     }
     // Junction widths: where vessels meet, the largest narrows to the second largest and the
     // others widen toward it, so calibers change smoothly through every junction.
@@ -2380,10 +2379,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       tubeData.set([lo, hi, kind === 's' ? obj.len : kind === 'f' ? arcLen(it.pts) || 1 : geo[id].len || 1, 0, ...(heatA ? toRGB(x.heatCol, cs) : [0, 0, 0]), 0], o + 20);
       const tint = kind === 'v' && cathTint?.[id];
       if (tint) tubeData.set([...toRGB(cathTint.col, cs), 1, tint[0], tint[1], cathTint.soft, 0], o + 32);
+      const hov = kind === 'v' && vh.amt.get(id);
+      if (hov) tubeData[o + 39] = easeInOut(hov);
     }
     veins.setTubes(tubeData);
     vLook = {
-      shOff: [1.4, 2.8], light: LIGHT, reach: heat ? 40 : 11, heat, organs: 1 - T0,
+      shOff: [1.4, 2.8], light: LIGHT, reach: heat ? 40 : vh.amt.size ? 16 : 11, heat, organs: 1 - T0,
       casing: [...cssTriplet(cs, '--casing-rgb'), cssNum(cs, '--casing-a', 0.56)],
       shadow: [...cssTriplet(cs, '--shadow-rgb'), cssNum(cs, '--shadow-a', 0.15)],
       sheen: [...toRGB('var(--light-ink)', cs), cssNum(cs, '--tube-sheen', 0.42)],
@@ -4630,27 +4631,26 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   // The IVC is one vessel to the eye: hovering any stretch of it lights all of it.
   const vhEdges = (id) => (IVC_EDGES.has(id) ? [...IVC_EDGES] : [id]).filter((e) => E[e]?.vis);
-  function vhPaint() {
-    const ids = vhEdges(vh.id), d = ids.map((e) => E[e].wall.getAttribute('d') || '').join(' ').trim();
-    if (d) vh.marks[vh.cur].paint(d, Math.max(...ids.map((e) => E[e].dopW || 8)));
-  }
   function setHover(id) {
     if (id === hoverId) return;
     hoverId = id;
     const on = id && store.get().tool === 'select' && !shunt ? id : null;
     if (on === vh.id) return;
-    const old = vh.marks[vh.cur];
-    old.g.classList.remove('on');
-    clearTimeout(old.t); old.t = setTimeout(() => { if (!old.g.classList.contains('on')) old.g.style.display = 'none'; }, 400);
     vh.id = on;
-    if (!on) return;
-    vh.cur ^= 1;
-    const m = vh.marks[vh.cur];
-    clearTimeout(m.t);
-    vhPaint();
-    m.g.style.display = '';
-    void m.g.getBoundingClientRect();   // start from transparent, so it eases in
-    m.g.classList.add('on');
+    if (!vh.raf) { vh.t = performance.now(); vh.raf = requestAnimationFrame(vhStep); }
+  }
+  function vhStep(now) {
+    const dt = Math.min(0.1, (now - vh.t) / 1000); vh.t = now;
+    const want = new Set(vh.id ? vhEdges(vh.id) : []);
+    for (const id of want) if (!vh.amt.has(id)) vh.amt.set(id, 0);
+    let moving = false;
+    for (const [id, v] of vh.amt) {
+      const to = want.has(id) ? 1 : 0, nv = to > v ? Math.min(1, v + dt / 0.28) : Math.max(0, v - dt / 0.28);
+      if (nv <= 0 && !to) vh.amt.delete(id); else vh.amt.set(id, nv);
+      if (nv !== to) moving = true;
+    }
+    syncVeins(easeInOut(morph));
+    vh.raf = moving ? requestAnimationFrame(vhStep) : 0;
   }
 
   // Organ and site hover: a soft version of the selection outline, never kept once the pointer is away.
