@@ -24,7 +24,7 @@
   <link rel="stylesheet" href="styles/tokens.css?v=8bfca4a8be" />
   <link rel="stylesheet" href="styles/app.css?v=02c9a4fbb7" />
   <style>
-    #boot { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; height: 100lvh; z-index: 2147483647; display: grid; place-items: center; background: var(--bg, #FBFAF7); transition: opacity .45s ease, visibility .45s; }
+    #boot { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: calc(100vw / var(--ui-zoom, 1)); height: calc(100vh / var(--ui-zoom, 1)); height: calc(100lvh / var(--ui-zoom, 1)); z-index: 2147483647; display: grid; place-items: center; background: var(--bg, #FBFAF7); transition: opacity .45s ease, visibility .45s; }
     #boot.done { opacity: 0; visibility: hidden; pointer-events: none; }
     #boot .boot-in { display: flex; flex-direction: column; align-items: center; gap: 18px; }
     #boot svg { width: 64px; height: 64px; animation: boot-pulse 1.6s ease-in-out infinite; }
