@@ -151,10 +151,9 @@ export function createSinusoidView({ host }) {
     if (!VW.k) { VW.k = VW.tk; VW.C = [...VW.tC]; }
     return geo;
   }
-  // On a desktop the lobule's labels are half as large again (stage.js deskK); these capitals, bolder and spaced, match
-  // them by eye a little smaller (1.4).
-  const deskMQ = matchMedia('(min-width: 1024px) and (pointer: fine)');
-  const labelK = () => (parseFloat(document.documentElement.style.getPropertyValue('--label-scale')) || 1) * (deskMQ.matches ? 1.4 : 1);
+  // The lobule's own label size (--label-k: the label setting, the desktop's baseline, a presentation's projector size),
+  // a touch smaller since these capitals are bolder and spaced.
+  const labelK = () => (parseFloat(document.documentElement.style.getPropertyValue('--label-k')) || 1) * 0.9;
   const VW = { k: 0, C: [0, 0], tk: 0, tC: [0, 0], f: null, vis: [0, 0], fr: [0, 0] };
   // Where it is drawn this frame: the view's own placement, carried by the zoom from the lobule while that runs.
   const CAM = { C: [0, 0], k: 1, ang: 0, ca: 1, sa: 0 };

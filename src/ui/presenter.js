@@ -17,7 +17,7 @@ import { store, replaceParams } from './store.js?v=5edd069b32';
 import { h, toast, svgIcon, icon, fmt, clamp } from './util.js?v=e0101a3fa2';
 import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=cab65850a4';
-import { sinusoidSupported } from './sinusoid-view.js?v=14866bc1c9';
+import { sinusoidSupported } from './sinusoid-view.js?v=d5403260c8';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
 import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=50d14b4239';
 import { createTools } from './presenter-tools.js?v=28dfa00d7e';
@@ -1373,7 +1373,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     view.classList.remove('pz-out');
     for (const k of ['--pz-l', '--pz-r', '--pz-t', '--pz-b']) app.style.removeProperty(k);
     stage.setProjection(false);
-    { const lv = String(stage.labelEff()); document.documentElement.style.setProperty('--label-k', lv); document.documentElement.style.setProperty('--label-scale', lv); }
+    document.documentElement.style.setProperty('--label-k', String(stage.labelEff())); document.documentElement.style.setProperty('--label-scale', String(stage.labelScale()));
     dispatchEvent(new Event('pps:labelscale'));
     if (document.fullscreenElement) document.exitFullscreen?.();
     app.classList.remove('presenting', 'pz-hi');
