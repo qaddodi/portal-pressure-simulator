@@ -2020,6 +2020,11 @@ button.finding:hover { background: var(--surface-2); }
 .pz-cell-k b { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
 .pz-cell-k b[data-rate="hi"] { color: var(--danger); }
 .pz-cell-k b[data-rate="mid"] { color: var(--caution); }
+.pz-cell.q { cursor: pointer; }
+.pz-cell.q :is(.pz-kick, .pz-cell-t) { transition: filter .5s var(--ease), opacity .5s var(--ease); }
+.pz-cell.q:not(.shown) :is(.pz-kick, .pz-cell-t) { filter: blur(7px); opacity: .45; user-select: none; }
+.pz-cell.q:not(.shown):hover { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.pz-cell.q:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .pz-cell-t { font: 600 clamp(16px, calc(2.2vh / var(--vz)), 27px)/1.15 var(--font-display); color: var(--text); }
 /* The six ladders fill the panel: two rows share its height and each chart shrinks to its cell. */
 .pz-panel.fill { height: calc(100% - 2 * clamp(16px, calc(4vh / var(--vz)), 56px)); }

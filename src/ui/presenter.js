@@ -1072,15 +1072,18 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       return { i, k, f: states[k]?.fp, kicker: x.kicker ?? sl?.kicker ?? '', title, name: x.name || title, site: x.site ?? sl?.site, note: x.note, blank: x.blank || [], ref: !!x.ref, vs: x.vs };
     }).filter(Boolean);
   }
+  const reveal = (c) => { c.classList.add('shown'); c.removeAttribute('role'); c.removeAttribute('tabindex'); c.removeAttribute('aria-label'); };
   function laddersGrid(s) {
     const grid = h('div', { class: 'pz-grid' });
     for (const r of rowsOf(s)) {
       if (!r.f) continue;
       const L = bigLadder(); L.setBase(base); L.set(r.f, {});
-      grid.append(h('div', { class: 'pz-cell' },
+      // In quiz mode each ladder's site is hidden until a tap (D7): the room names the site from the ladder's shape.
+      const cell = h('div', quiz ? { class: 'pz-cell q', role: 'button', tabindex: '0', 'aria-label': 'Show the site of this ladder', onclick: () => reveal(cell), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); reveal(cell); } } } : { class: 'pz-cell' },
         h('div', { class: 'pz-cell-k' }, h('div', { class: 'pz-kick', 'data-site': r.site || 'none' }, h('i'), r.kicker.replace('Intrahepatic · ', '')),
           h('span', {}, 'HVPG ', h('b', { 'data-rate': rateOf('hvpg', r.f)[0] }, fmt(r.f.hvpg, 1)))),
-        h('div', { class: 'pz-cell-t' }, r.title), L.el));
+        h('div', { class: 'pz-cell-t' }, r.title), L.el);
+      grid.append(cell);
     }
     // The dashed line's numbers, once for all six: the healthy reference each ladder is read against.
     if (base) grid.append(h('p', { class: 'pz-grid-key' }, h('i', { 'aria-hidden': 'true' }), 'Healthy, dashed: ',
