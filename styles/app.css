@@ -1710,6 +1710,15 @@ button.finding:hover { background: var(--surface-2); }
 #app.sin-focus :is(#viewSeg [data-view="anatomic"], #viewSeg [data-view="circuit"], #btnLobuleLayers, #btnBlood, #btnInspector, #btnTreat, #tabInstruments, .top-right .tb-sep, #zoomPill, #vdock, #dock, #panel, #treatCard, #stageCenter, #coach) { display: none !important; }
 #app.sin-focus #btnLayers { pointer-events: none; cursor: default; }
 #app.sin-focus #btnLayers .chev { display: none; }
+.sv-leaders { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; color: var(--text-2); transition: opacity .25s; }
+.sv:not(.on) .sv-leaders { opacity: 0; }
+.sv-lead line { stroke: currentColor; stroke-width: .9; stroke-linecap: round; opacity: .6; }
+.sv-lead circle { fill: currentColor; opacity: .8; }
+.sv-lead-disse, .sv-lead-lymph { color: #4F7440; }
+.sv-lead-hsc { color: #93603F; }
+:root[data-theme="dark"] :is(.sv-lead-disse, .sv-lead-lymph) { color: #B5D3A3; }
+:root[data-theme="dark"] .sv-lead-hsc { color: #D9B092; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) :is(.sv-lead-disse, .sv-lead-lymph) { color: #B5D3A3; } :root:not([data-theme="light"]) .sv-lead-hsc { color: #D9B092; } }
 .sv-legend { position: absolute; left: 0; top: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; max-width: calc(100% - 24px); pointer-events: none; font: 500 calc(10.5px * var(--label-k, 1)) / 1.3 var(--font-ui); color: var(--text-2); transition: opacity .25s; }
 .sv-legend span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; -webkit-text-stroke: 4px color-mix(in srgb, var(--label-halo) 65%, transparent); paint-order: stroke fill; }
 .sv-legend i { display: inline-block; flex: none; border-radius: 50%; }

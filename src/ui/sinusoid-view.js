@@ -23,7 +23,7 @@ import { h, fmt, clamp, lerp } from './util.js?v=e803df99cd';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { isPaused } from './clock.js?v=77fb9815e5';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=2e0bab5f61';
+import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=b5abde5826';
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
@@ -72,11 +72,26 @@ export function createSinusoidView({ host }) {
       cx = clamp(cx, Math.min(VW.f.l + w / 2 + 4, geo.W / 2), Math.max(VW.f.r - w / 2 - 4, geo.W / 2));
     }
     R.el.style.transform = `translate(${cx.toFixed(1)}px, ${cy.toFixed(1)}px) translate(-50%, -50%)${ang ? ` rotate(${((ang * 180) / Math.PI).toFixed(2)}deg)` : ''}`;
-    return { x: x + (geo.vert ? 0 : (cx - cx0) / VW.k), half: (along ? w : Math.abs(w * Math.cos(geo.ang)) + Math.abs(hh * Math.sin(geo.ang))) / 2 / VW.k };
+    return { cx, cy, w, hh, x: x + (geo.vert ? 0 : (cx - cx0) / VW.k), half: (along ? w : Math.abs(w * Math.cos(geo.ang)) + Math.abs(hh * Math.sin(geo.ang))) / 2 / VW.k };
   }
   const legend = h('div', { class: 'sv-legend', 'aria-hidden': 'true' },
     h('span', {}, h('i', { class: 'alb' }), 'Protein'), h('span', {}, h('i', { class: 'wat' }), 'Plasma water'));
-  const el = h('div', { class: 'sv', 'aria-hidden': 'true' }, canvas, labels, legend);
+  // Thin leaders from a name in the plate to the part it names (a portrait screen's narrow bands and cells).
+  const NS = 'http://www.w3.org/2000/svg', leaders = document.createElementNS(NS, 'svg');
+  leaders.setAttribute('class', 'sv-leaders');
+  const lead = {};
+  function leader(key, R, x, y) {
+    let L = lead[key];
+    if (!L) { L = lead[key] = document.createElementNS(NS, 'g'); for (const t of ['line', 'circle']) L.append(document.createElementNS(NS, t)); leaders.append(L); }
+    L.setAttribute('class', `sv-lead sv-lead-${key}`);
+    const [tx, ty] = toScreen(x, y), sx = R.cx + Math.sign(tx - R.cx) * (R.w / 2 + 3), sy = clamp(ty, R.cy - R.hh / 2 + 4, R.cy + R.hh / 2 - 4);
+    const [ln, dot] = L.children;
+    const on = Math.abs(tx - sx) > 6 && Math.sign(tx - R.cx) === Math.sign(tx - sx);   // (none when the name already sits on it)
+    L.style.display = on ? '' : 'none';
+    ln.setAttribute('x1', sx.toFixed(1)); ln.setAttribute('y1', sy.toFixed(1)); ln.setAttribute('x2', tx.toFixed(1)); ln.setAttribute('y2', ty.toFixed(1));
+    dot.setAttribute('cx', tx.toFixed(1)); dot.setAttribute('cy', ty.toFixed(1)); dot.setAttribute('r', '1.8');
+  }
+  const el = h('div', { class: 'sv', 'aria-hidden': 'true' }, canvas, leaders, labels, legend);
   host.append(el);
   const gpu = createSinusoidGL(canvas);
 
@@ -94,8 +109,11 @@ export function createSinusoidView({ host }) {
   const cssN = (k) => parseFloat(appStyle?.getPropertyValue(k)) || 0;
   function freeRect(W, H) {
     // The view has the stage to itself (the dock and the side panels are hidden in it), so their room is not kept.
-    // (--pz-l, --pz-r: the room a presenter slide's text and data take.)
-    const t = cssN('--top-safe') + cssN('--cmp-h') + 8 + 40, b = H - 28, l = 12 + cssN('--pz-l'), r = W - 12 - cssN('--pz-r');
+    // (--pz-l, --pz-r, --pz-t, --pz-b: the room a presenter slide's text, data and bar take; the credit line, just above
+    // the dock or the bar, is kept clear.)
+    const t = cssN('--top-safe') + cssN('--cmp-h') + cssN('--pz-t') + 8 + (cssN('--pz-t') ? 0 : 40);
+    const cr = document.querySelector('.stage-credit')?.getBoundingClientRect(), ht = host.getBoundingClientRect().top;
+    const b = Math.min(H - cssN('--pz-b') - 34, cr?.height ? cr.top - ht - 8 : H - 34), l = 12 + cssN('--pz-l'), r = W - 12 - cssN('--pz-r');
     return { l, t, r: Math.max(l + 80, r), b: Math.max(t + 80, b) };
   }
   // The stretch is laid out once per stage size. It runs along the stage's longer side: across on a
@@ -115,7 +133,7 @@ export function createSinusoidView({ host }) {
       // The stellate cell sits at a junction between two hepatocytes on the upper side, a little before the middle.
       let xs = cellEdge(0, SEED.plateUp);
       for (let j = -3; j <= 2; j++) { const b = cellEdge(j, SEED.plateUp); if (Math.abs(b + 10) < Math.abs(xs + 10)) xs = b; }
-      geo = { W, H, ang, vert, tall, x0: -X, x1: X, xs, xk: 22, pores };
+      geo = { W, H, ang, vert, tall, x0: -X, x1: X, xs, xk: vert ? 12 : 22, pores };   // (the Kupffer cell nearer the middle on a portrait screen, clear of the central venule's name)
     }
     // Where it is drawn: centred in the free space, the plates filling its short side. When that space
     // changes (the dock grows, a card opens) the view glides there (stepView), it does not jump.
@@ -317,6 +335,7 @@ export function createSinusoidView({ host }) {
     const away = (x, from, d) => (Math.abs(x - from) < d ? from + (x < from ? -d : d) : x);
     const num = (v, d, u) => (m.hide ? '?' : `${fmt(v, d)}~${u}`);
     // In the lumen: the sinusoid (mid-view), the Kupffer cell beside itself, and the fenestrae along the far wall.
+    leaders.style.display = g.tall ? '' : 'none';
     if (g.tall) { layoutTall(); return; }
     const xc = away(pick(0.5), g.xk, 30);
     const rs = region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), xc, 0, { along: true });
@@ -347,22 +366,32 @@ export function createSinusoidView({ host }) {
   }
   // A portrait screen: the sinusoid runs top to bottom and every label reads level. The lumen keeps only its own
   // name; the narrow bands (fenestrae, Disse) and the cells are named in the plates beside them, the stellate cell's
-  // side (right) and the Kupffer cell's side (left) each in its own column, spaced down the screen.
+  // side (right) and the Kupffer cell's side (left) each in its own column, spaced down the screen between the ends'
+  // names, each tied to what it names by a thin leader.
   function layoutTall() {
-    const g = geo, m = model, hep = UM.hep;
-    const pick = (u) => lerp(VW.fr[0] + 6, VW.fr[1] - 6, u);
+    const g = geo, m = model, hep = UM.hep, k = VW.k;
+    // The band between the ends' names (and below the legend), µm along the vessel.
+    const u0 = Math.max(VW.fr[0], (BAND[0] - VW.C[1]) / k), u1 = Math.min(VW.fr[1], (BAND[1] - VW.C[1]) / k);
+    const pick = (u) => lerp(u0, u1, u);
     const num = (v, d, u) => (m.hide ? '?' : `${fmt(v, d)}~${u}`);
-    const mid = (x) => hepIn(x) + Math.min(hep * 0.5, (geo.W / 2 / VW.k - hepIn(x)) * 0.5);   // the middle of the plate's part on screen
-    LAB[0] = pick(0.38); LAB[1] = region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), LAB[0], 0).half;
+    const mid = (x) => hepIn(x) + Math.min(hep * 0.5, (geo.W / 2 / k - hepIn(x)) * 0.5);   // the middle of the plate's part on screen
+    const dis = (x) => wallIn(x) + disseW(x) * 0.5;
+    LAB[0] = pick(0.42); LAB[1] = region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), LAB[0], 0).half;
     // Right (y < 0): fenestrae, stellate cell, a hepatocyte.
-    region('fen', 'Fenestrae', S.por > 0.85 ? 'open' : S.por > 0.15 ? `${Math.round(S.por * 100)}%~open` : 'sealed', pick(0.16), -mid(pick(0.16)));
-    region('hsc', S.act > 0.5 ? 'Activated\nstellate\ncell' : 'Stellate\ncell', '', g.xs, -mid(g.xs));   // (stacked, to fit the plate)
-    region('hep', 'Hepatocyte', '', pick(0.8), -mid(pick(0.8)));
+    let x = pick(0.08);
+    leader('fen', region('fen', 'Fenestrae', S.por > 0.85 ? 'open' : S.por > 0.15 ? `${Math.round(S.por * 100)}%~open` : 'sealed', x, -mid(x)), x, -(halfW(x) + UM.endo * 0.5));
+    x = clamp(g.xs, pick(0.3), pick(0.62));
+    leader('hsc', region('hsc', S.act > 0.5 ? 'Activated\nstellate cell' : 'Stellate\ncell', '', x, -mid(x)), g.xs, -(dis(g.xs) + 0.6));   // (stacked, to fit the plate)
+    region('hep', 'Hepatocyte', '', pick(0.92), -mid(pick(0.92)));
     // Left (y > 0): the space of Disse, the lymph it carries, the Kupffer cell.
-    region('disse', 'Space of Disse', '', pick(0.2), mid(pick(0.2)));
-    region('lymph', 'Lymph', m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min · Protein ${Math.round(m.lyProt * 100)}%`, pick(0.48), mid(pick(0.48)));
-    region('kup', 'Kupffer cell', '', g.xk, mid(g.xk));
+    x = pick(0.08);
+    leader('disse', region('disse', 'Space of\nDisse', '', x, mid(x)), x, dis(x));
+    x = pick(0.46);
+    leader('lymph', region('lymph', 'Lymph', m.hide ? '?' : `${fmt(m.lymph, 1)}~mL/min · Protein ${Math.round(m.lyProt * 100)}%`, x, mid(x)), x + 2, dis(x + 2));
+    x = clamp(g.xk, pick(0.7), pick(0.94));
+    leader('kup', region('kup', 'Kupffer cell', '', x, mid(x)), g.xk, halfW(g.xk) - 3);
   }
+  const BAND = [0, 0];   // a portrait screen's band for the other names, between the ends' (px down the screen)
   const LAB = [0, 0];   // the lumen's name: x and half length (µm), for the shader to keep the arrowheads clear of it
   const END = [0, 0, 1];   // the end arrows: portal x, central x, size (µm)
   const ENDBOX = [null, null];   // the ends' names on a wide screen (px), for the captions to keep clear of
@@ -375,19 +404,23 @@ export function createSinusoidView({ host }) {
       const T = caption(key, 'sv-region sv-region-sin sv-end', name, value);
       const w = T.el.offsetWidth, hh = T.el.offsetHeight;
       let x, y;
-      // Its arrow (drawn by the shader) sits on the far side of the label: above the portal venule's, below the central venule's
-      // on a top-down sinusoid; toward the screen's edge on a wide one.
-      if (g.vert) { x = VW.C[0] - w / 2; y = u ? f.b - hh - 52 : f.t + 30; }   // (clear of the credit line at the bottom)
-      else { x = u ? f.r - w - 34 : f.l + 34; y = VW.C[1] - hh / 2; }
+      // Its arrow (drawn by the shader) points with the flow on the sinusoid's side of the label: below the portal venule's
+      // and above the central venule's on a top-down sinusoid; inward of each on a wide one.
+      const A = 22 + 10;   // (the arrow and its gaps, px)
+      if (g.vert) { x = VW.C[0] - w / 2; y = u ? f.b - hh : f.t; }
+      else { x = u ? f.r - w - 8 : f.l + 8; y = VW.C[1] - hh / 2; }
       T.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
-      ENDBOX[u] = g.vert ? null : { u, x0: x, x1: x + w, y0: y, y1: y + hh };
-      const ax = g.vert ? VW.C[0] : u ? x + w + 16 : x - 16, ay = g.vert ? (u ? y + hh + 14 : y - 14) : VW.C[1];
+      ENDBOX[u] = g.vert ? null : { u, x0: u ? x - A : x, x1: u ? x + w : x + w + A, y0: y, y1: y + hh };
+      if (g.vert) BAND[u] = u ? y - A - 6 : y + hh + A + 6;
+      const ax = g.vert ? VW.C[0] : u ? x - A / 2 : x + w + A / 2, ay = g.vert ? (u ? y - A / 2 : y + hh + A / 2) : VW.C[1];
       const ca = Math.cos(g.ang), sa = Math.sin(g.ang);
       END[u] = ((ax - VW.C[0]) * ca + (ay - VW.C[1]) * sa) / VW.k;
     }
-    END[2] = 17 / VW.k;   // (a fine arrow, smaller than the names beside it)
+    END[2] = Math.min(22 / VW.k, UM.lum * S.lum * 0.95);   // (a bold head, as wide as the names' capitals are tall, within the lumen)
+    // (On a top-down sinusoid the other names keep below the legend too.)
+    if (g.vert) BAND[0] = Math.max(BAND[0], cssN('--top-safe') + cssN('--cmp-h') + cssN('--pz-t') + 12 + legend.offsetHeight + 8);
     // The legend: at the top left, under the top bar.
-    const lx = f.l + 2, ly = cssN('--top-safe') + cssN('--cmp-h') + 12;
+    const lx = f.l + 2, ly = cssN('--top-safe') + cssN('--cmp-h') + cssN('--pz-t') + 12;
     // (On a top-down sinusoid it stays in the plate on the left, clear of the vessel and the portal venule's name.)
     const lr = g.vert ? toScreen(0, hepIn(0))[0] - 8 : geo.W - 12;
     legend.style.maxWidth = `${Math.max(90, lr - lx)}px`;

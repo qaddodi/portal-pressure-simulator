@@ -89,6 +89,13 @@ float smin(float a, float b, float k) { float h = max(k - abs(a - b), 0.0) / k; 
 float smax(float a, float b, float k) { return -smin(-a, -b, k); }
 float sdE(vec2 p, vec2 ab) { float k0 = length(p / ab), k1 = length(p / (ab * ab)); return k0 * (k0 - 1.0) / max(k1, 1e-5); }
 float sdTaper(vec2 p, vec2 a, vec2 b, float ra, float rb) { vec2 pa = p - a, ba = b - a; float h = sat(dot(pa, ba) / dot(ba, ba)); return length(pa - ba * h) - mix(ra, rb, h); }
+float sdTri(vec2 p, vec2 p0, vec2 p1, vec2 p2) {
+  vec2 e0 = p1 - p0, e1 = p2 - p1, e2 = p0 - p2, v0 = p - p0, v1 = p - p1, v2 = p - p2;
+  vec2 q0 = v0 - e0 * sat(dot(v0, e0) / dot(e0, e0)), q1 = v1 - e1 * sat(dot(v1, e1) / dot(e1, e1)), q2 = v2 - e2 * sat(dot(v2, e2) / dot(e2, e2));
+  float sg = sign(e0.x * e2.y - e0.y * e2.x);
+  vec2 d = min(min(vec2(dot(q0, q0), sg * (v0.x * e0.y - v0.y * e0.x)), vec2(dot(q1, q1), sg * (v1.x * e1.y - v1.y * e1.x))), vec2(dot(q2, q2), sg * (v2.x * e2.y - v2.y * e2.x)));
+  return -sqrt(d.x) * sign(d.y);
+}
 float sdRB(vec2 p, vec2 b, float r) { vec2 q = abs(p) - b + r; return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r; }
 float dot2(vec2 v) { return dot(v, v); }
 // The distance to a quadratic Bézier (A, control B, C) and where along it (t), for smooth tapered processes.
@@ -183,12 +190,14 @@ vec3 lumen(float x, float y, float hw, int lane0, bool chev) {
     // The flow's arrowheads, the app's own (chevHead, as every vessel draws them): a slim filled head with a notched
     // back, dark (orange where the flow runs backwards) with a faint light rim, one fixed shape, moving with the blood.
     // Sized as they show on the anatomy's veins; none by the ends' labels, and none over the Kupffer cell.
-    float cw = min(0.5 * uLum, 0.55 * uEnd.z), L = 1.6 * cw, Pc = 24.0;
+    float cw = min(0.5 * uLum, 0.42 * uEnd.z), L = 1.6 * cw, Pc = 24.0;
     float xc = mod(x - uFlow + 0.5 * Pc, Pc) - 0.5 * Pc, xh = x - xc;
     vec2 ch = chevHead(xc * uDir, abs(y), cw, uPx);
-    // (Long, soft fades: a head moving past one dims over a good stretch of its path, it never blinks out.)
-    float s = uEnd.z, fade = uEnd.w > 0.0 ? (1.0 - smoothstep(-4.0 * s, -1.2 * s, xh - uEnd.x) * (1.0 - smoothstep(7.5 * s, 11.0 * s, xh - uEnd.x)))
-      * (1.0 - smoothstep(-4.0 * s, -1.2 * s, uEnd.y - xh) * (1.0 - smoothstep(7.5 * s, 11.0 * s, uEnd.y - xh))) : 1.0;
+    // (Long, soft fades: a head moving past one dims over a good stretch of its path, it never blinks out. Each end's
+    // name lies beyond its arrow, toward its venule.)
+    float s = uEnd.z, fe = 1.0 - smoothstep(-7.0 * s, -4.5 * s, xh - uEnd.x) * (1.0 - smoothstep(2.5 * s, 4.5 * s, xh - uEnd.x));
+    fe *= 1.0 - smoothstep(-7.0 * s, -4.5 * s, uEnd.y - xh) * (1.0 - smoothstep(2.5 * s, 4.5 * s, uEnd.y - xh));
+    float fade = uEnd.w > 0.0 ? fe : 1.0;
     fade *= smoothstep(uLab.y + 0.3 * L, uLab.y + 3.0 * L, abs(xh - uLab.x));
     fade *= smoothstep(7.0, 11.0, abs(xh - uXk));
     c = mix(c, vec3(1.0), ch.y * 0.75 * fade);
@@ -392,14 +401,16 @@ void main() {
   vec3 c = cBg;
   if (a < hw) {
     c = lumen(x, y, hw, 0, true);
-    // The arrows at the ends, beside their labels: toward the portal venule (−x) and toward the central venule (+x).
+    // The arrows at the ends, beside their labels: the blood coming in from the portal venule and going out to the central venule.
     for (int i = 0; i < 2; i++) {
-      float dir = i == 0 ? -1.0 : 1.0, s = uEnd.z;
-      vec2 q = vec2((x - (i == 0 ? uEnd.x : uEnd.y)) * dir, abs(y));
-      // A fine-line arrow, as a journal figure's: a hairline shaft and an open head, round-capped, in the labels' ink, softened.
-      float sw = 0.055 * s;
-      float dA = min(sdTaper(q, vec2(-0.5 * s, 0.0), vec2(0.48 * s, 0.0), sw, sw), sdTaper(q, vec2(0.5 * s, 0.0), vec2(0.2 * s, 0.27 * s), sw, sw));
-      c = mix(c, cEndF, cov(dA) * 0.72 * uEnd.w);
+      float s = uEnd.z;
+      vec2 q = vec2((x - (i == 0 ? uEnd.x : uEnd.y)) * uDir, y);
+      // A heavy, laid-down arrowhead pointing with the flow (in at the portal end, out at the central end): a broad solid
+      // wedge with a notched back, in the labels' ink on a soft halo, as a journal figure marks flow.
+      vec2 T = vec2(0.5 * s, 0.0), A = vec2(-0.5 * s, 0.56 * s), B = vec2(-0.5 * s, -0.56 * s), N = vec2(-0.16 * s, 0.0);
+      float dA = max(sdTri(q, T, A, B), -sdTri(q, N, N + 4.0 * (A - N), N + 4.0 * (B - N)));
+      c = mix(c, cEndE, cov(dA - 0.1 * s) * 0.5 * uEnd.w);
+      c = mix(c, cEndF, cov(dA) * 0.88 * uEnd.w);
     }
   }
   else if (a < wi) c = mix(mix(cLumen, vec3(1.0), 0.3), cLymph, (a - hw) / ENDO);
