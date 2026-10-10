@@ -1364,11 +1364,9 @@ function openPrivacy() {
     h('p', { class: 'sub' }, keys.length ? `Stored now: ${keys.join(', ')}.` : 'Nothing is stored on this device yet.'),
     h('div', { class: 'btn-row' }, h('button', { class: 'btn', onclick: () => { if (!confirm('Delete everything this simulator has stored on this device?')) return; for (const k of keys) { try { localStorage.removeItem(k); } catch { /* storage unavailable */ } } closeModal(); toast('Your data on this device has been cleared.'); } }, 'Clear my data on this device'))));
 }
+// Launch goes straight into the simulator, the first time included: the course is one tap away
+// (Menu › Course). Only a deep link (?lesson=, ?case=, ?script=…) opens anything else.
 function firstRun() {
-  if (readShare()) return;
-  // Home is the course page: a student lands on it at every launch, an instructor on the first one.
-  if (readLS('pps.seen') === '1' && store.get().role !== 'student') return;
   try { localStorage.setItem('pps.seen', '1'); } catch { /* storage unavailable */ }
-  home.open('course');
 }
 main().catch((err) => { console.error(err); document.body.append(h('pre', { style: { position: 'fixed', bottom: 0, left: 0, background: '#fff', color: '#900', padding: '8px', zIndex: 999 } }, String(err.stack || err))); });
