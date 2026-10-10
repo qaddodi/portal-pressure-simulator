@@ -2014,18 +2014,22 @@ body.laser-on, body.laser-on * { cursor: none !important; }
 .pz.stack .pz-h { font-size: clamp(24px, 3.4vh, 40px); }
 .pz.stack .pz-line { font-size: clamp(14px, 1.9vh, 20px); }
 .pz.stack .pz-causes, .pz.stack .pz-rail { display: none; }
-.pz.stack .pz-data { left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; max-height: 42%; gap: 6px; padding: 10px 12px; border-radius: 18px; }
+.pz.stack .pz-data { left: 8px; right: 8px; top: auto; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); width: auto; max-height: 42%; gap: 6px; padding: 10px 12px; border-radius: 18px; }
 .pz.stack .pz-data.pz-hide { transform: translateY(18px); }
 .pz.stack .pz-dh { font-size: 11px; }
 .pz.stack .pz-ladder { max-height: 21vh; }
 .pz.stack .pz-tile { padding: 6px 10px; }
 .pz.stack .pzt-v { font-size: 24px; }
 .pz.stack .pzt-s { display: none; }
-.pz.stack .pz-panel { width: calc(100% - 16px); max-height: calc(100% - 16px); padding: 16px; gap: 12px; }
+.pz.stack .pz-panel { top: 8px; translate: -50% 0; width: calc(100% - 16px); max-height: calc(100% - 88px - env(safe-area-inset-bottom, 0px)); padding: 16px; gap: 12px; }
 .pz.stack .pz-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: none; }
 .pz.stack .pz-panel.fill { height: auto; }
 .pz.stack .pz-panel.fill .pz-cell .pz-ladder { flex: none; }
-.pz.stack .pz-bar { bottom: calc(var(--pz-b, 0px) + 8px); }
+.pz.stack .pz-bar { --pz-bar-h: 56px; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); translate: none; max-width: none; height: var(--pz-bar-h); justify-content: space-between; padding: 6px 8px; overflow: visible; }
+@media (max-width: 767px) { .app.presenting .stage-credit { bottom: calc(78px + env(safe-area-inset-bottom, 0px)); } }   /* above the phone's controls */
+.pz.stack .pz-bar.idle { opacity: 1; pointer-events: auto; transform: none; }
+.pz.stack .pz-bar .btn { min-height: 44px; padding: 0 14px; }
+.pz.stack .pz-bar .pzb-n { flex: 1; text-align: center; }
 .pz.stack .pz-quadwrap { grid-template-columns: minmax(0, 1fr); }
 .pz.stack .pz-visual { flex: none; }   /* (a phone scrolls the card rather than squeeze the chart over its words) */
 .pz.stack .pz-data.tiles-only .pzt-v { font-size: 26px; }

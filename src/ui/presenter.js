@@ -833,6 +833,19 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     const n = slides.length, i = want;
     ui.count.textContent = `${i + 1} / ${n}`;
     ui.prog.style.setProperty('--p', String((i + 1) / n));
+    // A phone keeps it to Back, the count, Next (Finish on the last slide) and Exit, always in view.
+    const ph = phone(), last = i === n - 1 && !asking(slides[i], wantRev);
+    ui.bar.classList.toggle('phone', ph);
+    if (ph) {
+      ui.bar.classList.remove('idle');
+      ui.bar.replaceChildren(
+        h('button', { class: 'btn sm', 'aria-label': 'Previous slide', disabled: i === 0, onclick: prev }, icon('chev-left'), 'Back'),
+        h('span', { class: 'pzb-n' }, `${i + 1} / ${n}`),
+        h('button', { class: 'btn sm primary', 'aria-label': last ? 'Finish presenting' : 'Next slide', onclick: last ? stop : next }, last ? 'Finish' : 'Next', last ? null : icon('chev-right')),
+        h('button', { class: 'ib', 'aria-label': 'Exit the presentation', title: 'Exit', onclick: stop }, icon('close')));
+      writeNotes(); paintSpeaker();
+      return;
+    }
     ui.bar.replaceChildren(
       h('button', { class: 'ib', 'aria-label': 'Previous slide', title: 'Previous (←)', disabled: i === 0, onclick: prev }, icon('chev-left')),
       h('span', { class: 'pzb-n' }, `${i + 1} / ${n}`),
@@ -852,6 +865,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     if (!ui) return;
     ui.bar.classList.remove('idle');
     clearTimeout(idleT);
+    if (phone()) return;   // (a phone's controls never hide)
     idleT = setTimeout(() => { if (ui && !ui.bar.matches(':hover, :focus-within')) ui.bar.classList.add('idle'); else wake(); }, 2600);
   }
   function toggleQuiz() {
