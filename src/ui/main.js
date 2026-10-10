@@ -1254,7 +1254,9 @@ function updateFindBadge(f) {
   if (key === lastFindKey) { nextFindKey = ''; return; }
   const now = performance.now();
   if (key !== nextFindKey) { nextFindKey = key; nextFindSince = now; }
-  if (lastFindKey && store.get().running && now - nextFindSince < 2000) return;
+  // Only a one-step change at the same severity (the beat straddling a cut-off) waits; a new patient or a real change shows at once.
+  const [ln, ls] = lastFindKey.split('|');
+  if (lastFindKey && ls === sev && Math.abs(n - +ln) === 1 && store.get().running && now - nextFindSince < 2000) return;
   lastFindKey = key;
   const el = $('#findBadge');
   el.dataset.sev = sev;
