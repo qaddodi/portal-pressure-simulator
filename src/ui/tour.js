@@ -1,4 +1,4 @@
-// The self-running presenter tour "Where is the block?": one live model per level of portal
+// The self-running presenter tour "Sites of portal hypertension" (quiz mode asks "Where is the block?"): one live model per level of portal
 // hypertension (pre-hepatic → presinusoidal → sinusoidal → postsinusoidal → post-hepatic → cardiac),
 // each with a fingerprint (the pressure ladder from the portal vein to the right atrium, HVPG, SAAG
 // and ascites protein) that highlights what sets it apart, and a closing table of all of them.
@@ -9,7 +9,7 @@ import { SITES, rate, ladder, tiles, createRoute } from './ladder.js?v=2cbec732f
 
 const lobule = { view: 'anatomic', zoom: 'lobule' }, whole = { view: 'anatomic', zoom: 'fit' };
 export const TOUR = {
-  id: 'where-block', title: 'Where is the block?', builtin: true, tour: true, quiz: true,
+  id: 'where-block', title: 'Sites of portal hypertension', builtin: true, tour: true, quiz: true,
   summary: 'A self-running tour from pre-hepatic to cardiac portal hypertension: the causes, the pressure fingerprint of each and how to tell them apart.',
   steps: [
     { preset: 'healthy', ...whole, kicker: 'Reference', title: 'Healthy circulation', site: null, key: [],

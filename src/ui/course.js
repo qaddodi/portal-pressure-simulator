@@ -4,7 +4,7 @@
 // Progress lives on this device in pps.course; plans/course-api.md documents the shapes.
 
 import { store } from './store.js?v=49dc9cdf15';
-import { h } from './util.js?v=a357853926';
+import { h, svgIcon } from './util.js?v=a357853926';
 
 // A unit: id, n (its number), part ('A' mechanism, 'B' clinic), title, objective (what the student
 // can do after it), minutes, keyPoints (three margin notes, kept for the summary page) and steps
@@ -116,4 +116,14 @@ export function unitBar(unit, idx, total) {
   return h('div', { class: 'unit-bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(total), 'aria-valuenow': String(idx + 1), 'aria-label': `Unit ${unit.n}, step ${idx + 1} of ${total}` },
     h('span', { class: 'ub-t' }, h('b', {}, `Unit ${unit.n}`), ` · ${idx + 1} of ${total}`),
     h('span', { class: 'ub-track' }, h('i', { style: { width: `${pct}%` } })));
+}
+
+/** "Open this patient in Explore": the end-of-unit action. It shows the patient the unit ends on (or
+ *  `unit.explore`, a preset id) and calls `done({ explore: presetId })`; the runner then finishes the unit
+ *  and main.js loads that patient through the patient-picker path. Any runner can place it on its last card. */
+export function exploreButton(unit, done) {
+  const id = unit.explore || store.get().presetId;
+  const label = store.get().presetList?.find((p) => p.id === id)?.label;
+  return h('button', { class: 'btn explore-here', title: label ? `Finish the unit and open ${label} in Explore` : 'Finish the unit and open this patient in Explore', onclick: () => done({ explore: id }) },
+    svgIcon('explore'), 'Open this patient in Explore', label ? h('small', {}, label) : null);
 }

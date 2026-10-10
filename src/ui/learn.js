@@ -10,7 +10,7 @@ import { EDGES } from '../engine/topology.js?v=dc393aabea';
 import { SNAPSHOTS } from './snapshots.js?v=34d1578d5f';
 import { createRoute, ladder } from './ladder.js?v=2cbec732f7';
 import { CASES } from './cases/index.js?v=433329e7fa';
-import { UNITS, course, setUnitSurface, unitBar } from './course.js?v=7531d86bf7';
+import { UNITS, course, setUnitSurface, unitBar, exploreButton } from './course.js?v=63289989a0';
 import { trustLine, teachChip, blindOn, blindOff, isBlind, optionList, compareChip, bindQuestionKeys, mirrorMarker } from './learning-kit.js?v=83e19de948';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -468,11 +468,12 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     store.set({ focus: null });
     setBanner?.(null);
     render();
-    endSession?.(unit ? 'unit' : 'lesson');
+    endSession?.(unit ? 'unit' : 'lesson', { keep: !!exploreAfter });
     onEnd?.();
-    if (unit) onUnitEnd?.(unit);
+    if (unit) onUnitEnd?.(unit, { explore: exploreAfter });
+    exploreAfter = null;
   }
-  let finishing = false;
+  let finishing = false, exploreAfter = null;
 
   async function enter({ replay = false, deep = false } = {}) {
     const st = lesson.steps[idx];
@@ -553,8 +554,9 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     if (idx < lesson.steps.length - 1) { idx++; enter(); panel.scrollTop = 0; }
     else finish();
   }
-  function finish() {
+  function finish(opts) {
     {
+      exploreAfter = opts?.explore || null;
       const { score, right, total, mastered } = answers.score();
       if (lesson.unit) { course.complete(lesson.id, score); finishing = true; }
       saved[lesson.id] = { score: Math.max(score, saved[lesson.id]?.score || 0), date: new Date().toISOString() }; save();
@@ -646,7 +648,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     const body = [];
     if (idx === 0 && !lesson.unit) body.push(trustLine());
     if (st.text) body.push(h('p', {}, md(st.text)));
-    if (st.type === 'keypoints') body.push(h('div', { class: 'pearls keypoints' }, h('p', { class: 'step-label' }, 'Key points'), h('ul', {}, (lesson.keyPoints || []).map((t) => h('li', {}, t)))));
+    if (st.type === 'keypoints') body.push(h('div', { class: 'pearls keypoints' }, h('p', { class: 'step-label' }, 'Key points'), h('ul', {}, (lesson.keyPoints || []).map((t) => h('li', {}, t)))), exploreButton(lesson, finish));
     if (st.data && !isBlind()) body.push(dataRow(st.data), teachChip());
     if (st.fluids) body.push(fluidTable(st.fluids));
     if (st.compare) body.push(compareTable(st.compare));

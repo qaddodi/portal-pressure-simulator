@@ -10,17 +10,17 @@ import { createDock, CUTOFFS } from './dock.js?v=3419490c7d';
 import { setHvpgStage } from './hvpg-proc.js?v=bb053422f1';
 import { createWhy } from './why.js?v=82d0ada42e';
 import { createTimeline, LAPSES } from './timeline.js?v=bf87e94cd0';
-import { createLearn } from './learn.js?v=037aa0c280';
+import { createLearn } from './learn.js?v=12d780c088';
 import { createCases, CASES } from './cases.js?v=8d4fbd875f';
 import { isBlind } from './learning-kit.js?v=83e19de948';
 import { createCompare } from './compare.js?v=6c5edeb764';
 import { createCard } from './card.js?v=bec985d017';
 import { createChart, computeFindings } from './chart.js?v=62d1022a9b';
-import { createHome, ROLES } from './home.js?v=bcac57b9ad';
-import { UNITS, course } from './course.js?v=7531d86bf7';
+import { createHome, ROLES } from './home.js?v=2cd682825a';
+import { UNITS, course } from './course.js?v=63289989a0';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=3113b1ec12';
 import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=db814778e1';
-import { startLMS } from './lms.js?v=bae2cd3d5a';
+import { startLMS } from './lms.js?v=2cc0c3c7f7';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=732cefd9b1';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
@@ -138,14 +138,14 @@ async function main() {
   const api = { beginSession, endSession, onEnd: () => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); }, muteEvents: () => {}, loadPreset, setTool, setAllowedTools, action: doAction, showPane: (id) => dock.show(id, { reveal: true }), setProbe: (id) => host.send({ type: 'probe', id }), showFound: (list) => stage.showFound(list), runHvpg: () => { dock.show('hvpg', { reveal: true }); dock.pane('hvpg')?.start(); }, openPanel, setBanner, select: (sel) => store.set({ selection: sel }) };
   // A lesson keeps its card in view where the panel covers the figure: instruments it opens are
   // flagged, not forced.
-  learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: () => home.open('course') });
+  learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else home.open('course'); } });
   cases = createCases({ root: $('#panelCase'), api });
-  presenterL = lazy(() => import('./presenter.js?v=f067e8bd76'), ({ createPresenter }) => createPresenter({ startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=c3dcb57d97'), ({ createPresenter }) => createPresenter({ startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
     el: $('#home'), brandMark,
-    onPreset: async (id) => { home.close(); if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); await loadPreset(id); },
+    onPreset: (id) => openInExplore(id),
     onLesson: (id) => { home.close(); startLesson(id); },
     onUnit: (id) => { home.close(); startLesson(id); },
     onCase: (id) => { home.close(); startCase(id); },
@@ -153,7 +153,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=e60f67fd88'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=7cb2d98897'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -353,6 +353,12 @@ function openScenarios(anchor) {
   popover(anchor, body, { cls: 'scenario-pop', align: 'end' });
 }
 
+// The patient picker's path: close Home, switch to Explore and load the patient (also used by "Open this patient in Explore").
+async function openInExplore(id) {
+  home.close();
+  if (store.get().mode !== 'explore') store.set({ mode: 'explore' });
+  await loadPreset(id);
+}
 async function loadPreset(id, opts = {}) {
   store.set({ presetLoading: true });   // the figure frames itself once the patient has arrived (stage.js)
   dock?.clearTraces();   // the Over time and Doppler traces start over with the new (or restarted) patient
@@ -419,10 +425,11 @@ async function beginSession(kind) {
   timeline.flush();
   session = { kind, snap, presetId: store.get().presetId, view: store.get().view, tl: timeline.save() };
 }
-function endSession(kind) {
+function endSession(kind, opts) {
   if (!session || session.kind !== kind) return;
   const saved = session;
   session = null;
+  if (kind === 'unit' && opts?.keep) { store.set({ view: saved.view }); return; }   // "Open this patient in Explore": the patient loads next, so skip the restore (it would flash)
   const f = store.get().frame;
   const bleeding = !!f?.metrics?.bleeding;
   // A course unit always hands back the model as it was: its patients belong to the unit.
@@ -783,9 +790,9 @@ function openMainMenu(anchor) {
       modeItem('explore', 'explore', 'explore', 'Explore a patient', 'Any of the patients, from healthy to Budd–Chiari'),
       // The lesson and case libraries and the presenter are for instructors (the course covers them for students).
       ...(store.get().role === 'instructor' ? [
-        modeItem('learn', 'learn', 'book', 'Lessons', 'The lesson library'),
-        modeItem('cases', 'cases', 'case', 'Cases', 'The case library'),
-        modeItem('present', 'present', 'projector', 'Presenter', 'A self-running tour: where is the block?')] : [])),
+        modeItem('present', 'present', 'projector', 'Present', 'Tours and lectures on the live model, for a class'),
+        modeItem('cases', 'cases', 'case', 'Case library', 'Eight more cases, outside the course'),
+        modeItem('learn', 'learn', 'book', 'Lessons', 'The lesson library')] : [])),
     h('div', { class: 'menu-sep' }),
     menuItem('Home page', { icon: 'grid', onClick: () => { closePopover(); home.open(); } }),
     h('div', { class: 'menu-sep' }),

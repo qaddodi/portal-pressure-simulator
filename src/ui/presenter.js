@@ -8,7 +8,7 @@ import { store } from './store.js?v=49dc9cdf15';
 import { runSequence, restoreSequence } from './sequence.js?v=f8b2dfcd73';
 import { h, toast, svgIcon, icon } from './util.js?v=a357853926';
 import { download } from './records.js?v=50fb9dd463';
-import { TOUR, createTour } from './tour.js?v=c3b8d37a12';
+import { TOUR, createTour } from './tour.js?v=34e0710a5c';
 
 const ask = (q, a) => `\n\nAsk the room: ${q} Expected: ${a}`;
 // Lecture scripts share the tour's card (route, ladder, tiles) and its clinical voice, but wait for
@@ -17,46 +17,7 @@ const lecture = (s) => ({ ...s, builtin: true, tour: true, autoplay: false, step
 export const SCRIPTS = [
   TOUR,
   lecture({
-    id: 'ph-five', title: 'Portal hypertension in five minutes', label: 'What to see',
-    summary: 'Where the pressure drop sits: healthy, cirrhosis, a presinusoidal block and the heart.',
-    steps: [
-      { preset: 'healthy', kicker: 'Start here', title: 'Healthy circulation', site: null, key: ['pv', 'hvpg'],
-        tell: 'Blood from the gut and spleen crosses the liver on its way to the heart. Each station sits a little lower than the one before: portal pressure stays under 10 mmHg and HVPG under 5.',
-        ask: ['What moves blood through the liver?', 'The pressure difference between the portal vein and the hepatic veins.'] },
-      { preset: 'csph', zoom: 'lobule', kicker: 'Intrahepatic · sinusoidal', title: 'Cirrhosis stiffens the sinusoids', site: 'sin', key: ['whvp', 'hvpg'],
-        tell: 'Scarred sinusoids resist flow, so the big drop moves into the liver. The wedged catheter reads the pressure behind it: an HVPG of 10 mmHg or more is clinically significant portal hypertension, where varices and ascites begin.',
-        ask: ['Which two pressures make the HVPG?', 'Wedged minus free hepatic venous pressure.'] },
-      { preset: 'schisto', zoom: 'lobule', kicker: 'Intrahepatic · presinusoidal', title: 'A block before the sinusoids', site: 'presin', key: ['pv', 'hvpg'],
-        tell: 'In schistosomiasis the block sits in the portal tracts, upstream of where the wedge reads. Portal pressure is high but HVPG is normal or only mildly raised, so a normal HVPG does not rule out portal hypertension.',
-        ask: ['Does a normal HVPG exclude portal hypertension?', 'No, not when the block is presinusoidal or pre-hepatic.'] },
-      { preset: 'rhf', params: { pulsatile: true }, kicker: 'Cardiac', title: 'Pressure backing up from the heart', site: 'cardiac', key: ['ra', 'fhvp', 'hvpg'],
-        tell: 'A failing right heart raises the right atrium, and every station behind it rises together. Wedged and free pressures are both high, so HVPG stays normal. A raised JVP and a pulsatile portal vein point to the heart.',
-        ask: ['Portal pressure is 20 and HVPG is 3. Where is the problem?', 'Downstream of the sinusoids: the hepatic veins or the heart.'] },
-    ],
-  }),
-  lecture({
-    id: 'ph-ten', title: 'What each treatment fixes and costs', label: 'What it does',
-    summary: 'Inflow, beta blockers, collaterals and TIPS: what each lowers and what it costs.',
-    steps: [
-      { preset: 'csph', kicker: 'Starting point', title: 'Compensated cirrhosis', site: 'sin', key: ['pv', 'hvpg'],
-        tell: 'Two things keep portal pressure high: a stiff liver, and extra blood pouring in from a dilated splanchnic bed. Every treatment acts on one or the other.',
-        ask: ['Name the two levers on portal pressure.', 'Resistance in the liver and inflow from the gut.'] },
-      { preset: 'csph', params: { splanchnicTone: 0.6 }, kicker: 'Inflow', title: 'More inflow, higher pressure', site: 'sin', key: ['pv', 'hvpg'],
-        tell: 'Splanchnic vasodilation sends more blood into the same stiff liver, and portal pressure climbs further. That is why lowering inflow works even though the liver itself is unchanged.',
-        ask: ['The liver is unchanged. Can more inflow raise portal pressure?', 'Yes: pressure is flow times resistance.'] },
-      { preset: 'csph', params: { drugs: { carvedilol: true, propranolol: false, terlipressin: false, octreotide: false } }, kicker: 'Treatment · beta blocker', title: 'Carvedilol', site: 'sin', key: ['hvpg'],
-        tell: 'Carvedilol lowers inflow through beta blockade and liver tone through alpha blockade, so HVPG falls. In compensated cirrhosis with CSPH it prevents decompensation. The cost is systemic pressure: watch the blood pressure, above all with refractory ascites.',
-        ask: ['What do you watch besides the portal pressure?', 'Systemic blood pressure and kidney function.'] },
-      { preset: 'healthy', params: { cirrhosis: 0.65 }, days: 180, kicker: 'Over months', title: 'Collaterals open', site: 'sin', key: ['pv', 'hvpg'],
-        tell: 'Sustained pressure opens routes to the systemic veins: varices, the umbilical vein, splenorenal shunts. They divert flow but never bring portal pressure back to normal, and blood that skips the liver adds to the risk of encephalopathy.',
-        ask: ['Do collaterals decompress the portal system?', 'Only partly: the pressure stays high and varices can bleed.'] },
-      { preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, kicker: 'Treatment · shunt', title: 'TIPS', site: 'sin', key: ['pv', 'hvpg'],
-        tell: 'A stent from the portal vein to a hepatic vein bypasses the liver’s resistance, and the portal pressure gradient falls at once, usually below 12 mmHg. It controls bleeding and ascites. The costs: blood skips the liver (encephalopathy) and the right heart takes more volume.',
-        ask: ['Who is a poor candidate for TIPS?', 'Recurrent encephalopathy, heart failure, or very advanced liver failure.'] },
-    ],
-  }),
-  lecture({
-    id: 'bleed', title: 'The bleeding patient', label: 'What to see',
+    id: 'bleed', title: 'Acute variceal bleeding', label: 'What to see',
     summary: 'A variceal bleed: why it happens, how to transfuse and what each treatment does.',
     steps: [
       { preset: 'cirr-decomp', kicker: 'Before the bleed', title: 'Decompensated cirrhosis', site: 'sin', key: ['hvpg'],

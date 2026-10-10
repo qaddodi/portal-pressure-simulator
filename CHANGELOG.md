@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Explore for instructors.** Explore has a *Present* button and a *Case library* for instructors only. The library
+  lists the eight cases cut from the course; the course's own four sit below it. Presenter keeps two tours,
+  *Sites of portal hypertension* and *Acute variceal bleeding*; the other two are cut. The last card of every unit has
+  *Open this patient in Explore*, which finishes the unit and loads that patient through the patient picker.
+
 - **Lymph on in the lobule by default.** The lobule opens with its lymph drawn and *Lymph* ticked in the Layers menu.
   Untick it to hide the lymph; the zone bands still start off.
 

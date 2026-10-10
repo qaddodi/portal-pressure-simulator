@@ -5,11 +5,11 @@
 
 import { store } from './store.js?v=49dc9cdf15';
 import { h, svgIcon, icon } from './util.js?v=a357853926';
-import { LESSONS } from './learn.js?v=037aa0c280';
+import { LESSONS } from './learn.js?v=12d780c088';
 import { CASES } from './cases.js?v=8d4fbd875f';
 import { createDrill, drillProgress, DRILL_TITLE, ROUNDS } from './drill.js?v=af9584165f';
-import { skillsPath, reviewCard } from './practice.js?v=83a5bce44e';
-import { UNITS, FINAL, PARTS, course } from './course.js?v=7531d86bf7';
+import { skillsPath, reviewCard } from './practice.js?v=02bb5ed6c9';
+import { UNITS, FINAL, PARTS, course } from './course.js?v=63289989a0';
 import { t } from '../i18n/i18n.js?v=3113b1ec12';
 import { exportCSV, exportXAPI, learnerName, setLearnerName, records } from './records.js?v=50fb9dd463';
 import { SNAPSHOTS, PATH } from './snapshots.js?v=34d1578d5f';
@@ -88,10 +88,14 @@ function coursePage({ onUnit, go, instructor, render }) {
     unlock.addEventListener('change', () => { course.setUnlockAll(unlock.checked); render(); });
     teach = h('section', { class: 'cr-teach' }, h('span', { class: 'overline' }, 'Instructor'),
       h('label', { class: 'cr-unlock' }, unlock, 'Unlock all units'),
-      h('div', { class: 'cr-lib' }, [['learn', 'book', 'Lessons'], ['cases', 'case', 'Cases'], ['present', 'projector', 'Presenter']].map(([id, ic, l]) => h('button', { class: 'btn sm', onclick: () => go(id) }, svgIcon(ic), l))));
+      h('div', { class: 'cr-lib' }, h('button', { class: 'btn sm', onclick: () => go('learn') }, svgIcon('book'), 'Lessons')));
   }
   return h('div', { class: 'course' }, cont, reviewCard(), parts, final, explore, teach);
 }
+
+// The eight cases cut from the course (the plan's §2): they stay in the Case library under Explore, for instructors.
+// The other four are the course's own (units 4, 6, 7 and 8); the library lists them last, as a reminder.
+const LIBRARY = ['gastric', 'budd-chiari', 'pvt', 'nsbb-problem', 'schisto', 'hepatofugal', 'post-tips', 'treat-cause'];
 
 const read = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || d); } catch { return JSON.parse(d); } };
 
@@ -102,9 +106,13 @@ export function createHome({ el, brandMark, onPreset, onLesson, onUnit, onCase, 
     const done = read('pps.lessons', '{}');
     const best = read('pps.caseScores', '{}');
     const go = (id) => { tab = id; render(); el.scrollTop = 0; };
-    const TITLES = { explore: 'Explore the model', learn: 'Lessons', drill: 'Lessons', cases: 'Cases', present: 'Presenter' };
+    const instructor = st.role === 'instructor';
+    // The case library and Present belong to Explore, and to instructors only.
+    if ((tab === 'cases' || tab === 'present') && !instructor) tab = 'explore';
+    const TITLES = { explore: 'Explore the model', learn: 'Lessons', drill: 'Lessons', cases: 'Case library', present: 'Present' };
+    const parent = tab === 'drill' ? ['learn', 'Lessons'] : tab === 'cases' || tab === 'present' ? ['explore', 'Explore'] : ['course', 'Course'];
     const nav = tab === 'course' ? null : h('nav', { class: 'home-back', 'aria-label': 'Back' },
-      h('button', { class: 'btn ghost sm', onclick: () => go(tab === 'drill' ? 'learn' : 'course') }, svgIcon('chev-left'), tab === 'drill' ? 'Lessons' : 'Course'), h('h2', {}, TITLES[tab]));
+      h('button', { class: 'btn ghost sm', onclick: () => go(parent[0]) }, svgIcon('chev-left'), parent[1]), h('h2', {}, TITLES[tab]));
     let body;
     if (tab === 'course') {
       body = coursePage({ onUnit, go, instructor: st.role === 'instructor', render });
@@ -115,6 +123,10 @@ export function createHome({ el, brandMark, onPreset, onLesson, onUnit, onCase, 
       // heart, each drawn as its own pressure profile.
       const axis = h('div', { class: 'hp-axis', 'aria-hidden': 'true' }, PATH.map(([, l]) => h('span', {}, l)));
       body = h('div', {},
+        instructor ? h('section', { class: 'ex-teach' }, h('span', { class: 'overline' }, 'Instructor'),
+          h('div', { class: 'cr-lib' },
+            h('button', { class: 'btn sm primary', onclick: () => go('present') }, svgIcon('projector'), 'Present'),
+            h('button', { class: 'btn sm', onclick: () => go('cases') }, svgIcon('case'), 'Case library'))) : null,
         h('div', { class: 'hp-intro' },
           h('p', {}, 'Each line is a patient’s pressure from the gut to the heart. Blood runs downhill; ', h('b', {}, 'the steepest fall (shaded) is where the resistance sits.')),
           h('div', { class: 'hp-key' }, axis)),
@@ -134,9 +146,13 @@ export function createHome({ el, brandMark, onPreset, onLesson, onUnit, onCase, 
           h('span', { class: 't' }, DRILL_TITLE), h('span', { class: 'd' }, 'A hidden patient each round: order up to three tests, tap the level of the block, then see the pressure ladder.')),
         h('h3', { class: 'home-sub' }, 'Lessons'), lessons);
     } else if (tab === 'cases') {
-      body = h('div', { class: 'home-grid' }, CASES.map((c) => h('button', { class: 'home-item case', onclick: () => onCase(c.id) },
+      const card = (c) => h('button', { class: 'home-item case', onclick: () => onCase(c.id) },
         h('span', { class: 'meta' }, c.level, best[c.id] != null ? h('span', { class: 'score' }, `Best ${best[c.id]}`) : null),
-        h('span', { class: 't' }, c.title), h('span', { class: 'd' }, c.summary))));
+        h('span', { class: 't' }, c.title), h('span', { class: 'd' }, c.summary));
+      body = h('div', {},
+        h('p', { class: 'ctl-sub lib-note' }, 'Eight cases that are not part of the course. Each has a history, orders, decisions and a debrief, and any of them can be presented to a class from the Present page.'),
+        h('div', { class: 'home-grid' }, CASES.filter((c) => LIBRARY.includes(c.id)).map(card)),
+        h('h3', { class: 'home-sub' }, 'Used in the course'), h('div', { class: 'home-grid' }, CASES.filter((c) => !LIBRARY.includes(c.id)).map(card)));
     } else {
       body = onPresenter();
     }
