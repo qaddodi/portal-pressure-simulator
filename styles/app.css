@@ -4476,10 +4476,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view { flex: none; display: grid; grid-template-columns: minmax(0, 44%) minmax(0, 1fr); align-items: start; gap: 8px 14px; }
   .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view > .chart-box.square { width: 100%; justify-self: stretch; }
   .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view > .chart-side { display: contents; }
-  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] .chart-side > .kv { grid-column: 2; grid-row: 1; grid-template-columns: minmax(0, 1fr); font-size: var(--fs-14); }
-  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] .chart-side > .kv dt { padding: 0; border: 0; font-size: var(--fs-12); color: var(--text-3); line-height: 1.3; }
-  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] .chart-side > .kv dd { padding: 0 0 4px; margin-bottom: 4px; text-align: left; line-height: 1.3; }
-  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] .chart-side > :not(.kv) { grid-column: 1 / -1; }
+  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] .chart-side > .endo-read { grid-column: 2; grid-row: 1; align-self: center; }
+  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] .chart-side > :not(.endo-read) { grid-column: 1 / -1; }
   .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-details { flex: none; padding-top: 4px; }
   /* FibroScan */
   .instrument-workspace.float-ui .instrument-view[data-pane="fibroscan"] > .chart-box { flex: 1 1 0; height: auto; min-height: 180px; }
@@ -4504,10 +4502,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 @media (min-width: 768px) {
   .instrument-workspace.float-ui:not(.side) .dock-pane .instrument-view > .chart-box:not(.square) { max-height: calc(100cqh - 52px); }
   .instrument-workspace.float-ui:not(.side) .dock-pane[data-pane="endoscopy"] { gap: 8px; }
-  .instrument-workspace.float-ui:not(.side) .dock-pane[data-pane="endoscopy"] > .instrument-view { grid-template-columns: minmax(0, 1fr) 300px; gap: 12px 24px; }
+  .instrument-workspace.float-ui:not(.side) .dock-pane[data-pane="endoscopy"] > .instrument-view { grid-template-columns: minmax(0, 1fr) min(420px, 55%); gap: 12px 24px; }
   .instrument-workspace.float-ui:not(.side) .dock-pane[data-pane="endoscopy"] .chart-box.square { width: min(100%, var(--square-size), calc(100cqh - 90px)); }
   .instrument-workspace.float-ui:not(.side) .dock-pane[data-pane="endoscopy"] .chart-side { gap: 8px; }
-  .instrument-workspace.float-ui:not(.side) .dock-pane[data-pane="endoscopy"] .chart-side .kv :is(dt, dd) { padding-block: 3px; }
   .instrument-workspace.float-ui:not(.side) .dock-pane[data-pane="endoscopy"] > .instrument-details { padding-top: 4px; }
 }
 /* In a short narrow card (a phone sheet at its middle height) the explanatory lines step aside so the picture keeps its room. */
@@ -4516,13 +4513,12 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .instrument-view[data-pane="hvpg"] .hvpg-note, .dop-report > .dop-note,
   .instrument-view[data-pane="fibroscan"] > .ctl-sub, .dock-pane[data-pane="endoscopy"] .chart-side > .ctl-sub { display: none; }
 }
+@container (max-height: 520px) { .dock-pane[data-pane="endoscopy"] .chart-side > .ctl-sub { display: none; } }
 /* Raised: Scope stacks again with a larger view. */
 @container (min-height: 620px) and (max-width: 649px) {
   .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view { grid-template-columns: minmax(0, 1fr); }
-  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view > .chart-box.square { width: min(100%, calc(100cqh - 330px)); justify-self: center; }
-  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] .chart-side > .kv { grid-column: 1; grid-row: auto; grid-template-columns: minmax(0, 1fr) auto; }
-  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] .chart-side > .kv dt { padding: 3px 0; border-bottom: 1px solid var(--hairline); font-size: var(--fs-14); color: var(--text-2); }
-  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] .chart-side > .kv dd { padding: 3px 0 3px 12px; margin: 0; text-align: right; border-bottom: 1px solid var(--hairline); }
+  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view > .chart-box.square { width: min(100%, calc(100cqh - 360px)); justify-self: center; }
+  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] .chart-side > .endo-read { grid-column: 1; grid-row: auto; }
 }
 /* Ascites in a tall card: the same rows, with fuller controls and room between them. */
 @container (min-height: 540px) {
@@ -4537,3 +4533,44 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
   .instrument-workspace.float-ui .ab-drain, .instrument-workspace.float-ui .ab-chip { min-height: 44px; }
   .instrument-workspace.float-ui .ab-rx { gap: 10px; padding: 10px 12px; }
 }
+
+/* Scope's readings: the grade leads with its status, wall stress is a meter toward the tear point, size and
+   wall sit side by side, red signs and bands are chips. The position label sits on the view's dark rim. */
+.chart-box.square { position: relative; container-type: inline-size; }
+.endo-pos { max-width: 90%; overflow: hidden; text-overflow: ellipsis; position: absolute; left: 50%; bottom: 3%; transform: translateX(-50%); padding: 2px 8px; border-radius: var(--r-pill); background: rgba(12, 13, 16, .78); color: rgba(255, 255, 255, .88); font: 500 11px/1.4 var(--font-ui); letter-spacing: .01em; white-space: nowrap; pointer-events: none; }
+.endo-read { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; min-width: 0; }
+.endo-read dt { font-size: var(--fs-12); font-weight: 500; color: var(--text-3); line-height: 1.3; }
+.endo-read dd { margin: 0; font-variant-numeric: tabular-nums; }
+.endo-g, .endo-stress { grid-column: 1 / -1; }
+.endo-grade { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: var(--fs-16); color: var(--text-2); }
+.endo-grade::before { content: ''; align-self: center; flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--text-3); transition: background .3s var(--ease); }
+.endo-grade b { font-size: 26px; font-weight: 700; line-height: 1.05; letter-spacing: -.01em; color: var(--text); }
+.endo-grade span { font-weight: 600; color: var(--text); }
+.endo-grade b:empty { display: none; }
+.endo-grade[data-sev="ok"]::before { background: var(--ok); }
+.endo-grade[data-sev="caution"]::before { background: var(--caution); }
+.endo-grade[data-sev="danger"]::before { background: var(--danger); }
+.endo-stress { display: grid; gap: 2px; }
+.endo-stress-v { font-size: var(--fs-14); font-weight: 600; color: var(--text); }
+.endo-bar { position: relative; margin-top: 4px; height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
+.endo-bar i { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: var(--ok); transition: width .4s var(--ease), background .3s var(--ease); }
+.endo-bar[data-sev="caution"] i { background: var(--caution); }
+.endo-bar[data-sev="danger"] i { background: var(--danger); }
+.endo-bar[data-sev="critical"] i { background: var(--critical); }
+.endo-tile { padding: 6px 10px; border-radius: var(--r-control); background: var(--surface-2); min-width: 0; }
+.endo-num { font-size: var(--fs-16); font-weight: 650; color: var(--text); white-space: nowrap; }
+.endo-chip { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 8px; min-width: 0; padding: 4px 10px; border-radius: var(--r-control); border: 1px solid var(--hairline); transition: border-color .3s var(--ease), background .3s var(--ease); }
+.endo-chip dt { white-space: nowrap; }
+.endo-chip-v { margin-left: auto !important; font-size: var(--fs-14); font-weight: 600; color: var(--text); text-align: right; min-width: 0; }
+.endo-chip[data-on="true"] { border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: var(--accent-soft); }
+.endo-chip:first-of-type[data-on="true"] { border-color: color-mix(in srgb, var(--danger) 45%, transparent); background: color-mix(in srgb, var(--danger) 10%, transparent); }
+@media (prefers-reduced-motion: reduce) { .endo-bar i, .endo-grade::before, .endo-chip { transition: none; } }
+/* In a narrow card the chips each take a line, so a long red-sign reading still fits; beside the view on a
+   phone, the wall-stress reading goes under its name. */
+@container (max-width: 449px) {
+  .endo-chip { grid-column: 1 / -1; }
+  .endo-read { gap: 6px; }
+  .endo-tile { padding: 5px 8px; }
+  .endo-read dt { font-size: 11px; }
+}
+@container (max-width: 220px) { .endo-pos { font-size: 9.5px; padding: 1px 6px; } }

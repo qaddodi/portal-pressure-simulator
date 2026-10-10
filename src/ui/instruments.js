@@ -20,24 +20,46 @@ export function createEndoscopy({ onAction }) {
   const cv = h('canvas', { role: 'img', 'aria-label': 'Endoscopic view' });
   box.append(cv);
   const view = 'eso'; // the esophageal variceal view only
+  // The position sits on the view itself, as on an endoscopy monitor.
+  box.append(h('span', { class: 'endo-pos' }, 'Distal esophagus · 36 cm'));
   const bandBtn = h('button', { class: 'btn primary', onclick: () => onAction({ kind: 'band' }) }, icon('band'), 'Band a column (EVL)');
-  const stats = h('dl', { class: 'kv wrap' });
+  // The readings: the grade leads, wall stress is a meter toward the tear point, size and wall side by side,
+  // red signs and bands as chips. Built once; each frame only changes text, widths and states.
+  const dd = (cls) => h('dd', { class: cls });
+  const gradeCode = h('b'), gradeLabel = h('span');
+  const grade = h('dd', { class: 'endo-grade' }, gradeCode, gradeLabel);
+  const stressTxt = dd('endo-stress-v'), stressFill = h('i'), stressBar = h('span', { class: 'endo-bar', 'aria-hidden': 'true' }, stressFill);
+  const diam = dd('endo-num'), wall = dd('endo-num'), red = dd('endo-chip-v'), bands = dd('endo-chip-v');
+  const item = (cls, ...kids) => h('div', { class: cls }, ...kids);
+  const stats = h('dl', { class: 'endo-read' },
+    item('endo-g', h('dt', { class: 'sr-only' }, 'Grade'), grade),
+    item('endo-stress', h('dt', {}, 'Wall stress (model)'), stressTxt, stressBar),
+    item('endo-tile', h('dt', {}, 'Diameter'), diam),
+    item('endo-tile', h('dt', {}, 'Wall thickness'), wall),
+    item('endo-chip', h('dt', {}, 'Red signs'), red),
+    item('endo-chip', h('dt', {}, 'Bands placed'), bands));
   const side = h('div', { class: 'chart-side' }, stats,
     bandBtn,
     h('div', { class: 'ctl-sub' }, 'Drawn from the model. F1 small and straight, F2 enlarged and tortuous, F3 large and beaded.'));
   el.append(box, side);
+  const set = (node, v) => { if (node.textContent !== v) node.textContent = v; };
   function update(f) {
     const m = f.metrics;
     const vx = view === 'eso' ? m.varix : m.gastricVarix;
     const noVx = !varicesPresent(f, view === 'eso' ? 'VAR' : 'GV');
     bandBtn.disabled = noVx; bandBtn.title = noVx ? 'No varices to band' : '';
-    stats.replaceChildren(
-      h('dt', {}, 'Grade'), h('dd', {}, `${vx.grade.code} ${vx.grade.label}`),
-      h('dt', {}, 'Diameter'), h('dd', {}, `${fmt(vx.d, 1)} mm`),
-      h('dt', {}, 'Wall thickness'), h('dd', {}, `${fmt(vx.w, 2)} mm`),
-      h('dt', {}, 'Wall stress (model)'), h('dd', {}, vx.ratio >= 1 ? (store.get().params?.bleeding ? 'past the tear point' : 'past the tear point (bleeding is off, so it holds)') : `${Math.round(vx.ratio * 100)} % of the tear point`),
-      h('dt', {}, 'Red signs'), h('dd', {}, vx.d < 2.5 ? 'None' : vx.redWale ? 'Red wale, cherry spots' : 'None'),
-      h('dt', {}, 'Bands placed'), h('dd', {}, String(Math.round(f.bands || 0))));
+    set(gradeCode, vx.grade.code === '—' ? '' : vx.grade.code); set(gradeLabel, vx.grade.label);   // no varices: the label alone
+    grade.dataset.sev = vx.grade.code === 'F1' ? 'caution' : vx.grade.code === '—' ? 'ok' : 'danger';
+    set(stressTxt, vx.ratio >= 1 ? (store.get().params?.bleeding ? 'past the tear point' : 'past the tear point (bleeding is off, so it holds)') : `${Math.round(vx.ratio * 100)} % of the tear point`);
+    const sev = vx.ratio > 1 ? 'critical' : vx.ratio > 0.7 ? 'danger' : vx.ratio > 0.4 ? 'caution' : 'ok';   // as the wall view's gauge
+    if (stressBar.dataset.sev !== sev) stressBar.dataset.sev = sev;
+    const wPct = `${Math.round(clamp(vx.ratio, 0, 1) * 1000) / 10}%`;
+    if (stressFill.style.width !== wPct) stressFill.style.width = wPct;
+    set(diam, `${fmt(vx.d, 1)} mm`); set(wall, `${fmt(vx.w, 2)} mm`);
+    const redV = vx.d < 2.5 ? 'None' : vx.redWale ? 'Red wale, cherry spots' : 'None';
+    set(red, redV); red.parentNode.dataset.on = String(redV !== 'None');
+    const nb = String(Math.round(f.bands || 0));
+    set(bands, nb); bands.parentNode.dataset.on = String(nb !== '0');
     draw(f, vx);
   }
   // Rendered endoscopic view (see endo-render.js): a per-pixel 3D shading of the lumen with raised,
@@ -61,8 +83,8 @@ export function createEndoscopy({ onAction }) {
     const { ctx, w, h: hh } = fitCanvas(cv);
     if (w < 32 || hh < 32) return; // hidden/reflowing canvas: wait for its measured size
     ctx.clearRect(0, 0, w, hh);
-    // The field sits above its caption, never under it.
-    const cx = w / 2, cy = (hh - 16) / 2, R = Math.min(w, hh - 16) / 2 - 6;
+    // The field fills the box; its position label sits over the dark rim (styles: .endo-pos).
+    const cx = w / 2, cy = hh / 2, R = Math.min(w, hh) / 2 - 4;
     ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
     const bands = Math.round(f.bands || 0);
     // Banding deflates the banded columns only. The model's single varix size falls as bands go on,
@@ -140,8 +162,6 @@ export function createEndoscopy({ onAction }) {
     }
     ctx.restore();
     ctx.strokeStyle = '#0c0d10'; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
-    ctx.fillStyle = cssVar('--text-3') || '#888'; ctx.font = FONT(500, 10); ctx.textAlign = 'left';
-    ctx.fillText('Distal esophagus · 36 cm', 6, hh - 3);
   }
   return { id: 'endoscopy', label: 'Endoscopy', el, update, setView() {} };
 }
