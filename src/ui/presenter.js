@@ -19,9 +19,9 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=cab65850a4';
 import { sinusoidSupported } from './sinusoid-view.js?v=d5403260c8';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
-import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=a63fd1a945';
-import { createTools } from './presenter-tools.js?v=28dfa00d7e';
-import { openHandout } from './handout.js?v=a11e7479e1';
+import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=4ac77e066c';
+import { createTools } from './presenter-tools.js?v=621f749226';
+import { openHandout } from './handout.js?v=0e305bf4f0';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -80,6 +80,9 @@ const TARGETS = {
   varix: { node: 'VAR', edges: ['C1a', 'C1b'], tone: 'var', words: 'esophageal varices|varices|varix' },
   gv: { node: 'GV', edges: ['C2'], tone: 'var', words: 'gastric varices|fundal varices' },
   lgv: { node: 'LGV', edges: ['LGV_CONF', 'V_STO'], tone: 'var', words: 'left gastric vein|coronary vein' },
+  azy: { node: 'AZY', edges: ['AZY_SVC'], tone: 'var', words: 'azygos(?: vein)?' },
+  lpv: { node: 'LPV', edges: ['PVH_L'], tone: 'pv', words: 'left portal vein' },
+  lrv: { node: 'LRV', edges: ['LRV_IVC', 'V_KID_L'], tone: 'ivc', words: 'left renal vein' },
   spleen: { organ: 'spleen', tone: 'sv', words: 'spleen' },
   liver: { organ: 'liver', tone: 'wedge', words: 'liver' },
   heart: { organ: 'heart', tone: 'ra', words: 'heart' },
@@ -162,6 +165,11 @@ function rich(t, s = {}, fp = null) {
   out.push(t.slice(at));
   return out;
 }
+// The five stations' colours with their names, once on a ladder or catheter slide (D1): the figure's labels and
+// the ladder's points take the same colours.
+const STATIONS = [['pv', 'Portal vein'], ['wedge', 'Sinusoids · WHVP'], ['hv', 'Hepatic vein · FHVP'], ['ivc', 'IVC'], ['ra', 'Right atrium']];
+const stationKey = () => h('div', { class: 'pz-stk', role: 'list', 'aria-label': 'Station colours' },
+  STATIONS.map(([t, w]) => h('span', { role: 'listitem', style: `--c:var(--tr-${t})` }, h('i'), w)));
 const RATE = {
   hvpg: (v) => (v >= 10 ? ['hi', 'CSPH'] : v >= 5 ? ['mid', 'Raised'] : ['ok', 'Normal']),
   ppg: (v) => (v >= 12 ? ['hi', 'High'] : v >= 6 ? ['mid', 'Raised'] : ['ok', 'Normal']),
@@ -179,7 +187,7 @@ const RATE = {
   shunt: (v) => (v >= 0.5 ? ['hi', 'Large'] : v >= 0.2 ? ['mid', 'Moderate'] : ['ok', 'Small']),
   map: (v) => (v < 65 ? ['hi', 'Low'] : ['ok', 'Normal']),
   // Liver stiffness (Baveno VII): under 10 kPa normal, 15 to 25 the grey zone, 25 or more CSPH.
-  lsm: (v) => (v >= 25 ? ['hi', 'CSPH likely'] : v >= 15 ? ['mid', 'Grey zone'] : v >= 10 ? ['mid', 'Raised'] : ['ok', 'Normal']),
+  lsm: (v) => (v >= 25 ? ['hi', 'CSPH likely'] : v >= 15 ? ['mid', 'Gray zone'] : v >= 10 ? ['mid', 'Raised'] : ['ok', 'Normal']),
   ra: (v) => (v > 8 ? ['hi', 'High'] : ['ok', 'Normal']),
   salb: (v) => (v < 3.5 ? ['mid', 'Low'] : ['ok', 'Normal']),
   hr: (v) => [null, v < 60 ? 'Slow' : v > 100 ? 'Fast' : 'Normal'],
@@ -193,6 +201,8 @@ const TILE = {
   ppg: { t: 'PPG', s: 'Portal − IVC', u: 'mmHg', better: -1 },
   pv: { t: 'Portal vein', s: 'Pressure', u: 'mmHg', better: -1 },
   sin: { t: 'Sinusoids', s: 'Pressure', u: 'mmHg', better: -1 },
+  whvp: { t: 'WHVP', s: 'Wedged hepatic vein', u: 'mmHg', better: -1 },
+  fhvp: { t: 'FHVP', s: 'Free hepatic vein', u: 'mmHg', better: -1 },
   saag: { t: 'SAAG', s: 'Serum − ascites albumin', u: 'g/dL' },
   tp: { t: 'Ascites protein', s: 'Total protein', u: 'g/dL' },
   asc: { t: 'Ascites', s: 'Volume', u: 'L', x: 0.001, better: -1 },
@@ -219,7 +229,7 @@ function liveFp(fr) {
   const m = fr.metrics, a = m.ascites, P = fr.Pf || fr.P;
   return { pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: m.hvpg, ra: m.ra, ivc: m.ivc, ppg: m.ppg, asc: a.volume, saag: a.saag, tp: a.totalProtein,
     sin: P?.[NI.SIN_R], int: P?.[NI.INT], varix: m.varix.d, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
-    pvFlow: m.pvFlowMean, shunt: m.shuntFraction, liver: m.liverPerfPct, map: m.map, hr: m.hr, lsm: m.lsm, hb: m.blood?.hb };
+    pvFlow: m.pvFlowMean, shunt: m.shuntFraction, liver: m.liverPerfPct, map: m.map, hr: m.hr, lsm: m.lsm, pvVel: m.pvVelMean, hb: m.blood?.hb };
 }
 
 // A value counts from where it was to where it goes (eased, about a second); reduced motion jumps.
@@ -341,7 +351,10 @@ function bigLadder() {
  *  tile also says how far it moved from there, green when it went the better way (and plain within normal). */
 function bigTiles() {
   const el = h('div', { class: 'pz-tiles' });
-  let sig = '', parts = [], draw = null;
+  let sig = '', parts = [], draw = null, goal = false;
+  // After TIPS the PPG is read against its target (below 12 mmHg), so a tile never says "Raised" under a line that
+  // says the target is reached.
+  const rated = (k, f) => (goal && k === 'ppg' && f.ppg != null ? (f.ppg < 12 ? ['ok', 'Below 12: target met'] : ['hi', '12 or more: target not met']) : rateOf(k, f));
   function build(ks, withRef) {
     parts = ks.map((k) => {
       const T = TILE[k] || { t: k, s: '', u: '' };
@@ -352,7 +365,7 @@ function bigTiles() {
     el.replaceChildren(...parts.map((p) => p.tile));
     el.dataset.n = String(parts.length);
     draw = tweener((f) => parts.forEach((p) => {
-      const [cls, word] = rateOf(p.k, f), none = cls == null && (p.k === 'saag' || p.k === 'tp');
+      const [cls, word] = rated(p.k, f), none = cls == null && (p.k === 'saag' || p.k === 'tp');
       p.v.textContent = none ? '—' : tileVal(p.k, f[p.k]);
       p.u.hidden = none || !p.T.u;
       p.r.textContent = word;
@@ -363,13 +376,14 @@ function bigTiles() {
       // "Up 9 points from 82%", "Down 2.1 mmHg from 17.7": the change, then where it started (never read as "up to").
       const pct = p.T.u === '%', by = pct ? (Math.abs(dd) === 1 ? ' point' : ' points') : p.T.u ? ' ' + p.T.u : '';
       p.d.textContent = same ? 'No change' : `${dd < 0 ? '▼ Down' : '▲ Up'} ${fmt(Math.abs(dd), dg)}${by} from ${fmt(r0 * x, dg)}${pct ? '%' : ''}`;
-      const calm = cls === 'ok' && rateOf(p.k, { ...f, [p.k]: r0 })[0] === 'ok';   // (a change within normal is neither)
+      const calm = cls === 'ok' && rated(p.k, { ...f, [p.k]: r0 })[0] === 'ok';   // (a change within normal is neither)
       p.d.dataset.way = same || calm || !p.T.better ? '' : Math.sign(dd) === p.T.better ? 'good' : 'bad';
     }));
   }
   return {
     el,
-    set(f, ks, key = [], ref = null, ms) {
+    set(f, ks, key = [], ref = null, ms, tips = false) {
+      goal = !!tips;
       const sg = ks.join() + (ref ? '|ref' : '');
       if (sg !== sig) { sig = sg; build(ks, !!ref); }
       parts.forEach((p) => p.tile.classList.toggle('key', key.includes(p.k)));
@@ -551,7 +565,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=829b41bacc', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=bafb12d22a', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 6000);
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -563,7 +577,7 @@ function makeCalc() {
       w.onmessage = (e) => onMsg(e.data); w.onerror = null;
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
-      const { createCore } = await import('../worker-core.js?v=5da0fe0faf');
+      const { createCore } = await import('../worker-core.js?v=c394f5eab9');
       const core = createCore((m) => setTimeout(() => onMsg(m), 0));
       core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
       post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();
@@ -577,7 +591,7 @@ function makeCalc() {
   };
 }
 
-export function createPresenter({ openSettings, startCase, cases = [], host, stage, projectorOn, projectorOff, closeHome, stashCards, rerenderHome }) {
+export function createPresenter({ openSettings, startCase, loadPreset, cases = [], host, stage, projectorOn, projectorOff, closeHome, stashCards, rerenderHome }) {
   const app = document.getElementById('app'), view = document.getElementById('stageView'), wrap = document.getElementById('stageWrap');
   let calc = null;
   const getCalc = () => (calc ||= makeCalc());
@@ -829,7 +843,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
   function dataTo(s, f, ref, ms) {
     if (!ui) return;
     if (s.data === 'ladder') ui.ladder.set(f, { key: s.key || [], ms, brackets: s.brackets });
-    if (s.data) ui.tiles.set(f, tileKeys(s), s.key || [], ref, ms);
+    if (s.data) ui.tiles.set(f, tileKeys(s), s.key || [], ref, ms, store.get().params?.tips?.on);
   }
   async function playLapse(s, to, cut) {
     const end = await stateReady(stateOf[to]);
@@ -880,7 +894,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     // A time-lapse starts from the slide before's state; a catheter slide drives its own camera.
     const lap = !!s.lapse && to > 0 && !q, ct = !q && !s.visual ? s.cath || null : null;
     // Words out, and the marks: they belong to the slide that is leaving.
-    store.set({ focus: null, presentLabels: [], presentTerms: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
+    store.set({ focus: null, presentLabels: [], presentTerms: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
     stopLapse(); abSlow();
     const si = lap ? stateOf[to - 1] : stateOf[to];
     await wordsOut(s, shownState >= 0 && (si !== shownState || liveOff));
@@ -924,7 +938,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
       const tg = q ? null : slideTargets(s), marks = q ? [] : (s.marks || (s.mark ? [s.mark] : [])).map((m) => ({ edges: [...m.edges], label: m.label, kind: m.kind || 'block' }));
       store.set({ presentLabels: q ? [] : [...new Set([...(s.labels || []), ...tg.labels])], presentTerms: tg?.terms || null,
         presentNames: !q && (s.data === 'ladder' || !!s.cath),
-        focus: marks.length ? { ...marks[0], marks } : null });
+        focus: marks.length ? { ...marks[0], marks } : null, lobuleCallout: q || !s.callout ? null : { kind: 'block', ...s.callout } });
       if (tg) { stage.setGlow(tg.glow); stage.pinOrgans(tg.organs); }
     }
     if (!s.visual && !q && s.sites) stage.setSites(s.sites, st.fp);
@@ -965,6 +979,17 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
   const refOf = (s, i) => { const d = deltaOf(s, i); return (d === true ? states[stateOf[i - 1]]?.fp : typeof d === 'string' ? fpOf(d) : null) || null; };
   // The data card: the ladder and tiles, a slide's instrument (tool), or both (the tool above the tiles).
   const hasCard = (s) => !s.visual && (s.data === 'ladder' || s.data === 'tiles' || !!s.tool);
+  // A reading tool can show the earlier reading as a ghost (D3): tool.delta, else the slide's own delta.
+  const GHOST = { fibroscan: ['lsm', 'kPa', 1], doppler: ['pvVel', 'cm/s', 0] };
+  function toolGhost(s, i) {
+    const g = GHOST[s.tool.kind];
+    if (!g || (s.tool.kind === 'doppler' && (s.tool.vessel || 'PV_TRUNK') !== 'PV_TRUNK')) return null;
+    const t = s.tool.delta != null ? { ...s, delta: s.tool.delta } : s, d = deltaOf(t, i), r = refOf(t, i);
+    if (r?.[g[0]] == null) return null;
+    // (The earlier reading only: the instrument's live reading jitters, so a computed change could disagree with it.)
+    const from = d === true ? slides[stateOf[i - 1]] : slides.find((x) => x.id === d);
+    return { label: s.tool.deltaLabel || (d === true && s.lapse?.from) || from?.kicker || 'Before', value: `${fmt(r[g[0]], g[2])} ${g[1]}` };
+  }
   const cardTitle = (s) => (s?.data === 'ladder' ? 'Pressure, portal vein to heart' : s?.dataTitle || (s?.tool ? ui.tools.title(s.tool) : 'This patient, from the model'));
   // The talk so far, for a pressure trace: every state up to slide i, once each.
   const chainTo = (i) => [...new Set(stateOf.slice(0, i + 1))].map((k) => ({ n: k + 1, title: slides[k].title, fp: states[k]?.fp }));
@@ -991,6 +1016,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
         : [kick(s.site, s.kicker, s.sec), h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null,
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), onclick: () => abPick(s, i, k) }, o.label))) : null,
+          s.data === 'ladder' || s.cath ? stationKey() : null,
           s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
           s.causes?.length ? h('div', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), h('ul', {}, s.causes.map((c) => h('li', {}, c)))) : null]));
@@ -1009,10 +1035,11 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
       ui.dhT.textContent = cardTitle(s);
       ui.dhL.hidden = !lad;
       if (s.tool) ui.tools.show(s.tool, { quiz: q, stateKey: stateOf[i], chain: chainTo(i) }); else ui.tools.hide();
+      if (s.tool) ui.tools.ghost(q ? null : toolGhost(s, i));
       // (With a new patient the numbers are set at once, while the card is still out: it fades back in already showing them.)
       const ms = fresh ? 0 : undefined;
       if (lad) ui.ladder.set(st.fp, { key: q ? [] : s.key || [], ms, brackets: q ? null : s.brackets });
-      if (s.data) ui.tiles.set(st.fp, tileKeys(s), q ? [] : s.key || [], q ? null : refOf(s, i), ms);
+      if (s.data) ui.tiles.set(st.fp, tileKeys(s), q ? [] : s.key || [], q ? null : refOf(s, i), ms, st.params?.tips?.on);
       if (data.hidden) { data.hidden = false; data.classList.add('pz-hide'); void data.offsetWidth; }
       data.classList.remove('pz-hide');
     } else if (!data.hidden) {
@@ -1416,7 +1443,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     wrap.append(root);
     return { root, shade, safe, load, text, data, dhT, dhL, ladder, tiles, tools, veil, panel, count, prog, bar, black: blackEl, jump };
   }
-  // Everything the audience's slides will change, kept so Esc, ✕ or Finish puts the app back as it was.
+  // Everything the audience's slides will change, kept so Esc, ✕ or Finish can put the viewer's own settings back (the patient itself returns to healthy, see putHealthy).
   async function capture() {
     const st = store.get(), { snap } = await host.request('snapshot');
     return { snap, params: structuredClone(st.params), presetId: st.presetId, view: st.view, lobule: st.lobule, sinusoid: st.sinusoid, mode: st.mode,
@@ -1452,12 +1479,12 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
   }
   function stop(restore = true) {
     if (!deck) return;
+    stopLapse(); cathStop(); abSlow(); liveOff = false;   // (before deck is cleared: stopping a time-lapse repaints the bar)
     deck = null; shown = null; want = 0;
-    stopLapse(); cathStop(); abSlow(); liveOff = false;
     for (const w of waiters) w.res(null);
     waiters = [];
     removeEventListener('resize', onResize);
-    store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
+    store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
     clearTimeout(idleT);
     ui?.tools.dispose(); ui?.root.remove(); ui?.shade.remove(); ui = null;
     view.classList.remove('pz-out');
@@ -1469,27 +1496,24 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     app.classList.remove('presenting', 'pz-hi');
     projectorOff();
     dispatchEvent(new Event('pps:occ'));
-    if (restore && saved) putBack(saved);
+    if (restore && saved) putHealthy(saved);
     if (restore) { saved = null; if (layersBefore) store.set({ lobuleLayers: layersBefore }); layersBefore = null; }
   }
-  // Back to the app as it was before the presentation: the patient and every setting, the view and its camera, the cards and
-  // sheets that were open (not Home, which launched the show and stays closed), the sim running or paused (and a time-lapse), each easing in rather than jumping.
-  async function putBack(b) {
-    const before = store.get(), ms = reduce.matches ? 0 : 380;
-    // The patient changes behind a soft dim of the figure, as between slides, so nothing pops.
+  // When the show ends, the app returns to the healthy patient from the start (not to where the viewer was): healthy preset, anatomy view
+  // framed to fit, tools and cards closed, nothing from the last slide left on. The viewer's own settings (theme, label size, the
+  // lobule layers they chose) stay as they were. The figure dims softly while the patient changes, as between slides, so nothing pops.
+  async function putHealthy(b) {
+    const ms = reduce.matches ? 0 : 380;
     if (ms) { view.style.transition = `opacity ${ms}ms var(--ease)`; view.style.opacity = '.22'; await wait(ms); }
-    host.send({ type: 'restore', snap: b.snap });
-    replaceParams(structuredClone(b.params));
-    host.send({ type: 'run', running: b.running, clock: b.lapse ? 'disease' : 'hemo', speed: b.lapse || b.speed });
-    store.set({ presetId: b.presetId, presetLoading: false, mode: b.mode, colorMode: b.colorMode, lapse: b.lapse, speed: b.speed, hvpgMeasured: b.hvpgMeasured, lastHVPG: b.lastHVPG,
-      compareSnap: b.compareSnap, compareView: b.compareView, historyTick: (before.historyTick || 0) + 1 });
-    if (before.view !== b.view) { store.set({ view: b.view }); await wait(reduce.matches ? 0 : 700); }
-    if (!b.lobule) stage.setCamera(b.cam, reduce.matches ? 0 : 900);
+    const st = store.get();
+    store.set({ mode: 'explore', colorMode: 'pressure', selection: null, details: null, compareSnap: null, compareView: 'B', hvpgMeasured: false, lastHVPG: null, lapse: 0, speed: 1 });
+    if (st.sinusoid) { store.set({ sinusoid: false }); await wait(reduce.matches ? 0 : 1000); }
+    if (st.lobule) { store.set({ lobule: false }); await until(() => stage.lobuleSettled(), 2600); await wait(80); }
     if (b.lobuleLayers) store.set({ lobuleLayers: b.lobuleLayers });
-    if (before.lobule !== b.lobule) store.set({ lobule: b.lobule, sinusoid: b.sinusoid });
-    else if (before.sinusoid !== b.sinusoid) store.set({ sinusoid: b.sinusoid });
-    store.set({ selection: b.selection, details: b.details });
-    b.cards?.();
+    if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await wait(reduce.matches ? 0 : 700); }
+    host.send({ type: 'run', running: true, clock: 'hemo', speed: 1 });
+    await loadPreset?.('healthy');
+    stage.fitSlow(reduce.matches ? 0 : 700);
     if (ms) { await wait(260); view.style.opacity = ''; await wait(ms + 60); view.style.transition = ''; }
   }
 

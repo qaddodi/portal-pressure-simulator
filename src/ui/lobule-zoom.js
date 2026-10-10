@@ -231,6 +231,16 @@ export function createLobuleZoom({ host }) {
     requestAnimationFrame(refit);
   };
   store.on('lobuleLayers', () => syncLayers());
+  // A presenter slide's pointer at the lesion (D4): { at: 'triad' | 'sin' | 'cv', label, kind: block | treat | note }.
+  const callEl = h('div', { class: 'lz-call', 'aria-hidden': 'true' }), callLine = s('line', { class: 'lz-call-l' }), callRing = s('circle', { class: 'lz-call-r' });
+  let call = null;
+  store.on('lobuleCallout', () => {
+    const c = store.get().lobuleCallout || null;
+    if (JSON.stringify(c) === JSON.stringify(call)) return;
+    call = c;
+    if (c) { callEl.textContent = c.label; callEl.dataset.kind = callLine.dataset.kind = callRing.dataset.kind = c.kind || 'block'; }
+    viewChanged();
+  });
 
   const phoneMQ = matchMedia('(max-width: 720px)');
   const el = h('div', { class: 'lz', 'aria-hidden': 'true' }, tissue, glCv, fx, leaders, labels);
@@ -863,8 +873,30 @@ export function createLobuleZoom({ host }) {
     if (!inside(sinAt(sinTube()), keep)) { const t = best([...g.L0, ...g.L1, ...g.L2], sinAt, [[g.cx, g.cy], C[pick.triad]]); if (t) pick.sin = t.id; }
   }
   const hitKind = (key) => (key === 'triad' ? { part: 'triad', tri: pick.triad } : key === 'cv' ? { part: 'cv' } : key === 'lymph' ? { part: 'lv', tri: pick.lt ?? pick.triad } : { part: 'sin', tube: sinTube().id });
+  // The lesion pointer: a pill near the spot, clear of the labels and cards, with a leader to a ring on it. Eases in and out.
+  function placeCall(fr, placed, cards) {
+    if (!callEl.isConnected) { labels.append(callEl); leaders.append(callLine, callRing); }
+    const a = call && toScreen(anchorOf(call.at)), on = !!a && a[0] > fr.l && a[0] < fr.r && a[1] > fr.t && a[1] < fr.b;
+    for (const e of [callEl, callLine, callRing]) e.classList.toggle('on', on);
+    if (!on) return;
+    const w = callEl.offsetWidth || 120, hh = callEl.offsetHeight || 28, pad = 10;
+    const ov = (p, q) => Math.max(0, Math.min(p.r, q.r) - Math.max(p.l, q.l)) * Math.max(0, Math.min(p.b, q.b) - Math.max(p.t, q.t));
+    const rr = Math.max(10, (geo.rcv0 || 6) * 1.1 * V.k), spot = { l: a[0] - rr - 6, r: a[0] + rr + 6, t: a[1] - rr - 6, b: a[1] + rr + 6 };
+    let best = null;
+    for (const r of [70, 100, 140]) for (let i = 0; i < 12; i++) {
+      const t = (i / 12) * Math.PI * 2 - Math.PI / 2;
+      const x = clamp(a[0] + Math.cos(t) * (r + w / 3), fr.l + w / 2 + pad, fr.r - w / 2 - pad), y = clamp(a[1] + Math.sin(t) * r, fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
+      const box = { l: x - w / 2 - 4, r: x + w / 2 + 4, t: y - hh / 2 - 4, b: y + hh / 2 + 4 };
+      const cost = placed.reduce((c, o) => c + ov(box, o) * 100, 0) + ov(box, spot) * 200 + cards.reduce((c, o) => c + ov(box, o) * 400, 0) + Math.hypot(x - a[0], y - a[1]) * 0.5;
+      if (!best || cost < best.cost) best = { x, y, box, cost };
+    }
+    placed.push(best.box);
+    callEl.style.left = `${best.x - w / 2}px`; callEl.style.top = `${best.y - hh / 2}px`;
+    callLine.setAttribute('x1', a[0]); callLine.setAttribute('y1', a[1]); callLine.setAttribute('x2', best.x); callLine.setAttribute('y2', best.y);
+    callRing.setAttribute('cx', a[0]); callRing.setAttribute('cy', a[1]); callRing.setAttribute('r', rr);
+  }
   function layoutLabels() {
-    const fr0 = freeRect(), g = geo, key = `${g.W}x${g.H}|${Object.values(labs).map((l) => l.txt).join('|')}|${zonesOn}|${lymphOn}|${V.k},${V.x},${V.y}|${fr0.t},${fr0.b},${fr0.l},${fr0.r}`;
+    const fr0 = freeRect(), g = geo, key = `${g.W}x${g.H}|${Object.values(labs).map((l) => l.txt).join('|')}|${zonesOn}|${lymphOn}|${call ? call.at + call.label : ''}|${V.k},${V.x},${V.y}|${fr0.t},${fr0.b},${fr0.l},${fr0.r}`;
     if (key === layoutKey) return;
     layoutKey = key;
     pickAnchors(fr0);
@@ -951,6 +983,7 @@ export function createLobuleZoom({ host }) {
     }
     // Zone names written in the bands themselves, as the organs are named on the anatomy: quiet capitals in each
     // zone's color, on the radius to the flat bottom edge, so each name runs along its band.
+    placeCall(fr, placed, cards);
     labels.querySelectorAll('.lz-zone').forEach((z) => z.remove());
     if (zonesOn) {
       const a = Math.PI / 2, ap = R * 0.866;

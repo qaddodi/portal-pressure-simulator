@@ -21,7 +21,7 @@ export const RIGHT_HEART = {
     {
       id: 'tr', preset: 'rhf', cam: 'hepatic', labels: ['RHV', 'RA'], tool: { kind: 'doppler', vessel: 'RHV_IVC' }, data: 'tiles', tiles: ['ra', 'hvpg'], key: ['ra'],
       kicker: 'Heart failure', site: 'cardiac', title: 'Tricuspid regurgitation turns it back',
-      line: 'Severe tricuspid regurgitation drives blood back into the hepatic veins in systole. The right atrium reads 19 mmHg.',
+      line: 'Severe tricuspid regurgitation drives blood back into the hepatic veins in systole. The [right atrium](ra) reads {ra}.',
       notes: 'With a leaking tricuspid valve the ventricle ejects into the atrium and the hepatic veins as well as the lungs, so the S wave shrinks, then reverses. At the bedside this is the large v wave in the jugular vein and a pulsatile liver. A high right atrial pressure alone, without regurgitation, blunts the waveform and makes it flatter.',
       ask: ['What happens to the S wave of the hepatic vein in severe tricuspid regurgitation?', 'It reverses: flow goes back toward the liver in systole.'],
     },
@@ -42,14 +42,14 @@ export const RIGHT_HEART = {
     {
       id: 'constrict', preset: 'constrictive', cam: 'heart', labels: ['RHV', 'RA'], tool: { kind: 'doppler', vessel: 'RHV_IVC' }, data: 'tiles', tiles: ['ra', 'lsm'], key: ['ra'],
       kicker: 'Constrictive pericarditis', site: 'cardiac', title: 'A rigid pericardium',
-      line: 'The heart cannot fill, and the right atrial pressure rises to about 10 mmHg. The liver congests and ascites forms, often before the legs swell.',
+      line: 'The heart cannot fill, and the [right atrial pressure](ra) rises to {ra}. The liver congests and ascites forms, often before the legs swell.',
       notes: 'Constriction follows tuberculosis, cardiac surgery, radiotherapy or viral pericarditis. It is often first seen as ascites or a stiff liver and mistaken for cirrhosis. The neck veins are high and rise on inspiration (Kussmaul sign); there may be a pericardial knock. On Doppler the hepatic vein reversal grows in expiration. Echocardiography, CT or MRI of the pericardium and right heart catheterization make the diagnosis; pericardiectomy treats it.',
       ask: ['Ascites with a high SAAG and high protein, a pericardial knock and a JVP that rises on inspiration. What is the diagnosis?', 'Constrictive pericarditis.'],
     },
     {
       id: 'web', preset: 'ivc-web', cam: 'hepatic', labels: ['RHV'], sites: ['web', 'ra'], mark: { edges: ['IVCS_RA'], label: 'Web in the IVC' }, tool: { kind: 'doppler', vessel: 'IVCS_RA' }, data: 'tiles', tiles: ['ivc', 'ra'], key: ['ivc'],
       kicker: 'The IVC', site: 'post', title: 'A web in the IVC',
-      line: 'A membrane in the IVC, above the hepatic veins. Below it the pressure is 15 mmHg; the right atrium beyond it is normal at 3.',
+      line: 'A membrane in the IVC, above the hepatic veins. Below it the pressure is {ivc}; the right atrium beyond it is normal at {ra}.',
       notes: 'Membranous obstruction of the IVC is a form of Budd–Chiari syndrome, common in South and East Asia and southern Africa. The liver congests as in heart failure, but the jugular venous pressure is normal and the echocardiogram is too. Doppler shows fast or turbulent flow at the web and slow or reversed flow below it. The PPG, read against the IVC below the web, looks normal; the portal vein against the right atrium shows the full gradient. Angioplasty, with or without a stent, treats it.',
       ask: ['Congested liver, ascites, normal JVP and a normal echocardiogram. Where is the block?', 'Between the liver and the heart: the hepatic veins or the IVC.'],
     },

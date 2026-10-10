@@ -18,9 +18,9 @@ export const BLEED = {
   summary: 'One bleed from tear to TIPS: early shock with a normal hemoglobin, octreotide before the scope, banding, restrictive transfusion and why overfilling raises the portal pressure.',
   slides: [
     {
-      id: 'before', preset: 'cirr-decomp', cam: 'varices', labels: ['VAR', 'AZY'], mark: { edges: ['C1a', 'C1b'], label: 'Large varix' }, tool: BEATS, data: 'tiles', tiles: ['pv', 'varix'], key: ['varix'],
+      id: 'before', preset: 'cirr-decomp', cam: 'varices', labels: ['VAR', 'AZY'], mark: { edges: ['C1a', 'C1b'], label: 'Large varix', kind: 'note' }, tool: BEATS, data: 'tiles', tiles: ['pv', 'varix'], key: ['varix'],
       kicker: 'Before', site: 'sin', title: 'Large varices under pressure',
-      line: 'Decompensated cirrhosis with an 8 mm varix and a portal pressure of {23 mmHg}. The wall is thin and the tension high.',
+      line: 'Decompensated cirrhosis with a varix of {varix} and a portal pressure of {pv}. The wall is thin and the tension high.',
       notes: 'This patient has the features that predict a bleed: large varices, red wale marks on the scope, Child–Pugh B or C, and an HVPG of 12 mmHg or more. Prevention would have been a non-selective beta-blocker (carvedilol) or banding. The trace on the right runs live, beat by beat, for the rest of the talk.',
       ask: ['Name three features that predict a first variceal bleed.', 'Large varices, red signs on the varix and advanced liver disease (Child–Pugh B or C).'],
     },
@@ -34,7 +34,7 @@ export const BLEED = {
     {
       id: 'minutes', action: [], cam: 'varices', tool: BEATS, data: 'tiles', tiles: ['hr', 'hb'], key: ['hb'], delta: true,
       kicker: K, site: 'sin', title: 'Shock before anemia',
-      line: 'Minutes later the heart rate is over 150 and the blood pressure has fallen. The hemoglobin has not moved: it falls only as fluid refills the vessels over hours.',
+      line: 'Minutes later the heart rate is {hr} and the blood pressure has fallen to {map}. The hemoglobin has not moved: it falls only as fluid refills the vessels over hours.',
       notes: 'Whole blood is lost, red cells and plasma together, so the first hemoglobin is close to normal even in shock. It falls over the next 24 to 72 hours as fluid moves in from the tissues and from the infusions. Judge the bleed by the pulse, the blood pressure, the urine output and the lactate. Protect the airway when the patient is confused or vomiting blood.',
       ask: ['A hemoglobin of 13.5 g/dL in a patient vomiting blood with a pulse of 140. Is the bleed small?', 'No: the hemoglobin lags. The pulse says the bleed is large.'],
     },
@@ -55,21 +55,22 @@ export const BLEED = {
     {
       id: 'blood', action: [UNIT, SALINE], cam: 'varices', tool: BEATS, data: 'tiles', tiles: ['map', 'pv'], key: ['map'], delta: true,
       kicker: 'Volume', site: 'sin', title: 'Restrictive transfusion',
-      line: 'One unit and a liter of saline bring the blood pressure back to about 64. Transfuse when the hemoglobin falls below {7 g/dL}, to a target of 7 to 8.',
+      line: 'One unit and a liter of saline bring the blood pressure back to {map}. Transfuse when the hemoglobin falls below {<7 g/dL}, to a target of 7 to 8.',
       notes: 'A restrictive transfusion strategy (a threshold of 7 g/dL, a target of 7 to 8) lowered rebleeding and death compared with transfusing to 9 g/dL. Patients with heart disease or ongoing massive bleeding may need more. Fresh frozen plasma and platelet transfusion to correct the INR or the count are not advised; they add volume without proven benefit.',
       ask: ['What hemoglobin target is used in variceal bleeding?', '7 to 8 g/dL, transfusing below 7.'],
     },
     {
       id: 'over', action: [SALINE, SALINE, SALINE, UNIT, UNIT, UNIT], cam: 'varices', tool: BEATS, data: 'tiles', tiles: ['pv', 'varix'], key: ['pv'], delta: true,
       kicker: 'Volume', site: 'sin', title: 'Over-transfusion raises the portal pressure',
-      line: 'Three more liters and three more units push the portal pressure back to about {23 mmHg}, where it was before the bleed. The banded varix is under pressure again.',
+      line: 'Three more liters and three more units push the portal pressure back to {pv}, where it was before the bleed. The banded varix is under pressure again.',
       notes: 'Portal pressure follows the blood volume. Refilling beyond what the circulation needs raises it back up and with it the tension in the varices and the risk of an early rebleed. It also worsens ascites and can push the patient into pulmonary edema. Aim for a mean arterial pressure of about 65 and good urine output, not a normal blood pressure at any cost.',
       ask: ['Why can over-transfusion cause a rebleed?', 'Extra volume raises the portal pressure and the tension in the varix wall.'],
     },
     {
       id: 'tips', params: { tips: { on: true } }, cam: 'liver', tool: BEATS, data: 'tiles', tiles: ['ppg', 'varix'], key: ['ppg'], delta: true,
       kicker: 'After the scope', site: 'sin', title: 'Pre-emptive TIPS',
-      line: 'Child–Pugh C 10 to 13, or B over 7 with active bleeding at endoscopy, get a covered TIPS within 72 hours. The PPG falls below 12.',
+      causesHead: 'Who gets it', causes: ['Child–Pugh C, 10 to 13 points', 'Child–Pugh B, over 7, with active bleeding at endoscopy'],
+      line: 'High-risk patients get a covered TIPS within 72 hours. The PPG falls to {ppg}.',
       notes: 'Baveno VII: in high-risk patients a pre-emptive TIPS, ideally within 24 hours and no later than 72, reduces rebleeding and death. An HVPG over 20 mmHg, where measured, also marks high risk. For everyone else, after the acute bleed: a non-selective beta-blocker with repeated banding every 2 to 4 weeks until the varices are gone. Rescue TIPS is for bleeding that drugs and banding do not control.',
       ask: ['Which patients get a pre-emptive TIPS after a variceal bleed?', 'Child–Pugh C 10 to 13, or Child–Pugh B over 7 with active bleeding at endoscopy.'],
     },
