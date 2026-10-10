@@ -602,7 +602,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       push += g * (5 + 9 * inf + 4 * tip);
       // Nodular contour: rounded bulges with notches between them (a cusp at each notch).
       const [u, a] = nod[i];
-      push += (Math.pow(Math.sin(Math.PI * u), 0.5) - 0.72) * 6 * a * smooth01(c / 0.7) * (0.45 + 0.55 * c);
+      push += (Math.pow(Math.sin(Math.PI * u), 0.5) - 0.72) * 3.5 * a * smooth01(c / 0.7) * (0.45 + 0.55 * c);
       return [x + nx * push, y + ny * push];
     });
     const f1 = (v) => v.toFixed(1);
