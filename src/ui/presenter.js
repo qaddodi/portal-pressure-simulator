@@ -579,9 +579,11 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     // Wedge: the balloon goes up just behind the tip, flow stops, the still column fills toward the sinusoids.
     if (v.balloon < 0.999) { cath.show = ['f']; cath.ring = CC.free; cathTrack('balloon', 1, 800); await wait(ms(900)); if (cut()) return; }
     cath.ring = CC.wedge;
-    if (v.column < 0.999) { cath.show = ['f', 'w']; cathTrack('column', 1, 1800); await wait(ms(1900)); if (cut()) return; }
-    cath.show = mode === 'result' ? ['sum'] : ['f', 'w'];
-    if (mode === 'result') cath.ring = null;
+    // The still column fills first and the pressure holds on its plateau; only then does the WHVP callout ease in,
+    // and for the result slide the HVPG bracket follows it.
+    if (v.column < 0.999) { cath.show = ['f']; cathTrack('column', 1, 1800); await wait(ms(1900)); if (cut()) return; await wait(ms(600)); if (cut()) return; }
+    if (!cath.show.includes('w')) { cath.show = ['f', 'w']; if (mode === 'result') { await wait(ms(1500)); if (cut()) return; } }
+    if (mode === 'result') { cath.show = ['sum']; cath.ring = null; }
   }
 
   // ── A time-lapse on the live model: its days run on the disease clock (ramped as the off-screen chain ran them),
