@@ -56,7 +56,7 @@ import { TAP } from './decks/tap.js?v=aeece78bce';
 import { CIRCUIT } from './decks/circuit.js?v=567293bbfe';
 import { DOPPLER } from './decks/doppler.js?v=ce002d6dac';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=b253a0817b';
-import { PREHEPATIC } from './decks/prehepatic.js?v=4de7c2b784';
+import { PREHEPATIC } from './decks/prehepatic.js?v=7c9a33aa27';
 import { RIGHT_HEART } from './decks/right-heart.js?v=5fdaa16faa';
 import { BLEED } from './decks/variceal-bleed.js?v=461b703f8d';
 

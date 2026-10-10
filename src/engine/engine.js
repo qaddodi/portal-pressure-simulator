@@ -16,7 +16,8 @@ const EXT_OVERRIDE = { IVC_IS: 'abd', CAUD: 'none' };
 export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 7.0, k: 0.35, kGV: 0.4, openGV: 5.0, mature: 0.3 };
 /** Rupture hazard per day as a function of T/Tcrit (§7.5). */
 const ruptureHazardPerDay = (x) => (x <= 1 ? 0 : 0.01 * Math.pow((x - 1) / 0.25, 3));
-const COLLATERAL = { open: 7.5, span: 14, tauGrow: 50, tauRegress: 120, acute: 0 };
+const COLLATERAL = { open: 7.5, span: 14, tauGrow: 50, tauRegress: 120, acute: 0,
+  acuteClot: 0.15 };   // acute: a clotted portal trunk opens the small pre-existing bypass veins this far (PV about 30 mmHg, not 46)
 const TIPS_R = { tract: 0.12, kin: 5.96 };   // PRU; kin: mmHg per (mL/s ÷ mm²)² (ρ·K/2 with K≈1.5)
 const DIPS_R = { tract: 0.07, kin: 5.96 };   // the caudate tract is a few centimetres, shorter than a TIPS tract
 // A stent in series with a parenchymal tract (which does not widen with the stent, so large stents plateau),
@@ -651,7 +652,8 @@ export class Engine {
    *  - its remodeled size (slow.d: weeks of growth under a sustained gradient, disease clock);
    *  - an acute, passive opening of the pre-existing channel as the gradient across its route rises
    *    (up to COLLATERAL.acute of the full range; 0, since collaterals and a cavernoma take weeks to
-   *    form, so an acute block shows none and they grow on the disease clock);
+   *    form and they grow on the disease clock; only a clotted portal trunk opens the small
+   *    pre-existing bypass veins a little, COLLATERAL.acuteClot, which holds the portal vein near 30 mmHg);
    *  - full size for a spontaneous shunt that is present (an anatomical variant, not remodeled).
    * The result is recorded in slow.dEff so the figure draws what the model conducts.
    */
@@ -661,7 +663,8 @@ export class Engine {
     else if (this.refP) {
       const dMin = dMinOf(e);
       const frac = clamp((this.routeExcess(e.route) - (e.open ?? COLLATERAL.open)) / COLLATERAL.span, 0, 1);
-      d = Math.max(d, dMin + (e.dMax - dMin) * (e.acute ?? COLLATERAL.acute) * Math.sqrt(frac));
+      const acute = e.acute ?? (this.params.thrombus.PV_TRUNK > 0.5 ? COLLATERAL.acuteClot : COLLATERAL.acute);
+      d = Math.max(d, dMin + (e.dMax - dMin) * acute * Math.sqrt(frac));
     }
     // The short/posterior gastric veins feed the fundal varices that the gastrorenal shunt
     // drains: this feeder is only as open as the shunt is.
