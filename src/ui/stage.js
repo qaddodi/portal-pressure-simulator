@@ -3327,14 +3327,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       el.style.transform = `translate(${cx.toFixed(1)}px, ${y.toFixed(1)}px)`;
     }
   }
-  // The FibroScan probe (the Presenter's stiffness slides): a transducer on the skin over the right lobe, at the
-  // lower ribs, with a shear wave easing out from its tip into the liver. Screen-space, beside the liver's outline.
-  // Each tap sends one shear wavefront: a soft arc that spreads and fades as it crosses the liver. Shear waves
-  // travel at c = √(E / 3ρ), so the fronts move with the square root of the model's stiffness (5 kPa ≈ 1.3 m/s,
-  // 25 kPa ≈ 2.9 m/s), easing to a new speed when the reading changes.
+  // The FibroScan probe (the Presenter's stiffness slides): a transducer on the skin at the top left of the right
+  // lobe, angled 45° down toward the portal vein, with a shear wave easing out from its tip into the liver along that
+  // line. Screen-space, at the liver's outline. Each tap sends one shear wavefront: a soft arc that spreads and fades as
+  // it crosses the liver. The true speed goes with √kPa (about 2.2× from 5 to 25 kPa); on screen it is exaggerated to
+  // roughly linear in kPa (5× from 5 to 25) so the difference reads at a glance, easing to a new speed when the reading changes.
   const scan = { on: false, el: null, raf: 0, v: 0, fronts: [], next: 0, last: 0 };
-  const SCAN_TIP = [66, 48], SCAN_SPAN = 150, SCAN_EVERY = 1.5, SCAN_N = 4, SCAN_HALF = 0.5, SCAN_GAP = 6;
-  const scanSpeed = () => 34 * Math.sqrt(clamp(F?.metrics?.lsm ?? 5, 2.5, 75) / 5);   // px/s (34 px/s at 5 kPa)
+  const SCAN_TIP = [66, 48], SCAN_SPAN = 150, SCAN_EVERY = 1.5, SCAN_N = 5, SCAN_HALF = 0.5, SCAN_GAP = 6;
+  const scanSpeed = () => 5 * clamp(F?.metrics?.lsm ?? 5, 3, 60);   // px/s: 25 at 5 kPa (slow but visible), 125 at 25, 200 at 40, 300 from 60
   function scanArc(r) {
     const [cx, cy] = SCAN_TIP, h = SCAN_HALF * (0.75 + 0.25 * Math.min(1, r / 50));   // the front widens a little with depth
     const p = (t) => `${(cx + r * Math.cos(t)).toFixed(1)} ${(cy + r * Math.sin(t)).toFixed(1)}`;
@@ -3377,8 +3377,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const lv = organEls.liver, wr = wrap.getBoundingClientRect();
     if (!lv || morph > 0.5) { scan.el.classList.add('off'); return; }
     const r = lv.getBoundingClientRect(), x0 = pzInset('--pz-l') + 6, x1 = wr.width - pzInset('--pz-r') - 6;
-    // The right lobe's lateral edge (the patient's right is the figure's left), two thirds down: the lower ribs.
-    const x = clamp(r.left - wr.left + r.width * 0.04, x0, x1 - 220), y = r.top - wr.top + r.height * 0.6;
+    // The top left of the right lobe (the patient's right is the figure's left): the tip sits on its edge, aimed 45° down toward the portal vein.
+    const x = clamp(r.left - wr.left + r.width * 0.13, x0 + 48, x1 - 110) - SCAN_TIP[0], y = r.top - wr.top + r.height * 0.17;
     scan.el.classList.toggle('off', y < 20 || y > wr.height - 20);
     scan.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
   }
