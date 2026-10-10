@@ -731,7 +731,7 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     if (idx === lesson.steps.length - 1 && lesson.pearls?.length && canNext) body.push(h('div', { class: 'pearls' }, h('p', { class: 'step-label' }, 'Pearls'), h('ul', {}, lesson.pearls.map((t) => h('li', {}, t)))));
     // Then a patient to try it on: the lesson is recorded first, then the case opens.
     // A unit's optional practice (unit 3: the drill, five patients) closes the unit and opens it.
-    if (lesson.unit && lesson.practice && st.type === 'keypoints') body.push(h('button', { class: 'try-case', onclick: () => { practiceNext = true; finish(); } }, h('span', {}, h('small', {}, 'Optional practice'), h('b', {}, lesson.practice)), svgIcon('chev-right')));
+    if (lesson.unit && lesson.practice && st.type === 'keypoints') body.push(h('button', { class: 'btn explore-here', title: `Finish the unit and practise: ${lesson.practice}`, onclick: () => { practiceNext = true; finish(); } }, svgIcon('route'), lesson.practice, h('small', {}, 'Optional practice')));
     const tryCase = !lesson.unit && idx === lesson.steps.length - 1 && canNext && startCase && CASES.find((c) => c.id === lesson.caseId);
     if (tryCase) body.push(h('button', { class: 'try-case', onclick: () => { const id = tryCase.id; finish(); startCase(id); } }, h('span', {}, h('small', {}, 'Now try it on a patient'), h('b', {}, tryCase.title)), svgIcon('chev-right')));
     const [, typeLabel] = STEP[st.type], stepLabel = `${typeLabel} · ${idx + 1} of ${lesson.steps.length}`;

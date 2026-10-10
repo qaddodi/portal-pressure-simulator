@@ -10,17 +10,17 @@ import { createDock, CUTOFFS } from './dock.js?v=3419490c7d';
 import { setHvpgStage } from './hvpg-proc.js?v=bb053422f1';
 import { createWhy } from './why.js?v=82d0ada42e';
 import { createTimeline, LAPSES } from './timeline.js?v=bf87e94cd0';
-import { createLearn } from './learn.js?v=650dcd55b6';
+import { createLearn } from './learn.js?v=c5b2be8b18';
 import { createCases, CASES } from './cases.js?v=8d4fbd875f';
 import { isBlind } from './learning-kit.js?v=83e19de948';
 import { createCompare } from './compare.js?v=6c5edeb764';
 import { createCard } from './card.js?v=bec985d017';
 import { createChart, computeFindings } from './chart.js?v=62d1022a9b';
-import { createHome, ROLES } from './home.js?v=0fc8364ef8';
+import { createHome, ROLES } from './home.js?v=8d2a41eb64';
 import { UNITS, course } from './course.js?v=16e2e211aa';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=3113b1ec12';
 import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=db814778e1';
-import { startLMS } from './lms.js?v=d86011972c';
+import { startLMS } from './lms.js?v=69d542165c';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=732cefd9b1';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
@@ -153,7 +153,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=e1bb75c120'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=3c3ba88acf'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
