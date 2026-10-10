@@ -21,7 +21,7 @@ import { sinusoidSupported } from './sinusoid-view.js?v=c9d7b10379';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
 import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=70de05a64c';
-import { createTools } from './presenter-tools.js?v=f94c0326ff';
+import { createTools } from './presenter-tools.js?v=0604eec2ef';
 import { openHandout } from './handout.js?v=33bd523876';
 
 const KEY = 'pps.scripts';
@@ -1177,7 +1177,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     const ladder = bigLadder(), tiles = bigTiles();
     const text = h('section', { class: 'pz-text stage-blocker', 'aria-live': 'polite' });
     const dhT = h('span', {}, 'Pressure, portal vein to heart'), dhL = h('span', { class: 'pz-lg' }, h('i', { class: 'now' }), 'This patient', h('i', { class: 'base' }), 'Healthy');
-    const tools = createTools({ host });
+    const tools = createTools({ host, stage });
     const data = h('section', { class: 'pz-data stage-blocker pz-hide', 'data-safe': 'right', hidden: true, 'aria-label': 'The numbers' },
       h('div', { class: 'pz-dh' }, dhT, dhL), tools.el, ladder.el, tiles.el);
     const veil = h('div', { class: 'pz-veil' }), panel = h('section', { class: 'pz-panel stage-blocker', hidden: true, 'aria-live': 'polite' });

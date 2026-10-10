@@ -961,6 +961,22 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     };
   }
   const dop = makeMark('dop', 'dop');
+  // The glow eases in and out (opacity, .dop-mark in app.css); it is hidden only once faded out.
+  function dopApply() {
+    let id = dop.pin ?? dop.want ?? null;
+    if (id && !E[id]) id = null;
+    if (id === dop.id) return;
+    dop.id = id;
+    clearTimeout(dop.t);
+    if (id) {
+      const x = E[id], d = x.wall.getAttribute('d'); if (d) dop.paint(d, x.dopW || 8);
+      dop.g.style.display = '';
+      requestAnimationFrame(() => dop.id === id && dop.g.classList.add('on'));
+    } else {
+      dop.g.classList.remove('on');
+      dop.t = setTimeout(() => { if (!dop.id) dop.g.style.display = 'none'; }, 400);
+    }
+  }
   // The hovered vessel glows softly in its own colour, drawn on the GPU along its live course and
   // width (the rest of the network stays as it is). Each vessel's glow eases in and out on its own,
   // so moving from one vessel to the next cross-fades.
@@ -5279,13 +5295,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** Forget the view cathFocus would go back to (the presenter moves its own camera on). */
     cathForget() { cath.saved = null; cath.k0 = 0; },
     /** The vessel the Doppler is reading, glowing green while the Doppler instrument is open (null: none). */
-    setDoppler(id) {
-      if (id && !E[id]) id = null;
-      if (id === dop.id) return;
-      dop.id = id;
-      dop.g.style.display = id ? '' : 'none';
-      if (id) { const x = E[id], d = x.wall.getAttribute('d'); if (d) dop.paint(d, x.dopW || 8); }
-    },
+    setDoppler(id) { dop.want = id; dopApply(); },
+    /** The presenter's Doppler slide pins its vessel's glow, over whatever Explore's Doppler reads (null: unpin). */
+    pinDoppler(id) { dop.pin = id; dopApply(); },
     setLabelScale(v) {
       labelScale = clamp(Math.round(v * 100) / 100, LABEL_MIN, LABEL_MAX);
       try { localStorage.setItem('pps.labelScale', String(labelScale)); } catch { /* storage unavailable */ }

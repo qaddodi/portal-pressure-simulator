@@ -3415,7 +3415,9 @@ button.finding:hover { background: var(--surface-2); }
 .text-size button:disabled { opacity: .35; cursor: default; }
 
 /* The Doppler's vessel on the figure: a steady green glow and a thin green edge. */
-.dop-mark { pointer-events: none; }
+.dop-mark { pointer-events: none; opacity: 0; transition: opacity .36s var(--ease); }
+.dop-mark.on { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .dop-mark { transition: none; } }
 .dop-glow { fill: none; stroke: var(--doppler); stroke-opacity: .7; stroke-linecap: butt; stroke-linejoin: round; }
 .dop-edge { fill: none; stroke: var(--doppler); stroke-opacity: .95; stroke-linecap: butt; stroke-linejoin: round; }
 .instrument-workspace .dock-title.dop-on .dt-l::before { content: ''; display: inline-block; width: 8px; height: 8px; margin: 0 8px 1px 0; border-radius: 50%; background: var(--doppler); box-shadow: 0 0 0 3px color-mix(in srgb, var(--doppler) 22%, transparent); vertical-align: middle; }

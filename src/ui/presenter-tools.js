@@ -35,7 +35,7 @@ const TITLE = {
 const READS = new Set(['doppler', 'fibroscan', 'scope']);
 const noop = () => {};
 
-export function createTools({ host }) {
+export function createTools({ host, stage }) {
   const box = h('div', { class: 'pz-tool' });
   const made = {};
   let cur = null, kind = null, probe0, lastSt = null;
@@ -61,9 +61,11 @@ export function createTools({ host }) {
     show(t, { quiz = false, stateKey = null, chain = [] } = {}) {
       const k = keyOf(t), inst = make(k);
       if (!inst) { this.hide(); return; }
+      if (k !== 'doppler') stage?.pinDoppler?.(null);
       if (k === 'doppler') {
         if (probe0 === undefined) probe0 = store.get().frame?.probe ?? null;
         host.send({ type: 'probe', id: t.vessel || 'PV_TRUNK' });
+        stage?.pinDoppler?.(t.vessel || 'PV_TRUNK');
       }
       if (stateKey !== lastSt && (k === 'doppler' || k === 'beats')) inst.clear?.();
       lastSt = stateKey;
@@ -74,7 +76,7 @@ export function createTools({ host }) {
       if (k === 'talk') inst.set(chain);
       else { const f = store.get().frame; if (f) requestAnimationFrame(() => cur === inst && inst.update(f)); }
     },
-    hide() { cur = null; kind = null; delete box.dataset.kind; },
+    hide() { stage?.pinDoppler?.(null); cur = null; kind = null; delete box.dataset.kind; },
     /** The presentation is over: the Doppler goes back to the vessel it had. */
     dispose() { if (probe0 !== undefined) host.send({ type: 'probe', id: probe0 }); probe0 = undefined; lastSt = null; this.hide(); },
   };
