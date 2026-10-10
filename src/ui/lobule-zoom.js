@@ -813,10 +813,12 @@ export function createLobuleZoom({ host }) {
     const [a, ...rest] = u.split(' · ');
     return rest.length ? [h('small', {}, a), h('small', { class: 'u2' }, h('span', { class: 'dot' }, '· '), rest.join(' · '))] : [h('small', {}, u)];
   };
+  // What a presenter slide's terms call each label (presentLit, see presenter.js TARGETS).
+  const LZ_TARGET = { triad: 'triad', sin: 'sinusoid', cv: 'central', lymph: 'lymph' };
   function setLab(key, name, short, v, u, d, col) {
     let L = labs[key];
     if (!L) {
-      L = labs[key] = { el: h('button', { class: 'lz-lab', type: 'button' }), line: s('line', { class: 'leader' }), dotEl: s('circle', { class: 'leader-dot', r: 3 }) };
+      L = labs[key] = { el: h('button', { class: 'lz-lab', type: 'button', 'data-target': `lobule:${LZ_TARGET[key] || key}` }), line: s('line', { class: 'leader' }), dotEl: s('circle', { class: 'leader-dot', r: 3 }) };
       L.el.addEventListener('click', (ev) => { if (!geo || ev.detail !== 0) return; const q = anchorOf(key); select(hitKind(key), [q[0], q[1]]); });
       labels.append(L.el); leaders.append(L.line, L.dotEl);
     }
@@ -990,7 +992,7 @@ export function createLobuleZoom({ host }) {
       // In proportion to the lobule on screen (within limits, so they stay legible and never shout).
       const zk = clamp((R * V.k) / 300, 0.66, 1.15).toFixed(3);
       [[0.83, 'Zone 1', 'periportal'], [0.51, 'Zone 2', 'midzonal'], [0.2, 'Zone 3', 'centrilobular']].forEach(([q, t, d], i) => {
-        const z = h('div', { class: 'lz-zone z' + (i + 1), 'aria-hidden': 'true' }, h('b', {}, t), h('span', {}, d));
+        const z = h('div', { class: 'lz-zone z' + (i + 1), 'aria-hidden': 'true', 'data-target': `lobule:zone${i + 1}` }, h('b', {}, t), h('span', {}, d));
         // Its usual spot (on the radius to the flat bottom edge); if that is out of view, the nearest in-view spot
         // of the same zone (the same ring, at the other five sides and corners), else clamped to the free edge.
         const ring = [];

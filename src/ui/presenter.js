@@ -86,7 +86,22 @@ const TARGETS = {
   spleen: { organ: 'spleen', tone: 'sv', words: 'spleen' },
   liver: { organ: 'liver', tone: 'wedge', words: 'liver' },
   heart: { organ: 'heart', tone: 'ra', words: 'heart' },
+  // Inside the liver (lit: the lobule's and the sinusoid's own labels take the colour and a soft glow, .app[data-lit]).
+  'lobule:triad': { lit: true, tone: 'pv', words: 'portal tracts?|portal triads?|portal venules?' },
+  'lobule:sinusoid': { lit: true, tone: 'wedge', words: 'sinusoids?' },
+  'lobule:central': { lit: true, tone: 'hv', words: 'central veins?|central venules?' },
+  'lobule:lymph': { lit: true, tone: 'ivc', words: 'lymphatics?|lymph' },
+  'lobule:zone1': { lit: true, tone: 'pv', words: 'zone 1|periportal' },
+  'lobule:zone3': { lit: true, tone: 'hv', words: 'zone 3|centrilobular' },
+  'sinusoid:fenestrae': { lit: true, tone: 'accent', words: 'fenestrae' },
+  'sinusoid:disse': { lit: true, tone: 'accent', words: 'space of Disse' },
+  'sinusoid:stellate': { lit: true, tone: 'accent', words: 'stellate cells?' },
+  'sinusoid:kupffer': { lit: true, tone: 'accent', words: 'Kupffer cells?' },
+  'sinusoid:hepatocyte': { lit: true, tone: 'accent', words: 'hepatocytes?|liver cells' },
+  'sinusoid:lymph': { lit: true, tone: 'ivc', words: 'lymph' },
+  'sinusoid:lumen': { lit: true, tone: 'wedge', words: 'sinusoids?' },
 };
+const toneVar = (t) => (t === 'accent' ? 'var(--accent)' : `var(--tr-${t})`);
 // Node ids name their target too ([portal vein](CONF) is [portal vein](pv)).
 for (const [k, t] of Object.entries(TARGETS)) if (t.node && !TARGETS[t.node]) TARGETS[t.node] = TARGETS[k];
 const ORGANS = new Set(['liver', 'spleen', 'heart']);
@@ -106,10 +121,12 @@ export function slideTargets(s, line = s.line || '') {
   const keys = new Set();
   for (const m of line.matchAll(/\[([^\]]+)\]\(([\w:]+)\)/g)) if (TARGETS[m[2]]) keys.add(m[2]);
   for (const [w, k] of termList(s)) if (new RegExp(`\\b(?:${w})\\b`, 'i').test(line)) keys.add(k);
-  const labels = [], terms = {}, glow = new Map(), organs = new Map();
+  const labels = [], terms = {}, glow = new Map(), organs = new Map(), lit = new Set(), sites = new Set();
   for (const k of keys) {
     const t = TARGETS[k];
     if (t.node) { labels.push(t.node); terms[t.node] = t.tone; }
+    if (t.lit) lit.add(k);
+    if (t.site) sites.add(t.site);
     for (const e of t.edges || []) glow.set(e, t.tone);
     if (t.organ) organs.set(t.organ, t.tone);
   }
@@ -119,7 +136,7 @@ export function slideTargets(s, line = s.line || '') {
     else if (ORGANS.has(id)) organs.set(id, tone || TARGETS[id]?.tone);
     else glow.set(id, tone || EDGE_TONE[id] || 'accent');
   }
-  return { labels, terms, glow: [...glow].map(([id, tone]) => ({ id, tone })), organs: [...organs].map(([id, tone]) => ({ id, tone })) };
+  return { labels, terms, glow: [...glow].map(([id, tone]) => ({ id, tone })), organs: [...organs].map(([id, tone]) => ({ id, tone })), lit: [...lit], sites: [...sites] };
 }
 // A live value pill ({pv}): the model's reading for this slide, rounded as its card shows it (the ladder's
 // stations in whole mmHg on a ladder slide).
@@ -143,8 +160,8 @@ function rich(t, s = {}, fp = null) {
   // A pill keeps the word before it and the stop after it on its line (a no-break space, one unbreakable span).
   const glue = () => { const prev = out[out.length - 1]; if (typeof prev === 'string') out[out.length - 1] = prev.replace(/ $/, '\u00a0'); };
   const pill = (v, stop, cls = '', tone = null) => { glue();
-    pills++; return h('span', { class: 'pz-nw' }, h('span', { class: `pz-val${cls}${tone ? ' tone' : ''}`, style: tone ? `--tone: var(--tr-${tone})` : null }, v.replace(/\s(?=mmHg|g\/dL|mL|kPa|cm\/s|mm\b|%)/, '\u00a0')), stop || ''); };
-  const termPill = (w, k) => { const tone = TARGETS[k].tone; return h('span', { class: 'pz-term', 'data-target': k, style: `--tone: var(--tr-${tone})` }, w); };
+    pills++; return h('span', { class: 'pz-nw' }, h('span', { class: `pz-val${cls}${tone ? ' tone' : ''}`, style: tone ? `--tone: ${toneVar(tone)}` : null }, v.replace(/\s(?=mmHg|g\/dL|mL|kPa|cm\/s|mm\b|%)/, '\u00a0')), stop || ''); };
+  const termPill = (w, k) => { const tone = TARGETS[k].tone; return h('span', { class: 'pz-term', 'data-target': k, style: `--tone: ${toneVar(tone)}` }, w); };
   while ((m = re.exec(t))) {
     const [all, lw, lk, mk, mkStop, tword, val, valStop, key, term] = m, w = (key || term)?.toLowerCase().replace(/(?:s|ces)$/, '');
     if (val && (marked || pills || s.pill === false)) continue;
@@ -894,7 +911,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     // A time-lapse starts from the slide before's state; a catheter slide drives its own camera.
     const lap = !!s.lapse && to > 0 && !q, ct = !q && !s.visual ? s.cath || null : null;
     // Words out, and the marks: they belong to the slide that is leaving.
-    store.set({ focus: null, presentLabels: [], presentTerms: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
+    store.set({ focus: null, presentLabels: [], presentTerms: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
     stopLapse(); abSlow();
     const si = lap ? stateOf[to - 1] : stateOf[to];
     await wordsOut(s, shownState >= 0 && (si !== shownState || liveOff));
@@ -940,8 +957,9 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
         presentNames: !q && (s.data === 'ladder' || !!s.cath),
         focus: marks.length ? { ...marks[0], marks } : null, lobuleCallout: q || !s.callout ? null : { kind: 'block', ...s.callout } });
       if (tg) { stage.setGlow(tg.glow); stage.pinOrgans(tg.organs); }
+      app.dataset.lit = tg?.lit.join(' ') || '';
     }
-    if (!s.visual && !q && s.sites) stage.setSites(s.sites, st.fp);
+    { const ss = !s.visual && !q ? [...new Set([...(s.sites || []), ...slideTargets(s).sites])] : []; if (ss.length) stage.setSites(ss, st.fp); }
     shown = { i: to, rev, gen: g };
     paintChrome();
     if (lap) await playLapse(s, to, cut);
@@ -1484,7 +1502,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     for (const w of waiters) w.res(null);
     waiters = [];
     removeEventListener('resize', onResize);
-    store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
+    store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
     clearTimeout(idleT);
     ui?.tools.dispose(); ui?.root.remove(); ui?.shade.remove(); ui = null;
     view.classList.remove('pz-out');

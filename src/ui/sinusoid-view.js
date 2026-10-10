@@ -44,10 +44,12 @@ export function createSinusoidView({ host }) {
   // leader, with its reading (if any) beneath in the lobule's number style. Captions in a narrow band (the lumen,
   // Disse) run along the vessel; those in the hepatocyte plates stay level.
   const regions = {};
+  const SV_TARGET = { fen: 'fenestrae', hsc: 'stellate', kup: 'kupffer', hep: 'hepatocyte', sin: 'lumen', in: 'in', out: 'out' };
   // One caption, built one way for every name in the view (the ends' venules are written exactly as the Sinusoid's own).
   function caption(key, cls, name, value) {
+    // (What a presenter slide's terms call each part: presentLit, see presenter.js TARGETS.)
     let R = regions[key];
-    if (!R) { R = regions[key] = { el: h('div', { class: cls }) }; labels.append(R.el); }
+    if (!R) { R = regions[key] = { el: h('div', { class: cls, 'data-target': `sinusoid:${SV_TARGET[key] || key}` }) }; labels.append(R.el); }
     const txt = name + '|' + value;
     if (R.text !== txt) {
       const same = R.text && R.text.split('|')[0] === name && R.el.children.length === 1 + (value ? value.split(' · ').length : 0);
