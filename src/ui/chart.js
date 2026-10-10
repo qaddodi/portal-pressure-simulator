@@ -8,12 +8,12 @@
 //   (what has happened lives in the timeline's History, under the figure)
 //   Advanced                             physiology knobs (instructor)
 
-import { store, updateParams, hiddenNow } from './store.js?v=49dc9cdf15';
+import { store, updateParams, hiddenNow } from './store.js?v=25cbe77a76';
 import { h, fmt, icon, svgIcon, toast } from './util.js?v=e803df99cd';
-import { DRUGS } from '../engine/scenario.js?v=d88966abe6';
-import { TILES, VITALS, readoutValue } from './dock.js?v=b4cc2e624c';
-import { activeInterventions } from './inspector.js?v=2a9c297d91';
-import { verbEnabled, DRUG_NOTE } from './actions.js?v=222b048585';
+import { DRUGS } from '../engine/scenario.js?v=da4ad72f01';
+import { TILES, VITALS, readoutValue } from './dock.js?v=cc6f2c16d3';
+import { activeInterventions } from './inspector.js?v=500d39491c';
+import { verbEnabled, DRUG_NOTE } from './actions.js?v=8e44cc766f';
 
 // Where each readout is measured, so a click can show it on the figure.
 const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS', 'DIPS'], spleen: ['V_SPL', 'SV_CONF'], ra: ['IVCS_RA'] };

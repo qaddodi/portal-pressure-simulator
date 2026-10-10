@@ -3686,6 +3686,15 @@ body.sim-paused .mon.bad .mv, body.sim-paused .focus-ring { animation-play-state
   .dock-pane[data-pane="profile"] .chart-side .legend-inline { margin: 0 0 0 auto; }
   .dock-pane[data-pane="profile"] .chart-side .ctl-sub:empty { display: none; }
   .instrument-workspace .dock-pane[data-pane="profile"] .instrument-view .chart-box { flex: 1 1 auto; height: auto; min-height: 240px; }
+  /* Paired with Over time, each pane has half the card: the charts shrink to fit their half, so the tilted
+     station names and the trace chips stay inside their pane instead of running under the next one. */
+  .instrument-workspace .dock-body.pair .dock-pane:is([data-pane="profile"], [data-pane="scope"]) { overflow: hidden; }
+  .instrument-workspace .dock-body.pair .dock-pane[data-pane="profile"] .instrument-view .chart-box { flex: 1 1 0; min-height: 140px; }
+  .instrument-workspace .dock-body.pair .instrument-view.pt .pt-box { min-height: 120px; }
+}
+/* On a short desktop screen the paired Pressure pane drops its three-line caption, so the chart keeps its height. */
+@media (min-width: 1024px) and (pointer: fine) and (max-height: 999px) {
+  .instrument-workspace .dock-body.pair .dock-pane[data-pane="profile"] .chart-side .sub { display: none; }
 }
 
 /* Narrator caption (blueprint E1): one live line above the timeline. Below desktop width it takes

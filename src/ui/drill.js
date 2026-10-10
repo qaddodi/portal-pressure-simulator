@@ -5,7 +5,7 @@
 // own (SNAPSHOTS, regenerated from the engine); only the imaging words are authored.
 
 import { h, fmt, icon } from './util.js?v=e803df99cd';
-import { SNAPSHOTS } from './snapshots.js?v=34d1578d5f';
+import { SNAPSHOTS } from './snapshots.js?v=9df9ef8713';
 import { createRoute, ladder, tiles, siteName } from './ladder.js?v=d0e8d913b4';
 import { addRecord } from './records.js?v=50fb9dd463';
 

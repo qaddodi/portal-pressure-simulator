@@ -9,9 +9,9 @@
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
 import { h, fmt, fitCanvas, clamp, icon, toast } from './util.js?v=e803df99cd';
-import { FONT } from './charts.js?v=6d08e30351';
+import { FONT } from './charts.js?v=ac5eb186fd';
 import { pressureColor } from './colormap.js?v=6d64a94345';
-import { store, logAction } from './store.js?v=49dc9cdf15';
+import { store, logAction } from './store.js?v=25cbe77a76';
 
 let stageRef = null;
 /** main.js hands over the figure once it exists. */

@@ -46,16 +46,20 @@ export function stenosisFactor(s) {
 }
 
 /** Frank–Starling venous-return pump: flow (mL/s) and its derivative vs RA transmural pressure. */
-export const HEART = { Qmax: 200, s: 2.5, P50: 0 };
+export const HEART = { Qmax: 200, s: 2.5, P50: 0, Pc: 1.2, sc: 0.3 };
 {
   // Solve P50 so that 83.33 mL/s flows at RA transmural 3.0 mmHg with Qmax 200.
   const f = 83.333 / HEART.Qmax;
   HEART.P50 = 3.0 + HEART.s * Math.log(1 / f - 1);
 }
-export function heartFlow(ptmRA, capacity) {
+/** Right-heart output for an RA transmural pressure; pInlet is RA pressure relative to the chest (no pericardium). */
+export function heartFlow(ptmRA, capacity, pInlet = ptmRA) {
   const f = sig((ptmRA - HEART.P50) / HEART.s);
-  const Q = capacity * HEART.Qmax * f;
-  const dQ = capacity * HEART.Qmax * f * (1 - f) / HEART.s;
+  // Venous collapse at the thoracic inlet: below an RA pressure of about zero (relative to the chest) the heart can no longer
+  // draw blood in (Guyton's venous-return plateau), so a starved heart pumps less instead of pulling RA negative.
+  const g = sig((pInlet - HEART.Pc) / HEART.sc);
+  const Q = capacity * HEART.Qmax * f * g;
+  const dQ = capacity * HEART.Qmax * (f * (1 - f) / HEART.s * g + f * g * (1 - g) / HEART.sc);
   return [Q, dQ];
 }
 

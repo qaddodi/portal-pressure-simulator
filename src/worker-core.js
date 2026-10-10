@@ -1,11 +1,11 @@
 // Simulation host: owns the Engine, runs the clocks, streams frames (blueprint §13.4).
 // Used inside a Web Worker (src/worker.js) or on the main thread as a fallback.
 
-import { Engine } from './engine/engine.js?v=c0181c9ebe';
-import { computeMetrics } from './engine/metrics.js?v=618d18effe';
-import { detectEvents } from './engine/events.js?v=bc3578b18d';
-import { explain } from './engine/explain.js?v=aa022eaf54';
-import { defaultParams, deepMerge, PRESETS } from './engine/scenario.js?v=d88966abe6';
+import { Engine } from './engine/engine.js?v=24d34e6d47';
+import { computeMetrics } from './engine/metrics.js?v=ee4db8bc9b';
+import { detectEvents } from './engine/events.js?v=e24f641428';
+import { explain } from './engine/explain.js?v=1853c8cfde';
+import { defaultParams, deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=da4ad72f01';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
 
@@ -163,13 +163,13 @@ export function createCore(post) {
 
   const handlers = {
     init({ params }) {
-      if (params) { eng.setParams(deepMerge(defaultParams(), params)); eng.settle(); }
+      if (params) { eng.setParams(sanitizeParams(params)); eng.settle(); }
       paramsDirty = true;
       start();
     },
     setParams({ params, settle }) {
       // UI-originated: not echoed back (avoids overwriting in-flight edits).
-      eng.setParams(deepMerge(defaultParams(), params));
+      eng.setParams(sanitizeParams(params));
       if (settle) eng.settle();
     },
     *preset({ id, days, reqId }) {

@@ -1,28 +1,28 @@
 // Application bootstrap: wires the engine host to the four surfaces (figure + action card,
 // timeline, patient chart, instruments) and to Home, the command palette and the menus.
 
-import { startHost, host } from './host.js?v=e8897fe2f3';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=49dc9cdf15';
-import { createStage } from './stage.js?v=5db46011e5';
-import { sinusoidSupported } from './sinusoid-view.js?v=cf0ef90530';
-import { createInspector } from './inspector.js?v=2a9c297d91';
-import { createDock, CUTOFFS } from './dock.js?v=b4cc2e624c';
-import { setHvpgStage } from './hvpg-proc.js?v=97ec1c1dc6';
-import { createWhy } from './why.js?v=0696833f5a';
-import { createTimeline, LAPSES } from './timeline.js?v=68e2bd2f73';
-import { createLearn } from './learn.js?v=d0e121ef3f';
-import { createCases, CASES } from './cases.js?v=a726cbf43e';
-import { isBlind } from './learning-kit.js?v=4c9e07a876';
-import { createCompare } from './compare.js?v=9611c9f998';
-import { createCard } from './card.js?v=af12d7b051';
-import { createChart, computeFindings } from './chart.js?v=f1dcd9d1d0';
-import { createHome, ROLES } from './home.js?v=d22618af54';
-import { course } from './course.js?v=4e4bcc6304';
+import { startHost, host } from './host.js?v=90504cc4f2';
+import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=25cbe77a76';
+import { createStage } from './stage.js?v=7d38ea2e67';
+import { sinusoidSupported } from './sinusoid-view.js?v=b68c9ab562';
+import { createInspector } from './inspector.js?v=500d39491c';
+import { createDock, CUTOFFS } from './dock.js?v=cc6f2c16d3';
+import { setHvpgStage } from './hvpg-proc.js?v=b2e9d319b1';
+import { createWhy } from './why.js?v=b3625fb455';
+import { createTimeline, LAPSES } from './timeline.js?v=ba6a626da7';
+import { createLearn } from './learn.js?v=2ad56e79fc';
+import { createCases, CASES } from './cases.js?v=81f9b3b296';
+import { isBlind } from './learning-kit.js?v=d37136ac07';
+import { createCompare } from './compare.js?v=118c08286d';
+import { createCard } from './card.js?v=7cf9cd2378';
+import { createChart, computeFindings } from './chart.js?v=19627b5965';
+import { createHome, ROLES } from './home.js?v=0bd1a811a2';
+import { course } from './course.js?v=3bf3617fd0';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=96bbcced4d';
-import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=b78b4aa239';
-import { startLMS } from './lms.js?v=3965c5df93';
+import { describe, caption, announce, setSonify, sonifying, sonifyFrame } from './a11y.js?v=11a19282f2';
+import { startLMS } from './lms.js?v=084c781d0c';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=222b048585';
+import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=8e44cc766f';
 import { gradientCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=6d64a94345';
 import { EDGES, NODES } from '../engine/topology.js?v=dc393aabea';
 import { $, $$, h, icon, fmt, fmtFlow, toast, popupsOn, setPopups, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=e803df99cd';
@@ -39,6 +39,7 @@ const SPEEDS = [0.25, 0.5, 1, 2, 4, 8];
 import { debugOptions, debugOn, setDebug, initDebug } from './debug.js?v=0166e06ffb';
 import { initTopbarMotion } from './topbar-motion.js?v=a7ab34f946';
 import { ORIGINS } from './blood.js?v=6c39f43ddf';
+import { deepMerge, sanitizeParams } from '../engine/scenario.js?v=da4ad72f01';
 
 // Color lenses: [title, what it shows, legend swatch].
 // SMV, IMV, splenic vein, hepatic artery, systemic: as stage.js BLOOD_COLORS.
@@ -140,7 +141,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else home.open(o?.practice ? 'practice' : 'course'); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => home.open('course') });
-  presenterL = lazy(() => import('./presenter.js?v=2140eef3d2'), ({ createPresenter }) => createPresenter({ startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=adc8c9321f'), ({ createPresenter }) => createPresenter({ startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -153,7 +154,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=541915098d'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=8191498a55'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -381,7 +382,11 @@ function readShare() {
 }
 async function loadShared(s) {
   await loadPreset(s.preset || 'healthy');
-  if (s.params) updateParams(s.params, { settle: true, history: false });
+  if (s.params) {
+    const merged = deepMerge(store.get().params, s.params), clean = sanitizeParams(merged);
+    updateParams(() => clean, { settle: true, history: false });
+    if (JSON.stringify(clean) !== JSON.stringify(merged)) { timeline.flush(); toast('This link had values out of range; they were set to the nearest allowed values.'); return; }
+  }
   if (s.view) store.set({ view: s.view });
   timeline.flush();
   toast('Loaded the shared scenario.');

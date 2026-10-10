@@ -12,11 +12,11 @@
 // Keys (clickers send the same): → Page Down Space Enter next, ← Page Up back, a number then Enter
 // jumps, Home End, B or . black screen, F full screen, N notes, S speaker window, Q quiz, L laser, Esc.
 
-import { store, replaceParams } from './store.js?v=49dc9cdf15';
+import { store, replaceParams } from './store.js?v=25cbe77a76';
 import { h, toast, svgIcon, icon, fmt, clamp } from './util.js?v=e803df99cd';
 import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=d0e8d913b4';
-import { sinusoidSupported } from './sinusoid-view.js?v=cf0ef90530';
+import { sinusoidSupported } from './sinusoid-view.js?v=b68c9ab562';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { NODES } from '../engine/topology.js?v=dc393aabea';
 import { DECKS, REGIONS, LEVELS } from './decks.js?v=7e4ff1383c';
@@ -329,7 +329,7 @@ function makeCalc() {
   };
   const ready = (async () => {
     try {
-      const w = new Worker(new URL('../worker.js?v=f94c3a62f2', import.meta.url), { type: 'module' });
+      const w = new Worker(new URL('../worker.js?v=a52e51a150', import.meta.url), { type: 'module' });
       await new Promise((res, rej) => {
         const t = setTimeout(() => rej(new Error('worker timeout')), 6000);
         w.onmessage = (e) => { if (e.data?.type === 'presets') { clearTimeout(t); res(); } };
@@ -341,7 +341,7 @@ function makeCalc() {
       w.onmessage = (e) => onMsg(e.data); w.onerror = null;
       post = (m) => w.postMessage(m); kill = () => w.terminate();
     } catch {
-      const { createCore } = await import('../worker-core.js?v=b37c4c9f5e');
+      const { createCore } = await import('../worker-core.js?v=b3f3992766');
       const core = createCore((m) => setTimeout(() => onMsg(m), 0));
       core.handle({ type: 'visibility', visible: false }); core.handle({ type: 'run', running: false });
       post = (m) => core.handle(structuredClone(m)); kill = () => core.dispose();

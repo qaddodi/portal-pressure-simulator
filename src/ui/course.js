@@ -3,7 +3,7 @@
 // where the card at the bottom owns the screen and the rest of the chrome is hidden.
 // Progress lives on this device in pps.course; plans/course-api.md documents the shapes.
 
-import { store } from './store.js?v=49dc9cdf15';
+import { store } from './store.js?v=25cbe77a76';
 import { h, svgIcon } from './util.js?v=e803df99cd';
 import { CASE_UNITS } from './cases/units.js?v=bde5f54566';
 
