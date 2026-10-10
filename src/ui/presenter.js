@@ -19,9 +19,9 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=cab65850a4';
 import { sinusoidSupported } from './sinusoid-view.js?v=14866bc1c9';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
-import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=2fdce58a54';
+import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=2bbef46a1d';
 import { createTools } from './presenter-tools.js?v=28dfa00d7e';
-import { openHandout } from './handout.js?v=9dec8b36c3';
+import { openHandout } from './handout.js?v=7e21af602d';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };

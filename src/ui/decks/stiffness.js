@@ -34,10 +34,10 @@ export const STIFFNESS = {
       ask: ['Why scan fasting?', 'A meal raises portal inflow and the stiffness reading for up to about two hours.'],
     },
     {
-      id: 'rule', visual: 'scale', scale: { key: 'lsm', max: 40, low: 'Rule out', marks: [[15, 'Gray zone'], [25, 'Rule in']], sub: ['hvpg', 'plt'],
+      id: 'rule', visual: 'scale', scale: { key: 'lsm', max: 40, low: 'CSPH ruled out', marks: [[15, 'Gray zone'], [25, 'CSPH ruled in']], sub: ['hvpg', 'plt'],
         rules: ['15 kPa or less with platelets 150 or more: no CSPH', '15 to 25 kPa: the platelets decide', '25 kPa or more: CSPH'] },
       // (Baveno VII's rules are for compensated disease, so every patient here is compensated, without ascites.)
-      of: [{ preset: 'healthy', name: 'Healthy' }, { id: 'fibrosis', name: 'Compensated cirrhosis' }, { preset: 'csph', name: 'Compensated, CSPH by HVPG' }, { preset: 'csph', params: { cirrhosis: 0.75 }, name: 'Compensated, stiffer' }],
+      of: [{ preset: 'healthy', name: 'Healthy' }, { id: 'fibrosis', name: 'Compensated, no CSPH' }, { preset: 'csph', name: 'Compensated, CSPH by HVPG' }, { preset: 'csph', params: { cirrhosis: 0.75 }, name: 'Compensated, CSPH' }],
       kicker: 'Baveno VII', title: 'Stiffness rules for CSPH',
       line: 'In compensated cirrhosis, 25 kPa or more means CSPH and 15 or less with normal platelets rules it out. Patient 3, at {24.1 kPa}, has an HVPG of 12: in the gray zone, low platelets point to CSPH.',
       notes: 'The rule of five: 10, 15, 20 and 25 kPa. At or below 15 kPa with platelets of 150 or more, CSPH is ruled out (under 5% risk) and screening endoscopy can be skipped. At 25 kPa or more, CSPH is ruled in (in viral and alcohol-related disease, and in non-obese MASLD). In the gray zone, 20 to 25 kPa with platelets below 150, or 15 to 20 kPa with platelets below 110, gives a risk of CSPH of 60% or more. The model\'s compensated patient with CSPH (HVPG 12 mmHg, platelets 88) sits at 24 kPa, in the gray zone: a reminder that the zone is common, and that there the catheter or the platelets decide.',
