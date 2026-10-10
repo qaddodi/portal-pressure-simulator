@@ -1219,7 +1219,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     view.classList.remove('pz-out');
     for (const k of ['--pz-l', '--pz-r', '--pz-t', '--pz-b']) app.style.removeProperty(k);
     stage.setProjection(false);
-    document.documentElement.style.setProperty('--label-k', String(stage.labelScale()));
+    document.documentElement.style.setProperty('--label-k', String(stage.labelEff()));
     dispatchEvent(new Event('pps:labelscale'));
     if (document.fullscreenElement) document.exitFullscreen?.();
     app.classList.remove('presenting', 'pz-hi');

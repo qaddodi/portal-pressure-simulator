@@ -3637,15 +3637,30 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const LABEL_MIN = 0.5, LABEL_MAX = 2;
   // Where a map direction lands on the screen once the circuit is turned a quarter turn counter-clockwise.
   const TURN_DIR = { N: 'W', W: 'S', S: 'E', E: 'N', NE: 'NW', NW: 'SW', SW: 'SE', SE: 'NE', C: 'C' };
-  let labelScale = (() => { try { return clamp(parseFloat(localStorage.getItem('pps.labelScale')) || 1, LABEL_MIN, LABEL_MAX); } catch { return 1; } })();
+  // A desktop (a wide screen and a mouse) is read from farther away: its 100 % is half as large again as a phone's or tablet's.
+  const deskMQ = matchMedia('(min-width: 1024px) and (pointer: fine)');
+  const deskK = () => (deskMQ.matches ? 1.5 : 1);
+  let labelScale = (() => {
+    try {
+      let v = parseFloat(localStorage.getItem('pps.labelScale'));
+      // A size saved before that desktop baseline keeps a raised size where it was, and is never below the new 100 %.
+      if (localStorage.getItem('pps.labelScaleV') !== '2') {
+        if (v && deskMQ.matches) { v = Math.max(1, Math.round((v / 1.5) * 100) / 100); localStorage.setItem('pps.labelScale', String(v)); }
+        localStorage.setItem('pps.labelScaleV', '2');
+      }
+      return clamp(v || 1, LABEL_MIN, LABEL_MAX);
+    } catch { return 1; }
+  })();
   // Every label on a figure (the lobule's too) reads the same scale.
-  document.documentElement.style.setProperty('--label-k', String(labelScale));
-  let labelK = labelScale;
+  document.documentElement.style.setProperty('--label-k', String(labelScale * deskK()));
+  let labelK = labelScale * deskK();
   // Projection ramp: presenting sets the atlas labels at projector sizes (at 2: values 28 px, names 23 px),
   // readable from the back of a room. The presenter passes a scale for the screen it is on.
   let projecting = false;
   // (Projecting, the projector's size times the viewer's own text size from Settings.)
-  const labelBase = () => (projecting ? (typeof projecting === 'number' ? projecting : 2) * labelScale : labelScale);
+  const labelBase = () => (projecting ? (typeof projecting === 'number' ? projecting : 2) * labelScale : labelScale * deskK());
+  // (A window dragged between a desktop's width and a narrow one: the labels follow; a presentation sets its own.)
+  deskMQ.addEventListener?.('change', () => { if (projecting) return; document.documentElement.style.setProperty('--label-k', String(labelScale * deskK())); dispatchEvent(new Event('pps:labelscale')); });
   // A line is a list of runs { t, size, weight, cls, track }. Returns [width, height].
   const LINE_H = (line) => Math.max(...line.map((r) => r.size)) * labelK * 1.24;
   const lineW = (line) => line.reduce((w, r, i) => w + textW(r.t, r.size * labelK, r.weight, r.track || 0) + (i ? (r.gap ?? 3) * labelK : 0), 0);
@@ -5251,6 +5266,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The label slots as solved (key → side and pixel offset from the figure point it names), for tests.
     labelSlots: () => Object.fromEntries([...labelSol].filter(([, r]) => !r.drop).map(([k, r]) => [k, `${r.dir}/${r.pi}/${Math.round(r.dx)},${Math.round(r.dy)}`])),
     labelScale: () => labelScale,
+    labelEff: () => labelScale * deskK(),   // what the figure shows outside a presentation (a desktop's baseline included)
     /** The HVPG catheter: null removes it; else { u (0..1 of the way in), balloon, column (0..1), columnColor, ring, pulse,
      *  opacity, labels: [{ key, at: 'tip' | 'ahead', kicker, text, unit, cls }] }. */
     setCatheter(st) { cath.st = st; wrap.classList.toggle('cath-on', !!st); if (!st) { cath.rc = 0; cath.route = null; if (veins?.canCath) veins.setCath(null); cathVer++; if (cathTint) { cathTint = null; cath.tintKey = ''; syncVeins(easeInOut(morph)); } cath.g.style.display = 'none'; cath.labels.hidden = true; cath.labels.replaceChildren(); cath.made?.clear(); cath.at = null; return; } cathPaint(); },
@@ -5273,7 +5289,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setLabelScale(v) {
       labelScale = clamp(Math.round(v * 100) / 100, LABEL_MIN, LABEL_MAX);
       try { localStorage.setItem('pps.labelScale', String(labelScale)); } catch { /* storage unavailable */ }
-      document.documentElement.style.setProperty('--label-k', String(labelScale));
+      if (!projecting) document.documentElement.style.setProperty('--label-k', String(labelScale * deskK()));
       dispatchEvent(new Event('pps:labelscale'));
       if (F) updateLabels(F);
     },
