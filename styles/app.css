@@ -1873,7 +1873,7 @@ button.finding:hover { background: var(--surface-2); }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-data.pz-data { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
 @media (prefers-reduced-transparency: reduce) { .pz-data.pz-data { background: color-mix(in srgb, var(--surface) 96%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } .pz-data .pz-tile:not(.key) { background: var(--surface-2); } }
 .pz-safe { position: absolute; left: 0; top: 0; bottom: 0; width: 0; opacity: 0; pointer-events: none; }
-.pz.stack .pz-safe { right: 0; bottom: auto; width: auto; }
+.pz.stack .pz-safe { right: 0; top: auto; bottom: 0; width: auto; }
 .pz-text { position: absolute; left: clamp(20px, calc(3.4vw / var(--vz)), 76px); top: clamp(20px, calc(8vh / var(--vz)), 110px); bottom: clamp(20px, calc(8vh / var(--vz)), 110px); height: fit-content; margin-block: auto; width: clamp(300px, calc(29vw / var(--vz)), 600px); max-height: calc(100% - 2 * clamp(20px, calc(8vh / var(--vz)), 110px)); display: flex; flex-direction: column; gap: clamp(10px, calc(2.3vh / var(--vz)), 30px); transition: opacity .22s var(--ease), transform .22s var(--ease); }
 .pz-text.pz-leave, .pz-panel.pz-leave { opacity: 0; transform: translateY(-6px); }
 .pz-text.pz-enter > * { animation: pz-in .5s var(--ease) both; animation-delay: calc(min(var(--i, 0), 3) * 45ms + 60ms); }
@@ -2204,18 +2204,19 @@ button.finding:hover { background: var(--surface-2); }
 .pz-black { position: fixed; inset: 0; z-index: var(--z-toast); background: #000; opacity: 0; pointer-events: none; transition: opacity .4s var(--ease); }
 .pz-black.on { opacity: 1; pointer-events: auto; cursor: none; }
 /* A phone, or a screen taller than wide: the words on top, the data below, the figure between. */
-.pz-shade.stack { width: auto !important; right: 0; bottom: auto; height: 0; box-shadow: inset 0 -1px 0 var(--pz-glass-edge), 0 1px 0 var(--pz-glass-line), 0 10px 24px -6px var(--pz-glass-drop), 0 2px 5px -1px var(--pz-glass-drop); }
-.pz.stack .pz-text { left: 14px; right: 14px; top: 12px; bottom: auto; margin-block: 0; width: auto; max-height: 40%; gap: 6px; }
+/* (On a phone the words sit at the bottom over the Back/Next bar, on a glass pane rising from the bottom edge; the data card is at the top.) */
+.pz-shade.stack { width: auto !important; right: 0; top: auto; bottom: 0; height: 0; box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 -1px 0 var(--pz-glass-line), 0 -10px 24px -6px var(--pz-glass-drop), 0 -2px 5px -1px var(--pz-glass-drop); }
+.pz.stack .pz-text { left: 14px; right: 14px; top: auto; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); margin-block: 0; width: auto; max-height: 40%; gap: 6px; }
 /* (With a data card under the words, the pair keeps to the top so the card has room.) */
-.pz:has(.pz-data.under:not(.pz-hide)) .pz-text { bottom: auto; margin-block: 0; }
+.pz:not(.stack):has(.pz-data.under:not(.pz-hide)) .pz-text { bottom: auto; margin-block: 0; }
 .pz.stack .pz-kick { font-size: 12px; }
 .pz.stack .pz-h { font-size: clamp(24px, calc(3.4vh / var(--vz)), 40px); }
 .pz.stack .pz-line { font-size: clamp(14px, calc(1.9vh / var(--vz)), 20px); }
 .pz.stack .pz-eq math { font-size: 21px; }
 .pz.stack .pz-eqk { font-size: 12px; }
 .pz.stack .pz-causes, .pz.stack .pz-rail { display: none; }
-.pz.stack .pz-data { left: 8px; right: 8px; top: auto; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); width: auto; max-height: 42%; gap: 6px; padding: 10px 12px; border-radius: 18px; }
-.pz.stack .pz-data.pz-hide { transform: translateY(18px); }
+.pz.stack .pz-data { left: 8px; right: 8px; top: 8px; bottom: auto; width: auto; max-height: 42%; gap: 6px; padding: 10px 12px; border-radius: 18px; }
+.pz.stack .pz-data.pz-hide { transform: translateY(-18px); }
 .pz.stack .pz-dh { font-size: 11px; }
 .pz-fold { display: none; }
 .pz.stack .pz-data.has-tool:not(.tool-only) .pz-fold { display: inline-flex; align-items: center; min-height: 28px; margin: -6px -4px -6px auto; padding: 0 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--accent); font: inherit; letter-spacing: .05em; cursor: pointer; }

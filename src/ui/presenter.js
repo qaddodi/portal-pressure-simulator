@@ -1325,7 +1325,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     ui.root.classList.toggle('stack', p); ui.shade.classList.toggle('stack', p); ui.root.classList.toggle('port', tall());
     const off = (el) => el.hidden || el.classList.contains('pz-hide');
     const below = !p && (ui.data.classList.contains('under') || tall());
-    if (off(ui.data) || below) delete ui.data.dataset.safe; else ui.data.dataset.safe = p ? 'bottom' : 'right';
+    if (off(ui.data) || below) delete ui.data.dataset.safe; else ui.data.dataset.safe = p ? 'top' : 'right';
     const r = (el) => (off(el) ? null : el.getBoundingClientRect());
     const t = r(ui.text);
     // (Under the words: in the left column, clear of the bottom.)
@@ -1334,19 +1334,21 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const d = below ? null : r(ui.data);
     // The words sit on a frosted glass pane: the figure shows through it blurred, behind a crisp edge with a soft
     // shadow. The figure frames itself just past that shadow, so nothing it frames is hidden.
-    const L = t ? t.right - wr.left : 0, T = t ? t.bottom - wr.top : 0;
+    // (On a phone the words sit at the bottom, over the Back/Next bar, and the data card at the top: B is the height
+    // from the words' top edge down to the bottom of the figure.)
+    const L = t ? t.right - wr.left : 0, T = t ? t.bottom - wr.top : 0, B = t ? H - ui.text.offsetTop * k : 0;
     ui.shade.style.width = !p && t ? `${(L + 36) / k}px` : '';
-    ui.shade.style.height = p && t ? `${(T + 26) / k}px` : '';
+    ui.shade.style.height = p && t ? `${(B + 26) / k}px` : '';
     ui.shade.style.opacity = t ? '1' : '0';
     ui.safe.hidden = !t;
-    ui.safe.dataset.safe = p ? 'top' : 'left';
+    ui.safe.dataset.safe = p ? 'bottom' : 'left';
     ui.safe.style.width = p ? '' : `${(L + 48) / k}px`;
-    ui.safe.style.height = p ? `${(T + 34) / k}px` : '';
+    ui.safe.style.height = p ? `${(B + 34) / k}px` : '';
     const set = (k, v) => app.style.setProperty(k, `${Math.max(0, Math.round(v))}px`);
     set('--pz-l', !p && t ? L + 48 : 0);
     set('--pz-r', !p && d ? W - (d.left - wr.left) + 8 : 0);
-    set('--pz-t', p && t ? T + 34 : 0);
-    set('--pz-b', p && d ? H - (d.top - wr.top) + 4 : 0);
+    set('--pz-t', p && d ? (ui.data.offsetTop + ui.data.offsetHeight) * k + 4 : 0);   // (offsets: a card coming in is still shifted by its entry transform)
+    set('--pz-b', p && t ? B + 34 : 0);
     // The corner credit rises above a data card or the numbers panel that reaches it (always on a phone, where they stack
     // over the figure's lower part; on a tablet in portrait when the data card sits under the words).
     // (Measured by layout offsets, not rects: a card fading in is still shifted by its entry transform.)
