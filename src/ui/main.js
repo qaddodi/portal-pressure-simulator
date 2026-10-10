@@ -141,7 +141,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else home.open(o?.practice ? 'practice' : 'course'); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => home.open('course') });
-  presenterL = lazy(() => import('./presenter.js?v=151689e43b'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=a957d73fa0'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), stashCards, rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -1103,6 +1103,10 @@ function wireFloating() {
     // On a phone the instruments sheet rises from the bottom edge, over the vitals dock.
     const bot = isPhone() && sheet ? Math.max(vdock + gap, sheet) : vdock + gap + sheet;
     app.style.setProperty('--bot-occ', px(bot));
+    // The patient chart is a bottom sheet on a phone, over the dock: the corner credit rides above it, unless the
+    // sheet is so tall (a case's decision, nearly full screen) that there is no figure left to ride on.
+    const pn = $('#panel'), lift = isPhone() && panelShown() && pn.offsetParent ? pn.offsetParent.clientHeight - pn.offsetTop + 8 : 0;
+    app.style.setProperty('--panel-h', px(pn.offsetParent && pn.offsetParent.clientHeight - lift < $('#topbar').offsetHeight + 48 ? 0 : lift));
     dispatchEvent(new Event('pps:occ'));
   };
   const soon = () => { if (!pubRaf) pubRaf = requestAnimationFrame(publish); };

@@ -1344,6 +1344,11 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     set('--pz-r', !p && d ? W - (d.left - wr.left) + 8 : 0);
     set('--pz-t', p && t ? T + 34 : 0);
     set('--pz-b', p && d ? H - (d.top - wr.top) + 4 : 0);
+    // The corner credit rises above a data card or the numbers panel that reaches it (always on a phone, where they stack
+    // over the figure's lower part; on a tablet in portrait when the data card sits under the words).
+    const cr = wrap.querySelector('.stage-credit'), rest = (p ? 78 : 14) + 22, reach = (cr?.offsetWidth || 220) + 40;
+    const lift = Math.max(0, ...[r(ui.data), r(ui.panel)].filter((e) => e && e.left - wr.left < reach && wr.bottom - e.bottom < rest).map((e) => wr.bottom - e.top));
+    cr?.style.setProperty('--sheet-h', lift ? `${Math.round(lift) + 8}px` : '');
     dispatchEvent(new Event('pps:occ'));
   }
   const onResize = () => {
@@ -1589,6 +1594,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     ui?.tools.dispose(); ui?.root.remove(); ui?.shade.remove(); ui = null;
     view.classList.remove('pz-out');
     for (const k of ['--pz-l', '--pz-r', '--pz-t', '--pz-b']) app.style.removeProperty(k);
+    wrap.querySelector('.stage-credit')?.style.removeProperty('--sheet-h');
     stage.setProjection(false);
     document.documentElement.style.setProperty('--label-k', String(stage.labelEff())); document.documentElement.style.setProperty('--label-scale', String(stage.labelScale()));
     dispatchEvent(new Event('pps:labelscale'));

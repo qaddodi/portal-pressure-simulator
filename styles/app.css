@@ -314,14 +314,14 @@ svg { flex: none; }
 .glass { background: var(--glass); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); border-radius: var(--r-card); }
 .stage-clock { display: none; }
 
-/* The credit: a faint line in the figure's lower-left, shifted in from the corner, just above the dock, any open sheet
-   or a docked card (like the zoom pill). It sits in the stage right after the figure and on the figure's layer, so it
-   draws over the figure in every view, the lobule included, but beneath every card, sheet, menu, popover and dialog.
-   Decorative and non-interactive. */
+/* The credit: a faint line in the figure's lower-left, shifted in from the corner. It draws over the figure in every view
+   (the lobule included) and is never covered by it or by a card: it rides above the dock, a docked card or sheet
+   (--sheet-h), a phone's chart sheet (--panel-h) and a stacked presenter card. Only a full-screen menu, popover or dialog
+   passes over it while open. Decorative and non-interactive. */
 .collapse-banner { position: absolute; left: 50%; top: calc(var(--top-safe) + 8px); z-index: var(--z-hud); display: flex; flex-direction: column; gap: 2px; width: max-content; max-width: min(460px, calc(100% - 32px)); padding: 10px 16px; border-radius: var(--r-card); background: var(--surface); box-shadow: var(--shadow-2), inset 0 0 0 1px color-mix(in srgb, var(--danger) 35%, transparent); font-size: var(--fs-12); line-height: 1.4; color: var(--text-2); text-align: center; pointer-events: none; opacity: 0; visibility: hidden; transform: translate(-50%, -6px); transition: opacity .35s var(--ease), transform .35s var(--ease), visibility 0s linear .35s; }
 .collapse-banner b { font: 650 var(--fs-14) var(--font-ui); color: var(--danger); }
 .collapse-banner.on { opacity: 1; visibility: visible; transform: translate(-50%, 0); transition: opacity .35s var(--ease), transform .35s var(--ease), visibility 0s; }
-.stage-credit { position: absolute; left: calc(env(safe-area-inset-left, 0px) + 24px); bottom: max(calc(var(--bot-occ, 120px) + 8px), var(--sheet-h, 0px)); z-index: var(--z-figure); font-size: var(--fs-12); font-weight: 500; line-height: 1.4; letter-spacing: .01em; white-space: nowrap; color: color-mix(in srgb, var(--text) 45%, transparent); pointer-events: none; user-select: none; }
+.stage-credit { position: absolute; left: calc(env(safe-area-inset-left, 0px) + 24px); bottom: max(calc(var(--bot-occ, 120px) + 8px), var(--sheet-h, 0px), var(--panel-h, 0px)); z-index: var(--z-figure); font-size: var(--fs-12); font-weight: 500; line-height: 1.4; letter-spacing: .01em; white-space: nowrap; color: color-mix(in srgb, var(--text) 45%, transparent); pointer-events: none; user-select: none; }
 
 /* ── Readouts: the live monitor under the figure ─────
    One fixed set in teaching order: pressure → flow → consequences → systemic. Nothing joins or
@@ -1857,7 +1857,8 @@ button.finding:hover { background: var(--surface-2); }
 #labels .lb.term .lb-name { font-weight: 700; }
 .app.presenting #labels .lb { animation: pz-fade .5s var(--ease) both; }
 .app.presenting #stageView { touch-action: none; }   /* no browser pan or pinch on the figure; the slide swipe reads touch events */
-.app.presenting .stage-credit { bottom: 14px; }
+.app.presenting .stage-credit { bottom: max(14px, var(--sheet-h, 0px)); z-index: calc(var(--z-hud) + 1); }   /* over the slide's veil (outline slides), clear of its cards; the layout lifts it above any that reach the corner */
+.app.presenting:has(.pz-black.on) .stage-credit { opacity: 0; }
 @keyframes pz-fade { from { opacity: 0; } }
 @keyframes pz-in { from { opacity: 0; transform: translateY(14px); } }
 .pz { position: absolute; inset: 0; z-index: var(--z-hud); pointer-events: none; color: var(--text); }
@@ -2234,7 +2235,7 @@ button.finding:hover { background: var(--surface-2); }
 .pz.stack .pz-panel.fill .pz-grid { flex: none; }   /* (the six ladders keep their height; the card scrolls instead of the charts spilling out of their cells) */
 .pz.stack .pz-panel.fill .pz-cell .pz-ladder { flex: none; }
 .pz.stack .pz-bar { --pz-bar-h: 56px; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); translate: none; max-width: none; height: var(--pz-bar-h); justify-content: space-between; padding: 6px 8px; overflow: visible; }
-@media (max-width: 767px) { .app.presenting .stage-credit { bottom: calc(78px + env(safe-area-inset-bottom, 0px)); } }   /* above the phone's controls */
+@media (max-width: 767px) { .app.presenting .stage-credit { bottom: max(calc(78px + env(safe-area-inset-bottom, 0px)), var(--sheet-h, 0px)); } }   /* above the phone's controls */
 .pz.stack .pz-bar.idle { opacity: 1; pointer-events: auto; transform: none; }
 .pz.stack .pz-bar .btn { min-height: 44px; padding: 0 14px; }
 .pz.stack .pz-bar .pzb-n { flex: 1; text-align: center; }
@@ -2258,7 +2259,7 @@ button.finding:hover { background: var(--surface-2); }
 .pz.stack .pz-ab::-webkit-scrollbar { display: none; }
 .pz.stack .pz-abb { flex: none; }
 /* On a phone the corner credit sits just above the bottom bar on every slide (beneath any card that covers it). */
-.app.presenting:has(.pz.stack) .stage-credit { bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
+.app.presenting:has(.pz.stack) .stage-credit { bottom: max(calc(74px + env(safe-area-inset-bottom, 0px)), var(--sheet-h, 0px)); }
 /* A title that would run past two lines in the side pane steps down a size. */
 .pz:not(.stack) .pz-text .pz-h.long { font-size: calc(clamp(32px, calc(5.8vh / var(--vz)), 70px) * .84); }
 .pz.stack .pz-count { display: none; }
@@ -4428,7 +4429,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 }
 .app.unit-on:not(.unit-try) #stage, .app.unit-on:not(.unit-try) #labels { pointer-events: none; }
 .app.unit-on .coach { top: auto; bottom: calc(env(safe-area-inset-bottom) + 12px); max-width: 720px; max-height: min(62%, 640px); right: calc(env(safe-area-inset-right) + var(--gap)); transition: max-height .3s var(--ease); }
-.app.unit-on .stage-credit { bottom: max(12px, var(--sheet-h, 0px)); }
+.app.unit-on .stage-credit { bottom: max(12px, var(--sheet-h, 0px), var(--panel-h, 0px)); }
 @media (max-width: 767px) {
   .app.unit-on .coach { left: 0; right: 0; bottom: 0; max-width: none; max-height: 62%; border-radius: var(--r-sheet) var(--r-sheet) 0 0; padding-bottom: env(safe-area-inset-bottom); }
   /* A step that opens an instrument (HVPG, Doppler, endoscopy, ascites): the instrument takes the bottom
