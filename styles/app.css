@@ -4440,3 +4440,89 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .pz-ph .pz-eq { margin: .35em 0 .5em; }
 @media (max-width: 900px) { .pzk-key { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 520px) { .pz-sk { --sk: 14px; } .pzk-names span { letter-spacing: .04em; } .pzk-names, .pzk-bar, .pzk-axis { margin: 0 .9em; } }
+/* Tests in a narrow card (a phone's sheet, the side card on an iPad or a laptop): every tab fills the card's
+   height and its picture takes what is left, so it all fits without scrolling; on a raised phone sheet or a
+   tall card the picture grows and the notes under it come back. */
+@container ws (max-width: 649px) {
+  .instrument-workspace.float-ui .dock-pane { padding-top: 10px; padding-bottom: 12px; gap: 10px; }
+  .instrument-workspace.float-ui .dock-pane > .instrument-view { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
+  .instrument-workspace.float-ui .dock-pane .instrument-view > .chart-box:not(.square) { flex: 1 1 0; height: auto; min-height: 130px; }
+  .instrument-workspace.float-ui .dock-pane .instrument-view > .chart-side { flex: none; gap: 6px; }
+  /* Pressure and Over time */
+  .instrument-workspace.float-ui .dock-pane[data-pane="profile"] .chart-side .sub { margin: 0; font-size: var(--fs-12); line-height: 1.45; color: var(--text-3); }
+  /* HVPG */
+  .instrument-workspace.float-ui .instrument-view[data-pane="hvpg"] > .hvpg-bar { flex: none; }
+  /* Doppler: direction and pattern on one line, the four numbers in one row */
+  .instrument-workspace.float-ui .instrument-view.dop .dop-main { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+  .instrument-workspace.float-ui .instrument-view.dop .dop-box { flex: 1 1 0; height: auto; min-height: 130px; }
+  .instrument-workspace.float-ui .dop-report { flex: none; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 2px 12px; }
+  .instrument-workspace.float-ui .dop-report > * { grid-column: 1 / -1; }
+  .instrument-workspace.float-ui .dop-report > .dop-dir { grid-column: 1; }
+  .instrument-workspace.float-ui .dop-report > .dop-pattern { grid-column: 2; grid-row: 1; margin: 0; }
+  .instrument-workspace.float-ui .dop-velrow { margin-top: 0; }
+  .instrument-workspace.float-ui .dop-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 10px; margin-top: 4px; padding-top: 6px; }
+  /* Scope: the view beside its readings; raised, the view is on top and larger */
+  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view { flex: none; display: grid; grid-template-columns: minmax(0, 44%) minmax(0, 1fr); align-items: start; gap: 8px 14px; }
+  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view > .chart-box.square { width: 100%; justify-self: stretch; }
+  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view > .chart-side { display: contents; }
+  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] .chart-side > .kv { grid-column: 2; grid-row: 1; grid-template-columns: minmax(0, 1fr); font-size: var(--fs-14); }
+  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] .chart-side > .kv dt { padding: 0; border: 0; font-size: var(--fs-12); color: var(--text-3); line-height: 1.3; }
+  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] .chart-side > .kv dd { padding: 0 0 4px; margin-bottom: 4px; text-align: left; line-height: 1.3; }
+  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] .chart-side > :not(.kv) { grid-column: 1 / -1; }
+  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-details { flex: none; padding-top: 4px; }
+  /* FibroScan */
+  .instrument-workspace.float-ui .instrument-view[data-pane="fibroscan"] > .chart-box { flex: 1 1 0; height: auto; min-height: 180px; }
+  .instrument-workspace.float-ui .instrument-view[data-pane="fibroscan"] > .ctl-sub { margin: 0; flex: none; }
+  .ab-step-val { min-width: 52px; }
+  .ab-chip, .ab-drain { padding: 0 8px; gap: 4px; font-size: 13px; }
+}
+/* Ascites: the drain row's controls share the card's width instead of running past its edge. */
+.ab-rx { grid-template-columns: auto minmax(0, auto) minmax(0, 1fr); }
+.ab-chip, .ab-drain { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@container (min-width: 620px) {
+  /* Beside the tap, the treatment column is narrower: volume and albumin share a line, the drain button takes the next. */
+  .ab-main { grid-template-columns: minmax(0, 1fr) 300px; }
+  .ab-main .ab-rx { grid-template-columns: auto minmax(0, 1fr); }
+  .ab-main .ab-rx .ab-drain { grid-column: 1 / -1; }
+}
+/* A sheet's panes are sized by the sheet, so what they show can follow its height. */
+.instrument-workspace.float-ui .dock-pane { container-type: size; }
+/* The Pressure switch sits above Over time: the trace takes what is left under it, not a whole pane's height. */
+.instrument-workspace .dock-pane.active > .instrument-view.pt { flex: 1 1 auto; min-height: 0; }
+/* Scope on a tablet sheet: the view is sized to the sheet's height, the readings beside it wide enough not to wrap. */
+@media (min-width: 768px) {
+  .instrument-workspace.float-ui:not(.side) .dock-pane .instrument-view > .chart-box:not(.square) { max-height: calc(100cqh - 52px); }
+  .instrument-workspace.float-ui:not(.side) .dock-pane[data-pane="endoscopy"] { gap: 8px; }
+  .instrument-workspace.float-ui:not(.side) .dock-pane[data-pane="endoscopy"] > .instrument-view { grid-template-columns: minmax(0, 1fr) 300px; gap: 12px 24px; }
+  .instrument-workspace.float-ui:not(.side) .dock-pane[data-pane="endoscopy"] .chart-box.square { width: min(100%, var(--square-size), calc(100cqh - 90px)); }
+  .instrument-workspace.float-ui:not(.side) .dock-pane[data-pane="endoscopy"] .chart-side { gap: 8px; }
+  .instrument-workspace.float-ui:not(.side) .dock-pane[data-pane="endoscopy"] .chart-side .kv :is(dt, dd) { padding-block: 3px; }
+  .instrument-workspace.float-ui:not(.side) .dock-pane[data-pane="endoscopy"] > .instrument-details { padding-top: 4px; }
+}
+/* In a short narrow card (a phone sheet at its middle height) the explanatory lines step aside so the picture keeps its room. */
+@container (max-height: 520px) and (max-width: 649px) {
+  .dock-pane[data-pane="profile"] .chart-side .sub, .dock-pane[data-pane="scope"] .chart-side .sub,
+  .instrument-view[data-pane="hvpg"] .hvpg-note, .dop-report > .dop-note,
+  .instrument-view[data-pane="fibroscan"] > .ctl-sub, .dock-pane[data-pane="endoscopy"] .chart-side > .ctl-sub { display: none; }
+}
+/* Raised: Scope stacks again with a larger view. */
+@container (min-height: 620px) and (max-width: 649px) {
+  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view { grid-template-columns: minmax(0, 1fr); }
+  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] > .instrument-view > .chart-box.square { width: min(100%, calc(100cqh - 330px)); justify-self: center; }
+  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] .chart-side > .kv { grid-column: 1; grid-row: auto; grid-template-columns: minmax(0, 1fr) auto; }
+  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] .chart-side > .kv dt { padding: 3px 0; border-bottom: 1px solid var(--hairline); font-size: var(--fs-14); color: var(--text-2); }
+  .instrument-workspace.float-ui .dock-pane[data-pane="endoscopy"] .chart-side > .kv dd { padding: 3px 0 3px 12px; margin: 0; text-align: right; border-bottom: 1px solid var(--hairline); }
+}
+/* Ascites in a tall card: the same rows, with fuller controls and room between them. */
+@container (min-height: 540px) {
+  .instrument-workspace.float-ui .ab-main, .instrument-workspace.float-ui .ab-report { gap: 10px; }
+  .instrument-workspace.float-ui .ab-tap { gap: 8px; }
+  .instrument-workspace.float-ui .ab-sum .hv-num { font-size: 32px; }
+  .instrument-workspace.float-ui .ab-belly { width: 44px; height: 44px; }
+  .instrument-workspace.float-ui .ab-iap-bar { height: 8px; }
+  .instrument-workspace.float-ui .ab-lab { padding: 8px 6px; }
+  .instrument-workspace.float-ui .ab-step-btn { width: 40px; height: 40px; }
+  .instrument-workspace.float-ui .ab-diu { min-height: 52px; }
+  .instrument-workspace.float-ui .ab-drain, .instrument-workspace.float-ui .ab-chip { min-height: 44px; }
+  .instrument-workspace.float-ui .ab-rx { gap: 10px; padding: 10px 12px; }
+}
