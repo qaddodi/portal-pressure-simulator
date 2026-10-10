@@ -294,7 +294,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       for (let i = 3; i < d.length; i += 4) if (d[i] > 40) n++;
       return n;
     };
-    const lit = await page.evaluate(vesselPixels);
+    // Read the GPU canvas a few times: a copy taken between two presented frames can come back blank on a slow runner.
+    let lit = 0;
+    for (let i = 0; i < 12 && lit < 300; i++) { if (i) await page.waitForTimeout(500); lit = await page.evaluate(vesselPixels); }
     if (lit < 300) throw new Error(`the lobule's vessel layer is nearly empty (${lit} px)`);
     if ((await page.locator('.lz-lab').count()) !== 4) throw new Error('station cards missing');
     // The card is gone: nothing floats beside the lobule but its labels.
