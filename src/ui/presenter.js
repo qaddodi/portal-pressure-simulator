@@ -20,7 +20,7 @@ import { SITES } from './ladder.js?v=cab65850a4';
 import { sinusoidSupported } from './sinusoid-view.js?v=14866bc1c9';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
 import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=2fdce58a54';
-import { createTools } from './presenter-tools.js?v=5bb66173ff';
+import { createTools } from './presenter-tools.js?v=28dfa00d7e';
 import { openHandout } from './handout.js?v=9dec8b36c3';
 
 const KEY = 'pps.scripts';
