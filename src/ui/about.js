@@ -4,6 +4,7 @@
 
 import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=706a39d50b';
 import { fmt, clamp } from './util.js?v=c40671acfb';
+import { LABEL_VESSEL } from './anatomy.js?v=f43ab79a81';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -80,8 +81,12 @@ export function aboutVessel(e, f, st) {
   if (p.thrombus?.[e.id] > 0.05) out.push(`A clot fills ${Math.round(p.thrombus[e.id] * 100)} % of the lumen.`);
   if (p.stenosis?.[e.id] > 0.05) out.push(`Narrowed by ${Math.round(p.stenosis[e.id] * 100)} %: resistance rises with the fourth power of the radius.`);
   if (st.healthy?.P && !isArt && !st.imaging) {
-    const P = (f.P[NI[e.from]] + f.P[NI[e.to]]) / 2, P0 = (st.healthy.P[NI[e.from]] + st.healthy.P[NI[e.to]]) / 2;
-    if (P - P0 > 4) out.push(`Pressure is ${fmt(P - P0, 0)} mmHg above normal here.`);
+    // The same breath-smoothed pressure, at the same station, as the card's chip (actions.js edgeValue),
+    // and its rounded rise, so the sentence and the ▲ always agree.
+    const stn = Object.keys(LABEL_VESSEL).find((n) => LABEL_VESSEL[n] === e.id);
+    const at = (PP) => (stn ? PP[NI[stn]] : (PP[NI[e.from]] + PP[NI[e.to]]) / 2);
+    const rise = Math.round(at(f.Pf || f.P) - at(st.healthy.P));
+    if (rise > 4) out.push(`Pressure is ${rise} mmHg above normal here.`);
   }
   return out.filter(Boolean);
 }

@@ -2,7 +2,7 @@
 // over an SVG scene that holds the organ artwork, hit targets and overlays, and screen-space labels.
 
 import { EDGES, dopplerK, NODES, PORTAL_TERRITORY, dMinOf, edgePresent, isOccluded, SHUNT_PORTAL, SHUNT_SYSTEMIC, customShuntId } from '../engine/topology.js?v=706a39d50b';
-import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=6d0bd235b5';
+import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT, VB_CIRC, ATLAS_COLUMNS, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN, ANAT_HIDDEN_NODES, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NEEDS_C3, NODE_POS, EDGE_PATH, CIRCUIT_PATH, metroPath, ORGANS, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, ABDOMEN_FLOOR, flankPath, abdomenOutline, SPLEEN_CENTER, SITES, ORGAN_LABELS, ATLAS_LABELS, SHORT, CHIP_NODES, LIVER_SPLIT_X, CIRCUIT_ZONES, CIRCUIT_LABELS, STRANDS, STRAND_FROM, FEEDERS, fanFeeders, CIRCUIT_TREES } from './anatomy.js?v=f43ab79a81';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=7616551729';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=5edd069b32';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=c40671acfb';
@@ -15,7 +15,7 @@ import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA,
 
 const N_SAMPLES = 64;
 // Shorter circuit zone titles, tried in turn when the full one is wider than its zone.
-const ZONE_SHORT = { 'Splanchnic beds': ['Gut & spleen'], 'Portal veins': ['Portal'], 'Hepatic veins · IVC': ['Hep. veins · IVC', 'IVC'] };
+const ZONE_SHORT = { 'Splanchnic beds': ['Gut & spleen'], 'Liver · sinusoids': ['Liver'], 'Portal veins': ['Portal'], 'Hepatic veins · IVC': ['Hep. veins · IVC', 'Outflow'] };   // never a second "IVC" beside the IVC's own label
 // Displayed width grows sub-linearly with diameter so the cavae don't swamp the portal tree,
 // while distension of small veins and collaterals stays visible.
 // Drawn caliber (px) for a vessel diameter. The 1.3 lifts the baseline so the veins read at a
@@ -4552,8 +4552,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const [txt, x0, x1] of CIRCUIT_ZONES) {
         const [a, ay0] = worldToLocal(x0, 60), [b, by] = worldToLocal(x1, 60);
         // The liver's and the heart's titles open their cards (there is no organ to click in the circuit).
-        const organ = { Liver: 'liver', Heart: 'heart' }[txt];
-        const it = { key: 'z:' + txt, cls: organ ? 'zonecap link' : 'zonecap', lines: [[{ t: txt.toUpperCase(), size: 9.5, weight: 650, cls: 'lb-zone', track: 0.1 }]], align: 'middle', padX: 2, padY: 2 };
+        const organ = { 'Liver · sinusoids': 'liver', Heart: 'heart' }[txt];
+        const it = { key: 'z:' + txt, cls: organ ? 'zonecap link' : 'zonecap', lines: [[{ t: txt, size: 10.5, weight: 650, cls: 'lb-zone' }]], align: 'middle', padX: 2, padY: 2 };
         if (organ) {
           it.onClick = () => onSelect({ type: 'organ', id: organ });
           it.label = `${txt}: open its card`; it.hit = true;
@@ -4569,7 +4569,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const span = turned ? Math.abs(by - ay0) : b - a;
         for (const alt of ZONE_SHORT[txt] || []) {
           if (span > it.w + 6) break;
-          it.lines = [[{ ...it.lines[0][0], t: alt.toUpperCase() }]]; it.w = lineW(it.lines[0]);
+          it.lines = [[{ ...it.lines[0][0], t: alt }]]; it.w = lineW(it.lines[0]);
         }
         if (turned) {
           if (span <= it.w + 6) continue;

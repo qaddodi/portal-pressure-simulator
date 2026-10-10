@@ -1425,17 +1425,20 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .timeline .play { width: 36px; height: 36px; border-radius: var(--r-card); background: var(--text); color: var(--stage-bg); flex: none; }
 .timeline .play:hover { background: var(--text); color: var(--stage-bg); opacity: .88; }
 .timeline .play svg { width: var(--ic-s); height: var(--ic-s); }
-.tl-speed { height: 28px; min-width: 36px; padding: 0 8px; border: 0; border-radius: var(--r-control); background: var(--surface-3); color: var(--text-2); font: 600 var(--fs-12) var(--font-ui); cursor: pointer; font-variant-numeric: tabular-nums; }
+.tl-speed { display: inline-flex; align-items: center; gap: 2px; height: 28px; min-width: 36px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--r-control); background: var(--surface); color: var(--text); font: 600 var(--fs-12) var(--font-ui); cursor: pointer; font-variant-numeric: tabular-nums; }
 .tl-speed:hover { color: var(--text); }
 .timeline .tl-restart { width: 32px; height: 32px; color: var(--text-2); flex: none; }
 .timeline .tl-restart svg { width: var(--ic-m); height: var(--ic-m); }
 .tl-track { position: relative; flex: 1; min-width: 120px; height: 40px; }
 .tl-rail { position: absolute; left: 6px; right: 6px; top: 25px; height: 3px; border-radius: 2px; background: var(--surface-3); }
-.tl-fill { position: absolute; left: 6px; top: 25px; height: 3px; border-radius: 2px; background: color-mix(in srgb, var(--text) 35%, var(--surface-3)); transition: width .3s var(--ease); }
+.tl-fill { position: absolute; left: 6px; top: 25px; height: 3px; border-radius: 2px; background: color-mix(in srgb, var(--text) 35%, var(--surface-3)); }
 .tl-bleed { position: absolute; top: 23px; height: 7px; border-radius: 3px; background: color-mix(in srgb, var(--critical) 55%, transparent); }
-.tl-now { position: absolute; top: 19px; width: 15px; height: 15px; margin-left: -8px; border-radius: 50%; background: var(--text); box-shadow: 0 0 0 3px var(--stage-bg); transition: left .3s var(--ease); pointer-events: none; }
+/* "Now": a small passive dot on the progress line (it is not a scrubber; the markers are the way back). */
+.tl-now { position: absolute; left: 0; top: 21px; width: 11px; height: 11px; margin-left: -5.5px; border-radius: 50%; background: var(--text); box-shadow: 0 0 0 3px var(--stage-bg); pointer-events: none; will-change: transform; }
+.tl-track.leap .tl-fill { transition: width .3s var(--ease); }
+.tl-track.leap .tl-now { transition: transform .3s var(--ease); }
 .tl-track.ff .tl-fill { background: var(--accent); transition: width .9s cubic-bezier(.2, .7, .2, 1); }
-.tl-track.ff .tl-now { background: var(--accent); transition: left .9s cubic-bezier(.2, .7, .2, 1); }
+.tl-track.ff .tl-now { background: var(--accent); transition: transform .9s cubic-bezier(.2, .7, .2, 1); }
 .tl-track.pulse .tl-m.ev:last-child { animation: tlPulse 1.2s var(--ease); }
 @keyframes tlPulse { 30% { transform: translate(-50%, 0) scale(1.6); } }
 .tl-marks { position: absolute; inset: 0; }
@@ -1458,7 +1461,7 @@ input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px va
 .tl-jump { height: 28px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--r-control); background: var(--surface); color: var(--text); font: 600 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; }
 .tl-jump:hover { border-color: var(--accent-line); color: var(--accent-ink); background: var(--accent-soft); }
 .tl-more { width: 28px; height: 28px; }
-.tl-pin { flex: none; display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--r-card); background: var(--surface); color: var(--text); font: 600 var(--fs-14) var(--font-ui); cursor: pointer; white-space: nowrap; }
+.tl-pin { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r-card); background: var(--surface); color: var(--text); font: 600 var(--fs-12) var(--font-ui); cursor: pointer; white-space: nowrap; }
 .tl-pin:hover { border-color: var(--border-strong); background: var(--surface-2); }
 .tl-pin[aria-pressed="true"] { background: var(--text); color: var(--stage-bg); border-color: transparent; }
 .tl-pop { display: flex; flex-direction: column; gap: 2px; width: min(360px, calc(calc(100vw / var(--vz)) - 24px)); max-height: 360px; overflow: auto; }
@@ -3610,7 +3613,6 @@ button.finding:hover { background: var(--surface-2); }
 .tl-time { min-width: 0; text-align: left; }
 .tl-time .tl-t-short { display: none; }
 @media (max-width: 767px) { .vdock .tl-time .tl-t-short { display: inline; } }
-.tl-speed { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
 .tl-speed::after { content: ''; width: 0; height: 0; border-left: 3.5px solid transparent; border-right: 3.5px solid transparent; border-top: 4px solid currentColor; opacity: .55; margin-left: 2px; }
 .tl-speed:hover { border-color: var(--accent-line); color: var(--accent-ink); background: var(--accent-soft); }
 .tl-rail { background: color-mix(in srgb, var(--text) 12%, var(--surface-3)); }
@@ -3625,6 +3627,9 @@ button.finding:hover { background: var(--surface-2); }
   .metric .k .k-l { display: none; }
   .metric .k .k-s { display: inline; }
   .readouts:not(.all) .metric .tr { display: none; }
+  /* "Not measured" does not fit a narrow tile: it says what to do instead. */
+  .metric .status.unmeas { font-size: 0; }
+  .metric .status.unmeas::after { content: 'Measure'; font-size: var(--fs-12); }
 }
 
 /* A phone: the clock is in the play bar (short form), not floating over the figure. */
@@ -3691,7 +3696,6 @@ input[type="range"] { touch-action: none; }
 }
 .tl-hist:hover { border-color: var(--border-strong); background: var(--surface-2); }
 .tl-hc:not(:empty) { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--surface-3); color: var(--text-2); display: inline-grid; place-items: center; font-variant-numeric: tabular-nums; }
-.tl-pin { font-size: var(--fs-12); padding: 0 10px; gap: 6px; }
 /* Events: a colored flag standing on the rail, so they read apart from the learner's changes. */
 .tl-m.ev { top: 2px; width: 18px; height: 22px; }
 .tl-m.ev::before { width: 10px; height: 10px; border: 0; border-radius: 50%; background: var(--sev, var(--info)); box-shadow: 0 0 0 2px var(--surface); align-self: start; margin-top: 1px; }
@@ -3795,6 +3799,10 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .chg-v { flex: none; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
 .chg .chg-x { flex: none; width: 28px; height: 28px; margin-right: -6px; color: var(--text-3); }
 .chg .chg-x:hover { color: var(--text); }
+.chg-sub { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); padding: 8px 0 2px; }
+.chg-sub:first-child { padding-top: 0; }
+.chg.about { color: var(--text-2); }
+.chg-sub + .chg { border-top: 0; }
 .chg-clear { align-self: flex-start; margin: 6px 0 0; padding: 0; font-size: var(--fs-12); text-align: left; }
 
 /* The top bar keeps one row off a phone: main.js steps data-fit up until it fits. */
@@ -3896,7 +3904,7 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .tl-track { height: 44px; }
 .tl-rail, .tl-fill { top: 20px; }
 .tl-bleed { top: 18px; }
-.tl-now { top: 14px; }
+.tl-now { top: 16px; }
 .tl-m.change, .tl-m.start, .tl-m.jump { top: 14px; }
 .tl-m.ev.below { top: 22px; }
 .tl-m.ev.below::before { align-self: end; margin-top: 0; margin-bottom: 1px; }
@@ -4181,7 +4189,8 @@ body.sim-paused .mon.bad .mv { animation-play-state: paused; }
 @media (max-width: 1199px) {
   .vdock .vd-status:has(.narrator:not([hidden])) { flex-wrap: wrap; row-gap: 6px; }
   .vdock .narrator { flex-basis: 100%; order: 2; align-items: flex-start; }
-  .vdock .narrator .nr-t { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .vdock .narrator .nr-t { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; cursor: pointer; }
+  .vdock .narrator.full .nr-t { -webkit-line-clamp: unset; }
 }
 @media (max-width: 767px) {
   .vdock .narrator { font-size: var(--fs-12); }
@@ -4387,7 +4396,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 /* ── Student mode: a calmer, simpler screen ───────────────────────
    The timeline keeps play/pause, the scrubber and the clock; the readouts keep HVPG and PPG
    (dock.js); the figure keeps names (stage.js); tiles do not flash. Explore only. */
-#app[data-role="student"][data-mode="explore"] :is(.tl-speed, .tl-ff, .tl-jumps, .tl-hist, .tl-pin, .tl-latest, .tl-marks .tl-m:not(.start)) { display: none; }
+#app[data-role="student"][data-mode="explore"] :is(.tl-speed, .tl-ff, .tl-jumps, .tl-hist, .tl-pin, .tl-latest, .tl-marks .tl-m:not(.start, .change)) { display: none; }
 #app[data-role="student"][data-mode="explore"] .readouts .ro-more { display: none; }
 #app[data-role="student"] .metric.flash { animation: none; }
 .order-more { grid-column: 1 / -1; justify-content: center; color: var(--text-2); }

@@ -3,32 +3,31 @@
 
 import { startHost, host } from './host.js?v=5f360b39e4';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=5edd069b32';
-import { createStage } from './stage.js?v=d7e61d6669';
+import { createStage } from './stage.js?v=a282fcb8ae';
 import { sinusoidSupported } from './sinusoid-view.js?v=f4c687c596';
 import { createInspector } from './inspector.js?v=f8e9753ccd';
-import { createDock, CUTOFFS } from './dock.js?v=9f9ce92c27';
-import { setHvpgStage } from './hvpg-proc.js?v=3afe9f2baa';
-import { createWhy } from './why.js?v=20917f56d7';
-import { createTimeline, LAPSES } from './timeline.js?v=21b8f2df30';
+import { createDock, CUTOFFS } from './dock.js?v=424d8fe3ed';
+import { setHvpgStage } from './hvpg-proc.js?v=04fe682893';
+import { createWhy } from './why.js?v=83decdbe76';
+import { createTimeline, LAPSES } from './timeline.js?v=53d8c4005e';
 import { createLearn } from './learn.js?v=75264bde4f';
-import { createCases, CASES } from './cases.js?v=37f0f9f354';
+import { createCases, CASES } from './cases.js?v=b1320be1ce';
 import { isBlind } from './learning-kit.js?v=6df2efa942';
 import { createCompare } from './compare.js?v=19ac82375c';
-import { createCard } from './card.js?v=acfa6e10ad';
-import { createChart, computeFindings } from './chart.js?v=4639117d4d';
-import { createHome, ROLES } from './home.js?v=87a7e37aaf';
+import { createCard } from './card.js?v=1f3ea2aca0';
+import { createChart, computeFindings } from './chart.js?v=2e1f5683a3';
+import { createHome, ROLES } from './home.js?v=cdc60429d1';
 import { course } from './course.js?v=5ac0b0266c';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=398e679a38';
 import { caption } from './a11y.js?v=9196b88cba';
-import { startLMS } from './lms.js?v=f9756d1b7b';
+import { startLMS } from './lms.js?v=a19ee6d0f2';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable } from './actions.js?v=9490bc4764';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue } from './actions.js?v=da1cf0caee';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=7616551729';
-import { EDGES, NODES } from '../engine/topology.js?v=706a39d50b';
+import { EDGES } from '../engine/topology.js?v=706a39d50b';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=c40671acfb';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
-const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const app = $('#app');
 const view = $('#stageView');
 const isPhone = () => matchMedia('(max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape)').matches;
@@ -141,7 +140,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else home.open(o?.practice ? 'practice' : 'course'); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => home.open('course') });
-  presenterL = lazy(() => import('./presenter.js?v=cb55df1ec2'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=bdf51fe175'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => home.close(), stashCards, rerenderHome: () => { if (home.isOpen()) home.render(); } }));
   home = createHome({
@@ -154,7 +153,7 @@ async function main() {
     onClose: () => home.close(),
     onClosed: () => { if (homeStale) { homeStale = false; const f = store.get().frame; if (f) { lastPaint = 0; onFrame({ ...f, changed: true, events: [], params: undefined }); } } },
   });
-  paletteL = lazy(() => import('./palette.js?v=42f66e839c'), ({ createPalette }) => createPalette({ ctx: {
+  paletteL = lazy(() => import('./palette.js?v=7d451f8e21'), ({ createPalette }) => createPalette({ ctx: {
     select, action: doAction, probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); }, showPane: (id) => dock.show(id, { reveal: true }),
     jump: (d, l) => timeline.jump(d, l), undo: () => timeline.undo(), pin: () => timeline.togglePin(), lenses: Object.fromEntries(Object.entries(LENSES).map(([k, v]) => [k, v])),
     zoomLobule: () => zoomLobule('R'), instruments: () => dock.toggle(),
@@ -216,6 +215,8 @@ async function main() {
   store.on('mode', syncScenarioName);
   store.on('role', (r) => { if (home.isOpen()) home.render(); try { localStorage.setItem('pps.role', r); localStorage.removeItem('pps.narrator'); } catch { /* storage unavailable */ } narrPref = null; if (readLS('pps.showHvpg') == null) store.set({ showHvpg: r === 'student' }); app.dataset.role = r; card.render(); narrate(store.get().frame, performance.now(), true); });
   $('#narratorWhy').addEventListener('click', (e) => why.open('pv', e.currentTarget));
+  // Where the caption is clamped to two lines, a tap shows the rest (and a second tap folds it again).
+  $('#narratorText').addEventListener('click', () => $('#narrator').classList.toggle('full'));
   app.dataset.role = store.get().role;
   for (const k of ['compareSnap', 'compareView', 'colorMode', 'imaging', 'found', 'sinusoid', 'lobule']) store.on(k, () => { renderLegend(); renderBanner(); redraw(); });
   store.on('compareSnap', () => { if (!store.get().details) inspector.render(); });
@@ -394,6 +395,7 @@ async function loadPreset(id, opts = {}) {
   // Patients tapped in quick succession: the engine loads them in order, so only the last one's answer is applied.
   if (gen !== presetGen) return;
   replaceParams(res.params);
+  store.set({ presetParams: { id, params: structuredClone(res.params) } });   // what the patient came with (chart.js: About this patient)
   clearHistory();
   store.set({ presetLoading: false, presetId: id, lastHVPG: null, hvpgMeasured: false, selection: store.get().mode === 'cases' ? null : store.get().selection, historyTick: (store.get().historyTick || 0) + 1 });
   timeline?.reset(store.get().mode === 'cases' ? 'Case' : store.get().presetList?.find((x) => x.id === id)?.label);
@@ -752,7 +754,7 @@ function hoverInfo(info) {
   const v = f.Q[k] / (Math.PI * D * D / 4);
   const r = (a, b) => h('div', { class: 'r' }, a, h('b', {}, b));
   tipEl.replaceChildren(h('div', { class: 't' }, e.label),
-    r('Pressure', `${fmt(f.P[NI[e.from]], 1)} → ${fmt(f.P[NI[e.to]], 1)} mmHg`), r('Flow', `${fmtFlow(f.Q[k] * 0.06)} L/min`),
+    r('Pressure', `${edgeValue(e, f, 'pressure', null).v} mmHg`), r('Flow', `${fmtFlow((f.Qf ? f.Qf[k] : f.Q[k]) * 0.06)} L/min`),
     r('Velocity', `${fmt(v, 1)} cm/s`), r('Diameter', `${fmt(f.D[k], 1)} mm`), h('div', { class: 'hint' }, info.peek ? 'Tap for actions' : 'Click or right-click for actions'));
   tipEl.style.display = '';
   tipEl.classList.toggle('peek', !!info.peek);

@@ -5,12 +5,12 @@ import { store, hiddenNow } from './store.js?v=5edd069b32';
 import { EDGES } from '../engine/topology.js?v=706a39d50b';
 import { h, fmt, svgIcon, closePopover, clamp } from './util.js?v=c40671acfb';
 import { lobuleFlows } from './lobule-model.js?v=a07e5a3d8f';
-import { createProfile } from './charts.js?v=45f0d5ffde';
-import { createPressureTime } from './pressure-time.js?v=e627d38001';
-import { createFibroScan } from './fibroscan.js?v=56836f6d00';
-import { createHvpgProcedure } from './hvpg-proc.js?v=3afe9f2baa';
-import { createDoppler } from './doppler.js?v=d1b4de939d';
-import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=f00976525c';
+import { createProfile } from './charts.js?v=3ad08356dd';
+import { createPressureTime } from './pressure-time.js?v=36192256c6';
+import { createFibroScan } from './fibroscan.js?v=9b57d9f91c';
+import { createHvpgProcedure } from './hvpg-proc.js?v=04fe682893';
+import { createDoppler } from './doppler.js?v=80a09bb3e1';
+import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js?v=ada71ba2da';
 
 
 // Readouts in teaching order: pressure, then flow, then what they lead to, then the systemic
@@ -27,7 +27,7 @@ export const TILES = [
   { id: 'ppg', group: 'pressure', k: 'PPG', title: 'Portosystemic pressure gradient: portal confluence − inferior vena cava at the right atrium, directly from the model network. Unlike HVPG it also includes a block before the liver (presinusoidal or prehepatic). Normal < 6, high ≥ 12 mmHg.', why: 'ppg', hideKey: 'pv', v: (m) => m.ppg, d: 1, u: 'mmHg',
     scale: [0, 25], ticks: [6, 12],
     st: (v) => (v < 6 ? 'ok' : v < 12 ? 'caution' : 'danger'), s: (v) => (v < 6 ? 'Normal' : v < 12 ? 'Raised' : 'High') },
-  { id: 'pv', group: 'pressure', k: 'Portal pressure', title: 'Portal vein pressure at the portal confluence, absolute (model value). Normal ≤ 10 mmHg.', why: 'pv', v: (m) => m.pv, d: 1, u: 'mmHg', hideKey: 'pv',
+  { id: 'pv', group: 'pressure', k: 'Portal pressure', ks: 'Portal P', title: 'Portal vein pressure at the portal confluence, absolute (model value). Normal ≤ 10 mmHg.', why: 'pv', v: (m) => m.pv, d: 1, u: 'mmHg', hideKey: 'pv',
     scale: [0, 35], ticks: [10, 15],
     st: (v) => (v <= 10 ? 'ok' : v < 15 ? 'caution' : 'danger'), s: (v) => (v <= 10 ? 'Normal' : v < 15 ? 'Raised' : 'High') },
   // Flow and velocity averaged over a few breaths (pvFlowMean, pvVelMean): breathing swings the
@@ -281,7 +281,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
           el.dataset.sev = sev; x.sev = sev;
         }
       } else x.sevNext = null;
-      if (sev === x.sev && x.st.textContent !== s) x.st.textContent = s;
+      if (sev === x.sev && x.st.textContent !== s) { x.st.textContent = s; x.st.classList.toggle('unmeas', v == null); }
       const aria = `${t.title || t.k}: ${v == null ? 'not measured' : `${fmt(v, t.d)} ${t.u}${t.ux || ''}, ${s}`}${x.trend ? `, ${x.trend === 'up' ? 'rising' : 'falling'}` : ''}`;
       if (aria !== x.ariaTxt) { x.ariaTxt = aria; el.setAttribute('aria-label', aria); }
     }

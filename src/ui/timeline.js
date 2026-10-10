@@ -262,13 +262,18 @@ export function createTimeline({ root, onWhy, onPlay, onSpeed, onJump, onRestart
   // rebuilt when the timeline's contents change, or at most once a second as time passes.
   let trackW = 0;
   new ResizeObserver(() => { trackW = track.clientWidth; render(true); }).observe(track);
-  let lastRenderKey = '', lastMarksAt = 0, lastNow = -1;
+  let lastRenderKey = '', lastMarksAt = 0, lastNow = -1, leapT = 0;
   function render(force) {
     const W = trackW || (trackW = track.clientWidth);
     if (!W) return;
     const { at, now } = positions(W);
     const rn = Math.round(now);
-    if (rn !== lastNow) { lastNow = rn; fill.style.width = `${rn}px`; nowEl.style.left = `${rn}px`; }
+    // The playhead follows the clock frame by frame (a transform, no layout); only a leap (a jump,
+    // restart or resize) eases, so the transition is not restarted on every pixel.
+    if (rn !== lastNow) {
+      if (lastNow >= 0 && Math.abs(rn - lastNow) > 24) { track.classList.add('leap'); clearTimeout(leapT); leapT = setTimeout(() => track.classList.remove('leap'), 350); }
+      lastNow = rn; fill.style.width = `${rn}px`; nowEl.style.transform = `translateX(${rn}px)`;
+    }
     const key = `${entries.length}|${cursor}|${W}|${entries.map((e) => (e.snap ? 1 : 0)).join('')}`;
     const t = performance.now();
     if (!force && key === lastRenderKey && t - lastMarksAt < 1000) return;

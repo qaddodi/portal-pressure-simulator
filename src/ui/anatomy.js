@@ -346,7 +346,7 @@ export function metroPath([x1, y1], [x2, y2]) {
 }
 
 // Circuit pressure zones (x0, x1 in world units), captioned along the top of the map.
-export const CIRCUIT_ZONES = [['Splanchnic beds', 60, 390], ['Portal veins', 390, 630], ['Liver', 630, 950], ['Hepatic veins · IVC', 950, 1185], ['Heart', 1185, 1360]];
+export const CIRCUIT_ZONES = [['Splanchnic beds', 60, 390], ['Portal veins', 390, 630], ['Liver · sinusoids', 630, 950], ['Hepatic veins · IVC', 950, 1185], ['Heart', 1185, 1360]];
 
 // Station labels in the circuit: preferred placement around the node (tried in order) and
 // priority (higher wins when space is short; low-priority stations drop out on small screens).
@@ -519,7 +519,7 @@ export const SHORT = {
   AO: 'Aorta', HA: 'Hep. artery', INT: 'Gut bed', COL: 'Colon', SPL: 'Spleen', STO: 'Stomach', SMV: 'SMV', IMV: 'IMV', SV: 'Splenic v.',
   LGV: 'L. gastric v.', CONF: 'Portal v.', PVH: 'PV hilum', RPV: 'R portal', LPV: 'L portal', VAR: 'Esoph. varices', GV: 'Fundal varices',
   SIN_R: 'Sinusoids R', SIN_L: 'Sinusoids L', CV_R: 'Central v. R', CV_L: 'Central v. L', W_R: 'Wedge R', W_M: 'Wedge M', W_L: 'Wedge L',
-  RHV: 'RHV', MHV: 'MHV', LHV: 'LHV', IVCI: 'IVC', IVCS: 'IVC', RA: 'RA', SVC: 'SVC', AZY: 'Azygos', UPPV: 'Upper body',
+  RHV: 'RHV', MHV: 'MHV', LHV: 'LHV', IVCI: 'Lower IVC', IVCS: 'IVC', RA: 'RA', SVC: 'SVC', AZY: 'Azygos', UPPV: 'Upper body',
   LOWV: 'Lower body', ILI: 'Iliac v.', EPI: 'Umbilicus', KID_L: 'L kidney', KID_R: 'R kidney', LRV: 'L renal v.', RRV: 'R renal v.',
 };
 

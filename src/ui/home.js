@@ -6,9 +6,9 @@
 import { store } from './store.js?v=5edd069b32';
 import { h, svgIcon, icon } from './util.js?v=c40671acfb';
 import { LESSONS } from './learn.js?v=75264bde4f';
-import { CASES } from './cases.js?v=37f0f9f354';
+import { CASES } from './cases.js?v=b1320be1ce';
 import { createDrill, drillProgress, DRILL_TITLE, ROUNDS } from './drill.js?v=df831c54a9';
-import { skillsPath, reviewCard } from './practice.js?v=59dec83845';
+import { skillsPath, reviewCard } from './practice.js?v=663a75f4aa';
 import { UNITS, FINAL, PARTS, course } from './course.js?v=5ac0b0266c';
 import { openExam } from './exam.js?v=7402148dba';
 import { t } from '../i18n/i18n.js?v=398e679a38';
