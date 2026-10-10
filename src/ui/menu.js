@@ -63,7 +63,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   const reduce = matchMedia('(prefers-reduced-motion: reduce)');
   const sheetMQ = matchMedia('(max-width: 767px), (max-width: 1023px) and (max-height: 500px) and (orientation: landscape)');
   const fine = matchMedia('(hover: hover) and (pointer: fine)');
-  let el = null, back = null, pv = null, open = false, leaveT = 0, hoverT = 0, hideT = 0, pvKey = null, mark = null, query = '';
+  let el = null, back = null, pv = null, open = false, leaveT = 0, hoverT = 0, hideT = 0, pvKey = null, mark = null, query = '', tab = 'present';
 
   const close = (o = {}) => {
     if (!open) return;
@@ -158,7 +158,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     // Beside the panel, level with the row; over the other column when there is no room beside it.
     const z = uiScale(), pr = el.getBoundingClientRect(), rr = row.getBoundingClientRect(), w = 360 * z, ph = pv.offsetHeight * z;
     let x = pr.right + 8;
-    if (x + w > innerWidth - 8) { const c = el.querySelector(`.um-col[data-col="${col === 'present' ? 'patients' : 'present'}"]`).getBoundingClientRect(); x = c.left + 8; }
+    if (x + w > innerWidth - 8) x = Math.max(8, innerWidth - w - 8);   // (no room beside the panel: over its right edge)
     const y = clamp(rr.top - 40 * z, 8, innerHeight - ph - 8);
     pv.style.left = x / z + 'px'; pv.style.top = y / z + 'px';
     pv.classList.add('on');
@@ -216,12 +216,17 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       h('div', { class: 'um-top' },
         h('label', { class: 'um-search' }, icon('search'), input, h('kbd', { class: 'um-kb' }, '/')),
         h('button', { class: 'ib um-x', 'aria-label': 'Close the menu', onclick: () => close() }, icon('close'))),
+      h('div', { class: 'um-tabs', role: 'tablist', 'aria-label': 'Menu' },
+        [['present', 'Present', 'projector'], ['patients', 'Patients', 'scenario']].map(([k, label, ic]) => h('button', { class: 'um-tab', role: 'tab', id: 'umtab-' + k, 'data-tab': k,
+          'aria-selected': String(tab === k), 'aria-controls': 'umcol-' + k, onclick: () => setTab(k, true) }, svgIcon(ic, 'um-hi'), label))),
       h('div', { class: 'um-cols' }, present, patients),
-      h('p', { class: 'um-empty', hidden: true }, 'No presentation or patient matches'),
+      h('p', { class: 'um-empty', hidden: true }, h('span', {}), h('button', { class: 'um-link um-other', hidden: true, onclick: () => setTab(tab === 'present' ? 'patients' : 'present', true) })),
       h('footer', { class: 'um-foot' },
         h('button', { class: 'um-link', onclick: () => { close(); share(); } }, icon('share'), 'Copy link to this view'),
         h('button', { class: 'um-link', onclick: () => { close(); help(anchor); } }, icon('help'), 'Help'),
         h('span', { class: 'um-esc' }, 'Esc closes')));
+    panel.dataset.tab = tab;
+    for (const c of panel.querySelectorAll('.um-col')) { c.id = 'umcol-' + c.dataset.col; c.setAttribute('role', 'tabpanel'); c.setAttribute('aria-labelledby', 'umtab-' + c.dataset.col); }
     panel.addEventListener('keydown', keys);
     return panel;
   }
@@ -239,20 +244,40 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       g.hidden = words.length ? (empty || !n) : false;
       any ||= n > 0;
     }
-    for (const c of el.querySelectorAll('.um-col')) c.classList.toggle('none', !!words.length && !c.querySelector('.um-g:not([hidden]) li:not([hidden])'));
-    el.querySelector('.um-empty').hidden = any || !words.length;
-    el.classList.toggle('filtered', !!words.length);
+    // The search runs in both tabs; with no match in this one, the empty note points to the other's matches.
+    const count = (k) => el.querySelectorAll(`.um-col[data-col="${k}"] .um-g:not([hidden]) li:not([hidden])`).length;
+    const other = tab === 'present' ? 'patients' : 'present', here = count(tab), there = count(other);
+    const note = el.querySelector('.um-empty'), go = note.querySelector('.um-other');
+    note.hidden = !words.length || here > 0;
+    note.firstChild.textContent = tab === 'present' ? 'No presentation matches.' : 'No patient matches.';
+    go.hidden = !there;
+    go.textContent = there ? `${there} ${other === 'patients' ? (there === 1 ? 'patient matches' : 'patients match') : (there === 1 ? 'presentation matches' : 'presentations match')} ›` : '';
+    el.classList.toggle('filtered', !!words.length && any);
+  }
+  // Switching tabs eases the new list in; the panel keeps its size.
+  function setTab(k, focus) {
+    tab = k;
+    if (!el) return;
+    el.dataset.tab = k;
+    for (const b of el.querySelectorAll('.um-tab')) b.setAttribute('aria-selected', String(b.dataset.tab === k));
+    hidePreview();
+    const col = el.querySelector(`.um-col[data-col="${k}"]`);
+    if (!reduce.matches) { col.classList.remove('um-in'); void col.offsetWidth; col.classList.add('um-in'); }
+    filter();
+    if (focus) el.querySelector(`#umtab-${k}`)?.focus({ preventScroll: true });
   }
   // Up and Down move within a column, Left and Right switch columns, typing goes to search, Enter in
   // search opens the first match, Esc clears the search and then closes.
   function keys(e) {
     const q = el.querySelector('.um-q');
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (e.target === q && q.value) { q.value = ''; query = ''; filter(); } else close(); return; }
+    const act = () => visible(el.querySelector(`.um-col[data-col="${tab}"]`));
     if (e.target === q) {
-      if (e.key === 'Enter') { e.preventDefault(); visible()[0]?.click(); }
-      else if (e.key === 'ArrowDown') { e.preventDefault(); visible()[0]?.focus(); }
+      if (e.key === 'Enter') { e.preventDefault(); act()[0]?.click(); }
+      else if (e.key === 'ArrowDown') { e.preventDefault(); act()[0]?.focus(); }
       return;
     }
+    if (e.target.classList?.contains('um-tab') && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); setTab(tab === 'present' ? 'patients' : 'present', true); return; }
     const row = e.target.closest?.('.um-row');
     if (row && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
       e.preventDefault();
@@ -260,9 +285,8 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       if (e.key === 'ArrowUp' && i === 0) q.focus(); else list[clamp(i + (e.key === 'ArrowDown' ? 1 : -1), 0, list.length - 1)]?.focus();
     } else if (row && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
       e.preventDefault();
-      const cols = [...el.querySelectorAll('.um-col')], here = row.closest('.um-col'), other = cols[(cols.indexOf(here) + 1) % cols.length];
-      const from = visible(here).indexOf(row), to = visible(other);
-      to[Math.min(from, to.length - 1)]?.focus();
+      setTab(tab === 'present' ? 'patients' : 'present');
+      visible(el.querySelector(`.um-col[data-col="${tab}"]`))[0]?.focus();
     } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && e.key !== ' ') q.focus();
   }
   const visible = (col = el) => [...col.querySelectorAll('li:not([hidden]) > .um-row')].filter((r) => !r.closest('.um-g[hidden]'));
@@ -275,7 +299,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   }
   function render() {
     if (!el) return;
-    const lib = libraryNow(), keep = el.querySelector('.um-cols')?.scrollTop, focus = document.activeElement?.dataset?.key, sheet = el.classList.contains('sheet');
+    const lib = libraryNow(), keep = el.querySelector('.um-cols')?.scrollTop, focus = document.activeElement?.classList.contains('um-q') ? 'q' : document.activeElement?.dataset?.k, sheet = el.classList.contains('sheet');
     const next = build(lib);
     if (sheet) next.classList.add('sheet');
     next.classList.add('still');
@@ -292,6 +316,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     open(section, opts = {}) {
       if (leaveT) { clearTimeout(leaveT); leaveT = 0; document.querySelectorAll('.umenu.out, .um-scrim.out').forEach((x) => x.remove()); }
       mark = opts.mark || null;
+      if (section) setTab(section === 'patients' ? 'patients' : 'present');
       if (!open) {
         open = true; query = '';
         const sheet = sheetMQ.matches, lib = libraryNow();
@@ -310,10 +335,8 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       }
       const scrollTo = () => {
         if (!el) return;
-        const at = section === 'scripts' ? el.querySelector('.um-g.scripts') : section === 'patients' && el.classList.contains('sheet') ? el.querySelector('.um-col[data-col="patients"]') : null;
-        at?.scrollIntoView({ block: 'start', behavior: reduce.matches ? 'auto' : 'smooth' });
-        const cur = el.querySelector(section === 'patients' ? '.um-col[data-col="patients"] .um-row[aria-current="true"]' : '.um-col[data-col="present"] .um-row[aria-current="true"]');
-        if (cur && !el.classList.contains('sheet')) cur.scrollIntoView({ block: 'nearest' });
+        if (section === 'scripts') el.querySelector('.um-g.scripts')?.scrollIntoView({ block: 'start', behavior: reduce.matches ? 'auto' : 'smooth' });
+        else el.querySelector(`.um-col[data-col="${tab}"] .um-row[aria-current="true"]`)?.scrollIntoView({ block: 'nearest' });
       };
       requestAnimationFrame(scrollTo);
     },

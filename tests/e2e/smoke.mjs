@@ -214,25 +214,29 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForSelector('.umenu .um-row[data-k="d:hvpg"]');
     const sheet = await page.evaluate(() => document.querySelector('.umenu').classList.contains('sheet'));
     if (sheet !== (device === 'phone')) throw new Error(`the menu is ${sheet ? 'a sheet' : 'a popover'} on ${device}`);
-    if (!sheet) {
-      const [a, b] = await page.evaluate(() => [...document.querySelectorAll('.um-col')].map((c) => c.getBoundingClientRect().left));
-      if (!(b > a + 200)) throw new Error('the menu does not show Present and Patients side by side');
-    }
+    // Two tabs, Present first: only its list shows.
+    const shown = await page.evaluate(() => [...document.querySelectorAll('.um-col')].filter((c) => c.offsetParent).map((c) => c.dataset.col).join());
+    if (shown !== 'present') throw new Error(`the menu opened showing ${shown || 'nothing'}, not the Present tab`);
     await shot(page, `${device}-menu`);
     // Typing "hvpg" leaves one presentation; Enter presents it.
     await page.fill('.um-q', 'hvpg');
     const left = await page.evaluate(() => [...document.querySelectorAll('.um-col[data-col="present"] li:not([hidden]) > .um-row')].filter((r) => r.offsetParent).length);
     if (left !== 1) throw new Error(`"hvpg" left ${left} presentations`);
+    // "budd" has no presentation: the note offers the matching patient in the other tab.
+    await page.fill('.um-q', 'budd');
+    await page.waitForSelector('.um-other:not([hidden])');
+    await page.fill('.um-q', 'hvpg');
     await page.press('.um-q', 'Enter');
     await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting'));
     await page.keyboard.press('Escape');
     await page.waitForFunction(() => !document.querySelector('#app').classList.contains('presenting'));
     // A patient row loads that patient and marks it current.
     await page.click('#btnMenu');
+    await page.click('#umtab-patients');
     await page.click('.um-row[data-k="p:schisto"]');
     await page.waitForFunction(() => window.pps.store.get().presetId === 'schisto' && !window.pps.menu.isOpen());
     await page.click('#btnMenu');
-    await page.waitForSelector('.um-row[data-k="p:schisto"][aria-current="true"]');
+    await page.waitForSelector('.um-row[data-k="p:schisto"][aria-current="true"]', { state: 'visible' });
     await page.keyboard.press('Escape');
     await page.waitForFunction(() => !document.querySelector('.umenu'));
     await page.evaluate(() => window.pps.palette.open());

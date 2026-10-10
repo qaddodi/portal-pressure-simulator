@@ -3364,8 +3364,8 @@ button.finding:hover { background: var(--surface-2); }
 /* The one menu (menu.js): search, Present and Patients side by side, footer. A popover under the menu
    button from 768 px; a bottom sheet on a phone. */
 .umenu {
-  position: fixed; z-index: var(--z-popover); display: flex; flex-direction: column; width: min(760px, calc(100vw / var(--vz) - 24px));
-  max-height: calc(100dvh / var(--vz) - 76px); background: var(--surface); border-radius: var(--r-card); box-shadow: var(--shadow-menu), 0 0 0 1px var(--hairline);
+  position: fixed; z-index: var(--z-popover); display: flex; flex-direction: column; width: min(460px, calc(100vw / var(--vz) - 24px));
+  height: min(640px, calc(100dvh / var(--vz) - 76px)); background: var(--surface); border-radius: var(--r-card); box-shadow: var(--shadow-menu), 0 0 0 1px var(--hairline);
   overflow: hidden; animation: pop .16s var(--ease); transform-origin: top left;
 }
 .umenu.still { animation: none; }
@@ -3381,11 +3381,25 @@ button.finding:hover { background: var(--surface-2); }
 .um-q::placeholder { color: var(--text-3); }
 .um-kb { font: 500 var(--fs-12) var(--font-mono); padding: 0 6px; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--border); color: var(--text-3); }
 .um-x { display: none; }
-.um-cols { display: grid; grid-template-columns: 1fr 1fr; min-height: 0; flex: 1 1 auto; }
+.um-cols { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+/* Two tabs, Present and Patients: one list at a time, eased in on a switch; the panel keeps its size. */
+.um-tabs { display: flex; gap: 4px; padding: 6px 10px 0; border-bottom: 1px solid var(--hairline); }
+.um-tab { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border: 0; background: transparent; color: var(--text-2); font: inherit; font-size: var(--fs-14); font-weight: 500; cursor: pointer; border-radius: var(--r-control) var(--r-control) 0 0; transition: color .16s var(--ease); }
+.um-tab:hover { color: var(--text); }
+.um-tab::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent); opacity: 0; transform: scaleX(.6); transition: opacity .16s var(--ease), transform .16s var(--ease); }
+.um-tab[aria-selected="true"] { color: var(--text); font-weight: 600; }
+.um-tab[aria-selected="true"]::after { opacity: 1; transform: none; }
+.um-tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.umenu[data-tab="present"] .um-col[data-col="patients"], .umenu[data-tab="patients"] .um-col[data-col="present"] { display: none; }
+.um-col { flex: 1 1 auto; }
+.um-col.um-in { animation: umTabIn .18s var(--ease); }
+@keyframes umTabIn { from { opacity: 0; transform: translateY(4px); } }
+.um-h { display: none; }
+.um-empty .um-other { display: inline-flex; margin-top: 6px; color: var(--accent-ink); }
+.um-empty .um-other[hidden] { display: none; }
+.umenu:has(.um-empty:not([hidden])) .um-cols { flex: 0 0 auto; }
+.umenu:has(.um-empty:not([hidden])) .um-empty { flex: 1 1 auto; }
 .um-col { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 8px 10px; }
-.um-col + .um-col { border-left: 1px solid var(--hairline); }
-.um-col.none { display: none; }
-.umenu.filtered .um-cols:has(.um-col.none) { grid-template-columns: 1fr; }
 .um-h { position: sticky; top: -4px; z-index: 1; display: flex; align-items: center; gap: 8px; margin: 0 -8px; padding: 10px 16px 6px; background: var(--surface); }
 .um-h b { font-size: var(--fs-14); font-weight: 600; }
 .um-h small { margin-left: auto; font-size: var(--fs-12); color: var(--text-3); }
@@ -3417,7 +3431,8 @@ button.finding:hover { background: var(--surface-2); }
 .um-link:hover { background: var(--surface-2); color: var(--text); }
 .um-link svg { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .um-note { margin: 4px 8px; font-size: var(--fs-12); color: var(--text-3); line-height: 1.45; }
-.um-empty { margin: 0; padding: 24px 16px; text-align: center; font-size: var(--fs-14); color: var(--text-3); }
+.um-empty[hidden] { display: none; }
+.um-empty { display: flex; flex-direction: column; align-items: center; margin: 0; padding: 24px 16px; text-align: center; font-size: var(--fs-14); color: var(--text-3); }
 .um-foot { display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-top: 1px solid var(--hairline); }
 .um-esc { margin-left: auto; padding-right: 8px; font-size: var(--fs-12); color: var(--text-3); }
 .um-g li.um-new > .um-row { background: var(--accent-soft); }
@@ -3464,7 +3479,6 @@ button.finding:hover { background: var(--surface-2); }
 .umenu.sheet .um-x { display: inline-flex; }
 .umenu.sheet .um-cols { display: block; overflow-y: auto; overscroll-behavior: contain; }
 .umenu.sheet .um-col { overflow: visible; padding: 0 8px 8px; }
-.umenu.sheet .um-col + .um-col { border-left: 0; border-top: 1px solid var(--hairline); }
 .umenu.sheet .um-h { top: 0; padding-top: 12px; }
 .umenu.sheet .um-esc { display: none; }
 @media (prefers-reduced-motion: reduce) {
