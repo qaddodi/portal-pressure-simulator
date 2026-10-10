@@ -153,7 +153,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   function routeCustomShunts(p) {
     const open = Object.keys(p.customShunts || {}).filter((id) => p.customShunts[id] > 0 && geo[id]).sort();
     for (const id of [...customRoutes.keys()]) if (!open.includes(id)) customRoutes.delete(id);
-    const fresh = open.filter((id) => !customRoutes.has(id));
+    // Past a dozen at once there is no room left to route another clear of the rest (and the search
+    // would stall the page); those stay as plain bypass arcs.
+    const fresh = open.filter((id) => !customRoutes.has(id)).slice(0, Math.max(0, 12 - customRoutes.size));
     if (!fresh.length) return false;
     const router = createRouter({ lines: routerLines, stations: routerStations,
       bounds: [VB_CIRC[0], 100, VB_CIRC[0] + VB_CIRC[2], VB_CIRC[1] + VB_CIRC[3] + 10] });
@@ -1496,7 +1498,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // A collateral is drawn as open once it has grown noticeably or carries meaningful flow
   // (≥ 0.3 mL/s), so a channel the model is using is never hidden.
+  // ?allroutes draws every collateral open, whatever the model says: a check that the circuit's lanes all fit at once.
+  const ALL_ROUTES = /[?&]allroutes\b/.test(location.search);
   function collOpen(id, f) {
+    if (ALL_ROUTES) return true;
     const k = EI[id];
     return shownFrac(id, f) > 0.12 || Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) > 0.3;
   }
