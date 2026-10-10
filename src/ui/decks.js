@@ -24,7 +24,7 @@
 //                            live figure as a time-lapse, from the slide before's state (from/to: words for the
 //                            start and end in place of a day counter, e.g. 'Fasting' and 'After a meal'; keep the
 //                            days at least the seconds, or the live clock runs sub-day and skips the ramp)
-//   visual                   over the dimmed figure: 'ladders', 'table' (cols, asc, note, fine), 'scale' (scale), 'quadrant'
+//   visual                   over the dimmed figure: 'ladders', 'table' (cols, asc, note, fine, vs: 'first' to show arrows against the first row; a row's ref: true keeps its numbers), 'scale' (scale), 'quadrant'
 //                            (SAAG × protein) or 'walls'; of: the rows, slide ids or { id | preset, name, title, note, blank: [columns] }
 //   quiz                     quiz mode (Q) asks this before the answer shows (the camera waits at the whole figure)
 //   notes, ask               speaker notes, and [question, expected answer] for the room
@@ -200,7 +200,7 @@ export const DECKS = [
         ask: ['Which two levels raise the HVPG?', 'Sinusoidal and postsinusoidal.'],
       },
       {
-        id: 'summary', visual: 'table', of: SIX,
+        id: 'summary', visual: 'table', of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, ...SIX],
         kicker: 'Summary', title: 'The six sites compared',
         notes: 'Portal pressure is high at every level. HVPG is raised only when the block lies between the wedge and the free hepatic vein (sinusoidal, postsinusoidal). A SAAG of 1.1 or more confirms portal hypertension as the cause of ascites; the ascites protein then separates cirrhosis (low, under 2.5 g/dL) from hepatic vein and heart disease (high). Pre-hepatic and presinusoidal disease rarely cause ascites, because the sinusoids, where ascites starts, are at normal pressure. The model gives sinusoidal obstruction syndrome a protein-rich ascites; reports in patients vary.',
         ask: ['A patient has ascites with a SAAG of 1.6 and protein of 4 g/dL. Which levels fit?', 'Post-hepatic or cardiac (Budd–Chiari, heart failure); sinusoidal obstruction syndrome too.'],
@@ -278,8 +278,8 @@ export const DECKS = [
         ask: ['Why would a wedged reading mislead in Budd–Chiari syndrome?', 'The wedged and free readings both lie behind the block, so their difference is near zero although portal pressure is very high.'],
       },
       {
-        id: 'summary', visual: 'table', cols: ['pv', 'whvp', 'fhvp', 'ra', 'hvpg', 'ppg'], asc: false, note: 'What HVPG shows', rowHead: 'Patient',
-        of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', note: 'Normal' }, { id: 'hvpg', title: 'Cirrhosis', note: 'Reliable' }, { id: 'presin', title: 'Schistosomiasis', note: 'Normal despite the obstruction' },
+        id: 'summary', visual: 'table', cols: ['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'ppg'], asc: false, note: 'What HVPG shows', rowHead: 'Patient',
+        of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', note: 'Normal', ref: true }, { id: 'hvpg', title: 'Cirrhosis', note: 'Reliable' }, { id: 'presin', title: 'Schistosomiasis', note: 'Normal despite the obstruction' },
           { id: 'ppg', title: 'Portal vein thrombosis', note: 'Normal despite the obstruction' }, { id: 'heart', title: 'Right heart failure', note: 'Normal, all pressures high' }, { id: 'bc', title: 'Budd–Chiari', note: 'Cannot be measured', blank: ['whvp', 'fhvp', 'hvpg'] }],
         kicker: 'Summary', title: 'When HVPG is reliable',
         notes: 'HVPG is reliable when the block is in the sinusoids, as in cirrhosis, the commonest cause: it is the standard for diagnosis, prognosis and following treatment. It is normal with pre-hepatic and presinusoidal blocks, and near zero when the pressures behind the hepatic veins rise together (post-hepatic, cardiac). The PPG and the absolute pressures complete the picture. The model\'s pressures for Budd–Chiari are those behind the block.',
@@ -496,10 +496,10 @@ export const DECKS = [
         ask: ['Name two contraindications to TIPS.', 'Heart failure or severe pulmonary hypertension; advanced liver failure (high MELD); recurrent severe encephalopathy.'],
       },
       {
-        id: 'summary', visual: 'table', cols: ['hvpg', 'ppg', 'varix', 'asc', 'liver'], fine: true, asc: false, rowHead: 'Treatment',
+        id: 'summary', visual: 'table', cols: ['hvpg', 'ppg', 'varix', 'asc', 'liver'], fine: true, asc: false, vs: 'first', rowHead: 'Treatment',
         of: [{ id: 'target', kicker: 'Baseline', title: 'Decompensated cirrhosis' }, 'prop', 'carv', { id: 'terli', kicker: 'Vasoactive drug' }, { id: 'band', title: 'Banding' }, { id: 'tips', title: 'TIPS' }, { id: 'after', kicker: 'Shunt', title: 'TIPS, 60 days on' }],
         kicker: 'Summary', title: 'Treatments compared',
-        foot: 'From the model, each drug given alone: pressures in mmHg, the varix in mm, ascites in litres, liver blood flow in % of normal. Pick a row to go back to it.',
+        foot: 'From the model, each drug given alone, against the decompensated baseline (its numbers: pressures in mmHg, varix in mm, ascites in litres, liver blood flow in % of normal): ↑ higher, ↓ lower, doubled for 40% or more; a dot is unchanged. Shaded: abnormal. Hover or tap a cell for its value. Pick a row to go back to it.',
         notes: 'Drugs cut the inflow (propranolol, terlipressin) or the resistance as well (carvedilol). Banding eradicates varices without lowering portal pressure. TIPS lowers the gradient most and clears the ascites, at the price of the liver\'s portal blood and a risk of encephalopathy. In practice they combine: a beta-blocker with banding after a bleed; terlipressin, banding and, for those at high risk, pre-emptive TIPS in an acute bleed.',
         ask: ['Which treatment lowers the portal pressure gradient most, and what does it cost?', 'TIPS: less blood for the liver and a risk of encephalopathy.'],
       },

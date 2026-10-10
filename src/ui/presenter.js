@@ -19,7 +19,7 @@ import { SITES } from './ladder.js?v=3c3d5cd555';
 import { sinusoidSupported } from './sinusoid-view.js?v=d2f4b1dcbd';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { NODES } from '../engine/topology.js?v=dc393aabea';
-import { DECKS, REGIONS, LEVELS } from './decks.js?v=2434600b12';
+import { DECKS, REGIONS, LEVELS } from './decks.js?v=d10e2051ec';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -759,7 +759,7 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
       const [i, k] = rowAt(o), sl = i >= 0 ? slides[i] : null, x = typeof o === 'object' ? o : {};
       if (k == null || k < 0) return null;
       const title = x.title ?? sl?.title ?? '';
-      return { i, f: states[k]?.fp, kicker: x.kicker ?? sl?.kicker ?? '', title, name: x.name || title, site: x.site ?? sl?.site, note: x.note, blank: x.blank || [] };
+      return { i, f: states[k]?.fp, kicker: x.kicker ?? sl?.kicker ?? '', title, name: x.name || title, site: x.site ?? sl?.site, note: x.note, blank: x.blank || [], ref: !!x.ref };
     }).filter(Boolean);
   }
   function laddersGrid(s) {
@@ -775,21 +775,63 @@ export function createPresenter({ startCase, cases = [], host, stage, projectorO
     return grid;
   }
   // The table's columns: the raw pressures shade above normal, the rest by their tile's rating.
-  const COLS = { pv: 'Portal', whvp: 'Wedged', fhvp: 'Free HV', ra: 'RA', hvpg: 'HVPG', ppg: 'PPG', sin: 'Sinusoids', varix: 'Varix, mm', asc: 'Ascites, L', liver: 'Liver flow, %', saag: 'SAAG', tp: 'Protein', plt: 'Platelets' };
-  const RAW = { pv: (v) => v > 10, whvp: (v) => v > 10, fhvp: (v) => v > 8, ra: (v) => v > 8 };
-  const PRESS = new Set(['pv', 'whvp', 'fhvp', 'ra', 'hvpg', 'ppg', 'sin']);
-  const cellRate = (k, f) => (RAW[k] ? (RAW[k](f[k]) ? 'hi' : null) : ['hi', 'mid'].includes(rateOf(k, f)[0]) ? rateOf(k, f)[0] : null);
+  // Headers match the pressure chart's axis (PV, WHVP, FHVP, IVC, RA).
+  const COLS = { pv: 'PV', whvp: 'WHVP', fhvp: 'FHVP', ivc: 'IVC', ra: 'RA', hvpg: 'HVPG', ppg: 'PPG', sin: 'Sinusoids', varix: 'Varix', asc: 'Ascites', liver: 'Liver flow', saag: 'SAAG', tp: 'Protein', plt: 'Platelets' };
+  const RAW = { pv: (v) => v > 10, whvp: (v) => v > 10, fhvp: (v) => v > 8, ivc: (v) => v > 8, ra: (v) => v > 8 };
+  const RAWLIM = { pv: 10, whvp: 10, fhvp: 8, ivc: 8, ra: 8 };
+  const PRESS = new Set(['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'ppg', 'sin']);
+  const fpv = (k, f) => (k === 'ivc' ? f.ivc ?? f.ra : f[k]);
+  const cellRate = (k, f) => (RAW[k] ? (RAW[k](fpv(k, f)) ? 'hi' : null) : ['hi', 'mid'].includes(rateOf(k, f)[0]) ? rateOf(k, f)[0] : null);
+  // A cell's direction: against the normal range ('abs': ↑ above, ↑↑ well above or past the red cut-off, ↓ below, a dot within),
+  // or against a reference patient's value ('rel': the treatments table's baseline).
+  const DOT = '•', STEP = { pv: 1, whvp: 1, fhvp: 1, ivc: 1, ra: 1, hvpg: 1, ppg: 1, sin: 1, varix: .5, asc: 100, liver: 3 };
+  function dirAbs(k, f) {
+    const v = fpv(k, f);
+    if (RAW[k]) return v > RAWLIM[k] * 2 ? 2 : v > RAWLIM[k] ? 1 : 0;
+    if (k === 'asc') return v < NO_ASC ? 0 : rateOf(k, f)[0] === 'hi' ? 2 : 1;
+    const r = rateOf(k, f)[0], sign = k === 'liver' ? -1 : 1;
+    return r === 'hi' ? 2 * sign : r === 'mid' ? sign : 0;
+  }
+  function dirRel(k, f, ref) {
+    const d = f[k] - ref[k], r = Math.abs(d) / Math.max(Math.abs(ref[k]), 1e-6);
+    return Math.abs(d) < (STEP[k] ?? 1) || r < 0.1 ? 0 : (d > 0 ? 1 : -1) * (r >= 0.4 ? 2 : 1);
+  }
+  const ARROW = { 2: '↑↑', 1: '↑', 0: DOT, '-1': '↓', '-2': '↓↓' };
+  const WORD = { 2: 'well above normal', 1: 'above normal', 0: 'normal', '-1': 'below normal', '-2': 'well below normal' };
+  const WORDREL = { 2: 'much higher', 1: 'higher', 0: 'unchanged', '-1': 'lower', '-2': 'much lower' };
+  const unitOf = (k) => (k === 'varix' ? ' mm' : k === 'asc' ? ' L' : k === 'liver' ? '%' : PRESS.has(k) ? ' mmHg' : '');
   function summaryTable(s) {
-    const cols = s.cols || ['pv', 'whvp', 'fhvp', 'ra', 'hvpg', 'ppg'], asc = s.asc ?? !s.cols;
-    const val = (k, f) => (PRESS.has(k) && !s.fine ? fmt(f[k], 0) : tileVal(k, f[k]));
+    const cols = s.cols || ['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'ppg'], asc = s.asc ?? !s.cols, rows = rowsOf(s), rel = s.vs === 'first';
+    const val = (k, f) => (PRESS.has(k) && !s.fine ? fmt(fpv(k, f), 0) : tileVal(k, f[k]));
+    const first = rows[0]?.f;
+    // The reference row (the healthy patient, or the baseline) keeps its numbers, the anchor for the arrows.
+    const isRef = (r, n) => !!r.ref || (rel && n === 0);
+    const cell = (k, r, n) => {
+      if (r.blank.includes(k)) return h('td', { class: 'num blank' }, h('span', { 'aria-hidden': 'true' }, '–'), h('span', { class: 'sr-only' }, 'not measurable'));
+      if (!r.f) return h('td', { class: 'num' }, '…');
+      if (isRef(r, n)) return h('td', { class: 'num ref', 'data-rate': rel ? cellRate(k, r.f) : null }, val(k, r.f));
+      const d = rel ? dirRel(k, r.f, first) : dirAbs(k, r.f), v = val(k, r.f) + unitOf(k);
+      return h('td', { class: 'num dir' + (d ? '' : ' zero') + (rel ? ' rel' : ''), 'data-rate': cellRate(k, r.f), title: v },
+        h('span', { 'aria-hidden': 'true' }, ARROW[d]), h('span', { class: 'sr-only' }, `${rel ? WORDREL[d] : WORD[d]}, ${v}`));
+    };
+    const ascCell = (r, n) => {
+      if (!r.f) return h('td', { class: 'asc' }, '…');
+      if (r.f.asc < NO_ASC) return h('td', { class: 'asc' }, h('span', { class: 'none' }, 'None'));
+      const hiS = r.f.saag >= 1.1, hiP = r.f.tp >= 2.5;
+      if (isRef(r, n)) return h('td', { class: 'asc' }, h('b', { 'data-rate': hiS ? 'hi' : null }, fmt(r.f.saag, 1)), ' · ', h('b', {}, fmt(r.f.tp, 1)));
+      return h('td', { class: 'asc dir', title: `SAAG ${fmt(r.f.saag, 1)}, protein ${fmt(r.f.tp, 1)} g/dL` },
+        h('small', {}, 'SAAG '), h('b', { 'data-rate': hiS ? 'hi' : null, 'aria-hidden': 'true' }, hiS ? '↑' : '↓'), h('span', { class: 'sr-only' }, hiS ? 'high gradient' : 'low gradient'),
+        ' · ', h('small', {}, 'Protein '), h('b', { 'aria-hidden': 'true' }, hiP ? '↑' : '↓'), h('span', { class: 'sr-only' }, hiP ? 'high protein' : 'low protein'));
+    };
+    const key = rel ? `↑ higher, ↓ lower than ${first ? rows[0].title.toLowerCase() : 'baseline'} (doubled for 40% or more); a dot is unchanged` : `↑ above normal, ↓ below, ↑↑ well above (HVPG 10 or more, PPG 12 or more); a dot is within normal`;
     return h('div', { class: 'pz-table' }, h('table', {},
-      h('thead', {}, h('tr', {}, h('th', {}, s.rowHead || 'Level'), cols.map((k) => h('th', { class: 'num' }, COLS[k] || k)), asc ? h('th', {}, 'Ascites: SAAG, protein') : null, s.note ? h('th', {}, s.note) : null)),
-      h('tbody', {}, rowsOf(s).map((r) => h('tr', r.i >= 0 ? { onclick: () => go(r.i) } : { class: 'static' },
+      h('thead', {}, h('tr', {}, h('th', {}, s.rowHead || 'Level'), cols.map((k) => h('th', { class: 'num' }, COLS[k] || k)), asc ? h('th', {}, 'Ascites') : null, s.note ? h('th', {}, s.note) : null)),
+      h('tbody', {}, rows.map((r, n) => h('tr', r.i >= 0 ? { onclick: () => go(r.i) } : { class: 'static' },
         h('th', { scope: 'row' }, h('span', { class: 'pz-kick', 'data-site': r.site || 'none' }, h('i'), r.kicker.replace('Intrahepatic · ', '')), h('span', { class: 'tn' }, nb(r.title))),
-        cols.map((k) => (r.blank.includes(k) ? h('td', { class: 'num blank' }, '–') : h('td', { class: 'num', 'data-rate': r.f ? cellRate(k, r.f) : null }, r.f ? val(k, r.f) : '…'))),
-        asc ? h('td', { class: 'asc' }, !r.f ? '…' : r.f.asc < NO_ASC ? h('span', { class: 'none' }, 'None') : [h('b', { 'data-rate': r.f.saag >= 1.1 ? 'hi' : null }, fmt(r.f.saag, 1)), ' · ', h('b', {}, fmt(r.f.tp, 1)), h('small', {}, r.f.tp >= 2.5 ? ' high protein' : ' low protein')]) : null,
+        cols.map((k) => cell(k, r, n)),
+        asc ? ascCell(r, n) : null,
         s.note ? h('td', { class: 'note' }, r.note || '') : null)))),
-    h('p', { class: 'pz-foot' }, s.foot || `${asc || cols.includes('saag') || cols.includes('tp') ? 'Pressures in mmHg, SAAG and protein in g/dL' : 'Pressures in mmHg'}, from the model. Shaded: abnormal. Pick a row to go back to it.`));
+    h('p', { class: 'pz-foot' }, s.foot || `Arrows from the model: ${key}. Shaded: abnormal. Hover or tap a cell for its value. Pick a row to go back to it.`));
   }
   const VISUALS = {
     table: summaryTable,

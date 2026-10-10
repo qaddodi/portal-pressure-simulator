@@ -1933,7 +1933,7 @@ button.finding:hover { background: var(--surface-2); }
 .pz-table table { width: 100%; border-collapse: collapse; font: 500 clamp(15px, 2.2vh, 27px)/1.25 var(--font-ui); }
 .pz-table th, .pz-table td { padding: .55em .75em; text-align: left; vertical-align: middle; }
 .pz-table thead th { background: var(--surface-2); font: 600 clamp(11px, 1.35vh, 16px)/1.2 var(--font-ui); letter-spacing: .07em; text-transform: uppercase; color: var(--text-3); white-space: nowrap; }
-.pz-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pz-table .num { text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pz-table tbody tr { border-top: 1px solid var(--border); cursor: pointer; transition: background-color .2s var(--ease); }
 .pz-table tbody tr:hover { background: var(--accent-soft); }
 .pz-table tbody th .pz-kick { font-size: clamp(10px, 1.25vh, 15px); }
@@ -1950,6 +1950,18 @@ button.finding:hover { background: var(--surface-2); }
 /* Counter, progress, controls, notes, black screen. */
 .pz-table td.note { font-size: .8em; color: var(--text-2); }
 .pz-table td.blank { color: var(--text-3); }
+.pz-table td.dir { text-align: center; font-weight: 700; font-size: 1.15em; letter-spacing: -.04em; }
+.pz-table td.dir.zero { color: var(--text-3); font-weight: 500; font-size: .8em; opacity: .7; }
+.pz-table td.asc.dir { text-align: left; font-size: 1em; letter-spacing: 0; }
+.pz-table td.asc.dir b { font-size: 1.15em; }
+.pz-table th.num { text-align: center; }
+.pz-table td.rel[data-rate] { color: var(--text); }
+.pz-table tbody th[scope="row"] { position: sticky; left: 0; z-index: 1; background: var(--surface); }
+@media (max-width: 767px) {
+  .pz-table th, .pz-table td { padding: .5em .5em; }
+  .pz-table tbody th[scope="row"] { min-width: 8.5em; max-width: 9.5em; box-shadow: 1px 0 0 var(--border); }
+  .pz-table .tn { font-size: .92em; }
+}
 .pz-table tbody tr.static { cursor: default; }
 .pz-table tbody tr.static:hover { background: none; }
 /* The visuals: a scale with thresholds, SAAG × protein, the two capillary walls. */
