@@ -23,7 +23,7 @@ import { h, fmt, clamp, lerp } from './util.js?v=a357853926';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { isPaused } from './clock.js?v=e759f7bea1';
 import { sinusoidTargets } from './sinusoid-model.js?v=74f5d007ca';
-import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=9e353c9245';
+import { createSinusoidGL, poreAt, cellAt, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js?v=5a800f6974';
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 function rng(seed) { let q = seed >>> 0; return () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; }; }
@@ -197,7 +197,10 @@ export function createSinusoidView({ host }) {
       cBile: dark ? v3(150, 156, 80) : v3(122, 128, 61),
       cEndo: dark ? v3(122, 116, 156) : v3(184, 176, 204), cEndoN: dark ? v3(84, 74, 120) : v3(128, 114, 160),
       cHscQ: dark ? v3(176, 134, 102) : v3(224, 184, 150), cHscA: dark ? v3(160, 102, 74) : v3(190, 128, 94), cHscN: dark ? v3(96, 56, 42) : v3(146, 90, 66), cDrop: dark ? v3(222, 196, 120) : v3(248, 226, 156),
-      cKup: dark ? v3(140, 124, 176) : v3(192, 178, 222), cKupN: dark ? v3(82, 64, 124) : v3(122, 98, 168),
+      cKup: dark ? v3(132, 106, 176) : v3(178, 150, 214), cKupN: dark ? v3(74, 54, 116) : v3(108, 80, 156), cKupE: dark ? v3(58, 42, 96) : v3(96, 70, 142),
+      cRbc: dark ? v3(176, 62, 72) : v3(204, 74, 80),
+      // The end arrows wear their labels' pill: its fill and border.
+      cEndF: dark ? mixv(bg, [1, 1, 1], 0.08) : [1, 1, 1], cEndE: dark ? v3(176, 186, 214) : v3(70, 74, 92),
       cChev: dark ? v3(10, 12, 20) : v3(20, 20, 26), cRev: [1, 0.55, 0.16],   // (the app's chevron inks: dark, orange where reversed)
       cAlb: dark ? v3(242, 182, 74) : v3(227, 154, 30), cAlbE: dark ? v3(110, 58, 0) : v3(140, 76, 0),
       cWat: dark ? v3(225, 238, 252) : v3(255, 255, 255), cWatE: dark ? v3(90, 110, 140) : v3(80, 110, 140),
@@ -324,7 +327,7 @@ export function createSinusoidView({ host }) {
     LAB[0] = pick(0.38); LAB[1] = region('sin', 'Sinusoid', num(m.P2, 1, 'mmHg'), LAB[0], 0).half;
     // Right (y < 0): fenestrae, stellate cell, a hepatocyte.
     region('fen', 'Fenestrae', S.por > 0.85 ? 'open' : S.por > 0.15 ? `${Math.round(S.por * 100)}%~open` : 'sealed', pick(0.16), -mid(pick(0.16)));
-    region('hsc', S.act > 0.5 ? 'Activated\nstellate cell' : 'Stellate cell', '', g.xs, -mid(g.xs));   // (two lines, to fit the plate)
+    region('hsc', S.act > 0.5 ? 'Activated\nstellate\ncell' : 'Stellate\ncell', '', g.xs, -mid(g.xs));   // (stacked, to fit the plate)
     region('hep', 'Hepatocyte', '', pick(0.8), -mid(pick(0.8)));
     // Left (y > 0): the space of Disse, the lymph it carries, the Kupffer cell.
     region('disse', 'Space of Disse', '', pick(0.2), mid(pick(0.2)));
@@ -347,6 +350,7 @@ export function createSinusoidView({ host }) {
         T.el.replaceChildren(h('span', { class: 'n' }, name), h('span', { class: 'v' }, h('b', {}, v), un ? h('small', {}, ' ' + un) : null));
       }
       T.el.classList.toggle('left', !g.vert && u === 1);
+      T.el.classList.toggle('vert', g.vert);   // (stacked and centred on a top-down sinusoid)
       const w = T.el.offsetWidth, hh = T.el.offsetHeight;
       let x, y;
       // Its arrow (drawn by the shader) sits on the far side of the label: above the portal venule's, below the central venule's

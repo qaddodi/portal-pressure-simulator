@@ -72,7 +72,7 @@ out vec4 o;
 ${COMMON}
 uniform int uPass;              // 0: the tissue; 1: the cells that lie over the moving particles (stellate, Kupffer)
 uniform float uLum, uPinch, uXs, uXk, uKy, uHscA, uCol, uBm, uMv, uAct, uPor, uFlow, uLym, uDir, uDark, uShim, uStreak;
-uniform vec3 cBg, cLumen, cLymph, cCell, cUnder, cNuc, cCol, cBm, cBile, cEndo, cEndoN, cHscQ, cHscA, cHscN, cDrop, cKup, cKupN, cChev, cRev;
+uniform vec3 cBg, cLumen, cLymph, cCell, cUnder, cNuc, cCol, cBm, cBile, cEndo, cEndoN, cHscQ, cHscA, cHscN, cDrop, cKup, cKupN, cKupE, cRbc, cChev, cRev, cEndF, cEndE;
 uniform float aBm;
 uniform vec4 uEnd;               // the end arrows: portal x, central x (µm), size (µm), alpha
 uniform vec2 uLab;               // the lumen's own name: x and half length (µm), kept clear of the arrowheads
@@ -107,7 +107,7 @@ float poreOpen(int j, int sd, out float px) {
 // The endothelium of a lining at |y| = a (lumen face at hw): a slim band with the open fenestrae cut through it and
 // the nuclei bulging into the lumen; with little detail (as the lobule draws it) a thin unbroken casing.
 float sdEndo(float x, float a, float hw, int sd, int nsd, bool skipK, float det, out float dN) {
-  float d = abs(a - (hw + ENDO * 0.5)) - mix(0.16, ENDO * 0.36, det);
+  float d = abs(a - (hw + ENDO * 0.5)) - mix(0.16, ENDO * 0.36, det) * (1.0 + 0.3 * (1.0 - uPor));   // (thicker as it capillarizes)
   dN = 1e3;
   if (det < 0.02) return d;
   int j = int(floor(x / SLOT));
@@ -121,14 +121,21 @@ float sdEndo(float x, float a, float hw, int sd, int nsd, bool skipK, float det,
     for (int k = -1; k <= 1; k++) {
       float c = 38.0 * float(n + k) + 8.0 + 22.0 * h1(n + k, nsd);
       if (skipK && abs(c - uXk) < 12.0) continue;
-      d = smin(d, sdE(vec2(x - c, a - hw + 0.3), vec2(4.4, 1.0 * det + 0.01)), 0.9);
-      dN = min(dN, sdE(vec2(x - c - 0.2, a - hw + 0.32), vec2(2.9, 0.46 * det + 0.01)));
+      d = smin(d, sdE(vec2(x - c, a - hw + 0.25), vec2(5.2, 0.9 * det + 0.01)), 1.2);
+      dN = min(dN, sdE(vec2(x - c - 0.2, a - hw + 0.3), vec2(3.2, 0.42 * det + 0.01)));
     }
   }
   return d;
 }
-vec3 endoInk(vec3 under, float d, float dN) {
-  return mix(paint(under, cEndo, d), cEndoN, cov(dN));
+// The endothelial cells: a pale lining with a deeper membrane line on both faces (so it reads against the lumen and
+// Disse), a flattened nucleus with its envelope, and a seam at each cell's border.
+vec3 endoInk(vec3 under, float d, float dN, float x, float det) {
+  vec3 c = paint(under, cEndo, d);
+  c = mix(c, cEndoN, line(d, 0.09) * 0.55 * det);
+  float sx = mod(x + 19.0, 38.0) - 19.0;                      // the cells' borders, midway between the nuclei
+  c = mix(c, cEndoN, cov(d) * line(sx, 0.12) * 0.7 * det);
+  c = mix(c, mix(cEndoN, cEndo, 0.25), cov(dN));
+  return mix(c, cEndoN * 0.8, line(dN, 0.1) * det);
 }
 
 // ── The lumen, flat as the lobule's: pressure colour, a thin light line and a thin dark one, the streaks and chevrons ──
@@ -228,14 +235,27 @@ vec3 plate(float x, float v, int sd, float det) {
   float x0 = cellEdge(j, sd), x1 = cellEdge(j + 1, sd);
   float d = sdRB(vec2(x - 0.5 * (x0 + x1), v - 0.5 * HEP), vec2(0.5 * (x1 - x0) - 0.5, 0.5 * HEP - 0.5), 2.6);
   vec3 c = cCell * (0.97 + 0.05 * h1(j, sd + 5));
+  // A little body: the cytoplasm faintly lighter inside, deeper at the membrane, and finely granular (mitochondria, glycogen).
+  c = mix(c, vec3(1.0), (0.05 - 0.03 * uDark) * smoothstep(-2.0, -7.0, d));
+  c = mix(c, cUnder, 0.22 * smoothstep(-1.6, 0.0, d));
+  if (det > 0.05) {
+    vec2 gq = vec2(x, v) / 1.7, gf = floor(gq);
+    int gi = int(gf.x) * 131 + int(gf.y) * 17;
+    float gr = h1(gi, sd + 6);
+    vec2 go = gf + 0.5 + 0.55 * (vec2(h1(gi, sd + 7), h1(gi, sd + 8)) - 0.5);
+    float gd = (length(gq - go) - 0.07 - 0.07 * gr) * 1.7;
+    c = mix(c, mix(c, cNuc, 0.16 + 0.08 * uDark), cov(gd) * step(gr, 0.45) * det * smoothstep(-0.8, -2.0, d));
+  }
   bool bi = h1(j, sd + 4) < 0.12;
   float nu = 0.3 + 0.4 * h1(j, sd + 1), nv = 0.4 + 0.2 * h1(j, sd + 2), nr = 2.6 + 0.5 * h1(j, sd + 3);
   for (int k = 0; k < 2; k++) {
     if (k == 1 && !bi) break;
     float uu = bi ? nu + (k == 0 ? -0.15 : 0.15) : nu, vv = nv + (k == 1 ? 0.04 : 0.0), rr = bi ? nr * 0.82 : nr;
     vec2 nq = vec2(x, v) - vec2(mix(x0 + 2.0, x1 - 2.0, uu), mix(2.0, HEP - 2.0, vv));
-    c = mix(c, mix(c, cNuc, 0.3), cov(length(nq) - rr));
-    c = mix(c, mix(c, cNuc, 0.5), cov(length(nq - vec2(0.3, -0.25) * rr) - 0.16 * rr) * det);
+    // The nucleus: pale chromatin inside its envelope, and a nucleolus.
+    c = mix(c, mix(c, cNuc, 0.26), cov(length(nq) - rr));
+    c = mix(c, mix(c, cNuc, 0.5), line(length(nq) - rr + 0.12, 0.22) * det);
+    c = mix(c, mix(c, cNuc, 0.62), cov(length(nq - vec2(0.3, -0.25) * rr) - 0.17 * rr) * det);
   }
   vec3 outC = mix(cUnder, c, cov(d));
   // Bile canaliculi between neighbouring cells, mid-plate.
@@ -248,12 +268,12 @@ vec3 plate(float x, float v, int sd, float det) {
 // processes that hug the wall, and a finer branch toward the plate; flat, no outline. Quiescent it is pale and
 // full of vitamin A droplets; activated (a myofibroblast) it grows, darkens and loses them.
 float hscL() { return 5.2 + 2.6 * uAct; }
-float hscW() { return 1.2 + 0.12 * uAct; }
+float hscW() { return 1.35 + 0.15 * uAct; }
 float sdHsc(vec2 p) {
   float L = hscL(), Wd = hscW();
   float d = sdE(p - vec2(uXs, uHscA), vec2(L, Wd));
   for (int i = 0; i < 2; i++) {
-    float sg = i == 0 ? -1.0 : 1.0, len = 15.0 + 8.0 * uAct, w0 = 0.75 + 0.35 * uAct;
+    float sg = i == 0 ? -1.0 : 1.0, len = 15.0 + 8.0 * uAct, w0 = 0.9 + 0.4 * uAct;
     float u = (sg * (p.x - uXs) - L * 0.6) / len;
     if (u < -0.4 || u > 1.2) continue;
     float uc = sat(u), xx = uXs + sg * (L * 0.6 + len * uc);
@@ -277,28 +297,43 @@ vec4 hsc(vec2 p) {
   if (d > 0.3) return vec4(0.0);
   float L = hscL(), Wd = hscW();
   vec3 c = mix(cHscQ, cHscA, uAct);
-  // Vitamin A droplets (pale, within the body), which go as it activates; the nucleus, long and pressed aside by them.
-  float dr = pow(1.0 - uAct, 0.8);
-  vec3 drops[5] = vec3[5](vec3(0.34, -0.25, 0.5), vec3(0.6, 0.2, 0.42), vec3(0.12, 0.3, 0.4), vec3(-0.5, -0.2, 0.44), vec3(-0.72, 0.22, 0.32));
+  // Activated (a myofibroblast): stress fibres running along the body.
+  if (uAct > 0.05) {
+    float fb = 0.0;
+    for (int i = -1; i <= 1; i++) fb = max(fb, line(p.y - uHscA - float(i) * 0.4 * Wd - 0.12 * sin(p.x * 0.45 + float(i) * 2.0), 0.07));
+    c = mix(c, cHscN, fb * 0.4 * uAct * cov(d + 0.3));
+  }
+  // Vitamin A droplets (pale gold, rimmed, with a shine), which go as it activates; the nucleus, long and pressed aside by them.
+  float dr = pow(1.0 - uAct, 0.8), kd = min(1.0, dr * 1.4);
+  vec3 drops[6] = vec3[6](vec3(0.34, -0.28, 0.5), vec3(0.62, 0.22, 0.44), vec3(0.12, 0.34, 0.4), vec3(-0.5, -0.24, 0.46), vec3(-0.74, 0.24, 0.34), vec3(0.86, -0.18, 0.3));
   float dn = sdE(p - vec2(uXs - L * 0.12, uHscA + 0.05), vec2(1.7 + 0.8 * uAct, 0.55));
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 6; i++) {
     vec2 dc = vec2(uXs + drops[i].x * L * 0.8, uHscA + drops[i].y * Wd);
-    float rr = drops[i].z * Wd * dr;
-    dn = smax(dn, -(length(p - dc) - rr - 0.1), 0.2);
-    if (dr > 0.03) c = mix(c, cDrop, cov(length(p - dc) - rr) * min(1.0, dr * 1.4) * 0.85);
+    float rr = drops[i].z * Wd * dr, dd = length(p - dc) - rr;
+    dn = smax(dn, -(dd - 0.1), 0.2);
+    if (dr > 0.03) {
+      c = mix(c, cDrop, cov(dd) * kd * 0.95);
+      c = mix(c, cHscN, line(dd, 0.07) * kd * 0.4);
+      c = mix(c, vec3(1.0), cov(length(p - dc + vec2(0.3, 0.3) * rr) - 0.28 * rr) * kd * 0.55);
+    }
   }
   c = paint(c, cHscN, dn);
+  c = mix(c, cHscN * 0.85, line(dn, 0.08) * 0.6);
+  // Its membrane, so the cell and its fine processes read against Disse.
+  c = mix(c, cHscN, line(d, 0.1) * 0.55);
   return vec4(c, cov(d - 0.5 * max(0.1, 1.1 * uPx)));
 }
 
-// ── The Kupffer cell: a macrophage on the lower lining, reaching into the stream ──
-// A rounded body spread on the wall with a few blunt pseudopods; a kidney-shaped nucleus, pale vacuoles
-// holding what it has taken up, a few lysosomes. Flat, no outline.
+// ── The Kupffer cell: a macrophage anchored on the lower lining, reaching into the stream ──
+// A plump, ruffled body on a foot spread over the endothelium, with pseudopods into the blood; a kidney-shaped
+// nucleus, a phagosome holding a red cell it has taken up, a pale vacuole, lysosomes; a deeper membrane line.
 float sdKup0(vec2 q) {
-  float d = sdE(q - vec2(0.3, -2.3), vec2(3.3, 2.3));
-  d = smin(d, sdE(q - vec2(0.2, -0.4), vec2(4.8, 0.65)), 1.6);                       // spread on the lining
-  d = smin(d, sdTaper(q, vec2(-2.0, -2.0), vec2(-5.6, -3.3), 1.2, 0.5), 1.5);           // pseudopods, blunt
-  d = smin(d, sdTaper(q, vec2(2.4, -2.8), vec2(5.0, -4.6), 1.1, 0.45), 1.5);
+  vec2 b = q - vec2(0.2, -2.5);
+  float d = sdE(b, vec2(3.5, 2.4)) + 0.14 * sin(atan(b.y, b.x) * 9.0 + 0.6) * smoothstep(-0.6, -3.0, q.y);   // ruffled
+  d = smin(d, sdE(q - vec2(0.0, -0.45), vec2(5.4, 0.6)), 1.6);                         // its foot, on the lining
+  d = smin(d, sdTaper(q, vec2(-2.2, -2.4), vec2(-6.0, -3.9), 1.1, 0.35), 1.3);          // pseudopods
+  d = smin(d, sdTaper(q, vec2(2.6, -3.2), vec2(5.4, -5.0), 0.95, 0.3), 1.3);
+  d = smin(d, sdTaper(q, vec2(0.6, -4.4), vec2(1.4, -6.0), 0.75, 0.28), 1.0);
   return d;
 }
 float kupK() { return clamp(uKy / 5.2, 0.6, 1.0); }
@@ -307,17 +342,23 @@ vec4 kupffer(vec2 p) {
   vec2 q = (p - vec2(uXk, uKy)) / k;
   float d = sdKup0(q) * k;
   if (d > 0.3) return vec4(0.0);
-  vec3 c = cKup, pale = mix(cKup, vec3(1.0), 0.32 - 0.12 * uDark);
-  // Vacuoles: one with a darker fragment inside (taken up from the blood), one empty.
-  c = paint(c, pale, (length(q - vec2(-2.3, -1.5)) - 0.9) * k);
-  c = paint(c, mix(pale, cKupN, 0.4), sdE(q - vec2(-2.1, -1.7), vec2(0.45, 0.32)) * k);
-  c = paint(c, pale, (length(q - vec2(2.6, -1.3)) - 0.55) * k);
-  // Lysosomes.
-  vec3 gr[4] = vec3[4](vec3(-1.0, -3.4, 0.2), vec3(2.2, -3.3, 0.18), vec3(-0.5, -0.9, 0.17), vec3(3.4, -1.7, 0.16));
-  for (int i = 0; i < 4; i++) c = mix(c, cKupN, cov((length(q - gr[i].xy) - gr[i].z) * k) * 0.6);
-  // The nucleus, kidney-shaped.
-  float dn = smax(sdE(q - vec2(0.7, -2.2), vec2(1.9, 1.1)), -(length(q - vec2(1.0, -3.45)) - 0.75), 0.35) * k;
+  vec3 c = cKup, pale = mix(cKup, vec3(1.0), 0.34 - 0.12 * uDark);
+  c = mix(c, pale, 0.22 * (1.0 - smoothstep(0.0, 2.6, length((q - vec2(0.2, -2.6)) / vec2(1.3, 1.0)))));   // lighter mid-body
+  // The phagosome, with the red cell inside it.
+  float ph = (length(q - vec2(-1.9, -2.0)) - 1.15) * k;
+  c = paint(c, pale, ph);
+  c = mix(c, cKupE, line(ph, 0.07) * 0.45);
+  vec2 rq = mat2(0.8, 0.6, -0.6, 0.8) * (q - vec2(-1.9, -2.0));
+  c = paint(c, cRbc, sdE(rq, vec2(0.82, 0.5)) * k);
+  c = mix(c, mix(cRbc, vec3(1.0), 0.3), cov(sdE(rq, vec2(0.38, 0.17)) * k) * 0.6);
+  c = paint(c, pale, (length(q - vec2(2.6, -1.2)) - 0.5) * k);
+  vec3 gr[5] = vec3[5](vec3(-0.6, -3.9, 0.2), vec3(2.0, -4.0, 0.18), vec3(-0.2, -0.9, 0.17), vec3(3.3, -2.2, 0.16), vec3(1.0, -0.8, 0.15));
+  for (int i = 0; i < 5; i++) c = mix(c, cKupN, cov((length(q - gr[i].xy) - gr[i].z) * k) * 0.7);
+  // The nucleus, kidney-shaped, with its envelope.
+  float dn = smax(sdE(q - vec2(1.2, -2.7), vec2(1.8, 1.15)), -(length(q - vec2(1.5, -4.0)) - 0.75), 0.35) * k;
   c = paint(c, cKupN, dn);
+  c = mix(c, cKupE, line(dn, 0.08) * 0.6);
+  c = mix(c, cKupE, line(d, 0.11) * 0.7);
   return vec4(c, cov(d - 0.5 * max(0.1, 1.1 * uPx)));
 }
 
@@ -331,7 +372,7 @@ void main() {
     // The stellate and Kupffer cells, over the particles.
     vec4 cl = vec4(0.0);
     if (side < 0 && abs(x - uXs) < 34.0 && a > hw && a < hi + 4.0) cl = hsc(vec2(x, a));
-    if (side > 0 && abs(x - uXk) < 10.0 && a < uKy + 1.0) cl = kupffer(vec2(x, y));
+    if (abs(x - uXk) < 11.0 && y > uKy - 7.0 && y < uKy + 1.0) cl = kupffer(vec2(x, y));
     float al = cl.a * det * show;
     o = vec4(cl.rgb * al, al);
     return;
@@ -348,9 +389,11 @@ void main() {
       float head = max(max((qx + q.y * kk) / sqrt(1.0 + kk * kk), -L + 0.3 * L * (1.0 - sat(q.y / hw2)) - qx), q.y - hw2);
       float shaft = sdTaper(q, vec2(-0.5 * s, 0.0), vec2(0.0, 0.0), 0.12 * s, 0.12 * s);
       float dA = min(head, shaft);
-      vec3 tint = mix(cLumen, vec3(1.0), 0.85);
-      c = mix(c, mix(cLumen, vec3(0.0), 0.25), (1.0 - smoothstep(0.0, 0.12 * s, dA)) * 0.35 * uEnd.w);   // a soft shadow edge lifts it off the lumen
-      c = mix(c, tint, (1.0 - smoothstep(-0.05 * s, 0.03 * s, dA)) * uEnd.w);   // soft, a light tint of the lumen
+      // As its label's pill: the pill's fill inside a crisp border, on a soft shadow, so it stands off the lumen.
+      float px = uPx;
+      c = mix(c, vec3(0.0), (1.0 - smoothstep(0.0, 0.2 * s, dA - 0.06 * s)) * 0.22 * uEnd.w);
+      c = mix(c, cEndE, (1.0 - smoothstep(-px, px, dA - 0.07 * s)) * uEnd.w);
+      c = mix(c, cEndF, (1.0 - smoothstep(-px, px, dA + 0.02 * s)) * uEnd.w);
     }
   }
   else if (a < wi) c = mix(mix(cLumen, vec3(1.0), 0.3), cLymph, (a - hw) / ENDO);
@@ -369,7 +412,7 @@ void main() {
         float yl = b - (D + E + L), al = abs(yl);
         c = al < L ? lumen(x, yl, L, 40, false) : mix(mix(cLumen, vec3(1.0), 0.3), cLymph, (al - L) / E);
         float dN, de = sdEndo(x, al, L, side < 0 ? 7 : 9, 0, false, 0.0, dN);
-        c = endoInk(c, de, dN);
+        c = endoInk(c, de, dN, x, 0.0);
       }
       else if (b < 2.0 * D + 2.0 * E + 2.0 * L) c = disse(x, b - (D + 2.0 * E + 2.0 * L) + E, E, D + E, side, false, 0.0);
       else c = plate(x, b - (2.0 * D + 2.0 * E + 2.0 * L), sd + 13, 0.0);
@@ -378,7 +421,7 @@ void main() {
   // The main lining over all that.
   if (a < wi + 0.6 && a > hw - 1.4) {
     float dN, de = sdEndo(x, a, hw, side < 0 ? ${SEED.poreUp} : ${SEED.poreDn}, side < 0 ? ${SEED.nucUp} : ${SEED.nucDn}, side > 0, det, dN);
-    c = endoInk(c, de, dN);
+    c = endoInk(c, de, dN, x, det);
   }
   // Focus: beyond this sinusoid's own plates the tissue fades into the page.
   float f0 = uLum + ENDO + disseW(0.0) + HEP * 0.85;
