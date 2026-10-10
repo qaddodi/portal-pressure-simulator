@@ -977,6 +977,25 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       dop.t = setTimeout(() => { if (!dop.id) dop.g.style.display = 'none'; }, 400);
     }
   }
+  // A presenter slide's glows (glow: [...] and its terms' vessels): the Doppler's mark, one per vessel, in the
+  // station's own colour (--pg). Each eases in and out on its own, so a change of slide cross-fades.
+  const pg = new Map();   // edge id → mark
+  function setGlow(list) {
+    const want = new Map((list || []).filter((g) => E[g.id]).map((g) => [g.id, g.tone || 'accent']));
+    for (const [id, m] of pg) if (!want.has(id) && m.on) {
+      m.on = false; m.g.classList.remove('on');
+      clearTimeout(m.t); m.t = setTimeout(() => { if (!m.on) { m.g.remove(); pg.delete(id); } }, 450);
+    }
+    for (const [id, tone] of want) {
+      let m = pg.get(id);
+      if (!m) { m = makeMark(`pg-${id}`, 'pg'); m.id = id; pg.set(id, m); }
+      clearTimeout(m.t); m.on = true;
+      m.g.style.setProperty('--pg', tone.startsWith('--') ? `var(${tone})` : tone === 'accent' ? 'var(--accent)' : `var(--tr-${tone})`);
+      const x = E[id], d = x.wall.getAttribute('d'); if (d) m.paint(d, x.dopW || 8);
+      m.g.style.display = x.vis ? '' : 'none';
+      requestAnimationFrame(() => m.on && m.g.classList.add('on'));
+    }
+  }
   // The hovered vessel glows softly in its own colour, drawn on the GPU along its live course and
   // width (the rest of the network stays as it is). Each vessel's glow eases in and out on its own,
   // so moving from one vessel to the next cross-fades.
@@ -1658,6 +1677,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const d = t === 1 ? g.dC : polyD(pts);
       x.halo.setAttribute('d', d); x.sel.setAttribute('d', d); x.wall.setAttribute('d', d); x.hit.setAttribute('d', d);
       if (dop.id === x.e.id) dop.paint(d, x.dopW || 8);
+      pg.get(x.e.id)?.paint(d, x.dopW || 8);
       x.shadow.setAttribute('d', d);
       if (x.heat) x.heat.setAttribute('d', d);
       if (x.lumen) x.lumen.setAttribute('d', d);
@@ -1902,6 +1922,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (selOn) setA(x.sel, 'stroke-width', (w + 12).toFixed(1));
       x.dopW = w;
       if (dop.id === e.id) { const d = x.wall.getAttribute('d'); if (d) dop.paint(d, w); dop.g.style.display = x.vis ? '' : 'none'; }
+      { const m = pg.get(e.id); if (m) { const d = x.wall.getAttribute('d'); if (d) m.paint(d, w); m.g.style.display = x.vis ? '' : 'none'; } }
     }
     // Junction widths: where vessels meet, the largest narrows to the second largest and the
     // others widen toward it, so calibers change smoothly through every junction.
@@ -2713,7 +2734,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // or zoom moves them in the same frame (an SVG overlay is composited apart and can trail it).
   // Each one fades in and out; the SVG lines are kept only where the GPU cannot draw them.
   const glLines = !!veins?.canLines;
-  const OL_LOOK = { sel: [2.4, 0.55], hov: [2, 0.4] };   // as .org-sel-line and .org-hov-line: width, opacity
+  const OL_LOOK = { sel: [2.4, 0.55], hov: [2, 0.4], pin: [3.2, 0.8] };   // as .org-sel-line and .org-hov-line: width, opacity
   const OL_FADE = 160;   // ms
   let olPath = null;   // sampled in <defs>: the organ itself is hidden while the GPU draws the plate
   function olRings(id) {
@@ -2740,6 +2761,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (id && organEls[id]?.getAttribute('d') && !olList.some((o) => o.kind === kind && o.id === id && (o.on = true))) {
       olList.push({ kind, id, key: olKey(id), rings: olRings(id), a: 0, on: true });
     }
+    olDirty = true; olLast = performance.now();
+  }
+  // A presenter slide's organs, outlined and held (several at once): eased in and out like the hover outline.
+  function pinOrgans(list) {
+    const want = new Set((list || []).filter((o) => organEls[o]));
+    for (const o of olList) if (o.kind === 'pin' && !want.has(o.id)) o.on = false;
+    for (const id of want) if (organEls[id].getAttribute('d') && !olList.some((o) => o.kind === 'pin' && o.id === id && (o.on = true))) olList.push({ kind: 'pin', id, key: olKey(id), rings: olRings(id), a: 0, on: true });
     olDirty = true; olLast = performance.now();
   }
   // The organ was redrawn (a reshaped liver, a larger spleen): the outlines follow it.
@@ -2882,16 +2910,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Where a lesson step or case asks the learner to act.
   function updateFocus() {
     const foc = store.get().focus;
-    const ids = (foc?.edges || []).filter((id) => E[id]?.vis);
-    const key = ids.join(',') + '|' + ids.map((id) => E[id].width.toFixed(0)).join(',') + '|' + lastMorph;
+    // A presenter slide can hold several marks, each of a kind (block, treat, note: its colour, .focus-ring.k-*).
+    const kindOf = new Map();
+    for (const m of foc ? foc.marks || [foc] : []) for (const id of m.edges || []) if (!kindOf.has(id)) kindOf.set(id, m.kind || '');
+    const ids = [...kindOf.keys()].filter((id) => E[id]?.vis);
+    const key = ids.map((id) => id + kindOf.get(id)).join(',') + '|' + ids.map((id) => E[id].width.toFixed(0)).join(',') + '|' + lastMorph;
     if (gFocus._k === key) return;
     gFocus._k = key;
     // A soft feathered glow along the vessel: two blurred ribbons (a wide halo and a closer core) that
     // taper to nothing at both ends, so there is no blunt cap. Eases in; the old glow fades out.
     const taper = (u) => smooth01(u / 0.12) * smooth01((1 - u) / 0.12);
     const glow = ids.map((id) => {
-      const g = geo[id], w = E[id].width / 2;
-      const ribbon = (cls, r, blur) => g?.cur?.length > 1 && g.lit
+      const g = geo[id], w = E[id].width / 2, k = kindOf.get(id) ? ` k-${kindOf.get(id)}` : '';
+      const ribbon = (c, r, blur, cls = c + k) => g?.cur?.length > 1 && g.lit
         ? s('path', { class: cls, d: tubeOutline(g.cur, g.lit, (u) => (w + r) * taper(u) + 0.01), filter: `url(#${blur})` })
         : s('path', { class: cls + ' flat', d: E[id].wall.getAttribute('d'), 'stroke-width': ((w + r) * 2).toFixed(1) });
       return [ribbon('focus-ring focus-halo', 13, 'focusHalo'), ribbon('focus-ring focus-core', 5, 'focusCore')];
@@ -3794,9 +3825,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     return b;
   }
   let frameNo = 0;
+  const termTone = (id) => { const st = store.get(); return (st.presenting && st.presentTerms?.[id]) || null; };
   function renderBlock(it) {
     const b = blockEl(it.key, it.cls, it.node, it.onClick);
     b.seen = frameNo;
+    // A presenter slide's term (presentTerms): the station's label takes the term's colour, eased (.lb.term).
+    const tone = it.node ? termTone(it.node) : null;
+    if (tone !== (b.tone || null)) { b.tone = tone; b.g.classList.toggle('term', !!tone); if (tone) b.g.style.setProperty('--term', `var(--tr-${tone})`); }
     // Text and pressure colors change far more often than label structure.
     // Retain the text nodes (and keyboard focus) across numeric updates.
     const sig = JSON.stringify([it.lines.map((line) => line.map(({ t, ...style }) => style)), it.align, !!it.swatch, it.bg, !!it.hit, it.cls, labelK]);
@@ -3965,7 +4000,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const st = store.get();
     const meta = ATLAS_LABELS[id];
     const P = (f.Pf || f.P)[NI[id]];
-    const name = mode === 'atlas' ? (meta?.name || NODES[NI[id]].label) : (SHORT[id] || id);
+    let name = mode === 'atlas' ? (meta?.name || NODES[NI[id]].label) : (SHORT[id] || id);
+    // On a presenter's ladder and catheter slides, the stations the ladder names carry its name too (one vocabulary).
+    if (st.presenting && st.presentNames && LADDER_TAG[id]) name += ` · ${LADDER_TAG[id]}`;
     // On a small screen an inline label is one quiet line (name, value) on a text halo, not a
     // two-line card: it covers as little of the anatomy as it can.
     const one = mode === 'inline';   // one line, no box, on every screen (as on a phone)
@@ -3983,6 +4020,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       swatch: mode === 'atlas' && pr ? (lr ? lr.color : layerMode() === 'heat' ? heatColor(P - (REF()?.[NI[id]] ?? P)) : pressureColor(P)) : null, bg: mode === 'inline' && !one, padX: mode === 'inline' && !one ? 6 : 3, padY: mode === 'inline' && !one ? 3 : 2 };
   }
 
+  const LADDER_TAG = { SIN_R: 'WHVP', RHV: 'FHVP' };
   const ANAT_PRI = { CONF: 10, VAR: 9, SIN_R: 9, RHV: 8, RA: 8, SV: 7, SMV: 7, GV: 7, IVCS: 6, MHV: 5, LHV: 5, RPV: 5, LPV: 5, SIN_L: 5, IMV: 4, LGV: 4, W_R: 12, W_M: 12, W_L: 12 };
   // Stations labelled only when zoomed in enough to give them room, in this order (see updateLabels).
   const ANAT_EXTRA = ['MHV', 'LHV', 'RPV', 'LPV', 'SIN_L', 'IMV', 'LGV'];
@@ -4065,7 +4103,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const st = store.get(), t = easeInOut(morph);
     const edges = Object.values(E).filter((x) => x.vis).map((x) => `${x.e.id}${Math.round(x.width || 0)}${x.g.classList.contains('coll-ghost') ? 'g' : ''}`).join(',');
     return [geometryVersion, t >= 0.5, rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, JSON.stringify((f.viewParams || st.params).stenosis),
-      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], vt.k > 1.35, st.labelLevel, st.presenting && st.presentLabels?.join(','), [...(st.hiddenLabels || [])].join(','), zoomedIn(), flagged(f).join(','), edges].join('|');
+      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && JSON.stringify(st.focus.marks), vt.k > 1.35, st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && JSON.stringify(st.presentTerms || null), st.presenting && st.presentNames, [...(st.hiddenLabels || [])].join(','), zoomedIn(), flagged(f).join(','), edges].join('|');
   }
   function updateLabels(f) {
     refreshCTM();
@@ -4440,13 +4478,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     // Lesson / case focus callout
     const foc = st.focus;
-    if (foc?.edges?.length && E[foc.edges[0]]?.vis) {
-      const [x, y] = pointAt(geo[foc.edges[0]].cur, 0.5);
+    (foc ? foc.marks || [foc] : []).forEach((m, i) => {
+      if (!m.edges?.length || !E[m.edges[0]]?.vis || (i && !m.label)) return;
+      const [x, y] = pointAt(geo[m.edges[0]].cur, 0.5);
       const [ax, ay] = worldToLocal(x, y);
-      const it = { key: 'focus', cls: 'focus', lines: [[{ t: foc.label || 'Here', size: 11.5, weight: 650, cls: 'lb-focus' }]], align: 'start', bg: true, padX: 8, padY: 4, ax, ay };
+      const it = { key: i || m.kind ? `focus${i}${m.kind || ''}` : 'focus', mk: m.kind, cls: 'focus' + (m.kind ? ` k-${m.kind}` : ''), lines: [[{ t: m.label || 'Here', size: 11.5, weight: 650, cls: 'lb-focus' }]], align: 'start', bg: true, padX: 8, padY: 4, ax, ay };
       it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
-      if (place(it, ['E', 'W', 'NE', 'SE', 'N', 'S'], 18 + (E[foc.edges[0]].width || 4), true)) it.focusLeader = true;
-    }
+      if (place(it, ['E', 'W', 'NE', 'SE', 'N', 'S'], 18 + (E[m.edges[0]].width || 4), true)) it.focusLeader = true;
+    });
     if (stale) return false;
     if (solve) labelSol = nextSol;
 
@@ -4470,7 +4509,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Last pass: no two labels showing may overlap. A pan can pull a label in from the stage edge onto
     // another, and carried slots are not searched again. The more important label keeps its place; the
     // other drops its value and, if that is not enough, hides until there is room.
-    const rank = (it) => (it.sel ? 1e3 : it.key === 'focus' ? 900 : it.cls === 'organ' ? 0 : it.cls === 'lane' ? 1 : (it.pri ?? 2) + 2);
+    const rank = (it) => (it.sel ? 1e3 : it.key.startsWith('focus') ? 900 : it.cls === 'organ' ? 0 : it.cls === 'lane' ? 1 : (it.pri ?? 2) + 2);
     const kept = [];
     for (const it of out.filter((o) => !o.hide && !o.live && !o.rot).sort((a, b) => rank(b) - rank(a))) {
       let r = rectOf(it);
@@ -4490,7 +4529,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (it.hide || it.live || it.cls === 'organ' || it.cls === 'lane') continue;
       const r = rectOf(it), le = leaderEnd(r, it.ax, it.ay);
       const far = Math.hypot(le.x - it.ax, le.y - it.ay) > 5;
-      if (it.focusLeader) leaders += `<path class="leader focus" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}"/>`;
+      if (it.focusLeader) leaders += `<path class="leader focus${it.mk ? ` k-${it.mk}` : ''}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}"/>`;
       else if (it.leader && (circuit || far)) leaders += `<path class="leader${it.sel ? ' hl' : ''}" d="M${it.ax.toFixed(1)} ${it.ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}"/>`;
       if (it.focusLeader) continue;
       if (!circuit || it.mid) leaders += `<circle class="leader-dot" cx="${it.ax.toFixed(1)}" cy="${it.ay.toFixed(1)}" r="2.4"/>`;
@@ -5384,6 +5423,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setCatheter(st) { cath.st = st; wrap.classList.toggle('cath-on', !!st); if (!st) { cath.rc = 0; cath.route = null; if (veins?.canCath) veins.setCath(null); cathVer++; if (cathTint) { cathTint = null; cath.tintKey = ''; syncVeins(easeInOut(morph)); } cath.g.style.display = 'none'; cath.labels.hidden = true; cath.labels.replaceChildren(); cath.made?.clear(); cath.at = null; return; } cathPaint(); },
     /** A presenter slide's measuring sites, e.g. ['pv', 'ivc'] (see SITE_DEF), read from fp (the slide's numbers, so they
      *  match its ladder and tiles) or else the live figure; null removes them. */
+    // A presenter slide's glows: vessels ([{ id, tone }], eased, in the station's colour) and organs (outlined, held).
+    setGlow(list) { setGlow(list); },
+    pinOrgans(list) { pinOrgans(list); },
     setSites(list, fp = null) { sites.list = list?.length ? [...list] : null; sites.fp = fp; if (!sites.list) for (const k of [...resMade.keys()]) resPaint(k, SITE_DEF[k], null); if (!sites.list) for (const k of [...sites.made.keys()]) { const el = sites.made.get(k); sites.made.delete(k); el.classList.add('cath-pre'); setTimeout(() => el.remove(), 500); } else { refreshCTM(); sitesPaint(); } },
     /** Frame the catheter's route ('route'), its tip close up ('tip'), or go back to the view before ('home'). */
     cathFocus,

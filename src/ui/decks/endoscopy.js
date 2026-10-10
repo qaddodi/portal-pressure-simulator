@@ -34,7 +34,7 @@ export const ENDOSCOPY = {
       ask: ['At what HVPG do varices form?', 'About 10 mmHg.'],
     },
     {
-      id: 'large', preset: 'cirr-decomp', cam: 'varices', labels: ['VAR'], mark: { edges: ['C1a', 'C1b'], label: 'Large varices' }, tool: { kind: 'scope' },
+      id: 'large', preset: 'cirr-decomp', cam: 'varices', labels: ['VAR'], mark: { edges: ['C1a', 'C1b'], label: 'Large varices', kind: 'note' }, tool: { kind: 'scope' },
       data: 'tiles', tiles: ['hvpg'], key: ['hvpg'],
       kicker: 'Endoscopy', site: 'sin', title: 'Large varices',
       line: 'Varices over 5 mm fill the lumen and do not flatten with air. Red wale marks show where the wall has thinned.',
@@ -75,7 +75,7 @@ export const ENDOSCOPY = {
       ask: ['Which vasoactive drug is started when a variceal bleed is suspected?', 'Octreotide.'],
     },
     {
-      id: 'band', params: { drugs: { octreotide: false } }, action: BANDS, cam: 'varices', labels: ['VAR'], mark: { edges: ['C1a', 'C1b'], label: 'Banded varices' }, tool: { kind: 'scope' },
+      id: 'band', params: { drugs: { octreotide: false } }, action: BANDS, cam: 'varices', labels: ['VAR'], mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }, tool: { kind: 'scope' },
       data: 'tiles', tiles: ['hvpg'], key: ['hvpg'], delta: true,
       kicker: 'Endoscopy', site: 'sin', title: 'Band ligation',
       line: 'The ligated columns thrombose and shrink. With that outflow closed, the HVPG rises slightly.',

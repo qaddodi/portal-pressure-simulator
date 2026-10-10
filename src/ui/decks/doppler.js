@@ -87,7 +87,7 @@ export const DOPPLER = {
       ask: ['A pulsatile portal vein and a dilated IVC: where is the problem?', 'In the heart: a high right atrial pressure transmitted back to the liver.'],
     },
     {
-      id: 'tips', preset: 'cirr-decomp', params: { tips: { on: true } }, cam: 'liver', mark: { edges: ['TIPS'], label: 'Covered stent' }, tool: { kind: 'doppler', vessel: 'TIPS' },
+      id: 'tips', preset: 'cirr-decomp', params: { tips: { on: true } }, cam: 'liver', mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, tool: { kind: 'doppler', vessel: 'TIPS' },
       data: 'tiles', tiles: ['ppg'], key: ['ppg'],
       kicker: 'After TIPS', site: 'sin', title: 'TIPS: fast flow in the stent',
       line: 'Brisk flow through the stent means it is open; under about 50 or over 250 cm/s suggests narrowing.',
