@@ -33,8 +33,6 @@ jobs:
         run: npm test
       - name: Production build
         run: npm run build
-      - name: Performance report
-        run: npm run perf -- dist
 
   # The build-free site (what Pages serves) and the production build (the SCORM package), each on
   # a desktop and a phone, in two shares: eight runners, one check at a time on each (a runner is
@@ -62,6 +60,10 @@ jobs:
           SMOKE_SHARD: ${{ matrix.shard }}
           SMOKE_WORKERS: 1
         run: npm run smoke -- ${{ matrix.site == 'build' && 'dist' || '.' }}
+      # Needs a browser and the build: one of the build runners reports it.
+      - name: Performance report
+        if: matrix.site == 'build' && matrix.device == 'desktop' && matrix.shard == '1/2'
+        run: npm run perf -- dist
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
