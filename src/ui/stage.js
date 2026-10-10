@@ -1028,6 +1028,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     updateLabels(F);
     if (cath.st) cathLabels();
     if (sites.list) sitesPaint();
+    if (scan.on) scanPaint();
     onViewChange?.();
   }
   applyVT();
@@ -1439,6 +1440,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // With the catheter in, the vessels, the catheter and its labels follow the camera in this very frame.
       if (cath.st) { refreshCTM(); cathLabels(); if (drawVeins()) drawnView = viewVersion; }
       if (sites.list) { refreshCTM(); sitesPaint(); }
+      if (scan.on) scanPaint();
       if (u < 1) vtAnim = requestAnimationFrame(step); else vtGliding = false;
     };
     vtAnim = requestAnimationFrame(step);
@@ -3279,6 +3281,34 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       el.style.transform = `translate(${cx.toFixed(1)}px, ${y.toFixed(1)}px)`;
     }
   }
+  // The FibroScan probe (the Presenter's stiffness slides): a transducer on the skin over the right lobe, at the
+  // lower ribs, with a shear wave easing out from its tip into the liver. Screen-space, beside the liver's outline.
+  const scan = { on: false, el: null };
+  function scanPaint() {
+    if (!scan.el) {
+      const el = document.createElement('div');
+      el.className = 'scan-probe cath-pre'; el.setAttribute('aria-hidden', 'true');
+      el.innerHTML = '<svg viewBox="0 0 150 64"><g class="sp-waves"><path d="M70 14 Q86 32 70 50"/><path d="M70 14 Q86 32 70 50"/><path d="M70 14 Q86 32 70 50"/></g>'
+        + '<path class="sp-cable" d="M2 32 C10 32 12 32 18 32"/><rect class="sp-body" x="16" y="20" width="42" height="24" rx="10"/>'
+        + '<rect class="sp-tip" x="54" y="23" width="10" height="18" rx="3"/></svg><span>FibroScan probe</span>';   // (constant markup)
+      sites.el.append(el); scan.el = el;
+      void el.offsetWidth; el.classList.remove('cath-pre');
+    }
+    const lv = organEls.liver, wr = wrap.getBoundingClientRect();
+    if (!lv || morph > 0.5) { scan.el.classList.add('off'); return; }
+    const r = lv.getBoundingClientRect(), x0 = pzInset('--pz-l') + 6, x1 = wr.width - pzInset('--pz-r') - 6;
+    // The right lobe's lateral edge (the patient's right is the figure's left), two thirds down: the lower ribs.
+    const x = clamp(r.left - wr.left + r.width * 0.04, x0, x1 - 150), y = r.top - wr.top + r.height * 0.6;
+    scan.el.classList.toggle('off', y < 20 || y > wr.height - 20);
+    scan.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+  }
+  function setScanProbe(on) {
+    if (scan.on === !!on) return;
+    scan.on = !!on;
+    if (on) { refreshCTM(); scanPaint(); return; }
+    const el = scan.el; scan.el = null;
+    if (el) { el.classList.add('cath-pre'); setTimeout(() => el.remove(), 500); }
+  }
   const CATH_IDS = ['SVC_RA', 'IVCS_RA', 'RHV_IVC', 'POST_R_RHV'];   // (and down the IVC_IS to the hepatic vein)
   const lenTo = (pts) => { const c = [0]; for (let i = 1; i < pts.length; i++) c.push(c[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])); return c; };
   /** The part of a polyline from length a to length b (cumulative lengths in cum). */
@@ -4073,6 +4103,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const solve = !solvedFor || solvedFor.sig !== sig || Math.abs(Math.log(sc / solvedFor.sc)) > SOLVE_ZOOM || Math.abs(th - solvedFor.th) > SOLVE_TURN;
     if (solve || layoutLabels(f, false) === false) { layoutLabels(f, true); solvedFor = { sig, sc, th }; }
     if (sites.list) sitesPaint();
+    if (scan.on) scanPaint();
   }
   // Figure point under a local (stage) pixel.
   function localToWorld(x, y) {
@@ -5394,6 +5425,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setDoppler(id) { dop.want = id; dopApply(); },
     /** The presenter's Doppler slide pins its vessel's glow, over whatever Explore's Doppler reads (null: unpin). */
     pinDoppler(id) { dop.pin = id; dopApply(); },
+    setScanProbe,
     setLabelScale(v) {
       labelScale = clamp(Math.round(v * 100) / 100, LABEL_MIN, LABEL_MAX);
       try { localStorage.setItem('pps.labelScale', String(labelScale)); } catch { /* storage unavailable */ }

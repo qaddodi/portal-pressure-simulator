@@ -65,6 +65,7 @@ export function createTools({ host, stage }) {
       const k = keyOf(t), inst = make(k);
       if (!inst) { this.hide(); return; }
       if (k !== 'doppler') stage?.pinDoppler?.(null);
+      stage?.setScanProbe?.(k === 'fibroscan');   // (the probe on the skin over the liver, where the reading comes from)
       if (k === 'doppler') {
         if (probe0 === undefined) probe0 = store.get().frame?.probe ?? null;
         host.send({ type: 'probe', id: t.vessel || 'PV_TRUNK' });
@@ -80,7 +81,7 @@ export function createTools({ host, stage }) {
       if (k === 'talk') inst.set(chain);
       else { const f = store.get().frame; if (f) requestAnimationFrame(() => cur === inst && inst.update(f)); }
     },
-    hide() { stage?.pinDoppler?.(null); cur = null; kind = null; delete box.dataset.kind; },
+    hide() { stage?.pinDoppler?.(null); stage?.setScanProbe?.(false); cur = null; kind = null; delete box.dataset.kind; },
     /** The presentation is over: the Doppler goes back to the vessel it had. */
     dispose() { if (probe0 !== undefined) host.send({ type: 'probe', id: probe0 }); probe0 = undefined; lastSt = null; this.hide(); },
   };
