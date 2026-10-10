@@ -10,7 +10,7 @@ import { EDGES } from '../engine/topology.js?v=dc393aabea';
 import { SNAPSHOTS } from './snapshots.js?v=34d1578d5f';
 import { createRoute, ladder } from './ladder.js?v=2cbec732f7';
 import { CASES } from './cases/index.js?v=433329e7fa';
-import { UNITS, course, setUnitSurface, unitBar, exploreButton } from './course.js?v=3d22791adf';
+import { UNITS, course, setUnitSurface, unitBar, exploreButton } from './course.js?v=16e2e211aa';
 import { trustLine, teachChip, blindOn, blindOff, isBlind, optionList, compareChip, bindQuestionKeys, mirrorMarker } from './learning-kit.js?v=83e19de948';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -470,10 +470,10 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     render();
     endSession?.(unit ? 'unit' : 'lesson', { keep: !!exploreAfter });
     onEnd?.();
-    if (unit) onUnitEnd?.(unit, { explore: exploreAfter });
-    exploreAfter = null;
+    if (unit) onUnitEnd?.(unit, { explore: exploreAfter, practice: practiceNext });
+    exploreAfter = null; practiceNext = false;
   }
-  let finishing = false, exploreAfter = null;
+  let finishing = false, exploreAfter = null, practiceNext = false;   // practiceNext: the unit closes into its optional practice
 
   async function enter({ replay = false, deep = false } = {}) {
     const st = lesson.steps[idx];
@@ -650,6 +650,16 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     if (st.text) body.push(h('p', {}, md(st.text)));
     if (st.type === 'keypoints') body.push(h('div', { class: 'pearls keypoints' }, h('p', { class: 'step-label' }, 'Key points'), h('ul', {}, (lesson.keyPoints || []).map((t) => h('li', {}, t)))), exploreButton(lesson, finish));
     if (st.data && !isBlind()) body.push(dataRow(st.data), teachChip());
+    // A Watch step's pressure ladder (`ladder`: a preset, or true for the step's own), against the healthy one.
+    // Built once per step so it eases in once, not on every redraw.
+    if (st.ladder && !isBlind()) {
+      const fp = SNAPSHOTS[st.ladder === true ? st.preset : st.ladder]?.fp;
+      if (fp) {
+        state.stepLadder ||= h('div', { class: 'step-ladder' }, h('div', { class: 'tour-sub' }, 'Pressure along the way', h('span', {}, h('i', { class: 'lg-now' }), 'This patient', h('i', { class: 'lg-base' }), 'Healthy')),
+          ladder(fp, { base: SNAPSHOTS.healthy.fp, reveal: true }));
+        body.push(state.stepLadder);
+      }
+    }
     if (st.fluids) body.push(fluidTable(st.fluids));
     if (st.compare) body.push(compareTable(st.compare));
     let canNext = true, asking = false;
@@ -720,6 +730,8 @@ export function createLearn({ host: hostEl, coach, stage, panel, dock, inspector
     // The takeaways close the lesson: shown on the last step once its questions are answered.
     if (idx === lesson.steps.length - 1 && lesson.pearls?.length && canNext) body.push(h('div', { class: 'pearls' }, h('p', { class: 'step-label' }, 'Pearls'), h('ul', {}, lesson.pearls.map((t) => h('li', {}, t)))));
     // Then a patient to try it on: the lesson is recorded first, then the case opens.
+    // A unit's optional practice (unit 3: the drill, five patients) closes the unit and opens it.
+    if (lesson.unit && lesson.practice && st.type === 'keypoints') body.push(h('button', { class: 'try-case', onclick: () => { practiceNext = true; finish(); } }, h('span', {}, h('small', {}, 'Optional practice'), h('b', {}, lesson.practice)), svgIcon('chev-right')));
     const tryCase = !lesson.unit && idx === lesson.steps.length - 1 && canNext && startCase && CASES.find((c) => c.id === lesson.caseId);
     if (tryCase) body.push(h('button', { class: 'try-case', onclick: () => { const id = tryCase.id; finish(); startCase(id); } }, h('span', {}, h('small', {}, 'Now try it on a patient'), h('b', {}, tryCase.title)), svgIcon('chev-right')));
     const [, typeLabel] = STEP[st.type], stepLabel = `${typeLabel} · ${idx + 1} of ${lesson.steps.length}`;

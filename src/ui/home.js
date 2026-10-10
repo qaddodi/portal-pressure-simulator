@@ -5,12 +5,12 @@
 
 import { store } from './store.js?v=49dc9cdf15';
 import { h, svgIcon, icon } from './util.js?v=a357853926';
-import { LESSONS } from './learn.js?v=1f334ee904';
+import { LESSONS } from './learn.js?v=650dcd55b6';
 import { CASES } from './cases.js?v=8d4fbd875f';
-import { createDrill, drillProgress, DRILL_TITLE, ROUNDS } from './drill.js?v=af9584165f';
-import { skillsPath, reviewCard } from './practice.js?v=98460e015d';
-import { UNITS, FINAL, PARTS, course } from './course.js?v=3d22791adf';
-import { openExam } from './exam.js?v=d32dd24e77';
+import { createDrill, drillProgress, DRILL_TITLE, ROUNDS } from './drill.js?v=8e1d2959a6';
+import { skillsPath, reviewCard } from './practice.js?v=e1b1d09a9b';
+import { UNITS, FINAL, PARTS, course } from './course.js?v=16e2e211aa';
+import { openExam } from './exam.js?v=a73d6ca8f9';
 import { t } from '../i18n/i18n.js?v=3113b1ec12';
 import { exportCSV, exportXAPI, learnerName, setLearnerName, records } from './records.js?v=50fb9dd463';
 import { SNAPSHOTS, PATH } from './snapshots.js?v=34d1578d5f';
@@ -110,7 +110,7 @@ export function createHome({ el, brandMark, onPreset, onLesson, onUnit, onCase, 
     const instructor = st.role === 'instructor';
     // The case library and Present belong to Explore, and to instructors only.
     if ((tab === 'cases' || tab === 'present') && !instructor) tab = 'explore';
-    const TITLES = { explore: 'Explore the model', learn: 'Lessons', drill: 'Lessons', cases: 'Case library', present: 'Present' };
+    const TITLES = { explore: 'Explore the model', learn: 'Lessons', drill: 'Lessons', practice: 'Unit 3 practice', cases: 'Case library', present: 'Present' };
     const parent = tab === 'drill' ? ['learn', 'Lessons'] : tab === 'cases' || tab === 'present' ? ['explore', 'Explore'] : ['course', 'Course'];
     const nav = tab === 'course' ? null : h('nav', { class: 'home-back', 'aria-label': 'Back' },
       h('button', { class: 'btn ghost sm', onclick: () => go(parent[0]) }, svgIcon('chev-left'), parent[1]), h('h2', {}, TITLES[tab]));
@@ -134,6 +134,9 @@ export function createHome({ el, brandMark, onPreset, onLesson, onUnit, onCase, 
         h('div', { class: 'home-grid scen' }, Object.entries(groups).map(([g, ps]) => h('section', { class: 'home-group' },
           h('h3', {}, h('i', { style: { background: GROUP_COLOR[g] || 'var(--text-3)' } }), g, h('small', {}, GROUP_WHERE[g] || '')),
           ps.map((p) => patientCard(p, st.presetId, onPreset))))));
+    } else if (tab === 'practice') {
+      // Unit 3's optional practice: the drill, five patients, back to the course.
+      body = createDrill({ rounds: 5, exitLabel: 'Back to the course', onExit: () => go('course') }).el;
     } else if (tab === 'drill') {
       body = createDrill({ onExit: () => { tab = 'learn'; render(); } }).el;
     } else if (tab === 'learn') {

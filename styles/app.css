@@ -3805,6 +3805,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .app.unit-on .stage-credit { bottom: max(12px, var(--sheet-h, 0px)); }
 @media (max-width: 767px) {
   .app.unit-on .coach { left: 0; right: 0; bottom: 0; max-width: none; max-height: 62%; border-radius: var(--r-sheet) var(--r-sheet) 0 0; padding-bottom: env(safe-area-inset-bottom); }
+  /* A step that opens an instrument (HVPG, Doppler, endoscopy, ascites): the instrument takes the bottom
+     sheet, so the card moves to the top, where both stay readable. */
+  .app.unit-on.dock-open .coach { top: calc(env(safe-area-inset-top) + 8px); bottom: auto; left: 8px; right: 8px; max-height: 42%; border-radius: var(--r-sheet); padding-bottom: 0; animation: fade .3s var(--ease); }
 }
 .coach .lesson.sheet.unit { padding: 14px 18px 16px; }
 .unit-bar { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }

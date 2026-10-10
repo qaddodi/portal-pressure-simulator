@@ -67,12 +67,14 @@ export const TESTS = [
 const RUNGS_OF = { hvpg: ['whvp', 'fhvp'], echo: ['ra'] };
 
 const shuffle = (a, rnd = Math.random) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-/** Ten patients: every level at least once, the rest at random, no patient twice, no level twice in a row where avoidable. */
-export function pickRounds(rnd = Math.random) {
+/** n patients (ten by default): every level at least once (n distinct levels when n is smaller), the rest at random,
+ *  no patient twice, no level twice in a row where avoidable. */
+export function pickRounds(rnd = Math.random, n = ROUNDS) {
   const bySite = {};
   for (const p of PATIENTS) (bySite[p.site] ||= []).push(p);
-  const first = Object.values(bySite).map((ps) => ps[Math.floor(rnd() * ps.length)]);
-  const rest = shuffle(PATIENTS.filter((p) => !first.includes(p)), rnd).slice(0, ROUNDS - first.length);
+  let first = Object.values(bySite).map((ps) => ps[Math.floor(rnd() * ps.length)]);
+  if (n < first.length) first = shuffle(first, rnd).slice(0, n);
+  const rest = shuffle(PATIENTS.filter((p) => !first.includes(p)), rnd).slice(0, n - first.length);
   const all = shuffle([...first, ...rest], rnd);
   for (let i = 1; i < all.length; i++) {
     if (all[i].site !== all[i - 1].site) continue;
@@ -82,16 +84,16 @@ export function pickRounds(rnd = Math.random) {
   return all;
 }
 
-/** The drill, drawn into `el`. onExit() leaves it. */
-export function createDrill({ onExit }) {
+/** The drill, drawn into `el`. onExit() leaves it; `rounds` patients (unit 3's practice runs five), `exitLabel` names the way out. */
+export function createDrill({ onExit, rounds: count = ROUNDS, exitLabel = 'Back to Home' }) {
   const el = h('section', { class: 'drill', 'aria-label': DRILL_TITLE });
   const base = SNAPSHOTS.healthy.fp;
-  let rounds = pickRounds(), i = 0, answers = [], t0 = Date.now();
+  let rounds = pickRounds(Math.random, count), i = 0, answers = [], t0 = Date.now();
 
   function headBar() {
     return h('div', { class: 'dr-head' },
       h('div', {}, h('span', { class: 'overline' }, 'Practice'), h('h2', {}, DRILL_TITLE)),
-      h('div', { class: 'dr-segs', 'aria-label': `Patient ${Math.min(i + 1, ROUNDS)} of ${ROUNDS}` }, rounds.map((_, k) => h('i', { class: k < answers.length ? (answers[k].right ? 'ok' : 'no') : k === i ? 'cur' : '' }))),
+      h('div', { class: 'dr-segs', 'aria-label': `Patient ${Math.min(i + 1, count)} of ${count}` }, rounds.map((_, k) => h('i', { class: k < answers.length ? (answers[k].right ? 'ok' : 'no') : k === i ? 'cur' : '' }))),
       h('button', { class: 'ib', 'aria-label': 'Leave the drill', title: 'Leave the drill', onclick: onExit }, icon('close')));
   }
 
@@ -127,7 +129,7 @@ export function createDrill({ onExit }) {
         h('div', { class: 'tour-sub' }, 'Pressure along the way', h('span', {}, h('i', { class: 'lg-now' }), 'This patient', h('i', { class: 'lg-base' }), 'Healthy')),
         ladder(f, { base, known, key: ordered.flatMap((t) => RUNGS_OF[t] || []), reveal: true }),
         tiles(f, { key: ordered.includes('hvpg') ? ['hvpg'] : ordered.includes('tap') ? ['saag', 'tp'] : [] }),
-        h('div', { class: 'dr-next' }, h('button', { class: 'btn primary', onclick: next }, i + 1 < ROUNDS ? 'Next patient' : 'See how you did', icon('chev-right'))));
+        h('div', { class: 'dr-next' }, h('button', { class: 'btn primary', onclick: next }, i + 1 < count ? 'Next patient' : 'See how you did', icon('chev-right'))));
       after.querySelector('.dr-next .btn').focus({ preventScroll: true });
       requestAnimationFrame(() => after.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }));
     }
@@ -139,11 +141,11 @@ export function createDrill({ onExit }) {
       after));
   }
 
-  function next() { i++; if (i < ROUNDS) round(); else debrief(); el.scrollIntoView?.({ block: 'start', behavior: 'smooth' }); }
+  function next() { i++; if (i < count) round(); else debrief(); el.scrollIntoView?.({ block: 'start', behavior: 'smooth' }); }
 
   function debrief() {
     const right = answers.filter((a) => a.right).length;
-    const score = Math.round((right / ROUNDS) * 100);
+    const score = Math.round((right / count) * 100);
     // Confident mistakes first: they are the misconceptions; then unsure misses; then lucky guesses.
     const groups = [
       ['Sure, but wrong', 'Revisit these first: a confident mistake is a misconception.', answers.filter((a) => !a.right && a.sure)],
@@ -155,14 +157,14 @@ export function createDrill({ onExit }) {
       return h('li', {}, h('span', { class: 'dr-dl-s' }, p.story),
         h('span', { class: 'dr-dl-a' }, a.right ? `You said ${siteName(a.pick).toLowerCase()}.` : `You said ${siteName(a.pick).toLowerCase()}; it was ${siteName(a.site).toLowerCase()}.`, ' ', p.why || WHY[a.site]));
     };
-    addRecord({ kind: 'drill', id: DRILL_ID, title: DRILL_TITLE, score, completed: true, met: right, total: ROUNDS, duration: (Date.now() - t0) / 1000, wallDuration: (Date.now() - t0) / 1000,
+    addRecord({ kind: 'drill', id: DRILL_ID, title: DRILL_TITLE, score, completed: true, met: right, total: count, duration: (Date.now() - t0) / 1000, wallDuration: (Date.now() - t0) / 1000,
       answers: answers.map((a) => `${a.id}: ${a.pick}${a.right ? ' (right' : ` (wrong, ${a.site}`}, ${a.sure ? 'sure' : 'not sure'}, tests ${a.tests.join('+') || 'none'})`) });
     saveDrill(score);
     el.replaceChildren(headBar(), h('div', { class: 'dr-body' },
-      h('div', { class: 'dr-score' }, h('b', {}, `${right} / ${ROUNDS}`), h('span', {}, right === ROUNDS ? 'Every block in the right place.' : right >= 7 ? 'Good localizing.' : 'Keep going: the ladder is the pattern to learn.')),
+      h('div', { class: 'dr-score' }, h('b', {}, `${right} / ${count}`), h('span', {}, right === count ? 'Every block in the right place.' : right >= 0.7 * count ? 'Good localizing.' : 'Keep going: the ladder is the pattern to learn.')),
       groups.length ? groups.map(([t, d, list]) => h('div', { class: 'dr-dl' }, h('h3', {}, t, h('small', {}, ` · ${list.length}`)), d ? h('p', {}, d) : null, h('ul', {}, list.map(row))))
         : h('p', { class: 'dr-verdict ok' }, 'All right and all sure.'),
-      h('div', { class: 'dr-next' }, h('button', { class: 'btn', onclick: onExit }, 'Back to Home'), h('button', { class: 'btn primary', onclick: () => { rounds = pickRounds(); i = 0; answers = []; t0 = Date.now(); round(); } }, 'Ten more'))));
+      h('div', { class: 'dr-next' }, h('button', { class: 'btn', onclick: onExit }, exitLabel), h('button', { class: 'btn primary', onclick: () => { rounds = pickRounds(Math.random, count); i = 0; answers = []; t0 = Date.now(); round(); } }, count === ROUNDS ? 'Ten more' : `${count} more`))));
   }
 
   round();
