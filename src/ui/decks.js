@@ -41,6 +41,8 @@
 
 import { STIFFNESS } from './decks/stiffness.js?v=c9cae28f24';
 import { ONE_YEAR } from './decks/one-year.js?v=f45d2cb1d7';
+import { LOBULE } from './decks/lobule.js?v=657b69955e';
+import { SHUNTS } from './decks/shunts.js?v=a0764ff6d0';
 import { TAP } from './decks/tap.js?v=90280ceb39';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
@@ -564,4 +566,4 @@ export const DECKS = [
   },
 ];
 
-DECKS.push(STIFFNESS, ONE_YEAR, TAP);
+DECKS.push(STIFFNESS, ONE_YEAR, TAP, LOBULE, SHUNTS);

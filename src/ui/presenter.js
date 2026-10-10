@@ -20,9 +20,9 @@ import { SITES } from './ladder.js?v=c0d400b6f9';
 import { sinusoidSupported } from './sinusoid-view.js?v=0a862dc027';
 import { pressureColor } from './colormap.js?v=6d64a94345';
 import { NODES } from '../engine/topology.js?v=dc393aabea';
-import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=24a415b757';
+import { DECKS, REGIONS, LEVELS, withOverview } from './decks.js?v=fdbd872ffa';
 import { createTools } from './presenter-tools.js?v=40af8ad0f3';
-import { openHandout } from './handout.js?v=da9ee3dd4b';
+import { openHandout } from './handout.js?v=2870ab6967';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -840,7 +840,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
   }
   // The table's columns: the raw pressures shade above normal, the rest by their tile's rating.
   // Headers match the pressure chart's axis (PV, WHVP, FHVP, IVC, RA).
-  const COLS = { pv: 'PV', whvp: 'WHVP', fhvp: 'FHVP', ivc: 'IVC', ra: 'RA', hvpg: 'HVPG', ppg: 'PPG', sin: 'Sinusoids', varix: 'Varix', asc: 'Ascites', liver: 'Liver flow', saag: 'SAAG', tp: 'Protein', plt: 'Platelets', lsm: 'LSM', spleen: 'Spleen', map: 'BP' };
+  const COLS = { pv: 'PV', whvp: 'WHVP', fhvp: 'FHVP', ivc: 'IVC', ra: 'RA', hvpg: 'HVPG', ppg: 'PPG', sin: 'Sinusoids', varix: 'Varix', asc: 'Ascites', liver: 'Liver flow', shunt: 'Shunted', saag: 'SAAG', tp: 'Protein', plt: 'Platelets', lsm: 'LSM', spleen: 'Spleen', map: 'BP' };
   const RAW = { pv: (v) => v > 10, whvp: (v) => v > 10, fhvp: (v) => v > 8, ivc: (v) => v > 8, ra: (v) => v > 8 };
   const RAWLIM = { pv: 10, whvp: 10, fhvp: 8, ivc: 8, ra: 8 };
   const UP_GOOD = new Set(['liver', 'plt', 'map', 'salb']);   // (higher is better: a low one rates amber or red, an arrow down)
@@ -857,7 +857,7 @@ export function createPresenter({ openSettings, startCase, cases = [], host, sta
     return r === 'hi' ? 2 * sign : r === 'mid' ? sign : 0;
   }
   // Against the baseline every real change shows (octreotide's half-millimetre, banding's slight rise), so the steps are small.
-  const STEP_REL = { pv: .5, whvp: .5, fhvp: .5, ivc: .5, ra: .5, hvpg: .5, ppg: .5, sin: .5, varix: .3, asc: 100, liver: 2 };
+  const STEP_REL = { pv: .5, whvp: .5, fhvp: .5, ivc: .5, ra: .5, hvpg: .5, ppg: .5, sin: .5, varix: .3, asc: 100, liver: 2, shunt: .05 };
   function dirRel(k, f, ref) {
     const d = f[k] - ref[k], r = Math.abs(d) / Math.max(Math.abs(ref[k]), 1e-6);
     return Math.abs(d) < (STEP_REL[k] ?? 1) ? 0 : (d > 0 ? 1 : -1) * (r >= 0.4 ? 2 : 1);
