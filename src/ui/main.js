@@ -276,7 +276,14 @@ function viewFrame(f) {
 // on every tick kept the main thread busy and the laptop warm for no visible gain.
 let lastPaint = 0, lastDesc = 0, homeStale = false;
 // The Doppler's vessel glows on the figure while the Doppler instrument is open.
-function syncDoppler(f = store.get().frame) { stage?.setDoppler(f && dock?.isOpen('doppler') ? f.probe : null); }
+function syncDoppler(f = store.get().frame) { stage?.setDoppler(f && dock?.isOpen('doppler') ? f.probe : null); syncScanProbe(); }
+// The FibroScan probe and its shear wave show on the figure while the FibroScan card is open in Explore; the Presenter drives its own.
+let scanOwned = false;
+function syncScanProbe() {
+  const want = store.get().mode === 'explore' && !!dock?.isOpen('fibroscan');
+  if (store.get().mode !== 'explore') { scanOwned = false; return; }
+  if (want !== scanOwned) { scanOwned = want; stage?.setScanProbe(want); }
+}
 // Settings no patient could live through (circulatory collapse): a plain warning over the figure, so nobody
 // reads numbers off an impossible patient. Hysteresis keeps it from flickering at the edge.
 const COLLAPSE = { on: (m) => m.map < 45 || m.co < 1.5, off: (m) => m.map > 50 && m.co > 1.8 };
