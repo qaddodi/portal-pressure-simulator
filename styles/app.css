@@ -3724,7 +3724,7 @@ body.sim-paused .mon.bad .mv { animation-play-state: paused; }
 @media (min-width: 1024px) and (pointer: fine) {
   .instrument-workspace.float-ui { box-shadow: 0 8px 28px rgba(20, 22, 30, .10), 0 1px 3px rgba(20, 22, 30, .06), inset 0 0 0 1px var(--hairline); }
   .instr-tabs { margin: 2px 16px 10px; gap: 6px; padding: 0; border-radius: 0; background: none; }
-  .instr-tab, .instr-tab[aria-selected="true"] { flex: 0 0 auto; flex-direction: row; height: 36px; gap: 6px; padding: 0 8px; border-radius: 0; background: none; box-shadow: none; font-weight: 500; font-size: 13px; color: var(--text-3); }
+  .instr-tab, .instr-tab[aria-selected="true"] { flex: 0 0 auto; flex-direction: row; height: 36px; gap: 6px; padding: 0 8px; border-radius: 0; background: none; box-shadow: none; font-weight: 500; font-size: 12px; color: var(--text-3); }
   .instr-tab:first-child { margin-left: -8px; }
   .instr-tab > svg { width: var(--ic-s); height: var(--ic-s); }
   .instr-tab:hover { color: var(--text); }
