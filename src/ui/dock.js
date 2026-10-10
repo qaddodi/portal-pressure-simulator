@@ -434,13 +434,20 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     setTimeout(() => dispatchEvent(new Event('resize')), 30);
   }
   const canSplit = () => (isSide() ? stageWrap.clientHeight - css('--top-safe') - css('--vdock-h') >= 620 : body.clientWidth >= 1000 || workspace.clientWidth >= 1000) || state === 'focus';
+  // Pressure and Over time read as one story: where the card is roomy (desktop, iPad landscape) they open
+  // together, stacked, with no switch; elsewhere the Pressure tab keeps its Along the circuit / Over time switch.
+  const PAIR = ['profile', 'scope'];
+  const roomy = () => isSide() && canSplit() && body.clientHeight >= 600;
+  const isPair = () => open.length === 2 && tabOf(open[0]) === tabOf(open[1]);
   function layout() {
     // Never keep two cramped instruments after rotation or resizing.
     if (open.length > 1 && !canSplit()) open = open.slice(0, 1);
-    else if (open.length > 1 && tabOf(open[0]) === tabOf(open[1])) open = open.slice(0, 1);
+    else if (open.length === 1 && tabOf(open[0]) === 'profile' && roomy()) open = [...PAIR];
+    else if (open.length > 1 && tabOf(open[0]) === tabOf(open[1]) && !roomy()) open = open.slice(0, 1);
     for (const p of panes) p.el.classList.toggle('active', open.includes(p.id));
     body.classList.toggle('split', open.length > 1);
-    body.classList.toggle('stack', open.length > 1 && isSide() && state !== 'focus');
+    body.classList.toggle('stack', open.length > 1 && (isPair() || (isSide() && state !== 'focus')));
+    body.classList.toggle('pair', isPair());
     paintTitle();
     for (const id of TABS) {
       const at = open.findIndex((x) => tabOf(x) === id), on = at >= 0;

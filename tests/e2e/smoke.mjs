@@ -568,7 +568,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       await page.waitForTimeout(250);
     };
     for (const id of ['scope', 'hvpg', 'doppler', 'endoscopy', 'abdomen', 'profile']) {
-      if (id === 'scope') { await choose('profile'); await page.click('#pane-profile .ps-btn[data-view="scope"]'); await page.waitForTimeout(250); }
+      if (id === 'scope') { await choose('profile'); if (!await page.locator('#pane-scope.active').count()) { await page.click('#pane-profile .ps-btn[data-view="scope"]'); await page.waitForTimeout(250); } }
       else await choose(id);
       const overflow = await page.$eval(`#pane-${id}`, (el) => el.scrollWidth - el.clientWidth);
       if (overflow > 2) throw new Error(`${id} has horizontal overflow (${overflow}px)`);
@@ -645,6 +645,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     // Pulsatile is on by default, so compare with its value before the instrument opens, not with false.
     const pulsatileBefore = await page.evaluate(() => window.pps.store.get().params.pulsatile);
     await page.click('#tabInstruments');
+    // Settings › Always show HVPG is on by default; turn it off to check the unmeasured state.
+    await page.evaluate(() => window.pps.store.set({ showHvpg: false }));
     await page.evaluate(() => window.pps.dock.show('scope'));
     if (await page.evaluate(() => window.pps.store.get().params.pulsatile) !== pulsatileBefore) throw new Error('opening an instrument changed the patient parameters');
     await page.waitForTimeout(2500);

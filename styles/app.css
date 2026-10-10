@@ -3661,6 +3661,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 }
 
 /* The switch inside the Pressure tab: along the circuit, or the same pressures over time. */
+.dock-body.pair .pressure-switch { display: none; }
 .pressure-switch { display: flex; gap: 2px; flex: none; align-self: flex-start; padding: 2px; border-radius: 9px; background: var(--surface-2); }
 .ps-btn { height: 26px; padding: 0 12px; border: 0; border-radius: 7px; background: none; color: var(--text-2); cursor: pointer; font: 600 var(--fs-12) var(--font-ui); white-space: nowrap; transition: background .18s var(--ease), color .18s var(--ease), box-shadow .18s var(--ease); }
 .ps-btn:hover { color: var(--text); }

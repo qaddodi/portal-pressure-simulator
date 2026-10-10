@@ -6,7 +6,7 @@ import { store, updateParams, replaceParams, bindParamSender, clearHistory, logA
 import { createStage } from './stage.js?v=640a41856e';
 import { sinusoidSupported } from './sinusoid-view.js?v=37b8da0f2f';
 import { createInspector } from './inspector.js?v=5072cb4981';
-import { createDock, CUTOFFS } from './dock.js?v=b8bd948574';
+import { createDock, CUTOFFS } from './dock.js?v=ae8f13d397';
 import { setHvpgStage } from './hvpg-proc.js?v=83bd5ca8ad';
 import { createWhy } from './why.js?v=82d0ada42e';
 import { createTimeline, LAPSES } from './timeline.js?v=bf87e94cd0';
@@ -15,7 +15,7 @@ import { createCases, CASES } from './cases.js?v=cd7eea377b';
 import { isBlind } from './learning-kit.js?v=83e19de948';
 import { createCompare } from './compare.js?v=6c5edeb764';
 import { createCard } from './card.js?v=1a6441ef44';
-import { createChart, computeFindings } from './chart.js?v=6e833c5d8c';
+import { createChart, computeFindings } from './chart.js?v=0fc806c4b4';
 import { createHome, ROLES } from './home.js?v=61286c3285';
 import { UNITS, course } from './course.js?v=5391cf593b';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=3113b1ec12';
