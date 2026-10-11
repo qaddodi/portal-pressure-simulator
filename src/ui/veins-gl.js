@@ -73,7 +73,7 @@ void main() {
 //   9: that stretch along the vessel (0–1): from, to; its soft edge (world); hover (0–1: the lumen a little brighter)
 //  10: glow (a hovered, focused or highlighted vessel): color (rgb), amount (0 none)
 //  11: the glow's fade at the start, at the end (world; 0: runs on into the next glowing vessel); 1: its own color;
-//      its width (× the usual, 0 or 1 usual; at most 1.3, so it stays inside the vessel's cells)
+//      its width (× the usual, 0 or 1 usual; at most 1.3: 15.6 past the wall, inside the vessel's cells)
 const FS = `#version 300 es
 precision highp float;
 precision highp int;
@@ -253,8 +253,8 @@ void main() {
     vec4 ge = T(sid[s], 11);
     float e = sd[s] - swall[s], Lh = max(T(sid[s], 5).z, 1.0);
     float ends = (ge.x > 0.0 ? smoothstep(0.0, ge.x, su[s] * Lh) : 1.0) * (ge.y > 0.0 ? smoothstep(0.0, ge.y, (1.0 - su[s]) * Lh) : 1.0);
-    float fall = 1.0 - smoothstep(0.0, 6.5 * clamp(ge.w, 1.0, 1.3), e);
-    float gv = min(0.85, 0.45 * gc.a) * sa[s] * smoothstep(-0.6, 0.6, e) * fall * fall * ends;
+    float fall = 1.0 - smoothstep(0.0, 12.0 * clamp(ge.w, 1.0, 1.3), e);
+    float gv = min(0.9, 0.6 * gc.a) * sa[s] * smoothstep(-0.6, 0.6, e) * fall * ends;
     if (gv > glow.a) glow = vec4((ge.z > 0.5 ? scol[s] : gc.rgb) * gv, gv);
   }
 
