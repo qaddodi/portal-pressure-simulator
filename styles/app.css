@@ -2010,6 +2010,7 @@ button.finding:hover { background: var(--surface-2); }
 .pz-stk > span { display: inline-flex; align-items: center; gap: .4em; white-space: nowrap; }
 .pz-stk .st-tag { color: var(--text-3); font-weight: 500; margin-left: -.4em; }
 @container (max-width: 380px) { .pz-stk .st-tag { display: none; } }
+@container (max-width: 340px) { .pz-stk > span { font-size: 13px; } }   /* (an iPad held upright: five stations still fit on one line) */
 .pz-stk i { width: .75em; height: .75em; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 2px color-mix(in srgb, var(--c) 25%, transparent); }
 .pz-lapse { display: flex; align-items: center; gap: .8em; font: 600 clamp(15px, calc(2.1vh / var(--vz)), 25px)/1.2 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-2); }
 .pzl-bar { position: relative; flex: 1; max-width: 12em; height: .5em; border-radius: .25em; background: var(--hairline); overflow: hidden; }
