@@ -6,7 +6,7 @@ import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=7616551729';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=9858da589a';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=045e641b44';
-import { createLobuleZoom } from './lobule-zoom.js?v=873f7f677b';
+import { createLobuleZoom } from './lobule-zoom.js?v=8e99fd3c8d';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=7bf909808a';
@@ -5767,7 +5767,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cameraKey: () => `${vt.k.toFixed(3)}|${vt.x.toFixed(1)}|${vt.y.toFixed(1)}`,
     zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(), lobuleViewKey: () => lz?.viewKey(),
     /** The presenter's camera in the lobule: the whole lobule ('fit'), a portal tract ('triad'), the sinusoids ('sinusoid') or the central vein ('central'). */
-    lobuleFocus: (part, opts) => lz?.focusOn(part, opts),
+    lobuleFocus: (part, opts) => !!lz?.focusOn(part, opts),
+    /** Where the presenter's next lobule framing will be, so a dive lands on it in one move (see lobule-zoom aim). */
+    lobuleAim: (part, opts) => lz?.aim(part, opts),
     /** The dive into the lobule (or back out) has finished: the view is wholly the lobule, or wholly the anatomy. */
     lobuleSettled: () => (lobuleOn ? diveT >= 1 : diveT <= 0),
     /** On-screen scale, px per world unit (for the tests: turning the circuit keeps it). */

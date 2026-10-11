@@ -749,23 +749,28 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       const zonesWant = !!s.layers?.includes('zones');
       if (!!store.get().lobuleLayers?.zones !== zonesWant) store.set({ lobuleLayers: { ...store.get().lobuleLayers, zones: zonesWant } });
       if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await wait(700); }
+      // The station this slide frames: the dive lands on it in one move, and (mid-dive) no other station's labels show.
+      const part = cam === 'sinusoid' ? 'sinusoid' : cam.split(':')[1] || 'fit', zoom = s.zoom ?? 2.3;
       if (!store.get().lobule) {
         // Whole figure → the liver → into it: the dive starts from the liver, filling the screen.
         stage.frameBox(REGIONS.liver, ms ? 1100 : 0, 2.4);
         await wait(ms ? 1150 : 0);
         if (cut()) return;
+        stage.lobuleAim(part, { zoom });
         store.set({ lobule: true });
         // (A first dive also loads the lobule, which a slow tablet can take several seconds over.)
         await until(() => cut() || (stage.lobuleSettled() && stage.lobuleOpen()), 9000);
         if (cut()) return;
         await wait(120);
-      } else await until(() => cut() || stage.lobuleOpen(), 9000);
+      } else {
+        if (!stage.lobuleOpen()) stage.lobuleAim(part, { zoom });
+        await until(() => cut() || stage.lobuleOpen(), 9000);
+      }
       if (cut()) return;
       const sin = cam === 'sinusoid' && sinusoidSupported() && stage.lobuleOpen();
       if (sin) { if (!store.get().sinusoid) { store.set({ sinusoid: true }); await wait(ms ? 1250 : 0); } return; }
       if (store.get().sinusoid) { store.set({ sinusoid: false }); await wait(ms ? 1000 : 0); }
-      stage.lobuleFocus(cam === 'sinusoid' ? 'sinusoid' : cam.split(':')[1] || 'fit', { zoom: s.zoom ?? 2.3, ms });
-      await wait(ms);
+      if (stage.lobuleFocus(part, { zoom, ms })) await wait(ms);
       return;
     }
     await toAnatomy();

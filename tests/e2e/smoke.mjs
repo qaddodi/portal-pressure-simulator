@@ -331,6 +331,45 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await shot(page, `${device}-veins-gl`);
   });
 
+  await check(device, 'a presenter dive lands on its station in one move, with no other station labelled', async (page) => {
+    await open(page, '?preset=cirr-decomp');
+    // Every frame the lobule's labels show, note the framing: they may show only at the slide's final framing.
+    const watch = () => page.evaluate(() => {
+      window.__lzSeen = []; window.__lzWatch = true;
+      const tick = () => {
+        const lz = document.querySelector('.lz'), lab = lz?.querySelector('.lz-labels');
+        if (lz?.classList.contains('on') && !lz.classList.contains('lz-cam') && lab && +getComputedStyle(lab).opacity > 0.05) window.__lzSeen.push(window.pps.stage.lobuleViewKey());
+        if (window.__lzWatch) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+    const settle = async () => { await page.waitForFunction(() => window.pps.stage.lobuleOpen() && window.pps.stage.lobuleSettled(), null, { timeout: 30000 }); await page.waitForTimeout(2200); };
+    const verify = async (what) => {
+      const { seen, end } = await page.evaluate(() => { window.__lzWatch = false; return { seen: window.__lzSeen, end: window.pps.stage.lobuleViewKey() }; });
+      const other = [...new Set(seen)].filter((k) => k !== end);
+      if (other.length) throw new Error(`${what}: labels showed at ${other.length} other framing(s) before the station (${other[0]} vs ${end})`);
+    };
+    // Straight from the anatomy to a portal tract.
+    await watch();
+    await page.evaluate(() => { window.pps.stage.lobuleAim('triad', { zoom: 2.3 }); window.pps.store.set({ lobule: true }); });
+    // As the presenter does once the dive lands: the slide's focus, which should have nothing left to do.
+    await page.waitForFunction(() => window.pps.stage.lobuleOpen() && window.pps.stage.lobuleSettled(), null, { timeout: 30000 });
+    await page.evaluate(() => window.pps.stage.lobuleFocus('triad', { zoom: 2.3, ms: 900 }));
+    await settle();
+    await verify('dive to the portal tract');
+    // Out, then in again with a newer slide (the central vein) arriving mid-dive.
+    await page.evaluate(() => window.pps.store.set({ lobule: false }));
+    await page.waitForFunction(() => !window.pps.stage.lobuleOpen() && window.pps.stage.lobuleSettled(), null, { timeout: 30000 });
+    await watch();
+    await page.evaluate(() => { window.pps.stage.lobuleAim('triad', { zoom: 2.3 }); window.pps.store.set({ lobule: true }); });
+    await page.waitForTimeout(250);
+    await page.evaluate(() => window.pps.stage.lobuleAim('central', { zoom: 2.3 }));
+    await page.waitForFunction(() => window.pps.stage.lobuleOpen() && window.pps.stage.lobuleSettled(), null, { timeout: 30000 });
+    await page.evaluate(() => window.pps.stage.lobuleFocus('central', { zoom: 2.3, ms: 900 }));
+    await settle();
+    await verify('a newer station mid-dive');
+  });
+
   await check(device, 'liver lobule: GPU vessels, pressure drops, caption, cards, zones', async (page) => {
     await open(page, '?preset=cirr-decomp');
     // The lobule is a view of its own, beside Anatomy and Circuit.
