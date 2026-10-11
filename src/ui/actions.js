@@ -207,7 +207,7 @@ function organCard(sel, ctx) {
     const vx = (f) => (eso ? f.metrics.varix : f.metrics.gastricVarix);
     const verbs = varixVerbs(eso ? 'eso' : 'gas', ctx);
     if (!eso) verbs.push({ type: 'toggle', id: 'occlude', key: 'occluded', label: 'Occlude the gastrorenal shunt (BRTO)', icon: 'occlude', showIf: (p) => p.spontaneous.C5 !== false, get: (p) => !!p.occluded.C5, set: (p, v) => { if (v) p.occluded.C5 = true; else delete p.occluded.C5; }, hist: 'BRTO' });
-    verbs.push(stat('Grade', (f) => { const v = vx(f); return v.d < 2.4 ? 'none' : `${v.grade.code} · ${fmt(v.d, 1)} mm`; }), stat('Wall stress (model)', (f) => `${Math.round(vx(f).ratio * 100)} % of rupture`));
+    verbs.push(stat('Grade', (f) => { const v = vx(f); return v.d < 2.4 ? 'none' : `${v.grade.code} · ${fmt(v.d, 1)} mm`; }));
     if (eso) verbs.push({ type: 'link', label: 'Coronary vein', run: () => ctx.select({ type: 'edge', id: 'LGV_CONF' }) });
     else verbs.push({ type: 'link', label: 'Short gastric veins', run: () => ctx.select({ type: 'edge', id: 'C2' }) });
     return {

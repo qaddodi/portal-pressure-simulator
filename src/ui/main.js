@@ -7,7 +7,7 @@ import { createStage } from './stage.js?v=dec33701e6';
 import { createCreditPlacer } from './credit.js?v=b3a9118903';
 import { sinusoidSupported } from './sinusoid-view.js?v=38b983f75c';
 import { createInspector } from './inspector.js?v=d42ea1b501';
-import { createDock, CUTOFFS } from './dock.js?v=0342f5628b';
+import { createDock, CUTOFFS } from './dock.js?v=2dd85e345c';
 import { setHvpgStage } from './hvpg-proc.js?v=b744bb28bb';
 import { createWhy } from './why.js?v=00a4a2a43b';
 import { createTimeline, LAPSES } from './timeline.js?v=ac7b664864';
@@ -15,14 +15,14 @@ import { createLearn } from './learn.js?v=39c7009715';
 import { createCases, CASES } from './cases.js?v=dae09f0096';
 import { isBlind } from './learning-kit.js?v=d80de1677e';
 import { createCompare } from './compare.js?v=c09fcfd685';
-import { createCard } from './card.js?v=a59b88084f';
-import { createChart, computeFindings } from './chart.js?v=14b90f2acb';
+import { createCard } from './card.js?v=20e12a824a';
+import { createChart, computeFindings } from './chart.js?v=4db6d70caa';
 import { createMenu, ROLES } from './menu.js?v=0f6dac0bce';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=398e679a38';
 import { caption } from './a11y.js?v=af1d4a7485';
 import { startLMS } from './lms.js?v=cffae511bf';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue } from './actions.js?v=82fae5e26d';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue } from './actions.js?v=cadf3bd28b';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=7616551729';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=34e377149b';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, uiScale, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=045e641b44';
@@ -139,7 +139,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else mainMenu.open(); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => mainMenu.open() });
-  presenterL = lazy(() => import('./presenter.js?v=fce8de08af'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=61ae79f619'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({

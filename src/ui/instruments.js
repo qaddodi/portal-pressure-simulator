@@ -3,7 +3,7 @@
 
 import { NODES } from '../engine/topology.js?v=34e377149b';
 import { pressureColor } from './colormap.js?v=7616551729';
-import { verbEnabled } from './actions.js?v=82fae5e26d';
+import { verbEnabled } from './actions.js?v=cadf3bd28b';
 import { h, fmt, fitCanvas, cssVar, clamp, icon } from './util.js?v=045e641b44';
 import { simTime, isPaused } from './clock.js?v=d82cfa024b';
 import { createEndoGL } from './endo-gl.js?v=b10afb7c95';
@@ -23,21 +23,19 @@ export function createEndoscopy({ onAction }) {
   // The position is a caption under the view, never over it.
   const stage = h('div', { class: 'endo-stage' }, box, h('span', { class: 'endo-pos' }, 'Distal esophagus · 36 cm'));
   const bandBtn = h('button', { class: 'btn primary', onclick: () => onAction({ kind: 'band' }) }, icon('band'), 'Band a column (EVL)');
-  // The readings: the grade leads, wall stress is a meter toward the tear point, size and wall side by side,
-  // red signs and bands as chips. Built once; each frame only changes text, widths and states.
+  // The readings: the bands placed lead, then the grade, size and wall side by side,
+  // and the stigmata as a chip. Built once; each frame only changes text, widths and states.
   const dd = (cls) => h('dd', { class: cls });
   const gradeCode = h('b'), gradeLabel = h('span');
   const grade = h('dd', { class: 'endo-grade' }, gradeCode, gradeLabel);
-  const stressTxt = dd('endo-stress-v'), stressFill = h('i'), stressBar = h('span', { class: 'endo-bar', 'aria-hidden': 'true' }, stressFill);
   const diam = dd('endo-num'), wall = dd('endo-num'), red = dd('endo-chip-v'), bands = dd('endo-chip-v');
   const item = (cls, ...kids) => h('div', { class: cls }, ...kids);
   const stats = h('dl', { class: 'endo-read' },
+    item('endo-chip', h('dt', {}, 'Bands placed'), bands),
     item('endo-g', h('dt', { class: 'sr-only' }, 'Grade'), grade),
-    item('endo-stress', h('dt', {}, 'Wall stress (model)'), stressTxt, stressBar),
     item('endo-tile', h('dt', {}, 'Diameter'), diam),
     item('endo-tile', h('dt', {}, 'Wall thickness'), wall),
-    item('endo-chip', h('dt', {}, 'Red signs'), red),
-    item('endo-chip', h('dt', {}, 'Bands placed'), bands));
+    item('endo-chip endo-red', h('dt', {}, 'Stigmata'), red));
   const side = h('div', { class: 'chart-side' }, stats,
     bandBtn,
     h('div', { class: 'ctl-sub' }, 'Drawn from the model. F1 small and straight, F2 enlarged and tortuous, F3 large and beaded.'));
@@ -50,11 +48,6 @@ export function createEndoscopy({ onAction }) {
     bandBtn.disabled = noVx; bandBtn.title = noVx ? 'No varices to band' : '';
     set(gradeCode, vx.grade.code === '—' ? '' : vx.grade.code); set(gradeLabel, vx.grade.label);   // no varices: the label alone
     grade.dataset.sev = vx.grade.code === 'F1' ? 'caution' : vx.grade.code === '—' ? 'ok' : 'danger';
-    set(stressTxt, vx.ratio >= 1 ? (store.get().params?.bleeding ? 'past the tear point' : 'past the tear point (bleeding is off, so it holds)') : `${Math.round(vx.ratio * 100)} % of the tear point`);
-    const sev = vx.ratio > 1 ? 'critical' : vx.ratio > 0.7 ? 'danger' : vx.ratio > 0.4 ? 'caution' : 'ok';   // as the wall view's gauge
-    if (stressBar.dataset.sev !== sev) stressBar.dataset.sev = sev;
-    const wPct = `${Math.round(clamp(vx.ratio, 0, 1) * 1000) / 10}%`;
-    if (stressFill.style.width !== wPct) stressFill.style.width = wPct;
     set(diam, `${fmt(vx.d, 1)} mm`); set(wall, `${fmt(vx.w, 2)} mm`);
     const redV = vx.d < 2.5 ? 'None' : vx.redWale ? 'Red wale, cherry spots' : 'None';
     set(red, redV); red.parentNode.dataset.on = String(redV !== 'None');
@@ -92,7 +85,7 @@ export function createEndoscopy({ onAction }) {
     const gNow = clamp((vx.d - 2) / 10, 0, 1);
     peak = bands > 0 ? Math.max(peak, gNow) : gNow;
     const tg = peak, tv = bands > 0 ? 1 : clamp((vx.d - 2.5) / 1.0, 0, 1);
-    // Red signs follow the modeled wall stress: they start below the red-wale threshold (70 % of the
+    // Stigmata follow the modeled wall stress: they start below the red-wale threshold (70 % of the
     // tear point) and are full near it. Unbanded columns keep what they showed before the first band.
     const rNow = clamp((vx.ratio - 0.55) / 0.35, 0, 1);
     peakRed = bands > 0 ? Math.max(peakRed, rNow) : rNow;
