@@ -1420,7 +1420,6 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     set('--pz-t', p && d ? (ui.data.offsetTop + ui.data.offsetHeight + dv[1] * dock.to) * k + 4 : 0);   // (offsets: a card coming in is still shifted by its entry transform)
     set('--pz-b', p && t ? B + 34 : 0);
     if (!dock.drag) dockPaint();
-    placeBar();
     dispatchEvent(new Event('pps:occ'));
   }
   const onFonts = () => { if (ui) layout(); };
@@ -1444,22 +1443,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   addEventListener('pps:labelscale', () => { if (deck && ui && !labelling) setLabels(); });
 
   // ── Chrome: counter, progress, controls ──
-  // On a phone the controls sit on the kicker line of the words (or of a full card), at its right end; the kicker
-  // keeps clear of them and shortens with an ellipsis. With no words on screen they rest at the bottom right.
-  let barT = 0, barRO = null;
-  function placeBar(again = true) {
-    if (!ui) return;
-    const b = ui.bar, kick = phone() && [ui.panel, ui.text].find((el) => !el.hidden && !el.classList.contains('pz-hide'))?.querySelector('.pz-kick');
-    if (!kick) { b.style.top = b.style.right = ''; return; }
-    const wr = ui.root.getBoundingClientRect(), k = wr.width / (ui.root.clientWidth || wr.width) || 1;
-    if (!barRO && window.ResizeObserver) { barRO = new ResizeObserver(() => placeBar(false)); barRO.observe(ui.text); barRO.observe(ui.panel); }
-    const kr = kick.getBoundingClientRect();
-    b.style.top = `${Math.round((kr.top + kr.height / 2 - wr.top) / k - b.offsetHeight / 2)}px`;
-    b.style.right = `${Math.max(4, Math.round((wr.right - kr.right) / k) - 6)}px`;
-    app.style.setProperty('--pz-bar-w', `${b.offsetWidth}px`);
-    // (Measured on screen, so again once the words have settled from their entry and any fit-to-size scaling.)
-    if (again) { clearTimeout(barT); barT = setTimeout(() => placeBar(false), 520); }
-  }
+  // The controls hold one spot on every slide (CSS: bottom right on a phone, a centred bar elsewhere); only the card changes around them.
   let askAt = [-1, 0];   // (the slide whose question is open, and how far: 0 shut, 1 the question, 2 with its answer)
   function paintChrome() {
     if (!ui) return;
@@ -1472,29 +1456,29 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const countBtn = h('button', { class: 'pzb-n', 'aria-label': `Slide ${i + 1} of ${n}: list the slides`, title: 'Slide list (G)', 'aria-expanded': String(!ui.jump.hidden), onclick: () => toggleJump() }, `${i + 1} / ${n}`);
     ui.bar.classList.toggle('phone', ph);
     if (ph) {
-      // A phone sets the controls into the words' kicker line (see placeBar): small icons, no bar of their own.
+      // A phone holds the controls at the bottom right (CSS): small icons, no bar of their own.
       ui.bar.classList.remove('idle');
       ui.bar.replaceChildren(
         h('button', { class: 'ib', 'aria-label': 'Previous slide', disabled: i === 0, onclick: prev }, icon('chev-left')),
         countBtn,
-        last ? h('button', { class: 'btn sm pzb-go pzb-next', 'aria-label': 'Finish presenting', onclick: stop }, 'Finish')
-          : h('button', { class: 'ib pzb-next', 'aria-label': skip ? 'Run the time-lapse to its end' : 'Next slide', onclick: next }, icon('chev-right')),
+        // (Next and Finish share one fixed-width slot, so Back and the count stay put on the last slide.)
+        h('span', { class: 'pzb-slot sq' }, last ? h('button', { class: 'btn sm pzb-go pzb-next', 'aria-label': 'Finish presenting', onclick: stop }, 'Finish')
+          : h('button', { class: 'ib pzb-next', 'aria-label': skip ? 'Run the time-lapse to its end' : 'Next slide', onclick: next }, icon('chev-right'))),
         gear(),
         h('button', { class: 'ib', 'aria-label': 'Exit the presentation', title: 'Exit', onclick: stop }, icon('close')));
-      placeBar();
-        return;
+      return;
     }
     // The slide's question for the room, for the presenter: a faint "?" beside the count shows it, a second tap the answer.
     const ask = slides[i]?.ask;
     if (askAt[0] !== i) askAt = [i, 0];
+    // (The "?" keeps its place on every slide, hidden when the slide has no question, so the bar never changes width.)
     const askBtn = ask?.[0] ? h('button', { class: 'ib pzb-ask', 'aria-label': 'Ask the room', title: 'Ask the room: the question, then the answer', 'aria-expanded': String(askAt[1] > 0),
-      onclick: () => { askAt = [i, (askAt[1] + 1) % 3]; paintChrome(); } }, '?') : null;
-    const askPop = askBtn && askAt[1] ? h('div', { class: 'pzb-q', role: 'status' }, h('b', {}, ask[0]), askAt[1] > 1 && ask[1] ? h('span', {}, ask[1]) : null) : null;
+      onclick: () => { askAt = [i, (askAt[1] + 1) % 3]; paintChrome(); } }, '?') : h('span', { class: 'ib pzb-ask off', 'aria-hidden': 'true' });
+    const askPop = ask?.[0] && askAt[1] ? h('div', { class: 'pzb-q', role: 'status' }, h('b', {}, ask[0]), askAt[1] > 1 && ask[1] ? h('span', {}, ask[1]) : null) : null;
     ui.bar.replaceChildren(
       h('button', { class: 'ib', 'aria-label': 'Previous slide', title: 'Previous (←)', disabled: i === 0, onclick: prev }, icon('chev-left')),
       countBtn, askBtn, askPop,
-      h('button', { class: 'ib pzb-next', 'aria-label': skip ? 'Run the time-lapse to its end' : 'Next slide', title: skip ? 'Skip to the end of the time-lapse (→)' : 'Next (→)', disabled: last, onclick: next }, icon('chev-right')),
-      skip ? h('span', { class: 'pzb-skip', 'aria-hidden': 'true' }, '⏵ skip') : null,
+      h('button', { class: `ib pzb-next${skip ? ' skipping' : ''}`, 'aria-label': skip ? 'Run the time-lapse to its end' : 'Next slide', title: skip ? 'Skip to the end of the time-lapse (→)' : 'Next (→)', disabled: last, onclick: next }, icon('chev-right')),
       h('span', { class: 'pzb-sep' }),
       deck.slides.some((s) => s.quiz) ? h('button', { class: 'btn sm', 'aria-pressed': String(quiz), title: 'Quiz the room: ask first, reveal on the next click (Q)', onclick: toggleQuiz }, 'Quiz') : null,
       document.fullscreenEnabled ? h('button', { class: 'ib', 'aria-label': 'Full screen', title: 'Full screen (F)', onclick: fullscreen }, icon('fullscreen')) : null,
@@ -1796,7 +1780,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
     hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in');
     clearTimeout(idleT); clearTimeout(dock.fit); cancelAnimationFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false;
-    barRO?.disconnect(); barRO = null; clearTimeout(barT); ui?.tools.dispose(); ui?.root.remove(); ui?.shade.remove(); ui = null;
+    ui?.tools.dispose(); ui?.root.remove(); ui?.shade.remove(); ui = null;
     view.classList.remove('pz-out');
     for (const k of ['--pz-l', '--pz-r', '--pz-t', '--pz-b']) app.style.removeProperty(k);
     stage.setProjection(false);

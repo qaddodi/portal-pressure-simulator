@@ -404,6 +404,40 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (m.wide) throw new Error(`upright iPad presenter: ${m.wide} element(s) of the words overflow sideways`);
   });
 
+  await check(device, 'presenter: the controls hold one screen position on every slide, first and last included', async (page) => {
+    // The bar's box and each control's box are recorded on every slide of two decks, at each size (the desktop run also tries
+    // an upright iPad), and none may move by more than 1 px. (Next became Finish, and a phone's bar followed the card's kicker.)
+    const sizes = device === 'desktop' ? [null, { width: 820, height: 1180 }] : [null];
+    for (const size of sizes) for (const deck of ['circulation', 'lobule']) {
+      if (size) await page.setViewportSize(size);
+      await open(page);
+      await page.evaluate((id) => window.pps.presenter.start(id, 0), deck);
+      await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover'), null, { timeout: 60000 });
+      const read = () => page.evaluate(() => {
+        const bar = document.querySelector('.pz-bar'), q = (el) => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map((v) => Math.round(v * 10) / 10); };
+        return { n: document.querySelector('.pzb-n')?.textContent.trim(), boxes: [q(bar), ...[...bar.children].filter((c) => !c.classList.contains('pzb-q')).map(q)] };
+      });
+      let ref = null, slides = 0;
+      for (let guard = 0; guard < 80; guard++) {
+        await page.waitForTimeout(650);   // (the card's entry settled; the bar has none of its own)
+        const cur = await read();
+        if (!ref) ref = cur;
+        else {
+          const sameShape = cur.boxes.length === ref.boxes.length;
+          const moved = !sameShape || cur.boxes.some((b, i) => b.some((v, j) => Math.abs(v - ref.boxes[i][j]) > 1));
+          if (moved) throw new Error(`${deck} at ${size ? 'upright iPad' : device}: the controls moved on slide ${cur.n} (${JSON.stringify(cur.boxes)} vs ${JSON.stringify(ref.boxes)})`);
+        }
+        slides++;
+        const [a, b] = cur.n.split('/').map((x) => +x);
+        if (a === b) break;
+        await page.keyboard.press('ArrowRight');
+      }
+      if (slides < 5) throw new Error(`${deck}: only ${slides} slide(s) walked`);
+      await page.keyboard.press('Escape');
+      await page.waitForFunction(() => !document.querySelector('#app').classList.contains('presenting'));
+    }
+  });
+
   await check(device, 'presenter: summary table returns after back then forward', async (page) => {
     await open(page, '?home=present');
     await page.waitForSelector('.umenu .um-row[data-k="d:lobule"]');
