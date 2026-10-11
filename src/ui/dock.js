@@ -264,8 +264,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
         s = measured ? 'Measured' : (t.ss && narrow.matches ? t.ss : t.s)(v, ...a);
         sev = t.st(v, ...a);
         const w = pos(t, v), o = pos(t, clamp(0, t.scale[0], t.scale[1]));
-        const fl = Math.min(w, o) + '%', fw = Math.abs(w - o) + '%';
-        if (x.fillL !== fl || x.fillW !== fw) { x.fillL = fl; x.fillW = fw; x.fill.style.left = fl; x.fill.style.width = fw; }
+        const fl = Math.min(w, o) / 100, fw = Math.abs(w - o) / 100;
+        if (x.fillL !== fl || x.fillW !== fw) { x.fillL = fl; x.fillW = fw; x.fill.style.setProperty('--fl', fl); x.fill.style.setProperty('--fw', fw); }
       }
       el.classList.toggle('hidden-val', v == null);
       const trend = v == null || measured ? '' : trendOf(x, v, now);

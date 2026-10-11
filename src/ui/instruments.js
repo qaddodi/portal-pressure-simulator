@@ -34,7 +34,7 @@ export function createEndoscopy({ onAction }) {
     item('endo-chip', h('dt', {}, 'Bands placed'), bands),
     item('endo-g', h('dt', {}, 'Grade'), grade),
     item('endo-tile', h('dt', {}, 'Diameter'), diam),
-    item('endo-tile', h('dt', {}, 'Wall thickness'), wall),
+    item('endo-tile', h('dt', {}, 'Wall thick\u00ADness'), wall),
     item('endo-chip endo-red', h('dt', {}, 'Stigmata'), red));
   const side = h('div', { class: 'chart-side' }, stats,
     bandBtn,
