@@ -2208,11 +2208,35 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       for (const sd of x.strands || []) if (sd.cur && (sd.live ?? 1) > 0.02) items.push({ x, obj: sd, row: sd.row, pts: sd.cur, kind: 's' });
       for (const fd of x.feeders || []) if ((fd.live ?? 1) > 0.02 && fd.w) items.push({ x, obj: fd, row: fd.row, pts: fd.cur, kind: 'f' });
     }
+    // The cava is drawn as one vessel: its two stretches (below and above the hepatic veins) are two
+    // edges of the model, but one tube on screen, with one course, one shading and one chevron track.
+    // Drawn where they would meet, two capped ends layered as an arc, a band and a seam.
+    const a = items.find((it) => it.kind === 'v' && it.x.e.id === 'IVC_IS'), b = items.find((it) => it.kind === 'v' && it.x.e.id === 'IVCS_RA');
+    if (a && b && a.pts.length > 1 && b.pts.length > 1) {
+      const P = a.pts, Q = b.pts, q = P[P.length - 1], La = geo.IVC_IS.len || arcLen(P), Lb = geo.IVCS_RA.len || arcLen(Q);
+      // Re-sampled evenly by arc length to the usual count of samples (a sample's index is its place along the vessel).
+      const C = P.concat(Math.hypot(Q[0][0] - q[0], Q[0][1] - q[1]) < 0.5 ? Q.slice(1) : Q), cum = [0];
+      for (let i = 1; i < C.length; i++) cum.push(cum[i - 1] + Math.hypot(C[i][0] - C[i - 1][0], C[i][1] - C[i - 1][1]));
+      const L = cum[cum.length - 1] || 1;
+      a.pts = Array.from({ length: N_SAMPLES }, (_, i) => {
+        const d = (L * i) / (N_SAMPLES - 1);
+        let j = 1;
+        while (j < C.length - 1 && cum[j] < d) j++;
+        const t = cum[j] > cum[j - 1] ? clamp((d - cum[j - 1]) / (cum[j] - cum[j - 1]), 0, 1) : 0;
+        return [C[j - 1][0] + (C[j][0] - C[j - 1][0]) * t, C[j - 1][1] + (C[j][1] - C[j - 1][1]) * t];
+      });
+      a.ra = b.x; a.f = La / (La + Lb); a.len = La + Lb; a.endNode = b.x.e.to;
+      items.splice(items.indexOf(b), 1);
+    }
     return items;
   }
   // Lumen radius along an item, and the key it changes with.
   function itemRadii(it) {
     const { x, kind } = it;
+    if (kind === 'v' && it.ra) {
+      const { ra, f } = it;
+      return [`${x.shadeKey}|${ra.shadeKey}|${f.toFixed(4)}`, (i) => { const u = i / (N_SAMPLES - 1); return u < f ? x.rOf(u / f) : ra.rOf((u - f) / (1 - f)); }];
+    }
     if (kind === 'v' && !x.isArt) return [x.shadeKey, (i) => x.rOf(i / (N_SAMPLES - 1))];
     const r = kind === 'v' ? Math.max(0.5, x.width / 2) : kind === 's' ? Math.max(1.6, x.width * it.obj.k) / 2 : it.obj.w / 2;
     return [r.toFixed(2), () => r];
@@ -2222,6 +2246,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Where one vessel runs on into the next, the two courses meet at a slight corner: the last few
   // samples either side are redrawn as one smooth curve (a cubic through the join, following each
   // course's own direction), so the tube bends through the join instead of kinking.
+  const runOnSamples = (it, n) => (it.ra ? Math.max(2, Math.round(n * (1 - it.f))) : n);
   function smoothRunOn(items) {
     const out = new Map(), byRow = new Map(items.map((it) => [it.row, it])), E = 10;
     const pt = (P, i, end) => (end ? P[P.length - 1 - i] : P[i]);   // i samples in from that end
@@ -2230,19 +2255,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (!A || !B) continue;
       const PA = out.get(a) || A.pts.map((q) => q.slice()), PB = out.get(b) || B.pts.map((q) => q.slice());
       if (PA.length < 2 * E + 2 || PB.length < 2 * E + 2) continue;
-      // From E samples into A, through the join, to E samples into B.
-      const p0 = pt(PA, E, ia), p0b = pt(PA, E + 1, ia), p3 = pt(PB, E, ib), p3b = pt(PB, E + 1, ib);
+      // From E samples into A, through the join, to E samples into B (fewer into the cava drawn as one,
+      // whose samples lie farther apart: about as far along as into its last stretch alone).
+      const Ea = runOnSamples(A, E), Eb = runOnSamples(B, E);
+      const p0 = pt(PA, Ea, ia), p0b = pt(PA, Ea + 1, ia), p3 = pt(PB, Eb, ib), p3b = pt(PB, Eb + 1, ib);
       const L = Math.hypot(p3[0] - p0[0], p3[1] - p0[1]) / 3;
       const ta = [p0[0] - p0b[0], p0[1] - p0b[1]], tb = [p3[0] - p3b[0], p3[1] - p3b[1]];
       const na = Math.hypot(...ta) || 1, nb = Math.hypot(...tb) || 1;
       const p1 = [p0[0] + (ta[0] / na) * L, p0[1] + (ta[1] / na) * L], p2 = [p3[0] + (tb[0] / nb) * L, p3[1] + (tb[1] / nb) * L];
       const bez = (t) => { const u = 1 - t; return [u * u * u * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * p3[0], u * u * u * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * p3[1]]; };
       // A's samples E … 0 (toward its end) take t 0 … 0.5, B's 0 … E take 0.5 … 1.
-      for (let i = 0; i <= E; i++) {
-        const qa = bez(0.5 * (1 - i / E)), qb = bez(0.5 + 0.5 * (i / E));
-        const ja = ia ? PA.length - 1 - i : i, jb = ib ? PB.length - 1 - i : i;
-        PA[ja] = qa; PB[jb] = qb;
-      }
+      for (let i = 0; i <= Ea; i++) PA[ia ? PA.length - 1 - i : i] = bez(0.5 * (1 - i / Ea));
+      for (let i = 0; i <= Eb; i++) PB[ib ? PB.length - 1 - i : i] = bez(0.5 + 0.5 * (i / Eb));
       out.set(a, PA); out.set(b, PB);
     }
     return out;
@@ -2285,7 +2309,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const it of items) {
       if (it.kind === 'f') continue;
       const pre = it.x.isArt ? 'a:' : '';
-      for (const i of [0, 1]) { const n = pre + (i ? it.x.e.to : it.x.e.from); if (!byNode.has(n)) byNode.set(n, []); byNode.get(n).push([it, i]); }
+      for (const i of [0, 1]) { const n = pre + (i ? it.endNode || it.x.e.to : it.x.e.from); if (!byNode.has(n)) byNode.set(n, []); byNode.get(n).push([it, i]); }
     }
     for (let ends of byNode.values()) {
       while (ends.length) {
@@ -2353,16 +2377,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // smooth course (no step and no swelling at the join).
     const eased = new Map();
     if (glRadDirty && glStraight.length) {
-      const byRow = new Map(items.map((it) => [it.row, it.obj]));
+      const byRow = new Map(items.map((it) => [it.row, it.obj])), itOf = new Map(items.map((it) => [it.row, it]));
       for (const { a, ia, b, ib } of glStraight) {
         const A = byRow.get(a), B = byRow.get(b);
         if (!A?.glR0 || !B?.glR0) continue;
         const ra = A.glR0[ia ? N_SAMPLES - 1 : 0], rb = B.glR0[ib ? N_SAMPLES - 1 : 0];
         // One smoothstep from A's caliber (half A's course back) to B's (half B's course on), so the
         // taper runs steadily through the join: no plateau there, which read as a crease.
-        const E = N_SAMPLES >> 1, S = (u) => u * u * (3 - 2 * u);
-        for (const [O, i, side] of [[A, ia, 0], [B, ib, 1]]) {
-          const R = eased.get(O) || O.glR0.slice();
+        const S = (u) => u * u * (3 - 2 * u);
+        for (const [O, i, side, row] of [[A, ia, 0, a], [B, ib, 1, b]]) {
+          const E = runOnSamples(itOf.get(row), N_SAMPLES >> 1), R = eased.get(O) || O.glR0.slice();
           for (let s = 0; s < E; s++) {
             const u = side ? 0.5 + 0.5 * (s / E) : 0.5 - 0.5 * (s / E), j = i ? N_SAMPLES - 1 - s : s;
             R[j] += side ? (ra - rb) * (1 - S(u)) : (rb - ra) * S(u);
@@ -2401,7 +2425,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const ghost = x.g.classList.contains('coll-ghost');
       // The IVC is one vessel to the eye: hovering or selecting any stretch lights and rings all of it.
       const whole = ivcOn && IVC_EDGES.has(id);
-      const sel = x.g.classList.contains('is-sel') || (whole && ivcSel), hl = x.g.classList.contains('hl') || whole;
+      const ra = it.ra;
+      const sel = x.g.classList.contains('is-sel') || !!ra?.g.classList.contains('is-sel') || (whole && ivcSel), hl = x.g.classList.contains('hl') || !!ra?.g.classList.contains('hl') || whole;
       let c0, c1;
       if (x.isArt) c0 = c1 = artery;
       else {
@@ -2414,7 +2439,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
             const at = (q) => clamp(((q[0] - A[0]) * dx + (q[1] - A[1]) * dy) / L2, 0, 1);
             c0 = mix3(a, b, at(it.pts[0])); c1 = mix3(a, b, at(it.pts[it.pts.length - 1]));
           }
-        } else { c0 = a; c1 = b; }
+        } else { c0 = a; c1 = ra ? toRGB((ra.col || ['#888', '#888'])[1], cs) : b; }
         // Coloring the blood by origin: the lumen steps back to a quiet grey so the parcels' colors read.
         if (originMode) c0 = c1 = ORIGIN_LUMEN;
       }
@@ -2458,16 +2483,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const r = x.reveal, u = clamp((now - r.t0) / r.dur, 0, 1), off = r.out ? easeInOut(u) : 1 - easeInOut(u);
         if (r.dir > 0) hi = 1 - off; else lo = off;
       }
-      tubeData.set([lo, hi, kind === 's' ? obj.len : kind === 'f' ? arcLen(it.pts) || 1 : geo[id].len || 1, 0, ...(heatA ? toRGB(x.heatCol, cs) : [0, 0, 0]), 0], o + 20);
-      const tint = kind === 'v' && cathTint?.[id];
+      tubeData.set([lo, hi, kind === 's' ? obj.len : kind === 'f' ? arcLen(it.pts) || 1 : it.len || geo[id].len || 1, 0, ...(heatA ? toRGB(x.heatCol, cs) : [0, 0, 0]), 0], o + 20);
+      let tint = kind === 'v' && cathTint?.[id];
+      if (ra && kind === 'v') {
+        // On the cava drawn as one, each stretch's tint is placed along the whole.
+        const f = it.f, tb = cathTint?.[ra.e.id], m = (t, lo, w) => (t < 0 ? t : lo + t * w);
+        if (tint) tint = [m(tint[0], 0, f), m(tint[1], 0, f)];
+        if (tb) tint = tint ? [Math.min(tint[0] < 0 ? 0 : tint[0], m(tb[0], f, 1 - f)), Math.max(tint[1], m(tb[1], f, 1 - f))] : [m(tb[0], f, 1 - f), m(tb[1], f, 1 - f)];
+      }
       if (tint) tubeData.set([...toRGB(cathTint.col, cs), 1, tint[0], tint[1], cathTint.soft, 0], o + 32);
-      const hov = kind === 'v' && vh.amt.get(id);
+      const hov = kind === 'v' && Math.max(vh.amt.get(id) || 0, ra ? vh.amt.get(ra.e.id) || 0 : 0);
       if (hov) tubeData[o + 39] = easeInOut(hov);
       if (kind === 'v') {
-        const l = glow.lit.get(id), v = l ? easeInOut(Math.max(0, l.v)) * l.amt : 0;
+        const la = glow.lit.get(id), lb = ra && glow.lit.get(ra.e.id), l = la || lb, lend = la && lb ? [la.end[0], lb.end[1]] : l?.end;
+        const v = l ? easeInOut(Math.max(0, l.v)) * l.amt : 0;
         if (v > 0) {
           if (l.col) { const c = toRGB(l.col, cs); l.rgb = l.from && l.cu < 1 ? mix3(l.from, c, easeInOut(l.cu)) : c; }
-          tubeData.set([...(l.col ? l.rgb : [0, 0, 0]), v, l.end[0], l.end[1], l.col ? 0 : 1, l.wide], o + 40);
+          tubeData.set([...(l.col ? l.rgb : [0, 0, 0]), v, lend[0], lend[1], l.col ? 0 : 1, l.wide], o + 40);
         } else tubeData.fill(0, o + 40, o + 48);
       }
     }
