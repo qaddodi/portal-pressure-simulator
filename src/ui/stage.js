@@ -6,7 +6,7 @@ import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=7616551729';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=7fb7280c05';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge } from './util.js?v=045e641b44';
-import { createLobuleZoom } from './lobule-zoom.js?v=cb8762f695';
+import { createLobuleZoom } from './lobule-zoom.js?v=0b424837d2';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=7bf909808a';
@@ -1688,12 +1688,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     applyVT();
   }
 
-  function updateGeometry(force) {
+  let tubesStale = false;
+  // `only`: the vessels whose shape changed while the morph stayed put (a collateral coiling); the rest keep their paths.
+  function updateGeometry(force, only) {
     const t = easeInOut(morph);
-    if (!force && t === lastMorph) return;
+    const full = force || t !== lastMorph;
+    if (!full && !only?.length) return;
     geometryVersion++;
     lastMorph = t;
-    for (const x of Object.values(E)) {
+    const svgTubes = !wrap.classList.contains('gl-on');
+    if (!svgTubes) tubesStale = true;
+    for (const x of full ? Object.values(E) : only) {
       const g = geo[x.e.id];
       let pts;
       if (t === 0) pts = g.A; else if (t === 1) pts = g.C; else pts = g.A.map((p, i) => [lerp(p[0], g.C[i][0], t), lerp(p[1], g.C[i][1], t)]);
@@ -1715,10 +1720,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       g.cur = pts;
       g.len = arcLen(pts);
       const d = t === 1 ? g.dC : polyD(pts);
-      x.halo.setAttribute('d', d); x.sel.setAttribute('d', d); x.wall.setAttribute('d', d); x.hit.setAttribute('d', d);
-      x.shadow.setAttribute('d', d);
-      if (x.heat) x.heat.setAttribute('d', d);
-      if (x.lumen) x.lumen.setAttribute('d', d);
+      x.halo.setAttribute('d', d); x.hit.setAttribute('d', d);
+      // While the GPU draws the tubes their SVG layers are hidden (gl-on): their paths catch up when the SVG shows them again (syncVeins).
+      if (svgTubes) {
+        x.sel.setAttribute('d', d); x.wall.setAttribute('d', d); x.shadow.setAttribute('d', d);
+        if (x.heat) x.heat.setAttribute('d', d);
+        if (x.lumen) x.lumen.setAttribute('d', d);
+      }
       g.lit = litNormals(pts);
       x.shadeKey = '';
       const a = pts[0], b = pts[pts.length - 1];
@@ -1733,6 +1741,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         x.tipFade.s0.setAttribute('stop-opacity', (x.tipFade.joined ? 1 : t).toFixed(2));
       }
     }
+    if (!full) return;
     for (const n of NODES) {
       if (!nodeEls[n.id]) continue;
       const [x, y] = nodePos(n.id, t);
@@ -1789,7 +1798,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // into it only places what is already drawn instead of building it mid-zoom. Checked about once a second; the
   // pieces run one per idle moment and stop as soon as a dive or the circuit begins.
   let prepBusy = false, prepAt = 0;
-  const prepIdle = window.requestIdleCallback ? (fn) => requestIdleCallback(fn, { timeout: 250 }) : (fn) => setTimeout(fn, 300);
+  // A piece of the lobule's preparation takes tens of ms on a phone: it waits until the page has been left alone a moment
+  // (no touch, wheel or key for 0.7 s), so it never lands in the middle of a pan, a pinch or a tap's response.
+  let inputAt = -1e9;
+  for (const ev of ['pointerdown', 'pointermove', 'wheel', 'keydown']) addEventListener(ev, (e) => { if (ev !== 'pointermove' || e.buttons) inputAt = performance.now(); }, { passive: true, capture: true });
+  const prepIdle = (fn) => {
+    const go = () => (performance.now() - inputAt < 700 ? setTimeout(go, 400) : window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 600 }) : setTimeout(fn, 50));
+    setTimeout(go, 0);
+  };
   function prepLobule() {
     const now = performance.now();
     if (LITE || prepBusy || !lz || !figureShown || now - prepAt < 1000) return;   // lite graphics: the lobule is drawn when opened, not ahead
@@ -1827,7 +1843,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // In the lobule, or diving into it (the anatomy is only magnified, then covered), the plate is left as it is
     // (reading the cards' boxes and restyling it each model frame stalled the zoom); it catches up on the way out.
     const under = (lobuleOn || lz?.isOpen()) && !catchUp;
-    if (!under) blockerBoxes = readBlockers();
+    // The cards' boxes, read at most every 100 ms (each read forces a layout in the middle of the model's frames);
+    // a card that opens, closes or moves announces itself (pps:occ, resize) and is read at once.
+    if (!under && (blockersStale || performance.now() - blockersAt > 100)) { blockerBoxes = readBlockers(); blockersAt = performance.now(); blockersStale = false; }
     F = f;
     lz?.update(f);
     if (under) return;
@@ -1851,16 +1869,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     wrap.dataset.layer = mode;
 
     // collateral tortuosity
-    let geomDirty = false;
+    const coiling = [];
     for (const x of Object.values(E)) {
       if (x.e.kind !== 'collateral' || x.e.spontaneous || STRAIGHT_COLL.has(x.e.id)) continue;
       const w = shownFrac(x.e.id, f) > 0.25 ? 1.5 + 3.5 * shownFrac(x.e.id, f) : 0;
       // Eased toward its target (a change of over 0.6 starts it), so the vessel coils gradually.
       const g = geo[x.e.id];
       if (g.wigT == null || Math.abs(w - g.wigT) > 0.6) g.wigT = w;
-      if (g.wig !== g.wigT) { const d = g.wigT - g.wig; g.wig = Math.abs(d) < 0.03 ? g.wigT : g.wig + d * kW; geomDirty = true; if (g.wig !== g.wigT) widthEasing = true; }
+      if (g.wig !== g.wigT) { const d = g.wigT - g.wig; g.wig = Math.abs(d) < 0.03 ? g.wigT : g.wig + d * kW; coiling.push(x); if (g.wig !== g.wigT) widthEasing = true; }
     }
-    updateGeometry(geomDirty);
+    updateGeometry(false, coiling);
 
     for (const x of Object.values(E)) {
       const e = x.e;
@@ -2381,6 +2399,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!veins || veins.lost) return;
     const on = glWanted(t);
     wrap.classList.toggle('gl-on', on);
+    if (!on && tubesStale) { tubesStale = false; updateGeometry(true); }
     const plateWas = plateOn();
     wrap.classList.toggle('gl-plate', on && veins.hasPlate(0));
     if (!on) { if (vLook) { veins.clear(); vLook = null; vBinKey = ''; } return; }
@@ -3188,6 +3207,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // and the bowel floats up on it. A slow ripple runs along the surface while the model runs. On
   // the GPU the fluid is drawn over the plate (not in its raster), so no lens tints it; the SVG
   // copy stays for picking, the selection outline and exports.
+  let bulgeQ = 0;
   let ascTarget = null, ascShown = 0, ascVel = 0, fluidMaskB = null, fluidMaskOf = null, fluidMaskOfB = null, fluidBandH = -1, fluidH = 0, fluidAmp = 0, fluidInkRGBA = [0.9, 0.75, 0.28, 0.4];
   const fluidLook = { s: [0, 0, 0, 0], ink: [0, 0, 0, 0], ripple: false };
   const abdomenClipEl = defs.querySelector('#abdomenClip path');
@@ -3197,7 +3217,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const fluidFade = () => clamp((fluidH - 3) / 45, 0, 1);
   function drawAscites() {
     const u = clamp(ascShown / 11000, 0, 1);
-    const bulge = Math.round(u * 34 * 2) / 2;
+    // The wall and the bowel move in half-unit steps of the bulge, with some hysteresis: each step re-rasterizes the
+    // organ plate (plateStateKey), so a pool that fills slowly at rest must not change them on every model tick.
+    const raw = u * 34;
+    if (Math.abs(raw - bulgeQ) > 0.4 || (raw < 0.5 && bulgeQ !== 0)) bulgeQ = Math.round(raw * 2) / 2;
+    const bulge = bulgeQ;
     flank.setAttribute('d', u < 0.04 ? '' : flankPath(bulge));
     const d = abdomenOutline(bulge);
     if (fluidMaskB !== bulge) { fluidMaskB = bulge; abdomenClipEl.setAttribute('d', d); abdomenEl.setAttribute('d', d); }
@@ -3211,7 +3235,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         c.width = c.height = 0;
       }
     }
-    organG.bowel.setAttribute('transform', `translate(0 ${(-u * 26).toFixed(1)})`);
+    organG.bowel.setAttribute('transform', `translate(0 ${(-bulge / 34 * 26).toFixed(1)})`);
     // The fluid level rises on a compressed scale (u^0.6), so a grade 1–2 effusion is a visible pool, not a sliver.
     const uv = Math.pow(u, 0.6);
     fluidH = uv * 330; fluidAmp = 2 * Math.min(1, uv * 4);
@@ -4257,7 +4281,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Stations labelled only when zoomed in enough to give them room, in this order (see updateLabels).
   const ANAT_EXTRA = ['MHV', 'LHV', 'RPV', 'LPV', 'SIN_L', 'IMV', 'LGV'];
 
-  let blockerBoxes = null;
+  let blockerBoxes = null, blockersAt = -1e9, blockersStale = true;
+  const staleBlockers = () => { blockersStale = true; };
+  addEventListener('pps:occ', staleBlockers);
+  addEventListener('resize', staleBlockers);
   const appStyle = document.getElementById('app')?.style;
   const pzInset = (k) => parseFloat(appStyle?.getPropertyValue(k)) || 0;
   function readBlockers() {
@@ -4266,8 +4293,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // A closed card can stay in place, invisible (the patient chart does): it hides nothing.
       if (getComputedStyle(el).visibility === 'hidden') return null;
       const r = el.getBoundingClientRect();
-      // A closed card can keep its box while invisible (it waits in place to slide in): not an obstacle.
-      if (r.width && getComputedStyle(el).visibility === 'hidden') return null;
       return r.width ? { x0: r.left - wr.left - 4, y0: r.top - wr.top - 4, x1: r.right - wr.left + 4, y1: r.bottom - wr.top + 4 } : null;
     }).filter(Boolean);
   }

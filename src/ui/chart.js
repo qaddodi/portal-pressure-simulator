@@ -11,9 +11,12 @@
 import { store, updateParams, hiddenNow } from './store.js?v=7fb7280c05';
 import { h, fmt, icon, svgIcon, toast } from './util.js?v=045e641b44';
 import { DRUGS } from '../engine/scenario.js?v=b2eabea2e1';
-import { TILES, VITALS, readoutValue } from './dock.js?v=93b1cb8dbb';
+import { TILES, VITALS, readoutValue } from './dock.js?v=ea66af52b0';
 import { activeInterventions } from './inspector.js?v=82d234fd07';
 import { verbEnabled, DRUG_NOTE } from './actions.js?v=7d1c8084ec';
+
+// Text that changes is rewritten in its text node (setting textContent replaces the node on every paint).
+const setText = (el, t) => { const n = el.firstChild; if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t; };
 
 // Where each readout is measured, so a click can show it on the figure.
 const WHERE = { hvpg: ['RHV_IVC', 'SIN_RR'], pv: ['PV_TRUNK'], ppg: ['PV_TRUNK', 'IVCS_RA'], pvflow: ['PV_TRUNK'], varix: ['C1a', 'C1b'], ascites: [], liver: ['SIN_RR', 'SIN_LL'], shunt: ['C1b', 'C3', 'C5', 'C6', 'TIPS', 'DIPS'], spleen: ['V_SPL', 'SV_CONF'], ra: ['IVCS_RA'] };
@@ -147,8 +150,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
         let e = els.get(x.id);
         if (!e) { e = row(x.id); els.set(x.id, e); }
         if (e.el.dataset.sev !== x.sev) e.el.dataset.sev = x.sev;
-        if (e.title.textContent !== x.txt[0]) e.title.textContent = x.txt[0];
-        if (e.detail.textContent !== x.txt[1]) e.detail.textContent = x.txt[1];
+        setText(e.title, x.txt[0]); setText(e.detail, x.txt[1]);
       }
       const key = found.map((x) => x.id).join();
       if (key !== order) { order = key; list.replaceChildren(...found.map((x) => els.get(x.id).el)); empty.hidden = found.length > 0; }

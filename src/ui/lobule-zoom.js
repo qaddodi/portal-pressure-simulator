@@ -852,14 +852,25 @@ export function createLobuleZoom({ host }) {
       labels.append(L.el); leaders.append(L.line, L.dotEl);
     }
     const txt = `${name}|${v}|${u}|${d}|${col}`;
-    if (L.txt !== txt) {
-      L.txt = txt;
+    if (L.txt === txt) return;
+    // Only the number (or its change) moved: its text is updated in place, and the labels are laid out again
+    // only when it takes more or fewer characters (the label is rebuilt only when its make-up changes).
+    const frame = `${name}|${short}|${u}|${col}|${v === ''}|${!!d}`;
+    if (L.frame === frame && L.b) {
+      if (String(v).length !== L.b.textContent.length || (d && d.length !== L.dEl.textContent.length)) layoutKey = '';
+      L.b.textContent = v;
+      if (d) L.dEl.textContent = d;
+    } else {
+      L.frame = frame;
       L.el.style.setProperty('--sw', col || 'var(--border-strong)');
+      L.b = v === '' ? null : h('b', {}, v);
+      L.dEl = d ? h('span', { class: 'd' }, d) : null;
       L.el.replaceChildren(h('span', { class: 'n' }, h('span', { class: 'n-long' }, name), h('span', { class: 'n-short' }, short)),
-        v === '' ? null : h('span', { class: 'v' }, h('b', {}, v), ...unitParts(u), d ? h('span', { class: 'd' }, d) : null));
-      L.el.setAttribute('aria-label', `${name} ${v} ${u}${d ? `, ${d.startsWith('▲') ? 'up' : 'down'} ${d.slice(2)} ${model?.cmp ? 'since then' : 'from healthy'}` : ''}. Show details`);
+        v === '' ? null : h('span', { class: 'v' }, L.b, ...unitParts(u), L.dEl));
       layoutKey = '';
     }
+    L.txt = txt;
+    L.el.setAttribute('aria-label', `${name} ${v} ${u}${d ? `, ${d.startsWith('▲') ? 'up' : 'down'} ${d.slice(2)} ${model?.cmp ? 'since then' : 'from healthy'}` : ''}. Show details`);
   }
   // Which portal venule and which sinusoid carry the label: at first the left portal venule and the
   // sinusoid just below the middle of the left side; as the view is zoomed or panned, the label stays

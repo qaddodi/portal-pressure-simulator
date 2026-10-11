@@ -1406,9 +1406,15 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     used += (parseFloat(cs.rowGap) || 0) * Math.max(0, n - 1);
     return { v: used - el.clientHeight, h: el.scrollWidth - el.clientWidth };
   }
+  // What a card's fit depends on: its box, its words (digits alike, so a number that eases fits as before) and which parts show.
+  // A card whose signature is unchanged keeps its fit without being measured again (measuring forces layouts mid-animation).
+  const fitSig = (el) => `${el.clientWidth}x${el.clientHeight}|${el.className}|${document.documentElement.style.cssText}|${[...el.children].map((c) => (c.hidden ? 0 : c.className)).join()}|${el.textContent.replace(/\d/g, '0')}`;
+  const fitDone = new WeakMap();
   function fitCards(...els) {
     for (const el of els) {
       if (!el || el.hidden) continue;
+      const sig = fitSig(el);
+      if (fitDone.get(el) === sig) continue;
       el.style.removeProperty('--pz-fit');
       let k = 1;
       for (let n = 0; n < 8 && k > 0.5; n++) {
@@ -1417,6 +1423,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
         k = Math.max(0.5, k * Math.min(0.97, (el.clientHeight / (el.clientHeight + Math.max(o.v, 0))) ** 0.9, (el.clientWidth / (el.clientWidth + Math.max(o.h, 0))) ** 0.9));
         el.style.setProperty('--pz-fit', k.toFixed(3));
       }
+      fitDone.set(el, sig);
     }
   }
   // A card whose contents grow after the layout (a time-lapse, the numbers settling) is fitted again.
@@ -1424,7 +1431,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   const fitWatch = () => {
     fitRO ||= new ResizeObserver(() => {
       cancelAnimationFrame(fitRaf);
-      fitRaf = requestAnimationFrame(() => { if (ui && [ui.text, ui.data, ui.panel].some((el) => !el.hidden && (({ v, h }) => v > 1 || h > 1)(overflowOf(el)))) layout(); });
+      fitRaf = requestAnimationFrame(() => { if (ui && [ui.text, ui.data, ui.panel].some((el) => !el.hidden && fitDone.get(el) !== fitSig(el) && (({ v, h }) => v > 1 || h > 1)(overflowOf(el)))) layout(); });
     });
     fitRO.disconnect();
     for (const el of [ui.text, ui.data, ui.panel]) for (const c of el.children) fitRO.observe(c);
