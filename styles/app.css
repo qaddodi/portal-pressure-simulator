@@ -2034,7 +2034,7 @@ button.finding:hover { background: var(--surface-2); }
 }
 .pz-veil { position: absolute; inset: 0; background: color-mix(in srgb, var(--stage-bg) 92%, transparent); opacity: 0; transition: opacity .5s var(--ease); }
 .pz-veil.on { opacity: 1; }
-.pz-panel { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: min(1560px, calc(100% - 2 * clamp(16px, calc(3vw / var(--vz)), 64px))); max-height: calc(100% - 2 * clamp(16px, calc(4vh / var(--vz)), 56px)); overflow: auto; display: flex; flex-direction: column; gap: clamp(12px, calc(2.4vh / var(--vz)), 32px); padding: clamp(18px, calc(3.4vh / var(--vz)), 44px) clamp(20px, calc(3vw / var(--vz)), 52px); background: var(--surface); border: 1px solid var(--border); border-radius: clamp(18px, calc(2.6vh / var(--vz)), 32px); box-shadow: var(--shadow-3); pointer-events: auto; animation: pz-in .55s var(--ease) both; transition: opacity .22s var(--ease), transform .22s var(--ease); }
+.pz-panel { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: min(1560px, calc(100% - 2 * clamp(16px, calc(3vw / var(--vz)), 64px))); max-height: calc(100% - 2 * clamp(16px, calc(4vh / var(--vz)), 56px)); overflow: clip; display: flex; flex-direction: column; gap: clamp(12px, calc(2.4vh / var(--vz)), 32px); padding: clamp(18px, calc(3.4vh / var(--vz)), 44px) clamp(20px, calc(3vw / var(--vz)), 52px); background: var(--surface); border: 1px solid var(--border); border-radius: clamp(18px, calc(2.6vh / var(--vz)), 32px); box-shadow: var(--shadow-3); pointer-events: auto; animation: pz-in .55s var(--ease) both; transition: opacity .22s var(--ease), transform .22s var(--ease); }
 .pz-panel .pz-ph { display: flex; flex-direction: column; gap: clamp(6px, calc(1.2vh / var(--vz)), 14px); }
 .pz-panel .pz-h { font-size: clamp(28px, calc(4.6vh / var(--vz)), 56px); }
 .pz-panel .pz-line { max-width: 70ch; }
@@ -2297,7 +2297,7 @@ button.finding:hover { background: var(--surface-2); }
 .pz-tool[data-kind="wall"] .endo-read { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
 .pz-tool[data-kind="wall"] .endo-stress { grid-column: 1 / -1; }
 .pz-tool[data-kind="wall"] .endo-pos, .pz-tool[data-kind="wall"] .wall-law, .pz-tool[data-kind="wall"] .endo-read > :last-child { display: none; }
-.pz-data.has-tool { overflow-y: auto; overscroll-behavior: contain; pointer-events: auto; }
+.pz-data.has-tool { pointer-events: auto; }
 .pz-tool .dop-main { flex: none; gap: 12px; }
 .pz-tool .dop-report { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2px 16px; align-items: start; }
 .pz-tool .dop-report > :not(.dop-stats) { grid-column: 1; }
@@ -2373,10 +2373,11 @@ button.finding:hover { background: var(--surface-2); }
 .pzj-list button[aria-current] { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
 .pzj-list .n { min-width: 2ch; text-align: right; font-variant-numeric: tabular-nums; color: var(--text-3); }
 .pz.stack .pz-jump { left: 8px; right: 8px; width: auto; translate: none; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); max-height: calc(100% - 96px); }
-/* A phone scrolls what does not fit: the words, the data card and a visual each scroll on their own. The
-   stage's touch-action: none would otherwise stop iOS from scrolling anything inside it. */
+/* The words, the data card and the full-width panel never scroll, on any screen: what does not fit is made to fit
+   (presenter.js fitCards sets --pz-fit, the zoom of the card's contents), never clipped or hidden. */
 .app.presenting .stage-view { touch-action: pan-x pan-y; }
-.pz.stack .pz-text, .pz.stack .pz-data, .pz-panel { overflow-y: auto; overscroll-behavior: contain; touch-action: pan-x pan-y; }
+.pz-text, .pz-data, .pz-panel { overflow: clip; overscroll-behavior: none; }
+.pz-text > *, .pz-data > *, .pz-panel > * { zoom: var(--pz-fit, 1); }
 .pz.stack .pz-text, .pz.stack .pz-data { pointer-events: auto; }
 @media (prefers-reduced-motion: reduce) {
   .pz *, .pz, .app.presenting #stageView { animation: none !important; transition: none !important; }
@@ -5013,9 +5014,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .imp-src:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .modal .imp-err { color: var(--danger, #c0392b); margin: 0; font-size: var(--fs-14); }
 
-/* A data card squeezed by long words (an imported deck's long title, a tool and several tiles) scrolls rather than
-   clip, the tool's tap chips put the name over the number when narrow, and a tile's rating wraps inside the tile. */
-.pz-data.under { overflow-y: auto; overscroll-behavior: contain; }
+/* A data card squeezed by long words (an imported deck's long title, a tool and several tiles) shrinks to fit (presenter.js
+   fitCards), the tool's tap chips put the name over the number when narrow, and a tile's rating wraps inside the tile. */
 .pz-data.under > * { flex: none; }
 .pz-tool .ab-lab { flex-wrap: wrap; row-gap: 0; min-width: 0; }
 .pzt-r { min-width: 0; hyphens: auto; overflow-wrap: break-word; }

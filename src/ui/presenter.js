@@ -1361,6 +1361,30 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     layout();   // (the figure frames itself for where the card is going)
     clearTimeout(dock.fit); dock.fit = setTimeout(() => ui && onResize(), 60);
   }
+  // The cards never scroll: when a card's contents are taller than the card, their zoom (--pz-fit) drops until they fit.
+  // (Measured on screen rects, less a child's entry shift, so a card is judged by where its contents come to rest.)
+  function overflowOf(el) {
+    const r = el.getBoundingClientRect(), cs = getComputedStyle(el), k = r.height / (el.offsetHeight || 1);
+    let bottom = 0;
+    for (const c of el.children) {
+      if (c.hidden || getComputedStyle(c).position === 'absolute') continue;
+      const cr = c.getBoundingClientRect(), m = new DOMMatrix(getComputedStyle(c).transform);
+      bottom = Math.max(bottom, cr.bottom - m.m42 * k * (parseFloat(getComputedStyle(c).zoom) || 1));
+    }
+    return bottom + (parseFloat(cs.paddingBottom) || 0) * k - r.bottom;
+  }
+  function fitCards(...els) {
+    for (const el of els) {
+      if (!el || el.hidden) continue;
+      el.style.removeProperty('--pz-fit');
+      let k = 1;
+      for (let n = 0; n < 8 && overflowOf(el) > 0.5 && k > 0.5; n++) {
+        const r = el.getBoundingClientRect();
+        k = Math.max(0.5, k * Math.min(0.97, (r.height / (r.height + overflowOf(el))) ** 0.9));
+        el.style.setProperty('--pz-fit', k.toFixed(3));
+      }
+    }
+  }
   function layout() {
     if (!ui) return;
     // Under interface zoom the page is scaled by k: rects are screen px, inline sizes are the page's own (screen / k).
@@ -1371,10 +1395,12 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const below = !p && ui.data.classList.contains('under');
     if (off(ui.data) || below) delete ui.data.dataset.safe; else ui.data.dataset.safe = p ? 'top' : 'right';
     const r = (el) => (off(el) ? null : el.getBoundingClientRect());
+    fitCards(ui.text);
     const t = r(ui.text);
     // (Under the words: in the left column, clear of the bottom.)
     if (below && t) { const y = t.bottom - wr.top + 28; ui.data.style.top = `${Math.round(y / k)}px`; ui.data.style.maxHeight = `${Math.round((H - y - 24) / k)}px`; }
     else { ui.data.style.top = ''; ui.data.style.maxHeight = ''; }
+    fitCards(ui.data, ui.panel);
     const dv = ui.data.hidden ? [0, 0] : dockVec();
     const d = below ? null : r(ui.data);
     // The words sit on a frosted glass pane: the figure shows through it blurred, behind a crisp edge with a soft
