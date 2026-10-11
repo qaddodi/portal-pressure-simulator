@@ -984,9 +984,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     dop.id = id;
     setGlowSrc('dop', id ? [{ id, col: 'var(--doppler)', amt: 1.8, wide: 1.25, dur: 360 }] : []);
   }
-  // A presenter slide's glows (glow: [...] and its terms' vessels), each in its station's colour.
+  // A presenter slide's glows (glow: [...] and its terms' vessels), each in its station's colour. Slide, focus and
+  // Doppler glows are stronger and a little wider than a hover, so they read on a projector.
   const toneCol = (tone) => (tone.startsWith('--') ? `var(${tone})` : tone === 'accent' ? 'var(--accent)' : `var(--tr-${tone})`);
-  function setGlow(list) { setGlowSrc('slide', (list || []).map((g) => ({ id: g.id, col: toneCol(g.tone || 'accent'), at: g.at, dur: 500 }))); }
+  function setGlow(list) { setGlowSrc('slide', (list || []).map((g) => ({ id: g.id, col: toneCol(g.tone || 'accent'), amt: 1.6, wide: 1.25, at: g.at, dur: 500 }))); }
   // The hovered vessel glows softly in its own colour (and its lumen brightens a little, vh: tube row 9).
   // Each vessel's brightening eases in and out on its own, so moving from one vessel to the next cross-fades.
   const vh = { id: null, amt: new Map(), raf: 0, t: 0 };
@@ -2988,7 +2989,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The glow (setGlowSrc): the accent; on a slide a block is the danger red, a treatment the accent, and a note
     // only a pointer (its vessel glows in its station's colour, the slide's glow).
     const col = (k) => (!presenting || k === 'treat' ? 'var(--accent)' : k === 'note' ? null : 'var(--danger)');
-    setGlowSrc('focus', ids.filter((id) => col(kindOf.get(id))).map((id) => ({ id, col: col(kindOf.get(id)), dur: 600 })));
+    setGlowSrc('focus', ids.filter((id) => col(kindOf.get(id))).map((id) => ({ id, col: col(kindOf.get(id)), amt: 1.6, wide: 1.25, dur: 600 })));
   }
 
   function isReversed(e, f) {
