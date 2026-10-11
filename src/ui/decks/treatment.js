@@ -55,7 +55,7 @@ export const TREATMENT = {
     {
       id: 'tips', params: { tips: { on: true } }, cam: 'liver', terms: { sinusoids: 'sin' }, mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'ladder', key: ['pv', 'ppg'], tiles: ['ppg', 'varix'], delta: 'target',
       kicker: 'Shunt', site: 'sin', title: 'TIPS lowers the gradient by bypassing the liver',
-      line: 'A needle is passed from the right hepatic vein into the right portal vein, and the tract is lined with a covered stent, usually 8 mm. The PPG falls to {ppg}, below the 12 mmHg target for bleeding.',
+      line: 'A needle is passed from the right hepatic vein into the right portal vein, and the tract is lined with a covered stent, usually 8 mm, so portal blood bypasses the sinusoids. The PPG falls to {ppg}, below the 12 mmHg target for bleeding.',
       notes: 'Transjugular intrahepatic portosystemic shunt: from the jugular vein, a needle is passed from the right hepatic vein through the liver into the right portal vein, and the tract is lined with a covered stent, usually 8 mm wide. The portal pressure gradient is measured before and after; for bleeding the aim is below 12 mmHg. Indications: pre-emptive TIPS in high-risk variceal bleeding, rescue when bleeding cannot be controlled, recurrent bleeding, and recurrent or refractory ascites.',
       ask: ['What portal pressure gradient is the aim after TIPS for bleeding?', 'Below 12 mmHg.'],
     },

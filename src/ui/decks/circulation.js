@@ -17,7 +17,7 @@ export const CIRCULATION = {
     {
       id: 'series', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], terms: { sinusoids: 'sin', heart: 'heart' }, glow: ['smv', 'sin', { id: 'sv', soft: true }, { id: 'lgv', soft: true }, { id: 'imv', soft: true }],
       kicker: 'The portal circulation', title: 'Gut blood crosses two capillary beds in series',
-      line: 'The first bed is the capillaries of the gut and spleen. The second is the liver\'s sinusoids. Because they are in series, resistance in the liver or beyond it raises pressure in every vein upstream.',
+      line: 'The first bed is the capillaries of the gut and spleen. The second is the liver\'s sinusoids. Because they are in series, resistance in the liver or between it and the heart raises pressure in every vein upstream.',
       notes: 'A portal system is a set of veins running between two capillary beds. The first bed is in the gut and spleen, the second is the hepatic sinusoids. Because the beds are in series, anything that raises resistance in the liver, or beyond it, raises the pressure in every vein upstream: the portal vein, the splenic vein and the veins of the gut.',
       ask: ['What makes a circulation a portal system?', 'Blood passes through two capillary beds in series before it returns to the heart.'],
     },
@@ -31,7 +31,7 @@ export const CIRCULATION = {
     {
       id: 'lobule', terms: { 'portal venules': 'lobule:triad', 'hepatic arterioles': 'lobule:arteriole', sinusoids: 'lobule:sinusoid', 'central vein': 'lobule:central' }, cam: 'lobule:fit',
       kicker: 'Inside the liver', title: 'Blood crosses the lobule from its edge to the central vein',
-      line: 'Each lobule is a hexagon about 1 mm across, with a portal tract at each corner and a central vein in the middle. Liver cells line the sinusoids in plates one cell thick.',
+      line: 'Each lobule is a hexagon about 1 mm across, with a portal tract at each corner, where portal venules and hepatic arterioles enter, and a central vein in the middle. Liver cells line the sinusoids in plates one cell thick.',
       notes: 'The classic lobule is a hexagon about a millimeter across, with a portal tract at its corners and a central vein (terminal hepatic venule) in the middle. Plates of liver cells, one cell thick, line the sinusoids. In the acinus, zone 1 lies near the portal tract and gets the most oxygen; zone 3, around the central vein, gets the least and is the first injured by congestion and low flow.',
       ask: ['Which liver cells see the blood last, and so get the least oxygen?', 'Those around the central vein: blood enters at the portal tracts and leaves by the central vein.'],
     },
@@ -50,7 +50,7 @@ export const CIRCULATION = {
       ask: ['Why does a rise in sinusoidal pressure make so much lymph?', 'Protein crosses the wall, so almost no oncotic pressure holds the fluid back.'],
     },
     {
-      id: 'central', terms: { 'central vein': 'lobule:central' }, cam: 'lobule:central',
+      id: 'central', terms: { 'central veins': 'lobule:central' }, cam: 'lobule:central',
       kicker: 'Inside the liver', title: 'Sinusoids drain through the central veins to the heart',
       line: 'Central veins join to form the three hepatic veins, which enter the IVC just below the right atrium.',
       notes: 'Central veins join into sublobular veins and then the three hepatic veins (right, middle and left), which open into the IVC just below the right atrium. The caudate lobe drains straight into the IVC by its own small veins, which is why it enlarges in Budd–Chiari syndrome. The pressure here follows the right atrium: a high right atrial pressure passes straight back into the sinusoids.',

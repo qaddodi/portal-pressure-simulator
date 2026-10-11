@@ -17,7 +17,7 @@ export const PVT_CIRRHOSIS = {
     {
       id: 'base', tick: 'Before the clot', preset: 'csph', cam: 'portal', terms: ['pv'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'],
       kicker: 'The clot', site: 'sin', title: 'Slow flow toward a stiff liver',
-      line: 'Cirrhosis with CSPH, portal pressure {pv}. Slow portal flow is the strongest local risk factor for a clot. A high INR does not protect, because the liver also makes less protein C and antithrombin.',
+      line: 'Cirrhosis with CSPH, portal pressure {pv}. Slow flow in the portal vein is the strongest local risk factor for a clot. A high INR does not protect, because the liver also makes less protein C and antithrombin.',
       causesHead: 'Risk of a clot', causes: ['Slow portal flow', 'More advanced liver disease', 'A high INR does not protect', 'Recent abdominal surgery'],
       notes: 'Portal vein thrombosis becomes more common as cirrhosis advances, and slow portal flow is the strongest local factor. The INR measures only the fall in clotting factors; the liver also makes less protein C and antithrombin, so hemostasis is rebalanced and a high INR does not protect. Abdominal surgery, splenectomy above all, adds to the risk. Many clots are partial and found on a routine scan.',
       ask: ['Does a high INR protect a patient with cirrhosis from portal vein thrombosis?', 'No: the anticoagulant proteins fall too, so clotting is rebalanced.'],
@@ -56,7 +56,7 @@ export const PVT_CIRRHOSIS = {
       id: 'anticoag', tick: 'Anticoagulation', params: { anticoag: true }, days: 180, lapse: { seconds: 8 }, cam: 'portal', terms: ['pv'],
       tool: { kind: 'doppler', vessel: 'PV_TRUNK', delta: 'clot' }, data: 'tiles', tiles: ['pv', 'ppg'], key: ['pv'], delta: 'clot',
       kicker: 'Anticoagulation', site: 'sin', title: 'Months of anticoagulation reopen the vein',
-      line: 'About 7 in 10 patients recanalize on anticoagulation. Here the clot clears over six months and portal pressure falls back to {pv}.',
+      line: 'About 7 in 10 patients recanalize on anticoagulation. Here the clot clears over six months, the portal vein flows again and its pressure falls back to {pv}.',
       notes: 'Baveno VII advises anticoagulation for a recent complete or near-complete clot of the main portal vein, with or without extension into the superior mesenteric vein, and for transplant candidates. The vein reopens in many patients, more often when treatment starts early. It continues for at least six months, and until transplant in candidates; the clot can recur after it stops. Without treatment many partial clots clear too, and whether a partial clot worsens the outlook is uncertain.',
       ask: ['What makes it more likely that anticoagulation reopens the portal vein?', 'Starting it early, soon after the clot forms.'],
     },

@@ -53,25 +53,25 @@
 // Every deck opens with an "Outline and objectives" slide built from its kicker groups and objectives
 // (withOverview below); a deck never writes that slide itself.
 
-import { CIRCULATION } from './decks/circulation.js?v=393775adb1';
-import { SITES } from './decks/sites.js?v=b40802a31d';
-import { HVPG } from './decks/hvpg.js?v=b61d87524d';
+import { CIRCULATION } from './decks/circulation.js?v=2e212e7052';
+import { SITES } from './decks/sites.js?v=cc4bcea256';
+import { HVPG } from './decks/hvpg.js?v=06c6e9c575';
 import { ASCITES } from './decks/ascites.js?v=c693f9ae84';
-import { VARICES } from './decks/varices.js?v=b2aa70f78a';
-import { TREATMENT } from './decks/treatment.js?v=2835e90310';
+import { VARICES } from './decks/varices.js?v=688bd59fa1';
+import { TREATMENT } from './decks/treatment.js?v=8c750815ac';
 import { STIFFNESS } from './decks/stiffness.js?v=559db93be0';
 import { ONE_YEAR } from './decks/one-year.js?v=71c67e65ca';
 import { LOBULE } from './decks/lobule.js?v=14ba594142';
 import { SHUNTS } from './decks/shunts.js?v=c867794f65';
 import { TAP } from './decks/tap.js?v=f7a5695d72';
-import { CIRCUIT } from './decks/circuit.js?v=d9ceabd0fe';
+import { CIRCUIT } from './decks/circuit.js?v=25877f3594';
 import { DOPPLER } from './decks/doppler.js?v=ad89820ca5';
 import { ENDOSCOPY } from './decks/endoscopy.js?v=6ee6cee43c';
 import { PREHEPATIC } from './decks/prehepatic.js?v=fb84364dfe';
 import { RIGHT_HEART } from './decks/right-heart.js?v=b7ffb5c7c6';
 import { BLEED } from './decks/variceal-bleed.js?v=d3aedae7e3';
 import { TWO_INFLOWS } from './decks/two-inflows.js?v=2a19a5fc63';
-import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=5d714e6c5f';
+import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=56e75f171c';
 import { SPLEEN } from './decks/spleen.js?v=e28f76d43e';
 import { NCPH } from './decks/ncph.js?v=130a263894';
 import { OUTFLOW } from './decks/outflow.js?v=aa768a524b';

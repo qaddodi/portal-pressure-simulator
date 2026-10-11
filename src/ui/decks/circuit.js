@@ -37,7 +37,7 @@ export const CIRCUIT = withPoints({
     {
       id: 'where', view: C, sites: [...R, 'rGut'], terms: ['rGut'], data: 'ladder', key: ['pv', 'hvpg'],
       kicker: K, title: 'Most of the pressure drop is across the gut arterioles',
-      line: 'By the time blood reaches the portal vein, little pressure is left. A healthy liver drops it by only a few mmHg more.',
+      line: 'The gut arterioles take most of the arterial pressure, so little is left by the time blood reaches the portal vein. A healthy liver drops it by only a few mmHg more.',
       notes: 'Mean arterial pressure is about 90 mmHg; the portal vein is under 10. The splanchnic arterioles are the largest resistance in the circuit and they set the portal inflow. Normal sinusoids are wide and many, so the HVPG is 1 to 5 mmHg.',
       ask: ['Which resistance sets the portal inflow?', 'The splanchnic (gut) arterioles: they are the largest resistance before the portal vein.'],
     },
@@ -53,7 +53,7 @@ export const CIRCUIT = withPoints({
       id: 'resist', preset: 'csph', view: C, sites: R, data: 'tiles', tiles: ['pvFlow', 'hvpg', 'ppg'], delta: 'ohm',
       compare: [{ label: 'Healthy', params: { cirrhosis: 0 } }, { label: 'Cirrhosis', own: true, params: { cirrhosis: 0.6 } }],
       kicker: K, site: 'sin', title: 'Cirrhosis raises the resistance in the liver',
-      line: 'Scarring raises it several-fold. Part of the rise is vascular tone, which drugs can relax.',
+      line: 'Scarring raises the resistance several-fold. Part of the rise is vascular tone, which drugs can relax.',
       notes: 'The R term. In cirrhosis about three quarters of the extra resistance is fixed (fibrosis, nodules, capillarized sinusoids) and a quarter is tone: contracted stellate cells and too little nitric oxide in the sinusoids. The tone is what drugs can reverse. The tiles compare with the healthy liver on the first slide; the portal flow is almost the same.',
       ask: ['What part of the intrahepatic resistance can drugs lower?', 'The dynamic part, stellate cell and vascular tone; scar and nodules do not relax.'],
     },

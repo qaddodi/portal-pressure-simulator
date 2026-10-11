@@ -27,7 +27,7 @@ export const VARICES = {
     {
       id: 'eso', cam: 'varices', labels: ['LGV', 'VAR', 'AZY'], terms: ['lgv', 'azy'], mark: { edges: ['C1a', 'C1b'], label: 'Esophageal varices', kind: 'note' }, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'],
       kicker: 'Varices', site: 'sin', title: 'Esophageal varices drain to the azygos vein',
-      line: 'The left gastric (coronary) and short gastric veins carry portal blood into the wall of the lower esophagus. The palisade veins seen at endoscopy and the submucosal veins beneath them both enlarge. Varices under 5 mm are small, and over 5 mm are large.',
+      line: 'The left gastric vein (the coronary vein) and the short gastric veins carry portal blood into the wall of the lower esophagus, and on to the azygos. The palisade veins seen at endoscopy and the submucosal veins beneath them both enlarge. Varices under 5 mm are small, and over 5 mm are large.',
       notes: 'Gastroesophageal varices are the collaterals that matter most, because they bleed. Blood runs from the left gastric (coronary) and short gastric veins through veins in the wall of the lower esophagus to the azygos system. Both layers enlarge: the palisade veins in the lamina propria, which the scope sees, and the submucosal veins beneath them. At endoscopy small varices are under 5 mm and large ones over 5 mm; red wale marks are thin spots in the wall. About half of patients have varices when cirrhosis is diagnosed.',
       ask: ['Into which systemic vein do esophageal varices drain?', 'The azygos vein.'],
     },
@@ -40,16 +40,16 @@ export const VARICES = {
       ask: ['Two patients have 6 mm varices: one is Child–Pugh A without red signs, the other Child–Pugh C with red wale marks. Who is more likely to bleed, and why?', 'The Child–Pugh C patient: red wale marks show a thinner wall, and poor liver function goes with a higher pressure and worse clotting.'],
     },
     {
-      id: 'fundal', preset: 'gastric-varix', cam: 'fundus', labels: ['GV', 'LRV'], terms: { 'Gastric veins': 'gv', 'left renal vein': 'lrv' }, mark: { edges: ['C5'], label: 'Gastrorenal shunt', kind: 'note' }, data: 'tiles', tiles: ['gv', 'varix'], key: ['gv'],
+      id: 'fundal', preset: 'gastric-varix', cam: 'fundus', labels: ['GV', 'LRV'], terms: { 'Fundal varices': 'gv', 'left renal vein': 'lrv' }, mark: { edges: ['C5'], label: 'Gastrorenal shunt', kind: 'note' }, data: 'tiles', tiles: ['gv', 'varix'], key: ['gv'],
       kicker: 'Gastric varices', site: 'sin', title: 'Fundal varices and the gastrorenal shunt',
-      line: 'Fundal varices bleed less often than esophageal varices, but they bleed more heavily. Treatment is cyanoacrylate glue, BRTO or TIPS.',
+      line: 'Fundal varices bleed less often than esophageal varices, but they bleed more heavily. Treatment is cyanoacrylate glue, BRTO through the left renal vein, or TIPS.',
       notes: 'Isolated fundal varices (IGV1) and those running from the esophagus along the greater curve (GOV2) usually drain through a spontaneous gastrorenal shunt to the left renal vein. They bleed less often than esophageal varices, but more heavily. They are treated with cyanoacrylate glue at endoscopy, by blocking the shunt from below (balloon-occluded retrograde transvenous obliteration, BRTO), or with TIPS. A large shunt also steals portal blood from the liver and raises the risk of encephalopathy.',
       ask: ['Which vein does BRTO enter, and why from there?', 'The left renal vein: the gastrorenal shunt drains into it, so a balloon there blocks the shunt from below.'],
     },
     {
       id: 'svt', preset: 'svt', cam: 'splenic', labels: ['SV', 'CONF', 'GV'], terms: ['sv', 'pv', 'spleen', 'gv'], mark: { edges: ['SV_CONF'], label: 'Clot' }, data: 'tiles', tiles: ['pv', 'gv', 'spleen'], key: ['pv', 'gv'],
       kicker: 'Left-sided portal hypertension', site: 'pre', title: 'Splenic vein thrombosis and gastric varices',
-      line: 'The usual causes are pancreatitis and pancreatic cancer, because the pancreas lies against the splenic vein. Splenectomy or splenic artery embolization removes the inflow and cures it.',
+      line: 'The usual causes are pancreatitis and pancreatic cancer, because the pancreas lies against the splenic vein. The portal vein stays normal while the spleen enlarges and gastric varices form. Splenectomy or splenic artery embolization removes the inflow and cures it.',
       notes: 'Sinistral (left-sided) portal hypertension. Splenic blood goes around the clot through the short gastric and gastroepiploic veins, giving isolated gastric varices with a normal portal pressure and a normal liver; esophageal varices are uncommon. Pancreatitis and pancreatic cancer are the usual causes. Removing the inflow cures it: splenectomy, or splenic artery embolization.',
       ask: ['Gastric varices, a large spleen and normal liver tests after pancreatitis. Diagnosis and cure?', 'Splenic vein thrombosis; splenectomy, or splenic artery embolization.'],
     },
