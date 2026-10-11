@@ -557,7 +557,7 @@ export function createLobuleZoom({ host }) {
   let drawVersion = 0, idleDrawn = '', lastSurface = 0;
   const binCache = new Map();
   store.on('*', () => { drawVersion++; });
-  let gl = null, glTried = false, binKey = '', binReach = [], radKey = [], radAll = '', attrKey = '', drawKey = '', glDirty = true, tissueKey = '', worldKey = '', layoutKey = '';
+  let layoutV = '', gl = null, glTried = false, binKey = '', binReach = [], radKey = [], radAll = '', attrKey = '', drawKey = '', glDirty = true, tissueKey = '', worldKey = '', layoutKey = '';
   const worldCv = document.createElement('canvas');   // the lobule's tissue in world space (see paintTissue)
   const tubeData = new Float32Array(MAXT * TUBE_TEXELS * 4), flowData = new Float32Array(MAXT * FLOW_TEXELS * 4);
   let clock = 0, origins = null, originsF = null;
@@ -919,8 +919,8 @@ export function createLobuleZoom({ host }) {
     for (const r of [70, 100, 140]) for (let i = 0; i < 12; i++) {
       const t = (i / 12) * Math.PI * 2 - Math.PI / 2;
       const x = clamp(a[0] + Math.cos(t) * (r + w / 3), fr.l + w / 2 + pad, fr.r - w / 2 - pad), y = clamp(a[1] + Math.sin(t) * r, fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
-      const box = { l: x - w / 2 - 4, r: x + w / 2 + 4, t: y - hh / 2 - 4, b: y + hh / 2 + 4 };
-      const cost = placed.reduce((c, o) => c + ov(box, o) * 100, 0) + ov(box, spot) * 200 + cards.reduce((c, o) => c + ov(box, o) * 400, 0) + Math.hypot(x - a[0], y - a[1]) * 0.5;
+      const box = { l: x - w / 2 - 6, r: x + w / 2 + 6, t: y - hh / 2 - 6, b: y + hh / 2 + 6 };
+      const cost = placed.reduce((c, o) => c + (ov(box, o) > 0 ? 1e6 + ov(box, o) * 100 : 0), 0) + ov(box, spot) * 200 + cards.reduce((c, o) => c + ov(box, o) * 400, 0) + Math.hypot(x - a[0], y - a[1]) * 0.5;
       if (!best || cost < best.cost) best = { x, y, box, cost };
     }
     placed.push(best.box);
@@ -933,7 +933,11 @@ export function createLobuleZoom({ host }) {
     if (camMove) { if (performance.now() >= camUntil) camSettle(); return; }
     const fr0 = freeRect(), g = geo, key = `${g.W}x${g.H}|${Object.values(labs).map((l) => l.txt).join('|')}|${zonesOn}|${lymphOn}|${named('ha')}${named('bd')}|${call ? call.at + call.label : ''}|${V.k},${V.x},${V.y}|${fr0.t},${fr0.b},${fr0.l},${fr0.r}`;
     if (key === layoutKey) return;
-    layoutKey = key;
+    // A label that moves while the view holds still (a term lit, a value's width changed) glides to its new spot;
+    // while the view itself pans or zooms, the labels follow it at once.
+    const vKey = `${g.W}x${g.H}|${V.k},${V.x},${V.y}`;
+    if (layoutKey && vKey === layoutV) { labels.classList.add('lz-ease'); clearTimeout(easeT); easeT = setTimeout(() => labels.classList.remove('lz-ease'), 450); }
+    layoutKey = key; layoutV = vKey;
     pickAnchors(fr0);
     leaders.setAttribute('viewBox', `0 0 ${g.W} ${g.H}`);
     const { R, cx, cy } = g;
@@ -969,7 +973,11 @@ export function createLobuleZoom({ host }) {
       return { k, l: x - r, r: x + r, t: y - r, b: y + r };
     });
     // The letters' halo reaches past each label's box, more so at larger text: the margins grow with it.
-    const lk = parseFloat(document.documentElement.style.getPropertyValue('--label-k')) || 1, hm = 4 + 2 * lk;
+    // Each box also takes in the label's pill (it reaches 4×5 px past the text at --label-k 1) and half the gap kept
+    // between two labels, so no two pills ever touch.
+    const lk = parseFloat(document.documentElement.style.getPropertyValue('--label-k')) || 1, hm = 4 + 2 * lk,
+      hx = Math.max(hm, 4 * lk + 5), hy = Math.max(hm, 5 * lk + 5);
+    const hit = (a, b) => overlap(a, b) > 0;
     for (const k of ['cv', 'sin', 'triad', 'lymph', 'ha', 'bd']) {
       const L = labs[k];
       if (!L) continue;
@@ -990,17 +998,23 @@ export function createLobuleZoom({ host }) {
       const candidates = [preferred];
       for (const dx of [0, -(w / 2 + 12), w / 2 + 12, -(w + 24), w + 24])
         for (const n of [0, -1, 1, -2, 2, -3, 3]) if (dx || n) candidates.push([preferred[0] + dx, preferred[1] + n * step]);
-      // Snug against each label already placed (just above or below it), so a tight gap between two is found.
-      for (const o of placed) candidates.push([preferred[0], o.b + hh / 2 + hm], [preferred[0], o.t - hh / 2 - hm]);
+      // And all round what it names, at a few distances, so a crowded side still leaves a free spot near it.
+      for (const r of [1, 1.6, 2.4]) for (let i = 0; i < 16; i++) {
+        const t = (i / 16) * Math.PI * 2;
+        candidates.push([a[0] + Math.cos(t) * (w / 2 + 18) * r, a[1] + Math.sin(t) * (hh / 2 + 18) * r]);
+      }
+      // Snug against each label already placed (above, below or beside it), so a tight gap between two is found.
+      for (const o of placed) candidates.push([preferred[0], o.b + hh / 2 + hy], [preferred[0], o.t - hh / 2 - hy], [o.r + w / 2 + hx, preferred[1]], [o.l - w / 2 - hx, preferred[1]]);
       const own = marks.filter((m) => m.k !== k);
       let best = null;
       for (const [px, py] of candidates) {
         const x = clamp(px, fr.l + w / 2 + pad, fr.r - w / 2 - pad);
         const y = clamp(py, fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
-        const box = { l: x - w / 2 - hm, r: x + w / 2 + hm, t: y - hh / 2 - hm, b: y + hh / 2 + hm };
+        const box = { l: x - w / 2 - hx, r: x + w / 2 + hx, t: y - hh / 2 - hy, b: y + hh / 2 + hy };
         // A label with a leader keeps a visible stretch of it: it never sits right over the vessel it names.
         const lead = Math.hypot(Math.max(0, Math.abs(a[0] - x) - w / 2), Math.max(0, Math.abs(a[1] - y) - hh / 2));
-        const cost = placed.reduce((sum, other) => sum + overlap(box, other) * 100, 0)
+        // Two labels never touch: any spot clear of the others beats every spot that is not.
+        const cost = placed.reduce((sum, other) => sum + (hit(box, other) ? 1e6 + overlap(box, other) * 100 : 0), 0)
           + Math.max(0, 16 - lead) * 40
           + cards.reduce((sum, c) => sum + overlap(box, c) * 400, 0)
           + own.reduce((sum, m) => sum + overlap(box, m) * 40, 0)

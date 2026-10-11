@@ -344,6 +344,37 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction(() => !document.querySelector('#app').classList.contains('presenting'));
   });
 
+  await check(device, 'presenter: lobule and sinusoid labels never touch', async (page) => {
+    // The slides that name several lobule structures at once, at each size: no two labels,
+    // pills included, come within a few pixels of each other. The desktop run also tries an iPad's portrait screen.
+    const sizes = device === 'desktop' ? [null, { width: 820, height: 1180 }] : [null];
+    for (const size of sizes) {
+      if (size) await page.setViewportSize(size);
+      for (const [deck, n] of [['circulation', 5], ['circulation', 6], ['two-inflows', 3]]) {
+        await open(page, `?script=${deck}&slide=${n}`);
+        await page.waitForFunction(() => [...document.querySelectorAll('.lz.on:not(.lz-cam):not(.lz-sin) .lz-lab, .sv-region')].filter((e) => !e.hidden && e.offsetParent).length >= 2);
+        // Settled: the labels hold still across two looks a moment apart.
+        const where = () => page.evaluate(() => [...document.querySelectorAll('.lz-lab, .sv-region')].map((e) => e.style.left + e.style.top + e.style.transform).join());
+        for (let prev = '', i = 0; i < 6; i++) { await page.waitForTimeout(400); const now = await where(); if (now === prev) break; prev = now; }
+        const bad = await page.evaluate(() => {
+          const out = [];
+          for (const el of document.querySelectorAll('.lz.on:not(.lz-cam):not(.lz-sin) :is(.lz-lab, .lz-call.on), .sv-region')) {
+            if (el.hidden || !el.offsetParent) continue;
+            const b = el.getBoundingClientRect(), pill = getComputedStyle(el, '::before'), px = Math.max(0, -parseFloat(pill.left) || 0), py = Math.max(0, -parseFloat(pill.top) || 0);
+            out.push({ n: el.textContent.trim().slice(0, 20), l: b.left - px, r: b.right + px, t: b.top - py, b: b.bottom + py });
+          }
+          const hits = [];
+          for (let i = 0; i < out.length; i++) for (let j = i + 1; j < out.length; j++) {
+            const a = out[i], c = out[j], gap = Math.max(Math.max(a.l, c.l) - Math.min(a.r, c.r), Math.max(a.t, c.t) - Math.min(a.b, c.b));
+            if (gap < 3) hits.push(`"${a.n}" and "${c.n}" (gap ${gap.toFixed(1)} px)`);
+          }
+          return hits;
+        });
+        if (bad.length) throw new Error(`${deck} slide ${n} at ${page.viewportSize().width}px: labels touch: ${bad.join('; ')}`);
+      }
+    }
+  });
+
   await check(device, 'lesson and case deep links', async (page) => {
     await open(page, '?lesson=portal-flow');
     await page.waitForFunction(() => (document.querySelector('#coach')?.textContent.length > 20) || (document.querySelector('#panelLesson')?.textContent.length > 20));
@@ -674,7 +705,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
           await page.evaluate((v) => window.pps.store.set({ view: v }), view);
           await page.waitForTimeout(1200);
           const bad = await overlaps();
-          if (bad.length) throw new Error(`${w}×${hgt} ${id} ${view}: ${bad.join('; ')}`);
+        if (bad.length) throw new Error(`${w}×${hgt} ${id} ${view}: ${bad.join('; ')}`);
         }
         await page.evaluate(() => window.pps.store.set({ view: 'anatomic' }));
       }
