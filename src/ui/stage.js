@@ -3368,7 +3368,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // line. Screen-space, at the liver's outline. Each tap (three a second) sends one shear wavefront: a soft arc that spreads and fades as
   // it crosses the liver. The true speed goes with √kPa (about 2.2× from 5 to 25 kPa); on screen it is exaggerated to
   // roughly linear in kPa (5× from 5 to 25) so the difference reads at a glance, easing to a new speed when the reading changes.
-  const scan = { on: false, el: null, raf: 0, v: 0, fronts: [], next: 0, last: 0 };
+  const scan = { on: false, el: null, raf: 0, v: 0, fronts: [], next: 0, nextTap: 0, last: 0 };
   const SCAN_TIP = [66, 48], SCAN_SPAN = 150, SCAN_EVERY = 1 / 3, SCAN_N = 12, SCAN_HALF = 0.5, SCAN_GAP = 6;   // three pulses a second, so several fronts are in flight at once
   const scanSpeed = () => 35 * (clamp(F?.metrics?.lsm ?? 5, 4, 40) / 5) ** 1.3;   // px/s, steeper than linear: 35 at 5 kPa (clearly slow), 240 at 25 (7x), 520 from 40
   function scanArc(r) {
@@ -3382,7 +3382,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const dt = scan.last && !reduceMotion.matches ? Math.min(0.1, (now - scan.last) / 1000) : 0; scan.last = now;
     const target = scanSpeed();
     scan.v = scan.v ? scan.v + (target - scan.v) * (1 - Math.exp(-dt / 0.6)) : target;   // ease to a new kPa
-    if (now >= scan.next) { scan.fronts.push(0); scan.next = now + SCAN_EVERY * 1000; scan.el.classList.remove('tap'); void scan.el.offsetWidth; scan.el.classList.add('tap'); }
+    if (now >= scan.next) { scan.fronts.push(0); scan.next = now + SCAN_EVERY * 1000; }
+    if (!(now < scan.nextTap)) { scan.nextTap = scan.nextTap && now - scan.nextTap < 250 ? scan.nextTap + 1000 : now + 1000; scan.el.classList.remove('tap'); void scan.el.offsetWidth; scan.el.classList.add('tap'); }   // the probe itself shakes once a second; the waves keep their own rhythm
     const span = clamp(scan.v * 2.5, 70, SCAN_SPAN);   // slow fronts fade sooner, so a healthy liver shows a few calm arcs, not a crowd
     scan.fronts = scan.fronts.map((r) => r + scan.v * dt).filter((r) => r < span);
     const g = scan.el.querySelectorAll('.sp-waves g'), gap = clamp(scan.v * SCAN_EVERY * 0.4, 2, SCAN_GAP);   // the ripples tighten when fronts are close, so neighbours never merge
@@ -3408,7 +3409,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         + '<rect class="sp-tip" x="54" y="39" width="10" height="18" rx="3"/></g></svg><span>FibroScan probe</span>';   // (constant markup)
       sites.el.append(el); scan.el = el;
       void el.offsetWidth; el.classList.remove('cath-pre');
-      if (reduceMotion.matches) { scan.fronts = [40, 90]; scan.v = 0; scan.next = Infinity; }
+      if (reduceMotion.matches) { scan.fronts = [40, 90]; scan.v = 0; scan.next = scan.nextTap = Infinity; }
       if (!scan.raf) { scan.last = 0; scan.raf = requestAnimationFrame(scanTick); }
     }
     const lv = organEls.liver, wr = wrap.getBoundingClientRect();
@@ -3424,7 +3425,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (scan.on === !!on) return;
     scan.on = !!on;
     if (on) { refreshCTM(); scanPaint(); return; }
-    const el = scan.el; scan.el = null; scan.fronts = []; scan.v = 0; scan.next = 0;
+    const el = scan.el; scan.el = null; scan.fronts = []; scan.v = 0; scan.next = 0; scan.nextTap = 0;
     if (scan.raf) { cancelAnimationFrame(scan.raf); scan.raf = 0; }
     if (el) { el.classList.add('cath-pre'); setTimeout(() => el.remove(), 500); }
   }
