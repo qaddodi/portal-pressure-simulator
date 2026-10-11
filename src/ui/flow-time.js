@@ -67,6 +67,10 @@ export function createFlowTime() {
       path: sv('path', { class: 'ptk-line', style: `stroke: var(${c})` }),
       dot: sv('circle', { class: 'pft-dot', r: 6.5, style: `fill: var(${c})` }),
       val: sv('text', { class: 'pft-v', style: `fill: var(${c})` }) }));
+    // The fasting values at the start: flow's under its line, pressure's over its line (the gap between the bands).
+    const start = lines.map((l) => { const v = ser[l.k][0], y = l.Y(v);
+      return [sv('circle', { class: 'pft-start', cx: X(MINUTES.from), cy: y, r: 4.5, style: `stroke: var(${LINES.find((x) => x[0] === l.k)[3]})` }),
+        sv('text', { class: 'pft-v0', x: X(MINUTES.from) + 2, y: l.k === 'flow' ? y + 20 : y - 10, style: `fill: var(${LINES.find((x) => x[0] === l.k)[3]})` }, `${fmt(v, l.d)} ${l.unit}`)]; });
     const [lp, lf] = lines;
     // Each band's gridlines, its numbers on its own side in its own colour.
     // (Five or more lines: every other one numbered, so the numbers never crowd.)
@@ -82,12 +86,12 @@ export function createFlowTime() {
       grid(ser.fScale, lf.Y, R + 8, 'start', '--tr-hv'), grid(ser.pScale, lp.Y, L - 8, 'end', '--tr-pv'), legend,
       sv('line', { class: 'pft-x', x1: L, x2: R, y1: B, y2: B }),
       mins.map((m) => sv('text', { class: 'pft-tk', x: X(m), y: B + 22, 'text-anchor': 'middle' }, m > 0 ? `+${m}` : m < 0 ? `−${-m}` : '0')),
-      sv('text', { class: 'ptk-ax', x: R + 10, y: B + 22 }, 'min'),
+      sv('text', { class: 'ptk-ax', x: R + 8, y: B + 5 }, 'min'),
       // Fasting, then the meal: a dashed line at 0 min.
       sv('text', { class: 'pft-t', x: (X(MINUTES.from) + X(0)) / 2, y: T - 14, 'text-anchor': 'middle' }, 'Fasting'),
       sv('line', { class: 'pft-meal', x1: X(0), x2: X(0), y1: T - 30, y2: B }),
       sv('text', { class: 'pft-t meal', x: X(0) + 7, y: T - 14 }, 'Meal'),
-      lines.map((l) => [l.path, l.dot, l.val]));
+      lines.map((l) => l.path), start, lines.map((l) => [l.dot, l.val]));
     return { svg, lines };
   }
   // Draw the lines up to minute m, each line's value over its head (flipped left near the right edge).
@@ -102,6 +106,7 @@ export function createFlowTime() {
       l.val.setAttribute('x', (hx + (left ? -10 : 10)).toFixed(1)); l.val.setAttribute('y', (hy - 12).toFixed(1));
       l.val.setAttribute('text-anchor', left ? 'end' : 'start');
       l.val.textContent = `${fmt(v, l.d)} ${l.unit}`;
+      l.val.classList.toggle('off', m < 8);   // (near the start the fasting value is already there)
       return v;
     });
     parts.svg.setAttribute('aria-label', `Portal pressure and flow around a meal: pressure ${fmt(ser.pv[0], 1)} to ${fmt(heads[0], 1)} mmHg, flow ${fmt(ser.flow[0], 2)} to ${fmt(heads[1], 2)} L/min`);

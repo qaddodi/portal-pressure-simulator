@@ -22,7 +22,7 @@ import { sinusoidSupported } from './sinusoid-view.js?v=c6a8f1cabe';
 import { NODES } from '../engine/topology.js?v=34e377149b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=aa23a0da45';
 import { createHvpgMonitor } from './hvpg-proc.js?v=649e6bbf50';
-import { createTools } from './presenter-tools.js?v=2b28a2f887';
+import { createTools } from './presenter-tools.js?v=b822b8efd9';
 import { openHandout } from './handout.js?v=580e8380fc';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 
@@ -1054,7 +1054,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     // A time-lapse's words tell where it ends ("six months on, the HVPG is {hvpg}"), so their values are the end state's.
     const said = lap ? await stateReady(stateOf[to]) : st;
     if (!said || cut()) return;
-    wordsIn(s, q, said, to, swap);
+    wordsIn(s, q, said, to, swap, lap);
     // The liver's own labels light with the words, so their glow fades in during the dive rather than after it.
     if (!s.visual && !q) app.dataset.lit = slideTargets(s).lit.join(' ');
     if (s.visual === 'table') fillTable(s, cut);
@@ -1170,7 +1170,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     });
     return mon.el;
   }
-  function wordsIn(s, q, st, i, fresh = false) {
+  function wordsIn(s, q, st, i, fresh = false, lap = false) {
     if (!ui) return;
     const { text, panel, data } = ui;
     text.classList.remove('pz-leave');   // (the panel's own is let go once its new content is in, so it never fades back in with the old)
@@ -1214,7 +1214,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       ui.dhT.textContent = cardTitle(s);
       ui.dhL.hidden = !lad;
       // (A flow-time chart over a time-lapse starts empty and draws as it plays.)
-      if (s.tool) ui.tools.show(s.tool, { quiz: q, stateKey: stateOf[i], chain: chainTo(i), trail: states[stateOf[i]]?.trail ?? null, reveal: s.lapse && i > 0 && !q ? 0 : 1 }); else ui.tools.hide();
+      if (s.tool) ui.tools.show(s.tool, { quiz: q, stateKey: stateOf[i], chain: chainTo(i), trail: states[stateOf[i]]?.trail ?? null, reveal: lap ? 0 : 1 }); else ui.tools.hide();
       if (s.tool) ui.tools.ghost(q ? null : toolGhost(s, i));
       // (With a new patient the numbers are set at once, while the card is still out: it fades back in already showing them.)
       const ms = fresh ? 0 : undefined;

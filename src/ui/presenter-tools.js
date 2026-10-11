@@ -24,7 +24,7 @@ import { EDGES } from '../engine/topology.js?v=34e377149b';
 import { createDoppler } from './doppler.js?v=835ec7c137';
 import { createFibroScan } from './fibroscan.js?v=41a6567ce5';
 import { createPressureTime } from './pressure-time.js?v=6623447d1c';
-import { createFlowTime } from './flow-time.js?v=363082dd82';
+import { createFlowTime } from './flow-time.js?v=b18da85756';
 import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=1bb81ef271';
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
