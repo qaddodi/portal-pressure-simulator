@@ -1885,15 +1885,15 @@ button.finding:hover { background: var(--surface-2); }
 .pz-data.pz-data { --pz-glass-edge: color-mix(in srgb, #fff 45%, transparent); --pz-glass-drop: rgb(0 0 0 / .14); background: color-mix(in srgb, var(--surface) 58%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); border-color: color-mix(in srgb, var(--text) 10%, transparent); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); }
 /* The blocks stand out from the glass: a fill a shade toward the text colour (darker in light, lighter in dark) and a hairline edge. */
 /* Tiles sit lighter than the glass around them in light mode, darker in dark mode. */
-.pz-data .pz-tile:not(.key) { background: color-mix(in srgb, #fff 78%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent); }
-:root[data-theme="dark"] .pz-data .pz-tile:not(.key) { background: color-mix(in srgb, #000 30%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, #fff 7%, transparent); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pz-data .pz-tile:not(.key) { background: color-mix(in srgb, #000 30%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, #fff 7%, transparent); } }
+.pz-data .pz-tile:not(.key), .pz-data.has-tool .pz-tile.key, .pz-data .pz-tool .endo-read > div { background: color-mix(in srgb, #fff 78%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent); }
+:root[data-theme="dark"] .pz-data .pz-tile:not(.key), :root[data-theme="dark"] .pz-data.has-tool .pz-tile.key, :root[data-theme="dark"] .pz-data .pz-tool .endo-read > div { background: color-mix(in srgb, #000 30%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, #fff 7%, transparent); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pz-data .pz-tile:not(.key), :root:not([data-theme="light"]) .pz-data.has-tool .pz-tile.key, :root:not([data-theme="light"]) .pz-data .pz-tool .endo-read > div { background: color-mix(in srgb, #000 30%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, #fff 7%, transparent); } }
 :root[data-theme="dark"] .pz-data.pz-data { --pz-glass-edge: color-mix(in srgb, #fff 12%, transparent); --pz-glass-drop: rgb(0 0 0 / .45); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pz-data.pz-data { --pz-glass-edge: color-mix(in srgb, #fff 12%, transparent); --pz-glass-drop: rgb(0 0 0 / .45); } }
 /* A faint halo of the page colour keeps the words crisp over a busy figure. */
 .pz-text, .pz-data { text-shadow: 0 0 10px color-mix(in srgb, var(--stage-bg) 55%, transparent); }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-data.pz-data { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
-@media (prefers-reduced-transparency: reduce) { .pz-data.pz-data { background: color-mix(in srgb, var(--surface) 96%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } .pz-data.pz-data { background: var(--surface-2); } .pz-data .pz-tile:not(.key) { background: var(--surface); } }
+@media (prefers-reduced-transparency: reduce) { .pz-data.pz-data { background: color-mix(in srgb, var(--surface) 96%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } .pz-data.pz-data { background: var(--surface-2); } .pz-data .pz-tile:not(.key), .pz-data.has-tool .pz-tile.key, .pz-data .pz-tool .endo-read > div { background: var(--surface); } }
 .pz-safe { position: absolute; left: 0; top: 0; bottom: 0; width: 0; opacity: 0; pointer-events: none; }
 .pz.stack .pz-safe { right: 0; top: auto; bottom: 0; width: auto; }
 .pz-text { position: absolute; left: clamp(20px, calc(3.4vw / var(--vz)), 76px); top: clamp(20px, calc(8vh / var(--vz)), 110px); bottom: clamp(20px, calc(8vh / var(--vz)), 110px); height: fit-content; margin-block: auto; width: min(calc(clamp(300px, calc(29vw / var(--vz)), 600px) * var(--pz-wk, 1)), calc(42vw / var(--vz))); max-height: calc(100% - 2 * clamp(20px, calc(8vh / var(--vz)), 110px)); display: flex; flex-direction: column; gap: clamp(10px, calc(2.3vh / var(--vz)), 30px); transition: opacity .22s var(--ease), transform .22s var(--ease), filter .4s var(--ease); }
@@ -2321,6 +2321,25 @@ button.finding:hover { background: var(--surface-2); }
 .pz-tool[data-kind="wall"] .endo-stress { grid-column: 1 / -1; }
 .pz-tool[data-kind="wall"] .endo-pos, .pz-tool[data-kind="wall"] .wall-law, .pz-tool[data-kind="wall"] .endo-read > :last-child { display: none; }
 .pz-data.has-tool { pointer-events: auto; }
+/* One block style beside a tool: the scope's readings and the key tile are all tiles of the data card (fill set above), laid out
+   two across with the grade on its own row, so no row is half empty. A reading's emphasis is its value colour, never a different box. */
+.pz-data.has-tool .pz-tile.key { border-color: transparent; }
+.pz-tool .endo-read { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(6px, calc(1vh / var(--vz)), 10px); }
+.pz-tool .endo-read > div { display: flex; flex-direction: column; justify-content: space-between; gap: .2em; min-width: 0; padding: clamp(8px, calc(1.1vh / var(--vz)), 12px) clamp(10px, calc(1.4vh / var(--vz)), 16px); border-radius: clamp(12px, calc(1.6vh / var(--vz)), 18px); border: 2px solid transparent; }
+.pz-tool .endo-read dt { font: 600 clamp(11px, calc(1.4vh / var(--vz)), 16px)/1.2 var(--font-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); white-space: normal; overflow-wrap: anywhere; }
+.pz-tool .endo-num, .pz-tool .endo-chip-v, .pz-tool .endo-grade, .pz-tool .endo-grade span, .pz-tool .endo-grade b { font: 600 clamp(17px, calc(2.4vh / var(--vz)), 26px)/1.1 var(--font-ui); letter-spacing: -.02em; }
+.pz-tool .endo-num { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .3em; }
+.pz-tool .endo-chip-v { margin: 0 !important; text-align: left; }
+.pz-tool .endo-chip-v[data-long] { font-size: clamp(14px, calc(1.8vh / var(--vz)), 19px); letter-spacing: 0; }
+.pz-tool .endo-chip-v::before { content: ''; display: inline-block; width: .5em; height: .5em; margin-right: .45em; border-radius: 50%; background: var(--text-3); vertical-align: .08em; transition: background-color .3s var(--ease); }
+.pz-tool .endo-chip[data-on="true"] .endo-chip-v::before { background: var(--accent); }
+.pz-tool .endo-chip.endo-red[data-on="true"] .endo-chip-v::before { background: var(--danger); }
+.pz-data .pz-tool .endo-chip[data-on="true"], .pz-data .pz-tool .endo-chip.endo-red[data-on="true"] { border-color: transparent; }
+.pz-tool .endo-grade { display: flex; align-items: center; gap: .1em .5em; }
+.pz-tool .endo-grade::before { width: .45em; height: .45em; }
+.pz-tool .endo-grade span { color: var(--text); }
+.pz-tool[data-kind="scope"] .endo-read > .endo-g { grid-column: 1 / -1; order: 0; }
+.pz-tool[data-kind="scope"] .endo-read > .endo-chip { order: 1; }
 .pz-tool .dop-main { flex: none; gap: 12px; }
 .pz-tool .dop-report { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2px 16px; align-items: start; }
 .pz-tool .dop-report > :not(.dop-stats) { grid-column: 1; }
@@ -2378,7 +2397,13 @@ button.finding:hover { background: var(--surface-2); }
 .pz.stack .pz-tool[data-kind="scope"] .endo-stage { width: min(40%, 24vh); flex: none; margin: 0; }
 .pz.stack .pz-tool[data-kind="scope"] .endo-pos { display: none; }
 .pz.stack .pz-tool[data-kind="scope"] .chart-side { flex: 1; min-width: 0; }
-.pz.stack .pz-tool[data-kind="scope"] .endo-read > :nth-child(n+5) { display: none; }
+/* Beside the view the tiles are compact, so all five fit: the grade across, then size and wall, then bands and red signs. */
+.pz.stack .pz-tool[data-kind="scope"] .endo-read { gap: 6px; }
+.pz.stack .pz-tool[data-kind="scope"] .endo-read > div { padding: 5px 8px; gap: 1px; border-radius: 10px; }
+.pz.stack .pz-tool[data-kind="scope"] .endo-read dt { font-size: 10px; letter-spacing: .05em; }
+.pz.stack .pz-tool[data-kind="scope"] .endo-num, .pz.stack .pz-tool[data-kind="scope"] .endo-chip-v, .pz.stack .pz-tool[data-kind="scope"] .endo-grade, .pz.stack .pz-tool[data-kind="scope"] .endo-grade span, .pz.stack .pz-tool[data-kind="scope"] .endo-grade b { font-size: 16px; }
+.pz.stack .pz-tool[data-kind="scope"] .endo-chip-v[data-long] { font-size: 12px; }
+.pz.stack .pz-tool[data-kind="scope"] .endo-num small { font-size: 11px; }
 .pz.stack .pz-tool .dop-note { display: none; }
 .pz.stack .pz-table td.note { min-width: 6.5em; }
 /* The count opens the slide list; a running time-lapse shows that Next skips it. */
