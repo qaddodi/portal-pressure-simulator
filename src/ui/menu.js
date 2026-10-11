@@ -93,7 +93,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   function deckRow(d, lib, script) {
     const row = h('button', { class: 'um-row', 'data-k': (script ? 's:' : 'd:') + d.id, 'aria-current': lib.current() === d.id ? 'true' : null, onclick: () => { close(); lib.start(d.id); } },
       svgIcon('play', 'um-play'), h('span', { class: 'um-t' }, script ? d.title : d.short || d.title),
-      script ? h('span', { class: 'um-m' }, `${d.steps.length} slides`) : dots(d.level, lib.levels),
+      script ? h('span', { class: 'um-m' }, `${(d.steps || d.deck.slides).length} slides`) : dots(d.level, lib.levels),
       script ? null : h('span', { class: 'um-m' }, `${d.minutes} min`));
     row.dataset.find = fold([d.title, d.short, script ? 'script' : ''].join(' ')); row.dataset.more = fold(d.summary);
     const info = h('button', { class: 'um-info', 'aria-label': `About ${d.short || d.title}`, 'aria-expanded': 'false', onclick: () => toggleInline(li, () => (script ? scriptPreview(d, lib) : deckPreview(d, lib)), info) }, icon('info'));
@@ -119,11 +119,11 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       h('button', { class: 'btn ghost sm', onclick: () => lib.shareDeck(d) }, svgIcon('share', 'mi-ic'), 'Copy link'),
       h('button', { class: 'btn ghost sm', title: 'Speaker notes and questions for the room, one row per slide', onclick: () => lib.notes(d) }, svgIcon('print', 'mi-ic'), 'Print notes')));
   const scriptPreview = (s, lib) => h('div', { class: 'um-pv-in' },
-    h('span', { class: 'um-pv-meta' }, `Your script · ${s.steps.length} slides`),
+    h('span', { class: 'um-pv-meta' }, `${s.deck ? 'Your deck' : 'Your script'} · ${(s.steps || s.deck.slides).length} slides`),
     h('h3', {}, s.title), h('p', {}, s.summary || ''),
     h('div', { class: 'um-acts' },
       h('button', { class: 'btn sm primary', onclick: () => { close(); lib.start(s.id); } }, svgIcon('play', 'mi-ic'), 'Present'),
-      h('button', { class: 'btn sm', onclick: () => lib.addStep(s.id) }, 'Add current state'),
+      s.deck ? null : h('button', { class: 'btn sm', onclick: () => lib.addStep(s.id) }, 'Add current state'),
       h('button', { class: 'btn ghost sm', onclick: () => lib.shareScript(s) }, 'Share link'),
       h('button', { class: 'btn ghost sm', onclick: () => lib.exportScript(s) }, 'Export'),
       h('button', { class: 'btn ghost sm', onclick: () => lib.scriptNotes(s) }, 'Print notes'),
@@ -205,7 +205,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
           h('div', { class: 'um-gl', id: 'umt-mine' }, h('b', {}, 'Your scripts'),
             h('span', { class: 'um-gacts' },
               h('button', { class: 'um-link', title: 'A new script from the current model', onclick: () => lib.newScript() }, icon('plus'), 'New'),
-              h('button', { class: 'um-link', title: 'Import a script file', onclick: () => lib.importFile() }, icon('download'), 'Import'))),
+              h('button', { class: 'um-link', title: 'Import a deck file or a script', onclick: () => lib.importFile() }, icon('download'), 'Import'))),
           mine.length ? h('ul', { 'aria-labelledby': 'umt-mine' }, mine.map((s) => deckRow(s, lib, true)))
             : h('p', { class: 'um-note' }, 'Capture states of the model and play them like a presentation.')));
     }

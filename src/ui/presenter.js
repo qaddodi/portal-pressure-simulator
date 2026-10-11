@@ -14,15 +14,16 @@
 // P projector contrast, Esc. On a touch screen a sideways swipe over the figure goes on or back.
 
 import { store, replaceParams } from './store.js?v=5edd069b32';
-import { h, toast, svgIcon, icon, fmt, clamp } from './util.js?v=045e641b44';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal } from './util.js?v=045e641b44';
 import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=18ecf24045';
 import { sinusoidSupported } from './sinusoid-view.js?v=de74e96d8e';
 import { NODES } from '../engine/topology.js?v=706a39d50b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=290c1c555a';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=1d73bdef8b';
 import { createHvpgMonitor } from './hvpg-proc.js?v=ba33a59e09';
 import { createTools } from './presenter-tools.js?v=05ee1b8b5a';
-import { openHandout } from './handout.js?v=ae57ad6b00';
+import { openHandout } from './handout.js?v=d93ab577d5';
+import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 
 const KEY = 'pps.scripts';
 const readMine = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
@@ -663,7 +664,9 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
 
   const all = () => [...DECKS, ...readMine().map(fromScript)];
   // An instructor's script (captured model states) as slides: its own titles and notes, the ladder beside.
+  // An imported deck file (s.deck: the full deck format, read without running it by deck-source.js) keeps every feature.
   function fromScript(s) {
+    if (s.deck) return { ...s.deck, id: s.id, title: s.title, level: 'yours', mine: true, full: true, slides: withOverview(s.deck).slides };
     return { ...s, level: 'yours', mine: true, slides: (s.steps || []).map((st) => ({
       preset: st.preset, presetDays: st.presetDays, params: st.params, action: st.action, days: st.days, view: st.view, cam: st.view === 'circuit' ? 'fit' : st.cam || 'fit',
       kicker: st.kicker || s.title, title: st.title || 'Step', line: st.line || '', causes: st.causes, site: st.site, notes: st.notes || st.tell || '', ask: st.ask, data: 'ladder', key: st.key || [],
@@ -1668,7 +1671,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   }
   function addStep(id) {
     const list = readMine(), s = list.find((x) => x.id === id);
-    if (!s) return;
+    if (!s || s.deck) return;
     const step = captureStep();
     step.title = prompt('Title for this slide', step.title) || step.title;
     s.steps.push(step); writeMine(list); rerenderHome?.();
@@ -1678,15 +1681,38 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   const copy = (url, msg) => navigator.clipboard?.writeText(url).then(() => toast(msg), () => prompt('Copy this link', url)) ?? prompt('Copy this link', url);
   const shareScript = (s) => copy(`${location.origin}${location.pathname}#script=${enc(s)}`, 'Link copied: opening it adds the script to the recipient’s library.');
   const shareDeck = (d) => copy(`${location.origin}${location.pathname}?script=${d.id}`, 'Link copied: it opens this presentation at its first slide.');
+  // Import: a deck .js file (the format of src/ui/decks), a deck or script as .json, or the same text pasted.
   function importFile() {
-    const inp = h('input', { type: 'file', accept: '.json,application/json' });
-    inp.addEventListener('change', async () => {
-      try { addToLibrary(JSON.parse(await inp.files[0].text())); } catch { toast('That file is not a presenter script.'); }
-    });
-    inp.click();
+    const area = h('textarea', { class: 'imp-src', rows: 10, spellcheck: 'false', autocapitalize: 'off', autocomplete: 'off', 'aria-label': 'Deck file contents',
+      placeholder: "export const MY_DECK = {\n  title: 'My talk',\n  slides: [ { title: '…', line: '…' } ],\n};" });
+    const err = h('p', { class: 'imp-err', role: 'alert', hidden: true });
+    const add = (text) => {
+      try { addText(text); closeModal(); } catch (e) { err.textContent = e.message || 'That is not a deck or a script.'; err.hidden = false; }
+    };
+    const inp = h('input', { type: 'file', accept: '.js,.mjs,.json,text/javascript,application/javascript,application/json', hidden: true });
+    inp.addEventListener('change', async () => { const f = inp.files[0]; if (f) add(await f.text()); inp.value = ''; });
+    openModal('Import a presentation', h('div', { class: 'imp' },
+      h('p', {}, 'Choose a deck file (.js, written like the built-in decks) or a script (.json), or paste its contents. The file is read as data and never run.'),
+      inp,
+      h('button', { class: 'btn', onclick: () => inp.click() }, icon('download'), 'Choose a file…'),
+      area, err,
+      h('div', { class: 'btn-row', style: { justifyContent: 'flex-end', marginTop: '8px' } },
+        h('button', { class: 'btn', onclick: () => closeModal() }, 'Cancel'),
+        h('button', { class: 'btn primary', onclick: () => add(area.value) }, 'Add to your scripts'))), { sub: null });
+  }
+  // A script (title, steps) as JSON is kept as before; anything else must be a deck.
+  function addText(text) {
+    let o = null;
+    try { o = JSON.parse(text); } catch { /* not JSON */ }
+    if (o?.title && Array.isArray(o.steps)) return addToLibrary(o);
+    if (o?.deck) return addToLibrary(o);
+    return addToLibrary({ deck: parseDeckSource(text) });
   }
   function addToLibrary(s) {
-    if (!s?.title || !Array.isArray(s.steps)) throw new Error('bad script');
+    if (s?.deck) {
+      const d = checkDeck(s.deck);
+      s = { title: d.title, summary: d.summary || '', deck: d };
+    } else if (!s?.title || !Array.isArray(s.steps)) throw new Error('That is not a deck or a script.');
     const list = readMine();
     const id = 'my-' + Date.now().toString(36);
     list.push({ ...s, id, builtin: undefined });

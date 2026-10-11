@@ -2274,7 +2274,8 @@ button.finding:hover { background: var(--surface-2); }
 .pz-data.has-tool { width: clamp(340px, 32vw, 620px); }
 /* An instrument with tiles under it (desktop): a narrower card with the tiles side by side, so the figure keeps more of the middle. */
 .pz:not(.stack):not(.port) .pz-data.has-tool:not(.tool-only) { width: clamp(320px, 27vw, 540px); }
-.pz:not(.stack):not(.port) .pz-data.has-tool:not(.tool-only) .pz-tiles { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
+/* Beside a tool the card is narrow: a tile keeps room for its name and rating (about 9 em), and the tiles wrap to a second row rather than squeeze. */
+.pz:not(.stack):not(.port) .pz-data.has-tool:not(.tool-only) .pz-tiles { grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5em), 1fr)); }
 .pz:not(.stack):not(.port) .pz-data.has-tool:not(.tool-only) .pz-tiles[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .pz:not(.stack):not(.port) .pz-data.has-tool.tiles-only:not(.tool-only) .pzt-v { font-size: min(clamp(28px, calc(4.6vh / var(--vz)), 56px), 30cqi); }
 .pz-tool:not([data-kind]) { display: none; }
@@ -5026,3 +5027,18 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 @media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
   .vdock .narrator:not(.full) .nr-t { -webkit-line-clamp: 1; }
 }
+
+/* Import a presentation (presenter.js importFile): a file button and a paste box. */
+.imp { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.imp > .btn-row { align-self: stretch; }
+.imp-src { width: 100%; min-height: 180px; resize: vertical; font: var(--fs-13, 13px)/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-card); background: var(--surface-2); color: var(--text); }
+.imp-src:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.modal .imp-err { color: var(--danger, #c0392b); margin: 0; font-size: var(--fs-14); }
+
+/* A data card squeezed by long words (an imported deck's long title, a tool and several tiles) scrolls rather than
+   clip, the tool's tap chips put the name over the number when narrow, and a tile's rating wraps inside the tile. */
+.pz.port .pz-data, .pz-data.under { overflow-y: auto; overscroll-behavior: contain; }
+.pz.port .pz-data > *, .pz-data.under > * { flex: none; }
+.pz-tool .ab-lab { flex-wrap: wrap; row-gap: 0; min-width: 0; }
+.pzt-r { min-width: 0; hyphens: auto; overflow-wrap: break-word; }
+.pz.stack .pzt-r { font-size: clamp(11px, 9cqi, 15px); }
