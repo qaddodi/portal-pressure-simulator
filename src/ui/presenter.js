@@ -1426,6 +1426,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     for (const c of el.children) {
       const s = getComputedStyle(c);
       if (s.display === 'none' || s.position === 'absolute' || s.position === 'fixed') continue;
+      if (s.maxHeight === '0px') continue;   // (a folded part, a phone's closed tool: its hidden contents are not overflow)
       const cz = parseFloat(s.zoom) || 1;
       used += c.getBoundingClientRect().height / z + ((parseFloat(s.marginTop) || 0) + (parseFloat(s.marginBottom) || 0) + Math.max(0, c.scrollHeight - c.clientHeight)) * cz;
       n++;

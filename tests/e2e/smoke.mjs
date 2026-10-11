@@ -120,6 +120,21 @@ const barFit = (page) => page.evaluate(() => {
   }
   return 'ok';
 });
+// A phone's data card hugs its contents: at most 12 px of empty card above the first part or below the last, and its
+// contents at full size (a folded tool must not count as overflow and shrink them). null when it fits, else what is wrong.
+const cardGap = (page) => page.evaluate(() => {
+  const d = document.querySelector('.pz-data:not(.pz-hide):not([hidden])');
+  if (!d || !d.offsetHeight) return null;
+  const b = d.getBoundingClientRect(), parts = [...d.children].filter((c) => { const s = getComputedStyle(c), r = c.getBoundingClientRect(); return s.display !== 'none' && s.position !== 'absolute' && r.height > 0.5; });
+  if (!parts.length) return null;
+  const top = Math.min(...parts.map((c) => c.getBoundingClientRect().top)) - b.top - d.clientTop;
+  const bottom = b.bottom - d.clientTop - Math.max(...parts.map((c) => c.getBoundingClientRect().bottom));
+  const fit = parseFloat(d.style.getPropertyValue('--pz-fit')) || 1;
+  if (top > 12 || bottom > 12) return `the data card has ${Math.round(top)} px empty above and ${Math.round(bottom)} px below its contents (cap 12)`;
+  if (fit < 0.9) return `the data card's contents are shrunk to ${Math.round(fit * 100)} %`;
+  return null;
+});
+
 // Every deck's id (the presenter's library), for the per-deck checks below.
 const DECK_IDS = [...readFileSync(new URL('../../src/ui/decks.js', import.meta.url), 'utf8').matchAll(/\['([a-z0-9-]+)', '(?:[^'\\]|\\.)*'\]/g)].map((m) => m[1]);
 if (DECK_IDS.length < 15) throw new Error(`only ${DECK_IDS.length} deck ids read from decks.js`);
@@ -638,6 +653,8 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     for (let guard = 0; guard < 80; guard++) {
       const n = await page.evaluate(() => document.querySelector('.pzb-n')?.textContent.trim());
       if ((await barSettle(page)) !== 'ok') throw new Error(`${deck}, slide ${n}: ${await barFit(page) || 'the slide never settled'}`);
+      const gap = await cardGap(page);
+      if (gap) throw new Error(`${deck}, slide ${n}: ${gap}`);
       const [a, b] = n.split('/').map((x) => +x);
       if (a === b) break;
       // (On a time-lapse, Next first runs it to its end: press again until the slide changes.)
