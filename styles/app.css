@@ -1904,7 +1904,10 @@ button.finding:hover { background: var(--surface-2); }
 .pz-line { margin: 0; font: 400 clamp(17px, calc(2.55vh / var(--vz)), 31px)/1.38 var(--font-ui); color: var(--text-2); text-wrap: pretty; }
 /* Body emphasis: key terms in the heading colour, values in a quiet pill with even figures. */
 .pz-line b { font-weight: 600; color: var(--text); }
-.pz-val { display: inline-block; padding: .02em .42em .06em; border-radius: var(--r-pill); background: color-mix(in srgb, var(--text) 7%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 12%, transparent); font-weight: 600; font-size: .92em; font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; line-height: 1.25; }
+.pz-val { display: inline-block; padding: .02em .42em .06em; border-radius: var(--r-pill); background: color-mix(in srgb, var(--text) 7%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 12%, transparent); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
+/* Every pill (value or term) is one box: the same size, line height and padding, so they match in height; a little room either side, and a taller line where a line holds one so pills on adjacent lines never touch. */
+.pz-val, .pz-term { display: inline-block; box-sizing: border-box; padding: .1em .5em; margin-inline: .14em; font-size: .92em; line-height: 1.2; vertical-align: baseline; }
+.pz-line:has(.pz-val, .pz-term) { line-height: 1.68; }
 .pz-eq { margin: 0; color: var(--text); }
 .pz-eq math { font-family: "STIX Two Math", "Cambria Math", "Latin Modern Math", math; font-size: clamp(22px, calc(3.4vh / var(--vz)), 42px); math-style: normal; }
 .pz-eq .eq-wedge { color: var(--tr-wedge); } .pz-eq .eq-hv { color: var(--tr-hv); } .pz-eq .eq-pv { color: var(--tr-pv); } .pz-eq .eq-ivc { color: var(--tr-ivc); } .pz-eq .eq-ra { color: var(--tr-ra); } .pz-eq .eq-var { color: var(--tr-var); } .pz-eq .eq-sv { color: var(--tr-sv); } .pz-eq .eq-acc { color: var(--accent); }
@@ -1914,7 +1917,7 @@ button.finding:hover { background: var(--surface-2); }
 .app.pz-hi .pz-val { background: color-mix(in srgb, var(--text) 12%, transparent); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 55%, transparent); }
 /* A pill in a station's colour (--tone): a live value ({pv}) or a term that points at the figure ([portal vein](pv)). */
 .pz-val.tone, .pz-term { background: color-mix(in srgb, var(--tone) 15%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 50%, transparent); color: color-mix(in srgb, var(--tone) 72%, var(--text)); }
-.pz-term { display: inline-block; padding: .02em .4em .06em; border-radius: var(--r-pill); font-weight: 650; line-height: 1.25; }
+.pz-term { border-radius: var(--r-pill); font-weight: 650; white-space: nowrap; }
 /* A cut-off ({>=10 mmHg}): an outline, no fill. Filled is this patient, outlined is the rule. */
 .pz-val.cut { background: transparent; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text) 45%, transparent); color: var(--text-2); }
 .app.pz-hi .pz-val.tone, .app.pz-hi .pz-term { box-shadow: inset 0 0 0 1.5px var(--tone); }
