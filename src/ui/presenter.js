@@ -21,7 +21,7 @@ import { sinusoidSupported } from './sinusoid-view.js?v=38b983f75c';
 import { NODES } from '../engine/topology.js?v=34e377149b';
 import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=a1f8be0b88';
 import { createHvpgMonitor } from './hvpg-proc.js?v=b744bb28bb';
-import { createTools } from './presenter-tools.js?v=2d60053920';
+import { createTools } from './presenter-tools.js?v=765b7915fb';
 import { openHandout } from './handout.js?v=65fbbee1a0';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 
