@@ -811,6 +811,9 @@ export function createLobuleZoom({ host }) {
     // Lymph (Lymph layer on): the whole liver's rate and its protein; the change from healthy is on its card.
     if (m.hide) setLab('lymph', 'Lymphatic', 'Lymph', '?', '', '', null);
     else setLab('lymph', 'Lymphatic', 'Lymph', fmt(m.lymph, 1), `mL/min · Protein ${Math.round(m.lyProt * 100)}%`, '', null);
+    // The arteriole and the ductule: named only while a slide's term points at them (see named()).
+    setLab('ha', 'Hepatic arteriole', 'Arteriole', '', '', '', 'var(--artery)');
+    setLab('bd', 'Bile ductule', 'Ductule', '', '', '', 'var(--bile-duct)');
     if (sinTo || sinU > 0) sv.setModel(m);
   }
 
@@ -823,7 +826,7 @@ export function createLobuleZoom({ host }) {
     return rest.length ? [h('small', {}, a), h('small', { class: 'u2' }, h('span', { class: 'dot' }, '· '), rest.join(' · '))] : [h('small', {}, u)];
   };
   // What a presenter slide's terms call each label (presentLit, see presenter.js TARGETS).
-  const LZ_TARGET = { triad: 'triad', sin: 'sinusoid', cv: 'central', lymph: 'lymph' };
+  const LZ_TARGET = { ha: 'arteriole', bd: 'ductule', triad: 'triad', sin: 'sinusoid', cv: 'central', lymph: 'lymph' };
   function setLab(key, name, short, v, u, d, col) {
     let L = labs[key];
     if (!L) {
@@ -836,7 +839,7 @@ export function createLobuleZoom({ host }) {
       L.txt = txt;
       L.el.style.setProperty('--sw', col || 'var(--border-strong)');
       L.el.replaceChildren(h('span', { class: 'n' }, h('span', { class: 'n-long' }, name), h('span', { class: 'n-short' }, short)),
-        h('span', { class: 'v' }, h('b', {}, v), ...unitParts(u), d ? h('span', { class: 'd' }, d) : null));
+        v === '' ? null : h('span', { class: 'v' }, h('b', {}, v), ...unitParts(u), d ? h('span', { class: 'd' }, d) : null));
       L.el.setAttribute('aria-label', `${name} ${v} ${u}${d ? `, ${d.startsWith('▲') ? 'up' : 'down'} ${d.slice(2)} ${model?.cmp ? 'since then' : 'from healthy'}` : ''}. Show details`);
       layoutKey = '';
     }
@@ -845,6 +848,7 @@ export function createLobuleZoom({ host }) {
   // sinusoid just below the middle of the left side; as the view is zoomed or panned, the label stays
   // on its vessel while that is comfortably in view, and otherwise moves to the one in view nearest
   // the middle of the free space (so it does not jump about).
+  const named = (k) => !!document.querySelector('.app')?.dataset.lit?.split(' ').includes(`lobule:${LZ_TARGET[k]}`);
   const pick = { triad: 3, lt: null, sin: null, geo: null };
   const sinAt = (t) => at(t.pts, 0.45);
   const anchorOf = (key) => {
@@ -852,6 +856,7 @@ export function createLobuleZoom({ host }) {
     if (key === 'triad') return C[pick.triad];
     if (key === 'cv') return [g.cx, g.cy];
     if (key === 'lymph') return g.triads[pick.lt ?? pick.triad].lv.pts[0];
+    if (key === 'ha' || key === 'bd') return g.triads[pick.triad][key];
     return sinAt(sinTube());
   };
   const sinTube = () => {
@@ -883,7 +888,7 @@ export function createLobuleZoom({ host }) {
     if (!inside(C[pick.triad], keep)) { const i = best([0, 1, 2, 3, 4, 5], (i) => C[i], [[g.cx, g.cy]]); if (i != null) pick.triad = i; }
     if (!inside(sinAt(sinTube()), keep)) { const t = best([...g.L0, ...g.L1, ...g.L2], sinAt, [[g.cx, g.cy], C[pick.triad]]); if (t) pick.sin = t.id; }
   }
-  const hitKind = (key) => (key === 'triad' ? { part: 'triad', tri: pick.triad } : key === 'cv' ? { part: 'cv' } : key === 'lymph' ? { part: 'lv', tri: pick.lt ?? pick.triad } : { part: 'sin', tube: sinTube().id });
+  const hitKind = (key) => (key === 'ha' || key === 'bd' ? { part: key, tri: pick.triad } : key === 'triad' ? { part: 'triad', tri: pick.triad } : key === 'cv' ? { part: 'cv' } : key === 'lymph' ? { part: 'lv', tri: pick.lt ?? pick.triad } : { part: 'sin', tube: sinTube().id });
   // The lesion pointer: a pill near the spot, clear of the labels and cards, with a leader to a ring on it. Eases in and out.
   function placeCall(fr, placed, cards) {
     if (!callEl.isConnected) { labels.append(callEl); leaders.append(callLine, callRing); }
@@ -909,7 +914,7 @@ export function createLobuleZoom({ host }) {
   function layoutLabels() {
     // Laid out where the presenter's glide lands (see camSettle), or once its time is up if the hand cut it short.
     if (camMove) { if (performance.now() >= camUntil) camSettle(); return; }
-    const fr0 = freeRect(), g = geo, key = `${g.W}x${g.H}|${Object.values(labs).map((l) => l.txt).join('|')}|${zonesOn}|${lymphOn}|${call ? call.at + call.label : ''}|${V.k},${V.x},${V.y}|${fr0.t},${fr0.b},${fr0.l},${fr0.r}`;
+    const fr0 = freeRect(), g = geo, key = `${g.W}x${g.H}|${Object.values(labs).map((l) => l.txt).join('|')}|${zonesOn}|${lymphOn}|${named('ha')}${named('bd')}|${call ? call.at + call.label : ''}|${V.k},${V.x},${V.y}|${fr0.t},${fr0.b},${fr0.l},${fr0.r}`;
     if (key === layoutKey) return;
     layoutKey = key;
     pickAnchors(fr0);
@@ -948,10 +953,10 @@ export function createLobuleZoom({ host }) {
     });
     // The letters' halo reaches past each label's box, more so at larger text: the margins grow with it.
     const lk = parseFloat(document.documentElement.style.getPropertyValue('--label-k')) || 1, hm = 4 + 2 * lk;
-    for (const k of ['cv', 'sin', 'triad', 'lymph']) {
+    for (const k of ['cv', 'sin', 'triad', 'lymph', 'ha', 'bd']) {
       const L = labs[k];
       if (!L) continue;
-      if (k === 'lymph' && !lymphOn) { L.el.hidden = true; L.line.style.display = L.dotEl.style.display = 'none'; continue; }
+      if ((k === 'lymph' && !lymphOn) || ((k === 'ha' || k === 'bd') && !named(k))) { L.el.hidden = true; L.line.style.display = L.dotEl.style.display = 'none'; continue; }
       L.el.hidden = false;
       // Too wide for the free space (large text, a narrow screen): the label stacks its second reading.
       L.el.classList.remove('stack');
@@ -963,7 +968,7 @@ export function createLobuleZoom({ host }) {
       if (L.el.hidden) { L.line.style.display = L.dotEl.style.display = 'none'; continue; }
       const pad = 8 + 4 * lk, step = hh + 12;
       const preferred = k === 'cv' ? [a[0], a[1] - g.rcv0 * V.k - hh / 2 - 12]
-        : k === 'triad' ? [a[0], a[1] + hh / 2 + 12] : k === 'lymph' ? [a[0], a[1] - hh / 2 - 14] : a;
+        : k === 'triad' ? [a[0], a[1] + hh / 2 + 12] : k === 'ha' ? [a[0] - w / 2 - 14, a[1] - hh / 2 - 10] : k === 'bd' ? [a[0] + w / 2 + 14, a[1] - hh / 2 - 10] : k === 'lymph' ? [a[0], a[1] - hh / 2 - 14] : a;
       // Steps in proportion to the label, so larger text searches proportionally farther (above, below, beside, diagonally).
       const candidates = [preferred];
       for (const dx of [0, -(w / 2 + 12), w / 2 + 12, -(w + 24), w + 24])

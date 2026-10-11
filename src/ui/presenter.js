@@ -19,10 +19,10 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=18ecf24045';
 import { sinusoidSupported } from './sinusoid-view.js?v=f48a130c4b';
 import { NODES } from '../engine/topology.js?v=34e377149b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=4a2f2c3baf';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=e4fa7c2ba0';
 import { createHvpgMonitor } from './hvpg-proc.js?v=e3c93a9bb1';
 import { createTools } from './presenter-tools.js?v=c36ef105ec';
-import { openHandout } from './handout.js?v=ac1ba2be95';
+import { openHandout } from './handout.js?v=c975badb02';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 
 const KEY = 'pps.scripts';
@@ -94,6 +94,8 @@ const TARGETS = {
   heart: { organ: 'heart', tone: 'ra', words: 'heart' },
   // Inside the liver (lit: the lobule's and the sinusoid's own labels take the colour and a soft glow, .app[data-lit]).
   'lobule:triad': { lit: true, tone: 'pv', words: 'portal tracts?|portal triads?|portal venules?' },
+  'lobule:arteriole': { lit: true, tone: '--artery', words: 'hepatic arterioles?|arterioles?' },
+  'lobule:ductule': { lit: true, tone: '--bile-duct', words: 'bile ductules?|bile ducts?' },
   'lobule:sinusoid': { lit: true, tone: 'wedge', words: 'sinusoids?' },
   'lobule:central': { lit: true, tone: 'hv', words: 'central veins?|central venules?' },
   'lobule:lymph': { lit: true, tone: 'ivc', words: 'lymphatics?|lymph' },
