@@ -10,7 +10,7 @@ export const VARICES = {
   objectives: ['Name the main portosystemic collaterals and where they form', 'Relate varix size and HVPG to bleeding risk', 'Recognize left-sided portal hypertension and gastric varices', 'Explain why heart failure rarely produces varices'],
   slides: [
     {
-      id: 'collat', preset: 'csph', cam: 'fit', data: 'tiles', tiles: ['hvpg', 'varix', 'spleen', 'plt'],
+      id: 'collat', preset: 'csph', cam: 'fit', glow: [{ id: 'lgv', soft: true }], data: 'tiles', tiles: ['hvpg', 'varix', 'spleen', 'plt'],
       kicker: 'Collaterals', site: 'sin', title: 'Collaterals open where portal and systemic veins meet',
       line: 'Where portal and systemic veins meet, small connecting veins open and swell, carrying portal blood around the liver.',
       notes: 'Portosystemic collaterals open where the portal and systemic venous beds meet: at the gastroesophageal junction (left gastric and short gastric veins to the azygos), the umbilicus (paraumbilical veins), the rectum (superior to middle and inferior rectal veins), the retroperitoneum (veins of Retzius), and through splenorenal and gastrorenal shunts. They form by reopening existing channels and by new vessel growth, driven by the portal-to-systemic gradient. Even large ones do not relieve portal hypertension: splanchnic inflow rises to fill them.',
