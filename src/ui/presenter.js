@@ -974,6 +974,33 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       while (deck && (!shown || shown.i !== want || shown.rev !== wantRev || shown.gen !== gen)) await transition(want, wantRev);
     } finally { busy = false; }
   }
+  // Inside the liver a slide change is one sequence: every label (text, pill, ring, leader) eases out together, the
+  // camera moves and the lit set changes with nothing showing, then only the new slide's labels ease in together
+  // (.app.pz-hush; while it holds, no other state can bring a label back for a frame).
+  const HUSH_OUT = 250, HUSH_IN = 350;
+  let hushed = false, hushAt = 0, hushInT = 0, lastCam = null;
+  // The liver labels' own eases still running (by property or animation name); getAnimations also starts any pending one.
+  async function eased(props, cap) {
+    const run = document.getAnimations().filter((a) => a.effect?.target?.closest?.('.lz, .sv') && (props.includes(a.transitionProperty) || props.includes(a.animationName)));
+    if (run.length) await Promise.race([Promise.all(run.map((a) => a.finished.catch(() => {}))), wait(cap)]);
+  }
+  function hush() {
+    if (hushed) return;
+    hushed = true; hushAt = performance.now(); clearTimeout(hushInT);
+    app.classList.remove('pz-hush-in'); app.classList.add('pz-hush');
+  }
+  async function unhush(cut) {
+    if (!hushed) return;
+    // Back only once the camera or the sinusoid has landed (its labels laid out there) and the lit set's own eases
+    // (a pill in or out, a label lit or not) have run, unseen.
+    await until(() => cut() || (!document.querySelector('.lz.lz-cam') && (store.get().sinusoid ? !!document.querySelector('.sv.on .sv-region') : !document.querySelector('.lz.lz-sin'))), 2500);
+    await wait(80);
+    await eased(['--pill-o', '--lit-o', 'pill-in', 'sv-fade-in'], 1500);
+    if (cut()) return;
+    hushed = false;
+    app.classList.add('pz-hush-in'); app.classList.remove('pz-hush');
+    clearTimeout(hushInT); hushInT = setTimeout(() => app.classList.remove('pz-hush-in'), HUSH_IN + 50);
+  }
   async function transition(to, rev) {
     const g = gen, s = slides[to], cut = () => !deck || want !== to || wantRev !== rev || gen !== g;
     // The slide on screen is leaving, so a move cut short never counts as showing it: going back and forward again to that
@@ -982,11 +1009,18 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const q = asking(s, rev), cam = s.visual ? s.cam || null : q ? 'fit' : s.cam || 'fit';
     // A time-lapse starts from the slide before's state; a catheter slide drives its own camera.
     const lap = !!s.lapse && to > 0 && !q, ct = !q && !s.visual ? s.cath || null : null;
+    // In the liver, with a new framing or new lit labels: all labels out first (see hush).
+    const inLiver = store.get().lobule || store.get().sinusoid;
+    const litNext = !s.visual && !q ? slideTargets(s).lit.join(' ') : '';
+    if (inLiver && !booting && (hushed || cam !== lastCam || litNext !== (app.dataset.lit || '') || s.visual || q || ct)) hush();
     // Words out, and the marks: they belong to the slide that is leaving.
-    store.set({ focus: null, presentLabels: [], presentTerms: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
+    store.set({ focus: null, presentLabels: [], presentTerms: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
+    if (!hushed) delete app.dataset.lit;   // (hushed, the lit set goes straight to the next slide's: a label on both keeps its pill)
     stopLapse(); abSlow();
     const si = lap ? stateOf[to - 1] : stateOf[to];
     await wordsOut(s, shownState >= 0 && (si !== shownState || liveOff));
+    // (Nothing in the liver changes until its labels are gone.)
+    if (hushed) { await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['--lab-o'], 600); if (cut()) return; }
     if (cut()) return;
     slideLayers(s);
     // The catheter leaves with its slides (with a new patient, the figure's fade takes it).
@@ -1042,6 +1076,9 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       app.dataset.lit = tg?.lit.join(' ') || '';
     }
     { const ss = !s.visual && !q ? [...new Set([...(s.sites || []), ...slideTargets(s).sites])] : []; if (ss.length) stage.setSites(ss, st.fp); }
+    lastCam = cam;
+    await unhush(cut);
+    if (cut()) return;
     shown = { i: to, rev, gen: g };
     paintChrome();
     if (booting) await coverDown();
@@ -1792,6 +1829,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     removeEventListener('resize', onResize);
     fitRO?.disconnect(); cancelAnimationFrame(fitRaf);
     store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
+    hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in');
     clearTimeout(idleT); clearTimeout(dock.fit); cancelAnimationFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false;
     ui?.tools.dispose(); ui?.root.remove(); ui?.shade.remove(); ui = null;
     view.classList.remove('pz-out');

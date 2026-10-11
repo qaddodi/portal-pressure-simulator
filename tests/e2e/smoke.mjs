@@ -155,6 +155,69 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (!(rows.back[rows.back.length - 1].pill > 0.95)) throw new Error('the pill did not come back with its label');
   });
 
+  await check(device, 'presenter in the liver: a slide change shows only the old and new slides\' labels, pills with their text', async (page) => {
+    // The portal circulation deck (after its outline), one patient: the whole lobule, the portal tract, the sinusoid wall, the central vein.
+    await open(page, '?preset=healthy');
+    await page.evaluate(() => window.pps.presenter.start('circulation', 4));
+    await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && window.pps.stage.lobuleOpen() && window.pps.stage.lobuleSettled() && !document.querySelector('.pz-cover'), null, { timeout: 60000 });   // (the start's cover gone)
+    const settle = async () => {
+      await page.waitForFunction(() => { const a = document.querySelector('#app'); return !a.classList.contains('pz-hush') && !a.classList.contains('pz-hush-in') && (window.pps.stage.lobuleOpen() || window.pps.store.get().sinusoid); }, null, { timeout: 30000 });
+      await page.waitForTimeout(1500);
+    };
+    await settle();
+    // Every frame (and between frames): each label's text and pill, and each leader, as seen (times every ancestor's opacity).
+    const watch = () => page.evaluate(() => {
+      const app = document.querySelector('#app'), seen = window.__labSeen = [], t0 = performance.now();
+      // (Each label's own text-to-pill ratio at rest: some captions are drawn a little lighter than their pill.)
+      const ids = window.__labIds ||= new WeakMap();
+      const id = (e) => { if (!ids.has(e)) ids.set(e, ids.size || Math.random()); return ids.get(e); };
+      window.__labRatio = () => Object.fromEntries([...document.querySelectorAll(':is(.lz, .sv) :is(.lz-lab, .lz-zone, .sv-region)')]
+        .filter((l) => !l.hidden && l.firstElementChild && +getComputedStyle(l, '::before').opacity > 0.5)
+        .map((l) => [id(l), +getComputedStyle(l.firstElementChild).opacity / +getComputedStyle(l, '::before').opacity]));
+      window.__labBefore = window.__labRatio();
+      const anc = (e) => { let o = 1; for (let x = e; x && x !== app; x = x.parentElement) { const cs = getComputedStyle(x); if (cs.visibility === 'hidden' || cs.display === 'none') return 0; o *= +cs.opacity; } return o; };
+      const sample = () => {
+        const lit = app.dataset.lit || '';
+        for (const lab of document.querySelectorAll(':is(.lz, .sv) :is(.lz-lab, .lz-zone, .sv-region)')) {
+          if (lab.hidden || !lab.firstElementChild) continue;
+          const a = anc(lab), text = a * +getComputedStyle(lab.firstElementChild).opacity, pill = a * +getComputedStyle(lab, '::before').opacity;
+          if (text > 0.01 || pill > 0.01) seen.push({ kind: 'label', id: id(lab), t: lab.dataset.target || '', text, pill, lit, ms: Math.round(performance.now() - t0) });
+        }
+        for (const ld of document.querySelectorAll(':is(.lz-leaders, .sv-leaders) [data-target]')) {
+          const o = anc(ld);
+          if (o > 0.01) seen.push({ kind: 'leader', t: ld.dataset.target, text: o, lit });
+        }
+      };
+      const tick = () => { sample(); if (window.__labSeen === seen) requestAnimationFrame(tick); };
+      requestAnimationFrame(tick);
+      const iv = setInterval(() => (window.__labSeen === seen ? sample() : clearInterval(iv)), 30);
+    });
+    const step = async (what) => {
+      const before = await page.evaluate(() => document.querySelector('#app').dataset.lit || '');
+      await watch();
+      const n = await page.evaluate(() => document.querySelector('.pzb-n, .pz-count')?.textContent);
+      await page.keyboard.press('ArrowRight');
+      // (The counter moves in the same task that starts the slide change, so from here on the change is under way.)
+      await page.waitForFunction((n) => document.querySelector('.pzb-n, .pz-count')?.textContent !== n, n);
+      await settle();
+      const { seen, after, ratio } = await page.evaluate(() => { const seen = window.__labSeen; window.__labSeen = null; return { seen, after: document.querySelector('#app').dataset.lit || '', ratio: { ...window.__labBefore, ...window.__labRatio() } }; });
+      if (!before || !after) throw new Error(`${what}: a slide lights nothing in the liver (before "${before}", after "${after}"), so this check cannot tell`);
+      const ok = new Set([...before.split(' '), ...after.split(' ')]);
+      const stray = seen.filter((x) => !ok.has(x.t));
+      if (stray.length) {
+        const worst = stray.reduce((m, x) => (x.text > m.text ? x : m));
+        throw new Error(`${what}: ${new Set(stray.map((x) => x.t || '(no target)')).size} label(s) from neither slide showed, up to ${worst.text.toFixed(2)} (${worst.kind} ${worst.t || '(no target)'}, lit "${worst.lit}")`);
+      }
+      const apart = seen.filter((x) => x.kind === 'label' && (x.lit.split(' ').includes(x.t) || x.pill > 0.01) && Math.abs(x.pill * (ratio[x.id] ?? 1) - x.text) > 0.03);
+      if (apart.length) throw new Error(`${what}: a pill and its text faded apart (${apart[0].t}: pill ${apart[0].pill.toFixed(2)}, text ${apart[0].text.toFixed(2)}, ${apart[0].ms} ms in)`);
+      const shownNow = await page.waitForFunction(() => [...document.querySelectorAll(':is(.lz, .sv) :is(.lz-lab, .lz-zone, .sv-region)')].some((l) => (document.querySelector('#app').dataset.lit || '').split(' ').includes(l.dataset.target) && !l.hidden && +getComputedStyle(l.firstElementChild).opacity > 0.7), null, { timeout: 15000 }).then(() => true, () => false);
+      if (!shownNow) throw new Error(`${what}: the new slide's labels did not come back (${await page.evaluate(() => { const a = document.querySelector('#app'); return `${a.className.match(/pz-hush\S*/g)} sin ${window.pps.store.get().sinusoid} sv ${document.querySelector('.sv')?.className} lz ${document.querySelector('.lz')?.className}: ` + [...document.querySelectorAll(':is(.lz, .sv) :is(.lz-lab, .lz-zone, .sv-region)')].filter((l) => (a.dataset.lit || '').split(' ').includes(l.dataset.target)).map((l) => { const c = getComputedStyle(l.firstElementChild); return `${l.dataset.target}${l.hidden ? ' hidden' : ''} ${(+c.opacity).toFixed(2)} lab ${c.getPropertyValue('--lab-o')} lit ${c.getPropertyValue('--lit-o')} in ${c.getPropertyValue('--sv-in')} anims ${document.getAnimations().filter((x) => x.effect?.target === l || x.effect?.target === l.firstElementChild).map((x) => `${x.animationName || x.transitionProperty}:${x.playState}:${Math.round(x.currentTime)}`).join('/')}`; }).join(', '); })})`);
+    };
+    await step('lobule to the portal tract');
+    await step('portal tract to the sinusoid');
+    await step('sinusoid to the central vein');
+  });
+
   await check(device, 'leaving the lobule frames the next view, not the dive', async (page) => {
     await open(page, '?preset=cirr-decomp');
     const T = () => page.evaluate(() => (document.querySelector('#world').getAttribute('transform') || '').replace(/-?\d+\.\d+/g, (n) => (+n).toFixed(1)));
