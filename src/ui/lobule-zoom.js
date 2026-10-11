@@ -904,8 +904,7 @@ export function createLobuleZoom({ host }) {
     pickAnchors(fr0);
     leaders.setAttribute('viewBox', `0 0 ${g.W} ${g.H}`);
     const { R, cx, cy } = g;
-    // The sinusoids are named directly; the portal venule, central vein and lymph have a leader to what they name,
-    // ending at the label's centre, behind the text halo.
+    // Every label has a leader to what it names, ending at the label's centre, behind the text halo.
     // Score nearby placements together so zooming, panning and narrow screens do not stack labels.
     const fr = fr0, placed = [];
     const overlap = (a, b) => Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l))
@@ -960,16 +959,16 @@ export function createLobuleZoom({ host }) {
         for (const n of [0, -1, 1, -2, 2, -3, 3]) if (dx || n) candidates.push([preferred[0] + dx, preferred[1] + n * step]);
       // Snug against each label already placed (just above or below it), so a tight gap between two is found.
       for (const o of placed) candidates.push([preferred[0], o.b + hh / 2 + hm], [preferred[0], o.t - hh / 2 - hm]);
-      const own = marks.filter((m) => m.k !== k), leads = k !== 'sin';
+      const own = marks.filter((m) => m.k !== k);
       let best = null;
       for (const [px, py] of candidates) {
         const x = clamp(px, fr.l + w / 2 + pad, fr.r - w / 2 - pad);
         const y = clamp(py, fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
         const box = { l: x - w / 2 - hm, r: x + w / 2 + hm, t: y - hh / 2 - hm, b: y + hh / 2 + hm };
         // A label with a leader keeps a visible stretch of it: it never sits right over the vessel it names.
-        const lead = leads && Math.hypot(Math.max(0, Math.abs(a[0] - x) - w / 2), Math.max(0, Math.abs(a[1] - y) - hh / 2));
+        const lead = Math.hypot(Math.max(0, Math.abs(a[0] - x) - w / 2), Math.max(0, Math.abs(a[1] - y) - hh / 2));
         const cost = placed.reduce((sum, other) => sum + overlap(box, other) * 100, 0)
-          + (leads ? Math.max(0, 16 - lead) * 40 : 0)
+          + Math.max(0, 16 - lead) * 40
           + cards.reduce((sum, c) => sum + overlap(box, c) * 400, 0)
           + own.reduce((sum, m) => sum + overlap(box, m) * 40, 0)
           + Math.hypot(x - preferred[0], y - preferred[1]);
@@ -978,10 +977,8 @@ export function createLobuleZoom({ host }) {
       const { x, y, box } = best;
       placed.push(box);
       L.el.style.left = `${x - w / 2}px`; L.el.style.top = `${y - hh / 2}px`;
-      L.el.classList.toggle('direct', k === 'sin');
       L.el.classList.remove('left');
-      const leaderOn = leads;
-      L.line.style.display = L.dotEl.style.display = leaderOn ? '' : 'none';
+      L.line.style.display = L.dotEl.style.display = '';
       L.line.setAttribute('x1', a[0]); L.line.setAttribute('y1', a[1]);
       L.line.setAttribute('x2', x); L.line.setAttribute('y2', y);
       L.dotEl.setAttribute('cx', a[0]); L.dotEl.setAttribute('cy', a[1]);
