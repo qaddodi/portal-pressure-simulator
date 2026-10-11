@@ -1361,30 +1361,36 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     layout();   // (the figure frames itself for where the card is going)
     clearTimeout(dock.fit); dock.fit = setTimeout(() => ui && onResize(), 60);
   }
-  // The cards never scroll: when a card's contents are taller than the card, their zoom (--pz-fit) drops until they fit.
-  // (Measured on screen rects, less a child's entry shift, so a card is judged by where its contents come to rest.)
+  // The cards never scroll: when a card's contents are taller or wider than the card, their zoom (--pz-fit) drops until they fit.
+  // (An entry shift still running on a child is not counted, so a card is judged by where its contents come to rest.)
   function overflowOf(el) {
-    const r = el.getBoundingClientRect(), cs = getComputedStyle(el), k = r.height / (el.offsetHeight || 1);
-    let bottom = 0;
-    for (const c of el.children) {
-      if (c.hidden || getComputedStyle(c).position === 'absolute') continue;
-      const cr = c.getBoundingClientRect(), m = new DOMMatrix(getComputedStyle(c).transform);
-      bottom = Math.max(bottom, cr.bottom - m.m42 * k * (parseFloat(getComputedStyle(c).zoom) || 1));
-    }
-    return bottom + (parseFloat(cs.paddingBottom) || 0) * k - r.bottom;
+    let ty = 0;
+    for (const c of el.children) { const cs = getComputedStyle(c); ty = Math.max(ty, new DOMMatrix(cs.transform).m42 * (parseFloat(cs.zoom) || 1)); }
+    return { v: el.scrollHeight - el.clientHeight - ty, h: el.scrollWidth - el.clientWidth };
   }
   function fitCards(...els) {
     for (const el of els) {
       if (!el || el.hidden) continue;
       el.style.removeProperty('--pz-fit');
       let k = 1;
-      for (let n = 0; n < 8 && overflowOf(el) > 0.5 && k > 0.5; n++) {
-        const r = el.getBoundingClientRect();
-        k = Math.max(0.5, k * Math.min(0.97, (r.height / (r.height + overflowOf(el))) ** 0.9));
+      for (let n = 0; n < 8 && k > 0.5; n++) {
+        const o = overflowOf(el);
+        if (o.v <= 1 && o.h <= 1) break;
+        k = Math.max(0.5, k * Math.min(0.97, (el.clientHeight / (el.clientHeight + Math.max(o.v, 0))) ** 0.9, (el.clientWidth / (el.clientWidth + Math.max(o.h, 0))) ** 0.9));
         el.style.setProperty('--pz-fit', k.toFixed(3));
       }
     }
   }
+  // A card whose contents grow after the layout (a time-lapse, the numbers settling) is fitted again.
+  let fitRO = null, fitRaf = 0;
+  const fitWatch = () => {
+    fitRO ||= new ResizeObserver(() => {
+      cancelAnimationFrame(fitRaf);
+      fitRaf = requestAnimationFrame(() => { if (ui && [ui.text, ui.data, ui.panel].some((el) => !el.hidden && (({ v, h }) => v > 1 || h > 1)(overflowOf(el)))) layout(); });
+    });
+    fitRO.disconnect();
+    for (const el of [ui.text, ui.data, ui.panel]) for (const c of el.children) fitRO.observe(c);
+  };
   function layout() {
     if (!ui) return;
     // Under interface zoom the page is scaled by k: rects are screen px, inline sizes are the page's own (screen / k).
@@ -1401,6 +1407,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     if (below && t) { const y = t.bottom - wr.top + 28; ui.data.style.top = `${Math.round(y / k)}px`; ui.data.style.maxHeight = `${Math.round((H - y - 24) / k)}px`; }
     else { ui.data.style.top = ''; ui.data.style.maxHeight = ''; }
     fitCards(ui.data, ui.panel);
+    fitWatch();
     const dv = ui.data.hidden ? [0, 0] : dockVec();
     const d = below ? null : r(ui.data);
     // The words sit on a frosted glass pane: the figure shows through it blurred, behind a crisp edge with a soft
@@ -1747,6 +1754,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     for (const w of waiters) w.res(null);
     waiters = [];
     removeEventListener('resize', onResize);
+    fitRO?.disconnect(); cancelAnimationFrame(fitRaf);
     store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
     clearTimeout(idleT); clearTimeout(dock.fit); cancelAnimationFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false;
     ui?.tools.dispose(); ui?.root.remove(); ui?.shade.remove(); ui = null;
