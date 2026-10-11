@@ -1827,7 +1827,7 @@ export function createLobuleZoom({ host }) {
       const gp = scarGrowth(m.fibPre), near = Math.hypot(x - cx, y - cy) < R * 1.05, rt = G.rt * (0.8 + 0.9 * gp);
       c.globalAlpha = near ? 1 : 0.5;
       // Collagen expands asymmetrically around all three structures, continuous with the septa; in presinusoidal
-      // disease a denser, deeper-toned periportal collar (pipestem) rings the tract, clear of the lime sinusoids.
+      // disease a denser, deeper-toned periportal collar (pipestem) rings the tract, clear of the orchid sinusoids.
       if (m.fibPre > 0.03) {
         fibrousTract(c, x, y, rt, Math.atan2(y - cy, x - cx), PRE, gp,
           900 + lobules[0].corners.findIndex((p) => p[0] === x && p[1] === y) * 71);
