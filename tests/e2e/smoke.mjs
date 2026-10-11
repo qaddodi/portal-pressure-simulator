@@ -68,7 +68,9 @@ const open = async (page, q = '') => {
 };
 
 // A presenter's controls against the slide's card: 'ok', or what is wrong (null while the slide is still coming in). The controls'
-// icons and count may not cover the card's words or table, and a phone's sit on the card's kicker line.
+// icons and count may not cover the card's words or table. A phone's are a pill fixed at the lower right (10 px in, 4 px up),
+// every tap target at least 44 px, over no line of the words, no other card and no figure label; and the card's title is its
+// first line (no empty row above it).
 const barFit = (page) => page.evaluate(() => {
   const bar = document.querySelector('.pz-bar');
   if (bar.classList.contains('hop')) return null;
@@ -76,15 +78,45 @@ const barFit = (page) => page.evaluate(() => {
   // (Still coming in: the card or one of its blocks is in its entry; a live part deep inside, such as a time-lapse's bar, does not count.)
   if (!host || [host, ...host.children].some((el) => el.getAnimations().some((a) => a.playState === 'running' && Number.isFinite(a.effect?.getComputedTiming().endTime)))) return null;
   const marks = [...bar.querySelectorAll('svg, .pzb-n, .pzb-go')].map((el) => { if (!el.matches('.pzb-n')) return el.getBoundingClientRect(); const g = document.createRange(); g.selectNodeContents(el); return g.getBoundingClientRect(); }).filter((r) => r.width && r.height);   // (the count's words, not its 44 px tap box)
-  const hit = [...host.querySelectorAll('.pz-dtitle, .pz-h, .pz-line, .pz-caveat, .pz-eq, table, li, .pz-abb')].find((el) => {
+  // (A phone's pill is checked against each line of the words below, not their blocks: the last line ends short of it.)
+  const hit = !bar.classList.contains('phone') && [...host.querySelectorAll('.pz-dtitle, .pz-h, .pz-line, .pz-caveat, .pz-eq, table, li, .pz-abb')].find((el) => {
     const r = el.getBoundingClientRect();
     return r.width && r.height && marks.some((m) => m.left < r.right - 1 && m.right > r.left + 1 && m.top < r.bottom - 1 && m.bottom > r.top + 1);
   });
   if (hit) return `the controls cover the card's ${hit.className || hit.tagName.toLowerCase()} ("${hit.textContent.trim().slice(0, 40)}")`;
-  const kick = host.querySelector('.pz-kick'), b = bar.getBoundingClientRect();
-  if (bar.classList.contains('phone') && kick) {
-    const k = kick.getBoundingClientRect(), off = (b.top + b.height / 2) - (k.top + k.height / 2);
-    if (Math.abs(off) > 3) return `the controls are ${Math.round(off)} px off the kicker line`;
+  const b = bar.getBoundingClientRect();
+  if (bar.classList.contains('phone')) {
+    if (Math.abs(innerWidth - b.right - 10) > 1.5) return `the pill is ${Math.round(innerWidth - b.right)} px from the right edge, not 10`;
+    if (Math.abs(innerHeight - b.bottom - 4) > 1.5) return `the pill is ${Math.round(innerHeight - b.bottom)} px from the bottom, not 4`;
+    const small = [...bar.querySelectorAll('button')].find((c) => { const r = c.getBoundingClientRect(); return r.width < 44 || r.height < 44; });
+    if (small) return `a control (${small.getAttribute('aria-label')}) is under 44 px`;
+    const h = host.getBoundingClientRect();
+    if (host.matches('.pz-panel') && b.top < h.bottom + 4) return 'the pill is not below the full card';
+    // (Every line of the words, and every box among them: none under the pill.)
+    const walk = document.createTreeWalker(host, NodeFilter.SHOW_TEXT);
+    for (let t = walk.nextNode(); t; t = walk.nextNode()) {
+      if (!t.textContent.trim()) continue;
+      const g = document.createRange(); g.selectNodeContents(t);
+      if ([...g.getClientRects()].some((q) => q.width > 1 && q.left < b.right && q.right > b.left && q.top < b.bottom && q.bottom > b.top)) return `the pill covers the words "${t.textContent.trim().slice(0, 40)}"`;
+    }
+    const box = [...host.querySelectorAll('button, svg, canvas, .pzl-bar')].find((el) => { const q = el.getBoundingClientRect(); return q.width > 1 && q.left < b.right && q.right > b.left && q.top < b.bottom && q.bottom > b.top; });
+    if (box) return `the pill covers the card's ${(box.className?.baseVal ?? box.className) || box.tagName.toLowerCase()}`;
+    for (const el of document.querySelectorAll('.pz-data, .pz-panel')) {
+      const st = getComputedStyle(el), q = el.getBoundingClientRect();
+      if (el.hidden || el.classList.contains('pz-hide') || st.display === 'none' || +st.opacity < 0.05 || !q.width) continue;
+      if (q.left < b.right && q.right > b.left && q.top < b.bottom && q.bottom > b.top) return `the pill overlaps ${el.className.split(' ')[0]}`;
+    }
+    for (const g of document.querySelectorAll('#labels .lb:not(.lb-off)')) {
+      let o = 1;
+      for (let el = g; el && el !== document.body; el = el.parentElement) { const st = getComputedStyle(el); if (st.display === 'none' || st.visibility === 'hidden') o = 0; o *= +st.opacity; }
+      if (o < 0.05) continue;
+      const t = [...g.querySelectorAll('text, .lb-bg')].find((t) => { const q = t.getBoundingClientRect(); return q.width > 1 && q.left < b.right && q.right > b.left && q.top < b.bottom && q.bottom > b.top; });
+      if (t) return `the pill covers the label ${g.dataset.key} ("${g.textContent.trim().slice(0, 30)}")`;
+    }
+    const first = [...host.querySelectorAll(':scope > *, :scope > .pz-ph > *')].find((el) => el.getBoundingClientRect().height && !el.matches('.pz-ph'));
+    const pad = parseFloat(getComputedStyle(host).paddingTop) + parseFloat(getComputedStyle(host).borderTopWidth);
+    if (first && !first.matches('.pz-h, .pz-dtitle, h1')) return `the card starts with ${first.className || first.tagName.toLowerCase()}, not its title`;
+    if (first && first.getBoundingClientRect().top - h.top > pad + 2) return `the card's title starts ${Math.round(first.getBoundingClientRect().top - h.top - pad)} px below its top`;
   }
   return 'ok';
 });
@@ -437,9 +469,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   });
 
   // Circulation slide 9 ("After a meal"): the coronary and splenic veins, their glow and the figure's labels sit in the band the data card
-  // (top) and the words (bottom sheet) leave, and out of the bottom-right corner (where the figure's own control pill sits).
-  if (device === 'phone') await check(device, 'presenter on a phone: Circulation slide 9 frames the coronary and splenic veins clear of the data card, the words and the corner', async (page) => {
-    const GLOW = 8, CORNER = [72, 56];   // px of glow around a vein; the corner pill's room (width, height)
+  // (top) and the words (bottom sheet) leave, and clear of the controls' pill (read from the pill itself).
+  if (device === 'phone') await check(device, 'presenter on a phone: Circulation slide 9 frames the coronary and splenic veins clear of the data card, the words and the pill', async (page) => {
+    const GLOW = 8;   // px of glow around a vein
     for (const [w, h] of [[390, 844], [375, 667]]) {
       await page.setViewportSize({ width: w, height: h });
       await open(page);
@@ -448,11 +480,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       let r = null, prev = null, still = 0;
       for (let t = 0; t < 50 && !(r?.ok && still >= 4); t++) {
         await page.waitForTimeout(300);
-        r = await page.evaluate(([glow, corner]) => {
+        r = await page.evaluate((glow) => {
           const st = window.pps.stage, svg = document.querySelector('#stage'), cam = st.cameraState(), m = svg.getScreenCTM();
           const rect = (e) => e.getBoundingClientRect(), data = document.querySelector('.pz-data'), sheet = document.querySelector('.pz-safe');
           if (!data || !sheet || data.hidden || !rect(data).height) return { ok: false, why: 'the slide is not in yet', key: '' };
-          const top = rect(data).bottom, bottom = rect(sheet).top, W = innerWidth;
+          const top = rect(data).bottom, bottom = rect(sheet).top, W = innerWidth, pill = rect(document.querySelector('.pz-bar'));
           const px = (x, y) => { const p = svg.createSVGPoint(); p.x = cam.k * x + cam.x; p.y = cam.k * y + cam.y; const q = p.matrixTransform(m); return [q.x, q.y]; };
           const veins = { 'coronary vein': ['LGV_CONF', 'V_STO'], 'splenic vein': ['SV_CONF', 'V_SPL'] };
           const bad = [], boxes = [];
@@ -470,10 +502,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
             if (y0 < top - 0.5) bad.push(`${name} reaches ${Math.round(top - y0)} px under the data card`);
             if (y1 > bottom + 0.5) bad.push(`${name} reaches ${Math.round(y1 - bottom)} px under the words`);
             if (x0 < -0.5 || x1 > W + 0.5) bad.push(`${name} runs off the side of the screen`);
-            if (!name.includes('label') && x1 > W - corner[0] && y1 > bottom - corner[1]) bad.push(`${name} sits in the bottom-right corner`);
+            if (x0 < pill.right && x1 > pill.left && y0 < pill.bottom && y1 > pill.top) bad.push(`${name} sits under the controls' pill`);
           }
           return { ok: !bad.length, why: bad.join('; '), key: st.cameraKey() + '|' + Math.round(top) + '|' + Math.round(bottom) };
-        }, [GLOW, CORNER]);
+        }, GLOW);
         still = r.key && r.key === prev ? still + 1 : 0; prev = r.key;
       }
       if (!r?.ok) throw new Error(`Circulation slide 9 at ${w}x${h}: ${r?.why || 'never settled'}`);
@@ -483,10 +515,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
   await check(device, 'presenter: the controls never glide between slides, and keep their size and spacing, first and last included', async (page) => {
     // Each slide of two decks, at each size (the desktop run also tries an upright iPad). The bar's size and the spacing of its
     // controls are the same on every slide (Next turning into Finish moved them once). A bar centred at the bottom keeps one
-    // spot. A phone's bar follows the card's kicker line: it may change spot, but only by fading out, snapping and fading in,
-    // so every frame in which it shows is at the slide's old spot or its new one, never between.
+    // spot, and so does a phone's pill; every frame in which it shows is at that spot, never elsewhere.
     // Once each slide is in, the controls' icons and count may not cover any of the card's words or its table, and a phone's
-    // sit on the kicker line. (A phone's bar once stayed where the slide before had it, over the summary card's table.)
+    // pill keeps clear of them (see barFit). (A phone's bar once stayed where the slide before had it, over the summary card's table.)
     // Three decks are walked from the start (endoscopy: its data card sits at the top); one more only over its last slides, the summary card among them.
     const sizes = device === 'desktop' ? [null, { width: 820, height: 1180 }] : [null];
     const runs = [['circulation', 0], ['lobule', 0], ['endoscopy', 0], ['hvpg', -2]];
@@ -500,7 +531,6 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         await page.evaluate(([id, at]) => window.pps.presenter.start(id, at), [deck, n + from]);
       }
       await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover'), null, { timeout: 60000 });
-      const phone = device === 'phone';
       const where = `${deck} at ${size ? 'upright iPad' : device}`;
       const read = () => page.evaluate(() => {
         const bar = document.querySelector('.pz-bar'), b = bar.getBoundingClientRect(), q = (el) => { const r = el.getBoundingClientRect(); return [r.left - b.left, r.top - b.top, r.width, r.height].map((v) => Math.round(v * 10) / 10); };
@@ -515,7 +545,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         if (!ref) ref = cur;
         else {
           if (cur.boxes.length !== ref.boxes.length || cur.boxes.some((b, i) => b.some((v, j) => Math.abs(v - ref.boxes[i][j]) > 1))) throw new Error(`${where}: the controls' size or spacing changed on slide ${cur.n} (${JSON.stringify(cur.boxes)} vs ${JSON.stringify(ref.boxes)})`);
-          if (!phone && Math.abs(cur.at[0] - ref.at[0]) > 1 || !phone && Math.abs(cur.at[1] - ref.at[1]) > 1) throw new Error(`${where}: the bar moved on slide ${cur.n} (${cur.at} vs ${ref.at})`);
+          if (Math.abs(cur.at[0] - ref.at[0]) > 1 || Math.abs(cur.at[1] - ref.at[1]) > 1) throw new Error(`${where}: the bar moved on slide ${cur.n} (${cur.at} vs ${ref.at})`);
         }
         slides++;
         const [a, b] = cur.n.split('/').map((x) => +x);
@@ -535,10 +565,12 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     }
   });
 
-  // Every slide of a deck on a phone (390x844): the controls sit on the card's kicker line and cover none of its words.
+  // Every slide of every deck on a phone (390x844 and 375x667): the controls' pill sits fixed at the lower right, over none of
+  // the words, no other card and no label, and each card starts with its title (see barFit).
+  // (Every deck at both sizes: CI splits the phone checks over eight runners so each stays well under its limit.)
   // (Slides with a live data card at the top once kept them at the slide before's spot, over the figure or the card.)
-  // (Every deck, about a minute each on CI: CI splits the phone checks over eight runners so each stays well under its limit.)
-  if (device === 'phone') for (const deck of DECK_IDS) await check(device, `presenter: on every slide of ${deck} the controls sit on the kicker line`, async (page) => {
+  if (device === 'phone') for (const deck of DECK_IDS) for (const size of [null, { width: 375, height: 667 }]) await check(device, `presenter: on every slide of ${deck}${size ? ' at 375x667' : ''} the controls' pill stays at the lower right, clear of the words`, async (page) => {
+    if (size) await page.setViewportSize(size);
     await open(page);
     await page.evaluate((id) => window.pps.presenter.start(id, 0), deck);
     await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover'), null, { timeout: 60000 });

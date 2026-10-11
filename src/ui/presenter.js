@@ -1170,15 +1170,13 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     if (!ui) return;
     const { text, panel, data } = ui;
     text.classList.remove('pz-leave');   // (the panel's own is let go once its new content is in, so it never fades back in with the old)
-    // (No kicker words above the title: an empty row that only a phone shows, as the line its controls sit on; see placeBar.)
-    const kick = (site) => h('div', { class: 'pz-kick pz-row', 'data-site': site || 'none' });
     if (s.visual) {
       text.hidden = true; text.replaceChildren();
       // A panel that was not there fades in (never pops): unhidden while still faded, then let go.
       if (panel.hidden) { panel.classList.add('pz-leave'); panel.hidden = false; void panel.offsetWidth; }
       panel.classList.toggle('fill', s.visual === 'ladders');
       panel.dataset.visual = s.visual;
-      panel.replaceChildren(h('div', { class: 'pz-ph' }, s.visual === 'outline' ? h('h1', { class: 'pz-dtitle' }, nb(deck.title)) : null, kick(null, s.visual === 'outline' ? 'Overview' : s.kicker), h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null),
+      panel.replaceChildren(h('div', { class: 'pz-ph' }, s.visual === 'outline' ? h('h1', { class: 'pz-dtitle' }, nb(deck.title)) : null, h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null),
         VISUALS[s.visual](s));
       panel.classList.remove('pz-leave');
       ui.veil.classList.add('on');
@@ -1186,8 +1184,8 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       panel.hidden = true; panel.replaceChildren(); panel.classList.remove('pz-leave'); ui.veil.classList.remove('on');
       text.hidden = false;
       text.replaceChildren(...(q
-        ? [kick(null, 'Quiz'), h('h1', { class: 'pz-h' }, s.quiz), s.rail ? rail(null) : null, h('p', { class: 'pz-line pz-hint' }, 'Take answers from the audience, then press → to show the answer.')]
-        : [kick(s.site, s.kicker, s.sec), h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null,
+        ? [h('h1', { class: 'pz-h' }, s.quiz), s.rail ? rail(null) : null, h('p', { class: 'pz-line pz-hint' }, 'Take answers from the audience, then press → to show the answer.')]
+        : [h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null,
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), onclick: () => abPick(s, i, k) }, o.label))) : null,
           s.monitor ? monitorFor(s, i) : null,
@@ -1195,6 +1193,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
           s.lapse && i > 0 ? h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')), h('span', { class: 'pzl-t' }, lapseText(s, 0, s.days, false))) : null,
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
           s.causes?.length ? h('div', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), h('ul', {}, s.causes.map((c) => h('li', {}, c)))) : null]));
+      clearPill(text);
       const ttl = text.querySelector('.pz-h');
       if (ttl && !phone()) { const lh = parseFloat(getComputedStyle(ttl).lineHeight) || ttl.offsetHeight; if (ttl.offsetHeight > lh * 2.4) ttl.classList.add('long'); }
       [...text.children].forEach((c, k) => c.style.setProperty('--i', k));
@@ -1519,13 +1518,9 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   addEventListener('pps:labelscale', () => { if (deck && ui && !labelling) setLabels(); });
 
   // ── Chrome: counter, progress, controls ──
-  // On a phone the controls sit on the kicker line of the words (or of a full card), at its right end; the kicker keeps clear
-  // of them and shortens with an ellipsis. With no words on screen they rest at the bottom right. The bar never glides: as soon
-  // as a new card is in, a bar whose spot changes fades out, snaps there while invisible and fades back in (like the corner credit).
-  // The spot is where the kicker will rest once the card's entry animation ends (see restRect), so it is right on the first
-  // try on every slide (the old wait for the card to settle could lag a slide behind and leave the bar over the card's text).
-  // Its size is the same on every slide (Next and Finish share a slot, the count has a fixed width), so the kicker never reflows.
-  let barH = 0, barT = 0, barRO = null, barKey = null, barTo = null;
+  // On a phone the controls are a small frosted pill (count, settings, exit) fixed at the screen's lower right, on the words'
+  // glass; it never moves. Only the words' last line keeps clear of it (see clearPill); slides change by swiping.
+  let pillW = 0;
   // Where an element will rest once the entry or exit animations on it and its ancestors (a slide in or out) have ended: its box
   // now, less the shift those animations give it at this moment. Also how long until the last of them ends.
   function restRect(el) {
@@ -1542,31 +1537,20 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const r = el.getBoundingClientRect();
     return { top: r.top - dy, right: r.right - dx, height: r.height, width: r.width, left };
   }
+  // The pill's width, for the words' last line to keep clear of (--pz-pill-w).
   function placeBar() {
-    if (!ui) return;
-    const b = ui.bar, kick = phone() && [ui.panel, ui.text].find((el) => !el.hidden && !el.classList.contains('pz-hide') && !el.classList.contains('pz-leave'))?.querySelector('.pz-kick');
-    if (!barRO && window.ResizeObserver) { barRO = new ResizeObserver(() => placeBar()); barRO.observe(ui.text); barRO.observe(ui.panel); }
-    if (!kick && phone() && [ui.panel, ui.text].some((el) => !el.hidden && el.classList.contains('pz-leave'))) return;   // (between slides: the old words leaving, the new not in yet)
-    let top = '', right = '';
-    if (kick) {
-      const wr = restRect(ui.root), k = wr.width / (ui.root.clientWidth || wr.width) || 1, kr = restRect(kick);
-      clearTimeout(barT);
-      if (kr.left > 0) barT = setTimeout(placeBar, kr.left + 40);   // (and once more when they have ended, to be exact)
-      top = `${Math.round((kr.top + kr.height / 2 - wr.top) / k - b.offsetHeight / 2)}px`;
-      right = `${Math.max(4, Math.round((wr.right - kr.right) / k) - 6)}px`;
-      app.style.setProperty('--pz-bar-w', `${b.offsetWidth}px`);
-    }
-    const key = `${top}|${right}`;
-    barTo = [top, right];
-    if (key === barKey) return;
-    const apply = () => { [b.style.top, b.style.right] = barTo; };
-    if (barKey === null) { apply(); barKey = key; return; }
-    barKey = key;
-    if (b.classList.contains('hop')) return;   // (already out: it snaps to the newest spot)
-    if (reduce.matches) { apply(); return; }
-    b.classList.add('hop');
-    clearTimeout(barH);
-    barH = setTimeout(() => { apply(); b.classList.remove('hop'); }, 220);
+    if (!ui || !phone() || !ui.bar.offsetWidth || ui.bar.offsetWidth === pillW) return;
+    pillW = ui.bar.offsetWidth;
+    app.style.setProperty('--pz-pill-w', `${pillW}px`);
+  }
+  // The words' last block keeps clear of a phone's pill: a line of words (or the station key) ends with a gap the pill's width
+  // (on its own line if the last line is too long for it), and a box (buttons, a monitor, a diagram) ends just above the pill. Only a phone shows either.
+  function clearPill(text) {
+    const last = [...text.children].at(-1);
+    if (!last) return;
+    const end = last.matches('.pz-causes') ? last.querySelector('li:last-child') : last;
+    if (end?.matches('p, h1, li, .pz-stk')) end.append(h('span', { class: 'pz-pillgap', 'aria-hidden': 'true' }));
+    else last.classList.add('pz-pillclr');
   }
   let askAt = [-1, 0];   // (the slide whose question is open, and how far: 0 shut, 1 the question, 2 with its answer)
   function paintChrome() {
@@ -1574,21 +1558,14 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const n = slides.length, i = want;
     ui.count.textContent = `${i + 1} / ${n}`;
     ui.prog.style.setProperty('--p', String((i + 1) / n));
-    // A phone keeps it to Back, the count, Next (Finish on the last slide) and Exit, always in view.
     const ph = phone(), skip = lapseOn && lapseLeft > 0, last = i === n - 1 && !asking(slides[i], wantRev) && !skip;
     // The count opens the slide list (G).
     const countBtn = h('button', { class: 'pzb-n', 'aria-label': `Slide ${i + 1} of ${n}: list the slides`, title: 'Slide list (G)', 'aria-expanded': String(!ui.jump.hidden), onclick: () => toggleJump() }, `${i + 1} / ${n}`);
     ui.bar.classList.toggle('phone', ph);
     if (ph) {
-      // A phone sets the controls into the words' kicker line (see placeBar): small icons, no bar of their own.
+      // A phone's pill: the count (it opens the slide list), settings, exit. Slides change by swiping.
       ui.bar.classList.remove('idle');
-      ui.bar.replaceChildren(
-        h('button', { class: 'ib', 'aria-label': 'Previous slide', disabled: i === 0, onclick: prev }, icon('chev-left')),
-        countBtn,
-        // (Next and Finish share one fixed-width slot, so Back and the count stay put on the last slide.)
-        h('span', { class: 'pzb-slot sq' }, last ? h('button', { class: 'btn sm pzb-go pzb-next', 'aria-label': 'Finish presenting', onclick: stop }, 'Finish')
-          : h('button', { class: 'ib pzb-next', 'aria-label': skip ? 'Run the time-lapse to its end' : 'Next slide', onclick: next }, icon('chev-right'))),
-        gear(),
+      ui.bar.replaceChildren(countBtn, gear(),
         h('button', { class: 'ib', 'aria-label': 'Exit the presentation', title: 'Exit', onclick: stop }, icon('close')));
       placeBar();
       return;
@@ -1905,7 +1882,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
     hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in');
     clearTimeout(idleT); clearTimeout(dock.fit); cancelAnimationFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false;
-    barRO?.disconnect(); barRO = null; clearTimeout(barH); clearTimeout(barT); barKey = null; barTo = null; ui?.bar.classList.remove('hop'); ui?.tools.dispose(); ui?.root.remove(); ui?.shade.remove(); ui = null;
+    pillW = 0; ui?.tools.dispose(); ui?.root.remove(); ui?.shade.remove(); ui = null;
     view.classList.remove('pz-out');
     for (const k of ['--pz-l', '--pz-r', '--pz-t', '--pz-b']) app.style.removeProperty(k);
     stage.setProjection(false);

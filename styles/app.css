@@ -1683,8 +1683,6 @@ button.finding:hover { background: var(--surface-2); }
 .pz-text.pz-enter > .pz-mon.pz-stay { animation: none; }
 .pz-kick { display: flex; align-items: center; gap: .55em; font: 600 clamp(13px, calc(1.75 * var(--pzh) / var(--vz)), 21px)/1.2 var(--font-ui); letter-spacing: .1em; text-transform: uppercase; color: var(--site, var(--text-3)); }
 .pz-kick[data-site="none"] { color: var(--text-3); }
-.pz-kick.pz-row { display: none; }
-.pz.stack :is(.pz-text, .pz-panel) .pz-kick.pz-row { display: flex; }
 .pz-kick i { width: .62em; height: .62em; border-radius: 50%; background: currentColor; flex: none; }
 .pz-sec { color: var(--text-3); font-weight: 500; white-space: nowrap; }
 .pz-h { margin: 0; font: 600 clamp(32px, calc(5.8 * var(--pzh) / var(--vz)), 70px)/1.06 var(--font-display); letter-spacing: -.015em; text-wrap: balance; color: var(--text); }
@@ -1842,7 +1840,7 @@ button.finding:hover { background: var(--surface-2); }
 .pz-panel[data-visual="outline"] .pz-ph .pz-h { font-size: clamp(18px, calc(2.5 * var(--pzh) / var(--vz)), 30px); font-weight: 500; color: var(--text-2); }
 .pz-panel[data-visual="outline"] .pz-ph .pz-h::after { display: none; }
 .pz.stack .pz-panel .pz-dtitle { font-size: clamp(28px, calc(5.4 * var(--pzh) / var(--vz)), 36px); text-wrap: wrap; max-width: none; }
-.pz.stack .pz-panel[data-visual="outline"] .pz-ph { align-items: stretch; text-align: left; }
+.pz.stack .pz-panel[data-visual="outline"] .pz-ph { align-items: stretch; text-align: left; padding-top: 0; }
 .pz.stack .pz-panel[data-visual="outline"] .pz-kick { justify-content: flex-start; margin-top: 0; }
 .pz.stack .pz-panel .pz-dtitle::after { margin-left: 0; }
 .pz-grid-key { grid-column: 1 / -1; margin: 0; font: 500 clamp(12px, calc(1.5 * var(--pzh) / var(--vz, 1)), 15px) var(--font-ui); color: var(--text-3); font-variant-numeric: tabular-nums; }
@@ -2042,7 +2040,6 @@ button.finding:hover { background: var(--surface-2); }
 .pz-bar.idle { opacity: 0; pointer-events: none; transform: translateY(8px); }
 .pz-bar .pzb-n { min-width: 5.4em; text-align: center; padding: 0 4px; font: 600 var(--fs-14) var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-2); white-space: nowrap; }
 .pz-bar .pzb-slot { display: inline-flex; align-items: center; justify-content: center; flex: none; }
-.pz.stack .pz-bar .pzb-slot.sq { width: 70px; height: 44px; }
 .pz-bar .pzb-ask.off { visibility: hidden; pointer-events: none; }
 .pz-bar .pzb-sep { width: 1px; align-self: stretch; margin: 8px 3px; background: color-mix(in srgb, var(--text) 12%, transparent); }
 .pz-black { position: fixed; inset: 0; z-index: var(--z-toast); background: var(--black); opacity: 0; pointer-events: none; transition: opacity .4s var(--ease); }
@@ -2050,7 +2047,7 @@ button.finding:hover { background: var(--surface-2); }
 /* A phone, or a screen taller than wide: the words on top, the data below, the figure between. */
 /* (On a phone the words sit at the bottom over the Back/Next bar, on a glass pane rising from the bottom edge; the data card is at the top.) */
 .pz-shade.stack { width: auto !important; right: 0; top: auto; bottom: 0; height: 0; box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 -1px 0 var(--pz-glass-line), 0 -10px 24px -6px var(--pz-glass-drop), 0 -2px 5px -1px var(--pz-glass-drop); }
-.pz.stack .pz-text { left: 14px; right: 14px; top: auto; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); margin-block: 0; width: auto; max-height: 40%; gap: 6px; }
+.pz.stack .pz-text { --pz-lh: calc(1.38 * clamp(14px, calc(1.9 * var(--pzh) / var(--vz)), 20px)); left: 14px; right: 14px; top: auto; bottom: calc(max(16px, 48px - var(--pz-lh)) + env(safe-area-inset-bottom, 0px)); margin-block: 0; width: auto; max-height: 40%; gap: 6px; }
 /* (With a data card under the words, the pair keeps to the top so the card has room.) */
 .pz:not(.stack):has(.pz-data.under:not(.pz-hide)) .pz-text { bottom: auto; margin-block: 0; }
 .pz.stack .pz-kick { font-size: 12px; }
@@ -2097,23 +2094,25 @@ button.finding:hover { background: var(--surface-2); }
 .pz.stack .pz-data:not(.tiles-only):not(.tool-only):not(.has-tool) .pz-tiles[data-compact="1"] { display: none; }
 .pz.stack .pz-tile { padding: 6px 10px; }
 .pz.stack .pzt-v { font-size: min(24px, 30cqi); }
-/* (Centred in the figure above the Back/Next bar: top and bottom set, its own height, auto margins.) */
-.pz.stack .pz-panel { top: 8px; bottom: calc(40px + env(safe-area-inset-bottom, 0px)); height: fit-content; margin-block: auto; translate: -50% 0; width: calc(100% - 16px); max-height: calc(100% - 56px - env(safe-area-inset-bottom, 0px)); padding: 16px; gap: 12px; }
+/* (Centred in the figure above the controls' pill: top and bottom set, its own height, auto margins.) */
+.pz.stack .pz-panel { top: 8px; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); height: fit-content; margin-block: auto; translate: -50% 0; width: calc(100% - 16px); max-height: calc(100% - 72px - env(safe-area-inset-bottom, 0px)); padding: 16px; gap: 12px; }
 .pz.stack .pz-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: none; }
 .pz.stack .pz-panel.fill { height: fit-content; }
 .pz.stack .pz-panel.fill .pz-grid { flex: none; }   /* (the six ladders keep their height; the card scrolls instead of the charts spilling out of their cells) */
 .pz.stack .pz-panel.fill .pz-cell .pz-ladder { flex: none; }
-.pz.stack .pz-bar { left: auto; right: 10px; top: auto; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); translate: none; max-width: none; height: 44px; gap: 0; padding: 0; overflow: visible; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; border: 0; box-shadow: none; transition: opacity .2s var(--ease); }
-/* (A phone's controls ride on the words' kicker line: no glass of their own, the words' pane is behind them. They never glide: see placeBar.) */
-.pz.stack .pz-bar.hop { opacity: 0; }
+.pz.stack .pz-bar { left: auto; right: 10px; top: auto; bottom: calc(4px + env(safe-area-inset-bottom, 0px)); translate: none; max-width: none; height: 44px; gap: 0; padding: 0 2px; overflow: visible; background: var(--glass); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); border: 0; border-radius: var(--r-sheet); box-shadow: var(--shadow-2), inset 0 0 0 1px var(--hairline); transition: opacity .2s var(--ease); }
+/* (A phone's controls: a small frosted pill fixed at the lower right, like the timeline's folded pill. Its foot is 4 px up and it is
+   44 px tall; the words end that much less a line above the bottom, so only their last line meets it (see clearPill). */
+.pz-pillgap { display: none; }
+.pz.stack .pz-pillgap { display: inline-block; width: calc(var(--pz-pill-w, 160px) + 4px); height: min(32px, var(--pz-lh)); vertical-align: bottom; }   /* (as tall as the pill reaches into the words, so its line is the only one it meets) */
+.pz.stack .pz-pillclr { margin-bottom: calc(min(32px, var(--pz-lh)) + 4px); }   /* (a box keeps its full width and ends just above the pill) */
+.pz.stack .pz-stk:has(> .pz-pillgap) { flex-wrap: wrap; overflow: visible; }
 .pz.stack .pz-bar.idle { opacity: 1; pointer-events: auto; transform: none; }
-.pz.stack .pz-bar .ib { width: 38px; min-width: 0; height: 44px; }
+.pz.stack .pz-bar .ib { width: 44px; min-width: 0; height: 44px; }
 .pz.stack .pz-bar .ib svg { width: 20px; height: 20px; }
-.pz.stack .pz-bar button.pzb-n { min-height: 44px; padding: 0 6px; font-size: 13px; }
-.pz.stack .pz-bar .pzb-go.pzb-next { min-height: 30px; height: 30px; margin: 0 4px; padding: 0 10px; font-size: 13px; }
-.pz.stack :is(.pz-text, .pz-panel) .pz-kick:not(.pz-table .pz-kick) { min-height: 28px; padding-right: calc(var(--pz-bar-w, 200px) + 6px); }   /* (not a table row's site dot) */
+.pz.stack .pz-bar button.pzb-n { min-width: 4.6em; min-height: 44px; padding: 0 6px; font-size: 13px; }
 .pz.stack .pz-kick .pz-sec { flex: none; }
-@media (max-width: 359px) { .pz.stack .pz-bar .ib { width: 33px; } .pz.stack .pz-bar button.pzb-n { padding: 0 4px; } .pz.stack .pz-kick .pz-sec { display: none; } }
+@media (max-width: 359px) { .pz.stack .pz-kick .pz-sec { display: none; } }
 .pz.stack .pz-kick .pz-kw { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pz.stack .pz-quadwrap { grid-template-columns: minmax(0, 1fr); }
 /* An upright tablet uses the phone's compact table (one line per row, no sideways scroll), drawn larger. */
