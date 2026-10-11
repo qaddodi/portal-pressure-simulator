@@ -298,36 +298,43 @@ function bigLadder() {
   });
   // A gradient span: a bar with end caps from one station's column to another's, dotted leaders up to the two
   // station points, and a pill in the middle with its name (the numbers are in the tiles below).
-  const span = (name, row, i0, i1, XS = X, strip = false) => {
-    const x0 = XS(i0), x1 = XS(i1), w = (name === 'HVPG' ? 78 : 66) - (strip ? 14 : 0), mid = (x0 + x1) / 2, hh = strip ? 22 : 26;
+  const span = (name, row, i0, i1) => {
+    const x0 = X(i0), x1 = X(i1), w = name === 'HVPG' ? 78 : 66, mid = (x0 + x1) / 2;
     const lead = sv('path', { class: 'pzl-lead' }), bar = sv('path', { class: 'pzl-br', d: `M${x0} ${row - 5}V${row + 5}M${x1} ${row - 5}V${row + 5}M${x0} ${row}H${x1}` });
-    const pill = sv('rect', { class: 'pzl-pill', x: mid - w / 2, y: row - hh / 2, width: w, height: hh, rx: hh / 2 }), txt = sv('text', { class: 'pzl-bk', x: mid, y: row + 5, 'text-anchor': 'middle' }, name);
-    return { name, x0, x1, row, lead, pill, txt, w, mid, strip, g: sv('g', { class: 'pzl-bg', opacity: 0 }, lead, bar, pill, txt) };
+    const pill = sv('rect', { class: 'pzl-pill', x: mid - w / 2, y: row - 13, width: w, height: 26, rx: 13 }), txt = sv('text', { class: 'pzl-bk', x: mid, y: row + 5, 'text-anchor': 'middle' }, name);
+    return { name, x0, x1, row, lead, pill, txt, w, mid, g: sv('g', { class: 'pzl-bg', opacity: 0 }, lead, bar, pill, txt) };
   };
   const hv = span('HVPG', SPAN_Y.hvpg, 1, 2), pp = span('PPG', SPAN_Y.ppg, 0, 3);
-  // The phone's strip: the same five stations in one row, each its reading in a node, the fall to the next written on the
-  // connector between (its width and weight follow the size of the fall; the largest is named by colour, a fall over 4 in red),
-  // the two spans under them as on the ladder, then the station names and, dashed, the healthy reading.
-  const S = { W: 360, ny: 27, R: 16, hvpg: 64, ppg: 92, ly: 124, hy: 142, H: 150 }, XS = (i) => 36 + 72 * i;
+  // The phone's strip, two short rows: the station names (the healthy reading dim beside each) over five small nodes, each its
+  // reading, the fall to the next written on the connector between (its width and weight follow the size of the fall; the
+  // largest is named by colour, a fall over 4 in red). Under them the HVPG and PPG as thin brackets that carry their own
+  // reading and rating, so a phone needs no tiles.
+  const S = { W: 360, ny: 34, R: 13, hvpg: 70, ppg: 90, H: 98 }, XS = (i) => 36 + 72 * i;
   const conns = [0, 1, 2, 3].map((i) => ({
     line: sv('line', { class: 'pzs-c', x1: XS(i) + S.R + 3, x2: XS(i + 1) - S.R - 3, y1: S.ny, y2: S.ny }),
-    txt: sv('text', { class: 'pzs-d', x: (XS(i) + XS(i + 1)) / 2, y: S.ny - 11, 'text-anchor': 'middle' }),
+    txt: sv('text', { class: 'pzs-d', x: (XS(i) + XS(i + 1)) / 2, y: S.ny - 8, 'text-anchor': 'middle' }),
   }));
   const spts = RUNGS.map(([, a], i) => {
-    const c = sv('circle', { cx: XS(i), cy: S.ny, r: S.R }), v = sv('text', { class: 'pzs-v', x: XS(i), y: S.ny + 6, 'text-anchor': 'middle' });
-    const hd = sv('line', { class: 'pzs-hd', x1: XS(i) - 9, x2: XS(i) + 9, y1: S.hy - 14, y2: S.hy - 14 }), hv0 = sv('text', { class: 'pzs-h', x: XS(i), y: S.hy, 'text-anchor': 'middle' });
-    return { g: sv('g', { class: 'pzs-pt' }, c, v), c, v, hd, hv0, k: sv('text', { class: 'pzs-k', x: XS(i), y: S.ly, 'text-anchor': 'middle' }, a) };
+    const c = sv('circle', { cx: XS(i), cy: S.ny, r: S.R }), v = sv('text', { class: 'pzs-v', x: XS(i), y: S.ny + 5.5, 'text-anchor': 'middle' });
+    const h0 = sv('tspan', { class: 'pzs-h' });
+    return { g: sv('g', { class: 'pzs-pt' }, c, v), c, v, h0, k: sv('text', { class: 'pzs-k', x: XS(i), y: 11, 'text-anchor': 'middle' }, a, h0) };
   });
-  const hvS = span('HVPG', S.hvpg, 1, 2, XS, true), ppS = span('PPG', S.ppg, 0, 3, XS, true);
+  const sbr = (name, row, i0, i1, right) => {
+    const x0 = XS(i0), x1 = XS(i1), t = ['bn', 'bv', 'bu', 'bw'].map((c) => sv('tspan', { class: 'pzs-' + c }));
+    const lead = sv('path', { class: 'pzl-lead' }), bar = sv('path', { class: 'pzl-br', d: `M${x0} ${row - 4}V${row + 4}M${x1} ${row - 4}V${row + 4}M${x0} ${row}H${x1}` });
+    const lbl = sv('text', { class: 'pzs-bl', x: right ? x1 + 12 : (x0 + x1) / 2, y: row + 4, 'text-anchor': right ? 'start' : 'middle' }, t);
+    return { name, x0, x1, row, lead, t, g: sv('g', { class: 'pzl-bg', opacity: 0 }, lead, bar, lbl) };
+  };
+  const hvS = sbr('HVPG', S.hvpg, 1, 2, true), ppS = sbr('PPG', S.ppg, 0, 3, false);
   const strip = sv('svg', { class: 'pz-strip', viewBox: `0 0 ${S.W} ${S.H}`, role: 'img' },
-    hvS.g, ppS.g, conns.map((c) => [c.line, c.txt]), spts.map((p) => [p.g, p.k, p.hd, p.hv0]));
+    conns.map((c) => [c.line, c.txt]), spts.map((p) => [p.g, p.k]), hvS.g, ppS.g);
   const grid = TICKS.map((v) => {
     const line = sv('line', { x1: 44, x2: W - 10 }), txt = sv('text', { x: 34, 'text-anchor': 'end' }, String(v));
     return { v, line, txt, g: sv('g', { class: 'pzl-grid' }, line, txt) };
   });
   const drawBase = () => {
     base.setAttribute('d', baseVals ? RUNGS.map(([k], i) => `${i ? 'L' : 'M'}${X(i)} ${Y(baseVals[k]).toFixed(1)}`).join(' ') : '');
-    spts.forEach((p, i) => { p.hv0.textContent = baseVals ? fmt(baseVals[RUNGS[i][0]], 0) : ''; p.hd.setAttribute('opacity', baseVals ? 1 : 0); });
+    spts.forEach((p, i) => { p.h0.textContent = baseVals ? ` (${fmt(baseVals[RUNGS[i][0]], 0)})` : ''; });
   };
   let verdict = {};
   const el = sv('svg', { class: 'pz-ladder', viewBox: `0 0 ${W} ${H}`, role: 'img' },
@@ -368,15 +375,25 @@ function bigLadder() {
       const ok = Number.isFinite(hi) && Number.isFinite(lo) && Number.isFinite(v);
       b.g.setAttribute('opacity', ok ? 1 : 0);
       if (!ok) return;
-      b.lead.setAttribute('d', b.strip ? `M${b.x0} ${b.row - 9}V${S.ny + S.R + 5}M${b.x1} ${b.row - 9}V${S.ny + S.R + 5}` : `M${b.x0} ${b.row - 9}V${(Y(hi) + 12).toFixed(1)}M${b.x1} ${b.row - 9}V${(Y(lo) + 12).toFixed(1)}`);
+      b.lead.setAttribute('d', `M${b.x0} ${b.row - 9}V${(Y(hi) + 12).toFixed(1)}M${b.x1} ${b.row - 9}V${(Y(lo) + 12).toFixed(1)}`);
       const say = verdict[b.name.toLowerCase()];
       b.g.dataset.rate = say ? (say === 'misleads' ? 'hi' : 'ok') : rate;
       b.g.classList.toggle('says', !!say);
       const w = say ? b.w + 52 : b.w, label = say ? `${b.name} ${fmt(v, 1)}` : b.name;
       if (b.txt.textContent !== label) { b.txt.textContent = label; b.pill.setAttribute('x', b.mid - w / 2); b.pill.setAttribute('width', w); }
     };
-    for (const b of [hv, hvS]) put(b, f.whvp, f.fhvp, f.hvpg, rateOf('hvpg', f)[0] || 'ok');
-    for (const b of [pp, ppS]) put(b, f.pv, f.ivc, f.ppg, rateOf('ppg', f)[0] || 'ok');
+    put(hv, f.whvp, f.fhvp, f.hvpg, rateOf('hvpg', f)[0] || 'ok');
+    put(pp, f.pv, f.ivc, f.ppg, rateOf('ppg', f)[0] || 'ok');
+    // The strip's brackets: name, reading and its rating (a slide's verdict colours the bracket and takes the rating's place).
+    const putS = (b, hi, lo, v, k) => {
+      const ok = Number.isFinite(hi) && Number.isFinite(lo) && Number.isFinite(v), say = verdict[b.name.toLowerCase()], [rate, word] = rateOf(k, f);
+      b.g.setAttribute('opacity', ok ? 1 : 0);
+      if (!ok) return;
+      b.lead.setAttribute('d', `M${b.x0} ${b.row - 8}V${S.ny + S.R + 4}M${b.x1} ${b.row - 8}V${S.ny + S.R + 4}`);
+      b.g.dataset.rate = say ? (say === 'misleads' ? 'hi' : 'ok') : rate || 'ok';
+      b.t[0].textContent = b.name; b.t[1].textContent = ' ' + fmt(v, 1); b.t[2].textContent = ' mmHg'; b.t[3].textContent = say || !word ? '' : ' ● ' + word;
+    };
+    putS(hvS, f.whvp, f.fhvp, f.hvpg, 'hvpg'); putS(ppS, f.pv, f.ivc, f.ppg, 'ppg');
     const say = 'Pressure ladder: ' + RUNGS.map(([k, a]) => `${a} ${fmt(f[k], 0)}`).join(', ') + ' mmHg. '
       + `HVPG ${fmt(f.hvpg, 1)}, PPG ${fmt(f.ppg, 1)} mmHg.`;
     el.setAttribute('aria-label', say); strip.setAttribute('aria-label', say);
@@ -435,6 +452,8 @@ function bigTiles() {
       const sg = ks.join() + (ref ? '|ref' : '');
       if (sg !== sig) { sig = sg; build(ks, !!ref); }
       el.dataset.keys = ks.join();
+      // (On a phone the strip's brackets carry HVPG and PPG with their ratings, so plain tiles of just those two fold away.)
+      el.dataset.compact = ks.join() === 'hvpg,ppg' && !ref && !tips ? '1' : '';
       parts.forEach((p) => p.tile.classList.toggle('key', key.includes(p.k)));
       const to = Object.fromEntries([...ks, 'asc'].map((k) => [k, f[k]]));
       if (ref) for (const k of ks) to['ref_' + k] = ref[k];
