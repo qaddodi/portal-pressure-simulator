@@ -7,7 +7,7 @@ import { createStage } from './stage.js?v=963233882c';
 import { createCreditPlacer } from './credit.js?v=b3a9118903';
 import { sinusoidSupported } from './sinusoid-view.js?v=c6a8f1cabe';
 import { createInspector } from './inspector.js?v=4dd2fb68b1';
-import { createDock, CUTOFFS } from './dock.js?v=8d174929a6';
+import { createDock, CUTOFFS } from './dock.js?v=bbc6bf702a';
 import { setHvpgStage } from './hvpg-proc.js?v=4b408e144c';
 import { createWhy } from './why.js?v=f47dea1d57';
 import { createTimeline, LAPSES } from './timeline.js?v=b039acd70a';
@@ -15,14 +15,14 @@ import { createLearn } from './learn.js?v=5b1a41d804';
 import { createCases, CASES } from './cases.js?v=82a7a4362c';
 import { isBlind } from './learning-kit.js?v=6d450ed1de';
 import { createCompare } from './compare.js?v=232ef8e809';
-import { createCard } from './card.js?v=5c6252e615';
-import { createChart, computeFindings } from './chart.js?v=a3cda02d05';
+import { createCard } from './card.js?v=c22e0b825e';
+import { createChart, computeFindings } from './chart.js?v=c8e0aa43c7';
 import { createMenu, ROLES } from './menu.js?v=5705a6e57f';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=398e679a38';
 import { caption } from './a11y.js?v=294de40bc0';
 import { startLMS } from './lms.js?v=a3a163a016';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
-import { toolsToVerbs, normalizeSel, shuntable, edgeValue } from './actions.js?v=9e2d23421f';
+import { toolsToVerbs, normalizeSel, shuntable, edgeValue, bedStats } from './actions.js?v=01827ecbf4';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=7616551729';
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=34e377149b';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, uiScale, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=045e641b44';
@@ -140,7 +140,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else mainMenu.open(); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => mainMenu.open() });
-  presenterL = lazy(() => import('./presenter.js?v=cb4b1c07ba'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=d2c72bcbbe'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -735,7 +735,9 @@ function hoverInfo(info) {
   tipEl.style.setProperty('--acc', acc);
   tipEl.replaceChildren(h('div', { class: 't' }, h('i', { class: 'dot' }), e.label),
     h('div', { class: 'rows' }, r('Pressure', edgeValue(e, f, 'pressure', null).v, 'mmHg'), r('Flow', fmtFlow((f.Qf ? f.Qf[k] : f.Q[k]) * 0.06), 'L/min'),
-      r('Velocity', fmt(v, 1), 'cm/s'), r('Diameter', fmt(f.D[k], 1), 'mm')), h('div', { class: 'hint' }, info.peek ? 'Tap for actions' : 'Click or right-click for actions'));
+      // A lumped bed (the sinusoids) has no one diameter or velocity: its pressure drop and resistance instead.
+      ...(e.kind === 'liver' ? (() => { const b = bedStats(e, f); return [r('Drop to central v.', fmt(b.dp, 1), 'mmHg'), r('Resistance', b.r == null ? '—' : fmt(b.r, 1), 'mmHg·min/L')]; })()
+        : [r('Velocity', fmt(v, 1), 'cm/s'), r('Diameter', fmt(f.D[k], 1), 'mm')])), h('div', { class: 'hint' }, info.peek ? 'Tap for actions' : 'Click or right-click for actions'));
   tipEl.classList.add('on');
   tipEl.classList.toggle('peek', !!info.peek);
   const W = view.clientWidth, H = view.clientHeight, th = tipEl.offsetHeight, tw = tipEl.offsetWidth || 200;

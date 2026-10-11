@@ -119,7 +119,9 @@ export function cardFor(selIn, ctx) {
   } else if (SIN_EDGES.has(id)) {
     // Each side's sinusoids: their own card, read at the station, with the liver's cirrhosis and its lobule.
     kicker = 'Liver microcirculation'; why = 'hvpg';
-    verbs.push({ type: 'stat', label: 'Flow', value: (f) => `${fmtFlow(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) * 0.06)} L/min` });
+    verbs.push({ type: 'stat', label: 'Flow', value: (f) => `${fmtFlow(bedStats(e, f).q)} L/min` });
+    verbs.push({ type: 'stat', label: 'Drop to central vein', value: (f) => `${fmt(bedStats(e, f).dp, 1)} mmHg` });
+    verbs.push({ type: 'stat', label: 'Resistance', value: (f) => { const r = bedStats(e, f).r; return r == null ? '—' : `${fmt(r, 1)} mmHg·min/L`; } });
     verbs.push(...organCard({ type: 'organ', id: 'liver' }, ctx).verbs);
   } else {
     kicker = SHUNT_PORTAL.includes(e.from) || SHUNT_PORTAL.includes(e.to) ? 'Vein · portal system' : 'Vein · systemic';
@@ -164,10 +166,18 @@ export function edgeValue(e, f, lens, ref) {
     const d = r != null && Math.abs(r) > 0.3 ? ((Math.abs(q) - Math.abs(r * 0.06)) / Math.abs(r * 0.06)) * 100 : null;
     return { v: fmtFlow(Math.abs(q)), u: 'L/min', d: d != null && Math.abs(d) >= 5 ? `${d > 0 ? '▲' : '▼'} ${Math.round(Math.abs(d))} %` : null, up: d > 0 };
   }
+  if (lens === 'velocity' && e.kind === 'liver') return { v: '—', u: 'cm/s' };   // a lumped bed has no one velocity
   if (lens === 'velocity') { const D = Math.max(0.5, f.D[k]) / 10; return { v: fmt(Math.abs((q / 0.06) / (Math.PI * D * D / 4)), 0), u: 'cm/s' }; }
   if (lens === 'drop') return { v: fmt(P1 - P2, 1), u: 'mmHg drop' };
   const r = ref ? (st ? ref[NI[st]] : (ref[NI[e.from]] + ref[NI[e.to]]) / 2) : null;
   return { v: fmt(P, 1), u: 'mmHg', d: r != null && Math.abs(P - r) >= 1 ? `${P > r ? '▲' : '▼'} ${fmt(Math.abs(P - r), 0)}` : null, up: r != null && P > r };
+}
+
+// A capillary bed (each side's sinusoids) is lumped in the model: no one diameter or velocity, so it reads as its
+// flow, the pressure it drops from the portal venules' end to the central vein, and its resistance (ΔP / Q).
+export function bedStats(e, f) {
+  const k = EI[e.id], PF = f.Pf || f.P, q = Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) * 0.06, dp = PF[NI[e.from]] - PF[NI[e.to]];
+  return { q, dp, r: q > 0.005 ? dp / q : null };
 }
 
 function varixVerbs(site, ctx) {
