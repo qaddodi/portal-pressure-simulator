@@ -8,7 +8,7 @@ import { store, updateParams, hiddenNow } from './store.js?v=9858da589a';
 import { fmt, fmtFlow, clamp, toast } from './util.js?v=045e641b44';
 import { aboutVessel, aboutOrgan } from './about.js?v=acf8a82b8b';
 import { lobuleState } from './lobule-model.js?v=58cca12828';
-import { LABEL_VESSEL } from './anatomy.js?v=42d782eda4';
+import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=42d782eda4';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -39,7 +39,7 @@ const NODE_SEL = {
   CONF: ['edge', 'PV_TRUNK'], PVH: ['edge', 'PV_TRUNK'], SV: ['edge', 'SV_CONF'], SMV: ['edge', 'SMV_CONF'], IMV: ['edge', 'V_IMV'], LGV: ['edge', 'LGV_CONF'],
   RPV: ['edge', 'PVH_R'], LPV: ['edge', 'PVH_L'], RHV: ['edge', 'RHV_IVC'], MHV: ['edge', 'MHV_IVC'], LHV: ['edge', 'LHV_IVC'], IVCS: ['edge', 'IVCS_RA'], IVCI: ['edge', 'IVC_IS'],
   SVC: ['edge', 'SVC_RA'], AZY: ['edge', 'AZY_SVC'], ILI: ['edge', 'ILI_IVC'], LRV: ['edge', 'LRV_IVC'], KID_L: ['edge', 'V_KID_L'], COL: ['edge', 'V_COL'], INT: ['edge', 'V_INT'],
-  SIN_R: ['organ', 'liver'], SIN_L: ['organ', 'liver'], CV_R: ['organ', 'liver'], CV_L: ['organ', 'liver'], HA: ['organ', 'liver'],
+  SIN_R: ['edge', 'SIN_RR'], SIN_L: ['edge', 'SIN_LL'], CV_R: ['organ', 'liver'], CV_L: ['organ', 'liver'], HA: ['organ', 'liver'],
   RA: ['organ', 'heart'], VAR: ['organ', 'varices'], GV: ['organ', 'gastric'], STO: ['organ', 'gastric'], SPL: ['organ', 'spleen'], EPI: ['organ', 'abdomen'],
 };
 /** The structure a selection stands for (liver micro-vessels are the liver; stations their vessel). */
@@ -55,7 +55,8 @@ export function normalizeSel(sel) {
     if (!e) return null;
     // A central vein that runs into a hepatic vein is that hepatic vein to the eye: it opens the vein's card and frames it.
     if (POST_TO_HV[e.id]) return { type: 'edge', id: POST_TO_HV[e.id] };
-    if (e.kind === 'liver') return { type: 'organ', id: 'liver', lobe: e.lobe === 'L' ? 'L' : e.lobe === 'R' ? 'R' : null, zone: e.zone };
+    // The drawn sinusoids are a vessel of their own, each side its own target; the liver's other micro-vessels are the liver.
+    if (e.kind === 'liver' && !SIN_EDGES.has(e.id)) return { type: 'organ', id: 'liver', lobe: e.lobe === 'L' ? 'L' : e.lobe === 'R' ? 'R' : null, zone: e.zone };
   }
   return sel;
 }
@@ -115,6 +116,11 @@ export function cardFor(selIn, ctx) {
       verbs.push({ type: 'button', id: 'remove', key, label: 'Take down shunt', icon: 'close', danger: true, run: () => { updateParams({ [key]: false }, { label: `Remove ${e.label}` }); ctx.select(null); } });
     }
     verbs.push(doppler);
+  } else if (SIN_EDGES.has(id)) {
+    // Each side's sinusoids: their own card, read at the station, with the liver's cirrhosis and its lobule.
+    kicker = 'Liver microcirculation'; why = 'hvpg';
+    verbs.push({ type: 'stat', label: 'Flow', value: (f) => `${fmtFlow(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) * 0.06)} L/min` });
+    verbs.push(...organCard({ type: 'organ', id: 'liver' }, ctx).verbs);
   } else {
     kicker = SHUNT_PORTAL.includes(e.from) || SHUNT_PORTAL.includes(e.to) ? 'Vein · portal system' : 'Vein · systemic';
     if (HEP_VEIN[id]) { kicker = 'Hepatic vein'; why = 'hvpg'; }
@@ -125,7 +131,7 @@ export function cardFor(selIn, ctx) {
     if (id === 'SV_CONF' || id === 'V_SPL') verbs.push({ type: 'link', label: 'Spleen', run: () => ctx.select({ type: 'organ', id: 'spleen' }) });
   }
   // Dye into this vessel, beside Doppler: a few seconds a press, or as long as it is held.
-  if (ctx.injectDye) {
+  if (ctx.injectDye && !SIN_EDGES.has(id)) {
     const dye = { type: 'dye', id: 'dye', label: 'Inject dye', icon: 'drop', run: (o) => ctx.injectDye(id, o), release: () => ctx.releaseDye(), busy: () => ctx.dyeInjecting(), showIf: () => ctx.canDye?.() !== false };
     const at = verbs.indexOf(doppler);
     if (at >= 0) verbs.splice(at + 1, 0, dye); else verbs.push(dye);
