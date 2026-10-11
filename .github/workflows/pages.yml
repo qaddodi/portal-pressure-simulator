@@ -8,6 +8,8 @@ name: Pages (live site + preview)
 # visual or WebKit check that has started is never cancelled: it runs to the end and reports. While
 # one runs, only the newest waiting commit queues behind it (GitHub drops older waiting ones), so the
 # checks follow the branch tip at a steady pace and never take every runner from the deploy.
+# Browser, visual and WebKit checks run only for main and the integration branch (other claude/**
+# branches get lint and unit here, and everything in ci.yml on a pull request), so runners stay free.
 
 on:
   push:
@@ -40,6 +42,7 @@ jobs:
   # Split over eleven runners (desktop in three shares, phone in eight), one check at a time per runner:
   # a runner is too small to run several browsers at once.
   browser-checks:
+    if: github.ref_name == 'main' || github.ref_name == 'claude/settings-topbar-icon-flvft1'
     runs-on: ubuntu-latest
     concurrency:
       group: browser-checks-${{ github.ref }}-${{ matrix.device }}-${{ matrix.shard }}
@@ -83,6 +86,7 @@ jobs:
 
   # The presenter's words on an iPhone's engine (WebKit): they show once, at their final size.
   webkit:
+    if: github.ref_name == 'main' || github.ref_name == 'claude/settings-topbar-icon-flvft1'
     runs-on: ubuntu-latest
     concurrency:
       group: webkit-${{ github.ref }}
@@ -106,6 +110,7 @@ jobs:
   # which redraws the drifted views on these same machines and commits them.
   visual:
     name: visual (${{ matrix.device }})
+    if: github.ref_name == 'main' || github.ref_name == 'claude/settings-topbar-icon-flvft1'
     runs-on: ubuntu-latest
     concurrency:
       group: visual-${{ github.ref }}-${{ matrix.device }}
