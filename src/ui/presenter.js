@@ -323,15 +323,19 @@ let uid = 0;
  *  stations they join. set(f, { key }) glides the line and counts the numbers. */
 function bigLadder() {
   const W = 500, H = 362, X = (i) => 56 + i * 97;
-  // The axis runs to 30 mmHg, or to the next 10 above the highest station (an acute portal vein clot reads in the 40s); it eases when that changes.
-  let top = 30, baseVals = null;
+  // The axis fits the data: the smallest of 12, 20, 30, 40 or 50 mmHg that clears the highest station (the healthy line
+  // included), with round ticks (every 4, 5 or 10). Scale and ticks ease when a slide changes them.
+  let top = 12, baseVals = null;
   const Y = (v) => 252 - clamp(v, 0, top) * (198 / top);
+  const TOPS = [12, 20, 30, 40, 50], TICKS = [0, 4, 5, 8, 10, 12, 15, 20, 30, 40, 50];
+  const stepOf = (t) => (t <= 12 ? 4 : t <= 20 ? 5 : 10);
+  const wOf = (v, t) => (v % stepOf(t) === 0 && v <= t ? 1 : 0);
   const SPAN_Y = { hvpg: 278, ppg: 316 };
   const gid = 'pzGrad' + ++uid;
   const base = sv('path', { class: 'pzl-base' });
   const line = sv('path', { class: 'pzl-line', stroke: `url(#${gid})` });
   const bands = [0, 1, 2, 3].map((i) => {
-    const r = sv('rect', { x: X(i) + 16, y: Y(30) - 6, width: 97 - 32, height: Y(0) - Y(30) + 6, rx: 12 });   // (y and height follow the axis, in draw)
+    const r = sv('rect', { x: X(i) + 16, y: Y(12) - 6, width: 97 - 32, height: Y(0) - Y(12) + 6, rx: 12 });   // (y and height follow the axis, in draw)
     const t = sv('text', { x: (X(i) + X(i + 1)) / 2, y: 26, 'text-anchor': 'middle' });
     return { g: sv('g', { class: 'pzl-drop', opacity: 0 }, r, t), t, r };
   });
@@ -348,7 +352,7 @@ function bigLadder() {
     return { name, x0, x1, row, lead, pill, txt, w, mid, g: sv('g', { class: 'pzl-bg', opacity: 0 }, lead, bar, pill, txt) };
   };
   const hv = span('HVPG', SPAN_Y.hvpg, 1, 2), pp = span('PPG', SPAN_Y.ppg, 0, 3);
-  const grid = [0, 10, 20, 30, 40, 50].map((v) => {
+  const grid = TICKS.map((v) => {
     const line = sv('line', { x1: 44, x2: W - 10 }), txt = sv('text', { x: 34, 'text-anchor': 'end' }, String(v));
     return { v, line, txt, g: sv('g', { class: 'pzl-grid' }, line, txt) };
   });
@@ -359,10 +363,10 @@ function bigLadder() {
     grid.map((r) => r.g),
     bands.map((b) => b.g), hv.g, pp.g, base, line, pts.map((p) => p.g));
   const draw = tweener((f) => {
-    top = clamp(f.top || 30, 30, 50);
+    top = clamp(f.top || 12, 12, 50);
     for (const g of grid) {
       g.line.setAttribute('y1', Y(g.v).toFixed(1)); g.line.setAttribute('y2', Y(g.v).toFixed(1)); g.txt.setAttribute('y', (Y(g.v) + 5).toFixed(1));
-      g.g.setAttribute('opacity', g.v <= 30 ? 1 : clamp((top - g.v) / 10 + 1, 0, 1).toFixed(3));
+      g.g.setAttribute('opacity', clamp(f['g' + g.v] ?? 0, 0, 1).toFixed(3));
     }
     bands.forEach((b) => { b.r.setAttribute('y', (Y(top) - 6).toFixed(1)); b.r.setAttribute('height', (Y(0) - Y(top) + 6).toFixed(1)); });
     drawBase();
@@ -400,7 +404,9 @@ function bigLadder() {
     set(f, { key = [], ms, brackets = null } = {}) {
       verdict = brackets || {};
       pts.forEach((p, i) => p.g.classList.toggle('key', key.includes(RUNGS[i][0])));
-      draw({ top: Math.max(30, Math.ceil(Math.max(f.pv, f.whvp, f.fhvp, f.ra, f.ivc ?? f.ra) / 10) * 10 || 30), pv: f.pv, whvp: f.whvp, fhvp: f.fhvp, ra: f.ra, ivc: f.ivc ?? f.ra, hvpg: f.hvpg, ppg: f.ppg }, ms);
+      const hi = Math.max(f.pv, f.whvp, f.fhvp, f.ra, f.ivc ?? f.ra, ...(baseVals ? RUNGS.map(([k]) => baseVals[k]) : []));
+      const t = TOPS.find((v) => v >= hi + 1.5) || 50;
+      draw({ top: t, ...Object.fromEntries(TICKS.map((v) => ['g' + v, wOf(v, t)])), pv: f.pv, whvp: f.whvp, fhvp: f.fhvp, ra: f.ra, ivc: f.ivc ?? f.ra, hvpg: f.hvpg, ppg: f.ppg }, ms);
     },
   };
 }
@@ -1476,16 +1482,31 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   // ── Swipe: a sideways swipe over the figure (one finger, mostly horizontal, over 60 px) goes on or back; pans
   // and pinches that are not mostly sideways stay with the figure, and nothing on a card counts. ──
   // (Touch events, not pointer events: the browser keeps its pans on the stage while presenting, which cancels pointers.)
-  let sw = null;
+  // On a phone, pressing and holding on the figure (one finger, still, ~0.4 s) fades the cards away so the figure can be
+  // seen; letting go fades them back. Only a hold that starts on the figure counts (never on a card, the bar or the
+  // sheet), and a hold never swipes. Opacity only, so the cards keep their boxes and the figure's framing and the credit hold still.
+  let sw = null, holdT = 0, peeking = false;
+  const peek = (on) => {
+    clearTimeout(holdT);
+    if (on === peeking) return;
+    peeking = on; wrap.classList.toggle('pz-peek', on);
+  };
   wrap.addEventListener('touchstart', (e) => {
     const t = e.touches[0];
     sw = deck && e.touches.length === 1 && !e.target.closest?.('.stage-blocker') ? { x: t.clientX, y: t.clientY, t: performance.now() } : null;
+    peek(false);
+    if (sw && phone() && ui && ui.panel.hidden && ui.jump.hidden && !black) holdT = setTimeout(() => { if (sw) { sw = null; peek(true); } }, 420);
   }, { passive: true, capture: true });
-  wrap.addEventListener('touchmove', (e) => { if (e.touches.length > 1) sw = null; }, { passive: true, capture: true });
-  wrap.addEventListener('touchcancel', () => { sw = null; }, { passive: true, capture: true });
+  wrap.addEventListener('touchmove', (e) => {
+    if (e.touches.length > 1) { sw = null; peek(false); return; }
+    const t = e.touches[0];
+    if (sw && Math.hypot(t.clientX - sw.x, t.clientY - sw.y) > 14) clearTimeout(holdT);
+  }, { passive: true, capture: true });
+  wrap.addEventListener('touchcancel', () => { sw = null; peek(false); }, { passive: true, capture: true });
   wrap.addEventListener('touchend', (e) => {
     const g = sw, t = e.changedTouches[0]; sw = null;
-    if (!g || !deck || !t || e.touches.length) return;
+    const was = peeking; peek(false);
+    if (was || !g || !deck || !t || e.touches.length) return;
     const dx = t.clientX - g.x, dy = t.clientY - g.y;
     if (Math.abs(dx) > 60 && Math.abs(dx) > 1.6 * Math.abs(dy) && performance.now() - g.t < 700) { if (dx < 0) next(); else prev(); }
   }, { passive: true, capture: true });
@@ -1640,7 +1661,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     waiters = [];
     removeEventListener('resize', onResize);
     store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
-    clearTimeout(idleT);
+    clearTimeout(idleT); clearTimeout(holdT); peeking = false; wrap.classList.remove('pz-peek');
     ui?.tools.dispose(); ui?.root.remove(); ui?.shade.remove(); ui = null;
     view.classList.remove('pz-out');
     for (const k of ['--pz-l', '--pz-r', '--pz-t', '--pz-b']) app.style.removeProperty(k);

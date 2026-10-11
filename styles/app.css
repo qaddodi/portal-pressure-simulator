@@ -5065,3 +5065,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 .dop .dop-report .dop-stats dd { font-size: 16px; line-height: 1.1; white-space: nowrap; }
 .dop .dop-report .dop-stats dd small { font-size: 11px; font-weight: 500; letter-spacing: 0; color: var(--text-3); }
 
+/* Press and hold on the figure (phone): the cards fade out, release fades them back. Opacity only, so every box stays put. */
+.pz-peek .pz-text, .pz-peek .pz-data, .pz-peek .pz-bar, .pz-peek .pz-count, .pz-peek .pz-shade { opacity: 0 !important; pointer-events: none; transition: opacity .35s var(--ease) !important; transition-delay: 0s !important; }
+.pz-count { transition: opacity .35s var(--ease); }
+.app.presenting #stageView { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
