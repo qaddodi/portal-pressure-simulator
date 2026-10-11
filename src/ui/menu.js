@@ -109,8 +109,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     hoverable(row, () => patientPreview(p), 'patients');
     return h('li', {}, row);
   }
-  const deckPreview = (d, lib) => h('div', { class: 'um-pv-in' },
-    lib.still(d),
+  const deckPreview = (d, lib) => h('div', { class: 'um-pv-in pt' },
     h('span', { class: 'um-pv-meta' }, `${lib.levels[d.level] || ''} · ${d.slides.length + 1} slides · ${d.minutes} min`),
     h('h3', {}, d.title), h('p', {}, d.summary || ''),
     d.objectives?.length ? h('ul', {}, d.objectives.map((o) => h('li', {}, o))) : null,

@@ -1732,17 +1732,8 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     return id;
   }
 
-  // A small still of the deck's first slide (brand/decks, made by scripts/deck-stills.mjs) in the page's theme;
-  // it fades in once loaded, and a deck without one simply shows none.
-  function deckStill(d) {
-    const dark = (document.documentElement.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark';
-    const img = h('img', { class: 'pzd-still', alt: '', 'aria-hidden': 'true', decoding: 'async', loading: 'lazy', src: `brand/decks/${d.id}-${dark ? 'dark' : 'light'}.webp` });
-    img.onload = () => img.classList.add('on');
-    img.onerror = () => img.remove();
-    return img;
-  }
   // What the unified menu (menu.js) lists and does: the presentations, this device's scripts and their actions.
-  const library = () => ({ decks: DECKS, topics: TOPICS, levels: LEVELS, mine: readMine(), still: deckStill, start, shareDeck, notes: openHandout,
+  const library = () => ({ decks: DECKS, topics: TOPICS, levels: LEVELS, mine: readMine(), start, shareDeck, notes: openHandout,
     scriptNotes: (s) => openHandout(fromScript(s)), newScript, importFile, addStep, shareScript, exportScript, remove, current: () => deck?.id ?? null });
 
   // Present a case: any case full screen for a class. Projector-size labels on the figure; the slim bar reminds the presenter to take a show of hands before committing.
