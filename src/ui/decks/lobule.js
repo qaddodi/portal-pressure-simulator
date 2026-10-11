@@ -56,7 +56,7 @@ export const LOBULE = {
     {
       id: 'wedge', preset: 'schisto', cath: 'wedge', data: 'ladder', key: ['hvpg'], column: true,
       kicker: 'Measuring', site: 'presin', title: 'The wedge reads the sinusoids',
-      line: 'The still column under the balloon reads the sinusoids. A block before them is invisible to it.',
+      line: 'The still column under the balloon reads sinusoidal pressure. A block upstream of the sinusoids does not show up.',
       notes: 'Wedging the catheter, or inflating its balloon, stops the flow in that hepatic vein. The column of blood behind it then equals the pressure where it next meets moving blood: the sinusoids. In cirrhosis the sinusoids are at about portal pressure, so the wedged pressure stands in for it. In schistosomiasis, shown here, the portal vein is high but the sinusoids are not, so the wedged pressure, and the HVPG, are normal. Only a direct portal pressure or the PPG shows a presinusoidal block.',
       ask: ['Which diseases does the wedge miss?', 'Pre-hepatic and presinusoidal blocks, such as portal vein thrombosis and schistosomiasis.'],
     },
@@ -65,7 +65,7 @@ export const LOBULE = {
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', note: 'No block', ref: true }, { id: 'schisto', title: 'Schistosomiasis', note: 'Portal venules, in the tract' },
         { id: 'cirr', title: 'Cirrhosis', note: 'Sinusoids, the space of Disse' }, { id: 'sos', title: 'Sinusoidal obstruction', note: 'Central veins' },
         { id: 'cong', title: 'Heart failure', note: 'No block: congestion of zone 3' }],
-      kicker: 'Summary', title: 'Where each disease sits',
+      kicker: 'Summary', title: 'Site of the block in each disease',
       line: 'The wedge reads the sinusoids, so HVPG rises only when the block sits in them or in the central veins.',
       notes: 'Read from top to bottom, the block moves along the lobule from the portal tract to the central vein. The HVPG rises only when the block lies between the sinusoids and the free hepatic vein: cirrhosis and sinusoidal obstruction. The ascites protein follows the sinusoid wall: low when the wall is capillarized (cirrhosis), high when it is still open (sinusoidal obstruction, congestion). Presinusoidal disease rarely causes ascites, because the sinusoids are at normal pressure.',
       ask: ['Three weeks after a stem cell transplant: ascites with high protein and a raised HVPG. Where is the block?', 'At the central veins: sinusoidal obstruction syndrome. Without that history, think first of cirrhosis, whose fluid can be high in protein after diuretics.'],

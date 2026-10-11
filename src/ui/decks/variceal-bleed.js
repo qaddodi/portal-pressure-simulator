@@ -7,7 +7,7 @@ const BEATS = { kind: 'trace', range: 'beats' };
 const SALINE = { kind: 'infuse', fluid: 'crystalloid' }, UNIT = { kind: 'infuse', fluid: 'prbc' }, BAND = { kind: 'band' };
 
 export const BLEED = {
-  id: 'variceal-bleed', level: 'core', title: 'Acute variceal bleeding as a resuscitation', minutes: 8,
+  id: 'variceal-bleed', level: 'core', title: 'Resuscitating an acute variceal bleed', minutes: 8,
   objectives: [
     'Read early shock from the heart rate and blood pressure, knowing what blunts them, not from the hemoglobin',
     'Give octreotide and antibiotics before endoscopy',
@@ -27,7 +27,7 @@ export const BLEED = {
     {
       id: 'tear', action: { kind: 'rupture', tear: 0.3 }, cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Bleeding varix' }, tool: BEATS, data: 'tiles', tiles: ['hr', 'map'], key: ['hr'], delta: true,
       kicker: K, site: 'sin', title: 'The varix tears',
-      line: 'Blood pours into the esophagus. The heart rate usually rises first, unless a beta-blocker holds it down; the blood pressure is still holding.',
+      line: 'Blood pours into the esophagus. The heart rate usually rises first, unless a beta-blocker blunts it. Blood pressure is still normal at this stage.',
       notes: 'Hematemesis or melena in a patient with cirrhosis is variceal until proved otherwise. Lost volume is replaced first by a faster heart and tighter arterioles, so the blood pressure falls late. A beta-blocker such as carvedilol blunts the rise in heart rate, and admission heart rate is neither sensitive nor specific for a large bleed, so a normal pulse does not reassure. A heart rate over 100 or a systolic pressure below 100 means a large bleed. Two large cannulas, blood for cross-match, and a call to the endoscopist and the intensive care team.',
       ask: ['He takes carvedilol. After vomiting blood his pulse is 88 and his blood pressure 100/60. Is he stable?', 'Not necessarily: the beta-blocker blunts the rise in heart rate, and his usual pressure may be low. Judge by the trend, the blood seen, the lactate and a postural drop.'],
     },
@@ -40,7 +40,7 @@ export const BLEED = {
     },
     {
       id: 'oct', params: { drugs: { octreotide: true } }, cam: 'portal', labels: ['SMV', 'CONF'], tool: BEATS, data: 'tiles', tiles: ['pv', 'map'], key: ['pv'], delta: true,
-      kicker: 'Before the scope', site: 'sin', title: 'Octreotide at once',
+      kicker: 'Before the scope', site: 'sin', title: 'Start octreotide now',
       line: 'Start it as soon as a variceal bleed is suspected, before endoscopy. It narrows the gut arterioles and cuts the inflow to the varices.',
       notes: 'Octreotide, a somatostatin analogue: a 50 microgram bolus, then 50 micrograms an hour for 2 to 5 days. Give ceftriaxone 1 g a day as well, for up to 7 days: antibiotics lower infection, rebleeding and death. Erythromycin, 30 to 120 minutes before the scope, clears the stomach. Outside the US, terlipressin or somatostatin are used in its place. The portal pressure here falls with the blood loss too; in the model octreotide adds about 1 mmHg of that fall.',
       ask: ['In the US, which drugs start before the endoscopy, and what does each do?', 'Octreotide lowers the portal pressure; ceftriaxone cuts infection, rebleeding and death; erythromycin clears the stomach for the scope.'],
@@ -77,7 +77,7 @@ export const BLEED = {
     {
       id: 'summary', visual: 'table', cols: ['hr', 'map', 'pv', 'ppg'], asc: false, vs: 'first', rowHead: 'Step',
       of: [{ id: 'before', kicker: 'Baseline', title: 'Before the bleed' }, { id: 'tear', kicker: K, title: 'The tear' }, { id: 'minutes', kicker: K, title: 'Shock, minutes later' }, { id: 'oct', kicker: 'Drug', title: 'Octreotide' }, { id: 'blood', kicker: 'Volume', title: 'Restrictive transfusion' }, { id: 'band', kicker: 'Scope', title: 'Banding' }, { id: 'over', kicker: 'Volume', title: 'Overfilling' }, { id: 'tips', kicker: 'Shunt', title: 'Pre-emptive TIPS' }],
-      kicker: 'Summary', title: 'One bleed, step by step',
+      kicker: 'Summary', title: 'Vital signs and portal pressure through the bleed',
       line: 'The heart rate and blood pressure track the volume; the portal pressure falls with the bleed and returns with every liter given back.',
       notes: 'The order of care: volume and airway, octreotide and an antibiotic, restrictive transfusion, endoscopy with banding within 12 hours, and a pre-emptive TIPS for the highest risk. The portal pressure falls with the blood loss and rises with every liter given back, so the aim is a stable circulation, not a full one.',
       ask: ['Put these in order: banding, octreotide, transfusion to 7 g/dL, ceftriaxone.', 'Octreotide and ceftriaxone at once, transfusion as needed, banding within 12 hours.'],

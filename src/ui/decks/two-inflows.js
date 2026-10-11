@@ -45,7 +45,7 @@ export const TWO_INFLOWS = {
     },
     {
       id: 'artery', preset: 'healthy', params: { thrombus: { A_HEP: 1 } }, cam: 'liver', tool: HA('dual'), data: 'tiles', tiles: ['pvFlow', 'liver'], key: ['liver'], delta: 'dual',
-      kicker: 'The buffer', title: 'Nothing buffers the artery',
+      kicker: 'The buffer', title: 'Hepatic artery thrombosis',
       line: 'If the hepatic artery clots, the portal flow barely changes. Liver blood flow falls to {liver} of normal, and the bile ducts lose their only supply.',
       notes: 'The clinical setting is hepatic artery thrombosis after liver transplantation. In a graft the liver cells may live on portal blood, but often do not; the bile ducts, fed only by the artery, suffer first and become ischemic: bile leaks, strictures and abscesses follow, and early thrombosis often needs revascularization or a new graft. The Doppler shows no arterial signal.',
       ask: ['After a liver transplant the hepatic artery clots. Which structure suffers most?', 'The bile ducts, which have no portal supply.'],
@@ -59,8 +59,8 @@ export const TWO_INFLOWS = {
     },
     {
       id: 'tips', params: { tips: { on: true } }, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'TIPS', kind: 'treat' }, tool: HA('cirr'), data: 'tiles', tiles: ['liver', 'shunt'], key: ['liver'], delta: 'cirr',
-      kicker: 'Cirrhosis and TIPS', site: 'sin', title: 'After TIPS the artery feeds the liver',
-      line: 'The stent draws portal blood past the sinusoids, even from the portal branches inside the liver, so the liver runs mostly on arterial blood and its flow falls to {liver} of normal.',
+      kicker: 'Cirrhosis and TIPS', site: 'sin', title: 'After TIPS, most liver inflow is arterial',
+      line: 'The stent draws portal blood past the sinusoids, even from the portal branches inside the liver, so most of the liver\'s inflow is now arterial, and total flow falls to {liver} of normal.',
       notes: 'After a TIPS, flow in the intrahepatic portal branches usually turns toward the stent, and the hepatic artery velocity rises as the buffer responds. A liver with little reserve may not cope: a rising bilirubin and encephalopathy are the warning signs, and the reason TIPS is avoided in very advanced liver failure.',
       ask: ['Which way does blood run in the intrahepatic portal branches after a TIPS?', 'Usually toward the stent, away from the liver tissue, because the stent is the path of least resistance.'],
     },
@@ -75,7 +75,7 @@ export const TWO_INFLOWS = {
       id: 'summary', visual: 'table', cols: ['pvFlow', 'liver', 'shunt'], asc: false, vs: 'first', rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'clot', kicker: 'Portal vein', title: 'Portal vein clot' }, { id: 'artery', kicker: 'Artery', title: 'Hepatic artery clot' },
         { id: 'cirr', kicker: 'Cirrhosis', title: 'Decompensated' }, { id: 'tips', kicker: 'Cirrhosis', title: 'After TIPS' }, { id: 'fugal', kicker: 'Cirrhosis', title: 'Hepatofugal flow' }],
-      kicker: 'Summary', title: 'The artery buffers the portal vein, not the reverse',
+      kicker: 'Summary', title: 'Hepatic arterial buffer response',
       line: 'The artery buffers every fall in portal flow; nothing buffers a fall in arterial flow.',
       notes: 'Portal flow falls with a clot, with collaterals, with a TIPS and when it reverses; each time the artery takes up part of the load, and the more it does, the faster its Doppler. When the artery itself fails, the portal vein cannot help, and the bile ducts suffer first.',
       ask: ['After a TIPS the hepatic artery velocity has doubled. Is that a complication?', 'No: it is the expected buffer response to less portal inflow.'],

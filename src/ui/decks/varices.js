@@ -19,7 +19,7 @@ export const VARICES = {
     {
       id: 'lapse', days: 180, ramp: { cirrhosis: [0.6, 0.85] }, lapse: { seconds: 10 }, cam: 'fit', tool: { kind: 'trace' }, data: 'tiles', tiles: ['hvpg', 'varix', 'spleen', 'plt'], delta: true,
       kicker: 'Collaterals', site: 'sin', title: 'Varices grow as the gradient climbs',
-      line: 'Over six months the HVPG climbs from about 12 to {17 mmHg}, small varices become large, the spleen enlarges and the platelets fall.',
+      line: 'Over six months the HVPG climbs from about 12 to {17 mmHg}. Small varices become large, the spleen enlarges and platelets fall.',
       caveat: 'In patients this takes years: about 1 in 10 small varices become large each year.',
       notes: 'The time-lapse runs the model\'s disease clock for 180 days while the cirrhosis advances. As the gradient rises, collateral flow grows (by the end about three quarters of the portal blood is shunted) and the varices enlarge. The congested spleen enlarges and holds back platelets (hypersplenism): a low platelet count with a stiff liver suggests clinically significant portal hypertension. Baveno VII\'s scope-sparing rule: screening endoscopy can be skipped when liver stiffness is below 20 kPa and platelets are above 150.',
       ask: ['Which tiles warn that varices are growing, without a scope?', 'The falling platelets and the growing spleen.'],
@@ -48,8 +48,8 @@ export const VARICES = {
     },
     {
       id: 'svt', preset: 'svt', cam: 'splenic', labels: ['SV', 'CONF', 'GV'], terms: ['sv', 'pv', 'spleen', 'gv'], mark: { edges: ['SV_CONF'], label: 'Clot' }, data: 'tiles', tiles: ['pv', 'gv', 'spleen'], key: ['pv', 'gv'],
-      kicker: 'Left-sided portal hypertension', site: 'pre', title: 'A splenic vein clot raises the pressure on the left only',
-      line: 'A clot in the splenic vein raises the pressure on the left only. The portal vein stays normal; the spleen swells and gastric varices form.',
+      kicker: 'Left-sided portal hypertension', site: 'pre', title: 'Splenic vein thrombosis and gastric varices',
+      line: 'A splenic vein clot raises pressure only on the left side. The portal vein stays normal while the spleen enlarges and gastric varices form.',
       notes: 'Sinistral (left-sided) portal hypertension. Splenic blood goes around the clot through the short gastric and gastroepiploic veins, giving isolated gastric varices with a normal portal pressure and a normal liver; esophageal varices are uncommon. Pancreatitis and pancreatic cancer are the usual causes. Removing the inflow cures it: splenectomy, or splenic artery embolization.',
       ask: ['Gastric varices, a large spleen and normal liver tests after pancreatitis. Diagnosis and cure?', 'Splenic vein thrombosis; splenectomy, or splenic artery embolization.'],
     },

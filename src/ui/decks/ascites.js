@@ -3,7 +3,7 @@
 const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`, sub = (b, i) => `<msub>${b}<mtext>${i}</mtext></msub>`;
 
 export const ASCITES = {
-  id: 'ascites', level: 'advanced', title: 'Ascites: where it comes from and what is in it', minutes: 15,
+  id: 'ascites', level: 'advanced', title: 'How ascites forms, and what the tap shows', minutes: 15,
   summary: 'How ascites forms in the sinusoids and why presinusoidal disease rarely causes it. Ends with SAAG and protein.',
   sections: [['Where ascites forms', ['Ascites']], ['Tapping the fluid', ['Tapping the fluid']], ['Blocks before the sinusoids', ['Pre-hepatic block', 'Presinusoidal block']], ['Protein-rich ascites', ['Protein-rich ascites']]],
   objectives: ['Explain how sinusoidal pressure and lymph make ascites', 'Interpret the SAAG and ascitic protein', 'Explain why pre-hepatic and presinusoidal blocks rarely cause ascites', 'Tell cirrhosis from heart failure and Budd–Chiari by the tap'],
@@ -17,7 +17,7 @@ export const ASCITES = {
     },
     {
       id: 'walls', visual: 'walls',
-      kicker: 'Ascites', title: 'Gut capillaries and sinusoids compared',
+      kicker: 'Ascites', title: 'Gut capillary wall versus sinusoid wall',
       line: 'Gut capillaries retain protein, so oncotic pressure limits filtration when their pressure rises. Sinusoids do not, so ascites depends on sinusoidal pressure.',
       notes: 'Starling: filtration = Kf × [(capillary − tissue pressure) − σ × (plasma − tissue oncotic pressure)]. Gut capillaries hold back most protein (σ about 0.9), even where their lining is fenestrated, as in the intestinal mucosa: the plasma\'s oncotic pressure, about 25 mmHg, holds the fluid in, so a raised capillary pressure makes only a little more fluid, which the lymphatics carry away. In the sinusoid σ is near zero: oncotic pressure offers almost no opposition, and each rise in pressure adds to lymph flow. Capillarization in cirrhosis raises σ part of the way, which is why cirrhotic ascites is thin.',
       ask: ['What does a reflection coefficient (σ) near zero mean for the sinusoid wall?', 'Protein crosses freely, so oncotic pressure cannot hold the fluid back, and any rise in pressure becomes lymph.'],
@@ -25,9 +25,9 @@ export const ASCITES = {
     {
       id: 'fill', days: 60, ramp: { cirrhosis: [0.6, 0.85], albumin: [4, 2.8] }, lapse: { seconds: 9 }, cam: 'fit', glow: ['liver'], tool: { kind: 'trace' }, data: 'tiles', tiles: ['sin', 'asc', 'tp'], key: ['asc'], delta: true,
       kicker: 'Ascites', site: 'sin', title: 'Ascites builds over two months',
-      line: 'As fibrosis advances, sinusoidal pressure rises and lymph outruns the lymphatics. Portal hypertension decides where the fluid goes; the kidneys, retaining sodium, keep it coming.',
+      line: 'As fibrosis advances, sinusoidal pressure rises and lymph outruns the lymphatics. High sinusoidal pressure puts the fluid in the peritoneum, and renal sodium and water retention keep replacing it.',
       caveat: 'The model builds the fluid from pressure and albumin; it does not model the kidneys.',
-      notes: 'The time-lapse runs the model\'s disease clock: cirrhosis advances and serum albumin falls from 4.0 to 2.8 g/dL over 60 days, without diuretics. The sinusoids climb from about 17 to 26 mmHg, hepatic lymph overflows and the ascites reaches several liters. In patients, splanchnic vasodilation lowers the effective blood volume, and the kidneys retain sodium and water through renin–angiotensin–aldosterone, the sympathetic system and vasopressin. Portal hypertension decides where the fluid goes; the kidneys keep it coming. Treatment: less salt, spironolactone with furosemide, large-volume paracentesis with albumin, TIPS.',
+      notes: 'The time-lapse runs the model\'s disease clock: cirrhosis advances and serum albumin falls from 4.0 to 2.8 g/dL over 60 days, without diuretics. The sinusoids climb from about 17 to 26 mmHg, hepatic lymph overflows and the ascites reaches several liters. In patients, splanchnic vasodilation lowers the effective blood volume, and the kidneys retain sodium and water through renin–angiotensin–aldosterone, the sympathetic system and vasopressin. High sinusoidal pressure puts the fluid in the peritoneum; renal sodium and water retention keep replacing it. Treatment: less salt, spironolactone with furosemide, large-volume paracentesis with albumin, TIPS.',
       ask: ['Which hormone system drives sodium retention in cirrhotic ascites, and which drug blocks it?', 'Renin–angiotensin–aldosterone; spironolactone.'],
     },
     {
@@ -49,7 +49,7 @@ export const ASCITES = {
       id: 'pvt', preset: 'pvt-chronic', cam: 'portal', labels: ['CONF'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, data: 'tiles', tiles: ['pv', 'sin', 'asc'], key: ['sin'],
       kicker: 'Pre-hepatic block', site: 'pre', title: 'Portal vein thrombosis',
       line: 'Portal pressure is {pv}, but the sinusoids beyond the clot are at {sin}, so little or no ascites forms.',
-      notes: 'Pre-hepatic portal hypertension raises the pressure in the gut and spleen, so varices and a large spleen are common, but the sinusoids lie downstream of the clot at normal pressure. The gut\'s capillaries hold their fluid (see "Gut capillaries and sinusoids compared"), and their extra lymph drains away. Ascites is uncommon: it appears briefly in acute thrombosis, after a variceal bleed with fluid loading, or when the serum albumin falls.',
+      notes: 'Pre-hepatic portal hypertension raises the pressure in the gut and spleen, so varices and a large spleen are common, but the sinusoids lie downstream of the clot at normal pressure. The gut\'s capillaries hold their fluid (see "Gut capillary wall versus sinusoid wall"), and their extra lymph drains away. Ascites is uncommon: it appears briefly in acute thrombosis, after a variceal bleed with fluid loading, or when the serum albumin falls.',
       ask: ['Why does a portal vein clot raise portal pressure but rarely cause ascites?', 'The sinusoids, where ascites starts, lie downstream of the clot at normal pressure.'],
     },
     {

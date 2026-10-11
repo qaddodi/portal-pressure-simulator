@@ -14,7 +14,7 @@ export const RIGHT_HEART = {
     {
       id: 'normal', preset: 'healthy', cam: 'hepatic', labels: ['RHV', 'RA'], tool: { kind: 'doppler', vessel: 'RHV_IVC', waves: true },
       kicker: 'The hepatic veins', site: 'cardiac', title: 'Normal hepatic vein flow follows the right atrium',
-      line: 'Blood flows toward the heart in two waves each beat (S and D), with a reversal as the atrium contracts (a) and a small turn between them (v).',
+      line: 'Flow runs toward the heart in two waves each beat (S and D). Atrial contraction briefly reverses it (a), with a small turn between the waves (v).',
       notes: 'The hepatic veins sit next to the right atrium, so their Doppler trace follows its pressure. Flow away from the probe, toward the heart, is drawn below the baseline: the S wave as the atrium relaxes and the tricuspid ring moves down in systole, then the D wave as the tricuspid valve opens. Between them the small v wave turns toward the baseline as the atrium fills against a closed valve. The a wave above the baseline is the atrial kick pushing blood back. The pattern is called triphasic.',
       ask: ['Which wave of the hepatic vein trace goes above the baseline, and why?', 'The a wave: atrial contraction pushes blood back toward the liver.'],
     },
@@ -28,13 +28,13 @@ export const RIGHT_HEART = {
     {
       id: 'pulse', cam: 'portal', labels: ['CONF'], glow: ['heart', 'ivc', 'hv', 'sin', 'pv'], glowSeq: 550, tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
       kicker: 'Heart failure', site: 'cardiac', title: 'A high atrial pressure makes the portal vein pulse',
-      line: 'The soft sinusoids pass the atrial pressure through to the portal vein. A pulsatile portal flow usually points to the heart, not the liver.',
+      line: 'With no resistance in the sinusoids, right atrial pressure is transmitted to the portal vein. A pulsatile portal flow usually points to the heart, not the liver.',
       notes: 'Normal portal flow is steady, with a small change on breathing. When the right atrial pressure is high and the sinusoids are normal, its swings reach the portal vein: the trace pulses with each beat and may briefly reverse. In cirrhosis the stiff sinusoids damp these swings, so a pulsatile portal vein argues against cirrhosis. The pulsatility index falls as the heart failure is treated.',
       ask: ['A pulsatile portal vein on ultrasound. Where do you look next?', 'The right heart: tricuspid regurgitation or a raised right atrial pressure.'],
     },
     {
       id: 'cath', cath: 'result', data: 'ladder', key: ['ra', 'hvpg'], tiles: ['hvpg', 'ppg'],
-      kicker: 'Heart failure', site: 'cardiac', title: 'High pressures, normal gradients',
+      kicker: 'Heart failure', site: 'cardiac', title: 'Catheter readings in heart failure',
       line: 'Every station from the portal vein to the atrium sits near 20 mmHg. The HVPG and the PPG are both normal.',
       notes: 'The gradients subtract what the stations share, so a high right atrial pressure raises the wedged and the free readings together. Portal pressure is high, but collaterals do not open because the systemic veins they would drain into are just as high; varices are rare. The liver congests, stiffens and leaks a protein-rich ascites. Treating the heart (diuretics, and the cause) lowers every station.',
       ask: ['Portal vein 21 mmHg and HVPG 1 mmHg. Why so few varices?', 'The systemic veins are as high as the portal vein, so there is no gradient to open collaterals.'],
@@ -56,8 +56,8 @@ export const RIGHT_HEART = {
     {
       id: 'summary', visual: 'table', cols: ['ra', 'ivc', 'hvpg', 'lsm'], asc: false, rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'tr', kicker: 'Cardiac', title: 'Heart failure with TR' }, { id: 'constrict', kicker: 'Cardiac', title: 'Constriction' }, { id: 'web', kicker: 'Post-hepatic', title: 'IVC web' }],
-      kicker: 'Summary', title: 'The right atrium tells the heart from a web',
-      line: 'The right atrium separates the heart from the web; the HVPG is normal in all three.',
+      kicker: 'Summary', title: 'Heart failure, constriction or IVC web',
+      line: 'Right atrial pressure separates heart failure and constriction from an IVC web. HVPG is normal in all three.',
       notes: 'Each of these congests the liver from above: the stiffness rises and the ascites is rich in protein, while the HVPG stays normal. The right atrial pressure and the jugular vein tell the heart from a block in the IVC or the hepatic veins. Doppler adds the waveform: reversal in tricuspid regurgitation and a pulsatile portal vein when the right atrium is high.',
       ask: ['Which bedside sign separates heart failure from an IVC web?', 'The jugular venous pressure: high in heart failure, normal with a web.'],
     },

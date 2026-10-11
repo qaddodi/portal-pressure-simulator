@@ -3,7 +3,7 @@
 // A variable in an equation: set in italic, as in print.
 
 export const STIFFNESS = {
-  id: 'stiffness', level: 'core', title: 'Non-invasive assessment: stiffness, spleen and platelets', minutes: 10,
+  id: 'stiffness', level: 'core', title: 'Liver stiffness, spleen size and platelets', minutes: 10,
   objectives: [
     'Explain what a FibroScan reading in kPa measures',
     'Apply the Baveno VII stiffness and platelet rule to CSPH',
@@ -46,7 +46,7 @@ export const STIFFNESS = {
     },
     {
       id: 'spleen', preset: 'csph', cam: 'spleen', glow: ['spleen'], data: 'tiles', tiles: ['spleen', 'plt', 'hvpg'], key: ['plt'], delta: 'fibrosis',
-      kicker: 'The spleen and the platelets', site: 'sin', title: 'The spleen holds back platelets',
+      kicker: 'The spleen and the platelets', site: 'sin', title: 'A large spleen sequesters platelets',
       line: 'Portal congestion enlarges the spleen to {spleen}, and a large spleen pools platelets: {plt}. A falling count is often the first sign in the blood test.',
       notes: 'Splenic congestion and hyperplasia enlarge the spleen; a normal spleen already holds about a third of the platelets and an enlarged one up to about 90%, and a lower thrombopoietin from the liver adds to the fall. Spleen length over about 12 to 13 cm and platelets below 150 support portal hypertension. Spleen stiffness, where available, tracks the portal pressure more closely than liver stiffness, including in presinusoidal disease. The tiles compare with the compensated patient of "Fibrosis stiffens the liver".',
       ask: ['Give two reasons the platelet count falls in portal hypertension.', 'Splenic pooling in a large congested spleen, and less thrombopoietin from the liver.'],
@@ -76,7 +76,7 @@ export const STIFFNESS = {
       id: 'summary', visual: 'table', cols: ['lsm', 'plt', 'ppg'], asc: false, rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'fibrosis', kicker: 'Sinusoidal', title: 'Compensated cirrhosis' }, { id: 'spleen', kicker: 'Sinusoidal', title: 'CSPH' }, { id: 'schisto', kicker: 'Presinusoidal' }, { id: 'heart', kicker: 'Cardiac', title: 'Heart failure' }, { id: 'year', kicker: 'Sinusoidal', title: 'Cirrhosis, a year on' }],
       kicker: 'Summary', title: 'What each test reads',
-      line: 'Stiffness reads the liver tissue; the platelets and the PPG read the whole portal system.',
+      line: 'Stiffness reflects the liver tissue. Platelets and the PPG reflect pressure across the whole portal system.',
       notes: 'Stiffness reads the tissue between the portal and hepatic veins: high in cirrhosis and in congestion, normal in presinusoidal block. The spleen and platelets follow the portal vein pressure whatever the level of the block. The HVPG misses presinusoidal and pre-hepatic disease; the PPG catches them. When the tests disagree, the disagreement points to the level of the block.',
       ask: ['A high PPG with normal stiffness and a normal HVPG. Where is the block?', 'Before the sinusoids: presinusoidal or pre-hepatic.'],
     },

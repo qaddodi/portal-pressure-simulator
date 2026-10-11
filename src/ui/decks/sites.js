@@ -76,7 +76,7 @@ export const SITES = {
     {
       id: 'ladders', cam: 'fit', visual: 'ladders', of: SIX,
       kicker: 'How to tell them apart', title: 'The largest pressure drop marks the site of the block',
-      line: 'Portal pressure is high at every site. HVPG reads only the drop across the sinusoids.',
+      line: 'HVPG reads only the drop across the sinusoids.',
       notes: 'Read each ladder from left to right. Pre-hepatic and presinusoidal: the fall is between the portal vein and the wedge, so HVPG is normal and only a direct portal pressure (or the PPG) shows it. Sinusoidal and postsinusoidal: the fall is between the wedged and the free pressures, exactly what HVPG measures. Post-hepatic: the fall is between the free hepatic vein and the right atrium. Cardiac: there is no fall at all; every station is high.',
       ask: ['Which two levels raise the HVPG?', 'Sinusoidal and postsinusoidal: only there does the block lie between the wedge and the free reading.'],
     },

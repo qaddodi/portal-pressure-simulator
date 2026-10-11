@@ -3,7 +3,7 @@
 const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`, sub = (b, i) => `<msub>${b}<mtext>${i}</mtext></msub>`;
 
 export const TAP = {
-  id: 'tap', level: 'advanced', title: 'Ascites at the bedside: the tap and the albumin', minutes: 12,
+  id: 'tap', level: 'advanced', title: 'Paracentesis, albumin and refractory ascites', minutes: 12,
   sections: [['Ascites', ['Ascites']], ['The tap', ['The diagnostic tap', 'Large-volume paracentesis', 'Two weeks later']], ['Treatment', ['Treatment', 'Refractory ascites']], ['Protein-rich fluid', ['Protein-rich fluid']]],
   objectives: [
     'List what to send from a diagnostic tap and how to read the SAAG',
@@ -46,7 +46,7 @@ export const TAP = {
     {
       id: 'back', days: 14, cam: 'fit', tool: { kind: 'abdomen' }, data: 'tiles', tiles: ['asc', 'pv'], key: ['asc'], delta: true,
       kicker: 'Two weeks later', site: 'sin', title: 'Ascites returns in two weeks',
-      line: 'The tap removes the fluid, not its cause. Without diuretics or a lower portal pressure, it reforms within weeks: {asc} now.',
+      line: 'Without diuretics or a lower portal pressure, the fluid reforms within weeks: {asc} now.',
       notes: 'The sinusoidal pressure and the kidneys\' sodium retention are unchanged, so lymph keeps weeping from the liver. Here she has had no diuretics at all.',
       ask: ['The fluid is back two weeks after the tap. Is this refractory ascites?', 'No: she has had no diuretics. Refractory means it returns within four weeks despite the highest diuretic doses and salt restriction, or diuretics cannot be taken.'],
     },
@@ -60,13 +60,13 @@ export const TAP = {
     {
       id: 'tips', params: { tips: { on: true } }, days: 28, cam: 'liver', mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'tiles', tiles: ['asc', 'ppg', 'liver'], key: ['asc'], delta: true,
       kicker: 'Refractory ascites', site: 'sin', title: 'TIPS for refractory ascites',
-      line: 'A TIPS lowers the gradient to {ppg}, and the sinusoidal pressure with it, so less lymph forms and the fluid falls to {asc}. The cost: less blood for the liver, and about one in three develops encephalopathy.',
+      line: 'A TIPS lowers the gradient to {ppg}, and the sinusoidal pressure with it, so less lymph forms and the fluid falls to {asc}. In exchange the liver gets less portal blood, and about one in three patients develops encephalopathy.',
       notes: 'In recurrent or refractory ascites, a covered TIPS improves survival over repeated paracentesis in selected patients: bilirubin under about 3 mg/dL, no recurrent encephalopathy, no heart failure or severe pulmonary hypertension. The ascites clears over weeks to months, diuretics continued at first. The model clears it faster. No target gradient is agreed for ascites; below 12 mmHg is the bleeding target. Refractory ascites returns within four weeks of a tap despite the highest diuretic doses and a salt restriction, or needs diuretics the patient cannot take.',
       ask: ['Name a reason not to place a TIPS for ascites.', 'Recurrent encephalopathy, heart failure or pulmonary hypertension, or advanced liver failure.'],
     },
     {
       id: 'heart', preset: 'rhf', cam: 'sinusoid', data: 'tiles', tiles: ['saag', 'tp'], key: ['tp'],
-      kicker: 'Protein-rich fluid', site: 'cardiac', title: 'High protein: look at the heart',
+      kicker: 'Protein-rich fluid', site: 'cardiac', title: 'High-protein ascites: check the heart',
       line: 'SAAG {saag}, 1.1 g/dL or more, with protein {tp}, 2.5 g/dL or more: the sinusoid wall is still open. Think of the heart or the hepatic veins.',
       notes: 'Congestion without scarring gives a high-SAAG, high-protein fluid: heart failure, constrictive pericarditis, early Budd–Chiari syndrome. A raised jugular venous pressure and a high BNP point to the heart; a normal one to the hepatic veins (Doppler). Here the treatment is the heart, not TIPS. The ascites talk covers the four patterns of SAAG and protein.',
       ask: ['SAAG 1.5 g/dL and protein 4 g/dL. What do you examine next?', 'The heart: the jugular venous pressure, BNP and an echocardiogram.'],
@@ -74,8 +74,8 @@ export const TAP = {
     {
       id: 'summary', visual: 'table', cols: ['asc', 'ppg', 'liver'], asc: false, vs: 'first', rowHead: 'Step',
       of: [{ id: 'tense', kicker: 'Baseline', title: 'Tense ascites' }, { id: 'lvp', kicker: 'Tap', title: 'Paracentesis' }, { id: 'albumin', kicker: 'Tap', title: 'With albumin' }, { id: 'back', kicker: 'No treatment', title: 'Two weeks on' }, { id: 'diuretics', kicker: 'Drugs', title: 'Diuretics, 4 weeks' }, { id: 'tips', kicker: 'Shunt', title: 'TIPS, 4 weeks' }],
-      kicker: 'Summary', title: 'Each step compared',
-      line: 'Each step against tense ascites: the tap empties the abdomen, but only diuretics or TIPS keep the fluid down.',
+      kicker: 'Summary', title: 'What each ascites treatment does',
+      line: 'The tap empties the abdomen, but only diuretics or TIPS keep the fluid from returning.',
       notes: 'The tap clears the fluid at once but leaves its cause; albumin protects the circulation; diuretics clear it more slowly and keep it away; TIPS clears it by lowering the sinusoidal pressure, at the cost of the liver\'s portal blood. Each patient with refractory ascites is also assessed for transplantation. Avoid NSAIDs, and ACE inhibitors and ARBs, in ascites; long-term albumin is used in some centers for decompensated cirrhosis.',
       ask: ['Which step acts on the mechanism rather than only the fluid?', 'TIPS lowers the sinusoidal pressure and diuretics counter the sodium retention; the tap does neither. Only treating the liver disease removes the cause.'],
     },

@@ -3,7 +3,7 @@
 // (the slide fields are described at the top of decks.js).
 
 export const OUTFLOW = {
-  id: 'outflow', level: 'advanced', title: 'Outflow block: the hepatic veins and the sinusoids', minutes: 11,
+  id: 'outflow', level: 'advanced', title: 'Hepatic venous outflow block', minutes: 11,
   objectives: [
     'Name the causes of hepatic vein thrombosis and of sinusoidal obstruction',
     'Explain why the caudate lobe enlarges when the hepatic veins clot',
@@ -51,14 +51,14 @@ export const OUTFLOW = {
     {
       id: 'sos', preset: 'sos', params: { fibrosis: { R: { post: 32 }, L: { post: 32 } } }, cam: 'lobule:central', callout: { at: 'cv', label: 'Block: central veins' }, terms: { 'central veins': 'lobule:central' }, data: 'tiles', tiles: ['asc', 'hvpg'], key: ['asc'],
       kicker: 'Sinusoidal obstruction', site: 'postsin', title: 'Chemotherapy injures the sinusoid lining',
-      line: 'Chemotherapy injures the sinusoid lining; debris blocks the central veins, and within weeks the liver swells and ascites gathers.',
+      line: 'Debris from the injured lining blocks the central veins, and within weeks the liver swells and ascites collects.',
       causesHead: 'Causes', causes: ['Stem cell transplant conditioning', 'Oxaliplatin', 'Thiopurines', 'Pyrrolizidine alkaloids'],
       notes: 'Sinusoidal obstruction syndrome (veno-occlusive disease) starts in the sinusoidal endothelium, injured by conditioning with busulfan, cyclophosphamide or total body irradiation, by oxaliplatin, by thiopurines or by pyrrolizidine alkaloids in herbal teas. It presents with jaundice, painful hepatomegaly, ascites and weight gain, usually within three weeks of a transplant, although late forms occur.',
       ask: ['Two weeks after a stem cell transplant a patient has gained 5 kg and has a tender liver. What is the likely diagnosis?', 'Sinusoidal obstruction syndrome: weight gain, a tender liver and the timing after conditioning fit it.'],
     },
     {
       id: 'soswedge', cath: 'result', data: 'ladder', key: ['whvp', 'hvpg'], tiles: ['hvpg', 'ppg'], brackets: { hvpg: 'works' },
-      kicker: 'Sinusoidal obstruction', site: 'postsin', title: 'Here the wedge works',
+      kicker: 'Sinusoidal obstruction', site: 'postsin', title: 'In sinusoidal obstruction the HVPG can be measured',
       line: 'The hepatic veins are open, and the block sits upstream of the free reading, so the wedged pressure rises: the HVPG is {hvpg}. After a transplant, a gradient above 10 mmHg strongly supports the diagnosis.',
       notes: 'In sinusoidal obstruction a transjugular catheter can enter the hepatic veins and wedge, and the obstruction lies between the wedged and the free readings, so the HVPG rises. After a stem cell transplant an HVPG above 10 mmHg strongly supports the diagnosis. A transjugular liver biopsy can be taken at the same time, without crossing the liver capsule, which matters with low platelets and ascites.',
       ask: ['Why can the wedge be read here but not when the hepatic veins are clotted?', 'Here the veins are open, so the catheter can wedge, and the block lies between the wedge and the free reading.'],
@@ -74,8 +74,8 @@ export const OUTFLOW = {
       id: 'summary', visual: 'table', cols: ['pv', 'whvp', 'fhvp', 'hvpg', 'ppg', 'asc'], asc: false, rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'bcs', kicker: 'Hepatic veins', title: 'Hepatic vein clots', blank: ['whvp', 'fhvp', 'hvpg'] }, { id: 'open', kicker: 'Hepatic veins', title: 'One vein stented' },
         { id: 'dips', kicker: 'Hepatic veins', title: 'Shunt to the IVC' }, { id: 'sos', kicker: 'Central veins', title: 'Sinusoidal obstruction' }, { id: 'recover', kicker: 'Central veins', title: 'Recovered' }],
-      kicker: 'Summary', title: 'Clotted hepatic veins cannot be wedged; blocked central veins can',
-      line: 'Clotted hepatic veins cannot be wedged; blocked central veins raise the HVPG. Both settle once the outflow is open.',
+      kicker: 'Summary', title: 'Budd–Chiari versus sinusoidal obstruction syndrome',
+      line: 'In Budd–Chiari the catheter cannot wedge a clotted vein. In sinusoidal obstruction the hepatic veins are open and the HVPG rises. Both improve once outflow is restored.',
       notes: 'With clotted hepatic veins the wedged and free readings are taken behind the same block, so the HVPG is meaningless; the PPG and imaging make the diagnosis. With blocked central veins the hepatic veins are open, the block sits between the two readings, and the HVPG is raised. Reopening one hepatic vein, or a shunt to the IVC, drains the liver.',
       ask: ['Where is the block in sinusoidal obstruction syndrome, relative to the wedge?', 'Between the wedged and the free readings, in the central veins, so the HVPG rises.'],
     },

@@ -21,7 +21,7 @@ export const SPLEEN = {
     {
       id: 'grown', days: 730, ramp: { cirrhosis: [0, 0.6] }, lapse: { seconds: 10 }, cam: 'splenic', terms: ['spleen'], data: 'tiles', tiles: ['pv', 'spleen', 'plt'], key: ['spleen'], delta: 'normal',
       kicker: 'A growing spleen', site: 'sin', title: 'The spleen grows with the portal pressure',
-      line: 'Two years of cirrhosis: the portal pressure reaches {pv}, the spleen grows to {spleen} and the platelets fall to {plt}.',
+      line: 'After two years of cirrhosis, portal pressure is {pv}, the spleen is {spleen} and platelets are {plt}.',
       notes: 'The spleen enlarges partly from congestion, as the high portal pressure backs up into the splenic vein, and partly because its pulp grows, with more splenic arterial flow. Splenomegaly is one of the commonest signs of portal hypertension, but its size follows the pressure only loosely.',
       ask: ['Does spleen size measure the portal pressure?', 'Only loosely: a large spleen suggests portal hypertension, but its size does not track the pressure closely.'],
     },
@@ -57,14 +57,14 @@ export const SPLEEN = {
     {
       id: 'splenectomy', preset: 'csph', params: { splenicRx: 2 }, cam: 'splenic', data: 'tiles', tiles: ['plt', 'pv'], key: ['plt'],
       kicker: 'Treating the spleen', site: 'sin', title: 'Splenectomy raises platelets but can cause portal vein thrombosis',
-      line: 'Without a spleen nothing pools the platelets: the count is {plt}. But blood stagnates in the stump of the [splenic vein](sv), and the clot can spread into the portal vein.',
+      line: 'With the spleen removed, platelets are no longer sequestered, and the count is {plt}. Blood can stagnate in the stump of the [splenic vein](sv), and the clot can spread into the portal vein.',
       notes: 'Splenectomy is now rare in cirrhosis: the operation carries real risk, and splenic and portal vein thrombosis is common after it. It keeps a place for bleeding gastric varices caused by splenic vein thrombosis, where the spleen is the source of the high pressure.',
       ask: ['Which complication of splenectomy do you look for in the weeks after it, and why is it likely here?', 'Splenic and portal vein thrombosis: blood stagnates in the stump of the splenic vein.'],
     },
     {
       id: 'summary', visual: 'table', cols: ['spleen', 'plt', 'pv', 'hvpg'], asc: false, rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'grown', kicker: 'Cirrhosis', title: 'Two years on' }, { id: 'later', kicker: 'Embolization', title: 'Six months on' }, { id: 'splenectomy', kicker: 'Surgery', title: 'Splenectomy' }],
-      kicker: 'Summary', title: 'The spleen compared',
+      kicker: 'Summary', title: 'Embolization versus splenectomy',
       line: 'Embolization and splenectomy raise the platelets and lower the portal pressure a little; splenectomy risks a portal vein clot.',
       notes: 'The spleen grows and pools platelets as the portal pressure rises, so platelets and spleen size are cheap clues to portal hypertension. Treating the spleen treats the platelet count; the portal pressure is treated at its source, the liver, or with drugs and shunts.',
       ask: ['A patient with cirrhosis has platelets of 40 before a planned high-risk procedure. What raises the count without touching the spleen?', 'A thrombopoietin receptor agonist, avatrombopag or lusutrombopag, started about 10 days before. Routine correction is not advised for low-risk procedures.'],

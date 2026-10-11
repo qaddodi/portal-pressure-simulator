@@ -22,7 +22,7 @@ export const PREHEPATIC = {
     },
     {
       id: 'cath', cath: 'result', data: 'ladder', key: ['hvpg', 'ppg'], tiles: ['hvpg', 'ppg'],
-      kicker: 'Acute thrombosis', site: 'pvt', title: 'The HVPG misses it',
+      kicker: 'Acute thrombosis', site: 'pvt', title: 'HVPG is normal with a portal vein clot',
       eq: [mi('PPG') + mo('=') + sub(mi('P'), 'portal vein') + mo('−') + sub(mi('P'), 'IVC'), 'Portal pressure gradient: the whole fall from the portal vein to the IVC'],
       line: 'The block is before the liver, so the wedged and free hepatic pressures stay normal and the HVPG reads {hvpg}. The PPG, {ppg}, finds it.',
       notes: 'The wedged catheter reads the sinusoids, which sit downstream of the clot, so the HVPG is normal however high the portal vein pressure. The PPG compares the portal vein itself with the IVC and catches the block; it needs a direct portal vein reading (transhepatic, at TIPS, or by EUS). In practice the diagnosis is made on imaging, and the catheter is rarely needed. A normal HVPG with varices is the clue that the block is not in the sinusoids.',
@@ -52,7 +52,7 @@ export const PREHEPATIC = {
     {
       id: 'summary', visual: 'table', cols: ['pv', 'hvpg', 'ppg', 'plt'], asc: false, rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'clot', kicker: 'Portal vein', title: 'Acute thrombosis' }, { id: 'cavernoma', kicker: 'Portal vein', title: 'Cavernoma' }, { id: 'svt', kicker: 'Splenic vein', title: 'Splenic vein thrombosis' }],
-      kicker: 'Summary', title: 'A clot before the liver leaves the HVPG normal',
+      kicker: 'Summary', title: 'HVPG in pre-hepatic block',
       line: 'The HVPG stays normal in all three; the PPG rises only when the portal vein itself is blocked.',
       notes: 'Pre-hepatic block raises the pressure upstream of the liver and leaves the sinusoids alone: the HVPG is normal, the stiffness is normal and the liver works. The portal vein clot raises the PPG; the splenic vein clot leaves even the portal vein normal and shows only on the left, in the spleen and the gastric fundus. Treat the clot with anticoagulation, the varices as in cirrhosis, and the splenic vein clot that bleeds with splenectomy.',
       ask: ['Which pressure reading is normal in every pre-hepatic block?', 'The HVPG, because the sinusoids are downstream of the clot.'],

@@ -3,14 +3,14 @@
 const ramp = (a, b) => ({ cirrhosis: [a, b] });
 
 export const ONE_YEAR = {
-  id: 'one-year', level: 'core', title: 'One patient, one year: what each test shows', minutes: 12,
+  id: 'one-year', level: 'core', title: 'A year of compensated cirrhosis, test by test', minutes: 12,
   objectives: [
     'Follow one patient with cirrhosis through a year of rising portal pressure',
     'Match each test to what it shows: catheter, FibroScan, scope, Doppler, ultrasound',
     'Recognize the HVPG levels at which the risk rises: 10 and 12',
     'Decide when to start carvedilol',
   ],
-  summary: 'One patient with compensated cirrhosis followed for a year, seen in turn through the catheter, FibroScan, endoscopy, Doppler and the abdomen. Ends with carvedilol and the year on one chart.',
+  summary: 'One patient with compensated cirrhosis followed for a year, seen in turn through the catheter, FibroScan, endoscopy, Doppler and the abdomen. Ends with carvedilol and a chart of the year.',
   slides: [
     {
       id: 'd0', tick: 'Diagnosis', preset: 'cirr-comp', params: { cirrhosis: 0.5 }, cam: 'fit', data: 'tiles', tiles: ['hvpg', 'lsm', 'plt'],
@@ -43,7 +43,7 @@ export const ONE_YEAR = {
     },
     {
       id: 'd365', tick: 'Catheter, Doppler', days: 185, ramp: ramp(0.58, 0.66), cath: 'result', data: 'ladder', key: ['whvp', 'fhvp', 'hvpg'], tiles: ['hvpg', 'ppg'], delta: 'd0',
-      kicker: 'Day 365', site: 'sin', title: 'A year on, the gradient has risen past 12',
+      kicker: 'Day 365', site: 'sin', title: 'At one year, HVPG is above 12',
       line: 'The HVPG is {hvpg}, up from 9 a year ago. At 12 or more, varices can bleed.',
       notes: 'A year on, the gradient has risen by 4 mmHg. Above 12 mmHg varices can bleed, and the risk of ascites and other decompensation rises with each mmHg. Repeat catheter studies are not routine; in practice the stiffness, the platelets and the scope track this rise.',
       ask: ['The HVPG is now 13. What does that change?', 'The varices can now bleed; below 12 mmHg bleeding is rare.'],
@@ -70,9 +70,9 @@ export const ONE_YEAR = {
       ask: ['Why start carvedilol before any bleed?', 'In compensated cirrhosis with CSPH it lowers the risk of decompensation (ascites, bleeding).'],
     },
     {
-      id: 'summary', tool: { kind: 'trace', range: 'talk', title: 'The year on one chart' }, cam: 'fit',
-      kicker: 'Summary', site: 'sin', title: 'The year on one chart',
-      line: 'The pressures at every slide, from day 0 to carvedilol. Each test saw the same rise from its own side.',
+      id: 'summary', tool: { kind: 'trace', range: 'talk', title: 'Pressures over the year' }, cam: 'fit',
+      kicker: 'Summary', site: 'sin', title: 'Pressures over the year',
+      line: 'The pressures at every slide, from day 0 to carvedilol. The catheter, FibroScan, scope, Doppler and ultrasound each picked up the same rise in pressure.',
       notes: 'The catheter measures the gradient; FibroScan and the platelets estimate it; the scope shows its effect on the varices; Doppler shows the slower inflow; ultrasound finds the first fluid. In practice the cheap tests are repeated each year and the catheter is kept for uncertain cases.',
       ask: ['Which test would you repeat each year in this patient, and why?', 'Stiffness and platelets: cheap and repeatable, and a rise warns that the disease is advancing.'],
     },

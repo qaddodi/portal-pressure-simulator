@@ -3,7 +3,7 @@
 const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`;
 
 export const HVPG = {
-  id: 'hvpg', level: 'core', title: 'Measuring portal pressure: HVPG and PPG', minutes: 15,
+  id: 'hvpg', level: 'core', title: 'Measuring HVPG and PPG', minutes: 15,
   summary: 'How the HVPG is measured and what it means. Then where it misleads, and how the PPG helps.',
   objectives: ['Describe how free and wedged hepatic pressures are recorded', 'Calculate the HVPG and state its 5, 10 and 12 mmHg cut-offs', 'Recognize when the HVPG misleads', 'Use the portal pressure gradient when it does'],
   slides: [
@@ -52,7 +52,7 @@ export const HVPG = {
       kicker: 'Where HVPG misleads', site: 'presin', title: 'Normal HVPG, high portal pressure',
       line: 'In schistosomiasis the block is in the portal tracts, upstream of the sinusoids. HVPG is {hvpg} while the portal pressure is {pv}.',
       notes: 'The wedged catheter reads only what lies downstream of a block. In presinusoidal disease (schistosomiasis, porto-sinusoidal vascular disorder, early primary biliary cholangitis) the sinusoids are near normal, so the WHVP and the HVPG are normal or only mildly raised and underestimate the portal pressure. A normal HVPG in a patient with varices or a large spleen points to a presinusoidal or pre-hepatic cause.',
-      ask: ['Varices and a 17 cm spleen; Doppler shows an open portal vein. At the transjugular study the HVPG is 4 mmHg. What do you do before the catheter comes out?', 'Take a transjugular liver biopsy: clear portal hypertension with a normal HVPG points to a presinusoidal cause such as porto-sinusoidal vascular disorder.'],
+      ask: ['A 30-year-old from Egypt has varices and a normal HVPG. What is the likely cause?', 'Schistosomiasis: a presinusoidal block that the wedge does not see.'],
     },
     {
       id: 'ppg', preset: 'pvt-chronic', cam: 'route', labels: [], sites: ['pv', 'ivc'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, data: 'ladder', key: ['pv', 'ivc'], brackets: { hvpg: 'misleads', ppg: 'works' }, tiles: ['hvpg', 'ppg'],

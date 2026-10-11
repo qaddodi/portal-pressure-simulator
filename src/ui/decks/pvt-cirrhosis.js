@@ -33,7 +33,7 @@ export const PVT_CIRRHOSIS = {
     {
       id: 'gradients', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'IVCS'], data: 'ladder', key: ['hvpg', 'ppg'], tiles: ['hvpg', 'ppg'], brackets: { hvpg: 'misleads', ppg: 'works' }, delta: 'base',
       eq: [mi('PPG') + mo('=') + sub(mi('P'), 'portal vein') + mo('−') + sub(mi('P'), 'IVC'), 'Portal pressure gradient: the whole fall from the portal vein to the IVC'],
-      kicker: 'The clot', site: 'pre', title: 'The HVPG misses the clot',
+      kicker: 'The clot', site: 'pre', title: 'HVPG stays flat while PPG rises',
       line: 'The wedge reads the sinusoids, beyond the clot, so the HVPG barely moves at {hvpg}. The PPG rises to {ppg}.',
       notes: 'In cirrhosis the HVPG measures the sinusoidal part of the resistance. A clot adds a second block before the liver, which only a direct portal pressure shows. So in a patient with portal vein thrombosis the HVPG underestimates the portal pressure, and a TIPS gradient is taken from the portal vein itself.',
       ask: ['A patient with cirrhosis develops a partial portal vein clot. Will the HVPG show it?', 'No: the clot is before the sinusoids. The PPG, from a direct portal reading, shows it.'],
@@ -47,7 +47,7 @@ export const PVT_CIRRHOSIS = {
     },
     {
       id: 'band', tick: 'Banding', action: [BAND, BAND, BAND], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }, tool: { kind: 'scope' }, data: 'tiles', tiles: ['varix'], key: ['varix'],
-      kicker: 'Before anticoagulation', site: 'sin', title: 'Bands, then the anticoagulant',
+      kicker: 'Before anticoagulation', site: 'sin', title: 'Banding before anticoagulation',
       line: 'Banding shrinks the varices to {varix}. With prophylaxis in place, anticoagulation starts.',
       notes: 'A non-selective beta-blocker or band ligation are both acceptable prophylaxis for large varices; carvedilol also lowers the portal pressure. Banding just before anticoagulation leaves ulcers that can bleed on it, so a beta-blocker, if tolerated, avoids that. For the anticoagulant, low molecular weight heparin or a vitamin K antagonist can be used, and a direct oral anticoagulant in Child–Pugh A and with caution in B.',
       ask: ['Name two acceptable forms of variceal prophylaxis before anticoagulation.', 'A non-selective beta-blocker or band ligation.'],
@@ -62,7 +62,7 @@ export const PVT_CIRRHOSIS = {
     },
     {
       id: 'course', cam: 'fit', tool: { kind: 'trace', range: 'talk', title: 'The course on one chart' },
-      kicker: 'Anticoagulation', site: 'sin', title: 'The portal pressure moved; the HVPG did not',
+      kicker: 'Anticoagulation', site: 'sin', title: 'Portal pressure followed the clot while HVPG stayed flat',
       line: 'Every step of the talk on one chart: the portal pressure rose with the clot and fell as it cleared, while the HVPG hardly moved.',
       notes: 'The chart plots the portal, wedged and free pressures and the HVPG at each step. The gap that opens between the portal and the wedged lines is the clot. Recanalization is followed by imaging, Doppler or CT about every three months, not by the HVPG.',
       ask: ['How is recanalization checked during anticoagulation?', 'By repeat imaging, Doppler or CT, about every three months.'],
@@ -70,7 +70,7 @@ export const PVT_CIRRHOSIS = {
     {
       id: 'summary', visual: 'table', cols: ['pv', 'hvpg', 'ppg', 'varix'], asc: false, rowHead: 'Step', vs: 'first', calm: ['hvpg'],
       of: [{ id: 'base', kicker: 'Cirrhosis', title: 'Before the clot' }, { id: 'clot', kicker: 'Cirrhosis', title: 'Partial clot' }, { id: 'band', kicker: 'Cirrhosis', title: 'After banding' }, { id: 'anticoag', kicker: 'Cirrhosis', title: 'Six months on' }],
-      kicker: 'Summary', title: 'One clot, start to finish',
+      kicker: 'Summary', title: 'Portal vein clot, from onset to recanalization',
       line: 'The clot raised the portal pressure and the PPG but not the HVPG; anticoagulation brought both back down.',
       notes: 'A clot before the liver adds to the sinusoidal block of cirrhosis without changing what the wedge reads. Look for it on every surveillance scan, protect the varices, and when anticoagulation is indicated, start it early.',
       ask: ['Which gradient rises when a patient with cirrhosis develops a portal vein clot?', 'The PPG; the HVPG stays where it was.'],

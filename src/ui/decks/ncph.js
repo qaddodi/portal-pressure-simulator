@@ -16,7 +16,7 @@ export const NCPH = {
   slides: [
     {
       id: 'patient', preset: 'schisto', cam: 'fit', terms: ['varix', 'spleen'], data: 'tiles', tiles: ['varix', 'spleen', 'plt'], key: ['varix'],
-      kicker: 'The patient', site: 'presin', title: 'Varices with a working liver',
+      kicker: 'The patient', site: 'presin', title: 'Varices with normal liver function',
       line: 'A young adult with varices of {varix}, a spleen of {spleen} and platelets of {plt}, but no jaundice, no ascites and normal liver tests.',
       notes: 'This is the usual picture of non-cirrhotic portal hypertension: a first variceal bleed, or a large spleen found by chance, in a patient whose liver works normally. The bleed is usually well tolerated because the liver has reserve. Worldwide, schistosomiasis is a leading cause; where it is absent, porto-sinusoidal vascular disorder is the commonest intrahepatic cause.',
       ask: ['A patient bleeds from varices but has normal liver tests and no ascites. What should you think of?', 'Non-cirrhotic portal hypertension: a pre-hepatic or presinusoidal block.'],
@@ -69,8 +69,8 @@ export const NCPH = {
       id: 'summary', visual: 'table', cols: ['pv', 'hvpg', 'ppg', 'lsm', 'spleen'], asc: false, rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'patient', kicker: 'Presinusoidal', title: 'Schistosomiasis' },
         { preset: 'csph', kicker: 'Sinusoidal', title: 'Cirrhosis with CSPH' }, { id: 'band', kicker: 'Presinusoidal', title: 'After treatment' }],
-      kicker: 'Summary', title: 'Cirrhosis raises the HVPG; a presinusoidal block does not',
-      line: 'Both have a high PPG and a big spleen; of the two, only cirrhosis raises the HVPG and the stiffness.',
+      kicker: 'Summary', title: 'Presinusoidal block versus cirrhosis',
+      line: 'Both have a high PPG and a big spleen. Only cirrhosis raises the HVPG and liver stiffness.',
       notes: 'Suspect a non-cirrhotic cause when signs of portal hypertension come with normal liver tests, a normal or near-normal stiffness and a low HVPG. Image the portal vein, ask about travel and drugs, and take a biopsy. The varices are treated exactly as in cirrhosis.',
       ask: ['Which two tests are falsely reassuring in presinusoidal portal hypertension?', 'The HVPG and the liver stiffness.'],
     },

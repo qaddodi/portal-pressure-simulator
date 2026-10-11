@@ -17,7 +17,7 @@ const POINTS = { resistance: 'rLiver', collaterals: 'rColl' };
 const withPoints = (d) => ({ ...d, slides: d.slides.map((s) => (s.visual ? s : { terms: POINTS, ...s })) });
 
 export const CIRCUIT = withPoints({
-  id: 'circuit', level: 'foundation', title: 'The circuit: pressure, flow and resistance', minutes: 10,
+  id: 'circuit', level: 'foundation', title: 'Portal pressure as a circuit', minutes: 10,
   objectives: [
     'Read portal pressure as flow times resistance',
     'Explain why a meal raises portal pressure more in cirrhosis',
@@ -36,8 +36,8 @@ export const CIRCUIT = withPoints({
     },
     {
       id: 'where', view: C, sites: [...R, 'rGut'], terms: ['rGut'], data: 'ladder', key: ['pv', 'hvpg'],
-      kicker: K, title: 'Most of the pressure is spent in the gut arterioles',
-      line: 'The gut arterioles spend most of the pressure before blood reaches the portal vein. A healthy liver drops only a few mmHg.',
+      kicker: K, title: 'Most of the pressure drop is across the gut arterioles',
+      line: 'Most of the arterial pressure is lost across the gut arterioles before blood reaches the portal vein. The healthy liver adds a drop of only a few mmHg.',
       notes: 'Mean arterial pressure is about 90 mmHg; the portal vein is under 10. The splanchnic arterioles are the largest resistance in the circuit and they set the portal inflow. Normal sinusoids are wide and many, so the HVPG is 1 to 5 mmHg.',
       ask: ['Which resistance sets the portal inflow?', 'The splanchnic (gut) arterioles: they are the largest resistance before the portal vein.'],
     },
@@ -53,7 +53,7 @@ export const CIRCUIT = withPoints({
       id: 'resist', preset: 'csph', view: C, sites: R, data: 'tiles', tiles: ['pvFlow', 'hvpg', 'ppg'], delta: 'ohm',
       compare: [{ label: 'Healthy', params: { cirrhosis: 0 } }, { label: 'Cirrhosis', own: true, params: { cirrhosis: 0.6 } }],
       kicker: K, site: 'sin', title: 'Cirrhosis raises the resistance in the liver',
-      line: 'Scarred sinusoids resist the same flow several times more; part of that is vascular tone, which drugs can relax.',
+      line: 'Scarred sinusoids raise the resistance several-fold. Part of it is vascular tone, which drugs can relax.',
       notes: 'The R term. In cirrhosis about three quarters of the extra resistance is fixed (fibrosis, nodules, capillarized sinusoids) and a quarter is tone: contracted stellate cells and too little nitric oxide in the sinusoids. The tone is what drugs can reverse. The tiles compare with the healthy liver on the first slide; the portal flow is almost the same.',
       ask: ['What part of the intrahepatic resistance can drugs lower?', 'The dynamic part, stellate cell and vascular tone; scar and nodules do not relax.'],
     },
@@ -66,7 +66,7 @@ export const CIRCUIT = withPoints({
     },
     {
       id: 'parallel', preset: 'cirr-decomp', view: C, sites: [...R, 'split'], data: 'tiles', tiles: ['shunt', 'liver', 'ppg'], delta: false,
-      kicker: K, site: 'sin', title: 'Collaterals take flow, yet the gradient stays high',
+      kicker: K, site: 'sin', title: 'Collaterals divert flow without normalizing the gradient',
       eq: [frac('<mn>1</mn>', sub(mi('R'), 'total')) + mo('=') + frac('<mn>1</mn>', '<msub class="eq-wedge"><mi>R</mi><mtext>liver</mtext></msub>') + mo('+') + frac('<mn>1</mn>', '<msub class="eq-var"><mi>R</mi><mtext>collaterals</mtext></msub>'), 'Resistances in parallel: the total is lower than either'],
       line: 'Collaterals are resistors in parallel with the liver. They take much of the portal flow, yet the gradient stays high.',
       notes: 'Collaterals open where portal and systemic veins meet: the esophagus, the umbilicus, the rectum and behind the gut. They lower the total resistance, but they are narrow and the inflow keeps rising, so the gradient stays high. They also carry blood and its ammonia past the liver, and the liver\'s own share of the portal blood falls.',
@@ -82,7 +82,7 @@ export const CIRCUIT = withPoints({
     {
       id: 'drugs', params: { tips: { on: false }, drugs: { propranolol: true } }, view: C, sites: R, data: 'tiles', tiles: ['hvpg', 'pvFlow'], delta: 'parallel',
       compare: [{ label: 'Propranolol', own: true, params: { drugs: { propranolol: true, carvedilol: false } } }, { label: 'Carvedilol', params: { drugs: { propranolol: false, carvedilol: true } } }],
-      kicker: K, site: 'sin', title: 'Propranolol lowers flow; carvedilol also lowers resistance',
+      kicker: K, site: 'sin', title: 'Propranolol and carvedilol',
       line: 'Propranolol lowers the inflow. Carvedilol also relaxes the resistance inside the liver, so HVPG falls further.',
       notes: 'Propranolol lowers the cardiac output (β1) and lets the gut arterioles constrict (β2): Q falls. Carvedilol adds α1 blockade, which relaxes the stellate cells and lowers the dynamic part of R. Switch between them: carvedilol lowers HVPG more with less fall in portal flow. In patients carvedilol\'s extra effect comes with a lower blood pressure, which matters once ascites appears. The tiles compare with the untreated patient.',
       ask: ['Which term of ΔP = Q × R does carvedilol act on that propranolol does not?', 'R, the intrahepatic resistance, through α1 blockade.'],
@@ -94,8 +94,8 @@ export const CIRCUIT = withPoints({
       of: [{ kicker: 'Reference', id: 'ohm', title: 'Healthy' }, { kicker: 'More flow', id: 'meal', title: 'Healthy, after a meal', vs: 'ohm', calm: ['ppg'] }, { kicker: 'More resistance', id: 'resist', title: 'Cirrhosis', vs: 'ohm' }, { kicker: 'Both', id: 'both', title: 'Cirrhosis, after a meal', vs: 'resist' },
         { preset: 'cirr-decomp', params: { occluded: NO_COLLATERALS }, key: 'nocoll', kicker: 'More resistance', title: 'Advanced cirrhosis, no collaterals', vs: 'resist' },
         { kicker: 'Parallel resistor', id: 'parallel', title: 'With collaterals', vs: 'nocoll' }, { kicker: 'Parallel resistor', id: 'tips', title: 'TIPS', vs: 'parallel' }, { kicker: 'Less flow', id: 'drugs', title: 'Propranolol', vs: 'parallel' }],
-      kicker: 'Summary', title: 'Every slide is ΔP = Q × R',
-      line: 'Every change moves the gradient (PPG) by the flow (Q) times the resistance (R); each row is compared with the row it changes.',
+      kicker: 'Summary', title: 'Each change, read as ΔP = Q × R',
+      line: 'Each row shows how one change moved flow (Q), resistance (R) and the gradient (PPG), against the row it changes.',
       notes: 'Each row changes Q, R or both, compared with the healthy circuit. A meal raises Q; cirrhosis raises R; collaterals and TIPS add resistors in parallel; drugs lower Q, and carvedilol also R.',
       ask: ['Classify TIPS, propranolol and a meal by the term they change.', 'TIPS lowers R, as a resistor in parallel; propranolol lowers Q by cutting cardiac output and gut inflow; a meal raises Q as the gut arterioles open.'],
     },
