@@ -10,7 +10,7 @@ html, body { height: 100%; }
 /* The presenter sizes its type by the screen height; an upright tablet is tall and narrow, so there it follows the width (as tall as a landscape screen of that width), or the words outgrow their column. A phone (< 700 px) keeps its own stack layout. */
 :root { --pzh: 1vh; }
 @media (orientation: portrait) and (min-width: 700px) { :root { --pzh: min(1vh, .75vw); } }
-html { overflow: hidden; overscroll-behavior: none; }
+html { overflow: hidden; overscroll-behavior: none; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }   /* (iOS never re-sizes text on its own) */
 body {
   margin: 0; background: var(--bg); color: var(--text);
   font: var(--fs-14)/1.45 var(--font-ui); font-feature-settings: 'cv11', 'ss01'; font-variant-numeric: tabular-nums;
