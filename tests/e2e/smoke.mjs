@@ -960,6 +960,36 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     }
     if (bad.size) throw new Error(`${bad.size} off-scale: ${[...bad].slice(0, 40).join(' | ')}`);
   });
+  await check(device, 'tests card: every Ascites, HVPG and FibroScan row reaches the card\'s inner right edge', async (page) => {
+    await open(page, '?preset=cirr-decomp');
+    await page.waitForFunction(() => window.pps.store.get().frame.pulsing, null, { timeout: 45000 });
+    await page.click('#tabInstruments');
+    await page.waitForSelector('#dockBody .dock-pane.active');
+    for (const id of ['abdomen', 'hvpg', 'fibroscan']) {
+      await page.click(`.instr-tab[data-instrument="${id}"]`);
+      await page.waitForTimeout(900);
+      const off = await page.evaluate((id) => {
+        const pane = document.querySelector(`#pane-${id}`), view = pane.firstElementChild, R = (e) => e.getBoundingClientRect();
+        const inner = R(pane).right - parseFloat(getComputedStyle(pane).paddingRight) - (pane.offsetWidth - pane.clientWidth);
+        const vis = (e) => R(e).width > 0 && R(e).height > 0;
+        let rows;
+        if (id === 'abdomen') {
+          // one column: every group reaches the edge; beside each other: the treatment column does, and the first column's rows share one edge
+          const two = getComputedStyle(view.querySelector('.ab-main')).gridTemplateColumns.split(' ').length > 1;
+          const ref = two ? R(view.querySelector('.ab-report')).right : inner;
+          rows = [...['.ab-rx', '.ab-rx-diu', '.ab-diu', '.ab-drain'].flatMap((q) => [...view.querySelectorAll(q)].map((e) => [e, inner])),
+            ...['.ab-head', '.ab-iap', '.ab-tap', '.ab-tap > .ab-row', '.ab-labs'].flatMap((q) => [...view.querySelectorAll(q)].map((e) => [e, ref]))];
+        } else {
+          // a picture's box and the notes beside or under it; side by side, the right-most reaches the edge
+          const kids = [...view.children].filter(vis);
+          const two = Math.max(...kids.map((e) => R(e).left)) - Math.min(...kids.map((e) => R(e).left)) > 60;
+          rows = two ? [[kids.reduce((a, b) => (R(b).right > R(a).right ? b : a)), inner]] : kids.map((e) => [e, inner]);
+        }
+        return rows.filter(([e]) => vis(e)).map(([e, ref]) => [String(e.className).split(' ')[0], +(R(e).right - ref).toFixed(1)]).filter(([, d]) => Math.abs(d) > 1);
+      }, id);
+      if (off.length) throw new Error(`${id}: rows stop short of (or run past) the card's inner right edge: ${JSON.stringify(off)}`);
+    }
+  });
   await check(device, 'dark theme', async (page) => {
     await page.emulateMedia({ colorScheme: 'dark' });
     await open(page, '?preset=budd-chiari');

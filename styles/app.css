@@ -4620,8 +4620,9 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    is the same box filled with the accent. The card itself is sized to this content by the dock (dock.js, fitHeight). */
 .dock-pane:has(> .instrument-view.ab) { padding-top: 10px; padding-bottom: 10px; container-type: inline-size; }
 .instrument-view.ab, .instrument-workspace.float-ui .dock-pane > .instrument-view.ab { --ab-gap: 9px; --ab-h: 40px; flex: none; min-height: 0; }
-.instrument-view.ab :is(.ab-main, .ab-report) { flex: none; gap: var(--ab-gap); align-content: start; align-items: start; }
-.instrument-view.ab .ab-report { align-self: stretch; }
+.instrument-view.ab :is(.ab-main, .ab-report) { flex: none; gap: var(--ab-gap); align-content: start; }
+.instrument-view.ab .ab-main { align-items: start; }   /* grid: each column as tall as its rows */
+.instrument-view.ab .ab-report { align-self: stretch; align-items: stretch; }   /* flex column: every row the column's full width */
 .instrument-view.ab .ab-head { padding: 0; margin: 0; border: 0; }
 .instrument-view.ab .ab-sum .hv-num { font-size: 30px; }
 .instrument-view.ab .ab-belly { width: 40px; height: 40px; }
