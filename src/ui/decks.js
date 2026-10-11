@@ -74,7 +74,7 @@ import { TWO_INFLOWS } from './decks/two-inflows.js?v=2a19a5fc63';
 import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=a01124f125';
 import { SPLEEN } from './decks/spleen.js?v=c8fca55d38';
 import { NCPH } from './decks/ncph.js?v=8794f0bf6b';
-import { OUTFLOW } from './decks/outflow.js?v=ee210fde7e';
+import { OUTFLOW } from './decks/outflow.js?v=0bc8565bca';
 import { RECOMPENSATION } from './decks/recompensation.js?v=0d5b3fb564';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
@@ -83,6 +83,7 @@ export const REGIONS = {
   liver: [360, 170, 830, 490],
   portal: [520, 360, 930, 710],     // confluence, trunk, splenic vein, SMV
   hepatic: [410, 40, 800, 340],     // hepatic veins, IVC, right atrium
+  dips: [450, 220, 760, 480],       // the DIPS tract, portal bifurcation up through the caudate lobe to the IVC
   heart: [440, -20, 800, 300],
   varices: [540, -20, 980, 360],
   gej: [710, 120, 920, 480],        // lower esophagus, the gastroesophageal junction and the coronary vein feeding it

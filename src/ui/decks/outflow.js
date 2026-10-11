@@ -42,9 +42,9 @@ export const OUTFLOW = {
       ask: ['When is angioplasty enough, and when is a shunt chosen?', 'Angioplasty, with a stent if the vein narrows again, for a short stenosis; a TIPS or DIPS when no vein can be opened or the patient does not improve.'],
     },
     {
-      id: 'dips', preset: 'budd-chiari', params: { dips: { on: true } }, days: 60, cam: 'hepatic', terms: ['pv', 'ivc'], mark: { edges: ['DIPS'], label: 'Shunt', kind: 'treat' }, data: 'tiles', tiles: ['pv', 'asc', 'liver'], key: ['pv'], delta: 'bcs',
-      kicker: 'Opening the outflow', site: 'post', title: 'When no vein opens, a shunt drains the liver into the IVC',
-      line: 'A stent from the portal vein straight into the IVC bypasses the blocked veins. Two months later the portal pressure is {pv} and the ascites has nearly gone.',
+      id: 'dips', preset: 'budd-chiari', params: { dips: { on: true } }, days: 60, cam: 'dips', terms: ['pv', 'ivc'], mark: { edges: ['DIPS'], label: 'DIPS', kind: 'treat' }, data: 'tiles', tiles: ['pv', 'asc', 'liver'], key: ['pv'], delta: 'bcs',
+      kicker: 'Opening the outflow', site: 'post', title: 'When no vein opens, a DIPS drains the liver into the IVC',
+      line: 'A direct intrahepatic portosystemic shunt (DIPS) runs from the portal vein through the caudate lobe straight into the IVC, bypassing the blocked veins. Two months later the portal pressure is {pv} and the ascites has nearly gone.',
       notes: 'A standard TIPS runs from a hepatic vein to the portal vein, so when all three hepatic veins are blocked the stent is placed from the IVC through the liver to the portal vein instead (a direct intrahepatic portosystemic shunt). The portal vein becomes the liver\'s outflow, and the congestion and ascites resolve. Like any shunt it diverts portal blood from the liver, so encephalopathy is watched for.',
       ask: ['Why can a standard TIPS not be placed when all three hepatic veins are blocked?', 'It needs a hepatic vein to start from; the stent goes from the IVC instead.'],
     },
@@ -73,7 +73,7 @@ export const OUTFLOW = {
     {
       id: 'summary', visual: 'table', cols: ['pv', 'whvp', 'fhvp', 'hvpg', 'ppg', 'asc'], asc: false, rowHead: 'Patient',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'bcs', kicker: 'Hepatic veins', title: 'Hepatic vein clots', blank: ['whvp', 'fhvp', 'hvpg'] }, { id: 'open', kicker: 'Hepatic veins', title: 'One vein stented' },
-        { id: 'dips', kicker: 'Hepatic veins', title: 'Shunt to the IVC' }, { id: 'sos', kicker: 'Central veins', title: 'Sinusoidal obstruction' }, { id: 'recover', kicker: 'Central veins', title: 'Recovered' }],
+        { id: 'dips', kicker: 'Hepatic veins', title: 'DIPS' }, { id: 'sos', kicker: 'Central veins', title: 'Sinusoidal obstruction' }, { id: 'recover', kicker: 'Central veins', title: 'Recovered' }],
       kicker: 'Summary', title: 'Budd–Chiari versus sinusoidal obstruction syndrome',
       line: 'In Budd–Chiari the catheter cannot wedge a clotted vein. In sinusoidal obstruction the hepatic veins are open and the HVPG rises. Both improve once outflow is restored.',
       notes: 'With clotted hepatic veins the wedged and free readings are taken behind the same block, so the HVPG is meaningless; the PPG and imaging make the diagnosis. With blocked central veins the hepatic veins are open, the block sits between the two readings, and the HVPG is raised. Reopening one hepatic vein, or a shunt to the IVC, drains the liver.',
