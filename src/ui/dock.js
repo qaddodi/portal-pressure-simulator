@@ -451,29 +451,45 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     }
     fitHeight();
   }
-  // Ascites has no picture to stretch, so its card is only as tall as its rows: the height eases to fit, and eases back
-  // for any other tab. A sheet the learner has resized keeps their height; a lesson's sheet keeps its own.
+  // A tab whose picture keeps its own shape (Ascites has none to stretch; HVPG and FibroScan are boxes of a fixed
+  // aspect) has nothing to fill a tall card with, so its card is only as tall as its content: the height eases to
+  // fit, and eases back for any other tab. A sheet the learner has resized keeps their height, a lesson's sheet
+  // keeps its own, and when the content would not fit even the full card its picture shrinks as it always did.
+  const FIT = ['abdomen', 'hvpg', 'fibroscan'];
+  const fitView = (id) => byId[id].el.firstElementChild;
   let fitTimer = 0;
   function fitHeight() {
-    const ab = open.length === 1 && open[0] === 'abdomen' && state === 'open' ? workspace.querySelector('.instrument-view.ab') : null;
+    const id = open.length === 1 && FIT.includes(open[0]) && state === 'open' ? open[0] : null;
+    for (const o of FIT) if (o !== id) fitView(o).classList.remove('nat');
+    const view = id ? fitView(id) : null;
     const lessonSheet = app.dataset.mode === 'learn' && !isSide() && matchMedia('(max-width: 767px)').matches;
-    const fits = !!ab && ab.offsetHeight > 0 && !lessonSheet && (isSide() || heightRatio == null);
+    // On a phone HVPG and FibroScan fill the sheet by design; only Ascites fits there.
+    let fits = !!view && !lessonSheet && (isSide() || heightRatio == null) && (id === 'abdomen' || matchMedia('(min-width: 768px)').matches);
+    if (view) view.classList.toggle('nat', fits);   // nat: the view at its natural height, to measure it
+    fits = fits && view.offsetHeight > 0;
     const on = workspace.classList.contains('fit');
     if (!fits && !on) return;
     clearTimeout(fitTimer);
     const cs = getComputedStyle(workspace);
     const full = isSide() ? workspace.offsetParent.clientHeight - parseFloat(cs.top) - parseFloat(cs.bottom) : parseFloat(workspace.style.getPropertyValue('--instrument-h')) || workspace.offsetHeight;
+    let need = 0;
+    if (fits) {
+      const pcs = getComputedStyle(view.parentElement);
+      const measure = () => Math.ceil(workspace.offsetHeight - body.clientHeight + parseFloat(pcs.paddingTop) + parseFloat(pcs.paddingBottom) + view.offsetHeight);
+      need = measure();
+      // too tall for the card (a short window): leave it to scale as it always did
+      if (need > full + 1 && id !== 'abdomen') { view.classList.remove('nat'); fits = false; }
+    }
     if (!on) { workspace.style.setProperty('--fit-h', `${workspace.offsetHeight}px`); workspace.classList.add('fit'); void workspace.offsetHeight; }
     if (!fits) {
       workspace.style.setProperty('--fit-h', `${Math.round(full)}px`);
       fitTimer = setTimeout(() => workspace.classList.remove('fit'), 400);
       return;
     }
-    const pane = ab.parentElement, pcs = getComputedStyle(pane);
-    const need = workspace.offsetHeight - body.clientHeight + parseFloat(pcs.paddingTop) + parseFloat(pcs.paddingBottom) + ab.offsetHeight;
-    workspace.style.setProperty('--fit-h', `${Math.round(Math.min(full, Math.max(140, Math.ceil(need))))}px`);
+    workspace.style.setProperty('--fit-h', `${Math.round(Math.min(full, Math.max(140, need)))}px`);
   }
-  new ResizeObserver(() => fitHeight()).observe(byId.abdomen.el.firstElementChild);
+  const fitWatch = new ResizeObserver(() => fitHeight());
+  for (const id of FIT) fitWatch.observe(fitView(id));
   function setState(next) {
     state = next;
     workspace.dataset.state = state;
