@@ -299,36 +299,34 @@ function bigLadder() {
     return { name, x0, x1, row, lead, pill, txt, w, mid, g: sv('g', { class: 'pzl-bg', opacity: 0 }, lead, bar, pill, txt) };
   };
   const hv = span('HVPG', SPAN_Y.hvpg, 1, 2), pp = span('PPG', SPAN_Y.ppg, 0, 3);
-  // The phone's strip, two short rows: the station names (the healthy reading dim beside each) over five small nodes, each its
-  // reading, the fall to the next written on the connector between (its width and weight follow the size of the fall; the
-  // largest is named by colour, a fall over 4 in red). Under them the HVPG and PPG as thin brackets that carry their own
-  // reading and rating, so a phone needs no tiles.
-  const S = { W: 360, ny: 34, R: 13, hvpg: 70, ppg: 90, H: 98 }, XS = (i) => 36 + 72 * i;
-  const conns = [0, 1, 2, 3].map((i) => ({
-    line: sv('line', { class: 'pzs-c', x1: XS(i) + S.R + 3, x2: XS(i + 1) - S.R - 3, y1: S.ny, y2: S.ny }),
-    txt: sv('text', { class: 'pzs-d', x: (XS(i) + XS(i + 1)) / 2, y: S.ny - 8, 'text-anchor': 'middle' }),
-  }));
+  // The phone's strip, two short rows: the station names over the five readings as plain numbers, on the ladder's own
+  // line, straight and thick, with the fall written above each stretch (the largest named by colour, a fall over 4 in red). Under them the HVPG and PPG as thin brackets with their reading and, when raised, an arrow
+  // in the rating's colour, so a phone needs no tiles.
+  const S = { W: 360, ny: 27, hvpg: 52, ppg: 68, H: 76 }, XS = (i) => 28 + 70 * i;
+  // (The line is the ladder's own: one straight run in its portal-to-systemic gradient, the readings sitting on it.)
+  const conns = [0, 1, 2, 3].map((i) => ({ txt: sv('text', { class: 'pzs-d', x: (XS(i) + XS(i + 1)) / 2, y: S.ny - 11, 'text-anchor': 'middle' }) }));
+  const sline = sv('line', { class: 'pzs-c', x1: XS(0), x2: XS(4), y1: S.ny, y2: S.ny, stroke: `url(#${gid}s)` });
+  const sgrad = sv('linearGradient', { id: gid + 's', gradientUnits: 'userSpaceOnUse', x1: XS(0), x2: XS(4), y1: 0, y2: 0 }, sv('stop', { offset: 0, 'stop-color': 'var(--tour-portal)' }), sv('stop', { offset: 1, 'stop-color': 'var(--tour-sys)' }));
   const spts = RUNGS.map(([, a], i) => {
-    const c = sv('circle', { cx: XS(i), cy: S.ny, r: S.R }), v = sv('text', { class: 'pzs-v', x: XS(i), y: S.ny + 5.5, 'text-anchor': 'middle' });
-    const h0 = sv('tspan', { class: 'pzs-h' });
-    return { g: sv('g', { class: 'pzs-pt' }, c, v), c, v, h0, k: sv('text', { class: 'pzs-k', x: XS(i), y: 11, 'text-anchor': 'middle' }, a, h0) };
+    const v = sv('text', { class: 'pzs-v', x: XS(i), y: S.ny + 5.5, 'text-anchor': 'middle' });
+    return { g: sv('g', { class: 'pzs-pt' }, v), v, k: sv('text', { class: 'pzs-k', x: XS(i), y: 9, 'text-anchor': 'middle' }, a) };
   });
   const sbr = (name, row, i0, i1, right) => {
-    const x0 = XS(i0), x1 = XS(i1), t = ['bn', 'bv', 'bu', 'bw'].map((c) => sv('tspan', { class: 'pzs-' + c }));
-    const lead = sv('path', { class: 'pzl-lead' }), bar = sv('path', { class: 'pzl-br', d: `M${x0} ${row - 4}V${row + 4}M${x1} ${row - 4}V${row + 4}M${x0} ${row}H${x1}` });
-    const lbl = sv('text', { class: 'pzs-bl', x: right ? x1 + 12 : (x0 + x1) / 2, y: row + 4, 'text-anchor': right ? 'start' : 'middle' }, t);
+    const x0 = XS(i0), x1 = XS(i1), t = ['bn', 'bv'].map((c) => sv('tspan', { class: 'pzs-' + c }));
+    const lead = sv('path', { class: 'pzl-lead' }), bar = sv('path', { class: 'pzl-br', d: `M${x0} ${row - 3}V${row + 3}M${x1} ${row - 3}V${row + 3}M${x0} ${row}H${x1}` });
+    const lbl = sv('text', { class: 'pzs-bl', x: right ? x1 + 9 : (x0 + x1) / 2, y: row + 4, 'text-anchor': right ? 'start' : 'middle' }, t);
     return { name, x0, x1, row, lead, t, g: sv('g', { class: 'pzl-bg', opacity: 0 }, lead, bar, lbl) };
   };
   const hvS = sbr('HVPG', S.hvpg, 1, 2, true), ppS = sbr('PPG', S.ppg, 0, 3, false);
   const strip = sv('svg', { class: 'pz-strip', viewBox: `0 0 ${S.W} ${S.H}`, role: 'img' },
-    conns.map((c) => [c.line, c.txt]), spts.map((p) => [p.g, p.k]), hvS.g, ppS.g);
+    sv('defs', {}, sgrad), sline, conns.map((c) => c.txt), spts.map((p) => [p.g, p.k]),
+    sv('text', { class: 'pzs-u', x: S.W - 2, y: S.ny + 5.5, 'text-anchor': 'end' }, 'mmHg'), hvS.g, ppS.g);
   const grid = TICKS.map((v) => {
     const line = sv('line', { x1: 44, x2: W - 10 }), txt = sv('text', { x: 34, 'text-anchor': 'end' }, String(v));
     return { v, line, txt, g: sv('g', { class: 'pzl-grid' }, line, txt) };
   });
   const drawBase = () => {
     base.setAttribute('d', baseVals ? RUNGS.map(([k], i) => `${i ? 'L' : 'M'}${X(i)} ${Y(baseVals[k]).toFixed(1)}`).join(' ') : '');
-    spts.forEach((p, i) => { p.h0.textContent = baseVals ? ` (${fmt(baseVals[RUNGS[i][0]], 0)})` : ''; });
   };
   let verdict = {};
   const el = sv('svg', { class: 'pz-ladder', viewBox: `0 0 ${W} ${H}`, role: 'img' },
@@ -351,10 +349,8 @@ function bigLadder() {
     spts.forEach((p, i) => { p.v.textContent = fmt(f[RUNGS[i][0]], 0); });
     conns.forEach((c, i) => {
       const n = Math.round(f[RUNGS[i][0]]) - Math.round(f[RUNGS[i + 1][0]]), big = most >= 2 && raw[i] === most;
-      c.line.setAttribute('stroke-width', (2 + Math.min(raw[i], 12) * 0.45).toFixed(2));
-      c.line.setAttribute('opacity', (0.4 + 0.6 * Math.min(raw[i] / 6, 1)).toFixed(2));
       c.txt.textContent = n > 0 ? `−${n}` : n < 0 ? `+${-n}` : '0';
-      for (const e of [c.line, c.txt]) { e.classList.toggle('big', big); e.classList.toggle('fall', n > 4); }
+      c.txt.classList.toggle('big', big); c.txt.classList.toggle('fall', n > 4);
     });
     bands.forEach((b, i) => {
       const d = f[RUNGS[i][0]] - f[RUNGS[i + 1][0]];
@@ -380,12 +376,12 @@ function bigLadder() {
     put(pp, f.pv, f.ivc, f.ppg, rateOf('ppg', f)[0] || 'ok');
     // The strip's brackets: name, reading and its rating (a slide's verdict colours the bracket and takes the rating's place).
     const putS = (b, hi, lo, v, k) => {
-      const ok = Number.isFinite(hi) && Number.isFinite(lo) && Number.isFinite(v), say = verdict[b.name.toLowerCase()], [rate, word] = rateOf(k, f);
+      const ok = Number.isFinite(hi) && Number.isFinite(lo) && Number.isFinite(v), say = verdict[b.name.toLowerCase()], [rate] = rateOf(k, f);
       b.g.setAttribute('opacity', ok ? 1 : 0);
       if (!ok) return;
-      b.lead.setAttribute('d', `M${b.x0} ${b.row - 8}V${S.ny + S.R + 4}M${b.x1} ${b.row - 8}V${S.ny + S.R + 4}`);
+      b.lead.setAttribute('d', `M${b.x0} ${b.row - 5}V${S.ny + 10}M${b.x1} ${b.row - 5}V${S.ny + 10}`);
       b.g.dataset.rate = say ? (say === 'misleads' ? 'hi' : 'ok') : rate || 'ok';
-      b.t[0].textContent = b.name; b.t[1].textContent = ' ' + fmt(v, 1); b.t[2].textContent = ' mmHg'; b.t[3].textContent = say || !word ? '' : ' ● ' + word;
+      b.t[0].textContent = b.name; b.t[1].textContent = ' ' + fmt(v, 1) + (say ? '' : rate === 'hi' ? ' ↑↑' : rate === 'mid' ? ' ↑' : '');
     };
     putS(hvS, f.whvp, f.fhvp, f.hvpg, 'hvpg'); putS(ppS, f.pv, f.ivc, f.ppg, 'ppg');
     const say = 'Pressure ladder: ' + RUNGS.map(([k, a]) => `${a} ${fmt(f[k], 0)}`).join(', ') + ' mmHg. '

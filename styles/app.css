@@ -2083,19 +2083,17 @@ button.finding:hover { background: var(--surface-2); }
 .pz.stack .pz-data > .pz-ladder { display: none; }
 .pz.stack .pz-data > .pz-strip { display: block; }
 .pz.stack .pz-data.tiles-only > .pz-strip, .pz.stack .pz-data.tool-only > .pz-strip { display: none; }
-.pzs-c { stroke: var(--text-3); stroke-linecap: round; transition: stroke .4s var(--ease); }
+.pzs-c { stroke-width: 6; stroke-linecap: round; }
 .pzs-d { fill: var(--text-3); font: 600 12px var(--font-ui); font-variant-numeric: tabular-nums; transition: fill .4s var(--ease); }
-.pzs-c.big { stroke: var(--accent); } .pzs-d.big { fill: var(--accent); font-weight: 700; }
-.pzs-c.fall { stroke: var(--danger); } .pzs-d.fall { fill: var(--danger); }
-.pzs-pt circle { fill: var(--surface); stroke: var(--text-2); stroke-width: 2.2; transition: fill .4s var(--ease), stroke .4s var(--ease); }
-.pzs-v { fill: var(--text); font: 600 15px var(--font-ui); font-variant-numeric: tabular-nums; transition: fill .4s var(--ease); }
-.pzs-pt.key circle { fill: var(--accent); stroke: var(--accent); }
-.pzs-pt.key .pzs-v { fill: var(--on-accent); }
+.pzs-d.big { fill: var(--accent); font-weight: 700; }
+.pzs-d.fall { fill: var(--danger); }
+.pzs-v { fill: var(--text); font: 700 15px var(--font-ui); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 6px; stroke-linejoin: round; transition: fill .4s var(--ease); }
+.pzs-pt.key .pzs-v { fill: var(--accent); }
 .pzs-k { fill: var(--text-2); font: 700 11px var(--font-ui); letter-spacing: .02em; }
-.pzs-h { fill: var(--text-3); font-weight: 500; }
+.pzs-u { fill: var(--text-3); font: 500 10px var(--font-ui); }
 .pzs-bl { fill: var(--text); font: 600 12px var(--font-ui); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--surface); stroke-width: 6px; stroke-linejoin: round; }
-.pzs-bn, .pzs-bw { fill: var(--c); font-weight: 700; transition: fill .4s var(--ease); }
-.pzs-bu { fill: var(--text-3); font-weight: 500; }
+.pzs-bn, .pzs-bv { fill: var(--c); font-weight: 700; transition: fill .4s var(--ease); }
+.pz.stack .pz-data:not(.tiles-only):not(.tool-only) .pz-lg { display: none; }
 .pz.stack .pz-data:not(.tiles-only):not(.tool-only):not(.has-tool) .pz-tiles[data-compact="1"] { display: none; }
 .pz.stack .pz-tile { padding: 6px 10px; }
 .pz.stack .pzt-v { font-size: min(24px, 30cqi); }
