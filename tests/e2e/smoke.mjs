@@ -177,6 +177,29 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (restarted) throw new Error(`a rebuilt sinusoid caption faded in again (${restarted}): the captions flash`);
   });
 
+  await check(device, 'lobule: the flow chevrons show when Chevrons is on (and go when it is off)', async (page) => {
+    await open(page, '?preset=healthy');
+    await page.evaluate(() => { const s = window.pps.store; s.set({ blood: { ...s.get().blood, chevrons: true } }); window.pps.host.send({ type: 'run', running: false }); });
+    await page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click());
+    await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 30000 });
+    // The vessels' layer, read back after a frame; with the clock paused only the chevrons differ between on and off.
+    const grab = () => page.evaluate(() => new Promise((res) => requestAnimationFrame(() => {
+      const g = document.querySelector('.lz-gl'), c = document.createElement('canvas'); c.width = g.width; c.height = g.height;
+      const x = c.getContext('2d'); x.drawImage(g, 0, 0); res(Array.from(x.getImageData(0, 0, c.width, c.height).data.filter((_, i) => i % 4 === 0)));
+    })));
+    const setChev = (on) => page.evaluate((on) => { const s = window.pps.store; s.set({ blood: { ...s.get().blood, chevrons: on } }); }, on);
+    let n = 0;
+    for (let zoom = 0; zoom < 3 && !n; zoom++) {   // (closer in where the sinusoids are too fine for a head at the fit)
+      if (zoom) { await page.evaluate(() => window.pps.stage.zoomIn()); await page.waitForTimeout(1200); }
+      await setChev(true); await page.waitForTimeout(1500);
+      const on = await grab();
+      await setChev(false); await page.waitForTimeout(1500);
+      const off = await grab();
+      n = on.reduce((k, v, i) => k + (Math.abs(v - off[i]) > 25 ? 1 : 0), 0);
+    }
+    if (n < 20) throw new Error(`no chevrons drawn in the lobule with Chevrons on (${n} px differ from off)`);
+  });
+
   await check(device, 'presenter lobule: a label and its pill fade out as one when the camera moves', async (page) => {
     await open(page, '?preset=cirr-decomp');
     await page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click());

@@ -1690,6 +1690,7 @@ export function createLobuleZoom({ host }) {
       const o = t.id * FLOW_TEXELS * 4, Rm = t.maxR || G.rs0;
       flowData[o] = sm.D; flowData[o + 1] = sm.v; flowData[o + 2] = (sm.occ * Math.max(Math.abs(sm.v), 2) * sumK(Rm)) / s0; flowData[o + 3] = sm.st;
       flowData[o + 4] = f0; flowData[o + 5] = f1; flowData[o + 6] = strength; flowData[o + 7] = sm.rev;
+      flowData[o + 12] = 1;   // (each vessel's chevron weight, as the anatomy's: every lobule vessel shows them when they are on)
       if (origin && origins && !t.lymph) { const kk = EI[oe]; for (let c = 0; c < ORIGIN_N; c++) flowData[o + 8 + c] = origins[kk * ORIGIN_N + c]; }
     }
     g.setFlow(flowData);
