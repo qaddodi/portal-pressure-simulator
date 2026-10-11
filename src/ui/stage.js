@@ -4713,8 +4713,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // other drops its value and, if that is not enough, hides until there is room.
     const rank = (it) => (it.sel ? 1e3 : it.key.startsWith('focus') ? 900 : it.cls === 'organ' ? 0 : it.cls === 'lane' ? 1 : (it.pri ?? 2) + 2);
     const kept = [];
-    for (const it of out.filter((o) => !o.hide && !o.live && !o.rot).sort((a, b) => rank(b) - rank(a))) {
-      let r = rectOf(it);
+    // A caption turned upright takes its box turned too (it cannot shorten, so it hides when crowded).
+    const boxOf = (it) => (it.rot ? rectOf({ ...it, w: it.h, h: it.w }) : rectOf(it));
+    for (const it of out.filter((o) => !o.hide && !o.live).sort((a, b) => rank(b) - rank(a))) {
+      let r = boxOf(it);
+      if (it.rot) { if (!it.sel && kept.some((k) => hits(r, k))) { it.hide = true; continue; } kept.push(r); continue; }
       if (kept.some((k) => hits(r, k))) {
         const w0 = it.w, h0 = it.h, d = it.dir || '';
         if (it.canShort && shortenItem(it)) {
