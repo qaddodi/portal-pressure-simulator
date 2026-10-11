@@ -49,7 +49,7 @@
 // Every deck opens with an "Outline and objectives" slide built from its kicker groups and objectives
 // (withOverview below); a deck never writes that slide itself.
 
-import { CIRCULATION } from './decks/circulation.js?v=a4e4ccf9b5';
+import { CIRCULATION } from './decks/circulation.js?v=adebda5e2e';
 import { SITES } from './decks/sites.js?v=99764025c1';
 import { HVPG } from './decks/hvpg.js?v=5dc6e4727a';
 import { ASCITES } from './decks/ascites.js?v=abd2ae57e4';
@@ -57,7 +57,7 @@ import { VARICES } from './decks/varices.js?v=1ad248e26a';
 import { TREATMENT } from './decks/treatment.js?v=67bb210d9f';
 import { STIFFNESS } from './decks/stiffness.js?v=35e2f96b71';
 import { ONE_YEAR } from './decks/one-year.js?v=37492fcfd2';
-import { LOBULE } from './decks/lobule.js?v=e7977e803e';
+import { LOBULE } from './decks/lobule.js?v=0fe92917ab';
 import { SHUNTS } from './decks/shunts.js?v=a0cc164807';
 import { TAP } from './decks/tap.js?v=fd0e03bbb4';
 import { CIRCUIT } from './decks/circuit.js?v=05ee0b6b76';
@@ -66,7 +66,7 @@ import { ENDOSCOPY } from './decks/endoscopy.js?v=95aa3aef7f';
 import { PREHEPATIC } from './decks/prehepatic.js?v=c8af5f351e';
 import { RIGHT_HEART } from './decks/right-heart.js?v=2221556b33';
 import { BLEED } from './decks/variceal-bleed.js?v=646e098b15';
-import { TWO_INFLOWS } from './decks/two-inflows.js?v=ca6d2b9f97';
+import { TWO_INFLOWS } from './decks/two-inflows.js?v=d8bbc99529';
 import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=366bbfe01e';
 import { SPLEEN } from './decks/spleen.js?v=ce3e43ed7b';
 import { NCPH } from './decks/ncph.js?v=414fbe7dcc';

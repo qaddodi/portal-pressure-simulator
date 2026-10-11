@@ -12,9 +12,9 @@ export const LOBULE = {
   summary: 'The lobule from portal tract to central vein, and the point in it that each disease blocks. Ends with what the wedge reads at each site.',
   slides: [
     {
-      id: 'lobule', preset: 'healthy', cam: 'lobule:fit',
+      id: 'lobule', preset: 'healthy', cam: 'lobule:fit', terms: { 'portal venules': 'lobule:triad', 'hepatic arterioles': 'lobule:triad', sinusoids: 'lobule:sinusoid', 'central vein': 'lobule:central' },
       kicker: 'The lobule', title: 'The lobule from tract to central vein',
-      line: 'Portal tracts at the corners, the central vein in the middle, sinusoids between.',
+      line: 'Blood from portal venules and hepatic arterioles enters at the corners, runs through the sinusoids and drains to the central vein.',
       notes: 'The classic lobule is a hexagon about a millimeter across. Blood enters at the portal tracts, where portal venules and hepatic arterioles empty into the sinusoids, runs inward along plates of liver cells one cell thick, and leaves by the central vein (terminal hepatic venule). Each disease in this talk blocks one point on that path, and the point decides the pressures, the HVPG and the ascites.',
       ask: ['Which way does blood run in the lobule?', 'From the portal tracts at the edge, through the sinusoids, to the central vein.'],
     },

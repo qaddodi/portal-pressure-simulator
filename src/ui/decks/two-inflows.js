@@ -22,7 +22,7 @@ export const TWO_INFLOWS = {
       ask: ['What share of the liver\'s oxygen comes from the portal vein?', 'About half, although it carries about three quarters of the flow.'],
     },
     {
-      id: 'meet', cam: 'lobule:triad', terms: { 'portal tract': 'lobule:triad', sinusoids: 'lobule:sinusoid' },
+      id: 'meet', cam: 'lobule:triad', terms: { 'portal venule': 'lobule:triad', 'hepatic arteriole': 'lobule:triad', sinusoids: 'lobule:sinusoid' },
       kicker: 'Two inflows', title: 'The two bloods mix in the sinusoids',
       line: 'In each portal tract a portal venule and a hepatic arteriole empty into the same sinusoids, so the two bloods mix before they reach the liver cells.',
       notes: 'The portal tract holds a portal venule, a hepatic arteriole and a bile ductule. Arteriolar blood enters the sinusoids near the tract, in zone 1, and mixes with portal blood; part of it first feeds the capillary plexus around the bile ducts. The bile ducts have no portal supply, so they depend on the artery alone.',
