@@ -407,9 +407,10 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     await page.waitForFunction(() => !document.querySelector('#app').classList.contains('presenting'));
   });
 
-  await check(device, 'presenter: lobule and sinusoid labels never touch', async (page) => {
-    // The slides that name several lobule structures at once, at each size: no two labels,
-    // pills included, come within a few pixels of each other. The desktop run also tries an iPad's portrait screen.
+  await check(device, 'presenter: lobule labels never touch, leaders never cross', async (page) => {
+    // The slides that name several lobule structures at once, at each size: no two labels, pills included, come within
+    // a few pixels of each other; no leader runs under another label or crosses another leader. The desktop run also
+    // tries an iPad's portrait screen.
     const sizes = device === 'desktop' ? [null, { width: 820, height: 1180 }] : [null];
     for (const size of sizes) {
       if (size) await page.setViewportSize(size);
@@ -431,9 +432,30 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
             const a = out[i], c = out[j], gap = Math.max(Math.max(a.l, c.l) - Math.min(a.r, c.r), Math.max(a.t, c.t) - Math.min(a.b, c.b));
             if (gap < 3) hits.push(`"${a.n}" and "${c.n}" (gap ${gap.toFixed(1)} px)`);
           }
+          // Leaders on screen: each runs from the spot it names to the middle of its own label.
+          const segs = [...document.querySelectorAll('.lz.on:not(.lz-cam) .lz-leaders line.leader')].filter((l) => l.style.display !== 'none').map((l) => {
+            const m = l.getScreenCTM(), at = (x, y) => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f];
+            return { n: l.dataset.target, p: at(+l.getAttribute('x1'), +l.getAttribute('y1')), q: at(+l.getAttribute('x2'), +l.getAttribute('y2')) };
+          });
+          const inside = ([x, y], b) => x >= b.l - 1 && x <= b.r + 1 && y >= b.t - 1 && y <= b.b + 1;
+          const under = (p, q, b) => {
+            let t0 = 0, t1 = 1;
+            for (const [d, lo, hi, o] of [[q[0] - p[0], b.l, b.r, p[0]], [q[1] - p[1], b.t, b.b, p[1]]]) {
+              if (Math.abs(d) < 1e-9) { if (o < lo || o > hi) return false; continue; }
+              let u = (lo - o) / d, v = (hi - o) / d; if (u > v) [u, v] = [v, u];
+              t0 = Math.max(t0, u); t1 = Math.min(t1, v); if (t0 > t1) return false;
+            }
+            return t1 - t0 > 0.02;
+          };
+          const side = (p, q, r) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
+          for (const s of segs) for (const b of out) if (!inside(s.p, b) && !inside(s.q, b) && under(s.p, s.q, b)) hits.push(`the ${s.n} leader runs under "${b.n}"`);
+          for (let i = 0; i < segs.length; i++) for (let j = i + 1; j < segs.length; j++) {
+            const a = segs[i], c = segs[j];
+            if (side(a.p, a.q, c.p) * side(a.p, a.q, c.q) < 0 && side(c.p, c.q, a.p) * side(c.p, c.q, a.q) < 0) hits.push(`the ${a.n} and ${c.n} leaders cross`);
+          }
           return hits;
         });
-        if (bad.length) throw new Error(`${deck} slide ${n} at ${page.viewportSize().width}px: labels touch: ${bad.join('; ')}`);
+        if (bad.length) throw new Error(`${deck} slide ${n} at ${page.viewportSize().width}px: ${bad.join('; ')}`);
       }
     }
   });

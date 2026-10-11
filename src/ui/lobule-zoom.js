@@ -907,7 +907,7 @@ export function createLobuleZoom({ host }) {
   }
   const hitKind = (key) => (key === 'ha' || key === 'bd' ? { part: key, tri: pick.triad } : key === 'triad' ? { part: 'triad', tri: pick.triad } : key === 'cv' ? { part: 'cv' } : key === 'lymph' ? { part: 'lv', tri: pick.lt ?? pick.triad } : { part: 'sin', tube: sinTube().id });
   // The lesion pointer: a pill near the spot, clear of the labels and cards, with a leader to a ring on it. Eases in and out.
-  function placeCall(fr, placed, cards) {
+  function placeCall(fr, placed, cards, leads, crosses) {
     if (!callEl.isConnected) { labels.append(callEl); leaders.append(callLine, callRing); }
     const a = call && toScreen(anchorOf(call.at)), on = !!a && a[0] > fr.l && a[0] < fr.r && a[1] > fr.t && a[1] < fr.b;
     for (const e of [callEl, callLine, callRing]) e.classList.toggle('on', on);
@@ -920,7 +920,8 @@ export function createLobuleZoom({ host }) {
       const t = (i / 12) * Math.PI * 2 - Math.PI / 2;
       const x = clamp(a[0] + Math.cos(t) * (r + w / 3), fr.l + w / 2 + pad, fr.r - w / 2 - pad), y = clamp(a[1] + Math.sin(t) * r, fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
       const box = { l: x - w / 2 - 6, r: x + w / 2 + 6, t: y - hh / 2 - 6, b: y + hh / 2 + 6 };
-      const cost = placed.reduce((c, o) => c + (ov(box, o) > 0 ? 1e6 + ov(box, o) * 100 : 0), 0) + ov(box, spot) * 200 + cards.reduce((c, o) => c + ov(box, o) * 400, 0) + Math.hypot(x - a[0], y - a[1]) * 0.5;
+      const cost = placed.reduce((c, o) => c + (ov(box, o) > 0 ? 1e6 + ov(box, o) * 100 : 0) + (crosses(a, [x, y], o) ? 1e5 : 0), 0)
+        + leads.reduce((c, [p, q]) => c + (crosses(p, q, box) ? 1e5 : 0), 0) + ov(box, spot) * 200 + cards.reduce((c, o) => c + ov(box, o) * 400, 0) + Math.hypot(x - a[0], y - a[1]) * 0.5;
       if (!best || cost < best.cost) best = { x, y, box, cost };
     }
     placed.push(best.box);
@@ -978,6 +979,26 @@ export function createLobuleZoom({ host }) {
     const lk = parseFloat(document.documentElement.style.getPropertyValue('--label-k')) || 1, hm = 4 + 2 * lk,
       hx = Math.max(hm, 4 * lk + 5), hy = Math.max(hm, 5 * lk + 5);
     const hit = (a, b) => overlap(a, b) > 0;
+    // Leaders run to each label's centre; a leader never crosses another label, and a label never sits on another's leader.
+    const crosses = (p, q, b) => {
+      let t0 = 0, t1 = 1;
+      const dx = q[0] - p[0], dy = q[1] - p[1];
+      for (const [d, lo, hi, o] of [[dx, b.l, b.r, p[0]], [dy, b.t, b.b, p[1]]]) {
+        if (Math.abs(d) < 1e-9) { if (o < lo || o > hi) return false; continue; }
+        let u = (lo - o) / d, v = (hi - o) / d;
+        if (u > v) [u, v] = [v, u];
+        t0 = Math.max(t0, u); t1 = Math.min(t1, v);
+        if (t0 > t1) return false;
+      }
+      return true;
+    };
+    // Two leaders never cross each other either (a shared end, two labels on one spot, is not a crossing).
+    const side = (p, q, r) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
+    const cut = (p, q, r, t) => side(p, q, r) * side(p, q, t) < 0 && side(r, t, p) * side(r, t, q) < 0;
+    const leads = [];
+    // Measured first; then placed one at a time, in a few orders, keeping the order that leaves no label on another
+    // and no leader under another label (or the fewest), so an early label never blocks a later one's only clear spot.
+    const items = [];
     for (const k of ['cv', 'sin', 'triad', 'lymph', 'ha', 'bd']) {
       const L = labs[k];
       if (!L) continue;
@@ -991,38 +1012,63 @@ export function createLobuleZoom({ host }) {
       const outside = k === 'lymph' ? a[0] < 0 || a[0] > g.W || a[1] < 0 || a[1] > g.H : a[0] < fr.l - 4 || a[0] > fr.r + 4 || a[1] < fr.t - 4 || a[1] > fr.b + 4;
       L.el.hidden = outside || fr.r - fr.l < w + 16 || fr.b - fr.t < hh + 16;
       if (L.el.hidden) { L.line.style.display = L.dotEl.style.display = 'none'; continue; }
-      const pad = 8 + 4 * lk, step = hh + 12;
-      const preferred = k === 'cv' ? [a[0], a[1] - g.rcv0 * V.k - hh / 2 - 12]
-        : k === 'triad' ? [a[0], a[1] + hh / 2 + 12] : k === 'ha' ? [a[0] - w / 2 - 14, a[1] - hh / 2 - 10] : k === 'bd' ? [a[0] + w / 2 + 14, a[1] - hh / 2 - 10] : k === 'lymph' ? [a[0], a[1] - hh / 2 - 14] : a;
-      // Steps in proportion to the label, so larger text searches proportionally farther (above, below, beside, diagonally).
-      const candidates = [preferred];
-      for (const dx of [0, -(w / 2 + 12), w / 2 + 12, -(w + 24), w + 24])
-        for (const n of [0, -1, 1, -2, 2, -3, 3]) if (dx || n) candidates.push([preferred[0] + dx, preferred[1] + n * step]);
-      // And all round what it names, at a few distances, so a crowded side still leaves a free spot near it.
-      for (const r of [1, 1.6, 2.4]) for (let i = 0; i < 16; i++) {
-        const t = (i / 16) * Math.PI * 2;
-        candidates.push([a[0] + Math.cos(t) * (w / 2 + 18) * r, a[1] + Math.sin(t) * (hh / 2 + 18) * r]);
+      items.push({ k, L, w, hh, a });
+    }
+    const base = placed.slice();
+    const solve = (order) => {
+      const pl = base.slice(), ld = [], res = [];
+      let total = 0;
+      for (const { k, w, hh, a } of order) {
+        const pad = 8 + 4 * lk, step = hh + 12;
+        const preferred = k === 'cv' ? [a[0], a[1] - g.rcv0 * V.k - hh / 2 - 12]
+          : k === 'triad' ? [a[0], a[1] + hh / 2 + 12] : k === 'ha' ? [a[0] - w / 2 - 14, a[1] - hh / 2 - 10] : k === 'bd' ? [a[0] + w / 2 + 14, a[1] - hh / 2 - 10] : k === 'lymph' ? [a[0], a[1] - hh / 2 - 14] : a;
+        // Steps in proportion to the label, so larger text searches proportionally farther (above, below, beside, diagonally).
+        const candidates = [preferred];
+        for (const dx of [0, -(w / 2 + 12), w / 2 + 12, -(w + 24), w + 24])
+          for (const n of [0, -1, 1, -2, 2, -3, 3]) if (dx || n) candidates.push([preferred[0] + dx, preferred[1] + n * step]);
+        // And all round what it names, at a few distances, so a crowded side still leaves a free spot near it.
+        for (const r of [1, 1.6, 2.4]) for (let i = 0; i < 16; i++) {
+          const t = (i / 16) * Math.PI * 2;
+          candidates.push([a[0] + Math.cos(t) * (w / 2 + 18) * r, a[1] + Math.sin(t) * (hh / 2 + 18) * r]);
+        }
+        // Snug against each label already placed (above, below or beside it), so a tight gap between two is found.
+        for (const o of pl) candidates.push([preferred[0], o.b + hh / 2 + hy], [preferred[0], o.t - hh / 2 - hy], [o.r + w / 2 + hx, preferred[1]], [o.l - w / 2 - hx, preferred[1]]);
+        const own = marks.filter((m) => m.k !== k);
+        let best = null;
+        for (const [px, py] of candidates) {
+          const x = clamp(px, fr.l + w / 2 + pad, fr.r - w / 2 - pad);
+          const y = clamp(py, fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
+          const box = { l: x - w / 2 - hx, r: x + w / 2 + hx, t: y - hh / 2 - hy, b: y + hh / 2 + hy };
+          // A label with a leader keeps a visible stretch of it: it never sits right over the vessel it names.
+          const lead = Math.hypot(Math.max(0, Math.abs(a[0] - x) - w / 2), Math.max(0, Math.abs(a[1] - y) - hh / 2));
+          // Two labels never touch, and no leader runs under a label: any spot clear of both beats every spot that is not.
+          const cost = pl.reduce((sum, other) => sum + (hit(box, other) ? 1e6 + overlap(box, other) * 100 : 0)
+              + (crosses(a, [x, y], other) ? 1e5 : 0), 0)
+            + ld.reduce((sum, [p, q]) => sum + (crosses(p, q, box) ? 1e5 : 0) + (cut(p, q, a, [x, y]) ? 1e5 : 0), 0)
+            + Math.max(0, 16 - lead) * 40
+            + cards.reduce((sum, c) => sum + overlap(box, c) * 400, 0)
+            + own.reduce((sum, m) => sum + overlap(box, m) * 40, 0)
+            + Math.hypot(x - preferred[0], y - preferred[1]);
+          if (!best || cost < best.cost) best = { x, y, box, cost };
+        }
+        pl.push(best.box); ld.push([a, [best.x, best.y]]); res.push({ k, ...best });
+        total += best.cost;
       }
-      // Snug against each label already placed (above, below or beside it), so a tight gap between two is found.
-      for (const o of placed) candidates.push([preferred[0], o.b + hh / 2 + hy], [preferred[0], o.t - hh / 2 - hy], [o.r + w / 2 + hx, preferred[1]], [o.l - w / 2 - hx, preferred[1]]);
-      const own = marks.filter((m) => m.k !== k);
-      let best = null;
-      for (const [px, py] of candidates) {
-        const x = clamp(px, fr.l + w / 2 + pad, fr.r - w / 2 - pad);
-        const y = clamp(py, fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
-        const box = { l: x - w / 2 - hx, r: x + w / 2 + hx, t: y - hh / 2 - hy, b: y + hh / 2 + hy };
-        // A label with a leader keeps a visible stretch of it: it never sits right over the vessel it names.
-        const lead = Math.hypot(Math.max(0, Math.abs(a[0] - x) - w / 2), Math.max(0, Math.abs(a[1] - y) - hh / 2));
-        // Two labels never touch: any spot clear of the others beats every spot that is not.
-        const cost = placed.reduce((sum, other) => sum + (hit(box, other) ? 1e6 + overlap(box, other) * 100 : 0), 0)
-          + Math.max(0, 16 - lead) * 40
-          + cards.reduce((sum, c) => sum + overlap(box, c) * 400, 0)
-          + own.reduce((sum, m) => sum + overlap(box, m) * 40, 0)
-          + Math.hypot(x - preferred[0], y - preferred[1]);
-        if (!best || cost < best.cost) best = { x, y, box, cost };
+      return { res, total, pl, ld };
+    };
+    let sol = solve(items);
+    if (sol.total >= 1e5) {
+      // Every order of up to six labels (720 at most, only while a clash remains: a few milliseconds).
+      const perms = (xs) => (xs.length <= 1 ? [xs] : xs.flatMap((x, i) => perms([...xs.slice(0, i), ...xs.slice(i + 1)]).map((r) => [x, ...r])));
+      for (const order of perms(items)) {
+        const s2 = solve(order);
+        if (s2.total < sol.total) sol = s2;
+        if (sol.total < 1e5) break;
       }
-      const { x, y, box } = best;
-      placed.push(box);
+    }
+    placed.splice(0, placed.length, ...sol.pl); leads.push(...sol.ld);
+    for (const { k, x, y } of sol.res) {
+      const { L, w, hh, a } = items.find((it) => it.k === k);
       L.el.style.left = `${x - w / 2}px`; L.el.style.top = `${y - hh / 2}px`;
       L.el.classList.remove('left');
       L.line.style.display = L.dotEl.style.display = '';
@@ -1032,7 +1078,7 @@ export function createLobuleZoom({ host }) {
     }
     // Zone names written in the bands themselves, as the organs are named on the anatomy: quiet capitals in each
     // zone's color, on the radius to the flat bottom edge, so each name runs along its band.
-    placeCall(fr, placed, cards);
+    placeCall(fr, placed, cards, leads, crosses);
     labels.querySelectorAll('.lz-zone').forEach((z) => z.remove());
     if (zonesOn) {
       const a = Math.PI / 2, ap = R * 0.866;
