@@ -6,14 +6,14 @@ import { route as metroRoute, LABEL_VESSEL, TIP_FADE, TIP_CONNECT, VIEW, VB_ANAT
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor } from './colormap.js?v=c17dfefa88';
 import { store, updateParams, varicesPresent, varixGrowth } from './store.js?v=7fb7280c05';
 import { s, h, fmt, fmtFlow, fp, clamp, lerp, toast, systemEdge, bloodColors } from './util.js?v=0cca243d2a';
-import { createLobuleZoom } from './lobule-zoom.js?v=0fc1499d6b';
+import { createLobuleZoom } from './lobule-zoom.js?v=acf2e310e9';
 import { runFlick, FLICK } from './flick.js?v=2576a4bc70';
 import { inlineStyles } from './svg-inline.js?v=8ad39ad551';
 import { glassCallout } from './callout.js?v=d5524b6a11';
 import { seeded, strHash, nodularSites, nodularCells } from './liver-geo.js?v=44b4455160';
 import { LIVER_GEO } from './liver-geo-data.js?v=d2bd9ee6b4';
 import { createRouter } from './circuit-router.js?v=0ee9e02fc6';
-import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=017a08847f';
+import { createVeinsGL, binVeins, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_DOTTED, F_NOCASE, F_SPEC, F_VEIL, ORIGIN_GREY } from './veins-gl.js?v=2f568f909c';
 import { advanceStream, originFractions, ORIGIN_N, createBolus, DYE_BINS, KAPPA, STASIS_MIN_D, HIDDEN_SECONDS } from './blood.js?v=6c39f43ddf';
 
 const N_SAMPLES = 64;

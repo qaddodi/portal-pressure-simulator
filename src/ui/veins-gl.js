@@ -1500,6 +1500,20 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false }) {
     /** The current picture as a PNG data URL (call right after draw, in the same task). */
     snapshot() { return canvas.toDataURL('image/png'); },
     /**
+     * Gives back the vessel framebuffer (20 bytes a pixel) and the outline layer while the picture is not shown;
+     * everything else stays, and the next draw reallocates them.
+     */
+    trim() {
+      if (lost) return;
+      for (const t of [baseTex, gTex, gTex2]) {
+        gl.bindTexture(gl.TEXTURE_2D, t);
+        if (t === baseTex) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16UI, 1, 1, 0, gl.RGBA_INTEGER, gl.UNSIGNED_SHORT, null);
+      }
+      fboW = fboH = 0; baseM = null;
+      freeLines();
+    },
+    /**
      * Frees every GPU object (textures, the vessel framebuffer, buffers, programs) and stops
      * listening to the canvas. The instance is dead afterwards; make a new one to draw again.
      * `lose: true` also gives the context back to the browser (WEBGL_lose_context): the canvas
