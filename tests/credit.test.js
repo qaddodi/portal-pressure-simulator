@@ -95,3 +95,13 @@ test('credit stays off the words\' glass pane', () => {
   assert.equal(pickCorner(s, 'bl'), 'bl');
   assert.match(readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8'), /\.pz-shade'/);
 });
+
+test('credit keeps clear of the figure\'s own labels, and a label does not make the screen busy', () => {
+  const src = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
+  assert.match(src, /#labels \.lb:not\(\.lb-off\)/);
+  assert.match(src, /chrome: true/);
+  // A value label sitting on the lower-left corner (the SMV label on a phone): the credit rises above it or moves aside.
+  const label = { l: 8, t: 640, r: 200, b: 672 };
+  const s = freeSpots(fig, [label], W, H);
+  assert.ok(s.bl && clear(s.bl, [label]));
+});

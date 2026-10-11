@@ -4,7 +4,7 @@
 import { startHost, host } from './host.js?v=c256a9c041';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js?v=9858da589a';
 import { createStage } from './stage.js?v=b73148073d';
-import { createCreditPlacer } from './credit.js?v=edb60a644f';
+import { createCreditPlacer } from './credit.js?v=f078009065';
 import { sinusoidSupported } from './sinusoid-view.js?v=c6a8f1cabe';
 import { createInspector } from './inspector.js?v=4dd2fb68b1';
 import { createDock, CUTOFFS } from './dock.js?v=d04cbd2d19';

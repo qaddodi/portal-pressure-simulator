@@ -739,6 +739,16 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if (+getComputedStyle(c).opacity < 0.5) return [];
       const out = [];
       if (r.left < 0 || r.top < 0 || r.right > innerWidth + 0.5 || r.bottom > innerHeight + 0.5) out.push('the screen edge');
+      // The figure's own labels (station values, organ captions): never under the credit either.
+      for (const g of document.querySelectorAll('#labels .lb:not(.lb-off)')) {
+        let o = 1;
+        for (let el = g; el && el !== document.body; el = el.parentElement) { const st = getComputedStyle(el); if (st.display === 'none' || st.visibility === 'hidden') o = 0; o *= +st.opacity; }
+        if (o < 0.05) continue;
+        for (const t of g.querySelectorAll('text, .lb-bg')) {
+          const q = t.getBoundingClientRect();
+          if (q.width > 1 && q.left < r.right + 2 && q.right > r.left - 2 && q.top < r.bottom + 2 && q.bottom > r.top - 2) { out.push(`label ${g.dataset.key}`); break; }
+        }
+      }
       for (const el of document.querySelectorAll('.stage-blocker:not([hidden]), .menu, .pz-text, .pz-data, .pz-panel, .pz-bar, .pz-shade')) {
         const st = getComputedStyle(el), q = el.getBoundingClientRect();
         if (st.display === 'none' || st.visibility === 'hidden' || +st.opacity < 0.05 || !q.width) continue;

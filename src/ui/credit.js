@@ -39,9 +39,30 @@ export function pickCorner(spots, cur) {
   return CORNERS.find((c) => spots[c]) || null;
 }
 
-// What the credit keeps clear of. Chrome (the bars, the zoom pill) is avoided but does not make the screen "busy".
+// What the credit keeps clear of. Chrome (the bars, the zoom pill, the figure's labels) is avoided but does not make the screen "busy".
 const OBSTACLES = '.stage-blocker:not([hidden]), .stage-clock, .menu, .umenu:not(.out), .why-pop.show, .modal-back.show, .home:not([hidden]), .pz-shade';
 const CHROME = '#topbar, #vdock, #zoomPill, .stage-clock, .pz-bar, .pz-count';
+
+// The figure's own labels (station values, organ captions): each one's text and pill, padded and snapped outward to a small
+// grid, so a label that jitters by a pixel as its number changes does not read as a move.
+const GRID = 8;
+function labelRects(wr, wrap) {
+  const out = [];
+  for (const g of document.querySelectorAll('#labels .lb:not(.lb-off)')) {
+    let o = 1;
+    for (let el = g; el && el !== wrap && o > 0.01; el = el.parentElement) { const s = getComputedStyle(el); if (s.display === 'none' || s.visibility === 'hidden') { o = 0; break; } o *= +s.opacity; }
+    if (o <= 0.01) continue;
+    let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
+    for (const q of g.querySelectorAll('text, .lb-bg')) {
+      const k = q.getBoundingClientRect();
+      if (k.width < 1 || k.height < 1) continue;
+      l = Math.min(l, k.left); t = Math.min(t, k.top); r = Math.max(r, k.right); b = Math.max(b, k.bottom);
+    }
+    if (r <= l) continue;
+    out.push({ l: Math.floor((l - wr.left - 2) / GRID) * GRID, t: Math.floor((t - wr.top - 2) / GRID) * GRID, r: Math.ceil((r - wr.left + 2) / GRID) * GRID, b: Math.ceil((b - wr.top + 2) / GRID) * GRID, chrome: true });
+  }
+  return out;
+}
 
 export function createCreditPlacer(credit) {
   const wrap = credit.offsetParent || credit.parentElement;
@@ -95,7 +116,7 @@ export function createCreditPlacer(credit) {
     const wr = wrap.getBoundingClientRect();
     let { w, h } = measure(false);
     const fig = { l: size.sl, t: 0, r: wr.width - size.sr, b: wr.height };
-    const els = [...document.querySelectorAll(OBSTACLES)], obs = els.map((el) => rectOf(el, wr)).filter((o) => o && hit(o, fig));
+    const els = [...document.querySelectorAll(OBSTACLES)], obs = [...els.map((el) => rectOf(el, wr)), ...labelRects(wr, wrap)].filter((o) => o && hit(o, fig));
     const busy = obs.some((o) => !o.chrome);
     credit.classList.toggle('busy', busy);
     if (busy) ({ w, h } = measure(true));
