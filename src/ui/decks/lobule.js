@@ -19,21 +19,21 @@ export const LOBULE = {
       ask: ['Which way does blood run in the lobule?', 'From the portal tracts at the edge, through the sinusoids, to the central vein.'],
     },
     {
-      id: 'zones', cam: 'lobule', layers: ['zones'],
+      id: 'zones', terms: ['lobule:zone3'], cam: 'lobule', layers: ['zones'],
       kicker: 'The lobule', title: 'Zone 3 gets the least oxygen',
       line: 'Blood loses oxygen as it crosses the lobule, so zone 3 cells are closest to hypoxia. They are injured first by low flow, by congestion and by toxins activated there, such as acetaminophen.',
       notes: 'The zones belong to Rappaport\'s acinus, the unit pathology texts use. In the acinus, zone 1 lies next to the portal tract and zone 3 around the central vein. Blood gives up oxygen as it runs, so zone 3 cells work closest to hypoxia; they also hold most of the cytochrome P450 enzymes. Zone 3 is the first injured by low flow (ischemic hepatitis), by congestion and by toxins activated there, such as paracetamol. Zone 1 is hit first by toxins that arrive directly, and is where periportal disease begins.',
       ask: ['Why is zone 3 the vulnerable zone?', 'It is last on the path, so it gets the least oxygen, and it is where many drugs are activated.'],
     },
     {
-      id: 'schisto', terms: { 'portal venules': 'lobule:triad' }, preset: 'schisto', cam: 'lobule:triad', callout: { at: 'triad', label: 'Block: portal venules' }, data: 'tiles', tiles: ['pv', 'hvpg'],
+      id: 'schisto', terms: { 'portal venules': 'lobule:triad', sinusoids: 'lobule:sinusoid' }, preset: 'schisto', cam: 'lobule:triad', callout: { at: 'triad', label: 'Block: portal venules' }, data: 'tiles', tiles: ['pv', 'hvpg'],
       kicker: 'Presinusoidal', site: 'presin', title: 'Schistosomiasis blocks the portal tract',
       line: 'Eggs lodge in the portal venules. Granulomas and fibrosis form around them, and the sinusoids downstream stay normal. The portal pressure is {pv}, yet the HVPG only {hvpg}.',
       notes: 'Schistosoma mansoni and japonicum eggs are carried in portal blood and trapped in the small portal venules, where they cause granulomas and then periportal (pipestem) fibrosis. The block is before the sinusoids: the portal pressure is high, but the wedge reads the normal sinusoids, so the HVPG is normal or only slightly raised. Liver cells are spared, so function is kept for years. Varices and splenomegaly are the presentation; ascites is rare. Porto-sinusoidal vascular disorder behaves the same way.',
       ask: ['A patient with schistosomiasis also has hepatitis C cirrhosis. What will the HVPG show?', 'Raised, but below the true gradient: the wedge reads the sinusoidal block, not the presinusoidal one before it.'],
     },
     {
-      id: 'cirr', terms: { 'space of Disse': 'sinusoid:disse', fenestrae: 'sinusoid:fenestrae', 'stellate cells': 'sinusoid:stellate' }, preset: 'cirr-decomp', cam: 'sinusoid', callout: { at: 'sin', label: 'Block: sinusoids' }, data: 'tiles', tiles: ['sin', 'hvpg'],
+      id: 'cirr', terms: { 'space of Disse': 'sinusoid:disse', fenestrae: 'sinusoid:fenestrae', 'stellate cells': 'sinusoid:stellate', sinusoid: 'sinusoid:lumen' }, preset: 'cirr-decomp', cam: 'sinusoid', callout: { at: 'sin', label: 'Block: sinusoids' }, data: 'tiles', tiles: ['sin', 'hvpg'],
       kicker: 'Sinusoidal', site: 'sin', title: 'Cirrhosis narrows the sinusoid',
       line: 'Collagen fills the space of Disse, the fenestrae close, and stellate cells contract around the sinusoid.',
       notes: 'Activated stellate cells lay down collagen in the space of Disse; the endothelium loses its fenestrae and gains a basement membrane (capillarization). Scar and regenerative nodules distort and compress the sinusoids. This structural part makes up about three quarters of the raised resistance. The rest is tone: too little nitric oxide in the liver, and contracted stellate cells, which is why drugs such as carvedilol and statins can lower it. With the wall closed, protein no longer crosses freely, so the ascites of cirrhosis is low in protein.',
@@ -47,7 +47,7 @@ export const LOBULE = {
       ask: ['Why does the HVPG rise in sinusoidal obstruction syndrome?', 'The block is in the central veins, between the sinusoids the wedge reads and the free hepatic vein.'],
     },
     {
-      id: 'cong', terms: { 'zone 3': 'lobule:zone3', 'central vein': 'lobule:central' }, layers: ['zones'], callout: { at: 'cv', label: 'Dilated zone 3 sinusoids' }, preset: 'rhf', cam: 'lobule:central', data: 'tiles', tiles: ['pv', 'hvpg'],
+      id: 'cong', terms: { 'zone 3': 'lobule:zone3', 'central vein': 'lobule:central', sinusoids: 'lobule:sinusoid' }, layers: ['zones'], callout: { at: 'cv', label: 'Dilated zone 3 sinusoids' }, preset: 'rhf', cam: 'lobule:central', data: 'tiles', tiles: ['pv', 'hvpg'],
       kicker: 'Cardiac', site: 'cardiac', title: 'Congestion dilates the sinusoids of zone 3',
       line: 'Back pressure from the heart dilates the sinusoids around the central vein, and zone 3 cells die first. The portal vein reads {pv}, the HVPG {hvpg}.',
       notes: 'A high right atrial pressure passes back through the hepatic veins into the central veins and the sinusoids of zone 3, which dilate and fill with blood; the cut liver looks like a nutmeg. Low cardiac output adds hypoxia, and zone 3 cells atrophy and die. Years of this lay down fibrosis that links the central veins (cardiac cirrhosis). Every pressure from the portal vein to the atrium is high, so the HVPG is normal. The sinusoid wall is still open, so the ascites is rich in protein.',

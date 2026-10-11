@@ -48,14 +48,14 @@ export const HVPG = {
       ask: ['At what HVPG can varices bleed?', '12 mmHg or more.'],
     },
     {
-      id: 'presin', preset: 'schisto', cam: 'lobule:triad', callout: { at: 'triad', label: 'Block is here, before the sinusoids' }, data: 'ladder', key: ['pv', 'whvp', 'hvpg'], brackets: { hvpg: 'misleads', ppg: 'works' }, tiles: ['hvpg', 'ppg'],
+      id: 'presin', terms: ['lobule:triad', 'lobule:sinusoid'], preset: 'schisto', cam: 'lobule:triad', callout: { at: 'triad', label: 'Block is here, before the sinusoids' }, data: 'ladder', key: ['pv', 'whvp', 'hvpg'], brackets: { hvpg: 'misleads', ppg: 'works' }, tiles: ['hvpg', 'ppg'],
       kicker: 'Where HVPG misleads', site: 'presin', title: 'Normal HVPG, high portal pressure',
       line: 'In schistosomiasis the block is in the portal tracts, upstream of the sinusoids. HVPG is {hvpg} while the portal pressure is {pv}.',
       notes: 'The wedged catheter reads only what lies downstream of a block. In presinusoidal disease (schistosomiasis, porto-sinusoidal vascular disorder, early primary biliary cholangitis) the sinusoids are near normal, so the WHVP and the HVPG are normal or only mildly raised and underestimate the portal pressure. A normal HVPG in a patient with varices or a large spleen points to a presinusoidal or pre-hepatic cause.',
       ask: ['A 30-year-old from Egypt has varices and a normal HVPG. What is the likely cause?', 'Schistosomiasis: a presinusoidal block that the wedge does not see.'],
     },
     {
-      id: 'ppg', preset: 'pvt-chronic', cam: 'route', labels: [], sites: ['pv', 'ivc'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, data: 'ladder', key: ['pv', 'ivc'], brackets: { hvpg: 'misleads', ppg: 'works' }, tiles: ['hvpg', 'ppg'],
+      id: 'ppg', terms: ['pv', 'sin'], preset: 'pvt-chronic', cam: 'route', labels: [], sites: ['pv', 'ivc'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, data: 'ladder', key: ['pv', 'ivc'], brackets: { hvpg: 'misleads', ppg: 'works' }, tiles: ['hvpg', 'ppg'],
       kicker: 'Where HVPG misleads', site: 'pre', title: 'The PPG finds a block the HVPG misses',
       eq: [mi('PPG') + mo('=') + '<msub class="eq-pv"><mi>P</mi><mtext>portal vein</mtext></msub>' + mo('−') + '<msub class="eq-ivc"><mi>P</mi><mtext>IVC</mtext></msub>'],
       line: 'This portal vein clot lies before the sinusoids, so only a direct portal reading shows it. The PPG is {ppg}.',
@@ -70,7 +70,7 @@ export const HVPG = {
       ask: ['WHVP 21, FHVP 20, right atrium 19 mmHg. What is the HVPG, and where is the problem?', 'HVPG 1 mmHg, normal. The problem is the heart: every station is high.'],
     },
     {
-      id: 'bc', preset: 'budd-chiari', cath: 'blocked',
+      id: 'bc', terms: ['hv', 'ivc'], preset: 'budd-chiari', cath: 'blocked',
       kicker: 'Where HVPG misleads', site: 'post', title: 'In Budd–Chiari the catheter cannot enter',
       line: 'The hepatic veins, or the IVC above them, are clotted or webbed, and often only a stump is left. If the catheter does wedge, both readings are taken behind the block, so the HVPG is near zero and misleading.',
       notes: 'In Budd–Chiari syndrome the hepatic veins, or the IVC above them, are thrombosed or webbed. The catheter often cannot enter the vein, or enters only a stump. If a wedge is achieved, both the wedged and the free readings lie behind the block, so the HVPG is near zero and misleading. Doppler ultrasound, CT or MR venography make the diagnosis; venography shows a spider-web of collaterals. Treatment is stepwise: anticoagulation, angioplasty or a stent for short stenoses, TIPS, then transplantation.',

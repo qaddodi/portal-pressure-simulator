@@ -14,7 +14,7 @@ export const PREHEPATIC = {
   summary: 'A clot before the liver: acute portal vein thrombosis on Doppler, the normal HVPG and high PPG, the cavernoma months later, and splenic vein thrombosis with gastric varices.',
   slides: [
     {
-      id: 'clot', preset: 'pvt-acute', cam: 'portal', labels: ['CONF'], terms: { 'portal pressure': 'pv' }, tool: { kind: 'doppler', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'],
+      id: 'clot', preset: 'pvt-acute', cam: 'portal', labels: ['CONF'], terms: { 'portal pressure': 'pv', 'superior mesenteric vein': 'smv' }, tool: { kind: 'doppler', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'],
       kicker: 'Acute thrombosis', site: 'pvt', title: 'An acute clot stops portal flow on Doppler',
       line: 'Portal pressure rises steeply behind the clot. Contrast CT confirms it and shows whether it extends into the superior mesenteric vein, where the risk is bowel ischemia.',
       notes: 'Acute portal vein thrombosis presents with abdominal pain, sometimes fever, or is found on a scan. Look for a cause: a myeloproliferative neoplasm (test for JAK2), an inherited thrombophilia, local inflammation (pancreatitis, appendicitis, diverticulitis), abdominal surgery or cirrhosis. Contrast CT confirms the clot and shows whether it reaches the superior mesenteric vein, where bowel ischemia is the danger: persistent pain, bloody diarrhea, a rising lactate or organ failure mean urgent CT and surgical review. Without cirrhosis, anticoagulation starts at once and continues for at least six months; the earlier it starts, the more often the vein reopens.',
@@ -43,7 +43,7 @@ export const PREHEPATIC = {
       ask: ['Varices, platelets of 70 and a stiffness of 5 kPa. What two causes do you consider first?', 'Portal vein thrombosis and a presinusoidal block such as schistosomiasis.'],
     },
     {
-      id: 'svt', preset: 'svt', cam: 'splenic', mark: { edges: ['SV_CONF'], label: 'Clot in the splenic vein' }, data: 'tiles', tiles: ['pv', 'gv', 'plt'], key: ['gv'],
+      id: 'svt', terms: ['pv'], preset: 'svt', cam: 'splenic', mark: { edges: ['SV_CONF'], label: 'Clot in the splenic vein' }, data: 'tiles', tiles: ['pv', 'gv', 'plt'], key: ['gv'],
       kicker: 'Splenic vein thrombosis', site: 'pvt', title: 'A splenic vein clot raises the pressure on the left only',
       line: 'Splenic blood drains out through the short gastric veins, so varices form in the gastric fundus, often with no esophageal varices. Portal vein pressure and HVPG stay normal.',
       notes: 'Splenic vein thrombosis (sinistral portal hypertension) usually follows pancreatitis or a pancreatic tumor, which sit beside the vein. Blood from the spleen escapes through the short gastric veins, so the varices are in the gastric fundus, often without esophageal varices. The portal vein pressure and the HVPG are normal. When the gastric varices bleed, splenectomy, or embolization of the splenic artery, removes their inflow and cures them.',

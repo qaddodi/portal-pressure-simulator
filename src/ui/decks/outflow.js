@@ -13,7 +13,7 @@ export const OUTFLOW = {
   summary: 'Budd–Chiari syndrome and sinusoidal obstruction syndrome: a liver that cannot drain, what the catheter can and cannot read, and the stepwise reopening of the outflow.',
   slides: [
     {
-      id: 'bcs', preset: 'budd-chiari', cam: 'hepatic', mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Clots' }, tool: { kind: 'abdomen' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['asc'],
+      id: 'bcs', terms: ['ivc', 'ra'], preset: 'budd-chiari', cam: 'hepatic', mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Clots' }, tool: { kind: 'abdomen' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['asc'],
       kicker: 'Hepatic veins', site: 'post', title: 'In Budd–Chiari syndrome the hepatic veins clot',
       line: 'A block anywhere from the small [hepatic veins](hv) to where the IVC enters the right atrium traps blood in the liver. The liver swells, portal pressure rises to {pv} and ascites forms.',
       causesHead: 'Look for', causes: ['Myeloproliferative neoplasm', 'Thrombophilia', 'Pregnancy or the pill'],
@@ -28,14 +28,14 @@ export const OUTFLOW = {
       ask: ['Why does the caudate lobe enlarge in Budd–Chiari syndrome?', 'Its veins drain straight into the IVC, below the block, so it keeps its outflow and grows.'],
     },
     {
-      id: 'nowedge', cam: 'hepatic', tool: { kind: 'doppler', vessel: 'RHV_IVC' }, data: 'ladder', key: ['ppg'], tiles: ['hvpg', 'ppg'], brackets: { hvpg: 'misleads', ppg: 'works' },
+      id: 'nowedge', terms: ['hv'], cam: 'hepatic', tool: { kind: 'doppler', vessel: 'RHV_IVC' }, data: 'ladder', key: ['ppg'], tiles: ['hvpg', 'ppg'], brackets: { hvpg: 'misleads', ppg: 'works' },
       kicker: 'Hepatic veins', site: 'post', title: 'No hepatic vein to wedge',
       line: 'Doppler shows absent or reversed hepatic vein flow, intrahepatic collaterals and a large caudate lobe. At venography the veins cannot be entered, or they show a spider-web pattern, so the HVPG cannot be measured. Portal pressure is {pv}.',
       notes: 'Doppler ultrasound is the first test: absent or reversed flow in the hepatic veins, intrahepatic collaterals and a large caudate lobe. CT or MR shows the extent and the state of the IVC. At venography the hepatic veins either cannot be entered or show a spider-web pattern of collaterals, so the HVPG cannot be measured in the usual way.',
       ask: ['What is the first imaging test for suspected Budd–Chiari syndrome?', 'Doppler ultrasound of the hepatic veins and the IVC: it is quick, at the bedside, and shows absent or reversed flow.'],
     },
     {
-      id: 'open', params: { thrombus: { RHV_IVC: 0 } }, days: 60, lapse: { seconds: 7 }, cam: 'hepatic', mark: { edges: ['RHV_IVC'], label: 'Stent', kind: 'treat' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['asc'], delta: 'bcs',
+      id: 'open', terms: ['hv'], params: { thrombus: { RHV_IVC: 0 } }, days: 60, lapse: { seconds: 7 }, cam: 'hepatic', mark: { edges: ['RHV_IVC'], label: 'Stent', kind: 'treat' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['asc'], delta: 'bcs',
       kicker: 'Opening the outflow', site: 'post', title: 'One open hepatic vein is enough',
       line: 'Angioplasty and a stent reopen the right hepatic vein. Two months later the portal pressure is {pv} and the ascites has gone.',
       notes: 'Treatment is stepwise. Every patient is anticoagulated, unless it is contraindicated, and the cause is treated. A short narrowing of a hepatic vein or of the IVC is opened by angioplasty, usually with a stent, and one good hepatic vein can drain the whole liver, as here. Patients who still worsen go on to a shunt, and those with liver failure to transplantation.',

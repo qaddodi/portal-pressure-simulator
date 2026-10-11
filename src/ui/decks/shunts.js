@@ -22,7 +22,7 @@ export const SHUNTS = {
       ask: ['Why do collaterals fail to bring the portal pressure down?', 'Portal inflow rises as they open, and they are not wide enough to carry it all at a low gradient.'],
     },
     {
-      id: 'grs', preset: 'gastric-varix', cam: 'fundus', mark: { edges: ['C5'], label: 'Gastrorenal shunt', kind: 'note' }, data: 'tiles', tiles: ['gv', 'ppg'],
+      id: 'grs', terms: ['gv', 'lrv'], preset: 'gastric-varix', cam: 'fundus', mark: { edges: ['C5'], label: 'Gastrorenal shunt', kind: 'note' }, data: 'tiles', tiles: ['gv', 'ppg'],
       kicker: 'Spontaneous', site: 'sin', title: 'Gastrorenal shunt',
       line: 'Fundal varices drain through the gastrorenal shunt to the left renal vein.',
       notes: 'Isolated fundal varices (IGV1) and those continuous with the esophageal varices along the greater curve toward the fundus (GOV2) are fed by the short and posterior gastric veins, and most drain through a gastrorenal shunt, often via the left inferior phrenic vein, into the left renal vein. Fundal varices bleed at a lower gradient than esophageal ones, and more heavily, perhaps because they are wider and their wall tension higher, or because the shunt lowers the pressure. The shunt is the route used to close them from below (BRTO), later in this talk. Endoscopy in this app stays in the esophagus; fundal varices are read from the tile.',
@@ -37,7 +37,7 @@ export const SHUNTS = {
       ask: ['A patient with cirrhosis has recurrent encephalopathy despite lactulose and rifaximin. What should you look for?', 'A large spontaneous portosystemic shunt, such as a splenorenal shunt, on CT.'],
     },
     {
-      id: 'tips', preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' },
+      id: 'tips', terms: ['pv', 'hv'], preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' },
       tool: { kind: 'doppler', vessel: 'TIPS' }, data: 'tiles', tiles: ['ppg', 'shunt', 'liver'], delta: 'own',
       kicker: 'Made', site: 'sin', title: 'TIPS',
       line: 'A covered stent, 8 to 10 mm, from a hepatic vein to the portal vein. The PPG falls to {ppg}, below 12 mmHg.',
@@ -60,7 +60,7 @@ export const SHUNTS = {
       ask: ['How does a blocked TIPS usually present?', 'With the return of what it treated: rebleeding or ascites, and an absent or changed Doppler signal.'],
     },
     {
-      id: 'brto', preset: 'gastric-varix', params: { occluded: { C5: true } }, cam: 'fundus', mark: { edges: ['C5'], label: 'Shunt closed', kind: 'treat' },
+      id: 'brto', terms: ['gv'], preset: 'gastric-varix', params: { occluded: { C5: true } }, cam: 'fundus', mark: { edges: ['C5'], label: 'Shunt closed', kind: 'treat' },
       data: 'tiles', tiles: ['pv', 'varix'], key: ['varix'], delta: 'grs',
       kicker: 'Closing a shunt', site: 'sin', title: 'BRTO closes the gastrorenal shunt',
       line: 'A balloon blocks the shunt, and sclerosant fills it and the fundal varices behind it, which then thrombose. Portal blood that used to leave through the shunt stays in the portal system, so pressure rises and esophageal varices grow.',

@@ -65,7 +65,7 @@ export const TAP = {
       ask: ['Name a reason not to place a TIPS for ascites.', 'Recurrent encephalopathy, heart failure or pulmonary hypertension, or advanced liver failure.'],
     },
     {
-      id: 'heart', preset: 'rhf', cam: 'sinusoid', data: 'tiles', tiles: ['saag', 'tp'], key: ['tp'],
+      id: 'heart', terms: ['sinusoid:lumen'], preset: 'rhf', cam: 'sinusoid', data: 'tiles', tiles: ['saag', 'tp'], key: ['tp'],
       kicker: 'Protein-rich fluid', site: 'cardiac', title: 'High-protein ascites: check the heart',
       line: 'SAAG {saag}, 1.1 g/dL or more, with protein {tp}, 2.5 g/dL or more. Protein this high means the sinusoid wall is still open, not capillarized.',
       notes: 'Congestion without scarring gives a high-SAAG, high-protein fluid: heart failure, constrictive pericarditis, early Budd–Chiari syndrome. A raised jugular venous pressure and a high BNP point to the heart; a normal one to the hepatic veins (Doppler). Here the treatment is the heart, not TIPS. The ascites talk covers the four patterns of SAAG and protein.',

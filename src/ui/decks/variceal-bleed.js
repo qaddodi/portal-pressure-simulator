@@ -18,7 +18,7 @@ export const BLEED = {
   summary: 'One bleed from tear to TIPS: early shock with a normal hemoglobin, octreotide before the scope, restrictive transfusion, banding and why overfilling raises the portal pressure.',
   slides: [
     {
-      id: 'before', preset: 'cirr-decomp', cam: 'varices', labels: ['VAR', 'AZY'], mark: { edges: ['C1a', 'C1b'], label: 'Large varix', kind: 'note' }, tool: BEATS, data: 'tiles', tiles: ['pv', 'varix'], key: ['varix'],
+      id: 'before', terms: ['varix'], preset: 'cirr-decomp', cam: 'varices', labels: ['VAR', 'AZY'], mark: { edges: ['C1a', 'C1b'], label: 'Large varix', kind: 'note' }, tool: BEATS, data: 'tiles', tiles: ['pv', 'varix'], key: ['varix'],
       kicker: 'Before', site: 'sin', title: 'Large varices under pressure',
       line: 'Decompensated cirrhosis with a varix of {varix} and a portal pressure of {pv}. The wall is thin and the tension high.',
       notes: 'This patient has the features that predict a bleed: large varices, red wale marks on the scope, Child–Pugh B or C, and an HVPG of 12 mmHg or more. Prevention would have been a non-selective beta-blocker (carvedilol) or banding. The trace on the right runs live, beat by beat, for the rest of the talk.',
@@ -53,14 +53,14 @@ export const BLEED = {
       ask: ['What hemoglobin target is used in variceal bleeding?', '7 to 8 g/dL, transfusing below 7.'],
     },
     {
-      id: 'band', action: [BAND, BAND, BAND], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }, tool: BEATS, data: 'tiles', tiles: ['map', 'hr'], key: ['map'], delta: true,
+      id: 'band', terms: ['varix'], action: [BAND, BAND, BAND], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }, tool: BEATS, data: 'tiles', tiles: ['map', 'hr'], key: ['map'], delta: true,
       kicker: 'Endoscopy', site: 'sin', title: 'Bands stop the bleeding',
       line: 'Endoscopy within 12 hours, once the circulation is restored. Banding does not lower portal pressure, and the HVPG rises slightly as the varix closes. If bleeding continues, a balloon tube or esophageal stent bridges to a rescue TIPS.',
       notes: 'Band ligation controls most variceal bleeds. If bleeding cannot be controlled, a balloon tube or a self-expanding esophageal stent buys time as a bridge to a rescue TIPS. Banding does not lower the portal pressure; over the following days it raises the HVPG slightly as the varix closes.',
       ask: ['What bridges a bleed that banding cannot control?', 'A balloon tube or an esophageal stent, as a bridge to a rescue TIPS.'],
     },
     {
-      id: 'over', action: [SALINE, SALINE, SALINE, UNIT, UNIT, UNIT], cam: 'varices', tool: BEATS, data: 'tiles', tiles: ['pv', 'varix'], key: ['pv'], delta: true,
+      id: 'over', terms: ['varix'], action: [SALINE, SALINE, SALINE, UNIT, UNIT, UNIT], cam: 'varices', tool: BEATS, data: 'tiles', tiles: ['pv', 'varix'], key: ['pv'], delta: true,
       kicker: 'After the scope', site: 'sin', title: 'Overfilling raises the portal pressure',
       line: 'Three more liters and three more units push the portal pressure back to {pv}, where it was before the bleed. The banded varix is under pressure again.',
       notes: 'Portal pressure follows the blood volume. Refilling beyond what the circulation needs raises it back up and with it the tension in the varices and the risk of an early rebleed. It also worsens ascites and can push the patient into pulmonary edema. Aim for a mean arterial pressure of about 65 and good urine output, not a normal blood pressure at any cost.',

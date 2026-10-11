@@ -19,14 +19,14 @@ export const RIGHT_HEART = {
       ask: ['Which wave of the hepatic vein trace goes above the baseline, and why?', 'The a wave: atrial contraction pushes blood back toward the liver.'],
     },
     {
-      id: 'tr', preset: 'rhf', cam: 'hepatic', labels: ['RHV', 'RA'], tool: { kind: 'doppler', vessel: 'RHV_IVC' }, data: 'tiles', tiles: ['ra', 'hvpg'], key: ['ra'],
+      id: 'tr', terms: ['hv'], preset: 'rhf', cam: 'hepatic', labels: ['RHV', 'RA'], tool: { kind: 'doppler', vessel: 'RHV_IVC' }, data: 'tiles', tiles: ['ra', 'hvpg'], key: ['ra'],
       kicker: 'Heart failure', site: 'cardiac', title: 'Tricuspid regurgitation reverses the S wave',
       line: 'Severe tricuspid regurgitation drives blood back into the hepatic veins in systole. The [right atrium](ra) reads {ra}.',
       notes: 'With a leaking tricuspid valve the ventricle ejects into the atrium and the hepatic veins as well as the lungs, so the S wave shrinks, then reverses. At the bedside this is the large v wave in the jugular vein and a pulsatile liver. A high right atrial pressure without regurgitation makes the trace more pulsatile, with a tall a wave; a flat trace points to the liver, not the heart.',
       ask: ['What happens to the S wave of the hepatic vein in severe tricuspid regurgitation?', 'It reverses: flow goes back toward the liver in systole.'],
     },
     {
-      id: 'pulse', cam: 'portal', labels: ['CONF'], glow: ['heart', 'ivc', 'hv', 'sin', 'pv'], glowSeq: 550, tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
+      id: 'pulse', terms: ['pv'], cam: 'portal', labels: ['CONF'], glow: ['heart', 'ivc', 'hv', 'sin', 'pv'], glowSeq: 550, tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
       kicker: 'Heart failure', site: 'cardiac', title: 'A high atrial pressure makes the portal vein pulse',
       line: 'With no resistance in the sinusoids, right atrial pressure is transmitted to the portal vein. A pulsatile portal flow usually points to the heart, not the liver.',
       notes: 'Normal portal flow is steady, with a small change on breathing. When the right atrial pressure is high and the sinusoids are normal, its swings reach the portal vein: the trace pulses with each beat and may briefly reverse. In cirrhosis the stiff sinusoids damp these swings, so a pulsatile portal vein argues against cirrhosis. The pulsatility index falls as the heart failure is treated.',
@@ -47,7 +47,7 @@ export const RIGHT_HEART = {
       ask: ['Ascites with a high SAAG and high protein, a JVP that rises on inspiration and a normal ejection fraction. What is the likely cause, and how do you confirm it?', 'Constrictive pericarditis: a thick pericardium on CT or MRI.'],
     },
     {
-      id: 'web', preset: 'ivc-web', cam: 'hepatic', labels: ['RHV'], sites: ['web', 'ra'], mark: { edges: ['IVCS_RA'], label: 'Web in the IVC' }, tool: { kind: 'doppler', vessel: 'IVCS_RA' }, data: 'tiles', tiles: ['ivc', 'ra'], key: ['ivc'],
+      id: 'web', terms: ['hv', 'ivc', 'ra'], preset: 'ivc-web', cam: 'hepatic', labels: ['RHV'], sites: ['web', 'ra'], mark: { edges: ['IVCS_RA'], label: 'Web in the IVC' }, tool: { kind: 'doppler', vessel: 'IVCS_RA' }, data: 'tiles', tiles: ['ivc', 'ra'], key: ['ivc'],
       kicker: 'The IVC', site: 'post', title: 'An IVC web congests the liver while the atrium stays normal',
       line: 'A membrane in the IVC above the hepatic veins blocks outflow. Below it the pressure is {ivc}, and the right atrium is {ra}.',
       notes: 'Membranous obstruction of the IVC is a form of Budd–Chiari syndrome, common in South and East Asia and southern Africa. The liver congests as in heart failure, but the jugular venous pressure is normal and the echocardiogram is too. Doppler shows fast or turbulent flow at the web and slow or reversed flow below it. The PPG, read against the IVC below the web, looks normal; the portal vein against the right atrium shows the full gradient. Angioplasty, with or without a stent, treats it.',

@@ -22,7 +22,7 @@ export const NCPH = {
       ask: ['A patient bleeds from varices but has normal liver tests and no ascites. What should you think of?', 'Non-cirrhotic portal hypertension: a pre-hepatic or presinusoidal block.'],
     },
     {
-      id: 'tract', cam: 'lobule:triad', callout: { at: 'triad', label: 'Block: portal tracts' }, terms: { 'portal venules': 'lobule:triad' }, data: 'tiles', tiles: ['pv', 'sin'], key: ['pv'],
+      id: 'tract', cam: 'lobule:triad', callout: { at: 'triad', label: 'Block: portal tracts' }, terms: { 'portal venules': 'lobule:triad', sinusoids: 'lobule:sinusoid' }, data: 'tiles', tiles: ['pv', 'sin'], key: ['pv'],
       kicker: 'Where the block sits', site: 'presin', title: 'The block is in the portal tracts',
       line: 'Schistosome eggs lodge in the small portal venules; granulomas and scar narrow them, while the sinusoids beyond stay at {sin}.',
       notes: 'Schistosoma mansoni and japonicum live in the mesenteric veins, and their eggs are carried to the liver and trapped in the portal venules. Granulomas form around them and heal as periportal (pipestem) fibrosis. The sinusoids and the liver cells are spared, which is why liver function lasts and ascites is rare.',
@@ -59,7 +59,7 @@ export const NCPH = {
       ask: ['Does variceal prophylaxis differ from cirrhosis in this patient?', 'No: a non-selective beta-blocker or banding, as in cirrhosis, because the varices come from the same high portal pressure.'],
     },
     {
-      id: 'band', action: [BAND, BAND, BAND], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }, tool: { kind: 'scope' }, data: 'tiles', tiles: ['varix'], key: ['varix'],
+      id: 'band', terms: ['varix'], action: [BAND, BAND, BAND], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }, tool: { kind: 'scope' }, data: 'tiles', tiles: ['varix'], key: ['varix'],
       kicker: 'Treatment', site: 'presin', title: 'Banding closes the varices',
       line: 'Banding is repeated every two to four weeks until the varices are gone. Here they are down to {varix}. The beta-blocker continues. Because liver function is good, survival after a bleed is much better than in cirrhosis.',
       notes: 'After a bleed, banding is repeated until the varices are eradicated and is combined with the beta-blocker. Because the liver works well, survival after a bleed is far better than in cirrhosis. A TIPS or a surgical shunt is kept for bleeding that recurs despite this.',

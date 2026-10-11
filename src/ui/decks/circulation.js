@@ -43,7 +43,7 @@ export const CIRCULATION = {
       ask: ['Name the three structures of the portal tract.', 'A portal venule, a hepatic arteriole and a bile ductule.'],
     },
     {
-      id: 'wall', terms: { fenestrae: 'sinusoid:fenestrae', 'space of Disse': 'sinusoid:disse' }, cam: 'sinusoid',
+      id: 'wall', terms: { fenestrae: 'sinusoid:fenestrae', 'space of Disse': 'sinusoid:disse', lymph: 'sinusoid:lymph' }, cam: 'sinusoid',
       kicker: 'Inside the liver', title: 'Sinusoids let plasma protein through',
       line: 'Fenestrae about 100 nm wide and no basement membrane let plasma and protein into the space of Disse. With protein on both sides, oncotic pressure does little to hold fluid back, so higher sinusoidal pressure means more lymph.',
       notes: 'Sinusoidal endothelial cells have fenestrae about 100 nm across and no basement membrane, so plasma, albumin and other proteins reach the liver cells in the space of Disse. Fluid filtered there leaves as lymph, almost as rich in protein as plasma; the liver makes a quarter to a half of the body\'s lymph. Because protein crosses the wall, oncotic pressure barely opposes filtration: a rise in sinusoidal pressure turns straight into more lymph. Most ascites in portal hypertension begins here. In cirrhosis this wall closes up (capillarization), so cirrhotic ascites is protein-poor; we come back to it in Ascites. Stellate cells, which store vitamin A and make scar in cirrhosis, sit in the space of Disse.',
@@ -57,7 +57,7 @@ export const CIRCULATION = {
       ask: ['Where does blood go after the central vein?', 'Into the hepatic veins, the IVC and the right atrium.'],
     },
     {
-      id: 'flow', days: 8, ramp: { splanchnicTone: [1, 0.72] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' }, cam: 'portal', clear: true, labels: ['SMV', 'CONF'], glow: ['smv', 'sv', { id: 'imv', soft: true }, { id: 'lgv', soft: true }], tool: { kind: 'flowtime' },
+      id: 'flow', terms: ['sin'], days: 8, ramp: { splanchnicTone: [1, 0.72] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' }, cam: 'portal', clear: true, labels: ['SMV', 'CONF'], glow: ['smv', 'sv', { id: 'imv', soft: true }, { id: 'lgv', soft: true }], tool: { kind: 'flowtime' },
       kicker: 'Hemodynamics', title: 'After a meal flow rises, but the pressure barely moves',
       eq: ['<mrow><mi mathvariant="normal">Δ</mi><mi>P</mi></mrow>' + mo('=') + mi('Q') + mo('×') + mi('R'), 'ΔP pressure drop across the liver · Q portal flow · R hepatic resistance'],
       line: 'Pressure equals flow times resistance. Normal sinusoids have so little resistance that nearly doubling the flow adds almost no pressure.',
@@ -66,7 +66,7 @@ export const CIRCULATION = {
       ask: ['What does the meal tell you about a healthy liver?', 'That its resistance is very low: a large rise in flow adds almost no pressure.'],
     },
     {
-      id: 'define', preset: 'csph', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], data: 'ladder', key: ['hvpg', 'ppg'],
+      id: 'define', terms: ['varix'], preset: 'csph', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], data: 'ladder', key: ['hvpg', 'ppg'],
       kicker: 'Definition', site: 'sin', title: 'Portal hypertension is a gradient above 5 mmHg',
       line: 'In cirrhosis it is measured as the HVPG, and this patient\'s is {hvpg}. An HVPG of 6 to 9 mmHg is subclinical. From 10 mmHg, varices and ascites become possible, and the risk rises with the gradient.',
       notes: 'Portal hypertension is a portal pressure gradient above 5 mmHg; in cirrhosis it is measured as the HVPG. An HVPG of 6 to 9 mmHg is subclinical. 10 mmHg or more is clinically significant portal hypertension (CSPH): from there varices and decompensation (ascites, variceal bleeding, encephalopathy) become possible, and the risk rises with the gradient; from about 12 mmHg the risk of variceal bleeding rises. In this cirrhotic liver the largest pressure drop is across the sinusoids.',

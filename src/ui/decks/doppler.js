@@ -14,7 +14,7 @@ export const DOPPLER = {
   summary: 'What the Doppler probe reads in the portal and hepatic veins: normal flow, cirrhosis, reversal, thrombosis, Budd–Chiari, heart failure and a TIPS. Ends with a comparison table.',
   slides: [
     {
-      id: 'probe', preset: 'healthy', cam: 'portal', labels: ['SMV', 'SV', 'CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
+      id: 'probe', terms: ['pv'], preset: 'healthy', cam: 'portal', labels: ['SMV', 'SV', 'CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
       kicker: 'Doppler', title: 'The probe measures portal velocity',
       eq: [mi('Q') + mo('=') + '<mover><mi>v</mi><mo>¯</mo></mover>' + mo('×') + mi('A'), 'Q flow · v̄ mean velocity · A cross-sectional area of the vein'],
       line: 'Echoes from moving red cells are plotted as velocity over time. Flow toward the probe, which in the portal vein means toward the liver, is drawn above the baseline. Normal flow is steady and hepatopetal, with a mean of at least {15 cm/s}.',
@@ -56,7 +56,7 @@ export const DOPPLER = {
       ask: ['What does hepatofugal portal flow mean?', 'Portal blood runs away from the liver, out through collaterals: advanced portal hypertension.'],
     },
     {
-      id: 'clot', preset: 'pvt-acute', cam: 'portal', labels: ['CONF'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
+      id: 'clot', terms: ['smv'], preset: 'pvt-acute', cam: 'portal', labels: ['CONF'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
       data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'],
       kicker: 'Portal vein thrombosis', site: 'pvt', title: 'An occlusive clot gives no signal',
       line: 'The clot fills the lumen. Check the superior mesenteric vein next to see how far it extends.',
@@ -64,7 +64,7 @@ export const DOPPLER = {
       ask: ['What is the first test for portal vein thrombosis?', 'Doppler ultrasound: no flow in an occlusive clot, or a filling defect with flow around a partial one.'],
     },
     {
-      id: 'smv', preset: 'pvt-chronic', cam: 'portal', labels: ['SMV', 'CONF'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, tool: { kind: 'doppler', vessel: 'SMV_CONF' },
+      id: 'smv', terms: ['smv'], preset: 'pvt-chronic', cam: 'portal', labels: ['SMV', 'CONF'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, tool: { kind: 'doppler', vessel: 'SMV_CONF' },
       data: 'tiles', tiles: ['pv', 'varix'], key: ['pv'],
       kicker: 'Portal vein thrombosis', site: 'pvt', title: 'In chronic thrombosis flow goes around the clot',
       line: 'There is no flow in the portal trunk, but the superior mesenteric vein still flows: its blood reaches the liver through a cavernoma, or leaves through portosystemic collaterals.',
@@ -72,7 +72,7 @@ export const DOPPLER = {
       ask: ['What is a portal cavernoma?', 'A network of collateral veins that bypasses a chronically occluded portal vein.'],
     },
     {
-      id: 'bc', preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Blocked hepatic veins' },
+      id: 'bc', terms: ['hv'], preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Blocked hepatic veins' },
       tool: { kind: 'doppler', vessel: 'RHV_IVC' },
       kicker: 'Budd–Chiari syndrome', site: 'post', title: 'Budd–Chiari: no flow in the hepatic veins',
       line: 'Hepatic vein flow is absent, reversed or flat. Look for spider-web collaterals and a large caudate lobe. The portal vein still carries blood into the liver, but more slowly, and it may reverse.',
@@ -80,7 +80,7 @@ export const DOPPLER = {
       ask: ['How does Doppler tell Budd–Chiari syndrome from portal vein thrombosis?', 'In Budd–Chiari the hepatic veins have no flow; in portal vein thrombosis the portal vein has none.'],
     },
     {
-      id: 'rhf', preset: 'rhf', cam: 'route', labels: ['CONF', 'RHV', 'RA'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
+      id: 'rhf', terms: ['pv', 'sin'], preset: 'rhf', cam: 'route', labels: ['CONF', 'RHV', 'RA'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
       data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'],
       kicker: 'Heart failure', site: 'cardiac', title: 'Heart failure: the portal vein pulses',
       line: 'Right atrial pressure reaches back through the sinusoids to the portal vein, which now pulses with the heart.',

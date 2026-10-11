@@ -45,7 +45,7 @@ export const STIFFNESS = {
       ask: ['Stiffness 13 kPa, platelets 180. Does this patient have CSPH, and do they need a scope?', 'No CSPH (15 or less with 150 or more), and no scope (under 20 with over 150): repeat both in a year.'],
     },
     {
-      id: 'spleen', preset: 'csph', cam: 'spleen', glow: ['spleen'], data: 'tiles', tiles: ['spleen', 'plt', 'hvpg'], key: ['plt'], delta: 'fibrosis',
+      id: 'spleen', terms: ['spleen'], preset: 'csph', cam: 'spleen', glow: ['spleen'], data: 'tiles', tiles: ['spleen', 'plt', 'hvpg'], key: ['plt'], delta: 'fibrosis',
       kicker: 'The spleen and the platelets', site: 'sin', title: 'A large spleen sequesters platelets',
       line: 'A falling platelet count is often the first sign in the blood tests. Here the spleen is {spleen} and platelets are {plt}.',
       notes: 'Splenic congestion and hyperplasia enlarge the spleen; a normal spleen already holds about a third of the platelets and an enlarged one up to about 90%, and a lower thrombopoietin from the liver adds to the fall. Spleen length over about 12 to 13 cm and platelets below 150 support portal hypertension. Spleen stiffness, where available, tracks the portal pressure more closely than liver stiffness, including in presinusoidal disease. The tiles compare with the compensated patient of "Fibrosis stiffens the liver".',

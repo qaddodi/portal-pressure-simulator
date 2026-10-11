@@ -12,7 +12,7 @@ export const SPLEEN = {
   summary: 'How the spleen grows as the portal pressure rises, why the platelets fall, when platelets and stiffness can spare an endoscopy, and what splenic embolization and splenectomy do.',
   slides: [
     {
-      id: 'normal', preset: 'healthy', cam: 'splenic', terms: ['spleen'], data: 'tiles', tiles: ['spleen', 'plt'], key: ['spleen'],
+      id: 'normal', preset: 'healthy', cam: 'splenic', terms: ['spleen', 'pv'], data: 'tiles', tiles: ['spleen', 'plt'], key: ['spleen'],
       kicker: 'A growing spleen', title: 'A normal spleen',
       line: 'The spleen is {spleen} long, the platelets are {plt}, and the [splenic vein](sv) drains it into the portal vein.',
       notes: 'The splenic vein joins the superior mesenteric vein behind the pancreas to form the portal vein. At any time about a third of the body\'s platelets are held in a normal spleen. On ultrasound a length up to about 12 to 13 cm is normal in an adult.',
@@ -55,7 +55,7 @@ export const SPLEEN = {
       ask: ['Why do platelets rise after splenic embolization?', 'Less splenic pulp is left to pool them.'],
     },
     {
-      id: 'splenectomy', preset: 'csph', params: { splenicRx: 2 }, cam: 'splenic', data: 'tiles', tiles: ['plt', 'pv'], key: ['plt'],
+      id: 'splenectomy', terms: ['spleen', 'pv'], preset: 'csph', params: { splenicRx: 2 }, cam: 'splenic', data: 'tiles', tiles: ['plt', 'pv'], key: ['plt'],
       kicker: 'Treating the spleen', site: 'sin', title: 'Splenectomy raises platelets but can cause portal vein thrombosis',
       line: 'With the spleen removed, platelets are no longer sequestered, and the count is {plt}. Blood can stagnate in the stump of the [splenic vein](sv), and the clot can spread into the portal vein.',
       notes: 'Splenectomy is now rare in cirrhosis: the operation carries real risk, and splenic and portal vein thrombosis is common after it. It keeps a place for bleeding gastric varices caused by splenic vein thrombosis, where the spleen is the source of the high pressure.',

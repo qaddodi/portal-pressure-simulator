@@ -44,7 +44,7 @@ export const TREATMENT = {
       ask: ['What is given with terlipressin for HRS-AKI?', 'Albumin.'],
     },
     {
-      id: 'band', params: { drugs: { terlipressin: false } }, action: [{ kind: 'band' }, { kind: 'band' }, { kind: 'band' }], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' },
+      id: 'band', terms: ['varix'], params: { drugs: { terlipressin: false } }, action: [{ kind: 'band' }, { kind: 'band' }, { kind: 'band' }], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' },
       data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'target',
       kicker: 'Endoscopy', site: 'sin', title: 'Banding closes varices but leaves the pressure high',
       line: 'The pressure that made the varices is unchanged, so new ones form unless it is lowered too. The banded columns thrombose and shrink.',
@@ -53,7 +53,7 @@ export const TREATMENT = {
       ask: ['Why combine banding with a beta-blocker after a bleed?', 'Banding removes the varices, not the high pressure that makes new ones; the beta-blocker lowers it.'],
     },
     {
-      id: 'tips', params: { tips: { on: true } }, cam: 'liver', terms: { sinusoids: 'sin' }, mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'ladder', key: ['pv', 'ppg'], tiles: ['ppg', 'varix'], delta: 'target',
+      id: 'tips', params: { tips: { on: true } }, cam: 'liver', terms: { sinusoids: 'sin', 'portal vein': 'pv', 'hepatic vein': 'hv' }, mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'ladder', key: ['pv', 'ppg'], tiles: ['ppg', 'varix'], delta: 'target',
       kicker: 'Shunt', site: 'sin', title: 'TIPS lowers the gradient by bypassing the liver',
       line: 'A needle is passed from the right hepatic vein into the right portal vein, and the tract is lined with a covered stent, usually 8 mm, so portal blood bypasses the sinusoids. The PPG falls to {ppg}, below the 12 mmHg target for bleeding.',
       notes: 'Transjugular intrahepatic portosystemic shunt: from the jugular vein, a needle is passed from the right hepatic vein through the liver into the right portal vein, and the tract is lined with a covered stent, usually 8 mm wide. The portal pressure gradient is measured before and after; for bleeding the aim is below 12 mmHg. Indications: pre-emptive TIPS in high-risk variceal bleeding, rescue when bleeding cannot be controlled, recurrent bleeding, and recurrent or refractory ascites.',

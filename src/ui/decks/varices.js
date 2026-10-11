@@ -25,14 +25,14 @@ export const VARICES = {
       ask: ['Which tiles warn that varices are growing, without a scope?', 'The falling platelets and the growing spleen.'],
     },
     {
-      id: 'eso', cam: 'varices', labels: ['LGV', 'VAR', 'AZY'], terms: ['lgv', 'azy'], mark: { edges: ['C1a', 'C1b'], label: 'Esophageal varices', kind: 'note' }, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'],
+      id: 'eso', cam: 'varices', labels: ['LGV', 'VAR', 'AZY'], terms: ['lgv', 'azy', 'varix'], mark: { edges: ['C1a', 'C1b'], label: 'Esophageal varices', kind: 'note' }, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'],
       kicker: 'Varices', site: 'sin', title: 'Esophageal varices drain to the azygos vein',
       line: 'The left gastric vein (the coronary vein) and the short gastric veins carry portal blood into the wall of the lower esophagus, and on to the azygos. The palisade veins seen at endoscopy and the submucosal veins beneath them both enlarge. Varices under 5 mm are small, and over 5 mm are large.',
       notes: 'Gastroesophageal varices are the collaterals that matter most, because they bleed. Blood runs from the left gastric (coronary) and short gastric veins through veins in the wall of the lower esophagus to the azygos system. Both layers enlarge: the palisade veins in the lamina propria, which the scope sees, and the submucosal veins beneath them. At endoscopy small varices are under 5 mm and large ones over 5 mm; red wale marks are thin spots in the wall. About half of patients have varices when cirrhosis is diagnosed.',
       ask: ['Into which systemic vein do esophageal varices drain?', 'The azygos vein.'],
     },
     {
-      id: 'burst', cam: [690, -10, 890, 170], kMax: 4.5, labels: ['VAR'], tool: { kind: 'wall' }, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['hvpg'],
+      id: 'burst', terms: ['varix'], cam: [690, -10, 890, 170], kMax: 4.5, labels: ['VAR'], tool: { kind: 'wall' }, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['hvpg'],
       kicker: 'Varices', site: 'sin', title: 'Varices can bleed once the HVPG reaches 12',
       eq: [mi('T') + mo('=') + frac(mi('P') + mo('⋅') + mi('r'), mi('w')), 'Laplace: T wall tension · P pressure across the varix wall · r radius · w wall thickness'],
       line: 'Large, thin-walled varices under high pressure are the ones that rupture. This varix measures {varix}.',
@@ -54,7 +54,7 @@ export const VARICES = {
       ask: ['Gastric varices, a large spleen and normal liver tests after pancreatitis. Diagnosis and cure?', 'Splenic vein thrombosis; splenectomy, or splenic artery embolization.'],
     },
     {
-      id: 'umbilical', preset: 'cirr-decomp', cam: 'wall', labels: ['LPV'], terms: ['lpv'], mark: { edges: ['C3'], label: 'Paraumbilical vein', kind: 'note' }, data: 'tiles', tiles: ['shunt', 'liver'],
+      id: 'umbilical', preset: 'cirr-decomp', cam: 'wall', labels: ['LPV'], terms: ['lpv', 'pv'], mark: { edges: ['C3'], label: 'Paraumbilical vein', kind: 'note' }, data: 'tiles', tiles: ['shunt', 'liver'],
       kicker: 'Other collaterals', site: 'sin', title: 'The paraumbilical vein reopens',
       line: 'It runs in the falciform ligament from the left portal vein to the abdominal wall. Dilated veins radiating from the navel are called caput medusae, and you may hear a venous hum over them.',
       notes: 'The paraumbilical veins run in the falciform ligament from the left portal vein to the abdominal wall. When they enlarge, blood flows away from the liver through them; dilated veins radiating from the umbilicus form a caput medusae, and a venous hum may be heard over them (Cruveilhier–Baumgarten). The flow runs away from the umbilicus, unlike the upward flow of IVC obstruction. These collaterals rarely bleed, but a large one steals portal blood from the liver.',

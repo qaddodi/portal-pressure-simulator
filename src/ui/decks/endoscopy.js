@@ -26,7 +26,7 @@ export const ENDOSCOPY = {
       ask: ['Which compensated patients can skip a screening endoscopy?', 'Those taking carvedilol for CSPH, and those with liver stiffness under 20 kPa and platelets over 150 (Baveno VII).'],
     },
     {
-      id: 'grow', days: 180, ramp: { cirrhosis: [0.4, 0.6] }, lapse: { seconds: 10 }, cam: 'gej', labels: ['VAR', 'LGV'], tool: { kind: 'scope', open: true },
+      id: 'grow', terms: ['varix'], days: 180, ramp: { cirrhosis: [0.4, 0.6] }, lapse: { seconds: 10 }, cam: 'gej', labels: ['VAR', 'LGV'], tool: { kind: 'scope', open: true },
       data: 'tiles', tiles: ['hvpg'], key: ['hvpg'], delta: true,
       kicker: 'Endoscopy', site: 'sin', title: 'Small varices appear six months on',
       line: 'The HVPG has risen to {hvpg}, above the 10 mmHg of CSPH, where varices grow more likely. Blue columns have risen in the lower esophagus; small varices are under 5 mm.',
@@ -34,7 +34,7 @@ export const ENDOSCOPY = {
       ask: ['Below what HVPG are new varices uncommon?', '10 mmHg.'],
     },
     {
-      id: 'large', preset: 'cirr-decomp', cam: 'gej', labels: ['VAR', 'LGV'], mark: { edges: ['C1a'], label: 'Large varices', kind: 'note' }, tool: { kind: 'scope', open: true },
+      id: 'large', terms: ['varix'], preset: 'cirr-decomp', cam: 'gej', labels: ['VAR', 'LGV'], mark: { edges: ['C1a'], label: 'Large varices', kind: 'note' }, tool: { kind: 'scope', open: true },
       data: 'tiles', tiles: ['hvpg'], key: ['hvpg'],
       kicker: 'Endoscopy', site: 'sin', title: 'Size and red signs predict the first bleed',
       line: 'Varices over 5 mm bulge into the lumen and do not flatten with air; this one is {varix}. Red wale marks show where the wall has thinned.',
@@ -42,7 +42,7 @@ export const ENDOSCOPY = {
       ask: ['Name two endoscopic findings that predict a first bleed.', 'Size over 5 mm and red signs (red wale marks or cherry-red spots).'],
     },
     {
-      id: 'tension', cam: [745, 170, 875, 335], kMax: 4.5, labels: ['VAR'], tool: { kind: 'wall', open: true },
+      id: 'tension', terms: ['varix'], cam: [745, 170, 875, 335], kMax: 4.5, labels: ['VAR'], tool: { kind: 'wall', open: true },
       data: 'tiles', tiles: ['varix', 'pv'], key: ['varix'],
       kicker: 'Why varices burst', site: 'sin', title: 'Large, thin-walled varices are the ones that bleed',
       eq: [mi('T') + mo('=') + frac('<mi mathvariant="normal">Δ</mi><mi>P</mi>' + mo('·') + mi('r'), mi('w')), 'T wall tension · ΔP pressure in the varix minus the lumen · r radius · w wall thickness'],

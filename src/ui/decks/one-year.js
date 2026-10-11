@@ -34,7 +34,7 @@ export const ONE_YEAR = {
       ask: ['Stiffness 21 kPa and platelets 115. How likely is CSPH?', 'Likely: 60% or more by the Baveno VII gray-zone rule.'],
     },
     {
-      id: 'd180', tick: 'Endoscopy', days: 90, ramp: ramp(0.54, 0.58), cam: 'varices', tool: { kind: 'scope' }, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'd0',
+      id: 'd180', terms: ['varix'], tick: 'Endoscopy', days: 90, ramp: ramp(0.54, 0.58), cam: 'varices', tool: { kind: 'scope' }, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'd0',
       kicker: 'Day 180', site: 'sin', title: 'Small varices mean CSPH',
       line: 'Under Baveno VII, any varices count as CSPH. Here the scope finds small ones in the lower esophagus.',
       caveat: 'Carvedilol would start by now; this case holds it back to show the pressure rising.',

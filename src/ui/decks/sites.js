@@ -23,7 +23,7 @@ export const SITES = {
       ask: ['What does the wedged pressure measure?', 'The sinusoidal pressure: with the vein occluded, the still column of blood reads the pressure upstream.'],
     },
     {
-      id: 'pvt', preset: 'pvt-chronic', cam: 'portal', labels: ['CONF', 'SV'], terms: { 'portal pressure': 'pv' }, mark: { edges: ['PV_TRUNK'], label: 'Clot' },
+      id: 'pvt', preset: 'pvt-chronic', cam: 'portal', labels: ['CONF', 'SV'], terms: { 'portal pressure': 'pv', 'wedged pressure': 'whvp' }, mark: { edges: ['PV_TRUNK'], label: 'Clot' },
       data: 'ladder', key: ['hvpg', 'ppg'], rail: true, quiz: 'Where is the problem?',
       kicker: 'Pre-hepatic', site: 'pre', title: 'Portal vein thrombosis',
       line: 'Portal pressure is high, yet the wedged pressure and HVPG are normal because the hepatic vein catheter sits downstream of the clot.',
@@ -32,7 +32,7 @@ export const SITES = {
       ask: ['Why is HVPG normal when the portal pressure is about 20 mmHg?', 'The wedge reads the sinusoids, which lie downstream of the clot and are at normal pressure.'],
     },
     {
-      id: 'presin', terms: { 'portal venules': 'lobule:triad' }, preset: 'schisto', cam: 'lobule:triad', data: 'ladder', key: ['pv', 'hvpg', 'ppg'], callout: { at: 'triad', label: 'Block: portal venules' }, rail: true, quiz: 'Where is the problem?',
+      id: 'presin', terms: { 'portal venules': 'lobule:triad', sinusoids: 'lobule:sinusoid' }, preset: 'schisto', cam: 'lobule:triad', data: 'ladder', key: ['pv', 'hvpg', 'ppg'], callout: { at: 'triad', label: 'Block: portal venules' }, rail: true, quiz: 'Where is the problem?',
       kicker: 'Intrahepatic · presinusoidal', site: 'presin', title: 'Schistosomiasis',
       line: 'Eggs lodge in the portal venules and cause periportal fibrosis. The obstruction is upstream of the sinusoids, so HVPG stays near normal.',
       causes: ['Schistosomiasis', 'Porto-sinusoidal vascular disorder', 'Early primary biliary cholangitis', 'Sarcoidosis, congenital hepatic fibrosis'],
@@ -48,7 +48,7 @@ export const SITES = {
       ask: ['Why does the wedged pressure track the portal pressure in cirrhosis?', 'The resistance lies in the sinusoids the wedge reads, so the wedged pressure rises with the portal pressure.'],
     },
     {
-      id: 'postsin', terms: { 'central veins': 'lobule:central' }, preset: 'sos', cam: 'lobule:central', callout: { at: 'cv', label: 'Block: central veins' }, data: 'ladder', key: ['whvp', 'hvpg'], rail: true, quiz: 'Where is the problem?',
+      id: 'postsin', terms: { 'central veins': 'lobule:central', sinusoids: 'lobule:sinusoid' }, preset: 'sos', cam: 'lobule:central', callout: { at: 'cv', label: 'Block: central veins' }, data: 'ladder', key: ['whvp', 'hvpg'], rail: true, quiz: 'Where is the problem?',
       kicker: 'Intrahepatic · postsinusoidal', site: 'postsin', title: 'Sinusoidal obstruction syndrome',
       line: 'Damaged endothelium obstructs the sinusoids and small central veins, upstream of the catheter tip, so the wedged pressure and HVPG rise.',
       causes: ['Conditioning for stem cell transplant', 'Oxaliplatin', 'Pyrrolizidine alkaloids (bush teas)'],
@@ -65,7 +65,7 @@ export const SITES = {
       ask: ['Why is HVPG near zero although the portal pressure is about 26 mmHg?', 'Where the catheter reaches behind the block, both the wedged and the free pressures are measured there, so both are high and their difference is small.'],
     },
     {
-      id: 'cardiac', preset: 'rhf', cam: 'heart', labels: ['RHV', 'IVCS', 'RA'], glow: ['ivc', 'hv'], glowSeq: 550,
+      id: 'cardiac', terms: ['hv', 'sin'], preset: 'rhf', cam: 'heart', labels: ['RHV', 'IVCS', 'RA'], glow: ['ivc', 'hv'], glowSeq: 550,
       data: 'ladder', key: ['fhvp', 'hvpg', 'ppg'], rail: true, quiz: 'Where is the problem?',
       kicker: 'Cardiac', site: 'cardiac', title: 'Right heart failure',
       line: 'Raised [right atrial pressure](ra) is transmitted back through the hepatic veins to the sinusoids. All stations rise together and HVPG stays normal.',
