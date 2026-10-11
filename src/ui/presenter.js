@@ -1445,12 +1445,30 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   // A card whose signature is unchanged keeps its fit without being measured again (measuring forces layouts mid-animation).
   const fitSig = (el) => `${el.clientWidth}x${el.clientHeight}|${el.className}|${document.documentElement.style.cssText}|${[...el.children].map((c) => (c.hidden ? 0 : c.className)).join()}|${el.textContent.replace(/\d/g, '0')}`;
   const fitDone = new WeakMap();
+  // A narrow summary table's column heads: 11 px, or as large as each column fits (down to 8), one size for the row.
+  // (Only the phone and upright tablet layout reads --th-fs.)
+  const headFits = (th) => { const b = th.getBoundingClientRect(), g = document.createRange(); g.selectNodeContents(th); return [...g.getClientRects()].every((q) => !q.width || (q.left >= b.left - 0.5 && q.right <= b.right + 0.5)); };
+  function fitHeadRow(tr) {
+    const ths = [...tr.querySelectorAll('th.num')];
+    if (!ths.length || !tr.getBoundingClientRect().width) return;
+    for (let fs = 11; fs >= 8; fs -= 0.5) { tr.style.setProperty('--th-fs', `${fs}px`); if (ths.every(headFits)) break; }
+  }
+  // (Fitted again when the row's width settles or the web fonts arrive: a fit made mid-layout or in a fallback font would stay too small.)
+  let headRO = null;
+  function fitHeads(el) {
+    if (!headRO) {
+      headRO = new ResizeObserver((es) => { for (const e of es) fitHeadRow(e.target); });
+      document.fonts?.ready.then(() => document.querySelectorAll('.pz-table thead tr').forEach(fitHeadRow));
+    }
+    for (const tr of el.querySelectorAll('.pz-table thead tr')) { headRO.observe(tr); fitHeadRow(tr); }
+  }
   function fitCards(...els) {
     for (const el of els) {
       if (!el || el.hidden) continue;
       const sig = fitSig(el);
       if (fitDone.get(el) === sig) continue;
       el.style.removeProperty('--pz-fit');
+      fitHeads(el);
       let k = 1;
       for (let n = 0; n < 8 && k > 0.5; n++) {
         const o = overflowOf(el);

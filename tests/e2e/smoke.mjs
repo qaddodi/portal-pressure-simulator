@@ -31,7 +31,8 @@ const DEVICES = {
 
 // Checks are queued, then run a few at a time (each has its own browser context).
 const queue = [];
-const check = (device, name, fn) => { queue.push([device, name, fn]); };
+// SMOKE_ONLY=<words>: only the checks whose name contains them (a quick local run of one check).
+const check = (device, name, fn) => { if (!process.env.SMOKE_ONLY || name.includes(process.env.SMOKE_ONLY)) queue.push([device, name, fn]); };
 const RETRIES = process.env.SMOKE_RETRIES === undefined ? 1 : Number(process.env.SMOKE_RETRIES);
 // a Playwright timeout, also when a check re-threw it with its own message ({ cause })
 const timedOut = (e) => { for (; e; e = e.cause) if (e.name === 'TimeoutError') return true; return false; };
@@ -765,7 +766,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const sizes = device === 'desktop' ? [null, { width: 820, height: 1180 }] : [null];
     for (const size of sizes) {
       if (size) await page.setViewportSize(size);
-      for (const deck of ['circulation', 'hvpg']) {
+      for (const deck of ['circulation', 'hvpg', 'sites']) {   // (sites: the most columns)
         await open(page, `?script=${deck}&slide=99`);   // (the last slide: the summary)
         await page.waitForFunction(() => { const t = document.querySelector('.pz-table'); return t && t.querySelector('tbody tr') && !t.querySelector('td.pend'); });
         await page.waitForTimeout(600);
@@ -780,6 +781,14 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
             return v.length ? { left: Math.min(...v.map((r) => r.left)), right: Math.max(...v.map((r) => r.right)), top: Math.min(...v.map((r) => r.top)), bottom: Math.max(...v.map((r) => r.bottom)) } : null;
           };
           const heads = [...t.querySelectorAll('thead th')].map((th) => th.getBoundingClientRect());
+          // The column heads: inside their own column, and never smaller than 8 px (a phone's once were 7.5).
+          for (const th of t.querySelectorAll('thead th')) {
+            if (getComputedStyle(th).display === 'none') continue;
+            const hb = th.getBoundingClientRect(), g = document.createRange(), fs = parseFloat(getComputedStyle(th).fontSize);
+            g.selectNodeContents(th);
+            if ([...g.getClientRects()].some((q) => q.width && (q.left < hb.left - 1 || q.right > hb.right + 1))) out.push(`head "${th.textContent.trim()}" runs outside its column`);
+            if (fs < 8) out.push(`head "${th.textContent.trim()}" is ${fs}px`);
+          }
           for (const tr of t.querySelectorAll('tbody tr')) {
             let k = 0; const seen = [];
             for (const c of tr.children) {

@@ -1943,7 +1943,7 @@ button.finding { cursor: pointer; }
   .pz-table table { font-size: 15px; }
   .pz-table tr { display: grid; grid-template-columns: minmax(7.5rem, 1.8fr) repeat(var(--nc, 7), minmax(0, 1fr)) var(--asc-w, 0px); align-items: center; }
   .pz-table td[colspan="2"] { grid-column: span 2; }
-  .pz-table thead th.num { padding-inline: 2px; font-size: 11px; letter-spacing: -.01em; }
+  .pz-table thead th.num { padding-inline: 2px; font-size: var(--th-fs, 11px); letter-spacing: -.01em; }   /* (--th-fs: 11 px, or as large as a narrow column fits, presenter.js fitHeads) */
 
   .pz-table tbody th[scope="row"] { padding-right: 8px !important; }
   .pz-table thead { position: sticky; top: -16px; z-index: 2; }   /* (the card's padding: the heads stick to its top edge) */
