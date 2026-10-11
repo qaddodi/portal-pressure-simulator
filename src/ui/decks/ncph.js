@@ -43,11 +43,11 @@ export const NCPH = {
       ask: ['Stiffness 6 kPa with large varices. Does that rule out portal hypertension?', 'No: it argues against cirrhosis. Portal hypertension with a normal stiffness points to a non-cirrhotic cause.'],
     },
     {
-      id: 'psvd', cam: 'lobule', terms: { 'portal venules': 'lobule:triad', sinusoids: 'lobule:sinusoid' }, data: 'tiles', tiles: ['hvpg', 'lsm'],
+      id: 'psvd', cam: 'lobule', terms: { 'portal venules': 'lobule:triad' }, data: 'tiles', tiles: ['hvpg', 'lsm'],
       kicker: 'Where the block sits', site: 'presin', title: 'Porto-sinusoidal vascular disorder',
-      line: 'Without schistosomes, the same picture comes from portal venules that narrow and disappear, with patchy changes in the sinusoids. A liver biopsy makes the diagnosis.',
-      causesHead: 'Linked to', causes: ['Immune disorders and immunodeficiency', 'Thiopurines, oxaliplatin, didanosine', 'HIV infection', 'Thrombophilia'],
-      notes: 'Porto-sinusoidal vascular disorder replaces older names such as idiopathic non-cirrhotic portal hypertension and hepatoportal sclerosis. The biopsy shows no cirrhosis, with obliterative portal venopathy, nodular regenerative hyperplasia or incomplete septal fibrosis. As in schistosomiasis, the HVPG and the stiffness are lower than the portal hypertension suggests, and portal vein thrombosis is a common complication.',
+      line: 'Without schistosomes, the same picture comes from portal venules that narrow and vanish. A liver biopsy makes the diagnosis.',
+      causesHead: 'Linked to', causes: ['Immune disorders', 'Thiopurines, oxaliplatin', 'HIV, didanosine', 'Thrombophilia'],
+      notes: 'Porto-sinusoidal vascular disorder replaces older names such as idiopathic non-cirrhotic portal hypertension and hepatoportal sclerosis. It is linked to immune disorders and immunodeficiency, to thiopurines, oxaliplatin and didanosine, to HIV and to thrombophilia. The biopsy shows no cirrhosis, with obliterative portal venopathy, nodular regenerative hyperplasia or incomplete septal fibrosis. As in schistosomiasis, the HVPG and the stiffness are lower than the portal hypertension suggests, and portal vein thrombosis is a common complication.',
       ask: ['How is porto-sinusoidal vascular disorder diagnosed?', 'By a liver biopsy that shows no cirrhosis, with its typical vascular lesions.'],
     },
     {

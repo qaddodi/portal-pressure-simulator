@@ -14,10 +14,10 @@ export const OUTFLOW = {
   slides: [
     {
       id: 'bcs', preset: 'budd-chiari', cam: 'hepatic', mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Clots' }, tool: { kind: 'abdomen' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['asc'],
-      kicker: 'Hepatic veins', site: 'post', title: 'Clots in all three hepatic veins',
-      line: 'Budd–Chiari syndrome: the [hepatic veins](hv) are blocked, the liver swells, the portal pressure climbs to {pv} and ascites fills the belly.',
-      causesHead: 'Look for', causes: ['Myeloproliferative neoplasm (JAK2)', 'Antiphospholipid syndrome and other thrombophilias', 'Pregnancy or the contraceptive pill', 'Paroxysmal nocturnal hemoglobinuria'],
-      notes: 'Budd–Chiari syndrome is a block to hepatic venous outflow anywhere from the small hepatic veins to the entry of the IVC into the right atrium, without heart disease. It presents with abdominal pain, a large tender liver and ascites, suddenly or over months. Most patients have at least one prothrombotic condition, often more than one; a myeloproliferative neoplasm is the commonest, and JAK2 is tested even when the blood count is normal.',
+      kicker: 'Hepatic veins', site: 'post', title: 'Budd–Chiari syndrome',
+      line: 'The [hepatic veins](hv) are clotted: the liver swells, the portal pressure climbs to {pv} and ascites fills the belly.',
+      causesHead: 'Look for', causes: ['Myeloproliferative neoplasm', 'Thrombophilia', 'Pregnancy or the pill'],
+      notes: 'Budd–Chiari syndrome is a block to hepatic venous outflow anywhere from the small hepatic veins to the entry of the IVC into the right atrium, without heart disease. It presents with abdominal pain, a large tender liver and ascites, suddenly or over months. Most patients have at least one prothrombotic condition, often more than one: a myeloproliferative neoplasm (the commonest), antiphospholipid syndrome, inherited thrombophilia, paroxysmal nocturnal hemoglobinuria, pregnancy or the contraceptive pill; and JAK2 is tested even when the blood count is normal.',
       ask: ['A young woman has a tender liver and sudden ascites. Which blood test is easy to forget?', 'JAK2 V617F, for a myeloproliferative neoplasm, even with a normal blood count.'],
     },
     {
@@ -50,10 +50,10 @@ export const OUTFLOW = {
     },
     {
       id: 'sos', preset: 'sos', cam: 'lobule:central', callout: { at: 'cv', label: 'Block: central veins' }, terms: { 'central veins': 'lobule:central' }, data: 'tiles', tiles: ['asc', 'hvpg'], key: ['asc'],
-      kicker: 'Sinusoidal obstruction', site: 'postsin', title: 'Sinusoidal obstruction after a stem cell transplant',
-      line: 'Conditioning chemotherapy injures the sinusoidal lining, and the debris blocks the central veins. Within three weeks the liver is large and tender, and ascites gathers.',
-      causesHead: 'Causes', causes: ['Conditioning before a stem cell transplant', 'Oxaliplatin', 'Thiopurines', 'Pyrrolizidine alkaloids in herbal teas'],
-      notes: 'Sinusoidal obstruction syndrome (veno-occlusive disease) starts in the sinusoidal endothelium, injured by conditioning with busulfan, cyclophosphamide or total body irradiation, by oxaliplatin, by thiopurines or by pyrrolizidine alkaloids. It presents with jaundice, painful hepatomegaly, ascites and weight gain, usually within three weeks of a transplant, although late forms occur.',
+      kicker: 'Sinusoidal obstruction', site: 'postsin', title: 'Sinusoidal obstruction syndrome',
+      line: 'Chemotherapy injures the sinusoid lining; debris blocks the central veins, and within weeks the liver swells and ascites gathers.',
+      causesHead: 'Causes', causes: ['Stem cell transplant conditioning', 'Oxaliplatin', 'Thiopurines', 'Pyrrolizidine alkaloids'],
+      notes: 'Sinusoidal obstruction syndrome (veno-occlusive disease) starts in the sinusoidal endothelium, injured by conditioning with busulfan, cyclophosphamide or total body irradiation, by oxaliplatin, by thiopurines or by pyrrolizidine alkaloids in herbal teas. It presents with jaundice, painful hepatomegaly, ascites and weight gain, usually within three weeks of a transplant, although late forms occur.',
       ask: ['Two weeks after a stem cell transplant a patient has gained 5 kg and has a tender liver. What is the likely diagnosis?', 'Sinusoidal obstruction syndrome.'],
     },
     {

@@ -67,11 +67,11 @@ import { PREHEPATIC } from './decks/prehepatic.js?v=c8af5f351e';
 import { RIGHT_HEART } from './decks/right-heart.js?v=2221556b33';
 import { BLEED } from './decks/variceal-bleed.js?v=646e098b15';
 import { TWO_INFLOWS } from './decks/two-inflows.js?v=ca6d2b9f97';
-import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=a6f4a04491';
-import { SPLEEN } from './decks/spleen.js?v=0fae95d2f0';
-import { NCPH } from './decks/ncph.js?v=5ac9cc8937';
-import { OUTFLOW } from './decks/outflow.js?v=78275c3514';
-import { RECOMPENSATION } from './decks/recompensation.js?v=4e4810067b';
+import { PVT_CIRRHOSIS } from './decks/pvt-cirrhosis.js?v=366bbfe01e';
+import { SPLEEN } from './decks/spleen.js?v=65f2eaa98b';
+import { NCPH } from './decks/ncph.js?v=b14ff5ad77';
+import { OUTFLOW } from './decks/outflow.js?v=48f3dfd001';
+import { RECOMPENSATION } from './decks/recompensation.js?v=eaaa0e0233';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {

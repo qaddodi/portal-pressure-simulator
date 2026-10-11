@@ -18,8 +18,8 @@ export const PVT_CIRRHOSIS = {
       id: 'base', preset: 'csph', cam: 'portal', terms: ['pv'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'],
       kicker: 'The clot', site: 'sin', title: 'Slow flow toward a stiff liver',
       line: 'Cirrhosis with CSPH: blood moves slowly up the portal vein toward a stiff liver, at a pressure of {pv}.',
-      causesHead: 'Risk of a clot', causes: ['Slow portal flow', 'More advanced liver disease', 'A high INR does not protect', 'Recent abdominal surgery, such as splenectomy'],
-      notes: 'Portal vein thrombosis becomes more common as cirrhosis advances, and slow portal flow is the strongest local factor. The INR measures only the fall in clotting factors; the liver also makes less protein C and antithrombin, so hemostasis is rebalanced and a high INR does not protect. Many clots are partial and found on a routine scan.',
+      causesHead: 'Risk of a clot', causes: ['Slow portal flow', 'More advanced liver disease', 'A high INR does not protect', 'Recent abdominal surgery'],
+      notes: 'Portal vein thrombosis becomes more common as cirrhosis advances, and slow portal flow is the strongest local factor. The INR measures only the fall in clotting factors; the liver also makes less protein C and antithrombin, so hemostasis is rebalanced and a high INR does not protect. Abdominal surgery, splenectomy above all, adds to the risk. Many clots are partial and found on a routine scan.',
       ask: ['Does a high INR protect a patient with cirrhosis from portal vein thrombosis?', 'No: the anticoagulant proteins fall too, so clotting is rebalanced.'],
     },
     {

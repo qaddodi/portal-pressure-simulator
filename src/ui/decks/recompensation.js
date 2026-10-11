@@ -53,9 +53,9 @@ export const RECOMPENSATION = {
     {
       id: 'recomp', params: { diuretics: false }, days: 60, cam: 'fit', tool: BELLY, data: 'tiles', tiles: ['asc', 'salb'], key: ['asc'],
       kicker: 'Recompensation', site: 'sin', title: 'Recompensation',
-      line: 'Off diuretics the ascites stays away and the liver tests stay better: by the Baveno VII definition, this patient has recompensated.',
-      causesHead: 'Baveno VII criteria', causes: ['Cause removed, suppressed or cured', 'No ascites off diuretics, no encephalopathy off treatment', 'No variceal bleed for 12 months', 'Lasting better albumin, INR and bilirubin'],
-      notes: 'Recompensation means the disease behaves as compensated again; it is not a cure. The patient still has cirrhosis, still needs surveillance for liver cancer and, while CSPH persists, the beta-blocker. If the cause returns, decompensation can follow.',
+      line: 'Off diuretics the ascites stays away and the albumin holds: this patient has recompensated.',
+      causesHead: 'Baveno VII criteria', causes: ['Cause removed or cured', 'No ascites or encephalopathy off treatment', 'No variceal bleed for 12 months', 'Lasting better liver tests'],
+      notes: 'Baveno VII asks for all of: the cause removed, suppressed or cured; no ascites off diuretics, no encephalopathy off lactulose or rifaximin and no variceal bleed for 12 months; and a lasting improvement in albumin, INR and bilirubin. Recompensation means the disease behaves as compensated again; it is not a cure. The patient still has cirrhosis, still needs surveillance for liver cancer and, while CSPH persists, the beta-blocker. If the cause returns, decompensation can follow.',
       ask: ['After recompensation, does liver cancer surveillance stop?', 'No: the cirrhosis remains, so surveillance continues.'],
     },
     {

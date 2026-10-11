@@ -29,8 +29,8 @@ export const SPLEEN = {
       id: 'platelets', cam: 'spleen', terms: ['spleen'], data: 'tiles', tiles: ['plt', 'spleen'], key: ['plt'],
       kicker: 'The platelets', site: 'sin', title: 'Why the platelets fall',
       line: 'The large spleen pools more platelets and the scarred liver makes less thrombopoietin: the count is {plt}.',
-      causesHead: 'Low platelets in cirrhosis', causes: ['Pooling in the enlarged spleen', 'Less thrombopoietin from the liver', 'Marrow suppressed by alcohol, viruses or drugs'],
-      notes: 'A low platelet count is the commonest blood count change in cirrhosis, and a count below 150 is often the first clue to portal hypertension. It is rarely low enough to cause bleeding on its own. Before a procedure, a thrombopoietin receptor agonist can raise the count without touching the spleen.',
+      causesHead: 'Low platelets in cirrhosis', causes: ['Pooling in the large spleen', 'Less thrombopoietin', 'Marrow suppression'],
+      notes: 'Alcohol, viruses and some drugs also suppress the marrow. A low platelet count is the commonest blood count change in cirrhosis, and a count below 150 is often the first clue to portal hypertension. It is rarely low enough to cause bleeding on its own. Before a procedure, a thrombopoietin receptor agonist can raise the count without touching the spleen.',
       ask: ['Name two reasons the platelet count falls in cirrhosis.', 'Pooling in the enlarged spleen, and less thrombopoietin from the liver.'],
     },
     {
