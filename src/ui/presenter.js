@@ -1128,7 +1128,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       if (panel.hidden) { panel.classList.add('pz-leave'); panel.hidden = false; void panel.offsetWidth; }
       panel.classList.toggle('fill', s.visual === 'ladders');
       panel.dataset.visual = s.visual;
-      panel.replaceChildren(h('div', { class: 'pz-ph' }, s.visual === 'outline' ? h('div', { class: 'pz-deck' }, nb(deck.title)) : null, kick(null, s.visual === 'outline' ? 'Overview' : s.kicker), h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null),
+      panel.replaceChildren(h('div', { class: 'pz-ph' }, s.visual === 'outline' ? h('h1', { class: 'pz-dtitle' }, nb(deck.title)) : null, kick(null, s.visual === 'outline' ? 'Overview' : s.kicker), h('h1', { class: 'pz-h' }, nb(s.title)), s.eq ? equation(s.eq) : null, s.line ? h('p', { class: 'pz-line' }, rich(s.line, s, st?.fp)) : null, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null),
         VISUALS[s.visual](s));
       panel.classList.remove('pz-leave');
       ui.veil.classList.add('on');

@@ -1856,9 +1856,17 @@ button.finding:hover { background: var(--surface-2); }
 .pz-panel .pz-ph { display: flex; flex-direction: column; gap: clamp(6px, calc(1.2 * var(--pzh) / var(--vz)), 14px); }
 .pz-panel .pz-h { font-size: clamp(28px, calc(4.6 * var(--pzh) / var(--vz)), 56px); }
 .pz-panel .pz-line { max-width: 70ch; }
-/* The deck's own title, large above the opening slide's running head; it fades in with the slide. */
-.pz-panel .pz-deck { margin: 0 0 clamp(2px, calc(.6 * var(--pzh) / var(--vz)), 10px); font: 600 clamp(36px, calc(7.4 * var(--pzh) / var(--vz)), 92px)/1.04 var(--font-display); letter-spacing: -.02em; text-wrap: balance; color: var(--text); animation: pz-in .6s var(--ease) both; }
-.pz.stack .pz-panel .pz-deck { font-size: clamp(28px, calc(5.4 * var(--pzh) / var(--vz)), 36px); text-wrap: wrap; }
+/* The opening slide: the deck's own title, centred and large, a short hairline under it; the slide's running head and heading are quieter below. It fades in with the slide. */
+.pz-panel[data-visual="outline"] .pz-ph { align-items: center; text-align: center; gap: clamp(8px, calc(1.4 * var(--pzh) / var(--vz)), 16px); padding-top: clamp(4px, calc(1.6 * var(--pzh) / var(--vz)), 22px); }
+.pz-panel .pz-dtitle { margin: 0; max-width: 20ch; font: 600 clamp(38px, calc(7.4 * var(--pzh) / var(--vz)), 92px)/1.05 var(--font-display); letter-spacing: -.022em; text-wrap: balance; color: var(--text); animation: pz-in .6s var(--ease) both; }
+.pz-panel .pz-dtitle::after { content: ""; display: block; width: 3rem; height: 2px; margin: .42em auto 0; border-radius: 1px; background: var(--accent); opacity: .55; }
+.pz-panel[data-visual="outline"] .pz-kick { justify-content: center; margin-top: clamp(6px, calc(1.6 * var(--pzh) / var(--vz)), 22px); }
+.pz-panel[data-visual="outline"] .pz-ph .pz-h { font-size: clamp(18px, calc(2.5 * var(--pzh) / var(--vz)), 30px); font-weight: 500; color: var(--text-2); }
+.pz-panel[data-visual="outline"] .pz-ph .pz-h::after { display: none; }
+.pz.stack .pz-panel .pz-dtitle { font-size: clamp(28px, calc(5.4 * var(--pzh) / var(--vz)), 36px); text-wrap: wrap; max-width: none; }
+.pz.stack .pz-panel[data-visual="outline"] .pz-ph { align-items: stretch; text-align: left; }
+.pz.stack .pz-panel[data-visual="outline"] .pz-kick { justify-content: flex-start; margin-top: 0; }
+.pz.stack .pz-panel .pz-dtitle::after { margin-left: 0; }
 .pz-grid-key { grid-column: 1 / -1; margin: 0; font: 500 clamp(12px, calc(1.5 * var(--pzh) / var(--vz, 1)), 15px) var(--font-ui); color: var(--text-3); font-variant-numeric: tabular-nums; }
 .pz-grid-key i { display: inline-block; width: 22px; margin-right: 8px; vertical-align: middle; border-top: 2px dashed var(--text-3); }
 .pz-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(10px, calc(2 * var(--pzh) / var(--vz)), 26px); }
