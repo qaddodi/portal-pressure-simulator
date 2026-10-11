@@ -394,7 +394,9 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     let lit = 0;
     for (let i = 0; i < 12 && lit < 300; i++) { if (i) await page.waitForTimeout(500); lit = await page.evaluate(vesselPixels); }
     if (lit < 300) throw new Error(`the lobule's vessel layer is nearly empty (${lit} px)`);
-    if ((await page.locator('.lz-lab').count()) !== 4) throw new Error('station cards missing');
+    // The four stations carry cards; the arteriole and ductule labels exist but stay hidden until a slide's term names them.
+    const stations = await page.evaluate(() => [...document.querySelectorAll('.lz-lab')].map((l) => `${l.dataset.target}${l.hidden ? ':hidden' : ''}`).sort().join());
+    if (stations !== 'lobule:arteriole:hidden,lobule:central,lobule:ductule:hidden,lobule:lymph,lobule:sinusoid,lobule:triad') throw new Error(`station cards missing (${stations})`);
     // The card is gone: nothing floats beside the lobule but its labels.
     if (await page.locator('.lz-side').count()) throw new Error('the lobule still has its card');
     // The strip reads the lobule's flows here.
