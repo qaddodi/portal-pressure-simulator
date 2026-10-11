@@ -47,8 +47,8 @@ const snap = (page) => page.evaluate(() => {
   const m = window.pps.store.get().frame?.metrics || {};
   return { count, text: txt('.pz-text'), data: txt('.pz-data'), panel: txt('.pz-panel'), terms, issues, m: { pv: m.pv?.toFixed(1), hvpg: m.hvpg?.toFixed(1), ppg: m.ppg?.toFixed(1) } };
 });
-const norm = (t) => (t || '').replace(/\s+/g, ' ').trim();
-const shows = (page, title) => page.waitForFunction((t) => [...document.querySelectorAll('.pz-text h1, .pz-panel h1')].some((h) => h.textContent.replace(/\s+/g, ' ').trim() === t && getComputedStyle(h.closest('section')).opacity > 0.9), norm(title), { timeout: 25000 }).then(() => true, () => false);
+const norm = (t) => (t || '').replace(/[\u00ad\u200b-\u200d\u2060]/g, '').replace(/\s+/g, ' ').trim();
+const shows = (page, title) => page.waitForFunction((t) => [...document.querySelectorAll('.pz-text h1, .pz-panel h1')].some((h) => h.textContent.replace(/[\u00ad\u200b-\u200d\u2060]/g, '').replace(/\s+/g, ' ').trim() === t && getComputedStyle(h.closest('section')).opacity > 0.9), norm(title), { timeout: 25000 }).then(() => true, () => false);
 const at = (page, k) => page.waitForFunction((k) => (document.querySelector('.pzb-n')?.textContent.trim() || '').startsWith(k + ' /'), k, { timeout: 15000 }).catch(() => {});
 async function run(deck, dev) {
   const browser = await chromium.launch();
