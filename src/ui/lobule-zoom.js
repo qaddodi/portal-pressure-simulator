@@ -1088,7 +1088,10 @@ export function createLobuleZoom({ host }) {
   // The field mirrors the lobule's own state (rounded, so the tiles are redrawn only when it changes
   // visibly): septa and portal tracts thicken with fibrosis, bridging septa turn the lobules into
   // nodules in cirrhosis, the sinusoids pale as they capillarize, and congestion darkens zone 3.
-  const fieldState = () => { const m = model || (F ? lobuleState(F, store.get()) : null); const q = (x) => Math.round((x || 0) * 8) / 8; return m ? { su: q(m.septU), pre: q(m.fibPre), post: q(m.fibPost), sin: q(m.fibSin), cong: q(m.congU) } : { su: 0, pre: 0, post: 0, sin: 0, cong: 0 }; };
+  // (With some hysteresis: a value wavering on a step boundary must not flip between two sets of tiles, redrawing them mid-dive.)
+  const fsLast = {};
+  const fsQ = (k, x) => { const v = x || 0, o = fsLast[k]; return o !== undefined && Math.abs(v - o) < 0.09 ? o : (fsLast[k] = Math.round(v * 8) / 8); };
+  const fieldState = () => { const m = model || (F ? lobuleState(F, store.get()) : null); return m ? { su: fsQ('su', m.septU), pre: fsQ('pre', m.fibPre), post: fsQ('post', m.fibPost), sin: fsQ('sin', m.fibSin), cong: fsQ('cong', m.congU) } : { su: 0, pre: 0, post: 0, sin: 0, cong: 0 }; };
   function fieldTile(cs, dark, rd) {
     const v = (n, d) => cs.getPropertyValue(n).trim() || d;
     const cell = v('--og-liver-1', '#E9C3B6'), gap = v('--og-liver-2', '#C98E7E'), cvc = v('--vein-systemic', '#4F8CC9'), pvc = v('--vein-portal', '#7D6FB6');
@@ -1259,7 +1262,7 @@ export function createLobuleZoom({ host }) {
     if (!d || d.a <= 0.002) { if (field.width) { field.width = 0; field.height = 0; } field.style.opacity = '0'; fieldOp = 0; return; }
     if (!diveCtx) {
       const rect = host.getBoundingClientRect(), cs = getComputedStyle(host), dark = isDark();
-      diveCtx = { W: Math.max(1, Math.round(rect.width)), H: Math.max(1, Math.round(rect.height)), cs, dark, bg: rgb01(cs.getPropertyValue('--stage-bg').trim() || cs.getPropertyValue('--bg').trim() || (dark ? '#0E1422' : '#FBFAF7')) };
+      diveCtx = { W: Math.max(1, Math.round(rect.width)), H: Math.max(1, Math.round(rect.height)), cs, dark, bg: stageBg(cs, dark) };
     }
     const { W, H, cs, dark, bg } = diveCtx;
     const dpr = Math.min(1, devicePixelRatio || 1) * 0.8;   // in motion and behind the lobule: a modest resolution is plenty
@@ -1271,15 +1274,7 @@ export function createLobuleZoom({ host }) {
     c.globalCompositeOperation = 'source-over';
     // The surrounding lobules start drained and tinted like the liver being zoomed into (its fill, in
     // whichever theme), so the dive reads as one tissue; the lobule's own colours come in over it.
-    const lv = rgb01(cs.getPropertyValue('--og-liver-2').trim() || (dark ? '#5A3440' : '#C98E7E'));
-    const tone = bg.map((x, i) => lerp(x, lv[i], 0.6));
-    const tk = tone.map((x) => x.toFixed(2)).join(',');
-    if (!t.liverQ || t.liverQ.k !== tk) {
-      const cv = document.createElement('canvas'); cv.width = t.tw; cv.height = t.th;
-      const cc = cv.getContext('2d'); cc.drawImage(t.cv, 0, 0); fieldQuiet(cc, tone, 1, t.tw, t.th);
-      t.liverQ = { k: tk, R: t.R, tw: t.tw, th: t.th, TW: t.TW, TH: t.TH, cv, pats: new WeakMap() };
-    }
-    fieldFill(c, t.liverQ, d.x * dpr, d.y * dpr, rd, field.width, field.height);
+    fieldFill(c, liverTile(t, cs, dark, bg), d.x * dpr, d.y * dpr, rd, field.width, field.height);
     // Quieting: the pre-quieted tile laid over the plain one (two pattern fills, not a blend of the whole screen).
     if (d.quiet > 0) { c.globalAlpha = d.quiet; fieldFill(c, quietTile(t, shadeOf(bg, dark)), d.x * dpr, d.y * dpr, rd, field.width, field.height); c.globalAlpha = 1; fieldFade(c, shadeOf(bg, dark), d.x * dpr, d.y * dpr, rd, d.quiet, field.width, field.height); }
     // Emerging: the field spreads out from the dive point as it fades in.
@@ -1295,14 +1290,64 @@ export function createLobuleZoom({ host }) {
     field.style.opacity = fieldOp.toFixed(3);
   }
   let fieldOp = 0;
+  function liverTile(t, cs, dark, bg) {
+    const lv = rgb01(cs.getPropertyValue('--og-liver-2').trim() || (dark ? '#5A3440' : '#C98E7E'));
+    const tone = bg.map((x, i) => lerp(x, lv[i], 0.6));
+    const tk = tone.map((x) => x.toFixed(2)).join(',');
+    if (!t.liverQ || t.liverQ.k !== tk) {
+      const cv = document.createElement('canvas'); cv.width = t.tw; cv.height = t.th;
+      const cc = cv.getContext('2d'); cc.drawImage(t.cv, 0, 0); fieldQuiet(cc, tone, 1, t.tw, t.th);
+      t.liverQ = { k: tk, R: t.R, tw: t.tw, th: t.th, TW: t.TW, TH: t.TH, cv, pats: new WeakMap() };
+    }
+    return t.liverQ;
+  }
+  const stageBg = (cs, dark) => rgb01(cs.getPropertyValue('--stage-bg').trim() || cs.getPropertyValue('--bg').trim() || (dark ? '#0E1422' : '#FBFAF7'));
+  // Ahead of any dive, while the anatomy sits idle: everything the dive and the lobule's first frame would
+  // otherwise build mid-zoom (geometry, the vessels' WebGL, the field's tiles and their toned copies, the
+  // tissue bitmap and a first full draw, which compiles the shaders and uploads the network), as pieces
+  // the stage runs one per idle moment. Empty when nothing changed since the last preparation.
+  let prepKey = '';
+  function preparePieces() {
+    if (fade > 0 || !F) return [];
+    const rect = host.getBoundingClientRect(), W = Math.round(rect.width), H = Math.round(rect.height);
+    if (W < 2 || H < 2) return [];
+    const dark = isDark(), key = [W, H, dark, devicePixelRatio, lzRes, zonesOn, lymphOn, Object.values(fieldState()).join(',')].join('|');
+    if (key === prepKey) return [];
+    let cs, land, bg;
+    const q = [
+      () => { cs = getComputedStyle(host); bg = stageBg(cs, dark); land = api.landing(); },
+      () => ensureGL(),
+    ];
+    // The dive's field: every tile it steps through on the way to the landing size (see paintField).
+    const fdpr = Math.min(1, devicePixelRatio || 1) * 0.8;
+    q.push(() => {
+      const top = land.r * fdpr * 0.55;
+      for (let rd = 6; ; rd *= 2) { const r = rd; q.splice(q.indexOf(null), 0, () => liverTile(fieldTile(cs, dark, r), cs, dark, bg)); if (r >= top) break; }
+    }, null);
+    q.push(() => {   // the landed lobule: its state, then the tissue, then one full frame
+      const st = store.get();
+      model = lobuleState({ ...F, P: F.Pf || F.P }, st);
+      const cv = (n, d) => cs.getPropertyValue(n).trim() || d;
+      model.inks = { normal: cv('--flow-normal', '#16988F'), reversed: cv('--flow-reversed', '#EC7424'), portal: cv('--vein-portal', '#7B6FC4'), systemic: cv('--vein-systemic', '#4F8CC9') };
+      const dpr = Math.min(2, devicePixelRatio || 1) * lzRes;
+      quietTile(fieldTile(cs, dark, geo.R * V.k * dpr * 0.55), bg);
+    }, () => {
+      const dpr = Math.min(2, devicePixelRatio || 1) * lzRes;
+      paintTissue(W, H, dpr, dark, cs, !gl || gl.lost);
+    }, () => { if (fade <= 0) { draw(0); prepKey = key; } });
+    return q;
+  }
+  // Runs the pieces in order; a null is a placeholder that a piece fills in.
+  function prepareRun(q) { while (q.length) { const f = q.shift(); if (f) { f(); return q.length > 0; } } return false; }
   // Before a dive: the work its frames would otherwise stall on, done a piece per frame while the
   // anatomy is still only being magnified (the vessels' WebGL, then the field's tiles up to the size
   // the dive ends at). warm() does the next piece; true while any is left.
   let warmQ = [];
   function prewarm(rEnd) {
-    const cs = getComputedStyle(host), dark = isDark(), dpr = Math.min(1.5, devicePixelRatio || 1);
+    const cs = getComputedStyle(host), dark = isDark(), bg = stageBg(cs, dark), top = rEnd * Math.min(1, devicePixelRatio || 1) * 0.8 * 0.55;
     warmQ = [() => ensureGL()];
-    for (let rd = 8; rd < rEnd * dpr * 0.55 * 2; rd *= 2) { const r = rd; warmQ.push(() => fieldTile(cs, dark, r)); }
+    // The tiles paintField steps through (each a no-op when the idle preparation already drew it).
+    for (let rd = 6; ; rd *= 2) { const r = rd; warmQ.push(() => liverTile(fieldTile(cs, dark, r), cs, dark, bg)); if (r >= top) break; }
   }
   function warm() { const f = warmQ.shift(); if (f) f(); return warmQ.length > 0; }
 
@@ -2049,7 +2094,7 @@ export function createLobuleZoom({ host }) {
   store.on('sinusoid', (on) => diveSinusoid(!!on));
   store.on('lobule', (on) => { if (!on && store.get().sinusoid) { quietSin = true; store.set({ sinusoid: false }); quietSin = false; } });
 
-  return {
+  const api = {
     el,
     update,
     /** 0 = hidden, 1 = fully in the lobule. It fades in where it stands, over the dive's field. */
@@ -2087,7 +2132,7 @@ export function createLobuleZoom({ host }) {
     },
     setDive: paintField,
     onZoomOut(fn) { outHandler = fn; },
-    prewarm, warm,
+    prewarm, warm, preparePieces, prepareRun,
     /** True once the dive's field (or the lobule) covers the anatomy, which then need not be drawn. */
     covers: () => fade > 0.98 || fieldOp >= 0.999,
     /** During the dive: the tissue (not its card) still zooming in, by k (≤ 1) about the stage point x, y. */
@@ -2131,4 +2176,5 @@ export function createLobuleZoom({ host }) {
     isShown: () => fade > 0,
     setLobe,
   };
+  return api;
 }

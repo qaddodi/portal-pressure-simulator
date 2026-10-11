@@ -1496,6 +1496,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // A frame that throws must not leave the anatomy stuck mid-zoom: the glide always goes on to its end.
       try { diveFrame(diveT); } catch (err) { if (e < 1) console.error(err); }
       if (e < 1) lobAnim = requestAnimationFrame(step);
+      else if (on) setTimeout(() => { if (lobuleOn && lz.isOpen()) platePoke(); }, 600);   // the anatomy's raster, held back during the dive, catches up under the lobule
       else if (!on) {
         setDiveScale(1); lz.setDiveZoom(1, 0, 0); diveLand = null;
         // Out of the lobule the anatomy always ends on its full fit, not where the dive began (often the liver close-up).
@@ -1830,6 +1831,27 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       showFigure();
     });
   }
+  // The lobule is made ready while the anatomy sits idle (its tiles, tissue, WebGL and a first frame), so the dive
+  // into it only places what is already drawn instead of building it mid-zoom. Checked about once a second; the
+  // pieces run one per idle moment and stop as soon as a dive or the circuit begins.
+  let prepBusy = false, prepAt = 0;
+  const prepIdle = window.requestIdleCallback ? (fn) => requestIdleCallback(fn, { timeout: 250 }) : (fn) => setTimeout(fn, 300);
+  function prepLobule() {
+    const now = performance.now();
+    if (prepBusy || !lz || !figureShown || now - prepAt < 1000) return;
+    prepAt = now;
+    const calm = () => morphTarget === 0 && morph < 0.02 && !lobuleOn && diveT === 0 && !vtGliding;
+    if (!calm() || figureHidden()) return;
+    const q = lz.preparePieces();
+    if (!q.length) return;
+    prepBusy = true;
+    const run = () => {
+      if (!lobuleOn && diveT === 0 && morphTarget === 0 && (!calm() || figureHidden())) { prepIdle(run); return; }   // busy for now: later
+      if (lobuleOn || diveT > 0 || morphTarget !== 0 || !lz.prepareRun(q)) { prepBusy = false; return; }
+      prepIdle(run);
+    };
+    prepIdle(run);
+  }
   let catchUp = false, wAt = 0, widthEasing = false;
   function update(f) {
     inUpdate = true;
@@ -1838,6 +1860,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // The first framing waits for the patient (the first frames are drawn before it has loaded, without its
     // ascites or spleen), and the figure stays hidden until it is framed, so it appears once, in place.
     firstFrame();
+    prepLobule();
     const now = performance.now();
     // (Not while a move away from home is under way: its first frames still sit at home.)
     if (homeAt && morphTarget === 0 && !lobuleOn && diveT === 0 && now - homeCheck > 500 && sameView(vt, homeAt) && (!vtTarget || sameView(vtTarget, homeAt))) {
@@ -1847,10 +1870,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
   }
   function updateInner(f) {
-    blockerBoxes = readBlockers();
+    // In the lobule, or diving into it (the anatomy is only magnified, then covered), the plate is left as it is
+    // (reading the cards' boxes and restyling it each model frame stalled the zoom); it catches up on the way out.
+    const under = (lobuleOn || lz?.isOpen()) && !catchUp;
+    if (!under) blockerBoxes = readBlockers();
     F = f;
     lz?.update(f);
-    if (lz?.isOpen() && !catchUp) return;   // the plate is hidden under the lobule; it catches up on the way out
+    if (under) return;
     // Widths and coils ease toward their targets in time (~0.25 s), not per model update.
     const nowW = performance.now(), kW = -Math.expm1(-Math.min(0.1, (nowW - (wAt || nowW)) / 1000) / 0.25);
     wAt = nowW; widthEasing = false;
@@ -2625,6 +2651,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Hidden (the home page over the app), every organ would rasterize invisible: wait until the figure shows.
   const figureHidden = () => getComputedStyle(wrap).visibility === 'hidden';
   function platePoke() {
+    // Not while diving into the lobule (the anatomy is only magnified, then covered): once landed, under the lobule.
+    if (lobuleOn && !lz?.isOpen()) return;
     if (lvMoving || !veins || veins.lost || !glWanted(easeInOut(morph)) || figureHidden()) return;
     const key = plateStateKey();
     if (key === plateKey && veins.hasPlate(0)) return;
@@ -2642,7 +2670,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const wait = themed ? 0 : Math.max(0, 500 - (performance.now() - plateLast), 400 - (performance.now() - lvStillAt));
     clearTimeout(plateTimer);
     plateTimer = setTimeout(async () => {
-      if (figureHidden() || lvMoving) return;   // hidden or moving meanwhile: a later poke rasterizes
+      if (figureHidden() || lvMoving || (lobuleOn && !lz?.isOpen())) return;   // hidden, moving or diving meanwhile: a later poke rasterizes
       const k = plateStateKey();
       if (k === plateKey && veins?.hasPlate(0)) return;   // it changed and changed back
       plateBusy = true; plateLast = performance.now();
