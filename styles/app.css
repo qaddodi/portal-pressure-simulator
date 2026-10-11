@@ -2133,11 +2133,6 @@ button.finding:hover { background: var(--surface-2); }
 /* A row still computing shows "…" in its cells; when its patient arrives the numbers fade in. */
 .pz-table td.pend { color: var(--text-3); text-align: center; }
 .pz-table tr[data-arrived] td { animation: pz-fade .5s var(--ease) both; }
-/* A tablet in portrait: the words at the left as on a laptop, from the top, and the data card under them. */
-.pz.port .pz-text { bottom: auto; margin-block: 0; }
-.pz.port .pz-data, .pz.port .pz-data.has-tool { left: clamp(20px, calc(3.4vw / var(--vz)), 76px); right: auto; width: clamp(300px, calc(29vw / var(--vz)), 600px); }
-.pz.port .pz-data.pz-hide { transform: translateY(14px); }
-.pz.port .pz-data.tiles-only .pz-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 /* The visuals: a scale with thresholds, SAAG × protein, the two capillary walls. */
 .pz-visual { min-height: 0; display: flex; justify-content: center; }
 .pz-scale, .pz-walls { display: block; width: 100%; height: auto; max-height: calc(56vh / var(--vz)); overflow: visible; }
@@ -5011,8 +5006,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
 
 /* A data card squeezed by long words (an imported deck's long title, a tool and several tiles) scrolls rather than
    clip, the tool's tap chips put the name over the number when narrow, and a tile's rating wraps inside the tile. */
-.pz.port .pz-data, .pz-data.under { overflow-y: auto; overscroll-behavior: contain; }
-.pz.port .pz-data > *, .pz-data.under > * { flex: none; }
+.pz-data.under { overflow-y: auto; overscroll-behavior: contain; }
+.pz-data.under > * { flex: none; }
 .pz-tool .ab-lab { flex-wrap: wrap; row-gap: 0; min-width: 0; }
 .pzt-r { min-width: 0; hyphens: auto; overflow-wrap: break-word; }
 .pz.stack .pzt-r { font-size: clamp(11px, 9cqi, 15px); }

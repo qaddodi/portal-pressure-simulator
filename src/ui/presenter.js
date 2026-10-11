@@ -1326,17 +1326,16 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   };
 
   // ── Layout: what the slide's words and data cover, so the figure frames itself in the rest ──
-  // Only a phone stacks the words over the figure; a tablet in portrait keeps them at the left, with the data card under them.
+  // Only a phone stacks the words over the figure; a tablet (either way up) keeps the words at the left and the data card at the right.
   const phone = () => innerWidth < 700;
-  const tall = () => !phone() && innerWidth < innerHeight;
   function layout() {
     if (!ui) return;
     // Under interface zoom the page is scaled by k: rects are screen px, inline sizes are the page's own (screen / k).
     // The --pz-* insets stay in screen px, the figure's own units (the stage view undoes the zoom).
     const p = phone(), wr = wrap.getBoundingClientRect(), W = wr.width, H = wr.height, k = wr.width / (wrap.clientWidth || wr.width) || 1;
-    ui.root.classList.toggle('stack', p); ui.shade.classList.toggle('stack', p); ui.root.classList.toggle('port', tall());
+    ui.root.classList.toggle('stack', p); ui.shade.classList.toggle('stack', p);
     const off = (el) => el.hidden || el.classList.contains('pz-hide');
-    const below = !p && (ui.data.classList.contains('under') || tall());
+    const below = !p && ui.data.classList.contains('under');
     if (off(ui.data) || below) delete ui.data.dataset.safe; else ui.data.dataset.safe = p ? 'top' : 'right';
     const r = (el) => (off(el) ? null : el.getBoundingClientRect());
     const t = r(ui.text);
@@ -1482,7 +1481,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   // ── Swipe: a sideways swipe over the figure (one finger, mostly horizontal, over 60 px) goes on or back; pans
   // and pinches that are not mostly sideways stay with the figure, and nothing on a card counts. ──
   // (Touch events, not pointer events: the browser keeps its pans on the stage while presenting, which cancels pointers.)
-  // On a phone, pressing and holding on the figure (one finger, still, ~0.4 s) fades the cards away so the figure can be
+  // On a touch screen (phone or iPad), pressing and holding on the figure (one finger, still, ~0.4 s) fades the cards away so the figure can be
   // seen; letting go fades them back. Only a hold that starts on the figure counts (never on a card, the bar or the
   // sheet), and a hold never swipes. Opacity only, so the cards keep their boxes and the figure's framing and the credit hold still.
   let sw = null, holdT = 0, peeking = false;
@@ -1495,7 +1494,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const t = e.touches[0];
     sw = deck && e.touches.length === 1 && !e.target.closest?.('.stage-blocker') ? { x: t.clientX, y: t.clientY, t: performance.now() } : null;
     peek(false);
-    if (sw && phone() && ui && ui.panel.hidden && ui.jump.hidden && !black) holdT = setTimeout(() => { if (sw) { sw = null; peek(true); } }, 420);
+    if (sw && ui && ui.panel.hidden && ui.jump.hidden && !black) holdT = setTimeout(() => { if (sw) { sw = null; peek(true); } }, 420);
   }, { passive: true, capture: true });
   wrap.addEventListener('touchmove', (e) => {
     if (e.touches.length > 1) { sw = null; peek(false); return; }
