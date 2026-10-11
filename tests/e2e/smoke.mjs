@@ -404,35 +404,45 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (m.wide) throw new Error(`upright iPad presenter: ${m.wide} element(s) of the words overflow sideways`);
   });
 
-  await check(device, 'presenter: the controls hold one screen position on every slide, first and last included', async (page) => {
-    // The bar's box and each control's box are recorded on every slide of two decks, at each size (the desktop run also tries
-    // an upright iPad), and none may move by more than 1 px. (Next became Finish, and a phone's bar followed the card's kicker.)
+  await check(device, 'presenter: the controls never glide between slides, and keep their size and spacing, first and last included', async (page) => {
+    // Each slide of two decks, at each size (the desktop run also tries an upright iPad). The bar's size and the spacing of its
+    // controls are the same on every slide (Next turning into Finish moved them once). A bar centred at the bottom keeps one
+    // spot. A phone's bar follows the card's kicker line: it may change spot, but only by fading out, snapping and fading in,
+    // so every frame in which it shows is at the slide's old spot or its new one, never between.
     const sizes = device === 'desktop' ? [null, { width: 820, height: 1180 }] : [null];
     for (const size of sizes) for (const deck of ['circulation', 'lobule']) {
       if (size) await page.setViewportSize(size);
       await open(page);
       await page.evaluate((id) => window.pps.presenter.start(id, 0), deck);
       await page.waitForFunction(() => document.querySelector('#app').classList.contains('presenting') && !document.querySelector('.pz-cover'), null, { timeout: 60000 });
+      const phone = device === 'phone';
+      const where = `${deck} at ${size ? 'upright iPad' : device}`;
       const read = () => page.evaluate(() => {
-        const bar = document.querySelector('.pz-bar'), q = (el) => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map((v) => Math.round(v * 10) / 10); };
-        return { n: document.querySelector('.pzb-n')?.textContent.trim(), boxes: [q(bar), ...[...bar.children].filter((c) => !c.classList.contains('pzb-q')).map(q)] };
+        const bar = document.querySelector('.pz-bar'), b = bar.getBoundingClientRect(), q = (el) => { const r = el.getBoundingClientRect(); return [r.left - b.left, r.top - b.top, r.width, r.height].map((v) => Math.round(v * 10) / 10); };
+        return { n: document.querySelector('.pzb-n')?.textContent.trim(), at: [b.left, b.top], boxes: [[0, 0, b.width, b.height], ...[...bar.children].filter((c) => !c.classList.contains('pzb-q')).map(q)] };
       });
       let ref = null, slides = 0;
+      await page.waitForTimeout(1000);
       for (let guard = 0; guard < 80; guard++) {
-        await page.waitForTimeout(650);   // (the card's entry settled; the bar has none of its own)
         const cur = await read();
         if (!ref) ref = cur;
         else {
-          const sameShape = cur.boxes.length === ref.boxes.length;
-          const moved = !sameShape || cur.boxes.some((b, i) => b.some((v, j) => Math.abs(v - ref.boxes[i][j]) > 1));
-          if (moved) throw new Error(`${deck} at ${size ? 'upright iPad' : device}: the controls moved on slide ${cur.n} (${JSON.stringify(cur.boxes)} vs ${JSON.stringify(ref.boxes)})`);
+          if (cur.boxes.length !== ref.boxes.length || cur.boxes.some((b, i) => b.some((v, j) => Math.abs(v - ref.boxes[i][j]) > 1))) throw new Error(`${where}: the controls' size or spacing changed on slide ${cur.n} (${JSON.stringify(cur.boxes)} vs ${JSON.stringify(ref.boxes)})`);
+          if (!phone && Math.abs(cur.at[0] - ref.at[0]) > 1 || !phone && Math.abs(cur.at[1] - ref.at[1]) > 1) throw new Error(`${where}: the bar moved on slide ${cur.n} (${cur.at} vs ${ref.at})`);
         }
         slides++;
         const [a, b] = cur.n.split('/').map((x) => +x);
         if (a === b) break;
+        // Press Next while watching every frame of the bar until the next slide has settled.
+        await page.evaluate(() => { const bar = document.querySelector('.pz-bar'); window.__bs = []; const f = () => { const r = bar.getBoundingClientRect(); window.__bs.push([r.left, r.top, +getComputedStyle(bar).opacity]); window.__braf = requestAnimationFrame(f); }; f(); });
         await page.keyboard.press('ArrowRight');
+        await page.waitForTimeout(1050);
+        const seen = await page.evaluate(() => { cancelAnimationFrame(window.__braf); return window.__bs; });
+        const to = seen[seen.length - 1], from = seen[0], near = (p, q) => Math.abs(p[0] - q[0]) <= 1 && Math.abs(p[1] - q[1]) <= 1;
+        const glide = seen.find((p) => p[2] > 0.05 && !near(p, from) && !near(p, to));
+        if (glide) throw new Error(`${where}: the bar glided on the way to slide ${a + 1}: it showed at ${Math.round(glide[0])},${Math.round(glide[1])} between ${from.slice(0, 2).map(Math.round)} and ${to.slice(0, 2).map(Math.round)}`);
       }
-      if (slides < 5) throw new Error(`${deck}: only ${slides} slide(s) walked`);
+      if (slides < 5) throw new Error(`${where}: only ${slides} slide(s) walked`);
       await page.keyboard.press('Escape');
       await page.waitForFunction(() => !document.querySelector('#app').classList.contains('presenting'));
     }
