@@ -39,7 +39,7 @@ jobs:
 
   # The browser checks run alongside the deploy, not before it: a failure marks the run red
   # (so it is seen) but the preview is already published for testing on devices.
-  # Split over fourteen runners (desktop in four shares, phone in ten), filled by measured time, one check at a time per runner:
+  # Split over twenty runners (desktop in four shares, phone in sixteen), filled by measured time, one check at a time per runner:
   # a runner is too small to run several browsers at once.
   browser-checks:
     if: github.ref_name == 'main' || github.ref_name == 'claude/settings-topbar-icon-flvft1'
@@ -52,22 +52,28 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Desktop in four shares; phone in ten, since it also walks every slide of all decks.
+        # Desktop in four shares; phone in sixteen, since it also walks every slide of all decks.
         include:
           - { device: desktop, shard: '1/4' }
           - { device: desktop, shard: '2/4' }
           - { device: desktop, shard: '3/4' }
           - { device: desktop, shard: '4/4' }
-          - { device: phone, shard: '1/10' }
-          - { device: phone, shard: '2/10' }
-          - { device: phone, shard: '3/10' }
-          - { device: phone, shard: '4/10' }
-          - { device: phone, shard: '5/10' }
-          - { device: phone, shard: '6/10' }
-          - { device: phone, shard: '7/10' }
-          - { device: phone, shard: '8/10' }
-          - { device: phone, shard: '9/10' }
-          - { device: phone, shard: '10/10' }
+          - { device: phone, shard: '1/16' }
+          - { device: phone, shard: '2/16' }
+          - { device: phone, shard: '3/16' }
+          - { device: phone, shard: '4/16' }
+          - { device: phone, shard: '5/16' }
+          - { device: phone, shard: '6/16' }
+          - { device: phone, shard: '7/16' }
+          - { device: phone, shard: '8/16' }
+          - { device: phone, shard: '9/16' }
+          - { device: phone, shard: '10/16' }
+          - { device: phone, shard: '11/16' }
+          - { device: phone, shard: '12/16' }
+          - { device: phone, shard: '13/16' }
+          - { device: phone, shard: '14/16' }
+          - { device: phone, shard: '15/16' }
+          - { device: phone, shard: '16/16' }
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-browser

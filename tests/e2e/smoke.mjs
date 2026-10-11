@@ -648,7 +648,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
 
   // Every slide of every deck on a phone (390x844 and 375x667): the controls' pill sits fixed at the lower right, over none of
   // the words, no other card and no label, and each card starts with its title (see barFit).
-  // (Every deck at both sizes: CI splits the phone checks over ten runners so each stays well under its limit.)
+  // (Every deck at both sizes: CI splits the phone checks over sixteen runners so each stays well under its limit.)
   // (Slides with a live data card at the top once kept them at the slide before's spot, over the figure or the card.)
   if (device === 'phone') for (const deck of DECK_IDS) for (const size of [null, { width: 375, height: 667 }]) await check(device, `presenter: on every slide of ${deck}${size ? ' at 375x667' : ''} the controls' pill stays at the lower right, clear of the words`, async (page) => {
     if (size) await page.setViewportSize(size);
@@ -1556,7 +1556,7 @@ const weight = (name) => { const i = SLOW.indexOf(name); return i < 0 ? 0 : SLOW
 queue.sort((a, b) => weight(b[1]) - weight(a[1]));
 if (process.env.SMOKE_MATCH) { const match = new RegExp(process.env.SMOKE_MATCH, 'i'); for (let i = queue.length - 1; i >= 0; i--) if (!match.test(queue[i][1])) queue.splice(i, 1); }
 // Shards are filled by expected time, longest first, each check going to the least-loaded share
-// (times measured on CI runners; checks not listed count as 40 s, a deck walk as 70 s).
+// (times measured on CI runners; checks not listed count as 45 s, a deck walk as 3 min).
 const MEASURED = {
   'presenter in the liver: a slide change shows only the old and new slides\' labels, pills with their text': 125000,
   'presenter: lobule labels never touch, leaders never cross': 140000,
@@ -1570,7 +1570,7 @@ const MEASURED = {
   'circuit view, selection card, lenses': 38000,
   'action card is a compact sheet that keeps the vessel in view': 28000,
 };
-const expected = (name) => MEASURED[name] ?? (/^presenter: on every slide of /.test(name) ? 70000 : 40000);
+const expected = (name) => MEASURED[name] ?? (/^presenter: on every slide of /.test(name) ? 180000 : 45000);
 const [shard, shards] = (process.env.SMOKE_SHARD || '1/1').split('/').map(Number);
 const load = Array(shards).fill(0);
 const owner = new Map();
