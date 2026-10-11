@@ -119,9 +119,9 @@ DECKS.push(TWO_INFLOWS, PVT_CIRRHOSIS, SPLEEN, NCPH, OUTFLOW, RECOMPENSATION);
 
 // The unified menu lists the presentations by topic, in teaching order, under a short title (32 characters or fewer).
 export const TOPICS = [
-  ['foundations', 'Foundations', [['circulation', 'The portal circulation'], ['circuit', 'Pressure, flow and resistance'], ['two-inflows', 'The liver\'s two inflows']]],
+  ['foundations', 'Foundations', [['circulation', 'The portal circulation'], ['circuit', 'Pressure, flow and resistance'], ['two-inflows', 'The liver\'s two inflows'], ['hvpg', 'HVPG and PPG']]],
   ['causes', 'Causes', [['sites', 'Sites and causes'], ['prehepatic', 'Pre-hepatic PH'], ['ncph', 'Presinusoidal PH'], ['right-heart', 'The right heart and the liver'], ['outflow', 'When the liver cannot drain'], ['lobule', 'Inside the lobule']]],
-  ['measuring', 'Measuring', [['hvpg', 'HVPG and PPG'], ['doppler', 'Doppler of the portal system'], ['stiffness', 'Stiffness, spleen and platelets'], ['one-year', 'One patient, one year']]],
+  ['measuring', 'Measuring', [['doppler', 'Doppler of the portal system'], ['stiffness', 'Stiffness, spleen and platelets'], ['one-year', 'One patient, one year']]],
   ['complications', 'Complications', [['varices', 'Collaterals and varices'], ['endoscopy', 'Endoscopy and the varix'], ['variceal-bleed', 'Acute variceal bleeding'], ['ascites', 'Where ascites comes from'], ['tap', 'The tap and the albumin'], ['spleen', 'The spleen: size and treatment'], ['pvt-cirrhosis', 'Portal vein clot in cirrhosis'], ['recompensation', 'Decompensation and recovery']]],
   ['treatment', 'Treatment', [['treatment', 'Lowering portal pressure'], ['shunts', 'Shunts, made and spontaneous']]],
 ];
