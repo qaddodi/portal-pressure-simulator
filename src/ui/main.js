@@ -24,7 +24,7 @@ import { startLMS } from './lms.js?v=fca5c89200';
 import { APP_VERSION, CONTENT_VERSION, RELEASED, VALIDATION, AUTHOR, AUTHOR_URL } from '../version.js?v=1ecade66d2';
 import { toolsToVerbs, normalizeSel, shuntable, edgeValue } from './actions.js?v=6ac4d44543';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, velPos, heatCss, HEAT_MAX } from './colormap.js?v=7616551729';
-import { EDGES } from '../engine/topology.js?v=706a39d50b';
+import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js?v=706a39d50b';
 import { $, $$, h, icon, fmt, fmtFlow, toast, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, uiScale, repositionPopover, menuItem, svgIcon, enhanceRanges, systemEdge } from './util.js?v=045e641b44';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -532,7 +532,7 @@ function buildHud() {
   store.on('colorMode', () => { $('#colorModeLabel').textContent = COLOR_MODES[store.get().colorMode]; });
   bleedEl = $('#bleedPill');
   enhanceRanges();
-  tipEl = h('div', { class: 'hover-tip', style: { display: 'none' } });
+  tipEl = h('div', { class: 'hover-tip', 'aria-hidden': 'true' });
   view.append(tipEl);
   stageClock = h('div', { class: 'stage-clock', 'aria-hidden': 'true' });
   view.append(stageClock);
@@ -723,15 +723,19 @@ function hoverInfo(info) {
   const f = store.get().frame;
   const tool = store.get().tool;
   // A long press (info.peek) shows the readings on any screen, above the finger; hovering only where there is a pointer.
-  if (!info || !f || tool !== 'select' || store.get().shunting || (isPhone() && !info.peek) || store.get().imaging) { tipEl.style.display = 'none'; tipEl.classList.remove('peek'); return; }
+  if (!info || !f || tool !== 'select' || store.get().shunting || (isPhone() && !info.peek) || store.get().imaging) { tipEl.classList.remove('on'); return; }
   const e = EDGES[EI[info.id]], k = EI[info.id];
   const D = Math.max(0.5, f.D[k]) / 10;
   const v = f.Q[k] / (Math.PI * D * D / 4);
-  const r = (a, b) => h('div', { class: 'r' }, a, h('b', {}, b));
-  tipEl.replaceChildren(h('div', { class: 't' }, e.label),
-    r('Pressure', `${edgeValue(e, f, 'pressure', null).v} mmHg`), r('Flow', `${fmtFlow((f.Qf ? f.Qf[k] : f.Q[k]) * 0.06)} L/min`),
-    r('Velocity', `${fmt(v, 1)} cm/s`), r('Diameter', `${fmt(f.D[k], 1)} mm`), h('div', { class: 'hint' }, info.peek ? 'Tap for actions' : 'Click or right-click for actions'));
-  tipEl.style.display = '';
+  // Same language as the menu panel and the data card: tabular numbers, units smaller and muted.
+  const r = (a, n, u) => h('div', { class: 'r' }, h('span', { class: 'k' }, a), h('b', {}, n, h('span', { class: 'u' }, u)));
+  const art = e.kind === 'artery' || e.kind === 'arteriole';
+  const acc = art ? 'var(--artery)' : PORTAL_TERRITORY.has(e.from) || PORTAL_TERRITORY.has(e.to) ? 'var(--vein-portal)' : 'var(--vein-systemic)';
+  tipEl.style.setProperty('--acc', acc);
+  tipEl.replaceChildren(h('div', { class: 't' }, h('i', { class: 'dot' }), e.label),
+    h('div', { class: 'rows' }, r('Pressure', edgeValue(e, f, 'pressure', null).v, 'mmHg'), r('Flow', fmtFlow((f.Qf ? f.Qf[k] : f.Q[k]) * 0.06), 'L/min'),
+      r('Velocity', fmt(v, 1), 'cm/s'), r('Diameter', fmt(f.D[k], 1), 'mm')), h('div', { class: 'hint' }, info.peek ? 'Tap for actions' : 'Click or right-click for actions'));
+  tipEl.classList.add('on');
   tipEl.classList.toggle('peek', !!info.peek);
   const W = view.clientWidth, H = view.clientHeight, th = tipEl.offsetHeight, tw = tipEl.offsetWidth || 200;
   if (info.peek) {
