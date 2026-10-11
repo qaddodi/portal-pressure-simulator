@@ -20,10 +20,10 @@ import { download } from './records.js?v=50fb9dd463';
 import { SITES } from './ladder.js?v=18ecf24045';
 import { sinusoidSupported } from './sinusoid-view.js?v=c6a8f1cabe';
 import { NODES } from '../engine/topology.js?v=34e377149b';
-import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=97aaaa2398';
+import { DECKS, REGIONS, LEVELS, TOPICS, withOverview } from './decks.js?v=4e4ff7c066';
 import { createHvpgMonitor } from './hvpg-proc.js?v=649e6bbf50';
 import { createTools } from './presenter-tools.js?v=b822b8efd9';
-import { openHandout } from './handout.js?v=72df647b53';
+import { openHandout } from './handout.js?v=3c4d78c342';
 import { parseDeckSource, checkDeck } from './deck-source.js?v=8395c650cd';
 import { NO_ASC, TILE, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf } from './table-marks.js?v=782286edc3';
 
@@ -136,7 +136,7 @@ export function slideTargets(s, line = s.line || '') {
   const keys = new Set();
   for (const m of line.matchAll(/\[([^\]]+)\]\(([\w:]+)\)/g)) if (TARGETS[m[2]]) keys.add(m[2]);
   for (const [w, k] of termList(s)) if (new RegExp(`\\b(?:${w})\\b`, 'i').test(line)) keys.add(k);
-  const labels = [], terms = {}, glow = new Map(), organs = new Map(), res = new Map(), lit = new Set(), sites = new Set();
+  const labels = [], terms = {}, soft = new Set(), glow = new Map(), organs = new Map(), res = new Map(), lit = new Set(), sites = new Set();
   for (const k of keys) {
     const t = TARGETS[k];
     if (t.node) { labels.push(t.node); terms[t.node] = t.tone; }
@@ -150,12 +150,13 @@ export function slideTargets(s, line = s.line || '') {
   const at = new Map();
   (s.glow || []).forEach((g, i) => {
     const id = typeof g === 'string' ? g : g.id, tone = typeof g === 'string' ? null : g.tone, ms = s.glowSeq ? i * s.glowSeq : 0;
-    const add = (e, tn) => { glow.delete(e); glow.set(e, tn); if (ms) at.set(e, ms); };
+    // { id, soft: true }: a supporting vessel, lit more gently than the one the slide is about.
+    const add = (e, tn) => { glow.delete(e); glow.set(e, tn); if (ms) at.set(e, ms); if (g.soft) soft.add(e); else soft.delete(e); };
     if (TARGETS[id]) { const t = TARGETS[id]; if (t.lit) lit.add(id); if (t.res) res.set(t.res, tone || t.tone); for (const e of t.edges || []) add(e, tone || t.tone); if (t.organ) organs.set(t.organ, tone || t.tone); }
     else if (ORGANS.has(id)) organs.set(id, tone || TARGETS[id]?.tone);
     else add(id, tone || EDGE_TONE[id] || 'accent');
   });
-  return { labels, terms, glow: [...glow].map(([id, tone]) => ({ id, tone, at: at.get(id) || 0 })), organs: [...organs].map(([id, tone]) => ({ id, tone })), res: [...res].map(([id, tone]) => ({ id, tone })), lit: [...lit], sites: [...sites] };
+  return { labels, terms, glow: [...glow].map(([id, tone]) => ({ id, tone, at: at.get(id) || 0, soft: soft.has(id) || undefined })), organs: [...organs].map(([id, tone]) => ({ id, tone })), res: [...res].map(([id, tone]) => ({ id, tone })), lit: [...lit], sites: [...sites] };
 }
 // A live value pill ({pv}): the model's reading for this slide, rounded as its card shows it (the ladder's
 // stations in whole mmHg on a ladder slide).

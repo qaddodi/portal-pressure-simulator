@@ -1017,7 +1017,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // A presenter slide's glows (glow: [...] and its terms' vessels), each in its station's colour. Slide, focus and
   // Doppler glows are stronger and a little wider than a hover, so they read on a projector.
   const toneCol = (tone) => (tone.startsWith('--') ? `var(${tone})` : tone === 'accent' ? 'var(--accent)' : `var(--tr-${tone})`);
-  function setGlow(list) { setGlowSrc('slide', (list || []).map((g) => ({ id: g.id, col: toneCol(g.tone || 'accent'), amt: 1.5, wide: 1.2, at: g.at, dur: 500 }))); }
+  function setGlow(list) { setGlowSrc('slide', (list || []).map((g) => ({ id: g.id, col: toneCol(g.tone || 'accent'), amt: g.soft ? 0.75 : 1.5, wide: g.soft ? 1.05 : 1.2, at: g.at, dur: 500 }))); }
   // The hovered vessel glows softly in its own colour (and its lumen brightens a little, vh: tube row 9).
   // Each vessel's brightening eases in and out on its own, so moving from one vessel to the next cross-fades.
   const vh = { id: null, amt: new Map(), raf: 0, t: 0 };
