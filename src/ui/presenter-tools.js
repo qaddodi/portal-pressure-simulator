@@ -19,7 +19,7 @@
 import { store } from './store.js?v=5edd069b32';
 import { h, fmt, clamp } from './util.js?v=045e641b44';
 import { EDGES } from '../engine/topology.js?v=706a39d50b';
-import { createDoppler } from './doppler.js?v=a8f829ca25';
+import { createDoppler } from './doppler.js?v=66f1972443';
 import { createFibroScan } from './fibroscan.js?v=b4b6e62ca6';
 import { createPressureTime } from './pressure-time.js?v=a37b68e463';
 import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=831d9047a4';

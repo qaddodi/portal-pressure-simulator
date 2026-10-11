@@ -93,14 +93,18 @@ export function createDoppler({ onProbe }) {
   // The report
   const dirEl = h('b', { class: 'dop-dir' }, '—');
   const velEl = h('span', { class: 'dop-vel' }, h('b', {}, '—'), h('small', {}, 'cm/s mean'));
-  const rangeEl = h('span', { class: 'dop-range' });
+  // Normal-range gauge: a track with the usual band shaded and a marker for the current mean.
+  const bandEl = h('i', { class: 'dop-band' });
+  const markEl = h('i', { class: 'dop-mark' });
+  const gLo = h('span', { class: 'dop-g-lo' }); const gHi = h('span', { class: 'dop-g-hi' }); const gZero = h('span', { class: 'dop-g-zero' }, '0');
+  const rangeEl = h('div', { class: 'dop-range', hidden: true }, h('div', { class: 'dop-track' }, bandEl, markEl), h('div', { class: 'dop-ticks' }, gZero, gLo, gHi));
   const patternEl = h('div', { class: 'dop-pattern' });
   const noteEl = h('p', { class: 'dop-note' });
   const statEls = {};
   const stats = h('dl', { class: 'dop-stats' }, ['Peak', 'Trough', 'Pulsatility', 'CI'].map((k) => {
     const dd = h('dd', {}, '—'); const wrap = h('div', {}, h('dt', {}, k), dd); statEls[k] = { dd, wrap }; return wrap;
   }));
-  const report = h('div', { class: 'dop-report' }, dirEl, h('div', { class: 'dop-velrow' }, velEl, rangeEl), patternEl, stats, noteEl);
+  const report = h('div', { class: 'dop-report' }, dirEl, h('div', { class: 'dop-velrow' }, velEl, patternEl), rangeEl, stats, noteEl);
   const el = h('div', { class: 'dop', 'data-pane': 'doppler' },
     h('div', { class: 'dop-head' }, probeSel, h('div', { class: 'dop-btns' }, modeBtn, invBtn, sweepBtn)), h('div', { class: 'dop-main' }, box, report));
 
@@ -201,12 +205,39 @@ export function createDoppler({ onProbe }) {
     return { dir, sev, pattern, note, pi };
   }
 
+  // A tile value: the number, with its unit small beside it.
+  function setStat(dd, v, unit = '') {
+    const key = `${v}|${unit}`;
+    if (dd.dataset.v === key) return;
+    dd.dataset.v = key; dd.textContent = v;
+    if (unit) dd.append(' ', h('small', {}, unit));
+  }
+
+  // Place the normal band and the current mean on one scale: 0 to ~1.7x the top of the usual range, widened
+  // when the mean falls outside (reversed flow reaches below zero). The marker eases there with CSS.
+  function updateGauge(p, mean) {
+    if (!p.normal) { rangeEl.hidden = true; return; }
+    const [n0, n1] = p.normal;
+    const hi = Math.max(Math.round(n1 * 1.7), Math.ceil(mean * 1.1));
+    const lo = Math.min(0, Math.floor(mean * 1.1));
+    const pos = (v) => Math.max(0, Math.min(100, (v - lo) / (hi - lo) * 100));
+    rangeEl.hidden = false;
+    rangeEl.dataset.out = mean < n0 || mean > n1 ? 'true' : 'false';
+    bandEl.style.left = `${pos(n0)}%`; bandEl.style.width = `${pos(n1) - pos(n0)}%`;
+    markEl.style.left = `${pos(mean)}%`;
+    gZero.style.left = `${pos(0)}%`; gLo.style.left = `${pos(n0)}%`; gHi.style.left = `${pos(n1)}%`;
+    set2(gLo, String(n0)); set2(gHi, `${n1} cm/s`);
+    rangeEl.title = `Usual ${n0}–${n1} cm/s`;
+  }
+  const set2 = (e, t) => { if (e.textContent !== t) e.textContent = t; };
+
   function updateReport() {
     const r = reading();
     if (!r) {
       dirEl.textContent = frame?.clock === 'disease' ? 'Not available during time lapse' : 'Acquiring…'; dirEl.dataset.sev = '';
-      for (const e of [velEl.firstChild, rangeEl, patternEl, noteEl]) if (e.textContent) e.textContent = e === velEl.firstChild ? '—' : '';
-      for (const k in statEls) statEls[k].dd.textContent = '—';
+      rangeEl.hidden = true;
+      for (const e of [velEl.firstChild, patternEl, noteEl]) if (e.textContent) e.textContent = e === velEl.firstChild ? '—' : '';
+      for (const k in statEls) setStat(statEls[k].dd, '—');
       return;
     }
     const p = meta();
@@ -214,20 +245,20 @@ export function createDoppler({ onProbe }) {
     const set = (e, t) => { if (e.textContent !== t) e.textContent = t; };
     set(dirEl, it.dir); dirEl.dataset.sev = it.sev;
     set(velEl.firstChild, num(r.mean, Math.abs(r.mean) < 10 ? 1 : 0));
-    set(rangeEl, p.normal ? `Usual ${p.normal[0]}–${p.normal[1]} cm/s` : '');
+    updateGauge(p, r.mean);
     set(patternEl, it.pattern);
     // peak: the extreme farthest from zero, whichever the direction
     const [pk, tr] = Math.abs(r.vmax) >= Math.abs(r.vmin) ? [r.vmax, r.vmin] : [r.vmin, r.vmax];
-    set(statEls.Peak.dd, `${num(pk)} cm/s`);
-    set(statEls.Trough.dd, `${num(tr)} cm/s`);
-    set(statEls.Pulsatility.dd, fmt(it.pi, 2));
+    setStat(statEls.Peak.dd, num(pk), 'cm/s');
+    setStat(statEls.Trough.dd, num(tr), 'cm/s');
+    setStat(statEls.Pulsatility.dd, fmt(it.pi, 2));
     // Congestion index (portal vein): cross-sectional area / mean velocity, normal < 0.07 cm·s
     const isPV = probe === 'PV_TRUNK';
     statEls.CI.wrap.hidden = !isPV;
     if (isPV && frame) {
       const D = Math.max(0.5, frame.D[EI[probe]]) / 10, area = Math.PI * D * D / 4;
       const vm = Math.abs(r.mean) / dopplerK(EDGES[EI[probe]]);   // Moriyasu's index uses the mean across the lumen
-      set(statEls.CI.dd, vm > 0.3 ? `${fmt(area / vm, 2)} cm·s` : '—');
+      vm > 0.3 ? setStat(statEls.CI.dd, fmt(area / vm, 2), 'cm·s') : setStat(statEls.CI.dd, '—');
     }
     set(noteEl, it.note);
     const aria = `Spectral Doppler, ${EDGES[EI[probe]].label}, ${sweepSeconds}-second sweep: ${it.dir}, mean ${num(r.mean, 0)} centimeters per second, ${it.pattern}.`;
