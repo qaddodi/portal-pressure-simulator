@@ -1875,7 +1875,7 @@ button.finding:hover { background: var(--surface-2); }
 @keyframes pz-in { from { opacity: 0; transform: translateY(14px); } }
 .pz { position: absolute; inset: 0; z-index: var(--z-hud); pointer-events: none; color: var(--text); }
 /* A pane of frosted glass: a crisp edge with a hairline highlight and a soft shadow onto the figure. */
-.pz-shade { --pz-glass-edge: color-mix(in srgb, #fff 34%, transparent); --pz-glass-line: color-mix(in srgb, var(--text) 12%, transparent); --pz-glass-drop: rgb(0 0 0 / .16); position: absolute; left: 0; top: 0; bottom: 0; width: 0; z-index: var(--z-figure); pointer-events: none; background: color-mix(in srgb, var(--stage-bg) var(--pz-glass-tint, 56%), transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); box-shadow: inset -1px 0 0 var(--pz-glass-edge), 1px 0 0 var(--pz-glass-line), 10px 0 28px -6px var(--pz-glass-drop), 2px 0 6px -1px var(--pz-glass-drop); transition: width .45s var(--ease), height .45s var(--ease), opacity .3s var(--ease); }
+.pz-shade { --pz-glass-edge: color-mix(in srgb, #fff 34%, transparent); --pz-glass-line: color-mix(in srgb, var(--text) 12%, transparent); --pz-glass-drop: rgb(0 0 0 / .16); position: absolute; left: 0; top: 0; bottom: 0; width: 0; z-index: var(--z-figure); pointer-events: none; background: color-mix(in srgb, var(--stage-bg) var(--pz-glass-tint, 56%), transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); box-shadow: inset -1px 0 0 var(--pz-glass-edge), 1px 0 0 var(--pz-glass-line), 10px 0 28px -6px var(--pz-glass-drop), 2px 0 6px -1px var(--pz-glass-drop); transition: width .45s var(--ease), height .45s var(--ease), opacity .3s var(--ease), filter .4s var(--ease); }
 :root[data-theme="dark"] .pz-shade { --pz-glass-edge: color-mix(in srgb, #fff 14%, transparent); --pz-glass-line: rgb(0 0 0 / .5); --pz-glass-drop: rgb(0 0 0 / .42); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pz-shade { --pz-glass-edge: color-mix(in srgb, #fff 14%, transparent); --pz-glass-line: rgb(0 0 0 / .5); --pz-glass-drop: rgb(0 0 0 / .42); } }
 /* (Without a backdrop blur the words keep a plain backdrop of the page colour.) */
@@ -1893,7 +1893,7 @@ button.finding:hover { background: var(--surface-2); }
 @media (prefers-reduced-transparency: reduce) { .pz-data.pz-data { background: color-mix(in srgb, var(--surface) 96%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } .pz-data .pz-tile:not(.key) { background: var(--surface-2); } }
 .pz-safe { position: absolute; left: 0; top: 0; bottom: 0; width: 0; opacity: 0; pointer-events: none; }
 .pz.stack .pz-safe { right: 0; top: auto; bottom: 0; width: auto; }
-.pz-text { position: absolute; left: clamp(20px, calc(3.4vw / var(--vz)), 76px); top: clamp(20px, calc(8vh / var(--vz)), 110px); bottom: clamp(20px, calc(8vh / var(--vz)), 110px); height: fit-content; margin-block: auto; width: clamp(300px, calc(29vw / var(--vz)), 600px); max-height: calc(100% - 2 * clamp(20px, calc(8vh / var(--vz)), 110px)); display: flex; flex-direction: column; gap: clamp(10px, calc(2.3vh / var(--vz)), 30px); transition: opacity .22s var(--ease), transform .22s var(--ease); }
+.pz-text { position: absolute; left: clamp(20px, calc(3.4vw / var(--vz)), 76px); top: clamp(20px, calc(8vh / var(--vz)), 110px); bottom: clamp(20px, calc(8vh / var(--vz)), 110px); height: fit-content; margin-block: auto; width: min(calc(clamp(300px, calc(29vw / var(--vz)), 600px) * var(--pz-wk, 1)), calc(42vw / var(--vz))); max-height: calc(100% - 2 * clamp(20px, calc(8vh / var(--vz)), 110px)); display: flex; flex-direction: column; gap: clamp(10px, calc(2.3vh / var(--vz)), 30px); transition: opacity .22s var(--ease), transform .22s var(--ease), filter .4s var(--ease); }
 .pz-text.pz-leave, .pz-panel.pz-leave { opacity: 0; transform: translateY(-6px); }
 .pz-text.pz-enter > * { animation: pz-in .5s var(--ease) both; animation-delay: calc(min(var(--i, 0), 3) * 45ms + 60ms); }
 /* The data card comes in with the words (same pace, same start), never ahead of them. */
@@ -2403,8 +2403,8 @@ button.finding:hover { background: var(--surface-2); }
 .pz-lvl-div { display: flex; align-items: center; gap: 12px; margin: 16px 0 8px; font: 600 var(--fs-12)/1.2 var(--font-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
 .pz-lvl-div::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 .pz-lib > .pz-lvl-div:first-of-type { margin-top: 8px; }
-/* Projector contrast (P while presenting): larger words, thicker leaders, ratings as filled chips, a deeper shade. Organ art unchanged. */
-.app.pz-hi .pz:not(.stack) .pz-text { zoom: 1.15; }
+/* High contrast (P while presenting, or Settings): colour only, never a size. Stronger words, ratings as filled chips, a deeper shade. Organ art unchanged. */
+.app.pz-hi .pz-text { filter: contrast(1.3); }
 /* The opening slide: the talk's outline beside its objectives. */
 /* The opening slide: the talk's plan as a numbered run of sections, its objectives on a tinted card beside it
    (under it on a narrow screen). One type size for both lists; the numbers and ticks in the accent colour. */
@@ -2425,10 +2425,7 @@ button.finding:hover { background: var(--surface-2); }
 .pz.stack .pz-outline { --pzo-fs: 16px; gap: 14px; }
 .pz.stack .pzo-obj { padding: 12px 14px; border-radius: 14px; }
 .pz-panel[data-visual="outline"] { width: min(1180px, calc(100% - 2 * clamp(16px, calc(3vw / var(--vz)), 64px))); }
-.app.presenting.pz-hi #labels .leader { stroke-width: 2.5; }
-.app.presenting.pz-hi #labels .leader.hl, .app.presenting.pz-hi #labels .leader.focus { stroke-width: 3; }
-.app.presenting.pz-hi #labels .leader-dot { stroke-width: 2.2; }
-.app.pz-hi .pzl-lead { stroke-width: 2.6; opacity: .85; }
+.app.pz-hi .pzl-lead { opacity: .85; }
 .app.pz-hi .pzt-r { align-self: flex-start; padding: .22em .7em; border-radius: var(--r-pill); background: var(--text-2); color: var(--surface); transition: background-color .4s var(--ease), color .4s var(--ease); }
 .app.pz-hi .pzt-r::before { display: none; }
 .app.pz-hi .pz-tile[data-rate="hi"] .pzt-r { background: var(--danger); color: var(--stage-bg); }

@@ -80,6 +80,7 @@ const presenter = {
   stop: () => presenterL.now()?.stop(),
   readLink: () => (/#script=/.test(location.hash) ? presenterL.get().then((p) => p.readLink()) : false),
   active: () => !!presenterL.now()?.active(),
+  settings: () => presenterL.now()?.settings() ?? null,
 };
 
 async function main() {
@@ -139,7 +140,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else mainMenu.open(); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => mainMenu.open() });
-  presenterL = lazy(() => import('./presenter.js?v=af11d881e9'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=6d7e585664'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({
@@ -820,6 +821,7 @@ function openSettings(anchor) {
     h('div', { class: 'menu-title' }, t('menu.appearance')),
     h('div', { class: 'seg full menu-seg' }, [['light', t('menu.light')], ['dark', t('menu.dark')], ['system', t('menu.system')]].map(([v, l]) => { const b = h('button', { 'aria-pressed': String(cur === v) }, l); b.addEventListener('click', () => { applyTheme(v === 'system' ? null : v, v === 'system'); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }); return b; })),
     fullscreenControl(),
+    ...(talk ? presenterSettings() : []),
     h('div', { class: 'menu-title' }, 'Text size on the figure'),
     textSizeControl(),
     h('div', { class: 'menu-title' }, 'Interface zoom'),
@@ -840,6 +842,22 @@ function openSettings(anchor) {
       h('div', { class: 'menu-sep' }),
       menuItem(t('menu.reset'), { icon: 'reset', onClick: () => resetEverything() })]),
   ], { align: 'start', cls: 'app-menu' });
+}
+// While presenting: the words' panel width and high contrast (colour only; no size changes). A phone's panel spans the screen, so no width there.
+function presenterSettings() {
+  const ps = presenter.settings();
+  if (!ps) return [];
+  const out = [];
+  if (!ps.stacked) {
+    out.push(h('div', { class: 'menu-title' }, 'Panel width'),
+      h('div', { class: 'seg full menu-seg', role: 'group', 'aria-label': 'Panel width' }, [['narrow', 'Narrow'], ['medium', 'Medium'], ['wide', 'Wide']].map(([v, l]) => {
+        const b = h('button', { 'aria-pressed': String(ps.width === v) }, l);
+        b.addEventListener('click', () => { ps.setWidth(v); b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); });
+        return b;
+      })));
+  }
+  out.push(menuToggle(ps.contrast, 'projector', 'High contrast', 'Stronger text and a deeper shade; nothing changes size (P)', (on) => ps.setContrast(on)));
+  return out;
 }
 // Text size: smaller and larger in even steps, and the middle shows the size and resets it.
 const TEXT_STEPS = [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5, 1.75, 2];

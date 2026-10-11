@@ -11,7 +11,7 @@
 //
 // Keys (clickers send the same): → Page Down Space Enter next (during a time-lapse the first runs it to its end),
 // ← Page Up back, a number then Enter jumps, G the slide list, Home End, B or . black screen, F full screen, Q quiz,
-// P projector contrast, Esc. On a touch screen a sideways swipe over the figure goes on or back.
+// P high contrast, Esc. On a touch screen a sideways swipe over the figure goes on or back.
 
 import { store, replaceParams } from './store.js?v=9858da589a';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal } from './util.js?v=045e641b44';
@@ -667,9 +667,12 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   let want = 0, wantRev = false, shown = null, shownState = -1, busy = false, quiz = false, gen = 0;
   let ui = null, black = false, digits = '', digitT = 0;
   let saved = null, layersBefore = null;   // (the viewer's own lobule layers, put back when the show ends)
-  // Projector contrast (P): larger words and labels, thicker leaders, ratings as filled chips, a deeper shade. Remembered.
+  // High contrast (P, or Settings): a deeper shade, stronger text, ratings as filled chips. It changes colour only, never a size. Remembered.
   const PROJ = 'pps.projector';
   let hiCon = (() => { try { return localStorage.getItem(PROJ) === '1'; } catch { return false; } })();
+  // Panel width (Settings): the words' panel at its usual width (medium), narrower or wider. Remembered. A phone's panel spans the screen.
+  const PW = 'pps.pzWidth', PW_K = { narrow: 0.8, medium: 1, wide: 1.3 };
+  let pzWidth = (() => { try { const v = localStorage.getItem(PW); return PW_K[v] ? v : 'medium'; } catch { return 'medium'; } })();
 
   const all = () => [...DECKS, ...readMine().map(fromScript)];
   // An instructor's script (captured model states) as slides: its own titles and notes, the ladder beside.
@@ -1455,7 +1458,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   };
   // Projector-size labels on the figure, for the screen it is on (2 at 1080 lines).
   function setLabels() {
-    const k = (phone() ? 1.15 : clamp(Math.min(innerHeight / 540, innerWidth / 960), 1.25, 2.4)) * (hiCon && !phone() ? 1.15 : 1);
+    const k = (phone() ? 1.15 : clamp(Math.min(innerHeight / 540, innerWidth / 960), 1.25, 2.4));
     stage.setProjection(k);
     { const lv = String(Math.min(k, 2.2) * stage.labelScale()); document.documentElement.style.setProperty('--label-k', lv); document.documentElement.style.setProperty('--label-scale', lv); }
     labelling = true; dispatchEvent(new Event('pps:labelscale')); labelling = false;
@@ -1499,7 +1502,6 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       skip ? h('span', { class: 'pzb-skip', 'aria-hidden': 'true' }, '⏵ skip') : null,
       h('span', { class: 'pzb-sep' }),
       deck.slides.some((s) => s.quiz) ? h('button', { class: 'btn sm', 'aria-pressed': String(quiz), title: 'Quiz the room: ask first, reveal on the next click (Q)', onclick: toggleQuiz }, 'Quiz') : null,
-      h('button', { class: 'btn sm', 'aria-pressed': String(hiCon), title: 'Projector contrast: larger words, thicker lines, rating chips (P)', onclick: toggleProj }, 'Projector'),
       h('button', { class: 'ib', 'aria-label': 'Black screen', title: 'Black screen (B)', onclick: () => toggleBlack() }, icon('pause')),
       document.fullscreenEnabled ? h('button', { class: 'ib', 'aria-label': 'Full screen', title: 'Full screen (F)', onclick: fullscreen }, icon('fullscreen')) : null,
       gear(),
@@ -1520,11 +1522,27 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     toast(quiz ? 'Quiz: each level opens as a question; the next click reveals it.' : 'Quiz off.');
     gen++; shown = null; go(want, false);
   }
-  function toggleProj() {
-    hiCon = !hiCon;
+  function setContrast(on = !hiCon) {
+    hiCon = !!on;
     try { localStorage.setItem(PROJ, hiCon ? '1' : '0'); } catch { /* storage unavailable */ }
     app.classList.toggle('pz-hi', hiCon);
-    paintChrome(); onResize();
+    paintChrome();
+  }
+  const toggleProj = () => { setContrast(); toast(hiCon ? 'High contrast on.' : 'High contrast off.'); };
+  // The panel's width changes under cover: the words fade out, the panel takes its new width (the glass behind eases to it),
+  // and the words fade back in. Nothing jumps and nothing is measured mid-way.
+  let widthT = 0;
+  function setPanelWidth(w) {
+    if (!PW_K[w] || w === pzWidth) return;
+    pzWidth = w;
+    try { localStorage.setItem(PW, w); } catch { /* storage unavailable */ }
+    if (!ui) { app.style.setProperty('--pz-wk', String(PW_K[w])); return; }
+    const apply = () => { app.style.setProperty('--pz-wk', String(PW_K[pzWidth])); layout(); setLabels(); };
+    if (phone() || ui.text.hidden || reduce.matches) { apply(); return; }
+    clearTimeout(widthT);
+    const had = ui.text.classList.contains('pz-leave');
+    ui.text.classList.add('pz-leave');
+    widthT = setTimeout(() => { apply(); requestAnimationFrame(() => { if (!had) ui?.text.classList.remove('pz-leave'); }); }, 240);
   }
   function toggleBlack(on = !black) { black = on; ui?.black.classList.toggle('on', black); }
   function fullscreen() { if (document.fullscreenElement) document.exitFullscreen?.(); else document.documentElement.requestFullscreen?.().catch(() => {}); }
@@ -1753,6 +1771,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     document.getElementById('stage')?.dispatchEvent(new PointerEvent('pointerleave'));   // a hover lit as the deck starts clears
     getSelection()?.removeAllRanges?.();
     app.classList.toggle('pz-hi', hiCon);
+    app.style.setProperty('--pz-wk', String(PW_K[pzWidth]));
     ui = build();
     if (base) ui.ladder.setBase(base);
     setLabels();
@@ -1780,6 +1799,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     dispatchEvent(new Event('pps:labelscale'));
     if (document.fullscreenElement) document.exitFullscreen?.();
     app.classList.remove('presenting', 'pz-hi');
+    app.style.removeProperty('--pz-wk');
     projectorOff();
     dispatchEvent(new Event('pps:occ'));
     if (restore && saved) putHealthy(saved);
@@ -1903,5 +1923,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   }
   addEventListener('keydown', (e) => { if (classBar && e.key === 'Escape' && !deck) endCase(); });
 
-  return { start, stop, library, readLink, presentCase, active: () => !!deck };
+  return { start, stop, library, readLink, presentCase, active: () => !!deck,
+    // What Settings shows while presenting.
+    settings: () => ({ width: pzWidth, setWidth: setPanelWidth, contrast: hiCon, setContrast, stacked: phone() }) };
 }
