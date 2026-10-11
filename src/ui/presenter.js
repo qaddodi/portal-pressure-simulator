@@ -1328,6 +1328,39 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   // ── Layout: what the slide's words and data cover, so the figure frames itself in the rest ──
   // Only a phone stacks the words over the figure; a tablet (either way up) keeps the words at the left and the data card at the right.
   const phone = () => innerWidth < 700;
+  // ── The data card slides out of view and back ──
+  // Drag or swipe it away (up on a phone, to the right on a tablet; to the left when it sits under the words) and a sliver
+  // stays at the edge: a tap or a drag on the sliver brings it back. It follows the finger, eases to rest, and stays put from
+  // slide to slide until brought back. (Driven from script, frame by frame: the card is frosted glass.)
+  const GRIP = 34;
+  const dock = { lvl: 0, to: 0, raf: 0 };
+  const dockVec = () => {
+    const d = ui.data;
+    if (phone()) return [0, GRIP - (d.offsetTop + d.offsetHeight)];
+    if (d.classList.contains('under')) return [GRIP - (d.offsetLeft + d.offsetWidth), 0];
+    return [wrap.clientWidth - GRIP - d.offsetLeft, 0];
+  };
+  const dockPaint = () => {
+    if (!ui) return;
+    const [x, y] = dockVec();
+    ui.data.style.translate = dock.lvl ? `${(x * dock.lvl).toFixed(1)}px ${(y * dock.lvl).toFixed(1)}px` : '';
+    ui.data.classList.toggle('docked', dock.to === 1);
+  };
+  function dockTo(to, ms = 380) {
+    cancelAnimationFrame(dock.raf);
+    dock.to = to;
+    if (reduce.matches) ms = 0;
+    const from = dock.lvl, t0 = performance.now();
+    const step = (now) => {
+      const u = ms ? clamp((now - t0) / ms, 0, 1) : 1;
+      dock.lvl = from + (to - from) * ease(u);
+      dockPaint();
+      if (u < 1) dock.raf = requestAnimationFrame(step);
+    };
+    dock.raf = requestAnimationFrame(step);
+    layout();   // (the figure frames itself for where the card is going)
+    clearTimeout(dock.fit); dock.fit = setTimeout(() => ui && onResize(), 60);
+  }
   function layout() {
     if (!ui) return;
     // Under interface zoom the page is scaled by k: rects are screen px, inline sizes are the page's own (screen / k).
@@ -1342,6 +1375,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     // (Under the words: in the left column, clear of the bottom.)
     if (below && t) { const y = t.bottom - wr.top + 28; ui.data.style.top = `${Math.round(y / k)}px`; ui.data.style.maxHeight = `${Math.round((H - y - 24) / k)}px`; }
     else { ui.data.style.top = ''; ui.data.style.maxHeight = ''; }
+    const dv = ui.data.hidden ? [0, 0] : dockVec();
     const d = below ? null : r(ui.data);
     // The words sit on a frosted glass pane: the figure shows through it blurred, behind a crisp edge with a soft
     // shadow. The figure frames itself just past that shadow, so nothing it frames is hidden.
@@ -1357,9 +1391,10 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     ui.safe.style.height = p ? `${(B + 34) / k}px` : '';
     const set = (k, v) => app.style.setProperty(k, `${Math.max(0, Math.round(v))}px`);
     set('--pz-l', !p && t ? L + 48 : 0);
-    set('--pz-r', !p && d ? W - (d.left - wr.left) + 8 : 0);
-    set('--pz-t', p && d ? (ui.data.offsetTop + ui.data.offsetHeight) * k + 4 : 0);   // (offsets: a card coming in is still shifted by its entry transform)
+    set('--pz-r', !p && d ? W - (d.left - wr.left + (dock.to - dock.lvl) * dv[0] * k) + 8 : 0);   // (d.left is where the card is now; it is on its way to dock.to)
+    set('--pz-t', p && d ? (ui.data.offsetTop + ui.data.offsetHeight + dv[1] * dock.to) * k + 4 : 0);   // (offsets: a card coming in is still shifted by its entry transform)
     set('--pz-b', p && t ? B + 34 : 0);
+    if (!dock.drag) dockPaint();
     dispatchEvent(new Event('pps:occ'));
   }
   const onResize = () => {
@@ -1481,31 +1516,18 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   // ── Swipe: a sideways swipe over the figure (one finger, mostly horizontal, over 60 px) goes on or back; pans
   // and pinches that are not mostly sideways stay with the figure, and nothing on a card counts. ──
   // (Touch events, not pointer events: the browser keeps its pans on the stage while presenting, which cancels pointers.)
-  // On a touch screen (phone or iPad), pressing and holding on the figure (one finger, still, ~0.4 s) fades the cards away so the figure can be
-  // seen; letting go fades them back. Only a hold that starts on the figure counts (never on a card, the bar or the
-  // sheet), and a hold never swipes. Opacity only, so the cards keep their boxes and the figure's framing and the credit hold still.
-  let sw = null, holdT = 0, peeking = false;
-  const peek = (on) => {
-    clearTimeout(holdT);
-    if (on === peeking) return;
-    peeking = on; wrap.classList.toggle('pz-peek', on);
-  };
+  let sw = null;
   wrap.addEventListener('touchstart', (e) => {
     const t = e.touches[0];
     sw = deck && e.touches.length === 1 && !e.target.closest?.('.stage-blocker') ? { x: t.clientX, y: t.clientY, t: performance.now() } : null;
-    peek(false);
-    if (sw && ui && ui.panel.hidden && ui.jump.hidden && !black) holdT = setTimeout(() => { if (sw) { sw = null; peek(true); } }, 420);
   }, { passive: true, capture: true });
   wrap.addEventListener('touchmove', (e) => {
-    if (e.touches.length > 1) { sw = null; peek(false); return; }
-    const t = e.touches[0];
-    if (sw && Math.hypot(t.clientX - sw.x, t.clientY - sw.y) > 14) clearTimeout(holdT);
+    if (e.touches.length > 1) sw = null;
   }, { passive: true, capture: true });
-  wrap.addEventListener('touchcancel', () => { sw = null; peek(false); }, { passive: true, capture: true });
+  wrap.addEventListener('touchcancel', () => { sw = null; }, { passive: true, capture: true });
   wrap.addEventListener('touchend', (e) => {
     const g = sw, t = e.changedTouches[0]; sw = null;
-    const was = peeking; peek(false);
-    if (was || !g || !deck || !t || e.touches.length) return;
+    if (!g || !deck || !t || e.touches.length) return;
     const dx = t.clientX - g.x, dy = t.clientY - g.y;
     if (Math.abs(dx) > 60 && Math.abs(dx) > 1.6 * Math.abs(dy) && performance.now() - g.t < 700) { if (dx < 0) next(); else prev(); }
   }, { passive: true, capture: true });
@@ -1554,6 +1576,45 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
   }
   addEventListener('keydown', onKey, true);
 
+  // The card's own touch: along its axis it follows the finger (docking past half way or on a quick flick); a tap on the sliver opens it.
+  function dockTouch(el) {
+    let g = null;
+    const reset = () => { g = null; dock.drag = false; };
+    el.addEventListener('touchstart', (e) => {
+      if (e.touches.length !== 1 || !deck) { reset(); return; }
+      const t = e.touches[0], vec = dockVec(), k = wrap.getBoundingClientRect().width / (wrap.clientWidth || 1) || 1;
+      g = { x: t.clientX, y: t.clientY, t: performance.now(), lvl0: dock.lvl, vec, k, on: false, last: 0 };
+    }, { passive: true });
+    el.addEventListener('touchmove', (e) => {
+      if (!g) return;
+      if (e.touches.length > 1) { reset(); return; }
+      const t = e.touches[0], dx = t.clientX - g.x, dy = t.clientY - g.y, vert = !!g.vec[1];
+      const along = vert ? dy : dx, across = vert ? dx : dy, comp = vert ? g.vec[1] : g.vec[0];
+      if (!g.on) {
+        if (Math.abs(along) < 8 || Math.abs(across) > Math.abs(along) * 1.2) return;   // (not yet, or a cross-wise move: leave it)
+        g.on = true; dock.drag = true; cancelAnimationFrame(dock.raf);
+      }
+      if (e.cancelable) e.preventDefault();
+      g.dl = along / g.k / comp;
+      dock.lvl = clamp(g.lvl0 + g.dl, 0, 1);
+      (g.pts ||= []).push([performance.now(), along]);
+      dockPaint();
+    }, { passive: false });
+    el.addEventListener('touchend', (e) => {
+      const gg = g; reset();
+      if (!gg || e.touches.length) return;
+      const dt = performance.now() - gg.t;
+      if (gg.on) {
+        // A quick flick (over 0.5 px/ms across the last 100 ms, just before letting go) decides by its direction; otherwise how far it got.
+        const now = performance.now(), end = gg.pts.at(-1), from = gg.pts.find((q) => end[0] - q[0] <= 100) || end;
+        const v = end[0] > from[0] ? (end[1] - from[1]) / (end[0] - from[0]) : 0;
+        const flick = now - end[0] < 100 && Math.abs(v) > 0.5 ? Math.sign(v / gg.vec[gg.vec[1] ? 1 : 0]) : 0;   // (toward docking is +1)
+        dockTo(flick > 0 ? 1 : flick < 0 ? 0 : dock.lvl > 0.5 ? 1 : 0, 300);
+      } else if (dock.to === 1 && dt < 500) dockTo(0);
+    }, { passive: true });
+    el.addEventListener('touchcancel', () => { if (g?.on) dockTo(dock.to, 300); reset(); }, { passive: true });
+  }
+
   // ── Start and stop ──
   function build() {
     const ladder = bigLadder(), tiles = bigTiles();
@@ -1568,7 +1629,8 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       setTimeout(onResize, reduce.matches ? 0 : 380);
     } }, 'Show');
     const data = h('section', { class: 'pz-data stage-blocker pz-hide', 'data-safe': 'right', hidden: true, 'aria-label': 'The numbers' },
-      h('div', { class: 'pz-dh' }, dhT, dhL, fold), tools.el, ladder.el, tiles.el);
+      h('div', { class: 'pz-dh' }, dhT, dhL, fold), tools.el, ladder.el, tiles.el, h('span', { class: 'pz-grip', 'aria-hidden': 'true' }));
+    dockTouch(data);
     const veil = h('div', { class: 'pz-veil' }), panel = h('section', { class: 'pz-panel stage-blocker', hidden: true, 'aria-live': 'polite' });
     const count = h('div', { class: 'pz-count stage-blocker', 'aria-hidden': 'true' }), prog = h('div', { class: 'pz-prog', 'aria-hidden': 'true' }, h('i'));
     const bar = h('div', { class: 'pz-bar stage-blocker', role: 'toolbar', 'aria-label': 'Presenter' });
@@ -1660,7 +1722,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     waiters = [];
     removeEventListener('resize', onResize);
     store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
-    clearTimeout(idleT); clearTimeout(holdT); peeking = false; wrap.classList.remove('pz-peek');
+    clearTimeout(idleT); clearTimeout(dock.fit); cancelAnimationFrame(dock.raf); dock.lvl = 0; dock.to = 0; dock.drag = false;
     ui?.tools.dispose(); ui?.root.remove(); ui?.shade.remove(); ui = null;
     view.classList.remove('pz-out');
     for (const k of ['--pz-l', '--pz-r', '--pz-t', '--pz-b']) app.style.removeProperty(k);
