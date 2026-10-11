@@ -298,18 +298,37 @@ function bigLadder() {
   });
   // A gradient span: a bar with end caps from one station's column to another's, dotted leaders up to the two
   // station points, and a pill in the middle with its name (the numbers are in the tiles below).
-  const span = (name, row, i0, i1) => {
-    const x0 = X(i0), x1 = X(i1), w = name === 'HVPG' ? 78 : 66, mid = (x0 + x1) / 2;
+  const span = (name, row, i0, i1, XS = X, strip = false) => {
+    const x0 = XS(i0), x1 = XS(i1), w = (name === 'HVPG' ? 78 : 66) - (strip ? 14 : 0), mid = (x0 + x1) / 2, hh = strip ? 22 : 26;
     const lead = sv('path', { class: 'pzl-lead' }), bar = sv('path', { class: 'pzl-br', d: `M${x0} ${row - 5}V${row + 5}M${x1} ${row - 5}V${row + 5}M${x0} ${row}H${x1}` });
-    const pill = sv('rect', { class: 'pzl-pill', x: mid - w / 2, y: row - 13, width: w, height: 26, rx: 13 }), txt = sv('text', { class: 'pzl-bk', x: mid, y: row + 5, 'text-anchor': 'middle' }, name);
-    return { name, x0, x1, row, lead, pill, txt, w, mid, g: sv('g', { class: 'pzl-bg', opacity: 0 }, lead, bar, pill, txt) };
+    const pill = sv('rect', { class: 'pzl-pill', x: mid - w / 2, y: row - hh / 2, width: w, height: hh, rx: hh / 2 }), txt = sv('text', { class: 'pzl-bk', x: mid, y: row + 5, 'text-anchor': 'middle' }, name);
+    return { name, x0, x1, row, lead, pill, txt, w, mid, strip, g: sv('g', { class: 'pzl-bg', opacity: 0 }, lead, bar, pill, txt) };
   };
   const hv = span('HVPG', SPAN_Y.hvpg, 1, 2), pp = span('PPG', SPAN_Y.ppg, 0, 3);
+  // The phone's strip: the same five stations in one row, each its reading in a node, the fall to the next written on the
+  // connector between (its width and weight follow the size of the fall; the largest is named by colour, a fall over 4 in red),
+  // the two spans under them as on the ladder, then the station names and, dashed, the healthy reading.
+  const S = { W: 360, ny: 27, R: 16, hvpg: 64, ppg: 92, ly: 124, hy: 142, H: 150 }, XS = (i) => 36 + 72 * i;
+  const conns = [0, 1, 2, 3].map((i) => ({
+    line: sv('line', { class: 'pzs-c', x1: XS(i) + S.R + 3, x2: XS(i + 1) - S.R - 3, y1: S.ny, y2: S.ny }),
+    txt: sv('text', { class: 'pzs-d', x: (XS(i) + XS(i + 1)) / 2, y: S.ny - 11, 'text-anchor': 'middle' }),
+  }));
+  const spts = RUNGS.map(([, a], i) => {
+    const c = sv('circle', { cx: XS(i), cy: S.ny, r: S.R }), v = sv('text', { class: 'pzs-v', x: XS(i), y: S.ny + 6, 'text-anchor': 'middle' });
+    const hd = sv('line', { class: 'pzs-hd', x1: XS(i) - 9, x2: XS(i) + 9, y1: S.hy - 14, y2: S.hy - 14 }), hv0 = sv('text', { class: 'pzs-h', x: XS(i), y: S.hy, 'text-anchor': 'middle' });
+    return { g: sv('g', { class: 'pzs-pt' }, c, v), c, v, hd, hv0, k: sv('text', { class: 'pzs-k', x: XS(i), y: S.ly, 'text-anchor': 'middle' }, a) };
+  });
+  const hvS = span('HVPG', S.hvpg, 1, 2, XS, true), ppS = span('PPG', S.ppg, 0, 3, XS, true);
+  const strip = sv('svg', { class: 'pz-strip', viewBox: `0 0 ${S.W} ${S.H}`, role: 'img' },
+    hvS.g, ppS.g, conns.map((c) => [c.line, c.txt]), spts.map((p) => [p.g, p.k, p.hd, p.hv0]));
   const grid = TICKS.map((v) => {
     const line = sv('line', { x1: 44, x2: W - 10 }), txt = sv('text', { x: 34, 'text-anchor': 'end' }, String(v));
     return { v, line, txt, g: sv('g', { class: 'pzl-grid' }, line, txt) };
   });
-  const drawBase = () => base.setAttribute('d', baseVals ? RUNGS.map(([k], i) => `${i ? 'L' : 'M'}${X(i)} ${Y(baseVals[k]).toFixed(1)}`).join(' ') : '');
+  const drawBase = () => {
+    base.setAttribute('d', baseVals ? RUNGS.map(([k], i) => `${i ? 'L' : 'M'}${X(i)} ${Y(baseVals[k]).toFixed(1)}`).join(' ') : '');
+    spts.forEach((p, i) => { p.hv0.textContent = baseVals ? fmt(baseVals[RUNGS[i][0]], 0) : ''; p.hd.setAttribute('opacity', baseVals ? 1 : 0); });
+  };
   let verdict = {};
   const el = sv('svg', { class: 'pz-ladder', viewBox: `0 0 ${W} ${H}`, role: 'img' },
     sv('defs', {}, sv('linearGradient', { id: gid, x1: 0, x2: 1, y1: 0, y2: 0 }, sv('stop', { offset: 0, 'stop-color': 'var(--tour-portal)' }), sv('stop', { offset: 1, 'stop-color': 'var(--tour-sys)' }))),
@@ -326,6 +345,16 @@ function bigLadder() {
     const y = RUNGS.map(([k]) => Y(f[k]));
     line.setAttribute('d', y.map((yy, i) => `${i ? 'L' : 'M'}${X(i)} ${yy.toFixed(1)}`).join(' '));
     pts.forEach((p, i) => { p.c.setAttribute('cy', y[i].toFixed(1)); p.v.setAttribute('y', (y[i] - 18).toFixed(1)); p.v.textContent = fmt(f[RUNGS[i][0]], 0); });
+    // The strip: readings in the nodes, the fall on each connector (from the rounded readings, so it adds up).
+    const raw = conns.map((_, i) => Math.max(0, f[RUNGS[i][0]] - f[RUNGS[i + 1][0]])), most = Math.max(...raw);
+    spts.forEach((p, i) => { p.v.textContent = fmt(f[RUNGS[i][0]], 0); });
+    conns.forEach((c, i) => {
+      const n = Math.round(f[RUNGS[i][0]]) - Math.round(f[RUNGS[i + 1][0]]), big = most >= 2 && raw[i] === most;
+      c.line.setAttribute('stroke-width', (2 + Math.min(raw[i], 12) * 0.45).toFixed(2));
+      c.line.setAttribute('opacity', (0.4 + 0.6 * Math.min(raw[i] / 6, 1)).toFixed(2));
+      c.txt.textContent = n > 0 ? `−${n}` : n < 0 ? `+${-n}` : '0';
+      for (const e of [c.line, c.txt]) { e.classList.toggle('big', big); e.classList.toggle('fall', n > 4); }
+    });
     bands.forEach((b, i) => {
       const d = f[RUNGS[i][0]] - f[RUNGS[i + 1][0]];
       b.g.setAttribute('opacity', clamp((d - 4) / 3, 0, 1).toFixed(3));
@@ -339,24 +368,26 @@ function bigLadder() {
       const ok = Number.isFinite(hi) && Number.isFinite(lo) && Number.isFinite(v);
       b.g.setAttribute('opacity', ok ? 1 : 0);
       if (!ok) return;
-      b.lead.setAttribute('d', `M${b.x0} ${b.row - 9}V${(Y(hi) + 12).toFixed(1)}M${b.x1} ${b.row - 9}V${(Y(lo) + 12).toFixed(1)}`);
+      b.lead.setAttribute('d', b.strip ? `M${b.x0} ${b.row - 9}V${S.ny + S.R + 5}M${b.x1} ${b.row - 9}V${S.ny + S.R + 5}` : `M${b.x0} ${b.row - 9}V${(Y(hi) + 12).toFixed(1)}M${b.x1} ${b.row - 9}V${(Y(lo) + 12).toFixed(1)}`);
       const say = verdict[b.name.toLowerCase()];
       b.g.dataset.rate = say ? (say === 'misleads' ? 'hi' : 'ok') : rate;
       b.g.classList.toggle('says', !!say);
       const w = say ? b.w + 52 : b.w, label = say ? `${b.name} ${fmt(v, 1)}` : b.name;
       if (b.txt.textContent !== label) { b.txt.textContent = label; b.pill.setAttribute('x', b.mid - w / 2); b.pill.setAttribute('width', w); }
     };
-    put(hv, f.whvp, f.fhvp, f.hvpg, rateOf('hvpg', f)[0] || 'ok');
-    put(pp, f.pv, f.ivc, f.ppg, rateOf('ppg', f)[0] || 'ok');
-    el.setAttribute('aria-label', 'Pressure ladder: ' + RUNGS.map(([k, a]) => `${a} ${fmt(f[k], 0)}`).join(', ') + ' mmHg. '
-      + `HVPG ${fmt(f.hvpg, 1)}, PPG ${fmt(f.ppg, 1)} mmHg.`);
+    for (const b of [hv, hvS]) put(b, f.whvp, f.fhvp, f.hvpg, rateOf('hvpg', f)[0] || 'ok');
+    for (const b of [pp, ppS]) put(b, f.pv, f.ivc, f.ppg, rateOf('ppg', f)[0] || 'ok');
+    const say = 'Pressure ladder: ' + RUNGS.map(([k, a]) => `${a} ${fmt(f[k], 0)}`).join(', ') + ' mmHg. '
+      + `HVPG ${fmt(f.hvpg, 1)}, PPG ${fmt(f.ppg, 1)} mmHg.`;
+    el.setAttribute('aria-label', say); strip.setAttribute('aria-label', say);
   });
   return {
-    el,
+    el, strip,
     setBase(b) { baseVals = b; drawBase(); },
     set(f, { key = [], ms, brackets = null } = {}) {
       verdict = brackets || {};
       pts.forEach((p, i) => p.g.classList.toggle('key', key.includes(RUNGS[i][0])));
+      spts.forEach((p, i) => p.g.classList.toggle('key', key.includes(RUNGS[i][0])));
       const hi = Math.max(f.pv, f.whvp, f.fhvp, f.ra, f.ivc ?? f.ra, ...(baseVals ? RUNGS.map(([k]) => baseVals[k]) : []));
       const t = TOPS.find((v) => v >= hi + 1.5) || 50;
       draw({ top: t, ...Object.fromEntries(TICKS.map((v) => ['g' + v, wOf(v, t)])), pv: f.pv, whvp: f.whvp, fhvp: f.fhvp, ra: f.ra, ivc: f.ivc ?? f.ra, hvpg: f.hvpg, ppg: f.ppg }, ms);
@@ -1740,7 +1771,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       setTimeout(onResize, reduce.matches ? 0 : 380);
     } }, 'Show');
     const data = h('section', { class: 'pz-data stage-blocker pz-hide', 'data-safe': 'right', hidden: true, 'aria-label': 'The numbers' },
-      h('div', { class: 'pz-dh' }, dhT, dhL, fold), tools.el, ladder.el, tiles.el, h('span', { class: 'pz-grip', 'aria-hidden': 'true' }));
+      h('div', { class: 'pz-dh' }, dhT, dhL, fold), tools.el, ladder.el, ladder.strip, tiles.el, h('span', { class: 'pz-grip', 'aria-hidden': 'true' }));
     dockTouch(data);
     const veil = h('div', { class: 'pz-veil' }), panel = h('section', { class: 'pz-panel stage-blocker', hidden: true, 'aria-live': 'polite' });
     const count = h('div', { class: 'pz-count stage-blocker', 'aria-hidden': 'true' }), prog = h('div', { class: 'pz-prog', 'aria-hidden': 'true' }, h('i'));

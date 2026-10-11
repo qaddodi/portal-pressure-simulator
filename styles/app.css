@@ -1789,7 +1789,7 @@ button.finding:hover { background: var(--surface-2); }
 .pz-tile[data-rate="info"] .pzt-r::before { background: var(--text-3); }
 /* A visual slide: a panel over the dimmed figure. */
 /* Tiles alone (no ladder), bigger; a tile's change from an earlier slide; the time-lapse counter. */
-.pz-data.tiles-only .pz-ladder, .pz-data.tiles-only .pz-lg { display: none; }
+.pz-data.tiles-only .pz-ladder, .pz-data.tiles-only .pz-strip, .pz-data.tiles-only .pz-lg { display: none; }
 .pz-data.tiles-only .pz-tiles { grid-template-columns: minmax(0, 1fr); }
 .pz-data.tiles-only .pz-tiles[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .pz-data.tiles-only .pzt-v { font-size: min(clamp(32px, calc(5.6 * var(--pzh) / var(--vz)), 68px), 30cqi); }
@@ -2102,7 +2102,23 @@ button.finding:hover { background: var(--surface-2); }
 .pz.stack .pz-data.tool-lead .pz-tool[data-kind="scope"] .chart-box.square { width: 100%; height: auto; aspect-ratio: 1; max-width: none; }
 .pz.stack .pz-data.tool-lead .pz-tool[data-kind="scope"] .chart-side { flex: 1; min-width: 0; }
 .pz.stack .pz-data.tool-lead .pz-tool[data-kind="scope"] .endo-pos { display: none; }
-.pz.stack .pz-ladder { max-height: calc(21 * var(--pzh) / var(--vz)); }
+/* A phone's pressure card: the ladder becomes a strip (one row of stations, no axis or gridlines), shorter than the chart. */
+.pz-strip { display: none; width: 100%; height: auto; overflow: visible; }
+.pz.stack .pz-data > .pz-ladder { display: none; }
+.pz.stack .pz-data > .pz-strip { display: block; }
+.pz.stack .pz-data.tiles-only > .pz-strip, .pz.stack .pz-data.tool-only > .pz-strip { display: none; }
+.pzs-c { stroke: var(--text-3); stroke-linecap: round; transition: stroke .4s var(--ease); }
+.pzs-d { fill: var(--text-3); font: 600 13px var(--font-ui); font-variant-numeric: tabular-nums; transition: fill .4s var(--ease); }
+.pzs-c.big { stroke: var(--accent); } .pzs-d.big { fill: var(--accent); font-weight: 700; }
+.pzs-c.fall { stroke: var(--danger); } .pzs-d.fall { fill: var(--danger); }
+.pzs-pt circle { fill: var(--surface); stroke: var(--text-2); stroke-width: 2.4; transition: fill .4s var(--ease), stroke .4s var(--ease); }
+.pzs-v { fill: var(--text); font: 600 17px var(--font-ui); font-variant-numeric: tabular-nums; transition: fill .4s var(--ease); }
+.pzs-pt.key circle { fill: var(--accent); stroke: var(--accent); }
+.pzs-pt.key .pzs-v { fill: var(--on-accent); }
+.pzs-k { fill: var(--text-2); font: 700 14px var(--font-ui); }
+.pzs-h { fill: var(--text-3); font: 500 13px var(--font-ui); font-variant-numeric: tabular-nums; }
+.pzs-hd { stroke: var(--text-3); stroke-width: 2; stroke-dasharray: 4 3; transition: opacity .4s var(--ease); }
+.pz-strip .pzl-bk { font-size: 13px; }
 .pz.stack .pz-tile { padding: 6px 10px; }
 .pz.stack .pzt-v { font-size: min(24px, 30cqi); }
 /* (Centred in the figure above the Back/Next bar: top and bottom set, its own height, auto margins.) */
@@ -2166,7 +2182,7 @@ button.finding:hover { background: var(--surface-2); }
 .pz-ghost.on { opacity: 1; max-height: 3em; }
 .pz-ghost span { letter-spacing: .06em; text-transform: uppercase; font-size: .85em; }
 .pz-ghost b { color: var(--text-2); opacity: .7; font-variant-numeric: tabular-nums; }
-.pz-data.tool-only .pz-tiles, .pz-data.tool-only .pz-ladder, .pz-data.tool-only .pz-lg { display: none; }
+.pz-data.tool-only .pz-tiles, .pz-data.tool-only .pz-ladder, .pz-data.tool-only .pz-strip, .pz-data.tool-only .pz-lg { display: none; }
 .pz-tool .ab-main { display: block; }
 .pz-tool .ab-belly { width: clamp(68px, calc(10 * var(--pzh)), 120px); height: clamp(68px, calc(10 * var(--pzh)), 120px); }
 .pz-tool .ab-big > b { font-size: clamp(28px, calc(4.4 * var(--pzh)), 48px); }
