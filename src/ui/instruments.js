@@ -32,7 +32,7 @@ export function createEndoscopy({ onAction }) {
   const item = (cls, ...kids) => h('div', { class: cls }, ...kids);
   const stats = h('dl', { class: 'endo-read' },
     item('endo-chip', h('dt', {}, 'Bands placed'), bands),
-    item('endo-g', h('dt', { class: 'sr-only' }, 'Grade'), grade),
+    item('endo-g', h('dt', {}, 'Grade'), grade),
     item('endo-tile', h('dt', {}, 'Diameter'), diam),
     item('endo-tile', h('dt', {}, 'Wall thickness'), wall),
     item('endo-chip endo-red', h('dt', {}, 'Stigmata'), red));
@@ -50,7 +50,7 @@ export function createEndoscopy({ onAction }) {
     grade.dataset.sev = vx.grade.code === 'F1' ? 'caution' : vx.grade.code === '—' ? 'ok' : 'danger';
     set(diam, `${fmt(vx.d, 1)} mm`); set(wall, `${fmt(vx.w, 2)} mm`);
     const redV = vx.d < 2.5 ? 'None' : vx.redWale ? 'Red wale, cherry spots' : 'None';
-    set(red, redV); red.parentNode.dataset.on = String(redV !== 'None');
+    set(red, redV); if (redV === 'None') delete red.dataset.long; else red.dataset.long = ''; red.parentNode.dataset.on = String(redV !== 'None');
     const nb = String(Math.round(f.bands || 0));
     set(bands, nb); bands.parentNode.dataset.on = String(nb !== '0');
     draw(f, vx);
