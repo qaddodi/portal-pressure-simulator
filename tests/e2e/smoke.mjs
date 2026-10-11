@@ -518,7 +518,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     const sizes = device === 'desktop' ? [null, { width: 820, height: 1180 }] : [null];
     for (const size of sizes) {
       if (size) await page.setViewportSize(size);
-      for (const [deck, n] of [['circulation', 5], ['circulation', 6], ['two-inflows', 3]]) {
+      for (const [deck, n] of [['circulation', 5], ['circulation', 6], ['two-inflows', 3], ['lobule', 7]]) {
         await open(page, `?script=${deck}&slide=${n}`);
         await page.waitForFunction(() => [...document.querySelectorAll('.lz.on:not(.lz-cam):not(.lz-sin) .lz-lab, .sv-region')].filter((e) => !e.hidden && e.offsetParent).length >= 2);
         // Settled: the labels hold still across two looks a moment apart.
@@ -526,8 +526,11 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         for (let prev = '', i = 0; i < 6; i++) { await page.waitForTimeout(400); const now = await where(); if (now === prev) break; prev = now; }
         const bad = await page.evaluate(() => {
           const out = [];
-          for (const el of document.querySelectorAll('.lz.on:not(.lz-cam):not(.lz-sin) :is(.lz-lab, .lz-call.on), .sv-region')) {
+          for (const el of document.querySelectorAll('.lz.on:not(.lz-cam):not(.lz-sin) :is(.lz-lab, .lz-zone, .lz-call.on), .sv-region')) {
             if (el.hidden || !el.offsetParent) continue;
+            // (A name that is not lit on a presenter slide is drawn at no opacity: it cannot be seen to touch anything.)
+            const lit = (document.querySelector('#app').dataset.lit || '').split(' ');
+            if (el.matches('.lz-lab, .lz-zone') && lit.some((x) => x.startsWith('lobule:')) && !lit.includes(el.dataset.target)) continue;
             const b = el.getBoundingClientRect(), pill = getComputedStyle(el, '::before'), px = Math.max(0, -parseFloat(pill.left) || 0), py = Math.max(0, -parseFloat(pill.top) || 0);
             out.push({ n: el.textContent.trim().slice(0, 20), l: b.left - px, r: b.right + px, t: b.top - py, b: b.bottom + py });
           }
@@ -562,6 +565,34 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
         if (bad.length) throw new Error(`${deck} slide ${n} at ${page.viewportSize().width}px: ${bad.join('; ')}`);
       }
     }
+  });
+
+  await check(device, 'presenter lobule: the zone names and the lesion pill hold steady while the values ease', async (page) => {
+    // Congestion slide: the central vein's value eases in, so the labels are laid out again and again. The zone names
+    // used to be re-made on each pass (their lit pill flashed); the pill and its leader used to be free to change side.
+    await open(page, '?script=lobule&slide=7');
+    await page.waitForFunction(() => document.querySelector('.lz-call.on') && document.querySelector('.lz-zone.z3'), null, { timeout: 60000 });
+    const rows = await page.evaluate(async () => {
+      for (const z of document.querySelectorAll('.lz-zone')) z.dataset.mark = '1';
+      const op = (e) => { let o = 1; for (let n = e; n && n.nodeType === 1; n = n.parentElement) o *= +getComputedStyle(n).opacity; return o; };
+      const out = [], t0 = performance.now();
+      await new Promise((done) => {
+        const f = () => {
+          const call = document.querySelector('.lz-call'), line = document.querySelector('.lz-call-l'), z3 = document.querySelector('.lz-zone.z3'), b = call.getBoundingClientRect();
+          out.push({ t: performance.now() - t0, fresh: [...document.querySelectorAll('.lz-zone')].filter((z) => !z.dataset.mark).length, zones: document.querySelectorAll('.lz-zone').length,
+            call: [b.left, b.top], callO: op(call), line: [line.getAttribute('x2'), line.getAttribute('y2')].join(), lineO: op(line), pill: z3 ? op(z3) * +getComputedStyle(z3, '::before').opacity : 0 });
+          if (performance.now() - t0 < 6000) requestAnimationFrame(f); else done();
+        };
+        f();
+      });
+      return out;
+    });
+    if (rows.some((r) => r.fresh || r.zones !== 3)) throw new Error('the zone names were re-made while the slide was open');
+    const rest = rows.filter((r) => r.t > 3500);
+    for (const k of ['callO', 'lineO', 'pill']) if (rest.some((r) => r[k] < 0.9)) throw new Error(`${k} dipped to ${Math.min(...rest.map((r) => r[k])).toFixed(2)} after it had come in`);
+    const still = (f) => rest.every((r) => Math.hypot(f(r)[0] - f(rest[0])[0], f(r)[1] - f(rest[0])[1]) < 1.5);
+    if (!still((r) => r.call)) throw new Error('the lesion pill moved after it had settled');
+    if (!still((r) => r.line.split(',').map(Number))) throw new Error('the lesion leader moved after it had settled');
   });
 
   await check(device, 'lesson and case deep links', async (page) => {

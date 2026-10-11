@@ -907,6 +907,7 @@ export function createLobuleZoom({ host }) {
   }
   const hitKind = (key) => (key === 'ha' || key === 'bd' ? { part: key, tri: pick.triad } : key === 'triad' ? { part: 'triad', tri: pick.triad } : key === 'cv' ? { part: 'cv' } : key === 'lymph' ? { part: 'lv', tri: pick.lt ?? pick.triad } : { part: 'sin', tube: sinTube().id });
   // The lesion pointer: a pill near the spot, clear of the labels and cards, with a leader to a ring on it. Eases in and out.
+  let callPrev = null;
   function placeCall(fr, placed, cards, leads, crosses) {
     if (!callEl.isConnected) { labels.append(callEl); leaders.append(callLine, callRing); }
     const a = call && toScreen(anchorOf(call.at)), on = !!a && a[0] > fr.l && a[0] < fr.r && a[1] > fr.t && a[1] < fr.b;
@@ -916,18 +917,54 @@ export function createLobuleZoom({ host }) {
     const ov = (p, q) => Math.max(0, Math.min(p.r, q.r) - Math.max(p.l, q.l)) * Math.max(0, Math.min(p.b, q.b) - Math.max(p.t, q.t));
     const rr = Math.max(10, (call.at === 'triad' ? (geo.rt || 6) * 1.6 : (geo.rcv0 || 6) * 1.1) * V.k), spot = { l: a[0] - rr - 6, r: a[0] + rr + 6, t: a[1] - rr - 6, b: a[1] + rr + 6 };
     let best = null;
-    for (const r of [70, 100, 140]) for (let i = 0; i < 12; i++) {
-      const t = (i / 12) * Math.PI * 2 - Math.PI / 2;
-      const x = clamp(a[0] + Math.cos(t) * (r + w / 3), fr.l + w / 2 + pad, fr.r - w / 2 - pad), y = clamp(a[1] + Math.sin(t) * r, fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
+    // Where it sat last time (relative to the spot) is tried too and kept while it is still as good: a value easing or a
+    // label that moved a pixel never flips the pill to another side, and the leader with it.
+    const cands = [];
+    for (const r of [70, 100, 140]) for (let i = 0; i < 12; i++) { const t = (i / 12) * Math.PI * 2 - Math.PI / 2; cands.push([a[0] + Math.cos(t) * (r + w / 3), a[1] + Math.sin(t) * r, 0]); }
+    if (callPrev && callPrev.at === call.at) cands.push([a[0] + callPrev.dx, a[1] + callPrev.dy, 1]);
+    for (const [px, py, prev] of cands) {
+      const x = clamp(px, fr.l + w / 2 + pad, fr.r - w / 2 - pad), y = clamp(py, fr.t + hh / 2 + pad, fr.b - hh / 2 - pad);
       const box = { l: x - w / 2 - 6, r: x + w / 2 + 6, t: y - hh / 2 - 6, b: y + hh / 2 + 6 };
       const cost = placed.reduce((c, o) => c + (ov(box, o) > 0 ? 1e6 + ov(box, o) * 100 : 0) + (crosses(a, [x, y], o) ? 1e5 : 0), 0)
-        + leads.reduce((c, [p, q]) => c + (crosses(p, q, box) ? 1e5 : 0), 0) + ov(box, spot) * 200 + cards.reduce((c, o) => c + ov(box, o) * 400, 0) + Math.hypot(x - a[0], y - a[1]) * 0.5;
+        + leads.reduce((c, [p, q]) => c + (crosses(p, q, box) ? 1e5 : 0), 0) + ov(box, spot) * 200 + cards.reduce((c, o) => c + ov(box, o) * 400, 0) + Math.hypot(x - a[0], y - a[1]) * 0.5 - (prev ? 60 : 0);
       if (!best || cost < best.cost) best = { x, y, box, cost };
     }
-    placed.push(best.box);
+    placed.push(best.box); callPrev = { at: call.at, dx: best.x - a[0], dy: best.y - a[1] };
     callEl.style.left = `${best.x - w / 2}px`; callEl.style.top = `${best.y - hh / 2}px`;
     callLine.setAttribute('x1', a[0]); callLine.setAttribute('y1', a[1]); callLine.setAttribute('x2', best.x); callLine.setAttribute('y2', best.y);
     callRing.setAttribute('cx', a[0]); callRing.setAttribute('cy', a[1]); callRing.setAttribute('r', rr);
+  }
+  // Zone names written in the bands themselves, as the organs are named on the anatomy: quiet capitals in each
+  // zone's color, on the radius to the flat bottom edge, so each name runs along its band. The three elements are made
+  // once and only moved: re-making them at every layout (a value easing, a glide) restarted their lit pill each time,
+  // which showed as a flash. Returns each name's box on screen (its pill included), for the other labels to keep clear of.
+  const zoneEls = [];
+  function placeZones(fr0, hx, hy) {
+    if (!zonesOn) { while (zoneEls.length) zoneEls.pop().remove(); return []; }
+    const { R, cx, cy } = geo, a = Math.PI / 2, ap = R * 0.866, boxes = [];
+    [[0.83, 'Zone 1', 'periportal'], [0.51, 'Zone 2', 'midzonal'], [0.2, 'Zone 3', 'centrilobular']].forEach(([q, t, d], i) => {
+      let z = zoneEls[i];
+      if (!z) {
+        z = zoneEls[i] = h('div', { class: 'lz-zone z' + (i + 1), 'aria-hidden': 'true', 'data-target': `lobule:zone${i + 1}` }, h('b', {}, t), h('span', {}, d));
+        z.style.setProperty('--zk', '1');
+      }
+      if (!z.isConnected) labels.append(z);
+      // Its usual spot (on the radius to the flat bottom edge); if that is out of view, the nearest in-view spot
+      // of the same zone (the same ring, at the other five sides and corners), else clamped to the free edge.
+      const ring = [];
+      for (let k = 0; k < 6; k++) { const th = a + k * Math.PI / 3; ring.push([cx + Math.cos(th) * ap * q, cy + Math.sin(th) * ap * q], [cx + Math.cos(th + Math.PI / 6) * R * q * 0.95, cy + Math.sin(th + Math.PI / 6) * R * q * 0.95]); }
+      const inV = ([x, y]) => x > fr0.l + 40 && x < fr0.r - 40 && y > fr0.t + 20 && y < fr0.b - 20;
+      const mid = [(fr0.l + fr0.r) / 2, (fr0.t + fr0.b) / 2];
+      let [zx, zy] = toScreen(ring[0]);
+      if (!inV([zx, zy])) {
+        const ok = ring.map(toScreen).filter(inV).sort((u, v) => Math.hypot(u[0] - mid[0], u[1] - mid[1]) - Math.hypot(v[0] - mid[0], v[1] - mid[1]))[0];
+        if (ok) [zx, zy] = ok; else { zx = clamp(zx, fr0.l + 40, fr0.r - 40); zy = clamp(zy, fr0.t + 20, fr0.b - 20); }
+      }
+      z.style.left = `${zx}px`; z.style.top = `${zy}px`;
+      const w = z.offsetWidth || 92, hh = z.offsetHeight || 36;
+      boxes.push({ l: zx - w / 2 - hx, r: zx + w / 2 + hx, t: zy - hh / 2 - hy, b: zy + hh / 2 + hy });
+    });
+    return boxes;
   }
   function layoutLabels() {
     // Laid out where the presenter's glide lands (see camSettle), or once its time is up if the hand cut it short.
@@ -941,19 +978,11 @@ export function createLobuleZoom({ host }) {
     layoutKey = key; layoutV = vKey;
     pickAnchors(fr0);
     leaders.setAttribute('viewBox', `0 0 ${g.W} ${g.H}`);
-    const { R, cx, cy } = g;
     // Every label has a leader to what it names, ending at the label's centre, behind the text halo.
     // Score nearby placements together so zooming, panning and narrow screens do not stack labels.
     const fr = fr0, placed = [];
     const overlap = (a, b) => Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l))
       * Math.max(0, Math.min(a.b, b.b) - Math.max(a.t, b.t));
-    if (zonesOn) {
-      const ap = R * 0.866, zk = 1;   // (the zone names keep the one label size)
-      for (const q of [0.83, 0.51, 0.2]) {
-        const [x, y] = toScreen([cx, cy + ap * q]);
-        placed.push({ l: x - 46 * zk, r: x + 46 * zk, t: y - 18 * zk, b: y + 18 * zk });
-      }
-    }
     if (lymphOn) {
       // The lymph label follows whichever lymphatic is in view (the picked triad's first, else the one nearest the middle).
       const mx = (fr0.l + fr0.r) / 2, my = (fr0.t + fr0.b) / 2, edge = (p) => { const [x, y] = toScreen(p); return x > 0 && x < g.W && y > 0 && y < g.H; };
@@ -979,6 +1008,7 @@ export function createLobuleZoom({ host }) {
     const lk = parseFloat(document.documentElement.style.getPropertyValue('--label-k')) || 1, hm = 4 + 2 * lk,
       hx = Math.max(hm, 4 * lk + 5), hy = Math.max(hm, 5 * lk + 5);
     const hit = (a, b) => overlap(a, b) > 0;
+    placed.push(...placeZones(fr0, hx, hy));
     // Leaders run to each label's centre; a leader never crosses another label, and a label never sits on another's leader.
     const crosses = (p, q, b) => {
       let t0 = 0, t1 = 1;
@@ -1076,32 +1106,7 @@ export function createLobuleZoom({ host }) {
       L.line.setAttribute('x2', x); L.line.setAttribute('y2', y);
       L.dotEl.setAttribute('cx', a[0]); L.dotEl.setAttribute('cy', a[1]);
     }
-    // Zone names written in the bands themselves, as the organs are named on the anatomy: quiet capitals in each
-    // zone's color, on the radius to the flat bottom edge, so each name runs along its band.
     placeCall(fr, placed, cards, leads, crosses);
-    labels.querySelectorAll('.lz-zone').forEach((z) => z.remove());
-    if (zonesOn) {
-      const a = Math.PI / 2, ap = R * 0.866;
-      // In proportion to the lobule on screen (within limits, so they stay legible and never shout).
-      const zk = '1';
-      [[0.83, 'Zone 1', 'periportal'], [0.51, 'Zone 2', 'midzonal'], [0.2, 'Zone 3', 'centrilobular']].forEach(([q, t, d], i) => {
-        const z = h('div', { class: 'lz-zone z' + (i + 1), 'aria-hidden': 'true', 'data-target': `lobule:zone${i + 1}` }, h('b', {}, t), h('span', {}, d));
-        // Its usual spot (on the radius to the flat bottom edge); if that is out of view, the nearest in-view spot
-        // of the same zone (the same ring, at the other five sides and corners), else clamped to the free edge.
-        const ring = [];
-        for (let k = 0; k < 6; k++) { const th = a + k * Math.PI / 3; ring.push([cx + Math.cos(th) * ap * q, cy + Math.sin(th) * ap * q], [cx + Math.cos(th + Math.PI / 6) * R * q * 0.95, cy + Math.sin(th + Math.PI / 6) * R * q * 0.95]);
-        }
-        const inV = ([x, y]) => x > fr0.l + 40 && x < fr0.r - 40 && y > fr0.t + 20 && y < fr0.b - 20;
-        const mid = [(fr0.l + fr0.r) / 2, (fr0.t + fr0.b) / 2];
-        let [zx, zy] = toScreen(ring[0]);
-        if (!inV([zx, zy])) {
-          const ok = ring.map(toScreen).filter(inV).sort((u, v) => Math.hypot(u[0] - mid[0], u[1] - mid[1]) - Math.hypot(v[0] - mid[0], v[1] - mid[1]))[0];
-          if (ok) [zx, zy] = ok; else { zx = clamp(zx, fr0.l + 40, fr0.r - 40); zy = clamp(zy, fr0.t + 20, fr0.b - 20); }
-        }
-        z.style.left = `${zx}px`; z.style.top = `${zy}px`; z.style.setProperty('--zk', zk);
-        labels.append(z);
-      });
-    }
   }
 
   // ── Frame loop ──
