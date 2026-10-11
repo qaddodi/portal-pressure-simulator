@@ -126,7 +126,7 @@ void main() {
   // ── Nearest point of each vessel in this cell ──
   int n = 0;
   int sid[MAXS];
-  float sd[MAXS], sh[MAXS], sr[MAXS], su[MAXS], sx[MAXS], sv[MAXS];
+  float sd[MAXS], sh[MAXS], sr[MAXS], su[MAXS], sx[MAXS], sv[MAXS], sk[MAXS];
   vec2 sg[MAXS];
   int cur = -1;
   // bx: signed distance across the nearest segment's line (the lumen's across coordinate, also
@@ -147,12 +147,15 @@ void main() {
     if (id != cur) {
       if (cur >= 0 && min(bd, bs) < reach) {
         int slot = n;
+        // When the slots are full, the vessel that matters least here gives way: the farthest, a glowing one
+        // counting as nearer by its glow's width (or a crowded join, the hepatic veins' at the IVC, drops its glow in blocks).
+        float key = bd - (T(cur, 10).a > 0.0 ? 16.0 : 0.0);
         if (n == MAXS) {
           slot = 0;
-          for (int s = 1; s < MAXS; s++) if (sd[s] > sd[slot]) slot = s;
-          if (bd >= sd[slot]) slot = -1;
+          for (int s = 1; s < MAXS; s++) if (sk[s] > sk[slot]) slot = s;
+          if (key >= sk[slot]) slot = -1;
         } else n++;
-        if (slot >= 0) { sid[slot] = cur; sd[slot] = bd; sh[slot] = bs; sr[slot] = br; su[slot] = bu; sg[slot] = bg; sx[slot] = bx; sv[slot] = aW > 0.0 ? aU / aW : bu; }
+        if (slot >= 0) { sk[slot] = key; sid[slot] = cur; sd[slot] = bd; sh[slot] = bs; sr[slot] = br; su[slot] = bu; sg[slot] = bg; sx[slot] = bx; sv[slot] = aW > 0.0 ? aU / aW : bu; }
       }
       cur = id; bd = 1e9; bs = 1e9; aM = 1e9; aW = 0.0; aU = 0.0;
       if (id >= 0) { clip = T(id, 5); dotted = (int(T(id, 2).z + 0.5) & ${F_DOTTED}) != 0; }
@@ -264,6 +267,9 @@ void main() {
     float ends = (ge.x > 0.0 ? smoothstep(0.0, ge.x, sv[s] * Lh) : 1.0) * (ge.y > 0.0 ? smoothstep(0.0, ge.y, (1.0 - sv[s]) * Lh) : 1.0);
     float fall = 1.0 - smoothstep(0.0, 12.0 * clamp(ge.w, 1.0, 1.3), e);
     float gv = min(0.9, 0.6 * gc.a) * sa[s] * smoothstep(-0.6, 0.6, e) * fall * ends;
+    // None inside another lit vessel's lumen (the cava's two lengths, lit together): each band ends at the
+    // other's wall, so a lit vessel's round end does not show as a disc in the next one's lumen.
+    for (int t = 0; t < MAXS; t++) if (t != s && t < n && T(sid[t], 10).a > 0.0) gv *= smoothstep(-0.6, 0.6, sd[t] - swall[t]);
     if (gv > glow.a) glow = vec4((ge.z > 0.5 ? scol[s] : gc.rgb) * gv, gv);
   }
 
