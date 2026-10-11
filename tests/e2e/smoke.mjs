@@ -890,7 +890,7 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
     if (!fits) throw new Error('Blood button is clipped');
     await page.click('#btnBlood');
     const opts = await page.$$eval('.blood-pop .lens-opt .lens-t', (els) => els.map((e) => e.textContent));
-    if (opts.join('|') !== 'Streaks|Chevrons|Pressure values|Potential collaterals|Organ names') throw new Error(`the Blood menu offers ${opts.join(', ')}`);
+    if (opts.join('|') !== 'Streaks|Chevrons|Key chevrons only|Pressure values|Potential collaterals|Organ names') throw new Error(`the Blood menu offers ${opts.join(', ')}`);
     await page.keyboard.press('Escape');
     await page.evaluate(() => window.pps.store.set({ colorMode: 'origin', blood: { look: 'shimmer', chevrons: true } }));
     await page.waitForFunction(() => /Splenic vein|SV/.test(document.querySelector('#legend').textContent));
