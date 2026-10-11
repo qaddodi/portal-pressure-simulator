@@ -1428,7 +1428,10 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
       if (s.display === 'none' || s.position === 'absolute' || s.position === 'fixed') continue;
       if (s.maxHeight === '0px') continue;   // (a folded part, a phone's closed tool: its hidden contents are not overflow)
       const cz = parseFloat(s.zoom) || 1;
-      used += c.getBoundingClientRect().height / z + ((parseFloat(s.marginTop) || 0) + (parseFloat(s.marginBottom) || 0) + Math.max(0, c.scrollHeight - c.clientHeight)) * cz;
+      // (A part with a height cap clips by design, and mid-fold its clipped contents are not overflow either: counting them
+      // shrank the card while a phone's tool folded, and the shrunk fit then stuck.)
+      const clip = s.maxHeight !== 'none' ? 0 : Math.max(0, c.scrollHeight - c.clientHeight);
+      used += c.getBoundingClientRect().height / z + ((parseFloat(s.marginTop) || 0) + (parseFloat(s.marginBottom) || 0) + clip) * cz;
       n++;
     }
     used += (parseFloat(cs.rowGap) || 0) * Math.max(0, n - 1);
@@ -1790,7 +1793,7 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const fold = h('button', { class: 'pz-fold', type: 'button', 'aria-expanded': 'false', onclick: () => {
       const open = !data.classList.contains('tool-open');
       data.classList.toggle('tool-open', open); fold.setAttribute('aria-expanded', String(open)); fold.textContent = open ? 'Hide' : 'Show';
-      setTimeout(onResize, reduce.matches ? 0 : 380);
+      setTimeout(() => { fitDone.delete(data); onResize(); }, reduce.matches ? 0 : 400);
     } }, 'Show');
     const data = h('section', { class: 'pz-data stage-blocker pz-hide', 'data-safe': 'right', hidden: true, 'aria-label': 'The numbers' },
       h('div', { class: 'pz-dh' }, dhT, dhL, fold), tools.el, ladder.el, ladder.strip, tiles.el, h('span', { class: 'pz-grip', 'aria-hidden': 'true' }));

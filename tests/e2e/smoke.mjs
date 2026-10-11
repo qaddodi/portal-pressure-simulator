@@ -131,7 +131,7 @@ const cardGap = (page) => page.evaluate(() => {
   const bottom = b.bottom - d.clientTop - Math.max(...parts.map((c) => c.getBoundingClientRect().bottom));
   const fit = parseFloat(d.style.getPropertyValue('--pz-fit')) || 1;
   if (top > 12 || bottom > 12) return `the data card has ${Math.round(top)} px empty above and ${Math.round(bottom)} px below its contents (cap 12)`;
-  if (fit < 0.9) return `the data card's contents are shrunk to ${Math.round(fit * 100)} %`;
+  if (fit < 1) return `the data card's contents are shrunk to ${Math.round(fit * 100)} %`;
   return null;
 });
 
@@ -655,6 +655,17 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       if ((await barSettle(page)) !== 'ok') throw new Error(`${deck}, slide ${n}: ${await barFit(page) || 'the slide never settled'}`);
       const gap = await cardGap(page);
       if (gap) throw new Error(`${deck}, slide ${n}: ${gap}`);
+      // (A folding tool: Show then Hide must leave the card's contents at full size, as on arrival.)
+      const fold = page.locator('.pz-data:not(.pz-hide):not([hidden]) .pz-fold');
+      if (await fold.isVisible().catch(() => false)) {
+        for (const want of ['true', 'false']) {
+          await fold.click();
+          await page.waitForFunction((w) => document.querySelector('.pz-data .pz-fold')?.getAttribute('aria-expanded') === w, want);
+          await page.waitForTimeout(700);
+          const g = await cardGap(page);
+          if (g && (want === 'false' || g.includes('shrunk'))) throw new Error(`${deck}, slide ${n}, after ${want === 'true' ? 'Show' : 'Show then Hide'}: ${g}`);
+        }
+      }
       const [a, b] = n.split('/').map((x) => +x);
       if (a === b) break;
       // (On a time-lapse, Next first runs it to its end: press again until the slide changes.)
