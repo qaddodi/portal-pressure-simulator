@@ -836,10 +836,6 @@ function openSettings(anchor) {
       (() => { const sel = h('select', { class: 'select menu-select', 'aria-label': t('menu.language') }, LANGS.map(([v, l]) => h('option', { value: v, selected: currentLang() === v }, l))); sel.addEventListener('change', () => { setLang(sel.value); }); return sel; })(),
       h('div', { class: 'menu-title' }, t('menu.access')),
       menuToggle(narratorOn(), 'info', t('menu.narrator'), 'One line under the figure saying what it shows now', (on) => setNarrator(on)),
-      menuToggle(liteOn(), 'activity', 'Lite graphics', 'For slow computers without graphics hardware: the blood stops moving, everything else works. Reloads the page', (on) => {
-        try { localStorage.setItem('pps.lite', on ? '1' : '0'); } catch { /* storage unavailable */ }
-        setTimeout(() => location.reload(), 250);
-      }),
       menuToggle(store.get().showHvpg, 'gauge', 'Always show HVPG', 'Show the HVPG without measuring it first (Tests › HVPG)', (on) => {
         try { localStorage.setItem('pps.showHvpg', on ? '1' : '0'); } catch { /* storage unavailable */ }
         document.body.classList.remove('hvpg-swap'); void document.body.offsetWidth; document.body.classList.add('hvpg-swap');
@@ -983,8 +979,8 @@ new MutationObserver(() => { syncStatusBar(); setTimeout(syncStatusBar, 600); })
 function readLS(k) { try { return localStorage.getItem(k); } catch { return null; } }
 // Lite graphics: for computers that draw on the CPU (no usable GPU, e.g. a hospital virtual desktop),
 // where the moving blood cost most of the page's time. The figure keeps its SVG vessels without moving
-// blood (stage.js), and the figure and panels repaint a few times a second. Automatic unless set in Settings;
-// ?lite=1 or ?lite=0 forces it. Automated browsers (tests) stay on the full path unless asked.
+// blood (stage.js), and the figure and panels repaint a few times a second. Automatic only;
+// ?lite=1 or ?lite=0 forces it for testing. Automated browsers (tests) stay on the full path unless asked.
 function gpuOK() {
   try {
     const gl = document.createElement('canvas').getContext('webgl2', { failIfMajorPerformanceCaveat: true });
@@ -996,8 +992,11 @@ function gpuOK() {
 let liteMemo;
 function liteOn() {
   if (liteMemo !== undefined) return liteMemo;
-  const q = new URLSearchParams(location.search).get('lite'), pref = q ?? readLS('pps.lite');
-  return (liteMemo = pref === '1' || pref === '0' ? pref === '1' : !navigator.webdriver && !gpuOK());
+  // No Settings switch: on a computer with a GPU the WebGL figure is far faster than the SVG one, so
+  // lite only ever turns on by itself. A choice saved by an earlier switch is dropped.
+  try { localStorage.removeItem('pps.lite'); } catch { /* storage unavailable */ }
+  const q = new URLSearchParams(location.search).get('lite');
+  return (liteMemo = q === '1' || q === '0' ? q === '1' : !navigator.webdriver && !gpuOK());
 }
 // ── Patient chart, Treat card and instrument workspace ─
 // The chart is a card floating over the right of the figure (a bottom sheet on a phone), opened
