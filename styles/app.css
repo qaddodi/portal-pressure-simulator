@@ -1685,15 +1685,15 @@ button.finding:hover { background: var(--surface-2); }
 .lz.lz-drag { cursor: grabbing; }
 .lz-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .lz.lz-sin { pointer-events: none !important; }
-.lz.lz-sin :is(.lz-labels, .lz-leaders) { opacity: 0; transition: opacity .18s; }
+.lz.lz-sin .lz-leaders { opacity: 0; transition: opacity .18s; } .lz.lz-sin .lz-labels { --lab-o: 0; transition: --lab-o .18s; }
 /* One level deeper: the sinusoid view (sinusoid-view.js), over the lobule. */
 .sv { --label-k: var(--label-scale, 1); position: absolute; inset: 0; opacity: 0; visibility: hidden; pointer-events: none; z-index: var(--z-figure); touch-action: none; will-change: transform, opacity; }
 .sv.on { pointer-events: auto; }
 .sv-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.sv .lz-labels, .sv .lz-leaders { transition: opacity .6s var(--ease); }
-.sv-region { animation: sv-fade-in .6s var(--ease) both; transition: translate .4s var(--ease), scale .4s var(--ease); }   /* a name appears by fading in, never pops */
+.sv .lz-leaders { transition: opacity .6s var(--ease); } .sv .lz-labels { transition: --lab-o .6s var(--ease); }
+.sv-region > * { animation: sv-fade-in .6s var(--ease) both; } .sv-region { transition: translate .4s var(--ease), scale .4s var(--ease); }   /* a name appears by fading in, never pops */
 @keyframes sv-fade-in { from { opacity: 0; } }
-.sv:not(.on) :is(.lz-labels, .lz-leaders) { opacity: 0; }
+.sv:not(.on) .lz-leaders { opacity: 0; } .sv:not(.on) .lz-labels { --lab-o: 0; }
 /* Each part named in place, as the organs and the lobule's zones are: spaced small capitals on a halo, the reading beneath. */
 .sv-region { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; pointer-events: none; white-space: nowrap; line-height: 1.15; text-align: center;
   font: 650 calc(10px * var(--label-k, 1)) var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--text-2);
@@ -1703,8 +1703,8 @@ button.finding:hover { background: var(--surface-2); }
 .sv-region .v b { font-weight: 700; font-size: calc(12px * var(--label-k, 1)); color: var(--text); margin-right: 1px; }
 /* The fenestrae named as the cells are (small tinted capitals, the lining's slate), their state a quiet value beneath. */
 .sv-region-fen { --fen-ink: #56688A; font-size: calc(9px * var(--label-k, 1)); color: var(--fen-ink); gap: 2px; }
-.sv-region-fen > span:first-child { opacity: .9; }
-.sv-region-fen .v { font-size: calc(9.5px * var(--label-k, 1)); font-weight: 500; color: var(--text-2); opacity: .9; }
+.sv-region-fen > span:first-child { opacity: calc(.9 * var(--lab-o, 1)); }
+.sv-region-fen .v { font-size: calc(9.5px * var(--label-k, 1)); font-weight: 500; color: var(--text-2); opacity: calc(.9 * var(--lab-o, 1)); }
 .sv-region-fen .v { font-variant-numeric: tabular-nums; }
 .sv-region-fen .v b { font-size: calc(10px * var(--label-k, 1)); font-weight: 600; color: var(--text-2); margin-right: 2px; transition: opacity .26s var(--ease); }
 :root[data-theme="dark"] .sv-region-fen, :root[data-theme="dark"] .sv-lead-fen { --fen-ink: #B8C6E2; }
@@ -1716,12 +1716,12 @@ button.finding:hover { background: var(--surface-2); }
 .sv-region > span:first-child { white-space: pre-line; }
 /* As a journal figure (NEJM) sets its secondary names: the ends' venules are the Sinusoid's caption a size smaller and a
    little faded, and the cells are named small, in a faded tint of their own colour. */
-.sv-region.sv-end { font-size: calc(9.5px * var(--label-k, 1)); opacity: .78; }
+.sv-region.sv-end { font-size: calc(9.5px * var(--label-k, 1)); } .sv-region.sv-end > * { opacity: calc(.78 * var(--lab-o, 1)); }
 .sv-region.sv-end .v { font-size: calc(9px * var(--label-k, 1)); }
 .sv-region.sv-end .v b { font-size: calc(10.5px * var(--label-k, 1)); }
-.sv-region-hsc, .sv-region-hep { font-size: calc(9px * var(--label-k, 1)); opacity: .9; }
+.sv-region-hsc, .sv-region-hep { font-size: calc(9px * var(--label-k, 1)); } .sv-region-hsc > *, .sv-region-hep > * { opacity: calc(.9 * var(--lab-o, 1)); }
 .sv-region-hsc { color: #93603F; }
-.sv-region-kup { font-size: calc(8.5px * var(--label-k, 1)); color: #5E4690; opacity: .85; }
+.sv-region-kup { font-size: calc(8.5px * var(--label-k, 1)); color: #5E4690; } .sv-region-kup > * { opacity: calc(.85 * var(--lab-o, 1)); }
 :root[data-theme="dark"] .sv-region-kup { color: #D6C6F2; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .sv-region-kup { color: #D6C6F2; } }
 .sv-region-hep { color: #A0625A; }
@@ -1752,11 +1752,15 @@ button.finding:hover { background: var(--surface-2); }
 .sv-back span { font-size: 18px; line-height: 1; margin-top: -2px; }
 .sv-back:hover, .sv-back:focus-visible { border-color: var(--accent); outline: none; }
 .lz-field { z-index: var(--z-figure); pointer-events: none; opacity: 0; }
-.lz :is(.lz-labels, .lz-leaders) { opacity: var(--lz-chrome, 1); }
+.lz .lz-leaders { opacity: var(--lz-chrome, 1); } .lz .lz-labels { --lab-o: var(--lz-chrome, 1); }
+/* The labels fade through their children and glass, never as a whole: a faded ancestor would stop the frosted glass behind them seeing the figure (and the blur would pop on at full opacity). */
+@property --lab-o { syntax: '<number>'; inherits: true; initial-value: 1; }
+@property --pill-o { syntax: '<number>'; inherits: false; initial-value: 0; }
+.lz-labels > * > * { opacity: var(--lab-o, 1); }
 .lz-leaders .leader { stroke: color-mix(in srgb, var(--text) 55%, transparent); }   /* (the lobule's labels are called out on busy art: a firmer line than the anatomy's) */
 /* The presenter's camera gliding in the lobule: its labels ease out, and back in at their new places (lobule-zoom.js focusOn). */
-.lz.lz-cam :is(.lz-labels, .lz-leaders) { opacity: 0; transition: opacity .2s var(--ease); }
-.lz.lz-cam-in :is(.lz-labels, .lz-leaders) { transition: opacity .35s var(--ease); }
+.lz.lz-cam .lz-leaders { opacity: 0; transition: opacity .2s var(--ease); } .lz.lz-cam .lz-labels { --lab-o: 0; transition: --lab-o .2s var(--ease); }
+.lz.lz-cam-in .lz-leaders { transition: opacity .35s var(--ease); } .lz.lz-cam-in .lz-labels { transition: --lab-o .35s var(--ease); }
 .lz-leaders { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 .lz-labels { position: absolute; inset: 0; pointer-events: none; }
 .lz-labels.lz-ease .lz-lab { transition: left .4s var(--ease), top .4s var(--ease), box-shadow .5s var(--ease), background-color .5s var(--ease); }
@@ -1781,7 +1785,7 @@ button.finding:hover { background: var(--surface-2); }
   --hw: clamp(.8px, calc(1px * var(--label-k, 1)), 1.5px);
   -webkit-text-stroke: calc(var(--hw) * 2) var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; }
 :root[data-theme="dark"] .lz-zone b { font-weight: 700; }
-.lz-zone span { font-size: calc(8.5px * var(--label-k, 1) * var(--zk, 1)); font-weight: 600; letter-spacing: .08em; opacity: .8; }
+.lz-zone span { font-size: calc(8.5px * var(--label-k, 1) * var(--zk, 1)); font-weight: 600; letter-spacing: .08em; opacity: calc(.8 * var(--lab-o, 1)); }
 .lz-zone.z1 { --zc: rgb(186, 66, 48); } .lz-zone.z2 { --zc: rgb(150, 100, 32); } .lz-zone.z3 { --zc: rgb(96, 72, 182); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lz-zone.z1 { --zc: rgb(246, 140, 120); } :root:not([data-theme="light"]) .lz-zone.z2 { --zc: rgb(232, 186, 112); } :root:not([data-theme="light"]) .lz-zone.z3 { --zc: rgb(170, 150, 246); } }
 :root[data-theme="dark"] .lz-zone.z1 { --zc: rgb(246, 140, 120); } :root[data-theme="dark"] .lz-zone.z2 { --zc: rgb(232, 186, 112); } :root[data-theme="dark"] .lz-zone.z3 { --zc: rgb(170, 150, 246); }
@@ -3673,10 +3677,10 @@ button.finding:hover { background: var(--surface-2); }
 }
 /* Dark lobule labels: white names, values, units and zones on the anatomy's dark outline. */
 :root[data-theme="dark"] .lz :is(.lz-lab, .lz-lab .n, .lz-lab .v, .lz-lab .v b, .lz-lab small, .lz-lab .d, .lz-zone) { color: #fff; }
-:root[data-theme="dark"] .lz-zone span { opacity: 1; }
+:root[data-theme="dark"] .lz-zone span { opacity: var(--lab-o, 1); }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .lz :is(.lz-lab, .lz-lab .n, .lz-lab .v, .lz-lab .v b, .lz-lab small, .lz-lab .d, .lz-zone) { color: #fff; }
-  :root:not([data-theme="light"]) .lz-zone span { opacity: 1; }
+  :root:not([data-theme="light"]) .lz-zone span { opacity: var(--lab-o, 1); }
 }
 /* Phone: the lobule keeps the zoom controls where the anatomy view has them. */
 @media (max-width: 720px) {
@@ -4996,11 +5000,15 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: hvpgSwap .5s 
    It fades in over .7s, also when the label is first drawn during a dive. */
 .lz-lab, .lz-zone, .sv-region { isolation: isolate; --pill-y: calc(3px * var(--label-k, 1) + var(--hw, 1px) * 2); --pill-x: calc(6px * var(--label-k, 1) + var(--hw, 1px) * 2); }
 .lz-lab { --pill-y: calc(5px * var(--label-k, 1)); --pill-x: calc(4px * var(--label-k, 1)); }   /* on top of its own padding */
-:is(.lz-lab, .lz-zone, .sv-region)::before { content: ""; position: absolute; z-index: -1; inset: calc(-1 * var(--pill-y)) calc(-1 * var(--pill-x)); border-radius: 12px; background: color-mix(in srgb, var(--term-c, var(--accent)) 22%, var(--surface, #fff)); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); box-shadow: inset 0 0 0 2px var(--term-c, var(--accent)); opacity: 0; transition: opacity .7s var(--ease); pointer-events: none; }
+:is(.lz-lab, .lz-zone, .sv-region)::before { content: ""; position: absolute; z-index: -1; inset: calc(-1 * var(--pill-y)) calc(-1 * var(--pill-x)); border-radius: 12px; background: color-mix(in srgb, var(--term-c, var(--accent)) 22%, var(--surface, #fff)); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); box-shadow: inset 0 0 0 2px var(--term-c, var(--accent)); opacity: calc(var(--pill-o) * var(--lab-o, 1)); transition: --pill-o .7s var(--ease), background-color .7s var(--ease), box-shadow .7s var(--ease); pointer-events: none; }
 .lz-zone::before { inset: calc(-1 * var(--pill-y)) calc(-1 * var(--pill-x)) calc(-1 * var(--pill-y)) calc(-1 * var(--pill-x) + .12em); }   /* the trailing letter-spacing would make it lopsided */
 .sv-region::before { right: calc(-1 * var(--pill-x) + .12em); }
-:is(.lz-lab, .lz-zone, .sv-region):is(.app[data-lit~="lobule:triad"] [data-target="lobule:triad"], .app[data-lit~="lobule:arteriole"] [data-target="lobule:arteriole"], .app[data-lit~="lobule:ductule"] [data-target="lobule:ductule"], .app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"], .app[data-lit~="lobule:central"] [data-target="lobule:central"], .app[data-lit~="lobule:lymph"] [data-target="lobule:lymph"], .app[data-lit~="lobule:zone1"] [data-target="lobule:zone1"], .app[data-lit~="lobule:zone3"] [data-target="lobule:zone3"], .app[data-lit~="sinusoid:fenestrae"] [data-target="sinusoid:fenestrae"], .app[data-lit~="sinusoid:disse"] [data-target="sinusoid:disse"], .app[data-lit~="sinusoid:stellate"] [data-target="sinusoid:stellate"], .app[data-lit~="sinusoid:kupffer"] [data-target="sinusoid:kupffer"], .app[data-lit~="sinusoid:hepatocyte"] [data-target="sinusoid:hepatocyte"], .app[data-lit~="sinusoid:lymph"] [data-target="sinusoid:lymph"], .app[data-lit~="sinusoid:lumen"] [data-target="sinusoid:lumen"])::before { opacity: 1; animation: pill-in .7s var(--ease); }
-@keyframes pill-in { from { opacity: 0; } }
+:is(.lz-lab, .lz-zone, .sv-region):is(.app[data-lit~="lobule:triad"] [data-target="lobule:triad"], .app[data-lit~="lobule:arteriole"] [data-target="lobule:arteriole"], .app[data-lit~="lobule:ductule"] [data-target="lobule:ductule"], .app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"], .app[data-lit~="lobule:central"] [data-target="lobule:central"], .app[data-lit~="lobule:lymph"] [data-target="lobule:lymph"], .app[data-lit~="lobule:zone1"] [data-target="lobule:zone1"], .app[data-lit~="lobule:zone3"] [data-target="lobule:zone3"], .app[data-lit~="sinusoid:fenestrae"] [data-target="sinusoid:fenestrae"], .app[data-lit~="sinusoid:disse"] [data-target="sinusoid:disse"], .app[data-lit~="sinusoid:stellate"] [data-target="sinusoid:stellate"], .app[data-lit~="sinusoid:kupffer"] [data-target="sinusoid:kupffer"], .app[data-lit~="sinusoid:hepatocyte"] [data-target="sinusoid:hepatocyte"], .app[data-lit~="sinusoid:lymph"] [data-target="sinusoid:lymph"], .app[data-lit~="sinusoid:lumen"] [data-target="sinusoid:lumen"])::before { --pill-o: 1; background: color-mix(in srgb, var(--term-c, var(--accent)) 22%, var(--surface, #fff)); box-shadow: inset 0 0 0 2px var(--term-c, var(--accent)); animation: pill-in .7s var(--ease); }
+@keyframes pill-in { from { --pill-o: 0; } }
+/* Presenting: every label rests on the callout cards' frosted glass (a 58% tint, a 16px blur); lit, the pill above takes over in the term's colour. */
+.app.presenting :is(.lz-lab, .lz-zone, .sv-region)::before { --pill-o: 1; background: color-mix(in srgb, var(--surface) 58%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 10%, transparent); animation: pill-in .7s var(--ease); }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .app.presenting :is(.lz-lab, .lz-zone, .sv-region)::before { background: color-mix(in srgb, var(--surface) 94%, transparent); } }
+@media (prefers-reduced-transparency: reduce) { .app.presenting :is(.lz-lab, .lz-zone, .sv-region)::before { background: color-mix(in srgb, var(--surface) 96%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 .lz-lab .n, .lz-zone b, .sv-region > span:first-child { transition: color .5s var(--ease); }
 .lz-lab:is(.app[data-lit~="lobule:triad"] [data-target="lobule:triad"], .app[data-lit~="lobule:arteriole"] [data-target="lobule:arteriole"], .app[data-lit~="lobule:ductule"] [data-target="lobule:ductule"], .app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"], .app[data-lit~="lobule:central"] [data-target="lobule:central"], .app[data-lit~="lobule:lymph"] [data-target="lobule:lymph"], .app[data-lit~="lobule:zone1"] [data-target="lobule:zone1"], .app[data-lit~="lobule:zone3"] [data-target="lobule:zone3"], .app[data-lit~="sinusoid:fenestrae"] [data-target="sinusoid:fenestrae"], .app[data-lit~="sinusoid:disse"] [data-target="sinusoid:disse"], .app[data-lit~="sinusoid:stellate"] [data-target="sinusoid:stellate"], .app[data-lit~="sinusoid:kupffer"] [data-target="sinusoid:kupffer"], .app[data-lit~="sinusoid:hepatocyte"] [data-target="sinusoid:hepatocyte"], .app[data-lit~="sinusoid:lymph"] [data-target="sinusoid:lymph"], .app[data-lit~="sinusoid:lumen"] [data-target="sinusoid:lumen"]) .n { color: color-mix(in srgb, var(--term-c) 72%, var(--text)); font-weight: 700; }
 .lz-zone:is(.app[data-lit~="lobule:triad"] [data-target="lobule:triad"], .app[data-lit~="lobule:arteriole"] [data-target="lobule:arteriole"], .app[data-lit~="lobule:ductule"] [data-target="lobule:ductule"], .app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"], .app[data-lit~="lobule:central"] [data-target="lobule:central"], .app[data-lit~="lobule:lymph"] [data-target="lobule:lymph"], .app[data-lit~="lobule:zone1"] [data-target="lobule:zone1"], .app[data-lit~="lobule:zone3"] [data-target="lobule:zone3"], .app[data-lit~="sinusoid:fenestrae"] [data-target="sinusoid:fenestrae"], .app[data-lit~="sinusoid:disse"] [data-target="sinusoid:disse"], .app[data-lit~="sinusoid:stellate"] [data-target="sinusoid:stellate"], .app[data-lit~="sinusoid:kupffer"] [data-target="sinusoid:kupffer"], .app[data-lit~="sinusoid:hepatocyte"] [data-target="sinusoid:hepatocyte"], .app[data-lit~="sinusoid:lymph"] [data-target="sinusoid:lymph"], .app[data-lit~="sinusoid:lumen"] [data-target="sinusoid:lumen"]) b, .sv-region:is(.app[data-lit~="lobule:triad"] [data-target="lobule:triad"], .app[data-lit~="lobule:arteriole"] [data-target="lobule:arteriole"], .app[data-lit~="lobule:ductule"] [data-target="lobule:ductule"], .app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"], .app[data-lit~="lobule:central"] [data-target="lobule:central"], .app[data-lit~="lobule:lymph"] [data-target="lobule:lymph"], .app[data-lit~="lobule:zone1"] [data-target="lobule:zone1"], .app[data-lit~="lobule:zone3"] [data-target="lobule:zone3"], .app[data-lit~="sinusoid:fenestrae"] [data-target="sinusoid:fenestrae"], .app[data-lit~="sinusoid:disse"] [data-target="sinusoid:disse"], .app[data-lit~="sinusoid:stellate"] [data-target="sinusoid:stellate"], .app[data-lit~="sinusoid:kupffer"] [data-target="sinusoid:kupffer"], .app[data-lit~="sinusoid:hepatocyte"] [data-target="sinusoid:hepatocyte"], .app[data-lit~="sinusoid:lymph"] [data-target="sinusoid:lymph"], .app[data-lit~="sinusoid:lumen"] [data-target="sinusoid:lumen"]), .sv-region:is(.app[data-lit~="lobule:triad"] [data-target="lobule:triad"], .app[data-lit~="lobule:arteriole"] [data-target="lobule:arteriole"], .app[data-lit~="lobule:ductule"] [data-target="lobule:ductule"], .app[data-lit~="lobule:sinusoid"] [data-target="lobule:sinusoid"], .app[data-lit~="lobule:central"] [data-target="lobule:central"], .app[data-lit~="lobule:lymph"] [data-target="lobule:lymph"], .app[data-lit~="lobule:zone1"] [data-target="lobule:zone1"], .app[data-lit~="lobule:zone3"] [data-target="lobule:zone3"], .app[data-lit~="sinusoid:fenestrae"] [data-target="sinusoid:fenestrae"], .app[data-lit~="sinusoid:disse"] [data-target="sinusoid:disse"], .app[data-lit~="sinusoid:stellate"] [data-target="sinusoid:stellate"], .app[data-lit~="sinusoid:kupffer"] [data-target="sinusoid:kupffer"], .app[data-lit~="sinusoid:hepatocyte"] [data-target="sinusoid:hepatocyte"], .app[data-lit~="sinusoid:lymph"] [data-target="sinusoid:lymph"], .app[data-lit~="sinusoid:lumen"] [data-target="sinusoid:lumen"]) > span:first-child { color: color-mix(in srgb, var(--term-c) 72%, var(--text)); }
