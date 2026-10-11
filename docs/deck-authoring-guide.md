@@ -2,7 +2,7 @@
 
 Self-contained brief for an AI that writes new presenter decks **without seeing the code**. Everything here was read from the app's source on the preview branch `claude/settings-topbar-icon-flvft1` (commit `81c8c4e`, files `src/ui/decks.js`, `src/ui/decks/*.js`, `src/ui/presenter.js`, `src/ui/presenter-tools.js`, `src/engine/scenario.js`, `src/engine/topology.js`, `src/ui/anatomy.js`, `src/worker-core.js`). Use only the names listed here; an unknown key is silently ignored, an unknown target is silently dropped.
 
-Contents: 1 What a deck is · 2 Deck fields · 3 Slide fields · 4 The model state (patient, parameters, actions, time-lapse) · 5 The figure (views, camera, labels, glow, marks, sites, catheter) · 6 The words (live values, cut-offs, term pills) · 7 The data card (ladder, tiles, tools, visuals, compare) · 8 Catalogue (presets, parameters, stations, vessels, targets, tiles) · 9 Authoring rules · 10 Blank template · 11 Example deck · 12 Adding the deck to the app
+Contents: 1 What a deck is · 2 Deck fields · 3 Slide fields · 4 The model state (patient, parameters, actions, time-lapse) · 5 The figure (views, camera, labels, glow, marks, sites, catheter) · 6 The words (live values, cut-offs, term pills) · 7 The data card (ladder, tiles, tools, visuals, compare) · 8 Catalogue (presets, parameters, stations, vessels, targets, tiles) · 9 Authoring rules · 10 Blank template · 11 Example deck · 12 Adding the deck to the app  · 13 Importing in the app
 
 ---
 
@@ -574,3 +574,34 @@ export const CLOT_DEMO = {
 7. **Test on the preview:** Present menu → pick the deck. In the app: ←/→ step, Q toggles quiz mode, P toggles projector contrast.
 
 **Alternative with no code:** an instructor can capture slides inside the app (stored in the browser as "Yours"); those support only `preset, presetDays, params, action, days, view, cam, kicker, title, line, causes, site, notes, ask, key` and always show the ladder. Full decks need the file route above.
+
+---
+
+## 13. Importing in the app (what the in-app import accepts)
+
+**A full deck file (sections 2 to 11) cannot be imported in the app.** Menu › Present › "Your scripts" › **Import** reads a `.json` file (a file picker only; there is no paste box), and a shared link `…/#script=<encoded>` adds the same kind of script to the recipient's library. Both accept a **script**, which is a different, smaller format, stored in the browser (`pps.scripts`) on that device only.
+
+Script file (`*.pps-script.json`):
+
+```json
+{
+  "title": "My script",                       // required
+  "summary": "One sentence.",                 // optional; objectives, minutes, level are kept if present
+  "steps": [                                  // required array; each step becomes one slide
+    {
+      "title": "Slide headline", "kicker": "Group", "line": "One sentence.",
+      "notes": "Speaker notes.", "ask": ["Question?", "Answer."],
+      "preset": "cirr-decomp", "presetDays": 0,
+      "params": { "drugs": { "carvedilol": true } }, "action": { "kind": "band" }, "days": 30,
+      "view": "anatomic", "cam": "portal",
+      "causes": ["…"], "site": "sin", "key": ["hvpg", "ppg"]
+    }
+  ]
+}
+```
+
+* Only those step fields are read (`preset presetDays params action days view cam kicker title line causes site notes ask key`; `tell` works as an alias of `notes`). Everything else is **dropped silently**: `labels terms glow mark tiles tool visual compare lapse ramp cath sites layers callout eq delta` and the `{live value}` / `[term](target)` markup (shown as plain text).
+* Every imported slide shows the pressure ladder (`data: 'ladder'`) beside the figure, and the camera is `'fit'` on the circuit view.
+* Import adds a copy each time with a new id (`my-…`) and never overwrites; "Export" in the same menu writes this format. The deck's Outline slide is added automatically, as for built-in decks.
+
+**Therefore:** to give another person or AI-written deck the full features (term pills, live values, marks, tools, visuals, time-lapses), it must be added as a code deck (section 12). Use the script format only for quick, ladder-only slides. **Gap:** there is no importer for the full deck format; adding one would need an app change.
