@@ -1884,13 +1884,16 @@ button.finding:hover { background: var(--surface-2); }
 /* The data card is the same glass: see-through tint, the same blur, crisp edge with a hairline highlight, soft shadow. */
 .pz-data.pz-data { --pz-glass-edge: color-mix(in srgb, #fff 45%, transparent); --pz-glass-drop: rgb(0 0 0 / .14); background: color-mix(in srgb, var(--surface) 58%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.15); backdrop-filter: blur(16px) saturate(1.15); border-color: color-mix(in srgb, var(--text) 10%, transparent); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); }
 /* The blocks stand out from the glass: a fill a shade toward the text colour (darker in light, lighter in dark) and a hairline edge. */
-.pz-data .pz-tile:not(.key) { background: color-mix(in srgb, color-mix(in srgb, var(--surface-2) 88%, var(--text)) 72%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 11%, transparent); }
+/* Tiles sit lighter than the glass around them in light mode, darker in dark mode. */
+.pz-data .pz-tile:not(.key) { background: color-mix(in srgb, #fff 78%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent); }
+:root[data-theme="dark"] .pz-data .pz-tile:not(.key) { background: color-mix(in srgb, #000 30%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, #fff 7%, transparent); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pz-data .pz-tile:not(.key) { background: color-mix(in srgb, #000 30%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, #fff 7%, transparent); } }
 :root[data-theme="dark"] .pz-data.pz-data { --pz-glass-edge: color-mix(in srgb, #fff 12%, transparent); --pz-glass-drop: rgb(0 0 0 / .45); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pz-data.pz-data { --pz-glass-edge: color-mix(in srgb, #fff 12%, transparent); --pz-glass-drop: rgb(0 0 0 / .45); } }
 /* A faint halo of the page colour keeps the words crisp over a busy figure. */
 .pz-text, .pz-data { text-shadow: 0 0 10px color-mix(in srgb, var(--stage-bg) 55%, transparent); }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .pz-data.pz-data { background: color-mix(in srgb, var(--surface) 96%, transparent); } }
-@media (prefers-reduced-transparency: reduce) { .pz-data.pz-data { background: color-mix(in srgb, var(--surface) 96%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } .pz-data .pz-tile:not(.key) { background: var(--surface-2); } }
+@media (prefers-reduced-transparency: reduce) { .pz-data.pz-data { background: color-mix(in srgb, var(--surface) 96%, transparent); -webkit-backdrop-filter: none; backdrop-filter: none; } .pz-data.pz-data { background: var(--surface-2); } .pz-data .pz-tile:not(.key) { background: var(--surface); } }
 .pz-safe { position: absolute; left: 0; top: 0; bottom: 0; width: 0; opacity: 0; pointer-events: none; }
 .pz.stack .pz-safe { right: 0; top: auto; bottom: 0; width: auto; }
 .pz-text { position: absolute; left: clamp(20px, calc(3.4vw / var(--vz)), 76px); top: clamp(20px, calc(8vh / var(--vz)), 110px); bottom: clamp(20px, calc(8vh / var(--vz)), 110px); height: fit-content; margin-block: auto; width: min(calc(clamp(300px, calc(29vw / var(--vz)), 600px) * var(--pz-wk, 1)), calc(42vw / var(--vz))); max-height: calc(100% - 2 * clamp(20px, calc(8vh / var(--vz)), 110px)); display: flex; flex-direction: column; gap: clamp(10px, calc(2.3vh / var(--vz)), 30px); transition: opacity .22s var(--ease), transform .22s var(--ease), filter .4s var(--ease); }
@@ -1997,6 +2000,17 @@ button.finding:hover { background: var(--surface-2); }
 .pz-data.under.pz-hide { transform: translateY(14px); }
 .pz-data.under.tiles-only .pz-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .pz-data.under.tiles-only .pzt-v { font-size: min(clamp(30px, calc(5vh / var(--vz)), 60px), 30cqi); }
+/* Tiles alone, beside the words: the card is as wide as its tiles need (never wider than its old width). The tiles
+   drop their size container, which would make them measure as zero wide; the number keeps a width for four characters
+   so a changing number does not nudge the card. Two tiles go side by side when the screen is wide. */
+.pz:not(.stack) .pz-data.tiles-only:not(.under):not(.has-tool) { width: fit-content; max-width: clamp(300px, calc(25vw / var(--vz)), 500px); }
+.pz:not(.stack) .pz-data.tiles-only:not(.under):not(.has-tool) .pz-tile { container-type: normal; }
+.pz:not(.stack) .pz-data.tiles-only:not(.under):not(.has-tool) .pzt-v { font-size: clamp(32px, calc(5.6vh / var(--vz)), 68px); min-width: 3.6ch; }
+@media (orientation: portrait) { .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.has-tool) { max-width: min(62vw, 520px); } }
+@media (min-width: 1100px) {
+  .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.has-tool):has(.pz-tiles[data-n="2"]) { max-width: min(46vw, 640px); }
+  .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.has-tool) .pz-tiles[data-n="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 .pzt-d { font: 600 clamp(12px, calc(1.5vh / var(--vz)), 18px)/1.25 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-3); }
 .pzt-d[data-way="good"] { color: color-mix(in srgb, var(--ok) 85%, var(--text)); }
 .pzt-d[data-way="bad"] { color: var(--danger); }

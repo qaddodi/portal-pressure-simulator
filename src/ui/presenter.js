@@ -452,6 +452,7 @@ function bigTiles() {
       goal = !!tips;
       const sg = ks.join() + (ref ? '|ref' : '');
       if (sg !== sig) { sig = sg; build(ks, !!ref); }
+      el.dataset.keys = ks.join();
       parts.forEach((p) => p.tile.classList.toggle('key', key.includes(p.k)));
       const to = Object.fromEntries([...ks, 'asc'].map((k) => [k, f[k]]));
       if (ref) for (const k of ks) to['ref_' + k] = ref[k];
@@ -1065,7 +1066,9 @@ export function createPresenter({ openSettings, startCase, loadPreset, cases = [
     const lad = next?.data === 'ladder', ttl = cardTitle(next);
     const move = !data.hidden && !data.classList.contains('pz-hide') && next && hasCard(next)
       && (under(next) !== data.classList.contains('under') || !lad !== data.classList.contains('tiles-only') || ttl !== ui.dhT.textContent
-        || ui.tools.sig(next.tool) !== (data.dataset.tool || ''));
+        || ui.tools.sig(next.tool) !== (data.dataset.tool || '')
+        // (Other tiles change the card's size: it fades out and back in at its new size.)
+        || (!lad && next.data && tileKeys(next).join() !== (ui.tiles.el.dataset.keys || '')));
     // A different patient: the card leaves with the words and stays gone until the new patient has settled, so its numbers never travel from one patient to the other.
     const gone = newPatient && !data.hidden && !data.classList.contains('pz-hide');
     if (move || gone) data.classList.add('pz-hide');
