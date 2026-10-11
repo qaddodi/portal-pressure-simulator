@@ -102,11 +102,12 @@ export function createFibroScan() {
     const th = colors(now);
     ctx.clearRect(0, 0, w, hh);
     rrect(ctx, 0.5, 0.5, w - 1, hh - 1, 12); ctx.fillStyle = th.panel; ctx.fill(); ctx.strokeStyle = th.edge; ctx.lineWidth = 1; ctx.stroke();
-    const pad = 14, narrow = w < 380;
+    // A short, wide panel (a phone's presenter card) puts the reading beside the map rather than over it.
+    const pad = 14, narrow = w < 380, side = hh < 200 && w > hh * 2.2;
     // Readout
     ctx.textAlign = 'left'; ctx.fillStyle = th.tick; ctx.font = FONT(600, 10);
     ctx.fillText('LIVER STIFFNESS · MEDIAN', pad, 24);
-    const big = Math.round(clamp(Math.min(w * 0.13, hh * 0.13), 30, 52));
+    const big = Math.round(side ? clamp(hh * 0.24, 26, 40) : clamp(Math.min(w * 0.13, hh * 0.13), 30, 52));
     ctx.fillStyle = th.orange; ctx.font = FONT(600, big);
     const txt = shown.toFixed(1); ctx.fillText(txt, pad, 28 + big);
     const tw = ctx.measureText(txt).width;
@@ -117,7 +118,7 @@ export function createFibroScan() {
     const pulse = 0.55 + 0.45 * Math.sin(t * 3), lw = ctx.measureText(narrow ? 'LIVE' : 'LIVE · 50 Hz · estimate from the model').width;
     ctx.fillStyle = cssAlpha('--fibroscan-live', pulse); ctx.beginPath(); ctx.arc(w - pad - lw - 9, 21, 3, 0, 7); ctx.fill();
     // Map
-    const top = 56 + big, bot = hh - 36, ph = bot - top, ax = pad + 22, ex = ax + 6, ew = w - pad - ex; // bottom room keeps the tick row inside the canvas on a phone
+    const top = side ? 44 : 56 + big, bot = hh - (side ? 22 : 36), ph = bot - top, ax = side ? pad + Math.max(tw + 34, 96) + 22 : pad + 22, ex = ax + 6, ew = w - pad - ex; // bottom room keeps the tick row inside the canvas on a phone
     if (ph < 50 || ew < 60) return;
     // Sample the map at about half the screen pixels (smooth, never blocky); drop the cap if frames run long.
     const want = clamp(Math.round(Math.max(ew, ph) * (w / cv.clientWidth || 1) * 0.75), 140, cap);
@@ -141,7 +142,7 @@ export function createFibroScan() {
     ctx.textAlign = 'center';
     for (let m = 0; m <= 80; m += 20) ctx.fillText(String(m), ex + (m / 80) * ew, bot + 16);
     // Units share the tick row: mm beside the depth labels, ms beside the time labels, so nothing needs extra height.
-    ctx.textAlign = 'left'; ctx.fillText('mm', pad, top - 6); ctx.fillText('ms', pad, bot + 16);
+    ctx.textAlign = 'left'; ctx.fillText('mm', ax - 22, top - 6); ctx.fillText('ms', ax - 22, bot + 16);
   }
   // Runs only while the pane is on screen; update() restarts it when the tab is shown again.
   function loop(now) {

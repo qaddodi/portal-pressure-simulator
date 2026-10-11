@@ -7,7 +7,7 @@ import { createStage } from './stage.js?v=9842f138b2';
 import { createCreditPlacer } from './credit.js?v=56151b02ba';
 import { sinusoidSupported } from './sinusoid-view.js?v=c29067c667';
 import { createInspector } from './inspector.js?v=8e9df677db';
-import { createDock, CUTOFFS } from './dock.js?v=e59889599b';
+import { createDock, CUTOFFS } from './dock.js?v=f6bd035f57';
 import { setHvpgStage } from './hvpg-proc.js?v=7dbeca9bfc';
 import { createWhy } from './why.js?v=0cbe54fc83';
 import { createTimeline, LAPSES } from './timeline.js?v=9a415be63a';
@@ -16,7 +16,7 @@ import { createCases, CASES } from './cases.js?v=7873a26700';
 import { isBlind } from './learning-kit.js?v=ccfe92342e';
 import { createCompare } from './compare.js?v=19980ad91d';
 import { createCard } from './card.js?v=9cfcb32282';
-import { createChart, computeFindings } from './chart.js?v=b975c4d4ac';
+import { createChart, computeFindings } from './chart.js?v=76e9a542d3';
 import { createMenu, ROLES } from './menu.js?v=ccb805ae76';
 import { applyI18n, setLang, LANGS, t, currentLang } from '../i18n/i18n.js?v=398e679a38';
 import { caption } from './a11y.js?v=da3671002e';
@@ -141,7 +141,7 @@ async function main() {
   // flagged, not forced.
   learn = createLearn({ host: $('#panelLesson'), coach: $('#coach'), stage, panel: $('#panelChart'), dock, inspector, onWhy: (m, el) => why.open(m, el), ...api, showPane: (id) => dock.show(id, { reveal: 'lesson' }), startCase: (id) => startCase(id), onUnitEnd: (u, o) => { if (o?.explore) openInExplore(o.explore); else mainMenu.open(); } });
   cases = createCases({ root: $('#panelCase'), api, coach: $('#coach'), onUnitEnd: () => mainMenu.open() });
-  presenterL = lazy(() => import('./presenter.js?v=21a0e22896'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
+  presenterL = lazy(() => import('./presenter.js?v=1542c3f6af'), ({ createPresenter }) => createPresenter({ openSettings, startCase, cases: CASES, loadPreset, updateParams, host, stage, dock, action: doAction,
     projectorOn: () => { if (!projector) toggleProjector(); }, projectorOff: () => { if (projector) toggleProjector(); },
     closeHome: () => mainMenu.close(), stashCards, rerenderHome: () => mainMenu.render() }));
   mainMenu = createMenu({

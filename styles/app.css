@@ -2263,7 +2263,7 @@ button.finding:hover { background: var(--surface-2); }
 .ptk-v[data-rate="mid"] { fill: var(--caution); } .ptk-v[data-rate="hi"] { fill: var(--danger); }
 .pz.stack .pz-data.has-tool { max-height: 50%; }
 .pz.stack .pz-tool[data-kind="doppler"] .dop-box { height: 110px; }
-.pz.stack .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: 180px; }
+.pz.stack .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: 140px; }
 .pz.stack .pz-tool[data-kind="beats"] .pt-box { height: 140px; }
 /* Phone: the scope sits beside its grade and size, and the Doppler drops its sentence, so a tile still fits under the instrument. */
 .pz.stack .pz-tool[data-kind="scope"] .pz-inst { flex-direction: row; align-items: center; gap: 12px; }
@@ -2278,6 +2278,19 @@ button.finding:hover { background: var(--surface-2); }
 .pz.stack .pz-tool[data-kind="scope"] .endo-chip-v[data-long] { font-size: 12px; }
 .pz.stack .pz-tool[data-kind="scope"] .endo-num small { font-size: 11px; }
 .pz.stack .pz-tool .dop-note { display: none; }
+/* Phone: the Doppler's report in three short rows: the direction; the mean with its pattern and the normal-range gauge beside it;
+   the four stats in one row. */
+.pz.stack .pz-tool .dop-main { gap: 8px; }
+.pz.stack .pz-tool .dop-report { grid-template-columns: auto minmax(0, 1fr); gap: 4px 14px; align-items: center; }
+.pz.stack .pz-tool .dop-report > .dop-dir { grid-column: 1 / -1; font-size: 17px; }
+.pz.stack .pz-tool .dop-velrow { grid-column: 1; grid-row: 2; margin: 0; gap: 2px 8px; }
+.pz.stack .pz-tool .dop-vel b { font-size: 26px; }
+.pz.stack .pz-tool .dop-pattern { margin: 0; font-size: 12px; }
+.pz.stack .pz-tool .dop-range { grid-column: 2; grid-row: 2; margin: 0 6px; }
+.pz.stack .pz-tool .dop-ticks { margin-top: 3px; }
+.pz.stack .pz-tool .dop-stats { grid-column: 1 / -1; grid-row: 3; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px 10px; padding: 6px 0 0; border-left: 0; border-top: 1px solid var(--hairline); }
+.pz.stack .pz-tool .dop-stats dt { font-size: 10px; }
+.pz.stack .pz-tool .dop-stats dd { font-size: 13px; white-space: nowrap; }
 .pz.stack .pz-table td.note { min-width: 6.5em; }
 /* The count opens the slide list; a running time-lapse shows that Next skips it. */
 .pz-bar button.pzb-n { border: 0; background: none; border-radius: var(--r-control); min-height: 40px; padding: 0 10px; font-weight: 500; cursor: pointer; transition: background-color .25s var(--ease), color .25s var(--ease); }
@@ -3607,6 +3620,14 @@ input[type="range"] { touch-action: none; }
   .tl-latest small { display: none; }
   .readouts:not(.all) .metric .v { font-size: var(--fs-16); }
   .metric .v .unit { margin-left: 2px; }
+}
+/* Phone: a readout tile in two short lines, its name, value and rating on one, the bar under them (a narrow tile wraps the rating). */
+@media (max-width: 767px) {
+  .readouts:not(.all) .metric { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 0 6px; }
+  .readouts:not(.all) .metric .k { flex: 0 1 auto; }
+  .readouts:not(.all) .metric .v { flex: none; }
+  .readouts:not(.all) .metric .s { order: 1; flex: 0 1 auto; margin-left: auto; }
+  .readouts:not(.all) .metric .rb { order: 2; flex: 1 1 100%; margin: 3px 0 4px; }
 }
 @media (max-width: 767px) {
   .vdock .timeline { gap: 6px; }

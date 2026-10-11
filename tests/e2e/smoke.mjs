@@ -602,6 +602,15 @@ for (const device of Object.keys(DEVICES).filter((d) => !process.env.SMOKE_DEVIC
       return { h: d.getBoundingClientRect().height, tile: Math.max(...tiles.map((t) => t.getBoundingClientRect().height)), n: tiles.length, spill };
     });
     if (r.n !== 2 || r.h > 72 || r.tile > 32 || r.spill.length) throw new Error(`FibroScan card ${Math.round(r.h)}px tall (cap 72), tallest of ${r.n} tiles ${Math.round(r.tile)}px (cap 32)${r.spill.length ? ', spilling: ' + r.spill.join() : ''}`);
+    // The Doppler card: its report in three short rows, the direction clear of the stats.
+    await page.evaluate(() => window.pps.presenter.start('doppler', 1));
+    await page.waitForFunction(() => document.querySelector('.pz-data:not(.pz-hide) .pz-tool[data-kind="doppler"] .dop-dir')?.textContent.length > 2, null, { timeout: 60000 });
+    await page.waitForTimeout(800);
+    const d = await page.evaluate(() => {
+      const R = (q) => document.querySelector('.pz-data:not(.pz-hide) ' + q).getBoundingClientRect(), a = R('.dop-dir'), b = R('.dop-stats');
+      return { h: R('').height, hit: a.bottom > b.top && a.right > b.left };
+    });
+    if (d.h > 300 || d.hit) throw new Error(`Doppler card ${Math.round(d.h)}px tall (cap 300)${d.hit ? ', the direction runs into the stats' : ''}`);
   });
 
   await check(device, 'presenter: summary table returns after back then forward', async (page) => {
